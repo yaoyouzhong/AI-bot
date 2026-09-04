@@ -58,6 +58,25 @@ final class SerialBridge {
     }
 
     @discardableResult
+    func sendResource(kind: MacBinaryResourceKind, data: Data) -> Bool {
+        guard let chunks = try? MacBinaryResourceProtocol.createChunks(
+            kind: kind, data: data, transferId: arc4random()) else { return false }
+        lock.lock()
+        defer { lock.unlock() }
+        guard activeDescriptor >= 0 else { return false }
+        for chunk in chunks {
+            var acknowledged = false
+            for _ in 0..<3 where !acknowledged {
+                guard Self.write(chunk.wireBytes, to: activeDescriptor) else { return false }
+                acknowledged = Self.waitForResourceAck(from: activeDescriptor,
+                    transferId: chunk.transferId, sequence: chunk.sequence)
+            }
+            if !acknowledged { return false }
+        }
+        return true
+    }
+
+    @discardableResult
     func provisionLan() -> Bool {
         guard let configuration = lanConfiguration(), configuration.token.utf8.count >= 32,
               Self.isPrivateIPv4(configuration.host) else { return false }
@@ -93,7 +112,6 @@ final class SerialBridge {
         while !isStopped {
             guard let frame = Self.statusFrame(status()) else { return }
             guard send(frame) else { return }
-            Self.discardInput(from: descriptor)
             wait(milliseconds: 2_000)
         }
     }
@@ -202,11 +220,6 @@ final class SerialBridge {
         return false
     }
 
-    private static func discardInput(from descriptor: Int32) {
-        var bytes = [UInt8](repeating: 0, count: 512)
-        while bytes.withUnsafeMutableBytes({ Darwin.read(descriptor, $0.baseAddress, $0.count) }) > 0 {}
-    }
-
     private static func write(_ data: Data, to descriptor: Int32) -> Bool {
         data.withUnsafeBytes { raw in
             guard let base = raw.bindMemory(to: UInt8.self).baseAddress else { return false }
@@ -224,6 +237,38 @@ final class SerialBridge {
             }
             return offset == raw.count
         }
+    }
+
+    private static func waitForResourceAck(from descriptor: Int32, transferId: UInt32,
+                                           sequence: UInt16) -> Bool {
+        let deadline = Date().addingTimeInterval(3)
+        var buffer = Data()
+        while Date() < deadline {
+            var bytes = [UInt8](repeating: 0, count: 512)
+            let count = bytes.withUnsafeMutableBytes {
+                Darwin.read(descriptor, $0.baseAddress, $0.count)
+            }
+            if count > 0 {
+                buffer.append(contentsOf: bytes.prefix(count))
+                while let newline = buffer.firstIndex(of: 10) {
+                    let raw = buffer[..<newline]
+                    buffer.removeSubrange(...newline)
+                    let line = String(decoding: raw, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard line.hasPrefix(prefix),
+                          let payload = line.data(using: .utf8)?.dropFirst(prefix.utf8.count),
+                          let object = try? JSONSerialization.jsonObject(with: Data(payload)) as? [String: Any],
+                          object["type"] as? String == "resource_ack",
+                          (object["transferId"] as? NSNumber)?.uint32Value == transferId,
+                          (object["sequence"] as? NSNumber)?.uint16Value == sequence else { continue }
+                    return (object["ok"] as? NSNumber)?.boolValue == true
+                }
+                if buffer.count > maximumLineBytes { buffer.removeAll(keepingCapacity: true) }
+            } else if count < 0 && errno != EAGAIN && errno != EWOULDBLOCK {
+                return false
+            }
+            usleep(10_000)
+        }
+        return false
     }
 
     private static func controlFrame(type: String) -> Data {

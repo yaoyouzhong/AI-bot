@@ -93,4 +93,30 @@ final class AIBotBridgeTests: XCTestCase {
         state.select("screensaver")
         XCTAssertNil(state.desiredMode(idleSeconds: 0, timeoutMinutes: 5))
     }
+
+    func testBinaryResourceRoundTripAndChecksum() throws {
+        let source = Data((0..<1_537).map { UInt8(truncatingIfNeeded: $0) })
+        let chunks = try MacBinaryResourceProtocol.createChunks(
+            kind: .petAsset, data: source, transferId: 0x1234_5678)
+        XCTAssertEqual(chunks.count, 3)
+        XCTAssertEqual(chunks[0].wireBytes.first, 0)
+        XCTAssertEqual(chunks[0].wireBytes.last, 0)
+        XCTAssertFalse(chunks[0].wireBytes.dropFirst().dropLast().contains(0))
+        let decoded = try chunks.map { try MacBinaryResourceProtocol.decodeWire($0.wireBytes) }
+        var restored = Data()
+        decoded.forEach { restored.append($0.payload) }
+        XCTAssertEqual(restored, source)
+        XCTAssertEqual(decoded.first?.transferId, 0x1234_5678)
+        XCTAssertEqual(decoded.last?.sequence, 2)
+        XCTAssertEqual(decoded.last?.totalChunks, 3)
+        XCTAssertEqual(MacBinaryResourceProtocol.crc32(Array("123456789".utf8)), 0xCBF4_3926)
+    }
+
+    func testBinaryResourceRejectsCorruption() throws {
+        let chunk = try XCTUnwrap(try MacBinaryResourceProtocol.createChunks(
+            kind: .weatherText, data: Data([1, 0, 2, 3]), transferId: 7).first)
+        var corrupted = chunk.wireBytes
+        corrupted[2] ^= 0x01
+        XCTAssertThrowsError(try MacBinaryResourceProtocol.decodeWire(corrupted))
+    }
 }

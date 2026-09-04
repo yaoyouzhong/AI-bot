@@ -73,7 +73,7 @@ swift test --package-path mac-app
 swift build -c release --package-path mac-app
 ```
 
-The current Windows host has no Swift toolchain. The Mac USB control-frame and menu-control source has not been compiled or connected to a device, and binary resources, domestic quota, music, mirror, device information, and Wi-Fi reset work are still required. The existing source has not been checked with live accounts or system metrics, so it remains `platform-unverified`.
+The current Windows host has no Swift toolchain. Mac control frames, menu controls, and CRC/ACK-retried binary-resource transport have source but have not been compiled or connected to a device. Resource production/import, domestic quota, music, mirror, device information, and Wi-Fi reset are still required. The existing source has not been checked with live accounts or system metrics, so it remains `platform-unverified`.
 
 ## Privacy boundary
 

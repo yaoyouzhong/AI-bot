@@ -77,7 +77,7 @@ swift test --package-path mac-app
 swift build -c release --package-path mac-app
 ```
 
-当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧与菜单控制已有源码但尚未编译或连接设备，二进制资源、国产额度、音乐、镜像和设备信息/Wi-Fi 重置仍未完成。已有源码也没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
+当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧、菜单控制及带 CRC/ACK 重试的二进制资源传输已有源码但尚未编译或连接设备，资源生成/导入、国产额度、音乐、镜像和设备信息/Wi-Fi 重置仍未完成。已有源码也没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
 
 ## 隐私边界
 
