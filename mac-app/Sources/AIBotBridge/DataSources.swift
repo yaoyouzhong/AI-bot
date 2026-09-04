@@ -5,8 +5,9 @@ struct MacDataExtras {
     let weather: WeatherSnapshot?
     let stocks: StockSnapshot?
     let systemMetrics: SystemMetricsSnapshot?
+    let quotas: QuotaSnapshot?
 
-    static let empty = MacDataExtras(weather: nil, stocks: nil, systemMetrics: nil)
+    static let empty = MacDataExtras(weather: nil, stocks: nil, systemMetrics: nil, quotas: nil)
 }
 
 struct MacDataPreferences {
@@ -42,11 +43,7 @@ final class MacDataStore {
     private var weather: WeatherSnapshot?
     private var stocks: StockSnapshot?
     private var systemMetrics: SystemMetricsSnapshot?
-    private let encoder: JSONEncoder = {
-        let value = JSONEncoder()
-        value.dateEncodingStrategy = .iso8601
-        return value
-    }()
+    private var quotas: QuotaSnapshot?
     private let decoder: JSONDecoder = {
         let value = JSONDecoder()
         value.dateDecodingStrategy = .iso8601
@@ -67,26 +64,30 @@ final class MacDataStore {
            let value = try? decoder.decode(StockSnapshot.self, from: data) {
             stocks = StockSnapshot(quotes: value.quotes, updatedAt: value.updatedAt, stale: true)
         }
+        if let data = defaults.data(forKey: "quota_cache"),
+           let value = try? decoder.decode(QuotaSnapshot.self, from: data) {
+            quotas = QuotaSnapshot(claude: Self.stale(value.claude), codex: Self.stale(value.codex))
+        }
     }
 
     func snapshot() -> MacDataExtras {
         lock.lock()
         defer { lock.unlock() }
-        return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics)
+        return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics, quotas: quotas)
     }
 
     func update(weather value: WeatherSnapshot) {
         lock.lock()
         weather = value
         lock.unlock()
-        if let data = try? encoder.encode(value) { defaults.set(data, forKey: "weather_cache") }
+        if let data = Self.encode(value) { defaults.set(data, forKey: "weather_cache") }
     }
 
     func update(stocks value: StockSnapshot) {
         lock.lock()
         stocks = value
         lock.unlock()
-        if let data = try? encoder.encode(value) { defaults.set(data, forKey: "stock_cache") }
+        if let data = Self.encode(value) { defaults.set(data, forKey: "stock_cache") }
     }
 
     func markWeatherStale() {
@@ -111,6 +112,35 @@ final class MacDataStore {
         lock.lock()
         systemMetrics = value
         lock.unlock()
+    }
+
+    func mergeQuotas(claude: ProviderQuotaSnapshot?, codex: ProviderQuotaSnapshot?) {
+        lock.lock()
+        let next = QuotaSnapshot(claude: claude ?? Self.stale(quotas?.claude),
+                                 codex: codex ?? Self.stale(quotas?.codex))
+        guard next.claude != nil || next.codex != nil else { lock.unlock(); return }
+        quotas = next
+        lock.unlock()
+        if claude?.stale == false || codex?.stale == false,
+           let data = Self.encode(next) { defaults.set(data, forKey: "quota_cache") }
+    }
+
+    private static func stale(_ value: ProviderQuotaSnapshot?) -> ProviderQuotaSnapshot? {
+        guard let value else { return nil }
+        return ProviderQuotaSnapshot(provider: value.provider, plan: value.plan,
+                                     primaryPercent: value.primaryPercent,
+                                     primaryResetsAt: value.primaryResetsAt,
+                                     weeklyPercent: value.weeklyPercent,
+                                     weeklyResetsAt: value.weeklyResetsAt,
+                                     resetCreditsAvailable: value.resetCreditsAvailable,
+                                     resetCreditExpiresAt: value.resetCreditExpiresAt,
+                                     updatedAt: value.updatedAt, stale: true)
+    }
+
+    private static func encode<T: Encodable>(_ value: T) -> Data? {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return try? encoder.encode(value)
     }
 }
 

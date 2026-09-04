@@ -66,14 +66,14 @@ Exit the Windows bridge before flashing so it releases the serial port. After fl
 
 ## macOS
 
-The current Swift source includes a menu bar, Claude/Codex activity, Open-Meteo weather, A/H/US stocks, CPU/memory/network metrics, last-successful caches, non-secret UserDefaults settings, a Keychain pairing token, and authenticated LAN `/status`. Validate it on macOS 13+:
+The current Swift source includes a menu bar, Claude/Codex activity and account quotas, Open-Meteo weather, A/H/US stocks, CPU/memory/network metrics, last-successful caches, non-secret UserDefaults settings, a Keychain pairing token, and authenticated LAN `/status`. Validate it on macOS 13+:
 
 ```bash
 swift test --package-path mac-app
 swift build -c release --package-path mac-app
 ```
 
-The current Windows host has no Swift toolchain. Mac quota, music, USB/resource, mirror, and device-control work is still required; the existing source has not been compiled or checked against real system metrics, so this remains `platform-unverified`.
+The current Windows host has no Swift toolchain. Mac domestic quota, music, USB/resource, mirror, and device-control work is still required; the existing source has not been compiled or checked with live accounts and system metrics, so this remains `platform-unverified`.
 
 ## Privacy boundary
 

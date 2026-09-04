@@ -43,6 +43,24 @@ struct SystemMetricsSnapshot: Codable, Equatable {
     let updatedAt: Date
 }
 
+struct ProviderQuotaSnapshot: Codable, Equatable {
+    let provider: String
+    let plan: String?
+    let primaryPercent: Double?
+    let primaryResetsAt: Date?
+    let weeklyPercent: Double?
+    let weeklyResetsAt: Date?
+    let resetCreditsAvailable: Int?
+    let resetCreditExpiresAt: [Int64]
+    let updatedAt: Date
+    let stale: Bool
+}
+
+struct QuotaSnapshot: Codable, Equatable {
+    let claude: ProviderQuotaSnapshot?
+    let codex: ProviderQuotaSnapshot?
+}
+
 struct MacStatusSnapshot: Codable {
     let version: Int
     let time: String
@@ -55,6 +73,7 @@ struct MacStatusSnapshot: Codable {
     let weather: WeatherSnapshot?
     let stocks: StockSnapshot?
     let systemMetrics: SystemMetricsSnapshot?
+    let quotas: QuotaSnapshot?
 }
 
 final class SessionActivityReader {
@@ -78,7 +97,8 @@ final class SessionActivityReader {
             musicPlaying: nil,
             weather: extras.weather,
             stocks: extras.stocks,
-            systemMetrics: extras.systemMetrics
+            systemMetrics: extras.systemMetrics,
+            quotas: extras.quotas
         )
     }
 

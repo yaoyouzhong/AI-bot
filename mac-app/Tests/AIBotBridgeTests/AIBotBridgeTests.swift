@@ -37,4 +37,14 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertEqual(MacSystemMetricsService.rate(previous: 1_000, current: 4_000, elapsed: 2), 1_500)
         XCTAssertEqual(MacSystemMetricsService.rate(previous: 4_000, current: 1_000, elapsed: 2), 0)
     }
+
+    func testQuotaParsing() throws {
+        let claude = try MacQuotaService.parseClaude(Data(#"{"plan_type":"max","five_hour":{"utilization":25,"resets_at":"2026-09-05T12:00:00Z"},"seven_day":{"utilization":40,"resets_at":"2026-09-09T12:00:00Z"}}"#.utf8))
+        XCTAssertEqual(claude.primaryPercent, 25)
+        XCTAssertEqual(claude.weeklyPercent, 40)
+
+        let codex = try MacQuotaService.parseCodex(Data(#"{"plan_type":"plus","rate_limit":{"primary_window":{"limit_window_seconds":18000,"used_percent":12,"reset_at":1788600000},"secondary_window":{"limit_window_seconds":604800,"used_percent":34,"reset_at":1789000000}}}"#.utf8))
+        XCTAssertEqual(codex.primaryPercent, 12)
+        XCTAssertEqual(codex.weeklyPercent, 34)
+    }
 }

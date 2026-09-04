@@ -5,11 +5,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let reader = SessionActivityReader()
     private let dataStore = MacDataStore()
     private lazy var dataService = MacDataService(store: dataStore)
+    private lazy var quotaService = MacQuotaService(store: dataStore)
     private let systemMetrics = MacSystemMetricsService()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var server: HTTPStatusServer?
     private var timer: Timer?
     private var dataTimer: Timer?
+    private var quotaTimer: Timer?
     private var port: UInt16 = 8765
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -25,15 +27,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateTitle()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateTitle() }
         Task { await self.dataService.refreshDue(force: true) }
+        Task { await self.quotaService.refresh() }
         dataTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { await self.dataService.refreshDue() }
+        }
+        quotaTimer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.quotaService.refresh() }
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         timer?.invalidate()
         dataTimer?.invalidate()
+        quotaTimer?.invalidate()
         server?.stop()
     }
 
@@ -70,7 +78,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let system = snapshot.systemMetrics.map {
             "CPU \(Int($0.cpuPercent.rounded()))% / MEM \(Int($0.memoryPercent.rounded()))%"
         } ?? "等待采样"
-        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n系统: \(system)\n端口: \(port)")
+        let quotaCount = [snapshot.quotas?.claude, snapshot.quotas?.codex].compactMap { $0 }.count
+        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n额度: \(quotaCount)/2\n系统: \(system)\n端口: \(port)")
     }
 
     @objc private func configureDataSources() {
