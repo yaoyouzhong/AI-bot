@@ -6,7 +6,9 @@ internal enum BinaryResourceKind : byte
 {
     TextBitmap = 1,
     MusicCover = 2,
-    PetAsset = 3
+    PetAsset = 3,
+    WeatherText = 4,
+    StockLabels = 5
 }
 
 internal sealed record BinaryResourceChunk(

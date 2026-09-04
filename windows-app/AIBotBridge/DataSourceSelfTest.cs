@@ -88,6 +88,12 @@ internal static class DataSourceSelfTest
         if (rgb565.Length != 2 || rgb565[0] != 0 || rgb565[1] != 0xF8)
             throw new InvalidOperationException("RGB565 pet encoding did not preserve channel order.");
 
+        var weatherText = LocalizedTextResources.RenderLines(232, 24, ["北京  多云"], 20, 24);
+        var stockText = LocalizedTextResources.RenderLines(120, 400, ["上证指数", "腾讯控股"], 18, 20);
+        if (weatherText.Length != 232 * 24 * 2 || stockText.Length != 120 * 400 * 2 ||
+            weatherText.All(value => value == 0) || stockText.All(value => value == 0))
+            throw new InvalidOperationException("Localized weather/stock bitmaps were not rendered.");
+
         Console.WriteLine("DATA_SOURCE_SELF_TEST_OK");
     }
 }

@@ -161,6 +161,10 @@ uint32_t lastCompletedTransferId = 0;
 uint16_t lastCompletedSequence = 0;
 bool lastCompletedOk = false;
 
+bool drawRgb565File(const char* path, int x, int y, int width, int height);
+bool drawRgb565FileRegion(const char* path, int sourceWidth, int sourceHeight,
+                          int sourceY, int x, int y, int width, int height);
+
 bool usbFresh() {
   return lastUsbStatusAt != 0 && millis() - lastUsbStatusAt < kUsbFreshMs;
 }
@@ -388,16 +392,18 @@ void drawWeather() {
     return;
   }
 
+  if (!drawRgb565File("/weather-text.rgb565", 4, 68, 232, 24))
+    drawCentered(weather.city + " " + weather.condition, 70, 2, TFT_LIGHTGREY);
   String temperature = String(static_cast<int>(roundf(weather.temperature))) + " C";
-  drawCentered(temperature, 82, 4, TFT_ORANGE);
+  drawCentered(temperature, 98, 4, TFT_ORANGE);
   drawCentered(String(static_cast<int>(roundf(weather.low))) + " / " +
-               String(static_cast<int>(roundf(weather.high))), 126, 2, TFT_LIGHTGREY);
+               String(static_cast<int>(roundf(weather.high))), 136, 2, TFT_LIGHTGREY);
   display.setTextDatum(TL_DATUM);
   display.setTextColor(TFT_GREEN, TFT_BLACK);
-  display.drawString("HUMID", 24, 164, 2);
+  display.drawString("HUMID", 24, 166, 2);
   display.setTextDatum(TR_DATUM);
   display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.drawString(String(weather.humidity) + "%", 216, 164, 2);
+  display.drawString(String(weather.humidity) + "%", 216, 166, 2);
   display.setTextDatum(TL_DATUM);
   display.setTextColor(TFT_YELLOW, TFT_BLACK);
   display.drawString("PM2.5", 24, 194, 2);
@@ -437,9 +443,16 @@ void drawStocks() {
   for (int row = 0; row < kStocksPerPage && start + row < stockCount; row++) {
     StockRow& quote = stocks[start + row];
     int y = 38 + row * 49;
+    bool hasName = drawRgb565FileRegion("/stock-names.rgb565", 120, 400,
+                                        (start + row) * 20, 12, y, 120, 20);
+    display.setTextDatum(TR_DATUM);
+    display.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    display.drawString(quote.code, 228, y + 4, 1);
     display.setTextDatum(TL_DATUM);
-    display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    display.drawString(quote.code, 12, y, 2);
+    if (!hasName) {
+      display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+      display.drawString(quote.code, 12, y, 2);
+    }
     display.setTextColor(TFT_WHITE, TFT_BLACK);
     display.drawString(quote.price, 12, y + 21, 2);
     display.setTextDatum(TR_DATUM);
@@ -571,6 +584,30 @@ bool drawRgb565File(const char* path, int x, int y, int width, int height) {
   uint16_t row[232];
   for (int line = 0; line < height; line++) {
     if (file.read(reinterpret_cast<uint8_t*>(row), width * 2) != width * 2) {
+      file.close();
+      return false;
+    }
+    display.pushImage(x, y + line, width, 1, row);
+  }
+  file.close();
+  return true;
+}
+
+bool drawRgb565FileRegion(const char* path, int sourceWidth, int sourceHeight,
+                          int sourceY, int x, int y, int width, int height) {
+  File file = LittleFS.open(path, "r");
+  bool dimensionsValid = sourceWidth > 0 && sourceWidth <= 232 && sourceHeight > 0 &&
+      sourceY >= 0 && sourceY + height <= sourceHeight && width > 0 && width <= sourceWidth &&
+      file && file.size() == static_cast<size_t>(sourceWidth * sourceHeight * 2);
+  if (!dimensionsValid) {
+    if (file) file.close();
+    return false;
+  }
+  uint16_t row[232];
+  for (int line = 0; line < height; line++) {
+    uint32_t offset = static_cast<uint32_t>((sourceY + line) * sourceWidth * 2);
+    if (!file.seek(offset, SeekSet) ||
+        file.read(reinterpret_cast<uint8_t*>(row), width * 2) != width * 2) {
       file.close();
       return false;
     }
@@ -752,6 +789,8 @@ const char* resourcePath(uint8_t kind) {
   if (kind == 1) return "/text.rgb565";
   if (kind == 2) return "/cover.rgb565";
   if (kind == 3) return "/pet.asset";
+  if (kind == 4) return "/weather-text.rgb565";
+  if (kind == 5) return "/stock-names.rgb565";
   return nullptr;
 }
 

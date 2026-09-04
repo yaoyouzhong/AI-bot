@@ -9,6 +9,7 @@ internal sealed class BridgeRuntime : IDisposable
     private readonly DomesticQuotaService _domesticQuotas;
     private readonly SystemMetricsService _systemMetrics;
     private readonly NowPlayingService _music;
+    private readonly LocalizedTextResources _localizedText = new();
     private readonly List<Task> _workers = new();
 
     internal BridgeRuntime(bool startRefresh = true)
@@ -44,7 +45,8 @@ internal sealed class BridgeRuntime : IDisposable
         };
     }
 
-    internal IReadOnlyList<ResourcePayload> Resources() => _music.Resources;
+    internal IReadOnlyList<ResourcePayload> Resources() => _music.Resources
+        .Concat(_localizedText.Capture(_weather.Snapshot, _stocks.Snapshot)).ToArray();
 
     public void Dispose()
     {
