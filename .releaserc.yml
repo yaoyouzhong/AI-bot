@@ -1,0 +1,18 @@
+version:
+  file: VERSION
+
+changelog:
+  files:
+    - path: CHANGELOG.md
+      lang: en
+    - path: CHANGELOG.zh.md
+      lang: zh
+
+tag:
+  prefix: v
+  sign: false
+
+include:
+  - VERSION
+  - CHANGELOG.md
+  - CHANGELOG.zh.md

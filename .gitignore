@@ -1,0 +1,14 @@
+.pio/
+.vs/
+.vscode/
+bin/
+obj/
+artifacts/
+__pycache__/
+*.py[cod]
+*.user
+*.suo
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

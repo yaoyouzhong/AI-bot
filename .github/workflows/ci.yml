@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
+        with:
+          python-version: "3.12"
+      - name: Verify version metadata
+        run: python scripts/check_version.py
+      - name: Build Windows bridge
+        run: dotnet build windows-app/AIBotBridge/AIBotBridge.csproj -c Release
+      - name: Validate status JSON
+        shell: pwsh
+        run: |
+          $json = dotnet run --no-build -c Release --project windows-app/AIBotBridge/AIBotBridge.csproj -- --status-once
+          $status = $json | ConvertFrom-Json
+          if ($status.version -ne 1) { throw "Unexpected status version" }
+
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
+        with:
+          python-version: "3.12"
+      - name: Install PlatformIO
+        run: python -m pip install platformio==6.1.18
+      - name: Build firmware
+        run: python -m platformio run -d firmware
