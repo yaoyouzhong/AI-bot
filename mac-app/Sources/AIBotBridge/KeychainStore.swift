@@ -38,5 +38,17 @@ enum PairingTokenStore {
         }
     }
 
+    static func loadOrCreate() throws -> String {
+        if let existing = read(), existing.utf8.count >= 32 { return existing }
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = bytes.withUnsafeMutableBytes { buffer in
+            SecRandomCopyBytes(kSecRandomDefault, buffer.count, buffer.baseAddress!)
+        }
+        guard status == errSecSuccess else { throw KeychainError.status(status) }
+        let token = Data(bytes).base64EncodedString()
+        try save(token)
+        return token
+    }
+
     enum KeychainError: Error { case status(OSStatus) }
 }

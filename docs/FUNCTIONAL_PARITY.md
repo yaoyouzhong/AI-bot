@@ -4,7 +4,7 @@
 
 | 能力 | Windows | 固件 | macOS | 验收标准 |
 | --- | --- | --- | --- | --- |
-| Claude / Codex 活动状态 | build-verified | build-verified | planned | 工作、空闲、离线和待授权语义一致；不上传会话正文 |
+| Claude / Codex 活动状态 | build-verified | build-verified | platform-unverified | Mac 源码读取文件元数据并发送状态；需在 Mac 构建，核对工作、空闲、离线语义且不读取会话正文 |
 | Claude / Codex 账户额度 | partial | partial | platform-unverified | Windows、固件及 Mac 源码已有解析/缓存链路；真实账号、令牌刷新、设备显示和 Mac 构建待验收 |
 | 国产模型额度 | partial | partial | 不适用 | 四家解析/缓存、隔离 WebView2 登录捕获和固件总览已构建；MiniMax 环境变量 Key 可直连，真实账号响应及实机显示待验收 |
 | 天气 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有数据、缓存和设置链路；真实配置、设备显示及 Mac 构建待验收 |
@@ -13,12 +13,12 @@
 | 音乐 | partial | partial | planned | 媒体会话、中文文本位图、封面、进度和 AUTO 切换已构建；真实歌曲与设备显示待验收 |
 | 桌宠 | partial | partial | planned | 原创建模动画、许可文件门槛、外部图片转换/上传/渲染已构建；真实 USB 与设备显示待验收 |
 | 屏保 | partial | partial | planned | 手动模式、空闲进入/恢复、独立时钟和 AI/音乐事件临时唤醒已构建；设备时序待验收 |
-| USB 优先 | partial | partial | planned | 460800 握手、小帧、大资源协议及音乐资源调用链已构建；真实串口传输待验收 |
-| Wi-Fi 回退 | build-verified | build-verified | planned | USB 心跳失效 8 秒后转带配对令牌的 HTTP；USB 恢复后无人工干预切回 |
+| USB 优先 | partial | partial | platform-unverified | Mac 已有 460800 探测、握手和两秒状态帧源码，但未编译/实机；Windows 大资源调用链及固件接收已构建，真实串口待验收 |
+| Wi-Fi 回退 | build-verified | build-verified | platform-unverified | Mac 已有 Keychain 随机令牌、认证 LAN 和 USB `lan_config` 源码；需验证 8 秒回退及 USB 恢复自动切回 |
 | 设备控制 | partial | partial | planned | 认证模式/亮度/设备信息/Wi-Fi 重置和 Windows 控制窗已构建；设备验收待完成 |
-| PC 离线独立时钟 | build-verified | build-verified | planned | 主机离线显示 `PC OFF`；NTP/保持时间可用；桥接恢复后还原页面 |
+| PC 离线独立时钟 | build-verified | build-verified | platform-unverified | Mac 状态帧含 epoch/时区并在退出时发 host-away；需验证 `PC OFF`、NTP/保持时间及恢复页面 |
 | Windows 托盘和镜像 | partial | 不适用 | 不适用 | 托盘、设备控制、非敏感设置持久化和九页面 240×240 镜像已构建；启动项及设置窗视觉待验收 |
-| macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 菜单栏、活动/账户额度、天气/股票、系统指标、设置、Keychain 和认证 LAN 源码已建；其余能力及真实 Mac 构建待完成 |
+| macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 菜单栏、活动/账户额度、天气/股票、系统指标、设置、Keychain、认证 LAN 和 USB 小帧源码已建；镜像、其余能力及真实 Mac 构建待完成 |
 
 ## 完成定义
 

@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
     private var dataTimer: Timer?
     private var quotaTimer: Timer?
+    private var serial: SerialBridge?
     private var port: UInt16 = 8765
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -19,11 +20,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = buildMenu()
         let storedPort = UserDefaults.standard.integer(forKey: "status_port")
         port = UInt16((1...65_535).contains(storedPort) ? storedPort : 8765)
+        do { _ = try PairingTokenStore.loadOrCreate() }
+        catch { show("配对令牌创建失败", "无法使用 Keychain 保存设备配对令牌。") }
         server = HTTPStatusServer(port: port, token: PairingTokenStore.read) { [weak self] in
             guard let self else { return Data("{\"version\":1}".utf8) }
             return self.reader.json(extras: self.dataStore.snapshot())
         }
-        do { try server?.start() } catch { show("LAN 服务启动失败", error.localizedDescription) }
+        do {
+            try server?.start()
+        } catch {
+            show("LAN 服务启动失败", error.localizedDescription)
+            server = nil
+        }
+        let canProvisionLan = server != nil
+        serial = SerialBridge(status: { [weak self] in
+            guard let self else { return SessionActivityReader().capture() }
+            return self.reader.capture(extras: self.dataStore.snapshot())
+        }, lanConfiguration: { [weak self] in
+            guard let self, canProvisionLan, let host = LocalNetworkIdentity.privateIPv4(),
+                  let token = PairingTokenStore.read(), token.utf8.count >= 32 else { return nil }
+            return (host, self.port, token)
+        })
+        serial?.start()
         updateTitle()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateTitle() }
         Task { await self.dataService.refreshDue(force: true) }
@@ -42,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         timer?.invalidate()
         dataTimer?.invalidate()
         quotaTimer?.invalidate()
+        serial?.stop()
         server?.stop()
     }
 
@@ -79,7 +98,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "CPU \(Int($0.cpuPercent.rounded()))% / MEM \(Int($0.memoryPercent.rounded()))%"
         } ?? "等待采样"
         let quotaCount = [snapshot.quotas?.claude, snapshot.quotas?.codex].compactMap { $0 }.count
-        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n额度: \(quotaCount)/2\n系统: \(system)\n端口: \(port)")
+        let usb = serial?.portName ?? "未连接"
+        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n额度: \(quotaCount)/2\n系统: \(system)\nUSB: \(usb)\nLAN 端口: \(port)")
     }
 
     @objc private func configureDataSources() {
@@ -145,16 +165,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         let token = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard token.utf8.count >= 32 else { show("未保存", "令牌必须至少 32 个字符。"); return }
-        do { try PairingTokenStore.save(token); show("已保存", "配对令牌已写入 Keychain。") }
+        do {
+            try PairingTokenStore.save(token)
+            let provisioned = serial?.provisionLan() == true
+            show("已保存", provisioned ? "配对令牌已写入 Keychain，并已通过 USB 下发。" :
+                    "配对令牌已写入 Keychain；设备下次 USB 连接时自动下发。")
+        }
         catch { show("保存失败", "Keychain 返回错误。") }
     }
 
     @objc private func copyAddress() {
-        let address = Host.current().addresses.first { value in
-            let parts = value.split(separator: ".").compactMap { Int($0) }
-            return parts.count == 4 && (parts[0] == 10 || parts[0] == 192 && parts[1] == 168 ||
-                parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31)
-        } ?? "127.0.0.1"
+        let address = LocalNetworkIdentity.privateIPv4() ?? "127.0.0.1"
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString("http://\(address):\(port)/status", forType: .string)
     }

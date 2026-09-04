@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file.
 - Add macOS Open-Meteo weather, A/H/US stocks, last-successful caches, and non-secret data-source settings.
 - Add macOS CPU, physical-memory, and active-interface traffic sampling through public Darwin/Mach APIs.
 - Add macOS Claude/Codex account-quota parsing, fixed official-host requests, and display-only caching.
+- Add macOS USB-serial discovery, a 460800-baud control-frame transport, Keychain-generated pairing, and Wi-Fi fallback provisioning.
 
 ### Security
 

@@ -47,4 +47,29 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertEqual(codex.primaryPercent, 12)
         XCTAssertEqual(codex.weeklyPercent, 34)
     }
+
+    func testSerialCandidateFiltering() {
+        XCTAssertTrue(SerialBridge.isCandidateDeviceName("cu.wchusbserial1420"))
+        XCTAssertTrue(SerialBridge.isCandidateDeviceName("cu.usbserial-110"))
+        XCTAssertTrue(SerialBridge.isCandidateDeviceName("cu.SLAB_USBtoUART"))
+        XCTAssertFalse(SerialBridge.isCandidateDeviceName("tty.Bluetooth-Incoming-Port"))
+        XCTAssertFalse(SerialBridge.isCandidateDeviceName("cu.not-a-device"))
+    }
+
+    func testSerialStatusFrameUsesProtocolPrefix() throws {
+        let snapshot = MacStatusSnapshot(
+            version: 1, time: "12:34:56", epochUtc: 1_788_500_000, utcOffsetSeconds: 28_800,
+            capturedAt: Date(timeIntervalSince1970: 1_788_500_000),
+            codex: ToolState(state: "working", ageSeconds: 2),
+            claude: ToolState(state: "idle", ageSeconds: 180), musicPlaying: nil,
+            weather: nil, stocks: nil, systemMetrics: nil, quotas: nil)
+        let frame = try XCTUnwrap(SerialBridge.statusFrame(snapshot))
+        XCTAssertTrue(String(decoding: frame, as: UTF8.self).hasPrefix("@AIBOT "))
+        let payload = frame.dropFirst("@AIBOT ".utf8.count).dropLast()
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(payload)) as? [String: Any])
+        XCTAssertEqual(root["version"] as? Int, 1)
+        XCTAssertEqual(root["type"] as? String, "status")
+        XCTAssertNotNil(root["data"] as? [String: Any])
+        XCTAssertLessThanOrEqual(frame.count, 6_144)
+    }
 }
