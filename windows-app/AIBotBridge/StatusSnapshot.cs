@@ -47,6 +47,25 @@ internal sealed record QuotaSnapshot(
     ProviderQuotaSnapshot? Claude,
     ProviderQuotaSnapshot? Codex);
 
+internal sealed record DomesticProviderQuotaSnapshot(
+    string Provider,
+    string? Plan,
+    double? PrimaryPercent,
+    DateTimeOffset? PrimaryResetsAt,
+    double? WeeklyPercent,
+    DateTimeOffset? WeeklyResetsAt,
+    double? Balance,
+    double? UsedCost,
+    string? Currency,
+    DateTimeOffset UpdatedAt,
+    bool Stale);
+
+internal sealed record DomesticQuotaSnapshot(
+    DomesticProviderQuotaSnapshot? Alibaba,
+    DomesticProviderQuotaSnapshot? Kimi,
+    DomesticProviderQuotaSnapshot? MiniMax,
+    DomesticProviderQuotaSnapshot? DeepSeek);
+
 internal sealed record StatusSnapshot(
     int Version,
     string Time,
@@ -58,7 +77,8 @@ internal sealed record StatusSnapshot(
     bool MusicPlaying = false,
     WeatherSnapshot? Weather = null,
     StockSnapshot? Stocks = null,
-    QuotaSnapshot? Quotas = null);
+    QuotaSnapshot? Quotas = null,
+    DomesticQuotaSnapshot? DomesticQuotas = null);
 
 internal static class JsonDefaults
 {

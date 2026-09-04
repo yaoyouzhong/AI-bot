@@ -21,6 +21,12 @@ The bridge reads the existing local CLI sign-in files only when requesting accou
 
 Access tokens are held in memory for the request. They are not copied to AI-bot settings, status JSON, serial frames, logs, or caches. `%APPDATA%\AI-bot\usage-cache.json` contains only display data such as plan, utilization percentages, reset times, reset-credit counts, update time, and stale state. A failed request preserves the last successful snapshot. The current implementation does not refresh expired CLI credentials; the corresponding CLI must refresh its own sign-in first.
 
+## Domestic-provider quotas
+
+AI-bot has normalized parsers and last-successful cache fields for Alibaba Bailian Token Plan, Kimi Coding Plan, MiniMax Token Plan, and DeepSeek balance/cost responses. At the current checkpoint, only MiniMax has an automatic request path: it calls `https://www.minimaxi.com/v1/token_plan/remains` when the bridge process has one of `MINIMAX_SUBSCRIPTION_KEY`, `MINIMAX_TOKEN_PLAN_KEY`, or `MINIMAX_API_KEY`.
+
+The MiniMax key is read from process environment, held in memory, and sent only to `www.minimaxi.com`. It is not copied to settings, status, serial, logs, or `%APPDATA%\AI-bot\domestic-quota-cache.json`. Alibaba, Kimi, and DeepSeek WebView2 authorization/capture are not implemented yet; parser self-tests are not evidence of a live account connection.
+
 ## Legacy settings compatibility
 
 When `%APPDATA%\AI-bot\settings.json` does not yet exist, the bridge may read a strict allow-list of non-secret values from `%APPDATA%\AIClockBridge\settings.json`. It does not modify the legacy file and does not migrate API keys, cookies, OAuth credentials, passwords, or Windows Credential Manager entries.

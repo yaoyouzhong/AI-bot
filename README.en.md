@@ -14,11 +14,12 @@ Version `0.1.0` is an independent development baseline. It currently completes o
 - Adds Open-Meteo weather and A/H/US quote data with last-successful caches.
 - Adds numeric weather/stock pages, 15-second cycling, and four-row stock paging.
 - Adds Claude/Codex quota parsing, last-successful caching, and a device quota page; live accounts and hardware remain unverified.
+- Adds a normalized domestic-quota model, four response parsers, and a device summary; only MiniMax environment-key access is currently automatic.
 - Adds tray display controls and an idle-time-driven Windows screen saver.
 - Does not read conversation content. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
 - Includes Windows and firmware CI plus tag-driven release scaffolding.
 
-CJK weather/stock bitmaps, live-account quota validation, domestic quotas, pets, binary resources, the complete mirror, and macOS are still incomplete and remain mandatory acceptance scope. This README describes only current behavior; use the parity contract for progress. See [data sources and privacy](docs/DATA_SOURCES.md) for every outbound-data boundary.
+CJK weather/stock bitmaps, live-account quota validation, domestic WebView sign-in capture, pets, binary resources, the complete mirror, and macOS are still incomplete and remain mandatory acceptance scope. This README describes only current behavior; use the parity contract for progress. See [data sources and privacy](docs/DATA_SOURCES.md) for every outbound-data boundary.
 
 ## Layout
 

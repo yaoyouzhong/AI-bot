@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Add Open-Meteo weather and A/H/US stock data with last-successful caches.
 - Add weather/stock device pages, automatic cycling, paging, and Windows screen-saver control.
 - Add Claude/Codex account-quota parsing, last-successful caching, and a device quota page.
+- Add normalized Alibaba/Kimi/MiniMax/DeepSeek quota parsing, MiniMax API refresh, and a device summary page.
 
 ### Security
 

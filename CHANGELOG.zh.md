@@ -10,6 +10,7 @@
 - 新增 Open-Meteo 天气、A/H/美股行情及最近成功缓存。
 - 新增设备天气/股票页面、自动轮播、分页和 Windows 自动屏保控制。
 - 新增 Claude/Codex 账户额度解析、最近成功缓存和设备额度页面。
+- 新增阿里/Kimi/MiniMax/DeepSeek 额度解析、MiniMax API 刷新和设备总览页面。
 
 ### 安全
 
