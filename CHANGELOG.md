@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Add live Windows CPU, memory, upload, and download metrics with a device system page.
 - Add Windows media-session metadata, progress, a music page, and AUTO playback override.
 - Add the original geometric `BYTE SPROUT` activity pet without imported sprite assets.
+- Wake automatic screen saving temporarily for new AI work or music, then restore the prior mode after input.
 
 ### Security
 

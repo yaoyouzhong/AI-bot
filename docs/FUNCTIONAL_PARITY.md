@@ -12,7 +12,7 @@
 | 系统监控 | build-verified | build-verified | planned | Windows 实际取样与固件页面已构建；设备端数值仍需实机核对 |
 | 音乐 | partial | partial | planned | Windows 媒体会话、标题/歌手/进度和 AUTO 切换已构建；中文位图、封面、大资源和真实播放待验收 |
 | 桌宠 | partial | partial | planned | 原创建模 `BYTE SPROUT` 工作/空闲动画已构建；外部兼容许可素材选择、上传与设备验收待完成 |
-| 屏保 | partial | partial | planned | 空闲进入、恢复页面和独立时钟已构建；手动预览及事件临时唤醒待实现 |
+| 屏保 | partial | partial | planned | 手动模式、空闲进入/恢复、独立时钟和 AI/音乐事件临时唤醒已构建；设备时序待验收 |
 | USB 优先 | partial | partial | planned | 460800 握手、小帧和控制已构建；COBS 大资源、ACK/CRC 与设备验收待完成 |
 | Wi-Fi 回退 | build-verified | build-verified | planned | USB 心跳失效 8 秒后转带配对令牌的 HTTP；USB 恢复后无人工干预切回 |
 | 设备控制 | partial | partial | planned | 认证模式/亮度/设备信息/Wi-Fi 重置已构建；完整 UI 和设备验收待完成 |

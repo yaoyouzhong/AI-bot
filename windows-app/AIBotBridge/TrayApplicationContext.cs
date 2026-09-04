@@ -12,6 +12,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly int _screenSaverMinutes;
     private string _selectedMode = "auto";
     private bool _automaticScreenSaver;
+    private bool _lastAiWorking;
+    private bool _lastMusicPlaying;
+    private DateTimeOffset? _temporaryWakeUntil;
 
     internal TrayApplicationContext()
     {
@@ -54,8 +57,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer = new System.Windows.Forms.Timer { Interval = 2000 };
         _timer.Tick += (_, _) =>
         {
-            RefreshTooltip();
-            UpdateAutomaticScreenSaver();
+            var status = _runtime.Capture();
+            RefreshTooltip(status);
+            UpdateAutomaticScreenSaver(status);
         };
         _timer.Start();
 
@@ -67,7 +71,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _ = Task.Run(() => lanServer.RunAsync(_runtime.Capture, _shutdown.Token));
         }
         _ = Task.Run(() => _serial.RunAsync(_runtime.Capture, _shutdown.Token));
-        RefreshTooltip();
+        RefreshTooltip(_runtime.Capture());
     }
 
     private void AddDisplayMode(ToolStripMenuItem parent, string label, string mode)
@@ -76,30 +80,55 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             _selectedMode = mode;
             _automaticScreenSaver = false;
+            _temporaryWakeUntil = null;
             if (!_serial.SendDisplayMode(mode))
                 MessageBox.Show("设备尚未通过 USB 连接。", "AI-bot", MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
         });
     }
 
-    private void UpdateAutomaticScreenSaver()
+    private void UpdateAutomaticScreenSaver(StatusSnapshot status)
     {
-        if (_screenSaverMinutes == 0 || _selectedMode == "screensaver") return;
+        var aiWorking = status.Codex.State == "working" || status.Claude.State == "working";
+        var musicPlaying = status.Music?.Playing == true;
+        if (_screenSaverMinutes == 0 || _selectedMode == "screensaver")
+        {
+            _lastAiWorking = aiWorking;
+            _lastMusicPlaying = musicPlaying;
+            return;
+        }
         var idle = SystemIdleTime.Read();
         if (!_automaticScreenSaver && idle >= TimeSpan.FromMinutes(_screenSaverMinutes))
         {
             _automaticScreenSaver = _serial.SendDisplayMode("screensaver");
+            _temporaryWakeUntil = null;
         }
         else if (_automaticScreenSaver && idle < TimeSpan.FromSeconds(3))
         {
             if (_serial.SendDisplayMode(_selectedMode))
+            {
                 _automaticScreenSaver = false;
+                _temporaryWakeUntil = null;
+            }
         }
+        else if (_automaticScreenSaver &&
+                 ((musicPlaying && !_lastMusicPlaying) || (aiWorking && !_lastAiWorking)))
+        {
+            var wakeMode = musicPlaying ? "music" : "pet";
+            if (_serial.SendDisplayMode(wakeMode))
+                _temporaryWakeUntil = DateTimeOffset.UtcNow.AddSeconds(12);
+        }
+        else if (_automaticScreenSaver && _temporaryWakeUntil <= DateTimeOffset.UtcNow)
+        {
+            if (_serial.SendDisplayMode("screensaver"))
+                _temporaryWakeUntil = null;
+        }
+        _lastAiWorking = aiWorking;
+        _lastMusicPlaying = musicPlaying;
     }
 
-    private void RefreshTooltip()
+    private void RefreshTooltip(StatusSnapshot status)
     {
-        var status = _runtime.Capture();
         var port = _serial.PortName ?? "USB waiting";
         _icon.Text = $"AI-bot | C:{status.Codex.State} A:{status.Claude.State} | {port}";
     }
