@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dataTimer: Timer?
     private var quotaTimer: Timer?
     private var serial: SerialBridge?
+    private var screenSaverState = AutomaticScreenSaverState()
     private var port: UInt16 = 8765
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -90,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         brightnessItem.submenu = brightnessMenu
         menu.addItem(brightnessItem)
+        menu.addItem(item("自动屏保设置…", #selector(configureScreenSaver)))
         menu.addItem(item("重新下发 Wi-Fi 回退配置", #selector(reprovisionLan)))
         menu.addItem(item("天气和股票设置…", #selector(configureDataSources)))
         menu.addItem(item("设置配对令牌…", #selector(setPairingToken)))
@@ -109,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let metrics = systemMetrics.capture() { dataStore.update(systemMetrics: metrics) }
         let snapshot = reader.capture(extras: dataStore.snapshot())
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
+        updateAutomaticScreenSaver()
     }
 
     private func short(_ state: String) -> String {
@@ -116,8 +119,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func selectDisplayMode(_ sender: NSMenuItem) {
-        guard let mode = sender.representedObject as? String,
-              serial?.sendDisplayMode(mode) == true else {
+        guard let mode = sender.representedObject as? String else { return }
+        screenSaverState.select(mode)
+        guard serial?.sendDisplayMode(mode) == true else {
             show("未发送", "设备尚未通过 USB 握手连接。")
             return
         }
@@ -137,6 +141,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         show("已下发", "设备已收到当前 LAN 地址和 Keychain 配对令牌。")
+    }
+
+    @objc private func configureScreenSaver() {
+        let choices = [0, 1, 5, 10, 15, 30, 60]
+        let current = Self.screenSaverMinutes()
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 220, height: 26))
+        popup.addItems(withTitles: choices.map { $0 == 0 ? "关闭" : "\($0) 分钟" })
+        popup.selectItem(at: choices.firstIndex(of: current) ?? 0)
+        let alert = NSAlert()
+        alert.messageText = "自动屏保"
+        alert.informativeText = "达到空闲时间后进入设备屏保；检测到本机输入后恢复先前页面。"
+        alert.accessoryView = popup
+        alert.addButton(withTitle: "保存")
+        alert.addButton(withTitle: "取消")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let index = popup.indexOfSelectedItem
+        guard choices.indices.contains(index) else { return }
+        UserDefaults.standard.set(choices[index], forKey: "screensaver_timeout_minutes")
+    }
+
+    private func updateAutomaticScreenSaver() {
+        guard let mode = screenSaverState.desiredMode(
+            idleSeconds: MacIdleTime.seconds(), timeoutMinutes: Self.screenSaverMinutes()) else { return }
+        let sent = serial?.sendDisplayMode(mode) == true
+        screenSaverState.confirm(mode, sent: sent)
+    }
+
+    private static func screenSaverMinutes(_ defaults: UserDefaults = .standard) -> Int {
+        let value = defaults.integer(forKey: "screensaver_timeout_minutes")
+        return [0, 1, 5, 10, 15, 30, 60].contains(value) ? value : 0
     }
 
     @objc private func showStatus() {

@@ -12,7 +12,7 @@
 | 系统监控 | build-verified | build-verified | platform-unverified | Windows 实际取样与固件页已构建；Mac 公共 Darwin/Mach 取样源码待平台构建，设备数值待实机核对 |
 | 音乐 | partial | partial | planned | 媒体会话、中文文本位图、封面、进度和 AUTO 切换已构建；真实歌曲与设备显示待验收 |
 | 桌宠 | partial | partial | planned | 原创建模动画、许可文件门槛、外部图片转换/上传/渲染已构建；真实 USB 与设备显示待验收 |
-| 屏保 | partial | partial | platform-unverified | Mac 菜单可发送手动屏保模式；自动空闲进入/恢复尚未实现，Windows/固件设备时序待验收 |
+| 屏保 | partial | partial | platform-unverified | Mac 已有手动模式及基于本机空闲时间的进入/输入恢复源码；AI/音乐临时唤醒和 Mac/设备时序待验收 |
 | USB 优先 | partial | partial | platform-unverified | Mac 已有 460800 探测、握手和两秒状态帧源码，但未编译/实机；Windows 大资源调用链及固件接收已构建，真实串口待验收 |
 | Wi-Fi 回退 | build-verified | build-verified | platform-unverified | Mac 已有 Keychain 随机令牌、认证 LAN 和 USB `lan_config` 源码；需验证 8 秒回退及 USB 恢复自动切回 |
 | 设备控制 | partial | partial | platform-unverified | Mac 菜单已有 USB 模式/亮度/重发回退配置源码；设备信息/Wi-Fi 重置尚缺可靠地址发现，整体待设备验收 |

@@ -75,4 +75,22 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertNotNil(root["data"] as? [String: Any])
         XCTAssertLessThanOrEqual(frame.count, 6_144)
     }
+
+    func testAutomaticScreenSaverEntryAndRestore() {
+        var state = AutomaticScreenSaverState()
+        XCTAssertNil(state.desiredMode(idleSeconds: 600, timeoutMinutes: 0))
+        XCTAssertEqual(state.desiredMode(idleSeconds: 300, timeoutMinutes: 5), "screensaver")
+        state.confirm("screensaver", sent: false)
+        XCTAssertFalse(state.active)
+        state.confirm("screensaver", sent: true)
+        XCTAssertTrue(state.active)
+        XCTAssertEqual(state.desiredMode(idleSeconds: 120, timeoutMinutes: 5), "auto")
+        state.confirm("auto", sent: true)
+        XCTAssertFalse(state.active)
+
+        state.select("weather")
+        XCTAssertEqual(state.desiredMode(idleSeconds: 301, timeoutMinutes: 5), "screensaver")
+        state.select("screensaver")
+        XCTAssertNil(state.desiredMode(idleSeconds: 0, timeoutMinutes: 5))
+    }
 }

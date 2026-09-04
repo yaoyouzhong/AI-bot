@@ -66,7 +66,7 @@ Exit the Windows bridge before flashing so it releases the serial port. After fl
 
 ## macOS
 
-The current Swift source includes a menu bar, Claude/Codex activity and account quotas, Open-Meteo weather, A/H/US stocks, CPU/memory/network metrics, last-successful caches, non-secret UserDefaults settings, a Keychain pairing token, authenticated LAN `/status`, `/dev/cu.*` discovery, a 460800-baud handshake, two-second status frames, USB provisioning for Wi-Fi fallback, and menu controls for device pages and brightness. Validate it on macOS 13+:
+The current Swift source includes a menu bar, Claude/Codex activity and account quotas, Open-Meteo weather, A/H/US stocks, CPU/memory/network metrics, last-successful caches, non-secret UserDefaults settings, a Keychain pairing token, authenticated LAN `/status`, `/dev/cu.*` discovery, a 460800-baud handshake, two-second status frames, USB provisioning for Wi-Fi fallback, menu controls for device pages and brightness, and idle-time screen-saver entry/restoration. Validate it on macOS 13+:
 
 ```bash
 swift test --package-path mac-app

@@ -70,7 +70,7 @@ python -m platformio run -d firmware -t upload --upload-port COM7
 
 ## macOS
 
-当前源码包含菜单栏、Claude/Codex 活动与账户额度、Open-Meteo 天气、A/H/美股、CPU/内存/网速、最近成功缓存、UserDefaults 非敏感设置、Keychain 配对令牌、认证 LAN `/status`，以及 `/dev/cu.*` 串口探测、460800 握手、两秒状态帧、USB 下发 Wi-Fi 回退配置和页面/亮度菜单控制。需在 macOS 13+ 验证：
+当前源码包含菜单栏、Claude/Codex 活动与账户额度、Open-Meteo 天气、A/H/美股、CPU/内存/网速、最近成功缓存、UserDefaults 非敏感设置、Keychain 配对令牌、认证 LAN `/status`，以及 `/dev/cu.*` 串口探测、460800 握手、两秒状态帧、USB 下发 Wi-Fi 回退配置、页面/亮度菜单控制和按本机空闲时间进入/恢复屏保。需在 macOS 13+ 验证：
 
 ```bash
 swift test --package-path mac-app
