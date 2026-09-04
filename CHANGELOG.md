@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - Add a nine-page 240×240 Windows mirror, synthetic PNG visual test, and mode/brightness control window.
 - Add isolated WebView2 sign-in capture for Alibaba, Kimi, MiniMax, and DeepSeek display-only quota fields.
 - Add a Windows settings dialog and allow-listed persistence for weather, stocks, screen saving, and the preferred serial port.
+- Add macOS Open-Meteo weather, A/H/US stocks, last-successful caches, and non-secret data-source settings.
 
 ### Security
 

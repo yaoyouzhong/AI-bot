@@ -6,11 +6,15 @@ AI-bot uses the Open-Meteo forecast, air-quality, and optional geocoding APIs. T
 
 The bridge requests only current temperature, humidity, WMO weather code, daily high/low, US AQI, and PM2.5. A successful response is cached under `%APPDATA%\AI-bot`; a failed refresh keeps the prior snapshot and marks it stale.
 
+The macOS source uses the same Open-Meteo fields and stores only non-secret preferences and last-successful display data in the app's `UserDefaults` domain. This path remains platform-unverified until it is built and exercised on macOS 13 or later.
+
 ## Stocks
 
 AI-bot currently reads quote responses from `qt.gtimg.cn` for configured `sh`, `sz`, `bj`, `hk`, and `us` symbols. This endpoint has no public stability or redistribution commitment documented by this project. Quote data are fetched at runtime and are not bundled in the repository or release archives.
 
 The configured symbol list is sent to that quote endpoint. A successful response is cached under `%APPDATA%\AI-bot`; a failed refresh keeps the prior snapshot and marks it stale.
+
+The macOS source uses the same quote endpoint and stores only the configured symbols and last-successful display snapshot in `UserDefaults`. Its GB18030 decoding and live refresh still require a real macOS build and network test.
 
 ## Claude and Codex account quotas
 

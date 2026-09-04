@@ -5,6 +5,36 @@ struct ToolState: Codable, Equatable {
     let ageSeconds: Int64?
 }
 
+struct WeatherSnapshot: Codable, Equatable {
+    let city: String
+    let condition: String
+    let temperature: Double
+    let high: Double
+    let low: Double
+    let humidity: Int
+    let weatherCode: Int
+    let pm25: Double?
+    let airQualityIndex: Int?
+    let source: String
+    let updatedAt: Date
+    let stale: Bool
+}
+
+struct StockQuote: Codable, Equatable {
+    let symbol: String
+    let code: String
+    let name: String
+    let price: String
+    let changePercent: String
+    let trend: Int
+}
+
+struct StockSnapshot: Codable, Equatable {
+    let quotes: [StockQuote]
+    let updatedAt: Date
+    let stale: Bool
+}
+
 struct MacStatusSnapshot: Codable {
     let version: Int
     let time: String
@@ -13,7 +43,9 @@ struct MacStatusSnapshot: Codable {
     let capturedAt: Date
     let codex: ToolState
     let claude: ToolState
-    let musicPlaying: Bool
+    let musicPlaying: Bool?
+    let weather: WeatherSnapshot?
+    let stocks: StockSnapshot?
 }
 
 final class SessionActivityReader {
@@ -24,22 +56,24 @@ final class SessionActivityReader {
         return value
     }()
 
-    func capture() -> MacStatusSnapshot {
+    func capture(extras: MacDataExtras = .empty) -> MacStatusSnapshot {
         let now = Date()
         return MacStatusSnapshot(
             version: 1,
-            time: Self.clock.string(from: now),
+            time: Self.clockString(now),
             epochUtc: Int64(now.timeIntervalSince1970),
             utcOffsetSeconds: TimeZone.current.secondsFromGMT(for: now),
             capturedAt: now,
             codex: state(in: home(".codex/sessions"), now: now),
             claude: state(in: home(".claude/projects"), now: now),
-            musicPlaying: false
+            musicPlaying: nil,
+            weather: extras.weather,
+            stocks: extras.stocks
         )
     }
 
-    func json() -> Data {
-        (try? encoder.encode(capture())) ?? Data("{\"version\":1}".utf8)
+    func json(extras: MacDataExtras = .empty) -> Data {
+        (try? encoder.encode(capture(extras: extras))) ?? Data("{\"version\":1}".utf8)
     }
 
     private func state(in root: URL, now: Date) -> ToolState {
@@ -71,10 +105,8 @@ final class SessionActivityReader {
         fileManager.homeDirectoryForCurrentUser.appendingPathComponent(relativePath)
     }
 
-    private static let clock: DateFormatter = {
-        let value = DateFormatter()
-        value.locale = Locale(identifier: "en_US_POSIX")
-        value.dateFormat = "HH:mm:ss"
-        return value
-    }()
+    private static func clockString(_ date: Date) -> String {
+        let values = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+        return String(format: "%02d:%02d:%02d", values.hour ?? 0, values.minute ?? 0, values.second ?? 0)
+    }
 }

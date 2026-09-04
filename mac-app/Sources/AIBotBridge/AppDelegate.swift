@@ -3,9 +3,12 @@ import Foundation
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let reader = SessionActivityReader()
+    private let dataStore = MacDataStore()
+    private lazy var dataService = MacDataService(store: dataStore)
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var server: HTTPStatusServer?
     private var timer: Timer?
+    private var dataTimer: Timer?
     private var port: UInt16 = 8765
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -13,20 +16,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = buildMenu()
         let storedPort = UserDefaults.standard.integer(forKey: "status_port")
         port = UInt16((1...65_535).contains(storedPort) ? storedPort : 8765)
-        server = HTTPStatusServer(port: port, token: PairingTokenStore.read, snapshot: reader.json)
+        server = HTTPStatusServer(port: port, token: PairingTokenStore.read) { [weak self] in
+            guard let self else { return Data("{\"version\":1}".utf8) }
+            return self.reader.json(extras: self.dataStore.snapshot())
+        }
         do { try server?.start() } catch { show("LAN 服务启动失败", error.localizedDescription) }
         updateTitle()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateTitle() }
+        Task { await self.dataService.refreshDue(force: true) }
+        dataTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.dataService.refreshDue() }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         timer?.invalidate()
+        dataTimer?.invalidate()
         server?.stop()
     }
 
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(item("查看本机状态", #selector(showStatus)))
+        menu.addItem(item("天气和股票设置…", #selector(configureDataSources)))
         menu.addItem(item("设置配对令牌…", #selector(setPairingToken)))
         menu.addItem(item("复制 LAN 服务地址", #selector(copyAddress)))
         menu.addItem(.separator())
@@ -41,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateTitle() {
-        let snapshot = reader.capture()
+        let snapshot = reader.capture(extras: dataStore.snapshot())
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
     }
 
@@ -50,8 +63,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showStatus() {
-        let snapshot = reader.capture()
-        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n端口: \(port)")
+        let snapshot = reader.capture(extras: dataStore.snapshot())
+        let weather = snapshot.weather.map { "\($0.city) \(Int($0.temperature.rounded()))°" } ?? "未配置"
+        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n端口: \(port)")
+    }
+
+    @objc private func configureDataSources() {
+        let preferences = MacDataPreferences.load()
+        let city = NSTextField(string: preferences.city)
+        let latitude = NSTextField(string: preferences.latitude.map { String($0) } ?? "")
+        let longitude = NSTextField(string: preferences.longitude.map { String($0) } ?? "")
+        let stocks = NSTextField(string: preferences.symbols.joined(separator: ","))
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        for (label, field) in [("天气城市", city), ("纬度（可空）", latitude),
+                               ("经度（可空）", longitude), ("股票代码（逗号分隔，最多 20 个）", stocks)] {
+            let title = NSTextField(labelWithString: label)
+            field.frame.size.width = 420
+            stack.addArrangedSubview(title)
+            stack.addArrangedSubview(field)
+        }
+        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 220)
+
+        let alert = NSAlert()
+        alert.messageText = "天气和股票设置"
+        alert.informativeText = "经纬度必须同时填写或同时留空；设置仅保存在 UserDefaults。"
+        alert.accessoryView = stack
+        alert.addButton(withTitle: "保存")
+        alert.addButton(withTitle: "取消")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let latitudeText = latitude.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let longitudeText = longitude.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lat = Double(latitudeText)
+        let lon = Double(longitudeText)
+        guard (latitudeText.isEmpty && longitudeText.isEmpty) ||
+              (lat != nil && lon != nil && (-90...90).contains(lat!) && (-180...180).contains(lon!)) else {
+            show("未保存", "经纬度必须同时留空，或填写有效数字：纬度 -90~90、经度 -180~180。")
+            return
+        }
+        let rawSymbols = stocks.stringValue.replacingOccurrences(of: "，", with: ",")
+            .split(separator: ",", omittingEmptySubsequences: true).map(String.init)
+        let normalized = rawSymbols.compactMap(MacDataService.normalizeStock)
+        guard rawSymbols.count <= 20 && normalized.count == rawSymbols.count else {
+            show("未保存", "股票代码最多 20 个，仅支持 sh、sz、bj、hk、us 市场前缀。")
+            return
+        }
+        let uniqueSymbols = normalized.reduce(into: [String]()) { result, symbol in
+            if !result.contains(symbol) { result.append(symbol) }
+        }
+        MacDataPreferences(city: city.stringValue.trimmingCharacters(in: .whitespacesAndNewlines),
+                           latitude: lat, longitude: lon, symbols: uniqueSymbols).save()
+        Task { await self.dataService.refreshDue(force: true) }
+        show("已保存", "天气和股票将立即刷新；网络失败时保留最近一次成功数据。")
     }
 
     @objc private func setPairingToken() {

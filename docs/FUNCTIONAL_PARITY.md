@@ -7,8 +7,8 @@
 | Claude / Codex 活动状态 | build-verified | build-verified | planned | 工作、空闲、离线和待授权语义一致；不上传会话正文 |
 | Claude / Codex 账户额度 | partial | partial | planned | 解析、最近成功缓存和设备额度页已构建；真实账号授权、令牌过期刷新及设备显示待验收 |
 | 国产模型额度 | partial | partial | 不适用 | 四家解析/缓存、隔离 WebView2 登录捕获和固件总览已构建；MiniMax 环境变量 Key 可直连，真实账号响应及实机显示待验收 |
-| 天气 | partial | partial | planned | 数据/缓存、中文城市/天气位图和固件页已构建；真实配置及设备显示待验收 |
-| 股票 | partial | partial | planned | A/H/美股解析、缓存、中文名称表、涨跌色和分页已构建；真实配置及设备显示待验收 |
+| 天气 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有数据、缓存和设置链路；真实配置、设备显示及 Mac 构建待验收 |
+| 股票 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有 A/H/美股解析、缓存和设置；真实配置、设备显示及 Mac 构建待验收 |
 | 系统监控 | build-verified | build-verified | planned | Windows 实际取样与固件页面已构建；设备端数值仍需实机核对 |
 | 音乐 | partial | partial | planned | 媒体会话、中文文本位图、封面、进度和 AUTO 切换已构建；真实歌曲与设备显示待验收 |
 | 桌宠 | partial | partial | planned | 原创建模动画、许可文件门槛、外部图片转换/上传/渲染已构建；真实 USB 与设备显示待验收 |
@@ -18,7 +18,7 @@
 | 设备控制 | partial | partial | planned | 认证模式/亮度/设备信息/Wi-Fi 重置和 Windows 控制窗已构建；设备验收待完成 |
 | PC 离线独立时钟 | build-verified | build-verified | planned | 主机离线显示 `PC OFF`；NTP/保持时间可用；桥接恢复后还原页面 |
 | Windows 托盘和镜像 | partial | 不适用 | 不适用 | 托盘、设备控制、非敏感设置持久化和九页面 240×240 镜像已构建；启动项及设置窗视觉待验收 |
-| macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 菜单栏、活动状态、Keychain 令牌和认证 LAN 服务源码已建；其余能力及真实 Mac 构建待完成 |
+| macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 菜单栏、活动状态、天气/股票、UserDefaults 设置、Keychain 令牌和认证 LAN 服务源码已建；其余能力及真实 Mac 构建待完成 |
 
 ## 完成定义
 
