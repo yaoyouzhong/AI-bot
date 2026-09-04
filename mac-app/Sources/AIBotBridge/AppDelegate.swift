@@ -67,6 +67,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(item("查看本机状态", #selector(showStatus)))
+        let displayItem = NSMenuItem(title: "显示页面", action: nil, keyEquivalent: "")
+        let displayMenu = NSMenu()
+        for (title, value) in [
+            ("自动轮播", "auto"), ("Claude + Codex", "dual"), ("天气", "weather"),
+            ("股票", "stocks"), ("账户额度", "quotas"), ("国产额度", "domestic"),
+            ("系统监控", "system"), ("音乐", "music"), ("桌宠", "pet"), ("屏保", "screensaver")
+        ] {
+            let mode = item(title, #selector(selectDisplayMode))
+            mode.representedObject = value
+            displayMenu.addItem(mode)
+        }
+        displayItem.submenu = displayMenu
+        menu.addItem(displayItem)
+
+        let brightnessItem = NSMenuItem(title: "屏幕亮度", action: nil, keyEquivalent: "")
+        let brightnessMenu = NSMenu()
+        for level in [25, 50, 75, 100] {
+            let choice = item("\(level)%", #selector(selectBrightness))
+            choice.representedObject = level
+            brightnessMenu.addItem(choice)
+        }
+        brightnessItem.submenu = brightnessMenu
+        menu.addItem(brightnessItem)
+        menu.addItem(item("重新下发 Wi-Fi 回退配置", #selector(reprovisionLan)))
         menu.addItem(item("天气和股票设置…", #selector(configureDataSources)))
         menu.addItem(item("设置配对令牌…", #selector(setPairingToken)))
         menu.addItem(item("复制 LAN 服务地址", #selector(copyAddress)))
@@ -89,6 +113,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func short(_ state: String) -> String {
         state == "working" ? "W" : state == "idle" ? "I" : "-"
+    }
+
+    @objc private func selectDisplayMode(_ sender: NSMenuItem) {
+        guard let mode = sender.representedObject as? String,
+              serial?.sendDisplayMode(mode) == true else {
+            show("未发送", "设备尚未通过 USB 握手连接。")
+            return
+        }
+    }
+
+    @objc private func selectBrightness(_ sender: NSMenuItem) {
+        guard let level = sender.representedObject as? Int,
+              serial?.sendBrightness(level) == true else {
+            show("未发送", "设备尚未通过 USB 握手连接。")
+            return
+        }
+    }
+
+    @objc private func reprovisionLan() {
+        guard serial?.provisionLan() == true else {
+            show("未下发", "需要已启动的 LAN 服务、私有 IPv4 地址和已握手 USB 设备。")
+            return
+        }
+        show("已下发", "设备已收到当前 LAN 地址和 Keychain 配对令牌。")
     }
 
     @objc private func showStatus() {

@@ -70,14 +70,14 @@ python -m platformio run -d firmware -t upload --upload-port COM7
 
 ## macOS
 
-当前源码包含菜单栏、Claude/Codex 活动与账户额度、Open-Meteo 天气、A/H/美股、CPU/内存/网速、最近成功缓存、UserDefaults 非敏感设置、Keychain 配对令牌、认证 LAN `/status`，以及 `/dev/cu.*` 串口探测、460800 握手、两秒状态帧和 USB 下发 Wi-Fi 回退配置。需在 macOS 13+ 验证：
+当前源码包含菜单栏、Claude/Codex 活动与账户额度、Open-Meteo 天气、A/H/美股、CPU/内存/网速、最近成功缓存、UserDefaults 非敏感设置、Keychain 配对令牌、认证 LAN `/status`，以及 `/dev/cu.*` 串口探测、460800 握手、两秒状态帧、USB 下发 Wi-Fi 回退配置和页面/亮度菜单控制。需在 macOS 13+ 验证：
 
 ```bash
 swift test --package-path mac-app
 swift build -c release --package-path mac-app
 ```
 
-当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧已有源码但尚未编译或连接设备，二进制资源、国产额度、音乐、镜像和设备控制界面仍未完成。已有源码也没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
+当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧与菜单控制已有源码但尚未编译或连接设备，二进制资源、国产额度、音乐、镜像和设备信息/Wi-Fi 重置仍未完成。已有源码也没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
 
 ## 隐私边界
 

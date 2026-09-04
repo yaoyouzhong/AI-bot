@@ -54,6 +54,9 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertTrue(SerialBridge.isCandidateDeviceName("cu.SLAB_USBtoUART"))
         XCTAssertFalse(SerialBridge.isCandidateDeviceName("tty.Bluetooth-Incoming-Port"))
         XCTAssertFalse(SerialBridge.isCandidateDeviceName("cu.not-a-device"))
+        XCTAssertTrue(SerialBridge.displayModes.contains("screensaver"))
+        XCTAssertTrue(SerialBridge.displayModes.contains("pet"))
+        XCTAssertFalse(SerialBridge.displayModes.contains("unknown"))
     }
 
     func testSerialStatusFrameUsesProtocolPrefix() throws {

@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 - Add macOS CPU, physical-memory, and active-interface traffic sampling through public Darwin/Mach APIs.
 - Add macOS Claude/Codex account-quota parsing, fixed official-host requests, and display-only caching.
 - Add macOS USB-serial discovery, a 460800-baud control-frame transport, Keychain-generated pairing, and Wi-Fi fallback provisioning.
+- Add macOS menu controls for device pages, brightness, and explicit Wi-Fi fallback reprovisioning.
 
 ### Security
 
