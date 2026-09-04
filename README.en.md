@@ -23,6 +23,7 @@ Version `0.1.0` is an independent development baseline. It currently completes o
 - Pre-renders a 232×44 CJK title/artist bitmap and 112×112 cover on track changes, transfers them reliably, and streams rows on-device.
 - Imports a PNG/JPEG/BMP/GIF pet only beside a license notice, converts it to 112×112 RGB565, and sends it over USB without adding the source asset to the repository.
 - Pre-renders CJK weather text and up to twenty stock names on Windows; the device reads the current page and falls back to symbols when assets are absent.
+- Provides tray mode/brightness controls and a nine-page 240×240 Windows mirror with reproducible synthetic PNG validation.
 - Adds tray display controls and an idle-time-driven Windows screen saver.
 - Does not read conversation content. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
 - Includes Windows and firmware CI plus tag-driven release scaffolding.

@@ -34,9 +34,12 @@ The authenticated LAN listener can be checked without exposing a real token:
 windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-lan
 windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-data
 windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-live-data
+windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-mirror
 ```
 
 The LAN self-test requires 401 for missing and incorrect tokens, then requires a version 1 snapshot for the correct synthetic token. The data self-test uses embedded synthetic responses. The live-data self-test uses a fixed public Beijing coordinate and the Shanghai Composite symbol; it deliberately does not read personal settings or write caches.
+
+The mirror self-test renders nine synthetic 240×240 pages into ignored `artifacts/mirror-self-test.png`. It is visual evidence for the Windows renderer only; it does not prove device pixel parity.
 
 ## macOS
 

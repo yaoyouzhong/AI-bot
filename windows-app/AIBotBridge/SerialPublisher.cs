@@ -26,6 +26,13 @@ internal sealed class SerialPublisher
         mode
     });
 
+    internal bool SendBrightness(int level) => TrySend(new
+    {
+        version = 1,
+        type = "brightness",
+        level = Math.Clamp(level, 0, 100)
+    });
+
     internal bool SendResource(BinaryResourceKind kind, byte[] data)
     {
         var transferId = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(sizeof(uint)));

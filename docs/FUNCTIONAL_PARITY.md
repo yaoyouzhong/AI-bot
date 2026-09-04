@@ -15,9 +15,9 @@
 | 屏保 | partial | partial | planned | 手动模式、空闲进入/恢复、独立时钟和 AI/音乐事件临时唤醒已构建；设备时序待验收 |
 | USB 优先 | partial | partial | planned | 460800 握手、小帧、大资源协议及音乐资源调用链已构建；真实串口传输待验收 |
 | Wi-Fi 回退 | build-verified | build-verified | planned | USB 心跳失效 8 秒后转带配对令牌的 HTTP；USB 恢复后无人工干预切回 |
-| 设备控制 | partial | partial | planned | 认证模式/亮度/设备信息/Wi-Fi 重置已构建；完整 UI 和设备验收待完成 |
+| 设备控制 | partial | partial | planned | 认证模式/亮度/设备信息/Wi-Fi 重置和 Windows 控制窗已构建；设备验收待完成 |
 | PC 离线独立时钟 | build-verified | build-verified | planned | 主机离线显示 `PC OFF`；NTP/保持时间可用；桥接恢复后还原页面 |
-| Windows 托盘和镜像 | partial | 不适用 | 不适用 | 基础分类菜单已构建；240×240 镜像、完整配置入口和启动项待完成 |
+| Windows 托盘和镜像 | partial | 不适用 | 不适用 | 托盘、设备控制和九页面 240×240 镜像已渲染验证；完整设置持久化和启动项待完成 |
 | macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 菜单栏、活动状态、Keychain 令牌和认证 LAN 服务源码已建；其余能力及真实 Mac 构建待完成 |
 
 ## 完成定义

@@ -15,6 +15,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private bool _lastAiWorking;
     private bool _lastMusicPlaying;
     private DateTimeOffset? _temporaryWakeUntil;
+    private MirrorForm? _mirror;
+    private DeviceControlForm? _deviceControl;
 
     internal TrayApplicationContext()
     {
@@ -30,6 +32,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _serial = new SerialPublisher(pairing);
 
         var menu = new ContextMenuStrip();
+        menu.Items.Add("打开 240×240 镜像", null, (_, _) => ShowMirror());
+        menu.Items.Add("设备控制…", null, (_, _) => ShowDeviceControl());
         menu.Items.Add("查看状态", null, (_, _) => ShowStatus());
         var displayMenu = new ToolStripMenuItem("显示模式");
         AddDisplayMode(displayMenu, "自动轮播", "auto");
@@ -142,6 +146,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
         MessageBox.Show(json, "AI-bot status", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
+    private void ShowMirror()
+    {
+        if (_mirror is null || _mirror.IsDisposed)
+            _mirror = new MirrorForm(_runtime.Capture, () => _selectedMode);
+        _mirror.Show();
+        _mirror.Activate();
+    }
+
+    private void ShowDeviceControl()
+    {
+        if (_deviceControl is null || _deviceControl.IsDisposed)
+            _deviceControl = new DeviceControlForm(_serial);
+        _deviceControl.Show();
+        _deviceControl.Activate();
+    }
+
     private void ImportPet()
     {
         using var dialog = new OpenFileDialog
@@ -176,6 +196,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer.Stop();
         _timer.Dispose();
         _serial.NotifyHostGoingAway();
+        _mirror?.Close();
+        _deviceControl?.Close();
         _shutdown.Cancel();
         _runtime.Dispose();
         _icon.Visible = false;

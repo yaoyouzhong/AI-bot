@@ -12,6 +12,14 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--self-test-mirror", StringComparer.OrdinalIgnoreCase))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            var output = Path.Combine(Environment.CurrentDirectory, "artifacts", "mirror-self-test.png");
+            MirrorSelfTest.Run(output);
+            return;
+        }
+
         if (args.Contains("--self-test-music", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;

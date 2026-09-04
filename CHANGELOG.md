@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Add license-gated runtime pet image import, RGB565 conversion, USB transfer, and device rendering.
 - Add pre-rendered CJK weather text and paged stock-name resources with symbol fallback.
 - Add the independent macOS menu-bar, activity reader, Keychain pairing token, and authenticated LAN status foundation.
+- Add a nine-page 240×240 Windows mirror, synthetic PNG visual test, and mode/brightness control window.
 
 ### Security
 
