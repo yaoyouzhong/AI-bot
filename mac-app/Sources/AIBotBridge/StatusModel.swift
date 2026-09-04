@@ -35,6 +35,14 @@ struct StockSnapshot: Codable, Equatable {
     let stale: Bool
 }
 
+struct SystemMetricsSnapshot: Codable, Equatable {
+    let cpuPercent: Double
+    let memoryPercent: Double
+    let uploadBytesPerSecond: Int64
+    let downloadBytesPerSecond: Int64
+    let updatedAt: Date
+}
+
 struct MacStatusSnapshot: Codable {
     let version: Int
     let time: String
@@ -46,6 +54,7 @@ struct MacStatusSnapshot: Codable {
     let musicPlaying: Bool?
     let weather: WeatherSnapshot?
     let stocks: StockSnapshot?
+    let systemMetrics: SystemMetricsSnapshot?
 }
 
 final class SessionActivityReader {
@@ -68,7 +77,8 @@ final class SessionActivityReader {
             claude: state(in: home(".claude/projects"), now: now),
             musicPlaying: nil,
             weather: extras.weather,
-            stocks: extras.stocks
+            stocks: extras.stocks,
+            systemMetrics: extras.systemMetrics
         )
     }
 

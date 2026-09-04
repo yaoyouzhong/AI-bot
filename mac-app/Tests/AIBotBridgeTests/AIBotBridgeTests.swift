@@ -28,4 +28,13 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertEqual(quotes.first?.name, "上证指数")
         XCTAssertEqual(quotes.first?.changePercent, "+0.85%")
     }
+
+    func testSystemMetricDeltas() {
+        let previous = MacCpuTicks(user: 100, system: 50, idle: 850, nice: 0)
+        let current = MacCpuTicks(user: 120, system: 60, idle: 920, nice: 0)
+        XCTAssertEqual(MacSystemMetricsService.cpuPercent(previous: previous, current: current), 30,
+                       accuracy: 0.001)
+        XCTAssertEqual(MacSystemMetricsService.rate(previous: 1_000, current: 4_000, elapsed: 2), 1_500)
+        XCTAssertEqual(MacSystemMetricsService.rate(previous: 4_000, current: 1_000, elapsed: 2), 0)
+    }
 }

@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let reader = SessionActivityReader()
     private let dataStore = MacDataStore()
     private lazy var dataService = MacDataService(store: dataStore)
+    private let systemMetrics = MacSystemMetricsService()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var server: HTTPStatusServer?
     private var timer: Timer?
@@ -54,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateTitle() {
+        if let metrics = systemMetrics.capture() { dataStore.update(systemMetrics: metrics) }
         let snapshot = reader.capture(extras: dataStore.snapshot())
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
     }
@@ -65,7 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showStatus() {
         let snapshot = reader.capture(extras: dataStore.snapshot())
         let weather = snapshot.weather.map { "\($0.city) \(Int($0.temperature.rounded()))°" } ?? "未配置"
-        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n端口: \(port)")
+        let system = snapshot.systemMetrics.map {
+            "CPU \(Int($0.cpuPercent.rounded()))% / MEM \(Int($0.memoryPercent.rounded()))%"
+        } ?? "等待采样"
+        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n系统: \(system)\n端口: \(port)")
     }
 
     @objc private func configureDataSources() {

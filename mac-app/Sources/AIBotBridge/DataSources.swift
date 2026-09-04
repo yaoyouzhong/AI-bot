@@ -4,8 +4,9 @@ import Foundation
 struct MacDataExtras {
     let weather: WeatherSnapshot?
     let stocks: StockSnapshot?
+    let systemMetrics: SystemMetricsSnapshot?
 
-    static let empty = MacDataExtras(weather: nil, stocks: nil)
+    static let empty = MacDataExtras(weather: nil, stocks: nil, systemMetrics: nil)
 }
 
 struct MacDataPreferences {
@@ -40,6 +41,7 @@ final class MacDataStore {
     private let defaults: UserDefaults
     private var weather: WeatherSnapshot?
     private var stocks: StockSnapshot?
+    private var systemMetrics: SystemMetricsSnapshot?
     private let encoder: JSONEncoder = {
         let value = JSONEncoder()
         value.dateEncodingStrategy = .iso8601
@@ -70,7 +72,7 @@ final class MacDataStore {
     func snapshot() -> MacDataExtras {
         lock.lock()
         defer { lock.unlock() }
-        return MacDataExtras(weather: weather, stocks: stocks)
+        return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics)
     }
 
     func update(weather value: WeatherSnapshot) {
@@ -102,6 +104,12 @@ final class MacDataStore {
     func markStocksStale() {
         lock.lock()
         if let value = stocks { stocks = StockSnapshot(quotes: value.quotes, updatedAt: value.updatedAt, stale: true) }
+        lock.unlock()
+    }
+
+    func update(systemMetrics value: SystemMetricsSnapshot) {
+        lock.lock()
+        systemMetrics = value
         lock.unlock()
     }
 }
