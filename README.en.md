@@ -19,6 +19,7 @@ Version `0.1.0` is an independent development baseline. It currently completes o
 - Reads Windows media-session title, artist, playback state, and progress; AUTO enters music while playing and resumes cycling after stop.
 - Includes the original geometric pixel pet `BYTE SPROUT`, which walks or idles with Claude/Codex activity and imports no legacy sprites.
 - Supports manual and idle-triggered screen saving, temporary AI/music event wake, and restoration after user input.
+- Implements COBS resource chunks, per-chunk and whole CRC32, ACK/retry, and validated LittleFS replacement.
 - Adds tray display controls and an idle-time-driven Windows screen saver.
 - Does not read conversation content. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
 - Includes Windows and firmware CI plus tag-driven release scaffolding.

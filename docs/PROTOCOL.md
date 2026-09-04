@@ -46,3 +46,27 @@ When USB status has been absent for eight seconds, the device may request `GET /
 ```
 
 The literal token above is illustrative only. Real tokens must never appear in documentation, test fixtures, screenshots, or diagnostics.
+
+## Binary resources
+
+Large resources use `NUL + COBS packet + NUL`, separate from JSON lines. A decoded version-1 packet is little-endian and contains:
+
+| Offset | Size | Field |
+| --- | ---: | --- |
+| 0 | 4 | ASCII magic `AIB1` |
+| 4 | 1 | protocol version `1` |
+| 5 | 1 | resource kind: text bitmap `1`, music cover `2`, pet asset `3` |
+| 6 | 4 | transfer ID |
+| 10 | 2 | zero-based sequence |
+| 12 | 2 | total chunk count |
+| 14 | 4 | total decoded resource length |
+| 18 | 2 | payload length, at most 768 bytes |
+| 20 | 4 | whole-resource CRC32 |
+| 24 | variable | payload |
+| end - 4 | 4 | CRC32 of header and payload |
+
+The device accepts chunks only in order, persists them to a temporary LittleFS file, and acknowledges each valid chunk with a JSON line. The final ACK is `ok=true` only after total length and whole-resource CRC pass and the new file replaces the prior resource. A lost ACK may cause the host to resend the same chunk; duplicate last-chunk acknowledgements are idempotent. The host retries each chunk at most three times.
+
+```json
+{"version":1,"type":"resource_ack","transferId":305419896,"sequence":2,"ok":true}
+```

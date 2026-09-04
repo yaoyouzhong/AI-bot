@@ -1,4 +1,5 @@
 using System.IO.Ports;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -24,6 +25,27 @@ internal sealed class SerialPublisher
         type = "display",
         mode
     });
+
+    internal bool SendResource(BinaryResourceKind kind, byte[] data)
+    {
+        var transferId = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(sizeof(uint)));
+        var chunks = BinaryResourceProtocol.CreateChunks(kind, data, transferId);
+        lock (_portSync)
+        {
+            if (_activePort?.IsOpen != true) return false;
+            foreach (var chunk in chunks)
+            {
+                var acknowledged = false;
+                for (var attempt = 0; attempt < 3 && !acknowledged; attempt++)
+                {
+                    _activePort.Write(chunk.WireBytes, 0, chunk.WireBytes.Length);
+                    acknowledged = WaitForResourceAck(_activePort, chunk.TransferId, chunk.Sequence);
+                }
+                if (!acknowledged) return false;
+            }
+            return true;
+        }
+    }
 
     internal void NotifyHostGoingAway()
     {
@@ -154,6 +176,33 @@ internal sealed class SerialPublisher
             catch (TimeoutException)
             {
                 return false;
+            }
+        }
+        return false;
+    }
+
+    private static bool WaitForResourceAck(SerialPort port, uint transferId, ushort sequence)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var line = port.ReadLine().Trim();
+                if (!line.StartsWith(Prefix, StringComparison.Ordinal)) continue;
+                using var document = JsonDocument.Parse(line[Prefix.Length..]);
+                var root = document.RootElement;
+                if (root.GetProperty("type").GetString() == "resource_ack" &&
+                    root.GetProperty("transferId").GetUInt32() == transferId &&
+                    root.GetProperty("sequence").GetUInt16() == sequence)
+                    return root.GetProperty("ok").GetBoolean();
+            }
+            catch (TimeoutException)
+            {
+                return false;
+            }
+            catch (JsonException)
+            {
             }
         }
         return false;

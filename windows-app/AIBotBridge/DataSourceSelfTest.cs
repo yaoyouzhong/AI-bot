@@ -71,6 +71,13 @@ internal static class DataSourceSelfTest
             SystemMetricsService.CalculateRate(2500, 1000, 1) != 0)
             throw new InvalidOperationException("Network-rate calculation did not handle elapsed time or reset.");
 
+        var resource = Enumerable.Range(0, 2000).Select(index => (byte)(index * 31)).ToArray();
+        var chunks = BinaryResourceProtocol.CreateChunks(BinaryResourceKind.PetAsset, resource, 0x12345678);
+        var restored = chunks.SelectMany(chunk => BinaryResourceProtocol.DecodeWire(chunk.WireBytes).Payload).ToArray();
+        if (!restored.SequenceEqual(resource) || chunks.Count != 3 ||
+            BinaryResourceProtocol.Crc32("123456789"u8) != 0xCBF43926)
+            throw new InvalidOperationException("COBS/CRC resource framing did not round-trip.");
+
         Console.WriteLine("DATA_SOURCE_SELF_TEST_OK");
     }
 }

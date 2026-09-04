@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Add Windows media-session metadata, progress, a music page, and AUTO playback override.
 - Add the original geometric `BYTE SPROUT` activity pet without imported sprite assets.
 - Wake automatic screen saving temporarily for new AI work or music, then restore the prior mode after input.
+- Add COBS binary-resource framing, per-chunk and whole CRC32, ACK retry, and validated LittleFS replacement.
 
 ### Security
 

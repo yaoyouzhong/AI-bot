@@ -19,6 +19,8 @@ constexpr uint32_t kPortalDelayMs = 15000;
 constexpr char kPrefix[] = "@AIBOT ";
 constexpr char kConfigPath[] = "/bridge.json";
 constexpr char kBrightnessPath[] = "/brightness.txt";
+constexpr size_t kMaxBinaryEncoded = 820;
+constexpr size_t kMaxBinaryDecoded = 800;
 
 enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver };
 enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver };
@@ -136,6 +138,28 @@ bool showingOffline = false;
 bool adminStarted = false;
 bool portalStarted = false;
 bool screenDirty = true;
+uint8_t binaryEncoded[kMaxBinaryEncoded];
+uint8_t binaryDecoded[kMaxBinaryDecoded];
+size_t binaryLength = 0;
+bool binaryCollecting = false;
+
+struct ResourceTransfer {
+  File file;
+  uint32_t id = 0;
+  uint32_t totalLength = 0;
+  uint32_t received = 0;
+  uint32_t wholeCrc = 0;
+  uint32_t runningCrc = 0xFFFFFFFF;
+  uint16_t nextSequence = 0;
+  uint16_t totalChunks = 0;
+  uint8_t kind = 0;
+  bool active = false;
+};
+
+ResourceTransfer resourceTransfer;
+uint32_t lastCompletedTransferId = 0;
+uint16_t lastCompletedSequence = 0;
+bool lastCompletedOk = false;
 
 bool usbFresh() {
   return lastUsbStatusAt != 0 && millis() - lastUsbStatusAt < kUsbFreshMs;
@@ -647,6 +671,167 @@ void sendControl(const char* type) {
   Serial.println("\",\"device\":\"esp8266\"}");
 }
 
+uint16_t readLe16(const uint8_t* value) {
+  return static_cast<uint16_t>(value[0]) | static_cast<uint16_t>(value[1]) << 8;
+}
+
+uint32_t readLe32(const uint8_t* value) {
+  return static_cast<uint32_t>(value[0]) | static_cast<uint32_t>(value[1]) << 8 |
+         static_cast<uint32_t>(value[2]) << 16 | static_cast<uint32_t>(value[3]) << 24;
+}
+
+uint32_t updateCrc32(uint32_t crc, const uint8_t* data, size_t length) {
+  for (size_t index = 0; index < length; index++) {
+    crc ^= data[index];
+    for (int bit = 0; bit < 8; bit++)
+      crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320UL : crc >> 1;
+  }
+  return crc;
+}
+
+size_t cobsDecode(const uint8_t* input, size_t length, uint8_t* output, size_t capacity) {
+  size_t read = 0;
+  size_t write = 0;
+  while (read < length) {
+    uint8_t code = input[read++];
+    if (code == 0 || read + code - 1 > length) return 0;
+    for (uint8_t index = 1; index < code; index++) {
+      if (write >= capacity) return 0;
+      output[write++] = input[read++];
+    }
+    if (code != 0xFF && read < length) {
+      if (write >= capacity) return 0;
+      output[write++] = 0;
+    }
+  }
+  return write;
+}
+
+void sendResourceAck(uint32_t transferId, uint16_t sequence, bool ok) {
+  Serial.print(kPrefix);
+  Serial.print("{\"version\":1,\"type\":\"resource_ack\",\"transferId\":");
+  Serial.print(transferId);
+  Serial.print(",\"sequence\":");
+  Serial.print(sequence);
+  Serial.print(",\"ok\":");
+  Serial.print(ok ? "true" : "false");
+  Serial.println("}");
+}
+
+const char* resourcePath(uint8_t kind) {
+  if (kind == 1) return "/text.rgb565";
+  if (kind == 2) return "/cover.rgb565";
+  if (kind == 3) return "/pet.asset";
+  return nullptr;
+}
+
+void abandonResourceTransfer() {
+  if (resourceTransfer.file) resourceTransfer.file.close();
+  LittleFS.remove("/resource.new");
+  resourceTransfer = ResourceTransfer{};
+}
+
+bool commitResourceTransfer() {
+  const char* target = resourcePath(resourceTransfer.kind);
+  if (target == nullptr) return false;
+  String backup = String(target) + ".bak";
+  LittleFS.remove(backup);
+  bool hadTarget = LittleFS.exists(target);
+  if (hadTarget && !LittleFS.rename(target, backup)) return false;
+  if (!LittleFS.rename("/resource.new", target)) {
+    if (hadTarget) LittleFS.rename(backup, target);
+    return false;
+  }
+  if (hadTarget) LittleFS.remove(backup);
+  return true;
+}
+
+void handleBinaryFrame(const uint8_t* encoded, size_t encodedLength) {
+  size_t length = cobsDecode(encoded, encodedLength, binaryDecoded, sizeof(binaryDecoded));
+  if (length < 28 || memcmp(binaryDecoded, "AIB1", 4) != 0 || binaryDecoded[4] != 1) return;
+  uint8_t kind = binaryDecoded[5];
+  uint32_t transferId = readLe32(binaryDecoded + 6);
+  uint16_t sequence = readLe16(binaryDecoded + 10);
+  uint16_t totalChunks = readLe16(binaryDecoded + 12);
+  uint32_t totalLength = readLe32(binaryDecoded + 14);
+  uint16_t payloadLength = readLe16(binaryDecoded + 18);
+  uint32_t wholeCrc = readLe32(binaryDecoded + 20);
+  bool headerValid = resourcePath(kind) != nullptr && totalChunks > 0 && totalLength > 0 &&
+      totalLength <= 1024UL * 1024UL && payloadLength <= 768 &&
+      length == static_cast<size_t>(24 + payloadLength + 4);
+  if (!headerValid) {
+    sendResourceAck(transferId, sequence, false);
+    return;
+  }
+  uint32_t expectedChunkCrc = readLe32(binaryDecoded + 24 + payloadLength);
+  uint32_t actualChunkCrc = ~updateCrc32(0xFFFFFFFF, binaryDecoded, 24 + payloadLength);
+  if (actualChunkCrc != expectedChunkCrc) {
+    sendResourceAck(transferId, sequence, false);
+    return;
+  }
+
+  if (!resourceTransfer.active && transferId == lastCompletedTransferId &&
+      sequence == lastCompletedSequence) {
+    sendResourceAck(transferId, sequence, lastCompletedOk);
+    return;
+  }
+
+  if (resourceTransfer.active && resourceTransfer.id == transferId &&
+      sequence + 1 == resourceTransfer.nextSequence) {
+    sendResourceAck(transferId, sequence, true);
+    return;
+  }
+  if (sequence == 0 && (!resourceTransfer.active || resourceTransfer.id != transferId)) {
+    abandonResourceTransfer();
+    resourceTransfer.file = LittleFS.open("/resource.new", "w");
+    if (!resourceTransfer.file) {
+      sendResourceAck(transferId, sequence, false);
+      return;
+    }
+    resourceTransfer.id = transferId;
+    resourceTransfer.totalLength = totalLength;
+    resourceTransfer.wholeCrc = wholeCrc;
+    resourceTransfer.totalChunks = totalChunks;
+    resourceTransfer.kind = kind;
+    resourceTransfer.active = true;
+  }
+  if (!resourceTransfer.active || resourceTransfer.id != transferId ||
+      resourceTransfer.kind != kind || resourceTransfer.totalLength != totalLength ||
+      resourceTransfer.totalChunks != totalChunks || resourceTransfer.wholeCrc != wholeCrc ||
+      resourceTransfer.nextSequence != sequence ||
+      resourceTransfer.received + payloadLength > resourceTransfer.totalLength) {
+    sendResourceAck(transferId, sequence, false);
+    return;
+  }
+
+  size_t written = resourceTransfer.file.write(binaryDecoded + 24, payloadLength);
+  if (written != payloadLength) {
+    abandonResourceTransfer();
+    sendResourceAck(transferId, sequence, false);
+    return;
+  }
+  resourceTransfer.runningCrc = updateCrc32(resourceTransfer.runningCrc,
+                                             binaryDecoded + 24, payloadLength);
+  resourceTransfer.received += payloadLength;
+  resourceTransfer.nextSequence++;
+
+  bool complete = resourceTransfer.nextSequence == resourceTransfer.totalChunks;
+  if (!complete) {
+    sendResourceAck(transferId, sequence, true);
+    return;
+  }
+  resourceTransfer.file.close();
+  bool valid = resourceTransfer.received == resourceTransfer.totalLength &&
+               ~resourceTransfer.runningCrc == resourceTransfer.wholeCrc;
+  if (valid) valid = commitResourceTransfer();
+  if (!valid) LittleFS.remove("/resource.new");
+  resourceTransfer.active = false;
+  lastCompletedTransferId = transferId;
+  lastCompletedSequence = sequence;
+  lastCompletedOk = valid;
+  sendResourceAck(transferId, sequence, valid);
+}
+
 void handleFrame(const String& line) {
   if (!line.startsWith(kPrefix)) return;
 
@@ -711,7 +896,27 @@ void handleFrame(const String& line) {
 
 void readSerial() {
   while (Serial.available() > 0) {
-    char value = static_cast<char>(Serial.read());
+    uint8_t raw = static_cast<uint8_t>(Serial.read());
+    if (raw == 0) {
+      if (!binaryCollecting) {
+        binaryCollecting = true;
+        binaryLength = 0;
+      } else {
+        if (binaryLength > 0) handleBinaryFrame(binaryEncoded, binaryLength);
+        binaryCollecting = false;
+        binaryLength = 0;
+      }
+      continue;
+    }
+    if (binaryCollecting) {
+      if (binaryLength < sizeof(binaryEncoded)) binaryEncoded[binaryLength++] = raw;
+      else {
+        binaryCollecting = false;
+        binaryLength = 0;
+      }
+      continue;
+    }
+    char value = static_cast<char>(raw);
     if (value == '\n') {
       inputLine.trim();
       if (!inputLine.isEmpty()) handleFrame(inputLine);
