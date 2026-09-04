@@ -33,7 +33,7 @@ AI-bot 是一个本地优先的 AI 状态桌面时钟。目标产品包含 Claud
 
 ```text
 windows-app/AIBotBridge/  Windows .NET 8 托盘桥接
-mac-app/                  macOS 菜单栏桥接（待独立重实现）
+mac-app/                  macOS 菜单栏桥接（独立基础已建，平台未验证）
 firmware/                 PlatformIO + Arduino ESP8266 固件
 docs/                     协议与开发说明
 ```
@@ -64,6 +64,17 @@ python -m platformio run -d firmware -t upload --upload-port COM7
 ```
 
 上传固件前退出 Windows 桥接，避免串口被占用。刷写后应验证握手、状态刷新和拔掉 USB 后的离线页面。
+
+## macOS
+
+当前源码包含菜单栏、Claude/Codex 活动状态、Keychain 配对令牌和认证 LAN `/status`。需在 macOS 13+ 验证：
+
+```bash
+swift test --package-path mac-app
+swift build -c release --package-path mac-app
+```
+
+当前 Windows 主机没有 Swift 工具链；Mac 端额度、天气、股票、系统监控、音乐、USB/资源、镜像和设备控制尚未完成，因此状态保持 `platform-unverified`。
 
 ## 隐私边界
 

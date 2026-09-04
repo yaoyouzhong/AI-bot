@@ -33,7 +33,7 @@ CJK weather/stock bitmaps, live-account quota validation, domestic WebView sign-
 
 ```text
 windows-app/AIBotBridge/  Windows .NET 8 tray bridge
-mac-app/                  macOS menu-bar bridge (independent rewrite pending)
+mac-app/                  macOS menu-bar bridge (independent foundation, platform-unverified)
 firmware/                 PlatformIO + Arduino ESP8266 firmware
 docs/                     Protocol and development documentation
 ```
@@ -60,6 +60,17 @@ python -m platformio run -d firmware -t upload --upload-port COM7
 ```
 
 Exit the Windows bridge before flashing so it releases the serial port. After flashing, verify the handshake, status refresh, and the offline page after USB is removed.
+
+## macOS
+
+The current Swift source includes a menu bar, Claude/Codex activity, a Keychain pairing token, and authenticated LAN `/status`. Validate it on macOS 13+:
+
+```bash
+swift test --package-path mac-app
+swift build -c release --package-path mac-app
+```
+
+The current Windows host has no Swift toolchain. Mac quota, weather, stock, system, music, USB/resource, mirror, and device-control work is still required, so this remains `platform-unverified`.
 
 ## Privacy boundary
 

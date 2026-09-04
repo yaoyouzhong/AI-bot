@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - Send pre-rendered CJK music text and cover RGB565 resources and render them row-by-row from LittleFS.
 - Add license-gated runtime pet image import, RGB565 conversion, USB transfer, and device rendering.
 - Add pre-rendered CJK weather text and paged stock-name resources with symbol fallback.
+- Add the independent macOS menu-bar, activity reader, Keychain pairing token, and authenticated LAN status foundation.
 
 ### Security
 

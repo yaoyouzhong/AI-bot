@@ -18,7 +18,7 @@
 | 设备控制 | partial | partial | planned | 认证模式/亮度/设备信息/Wi-Fi 重置已构建；完整 UI 和设备验收待完成 |
 | PC 离线独立时钟 | build-verified | build-verified | planned | 主机离线显示 `PC OFF`；NTP/保持时间可用；桥接恢复后还原页面 |
 | Windows 托盘和镜像 | partial | 不适用 | 不适用 | 基础分类菜单已构建；240×240 镜像、完整配置入口和启动项待完成 |
-| macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 源码与构建流程齐全；在真实 macOS 验证前不宣称可用 |
+| macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 菜单栏、活动状态、Keychain 令牌和认证 LAN 服务源码已建；其余能力及真实 Mac 构建待完成 |
 
 ## 完成定义
 

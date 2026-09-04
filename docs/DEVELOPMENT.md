@@ -37,3 +37,16 @@ windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe -
 ```
 
 The LAN self-test requires 401 for missing and incorrect tokens, then requires a version 1 snapshot for the correct synthetic token. The data self-test uses embedded synthetic responses. The live-data self-test uses a fixed public Beijing coordinate and the Shanghai Composite symbol; it deliberately does not read personal settings or write caches.
+
+## macOS
+
+`mac-app` is an independent Swift Package targeting macOS 13. Its current foundation uses AppKit for the menu bar, Security.framework for the pairing token, and Network.framework for the authenticated LAN status listener. Session activity is derived from `.jsonl` file metadata using the same 90-second/15-minute thresholds as Windows.
+
+Validation must run on macOS:
+
+```bash
+swift test --package-path mac-app
+swift build -c release --package-path mac-app
+```
+
+No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, music, USB/resource transport, mirror UI, and device controls remain required Mac scope.
