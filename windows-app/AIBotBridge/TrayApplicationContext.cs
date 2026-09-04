@@ -70,7 +70,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var lanServer = new LanStatusServer(pairing);
             _ = Task.Run(() => lanServer.RunAsync(_runtime.Capture, _shutdown.Token));
         }
-        _ = Task.Run(() => _serial.RunAsync(_runtime.Capture, _shutdown.Token));
+        _ = Task.Run(() => _serial.RunAsync(_runtime.Capture, _runtime.Resources, _shutdown.Token));
         RefreshTooltip(_runtime.Capture());
     }
 

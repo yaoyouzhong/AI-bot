@@ -78,6 +78,10 @@ internal static class DataSourceSelfTest
             BinaryResourceProtocol.Crc32("123456789"u8) != 0xCBF43926)
             throw new InvalidOperationException("COBS/CRC resource framing did not round-trip.");
 
+        var textBitmap = NowPlayingService.RenderTextBitmap("中文 Song", "Artist 歌手");
+        if (textBitmap.Length != 232 * 44 * 2 || textBitmap.All(value => value == 0))
+            throw new InvalidOperationException("Music text bitmap did not render expected RGB565 pixels.");
+
         Console.WriteLine("DATA_SOURCE_SELF_TEST_OK");
     }
 }

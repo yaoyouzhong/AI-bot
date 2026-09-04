@@ -67,6 +67,8 @@ Large resources use `NUL + COBS packet + NUL`, separate from JSON lines. A decod
 
 The device accepts chunks only in order, persists them to a temporary LittleFS file, and acknowledges each valid chunk with a JSON line. The final ACK is `ok=true` only after total length and whole-resource CRC pass and the new file replaces the prior resource. A lost ACK may cause the host to resend the same chunk; duplicate last-chunk acknowledgements are idempotent. The host retries each chunk at most three times.
 
+The current text bitmap is 232×44 RGB565 and the music cover is 112×112 RGB565. Pixels are stored little-endian so the ESP8266 can stream one native `uint16_t` row at a time without allocating a full-frame buffer.
+
 ```json
 {"version":1,"type":"resource_ack","transferId":305419896,"sequence":2,"ok":true}
 ```

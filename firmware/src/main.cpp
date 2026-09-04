@@ -562,6 +562,24 @@ void drawSystem() {
   screenDirty = false;
 }
 
+bool drawRgb565File(const char* path, int x, int y, int width, int height) {
+  File file = LittleFS.open(path, "r");
+  if (!file || file.size() != static_cast<size_t>(width * height * 2) || width > 232) {
+    if (file) file.close();
+    return false;
+  }
+  uint16_t row[232];
+  for (int line = 0; line < height; line++) {
+    if (file.read(reinterpret_cast<uint8_t*>(row), width * 2) != width * 2) {
+      file.close();
+      return false;
+    }
+    display.pushImage(x, y + line, width, 1, row);
+  }
+  file.close();
+  return true;
+}
+
 String durationText(float seconds) {
   int value = constrain(static_cast<int>(seconds), 0, 359999);
   int remainder = value % 60;
@@ -570,25 +588,33 @@ String durationText(float seconds) {
 
 void drawMusic() {
   display.fillScreen(TFT_BLACK);
-  drawCentered(music.playing ? "NOW PLAYING" : "MUSIC", 10, 2,
+  drawCentered(music.playing ? "NOW PLAYING" : "MUSIC", 4, 2,
                music.playing ? TFT_GREEN : TFT_DARKGREY);
   if (!music.available) {
     drawCentered("No active session", 108, 2, TFT_DARKGREY);
     screenDirty = false;
     return;
   }
-  drawCentered(music.title.substring(0, 25), 58, 2, TFT_WHITE);
-  drawCentered(music.artist.substring(0, 28), 88, 2, TFT_LIGHTGREY);
+  bool hasCover = drawRgb565File("/cover.rgb565", 64, 25, 112, 112);
+  if (!hasCover) {
+    display.drawRoundRect(64, 25, 112, 112, 8, TFT_DARKGREY);
+    drawCentered("NO COVER", 75, 2, TFT_DARKGREY);
+  }
+  bool hasText = drawRgb565File("/text.rgb565", 4, 142, 232, 44);
+  if (!hasText) {
+    drawCentered(music.title.substring(0, 25), 146, 2, TFT_WHITE);
+    drawCentered(music.artist.substring(0, 28), 168, 1, TFT_LIGHTGREY);
+  }
   float ratio = music.durationSeconds > 0
       ? constrain(music.elapsedSeconds / music.durationSeconds, 0.0f, 1.0f) : 0;
-  display.drawRect(18, 142, 204, 10, TFT_DARKGREY);
-  display.fillRect(20, 144, static_cast<int>(200 * ratio), 6, TFT_CYAN);
+  display.drawRect(18, 192, 204, 8, TFT_DARKGREY);
+  display.fillRect(20, 194, static_cast<int>(200 * ratio), 4, TFT_CYAN);
   display.setTextDatum(TL_DATUM);
   display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  display.drawString(durationText(music.elapsedSeconds), 18, 164, 2);
+  display.drawString(durationText(music.elapsedSeconds), 18, 207, 1);
   display.setTextDatum(TR_DATUM);
-  display.drawString(durationText(music.durationSeconds), 222, 164, 2);
-  drawCentered(music.playing ? "PLAY" : "PAUSE", 205, 2,
+  display.drawString(durationText(music.durationSeconds), 222, 207, 1);
+  drawCentered(music.playing ? "PLAY" : "PAUSE", 222, 1,
                music.playing ? TFT_GREEN : TFT_YELLOW);
   screenDirty = false;
 }
@@ -825,6 +851,7 @@ void handleBinaryFrame(const uint8_t* encoded, size_t encodedLength) {
                ~resourceTransfer.runningCrc == resourceTransfer.wholeCrc;
   if (valid) valid = commitResourceTransfer();
   if (!valid) LittleFS.remove("/resource.new");
+  if (valid) screenDirty = true;
   resourceTransfer.active = false;
   lastCompletedTransferId = transferId;
   lastCompletedSequence = sequence;

@@ -19,6 +19,8 @@ internal sealed record BinaryResourceChunk(
     byte[] Payload,
     byte[] WireBytes);
 
+internal sealed record ResourcePayload(BinaryResourceKind Kind, int Revision, byte[] Data);
+
 internal static class BinaryResourceProtocol
 {
     internal const int MaxPayload = 768;

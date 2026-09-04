@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Add the original geometric `BYTE SPROUT` activity pet without imported sprite assets.
 - Wake automatic screen saving temporarily for new AI work or music, then restore the prior mode after input.
 - Add COBS binary-resource framing, per-chunk and whole CRC32, ACK retry, and validated LittleFS replacement.
+- Send pre-rendered CJK music text and cover RGB565 resources and render them row-by-row from LittleFS.
 
 ### Security
 

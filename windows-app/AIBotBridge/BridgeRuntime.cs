@@ -44,6 +44,8 @@ internal sealed class BridgeRuntime : IDisposable
         };
     }
 
+    internal IReadOnlyList<ResourcePayload> Resources() => _music.Resources;
+
     public void Dispose()
     {
         _shutdown.Cancel();

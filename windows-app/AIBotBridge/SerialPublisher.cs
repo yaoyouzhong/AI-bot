@@ -56,7 +56,8 @@ internal sealed class SerialPublisher
         }
     }
 
-    internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
+    internal async Task RunAsync(Func<StatusSnapshot> snapshot,
+        Func<IReadOnlyList<ResourcePayload>> resources, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -78,6 +79,7 @@ internal sealed class SerialPublisher
 
                     _portName = candidate;
                     lock (_portSync) _activePort = port;
+                    var sentRevisions = new Dictionary<BinaryResourceKind, int>();
                     if (_pairing is not null)
                     {
                         var pairingFrame = new
@@ -95,6 +97,13 @@ internal sealed class SerialPublisher
                     }
                     while (!cancellationToken.IsCancellationRequested && port.IsOpen)
                     {
+                        foreach (var resource in resources())
+                        {
+                            if (sentRevisions.TryGetValue(resource.Kind, out var revision) &&
+                                revision == resource.Revision) continue;
+                            if (SendResource(resource.Kind, resource.Data))
+                                sentRevisions[resource.Kind] = resource.Revision;
+                        }
                         var frame = new
                         {
                             version = 1,
