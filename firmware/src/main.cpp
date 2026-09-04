@@ -20,8 +20,8 @@ constexpr char kPrefix[] = "@AIBOT ";
 constexpr char kConfigPath[] = "/bridge.json";
 constexpr char kBrightnessPath[] = "/brightness.txt";
 
-enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, Music, ScreenSaver };
-enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, Music, ScreenSaver };
+enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver };
+enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver };
 
 struct BridgeConfig {
   String host;
@@ -130,6 +130,7 @@ int32_t utcOffsetSeconds = 8 * 3600;
 int brightness = 100;
 int lastClockSecond = -1;
 int lastStockPageTick = -1;
+int lastPetFrame = -1;
 RenderPage lastRenderedPage = RenderPage::ScreenSaver;
 bool showingOffline = false;
 bool adminStarted = false;
@@ -568,6 +569,48 @@ void drawMusic() {
   screenDirty = false;
 }
 
+void drawPixelPetBody(int x, int y, bool step, bool working) {
+  uint16_t shell = working ? TFT_CYAN : TFT_DARKGREY;
+  display.fillRect(x + 27, y, 4, 10, shell);
+  display.fillRect(x + 23, y, 12, 4, shell);
+  display.fillRoundRect(x + 8, y + 10, 42, 35, 5, shell);
+  display.fillRect(x + 14, y + 17, 30, 19, TFT_BLACK);
+  display.fillRect(x + 20, y + 23, 5, 6, working ? TFT_GREEN : TFT_LIGHTGREY);
+  display.fillRect(x + 34, y + 23, 5, 6, working ? TFT_GREEN : TFT_LIGHTGREY);
+  display.fillRoundRect(x + 12, y + 48, 34, 42, 5, shell);
+  display.fillRect(x + 20, y + 59, 18, 5, TFT_BLACK);
+  display.fillRect(x + 5, y + 54, 7, 27, shell);
+  display.fillRect(x + 46, y + 54, 7, 27, shell);
+  int leftFoot = step ? 6 : 15;
+  int rightFoot = step ? 32 : 41;
+  display.fillRect(x + leftFoot, y + 90, 17, 8, shell);
+  display.fillRect(x + rightFoot, y + 90, 17, 8, shell);
+}
+
+void drawPet() {
+  bool working = codexState == "working" || claudeState == "working";
+  int frame = working ? static_cast<int>(millis() / 180) : 0;
+  if (!screenDirty && frame == lastPetFrame) return;
+  lastPetFrame = frame;
+  bool step = (frame & 1) != 0;
+  int x = 91;
+  if (working) {
+    int travel = frame % 56;
+    if (travel > 28) travel = 56 - travel;
+    x = 16 + travel * 5;
+  }
+
+  display.fillScreen(TFT_BLACK);
+  drawCentered("BYTE SPROUT", 12, 2, working ? TFT_GREEN : TFT_CYAN);
+  drawPixelPetBody(x, 54, step, working);
+  drawCentered(working ? "WORKING" : "IDLE", 180, 2,
+               working ? TFT_GREEN : TFT_YELLOW);
+  String owner = codexState == "working" && claudeState == "working" ? "CODEX + CLAUDE"
+      : codexState == "working" ? "CODEX" : claudeState == "working" ? "CLAUDE" : "READY";
+  drawCentered(owner, 207, 2, TFT_LIGHTGREY);
+  screenDirty = false;
+}
+
 void drawOffline() {
   int second = static_cast<int>(currentEpochUtc() % 60);
   if (showingOffline && second == lastClockSecond) return;
@@ -646,6 +689,7 @@ void handleFrame(const String& line) {
                 : mode == "domestic" ? DisplayMode::Domestic
                 : mode == "system" ? DisplayMode::System
                 : mode == "music" ? DisplayMode::Music
+                : mode == "pet" ? DisplayMode::Pet
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     return;
@@ -715,6 +759,7 @@ String displayModeName() {
   if (displayMode == DisplayMode::Domestic) return "domestic";
   if (displayMode == DisplayMode::System) return "system";
   if (displayMode == DisplayMode::Music) return "music";
+  if (displayMode == DisplayMode::Pet) return "pet";
   if (displayMode == DisplayMode::Dual) return "dual";
   return "auto";
 }
@@ -746,6 +791,7 @@ void startAdminServer() {
                 : mode == "domestic" ? DisplayMode::Domestic
                 : mode == "system" ? DisplayMode::System
                 : mode == "music" ? DisplayMode::Music
+                : mode == "pet" ? DisplayMode::Pet
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     admin.send(200, "application/json", "{\"ok\":true}");
@@ -807,13 +853,15 @@ RenderPage desiredPage() {
   if (displayMode == DisplayMode::Domestic) return RenderPage::Domestic;
   if (displayMode == DisplayMode::System) return RenderPage::System;
   if (displayMode == DisplayMode::Music) return RenderPage::Music;
+  if (displayMode == DisplayMode::Pet) return RenderPage::Pet;
   if (displayMode == DisplayMode::Dual) return RenderPage::Dashboard;
 
   if (music.playing) return RenderPage::Music;
 
-  RenderPage pages[7];
+  RenderPage pages[8];
   int count = 0;
   pages[count++] = RenderPage::Dashboard;
+  pages[count++] = RenderPage::Pet;
   if (weather.available) pages[count++] = RenderPage::Weather;
   if (stockCount > 0) pages[count++] = RenderPage::Stocks;
   if (claudeQuota.available || codexQuota.available) pages[count++] = RenderPage::Quotas;
@@ -838,6 +886,7 @@ void renderCurrentPage() {
   else if (page == RenderPage::Domestic) drawDomestic();
   else if (page == RenderPage::System) drawSystem();
   else if (page == RenderPage::Music) drawMusic();
+  else if (page == RenderPage::Pet) drawPet();
   else if (screenDirty) drawDashboard();
 }
 

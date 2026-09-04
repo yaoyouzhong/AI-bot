@@ -9,3 +9,5 @@ Some later functionality in the earlier fork has commits authored by the AI-bot 
 Third-party libraries are consumed through their normal package managers and retain their own licenses. See `THIRD_PARTY_NOTICES.md`.
 
 Claude, Codex, OpenAI, Anthropic, and other product names may be referenced only to describe interoperability. AI-bot is not affiliated with or endorsed by those vendors. No vendor logo is distributed by this repository.
+
+The built-in `BYTE SPROUT` pixel pet is drawn from geometric primitives in AI-bot firmware. It does not contain or derive from an imported sprite, screenshot, character, or logo.

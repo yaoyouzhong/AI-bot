@@ -37,6 +37,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         AddDisplayMode(displayMenu, "国产额度", "domestic");
         AddDisplayMode(displayMenu, "系统监控", "system");
         AddDisplayMode(displayMenu, "音乐", "music");
+        AddDisplayMode(displayMenu, "桌宠", "pet");
         AddDisplayMode(displayMenu, "屏保", "screensaver");
         menu.Items.Add(displayMenu);
         menu.Items.Add(new ToolStripSeparator());

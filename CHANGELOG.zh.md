@@ -13,6 +13,7 @@
 - 新增阿里/Kimi/MiniMax/DeepSeek 额度解析、MiniMax API 刷新和设备总览页面。
 - 新增 Windows CPU、内存、上下行速率实测和设备系统监控页面。
 - 新增 Windows 媒体会话信息、播放进度、音乐页面和 AUTO 播放覆盖。
+- 新增不依赖导入精灵图的原创建模桌宠 `BYTE SPROUT`。
 
 ### 安全
 
