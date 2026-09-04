@@ -20,13 +20,41 @@ constexpr char kPrefix[] = "@AIBOT ";
 constexpr char kConfigPath[] = "/bridge.json";
 constexpr char kBrightnessPath[] = "/brightness.txt";
 
-enum class DisplayMode { Auto, Dual, ScreenSaver };
+enum class DisplayMode { Auto, Dual, Weather, Stocks, ScreenSaver };
+enum class RenderPage { Dashboard, Weather, Stocks, ScreenSaver };
 
 struct BridgeConfig {
   String host;
   uint16_t port = 8765;
   String token;
 };
+
+struct WeatherState {
+  String city;
+  String condition;
+  float temperature = 0;
+  float high = 0;
+  float low = 0;
+  float pm25 = -1;
+  int humidity = 0;
+  int airQuality = -1;
+  bool stale = true;
+  bool available = false;
+};
+
+struct StockRow {
+  String code;
+  String price;
+  String percent;
+  int trend = 0;
+};
+
+constexpr int kMaxStocks = 20;
+constexpr int kStocksPerPage = 4;
+WeatherState weather;
+StockRow stocks[kMaxStocks];
+int stockCount = 0;
+int stockPage = 0;
 
 TFT_eSPI display;
 ESP8266WebServer admin(80);
@@ -46,6 +74,8 @@ uint32_t clockSyncedAt = 0;
 int32_t utcOffsetSeconds = 8 * 3600;
 int brightness = 100;
 int lastClockSecond = -1;
+int lastStockPageTick = -1;
+RenderPage lastRenderedPage = RenderPage::ScreenSaver;
 bool showingOffline = false;
 bool adminStarted = false;
 bool portalStarted = false;
@@ -147,7 +177,7 @@ void drawTool(const char* label, const char* state, int y) {
   display.drawRightString(state, 218, y, 2);
 }
 
-void drawStatus(JsonObjectConst data) {
+void updateStatus(JsonObjectConst data) {
   codexState = data["codex"]["state"] | "offline";
   claudeState = data["claude"]["state"] | "offline";
   uint32_t epoch = data["epochUtc"] | 0;
@@ -157,6 +187,38 @@ void drawStatus(JsonObjectConst data) {
     utcOffsetSeconds = data["utcOffsetSeconds"] | utcOffsetSeconds;
   }
 
+  if (data["weather"].is<JsonObject>()) {
+    JsonObjectConst value = data["weather"].as<JsonObjectConst>();
+    weather.city = value["city"] | "";
+    weather.condition = value["condition"] | "";
+    weather.temperature = value["temperature"] | 0.0f;
+    weather.high = value["high"] | 0.0f;
+    weather.low = value["low"] | 0.0f;
+    weather.humidity = value["humidity"] | 0;
+    weather.pm25 = value["pm25"] | -1.0f;
+    weather.airQuality = value["airQualityIndex"] | -1;
+    weather.stale = value["stale"] | true;
+    weather.available = true;
+  }
+
+  if (data["stocks"]["quotes"].is<JsonArray>()) {
+    stockCount = 0;
+    for (JsonObjectConst quote : data["stocks"]["quotes"].as<JsonArrayConst>()) {
+      if (stockCount >= kMaxStocks) break;
+      stocks[stockCount].code = quote["code"] | "";
+      stocks[stockCount].price = quote["price"] | "";
+      stocks[stockCount].percent = quote["changePercent"] | "";
+      stocks[stockCount].trend = quote["trend"] | 0;
+      stockCount++;
+    }
+    int pages = max(1, (stockCount + kStocksPerPage - 1) / kStocksPerPage);
+    if (stockPage >= pages) stockPage = 0;
+  }
+  screenDirty = true;
+  showingOffline = false;
+}
+
+void drawDashboard() {
   display.fillScreen(TFT_BLACK);
   drawCentered("AI-bot", 20, 4, TFT_CYAN);
   drawCentered(clockText(), 75, 4, TFT_WHITE);
@@ -164,6 +226,78 @@ void drawStatus(JsonObjectConst data) {
   drawTool("CODEX", codexState.c_str(), 148);
   drawTool("CLAUDE", claudeState.c_str(), 182);
   showingOffline = false;
+  screenDirty = false;
+}
+
+void drawWeather() {
+  display.fillScreen(TFT_BLACK);
+  drawCentered("WEATHER", 10, 2, TFT_CYAN);
+  drawCentered(clockText(false), 34, 4, TFT_WHITE);
+  if (!weather.available) {
+    drawCentered("Waiting for data", 116, 2, TFT_DARKGREY);
+    screenDirty = false;
+    return;
+  }
+
+  String temperature = String(static_cast<int>(roundf(weather.temperature))) + " C";
+  drawCentered(temperature, 82, 4, TFT_ORANGE);
+  drawCentered(String(static_cast<int>(roundf(weather.low))) + " / " +
+               String(static_cast<int>(roundf(weather.high))), 126, 2, TFT_LIGHTGREY);
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_GREEN, TFT_BLACK);
+  display.drawString("HUMID", 24, 164, 2);
+  display.setTextDatum(TR_DATUM);
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.drawString(String(weather.humidity) + "%", 216, 164, 2);
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_YELLOW, TFT_BLACK);
+  display.drawString("PM2.5", 24, 194, 2);
+  display.setTextDatum(TR_DATUM);
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.drawString(weather.pm25 >= 0 ? String(weather.pm25, 1) : "--", 216, 194, 2);
+  if (weather.stale) {
+    display.setTextColor(TFT_ORANGE, TFT_BLACK);
+    display.drawString("STALE", 216, 220, 1);
+  }
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  display.drawString("OPEN-METEO", 6, 226, 1);
+  screenDirty = false;
+}
+
+void drawStocks() {
+  int pages = max(1, (stockCount + kStocksPerPage - 1) / kStocksPerPage);
+  int tick = static_cast<int>((millis() / 5000) % pages);
+  if (tick != lastStockPageTick) {
+    stockPage = tick;
+    lastStockPageTick = tick;
+    screenDirty = true;
+  }
+  if (!screenDirty) return;
+
+  display.fillScreen(TFT_BLACK);
+  drawCentered(pages > 1 ? "STOCKS " + String(stockPage + 1) + "/" + String(pages) : "STOCKS",
+               6, 2, TFT_CYAN);
+  if (stockCount == 0) {
+    drawCentered("Waiting for data", 110, 2, TFT_DARKGREY);
+    screenDirty = false;
+    return;
+  }
+
+  int start = stockPage * kStocksPerPage;
+  for (int row = 0; row < kStocksPerPage && start + row < stockCount; row++) {
+    StockRow& quote = stocks[start + row];
+    int y = 38 + row * 49;
+    display.setTextDatum(TL_DATUM);
+    display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    display.drawString(quote.code, 12, y, 2);
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    display.drawString(quote.price, 12, y + 21, 2);
+    display.setTextDatum(TR_DATUM);
+    uint16_t color = quote.trend > 0 ? TFT_RED : quote.trend < 0 ? TFT_GREEN : TFT_LIGHTGREY;
+    display.setTextColor(color, TFT_BLACK);
+    display.drawString(quote.percent, 228, y + 21, 2);
+  }
   screenDirty = false;
 }
 
@@ -217,7 +351,7 @@ void handleFrame(const String& line) {
   }
 
   if (strcmp(type, "status") == 0 && document["data"].is<JsonObject>()) {
-    drawStatus(document["data"].as<JsonObjectConst>());
+    updateStatus(document["data"].as<JsonObjectConst>());
     lastUsbStatusAt = millis();
     lastBridgeStatusAt = millis();
     return;
@@ -239,6 +373,8 @@ void handleFrame(const String& line) {
   if (strcmp(type, "display") == 0) {
     String mode = document["mode"] | "auto";
     displayMode = mode == "screensaver" ? DisplayMode::ScreenSaver
+                : mode == "weather" ? DisplayMode::Weather
+                : mode == "stocks" ? DisplayMode::Stocks
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     return;
@@ -266,7 +402,7 @@ void readSerial() {
       if (!inputLine.isEmpty()) handleFrame(inputLine);
       inputLine.clear();
     } else if (value != '\r') {
-      if (inputLine.length() < 1024) inputLine += value;
+      if (inputLine.length() < 6144) inputLine += value;
       else inputLine.clear();
     }
   }
@@ -287,7 +423,7 @@ void pollBridge() {
   if (status == HTTP_CODE_OK) {
     JsonDocument document;
     if (!deserializeJson(document, http.getStream()) && document["version"].as<int>() == 1) {
-      drawStatus(document.as<JsonObjectConst>());
+      updateStatus(document.as<JsonObjectConst>());
       lastBridgeStatusAt = millis();
     }
   }
@@ -302,6 +438,8 @@ bool authorizeAdmin() {
 
 String displayModeName() {
   if (displayMode == DisplayMode::ScreenSaver) return "screensaver";
+  if (displayMode == DisplayMode::Weather) return "weather";
+  if (displayMode == DisplayMode::Stocks) return "stocks";
   if (displayMode == DisplayMode::Dual) return "dual";
   return "auto";
 }
@@ -327,6 +465,8 @@ void startAdminServer() {
     if (!authorizeAdmin()) return;
     String mode = admin.arg("mode");
     displayMode = mode == "screensaver" ? DisplayMode::ScreenSaver
+                : mode == "weather" ? DisplayMode::Weather
+                : mode == "stocks" ? DisplayMode::Stocks
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     admin.send(200, "application/json", "{\"ok\":true}");
@@ -380,6 +520,33 @@ void serviceWiFi() {
   if (portalStarted) wifiManager.process();
 }
 
+RenderPage desiredPage() {
+  if (displayMode == DisplayMode::ScreenSaver) return RenderPage::ScreenSaver;
+  if (displayMode == DisplayMode::Weather) return RenderPage::Weather;
+  if (displayMode == DisplayMode::Stocks) return RenderPage::Stocks;
+  if (displayMode == DisplayMode::Dual) return RenderPage::Dashboard;
+
+  RenderPage pages[3];
+  int count = 0;
+  pages[count++] = RenderPage::Dashboard;
+  if (weather.available) pages[count++] = RenderPage::Weather;
+  if (stockCount > 0) pages[count++] = RenderPage::Stocks;
+  return pages[(millis() / 15000) % count];
+}
+
+void renderCurrentPage() {
+  RenderPage page = desiredPage();
+  if (page != lastRenderedPage) {
+    lastRenderedPage = page;
+    screenDirty = true;
+  }
+  if (page == RenderPage::ScreenSaver) drawScreenSaver();
+  else if (!bridgeFresh()) drawOffline();
+  else if (page == RenderPage::Weather) drawWeather();
+  else if (page == RenderPage::Stocks) drawStocks();
+  else if (screenDirty) drawDashboard();
+}
+
 }  // namespace
 
 void setup() {
@@ -409,18 +576,7 @@ void loop() {
   serviceWiFi();
   pollBridge();
 
-  if (displayMode == DisplayMode::ScreenSaver) {
-    drawScreenSaver();
-  } else if (!bridgeFresh()) {
-    drawOffline();
-  } else if (screenDirty) {
-    JsonDocument snapshot;
-    snapshot["epochUtc"] = currentEpochUtc();
-    snapshot["utcOffsetSeconds"] = utcOffsetSeconds;
-    snapshot["codex"]["state"] = codexState;
-    snapshot["claude"]["state"] = claudeState;
-    drawStatus(snapshot.as<JsonObjectConst>());
-  }
+  renderCurrentPage();
 
   if (!usbFresh() && millis() - lastHelloAt >= kHelloIntervalMs) {
     lastHelloAt = millis();

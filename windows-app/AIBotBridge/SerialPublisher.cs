@@ -6,7 +6,9 @@ namespace AIBotBridge;
 internal sealed class SerialPublisher
 {
     private const string Prefix = "@AIBOT ";
+    private readonly object _portSync = new();
     private volatile string? _portName;
+    private SerialPort? _activePort;
     private readonly LanPairing? _pairing;
 
     internal SerialPublisher(LanPairing? pairing)
@@ -15,6 +17,22 @@ internal sealed class SerialPublisher
     }
 
     internal string? PortName => _portName;
+
+    internal bool SendDisplayMode(string mode) => TrySend(new
+    {
+        version = 1,
+        type = "display",
+        mode
+    });
+
+    internal void NotifyHostGoingAway()
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            TrySend(new { version = 1, type = "host_going_away" });
+            if (attempt < 2) Thread.Sleep(25);
+        }
+    }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
     {
@@ -37,6 +55,7 @@ internal sealed class SerialPublisher
                         continue;
 
                     _portName = candidate;
+                    lock (_portSync) _activePort = port;
                     if (_pairing is not null)
                     {
                         var pairingFrame = new
@@ -50,7 +69,7 @@ internal sealed class SerialPublisher
                                 token = _pairing.Token
                             }
                         };
-                        port.WriteLine(Prefix + JsonSerializer.Serialize(pairingFrame, JsonDefaults.Options));
+                        Write(port, pairingFrame);
                     }
                     while (!cancellationToken.IsCancellationRequested && port.IsOpen)
                     {
@@ -60,9 +79,9 @@ internal sealed class SerialPublisher
                             type = "status",
                             data = snapshot()
                         };
-                        port.WriteLine(Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options));
-                        if (port.BytesToRead > 0)
-                            port.ReadExisting();
+                        Write(port, frame);
+                        lock (_portSync)
+                            if (port.IsOpen && port.BytesToRead > 0) port.ReadExisting();
                         await Task.Delay(2000, cancellationToken);
                     }
                 }
@@ -77,12 +96,38 @@ internal sealed class SerialPublisher
                 }
                 finally
                 {
+                    lock (_portSync)
+                        if (ReferenceEquals(_activePort, port)) _activePort = null;
                     _portName = null;
                 }
             }
 
             await Task.Delay(3000, cancellationToken);
         }
+    }
+
+    private bool TrySend(object frame)
+    {
+        lock (_portSync)
+        {
+            if (_activePort?.IsOpen != true) return false;
+            try
+            {
+                _activePort.WriteLine(Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options));
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or TimeoutException)
+            {
+                return false;
+            }
+        }
+    }
+
+    private void Write(SerialPort port, object frame)
+    {
+        lock (_portSync)
+            if (port.IsOpen)
+                port.WriteLine(Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options));
     }
 
     private static SerialPort CreatePort(string name) => new(name, 460800)

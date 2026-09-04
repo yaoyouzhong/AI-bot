@@ -4,6 +4,33 @@ namespace AIBotBridge;
 
 internal sealed record ToolState(string State, long? AgeSeconds);
 
+internal sealed record WeatherSnapshot(
+    string City,
+    string Condition,
+    double Temperature,
+    double High,
+    double Low,
+    int Humidity,
+    int WeatherCode,
+    double? Pm25,
+    int? AirQualityIndex,
+    string Source,
+    DateTimeOffset UpdatedAt,
+    bool Stale);
+
+internal sealed record StockQuote(
+    string Symbol,
+    string Code,
+    string Name,
+    string Price,
+    string ChangePercent,
+    int Trend);
+
+internal sealed record StockSnapshot(
+    IReadOnlyList<StockQuote> Quotes,
+    DateTimeOffset UpdatedAt,
+    bool Stale);
+
 internal sealed record StatusSnapshot(
     int Version,
     string Time,
@@ -12,13 +39,16 @@ internal sealed record StatusSnapshot(
     DateTimeOffset CapturedAt,
     ToolState Codex,
     ToolState Claude,
-    bool MusicPlaying = false);
+    bool MusicPlaying = false,
+    WeatherSnapshot? Weather = null,
+    StockSnapshot? Stocks = null);
 
 internal static class JsonDefaults
 {
     internal static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
         WriteIndented = false
     };
 }

@@ -21,10 +21,12 @@ The device may also emit a `hello` frame while it has not received status.
 ## Status
 
 ```json
-{"version":1,"type":"status","data":{"time":"14:30:05","codex":{"state":"working","age_seconds":2},"claude":{"state":"idle","age_seconds":185}}}
+{"version":1,"type":"status","data":{"time":"14:30:05","epochUtc":1788503405,"utcOffsetSeconds":28800,"codex":{"state":"working","ageSeconds":2},"claude":{"state":"idle","ageSeconds":185},"weather":null,"stocks":null}}
 ```
 
 Allowed states are `working`, `idle`, and `offline`. Unknown values render as `offline`. The device enters its offline page when no valid status frame is received for eight seconds.
+
+`weather` is either null or the last available temperature, daily range, humidity, WMO code, PM2.5, AQI, source, update time, and stale flag. `stocks` is either null or an ordered quote array containing symbol, display code, name, price, signed change percentage, trend, update time, and stale flag. Receivers must tolerate either optional payload being absent.
 
 ## Compatibility
 

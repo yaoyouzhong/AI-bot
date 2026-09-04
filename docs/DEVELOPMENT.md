@@ -6,6 +6,8 @@
 
 Firmware parses only prefixed version 1 frames. A fresh USB status frame always wins. After eight seconds without USB status it polls the paired LAN endpoint with `X-AIBot-Token`; if neither path is fresh, it keeps time from the latest bridge epoch or NTP and displays `PC OFF`. The selected display mode is not replaced by a transport failure.
 
+`BridgeRuntime` owns the longer-lived data sources and exposes one immutable snapshot to loopback HTTP, authenticated LAN HTTP, USB, the tray, and diagnostics. `WeatherService` refreshes Open-Meteo every 15 minutes; `StockService` refreshes configured A/H/US symbols every five seconds. Both replace their cache only after a successful parse and return the last successful snapshot with `stale=true` after failure.
+
 The model is deliberately narrow: routing, retries, timeouts, framing, and state thresholds remain deterministic code.
 
 ## State thresholds
@@ -30,6 +32,8 @@ The authenticated LAN listener can be checked without exposing a real token:
 
 ```powershell
 windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-lan
+windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-data
+windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-live-data
 ```
 
-The self-test requires 401 for missing and incorrect tokens, then requires a version 1 snapshot for the correct synthetic token.
+The LAN self-test requires 401 for missing and incorrect tokens, then requires a version 1 snapshot for the correct synthetic token. The data self-test uses embedded synthetic responses. The live-data self-test uses a fixed public Beijing coordinate and the Shanghai Composite symbol; it deliberately does not read personal settings or write caches.

@@ -10,10 +10,14 @@ Version `0.1.0` is an independent development baseline. It currently completes o
 - Exposes a read-only local endpoint at `127.0.0.1:8765/status`.
 - Uses USB serial at 460800 baud.
 - Implements ESP8266 handshake, rendering, and an eight-second offline state.
+- Adds token-authenticated Wi-Fi fallback, NTP/holdover time, and a `PC OFF` standalone clock.
+- Adds Open-Meteo weather and A/H/US quote data with last-successful caches.
+- Adds numeric weather/stock pages, 15-second cycling, and four-row stock paging.
+- Adds tray display controls and an idle-time-driven Windows screen saver.
 - Does not read or upload OAuth tokens, API keys, cookies, or conversation content.
 - Includes Windows and firmware CI plus tag-driven release scaffolding.
 
-Weather, stocks, account quotas, domestic quotas, pets, the screen saver, Wi-Fi fallback, and macOS are in the mandatory acceptance scope but are not yet all implemented. This README describes only currently implemented behavior; use the parity contract for progress.
+CJK weather/stock bitmaps, account quotas, domestic quotas, pets, binary resources, the complete mirror, and macOS are still incomplete and remain mandatory acceptance scope. This README describes only current behavior; use the parity contract for progress. Weather and stocks send user configuration to their respective providers; see [data sources and privacy](docs/DATA_SOURCES.md).
 
 ## Layout
 

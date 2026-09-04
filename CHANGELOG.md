@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Features
+
+- Add authenticated USB-provisioned Wi-Fi fallback and standalone clock behavior.
+- Add Open-Meteo weather and A/H/US stock data with last-successful caches.
+- Add weather/stock device pages, automatic cycling, paging, and Windows screen-saver control.
+
+### Security
+
+- Bind the device endpoint to one private adapter and require a DPAPI-protected pairing token.
+
 ## 0.1.0 - 2026-09-04
 
 ### Features

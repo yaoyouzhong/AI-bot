@@ -12,6 +12,20 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--self-test-live-data", StringComparer.OrdinalIgnoreCase))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            LiveDataSelfTest.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Contains("--self-test-data", StringComparer.OrdinalIgnoreCase))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            DataSourceSelfTest.Run();
+            return;
+        }
+
         if (args.Contains("--self-test-lan", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;
@@ -22,8 +36,9 @@ internal static class Program
         if (args.Contains("--status-once", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;
+            using var runtime = new BridgeRuntime(startRefresh: false);
             Console.WriteLine(JsonSerializer.Serialize(
-                SessionActivityReader.Capture(), JsonDefaults.Options));
+                runtime.Capture(), JsonDefaults.Options));
             return;
         }
 
