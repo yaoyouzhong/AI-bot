@@ -82,6 +82,12 @@ internal static class DataSourceSelfTest
         if (textBitmap.Length != 232 * 44 * 2 || textBitmap.All(value => value == 0))
             throw new InvalidOperationException("Music text bitmap did not render expected RGB565 pixels.");
 
+        using var pixel = new Bitmap(1, 1);
+        pixel.SetPixel(0, 0, Color.Red);
+        var rgb565 = PetAssetImporter.EncodeRgb565(pixel);
+        if (rgb565.Length != 2 || rgb565[0] != 0 || rgb565[1] != 0xF8)
+            throw new InvalidOperationException("RGB565 pet encoding did not preserve channel order.");
+
         Console.WriteLine("DATA_SOURCE_SELF_TEST_OK");
     }
 }

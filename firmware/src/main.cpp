@@ -652,7 +652,11 @@ void drawPet() {
 
   display.fillScreen(TFT_BLACK);
   drawCentered("BYTE SPROUT", 12, 2, working ? TFT_GREEN : TFT_CYAN);
-  drawPixelPetBody(x, 54, step, working);
+  bool externalPet = drawRgb565File("/pet.asset", 64, 49, 112, 112);
+  if (externalPet)
+    display.drawRoundRect(62, 47, 116, 116, 4, working ? TFT_GREEN : TFT_DARKGREY);
+  else
+    drawPixelPetBody(x, 54, step, working);
   drawCentered(working ? "WORKING" : "IDLE", 180, 2,
                working ? TFT_GREEN : TFT_YELLOW);
   String owner = codexState == "working" && claudeState == "working" ? "CODEX + CLAUDE"

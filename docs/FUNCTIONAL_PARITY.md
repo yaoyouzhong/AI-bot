@@ -11,7 +11,7 @@
 | 股票 | partial | partial | planned | A/H/美股解析、缓存、涨跌色和分页已构建；中文名称位图及设备显示待验收 |
 | 系统监控 | build-verified | build-verified | planned | Windows 实际取样与固件页面已构建；设备端数值仍需实机核对 |
 | 音乐 | partial | partial | planned | 媒体会话、中文文本位图、封面、进度和 AUTO 切换已构建；真实歌曲与设备显示待验收 |
-| 桌宠 | partial | partial | planned | 原创建模 `BYTE SPROUT` 工作/空闲动画已构建；外部兼容许可素材选择、上传与设备验收待完成 |
+| 桌宠 | partial | partial | planned | 原创建模动画、许可文件门槛、外部图片转换/上传/渲染已构建；真实 USB 与设备显示待验收 |
 | 屏保 | partial | partial | planned | 手动模式、空闲进入/恢复、独立时钟和 AI/音乐事件临时唤醒已构建；设备时序待验收 |
 | USB 优先 | partial | partial | planned | 460800 握手、小帧、大资源协议及音乐资源调用链已构建；真实串口传输待验收 |
 | Wi-Fi 回退 | build-verified | build-verified | planned | USB 心跳失效 8 秒后转带配对令牌的 HTTP；USB 恢复后无人工干预切回 |

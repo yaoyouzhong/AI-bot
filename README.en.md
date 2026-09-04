@@ -21,6 +21,7 @@ Version `0.1.0` is an independent development baseline. It currently completes o
 - Supports manual and idle-triggered screen saving, temporary AI/music event wake, and restoration after user input.
 - Implements COBS resource chunks, per-chunk and whole CRC32, ACK/retry, and validated LittleFS replacement.
 - Pre-renders a 232×44 CJK title/artist bitmap and 112×112 cover on track changes, transfers them reliably, and streams rows on-device.
+- Imports a PNG/JPEG/BMP/GIF pet only beside a license notice, converts it to 112×112 RGB565, and sends it over USB without adding the source asset to the repository.
 - Adds tray display controls and an idle-time-driven Windows screen saver.
 - Does not read conversation content. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
 - Includes Windows and firmware CI plus tag-driven release scaffolding.
@@ -65,4 +66,4 @@ The bridge checks only session-log modification times and does not read conversa
 
 ## License
 
-AI-bot source is available under the [MIT License](LICENSE). Dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). See [PROVENANCE.md](PROVENANCE.md) for origin details.
+AI-bot source is available under the [MIT License](LICENSE). Dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). See [PROVENANCE.md](PROVENANCE.md) for origin details and the [asset policy](docs/ASSET_POLICY.md) for runtime pet imports.

@@ -21,6 +21,7 @@ AI-bot 是一个本地优先的 AI 状态桌面时钟。目标产品包含 Claud
 - 手动屏保与空闲自动屏保；AI 开工或音乐开始时临时唤醒，键鼠恢复后回到原显示模式。
 - COBS 大资源分块、逐块/整包 CRC32、ACK/重试和 LittleFS 校验后替换协议。
 - 歌曲变化时预渲染 232×44 中文标题/歌手位图和 112×112 封面，经大资源协议发送并由设备逐行显示。
+- 可导入带独立许可说明的 PNG/JPG/BMP/GIF 桌宠，转换为 112×112 RGB565 后通过 USB 发送；原图不进入仓库。
 - Windows 托盘显示模式控制和基于系统空闲时间的自动屏保。
 - 不读取对话正文；账户额度访问令牌只从本机 CLI 登录文件读取并发往对应厂商官方域名，不进入缓存、状态、串口或日志。
 - Windows、固件 CI 与标签驱动的候选发布流水线。
@@ -69,4 +70,4 @@ python -m platformio run -d firmware -t upload --upload-port COM7
 
 ## 许可证
 
-AI-bot 自有源码使用 [MIT License](LICENSE)。第三方依赖保持各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。项目来源说明见 [PROVENANCE.md](PROVENANCE.md)。
+AI-bot 自有源码使用 [MIT License](LICENSE)。第三方依赖保持各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。项目来源说明见 [PROVENANCE.md](PROVENANCE.md)，运行时桌宠导入规则见[资产策略](docs/ASSET_POLICY.md)。

@@ -43,6 +43,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         AddDisplayMode(displayMenu, "桌宠", "pet");
         AddDisplayMode(displayMenu, "屏保", "screensaver");
         menu.Items.Add(displayMenu);
+        menu.Items.Add("导入外部桌宠…", null, (_, _) => ImportPet());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("退出", null, (_, _) => ExitThread());
 
@@ -139,6 +140,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _runtime.Capture(),
             new JsonSerializerOptions(JsonDefaults.Options) { WriteIndented = true });
         MessageBox.Show(json, "AI-bot status", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void ImportPet()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "选择有明确许可说明的桌宠图片",
+            Filter = "图片|*.png;*.jpg;*.jpeg;*.bmp;*.gif",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog() != DialogResult.OK) return;
+        if (!PetAssetImporter.TryLoad(dialog.FileName, out var data, out var licenseFile, out var error))
+        {
+            MessageBox.Show(error, "AI-bot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        if (!_serial.SendResource(BinaryResourceKind.PetAsset, data))
+        {
+            MessageBox.Show("桌宠资源发送失败；请确认设备已通过 USB 连接。", "AI-bot",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        _selectedMode = "pet";
+        _automaticScreenSaver = false;
+        _temporaryWakeUntil = null;
+        _serial.SendDisplayMode("pet");
+        MessageBox.Show($"桌宠已发送。许可说明：{Path.GetFileName(licenseFile)}", "AI-bot",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     protected override void ExitThreadCore()
