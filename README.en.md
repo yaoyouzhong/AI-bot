@@ -13,11 +13,12 @@ Version `0.1.0` is an independent development baseline. It currently completes o
 - Adds token-authenticated Wi-Fi fallback, NTP/holdover time, and a `PC OFF` standalone clock.
 - Adds Open-Meteo weather and A/H/US quote data with last-successful caches.
 - Adds numeric weather/stock pages, 15-second cycling, and four-row stock paging.
+- Adds Claude/Codex quota parsing, last-successful caching, and a device quota page; live accounts and hardware remain unverified.
 - Adds tray display controls and an idle-time-driven Windows screen saver.
-- Does not read or upload OAuth tokens, API keys, cookies, or conversation content.
+- Does not read conversation content. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
 - Includes Windows and firmware CI plus tag-driven release scaffolding.
 
-CJK weather/stock bitmaps, account quotas, domestic quotas, pets, binary resources, the complete mirror, and macOS are still incomplete and remain mandatory acceptance scope. This README describes only current behavior; use the parity contract for progress. Weather and stocks send user configuration to their respective providers; see [data sources and privacy](docs/DATA_SOURCES.md).
+CJK weather/stock bitmaps, live-account quota validation, domestic quotas, pets, binary resources, the complete mirror, and macOS are still incomplete and remain mandatory acceptance scope. This README describes only current behavior; use the parity contract for progress. See [data sources and privacy](docs/DATA_SOURCES.md) for every outbound-data boundary.
 
 ## Layout
 
@@ -53,7 +54,7 @@ Exit the Windows bridge before flashing so it releases the serial port. After fl
 
 ## Privacy boundary
 
-The bridge checks only session-log modification times and does not read conversation content. The development endpoint binds only to loopback. The Wi-Fi fallback endpoint binds to the selected private adapter and requires a pairing token. Windows protects that token with the current user's DPAPI key; the device receives it only after a USB handshake. It is never stored in source, JSON settings, or logs.
+The bridge checks only session-log modification times and does not read conversation content. Account quota requests read existing Claude/Codex CLI sign-in files; access tokens are used only with the matching official provider endpoint and are never written to AI-bot cache, status, serial, or logs. The development endpoint binds only to loopback. The Wi-Fi fallback endpoint binds to the selected private adapter and requires a pairing token. Windows protects that token with the current user's DPAPI key; the device receives it only after a USB handshake. It is never stored in source, JSON settings, or logs.
 
 ## License
 

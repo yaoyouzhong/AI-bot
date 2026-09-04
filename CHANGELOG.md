@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Add authenticated USB-provisioned Wi-Fi fallback and standalone clock behavior.
 - Add Open-Meteo weather and A/H/US stock data with last-successful caches.
 - Add weather/stock device pages, automatic cycling, paging, and Windows screen-saver control.
+- Add Claude/Codex account-quota parsing, last-successful caching, and a device quota page.
 
 ### Security
 

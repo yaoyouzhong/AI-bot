@@ -33,6 +33,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         AddDisplayMode(displayMenu, "Claude + Codex", "dual");
         AddDisplayMode(displayMenu, "天气", "weather");
         AddDisplayMode(displayMenu, "股票", "stocks");
+        AddDisplayMode(displayMenu, "账户额度", "quotas");
         AddDisplayMode(displayMenu, "屏保", "screensaver");
         menu.Items.Add(displayMenu);
         menu.Items.Add(new ToolStripSeparator());

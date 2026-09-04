@@ -31,6 +31,22 @@ internal sealed record StockSnapshot(
     DateTimeOffset UpdatedAt,
     bool Stale);
 
+internal sealed record ProviderQuotaSnapshot(
+    string Provider,
+    string? Plan,
+    double? PrimaryPercent,
+    DateTimeOffset? PrimaryResetsAt,
+    double? WeeklyPercent,
+    DateTimeOffset? WeeklyResetsAt,
+    int? ResetCreditsAvailable,
+    IReadOnlyList<long> ResetCreditExpiresAt,
+    DateTimeOffset UpdatedAt,
+    bool Stale);
+
+internal sealed record QuotaSnapshot(
+    ProviderQuotaSnapshot? Claude,
+    ProviderQuotaSnapshot? Codex);
+
 internal sealed record StatusSnapshot(
     int Version,
     string Time,
@@ -41,7 +57,8 @@ internal sealed record StatusSnapshot(
     ToolState Claude,
     bool MusicPlaying = false,
     WeatherSnapshot? Weather = null,
-    StockSnapshot? Stocks = null);
+    StockSnapshot? Stocks = null,
+    QuotaSnapshot? Quotas = null);
 
 internal static class JsonDefaults
 {

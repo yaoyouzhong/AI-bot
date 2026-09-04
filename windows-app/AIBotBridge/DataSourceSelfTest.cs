@@ -24,6 +24,29 @@ internal static class DataSourceSelfTest
         if (quotes.Count != 1 || quotes[0].Trend != 1 || quotes[0].ChangePercent != "+1.94%")
             throw new InvalidOperationException("Stock parser did not preserve order or trend semantics.");
 
+        const string claudeJson = """
+            {"plan_type":"max","five_hour":{"utilization":32.5,"resets_at":"2026-09-04T12:00:00Z"},
+             "seven_day":{"utilization":61.25,"resets_at":"2026-09-08T00:00:00Z"}}
+            """;
+        var claude = QuotaService.ParseClaude(claudeJson);
+        if (claude.Plan != "max" || claude.PrimaryPercent != 32.5 || claude.WeeklyPercent != 61.25 ||
+            claude.PrimaryResetsAt?.ToUnixTimeSeconds() != 1788523200)
+            throw new InvalidOperationException("Claude quota parser did not preserve windows or reset time.");
+
+        const string codexJson = """
+            {"plan_type":"plus","rate_limit":{"primary_window":{"limit_window_seconds":18000,
+             "used_percent":18.5,"reset_at":1788526800},"secondary_window":{"limit_window_seconds":604800,
+             "used_percent":42,"reset_at":1788998400}},"rate_limit_reset_credits":{"available_count":1}}
+            """;
+        const string creditJson = """
+            {"available_count":2,"credits":[{"status":"used","expires_at":"2026-09-10T00:00:00Z"},
+             {"status":"available","expires_at":"2026-09-09T00:00:00Z"}]}
+            """;
+        var codex = QuotaService.ParseCodex(codexJson, creditJson);
+        if (codex.Plan != "plus" || codex.PrimaryPercent != 18.5 || codex.WeeklyPercent != 42 ||
+            codex.ResetCreditsAvailable != 2 || codex.ResetCreditExpiresAt.Count != 1)
+            throw new InvalidOperationException("Codex quota parser did not preserve windows or reset credits.");
+
         Console.WriteLine("DATA_SOURCE_SELF_TEST_OK");
     }
 }

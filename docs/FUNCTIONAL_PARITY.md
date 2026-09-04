@@ -5,7 +5,7 @@
 | 能力 | Windows | 固件 | macOS | 验收标准 |
 | --- | --- | --- | --- | --- |
 | Claude / Codex 活动状态 | build-verified | build-verified | planned | 工作、空闲、离线和待授权语义一致；不上传会话正文 |
-| Claude / Codex 账户额度 | planned | planned | planned | 显示供应商返回的窗口、重置时间、套餐；失败保留最近成功值 |
+| Claude / Codex 账户额度 | partial | partial | planned | 解析、最近成功缓存和设备额度页已构建；真实账号授权、令牌过期刷新及设备显示待验收 |
 | 国产模型额度 | planned | planned | 不适用 | 阿里云百炼、Kimi、MiniMax、DeepSeek 分来源显示；凭据不进配置或缓存 |
 | 天气 | partial | partial | planned | Windows 数据/缓存和固件数值页已构建；中文位图、真实配置及设备显示待验收 |
 | 股票 | partial | partial | planned | A/H/美股解析、缓存、涨跌色和分页已构建；中文名称位图及设备显示待验收 |

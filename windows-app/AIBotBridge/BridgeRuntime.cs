@@ -5,6 +5,7 @@ internal sealed class BridgeRuntime : IDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly WeatherService _weather;
     private readonly StockService _stocks;
+    private readonly QuotaService _quotas;
     private readonly List<Task> _workers = new();
 
     internal BridgeRuntime(bool startRefresh = true)
@@ -12,10 +13,12 @@ internal sealed class BridgeRuntime : IDisposable
         var settings = BridgeSettings.Load();
         _weather = new WeatherService(settings);
         _stocks = new StockService(settings);
+        _quotas = new QuotaService();
         if (startRefresh)
         {
             _workers.Add(Task.Run(() => _weather.RunAsync(_shutdown.Token)));
             _workers.Add(Task.Run(() => _stocks.RunAsync(_shutdown.Token)));
+            _workers.Add(Task.Run(() => _quotas.RunAsync(_shutdown.Token)));
         }
     }
 
@@ -24,7 +27,8 @@ internal sealed class BridgeRuntime : IDisposable
         return SessionActivityReader.Capture() with
         {
             Weather = _weather.Snapshot,
-            Stocks = _stocks.Snapshot
+            Stocks = _stocks.Snapshot,
+            Quotas = _quotas.Snapshot
         };
     }
 

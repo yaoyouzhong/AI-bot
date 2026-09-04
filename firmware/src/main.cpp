@@ -20,8 +20,8 @@ constexpr char kPrefix[] = "@AIBOT ";
 constexpr char kConfigPath[] = "/bridge.json";
 constexpr char kBrightnessPath[] = "/brightness.txt";
 
-enum class DisplayMode { Auto, Dual, Weather, Stocks, ScreenSaver };
-enum class RenderPage { Dashboard, Weather, Stocks, ScreenSaver };
+enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, ScreenSaver };
+enum class RenderPage { Dashboard, Weather, Stocks, Quotas, ScreenSaver };
 
 struct BridgeConfig {
   String host;
@@ -49,12 +49,27 @@ struct StockRow {
   int trend = 0;
 };
 
+struct ProviderQuotaState {
+  String plan;
+  float primaryPercent = 0;
+  float weeklyPercent = 0;
+  String primaryReset;
+  String weeklyReset;
+  int resetCredits = -1;
+  bool primaryAvailable = false;
+  bool weeklyAvailable = false;
+  bool stale = true;
+  bool available = false;
+};
+
 constexpr int kMaxStocks = 20;
 constexpr int kStocksPerPage = 4;
 WeatherState weather;
 StockRow stocks[kMaxStocks];
 int stockCount = 0;
 int stockPage = 0;
+ProviderQuotaState claudeQuota;
+ProviderQuotaState codexQuota;
 
 TFT_eSPI display;
 ESP8266WebServer admin(80);
@@ -177,6 +192,19 @@ void drawTool(const char* label, const char* state, int y) {
   display.drawRightString(state, 218, y, 2);
 }
 
+void updateQuota(JsonObjectConst value, ProviderQuotaState& target) {
+  target.plan = value["plan"] | "";
+  target.primaryAvailable = !value["primaryPercent"].isNull();
+  target.weeklyAvailable = !value["weeklyPercent"].isNull();
+  target.primaryPercent = value["primaryPercent"] | 0.0f;
+  target.weeklyPercent = value["weeklyPercent"] | 0.0f;
+  target.primaryReset = value["primaryResetsAt"] | "";
+  target.weeklyReset = value["weeklyResetsAt"] | "";
+  target.resetCredits = value["resetCreditsAvailable"] | -1;
+  target.stale = value["stale"] | true;
+  target.available = target.primaryAvailable || target.weeklyAvailable || target.resetCredits >= 0;
+}
+
 void updateStatus(JsonObjectConst data) {
   codexState = data["codex"]["state"] | "offline";
   claudeState = data["claude"]["state"] | "offline";
@@ -213,6 +241,14 @@ void updateStatus(JsonObjectConst data) {
     }
     int pages = max(1, (stockCount + kStocksPerPage - 1) / kStocksPerPage);
     if (stockPage >= pages) stockPage = 0;
+  }
+
+  if (data["quotas"].is<JsonObject>()) {
+    JsonObjectConst quotas = data["quotas"].as<JsonObjectConst>();
+    if (quotas["claude"].is<JsonObject>())
+      updateQuota(quotas["claude"].as<JsonObjectConst>(), claudeQuota);
+    if (quotas["codex"].is<JsonObject>())
+      updateQuota(quotas["codex"].as<JsonObjectConst>(), codexQuota);
   }
   screenDirty = true;
   showingOffline = false;
@@ -301,6 +337,55 @@ void drawStocks() {
   screenDirty = false;
 }
 
+String resetClock(const String& value) {
+  int separator = value.indexOf('T');
+  return separator >= 0 && static_cast<int>(value.length()) >= separator + 6
+      ? value.substring(separator + 1, separator + 6) : "--:--";
+}
+
+void drawQuotaWindow(const char* label, bool available, float percent,
+                     const String& reset, int y) {
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+  display.drawString(label, 18, y, 2);
+  display.setTextDatum(TR_DATUM);
+  display.setTextColor(available ? TFT_WHITE : TFT_DARKGREY, TFT_BLACK);
+  String value = available ? String(percent, 1) + "%" : "--";
+  display.drawString(value + "  R " + resetClock(reset), 224, y, 2);
+}
+
+void drawQuotaProvider(const char* label, const ProviderQuotaState& quota, int y) {
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_CYAN, TFT_BLACK);
+  display.drawString(label, 12, y, 2);
+  display.setTextDatum(TR_DATUM);
+  display.setTextColor(quota.stale ? TFT_ORANGE : TFT_DARKGREY, TFT_BLACK);
+  display.drawString(quota.stale ? "STALE" : quota.plan, 228, y, 2);
+  drawQuotaWindow("5H", quota.primaryAvailable, quota.primaryPercent, quota.primaryReset, y + 23);
+  drawQuotaWindow("7D", quota.weeklyAvailable, quota.weeklyPercent, quota.weeklyReset, y + 46);
+}
+
+void drawQuotas() {
+  display.fillScreen(TFT_BLACK);
+  drawCentered("ACCOUNT QUOTAS", 5, 2, TFT_WHITE);
+  if (!claudeQuota.available && !codexQuota.available) {
+    drawCentered("Waiting for data", 110, 2, TFT_DARKGREY);
+    screenDirty = false;
+    return;
+  }
+  drawQuotaProvider("CLAUDE", claudeQuota, 32);
+  drawQuotaProvider("CODEX", codexQuota, 112);
+  if (codexQuota.resetCredits >= 0) {
+    display.setTextDatum(TL_DATUM);
+    display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    display.drawString("RESET CREDITS", 12, 195, 2);
+    display.setTextDatum(TR_DATUM);
+    display.setTextColor(TFT_GREEN, TFT_BLACK);
+    display.drawString(String(codexQuota.resetCredits), 228, 195, 2);
+  }
+  screenDirty = false;
+}
+
 void drawOffline() {
   int second = static_cast<int>(currentEpochUtc() % 60);
   if (showingOffline && second == lastClockSecond) return;
@@ -375,6 +460,7 @@ void handleFrame(const String& line) {
     displayMode = mode == "screensaver" ? DisplayMode::ScreenSaver
                 : mode == "weather" ? DisplayMode::Weather
                 : mode == "stocks" ? DisplayMode::Stocks
+                : mode == "quotas" ? DisplayMode::Quotas
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     return;
@@ -440,6 +526,7 @@ String displayModeName() {
   if (displayMode == DisplayMode::ScreenSaver) return "screensaver";
   if (displayMode == DisplayMode::Weather) return "weather";
   if (displayMode == DisplayMode::Stocks) return "stocks";
+  if (displayMode == DisplayMode::Quotas) return "quotas";
   if (displayMode == DisplayMode::Dual) return "dual";
   return "auto";
 }
@@ -467,6 +554,7 @@ void startAdminServer() {
     displayMode = mode == "screensaver" ? DisplayMode::ScreenSaver
                 : mode == "weather" ? DisplayMode::Weather
                 : mode == "stocks" ? DisplayMode::Stocks
+                : mode == "quotas" ? DisplayMode::Quotas
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     admin.send(200, "application/json", "{\"ok\":true}");
@@ -524,13 +612,15 @@ RenderPage desiredPage() {
   if (displayMode == DisplayMode::ScreenSaver) return RenderPage::ScreenSaver;
   if (displayMode == DisplayMode::Weather) return RenderPage::Weather;
   if (displayMode == DisplayMode::Stocks) return RenderPage::Stocks;
+  if (displayMode == DisplayMode::Quotas) return RenderPage::Quotas;
   if (displayMode == DisplayMode::Dual) return RenderPage::Dashboard;
 
-  RenderPage pages[3];
+  RenderPage pages[4];
   int count = 0;
   pages[count++] = RenderPage::Dashboard;
   if (weather.available) pages[count++] = RenderPage::Weather;
   if (stockCount > 0) pages[count++] = RenderPage::Stocks;
+  if (claudeQuota.available || codexQuota.available) pages[count++] = RenderPage::Quotas;
   return pages[(millis() / 15000) % count];
 }
 
@@ -544,6 +634,7 @@ void renderCurrentPage() {
   else if (!bridgeFresh()) drawOffline();
   else if (page == RenderPage::Weather) drawWeather();
   else if (page == RenderPage::Stocks) drawStocks();
+  else if (page == RenderPage::Quotas) drawQuotas();
   else if (screenDirty) drawDashboard();
 }
 
