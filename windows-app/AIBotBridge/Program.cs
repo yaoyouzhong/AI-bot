@@ -12,6 +12,15 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--self-test-system", StringComparer.OrdinalIgnoreCase))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            var metrics = new SystemMetricsService().CaptureForSelfTestAsync().GetAwaiter().GetResult();
+            Console.WriteLine($"SYSTEM_SELF_TEST_OK cpu={metrics.CpuPercent:0.0}% memory={metrics.MemoryPercent:0.0}% " +
+                              $"up={metrics.UploadBytesPerSecond} down={metrics.DownloadBytesPerSecond}");
+            return;
+        }
+
         if (args.Contains("--self-test-live-data", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;

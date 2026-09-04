@@ -20,8 +20,8 @@ constexpr char kPrefix[] = "@AIBOT ";
 constexpr char kConfigPath[] = "/bridge.json";
 constexpr char kBrightnessPath[] = "/brightness.txt";
 
-enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, ScreenSaver };
-enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, ScreenSaver };
+enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, ScreenSaver };
+enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, ScreenSaver };
 
 struct BridgeConfig {
   String host;
@@ -79,6 +79,14 @@ struct DomesticQuotaState {
   bool available = false;
 };
 
+struct SystemMetricsState {
+  float cpuPercent = 0;
+  float memoryPercent = 0;
+  uint32_t uploadBytesPerSecond = 0;
+  uint32_t downloadBytesPerSecond = 0;
+  bool available = false;
+};
+
 constexpr int kMaxStocks = 20;
 constexpr int kStocksPerPage = 4;
 WeatherState weather;
@@ -91,6 +99,7 @@ DomesticQuotaState alibabaQuota;
 DomesticQuotaState kimiQuota;
 DomesticQuotaState miniMaxQuota;
 DomesticQuotaState deepSeekQuota;
+SystemMetricsState systemMetrics;
 
 TFT_eSPI display;
 ESP8266WebServer admin(80);
@@ -300,6 +309,15 @@ void updateStatus(JsonObjectConst data) {
     if (quotas["deepSeek"].is<JsonObject>())
       updateDomesticQuota(quotas["deepSeek"].as<JsonObjectConst>(), deepSeekQuota);
   }
+
+  if (data["systemMetrics"].is<JsonObject>()) {
+    JsonObjectConst metrics = data["systemMetrics"].as<JsonObjectConst>();
+    systemMetrics.cpuPercent = metrics["cpuPercent"] | 0.0f;
+    systemMetrics.memoryPercent = metrics["memoryPercent"] | 0.0f;
+    systemMetrics.uploadBytesPerSecond = metrics["uploadBytesPerSecond"] | 0;
+    systemMetrics.downloadBytesPerSecond = metrics["downloadBytesPerSecond"] | 0;
+    systemMetrics.available = true;
+  }
   screenDirty = true;
   showingOffline = false;
 }
@@ -466,6 +484,39 @@ void drawDomestic() {
   screenDirty = false;
 }
 
+String rateText(uint32_t bytesPerSecond) {
+  if (bytesPerSecond >= 1024UL * 1024UL)
+    return String(bytesPerSecond / (1024.0f * 1024.0f), 1) + " MB/s";
+  if (bytesPerSecond >= 1024UL)
+    return String(bytesPerSecond / 1024.0f, 1) + " KB/s";
+  return String(bytesPerSecond) + " B/s";
+}
+
+void drawMetric(const char* label, const String& value, int y, uint16_t color) {
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+  display.drawString(label, 18, y, 2);
+  display.setTextDatum(TR_DATUM);
+  display.setTextColor(color, TFT_BLACK);
+  display.drawString(value, 222, y, 2);
+}
+
+void drawSystem() {
+  display.fillScreen(TFT_BLACK);
+  drawCentered("SYSTEM", 8, 2, TFT_CYAN);
+  if (!systemMetrics.available) {
+    drawCentered("Waiting for data", 110, 2, TFT_DARKGREY);
+    screenDirty = false;
+    return;
+  }
+  drawMetric("CPU", String(systemMetrics.cpuPercent, 1) + "%", 48, TFT_GREEN);
+  drawMetric("MEMORY", String(systemMetrics.memoryPercent, 1) + "%", 88, TFT_ORANGE);
+  display.drawFastHLine(18, 125, 204, TFT_DARKGREY);
+  drawMetric("UPLOAD", rateText(systemMetrics.uploadBytesPerSecond), 146, TFT_YELLOW);
+  drawMetric("DOWNLOAD", rateText(systemMetrics.downloadBytesPerSecond), 186, TFT_CYAN);
+  screenDirty = false;
+}
+
 void drawOffline() {
   int second = static_cast<int>(currentEpochUtc() % 60);
   if (showingOffline && second == lastClockSecond) return;
@@ -542,6 +593,7 @@ void handleFrame(const String& line) {
                 : mode == "stocks" ? DisplayMode::Stocks
                 : mode == "quotas" ? DisplayMode::Quotas
                 : mode == "domestic" ? DisplayMode::Domestic
+                : mode == "system" ? DisplayMode::System
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     return;
@@ -609,6 +661,7 @@ String displayModeName() {
   if (displayMode == DisplayMode::Stocks) return "stocks";
   if (displayMode == DisplayMode::Quotas) return "quotas";
   if (displayMode == DisplayMode::Domestic) return "domestic";
+  if (displayMode == DisplayMode::System) return "system";
   if (displayMode == DisplayMode::Dual) return "dual";
   return "auto";
 }
@@ -638,6 +691,7 @@ void startAdminServer() {
                 : mode == "stocks" ? DisplayMode::Stocks
                 : mode == "quotas" ? DisplayMode::Quotas
                 : mode == "domestic" ? DisplayMode::Domestic
+                : mode == "system" ? DisplayMode::System
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     admin.send(200, "application/json", "{\"ok\":true}");
@@ -697,9 +751,10 @@ RenderPage desiredPage() {
   if (displayMode == DisplayMode::Stocks) return RenderPage::Stocks;
   if (displayMode == DisplayMode::Quotas) return RenderPage::Quotas;
   if (displayMode == DisplayMode::Domestic) return RenderPage::Domestic;
+  if (displayMode == DisplayMode::System) return RenderPage::System;
   if (displayMode == DisplayMode::Dual) return RenderPage::Dashboard;
 
-  RenderPage pages[5];
+  RenderPage pages[6];
   int count = 0;
   pages[count++] = RenderPage::Dashboard;
   if (weather.available) pages[count++] = RenderPage::Weather;
@@ -707,6 +762,7 @@ RenderPage desiredPage() {
   if (claudeQuota.available || codexQuota.available) pages[count++] = RenderPage::Quotas;
   if (alibabaQuota.available || kimiQuota.available || miniMaxQuota.available || deepSeekQuota.available)
     pages[count++] = RenderPage::Domestic;
+  if (systemMetrics.available) pages[count++] = RenderPage::System;
   return pages[(millis() / 15000) % count];
 }
 
@@ -722,6 +778,7 @@ void renderCurrentPage() {
   else if (page == RenderPage::Stocks) drawStocks();
   else if (page == RenderPage::Quotas) drawQuotas();
   else if (page == RenderPage::Domestic) drawDomestic();
+  else if (page == RenderPage::System) drawSystem();
   else if (screenDirty) drawDashboard();
 }
 

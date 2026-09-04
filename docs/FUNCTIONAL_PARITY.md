@@ -9,7 +9,7 @@
 | 国产模型额度 | partial | partial | 不适用 | 四家解析/缓存和固件总览已构建；MiniMax 环境变量 Key 可直连，阿里/Kimi/DeepSeek 登录捕获及实机验收待完成 |
 | 天气 | partial | partial | planned | Windows 数据/缓存和固件数值页已构建；中文位图、真实配置及设备显示待验收 |
 | 股票 | partial | partial | planned | A/H/美股解析、缓存、涨跌色和分页已构建；中文名称位图及设备显示待验收 |
-| 系统监控 | planned | planned | planned | 上下行速率、CPU、内存以固定节奏更新 |
+| 系统监控 | build-verified | build-verified | planned | Windows 实际取样与固件页面已构建；设备端数值仍需实机核对 |
 | 音乐 | planned | planned | planned | 标题、歌手、进度、封面；AUTO 播放时进入、停止后恢复 |
 | 桌宠 | planned | planned | planned | 内置原创形象；可选择兼容许可的外部桌宠并上传；不分发来源不明资产 |
 | 屏保 | partial | partial | planned | 空闲进入、恢复页面和独立时钟已构建；手动预览及事件临时唤醒待实现 |

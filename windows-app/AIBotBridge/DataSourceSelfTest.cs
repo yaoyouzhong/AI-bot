@@ -67,6 +67,10 @@ internal static class DataSourceSelfTest
         if (deepSeek.Balance != 28.5 || deepSeek.UsedCost != 9.75 || deepSeek.Currency != "CNY")
             throw new InvalidOperationException("DeepSeek quota parser did not preserve balance and cost.");
 
+        if (SystemMetricsService.CalculateRate(1000, 2500, 0.5) != 3000 ||
+            SystemMetricsService.CalculateRate(2500, 1000, 1) != 0)
+            throw new InvalidOperationException("Network-rate calculation did not handle elapsed time or reset.");
+
         Console.WriteLine("DATA_SOURCE_SELF_TEST_OK");
     }
 }

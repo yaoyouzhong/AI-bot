@@ -66,6 +66,13 @@ internal sealed record DomesticQuotaSnapshot(
     DomesticProviderQuotaSnapshot? MiniMax,
     DomesticProviderQuotaSnapshot? DeepSeek);
 
+internal sealed record SystemMetricsSnapshot(
+    double CpuPercent,
+    double MemoryPercent,
+    long UploadBytesPerSecond,
+    long DownloadBytesPerSecond,
+    DateTimeOffset UpdatedAt);
+
 internal sealed record StatusSnapshot(
     int Version,
     string Time,
@@ -78,7 +85,8 @@ internal sealed record StatusSnapshot(
     WeatherSnapshot? Weather = null,
     StockSnapshot? Stocks = null,
     QuotaSnapshot? Quotas = null,
-    DomesticQuotaSnapshot? DomesticQuotas = null);
+    DomesticQuotaSnapshot? DomesticQuotas = null,
+    SystemMetricsSnapshot? SystemMetrics = null);
 
 internal static class JsonDefaults
 {
