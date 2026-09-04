@@ -11,10 +11,12 @@ internal sealed class SerialPublisher
     private volatile string? _portName;
     private SerialPort? _activePort;
     private readonly LanPairing? _pairing;
+    private readonly string? _preferredPort;
 
-    internal SerialPublisher(LanPairing? pairing)
+    internal SerialPublisher(LanPairing? pairing, string? preferredPort = null)
     {
         _pairing = pairing;
+        _preferredPort = NormalizePort(preferredPort);
     }
 
     internal string? PortName => _portName;
@@ -224,14 +226,21 @@ internal sealed class SerialPublisher
         return false;
     }
 
-    private static IReadOnlyList<string> CandidatePorts()
+    private IReadOnlyList<string> CandidatePorts()
     {
-        var configured = Environment.GetEnvironmentVariable("AIBOT_PORT");
-        if (!string.IsNullOrWhiteSpace(configured))
-            return [configured.Trim()];
+        var configured = NormalizePort(Environment.GetEnvironmentVariable("AIBOT_PORT")) ?? _preferredPort;
+        if (configured is not null)
+            return [configured];
 
         return SerialPort.GetPortNames()
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static string? NormalizePort(string? value)
+    {
+        var port = value?.Trim().ToUpperInvariant();
+        return port is { Length: > 3 } && port.StartsWith("COM", StringComparison.Ordinal) &&
+               port[3..].All(char.IsDigit) ? port : null;
     }
 }

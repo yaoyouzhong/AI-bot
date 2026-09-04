@@ -53,6 +53,8 @@ Set `AIBOT_PORT` to constrain probing to one serial port.
 
 The local endpoint defaults to `127.0.0.1:8765`. Set `AIBOT_HTTP_PORT` when a test needs another port. A device-only listener also binds to the selected private LAN address, but it requires the random token provisioned over a USB handshake; unauthenticated requests receive 401.
 
+The tray's **Settings** command saves the weather city/coordinates, up to twenty stock symbols, automatic screen-saver delay, and a preferred serial port. Values are restricted to a non-secret allow-list in `%APPDATA%\AI-bot\settings.json` and take effect after restarting the bridge.
+
 ## Firmware
 
 ```powershell

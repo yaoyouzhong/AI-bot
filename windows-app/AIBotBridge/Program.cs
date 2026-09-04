@@ -12,6 +12,15 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--self-test-settings", StringComparer.OrdinalIgnoreCase))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            ApplicationConfiguration.Initialize();
+            var output = Path.Combine(Environment.CurrentDirectory, "artifacts", "settings-self-test.png");
+            SettingsSelfTest.Run(output);
+            return;
+        }
+
         if (args.Contains("--self-test-mirror", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;

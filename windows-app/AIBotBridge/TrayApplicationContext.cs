@@ -5,6 +5,7 @@ namespace AIBotBridge;
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly BridgeSettings _settings;
     private readonly BridgeRuntime _runtime;
     private readonly SerialPublisher _serial;
     private readonly NotifyIcon _icon;
@@ -18,22 +19,24 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private MirrorForm? _mirror;
     private DeviceControlForm? _deviceControl;
     private DomesticQuotaAuthForm? _domesticAuth;
+    private SettingsForm? _settingsForm;
 
     internal TrayApplicationContext()
     {
+        _settings = BridgeSettings.Load();
         _runtime = new BridgeRuntime();
-        var settings = BridgeSettings.Load();
-        _screenSaverMinutes = int.TryParse(settings.Get("screensaver_timeout_minutes"), out var timeout)
+        _screenSaverMinutes = int.TryParse(_settings.Get("screensaver_timeout_minutes"), out var timeout)
             && timeout is > 0 and <= 1440 ? timeout : 0;
         var httpPort = int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"), out var configuredPort)
             && configuredPort is > 0 and <= 65535
             ? configuredPort
             : 8765;
         var pairing = LanPairingFactory.Create(httpPort);
-        _serial = new SerialPublisher(pairing);
+        _serial = new SerialPublisher(pairing, _settings.Get("serial_port"));
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("打开 240×240 镜像", null, (_, _) => ShowMirror());
+        menu.Items.Add("设置…", null, (_, _) => ShowSettings());
         menu.Items.Add("设备控制…", null, (_, _) => ShowDeviceControl());
         menu.Items.Add("国产额度授权…", null, (_, _) => ShowDomesticAuth());
         menu.Items.Add("查看状态", null, (_, _) => ShowStatus());
@@ -164,6 +167,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _deviceControl.Activate();
     }
 
+    private void ShowSettings()
+    {
+        if (_settingsForm is null || _settingsForm.IsDisposed)
+            _settingsForm = new SettingsForm(_settings);
+        _settingsForm.Show();
+        _settingsForm.Activate();
+    }
+
     private void ShowDomesticAuth()
     {
         if (_domesticAuth is null || _domesticAuth.IsDisposed)
@@ -207,6 +218,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer.Dispose();
         _serial.NotifyHostGoingAway();
         _mirror?.Close();
+        _settingsForm?.Close();
         _deviceControl?.Close();
         _domesticAuth?.Close();
         _shutdown.Cancel();

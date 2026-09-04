@@ -58,6 +58,50 @@ internal sealed class BridgeSettings
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
+    internal bool SaveEditable(IReadOnlyDictionary<string, string> editable, out string error,
+        string? directoryOverride = null)
+    {
+        var values = _values
+            .Where(pair => LegacyAllowList.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        foreach (var pair in editable)
+        {
+            if (!LegacyAllowList.Contains(pair.Key))
+            {
+                error = $"不允许保存设置项：{pair.Key}";
+                return false;
+            }
+            values[pair.Key] = pair.Value;
+        }
+
+        try
+        {
+            var directory = directoryOverride ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, "settings.json");
+            var temporary = path + ".tmp";
+            File.WriteAllText(temporary, JsonSerializer.Serialize(values, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            }));
+            File.Move(temporary, path, true);
+            _values.Clear();
+            foreach (var pair in values)
+                _values[pair.Key] = pair.Value;
+            error = string.Empty;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            error = "无法写入 %APPDATA%\\AI-bot\\settings.json。";
+            return false;
+        }
+    }
+
+    internal static BridgeSettings LoadCurrentFromDirectory(string directory) =>
+        new(Read(Path.Combine(directory, "settings.json")));
+
     private static Dictionary<string, string> Read(string path)
     {
         try

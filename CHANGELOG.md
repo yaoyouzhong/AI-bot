@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Add the independent macOS menu-bar, activity reader, Keychain pairing token, and authenticated LAN status foundation.
 - Add a nine-page 240×240 Windows mirror, synthetic PNG visual test, and mode/brightness control window.
 - Add isolated WebView2 sign-in capture for Alibaba, Kimi, MiniMax, and DeepSeek display-only quota fields.
+- Add a Windows settings dialog and allow-listed persistence for weather, stocks, screen saving, and the preferred serial port.
 
 ### Security
 
