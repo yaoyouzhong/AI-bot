@@ -12,6 +12,13 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--self-test-lan", StringComparer.OrdinalIgnoreCase))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            LanServerSelfTest.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Contains("--status-once", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;

@@ -8,5 +8,6 @@ AI-bot source code is licensed under the MIT License. Dependencies remain under 
 | ESP8266 Arduino core | Firmware framework | LGPL-2.1 and component-specific notices, https://github.com/esp8266/Arduino |
 | TFT_eSPI | ST7789 display driver | FreeBSD/MIT/BSD component notices, https://github.com/Bodmer/TFT_eSPI |
 | ArduinoJson | Firmware JSON parser | MIT, https://github.com/bblanchon/ArduinoJson |
+| WiFiManager | ESP8266 captive Wi-Fi configuration portal | MIT, https://github.com/tzapu/WiFiManager |
 
 Release archives must preserve the license texts delivered by package managers when their terms require redistribution with binary forms.

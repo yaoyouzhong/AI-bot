@@ -7,6 +7,12 @@ internal sealed class SerialPublisher
 {
     private const string Prefix = "@AIBOT ";
     private volatile string? _portName;
+    private readonly LanPairing? _pairing;
+
+    internal SerialPublisher(LanPairing? pairing)
+    {
+        _pairing = pairing;
+    }
 
     internal string? PortName => _portName;
 
@@ -31,6 +37,21 @@ internal sealed class SerialPublisher
                         continue;
 
                     _portName = candidate;
+                    if (_pairing is not null)
+                    {
+                        var pairingFrame = new
+                        {
+                            version = 1,
+                            type = "lan_config",
+                            data = new
+                            {
+                                host = _pairing.Address.ToString(),
+                                port = _pairing.Port,
+                                token = _pairing.Token
+                            }
+                        };
+                        port.WriteLine(Prefix + JsonSerializer.Serialize(pairingFrame, JsonDefaults.Options));
+                    }
                     while (!cancellationToken.IsCancellationRequested && port.IsOpen)
                     {
                         var frame = new

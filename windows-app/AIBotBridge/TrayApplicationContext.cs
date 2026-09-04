@@ -5,12 +5,19 @@ namespace AIBotBridge;
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly CancellationTokenSource _shutdown = new();
-    private readonly SerialPublisher _serial = new();
+    private readonly SerialPublisher _serial;
     private readonly NotifyIcon _icon;
     private readonly System.Windows.Forms.Timer _timer;
 
     internal TrayApplicationContext()
     {
+        var httpPort = int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"), out var configuredPort)
+            && configuredPort is > 0 and <= 65535
+            ? configuredPort
+            : 8765;
+        var pairing = LanPairingFactory.Create(httpPort);
+        _serial = new SerialPublisher(pairing);
+
         var menu = new ContextMenuStrip();
         menu.Items.Add("Show status", null, (_, _) => ShowStatus());
         menu.Items.Add(new ToolStripSeparator());
@@ -28,12 +35,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer.Tick += (_, _) => RefreshTooltip();
         _timer.Start();
 
-        var httpPort = int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"), out var configuredPort)
-            && configuredPort is > 0 and <= 65535
-            ? configuredPort
-            : 8765;
         var server = new LocalStatusServer(httpPort);
         _ = Task.Run(() => server.RunAsync(SessionActivityReader.Capture, _shutdown.Token));
+        if (pairing is not null)
+        {
+            var lanServer = new LanStatusServer(pairing);
+            _ = Task.Run(() => lanServer.RunAsync(SessionActivityReader.Capture, _shutdown.Token));
+        }
         _ = Task.Run(() => _serial.RunAsync(SessionActivityReader.Capture, _shutdown.Token));
         RefreshTooltip();
     }

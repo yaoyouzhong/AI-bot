@@ -1,11 +1,12 @@
 # AI-bot project rules
 
-本仓库是独立实现的 AI 状态桌面时钟，不复制 `esp8266-ai` 或其他无许可证项目的源码、图片、文档和 Git 历史。
+本仓库是独立实现的 AI 状态桌面时钟，不复制 `esp8266-ai` 或其他无许可证项目中由第三方创作的源码、图片、文档和 Git 历史。功能验收以现有个人项目的可观察行为为基线；只有经 Git 历史确认由本项目维护者独立创作的代码，才可以在完成依赖拆分和来源记录后迁入。
 
 ## Scope
 
-- `windows-app/`：Windows 10/11 托盘桥接程序，读取本机会话活动并通过 USB 串口向设备发送状态。
-- `firmware/`：ESP8266/ESP-12S 固件，接收协议帧并在 240x240 ST7789 屏幕显示状态。
+- `windows-app/`：Windows 10/11 托盘桥接程序，负责 AI 状态和额度、天气、股票、系统监控、音乐、桌宠、屏保以及 USB 优先/Wi-Fi 回退。
+- `mac-app/`：macOS 菜单栏桥接程序，提供与平台能力相符的状态、额度、系统监控、音乐、股票、桌宠、设备控制和 LAN 配对功能。
+- `firmware/`：ESP8266/ESP-12S 固件，负责全部显示页面、USB/Wi-Fi 双通道、独立时钟、桌宠和设备管理。
 - `docs/`：协议、架构、来源和发布说明。
 - `.github/workflows/`：持续集成和基于标签的候选发布流水线。
 
@@ -16,6 +17,9 @@
 - 使用最少代码解决当前需求，不复制旧项目实现，不引入来源不明的图片或二进制资源。
 - 密钥、Cookie、OAuth token、密码和本地运行状态不得进入仓库、日志或发布包。
 - Windows 与设备串口速率固定为 `460800`；小消息协议为 `@AIBOT ` 加单行 JSON，协议 `version=1`。
+- USB 连续 8 秒无有效心跳后必须自动恢复 Wi-Fi HTTP 轮询；桥接恢复后自动回到用户配置页面。
+- 网络和供应商请求失败时保留最近一次成功的可显示数据，不能用空结果覆盖缓存。
+- `tokens_today` 只描述本机可见日志；供应商账户额度必须来自供应商接口或明确的本地授权状态，二者不得混算。
 - 版本源为根目录 `VERSION`；正式发布使用带注释的 `vX.Y.Z` 标签。
 - README、CHANGELOG 的中英文内容必须同步。
 
@@ -32,6 +36,12 @@ dotnet run --project windows-app\AIBotBridge\AIBotBridge.csproj -- --status-once
 
 ```powershell
 python -m platformio run -d firmware
+```
+
+macOS 代码变更（只能在 macOS 上执行）：
+
+```bash
+cd mac-app && swift test && swift build -c release
 ```
 
 发布前：

@@ -7,9 +7,12 @@ internal sealed record ToolState(string State, long? AgeSeconds);
 internal sealed record StatusSnapshot(
     int Version,
     string Time,
+    long EpochUtc,
+    int UtcOffsetSeconds,
     DateTimeOffset CapturedAt,
     ToolState Codex,
-    ToolState Claude);
+    ToolState Claude,
+    bool MusicPlaying = false);
 
 internal static class JsonDefaults
 {

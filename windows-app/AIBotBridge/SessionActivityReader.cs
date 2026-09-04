@@ -12,6 +12,8 @@ internal static class SessionActivityReader
         return new StatusSnapshot(
             Version: 1,
             Time: now.ToString("HH:mm:ss"),
+            EpochUtc: now.ToUnixTimeSeconds(),
+            UtcOffsetSeconds: (int)now.Offset.TotalSeconds,
             CapturedAt: now,
             Codex: ReadTool(Path.Combine(home, ".codex", "sessions")),
             Claude: ReadTool(Path.Combine(home, ".claude", "projects")));
