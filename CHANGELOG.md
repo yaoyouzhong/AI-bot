@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - Add pre-rendered CJK weather text and paged stock-name resources with symbol fallback.
 - Add the independent macOS menu-bar, activity reader, Keychain pairing token, and authenticated LAN status foundation.
 - Add a nine-page 240×240 Windows mirror, synthetic PNG visual test, and mode/brightness control window.
+- Add isolated WebView2 sign-in capture for Alibaba, Kimi, MiniMax, and DeepSeek display-only quota fields.
 
 ### Security
 

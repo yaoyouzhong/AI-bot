@@ -17,6 +17,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private DateTimeOffset? _temporaryWakeUntil;
     private MirrorForm? _mirror;
     private DeviceControlForm? _deviceControl;
+    private DomesticQuotaAuthForm? _domesticAuth;
 
     internal TrayApplicationContext()
     {
@@ -34,6 +35,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var menu = new ContextMenuStrip();
         menu.Items.Add("打开 240×240 镜像", null, (_, _) => ShowMirror());
         menu.Items.Add("设备控制…", null, (_, _) => ShowDeviceControl());
+        menu.Items.Add("国产额度授权…", null, (_, _) => ShowDomesticAuth());
         menu.Items.Add("查看状态", null, (_, _) => ShowStatus());
         var displayMenu = new ToolStripMenuItem("显示模式");
         AddDisplayMode(displayMenu, "自动轮播", "auto");
@@ -162,6 +164,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _deviceControl.Activate();
     }
 
+    private void ShowDomesticAuth()
+    {
+        if (_domesticAuth is null || _domesticAuth.IsDisposed)
+            _domesticAuth = new DomesticQuotaAuthForm(_runtime);
+        _domesticAuth.Show();
+        _domesticAuth.Activate();
+    }
+
     private void ImportPet()
     {
         using var dialog = new OpenFileDialog
@@ -198,6 +208,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _serial.NotifyHostGoingAway();
         _mirror?.Close();
         _deviceControl?.Close();
+        _domesticAuth?.Close();
         _shutdown.Cancel();
         _runtime.Dispose();
         _icon.Visible = false;

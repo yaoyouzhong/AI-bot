@@ -6,7 +6,7 @@
 | --- | --- | --- | --- | --- |
 | Claude / Codex 活动状态 | build-verified | build-verified | planned | 工作、空闲、离线和待授权语义一致；不上传会话正文 |
 | Claude / Codex 账户额度 | partial | partial | planned | 解析、最近成功缓存和设备额度页已构建；真实账号授权、令牌过期刷新及设备显示待验收 |
-| 国产模型额度 | partial | partial | 不适用 | 四家解析/缓存和固件总览已构建；MiniMax 环境变量 Key 可直连，阿里/Kimi/DeepSeek 登录捕获及实机验收待完成 |
+| 国产模型额度 | partial | partial | 不适用 | 四家解析/缓存、隔离 WebView2 登录捕获和固件总览已构建；MiniMax 环境变量 Key 可直连，真实账号响应及实机显示待验收 |
 | 天气 | partial | partial | planned | 数据/缓存、中文城市/天气位图和固件页已构建；真实配置及设备显示待验收 |
 | 股票 | partial | partial | planned | A/H/美股解析、缓存、中文名称表、涨跌色和分页已构建；真实配置及设备显示待验收 |
 | 系统监控 | build-verified | build-verified | planned | Windows 实际取样与固件页面已构建；设备端数值仍需实机核对 |

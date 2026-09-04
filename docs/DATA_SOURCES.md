@@ -23,9 +23,11 @@ Access tokens are held in memory for the request. They are not copied to AI-bot 
 
 ## Domestic-provider quotas
 
-AI-bot has normalized parsers and last-successful cache fields for Alibaba Bailian Token Plan, Kimi Coding Plan, MiniMax Token Plan, and DeepSeek balance/cost responses. At the current checkpoint, only MiniMax has an automatic request path: it calls `https://www.minimaxi.com/v1/token_plan/remains` when the bridge process has one of `MINIMAX_SUBSCRIPTION_KEY`, `MINIMAX_TOKEN_PLAN_KEY`, or `MINIMAX_API_KEY`.
+AI-bot has normalized parsers and last-successful cache fields for Alibaba Bailian Token Plan, Kimi Coding Plan, MiniMax Token Plan, and DeepSeek balance/cost responses. The Windows tray's `国产额度授权…` command opens each provider in an isolated WebView2 profile at `%APPDATA%\AI-bot\quota-auth-profile`. The browser observes JSON responses only from an explicit exact-host allow-list (`bailian.console.aliyun.com`, `www.kimi.com`, `platform.minimaxi.com`, `www.minimaxi.com`, and `platform.deepseek.com`) and passes candidate bodies to the selected provider parser. Unrelated JSON and unrecognized schemas are ignored; response bodies, cookies, and tokens are never logged or written to the display cache.
 
-The MiniMax key is read from process environment, held in memory, and sent only to `www.minimaxi.com`. It is not copied to settings, status, serial, logs, or `%APPDATA%\AI-bot\domestic-quota-cache.json`. Alibaba, Kimi, and DeepSeek WebView2 authorization/capture are not implemented yet; parser self-tests are not evidence of a live account connection.
+MiniMax also has an automatic request path: it calls `https://www.minimaxi.com/v1/token_plan/remains` when the bridge process has one of `MINIMAX_SUBSCRIPTION_KEY`, `MINIMAX_TOKEN_PLAN_KEY`, or `MINIMAX_API_KEY`. The key is read from process environment, held in memory, and sent only to `www.minimaxi.com`. It is not copied to settings, status, serial, logs, or `%APPDATA%\AI-bot\domestic-quota-cache.json`.
+
+`domestic-quota-cache.json` stores only normalized display fields: provider/plan names, percentages, reset times, balance/cost/currency, update time, and stale state. The isolated WebView2 profile necessarily persists the providers' own cookies and browser storage, so it must not be committed, copied into release archives, or treated as a shareable cache. Parser and build tests are not evidence that a real account login still matches a provider's current response schema.
 
 ## Legacy settings compatibility
 

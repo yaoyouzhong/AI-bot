@@ -48,6 +48,9 @@ internal sealed class BridgeRuntime : IDisposable
     internal IReadOnlyList<ResourcePayload> Resources() => _music.Resources
         .Concat(_localizedText.Capture(_weather.Snapshot, _stocks.Snapshot)).ToArray();
 
+    internal void ApplyDomesticResponse(string provider, string json) =>
+        _domesticQuotas.ApplyCapturedResponse(provider, json);
+
     public void Dispose()
     {
         _shutdown.Cancel();
