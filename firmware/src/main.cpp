@@ -20,8 +20,8 @@ constexpr char kPrefix[] = "@AIBOT ";
 constexpr char kConfigPath[] = "/bridge.json";
 constexpr char kBrightnessPath[] = "/brightness.txt";
 
-enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, ScreenSaver };
-enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, ScreenSaver };
+enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, Music, ScreenSaver };
+enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, Music, ScreenSaver };
 
 struct BridgeConfig {
   String host;
@@ -87,6 +87,15 @@ struct SystemMetricsState {
   bool available = false;
 };
 
+struct MusicState {
+  String title;
+  String artist;
+  bool playing = false;
+  float elapsedSeconds = 0;
+  float durationSeconds = 0;
+  bool available = false;
+};
+
 constexpr int kMaxStocks = 20;
 constexpr int kStocksPerPage = 4;
 WeatherState weather;
@@ -100,6 +109,7 @@ DomesticQuotaState kimiQuota;
 DomesticQuotaState miniMaxQuota;
 DomesticQuotaState deepSeekQuota;
 SystemMetricsState systemMetrics;
+MusicState music;
 
 TFT_eSPI display;
 ESP8266WebServer admin(80);
@@ -318,6 +328,16 @@ void updateStatus(JsonObjectConst data) {
     systemMetrics.downloadBytesPerSecond = metrics["downloadBytesPerSecond"] | 0;
     systemMetrics.available = true;
   }
+
+  if (data["music"].is<JsonObject>()) {
+    JsonObjectConst value = data["music"].as<JsonObjectConst>();
+    music.title = value["title"] | "";
+    music.artist = value["artist"] | "";
+    music.playing = value["playing"] | false;
+    music.elapsedSeconds = value["elapsedSeconds"] | 0.0f;
+    music.durationSeconds = value["durationSeconds"] | 0.0f;
+    music.available = music.title.length() > 0;
+  }
   screenDirty = true;
   showingOffline = false;
 }
@@ -517,6 +537,37 @@ void drawSystem() {
   screenDirty = false;
 }
 
+String durationText(float seconds) {
+  int value = constrain(static_cast<int>(seconds), 0, 359999);
+  int remainder = value % 60;
+  return String(value / 60) + ":" + (remainder < 10 ? "0" : "") + String(remainder);
+}
+
+void drawMusic() {
+  display.fillScreen(TFT_BLACK);
+  drawCentered(music.playing ? "NOW PLAYING" : "MUSIC", 10, 2,
+               music.playing ? TFT_GREEN : TFT_DARKGREY);
+  if (!music.available) {
+    drawCentered("No active session", 108, 2, TFT_DARKGREY);
+    screenDirty = false;
+    return;
+  }
+  drawCentered(music.title.substring(0, 25), 58, 2, TFT_WHITE);
+  drawCentered(music.artist.substring(0, 28), 88, 2, TFT_LIGHTGREY);
+  float ratio = music.durationSeconds > 0
+      ? constrain(music.elapsedSeconds / music.durationSeconds, 0.0f, 1.0f) : 0;
+  display.drawRect(18, 142, 204, 10, TFT_DARKGREY);
+  display.fillRect(20, 144, static_cast<int>(200 * ratio), 6, TFT_CYAN);
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+  display.drawString(durationText(music.elapsedSeconds), 18, 164, 2);
+  display.setTextDatum(TR_DATUM);
+  display.drawString(durationText(music.durationSeconds), 222, 164, 2);
+  drawCentered(music.playing ? "PLAY" : "PAUSE", 205, 2,
+               music.playing ? TFT_GREEN : TFT_YELLOW);
+  screenDirty = false;
+}
+
 void drawOffline() {
   int second = static_cast<int>(currentEpochUtc() % 60);
   if (showingOffline && second == lastClockSecond) return;
@@ -594,6 +645,7 @@ void handleFrame(const String& line) {
                 : mode == "quotas" ? DisplayMode::Quotas
                 : mode == "domestic" ? DisplayMode::Domestic
                 : mode == "system" ? DisplayMode::System
+                : mode == "music" ? DisplayMode::Music
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     return;
@@ -662,6 +714,7 @@ String displayModeName() {
   if (displayMode == DisplayMode::Quotas) return "quotas";
   if (displayMode == DisplayMode::Domestic) return "domestic";
   if (displayMode == DisplayMode::System) return "system";
+  if (displayMode == DisplayMode::Music) return "music";
   if (displayMode == DisplayMode::Dual) return "dual";
   return "auto";
 }
@@ -692,6 +745,7 @@ void startAdminServer() {
                 : mode == "quotas" ? DisplayMode::Quotas
                 : mode == "domestic" ? DisplayMode::Domestic
                 : mode == "system" ? DisplayMode::System
+                : mode == "music" ? DisplayMode::Music
                 : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
     screenDirty = true;
     admin.send(200, "application/json", "{\"ok\":true}");
@@ -752,9 +806,12 @@ RenderPage desiredPage() {
   if (displayMode == DisplayMode::Quotas) return RenderPage::Quotas;
   if (displayMode == DisplayMode::Domestic) return RenderPage::Domestic;
   if (displayMode == DisplayMode::System) return RenderPage::System;
+  if (displayMode == DisplayMode::Music) return RenderPage::Music;
   if (displayMode == DisplayMode::Dual) return RenderPage::Dashboard;
 
-  RenderPage pages[6];
+  if (music.playing) return RenderPage::Music;
+
+  RenderPage pages[7];
   int count = 0;
   pages[count++] = RenderPage::Dashboard;
   if (weather.available) pages[count++] = RenderPage::Weather;
@@ -763,6 +820,7 @@ RenderPage desiredPage() {
   if (alibabaQuota.available || kimiQuota.available || miniMaxQuota.available || deepSeekQuota.available)
     pages[count++] = RenderPage::Domestic;
   if (systemMetrics.available) pages[count++] = RenderPage::System;
+  if (music.available) pages[count++] = RenderPage::Music;
   return pages[(millis() / 15000) % count];
 }
 
@@ -779,6 +837,7 @@ void renderCurrentPage() {
   else if (page == RenderPage::Quotas) drawQuotas();
   else if (page == RenderPage::Domestic) drawDomestic();
   else if (page == RenderPage::System) drawSystem();
+  else if (page == RenderPage::Music) drawMusic();
   else if (screenDirty) drawDashboard();
 }
 

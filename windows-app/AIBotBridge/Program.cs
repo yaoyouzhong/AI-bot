@@ -12,6 +12,17 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--self-test-music", StringComparer.OrdinalIgnoreCase))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            var music = new NowPlayingService();
+            music.RefreshAsync(CancellationToken.None).GetAwaiter().GetResult();
+            var snapshot = music.Snapshot;
+            Console.WriteLine($"MUSIC_SELF_TEST_OK session={(string.IsNullOrEmpty(snapshot?.Title) ? "none" : "present")} " +
+                              $"playing={snapshot?.Playing ?? false} duration={snapshot?.DurationSeconds ?? 0:0}");
+            return;
+        }
+
         if (args.Contains("--self-test-system", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;

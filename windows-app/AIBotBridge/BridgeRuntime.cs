@@ -8,6 +8,7 @@ internal sealed class BridgeRuntime : IDisposable
     private readonly QuotaService _quotas;
     private readonly DomesticQuotaService _domesticQuotas;
     private readonly SystemMetricsService _systemMetrics;
+    private readonly NowPlayingService _music;
     private readonly List<Task> _workers = new();
 
     internal BridgeRuntime(bool startRefresh = true)
@@ -18,6 +19,7 @@ internal sealed class BridgeRuntime : IDisposable
         _quotas = new QuotaService();
         _domesticQuotas = new DomesticQuotaService();
         _systemMetrics = new SystemMetricsService();
+        _music = new NowPlayingService();
         if (startRefresh)
         {
             _workers.Add(Task.Run(() => _weather.RunAsync(_shutdown.Token)));
@@ -25,6 +27,7 @@ internal sealed class BridgeRuntime : IDisposable
             _workers.Add(Task.Run(() => _quotas.RunAsync(_shutdown.Token)));
             _workers.Add(Task.Run(() => _domesticQuotas.RunAsync(_shutdown.Token)));
             _workers.Add(Task.Run(() => _systemMetrics.RunAsync(_shutdown.Token)));
+            _workers.Add(Task.Run(() => _music.RunAsync(_shutdown.Token)));
         }
     }
 
@@ -36,7 +39,8 @@ internal sealed class BridgeRuntime : IDisposable
             Stocks = _stocks.Snapshot,
             Quotas = _quotas.Snapshot,
             DomesticQuotas = _domesticQuotas.Snapshot,
-            SystemMetrics = _systemMetrics.Snapshot
+            SystemMetrics = _systemMetrics.Snapshot,
+            Music = _music.Snapshot
         };
     }
 

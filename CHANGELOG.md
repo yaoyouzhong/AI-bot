@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Add Claude/Codex account-quota parsing, last-successful caching, and a device quota page.
 - Add normalized Alibaba/Kimi/MiniMax/DeepSeek quota parsing, MiniMax API refresh, and a device summary page.
 - Add live Windows CPU, memory, upload, and download metrics with a device system page.
+- Add Windows media-session metadata, progress, a music page, and AUTO playback override.
 
 ### Security
 

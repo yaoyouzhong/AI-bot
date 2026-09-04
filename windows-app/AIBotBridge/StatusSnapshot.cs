@@ -73,6 +73,15 @@ internal sealed record SystemMetricsSnapshot(
     long DownloadBytesPerSecond,
     DateTimeOffset UpdatedAt);
 
+internal sealed record MusicSnapshot(
+    string Title,
+    string Artist,
+    string Album,
+    bool Playing,
+    double ElapsedSeconds,
+    double DurationSeconds,
+    DateTimeOffset UpdatedAt);
+
 internal sealed record StatusSnapshot(
     int Version,
     string Time,
@@ -86,7 +95,8 @@ internal sealed record StatusSnapshot(
     StockSnapshot? Stocks = null,
     QuotaSnapshot? Quotas = null,
     DomesticQuotaSnapshot? DomesticQuotas = null,
-    SystemMetricsSnapshot? SystemMetrics = null);
+    SystemMetricsSnapshot? SystemMetrics = null,
+    MusicSnapshot? Music = null);
 
 internal static class JsonDefaults
 {

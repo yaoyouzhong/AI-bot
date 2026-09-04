@@ -10,7 +10,7 @@
 | 天气 | partial | partial | planned | Windows 数据/缓存和固件数值页已构建；中文位图、真实配置及设备显示待验收 |
 | 股票 | partial | partial | planned | A/H/美股解析、缓存、涨跌色和分页已构建；中文名称位图及设备显示待验收 |
 | 系统监控 | build-verified | build-verified | planned | Windows 实际取样与固件页面已构建；设备端数值仍需实机核对 |
-| 音乐 | planned | planned | planned | 标题、歌手、进度、封面；AUTO 播放时进入、停止后恢复 |
+| 音乐 | partial | partial | planned | Windows 媒体会话、标题/歌手/进度和 AUTO 切换已构建；中文位图、封面、大资源和真实播放待验收 |
 | 桌宠 | planned | planned | planned | 内置原创形象；可选择兼容许可的外部桌宠并上传；不分发来源不明资产 |
 | 屏保 | partial | partial | planned | 空闲进入、恢复页面和独立时钟已构建；手动预览及事件临时唤醒待实现 |
 | USB 优先 | partial | partial | planned | 460800 握手、小帧和控制已构建；COBS 大资源、ACK/CRC 与设备验收待完成 |
