@@ -1,6 +1,6 @@
 import Foundation
 
-enum MacBinaryResourceKind: UInt8 {
+enum MacBinaryResourceKind: UInt8, Hashable {
     case textBitmap = 1
     case musicCover = 2
     case petAsset = 3

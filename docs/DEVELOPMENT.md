@@ -45,7 +45,7 @@ The mirror self-test renders nine synthetic 240×240 pages into ignored `artifac
 
 `mac-app` is an independent Swift Package targeting macOS 13. Its current foundation uses AppKit for the menu bar, Security.framework for the pairing token, Network.framework for the authenticated LAN status listener, and Darwin termios calls for serial I/O. Session activity is derived from `.jsonl` file metadata using the same 90-second/15-minute thresholds as Windows.
 
-The serial worker considers only recognized `/dev/cu.*` USB-serial families, configures 460800-baud raw I/O, requires the version-1 `ping`/`pong` handshake, then sends `lan_config` once and `status` every two seconds. The LAN configuration is withheld when the authenticated listener failed to start or no private IPv4 address is available. Pairing material is generated from `SecRandomCopyBytes`, stored only in Keychain, and never included in diagnostics. macOS binary resources use the same NUL-delimited COBS, little-endian headers, 768-byte chunks, CRC32, ACK, and three-attempt policy as Windows; producers and UI integration remain separate work.
+The serial worker considers only recognized `/dev/cu.*` USB-serial families, configures 460800-baud raw I/O, requires the version-1 `ping`/`pong` handshake, then sends `lan_config` once and `status` every two seconds. The LAN configuration is withheld when the authenticated listener failed to start or no private IPv4 address is available. Pairing material is generated from `SecRandomCopyBytes`, stored only in Keychain, and never included in diagnostics. macOS binary resources use the same NUL-delimited COBS, little-endian headers, 768-byte chunks, CRC32, ACK, and three-attempt policy as Windows. AppKit renders localized weather and stock labels into top-down little-endian RGB565 buffers; revisions prevent unchanged resources from being resent during one connection.
 
 Validation must run on macOS:
 
@@ -54,4 +54,4 @@ swift test --package-path mac-app
 swift build -c release --package-path mac-app
 ```
 
-No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, USB control frames, and binary transport still require a Mac build; music/resource producers, mirror UI, and the remaining device controls are required Mac scope.
+No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, USB control frames, binary transport, and localized resource rendering still require a Mac build; pet/music resource producers, mirror UI, and the remaining device controls are required Mac scope.

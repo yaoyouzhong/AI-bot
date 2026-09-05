@@ -7,8 +7,8 @@
 | Claude / Codex 活动状态 | build-verified | build-verified | platform-unverified | Mac 源码读取文件元数据并发送状态；需在 Mac 构建，核对工作、空闲、离线语义且不读取会话正文 |
 | Claude / Codex 账户额度 | partial | partial | platform-unverified | Windows、固件及 Mac 源码已有解析/缓存链路；真实账号、令牌刷新、设备显示和 Mac 构建待验收 |
 | 国产模型额度 | partial | partial | 不适用 | 四家解析/缓存、隔离 WebView2 登录捕获和固件总览已构建；MiniMax 环境变量 Key 可直连，真实账号响应及实机显示待验收 |
-| 天气 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有数据、缓存和设置链路；真实配置、设备显示及 Mac 构建待验收 |
-| 股票 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有 A/H/美股解析、缓存和设置；真实配置、设备显示及 Mac 构建待验收 |
+| 天气 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有数据、缓存、设置和中文 RGB565 资源链路；真实配置、设备显示及 Mac 构建待验收 |
+| 股票 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有 A/H/美股解析、缓存、设置和名称资源链路；真实配置、分页显示及 Mac 构建待验收 |
 | 系统监控 | build-verified | build-verified | platform-unverified | Windows 实际取样与固件页已构建；Mac 公共 Darwin/Mach 取样源码待平台构建，设备数值待实机核对 |
 | 音乐 | partial | partial | planned | 媒体会话、中文文本位图、封面、进度和 AUTO 切换已构建；真实歌曲与设备显示待验收 |
 | 桌宠 | partial | partial | planned | 原创建模动画、许可文件门槛、外部图片转换/上传/渲染已构建；真实 USB 与设备显示待验收 |

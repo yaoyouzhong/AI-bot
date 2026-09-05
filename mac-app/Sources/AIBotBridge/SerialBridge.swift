@@ -8,14 +8,17 @@ final class SerialBridge {
     private let lock = NSLock()
     private let status: () -> MacStatusSnapshot
     private let lanConfiguration: () -> (host: String, port: UInt16, token: String)?
+    private let resources: () -> [MacResourcePayload]
     private var activeDescriptor: Int32 = -1
     private var activePort: String?
     private var stopped = false
 
     init(status: @escaping () -> MacStatusSnapshot,
-         lanConfiguration: @escaping () -> (host: String, port: UInt16, token: String)?) {
+         lanConfiguration: @escaping () -> (host: String, port: UInt16, token: String)?,
+         resources: @escaping () -> [MacResourcePayload] = { [] }) {
         self.status = status
         self.lanConfiguration = lanConfiguration
+        self.resources = resources
     }
 
     var portName: String? {
@@ -109,7 +112,14 @@ final class SerialBridge {
 
         setActive(descriptor, path: path)
         _ = provisionLan()
+        var sentRevisions: [MacBinaryResourceKind: Int] = [:]
         while !isStopped {
+            for resource in resources() {
+                if sentRevisions[resource.kind] == resource.revision { continue }
+                if sendResource(kind: resource.kind, data: resource.data) {
+                    sentRevisions[resource.kind] = resource.revision
+                }
+            }
             guard let frame = Self.statusFrame(status()) else { return }
             guard send(frame) else { return }
             wait(milliseconds: 2_000)

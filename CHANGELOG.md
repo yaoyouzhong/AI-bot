@@ -30,6 +30,7 @@ All notable changes to this project will be documented in this file.
 - Add macOS menu controls for device pages, brightness, and explicit Wi-Fi fallback reprovisioning.
 - Add macOS idle-time screen-saver entry with restoration of the previously selected device page.
 - Add the macOS COBS/CRC32 binary-resource protocol with per-chunk ACK retries.
+- Render macOS weather and stock labels into revision-deduplicated RGB565 device resources.
 
 ### Security
 

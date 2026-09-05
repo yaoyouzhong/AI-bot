@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let dataStore = MacDataStore()
     private lazy var dataService = MacDataService(store: dataStore)
     private lazy var quotaService = MacQuotaService(store: dataStore)
+    private let localizedTextResources = MacLocalizedTextResources()
     private let systemMetrics = MacSystemMetricsService()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var server: HTTPStatusServer?
@@ -41,6 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self, canProvisionLan, let host = LocalNetworkIdentity.privateIPv4(),
                   let token = PairingTokenStore.read(), token.utf8.count >= 32 else { return nil }
             return (host, self.port, token)
+        }, resources: { [weak self] in
+            guard let self else { return [] }
+            let extras = self.dataStore.snapshot()
+            return self.localizedTextResources.capture(weather: extras.weather, stocks: extras.stocks)
         })
         serial?.start()
         updateTitle()

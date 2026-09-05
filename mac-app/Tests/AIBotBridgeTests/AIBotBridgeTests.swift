@@ -119,4 +119,17 @@ final class AIBotBridgeTests: XCTestCase {
         corrupted[2] ^= 0x01
         XCTAssertThrowsError(try MacBinaryResourceProtocol.decodeWire(corrupted))
     }
+
+    func testLocalizedTextRgb565Dimensions() throws {
+        XCTAssertEqual(MacRgb565Renderer.rgb565(red: 255, green: 0, blue: 0), 0xF800)
+        let weather = try XCTUnwrap(MacRgb565Renderer.renderLines(
+            width: 232, height: 24, lines: ["北京  多云"], fontPixels: 20, rowHeight: 24))
+        let stocks = try XCTUnwrap(MacRgb565Renderer.renderLines(
+            width: 120, height: 400, lines: ["上证指数", "腾讯控股"],
+            fontPixels: 18, rowHeight: 20))
+        XCTAssertEqual(weather.count, 232 * 24 * 2)
+        XCTAssertEqual(stocks.count, 120 * 400 * 2)
+        XCTAssertTrue(weather.contains { $0 != 0 })
+        XCTAssertTrue(stocks.contains { $0 != 0 })
+    }
 }
