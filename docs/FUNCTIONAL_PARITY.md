@@ -10,7 +10,7 @@
 | 天气 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有数据、缓存、设置和中文 RGB565 资源链路；真实配置、设备显示及 Mac 构建待验收 |
 | 股票 | partial | partial | platform-unverified | Windows/固件及 Mac 源码均有 A/H/美股解析、缓存、设置和名称资源链路；真实配置、分页显示及 Mac 构建待验收 |
 | 系统监控 | build-verified | build-verified | platform-unverified | Windows 实际取样与固件页已构建；Mac 公共 Darwin/Mach 取样源码待平台构建，设备数值待实机核对 |
-| 音乐 | partial | partial | platform-unverified | Windows/固件已有媒体会话、文本、封面、进度和 AUTO；Mac 已有默认关闭的 Apple Music/Spotify 元数据、进度、授权 App 包和中文文本资源源码，仍缺封面/AUTO 且必须实机验证 |
+| 音乐 | partial | partial | platform-unverified | Windows/固件已有媒体会话、文本、封面、进度和 AUTO；Mac 已有默认关闭的 Apple Music/Spotify 元数据、进度、封面、授权 App 包和中文文本资源源码，仍缺 AUTO 联动且必须实机验证 |
 | 桌宠 | partial | partial | platform-unverified | Windows 与 Mac 均有许可文件门槛、112×112 RGB565 转换/上传源码，固件另有原创建模动画；Mac 构建、真实 USB 与显示待验收 |
 | 屏保 | partial | partial | platform-unverified | Mac 已有手动模式及基于本机空闲时间的进入/输入恢复源码；AI/音乐临时唤醒和 Mac/设备时序待验收 |
 | USB 优先 | partial | partial | platform-unverified | Mac 已有 460800 探测、握手、状态帧、COBS/CRC/ACK 及天气/股票/音乐/桌宠资源集成源码，但未编译/实机；真实串口待验收 |

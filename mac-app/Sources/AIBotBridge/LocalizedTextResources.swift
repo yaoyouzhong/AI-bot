@@ -14,13 +14,16 @@ final class MacLocalizedTextResources {
     private var weatherRevision = 0
     private var stocksRevision = 0
     private var musicRevision = 0
+    private var musicCoverRevision = 0
     private var weatherData = Data()
     private var stocksData = Data()
     private var musicKey = ""
     private var musicData = Data()
+    private var musicCoverKey = ""
+    private var musicCoverData = Data()
 
     func capture(weather: WeatherSnapshot?, stocks: StockSnapshot?,
-                 music: MusicSnapshot?) -> [MacResourcePayload] {
+                 music: MusicSnapshot?, musicCover: Data?) -> [MacResourcePayload] {
         lock.lock()
         defer { lock.unlock() }
         if let weather {
@@ -55,11 +58,24 @@ final class MacLocalizedTextResources {
                 musicData = rendered
                 musicRevision += 1
             }
+            if key != musicCoverKey {
+                musicCoverKey = key
+                if let musicCover, musicCover.count == 112 * 112 * 2 {
+                    musicCoverData = musicCover
+                } else {
+                    musicCoverData = Data(repeating: 0, count: 112 * 112 * 2)
+                }
+                musicCoverRevision += 1
+            }
         }
         var result: [MacResourcePayload] = []
         if musicRevision > 0 {
             result.append(MacResourcePayload(kind: .textBitmap,
                                              revision: musicRevision, data: musicData))
+        }
+        if musicCoverRevision > 0 {
+            result.append(MacResourcePayload(kind: .musicCover,
+                                             revision: musicCoverRevision, data: musicCoverData))
         }
         if weatherRevision > 0 {
             result.append(MacResourcePayload(kind: .weatherText,

@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import AIBotBridge
 
@@ -151,10 +152,12 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertEqual(snapshot.musicPlaying, true)
 
         let resources = MacLocalizedTextResources().capture(
-            weather: nil, stocks: nil, music: music)
+            weather: nil, stocks: nil, music: music, musicCover: nil)
         let text = try XCTUnwrap(resources.first { $0.kind == .textBitmap })
+        let cover = try XCTUnwrap(resources.first { $0.kind == .musicCover })
         XCTAssertEqual(text.data.count, 232 * 44 * 2)
         XCTAssertTrue(text.data.contains { $0 != 0 })
+        XCTAssertEqual(cover.data, Data(repeating: 0, count: 112 * 112 * 2))
     }
 
     func testMusicParsingClampsInvalidProgress() throws {
@@ -170,6 +173,28 @@ final class AIBotBridgeTests: XCTestCase {
                      "true", "1", "2"]))
         XCTAssertEqual(bounded.title.count, 96)
         XCTAssertFalse(bounded.title.contains("\n"))
+    }
+
+    func testMusicArtworkDecodeAndScale() throws {
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 1,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 8, bitsPerPixel: 32))
+        bitmap.setColor(.red, atX: 0, y: 0)
+        bitmap.setColor(.blue, atX: 1, y: 0)
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        let cover = try XCTUnwrap(MacMusicService.renderArtwork(png))
+        XCTAssertEqual(cover.count, 112 * 112 * 2)
+        XCTAssertTrue(cover.contains { $0 != 0 })
+        XCTAssertNil(MacMusicService.renderArtwork(Data([0, 1, 2, 3])))
+        XCTAssertTrue(MacMusicService.allowedSpotifyArtworkURL(
+            try XCTUnwrap(URL(string: "https://i.scdn.co/image/test"))))
+        XCTAssertTrue(MacMusicService.allowedSpotifyArtworkURL(
+            try XCTUnwrap(URL(string: "https://image-cdn-ak.spotifycdn.com/image/test"))))
+        XCTAssertFalse(MacMusicService.allowedSpotifyArtworkURL(
+            try XCTUnwrap(URL(string: "https://example.com/image/test"))))
+        XCTAssertFalse(MacMusicService.allowedSpotifyArtworkURL(
+            try XCTUnwrap(URL(string: "http://i.scdn.co/image/test"))))
     }
 
     func testPetAssetLicenseGateAndDimensions() throws {

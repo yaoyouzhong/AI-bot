@@ -33,6 +33,7 @@ All notable changes to this project will be documented in this file.
 - Render macOS weather and stock labels into revision-deduplicated RGB565 device resources.
 - Add license-gated macOS pet import with first-frame scaling and USB delivery.
 - Add opt-in macOS Apple Music/Spotify metadata, progress, localized text delivery, and an Automation-ready development app bundle.
+- Add bounded macOS current-artwork decoding and 112×112 RGB565 cover delivery with stale-cover clearing.
 
 ### Security
 

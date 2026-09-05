@@ -59,4 +59,4 @@ bash scripts/build_macos_app.sh
 
 After building the app bundle, launch `artifacts/AIBotBridge.app`, enable music access from its menu, verify the macOS Automation prompt, and test both play and pause without allowing the bridge to launch a stopped player. The build script applies an ad-hoc signature for local testing only; release signing and notarization remain separate work.
 
-No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, music metadata/progress, USB control frames, binary transport, localized rendering, and pet import still require a Mac build; music cover art, mirror UI, and the remaining device controls are required Mac scope.
+No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, music metadata/progress/artwork, USB control frames, binary transport, localized rendering, and pet import still require a Mac build; mirror UI and the remaining device controls are required Mac scope.

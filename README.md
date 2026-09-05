@@ -80,7 +80,7 @@ bash scripts/build_macos_app.sh
 
 音乐自动化必须从脚本生成的 `artifacts/AIBotBridge.app` 启动；直接运行 SwiftPM 裸可执行文件不具备 Apple Events 用途说明和 Hardened Runtime entitlement。脚本使用本机临时签名，仅供开发验证，不是正式分发签名。
 
-当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧、菜单控制、带 CRC/ACK 重试的二进制传输、天气/股票/音乐中文资源，以及带许可文件门槛的桌宠导入已有源码，但尚未编译或连接设备。音乐封面、国产额度、镜像和设备信息/Wi-Fi 重置仍未完成；Apple Music/Spotify 自动化权限和脚本字段也必须在真实 Mac 上验证。已有源码没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
+当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧、菜单控制、带 CRC/ACK 重试的二进制传输、天气/股票/音乐中文资源、Apple Music/Spotify 封面解码，以及带许可文件门槛的桌宠导入已有源码，但尚未编译或连接设备。国产额度、镜像和设备信息/Wi-Fi 重置仍未完成；音乐 AUTO 联动、自动化权限、播放器脚本字段和封面必须在真实 Mac 上验证。已有源码没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
 
 ## 隐私边界
 

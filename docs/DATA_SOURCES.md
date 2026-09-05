@@ -29,7 +29,9 @@ The macOS source follows the same credential-file, destination-host, no-log, and
 
 ## Music on macOS
 
-Music access is disabled by default. After the user enables it, the macOS bridge checks whether Apple Music (`com.apple.Music`) or Spotify (`com.spotify.client`) is already running and then uses public Apple Events through `NSAppleScript` to request only title, artist, album, playback state, elapsed time, and duration. It does not read playlists, libraries, account data, or audio, does not use the private MediaRemote framework, and does not persist music metadata.
+Music access is disabled by default. After the user enables it, the macOS bridge checks whether Apple Music (`com.apple.Music`) or Spotify (`com.spotify.client`) is already running and then uses public Apple Events through `NSAppleScript` to request only title, artist, album, playback state, elapsed time, duration, and current artwork. It does not read playlists, libraries, account data, or audio, does not use the private MediaRemote framework, and does not persist music metadata or artwork.
+
+Apple Music artwork is read from the Apple Event reply. Spotify exposes an HTTPS artwork URL, so the bridge accepts only `scdn.co` or `spotifycdn.com` hosts and downloads that exact URL with an ephemeral session, no cookies, and 5/8-second request/resource timeouts. Encoded artwork is limited to 10 MiB and 4096×4096, decoded through ImageIO, and converted to a 112×112 RGB565 resource. Decode or network failure sends a black replacement so the device does not retain a previous track's cover.
 
 The generated app bundle contains an `NSAppleEventsUsageDescription` and the Automation Apple Events entitlement so macOS can ask for consent. Denial or an unavailable player produces no active music session. The source and permission behavior remain platform-unverified until tested on macOS 13 or later.
 

@@ -76,7 +76,7 @@ bash scripts/build_macos_app.sh
 
 Music automation must be tested by launching the generated `artifacts/AIBotBridge.app`; the bare SwiftPM executable does not carry the Apple Events purpose string and Hardened Runtime entitlement. The script uses local ad-hoc signing for development validation, not a distribution identity.
 
-The current Windows host has no Swift toolchain. Mac control frames, menu controls, CRC/ACK-retried binary transport, localized weather/stock/music resources, and license-gated pet import have source but have not been compiled or connected to a device. Music cover art, domestic quota, mirror, device information, and Wi-Fi reset are still required; Apple Music/Spotify Automation permission and scripting fields also require a real Mac. The existing source has not been checked with live accounts or system metrics, so it remains `platform-unverified`.
+The current Windows host has no Swift toolchain. Mac control frames, menu controls, CRC/ACK-retried binary transport, localized weather/stock/music resources, Apple Music/Spotify cover decoding, and license-gated pet import have source but have not been compiled or connected to a device. Domestic quota, mirror, device information, and Wi-Fi reset are still required; music AUTO behavior, Automation permission, player scripting fields, and cover art also require a real Mac. The existing source has not been checked with live accounts or system metrics, so it remains `platform-unverified`.
 
 ## Privacy boundary
 

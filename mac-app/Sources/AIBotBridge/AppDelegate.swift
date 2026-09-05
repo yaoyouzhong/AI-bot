@@ -48,7 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return [] }
             let extras = self.dataStore.snapshot()
             return self.localizedTextResources.capture(
-                weather: extras.weather, stocks: extras.stocks, music: extras.music)
+                weather: extras.weather, stocks: extras.stocks, music: extras.music,
+                musicCover: extras.musicCover)
         })
         serial?.start()
         updateTitle()
