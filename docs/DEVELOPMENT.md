@@ -54,4 +54,4 @@ swift test --package-path mac-app
 swift build -c release --package-path mac-app
 ```
 
-No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, USB control frames, binary transport, and localized resource rendering still require a Mac build; pet/music resource producers, mirror UI, and the remaining device controls are required Mac scope.
+No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, USB control frames, binary transport, localized rendering, and pet import still require a Mac build; music resources, mirror UI, and the remaining device controls are required Mac scope.

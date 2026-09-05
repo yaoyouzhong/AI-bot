@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let reader = SessionActivityReader()
@@ -98,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(brightnessItem)
         menu.addItem(item("自动屏保设置…", #selector(configureScreenSaver)))
         menu.addItem(item("重新下发 Wi-Fi 回退配置", #selector(reprovisionLan)))
+        menu.addItem(item("导入外部桌宠…", #selector(importPet)))
         menu.addItem(item("天气和股票设置…", #selector(configureDataSources)))
         menu.addItem(item("设置配对令牌…", #selector(setPairingToken)))
         menu.addItem(item("复制 LAN 服务地址", #selector(copyAddress)))
@@ -164,6 +166,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let index = popup.indexOfSelectedItem
         guard choices.indices.contains(index) else { return }
         UserDefaults.standard.set(choices[index], forKey: "screensaver_timeout_minutes")
+    }
+
+    @objc private func importPet() {
+        guard serial?.portName != nil else {
+            show("无法导入", "设备尚未通过 USB 握手连接。")
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.title = "选择有明确许可说明的桌宠图片"
+        panel.allowedContentTypes = [.png, .jpeg, .bmp, .gif]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let asset: MacPetAsset
+        do {
+            asset = try MacPetAssetImporter.load(url)
+        } catch {
+            show("无法导入", error.localizedDescription)
+            return
+        }
+        let licenseName = asset.licenseURL.lastPathComponent
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let sent = self.serial?.sendResource(kind: .petAsset, data: asset.data) == true
+            let selected = sent && self.serial?.sendDisplayMode("pet") == true
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if !sent {
+                    self.show("发送失败", "桌宠资源未被设备完整确认；请检查 USB 连接后重试。")
+                    return
+                }
+                self.screenSaverState.select("pet")
+                let detail = selected ? "桌宠已发送并切换显示。" : "桌宠已发送，但页面切换失败。"
+                self.show("桌宠导入完成", detail + "\n许可说明：" + licenseName)
+            }
+        }
     }
 
     private func updateAutomaticScreenSaver() {

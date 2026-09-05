@@ -132,4 +132,21 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertTrue(weather.contains { $0 != 0 })
         XCTAssertTrue(stocks.contains { $0 != 0 })
     }
+
+    func testPetAssetLicenseGateAndDimensions() throws {
+        XCTAssertTrue(MacPetAssetImporter.validDimensions(width: 1, height: 4_096))
+        XCTAssertFalse(MacPetAssetImporter.validDimensions(width: 0, height: 10))
+        XCTAssertFalse(MacPetAssetImporter.validDimensions(width: 4_097, height: 10))
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AI-bot-pet-test-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let image = directory.appendingPathComponent("pet.png")
+        try Data([1]).write(to: image)
+        XCTAssertNil(MacPetAssetImporter.licenseFile(for: image))
+        let notice = directory.appendingPathComponent("pet.license.txt")
+        try Data("CC0 test notice".utf8).write(to: notice)
+        XCTAssertEqual(MacPetAssetImporter.licenseFile(for: image), notice)
+    }
 }

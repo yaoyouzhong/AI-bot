@@ -77,7 +77,7 @@ swift test --package-path mac-app
 swift build -c release --package-path mac-app
 ```
 
-当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧、菜单控制、带 CRC/ACK 重试的二进制传输，以及天气中文/股票名称 RGB565 资源生成与 revision 去重发送已有源码，但尚未编译或连接设备。桌宠导入、音乐资源、国产额度、镜像和设备信息/Wi-Fi 重置仍未完成。已有源码也没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
+当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧、菜单控制、带 CRC/ACK 重试的二进制传输、天气中文/股票名称资源，以及带许可文件门槛的桌宠导入已有源码，但尚未编译或连接设备。音乐资源、国产额度、镜像和设备信息/Wi-Fi 重置仍未完成。已有源码也没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
 
 ## 隐私边界
 
