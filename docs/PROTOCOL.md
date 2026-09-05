@@ -13,10 +13,10 @@ Host request:
 Device response:
 
 ```json
-{"version":1,"type":"pong","device":"esp8266"}
+{"version":1,"type":"pong","device":"esp8266","ip":"192.168.1.42"}
 ```
 
-The device may also emit a `hello` frame while it has not received status.
+The device may also emit a `hello` frame while it has not received status. Both `hello` and `pong` include the device's current IPv4 address when Wi-Fi is connected, or an empty `ip` when it is not. Hosts accept only version-1 `pong` frames whose `device` is `esp8266`. Older such responses with no `ip` remain transport-compatible, but a host may use the value for device administration only when it is a canonical RFC1918 address (`10/8`, `172.16/12`, or `192.168/16`).
 
 ## Status
 
@@ -46,6 +46,15 @@ When USB status has been absent for eight seconds, the device may request `GET /
 ```
 
 The literal token above is illustrative only. Real tokens must never appear in documentation, test fixtures, screenshots, or diagnostics.
+
+## Authenticated device administration
+
+The firmware listens on port 80 only while Wi-Fi is connected. A host may contact only the exact private IPv4 address discovered from the USB handshake and must send the current pairing token in `X-AIBot-Token`.
+
+- `GET /api/info` returns the device name, protocol version, IP address, USB/bridge state, display mode, and brightness.
+- `POST /reset-wifi` clears the device's saved Wi-Fi configuration and restarts it. A UI must expose this only as an explicit user action with a destructive-action confirmation.
+
+These endpoints are local HTTP because the constrained device does not terminate TLS. The strict private-address allow-list and pairing-token header are mandatory; hosts must not redirect, discover an address from an HTTP response, or send the token to a public, loopback, link-local, or user-entered host.
 
 ## Binary resources
 

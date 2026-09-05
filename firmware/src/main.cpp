@@ -732,10 +732,13 @@ void drawScreenSaver() {
 }
 
 void sendControl(const char* type) {
+  String ip = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "";
   Serial.print(kPrefix);
   Serial.print("{\"version\":1,\"type\":\"");
   Serial.print(type);
-  Serial.println("\",\"device\":\"esp8266\"}");
+  Serial.print("\",\"device\":\"esp8266\",\"ip\":\"");
+  Serial.print(ip);
+  Serial.println("\"}");
 }
 
 uint16_t readLe16(const uint8_t* value) {

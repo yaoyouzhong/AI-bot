@@ -100,8 +100,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         brightnessItem.submenu = brightnessMenu
         menu.addItem(brightnessItem)
+        menu.addItem(item("查看设备信息…", #selector(showDeviceInfo)))
         menu.addItem(item("自动屏保设置…", #selector(configureScreenSaver)))
         menu.addItem(item("重新下发 Wi-Fi 回退配置", #selector(reprovisionLan)))
+        menu.addItem(item("重置设备 Wi-Fi…", #selector(resetDeviceWiFi)))
         menu.addItem(item("导入外部桌宠…", #selector(importPet)))
         let musicAutomation = item("读取音乐状态（需自动化权限）", #selector(toggleMusicAutomation))
         musicAutomation.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off
@@ -166,6 +168,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         show("已下发", "设备已收到当前 LAN 地址和 Keychain 配对令牌。")
+    }
+
+    @objc private func showDeviceInfo() {
+        guard serial?.portName != nil, serial?.deviceHost != nil else {
+            show("无法读取", "需要运行新版固件并通过 USB 握手取得设备私有局域网地址。")
+            return
+        }
+        let service = deviceAdminService()
+        Task { [weak self] in
+            do {
+                let info = try await service.fetchInfo()
+                await MainActor.run { [weak self] in
+                    self?.show("设备信息", "设备: \(info.device)\n协议: v\(info.version)\nIP: \(info.ip)\nUSB: \(info.usbActive ? "活动" : "非活动")\n桥接: \(info.bridgeOnline ? "在线" : "离线")\n页面: \(info.mode)\n亮度: \(info.brightness)%")
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    self?.show("读取失败", error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    @objc private func resetDeviceWiFi() {
+        guard serial?.portName != nil, serial?.deviceHost != nil,
+              (PairingTokenStore.read()?.utf8.count ?? 0) >= 32 else {
+            show("无法重置", "需要运行新版固件、有效 Keychain 配对令牌和已握手 USB 设备。")
+            return
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = "重置设备 Wi-Fi？"
+        alert.informativeText = "设备将删除已保存的 Wi-Fi 配置并立即重启。重启后必须重新配网。"
+        alert.addButton(withTitle: "重置并重启")
+        alert.addButton(withTitle: "取消")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let service = deviceAdminService()
+        Task { [weak self] in
+            do {
+                try await service.resetWiFi()
+                await MainActor.run { [weak self] in
+                    self?.show("已发送", "设备正在清除 Wi-Fi 配置并重启。")
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    self?.show("重置失败", error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func deviceAdminService() -> DeviceAdminService {
+        DeviceAdminService(host: { [weak self] in self?.serial?.deviceHost },
+                           token: PairingTokenStore.read)
     }
 
     @objc private func configureScreenSaver() {
@@ -253,7 +309,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             music = "无活动会话"
         }
         let usb = serial?.portName ?? "未连接"
-        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n额度: \(quotaCount)/2\n音乐: \(music)\n系统: \(system)\nUSB: \(usb)\nLAN 端口: \(port)")
+        let device = serial?.deviceHost ?? "未发现"
+        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n额度: \(quotaCount)/2\n音乐: \(music)\n系统: \(system)\nUSB: \(usb)\n设备 IP: \(device)\nLAN 端口: \(port)")
     }
 
     @objc private func configureDataSources() {

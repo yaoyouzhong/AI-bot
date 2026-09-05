@@ -9,6 +9,7 @@ internal sealed class SerialPublisher
     private const string Prefix = "@AIBOT ";
     private readonly object _portSync = new();
     private volatile string? _portName;
+    private volatile string? _deviceHost;
     private SerialPort? _activePort;
     private readonly LanPairing? _pairing;
     private readonly string? _preferredPort;
@@ -20,6 +21,7 @@ internal sealed class SerialPublisher
     }
 
     internal string? PortName => _portName;
+    internal string? DeviceHost => _deviceHost;
 
     internal bool SendDisplayMode(string mode) => TrySend(new
     {
@@ -83,12 +85,14 @@ internal sealed class SerialPublisher
                     port.DiscardInBuffer();
                     port.WriteLine(Prefix + "{\"version\":1,\"type\":\"ping\"}");
 
-                    if (!WaitForPong(port))
+                    if (!WaitForPong(port, out var deviceHost))
                         continue;
 
                     _portName = candidate;
+                    _deviceHost = deviceHost;
                     lock (_portSync) _activePort = port;
                     var sentRevisions = new Dictionary<BinaryResourceKind, int>();
+                    var nextDeviceProbeAt = DateTime.UtcNow.AddSeconds(deviceHost is null ? 5 : 30);
                     if (_pairing is not null)
                     {
                         var pairingFrame = new
@@ -106,6 +110,11 @@ internal sealed class SerialPublisher
                     }
                     while (!cancellationToken.IsCancellationRequested && port.IsOpen)
                     {
+                        if (DateTime.UtcNow >= nextDeviceProbeAt)
+                        {
+                            RefreshDeviceHost(port);
+                            nextDeviceProbeAt = DateTime.UtcNow.AddSeconds(_deviceHost is null ? 5 : 30);
+                        }
                         foreach (var resource in resources())
                         {
                             if (sentRevisions.TryGetValue(resource.Kind, out var revision) &&
@@ -139,6 +148,7 @@ internal sealed class SerialPublisher
                     lock (_portSync)
                         if (ReferenceEquals(_activePort, port)) _activePort = null;
                     _portName = null;
+                    _deviceHost = null;
                 }
             }
 
@@ -179,16 +189,16 @@ internal sealed class SerialPublisher
         RtsEnable = false
     };
 
-    private static bool WaitForPong(SerialPort port)
+    private static bool WaitForPong(SerialPort port, out string? deviceHost)
     {
+        deviceHost = null;
         var deadline = DateTime.UtcNow.AddSeconds(3);
         while (DateTime.UtcNow < deadline)
         {
             try
             {
                 var line = port.ReadLine().Trim();
-                if (line.StartsWith(Prefix, StringComparison.Ordinal) &&
-                    line.Contains("\"type\":\"pong\"", StringComparison.Ordinal))
+                if (TryParsePong(line, out deviceHost))
                     return true;
             }
             catch (TimeoutException)
@@ -197,6 +207,66 @@ internal sealed class SerialPublisher
             }
         }
         return false;
+    }
+
+    private void RefreshDeviceHost(SerialPort port)
+    {
+        lock (_portSync)
+        {
+            if (!ReferenceEquals(_activePort, port) || !port.IsOpen) return;
+            try
+            {
+                port.WriteLine(Prefix + "{\"version\":1,\"type\":\"ping\"}");
+                if (WaitForPong(port, out var deviceHost)) _deviceHost = deviceHost;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or TimeoutException)
+            {
+            }
+        }
+    }
+
+    internal static bool TryParsePong(string line, out string? deviceHost)
+    {
+        deviceHost = null;
+        if (!line.StartsWith(Prefix, StringComparison.Ordinal)) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(line[Prefix.Length..]);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("version", out var version) || version.GetInt32() != 1 ||
+                !root.TryGetProperty("type", out var type) || type.GetString() != "pong" ||
+                !root.TryGetProperty("device", out var device) || device.GetString() != "esp8266")
+                return false;
+            if (root.TryGetProperty("ip", out var ip) && ip.ValueKind == JsonValueKind.String)
+            {
+                var candidate = ip.GetString();
+                if (candidate is not null && IsPrivateIPv4(candidate)) deviceHost = candidate;
+            }
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    internal static bool IsPrivateIPv4(string value)
+    {
+        var parts = value.Split('.', StringSplitOptions.None);
+        if (parts.Length != 4) return false;
+        Span<byte> octets = stackalloc byte[4];
+        for (var index = 0; index < parts.Length; index++)
+        {
+            if (!byte.TryParse(parts[index], out octets[index]) ||
+                parts[index] != octets[index].ToString()) return false;
+        }
+        return octets[0] == 10 ||
+               octets[0] == 192 && octets[1] == 168 ||
+               octets[0] == 172 && octets[1] is >= 16 and <= 31;
     }
 
     private static bool WaitForResourceAck(SerialPort port, uint transferId, ushort sequence)

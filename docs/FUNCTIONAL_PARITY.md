@@ -15,10 +15,10 @@
 | 屏保 | partial | partial | platform-unverified | Mac 已有手动模式、空闲进入、输入恢复，以及音乐页/桌宠页 12 秒临时唤醒源码；Mac/设备时序待验收 |
 | USB 优先 | partial | partial | platform-unverified | Mac 已有 460800 探测、握手、状态帧、COBS/CRC/ACK 及天气/股票/音乐/桌宠资源集成源码，但未编译/实机；真实串口待验收 |
 | Wi-Fi 回退 | build-verified | build-verified | platform-unverified | Mac 已有 Keychain 随机令牌、认证 LAN 和 USB `lan_config` 源码；需验证 8 秒回退及 USB 恢复自动切回 |
-| 设备控制 | partial | partial | platform-unverified | Mac 菜单已有 USB 模式/亮度/重发回退配置源码；设备信息/Wi-Fi 重置尚缺可靠地址发现，整体待设备验收 |
+| 设备控制 | partial | partial | platform-unverified | Mac 菜单已有 USB 模式/亮度/重发回退、严格私网地址发现、认证设备信息和二次确认 Wi-Fi 重置源码；需 Mac 构建及设备验收 |
 | PC 离线独立时钟 | build-verified | build-verified | platform-unverified | Mac 状态帧含 epoch/时区并在退出时发 host-away；需验证 `PC OFF`、NTP/保持时间及恢复页面 |
 | Windows 托盘和镜像 | partial | 不适用 | 不适用 | 托盘、设备控制、非敏感设置持久化和九页面 240×240 镜像已构建；启动项及设置窗视觉待验收 |
-| macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 菜单栏、活动/账户额度、天气/股票、系统指标、设置、Keychain、认证 LAN 和 USB 小帧源码已建；镜像、其余能力及真实 Mac 构建待完成 |
+| macOS 菜单栏和镜像 | 不适用 | 不适用 | platform-unverified | 菜单栏、活动/账户额度、天气/股票、系统指标、设置、Keychain、认证 LAN、USB 小帧和设备管理源码已建；镜像、其余能力及真实 Mac 构建待完成 |
 
 ## 完成定义
 

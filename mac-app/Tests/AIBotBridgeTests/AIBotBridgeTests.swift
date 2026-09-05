@@ -60,6 +60,49 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertFalse(SerialBridge.displayModes.contains("unknown"))
     }
 
+    func testSerialPongDiscoversOnlyPrivateDeviceAddress() throws {
+        let current = try XCTUnwrap(SerialBridge.parsePong(
+            #"@AIBOT {"version":1,"type":"pong","device":"esp8266","ip":"192.168.1.42"}"#))
+        XCTAssertEqual(current.deviceHost, "192.168.1.42")
+        XCTAssertNil(try XCTUnwrap(SerialBridge.parsePong(
+            #"@AIBOT {"version":1,"type":"pong","device":"esp8266","ip":"8.8.8.8"}"#)).deviceHost)
+        XCTAssertNil(try XCTUnwrap(SerialBridge.parsePong(
+            #"@AIBOT {"version":1,"type":"pong","device":"esp8266"}"#)).deviceHost)
+        XCTAssertNil(SerialBridge.parsePong(
+            #"@AIBOT {"version":2,"type":"pong","device":"esp8266","ip":"10.0.0.8"}"#))
+        XCTAssertNil(SerialBridge.parsePong(
+            #"@AIBOT {"version":1,"type":"hello","device":"esp8266","ip":"10.0.0.8"}"#))
+        XCTAssertNil(SerialBridge.parsePong(
+            #"@AIBOT {"version":1,"type":"pong","device":"other","ip":"10.0.0.8"}"#))
+    }
+
+    func testDeviceAdminRequestBoundaryAndInfoParsing() throws {
+        let token = String(repeating: "t", count: 32)
+        let request = try DeviceAdminService.makeRequest(
+            host: "10.2.3.4", token: token, path: "/api/info", method: "GET")
+        XCTAssertEqual(request.url?.absoluteString, "http://10.2.3.4:80/api/info")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-AIBot-Token"), token)
+        XCTAssertNoThrow(try DeviceAdminService.makeRequest(
+            host: "172.16.0.1", token: token, path: "/reset-wifi", method: "POST"))
+        XCTAssertThrowsError(try DeviceAdminService.makeRequest(
+            host: "8.8.8.8", token: token, path: "/api/info", method: "GET"))
+        XCTAssertThrowsError(try DeviceAdminService.makeRequest(
+            host: "192.168.1.2", token: "short", path: "/api/info", method: "GET"))
+        XCTAssertThrowsError(try DeviceAdminService.makeRequest(
+            host: "192.168.1.2", token: token, path: "/other", method: "GET"))
+        XCTAssertThrowsError(try DeviceAdminService.makeRequest(
+            host: "192.168.1.2", token: token, path: "/reset-wifi", method: "GET"))
+        XCTAssertFalse(PrivateIPv4Address.isValid("192.168.001.2"))
+
+        let info = try JSONDecoder().decode(DeviceInfo.self, from: Data(
+            #"{"device":"AI-bot","version":1,"ip":"192.168.1.42","usb_active":true,"bridge_online":true,"mode":"weather","brightness":75}"#.utf8))
+        XCTAssertEqual(info.device, "AI-bot")
+        XCTAssertTrue(info.usbActive)
+        XCTAssertTrue(info.bridgeOnline)
+        XCTAssertEqual(info.mode, "weather")
+        XCTAssertEqual(info.brightness, 75)
+    }
+
     func testSerialStatusFrameUsesProtocolPrefix() throws {
         let snapshot = MacStatusSnapshot(
             version: 1, time: "12:34:56", epochUtc: 1_788_500_000, utcOffsetSeconds: 28_800,

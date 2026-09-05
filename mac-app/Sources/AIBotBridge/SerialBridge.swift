@@ -11,6 +11,7 @@ final class SerialBridge {
     private let resources: () -> [MacResourcePayload]
     private var activeDescriptor: Int32 = -1
     private var activePort: String?
+    private var activeDeviceHost: String?
     private var stopped = false
 
     init(status: @escaping () -> MacStatusSnapshot,
@@ -25,6 +26,12 @@ final class SerialBridge {
         lock.lock()
         defer { lock.unlock() }
         return activePort
+    }
+
+    var deviceHost: String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return activeDeviceHost
     }
 
     func start() {
@@ -82,7 +89,7 @@ final class SerialBridge {
     @discardableResult
     func provisionLan() -> Bool {
         guard let configuration = lanConfiguration(), configuration.token.utf8.count >= 32,
-              Self.isPrivateIPv4(configuration.host) else { return false }
+              PrivateIPv4Address.isValid(configuration.host) else { return false }
         return send(Self.lanFrame(host: configuration.host, port: configuration.port,
                                   token: configuration.token))
     }
@@ -108,12 +115,18 @@ final class SerialBridge {
         guard !isStopped else { return }
         tcflush(descriptor, TCIOFLUSH)
         guard Self.write(Self.controlFrame(type: "ping"), to: descriptor),
-              Self.waitForPong(from: descriptor, stopped: { [weak self] in self?.isStopped ?? true }) else { return }
+              let handshake = Self.waitForPong(
+                from: descriptor, stopped: { [weak self] in self?.isStopped ?? true }) else { return }
 
-        setActive(descriptor, path: path)
+        setActive(descriptor, path: path, deviceHost: handshake.deviceHost)
         _ = provisionLan()
         var sentRevisions: [MacBinaryResourceKind: Int] = [:]
+        var nextDeviceProbeAt = Date().addingTimeInterval(handshake.deviceHost == nil ? 5 : 30)
         while !isStopped {
+            if Date() >= nextDeviceProbeAt {
+                refreshDeviceHost(descriptor)
+                nextDeviceProbeAt = Date().addingTimeInterval(deviceHost == nil ? 5 : 30)
+            }
             for resource in resources() {
                 if sentRevisions[resource.kind] == resource.revision { continue }
                 if sendResource(kind: resource.kind, data: resource.data) {
@@ -132,10 +145,11 @@ final class SerialBridge {
         return stopped
     }
 
-    private func setActive(_ descriptor: Int32, path: String) {
+    private func setActive(_ descriptor: Int32, path: String, deviceHost: String?) {
         lock.lock()
         activeDescriptor = descriptor
         activePort = path
+        activeDeviceHost = deviceHost
         lock.unlock()
     }
 
@@ -144,6 +158,7 @@ final class SerialBridge {
         if activeDescriptor == descriptor {
             activeDescriptor = -1
             activePort = nil
+            activeDeviceHost = nil
         }
         lock.unlock()
     }
@@ -153,6 +168,15 @@ final class SerialBridge {
         defer { lock.unlock() }
         guard activeDescriptor >= 0 else { return false }
         return Self.write(data, to: activeDescriptor)
+    }
+
+    private func refreshDeviceHost(_ descriptor: Int32) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard activeDescriptor == descriptor,
+              Self.write(Self.controlFrame(type: "ping"), to: descriptor),
+              let handshake = Self.waitForPong(from: descriptor, stopped: { false }) else { return }
+        activeDeviceHost = handshake.deviceHost
     }
 
     private func wait(milliseconds: UInt32) {
@@ -205,7 +229,8 @@ final class SerialBridge {
         return true
     }
 
-    private static func waitForPong(from descriptor: Int32, stopped: () -> Bool) -> Bool {
+    private static func waitForPong(from descriptor: Int32,
+                                    stopped: () -> Bool) -> SerialHandshake? {
         let deadline = Date().addingTimeInterval(3)
         var buffer = Data()
         while Date() < deadline && !stopped() {
@@ -219,15 +244,25 @@ final class SerialBridge {
                     let raw = buffer[..<newline]
                     buffer.removeSubrange(...newline)
                     let line = String(decoding: raw, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-                    if line.hasPrefix(prefix), line.contains("\"type\":\"pong\"") { return true }
+                    if let handshake = parsePong(line) { return handshake }
                 }
                 if buffer.count > maximumLineBytes { buffer.removeAll(keepingCapacity: true) }
             } else if count < 0 && errno != EAGAIN && errno != EWOULDBLOCK {
-                return false
+                return nil
             }
             usleep(10_000)
         }
-        return false
+        return nil
+    }
+
+    static func parsePong(_ line: String) -> SerialHandshake? {
+        guard line.hasPrefix(prefix),
+              let payload = line.data(using: .utf8)?.dropFirst(prefix.utf8.count),
+              let response = try? JSONDecoder().decode(PongEnvelope.self, from: Data(payload)),
+              response.version == 1, response.type == "pong",
+              response.device == "esp8266" else { return nil }
+        let host = response.ip.flatMap { PrivateIPv4Address.isValid($0) ? $0 : nil }
+        return SerialHandshake(deviceHost: host)
     }
 
     private static func write(_ data: Data, to descriptor: Int32) -> Bool {
@@ -306,16 +341,20 @@ final class SerialBridge {
         return result.count <= maximumLineBytes ? result : nil
     }
 
-    private static func isPrivateIPv4(_ value: String) -> Bool {
-        let parts = value.split(separator: ".").compactMap { Int($0) }
-        guard parts.count == 4, parts.allSatisfy({ (0...255).contains($0) }) else { return false }
-        return parts[0] == 10 || parts[0] == 192 && parts[1] == 168 ||
-            parts[0] == 172 && (16...31).contains(parts[1])
-    }
-
     private struct StatusEnvelope: Encodable {
         let version: Int
         let type: String
         let data: MacStatusSnapshot
     }
+
+    private struct PongEnvelope: Decodable {
+        let version: Int
+        let type: String
+        let device: String
+        let ip: String?
+    }
+}
+
+struct SerialHandshake {
+    let deviceHost: String?
 }

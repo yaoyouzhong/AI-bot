@@ -148,7 +148,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var json = JsonSerializer.Serialize(
             _runtime.Capture(),
             new JsonSerializerOptions(JsonDefaults.Options) { WriteIndented = true });
-        MessageBox.Show(json, "AI-bot status", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        var device = _serial.DeviceHost ?? "not discovered";
+        MessageBox.Show($"Device LAN: {device}\n\n{json}", "AI-bot status",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void ShowMirror()

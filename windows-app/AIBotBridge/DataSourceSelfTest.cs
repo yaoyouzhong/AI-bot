@@ -71,6 +71,21 @@ internal static class DataSourceSelfTest
             SystemMetricsService.CalculateRate(2500, 1000, 1) != 0)
             throw new InvalidOperationException("Network-rate calculation did not handle elapsed time or reset.");
 
+        if (!SerialPublisher.TryParsePong(
+                "@AIBOT {\"version\":1,\"type\":\"pong\",\"device\":\"esp8266\",\"ip\":\"192.168.1.42\"}",
+                out var deviceHost) || deviceHost != "192.168.1.42" ||
+            !SerialPublisher.TryParsePong(
+                "@AIBOT {\"version\":1,\"type\":\"pong\",\"device\":\"esp8266\"}", out var legacyHost) ||
+            legacyHost is not null ||
+            !SerialPublisher.TryParsePong(
+                "@AIBOT {\"version\":1,\"type\":\"pong\",\"device\":\"esp8266\",\"ip\":\"8.8.8.8\"}", out var publicHost) ||
+            publicHost is not null ||
+            SerialPublisher.TryParsePong(
+                "@AIBOT {\"version\":2,\"type\":\"pong\",\"device\":\"esp8266\",\"ip\":\"10.0.0.8\"}", out _) ||
+            SerialPublisher.TryParsePong(
+                "@AIBOT {\"version\":1,\"type\":\"pong\",\"device\":\"other\",\"ip\":\"10.0.0.8\"}", out _))
+            throw new InvalidOperationException("Serial pong parsing did not enforce protocol and private-address rules.");
+
         var resource = Enumerable.Range(0, 2000).Select(index => (byte)(index * 31)).ToArray();
         var chunks = BinaryResourceProtocol.CreateChunks(BinaryResourceKind.PetAsset, resource, 0x12345678);
         var restored = chunks.SelectMany(chunk => BinaryResourceProtocol.DecodeWire(chunk.WireBytes).Payload).ToArray();

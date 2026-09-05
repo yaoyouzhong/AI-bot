@@ -22,7 +22,14 @@
     <string>13.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
     <key>NSAppleEventsUsageDescription</key>
     <string>AI-bot reads the current track from a running music player for display on your device.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>AI-bot connects to your paired clock and provides authenticated Wi-Fi fallback on your local network.</string>
 </dict>
 </plist>

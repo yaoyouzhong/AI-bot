@@ -35,10 +35,12 @@ All notable changes to this project will be documented in this file.
 - Add opt-in macOS Apple Music/Spotify metadata, progress, localized text delivery, and an Automation-ready development app bundle.
 - Add bounded macOS current-artwork decoding and 112×112 RGB565 cover delivery with stale-cover clearing.
 - Add macOS automatic-screen-saver temporary wake for new music playback and AI work.
+- Add USB discovery of the device's private address plus authenticated macOS device information and confirmed Wi-Fi reset.
 
 ### Security
 
 - Bind the device endpoint to one private adapter and require a DPAPI-protected pairing token.
+- Restrict macOS device-administration requests to fixed paths on the USB-discovered RFC1918 address.
 
 ## 0.1.0 - 2026-09-04
 
