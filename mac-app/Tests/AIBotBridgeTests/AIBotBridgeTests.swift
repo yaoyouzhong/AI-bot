@@ -85,7 +85,7 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertFalse(state.active)
         state.confirm("screensaver", sent: true)
         XCTAssertTrue(state.active)
-        XCTAssertEqual(state.desiredMode(idleSeconds: 120, timeoutMinutes: 5), "auto")
+        XCTAssertEqual(state.desiredMode(idleSeconds: 2, timeoutMinutes: 5), "auto")
         state.confirm("auto", sent: true)
         XCTAssertFalse(state.active)
 
@@ -93,6 +93,45 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertEqual(state.desiredMode(idleSeconds: 301, timeoutMinutes: 5), "screensaver")
         state.select("screensaver")
         XCTAssertNil(state.desiredMode(idleSeconds: 0, timeoutMinutes: 5))
+    }
+
+    func testAutomaticScreenSaverTemporaryAiAndMusicWake() {
+        let start = Date(timeIntervalSince1970: 1_788_500_000)
+        var state = AutomaticScreenSaverState()
+        XCTAssertEqual(state.desiredMode(idleSeconds: 300, timeoutMinutes: 5,
+                                         now: start), "screensaver")
+        state.confirm("screensaver", sent: true, now: start)
+
+        XCTAssertEqual(state.desiredMode(idleSeconds: 310, timeoutMinutes: 5,
+                                         aiWorking: true, now: start), "pet")
+        state.confirm("pet", sent: true, now: start)
+        XCTAssertTrue(state.active)
+        XCTAssertNil(state.desiredMode(idleSeconds: 311, timeoutMinutes: 5,
+                                       aiWorking: true, now: start.addingTimeInterval(11)))
+        XCTAssertEqual(state.desiredMode(idleSeconds: 312, timeoutMinutes: 5,
+                                         aiWorking: true, now: start.addingTimeInterval(12)),
+                       "screensaver")
+        state.confirm("screensaver", sent: true, now: start.addingTimeInterval(12))
+
+        XCTAssertEqual(state.desiredMode(idleSeconds: 314, timeoutMinutes: 5,
+                                         aiWorking: false, musicPlaying: true,
+                                         now: start.addingTimeInterval(14)), "music")
+        state.confirm("music", sent: true, now: start.addingTimeInterval(14))
+        XCTAssertTrue(state.active)
+        XCTAssertEqual(state.desiredMode(idleSeconds: 1, timeoutMinutes: 5,
+                                         musicPlaying: true, now: start.addingTimeInterval(15)), "auto")
+        state.confirm("auto", sent: true, now: start.addingTimeInterval(15))
+        XCTAssertFalse(state.active)
+    }
+
+    func testAutomaticScreenSaverRetriesFailedRestore() {
+        var state = AutomaticScreenSaverState()
+        XCTAssertEqual(state.desiredMode(idleSeconds: 300, timeoutMinutes: 5), "screensaver")
+        state.confirm("screensaver", sent: true)
+        XCTAssertEqual(state.desiredMode(idleSeconds: 1, timeoutMinutes: 5), "auto")
+        state.confirm("auto", sent: false)
+        XCTAssertTrue(state.active)
+        XCTAssertEqual(state.desiredMode(idleSeconds: 1, timeoutMinutes: 5), "auto")
     }
 
     func testBinaryResourceRoundTripAndChecksum() throws {

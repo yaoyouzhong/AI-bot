@@ -125,7 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await self.musicService.refreshIfEnabled() }
         let snapshot = reader.capture(extras: dataStore.snapshot())
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
-        updateAutomaticScreenSaver()
+        updateAutomaticScreenSaver(snapshot)
     }
 
     private func short(_ state: String) -> String {
@@ -223,9 +223,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func updateAutomaticScreenSaver() {
+    private func updateAutomaticScreenSaver(_ snapshot: MacStatusSnapshot) {
+        let aiWorking = snapshot.codex.state == "working" || snapshot.claude.state == "working"
         guard let mode = screenSaverState.desiredMode(
-            idleSeconds: MacIdleTime.seconds(), timeoutMinutes: Self.screenSaverMinutes()) else { return }
+            idleSeconds: MacIdleTime.seconds(), timeoutMinutes: Self.screenSaverMinutes(),
+            aiWorking: aiWorking, musicPlaying: snapshot.music?.playing == true) else { return }
         let sent = serial?.sendDisplayMode(mode) == true
         screenSaverState.confirm(mode, sent: sent)
     }
