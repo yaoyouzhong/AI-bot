@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let dataStore = MacDataStore()
     private lazy var dataService = MacDataService(store: dataStore)
     private lazy var quotaService = MacQuotaService(store: dataStore)
+    private lazy var musicService = MacMusicService(store: dataStore)
     private let localizedTextResources = MacLocalizedTextResources()
     private let systemMetrics = MacSystemMetricsService()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -46,7 +47,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }, resources: { [weak self] in
             guard let self else { return [] }
             let extras = self.dataStore.snapshot()
-            return self.localizedTextResources.capture(weather: extras.weather, stocks: extras.stocks)
+            return self.localizedTextResources.capture(
+                weather: extras.weather, stocks: extras.stocks, music: extras.music)
         })
         serial?.start()
         updateTitle()
@@ -100,6 +102,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(item("自动屏保设置…", #selector(configureScreenSaver)))
         menu.addItem(item("重新下发 Wi-Fi 回退配置", #selector(reprovisionLan)))
         menu.addItem(item("导入外部桌宠…", #selector(importPet)))
+        let musicAutomation = item("读取音乐状态（需自动化权限）", #selector(toggleMusicAutomation))
+        musicAutomation.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off
+        menu.addItem(musicAutomation)
         menu.addItem(item("天气和股票设置…", #selector(configureDataSources)))
         menu.addItem(item("设置配对令牌…", #selector(setPairingToken)))
         menu.addItem(item("复制 LAN 服务地址", #selector(copyAddress)))
@@ -116,6 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateTitle() {
         if let metrics = systemMetrics.capture() { dataStore.update(systemMetrics: metrics) }
+        Task { await self.musicService.refreshIfEnabled() }
         let snapshot = reader.capture(extras: dataStore.snapshot())
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
         updateAutomaticScreenSaver()
@@ -139,6 +145,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
               serial?.sendBrightness(level) == true else {
             show("未发送", "设备尚未通过 USB 握手连接。")
             return
+        }
+    }
+
+    @objc private func toggleMusicAutomation(_ sender: NSMenuItem) {
+        let enabled = !UserDefaults.standard.bool(forKey: MacMusicService.enabledKey)
+        UserDefaults.standard.set(enabled, forKey: MacMusicService.enabledKey)
+        sender.state = enabled ? .on : .off
+        if enabled {
+            Task { await self.musicService.refreshIfEnabled() }
+        } else {
+            dataStore.update(music: .empty())
         }
     }
 
@@ -224,8 +241,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "CPU \(Int($0.cpuPercent.rounded()))% / MEM \(Int($0.memoryPercent.rounded()))%"
         } ?? "等待采样"
         let quotaCount = [snapshot.quotas?.claude, snapshot.quotas?.codex].compactMap { $0 }.count
+        let music: String
+        if !UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) {
+            music = "关闭"
+        } else if let title = snapshot.music?.title, !title.isEmpty {
+            music = title
+        } else {
+            music = "无活动会话"
+        }
         let usb = serial?.portName ?? "未连接"
-        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n额度: \(quotaCount)/2\n系统: \(system)\nUSB: \(usb)\nLAN 端口: \(port)")
+        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n额度: \(quotaCount)/2\n音乐: \(music)\n系统: \(system)\nUSB: \(usb)\nLAN 端口: \(port)")
     }
 
     @objc private func configureDataSources() {

@@ -61,6 +61,21 @@ struct QuotaSnapshot: Codable, Equatable {
     let codex: ProviderQuotaSnapshot?
 }
 
+struct MusicSnapshot: Codable, Equatable {
+    let title: String
+    let artist: String
+    let album: String
+    let playing: Bool
+    let elapsedSeconds: Double
+    let durationSeconds: Double
+    let updatedAt: Date
+
+    static func empty(at date: Date = Date()) -> MusicSnapshot {
+        MusicSnapshot(title: "", artist: "", album: "", playing: false,
+                      elapsedSeconds: 0, durationSeconds: 0, updatedAt: date)
+    }
+}
+
 struct MacStatusSnapshot: Codable {
     let version: Int
     let time: String
@@ -74,6 +89,7 @@ struct MacStatusSnapshot: Codable {
     let stocks: StockSnapshot?
     let systemMetrics: SystemMetricsSnapshot?
     let quotas: QuotaSnapshot?
+    let music: MusicSnapshot?
 }
 
 final class SessionActivityReader {
@@ -94,11 +110,12 @@ final class SessionActivityReader {
             capturedAt: now,
             codex: state(in: home(".codex/sessions"), now: now),
             claude: state(in: home(".claude/projects"), now: now),
-            musicPlaying: nil,
+            musicPlaying: extras.music?.playing ?? false,
             weather: extras.weather,
             stocks: extras.stocks,
             systemMetrics: extras.systemMetrics,
-            quotas: extras.quotas
+            quotas: extras.quotas,
+            music: extras.music
         )
     }
 

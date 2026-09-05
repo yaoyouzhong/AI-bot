@@ -13,10 +13,14 @@ final class MacLocalizedTextResources {
     private var stocksKey = ""
     private var weatherRevision = 0
     private var stocksRevision = 0
+    private var musicRevision = 0
     private var weatherData = Data()
     private var stocksData = Data()
+    private var musicKey = ""
+    private var musicData = Data()
 
-    func capture(weather: WeatherSnapshot?, stocks: StockSnapshot?) -> [MacResourcePayload] {
+    func capture(weather: WeatherSnapshot?, stocks: StockSnapshot?,
+                 music: MusicSnapshot?) -> [MacResourcePayload] {
         lock.lock()
         defer { lock.unlock() }
         if let weather {
@@ -41,7 +45,22 @@ final class MacLocalizedTextResources {
                 stocksRevision += 1
             }
         }
+        if let music, !music.title.isEmpty {
+            let key = music.title + "\n" + music.artist
+            if key != musicKey,
+               let rendered = MacRgb565Renderer.renderLines(
+                width: 232, height: 44, lines: [music.title, music.artist],
+                fontPixels: 17, rowHeight: 22, alignment: .center) {
+                musicKey = key
+                musicData = rendered
+                musicRevision += 1
+            }
+        }
         var result: [MacResourcePayload] = []
+        if musicRevision > 0 {
+            result.append(MacResourcePayload(kind: .textBitmap,
+                                             revision: musicRevision, data: musicData))
+        }
         if weatherRevision > 0 {
             result.append(MacResourcePayload(kind: .weatherText,
                                              revision: weatherRevision, data: weatherData))
@@ -56,7 +75,8 @@ final class MacLocalizedTextResources {
 
 enum MacRgb565Renderer {
     static func renderLines(width: Int, height: Int, lines: [String],
-                            fontPixels: CGFloat, rowHeight: Int) -> Data? {
+                            fontPixels: CGFloat, rowHeight: Int,
+                            alignment: NSTextAlignment = .left) -> Data? {
         guard width > 0, height > 0, rowHeight > 0,
               let bitmap = NSBitmapImageRep(
                 bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
@@ -69,7 +89,7 @@ enum MacRgb565Renderer {
         NSColor.black.setFill()
         NSRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)).fill()
         let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .left
+        paragraph.alignment = alignment
         paragraph.lineBreakMode = .byTruncatingTail
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: fontPixels, weight: .bold),

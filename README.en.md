@@ -66,14 +66,17 @@ Exit the Windows bridge before flashing so it releases the serial port. After fl
 
 ## macOS
 
-The current Swift source includes a menu bar, Claude/Codex activity and account quotas, Open-Meteo weather, A/H/US stocks, CPU/memory/network metrics, last-successful caches, non-secret UserDefaults settings, a Keychain pairing token, authenticated LAN `/status`, `/dev/cu.*` discovery, a 460800-baud handshake, two-second status frames, USB provisioning for Wi-Fi fallback, menu controls for device pages and brightness, and idle-time screen-saver entry/restoration. Validate it on macOS 13+:
+The current Swift source includes a menu bar, Claude/Codex activity and account quotas, Open-Meteo weather, A/H/US stocks, CPU/memory/network metrics, Apple Music/Spotify metadata and progress, a localized music-text resource, last-successful caches, non-secret UserDefaults settings, a Keychain pairing token, authenticated LAN `/status`, `/dev/cu.*` discovery, a 460800-baud handshake, two-second status frames, USB provisioning for Wi-Fi fallback, menu controls for device pages and brightness, and idle-time screen-saver entry/restoration. Music access is disabled by default; enabling it from the menu may prompt for Automation permission, and the bridge queries only players that are already running. Validate it on macOS 13+:
 
 ```bash
 swift test --package-path mac-app
 swift build -c release --package-path mac-app
+bash scripts/build_macos_app.sh
 ```
 
-The current Windows host has no Swift toolchain. Mac control frames, menu controls, CRC/ACK-retried binary transport, localized weather/stock resources, and license-gated pet import have source but have not been compiled or connected to a device. Music resources, domestic quota, mirror, device information, and Wi-Fi reset are still required. The existing source has not been checked with live accounts or system metrics, so it remains `platform-unverified`.
+Music automation must be tested by launching the generated `artifacts/AIBotBridge.app`; the bare SwiftPM executable does not carry the Apple Events purpose string and Hardened Runtime entitlement. The script uses local ad-hoc signing for development validation, not a distribution identity.
+
+The current Windows host has no Swift toolchain. Mac control frames, menu controls, CRC/ACK-retried binary transport, localized weather/stock/music resources, and license-gated pet import have source but have not been compiled or connected to a device. Music cover art, domestic quota, mirror, device information, and Wi-Fi reset are still required; Apple Music/Spotify Automation permission and scripting fields also require a real Mac. The existing source has not been checked with live accounts or system metrics, so it remains `platform-unverified`.
 
 ## Privacy boundary
 

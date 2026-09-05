@@ -6,8 +6,10 @@ struct MacDataExtras {
     let stocks: StockSnapshot?
     let systemMetrics: SystemMetricsSnapshot?
     let quotas: QuotaSnapshot?
+    let music: MusicSnapshot?
 
-    static let empty = MacDataExtras(weather: nil, stocks: nil, systemMetrics: nil, quotas: nil)
+    static let empty = MacDataExtras(weather: nil, stocks: nil, systemMetrics: nil,
+                                     quotas: nil, music: MusicSnapshot.empty())
 }
 
 struct MacDataPreferences {
@@ -44,6 +46,7 @@ final class MacDataStore {
     private var stocks: StockSnapshot?
     private var systemMetrics: SystemMetricsSnapshot?
     private var quotas: QuotaSnapshot?
+    private var music: MusicSnapshot = .empty()
     private let decoder: JSONDecoder = {
         let value = JSONDecoder()
         value.dateDecodingStrategy = .iso8601
@@ -73,7 +76,8 @@ final class MacDataStore {
     func snapshot() -> MacDataExtras {
         lock.lock()
         defer { lock.unlock() }
-        return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics, quotas: quotas)
+        return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics,
+                             quotas: quotas, music: music)
     }
 
     func update(weather value: WeatherSnapshot) {
@@ -111,6 +115,12 @@ final class MacDataStore {
     func update(systemMetrics value: SystemMetricsSnapshot) {
         lock.lock()
         systemMetrics = value
+        lock.unlock()
+    }
+
+    func update(music value: MusicSnapshot) {
+        lock.lock()
+        music = value
         lock.unlock()
     }
 

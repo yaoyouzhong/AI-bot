@@ -65,7 +65,7 @@ final class AIBotBridgeTests: XCTestCase {
             capturedAt: Date(timeIntervalSince1970: 1_788_500_000),
             codex: ToolState(state: "working", ageSeconds: 2),
             claude: ToolState(state: "idle", ageSeconds: 180), musicPlaying: nil,
-            weather: nil, stocks: nil, systemMetrics: nil, quotas: nil)
+            weather: nil, stocks: nil, systemMetrics: nil, quotas: nil, music: nil)
         let frame = try XCTUnwrap(SerialBridge.statusFrame(snapshot))
         XCTAssertTrue(String(decoding: frame, as: UTF8.self).hasPrefix("@AIBOT "))
         let payload = frame.dropFirst("@AIBOT ".utf8.count).dropLast()
@@ -131,6 +131,45 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertEqual(stocks.count, 120 * 400 * 2)
         XCTAssertTrue(weather.contains { $0 != 0 })
         XCTAssertTrue(stocks.contains { $0 != 0 })
+    }
+
+    func testMusicParsingStatusAndTextResource() throws {
+        let now = Date(timeIntervalSince1970: 1_788_500_000)
+        let music = try XCTUnwrap(MacMusicService.parse(
+            values: ["夜空中最亮的星", "逃跑计划", "世界", "true", "95", "260"], now: now))
+        XCTAssertTrue(music.playing)
+        XCTAssertEqual(music.elapsedSeconds, 95)
+        XCTAssertEqual(music.durationSeconds, 260)
+
+        let suite = "AI-bot-tests-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = MacDataStore(defaults: defaults)
+        store.update(music: music)
+        let snapshot = SessionActivityReader().capture(extras: store.snapshot())
+        XCTAssertEqual(snapshot.music?.title, "夜空中最亮的星")
+        XCTAssertEqual(snapshot.musicPlaying, true)
+
+        let resources = MacLocalizedTextResources().capture(
+            weather: nil, stocks: nil, music: music)
+        let text = try XCTUnwrap(resources.first { $0.kind == .textBitmap })
+        XCTAssertEqual(text.data.count, 232 * 44 * 2)
+        XCTAssertTrue(text.data.contains { $0 != 0 })
+    }
+
+    func testMusicParsingClampsInvalidProgress() throws {
+        let value = try XCTUnwrap(MacMusicService.parse(
+            values: ["Track", "Artist", "Album", "false", "400", "240"]))
+        XCTAssertFalse(value.playing)
+        XCTAssertEqual(value.elapsedSeconds, 240)
+        XCTAssertNil(MacMusicService.parse(
+            values: ["Track", "Artist", "Album", "true", "nan", "240"]))
+
+        let bounded = try XCTUnwrap(MacMusicService.parse(
+            values: [String(repeating: "曲", count: 200) + "\n第二行", "Artist", "Album",
+                     "true", "1", "2"]))
+        XCTAssertEqual(bounded.title.count, 96)
+        XCTAssertFalse(bounded.title.contains("\n"))
     }
 
     func testPetAssetLicenseGateAndDimensions() throws {

@@ -70,14 +70,17 @@ python -m platformio run -d firmware -t upload --upload-port COM7
 
 ## macOS
 
-当前源码包含菜单栏、Claude/Codex 活动与账户额度、Open-Meteo 天气、A/H/美股、CPU/内存/网速、最近成功缓存、UserDefaults 非敏感设置、Keychain 配对令牌、认证 LAN `/status`，以及 `/dev/cu.*` 串口探测、460800 握手、两秒状态帧、USB 下发 Wi-Fi 回退配置、页面/亮度菜单控制和按本机空闲时间进入/恢复屏保。需在 macOS 13+ 验证：
+当前源码包含菜单栏、Claude/Codex 活动与账户额度、Open-Meteo 天气、A/H/美股、CPU/内存/网速、Apple Music/Spotify 音乐元数据与进度、中文音乐文本资源、最近成功缓存、UserDefaults 非敏感设置、Keychain 配对令牌、认证 LAN `/status`，以及 `/dev/cu.*` 串口探测、460800 握手、两秒状态帧、USB 下发 Wi-Fi 回退配置、页面/亮度菜单控制和按本机空闲时间进入/恢复屏保。音乐读取默认关闭；用户从菜单开启后，系统可能要求自动化权限，且桥接只查询已经运行的播放器。需在 macOS 13+ 验证：
 
 ```bash
 swift test --package-path mac-app
 swift build -c release --package-path mac-app
+bash scripts/build_macos_app.sh
 ```
 
-当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧、菜单控制、带 CRC/ACK 重试的二进制传输、天气中文/股票名称资源，以及带许可文件门槛的桌宠导入已有源码，但尚未编译或连接设备。音乐资源、国产额度、镜像和设备信息/Wi-Fi 重置仍未完成。已有源码也没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
+音乐自动化必须从脚本生成的 `artifacts/AIBotBridge.app` 启动；直接运行 SwiftPM 裸可执行文件不具备 Apple Events 用途说明和 Hardened Runtime entitlement。脚本使用本机临时签名，仅供开发验证，不是正式分发签名。
+
+当前 Windows 主机没有 Swift 工具链；Mac 端 USB 小控制帧、菜单控制、带 CRC/ACK 重试的二进制传输、天气/股票/音乐中文资源，以及带许可文件门槛的桌宠导入已有源码，但尚未编译或连接设备。音乐封面、国产额度、镜像和设备信息/Wi-Fi 重置仍未完成；Apple Music/Spotify 自动化权限和脚本字段也必须在真实 Mac 上验证。已有源码没有经过真实账号或真实系统指标验收，因此状态保持 `platform-unverified`。
 
 ## 隐私边界
 

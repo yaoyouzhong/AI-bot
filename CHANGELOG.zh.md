@@ -21,6 +21,18 @@
 - 新增天气中文文本和分页股票名称预渲染资源，并保留代码降级显示。
 - 新增独立 macOS 菜单栏、活动读取、Keychain 配对令牌和认证 LAN 状态基础。
 - 新增九页面 240×240 Windows 镜像、合成 PNG 视觉自测和模式/亮度控制窗口。
+- 新增阿里、Kimi、MiniMax 和 DeepSeek 仅显示额度字段的隔离 WebView2 登录捕获。
+- 新增 Windows 设置对话框及天气、股票、屏保和首选串口的白名单持久化。
+- 新增 macOS Open-Meteo 天气、A/H/美股、最近成功缓存和非敏感数据源设置。
+- 新增 macOS 基于公共 Darwin/Mach API 的 CPU、物理内存和活动网卡流量采样。
+- 新增 macOS Claude/Codex 账户额度解析、固定官方域名请求和仅显示缓存。
+- 新增 macOS USB 串口探测、460800 波特率控制帧、Keychain 随机配对和 Wi-Fi 回退配置下发。
+- 新增 macOS 设备页面、亮度和显式重发 Wi-Fi 回退配置菜单控制。
+- 新增 macOS 按本机空闲时间进入屏保并恢复先前设备页面。
+- 新增 macOS COBS/CRC32 二进制资源协议及逐块 ACK 重试。
+- 新增 macOS 天气和股票标签去重版本化 RGB565 资源渲染。
+- 新增带许可门槛、首帧缩放和 USB 发送的 macOS 桌宠导入。
+- 新增默认关闭的 macOS Apple Music/Spotify 元数据、进度、中文文本发送及具备自动化权限声明的开发 App 包。
 
 ### 安全
 

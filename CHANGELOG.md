@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - Add the macOS COBS/CRC32 binary-resource protocol with per-chunk ACK retries.
 - Render macOS weather and stock labels into revision-deduplicated RGB565 device resources.
 - Add license-gated macOS pet import with first-frame scaling and USB delivery.
+- Add opt-in macOS Apple Music/Spotify metadata, progress, localized text delivery, and an Automation-ready development app bundle.
 
 ### Security
 

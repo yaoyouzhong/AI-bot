@@ -45,13 +45,18 @@ The mirror self-test renders nine synthetic 240×240 pages into ignored `artifac
 
 `mac-app` is an independent Swift Package targeting macOS 13. Its current foundation uses AppKit for the menu bar, Security.framework for the pairing token, Network.framework for the authenticated LAN status listener, and Darwin termios calls for serial I/O. Session activity is derived from `.jsonl` file metadata using the same 90-second/15-minute thresholds as Windows.
 
-The serial worker considers only recognized `/dev/cu.*` USB-serial families, configures 460800-baud raw I/O, requires the version-1 `ping`/`pong` handshake, then sends `lan_config` once and `status` every two seconds. The LAN configuration is withheld when the authenticated listener failed to start or no private IPv4 address is available. Pairing material is generated from `SecRandomCopyBytes`, stored only in Keychain, and never included in diagnostics. macOS binary resources use the same NUL-delimited COBS, little-endian headers, 768-byte chunks, CRC32, ACK, and three-attempt policy as Windows. AppKit renders localized weather and stock labels into top-down little-endian RGB565 buffers; revisions prevent unchanged resources from being resent during one connection.
+The serial worker considers only recognized `/dev/cu.*` USB-serial families, configures 460800-baud raw I/O, requires the version-1 `ping`/`pong` handshake, then sends `lan_config` once and `status` every two seconds. The LAN configuration is withheld when the authenticated listener failed to start or no private IPv4 address is available. Pairing material is generated from `SecRandomCopyBytes`, stored only in Keychain, and never included in diagnostics. macOS binary resources use the same NUL-delimited COBS, little-endian headers, 768-byte chunks, CRC32, ACK, and three-attempt policy as Windows. AppKit renders localized weather, stock, and music text into top-down little-endian RGB565 buffers; revisions prevent unchanged resources from being resent during one connection.
+
+Music integration uses public Apple Events through `NSAppleScript`; it does not use the private MediaRemote framework. The feature is disabled by default, checks `NSRunningApplication` before addressing Apple Music or Spotify, and may trigger macOS Automation consent only after the user enables it. The bare Swift Package executable is insufficient for this permission path, so `build_macos_app.sh` creates an app bundle with the required purpose string and Automation entitlement. Distribution signing and notarization remain separate release work.
 
 Validation must run on macOS:
 
 ```bash
 swift test --package-path mac-app
 swift build -c release --package-path mac-app
+bash scripts/build_macos_app.sh
 ```
 
-No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, USB control frames, binary transport, localized rendering, and pet import still require a Mac build; music resources, mirror UI, and the remaining device controls are required Mac scope.
+After building the app bundle, launch `artifacts/AIBotBridge.app`, enable music access from its menu, verify the macOS Automation prompt, and test both play and pause without allowing the bridge to launch a stopped player. The build script applies an ad-hoc signature for local testing only; release signing and notarization remain separate work.
+
+No Swift toolchain is present in the Windows development environment, so static review on Windows is not build evidence. Account quotas, weather, stocks, system metrics, music metadata/progress, USB control frames, binary transport, localized rendering, and pet import still require a Mac build; music cover art, mirror UI, and the remaining device controls are required Mac scope.

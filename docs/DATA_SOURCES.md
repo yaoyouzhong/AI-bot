@@ -27,6 +27,12 @@ Access tokens are held in memory for the request. They are not copied to AI-bot 
 
 The macOS source follows the same credential-file, destination-host, no-log, and display-only-cache boundaries. It refreshes every two minutes while running and stores its display-only cache in the app's `UserDefaults` domain. This code remains platform- and live-account-unverified until built and exercised on macOS.
 
+## Music on macOS
+
+Music access is disabled by default. After the user enables it, the macOS bridge checks whether Apple Music (`com.apple.Music`) or Spotify (`com.spotify.client`) is already running and then uses public Apple Events through `NSAppleScript` to request only title, artist, album, playback state, elapsed time, and duration. It does not read playlists, libraries, account data, or audio, does not use the private MediaRemote framework, and does not persist music metadata.
+
+The generated app bundle contains an `NSAppleEventsUsageDescription` and the Automation Apple Events entitlement so macOS can ask for consent. Denial or an unavailable player produces no active music session. The source and permission behavior remain platform-unverified until tested on macOS 13 or later.
+
 ## Domestic-provider quotas
 
 AI-bot has normalized parsers and last-successful cache fields for Alibaba Bailian Token Plan, Kimi Coding Plan, MiniMax Token Plan, and DeepSeek balance/cost responses. The Windows tray's `国产额度授权…` command opens each provider in an isolated WebView2 profile at `%APPDATA%\AI-bot\quota-auth-profile`. The browser observes JSON responses only from an explicit exact-host allow-list (`bailian.console.aliyun.com`, `www.kimi.com`, `platform.minimaxi.com`, `www.minimaxi.com`, and `platform.deepseek.com`) and passes candidate bodies to the selected provider parser. Unrelated JSON and unrecognized schemas are ignored; response bodies, cookies, and tokens are never logged or written to the display cache.
