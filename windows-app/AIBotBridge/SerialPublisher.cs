@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace AIBotBridge;
 
-internal sealed class SerialPublisher
+internal sealed class SerialPublisher : IUsbFallbackDevice
 {
     private const string Prefix = "@AIBOT ";
     private readonly object _portSync = new();
@@ -13,6 +13,50 @@ internal sealed class SerialPublisher
     private SerialPort? _activePort;
     private readonly LanPairing? _pairing;
     private readonly string? _preferredPort;
+    private long _pauseUntil;
+
+    internal bool TransmissionPaused { get { lock (_portSync) return IsPaused; } }
+    private bool IsPaused => Environment.TickCount64 < _pauseUntil;
+
+    public void PauseTransmission()
+    {
+        lock (_portSync)
+        {
+            if (_activePort?.IsOpen != true) throw new IOException("USB 未连接。");
+            _pauseUntil = Environment.TickCount64 + 30_000;
+        }
+    }
+
+    public void ResumeTransmission() { lock (_portSync) _pauseUntil = 0; }
+
+    public UsbDeviceInfo ReadDeviceInfo() =>
+        UsbDeviceProtocol.ReadInfo(RequestDevice("device_info_request", "device_info"));
+
+    internal void ResetDeviceWiFi()
+    {
+        var reply = RequestDevice("reset_wifi", "reset_wifi_ack", confirm: true);
+        if (!reply.GetProperty("ok").GetBoolean()) throw new IOException("设备拒绝重置。");
+    }
+
+    private JsonElement RequestDevice(string type, string replyType, bool confirm = false)
+    {
+        lock (_portSync)
+        {
+            if (_activePort?.IsOpen != true || (IsPaused && type != "device_info_request"))
+                throw new IOException("USB 未连接或正在回退测试。");
+            uint requestId;
+            do { requestId = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4)); } while (requestId == 0);
+            _activePort.WriteLine(Prefix + JsonSerializer.Serialize(new
+                { version = 1, type, request_id = requestId, confirm }));
+            var deadline = Environment.TickCount64 + 3000;
+            while (Environment.TickCount64 < deadline)
+            {
+                var reply = UsbDeviceProtocol.ParseReply(_activePort.ReadLine().Trim(), replyType, requestId);
+                if (reply is not null) return reply.Value;
+            }
+            throw new TimeoutException("设备未确认请求；请检查固件版本。重置请求不会自动重试。");
+        }
+    }
 
     internal SerialPublisher(LanPairing? pairing, string? preferredPort = null)
     {
@@ -43,7 +87,7 @@ internal sealed class SerialPublisher
         var chunks = BinaryResourceProtocol.CreateChunks(kind, data, transferId);
         lock (_portSync)
         {
-            if (_activePort?.IsOpen != true) return false;
+            if (_activePort?.IsOpen != true || IsPaused) return false;
             foreach (var chunk in chunks)
             {
                 var acknowledged = false;
@@ -110,6 +154,10 @@ internal sealed class SerialPublisher
                     }
                     while (!cancellationToken.IsCancellationRequested && port.IsOpen)
                     {
+                        if (TransmissionPaused) {
+                            await Task.Delay(100, cancellationToken);
+                            continue;
+                        }
                         if (DateTime.UtcNow >= nextDeviceProbeAt)
                         {
                             RefreshDeviceHost(port);
@@ -160,7 +208,7 @@ internal sealed class SerialPublisher
     {
         lock (_portSync)
         {
-            if (_activePort?.IsOpen != true) return false;
+            if (_activePort?.IsOpen != true || IsPaused) return false;
             try
             {
                 _activePort.WriteLine(Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options));
@@ -176,7 +224,7 @@ internal sealed class SerialPublisher
     private void Write(SerialPort port, object frame)
     {
         lock (_portSync)
-            if (port.IsOpen)
+            if (port.IsOpen && !IsPaused)
                 port.WriteLine(Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options));
     }
 
@@ -213,7 +261,7 @@ internal sealed class SerialPublisher
     {
         lock (_portSync)
         {
-            if (!ReferenceEquals(_activePort, port) || !port.IsOpen) return;
+            if (!ReferenceEquals(_activePort, port) || !port.IsOpen || IsPaused) return;
             try
             {
                 port.WriteLine(Prefix + "{\"version\":1,\"type\":\"ping\"}");

@@ -15,6 +15,16 @@ enum PrivateIPv4Address {
 }
 
 struct DeviceInfo: Decodable {
+    static func fallbackPassed(before: DeviceInfo, during: DeviceInfo, after: DeviceInfo) -> Bool {
+        guard let beforeUsb = before.usbStatusCount, let duringUsb = during.usbStatusCount,
+              let afterUsb = after.usbStatusCount, let beforeLan = before.lanStatusCount,
+              let duringLan = during.lanStatusCount, let beforeTime = before.uptimeMs,
+              let duringTime = during.uptimeMs, let afterTime = after.uptimeMs else { return false }
+        return before.usbActive && !during.usbActive && during.bridgeOnline &&
+            beforeUsb == duringUsb && duringLan > beforeLan && duringTime >= beforeTime &&
+            after.usbActive && afterUsb > duringUsb && afterTime >= duringTime
+    }
+
     let device: String
     let version: Int
     let ip: String
@@ -22,27 +32,43 @@ struct DeviceInfo: Decodable {
     let bridgeOnline: Bool
     let mode: String
     let brightness: Int
+    let uptimeMs: UInt32?
+    let usbStatusCount: UInt32?
+    let lanStatusCount: UInt32?
 
     enum CodingKeys: String, CodingKey {
         case device, version, ip, mode, brightness
         case usbActive = "usb_active"
         case bridgeOnline = "bridge_online"
+        case uptimeMs = "uptime_ms"
+        case usbStatusCount = "usb_status_count"
+        case lanStatusCount = "lan_status_count"
     }
 }
 
 final class DeviceAdminService {
+    private let serial: SerialBridge?
     private let host: () -> String?
     private let token: () -> String?
     private let session: URLSession
 
     init(host: @escaping () -> String?, token: @escaping () -> String?,
-         session: URLSession? = nil) {
+         session: URLSession? = nil, serial: SerialBridge? = nil) {
+        self.serial = serial
         self.host = host
         self.token = token
         self.session = session ?? Self.makeSession()
     }
 
     func fetchInfo() async throws -> DeviceInfo {
+        if let serial {
+            let reply = try await serial.requestDevice(type: "device_info_request", replyType: "device_info")
+            guard reply.ok, let info = reply.data, info.device == "AI-bot", info.version == 1,
+                  (0...100).contains(info.brightness), SerialBridge.displayModes.contains(info.mode) else {
+                throw DeviceAdminError.invalidResponse
+            }
+            return info
+        }
         let response = try await perform(path: "/api/info", method: "GET")
         guard let info = try? JSONDecoder().decode(DeviceInfo.self, from: response.data),
               info.device == "AI-bot", info.version == 1, info.ip == response.host,
@@ -54,6 +80,11 @@ final class DeviceAdminService {
     }
 
     func resetWiFi() async throws {
+        if let serial {
+            let reply = try await serial.requestDevice(type: "reset_wifi", replyType: "reset_wifi_ack", confirm: true)
+            guard reply.ok else { throw DeviceAdminError.invalidResponse }
+            return  // Never retry a destructive request over HTTP after a missing USB ACK.
+        }
         let result = try await perform(path: "/reset-wifi", method: "POST")
         guard let response = try? JSONDecoder().decode(ResetResponse.self, from: result.data),
               response.ok, response.restarting else { throw DeviceAdminError.invalidResponse }
@@ -124,6 +155,7 @@ enum DeviceAdminError: LocalizedError {
     case invalidTarget
     case connectionFailed
     case invalidResponse
+    case unconfirmed
 
     var errorDescription: String? {
         switch self {
@@ -131,6 +163,7 @@ enum DeviceAdminError: LocalizedError {
         case .invalidTarget: return "设备没有提供有效的私有局域网地址。"
         case .connectionFailed: return "无法连接设备管理接口。"
         case .invalidResponse: return "设备管理接口返回了无效响应。"
+        case .unconfirmed: return "USB 请求未获确认，请检查固件版本；若为重置，请先观察设备，不会自动重试。"
         }
     }
 }

@@ -49,6 +49,23 @@ The literal token above is illustrative only. Real tokens must never appear in d
 
 ## Authenticated device administration
 
+### USB administration (independent of LAN)
+
+USB physical access has the same trust boundary as existing `lan_config`, display and brightness commands. No IP address or pairing token is needed for these USB requests. Hosts serialize requests with resource/heartbeat I/O and match the version, response type and nonzero `request_id`. Older firmware without these commands times out explicitly.
+
+```json
+{"version":1,"type":"device_info_request","request_id":7}
+{"version":1,"type":"device_info","request_id":7,"ok":true,"data":{"device":"AI-bot","version":1,"ip":"","usb_active":true,"bridge_online":true,"mode":"weather","brightness":75,"uptime_ms":10000,"usb_status_count":4,"lan_status_count":0}}
+{"version":1,"type":"reset_wifi","request_id":8,"confirm":true}
+{"version":1,"type":"reset_wifi_ack","request_id":8,"ok":true}
+```
+
+`ip` is empty when Wi-Fi is disconnected; this does not prevent USB management. Information requests do not change status timestamps or counters. `usb_status_count` counts accepted USB status frames; `lan_status_count` counts successfully decoded version-1 LAN status responses. Counters and `uptime_ms` reset on reboot. Only boolean `confirm=true` permits USB Wi-Fi reset; otherwise the reply is `ok=false` and no reset occurs. Firmware flushes the ACK before reboot. Hosts must require an explicit user confirmation, send reset only once and never retry it over HTTP after an uncertain USB result.
+
+The desktop fallback test pauses normal USB status, resource and control traffic while keeping power, the serial port and LAN services running. Read-only USB diagnostics remain available and do not refresh the eight-second heartbeat. The test samples counters after acquiring the pause, checks LAN progress after 12 seconds, then resumes USB and checks USB progress. Pause expires automatically after 30 seconds and is also cleared on failure/cancellation. This simulates loss of USB status traffic, not a physical cable disconnect.
+
+### LAN administration
+
 The firmware listens on port 80 only while Wi-Fi is connected. A host may contact only the exact private IPv4 address discovered from the USB handshake and must send the current pairing token in `X-AIBot-Token`.
 
 - `GET /api/info` returns the device name, protocol version, IP address, USB/bridge state, display mode, and brightness.

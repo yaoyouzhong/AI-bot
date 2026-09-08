@@ -3,6 +3,36 @@ import XCTest
 @testable import AIBotBridge
 
 final class AIBotBridgeTests: XCTestCase {
+    func testUSBManagementWithoutWiFiAndReplyCorrelation() throws {
+        let line = #"@AIBOT {"version":1,"type":"device_info","request_id":7,"ok":true,"data":{"device":"AI-bot","version":1,"ip":"","mode":"weather","brightness":75,"usb_active":true,"bridge_online":true,"uptime_ms":10000,"usb_status_count":4,"lan_status_count":0}}"#
+        let reply = try XCTUnwrap(SerialBridge.parseDeviceReply(line, type: "device_info", requestId: 7))
+        let info = try XCTUnwrap(reply.data)
+        XCTAssertEqual(info.ip, "")
+        XCTAssertTrue(info.usbActive)
+        XCTAssertNil(SerialBridge.parseDeviceReply(line, type: "device_info", requestId: 8))
+        XCTAssertNil(SerialBridge.parseDeviceReply(line, type: "reset_wifi_ack", requestId: 7))
+        XCTAssertNil(SerialBridge.parseDeviceReply(line.replacingOccurrences(of: #""version":1"#, with: #""version":2"#),
+                                                  type: "device_info", requestId: 7))
+        let rejected = try XCTUnwrap(SerialBridge.parseDeviceReply(
+            #"@AIBOT {"version":1,"type":"reset_wifi_ack","request_id":9,"ok":false}"#,
+            type: "reset_wifi_ack", requestId: 9))
+        XCTAssertFalse(rejected.ok)
+
+        let duringLine = line.replacingOccurrences(of: #""usb_active":true"#, with: #""usb_active":false"#)
+            .replacingOccurrences(of: #""lan_status_count":0"#, with: #""lan_status_count":2"#)
+            .replacingOccurrences(of: "10000", with: "22000")
+        let during = try XCTUnwrap(SerialBridge.parseDeviceReply(duringLine, type: "device_info", requestId: 7)?.data)
+        let afterLine = line.replacingOccurrences(of: #""usb_status_count":4"#, with: #""usb_status_count":5"#)
+            .replacingOccurrences(of: "10000", with: "25000")
+        let after = try XCTUnwrap(SerialBridge.parseDeviceReply(afterLine, type: "device_info", requestId: 7)?.data)
+        XCTAssertTrue(DeviceInfo.fallbackPassed(before: info, during: during, after: after))
+        XCTAssertFalse(DeviceInfo.fallbackPassed(before: info, during: info, after: after))
+        XCTAssertFalse(DeviceInfo.fallbackPassed(before: info, during: during, after: during))
+        let isolatedLine = duringLine.replacingOccurrences(of: #""lan_status_count":2"#, with: #""lan_status_count":0"#)
+        let isolated = try XCTUnwrap(SerialBridge.parseDeviceReply(isolatedLine, type: "device_info", requestId: 7)?.data)
+        XCTAssertFalse(DeviceInfo.fallbackPassed(before: info, during: isolated, after: after))
+    }
+
     func testActivityClassification() {
         XCTAssertEqual(SessionActivityReader.classify(ageSeconds: 89), "working")
         XCTAssertEqual(SessionActivityReader.classify(ageSeconds: 90), "idle")

@@ -66,11 +66,21 @@ python -m platformio run -d firmware
 python -m platformio run -d firmware -t upload --upload-port COM7
 ```
 
-上传固件前退出 Windows 桥接，避免串口被占用。刷写后应验证握手、状态刷新和拔掉 USB 后的离线页面。
+上传固件前退出 Windows 桥接，避免串口被占用。USB 同时供电时不能拔线测试回退。保持线缆连接，从 Windows/macOS 菜单选择“测试 Wi-Fi 回退（保持 USB 供电）…”，程序暂停常规串口发送约 12 秒，保留 LAN 服务，以设备计数验证回退并自动恢复 USB。单位网络隔离时，回退不通过并不代表 USB 功能故障。
+
+Windows/macOS 的设备信息和 Wi-Fi 重置现通过 USB 完成，不依赖局域网地址、配对令牌或 Wi-Fi 连通。重置需要单独确认，不包含在自动测试中。Windows 也提供以下入口（前两项需新版固件和真实设备，运行前退出托盘桥接以释放串口和端口）：
+
+```powershell
+windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --test-usb-management
+windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --test-wifi-fallback
+windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-usb-management
+```
+
+`--test-usb-management` 只检查握手后的 USB 状态和设备信息，不代替逐页/图片验收。`--test-wifi-fallback` 还要求设备已配网且能够访问电脑 LAN 服务；合成自测只验证解析和测试状态流程，不访问设备。详细操作见 [USB 和回退验收](docs/USB_VALIDATION.md)。
 
 ## macOS
 
-当前源码包含菜单栏、Claude/Codex 活动与账户额度、Open-Meteo 天气、A/H/美股、CPU/内存/网速、Apple Music/Spotify 音乐元数据与进度、中文音乐文本资源、最近成功缓存、UserDefaults 非敏感设置、Keychain 配对令牌、认证 LAN `/status`，以及 `/dev/cu.*` 串口探测、460800 握手、两秒状态帧、USB 下发 Wi-Fi 回退配置、页面/亮度菜单控制、严格私网地址发现、认证设备信息、二次确认 Wi-Fi 重置、按本机空闲时间进入/恢复屏保和 AI/音乐事件 12 秒临时唤醒。音乐读取默认关闭；用户从菜单开启后，系统可能要求自动化权限，且桥接只查询已经运行的播放器。需在 macOS 13+ 验证：
+当前源码包含菜单栏、Claude/Codex 活动与账户额度、Open-Meteo 天气、A/H/美股、CPU/内存/网速、Apple Music/Spotify 音乐元数据与进度、中文音乐文本资源、最近成功缓存、UserDefaults 非敏感设置、Keychain 配对令牌、认证 LAN `/status`，以及 `/dev/cu.*` 串口探测、460800 握手、两秒状态帧、USB 下发 Wi-Fi 回退配置、页面/亮度菜单控制、严格私网地址发现、USB 设备信息、二次确认 USB Wi-Fi 重置、按本机空闲时间进入/恢复屏保和 AI/音乐事件 12 秒临时唤醒。音乐读取默认关闭；用户从菜单开启后，系统可能要求自动化权限，且桥接只查询已经运行的播放器。需在 macOS 13+ 验证：
 
 ```bash
 swift test --package-path mac-app

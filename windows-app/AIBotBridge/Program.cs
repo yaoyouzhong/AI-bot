@@ -12,6 +12,23 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--test-wifi-fallback") || args.Contains("--test-usb-management"))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            try { WifiFallbackTest.RunHardwareAsync(args.Contains("--test-wifi-fallback")).GetAwaiter().GetResult(); }
+            catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException or
+                                       System.Net.Sockets.SocketException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine("HARDWARE_TEST_FAILED: " + ex.Message);
+                Environment.ExitCode = 1;
+            }
+            return;
+        }
+        if (args.Contains("--self-test-usb-management"))
+        {
+            UsbManagementSelfTest.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
         if (args.Contains("--self-test-settings", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;

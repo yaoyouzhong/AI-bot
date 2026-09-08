@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var serial: SerialBridge?
     private var screenSaverState = AutomaticScreenSaverState()
     private var port: UInt16 = 8765
+    private var deviceOperationBusy = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem.button?.title = "AI-bot"
@@ -104,6 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(item("自动屏保设置…", #selector(configureScreenSaver)))
         menu.addItem(item("重新下发 Wi-Fi 回退配置", #selector(reprovisionLan)))
         menu.addItem(item("重置设备 Wi-Fi…", #selector(resetDeviceWiFi)))
+        menu.addItem(item("测试 Wi-Fi 回退（保持 USB 供电）…", #selector(testWiFiFallback)))
         menu.addItem(item("导入外部桌宠…", #selector(importPet)))
         let musicAutomation = item("读取音乐状态（需自动化权限）", #selector(toggleMusicAutomation))
         musicAutomation.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off
@@ -171,12 +173,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showDeviceInfo() {
-        guard serial?.portName != nil, serial?.deviceHost != nil else {
-            show("无法读取", "需要运行新版固件并通过 USB 握手取得设备私有局域网地址。")
+        guard !deviceOperationBusy else { return }
+        guard serial?.portName != nil else {
+            show("无法读取", "需要通过 USB 连接运行新版固件的设备，无需局域网互访。")
             return
         }
+        deviceOperationBusy = true
         let service = deviceAdminService()
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
+            defer { self?.deviceOperationBusy = false }
             do {
                 let info = try await service.fetchInfo()
                 await MainActor.run { [weak self] in
@@ -191,9 +196,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func resetDeviceWiFi() {
-        guard serial?.portName != nil, serial?.deviceHost != nil,
-              (PairingTokenStore.read()?.utf8.count ?? 0) >= 32 else {
-            show("无法重置", "需要运行新版固件、有效 Keychain 配对令牌和已握手 USB 设备。")
+        guard !deviceOperationBusy else { return }
+        guard serial?.portName != nil else {
+            show("无法重置", "需要通过 USB 连接运行新版固件的设备，无需 Wi-Fi 地址或配对令牌。")
             return
         }
         let alert = NSAlert()
@@ -202,10 +207,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = "设备将删除已保存的 Wi-Fi 配置并立即重启。重启后必须重新配网。"
         alert.addButton(withTitle: "重置并重启")
         alert.addButton(withTitle: "取消")
+        alert.buttons.first?.keyEquivalent = ""
+        alert.buttons.last?.keyEquivalent = "\r"
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
+        deviceOperationBusy = true
         let service = deviceAdminService()
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
+            defer { self?.deviceOperationBusy = false }
             do {
                 try await service.resetWiFi()
                 await MainActor.run { [weak self] in
@@ -221,7 +230,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func deviceAdminService() -> DeviceAdminService {
         DeviceAdminService(host: { [weak self] in self?.serial?.deviceHost },
-                           token: PairingTokenStore.read)
+                           token: PairingTokenStore.read, serial: serial)
+    }
+
+    @objc private func testWiFiFallback() {
+        guard !deviceOperationBusy, let serial else { return }
+        let alert = NSAlert()
+        alert.messageText = "测试 Wi-Fi 回退"
+        alert.informativeText = "保持 USB 插着。暂停常规发送约 12 秒，LAN 服务继续运行，然后恢复 USB。网络隔离时预期回退不通过。"
+        alert.addButton(withTitle: "开始")
+        alert.addButton(withTitle: "取消")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        deviceOperationBusy = true
+        let service = deviceAdminService()
+        Task { @MainActor [weak self] in
+            defer { serial.resumeTransmission(); self?.deviceOperationBusy = false }
+            do {
+                try serial.pauseTransmission()
+                let before = try await service.fetchInfo()
+                guard before.usbActive else { throw DeviceAdminError.unconfirmed }
+                try await Task.sleep(nanoseconds: 12_000_000_000)
+                let during = try await service.fetchInfo()
+                serial.resumeTransmission()
+                try await Task.sleep(nanoseconds: 3_000_000_000)
+                let after = try await service.fetchInfo()
+                let result = DeviceInfo.fallbackPassed(before: before, during: during, after: after)
+                self?.show(result ? "测试通过" : "测试未通过", result ?
+                    "Wi-Fi 回退与 USB 恢复均已由设备计数确认。" :
+                    "已恢复 USB 发送。请检查 LAN 地址、网络隔离、防火墙和设备配网；不自动判定固件故障。")
+            } catch {
+                serial.resumeTransmission()
+                self?.show("测试未通过", error.localizedDescription)
+            }
+        }
     }
 
     @objc private func configureScreenSaver() {

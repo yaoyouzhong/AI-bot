@@ -13,6 +13,73 @@ final class SerialBridge {
     private var activePort: String?
     private var activeDeviceHost: String?
     private var stopped = false
+    private var pauseUntil: UInt64 = 0
+    private var paused: Bool { DispatchTime.now().uptimeNanoseconds < pauseUntil }
+
+    var transmissionPaused: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return paused
+    }
+
+    func pauseTransmission() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard activeDescriptor >= 0 else { throw DeviceAdminError.unavailable }
+        pauseUntil = DispatchTime.now().uptimeNanoseconds + 30_000_000_000
+    }
+
+    func resumeTransmission() {
+        lock.lock()
+        pauseUntil = 0
+        lock.unlock()
+    }
+
+    func requestDevice(type: String, replyType: String, confirm: Bool = false) async throws -> USBDeviceReply {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async { [self] in
+                do { continuation.resume(returning: try requestDeviceSync(type: type, replyType: replyType, confirm: confirm)) }
+                catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
+    private func requestDeviceSync(type: String, replyType: String, confirm: Bool) throws -> USBDeviceReply {
+        lock.lock()
+        defer { lock.unlock() }
+        guard activeDescriptor >= 0, !paused || type == "device_info_request" else {
+            throw DeviceAdminError.unavailable
+        }
+        let id = UInt32.random(in: 1...UInt32.max)
+        let frame = Self.jsonLine(["version": 1, "type": type, "request_id": id, "confirm": confirm])
+        guard Self.write(frame, to: activeDescriptor) else { throw DeviceAdminError.connectionFailed }
+        let deadline = DispatchTime.now().uptimeNanoseconds + 3_000_000_000
+        var buffer = Data()
+        while DispatchTime.now().uptimeNanoseconds < deadline {
+            var bytes = [UInt8](repeating: 0, count: 512)
+            let count = bytes.withUnsafeMutableBytes { Darwin.read(activeDescriptor, $0.baseAddress, $0.count) }
+            if count > 0 {
+                buffer.append(contentsOf: bytes.prefix(count))
+                while let newline = buffer.firstIndex(of: 10) {
+                    let line = String(decoding: buffer[..<newline], as: UTF8.self)
+                    buffer.removeSubrange(...newline)
+                    if let reply = Self.parseDeviceReply(line, type: replyType, requestId: id) { return reply }
+                }
+                if buffer.count > Self.maximumLineBytes { throw DeviceAdminError.invalidResponse }
+            } else if count < 0 && errno != EAGAIN && errno != EWOULDBLOCK {
+                throw DeviceAdminError.connectionFailed
+            }
+            usleep(10_000)
+        }
+        throw DeviceAdminError.unconfirmed
+    }
+
+    static func parseDeviceReply(_ line: String, type: String, requestId: UInt32) -> USBDeviceReply? {
+        guard line.hasPrefix(prefix), requestId != 0,
+              let reply = try? JSONDecoder().decode(USBDeviceReply.self, from: Data(line.dropFirst(prefix.count).utf8)),
+              reply.version == 1, reply.type == type, reply.request_id == requestId else { return nil }
+        return reply
+    }
 
     init(status: @escaping () -> MacStatusSnapshot,
          lanConfiguration: @escaping () -> (host: String, port: UInt16, token: String)?,
@@ -73,7 +140,7 @@ final class SerialBridge {
             kind: kind, data: data, transferId: arc4random()) else { return false }
         lock.lock()
         defer { lock.unlock() }
-        guard activeDescriptor >= 0 else { return false }
+        guard activeDescriptor >= 0, !paused else { return false }
         for chunk in chunks {
             var acknowledged = false
             for _ in 0..<3 where !acknowledged {
@@ -123,6 +190,7 @@ final class SerialBridge {
         var sentRevisions: [MacBinaryResourceKind: Int] = [:]
         var nextDeviceProbeAt = Date().addingTimeInterval(handshake.deviceHost == nil ? 5 : 30)
         while !isStopped {
+            if transmissionPaused { wait(milliseconds: 100); continue }
             if Date() >= nextDeviceProbeAt {
                 refreshDeviceHost(descriptor)
                 nextDeviceProbeAt = Date().addingTimeInterval(deviceHost == nil ? 5 : 30)
@@ -134,7 +202,7 @@ final class SerialBridge {
                 }
             }
             guard let frame = Self.statusFrame(status()) else { return }
-            guard send(frame) else { return }
+            guard send(frame, skipWhenPaused: true) else { return }
             wait(milliseconds: 2_000)
         }
     }
@@ -163,17 +231,18 @@ final class SerialBridge {
         lock.unlock()
     }
 
-    private func send(_ data: Data) -> Bool {
+    private func send(_ data: Data, skipWhenPaused: Bool = false) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard activeDescriptor >= 0 else { return false }
+        if paused { return skipWhenPaused }
         return Self.write(data, to: activeDescriptor)
     }
 
     private func refreshDeviceHost(_ descriptor: Int32) {
         lock.lock()
         defer { lock.unlock() }
-        guard activeDescriptor == descriptor,
+        guard activeDescriptor == descriptor, !paused,
               Self.write(Self.controlFrame(type: "ping"), to: descriptor),
               let handshake = Self.waitForPong(from: descriptor, stopped: { false }) else { return }
         activeDeviceHost = handshake.deviceHost
@@ -357,4 +426,12 @@ final class SerialBridge {
 
 struct SerialHandshake {
     let deviceHost: String?
+}
+
+struct USBDeviceReply: Decodable {
+    let version: Int
+    let type: String
+    let request_id: UInt32
+    let ok: Bool
+    let data: DeviceInfo?
 }

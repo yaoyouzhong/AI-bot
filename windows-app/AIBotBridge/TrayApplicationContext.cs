@@ -20,6 +20,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private DeviceControlForm? _deviceControl;
     private DomesticQuotaAuthForm? _domesticAuth;
     private SettingsForm? _settingsForm;
+    private bool _deviceOperationBusy;
 
     internal TrayApplicationContext()
     {
@@ -40,6 +41,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("设备控制…", null, (_, _) => ShowDeviceControl());
         menu.Items.Add("国产额度授权…", null, (_, _) => ShowDomesticAuth());
         menu.Items.Add("查看状态", null, (_, _) => ShowStatus());
+        menu.Items.Add("设备信息（USB）…", null, async (_, _) => await ManageDeviceAsync(false));
+        menu.Items.Add("重置设备 Wi-Fi（USB）…", null, async (_, _) => await ManageDeviceAsync(true));
+        menu.Items.Add("测试 Wi-Fi 回退（保持 USB 供电）…", null, async (_, _) => await TestFallbackAsync());
         var displayMenu = new ToolStripMenuItem("显示模式");
         AddDisplayMode(displayMenu, "自动轮播", "auto");
         AddDisplayMode(displayMenu, "Claude + Codex", "dual");
@@ -151,6 +155,50 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var device = _serial.DeviceHost ?? "not discovered";
         MessageBox.Show($"Device LAN: {device}\n\n{json}", "AI-bot status",
             MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private async Task ManageDeviceAsync(bool reset)
+    {
+        if (_deviceOperationBusy) return;
+        if (reset && MessageBox.Show("将清除设备 Wi-Fi 配置并重启，之后需要重新配网。是否继续？",
+                "重置设备 Wi-Fi", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2) != DialogResult.OK) return;
+        _deviceOperationBusy = true;
+        try
+        {
+            var result = await Task.Run(() =>
+            {
+                if (reset) { _serial.ResetDeviceWiFi(); return "设备已确认重置，即将重启。"; }
+                return JsonSerializer.Serialize(_serial.ReadDeviceInfo(),
+                    new JsonSerializerOptions(JsonDefaults.Options) { WriteIndented = true });
+            });
+            if (!_shutdown.IsCancellationRequested) MessageBox.Show(result, "AI-bot USB 设备管理");
+        }
+        catch (Exception ex)
+        {
+            if (!_shutdown.IsCancellationRequested) MessageBox.Show(
+                "USB 操作未确认：" + ex.Message + (reset ? "\n设备可能已执行，请先观察设备；不会自动重试。" : ""), "AI-bot");
+        }
+        finally { _deviceOperationBusy = false; }
+    }
+
+    private async Task TestFallbackAsync()
+    {
+        if (_deviceOperationBusy) return;
+        if (MessageBox.Show("保持 USB 插着。测试将暂停 USB 常规发送约 12 秒，LAN 服务继续运行，" +
+                "随后自动恢复。网络隔离时预期回退不通过。是否开始？", "Wi-Fi 回退测试",
+                MessageBoxButtons.OKCancel) != DialogResult.OK) return;
+        _deviceOperationBusy = true;
+        try
+        {
+            await Task.Run(() => WifiFallbackTest.RunAsync(_serial, _shutdown.Token));
+            if (!_shutdown.IsCancellationRequested) MessageBox.Show("Wi-Fi 回退与 USB 恢复均通过。", "AI-bot");
+        }
+        catch (Exception ex)
+        {
+            if (!_shutdown.IsCancellationRequested) MessageBox.Show("测试未通过：" + ex.Message, "AI-bot");
+        }
+        finally { _serial.ResumeTransmission(); _deviceOperationBusy = false; }
     }
 
     private void ShowMirror()

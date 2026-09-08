@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Features
 
+- Add LAN-independent USB device information and explicitly confirmed Wi-Fi reset on Windows/macOS, with correlated replies and no destructive retry.
+- Add powered USB traffic-pause fallback tests, device USB/LAN counters, automatic resume and Windows hardware/synthetic test commands.
+
 - Add authenticated USB-provisioned Wi-Fi fallback and standalone clock behavior.
 - Add Open-Meteo weather and A/H/US stock data with last-successful caches.
 - Add weather/stock device pages, automatic cycling, paging, and Windows screen-saver control.

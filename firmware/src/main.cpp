@@ -123,6 +123,8 @@ String claudeState = "offline";
 DisplayMode displayMode = DisplayMode::Auto;
 uint32_t lastUsbStatusAt = 0;
 uint32_t lastBridgeStatusAt = 0;
+uint32_t usbStatusCount = 0;
+uint32_t lanStatusCount = 0;
 uint32_t lastPollAt = 0;
 uint32_t lastHelloAt = 0;
 uint32_t startedAt = 0;
@@ -905,6 +907,21 @@ void handleBinaryFrame(const uint8_t* encoded, size_t encodedLength) {
   sendResourceAck(transferId, sequence, valid);
 }
 
+String displayModeName();
+
+void fillDeviceInfo(JsonObject response) {
+  response["device"] = "AI-bot";
+  response["version"] = 1;
+  response["ip"] = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "";
+  response["usb_active"] = usbFresh();
+  response["bridge_online"] = bridgeFresh();
+  response["mode"] = displayModeName();
+  response["brightness"] = brightness;
+  response["uptime_ms"] = millis();
+  response["usb_status_count"] = usbStatusCount;
+  response["lan_status_count"] = lanStatusCount;
+}
+
 void handleFrame(const String& line) {
   if (!line.startsWith(kPrefix)) return;
 
@@ -913,6 +930,27 @@ void handleFrame(const String& line) {
   if (error || document["version"].as<int>() != 1) return;
 
   const char* type = document["type"] | "";
+  if (strcmp(type, "device_info_request") == 0 || strcmp(type, "reset_wifi") == 0) {
+    if (!document["request_id"].is<uint32_t>() || document["request_id"].as<uint32_t>() == 0) return;
+    bool reset = strcmp(type, "reset_wifi") == 0;
+    bool confirmed = document["confirm"].is<bool>() && document["confirm"].as<bool>();
+    JsonDocument response;
+    response["version"] = 1;
+    response["type"] = reset ? "reset_wifi_ack" : "device_info";
+    response["request_id"] = document["request_id"].as<uint32_t>();
+    response["ok"] = !reset || confirmed;
+    if (!reset) fillDeviceInfo(response["data"].to<JsonObject>());
+    Serial.print(kPrefix);
+    serializeJson(response, Serial);
+    Serial.println();
+    if (reset && confirmed) {
+      Serial.flush();
+      delay(100);
+      wifiManager.resetSettings();
+      ESP.restart();
+    }
+    return;  // Diagnostic requests never refresh USB status freshness.
+  }
   if (strcmp(type, "ping") == 0) {
     sendControl("pong");
     return;
@@ -922,6 +960,7 @@ void handleFrame(const String& line) {
     updateStatus(document["data"].as<JsonObjectConst>());
     lastUsbStatusAt = millis();
     lastBridgeStatusAt = millis();
+    usbStatusCount++;
     return;
   }
 
@@ -1018,6 +1057,7 @@ void pollBridge() {
     if (!deserializeJson(document, http.getStream()) && document["version"].as<int>() == 1) {
       updateStatus(document.as<JsonObjectConst>());
       lastBridgeStatusAt = millis();
+      lanStatusCount++;
     }
   }
   http.end();
@@ -1048,13 +1088,7 @@ void startAdminServer() {
   admin.on("/api/info", HTTP_GET, [] {
     if (!authorizeAdmin()) return;
     JsonDocument response;
-    response["device"] = "AI-bot";
-    response["version"] = 1;
-    response["ip"] = WiFi.localIP().toString();
-    response["usb_active"] = usbFresh();
-    response["bridge_online"] = bridgeFresh();
-    response["mode"] = displayModeName();
-    response["brightness"] = brightness;
+    fillDeviceInfo(response.to<JsonObject>());
     String body;
     serializeJson(response, body);
     admin.send(200, "application/json", body);
