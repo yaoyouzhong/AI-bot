@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Recent baseline alignment
+
+- Display every Codex reset-credit expiry in firmware and the Windows mirror, preserving duplicate dates and paginating long lists; reserve a separate pet footer to prevent animation overwrite.
+- Preserve last-known reset-credit dates as stale when the count is unchanged and details are unavailable, on Windows and macOS.
+- Align balance/currency baselines with differentiated font sizes; cache Windows network interfaces for 30 seconds and calculate per-interface deltas without overlapping samples.
+- Record the exact legacy working-tree baseline and remaining validation boundaries in `docs/ALIGNMENT_2026-09-08.md`.
+
 ### Features
 
 - Add LAN-independent USB device information and explicitly confirmed Wi-Fi reset on Windows/macOS, with correlated replies and no destructive retry.

@@ -7,8 +7,11 @@ internal sealed class SystemMetricsService
 {
     private readonly object _sync = new();
     private CpuTimes? _previousCpu;
-    private NetworkTotals? _previousNetwork;
-    private DateTimeOffset? _previousAt;
+    private readonly Dictionary<string, NetworkTotals> _previousNetwork = new();
+    private NetworkInterface[] _adapters = [];
+    private long _refreshAdaptersAt;
+    private long? _previousTick;
+    private int _sampling;
     private SystemMetricsSnapshot? _snapshot;
 
     internal SystemMetricsSnapshot? Snapshot
@@ -33,25 +36,32 @@ internal sealed class SystemMetricsService
 
     private void Sample()
     {
+        if (Interlocked.Exchange(ref _sampling, 1) != 0) return;
+        try { SampleCore(); }
+        finally { Volatile.Write(ref _sampling, 0); }
+    }
+
+    private void SampleCore()
+    {
         var now = DateTimeOffset.UtcNow;
+        var tick = Environment.TickCount64;
+        var seconds = _previousTick.HasValue ? (tick - _previousTick.Value) / 1000.0 : 0;
         var cpu = ReadCpuTimes();
-        var network = ReadNetworkTotals();
+        var network = ReadNetworkRates(tick, seconds);
         var memory = ReadMemoryPercent();
         lock (_sync)
         {
-            if (_previousCpu.HasValue && _previousNetwork.HasValue && _previousAt.HasValue)
+            if (_previousCpu.HasValue && _previousTick.HasValue)
             {
-                var seconds = Math.Max(0.001, (now - _previousAt.Value).TotalSeconds);
                 _snapshot = new SystemMetricsSnapshot(
                     CpuPercent(_previousCpu.Value, cpu),
                     memory,
-                    CalculateRate(_previousNetwork.Value.Sent, network.Sent, seconds),
-                    CalculateRate(_previousNetwork.Value.Received, network.Received, seconds),
+                    network.Sent,
+                    network.Received,
                     now);
             }
             _previousCpu = cpu;
-            _previousNetwork = network;
-            _previousAt = now;
+            _previousTick = tick;
         }
     }
 
@@ -78,31 +88,64 @@ internal sealed class SystemMetricsService
         return GlobalMemoryStatusEx(ref status) ? status.MemoryLoad : 0;
     }
 
-    private static NetworkTotals ReadNetworkTotals()
+    private NetworkTotals ReadNetworkRates(long tick, double seconds)
     {
-        long sent = 0, received = 0;
-        foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces())
+        if (tick >= _refreshAdaptersAt)
         {
-            if (adapter.OperationalStatus != OperationalStatus.Up ||
-                adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+            _refreshAdaptersAt = tick + 30_000; // Includes failed enumeration: no busy retry loop.
+            try { _adapters = NetworkInterface.GetAllNetworkInterfaces().Where(IsTrafficAdapter).ToArray(); }
+            catch (NetworkInformationException) { /* Keep previous inventory until the next refresh. */ }
+        }
+        var current = new Dictionary<string, NetworkTotals>();
+        foreach (var adapter in _adapters)
+        {
             try
             {
-                var stats = adapter.GetIPv4Statistics();
-                sent += stats.BytesSent;
-                received += stats.BytesReceived;
+                var stats = adapter.GetIPStatistics();
+                current[adapter.Id] = new NetworkTotals(stats.BytesSent, stats.BytesReceived);
             }
             catch (NetworkInformationException)
             {
                 // An adapter can disappear between enumeration and sampling.
             }
         }
+        var rates = AggregateNetworkRates(_previousNetwork, current, seconds);
+        _previousNetwork.Clear();
+        foreach (var pair in current) _previousNetwork.Add(pair.Key, pair.Value);
+        return rates;
+    }
+
+    internal static NetworkTotals AggregateNetworkRates(IReadOnlyDictionary<string, NetworkTotals> previous,
+        IReadOnlyDictionary<string, NetworkTotals> current, double seconds)
+    {
+        long sent = 0, received = 0;
+        foreach (var pair in current)
+        {
+            if (!previous.TryGetValue(pair.Key, out var baseline)) continue;
+            sent += CalculateRate(baseline.Sent, pair.Value.Sent, seconds);
+            received += CalculateRate(baseline.Received, pair.Value.Received, seconds);
+        }
         return new NetworkTotals(sent, received);
+    }
+
+    private static bool IsTrafficAdapter(NetworkInterface adapter)
+    {
+        try
+        {
+            if (adapter.OperationalStatus != OperationalStatus.Up ||
+                adapter.NetworkInterfaceType is not (NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211))
+                return false;
+            var excluded = new[] { "virtual", "vpn", "tap", "hyper-v", "vmware", "loopback", "wintun" };
+            return !excluded.Any(word => adapter.Description.Contains(word, StringComparison.OrdinalIgnoreCase)) &&
+                adapter.GetIPProperties().UnicastAddresses.Count > 0;
+        }
+        catch (NetworkInformationException) { return false; }
     }
 
     private static ulong ToUInt64(FileTime value) => ((ulong)value.High << 32) | value.Low;
 
     private readonly record struct CpuTimes(ulong Idle, ulong Kernel, ulong User);
-    private readonly record struct NetworkTotals(long Sent, long Received);
+    internal readonly record struct NetworkTotals(long Sent, long Received);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct FileTime

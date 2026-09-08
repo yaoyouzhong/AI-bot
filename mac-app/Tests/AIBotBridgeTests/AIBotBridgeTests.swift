@@ -79,6 +79,20 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertEqual(codex.weeklyPercent, 34)
     }
 
+    func testResetCreditDetailsKeepEachAvailableRecord() throws {
+        let usage = Data(#"{"rate_limit":{},"rate_limit_reset_credits":{"available_count":4}}"#.utf8)
+        let credits = Data(#"{"credits":[{"status":"available","expires_at":"2026-09-22T00:00:00Z"},{"status":"used","expires_at":"2026-09-10T00:00:00Z"},{"status":"available","expires_at":"2026-09-21T00:00:00Z"},{"status":"available","expires_at":"2026-09-21T00:00:00Z"}]}"#.utf8)
+        let value = try MacQuotaService.parseCodex(usage, credits: credits)
+        XCTAssertEqual(value.resetCreditsAvailable, 4)
+        XCTAssertEqual(value.resetCreditExpiresAt.count, 3)
+        XCTAssertEqual(value.resetCreditExpiresAt[0], value.resetCreditExpiresAt[1])
+        XCTAssertLessThan(value.resetCreditExpiresAt[1], value.resetCreditExpiresAt[2])
+        let missing = try MacQuotaService.parseCodex(usage)
+        let retained = MacDataStore.mergeCodex(missing, previous: value)
+        XCTAssertEqual(retained?.resetCreditExpiresAt, value.resetCreditExpiresAt)
+        XCTAssertEqual(retained?.stale, true)
+    }
+
     func testSerialCandidateFiltering() {
         XCTAssertTrue(SerialBridge.isCandidateDeviceName("cu.wchusbserial1420"))
         XCTAssertTrue(SerialBridge.isCandidateDeviceName("cu.usbserial-110"))

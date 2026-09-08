@@ -47,6 +47,28 @@ internal static class DataSourceSelfTest
             codex.ResetCreditsAvailable != 2 || codex.ResetCreditExpiresAt.Count != 1)
             throw new InvalidOperationException("Codex quota parser did not preserve windows or reset credits.");
 
+        const string multipleCredits = """
+            {"available_count":4,"credits":[
+             {"status":"available","expires_at":"2026-09-22T20:00:00Z"},
+             {"status":"used","expires_at":"2026-09-10T00:00:00Z"},
+             {"status":"available","expires_at":"2026-09-21T00:00:00Z"},
+             {"status":"available","expires_at":"2026-09-21T00:00:00Z"}]}
+            """;
+        var multiple = QuotaService.ParseCodex(codexJson, multipleCredits);
+        var creditRows = ResetCreditDisplay.Rows(multiple, 8 * 3600);
+        if (creditRows.Count != 4 || creditRows[0] != new ResetCreditDisplay.Row(1, "9/21") ||
+            creditRows[1] != creditRows[0] || creditRows[2].Date != "9/23" ||
+            creditRows[3] != new ResetCreditDisplay.Row(1, "--") ||
+            ResetCreditDisplay.Rows(multiple with { ResetCreditsAvailable = 0, ResetCreditExpiresAt = [] }, 0)
+                .Single() != new ResetCreditDisplay.Row(0, "--"))
+            throw new InvalidOperationException("Reset credits lost duplicates, timezone, or unknown dates.");
+        var missingDetails = multiple with { ResetCreditExpiresAt = [] };
+        var retained = QuotaService.MergeCodex(missingDetails, multiple)!;
+        if (!retained.Stale || retained.ResetCreditExpiresAt.Count != 3 ||
+            QuotaService.MergeCodex(missingDetails with { ResetCreditsAvailable = 1 }, multiple)!.ResetCreditExpiresAt.Count != 0 ||
+            QuotaService.MergeCodex(missingDetails with { ResetCreditsAvailable = 0 }, multiple)!.ResetCreditExpiresAt.Count != 0)
+            throw new InvalidOperationException("Credit-detail fallback failed or retained dates after the count changed.");
+
         var alibaba = DomesticQuotaService.Parse("alibaba",
             """{"data":{"TotalValue":1000000,"TotalSurplusValue":750000,"SubscriptionName":"Token Plan 团队版","reset_at":"2026-10-01T00:00:00+08:00"}}""");
         if (alibaba.WeeklyPercent != 25 || alibaba.Plan != "Token Plan 团队版")
@@ -57,9 +79,13 @@ internal static class DataSourceSelfTest
         if (kimi.Plan != "Ultra" || kimi.WeeklyPercent != 40 || kimi.PrimaryPercent != 10)
             throw new InvalidOperationException("Kimi quota parser did not preserve both windows.");
 
+        var miniMaxBefore = DateTimeOffset.UtcNow;
         var miniMax = DomesticQuotaService.Parse("minimax",
             """{"data":{"plan_name":"Coding Plan","current_weekly_used_percent":35,"current_interval_remaining_percent":80,"weekly_remains_time":86400000,"remains_time":3600000}}""");
-        if (miniMax.Plan != "Coding Plan" || miniMax.WeeklyPercent != 35 || miniMax.PrimaryPercent != 20)
+        if (miniMax.Plan != "Coding Plan" || miniMax.WeeklyPercent != 35 || miniMax.PrimaryPercent != 20 ||
+            miniMax.PrimaryResetsAt is null || miniMax.WeeklyResetsAt is null ||
+            Math.Abs((miniMax.PrimaryResetsAt.Value - miniMaxBefore).TotalSeconds - 3600) > 5 ||
+            Math.Abs((miniMax.WeeklyResetsAt.Value - miniMaxBefore).TotalSeconds - 86400) > 5)
             throw new InvalidOperationException("MiniMax quota parser did not preserve both windows.");
 
         var deepSeek = DomesticQuotaService.Parse("deepseek",
@@ -70,6 +96,14 @@ internal static class DataSourceSelfTest
         if (SystemMetricsService.CalculateRate(1000, 2500, 0.5) != 3000 ||
             SystemMetricsService.CalculateRate(2500, 1000, 1) != 0)
             throw new InvalidOperationException("Network-rate calculation did not handle elapsed time or reset.");
+
+        var rates = SystemMetricsService.AggregateNetworkRates(
+            new Dictionary<string, SystemMetricsService.NetworkTotals>
+            { ["kept"] = new(100, 200), ["removed"] = new(9000, 9000), ["reset"] = new(1000, 1000) },
+            new Dictionary<string, SystemMetricsService.NetworkTotals>
+            { ["kept"] = new(300, 600), ["new"] = new(800000, 900000), ["reset"] = new(10, 20) }, 2);
+        if (rates != new SystemMetricsService.NetworkTotals(100, 200))
+            throw new InvalidOperationException("Adapter changes fabricated traffic or lost the stable adapter delta.");
 
         if (!SerialPublisher.TryParsePong(
                 "@AIBOT {\"version\":1,\"type\":\"pong\",\"device\":\"esp8266\",\"ip\":\"192.168.1.42\"}",

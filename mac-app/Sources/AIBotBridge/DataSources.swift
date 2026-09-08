@@ -136,12 +136,25 @@ final class MacDataStore {
     func mergeQuotas(claude: ProviderQuotaSnapshot?, codex: ProviderQuotaSnapshot?) {
         lock.lock()
         let next = QuotaSnapshot(claude: claude ?? Self.stale(quotas?.claude),
-                                 codex: codex ?? Self.stale(quotas?.codex))
+                                 codex: Self.mergeCodex(codex, previous: quotas?.codex))
         guard next.claude != nil || next.codex != nil else { lock.unlock(); return }
         quotas = next
         lock.unlock()
         if claude?.stale == false || codex?.stale == false,
            let data = Self.encode(next) { defaults.set(data, forKey: "quota_cache") }
+    }
+
+    static func mergeCodex(_ fresh: ProviderQuotaSnapshot?, previous: ProviderQuotaSnapshot?) -> ProviderQuotaSnapshot? {
+        guard let fresh else { return stale(previous) }
+        guard let previous, (fresh.resetCreditsAvailable ?? 0) > 0,
+              fresh.resetCreditsAvailable == previous.resetCreditsAvailable,
+              fresh.resetCreditExpiresAt.isEmpty, !previous.resetCreditExpiresAt.isEmpty else { return fresh }
+        return ProviderQuotaSnapshot(provider: fresh.provider, plan: fresh.plan,
+                                     primaryPercent: fresh.primaryPercent, primaryResetsAt: fresh.primaryResetsAt,
+                                     weeklyPercent: fresh.weeklyPercent, weeklyResetsAt: fresh.weeklyResetsAt,
+                                     resetCreditsAvailable: fresh.resetCreditsAvailable,
+                                     resetCreditExpiresAt: previous.resetCreditExpiresAt,
+                                     updatedAt: fresh.updatedAt, stale: true)
     }
 
     private static func stale(_ value: ProviderQuotaSnapshot?) -> ProviderQuotaSnapshot? {

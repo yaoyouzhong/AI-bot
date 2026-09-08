@@ -25,7 +25,8 @@ internal static class MirrorSelfTest
             Quotas = new QuotaSnapshot(provider, provider with
             {
                 Provider = "codex", Plan = "PLUS", PrimaryPercent = 18.5,
-                WeeklyPercent = 42, ResetCreditsAvailable = 2
+                WeeklyPercent = 42, ResetCreditsAvailable = 2,
+                ResetCreditExpiresAt = [now.AddDays(3).ToUnixTimeSeconds(), now.AddDays(10).ToUnixTimeSeconds()]
             }),
             DomesticQuotas = new DomesticQuotaSnapshot(
                 domestic with { Provider = "alibaba", Plan = "Token Plan", WeeklyPercent = 25 },
@@ -50,6 +51,26 @@ internal static class MirrorSelfTest
         }
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? ".");
         montage.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+        using var creditPages = new Bitmap(720, 480);
+        using (var g = Graphics.FromImage(creditPages))
+        {
+            var expirations = Enumerable.Range(0, 5).Select(index => now.AddDays(index + 1).ToUnixTimeSeconds()).ToArray();
+            for (var page = 0; page < 3; page++)
+            {
+                var sample = status with
+                {
+                    EpochUtc = status.EpochUtc / 12 * 12 + page * 4,
+                    Quotas = new QuotaSnapshot(provider, status.Quotas!.Codex! with
+                    { ResetCreditsAvailable = 5, ResetCreditExpiresAt = expirations })
+                };
+                using var quota = MirrorForm.RenderSnapshot(sample, "quotas");
+                using var pet = MirrorForm.RenderSnapshot(sample, "pet");
+                g.DrawImageUnscaled(quota, page * 240, 0);
+                g.DrawImageUnscaled(pet, page * 240, 240);
+            }
+        }
+        creditPages.Save(Path.Combine(Path.GetDirectoryName(outputPath) ?? ".", "credit-pages-self-test.png"),
+            System.Drawing.Imaging.ImageFormat.Png);
         Console.WriteLine("MIRROR_SELF_TEST_OK " + outputPath);
         return outputPath;
     }

@@ -7,6 +7,7 @@
 #include <TFT_eSPI.h>
 #include <WiFiManager.h>
 #include <time.h>
+#include <vector>
 
 namespace {
 
@@ -58,6 +59,7 @@ struct ProviderQuotaState {
   String primaryReset;
   String weeklyReset;
   int resetCredits = -1;
+  std::vector<uint32_t> resetExpirations;
   bool primaryAvailable = false;
   bool weeklyAvailable = false;
   bool stale = true;
@@ -272,8 +274,14 @@ void updateQuota(JsonObjectConst value, ProviderQuotaState& target) {
   target.primaryReset = value["primaryResetsAt"] | "";
   target.weeklyReset = value["weeklyResetsAt"] | "";
   target.resetCredits = value["resetCreditsAvailable"] | -1;
+  target.resetExpirations.clear();
+  for (JsonVariantConst item : value["resetCreditExpiresAt"].as<JsonArrayConst>()) {
+    if (item.is<uint32_t>() && item.as<uint32_t>() > 0)
+      target.resetExpirations.push_back(item.as<uint32_t>());
+  }
   target.stale = value["stale"] | true;
-  target.available = target.primaryAvailable || target.weeklyAvailable || target.resetCredits >= 0;
+  target.available = target.primaryAvailable || target.weeklyAvailable || target.resetCredits >= 0 ||
+      !target.resetExpirations.empty();
 }
 
 void updateDomesticQuota(JsonObjectConst value, DomesticQuotaState& target) {
@@ -380,6 +388,10 @@ void drawDashboard() {
   display.drawFastHLine(20, 125, 200, TFT_DARKGREY);
   drawTool("CODEX", codexState.c_str(), 148);
   drawTool("CLAUDE", claudeState.c_str(), 182);
+  if (codexQuota.resetCredits > 0) {
+    display.setTextColor(codexQuota.stale ? TFT_ORANGE : TFT_GREEN, TFT_BLACK);
+    display.drawRightString("R*" + String(codexQuota.resetCredits), 222, 214, 2);
+  }
   showingOffline = false;
   screenDirty = false;
 }
@@ -493,6 +505,34 @@ void drawQuotaProvider(const char* label, const ProviderQuotaState& quota, int y
   drawQuotaWindow("7D", quota.weeklyAvailable, quota.weeklyPercent, quota.weeklyReset, y + 46);
 }
 
+// Reserve a footer outside the pet image/animation bounds. No sprite can erase it.
+void drawResetCredits(int y) {
+  const size_t known = codexQuota.resetExpirations.size();
+  const int missing = max(0, codexQuota.resetCredits - static_cast<int>(known));
+  const size_t rows = known + ((missing > 0 || (known == 0 && codexQuota.resetCredits >= 0)) ? 1 : 0);
+  if (rows == 0) return;
+  const size_t pages = (rows + 1) / 2;
+  const size_t page = (currentEpochUtc() / 4) % pages;
+  display.setTextDatum(TL_DATUM);
+  for (size_t index = page * 2; index < rows && index < page * 2 + 2; ++index) {
+    const int top = y + (index % 2) * 18;
+    display.setTextColor(codexQuota.stale ? TFT_ORANGE : TFT_GREEN, TFT_BLACK);
+    display.drawString("R*" + String(index < known ? 1 : missing), 16, top, 2);
+    String date = "--";
+    if (index < known) {
+      time_t local = static_cast<time_t>(static_cast<int64_t>(codexQuota.resetExpirations[index]) + utcOffsetSeconds);
+      struct tm parts;
+      gmtime_r(&local, &parts);
+      date = String(parts.tm_mon + 1) + "/" + String(parts.tm_mday);
+    }
+    display.drawRightString(date, 180, top, 2);
+  }
+  if (pages > 1) {
+    display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    display.drawRightString(String(page + 1) + "/" + String(pages), 228, y + 5, 1);
+  }
+}
+
 void drawQuotas() {
   display.fillScreen(TFT_BLACK);
   drawCentered("ACCOUNT QUOTAS", 5, 2, TFT_WHITE);
@@ -503,14 +543,7 @@ void drawQuotas() {
   }
   drawQuotaProvider("CLAUDE", claudeQuota, 32);
   drawQuotaProvider("CODEX", codexQuota, 112);
-  if (codexQuota.resetCredits >= 0) {
-    display.setTextDatum(TL_DATUM);
-    display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    display.drawString("RESET CREDITS", 12, 195, 2);
-    display.setTextDatum(TR_DATUM);
-    display.setTextColor(TFT_GREEN, TFT_BLACK);
-    display.drawString(String(codexQuota.resetCredits), 228, 195, 2);
-  }
+  drawResetCredits(196);
   screenDirty = false;
 }
 
@@ -521,17 +554,23 @@ void drawDomesticRow(const char* label, const DomesticQuotaState& quota, int y) 
   display.setTextDatum(TR_DATUM);
   display.setTextColor(quota.available ? TFT_WHITE : TFT_DARKGREY, TFT_BLACK);
   String value = "--";
-  if (quota.balanceAvailable) value = quota.currency + " " + String(quota.balance, 2);
+  if (quota.balanceAvailable) value = String(quota.balance, 2);
   else if (quota.weeklyAvailable) value = String(quota.weeklyPercent, 1) + "% WK";
   else if (quota.primaryAvailable) value = String(quota.primaryPercent, 1) + "% 5H";
-  display.drawString(value, 230, y, 2);
+  if (quota.balanceAvailable) {
+    display.setTextDatum(BR_DATUM);
+    const int baseline = y + display.fontHeight(4);
+    display.drawString(value, 230, baseline, 4);
+    const int numberWidth = display.textWidth(value, 4);
+    display.drawString(quota.currency, 224 - numberWidth, baseline, 2);
+  } else display.drawString(value, 230, y, 2);
   display.setTextDatum(TL_DATUM);
   display.setTextColor(TFT_DARKGREY, TFT_BLACK);
   String detail = quota.plan;
   if (quota.usedCostAvailable) detail += " USED " + String(quota.usedCost, 2);
   else if (quota.weeklyAvailable && quota.weeklyReset.length() > 0)
     detail += " R " + resetClock(quota.weeklyReset);
-  display.drawString(detail.substring(0, 31), 10, y + 20, 1);
+  display.drawString(detail.substring(0, 31), 10, y + 28, 1);
 }
 
 void drawDomestic() {
@@ -677,9 +716,21 @@ void drawPixelPetBody(int x, int y, bool step, bool working) {
 }
 
 void drawPet() {
+  static uint32_t lastCreditCycle = 0;
+  static String lastCreditKey;
+  static bool hadCreditFooter = false;
+  const uint32_t creditCycle = currentEpochUtc() / 4;
+  const bool hasCreditFooter = codexQuota.resetCredits >= 0 || !codexQuota.resetExpirations.empty();
+  String creditKey = String(codexQuota.resetCredits) + ":" + String(codexQuota.stale) + ":" + String(utcOffsetSeconds);
+  for (uint32_t epoch : codexQuota.resetExpirations) creditKey += ":" + String(epoch);
+  if (codexQuota.resetExpirations.size() +
+      (codexQuota.resetCredits > static_cast<int>(codexQuota.resetExpirations.size()) ? 1 : 0) > 2)
+    creditKey += ":" + String(creditCycle);
+  const bool repaintFooter = !hadCreditFooter || lastPetFrame < 0 || creditKey != lastCreditKey;
   bool working = codexState == "working" || claudeState == "working";
   int frame = working ? static_cast<int>(millis() / 180) : 0;
-  if (!screenDirty && frame == lastPetFrame) return;
+  if (!screenDirty && frame == lastPetFrame && creditCycle == lastCreditCycle) return;
+  lastCreditCycle = creditCycle;
   lastPetFrame = frame;
   bool step = (frame & 1) != 0;
   int x = 91;
@@ -689,7 +740,8 @@ void drawPet() {
     x = 16 + travel * 5;
   }
 
-  display.fillScreen(TFT_BLACK);
+  if (hasCreditFooter) display.fillRect(0, 0, 240, 198, TFT_BLACK);
+  else display.fillScreen(TFT_BLACK);
   drawCentered("BYTE SPROUT", 12, 2, working ? TFT_GREEN : TFT_CYAN);
   bool externalPet = drawRgb565File("/pet.asset", 64, 49, 112, 112);
   if (externalPet)
@@ -700,11 +752,20 @@ void drawPet() {
                working ? TFT_GREEN : TFT_YELLOW);
   String owner = codexState == "working" && claudeState == "working" ? "CODEX + CLAUDE"
       : codexState == "working" ? "CODEX" : claudeState == "working" ? "CLAUDE" : "READY";
-  drawCentered(owner, 207, 2, TFT_LIGHTGREY);
+  if (hasCreditFooter) {
+    drawCentered(owner, 32, 1, TFT_LIGHTGREY);
+    if (repaintFooter) {
+      display.fillRect(0, 198, 240, 42, TFT_BLACK);
+      drawResetCredits(200);
+    }
+  } else drawCentered(owner, 207, 2, TFT_LIGHTGREY);
+  hadCreditFooter = hasCreditFooter;
+  lastCreditKey = creditKey;
   screenDirty = false;
 }
 
 void drawOffline() {
+  lastPetFrame = -1; // A full offline redraw invalidates the preserved pet footer.
   int second = static_cast<int>(currentEpochUtc() % 60);
   if (showingOffline && second == lastClockSecond) return;
   lastClockSecond = second;
@@ -1188,6 +1249,7 @@ void renderCurrentPage() {
   RenderPage page = desiredPage();
   if (page != lastRenderedPage) {
     lastRenderedPage = page;
+    lastPetFrame = -1;
     screenDirty = true;
   }
   if (page == RenderPage::ScreenSaver) drawScreenSaver();

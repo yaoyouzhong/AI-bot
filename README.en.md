@@ -14,6 +14,8 @@ Version `0.1.0` is an independent development baseline. The main Windows and fir
 - Adds Open-Meteo weather and A/H/US quote data with last-successful caches.
 - Adds numeric weather/stock pages, 15-second cycling, and four-row stock paging.
 - Adds Claude/Codex quota parsing, last-successful caching, and a device quota page; live accounts and hardware remain unverified.
+- Shows individual Codex reset-credit expiry dates on quota/pet pages, two records per page rotating every four seconds; the dual page shows the total. Pet graphics and credit details occupy separate regions.
+- Uses large balance digits with a smaller baseline-aligned currency label, and caches the Windows adapter inventory for 30 seconds while excluding common virtual adapters.
 - Adds a normalized domestic-quota model, four response parsers, isolated WebView2 sign-in capture, and a device summary; MiniMax also supports an environment-key request path.
 - Samples Windows CPU, physical-memory use, and aggregate active-interface traffic each second for a device system page.
 - Reads Windows media-session title, artist, playback state, and progress; AUTO enters music while playing and resumes cycling after stop.

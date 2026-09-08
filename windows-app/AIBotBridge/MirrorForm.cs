@@ -85,6 +85,9 @@ internal sealed class MirrorForm : Form
         g.DrawLine(Pens.DimGray, 20, 124, 220, 124);
         Row(g, "CODEX", s.Codex.State.ToUpperInvariant(), 146, StateColor(s.Codex.State));
         Row(g, "CLAUDE", s.Claude.State.ToUpperInvariant(), 181, StateColor(s.Claude.State));
+        if (s.Quotas?.Codex?.ResetCreditsAvailable is > 0)
+            DrawRight(g, $"R*{s.Quotas.Codex.ResetCreditsAvailable}", 222, 214, 16,
+                s.Quotas.Codex.Stale ? Color.Orange : Color.LimeGreen, true);
     }
 
     private static void DrawWeather(Graphics g, StatusSnapshot s)
@@ -120,8 +123,23 @@ internal sealed class MirrorForm : Form
         Center(g, "ACCOUNT QUOTAS", 5, 14, Color.White, true);
         Provider(g, "CLAUDE", s.Quotas?.Claude, 32);
         Provider(g, "CODEX", s.Quotas?.Codex, 112);
-        if (s.Quotas?.Codex?.ResetCreditsAvailable is int credits)
-            Row(g, "RESET CREDITS", credits.ToString(), 198, Color.LimeGreen);
+        DrawResetCredits(g, s, 196);
+    }
+
+    private static void DrawResetCredits(Graphics g, StatusSnapshot s, int y)
+    {
+        var rows = ResetCreditDisplay.Rows(s.Quotas?.Codex, s.UtcOffsetSeconds);
+        if (rows.Count == 0) return;
+        var pages = (rows.Count + 1) / 2;
+        var page = (int)((s.EpochUtc / 4) % pages);
+        var color = s.Quotas?.Codex?.Stale == true ? Color.Orange : Color.LimeGreen;
+        for (var index = page * 2; index < rows.Count && index < page * 2 + 2; index++)
+        {
+            var top = y + index % 2 * 18;
+            DrawText(g, $"R*{rows[index].Count}", 16, top, 14, color, true);
+            DrawRight(g, rows[index].Date, 180, top, 12, color);
+        }
+        if (pages > 1) DrawRight(g, $"{page + 1}/{pages}", 228, y + 5, 9, Color.LightGray);
     }
 
     private static void Provider(Graphics g, string name, ProviderQuotaSnapshot? value, int y)
@@ -144,11 +162,20 @@ internal sealed class MirrorForm : Form
     private static void DomesticRow(Graphics g, string name, DomesticProviderQuotaSnapshot? value, int y)
     {
         DrawText(g, name, 10, y, 13, value?.Stale == true ? Color.Orange : Color.Cyan, true);
-        var display = value?.Balance is double balance ? $"{value.Currency} {balance:0.00}"
-            : value?.WeeklyPercent is double weekly ? $"{weekly:0.0}% WK"
+        var display = value?.WeeklyPercent is double weekly ? $"{weekly:0.0}% WK"
             : value?.PrimaryPercent is double primary ? $"{primary:0.0}% 5H" : "--";
-        DrawRight(g, display, 230, y, 13, Color.White, true);
-        DrawText(g, value?.Plan ?? "", 10, y + 21, 9, Color.Gray);
+        if (value?.Balance is double balance)
+        {
+            using var numberFont = new Font("Microsoft YaHei UI", 22, FontStyle.Bold, GraphicsUnit.Pixel);
+            using var currencyFont = new Font("Microsoft YaHei UI", 11, FontStyle.Regular, GraphicsUnit.Pixel);
+            var number = balance.ToString("0.00");
+            var width = g.MeasureString(number, numberFont).Width;
+            DrawRight(g, number, 230, y, 22, Color.White, true);
+            var baselineOffset = FontAscent(numberFont) - FontAscent(currencyFont);
+            DrawRight(g, value.Currency ?? "", 226 - width, y + baselineOffset, 11, Color.White);
+        }
+        else DrawRight(g, display, 230, y, 13, Color.White, true);
+        DrawText(g, value?.Plan ?? "", 10, y + 28, 9, Color.Gray);
     }
 
     private static void DrawSystem(Graphics g, StatusSnapshot s)
@@ -183,12 +210,16 @@ internal sealed class MirrorForm : Form
     {
         var working = s.Codex.State == "working" || s.Claude.State == "working";
         Center(g, "BYTE SPROUT", 12, 14, working ? Color.LimeGreen : Color.Cyan, true);
+        var owner = s.Codex.State == "working" && s.Claude.State == "working" ? "CODEX + CLAUDE"
+            : s.Codex.State == "working" ? "CODEX" : s.Claude.State == "working" ? "CLAUDE" : "READY";
+        Center(g, owner, 32, 9, Color.LightGray);
         using var shell = new SolidBrush(working ? Color.Cyan : Color.DimGray);
         g.FillRectangle(shell, 99, 68, 42, 34);
         g.FillRectangle(shell, 103, 108, 34, 42);
         using var face = new SolidBrush(Color.Black);
         g.FillRectangle(face, 105, 75, 30, 18);
         Center(g, working ? "WORKING" : "IDLE", 180, 16, working ? Color.LimeGreen : Color.Yellow, true);
+        DrawResetCredits(g, s, 200);
     }
 
     private static void DrawScreenSaver(Graphics g, StatusSnapshot s) =>
@@ -223,6 +254,9 @@ internal sealed class MirrorForm : Form
         using var format = new StringFormat { Alignment = StringAlignment.Far };
         g.DrawString(value, font, brush, new PointF(x, y), format);
     }
+
+    private static float FontAscent(Font font) => font.Size * font.FontFamily.GetCellAscent(font.Style) /
+        font.FontFamily.GetEmHeight(font.Style);
 
     private static Color StateColor(string state) => state == "working" ? Color.LimeGreen
         : state == "idle" ? Color.Yellow : Color.DimGray;

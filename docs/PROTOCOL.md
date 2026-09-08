@@ -30,6 +30,8 @@ Allowed states are `working`, `idle`, and `offline`. Unknown values render as `o
 
 ## Compatibility
 
+`quotas.codex.resetCreditsAvailable` is the total known available count; `resetCreditExpiresAt` is an ordered array of Unix UTC seconds, one entry per available credit with a known expiry. Duplicate dates are distinct credits and must not be deduplicated. Both bridges already emit this field; firmware now consumes it. Unknown dates render `--`, never an invented expiry. Receivers apply `utcOffsetSeconds` for the displayed month/day. The device and Windows mirror render two rows at a time, rotating every four seconds using `epochUtc`, with a page indicator for longer lists. The pet footer is outside the image/animation region. When details are missing but the positive count is unchanged, bridges retain cached dates and mark the snapshot stale; a changed count does not inherit old dates.
+
 - Receivers must ignore unknown JSON fields.
 - A receiver must reject unsupported protocol versions.
 - A frame must not contain secrets or conversation content.

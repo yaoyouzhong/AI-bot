@@ -38,12 +38,21 @@ internal sealed class QuotaService
         lock (_sync)
         {
             var claude = claudeTask.Result ?? Stale(_snapshot?.Claude);
-            var codex = codexTask.Result ?? Stale(_snapshot?.Codex);
+            var codex = MergeCodex(codexTask.Result, _snapshot?.Codex);
             if (claude is null && codex is null) return;
             _snapshot = new QuotaSnapshot(claude, codex);
             if (claude?.Stale == false || codex?.Stale == false)
                 SnapshotCache.Save("usage-cache.json", _snapshot);
         }
+    }
+
+    internal static ProviderQuotaSnapshot? MergeCodex(ProviderQuotaSnapshot? fresh, ProviderQuotaSnapshot? previous)
+    {
+        if (fresh is null) return Stale(previous);
+        if (fresh.ResetCreditsAvailable is > 0 && fresh.ResetCreditsAvailable == previous?.ResetCreditsAvailable &&
+            fresh.ResetCreditExpiresAt.Count == 0 && previous.ResetCreditExpiresAt.Count > 0)
+            return fresh with { ResetCreditExpiresAt = previous.ResetCreditExpiresAt.ToArray(), Stale = true };
+        return fresh;
     }
 
     internal static ProviderQuotaSnapshot ParseClaude(string json, string? credentialPlan = null)
