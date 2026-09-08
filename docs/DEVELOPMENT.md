@@ -6,6 +6,8 @@
 
 Firmware parses only prefixed version 1 frames. A fresh USB status frame always wins. After eight seconds without USB status it polls the paired LAN endpoint with `X-AIBot-Token`; if neither path is fresh, it keeps time from the latest bridge epoch or NTP and displays `PC OFF`. The selected display mode is not replaced by a transport failure.
 
+Set the ESP8266 UART RX buffer to 8192 bytes **before** `Serial.begin`: the wire protocol allows 6144-byte JSON lines and 768-byte binary payload chunks, while screen and LittleFS operations are synchronous. The framework default buffer did not reliably preserve these bursts on the real device. This allocation is runtime heap use, not fully reflected in PlatformIO's static RAM percentage. Keep the 460800 baud rate and eight-second fallback boundary unchanged.
+
 `BridgeRuntime` owns the longer-lived data sources and exposes one immutable snapshot to loopback HTTP, authenticated LAN HTTP, USB, the tray, and diagnostics. `WeatherService` refreshes Open-Meteo every 15 minutes; `StockService` refreshes configured A/H/US symbols every five seconds. Both replace their cache only after a successful parse and return the last successful snapshot with `stale=true` after failure.
 
 The model is deliberately narrow: routing, retries, timeouts, framing, and state thresholds remain deterministic code.

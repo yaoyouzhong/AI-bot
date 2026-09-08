@@ -12,6 +12,16 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--test-device-pages"))
+        {
+            try { DeviceAcceptanceTest.RunAsync().GetAwaiter().GetResult(); }
+            catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException)
+            {
+                Console.Error.WriteLine("DEVICE_ACCEPTANCE_FAILED: " + ex.Message);
+                Environment.ExitCode = 1;
+            }
+            return;
+        }
         if (args.Contains("--test-wifi-fallback") || args.Contains("--test-usb-management"))
         {
             Console.OutputEncoding = Encoding.UTF8;

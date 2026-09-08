@@ -1,8 +1,8 @@
 # USB 与 Wi-Fi 回退验收 / USB and Wi-Fi fallback validation
 
-新版本的真机结果尚未记录。旧版本验收是功能基线，不代替本版本回归。macOS 源码仍需在 Mac 上构建与运行。
+2026-09-08 首轮失败，修复 RX 缓冲后两轮完整 USB 真机测试通过；用户确认大屏保时钟实体屏符合旧版。Wi-Fi 回退仍未通过，其他页面视觉未完成，详见 [验收记录](HARDWARE_ACCEPTANCE_2026-09-08.md)。macOS 源码仍需在 Mac 上构建与运行。
 
-No new hardware result is claimed. Previous-version acceptance is the behavior baseline; macOS still requires a Mac build and run.
+The first run failed; two complete USB runs passed after the RX-buffer fix. The user confirmed the large screen-saver clock on hardware. Wi-Fi fallback has not passed and other pages still need visual alignment. See the report; macOS still requires a Mac build and run.
 
 ## 保持供电 / Keep power connected
 
@@ -22,6 +22,10 @@ Windows 命令行使用 README 中的 `--test-usb-management`、`--test-wifi-fal
 For Windows CLI tests, exit the tray bridge and run one test process. The fallback CLI starts its own LAN listener and USB worker; the USB management CLI needs no LAN listener, releases them on exit and does not refresh live accounts. `AIBOT_PORT` can select the actual discovered serial port.
 
 ## 通过条件 / Passing criteria
+
+Windows 新增 `--test-device-pages` 真机链路验收入口（先退出托盘）。它使用合成状态，通过真实 USB 上传天气文字、股票名称、音乐文字与测试封面，轮流切换九种页面并读取设备模式/亮度，测试 USB 超时及恢复，最后恢复原模式与亮度。不重置 Wi-Fi，不替换桌宠资源；传输成功仅代表设备最终 ACK/CRC/落盘检查成功，不代表屏幕视觉或真实账户验证。测试文字/封面留在设备资源缓存中，实际数据更新时会覆盖。
+
+Windows `--test-device-pages` uses synthetic values over real USB: four resource kinds, nine display modes, brightness readback and USB timeout/recovery, followed by mode/brightness restoration. Exit the tray first. It does not reset Wi-Fi or replace pet assets. ACK success is transport/storage validation, not optical or live-account acceptance. Test text/cover resources remain cached until replaced by normal data updates.
 
 1. 暂停常规 USB 发送后取基线，此时 `usb_active=true`。Pause ordinary USB traffic and sample the baseline while USB status is still fresh.
 2. 12 秒后诊断应为 `usb_active=false`、`bridge_online=true`，USB 状态计数不变，LAN 成功计数增加，运行时间未倒退。After 12 seconds, USB is stale, bridge data remains fresh, USB count is unchanged and LAN count has increased without a reboot.

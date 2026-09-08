@@ -6,6 +6,8 @@ Version `0.1.0` is an independent development baseline. The main Windows and fir
 
 ## Features
 
+- The screen saver follows the legacy large-clock dimensions: a 204×76 cyan seven-segment clock, yellow colon, calendar/weekday and slow movement. Other pages still require legacy visual alignment.
+
 - Derives `working`, `idle`, and `offline` states for Codex and Claude Code.
 - Exposes a read-only local endpoint at `127.0.0.1:8765/status`.
 - Uses USB serial at 460800 baud.

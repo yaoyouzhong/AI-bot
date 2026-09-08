@@ -51,6 +51,16 @@ internal static class MirrorSelfTest
         }
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? ".");
         montage.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+        using var screenSaver = MirrorForm.RenderSnapshot(status, "screensaver");
+        screenSaver.Save(Path.Combine(Path.GetDirectoryName(outputPath) ?? ".", "screensaver-self-test.png"),
+            System.Drawing.Imaging.ImageFormat.Png);
+        for (long tick = 0; tick < 1000; tick++)
+        {
+            var position = ScreenSaverRenderer.Position(tick * 5);
+            if (position.X < 6 || position.X + ScreenSaverRenderer.ClockWidth > 234 ||
+                position.Y < 12 || position.Y + 112 > 214)
+                throw new InvalidOperationException("Screensaver movement clips the clock or offline status lane.");
+        }
         using var creditPages = new Bitmap(720, 480);
         using (var g = Graphics.FromImage(creditPages))
         {

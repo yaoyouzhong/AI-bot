@@ -8,10 +8,14 @@
 #include <WiFiManager.h>
 #include <time.h>
 #include <vector>
+#include "ScreenSaverGeometry.h"
 
 namespace {
 
 constexpr uint32_t kBaudRate = 460800;
+// One maximum JSON line (6144 bytes), a resource chunk and control traffic must
+// survive a synchronous screen/flash operation without overrunning the UART.
+constexpr size_t kSerialRxBufferBytes = 8192;
 constexpr uint32_t kUsbFreshMs = 8000;
 constexpr uint32_t kBridgeFreshMs = 8000;
 constexpr uint32_t kPollIntervalMs = 2000;
@@ -779,18 +783,75 @@ void drawOffline() {
   showingOffline = true;
 }
 
+void drawWeekdayStrokeGlyph(int day, int x, int y, uint16_t color) {
+  // Original geometric strokes on a 24px grid: 周, 日, 一, 二, 三, 四, 五, 六.
+  auto horizontal = [&](int left, int top, int width) { display.fillRect(x + left, y + top, width, 2, color); };
+  auto vertical = [&](int left, int top, int height) { display.fillRect(x + left, y + top, 2, height, color); };
+  auto box = [&](int left, int top, int width, int height) {
+    horizontal(left, top, width); horizontal(left, top + height - 2, width);
+    vertical(left, top, height); vertical(left + width - 2, top, height);
+  };
+  if (day == -1) {
+    horizontal(2, 1, 20); vertical(2, 1, 22); vertical(20, 1, 22); horizontal(17, 21, 5);
+    horizontal(6, 6, 12); vertical(11, 4, 8); horizontal(5, 11, 14); box(7, 15, 10, 6);
+  } else if (day == 0) { box(4, 1, 16, 22); horizontal(4, 11, 16); }
+  else if (day == 1) horizontal(2, 12, 20);
+  else if (day == 2) { horizontal(4, 6, 16); horizontal(2, 19, 20); }
+  else if (day == 3) { horizontal(3, 3, 18); horizontal(5, 11, 14); horizontal(2, 20, 20); }
+  else if (day == 4) {
+    box(2, 4, 20, 18); vertical(8, 4, 9); vertical(14, 4, 11); horizontal(14, 13, 5);
+    display.drawLine(x + 8, y + 12, x + 5, y + 16, color);
+  } else if (day == 5) {
+    horizontal(3, 2, 18); vertical(9, 2, 20); horizontal(4, 10, 14);
+    vertical(16, 10, 12); horizontal(1, 21, 22);
+  } else {
+    horizontal(10, 2, 4); horizontal(12, 4, 4); horizontal(2, 8, 20);
+    display.fillTriangle(x + 8, y + 12, x + 11, y + 14, x + 3, y + 22, color);
+    display.fillTriangle(x + 14, y + 12, x + 12, y + 15, x + 21, y + 22, color);
+  }
+}
+
 void drawScreenSaver() {
-  int second = static_cast<int>(currentEpochUtc() % 60);
-  if (!screenDirty && second == lastClockSecond) return;
-  lastClockSecond = second;
+  static uint32_t lastTick = 0;
+  static bool lastOnline = false;
+  const uint32_t utc = currentEpochUtc();
+  const uint32_t tick = utc / 5;
+  const bool online = bridgeFresh();
+  if (!screenDirty && tick == lastTick && online == lastOnline) return;
+  lastTick = tick;
+  lastOnline = online;
+  time_t local = static_cast<time_t>(static_cast<int64_t>(utc) + utcOffsetSeconds);
+  struct tm parts;
+  gmtime_r(&local, &parts);
+  const int x = 6 + ScreenSaverGeometry::bounce(tick, 2, 24);
+  const int y = 12 + ScreenSaverGeometry::bounce(tick, 1, 90);
   display.fillScreen(TFT_BLACK);
   display.setTextDatum(TL_DATUM);
-  display.setTextColor(TFT_GREEN, TFT_BLACK);
-  display.drawString(clockText(false), 18 + (second * 3) % 70,
-                     52 + (second * 5) % 85, 4);
-  display.setTextDatum(TR_DATUM);
-  display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  display.drawString(bridgeFresh() ? "BRIDGE" : "PC OFF", 230, 222, 2);
+  const int digits[] = {parts.tm_hour / 10, parts.tm_hour % 10, parts.tm_min / 10, parts.tm_min % 10};
+  const int offsets[] = {0, 47, 115, 162};
+  for (int cell = 0; cell < 4; ++cell)
+    for (const auto& segment : ScreenSaverGeometry::Segments)
+      if (strchr(segment.digits, '0' + digits[cell]))
+        display.fillRoundRect(x + offsets[cell] + segment.x, y + segment.y,
+                              segment.width, segment.height, 3, TFT_CYAN);
+  display.fillCircle(x + 102, y + 26, 5, TFT_YELLOW);
+  display.fillCircle(x + 102, y + 50, 5, TFT_YELLOW);
+  char date[6];
+  snprintf(date, sizeof(date), "%02d-%02d", parts.tm_mon + 1, parts.tm_mday);
+  const int dateWidth = display.textWidth(date, 4);
+  const int visibleCenter = x + (ScreenSaverGeometry::Width + (digits[0] == 1 ? 33 : 0)) / 2;
+  const int dateX = visibleCenter - (dateWidth + 10 + 50) / 2;
+  display.setTextColor(0xC618, TFT_BLACK);
+  display.drawString(date, dateX, y + ScreenSaverGeometry::CalendarY, 4);
+  drawWeekdayStrokeGlyph(-1, dateX + dateWidth + 10, y + ScreenSaverGeometry::CalendarY, 0xC618);
+  drawWeekdayStrokeGlyph(parts.tm_wday, dateX + dateWidth + 36, y + ScreenSaverGeometry::CalendarY, TFT_YELLOW);
+  if (!online) {
+    display.drawRoundRect(181, 219, 56, 18, 3, TFT_ORANGE);
+    display.setTextDatum(MC_DATUM);
+    display.setTextColor(TFT_ORANGE, TFT_BLACK);
+    display.drawString("PC OFF", 209, 228, 1);
+  }
+  display.setTextDatum(TL_DATUM);
   screenDirty = false;
 }
 
@@ -1267,6 +1328,7 @@ void renderCurrentPage() {
 }  // namespace
 
 void setup() {
+  Serial.setRxBufferSize(kSerialRxBufferBytes);
   Serial.begin(kBaudRate);
   startedAt = millis();
   inputLine.reserve(2048);

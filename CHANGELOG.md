@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Hardware fixes and legacy screen saver
+
+- Allocate an 8192-byte ESP8266 UART receive buffer before serial initialization to retain complete JSON/resource frames during synchronous drawing and flash writes.
+- Add real-device resource/page/brightness/USB-expiry acceptance tests with explicit failure reporting and restoration.
+- Restore the legacy 204×76 cyan seven-segment screen-saver clock, yellow colon, calendar/weekday and five-second movement in firmware and the Windows mirror.
+
 ### Recent baseline alignment
 
 - Display every Codex reset-credit expiry in firmware and the Windows mirror, preserving duplicate dates and paginating long lists; reserve a separate pet footer to prevent animation overwrite.

@@ -222,8 +222,7 @@ internal sealed class MirrorForm : Form
         DrawResetCredits(g, s, 200);
     }
 
-    private static void DrawScreenSaver(Graphics g, StatusSnapshot s) =>
-        Center(g, s.Time[..5], 82, 34, Color.LimeGreen, true);
+    private static void DrawScreenSaver(Graphics g, StatusSnapshot s) => ScreenSaverRenderer.Draw(g, s);
 
     private static void Row(Graphics g, string left, string right, int y, Color rightColor)
     {
