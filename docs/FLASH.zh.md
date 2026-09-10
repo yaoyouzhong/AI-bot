@@ -1,6 +1,6 @@
-# ESP8266 刷机图解
+# Windows：ESP8266 刷机图解
 
-[返回首页](../README.md) · [Windows 安装](INSTALL.zh.md) · [功能图鉴](FEATURES.zh.md)
+[返回首页](../README.md) · [Windows 安装](INSTALL.zh.md) · [Mac 刷机指南](FLASH_MAC.zh.md) · [功能图鉴](FEATURES.zh.md)
 
 本教程使用仓库实际配置的 **PlatformIO 上传流程**，适用于 ESP8266/ESP-12S、
 240×240 ST7789、SD2 小电视引脚布局。不是 ESP32 教程，也不适用于任意外观相似的小屏。

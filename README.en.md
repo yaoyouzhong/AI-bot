@@ -86,7 +86,7 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 ## Get started
 
-**First time here?** [Windows installation (Chinese)](docs/INSTALL.zh.md) · [Mac test build](docs/MAC_PACKAGE.md) · [ESP8266 flashing (Chinese)](docs/FLASH.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
+**First time here?** [Windows installation (Chinese)](docs/INSTALL.zh.md) · [Mac test build](docs/MAC_PACKAGE.md) · [Windows flashing (Chinese)](docs/FLASH.zh.md) · [Mac flashing (Chinese)](docs/FLASH_MAC.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
 
 BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data, not photographs of a device.
 

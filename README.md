@@ -82,7 +82,7 @@ flowchart LR
 
 ## 开始使用
 
-**第一次使用？** [Windows 安装图解](docs/INSTALL.zh.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [ESP8266 刷机图解](docs/FLASH.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
+**第一次使用？** [Windows 安装图解](docs/INSTALL.zh.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [Windows 刷机图解](docs/FLASH.zh.md) · [Mac 刷机指南](docs/FLASH_MAC.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
 
 默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；不是实体屏照片。
 

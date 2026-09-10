@@ -20,6 +20,10 @@ shasum -a 256 -c AIBotBridge-0.1.0-local-candidate-macos-arm64.zip.sha256
 
 音乐功能启用后，按系统提示授权访问正在运行的 Music 或 Spotify；首次授权、拒绝后的恢复路径和实际音乐显示需要实机验证。配对信息保存在 Keychain；不要共享用户设置或授权数据。
 
+## 小屏刷机与首次连接
+
+按 [Mac 安装与 ESP8266 刷机指南](FLASH_MAC.zh.md)完成硬件核对、串口识别、编译上传和实体屏验证。刷写前退出菜单栏应用，上传成功后重新启动，使用“查看本机状态”和“查看设备信息…”确认连接，再恢复智能跟随与轮播。USB 基础使用无需先配 Wi-Fi；需要无线回退时再执行指南中的配网与设备计数验证。
+
 ## 从源码生成候选
 
 在 Apple Silicon Mac 安装 Xcode Command Line Tools、Python 3 和 Git，获取源码后在仓库根目录运行：
@@ -39,5 +43,7 @@ bash scripts/package_macos.sh artifacts/my-mac-candidate
 - 睡眠唤醒、设置保留和持续运行；记录 Mac 型号、系统版本及候选 SHA-256。
 
 ## English
+
+See the [Mac flashing and first-connection guide (Chinese)](FLASH_MAC.zh.md) for serial-port discovery, PlatformIO upload, physical-display checks and optional Wi-Fi fallback.
 
 This test build targets macOS 13+ on Apple Silicon only; Intel is unverified. Commit `f7c2d31` passed 31 tests, Release compilation, app packaging, signature integrity and extracted-ZIP checks. It includes an ad-hoc signed app, notices and hashes; it is not Developer ID signed or notarized. Build checks do not prove Gatekeeper acceptance, first launch, Automation permissions or device behavior. Verify the ZIP's `.sha256`, extract it and copy the app to Applications. If blocked, record the system message without disabling protection. The menu-bar app requires separate real-Mac acceptance before publication.

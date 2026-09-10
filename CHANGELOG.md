@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add a Mac flashing guide with a workflow diagram, isolated PlatformIO setup, serial/driver troubleshooting, source and firmware-materials upload routes, and menu-based USB/display/Wi-Fi checks; link it from both homepages and installation docs. Real-Mac acceptance remains pending.
+
 - Correct platform labels and installation links to Windows and an Apple Silicon Mac test build; record successful cloud packaging while retaining real-Mac, Intel and signing limitations.
 
 - Run public UI self-tests on a separate invisible desktop during builds and package checks; retain real window/layout/bitmap behavior without interrupting the input desktop.
