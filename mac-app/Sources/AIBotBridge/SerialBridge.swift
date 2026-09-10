@@ -126,6 +126,20 @@ final class SerialBridge {
         send(Self.controlFrame(type: "brightness", field: "level", value: min(100, max(0, level))))
     }
 
+    func sendMetrics(_ metrics:SystemMetricsSnapshot) {
+        // A media upload owns the port; never block the UI sampler behind it.
+        guard lock.try() else{return}
+        defer{lock.unlock()}
+        guard activeDescriptor>=0,!paused,let frame=Self.metricsFrame(metrics) else{return}
+        _ = Self.write(frame,to:activeDescriptor)
+    }
+    static func metricsFrame(_ metrics:SystemMetricsSnapshot)->Data? {
+        let stamp=ISO8601DateFormatter();stamp.formatOptions=[.withInternetDateTime,.withFractionalSeconds]
+        let payload:[String:Any]=["version":1,"type":"metrics","data":["cpuPercent":metrics.cpuPercent,"memoryPercent":metrics.memoryPercent,"uploadBytesPerSecond":metrics.uploadBytesPerSecond,"downloadBytesPerSecond":metrics.downloadBytesPerSecond,"updatedAt":stamp.string(from:metrics.updatedAt)]]
+        guard let json=try? JSONSerialization.data(withJSONObject:payload) else{return nil}
+        var frame=Data("@AIBOT ".utf8);frame.append(json);frame.append(10);return frame
+    }
+
     func notifyHostGoingAway() {
         let frame = Self.controlFrame(type: "host_going_away")
         for attempt in 0..<3 {
@@ -141,7 +155,12 @@ final class SerialBridge {
         lock.lock()
         defer { lock.unlock() }
         guard activeDescriptor >= 0, !paused else { return false }
+        var nextHeartbeat = ProcessInfo.processInfo.systemUptime
         for chunk in chunks {
+            if ProcessInfo.processInfo.systemUptime >= nextHeartbeat {
+                guard let frame = Self.statusFrame(status()), Self.write(frame, to: activeDescriptor) else { return false }
+                nextHeartbeat = ProcessInfo.processInfo.systemUptime + 2
+            }
             var acknowledged = false
             for _ in 0..<3 where !acknowledged {
                 guard Self.write(chunk.wireBytes, to: activeDescriptor) else { return false }
@@ -258,7 +277,8 @@ final class SerialBridge {
     }
 
     static let displayModes: Set<String> = [
-        "auto", "dual", "weather", "stocks", "quotas", "domestic", "system", "music", "pet", "screensaver"
+        "auto", "dual", "weather", "stocks", "quotas", "domestic", "system", "music", "pet", "screensaver",
+        "claude", "codex", "activity", "domestic_alibaba", "domestic_kimi", "domestic_minimax", "domestic_deepseek", "domestic_zhipu"
     ]
 
     static func isCandidateDeviceName(_ name: String) -> Bool {

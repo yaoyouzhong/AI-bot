@@ -252,10 +252,10 @@ final class AIBotBridgeTests: XCTestCase {
         let weather = try XCTUnwrap(MacRgb565Renderer.renderLines(
             width: 232, height: 24, lines: ["北京  多云"], fontPixels: 20, rowHeight: 24))
         let stocks = try XCTUnwrap(MacRgb565Renderer.renderLines(
-            width: 120, height: 400, lines: ["上证指数", "腾讯控股"],
+            width: 156, height: 400, lines: ["上证指数", "腾讯控股"],
             fontPixels: 18, rowHeight: 20))
         XCTAssertEqual(weather.count, 232 * 24 * 2)
-        XCTAssertEqual(stocks.count, 120 * 400 * 2)
+        XCTAssertEqual(stocks.count, 156 * 400 * 2)
         XCTAssertTrue(weather.contains { $0 != 0 })
         XCTAssertTrue(stocks.contains { $0 != 0 })
     }

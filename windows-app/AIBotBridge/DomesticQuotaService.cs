@@ -14,6 +14,9 @@ internal sealed class DomesticQuotaService
     internal DomesticQuotaService()
     {
         var cached = SnapshotCache.Load<DomesticQuotaSnapshot>("domestic-quota-cache.json");
+        var legacy = LegacyDisplayCache.Domestic();
+        cached = new(cached?.Alibaba ?? legacy?.Alibaba, cached?.Kimi ?? legacy?.Kimi,
+            cached?.MiniMax ?? legacy?.MiniMax, cached?.DeepSeek ?? legacy?.DeepSeek, cached?.Zhipu);
         if (cached is not null) _snapshot = MarkStale(cached);
     }
 
@@ -62,6 +65,7 @@ internal sealed class DomesticQuotaService
             "kimi" => ParseKimi(document.RootElement),
             "minimax" => ParseMiniMax(document.RootElement),
             "deepseek" => ParseDeepSeek(document.RootElement),
+            "zhipu" or "glm" => ZhipuBalance.Parse(document.RootElement),
             _ => throw new ArgumentOutOfRangeException(nameof(provider), "Unsupported domestic provider.")
         };
     }
@@ -77,6 +81,7 @@ internal sealed class DomesticQuotaService
                 "kimi" => current with { Kimi = value },
                 "minimax" => current with { MiniMax = value },
                 "deepseek" => current with { DeepSeek = value },
+                "zhipu" => current with { Zhipu = value },
                 _ => current
             };
             SnapshotCache.Save("domestic-quota-cache.json", _snapshot);
@@ -94,7 +99,7 @@ internal sealed class DomesticQuotaService
         });
         if (!match.HasValue) throw new JsonException("Alibaba quota fields are missing.");
         return Windowed("alibaba", TextRecursive(root, "SubscriptionName") ?? "Token Plan",
-            null, null, match, DateRecursive(root), root);
+            null, null, null, null, root) with {PlanPercent=Clamp(match),PlanResetsAt=DateRecursive(root)};
     }
 
     private static DomesticProviderQuotaSnapshot ParseKimi(JsonElement root)
@@ -289,14 +294,14 @@ internal sealed class DomesticQuotaService
     {
         foreach (var name in new[] { "MINIMAX_SUBSCRIPTION_KEY", "MINIMAX_TOKEN_PLAN_KEY", "MINIMAX_API_KEY" })
         {
-            var value = Environment.GetEnvironmentVariable(name)?.Trim();
+            var value = AIBotBridge.AppPaths.GetProviderEnvironmentVariable(name)?.Trim();
             if (!string.IsNullOrEmpty(value)) return value;
         }
         return null;
     }
 
     private static DomesticQuotaSnapshot MarkStale(DomesticQuotaSnapshot value) => new(
-        Stale(value.Alibaba), Stale(value.Kimi), Stale(value.MiniMax), Stale(value.DeepSeek));
+        Stale(value.Alibaba), Stale(value.Kimi), Stale(value.MiniMax), Stale(value.DeepSeek), Stale(value.Zhipu));
 
     private static DomesticProviderQuotaSnapshot? Stale(DomesticProviderQuotaSnapshot? value) =>
         value is null ? null : value with { Stale = true };

@@ -13,6 +13,11 @@ internal sealed class SystemMetricsService
     private long? _previousTick;
     private int _sampling;
     private SystemMetricsSnapshot? _snapshot;
+    private readonly Queue<NetworkSample> _history = new();
+    private readonly string _sampleSession = Guid.NewGuid().ToString("N");
+    private long _sequence, _cpuAt;
+    private double _cpuPercent, _memoryPercent;
+    private readonly NetworkDisplayWindow _displayRates = new();
 
     internal SystemMetricsSnapshot? Snapshot
     {
@@ -22,14 +27,14 @@ internal sealed class SystemMetricsService
     internal async Task RunAsync(CancellationToken cancellationToken)
     {
         Sample();
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
         while (await timer.WaitForNextTickAsync(cancellationToken)) Sample();
     }
 
     internal async Task<SystemMetricsSnapshot> CaptureForSelfTestAsync()
     {
         Sample();
-        await Task.Delay(1100);
+        await Task.Delay(NetworkDisplayWindow.IntervalMilliseconds + 100);
         Sample();
         return Snapshot ?? throw new InvalidOperationException("System metrics did not produce a second sample.");
     }
@@ -46,21 +51,25 @@ internal sealed class SystemMetricsService
         var now = DateTimeOffset.UtcNow;
         var tick = Environment.TickCount64;
         var seconds = _previousTick.HasValue ? (tick - _previousTick.Value) / 1000.0 : 0;
-        var cpu = ReadCpuTimes();
         var network = ReadNetworkRates(tick, seconds);
-        var memory = ReadMemoryPercent();
+        var displayRates = _displayRates.Update(tick, new(network.Sent, network.Received));
+        if (_previousCpu is null || tick - _cpuAt >= NetworkDisplayWindow.IntervalMilliseconds)
+        {
+            var cpu = ReadCpuTimes();
+            if (_previousCpu is { } previous) _cpuPercent = Math.Round(CpuPercent(previous,cpu));
+            _previousCpu=cpu;_cpuAt=tick;_memoryPercent=ReadMemoryPercent();
+        }
         lock (_sync)
         {
             if (_previousCpu.HasValue && _previousTick.HasValue)
             {
+                _history.Enqueue(new(network.Sent, network.Received));
+                while (_history.Count > 224) _history.Dequeue();
                 _snapshot = new SystemMetricsSnapshot(
-                    CpuPercent(_previousCpu.Value, cpu),
-                    memory,
-                    network.Sent,
-                    network.Received,
-                    now);
+                    _cpuPercent, _memoryPercent,
+                    displayRates.Upload, displayRates.Download,
+                    now, _history.ToArray()) {SampleSession=_sampleSession,SampleSequence=++_sequence,Samples=_history.TakeLast(12).ToArray()};
             }
-            _previousCpu = cpu;
             _previousTick = tick;
         }
     }
@@ -175,4 +184,23 @@ internal sealed class SystemMetricsService
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GlobalMemoryStatusEx(ref MemoryStatus buffer);
+}
+
+// Hold readable header values for two seconds; raw 250 ms graph samples are unchanged.
+internal sealed class NetworkDisplayWindow
+{
+    internal const int IntervalMilliseconds = 2000;
+    private readonly Queue<NetworkSample> _recent = new();
+    private long? _publishedAt;
+    private NetworkSample _value = new(0,0);
+    internal NetworkSample Update(long tick, NetworkSample sample)
+    {
+        _recent.Enqueue(sample);
+        while(_recent.Count>8)_recent.Dequeue();
+        if(_publishedAt is null || tick-_publishedAt.Value>=IntervalMilliseconds) {
+            _value=new((long)_recent.Average(x=>x.Upload),(long)_recent.Average(x=>x.Download));
+            _publishedAt=tick;
+        }
+        return _value;
+    }
 }

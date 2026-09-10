@@ -1,10 +1,23 @@
 # AI-bot
 
+See [release readiness](docs/RELEASE_READINESS.md). Windows and firmware have been
+deployed on the maintainer's device with partial acceptance; this is not full
+product validation. Dated migration notes are historical evidence, not current
+deployment or release status.
+
 AI-bot is a local-first AI status clock. The target product includes Claude and Codex activity and account quotas, domestic-provider quotas, weather, stocks, system metrics, now playing, desktop pets, a screen saver, USB-first transport with Wi-Fi fallback, a Windows tray bridge, and a macOS menu-bar bridge.
 
 Version `0.1.0` is an independent development baseline. The main Windows and firmware paths have been rebuilt, but live-account, physical-device, and macOS validation are still incomplete. The full feature set is mandatory rather than optional; current evidence for every capability is tracked in the [functional parity contract](docs/FUNCTIONAL_PARITY.md). Do not treat `0.1.0` as a functional replacement for the earlier product until that matrix reaches its required validation levels.
 
 ## Features
+
+- The Windows mirror's quota-trend button opens 7/30-day daily weekly-quota usage and separate five-hour snapshots, retained locally for 90 days. Daily totals require verified Beijing-midnight boundaries, account identity and resets; today is in progress, incomplete days show `--`, and averages include only complete days. Two-minute polling usually misses exact boundaries, so complete daily data may be unavailable; reliable accurate daily totals are not yet delivered. See [semantics and limitations](docs/QUOTA_TRENDS.md). Earlier usage is not fabricated.
+
+- Migration code includes attention/completion acknowledgement, local Token accounting, automatic priority/wake behavior, Wi-Fi resource synchronization, and macOS gallery/mirror/persistent pets. macOS still requires a real build and device acceptance.
+
+- The Windows petdex gallery provides search, nine motion previews and Claude/Codex selection, supporting 8x9/8x11 sheets and the existing independent resource slots. Its layout follows the legacy picker; device display still needs hardware validation.
+
+- Windows supports separate Claude/Codex pet imports and restoration of locally imported defaults, with persistent selections and previous-selection backups. Legacy default pixels retain their original dimensions in private runtime caches, not public packages. Attention, completion pulses and acknowledgement are implemented but await device acceptance.
 
 - The screen saver follows the legacy large-clock dimensions: a 204×76 cyan seven-segment clock, yellow colon, calendar/weekday and slow movement. Other pages still require legacy visual alignment.
 
@@ -13,26 +26,28 @@ Version `0.1.0` is an independent development baseline. The main Windows and fir
 - Uses USB serial at 460800 baud.
 - Implements ESP8266 handshake, rendering, and an eight-second offline state.
 - Adds token-authenticated Wi-Fi fallback, NTP/holdover time, and a `PC OFF` standalone clock.
-- Adds Open-Meteo weather and A/H/US quote data with last-successful caches.
-- Adds numeric weather/stock pages, 15-second cycling, and four-row stock paging.
+- Windows prefers QWeather with Open-Meteo fallback, retaining the legacy location/settings dialog and weather animations; A/H/US quotes retain last-successful caches.
+- Provides separate Claude/Codex, dual-quota and five domestic-provider quota/balance pages, configurable cycle order/pages and 10/15/30/60-second intervals. Stocks rotate four rows every five seconds.
 - Adds Claude/Codex quota parsing, last-successful caching, and a device quota page; live accounts and hardware remain unverified.
 - Shows individual Codex reset-credit expiry dates on quota/pet pages, two records per page rotating every four seconds; the dual page shows the total. Pet graphics and credit details occupy separate regions.
 - Uses large balance digits with a smaller baseline-aligned currency label, and caches the Windows adapter inventory for 30 seconds while excluding common virtual adapters.
-- Adds a normalized domestic-quota model, four response parsers, isolated WebView2 sign-in capture, and a device summary; MiniMax also supports an environment-key request path.
-- Samples Windows CPU, physical-memory use, and aggregate active-interface traffic each second for a device system page.
+- Adds a normalized domestic-quota model, five response parsers (including Zhipu GLM available balance; see [authorization and limits](docs/GLM_BALANCE.md)), isolated WebView2 sign-in capture, and a device summary; MiniMax also supports an environment-key request path.
+- Samples the Windows network graph every 250 ms with 224 points. Upload/download numbers update every two seconds using the last eight samples; CPU/memory numbers also update every two seconds. Small USB metric frames do not replace status heartbeats; LAN uses its normal polling cadence.
 - Reads Windows media-session title, artist, playback state, and progress; AUTO enters music while playing and resumes cycling after stop.
 - Includes the original geometric pixel pet `BYTE SPROUT`, which walks or idles with Claude/Codex activity and imports no legacy sprites.
 - Supports manual and idle-triggered screen saving, temporary AI/music event wake, and restoration after user input.
 - Implements COBS resource chunks, per-chunk and whole CRC32, ACK/retry, and validated LittleFS replacement.
 - Pre-renders a 232×44 CJK title/artist bitmap and 112×112 cover on track changes, transfers them reliably, and streams rows on-device.
-- Imports a PNG/JPEG/BMP/GIF pet only beside a license notice, converts it to 112×112 RGB565, and sends it over USB without adding the source asset to the repository.
+- Imports PNG/JPEG/BMP/GIF pets beside a license notice, retaining duration across at most eight sampled frames. Windows/macOS provide persistent role selections and default restoration; legacy defaults require explicit private local import and stay outside the repository.
 - Pre-renders CJK weather text and up to twenty stock names on Windows; the device reads the current page and falls back to symbols when assets are absent.
-- Provides tray mode/brightness controls and a nine-page 240×240 Windows mirror with reproducible synthetic PNG validation.
+- Restores the original robot icon, seven tray groups and left-click mirror, with reproducible offline rendering of 14 pages.
+- Retains the legacy domestic-quota authorization window, background refresh, rate-limit backoff and browser recovery in a new isolated profile; old display caches are adapted read-only.
+- Uses explicit main-task Codex completion events with no startup replay, duplicate or subagent alerts; retains the original synthesized completion sound.
 - Adds tray display controls and an idle-time-driven Windows screen saver.
-- Does not read conversation content. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
+- Scans local session JSONL for lifecycle/model/time/Token metadata without displaying, persisting or uploading conversation text. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
 - Includes Windows and firmware CI plus tag-driven release scaffolding.
 
-Still incomplete are live-account quota validation, physical-device validation of USB/resources/pages/screen saving/Wi-Fi fallback, Windows settings persistence and startup integration, plus the remaining macOS capabilities and a real macOS build. This README describes only current behavior; use the parity contract for progress. See [data sources and privacy](docs/DATA_SOURCES.md) for every outbound-data boundary.
+Release gates still include end-to-end Wi-Fi fallback on a reachable network, macOS builds and hardware acceptance, and final-candidate stability, visual and installation checks. Partial account/USB checks on the maintainer's machine do not validate every provider or a fresh installation. Privately imported legacy pets and page logos are excluded from public packages; new users receive BYTE SPROUT. See [data sources and privacy](docs/DATA_SOURCES.md) for outbound-data boundaries.
 
 ## Layout
 
@@ -44,6 +59,12 @@ docs/                     Protocol and development documentation
 ```
 
 ## Windows
+
+See [Windows candidate packaging](docs/WINDOWS_PACKAGE.md) for prerequisites, extraction, startup, upgrades and checksums. Developers can run `powershell -NoProfile -File scripts/package_windows_local.ps1` to build and verify an isolated ZIP without replacing the resident app or uploading it.
+
+Add `-Firmware` to also build firmware and produce [firmware materials](docs/FIRMWARE_PACKAGE.md), including corresponding sources, third-party notices and rebuilding configuration. Both modes create a checked public-source ZIP with SHA-256 manifests. See [distribution terms](docs/DISTRIBUTION_TERMS.md). The official Release workflow still requires separate integration and validation.
+
+Open `AIBotBridge.exe` from File Explorer for normal use. It is a GUI executable and does not create and dismiss a console on startup. For automation, use `dotnet AIBotBridge.dll --status-once` or `dotnet AIBotBridge.dll --self-test-public` to retain stdout and wait for the exit code; PowerShell returning immediately from a GUI EXE is not a passing test. Tool-launched processes may inherit tool lifetime management; launch the resident app through Explorer or a login startup entry explicitly enabled by the user.
 
 ```powershell
 dotnet build windows-app\AIBotBridge\AIBotBridge.csproj -c Release
@@ -90,12 +111,15 @@ bash scripts/build_macos_app.sh
 
 Music automation must be tested by launching the generated `artifacts/AIBotBridge.app`; the bare SwiftPM executable does not carry the Apple Events purpose string and Hardened Runtime entitlement. The script uses local ad-hoc signing for development validation, not a distribution identity.
 
-The current Windows host has no Swift toolchain. Mac control frames, menu controls, CRC/ACK-retried binary transport, localized weather/stock/music resources, Apple Music/Spotify cover decoding, AI/music screen-saver wake, device information/Wi-Fi reset, and license-gated pet import have source but have not been compiled or connected to a device. Domestic quota and mirror remain required; Automation permission, player scripting fields, cover art, screen-saver timing, and device administration also require a real Mac. The existing source has not been checked with live accounts or system metrics, so it remains `platform-unverified`.
+The current Windows host has no Swift toolchain. Mac source covers USB/LAN resources, weather/stocks/music, metrics, quotas, screen saver, device administration, activity events, local Tokens, gallery, mirror and persistent pets, with XCTest regression cases. It has not been compiled or connected to a device; permissions, scripting fields, windows, restart caches, screen saver and serial require a real Mac, so it remains `platform-unverified`. Windows-only WebView2 domestic-provider authorization is not claimed as a Mac capability.
 
 ## Privacy boundary
 
-The bridge checks only session-log modification times and does not read conversation content. Account quota requests read existing Claude/Codex CLI sign-in files; access tokens are used only with the matching official provider endpoint and are never written to AI-bot cache, status, serial, or logs. Domestic quota sign-in uses an isolated `%APPDATA%\AI-bot\quota-auth-profile` browser profile. Cookies remain in that WebView2 profile; the app parses display-only quota fields from explicitly allowed official-host responses and does not log response bodies, cookies, or tokens. The development endpoint binds only to loopback. The Wi-Fi fallback endpoint binds to the selected private adapter and requires a pairing token. Windows protects that token with the current user's DPAPI key; the device receives it only after a USB handshake. It is never stored in source, JSON settings, or logs.
+The bridge scans local session JSONL and extracts only lifecycle events, model names, timestamps and Token usage, without displaying, persisting or uploading conversation text. Account quota requests read existing Claude/Codex CLI sign-in files; access tokens are used only with the matching official provider endpoint and are never written to AI-bot cache, status, serial, or logs. Domestic quota sign-in uses an isolated `%APPDATA%\AI-bot\quota-auth-profile` browser profile. Cookies remain in that WebView2 profile; the app parses display-only quota fields from explicitly allowed official-host responses and does not log response bodies, cookies, or tokens. The development endpoint binds only to loopback. The Wi-Fi fallback endpoint binds to the selected private adapter and requires a pairing token. Windows protects that token with the current user's DPAPI key; the device receives it only after a USB handshake. It is never stored in source, JSON settings, or logs.
 
 ## License
 
 AI-bot source is available under the [MIT License](LICENSE). Dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). See [PROVENANCE.md](PROVENANCE.md) for origin details and the [asset policy](docs/ASSET_POLICY.md) for runtime pet imports.
+# Parity acceptance status
+
+The latest [full parity audit](docs/FULL_PARITY_AUDIT_2026-09-09.md) records 25 pixel-level Windows mirror comparisons and explicit remaining work. Matching mirrors do not certify the physical display, Wi-Fi fallback, or macOS. This is not a declaration that the stable legacy installation can be replaced.

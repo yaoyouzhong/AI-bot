@@ -1,9 +1,13 @@
+using System.Text.Json;
+
 namespace AIBotBridge;
 
 internal static class DataSourceSelfTest
 {
     internal static void Run()
     {
+        StockFallbackSelfTest.RunAsync().GetAwaiter().GetResult();
+        MusicLifecycleSelfTest.Run();
         const string forecast = """
             {"current":{"temperature_2m":23.5,"relative_humidity_2m":62,"weather_code":3},
              "daily":{"temperature_2m_max":[28.0],"temperature_2m_min":[18.0]}}
@@ -29,7 +33,8 @@ internal static class DataSourceSelfTest
              "seven_day":{"utilization":61.25,"resets_at":"2026-09-08T00:00:00Z"}}
             """;
         var claude = QuotaService.ParseClaude(claudeJson);
-        if (claude.Plan != "max" || claude.PrimaryPercent != 32.5 || claude.WeeklyPercent != 61.25 ||
+        if(StockService.DisplayCode("us.IXIC")!=".IXIC")throw new InvalidOperationException("Nasdaq display code lost its leading dot.");
+        if (claude.Plan != "MAX" || claude.PrimaryPercent != 32.5 || claude.WeeklyPercent != 61.25 ||
             claude.PrimaryResetsAt?.ToUnixTimeSeconds() != 1788523200)
             throw new InvalidOperationException("Claude quota parser did not preserve windows or reset time.");
 
@@ -43,7 +48,7 @@ internal static class DataSourceSelfTest
              {"status":"available","expires_at":"2026-09-09T00:00:00Z"}]}
             """;
         var codex = QuotaService.ParseCodex(codexJson, creditJson);
-        if (codex.Plan != "plus" || codex.PrimaryPercent != 18.5 || codex.WeeklyPercent != 42 ||
+        if (codex.Plan != "PLUS" || codex.PrimaryPercent != 18.5 || codex.WeeklyPercent != 42 ||
             codex.ResetCreditsAvailable != 2 || codex.ResetCreditExpiresAt.Count != 1)
             throw new InvalidOperationException("Codex quota parser did not preserve windows or reset credits.");
 
@@ -71,8 +76,21 @@ internal static class DataSourceSelfTest
 
         var alibaba = DomesticQuotaService.Parse("alibaba",
             """{"data":{"TotalValue":1000000,"TotalSurplusValue":750000,"SubscriptionName":"Token Plan 团队版","reset_at":"2026-10-01T00:00:00+08:00"}}""");
-        if (alibaba.WeeklyPercent != 25 || alibaba.Plan != "Token Plan 团队版")
+        if (alibaba.PlanPercent != 25 || alibaba.WeeklyPercent is not null || alibaba.PlanResetsAt is null || alibaba.Plan != "Token Plan 团队版")
             throw new InvalidOperationException("Alibaba quota parser did not preserve plan usage.");
+        if(DomesticDisplayText.Percent(34.9)!="34"||DomesticDisplayText.Percent(null)!="--"||DomesticDisplayText.Percent(101)!="100"||DomesticDisplayText.Membership("alibaba","Token Plan 团队版",false)!="TEAM"||DomesticDisplayText.Membership("alibaba","Coding Team",false)!="CODING PLAN"||DomesticDisplayText.Membership("deepseek",null,true)!="API PAYG"||DomesticDisplayText.Membership("minimax","Ultra",false)!="ULTRA")throw new InvalidOperationException("Domestic display precision or membership normalization changed.");
+        using(var source=JsonDocument.Parse("""{"QwenPlanPct":12.25,"QwenWeeklyPct":40,"QwenFiveHourPct":10,"QwenPlanResetAt":"2026-10-01T00:00:00+08:00","QwenWeeklyResetAt":"2026-09-15T00:00:00+08:00"}""")) {
+            var quota=LegacyDisplayCache.ParseDomestic(source.RootElement).Alibaba!;
+            if(quota.PlanPercent!=12.25||quota.WeeklyPercent!=40||quota.PrimaryPercent!=10||quota.PlanResetsAt==quota.WeeklyResetsAt)throw new InvalidOperationException("Domestic quota windows were conflated.");
+            if(DomesticPageRenderer.DisplayPercent(quota)!=40||!DomesticPageRenderer.Windowed("alibaba",quota))throw new InvalidOperationException("Weekly rendering selection failed.");
+            var planOnly=quota with {PrimaryPercent=null,WeeklyPercent=null};
+            if(DomesticPageRenderer.DisplayPercent(planOnly)!=12.25||DomesticPageRenderer.Windowed("alibaba",planOnly)||DomesticPageRenderer.Remaining(planOnly)!="87.75% LEFT")throw new InvalidOperationException("Plan rendering selection failed.");
+            var json=JsonSerializer.Serialize(planOnly,JsonDefaults.Options);
+            var restoredPlan=JsonSerializer.Deserialize<DomesticProviderQuotaSnapshot>(json,JsonDefaults.Options)!;
+            if(restoredPlan!=planOnly)throw new InvalidOperationException("Plan cache roundtrip lost fields.");
+            var old=JsonSerializer.Deserialize<DomesticProviderQuotaSnapshot>("""{"provider":"alibaba","weeklyPercent":25,"updatedAt":"2026-09-09T00:00:00Z","stale":true}""",JsonDefaults.Options)!;
+            if(old.PlanPercent is not null||old.WeeklyPercent!=25)throw new InvalidOperationException("Old cache fields were silently reinterpreted.");
+        }
 
         var kimi = DomesticQuotaService.Parse("kimi",
             """{"membership":"Ultra","usages":[{"detail":{"limit":1000,"remaining":600,"reset_at":"2026-09-08T00:00:00+08:00"},"limits":[{"detail":{"limit":100,"remaining":90,"reset_at":"2026-09-04T20:00:00+08:00"}}]}]}""");
@@ -138,8 +156,8 @@ internal static class DataSourceSelfTest
             throw new InvalidOperationException("RGB565 pet encoding did not preserve channel order.");
 
         var weatherText = LocalizedTextResources.RenderLines(232, 24, ["北京  多云"], 20, 24);
-        var stockText = LocalizedTextResources.RenderLines(120, 400, ["上证指数", "腾讯控股"], 18, 20);
-        if (weatherText.Length != 232 * 24 * 2 || stockText.Length != 120 * 400 * 2 ||
+        var stockText = LocalizedTextResources.RenderLines(156, 400, ["上证指数", "腾讯控股"], 12, 20, StringAlignment.Far, FontStyle.Regular);
+        if (weatherText.Length != 232 * 24 * 2 || stockText.Length != 156 * 400 * 2 ||
             weatherText.All(value => value == 0) || stockText.All(value => value == 0))
             throw new InvalidOperationException("Localized weather/stock bitmaps were not rendered.");
 

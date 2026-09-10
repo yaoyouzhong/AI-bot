@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>false</UseWPF>
@@ -9,9 +9,12 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>AIBotBridge</AssemblyName>
     <RootNamespace>AIBotBridge</RootNamespace>
+    <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
     <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Assets\app-icon.ico" />
+    <Content Include="TestFixtures\claude_sprite.h" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
   </ItemGroup>

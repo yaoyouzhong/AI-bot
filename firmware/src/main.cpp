@@ -9,6 +9,8 @@
 #include <time.h>
 #include <vector>
 #include "ScreenSaverGeometry.h"
+#include "WeatherAnimations.h"
+#include "ResetCountdown.h"
 
 namespace {
 
@@ -27,8 +29,25 @@ constexpr char kBrightnessPath[] = "/brightness.txt";
 constexpr size_t kMaxBinaryEncoded = 820;
 constexpr size_t kMaxBinaryDecoded = 800;
 
-enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver };
-enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver };
+enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver, Claude, Codex, Activity, DomesticAlibaba, DomesticKimi, DomesticMinimax, DomesticDeepseek, DomesticZhipu };
+enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver, Claude, Codex };
+struct ModeName { const char* name; DisplayMode mode; };
+const ModeName modeNames[] = {
+  {"auto",DisplayMode::Auto},{"dual",DisplayMode::Dual},{"weather",DisplayMode::Weather},{"stocks",DisplayMode::Stocks},
+  {"quotas",DisplayMode::Quotas},{"domestic",DisplayMode::Domestic},{"system",DisplayMode::System},{"music",DisplayMode::Music},
+  {"pet",DisplayMode::Pet},{"screensaver",DisplayMode::ScreenSaver},{"claude",DisplayMode::Claude},{"codex",DisplayMode::Codex},
+  {"activity",DisplayMode::Activity},{"domestic_alibaba",DisplayMode::DomesticAlibaba},{"domestic_kimi",DisplayMode::DomesticKimi},
+  {"domestic_minimax",DisplayMode::DomesticMinimax},{"domestic_deepseek",DisplayMode::DomesticDeepseek},{"domestic_zhipu",DisplayMode::DomesticZhipu}
+};
+DisplayMode parseDisplayMode(const String& name) {
+  for (const auto& entry : modeNames) if (name == entry.name) return entry.mode;
+  return DisplayMode::Auto;
+}
+DisplayMode effectiveDisplayMode = DisplayMode::Auto;
+DisplayMode cyclePages[16] = {DisplayMode::Codex,DisplayMode::Claude,DisplayMode::Weather,DisplayMode::Stocks};
+int cycleCount = 4, cycleInterval = 15;
+bool cycleEnabled = true;
+int64_t cycleStartedAt = 0;
 
 struct BridgeConfig {
   String host;
@@ -47,6 +66,11 @@ struct WeatherState {
   int airQuality = -1;
   bool stale = true;
   bool available = false;
+  int icon = 0;
+  int animation = 0;
+  int headerCenterX = 61;
+  int rangeY = 34;
+  int32_t utcOffset = 0;
 };
 
 struct StockRow {
@@ -71,6 +95,9 @@ struct ProviderQuotaState {
 };
 
 struct DomesticQuotaState {
+  float planPercent = 0;
+  bool planAvailable = false;
+  String planReset;
   String plan;
   String currency;
   float primaryPercent = 0;
@@ -96,6 +123,7 @@ struct SystemMetricsState {
 };
 
 struct MusicState {
+  bool hasArtwork = false;
   String title;
   String artist;
   bool playing = false;
@@ -116,7 +144,18 @@ DomesticQuotaState alibabaQuota;
 DomesticQuotaState kimiQuota;
 DomesticQuotaState miniMaxQuota;
 DomesticQuotaState deepSeekQuota;
+DomesticQuotaState zhipuQuota;
 SystemMetricsState systemMetrics;
+uint32_t netUp[224] = {}, netDown[224] = {};
+String netSampleStamp;
+String netSession;
+uint32_t netSequence=0, netQueueUp[32]={},netQueueDown[32]={};
+int netQueueHead=0,netQueueCount=0;
+uint32_t systemChartFrames=0,systemChromeDraws=0,systemNumberDraws=0,systemSamplesConsumed=0;
+void queueNetworkSample(uint32_t up,uint32_t down) {
+  if(netQueueCount==32){netQueueHead=(netQueueHead+1)%32;--netQueueCount;}
+  int tail=(netQueueHead+netQueueCount)%32;netQueueUp[tail]=up;netQueueDown[tail]=down;++netQueueCount;
+}
 MusicState music;
 
 TFT_eSPI display;
@@ -125,7 +164,12 @@ WiFiManager wifiManager;
 BridgeConfig bridge;
 String inputLine;
 String codexState = "offline";
+String bridgeFollowApp;
 String claudeState = "offline";
+bool codexNeedsInput = false, claudeNeedsInput = false, domesticNeedsInput = false, completionActive = false;
+uint32_t completionSequence = 0, completionStarted = 0;
+String domesticActivityProvider, domesticActivityState;
+uint32_t codexTokensToday = 0, claudeTokensToday = 0, domesticTokensToday = 0;
 DisplayMode displayMode = DisplayMode::Auto;
 uint32_t lastUsbStatusAt = 0;
 uint32_t lastBridgeStatusAt = 0;
@@ -146,6 +190,7 @@ bool showingOffline = false;
 bool adminStarted = false;
 bool portalStarted = false;
 bool screenDirty = true;
+uint32_t visualGeneration = 0;
 uint8_t binaryEncoded[kMaxBinaryEncoded];
 uint8_t binaryDecoded[kMaxBinaryDecoded];
 size_t binaryLength = 0;
@@ -271,6 +316,11 @@ void drawTool(const char* label, const char* state, int y) {
 
 void updateQuota(JsonObjectConst value, ProviderQuotaState& target) {
   target.plan = value["plan"] | "";
+  target.plan.trim();target.plan.toUpperCase();target.plan.replace("_"," ");target.plan.replace("-"," ");
+  if(target.plan.startsWith("CLAUDE "))target.plan.remove(0,7);
+  if(target.plan=="PROLITE")target.plan="PRO LITE";
+  if(target.plan=="MAX5X")target.plan="MAX 5X";
+  if(target.plan=="MAX20X")target.plan="MAX 20X";
   target.primaryAvailable = !value["primaryPercent"].isNull();
   target.weeklyAvailable = !value["weeklyPercent"].isNull();
   target.primaryPercent = value["primaryPercent"] | 0.0f;
@@ -289,6 +339,9 @@ void updateQuota(JsonObjectConst value, ProviderQuotaState& target) {
 }
 
 void updateDomesticQuota(JsonObjectConst value, DomesticQuotaState& target) {
+  target.planAvailable = !value["planPercent"].isNull();
+  target.planPercent = value["planPercent"] | 0.0f;
+  target.planReset = value["planResetsAt"] | "";
   target.plan = value["plan"] | "";
   target.currency = value["currency"] | "";
   target.primaryAvailable = !value["primaryPercent"].isNull();
@@ -302,12 +355,71 @@ void updateDomesticQuota(JsonObjectConst value, DomesticQuotaState& target) {
   target.primaryReset = value["primaryResetsAt"] | "";
   target.weeklyReset = value["weeklyResetsAt"] | "";
   target.stale = value["stale"] | true;
-  target.available = target.primaryAvailable || target.weeklyAvailable || target.balanceAvailable;
+  target.available = target.primaryAvailable || target.weeklyAvailable || target.planAvailable || target.balanceAvailable;
+}
+
+void updateMetrics(JsonObjectConst metrics) {
+  String stamp = metrics["updatedAt"] | "";
+  // Both heartbeat and fast metrics contain headers; an older heartbeat must
+  // neither move the graph backwards nor replace newer displayed numbers.
+  if(stamp.length() && netSampleStamp.length() && stamp < netSampleStamp)return;
+  systemMetrics.cpuPercent = metrics["cpuPercent"] | 0.0f;
+  systemMetrics.memoryPercent = metrics["memoryPercent"] | 0.0f;
+  systemMetrics.uploadBytesPerSecond = metrics["uploadBytesPerSecond"] | 0U;
+  systemMetrics.downloadBytesPerSecond = metrics["downloadBytesPerSecond"] | 0U;
+  systemMetrics.available = true;
+  String session=metrics["sampleSession"]|"";
+  if(session.length()) {
+    if(session!=netSession){netSession=session;netSequence=0;netQueueHead=netQueueCount=0;}
+    if(metrics["samples"].is<JsonArrayConst>()) {
+      auto samples=metrics["samples"].as<JsonArrayConst>();
+      uint32_t sequence=metrics["sampleSequence"]|0U;
+      if(sequence>=samples.size() && sequence>netSequence) {
+        uint32_t first=sequence-samples.size()+1,index=0;
+        for(JsonObjectConst sample:samples){if(first+index>netSequence)queueNetworkSample(sample["upload"]|0U,sample["download"]|0U);++index;}
+        netSequence=sequence;
+      }
+    }
+  } else if(stamp.length()==0 || stamp!=netSampleStamp) {
+    queueNetworkSample(systemMetrics.uploadBytesPerSecond,systemMetrics.downloadBytesPerSecond);
+  }
+  netSampleStamp = stamp;
+  if (effectiveDisplayMode == DisplayMode::System) screenDirty = true;
 }
 
 void updateStatus(JsonObjectConst data) {
+  if (data["displayPolicy"].is<JsonObjectConst>()) {
+    auto policy = data["displayPolicy"].as<JsonObjectConst>();
+    displayMode = parseDisplayMode(policy["selectedMode"] | "auto");
+    cycleEnabled = policy["cycleEnabled"] | true;
+    cycleStartedAt = policy["cycleStartedAt"] | (int64_t)0;
+    int interval = policy["intervalSeconds"] | 15;
+    cycleInterval = interval == 10 || interval == 15 || interval == 30 || interval == 60 ? interval : 15;
+    if (policy["pages"].is<JsonArrayConst>()) {
+      int count = 0;
+      for (auto page : policy["pages"].as<JsonArrayConst>()) {
+        auto mode = parseDisplayMode(page.as<String>());
+        if (mode != DisplayMode::Auto && mode != DisplayMode::ScreenSaver && count < 16) cyclePages[count++] = mode;
+      }
+      if (count > 0) cycleCount = count;
+    }
+  }
+  // Read-only variants require Const type checks; mutable checks always fail.
   codexState = data["codex"]["state"] | "offline";
+  bridgeFollowApp = data["followApp"] | "";
+  if (bridgeFollowApp != "claude" && bridgeFollowApp != "codex") bridgeFollowApp = "";
   claudeState = data["claude"]["state"] | "offline";
+  codexNeedsInput = data["codex"]["needsInput"] | false;
+  claudeNeedsInput = data["claude"]["needsInput"] | false;
+  domesticNeedsInput = data["domesticActivity"]["needsInput"] | false;
+  domesticActivityProvider = data["domesticActivity"]["activeProvider"] | "";
+  domesticActivityState = data["domesticActivity"]["state"] | "offline";
+  codexTokensToday = data["codex"]["tokensToday"] | 0U;
+  claudeTokensToday = data["claude"]["tokensToday"] | 0U;
+  domesticTokensToday = data["domesticActivity"]["tokensToday"] | 0U;
+  uint32_t sequence = data["codex"]["completionSequence"] | 0U;
+  completionActive = data["codex"]["completionActive"] | false;
+  if (sequence != completionSequence) { completionSequence = sequence; completionStarted = millis(); }
   uint32_t epoch = data["epochUtc"] | 0;
   if (epoch != 0) {
     clockEpochUtc = epoch;
@@ -315,7 +427,7 @@ void updateStatus(JsonObjectConst data) {
     utcOffsetSeconds = data["utcOffsetSeconds"] | utcOffsetSeconds;
   }
 
-  if (data["weather"].is<JsonObject>()) {
+  if (data["weather"].is<JsonObjectConst>()) {
     JsonObjectConst value = data["weather"].as<JsonObjectConst>();
     weather.city = value["city"] | "";
     weather.condition = value["condition"] | "";
@@ -327,9 +439,19 @@ void updateStatus(JsonObjectConst data) {
     weather.airQuality = value["airQualityIndex"] | -1;
     weather.stale = value["stale"] | true;
     weather.available = true;
+    int wmo = value["weatherCode"] | -1;
+    int fallbackIcon = wmo == 0 ? 0 : wmo == 1 || wmo == 2 ? 1 : wmo == 3 ? 2 :
+      wmo == 45 || wmo == 48 ? 3 : (wmo >= 51 && wmo <= 67) || (wmo >= 80 && wmo <= 82) ? 4 :
+      (wmo >= 71 && wmo <= 77) || wmo == 85 || wmo == 86 ? 5 : wmo >= 95 && wmo <= 99 ? 6 : 2;
+    weather.icon = constrain(value["animationIcon"] | fallbackIcon, 0, 6);
+    String animation = value["animation"] | "robot";
+    weather.animation = animation == "house" ? 1 : animation == "plant" ? 2 : animation == "off" ? 3 : animation == "pet" ? 4 : 0;
+    weather.headerCenterX = constrain(value["headerCenterX"] | 61, 0, 121);
+    weather.rangeY = constrain(value["rangeY"] | 34, 32, 35);
+    weather.utcOffset = constrain(value["utcOffsetSeconds"] | utcOffsetSeconds, -50400, 50400);
   }
 
-  if (data["stocks"]["quotes"].is<JsonArray>()) {
+  if (data["stocks"]["quotes"].is<JsonArrayConst>()) {
     stockCount = 0;
     for (JsonObjectConst quote : data["stocks"]["quotes"].as<JsonArrayConst>()) {
       if (stockCount >= kMaxStocks) break;
@@ -343,36 +465,33 @@ void updateStatus(JsonObjectConst data) {
     if (stockPage >= pages) stockPage = 0;
   }
 
-  if (data["quotas"].is<JsonObject>()) {
+  if (data["quotas"].is<JsonObjectConst>()) {
     JsonObjectConst quotas = data["quotas"].as<JsonObjectConst>();
-    if (quotas["claude"].is<JsonObject>())
+    if (quotas["claude"].is<JsonObjectConst>())
       updateQuota(quotas["claude"].as<JsonObjectConst>(), claudeQuota);
-    if (quotas["codex"].is<JsonObject>())
+    if (quotas["codex"].is<JsonObjectConst>())
       updateQuota(quotas["codex"].as<JsonObjectConst>(), codexQuota);
   }
 
-  if (data["domesticQuotas"].is<JsonObject>()) {
+  if (data["domesticQuotas"].is<JsonObjectConst>()) {
     JsonObjectConst quotas = data["domesticQuotas"].as<JsonObjectConst>();
-    if (quotas["alibaba"].is<JsonObject>())
+    if (quotas["alibaba"].is<JsonObjectConst>())
       updateDomesticQuota(quotas["alibaba"].as<JsonObjectConst>(), alibabaQuota);
-    if (quotas["kimi"].is<JsonObject>())
+    if (quotas["kimi"].is<JsonObjectConst>())
       updateDomesticQuota(quotas["kimi"].as<JsonObjectConst>(), kimiQuota);
-    if (quotas["miniMax"].is<JsonObject>())
+    if (quotas["miniMax"].is<JsonObjectConst>())
       updateDomesticQuota(quotas["miniMax"].as<JsonObjectConst>(), miniMaxQuota);
-    if (quotas["deepSeek"].is<JsonObject>())
+    if (quotas["deepSeek"].is<JsonObjectConst>())
       updateDomesticQuota(quotas["deepSeek"].as<JsonObjectConst>(), deepSeekQuota);
+    if (quotas["zhipu"].is<JsonObjectConst>())
+      updateDomesticQuota(quotas["zhipu"].as<JsonObjectConst>(), zhipuQuota);
   }
 
-  if (data["systemMetrics"].is<JsonObject>()) {
-    JsonObjectConst metrics = data["systemMetrics"].as<JsonObjectConst>();
-    systemMetrics.cpuPercent = metrics["cpuPercent"] | 0.0f;
-    systemMetrics.memoryPercent = metrics["memoryPercent"] | 0.0f;
-    systemMetrics.uploadBytesPerSecond = metrics["uploadBytesPerSecond"] | 0;
-    systemMetrics.downloadBytesPerSecond = metrics["downloadBytesPerSecond"] | 0;
-    systemMetrics.available = true;
+  if (data["systemMetrics"].is<JsonObjectConst>()) {
+    updateMetrics(data["systemMetrics"].as<JsonObjectConst>());
   }
 
-  if (data["music"].is<JsonObject>()) {
+  if (data["music"].is<JsonObjectConst>()) {
     JsonObjectConst value = data["music"].as<JsonObjectConst>();
     music.title = value["title"] | "";
     music.artist = value["artist"] | "";
@@ -380,77 +499,170 @@ void updateStatus(JsonObjectConst data) {
     music.elapsedSeconds = value["elapsedSeconds"] | 0.0f;
     music.durationSeconds = value["durationSeconds"] | 0.0f;
     music.available = music.title.length() > 0;
+    music.hasArtwork = value["hasArtwork"] | true;
   }
+  else { music = MusicState(); }
   screenDirty = true;
   showingOffline = false;
 }
 
+uint32_t activityChromeDraws=0,activityClockDraws=0,activityDataDraws=0;
 void drawDashboard() {
-  display.fillScreen(TFT_BLACK);
-  drawCentered("AI-bot", 20, 4, TFT_CYAN);
-  drawCentered(clockText(), 75, 4, TFT_WHITE);
-  display.drawFastHLine(20, 125, 200, TFT_DARKGREY);
-  drawTool("CODEX", codexState.c_str(), 148);
-  drawTool("CLAUDE", claudeState.c_str(), 182);
-  if (codexQuota.resetCredits > 0) {
-    display.setTextColor(codexQuota.stale ? TFT_ORANGE : TFT_GREEN, TFT_BLACK);
-    display.drawRightString("R*" + String(codexQuota.resetCredits), 222, 214, 2);
+  static uint32_t generation=UINT32_MAX;
+  static String prior[6];
+  bool chrome=generation!=visualGeneration;
+  if(chrome) {
+    generation=visualGeneration; ++activityChromeDraws;
+    for(auto& key:prior)key="";
+    display.fillScreen(TFT_BLACK);
+    drawCentered("AI-bot",20,4,TFT_CYAN);
+    display.drawFastHLine(20,110,200,TFT_DARKGREY);
+    display.setTextDatum(TL_DATUM);display.setTextColor(TFT_WHITE,TFT_BLACK);
+    display.drawString("CODEX",22,120,2);display.drawString("CLAUDE",22,146,2);
+    drawCentered("Local tokens today",169,2,0x9492);
+    display.setTextColor(TFT_LIGHTGREY,TFT_BLACK);
+    display.drawString("Codex",22,189,2);display.drawString("Claude",22,209,2);
   }
+  auto region=[&](int index,const String& key,const String& text,int x,int y,int w,int h,int font,uint16_t color,int align) {
+    if(prior[index]==key)return;
+    TFT_eSprite cell(&display);cell.setColorDepth(16);
+    if(!cell.createSprite(w,h))return;
+    cell.fillSprite(TFT_BLACK);cell.setTextColor(color,TFT_BLACK);cell.setTextDatum(TL_DATUM);
+    int left=align==1?(w-cell.textWidth(text,font))/2:align==2?w-cell.textWidth(text,font):0;
+    cell.drawString(text,max(0,left),0,font);cell.pushSprite(x,y);cell.deleteSprite();
+    prior[index]=key;
+    if(index==0)++activityClockDraws;else ++activityDataDraws;
+  };
+  String time=clockText();
+  region(0,time,time,0,75,240,28,4,TFT_WHITE,1);
+  region(1,codexState,codexState,138,120,80,18,2,stateColor(codexState.c_str()),2);
+  region(2,claudeState,claudeState,138,146,80,18,2,stateColor(claudeState.c_str()),2);
+  String credits=codexQuota.resetCredits>0?"R*"+String(codexQuota.resetCredits):"";
+  region(3,credits+String(codexQuota.stale),credits,86,120,50,18,2,codexQuota.stale?TFT_ORANGE:TFT_GREEN,0);
+  region(4,String(codexTokensToday),String(codexTokensToday),92,189,126,18,2,TFT_GREEN,2);
+  region(5,String(claudeTokensToday),String(claudeTokensToday),92,209,126,18,2,TFT_GREEN,2);
   showingOffline = false;
   screenDirty = false;
 }
 
+// Heartbeats and unrelated provider updates must not repaint static page chrome.
+bool pageContentChanged(int slot, const String& key) {
+  static String keys[6];
+  static uint32_t generations[6] = {UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX};
+  bool changed = generations[slot] != visualGeneration || keys[slot] != key;
+  generations[slot] = visualGeneration; keys[slot] = key;
+  return changed;
+}
+
 void drawWeather() {
-  display.fillScreen(TFT_BLACK);
-  drawCentered("WEATHER", 10, 2, TFT_CYAN);
-  drawCentered(clockText(false), 34, 4, TFT_WHITE);
+  static int lastSecond = -1;
+  static int lastWeatherMinute = -1, lastWeatherHour = -1;
+  static uint32_t lastAnimation = 0;
+  static WeatherAnimations animations(display);
   if (!weather.available) {
-    drawCentered("Waiting for data", 116, 2, TFT_DARKGREY);
-    screenDirty = false;
+    if (screenDirty) {
+      display.fillScreen(TFT_BLACK);
+      drawCentered("Set weather city in tray", 102, 2, TFT_LIGHTGREY);
+      screenDirty = false;
+    }
     return;
   }
-
-  if (!drawRgb565File("/weather-text.rgb565", 4, 68, 232, 24))
-    drawCentered(weather.city + " " + weather.condition, 70, 2, TFT_LIGHTGREY);
-  String temperature = String(static_cast<int>(roundf(weather.temperature))) + " C";
-  drawCentered(temperature, 98, 4, TFT_ORANGE);
-  drawCentered(String(static_cast<int>(roundf(weather.low))) + " / " +
-               String(static_cast<int>(roundf(weather.high))), 136, 2, TFT_LIGHTGREY);
-  display.setTextDatum(TL_DATUM);
-  display.setTextColor(TFT_GREEN, TFT_BLACK);
-  display.drawString("HUMID", 24, 166, 2);
-  display.setTextDatum(TR_DATUM);
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.drawString(String(weather.humidity) + "%", 216, 166, 2);
-  display.setTextDatum(TL_DATUM);
-  display.setTextColor(TFT_YELLOW, TFT_BLACK);
-  display.drawString("PM2.5", 24, 194, 2);
-  display.setTextDatum(TR_DATUM);
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.drawString(weather.pm25 >= 0 ? String(weather.pm25, 1) : "--", 216, 194, 2);
-  if (weather.stale) {
+  String key = weather.city + "|" + weather.condition + "|" + String(weather.temperature) + "|" + String(weather.high)
+    + "|" + String(weather.low) + "|" + String(weather.humidity) + "|" + String(weather.airQuality)
+    + "|" + String(weather.icon) + "|" + String(weather.animation) + "|" + String(weather.utcOffset);
+  const bool redraw = pageContentChanged(0,key);
+  if (redraw) {
+    display.fillScreen(TFT_BLACK);
+    if (!drawRgb565File("/weather-header.rgb565", 14, 1, 122, 26))
+      drawRgb565File("/weather-text.rgb565", 4, 1, 232, 24);
+    drawRgb565File("/weather-air.rgb565", 136, 12, 100, 30);
+    drawRgb565File("/weather-date.rgb565", 14, 117, 190, 30);
+    String low = "L " + String(static_cast<int>(roundf(weather.low))) + "C";
+    String high = "H " + String(static_cast<int>(roundf(weather.high))) + "C";
+    int left = max(2, 14 + weather.headerCenterX - (display.textWidth(low, 2) + 10 + display.textWidth(high, 2)) / 2);
+    display.setTextDatum(TL_DATUM);
+    display.setTextColor(TFT_CYAN, TFT_BLACK);
+    display.drawString(low, left, weather.rangeY, 2);
+    display.drawString(low, left + 1, weather.rangeY, 2);
+    left += display.textWidth(low, 2) + 10;
     display.setTextColor(TFT_ORANGE, TFT_BLACK);
-    display.drawString("STALE", 216, 220, 1);
+    display.drawString(high, left, weather.rangeY, 2);
+    display.drawString(high, left + 1, weather.rangeY, 2);
+    for (int row = 0; row < 2; row++) {
+      int y = row == 0 ? 162 : 199;
+      int value = row == 0 ? static_cast<int>(roundf(weather.temperature)) : weather.humidity;
+      uint16_t color = row == 0 ? TFT_RED : TFT_GREEN;
+      display.fillCircle(row==0?18:19, y + 13, row == 0 ? 4 : 5, color);
+      if (row == 0) display.fillRoundRect(16, y, 5, 14, 2, color);
+      else display.fillTriangle(14, y + 13, 24, y + 13, 19, y, color);
+      display.setTextDatum(TL_DATUM);
+      display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+      display.drawString(row == 0 ? "TEMP" : "HUMID", 30, row==0?y:y-1, 1);
+      display.fillRoundRect(30, y + 15, 60, 5, 3, TFT_DARKGREY);
+      int filled = row == 0 ? constrain((value + 10) * 3 / 2, 0, 60) : constrain(value * 60 / 100, 0, 60);
+      if (filled > 0) display.fillRoundRect(30, y + 15, filled, 5, 3, color);
+      int numberRight = 144 - max(display.textWidth("C", 4), display.textWidth("%", 4)) - 2;
+      display.setTextColor(TFT_WHITE, TFT_BLACK);
+      display.drawRightString(String(value), numberRight, y, 4);
+      display.drawString(row == 0 ? "C" : "%", numberRight + 2, y, 4);
+    }
+    lastSecond = -1;
+    lastWeatherMinute = lastWeatherHour = -1;
   }
-  display.setTextDatum(TL_DATUM);
-  display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  display.drawString("OPEN-METEO", 6, 226, 1);
+  time_t local = static_cast<time_t>(static_cast<int64_t>(currentEpochUtc()) + weather.utcOffset);
+  struct tm parts;
+  gmtime_r(&local, &parts);
+  if (parts.tm_sec != lastSecond) {
+    char hour[3], minute[3], second[3];
+    strftime(hour, sizeof(hour), "%H", &parts);
+    strftime(minute, sizeof(minute), "%M", &parts);
+    strftime(second, sizeof(second), "%S", &parts);
+    int width = display.textWidth(hour, 7) + display.textWidth(minute, 7) + 54;
+    int x = (240 - width) / 2 - 4;
+    display.setTextDatum(TL_DATUM);
+    if(parts.tm_min!=lastWeatherMinute||parts.tm_hour!=lastWeatherHour) {
+    display.fillRect(0,52,240,63,TFT_BLACK);
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    display.drawString(hour, x, 57, 7);
+    display.setTextColor(TFT_ORANGE, TFT_BLACK);
+    display.drawString(minute, x+display.textWidth(hour,7)+10, 57, 7);
+    lastWeatherMinute=parts.tm_min;lastWeatherHour=parts.tm_hour;
+    }
+    x += display.textWidth(hour,7)+display.textWidth(minute,7)+18;
+    display.fillRect(x-2,70,40,39,TFT_BLACK);
+    display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    // Legacy device geometry: 16x30 cells, 3px strokes, 20px step.
+    const char* segments[] = {"02356789","2345689","0235689","045689","01234789","0268","013456789"};
+    const int rects[7][4] = {{3,0,10,3},{3,14,10,3},{3,27,10,3},{0,3,3,12},{13,3,3,12},{0,15,3,12},{13,15,3,12}};
+    for (int digit=0;digit<2;++digit) for (int segment=0;segment<7;++segment)
+      if (strchr(segments[segment],second[digit])) display.fillRoundRect(x+digit*20+rects[segment][0],75+rects[segment][1],rects[segment][2],rects[segment][3],1,TFT_LIGHTGREY);
+    lastSecond = parts.tm_sec;
+  }
+  uint32_t frame = millis() / 350;
+  if (redraw || frame != lastAnimation) {
+    animations.draw(weather.icon, weather.animation, frame % 12);
+    lastAnimation = frame;
+  }
   screenDirty = false;
 }
 
 void drawStocks() {
+  static uint32_t pageStarted = 0, pageGeneration = UINT32_MAX;
   int pages = max(1, (stockCount + kStocksPerPage - 1) / kStocksPerPage);
-  int tick = static_cast<int>((millis() / 5000) % pages);
+  if (pageGeneration != visualGeneration) {pageStarted=millis();pageGeneration=visualGeneration;}
+  int tick = static_cast<int>(((millis()-pageStarted) / 5000) % pages);
   if (tick != lastStockPageTick) {
     stockPage = tick;
     lastStockPageTick = tick;
     screenDirty = true;
   }
-  if (!screenDirty) return;
+  String key = String(stockPage) + "|" + String(stockCount);
+  for(int i=0;i<stockCount;i++) key += "|" + stocks[i].code + "|" + stocks[i].price + "|" + stocks[i].percent + "|" + String(stocks[i].trend);
+  if (!pageContentChanged(1,key)) {screenDirty=false;return;}
 
   display.fillScreen(TFT_BLACK);
   drawCentered(pages > 1 ? "STOCKS " + String(stockPage + 1) + "/" + String(pages) : "STOCKS",
-               6, 2, TFT_CYAN);
+               228, 1, TFT_DARKGREY);
   if (stockCount == 0) {
     drawCentered("Waiting for data", 110, 2, TFT_DARKGREY);
     screenDirty = false;
@@ -460,54 +672,39 @@ void drawStocks() {
   int start = stockPage * kStocksPerPage;
   for (int row = 0; row < kStocksPerPage && start + row < stockCount; row++) {
     StockRow& quote = stocks[start + row];
-    int y = 38 + row * 49;
-    bool hasName = drawRgb565FileRegion("/stock-names.rgb565", 120, 400,
-                                        (start + row) * 20, 12, y, 120, 20);
-    display.setTextDatum(TR_DATUM);
+    int y = 6 + row * 54;
+    bool hasName = drawRgb565FileRegion("/stock-names.rgb565", 156, 400,
+                                        (start + row) * 20, 70, y, 156, 20);
+    if (!hasName) hasName = drawRgb565FileRegion("/stock-names.rgb565",120,400,
+                                        (start + row)*20,106,y,120,20);
+    display.setTextDatum(TL_DATUM);
     display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    display.drawString(quote.code, 228, y + 4, 1);
+    display.drawString(quote.code, 14, y, 2);
     display.setTextDatum(TL_DATUM);
     if (!hasName) {
       display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-      display.drawString(quote.code, 12, y, 2);
+      display.drawRightString(quote.code, 226, y, 2);
     }
     display.setTextColor(TFT_WHITE, TFT_BLACK);
-    display.drawString(quote.price, 12, y + 21, 2);
+    display.drawString(quote.price, 14, y + 22, 4);
     display.setTextDatum(TR_DATUM);
     uint16_t color = quote.trend > 0 ? TFT_RED : quote.trend < 0 ? TFT_GREEN : TFT_LIGHTGREY;
     display.setTextColor(color, TFT_BLACK);
-    display.drawString(quote.percent, 228, y + 21, 2);
+    display.drawString(quote.percent, 226, y + 22, 4);
   }
   screenDirty = false;
 }
 
 String resetClock(const String& value) {
-  int separator = value.indexOf('T');
-  return separator >= 0 && static_cast<int>(value.length()) >= separator + 6
-      ? value.substring(separator + 1, separator + 6) : "--:--";
+  int64_t reset = quotaResetEpoch(value.c_str());
+  if (reset < 0) return "";
+  int64_t remaining = reset - static_cast<int64_t>(currentEpochUtc());
+  uint32_t minutes = remaining > 0 ? static_cast<uint32_t>((remaining + 59) / 60) : 0;
+  if (minutes >= 1440) return String(minutes / 1440) + "d " + String(minutes % 1440 / 60) + "h";
+  if (minutes >= 60) return String(minutes / 60) + "h " + String(minutes % 60) + "m";
+  return String(minutes) + "m";
 }
 
-void drawQuotaWindow(const char* label, bool available, float percent,
-                     const String& reset, int y) {
-  display.setTextDatum(TL_DATUM);
-  display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  display.drawString(label, 18, y, 2);
-  display.setTextDatum(TR_DATUM);
-  display.setTextColor(available ? TFT_WHITE : TFT_DARKGREY, TFT_BLACK);
-  String value = available ? String(percent, 1) + "%" : "--";
-  display.drawString(value + "  R " + resetClock(reset), 224, y, 2);
-}
-
-void drawQuotaProvider(const char* label, const ProviderQuotaState& quota, int y) {
-  display.setTextDatum(TL_DATUM);
-  display.setTextColor(TFT_CYAN, TFT_BLACK);
-  display.drawString(label, 12, y, 2);
-  display.setTextDatum(TR_DATUM);
-  display.setTextColor(quota.stale ? TFT_ORANGE : TFT_DARKGREY, TFT_BLACK);
-  display.drawString(quota.stale ? "STALE" : quota.plan, 228, y, 2);
-  drawQuotaWindow("5H", quota.primaryAvailable, quota.primaryPercent, quota.primaryReset, y + 23);
-  drawQuotaWindow("7D", quota.weeklyAvailable, quota.weeklyPercent, quota.weeklyReset, y + 46);
-}
 
 // Reserve a footer outside the pet image/animation bounds. No sprite can erase it.
 void drawResetCredits(int y) {
@@ -537,86 +734,403 @@ void drawResetCredits(int y) {
   }
 }
 
+String quotaVisualKey(const ProviderQuotaState& q) {
+  String key=q.plan+"|"+String(q.primaryAvailable)+"|"+String(q.weeklyAvailable)+"|"+String(q.primaryPercent,3)
+    +"|"+String(q.weeklyPercent,3)+"|"+resetClock(q.primaryReset)+"|"+resetClock(q.weeklyReset)+"|"+String(q.resetCredits);
+  for(auto expiry:q.resetExpirations)key+="|"+String(expiry);
+  return key;
+}
+
 void drawQuotas() {
+  if(!pageContentChanged(2,quotaVisualKey(claudeQuota)+"|"+quotaVisualKey(codexQuota)+"|"+claudeState+"|"+codexState)){screenDirty=false;return;}
   display.fillScreen(TFT_BLACK);
-  drawCentered("ACCOUNT QUOTAS", 5, 2, TFT_WHITE);
-  if (!claudeQuota.available && !codexQuota.available) {
-    drawCentered("Waiting for data", 110, 2, TFT_DARKGREY);
-    screenDirty = false;
-    return;
+  display.setTextDatum(TC_DATUM);display.setTextColor(TFT_WHITE);
+  display.drawString("USAGE OVERVIEW",120,8,2);display.drawString("USAGE OVERVIEW",121,8,2);
+  display.drawFastHLine(18, 121, 204, 0x2945);
+  for (int index = 0; index < 2; index++) {
+    const auto& q = index == 0 ? claudeQuota : codexQuota;
+    const String& state = index == 0 ? claudeState : codexState;
+    int top = index == 0 ? 29 : 126;
+    display.fillCircle(18, top + 9, 4, state == "working" ? TFT_GREEN : state == "idle" ? TFT_YELLOW : 0x39E7);
+    display.setTextDatum(TL_DATUM);
+    display.setTextColor(index == 0 ? TFT_ORANGE : TFT_CYAN);
+    display.drawString(index == 0 ? "CLAUDE" : "CODEX", 31, top, 2);
+    display.drawString(index == 0 ? "CLAUDE" : "CODEX", 32, top, 2);
+    if (index == 1 && q.resetCredits > 0) {
+      display.setTextColor(TFT_GREEN);display.setTextDatum(MC_DATUM);
+      display.drawString("R*" + String(q.resetCredits), 98, top+8, 2);
+      display.drawString("R*" + String(q.resetCredits), 99, top+8, 2);
+    }
+    if(q.plan.length()) {
+      uint16_t color=q.plan=="PLUS"?TFT_CYAN:q.plan=="PRO"||q.plan=="PRO LITE"||q.plan=="MAX"||q.plan=="MAX 5X"||q.plan=="MAX 20X"?TFT_ORANGE:q.plan=="TEAM"||q.plan=="BUSINESS"||q.plan=="ENTERPRISE"?TFT_MAGENTA:TFT_LIGHTGREY;
+      int width=constrain(display.textWidth(q.plan,2)+16,40,112),left=220-width;
+      display.fillRoundRect(left,top,width,17,4,TFT_BLACK);
+      display.setTextDatum(MC_DATUM);display.setTextColor(color);
+      display.drawString(q.plan,left+width/2,top+8,2);
+      display.drawRoundRect(left,top,width,17,4,color);
+    }
+    bool weeklyOnly = index == 1 && !q.primaryAvailable;
+    for (int row = weeklyOnly ? 1 : 0; row < 2; row++) {
+      int y = weeklyOnly ? top + 34 : top + 21 + row * 33;
+      bool known = row == 0 ? q.primaryAvailable : q.weeklyAvailable;
+      float pct = row == 0 ? q.primaryPercent : q.weeklyPercent;
+      display.setTextDatum(TL_DATUM);
+      display.setTextColor(0x7BEF, TFT_BLACK);
+      display.drawString(row == 0 ? "5H" : "WK", 20, y + 4, 2);
+      display.drawString(resetClock(row == 0 ? q.primaryReset : q.weeklyReset), 54, y + 7, 1);
+      display.setTextColor(TFT_WHITE, TFT_BLACK);
+      display.drawRightString(known ? String(static_cast<int>(pct)) + "%" : "--", 220, y, 4);
+      display.fillRoundRect(20, y + 24, 200, 6, 3, 0x2104);
+      int width = known ? constrain(static_cast<int>(pct * 2), 0, 200) : 0;
+      if (width > 0) display.fillRoundRect(20, y + 24, width, 6, 3, pct >= 99.5 ? TFT_RED : pct >= 80 ? TFT_YELLOW : TFT_GREEN);
+    }
   }
-  drawQuotaProvider("CLAUDE", claudeQuota, 32);
-  drawQuotaProvider("CODEX", codexQuota, 112);
-  drawResetCredits(196);
   screenDirty = false;
 }
 
-void drawDomesticRow(const char* label, const DomesticQuotaState& quota, int y) {
+bool readPetHeader(File& file, uint8_t& count, uint16_t* delays, uint16_t& width, uint16_t& height) {
+  uint8_t header[12];
+  if (!file || file.read(header, 12) != 12 || memcmp(header, "APET", 4) != 0 || (header[4] != 1 && header[4] != 2) ||
+      header[5] < 1 || header[5] > 8 || header[10] != 0 || header[11] != 0) return false;
+  width = header[6] | (uint16_t(header[7]) << 8); height = header[8] | (uint16_t(header[9]) << 8);
+  if (width < 1 || width > 120 || height < 1 || height > 120 || (header[4] == 1 && (width != 112 || height != 112))) return false;
+  count = header[5];
+  if (file.size() != 12U + 2U * count + uint32_t(width) * height * 2U * count) return false;
+  for (int i = 0; i < count; ++i) {
+    uint8_t bytes[2]; if (file.read(bytes, 2) != 2) return false;
+    delays[i] = bytes[0] | (static_cast<uint16_t>(bytes[1]) << 8);
+    if (delays[i] < 20 || delays[i] > 60000) return false;
+  }
+  return true;
+}
+
+bool drawPetAnimation(int x, int y, bool force = false, bool animate = true, bool claude = false, bool protectCredits = false) {
+  const char* slotPath = claude ? "/claude.apet" : "/codex.apet";
+  const char* path = LittleFS.exists(slotPath) ? slotPath : "/pet.apet";
+  File file = LittleFS.open(path, "r");
+  uint8_t count = 0; uint16_t delays[8], width, height;
+  if (!readPetHeader(file, count, delays, width, height)) return false;
+  x += 56 - width / 2; y += 56 - height / 2;
+  uint32_t duration = 0; for (int i = 0; i < count; ++i) duration += delays[i];
+  static uint32_t previousTicks[2] = {}, elapsedTimes[2] = {};
+  uint32_t& previousTick = previousTicks[claude ? 0 : 1];
+  uint32_t& elapsed = elapsedTimes[claude ? 0 : 1];
+  uint32_t tick = millis();
+  if (animate) elapsed += min(uint32_t(250), tick - previousTick);
+  previousTick = tick;
+  uint32_t phase = elapsed % duration; int frame = 0;
+  while (frame + 1 < count && phase >= delays[frame]) { phase -= delays[frame]; ++frame; }
+  static int previousFrame = -1, previousY = -1;
+  static String previousPath;
+  if (!force && frame == previousFrame && y == previousY && previousPath == path) return true;
+  if (!file.seek(12U + 2U * count + frame * uint32_t(width) * height * 2U, SeekSet)) return false;
+  uint16_t row[120];
+  for (int line = 0; line < height; ++line) {
+    if (file.read(reinterpret_cast<uint8_t*>(row), width * 2U) != static_cast<int>(width * 2U)) return false;
+    int rows=codexQuota.resetExpirations.empty()?(codexQuota.resetCredits>0?1:0):codexQuota.resetExpirations.size();
+    int badgeTop=max(15,29-(rows-1)*19/2),badgeBottom=badgeTop+rows*19-1;
+    if(protectCredits && rows>0 && y+line>=badgeTop && y+line<badgeBottom) {
+      int left=constrain(153-x,0,(int)width),right=constrain(221-x,0,(int)width);
+      if(left>0)display.pushImage(x,y+line,left,1,row);
+      if(right<width)display.pushImage(x+right,y+line,width-right,1,row+right);
+    } else display.pushImage(x, y + line, width, 1, row);
+  }
+  previousFrame = frame; previousY = y; previousPath = path;
+  return true;
+}
+
+float lastRingPercent = 0;
+void drawPercentageRing(float pct) {
+  lastRingPercent = pct;
+  uint16_t track=0x2104;
+  display.fillRect(4,4,232,10,track);display.fillRect(226,4,10,232,track);
+  display.fillRect(4,226,232,10,track);display.fillRect(4,4,10,232,track);
+  int remaining = constrain(static_cast<int>(pct * 928 / 100), 0, 928);
+  int segment = min(remaining, 232);
+  if (segment > 0) display.fillRect(4, 4, segment, 10, TFT_GREEN);
+  remaining -= 232; segment = constrain(remaining, 0, 232);
+  if (segment > 0) display.fillRect(226, 4, 10, segment, TFT_GREEN);
+  remaining -= 232; segment = constrain(remaining, 0, 232);
+  if (segment > 0) display.fillRect(236 - segment, 226, segment, 10, TFT_GREEN);
+  remaining -= 232; segment = constrain(remaining, 0, 232);
+  if (segment > 0) display.fillRect(4, 236 - segment, 10, segment, TFT_GREEN);
+}
+
+void drawSingleCreditBadge() {
+  const auto& q=codexQuota;
+  int details=q.resetExpirations.size(),rows=details>0?details:q.resetCredits>0?1:0;
+  if(rows==0)return;
+  int top=max(15,29-(rows-1)*19/2),height=rows*19-1;
+  display.fillRoundRect(153,top,68,height,5,TFT_BLACK);
+  display.drawRoundRect(153,top,68,height,5,TFT_GREEN);
+  display.setTextDatum(ML_DATUM);display.setTextColor(TFT_GREEN,TFT_BLACK);
+  for(int i=0;i<rows;i++) {
+    String count=details>0?"R*1":"R*"+String(q.resetCredits),date;
+    if(details>0) {time_t local=static_cast<time_t>(static_cast<int64_t>(q.resetExpirations[i])+utcOffsetSeconds);struct tm parts;gmtime_r(&local,&parts);date=String(parts.tm_mon+1)+"/"+String(parts.tm_mday);}
+    int countWidth=display.textWidth(count,2),dateWidth=display.textWidth(date,2),gap=date.length()?3:0,left=187-(countWidth+gap+dateWidth)/2;
+    display.drawString(count,left,top+i*19+9,2);if(date.length())display.drawString(date,left+countWidth+gap,top+i*19+9,2);
+  }
   display.setTextDatum(TL_DATUM);
-  display.setTextColor(quota.stale ? TFT_ORANGE : TFT_CYAN, TFT_BLACK);
-  display.drawString(label, 10, y, 2);
-  display.setTextDatum(TR_DATUM);
-  display.setTextColor(quota.available ? TFT_WHITE : TFT_DARKGREY, TFT_BLACK);
-  String value = "--";
-  if (quota.balanceAvailable) value = String(quota.balance, 2);
-  else if (quota.weeklyAvailable) value = String(quota.weeklyPercent, 1) + "% WK";
-  else if (quota.primaryAvailable) value = String(quota.primaryPercent, 1) + "% 5H";
-  if (quota.balanceAvailable) {
-    display.setTextDatum(BR_DATUM);
-    const int baseline = y + display.fontHeight(4);
-    display.drawString(value, 230, baseline, 4);
-    const int numberWidth = display.textWidth(value, 4);
-    display.drawString(quota.currency, 224 - numberWidth, baseline, 2);
-  } else display.drawString(value, 230, y, 2);
+}
+
+void drawSingleQuota(bool claude) {
+  static String previousKey;
+  static uint32_t previousGeneration = UINT32_MAX;
+  bool animate = (claude ? claudeState : codexState) == "working" || (!claude && completionActive && millis()-completionStarted<3500);
+  const auto& q = claude ? claudeQuota : codexQuota;
+  float pct = claude ? (q.primaryAvailable?q.primaryPercent:0) : q.weeklyAvailable?q.weeklyPercent:q.primaryAvailable?q.primaryPercent:0;
+  String key = String(claude) + "|" + q.plan + "|" + String(pct,3) + "|" + String(q.primaryAvailable) + "|" + String(q.weeklyAvailable)
+    + "|" + String(q.primaryPercent,3) + "|" + String(q.weeklyPercent,3) + "|" + resetClock(q.primaryReset) + "|" + resetClock(q.weeklyReset) + "|" + String(q.resetCredits);
+  for (auto expiry : q.resetExpirations) key += "|" + String((long long)expiry);
+  if (previousGeneration == visualGeneration && key == previousKey) {
+    drawPetAnimation(64,64,false,animate,claude,!claude);
+    screenDirty=false;
+    return;
+  }
+  previousKey=key;previousGeneration=visualGeneration;
+  display.fillScreen(TFT_BLACK);
+  drawPercentageRing(pct);
   display.setTextDatum(TL_DATUM);
-  display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  String detail = quota.plan;
-  if (quota.usedCostAvailable) detail += " USED " + String(quota.usedCost, 2);
-  else if (quota.weeklyAvailable && quota.weeklyReset.length() > 0)
-    detail += " R " + resetClock(quota.weeklyReset);
-  display.drawString(detail.substring(0, 31), 10, y + 28, 1);
+  display.setTextColor(claude ? TFT_ORANGE : TFT_CYAN, TFT_BLACK);
+  if(!drawRgb565File(claude?"/claude-logo.rgb565":"/codex-logo.rgb565",14,18,40,40))
+    display.drawString(claude ? "CLAUDE" : "CODEX", 14, 31, 1);
+  if (q.plan.length()) {
+    uint16_t color=q.plan=="PLUS" ? TFT_CYAN : q.plan=="MAX"||q.plan=="MAX 5X"||q.plan=="MAX 20X"||q.plan=="PRO"||q.plan=="PRO LITE" ? TFT_ORANGE :
+      q.plan=="TEAM" || q.plan=="BUSINESS" || q.plan=="ENTERPRISE" ? TFT_MAGENTA : TFT_LIGHTGREY;
+    int width=constrain(display.textWidth(q.plan,2)+12,34,!claude && (q.resetCredits>0||q.resetExpirations.size()>0)?88:98);
+    display.drawRoundRect(61,29,width,18,5,color);
+    display.setTextDatum(MC_DATUM);display.setTextColor(color,TFT_BLACK);display.drawString(q.plan,61+width/2,38,2);
+    display.setTextDatum(TL_DATUM);
+  }
+  if (!drawPetAnimation(64, 64, true, animate, claude) && !drawRgb565File("/pet.asset", 64, 64, 112, 112))
+    drawCentered("PET ASSET NOT IMPORTED", 110, 1, TFT_DARKGREY);
+  if (!claude)drawSingleCreditBadge();
+  bool weeklyOnly = !q.primaryAvailable && (!claude || q.weeklyAvailable);
+  for (int row = weeklyOnly ? 1 : 0; row < 2; row++) {
+    int y = weeklyOnly ? 191 : 178 + row * 23;
+    bool known = row == 0 ? q.primaryAvailable : q.weeklyAvailable;
+    display.fillRoundRect(20, y, 200, weeklyOnly?24:21, weeklyOnly?7:6, 0x1082);
+    display.drawRoundRect(20, y, 200, weeklyOnly?24:21, weeklyOnly?7:6, 0x29A5);
+    int centerY=y+(weeklyOnly?12:11);
+    display.setTextDatum(MC_DATUM);
+    auto bold=[&](const String& text,int centerX,uint16_t color) {
+      display.setTextColor(color);
+      display.drawString(text,centerX,centerY,2);display.drawString(text,centerX+1,centerY,2);
+    };
+    bold(row == 0 ? "5H" : "WK",53,0x9492);
+    bold(known ? String(constrain(static_cast<int>(row == 0 ? q.primaryPercent : q.weeklyPercent),0,100)) + "%" : "--",120,TFT_WHITE);
+    bold(resetClock(row == 0 ? q.primaryReset : q.weeklyReset),187,TFT_CYAN);
+  }
+  display.setTextDatum(TL_DATUM);
+  screenDirty = false;
+}
+
+
+String domesticMembership(const String& input,bool balance) {
+  if(balance)return "API PAYG";
+  if(input.length()==0)return "";
+  String lower=input;lower.toLowerCase();
+  if(effectiveDisplayMode==DisplayMode::DomesticMinimax){String upper=input;upper.toUpperCase();return upper;}
+  if(effectiveDisplayMode!=DisplayMode::DomesticAlibaba)return input;
+  const char* names[]={"CODING PLAN","TEAM","ENTERPRISE","PERSONAL","PRO","STANDARD","BASIC"};
+  const char* english[]={"coding","team","enterprise","personal","professional","standard","basic"};
+  const char* chinese[]={"coding","团队","企业","个人","专业","标准","基础"};
+  for(int i=0;i<7;i++)if(lower.indexOf(english[i])>=0||input.indexOf(chinese[i])>=0)return names[i];
+  return lower.indexOf("individual")>=0?"PERSONAL":"TOKEN PLAN";
+}
+
+bool domesticScaledText(const String& text,int font,int sourceW,int sourceH,int x,int y,int w,int h,uint16_t color,bool bold) {
+  if(sourceW<1||sourceW>1024||w<1||w>200)return false;
+  TFT_eSprite mask(&display);mask.setColorDepth(1);
+  if(!mask.createSprite(sourceW,sourceH))return false;
+  mask.fillSprite(TFT_BLACK);mask.setTextColor(TFT_WHITE);mask.setTextDatum(TL_DATUM);
+  mask.drawString(text,0,0,font);if(bold)mask.drawString(text,1,0,font);
+  uint16_t row[200];
+  for(int dy=0;dy<h;dy++) {
+    for(int dx=0;dx<w;dx++)row[dx]=mask.readPixel(dx*sourceW/w,dy*sourceH/h)?color:TFT_BLACK;
+    display.pushImage(x,y+dy,w,1,row);
+  }
+  mask.deleteSprite();return true;
+}
+
+void drawDomesticBalance(const String& amount,const String& currency) {
+  int sourceW=display.textWidth(amount,7)+1,numberW=(sourceW*5+3)/6;
+  int sourceUnit=display.textWidth(currency,4),unitW=(sourceUnit*10+6)/13,gap=currency.length()?6:0;
+  int font=7,height=40,captionFont=2;bool scaled=true;
+  if(numberW+gap+unitW>184){font=4;scaled=false;numberW=display.textWidth(amount,font)+1;height=display.fontHeight(font);}
+  if(numberW+gap+unitW>184){font=2;captionFont=1;scaled=false;numberW=display.textWidth(amount,font)+1;height=display.fontHeight(font);}
+  int captionH=display.fontHeight(captionFont),top=62+(106-captionH-8-height)/2,valueY=top+captionH+8,left=120-(numberW+gap+unitW)/2;
+  display.setTextDatum(TC_DATUM);display.setTextColor(0x7BEF);display.drawString("AVAILABLE BALANCE",120,top,captionFont);
+  if(!scaled||!domesticScaledText(amount,7,sourceW,48,left,valueY,numberW,40,0xFFDF,true)) {
+    display.setTextDatum(TL_DATUM);display.setTextColor(0xFFDF);display.drawString(amount,left,valueY,font);display.drawString(amount,left+1,valueY,font);
+  }
+  if(currency.length()) {
+    int baseline=pgm_read_byte(&fontdata[font].baseline),unitBaseline=pgm_read_byte(&fontdata[4].baseline);
+    if(scaled)baseline=(baseline*40+display.fontHeight(7)/2)/display.fontHeight(7);
+    unitBaseline=(unitBaseline*20+display.fontHeight(4)/2)/display.fontHeight(4);
+    if(!domesticScaledText(currency,4,sourceUnit,26,left+numberW+gap,valueY+baseline-unitBaseline,unitW,20,TFT_GREEN,false)) {
+      display.setTextDatum(TL_DATUM);display.setTextColor(TFT_GREEN);display.drawString(currency,left+numberW+gap,valueY,2);
+    }
+  }
+  display.setTextDatum(TL_DATUM);
 }
 
 void drawDomestic() {
+  const DomesticQuotaState* value = &alibabaQuota;
+  const char* name = "QWEN";
+  if (effectiveDisplayMode == DisplayMode::DomesticKimi) { value = &kimiQuota; name = "KIMI"; }
+  if (effectiveDisplayMode == DisplayMode::DomesticMinimax) { value = &miniMaxQuota; name = "MINIMAX"; }
+  if (effectiveDisplayMode == DisplayMode::DomesticDeepseek) { value = &deepSeekQuota; name = "DEEPSEEK"; }
+  const bool isZhipu = effectiveDisplayMode == DisplayMode::DomesticZhipu;
+  if (isZhipu) { value = &zhipuQuota; name = "GLM"; }
+  const auto& q = *value;
+  String key=String((int)effectiveDisplayMode)+"|"+q.plan+"|"+q.currency+"|"+String(q.planAvailable)+"|"+String(q.planPercent,3)
+    +"|"+q.planReset+"|"+String(q.primaryAvailable)+"|"+String(q.weeklyAvailable)+"|"+String(q.balanceAvailable)+"|"+String(q.usedCostAvailable)
+    +"|"+String(q.primaryPercent,3)+"|"+String(q.weeklyPercent,3)+"|"+String(q.balance,2)+"|"+String(q.usedCost,2)
+    +"|"+resetClock(q.primaryReset)+"|"+resetClock(q.weeklyReset)+"|"+String(domesticTokensToday)+"|"+String(utcOffsetSeconds);
+  if(!pageContentChanged(3,key)){screenDirty=false;return;}
   display.fillScreen(TFT_BLACK);
-  drawCentered("DOMESTIC QUOTAS", 5, 2, TFT_WHITE);
-  drawDomesticRow("QWEN", alibabaQuota, 34);
-  drawDomesticRow("KIMI", kimiQuota, 80);
-  drawDomesticRow("MINIMAX", miniMaxQuota, 126);
-  drawDomesticRow("DEEPSEEK", deepSeekQuota, 172);
+  bool windowed=effectiveDisplayMode==DisplayMode::DomesticKimi||q.primaryAvailable||q.weeklyAvailable;
+  bool percentAvailable=q.weeklyAvailable||q.planAvailable;
+  float percent=q.weeklyAvailable?q.weeklyPercent:q.planPercent;
+  drawPercentageRing(q.balanceAvailable ? 0 : percentAvailable ? percent : 0);
+  display.setTextDatum(TL_DATUM);
+  uint16_t headingColor=isZhipu?0x8CFF:TFT_GREEN;
+  display.fillCircle(25,30,4,headingColor);
+  display.setTextColor(headingColor);display.drawString(name,36,24,2);display.drawString(name,37,24,2);
+  String membership=domesticMembership(q.plan,q.balanceAvailable);
+  if(membership.length()) {
+    while(display.textWidth(membership,2)>100&&membership.length()>1)membership.remove(membership.length()-1);
+    int badgeW=constrain(display.textWidth(membership,2)+12,34,112),x=218-badgeW;
+    display.setTextDatum(MC_DATUM);display.setTextColor(TFT_ORANGE);display.drawString(membership,x+badgeW/2,31,2);display.drawRoundRect(x,22,badgeW,18,5,TFT_ORANGE);
+  }
+  display.drawFastHLine(20,53,200,0x7BEF);
+  if(isZhipu&&!q.balanceAvailable) {
+    drawCentered("AVAILABLE BALANCE",73,1,0x7BEF);
+    drawCentered("--",100,4,0xFFDF);
+    drawCentered("Authorize in bridge",188,2,headingColor);
+    screenDirty=false;return;
+  }
+  if(!q.balanceAvailable)drawCentered(windowed?"WEEKLY":"PLAN",73,1,0x7BEF);
+  String number = q.balanceAvailable ? String(q.balance, 2) : percentAvailable ? String(static_cast<int>(constrain(percent,0,100))) : "--";
+  String suffix = q.balanceAvailable ? q.currency : percentAvailable ? "%" : "";
+  if(q.balanceAvailable)drawDomesticBalance(number,suffix);
+  else {
+  int numberFont=number.length()<=3?7:number.length()<=6?4:2,unitFont=numberFont==7?4:2;
+  int width = display.textWidth(number, numberFont) + display.textWidth(suffix, unitFont) + (suffix.length()?4:0);
+  int left = (240 - width) / 2;
+  display.setTextDatum(TL_DATUM);
+  int y=numberFont==7?90:numberFont==4?101:108,unitY=numberFont==7?105:108;
+  display.setTextColor(0xFFDF);display.drawString(number,left,y,numberFont);display.drawString(number,left+1,y,numberFont);
+  display.setTextColor(TFT_GREEN);display.drawString(suffix,left+display.textWidth(number,numberFont)+4,unitY,unitFont);
+  }
+  display.setTextDatum(TL_DATUM);
+  if(!q.balanceAvailable) {
+    display.setTextColor(0x7BEF,TFT_BLACK);display.drawString(windowed?"RESET":"REMAINING",37,153,1);
+    display.setTextColor(TFT_GREEN,TFT_BLACK);
+    display.drawRightString(windowed?resetClock(q.weeklyReset):q.planAvailable?String(floorf(max(0.0f,100-q.planPercent)*100)/100,2)+"% LEFT":"QUOTA UNKNOWN",203,151,2);
+  }
+  display.fillRoundRect(20,177,200,38,8,0x1082);display.drawRoundRect(20,177,200,38,8,0x29A5);
+  display.setTextDatum(MC_DATUM);display.setTextColor(TFT_GREEN);
+  display.drawString(q.balanceAvailable?"USED":windowed?"5H":"RESET",53,196,2);
+  if(q.balanceAvailable) {
+    if(q.usedCostAvailable) {
+      String amount=String(q.usedCost,2);int w=display.textWidth(amount,2),cw=display.textWidth(q.currency,2),gap=q.currency.length()?5:0,x=153-(w+gap+cw)/2;
+      display.setTextDatum(ML_DATUM);display.setTextColor(0xFFDF);display.drawString(amount,x,196,2);display.drawString(amount,x+1,196,2);
+      display.setTextColor(TFT_GREEN);display.drawString(q.currency,x+w+gap,196,2);display.drawString(q.currency,x+w+gap+1,196,2);
+    } else {display.setTextColor(0xFFDF);display.drawString("--",153,196,2);}
+  }
+  else if(windowed) {
+    display.setTextColor(TFT_WHITE);display.drawString(q.primaryAvailable?String(static_cast<int>(constrain(q.primaryPercent,0,100)))+"%":"--",120,196,2);
+    display.setTextColor(TFT_CYAN);display.drawString(resetClock(q.primaryReset),187,196,2);
+  } else {
+    String reset;int64_t epoch=quotaResetEpoch(q.planReset.c_str());
+    if(epoch>0) {time_t local=static_cast<time_t>(epoch+utcOffsetSeconds);struct tm parts;gmtime_r(&local,&parts);char text[20];strftime(text,sizeof(text),"%m-%d %H:%M",&parts);reset=text;}
+    display.setTextColor(TFT_CYAN);display.drawString(reset,154,196,2);
+  }
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_DARKGREY,TFT_BLACK);
+  String provider = effectiveDisplayMode == DisplayMode::DomesticKimi ? "kimi" : effectiveDisplayMode == DisplayMode::DomesticMinimax ? "minimax" : effectiveDisplayMode == DisplayMode::DomesticDeepseek ? "deepseek" : "alibaba";
   screenDirty = false;
 }
 
-String rateText(uint32_t bytesPerSecond) {
-  if (bytesPerSecond >= 1024UL * 1024UL)
-    return String(bytesPerSecond / (1024.0f * 1024.0f), 1) + " MB/s";
-  if (bytesPerSecond >= 1024UL)
-    return String(bytesPerSecond / 1024.0f, 1) + " KB/s";
-  return String(bytesPerSecond) + " B/s";
-}
-
-void drawMetric(const char* label, const String& value, int y, uint16_t color) {
-  display.setTextDatum(TL_DATUM);
-  display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  display.drawString(label, 18, y, 2);
-  display.setTextDatum(TR_DATUM);
-  display.setTextColor(color, TFT_BLACK);
-  display.drawString(value, 222, y, 2);
-}
 
 void drawSystem() {
-  display.fillScreen(TFT_BLACK);
-  drawCentered("SYSTEM", 8, 2, TFT_CYAN);
+  static uint32_t generation=UINT32_MAX,lastTick=0;
+  static String lastDown,lastUp,lastCpu,lastMem,lastScale;
+  bool chrome=generation!=visualGeneration;
+  if(!chrome && millis()-lastTick<250)return;
+  lastTick=millis();
+  if(chrome){++systemChromeDraws;generation=visualGeneration;display.fillScreen(TFT_BLACK);lastDown=lastUp=lastCpu=lastMem=lastScale="";}
   if (!systemMetrics.available) {
     drawCentered("Waiting for data", 110, 2, TFT_DARKGREY);
     screenDirty = false;
     return;
   }
-  drawMetric("CPU", String(systemMetrics.cpuPercent, 1) + "%", 48, TFT_GREEN);
-  drawMetric("MEMORY", String(systemMetrics.memoryPercent, 1) + "%", 88, TFT_ORANGE);
-  display.drawFastHLine(18, 125, 204, TFT_DARKGREY);
-  drawMetric("UPLOAD", rateText(systemMetrics.uploadBytesPerSecond), 146, TFT_YELLOW);
-  drawMetric("DOWNLOAD", rateText(systemMetrics.downloadBytesPerSecond), 186, TFT_CYAN);
+  auto compactRate = [](double value) -> String {
+    return value >= 1000000 ? String(value / 1000000, 1) + "M" : value >= 1000 ? String(value / 1000, 0) + "K" : String(value, 0) + "B";
+  };
+  display.setTextDatum(TL_DATUM);
+  display.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  if(chrome){
+    display.drawString("DOWN",14,10,1);display.drawString("UP",134,10,1);
+    display.drawString("CPU",28,198,2);display.drawString("MEM",130,198,2);
+    drawCentered("SYSTEM MONITOR",226,1,TFT_DARKGREY);
+  }
+  auto number=[&](String value,String& prior,int x,int y,int w,uint16_t color){
+    if(value==prior)return;prior=value;
+    // Render the complete replacement offscreen, then push once: no blank phase
+    // and no leftover digit when 100% becomes 9%.
+    TFT_eSprite cell(&display);cell.setColorDepth(16);
+    if(!cell.createSprite(w,28)){prior="";return;}
+    cell.fillSprite(TFT_BLACK);cell.setTextColor(color,TFT_BLACK);cell.setTextDatum(TL_DATUM);
+    cell.drawString(value,0,0,4);cell.pushSprite(x,y);cell.deleteSprite();++systemNumberDraws;
+  };
+  number(compactRate(systemMetrics.downloadBytesPerSecond)+"/s",lastDown,12,20,116,TFT_GREEN);
+  number(compactRate(systemMetrics.uploadBytesPerSecond)+"/s",lastUp,132,20,108,TFT_YELLOW);
+  number(String(systemMetrics.cpuPercent,0)+"%",lastCpu,62,192,64,TFT_WHITE);
+  number(String(systemMetrics.memoryPercent,0)+"%",lastMem,164,192,64,TFT_WHITE);
+  bool chartChanged=chrome||netQueueCount>0;
+  int steps=netQueueCount>16?3:1;
+  while(steps-->0&&netQueueCount>0){
+    for(int i=0;i<223;i++){netUp[i]=netUp[i+1];netDown[i]=netDown[i+1];}
+    netUp[223]=netQueueUp[netQueueHead];netDown[223]=netQueueDown[netQueueHead];
+    netQueueHead=(netQueueHead+1)%32;--netQueueCount;
+    ++systemSamplesConsumed;
+  }
+  if(!chartChanged){screenDirty=false;return;}
+  ++systemChartFrames;
+  double peak = 1000;
+  for (int i = 0; i < 224; ++i) peak = max(peak, static_cast<double>(max(netUp[i], netDown[i])));
+  double scale = max(10240.0, peak + floor(peak / 7));
+  display.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  String scaleText=compactRate(scale);
+  if(lastScale!=scaleText){lastScale=scaleText;display.fillRect(120,48,112,10,TFT_BLACK);display.drawRightString(scaleText,232,48,1);}
+  static uint8_t downTop[224],downBottom[224],upTop[224],upBottom[224];
+  int previousDown = 187, previousUp = 187;
+  for (int i = 0; i < 224; ++i) {
+    int lo = max(0, i - 1), hi = min(223, i + 1);
+    double down = (static_cast<double>(netDown[lo]) + netDown[i] + netDown[hi]) / 3;
+    double up = (static_cast<double>(netUp[lo]) + netUp[i] + netUp[hi]) / 3;
+    int dy = 187 - static_cast<int>(min(1.0, down / scale) * 126);
+    int uy = 187 - static_cast<int>(min(1.0, up / scale) * 126);
+    int dlTop=min(dy,i==0?dy:previousDown),dlBottom=min(187,max(dy,i==0?dy:previousDown)+4);
+    int ulTop=min(uy,i==0?uy:previousUp),ulBottom=min(187,max(uy,i==0?uy:previousUp)+4);
+    downTop[i]=dlTop;downBottom[i]=dlBottom;upTop[i]=ulTop;upBottom[i]=ulBottom;
+    previousDown = dy; previousUp = uy;
+  }
+  uint16_t pixels[224];
+  for(int y=60;y<188;y++) {
+    for(int x=0;x<224;x++) {
+      uint16_t color=(y==92||y==124||y==156)?0x2945:TFT_BLACK;
+      if(y>downBottom[x])color=0x02A0;
+      else if(y>=downTop[x])color=TFT_GREEN;
+      if(upTop[x]<187&&y>=upTop[x]&&y<=upBottom[x])color=TFT_YELLOW;
+      pixels[x]=color;
+    }
+    display.pushImage(8,y,224,1,pixels);
+    if((y&31)==31)yield();
+  }
   screenDirty = false;
 }
 
@@ -669,35 +1183,42 @@ String durationText(float seconds) {
 }
 
 void drawMusic() {
+  bool chromeChanged=pageContentChanged(4,music.title+"|"+music.artist+"|"+String(music.available)+"|"+String(music.hasArtwork));
+  bool progressChanged=pageContentChanged(5,String(music.elapsedSeconds,0)+"|"+String(music.durationSeconds,0)+"|"+String(music.playing));
+  if(!chromeChanged&&!progressChanged){screenDirty=false;return;}
+  if(chromeChanged) {
   display.fillScreen(TFT_BLACK);
-  drawCentered(music.playing ? "NOW PLAYING" : "MUSIC", 4, 2,
-               music.playing ? TFT_GREEN : TFT_DARKGREY);
-  if (!music.available) {
-    drawCentered("No active session", 108, 2, TFT_DARKGREY);
-    screenDirty = false;
-    return;
+  bool hasCover = false;
+  File cover = LittleFS.open("/cover.rgb565", "r");
+  if (music.available && music.hasArtwork && cover && cover.size() == 112 * 112 * 2) {
+    uint16_t source[112], row[128]; hasCover = true;
+    for (int y=0; y<128; ++y) {
+      if (!cover.seek((y*112/128)*112*2, SeekSet) || cover.read(reinterpret_cast<uint8_t*>(source),224)!=224) {hasCover=false;break;}
+      for (int x=0;x<128;++x) row[x]=source[x*112/128];
+      display.pushImage(56,14+y,128,1,row);
+    }
   }
-  bool hasCover = drawRgb565File("/cover.rgb565", 64, 25, 112, 112);
+  cover.close();
   if (!hasCover) {
-    display.drawRoundRect(64, 25, 112, 112, 8, TFT_DARKGREY);
-    drawCentered("NO COVER", 75, 2, TFT_DARKGREY);
+    display.fillRect(56, 14, 128, 128, TFT_DARKGREY);
+    display.setTextDatum(MC_DATUM);
+    display.setTextColor(TFT_LIGHTGREY,TFT_DARKGREY);
+    display.drawString("No Art",120,78,2);
   }
-  bool hasText = drawRgb565File("/text.rgb565", 4, 142, 232, 44);
+  bool hasText = music.available && drawRgb565File("/text.rgb565", 4, 150, 232, 44);
   if (!hasText) {
-    drawCentered(music.title.substring(0, 25), 146, 2, TFT_WHITE);
-    drawCentered(music.artist.substring(0, 28), 168, 1, TFT_LIGHTGREY);
+    drawCentered(music.title.length() ? music.title.substring(0, 25) : "No Music", 154, 2, TFT_WHITE);
+    drawCentered(music.artist.substring(0, 28), 174, 2, TFT_LIGHTGREY);
+  }
   }
   float ratio = music.durationSeconds > 0
       ? constrain(music.elapsedSeconds / music.durationSeconds, 0.0f, 1.0f) : 0;
-  display.drawRect(18, 192, 204, 8, TFT_DARKGREY);
-  display.fillRect(20, 194, static_cast<int>(200 * ratio), 4, TFT_CYAN);
-  display.setTextDatum(TL_DATUM);
+  display.fillRect(20, 204, 200, 8, TFT_DARKGREY);
+  display.fillRect(20, 204, static_cast<int>(200 * ratio), 8, music.playing ? TFT_GREEN : TFT_LIGHTGREY);
+  display.setTextDatum(TC_DATUM);
   display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  display.drawString(durationText(music.elapsedSeconds), 18, 207, 1);
-  display.setTextDatum(TR_DATUM);
-  display.drawString(durationText(music.durationSeconds), 222, 207, 1);
-  drawCentered(music.playing ? "PLAY" : "PAUSE", 222, 1,
-               music.playing ? TFT_GREEN : TFT_YELLOW);
+  display.fillRect(0,216,240,14,TFT_BLACK);
+  display.drawString(durationText(music.elapsedSeconds) + " / " + durationText(music.durationSeconds), 120, 220, 1);
   screenDirty = false;
 }
 
@@ -720,6 +1241,8 @@ void drawPixelPetBody(int x, int y, bool step, bool working) {
 }
 
 void drawPet() {
+  static uint32_t petGeneration=UINT32_MAX;
+  static String previousState;
   static uint32_t lastCreditCycle = 0;
   static String lastCreditKey;
   static bool hadCreditFooter = false;
@@ -730,10 +1253,13 @@ void drawPet() {
   if (codexQuota.resetExpirations.size() +
       (codexQuota.resetCredits > static_cast<int>(codexQuota.resetExpirations.size()) ? 1 : 0) > 2)
     creditKey += ":" + String(creditCycle);
-  const bool repaintFooter = !hadCreditFooter || lastPetFrame < 0 || creditKey != lastCreditKey;
   bool working = codexState == "working" || claudeState == "working";
-  int frame = working ? static_cast<int>(millis() / 180) : 0;
-  if (!screenDirty && frame == lastPetFrame && creditCycle == lastCreditCycle) return;
+  String state=codexState+"|"+claudeState+"|"+String(hasCreditFooter);
+  bool chrome=petGeneration!=visualGeneration || previousState!=state;
+  bool repaintFooter=chrome||creditKey!=lastCreditKey;
+  petGeneration=visualGeneration;previousState=state;
+  int frame=working?static_cast<int>(millis()/120):0;
+  bool fallbackChanged=chrome||lastPetFrame!=frame;
   lastCreditCycle = creditCycle;
   lastPetFrame = frame;
   bool step = (frame & 1) != 0;
@@ -744,42 +1270,57 @@ void drawPet() {
     x = 16 + travel * 5;
   }
 
-  if (hasCreditFooter) display.fillRect(0, 0, 240, 198, TFT_BLACK);
-  else display.fillScreen(TFT_BLACK);
-  drawCentered("BYTE SPROUT", 12, 2, working ? TFT_GREEN : TFT_CYAN);
-  bool externalPet = drawRgb565File("/pet.asset", 64, 49, 112, 112);
-  if (externalPet)
-    display.drawRoundRect(62, 47, 116, 116, 4, working ? TFT_GREEN : TFT_DARKGREY);
-  else
-    drawPixelPetBody(x, 54, step, working);
-  drawCentered(working ? "WORKING" : "IDLE", 180, 2,
-               working ? TFT_GREEN : TFT_YELLOW);
+  if(chrome){display.fillScreen(TFT_BLACK);drawCentered("BYTE SPROUT",12,2,working?TFT_GREEN:TFT_CYAN);}
+  bool externalPet = drawPetAnimation(64,49,chrome,working,claudeState=="working"&&codexState!="working");
+  if(!externalPet&&fallbackChanged){display.fillRect(0,49,240,120,TFT_BLACK);if(!drawRgb565File("/pet.asset",64,49,112,112))drawPixelPetBody(x,54,step,working);}
+  if(chrome)drawCentered(working?"WORKING":"IDLE",180,2,working?TFT_GREEN:TFT_YELLOW);
   String owner = codexState == "working" && claudeState == "working" ? "CODEX + CLAUDE"
       : codexState == "working" ? "CODEX" : claudeState == "working" ? "CLAUDE" : "READY";
   if (hasCreditFooter) {
-    drawCentered(owner, 32, 1, TFT_LIGHTGREY);
+    if(chrome)drawCentered(owner, 32, 1, TFT_LIGHTGREY);
     if (repaintFooter) {
       display.fillRect(0, 198, 240, 42, TFT_BLACK);
       drawResetCredits(200);
     }
-  } else drawCentered(owner, 207, 2, TFT_LIGHTGREY);
+  } else if(chrome)drawCentered(owner, 207, 2, TFT_LIGHTGREY);
   hadCreditFooter = hasCreditFooter;
   lastCreditKey = creditKey;
   screenDirty = false;
 }
 
 void drawOffline() {
+  static uint32_t generation=UINT32_MAX;
+  static String previousMinute;
   lastPetFrame = -1; // A full offline redraw invalidates the preserved pet footer.
   int second = static_cast<int>(currentEpochUtc() % 60);
-  if (showingOffline && second == lastClockSecond) return;
+  bool chrome=!showingOffline||generation!=visualGeneration;
+  if (!chrome && second == lastClockSecond) return;
+  generation=visualGeneration;
   lastClockSecond = second;
-  display.fillScreen(TFT_BLACK);
-  drawCentered("AI-bot", 35, 4, TFT_CYAN);
-  drawCentered(clockText(), 102, 4, TFT_WHITE);
-  display.setTextDatum(TR_DATUM);
-  display.setTextColor(TFT_ORANGE, TFT_BLACK);
-  display.drawString("PC OFF", 224, 208, 2);
+  if(chrome) {
+    previousMinute="";display.fillScreen(TFT_BLACK);
+    drawCentered("AI-bot",40,4,TFT_WHITE);
+    drawCentered("Waiting for bridge",176,2,0x9492);
+    display.setTextDatum(TL_DATUM);display.setTextColor(TFT_ORANGE,TFT_BLACK);
+    display.drawRightString("PC OFF",224,208,2);
+  }
+  String time=clockText(),minute=time.substring(0,5);
   display.setTextDatum(TL_DATUM);
+  if(previousMinute!=minute) {
+    String hour=time.substring(0,2),minutes=time.substring(3,5);
+    int hourW=display.textWidth(hour,7),colonW=display.textWidth(":",7),minuteW=display.textWidth(minutes,7);
+    int left=(240-hourW-colonW-minuteW)/2;
+    // Small independent cells keep peak heap use below a full-screen sprite.
+    auto digitCell=[&](const String& value,int x,int width,uint16_t color){
+      TFT_eSprite cell(&display);cell.setColorDepth(16);
+      if(!cell.createSprite(width,display.fontHeight(7)))return false;
+      cell.fillSprite(TFT_BLACK);cell.setTextColor(color,TFT_BLACK);cell.drawString(value,0,0,7);cell.pushSprite(x,92);cell.deleteSprite();return true;
+    };
+    bool ok=digitCell(hour,left,hourW,TFT_CYAN);
+    ok=digitCell(":",left+hourW,colonW,TFT_YELLOW)&&ok;
+    ok=digitCell(minutes,left+hourW+colonW,minuteW,TFT_CYAN)&&ok;
+    if(ok)previousMinute=minute;
+  }
   showingOffline = true;
 }
 
@@ -918,6 +1459,14 @@ const char* resourcePath(uint8_t kind) {
   if (kind == 3) return "/pet.asset";
   if (kind == 4) return "/weather-text.rgb565";
   if (kind == 5) return "/stock-names.rgb565";
+  if (kind == 6) return "/weather-header.rgb565";
+  if (kind == 7) return "/weather-date.rgb565";
+  if (kind == 8) return "/weather-air.rgb565";
+  if (kind == 9) return "/pet.apet";
+  if (kind == 10) return "/claude.apet";
+  if (kind == 11) return "/codex.apet";
+  if (kind == 12) return "/claude-logo.rgb565";
+  if (kind == 13) return "/codex-logo.rgb565";
   return nullptr;
 }
 
@@ -928,6 +1477,14 @@ void abandonResourceTransfer() {
 }
 
 bool commitResourceTransfer() {
+  if(resourceTransfer.kind==12||resourceTransfer.kind==13) {
+    File candidate=LittleFS.open("/resource.new","r");if(!candidate||candidate.size()!=3200)return false;
+  }
+  if (resourceTransfer.kind >= 9 && resourceTransfer.kind <= 11) {
+    File candidate = LittleFS.open("/resource.new", "r");
+    uint8_t count; uint16_t delays[8], width, height;
+    if (!readPetHeader(candidate, count, delays, width, height)) return false;
+  }
   const char* target = resourcePath(resourceTransfer.kind);
   if (target == nullptr) return false;
   String backup = String(target) + ".bak";
@@ -1021,7 +1578,7 @@ void handleBinaryFrame(const uint8_t* encoded, size_t encodedLength) {
                ~resourceTransfer.runningCrc == resourceTransfer.wholeCrc;
   if (valid) valid = commitResourceTransfer();
   if (!valid) LittleFS.remove("/resource.new");
-  if (valid) screenDirty = true;
+  if (valid) { screenDirty = true; visualGeneration++; }
   resourceTransfer.active = false;
   lastCompletedTransferId = transferId;
   lastCompletedSequence = sequence;
@@ -1042,6 +1599,34 @@ void fillDeviceInfo(JsonObject response) {
   response["uptime_ms"] = millis();
   response["usb_status_count"] = usbStatusCount;
   response["lan_status_count"] = lanStatusCount;
+  JsonObject pages = response["page_data"].to<JsonObject>();
+  pages["offline_clock_width"]=display.textWidth("88:88",7);
+  pages["offline_clock_height"]=display.fontHeight(7);
+  pages["activity_chrome_draws"]=activityChromeDraws;
+  pages["activity_clock_draws"]=activityClockDraws;
+  pages["activity_data_draws"]=activityDataDraws;
+  pages["system_chart_frames"]=systemChartFrames;
+  pages["system_chrome_draws"]=systemChromeDraws;
+  pages["system_number_draws"]=systemNumberDraws;
+  pages["system_samples_consumed"]=systemSamplesConsumed;
+  pages["system_queue_depth"]=netQueueCount;
+  pages["weather"] = weather.available;
+  pages["temperature"] = weather.temperature;
+  pages["stock_count"] = stockCount;
+  pages["claude"] = claudeQuota.available;
+  pages["codex"] = codexQuota.available;
+  pages["alibaba"] = alibabaQuota.available;
+  pages["kimi"] = kimiQuota.available;
+  pages["minimax"] = miniMaxQuota.available;
+  pages["deepseek"] = deepSeekQuota.available;
+  pages["zhipu"] = zhipuQuota.available;
+  if(zhipuQuota.balanceAvailable) {
+    pages["zhipu_balance"] = zhipuQuota.balance;
+    pages["zhipu_currency"] = zhipuQuota.currency;
+  }
+  pages["system"] = systemMetrics.available;
+  pages["cpu_percent"] = systemMetrics.cpuPercent;
+  pages["music"] = music.available;
 }
 
 void handleFrame(const String& line) {
@@ -1086,6 +1671,11 @@ void handleFrame(const String& line) {
     return;
   }
 
+  if (strcmp(type, "metrics") == 0 && document["data"].is<JsonObject>() && usbFresh()) {
+    updateMetrics(document["data"].as<JsonObjectConst>());
+    return; // Metrics alone never extend USB freshness or suppress Wi-Fi fallback.
+  }
+
   if (strcmp(type, "lan_config") == 0 && document["data"].is<JsonObject>()) {
     JsonObjectConst data = document["data"].as<JsonObjectConst>();
     BridgeConfig proposed;
@@ -1101,15 +1691,7 @@ void handleFrame(const String& line) {
 
   if (strcmp(type, "display") == 0) {
     String mode = document["mode"] | "auto";
-    displayMode = mode == "screensaver" ? DisplayMode::ScreenSaver
-                : mode == "weather" ? DisplayMode::Weather
-                : mode == "stocks" ? DisplayMode::Stocks
-                : mode == "quotas" ? DisplayMode::Quotas
-                : mode == "domestic" ? DisplayMode::Domestic
-                : mode == "system" ? DisplayMode::System
-                : mode == "music" ? DisplayMode::Music
-                : mode == "pet" ? DisplayMode::Pet
-                : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
+    displayMode = parseDisplayMode(mode);
     screenDirty = true;
     return;
   }
@@ -1162,6 +1744,57 @@ void readSerial() {
   }
 }
 
+void pollLanResources() {
+  if (usbFresh() || resourceTransfer.active) return;
+  WiFiClient client; HTTPClient http;
+  String base = "http://" + bridge.host + ":" + String(bridge.port);
+  if (!http.begin(client, base + "/resources")) return;
+  http.setTimeout(1200); http.addHeader("X-AIBot-Token", bridge.token);
+  if (http.GET() != HTTP_CODE_OK) { http.end(); return; }
+  JsonDocument catalog;
+  if (deserializeJson(catalog, http.getStream()) || catalog["version"].as<int>() != 1) { http.end(); return; }
+  http.end();
+  for (JsonObjectConst entry : catalog["resources"].as<JsonArrayConst>()) {
+    int kind = entry["kind"] | 0; uint32_t crc = entry["crc"] | 0U, length = entry["length"] | 0U;
+    if (kind < 1 || kind > 13 || !resourcePath(kind) || length == 0 || length > 1048576U) continue;
+    // Verify already persisted pixels after restart or USB transfer before downloading.
+    File existing = LittleFS.open(resourcePath(kind), "r");
+    if (existing && existing.size() == length) {
+      uint8_t bytes[512]; uint32_t check = 0xFFFFFFFF; int count;
+      while ((count = existing.read(bytes, sizeof(bytes))) > 0) { check = updateCrc32(check, bytes, count); yield(); }
+      if (~check == crc) { existing.close(); continue; }
+    }
+    existing.close();
+    if (!http.begin(client, base + "/resources/" + String(kind) + "/" + String(crc))) return;
+    http.setTimeout(1200); http.addHeader("X-AIBot-Token", bridge.token);
+    if (http.GET() != HTTP_CODE_OK || http.getSize() != static_cast<int>(length)) { http.end(); return; }
+    File candidate = LittleFS.open("/lan-resource.new", "w");
+    if (!candidate) { http.end(); return; }
+    uint32_t received = 0, check = 0xFFFFFFFF, started = millis(); uint8_t bytes[512];
+    auto* stream = http.getStreamPtr();
+    while (received < length && millis() - started < 6000 && !usbFresh()) {
+      readSerial();
+      if (usbFresh()) break;
+      int available = stream->available();
+      if (available <= 0) { if (!http.connected()) break; delay(1); continue; }
+      int count = stream->read(bytes, min(size_t(available), min(sizeof(bytes), size_t(length - received))));
+      if (count <= 0 || candidate.write(bytes, count) != static_cast<size_t>(count)) break;
+      check = updateCrc32(check, bytes, count); received += count; yield();
+    }
+    candidate.close(); http.end();
+    bool valid = received == length && ~check == crc && !usbFresh() && !resourceTransfer.active;
+    if (valid) {
+      LittleFS.remove("/resource.new");
+      valid = LittleFS.rename("/lan-resource.new", "/resource.new");
+      if (valid) { resourceTransfer.kind = kind; valid = commitResourceTransfer(); }
+    }
+    if (valid) { screenDirty = true; visualGeneration++; }
+    LittleFS.remove("/lan-resource.new");
+    // One changed resource per successful status poll; old content remains on failure.
+    return;
+  }
+}
+
 void pollBridge() {
   if (usbFresh() || WiFi.status() != WL_CONNECTED || !validBridgeConfig(bridge)) return;
   if (millis() - lastPollAt < kPollIntervalMs) return;
@@ -1173,16 +1806,18 @@ void pollBridge() {
   if (!http.begin(client, url)) return;
   http.setTimeout(1200);
   http.addHeader("X-AIBot-Token", bridge.token);
-  int status = http.GET();
+  int status = http.GET(); bool updated = false;
   if (status == HTTP_CODE_OK) {
     JsonDocument document;
     if (!deserializeJson(document, http.getStream()) && document["version"].as<int>() == 1) {
       updateStatus(document.as<JsonObjectConst>());
       lastBridgeStatusAt = millis();
       lanStatusCount++;
+      updated = true;
     }
   }
   http.end();
+  if (updated) pollLanResources();
 }
 
 bool authorizeAdmin() {
@@ -1192,6 +1827,7 @@ bool authorizeAdmin() {
 }
 
 String displayModeName() {
+  for (const auto& entry : modeNames) if (displayMode == entry.mode) return entry.name;
   if (displayMode == DisplayMode::ScreenSaver) return "screensaver";
   if (displayMode == DisplayMode::Weather) return "weather";
   if (displayMode == DisplayMode::Stocks) return "stocks";
@@ -1218,15 +1854,7 @@ void startAdminServer() {
   admin.on("/api/display", HTTP_POST, [] {
     if (!authorizeAdmin()) return;
     String mode = admin.arg("mode");
-    displayMode = mode == "screensaver" ? DisplayMode::ScreenSaver
-                : mode == "weather" ? DisplayMode::Weather
-                : mode == "stocks" ? DisplayMode::Stocks
-                : mode == "quotas" ? DisplayMode::Quotas
-                : mode == "domestic" ? DisplayMode::Domestic
-                : mode == "system" ? DisplayMode::System
-                : mode == "music" ? DisplayMode::Music
-                : mode == "pet" ? DisplayMode::Pet
-                : mode == "dual" ? DisplayMode::Dual : DisplayMode::Auto;
+    displayMode = parseDisplayMode(mode);
     screenDirty = true;
     admin.send(200, "application/json", "{\"ok\":true}");
   });
@@ -1280,49 +1908,90 @@ void serviceWiFi() {
 }
 
 RenderPage desiredPage() {
-  if (displayMode == DisplayMode::ScreenSaver) return RenderPage::ScreenSaver;
-  if (displayMode == DisplayMode::Weather) return RenderPage::Weather;
-  if (displayMode == DisplayMode::Stocks) return RenderPage::Stocks;
-  if (displayMode == DisplayMode::Quotas) return RenderPage::Quotas;
-  if (displayMode == DisplayMode::Domestic) return RenderPage::Domestic;
-  if (displayMode == DisplayMode::System) return RenderPage::System;
-  if (displayMode == DisplayMode::Music) return RenderPage::Music;
-  if (displayMode == DisplayMode::Pet) return RenderPage::Pet;
-  if (displayMode == DisplayMode::Dual) return RenderPage::Dashboard;
+  DisplayMode mode = displayMode;
+  if (mode != DisplayMode::ScreenSaver) {
+    if (domesticNeedsInput) mode = parseDisplayMode("domestic_" + domesticActivityProvider);
+    else if (codexNeedsInput && claudeNeedsInput && bridgeFollowApp.length()) mode = parseDisplayMode(bridgeFollowApp);
+    else if (codexNeedsInput) mode = DisplayMode::Codex;
+    else if (claudeNeedsInput) mode = DisplayMode::Claude;
+    else if (completionActive) mode = DisplayMode::Codex;
+  }
+  if (mode == DisplayMode::Auto) {
+    if (cycleEnabled && cycleCount > 0) mode = cyclePages[(max((int64_t)0, (int64_t)currentEpochUtc() - cycleStartedAt) / cycleInterval) % cycleCount];
+    else if (music.available && music.playing) mode = DisplayMode::Music;
+    else if (domesticActivityState == "working") mode = parseDisplayMode("domestic_" + domesticActivityProvider);
+    else if (bridgeFollowApp.length()) mode = parseDisplayMode(bridgeFollowApp);
+    else {
+      bool cw = codexState == "working", aw = claudeState == "working";
+      if (cw != aw) mode = cw ? DisplayMode::Codex : DisplayMode::Claude;
+      else mode = (max((int64_t)0, (int64_t)currentEpochUtc() - cycleStartedAt) / (cw ? 2 : 6)) % 2 == 0
+        ? DisplayMode::Claude : DisplayMode::Codex;
+    }
+  }
+  if (mode != effectiveDisplayMode) { effectiveDisplayMode = mode; screenDirty = true; lastPetFrame = -1; }
+  if (mode == DisplayMode::ScreenSaver) return RenderPage::ScreenSaver;
+  if (mode == DisplayMode::Weather) return RenderPage::Weather;
+  if (mode == DisplayMode::Stocks) return RenderPage::Stocks;
+  if (mode == DisplayMode::Quotas || mode == DisplayMode::Dual) return RenderPage::Quotas;
+  if (mode == DisplayMode::Claude) return RenderPage::Claude;
+  if (mode == DisplayMode::Codex) return RenderPage::Codex;
+  if (mode == DisplayMode::Domestic || mode == DisplayMode::DomesticAlibaba ||
+      mode == DisplayMode::DomesticKimi || mode == DisplayMode::DomesticMinimax || mode == DisplayMode::DomesticDeepseek || mode == DisplayMode::DomesticZhipu) return RenderPage::Domestic;
+  if (mode == DisplayMode::System) return RenderPage::System;
+  if (mode == DisplayMode::Music) return RenderPage::Music;
+  if (mode == DisplayMode::Pet) return RenderPage::Pet;
+  return RenderPage::Dashboard;
+}
 
-  if (music.playing) return RenderPage::Music;
-
-  RenderPage pages[8];
-  int count = 0;
-  pages[count++] = RenderPage::Dashboard;
-  pages[count++] = RenderPage::Pet;
-  if (weather.available) pages[count++] = RenderPage::Weather;
-  if (stockCount > 0) pages[count++] = RenderPage::Stocks;
-  if (claudeQuota.available || codexQuota.available) pages[count++] = RenderPage::Quotas;
-  if (alibabaQuota.available || kimiQuota.available || miniMaxQuota.available || deepSeekQuota.available)
-    pages[count++] = RenderPage::Domestic;
-  if (systemMetrics.available) pages[count++] = RenderPage::System;
-  if (music.available) pages[count++] = RenderPage::Music;
-  return pages[(millis() / 15000) % count];
+void drawSignalRing(RenderPage page) {
+  static bool previouslyShown = false;
+  static RenderPage previousPage = RenderPage::Dashboard;
+  if (previousPage != page) { previouslyShown = false; previousPage = page; }
+  bool waiting = page == RenderPage::Claude ? claudeNeedsInput : page == RenderPage::Codex ? codexNeedsInput : page == RenderPage::Domestic ? domesticNeedsInput : false;
+  uint16_t color = TFT_BLACK;
+  bool show = waiting && millis()%800<400;
+  if (show) color = TFT_RED;
+  uint32_t phase = (millis()-completionStarted)/70;
+  if (!waiting && page == RenderPage::Codex && completionActive && phase < 50) {
+    static const uint8_t levels[10] = {40,88,144,208,255,255,208,144,88,0};
+    color = display.color565(0,levels[phase%10],0); show = true;
+  }
+  if (show) {
+    display.fillRect(4,4,232,10,color); display.fillRect(226,4,10,232,color);
+    display.fillRect(4,226,232,10,color); display.fillRect(4,4,10,232,color);
+  }
+  else if (previouslyShown) drawPercentageRing(lastRingPercent);
+  previouslyShown = show;
 }
 
 void renderCurrentPage() {
+  static uint32_t lastQuotaSecond = 0;
+  static bool wasFresh = false;
+  bool fresh = bridgeFresh();
+  if(fresh != wasFresh){visualGeneration++;wasFresh=fresh;}
   RenderPage page = desiredPage();
   if (page != lastRenderedPage) {
+    visualGeneration++;
     lastRenderedPage = page;
     lastPetFrame = -1;
     screenDirty = true;
   }
+  const bool quotaPage = page == RenderPage::Quotas || page == RenderPage::Claude || page == RenderPage::Codex || page == RenderPage::Domestic;
+  if (quotaPage && currentEpochUtc() != lastQuotaSecond) { lastQuotaSecond = currentEpochUtc(); screenDirty = true; }
+  if (bridgeFresh() && (page == RenderPage::Quotas || page == RenderPage::Domestic || page == RenderPage::Music) && !screenDirty) { drawSignalRing(page); return; }
   if (page == RenderPage::ScreenSaver) drawScreenSaver();
   else if (!bridgeFresh()) drawOffline();
   else if (page == RenderPage::Weather) drawWeather();
   else if (page == RenderPage::Stocks) drawStocks();
   else if (page == RenderPage::Quotas) drawQuotas();
+  else if (page == RenderPage::Claude) drawSingleQuota(true);
+  else if (page == RenderPage::Codex) drawSingleQuota(false);
   else if (page == RenderPage::Domestic) drawDomestic();
   else if (page == RenderPage::System) drawSystem();
   else if (page == RenderPage::Music) drawMusic();
   else if (page == RenderPage::Pet) drawPet();
-  else if (screenDirty) drawDashboard();
+  else drawDashboard();
+  if (bridgeFresh()) drawSignalRing(page);
 }
 
 }  // namespace
@@ -1340,6 +2009,8 @@ void setup() {
   analogWriteRange(100);
   applyBrightness();
   display.init();
+  // All AI-bot RGB565/APET resources use natural little-endian uint16 values.
+  display.setSwapBytes(true);
   display.setRotation(0);
   display.setTextDatum(TL_DATUM);
   drawOffline();

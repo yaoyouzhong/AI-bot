@@ -33,7 +33,7 @@ internal sealed class LocalizedTextResources
                 if (key != _stocksKey)
                 {
                     _stocksKey = key;
-                    _stocks = RenderLines(120, 400, names, 18, 20);
+                    _stocks = RenderStockNames(names);
                     _stocksRevision++;
                 }
             }
@@ -45,18 +45,37 @@ internal sealed class LocalizedTextResources
         }
     }
 
+    internal static byte[] RenderStockNames(IReadOnlyList<string> names)
+    {
+        var pixels=new byte[156*400*2];
+        for(int index=0;index<Math.Min(20,names.Count);index++)
+        {
+            using var row=new Bitmap(156,20);
+            using var g=Graphics.FromImage(row);
+            g.Clear(Color.Black);
+            g.TextRenderingHint=TextRenderingHint.AntiAliasGridFit;
+            // Legacy device cache uses 21px glyphs (9pt at the original 175% desktop DPI).
+            // Physical display resources must not shrink when rendered by a DPI-unaware CLI.
+            using var font=new Font("Microsoft YaHei UI",21f,FontStyle.Regular,GraphicsUnit.Pixel);
+            TextRenderer.DrawText(g,names[index],font,new Rectangle(0,0,156,20),Color.FromArgb(210,210,210),Color.Black,
+                TextFormatFlags.Right|TextFormatFlags.VerticalCenter|TextFormatFlags.SingleLine|TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.EndEllipsis);
+            PetAssetImporter.EncodeRgb565(row).CopyTo(pixels,index*156*20*2);
+        }
+        return pixels;
+    }
+
     internal static byte[] RenderLines(int width, int height, IReadOnlyList<string> lines,
-        int fontPixels, int rowHeight)
+        int fontPixels, int rowHeight, StringAlignment alignment = StringAlignment.Near, FontStyle style = FontStyle.Bold)
     {
         using var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Black);
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        using var font = new Font("Microsoft YaHei UI", fontPixels, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var font = new Font("Microsoft YaHei UI", fontPixels, style, GraphicsUnit.Pixel);
         using var brush = new SolidBrush(Color.White);
         using var format = new StringFormat
         {
-            Alignment = StringAlignment.Near,
+            Alignment = alignment,
             LineAlignment = StringAlignment.Center,
             Trimming = StringTrimming.EllipsisCharacter,
             FormatFlags = StringFormatFlags.NoWrap

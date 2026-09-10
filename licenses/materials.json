@@ -1,0 +1,30 @@
+{
+  "reviewedOn": "2026-09-10",
+  "files": {
+    "windows-sdk/REDIST.html": "52cd4791e8b457706267ebf1cb886de5562cea2d2ae68609c49f5f0c843a9222",
+    "windows-sdk/sdk_license.rtf": "dd07eb178e00c6bba4148457fc00ff77cd4887eb521d504186fe59c9ec8bbe62",
+    "windows-sdk/sdk_license.txt": "e05c4563104790e42d73f0f33a8c267f6ff0466db656fd795efd75ac29e4ad5b",
+    "firmware-toolchain/COPYING.NEWLIB": "bc1fbe427c6165ae8d06203f65af8c9f5fd5463788f2e8f56bceb50eeda19449",
+    "firmware-toolchain/GCC-COPYING3": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "firmware-toolchain/GCC-RUNTIME-EXCEPTION": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74"
+  },
+  "windowsSdk": {
+    "version": "10.0.19041.56",
+    "binaries": {
+      "Microsoft.Windows.SDK.NET.dll": "0ec371d93798852e36461c8adddbeadce0f963a04752f0b64e54fe19c1c834a7",
+      "WinRT.Runtime.dll": "bcf3a14e8712a90837fc5c0d8c8a24696af2bd7f74e9767597ec81ededfb23db"
+    }
+  },
+  "firmware": {
+    "espressif8266": "4.2.1",
+    "framework-arduinoespressif8266": "3.30102.0",
+    "TFT_eSPI": "2.5.43",
+    "ArduinoJson": "7.4.3",
+    "WiFiManager": "2.0.17",
+    "toolchain-xtensa": "2.100300.220621"
+  },
+  "sourceAssets": {
+    "windows-app/AIBotBridge/Assets/app-icon.ico": "09ef535337cdd1295d2337f3a3213732c55d1584f8df5485343c9ae4b038f904",
+    "windows-app/AIBotBridge/TestFixtures/claude_sprite.h": "e340b68a6ca9358965e96945f4c4ced0648468ff936235e16badc9f869632809"
+  }
+}

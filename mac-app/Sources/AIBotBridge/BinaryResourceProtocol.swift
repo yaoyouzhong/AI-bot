@@ -6,6 +6,14 @@ enum MacBinaryResourceKind: UInt8, Hashable {
     case petAsset = 3
     case weatherText = 4
     case stockLabels = 5
+    case weatherHeader = 6
+    case weatherDate = 7
+    case weatherAir = 8
+    case petAnimation = 9
+    case claudePetAnimation = 10
+    case codexPetAnimation = 11
+    case claudeLogo = 12
+    case codexLogo = 13
 }
 
 struct MacBinaryResourceChunk {

@@ -13,3 +13,21 @@ __pycache__/
 *.tmp
 .DS_Store
 Thumbs.db
+
+# Private runtime data and credentials are never source or release inputs.
+.env
+.env.*
+!.env.example
+!.env.sample
+*.apet
+*.pfx
+*.p12
+*.key
+settings.json
+auth.json
+.credentials.json
+pairing.dat
+*-cache.json
+codex-quota-history.json
+quota-auth-profile/
+page-logos/

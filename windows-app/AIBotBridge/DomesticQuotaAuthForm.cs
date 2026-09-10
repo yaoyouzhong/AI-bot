@@ -58,7 +58,7 @@ internal sealed class DomesticQuotaAuthForm : Form
     {
         try
         {
-            var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            var profile = Path.Combine(AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "AI-bot", "quota-auth-profile");
             var environment = await CoreWebView2Environment.CreateAsync(null, profile);
             await _web.EnsureCoreWebView2Async(environment);

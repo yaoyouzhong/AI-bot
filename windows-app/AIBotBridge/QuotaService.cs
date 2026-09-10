@@ -12,6 +12,8 @@ internal sealed class QuotaService
     internal QuotaService()
     {
         var cached = SnapshotCache.Load<QuotaSnapshot>("usage-cache.json");
+        var legacy = LegacyDisplayCache.Usage();
+        cached = new(cached?.Claude ?? legacy?.Claude, cached?.Codex ?? legacy?.Codex);
         if (cached is not null)
             _snapshot = new QuotaSnapshot(Stale(cached.Claude), Stale(cached.Codex));
     }
@@ -63,7 +65,7 @@ internal sealed class QuotaService
         var sevenDay = root.TryGetProperty("seven_day", out var weekly) ? weekly : default;
         return new ProviderQuotaSnapshot(
             "claude",
-            String(root, "plan_type") ?? String(root, "subscription_type") ?? credentialPlan,
+            PlanDisplay.Normalize(String(root, "plan_type") ?? String(root, "subscription_type") ?? credentialPlan),
             Number(fiveHour, "utilization"), Date(fiveHour, "resets_at"),
             Number(sevenDay, "utilization"), Date(sevenDay, "resets_at"),
             null, Array.Empty<long>(), DateTimeOffset.UtcNow, false);
@@ -120,7 +122,7 @@ internal sealed class QuotaService
         }
 
         return new ProviderQuotaSnapshot(
-            "codex", String(root, "plan_type") ?? credentialPlan,
+            "codex", PlanDisplay.Normalize(String(root, "plan_type") ?? credentialPlan),
             primaryPercent, primaryReset, weeklyPercent, weeklyReset,
             available, expirations, DateTimeOffset.UtcNow, false);
     }
@@ -158,7 +160,12 @@ internal sealed class QuotaService
             var credits = await SendCodexAsync(
                 "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
                 credential.Value, cancellationToken);
-            return ParseCodex(usage, credits, credential.Value.Plan);
+            var parsed = ParseCodex(usage, credits, credential.Value.Plan);
+            // Bind history to the account actually used for this response, not a later auth-file read.
+            var fingerprint = string.IsNullOrEmpty(credential.Value.AccountId) ? null :
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(credential.Value.AccountId)));
+            QuotaHistory.Shared.Record(parsed, fingerprint);
+            return parsed;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -183,7 +190,7 @@ internal sealed class QuotaService
 
     private static (string Token, string? Plan)? ReadClaudeCredential()
     {
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        var path = Path.Combine(AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".claude", ".credentials.json");
         try
         {
@@ -201,7 +208,7 @@ internal sealed class QuotaService
 
     private static (string Token, string? AccountId, string? Plan)? ReadCodexCredential()
     {
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        var path = Path.Combine(AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".codex", "auth.json");
         try
         {

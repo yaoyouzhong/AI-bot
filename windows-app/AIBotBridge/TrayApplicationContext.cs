@@ -5,27 +5,37 @@ namespace AIBotBridge;
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly EventWaitHandle _exitSignal = BridgeLifetime.Listen();
     private readonly BridgeSettings _settings;
     private readonly BridgeRuntime _runtime;
     private readonly SerialPublisher _serial;
     private readonly NotifyIcon _icon;
     private readonly System.Windows.Forms.Timer _timer;
-    private readonly int _screenSaverMinutes;
+    private int _screenSaverMinutes;
     private string _selectedMode = "auto";
     private bool _automaticScreenSaver;
     private bool _lastAiWorking;
     private bool _lastMusicPlaying;
     private DateTimeOffset? _temporaryWakeUntil;
     private MirrorForm? _mirror;
+    private PetGalleryForm? _petGallery;
     private DeviceControlForm? _deviceControl;
-    private DomesticQuotaAuthForm? _domesticAuth;
     private SettingsForm? _settingsForm;
+    private MigratedWeather.WeatherSettingsForm? _weatherSettings;
     private bool _deviceOperationBusy;
+    private bool _refreshBusy;
+    private long _lastCompletionSequence;
+    private bool _codexWasForeground;
+    private bool _lastAttention;
+    private long _lastWakeCompletion;
+    private long _cycleStartedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
     internal TrayApplicationContext()
     {
         _settings = BridgeSettings.Load();
         _runtime = new BridgeRuntime();
+        _selectedMode = DisplayModes.Load(_settings).SelectedMode;
+        PublishDisplayPolicy();
         _screenSaverMinutes = int.TryParse(_settings.Get("screensaver_timeout_minutes"), out var timeout)
             && timeout is > 0 and <= 1440 ? timeout : 0;
         var httpPort = int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"), out var configuredPort)
@@ -35,45 +45,36 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var pairing = LanPairingFactory.Create(httpPort);
         _serial = new SerialPublisher(pairing, _settings.Get("serial_port"));
 
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("打开 240×240 镜像", null, (_, _) => ShowMirror());
-        menu.Items.Add("设置…", null, (_, _) => ShowSettings());
-        menu.Items.Add("设备控制…", null, (_, _) => ShowDeviceControl());
-        menu.Items.Add("国产额度授权…", null, (_, _) => ShowDomesticAuth());
-        menu.Items.Add("查看状态", null, (_, _) => ShowStatus());
-        menu.Items.Add("设备信息（USB）…", null, async (_, _) => await ManageDeviceAsync(false));
-        menu.Items.Add("重置设备 Wi-Fi（USB）…", null, async (_, _) => await ManageDeviceAsync(true));
-        menu.Items.Add("测试 Wi-Fi 回退（保持 USB 供电）…", null, async (_, _) => await TestFallbackAsync());
-        var displayMenu = new ToolStripMenuItem("显示模式");
-        AddDisplayMode(displayMenu, "自动轮播", "auto");
-        AddDisplayMode(displayMenu, "Claude + Codex", "dual");
-        AddDisplayMode(displayMenu, "天气", "weather");
-        AddDisplayMode(displayMenu, "股票", "stocks");
-        AddDisplayMode(displayMenu, "账户额度", "quotas");
-        AddDisplayMode(displayMenu, "国产额度", "domestic");
-        AddDisplayMode(displayMenu, "系统监控", "system");
-        AddDisplayMode(displayMenu, "音乐", "music");
-        AddDisplayMode(displayMenu, "桌宠", "pet");
-        AddDisplayMode(displayMenu, "屏保", "screensaver");
-        menu.Items.Add(displayMenu);
-        menu.Items.Add("导入外部桌宠…", null, (_, _) => ImportPet());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("退出", null, (_, _) => ExitThread());
+        var menu = TrayMenu.Build(HandleMenuAction, SelectDisplayMode, () => _selectedMode,
+            () => _serial.PortName is { } port ? $"已连接：{port}（USB）" : "等待 USB 设备（自动连接）", () => _runtime.Capture().Quotas);
 
         _icon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = AppIcon.Load(),
             Text = "AI-bot starting",
             ContextMenuStrip = menu,
             Visible = true
         };
+        _icon.MouseUp += (_, e) => { if (e.Button == MouseButtons.Left) ToggleMirror(); };
 
         _timer = new System.Windows.Forms.Timer { Interval = 2000 };
         _timer.Tick += (_, _) =>
         {
+            if(_exitSignal.WaitOne(0)){ExitThread();return;}
             var status = _runtime.Capture();
+            var codexForeground = ForegroundObserver.CodexVisible();
+            if (codexForeground && !_codexWasForeground && status.Codex.CompletionActive)
+                SessionActivityReader.Signals.Acknowledge();
+            _codexWasForeground = codexForeground;
+            if (status.Codex.CompletionSequence > _lastCompletionSequence)
+            {
+                _lastCompletionSequence = status.Codex.CompletionSequence;
+                _ = Task.Run(CompletionChime.Play);
+            }
             RefreshTooltip(status);
             UpdateAutomaticScreenSaver(status);
+            PublishDisplayPolicy();
+            _runtime.Domestic.RefreshNext();
         };
         _timer.Start();
 
@@ -81,32 +82,169 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _ = Task.Run(() => server.RunAsync(_runtime.Capture, _shutdown.Token));
         if (pairing is not null)
         {
-            var lanServer = new LanStatusServer(pairing);
+            var lanServer = new LanStatusServer(pairing, _runtime.Resources);
             _ = Task.Run(() => lanServer.RunAsync(_runtime.Capture, _shutdown.Token));
         }
         _ = Task.Run(() => _serial.RunAsync(_runtime.Capture, _runtime.Resources, _shutdown.Token));
+        _ = Task.Run(() => _serial.RunMetricsAsync(() => _runtime.SystemMetrics, _shutdown.Token));
         RefreshTooltip(_runtime.Capture());
     }
 
-    private void AddDisplayMode(ToolStripMenuItem parent, string label, string mode)
+    private async void HandleMenuAction(string action)
     {
-        parent.DropDownItems.Add(label, null, (_, _) =>
+        if (action.StartsWith("cycle:", StringComparison.Ordinal))
         {
-            _selectedMode = mode;
-            _automaticScreenSaver = false;
-            _temporaryWakeUntil = null;
-            if (!_serial.SendDisplayMode(mode))
-                MessageBox.Show("设备尚未通过 USB 连接。", "AI-bot", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-        });
+            var policy = DisplayModes.Load(BridgeSettings.Load());
+            var pages = policy.Pages.ToList();
+            var changes = new Dictionary<string, string>();
+            var command = action[6..];
+            if (command == "toggle") changes["display_cycle_enabled"] = policy.CycleEnabled ? "0" : "1";
+            else if (command.StartsWith("interval:") && int.TryParse(command[9..], out var interval) && interval is 10 or 15 or 30 or 60)
+                changes["display_cycle_interval_seconds"] = interval.ToString();
+            else if (command.StartsWith("page:") && DisplayModes.Pages.Any(p => p.Mode == command[5..]))
+            {
+                var page = command[5..];
+                if (!pages.Remove(page)) pages.Add(page);
+                if (pages.Count == 0) { changes["display_cycle_enabled"] = "0"; pages = policy.Pages.ToList(); }
+                changes["display_cycle_pages"] = string.Join(',', pages);
+            }
+            else return;
+            changes["display_mode"] = "auto";
+            if (!_settings.SaveEditable(changes, out var error)) { MessageBox.Show(error, "循环展示"); return; }
+            RestartCycle();
+            return;
+        }
+        if (action.StartsWith("pet:", StringComparison.Ordinal))
+        {
+            ImportPet(action.Split(':')[1]);
+            return;
+        }
+        if (action.StartsWith("pet-reset:", StringComparison.Ordinal))
+        {
+            var owner = action.Split(':')[1];
+            try
+            {
+                PetAnimationStore.Shared.RestoreDefault(owner);
+                MessageBox.Show($"{owner} 默认动画已恢复到本机，设备将在 USB 连接后同步；其他角色未改变。", "AI-bot");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            { MessageBox.Show(ex.Message, "恢复默认动画失败", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+            return;
+        }
+        if (action.StartsWith("screensaver:", StringComparison.Ordinal))
+        {
+            var minutes = int.Parse(action.Split(':')[1]);
+            if (!SaveSetting("screensaver_timeout_minutes", minutes.ToString())) return;
+            _screenSaverMinutes = minutes;
+            if (minutes == 0 && _automaticScreenSaver)
+            {
+                _automaticScreenSaver = false;
+                _temporaryWakeUntil = null;
+                _serial.SendDisplayMode(_selectedMode);
+            }
+            PublishDisplayPolicy();
+            return;
+        }
+        switch (action)
+        {
+            case "refresh":
+                if (_refreshBusy) break;
+                _refreshBusy = true;
+                try { await _runtime.RefreshAsync(); RefreshTooltip(_runtime.Capture()); _mirror?.Invalidate(); }
+                catch (Exception ex) when (ex is IOException or HttpRequestException or OperationCanceledException or JsonException)
+                { MessageBox.Show("刷新未完成，保留最近可用数据。", "AI-bot"); }
+                finally { _refreshBusy = false; }
+                break;
+            case "startup":
+                try { StartupRegistration.SetEnabled(!StartupRegistration.IsEnabled); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+                { MessageBox.Show(ex.Message, "开机启动设置失败"); }
+                break;
+            case "mirror": ToggleMirror(); break;
+            case "quota-trend":
+                if (_mirror is null || _mirror.IsDisposed)
+                    _mirror = new MirrorForm(_runtime.Capture, () => _selectedMode, SelectDisplayMode, _serial.SendBrightness, () => Task.Run(_serial.ReadDeviceInfo));
+                _mirror.ShowQuotaTrend(); break;
+            case "settings": ShowSettings(); break;
+            case "stocks-settings": ShowSettings("stocks"); break;
+            case "weather-settings": ShowWeatherSettings(); break;
+            case "device": ShowDeviceControl(); break;
+            case "authorize": ShowDomesticAuth(); break;
+            case "status": ShowStatus(); break;
+            case "completion-ack": SessionActivityReader.Signals.Acknowledge(); break;
+            case "cycle":
+                using (var dialog = new CycleSettingsForm())
+                    if (dialog.ShowDialog() == DialogResult.OK) RestartCycle();
+                break;
+            case "info": await ManageDeviceAsync(false); break;
+            case "reset": await ManageDeviceAsync(true); break;
+            case "fallback": await TestFallbackAsync(); break;
+            case "pet": ImportPet(); break;
+            case "pet-gallery":
+                if (_petGallery is null || _petGallery.IsDisposed) _petGallery = new PetGalleryForm(SelectDisplayMode);
+                _petGallery.Show(); _petGallery.Activate(); break;
+            case "address": MessageBox.Show("本机状态接口：http://127.0.0.1:" +
+                (Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT") ?? "8765") +
+                "/status\n局域网回退使用独立鉴权，以上本机地址不能供设备访问。", "桥接服务地址"); break;
+            case "exit": ExitThread(); break;
+        }
+    }
+
+    private void SelectDisplayMode(string mode)
+    {
+        if (!DisplayModes.IsValid(mode)) return;
+        if (!_settings.SaveEditable(new Dictionary<string,string> { ["display_mode"] = mode, ["display_cycle_enabled"] = "0" }, out var error))
+        { MessageBox.Show(error, "显示模式"); return; }
+        _selectedMode = mode;
+        _automaticScreenSaver = false;
+        _temporaryWakeUntil = null;
+        PublishDisplayPolicy();
+        if (!_serial.SendDisplayMode(mode))
+        {
+            MessageBox.Show("显示选择已保存，将通过可用连接应用；USB 当前未连接或正在回退测试。", "AI-bot",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+    }
+
+    private bool SaveSetting(string key, string value)
+    {
+        if (_settings.SaveEditable(new Dictionary<string, string> { [key] = value }, out var error)) return true;
+        MessageBox.Show(error, "AI-bot 设置");
+        return false;
+    }
+
+    private void PublishDisplayPolicy()
+    {
+        var selected = _automaticScreenSaver
+            ? _temporaryWakeUntil.HasValue ? DisplayModes.Resolve(_runtime.Capture(),"auto") : "screensaver"
+            : _selectedMode;
+        _runtime.SetDisplayPolicy(DisplayModes.Load(BridgeSettings.Load(), selected) with { CycleStartedAt = _cycleStartedAt });
+    }
+
+    private void RestartCycle()
+    {
+        _selectedMode = "auto";
+        _automaticScreenSaver = false;
+        _temporaryWakeUntil = null;
+        _cycleStartedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        PublishDisplayPolicy();
+        _serial.SendDisplayMode("auto");
     }
 
     private void UpdateAutomaticScreenSaver(StatusSnapshot status)
     {
-        var aiWorking = status.Codex.State == "working" || status.Claude.State == "working";
+        var timeout = BridgeSettings.Load().Get("screensaver_timeout_minutes");
+        _screenSaverMinutes = int.TryParse(timeout, out var minutes) && minutes is > 0 and <= 1440 ? minutes : 0;
+        var aiWorking = status.Codex.State == "working" || status.Claude.State == "working" || status.DomesticActivity?.State == "working";
+        var attention = status.Codex.NeedsInput || status.Claude.NeedsInput || status.DomesticActivity?.NeedsInput == true;
+        var newAlert = attention && !_lastAttention || status.Codex.CompletionActive && status.Codex.CompletionSequence > _lastWakeCompletion;
+        _lastAttention = attention; _lastWakeCompletion = status.Codex.CompletionSequence;
         var musicPlaying = status.Music?.Playing == true;
         if (_screenSaverMinutes == 0 || _selectedMode == "screensaver")
         {
+            _automaticScreenSaver = false;
+            _temporaryWakeUntil = null;
             _lastAiWorking = aiWorking;
             _lastMusicPlaying = musicPlaying;
             return;
@@ -114,28 +252,27 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var idle = SystemIdleTime.Read();
         if (!_automaticScreenSaver && idle >= TimeSpan.FromMinutes(_screenSaverMinutes))
         {
-            _automaticScreenSaver = _serial.SendDisplayMode("screensaver");
+            _automaticScreenSaver = true;
+            _serial.SendDisplayMode("screensaver");
             _temporaryWakeUntil = null;
         }
         else if (_automaticScreenSaver && idle < TimeSpan.FromSeconds(3))
         {
-            if (_serial.SendDisplayMode(_selectedMode))
-            {
-                _automaticScreenSaver = false;
-                _temporaryWakeUntil = null;
-            }
+            _automaticScreenSaver = false;
+            _temporaryWakeUntil = null;
+            _serial.SendDisplayMode(_selectedMode);
         }
         else if (_automaticScreenSaver &&
-                 ((musicPlaying && !_lastMusicPlaying) || (aiWorking && !_lastAiWorking)))
+                 (newAlert || (musicPlaying && !_lastMusicPlaying) || (aiWorking && !_lastAiWorking)))
         {
-            var wakeMode = musicPlaying ? "music" : "pet";
-            if (_serial.SendDisplayMode(wakeMode))
-                _temporaryWakeUntil = DateTimeOffset.UtcNow.AddSeconds(12);
+            var wakeMode = DisplayModes.Resolve(status,"auto");
+            _temporaryWakeUntil = DateTimeOffset.UtcNow.AddSeconds(12);
+            _serial.SendDisplayMode(wakeMode);
         }
         else if (_automaticScreenSaver && _temporaryWakeUntil <= DateTimeOffset.UtcNow)
         {
-            if (_serial.SendDisplayMode("screensaver"))
-                _temporaryWakeUntil = null;
+            _temporaryWakeUntil = null;
+            _serial.SendDisplayMode("screensaver");
         }
         _lastAiWorking = aiWorking;
         _lastMusicPlaying = musicPlaying;
@@ -201,64 +338,87 @@ internal sealed class TrayApplicationContext : ApplicationContext
         finally { _serial.ResumeTransmission(); _deviceOperationBusy = false; }
     }
 
+    private void ToggleMirror()
+    {
+        if (_mirror is { IsDisposed: false, Visible: true }) _mirror.Hide();
+        else ShowMirror();
+    }
+
     private void ShowMirror()
     {
+        PetAnimationStore.Shared.ReloadMissing();
         if (_mirror is null || _mirror.IsDisposed)
-            _mirror = new MirrorForm(_runtime.Capture, () => _selectedMode);
-        _mirror.Show();
-        _mirror.Activate();
+            _mirror = new MirrorForm(_runtime.Capture, () => _selectedMode,SelectDisplayMode,_serial.SendBrightness,()=>Task.Run(_serial.ReadDeviceInfo));
+        _mirror.ShowAtTray();
     }
 
     private void ShowDeviceControl()
     {
         if (_deviceControl is null || _deviceControl.IsDisposed)
-            _deviceControl = new DeviceControlForm(_serial);
+            _deviceControl = new DeviceControlForm(_serial, SelectDisplayMode, _selectedMode);
         _deviceControl.Show();
         _deviceControl.Activate();
     }
 
-    private void ShowSettings()
+    private void ShowSettings(string? section = null)
     {
         if (_settingsForm is null || _settingsForm.IsDisposed)
+        {
             _settingsForm = new SettingsForm(_settings);
+            _settingsForm.FormClosed += (_,_)=>_runtime.ReloadSettings();
+        }
         _settingsForm.Show();
         _settingsForm.Activate();
+        _settingsForm.FocusSection(section);
+    }
+
+    internal void OpenZhipuAuthorization()
+    {
+        _runtime.Domestic.OpenAuthorization("zhipu");
     }
 
     private void ShowDomesticAuth()
     {
-        if (_domesticAuth is null || _domesticAuth.IsDisposed)
-            _domesticAuth = new DomesticQuotaAuthForm(_runtime);
-        _domesticAuth.Show();
-        _domesticAuth.Activate();
+        var provider = BridgeSettings.Load().Get("domestic_provider", "qwen");
+        _runtime.Domestic.OpenAuthorization(provider == "alibaba" ? "qwen" : provider);
     }
 
-    private void ImportPet()
+    private void ShowWeatherSettings()
+    {
+        if (_weatherSettings is null || _weatherSettings.IsDisposed)
+            _weatherSettings = new MigratedWeather.WeatherSettingsForm(_runtime.Weather);
+        _weatherSettings.Show();
+        _weatherSettings.Activate();
+    }
+
+    private void ImportPet(string? owner = null)
     {
         using var dialog = new OpenFileDialog
         {
-            Title = "选择有明确许可说明的桌宠图片",
+            Title = $"{owner ?? "通用桌宠"}：选择有明确许可说明的桌宠图片",
             Filter = "图片|*.png;*.jpg;*.jpeg;*.bmp;*.gif",
             CheckFileExists = true,
             Multiselect = false
         };
         if (dialog.ShowDialog() != DialogResult.OK) return;
-        if (!PetAssetImporter.TryLoad(dialog.FileName, out var data, out var licenseFile, out var error))
+        if (!PetAnimation.TryImport(dialog.FileName, out var animation, out var licenseFile, out var error))
         {
             MessageBox.Show(error, "AI-bot", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-        if (!_serial.SendResource(BinaryResourceKind.PetAsset, data))
+        try
         {
-            MessageBox.Show("桌宠资源发送失败；请确认设备已通过 USB 连接。", "AI-bot",
+            if (owner is null) PetAnimationStore.Shared.Save(animation!);
+            else PetAnimationStore.Shared.Select(owner, animation!);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            MessageBox.Show("桌宠资源保存失败：" + ex.Message, "AI-bot",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-        _selectedMode = "pet";
-        _automaticScreenSaver = false;
-        _temporaryWakeUntil = null;
-        _serial.SendDisplayMode("pet");
-        MessageBox.Show($"桌宠已发送。许可说明：{Path.GetFileName(licenseFile)}", "AI-bot",
+        SelectDisplayMode(owner ?? "pet");
+        MessageBox.Show($"桌宠已保存（{animation!.Frames.Length} 帧），镜像立即使用；设备将在 USB 连接后同步。许可说明：{Path.GetFileName(licenseFile)}", "AI-bot",
             MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
@@ -266,14 +426,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         _timer.Stop();
         _timer.Dispose();
+        _exitSignal.Dispose();
         _serial.NotifyHostGoingAway();
         _mirror?.Close();
+        _petGallery?.Close();
         _settingsForm?.Close();
+        _weatherSettings?.Close();
         _deviceControl?.Close();
-        _domesticAuth?.Close();
         _shutdown.Cancel();
         _runtime.Dispose();
         _icon.Visible = false;
+        _icon.Icon?.Dispose();
         _icon.Dispose();
         _shutdown.Dispose();
         base.ExitThreadCore();

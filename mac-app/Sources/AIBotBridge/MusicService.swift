@@ -88,6 +88,7 @@ actor MacMusicService {
     func refreshIfEnabled() async {
         guard defaults.bool(forKey: Self.enabledKey) else {
             emptySamples = 0
+            resourceKey=""
             store.update(music: .empty())
             return
         }
@@ -109,7 +110,7 @@ actor MacMusicService {
         }
 
         emptySamples += 1
-        if emptySamples >= 3 { store.update(music: .empty()) }
+        if emptySamples >= 3 { resourceKey="";store.update(music: .empty()) }
     }
 
     static func parse(values: [String], now: Date = Date()) -> MusicSnapshot? {
@@ -133,13 +134,13 @@ actor MacMusicService {
 
     private func apply(_ snapshot: MusicSnapshot, from provider: MacMusicProvider) async {
         let key = provider.bundleIdentifier + "\n" + snapshot.title + "\n" + snapshot.artist
-        guard key != resourceKey else {
+        guard key != resourceKey || store.snapshot().music?.hasArtwork != true else {
             store.update(music: snapshot)
             return
         }
         let encoded = await readArtwork(from: provider)
         let cover = encoded.flatMap(Self.renderArtwork)
-            ?? Data(repeating: 0, count: 112 * 112 * 2)
+            ?? Data()
         resourceKey = key
         store.update(music: snapshot, cover: cover)
     }

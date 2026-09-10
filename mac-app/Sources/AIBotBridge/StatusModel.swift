@@ -3,6 +3,11 @@ import Foundation
 struct ToolState: Codable, Equatable {
     let state: String
     let ageSeconds: Int64?
+    var needsInput: Bool = false
+    var completionActive: Bool = false
+    var completionSequence: Int64 = 0
+    var completionAt: Int64 = 0
+    var tokensToday: Int64 = 0
 }
 
 struct WeatherSnapshot: Codable, Equatable {
@@ -61,7 +66,33 @@ struct QuotaSnapshot: Codable, Equatable {
     let codex: ProviderQuotaSnapshot?
 }
 
+// Optional display contract; macOS does not acquire vendor quotas yet.
+struct DomesticProviderQuotaSnapshot: Codable, Equatable {
+    let provider: String
+    let plan: String?
+    let primaryPercent: Double?
+    let primaryResetsAt: Date?
+    let weeklyPercent: Double?
+    let weeklyResetsAt: Date?
+    let balance: Double?
+    let usedCost: Double?
+    let currency: String?
+    let updatedAt: Date
+    let stale: Bool
+    var planPercent: Double? = nil
+    var planResetsAt: Date? = nil
+}
+
+struct DomesticQuotaSnapshot: Codable, Equatable {
+    let alibaba: DomesticProviderQuotaSnapshot?
+    let kimi: DomesticProviderQuotaSnapshot?
+    let miniMax: DomesticProviderQuotaSnapshot?
+    let deepSeek: DomesticProviderQuotaSnapshot?
+    var zhipu: DomesticProviderQuotaSnapshot? = nil
+}
+
 struct MusicSnapshot: Codable, Equatable {
+    var hasArtwork: Bool? = nil
     let title: String
     let artist: String
     let album: String
@@ -90,9 +121,19 @@ struct MacStatusSnapshot: Codable {
     let systemMetrics: SystemMetricsSnapshot?
     let quotas: QuotaSnapshot?
     let music: MusicSnapshot?
+    var displayPolicy: MacDisplayPolicy? = nil
+    var domesticActivity: MacDomesticActivity? = nil
+    var domesticQuotas: DomesticQuotaSnapshot? = nil
+    var followApp: String? = nil
 }
 
 final class SessionActivityReader {
+    let signals = MacActivitySignals()
+    private let metadata = MacActivityMetadata()
+    private let lock = NSLock()
+    private var selectedMode: String?
+    private let follow=MacAutoFollowTracker()
+    func select(_ mode: String) { lock.lock(); selectedMode=mode; lock.unlock() }
     private let fileManager = FileManager.default
     private let encoder: JSONEncoder = {
         let value = JSONEncoder()
@@ -101,22 +142,35 @@ final class SessionActivityReader {
     }()
 
     func capture(extras: MacDataExtras = .empty) -> MacStatusSnapshot {
+        lock.lock(); defer { lock.unlock() }
         let now = Date()
-        return MacStatusSnapshot(
+        let activity = metadata.capture(now: now)
+        var domestic=activity.domestic
+        var claude=signals.apply("claude",raw:activity.claude,now:now)
+        if domestic != nil {
+            let routed=signals.apply("claude",raw:ToolState(state:domestic!.state,ageSeconds:nil),now:now)
+            domestic?.state=routed.state;domestic?.needsInput=routed.needsInput
+            claude=activity.claude
+        }
+        var snapshot = MacStatusSnapshot(
             version: 1,
             time: Self.clockString(now),
             epochUtc: Int64(now.timeIntervalSince1970),
             utcOffsetSeconds: TimeZone.current.secondsFromGMT(for: now),
             capturedAt: now,
-            codex: state(in: home(".codex/sessions"), now: now),
-            claude: state(in: home(".claude/projects"), now: now),
+            codex: signals.apply("codex", raw: activity.codex, now: now),
+            claude: claude,
             musicPlaying: extras.music?.playing ?? false,
             weather: extras.weather,
             stocks: extras.stocks,
             systemMetrics: extras.systemMetrics,
             quotas: extras.quotas,
-            music: extras.music
+            music: extras.music,
+            displayPolicy: MacDisplayPolicy.load(selected: selectedMode),
+            domesticActivity: domestic
         )
+        snapshot.followApp=follow.update(snapshot,milliseconds:Int64(ProcessInfo.processInfo.systemUptime*1000))
+        return snapshot
     }
 
     func json(extras: MacDataExtras = .empty) -> Data {

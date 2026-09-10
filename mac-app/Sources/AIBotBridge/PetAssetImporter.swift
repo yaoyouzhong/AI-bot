@@ -62,6 +62,37 @@ enum MacPetAssetImporter {
         (1...4_096).contains(width) && (1...4_096).contains(height)
     }
 
+    static func loadAnimation(_ url: URL) throws -> MacPetAsset {
+        let validated = try load(url)
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { throw MacPetAssetError.decodeFailed }
+        let count = CGImageSourceGetCount(source)
+        guard count > 0 && count <= 1000 else { throw MacPetAssetError.decodeFailed }
+        let kept = min(8, count)
+        var frames: [Data] = [], delays: [UInt16] = []
+        for slot in 0..<kept {
+            let start = slot * count / kept, end = (slot + 1) * count / kept
+            var duration = 0.0
+            for index in start..<end {
+                let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
+                let gif = properties?[kCGImagePropertyGIFDictionary] as? [CFString: Any]
+                let seconds = (gif?[kCGImagePropertyGIFUnclampedDelayTime] as? NSNumber)?.doubleValue ??
+                    (gif?[kCGImagePropertyGIFDelayTime] as? NSNumber)?.doubleValue ?? 0.1
+                duration += seconds.isFinite ? min(60000, max(20, seconds * 1000)) : 100
+            }
+            delays.append(UInt16(min(60000, max(20, duration))))
+            guard let image = CGImageSourceCreateImageAtIndex(source, start, nil),
+                  validDimensions(width: image.width, height: image.height),
+                  let frame = MacRgb565Renderer.renderImage(image, width: 112, height: 112) else { throw MacPetAssetError.decodeFailed }
+            frames.append(frame)
+        }
+        // APET v1 remains supported by the firmware alongside original-size v2.
+        // This generic image importer intentionally emits its existing 112x112 canvas.
+        var data = Data([65,80,69,84,1,UInt8(kept),112,0,112,0,0,0])
+        for delay in delays { data.append(UInt8(delay & 255)); data.append(UInt8(delay >> 8)) }
+        for frame in frames { data.append(frame) }
+        return MacPetAsset(data: data, licenseURL: validated.licenseURL)
+    }
+
     static func licenseFile(for image: URL) -> URL? {
         let directory = image.deletingLastPathComponent()
         let base = image.deletingPathExtension().lastPathComponent

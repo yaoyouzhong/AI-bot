@@ -19,14 +19,26 @@ final class MacLocalizedTextResources {
     private var stocksData = Data()
     private var musicKey = ""
     private var musicData = Data()
-    private var musicCoverKey = ""
     private var musicCoverData = Data()
+    private var weatherDetailsKey = ""
+    private var weatherDetails: [MacResourcePayload] = []
 
     func capture(weather: WeatherSnapshot?, stocks: StockSnapshot?,
                  music: MusicSnapshot?, musicCover: Data?) -> [MacResourcePayload] {
         lock.lock()
         defer { lock.unlock() }
         if let weather {
+            let formatter=DateFormatter();formatter.locale=Locale(identifier:"zh_CN");formatter.dateFormat="M月d日 EEE"
+            let date=formatter.string(from:Date()),air=weather.airQualityIndex.map{"AQI \($0)"} ?? ""
+            let detailsKey=weather.city+"|"+weather.condition+"|"+air+"|"+date
+            if detailsKey != weatherDetailsKey {
+                let parts:[(MacBinaryResourceKind,Int,Int,String,CGFloat)]=[(.weatherHeader,122,26,weather.city,18),(.weatherDate,190,30,date,19),(.weatherAir,100,30,air+" "+weather.condition,12)]
+                let rendered=parts.compactMap { kind,width,height,text,size -> MacResourcePayload? in
+                    guard let data=MacRgb565Renderer.renderLines(width:width,height:height,lines:[text],fontPixels:size,rowHeight:height) else{return nil}
+                    return MacResourcePayload(kind:kind,revision:Int(MacBinaryResourceProtocol.crc32(Array(data))),data:data)
+                }
+                if rendered.count==parts.count {weatherDetails=rendered;weatherDetailsKey=detailsKey}
+            }
             let key = weather.city + "\n" + weather.condition
             if key != weatherKey,
                let rendered = MacRgb565Renderer.renderLines(
@@ -42,7 +54,7 @@ final class MacLocalizedTextResources {
             let key = names.joined(separator: "\n")
             if key != stocksKey,
                let rendered = MacRgb565Renderer.renderLines(
-                width: 120, height: 400, lines: names, fontPixels: 18, rowHeight: 20) {
+                width: 156, height: 400, lines: names, fontPixels: 12, rowHeight: 20, alignment: .right, weight: .regular) {
                 stocksKey = key
                 stocksData = rendered
                 stocksRevision += 1
@@ -58,22 +70,20 @@ final class MacLocalizedTextResources {
                 musicData = rendered
                 musicRevision += 1
             }
-            if key != musicCoverKey {
-                musicCoverKey = key
-                if let musicCover, musicCover.count == 112 * 112 * 2 {
-                    musicCoverData = musicCover
-                } else {
-                    musicCoverData = Data(repeating: 0, count: 112 * 112 * 2)
-                }
+            let nextCover = music.hasArtwork != false && musicCover?.count == 112 * 112 * 2 ? musicCover! : Data()
+            if nextCover != musicCoverData {
+                musicCoverData=nextCover
                 musicCoverRevision += 1
             }
+        } else {
+            musicKey="";musicData=Data();musicCoverData=Data()
         }
         var result: [MacResourcePayload] = []
-        if musicRevision > 0 {
+        if musicRevision > 0 && !musicData.isEmpty {
             result.append(MacResourcePayload(kind: .textBitmap,
                                              revision: musicRevision, data: musicData))
         }
-        if musicCoverRevision > 0 {
+        if musicCoverRevision > 0 && !musicCoverData.isEmpty {
             result.append(MacResourcePayload(kind: .musicCover,
                                              revision: musicCoverRevision, data: musicCoverData))
         }
@@ -85,14 +95,14 @@ final class MacLocalizedTextResources {
             result.append(MacResourcePayload(kind: .stockLabels,
                                              revision: stocksRevision, data: stocksData))
         }
-        return result
+        return result+weatherDetails
     }
 }
 
 enum MacRgb565Renderer {
     static func renderLines(width: Int, height: Int, lines: [String],
                             fontPixels: CGFloat, rowHeight: Int,
-                            alignment: NSTextAlignment = .left) -> Data? {
+                            alignment: NSTextAlignment = .left, weight: NSFont.Weight = .bold) -> Data? {
         guard width > 0, height > 0, rowHeight > 0,
               let bitmap = NSBitmapImageRep(
                 bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
@@ -108,7 +118,7 @@ enum MacRgb565Renderer {
         paragraph.alignment = alignment
         paragraph.lineBreakMode = .byTruncatingTail
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontPixels, weight: .bold),
+            .font: NSFont.systemFont(ofSize: fontPixels, weight: weight),
             .foregroundColor: NSColor.white,
             .paragraphStyle: paragraph
         ]

@@ -44,7 +44,7 @@ internal static class LanPairingFactory
     private static string LoadOrCreateToken()
     {
         var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot");
+            AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot");
         var path = Path.Combine(directory, "pairing.dat");
         try
         {

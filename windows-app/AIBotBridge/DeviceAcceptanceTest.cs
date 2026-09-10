@@ -3,6 +3,18 @@ namespace AIBotBridge;
 // Synthetic display values over a real USB link. Never claims live-account or optical verification.
 internal static class DeviceAcceptanceTest
 {
+    internal static void AuditTemporaryResources(string directory)
+    {
+        foreach (var (name, expected) in new[] {
+            ("cover.rgb565", TestCover()),
+            ("text.rgb565", NowPlayingService.RenderTextBitmap("真机验收测试", "合成数据")) })
+        {
+            if (!File.ReadAllBytes(Path.Combine(directory, name)).AsSpan().SequenceEqual(expected))
+                throw new IOException($"Not an acceptance fixture: {name}; preserve it.");
+            Console.WriteLine($"EXACT_TEST_FIXTURE_VERIFIED {name} bytes={expected.Length}");
+        }
+    }
+
     internal static async Task RunAsync()
     {
         using var shutdown = new CancellationTokenSource(TimeSpan.FromMinutes(4));
@@ -20,11 +32,12 @@ internal static class DeviceAcceptanceTest
             original = serial.ReadDeviceInfo();
             Console.WriteLine($"DEVICE_CONNECTED port={serial.PortName} uptime={original.UptimeMs} usb={original.UsbActive}");
             if (!original.UsbActive) throw new IOException("Initial USB state is not fresh.");
+            RequirePageData(original);
 
             var resources = new[]
             {
                 (BinaryResourceKind.WeatherText, LocalizedTextResources.RenderLines(232, 24, ["测试城市  多云"], 20, 24)),
-                (BinaryResourceKind.StockLabels, LocalizedTextResources.RenderLines(120, 400, ["上证指数", "腾讯控股", "Apple", "测试股票"], 18, 20)),
+                (BinaryResourceKind.StockLabels, LocalizedTextResources.RenderLines(156, 400, ["上证指数", "腾讯控股", "Apple", "测试股票"], 12, 20, StringAlignment.Far, FontStyle.Regular)),
                 (BinaryResourceKind.TextBitmap, NowPlayingService.RenderTextBitmap("真机验收测试", "合成数据")),
                 (BinaryResourceKind.MusicCover, TestCover())
             };
@@ -41,6 +54,7 @@ internal static class DeviceAcceptanceTest
                 if (!serial.SendDisplayMode(mode)) throw new IOException($"Could not send mode {mode}.");
                 await Task.Delay(mode is "pet" or "quotas" ? 14000 : 5000, shutdown.Token);
                 var info = serial.ReadDeviceInfo();
+                RequirePageData(info);
                 if (info.Mode != mode || !info.UsbActive || info.UptimeMs < original.UptimeMs)
                     throw new IOException($"Mode or USB continuity failed: {mode}.");
                 Console.WriteLine($"MODE_ACK_OK mode={mode} usb_count={info.UsbStatusCount} uptime={info.UptimeMs}");
@@ -87,6 +101,18 @@ internal static class DeviceAcceptanceTest
             try { await worker; }
             catch (OperationCanceledException) when (shutdown.IsCancellationRequested) { }
         }
+    }
+
+    private static void RequirePageData(UsbDeviceInfo info)
+    {
+        if (info.PageData is not { } pages ||
+            !new[] { "weather", "claude", "codex", "alibaba", "kimi", "minimax", "deepseek", "system", "music" }
+                .All(key => pages.TryGetProperty(key, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.True) ||
+            pages.GetProperty("stock_count").GetInt32() != 4 ||
+            Math.Abs(pages.GetProperty("temperature").GetDouble() - 26) > 0.01 ||
+            Math.Abs(pages.GetProperty("cpu_percent").GetDouble() - 31.4) > 0.01)
+            throw new IOException("Page data was not decoded into firmware render state; transport/mode ACK is insufficient.");
+        Console.WriteLine("PAGE_DATA_READBACK_OK weather stocks quotas domestic system music");
     }
 
     private static byte[] TestCover()

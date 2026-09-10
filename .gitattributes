@@ -13,3 +13,5 @@ LICENSE text eol=lf
 *.md text eol=lf
 *.ini text eol=lf
 VERSION text eol=lf
+# Preserve exact upstream license evidence and its recorded hashes.
+licenses/** -text -whitespace

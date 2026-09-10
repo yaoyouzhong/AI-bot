@@ -15,19 +15,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
     private var dataTimer: Timer?
     private var quotaTimer: Timer?
+    private var metricsTimer: Timer?
     private var serial: SerialBridge?
     private var screenSaverState = AutomaticScreenSaverState()
     private var port: UInt16 = 8765
     private var deviceOperationBusy = false
+    private var gallery: MacPetGalleryWindow?
+    private var mirror: MacMirrorWindow?
+    private var lastAttention = false
+    private var lastCompletion: Int64 = 0
+    private var wakeUntil = Date.distantPast
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem.button?.title = "AI-bot"
-        statusItem.menu = buildMenu()
+        statusItem.button?.target=self
+        statusItem.button?.action=#selector(statusClicked)
+        statusItem.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
         let storedPort = UserDefaults.standard.integer(forKey: "status_port")
         port = UInt16((1...65_535).contains(storedPort) ? storedPort : 8765)
         do { _ = try PairingTokenStore.loadOrCreate() }
         catch { show("配对令牌创建失败", "无法使用 Keychain 保存设备配对令牌。") }
-        server = HTTPStatusServer(port: port, token: PairingTokenStore.read) { [weak self] in
+        screenSaverState.select(MacDisplayPolicy.load().selectedMode)
+        server = HTTPStatusServer(port: port, token: PairingTokenStore.read, resources: { [weak self] in self?.resourceSnapshot() ?? [] }, event: { [weak self] agent, event, message in
+            self?.reader.signals.record(agent:agent,event:event,message:message) ?? false
+        }, acknowledge: { [weak self] in self?.reader.signals.acknowledge() }) { [weak self] in
             guard let self else { return Data("{\"version\":1}".utf8) }
             return self.reader.json(extras: self.dataStore.snapshot())
         }
@@ -47,12 +58,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return (host, self.port, token)
         }, resources: { [weak self] in
             guard let self else { return [] }
-            let extras = self.dataStore.snapshot()
-            return self.localizedTextResources.capture(
-                weather: extras.weather, stocks: extras.stocks, music: extras.music,
-                musicCover: extras.musicCover)
+            return self.resourceSnapshot()
         })
         serial?.start()
+        metricsTimer=Timer.scheduledTimer(withTimeInterval:0.25,repeats:true){[weak self] _ in
+            guard let self,let metrics=self.systemMetrics.capture() else{return}
+            self.dataStore.update(systemMetrics:metrics)
+            self.serial?.sendMetrics(metrics)
+        }
         updateTitle()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateTitle() }
         Task { await self.dataService.refreshDue(force: true) }
@@ -71,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         timer?.invalidate()
         dataTimer?.invalidate()
         quotaTimer?.invalidate()
+        metricsTimer?.invalidate()
         serial?.stop()
         server?.stop()
     }
@@ -78,10 +92,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(item("查看本机状态", #selector(showStatus)))
+        menu.addItem(item("设备镜像", #selector(openMirror)))
+        menu.addItem(item("确认 Codex 完成提醒", #selector(acknowledgeCompletion)))
         let displayItem = NSMenuItem(title: "显示页面", action: nil, keyEquivalent: "")
         let displayMenu = NSMenu()
         for (title, value) in [
-            ("自动轮播", "auto"), ("Claude + Codex", "dual"), ("天气", "weather"),
+            ("智能跟随", "auto"), ("Claude", "claude"), ("Codex", "codex"), ("Claude + Codex 额度", "dual"), ("天气", "weather"),
             ("股票", "stocks"), ("账户额度", "quotas"), ("国产额度", "domestic"),
             ("系统监控", "system"), ("音乐", "music"), ("桌宠", "pet"), ("屏保", "screensaver")
         ] {
@@ -91,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         displayItem.submenu = displayMenu
         menu.addItem(displayItem)
+        menu.addItem(item("轮播页面设置…", #selector(configureCycle)))
 
         let brightnessItem = NSMenuItem(title: "屏幕亮度", action: nil, keyEquivalent: "")
         let brightnessMenu = NSMenu()
@@ -107,6 +124,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(item("重置设备 Wi-Fi…", #selector(resetDeviceWiFi)))
         menu.addItem(item("测试 Wi-Fi 回退（保持 USB 供电）…", #selector(testWiFiFallback)))
         menu.addItem(item("导入外部桌宠…", #selector(importPet)))
+        menu.addItem(item("更换桌宠动画（图库）…", #selector(openGallery)))
+        menu.addItem(item("从本机旧版导入默认桌宠…", #selector(importDefaultPets)))
+        menu.addItem(item("从本机旧版导入页面图标…", #selector(importPageLogos)))
+        for role in ["claude","codex"] {
+            let choice=item("恢复 \(role.capitalized) 默认桌宠",#selector(restorePet));choice.representedObject=role;menu.addItem(choice)
+        }
         let musicAutomation = item("读取音乐状态（需自动化权限）", #selector(toggleMusicAutomation))
         musicAutomation.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off
         menu.addItem(musicAutomation)
@@ -124,8 +147,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return value
     }
 
+    private func resourceSnapshot() -> [MacResourcePayload] {
+        let extras = dataStore.snapshot()
+        return localizedTextResources.capture(weather: extras.weather, stocks: extras.stocks,
+            music: extras.music, musicCover: extras.musicCover) + MacPetCache.shared.resources()
+    }
+
     private func updateTitle() {
-        if let metrics = systemMetrics.capture() { dataStore.update(systemMetrics: metrics) }
         Task { await self.musicService.refreshIfEnabled() }
         let snapshot = reader.capture(extras: dataStore.snapshot())
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
@@ -138,11 +166,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func selectDisplayMode(_ sender: NSMenuItem) {
         guard let mode = sender.representedObject as? String else { return }
+        selectMode(mode)
+    }
+
+    private func selectMode(_ mode: String) {
         screenSaverState.select(mode)
-        guard serial?.sendDisplayMode(mode) == true else {
-            show("未发送", "设备尚未通过 USB 握手连接。")
-            return
-        }
+        UserDefaults.standard.set(mode,forKey:"display_mode")
+        UserDefaults.standard.set(false,forKey:"display_cycle_enabled")
+        reader.select(mode)
+        _ = serial?.sendDisplayMode(mode)
+    }
+
+    @objc private func acknowledgeCompletion() { reader.signals.acknowledge() }
+    @objc private func statusClicked(){guard let button=statusItem.button else{return};if NSApp.currentEvent?.type == .rightMouseUp {buildMenu().popUp(positioning:nil,at:NSPoint(x:0,y:button.bounds.minY),in:button)}else{openMirror()}}
+    @objc private func openMirror() {
+        guard let button=statusItem.button else{return}
+        if mirror == nil { mirror=MacMirrorWindow(anchor:button,capture:{[weak self] in self?.reader.capture(extras:self?.dataStore.snapshot() ?? .empty) ?? SessionActivityReader().capture()},resources:{[weak self] in self?.resourceSnapshot() ?? []},select:{[weak self] mode in self?.selectMode(mode)},brightness:{[weak self] level in self?.serial?.sendBrightness(level) ?? false}) }
+        mirror?.open()
+    }
+    @objc private func openGallery() {
+        if gallery == nil {gallery=MacPetGalleryWindow(selectPage:{[weak self] mode in self?.selectMode(mode)})};gallery?.open()
+    }
+    @objc private func importDefaultPets() {
+        let panel=NSOpenPanel();panel.title="选择本机旧版项目目录（仅导入私有缓存，不加入仓库）";panel.canChooseDirectories=true;panel.canChooseFiles=false;panel.allowsMultipleSelection=false
+        guard panel.runModal() == .OK,let root=panel.url else{return}
+        do {try MacPetCache.shared.importDefaults(from:root);show("已导入默认桌宠","Claude 和 Codex 原始尺寸、6 帧动画已保存到本机缓存，现有自选桌宠不变。")}
+        catch {show("导入失败",error.localizedDescription)}
+    }
+    @objc private func importPageLogos() {
+        let panel=NSOpenPanel();panel.title="选择本机旧版目录（图标仅存私有缓存）";panel.canChooseDirectories=true;panel.canChooseFiles=false;panel.allowsMultipleSelection=false
+        guard panel.runModal() == .OK,let root=panel.url else{return}
+        do {try MacPetCache.shared.importLogos(from:root);show("图标已导入","原 40×40 图标已保存，等待 USB 或 Wi-Fi 同步。")}
+        catch {show("图标导入失败",error.localizedDescription)}
+    }
+    @objc private func restorePet(_ sender:NSMenuItem) {
+        guard let role=sender.representedObject as? String else{return}
+        do {try MacPetCache.shared.restore(role);show("已恢复","已恢复 \(role) 默认桌宠；USB 或 Wi-Fi 会同步持久化缓存。")}
+        catch {show("无法恢复","请先从本机旧版导入默认桌宠。\n"+error.localizedDescription)}
+    }
+    @objc private func configureCycle() {
+        let policy=MacDisplayPolicy.load(),stack=NSStackView();stack.orientation = .vertical;stack.alignment = .leading
+        let enabled=NSButton(checkboxWithTitle:"启用循环展示",target:nil,action:nil);enabled.state=policy.cycleEnabled ? .on:.off;stack.addArrangedSubview(enabled)
+        let interval=NSPopUpButton();interval.addItems(withTitles:["10 秒","15 秒","30 秒","60 秒"]);interval.selectItem(at:[10,15,30,60].firstIndex(of:policy.intervalSeconds) ?? 1);stack.addArrangedSubview(interval)
+        var choices:[NSButton]=[]
+        for mode in MacDisplayPolicy.modes {let button=NSButton(checkboxWithTitle:mode,target:nil,action:nil);button.state=policy.pages.contains(mode) ? .on:.off;choices.append(button);stack.addArrangedSubview(button)}
+        stack.frame=NSRect(x:0,y:0,width:280,height:300)
+        let alert=NSAlert();alert.messageText="轮播设置";alert.informativeText="按所选页面循环；等待输入和完成提醒优先。手动选页将停止轮播。";alert.accessoryView=stack;alert.addButton(withTitle:"保存");alert.addButton(withTitle:"取消")
+        guard alert.runModal() == .alertFirstButtonReturn else{return}
+        let pages=choices.filter{$0.state == .on}.map{$0.title};guard !pages.isEmpty else{show("未保存","至少选择一个页面。");return}
+        UserDefaults.standard.set(enabled.state == .on,forKey:"display_cycle_enabled");UserDefaults.standard.set([10,15,30,60][interval.indexOfSelectedItem],forKey:"display_cycle_interval_seconds");UserDefaults.standard.set(pages,forKey:"display_cycle_pages")
+        UserDefaults.standard.set("auto",forKey:"display_mode")
+        MacDisplayPolicy.cycleAnchor=Int64(Date().timeIntervalSince1970)
+        screenSaverState.select("auto");reader.select("auto");_ = serial?.sendDisplayMode("auto")
     }
 
     @objc private func selectBrightness(_ sender: NSMenuItem) {
@@ -284,10 +359,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func importPet() {
-        guard serial?.portName != nil else {
-            show("无法导入", "设备尚未通过 USB 握手连接。")
-            return
-        }
         let panel = NSOpenPanel()
         panel.title = "选择有明确许可说明的桌宠图片"
         panel.allowedContentTypes = [.png, .jpeg, .bmp, .gif]
@@ -297,7 +368,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let asset: MacPetAsset
         do {
-            asset = try MacPetAssetImporter.load(url)
+            asset = try MacPetAssetImporter.loadAnimation(url)
         } catch {
             show("无法导入", error.localizedDescription)
             return
@@ -305,15 +376,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let licenseName = asset.licenseURL.lastPathComponent
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            let sent = self.serial?.sendResource(kind: .petAsset, data: asset.data) == true
+            do { try MacPetCache.shared.select("claude",data:asset.data);try MacPetCache.shared.select("codex",data:asset.data) }
+            catch { DispatchQueue.main.async {self.show("桌宠保存失败",error.localizedDescription)};return }
+            let claudeSent = self.serial?.sendResource(kind: .claudePetAnimation, data: asset.data) == true
+            let codexSent = self.serial?.sendResource(kind: .codexPetAnimation, data: asset.data) == true
+            let sent = claudeSent && codexSent
             let selected = sent && self.serial?.sendDisplayMode("pet") == true
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 if !sent {
-                    self.show("发送失败", "桌宠资源未被设备完整确认；请检查 USB 连接后重试。")
+                    self.show("桌宠已保存", "两种角色的桌宠已持久化；当前 USB 同步未全部确认，设备连接后会继续同步，Wi-Fi 回退也会读取此缓存。")
                     return
                 }
-                self.screenSaverState.select("pet")
+                self.selectMode("pet")
                 let detail = selected ? "桌宠已发送并切换显示。" : "桌宠已发送，但页面切换失败。"
                 self.show("桌宠导入完成", detail + "\n许可说明：" + licenseName)
             }
@@ -321,12 +396,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateAutomaticScreenSaver(_ snapshot: MacStatusSnapshot) {
-        let aiWorking = snapshot.codex.state == "working" || snapshot.claude.state == "working"
+        let attention=snapshot.codex.needsInput || snapshot.claude.needsInput || snapshot.domesticActivity?.needsInput == true
+        if attention && !lastAttention || snapshot.codex.completionSequence>lastCompletion {wakeUntil=Date().addingTimeInterval(12)}
+        lastAttention=attention;lastCompletion=max(lastCompletion,snapshot.codex.completionSequence)
+        let aiWorking = snapshot.codex.state == "working" || snapshot.claude.state == "working" || snapshot.domesticActivity?.state == "working" || Date()<wakeUntil
         guard let mode = screenSaverState.desiredMode(
             idleSeconds: MacIdleTime.seconds(), timeoutMinutes: Self.screenSaverMinutes(),
-            aiWorking: aiWorking, musicPlaying: snapshot.music?.playing == true) else { return }
-        let sent = serial?.sendDisplayMode(mode) == true
-        screenSaverState.confirm(mode, sent: sent)
+            aiWorking: aiWorking, musicPlaying: snapshot.music?.playing == true,
+            wakeMode: MacDisplayPolicy.load(selected:"auto").resolve(snapshot)) else { return }
+        reader.select(mode)
+        _ = serial?.sendDisplayMode(mode)
+        // This confirms publication, not device acceptance: LAN can consume the same policy.
+        screenSaverState.confirm(mode, sent: true)
     }
 
     private static func screenSaverMinutes(_ defaults: UserDefaults = .standard) -> Int {

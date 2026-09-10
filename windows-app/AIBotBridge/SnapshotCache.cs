@@ -6,7 +6,7 @@ internal static class SnapshotCache
 {
     internal static T? Load<T>(string name, string? legacyName = null) where T : class
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var appData = AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var paths = new List<string> { Path.Combine(appData, "AI-bot", name) };
         if (legacyName is not null)
             paths.Add(Path.Combine(appData, "AIClockBridge", legacyName));
@@ -34,7 +34,7 @@ internal static class SnapshotCache
         try
         {
             var directory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot");
+                AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot");
             Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, name);
             var temporary = path + ".tmp";

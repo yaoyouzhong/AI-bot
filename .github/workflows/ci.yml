@@ -22,14 +22,28 @@ jobs:
           python-version: "3.12"
       - name: Verify version metadata
         run: python scripts/check_version.py
+      - name: Check public content boundary
+        run: |
+          python scripts/check_public_content.py --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/check_public_content.py
       - name: Build Windows bridge
         run: dotnet build windows-app/AIBotBridge/AIBotBridge.csproj -c Release
-      - name: Validate status JSON
+      - name: Validate fresh-profile pages and fixture regressions
         shell: pwsh
         run: |
-          $json = dotnet run --no-build -c Release --project windows-app/AIBotBridge/AIBotBridge.csproj -- --status-once
-          $status = $json | ConvertFrom-Json
-          if ($status.version -ne 1) { throw "Unexpected status version" }
+          dotnet run --no-build -c Release --project windows-app/AIBotBridge/AIBotBridge.csproj -- --self-test-public
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Test macOS bridge
+        working-directory: mac-app
+        run: swift test
+      - name: Build macOS bridge
+        working-directory: mac-app
+        run: swift build -c release
 
   firmware:
     runs-on: ubuntu-latest

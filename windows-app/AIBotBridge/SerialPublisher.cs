@@ -14,6 +14,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private readonly LanPairing? _pairing;
     private readonly string? _preferredPort;
     private long _pauseUntil;
+    private Func<StatusSnapshot>? _captureStatus;
 
     internal bool TransmissionPaused { get { lock (_portSync) return IsPaused; } }
     private bool IsPaused => Environment.TickCount64 < _pauseUntil;
@@ -67,6 +68,24 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     internal string? PortName => _portName;
     internal string? DeviceHost => _deviceHost;
 
+    internal async Task RunMetricsAsync(Func<SystemMetricsSnapshot?> capture, CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+        DateTimeOffset? sentAt = null;
+        while (await timer.WaitForNextTickAsync(cancellationToken))
+        {
+            lock (_portSync)
+            {
+                // A resource transfer may hold the port for seconds. Sample after
+                // acquiring it so this frame cannot replace newer heartbeat data.
+                if (_activePort?.IsOpen != true || IsPaused) continue;
+                var metrics = capture();
+                if (metrics is null || metrics.UpdatedAt == sentAt) continue;
+                if (TrySend(new { version = 1, type = "metrics", data = metrics })) sentAt = metrics.UpdatedAt;
+            }
+        }
+    }
+
     internal bool SendDisplayMode(string mode) => TrySend(new
     {
         version = 1,
@@ -81,22 +100,33 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         level = Math.Clamp(level, 0, 100)
     });
 
+    internal string? LastResourceFailure { get; private set; }
+
     internal bool SendResource(BinaryResourceKind kind, byte[] data)
     {
         var transferId = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(sizeof(uint)));
         var chunks = BinaryResourceProtocol.CreateChunks(kind, data, transferId);
         lock (_portSync)
         {
-            if (_activePort?.IsOpen != true || IsPaused) return false;
+            LastResourceFailure = null;
+            if (_activePort?.IsOpen != true || IsPaused) { LastResourceFailure = "port closed or paused"; return false; }
+            var nextHeartbeat = Environment.TickCount64;
             foreach (var chunk in chunks)
             {
+                // APET and Chinese resources can span several seconds. Preserve
+                // status freshness between acknowledged binary chunks.
+                if (_captureStatus is not null && Environment.TickCount64 >= nextHeartbeat)
+                {
+                    _activePort.WriteLine(Prefix + DeviceStatusFrame.Create(_captureStatus()).ToJsonString(JsonDefaults.Options));
+                    nextHeartbeat = Environment.TickCount64 + 2000;
+                }
                 var acknowledged = false;
                 for (var attempt = 0; attempt < 3 && !acknowledged; attempt++)
                 {
                     _activePort.Write(chunk.WireBytes, 0, chunk.WireBytes.Length);
                     acknowledged = WaitForResourceAck(_activePort, chunk.TransferId, chunk.Sequence);
                 }
-                if (!acknowledged) return false;
+                if (!acknowledged) { LastResourceFailure = $"kind={kind} sequence={chunk.Sequence} bytes={data.Length}: no positive ACK after 3 attempts"; return false; }
             }
             return true;
         }
@@ -114,6 +144,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     internal async Task RunAsync(Func<StatusSnapshot> snapshot,
         Func<IReadOnlyList<ResourcePayload>> resources, CancellationToken cancellationToken)
     {
+        _captureStatus = snapshot;
         while (!cancellationToken.IsCancellationRequested)
         {
             foreach (var candidate in CandidatePorts())
@@ -170,12 +201,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                             if (SendResource(resource.Kind, resource.Data))
                                 sentRevisions[resource.Kind] = resource.Revision;
                         }
-                        var frame = new
-                        {
-                            version = 1,
-                            type = "status",
-                            data = snapshot()
-                        };
+                        var frame = DeviceStatusFrame.Create(snapshot());
                         Write(port, frame);
                         lock (_portSync)
                             if (port.IsOpen && port.BytesToRead > 0) port.ReadExisting();

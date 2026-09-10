@@ -34,8 +34,12 @@ internal static class WifiFallbackTest
             recovered.UptimeMs >= during.UptimeMs;
         if (!fallback || !restored)
             throw new IOException($"Wi-Fi 回退={(fallback ? "通过" : "未通过")}；USB 恢复={(restored ? "通过" : "未通过")}。" +
+                $"\n前：{Describe(before)}\n回退：{Describe(during)}\n恢复：{Describe(recovered)}\n" +
                 "已解除暂停；检查网络隔离、LAN 地址、防火墙及设备配网。此结果不自动判定固件故障。");
     }
+    // Deliberately excludes SSID, pairing tokens, raw page data and addresses.
+    private static string Describe(UsbDeviceInfo info) =>
+        $"USB={info.UsbActive},在线={info.BridgeOnline},Wi-Fi地址已分配={!string.IsNullOrWhiteSpace(info.Ip)&&info.Ip!="0.0.0.0"},USB帧={info.UsbStatusCount},LAN帧={info.LanStatusCount},运行ms={info.UptimeMs}";
 
     internal static async Task RunHardwareAsync(bool fallback)
     {

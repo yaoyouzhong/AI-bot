@@ -2,17 +2,19 @@
 
 ## Architecture
 
-`SessionActivityReader` computes a deterministic state from the newest `.jsonl` modification time under the Codex and Claude Code session roots. `LocalStatusServer` publishes the snapshot on loopback. `LanStatusServer` binds only to a selected private adapter and requires the per-user pairing token. `SerialPublisher` probes a device with `ping`, waits for `pong`, provisions the LAN address and token, and sends status every two seconds.
+On Windows, `SessionActivityReader` delegates Codex state to `CodexLifecycleTracker` (explicit lifecycle events, partial-line handling, duplicate/subagent filtering). Claude activity and local Token totals come from parsed session metadata via `LocalUsageReader`; file modification time alone is not the Windows lifecycle contract. `LocalStatusServer` publishes the snapshot on loopback. `LanStatusServer` binds only to a selected private adapter and requires the per-user pairing token. `SerialPublisher` probes a device with `ping`, waits for `pong`, provisions the LAN address and token, and sends status every two seconds.
 
 Firmware parses only prefixed version 1 frames. A fresh USB status frame always wins. After eight seconds without USB status it polls the paired LAN endpoint with `X-AIBot-Token`; if neither path is fresh, it keeps time from the latest bridge epoch or NTP and displays `PC OFF`. The selected display mode is not replaced by a transport failure.
 
 Set the ESP8266 UART RX buffer to 8192 bytes **before** `Serial.begin`: the wire protocol allows 6144-byte JSON lines and 768-byte binary payload chunks, while screen and LittleFS operations are synchronous. The framework default buffer did not reliably preserve these bursts on the real device. This allocation is runtime heap use, not fully reflected in PlatformIO's static RAM percentage. Keep the 460800 baud rate and eight-second fallback boundary unchanged.
 
-`BridgeRuntime` owns the longer-lived data sources and exposes one immutable snapshot to loopback HTTP, authenticated LAN HTTP, USB, the tray, and diagnostics. `WeatherService` refreshes Open-Meteo every 15 minutes; `StockService` refreshes configured A/H/US symbols every five seconds. Both replace their cache only after a successful parse and return the last successful snapshot with `stale=true` after failure.
+`BridgeRuntime` owns the longer-lived data sources and exposes one immutable snapshot to loopback HTTP, authenticated LAN HTTP, USB, the tray, and diagnostics. Windows uses `MigratedWeatherService` / `WeatherMonitor` (QWeather with Open-Meteo fallback), refreshing every 15 minutes; `StockService` refreshes configured A/H/US symbols every five seconds. Failed requests retain the last successful data with a stale indication. Network graph sampling is 250 ms, while displayed upload/download averages and CPU/memory values update every two seconds.
 
 The model is deliberately narrow: routing, retries, timeouts, framing, and state thresholds remain deterministic code.
 
 ## State thresholds
+
+The following age windows describe Claude metadata activity, not Codex explicit lifecycle transitions. macOS has a separate implementation and must not be assumed to inherit Windows fixes.
 
 | State | Newest session-log age |
 | --- | --- |
@@ -21,6 +23,14 @@ The model is deliberately narrow: routing, retries, timeouts, framing, and state
 | `offline` | older than 15 minutes or no readable session log |
 
 ## Validation
+
+For release preparation use `--self-test-public` from a separate clean source copy.
+It selects a fresh process-local home/roaming/local profile before any runtime is
+created, blocks Credential Manager access and provider environment keys, and runs
+empty-profile rendering plus fixture regressions. No serial worker, production
+HTTP listener or browser login is started; synthetic LAN tests bind ephemeral
+loopback ports. It does not establish live-account, hardware, installer or macOS
+acceptance. Test images and profiles remain under ignored `artifacts/`.
 
 ```powershell
 dotnet build windows-app\AIBotBridge\AIBotBridge.csproj -c Release

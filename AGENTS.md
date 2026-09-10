@@ -53,6 +53,13 @@ git status --short
 
 编译通过不等于实机通过。涉及串口、显示或设备行为时，必须另外记录真实 ESP8266 验证结果。
 
+## 用户默认展示设置
+
+- 每次刷机或部署验收结束，必须恢复自动模式并启用循环展示，不能把最后的测试页面留作默认。
+- 保留用户选择的循环页面、顺序和间隔，不以测试列表覆盖。
+- 正常退出桥接后运行 Release 程序 `--restore-cycle-default`，再正常启动；确认 `/status` 中 `displayPolicy.selectedMode=auto`、`cycleEnabled=true` 且页面/顺序/间隔与操作前一致。
+- 此规则用于部署收尾，不改变用户日常手动切页的功能；若当次明确要求停在某页验收，按当次要求执行。
+
 ## Release boundary
 
 - 未经明确授权，不执行 `git push`、创建标签或发布 GitHub Release。

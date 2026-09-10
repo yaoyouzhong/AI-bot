@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Close out public source and distribution materials: recheck migration provenance, exclude private/generated files and unreviewed artwork, correct quota-trend semantics, and pin the currently resolved firmware dependencies.
+- Include original Windows SDK terms, official REDIST evidence and DLL hash checks; Windows candidates carry dependency notices/terms, firmware materials include corresponding sources/licenses/rebuild configuration, and source archives carry SHA-256 manifests. No push, release or complete product acceptance is implied.
+
+- Add local Codex quota observations and a separate trend window without changing device pages; handle resets, missing samples and damaged history. Retry missing private pet resources when opening the mirror, without overwriting existing selections.
+
+- Add isolated Windows candidate packaging with NuGet license texts, installation guidance, per-file/ZIP checksums and extracted-package regressions. Ship only the synthetic three-pixel import fixture, never private pet caches.
+
+- Build the Windows bridge as WinExe and remove startup console detachment to prevent terminal flashing. Run automated diagnostics through the dotnet console host to preserve output and exit-code checks.
+
+- Add a fresh-profile public regression entry point, isolated local-build script, limited current/history content guard, and Windows/macOS CI checks. Reconcile release-readiness documentation; no version bump or publication. Historical deployment statements below describe their original implementation stages, not current runtime status.
+
+- Add attention/completion acknowledgement, local Token accounting, automatic priority/wake and authenticated Wi-Fi resource synchronization, with loopback HTTP/CRC/activity/accounting regressions. Align music geometry and weather seconds; fix legacy pre-swapped pet colors and TFT RGB565 byte order.
+- Integrate macOS gallery, mirror, role caches/restoration, events/accounting, cycling and XCTest cases. Windows/firmware validation is local only; Mac remains uncompiled/unverified, with no stable-device replacement or release.
+
+- Add an independently implemented petdex picker with legacy search/preview/role/motion layout, bounded downloads, cached manifest fallback, native Windows WebP decoding and per-role persistence. Verify real Boba decoding and nine-motion/two-role offline fixtures; no USB deployment.
+
+- Preserve original-size local Claude/Codex pets in APET v2, add independent firmware slots, role-specific import/reset menus, restart persistence and recoverable selection backups. Validate slot isolation and restore resource revisions offline; no device deployment.
+
+### Page data decoding and familiar tray navigation
+
+- Migrate provenance-reviewed maintainer weather and domestic authorization code, geometric weather animations, robot icon and synthesized completion cue into isolated AI-bot adapters. Keep the running legacy app/firmware unchanged.
+- Restore single/dual quotas, provider selection, cycle settings, countdowns, stock layout/paging, network graphs, GIF frame playback and persistent Windows pet pixels; add offline rendering, policy/cache/lifecycle/animation tests. Default sprite and per-state parity remain incomplete.
+- Add an isolated legacy-weather layout preview and reject unknown CLI commands without starting a bridge. The new repository's renderer is updated; no candidate is deployed.
+
+- Fix read-only ArduinoJson object/array checks that silently skipped weather, stocks, quota, system and music data in firmware.
+- Read back decoded page state in hardware acceptance tests; add a separate production-runtime live-data test.
+- Restore legacy tray grouping and left-click mirror toggle, sharing persistent display policy with device controls and LAN snapshots.
+
 ### Hardware fixes and legacy screen saver
 
 - Allocate an 8192-byte ESP8266 UART receive buffer before serial initialization to retain complete JSON/resource frames during synchronous drawing and flash writes.

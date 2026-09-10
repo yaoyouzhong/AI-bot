@@ -31,7 +31,7 @@ internal sealed class NowPlayingService
             {
                 var result = new List<ResourcePayload>(2);
                 if (_textRevision > 0) result.Add(new(BinaryResourceKind.TextBitmap, _textRevision, _textBitmap));
-                if (_coverRevision > 0) result.Add(new(BinaryResourceKind.MusicCover, _coverRevision, _coverBitmap));
+                if (_coverRevision > 0 && _coverBitmap.Length>0) result.Add(new(BinaryResourceKind.MusicCover, _coverRevision, _coverBitmap));
                 return result;
             }
         }
@@ -78,29 +78,11 @@ internal sealed class NowPlayingService
             if (duration > 0) elapsed = Math.Clamp(elapsed, 0, duration);
 
             var artist = properties?.Artist?.Trim() ?? string.Empty;
-            var resourceKey = title + "\n" + artist;
-            byte[]? textBitmap = null;
-            byte[]? coverBitmap = null;
-            lock (_sync)
-                if (resourceKey != _resourceKey) textBitmap = RenderTextBitmap(title, artist);
-            if (textBitmap is not null)
-                coverBitmap = await RenderCoverBitmapAsync(properties?.Thumbnail);
-
-            lock (_sync)
-            {
-                _emptySamples = 0;
-                _snapshot = new MusicSnapshot(title, artist,
+            var resourceKey = session.SourceAppUserModelId + "\n" + title + "\n" + artist + "\n" + properties?.AlbumTitle;
+            var coverBitmap = await RenderCoverBitmapAsync(properties?.Thumbnail);
+            ApplySample(new MusicSnapshot(title, artist,
                     properties?.AlbumTitle?.Trim() ?? string.Empty, playing &&
-                    !(duration > 0 && elapsed >= duration - 0.25), elapsed, duration, DateTimeOffset.UtcNow);
-                if (textBitmap is not null && resourceKey != _resourceKey)
-                {
-                    _resourceKey = resourceKey;
-                    _textBitmap = textBitmap;
-                    _coverBitmap = coverBitmap ?? new byte[112 * 112 * 2];
-                    _textRevision++;
-                    _coverRevision++;
-                }
-            }
+                    !(duration > 0 && elapsed >= duration - 0.25), elapsed, duration, DateTimeOffset.UtcNow),resourceKey,coverBitmap);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -111,12 +93,26 @@ internal sealed class NowPlayingService
         }
     }
 
-    private void ApplyEmpty()
+    internal void ApplySample(MusicSnapshot sample,string key,byte[]? cover)
+    {
+        lock(_sync)
+        {
+            _emptySamples=0;
+            if(key!=_resourceKey){_resourceKey=key;_textBitmap=RenderTextBitmap(sample.Title,sample.Artist);_textRevision++;}
+            var bytes=cover??[];
+            if(!_coverBitmap.AsSpan().SequenceEqual(bytes)){_coverBitmap=bytes;_coverRevision++;}
+            _snapshot=sample with{CoverRgb565=bytes.Length>0?bytes:null};
+        }
+    }
+
+    internal void ApplyEmpty()
     {
         lock (_sync)
         {
             _emptySamples++;
             if (_emptySamples < 3 && _snapshot is not null) return;
+            if(_resourceKey.Length>0){_resourceKey="";_textBitmap=RenderTextBitmap("No Music","");_textRevision++;}
+            _coverBitmap=[];
             _snapshot = new MusicSnapshot(string.Empty, string.Empty, string.Empty, false,
                 0, 0, DateTimeOffset.UtcNow);
         }

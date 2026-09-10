@@ -18,7 +18,7 @@ struct AutomaticScreenSaverState {
 
     mutating func desiredMode(idleSeconds: TimeInterval, timeoutMinutes: Int,
                               aiWorking: Bool = false, musicPlaying: Bool = false,
-                              now: Date = Date()) -> String? {
+                              now: Date = Date(), wakeMode: String? = nil) -> String? {
         defer {
             lastAiWorking = aiWorking
             lastMusicPlaying = musicPlaying
@@ -31,7 +31,7 @@ struct AutomaticScreenSaverState {
         }
         if active && idleSeconds < 3 { return selectedMode }
         if active && ((musicPlaying && !lastMusicPlaying) || (aiWorking && !lastAiWorking)) {
-            let mode = musicPlaying ? "music" : "pet"
+            let mode = wakeMode ?? (musicPlaying ? "music" : "pet")
             pendingTemporaryMode = mode
             return mode
         }

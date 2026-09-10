@@ -7,14 +7,15 @@ internal sealed class BridgeSettings
 {
     private static readonly HashSet<string> LegacyAllowList = new(StringComparer.Ordinal)
     {
-        "device_host", "display_cycle_enabled", "display_cycle_interval_seconds",
-        "display_cycle_pages", "domestic_provider", "qweather_api_host",
+        "device_host", "display_mode", "display_cycle_enabled", "display_cycle_interval_seconds",
+        "display_cycle_pages", "domestic_provider", "qweather_api_host", "kimi_membership",
         "screensaver_previous_mode", "screensaver_timeout_minutes", "serial_port",
         "stock_symbols", "weather_animation", "weather_auto_location", "weather_city",
         "weather_latitude", "weather_longitude"
     };
 
     private readonly Dictionary<string, string> _values;
+    private static readonly object FileSync = new();
 
     private BridgeSettings(Dictionary<string, string> values)
     {
@@ -31,16 +32,15 @@ internal sealed class BridgeSettings
 
     internal static BridgeSettings Load()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var appData = AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var currentPath = Path.Combine(appData, "AI-bot", "settings.json");
         var current = Read(currentPath);
-        if (current.Count > 0)
-            return new BridgeSettings(current);
-
         var legacy = Read(Path.Combine(appData, "AIClockBridge", "settings.json"));
-        return new BridgeSettings(legacy
+        var merged = legacy
             .Where(pair => LegacyAllowList.Contains(pair.Key))
-            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal));
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        foreach (var pair in current.Where(pair => LegacyAllowList.Contains(pair.Key))) merged[pair.Key] = pair.Value;
+        return new BridgeSettings(merged);
     }
 
     internal string Get(string key, string fallback = "") =>
@@ -61,6 +61,12 @@ internal sealed class BridgeSettings
     internal bool SaveEditable(IReadOnlyDictionary<string, string> editable, out string error,
         string? directoryOverride = null)
     {
+        lock (FileSync) return SaveEditableCore(editable, out error, directoryOverride);
+    }
+
+    private bool SaveEditableCore(IReadOnlyDictionary<string, string> editable, out string error,
+        string? directoryOverride)
+    {
         var values = _values
             .Where(pair => LegacyAllowList.Contains(pair.Key))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
@@ -77,9 +83,13 @@ internal sealed class BridgeSettings
         try
         {
             var directory = directoryOverride ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot");
+                AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot");
             Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, "settings.json");
+            // Multiple settings windows/services must not overwrite newer fields
+            // using their older in-memory settings snapshot.
+            foreach (var pair in Read(path))
+                if (LegacyAllowList.Contains(pair.Key) && !editable.ContainsKey(pair.Key)) values[pair.Key] = pair.Value;
             var temporary = path + ".tmp";
             File.WriteAllText(temporary, JsonSerializer.Serialize(values, new JsonSerializerOptions
             {

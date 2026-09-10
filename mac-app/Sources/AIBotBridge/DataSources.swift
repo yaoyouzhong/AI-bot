@@ -122,13 +122,16 @@ final class MacDataStore {
 
     func update(music value: MusicSnapshot) {
         lock.lock()
-        music = value
+        if value.title.isEmpty {musicCover=nil}
+        var next=value;next.hasArtwork = !value.title.isEmpty && musicCover?.isEmpty == false
+        music = next
         lock.unlock()
     }
 
     func update(music value: MusicSnapshot, cover: Data) {
         lock.lock()
-        music = value
+        var next=value;next.hasArtwork = !value.title.isEmpty && !cover.isEmpty
+        music = next
         musicCover = cover
         lock.unlock()
     }

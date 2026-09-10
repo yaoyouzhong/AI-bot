@@ -69,6 +69,12 @@ internal sealed class SettingsForm : Form
         CancelButton = cancel;
     }
 
+    internal void FocusSection(string? section)
+    {
+        if (section == "stocks") { _stocks.Focus(); _stocks.SelectAll(); }
+        if (section == "weather") { _city.Focus(); _city.SelectAll(); }
+    }
+
     private static void AddRow(TableLayoutPanel layout, int row, string label, Control control)
     {
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));

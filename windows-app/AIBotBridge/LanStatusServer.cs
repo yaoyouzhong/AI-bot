@@ -10,11 +10,13 @@ internal sealed class LanStatusServer
     private const int MaxHeaderBytes = 8192;
     private readonly TcpListener _listener;
     private readonly string _token;
+    private readonly Func<IReadOnlyList<ResourcePayload>> _resources;
 
-    internal LanStatusServer(LanPairing pairing)
+    internal LanStatusServer(LanPairing pairing, Func<IReadOnlyList<ResourcePayload>>? resources = null)
     {
         _listener = new TcpListener(pairing.Address, pairing.Port);
         _token = pairing.Token;
+        _resources = resources ?? (() => []);
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
@@ -38,6 +40,15 @@ internal sealed class LanStatusServer
     }
 
     private async Task HandleAsync(
+        TcpClient client, Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
+    {
+        using var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        try { await HandleCoreAsync(client,snapshot,timeout.Token); }
+        catch(Exception ex) when(ex is IOException or SocketException or OperationCanceledException) { client.Dispose(); }
+    }
+
+    private async Task HandleCoreAsync(
         TcpClient client,
         Func<StatusSnapshot> snapshot,
         CancellationToken cancellationToken)
@@ -51,6 +62,14 @@ internal sealed class LanStatusServer
                 .FirstOrDefault(line => line.StartsWith("X-AIBot-Token:", StringComparison.OrdinalIgnoreCase))?
                 .Split(':', 2)[1].Trim() ?? string.Empty;
             var authenticated = FixedTimeEquals(_token, suppliedToken);
+            var requestParts = requestLine.Split(' ');
+            if (authenticated && requestParts.Length == 3 && requestParts[0] == "GET" &&
+                (requestParts[1] == "/resources" || requestParts[1].StartsWith("/resources/", StringComparison.Ordinal)))
+            {
+                var resource = LanResourceCatalog.Respond(requestParts[1], _resources());
+                await WriteBytesAsync(stream, resource.Status, resource.Body, cancellationToken);
+                return;
+            }
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
 
             var statusCode = !authenticated ? "401 Unauthorized" : found ? "200 OK" : "404 Not Found";
@@ -90,8 +109,12 @@ internal sealed class LanStatusServer
         NetworkStream stream, string status, string body, CancellationToken cancellationToken)
     {
         var payload = Encoding.UTF8.GetBytes(body);
+        await WriteBytesAsync(stream, status, payload, cancellationToken, "application/json; charset=utf-8");
+    }
+    private static async Task WriteBytesAsync(NetworkStream stream, string status, byte[] payload, CancellationToken cancellationToken, string contentType="application/octet-stream")
+    {
         var headers = Encoding.ASCII.GetBytes(
-            $"HTTP/1.1 {status}\r\nContent-Type: application/json; charset=utf-8\r\n" +
+            $"HTTP/1.1 {status}\r\nContent-Type: {contentType}\r\n" +
             $"Content-Length: {payload.Length}\r\nConnection: close\r\n\r\n");
         await stream.WriteAsync(headers, cancellationToken);
         await stream.WriteAsync(payload, cancellationToken);

@@ -9,7 +9,8 @@ internal sealed record UsbDeviceInfo(
     [property: JsonPropertyName("bridge_online")] bool BridgeOnline,
     [property: JsonPropertyName("uptime_ms")] uint UptimeMs,
     [property: JsonPropertyName("usb_status_count")] uint UsbStatusCount,
-    [property: JsonPropertyName("lan_status_count")] uint LanStatusCount);
+    [property: JsonPropertyName("lan_status_count")] uint LanStatusCount,
+    [property: JsonPropertyName("page_data")] JsonElement? PageData = null);
 
 internal static class UsbDeviceProtocol
 {
@@ -53,8 +54,7 @@ internal static class UsbDeviceProtocol
         var info = data.Deserialize<UsbDeviceInfo>(JsonDefaults.Options);
         if (info is null || info.Device != "AI-bot" || info.Version != 1 ||
             info.Brightness is < 0 or > 100 || info.Ip is null ||
-            info.Mode is not ("auto" or "dual" or "weather" or "stocks" or "quotas" or
-                "domestic" or "system" or "music" or "pet" or "screensaver"))
+            !DisplayModes.IsValid(info.Mode))
             throw new IOException("Invalid device information.");
         return info;
     }
