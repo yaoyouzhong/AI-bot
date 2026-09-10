@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Rename the macOS pet-gallery role selector to avoid conflicting with the inherited NSWindowController.owner property, which blocked Swift compilation.
+
 - Add illustrated installation/flashing guides and an offline interface gallery. Use built-in BYTE SPROUT when no custom pet exists in Windows, firmware and Mac source; preserve custom selections. Windows build/public regressions and firmware build pass; new firmware is not deployed and Mac remains unverified.
 
 - Redesign the bilingual repository homepage with original device illustrations, a concise feature overview, verified platform status and installation links; move detailed reference material into dedicated documents.

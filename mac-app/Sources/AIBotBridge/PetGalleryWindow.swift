@@ -56,7 +56,7 @@ final class MacGalleryService: NSObject, URLSessionTaskDelegate {
 }
 
 final class MacPetGalleryWindow: NSWindowController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSWindowDelegate {
-    private let search=NSSearchField(), table=NSTableView(), preview=NSImageView(), owner=NSPopUpButton(), motion=NSPopUpButton()
+    private let search=NSSearchField(), table=NSTableView(), preview=NSImageView(), roleSelector=NSPopUpButton(), motion=NSPopUpButton()
     private let status=NSTextField(wrappingLabelWithString:"正在读取图库…")
     private let apply=NSButton(title:"应用并同步",target:nil,action:nil)
     private var all:[MacGalleryPet]=[], filtered:[MacGalleryPet]=[], animation:MacPetAnimation?
@@ -74,9 +74,9 @@ final class MacPetGalleryWindow: NSWindowController, NSTableViewDataSource, NSTa
         table.addTableColumn(NSTableColumn(identifier:NSUserInterfaceItemIdentifier("pet")));table.headerView=nil;table.dataSource=self;table.delegate=self
         let scroll=NSScrollView();scroll.documentView=table;scroll.hasVerticalScroller=true;stack.addArrangedSubview(scroll)
         preview.imageScaling = .scaleNone;preview.wantsLayer=true;preview.layer?.backgroundColor=NSColor.black.cgColor;stack.addArrangedSubview(preview);preview.heightAnchor.constraint(equalToConstant:140).isActive=true
-        owner.addItems(withTitles:["Claude","Codex"]);motion.addItems(withTitles:MacGalleryMotion.all.map(\.label));motion.selectItem(at:7)
-        owner.target=self;owner.action=#selector(selectionChanged);motion.target=self;motion.action=#selector(selectionChanged);apply.target=self;apply.action=#selector(save);apply.isEnabled=false
-        stack.addArrangedSubview(NSStackView(views:[owner,motion,apply]));stack.addArrangedSubview(status)
+        roleSelector.addItems(withTitles:["Claude","Codex"]);motion.addItems(withTitles:MacGalleryMotion.all.map(\.label));motion.selectItem(at:7)
+        roleSelector.target=self;roleSelector.action=#selector(selectionChanged);motion.target=self;motion.action=#selector(selectionChanged);apply.target=self;apply.action=#selector(save);apply.isEnabled=false
+        stack.addArrangedSubview(NSStackView(views:[roleSelector,motion,apply]));stack.addArrangedSubview(status)
         stack.addArrangedSubview(NSTextField(wrappingLabelWithString:"素材只保存在本机，不随公开包分发；同步与设备验收是不同状态。"))
         for view in [search,scroll,preview,status] {view.widthAnchor.constraint(equalTo:stack.widthAnchor,constant:-28).isActive=true}
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant:160).isActive=true
@@ -101,7 +101,7 @@ final class MacPetGalleryWindow: NSWindowController, NSTableViewDataSource, NSTa
     @objc private func selectionChanged() {
         generation+=1;let current=generation;work?.cancel();animation=nil;apply.isEnabled=false;preview.image=nil
         guard filtered.indices.contains(table.selectedRow) else {return}
-        let pet=filtered[table.selectedRow],selectedOwner=owner.indexOfSelectedItem==0 ? "claude":"codex",selectedMotion=MacGalleryMotion.all[motion.indexOfSelectedItem]
+        let pet=filtered[table.selectedRow],selectedOwner=roleSelector.indexOfSelectedItem==0 ? "claude":"codex",selectedMotion=MacGalleryMotion.all[motion.indexOfSelectedItem]
         work=Task {@MainActor [weak self] in
             guard let self else {return}
             do {
@@ -114,7 +114,7 @@ final class MacPetGalleryWindow: NSWindowController, NSTableViewDataSource, NSTa
     }
     private func paint() {preview.image=animation?.image(milliseconds:Int(Date().timeIntervalSince(started)*1000))}
     @objc private func save() {
-        guard let animation else {return};let role=owner.indexOfSelectedItem==0 ? "claude":"codex"
+        guard let animation else {return};let role=roleSelector.indexOfSelectedItem==0 ? "claude":"codex"
         do {try MacPetCache.shared.select(role,data:animation.encode());selectPage(role);status.stringValue="已保存到 \(role)，等待桥接同步；未确认设备显示。"}
         catch {status.stringValue="保存失败："+error.localizedDescription}
     }
