@@ -14,7 +14,7 @@ AI-bot 是一个本地优先的 AI 状态桌面时钟。目标产品包含 Claud
 
 当前发布准备状态见[发布前检查](RELEASE_READINESS.md)。Windows 与固件已在维护者设备上部署并做过分项验证，但不能据此认定全部功能验收通过。带日期的迁移文档是历史证据，不代表当前部署或发布状态。
 
-- 已接入代码：等待输入/完成确认、本机 Token 统计、自动优先级/屏保唤醒、Wi-Fi 资源同步，以及 macOS 图库/镜像/桌宠缓存。macOS 构建尚未通过，真实设备仍未验收。
+- 已接入代码：等待输入/完成确认、本机 Token 统计、自动优先级/屏保唤醒、Wi-Fi 资源同步，以及 macOS 图库/镜像/桌宠缓存。macOS Apple Silicon 测试版已通过测试、编译和候选打包，真实设备仍未验收。
 
 - Windows petdex 图库提供搜索、九种动作预览和 Claude/Codex 角色选择，支持 8×9/8×11 精灵图；保存后复用独立资源槽同步。图库 UI 按旧版布局，设备显示仍待真机验收。
 
@@ -53,7 +53,7 @@ AI-bot 是一个本地优先的 AI 状态桌面时钟。目标产品包含 Claud
 
 ```text
 windows-app/AIBotBridge/  Windows .NET 8 托盘桥接
-mac-app/                  macOS 菜单栏桥接（独立基础已建，平台未验证）
+mac-app/                  macOS 菜单栏桥接（Apple Silicon 测试版，实机待验）
 firmware/                 PlatformIO + Arduino ESP8266 固件
 docs/                     协议与开发说明
 ```
@@ -115,7 +115,7 @@ bash scripts/build_macos_app.sh
 
 音乐自动化必须从脚本生成的 `artifacts/AIBotBridge.app` 启动；直接运行 SwiftPM 裸可执行文件不具备 Apple Events 用途说明和 Hardened Runtime entitlement。脚本使用本机临时签名，仅供开发验证，不是正式分发签名。
 
-当前 Windows 主机没有 Swift 工具链。Mac 源码包含 USB/LAN、资源同步、天气/股票/音乐、系统监控、额度、屏保、设备管理、状态事件、本机 Token、图库、镜像和桌宠持久化；另有 XCTest 回归用例。尚未通过构建或连接设备验收，自动化权限、播放器字段、窗口布局、缓存重启、屏保和串口必须在真实 Mac 验证，状态保持 `platform-unverified`。Windows 专属 WebView2 国产厂商授权不宣称为 Mac 已有能力。
+当前 Windows 主机没有 Swift 工具链。Mac 源码包含 USB/LAN、资源同步、天气/股票/音乐、系统监控、额度、屏保、设备管理、状态事件、本机 Token、图库、镜像和桌宠持久化；另有 XCTest 回归用例。31 项测试、Release 编译和 Apple Silicon `.app` 候选打包已通过；自动化权限、播放器字段、窗口布局、缓存重启、屏保和串口仍须真实 Mac 验证。目标 macOS 13+，Intel 未验证，未完成 Developer ID 签名与公证；当前按测试版提供。Windows 专属 WebView2 国产厂商授权不宣称为 Mac 已有能力。
 
 ## 隐私边界
 

@@ -1,12 +1,12 @@
-# Mac 候选包 / Mac candidate
+# macOS（Apple Silicon 测试版）/ Mac test build
 
 适用 macOS 13 及以上、Apple Silicon（M 系列，arm64）。Intel 尚未纳入候选打包验收。
 
-当前源码已通过 31 项 Mac 测试和 Release 编译。新增打包流程尚待云端验证；通过打包后仍需真实 Mac 首次启动、权限和设备验收。
+`f7c2d31` 已通过 31 项 Mac 测试、Release 编译、`.app` 打包、签名完整性及 ZIP 解压校验。仍需真实 Mac 首次启动、权限、设备连接和持续运行验收；不宣称与 Windows 功能完全一致。
 
 ## 获取与安装
 
-仓库尚无正式 Release。后续经批准运行 GitHub Actions 的 **Candidate packages**，可从成功的运行页下载 `candidate-macos-arm64` 附件。解压 Actions 附件后，可见应用 ZIP 和同名 `.sha256`。
+仓库尚无正式 Release。可从[已通过的 Candidate packages 运行页](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465456002)下载 `candidate-macos-arm64` 附件。解压 Actions 附件后，可见应用 ZIP 和同名 `.sha256`。
 
 在下载目录打开终端，使用实际文件名校验：
 
@@ -40,4 +40,4 @@ bash scripts/package_macos.sh artifacts/my-mac-candidate
 
 ## English
 
-This candidate targets macOS 13+ on Apple Silicon only. It includes an ad-hoc signed app, notices and hashes; it is not Developer ID signed or notarized. Build checks do not prove Gatekeeper acceptance, first launch, Automation permissions or device behavior. Verify the ZIP's `.sha256`, extract it and copy the app to Applications. If blocked, record the system message without disabling protection. The menu-bar app requires separate real-Mac acceptance before publication.
+This test build targets macOS 13+ on Apple Silicon only; Intel is unverified. Commit `f7c2d31` passed 31 tests, Release compilation, app packaging, signature integrity and extracted-ZIP checks. It includes an ad-hoc signed app, notices and hashes; it is not Developer ID signed or notarized. Build checks do not prove Gatekeeper acceptance, first launch, Automation permissions or device behavior. Verify the ZIP's `.sha256`, extract it and copy the app to Applications. If blocked, record the system message without disabling protection. The menu-bar app requires separate real-Mac acceptance before publication.

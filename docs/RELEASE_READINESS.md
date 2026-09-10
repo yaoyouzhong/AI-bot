@@ -5,21 +5,24 @@
 
 ## 当前状态（2026-09-10）
 
-- 远端 `main` 的 `725b11b29d9762b82d01283fb395b024bc0ee3ed` 已通过 [三平台 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/34461855047)：Mac 31 项测试、Release 编译，Windows 回归和固件编译均成功。
-- 当前没有正式 Release。下方旧提交、领先数量、未提交文件及“Mac 未验证”描述为历史记录，不是当前仓库状态。
-- 本轮本地修改让 `Candidate packages` 手动流程与标签流程共用候选脚本；Windows 及固件来自隔离源码副本，Mac 提供 arm64 `.app`、临时签名及解压校验。新增云端流程尚未推送执行。
-- 标签流程要求版本一致且中英文 Unreleased 已整理，校验四类 ZIP 及其哈希后仅创建草稿。当前版本保持 0.1.0，不应直接推送旧版本标签。
-- 正式发布前仍需通过新增云端打包、[候选安装及设备验收](CANDIDATE_ACCEPTANCE.md)、版本与更新日志整理和最终发布确认。Mac 公证/签名和实机权限验证不包含在 Swift 编译成功中。
+**Windows · macOS（Apple Silicon 测试版）**。目标 macOS 13+，Intel 未验证；不宣称 Windows 与 Mac 功能完全一致。
 
-### 候选流程
+- 提交 `f7c2d316d8b824bb8701ddeb53eaa7769d5e03fa` 的[三平台 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465452373)和[候选构建](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465456002)均成功。
+- Mac 31 项测试、Release 编译、`.app` 打包、签名完整性及解压校验通过；真实首次启动、权限、设备行为和持续运行待验，尚无 Developer ID 签名与 Apple 公证。
+- Windows 构建、公开自测、解压回归和 SDK 许可/DLL 哈希检查通过；构建中的自测在独立不可见桌面运行。固件及对应源码、许可、重建材料归集通过。
+- Windows、Mac、固件材料和源码四类候选包已生成。云端包内校验通过；本机仅完成 Mac 附件下载复核，Windows/固件附件因下载过慢停止，本机合并后的总校验未完成。
+- 没有正式 Release。标签流程已复用候选打包，并校验附件后仅创建草稿；标签到草稿的完整运行尚未触发。版本保持 0.1.0，仍需整理中英文更新日志并单独确认标签和发布。
+- 下一步是[最终候选安装与实机验收](CANDIDATE_ACCEPTANCE.md)，不是继续修复已通过的编译。下方旧提交及“Mac 未验证”等描述仅为历史记录。
 
-本地 Windows：`powershell -NoProfile -File scripts/package_windows_local.ps1 -Firmware -OutputDirectory artifacts/my-candidate`。目录必须不存在；不停止现有程序、不连接串口、不刷写。
+### 候选入口
 
-Mac：见 [Mac 候选说明](MAC_PACKAGE.md)。云端：推送获批后手动运行 `candidate.yml`，只上传 Actions 附件，不创建标签或 Release。下载两组附件并解压到同一新目录后，可用 `python scripts/prepare_release_assets.py <目录> --commit <完整SHA>` 核对材料齐备、生成总校验及构建记录。
+[Windows 安装](INSTALL.zh.md) · [Mac 测试版安装](MAC_PACKAGE.md)。当前候选从上述成功运行的 Actions 附件获取，不等同于正式 Release。
+
+本地 Windows：`powershell -NoProfile -File scripts/package_windows_local.ps1 -Firmware -OutputDirectory artifacts/my-candidate`。目录须不存在；不停止现有程序、不连接串口、不刷写。
 
 ### Current status in English
 
-Commit `725b11b` passed all three CI jobs, including 31 Mac tests and Release compilation. New local candidate workflows reuse packaging/material checks and produce a draft only on an explicitly pushed version tag. Cloud packaging, fresh installation, real Mac/device acceptance and final version/release approval remain pending. The following sections are dated historical evidence, not current branch or validation status.
+Windows and an Apple Silicon Mac test build are available. Commit `f7c2d31` passed all three CI jobs and candidate packaging. Mac passed 31 tests, Release compilation, app packaging, signature integrity and extraction checks; real-Mac acceptance, Developer ID signing and notarization remain pending, and Intel is unverified. Windows silent self-tests, SDK/material checks and firmware materials passed. Four candidate archives exist in Actions; the complete tag-to-draft workflow has not been run, and no formal Release exists. Local Windows/firmware downloads and combined verification were not completed. The sections below retain dated historical evidence.
 
 ## 历史准备记录（以下保留原始证据）
 

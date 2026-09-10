@@ -4,7 +4,8 @@
 
 <p align="center">
   <strong>A small screen for your AI workflow.</strong><br>
-  Follow activity and account quotas, with weather, music and system information at your desk.
+  Follow activity and account quotas, with weather, music and system information at your desk.<br>
+  <strong>Windows · macOS (Apple Silicon test build)</strong>
 </p>
 
 <p align="center">
@@ -31,7 +32,7 @@ quota have you used? AI-bot puts those signals on a small ESP8266 display.
 
 The desktop bridge reads local Claude Code / Codex activity and provider quotas,
 then sends them to the device. Windows connects over USB first and lives in the
-system tray; a left click opens the screen mirror.
+system tray; a left click opens the screen mirror. Mac has a menu-bar test build with a mirror; real-Mac acceptance remains pending.
 
 ## A live window on your desk
 
@@ -85,7 +86,7 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 ## Get started
 
-**First time here?** [Windows installation (Chinese)](docs/INSTALL.zh.md) · [ESP8266 flashing (Chinese)](docs/FLASH.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
+**First time here?** [Windows installation (Chinese)](docs/INSTALL.zh.md) · [Mac test build](docs/MAC_PACKAGE.md) · [ESP8266 flashing (Chinese)](docs/FLASH.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
 
 BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data, not photographs of a device.
 
@@ -96,8 +97,8 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 </p>
 
 > **`0.1.0` is a development baseline, with no formal Release yet.** Build from source
-> to try it and help validate it. Windows and firmware have passed builds and partial
-> checks; this does not certify the complete product.
+> to try it and help validate it. Windows, Mac and firmware candidates passed cloud build and packaging checks.
+> Mac is an Apple Silicon test build; real-Mac acceptance remains pending.
 
 ### Prepare the hardware
 
@@ -125,18 +126,24 @@ bridge to release the serial port before flashing firmware.
 
 [Windows installation and upgrades](docs/WINDOWS_PACKAGE.md) · [Firmware and rebuilding](docs/FIRMWARE_PACKAGE.md) · [Full development reference](docs/REFERENCE.en.md)
 
+### macOS: Apple Silicon test build
+
+Targets macOS 13+ on M-series chips. Download `candidate-macos-arm64` from the [successful candidate run](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465456002),
+verify and extract the ZIP, then copy the app to Applications. See [Mac installation](docs/MAC_PACKAGE.md).
+The app is ad-hoc signed, without Developer ID signing or notarization. First launch, permissions and device behavior need real-Mac acceptance; Intel is unverified.
+
 ## Current status
 
 | Platform / stage | Current evidence | Still to validate |
 | :--- | :--- | :--- |
 | **Windows** | Release build, isolated public regressions and CI pass | Fresh installation, live authorization, sustained operation and full interaction acceptance |
 | **ESP8266** | Firmware build, source-material rebuild and CI pass; partial device checks | Every physical page, music and complete Wi-Fi fallback |
-| **macOS** | Menu bar, mirror, serial and resource paths are implemented in source | 31 tests and Release compilation pass; candidate packaging, permissions and real Mac acceptance remain pending |
+| **macOS (Apple Silicon test build)** | 31 tests, Release compilation, app packaging, signature integrity and extracted-archive checks pass | First launch, permissions, devices and sustained operation; Developer ID signing and notarization; Intel unverified |
+| **Distribution** | Four cloud candidate packages generated with license and SHA-256 checks; tag workflow prepares a draft | Final-candidate acceptance, version/release notes and publication approval |
 
 Candidate installation and acceptance: [Mac package](docs/MAC_PACKAGE.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
-| **Distribution** | Public source and local materials prepared, with license and SHA-256 checks | Official release workflow integration and final-candidate acceptance |
 
-Checked 2026-09-10: [corresponding CI run](https://github.com/yaoyouzhong/AI-bot/actions/runs/34450527452).
+Checked 2026-09-10: [corresponding CI run](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465452373).
 Follow [Actions](https://github.com/yaoyouzhong/AI-bot/actions) and [release readiness](docs/RELEASE_READINESS.md) for updates.
 
 ## Explore the project

@@ -17,7 +17,7 @@ Version `0.1.0` is an independent development baseline. The main Windows and fir
 
 - The Windows mirror's quota-trend button opens 7/30-day daily weekly-quota usage and separate five-hour snapshots, retained locally for 90 days. Daily totals require verified Beijing-midnight boundaries, account identity and resets; today is in progress, incomplete days show `--`, and averages include only complete days. Two-minute polling usually misses exact boundaries, so complete daily data may be unavailable; reliable accurate daily totals are not yet delivered. See [semantics and limitations](QUOTA_TRENDS.md). Earlier usage is not fabricated.
 
-- Migration code includes attention/completion acknowledgement, local Token accounting, automatic priority/wake behavior, Wi-Fi resource synchronization, and macOS gallery/mirror/persistent pets. macOS still requires a real build and device acceptance.
+- Migration code includes attention/completion acknowledgement, local Token accounting, automatic priority/wake behavior, Wi-Fi resource synchronization, and macOS gallery/mirror/persistent pets. The Apple Silicon Mac test build passed tests, compilation and packaging; device acceptance remains pending.
 
 - The Windows petdex gallery provides search, nine motion previews and Claude/Codex selection, supporting 8x9/8x11 sheets and the existing independent resource slots. Its layout follows the legacy picker; device display still needs hardware validation.
 
@@ -51,13 +51,13 @@ Version `0.1.0` is an independent development baseline. The main Windows and fir
 - Scans local session JSONL for lifecycle/model/time/Token metadata without displaying, persisting or uploading conversation text. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
 - Includes Windows and firmware CI plus tag-driven release scaffolding.
 
-Release gates still include end-to-end Wi-Fi fallback on a reachable network, macOS builds and hardware acceptance, and final-candidate stability, visual and installation checks. Partial account/USB checks on the maintainer's machine do not validate every provider or a fresh installation. Privately imported legacy pets and page logos are excluded from public packages; new users receive BYTE SPROUT. See [data sources and privacy](DATA_SOURCES.md) for outbound-data boundaries.
+Release gates still include end-to-end Wi-Fi fallback on a reachable network, real-Mac and hardware acceptance, and final-candidate stability, visual and installation checks. Partial account/USB checks on the maintainer's machine do not validate every provider or a fresh installation. Privately imported legacy pets and page logos are excluded from public packages; new users receive BYTE SPROUT. See [data sources and privacy](DATA_SOURCES.md) for outbound-data boundaries.
 
 ## Layout
 
 ```text
 windows-app/AIBotBridge/  Windows .NET 8 tray bridge
-mac-app/                  macOS menu-bar bridge (independent foundation, platform-unverified)
+mac-app/                  macOS menu-bar bridge (Apple Silicon test build, real-Mac acceptance pending)
 firmware/                 PlatformIO + Arduino ESP8266 firmware
 docs/                     Protocol and development documentation
 ```
@@ -115,7 +115,7 @@ bash scripts/build_macos_app.sh
 
 Music automation must be tested by launching the generated `artifacts/AIBotBridge.app`; the bare SwiftPM executable does not carry the Apple Events purpose string and Hardened Runtime entitlement. The script uses local ad-hoc signing for development validation, not a distribution identity.
 
-The current Windows host has no Swift toolchain. Mac source covers USB/LAN resources, weather/stocks/music, metrics, quotas, screen saver, device administration, activity events, local Tokens, gallery, mirror and persistent pets, with XCTest regression cases. Its build has not passed and it has not completed device acceptance; permissions, scripting fields, windows, restart caches, screen saver and serial require a real Mac, so it remains `platform-unverified`. Windows-only WebView2 domestic-provider authorization is not claimed as a Mac capability.
+The current Windows host has no Swift toolchain. Mac source covers USB/LAN resources, weather/stocks/music, metrics, quotas, screen saver, device administration, activity events, local Tokens, gallery, mirror and persistent pets, with XCTest regression cases. Its 31 tests, Release compilation and Apple Silicon app packaging passed. Permissions, scripting fields, windows, restart caches, screen saver and serial still require real-Mac acceptance. It targets macOS 13+ as a test build; Intel is unverified, and Developer ID signing/notarization are not complete. Windows-only WebView2 domestic-provider authorization is not claimed as a Mac capability.
 
 ## Privacy boundary
 

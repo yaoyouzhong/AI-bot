@@ -7,13 +7,13 @@
 
 ![安装路线示意，非安装器截图](assets/guides/install.svg)
 
-## 获取现成候选包（候选流水线验证后）
+## 获取现成候选包
 
-后续经批准运行 **Actions → Candidate packages**，成功后在运行页下载 `candidate-windows-firmware` 附件（Actions 下载需登录 GitHub）。选择 Windows ZIP；源码 ZIP 和固件材料 ZIP 不是 Windows 应用。正式发布后，普通用户从仓库 Releases 下载相同类型的附件，无需 Git、Python 或 SDK。
+从[已通过的 Candidate packages 运行页](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465456002)下载 `candidate-windows-firmware` 附件（Actions 下载需登录 GitHub）。选择 Windows ZIP；源码 ZIP 和固件材料 ZIP 不是 Windows 应用。正式发布后，普通用户从仓库 Releases 下载相同类型的附件，无需 Git、Python 或 SDK。
 
 Windows 候选仍需要下表的 **.NET 8 Desktop Runtime x64** 和 **WebView2 Runtime**。核对 ZIP 同名 `.sha256`，完整解压到自己的应用目录后启动 `AIBotBridge.exe`；不要在压缩包内运行，也不要只复制 EXE。后续首次启动与配对按本教程继续。
 
-目前新候选流水线尚未推送验证，仓库没有正式安装包下载；下方源码方式仍可使用。
+Windows、Mac、固件材料和源码候选包均已在云端生成；候选包不是正式 Release。Mac 使用独立的 [Apple Silicon 测试版安装说明](MAC_PACKAGE.md)，下方源码方式仍可使用。
 
 ## 1. 先准备什么
 

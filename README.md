@@ -4,7 +4,8 @@
 
 <p align="center">
   <strong>一块小屏，连接你的 AI 工作流。</strong><br>
-  看工作状态、查账户额度，也让天气、音乐和系统动态留在桌面。
+  看工作状态、查账户额度，也让天气、音乐和系统动态留在桌面。<br>
+  <strong>Windows · macOS（Apple Silicon 测试版）</strong>
 </p>
 
 <p align="center">
@@ -30,7 +31,7 @@
 AI-bot 把这些状态放到一块 ESP8266 小屏上，让你抬眼就能看到。
 
 电脑端桥接读取本地 Claude Code / Codex 活动与厂商额度，再送到桌面设备。
-Windows 优先走 USB；程序常驻托盘，左键即可打开屏幕镜像。
+Windows 优先走 USB，常驻托盘；Mac 提供菜单栏桥接测试版。两端均有屏幕镜像，Mac 实机验收仍待完成。
 
 ## 桌面上的实时窗口
 
@@ -81,7 +82,7 @@ flowchart LR
 
 ## 开始使用
 
-**第一次使用？** [Windows 安装图解](docs/INSTALL.zh.md) · [ESP8266 刷机图解](docs/FLASH.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
+**第一次使用？** [Windows 安装图解](docs/INSTALL.zh.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [ESP8266 刷机图解](docs/FLASH.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
 
 默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；不是实体屏照片。
 
@@ -92,7 +93,7 @@ flowchart LR
 </p>
 
 > **当前为 `0.1.0` 开发基线，尚无正式 Release。** 可以从源码构建并参与验证；
-> Windows 和固件已完成构建及部分验证，不等同于产品级全功能验收。
+> Windows、Mac 与固件候选已通过云端构建和打包检查；Mac 为 Apple Silicon 测试版，尚未完成实机验收。
 
 ### 准备硬件
 
@@ -117,18 +118,24 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 [Windows 安装与升级](docs/WINDOWS_PACKAGE.md) · [固件构建与重建](docs/FIRMWARE_PACKAGE.md) · [完整开发与运行参考](docs/REFERENCE.zh.md)
 
+### macOS：Apple Silicon 测试版
+
+面向 macOS 13+、M 系列芯片。可从[已通过的候选构建](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465456002)下载 `candidate-macos-arm64` 附件；
+解压并校验后，将 `.app` 放入“应用程序”。详见 [Mac 安装说明](docs/MAC_PACKAGE.md)。
+目前仅临时签名，未完成 Developer ID 签名与 Apple 公证；首次启动、权限和设备行为待实机验证，Intel Mac 未验证。
+
 ## 当前进度
 
 | 平台 / 环节 | 当前证据 | 仍需完成 |
 | :--- | :--- | :--- |
 | **Windows** | Release 构建、公开隔离回归及 CI 通过 | 全新安装、真实授权、持续运行与全部交互验收 |
 | **ESP8266** | 固件构建、源码材料重建及 CI 通过；已有分项实机验证 | 实体屏逐页确认、音乐及完整 Wi-Fi 回退 |
-| **macOS** | 菜单栏、镜像、串口及资源路径已有源码 | 31 项测试及 Release 编译通过；候选打包、权限和真实 Mac 验收仍待完成 |
+| **macOS（Apple Silicon 测试版）** | 31 项测试、Release 编译、`.app` 打包、签名完整性及解压校验通过 | 首次启动、权限、设备连接、持续运行；Developer ID 签名与公证；Intel 未验证 |
+| **公开分发** | 四类候选包云端生成成功，许可和 SHA-256 检查通过；标签流程已接入草稿生成 | 最终候选验收、版本与发布说明整理、正式发布确认 |
 
 候选安装与验收：[Mac 候选包](docs/MAC_PACKAGE.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
-| **公开分发** | 源码与本地候选材料已整理，许可和 SHA-256 检查已加入 | 正式 Release 流程接入与候选发布验收 |
 
-状态核对：2026-09-10，[对应 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/34450527452)。
+状态核对：2026-09-10，[对应 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465452373)。
 持续更新以[Actions](https://github.com/yaoyouzhong/AI-bot/actions)与[发布前检查](docs/RELEASE_READINESS.md)为准。
 
 ## 深入了解
