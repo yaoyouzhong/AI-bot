@@ -309,14 +309,20 @@ final class AIBotBridgeTests: XCTestCase {
         let decoded = try XCTUnwrap(NSBitmapImageRep(data: png))
         XCTAssertEqual(decoded.pixelsWide, 2)
         XCTAssertEqual(decoded.pixelsHigh, 1)
-        let red = try XCTUnwrap(decoded.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
-        let blue = try XCTUnwrap(decoded.colorAt(x: 1, y: 0)?.usingColorSpace(.deviceRGB))
-        XCTAssertEqual(red.redComponent, 1, accuracy: 0.01)
-        XCTAssertEqual(red.blueComponent, 0, accuracy: 0.01)
-        XCTAssertEqual(red.alphaComponent, 1, accuracy: 0.01)
-        XCTAssertEqual(blue.blueComponent, 1, accuracy: 0.01)
-        XCTAssertEqual(blue.redComponent, 0, accuracy: 0.01)
-        XCTAssertEqual(blue.alphaComponent, 1, accuracy: 0.01)
+        // Inspect encoded samples without a device color-space conversion, which
+        // can shift components even when the original pixel is a primary color.
+        XCTAssertEqual(decoded.bitsPerSample, 8)
+        XCTAssertEqual(decoded.samplesPerPixel, 3)
+        XCTAssertFalse(decoded.hasAlpha)
+        func sourcePixel(_ x: Int) -> [Int] {
+            var samples = [Int](repeating: 0, count: decoded.samplesPerPixel)
+            samples.withUnsafeMutableBufferPointer {
+                decoded.getPixel($0.baseAddress!, atX: x, y: 0)
+            }
+            return samples
+        }
+        XCTAssertEqual(sourcePixel(0), [255, 0, 0])
+        XCTAssertEqual(sourcePixel(1), [0, 0, 255])
         let cover = try XCTUnwrap(MacMusicService.renderArtwork(png))
         XCTAssertEqual(cover.count, 112 * 112 * 2)
         XCTAssertTrue(cover.contains { $0 != 0 })

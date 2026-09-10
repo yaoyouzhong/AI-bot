@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Check the Mac PNG fixture's raw pixel samples to avoid device color-profile differences in input assertions; retain exact RGB565 output and letterbox checks. Mac CI verification is pending.
+
 - Align the Mac music test with the no-artwork resource contract and use an explicit red/blue PNG fixture, checking decoded input, RGB565 colors and aspect-fit letterboxing; Mac CI verification is pending.
 
 - Rename the macOS pet-gallery role selector to avoid conflicting with the inherited NSWindowController.owner property, which blocked Swift compilation.
