@@ -14,7 +14,7 @@ mkdir -p "$repo_root/artifacts"
 output="$(cd "$output" && pwd)"
 stage="$(mktemp -d "$repo_root/artifacts/mac-package.XXXXXX")"
 bash scripts/build_macos_app.sh "$stage/AIBotBridge.app"
-lipo -verify_arch arm64 "$stage/AIBotBridge.app/Contents/MacOS/AIBotBridge"
+lipo "$stage/AIBotBridge.app/Contents/MacOS/AIBotBridge" -verify_arch arm64
 cp LICENSE THIRD_PARTY_NOTICES.md "$stage/"
 cp docs/MAC_PACKAGE.md "$stage/README.md"
 version="$(tr -d '\r\n' < VERSION)"
