@@ -85,6 +85,16 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 ## Get started
 
+**First time here?** [Windows installation (Chinese)](docs/INSTALL.zh.md) · [ESP8266 flashing (Chinese)](docs/FLASH.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
+
+BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data, not photographs of a device.
+
+<p>
+<img src="docs/assets/screens/codex.png" width="240" alt="Codex quota and built-in pet with sample data">
+<img src="docs/assets/screens/weather.png" width="240" alt="Weather and clock sample">
+<img src="docs/assets/screens/system.png" width="240" alt="Synthetic system monitoring sample">
+</p>
+
 > **`0.1.0` is a development baseline, with no formal Release yet.** Build from source
 > to try it and help validate it. Windows and firmware have passed builds and partial
 > checks; this does not certify the complete product.

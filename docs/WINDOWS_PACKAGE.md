@@ -1,5 +1,7 @@
 # Windows 本地候选包 / Local Windows candidate
 
+新用户请先阅读[Windows 安装与首次使用图解](INSTALL.zh.md)。
+
 本包是未发布的 win-x64 候选，不是安装器，也不是全部功能已验收的正式版。
 
 使用和再次分发前请阅读随包 `DISTRIBUTION_TERMS.md` 及 `licenses/` 中的第三方

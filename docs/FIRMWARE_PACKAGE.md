@@ -1,5 +1,7 @@
 # Firmware materials / 固件分发材料
 
+具体刷写步骤见[ESP8266 刷机图解](FLASH.zh.md)，本文侧重分发材料与重建。
+
 本包是本地构建候选，包含 `firmware.bin`、AI-bot 固件源码、实际构建所用的
 Arduino core/库/PlatformIO 平台源码和随附 SDK 文件、许可、依赖版本及校验清单。
 不含设备 Flash 备份、Wi-Fi 信息、私人图片或用户配置，也不包含主机编译器。

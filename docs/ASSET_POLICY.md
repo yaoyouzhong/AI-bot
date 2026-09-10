@@ -8,7 +8,7 @@ support in its private pet cache. Resources 12/13 feed the mirror and device;
 no logo pixels or source headers are included in the repository/release. This
 import does not confer a redistribution license. macOS remains unbuilt/unverified.
 
-AI-bot distributes only its procedural `BYTE SPROUT` pet. No legacy sprite, vendor logo, screenshot, or third-party character is bundled.
+AI-bot distributes only its procedural `BYTE SPROUT` pet. No legacy sprite, vendor logo, third-party screenshot, or third-party character is bundled. Reviewed offline captures of AI-bot's own UI are documented in [SCREENSHOTS.md](SCREENSHOTS.md).
 
 The Windows and macOS bridges can send a user-selected PNG, JPEG, BMP, or animated GIF as a private runtime pet. GIFs are sampled into at most eight frames with aggregated per-frame durations; inputs above 1000 frames are rejected. Import is accepted only when the image directory also contains `LICENSE`, `LICENSE.txt`, or `<image-name>.license.txt`, limited to 64 KiB. This is a provenance gate rather than a legal classifier: AI-bot verifies that a notice exists but does not claim that arbitrary notice text grants a particular right.
 
@@ -38,3 +38,5 @@ and the nine motion rows in `src/lib/pet-states.ts`. Only a public manifest and
 user-selected converted pixels persist outside the repository. Petdex describes
 its submissions as fan art and does not claim underlying IP rights; this integration
 does not declare these assets MIT or include them in public distribution.
+
+When no custom animation is available, the Windows mirror and firmware quota/pet pages draw the built-in BYTE SPROUT without importing a file. Mac mirror source provides the same fallback but remains platform-unverified. Existing user selections retain priority.

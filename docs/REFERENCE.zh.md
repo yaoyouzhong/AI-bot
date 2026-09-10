@@ -1,5 +1,7 @@
 # 功能与开发参考
 
+先看[安装图解](INSTALL.zh.md)、[刷机图解](FLASH.zh.md)和[功能界面图鉴](FEATURES.zh.md)。默认 BYTE SPROUT 无需导入；自选素材优先保留。
+
 本文命令均在仓库根目录执行。当前平台状态和快速入口见[项目首页](../README.md)。
 
 AI-bot 是一个本地优先的 AI 状态桌面时钟。目标产品包含 Claude / Codex 活动和账户额度、国产模型额度、天气、股票、系统监控、音乐、桌宠、屏保、USB 优先、Wi-Fi 回退、Windows 托盘以及 macOS 菜单栏桥接。

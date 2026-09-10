@@ -322,11 +322,7 @@ internal sealed class MirrorForm : Form
             DrawResetCredits(g, s, 200);
             return;
         }
-        using var shell = new SolidBrush(working ? Color.Cyan : Color.DimGray);
-        g.FillRectangle(shell, 99, 68, 42, 34);
-        g.FillRectangle(shell, 103, 108, 34, 42);
-        using var face = new SolidBrush(Color.Black);
-        g.FillRectangle(face, 105, 75, 30, 18);
+        ByteSproutRenderer.Draw(g,91,54,working,s.CapturedAt.ToUnixTimeMilliseconds());
         Center(g, working ? "WORKING" : "IDLE", 180, 16, working ? Color.LimeGreen : Color.Yellow, true);
         DrawResetCredits(g, s, 200);
     }

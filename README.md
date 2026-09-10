@@ -81,6 +81,16 @@ flowchart LR
 
 ## 开始使用
 
+**第一次使用？** [Windows 安装图解](docs/INSTALL.zh.md) · [ESP8266 刷机图解](docs/FLASH.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
+
+默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；不是实体屏照片。
+
+<p>
+<img src="docs/assets/screens/codex.png" width="240" alt="Codex 额度页与内置桌宠，示例数据">
+<img src="docs/assets/screens/weather.png" width="240" alt="天气时钟示例">
+<img src="docs/assets/screens/system.png" width="240" alt="系统监控示例">
+</p>
+
 > **当前为 `0.1.0` 开发基线，尚无正式 Release。** 可以从源码构建并参与验证；
 > Windows 和固件已完成构建及部分验证，不等同于产品级全功能验收。
 

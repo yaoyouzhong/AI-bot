@@ -21,6 +21,19 @@ internal static class PublicSelfTest
             foreach (var mode in new[] { "claude", "codex", "quotas", "weather", "stocks", "system", "pet", "domestic_zhipu" })
                 using (var page = MirrorForm.RenderSnapshot(status, mode))
                     if (page.Width != 240 || page.Height != 240) throw new InvalidOperationException("Empty page size changed.");
+            // A fresh install must show the built-in pet without creating private resources.
+            foreach (var mode in new[] { "claude", "codex", "pet" })
+            {
+                var sample=status with {Codex=new("working",0),Claude=new("working",0),CapturedAt=DateTimeOffset.FromUnixTimeMilliseconds(0)};
+                using var first=MirrorForm.RenderSnapshot(sample,mode);
+                using var next=MirrorForm.RenderSnapshot(sample with {CapturedAt=DateTimeOffset.FromUnixTimeMilliseconds(240)},mode);
+                int body=0,changed=0;
+                for(int y=64;y<170;y++) for(int x=91;x<153;x++)
+                {if(first.GetPixel(x,y).ToArgb()==Color.Cyan.ToArgb())body++;if(first.GetPixel(x,y)!=next.GetPixel(x,y))changed++;}
+                if(body<500 || changed==0)throw new InvalidOperationException("Fresh-profile default pet missing or not animated: "+mode);
+            }
+            if(PetAnimationStore.Shared.AllResources().Count!=0)throw new InvalidOperationException("Built-in pet must not write imported resources.");
+            Console.WriteLine("BUILTIN_PET_FRESH_PROFILE_OK claude/codex/pet; animated; no imported resource");
             _ = runtime.Resources();
         }
         DataSourceSelfTest.Run();

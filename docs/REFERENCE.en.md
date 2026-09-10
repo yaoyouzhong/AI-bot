@@ -1,5 +1,7 @@
 # Feature and development reference
 
+Start with the illustrated [installation](INSTALL.zh.md), [flashing](FLASH.zh.md) and [feature gallery](FEATURES.zh.md) guides (Chinese). Built-in BYTE SPROUT needs no import; existing custom selections retain priority.
+
 Run commands from the repository root. See the [project homepage](../README.en.md) for current platform status and quick-start links.
 
 See [release readiness](RELEASE_READINESS.md). Windows and firmware have been

@@ -4,6 +4,8 @@ Examines tracked and non-ignored untracked files. Reports locations, never value
 """
 from pathlib import Path
 import re
+import hashlib
+import json
 import subprocess
 import sys
 
@@ -13,6 +15,44 @@ RULES = {
     "github-token": re.compile(rb"\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,})\b"),
     "provider-key": re.compile(rb"\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{40,}\b"),
 }
+# Individually reviewed documentation captures. Path AND bytes must match the record.
+REVIEWED_DOC_NAMES = frozenset({
+    'activity.png',
+    'authorization-empty.png',
+    'claude.png',
+    'codex.png',
+    'completed.png',
+    'cycle-settings.png',
+    'device-control.png',
+    'domestic_alibaba.png',
+    'domestic_deepseek.png',
+    'domestic_kimi.png',
+    'domestic_minimax.png',
+    'domestic_zhipu.png',
+    'dual.png',
+    'mirror-window.png',
+    'music.png',
+    'needs-input.png',
+    'pet-gallery-empty.png',
+    'pet.png',
+    'quota-trend-empty.png',
+    'screensaver.png',
+    'settings.png',
+    'stocks.png',
+    'system.png',
+    'tray-menu.png',
+    'weather-settings.png',
+    'weather.png',
+})
+DOC_ASSET_HASHES = json.loads((ROOT / "licenses/materials.json").read_text(encoding="utf-8")).get("sourceAssets", {})
+
+
+def reviewed_doc_image(path, data):
+    return (path.startswith("docs/assets/screens/")
+            and path.removeprefix("docs/assets/screens/") in REVIEWED_DOC_NAMES
+            and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path))
+
+
 PRIVATE_NAMES = {
     "settings.json", "auth.json", ".credentials.json", "pairing.dat",
     "usage-cache.json", "domestic-quota-cache.json", "domestic-provider-cache.json",
@@ -28,7 +68,8 @@ def findings(path, data):
         yield "private-or-generated-directory", 0
     if (Path(name).suffix in {'.exe', '.dll', '.bin', '.elf', '.o', '.a', '.pdb', '.zip',
                              '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico'}
-            and normalized != 'windows-app/aibotbridge/assets/app-icon.ico'):
+            and normalized != 'windows-app/aibotbridge/assets/app-icon.ico'
+            and not reviewed_doc_image(normalized, data)):
         yield "unreviewed-binary-or-artwork", 0
     if (name in PRIVATE_NAMES or name == ".env" or name.startswith(".env.")
             and name not in {".env.example", ".env.sample"}
@@ -48,6 +89,10 @@ def main():
         assert list(findings("artifacts/private.txt", b"data"))
         assert list(findings("docs/screen.png", b"image"))
         assert not list(findings("windows-app/AIBotBridge/Assets/app-icon.ico", b"icon"))
+        assert list(findings("docs/assets/screens/unreviewed.png", b"image"))
+        assert list(findings("docs/assets/screens/codex.png", b"changed image"))
+        known = "docs/assets/screens/codex.png"
+        assert not list(findings(known, (ROOT / known).read_bytes()))
         print("PUBLIC_CONTENT_GUARD_SELF_TEST_OK")
         return 0
     if "--history" in sys.argv:

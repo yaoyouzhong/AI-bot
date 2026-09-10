@@ -873,8 +873,22 @@ void drawSingleCreditBadge() {
   display.setTextDatum(TL_DATUM);
 }
 
+void drawPixelPetBody(int x, int y, bool step, bool working);
+
+void drawDefaultQuotaPet(bool animate, bool force) {
+  static uint32_t lastTick = 0;
+  static bool lastAnimate = false;
+  uint32_t tick = millis() / 240;
+  if (!force && lastAnimate == animate && (!animate || tick == lastTick)) return;
+  lastTick = tick; lastAnimate = animate;
+  // Stay below the plan header, above quota rows and left of credit badges.
+  display.fillRect(91,70,62,98,TFT_BLACK);
+  drawPixelPetBody(91,70,animate && (tick % 2),animate);
+}
+
 void drawSingleQuota(bool claude) {
   static String previousKey;
+  static bool staticPetAvailable = false;
   static uint32_t previousGeneration = UINT32_MAX;
   bool animate = (claude ? claudeState : codexState) == "working" || (!claude && completionActive && millis()-completionStarted<3500);
   const auto& q = claude ? claudeQuota : codexQuota;
@@ -883,7 +897,8 @@ void drawSingleQuota(bool claude) {
     + "|" + String(q.primaryPercent,3) + "|" + String(q.weeklyPercent,3) + "|" + resetClock(q.primaryReset) + "|" + resetClock(q.weeklyReset) + "|" + String(q.resetCredits);
   for (auto expiry : q.resetExpirations) key += "|" + String((long long)expiry);
   if (previousGeneration == visualGeneration && key == previousKey) {
-    drawPetAnimation(64,64,false,animate,claude,!claude);
+    if (!drawPetAnimation(64,64,false,animate,claude,!claude) && !staticPetAvailable)
+      drawDefaultQuotaPet(animate,false);
     screenDirty=false;
     return;
   }
@@ -902,8 +917,11 @@ void drawSingleQuota(bool claude) {
     display.setTextDatum(MC_DATUM);display.setTextColor(color,TFT_BLACK);display.drawString(q.plan,61+width/2,38,2);
     display.setTextDatum(TL_DATUM);
   }
-  if (!drawPetAnimation(64, 64, true, animate, claude) && !drawRgb565File("/pet.asset", 64, 64, 112, 112))
-    drawCentered("PET ASSET NOT IMPORTED", 110, 1, TFT_DARKGREY);
+  staticPetAvailable = false;
+  if (!drawPetAnimation(64, 64, true, animate, claude)) {
+    staticPetAvailable = drawRgb565File("/pet.asset", 64, 64, 112, 112);
+    if (!staticPetAvailable) drawDefaultQuotaPet(animate,true);
+  }
   if (!claude)drawSingleCreditBadge();
   bool weeklyOnly = !q.primaryAvailable && (!claude || q.weeklyAvailable);
   for (int row = weeklyOnly ? 1 : 0; row < 2; row++) {

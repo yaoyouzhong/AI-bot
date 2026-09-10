@@ -31,3 +31,6 @@ pairing.dat
 codex-quota-history.json
 quota-auth-profile/
 page-logos/
+
+# Local flashing tutorial environment.
+.venv-flash/

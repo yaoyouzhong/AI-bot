@@ -21,7 +21,9 @@ internal static class UsagePageRenderer
         Ring(g, percent);
         if(!LocalPageLogos.Draw(g,claude))Text(g,claude ? "CLAUDE" : "CODEX",new(14,18,40,40),8,claude?Color.Orange:Color.Cyan,true);
         SinglePlanBadge(g,quota?.Plan ?? "",!claude && (quota?.ResetCreditsAvailable>0 || quota?.ResetCreditExpiresAt.Count>0));
-        if (!PetAnimationStore.Shared.Draw(g,64,64,claude ? "claude" : "codex", (claude ? s.Claude.State : s.Codex.State) == "working" || !claude && s.Codex.CompletionActive && DateTimeOffset.UtcNow.ToUnixTimeSeconds()-s.Codex.CompletionAt<4)) Text(g,"请导入桌宠",new(50,96,140,40),12,Color.Gray,true);
+        var animate = (claude ? s.Claude.State : s.Codex.State) == "working" || !claude && s.Codex.CompletionActive && DateTimeOffset.UtcNow.ToUnixTimeSeconds()-s.Codex.CompletionAt<4;
+        if (!PetAnimationStore.Shared.Draw(g,64,64,claude ? "claude" : "codex", animate))
+            ByteSproutRenderer.Draw(g,91,70,animate,s.CapturedAt.ToUnixTimeMilliseconds());
         if (!claude)
         {
             DrawCreditBadge(g,s,quota);
