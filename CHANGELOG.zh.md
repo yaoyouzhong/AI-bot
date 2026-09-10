@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 对齐 Mac 无封面音乐资源的测试约定；改用明确红蓝像素的 PNG 样本，并检查输入解码、RGB565 颜色及等比缩放留黑。待 Mac CI 验证。
+
 - 修复 macOS 桌宠图库角色选择控件与父类 NSWindowController.owner 重名，导致 Swift 编译失败的问题。
 
 - 补齐安装、刷机图解与真实程序离线界面图鉴；Windows、固件及 Mac 源码在无自选桌宠时回退到内置 BYTE SPROUT，保留用户选择。Windows 构建/公开回归及固件构建通过；未刷写本次固件，Mac 未验证。

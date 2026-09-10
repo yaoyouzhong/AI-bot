@@ -280,10 +280,10 @@ final class AIBotBridgeTests: XCTestCase {
         let resources = MacLocalizedTextResources().capture(
             weather: nil, stocks: nil, music: music, musicCover: nil)
         let text = try XCTUnwrap(resources.first { $0.kind == .textBitmap })
-        let cover = try XCTUnwrap(resources.first { $0.kind == .musicCover })
+        XCTAssertFalse(resources.contains { $0.kind == .musicCover },
+                       "Missing artwork must not publish a black placeholder or stale cover")
         XCTAssertEqual(text.data.count, 232 * 44 * 2)
         XCTAssertTrue(text.data.contains { $0 != 0 })
-        XCTAssertEqual(cover.data, Data(repeating: 0, count: 112 * 112 * 2))
     }
 
     func testMusicParsingClampsInvalidProgress() throws {
@@ -302,16 +302,33 @@ final class AIBotBridgeTests: XCTestCase {
     }
 
     func testMusicArtworkDecodeAndScale() throws {
-        let bitmap = try XCTUnwrap(NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 1,
-            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-            colorSpaceName: .deviceRGB, bytesPerRow: 8, bitsPerPixel: 32))
-        bitmap.setColor(.red, atX: 0, y: 0)
-        bitmap.setColor(.blue, atX: 1, y: 0)
-        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        // Original opaque red/blue pixels encoded as PNG. Verify the input separately
+        // so a platform bitmap-setter issue cannot masquerade as an RGB565 failure.
+        let png = try XCTUnwrap(Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg=="))
+        let decoded = try XCTUnwrap(NSBitmapImageRep(data: png))
+        XCTAssertEqual(decoded.pixelsWide, 2)
+        XCTAssertEqual(decoded.pixelsHigh, 1)
+        let red = try XCTUnwrap(decoded.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
+        let blue = try XCTUnwrap(decoded.colorAt(x: 1, y: 0)?.usingColorSpace(.deviceRGB))
+        XCTAssertEqual(red.redComponent, 1, accuracy: 0.01)
+        XCTAssertEqual(red.blueComponent, 0, accuracy: 0.01)
+        XCTAssertEqual(red.alphaComponent, 1, accuracy: 0.01)
+        XCTAssertEqual(blue.blueComponent, 1, accuracy: 0.01)
+        XCTAssertEqual(blue.redComponent, 0, accuracy: 0.01)
+        XCTAssertEqual(blue.alphaComponent, 1, accuracy: 0.01)
         let cover = try XCTUnwrap(MacMusicService.renderArtwork(png))
         XCTAssertEqual(cover.count, 112 * 112 * 2)
         XCTAssertTrue(cover.contains { $0 != 0 })
+        func pixel(_ x: Int, _ y: Int) -> UInt16 {
+            let offset = (y * 112 + x) * 2
+            return UInt16(cover[offset]) | UInt16(cover[offset + 1]) << 8
+        }
+        // Aspect-fit keeps 28-pixel black bars; sample away from the interpolated join.
+        XCTAssertEqual(pixel(8, 56), 0xF800, "Red must survive PNG decode, scaling and little-endian packing")
+        XCTAssertEqual(pixel(104, 56), 0x001F, "Blue must survive PNG decode, scaling and little-endian packing")
+        XCTAssertEqual(pixel(56, 8), 0, "Top letterbox must stay black")
+        XCTAssertEqual(pixel(56, 104), 0, "Bottom letterbox must stay black")
         XCTAssertNil(MacMusicService.renderArtwork(Data([0, 1, 2, 3])))
         XCTAssertTrue(MacMusicService.allowedSpotifyArtworkURL(
             try XCTUnwrap(URL(string: "https://i.scdn.co/image/test"))))

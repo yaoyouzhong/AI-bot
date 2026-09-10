@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Align the Mac music test with the no-artwork resource contract and use an explicit red/blue PNG fixture, checking decoded input, RGB565 colors and aspect-fit letterboxing; Mac CI verification is pending.
+
 - Rename the macOS pet-gallery role selector to avoid conflicting with the inherited NSWindowController.owner property, which blocked Swift compilation.
 
 - Add illustrated installation/flashing guides and an offline interface gallery. Use built-in BYTE SPROUT when no custom pet exists in Windows, firmware and Mac source; preserve custom selections. Windows build/public regressions and firmware build pass; new firmware is not deployed and Mac remains unverified.
