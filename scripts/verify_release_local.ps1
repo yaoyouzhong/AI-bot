@@ -12,6 +12,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Public content guard failed' }
     python scripts/collect_distribution_materials.py verify
     if ($LASTEXITCODE -ne 0) { throw 'Distribution evidence failed' }
+    python scripts/test_release_packaging.py
+    if ($LASTEXITCODE -ne 0) { throw 'Packaging boundary tests failed' }
     $files = git -c "safe.directory=$($repoPath.Replace('\','/'))" ls-files --cached --others --exclude-standard
     if ($LASTEXITCODE -ne 0) { throw 'Source inventory failed' }
     New-Item -ItemType Directory -Path $auditPath | Out-Null

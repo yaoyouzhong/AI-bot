@@ -6,68 +6,49 @@ on:
       - "v*.*.*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  validate:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          dotnet-version: 8.0.x
-      - name: Publish Windows bridge
-        shell: pwsh
+          python-version: '3.12'
+      - name: Verify tag and finalized notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          dotnet publish windows-app/AIBotBridge/AIBotBridge.csproj -c Release -r win-x64 --self-contained false -o artifacts/windows
-          Copy-Item LICENSE,THIRD_PARTY_NOTICES.md artifacts/windows
-          Compress-Archive -Path artifacts/windows/* -DestinationPath "AIBotBridge-${{ github.ref_name }}-win-x64.zip"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: windows
-          path: AIBotBridge-${{ github.ref_name }}-win-x64.zip
-          if-no-files-found: error
-
-  firmware:
+          python scripts/check_version.py --tag "$RELEASE_TAG"
+          python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
+  packages:
+    needs: validate
+    uses: ./.github/workflows/candidate.yml
+  draft:
+    needs: packages
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: "3.12"
-      - name: Verify tag and version
-        run: python scripts/check_version.py --tag "${GITHUB_REF_NAME}"
-      - name: Install PlatformIO
-        run: python -m pip install platformio==6.1.18
-      - name: Build firmware
-        run: python -m platformio run -d firmware
-      - name: Stage firmware
-        run: cp firmware/.pio/build/nodemcuv2/firmware.bin "AI-bot-${GITHUB_REF_NAME}-esp8266.bin"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: firmware
-          path: AI-bot-${{ github.ref_name }}-esp8266.bin
-          if-no-files-found: error
-
-  publish:
-    needs: [windows, firmware]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.12"
+          python-version: '3.12'
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
+          pattern: candidate-*
           path: release-assets
           merge-multiple: true
-      - name: Prepare release metadata
+      - name: Verify complete assets and prepare metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
         run: |
-          cp LICENSE THIRD_PARTY_NOTICES.md release-assets/
-          python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" release-notes.md
-          cd release-assets
-          sha256sum * > SHA256SUMS.txt
-      - name: Publish GitHub release
+          python scripts/prepare_release_assets.py release-assets --commit "$SOURCE_SHA"
+          python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
+      - name: Create reviewable draft only
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" release-assets/* --verify-tag --title "${GITHUB_REF_NAME}" --notes-file release-notes.md
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" release-assets/* --verify-tag --draft --title "$RELEASE_TAG" --notes-file release-notes.md

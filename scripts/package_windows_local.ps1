@@ -1,8 +1,12 @@
-param([switch]$Firmware)
+param([switch]$Firmware, [string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $repoPath = Split-Path $PSScriptRoot
 Push-Location $repoPath
 try {
+    if ($OutputDirectory) {
+        $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
+        if (Test-Path -LiteralPath $OutputDirectory) { throw 'Use a new output directory' }
+    }
     # The verified source copy is also the source of the publish operation.
     $verifyArguments = @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'verify_release_local.ps1'))
     if ($Firmware) { $verifyArguments += '-Firmware' }
@@ -43,6 +47,17 @@ try {
     if ($Firmware) {
         python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') firmware --stage (Join-Path $sourceRoot "AI-bot-$version-firmware-materials")
         if ($LASTEXITCODE -ne 0) { throw 'Firmware materials failed validation' }
+    }
+    if ($OutputDirectory) {
+        New-Item -ItemType Directory -Path $OutputDirectory | Out-Null
+        $deliverables = @($zip, ($zip + '.sha256'),
+            (Join-Path $sourceRoot "AI-bot-$version-source.zip"),
+            (Join-Path $sourceRoot "AI-bot-$version-source.zip.sha256"))
+        if ($Firmware) {
+            $deliverables += (Join-Path $sourceRoot "AI-bot-$version-firmware-materials.zip")
+            $deliverables += (Join-Path $sourceRoot "AI-bot-$version-firmware-materials.zip.sha256")
+        }
+        foreach ($file in $deliverables) { Copy-Item -LiteralPath $file -Destination $OutputDirectory }
     }
     Write-Output "LOCAL_WINDOWS_PACKAGE_OK zip=$zip files=$($manifest.Count)"
 } finally { Pop-Location }

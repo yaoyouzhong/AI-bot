@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add shared candidate packaging for Windows/firmware/source materials and an Apple Silicon Mac app; validate archive checksums before creating a tag-triggered release draft. Refresh installation and acceptance guidance. Cloud packaging and interactive acceptance remain pending.
+
 - Check the Mac PNG fixture's raw pixel samples to avoid device color-profile differences in input assertions; retain exact RGB565 output and letterbox checks. Mac CI verification is pending.
 
 - Align the Mac music test with the no-artwork resource contract and use an explicit red/blue PNG fixture, checking decoded input, RGB565 colors and aspect-fit letterboxing; Mac CI verification is pending.

@@ -123,7 +123,9 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 | :--- | :--- | :--- |
 | **Windows** | Release 构建、公开隔离回归及 CI 通过 | 全新安装、真实授权、持续运行与全部交互验收 |
 | **ESP8266** | 固件构建、源码材料重建及 CI 通过；已有分项实机验证 | 实体屏逐页确认、音乐及完整 Wi-Fi 回退 |
-| **macOS** | 菜单栏、镜像、串口及资源路径已有源码 | 当前 CI 构建未通过；仍需平台修复与真实 Mac 验收 |
+| **macOS** | 菜单栏、镜像、串口及资源路径已有源码 | 31 项测试及 Release 编译通过；候选打包、权限和真实 Mac 验收仍待完成 |
+
+候选安装与验收：[Mac 候选包](docs/MAC_PACKAGE.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
 | **公开分发** | 源码与本地候选材料已整理，许可和 SHA-256 检查已加入 | 正式 Release 流程接入与候选发布验收 |
 
 状态核对：2026-09-10，[对应 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/34450527452)。

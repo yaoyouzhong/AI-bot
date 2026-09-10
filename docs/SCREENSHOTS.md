@@ -37,7 +37,7 @@ python tools/build_guide_art.py
 - `--self-test-public` 通过，新增全新配置默认桌宠测试：Claude/Codex/桌宠页均有图形、工作时帧变化、无需生成导入资源；已有选择持久化测试也通过。
 - PlatformIO `nodemcuv2` 固件构建通过；既有触摸引脚、缩进、未用变量及框架工具警告仍存在。
 - 本轮**未刷写设备、未替换正在运行的程序**。因此不能把这里的新默认图认定为当前实机已经更新。
-- macOS 默认回退源码同步；当前环境无法运行 Swift/AppKit，Mac 构建和真机截图仍待完成。
+- macOS 默认回退源码同步；当前环境无法运行 Swift/AppKit，Mac 测试及 Release 编译已通过，候选打包与真机截图仍待完成。
 
 ## English summary
 

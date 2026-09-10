@@ -131,7 +131,9 @@ bridge to release the serial port before flashing firmware.
 | :--- | :--- | :--- |
 | **Windows** | Release build, isolated public regressions and CI pass | Fresh installation, live authorization, sustained operation and full interaction acceptance |
 | **ESP8266** | Firmware build, source-material rebuild and CI pass; partial device checks | Every physical page, music and complete Wi-Fi fallback |
-| **macOS** | Menu bar, mirror, serial and resource paths are implemented in source | Current CI build fails; platform fixes and real Mac acceptance are still required |
+| **macOS** | Menu bar, mirror, serial and resource paths are implemented in source | 31 tests and Release compilation pass; candidate packaging, permissions and real Mac acceptance remain pending |
+
+Candidate installation and acceptance: [Mac package](docs/MAC_PACKAGE.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
 | **Distribution** | Public source and local materials prepared, with license and SHA-256 checks | Official release workflow integration and final-candidate acceptance |
 
 Checked 2026-09-10: [corresponding CI run](https://github.com/yaoyouzhong/AI-bot/actions/runs/34450527452).
