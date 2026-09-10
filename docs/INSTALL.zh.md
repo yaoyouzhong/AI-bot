@@ -21,7 +21,7 @@ Windows 候选仍需要下表的 **.NET 8 Desktop Runtime x64** 和 **WebView2 R
 | --- | --- |
 | Git | [Git 官方 Windows 下载](https://git-scm.com/downloads/win)，安装后重开终端，运行 `git --version` |
 | Python | [Python 官方 Windows 下载](https://www.python.org/downloads/windows/)，运行 `python --version` 和 `python -m pip --version`；本教程要求 `python` 能在终端调用 |
-| .NET 8 SDK | [.NET 官方下载页](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)，构建选 **SDK → Windows → x64**；运行 `dotnet --list-sdks` 应有 `8.0.x` |
+| .NET 8 SDK | [.NET 官方下载页](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)，构建选 **SDK → Windows → x64**；运行 `dotnet --list-sdks` 应有 `8.0.4xx`（仓库固定使用这一 SDK 系列） |
 | .NET 8 Desktop Runtime x64 | 同一官方页面的 **.NET Desktop Runtime → Windows → x64**；仅运行 ZIP 也需要桌面运行时，不能用 ASP.NET Runtime 替代 |
 | WebView2 Runtime | [微软官方页面](https://developer.microsoft.com/microsoft-edge/webview2/)，选择 Evergreen Standalone Installer 的 x64；用于国产厂商网页授权 |
 | 设备 | 已刷入配套 AI-bot 固件的 ESP8266 小屏及 USB **数据线**；还没刷机时先完成[刷机教程](FLASH.zh.md) |

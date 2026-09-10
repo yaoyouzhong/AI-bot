@@ -102,7 +102,8 @@ def collect_windows(stage: Path):
                     for d in f.get("downloadDependencies", [])
                     if d["name"] == "Microsoft.Windows.SDK.NET.Ref"}
     if sdk_versions != {evidence["windowsSdk"]["version"]}:
-        raise ValueError("Windows SDK version changed: review distribution evidence")
+        raise ValueError(f"Windows SDK version changed: resolved={sorted(sdk_versions)}, "
+                         f"reviewed={evidence['windowsSdk']['version']}; review distribution evidence")
     version = next(iter(sdk_versions))
     name = f"Microsoft.Windows.SDK.NET.Ref/{version}"
     package = package_at(assets["packageFolders"], name.lower())

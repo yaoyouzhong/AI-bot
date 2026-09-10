@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Run public UI self-tests on a separate invisible desktop during builds and package checks; retain real window/layout/bitmap behavior without interrupting the input desktop.
+
+- Select the .NET 8.0.4xx build SDK and pin the Windows SDK targeting package to the reviewed 10.0.19041.56 version, preventing runner defaults from changing distributed DLLs; retain license and binary hash checks.
+
 - Add shared candidate packaging for Windows/firmware/source materials and an Apple Silicon Mac app; validate archive checksums before creating a tag-triggered release draft. Refresh installation and acceptance guidance. Cloud packaging and interactive acceptance remain pending.
 
 - Check the Mac PNG fixture's raw pixel samples to avoid device color-profile differences in input assertions; retain exact RGB565 output and letterbox checks. Mac CI verification is pending.

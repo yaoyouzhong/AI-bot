@@ -30,7 +30,7 @@ try {
         dotnet build windows-app/AIBotBridge/AIBotBridge.csproj -c Release --nologo
         if ($LASTEXITCODE -ne 0) { throw 'Isolated Windows build failed' }
         # Use the console host so PowerShell waits and preserves output/exit codes.
-        dotnet .\windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.dll --self-test-public
+        powershell -NoProfile -File scripts/run_public_self_test.ps1 -BridgeDll .\windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.dll
         if ($LASTEXITCODE -ne 0) { throw 'Public self-test failed' }
         if ($Firmware) {
             python -m platformio run -d firmware

@@ -39,7 +39,7 @@ try {
     }
     Push-Location $extracted
     try {
-        dotnet .\AIBotBridge.dll --self-test-public
+        powershell -NoProfile -File (Join-Path $sourceRoot 'scripts\run_public_self_test.ps1') -BridgeDll .\AIBotBridge.dll
         if ($LASTEXITCODE -ne 0) { throw 'Extracted package regression failed' }
     } finally { Pop-Location }
     python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') source --stage (Join-Path $sourceRoot "AI-bot-$version-source.zip")
