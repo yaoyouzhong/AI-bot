@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Redesign the bilingual repository homepage with original device illustrations, a concise feature overview, verified platform status and installation links; move detailed reference material into dedicated documents.
+
 - Close out public source and distribution materials: recheck migration provenance, exclude private/generated files and unreviewed artwork, correct quota-trend semantics, and pin the currently resolved firmware dependencies.
 - Include original Windows SDK terms, official REDIST evidence and DLL hash checks; Windows candidates carry dependency notices/terms, firmware materials include corresponding sources/licenses/rebuild configuration, and source archives carry SHA-256 manifests. No push, release or complete product acceptance is implied.
 

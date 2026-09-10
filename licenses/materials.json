@@ -25,6 +25,9 @@
   },
   "sourceAssets": {
     "windows-app/AIBotBridge/Assets/app-icon.ico": "09ef535337cdd1295d2337f3a3213732c55d1584f8df5485343c9ae4b038f904",
-    "windows-app/AIBotBridge/TestFixtures/claude_sprite.h": "e340b68a6ca9358965e96945f4c4ced0648468ff936235e16badc9f869632809"
+    "windows-app/AIBotBridge/TestFixtures/claude_sprite.h": "e340b68a6ca9358965e96945f4c4ced0648468ff936235e16badc9f869632809",
+    "docs/assets/hero.en.svg": "eda6c188e2e4b17e92fdbea4b7f1bbd5638e0f58ae6b44745fe8da02a3a96b24",
+    "docs/assets/hero.zh.svg": "3c4e86629602015c9fa65c651890604bdc7af15e20252d2b338c443344e07173",
+    "docs/assets/scenes.svg": "a5f58a3de322bd7ceb0aef1198c4ffd78784dffc2ac875b7430bf776c224b52f"
   }
 }
