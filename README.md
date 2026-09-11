@@ -94,7 +94,7 @@ flowchart LR
 <img src="docs/assets/screens/system.png" width="240" alt="系统监控示例">
 </p>
 
-> **当前为 `0.1.0` 开发基线，尚无正式 Release。** 可以从源码构建并参与验证；
+> **当前为 `0.1.1` 测试版（Pre-release）。** 可以从源码构建并参与验证；
 > Windows、Mac 与固件候选已通过云端构建和打包检查；Mac 为 Apple Silicon 测试版，尚未完成实机验收。
 
 ### 准备硬件
@@ -122,7 +122,7 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 ### macOS：Apple Silicon 测试版
 
-面向 macOS 13+、M 系列芯片。可从[已通过的候选构建](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465456002)下载 `candidate-macos-arm64` 附件；
+面向 macOS 13+、M 系列芯片。可从[v0.1.1 测试版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.1)下载 `AIBotBridge-0.1.1-local-candidate-macos-arm64.zip` 和同名 `.sha256`；
 解压并校验后，将 `.app` 放入“应用程序”。详见 [Mac 安装说明](docs/MAC_PACKAGE.md)。
 目前仅临时签名，未完成 Developer ID 签名与 Apple 公证；首次启动、权限和设备行为待实机验证，Intel Mac 未验证。
 
@@ -133,7 +133,7 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 | **Windows** | Release 构建、公开隔离回归及 CI 通过 | 全新安装、真实授权、持续运行与全部交互验收 |
 | **ESP8266** | 固件构建、源码材料重建及 CI 通过；已有分项实机验证 | 实体屏逐页确认、音乐及完整 Wi-Fi 回退 |
 | **macOS（Apple Silicon 测试版）** | 31 项测试、Release 编译、`.app` 打包、签名完整性及解压校验通过 | 首次启动、权限、设备连接、持续运行；Developer ID 签名与公证；Intel 未验证 |
-| **公开分发** | 四类候选包云端生成成功，许可和 SHA-256 检查通过；标签流程已接入草稿生成 | 最终候选验收、版本与发布说明整理、正式发布确认 |
+| **公开分发** | 四类候选包云端生成成功，许可和 SHA-256 检查通过；标签流程已接入草稿生成 | 真实重启自启动、全新安装、Mac 实机及完整设备验收 |
 
 候选安装与验收：[Mac 候选包](docs/MAC_PACKAGE.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
 

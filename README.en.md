@@ -98,7 +98,7 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 <img src="docs/assets/screens/system.png" width="240" alt="Synthetic system monitoring sample">
 </p>
 
-> **`0.1.0` is a development baseline, with no formal Release yet.** Build from source
+> **`0.1.1` is a pre-release for testing.** Build from source
 > to try it and help validate it. Windows, Mac and firmware candidates passed cloud build and packaging checks.
 > Mac is an Apple Silicon test build; real-Mac acceptance remains pending.
 
@@ -130,7 +130,7 @@ bridge to release the serial port before flashing firmware.
 
 ### macOS: Apple Silicon test build
 
-Targets macOS 13+ on M-series chips. Download `candidate-macos-arm64` from the [successful candidate run](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465456002),
+Targets macOS 13+ on M-series chips. Download the Mac ZIP and matching `.sha256` from the [v0.1.1 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.1),
 verify and extract the ZIP, then copy the app to Applications. See [Mac installation](docs/MAC_PACKAGE.md).
 The app is ad-hoc signed, without Developer ID signing or notarization. First launch, permissions and device behavior need real-Mac acceptance; Intel is unverified.
 
@@ -141,7 +141,7 @@ The app is ad-hoc signed, without Developer ID signing or notarization. First la
 | **Windows** | Release build, isolated public regressions and CI pass | Fresh installation, live authorization, sustained operation and full interaction acceptance |
 | **ESP8266** | Firmware build, source-material rebuild and CI pass; partial device checks | Every physical page, music and complete Wi-Fi fallback |
 | **macOS (Apple Silicon test build)** | 31 tests, Release compilation, app packaging, signature integrity and extracted-archive checks pass | First launch, permissions, devices and sustained operation; Developer ID signing and notarization; Intel unverified |
-| **Distribution** | Four cloud candidate packages generated with license and SHA-256 checks; tag workflow prepares a draft | Final-candidate acceptance, version/release notes and publication approval |
+| **Distribution** | Four cloud candidate packages generated with license and SHA-256 checks; tag workflow prepares a draft | Fresh-logon startup, clean installation, real-Mac and complete device acceptance |
 
 Candidate installation and acceptance: [Mac package](docs/MAC_PACKAGE.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
 
