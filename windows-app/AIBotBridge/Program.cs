@@ -8,6 +8,18 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Length == 1 && args[0] is "--enable-startup" or "--disable-startup")
+        {
+            try
+            {
+                StartupRegistration.SetEnabled(args[0] == "--enable-startup");
+                Console.WriteLine("STARTUP_UPDATED " + StartupRegistration.TaskName);
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or
+                UnauthorizedAccessException or System.Security.SecurityException or IOException)
+            { Console.Error.WriteLine("STARTUP_FAILED: " + ex.Message); Environment.ExitCode = 1; }
+            return;
+        }
         if (args.Length == 1 && args[0] == "--diagnose-pets")
         {
             Console.WriteLine("PET_CACHE_DIRECTORY=" + Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI-bot"));
@@ -36,10 +48,7 @@ internal static class Program
         if(args.Contains("--self-test-zhipu")) { ApplicationConfiguration.Initialize(); ZhipuSelfTest.Run(); return; }
         if(args.Contains("--test-zhipu-device")) { ZhipuSelfTest.RunDeviceAsync().GetAwaiter().GetResult(); return; }
         if(args.Length==1&&args[0]=="--authorize-zhipu") {
-            ApplicationConfiguration.Initialize();
-            var context = new TrayApplicationContext();
-            context.OpenZhipuAuthorization();
-            Application.Run(context); return;
+            RunTray(authorizeZhipu: true); return;
         }
         if(args.Contains("--test-activity-refresh")){try{ActivityRefreshDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("ACTIVITY_REFRESH_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==1&&args[0]=="--exit"){BridgeLifetime.RequestExit();return;}
@@ -223,7 +232,30 @@ internal static class Program
             Environment.ExitCode = 2;
             return;
         }
-        ApplicationConfiguration.Initialize();
-        Application.Run(new TrayApplicationContext());
+        RunTray();
+    }
+
+    private static void RunTray(bool authorizeZhipu = false)
+    {
+        using var instance = new Mutex(false, @"Local\AIBotBridge.Instance." +
+            System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value);
+        bool acquired;
+        try { acquired = instance.WaitOne(0); }
+        catch (AbandonedMutexException) { acquired = true; }
+        if (!acquired)
+        {
+            Console.WriteLine("BRIDGE_ALREADY_RUNNING");
+            if (authorizeZhipu)
+                MessageBox.Show("桥接已在运行，请从托盘菜单打开智谱授权。", "AI-bot");
+            return;
+        }
+        try
+        {
+            ApplicationConfiguration.Initialize();
+            var context = new TrayApplicationContext();
+            if (authorizeZhipu) context.OpenZhipuAuthorization();
+            Application.Run(context);
+        }
+        finally { instance.ReleaseMutex(); }
     }
 }

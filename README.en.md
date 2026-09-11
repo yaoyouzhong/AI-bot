@@ -34,6 +34,8 @@ The desktop bridge reads local Claude Code / Codex activity and provider quotas,
 then sends them to the device. Windows connects over USB first and lives in the
 system tray; a left click opens the screen mirror. Mac has a menu-bar test build with a mirror; real-Mac acceptance remains pending.
 
+On Windows, Bridge service → Start at login uses a current-user scheduled task with a five-second delay, bypassing the ordinary startup queue. Repeated launches keep one bridge instance. Toggle an older startup registration off and on once to migrate it.
+
 ## A live window on your desk
 
 <img src="docs/assets/scenes.svg" width="1120" alt="Original concept views of AI activity, weather and system monitoring. All values are examples, not screenshots.">

@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Simplify the Windows tray hover text to the app name and click instructions; keep activity states on the existing display pages.
+
+- Start the Windows bridge through a current-user interactive logon task with a five-second delay instead of the queued Run entry. Preserve battery operation and unlimited runtime, remove the old entry after successful registration, and prevent duplicate bridge instances before opening ports or initializing providers.
+
 - Add a Mac flashing guide with a workflow diagram, isolated PlatformIO setup, serial/driver troubleshooting, source and firmware-materials upload routes, and menu-based USB/display/Wi-Fi checks; link it from both homepages and installation docs. Real-Mac acceptance remains pending.
 
 - Correct platform labels and installation links to Windows and an Apple Silicon Mac test build; record successful cloud packaging while retaining real-Mac, Intel and signing limitations.

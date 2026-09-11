@@ -51,7 +51,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _icon = new NotifyIcon
         {
             Icon = AppIcon.Load(),
-            Text = "AI-bot starting",
+            Text = "AI-bot｜单击打开镜像，右键打开菜单",
             ContextMenuStrip = menu,
             Visible = true
         };
@@ -71,7 +71,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _lastCompletionSequence = status.Codex.CompletionSequence;
                 _ = Task.Run(CompletionChime.Play);
             }
-            RefreshTooltip(status);
             UpdateAutomaticScreenSaver(status);
             PublishDisplayPolicy();
             _runtime.Domestic.RefreshNext();
@@ -87,7 +86,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         _ = Task.Run(() => _serial.RunAsync(_runtime.Capture, _runtime.Resources, _shutdown.Token));
         _ = Task.Run(() => _serial.RunMetricsAsync(() => _runtime.SystemMetrics, _shutdown.Token));
-        RefreshTooltip(_runtime.Capture());
     }
 
     private async void HandleMenuAction(string action)
@@ -150,14 +148,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "refresh":
                 if (_refreshBusy) break;
                 _refreshBusy = true;
-                try { await _runtime.RefreshAsync(); RefreshTooltip(_runtime.Capture()); _mirror?.Invalidate(); }
+                try { await _runtime.RefreshAsync(); _mirror?.Invalidate(); }
                 catch (Exception ex) when (ex is IOException or HttpRequestException or OperationCanceledException or JsonException)
                 { MessageBox.Show("刷新未完成，保留最近可用数据。", "AI-bot"); }
                 finally { _refreshBusy = false; }
                 break;
             case "startup":
                 try { StartupRegistration.SetEnabled(!StartupRegistration.IsEnabled); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or System.Runtime.InteropServices.COMException)
                 { MessageBox.Show(ex.Message, "开机启动设置失败"); }
                 break;
             case "mirror": ToggleMirror(); break;
@@ -276,12 +274,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         _lastAiWorking = aiWorking;
         _lastMusicPlaying = musicPlaying;
-    }
-
-    private void RefreshTooltip(StatusSnapshot status)
-    {
-        var port = _serial.PortName ?? "USB waiting";
-        _icon.Text = $"AI-bot | C:{status.Codex.State} A:{status.Claude.State} | {port}";
     }
 
     private void ShowStatus()
