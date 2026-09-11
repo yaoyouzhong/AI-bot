@@ -146,6 +146,7 @@ internal static class TrayMenu
         Command(service, "桥接服务地址…", "address");
         Command(service, "全部设置…", "settings");
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("关于 AI-bot…", null, (_, _) => action("about"));
         menu.Items.Add("退出", null, (_, _) => action("exit"));
         return menu;
     }

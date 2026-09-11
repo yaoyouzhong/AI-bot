@@ -12,8 +12,10 @@ internal static class TrayMenuSelfTest
             () => mode, () => "已连接：COM7（USB）");
         var headings = menu.Items.OfType<ToolStripMenuItem>().Select(item => item.Text);
         if (!headings.SequenceEqual(new[] { "模型额度", "设备连接", "显示模式", "循环展示",
-                "内容设置", "桌宠与外观", "桥接服务", "退出" }))
+                "内容设置", "桌宠与外观", "桥接服务", "关于 AI-bot…", "退出" }))
             throw new InvalidOperationException("Legacy menu grouping/order changed.");
+        menu.Items.OfType<ToolStripMenuItem>().Single(i => i.Text == "关于 AI-bot…").PerformClick();
+        if (command != "about") throw new InvalidOperationException("About route failed.");
         var display = (ToolStripMenuItem)menu.Items[2];
         ((ToolStripMenuItem)menu.Items[0]).DropDownItems.OfType<ToolStripMenuItem>().Single(i => i.Text == "Codex 额度趋势…").PerformClick();
         if (command != "quota-trend") throw new InvalidOperationException("Quota trend route failed.");
@@ -58,6 +60,17 @@ internal static class TrayMenuSelfTest
         menu.DrawToBitmap(bitmap, new Rectangle(Point.Empty, menu.Size));
         menu.Close();
         bitmap.Save(output);
+        using (var about = new AboutForm())
+        {
+            about.StartPosition = FormStartPosition.Manual;
+            about.Location = new Point(-30000, -30000);
+            about.Show();
+            Application.DoEvents();
+            using var preview = new Bitmap(about.Width, about.Height);
+            about.DrawToBitmap(preview, new Rectangle(Point.Empty, about.Size));
+            preview.Save(Path.Combine(Path.GetDirectoryName(output)!, "about-self-test.png"));
+            about.Close();
+        }
         Console.WriteLine("TRAY_MENU_SELF_TEST_OK " + output + " (notification-area visibility needs user confirmation)");
     }
 }

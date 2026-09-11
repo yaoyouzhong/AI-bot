@@ -169,6 +169,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "device": ShowDeviceControl(); break;
             case "authorize": ShowDomesticAuth(); break;
             case "status": ShowStatus(); break;
+            case "about":
+                using (var dialog = new AboutForm()) dialog.ShowDialog();
+                break;
             case "completion-ack": SessionActivityReader.Signals.Acknowledge(); break;
             case "cycle":
                 using (var dialog = new CycleSettingsForm())
