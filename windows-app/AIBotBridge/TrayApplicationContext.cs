@@ -77,7 +77,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         _timer.Start();
 
-        var server = new LocalStatusServer(httpPort);
+        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo);
         _ = Task.Run(() => server.RunAsync(_runtime.Capture, _shutdown.Token));
         if (pairing is not null)
         {

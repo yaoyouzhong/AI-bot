@@ -39,7 +39,7 @@ internal sealed class CodexLifecycleTracker
                         if (!_primed) continue;
                         if (info.Length < cursor.Position) { cursor.Position = info.Length; cursor.Partial = []; continue; }
                         if (cursor.IsRoot != true) { cursor.Position = info.Length; cursor.Partial = []; continue; }
-                        ReadNew(path, cursor);
+                        if (info.Length > cursor.Position) ReadNew(path, cursor);
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
                 }

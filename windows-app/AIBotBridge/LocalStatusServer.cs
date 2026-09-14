@@ -8,10 +8,12 @@ namespace AIBotBridge;
 internal sealed class LocalStatusServer
 {
     private readonly TcpListener _listener;
+    private readonly Func<UsbDeviceInfo>? _deviceInfo;
 
-    internal LocalStatusServer(int port)
+    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null)
     {
         _listener = new TcpListener(IPAddress.Loopback, port);
+        _deviceInfo = deviceInfo;
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
@@ -34,14 +36,14 @@ internal sealed class LocalStatusServer
         }
     }
 
-    private static async Task HandleAsync(
+    private async Task HandleAsync(
         TcpClient client, Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
     {
         try { await HandleCoreAsync(client,snapshot,cancellationToken); }
         catch(Exception ex) when(ex is IOException or SocketException or OperationCanceledException) { client.Dispose(); }
     }
 
-    private static async Task HandleCoreAsync(
+    private async Task HandleCoreAsync(
         TcpClient client,
         Func<StatusSnapshot> snapshot,
         CancellationToken cancellationToken)
@@ -80,14 +82,25 @@ internal sealed class LocalStatusServer
             }
             if (!browser && requestLine.StartsWith("POST /completion/ack ",StringComparison.Ordinal))
             { SessionActivityReader.Signals.Acknowledge(); accepted=true; }
+            // Loopback-only diagnostics; do not add device access to the LAN server.
+            var device = !browser && _deviceInfo is not null && requestLine.StartsWith("GET /diagnostics/device ", StringComparison.Ordinal);
+            var activity = !browser && requestLine.StartsWith("GET /diagnostics/activity ", StringComparison.Ordinal);
+            string? diagnostics = null;
+            if (device)
+            {
+                try { diagnostics = JsonSerializer.Serialize(await Task.Run(_deviceInfo!, cancellationToken), JsonDefaults.Options); }
+                catch (Exception ex) when (ex is IOException or TimeoutException or InvalidOperationException)
+                { diagnostics = JsonSerializer.Serialize(new { error = ex.GetType().Name }); }
+            }
+            if (activity) diagnostics = JsonSerializer.Serialize(SessionActivityReader.Diagnostics(), JsonDefaults.Options);
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
             var pets = !browser && requestLine.StartsWith("GET /diagnostics/pets ", StringComparison.Ordinal);
-            var body = pets ? JsonSerializer.Serialize(PetAnimationStore.Shared.Diagnostics(), JsonDefaults.Options) : found
+            var body = diagnostics ?? (pets ? JsonSerializer.Serialize(PetAnimationStore.Shared.Diagnostics(), JsonDefaults.Options) : found
                 ? JsonSerializer.Serialize(snapshot(), JsonDefaults.Options)
-                : accepted ? "{\"ok\":true}" : "{\"error\":\"not_found\"}";
+                : accepted ? "{\"ok\":true}" : "{\"error\":\"not_found\"}");
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 {(found || pets || accepted ? "200 OK" : "404 Not Found")}\r\n" +
+                $"HTTP/1.1 {(found || pets || accepted || device || activity ? "200 OK" : "404 Not Found")}\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
                 $"Content-Length: {payload.Length}\r\n" +
                 "Connection: close\r\n\r\n");

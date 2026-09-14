@@ -81,6 +81,7 @@ internal static class Program
             LegacyPetImport.Run(Path.GetFullPath(args[1]));
             return;
         }
+        if (args.Contains("--self-test-activity-cache")) { ActivityCacheSelfTest.RunAsync().GetAwaiter().GetResult(); return; }
         if (args.Contains("--self-test-codex-lifecycle"))
         {
             CodexLifecycleSelfTest.Run();
@@ -219,6 +220,7 @@ internal static class Program
         {
             Console.OutputEncoding = Encoding.UTF8;
             using var runtime = new BridgeRuntime(startRefresh: false);
+            SessionActivityReader.WaitForInitialScanAsync().GetAwaiter().GetResult();
             Console.WriteLine(JsonSerializer.Serialize(
                 runtime.Capture(), JsonDefaults.Options));
             return;
