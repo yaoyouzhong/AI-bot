@@ -15,6 +15,7 @@ internal sealed class QuotaHistory
     private readonly object _sync = new();
     private readonly string _path;
     private readonly List<QuotaObservation> _samples = new();
+    private readonly bool _preserveOriginal;
     internal string? Error { get; private set; }
     internal QuotaHistory(string? directory = null)
     {
@@ -30,7 +31,7 @@ internal sealed class QuotaHistory
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
-        { Error = "历史文件不可读，已保留原文件；本次只在内存记录。"; }
+        { _preserveOriginal = true; Error = "历史文件不可读，已保留原文件；本次只在内存记录。"; }
     }
     private static bool Percent(double? v) => v is null || double.IsFinite(v.Value) && v >= 0 && v <= 100;
     private static bool Valid(QuotaObservation s) => s.At > DateTimeOffset.UnixEpoch && Percent(s.Weekly) && Percent(s.FiveHour);
@@ -46,15 +47,16 @@ internal sealed class QuotaHistory
             _samples.Add(row);
             _samples.RemoveAll(x => x.At < row.At.AddDays(-90));
             if (_samples.Count > 70000) _samples.RemoveRange(0, _samples.Count - 70000);
-            if (Error is not null) return; // Never overwrite damaged evidence.
+            if (_preserveOriginal) return; // Never overwrite damaged evidence; transient save failures can retry.
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
                 File.WriteAllText(_path + ".tmp", JsonSerializer.Serialize(_samples));
                 File.Move(_path + ".tmp", _path, true);
+                Error = null;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            { Error = "历史保存失败，本次仅在内存记录；请检查数据目录权限。"; }
+            { Error = "历史保存失败，数据暂存在内存；下次采样自动重试，请检查数据目录权限。"; }
         }
     }
 
@@ -82,12 +84,17 @@ internal sealed class QuotaHistory
                 if (previous.At < start) { partial = true; continue; }
                 if (previous.Weekly is not double before || current.Weekly is not double after || previous.Plan != current.Plan)
                 { gaps++; partial = true; continue; }
-                bool expired = previous.WeeklyReset is { } expiry && expiry > previous.At && expiry <= current.At && current.WeeklyReset > expiry;
-                bool changed = current.WeeklyReset != previous.WeeklyReset || after < before;
+                if (current.At <= previous.At || current.At - previous.At > TimeSpan.FromMinutes(5)) { gaps++; partial = true; continue; }
+                // Allow up to a minute of timestamp rounding/jitter while both deadlines
+                // are still in the future. A usage drop remains anomalous regardless.
+                bool sameWindow = previous.WeeklyReset is { } previousReset && current.WeeklyReset is { } currentReset &&
+                    (currentReset == previousReset || previousReset > current.At && currentReset > current.At &&
+                        (currentReset - previousReset).Duration() <= TimeSpan.FromMinutes(1));
+                bool expired = !sameWindow && previous.WeeklyReset is { } expiry && expiry > previous.At && expiry <= current.At && current.WeeklyReset > expiry;
+                bool changed = !sameWindow || after < before;
                 if (expired) { resets++; partial = true; }
                 else if (changed) { uncertainResets++; partial = true; }
-                if (current.At <= previous.At || current.At - previous.At > TimeSpan.FromMinutes(5)) { gaps++; partial = true; continue; }
-                if (previous.WeeklyReset is not null && current.WeeklyReset == previous.WeeklyReset && after >= before)
+                if (sameWindow && after >= before)
                 { total += after - before; comparable++; }
                 else if (expired)
                 { total += after; comparable++; }

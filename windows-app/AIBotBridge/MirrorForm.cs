@@ -7,7 +7,7 @@ internal sealed class MirrorForm : Form
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 70 };
     private readonly Label _status = new() {TextAlign=ContentAlignment.MiddleCenter,ForeColor=SystemColors.GrayText};
     private readonly Label _level = new() {Text="--",TextAlign=ContentAlignment.MiddleRight,ForeColor=SystemColors.GrayText};
-    private readonly TrackBar _brightness = new() {Minimum=0,Maximum=100,Value=100,TickStyle=TickStyle.None};
+    private readonly TrackBar _brightness = new() {AutoSize=false,Minimum=0,Maximum=100,Value=100,TickStyle=TickStyle.None};
     private readonly List<RadioButton> _modes=[];
     private bool _syncing;
     private long _lastBrightness;
@@ -15,6 +15,7 @@ internal sealed class MirrorForm : Form
     private readonly Func<int,bool>? _sendBrightness;
     private readonly Func<Task<UsbDeviceInfo>>? _readDevice;
     private QuotaTrendForm? _trend;
+    private bool _openingQuotaTrend;
 
     internal MirrorForm(Func<StatusSnapshot> capture, Func<string> mode,Action<string>? select=null,Func<int,bool>? brightness=null,Func<Task<UsbDeviceInfo>>? readDevice=null)
     {
@@ -35,20 +36,29 @@ internal sealed class MirrorForm : Form
         _brightness.Scroll+=(_,_)=>SendBrightness(false);_brightness.MouseUp+=(_,_)=>SendBrightness(true);
         _status.SetBounds(12,376,336,40);Controls.Add(_status);
         var trend = new TrendEntryButton { Text = "Codex 额度趋势", AccessibleDescription = "查看每日额度使用记录", Cursor = Cursors.Hand };
-        trend.SetBounds(14,424,332,34); trend.Click += (_, _) => { Hide(); ShowQuotaTrend(); }; Controls.Add(trend);
+        trend.SetBounds(14,424,332,34); trend.Click += (_, _) => ShowQuotaTrend(); Controls.Add(trend);
         float dpiScale=DeviceDpi/96f;
         foreach(Control control in Controls)
             control.Bounds=new Rectangle((int)Math.Round(control.Left*dpiScale),(int)Math.Round(control.Top*dpiScale),(int)Math.Round(control.Width*dpiScale),(int)Math.Round(control.Height*dpiScale));
         ClientSize=new Size((int)Math.Round(360*dpiScale),(int)Math.Round(472*dpiScale));
         _timer.Tick += (_, _) => {SyncModes();Invalidate();};
         VisibleChanged+=async(_,_)=>{if(Visible){_timer.Start();SyncModes();await RefreshDevice();}else _timer.Stop();};
-        Deactivate+=(_,_)=>Hide();
+        Deactivate+=(_,_)=>{if(!_openingQuotaTrend)Hide();};
     }
     internal void ShowQuotaTrend()
     {
-        if (_trend is null || _trend.IsDisposed) _trend = new QuotaTrendForm();
-        if (_trend.WindowState == FormWindowState.Minimized) _trend.WindowState = FormWindowState.Normal;
-        _trend.Show(); _trend.Activate();
+        if (_openingQuotaTrend) return;
+        _openingQuotaTrend = true;
+        try
+        {
+            // Keep the active popup alive until the destination has acquired its window
+            // and focus; hiding it first hands foreground activation to another app.
+            if (_trend is null || _trend.IsDisposed) _trend = new QuotaTrendForm();
+            if (_trend.WindowState == FormWindowState.Minimized) _trend.WindowState = FormWindowState.Normal;
+            _trend.ShowForUser();
+            Hide();
+        }
+        finally { _openingQuotaTrend = false; }
     }
     private sealed class TrendEntryButton : Button
     {
