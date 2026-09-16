@@ -24,6 +24,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private MigratedWeather.WeatherSettingsForm? _weatherSettings;
     private bool _deviceOperationBusy;
     private bool _refreshBusy;
+    private DateTimeOffset _nextQuotaWarning;
     private long _lastCompletionSequence;
     private bool _codexWasForeground;
     private bool _lastAttention;
@@ -74,6 +75,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
             UpdateAutomaticScreenSaver(status);
             PublishDisplayPolicy();
             _runtime.Domestic.RefreshNext();
+            if (DateTimeOffset.UtcNow >= _nextQuotaWarning && _runtime.Domestic.TakeRefreshWarning() is string warning) {
+                _nextQuotaWarning=DateTimeOffset.UtcNow.AddSeconds(30);
+                _icon.ShowBalloonTip(10000, "模型额度更新失败", warning, ToolTipIcon.Warning);
+            }
         };
         _timer.Start();
 

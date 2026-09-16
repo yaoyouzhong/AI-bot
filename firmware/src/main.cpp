@@ -1007,7 +1007,7 @@ void drawDomestic() {
   String key=String((int)effectiveDisplayMode)+"|"+q.plan+"|"+q.currency+"|"+String(q.planAvailable)+"|"+String(q.planPercent,3)
     +"|"+q.planReset+"|"+String(q.primaryAvailable)+"|"+String(q.weeklyAvailable)+"|"+String(q.balanceAvailable)+"|"+String(q.usedCostAvailable)
     +"|"+String(q.primaryPercent,3)+"|"+String(q.weeklyPercent,3)+"|"+String(q.balance,2)+"|"+String(q.usedCost,2)
-    +"|"+resetClock(q.primaryReset)+"|"+resetClock(q.weeklyReset)+"|"+String(domesticTokensToday)+"|"+String(utcOffsetSeconds);
+    +"|"+resetClock(q.primaryReset)+"|"+resetClock(q.weeklyReset)+"|"+String(domesticTokensToday)+"|"+String(utcOffsetSeconds)+"|"+String(q.stale);
   if(!pageContentChanged(3,key)){screenDirty=false;return;}
   display.fillScreen(TFT_BLACK);
   bool windowed=effectiveDisplayMode==DisplayMode::DomesticKimi||q.primaryAvailable||q.weeklyAvailable;
@@ -1053,7 +1053,12 @@ void drawDomestic() {
   display.fillRoundRect(20,177,200,38,8,0x1082);display.drawRoundRect(20,177,200,38,8,0x29A5);
   display.setTextDatum(MC_DATUM);display.setTextColor(TFT_GREEN);
   display.drawString(q.balanceAvailable?"USED":windowed?"5H":"RESET",53,196,2);
-  if(q.balanceAvailable) {
+  if(q.stale && q.available) {
+    display.fillRoundRect(20,177,200,38,8,0x1082);
+    display.setTextColor(TFT_ORANGE);
+    display.drawString("CACHED - CHECK APP",120,196,2);
+  }
+  else if(q.balanceAvailable) {
     if(q.usedCostAvailable) {
       String amount=String(q.usedCost,2);int w=display.textWidth(amount,2),cw=display.textWidth(q.currency,2),gap=q.currency.length()?5:0,x=153-(w+gap+cw)/2;
       display.setTextDatum(ML_DATUM);display.setTextColor(0xFFDF);display.drawString(amount,x,196,2);display.drawString(amount,x+1,196,2);

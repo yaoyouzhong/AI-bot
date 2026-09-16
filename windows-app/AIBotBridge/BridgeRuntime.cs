@@ -56,7 +56,7 @@ internal sealed class BridgeRuntime : IDisposable
     internal SystemMetricsSnapshot? SystemMetrics => _systemMetrics.Snapshot;
     internal MigratedDomesticBridge Domestic => _domesticQuotas;
     internal void ReloadSettings() => _stocks.ReloadSettings(BridgeSettings.Load());
-    internal Task RefreshAsync() => Task.WhenAll(_weather.Monitor.Refresh(), _stocks.RefreshAsync(_shutdown.Token), _quotas.RefreshAsync(_shutdown.Token));
+    internal Task RefreshAsync() { _domesticQuotas.RefreshNow(); return Task.WhenAll(_weather.Monitor.Refresh(), _stocks.RefreshAsync(_shutdown.Token), _quotas.RefreshAsync(_shutdown.Token)); }
 
     internal void ApplyDomesticResponse(string provider, string json) =>
         _domesticQuotas.ApplyCapturedResponse(provider, json);

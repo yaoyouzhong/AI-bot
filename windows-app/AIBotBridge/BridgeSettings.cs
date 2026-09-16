@@ -10,7 +10,7 @@ internal sealed class BridgeSettings
         "device_host", "display_mode", "display_cycle_enabled", "display_cycle_interval_seconds",
         "display_cycle_pages", "domestic_provider", "qweather_api_host", "kimi_membership",
         "screensaver_previous_mode", "screensaver_timeout_minutes", "serial_port",
-        "stock_symbols", "weather_animation", "weather_auto_location", "weather_city",
+        "kimi_usage_port", "stock_symbols", "weather_animation", "weather_auto_location", "weather_city",
         "weather_latitude", "weather_longitude"
     };
 

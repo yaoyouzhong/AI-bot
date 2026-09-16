@@ -91,6 +91,14 @@ internal static class DomesticPageRenderer
             var reset=quota?.PlanResetsAt?.AddSeconds(s.UtcOffsetSeconds).UtcDateTime.ToString("MM-dd HH:mm",System.Globalization.CultureInfo.InvariantCulture)??"";
             Label(g,reset,87,177,133,38,13,Color.Cyan,true);
         }
+        if (quota is not null) {
+            var updated=quota.UpdatedAt.ToOffset(TimeSpan.FromSeconds(s.UtcOffsetSeconds)).ToString("MM-dd HH:mm");
+            if (quota.Stale) {
+                g.FillRoundedRectangle(panel,bounds,8);
+                Label(g,"缓存数据 · 等待更新",20,179,200,17,12,Color.Orange,true);
+                Label(g,"上次更新 "+updated,20,197,200,16,11,Color.LightGray,true);
+            } else if(balance.HasValue) Label(g,"更新 "+updated,20,150,200,20,11,Color.Gray,true);
+        }
         if(s.DomesticActivity?.ActiveProvider==provider&&s.DomesticActivity.NeedsInput&&s.CapturedAt.ToUnixTimeMilliseconds()%800<400)
         { using var pen=new Pen(Color.FromArgb(255,59,48),8);g.DrawRectangle(pen,5,5,230,230); }
     }

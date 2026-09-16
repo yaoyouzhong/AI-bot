@@ -1,0 +1,47 @@
+# 国产模型额度设置
+
+> 当前为未发布源码功能，尚未包含在 v0.1.3 安装包中。适用于 Windows 桥接 App；设备的缓存提示需要更新固件。
+
+## 在哪里配置
+
+右键托盘 AI-bot → **模型额度 → 国产模型额度设置…**，选择左侧厂商。
+
+![DeepSeek 接口设置示例](assets/screens/api-settings.png)
+
+- **DeepSeek**：在 [官方开放平台](https://platform.deepseek.com/) 的 API Keys 页面创建 Key，粘贴到桥接 App，点击“保存并测试”。成功后显示 API 查询到的币种和余额。查询口径为赠送余额加充值余额，不是账单累计消费。
+- **MiniMax**：在 [Token Plan 页面](https://platform.minimaxi.com/subscribe/token-plan) 获取对应的 Token Plan / Subscription Key，保存并测试；不要混用海外区域或普通按量付费 Key。
+- **Kimi Code**：优先支持官方 `kimi web` 本地服务的额度 API。需先运行并登录该服务，将其访问令牌与端口填入桥接 App（默认端口 58627，实际以服务为准）。这里不是填写 Moonshot 按量付费 Key，也不读取其他工具的凭据文件。没有使用该服务时，保留网页授权。
+- **阿里 Token Plan、智谱账户余额**：目前未确认有适用于这两个统计口径的公开查询 API，继续在右侧官方页面登录。阿里账户现金余额不能替代 Token Plan 额度；智谱 Coding Plan 用量不能替代账户余额。
+
+API Key/本地服务令牌只保存在 Windows 凭据管理器。输入框为密码框；留空后点击“保存并测试”会测试已保存的凭据。不要将 Key 发到聊天、截图或代码仓库。Kimi 端口是普通设置，不是秘密。
+
+配置接口后，后台优先使用接口；接口失败不会悄悄改用另一个网页登录账号覆盖余额。接口尚未配置时使用原网页方式。凭据填错时重新填写正确值并保存测试即可。
+
+## 刷新与故障提醒
+
+- 已配置的官方接口每两分钟尝试查询；网页按厂商轮询，避免同时切换同一个浏览器。托盘“刷新”会查询已配置的 API，并刷新当前选中的网页厂商。
+- 网络失败、401/403、限流、无法识别的响应不会覆盖上次成功数据。限流按五分钟退避，网页超时约一分钟后报告。
+- 网页跳转登录页、相关接口拒绝授权、浏览器进程中断、超时都会进入统一故障状态。已配置过的厂商会提醒；从未配置的目录项不会后台反复弹窗。
+- 同一次故障只提醒一次，成功后解除；再次失效可重新提醒。多个厂商同时失败时，通知间隔至少 30 秒，避免相互覆盖。Windows 通知设置可能阻止气泡显示，但界面仍保留缓存提示。
+- Windows 镜像将旧数据标为“缓存数据 · 等待更新”，并显示上次更新时间；设备显示 `CACHED - CHECK APP`。余额保留，不冒充实时值。
+- 超过六分钟没有新数据也会提示。官方余额 API 不返回累计消费，因此不会把旧的 USED 金额与新的余额拼在一起。
+
+## 已核实的接口与边界
+
+| 厂商 | 当前优先路径 | 官方依据 |
+|---|---|---|
+| DeepSeek | `GET https://api.deepseek.com/user/balance` | [官方余额 API](https://api-docs.deepseek.com/api/get-user-balance/) |
+| MiniMax 中国站 | `GET https://www.minimaxi.com/v1/token_plan/remains` | [官方 Token Plan 页面“如何查看用量”](https://platform.minimaxi.com/subscribe/token-plan) |
+| Kimi Code | `GET http://127.0.0.1:<port>/api/v1/oauth/usage` | [官方本地 Server API](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/server-api.html)，实验接口，版本变化可能需要适配 |
+| 阿里 Token Plan | 已登录的百炼网页响应 | [官方 Token Plan FAQ](https://help.aliyun.com/zh/model-studio/token-plan-personal-faq)，未确认公开的对应额度 API |
+| 智谱可用余额 | 已登录的财务总览响应 | [官方费用说明](https://docs.bigmodel.cn/cn/faq/fee-issues)，未确认公开的账户余额 API |
+
+这里的 API 指有官方依据且统计口径相符的接口；不把第三方脚本使用的私有地址包装成“官方公开 API”。目录中尚未接入的其他厂商仍标记“待接”。
+
+测试使用模拟 HTTP 与隔离配置，不代表已用真实 Key 完成五个厂商的在线验收，也不代表当前驻留程序已经升级。
+
+## English
+
+Windows: open **Model quotas → Domestic quota settings**, select a provider, then save and test its credential. DeepSeek uses its official total-balance endpoint; MiniMax uses the China Token Plan endpoint. Kimi Code optionally uses the documented local `kimi web` usage API with its server bearer token and port, not a Moonshot wallet key. Ali Token Plan and Zhipu account balance retain authenticated browser collection because no matching documented public endpoint has been confirmed.
+
+Credentials stay in Windows Credential Manager. Configured APIs take priority every two minutes; failed APIs never silently switch accounts through the browser. Browser fallback reports login redirects, authorization denial, process failure and timeout. Last-good data is retained and marked stale; notifications are deduplicated until recovery. The tray refresh command now includes configured APIs and the selected browser provider. Unconfigured catalog entries do not generate recurring warnings. Real-account integration and deployed/hardware acceptance remain separate from simulated tests. This feature is not in v0.1.3.

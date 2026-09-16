@@ -38,7 +38,7 @@ internal static class TrayMenu
         }
         quota.DropDownItems.Add(new ToolStripSeparator());
         Command(quota, "Codex 额度趋势…", "quota-trend");
-        Command(quota, "国产模型额度授权…", "authorize");
+        Command(quota, "国产模型额度设置…", "authorize");
 
         var device = Group("设备连接");
         var summary = new ToolStripMenuItem { Enabled = false };

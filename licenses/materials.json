@@ -24,6 +24,7 @@
     "toolchain-xtensa": "2.100300.220621"
   },
   "sourceAssets": {
+    "docs/assets/screens/api-settings.png": "8053539432d64990a7d8cf0265b681107a1dfbc9262ed7452d98ff1ede099031",
     "windows-app/AIBotBridge/Assets/app-icon.ico": "09ef535337cdd1295d2337f3a3213732c55d1584f8df5485343c9ae4b038f904",
     "windows-app/AIBotBridge/TestFixtures/claude_sprite.h": "e340b68a6ca9358965e96945f4c4ced0648468ff936235e16badc9f869632809",
     "docs/assets/hero.en.svg": "eda6c188e2e4b17e92fdbea4b7f1bbd5638e0f58ae6b44745fe8da02a3a96b24",

@@ -2,7 +2,7 @@
 
 ## 图片是什么
 
-- `assets/screens/*.png`：26 张应用离线捕获图，其中 17 张页面/状态帧和 9 张窗口/菜单。
+- `assets/screens/*.png`：27 张应用离线捕获图，其中 17 张页面/状态帧和 10 张窗口/菜单。
   页面由当前 Windows `MirrorForm.RenderSnapshot` 生成，窗口由实际 WinForms 控件 `DrawToBitmap` 捕获。
   没有重画控件、覆盖数值、替换文本或美化截图；系统主题和字体可能影响外观。
 - `assets/guides/*.svg`：原创安装/刷写流程图，明确标注为示意图，不是安装器或上传日志截图。
@@ -67,3 +67,9 @@ On 2026-09-16, the maintainer requested Codex/Claude quota screenshots with thei
 `screensaver.png` 已按未发布源码重新渲染，显示示例日期 2026-09-10 对应的农历七月廿九；不是当前 v0.1.3 二进制或实体屏幕的验收照片。只捕获屏保可使用 `dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --screensaver`。
 
 The screensaver image reflects unreleased source with a synthetic date, not v0.1.3 binaries or hardware acceptance.
+
+## 国产额度接口设置预览 / Domestic quota API settings
+
+`api-settings.png` 是未发布源码的真实 WinForms 离线捕获，使用空凭据输入框，不初始化 WebView2、不访问真实凭据。复现：`dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --quota-api`，人工检查后取 `api-settings-deepseek.png`。
+
+The API settings screenshot uses an isolated empty profile and does not access real credentials or initialize the browser. It is not proof of live-account API acceptance.

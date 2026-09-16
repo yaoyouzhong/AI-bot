@@ -116,6 +116,8 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 
 The source screensaver now includes a lunar date with leap-month labels. This is not included in v0.1.3 packages; the device display requires updated firmware.
 
+See [domestic quota API/browser settings](docs/DOMESTIC_QUOTA_SETUP.md) for the unreleased source feature.
+
 ### Prepare the hardware
 
 An ESP8266 / ESP-12S with a 240×240 ST7789 display using the SD2 pin layout, plus a

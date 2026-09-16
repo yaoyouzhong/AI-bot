@@ -73,7 +73,7 @@ sealed class DomesticQuotaSnapshot
 /// Reads the same read-only quota responses as the vendors' own account pages.
 /// Passwords never pass through the app: sign-in happens inside the vendor page
 /// and WebView2 owns its isolated persistent browser profile.
-sealed class DomesticQuotaService
+sealed partial class DomesticQuotaService
 {
     internal const string QwenSubscriptionName = "Token Plan 团队版";
     const string MiniMaxCredentialTarget = "AI-bot/MiniMaxTokenPlanKey";
@@ -151,9 +151,9 @@ sealed class DomesticQuotaService
                 && now - lastAttempt < MinRefreshInterval) return;
             _lastRefreshAttempt[providerId] = now;
         }
-        if (providerId == "minimax" && HasMiniMaxApiKey)
+        if (HasOfficialApi(providerId))
         {
-            _ = RefreshMiniMaxWithApiKey();
+            _ = RefreshOfficialApi(providerId);
             return;
         }
         if (_form == null || _form.IsDisposed)
@@ -169,7 +169,9 @@ sealed class DomesticQuotaService
         CredentialStore.Write(MiniMaxCredentialTarget, key.Trim());
     }
 
-    internal async Task<(bool Success, string Message)> RefreshMiniMaxWithApiKey()
+    internal Task<(bool Success, string Message)> RefreshMiniMaxWithApiKey() => RefreshOfficialApi("minimax");
+
+    internal async Task<(bool Success, string Message)> RefreshMiniMaxCore()
     {
         var key = MiniMaxApiKey();
         if (string.IsNullOrWhiteSpace(key))
@@ -186,8 +188,12 @@ sealed class DomesticQuotaService
                 BackOff("minimax");
                 return (false, "MiniMax 额度接口限流，5 分钟后自动重试。");
             }
+            if (!response.IsSuccessStatusCode) return (false, $"MiniMax 额度查询失败（HTTP {(int)response.StatusCode}），请检查 Token Plan Key 或稍后重试。");
             var body = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(body);
+            if(doc.RootElement.TryGetProperty("base_resp",out var apiStatus) && apiStatus.ValueKind==JsonValueKind.Object &&
+                apiStatus.TryGetProperty("status_code",out var apiCode) && apiCode.TryGetInt32(out var errorCode) && errorCode!=0)
+                return (false,"MiniMax 未接受 Token Plan Key 或当前请求，请检查凭据后重试。");
             var usage = DomesticQuotaAuthForm.FindMiniMaxUsage(doc.RootElement);
             if (!usage.HasValue)
                 return (false, response.IsSuccessStatusCode
@@ -197,9 +203,9 @@ sealed class DomesticQuotaService
                 usage.Value.Membership, usage.Value.WeeklyResetAt, usage.Value.FiveHourResetAt);
             return (true, "已通过 MiniMax API 取得准确用量。");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return (false, $"MiniMax API 读取失败：{ex.Message}");
+            return (false, "MiniMax API 网络异常或数据无法识别，已保留上次结果。");
         }
     }
 
@@ -231,6 +237,7 @@ sealed class DomesticQuotaService
 
     internal void SetQwen(double pct, string membership = null, DateTimeOffset? resetAt = null)
     {
+        RefreshHealth.Recover("qwen");
         lock (_lock)
         {
             _snapshot.QwenPlanPct = Clamp(pct);
@@ -267,6 +274,7 @@ sealed class DomesticQuotaService
     internal void SetKimi(double weeklyPct, double? fiveHourPct, string membership = null,
         DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null)
     {
+        RefreshHealth.Recover("kimi");
         lock (_lock)
         {
             _snapshot.KimiWeeklyPct = Clamp(weeklyPct);
@@ -286,6 +294,7 @@ sealed class DomesticQuotaService
     internal void SetMiniMax(double weeklyPct, double? fiveHourPct, string membership = null,
         DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null)
     {
+        RefreshHealth.Recover("minimax");
         lock (_lock)
         {
             _snapshot.MiniMaxWeeklyPct = Clamp(weeklyPct);
@@ -301,18 +310,20 @@ sealed class DomesticQuotaService
 
     internal void SetZhipu(AIBotBridge.DomesticProviderQuotaSnapshot value)
     {
+        RefreshHealth.Recover("zhipu");
         lock (_lock) { _snapshot.Zhipu = value; Save(); }
     }
 
     internal void SetDeepSeek(double balance, string currency, double? granted = null,
         double? toppedUp = null, double? usedCost = null)
     {
+        RefreshHealth.Recover("deepseek");
         lock (_lock)
         {
-            _snapshot.DeepSeekBalance = Math.Max(0, balance);
+            _snapshot.DeepSeekBalance = balance;
             _snapshot.DeepSeekGrantedBalance = granted.HasValue ? Math.Max(0, granted.Value) : null;
             _snapshot.DeepSeekToppedUpBalance = toppedUp.HasValue ? Math.Max(0, toppedUp.Value) : null;
-            if (usedCost.HasValue) _snapshot.DeepSeekUsedCost = Math.Max(0, usedCost.Value);
+            _snapshot.DeepSeekUsedCost = usedCost.HasValue ? Math.Max(0, usedCost.Value) : null;
             _snapshot.DeepSeekCurrency = string.IsNullOrWhiteSpace(currency)
                 ? "CNY" : currency.Trim().ToUpperInvariant();
             _snapshot.DeepSeekFetchedAt = DateTime.UtcNow;
@@ -441,7 +452,7 @@ sealed class DomesticQuotaAuthForm : Form
     readonly bool _hideOnUserClose;
     WebView2 _web = CreateWebView();
     readonly Panel _webHost = new() { Dock = DockStyle.Fill };
-    readonly Dictionary<string, (string ProviderId, string Endpoint)> _quotaResponses = new();
+    readonly Dictionary<string, (string ProviderId, string Endpoint, int Generation)> _quotaResponses = new();
     readonly Dictionary<string, Panel> _providerCards = new();
     CoreWebView2DevToolsProtocolEventReceiver _responseReceiver;
     CoreWebView2DevToolsProtocolEventReceiver _finishedReceiver;
@@ -470,7 +481,7 @@ sealed class DomesticQuotaAuthForm : Form
         Dock = DockStyle.Bottom, Height = 40, TextAlign = ContentAlignment.MiddleLeft,
         Padding = new Padding(14, 0, 0, 0), BackColor = Color.FromArgb(248, 250, 252),
         ForeColor = Color.FromArgb(71, 85, 105),
-        Text = "选择左侧厂商。已支持的厂商在登录后会自动读取准确额度。",
+        Text = "选择左侧厂商：官方接口优先；未配置接口时使用网页授权。",
     };
     readonly Panel _miniMaxKeyPanel = new()
     {
@@ -482,6 +493,8 @@ sealed class DomesticQuotaAuthForm : Form
         UseSystemPasswordChar = true,
         PlaceholderText = "MiniMax Subscription Key / API Key，留空则只测试已保存 Key",
     };
+    readonly NumericUpDown _kimiPort = new() { Minimum=1024, Maximum=65535, Value=DomesticQuotaService.KimiPort, Width=90, Location=new Point(160,45), AccessibleName="Kimi 本地服务端口" };
+    readonly Label _kimiPortLabel = new() { Text="Kimi 本地服务端口", AutoSize=true, Location=new Point(20,48) };
     readonly Button _miniMaxSaveKey = new()
     {
         Text = "保存并测试", Width = 108, Height = 32,
@@ -495,7 +508,7 @@ sealed class DomesticQuotaAuthForm : Form
         _service = service;
         _hideOnUserClose = hideOnUserClose;
         _initialProviderId = initialProviderId;
-        Text = "国产模型额度授权";
+        Text = "国产模型额度设置";
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -511,7 +524,7 @@ sealed class DomesticQuotaAuthForm : Form
         };
         var navigationTitle = new Label
         {
-            Dock = DockStyle.Top, Height = 54, Text = "国产模型厂商\r\n选择后在右侧完成登录",
+            Dock = DockStyle.Top, Height = 54, Text = "国产模型厂商\r\n配置接口或网页登录",
             Font = new Font("Microsoft YaHei UI", 11, FontStyle.Bold),
             ForeColor = Color.FromArgb(30, 41, 59),
         };
@@ -533,18 +546,20 @@ sealed class DomesticQuotaAuthForm : Form
         };
         var refresh = new Button
         {
-            Text = "刷新页面", Width = 112, Height = 32, Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            Text = "刷新额度", Width = 112, Height = 32, Anchor = AnchorStyles.Top | AnchorStyles.Right,
             FlatStyle = FlatStyle.Flat, BackColor = Color.White,
             ForeColor = Color.FromArgb(51, 65, 85), Location = new Point(760, 22),
         };
         refresh.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
-        refresh.Click += async (_, _) => await ReloadWebView();
+        refresh.Click += async (_, _) => { if(_activeProvider != null && _service.HasOfficialApi(_activeProvider.Id)) await SelectProvider(_activeProvider); else await ReloadWebView(); };
         header.Resize += (_, _) => refresh.Left = header.ClientSize.Width - refresh.Width - 18;
         header.Controls.Add(_providerTitle);
         header.Controls.Add(_providerState);
         header.Controls.Add(refresh);
         _miniMaxSaveKey.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
         _miniMaxSaveKey.Click += async (_, _) => await SaveAndTestMiniMaxKey();
+        _miniMaxKeyPanel.Controls.Add(_kimiPort);
+        _miniMaxKeyPanel.Controls.Add(_kimiPortLabel);
         _miniMaxKeyPanel.Controls.Add(_miniMaxApiKey);
         _miniMaxKeyPanel.Controls.Add(_miniMaxSaveKey);
         _miniMaxKeyPanel.Resize += (_, _) => LayoutMiniMaxKeyPanel();
@@ -559,7 +574,7 @@ sealed class DomesticQuotaAuthForm : Form
 
         Shown += async (_, _) =>
         {
-            if (!initializeBrowser) return; // Offline layout test: never navigate or initialize a profile.
+            if (!initializeBrowser) { ConfigureProviderDisplay(ProviderById(_initialProviderId)); return; } // No profile or navigation.
             _everShown = true;
             await SelectProvider(ProviderById(_initialProviderId));
         };
@@ -696,15 +711,23 @@ sealed class DomesticQuotaAuthForm : Form
         return card;
     }
 
-    async Task SelectProvider(DomesticProviderDefinition provider)
+    void ConfigureProviderDisplay(DomesticProviderDefinition provider)
     {
         _activeProvider = provider;
         foreach (var (id, card) in _providerCards)
             card.BackColor = id == provider.Id ? Color.FromArgb(224, 242, 254) : Color.White;
         _providerTitle.Text = $"{provider.Name} · {provider.Product}";
-        _miniMaxKeyPanel.Visible = provider.Id == "minimax";
+        _miniMaxApiKey.Clear();
+        _miniMaxKeyPanel.Visible = DomesticQuotaService.SupportsOfficialApi(provider.Id);
+        _miniMaxKeyPanel.Height = provider.Id == "kimi" ? 82 : 52;
+        _kimiPort.Visible = _kimiPortLabel.Visible = provider.Id == "kimi";
+        _miniMaxApiKey.PlaceholderText = provider.Id == "kimi" ? "Kimi Code 本地服务访问令牌（不是 Moonshot API Key）" : provider.Id == "deepseek" ? "DeepSeek API Key；留空测试已保存 Key" : "MiniMax Token Plan Key；留空测试已保存 Key";
         _providerState.Text = provider.Id == "minimax"
             ? "已支持 API 查询：保存 MiniMax Subscription Key 后自动读取；也可登录控制台作为兜底"
+            : provider.Id == "deepseek"
+            ? "官方余额 API 优先：在此保存 API Key；凭据仅保存在 Windows 凭据管理器"
+            : provider.Id == "kimi"
+            ? "优先使用 Kimi Code 官方本地 API：运行并登录 kimi web，填写其访问令牌和端口；未配置时用网页授权"
             : provider.Id == "zhipu"
             ? "登录智谱开放平台后进入财务总览，自动读取可用余额（CNY）；不是 Coding Plan 订阅额度"
             : provider.CaptureSupported
@@ -712,12 +735,18 @@ sealed class DomesticQuotaAuthForm : Form
             : "已列入厂商目录：可以登录控制台，准确额度读取规则尚待适配";
         _providerState.ForeColor = provider.CaptureSupported
             ? Color.FromArgb(22, 101, 52) : Color.FromArgb(180, 83, 9);
+    }
+
+    async Task SelectProvider(DomesticProviderDefinition provider)
+    {
+        ConfigureProviderDisplay(provider);
         try
         {
             await Navigate(provider);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or COMException or IOException)
         {
+            _service.ReportWebFailure(provider.Id,$"{provider.Name} 网页初始化或导航失败，正在尝试恢复。",!_backgroundRefresh);
             if (QueueWebViewRecovery(provider))
                 QuotaDiagnostics.Log($"quota WebView2 navigation rejected; recreating control: {ex.Message}");
         }
@@ -735,33 +764,38 @@ sealed class DomesticQuotaAuthForm : Form
 
     async Task SaveAndTestMiniMaxKey()
     {
+        var provider = _activeProvider?.Id;
+        if (!DomesticQuotaService.SupportsOfficialApi(provider)) return;
+        _miniMaxSaveKey.Enabled = false;
         try
         {
-            if (!string.IsNullOrWhiteSpace(_miniMaxApiKey.Text))
-            {
-                _service.SaveMiniMaxApiKey(_miniMaxApiKey.Text);
+            if(provider=="kimi") Settings.Set("kimi_usage_port",((int)_kimiPort.Value).ToString());
+            if (!string.IsNullOrWhiteSpace(_miniMaxApiKey.Text)) {
+                _service.SaveOfficialApiKey(provider,_miniMaxApiKey.Text);
                 _miniMaxApiKey.Clear();
             }
-            if (!_service.HasMiniMaxApiKey)
-            {
-                _status.Text = "请先粘贴 MiniMax Subscription Key / API Key。";
-                return;
-            }
-            _status.Text = "正在通过 MiniMax API 查询额度...";
-            var result = await _service.RefreshMiniMaxWithApiKey();
-            _capturedForNavigation = result.Success;
-            _status.Text = result.Message;
+            if (!_service.HasOfficialApi(provider)) { _status.Text="请填写当前厂商的接口凭据。"; return; }
+            ++_navigationGeneration; // Cancel stale DOM capture before changing the authoritative source.
+            _status.Text="正在通过官方接口查询…";
+            var result=await _service.RefreshOfficialApi(provider);
+            if (_activeProvider?.Id==provider && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; }
         }
-        catch (Exception ex)
-        {
-            _status.Text = $"MiniMax Key 保存或测试失败：{ex.Message}";
-        }
+        catch { if(!IsDisposed) _status.Text="接口凭据保存失败，请检查 Windows 凭据管理器。"; }
+        finally { if(!IsDisposed) _miniMaxSaveKey.Enabled=true; }
     }
 
     async Task Navigate(DomesticProviderDefinition provider)
     {
         var generation = ++_navigationGeneration;
         _capturedForNavigation = false;
+        if (_service.HasOfficialApi(provider.Id)) {
+            _web.Visible=false;
+            _status.Text="正在通过官方接口查询…";
+            var result=await _service.RefreshOfficialApi(provider.Id);
+            if(generation==_navigationGeneration && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; }
+            return;
+        }
+        _web.Visible=true;
         await EnsureWebView();
         _status.Text = provider.Id == "minimax" && _service.HasMiniMaxApiKey
             ? "MiniMax Key 已保存；后台刷新优先通过官方 API 查询额度。"
@@ -813,6 +847,12 @@ sealed class DomesticQuotaAuthForm : Form
     async void WebViewNavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
     {
         if (!ReferenceEquals(sender, _activeCore)) return;
+        if (_activeProvider != null && !_service.HasOfficialApi(_activeProvider.Id)) {
+            if(!e.IsSuccess) _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页加载失败，请检查网络或重新登录。",!_backgroundRefresh);
+            else if(Uri.TryCreate(_activeCore.Source,UriKind.Absolute,out var login) &&
+                (login.AbsolutePath.Contains("login",StringComparison.OrdinalIgnoreCase)||login.AbsolutePath.Contains("signin",StringComparison.OrdinalIgnoreCase)))
+                _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页登录已失效，请打开国产模型额度设置重新登录。",!_backgroundRefresh);
+        }
         if (e.IsSuccess && _activeProvider?.Id is "qwen" or "kimi" or "minimax" or "deepseek" or "zhipu")
             await PersistLoginCookies(_activeProvider.Url);
         if (e.IsSuccess && _activeProvider?.Id == "kimi")
@@ -830,6 +870,7 @@ sealed class DomesticQuotaAuthForm : Form
             $"quota WebView2 process failed: kind={e.ProcessFailedKind}, reason={e.Reason}, "
             + $"exit_code={e.ExitCode}, description={e.ProcessDescription}, "
             + $"source={e.FailureSourceModulePath}");
+        if (_activeProvider != null) _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页采集进程中断，正在尝试恢复；旧数据已保留。",!_backgroundRefresh);
         if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
         {
             QueueWebViewRecovery(_activeProvider ?? ProviderById(_initialProviderId));
@@ -1102,7 +1143,7 @@ sealed class DomesticQuotaAuthForm : Form
         for (var attempt = 0; attempt < 100; attempt++)
         {
             if (IsDisposed || generation != _navigationGeneration
-                || _activeProvider?.Id != "deepseek" || _web.CoreWebView2 == null
+                || _activeProvider?.Id != "deepseek" || _service.HasOfficialApi("deepseek") || _web.CoreWebView2 == null
                 || _capturedForNavigation) return;
             try
             {
@@ -1151,6 +1192,7 @@ sealed class DomesticQuotaAuthForm : Form
             : provider.Id is "kimi" or "minimax" or "deepseek" or "zhipu" ? 60 : 12));
         if (IsDisposed || generation != _navigationGeneration || _activeProvider != provider
             || _capturedForNavigation) return;
+        _service.ReportWebFailure(provider.Id,$"{provider.Name} 网页额度刷新超时；请打开国产模型额度设置检查登录状态。旧数据已标记过期。",!_backgroundRefresh);
         var snapshot = _service.Snapshot;
         var fetchedAt = provider.Id switch
         {
@@ -1171,6 +1213,7 @@ sealed class DomesticQuotaAuthForm : Form
 
     void CdpResponseReceived(object sender, CoreWebView2DevToolsProtocolEventReceivedEventArgs e)
     {
+        if(_activeProvider != null && _service.HasOfficialApi(_activeProvider.Id)) return;
         try
         {
             using var doc = JsonDocument.Parse(e.ParameterObjectAsJson);
@@ -1211,12 +1254,17 @@ sealed class DomesticQuotaAuthForm : Form
             var isZhipu = _activeProvider?.Id == "zhipu"
                 && (resourceType == "XHR" || resourceType == "Fetch")
                 && AIBotBridge.ZhipuBalance.IsEndpoint(uri);
+            if ((statusCode == 401 || statusCode == 403) && (isAlibaba || isKimiUsage || isMiniMax || isZhipu || isDeepSeek && IsDeepSeekUsageEndpoint(uri))) {
+                _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页授权失效或访问被拒绝，请重新登录；已保留旧数据。",!_backgroundRefresh);
+                return;
+            }
             if (isZhipu && statusCode != 200 && statusCode != 429) return;
             if (statusCode == 429 && (isAlibaba || isXiaomi || isKimi || isMiniMax || isDeepSeek || isZhipu))
             {
                 var providerId = isAlibaba ? "qwen" : isXiaomi ? "xiaomi"
                     : isKimi ? "kimi" : isMiniMax ? "minimax" : isZhipu ? "zhipu" : "deepseek";
                 _service.BackOff(providerId);
+                _service.ReportWebFailure(providerId,"供应商额度接口限流，5 分钟后重试；正在显示旧数据。",!_backgroundRefresh);
                 BeginInvoke(() => _status.Text = "供应商额度接口限流，5 分钟后自动重试；当前继续显示最近成功值。");
                 if (_backgroundRefresh) BeginInvoke(Hide);
                 return;
@@ -1228,7 +1276,7 @@ sealed class DomesticQuotaAuthForm : Form
                 lock (_quotaResponses)
                     _quotaResponses[requestId] =
                         (isAlibaba ? "qwen" : isXiaomi ? "xiaomi"
-                            : isKimi ? "kimi" : isMiniMax ? "minimax" : isZhipu ? "zhipu" : "deepseek", endpoint);
+                            : isKimi ? "kimi" : isMiniMax ? "minimax" : isZhipu ? "zhipu" : "deepseek", endpoint, _navigationGeneration);
                 if (isKimiUsage)
                     QuotaDiagnostics.Log($"[quota] Kimi usage response detected: {endpoint}");
                 if (isMiniMax)
@@ -1252,10 +1300,11 @@ sealed class DomesticQuotaAuthForm : Form
             requestId = finished.RootElement.GetProperty("requestId").GetString();
         }
         catch { return; }
-        (string ProviderId, string Endpoint) responseInfo;
+        (string ProviderId, string Endpoint, int Generation) responseInfo;
         lock (_quotaResponses)
         {
             if (requestId == null || !_quotaResponses.Remove(requestId, out responseInfo)) return;
+            if (_service.HasOfficialApi(responseInfo.ProviderId) || responseInfo.Generation != _navigationGeneration) return;
         }
         try
         {
@@ -1268,6 +1317,7 @@ sealed class DomesticQuotaAuthForm : Form
                 && encoded.ValueKind == JsonValueKind.True)
                 body = Encoding.UTF8.GetString(Convert.FromBase64String(body));
 
+            if (_service.HasOfficialApi(responseInfo.ProviderId) || responseInfo.Generation != _navigationGeneration) return;
             using var doc = JsonDocument.Parse(body);
             double weeklyPct;
             double? fiveHourPct = null;
@@ -1364,7 +1414,7 @@ sealed class DomesticQuotaAuthForm : Form
         {
             QuotaDiagnostics.Log(
                 $"[quota] {responseInfo.ProviderId} response parse failed at {responseInfo.Endpoint}: {ex.Message}");
-            BeginInvoke(() => _status.Text = $"额度响应读取失败：{ex.Message}");
+            BeginInvoke(() => _status.Text = "网页额度响应无法识别，已保留上次结果；请稍后刷新或重新登录。");
         }
     }
 
