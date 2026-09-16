@@ -47,3 +47,9 @@ the gallery and history are empty. They are not hardware photographs or evidence
 live-account/macOS acceptance. Workflow SVGs are original instructional diagrams.
 The capture tool does not start the bridge, contact providers or access a device.
 Public PNGs require an individually reviewed filename and matching SHA-256.
+
+## 2026-09-16 教程图示
+
+安装、刷写、下载选择、串口识别和成功提示五张 SVG 为本项目独立绘制的操作示意，已检查文字排版；不是安装器截图或刷机实测记录。相应 SHA-256 已更新到 `licenses/materials.json`。既有真实离线 PNG 未改动。
+
+v0.1.3 新增 `setup.svg` 联网安装步骤示意，并明确 `install.svg` 仅用于 ZIP 手动安装。示意图不代表安装器实测截图。

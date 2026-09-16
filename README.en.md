@@ -88,19 +88,25 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 ## Get started
 
-**First time here?** [Windows installation (Chinese)](docs/INSTALL.zh.md) · [Mac test build](docs/MAC_PACKAGE.md) · [Windows flashing (Chinese)](docs/FLASH.zh.md) · [Mac flashing (Chinese)](docs/FLASH_MAC.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
+**First time here?** [Windows installation (Chinese)](docs/WINDOWS_INSTALLER.md) · [Mac test build](docs/MAC_PACKAGE.md) · [Windows flashing (Chinese)](docs/FLASH.zh.md) · [Mac flashing (Chinese)](docs/FLASH_MAC.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
 
 BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data, not photographs of a device.
 
-<p>
-<img src="docs/assets/screens/codex.png" width="240" alt="Codex quota and built-in pet with sample data">
-<img src="docs/assets/screens/weather.png" width="240" alt="Weather and clock sample">
-<img src="docs/assets/screens/system.png" width="240" alt="Synthetic system monitoring sample">
-</p>
+<table>
+<tr>
+<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample"><br><strong>Codex quota</strong></td>
+<td align="center"><img src="docs/assets/screens/weather.png" width="240" alt="Weather sample"><br><strong>Weather &amp; clock</strong></td>
+<td align="center"><img src="docs/assets/screens/system.png" width="240" alt="System monitor sample"><br><strong>System monitor</strong></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="Dual quota sample"><br><strong>Dual quotas</strong></td>
+<td align="center"><img src="docs/assets/screens/music.png" width="240" alt="Music sample"><br><strong>Music playback</strong></td>
+<td align="center"><img src="docs/assets/screens/stocks.png" width="240" alt="Stock quote sample"><br><strong>Stocks</strong></td>
+</tr>
+</table>
 
-> **`0.1.1` is a pre-release for testing.** Build from source
-> to try it and help validate it. Windows, Mac and firmware candidates passed cloud build and packaging checks.
-> Mac is an Apple Silicon test build; real-Mac acceptance remains pending.
+> **v0.1.3 pre-release: Windows online installer, about 8 MB.** Missing runtimes require internet access. Working firmware does not need reflashing.
+> The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.
 
 ### Prepare the hardware
 
@@ -118,19 +124,17 @@ cd AI-bot
 powershell -NoProfile -File scripts/package_windows_local.ps1
 ```
 
-The script creates complete Windows and public-source ZIPs under `artifacts/`,
+The script creates a Windows setup EXE, a complete Windows ZIP and a public-source ZIP under `artifacts/`,
 including notices and checksums, then tests the unpacked app. Add `-Firmware` to
 also build firmware and its source-materials archive; PlatformIO 6.1.18 is required.
 
-Extract the whole ZIP, install **.NET 8 Desktop Runtime x64** and **WebView2 Runtime**,
-and launch `AIBotBridge.exe` from File Explorer. Do not copy the EXE alone. Exit the
-bridge to release the serial port before flashing firmware.
+The small online setup EXE detects and installs missing prerequisites. For the manual ZIP, extract the whole archive and prepare **.NET 8 Desktop Runtime x64**; domestic web authorization needs **WebView2 Runtime**. Launch `AIBotBridge.exe` from File Explorer. Do not copy the EXE alone. Exit the bridge before flashing firmware.
 
 [Windows installation and upgrades](docs/WINDOWS_PACKAGE.md) · [Firmware and rebuilding](docs/FIRMWARE_PACKAGE.md) · [Full development reference](docs/REFERENCE.en.md)
 
 ### macOS: Apple Silicon test build
 
-Targets macOS 13+ on M-series chips. Download the Mac ZIP and matching `.sha256` from the [v0.1.1 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.1),
+Targets macOS 13+ on M-series chips. Download the Mac ZIP and matching `.sha256` from the [v0.1.3 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3),
 verify and extract the ZIP, then copy the app to Applications. See [Mac installation](docs/MAC_PACKAGE.md).
 The app is ad-hoc signed, without Developer ID signing or notarization. First launch, permissions and device behavior need real-Mac acceptance; Intel is unverified.
 
@@ -138,14 +142,14 @@ The app is ad-hoc signed, without Developer ID signing or notarization. First la
 
 | Platform / stage | Current evidence | Still to validate |
 | :--- | :--- | :--- |
-| **Windows** | Release build, isolated public regressions and CI pass | Fresh installation, live authorization, sustained operation and full interaction acceptance |
+| **Windows** | Online setup, host detection, download integrity checks and isolated public regressions pass | Fresh installation, live authorization, sustained operation and full interaction acceptance |
 | **ESP8266** | Firmware build, source-material rebuild and CI pass; partial device checks | Every physical page, music and complete Wi-Fi fallback |
-| **macOS (Apple Silicon test build)** | 31 tests, Release compilation, app packaging, signature integrity and extracted-archive checks pass | First launch, permissions, devices and sustained operation; Developer ID signing and notarization; Intel unverified |
-| **Distribution** | Four cloud candidate packages generated with license and SHA-256 checks; tag workflow prepares a draft | Fresh-logon startup, clean installation, real-Mac and complete device acceptance |
+| **macOS (Apple Silicon test build)** | Automated tests, Release compilation and app packaging run in the cloud; see Actions | First launch, permissions, devices and sustained operation; Developer ID signing and notarization; Intel unverified |
+| **Distribution** | Setup EXE, Windows/Mac ZIPs, firmware materials and sources are packaged by tag with notices and SHA-256 | Fresh-logon startup, clean installation, real-Mac and complete device acceptance |
 
 Candidate installation and acceptance: [Mac package](docs/MAC_PACKAGE.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
 
-Checked 2026-09-10: [corresponding CI run](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465452373).
+Documentation updated: 2026-09-16, **v0.1.3**.
 Follow [Actions](https://github.com/yaoyouzhong/AI-bot/actions) and [release readiness](docs/RELEASE_READINESS.md) for updates.
 
 ## Explore the project
@@ -171,3 +175,11 @@ tokens and private log contents removed.
   <a href="LICENSE">Own source: MIT</a> · Original BYTE SPROUT · Local-first<br>
   <sub>Independent project. No affiliation with or endorsement by named AI providers. Third-party components retain their own licenses.</sub>
 </p>
+
+## Download and setup guides
+
+**Windows recommended:** [Online installer, about 8 MB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.1.3/AIBotBridge-0.1.3-setup-win-x64.exe) · [Illustrated setup guide (Chinese)](docs/WINDOWS_INSTALLER.md).
+
+Installed runtimes are skipped; missing .NET is downloaded and hash-verified before installation. Internet is needed when prerequisites are missing. This is a pre-release; clean-machine installation, upgrade and uninstall acceptance remain pending.
+
+[Download selection](docs/DOWNLOAD.zh.md) · [Manual Windows ZIP installation](docs/INSTALL.zh.md) · [Windows firmware flashing](docs/FLASH.zh.md) · [Mac installation](docs/MAC_PACKAGE.md). Working AI-bot firmware does not need reflashing for this installer update.

@@ -3,7 +3,15 @@
 本页保留 2026-09-09 本地准备证据，并补充 2026-09-10 源码与分发材料收尾，不宣称正式版已发布。
 带日期的迁移/验收文档保留为历史证据，不能将其中的 PID、COM 号、候选哈希或等待操作当作当前指令。
 
-## 当前状态（2026-09-10）
+## v0.1.3 联网安装测试版
+
+[版本入口](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3) · [Windows 安装图解](WINDOWS_INSTALLER.md)。新增约 8 MB 中文联网精简安装包；已有环境跳过，缺少组件自动下载补装。本地构建、公开自测、下载完整性测试、本机环境检测与包校验通过。
+
+真实向导视觉检查受桌面访问限制，全新电脑补装、升级及卸载仍待验。安装器未签名；不将预发布或构建通过等同于完整实机验收。此版本不要求给正常工作的设备重新刷机。
+
+The v0.1.3 pre-release adds an approximately 8 MB Chinese online setup. Local build, public tests, download integrity tests, host detection and package checks passed. Visual and clean-machine install/upgrade/uninstall acceptance remain pending; the setup is unsigned.
+
+## 历史状态（2026-09-10，以下保留当时记录）
 
 **Windows · macOS（Apple Silicon 测试版）**。目标 macOS 13+，Intel 未验证；不宣称 Windows 与 Mac 功能完全一致。
 

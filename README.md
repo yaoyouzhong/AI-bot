@@ -84,18 +84,27 @@ flowchart LR
 
 ## 开始使用
 
-**第一次使用？** [Windows 安装图解](docs/INSTALL.zh.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [Windows 刷机图解](docs/FLASH.zh.md) · [Mac 刷机指南](docs/FLASH_MAC.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
+**Windows 推荐下载：** [联网精简安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.1.3/AIBotBridge-0.1.3-setup-win-x64.exe) · [中文安装图解](docs/WINDOWS_INSTALLER.md)。已有环境自动跳过，缺少时联网补装。
+
+**第一次使用？** [下载哪个包](docs/DOWNLOAD.zh.md) · [Windows 安装图解](docs/WINDOWS_INSTALLER.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [Windows 刷机图解](docs/FLASH.zh.md) · [Mac 刷机指南](docs/FLASH_MAC.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
 
 默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；不是实体屏照片。
 
-<p>
-<img src="docs/assets/screens/codex.png" width="240" alt="Codex 额度页与内置桌宠，示例数据">
-<img src="docs/assets/screens/weather.png" width="240" alt="天气时钟示例">
-<img src="docs/assets/screens/system.png" width="240" alt="系统监控示例">
-</p>
+<table>
+<tr>
+<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex 额度示例"><br><strong>Codex 额度</strong></td>
+<td align="center"><img src="docs/assets/screens/weather.png" width="240" alt="天气时钟示例"><br><strong>天气时钟</strong></td>
+<td align="center"><img src="docs/assets/screens/system.png" width="240" alt="系统监控示例"><br><strong>系统监控</strong></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="双额度示例"><br><strong>双额度总览</strong></td>
+<td align="center"><img src="docs/assets/screens/music.png" width="240" alt="音乐播放示例"><br><strong>音乐播放</strong></td>
+<td align="center"><img src="docs/assets/screens/stocks.png" width="240" alt="股票行情示例"><br><strong>股票行情</strong></td>
+</tr>
+</table>
 
-> **当前为 `0.1.1` 测试版（Pre-release）。** 可以从源码构建并参与验证；
-> Windows、Mac 与固件候选已通过云端构建和打包检查；Mac 为 Apple Silicon 测试版，尚未完成实机验收。
+> **v0.1.3 测试版：Windows 联网精简安装包约 8 MB。** 缺少运行环境时需要联网，已有正常固件不用重刷。
+> 安装器未签名；全新电脑安装、升级与卸载仍待实测。Mac 为 Apple Silicon 测试版，尚未完成实机验收。
 
 ### 准备硬件
 
@@ -112,17 +121,16 @@ cd AI-bot
 powershell -NoProfile -File scripts/package_windows_local.ps1
 ```
 
-脚本会在 `artifacts/` 下生成完整 Windows ZIP 和公开源码 ZIP，附许可、校验文件，
+脚本会在 `artifacts/` 下生成 Windows 安装 EXE、完整 Windows ZIP 和公开源码 ZIP，附许可、校验文件，
 并执行解压回归。加上 `-Firmware` 可同时生成固件及对应源码材料；需要 PlatformIO 6.1.18。
 
-解压完整 ZIP，安装 **.NET 8 Desktop Runtime x64** 和 **WebView2 Runtime**，从资源管理器
-打开 `AIBotBridge.exe`。不要只复制 EXE。刷写固件前先退出桥接，释放串口。
+联网精简安装 EXE 按中文向导检测并补齐缺失环境。选择手动 ZIP 时，完整解压并按教程准备 **.NET 8 Desktop Runtime x64**；国产网页授权需要 **WebView2 Runtime**。从资源管理器打开 `AIBotBridge.exe`，不要只复制 EXE。刷写固件前先退出桥接，释放串口。
 
 [Windows 安装与升级](docs/WINDOWS_PACKAGE.md) · [固件构建与重建](docs/FIRMWARE_PACKAGE.md) · [完整开发与运行参考](docs/REFERENCE.zh.md)
 
 ### macOS：Apple Silicon 测试版
 
-面向 macOS 13+、M 系列芯片。可从[v0.1.1 测试版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.1)下载 `AIBotBridge-0.1.1-local-candidate-macos-arm64.zip` 和同名 `.sha256`；
+面向 macOS 13+、M 系列芯片。可从[v0.1.3 测试版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3)下载 `AIBotBridge-0.1.3-local-candidate-macos-arm64.zip` 和同名 `.sha256`；
 解压并校验后，将 `.app` 放入“应用程序”。详见 [Mac 安装说明](docs/MAC_PACKAGE.md)。
 目前仅临时签名，未完成 Developer ID 签名与 Apple 公证；首次启动、权限和设备行为待实机验证，Intel Mac 未验证。
 
@@ -130,14 +138,14 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 | 平台 / 环节 | 当前证据 | 仍需完成 |
 | :--- | :--- | :--- |
-| **Windows** | Release 构建、公开隔离回归及 CI 通过 | 全新安装、真实授权、持续运行与全部交互验收 |
+| **Windows** | 联网精简安装器、本机环境检测、下载校验与公开隔离回归通过 | 全新安装、真实授权、持续运行与全部交互验收 |
 | **ESP8266** | 固件构建、源码材料重建及 CI 通过；已有分项实机验证 | 实体屏逐页确认、音乐及完整 Wi-Fi 回退 |
-| **macOS（Apple Silicon 测试版）** | 31 项测试、Release 编译、`.app` 打包、签名完整性及解压校验通过 | 首次启动、权限、设备连接、持续运行；Developer ID 签名与公证；Intel 未验证 |
-| **公开分发** | 四类候选包云端生成成功，许可和 SHA-256 检查通过；标签流程已接入草稿生成 | 真实重启自启动、全新安装、Mac 实机及完整设备验收 |
+| **macOS（Apple Silicon 测试版）** | 自动化测试、Release 编译和 `.app` 打包由云端验证，运行记录见 Actions | 首次启动、权限、设备连接、持续运行；Developer ID 签名与公证；Intel 未验证 |
+| **公开分发** | 安装 EXE、Windows/Mac ZIP、固件材料与源码按标签打包，附许可及 SHA-256 | 真实重启自启动、全新安装、Mac 实机及完整设备验收 |
 
 候选安装与验收：[Mac 候选包](docs/MAC_PACKAGE.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
 
-状态核对：2026-09-10，[对应 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/34465452373)。
+文档更新：2026-09-16，版本 **v0.1.3**。
 持续更新以[Actions](https://github.com/yaoyouzhong/AI-bot/actions)与[发布前检查](docs/RELEASE_READINESS.md)为准。
 
 ## 深入了解

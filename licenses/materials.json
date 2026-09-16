@@ -55,7 +55,11 @@
     "docs/assets/screens/tray-menu.png": "d4dab053a8237fcc1f75add95423f067b06dcd2d1b9c859504723d98a5f65b58",
     "docs/assets/screens/weather-settings.png": "aaa5c39ed18a9b5408dc87ee59b72a1e48c15552fe09cffb12dcb5de803f28a2",
     "docs/assets/screens/weather.png": "6dc26cf0b998007027bb26226c40e9baf25ee7b2591671d596b987f0862aa339",
-    "docs/assets/guides/flash.svg": "fe3fd1a2ec86c597e9d75a1db44294eaebeffbceaad3c732efdb14c97de0635a",
-    "docs/assets/guides/install.svg": "5aa6b21bf5938abc106bce40dab18b6b615929a4a76ea5077c688f4adccb964c"
+    "docs/assets/guides/flash.svg": "c571a87c1e346d67306d7fcef824e41da6ff08c53d21377551937b83faea1d18",
+    "docs/assets/guides/install.svg": "4a9aa1bf873b19f43ef8e294eb34f603d7b2c94d039bb656bac773677d0342f1",
+    "docs/assets/guides/download.svg": "8c985c93679a5d34ee10f4c7c165e9f137bd50cfb98aaf856cbb67ddf90ca31a",
+    "docs/assets/guides/serial.svg": "e457b5ac4e3e23babb4d4026f500ea8b9a91acd4c278ad19ae75a103085e11f8",
+    "docs/assets/guides/flash-result.svg": "29f268002ab65d368d1d7217ccaf71108c51b7ae699a0d8f8fe28e3ad73cecf3",
+    "docs/assets/guides/setup.svg": "5d8b26939336e30c876e3f6a5e3909eb5dce72409b5a6b7a7c796051b787ac89"
   }
 }

@@ -31,3 +31,14 @@ and rebuilding the LGPL-linked work, component notices, build configuration and
 hashes. Original component notices take precedence over this summary. Toolchain
 executables are installed separately, not redistributed in the materials archive.
 See [firmware materials](docs/FIRMWARE_PACKAGE.md).
+
+## Windows installer
+
+The setup executable is generated with Inno Setup 6.4.3 (Jordan Russell and
+Martijn Laan). Its original license is included as `licenses/inno-setup/license.txt`.
+The compiler is restored from the hash-pinned, unofficial Tools.InnoSetup NuGet
+redistribution; it is a build tool, not an application runtime dependency.
+Microsoft .NET 8 Desktop Runtime and the Evergreen WebView2 bootstrapper retain
+Microsoft's respective license terms. The .NET installer is downloaded only when missing and checked against a build-pinned hash; the unmodified Microsoft-signed WebView2 bootstrapper is bundled. Neither is licensed under this project's MIT license.
+`INSTALLER_DEPENDENCIES.json` records their sources and checksums. Internet access is required when either runtime is missing. Uninstalling AI-bot retains these shared
+runtimes and the user's AppData.

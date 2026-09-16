@@ -11,7 +11,8 @@ from prepare_release_assets import prepare, ROOT
 
 class PackagingTests(unittest.TestCase):
     def seed(self, directory):
-        for name in ("AIBotBridge-0.1.0-local-candidate-win-x64.zip",
+        for name in ("AIBotBridge-0.1.0-setup-win-x64.exe",
+                     "AIBotBridge-0.1.0-local-candidate-win-x64.zip",
                      "AIBotBridge-0.1.0-local-candidate-macos-arm64.zip",
                      "AI-bot-0.1.0-source.zip", "AI-bot-0.1.0-firmware-materials.zip"):
             data = name.encode()
@@ -61,6 +62,20 @@ class PackagingTests(unittest.TestCase):
             result = subprocess.run(command, cwd=directory, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Released change", (directory / "notes.md").read_text())
+
+    def test_installer_missing_or_tampered_blocks_release(self):
+        for mutation in ('missing', 'tampered'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp)
+                self.seed(directory)
+                installer = directory / 'AIBotBridge-0.1.0-setup-win-x64.exe'
+                if mutation == 'missing':
+                    installer.unlink()
+                else:
+                    installer.write_bytes(b'changed installer')
+                with self.assertRaises(ValueError):
+                    prepare(directory, '0.1.0', 'a' * 40)
+                self.assertFalse((directory / 'BUILD.json').exists())
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 新用户请先阅读[Windows 安装与首次使用图解](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md)。
 
-本包是未发布的 win-x64 候选，不是安装器，也不是全部功能已验收的正式版。
+Windows 候选提供安装 EXE 和手动解压 ZIP 两种形式；安装 EXE 为联网精简测试版，不代表全新电脑和全部功能已验收。下方手动准备环境与解压步骤只适用于 ZIP。
 
 使用和再次分发前请阅读随包 `DISTRIBUTION_TERMS.md` 及 `licenses/` 中的第三方
 原始条款。微软 SDK 两个 DLL 按官方 REDIST 清单原样随应用分发，不适用 AI-bot
@@ -37,7 +37,7 @@ under `licenses/`. The two Windows SDK DLLs accompany the application unmodified
 under Microsoft's REDIST list and SDK terms, not AI-bot's MIT license.
 `DEPENDENCIES.json` records the restored packages, notices and SDK binary hashes.
 
-This is an unpublished, framework-dependent Windows 10/11 x64 candidate. Install
+Windows candidates provide a setup EXE and a framework-dependent ZIP. The setup EXE is an online pre-release, not yet fully accepted on clean machines. For the ZIP, install
 .NET 8 Desktop Runtime x64 and Microsoft Edge WebView2 Runtime separately. Extract
 the entire ZIP to a stable directory and open AIBotBridge.exe in Explorer. Enable
 login startup through the tray's bridge-service menu only if desired. It uses a
@@ -49,3 +49,9 @@ old program directory as a backup, and preserve the user's AppData directories.
 No account credentials, pairing state or private pets are bundled. SHA-256 files
 check integrity, not publisher identity. Packaged tests use synthetic fixtures and
 do not establish real-account, hardware, macOS or network-isolation compatibility.
+
+## 自动安装包 / Setup EXE
+
+如果下载的是 `setup-win-x64.exe`，按中文向导安装即可：它会自动检查运行环境并补装缺失项。此页上面的手动环境准备适用于 ZIP。缺少 .NET 或 WebView2 时安装向导需要联网；详情见随包 `docs/WINDOWS_INSTALLER.md`。
+
+The setup EXE checks and installs missing runtimes automatically. Manual prerequisite installation above applies to the ZIP. Internet is required when .NET or WebView2 is missing; see `docs/WINDOWS_INSTALLER.md`.

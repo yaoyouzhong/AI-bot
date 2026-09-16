@@ -4,6 +4,8 @@
 
 本指南面向 macOS 13+、Apple Silicon（M 系列）的 AI-bot 测试版用户。Mac 应用已通过云端构建与打包检查；下面的安装、刷写和设备验收步骤仍待真实 Mac 验证，Intel 不在当前候选验收范围内。
 
+第一次使用请先看[下载选择指南](DOWNLOAD.zh.md)。本页走 PlatformIO 源码编译路线，区别于 Windows 的现成 BIN 简化教程。
+
 ## 操作路线
 
 ```mermaid

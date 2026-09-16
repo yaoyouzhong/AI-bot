@@ -1,145 +1,149 @@
-# Windows：ESP8266 刷机图解
+# Windows 给小屏刷固件：先备份，再写入
 
-[返回首页](../README.md) · [Windows 安装](INSTALL.zh.md) · [Mac 刷机指南](FLASH_MAC.zh.md) · [功能图鉴](FEATURES.zh.md)
+[下载选择指南](DOWNLOAD.zh.md) · [Windows 应用安装](INSTALL.zh.md) · [Mac 刷机](FLASH_MAC.zh.md)
 
-本教程使用仓库实际配置的 **PlatformIO 上传流程**，适用于 ESP8266/ESP-12S、
-240×240 ST7789、SD2 小电视引脚布局。不是 ESP32 教程，也不适用于任意外观相似的小屏。
-下面是操作说明；文档生成过程没有刷写你的设备。
+**只更新电脑上的 v0.1.3，且小屏已经正常运行 AI-bot？不用刷机。** 以下仅用于首次安装或确实要替换小屏固件。
 
-![刷机操作顺序示意，非成功日志截图](assets/guides/flash.svg)
+本页使用发布包内的现成 `firmware.bin`，不用 Git、.NET SDK 或编译器。工具固定为 **esptool 4.8.1**，请不要混用其他教程的参数。
+
+![刷机顺序示意，非设备操作记录](assets/guides/flash.svg)
 
 ## 1. 核对硬件，并留好回退材料
 
-查看板卡型号、屏幕驱动及商家引脚说明，再与[实际配置](../firmware/platformio.ini)比对：
+本固件只适用于 **ESP8266 / ESP-12S + 240×240 ST7789 屏幕 + SD2 小电视引脚方案**。不是 ESP32 固件，也不适用于所有外观相似的小电视。型号不清楚时先问卖家。
 
-| 屏幕信号 | ESP8266 GPIO | 常见 NodeMCU 丝印 |
+<details>
+<summary>展开核对引脚（成品通常不用重新接线）</summary>
+
+| 信号 | GPIO | 常见 NodeMCU 丝印 |
 | --- | ---: | --- |
 | MOSI / SDA | 13 | D7 |
 | SCLK / SCL | 14 | D5 |
 | CS | 15 | D8 |
 | DC | 0 | D3 |
 | RST | 2 | D4 |
-| BL 背光 | 5，低电平点亮 | D1 |
+| BL | 5，低电平点亮 | D1 |
 
-这里是**信号对应表**，不是供电接线许可；供电电压和模块连线以自己的硬件说明为准。
-成品小电视通常已经接好线。丝印和 GPIO 编号不是一回事，不能把 D7 理解成 GPIO7。
+以[仓库配置](../firmware/platformio.ini)及设备厂商说明为准。D7 不是 GPIO7，供电不能按这张信号表猜测。
 
-刷写会替换程序区域。先保留可用的旧固件/恢复方法、旧程序目录，以及自己的设置和资源备份；
-只有源码并不等于已经备份设备里的原固件。不确定型号或恢复方法时先解决这一点再继续。
-本流程不执行全片擦除，也不执行“重置设备 Wi-Fi”。
+</details>
 
-## 2. 准备工具
+准备 USB **数据线**和可恢复的旧固件；没有旧固件时，在第 5 步读取设备备份后再写入。刷写会替换设备程序，本页不执行全片擦除或主动清除 Wi-Fi。
 
-安装 Python 和 Git，先按[安装图解](INSTALL.zh.md)获取源码。
-在仓库根目录打开 PowerShell，创建专用于刷机的 Python 环境：
+**完成标志：** 型号与引脚已确认匹配；不匹配就不要继续。
+
+## 2. 下载并解压固件包
+
+从 [v0.1.3 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3)下载：
+
+- `AI-bot-0.1.3-firmware-materials.zip`
+- 同名 `.zip.sha256` 校验文件
+
+在下载文件夹地址栏输入 `powershell`，回车，运行：
 
 ```powershell
+Get-FileHash -Algorithm SHA256 .\AI-bot-0.1.3-firmware-materials.zip
+Get-Content .\AI-bot-0.1.3-firmware-materials.zip.sha256
+```
+
+两串哈希一致后，右键 ZIP → **全部解压**。进入解压目录，顶层应有 `firmware.bin`、`source`、`licenses` 等。保留整个材料包。
+
+**完成标志：** 能找到顶层 `firmware.bin`。不要选择 Windows EXE 或把 ZIP 当固件。
+
+## 3. 准备刷机工具（第一次做一次）
+
+安装 [Python 3.12 Windows x64](https://www.python.org/downloads/release/python-31210/)，选择页面 Files 表中的 **Windows installer (64-bit)**，在安装界面勾选 **Add python.exe to PATH**。已有可正常运行的兼容 Python 时可复用。
+
+在刚才**包含 firmware.bin 的解压目录**，点资源管理器地址栏，输入 `powershell`，回车。下面命令逐行执行，上一行成功后再继续：
+
+```powershell
+python --version
 python -m venv .venv-flash
-.\.venv-flash\Scripts\python.exe -m pip install platformio==6.1.18
-.\.venv-flash\Scripts\python.exe -m platformio --version
+.\.venv-flash\Scripts\python.exe -m pip install esptool==4.8.1
+.\.venv-flash\Scripts\python.exe -m esptool version
 ```
 
-应输出 PlatformIO Core 6.1.18。使用独立环境不需要改 PowerShell 执行策略。
-首次构建会下载编译器和库，需要网络及足够磁盘空间。[PlatformIO 官方安装说明](https://docs.platformio.org/en/latest/core/installation/methods/installer-script.html)。
+**完成标志：** 最后一条显示 `4.8.1`。这些步骤不会写入小屏，也不需要改变 PowerShell 执行策略。
 
-## 3. 找到实际串口
+如果 `python` 找不到或打开商店，重新打开终端；仍不行时修复 Python 安装。安装工具失败时不要继续写入。
 
-1. **退出桥接程序**及其他串口工具，再插入 USB 数据线。
-2. Windows 开始菜单搜索“设备管理器”并打开，展开 **端口（COM 和 LPT）**。
-3. 对比插拔前后出现的 CH340/USB-SERIAL 条目，记下括号里的 `COM` 号。
-4. 没有串口时，先换数据线/USB 插口；若设备提示缺少 CH340 驱动，从[芯片厂商 WCH](https://www.wch.cn/downloads/CH341SER_EXE.html)获取。
+## 4. 找出小屏的 COM 号
 
-也可使用只读命令查看：
+1. 先从托盘菜单正常**退出 AI-bot**，关闭其他串口工具。
+2. 打开 Windows **设备管理器 → 端口（COM 和 LPT）**。
+3. 插拔一次小屏的数据线，找出随它出现和消失的那一行。
+4. 记下括号里的 COM 号。下图 `COM5` 只是示例。
+
+![通过插拔识别串口示意，非真实设备截图](assets/guides/serial.svg)
+
+在同一个 PowerShell 中运行下面一行，按提示输入**你自己的实际端口**：
 
 ```powershell
-Get-CimInstance Win32_SerialPort | Select-Object DeviceID, Name
-.\.venv-flash\Scripts\python.exe -m platformio device list
+$flashPort = Read-Host '输入设备管理器中小屏的 COM 号，例如 COM5'
 ```
 
-输出形式示例（**不是你的实际设备结果**）：
+**完成标志：** 已明确目标端口。没有端口时先换数据线或 USB 插口；确认缺 CH340 驱动后再从 [WCH 官方页面](https://www.wch.cn/downloads/CH341SER_EXE.html)安装。
 
-```text
-DeviceID  Name
-COM5      USB-SERIAL CH340 (COM5)
-```
+## 5. 识别芯片、保存旧固件
 
-后文 `COM5` 只是示例。请替换成上一步发现的真实端口，**不要照抄 COM5 或 COM7**。
-
-## 4. 先构建，确认通过后再上传
-
-以下命令在包含 `firmware/` 的**仓库根目录**执行：
+仍在同一目录和终端，先识别设备：
 
 ```powershell
-.\.venv-flash\Scripts\python.exe -m platformio run -d firmware
+.\.venv-flash\Scripts\python.exe -m esptool --chip esp8266 --port $flashPort flash_id
 ```
 
-等进程结束，输出应有 `SUCCESS`。这一步只编译，不写入设备。
-生成的文件位于 `firmware/.pio/build/nodemcuv2/firmware.bin`。
-若失败，先处理第一条实际错误；不要上传旧目录里遗留的 BIN。
+应识别到 ESP8266 及 Flash 容量。报错、识别不符或一直连接时，先处理，不继续写入。
 
-确认你准备好替换设备程序后，指定真实端口上传：
+读取整片备份（会暂时重启设备进入下载模式，但不改写 Flash）：
 
 ```powershell
-.\.venv-flash\Scripts\python.exe -m platformio run -d firmware -t upload --upload-port COM5
+$backupFile = 'backup-before-ai-bot-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.bin'
+.\.venv-flash\Scripts\python.exe -m esptool --chip esp8266 --port $flashPort --baud 115200 read_flash 0 ALL $backupFile
 ```
 
-上传期间保持供电和数据线连接。PlatformIO 根据本仓库 `nodemcuv2` 环境处理芯片及上传参数，
-无需手工输入其他项目的 Flash 地址。等待写入、校验和重启步骤完成，退出码应为 0，最终看到 `SUCCESS`。
-**编译 SUCCESS 与上传 SUCCESS 是两件事**；最终还要完成下面的设备确认。
+**完成标志：** 读取成功，并产生与检测容量相符的备份文件。把备份另存到安全目录；里面可能含私人网络配置，不要公开上传。备份失败就先停止，不直接跳到写入。
 
-### 如果使用的是完整固件材料 ZIP
+## 6. 写入现成固件
 
-材料包不是仓库目录。完整解压后进入 `source/firmware`，使用包内的 `rebuild.ini`：
+确认文件是本版顶层 `firmware.bin`，端口正确且桥接已经退出，再执行这一条：
 
 ```powershell
-# 在完整材料包解压目录执行
-python -m venv .venv-flash
-.\.venv-flash\Scripts\python.exe -m pip install platformio==6.1.18
-$flashPython = (Resolve-Path '.\.venv-flash\Scripts\python.exe').Path
-cd source/firmware
-& $flashPython -m platformio run --project-conf rebuild.ini
-& $flashPython -m platformio run --project-conf rebuild.ini -t upload --upload-port COM5
+.\.venv-flash\Scripts\python.exe -m esptool --chip esp8266 --port $flashPort --baud 115200 write_flash 0x0 .\firmware.bin
 ```
 
-此路径会重建包内源码后上传重建结果，不是直接写入 ZIP 顶层的预编译 BIN。
-保留 `source/vendor` 和其他材料；不要只复制 `source/firmware`。详见[固件材料说明](FIRMWARE_PACKAGE.md)。
+`0x0` 是本项目 ESP8266 Arduino 固件的写入地址，不是通用 ESP32 地址。模式和大小沿用固件头，不额外覆盖。115200 是此处的刷写速度，和桥接通信速度不是一回事。
 
-## 5. 刷完怎样才算连上
+保持供电，不拔线。**完成标志：** 写入到 100%，出现 `Hash of data verified`，随后重启并返回命令提示符，没有报错。
 
-1. 上传结束，关闭串口监视器，再启动 Windows `AIBotBridge.exe`。
-2. 等待自动串口探测。右键托盘 → **设备连接 → USB 管理与诊断 → 设备信息…**，核实能读到设备响应。
-3. **显示模式 → 系统监控**：检查实体屏出现 CPU/内存等信息，且会更新。
-4. **显示模式 → 天气时钟 / 桌宠**：检查实体屏确实切页。默认桌宠不要求导入文件。
-5. **显示模式 → 智能跟随**，确认 **循环展示 → 启用循环展示**；保留原有勾选页面、顺序与间隔。
+![成功输出关键位置示意，不代表已执行刷机](assets/guides/flash-result.svg)
 
-![实际设备控制窗口的离线截图；连接结果以你的设备为准](assets/screens/device-control.png)
+如果是失败、超时或 `Connecting...` 不结束，不算刷好。先按下面故障表处理，不反复擦除芯片。
 
-“能编译”“能上传”“电脑镜像能显示”都不能替代真实设备握手、切页和稳定运行确认。
-新默认桌宠的设备显示仍需刷入包含该修改的固件；只更新电脑程序不会自动升级设备。
+## 7. 启动应用，检查实体屏
 
-## 6. Wi-Fi 是可选回退，不是 USB 前置条件
+1. 保持 USB 连接，启动 `AIBotBridge.exe`。
+2. 右键托盘 → **设备连接 → USB 管理与诊断 → 设备信息…**，确认有设备响应。
+3. 切到 **系统监控**，看实体屏数据是否更新；再切一次 **天气时钟**确认能换页。
+4. 恢复 **智能跟随**并启用循环展示，保留原页面顺序与间隔。
 
-仅使用 USB 时可以先不配 Wi-Fi。需要回退时：
+<img src="assets/screens/device-control.png" width="680" alt="设备控制真实离线示例截图，操作时需看到自己的设备响应">
 
-1. 退出桥接但保持设备 USB 供电，设备没有可用 Wi-Fi 且没有新鲜 USB 心跳时，启动约 15 秒后可开启 `AI-bot-Setup` 配网热点。
-2. 连接该热点，按 WiFiManager 门户配置自己的网络；没有自动弹出门户时查看该连接的网关地址，在浏览器打开该地址。
-3. 电脑恢复正常网络，重新启动桥接，先完成 USB 握手；桥接会通过 USB 下发认证回退配置。
-4. 设备和电脑须在可互通的局域网。运行 **设备连接 → USB 管理与诊断 → 测试 Wi-Fi 回退（保持 USB 供电）…**。
-5. 测试会短暂暂停 USB 状态发送并恢复；观察测试结果。单位客户端隔离或防火墙会影响 LAN 回退，不能用关闭防火墙代替正确配置。
+**最终成功标志：** 写入校验通过、设备信息有响应、实体小屏可切页。电脑镜像有图，不等于小屏已连接。
 
-这项测试保持 USB 供电，**不要拔掉唯一电源线**。完整回退仍有待验收，失败不等于 USB 不能用。
-“重置设备 Wi-Fi…”是另一个会改变设备配置的动作，不属于常规刷机或测试步骤。
+基础 USB 不需要配 Wi-Fi。要无线回退时，再看[进阶配网说明](FLASH_BUILD.zh.md#6-wi-fi-是可选回退不是-usb-前置条件)。
 
-## 7. 常见故障
+## 遇到问题看这里
 
-| 现象 | 建议检查 |
+| 现象 | 下一步 |
 | --- | --- |
-| 找不到串口 | 先检查数据线、USB 插口、设备管理器与 CH340 驱动 |
-| Access denied / could not open port | 退出桥接、串口监视器及其他占用程序，重新核对 COM 号 |
-| Failed to connect / 一直 Connecting | 确认是 ESP8266 和当前端口；核对板卡自动下载电路与厂商 BOOT/RESET 步骤，不猜其他板卡的按键组合 |
-| 库下载或编译失败 | 检查网络、PlatformIO 版本和首条报错；构建通过前不继续上传 |
-| 上传成功但黑屏/颜色异常 | 先核对 ST7789 型号、引脚、背光极性与供电；不要反复全片擦除 |
-| 更新程序后小屏仍旧样式 | 电脑程序与固件分别更新；核对刚上传的是同一份源码构建的固件 |
-| 刷完显示 PC OFF | 先启动桥接并确认握手；这表示当前未收到有效电脑状态，不能只凭此判断刷机失败 |
+| 找不到 firmware.bin | 确认下载的是固件材料包，并在解压目录顶层执行 |
+| Access denied / could not open port | 正常退出 AI-bot 和串口工具，检查 COM 号 |
+| 一直 Connecting | 检查数据线、供电和自动下载电路；按板卡厂商说明进入下载模式，不猜引脚短接 |
+| 校验失败 / 写入中断 | 保存报错，检查连接及供电；不要继续宣称刷写成功 |
+| 写入成功但黑屏、花屏 | 重新核对 ESP8266、ST7789 和引脚方案，不反复全片擦除 |
+| 小屏显示 PC OFF | 启动电脑桥接并核对设备信息响应，再判断连接 |
+| 想恢复旧固件 | 使用自己同一设备的备份和已确认的恢复方案；不要下载别人的整片备份 |
 
-原始诊断入口及测试通过标准见 [USB 与回退验收](USB_VALIDATION.md)。
+需要修改固件或从源码重建，另看[PlatformIO 进阶刷机](FLASH_BUILD.zh.md)。
+
+命令依据 [Espressif esptool v4 文档](https://docs.espressif.com/projects/esptool/en/release-v4/esp32/esptool/basic-commands.html)和本仓库 ESP8266 配置。此处只核对命令接口与发布材料，不宣称本轮已对你的设备完成刷写。

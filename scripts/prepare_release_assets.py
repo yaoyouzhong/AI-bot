@@ -12,12 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 def prepare(directory: Path, version: str, commit: str):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Expected full source commit SHA")
-    archives = [f"AIBotBridge-{version}-local-candidate-win-x64.zip",
+    archives = [f"AIBotBridge-{version}-setup-win-x64.exe",
+                f"AIBotBridge-{version}-local-candidate-win-x64.zip",
                 f"AIBotBridge-{version}-local-candidate-macos-arm64.zip",
                 f"AI-bot-{version}-source.zip", f"AI-bot-{version}-firmware-materials.zip"]
     expected = {name + suffix for name in archives for suffix in ("", ".sha256")}
     if {p.name for p in directory.iterdir()} != expected:
-        raise ValueError("Expected exactly Windows, Mac, source and firmware archives with sidecar hashes")
+        raise ValueError("Expected exactly Windows setup and ZIP, Mac, source and firmware packages with sidecar hashes")
     for name in archives:
         archive = directory / name
         if archive.is_symlink() or not archive.is_file():

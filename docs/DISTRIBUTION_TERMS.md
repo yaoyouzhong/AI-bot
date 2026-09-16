@@ -12,7 +12,7 @@ Microsoft.Windows.SDK.NET.Ref，适用随包的微软 Windows SDK 条款。使�
 
 这些 DLL 仅随调用 WinRT 的 Windows 应用分发，保持字节及原有版权声明不变。
 它们不适用 AI-bot 自有源码的 MIT 授权。其余 Windows 依赖适用各自随包条款。
-.NET Desktop Runtime 和 WebView2 浏览器 Runtime 由用户从微软安装，不随此包提供。
+Windows ZIP 不包含运行时安装器。Windows 安装 EXE 仅包含原样的微软签名 WebView2 联网引导安装器；.NET Desktop Runtime 安装器和 WebView2 浏览器运行时本体均在缺失时从微软下载。安装向导对 .NET 下载内容核对构建时固定的 SHA-256 后才运行。组件保留各自微软许可，不适用本项目 MIT 许可；来源与哈希见包内 `INSTALLER_DEPENDENCIES.json`。
 
 固件中的第三方库适用各自许可，包括 ESP8266 Arduino core 的 LGPL-2.1-or-later、
 各组件的 BSD/MIT 等声明，以及 Espressif NONOS SDK 的 ESP8266 硬件使用限制。
@@ -32,8 +32,7 @@ DLLs requires compliance with the accompanying Windows SDK terms, including sect
 those components if you cannot comply. Downstream distributors must provide and
 require compliance with the same third-party terms. AI-bot grants no additional
 rights to Microsoft components. They accompany this Windows application for WinRT
-API access and are not relicensed under MIT. The .NET Desktop and WebView2 browser
-runtimes are installed separately from Microsoft.
+API access and are not relicensed under MIT. The Windows ZIP excludes runtime installers. The Windows setup EXE bundles only the unmodified Microsoft-signed WebView2 bootstrapper. The .NET Desktop Runtime installer and WebView2 runtime itself are downloaded from Microsoft only when missing. The .NET download must match the build-pinned SHA-256 before execution. These components retain their Microsoft terms; sources and hashes are in `INSTALLER_DEPENDENCIES.json`.
 
 Firmware redistribution must retain its notices, corresponding source/build
 materials and rebuilding instructions. The Arduino core remains LGPL-2.1-or-later;

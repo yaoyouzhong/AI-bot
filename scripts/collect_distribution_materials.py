@@ -126,7 +126,7 @@ def collect_windows(stage: Path):
     copy_file(ROOT / "docs/DISTRIBUTION_TERMS.md", stage / "DISTRIBUTION_TERMS.md")
     copy_file(ROOT / "docs/WINDOWS_PACKAGE.md", stage / "README.md")
     copy_file(ROOT / "licenses/materials.json", stage / "licenses/materials.json")
-    for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md"):
+    for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md", "WINDOWS_INSTALLER.md"):
         copy_file(ROOT / "docs" / name, stage / "docs" / name)
     write_json(stage / "DEPENDENCIES.json", {"scope": "restored Windows publish dependencies",
                                              "packages": records})
@@ -169,7 +169,7 @@ def collect_firmware(stage: Path, core: Path):
         copy_file(ROOT / filename, stage / filename)
     copy_file(ROOT / "docs/FIRMWARE_PACKAGE.md", stage / "README.md")
     copy_file(ROOT / "docs/DISTRIBUTION_TERMS.md", stage / "DISTRIBUTION_TERMS.md")
-    for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md"):
+    for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md", "WINDOWS_INSTALLER.md"):
         copy_file(ROOT / "docs" / name, stage / "docs" / name)
     copy_file(binary, stage / "firmware.bin")
     copy_tree(firmware, stage / "source/firmware")

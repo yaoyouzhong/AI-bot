@@ -22,7 +22,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }
     python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') windows --stage $stage
     if ($LASTEXITCODE -ne 0) { throw 'Distribution materials failed validation' }
-    $manifest = @(Get-ChildItem -LiteralPath $stage -Recurse -File | Sort-Object FullName | ForEach-Object {
+    & (Join-Path $sourceRoot 'scripts\build_windows_installer.ps1') -StageDirectory $stage -OutputDirectory $sourceRoot -CacheDirectory (Join-Path $repoPath 'artifacts\installer-tools')
+    $manifest = @(Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object Name -ne 'FILES.sha256' | Sort-Object FullName | ForEach-Object {
         $relative = $_.FullName.Substring($stage.Length + 1).Replace('\','/')
         (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $relative
     })
@@ -51,6 +52,8 @@ try {
     if ($OutputDirectory) {
         New-Item -ItemType Directory -Path $OutputDirectory | Out-Null
         $deliverables = @($zip, ($zip + '.sha256'),
+            (Join-Path $sourceRoot "AIBotBridge-$version-setup-win-x64.exe"),
+            (Join-Path $sourceRoot "AIBotBridge-$version-setup-win-x64.exe.sha256"),
             (Join-Path $sourceRoot "AI-bot-$version-source.zip"),
             (Join-Path $sourceRoot "AI-bot-$version-source.zip.sha256"))
         if ($Firmware) {
