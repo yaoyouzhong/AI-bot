@@ -57,9 +57,10 @@ PC goes offline and the device still has power, it shows an independent `PC OFF`
 
 Account quotas come from providers; local Token counts cover only visible local
 logs. They are separate metrics. Windows retains 90 days of quota history. Daily
-totals require verifiable Beijing-midnight, account and reset boundaries; incomplete
-days show `--` and today is in progress. Two-minute polling can miss those boundaries,
-so reliable accurate daily totals are not yet delivered. See [quota trends](docs/QUOTA_TRENDS.md).
+figures sum verifiable observed increments by Beijing date. Partial days also show
+recorded usage; today remains in progress and `--` means no comparable samples.
+Only complete historical days enter averages. Gaps are not estimated, and an
+unverified quota change does not prove the user performed a reset. See [quota trends](docs/QUOTA_TRENDS.md).
 
 </details>
 
