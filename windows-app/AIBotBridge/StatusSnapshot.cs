@@ -82,7 +82,10 @@ internal sealed record DomesticQuotaSnapshot(
     DomesticProviderQuotaSnapshot? Kimi,
     DomesticProviderQuotaSnapshot? MiniMax,
     DomesticProviderQuotaSnapshot? DeepSeek,
-    DomesticProviderQuotaSnapshot? Zhipu = null);
+    DomesticProviderQuotaSnapshot? Zhipu = null,
+    DomesticProviderQuotaSnapshot? StepFun = null,
+    DomesticProviderQuotaSnapshot? Baidu = null,
+    DomesticProviderQuotaSnapshot? Xiaomi = null);
 
 internal sealed record SystemMetricsSnapshot(
     double CpuPercent,

@@ -40,6 +40,8 @@ internal static class PublicSelfTest
         QuotaHistorySelfTest.Run();
         LunarDateSelfTest.Run();
         OfficialQuotaApiSelfTest.Run();
+        AdditionalQuotaSelfTest.Run();
+        XiaomiQuotaSelfTest.Run();
         CodexLifecycleSelfTest.Run();
         DisplayPolicySelfTest.Run();
         PetAnimationSelfTest.Run();

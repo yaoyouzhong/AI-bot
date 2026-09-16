@@ -278,7 +278,7 @@ final class SerialBridge {
 
     static let displayModes: Set<String> = [
         "auto", "dual", "weather", "stocks", "quotas", "domestic", "system", "music", "pet", "screensaver",
-        "claude", "codex", "activity", "domestic_alibaba", "domestic_kimi", "domestic_minimax", "domestic_deepseek", "domestic_zhipu"
+        "claude", "codex", "activity", "domestic_alibaba", "domestic_kimi", "domestic_minimax", "domestic_deepseek", "domestic_zhipu", "domestic_stepfun", "domestic_baidu", "domestic_xiaomi"
     ]
 
     static func isCandidateDeviceName(_ name: String) -> Bool {

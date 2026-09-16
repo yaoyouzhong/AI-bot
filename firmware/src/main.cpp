@@ -31,7 +31,7 @@ constexpr char kBrightnessPath[] = "/brightness.txt";
 constexpr size_t kMaxBinaryEncoded = 820;
 constexpr size_t kMaxBinaryDecoded = 800;
 
-enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver, Claude, Codex, Activity, DomesticAlibaba, DomesticKimi, DomesticMinimax, DomesticDeepseek, DomesticZhipu };
+enum class DisplayMode { Auto, Dual, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver, Claude, Codex, Activity, DomesticAlibaba, DomesticKimi, DomesticMinimax, DomesticDeepseek, DomesticZhipu, DomesticStepfun, DomesticBaidu, DomesticXiaomi };
 enum class RenderPage { Dashboard, Weather, Stocks, Quotas, Domestic, System, Music, Pet, ScreenSaver, Claude, Codex };
 struct ModeName { const char* name; DisplayMode mode; };
 const ModeName modeNames[] = {
@@ -39,7 +39,7 @@ const ModeName modeNames[] = {
   {"quotas",DisplayMode::Quotas},{"domestic",DisplayMode::Domestic},{"system",DisplayMode::System},{"music",DisplayMode::Music},
   {"pet",DisplayMode::Pet},{"screensaver",DisplayMode::ScreenSaver},{"claude",DisplayMode::Claude},{"codex",DisplayMode::Codex},
   {"activity",DisplayMode::Activity},{"domestic_alibaba",DisplayMode::DomesticAlibaba},{"domestic_kimi",DisplayMode::DomesticKimi},
-  {"domestic_minimax",DisplayMode::DomesticMinimax},{"domestic_deepseek",DisplayMode::DomesticDeepseek},{"domestic_zhipu",DisplayMode::DomesticZhipu}
+  {"domestic_minimax",DisplayMode::DomesticMinimax},{"domestic_deepseek",DisplayMode::DomesticDeepseek},{"domestic_zhipu",DisplayMode::DomesticZhipu},{"domestic_stepfun",DisplayMode::DomesticStepfun},{"domestic_baidu",DisplayMode::DomesticBaidu},{"domestic_xiaomi",DisplayMode::DomesticXiaomi}
 };
 DisplayMode parseDisplayMode(const String& name) {
   for (const auto& entry : modeNames) if (name == entry.name) return entry.mode;
@@ -147,6 +147,9 @@ DomesticQuotaState kimiQuota;
 DomesticQuotaState miniMaxQuota;
 DomesticQuotaState deepSeekQuota;
 DomesticQuotaState zhipuQuota;
+DomesticQuotaState stepFunQuota;
+DomesticQuotaState baiduQuota;
+DomesticQuotaState xiaomiQuota;
 SystemMetricsState systemMetrics;
 uint32_t netUp[224] = {}, netDown[224] = {};
 String netSampleStamp;
@@ -487,6 +490,9 @@ void updateStatus(JsonObjectConst data) {
       updateDomesticQuota(quotas["deepSeek"].as<JsonObjectConst>(), deepSeekQuota);
     if (quotas["zhipu"].is<JsonObjectConst>())
       updateDomesticQuota(quotas["zhipu"].as<JsonObjectConst>(), zhipuQuota);
+    if (quotas["stepFun"].is<JsonObjectConst>()) updateDomesticQuota(quotas["stepFun"].as<JsonObjectConst>(), stepFunQuota);
+    if (quotas["xiaomi"].is<JsonObjectConst>()) updateDomesticQuota(quotas["xiaomi"].as<JsonObjectConst>(), xiaomiQuota);
+    if (quotas["baidu"].is<JsonObjectConst>()) updateDomesticQuota(quotas["baidu"].as<JsonObjectConst>(), baiduQuota);
   }
 
   if (data["systemMetrics"].is<JsonObjectConst>()) {
@@ -1003,6 +1009,9 @@ void drawDomestic() {
   if (effectiveDisplayMode == DisplayMode::DomesticDeepseek) { value = &deepSeekQuota; name = "DEEPSEEK"; }
   const bool isZhipu = effectiveDisplayMode == DisplayMode::DomesticZhipu;
   if (isZhipu) { value = &zhipuQuota; name = "GLM"; }
+  if (effectiveDisplayMode == DisplayMode::DomesticStepfun) { value = &stepFunQuota; name = "STEPFUN"; }
+  if (effectiveDisplayMode == DisplayMode::DomesticBaidu) { value = &baiduQuota; name = "QIANFAN"; }
+  if (effectiveDisplayMode == DisplayMode::DomesticXiaomi) { value = &xiaomiQuota; name = "MiMo"; }
   const auto& q = *value;
   String key=String((int)effectiveDisplayMode)+"|"+q.plan+"|"+q.currency+"|"+String(q.planAvailable)+"|"+String(q.planPercent,3)
     +"|"+q.planReset+"|"+String(q.primaryAvailable)+"|"+String(q.weeklyAvailable)+"|"+String(q.balanceAvailable)+"|"+String(q.usedCostAvailable)
@@ -1052,7 +1061,7 @@ void drawDomestic() {
   }
   display.fillRoundRect(20,177,200,38,8,0x1082);display.drawRoundRect(20,177,200,38,8,0x29A5);
   display.setTextDatum(MC_DATUM);display.setTextColor(TFT_GREEN);
-  display.drawString(q.balanceAvailable?"USED":windowed?"5H":"RESET",53,196,2);
+  display.drawString(q.balanceAvailable?"USED":windowed?"5H":effectiveDisplayMode==DisplayMode::DomesticBaidu?"EXPIRES":"RESET",53,196,2);
   if(q.stale && q.available) {
     display.fillRoundRect(20,177,200,38,8,0x1082);
     display.setTextColor(TFT_ORANGE);
@@ -1975,7 +1984,7 @@ RenderPage desiredPage() {
   if (mode == DisplayMode::Claude) return RenderPage::Claude;
   if (mode == DisplayMode::Codex) return RenderPage::Codex;
   if (mode == DisplayMode::Domestic || mode == DisplayMode::DomesticAlibaba ||
-      mode == DisplayMode::DomesticKimi || mode == DisplayMode::DomesticMinimax || mode == DisplayMode::DomesticDeepseek || mode == DisplayMode::DomesticZhipu) return RenderPage::Domestic;
+      mode == DisplayMode::DomesticKimi || mode == DisplayMode::DomesticMinimax || mode == DisplayMode::DomesticDeepseek || mode == DisplayMode::DomesticZhipu || mode == DisplayMode::DomesticStepfun || mode == DisplayMode::DomesticBaidu || mode == DisplayMode::DomesticXiaomi) return RenderPage::Domestic;
   if (mode == DisplayMode::System) return RenderPage::System;
   if (mode == DisplayMode::Music) return RenderPage::Music;
   if (mode == DisplayMode::Pet) return RenderPage::Pet;

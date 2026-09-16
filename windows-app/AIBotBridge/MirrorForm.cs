@@ -129,7 +129,7 @@ internal sealed class MirrorForm : Form
             case "weather": WeatherSceneRenderer.Draw(graphics, status); break;
             case "stocks": DrawStocks(graphics, status); break;
             case "claude": case "codex": case "dual": case "quotas": UsagePageRenderer.Draw(graphics, status, mode); break;
-            case "domestic": case "domestic_alibaba": case "domestic_kimi": case "domestic_minimax": case "domestic_deepseek": case "domestic_zhipu": DomesticPageRenderer.Draw(graphics, status, mode); break;
+            case "domestic": case "domestic_alibaba": case "domestic_kimi": case "domestic_minimax": case "domestic_deepseek": case "domestic_zhipu": case "domestic_stepfun": case "domestic_baidu": case "domestic_xiaomi": DomesticPageRenderer.Draw(graphics, status, mode); break;
             case "system": SystemPageRenderer.Draw(graphics, status); break;
             case "music": DrawMusic(graphics, status); break;
             case "pet": DrawPet(graphics, status); break;

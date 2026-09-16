@@ -146,7 +146,15 @@ internal static class MirrorSelfTest
             Music = status.Music! with { Title = new string('音', 200), Artist = new string('人', 200) },
             DisplayPolicy = new("auto", true, 15, DisplayModes.Pages.Select(p => p.Mode).ToArray())
         };
+        stress = stress with { DomesticQuotas = stress.DomesticQuotas! with {
+            Xiaomi = XiaomiQuota.Snapshot(25, status.CapturedAt.UtcDateTime),
+            StepFun = new("stepfun", "API balance (not Step Plan)", null, null, null, null, 75.37, null, "CNY", status.CapturedAt, false),
+            Baidu = new("baidu", "ernie-4.0-8k", null, null, null, null, null, null, null, status.CapturedAt, false) { PlanPercent = 25, PlanResetsAt = status.CapturedAt.AddDays(30) }
+        }};
         var wire = DeviceStatusFrame.Create(stress);
+        if(wire["data"]?["domesticQuotas"]?["xiaomi"]?["planPercent"]?.GetValue<double>()!=25) throw new InvalidOperationException("MiMo wire data missing.");
+        if(wire["data"]?["domesticQuotas"]?["stepFun"]?["balance"]?.GetValue<double>() != 75.37 || wire["data"]?["domesticQuotas"]?["baidu"]?["planPercent"]?.GetValue<double>() != 25)
+            throw new InvalidOperationException("Additional provider fields lost in device frame.");
         if(wire["data"]?["domesticQuotas"]?["alibaba"]?["planPercent"]?.GetValue<double>()!=25||wire["data"]?["domesticQuotas"]?["alibaba"]?["weeklyPercent"] is not null)throw new InvalidOperationException("Device frame conflated plan and weekly quota.");
         if (wire["data"]?["stocks"]?["quotes"]?.AsArray().Count != 20 || wire["data"]?["quotas"]?["codex"]?["resetCreditsAvailable"]?.GetValue<int>() != 2)
             throw new InvalidOperationException("Compact wire frame dropped rendered data.");

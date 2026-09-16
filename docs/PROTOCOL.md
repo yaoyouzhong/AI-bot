@@ -215,3 +215,12 @@ With explicit cycling disabled, playing music precedes working domestic activity
 Windows USB 心跳省略 `samples`，快速 metrics 帧携带样本尾部；LAN 状态保留尾部。设备按会话/序号去重入队，每 250ms 消费一条，积压超过 16 条时每次最多消费三条。最多保留 32 条待绘制样本，超出时丢最旧条以追上实时状态。没有这些可选字段的旧发送端继续按 `updatedAt` 去重，不能因此宣称旧发送端具备增量补采能力。
 
 `device_info` 的 `page_data` 增加只读计数：`system_chart_frames`、`system_chrome_draws`、`system_number_draws`、`system_samples_consumed`、`system_queue_depth`，用于真实刷新验收，不含用户数据。
+
+
+### Additional domestic model quotas (unreleased)
+
+Optional v1 `domesticQuotas.stepFun` carries the StepFun CNY API wallet, not Step Plan. Optional `domesticQuotas.baidu` carries one explicit Qianfan model resource package: `planPercent` is used/total and `planResetsAt` means package expiry, not renewal. Cloud wallets are excluded. New modes: `domestic_stepfun`, `domestic_baidu`. Older firmware ignores these fields and requires updating for the new modes. macOS preserves both optional fields and accepts the modes; native provider acquisition remains unimplemented.
+
+`domesticQuotas.xiaomi` is another optional v1 field, carrying only MiMo Token Plan `planPercent` (used Credits, 0–100), `plan`, `updatedAt`, and `stale`; it never fills weekly/five-hour or balance fields. Mode `domestic_xiaomi` renders it on updated firmware. Windows collects console responses; macOS currently preserves the field/mode only. Missing fields stay unknown.
+
+USB may omit null-valued optional fields inside each domestic quota object to stay within the existing 6144-byte limit. Firmware treats missing and null quota values identically; zero values are retained. LAN snapshots retain their full schema.

@@ -16,13 +16,17 @@ internal sealed class QuotaRefreshHealth
     }
     internal void Recover(string provider) { lock (_failures) _failures.Remove(provider); }
     internal bool Failed(string provider) { lock (_failures) return _failures.ContainsKey(provider); }
-    internal string? TakeWarning()
+    internal string? TakeWarning(Func<string,bool>? eligible = null)
     {
-        lock (_failures)
-            while (_pending.TryDequeue(out var provider)) {
+        lock (_failures) {
+            var count = _pending.Count;
+            while (count-- > 0 && _pending.TryDequeue(out var provider)) {
+                if (!_failures.TryGetValue(provider,out var message)) { _queued.Remove(provider); continue; }
+                if (eligible is not null && !eligible(provider)) { _pending.Enqueue(provider); continue; }
                 _queued.Remove(provider);
-                if (_failures.TryGetValue(provider,out var message)) return message;
+                return message;
             }
+        }
         return null;
     }
 }

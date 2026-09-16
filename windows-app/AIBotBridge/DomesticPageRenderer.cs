@@ -10,7 +10,7 @@ internal static class DomesticPageRenderer
         var provider = mode.Replace("domestic_", "");
         if (provider == "domestic") provider = BridgeSettings.Load().Get("domestic_provider", "alibaba").ToLowerInvariant();
         var quota = provider switch { "kimi"=>s.DomesticQuotas?.Kimi, "minimax"=>s.DomesticQuotas?.MiniMax,
-            "deepseek"=>s.DomesticQuotas?.DeepSeek, "zhipu"=>s.DomesticQuotas?.Zhipu, _=>s.DomesticQuotas?.Alibaba };
+            "deepseek"=>s.DomesticQuotas?.DeepSeek, "zhipu"=>s.DomesticQuotas?.Zhipu, "stepfun"=>s.DomesticQuotas?.StepFun, "baidu"=>s.DomesticQuotas?.Baidu, "xiaomi"=>s.DomesticQuotas?.Xiaomi, _=>s.DomesticQuotas?.Alibaba };
         g.Clear(Color.Black);
         var percent=DisplayPercent(quota);
         bool windowed=Windowed(provider,quota);
@@ -18,7 +18,7 @@ internal static class DomesticPageRenderer
         g.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         using var green=new SolidBrush(Color.FromArgb(0,217,51));
         using var heading=new SolidBrush(provider=="zhipu"?Color.FromArgb(139,156,255):Color.FromArgb(0,217,51));g.FillEllipse(heading,21,26,8,8);
-        using(var nameFont=new Font("Consolas",16,FontStyle.Bold,GraphicsUnit.Pixel))g.DrawString(provider=="alibaba"?"QWEN":provider=="zhipu"?"GLM":provider.ToUpperInvariant(),nameFont,heading,36,22);
+        using(var nameFont=new Font("Consolas",16,FontStyle.Bold,GraphicsUnit.Pixel))g.DrawString(provider=="alibaba"?"QWEN":provider=="xiaomi"?"MiMo":provider=="zhipu"?"GLM":provider.ToUpperInvariant(),nameFont,heading,36,22);
         var membership=DomesticDisplayText.Membership(provider,quota?.Plan,quota?.Balance is not null);
         if(membership.Length>0) {
             using var badgeFont=new Font("Consolas",10,FontStyle.Bold,GraphicsUnit.Pixel);
@@ -73,7 +73,7 @@ internal static class DomesticPageRenderer
         using var path=new System.Drawing.Drawing2D.GraphicsPath();
         foreach(var arc in new[]{(20,177,180),(204,177,270),(204,199,0),(20,199,90)})path.AddArc(arc.Item1,arc.Item2,16,16,arc.Item3,90);
         path.CloseFigure();using var border=new Pen(Color.FromArgb(41,52,41));g.DrawPath(border,path);
-        Label(g,balance.HasValue?"USED":windowed?"5H":"RESET",20,177,66,38,12,Color.FromArgb(0,217,51),true);
+        Label(g,balance.HasValue?"USED":windowed?"5H":provider=="baidu"?"EXPIRES":"RESET",20,177,66,38,12,Color.FromArgb(0,217,51),true);
         if(balance.HasValue) {
             if(quota?.UsedCost is double cost) {
                 var amount=cost.ToString("0.00",System.Globalization.CultureInfo.InvariantCulture);var currency=quota.Currency??"";

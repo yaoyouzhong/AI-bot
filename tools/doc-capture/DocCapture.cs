@@ -11,7 +11,7 @@ internal static class DocCapture
         bool quotaOnly = args.Length == 2 && args[1] == "--quota-api";
         if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly) throw new ArgumentException("Supply an output directory, optionally --screensaver or Claude and Codex APET paths for approved quota screenshots.");
         AppPaths.BeginPublicSelfTest(); // Must precede any settings/cache/credential access.
-        Application.SetHighDpiMode(HighDpiMode.DpiUnaware);
+        Application.SetHighDpiMode(Environment.GetEnvironmentVariable("AIBOT_DOC_NATIVE_DPI") == "1" ? HighDpiMode.PerMonitorV2 : HighDpiMode.DpiUnaware);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
@@ -44,7 +44,7 @@ internal static class DocCapture
             Music: new("桌面之光 · 示例曲目", "AI-bot 演示", "示例专辑", true, 95, 260, now));
         if (quotaOnly)
         {
-            foreach (var provider in new[]{"deepseek","minimax","kimi","qwen","zhipu"})
+            foreach (var provider in new[]{"deepseek","minimax","kimi","qwen","zhipu","stepfun","baidu","xiaomi"})
                 Capture(new MigratedDomestic.DomesticQuotaAuthForm(new MigratedDomestic.DomesticQuotaService(),initialProviderId:provider,initializeBrowser:false), "api-settings-"+provider);
             using var fresh=MirrorForm.RenderSnapshot(status,"domestic_deepseek");
             fresh.Save(Path.Combine(output,"deepseek-fresh.png"));

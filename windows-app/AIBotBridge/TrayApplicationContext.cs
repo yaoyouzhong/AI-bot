@@ -74,8 +74,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             }
             UpdateAutomaticScreenSaver(status);
             PublishDisplayPolicy();
-            _runtime.Domestic.RefreshNext();
-            if (DateTimeOffset.UtcNow >= _nextQuotaWarning && _runtime.Domestic.TakeRefreshWarning() is string warning) {
+            var quotaPolicy=DisplayModes.Load(BridgeSettings.Load(),_selectedMode);
+            _runtime.Domestic.RefreshNext(quotaPolicy);
+            if (DateTimeOffset.UtcNow >= _nextQuotaWarning && _runtime.Domestic.TakeRefreshWarning(quotaPolicy) is string warning) {
                 _nextQuotaWarning=DateTimeOffset.UtcNow.AddSeconds(30);
                 _icon.ShowBalloonTip(10000, "模型额度更新失败", warning, ToolTipIcon.Warning);
             }

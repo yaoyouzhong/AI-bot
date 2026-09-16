@@ -9,8 +9,11 @@ internal sealed class MigratedDomesticBridge : IDisposable
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private DateTimeOffset _nextRefresh;
     private int _providerIndex;
+    private DisplayPolicy? _monitorPolicy;
+    private string _monitorSelection = "";
+    private TimeSpan _staleAfter = TimeSpan.FromMinutes(6);
     private DateTimeOffset _nextApiRefresh;
-    private static readonly string[] Providers = ["qwen", "kimi", "minimax", "deepseek", "zhipu"];
+    private static readonly string[] Providers = ["qwen", "kimi", "minimax", "deepseek", "zhipu", "stepfun", "baidu", "xiaomi"];
 
     internal DomesticQuotaSnapshot Snapshot
     {
@@ -22,48 +25,66 @@ internal sealed class MigratedDomesticBridge : IDisposable
             {
                 if (current is null || fallback is not null && fallback.UpdatedAt > current.UpdatedAt) current = fallback;
                 if (current is null) return null;
-                return current with { Stale = _service.RefreshHealth.Failed(current.Provider == "alibaba" ? "qwen" : current.Provider) || current.UpdatedAt < _startedAt || DateTimeOffset.UtcNow - current.UpdatedAt > TimeSpan.FromMinutes(6) };
+                return current with { Stale = _service.RefreshHealth.Failed(current.Provider == "alibaba" ? "qwen" : current.Provider) || current.UpdatedAt < _startedAt || DateTimeOffset.UtcNow - current.UpdatedAt > _staleAfter };
             }
             return new(Pick(parsed.Alibaba, _fallback?.Alibaba), Pick(parsed.Kimi, _fallback?.Kimi),
                 Pick(parsed.MiniMax, _fallback?.MiniMax), Pick(parsed.DeepSeek, _fallback?.DeepSeek),
-                ZhipuBalance.Normalize(Pick(_service.Snapshot.Zhipu, _fallback?.Zhipu)));
+                ZhipuBalance.Normalize(Pick(_service.Snapshot.Zhipu, _fallback?.Zhipu)),
+                Pick(_service.Snapshot.StepFun, null), Pick(_service.Snapshot.Baidu, null),
+                Pick(XiaomiQuota.Snapshot(_service.Snapshot.XiaomiPlanPct, _service.Snapshot.XiaomiFetchedAt), null));
         }
     }
     // Called by the tray's UI timer: WebView2 and its window remain on the STA.
-    internal void RefreshNext()
+    private HashSet<string> Monitored(DisplayPolicy policy)
     {
+        return QuotaMonitoringPolicy.Monitored(policy,BridgeSettings.Load().Get("domestic_provider","alibaba"),
+            p=>_service.WasAuthorized(p) || _service.HasOfficialApi(p));
+    }
+    internal void RefreshNext(DisplayPolicy policy)
+    {
+        _monitorPolicy=policy;
+        var monitored=Monitored(policy);
+        var selection=string.Join(",",monitored.Order());
+        if(selection!=_monitorSelection) { _monitorSelection=selection; _nextRefresh=_nextApiRefresh=DateTimeOffset.MinValue; _providerIndex=0; }
+        var web=Providers.Where(p=>monitored.Contains(p) && !_service.HasOfficialApi(p) && p is not ("stepfun" or "baidu")).ToArray();
+        _staleAfter=TimeSpan.FromSeconds(Math.Max(360,65*(web.Length+1)));
         if (DateTimeOffset.UtcNow >= _nextApiRefresh) {
             _nextApiRefresh = DateTimeOffset.UtcNow.AddMinutes(2);
-            foreach (var provider in Providers.Where(_service.HasOfficialApi)) _service.Refresh(provider);
+            foreach (var provider in monitored.Where(_service.HasOfficialApi)) _service.Refresh(provider);
         }
-        if (DateTimeOffset.UtcNow < _nextRefresh) return;
+        if (DateTimeOffset.UtcNow < _nextRefresh || web.Length==0) return;
         _nextRefresh = DateTimeOffset.UtcNow.AddSeconds(65);
-        for (int attempt=0;attempt<Providers.Length;attempt++) {
-            var provider=Providers[_providerIndex++ % Providers.Length];
-            if (!_service.HasOfficialApi(provider)) { _service.Refresh(provider); break; }
-        }
+        _service.Refresh(web[_providerIndex++ % web.Length]);
     }
     internal void RefreshNow()
     {
-        foreach (var provider in Providers.Where(_service.HasOfficialApi)) _service.Refresh(provider, force:true);
-        var selected=BridgeSettings.Load().Get("domestic_provider","alibaba");
-        if(selected=="alibaba")selected="qwen";
-        if(Providers.Contains(selected) && !_service.HasOfficialApi(selected)) _service.Refresh(selected,force:true);
+        var monitored=Monitored(_monitorPolicy ?? DisplayModes.Load(BridgeSettings.Load()));
+        foreach (var provider in monitored.Where(_service.HasOfficialApi)) _service.Refresh(provider,force:true);
+        var web=monitored.FirstOrDefault(p=>!_service.HasOfficialApi(p) && p is not ("stepfun" or "baidu"));
+        if(web is not null) _service.Refresh(web,force:true);
         _nextRefresh=DateTimeOffset.UtcNow.AddSeconds(65);
     }
-    internal string? TakeRefreshWarning()
+    internal string? TakeRefreshWarning(DisplayPolicy policy)
     {
-        if(DateTimeOffset.UtcNow-_startedAt > TimeSpan.FromMinutes(6)) {
+        var monitored=Monitored(policy);
+        if(DateTimeOffset.UtcNow-_startedAt > _staleAfter) {
             var s=Snapshot;
-            foreach(var q in new[]{s.Alibaba,s.Kimi,s.MiniMax,s.DeepSeek,s.Zhipu})
-                if(q?.Stale==true) _service.RefreshHealth.Fail(q.Provider=="alibaba"?"qwen":q.Provider,
-                    $"{q.Provider} 额度尚未更新，正在显示旧数据。请打开国产模型额度设置检查接口或重新登录。");
+            foreach(var q in new[]{s.Alibaba,s.Kimi,s.MiniMax,s.DeepSeek,s.Zhipu,s.StepFun,s.Baidu,s.Xiaomi}) {
+                if(q is null) continue;
+                var provider=q.Provider=="alibaba"?"qwen":q.Provider;
+                if(monitored.Contains(provider) && q.Stale) _service.RefreshHealth.Fail(provider,
+                    $"{MigratedDomestic.DomesticProviderCatalog.All.First(p=>p.Id==provider).Name} 额度尚未更新，正在显示旧数据。请打开国产模型额度设置检查接口或重新登录。");
+            }
         }
-        return _service.RefreshHealth.TakeWarning();
+        return _service.RefreshHealth.TakeWarning(monitored.Contains);
     }
     internal void OpenAuthorization(string provider = "qwen") => _service.OpenAuthorization(provider);
     internal void ApplyCapturedResponse(string provider, string json)
     {
+        if(provider=="xiaomi") {
+            using var doc=JsonDocument.Parse(json);
+            _service.SetXiaomi(XiaomiQuota.Parse(doc.RootElement)); return;
+        }
         var value = DomesticQuotaService.Parse(provider, json);
         switch (value.Provider)
         {

@@ -18,6 +18,10 @@ internal static class DeviceStatusFrame
         if(data["systemMetrics"] is JsonObject metrics) metrics.Remove("samples");
         if (data["domesticActivity"] is JsonObject activity) activity.Remove("providers");
         Prune(data);
+        // Firmware treats missing optional quota fields exactly like null. Keep real values, including zero.
+        if(data["domesticQuotas"] is JsonObject domestic)
+            foreach(var quota in domestic.Select(p=>p.Value).OfType<JsonObject>())
+                foreach(var key in quota.Where(p=>p.Value is null).Select(p=>p.Key).ToArray()) quota.Remove(key);
         if (data["stocks"]?["quotes"] is JsonArray quotes)
         {
             while (quotes.Count > 20) quotes.RemoveAt(quotes.Count - 1);

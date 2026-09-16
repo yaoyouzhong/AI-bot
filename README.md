@@ -1,6 +1,9 @@
 <p align="center">
+
   <img src="docs/assets/hero.zh.svg" width="1120" alt="AI-bot：AI 状态，抬眼可见。原创桌面小屏概念图，非实机截图。">
 </p>
+
+新增接入（源码未发布）：阶跃开放平台余额、百度千帆指定模型资源包、小米 MiMo 网页套餐用量；真实账号未验证，其余待接厂商不标记为可用。云账号余额不纳入。详见 [配置与接入进度](docs/DOMESTIC_QUOTA_SETUP.md)。
 
 <p align="center">
   <strong>一块小屏，连接你的 AI 工作流。</strong><br>

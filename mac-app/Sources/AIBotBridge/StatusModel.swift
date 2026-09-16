@@ -89,6 +89,9 @@ struct DomesticQuotaSnapshot: Codable, Equatable {
     let miniMax: DomesticProviderQuotaSnapshot?
     let deepSeek: DomesticProviderQuotaSnapshot?
     var zhipu: DomesticProviderQuotaSnapshot? = nil
+    var stepFun: DomesticProviderQuotaSnapshot? = nil
+    var baidu: DomesticProviderQuotaSnapshot? = nil
+    var xiaomi: DomesticProviderQuotaSnapshot? = nil
 }
 
 struct MusicSnapshot: Codable, Equatable {

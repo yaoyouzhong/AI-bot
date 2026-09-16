@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using Settings = AIBotBridge.MigratedWeather.Settings;
 using CredentialStore = AIBotBridge.MigratedWeather.CredentialStore;
 using System.Globalization;
@@ -22,16 +22,16 @@ static class DomesticProviderCatalog
             "https://bailian.console.aliyun.com/cn-beijing?tab=plan#/efm/subscription/token-plan", true),
         new("kimi", "月之暗面", "Kimi Coding Plan", "https://www.kimi.com/code/console", true),
         new("xiaomi", "小米 MiMo", "MiMo Token Plan",
-            "https://platform.xiaomimimo.com/token-plan", false),
+            "https://platform.xiaomimimo.com/token-plan", true),
         new("zhipu", "智谱 GLM", "开放平台可用余额（不是 Coding Plan 额度）", AIBotBridge.ZhipuBalance.AuthorizationUrl, true),
         new("volcengine", "火山方舟", "豆包大模型", "https://console.volcengine.com/ark", false),
         new("minimax", "MiniMax", "MiniMax Token Plan", "https://platform.minimaxi.com/console/usage", true),
         new("deepseek", "DeepSeek", "DeepSeek 开放平台", "https://platform.deepseek.com/usage", true),
-        new("baidu", "百度智能云", "千帆 / 文心", "https://console.bce.baidu.com/qianfan/overview", false),
+        new("baidu", "百度智能云", "千帆模型资源包（指定量包）", "https://console.bce.baidu.com/qianfan/overview", true),
         new("tencent", "腾讯云", "混元大模型", "https://console.cloud.tencent.com/hunyuan", false),
         new("huawei", "华为云", "盘古 / ModelArts", "https://console.huaweicloud.com/modelarts/", false),
         new("iflytek", "讯飞开放平台", "讯飞星火", "https://console.xfyun.cn/", false),
-        new("stepfun", "阶跃星辰", "StepFun", "https://platform.stepfun.com/", false),
+        new("stepfun", "阶跃星辰", "开放平台余额（非 Step Plan）", "https://platform.stepfun.com/account-overview", true),
         new("baichuan", "百川智能", "Baichuan", "https://platform.baichuan-ai.com/", false),
         new("lingyi", "零一万物", "Yi", "https://platform.lingyiwanwu.com/", false),
     };
@@ -48,6 +48,8 @@ sealed class DomesticQuotaSnapshot
     public double? MiniMaxWeeklyPct;
     public double? MiniMaxFiveHourPct;
     public AIBotBridge.DomesticProviderQuotaSnapshot Zhipu;
+    public AIBotBridge.DomesticProviderQuotaSnapshot StepFun;
+    public AIBotBridge.DomesticProviderQuotaSnapshot Baidu;
     public double? DeepSeekBalance;
     public double? DeepSeekGrantedBalance;
     public double? DeepSeekToppedUpBalance;
@@ -105,6 +107,8 @@ sealed partial class DomesticQuotaService
                 MiniMaxWeeklyPct = _snapshot.MiniMaxWeeklyPct,
                 MiniMaxFiveHourPct = _snapshot.MiniMaxFiveHourPct,
                 Zhipu = _snapshot.Zhipu,
+                StepFun = _snapshot.StepFun,
+                Baidu = _snapshot.Baidu,
                 DeepSeekBalance = _snapshot.DeepSeekBalance,
                 DeepSeekGrantedBalance = _snapshot.DeepSeekGrantedBalance,
                 DeepSeekToppedUpBalance = _snapshot.DeepSeekToppedUpBalance,
@@ -141,7 +145,7 @@ sealed partial class DomesticQuotaService
     public void Refresh(string providerId, bool force = false)
     {
         var provider = DomesticProviderCatalog.All.FirstOrDefault(x => x.Id == providerId);
-        if (provider?.CaptureSupported != true) return;
+        if (provider?.CaptureSupported != true || providerId is "stepfun" or "baidu" && !HasOfficialApi(providerId)) return;
         lock (_lock)
         {
             var now = DateTime.UtcNow;
@@ -266,8 +270,21 @@ sealed partial class DomesticQuotaService
         }
     }
 
+    internal void SetAdditional(AIBotBridge.DomesticProviderQuotaSnapshot value)
+    {
+        lock (_lock) {
+            if (value.Provider == "stepfun") _snapshot.StepFun = value;
+            else if (value.Provider == "baidu") _snapshot.Baidu = value;
+            else throw new ArgumentException("Unsupported provider.");
+            Save();
+        }
+        RefreshHealth.Recover(value.Provider);
+    }
+
     internal void SetXiaomi(double pct)
     {
+        if (!double.IsFinite(pct) || pct < 0 || pct > 100) throw new JsonException("Invalid MiMo usage.");
+        RefreshHealth.Recover("xiaomi");
         lock (_lock) { _snapshot.XiaomiPlanPct = Clamp(pct); _snapshot.XiaomiFetchedAt = DateTime.UtcNow; Save(); }
     }
 
@@ -478,12 +495,12 @@ sealed class DomesticQuotaAuthForm : Form
     };
     readonly Label _status = new()
     {
-        Dock = DockStyle.Bottom, Height = 40, TextAlign = ContentAlignment.MiddleLeft,
+        Dock = DockStyle.Bottom, Height = 60, TextAlign = ContentAlignment.MiddleLeft,
         Padding = new Padding(14, 0, 0, 0), BackColor = Color.FromArgb(248, 250, 252),
         ForeColor = Color.FromArgb(71, 85, 105),
         Text = "选择左侧厂商：官方接口优先；未配置接口时使用网页授权。",
     };
-    readonly Panel _miniMaxKeyPanel = new()
+    readonly TableLayoutPanel _miniMaxKeyPanel = new()
     {
         Dock = DockStyle.Top, Height = 52, Padding = new Padding(20, 8, 20, 8),
         BackColor = Color.FromArgb(248, 250, 252), Visible = false,
@@ -493,6 +510,10 @@ sealed class DomesticQuotaAuthForm : Form
         UseSystemPasswordChar = true,
         PlaceholderText = "MiniMax Subscription Key / API Key，留空则只测试已保存 Key",
     };
+    readonly Label _baiduSecretLabel = new() { Text="Secret Access Key（SK）", AutoSize=true };
+    readonly Label _baiduPackageLabel = new() { Text="千帆模型资源包 ID（packageId）", AutoSize=true };
+    readonly TextBox _baiduSecret = new() { UseSystemPasswordChar = true, PlaceholderText = "Secret Access Key（SK）", Dock = DockStyle.Fill };
+    readonly TextBox _baiduPackage = new() { PlaceholderText = "千帆模型资源包 ID（packageId）", Dock = DockStyle.Fill };
     readonly NumericUpDown _kimiPort = new() { Minimum=1024, Maximum=65535, Value=DomesticQuotaService.KimiPort, Width=90, Location=new Point(160,45), AccessibleName="Kimi 本地服务端口" };
     readonly Label _kimiPortLabel = new() { Text="Kimi 本地服务端口", AutoSize=true, Location=new Point(20,48) };
     readonly Button _miniMaxSaveKey = new()
@@ -510,8 +531,10 @@ sealed class DomesticQuotaAuthForm : Form
         _initialProviderId = initialProviderId;
         Text = "国产模型额度设置";
         StartPosition = FormStartPosition.CenterScreen;
-        WindowState = FormWindowState.Maximized;
+        WindowState = FormWindowState.Normal;
+        AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
+        Font = new Font("Microsoft YaHei UI", 9);
         Width = 1180;
         Height = 800;
         MinimumSize = new Size(900, 620);
@@ -524,7 +547,7 @@ sealed class DomesticQuotaAuthForm : Form
         };
         var navigationTitle = new Label
         {
-            Dock = DockStyle.Top, Height = 54, Text = "国产模型厂商\r\n配置接口或网页登录",
+            Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 14), Text = "国产模型厂商\r\n配置接口或网页登录",
             Font = new Font("Microsoft YaHei UI", 11, FontStyle.Bold),
             ForeColor = Color.FromArgb(30, 41, 59),
         };
@@ -537,38 +560,100 @@ sealed class DomesticQuotaAuthForm : Form
         navigation.Controls.Add(navigationTitle);
 
         foreach (var provider in DomesticProviderCatalog.All) providerList.Controls.Add(BuildProviderCard(provider));
-
-        var content = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
-        var header = new Panel
+        // Measure with the active font after DPI changes, including background-to-interactive transitions.
+        void LayoutProviderList()
         {
-            Dock = DockStyle.Top, Height = 76, BackColor = Color.White,
-            Padding = new Padding(0),
+            navigation.Width = Math.Max(270, navigationTitle.Font.Height * 17);
+            var width = Math.Max(160, providerList.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - providerList.Padding.Horizontal - 4);
+            foreach (Control card in providerList.Controls)
+            {
+                card.MinimumSize = new Size(width, 0);
+                card.MaximumSize = new Size(width, 0);
+                card.Width = width;
+            }
+        }
+        providerList.SizeChanged += (_, _) => LayoutProviderList();
+        DpiChanged += (_, _) => BeginInvoke(LayoutProviderList);
+        Shown += (_, _) => LayoutProviderList();
+
+
+        var content = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, ColumnCount = 1, RowCount = 4, Margin = Padding.Empty, Padding = Padding.Empty };
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        var header = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 2,
+            Padding = new Padding(20, 16, 20, 12), BackColor = Color.White,
         };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        _providerTitle.Font = new Font("Microsoft YaHei UI", 13, FontStyle.Bold);
+        _providerTitle.Dock = DockStyle.Fill;
+        _providerTitle.AutoSize = true;
+        _providerTitle.MinimumSize = new Size(0, 36);
+        _providerTitle.AutoEllipsis = false;
+        _providerState.Dock = DockStyle.Fill;
+        _providerState.AutoSize = true;
+        _providerState.MinimumSize = new Size(0, 36);
+        _providerState.Margin = new Padding(0, 6, 0, 0);
         var refresh = new Button
         {
-            Text = "刷新额度", Width = 112, Height = 32, Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            Text = "刷新额度", AutoSize = true, MinimumSize = new Size(108, 36),
             FlatStyle = FlatStyle.Flat, BackColor = Color.White,
-            ForeColor = Color.FromArgb(51, 65, 85), Location = new Point(760, 22),
+            ForeColor = Color.FromArgb(51, 65, 85), Margin = new Padding(16, 0, 0, 0),
         };
         refresh.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
         refresh.Click += async (_, _) => { if(_activeProvider != null && _service.HasOfficialApi(_activeProvider.Id)) await SelectProvider(_activeProvider); else await ReloadWebView(); };
-        header.Resize += (_, _) => refresh.Left = header.ClientSize.Width - refresh.Width - 18;
-        header.Controls.Add(_providerTitle);
-        header.Controls.Add(_providerState);
-        header.Controls.Add(refresh);
-        _miniMaxSaveKey.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+        header.Controls.Add(_providerTitle, 0, 0);
+        header.Controls.Add(refresh, 1, 0);
+        header.Controls.Add(_providerState, 0, 1);
+        header.SetColumnSpan(_providerState, 2);
+        _miniMaxKeyPanel.AutoSize = true;
+        _miniMaxKeyPanel.ColumnCount = 1;
+        _miniMaxKeyPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        var keyLayout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 8 };
+        keyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        keyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        var keyTitle = new Label { Text = "接口凭据", AutoSize = true, Margin = new Padding(0, 4, 0, 8), Font = new Font(Font, FontStyle.Bold) };
+        var keyHint = new Label { Text = "凭据仅保存在本机 Windows 凭据管理器；留空可测试已保存的凭据。", AutoSize = true, Margin = new Padding(0, 8, 0, 8), ForeColor = Color.FromArgb(100, 116, 139) };
+        _miniMaxApiKey.Dock = DockStyle.Fill;
+        _miniMaxApiKey.Margin = new Padding(0, 4, 12, 0);
+        _miniMaxSaveKey.AutoSize = true;
+        _miniMaxSaveKey.MinimumSize = new Size(108, 36);
+        _miniMaxSaveKey.Margin = new Padding(0);
+        _miniMaxSaveKey.BackColor = Color.FromArgb(37, 99, 235);
+        _miniMaxSaveKey.ForeColor = Color.White;
+        _miniMaxSaveKey.FlatAppearance.BorderSize = 0;
         _miniMaxSaveKey.Click += async (_, _) => await SaveAndTestMiniMaxKey();
-        _miniMaxKeyPanel.Controls.Add(_kimiPort);
-        _miniMaxKeyPanel.Controls.Add(_kimiPortLabel);
-        _miniMaxKeyPanel.Controls.Add(_miniMaxApiKey);
-        _miniMaxKeyPanel.Controls.Add(_miniMaxSaveKey);
-        _miniMaxKeyPanel.Resize += (_, _) => LayoutMiniMaxKeyPanel();
-        LayoutMiniMaxKeyPanel();
+        var portRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0) };
+        portRow.Controls.Add(_kimiPortLabel);
+        portRow.Controls.Add(_kimiPort);
+        keyLayout.Controls.Add(keyTitle, 0, 0);
+        keyLayout.SetColumnSpan(keyTitle, 2);
+        keyLayout.Controls.Add(_miniMaxApiKey, 0, 1);
+        keyLayout.Controls.Add(_miniMaxSaveKey, 1, 1);
+        keyLayout.Controls.Add(keyHint, 0, 2);
+        keyLayout.SetColumnSpan(keyHint, 2);
+        keyLayout.Controls.Add(portRow, 0, 3);
+        keyLayout.SetColumnSpan(portRow, 2);
+        keyLayout.Controls.Add(_baiduSecretLabel, 0, 4);
+        keyLayout.SetColumnSpan(_baiduSecretLabel, 2);
+        keyLayout.Controls.Add(_baiduSecret, 0, 5);
+        keyLayout.SetColumnSpan(_baiduSecret, 2);
+        keyLayout.Controls.Add(_baiduPackageLabel, 0, 6);
+        keyLayout.SetColumnSpan(_baiduPackageLabel, 2);
+        keyLayout.Controls.Add(_baiduPackage, 0, 7);
+        keyLayout.SetColumnSpan(_baiduPackage, 2);
+        _miniMaxKeyPanel.Controls.Add(keyLayout);
         _webHost.Controls.Add(_web);
-        content.Controls.Add(_webHost);
-        content.Controls.Add(_status);
-        content.Controls.Add(_miniMaxKeyPanel);
-        content.Controls.Add(header);
+        header.Margin = _miniMaxKeyPanel.Margin = _webHost.Margin = _status.Margin = Padding.Empty;
+        content.Controls.Add(header, 0, 0);
+        content.Controls.Add(_miniMaxKeyPanel, 0, 1);
+        content.Controls.Add(_webHost, 0, 2);
+        content.Controls.Add(_status, 0, 3);
         Controls.Add(content);
         Controls.Add(navigation);
 
@@ -594,12 +679,17 @@ sealed class DomesticQuotaAuthForm : Form
         var targetScreen = Screen.FromPoint(Cursor.Position);
         StartPosition = FormStartPosition.Manual;
         WindowState = FormWindowState.Normal;
-        Bounds = targetScreen.WorkingArea;
+        var area = targetScreen.WorkingArea;
+        var scale = DeviceDpi / 96f;
+        var width = Math.Min(area.Width, (int)(1180 * scale));
+        var height = Math.Min(area.Height, (int)(800 * scale));
+        MinimumSize = new Size(Math.Min(area.Width, (int)(900 * scale)), Math.Min(area.Height, (int)(620 * scale)));
+        Bounds = new Rectangle(area.Left + (area.Width-width)/2, area.Top + (area.Height-height)/2, width, height);
         TopMost = true;
         var wasEverShown = _everShown;
         if (!Visible) Show();
         SetBackgroundWindowStyle(false);
-        WindowState = FormWindowState.Maximized;
+        WindowState = FormWindowState.Normal;
         if (wasEverShown) BeginInvoke(async () => await SelectProvider(ProviderById(providerId)));
         BringToFront();
         Activate();
@@ -663,7 +753,7 @@ sealed class DomesticQuotaAuthForm : Form
     {
         if (_hideOnUserClose && e.CloseReason == CloseReason.UserClosing)
         {
-            if (_activeProvider?.Id is "qwen" or "kimi" or "minimax" or "deepseek" or "zhipu")
+            if (_activeProvider?.Id is "qwen" or "kimi" or "minimax" or "deepseek" or "zhipu" or "xiaomi")
                 _ = PersistLoginCookies(_activeProvider.Url);
             e.Cancel = true;
             Hide();
@@ -674,27 +764,33 @@ sealed class DomesticQuotaAuthForm : Form
 
     Panel BuildProviderCard(DomesticProviderDefinition provider)
     {
-        var card = new Panel
+        var card = new TableLayoutPanel
         {
-            Width = 210, Height = 62, Margin = new Padding(0, 0, 0, 8),
+            Width = 240, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2, RowCount = 2, Padding = new Padding(12, 10, 12, 10),
+            Margin = new Padding(0, 0, 0, 8),
             BackColor = Color.White, Cursor = Cursors.Hand, Tag = provider.Id,
         };
+        card.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        card.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        card.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        card.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         var name = new Label
         {
-            Text = provider.Name, AutoSize = false, Width = 132, Height = 24,
-            Location = new Point(12, 8), Font = new Font("Microsoft YaHei UI", 9.5f, FontStyle.Bold),
+            Text = provider.Name, AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 8, 0),
+            Font = new Font("Microsoft YaHei UI", 9.5f, FontStyle.Bold),
             ForeColor = Color.FromArgb(30, 41, 59), Cursor = Cursors.Hand,
         };
         var product = new Label
         {
-            Text = provider.Product, AutoSize = false, Width = 184, Height = 20,
-            Location = new Point(12, 34), Font = new Font("Microsoft YaHei UI", 8),
+            Text = provider.Product, AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 6, 0, 0),
+            Font = new Font("Microsoft YaHei UI", 8),
             ForeColor = Color.FromArgb(100, 116, 139), Cursor = Cursors.Hand,
         };
         var badge = new Label
         {
-            Text = provider.CaptureSupported ? "可用" : "待接", AutoSize = false,
-            Width = 62, Height = 21, Location = new Point(140, 8), TextAlign = ContentAlignment.MiddleCenter,
+            Text = provider.Id is "stepfun" or "baidu" or "xiaomi" ? "待验证" : provider.CaptureSupported ? "可用" : "待接", AutoSize = true,
+            Padding = new Padding(8, 2, 8, 2), Margin = new Padding(0), Anchor = AnchorStyles.Top | AnchorStyles.Right,
             Font = new Font("Microsoft YaHei UI", 7.5f, FontStyle.Bold), Cursor = Cursors.Hand,
             ForeColor = provider.CaptureSupported ? Color.FromArgb(22, 101, 52) : Color.FromArgb(100, 116, 139),
             BackColor = provider.CaptureSupported ? Color.FromArgb(220, 252, 231) : Color.FromArgb(241, 245, 249),
@@ -704,9 +800,10 @@ sealed class DomesticQuotaAuthForm : Form
         name.Click += Click;
         product.Click += Click;
         badge.Click += Click;
-        card.Controls.Add(name);
-        card.Controls.Add(product);
-        card.Controls.Add(badge);
+        card.Controls.Add(name, 0, 0);
+        card.Controls.Add(badge, 1, 0);
+        card.Controls.Add(product, 0, 1);
+        card.SetColumnSpan(product, 2);
         _providerCards[provider.Id] = card;
         return card;
     }
@@ -718,11 +815,15 @@ sealed class DomesticQuotaAuthForm : Form
             card.BackColor = id == provider.Id ? Color.FromArgb(224, 242, 254) : Color.White;
         _providerTitle.Text = $"{provider.Name} · {provider.Product}";
         _miniMaxApiKey.Clear();
+        _baiduSecret.Clear(); _baiduPackage.Clear();
+        _baiduSecretLabel.Visible = _baiduPackageLabel.Visible = _baiduSecret.Visible = _baiduPackage.Visible = provider.Id == "baidu";
         _miniMaxKeyPanel.Visible = DomesticQuotaService.SupportsOfficialApi(provider.Id);
-        _miniMaxKeyPanel.Height = provider.Id == "kimi" ? 82 : 52;
+
         _kimiPort.Visible = _kimiPortLabel.Visible = provider.Id == "kimi";
-        _miniMaxApiKey.PlaceholderText = provider.Id == "kimi" ? "Kimi Code 本地服务访问令牌（不是 Moonshot API Key）" : provider.Id == "deepseek" ? "DeepSeek API Key；留空测试已保存 Key" : "MiniMax Token Plan Key；留空测试已保存 Key";
-        _providerState.Text = provider.Id == "minimax"
+        _miniMaxApiKey.PlaceholderText = provider.Id == "baidu" ? "Access Key ID（AK）；三项均留空可测试已保存的配置" : provider.Id == "stepfun" ? "阶跃星辰 API Key（不是 Step Plan Key）" : provider.Id == "kimi" ? "Kimi Code 本地服务访问令牌（不是 Moonshot API Key）" : provider.Id == "deepseek" ? "DeepSeek API Key；留空测试已保存 Key" : "MiniMax Token Plan Key；留空测试已保存 Key";
+        _providerState.Text = provider.Id == "xiaomi" ? "网页登录读取 MiMo Token Plan 已用比例（Credits），不读取按量余额；实现已接通，真实套餐待验证。" : provider.Id == "baidu" ? "官方 API 查询指定模型资源包已用比例；不查询云余额。需填写 AK、SK 和模型量包 ID；尚未经真实账号验证。"
+            : provider.Id == "stepfun" ? "官方 API 查询开放平台人民币余额，不代表 Step Plan 套餐额度；尚未经真实账号验证。"
+            : provider.Id == "minimax"
             ? "已支持 API 查询：保存 MiniMax Subscription Key 后自动读取；也可登录控制台作为兜底"
             : provider.Id == "deepseek"
             ? "官方余额 API 优先：在此保存 API Key；凭据仅保存在 Windows 凭据管理器"
@@ -752,16 +853,6 @@ sealed class DomesticQuotaAuthForm : Form
         }
     }
 
-    void LayoutMiniMaxKeyPanel()
-    {
-        var buttonWidth = _miniMaxSaveKey.Width;
-        _miniMaxSaveKey.Location = new Point(_miniMaxKeyPanel.ClientSize.Width
-            - buttonWidth - 20, 10);
-        _miniMaxApiKey.Location = new Point(20, 10);
-        _miniMaxApiKey.Width = Math.Max(120, _miniMaxSaveKey.Left - 30);
-        _miniMaxApiKey.Height = 30;
-    }
-
     async Task SaveAndTestMiniMaxKey()
     {
         var provider = _activeProvider?.Id;
@@ -770,7 +861,12 @@ sealed class DomesticQuotaAuthForm : Form
         try
         {
             if(provider=="kimi") Settings.Set("kimi_usage_port",((int)_kimiPort.Value).ToString());
-            if (!string.IsNullOrWhiteSpace(_miniMaxApiKey.Text)) {
+            if (provider == "baidu" && new[]{_miniMaxApiKey.Text,_baiduSecret.Text,_baiduPackage.Text}.Any(x=>!string.IsNullOrWhiteSpace(x))) {
+                if (new[]{_miniMaxApiKey.Text,_baiduSecret.Text,_baiduPackage.Text}.Any(string.IsNullOrWhiteSpace)) { _status.Text="请完整填写 AK、SK 和模型资源包 ID，或全部留空测试已保存的配置。"; return; }
+                _service.SaveOfficialApiKey(provider,JsonSerializer.Serialize(new AdditionalQuotaApi.BaiduCredentials(_miniMaxApiKey.Text.Trim(),_baiduSecret.Text.Trim(),_baiduPackage.Text.Trim())));
+                _miniMaxApiKey.Clear(); _baiduSecret.Clear(); _baiduPackage.Clear();
+            }
+            else if (!string.IsNullOrWhiteSpace(_miniMaxApiKey.Text)) {
                 _service.SaveOfficialApiKey(provider,_miniMaxApiKey.Text);
                 _miniMaxApiKey.Clear();
             }
@@ -793,6 +889,11 @@ sealed class DomesticQuotaAuthForm : Form
             _status.Text="正在通过官方接口查询…";
             var result=await _service.RefreshOfficialApi(provider.Id);
             if(generation==_navigationGeneration && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; }
+            return;
+        }
+        if (provider.Id is "stepfun" or "baidu") {
+            _web.Visible=false;
+            _status.Text="请在上方填写官方接口凭据并保存测试。此厂商尚未启用网页自动采集。";
             return;
         }
         _web.Visible=true;
@@ -853,7 +954,7 @@ sealed class DomesticQuotaAuthForm : Form
                 (login.AbsolutePath.Contains("login",StringComparison.OrdinalIgnoreCase)||login.AbsolutePath.Contains("signin",StringComparison.OrdinalIgnoreCase)))
                 _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页登录已失效，请打开国产模型额度设置重新登录。",!_backgroundRefresh);
         }
-        if (e.IsSuccess && _activeProvider?.Id is "qwen" or "kimi" or "minimax" or "deepseek" or "zhipu")
+        if (e.IsSuccess && _activeProvider?.Id is "qwen" or "kimi" or "minimax" or "deepseek" or "zhipu" or "xiaomi")
             await PersistLoginCookies(_activeProvider.Url);
         if (e.IsSuccess && _activeProvider?.Id == "kimi")
             _ = CaptureKimiPageMetadata(_navigationGeneration);
@@ -1236,7 +1337,7 @@ sealed class DomesticQuotaAuthForm : Form
                 && alibabaUri.Host.Equals("bailian.console.aliyun.com", StringComparison.OrdinalIgnoreCase)
                 && alibabaUri.AbsolutePath.Equals("/data/api.json", StringComparison.OrdinalIgnoreCase);
             var isXiaomi = _activeProvider?.Id == "xiaomi"
-                && uri.Contains("/api/v1/tokenPlan/usage", StringComparison.OrdinalIgnoreCase);
+                && (resourceType == "XHR" || resourceType == "Fetch") && XiaomiQuota.IsEndpoint(uri);
             var isKimiUsage = _activeProvider?.Id == "kimi"
                 && (resourceType == "XHR" || resourceType == "Fetch")
                 && IsKimiUsageEndpoint(uri);
@@ -1254,8 +1355,12 @@ sealed class DomesticQuotaAuthForm : Form
             var isZhipu = _activeProvider?.Id == "zhipu"
                 && (resourceType == "XHR" || resourceType == "Fetch")
                 && AIBotBridge.ZhipuBalance.IsEndpoint(uri);
-            if ((statusCode == 401 || statusCode == 403) && (isAlibaba || isKimiUsage || isMiniMax || isZhipu || isDeepSeek && IsDeepSeekUsageEndpoint(uri))) {
+            if ((statusCode == 401 || statusCode == 403) && (isAlibaba || isXiaomi || isKimiUsage || isMiniMax || isZhipu || isDeepSeek && IsDeepSeekUsageEndpoint(uri))) {
                 _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页授权失效或访问被拒绝，请重新登录；已保留旧数据。",!_backgroundRefresh);
+                return;
+            }
+            if (isXiaomi && statusCode != 200 && statusCode != 429) {
+                _service.ReportWebFailure("xiaomi","小米套餐用量请求失败，已保留上次结果，请刷新或重新登录。",!_backgroundRefresh);
                 return;
             }
             if (isZhipu && statusCode != 200 && statusCode != 429) return;
@@ -1322,7 +1427,11 @@ sealed class DomesticQuotaAuthForm : Form
             double weeklyPct;
             double? fiveHourPct = null;
             string membership = null;
-            if (responseInfo.ProviderId == "kimi")
+            if (responseInfo.ProviderId == "xiaomi") {
+                weeklyPct = XiaomiQuota.Parse(doc.RootElement);
+                _service.SetXiaomi(weeklyPct);
+            }
+            else if (responseInfo.ProviderId == "kimi")
             {
                 var kimi = FindKimiUsage(doc.RootElement);
                 membership = FindKimiMembership(doc.RootElement);
@@ -1386,7 +1495,7 @@ sealed class DomesticQuotaAuthForm : Form
                 else _service.SetXiaomi(pct.Value);
             }
             var responseProvider = ProviderById(responseInfo.ProviderId);
-            var loginSaved = responseInfo.ProviderId is "qwen" or "kimi" or "minimax" or "deepseek" or "zhipu"
+            var loginSaved = responseInfo.ProviderId is "qwen" or "kimi" or "minimax" or "deepseek" or "zhipu" or "xiaomi"
                 && await PersistLoginCookies(responseProvider.Url);
             _capturedForNavigation = true;
             BeginInvoke(() => _status.Text =
@@ -1414,6 +1523,7 @@ sealed class DomesticQuotaAuthForm : Form
         {
             QuotaDiagnostics.Log(
                 $"[quota] {responseInfo.ProviderId} response parse failed at {responseInfo.Endpoint}: {ex.Message}");
+            _service.ReportWebFailure(responseInfo.ProviderId,"网页额度响应无法识别，已保留上次结果；请稍后刷新或重新登录。",!_backgroundRefresh);
             BeginInvoke(() => _status.Text = "网页额度响应无法识别，已保留上次结果；请稍后刷新或重新登录。");
         }
     }

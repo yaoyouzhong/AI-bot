@@ -7,7 +7,7 @@ internal static class DisplayModes
     internal static readonly (string Label, string Mode)[] Pages =
     [("Claude", "claude"), ("Codex", "codex"), ("Claude + Codex 额度", "dual"),
      ("阿里云", "domestic_alibaba"), ("Kimi", "domestic_kimi"), ("MiniMax", "domestic_minimax"),
-     ("DeepSeek", "domestic_deepseek"), ("智谱 GLM", "domestic_zhipu"), ("系统监控", "system"), ("音乐播放", "music"),
+     ("DeepSeek", "domestic_deepseek"), ("智谱 GLM", "domestic_zhipu"), ("阶跃星辰余额", "domestic_stepfun"), ("千帆模型资源包", "domestic_baidu"), ("小米 MiMo", "domestic_xiaomi"), ("系统监控", "system"), ("音乐播放", "music"),
      ("股票行情", "stocks"), ("天气时钟", "weather"), ("桌宠", "pet")];
     internal static bool IsValid(string mode) => mode is "auto" or "screensaver" or "quotas" or "domestic" or "activity" || Pages.Any(page => page.Mode == mode);
     internal static string Normalize(string mode) => mode switch
@@ -46,5 +46,5 @@ internal static class DisplayModes
         int interval=codexWorking?2:6;
         return Math.Max(0,status.EpochUtc-(policy?.CycleStartedAt??0))/interval%2==0?"claude":"codex";
     }
-    internal static string DomesticPage(string provider) => provider is "alibaba" or "kimi" or "minimax" or "deepseek" or "zhipu" ? "domestic_"+provider : "activity";
+    internal static string DomesticPage(string provider) => provider is "alibaba" or "kimi" or "minimax" or "deepseek" or "zhipu" or "stepfun" or "baidu" or "xiaomi" ? "domestic_"+provider : "activity";
 }

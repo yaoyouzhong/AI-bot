@@ -1,6 +1,9 @@
 <p align="center">
+
   <img src="docs/assets/hero.en.svg" width="1120" alt="AI-bot: your AI, at a glance. Original desktop-screen concept, not a device screenshot.">
 </p>
+
+New adapters (unreleased source): StepFun API wallet, an explicit Baidu Qianfan model package, and MiMo console plan usage; live-account acceptance is pending. Other catalog providers remain unconnected, and cloud wallets are excluded. See [setup and integration status](docs/DOMESTIC_QUOTA_SETUP.md).
 
 <p align="center">
   <strong>A small screen for your AI workflow.</strong><br>
