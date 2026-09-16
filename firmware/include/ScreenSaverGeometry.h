@@ -5,7 +5,9 @@ namespace ScreenSaverGeometry {
 constexpr int Width = 204;
 constexpr int DigitHeight = 76;
 constexpr int CalendarY = 86;
-constexpr int GroupHeight = 112;
+constexpr int LunarY = 115;
+constexpr int GroupHeight = 138;
+constexpr int VerticalTravel = 66; // Bottom <= 216; PC OFF starts at 219.
 struct Segment { int x, y, width, height; const char* digits; };
 constexpr Segment Segments[] = {
     {9, 0, 24, 9, "02356789"}, {9, 67, 24, 9, "0235689"},

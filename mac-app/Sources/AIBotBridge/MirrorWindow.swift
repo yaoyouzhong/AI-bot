@@ -115,12 +115,17 @@ final class MacMirrorView:NSView {
         case "screensaver":
             let tick=s.epochUtc/5
             func bounce(_ value:Int64,_ range:Int64)->CGFloat {let phase=value%(range*2);return CGFloat(phase>range ? range*2-phase:phase)}
-            let x=6+bounce(tick*2,24),y=12+bounce(tick,90)
+            let x=6+bounce(tick*2,24),y=12+bounce(tick,66)
             let numbers=Array(s.time.filter{$0.isNumber}.prefix(4)).compactMap{$0.wholeNumberValue}
             if numbers.count==4 {for i in 0..<4 {digit(numbers[i],x+CGFloat([0,47,115,162][i]),y,42,76,.cyan)}}
             NSColor.yellow.setFill();NSBezierPath(ovalIn:NSRect(x:x+97,y:y+21,width:10,height:10)).fill();NSBezierPath(ovalIn:NSRect(x:x+97,y:y+45,width:10,height:10)).fill()
-            let f=DateFormatter();f.dateFormat="MM-dd";text(f.string(from:s.capturedAt),x+25,y+86,100,28,22,.lightGray)
-            text("周"+String("日一二三四五六"[String.Index(utf16Offset:Calendar.current.component(.weekday,from:s.capturedAt)-1,in:"日一二三四五六")]),x+133,y+86,75,28,22,.yellow)
+            let date=Date(timeIntervalSince1970:Double(s.epochUtc))
+            let zone=TimeZone(secondsFromGMT:s.utcOffsetSeconds) ?? TimeZone(secondsFromGMT:0)!
+            var calendar=Calendar(identifier:.gregorian);calendar.timeZone=zone
+            let f=DateFormatter();f.timeZone=zone;f.dateFormat="MM-dd";text(f.string(from:date),x+25,y+86,100,28,22,.lightGray)
+            text("周"+String("日一二三四五六"[String.Index(utf16Offset:calendar.component(.weekday,from:date)-1,in:"日一二三四五六")]),x+133,y+86,75,28,22,.yellow)
+            let center=x+(204+(numbers.first == 1 ? 33:0))/2
+            centered(LunarDate.format(epoch:s.epochUtc,utcOffset:s.utcOffsetSeconds),NSRect(x:center-90,y:y+115,width:180,height:23),.systemFont(ofSize:16),.lightGray)
         case "activity","domestic":
             text(s.domesticActivity?.activeProvider.uppercased() ?? "LOCAL ACTIVITY",18,30,210,30,20,.cyan)
             text(s.domesticActivity?.state ?? "offline",18,90,210,30,20,.white)

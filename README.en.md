@@ -114,6 +114,8 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 > **v0.1.3 pre-release: Windows online installer, about 8 MB.** Missing runtimes require internet access. Working firmware does not need reflashing.
 > The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.
 
+The source screensaver now includes a lunar date with leap-month labels. This is not included in v0.1.3 packages; the device display requires updated firmware.
+
 ### Prepare the hardware
 
 An ESP8266 / ESP-12S with a 240×240 ST7789 display using the SD2 pin layout, plus a

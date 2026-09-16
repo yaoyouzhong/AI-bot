@@ -61,3 +61,9 @@ v0.1.3 新增 `setup.svg` 联网安装步骤示意，并明确 `install.svg` 仅
 可选捕获入口：`dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> <claude.apet> <codex.apet>`。此模式只生成两张额度图；调用者须明确选择获准展示的素材路径。默认无素材参数的捕获仍使用内置桌宠。
 
 On 2026-09-16, the maintainer requested Codex/Claude quota screenshots with their currently selected pets. This explicit opt-in mode reads only the two supplied APET files into an isolated profile and renders synthetic quota values. The original animations are not distributed; depicted characters are not claimed as original AI-bot artwork or MIT-licensed assets. Default capture still uses built-in pets.
+
+## 农历屏保预览 / Lunar screensaver preview
+
+`screensaver.png` 已按未发布源码重新渲染，显示示例日期 2026-09-10 对应的农历七月廿九；不是当前 v0.1.3 二进制或实体屏幕的验收照片。只捕获屏保可使用 `dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --screensaver`。
+
+The screensaver image reflects unreleased source with a synthetic date, not v0.1.3 binaries or hardware acceptance.

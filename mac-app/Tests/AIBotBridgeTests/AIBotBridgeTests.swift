@@ -3,6 +3,20 @@ import XCTest
 @testable import AIBotBridge
 
 final class AIBotBridgeTests: XCTestCase {
+    func testLunarDateLeapMonthAndMidnight() {
+        let formatter = ISO8601DateFormatter()
+        for (date, expected) in [("2026-02-17T04:00:00Z", "农历正月初一"),
+                                 ("2026-09-16T04:00:00Z", "农历八月初六"),
+                                 ("2025-07-25T04:00:00Z", "农历闰六月初一"),
+                                 ("2024-02-09T04:00:00Z", "农历腊月三十")] {
+            let epoch = Int64(formatter.date(from: date)!.timeIntervalSince1970)
+            XCTAssertEqual(LunarDate.format(epoch: epoch, utcOffset: 28800), expected)
+        }
+        let midnight = Int64(formatter.date(from: "2026-02-16T16:00:00Z")!.timeIntervalSince1970)
+        XCTAssertEqual(LunarDate.format(epoch: midnight, utcOffset: 28800), "农历正月初一")
+        XCTAssertNotEqual(LunarDate.format(epoch: midnight-1, utcOffset: 28800), "农历正月初一")
+    }
+
     func testUSBManagementWithoutWiFiAndReplyCorrelation() throws {
         let line = #"@AIBOT {"version":1,"type":"device_info","request_id":7,"ok":true,"data":{"device":"AI-bot","version":1,"ip":"","mode":"weather","brightness":75,"usb_active":true,"bridge_online":true,"uptime_ms":10000,"usb_status_count":4,"lan_status_count":0}}"#
         let reply = try XCTUnwrap(SerialBridge.parseDeviceReply(line, type: "device_info", requestId: 7))

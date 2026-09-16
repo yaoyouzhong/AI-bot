@@ -4,6 +4,7 @@ internal static class ScreenSaverRenderer
 {
     internal const int ClockWidth = 204;
     internal const int ClockHeight = 76;
+    internal const int GroupHeight = 138;
     private static readonly (RectangleF Bounds, string Digits)[] Segments =
     [
         (new(9, 0, 24, 9), "02356789"), (new(9, 67, 24, 9), "0235689"),
@@ -19,7 +20,7 @@ internal static class ScreenSaverRenderer
             var phase = (int)((tick * speed) % (range * 2));
             return phase > range ? range * 2 - phase : phase;
         }
-        return new Point(6 + Bounce(epoch / 5, 2, 24), 12 + Bounce(epoch / 5, 1, 104));
+        return new Point(6 + Bounce(epoch / 5, 2, 24), 12 + Bounce(epoch / 5, 1, 66));
     }
 
     internal static void Draw(Graphics g, StatusSnapshot status)
@@ -51,5 +52,9 @@ internal static class ScreenSaverRenderer
         var left = visibleCenter - (dateWidth + 8 + weekWidth) / 2f;
         g.DrawString(date, font, muted, left, origin.Y + 86, format);
         g.DrawString(weekday, font, accent, left + dateWidth + 8, origin.Y + 86, format);
+        using var lunarFont = new Font("Microsoft YaHei UI", 16, FontStyle.Regular, GraphicsUnit.Pixel);
+        var lunar = LunarDate.Format(local.Date);
+        var lunarWidth = g.MeasureString(lunar, lunarFont, int.MaxValue, format).Width;
+        g.DrawString(lunar, lunarFont, muted, visibleCenter - lunarWidth / 2, origin.Y + 115, format);
     }
 }

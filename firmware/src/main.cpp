@@ -9,6 +9,8 @@
 #include <time.h>
 #include <vector>
 #include "ScreenSaverGeometry.h"
+#include "LunarCalendar.h"
+#include "LunarText.h"
 #include "WeatherAnimations.h"
 #include "ResetCountdown.h"
 
@@ -1383,7 +1385,7 @@ void drawScreenSaver() {
   struct tm parts;
   gmtime_r(&local, &parts);
   const int x = 6 + ScreenSaverGeometry::bounce(tick, 2, 24);
-  const int y = 12 + ScreenSaverGeometry::bounce(tick, 1, 90);
+  const int y = 12 + ScreenSaverGeometry::bounce(tick, 1, ScreenSaverGeometry::VerticalTravel);
   display.fillScreen(TFT_BLACK);
   display.setTextDatum(TL_DATUM);
   const int digits[] = {parts.tm_hour / 10, parts.tm_hour % 10, parts.tm_min / 10, parts.tm_min % 10};
@@ -1404,6 +1406,20 @@ void drawScreenSaver() {
   display.drawString(date, dateX, y + ScreenSaverGeometry::CalendarY, 4);
   drawWeekdayStrokeGlyph(-1, dateX + dateWidth + 10, y + ScreenSaverGeometry::CalendarY, 0xC618);
   drawWeekdayStrokeGlyph(parts.tm_wday, dateX + dateWidth + 36, y + ScreenSaverGeometry::CalendarY, TFT_YELLOW);
+  const auto lunar = LunarCalendar::convert(parts.tm_year + 1900, parts.tm_mon + 1, parts.tm_mday);
+  if (lunar.month) {
+    const char* months[] = {"正","二","三","四","五","六","七","八","九","十","冬","腊"};
+    const char* digits[] = {"一","二","三","四","五","六","七","八","九","十"};
+    String date = "农历";
+    if (lunar.leap) date += "闰";
+    date += months[lunar.month-1]; date += "月";
+    if (lunar.day == 10) date += "初十";
+    else if (lunar.day == 20) date += "二十";
+    else if (lunar.day == 30) date += "三十";
+    else { date += lunar.day < 10 ? "初" : lunar.day < 20 ? "十" : "廿"; date += digits[(lunar.day-1)%10]; }
+    LunarText::draw(date.c_str(), visibleCenter, y + ScreenSaverGeometry::LunarY,
+      [&](int x1,int y1,int x2,int y2) { display.drawLine(x1,y1,x2,y2,0xC618); });
+  }
   if (!online) {
     display.drawRoundRect(181, 219, 56, 18, 3, TFT_ORANGE);
     display.setTextDatum(MC_DATUM);

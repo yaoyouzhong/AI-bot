@@ -222,11 +222,11 @@ internal static class MirrorSelfTest
         {
             var position = ScreenSaverRenderer.Position(tick * 5);
             if (position.X < 6 || position.X + ScreenSaverRenderer.ClockWidth > 234 ||
-                position.Y < 12 || position.Y + 112 > 228)
-                throw new InvalidOperationException("Desktop screensaver clips the legacy 12px bottom margin.");
+                position.Y < 12 || position.Y + ScreenSaverRenderer.GroupHeight > 216)
+                throw new InvalidOperationException("Screensaver lunar row clips the safe area.");
         }
-        // The desktop legacy renderer has no PC OFF lane; firmware keeps its separate safe area.
-        if(ScreenSaverRenderer.Position(104*5).Y!=116)throw new InvalidOperationException("Desktop screensaver lost the legacy vertical travel.");
+        // Reserve the same bottom lane as firmware for the lunar row and PC OFF.
+        if(ScreenSaverRenderer.Position(66*5).Y!=78)throw new InvalidOperationException("Screensaver lunar layout travel changed.");
         using var creditPages = new Bitmap(720, 480);
         using (var g = Graphics.FromImage(creditPages))
         {

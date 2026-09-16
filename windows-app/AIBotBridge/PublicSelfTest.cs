@@ -38,6 +38,7 @@ internal static class PublicSelfTest
         }
         DataSourceSelfTest.Run();
         QuotaHistorySelfTest.Run();
+        LunarDateSelfTest.Run();
         CodexLifecycleSelfTest.Run();
         DisplayPolicySelfTest.Run();
         PetAnimationSelfTest.Run();
