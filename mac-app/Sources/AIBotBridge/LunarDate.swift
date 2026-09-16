@@ -17,7 +17,8 @@ enum LunarDate {
         guard let reference = gregorian.date(from: DateComponents(year: year, month: monthNumber, day: dayNumber, hour: 12)) else { return "" }
         var calendar = Calendar(identifier: .chinese)
         calendar.timeZone = china
-        let parts = calendar.dateComponents([.month, .day, .isLeapMonth], from: reference)
+        // Request all components to preserve leap-month information on macOS 13.
+        let parts = calendar.dateComponents(in: china, from: reference)
         guard let month = parts.month, let day = parts.day,
               (1...12).contains(month), (1...30).contains(day) else { return "" }
         let months = ["正","二","三","四","五","六","七","八","九","十","冬","腊"]

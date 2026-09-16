@@ -3,7 +3,7 @@
   <img src="docs/assets/hero.zh.svg" width="1120" alt="AI-bot：AI 状态，抬眼可见。原创桌面小屏概念图，非实机截图。">
 </p>
 
-新增接入（源码未发布）：阶跃开放平台余额、百度千帆指定模型资源包、小米 MiMo 网页套餐用量；真实账号未验证，其余待接厂商不标记为可用。云账号余额不纳入。详见 [配置与接入进度](docs/DOMESTIC_QUOTA_SETUP.md)。
+新增接入（v0.2.0 测试版）：阶跃开放平台余额、百度千帆指定模型资源包、小米 MiMo 网页套餐用量；真实账号未验证，其余待接厂商不标记为可用。云账号余额不纳入。详见 [配置与接入进度](docs/DOMESTIC_QUOTA_SETUP.md)。
 
 <p align="center">
   <strong>一块小屏，连接你的 AI 工作流。</strong><br>
@@ -87,7 +87,7 @@ flowchart LR
 
 ## 开始使用
 
-**Windows 推荐下载：** [联网精简安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.1.3/AIBotBridge-0.1.3-setup-win-x64.exe) · [中文安装图解](docs/WINDOWS_INSTALLER.md)。已有环境自动跳过，缺少时联网补装。
+**Windows 推荐下载：** [联网精简安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.0/AIBotBridge-0.2.0-setup-win-x64.exe) · [中文安装图解](docs/WINDOWS_INSTALLER.md)。已有环境自动跳过，缺少时联网补装。
 
 **第一次使用？** [下载哪个包](docs/DOWNLOAD.zh.md) · [Windows 安装图解](docs/WINDOWS_INSTALLER.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [Windows 刷机图解](docs/FLASH.zh.md) · [Mac 刷机指南](docs/FLASH_MAC.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
 
@@ -111,12 +111,12 @@ flowchart LR
 </tr>
 </table>
 
-> **v0.1.3 测试版：Windows 联网精简安装包约 8 MB。** 缺少运行环境时需要联网，已有正常固件不用重刷。
+> **v0.2.0 测试版：Windows 联网精简安装包约 8 MB。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
 > 安装器未签名；全新电脑安装、升级与卸载仍待实测。Mac 为 Apple Silicon 测试版，尚未完成实机验收。
 
-源码中的屏保已增加农历日期（含闰月）；此功能尚未包含在 v0.1.3 安装包中，设备显示需要更新固件。
+v0.2.0 屏保增加农历日期（含闰月）；设备显示需要更新固件。
 
-国产模型接口与网页授权设置见[额度设置说明](docs/DOMESTIC_QUOTA_SETUP.md)（未发布源码功能）。
+国产模型接口与网页授权设置见[额度设置说明](docs/DOMESTIC_QUOTA_SETUP.md)（v0.2.0）。
 
 ### 准备硬件
 
@@ -142,7 +142,7 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 ### macOS：Apple Silicon 测试版
 
-面向 macOS 13+、M 系列芯片。可从[v0.1.3 测试版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3)下载 `AIBotBridge-0.1.3-local-candidate-macos-arm64.zip` 和同名 `.sha256`；
+面向 macOS 13+、M 系列芯片。可从[v0.2.0 测试版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.0)下载 `AIBotBridge-0.2.0-local-candidate-macos-arm64.zip` 和同名 `.sha256`；
 解压并校验后，将 `.app` 放入“应用程序”。详见 [Mac 安装说明](docs/MAC_PACKAGE.md)。
 目前仅临时签名，未完成 Developer ID 签名与 Apple 公证；首次启动、权限和设备行为待实机验证，Intel Mac 未验证。
 
@@ -157,7 +157,7 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 候选安装与验收：[Mac 候选包](docs/MAC_PACKAGE.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
 
-文档更新：2026-09-16，版本 **v0.1.3**。
+文档更新：2026-09-16，版本 **v0.2.0**。
 持续更新以[Actions](https://github.com/yaoyouzhong/AI-bot/actions)与[发布前检查](docs/RELEASE_READINESS.md)为准。
 
 ## 深入了解

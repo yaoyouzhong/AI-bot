@@ -2,7 +2,7 @@
 
 [下载选择指南](DOWNLOAD.zh.md) · [Windows 应用安装](INSTALL.zh.md) · [Mac 刷机](FLASH_MAC.zh.md)
 
-**只更新电脑上的 v0.1.3，且小屏已经正常运行 AI-bot？不用刷机。** 以下仅用于首次安装或确实要替换小屏固件。
+**v0.2.0 新增小屏农历和模型页面，需要更新固件；仅使用电脑端新功能可暂不刷机。** 以下用于首次安装或更新小屏固件。
 
 本页使用发布包内的现成 `firmware.bin`，不用 Git、.NET SDK 或编译器。工具固定为 **esptool 4.8.1**，请不要混用其他教程的参数。
 
@@ -34,16 +34,16 @@
 
 ## 2. 下载并解压固件包
 
-从 [v0.1.3 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3)下载：
+从 [v0.2.0 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.0)下载：
 
-- `AI-bot-0.1.3-firmware-materials.zip`
+- `AI-bot-0.2.0-firmware-materials.zip`
 - 同名 `.zip.sha256` 校验文件
 
 在下载文件夹地址栏输入 `powershell`，回车，运行：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\AI-bot-0.1.3-firmware-materials.zip
-Get-Content .\AI-bot-0.1.3-firmware-materials.zip.sha256
+Get-FileHash -Algorithm SHA256 .\AI-bot-0.2.0-firmware-materials.zip
+Get-Content .\AI-bot-0.2.0-firmware-materials.zip.sha256
 ```
 
 两串哈希一致后，右键 ZIP → **全部解压**。进入解压目录，顶层应有 `firmware.bin`、`source`、`licenses` 等。保留整个材料包。

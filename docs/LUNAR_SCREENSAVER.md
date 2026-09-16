@@ -10,7 +10,7 @@ Windows 使用 .NET `ChineseLunisolarCalendar`；固件采用由同一公共 API
 
 验证：`scripts/test_lunar_calendar.ps1` 用本机 Visual C++ 构建固件头文件测试，并逐日对照 .NET API，覆盖 73,028 天及边界；Windows 公共自测覆盖春节、闰月、除夕、时区零点和移动边界。macOS 加入对应 XCTest，须在 Mac 上执行。构建/离线渲染不替代实体屏测试。
 
-本功能尚未进入 v0.1.3；更新电脑桥接及设备固件后才能使用。当前未刷机、未替换驻留程序。
+本功能包含在 v0.2.0；设备显示需要更新固件。实体设备验收仍待完成。
 
 ## English
 
@@ -18,4 +18,4 @@ The screensaver adds a third line for the lunar date, including leap months. Tim
 
 Windows uses the public .NET ChineseLunisolarCalendar API. Firmware uses generated calendar facts and an independently written converter; Mac uses the system Chinese calendar for the displayed civil date. Unsupported dates outside 1901-02-19 through 2101-01-28 omit the lunar line. No protocol or network changes are needed. Firmware glyphs are original geometric strokes, not redistributed font files.
 
-Host C++ tests compare all 73,028 supported days with .NET, plus range and layout boundaries. Windows and Mac fixtures cover new year, leap month and local midnight. macOS runtime and hardware acceptance remain separate. This is unreleased source, not part of v0.1.3; no resident deployment or flashing has been performed.
+Host C++ tests compare all 73,028 supported days with .NET, plus range and layout boundaries. Windows and Mac fixtures cover new year, leap month and local midnight. macOS runtime and hardware acceptance remain separate. Included in v0.2.0; device display requires updated firmware. Physical-device acceptance remains pending.

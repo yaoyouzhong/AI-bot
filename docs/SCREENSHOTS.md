@@ -64,12 +64,12 @@ On 2026-09-16, the maintainer requested Codex/Claude quota screenshots with thei
 
 ## 农历屏保预览 / Lunar screensaver preview
 
-`screensaver.png` 已按未发布源码重新渲染，显示示例日期 2026-09-10 对应的农历七月廿九；不是当前 v0.1.3 二进制或实体屏幕的验收照片。只捕获屏保可使用 `dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --screensaver`。
+`screensaver.png` 按 v0.2.0 所含的农历实现渲染，显示示例日期 2026-09-10 对应的农历七月廿九；是源码离线预览，不是发布二进制或实体屏幕的验收照片。只捕获屏保可使用 `dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --screensaver`。
 
-The screensaver image reflects unreleased source with a synthetic date, not v0.1.3 binaries or hardware acceptance.
+The screensaver image reflects the lunar implementation included in v0.2.0 with a synthetic date, not release-binary or hardware acceptance.
 
 ## 国产额度接口设置预览 / Domestic quota API settings
 
-`api-settings.png` 是未发布源码的真实 WinForms 离线捕获，使用空凭据输入框，不初始化 WebView2、不访问真实凭据。复现：`dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --quota-api`，人工检查后取 `api-settings-deepseek.png`。
+`api-settings.png` 是接口设置开发阶段的真实 WinForms 离线捕获，布局可能与新版略有差异，使用空凭据输入框，不初始化 WebView2、不访问真实凭据。复现：`dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --quota-api`，人工检查后取 `api-settings-deepseek.png`。
 
 The API settings screenshot uses an isolated empty profile and does not access real credentials or initialize the browser. It is not proof of live-account API acceptance.

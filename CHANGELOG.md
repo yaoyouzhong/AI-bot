@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.2.0 - 2026-09-16
 
 - Complete MiMo console-session quota routing, strict parsing, persistence, mirror and optional firmware display. Restrict domestic background checks and warnings to selected pages with prior authorization or configured credentials; live MiMo acceptance remains pending.
 
@@ -11,6 +11,11 @@ All notable changes to this project will be documented in this file.
 - Prefer official DeepSeek/MiniMax quota APIs and the documented Kimi Code local usage API; add in-app credentials, browser-failure reminders, stale labels and domestic manual refresh. Ali Token Plan and Zhipu wallet keep browser fallback where no matching documented public API is confirmed.
 
 - Add a lunar date line to Windows/macOS screensavers and the ESP8266 screensaver, with leap-month labels, offline device calculation and movement bounds that preserve the PC OFF area. Hardware and macOS runtime acceptance remain pending.
+
+- Fix macOS 13 lunar-calendar compilation while preserving leap-month support.
+- Improve domestic settings layout and long provider labels at high DPI; synchronize the nine-image homepage gallery and setup guides.
+
+Pre-release: Windows adapters are included; new provider live-account acceptance and physical-device acceptance remain pending. macOS includes lunar dates and protocol compatibility, not the new Windows-only credential adapters. Install updated firmware for lunar dates and additional device pages. Windows setup remains unsigned; macOS is ad-hoc signed and not notarized.
 
 ## 0.1.3 - 2026-09-16
 

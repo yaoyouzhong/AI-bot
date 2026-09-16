@@ -2,7 +2,7 @@
 
 [下载选择](DOWNLOAD.zh.md) · [ZIP 手动安装](INSTALL.zh.md) · [小屏刷固件](FLASH.zh.md)
 
-**[下载 v0.1.3 Windows 安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.1.3/AIBotBridge-0.1.3-setup-win-x64.exe)**
+**[下载 v0.2.0 Windows 安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.0/AIBotBridge-0.2.0-setup-win-x64.exe)**
 
 适用 Windows 10/11 x64。本版为测试版，完整首次安装、升级及卸载仍需全新电脑验收。
 
@@ -44,7 +44,7 @@ Windows 设置 → 应用 → AI-bot → 卸载，可以移除应用。用户的
 
 ## English
 
-The v0.1.3 Windows online setup pre-release detects .NET 8 Desktop Runtime x64 and Evergreen
+The v0.2.0 Windows online setup pre-release detects .NET 8 Desktop Runtime x64 and Evergreen
 WebView2, skips installed prerequisites, and installs only missing components.
 .NET is downloaded from a pinned Microsoft URL only if missing, with progress, cancellation and SHA-256 verification before execution. WebView2 uses Microsoft's bundled online bootstrapper. The per-user
 application install creates shortcuts, supports uninstall and preserves AppData

@@ -2,7 +2,7 @@
 
 [返回首页](../README.md) · [刷机图解](FLASH.zh.md) · [功能与界面图鉴](FEATURES.zh.md)
 
-适用：Windows 10/11 x64，AI-bot `0.1.3` 测试版（Pre-release），
+适用：Windows 10/11 x64，AI-bot `0.2.0` 测试版（Pre-release），
 本页只供希望自行构建的开发者使用。普通安装请看 [Windows 安装图解](INSTALL.zh.md)。macOS 测试及 Release 编译已通过；Mac 使用独立的[候选安装说明](MAC_PACKAGE.md)，不能安装 Windows 包。
 
 ## 1. 先准备什么
@@ -51,8 +51,8 @@ Get-ChildItem .\artifacts -Recurse -Filter 'AIBotBridge-*-local-candidate-win-x6
 ZIP 旁的 `.sha256` 记录 ZIP 哈希；使用实际路径替换示例路径：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\下载目录\AIBotBridge-0.1.3-local-candidate-win-x64.zip'
-Get-Content -LiteralPath 'C:\下载目录\AIBotBridge-0.1.3-local-candidate-win-x64.zip.sha256'
+Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\下载目录\AIBotBridge-0.2.0-local-candidate-win-x64.zip'
+Get-Content -LiteralPath 'C:\下载目录\AIBotBridge-0.2.0-local-candidate-win-x64.zip.sha256'
 ```
 
 两处 SHA-256 应一致。哈希用于检查文件完整性，不是数字签名。

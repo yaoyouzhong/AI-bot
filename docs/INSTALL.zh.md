@@ -2,7 +2,7 @@
 
 [下载选择指南](DOWNLOAD.zh.md) · [小屏刷机](FLASH.zh.md) · [Mac 安装](MAC_PACKAGE.md)
 
-适用 Windows 10/11 x64，当前示例为 **v0.1.3 测试版**。这是免安装 ZIP：不用 Git、Python 或 .NET SDK。
+适用 Windows 10/11 x64，当前示例为 **v0.2.0 测试版**。这是免安装 ZIP：不用 Git、Python 或 .NET SDK。
 
 > **普通用户推荐 [联网精简安装包](WINDOWS_INSTALLER.md)，约 8 MB，自动准备运行环境。** 下面仅供选择 ZIP 的用户手动安装。
 
@@ -10,9 +10,9 @@
 
 ## 1. 下载应用包
 
-打开 [v0.1.3 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3)，下载：
+打开 [v0.2.0 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.0)，下载：
 
-**[AIBotBridge-0.1.3-local-candidate-win-x64.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.1.3/AIBotBridge-0.1.3-local-candidate-win-x64.zip)**
+**[AIBotBridge-0.2.0-local-candidate-win-x64.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.0/AIBotBridge-0.2.0-local-candidate-win-x64.zip)**
 
 认准结尾 **win-x64.zip**。不要选 Mac、source 源码包，或把 `.sha256` 当程序。附件不用全部下载；`local-candidate` 是沿用的打包名称。
 
@@ -62,7 +62,7 @@
 ## 3. 完整解压
 
 1. 旧版正在运行时，右键 AI-bot 托盘图标 → **退出**。
-2. 右键 ZIP → **全部解压**，放在固定目录，例如用户目录下的 `Apps\AI-bot-0.1.3`。
+2. 右键 ZIP → **全部解压**，放在固定目录，例如用户目录下的 `Apps\AI-bot-0.2.0`。
 3. 进入解压后的文件夹，找到 **AIBotBridge.exe**。
 
 不要在压缩包里运行，也不要只复制 EXE。旁边的 DLL、`runtimes`、`licenses` 等全部保留。
@@ -111,7 +111,7 @@
 
 升级：**退出旧版 → 完整解压新版 → 启动新版 EXE**。保留 `%APPDATA%\AI-bot` 和 `%LOCALAPPDATA%\AI-bot`；不要清空。移动程序目录后，关闭再开启一次“开机启动”，更新启动路径。
 
-**v0.1.3 主要更新 Windows 程序；已有正常工作的 AI-bot 固件，不必为本次升级重新刷机。**
+**v0.2.0 的电脑端功能更新应用即可；小屏农历和新增模型页面需要同步更新固件。**
 
 | 现象 | 先这样处理 |
 | --- | --- |
@@ -129,8 +129,8 @@
 在下载目录地址栏输入 `powershell` 后回车，逐行执行：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\AIBotBridge-0.1.3-local-candidate-win-x64.zip
-Get-Content .\AIBotBridge-0.1.3-local-candidate-win-x64.zip.sha256
+Get-FileHash -Algorithm SHA256 .\AIBotBridge-0.2.0-local-candidate-win-x64.zip
+Get-Content .\AIBotBridge-0.2.0-local-candidate-win-x64.zip.sha256
 ```
 
 两串哈希应相同，忽略字母大小写。哈希检查完整性，不是数字签名。

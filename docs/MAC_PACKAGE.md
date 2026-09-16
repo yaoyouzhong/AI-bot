@@ -8,12 +8,12 @@
 
 ## 获取与安装
 
-本版为 Pre-release 测试版。可从[v0.1.3 测试版发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3)下载 `AIBotBridge-0.1.3-local-candidate-macos-arm64.zip` 和同名 `.sha256`。下载页提供应用 ZIP 和同名 `.sha256`。
+本版为 Pre-release 测试版。可从[v0.2.0 测试版发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.0)下载 `AIBotBridge-0.2.0-local-candidate-macos-arm64.zip` 和同名 `.sha256`。下载页提供应用 ZIP 和同名 `.sha256`。
 
 在下载目录打开终端，使用实际文件名校验：
 
 ```bash
-shasum -a 256 -c AIBotBridge-0.1.3-local-candidate-macos-arm64.zip.sha256
+shasum -a 256 -c AIBotBridge-0.2.0-local-candidate-macos-arm64.zip.sha256
 ```
 
 输出 `OK` 后解压应用 ZIP，将 `AIBotBridge.app` 拖入“应用程序”，从 Finder 启动。程序是菜单栏应用，没有普通主窗口；从菜单打开镜像与设置。

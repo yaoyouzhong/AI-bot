@@ -3,7 +3,7 @@
   <img src="docs/assets/hero.en.svg" width="1120" alt="AI-bot: your AI, at a glance. Original desktop-screen concept, not a device screenshot.">
 </p>
 
-New adapters (unreleased source): StepFun API wallet, an explicit Baidu Qianfan model package, and MiMo console plan usage; live-account acceptance is pending. Other catalog providers remain unconnected, and cloud wallets are excluded. See [setup and integration status](docs/DOMESTIC_QUOTA_SETUP.md).
+New adapters (v0.2.0 pre-release): StepFun API wallet, an explicit Baidu Qianfan model package, and MiMo console plan usage; live-account acceptance is pending. Other catalog providers remain unconnected, and cloud wallets are excluded. See [setup and integration status](docs/DOMESTIC_QUOTA_SETUP.md).
 
 <p align="center">
   <strong>A small screen for your AI workflow.</strong><br>
@@ -114,12 +114,12 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 </tr>
 </table>
 
-> **v0.1.3 pre-release: Windows online installer, about 8 MB.** Missing runtimes require internet access. Working firmware does not need reflashing.
+> **v0.2.0 pre-release: Windows online installer, about 8 MB.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
 > The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.
 
-The source screensaver now includes a lunar date with leap-month labels. This is not included in v0.1.3 packages; the device display requires updated firmware.
+The source screensaver now includes a lunar date with leap-month labels. Included in v0.2.0 packages; the device display requires updated firmware.
 
-See [domestic quota API/browser settings](docs/DOMESTIC_QUOTA_SETUP.md) for the unreleased source feature.
+See [domestic quota API/browser settings](docs/DOMESTIC_QUOTA_SETUP.md) for the v0.2.0 pre-release feature.
 
 ### Prepare the hardware
 
@@ -147,7 +147,7 @@ The small online setup EXE detects and installs missing prerequisites. For the m
 
 ### macOS: Apple Silicon test build
 
-Targets macOS 13+ on M-series chips. Download the Mac ZIP and matching `.sha256` from the [v0.1.3 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3),
+Targets macOS 13+ on M-series chips. Download the Mac ZIP and matching `.sha256` from the [v0.2.0 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.0),
 verify and extract the ZIP, then copy the app to Applications. See [Mac installation](docs/MAC_PACKAGE.md).
 The app is ad-hoc signed, without Developer ID signing or notarization. First launch, permissions and device behavior need real-Mac acceptance; Intel is unverified.
 
@@ -162,7 +162,7 @@ The app is ad-hoc signed, without Developer ID signing or notarization. First la
 
 Candidate installation and acceptance: [Mac package](docs/MAC_PACKAGE.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
 
-Documentation updated: 2026-09-16, **v0.1.3**.
+Documentation updated: 2026-09-16, **v0.2.0**.
 Follow [Actions](https://github.com/yaoyouzhong/AI-bot/actions) and [release readiness](docs/RELEASE_READINESS.md) for updates.
 
 ## Explore the project
@@ -191,8 +191,8 @@ tokens and private log contents removed.
 
 ## Download and setup guides
 
-**Windows recommended:** [Online installer, about 8 MB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.1.3/AIBotBridge-0.1.3-setup-win-x64.exe) · [Illustrated setup guide (Chinese)](docs/WINDOWS_INSTALLER.md).
+**Windows recommended:** [Online installer, about 8 MB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.0/AIBotBridge-0.2.0-setup-win-x64.exe) · [Illustrated setup guide (Chinese)](docs/WINDOWS_INSTALLER.md).
 
 Installed runtimes are skipped; missing .NET is downloaded and hash-verified before installation. Internet is needed when prerequisites are missing. This is a pre-release; clean-machine installation, upgrade and uninstall acceptance remain pending.
 
-[Download selection](docs/DOWNLOAD.zh.md) · [Manual Windows ZIP installation](docs/INSTALL.zh.md) · [Windows firmware flashing](docs/FLASH.zh.md) · [Mac installation](docs/MAC_PACKAGE.md). Working AI-bot firmware does not need reflashing for this installer update.
+[Download selection](docs/DOWNLOAD.zh.md) · [Manual Windows ZIP installation](docs/INSTALL.zh.md) · [Windows firmware flashing](docs/FLASH.zh.md) · [Mac installation](docs/MAC_PACKAGE.md). Update device firmware to use lunar dates and the additional model pages.

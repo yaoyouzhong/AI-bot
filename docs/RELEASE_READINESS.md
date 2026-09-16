@@ -3,7 +3,13 @@
 本页保留 2026-09-09 本地准备证据，并补充 2026-09-10 源码与分发材料收尾，不宣称正式版已发布。
 带日期的迁移/验收文档保留为历史证据，不能将其中的 PID、COM 号、候选哈希或等待操作当作当前指令。
 
-## v0.1.3 联网安装测试版
+## v0.2.0 测试版
+
+新增国产模型接口、按展示选择和授权状态限定失效提醒、设置布局与农历屏保。真实新增套餐、实体设备及干净电脑安装验收仍待完成。发布前需通过 Windows、macOS 和固件 CI。
+
+The v0.2.0 pre-release adds quota adapters, scoped authorization warnings, layout fixes and lunar screensavers. Live new-provider accounts, hardware and clean-machine installation remain unverified.
+
+## v0.1.3 联网安装测试版（历史）
 
 [版本入口](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.1.3) · [Windows 安装图解](WINDOWS_INSTALLER.md)。新增约 8 MB 中文联网精简安装包；已有环境跳过，缺少组件自动下载补装。本地构建、公开自测、下载完整性测试、本机环境检测与包校验通过。
 

@@ -1,6 +1,6 @@
 # 国产模型额度设置
 
-> 当前为未发布源码功能，尚未包含在 v0.1.3 安装包中。适用于 Windows 桥接 App；设备的缓存提示需要更新固件。
+> 本功能包含在 v0.2.0 测试版中。适用于 Windows 桥接 App；设备的缓存提示需要更新固件。
 
 ## 在哪里配置
 
@@ -44,10 +44,10 @@ API Key/本地服务令牌只保存在 Windows 凭据管理器。输入框为密
 
 Windows: open **Model quotas → Domestic quota settings**, select a provider, then save and test its credential. DeepSeek uses its official total-balance endpoint; MiniMax uses the China Token Plan endpoint. Kimi Code optionally uses the documented local `kimi web` usage API with its server bearer token and port, not a Moonshot wallet key. Ali Token Plan and Zhipu account balance retain authenticated browser collection because no matching documented public endpoint has been confirmed.
 
-Credentials stay in Windows Credential Manager. Selected, configured APIs take priority every two minutes; failed APIs never silently switch accounts through the browser. Browser fallback reports login redirects, authorization denial, process failure and timeout. Last-good data is retained and marked stale; notifications are deduplicated until recovery. The tray refresh command uses the same selected-and-configured provider scope. Unconfigured or unselected catalog entries do not trigger automatic checks or tray warnings. Real-account integration and deployed/hardware acceptance remain separate from simulated tests. This feature is not in v0.1.3.
+Credentials stay in Windows Credential Manager. Selected, configured APIs take priority every two minutes; failed APIs never silently switch accounts through the browser. Browser fallback reports login redirects, authorization denial, process failure and timeout. Last-good data is retained and marked stale; notifications are deduplicated until recovery. The tray refresh command uses the same selected-and-configured provider scope. Unconfigured or unselected catalog entries do not trigger automatic checks or tray warnings. Real-account integration and deployed/hardware acceptance remain separate from simulated tests. Included in the v0.2.0 pre-release.
 
 
-## 新增厂商接入进度（未发布）
+## 新增厂商接入进度（v0.2.0 测试版）
 
 只有模型专属额度进入显示；腾讯云、华为云、百度智能云、火山引擎的云账号总余额不接入。
 
@@ -59,7 +59,7 @@ Credentials stay in Windows Credential Manager. Selected, configured APIs take p
 
 Windows 与 ESP8266 新增阶跃余额/千帆量包显示页；旧固件需要更新才能显示。未执行刷机；构建不代表真机验收。macOS 仅同步可选协议字段与模式名称，未实现这两家的原生查询入口。
 
-### Additional providers (unreleased)
+### Additional providers (v0.2.0 pre-release)
 
 Only model-specific quotas are eligible. Whole-cloud wallets from Tencent, Huawei, Baidu and Volcengine are excluded.
 

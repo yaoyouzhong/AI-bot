@@ -217,7 +217,7 @@ Windows USB 心跳省略 `samples`，快速 metrics 帧携带样本尾部；LAN 
 `device_info` 的 `page_data` 增加只读计数：`system_chart_frames`、`system_chrome_draws`、`system_number_draws`、`system_samples_consumed`、`system_queue_depth`，用于真实刷新验收，不含用户数据。
 
 
-### Additional domestic model quotas (unreleased)
+### Additional domestic model quotas (v0.2.0)
 
 Optional v1 `domesticQuotas.stepFun` carries the StepFun CNY API wallet, not Step Plan. Optional `domesticQuotas.baidu` carries one explicit Qianfan model resource package: `planPercent` is used/total and `planResetsAt` means package expiry, not renewal. Cloud wallets are excluded. New modes: `domestic_stepfun`, `domestic_baidu`. Older firmware ignores these fields and requires updating for the new modes. macOS preserves both optional fields and accepts the modes; native provider acquisition remains unimplemented.
 
