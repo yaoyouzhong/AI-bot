@@ -7,7 +7,7 @@ internal static class DocCapture
     [STAThread]
     private static void Main(string[] args)
     {
-        if (args.Length != 1) throw new ArgumentException("Supply an output directory.");
+        if (args.Length is not (1 or 3)) throw new ArgumentException("Supply an output directory, optionally followed by Claude and Codex APET paths for approved quota screenshots.");
         AppPaths.BeginPublicSelfTest(); // Must precede any settings/cache/credential access.
         Application.SetHighDpiMode(HighDpiMode.DpiUnaware);
         Application.EnableVisualStyles();
@@ -15,6 +15,11 @@ internal static class DocCapture
         var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
         if (PetAnimationStore.Shared.AllResources().Count != 0)
             throw new InvalidOperationException("Documentation profile contains imported art.");
+        if (args.Length == 3)
+        {
+            PetAnimationStore.Shared.Select("claude", PetAnimation.Decode(File.ReadAllBytes(args[1])));
+            PetAnimationStore.Shared.Select("codex", PetAnimation.Decode(File.ReadAllBytes(args[2])));
+        }
         var now = new DateTimeOffset(2026, 9, 10, 10, 24, 0, TimeSpan.FromHours(8));
         var quota = new ProviderQuotaSnapshot("claude", "MAX", 34, now.AddHours(2), 61,
             now.AddDays(3), null, [], now, false);
@@ -35,6 +40,16 @@ internal static class DocCapture
                 domestic with { Provider="zhipu", Plan="GLM", PrimaryPercent=null, WeeklyPercent=null, Balance=16.8, Currency="CNY" }),
             SystemMetrics: new(31.4,72.8,238900,4821100,now,Enumerable.Range(0,224).Select(i=>new NetworkSample((long)(180000+140000*Math.Sin(i/12.0)),(long)(3000000+2400000*Math.Sin(i/23.0)))).ToArray()),
             Music: new("桌面之光 · 示例曲目", "AI-bot 演示", "示例专辑", true, 95, 260, now));
+        if (args.Length == 3)
+        {
+            foreach (var mode in new[] { "claude", "codex" })
+            {
+                using var image = MirrorForm.RenderSnapshot(status, mode);
+                image.Save(Path.Combine(output, mode+".png"), ImageFormat.Png);
+            }
+            Console.WriteLine("DOC_QUOTA_CAPTURE_OK selected pets; synthetic values; isolated profile; no device access");
+            return;
+        }
         foreach (var mode in DisplayModes.Pages.Select(x=>x.Mode).Concat(new[]{"domestic","screensaver","activity"}).Distinct())
         {
             using var image = MirrorForm.RenderSnapshot(status, mode);

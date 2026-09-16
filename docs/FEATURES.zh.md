@@ -49,8 +49,8 @@
 ## 2. Claude、Codex 与双额度
 
 <p>
-<img src="assets/screens/claude.png" width="240" alt="Claude 额度页，虚构数据与默认桌宠">
-<img src="assets/screens/codex.png" width="240" alt="Codex 额度页，虚构数据与默认桌宠">
+<img src="assets/screens/claude.png" width="240" alt="Claude 额度页，虚构数据与维护者选用的桌宠">
+<img src="assets/screens/codex.png" width="240" alt="Codex 额度页，虚构数据与维护者选用的桌宠">
 <img src="assets/screens/dual.png" width="240" alt="双额度页，虚构数据">
 </p>
 

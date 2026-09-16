@@ -8,7 +8,7 @@ support in its private pet cache. Resources 12/13 feed the mirror and device;
 no logo pixels or source headers are included in the repository/release. This
 import does not confer a redistribution license. macOS remains unbuilt/unverified.
 
-AI-bot distributes only its procedural `BYTE SPROUT` pet. No legacy sprite, vendor logo, third-party screenshot, or third-party character is bundled. Reviewed offline captures of AI-bot's own UI are documented in [SCREENSHOTS.md](SCREENSHOTS.md).
+AI-bot distributes only its procedural `BYTE SPROUT` pet. No legacy sprite files, vendor logos, or third-party animation resources are bundled. Two maintainer-requested documentation screenshots depict their selected pets; this does not license or bundle those characters as app assets. Reviewed offline captures of AI-bot's own UI are documented in [SCREENSHOTS.md](SCREENSHOTS.md).
 
 The Windows and macOS bridges can send a user-selected PNG, JPEG, BMP, or animated GIF as a private runtime pet. GIFs are sampled into at most eight frames with aggregated per-frame durations; inputs above 1000 frames are rejected. Import is accepted only when the image directory also contains `LICENSE`, `LICENSE.txt`, or `<image-name>.license.txt`, limited to 64 KiB. This is a provenance gate rather than a legal classifier: AI-bot verifies that a notice exists but does not claim that arbitrary notice text grants a particular right.
 

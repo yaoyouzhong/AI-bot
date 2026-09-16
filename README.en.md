@@ -91,22 +91,22 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 **First time here?** [Windows installation (Chinese)](docs/WINDOWS_INSTALLER.md) · [Mac test build](docs/MAC_PACKAGE.md) · [Windows flashing (Chinese)](docs/FLASH.zh.md) · [Mac flashing (Chinese)](docs/FLASH_MAC.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
 
-BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data. Quota screenshots use the built-in default pet, not the user’s current local selection; they are not photographs of a device.
+BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data. Codex and Claude screenshots show the maintainer’s currently selected pets with sample values; they are not photographs of a device.
 
 <table>
 <tr>
-<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample with the built-in default pet"><br><strong>Codex quota</strong></td>
+<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample with the currently selected pet"><br><strong>Codex quota</strong></td>
+<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude quota sample with the currently selected pet"><br><strong>Claude quota</strong></td>
+<td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="Dual quota sample"><br><strong>Dual quotas</strong></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/assets/screens/domestic_kimi.png" width="240" alt="Kimi domestic model quota sample"><br><strong>Domestic model quota (Kimi)</strong></td>
 <td align="center"><img src="docs/assets/screens/weather.png" width="240" alt="Weather sample"><br><strong>Weather &amp; clock</strong></td>
 <td align="center"><img src="docs/assets/screens/system.png" width="240" alt="System monitor sample"><br><strong>System monitor</strong></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="Dual quota sample"><br><strong>Dual quotas</strong></td>
 <td align="center"><img src="docs/assets/screens/music.png" width="240" alt="Music sample"><br><strong>Music playback</strong></td>
 <td align="center"><img src="docs/assets/screens/stocks.png" width="240" alt="Stock quote sample"><br><strong>Stocks</strong></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude quota sample"><br><strong>Claude quota</strong></td>
-<td align="center"><img src="docs/assets/screens/domestic_kimi.png" width="240" alt="Kimi domestic model quota sample"><br><strong>Domestic model quota (Kimi)</strong></td>
 <td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="Screensaver clock sample"><br><strong>Screensaver clock</strong></td>
 </tr>
 </table>
