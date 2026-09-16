@@ -70,6 +70,10 @@ The screensaver image reflects the lunar implementation included in v0.2.0 with 
 
 ## 国产额度接口设置预览 / Domestic quota API settings
 
-`api-settings.png` 是接口设置开发阶段的真实 WinForms 离线捕获，布局可能与新版略有差异，使用空凭据输入框，不初始化 WebView2、不访问真实凭据。复现：`dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --quota-api`，人工检查后取 `api-settings-deepseek.png`。
+`api-settings.png` 已更新为 v0.2.0 设置布局的真实 WinForms 离线捕获，使用空凭据输入框，不初始化 WebView2、不访问真实凭据。复现：`dotnet run --project tools/doc-capture/DocCapture.csproj -c Release -- <output> --quota-api`，人工检查后取 `api-settings-deepseek.png`。
 
 The API settings screenshot uses an isolated empty profile and does not access real credentials or initialize the browser. It is not proof of live-account API acceptance.
+
+2026-09-16：主页保留九张功能图，国产模型示例改为新版 DeepSeek 官方 API 余额渲染（28.50 CNY 为虚构数据）；Codex/Claude 萌宠图不变。接口设置图更新为完整厂商名称和换行布局；截图来自隔离预览，不含真实账号或密钥。
+
+Homepage refresh: nine feature images, including the new DeepSeek API balance render with fictional data and the lunar screensaver. Codex/Claude pets are preserved. The settings capture shows the current wrapping layout and contains no live credentials.

@@ -3,7 +3,7 @@
   <img src="docs/assets/hero.en.svg" width="1120" alt="AI-bot: your AI, at a glance. Original desktop-screen concept, not a device screenshot.">
 </p>
 
-New adapters (v0.2.0 pre-release): StepFun API wallet, an explicit Baidu Qianfan model package, and MiMo console plan usage; live-account acceptance is pending. Other catalog providers remain unconnected, and cloud wallets are excluded. See [setup and integration status](docs/DOMESTIC_QUOTA_SETUP.md).
+**v0.2.0 pre-release:** prefer official quota APIs and configure credentials inside the bridge. Automatic checks and failure reminders cover only selected cycle pages or the fixed page, with prior authorization or configured credentials. New MiMo console, StepFun API-wallet and Baidu model-package adapters await live-account acceptance; cloud wallets are excluded. See [illustrated setup and integration status](docs/DOMESTIC_QUOTA_SETUP.md).
 
 <p align="center">
   <strong>A small screen for your AI workflow.</strong><br>
@@ -48,7 +48,7 @@ On Windows, Bridge service → Start at login uses a current-user scheduled task
 | Keep track of work | Keep your desk informed |
 | :--- | :--- |
 | **AI activity**<br>Working, idle and offline states for Claude / Codex; attention signals and an explicit main-task completion chime. | **Weather and time**<br>Local conditions, an independent clock and automatic screen saving. Keep the last successful data during temporary outages. |
-| **Quotas and balances**<br>Claude / Codex usage, resets and reset-credit details; Windows integrations for Alibaba, Kimi, MiniMax, DeepSeek and Zhipu. | **Music and markets**<br>Now-playing title, artwork and progress; paged watchlists for mainland China, Hong Kong and US markets. |
+| **Quotas and balances**<br>Claude / Codex usage, resets and reset-credit details; Windows integrations for Alibaba, Kimi, MiniMax, DeepSeek and Zhipu; new MiMo, StepFun and Baidu adapters await live-account acceptance. | **Music and markets**<br>Now-playing title, artwork and progress; paged watchlists for mainland China, Hong Kong and US markets. |
 | **System monitoring**<br>CPU, memory and network activity, with live traffic graphs and a screen mirror. | **Animated companions**<br>The original BYTE SPROUT, plus local images/GIFs with license notices. Choose pets independently for Claude and Codex. |
 
 **Choose what stays on screen.** Pin a page or cycle through quotas, weather, stocks
@@ -103,14 +103,14 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 <td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="Dual quota sample"><br><strong>Dual quotas</strong></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/assets/screens/domestic_kimi.png" width="240" alt="Kimi domestic model quota sample"><br><strong>Domestic model quota (Kimi)</strong></td>
+<td align="center"><img src="docs/assets/screens/domestic_deepseek.png" width="240" alt="DeepSeek official API balance with fictional data"><br><strong>Domestic model balance (DeepSeek)</strong></td>
 <td align="center"><img src="docs/assets/screens/weather.png" width="240" alt="Weather sample"><br><strong>Weather &amp; clock</strong></td>
 <td align="center"><img src="docs/assets/screens/system.png" width="240" alt="System monitor sample"><br><strong>System monitor</strong></td>
 </tr>
 <tr>
 <td align="center"><img src="docs/assets/screens/music.png" width="240" alt="Music sample"><br><strong>Music playback</strong></td>
 <td align="center"><img src="docs/assets/screens/stocks.png" width="240" alt="Stock quote sample"><br><strong>Stocks</strong></td>
-<td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="Screensaver clock sample"><br><strong>Screensaver clock</strong></td>
+<td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="Screensaver clock with lunar date"><br><strong>Lunar screensaver clock</strong></td>
 </tr>
 </table>
 
@@ -119,7 +119,7 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 
 The source screensaver now includes a lunar date with leap-month labels. Included in v0.2.0 packages; the device display requires updated firmware.
 
-See [domestic quota API/browser settings](docs/DOMESTIC_QUOTA_SETUP.md) for the v0.2.0 pre-release feature.
+**Setup:** right-click the tray → Model quotas → Domestic model quota settings. Full provider and plan labels are shown; API keys stay in Windows Credential Manager. See the [updated settings screenshot and guide](docs/DOMESTIC_QUOTA_SETUP.md). Unconfigured, never-authorized or unselected providers do not trigger automatic checks or failure reminders.
 
 ### Prepare the hardware
 

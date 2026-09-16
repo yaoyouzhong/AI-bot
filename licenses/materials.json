@@ -24,7 +24,7 @@
     "toolchain-xtensa": "2.100300.220621"
   },
   "sourceAssets": {
-    "docs/assets/screens/api-settings.png": "8053539432d64990a7d8cf0265b681107a1dfbc9262ed7452d98ff1ede099031",
+    "docs/assets/screens/api-settings.png": "81c8660a7c2a754f02633026a58730a9604aebd00f4896efdc7e16d4fa77f242",
     "windows-app/AIBotBridge/Assets/app-icon.ico": "09ef535337cdd1295d2337f3a3213732c55d1584f8df5485343c9ae4b038f904",
     "windows-app/AIBotBridge/TestFixtures/claude_sprite.h": "e340b68a6ca9358965e96945f4c4ced0648468ff936235e16badc9f869632809",
     "docs/assets/hero.en.svg": "eda6c188e2e4b17e92fdbea4b7f1bbd5638e0f58ae6b44745fe8da02a3a96b24",
@@ -38,7 +38,7 @@
     "docs/assets/screens/cycle-settings.png": "1aa38c8aa0c54d7c158610d011196038a8f7c3af374f3af7e3d1a2a6d5c52011",
     "docs/assets/screens/device-control.png": "6b8ce47c3c75c51c8c48cece59fbb2d199f95bf254961b9b1c26a0e6b9cc4b22",
     "docs/assets/screens/domestic_alibaba.png": "14b5b74b79841621d1e8972867aa6b78c9a6f8e7d10bbb66a5f1cc4fb7c0b970",
-    "docs/assets/screens/domestic_deepseek.png": "ea9fa8f7cf3319dc94d50678e2f0c63a54cf2f77935e7c516b300ad6d5251416",
+    "docs/assets/screens/domestic_deepseek.png": "0d50f048835a5c4a79864c7aff75e84286eecbda89eccf9d783ee6e8d1e39ee0",
     "docs/assets/screens/domestic_kimi.png": "8841d9c4339c51f07c320948f652ba4273bf6983713dfbf97895a8b34694008f",
     "docs/assets/screens/domestic_minimax.png": "215a6e1479d3e5c3513314c0e39a7527ada724028e0586f138f5e54c177070ef",
     "docs/assets/screens/domestic_zhipu.png": "757e6fb15a6c1644c04f027ba89554bdb9fa4277f86ec3b49d5cd6c8410993ca",

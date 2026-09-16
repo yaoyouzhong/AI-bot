@@ -3,7 +3,7 @@
   <img src="docs/assets/hero.zh.svg" width="1120" alt="AI-bot：AI 状态，抬眼可见。原创桌面小屏概念图，非实机截图。">
 </p>
 
-新增接入（v0.2.0 测试版）：阶跃开放平台余额、百度千帆指定模型资源包、小米 MiMo 网页套餐用量；真实账号未验证，其余待接厂商不标记为可用。云账号余额不纳入。详见 [配置与接入进度](docs/DOMESTIC_QUOTA_SETUP.md)。
+**v0.2.0 测试版**：国产模型优先通过官方接口查询，桥接 App 内配置凭据；只对当前轮播选中或固定显示、且曾授权或配置凭据的厂商检查失效并提醒。新增小米 MiMo 网页套餐、阶跃 API 余额和百度千帆指定模型资源包接入，真实套餐仍待验证；不显示云账号余额。详见 [配置图解与接入进度](docs/DOMESTIC_QUOTA_SETUP.md)。
 
 <p align="center">
   <strong>一块小屏，连接你的 AI 工作流。</strong><br>
@@ -46,8 +46,8 @@ Windows 的“桥接服务 → 开机启动”使用当前用户登录任务，�
 
 | 工作时，看得见进度 | 日常里，多一点陪伴 |
 | :--- | :--- |
-| **AI 工作状态**<br>Claude / Codex 工作、空闲与离线状态；等待输入提醒、主任务完成提示音。 | **天气与时钟**<br>城市天气、独立时钟和自动屏保；暂时断网时保留最近成功数据。 |
-| **账户额度与余额**<br>Claude / Codex 用量、重置时间与额度明细；Windows 接入阿里、Kimi、MiniMax、DeepSeek、智谱。 | **音乐与行情**<br>正在播放的歌曲、封面和进度；A 股、港股、美股自选列表与翻页。 |
+| **AI 工作状态**<br>Claude / Codex 工作、空闲与离线状态；等待输入提醒、主任务完成提示音。 | **天气与时钟**<br>城市天气、独立时钟和带农历的自动屏保；暂时断网时保留最近成功数据。 |
+| **账户额度与余额**<br>Claude / Codex 用量、重置时间与额度明细；Windows 接入阿里、Kimi、MiniMax、DeepSeek、智谱；小米、阶跃、百度新增接入待真实套餐验收。 | **音乐与行情**<br>正在播放的歌曲、封面和进度；A 股、港股、美股自选列表与翻页。 |
 | **系统监控**<br>CPU、内存和上下行动态；实时网速曲线与镜像显示。 | **会动的桌宠**<br>原创 BYTE SPROUT；支持带许可说明的本地图片/GIF，Claude 与 Codex 可分别选择。 |
 
 **按你的习惯显示。** 固定一个页面，或让额度、天气、股票等按自选顺序轮播。
@@ -100,14 +100,14 @@ flowchart LR
 <td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="双额度示例"><br><strong>双额度总览</strong></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/assets/screens/domestic_kimi.png" width="240" alt="国产模型 Kimi 额度示例"><br><strong>国产模型额度（Kimi）</strong></td>
+<td align="center"><img src="docs/assets/screens/domestic_deepseek.png" width="240" alt="DeepSeek 官方 API 余额示例，虚构数据"><br><strong>国产模型余额（DeepSeek）</strong></td>
 <td align="center"><img src="docs/assets/screens/weather.png" width="240" alt="天气时钟示例"><br><strong>天气时钟</strong></td>
 <td align="center"><img src="docs/assets/screens/system.png" width="240" alt="系统监控示例"><br><strong>系统监控</strong></td>
 </tr>
 <tr>
 <td align="center"><img src="docs/assets/screens/music.png" width="240" alt="音乐播放示例"><br><strong>音乐播放</strong></td>
 <td align="center"><img src="docs/assets/screens/stocks.png" width="240" alt="股票行情示例"><br><strong>股票行情</strong></td>
-<td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="屏保时钟示例"><br><strong>屏保时钟</strong></td>
+<td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="带农历日期的屏保时钟示例"><br><strong>农历屏保时钟</strong></td>
 </tr>
 </table>
 
@@ -116,7 +116,7 @@ flowchart LR
 
 v0.2.0 屏保增加农历日期（含闰月）；设备显示需要更新固件。
 
-国产模型接口与网页授权设置见[额度设置说明](docs/DOMESTIC_QUOTA_SETUP.md)（v0.2.0）。
+**配置入口：** 托盘右键 → 模型额度 → 国产模型额度设置。厂商名称与套餐说明完整展示；API Key 保存在 Windows 凭据管理器。参见[新版设置截图及操作说明](docs/DOMESTIC_QUOTA_SETUP.md)。未配置、未授权或未选中展示的厂商，不进行自动检查和失效提醒。
 
 ### 准备硬件
 
