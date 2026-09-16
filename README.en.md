@@ -91,11 +91,11 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 **First time here?** [Windows installation (Chinese)](docs/WINDOWS_INSTALLER.md) · [Mac test build](docs/MAC_PACKAGE.md) · [Windows flashing (Chinese)](docs/FLASH.zh.md) · [Mac flashing (Chinese)](docs/FLASH_MAC.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
 
-BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data, not photographs of a device.
+BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data. Quota screenshots use the built-in default pet, not the user’s current local selection; they are not photographs of a device.
 
 <table>
 <tr>
-<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample"><br><strong>Codex quota</strong></td>
+<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample with the built-in default pet"><br><strong>Codex quota</strong></td>
 <td align="center"><img src="docs/assets/screens/weather.png" width="240" alt="Weather sample"><br><strong>Weather &amp; clock</strong></td>
 <td align="center"><img src="docs/assets/screens/system.png" width="240" alt="System monitor sample"><br><strong>System monitor</strong></td>
 </tr>
@@ -106,7 +106,7 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 </tr>
 <tr>
 <td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude quota sample"><br><strong>Claude quota</strong></td>
-<td align="center"><img src="docs/assets/screens/pet.png" width="240" alt="BYTE SPROUT pet sample"><br><strong>Desktop pet</strong></td>
+<td align="center"><img src="docs/assets/screens/domestic_kimi.png" width="240" alt="Kimi domestic model quota sample"><br><strong>Domestic model quota (Kimi)</strong></td>
 <td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="Screensaver clock sample"><br><strong>Screensaver clock</strong></td>
 </tr>
 </table>

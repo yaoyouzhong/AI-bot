@@ -88,11 +88,11 @@ flowchart LR
 
 **第一次使用？** [下载哪个包](docs/DOWNLOAD.zh.md) · [Windows 安装图解](docs/WINDOWS_INSTALLER.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [Windows 刷机图解](docs/FLASH.zh.md) · [Mac 刷机指南](docs/FLASH_MAC.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
 
-默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；不是实体屏照片。
+默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；额度图使用内置默认萌宠，不读取用户当前选择的本地萌宠，也不是实体屏照片。
 
 <table>
 <tr>
-<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex 额度示例"><br><strong>Codex 额度</strong></td>
+<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex 额度示例，使用内置默认萌宠"><br><strong>Codex 额度</strong></td>
 <td align="center"><img src="docs/assets/screens/weather.png" width="240" alt="天气时钟示例"><br><strong>天气时钟</strong></td>
 <td align="center"><img src="docs/assets/screens/system.png" width="240" alt="系统监控示例"><br><strong>系统监控</strong></td>
 </tr>
@@ -103,7 +103,7 @@ flowchart LR
 </tr>
 <tr>
 <td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude 额度示例"><br><strong>Claude 额度</strong></td>
-<td align="center"><img src="docs/assets/screens/pet.png" width="240" alt="BYTE SPROUT 桌宠示例"><br><strong>桌宠陪伴</strong></td>
+<td align="center"><img src="docs/assets/screens/domestic_kimi.png" width="240" alt="国产模型 Kimi 额度示例"><br><strong>国产模型额度（Kimi）</strong></td>
 <td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="屏保时钟示例"><br><strong>屏保时钟</strong></td>
 </tr>
 </table>
