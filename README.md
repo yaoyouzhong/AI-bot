@@ -101,6 +101,11 @@ flowchart LR
 <td align="center"><img src="docs/assets/screens/music.png" width="240" alt="音乐播放示例"><br><strong>音乐播放</strong></td>
 <td align="center"><img src="docs/assets/screens/stocks.png" width="240" alt="股票行情示例"><br><strong>股票行情</strong></td>
 </tr>
+<tr>
+<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude 额度示例"><br><strong>Claude 额度</strong></td>
+<td align="center"><img src="docs/assets/screens/pet.png" width="240" alt="BYTE SPROUT 桌宠示例"><br><strong>桌宠陪伴</strong></td>
+<td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="屏保时钟示例"><br><strong>屏保时钟</strong></td>
+</tr>
 </table>
 
 > **v0.1.3 测试版：Windows 联网精简安装包约 8 MB。** 缺少运行环境时需要联网，已有正常固件不用重刷。

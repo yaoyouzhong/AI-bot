@@ -104,6 +104,11 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 <td align="center"><img src="docs/assets/screens/music.png" width="240" alt="Music sample"><br><strong>Music playback</strong></td>
 <td align="center"><img src="docs/assets/screens/stocks.png" width="240" alt="Stock quote sample"><br><strong>Stocks</strong></td>
 </tr>
+<tr>
+<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude quota sample"><br><strong>Claude quota</strong></td>
+<td align="center"><img src="docs/assets/screens/pet.png" width="240" alt="BYTE SPROUT pet sample"><br><strong>Desktop pet</strong></td>
+<td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="Screensaver clock sample"><br><strong>Screensaver clock</strong></td>
+</tr>
 </table>
 
 > **v0.1.3 pre-release: Windows online installer, about 8 MB.** Missing runtimes require internet access. Working firmware does not need reflashing.
