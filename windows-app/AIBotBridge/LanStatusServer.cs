@@ -21,7 +21,7 @@ internal sealed class LanStatusServer
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
     {
-        _listener.Start();
+        await ListenerStartup.StartAsync(_listener, cancellationToken);
         try
         {
             while (!cancellationToken.IsCancellationRequested)

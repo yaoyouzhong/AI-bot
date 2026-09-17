@@ -5,6 +5,14 @@ namespace AIBotBridge;
 
 internal static class OfficialQuotaApiSelfTest
 {
+    private sealed class RetryHandler(HttpStatusCode first, string successBody) : HttpMessageHandler
+    {
+        internal int Calls;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(++Calls == 1 ? first : HttpStatusCode.OK) {
+                Content = new StringContent(Calls == 1 ? "private failure body" : successBody)
+            });
+    }
     private sealed class Handler(HttpStatusCode status, string body) : HttpMessageHandler
     {
         internal Uri? Uri;
@@ -19,6 +27,16 @@ internal static class OfficialQuotaApiSelfTest
     private static async Task RunAsync()
     {
         const string balance="""{"is_available":true,"balance_infos":[{"currency":"USD","total_balance":"8.00"},{"currency":"CNY","total_balance":"75.37","granted_balance":"1","topped_up_balance":"74.37"}]}""";
+        using (var handler = new RetryHandler(HttpStatusCode.ServiceUnavailable, balance))
+        using (var client = new HttpClient(handler)) {
+            var result = await DeepSeekBalanceApi.FetchAsync("fixture-key", client: client);
+            Require(result.Success && result.HttpStatus == 200 && handler.Calls == 2, "Temporary server failure recovers through one bounded retry");
+        }
+        foreach (var status in new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden, HttpStatusCode.TooManyRequests }) {
+            using var handler = new RetryHandler(status, balance); using var client = new HttpClient(handler);
+            var result = await DeepSeekBalanceApi.FetchAsync("fixture-key", client: client);
+            Require(!result.Success && result.HttpStatus == (int)status && handler.Calls == 1, "Authentication, access and rate limits are not retried immediately");
+        }
         using(var handler=new Handler(HttpStatusCode.OK,balance))
         using(var client=new HttpClient(handler)) {
             var value=await DeepSeekBalanceApi.FetchAsync("fixture-key",client:client);
@@ -47,7 +65,28 @@ internal static class OfficialQuotaApiSelfTest
             bool rejected=false;try { KimiUsageApi.Parse(doc.RootElement); } catch(JsonException) { rejected=true; }
             Require(rejected,"Kimi in-band errors rejected");
         }
-        var health=new QuotaRefreshHealth();
+        var now = DateTimeOffset.UtcNow;
+        var delayed = new QuotaRefreshHealth(() => now);
+        delayed.Fail("zhipu", "temporary");
+        Require(delayed.Failed("zhipu") && delayed.TakeWarning() == null, "Transient failure marks cached data stale without immediate notification");
+        now += TimeSpan.FromMinutes(2);
+        delayed.Recover("zhipu");
+        now += TimeSpan.FromMinutes(2);
+        Require(delayed.TakeWarning() == null && !delayed.Failed("zhipu"), "Successful retry cancels pending warning");
+        delayed.Fail("deepseek", "first");
+        now += TimeSpan.FromMinutes(2);
+        delayed.Fail("deepseek", "still failing");
+        Require(delayed.TakeWarning() == null, "Repeated events do not bypass retry grace period");
+        now += TimeSpan.FromMinutes(1);
+        Require(delayed.TakeWarning() == "still failing" && delayed.TakeWarning() == null, "Persistent failure warns once after grace period");
+        delayed.Fail("zhipu", "old");
+        now += TimeSpan.FromMinutes(2);
+        delayed.Recover("zhipu"); delayed.Fail("zhipu", "new");
+        now += TimeSpan.FromMinutes(1);
+        Require(delayed.TakeWarning() == null, "New failure episode gets a fresh retry period");
+        now += TimeSpan.FromMinutes(2);
+        Require(delayed.TakeWarning() == "new" && delayed.TakeWarning() == null, "Recovery and recurrence do not duplicate pending warnings");
+        var health=new QuotaRefreshHealth { WarningDelay = TimeSpan.Zero };
         health.Fail("deepseek","first"); health.Fail("deepseek","updated");
         Require(health.TakeWarning()=="updated" && health.TakeWarning()==null,"Repeated failure reminder deduplicated");
         health.Recover("deepseek");Require(!health.Failed("deepseek"),"Recovery clears stale state");

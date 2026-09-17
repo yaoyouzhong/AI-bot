@@ -51,6 +51,7 @@ internal static class Program
             RunTray(authorizeZhipu: true); return;
         }
         if(args.Contains("--test-activity-refresh")){try{ActivityRefreshDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("ACTIVITY_REFRESH_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
+        if(args.Length==1&&args[0]=="--diagnose-deepseek"){QuotaRequestDiagnostics.ProbeAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--exit"){BridgeLifetime.RequestExit();return;}
         if(args.Contains("--test-system-refresh")){try{SystemRefreshDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("SYSTEM_REFRESH_DEVICE_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==2&&args[0]=="--audit-device-test-cache") {DeviceAcceptanceTest.AuditTemporaryResources(Path.GetFullPath(args[1]));return;}

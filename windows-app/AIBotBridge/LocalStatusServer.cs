@@ -18,7 +18,7 @@ internal sealed class LocalStatusServer
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
     {
-        _listener.Start();
+        await ListenerStartup.StartAsync(_listener, cancellationToken);
         try
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -93,6 +93,8 @@ internal sealed class LocalStatusServer
                 { diagnostics = JsonSerializer.Serialize(new { error = ex.GetType().Name }); }
             }
             if (activity) diagnostics = JsonSerializer.Serialize(SessionActivityReader.Diagnostics(), JsonDefaults.Options);
+            var webQuota = !browser && requestLine.StartsWith("GET /diagnostics/web-quota ", StringComparison.Ordinal);
+            if (webQuota) diagnostics = JsonSerializer.Serialize(WebQuotaDiagnostics.Snapshot(), JsonDefaults.Options);
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
             var pets = !browser && requestLine.StartsWith("GET /diagnostics/pets ", StringComparison.Ordinal);
             var body = diagnostics ?? (pets ? JsonSerializer.Serialize(PetAnimationStore.Shared.Diagnostics(), JsonDefaults.Options) : found
@@ -100,7 +102,7 @@ internal sealed class LocalStatusServer
                 : accepted ? "{\"ok\":true}" : "{\"error\":\"not_found\"}");
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 {(found || pets || accepted || device || activity ? "200 OK" : "404 Not Found")}\r\n" +
+                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota ? "200 OK" : "404 Not Found")}\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
                 $"Content-Length: {payload.Length}\r\n" +
                 "Connection: close\r\n\r\n");

@@ -48,6 +48,8 @@ internal sealed class MigratedDomesticBridge : IDisposable
         if(selection!=_monitorSelection) { _monitorSelection=selection; _nextRefresh=_nextApiRefresh=DateTimeOffset.MinValue; _providerIndex=0; }
         var web=Providers.Where(p=>monitored.Contains(p) && !_service.HasOfficialApi(p) && p is not ("stepfun" or "baidu")).ToArray();
         _staleAfter=TimeSpan.FromSeconds(Math.Max(360,65*(web.Length+1)));
+        // Allow a full background refresh round and its capture timeout before notifying.
+        _service.RefreshHealth.WarningDelay=TimeSpan.FromSeconds(Math.Max(180,65*(web.Length+1)));
         if (DateTimeOffset.UtcNow >= _nextApiRefresh) {
             _nextApiRefresh = DateTimeOffset.UtcNow.AddMinutes(2);
             foreach (var provider in monitored.Where(_service.HasOfficialApi)) _service.Refresh(provider);
@@ -72,8 +74,8 @@ internal sealed class MigratedDomesticBridge : IDisposable
             foreach(var q in new[]{s.Alibaba,s.Kimi,s.MiniMax,s.DeepSeek,s.Zhipu,s.StepFun,s.Baidu,s.Xiaomi}) {
                 if(q is null) continue;
                 var provider=q.Provider=="alibaba"?"qwen":q.Provider;
-                if(monitored.Contains(provider) && q.Stale) _service.RefreshHealth.Fail(provider,
-                    $"{MigratedDomestic.DomesticProviderCatalog.All.First(p=>p.Id==provider).Name} 额度尚未更新，正在显示旧数据。请打开国产模型额度设置检查接口或重新登录。");
+                if(monitored.Contains(provider) && q.Stale && !_service.RefreshHealth.Failed(provider)) _service.RefreshHealth.Fail(provider,
+                    $"{MigratedDomestic.DomesticProviderCatalog.All.First(p=>p.Id==provider).Name} 额度暂未更新，正在自动重试并显示旧数据。可打开国产模型额度设置查看详情。");
             }
         }
         return _service.RefreshHealth.TakeWarning(monitored.Contains);

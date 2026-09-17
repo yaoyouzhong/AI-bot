@@ -33,7 +33,7 @@ internal static class XiaomiQuotaSelfTest
         Require(QuotaMonitoringPolicy.Selected(cycle with {SelectedMode="weather"},"alibaba").Count==0,"Non-domestic fixed page is quiet");
         Require(QuotaMonitoringPolicy.Selected(cycle with {CycleEnabled=false},"alibaba").Count==0,"Disabled cycle is quiet");
         Require(QuotaMonitoringPolicy.Selected(cycle with {SelectedMode="domestic"},"alibaba").SetEquals(new[]{"qwen"}),"Generic domestic and alias");
-        var health=new QuotaRefreshHealth();health.Fail("deepseek","hidden");health.Fail("xiaomi","selected");
+        var health=new QuotaRefreshHealth { WarningDelay = TimeSpan.Zero };health.Fail("deepseek","hidden");health.Fail("xiaomi","selected");
         Require(health.TakeWarning(p=>p=="xiaomi")=="selected" && health.TakeWarning(p=>p=="xiaomi")==null,"Unselected failure cannot block or leak warnings");
         Require(health.TakeWarning(p=>p=="deepseek")=="hidden" && health.TakeWarning()==null,"Selected later warns once");
         health.Fail("kimi","old");health.Recover("kimi");Require(health.TakeWarning()==null,"Recovered hidden failure is discarded");

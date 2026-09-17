@@ -1,4 +1,4 @@
-﻿#nullable disable
+#nullable disable
 using Settings = AIBotBridge.MigratedWeather.Settings;
 using CredentialStore = AIBotBridge.MigratedWeather.CredentialStore;
 using System.Globalization;
@@ -882,6 +882,7 @@ sealed class DomesticQuotaAuthForm : Form
 
     async Task Navigate(DomesticProviderDefinition provider)
     {
+        AIBotBridge.WebQuotaDiagnostics.Record(provider.Id, _backgroundRefresh ? "background-start" : "interactive-start");
         var generation = ++_navigationGeneration;
         _capturedForNavigation = false;
         if (_service.HasOfficialApi(provider.Id)) {
@@ -948,11 +949,16 @@ sealed class DomesticQuotaAuthForm : Form
     async void WebViewNavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
     {
         if (!ReferenceEquals(sender, _activeCore)) return;
+        if (_activeProvider != null) {
+            var loginPage = Uri.TryCreate(_activeCore.Source, UriKind.Absolute, out var location) &&
+                (location.AbsolutePath.Contains("login", StringComparison.OrdinalIgnoreCase) || location.AbsolutePath.Contains("signin", StringComparison.OrdinalIgnoreCase));
+            AIBotBridge.WebQuotaDiagnostics.Record(_activeProvider.Id, !e.IsSuccess ? "navigation-failed" : loginPage ? "login-page" : "navigation-complete");
+        }
         if (_activeProvider != null && !_service.HasOfficialApi(_activeProvider.Id)) {
             if(!e.IsSuccess) _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页加载失败，请检查网络或重新登录。",!_backgroundRefresh);
             else if(Uri.TryCreate(_activeCore.Source,UriKind.Absolute,out var login) &&
                 (login.AbsolutePath.Contains("login",StringComparison.OrdinalIgnoreCase)||login.AbsolutePath.Contains("signin",StringComparison.OrdinalIgnoreCase)))
-                _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页登录已失效，请打开国产模型额度设置重新登录。",!_backgroundRefresh);
+                _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页登录尚未恢复，正在自动重试；若持续无法更新，请打开国产模型额度设置确认登录。",!_backgroundRefresh);
         }
         if (e.IsSuccess && _activeProvider?.Id is "qwen" or "kimi" or "minimax" or "deepseek" or "zhipu" or "xiaomi")
             await PersistLoginCookies(_activeProvider.Url);
@@ -1293,7 +1299,8 @@ sealed class DomesticQuotaAuthForm : Form
             : provider.Id is "kimi" or "minimax" or "deepseek" or "zhipu" ? 60 : 12));
         if (IsDisposed || generation != _navigationGeneration || _activeProvider != provider
             || _capturedForNavigation) return;
-        _service.ReportWebFailure(provider.Id,$"{provider.Name} 网页额度刷新超时；请打开国产模型额度设置检查登录状态。旧数据已标记过期。",!_backgroundRefresh);
+        AIBotBridge.WebQuotaDiagnostics.Record(provider.Id, "capture-timeout");
+        _service.ReportWebFailure(provider.Id,$"{provider.Name} 网页额度刷新超时，正在自动重试；已保留旧数据。可打开国产模型额度设置查看详情。",!_backgroundRefresh);
         var snapshot = _service.Snapshot;
         var fetchedAt = provider.Id switch
         {
@@ -1355,8 +1362,9 @@ sealed class DomesticQuotaAuthForm : Form
             var isZhipu = _activeProvider?.Id == "zhipu"
                 && (resourceType == "XHR" || resourceType == "Fetch")
                 && AIBotBridge.ZhipuBalance.IsEndpoint(uri);
+            if (isZhipu) AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "balance-response", statusCode);
             if ((statusCode == 401 || statusCode == 403) && (isAlibaba || isXiaomi || isKimiUsage || isMiniMax || isZhipu || isDeepSeek && IsDeepSeekUsageEndpoint(uri))) {
-                _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 网页授权失效或访问被拒绝，请重新登录；已保留旧数据。",!_backgroundRefresh);
+                _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 余额请求未通过认证或访问被拒绝，正在自动重试；若持续失败，请检查登录状态和访问权限。旧数据已保留。",!_backgroundRefresh);
                 return;
             }
             if (isXiaomi && statusCode != 200 && statusCode != 429) {
@@ -1465,6 +1473,7 @@ sealed class DomesticQuotaAuthForm : Form
             {
                 var value = AIBotBridge.ZhipuBalance.Parse(doc.RootElement);
                 _service.SetZhipu(value);
+                AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "balance-saved");
                 weeklyPct = 0;
                 membership = "CNY";
             }
@@ -1521,6 +1530,7 @@ sealed class DomesticQuotaAuthForm : Form
         }
         catch (Exception ex)
         {
+            AIBotBridge.WebQuotaDiagnostics.Record(responseInfo.ProviderId, "response-parse-failed");
             QuotaDiagnostics.Log(
                 $"[quota] {responseInfo.ProviderId} response parse failed at {responseInfo.Endpoint}: {ex.Message}");
             _service.ReportWebFailure(responseInfo.ProviderId,"网页额度响应无法识别，已保留上次结果；请稍后刷新或重新登录。",!_backgroundRefresh);
