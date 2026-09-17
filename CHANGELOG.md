@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.1 - 2026-09-17
+
+### Windows fixes
+
+- Retry transient DeepSeek balance failures once, renew idle connections between refresh rounds, and distinguish authentication, access, rate-limit and network errors while retaining the last successful balance.
+- Wait for automatic recovery before showing quota warnings; cancel pending warnings after success and preserve specific failure reasons.
+- Add bounded, credential-free API and browser-stage diagnostics to distinguish login redirects, capture timeouts and successful balance saves.
+- Retry local and LAN listener startup when a port is temporarily unavailable. Persistent conflicts can use the existing AIBOT_HTTP_PORT override; USB pairing passes the selected port to the device.
+
+### Validation and limitations
+
+- Windows Release build, isolated public self-tests and status capture passed. Live DeepSeek refresh, Zhipu login followed by background balance refresh, USB device connectivity and preserved automatic cycling were verified.
+- Zhipu still requires a valid embedded-browser login; login retention across another restart has not been verified. A port held by another process is not forcibly reclaimed.
+- macOS and firmware behavior are unchanged from v0.2.0; this release does not require reflashing an already working v0.2.0 device. Their packages are rebuilt with this version.
+- Pre-release. Windows setup remains unsigned; macOS is Apple Silicon/macOS 13+, ad-hoc signed and not notarized. Previously documented provider and platform acceptance limits remain in effect.
+
 ## 0.2.0 - 2026-09-16
 
 - Complete MiMo console-session quota routing, strict parsing, persistence, mirror and optional firmware display. Restrict domestic background checks and warnings to selected pages with prior authorization or configured credentials; live MiMo acceptance remains pending.
