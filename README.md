@@ -1,8 +1,8 @@
 <p align="center">
-  <a href="docs/assets/product-intro/AI-bot-product-intro.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="1120" alt="AI 状态，一眼便知。点击观看 36 秒产品介绍。"></a>
+  <a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="1120" alt="AI 状态，一眼便知。点击下载 36 秒产品介绍视频。"></a>
 </p>
 
-[▶ 观看 36 秒产品介绍](docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
+[▶ 下载产品介绍视频（MP4，36 秒）](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
 
 **v0.2.1 维护测试版**：修复 DeepSeek 临时取数失败，减少过早的额度告警，新增安全诊断和端口监听恢复。智谱仍需有效的内置网页登录；已正常运行 v0.2.0 的设备无需为本次维护更新刷机。详见 [更新日志](CHANGELOG.zh.md) 与 [配置图解](docs/DOMESTIC_QUOTA_SETUP.md)。
 

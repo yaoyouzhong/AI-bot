@@ -1,6 +1,6 @@
 # 产品介绍视频 / Product introduction video
 
-[观看视频 / Watch video](assets/product-intro/AI-bot-product-intro.mp4)
+[下载视频 / Download video](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
 ## 内容与来源
 

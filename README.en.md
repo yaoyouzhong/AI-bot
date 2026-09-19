@@ -1,8 +1,8 @@
 <p align="center">
-  <a href="docs/assets/product-intro/AI-bot-product-intro.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="1120" alt="AI-bot: AI status at a glance. Watch the 36-second product introduction."></a>
+  <a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="1120" alt="AI-bot: AI status at a glance. Download the 36-second product introduction."></a>
 </p>
 
-[▶ Watch the 36-second product introduction (Chinese captions)](docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video provenance](docs/PRODUCT_VIDEO.md)
+[▶ Download the 36-second product introduction (MP4, Chinese captions)](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video provenance](docs/PRODUCT_VIDEO.md)
 
 **v0.2.1 maintenance pre-release:** recover transient DeepSeek balance failures, reduce premature quota warnings, and add safe diagnostics and listener recovery. Zhipu still requires a valid embedded-browser login. Working v0.2.0 devices do not need reflashing for this maintenance update. See the [changelog](CHANGELOG.md) and [setup guide](docs/DOMESTIC_QUOTA_SETUP.md).
 
