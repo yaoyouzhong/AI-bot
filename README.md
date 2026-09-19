@@ -1,13 +1,14 @@
 <p align="center">
-
-  <img src="docs/assets/hero.zh.svg" width="1120" alt="AI-bot：AI 状态，抬眼可见。原创桌面小屏概念图，非实机截图。">
+  <a href="docs/assets/product-intro/AI-bot-product-intro.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="1120" alt="AI 状态，一眼便知。点击观看 36 秒产品介绍。"></a>
 </p>
+
+[▶ 观看 36 秒产品介绍](docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
 
 **v0.2.1 维护测试版**：修复 DeepSeek 临时取数失败，减少过早的额度告警，新增安全诊断和端口监听恢复。智谱仍需有效的内置网页登录；已正常运行 v0.2.0 的设备无需为本次维护更新刷机。详见 [更新日志](CHANGELOG.zh.md) 与 [配置图解](docs/DOMESTIC_QUOTA_SETUP.md)。
 
 <p align="center">
-  <strong>一块小屏，连接你的 AI 工作流。</strong><br>
-  看工作状态、查账户额度，也让天气、音乐和系统动态留在桌面。<br>
+  <strong>AI 状态，一眼便知。</strong><br>
+  任务状态、账户额度，集中显示在桌面小屏。<br>
   <strong>Windows · macOS（Apple Silicon 测试版）</strong>
 </p>
 

@@ -1,13 +1,14 @@
 <p align="center">
-
-  <img src="docs/assets/hero.en.svg" width="1120" alt="AI-bot: your AI, at a glance. Original desktop-screen concept, not a device screenshot.">
+  <a href="docs/assets/product-intro/AI-bot-product-intro.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="1120" alt="AI-bot: AI status at a glance. Watch the 36-second product introduction."></a>
 </p>
+
+[▶ Watch the 36-second product introduction (Chinese captions)](docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video provenance](docs/PRODUCT_VIDEO.md)
 
 **v0.2.1 maintenance pre-release:** recover transient DeepSeek balance failures, reduce premature quota warnings, and add safe diagnostics and listener recovery. Zhipu still requires a valid embedded-browser login. Working v0.2.0 devices do not need reflashing for this maintenance update. See the [changelog](CHANGELOG.md) and [setup guide](docs/DOMESTIC_QUOTA_SETUP.md).
 
 <p align="center">
-  <strong>A small screen for your AI workflow.</strong><br>
-  Follow activity and account quotas, with weather, music and system information at your desk.<br>
+  <strong>AI status at a glance.</strong><br>
+  Task status and account quotas, together on a small desktop display.<br>
   <strong>Windows · macOS (Apple Silicon test build)</strong>
 </p>
 
