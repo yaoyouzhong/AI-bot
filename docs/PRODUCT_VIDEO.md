@@ -2,6 +2,9 @@
 
 [下载视频 / Download video](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
+首页使用 GitHub 原生视频附件播放，保留仓库原片作为下载备份。
+The homepage uses a native GitHub video attachment, with the repository MP4 retained as a download fallback.
+
 ## 内容与来源
 
 - 36 秒、1920×1080、30fps，H.264 视频与 AAC 音频。2026-09-19 制作，经维护者确认文案并授权上传。
