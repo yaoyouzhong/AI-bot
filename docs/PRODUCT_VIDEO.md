@@ -1,6 +1,11 @@
 # 产品介绍视频 / Product introduction video
 
+https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
+
 [下载视频 / Download video](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
+
+首页使用 GitHub 原生视频附件播放，保留仓库原片作为下载备份。
+The homepage uses a native GitHub video attachment, with the repository MP4 retained as a download fallback.
 
 ## 内容与来源
 
