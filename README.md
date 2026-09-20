@@ -1,6 +1,5 @@
-<p align="center">
-  <a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="1120" alt="AI 状态，一眼便知。点击下载 36 秒产品介绍视频。"></a>
-</p>
+https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
+
 
 [▶ 下载产品介绍视频（MP4，36 秒）](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
 
