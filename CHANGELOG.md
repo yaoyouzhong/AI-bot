@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 - Add native Windows and Apple Silicon Mac firmware-flashing windows: automatically identify the device, select firmware ZIP/BIN, and use the bundled hash-pinned official tool to back up the full flash, write and read back for verification. Release USB ownership during flashing and restore the USB connection afterward.
 - Consolidate download, installation, firmware and first-connection instructions into one illustrated guide.
 
-Earlier Windows flashing and backup throughput were verified on hardware. The new USB-only handoff passed local regressions; hardware acceptance is pending. The new Mac window passed macOS CI tests and build, while Mac hardware acceptance remains pending. Pre-release. Windows setup is unsigned; the Apple Silicon app is ad-hoc signed and not notarized. Devices already running v0.2.2 firmware do not need reflashing for this update.
+Earlier Windows flashing and backup throughput were verified on hardware. The new USB-only handoff passed local regressions; hardware acceptance is pending. The new Mac window passed macOS CI tests and build, while Mac hardware acceptance remains pending. Published as a release; the acceptance limitations above still apply. Windows setup is unsigned; the Apple Silicon app is ad-hoc signed and not notarized. Devices already running v0.2.2 firmware do not need reflashing for this update.
 
 ## 0.2.2 - 2026-09-21
 

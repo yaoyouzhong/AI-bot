@@ -3,7 +3,7 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [▶ 下载产品介绍视频（MP4，36 秒）](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
 
-**v0.3.0 测试版**：新增 Windows / Mac 图形刷机工具，自动识别小屏、备份和刷写固件；刷机仅暂停 USB，桥接保持运行。已用 v0.2.2 固件的设备无需重复刷机。详见[更新日志](CHANGELOG.zh.md)。
+**v0.3.0 正式版**：新增 Windows / Mac 图形刷机工具，自动识别小屏、备份和刷写固件；刷机仅暂停 USB，桥接保持运行。已用 v0.2.2 固件的设备无需重复刷机。详见[更新日志](CHANGELOG.zh.md)。
 
 <p align="center">
   <strong>AI 状态，一眼便知。</strong><br>
@@ -117,7 +117,7 @@ flowchart LR
 </tr>
 </table>
 
-> **v0.3.0 测试版：Windows 安装包内置刷机工具。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
+> **v0.3.0 正式版：Windows 安装包内置刷机工具。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
 > 安装器未签名；全新电脑安装、升级与卸载仍待实测。Mac 为 Apple Silicon 测试版，尚未完成实机验收。
 
 屏保支持农历日期（含闰月）；旧于 v0.2.2 的设备需要更新固件才能获得手动切页修复。

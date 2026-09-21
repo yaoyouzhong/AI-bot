@@ -3,7 +3,7 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [▶ Download the 36-second product introduction (MP4, Chinese captions)](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video provenance](docs/PRODUCT_VIDEO.md)
 
-**v0.3.0 pre-release:** native Windows / Mac flashing windows with automatic USB identification, backup and firmware verification. Flashing pauses only USB; the bridge remains running. Devices on v0.2.2 firmware do not need reflashing. See the [changelog](CHANGELOG.md).
+**v0.3.0 release:** native Windows / Mac flashing windows with automatic USB identification, backup and firmware verification. Flashing pauses only USB; the bridge remains running. Devices on v0.2.2 firmware do not need reflashing. See the [changelog](CHANGELOG.md).
 
 <p align="center">
   <strong>AI status at a glance.</strong><br>
@@ -122,7 +122,7 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 </tr>
 </table>
 
-> **v0.3.0 pre-release: Windows installer includes the flashing tool.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
+> **v0.3.0 release: Windows installer includes the flashing tool.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
 > The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.
 
 The screensaver supports lunar dates with leap-month labels. This release also requires updated firmware for the manual page-selection fix.

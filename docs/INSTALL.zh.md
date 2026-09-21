@@ -1,6 +1,6 @@
 # AI-bot 完整安装图文指南
 
-**从下载到小屏正常显示，只看这一页。** 适用 v0.3.0 测试版，更新于 2026-09-21。
+**从下载到小屏正常显示，只看这一页。** 适用 v0.3.0 正式版，更新于 2026-09-21。
 
 **Windows 路线：准备设备 → 下载两个包 → 安装电脑程序 → 给小屏刷固件 → USB 连接验收 → 设置自己的内容。**
 
@@ -50,7 +50,7 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 | 2. Mac 应用 | [AIBotBridge-0.3.0-local-candidate-macos-arm64.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-local-candidate-macos-arm64.zip) | 解压后把 App 放入“应用程序” |
 | 3. 小屏固件 | [AI-bot-0.3.0-firmware-materials.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AI-bot-0.3.0-firmware-materials.zip) | 新版刷机窗口直接选 ZIP；旧版手动刷写则解压 |
 
-[全部附件与校验文件](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.3.0)中，`source.zip` 是源码，普通安装不用下载；`.sha256` 是校验文件，不能双击安装。固件材料包约 30 MB，但只把里面的 `firmware.bin` 写入小屏。
+[全部附件与校验文件](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.3.0)中，只需下载对应系统的应用和小屏固件；`SHA256SUMS.txt` 是统一校验清单，不能双击安装。GitHub 自动提供的 Source code 供开发者使用，普通安装无需下载。固件材料包约 30 MB，但只把里面的 `firmware.bin` 写入小屏。
 
 **完成标志：电脑应用包与固件 ZIP 已下载。新版图形工具不需要解压固件包。**
 
@@ -187,36 +187,28 @@ v0.3.0 已提供此入口。Mac 界面为原生窗口，Windows 图示仅用于�
 
 </details>
 
-<details>
-<summary>Windows 手动 ZIP：不使用 EXE 安装器时</summary>
 
-1. 从本版发布页下载 `AIBotBridge-0.3.0-local-candidate-win-x64.zip`。
-2. 安装 [微软 .NET 8 Desktop Runtime](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)：选择 **.NET 桌面运行时 → Windows x64**，不是 SDK、ASP.NET、x86 或 Arm64。已装兼容 8.0.x 桌面运行时则跳过。
-3. 需要国产模型网页登录且本机缺少组件时，从 [微软 WebView2 官方下载页](https://developer.microsoft.com/microsoft-edge/webview2/)安装 Evergreen Runtime。
-4. 右键 ZIP → 全部解压到固定文件夹。打开其中 `AIBotBridge.exe`，不要只复制一个 EXE，也不要在 ZIP 内直接运行。
-5. 回到本页第 4～6 步完成固件、连接和内容设置。
-
-</details>
 
 <details>
 <summary>检查下载是否完整（SHA-256）</summary>
 
-从同一发布页下载同名 `.sha256` 文件，与原文件放在一起。Windows 在下载目录打开 PowerShell，例如校验固件包：
+从同一发布页下载 `SHA256SUMS.txt`，其中列出了三个安装/固件附件的校验值。Windows 在下载目录打开 PowerShell，例如校验固件包：
 
 ```powershell
 Get-FileHash -Algorithm SHA256 .\AI-bot-0.3.0-firmware-materials.zip
-Get-Content .\AI-bot-0.3.0-firmware-materials.zip.sha256
+Get-Content .\SHA256SUMS.txt
 ```
 
-两串哈希相同才使用，忽略字母大小写。校验 EXE 或其他 ZIP 时，把上面的文件名改成实际文件名。
+与清单中同名文件的哈希相同才使用，忽略字母大小写。校验 EXE 或其他 ZIP 时，把上面的文件名改成实际文件名。
 
 Mac 在下载目录打开终端，例如：
 
 ```bash
-shasum -a 256 -c AIBotBridge-0.3.0-local-candidate-macos-arm64.zip.sha256
+shasum -a 256 AIBotBridge-0.3.0-local-candidate-macos-arm64.zip
+cat SHA256SUMS.txt
 ```
 
-应输出 `OK`。校验完整性不等于项目数字签名。
+比较清单中同名文件的哈希；一致才使用。校验完整性不等于项目数字签名。
 
 </details>
 
