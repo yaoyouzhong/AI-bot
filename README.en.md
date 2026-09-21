@@ -3,7 +3,7 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [▶ Download the 36-second product introduction (MP4, Chinese captions)](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video provenance](docs/PRODUCT_VIDEO.md)
 
-**v0.2.1 maintenance pre-release:** recover transient DeepSeek balance failures, reduce premature quota warnings, and add safe diagnostics and listener recovery. Zhipu still requires a valid embedded-browser login. Working v0.2.0 devices do not need reflashing for this maintenance update. See the [changelog](CHANGELOG.md) and [setup guide](docs/DOMESTIC_QUOTA_SETUP.md).
+**v0.2.2 maintenance pre-release:** fix delayed Hong Kong quotes and price precision on Windows, prevent alerts from overriding manual page selection, and prioritize display commands during USB transfers. **Update both the bridge and device firmware for the page-selection fix.** See the [changelog](CHANGELOG.md).
 
 <p align="center">
   <strong>AI status at a glance.</strong><br>
@@ -114,10 +114,10 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 </tr>
 </table>
 
-> **v0.2.1 pre-release: Windows online installer, about 8 MB.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
+> **v0.2.2 pre-release: Windows online installer, about 8 MB.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
 > The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.
 
-The source screensaver now includes a lunar date with leap-month labels. Included in v0.2.1 packages; the device display requires updated firmware.
+The screensaver supports lunar dates with leap-month labels. This release also requires updated firmware for the manual page-selection fix.
 
 **Setup:** right-click the tray → Model quotas → Domestic model quota settings. Full provider and plan labels are shown; API keys stay in Windows Credential Manager. See the [updated settings screenshot and guide](docs/DOMESTIC_QUOTA_SETUP.md). Unconfigured, never-authorized or unselected providers do not trigger automatic checks or failure reminders.
 
@@ -147,7 +147,7 @@ The small online setup EXE detects and installs missing prerequisites. For the m
 
 ### macOS: Apple Silicon test build
 
-Targets macOS 13+ on M-series chips. Download the Mac ZIP and matching `.sha256` from the [v0.2.1 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.1),
+Targets macOS 13+ on M-series chips. Download the Mac ZIP and matching `.sha256` from the [v0.2.2 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.2),
 verify and extract the ZIP, then copy the app to Applications. See [Mac installation](docs/MAC_PACKAGE.md).
 The app is ad-hoc signed, without Developer ID signing or notarization. First launch, permissions and device behavior need real-Mac acceptance; Intel is unverified.
 
@@ -162,7 +162,7 @@ The app is ad-hoc signed, without Developer ID signing or notarization. First la
 
 Candidate installation and acceptance: [Mac package](docs/MAC_PACKAGE.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
 
-Documentation updated: 2026-09-17, **v0.2.1**.
+Documentation updated: 2026-09-21, **v0.2.2**.
 Follow [Actions](https://github.com/yaoyouzhong/AI-bot/actions) and [release readiness](docs/RELEASE_READINESS.md) for updates.
 
 ## Explore the project
@@ -191,7 +191,7 @@ tokens and private log contents removed.
 
 ## Download and setup guides
 
-**Windows recommended:** [Online installer, about 8 MB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.1/AIBotBridge-0.2.1-setup-win-x64.exe) · [Illustrated setup guide (Chinese)](docs/WINDOWS_INSTALLER.md).
+**Windows recommended:** [Online installer, about 8 MB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AIBotBridge-0.2.2-setup-win-x64.exe) · [Illustrated setup guide (Chinese)](docs/WINDOWS_INSTALLER.md).
 
 Installed runtimes are skipped; missing .NET is downloaded and hash-verified before installation. Internet is needed when prerequisites are missing. This is a pre-release; clean-machine installation, upgrade and uninstall acceptance remain pending.
 

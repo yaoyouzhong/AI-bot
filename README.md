@@ -3,7 +3,7 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [▶ 下载产品介绍视频（MP4，36 秒）](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
 
-**v0.2.1 维护测试版**：修复 DeepSeek 临时取数失败，减少过早的额度告警，新增安全诊断和端口监听恢复。智谱仍需有效的内置网页登录；已正常运行 v0.2.0 的设备无需为本次维护更新刷机。详见 [更新日志](CHANGELOG.zh.md) 与 [配置图解](docs/DOMESTIC_QUOTA_SETUP.md)。
+**v0.2.2 维护测试版**：修复 Windows 港股行情约 15 分钟延迟及报价精度；修复手动切页被完成/待输入提醒覆盖、USB 资源传输阻塞切页。**设备切页修复需要同时更新桥接程序和固件。** 详见[更新日志](CHANGELOG.zh.md)。
 
 <p align="center">
   <strong>AI 状态，一眼便知。</strong><br>
@@ -87,7 +87,7 @@ flowchart LR
 
 ## 开始使用
 
-**Windows 推荐下载：** [联网精简安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.1/AIBotBridge-0.2.1-setup-win-x64.exe) · [中文安装图解](docs/WINDOWS_INSTALLER.md)。已有环境自动跳过，缺少时联网补装。
+**Windows 推荐下载：** [联网精简安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AIBotBridge-0.2.2-setup-win-x64.exe) · [中文安装图解](docs/WINDOWS_INSTALLER.md)。已有环境自动跳过，缺少时联网补装。
 
 **第一次使用？** [下载哪个包](docs/DOWNLOAD.zh.md) · [Windows 安装图解](docs/WINDOWS_INSTALLER.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [Windows 刷机图解](docs/FLASH.zh.md) · [Mac 刷机指南](docs/FLASH_MAC.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
 
@@ -111,10 +111,10 @@ flowchart LR
 </tr>
 </table>
 
-> **v0.2.1 测试版：Windows 联网精简安装包约 8 MB。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
+> **v0.2.2 测试版：Windows 联网精简安装包约 8 MB。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
 > 安装器未签名；全新电脑安装、升级与卸载仍待实测。Mac 为 Apple Silicon 测试版，尚未完成实机验收。
 
-v0.2.1 屏保增加农历日期（含闰月）；设备显示需要更新固件。
+屏保支持农历日期（含闰月）；本次设备切页修复需要更新固件。
 
 **配置入口：** 托盘右键 → 模型额度 → 国产模型额度设置。厂商名称与套餐说明完整展示；API Key 保存在 Windows 凭据管理器。参见[新版设置截图及操作说明](docs/DOMESTIC_QUOTA_SETUP.md)。未配置、未授权或未选中展示的厂商，不进行自动检查和失效提醒。
 
@@ -142,7 +142,7 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 ### macOS：Apple Silicon 测试版
 
-面向 macOS 13+、M 系列芯片。可从[v0.2.1 测试版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.1)下载 `AIBotBridge-0.2.1-local-candidate-macos-arm64.zip` 和同名 `.sha256`；
+面向 macOS 13+、M 系列芯片。可从[v0.2.2 测试版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.2)下载 `AIBotBridge-0.2.2-local-candidate-macos-arm64.zip` 和同名 `.sha256`；
 解压并校验后，将 `.app` 放入“应用程序”。详见 [Mac 安装说明](docs/MAC_PACKAGE.md)。
 目前仅临时签名，未完成 Developer ID 签名与 Apple 公证；首次启动、权限和设备行为待实机验证，Intel Mac 未验证。
 
@@ -157,7 +157,7 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 候选安装与验收：[Mac 候选包](docs/MAC_PACKAGE.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
 
-文档更新：2026-09-17，版本 **v0.2.1**。
+文档更新：2026-09-21，版本 **v0.2.2**。
 持续更新以[Actions](https://github.com/yaoyouzhong/AI-bot/actions)与[发布前检查](docs/RELEASE_READINESS.md)为准。
 
 ## 深入了解

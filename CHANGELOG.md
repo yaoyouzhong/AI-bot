@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.2 - 2026-09-21
+
+- Fix completion/input alerts overriding manually selected pages on the device and mirrors; automatic mode retains alert navigation. Device diagnostics now distinguish selected, effective and rendered pages.
+
+- Windows: request real-time Hong Kong quotes, preserve three-decimal prices and index precision, and recover missing symbols individually without erasing cached quotes.
+- Windows: queue display selections without blocking the UI, prioritize the latest selection between USB resource chunks, and prevent queued heartbeats from restoring an older selection.
+
+Update both the bridge and ESP8266 firmware to receive the manual page-selection fix. Windows/device behavior has been verified on hardware and confirmed by the user. macOS shares the display-policy fix; interactive Mac acceptance remains pending. Windows setup is unsigned; the Apple Silicon app is ad-hoc signed and not notarized.
+
 ## 0.2.1 - 2026-09-17
 
 ### Windows fixes
