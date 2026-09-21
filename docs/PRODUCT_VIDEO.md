@@ -4,8 +4,8 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [下载视频 / Download video](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
-首页使用 GitHub 原生视频附件播放，保留仓库原片作为下载备份。
-The homepage uses a native GitHub video attachment, with the repository MP4 retained as a download fallback.
+首页保留 GitHub 原生视频附件播放器，同时在播放器上方提供“卡住时直接播放”入口，打开同一附件的独立播放器；仓库原片作为下载备份。
+The homepage retains the native GitHub player and adds a direct attachment playback link above it for buffering failures. The repository MP4 remains a download fallback.
 
 ## 内容与来源
 
@@ -23,3 +23,9 @@ The homepage uses a native GitHub video attachment, with the repository MP4 reta
 ## English
 
 A 36-second product overview with Chinese captions and English headings. The video shows AI activity, attention/completion indicators, account quotas, weather/music/system pages, and the clock/pet. Native Windows UI captures use isolated synthetic data; they are not hardware footage or new live-account/platform acceptance. The project icon and original BYTE SPROUT pet are used; no private artwork or credentials are included. Music is synthesized for this film and SFX are original synthesized assets from the credited production skill. Font families are Inter and Noto Sans SC (SIL OFL), rendered into the output without font redistribution. The AGPL production scaffold itself is not distributed here. Visual/media checks and loudness measurements are complete; subjective listening remains unverified. Exact media hashes are listed in `licenses/materials.json`.
+
+## 2026-09-21 播放链路复核
+
+原片为 H.264 High Level 4.0 / AAC、36 秒、约 2.2 MB，MP4 的 moov 索引位于媒体数据之前。附件和仓库原片的 GET Range 请求均返回 206。隔离 Chrome 中，GitHub 首页内嵌播放器等待后仅播放到约 1.5 秒；同一附件直链播放到约 13.4 秒，readyState=4，无播放错误。该结果说明文件可解码，不代表所有网络均流畅或已完成全片验收。HEAD 请求的 403 不能代替实际 GET 播放判断。
+
+新增直链是内嵌播放器缓冲时的备用入口，不宣称已修复 GitHub 自身的媒体传输链路。
