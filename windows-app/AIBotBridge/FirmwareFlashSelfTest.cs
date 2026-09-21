@@ -7,13 +7,7 @@ internal static class FirmwareFlashSelfTest
     internal static async Task RunAsync()
     {
         CheckDeviceSelection();
-        var resident = new BridgeResumeTarget(123, DateTime.UtcNow, @"C:\Installed Bridge\AIBotBridge.exe", 18765);
-        Check(BridgeResumeTarget.Select([resident, resident]) == resident, "duplicate listener evidence resolves to resident");
-        var restore = resident.StartInfo();
-        Check(restore.FileName == resident.Executable && restore.Arguments == "" && restore.Environment["AIBOT_HTTP_PORT"] == "18765", "restore original executable and port without flasher arguments");
-        try { BridgeResumeTarget.Select([]); throw new Exception("unknown resident guessed"); } catch (IOException) { }
-        try { BridgeResumeTarget.Select([resident, resident with { ProcessId = 124 }]); throw new Exception("ambiguous resident guessed"); } catch (IOException) { }
-        Console.WriteLine("FLASH_RESUME_TARGET_OK original-path/port/no-flash-arguments/ambiguity");
+        await FlashUsbLeaseSelfTest.RunAsync();
         var output = new List<string>();
         var parser = new FlashOutputParser(output.Add);
         parser.Feed("Configuring flash size...\r\n4096 (0 %)");

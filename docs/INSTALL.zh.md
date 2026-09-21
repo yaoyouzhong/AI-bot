@@ -1,6 +1,6 @@
 # AI-bot 完整安装图文指南
 
-**从下载到小屏正常显示，只看这一页。** 适用 v0.2.2 测试版，更新于 2026-09-21。
+**从下载到小屏正常显示，只看这一页。** 适用 v0.3.0 测试版，更新于 2026-09-21。
 
 **Windows 路线：准备设备 → 下载两个包 → 安装电脑程序 → 给小屏刷固件 → USB 连接验收 → 设置自己的内容。**
 
@@ -46,11 +46,11 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 
 | 用途 | 点击下载 | 下载后怎样处理 |
 | --- | --- | --- |
-| 1. Windows 应用 | [AIBotBridge-0.2.2-setup-win-x64.exe](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AIBotBridge-0.2.2-setup-win-x64.exe) | 约 8 MB，双击安装 |
-| 2. Mac 应用 | [AIBotBridge-0.2.2-local-candidate-macos-arm64.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AIBotBridge-0.2.2-local-candidate-macos-arm64.zip) | 解压后把 App 放入“应用程序” |
-| 3. 小屏固件 | [AI-bot-0.2.2-firmware-materials.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AI-bot-0.2.2-firmware-materials.zip) | 新版刷机窗口直接选 ZIP；旧版手动刷写则解压 |
+| 1. Windows 应用 | [AIBotBridge-0.3.0-setup-win-x64.exe](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-setup-win-x64.exe) | 双击安装，内置刷机工具 |
+| 2. Mac 应用 | [AIBotBridge-0.3.0-local-candidate-macos-arm64.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-local-candidate-macos-arm64.zip) | 解压后把 App 放入“应用程序” |
+| 3. 小屏固件 | [AI-bot-0.3.0-firmware-materials.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AI-bot-0.3.0-firmware-materials.zip) | 新版刷机窗口直接选 ZIP；旧版手动刷写则解压 |
 
-[全部附件与校验文件](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.2)中，`source.zip` 是源码，普通安装不用下载；`.sha256` 是校验文件，不能双击安装。固件材料包约 30 MB，但只把里面的 `firmware.bin` 写入小屏。
+[全部附件与校验文件](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.3.0)中，`source.zip` 是源码，普通安装不用下载；`.sha256` 是校验文件，不能双击安装。固件材料包约 30 MB，但只把里面的 `firmware.bin` 写入小屏。
 
 **完成标志：电脑应用包与固件 ZIP 已下载。新版图形工具不需要解压固件包。**
 
@@ -76,9 +76,9 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 
 ### 4.1 打开“小屏刷机”窗口
 
-保持小屏通过 USB 数据线连接。右键 AI-bot 托盘 → **设备连接 → 小屏刷机…**。不用手动退出桥接，工具会在需要时自动释放串口，并在结束后恢复桥接。
+保持小屏通过 USB 数据线连接。右键 AI-bot 托盘 → **设备连接 → 小屏刷机…**。桥接保持运行，工具只会暂时释放 USB，结束后自动恢复连接。
 
-> **版本提示：图形刷机是尚未发布的新功能，当前公开 v0.2.2 安装包没有这个菜单。** 使用包含此功能的新版桥接；旧版用户在新版发布前可展开本页底部的“旧版兼容刷写”。不要把未发布功能当作现有下载包已经具备。
+> **v0.3.0 已内置图形刷机工具，无需安装 Python 或运行命令。**
 
 ![Windows 小屏刷机窗口的真实离线捕获，连接状态和文件名为示例](assets/screens/firmware-flasher.png)
 
@@ -100,7 +100,7 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 - Windows 在准备、备份阶段可以取消；写入与校验开始后保持供电，等待结束。备份可能包含网络配置，请勿公开上传。
 - 写入或校验失败会保留错误提示和记录，不会显示成功。检查连接后可重新开始，不要全片擦除。
 
-**完成标志：窗口显示“刷机完成，小屏正在重新连接”。** 工具会重新启动刷机前正在运行的原桥接程序，恢复智能跟随和循环展示，保留原有页面、顺序及间隔；若刷机前没有运行桥接，按提示从开始菜单启动 AI-bot。接着按第 5 步检查实体屏。
+**完成标志：窗口显示“刷机完成，小屏正在重新连接”。** 桥接程序全程保持运行；工具恢复 USB 连接、智能跟随和循环展示，保留原有页面、顺序及间隔；若刷机前没有运行桥接，按提示从开始菜单启动 AI-bot。接着按第 5 步检查实体屏。
 
 <a id="connect"></a>
 ## 5. 启动桥接，确认实体屏真的连上了
@@ -157,7 +157,7 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 
 操作中不要退出应用或断开供电；Mac 窗口会阻止操作期间关闭。备份失败则停止，原固件不会被写入覆盖；展开“更多”→“查看备份”可找到备份。
 
-此入口同样属于尚未发布的新功能，公开 v0.2.2 没有此菜单。Mac 界面为原生窗口，Windows 图示仅用于说明操作顺序；Mac CI 测试与构建已通过，设备实测仍待完成。
+v0.3.0 已提供此入口。Mac 界面为原生窗口，Windows 图示仅用于说明操作顺序；Mac CI 测试与构建已通过，设备实测仍待完成。
 
 无串口时先检查数据线和转接器；确认 CH340 缺驱动时使用 [WCH 官方 Mac 驱动](https://github.com/WCHSoftGroup/ch34xser_macos)。
 
@@ -190,7 +190,7 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 <details>
 <summary>Windows 手动 ZIP：不使用 EXE 安装器时</summary>
 
-1. 从本版发布页下载 `AIBotBridge-0.2.2-local-candidate-win-x64.zip`。
+1. 从本版发布页下载 `AIBotBridge-0.3.0-local-candidate-win-x64.zip`。
 2. 安装 [微软 .NET 8 Desktop Runtime](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)：选择 **.NET 桌面运行时 → Windows x64**，不是 SDK、ASP.NET、x86 或 Arm64。已装兼容 8.0.x 桌面运行时则跳过。
 3. 需要国产模型网页登录且本机缺少组件时，从 [微软 WebView2 官方下载页](https://developer.microsoft.com/microsoft-edge/webview2/)安装 Evergreen Runtime。
 4. 右键 ZIP → 全部解压到固定文件夹。打开其中 `AIBotBridge.exe`，不要只复制一个 EXE，也不要在 ZIP 内直接运行。
@@ -204,8 +204,8 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 从同一发布页下载同名 `.sha256` 文件，与原文件放在一起。Windows 在下载目录打开 PowerShell，例如校验固件包：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\AI-bot-0.2.2-firmware-materials.zip
-Get-Content .\AI-bot-0.2.2-firmware-materials.zip.sha256
+Get-FileHash -Algorithm SHA256 .\AI-bot-0.3.0-firmware-materials.zip
+Get-Content .\AI-bot-0.3.0-firmware-materials.zip.sha256
 ```
 
 两串哈希相同才使用，忽略字母大小写。校验 EXE 或其他 ZIP 时，把上面的文件名改成实际文件名。
@@ -213,7 +213,7 @@ Get-Content .\AI-bot-0.2.2-firmware-materials.zip.sha256
 Mac 在下载目录打开终端，例如：
 
 ```bash
-shasum -a 256 -c AIBotBridge-0.2.2-local-candidate-macos-arm64.zip.sha256
+shasum -a 256 -c AIBotBridge-0.3.0-local-candidate-macos-arm64.zip.sha256
 ```
 
 应输出 `OK`。校验完整性不等于项目数字签名。
@@ -221,7 +221,7 @@ shasum -a 256 -c AIBotBridge-0.2.2-local-candidate-macos-arm64.zip.sha256
 </details>
 
 <details>
-<summary>旧版兼容刷写：仅供尚无“小屏刷机”菜单的公开 v0.2.2 使用</summary>
+<summary>旧版兼容刷写：仅供没有“小屏刷机”菜单的旧版本使用</summary>
 
 新版图形工具发布后，普通安装直接按上面的界面步骤操作。以下保留旧版的完整兼容方法，无需跳到其他教程。
 
@@ -315,7 +315,7 @@ BACKUP_FILE="backup-before-ai-bot-$(date +%Y%m%d-%H%M%S).bin"
 <a id="upgrade"></a>
 ## 已安装用户：升级与卸载
 
-**升级：退出旧桥接 → 安装新版或替换完整 App/ZIP → 按本页刷写新版固件 → 重新启动并验收实体屏。** 已完成 v0.2.2 设备更新的用户不用重复刷写。
+**升级：退出旧桥接 → 安装到原位置（或在原目录替换完整 App/ZIP）→ 点击原来的快捷方式启动。** 不要从不同的临时解压目录启动。沿用同一位置和入口，无需重新固定快捷方式。已使用 v0.2.2 固件的设备无需重复刷机；更旧的固件按本页更新。
 
 Windows 从旧 ZIP 迁移或改变安装位置后，在新版托盘关闭、再开启一次“开机启动”来更新路径。原来的页面、顺序、间隔和授权资料通常会保留，不要清空 AppData。
 

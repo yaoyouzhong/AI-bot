@@ -8,11 +8,6 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        if (args.Length == 1 && args[0] == "--diagnose-flash-resume")
-        {
-            var target = BridgeResumeTarget.Capture();
-            Console.WriteLine($"BRIDGE_RESUME_TARGET pid={target.ProcessId} port={target.HttpPort} path={target.Executable}"); return;
-        }
         if (args.Length == 2 && args[0] == "--capture-flasher-complete")
         {
             ApplicationConfiguration.Initialize(); FirmwareFlashSelfTest.Capture(args[1], completedPreview: true); return;

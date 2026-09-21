@@ -3,7 +3,7 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [▶ 下载产品介绍视频（MP4，36 秒）](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
 
-**v0.2.2 维护测试版**：修复 Windows 港股行情约 15 分钟延迟及报价精度；修复手动切页被完成/待输入提醒覆盖、USB 资源传输阻塞切页。**设备切页修复需要同时更新桥接程序和固件。** 详见[更新日志](CHANGELOG.zh.md)。
+**v0.3.0 测试版**：新增 Windows / Mac 图形刷机工具，自动识别小屏、备份和刷写固件；刷机仅暂停 USB，桥接保持运行。已用 v0.2.2 固件的设备无需重复刷机。详见[更新日志](CHANGELOG.zh.md)。
 
 <p align="center">
   <strong>AI 状态，一眼便知。</strong><br>
@@ -87,9 +87,15 @@ flowchart LR
 
 ## 开始使用
 
-**Windows 推荐下载：** [联网精简安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AIBotBridge-0.2.2-setup-win-x64.exe) · [中文安装图解](docs/INSTALL.zh.md)。已有环境自动跳过，缺少时联网补装。
+**下载 → 安装 → USB 连接 → 选择固件 → 开始刷机。** 所有步骤集中在 [完整版安装图文指南](docs/INSTALL.zh.md)，Windows 和 Mac 均无需敲命令。
 
-**第一次使用？** 直接看 [完整版安装图文指南](docs/INSTALL.zh.md)：下载 → 安装 → 刷机 → 连接 → 设置，全程在同一页。
+| Windows 10/11 | Mac（Apple Silicon） |
+| --- | --- |
+| [下载安装包](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-setup-win-x64.exe) | [下载 Mac App](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-local-candidate-macos-arm64.zip) |
+
+[![小屏刷机窗口，连接设备后选择固件开始刷机](docs/assets/screens/firmware-flasher.png)](docs/INSTALL.zh.md)
+
+**已安装用户：** 退出桥接后安装到原位置，继续使用原来的快捷方式。不要从临时解压目录启动。刷机工具已内置；Windows 缺少运行环境时由安装器联网补齐。
 
 默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；Codex 与 Claude 图使用维护者当前选用的萌宠，其余数值仍为示例；不是实体屏照片。
 
@@ -111,10 +117,10 @@ flowchart LR
 </tr>
 </table>
 
-> **v0.2.2 测试版：Windows 联网精简安装包约 8 MB。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
+> **v0.3.0 测试版：Windows 安装包内置刷机工具。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
 > 安装器未签名；全新电脑安装、升级与卸载仍待实测。Mac 为 Apple Silicon 测试版，尚未完成实机验收。
 
-屏保支持农历日期（含闰月）；本次设备切页修复需要更新固件。
+屏保支持农历日期（含闰月）；旧于 v0.2.2 的设备需要更新固件才能获得手动切页修复。
 
 **配置入口：** 托盘右键 → 模型额度 → 国产模型额度设置。厂商名称与套餐说明完整展示；API Key 保存在 Windows 凭据管理器。参见[新版设置截图及操作说明](docs/DOMESTIC_QUOTA_SETUP.md)。未配置、未授权或未选中展示的厂商，不进行自动检查和失效提醒。
 
@@ -156,7 +162,7 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 候选安装与验收：[Mac 候选包](docs/INSTALL.zh.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
 
-文档更新：2026-09-21，版本 **v0.2.2**。
+文档更新：2026-09-21，版本 **v0.3.0**。
 持续更新以[Actions](https://github.com/yaoyouzhong/AI-bot/actions)与[发布前检查](docs/RELEASE_READINESS.md)为准。
 
 ## 深入了解

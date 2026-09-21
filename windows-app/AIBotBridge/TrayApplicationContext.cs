@@ -4,6 +4,7 @@ namespace AIBotBridge;
 
 internal sealed class TrayApplicationContext : ApplicationContext
 {
+    private readonly System.Collections.Concurrent.ConcurrentQueue<Action> _flashActions = new();
     private readonly CancellationTokenSource _shutdown = new();
     private readonly EventWaitHandle _exitSignal = BridgeLifetime.Listen();
     private readonly BridgeSettings _settings;
@@ -62,6 +63,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer.Tick += (_, _) =>
         {
             if(_exitSignal.WaitOne(0)){ExitThread();return;}
+            while (_flashActions.TryDequeue(out var action)) action();
             var status = _runtime.Capture();
             var codexForeground = ForegroundObserver.CodexVisible();
             if (codexForeground && !_codexWasForeground && status.Codex.CompletionActive)
@@ -83,6 +85,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         _timer.Start();
 
+        _ = Task.Run(() => FlashUsbLease.ServeAsync(_serial.PauseForFlashAsync,
+            _serial.ResumeAfterFlash, token =>
+            {
+                var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _flashActions.Enqueue(() => { RestartCycle(); done.TrySetResult(); });
+                return done.Task.WaitAsync(token);
+            }, _shutdown.Token));
         var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo);
         _ = Task.Run(() => server.RunAsync(_runtime.Capture, _shutdown.Token));
         if (pairing is not null)

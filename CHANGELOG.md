@@ -2,17 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.3.0 - 2026-09-21
 
-- Restore the original resident bridge executable and loopback port after flashing instead of launching the flasher copy; refine Windows typography, spacing, button states and collapsed details.
+- Pause only USB during flashing/backup and resume on completion or flasher disconnect; keep the resident bridge and network listeners running without restarting any executable. Refine Windows typography, spacing, button states and collapsed details.
 - Limit flashing progress display/log updates to once per second and stop stalled read-only backups after 30 seconds without output before compatibility retry.
 - Stream backspace-delimited backup progress immediately; use 460800 baud with read-only compatibility fallback before writing.
 - The flasher selects a single connected USB device without replugging, retains device identity across scan errors, uses a dedicated icon and connection panel, and bundles verified tools for offline flashing.
 - Automatically select a single connected USB device and request unplug/replug only when multiple devices are ambiguous; hide technical port names in collapsed details, exclude Bluetooth on Windows, and stop if the selected USB identity changes.
-- Add native Windows and Apple Silicon Mac firmware-flashing windows: automatically identify the device, select firmware ZIP/BIN, and use the bundled hash-pinned official tool to back up the full flash, write and read back for verification. Release USB ownership during flashing and restore the bridge afterward.
+- Add native Windows and Apple Silicon Mac firmware-flashing windows: automatically identify the device, select firmware ZIP/BIN, and use the bundled hash-pinned official tool to back up the full flash, write and read back for verification. Release USB ownership during flashing and restore the USB connection afterward.
 - Consolidate download, installation, firmware and first-connection instructions into one illustrated guide.
 
-Windows flashing and backup throughput were verified on hardware; the new Mac window passed macOS CI tests and build, while Mac hardware acceptance remains pending. These changes are not in v0.2.2.
+Earlier Windows flashing and backup throughput were verified on hardware. The new USB-only handoff passed local regressions; hardware acceptance is pending. The new Mac window passed macOS CI tests and build, while Mac hardware acceptance remains pending. Pre-release. Windows setup is unsigned; the Apple Silicon app is ad-hoc signed and not notarized. Devices already running v0.2.2 firmware do not need reflashing for this update.
 
 ## 0.2.2 - 2026-09-21
 

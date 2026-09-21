@@ -14,11 +14,28 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private readonly LanPairing? _pairing;
     private readonly string? _preferredPort;
     private long _pauseUntil;
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
+    private volatile bool _flashPaused;
+
+    // The gate covers probing as well as an established connection. A ready
+    // acknowledgement means the serial handle has actually been disposed.
+    internal async Task PauseForFlashAsync(CancellationToken token)
+    {
+        _flashPaused = true;
+        try { await _connectionGate.WaitAsync(token); }
+        catch { _flashPaused = false; throw; }
+    }
+
+    internal void ResumeAfterFlash()
+    {
+        _flashPaused = false;
+        _connectionGate.Release();
+    }
     private Func<StatusSnapshot>? _captureStatus;
     private readonly DisplayCommandQueue _displayCommands;
 
     internal bool TransmissionPaused { get { lock (_portSync) return IsPaused; } }
-    private bool IsPaused => Environment.TickCount64 < _pauseUntil;
+    private bool IsPaused => _flashPaused || Environment.TickCount64 < _pauseUntil;
 
     public void PauseTransmission()
     {
@@ -44,7 +61,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     {
         lock (_portSync)
         {
-            if (_activePort?.IsOpen != true || (IsPaused && type != "device_info_request"))
+            if (_flashPaused || _activePort?.IsOpen != true || (IsPaused && type != "device_info_request"))
                 throw new IOException("USB 未连接或正在回退测试。");
             uint requestId;
             do { requestId = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4)); } while (requestId == 0);
@@ -119,6 +136,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             var nextHeartbeat = Environment.TickCount64;
             foreach (var chunk in chunks)
             {
+                if (_flashPaused) return false;
                 _displayCommands.Drain();
                 // APET and Chinese resources can span several seconds. Preserve
                 // status freshness between acknowledged binary chunks.
@@ -130,6 +148,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 var acknowledged = false;
                 for (var attempt = 0; attempt < 3 && !acknowledged; attempt++)
                 {
+                    if (_flashPaused) return false;
                     _displayCommands.Drain();
                     _activePort.Write(chunk.WireBytes, 0, chunk.WireBytes.Length);
                     acknowledged = WaitForResourceAck(_activePort, chunk.TransferId, chunk.Sequence);
@@ -161,11 +180,15 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 if (cancellationToken.IsCancellationRequested)
                     break;
 
+                if (_flashPaused) break;
+                await _connectionGate.WaitAsync(cancellationToken);
                 using var port = CreatePort(candidate);
                 try
                 {
+                    if (_flashPaused) continue;
                     port.Open();
                     await Task.Delay(1200, cancellationToken);
+                    if (_flashPaused) continue;
                     port.DiscardInBuffer();
                     port.WriteLine(Prefix + "{\"version\":1,\"type\":\"ping\"}");
 
@@ -192,7 +215,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                         };
                         Write(port, pairingFrame);
                     }
-                    while (!cancellationToken.IsCancellationRequested && port.IsOpen)
+                    while (!cancellationToken.IsCancellationRequested && !_flashPaused && port.IsOpen)
                     {
                         if (TransmissionPaused) {
                             await Task.Delay(100, cancellationToken);
@@ -236,6 +259,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                         if (ReferenceEquals(_activePort, port)) _activePort = null;
                     _portName = null;
                     _deviceHost = null;
+                    try { port.Dispose(); } finally { _connectionGate.Release(); }
                 }
             }
 

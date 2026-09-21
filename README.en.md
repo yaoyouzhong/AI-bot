@@ -3,7 +3,7 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [▶ Download the 36-second product introduction (MP4, Chinese captions)](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video provenance](docs/PRODUCT_VIDEO.md)
 
-**v0.2.2 maintenance pre-release:** fix delayed Hong Kong quotes and price precision on Windows, prevent alerts from overriding manual page selection, and prioritize display commands during USB transfers. **Update both the bridge and device firmware for the page-selection fix.** See the [changelog](CHANGELOG.md).
+**v0.3.0 pre-release:** native Windows / Mac flashing windows with automatic USB identification, backup and firmware verification. Flashing pauses only USB; the bridge remains running. Devices on v0.2.2 firmware do not need reflashing. See the [changelog](CHANGELOG.md).
 
 <p align="center">
   <strong>AI status at a glance.</strong><br>
@@ -92,7 +92,15 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 ## Get started
 
-**First time here?** Follow the [complete illustrated installation guide (Chinese)](docs/INSTALL.zh.md): downloads, Windows/Mac setup, firmware, connection and configuration on one page.
+**Download → install → connect USB → choose firmware → start flashing.** Follow the [complete illustrated installation guide (Chinese)](docs/INSTALL.zh.md) for every Windows/Mac step on one page, without terminal commands.
+
+| Windows 10/11 | Mac (Apple Silicon) |
+| --- | --- |
+| [Download installer](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-setup-win-x64.exe) | [Download Mac app](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-local-candidate-macos-arm64.zip) |
+
+[![Firmware flashing window: connect the device and select firmware](docs/assets/screens/firmware-flasher.png)](docs/INSTALL.zh.md)
+
+**Upgrading:** exit the bridge, install into the existing location and keep using your original shortcut. Do not launch copies from temporary extraction folders. Flashing tools are bundled; Windows setup downloads missing runtimes when needed.
 
 BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data. Codex and Claude screenshots show the maintainer’s currently selected pets with sample values; they are not photographs of a device.
 
@@ -114,7 +122,7 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 </tr>
 </table>
 
-> **v0.2.2 pre-release: Windows online installer, about 8 MB.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
+> **v0.3.0 pre-release: Windows installer includes the flashing tool.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
 > The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.
 
 The screensaver supports lunar dates with leap-month labels. This release also requires updated firmware for the manual page-selection fix.
@@ -161,7 +169,7 @@ The app is ad-hoc signed, without Developer ID signing or notarization. First la
 
 Candidate installation and acceptance: [Mac package](docs/INSTALL.zh.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
 
-Documentation updated: 2026-09-21, **v0.2.2**.
+Documentation updated: 2026-09-21, **v0.3.0**.
 Follow [Actions](https://github.com/yaoyouzhong/AI-bot/actions) and [release readiness](docs/RELEASE_READINESS.md) for updates.
 
 ## Explore the project

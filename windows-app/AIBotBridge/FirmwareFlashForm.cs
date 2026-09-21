@@ -217,8 +217,8 @@ internal sealed class FirmwareFlashForm : Form
         using var cancellation = new CancellationTokenSource(); _cancelSource = cancellation;
         UpdateButtons();
         using var bridge = new Mutex(false, @"Local\AIBotBridge.Instance." + WindowsIdentity.GetCurrent().User!.Value);
-        var ownsBridge = false; var restart = false; var touchedDevice = false;
-        BridgeResumeTarget? resumeTarget = null;
+        var ownsBridge = false; var touchedDevice = false;
+        FlashUsbLease? usbLease = null;
         var work = Path.Combine(FirmwareFlasher.CacheDirectory, "firmware-" + Guid.NewGuid().ToString("N"));
         void Stage(string text) { _stageText = text; _lastProgressPercent = -1; _status.Text = text; _status.ForeColor = Color.DimGray; _progress.Value = 0; _progress.Style = ProgressBarStyle.Marquee; Log(text); }
         try
@@ -230,11 +230,7 @@ internal sealed class FirmwareFlashForm : Form
             if (!ownsBridge)
             {
                 Stage("正在连接设备…");
-                resumeTarget = BridgeResumeTarget.Capture();
-                restart = true; BridgeLifetime.RequestExit();
-                var deadline = DateTime.UtcNow.AddSeconds(30);
-                while (!ownsBridge && DateTime.UtcNow < deadline) { await Task.Delay(200, cancellation.Token); ownsBridge = Claim(); }
-                if (!ownsBridge) throw new IOException("桥接尚未退出，未进行刷机。请退出桥接后重试。");
+                usbLease = await FlashUsbLease.AcquireAsync(cancellation.Token);
             }
             var flasher = new FirmwareFlasher(async (args, token) => {
                 FlashDeviceSelection.RequireSame(selected, await Task.Run(FlashDeviceDiscovery.Read, token));
@@ -246,7 +242,7 @@ internal sealed class FirmwareFlashForm : Form
             if (!backupOnly && !BridgeSettings.Load().SaveEditable(new Dictionary<string, string> {
                 ["display_mode"] = "auto", ["display_cycle_enabled"] = "1"
             }, out var error)) throw new IOException("固件已写入并校验，但恢复自动轮播失败：" + error);
-            _status.Text = backupOnly ? "备份完成" : resumeTarget is not null ? "刷机完成，小屏正在重新连接" : "刷机完成，请启动桥接连接小屏";
+            _status.Text = backupOnly ? "备份完成" : usbLease is not null ? "刷机完成，小屏正在重新连接" : "刷机完成，请启动桥接连接小屏";
             _status.ForeColor = Color.FromArgb(18, 116, 94);
             Log("备份保存到：" + backup);
             _progress.Style = ProgressBarStyle.Continuous; _progress.Value = 100;
@@ -256,7 +252,7 @@ internal sealed class FirmwareFlashForm : Form
         catch (Exception ex) { _status.Text = "操作未完成：" + ex.Message; Log(ex.Message); }
         finally
         {
-            if (ownsBridge && touchedDevice && !_writing && !LastSucceeded)
+            if ((ownsBridge || usbLease is not null) && touchedDevice && !_writing && !LastSucceeded)
             {
                 // A killed read process cannot run esptool's normal RTS reset.
                 // Reset only after read/check failures, never after a partial write.
@@ -270,9 +266,12 @@ internal sealed class FirmwareFlashForm : Form
                 } catch (Exception ex) { Log("自动复位未完成，请拔下 USB 后重新插入：" + ex.Message); }
             }
             if (ownsBridge) bridge.ReleaseMutex();
-            if (restart && resumeTarget is not null) { try { resumeTarget.Restore(); } catch (Exception ex) {
-                LastSucceeded = false; _status.Text = "桥接未能恢复，请手动启动原桥接程序"; Log("请手动启动桥接：" + ex.Message);
-            } }
+            if (usbLease is not null)
+            {
+                try { await usbLease.ReleaseAsync(LastSucceeded && !backupOnly); }
+                catch (Exception ex) { LastSucceeded = false; _status.Text = "USB 恢复未确认，请检查桥接中的设备连接"; Log(ex.Message); }
+                finally { usbLease.Dispose(); }
+            }
             _busy = false; _writing = false; _cancelSource = null;
             if (_progress.Style == ProgressBarStyle.Marquee) { _progress.Style = ProgressBarStyle.Continuous; _progress.Value = 0; }
             UpdateButtons();
