@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 - Add native Windows and Apple Silicon Mac firmware-flashing windows: automatically identify the device, select firmware ZIP/BIN, and use the bundled hash-pinned official tool to back up the full flash, write and read back for verification. Release USB ownership during flashing and restore the bridge afterward.
 - Consolidate download, installation, firmware and first-connection instructions into one illustrated guide.
 
-Windows validation is recorded separately; the new Mac window still needs macOS build and hardware acceptance. These changes are not in v0.2.2.
+Windows flashing and backup throughput were verified on hardware; the new Mac window passed macOS CI tests and build, while Mac hardware acceptance remains pending. These changes are not in v0.2.2.
 
 ## 0.2.2 - 2026-09-21
 
