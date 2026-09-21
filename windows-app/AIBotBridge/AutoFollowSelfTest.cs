@@ -29,7 +29,7 @@ internal static class AutoFollowSelfTest
         Check(idle with{DisplayPolicy=new("codex",false,15,[])},200100,"codex");
         Check(idle,206099,"codex");Check(idle,206100,"claude");
         var both=idle with{Codex=new("idle",0,NeedsInput:true),Claude=new("idle",0,NeedsInput:true),FollowApp="claude"};
-        if(DisplayModes.Resolve(both,"weather")!="claude")throw new InvalidOperationException("Both input prompts must use the selected tool, not always Codex.");
+        if(DisplayModes.Resolve(both,"auto")!="claude")throw new InvalidOperationException("Both input prompts must use the selected tool, not always Codex.");
         Console.WriteLine("AUTO_FOLLOW_SELF_TEST_OK dwell/unique/both/idle/hidden/manual/input/duplicate/USB");
     }
 }

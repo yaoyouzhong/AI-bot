@@ -28,13 +28,13 @@ internal static class DisplayModes
     }
     internal static string Resolve(StatusSnapshot status, string selected)
     {
-        if (selected == "screensaver") return selected;
+        // Explicit user selection always wins; alerts only navigate in auto mode.
+        if (selected != "auto") return selected;
         if (status.DomesticActivity?.NeedsInput==true) return DomesticPage(status.DomesticActivity.ActiveProvider);
         if (status.Claude.NeedsInput && status.Codex.NeedsInput && status.FollowApp is "claude" or "codex") return status.FollowApp;
         if (status.Codex.NeedsInput) return "codex";
         if (status.Claude.NeedsInput) return "claude";
         if (status.Codex.CompletionActive) return "codex";
-        if (selected != "auto") return selected;
         var policy = status.DisplayPolicy;
         if (policy?.CycleEnabled == true && policy.Pages.Length > 0)
             return policy.Pages[(int)(Math.Max(0, status.EpochUtc - policy.CycleStartedAt) / Math.Max(1, policy.IntervalSeconds) % policy.Pages.Length)];

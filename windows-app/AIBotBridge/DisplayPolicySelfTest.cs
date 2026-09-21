@@ -39,7 +39,15 @@ internal static class DisplayPolicySelfTest
         foreach (var page in DisplayModes.Pages.Append(("screen", "screensaver")))
             Require(DisplayModes.Resolve(status with { Codex = new("working", 0) }, page.Item2) == page.Item2, "Manual mode must win.");
         var attention=status with {Codex=new("working",0,NeedsInput:true)};
-        Require(DisplayModes.Resolve(attention,"weather")=="codex","Input request interrupts a fixed page.");
+        Require(DisplayModes.Resolve(attention,"auto")=="codex","Input request interrupts automatic cycling.");
+        foreach (var alert in new[] {
+            attention, status with { Claude = new("idle",0,NeedsInput:true) },
+            status with { Codex = new("idle",0,CompletionActive:true) },
+            status with { DomesticActivity = new("kimi","idle",true,new Dictionary<string,LocalProviderUsage>()) }
+        })
+            foreach (var page in DisplayModes.Pages.Append(("screen", "screensaver")))
+                Require(DisplayModes.Resolve(alert,page.Item2)==page.Item2,"Alerts must not override manual selection.");
+        Require(DisplayModes.Resolve(status with {Codex=new("idle",0,CompletionActive:true)},"auto")=="codex","Completion still navigates in auto mode.");
         Require(DisplayModes.Resolve(attention,"screensaver")=="screensaver","Explicit screensaver preview is not interrupted.");
         var now = DateTimeOffset.UnixEpoch;
         Require(UsagePageRenderer.Reset(status, now.AddSeconds(61)) == "2m", "Reset rounds up.");

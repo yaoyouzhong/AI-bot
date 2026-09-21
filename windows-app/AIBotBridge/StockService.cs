@@ -65,12 +65,19 @@ internal sealed class StockService
         try
         {
             var quotes = await FetchAsync(symbols, false, cancellationToken);
-            if (quotes.Count == 0) quotes = await FetchAsync(symbols, true, cancellationToken);
+            var missing = symbols.Where(symbol => !quotes.Any(q => q.Symbol == symbol)).ToArray();
+            if (missing.Length > 0)
+                quotes = quotes.Concat(await FetchAsync(missing, true, cancellationToken)).ToArray();
             if (quotes.Count == 0) throw new InvalidOperationException("No valid quotes returned.");
-            var next = new StockSnapshot(quotes, DateTimeOffset.UtcNow, false);
             lock (_sync)
             {
                 if(!ReferenceEquals(symbols,_symbols)) return; // Settings changed while the request was in flight.
+                var complete = quotes.Count == symbols.Length;
+                // A partial response must not erase another symbol's last good quote.
+                var merged = quotes.ToDictionary(q => q.Symbol, StringComparer.OrdinalIgnoreCase);
+                foreach (var old in _snapshot?.Quotes ?? []) merged.TryAdd(old.Symbol, old);
+                var next = new StockSnapshot(symbols.Where(merged.ContainsKey).Select(s => merged[s]).ToArray(),
+                    DateTimeOffset.UtcNow, !complete);
                 _snapshot = next;
                 if (_persistCache) SnapshotCache.Save("stock-cache.json", next);
             }
@@ -89,7 +96,7 @@ internal sealed class StockService
     {
         try
         {
-            string query = string.Join(',', fallback ? symbols.Select(SinaSymbol) : symbols);
+            string query = string.Join(',', symbols.Select(symbol => fallback ? SinaSymbol(symbol) : TencentSymbol(symbol)));
             using var request = new HttpRequestMessage(HttpMethod.Get,
                 (fallback ? "https://hq.sinajs.cn/list=" : "https://qt.gtimg.cn/q=") + query);
             request.Headers.UserAgent.ParseAdd("AI-bot/0.1");
@@ -104,6 +111,8 @@ internal sealed class StockService
             return [];
         }
     }
+
+    internal static string TencentSymbol(string symbol) => symbol.StartsWith("hk", StringComparison.Ordinal) ? "r_" + symbol : symbol;
 
     internal static string SinaSymbol(string symbol) => symbol[..2] switch
     {
@@ -138,7 +147,7 @@ internal sealed class StockService
                 if(!Number(values[2],out double previous) || previous<=0) continue;
                 change=price-previous;percent=100*change/previous;
             }
-            result[symbol]=new(symbol,DisplayCode(symbol),values[nameIndex].Trim(),FormatPrice(price),
+            result[symbol]=new(symbol,DisplayCode(symbol),values[nameIndex].Trim(),FormatPrice(price, symbol.StartsWith("hk")),
                 percent.ToString("+0.00;-0.00;+0.00",CultureInfo.InvariantCulture)+"%",Math.Sign(change));
         }
         return order.Select(Normalize).Where(result.ContainsKey).Select(s=>result[s]).Take(MaxSymbols).ToArray();
@@ -152,7 +161,8 @@ internal sealed class StockService
             var line = rawLine.Trim();
             var equals = line.IndexOf('=');
             if (equals <= 2 || !line.StartsWith("v_", StringComparison.Ordinal)) continue;
-            var symbol = Normalize(line[2..equals]);
+            var key = line[2..equals];
+            var symbol = Normalize(key.StartsWith("r_hk", StringComparison.Ordinal) ? key[2..] : key);
             var fields = line[(equals + 1)..].Trim('"', ';', '\r').Split('~');
             if (fields.Length <= 32 || !Number(fields[3], out var price) ||
                 !Number(fields[31], out var change) || !Number(fields[32], out var percentage))
@@ -162,7 +172,7 @@ internal sealed class StockService
                 Symbol: symbol,
                 Code: DisplayCode(symbol),
                 Name: fields[1].Trim(),
-                Price: FormatPrice(price),
+                Price: FormatPrice(price, symbol.StartsWith("hk")),
                 ChangePercent: percentage.ToString("+0.00;-0.00;+0.00", CultureInfo.InvariantCulture) + "%",
                 Trend: change > 0 ? 1 : change < 0 ? -1 : 0);
         }
@@ -194,8 +204,9 @@ internal sealed class StockService
     private static bool Number(string value, out double number) =>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number) && double.IsFinite(number);
 
-    private static string FormatPrice(double value)
+    private static string FormatPrice(double value, bool hongKong = false)
     {
+        if (hongKong) return value.ToString("0.00#", CultureInfo.InvariantCulture);
         var format = value>=10000 ? "0" : value>=1000 ? "0.0" : "0.00";
         return value.ToString(format, CultureInfo.InvariantCulture);
     }

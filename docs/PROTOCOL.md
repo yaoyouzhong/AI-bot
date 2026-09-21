@@ -62,8 +62,8 @@ text is bounded without truncating JSON; LAN/mirror snapshots remain complete.
 Optional `displayPolicy` carries `selectedMode`, `cycleEnabled`, `intervalSeconds`
 (10/15/30/60), ordered `pages`, and optional `cycleStartedAt` (Unix UTC seconds,
 zero for older senders). Enabling or editing a cycle resets its anchor so its first
-page is shown immediately. Manual selection disables cycling. Input/completion
-alerts temporarily override fixed pages except explicit screensaver preview.
+page is shown immediately. Manual selection disables cycling and takes priority
+over input/completion alerts. Alerts do not navigate away from a manually selected page.
 In automatic mode, alerts take priority, then an explicitly enabled cycle; only with
 cycling disabled do music and working sessions determine the page. Windows, macOS
 and firmware use the same anchor; negative elapsed time clamps to zero.
@@ -215,6 +215,13 @@ With explicit cycling disabled, playing music precedes working domestic activity
 Windows USB 心跳省略 `samples`，快速 metrics 帧携带样本尾部；LAN 状态保留尾部。设备按会话/序号去重入队，每 250ms 消费一条，积压超过 16 条时每次最多消费三条。最多保留 32 条待绘制样本，超出时丢最旧条以追上实时状态。没有这些可选字段的旧发送端继续按 `updatedAt` 去重，不能因此宣称旧发送端具备增量补采能力。
 
 `device_info` 的 `page_data` 增加只读计数：`system_chart_frames`、`system_chrome_draws`、`system_number_draws`、`system_samples_consumed`、`system_queue_depth`，用于真实刷新验收，不含用户数据。
+
+`page_data` also optionally reports `effective_mode` (resolved display mode),
+`rendered_page` (last rendering branch; `offline` when the bridge is stale), and
+`stock_draws` (completed stock-data redraws). The top-level `mode` remains the
+requested mode; it alone is not evidence of which page was rendered. Older hosts
+may ignore these additional diagnostic fields. Manual selection wins on Windows,
+macOS and firmware; attention/completion navigation remains enabled in AUTO.
 
 
 ### Additional domestic model quotas (v0.2.0)

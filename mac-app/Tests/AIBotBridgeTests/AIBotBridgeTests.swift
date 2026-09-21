@@ -3,6 +3,22 @@ import XCTest
 @testable import AIBotBridge
 
 final class AIBotBridgeTests: XCTestCase {
+    func testManualPagesWinOverAlerts() {
+        for tool in [ToolState(state: "idle", ageSeconds: 0, needsInput: true),
+                     ToolState(state: "idle", ageSeconds: 0, completionActive: true)] {
+            let snapshot = MacStatusSnapshot(version: 1, time: "12:00", epochUtc: 0, utcOffsetSeconds: 0,
+                capturedAt: Date(timeIntervalSince1970: 0), codex: tool,
+                claude: ToolState(state: "idle", ageSeconds: 0), musicPlaying: false,
+                weather: nil, stocks: nil, systemMetrics: nil, quotas: nil, music: nil)
+            for page in MacDisplayPolicy.modes + ["screensaver", "activity"] {
+                let policy = MacDisplayPolicy(selectedMode: page, cycleEnabled: false, intervalSeconds: 15, pages: [])
+                XCTAssertEqual(policy.resolve(snapshot), page)
+            }
+            let automatic = MacDisplayPolicy(selectedMode: "auto", cycleEnabled: true, intervalSeconds: 15, pages: ["stocks"])
+            XCTAssertEqual(automatic.resolve(snapshot), "codex")
+        }
+    }
+
     func testLunarDateLeapMonthAndMidnight() {
         let formatter = ISO8601DateFormatter()
         for (date, expected) in [("2026-02-17T04:00:00Z", "农历正月初一"),

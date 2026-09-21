@@ -8,6 +8,17 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--test-stock-display-device")
+        {
+            StockDisplayDeviceTest.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+        if (args.Length == 1 && args[0] == "--self-test-stock-display")
+        {
+            StockFallbackSelfTest.RunAsync().GetAwaiter().GetResult();
+            DisplayCommandQueueSelfTest.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
         if (args.Length == 1 && args[0] is "--enable-startup" or "--disable-startup")
         {
             try

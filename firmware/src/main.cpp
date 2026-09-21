@@ -191,6 +191,7 @@ int lastClockSecond = -1;
 int lastStockPageTick = -1;
 int lastPetFrame = -1;
 RenderPage lastRenderedPage = RenderPage::ScreenSaver;
+uint32_t stockDraws = 0;
 bool showingOffline = false;
 bool adminStarted = false;
 bool portalStarted = false;
@@ -700,6 +701,7 @@ void drawStocks() {
     display.setTextColor(color, TFT_BLACK);
     display.drawString(quote.percent, 226, y + 22, 4);
   }
+  stockDraws++;
   screenDirty = false;
 }
 
@@ -1661,6 +1663,11 @@ void fillDeviceInfo(JsonObject response) {
   pages["weather"] = weather.available;
   pages["temperature"] = weather.temperature;
   pages["stock_count"] = stockCount;
+  pages["stock_draws"] = stockDraws;
+  for (const auto& entry : modeNames)
+    if (entry.mode == effectiveDisplayMode) pages["effective_mode"] = entry.name;
+  static const char* pageNames[] = {"activity", "weather", "stocks", "quotas", "domestic", "system", "music", "pet", "screensaver", "claude", "codex"};
+  pages["rendered_page"] = bridgeFresh() ? pageNames[static_cast<int>(lastRenderedPage)] : "offline";
   pages["claude"] = claudeQuota.available;
   pages["codex"] = codexQuota.available;
   pages["alibaba"] = alibabaQuota.available;
@@ -1957,7 +1964,7 @@ void serviceWiFi() {
 
 RenderPage desiredPage() {
   DisplayMode mode = displayMode;
-  if (mode != DisplayMode::ScreenSaver) {
+  if (mode == DisplayMode::Auto) {
     if (domesticNeedsInput) mode = parseDisplayMode("domestic_" + domesticActivityProvider);
     else if (codexNeedsInput && claudeNeedsInput && bridgeFollowApp.length()) mode = parseDisplayMode(bridgeFollowApp);
     else if (codexNeedsInput) mode = DisplayMode::Codex;

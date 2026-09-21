@@ -45,6 +45,7 @@ internal static class PublicSelfTest
         XiaomiQuotaSelfTest.Run();
         CodexLifecycleSelfTest.Run();
         DisplayPolicySelfTest.Run();
+        DisplayCommandQueueSelfTest.RunAsync().GetAwaiter().GetResult();
         PetAnimationSelfTest.Run();
         PetSelectionSelfTest.Run();
         MigrationRegressionSelfTest.RunAsync().GetAwaiter().GetResult();

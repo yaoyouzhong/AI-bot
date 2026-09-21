@@ -15,6 +15,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private readonly string? _preferredPort;
     private long _pauseUntil;
     private Func<StatusSnapshot>? _captureStatus;
+    private readonly DisplayCommandQueue _displayCommands;
 
     internal bool TransmissionPaused { get { lock (_portSync) return IsPaused; } }
     private bool IsPaused => Environment.TickCount64 < _pauseUntil;
@@ -63,6 +64,10 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     {
         _pairing = pairing;
         _preferredPort = NormalizePort(preferredPort);
+        _displayCommands = new DisplayCommandQueue(_portSync, mode =>
+        {
+            if (TrySend(new { version = 1, type = "display", mode })) DisplayModeWritten?.Invoke(mode);
+        });
     }
 
     internal string? PortName => _portName;
@@ -86,12 +91,12 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         }
     }
 
-    internal bool SendDisplayMode(string mode) => TrySend(new
+    internal bool SendDisplayMode(string mode)
     {
-        version = 1,
-        type = "display",
-        mode
-    });
+        if (!DisplayModes.IsValid(mode) || _portName is null || IsPaused) return false;
+        _displayCommands.Enqueue(mode);
+        return true; // Accepted for delivery; policy heartbeats also carry the selection.
+    }
 
     internal bool SendBrightness(int level) => TrySend(new
     {
@@ -101,6 +106,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     });
 
     internal string? LastResourceFailure { get; private set; }
+    internal event Action<string>? DisplayModeWritten;
 
     internal bool SendResource(BinaryResourceKind kind, byte[] data)
     {
@@ -113,6 +119,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             var nextHeartbeat = Environment.TickCount64;
             foreach (var chunk in chunks)
             {
+                _displayCommands.Drain();
                 // APET and Chinese resources can span several seconds. Preserve
                 // status freshness between acknowledged binary chunks.
                 if (_captureStatus is not null && Environment.TickCount64 >= nextHeartbeat)
@@ -123,8 +130,10 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 var acknowledged = false;
                 for (var attempt = 0; attempt < 3 && !acknowledged; attempt++)
                 {
+                    _displayCommands.Drain();
                     _activePort.Write(chunk.WireBytes, 0, chunk.WireBytes.Length);
                     acknowledged = WaitForResourceAck(_activePort, chunk.TransferId, chunk.Sequence);
+                    _displayCommands.Drain();
                 }
                 if (!acknowledged) { LastResourceFailure = $"kind={kind} sequence={chunk.Sequence} bytes={data.Length}: no positive ACK after 3 attempts"; return false; }
             }
@@ -201,10 +210,14 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                             if (SendResource(resource.Kind, resource.Data))
                                 sentRevisions[resource.Kind] = resource.Revision;
                         }
-                        var frame = DeviceStatusFrame.Create(snapshot());
-                        Write(port, frame);
                         lock (_portSync)
+                        {
+                            // Capture after acquiring the port: an older heartbeat
+                            // must not undo a mode selected while it was waiting.
+                            Write(port, DeviceStatusFrame.Create(snapshot()));
+                            _displayCommands.Drain();
                             if (port.IsOpen && port.BytesToRead > 0) port.ReadExisting();
+                        }
                         await Task.Delay(2000, cancellationToken);
                     }
                 }

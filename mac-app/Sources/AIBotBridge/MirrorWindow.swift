@@ -15,11 +15,10 @@ struct MacDisplayPolicy: Codable {
         return .init(selectedMode:selected ?? defaults.string(forKey:"display_mode") ?? "auto",cycleEnabled:defaults.object(forKey:"display_cycle_enabled")==nil || defaults.bool(forKey:"display_cycle_enabled"),intervalSeconds:[10,15,30,60].contains(interval) ? interval:15,pages:pages.isEmpty ? ["codex"]:pages,cycleStartedAt:cycleAnchor)
     }
     func resolve(_ s:MacStatusSnapshot)->String {
-        if selectedMode == "screensaver" {return selectedMode}
+        if selectedMode != "auto" {return selectedMode}
         if s.domesticActivity?.needsInput == true {return "activity"}
         if s.claude.needsInput && s.codex.needsInput, let app=s.followApp,["claude","codex"].contains(app) {return app}
         if s.codex.needsInput {return "codex"};if s.claude.needsInput {return "claude"};if s.codex.completionActive {return "codex"}
-        if selectedMode != "auto" {return selectedMode}
         if cycleEnabled && !pages.isEmpty {return pages[Int(max(0,s.epochUtc-(cycleStartedAt ?? 0))/Int64(max(1,intervalSeconds)) % Int64(pages.count))]}
         if s.music?.playing==true {return "music"}
         if s.domesticActivity?.state == "working" {return "activity"}
