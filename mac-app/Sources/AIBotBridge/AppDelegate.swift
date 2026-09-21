@@ -20,6 +20,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenSaverState = AutomaticScreenSaverState()
     private var port: UInt16 = 8765
     private var deviceOperationBusy = false
+    private var flasher: MacFirmwareFlashWindow?
+    private var flashSerialStopped = false
     private var gallery: MacPetGalleryWindow?
     private var mirror: MacMirrorWindow?
     private var lastAttention = false
@@ -89,6 +91,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         server?.stop()
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if flasher?.busy == true { flasher?.open(); return .terminateCancel }
+        return .terminateNow
+    }
+
+    @objc private func openFlasher() {
+        if flasher == nil {
+            flasher = MacFirmwareFlashWindow(bridgePort: serial?.portName, begin: { [weak self] in
+                guard let self, !self.deviceOperationBusy else { return false }
+                self.deviceOperationBusy = true
+                return true
+            }, suspend: { [weak self] in
+                self?.serial?.stopAndWait()
+                // The worker's completion is dispatched to main after this assignment.
+                self?.flashSerialStopped = true
+            }, finish: { [weak self] success in
+                guard let self else { return }
+                if success {
+                    UserDefaults.standard.set("auto", forKey: "display_mode")
+                    UserDefaults.standard.set(true, forKey: "display_cycle_enabled")
+                    self.screenSaverState.select("auto"); self.reader.select("auto")
+                }
+                if self.flashSerialStopped { self.serial?.start(); self.flashSerialStopped = false }
+                self.deviceOperationBusy = false
+            })
+        }
+        flasher?.open()
+    }
+
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(item("查看本机状态", #selector(showStatus)))
@@ -119,6 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         brightnessItem.submenu = brightnessMenu
         menu.addItem(brightnessItem)
         menu.addItem(item("查看设备信息…", #selector(showDeviceInfo)))
+        menu.addItem(item("小屏刷机…", #selector(openFlasher)))
         menu.addItem(item("自动屏保设置…", #selector(configureScreenSaver)))
         menu.addItem(item("重新下发 Wi-Fi 回退配置", #selector(reprovisionLan)))
         menu.addItem(item("重置设备 Wi-Fi…", #selector(resetDeviceWiFi)))

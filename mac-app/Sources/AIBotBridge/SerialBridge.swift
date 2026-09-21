@@ -115,6 +115,13 @@ final class SerialBridge {
         lock.unlock()
     }
 
+    // Called from a worker, never the UI/serial queue. The barrier proves that
+    // run(path:) has closed its descriptor before esptool opens the device.
+    func stopAndWait() {
+        stop()
+        queue.sync {}
+    }
+
     @discardableResult
     func sendDisplayMode(_ mode: String) -> Bool {
         guard Self.displayModes.contains(mode) else { return false }

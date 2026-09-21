@@ -8,6 +8,66 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--diagnose-flash-resume")
+        {
+            var target = BridgeResumeTarget.Capture();
+            Console.WriteLine($"BRIDGE_RESUME_TARGET pid={target.ProcessId} port={target.HttpPort} path={target.Executable}"); return;
+        }
+        if (args.Length == 2 && args[0] == "--capture-flasher-complete")
+        {
+            ApplicationConfiguration.Initialize(); FirmwareFlashSelfTest.Capture(args[1], completedPreview: true); return;
+        }
+        if (args.Length == 2 && args[0] == "--self-test-flash-progress-child")
+        {
+            Console.Write("4096 (25 %)\b\b\b"); Console.Out.Flush();
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (!File.Exists(args[1]) && DateTime.UtcNow < deadline) Thread.Sleep(20);
+            Environment.ExitCode = File.Exists(args[1]) ? 0 : 1; return;
+        }
+        if (args.Length == 1 && args[0] == "--check-flash-tool")
+        {
+            using var tool = FirmwareFlasher.PrepareToolAsync(_ => { }, CancellationToken.None).GetAwaiter().GetResult();
+            var version = FirmwareFlasher.RunProcessAsync(tool.Executable, ["version"], _ => { }, CancellationToken.None).GetAwaiter().GetResult();
+            Console.WriteLine("BUNDLED_FLASH_TOOL_OK " + version.Trim()); return;
+        }
+        if (args.Length == 4 && args[0] == "--accept-flasher-current-firmware")
+        {
+            ApplicationConfiguration.Initialize();
+            using var form = new FirmwareFlashForm(preferredPort: args[1]);
+            form.AcceptCurrentFirmware(args[2], Path.GetFullPath(args[3]));
+            Application.Run(form); return;
+        }
+        if (args.Length == 1 && args[0] == "--diagnose-flash-devices")
+        {
+            foreach (var device in FlashDeviceDiscovery.Read()) Console.WriteLine($"FLASH_USB_DEVICE port={device.Port} name={device.Name}");
+            return;
+        }
+        if (args.Length == 2 && args[0] == "--test-flasher-backup")
+        {
+            FirmwareFlashSelfTest.RunDeviceBackupAsync(args[1]).GetAwaiter().GetResult(); return;
+        }
+        if (args.Length == 1 && args[0] == "--self-test-flasher")
+        {
+            FirmwareFlashSelfTest.RunAsync().GetAwaiter().GetResult(); return;
+        }
+        if (args.Length == 2 && args[0] == "--capture-flasher")
+        {
+            ApplicationConfiguration.Initialize(); FirmwareFlashSelfTest.Capture(args[1]); return;
+        }
+        if (args.Length == 2 && args[0] == "--capture-flasher-device")
+        {
+            ApplicationConfiguration.Initialize(); FirmwareFlashSelfTest.Capture(args[1], liveDevice: true); return;
+        }
+        if (args.Length is 1 or 2 && args[0] == "--flash")
+        {
+            using var instance = new Mutex(false, @"Local\AIBotBridge.Flasher." + System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value);
+            bool acquired;
+            try { acquired = instance.WaitOne(0); } catch (AbandonedMutexException) { acquired = true; }
+            if (!acquired) { MessageBox.Show("刷机窗口已打开，请先完成当前操作。", "AI-bot"); return; }
+            try { ApplicationConfiguration.Initialize(); Application.Run(new FirmwareFlashForm(preferredPort: args.Length == 2 ? args[1] : null)); }
+            finally { instance.ReleaseMutex(); }
+            return;
+        }
         if (args.Length == 1 && args[0] == "--test-stock-display-device")
         {
             StockDisplayDeviceTest.RunAsync().GetAwaiter().GetResult();

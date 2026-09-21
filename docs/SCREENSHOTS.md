@@ -2,7 +2,7 @@
 
 ## 图片是什么
 
-- `assets/screens/*.png`：27 张应用离线捕获图，其中 17 张页面/状态帧和 10 张窗口/菜单。
+- `assets/screens/*.png`：28 张应用离线捕获图，其中 17 张页面/状态帧和 11 张窗口/菜单。
   页面由当前 Windows `MirrorForm.RenderSnapshot` 生成，窗口由实际 WinForms 控件 `DrawToBitmap` 捕获。
   没有重画控件、覆盖数值、替换文本或美化截图；系统主题和字体可能影响外观。
 - `assets/guides/*.svg`：原创安装/刷写流程图，明确标注为示意图，不是安装器或上传日志截图。
@@ -77,3 +77,11 @@ The API settings screenshot uses an isolated empty profile and does not access r
 2026-09-16：主页保留九张功能图，国产模型示例改为新版 DeepSeek 官方 API 余额渲染（28.50 CNY 为虚构数据）；Codex/Claude 萌宠图不变。接口设置图更新为完整厂商名称和换行布局；截图来自隔离预览，不含真实账号或密钥。
 
 Homepage refresh: nine feature images, including the new DeepSeek API balance render with fictional data and the lunar screensaver. Codex/Claude pets are preserved. The settings capture shows the current wrapping layout and contains no live credentials.
+
+## 小屏刷机窗口 / Firmware flasher
+
+`assets/screens/firmware-flasher.png` 是 Windows 原生刷机窗口的离线控件捕获。“USB 设备已连接”与固件包名是固定样例；捕获模式禁止执行刷机，不枚举真实串口、不下载工具，也不读取用户配置。截图展示精简主界面，“更多选项”默认折叠。它不代表 Mac 截图或硬件刷写成功记录。
+
+复现：`dotnet <独立构建目录>/AIBotBridge.dll --capture-flasher <输出.png>`。图片逐张检查后加入固定文件名与 SHA-256 清单。
+
+The flasher PNG captures actual Windows controls with synthetic input and a non-operational preview mode. It is not a Mac screenshot or hardware acceptance record.

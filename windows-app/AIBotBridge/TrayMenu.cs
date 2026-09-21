@@ -47,6 +47,7 @@ internal static class TrayMenu
         device.DropDownItems.Add(new ToolStripSeparator());
         Command(device, "设备控制…", "device");
         Command(device, "设置连接串口…", "settings");
+        Command(device, "小屏刷机…", "flash");
         var usb = new ToolStripMenuItem("USB 管理与诊断");
         Command(usb, "设备信息…", "info");
         Command(usb, "测试 Wi-Fi 回退（保持 USB 供电）…", "fallback");

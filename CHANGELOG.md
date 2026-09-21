@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Restore the original resident bridge executable and loopback port after flashing instead of launching the flasher copy; refine Windows typography, spacing, button states and collapsed details.
+- Limit flashing progress display/log updates to once per second and stop stalled read-only backups after 30 seconds without output before compatibility retry.
+- Stream backspace-delimited backup progress immediately; use 460800 baud with read-only compatibility fallback before writing.
+- The flasher selects a single connected USB device without replugging, retains device identity across scan errors, uses a dedicated icon and connection panel, and bundles verified tools for offline flashing.
+- Automatically select a single connected USB device and request unplug/replug only when multiple devices are ambiguous; hide technical port names in collapsed details, exclude Bluetooth on Windows, and stop if the selected USB identity changes.
+- Add native Windows and Apple Silicon Mac firmware-flashing windows: automatically identify the device, select firmware ZIP/BIN, and use the bundled hash-pinned official tool to back up the full flash, write and read back for verification. Release USB ownership during flashing and restore the bridge afterward.
+- Consolidate download, installation, firmware and first-connection instructions into one illustrated guide.
+
+Windows validation is recorded separately; the new Mac window still needs macOS build and hardware acceptance. These changes are not in v0.2.2.
+
 ## 0.2.2 - 2026-09-21
 
 - Fix completion/input alerts overriding manually selected pages on the device and mirrors; automatic mode retains alert navigation. Device diagnostics now distinguish selected, effective and rendered pages.

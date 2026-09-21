@@ -25,6 +25,7 @@ REVIEWED_DOC_NAMES = frozenset({
     'completed.png',
     'cycle-settings.png',
     'device-control.png',
+    'firmware-flasher.png',
     'domestic_alibaba.png',
     'domestic_deepseek.png',
     'domestic_kimi.png',
@@ -80,6 +81,8 @@ def findings(path, data):
     if (Path(name).suffix in {'.exe', '.dll', '.bin', '.elf', '.o', '.a', '.pdb', '.zip',
                              '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.mp4', '.mov', '.webm'}
             and normalized != 'windows-app/aibotbridge/assets/app-icon.ico'
+            and not (path.replace(chr(92), '/') == 'windows-app/AIBotBridge/Assets/flash-icon.ico'
+                     and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get('windows-app/AIBotBridge/Assets/flash-icon.ico'))
             and not reviewed_doc_image(normalized, data)
             and not reviewed_product_media(path.replace(chr(92), "/"), data)):
         yield "unreviewed-binary-or-artwork", 0

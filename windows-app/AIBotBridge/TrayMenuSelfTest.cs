@@ -50,6 +50,8 @@ internal static class TrayMenuSelfTest
         content.DropDownItems[0].PerformClick();
         if (command != "stocks-settings") throw new InvalidOperationException("Stock settings route failed.");
         var usb = ((ToolStripMenuItem)menu.Items[1]).DropDownItems.OfType<ToolStripMenuItem>().Last();
+        ((ToolStripMenuItem)menu.Items[1]).DropDownItems.OfType<ToolStripMenuItem>().Single(i => i.Text == "小屏刷机…").PerformClick();
+        if (command != "flash") throw new InvalidOperationException("Flasher route failed.");
         usb.DropDownItems[0].PerformClick();
         if (command != "info") throw new InvalidOperationException("USB info route failed.");
         var output = Path.Combine(Environment.CurrentDirectory, "artifacts", "tray-menu-self-test.png");

@@ -87,9 +87,9 @@ flowchart LR
 
 ## 开始使用
 
-**Windows 推荐下载：** [联网精简安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AIBotBridge-0.2.2-setup-win-x64.exe) · [中文安装图解](docs/WINDOWS_INSTALLER.md)。已有环境自动跳过，缺少时联网补装。
+**Windows 推荐下载：** [联网精简安装包（约 8 MB）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AIBotBridge-0.2.2-setup-win-x64.exe) · [中文安装图解](docs/INSTALL.zh.md)。已有环境自动跳过，缺少时联网补装。
 
-**第一次使用？** [下载哪个包](docs/DOWNLOAD.zh.md) · [Windows 安装图解](docs/WINDOWS_INSTALLER.md) · [Mac 测试版安装](docs/MAC_PACKAGE.md) · [Windows 刷机图解](docs/FLASH.zh.md) · [Mac 刷机指南](docs/FLASH_MAC.zh.md) · [全部功能与界面图鉴](docs/FEATURES.zh.md)
+**第一次使用？** 直接看 [完整版安装图文指南](docs/INSTALL.zh.md)：下载 → 安装 → 刷机 → 连接 → 设置，全程在同一页。
 
 默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；Codex 与 Claude 图使用维护者当前选用的萌宠，其余数值仍为示例；不是实体屏照片。
 
@@ -136,14 +136,13 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 脚本会在 `artifacts/` 下生成 Windows 安装 EXE、完整 Windows ZIP 和公开源码 ZIP，附许可、校验文件，
 并执行解压回归。加上 `-Firmware` 可同时生成固件及对应源码材料；需要 PlatformIO 6.1.18。
 
-联网精简安装 EXE 按中文向导检测并补齐缺失环境。选择手动 ZIP 时，完整解压并按教程准备 **.NET 8 Desktop Runtime x64**；国产网页授权需要 **WebView2 Runtime**。从资源管理器打开 `AIBotBridge.exe`，不要只复制 EXE。刷写固件前先退出桥接，释放串口。
+普通用户无需自行构建，按[完整版安装图文指南](docs/INSTALL.zh.md)下载、安装并连接设备。
 
-[Windows 安装与升级](docs/WINDOWS_PACKAGE.md) · [固件构建与重建](docs/FIRMWARE_PACKAGE.md) · [完整开发与运行参考](docs/REFERENCE.zh.md)
+[Windows 安装与升级](docs/INSTALL.zh.md) · [固件构建与重建](docs/FIRMWARE_PACKAGE.md) · [完整开发与运行参考](docs/REFERENCE.zh.md)
 
 ### macOS：Apple Silicon 测试版
 
-面向 macOS 13+、M 系列芯片。可从[v0.2.2 测试版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.2)下载 `AIBotBridge-0.2.2-local-candidate-macos-arm64.zip` 和同名 `.sha256`；
-解压并校验后，将 `.app` 放入“应用程序”。详见 [Mac 安装说明](docs/MAC_PACKAGE.md)。
+面向 macOS 13+、M 系列芯片。安装、刷机和连接请看[完整指南的 Mac 分支](docs/INSTALL.zh.md#mac)。
 目前仅临时签名，未完成 Developer ID 签名与 Apple 公证；首次启动、权限和设备行为待实机验证，Intel Mac 未验证。
 
 ## 当前进度
@@ -155,7 +154,7 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 | **macOS（Apple Silicon 测试版）** | 自动化测试、Release 编译和 `.app` 打包由云端验证，运行记录见 Actions | 首次启动、权限、设备连接、持续运行；Developer ID 签名与公证；Intel 未验证 |
 | **公开分发** | 安装 EXE、Windows/Mac ZIP、固件材料与源码按标签打包，附许可及 SHA-256 | 真实重启自启动、全新安装、Mac 实机及完整设备验收 |
 
-候选安装与验收：[Mac 候选包](docs/MAC_PACKAGE.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
+候选安装与验收：[Mac 候选包](docs/INSTALL.zh.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
 
 文档更新：2026-09-21，版本 **v0.2.2**。
 持续更新以[Actions](https://github.com/yaoyouzhong/AI-bot/actions)与[发布前检查](docs/RELEASE_READINESS.md)为准。

@@ -14,6 +14,7 @@ swift build -c release --package-path "$package_root"
 mkdir -p "$contents/MacOS"
 install -m 755 "$package_root/.build/release/AIBotBridge" "$contents/MacOS/AIBotBridge"
 install -m 644 "$package_root/Info.plist" "$contents/Info.plist"
+python3 "$repo_root/scripts/bundle_flash_tool.py" macos "$contents/Resources/flash-tools"
 plutil -lint "$contents/Info.plist"
 codesign --force --sign - --options runtime \
     --entitlements "$package_root/AIBotBridge.entitlements" "$app_root"

@@ -117,6 +117,7 @@ Source: "{#DependencyDir}\webview2-bootstrapper.exe"; Flags: dontcopy
 
 [Icons]
 Name: "{userprograms}\AI-bot"; Filename: "{app}\AIBotBridge.exe"
+Name: "{userprograms}\AI-bot 小屏刷机"; Filename: "{app}\AIBotBridge.exe"; Parameters: "--flash"; IconFilename: "{app}\Assets\flash-icon.ico"
 Name: "{userdesktop}\AI-bot"; Filename: "{app}\AIBotBridge.exe"; Tasks: desktopicon
 
 [Run]

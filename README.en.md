@@ -92,7 +92,7 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 ## Get started
 
-**First time here?** [Windows installation (Chinese)](docs/WINDOWS_INSTALLER.md) · [Mac test build](docs/MAC_PACKAGE.md) · [Windows flashing (Chinese)](docs/FLASH.zh.md) · [Mac flashing (Chinese)](docs/FLASH_MAC.zh.md) · [Full feature and interface guide (Chinese)](docs/FEATURES.zh.md)
+**First time here?** Follow the [complete illustrated installation guide (Chinese)](docs/INSTALL.zh.md): downloads, Windows/Mac setup, firmware, connection and configuration on one page.
 
 BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data. Codex and Claude screenshots show the maintainer’s currently selected pets with sample values; they are not photographs of a device.
 
@@ -141,14 +141,13 @@ The script creates a Windows setup EXE, a complete Windows ZIP and a public-sour
 including notices and checksums, then tests the unpacked app. Add `-Firmware` to
 also build firmware and its source-materials archive; PlatformIO 6.1.18 is required.
 
-The small online setup EXE detects and installs missing prerequisites. For the manual ZIP, extract the whole archive and prepare **.NET 8 Desktop Runtime x64**; domestic web authorization needs **WebView2 Runtime**. Launch `AIBotBridge.exe` from File Explorer. Do not copy the EXE alone. Exit the bridge before flashing firmware.
+For normal installation, follow the [complete illustrated guide (Chinese)](docs/INSTALL.zh.md); building from source is optional.
 
-[Windows installation and upgrades](docs/WINDOWS_PACKAGE.md) · [Firmware and rebuilding](docs/FIRMWARE_PACKAGE.md) · [Full development reference](docs/REFERENCE.en.md)
+[Windows installation and upgrades](docs/INSTALL.zh.md) · [Firmware and rebuilding](docs/FIRMWARE_PACKAGE.md) · [Full development reference](docs/REFERENCE.en.md)
 
 ### macOS: Apple Silicon test build
 
-Targets macOS 13+ on M-series chips. Download the Mac ZIP and matching `.sha256` from the [v0.2.2 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.2.2),
-verify and extract the ZIP, then copy the app to Applications. See [Mac installation](docs/MAC_PACKAGE.md).
+Targets macOS 13+ on M-series chips. Follow the [Mac section of the complete guide](docs/INSTALL.zh.md#mac) for installation, firmware and connection.
 The app is ad-hoc signed, without Developer ID signing or notarization. First launch, permissions and device behavior need real-Mac acceptance; Intel is unverified.
 
 ## Current status
@@ -160,7 +159,7 @@ The app is ad-hoc signed, without Developer ID signing or notarization. First la
 | **macOS (Apple Silicon test build)** | Automated tests, Release compilation and app packaging run in the cloud; see Actions | First launch, permissions, devices and sustained operation; Developer ID signing and notarization; Intel unverified |
 | **Distribution** | Setup EXE, Windows/Mac ZIPs, firmware materials and sources are packaged by tag with notices and SHA-256 | Fresh-logon startup, clean installation, real-Mac and complete device acceptance |
 
-Candidate installation and acceptance: [Mac package](docs/MAC_PACKAGE.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
+Candidate installation and acceptance: [Mac package](docs/INSTALL.zh.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
 
 Documentation updated: 2026-09-21, **v0.2.2**.
 Follow [Actions](https://github.com/yaoyouzhong/AI-bot/actions) and [release readiness](docs/RELEASE_READINESS.md) for updates.
@@ -189,10 +188,6 @@ tokens and private log contents removed.
   <sub>Independent project. No affiliation with or endorsement by named AI providers. Third-party components retain their own licenses.</sub>
 </p>
 
-## Download and setup guides
+## Installation
 
-**Windows recommended:** [Online installer, about 8 MB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.2.2/AIBotBridge-0.2.2-setup-win-x64.exe) · [Illustrated setup guide (Chinese)](docs/WINDOWS_INSTALLER.md).
-
-Installed runtimes are skipped; missing .NET is downloaded and hash-verified before installation. Internet is needed when prerequisites are missing. This is a pre-release; clean-machine installation, upgrade and uninstall acceptance remain pending.
-
-[Download selection](docs/DOWNLOAD.zh.md) · [Manual Windows ZIP installation](docs/INSTALL.zh.md) · [Windows firmware flashing](docs/FLASH.zh.md) · [Mac installation](docs/MAC_PACKAGE.md). Update device firmware to use lunar dates and the additional model pages.
+[Complete illustrated installation guide (Chinese)](docs/INSTALL.zh.md) — one page for downloads, Windows/Mac setup, device flashing, first connection, settings, upgrades and troubleshooting.

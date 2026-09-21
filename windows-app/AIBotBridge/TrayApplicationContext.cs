@@ -173,6 +173,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "stocks-settings": ShowSettings("stocks"); break;
             case "weather-settings": ShowWeatherSettings(); break;
             case "device": ShowDeviceControl(); break;
+            case "flash":
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) {
+                    Arguments = "--flash " + _serial.PortName, UseShellExecute = true
+                });
+                break;
             case "authorize": ShowDomesticAuth(); break;
             case "status": ShowStatus(); break;
             case "about":

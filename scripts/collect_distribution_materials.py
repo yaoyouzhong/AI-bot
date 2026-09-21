@@ -83,6 +83,8 @@ def package_at(folders, relative):
 def collect_windows(stage: Path):
     stage = filesystem_path(stage)
     evidence = verify_evidence()
+    from bundle_flash_tool import bundle
+    bundle("windows", stage / "flash-tools")
     if (stage / "licenses").exists():
         raise ValueError("Use a fresh Windows publish directory")
     assets = json.loads((ROOT / "windows-app/AIBotBridge/obj/project.assets.json").read_text(encoding="utf-8-sig"))

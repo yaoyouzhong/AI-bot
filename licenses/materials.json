@@ -63,6 +63,8 @@
     "docs/assets/guides/flash-result.svg": "29f268002ab65d368d1d7217ccaf71108c51b7ae699a0d8f8fe28e3ad73cecf3",
     "docs/assets/guides/setup.svg": "5d8b26939336e30c876e3f6a5e3909eb5dce72409b5a6b7a7c796051b787ac89",
     "docs/assets/product-intro/AI-bot-cover.png": "c6a8215ad653db0a210a740b24879cbfcbd510e6bd80f5a7a2e5604f04f72dac",
-    "docs/assets/product-intro/AI-bot-product-intro.mp4": "0865e43e838b90c1858c44f54528e7f85881342bb335a4f7f7be1f841afaa7ca"
+    "docs/assets/product-intro/AI-bot-product-intro.mp4": "0865e43e838b90c1858c44f54528e7f85881342bb335a4f7f7be1f841afaa7ca",
+    "docs/assets/screens/firmware-flasher.png": "73894e06f62dd7f9e7f124d8bdc7b4e0091af03c64d494fbe158e390d7c01ba9",
+    "windows-app/AIBotBridge/Assets/flash-icon.ico": "af7ba3d354f2043e26f6935965d1600f498d812229478474dd9caf4ded94f555"
   }
 }
