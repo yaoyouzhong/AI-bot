@@ -41,9 +41,20 @@ On Windows, Bridge service → Start at login uses a current-user scheduled task
 
 ## A live window on your desk
 
-<img src="docs/assets/scenes.svg" width="1120" alt="Original concept views of AI activity, weather and system monitoring. All values are examples, not screenshots.">
+<table>
+<tr>
+<td align="center" width="33%"><strong>AI 额度与桌宠</strong><br><br><img src="docs/assets/screens/codex.png" width="240" height="240" alt="AI 额度与桌宠：实际程序界面，演示数据"><br>额度、重置时间与动画角色</td>
+<td align="center" width="33%"><strong>天气时钟</strong><br><br><img src="docs/assets/screens/weather.png" width="240" height="240" alt="天气时钟：实际程序界面，演示数据"><br>城市天气、温度与湿度</td>
+<td align="center" width="33%"><strong>股票行情</strong><br><br><img src="docs/assets/screens/stocks.png" width="240" height="240" alt="股票行情：实际程序界面，演示数据"><br>自选股票、报价与涨跌幅</td>
+</tr>
+<tr>
+<td align="center" width="33%"><strong>系统监控</strong><br><br><img src="docs/assets/screens/system.png" width="240" height="240" alt="系统监控：实际程序界面，演示数据"><br>处理器、内存与实时网速</td>
+<td align="center" width="33%"><strong>音乐播放</strong><br><br><img src="docs/assets/screens/music.png" width="240" height="240" alt="音乐播放：实际程序界面，演示数据"><br>歌曲信息与播放进度</td>
+<td align="center" width="33%"><strong>农历屏保</strong><br><br><img src="docs/assets/screens/screensaver.png" width="240" height="240" alt="农历屏保：实际程序界面，演示数据"><br>时间、星期与农历日期</td>
+</tr>
+</table>
 
-<sub>Original concept illustrations with sample data. Actual UI and completion status are defined by the implementation and acceptance records.</sub>
+<sub>Actual Windows mirror captures with synthetic data, presented with Chinese labels. These are not device photographs; existing product names and abbreviations are preserved. The Codex companion is the maintainer’s selected artwork.</sub>
 
 | Keep track of work | Keep your desk informed |
 | :--- | :--- |
@@ -104,6 +115,9 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data. Codex and Claude screenshots show the maintainer’s currently selected pets with sample values; they are not photographs of a device.
 
+<details>
+<summary>More interface examples</summary>
+
 <table>
 <tr>
 <td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample with the currently selected pet"><br><strong>Codex quota</strong></td>
@@ -121,6 +135,8 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 <td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="Screensaver clock with lunar date"><br><strong>Lunar screensaver clock</strong></td>
 </tr>
 </table>
+
+</details>
 
 > **v0.3.0 release: Windows installer includes the flashing tool.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
 > The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.

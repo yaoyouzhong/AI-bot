@@ -40,9 +40,20 @@ Windows 的“桥接服务 → 开机启动”使用当前用户登录任务，�
 
 ## 桌面上的实时窗口
 
-<img src="docs/assets/scenes.svg" width="1120" alt="原创功能示意：AI 活动、天气时钟与系统监控。所有数值为示例，非实机截图。">
+<table>
+<tr>
+<td align="center" width="33%"><strong>AI 额度与桌宠</strong><br><br><img src="docs/assets/screens/codex.png" width="240" height="240" alt="AI 额度与桌宠：实际程序界面，演示数据"><br>额度、重置时间与动画角色</td>
+<td align="center" width="33%"><strong>天气时钟</strong><br><br><img src="docs/assets/screens/weather.png" width="240" height="240" alt="天气时钟：实际程序界面，演示数据"><br>城市天气、温度与湿度</td>
+<td align="center" width="33%"><strong>股票行情</strong><br><br><img src="docs/assets/screens/stocks.png" width="240" height="240" alt="股票行情：实际程序界面，演示数据"><br>自选股票、报价与涨跌幅</td>
+</tr>
+<tr>
+<td align="center" width="33%"><strong>系统监控</strong><br><br><img src="docs/assets/screens/system.png" width="240" height="240" alt="系统监控：实际程序界面，演示数据"><br>处理器、内存与实时网速</td>
+<td align="center" width="33%"><strong>音乐播放</strong><br><br><img src="docs/assets/screens/music.png" width="240" height="240" alt="音乐播放：实际程序界面，演示数据"><br>歌曲信息与播放进度</td>
+<td align="center" width="33%"><strong>农历屏保</strong><br><br><img src="docs/assets/screens/screensaver.png" width="240" height="240" alt="农历屏保：实际程序界面，演示数据"><br>时间、星期与农历日期</td>
+</tr>
+</table>
 
-<sub>以上均为原创概念示意，数值仅作展示；实际界面和完成度以代码及验收记录为准。</sub>
+<sub>以上为实际 Windows 镜像界面，数值为演示数据，并非实体屏照片。中文标题说明各页面用途；截图保留产品名称和原有缩写，Codex 桌宠为维护者当前选用的形象。</sub>
 
 | 工作时，看得见进度 | 日常里，多一点陪伴 |
 | :--- | :--- |
@@ -99,6 +110,9 @@ flowchart LR
 
 默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；Codex 与 Claude 图使用维护者当前选用的萌宠，其余数值仍为示例；不是实体屏照片。
 
+<details>
+<summary>展开更多界面示例</summary>
+
 <table>
 <tr>
 <td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex 额度示例，使用当前选用的萌宠"><br><strong>Codex 额度</strong></td>
@@ -116,6 +130,8 @@ flowchart LR
 <td align="center"><img src="docs/assets/screens/screensaver.png" width="240" alt="带农历日期的屏保时钟示例"><br><strong>农历屏保时钟</strong></td>
 </tr>
 </table>
+
+</details>
 
 > **v0.3.0 正式版：Windows 安装包内置刷机工具。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
 > 安装器未签名；全新电脑安装、升级与卸载仍待实测。Mac 为 Apple Silicon 测试版，尚未完成实机验收。
