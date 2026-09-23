@@ -5,7 +5,7 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [▶ 下载产品介绍视频（MP4，36 秒）](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
 
-**v0.3.0 正式版**：新增 Windows / Mac 图形刷机工具，自动识别小屏、备份和刷写固件；刷机仅暂停 USB，桥接保持运行。已用 v0.2.2 固件的设备无需重复刷机。详见[更新日志](CHANGELOG.zh.md)。
+**v0.4.0 正式版**：改善系统繁忙时小屏误显 `PC OFF`；Windows 与新版固件可在笔记本或设备 IP 变化后，通过配对认证的局域网发现恢复 Wi-Fi 状态。详见[更新日志](CHANGELOG.zh.md)。
 
 <p align="center">
   <strong>AI 状态，一眼便知。</strong><br>
@@ -88,7 +88,7 @@ flowchart LR
 ```
 
 - **USB 直连**：自动探测串口并握手，460800 波特率；基础直连不要求局域网互通。
-- **有边界的回退**：USB 失联后尝试配对的 LAN；网络必须可达，完整回退验收尚待完成。
+- **有边界的回退**：USB 失联后尝试配对的 LAN；Windows 与新版固件可在双方 IP 变化后自动发现。同网段网络须互通且允许广播；真实双端 DHCP 同时改址仍待验收。
 - **保留有用的数据**：接口失败保留最近成功值，不把临时网络故障变成空白页面。
 
 ### 你的数据，按用途流动
@@ -104,7 +104,7 @@ flowchart LR
 
 | Windows 10/11 | Mac（Apple Silicon） |
 | --- | --- |
-| [下载安装包](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-setup-win-x64.exe) | [下载 Mac App](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-local-candidate-macos-arm64.zip) |
+| [下载安装包](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-setup-win-x64.exe) | [下载 Mac App](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-local-candidate-macos-arm64.zip) |
 
 [![小屏刷机窗口，连接设备后选择固件开始刷机](docs/assets/screens/firmware-flasher.png)](docs/INSTALL.zh.md)
 
@@ -135,7 +135,7 @@ flowchart LR
 
 </details>
 
-> **v0.3.0 正式版：Windows 安装包内置刷机工具。** 缺少运行环境时需要联网，设备农历及新增模型页面需要更新固件。
+> **v0.4.0 正式版：Windows 自动发现需同时更新电脑程序与设备固件。** Mac 暂不支持新的自动发现。缺少运行环境时需要联网。
 > 安装器未签名；全新电脑安装、升级与卸载仍待实测。Mac 为 Apple Silicon 测试版，尚未完成实机验收。
 
 屏保支持农历日期（含闰月）；旧于 v0.2.2 的设备需要更新固件才能获得手动切页修复。
@@ -174,13 +174,13 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 | 平台 / 环节 | 当前证据 | 仍需完成 |
 | :--- | :--- | :--- |
 | **Windows** | 联网精简安装器、本机环境检测、下载校验与公开隔离回归通过 | 全新安装、真实授权、持续运行与全部交互验收 |
-| **ESP8266** | 固件构建、源码材料重建及 CI 通过；已有分项实机验证 | 实体屏逐页确认、音乐及完整 Wi-Fi 回退 |
+| **ESP8266** | 固件构建、5 分钟 Wi-Fi 状态传输、旧桥接端口自动发现及 USB 恢复已实测 | 实体屏逐页确认、音乐及真实双端 DHCP 同时改址 |
 | **macOS（Apple Silicon 测试版）** | 自动化测试、Release 编译和 `.app` 打包由云端验证，运行记录见 Actions | 首次启动、权限、设备连接、持续运行；Developer ID 签名与公证；Intel 未验证 |
 | **公开分发** | 安装 EXE、Windows/Mac ZIP、固件材料与源码按标签打包，附许可及 SHA-256 | 真实重启自启动、全新安装、Mac 实机及完整设备验收 |
 
 候选安装与验收：[Mac 候选包](docs/INSTALL.zh.md) · [发布准备状态](docs/RELEASE_READINESS.md) · [候选验收表](docs/CANDIDATE_ACCEPTANCE.md)
 
-文档更新：2026-09-21，版本 **v0.3.0**。
+文档更新：2026-09-23，版本 **v0.4.0**。
 持续更新以[Actions](https://github.com/yaoyouzhong/AI-bot/actions)与[发布前检查](docs/RELEASE_READINESS.md)为准。
 
 ## 深入了解

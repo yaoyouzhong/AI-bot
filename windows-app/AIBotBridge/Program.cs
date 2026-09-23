@@ -117,6 +117,7 @@ internal static class Program
             RunTray(authorizeZhipu: true); return;
         }
         if(args.Contains("--test-activity-refresh")){try{ActivityRefreshDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("ACTIVITY_REFRESH_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
+        if(args.Contains("--test-bridge-grace")){try{BridgeGraceDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("BRIDGE_GRACE_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==1&&args[0]=="--diagnose-deepseek"){QuotaRequestDiagnostics.ProbeAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--exit"){BridgeLifetime.RequestExit();return;}
         if(args.Contains("--test-system-refresh")){try{SystemRefreshDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("SYSTEM_REFRESH_DEVICE_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
@@ -207,14 +208,29 @@ internal static class Program
             }
             return;
         }
-        if (args.Contains("--test-wifi-fallback") || args.Contains("--test-usb-management"))
+        if (args.Contains("--test-wifi-fallback") || args.Contains("--test-usb-management") ||
+            args.Contains("--test-wifi-stability-5m"))
         {
             Console.OutputEncoding = Encoding.UTF8;
-            try { WifiFallbackTest.RunHardwareAsync(args.Contains("--test-wifi-fallback")).GetAwaiter().GetResult(); }
+            try { WifiFallbackTest.RunHardwareAsync(
+                args.Contains("--test-wifi-fallback") || args.Contains("--test-wifi-stability-5m"),
+                args.Contains("--test-wifi-stability-5m")).GetAwaiter().GetResult(); }
             catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException or
                                        System.Net.Sockets.SocketException or UnauthorizedAccessException)
             {
                 Console.Error.WriteLine("HARDWARE_TEST_FAILED: " + ex.Message);
+                Environment.ExitCode = 1;
+            }
+            return;
+        }
+        if (args.Contains("--test-wifi-discovery"))
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            try { LanDiscoveryDeviceTest.RunAsync().GetAwaiter().GetResult(); }
+            catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException or
+                                       System.Net.Sockets.SocketException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine("LAN_DISCOVERY_DEVICE_FAILED: " + ex.Message);
                 Environment.ExitCode = 1;
             }
             return;
@@ -279,6 +295,10 @@ internal static class Program
         if (args.Contains("--self-test-lan", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;
+            LanBindingSelfTest.Run();
+            LanBindingSelfTest.RunRebindingAsync().GetAwaiter().GetResult();
+            LanDiscoverySelfTest.Run();
+            LanDiscoverySelfTest.RunAddressChangeAsync().GetAwaiter().GetResult();
             LanServerSelfTest.RunAsync().GetAwaiter().GetResult();
             return;
         }

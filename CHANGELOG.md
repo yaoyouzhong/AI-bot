@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.4.0 - 2026-09-23
+
+- Keep the last valid device page visible for up to 30 seconds during brief host stalls while the eight-second USB-to-Wi-Fi fallback and offline diagnostics remain intact. Explicit host shutdown still shows offline immediately.
+- Reduce Windows background activity scans under load so serial heartbeats and status updates have more room to run.
+- Rebind the Windows LAN listener when the laptop's network address changes, choosing an adapter on the device's subnet and updating the device over USB when available.
+- Add paired, HMAC-authenticated local discovery for Windows and ESP8266. When either or both IP addresses change without USB, the device can find the bridge on the current local subnet; it saves a new address only after an authenticated status request succeeds.
+
+Windows Release and ESP8266 firmware builds passed. On the real device, a five-minute Wi-Fi-only status run, discovery from an obsolete bridge port, ordinary Wi-Fi fallback and USB recovery passed. A loopback test changed both simulated endpoint addresses. Simultaneous real DHCP address changes with the device on independent power remain unverified. Discovery requires reachable local broadcast and is not yet supported by the macOS bridge. Install both the new Windows bridge and firmware for address discovery; the Windows installer remains unsigned and the Apple Silicon app remains ad-hoc signed and not notarized.
+
 ## 0.3.0 - 2026-09-21
 
 - Pause only USB during flashing/backup and resume on completion or flasher disconnect; keep the resident bridge and network listeners running without restarting any executable. Refine Windows typography, spacing, button states and collapsed details.

@@ -12,26 +12,62 @@ internal static class LanPairingFactory
 {
     private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("AI-bot LAN pairing v1");
 
-    internal static LanPairing? Create(int port)
+    internal static LanPairing? Create(int port, string? deviceHost = null)
     {
-        var address = FindPrivateAddress();
-        return address is null ? null : new LanPairing(address, port, LoadOrCreateToken());
+        var address = FindPrivateAddress(deviceHost);
+        return address is null ? null : CreateForAddress(port, address);
     }
 
-    private static IPAddress? FindPrivateAddress()
+    internal static LanPairing CreateForAddress(int port, IPAddress address) =>
+        new(address, port, LoadOrCreateToken());
+
+    internal static IPAddress? FindPrivateAddress(string? deviceHost) => FindPrivateAddress(deviceHost, false);
+
+    internal static IPAddress? FindPrivateAddress(string? deviceHost, bool requireSubnet)
     {
-        return NetworkInterface.GetAllNetworkInterfaces()
+        var candidates = NetworkInterface.GetAllNetworkInterfaces()
             .Where(adapter => adapter.OperationalStatus == OperationalStatus.Up &&
                 adapter.NetworkInterfaceType is NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211)
             .Where(adapter => adapter.GetIPProperties().GatewayAddresses.Any(gateway =>
                 gateway.Address.AddressFamily == AddressFamily.InterNetwork &&
                 !IPAddress.Any.Equals(gateway.Address)))
             .SelectMany(adapter => adapter.GetIPProperties().UnicastAddresses)
-            .Select(address => address.Address)
-            .Where(address => address.AddressFamily == AddressFamily.InterNetwork && IsPrivate(address))
-            .OrderBy(address => address.ToString(), StringComparer.Ordinal)
+            .Where(address => address.Address.AddressFamily == AddressFamily.InterNetwork && IsPrivate(address.Address))
+            .Select(address => new LanAddressCandidate(address.Address, address.IPv4Mask))
+            .ToArray();
+        if (requireSubnet)
+        {
+            if (!IPAddress.TryParse(deviceHost, out var device) ||
+                device.AddressFamily != AddressFamily.InterNetwork) return null;
+            candidates = candidates.Where(candidate => SharesSubnet(candidate, device)).ToArray();
+        }
+        return SelectAddress(candidates, deviceHost);
+    }
+
+    internal static IPAddress? SelectAddress(IEnumerable<LanAddressCandidate> candidates, string? deviceHost)
+    {
+        var device = IPAddress.TryParse(deviceHost, out var parsed) && parsed.AddressFamily == AddressFamily.InterNetwork
+            ? parsed : null;
+        return candidates
+            .OrderByDescending(candidate => device is not null && SharesSubnet(candidate, device))
+            .ThenByDescending(candidate => device is not null && SharesSubnet(candidate, device)
+                ? PrefixLength(candidate.Mask) : 0)
+            .ThenBy(candidate => candidate.Address.ToString(), StringComparer.Ordinal)
+            .Select(candidate => candidate.Address)
             .FirstOrDefault();
     }
+
+    private static bool SharesSubnet(LanAddressCandidate candidate, IPAddress device)
+    {
+        if (candidate.Mask?.AddressFamily != AddressFamily.InterNetwork) return false;
+        var local = candidate.Address.GetAddressBytes();
+        var remote = device.GetAddressBytes();
+        var mask = candidate.Mask.GetAddressBytes();
+        return Enumerable.Range(0, 4).All(index => (local[index] & mask[index]) == (remote[index] & mask[index]));
+    }
+
+    private static int PrefixLength(IPAddress? mask) => mask?.GetAddressBytes().Sum(value =>
+        (int)System.Numerics.BitOperations.PopCount((uint)value)) ?? 0;
 
     private static bool IsPrivate(IPAddress address)
     {
@@ -72,3 +108,5 @@ internal static class LanPairingFactory
         return token;
     }
 }
+
+internal sealed record LanAddressCandidate(IPAddress Address, IPAddress? Mask);

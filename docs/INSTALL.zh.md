@@ -1,6 +1,6 @@
 # AI-bot 完整安装图文指南
 
-**从下载到小屏正常显示，只看这一页。** 适用 v0.3.0 正式版，更新于 2026-09-21。
+**从下载到小屏正常显示，只看这一页。** 适用 v0.4.0 正式版，更新于 2026-09-23。
 
 **Windows 路线：准备设备 → 下载两个包 → 安装电脑程序 → 给小屏刷固件 → USB 连接验收 → 设置自己的内容。**
 
@@ -46,11 +46,11 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 
 | 用途 | 点击下载 | 下载后怎样处理 |
 | --- | --- | --- |
-| 1. Windows 应用 | [AIBotBridge-0.3.0-setup-win-x64.exe](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-setup-win-x64.exe) | 双击安装，内置刷机工具 |
-| 2. Mac 应用 | [AIBotBridge-0.3.0-local-candidate-macos-arm64.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-local-candidate-macos-arm64.zip) | 解压后把 App 放入“应用程序” |
-| 3. 小屏固件 | [AI-bot-0.3.0-firmware-materials.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AI-bot-0.3.0-firmware-materials.zip) | 新版刷机窗口直接选 ZIP；旧版手动刷写则解压 |
+| 1. Windows 应用 | [AIBotBridge-0.4.0-setup-win-x64.exe](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-setup-win-x64.exe) | 双击安装，内置刷机工具 |
+| 2. Mac 应用 | [AIBotBridge-0.4.0-local-candidate-macos-arm64.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-local-candidate-macos-arm64.zip) | 解压后把 App 放入“应用程序” |
+| 3. 小屏固件 | [AI-bot-0.4.0-firmware-materials.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AI-bot-0.4.0-firmware-materials.zip) | 新版刷机窗口直接选 ZIP；旧版手动刷写则解压 |
 
-[全部附件与校验文件](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.3.0)中，只需下载对应系统的应用和小屏固件；`SHA256SUMS.txt` 是统一校验清单，不能双击安装。GitHub 自动提供的 Source code 供开发者使用，普通安装无需下载。固件材料包约 30 MB，但只把里面的 `firmware.bin` 写入小屏。
+[全部附件与校验文件](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.4.0)中，只需下载对应系统的应用和小屏固件；`SHA256SUMS.txt` 是统一校验清单，不能双击安装。GitHub 自动提供的 Source code 供开发者使用，普通安装无需下载。固件材料包约 30 MB，但只把里面的 `firmware.bin` 写入小屏。
 
 **完成标志：电脑应用包与固件 ZIP 已下载。新版图形工具不需要解压固件包。**
 
@@ -78,7 +78,7 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 
 保持小屏通过 USB 数据线连接。右键 AI-bot 托盘 → **设备连接 → 小屏刷机…**。桥接保持运行，工具只会暂时释放 USB，结束后自动恢复连接。
 
-> **v0.3.0 已内置图形刷机工具，无需安装 Python 或运行命令。**
+> **v0.4.0 已内置图形刷机工具，无需安装 Python 或运行命令。**
 
 ![Windows 小屏刷机窗口的真实离线捕获，连接状态和文件名为示例](assets/screens/firmware-flasher.png)
 
@@ -157,7 +157,7 @@ D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
 
 操作中不要退出应用或断开供电；Mac 窗口会阻止操作期间关闭。备份失败则停止，原固件不会被写入覆盖；展开“更多”→“查看备份”可找到备份。
 
-v0.3.0 已提供此入口。Mac 界面为原生窗口，Windows 图示仅用于说明操作顺序；Mac CI 测试与构建已通过，设备实测仍待完成。
+v0.4.0 已提供此入口。Mac 界面为原生窗口，Windows 图示仅用于说明操作顺序；Mac 设备实测仍待完成。
 
 无串口时先检查数据线和转接器；确认 CH340 缺驱动时使用 [WCH 官方 Mac 驱动](https://github.com/WCHSoftGroup/ch34xser_macos)。
 
@@ -183,6 +183,8 @@ v0.3.0 已提供此入口。Mac 界面为原生窗口，Windows 图示仅用于�
 4. 电脑与设备处于可互通的局域网。在 Windows 的“设备连接 → USB 管理与诊断”或 Mac 顶部菜单，选“测试 Wi-Fi 回退（保持 USB 供电）…”。
 5. 查看测试结果，测试结束后恢复正常 USB 连接。不要拔掉唯一电源线。若网络有客户端隔离，联系网络管理员处理；USB 仍可正常使用。
 
+Windows v0.4.0 与新版固件在配对后，可在设备或笔记本 IP 改变时于同网段自动发现。设备需要独立供电才能拔掉连接笔记本的数据线；路由器隔离设备或过滤广播时无法发现。Mac 暂不支持此自动发现。
+
 “重置设备 Wi-Fi”不是普通安装步骤，仅在确实需要更换或清除设备网络时使用。
 
 </details>
@@ -195,7 +197,7 @@ v0.3.0 已提供此入口。Mac 界面为原生窗口，Windows 图示仅用于�
 从同一发布页下载 `SHA256SUMS.txt`，其中列出了三个安装/固件附件的校验值。Windows 在下载目录打开 PowerShell，例如校验固件包：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\AI-bot-0.3.0-firmware-materials.zip
+Get-FileHash -Algorithm SHA256 .\AI-bot-0.4.0-firmware-materials.zip
 Get-Content .\SHA256SUMS.txt
 ```
 
@@ -204,7 +206,7 @@ Get-Content .\SHA256SUMS.txt
 Mac 在下载目录打开终端，例如：
 
 ```bash
-shasum -a 256 AIBotBridge-0.3.0-local-candidate-macos-arm64.zip
+shasum -a 256 AIBotBridge-0.4.0-local-candidate-macos-arm64.zip
 cat SHA256SUMS.txt
 ```
 
@@ -307,7 +309,7 @@ BACKUP_FILE="backup-before-ai-bot-$(date +%Y%m%d-%H%M%S).bin"
 <a id="upgrade"></a>
 ## 已安装用户：升级与卸载
 
-**升级：退出旧桥接 → 安装到原位置（或在原目录替换完整 App/ZIP）→ 点击原来的快捷方式启动。** 不要从不同的临时解压目录启动。沿用同一位置和入口，无需重新固定快捷方式。已使用 v0.2.2 固件的设备无需重复刷机；更旧的固件按本页更新。
+**升级：退出旧桥接 → 安装到原位置（或在原目录替换完整 App/ZIP）→ 点击原来的快捷方式启动。** 不要从不同的临时解压目录启动。沿用同一位置和入口，无需重新固定快捷方式。要使用 v0.4.0 的 Windows IP 自动发现与小屏短时离线缓冲，电脑程序和设备固件都需更新；若不需要新功能，原有固件可继续 USB 工作。
 
 Windows 从旧 ZIP 迁移或改变安装位置后，在新版托盘关闭、再开启一次“开机启动”来更新路径。原来的页面、顺序、间隔和授权资料通常会保留，不要清空 AppData。
 

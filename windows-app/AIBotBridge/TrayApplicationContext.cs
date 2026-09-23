@@ -44,8 +44,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             && configuredPort is > 0 and <= 65535
             ? configuredPort
             : 8765;
-        var pairing = LanPairingFactory.Create(httpPort);
-        _serial = new SerialPublisher(pairing, _settings.Get("serial_port"));
+        _serial = new SerialPublisher(null, _settings.Get("serial_port"));
 
         var menu = TrayMenu.Build(HandleMenuAction, SelectDisplayMode, () => _selectedMode,
             () => _serial.PortName is { } port ? $"已连接：{port}（USB）" : "等待 USB 设备（自动连接）", () => _runtime.Capture().Quotas);
@@ -94,11 +93,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
             }, _shutdown.Token));
         var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo);
         _ = Task.Run(() => server.RunAsync(_runtime.Capture, _shutdown.Token));
-        if (pairing is not null)
-        {
-            var lanServer = new LanStatusServer(pairing, _runtime.Resources);
-            _ = Task.Run(() => lanServer.RunAsync(_runtime.Capture, _shutdown.Token));
-        }
+        var discovery = new LanDiscoveryServer();
+        _ = Task.Run(() => LanBindingManager.RunAsync(httpPort, _serial,
+            _runtime.Capture, _runtime.Resources, _shutdown.Token, discovery: discovery));
+        _ = Task.Run(() => discovery.RunAsync(_shutdown.Token));
         _ = Task.Run(() => _serial.RunAsync(_runtime.Capture, _runtime.Resources, _shutdown.Token));
         _ = Task.Run(() => _serial.RunMetricsAsync(() => _runtime.SystemMetrics, _shutdown.Token));
     }

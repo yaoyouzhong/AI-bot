@@ -24,7 +24,7 @@ internal static class ActivityCacheSelfTest
         var deadline = DateTime.UtcNow.AddSeconds(5);
         while (!ReferenceEquals(cache.Read(), sample) && DateTime.UtcNow < deadline) await Task.Delay(10);
         if (!ReferenceEquals(cache.Read(), sample)) throw new Exception("Initial sample was not published.");
-        await Task.Delay(1100);
+        await Task.Delay(5100);
         cache.Read();
         if (!entered.Wait(5000)) throw new Exception("Slow scan did not start.");
         var probe = new TcpListener(IPAddress.Loopback, 0);

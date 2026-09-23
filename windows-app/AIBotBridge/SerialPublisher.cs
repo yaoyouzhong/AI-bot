@@ -10,8 +10,10 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private readonly object _portSync = new();
     private volatile string? _portName;
     private volatile string? _deviceHost;
+    private volatile string? _configuredLanHost;
+    private volatile int _configuredLanPort;
     private SerialPort? _activePort;
-    private readonly LanPairing? _pairing;
+    private LanPairing? _pairing;
     private readonly string? _preferredPort;
     private long _pauseUntil;
     private readonly SemaphoreSlim _connectionGate = new(1, 1);
@@ -89,6 +91,10 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
 
     internal string? PortName => _portName;
     internal string? DeviceHost => _deviceHost;
+    internal string? ConfiguredLanHost => _configuredLanHost;
+    internal int ConfiguredLanPort => _configuredLanPort;
+    internal LanPairing? CurrentPairing => Volatile.Read(ref _pairing);
+    internal void SetPairing(LanPairing? pairing) => Volatile.Write(ref _pairing, pairing);
 
     internal async Task RunMetricsAsync(Func<SystemMetricsSnapshot?> capture, CancellationToken cancellationToken)
     {
@@ -199,22 +205,8 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                     _deviceHost = deviceHost;
                     lock (_portSync) _activePort = port;
                     var sentRevisions = new Dictionary<BinaryResourceKind, int>();
+                    LanPairing? sentPairing = null;
                     var nextDeviceProbeAt = DateTime.UtcNow.AddSeconds(deviceHost is null ? 5 : 30);
-                    if (_pairing is not null)
-                    {
-                        var pairingFrame = new
-                        {
-                            version = 1,
-                            type = "lan_config",
-                            data = new
-                            {
-                                host = _pairing.Address.ToString(),
-                                port = _pairing.Port,
-                                token = _pairing.Token
-                            }
-                        };
-                        Write(port, pairingFrame);
-                    }
                     while (!cancellationToken.IsCancellationRequested && !_flashPaused && port.IsOpen)
                     {
                         if (TransmissionPaused) {
@@ -226,6 +218,14 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                             RefreshDeviceHost(port);
                             nextDeviceProbeAt = DateTime.UtcNow.AddSeconds(_deviceHost is null ? 5 : 30);
                         }
+                        var pairing = Volatile.Read(ref _pairing);
+                        if (pairing is null) { sentPairing = null; _configuredLanHost = null; _configuredLanPort = 0; }
+                        else if (pairing != sentPairing && TrySend(new
+                        {
+                            version = 1,
+                            type = "lan_config",
+                            data = new { host = pairing.Address.ToString(), port = pairing.Port, token = pairing.Token }
+                        })) { sentPairing = pairing; _configuredLanHost = pairing.Address.ToString(); _configuredLanPort = pairing.Port; }
                         foreach (var resource in resources())
                         {
                             if (sentRevisions.TryGetValue(resource.Kind, out var revision) &&
@@ -259,6 +259,8 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                         if (ReferenceEquals(_activePort, port)) _activePort = null;
                     _portName = null;
                     _deviceHost = null;
+                    _configuredLanHost = null;
+                    _configuredLanPort = 0;
                     try { port.Dispose(); } finally { _connectionGate.Release(); }
                 }
             }

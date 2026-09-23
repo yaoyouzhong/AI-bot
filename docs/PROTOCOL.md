@@ -24,7 +24,7 @@ The device may also emit a `hello` frame while it has not received status. Both 
 {"version":1,"type":"status","data":{"time":"14:30:05","epochUtc":1788503405,"utcOffsetSeconds":28800,"codex":{"state":"working","ageSeconds":2},"claude":{"state":"idle","ageSeconds":185},"weather":null,"stocks":null,"quotas":null,"domesticQuotas":null,"systemMetrics":null,"music":null}}
 ```
 
-Allowed states are `working`, `idle`, and `offline`. Unknown values render as `offline`. The device enters its offline page when no valid status frame is received for eight seconds.
+Allowed states are `working`, `idle`, and `offline`. Unknown values render as `offline`. After eight seconds without a valid status frame, USB is stale, Wi-Fi fallback starts, and `bridge_online` becomes false if Wi-Fi has not supplied status. The last page remains visible for up to 30 seconds while reconnecting; `page_data.display_cached` reports this interval. The device then enters its offline page. An explicit `host_going_away` frame enters offline immediately.
 
 Windows may include `completionAt` (Unix seconds) and `completionSequence` on a
 tool-state object. They are derived from explicit root-session completion events,
@@ -89,9 +89,17 @@ animation icon is absent (including macOS senders).
 
 ## Authenticated Wi-Fi fallback
 
-After a successful USB handshake, the bridge sends a `lan_config` frame containing its selected private IPv4 address, port, and a random pairing token. The device persists this record locally. Windows protects the token with the current user's data-protection key; macOS stores it in the current user's Keychain. Neither implementation writes it to source, JSON/UserDefaults settings, logs, status frames, or HTTP responses.
+After a successful USB handshake, the bridge sends a `lan_config` frame containing its selected private IPv4 address, port, and a random pairing token. The device persists this record locally. The Windows bridge prefers an adapter on the device's reported IPv4 subnet; when adapters change, it starts the new LAN listener and resends `lan_config` over USB. Windows protects the token with the current user's data-protection key; macOS stores it in the current user's Keychain. Neither implementation writes it to source, JSON/UserDefaults settings, logs, status frames, or HTTP responses.
 
 When USB status has been absent for eight seconds, the device may request `GET /status` from that exact address and must send the token in the `X-AIBot-Token` header. The LAN listener binds only to the selected private adapter address. Missing or incorrect tokens receive `401`; the loopback development endpoint remains independently available at `127.0.0.1`.
+
+### Windows LAN rediscovery after both IP addresses change
+
+After one USB pairing, the device and the Windows bridge retain the same pairing token. If USB and LAN status are both stale, the device broadcasts a small discovery datagram to UDP port `18766` on its current IPv4 subnet every five seconds. The request is ASCII `AIBOT_DISCOVER_V1|<16 lowercase hex nonce>|<64 lowercase hex HMAC-SHA256>`, where the HMAC key is the UTF-8 pairing token and the signed bytes are the prefix through the nonce. The token itself is never included in a discovery datagram.
+
+The Windows bridge checks the HMAC, selects an active private adapter whose subnet contains the datagram source, and starts the authenticated LAN listener on that adapter before replying from that adapter's IP. The ASCII response is `AIBOT_BRIDGE_V1|<same nonce>|<IPv4 host>|<decimal port>|<64 lowercase hex HMAC-SHA256>`. Its HMAC covers every field before the final separator. The device accepts only a response with the outstanding nonce, a valid HMAC, and a sender IP equal to the advertised host. It requests authenticated `/status` from the candidate before replacing its saved bridge address. Failed probes leave the previous pairing intact. USB `lan_config` remains authoritative and cancels any pending LAN candidate.
+
+Discovery is local subnet broadcast; it does not cross routed VLANs or an access point that filters client broadcasts. The bridge can still serve the last paired address while discovery is pending. macOS bridges retain the existing USB-provisioned fallback but do not yet answer this Windows discovery protocol.
 
 ```json
 {"version":1,"type":"lan_config","data":{"host":"192.168.1.20","port":8765,"token":"runtime-secret"}}

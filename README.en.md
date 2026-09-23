@@ -5,7 +5,7 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 [▶ Download the 36-second product introduction (MP4, Chinese captions)](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video provenance](docs/PRODUCT_VIDEO.md)
 
-**v0.3.0 release:** native Windows / Mac flashing windows with automatic USB identification, backup and firmware verification. Flashing pauses only USB; the bridge remains running. Devices on v0.2.2 firmware do not need reflashing. See the [changelog](CHANGELOG.md).
+**v0.4.0 release:** reduces false `PC OFF` screens under host load. The Windows bridge and updated firmware use paired local discovery to recover Wi-Fi status after the laptop or device IP changes. See the [changelog](CHANGELOG.md).
 
 <p align="center">
   <strong>AI status at a glance.</strong><br>
@@ -92,7 +92,7 @@ flowchart LR
 ```
 
 - **Direct USB:** automatic discovery and handshake at 460800 baud; basic USB operation does not require LAN reachability.
-- **Bounded fallback:** attempts the paired LAN after USB goes stale. Network reachability is required; full fallback acceptance is still pending.
+- **Bounded fallback:** attempts the paired LAN after USB goes stale. Windows and updated firmware can rediscover each other after either IP changes. Peers must be reachable on a local subnet that permits broadcast; simultaneous real DHCP renumbering remains unverified.
 - **Useful data survives outages:** temporary provider failures preserve the last successful display state.
 
 ### Data moves only where it is needed
@@ -109,7 +109,7 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 | Windows 10/11 | Mac (Apple Silicon) |
 | --- | --- |
-| [Download installer](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-setup-win-x64.exe) | [Download Mac app](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.3.0/AIBotBridge-0.3.0-local-candidate-macos-arm64.zip) |
+| [Download installer](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-setup-win-x64.exe) | [Download Mac app](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-local-candidate-macos-arm64.zip) |
 
 [![Firmware flashing window: connect the device and select firmware](docs/assets/screens/firmware-flasher.png)](docs/INSTALL.zh.md)
 
@@ -140,7 +140,7 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 
 </details>
 
-> **v0.3.0 release: Windows installer includes the flashing tool.** Missing runtimes require internet access. Updated firmware is required for lunar dates and new model pages.
+> **v0.4.0 release: Windows auto-discovery requires both the new bridge and firmware.** The Mac bridge does not yet support this discovery path. Missing runtimes require internet access.
 > The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.
 
 The screensaver supports lunar dates with leap-month labels. This release also requires updated firmware for the manual page-selection fix.
@@ -181,13 +181,13 @@ The app is ad-hoc signed, without Developer ID signing or notarization. First la
 | Platform / stage | Current evidence | Still to validate |
 | :--- | :--- | :--- |
 | **Windows** | Online setup, host detection, download integrity checks and isolated public regressions pass | Fresh installation, live authorization, sustained operation and full interaction acceptance |
-| **ESP8266** | Firmware build, source-material rebuild and CI pass; partial device checks | Every physical page, music and complete Wi-Fi fallback |
+| **ESP8266** | Firmware build, five-minute Wi-Fi status run, discovery from an obsolete bridge port and USB recovery passed on hardware | Every physical page, music and simultaneous real DHCP renumbering |
 | **macOS (Apple Silicon test build)** | Automated tests, Release compilation and app packaging run in the cloud; see Actions | First launch, permissions, devices and sustained operation; Developer ID signing and notarization; Intel unverified |
 | **Distribution** | Setup EXE, Windows/Mac ZIPs, firmware materials and sources are packaged by tag with notices and SHA-256 | Fresh-logon startup, clean installation, real-Mac and complete device acceptance |
 
 Candidate installation and acceptance: [Mac package](docs/INSTALL.zh.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
 
-Documentation updated: 2026-09-21, **v0.3.0**.
+Documentation updated: 2026-09-23, **v0.4.0**.
 Follow [Actions](https://github.com/yaoyouzhong/AI-bot/actions) and [release readiness](docs/RELEASE_READINESS.md) for updates.
 
 ## Explore the project

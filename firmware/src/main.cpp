@@ -3,6 +3,8 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
+#include <Crypto.h>
 #include <LittleFS.h>
 #include <TFT_eSPI.h>
 #include <WiFiManager.h>
@@ -22,9 +24,14 @@ constexpr uint32_t kBaudRate = 460800;
 constexpr size_t kSerialRxBufferBytes = 8192;
 constexpr uint32_t kUsbFreshMs = 8000;
 constexpr uint32_t kBridgeFreshMs = 8000;
+// Keep showing the last valid page through short host scheduling stalls.
+// USB-to-LAN fallback and the bridge_online diagnostic still expire at 8s.
+constexpr uint32_t kDisplayHoldMs = 30000;
 constexpr uint32_t kPollIntervalMs = 2000;
 constexpr uint32_t kHelloIntervalMs = 2000;
 constexpr uint32_t kPortalDelayMs = 15000;
+constexpr uint32_t kDiscoveryIntervalMs = 5000;
+constexpr uint16_t kDiscoveryPort = 18766;
 constexpr char kPrefix[] = "@AIBOT ";
 constexpr char kConfigPath[] = "/bridge.json";
 constexpr char kBrightnessPath[] = "/brightness.txt";
@@ -167,6 +174,11 @@ TFT_eSPI display;
 ESP8266WebServer admin(80);
 WiFiManager wifiManager;
 BridgeConfig bridge;
+BridgeConfig pendingBridge;
+WiFiUDP discoveryUdp;
+bool discoveryStarted = false;
+uint32_t lastDiscoveryAt = 0;
+String discoveryNonce;
 String inputLine;
 String codexState = "offline";
 String bridgeFollowApp;
@@ -230,6 +242,10 @@ bool usbFresh() {
 
 bool bridgeFresh() {
   return lastBridgeStatusAt != 0 && millis() - lastBridgeStatusAt < kBridgeFreshMs;
+}
+
+bool displayFresh() {
+  return lastBridgeStatusAt != 0 && millis() - lastBridgeStatusAt < kDisplayHoldMs;
 }
 
 bool validBridgeConfig(const BridgeConfig& value) {
@@ -1393,7 +1409,7 @@ void drawScreenSaver() {
   static bool lastOnline = false;
   const uint32_t utc = currentEpochUtc();
   const uint32_t tick = utc / 5;
-  const bool online = bridgeFresh();
+  const bool online = displayFresh();
   if (!screenDirty && tick == lastTick && online == lastOnline) return;
   lastTick = tick;
   lastOnline = online;
@@ -1667,7 +1683,8 @@ void fillDeviceInfo(JsonObject response) {
   for (const auto& entry : modeNames)
     if (entry.mode == effectiveDisplayMode) pages["effective_mode"] = entry.name;
   static const char* pageNames[] = {"activity", "weather", "stocks", "quotas", "domestic", "system", "music", "pet", "screensaver", "claude", "codex"};
-  pages["rendered_page"] = bridgeFresh() ? pageNames[static_cast<int>(lastRenderedPage)] : "offline";
+  pages["rendered_page"] = displayFresh() ? pageNames[static_cast<int>(lastRenderedPage)] : "offline";
+  pages["display_cached"] = displayFresh() && !bridgeFresh();
   pages["claude"] = claudeQuota.available;
   pages["codex"] = codexQuota.available;
   pages["alibaba"] = alibabaQuota.available;
@@ -1739,6 +1756,7 @@ void handleFrame(const String& line) {
     proposed.token = data["token"] | "";
     if (validBridgeConfig(proposed)) {
       bridge = proposed;
+      pendingBridge = BridgeConfig{};
       saveBridgeConfig();
     }
     return;
@@ -1850,6 +1868,79 @@ void pollLanResources() {
   }
 }
 
+String discoveryMac(const String& message) {
+  String proof = experimental::crypto::SHA256::hmac(message, bridge.token.c_str(),
+      bridge.token.length(), 32);
+  proof.toLowerCase();
+  return proof;
+}
+
+bool equalProof(const String& actual, const String& expected) {
+  if (actual.length() != 64 || expected.length() != 64) return false;
+  uint8_t difference = 0;
+  for (size_t index = 0; index < 64; index++) difference |= actual[index] ^ expected[index];
+  return difference == 0;
+}
+
+void serviceDiscovery() {
+  if (WiFi.status() != WL_CONNECTED || !validBridgeConfig(bridge)) {
+    if (discoveryStarted) { discoveryUdp.stop(); discoveryStarted = false; }
+    discoveryNonce.clear();
+    return;
+  }
+  if (!discoveryStarted) {
+    discoveryStarted = discoveryUdp.begin(kDiscoveryPort) != 0;
+    if (!discoveryStarted) return;
+  }
+  int packetSize = discoveryUdp.parsePacket();
+  if (packetSize > 0) {
+    char packet[161];
+    int length = packetSize <= 160 ? discoveryUdp.read(packet, sizeof(packet) - 1) : 0;
+    while (discoveryUdp.available()) discoveryUdp.read();
+    if (length > 0 && !usbFresh() && discoveryNonce.length() == 16) {
+      packet[length] = 0;
+      String message(packet);
+      String parts[5]; int offset = 0; bool valid = true;
+      for (int index = 0; index < 4; index++) {
+        int end = message.indexOf('|', offset);
+        if (end < 0) { valid = false; break; }
+        parts[index] = message.substring(offset, end); offset = end + 1;
+      }
+      if (valid) {
+        parts[4] = message.substring(offset);
+        IPAddress address;
+        int port = parts[3].toInt();
+        String signedPart = message.substring(0, offset - 1);
+        if (parts[0] == "AIBOT_BRIDGE_V1" && parts[1] == discoveryNonce &&
+            address.fromString(parts[2]) && discoveryUdp.remoteIP() == address &&
+            port > 0 && port <= 65535 && parts[3] == String(port) &&
+            equalProof(parts[4], discoveryMac(signedPart))) {
+          pendingBridge.host = parts[2];
+          pendingBridge.port = port;
+          pendingBridge.token = bridge.token;
+          discoveryNonce.clear(); // One response per random request.
+        }
+      }
+    }
+  }
+  if (usbFresh() || bridgeFresh() || millis() - lastDiscoveryAt < kDiscoveryIntervalMs) return;
+  char nonce[17];
+  snprintf(nonce, sizeof(nonce), "%08x%08x", ESP.random(), ESP.random());
+  discoveryNonce = nonce;
+  String request = "AIBOT_DISCOVER_V1|" + discoveryNonce;
+  request += "|" + discoveryMac(request);
+  IPAddress local = WiFi.localIP(), mask = WiFi.subnetMask();
+  IPAddress broadcast((local[0] & mask[0]) | (uint8_t)~mask[0],
+      (local[1] & mask[1]) | (uint8_t)~mask[1],
+      (local[2] & mask[2]) | (uint8_t)~mask[2],
+      (local[3] & mask[3]) | (uint8_t)~mask[3]);
+  if (discoveryUdp.beginPacket(broadcast, kDiscoveryPort)) {
+    discoveryUdp.print(request);
+    discoveryUdp.endPacket();
+  }
+  lastDiscoveryAt = millis();
+}
+
 void pollBridge() {
   if (usbFresh() || WiFi.status() != WL_CONNECTED || !validBridgeConfig(bridge)) return;
   if (millis() - lastPollAt < kPollIntervalMs) return;
@@ -1857,14 +1948,24 @@ void pollBridge() {
 
   WiFiClient client;
   HTTPClient http;
-  String url = "http://" + bridge.host + ":" + String(bridge.port) + "/status";
-  if (!http.begin(client, url)) return;
+  const bool probingCandidate = validBridgeConfig(pendingBridge);
+  const BridgeConfig& target = probingCandidate ? pendingBridge : bridge;
+  String url = "http://" + target.host + ":" + String(target.port) + "/status";
+  if (!http.begin(client, url)) {
+    if (probingCandidate) pendingBridge = BridgeConfig{};
+    return;
+  }
   http.setTimeout(1200);
   http.addHeader("X-AIBot-Token", bridge.token);
   int status = http.GET(); bool updated = false;
   if (status == HTTP_CODE_OK) {
     JsonDocument document;
     if (!deserializeJson(document, http.getStream()) && document["version"].as<int>() == 1) {
+      if (validBridgeConfig(pendingBridge)) {
+        bridge = pendingBridge;
+        pendingBridge = BridgeConfig{};
+        saveBridgeConfig();
+      }
       updateStatus(document.as<JsonObjectConst>());
       lastBridgeStatusAt = millis();
       lanStatusCount++;
@@ -1872,6 +1973,7 @@ void pollBridge() {
     }
   }
   http.end();
+  if (probingCandidate && !updated) pendingBridge = BridgeConfig{};
   if (updated) pollLanResources();
 }
 
@@ -2022,7 +2124,7 @@ void drawSignalRing(RenderPage page) {
 void renderCurrentPage() {
   static uint32_t lastQuotaSecond = 0;
   static bool wasFresh = false;
-  bool fresh = bridgeFresh();
+  bool fresh = displayFresh();
   if(fresh != wasFresh){visualGeneration++;wasFresh=fresh;}
   RenderPage page = desiredPage();
   if (page != lastRenderedPage) {
@@ -2033,9 +2135,12 @@ void renderCurrentPage() {
   }
   const bool quotaPage = page == RenderPage::Quotas || page == RenderPage::Claude || page == RenderPage::Codex || page == RenderPage::Domestic;
   if (quotaPage && currentEpochUtc() != lastQuotaSecond) { lastQuotaSecond = currentEpochUtc(); screenDirty = true; }
-  if (bridgeFresh() && (page == RenderPage::Quotas || page == RenderPage::Domestic || page == RenderPage::Music) && !screenDirty) { drawSignalRing(page); return; }
+  if (fresh && (page == RenderPage::Quotas || page == RenderPage::Domestic || page == RenderPage::Music) && !screenDirty) {
+    if (bridgeFresh()) drawSignalRing(page);
+    return;
+  }
   if (page == RenderPage::ScreenSaver) drawScreenSaver();
-  else if (!bridgeFresh()) drawOffline();
+  else if (!fresh) drawOffline();
   else if (page == RenderPage::Weather) drawWeather();
   else if (page == RenderPage::Stocks) drawStocks();
   else if (page == RenderPage::Quotas) drawQuotas();
@@ -2079,6 +2184,7 @@ void setup() {
 void loop() {
   readSerial();
   serviceWiFi();
+  serviceDiscovery();
   pollBridge();
 
   renderCurrentPage();

@@ -43,7 +43,9 @@ internal sealed class BackgroundActivityCache(Func<ActivitySample> scan)
         finally
         {
             Interlocked.Exchange(ref _lastDurationMs, Environment.TickCount64 - started);
-            Volatile.Write(ref _nextScan, Environment.TickCount64 + 1000);
+            // A scan enumerates every session file. Leave room for the serial
+            // publisher when the host is busy; activity states have 90s/15m thresholds.
+            Volatile.Write(ref _nextScan, Environment.TickCount64 + 5000);
             Volatile.Write(ref _scanning, 0);
             _initialized.TrySetResult();
         }
