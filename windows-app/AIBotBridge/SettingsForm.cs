@@ -5,6 +5,7 @@ namespace AIBotBridge;
 internal sealed class SettingsForm : Form
 {
     private readonly BridgeSettings _settings;
+    private readonly bool _includeDeviceSettings;
     private readonly TextBox _city = new() { Width = 400 };
     private readonly TextBox _latitude = new() { Width = 150 };
     private readonly TextBox _longitude = new() { Width = 150 };
@@ -12,10 +13,10 @@ internal sealed class SettingsForm : Form
     private readonly NumericUpDown _screenSaver = new() { Minimum = 0, Maximum = 1440, Width = 100 };
     private readonly TextBox _serialPort = new() { Width = 120, CharacterCasing = CharacterCasing.Upper };
 
-    internal SettingsForm(BridgeSettings settings)
+    internal SettingsForm(BridgeSettings settings,bool includeDeviceSettings=true)
     {
         SuspendLayout();
-        _settings = settings;
+        _settings = settings;_includeDeviceSettings=includeDeviceSettings;
         Text = "AI-bot 设置";
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -48,15 +49,15 @@ internal sealed class SettingsForm : Form
         AddRow(layout, 1, "纬度（可空）", _latitude);
         AddRow(layout, 2, "经度（可空）", _longitude);
         AddRow(layout, 3, "股票代码（逗号分隔）", _stocks);
-        AddRow(layout, 4, "屏保等待（分钟）", _screenSaver);
-        AddRow(layout, 5, "串口（空白为自动）", _serialPort);
+        if(includeDeviceSettings)AddRow(layout, 4, "屏保等待（分钟）", _screenSaver);
+        if(includeDeviceSettings)AddRow(layout, 5, "串口（空白为自动）", _serialPort);
 
         var note = new Label
         {
             AutoSize = true,
             MaximumSize = new Size(420, 0),
             ForeColor = Color.DimGray,
-            Text = "股票最多 20 个；屏保 0 为关闭。保存后重启生效。"
+            Text = includeDeviceSettings?"股票最多 20 个；屏保 0 为关闭。串口更改后停用并启用设备生效。":"股票最多 20 个；账号与数据源由所有设备共享。"
         };
         layout.Controls.Add(note, 1, 6);
         note.Dock = DockStyle.Fill;
@@ -134,13 +135,14 @@ internal sealed class SettingsForm : Form
             ["screensaver_timeout_minutes"] = decimal.ToInt32(_screenSaver.Value).ToString(CultureInfo.InvariantCulture),
             ["serial_port"] = port
         };
+        if(!_includeDeviceSettings){values.Remove("screensaver_timeout_minutes");values.Remove("serial_port");}
         if (!_settings.SaveEditable(values, out var error))
         {
             Warn(error);
             return;
         }
 
-        MessageBox.Show("设置已保存。退出并重新打开 AI-bot 后生效。", "AI-bot",
+        MessageBox.Show("设置已保存。", "AI-bot",
             MessageBoxButtons.OK, MessageBoxIcon.Information);
         DialogResult = DialogResult.OK;
         Close();

@@ -8,6 +8,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--self-test-device-center"){ApplicationConfiguration.Initialize();DeviceCenterSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==1&&args[0]=="--self-test-device-registry"){DeviceRegistrySelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
@@ -74,10 +75,8 @@ internal static class Program
         }
         if (args.Length == 2 && args[0] == "--tab5-pair")
         {
-            var device = FlashDeviceDiscovery.Read().Single(d => d.Port.Equals(args[1], StringComparison.OrdinalIgnoreCase)
-                && d.Identity.Contains("VID_303A", StringComparison.OrdinalIgnoreCase));
-            new Tab5Service().PairUsbAsync(device, CancellationToken.None).GetAwaiter().GetResult();
-            Console.WriteLine("TAB5_USB_PAIRED " + device.Port); return;
+            Console.WriteLine("请在设备中心验证并添加 TAB5；旧配对入口已转到设备中心。");
+            RunTray(showTab5:true);return;
         }
         if (args.Length == 1 && args[0] == "--self-test-tab5")
         { Tab5SelfTest.RunAsync().GetAwaiter().GetResult(); return; }
@@ -139,6 +138,7 @@ internal static class Program
         }
         if (args.Length is 1 or 2 && args[0] == "--flash")
         {
+            if(!new DeviceRegistryStore().Snapshot.Devices.Any(d=>d.Enabled&&d.Kind==HardwareKind.Esp8266)){Console.Error.WriteLine("请先在设备中心添加并启用 ESP8266 小屏。");Environment.ExitCode=1;return;}
             using var instance = new Mutex(false, @"Local\AIBotBridge.Flasher." + System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value);
             bool acquired;
             try { acquired = instance.WaitOne(0); } catch (AbandonedMutexException) { acquired = true; }
@@ -442,6 +442,9 @@ internal static class Program
             if (authorizeZhipu) context.OpenZhipuAuthorization();
             if (showTab5) context.OpenTab5Connection();
             Application.Run(context);
+        }
+        catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException or FormatException or JsonException) {
+            MessageBox.Show("设备配置未加载，原文件保持不变。请先备份 AI-bot 配置目录，检查 devices.json / devices.json.bak 和配对资料。\n"+ex.Message,"桥接启动未完成",MessageBoxButtons.OK,MessageBoxIcon.Error);Environment.ExitCode=1;
         }
         finally { instance.ReleaseMutex(); }
     }

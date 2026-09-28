@@ -9,6 +9,7 @@ internal sealed class Tab5FirmwareObservation(Func<long>? clock=null)
         if(!Tab5Protocol.ValidId(device)||version.Length is <1 or >31||version.Any(c=>!char.IsAsciiLetterOrDigit(c)&&c is not ('.' or '-' or '_')))return;
         Volatile.Write(ref _last,new(device,version,_clock()));
     }
+    internal string LastVersion(string? device) {var seen=Volatile.Read(ref _last);return seen is not null&&seen.Device==device?seen.Version:"待连接读取";}
     internal string Summary(string? device,string? offered,bool transferring) {
         if(offered is null)return "未提供固件";
         if(transferring)return offered+" · 正在传输";

@@ -8,6 +8,13 @@ namespace AIBotBridge;
 internal sealed class Tab5Service : IDisposable
 {
     private readonly Tab5PairingStore _store;
+    private readonly object _lifecycle=new();
+    private readonly CancellationTokenSource _lifetime=new();
+    private bool _stopping;
+    private int _voiceRequests;
+    internal CancellationToken LifetimeToken=>_lifetime.Token;
+    internal void BeginStop(){lock(_lifecycle){if(Busy)throw new InvalidOperationException("TAB5 正在录音、升级或安装，请结束后再试。");_stopping=true;_lifetime.Cancel();}}
+
     private readonly SemaphoreSlim _usbGate = new(1,1);
     private SerialPort? _usbPort;
     private volatile string _hidDiagnostic="未触发";
@@ -30,7 +37,7 @@ internal sealed class Tab5Service : IDisposable
         finally {OtaTransferActive(false);}
     }
     internal void OtaTransferActive(bool active) {
-        if(active)Interlocked.Increment(ref _otaTransfers);else Interlocked.Decrement(ref _otaTransfers);
+        lock(_lifecycle){if(active){if(_stopping)throw new OperationCanceledException("TAB5 服务已停止。");Interlocked.Increment(ref _otaTransfers);}else Interlocked.Decrement(ref _otaTransfers);}
     }
     internal string OtaSummary=>_firmware.Summary(_store.Current?.DeviceId,Volatile.Read(ref _ota)?.Version,Volatile.Read(ref _otaTransfers)>0);
     internal string OtaNotes=>Volatile.Read(ref _ota)?.Notes??"";
@@ -40,7 +47,9 @@ internal sealed class Tab5Service : IDisposable
     private ITab5VoiceEndpoint? _voice;
     private readonly Dictionary<string,long> _voiceNonces=[];
     internal void AttachVoice(ITab5VoiceEndpoint voice)=>_voice=voice;
-    internal void ShowVoiceSettings(IWin32Window owner)=>_voice?.ShowSettings(owner);
+    internal bool AllowUnregisteredInstall {get;set;}
+    internal string WindowTitle {get;set;}="TAB5";
+    internal void ShowVoiceSettings(IWin32Window owner){if(_voice is Tab5VoiceHost host)host.ShowNamedSettings(owner,WindowTitle+" · 语音设置");else _voice?.ShowSettings(owner);}
     // The installed Doubao keyboard hook ignores SendInput. Ask the paired
     // TAB5 to send the shortcut through its composite USB keyboard interface.
     internal bool TryVoiceHidToggle(string shortcut)
@@ -131,7 +140,11 @@ internal sealed class Tab5Service : IDisposable
     private volatile string _bleStatus="未配对";
     private volatile string _bleDiagnostic="尚无传输";
     private volatile string _deviceHealth="设备运行：等待诊断";
-    private long _wifiRequestAt,_wifiReportAt;
+    private long _wifiRequestAt,_wifiReportAt,_usbAckAt,_bleAckAt;
+    private int _installBusy;
+    internal bool Busy=>Volatile.Read(ref _voiceRequests)>0||Volatile.Read(ref _otaTransfers)>0||Volatile.Read(ref _installBusy)>0||(_voice as Tab5VoiceHost)?.Busy==true;
+    internal string? PairedId=>_store.Current?.DeviceId;
+    internal DeviceView DeviceView { get {long now=Environment.TickCount64;bool Recent(long at)=>at>0&&now-at<15000;bool usb=Recent(Interlocked.Read(ref _usbAckAt)),wifi=Recent(Interlocked.Read(ref _wifiRequestAt)),ble=Recent(Interlocked.Read(ref _bleAckAt));return new(usb||wifi||ble,Busy?"正在处理":usb||wifi||ble?"在线":"离线",$"USB：{(usb?"已连接":"未连接")}  Wi-Fi：{(wifi?"已连接":"未连接")}  蓝牙：{(ble?"已连接":"未连接")}\n当前通道：{(usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无")}",_firmware.LastVersion(PairedId));}}
     private volatile bool _wifiReportedConnected;
     private volatile string _voiceAuthStatus="尚无语音请求";
     internal string DiagnosticSummary => Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n固件传输："+_otaTransferDiagnostic;
@@ -273,14 +286,16 @@ internal sealed class Tab5Service : IDisposable
     // Serialize installer/probe access with every TAB5 heartbeat and pairing command.
     internal async Task WithInstallUsbAsync(FlashUsbDevice device, Func<Task> action, CancellationToken token)
     {
+        if(!AllowUnregisteredInstall&&_store.Current is {} bound&&bound.UsbIdentity!=device.Identity)throw new InvalidOperationException("安装目标与已配对 TAB5 不一致，未开始刷写。");
         await _usbGate.WaitAsync(token);
+        Interlocked.Increment(ref _installBusy);
         string? previous = _reservedPort;
         try {
             Volatile.Write(ref _reservedPort, device.Port);
             CloseUsbPort();
             FlashDeviceSelection.RequireSame(device, FlashDeviceDiscovery.Read());
             await action();
-        } finally { CloseUsbPort(); Volatile.Write(ref _reservedPort, previous); _usbGate.Release(); }
+        } finally { CloseUsbPort(); Volatile.Write(ref _reservedPort, previous); Interlocked.Decrement(ref _installBusy);_usbGate.Release(); }
     }
     internal async Task CheckInstalledUsbAsync(FlashUsbDevice device, string mac, string version, string elfSha, CancellationToken token)
     {
@@ -298,7 +313,7 @@ internal sealed class Tab5Service : IDisposable
             Tab5InstallBootCheck.Diagnostic(diagnostic.RootElement, version, elfSha);
         }, token);
     }
-    internal async Task PairUsbAsync(FlashUsbDevice device,CancellationToken token)
+    internal async Task PairUsbAsync(FlashUsbDevice device,CancellationToken token,string? replacementId=null)
     {
         Volatile.Write(ref _reservedPort,device.Port);
         await _usbGate.WaitAsync(token);
@@ -306,6 +321,7 @@ internal sealed class Tab5Service : IDisposable
             FlashDeviceSelection.RequireSame(device,FlashDeviceDiscovery.Read());
             var port=GetOrOpenUsbPort(device.Port);
             var id=await ReadIdentityAsync(port,token);
+            if(_store.Current is { } existing&&existing.DeviceId!=id&&replacementId!=id)throw new Tab5IdentityConflictException(id);
             var pairing=_store.Pair(id,device.Identity);
             Send(port,new {version=1,type="tab5_pair",deviceId=id,key=pairing.Key,host=_host,port=_port});
             await RequireAckAsync(port,"tab5_paired",token);
@@ -414,7 +430,7 @@ internal sealed class Tab5Service : IDisposable
                             using var ack=await ReadReplyAsync(port,"tab5_ack",token);
                             if(ack.RootElement.GetProperty("deviceId").GetString()!=pairing.DeviceId ||
                                 ack.RootElement.GetProperty("sequence").GetInt64()!=sent.RootElement.GetProperty("sequence").GetInt64()) throw new IOException("TAB5 数据确认不匹配。");
-                            _usbStatus="已连接 · "+device.Port;
+                            _usbStatus="已连接 · "+device.Port;Interlocked.Exchange(ref _usbAckAt,Environment.TickCount64);
                             if(ack.RootElement.TryGetProperty("firmware",out var installedVersion)&&installedVersion.ValueKind==JsonValueKind.String)
                                 _firmware.Observe(pairing.DeviceId,installedVersion.GetString()!);
                             string? reportedAssets=ack.RootElement.TryGetProperty("assetIds",out var idsValue)&&idsValue.ValueKind==JsonValueKind.String?idsValue.GetString():null;
@@ -457,7 +473,7 @@ internal sealed class Tab5Service : IDisposable
             await Task.Delay(2000,token);
         }
     }
-    internal Task RunBleAsync(CancellationToken token) => new Tab5BleClient(_store,()=>Volatile.Read(ref _otaTransfers)>0?null:CurrentFrame,s=>_bleStatus=s,_assets.Acknowledge,s=>_bleDiagnostic=s,
+    internal Task RunBleAsync(CancellationToken token) => new Tab5BleClient(_store,()=>Volatile.Read(ref _otaTransfers)>0?null:CurrentFrame,s=>{_bleStatus=s;if(s=="已连接 · 数据已确认")Interlocked.Exchange(ref _bleAckAt,Environment.TickCount64);},_assets.Acknowledge,s=>_bleDiagnostic=s,
         (nonce,proof,packet,ct)=>VoiceAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct,compact:true)).RunAsync(token);
     private static SerialPort Open(string name) {
         var port=new SerialPort(name,460800) {NewLine="\n",ReadTimeout=500,WriteTimeout=2500,DtrEnable=true,RtsEnable=false,Encoding=Encoding.UTF8};
@@ -502,6 +518,8 @@ internal sealed class Tab5Service : IDisposable
     }
     internal async Task<(int Status,byte[]? Packet)> VoiceAsync(string id,string nonce,string proof,byte[] packet,CancellationToken token,bool compact=false)
     {
+        lock(_lifecycle){if(_stopping)return(503,null);Interlocked.Increment(ref _voiceRequests);}
+        try {
         long started=System.Diagnostics.Stopwatch.GetTimestamp();
         var pair=_store.Current;
         if(pair is null||pair.DeviceId!=id){_voiceAuthStatus="设备配对不匹配";return(401,null);}
@@ -544,9 +562,13 @@ internal sealed class Tab5Service : IDisposable
         // five times/second. Full draft remains available once recognition starts.
         if(compact&&result is Tab5VoiceReply {State:"recording" or "draining"} current)result=current with {Text=""};
         return(200,Tab5Protocol.Encrypt(key,nonce,JsonSerializer.SerializeToUtf8Bytes(result,JsonDefaults.Options)));
+        }finally{Interlocked.Decrement(ref _voiceRequests);}
     }
     public void Dispose() {
+        lock(_lifecycle){_stopping=true;_lifetime.Cancel();}
         _voice?.Dispose();_codexTasks.Dispose();
         if(_usbGate.Wait(1500))try{CloseUsbPort();}finally{_usbGate.Release();}
     }
 }
+
+internal sealed class Tab5IdentityConflictException(string candidateId) : InvalidOperationException("此设备与保留的 TAB5 配对资料不同，尚未替换配对。") {internal string CandidateId {get;}=candidateId;}

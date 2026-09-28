@@ -35,7 +35,9 @@ internal sealed class Tab5PairingStore
                 : new Tab5Pairing(id,usbIdentity,Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
             var clear=JsonSerializer.SerializeToUtf8Bytes(value);
-            try { File.WriteAllBytes(_path+".tmp",ProtectedData.Protect(clear,Entropy,DataProtectionScope.CurrentUser)); File.Move(_path+".tmp",_path,true); }
+            try {
+                if(_current is {} previous&&previous.DeviceId!=id&&File.Exists(_path))File.Copy(_path,_path+"."+DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmssfff")+"."+Guid.NewGuid().ToString("N")[..8]+".bak");
+                File.WriteAllBytes(_path+".tmp",ProtectedData.Protect(clear,Entropy,DataProtectionScope.CurrentUser)); File.Move(_path+".tmp",_path,true); }
             finally { CryptographicOperations.ZeroMemory(clear); }
             _current=value; return value;
         }

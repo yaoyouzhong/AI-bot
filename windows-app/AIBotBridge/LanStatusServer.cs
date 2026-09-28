@@ -11,14 +11,17 @@ internal sealed class LanStatusServer
     private readonly TcpListener _listener;
     private readonly string _token;
     private readonly Func<IReadOnlyList<ResourcePayload>> _resources;
-    private readonly Tab5Service? _tab5;
+    private readonly Func<Tab5Service?> _tab5Provider;
+    private Tab5Service? _tab5 => _tab5Provider();
+    private readonly Func<bool> _legacyEnabled;
+    private readonly Action? _legacyActivity;
 
-    internal LanStatusServer(LanPairing pairing, Func<IReadOnlyList<ResourcePayload>>? resources = null, Tab5Service? tab5 = null)
+    internal LanStatusServer(LanPairing pairing, Func<IReadOnlyList<ResourcePayload>>? resources = null, Tab5Service? tab5 = null, Func<Tab5Service?>? tab5Provider = null, Func<bool>? legacyEnabled = null, Action? legacyActivity = null)
     {
         _listener = new TcpListener(pairing.Address, pairing.Port);
         _token = pairing.Token;
         _resources = resources ?? (() => []);
-        _tab5 = tab5;
+        _tab5Provider=tab5Provider??(()=>tab5);_legacyEnabled=legacyEnabled??(()=>true);_legacyActivity=legacyActivity;
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken,
@@ -64,6 +67,9 @@ internal sealed class LanStatusServer
         {
             var lines = await ReadHeaderAsync(stream, cancellationToken);
             var requestLine = lines.FirstOrDefault() ?? string.Empty;
+            var tab5=_tab5;
+            using var deviceStop=requestLine.Contains(" /tab5/",StringComparison.Ordinal)&&tab5 is not null?CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,tab5.LifetimeToken):null;
+            if(deviceStop is not null)cancellationToken=deviceStop.Token;
             if(requestLine=="POST /tab5/v1/voice HTTP/1.1") {
                 await HandleVoiceAsync(stream,lines,timeout,cancellationToken);
                 return;
@@ -71,7 +77,7 @@ internal sealed class LanStatusServer
             if (requestLine == "GET /tab5/v1/status HTTP/1.1")
             {
                 string Header(string name) => lines.FirstOrDefault(l => l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
-                var packet = _tab5?.Respond(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),Header("X-AIBot-Assets"),Header("X-AIBot-Assets-Proof"),Header("X-Tab5-Firmware"),Header("X-Tab5-Firmware-Proof"));
+                var packet = tab5?.Respond(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),Header("X-AIBot-Assets"),Header("X-AIBot-Assets-Proof"),Header("X-Tab5-Firmware"),Header("X-Tab5-Firmware-Proof"));
                 var diagPath=Environment.GetEnvironmentVariable("AIBOT_TAB5_DIAG_LOG");
                 var diag=Header("X-Tab5-Diag");
                 if(packet is not null&&diagPath is not null&&diag.Length is >0 and <160&&diag.All(c=>char.IsAsciiDigit(c)||c is ',' or '-'))
@@ -86,11 +92,11 @@ internal sealed class LanStatusServer
             if(requestLine.StartsWith("GET /tab5/v1/ota/",StringComparison.Ordinal)&&requestLine.EndsWith(" HTTP/1.1",StringComparison.Ordinal)) {
                 string Header(string name)=>lines.FirstOrDefault(l=>l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
                 var sha=requestLine["GET /tab5/v1/ota/".Length..^" HTTP/1.1".Length];
-                var image=_tab5?.OtaImage(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),sha);
+                var image=tab5?.OtaImage(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),sha);
                 if(image is null)await WriteResponseAsync(stream,"401 Unauthorized","{\"error\":\"ota_unavailable_or_unauthorized\"}",cancellationToken);
                 else {
                     timeout.CancelAfter(TimeSpan.FromMinutes(6));
-                    await _tab5!.TransferOtaAsync(stream,image,Header("X-AIBot-Device"),Header("X-AIBot-OTA-Flow"),cancellationToken);
+                    await tab5!.TransferOtaAsync(stream,image,Header("X-AIBot-Device"),Header("X-AIBot-OTA-Flow"),cancellationToken);
                 }
                 return;
             }
@@ -111,12 +117,13 @@ internal sealed class LanStatusServer
                 }
                 var packet=new byte[length];
                 await stream.ReadExactlyAsync(packet,cancellationToken);
-                var result=_tab5 is null ? (Status:503,Body:(object)new {error="tab5_unavailable"}) :
-                    await _tab5.SubmitCodexAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,requestLine.Contains("/codex/read ",StringComparison.Ordinal),imageOnly);
+                var result=tab5 is null ? (Status:503,Body:(object)new {error="tab5_unavailable"}) :
+                    await tab5.SubmitCodexAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,requestLine.Contains("/codex/read ",StringComparison.Ordinal),imageOnly);
                 await WriteResponseAsync(stream,result.Status switch {200=>"200 OK",202=>"202 Accepted",400=>"400 Bad Request",401=>"401 Unauthorized",404=>"404 Not Found",409=>"409 Conflict",429=>"429 Too Many Requests",504=>"504 Gateway Timeout",_=>"503 Service Unavailable"},
                     JsonSerializer.Serialize(result.Body,JsonDefaults.Options),cancellationToken);
                 return;
             }
+            if(!_legacyEnabled()){await WriteResponseAsync(stream,"404 Not Found","{\"error\":\"device_disabled\"}",cancellationToken);return;}
             var suppliedToken = lines
                 .FirstOrDefault(line => line.StartsWith("X-AIBot-Token:", StringComparison.OrdinalIgnoreCase))?
                 .Split(':', 2)[1].Trim() ?? string.Empty;
@@ -129,6 +136,7 @@ internal sealed class LanStatusServer
                 await WriteBytesAsync(stream, resource.Status, resource.Body, cancellationToken);
                 return;
             }
+            if(authenticated)_legacyActivity?.Invoke();
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
 
             var statusCode = !authenticated ? "401 Unauthorized" : found ? "200 OK" : "404 Not Found";

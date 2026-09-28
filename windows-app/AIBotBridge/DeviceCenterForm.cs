@@ -50,8 +50,8 @@ internal sealed class DeviceCenterForm : Form
             AddText(d.Name,14,true);AddText(DeviceRegistryStore.Model(d.Kind),9);_detail.Controls.Add(_state);
             var management=Row();management.Controls.Add(Button("修改名称",()=>Rename(d)));
             management.Controls.Add(Button(d.Enabled?"停用设备":"启用设备",async()=>await Change(d,false)));
-            management.Controls.Add(Button("移除设备",async()=>await Change(d,true)));_detail.Controls.Add(management);
-            AddText("设备功能",11,true);
+            management.Controls.Add(Button("移除设备",async()=>await Change(d,true)));
+
             var functions=Row();
             foreach(var capability in DeviceCapabilities.Actions(d.Kind)) {
                 string action=capability.Action;var button=Button(capability.Label,()=>_action(d.Id,action));
@@ -60,7 +60,8 @@ internal sealed class DeviceCenterForm : Form
             functions.Controls.Add(Button("本设备的数据",()=>{using var dialog=new DeviceDataForm(_store,d.Id);if(dialog.ShowDialog(this)==DialogResult.OK){_action(d.Id,"data-changed");Reload();}}));
             functions.SizeChanged+=(_,_)=>{int width=Math.Max(140,(functions.ClientSize.Width-16)/2);foreach(Control b in functions.Controls){b.AutoSize=false;b.Width=width;b.Height=Math.Max(b.MinimumSize.Height,b.GetPreferredSize(Size.Empty).Height);}};
             _detail.Controls.Add(functions);
-            if(_store.Snapshot.LegacyDecisionPending) _detail.Controls.Add(Button("导入原小屏配置",()=>_action("","migrate-legacy")));
+            AddText("设备管理",9,true);_detail.Controls.Add(management);
+            if(_store.Snapshot.LegacyDecisionPending){var legacy=Row();legacy.Controls.Add(Button("导入原小屏配置",()=>_action("","migrate-legacy")));legacy.Controls.Add(Button("暂不使用",()=>_action("","dismiss-legacy")));_detail.Controls.Add(legacy);}
             RefreshStatus();
         }
         _detail.ResumeLayout(true);

@@ -45,7 +45,7 @@ internal sealed class Tab5ConnectionForm : Form
         usb.Controls.Add(Note("首次使用时配对。"));
         var firstInstall=new Button{Text="新设备首次安装…"};usb.Controls.Add(Buttons(firstInstall));
         firstInstall.Click+=(_,_)=> {
-            using var installer=new Tab5InstallForm(service);
+            using var installer=new Tab5InstallForm(service);installer.Text=Text+" · 首次安装与恢复";
             if(installer.ShowDialog(this)==DialogResult.OK){tabs.SelectedIndex=1;RefreshPorts();result.Text="启动已确认，请选择刚安装的 TAB5 并配对，再配置 Wi-Fi。";}
         };
         void RefreshPorts() {

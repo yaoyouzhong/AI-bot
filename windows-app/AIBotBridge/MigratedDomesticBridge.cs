@@ -14,6 +14,7 @@ internal sealed class MigratedDomesticBridge : IDisposable
     private TimeSpan _staleAfter = TimeSpan.FromMinutes(6);
     private DateTimeOffset _nextApiRefresh;
     private static readonly string[] Providers = ["qwen", "kimi", "minimax", "deepseek", "zhipu", "stepfun", "baidu", "xiaomi"];
+    internal Func<HashSet<string>>? DeviceProviders {get;set;}
     internal Func<bool> Tab5Paired { get; set; } = () => false;
 
     internal DomesticQuotaSnapshot Snapshot
@@ -38,6 +39,7 @@ internal sealed class MigratedDomesticBridge : IDisposable
     // Called by the tray's UI timer: WebView2 and its window remain on the STA.
     private HashSet<string> Monitored(DisplayPolicy policy)
     {
+        if(DeviceProviders is not null)return DeviceProviders().Where(p=>_service.WasAuthorized(p)||_service.HasOfficialApi(p)).ToHashSet(StringComparer.Ordinal);
         return QuotaMonitoringPolicy.Monitored(policy,BridgeSettings.Load().Get("domestic_provider","alibaba"),
             p=>_service.WasAuthorized(p) || _service.HasOfficialApi(p),Tab5Paired());
     }

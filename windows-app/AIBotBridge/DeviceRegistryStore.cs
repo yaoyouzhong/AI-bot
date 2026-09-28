@@ -5,7 +5,7 @@ namespace AIBotBridge;
 
 [JsonConverter(typeof(JsonStringEnumConverter<HardwareKind>))]
 internal enum HardwareKind { Esp8266, Tab5 }
-internal sealed record RegisteredDevice(string Id,HardwareKind Kind,string Name,bool Enabled,string? HardwareId,string[] Sources,string[] Providers);
+internal sealed record RegisteredDevice(string Id,HardwareKind Kind,string Name,bool Enabled,string? HardwareId,string[] Sources,string[] Providers) {public string? UsbIdentity {get;init;} public DateTimeOffset CreatedAt {get;init;}=DateTimeOffset.UtcNow;}
 internal sealed record DeviceRegistry(int Version,bool MigrationComplete,bool LegacyDecisionPending,bool DesktopQuotaHistory,RegisteredDevice[] Devices);
 
 // Non-secret metadata only. Existing pairing and user content stores remain authoritative.
@@ -36,7 +36,7 @@ internal sealed class DeviceRegistryStore
                 Devices=pairedTab5 is null?[]:[Create(HardwareKind.Tab5,Model(HardwareKind.Tab5),pairedTab5)]});
         }
     }
-    internal static RegisteredDevice Create(HardwareKind kind,string name,string? hardwareId)=>new(Guid.NewGuid().ToString("N"),kind,name.Trim(),true,hardwareId,SourceIds.ToArray(),["deepseek","zhipu"]);
+    internal static RegisteredDevice Create(HardwareKind kind,string name,string? hardwareId)=>new(Guid.NewGuid().ToString("N"),kind,name.Trim(),true,hardwareId,SourceIds.ToArray(),kind==HardwareKind.Tab5?["deepseek","zhipu"]:[]);
     internal void Add(RegisteredDevice device) {
         lock(_gate) {
             if(_value.Devices.Any(d=>d.Kind==device.Kind))throw new InvalidOperationException("当前每种型号支持一台，请先管理已有设备。");
@@ -67,7 +67,7 @@ internal sealed class DeviceRegistryStore
         foreach(var d in value.Devices) {
             if(!Guid.TryParseExact(d.Id,"N",out _)||!Enum.IsDefined(d.Kind)||string.IsNullOrWhiteSpace(d.Name)||d.Name.Length>40||d.Name.Any(char.IsControl)||
                 d.Sources is null||d.Providers is null||d.Sources.Any(s=>!SourceIds.Contains(s))||d.Providers.Any(p=>!ProviderIds.Contains(p))||
-                d.Sources.Distinct().Count()!=d.Sources.Length||d.Providers.Distinct().Count()!=d.Providers.Length||
+                (d.UsbIdentity is not null&&!FlashDeviceDiscovery.IsUsbIdentity(d.UsbIdentity))||d.Sources.Distinct().Count()!=d.Sources.Length||d.Providers.Distinct().Count()!=d.Providers.Length||
                 (d.Kind==HardwareKind.Tab5?!Tab5Protocol.ValidId(d.HardwareId):d.HardwareId is not null))throw new InvalidDataException("设备名称、身份或数据选择无效。");
         }
     }

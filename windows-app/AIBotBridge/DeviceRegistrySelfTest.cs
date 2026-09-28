@@ -21,7 +21,13 @@ internal static class DeviceRegistrySelfTest
             Check(migrated.Snapshot.Devices.Length==2&&!migrated.Snapshot.LegacyDecisionPending,"Legacy confirmation failed");
             Check(!DeviceCapabilities.Allows(esp,"voice")&&!DeviceCapabilities.Allows(tab,"mirror"),"Cross-model actions exposed");
             try{DeviceCapabilities.Require(migrated.Snapshot,esp.Id,"reset",false);throw new Exception("Offline reset allowed");}catch(InvalidOperationException){}
-            string valid=File.ReadAllText(path);File.WriteAllText(path,"{broken");
+            string valid=File.ReadAllText(path);
+            File.WriteAllText(path+".tmp","interrupted partial write");Check(new DeviceRegistryStore(path).Snapshot.Devices.Length==0,"Interrupted temporary replaced good registry");
+            using(var locked=new FileStream(path+".tmp",FileMode.Open,FileAccess.ReadWrite,FileShare.None)){
+                try{store.Add(tab);throw new Exception("Locked file saved");}catch(IOException){}
+                Check(store.Snapshot.Devices.Length==0&&File.ReadAllText(path)==valid,"Failed save changed committed state");
+            }
+            File.WriteAllText(path,"{broken");
             try{_=new DeviceRegistryStore(path);throw new Exception("Corrupt registry accepted");}catch(InvalidDataException){}
             Check(File.ReadAllText(path)=="{broken","Corrupt data overwritten");
             File.WriteAllText(path,JsonSerializer.Serialize(new DeviceRegistry(99,true,false,false,[])));

@@ -2,7 +2,7 @@ namespace AIBotBridge;
 
 internal static class DeviceCapabilities
 {
-    internal static readonly (string Action,string Label)[] EspActions=[("device","亮度与显示"),("legacy-settings","连接与屏保"),("cycle","轮播设置"),("mirror","设备镜像"),("flash","ESP8266 固件升级"),("info","设备信息"),("fallback","Wi-Fi 回退检查"),("reset","重置设备 Wi-Fi"),("pet-gallery","桌宠素材")];
+    internal static readonly (string Action,string Label)[] EspActions=[("device","亮度与显示"),("legacy-settings","连接与屏保"),("cycle","轮播设置"),("mirror","设备镜像"),("flash","ESP8266 固件升级"),("info","设备信息"),("fallback","Wi-Fi 回退检查"),("reset","重置设备 Wi-Fi"),("pet-gallery","桌宠素材"),("appearance","桌宠与天气外观")];
     internal static readonly (string Action,string Label)[] TabActions=[("tab5","连接与固件升级"),("voice","语音设置"),("birthday-settings","日历与生日")];
     internal static (string Action,string Label)[] Actions(HardwareKind kind)=>kind==HardwareKind.Tab5?TabActions:EspActions;
     internal static bool Allows(RegisteredDevice d,string action)=>d.Enabled&&(Actions(d.Kind).Any(a=>a.Action==action)||

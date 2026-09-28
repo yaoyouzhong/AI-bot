@@ -14,10 +14,13 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private volatile int _configuredLanPort;
     private SerialPort? _activePort;
     private LanPairing? _pairing;
-    private readonly string? _preferredPort;
+    private string? _preferredPort;
+    internal string? ExpectedUsbIdentity {get;set;}
+    internal void ReloadPort()=>_preferredPort=NormalizePort(BridgeSettings.Load().Get("serial_port"));
     private long _pauseUntil;
     private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private volatile bool _flashPaused;
+    internal bool FlashBusy=>_flashPaused;
     internal Func<string?>? ReservedPort { get; set; }
 
     // The gate covers probing as well as an established connection. A ready
@@ -182,9 +185,14 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         _captureStatus = snapshot;
         while (!cancellationToken.IsCancellationRequested)
         {
+            IReadOnlyList<FlashUsbDevice> usbDevices;
+            try{usbDevices=FlashDeviceDiscovery.Read();}
+            catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or IOException or UnauthorizedAccessException){await Task.Delay(3000,cancellationToken);continue;}
+            var tabPorts=usbDevices.Where(d=>d.Identity.Contains("VID_303A",StringComparison.OrdinalIgnoreCase)).Select(d=>d.Port).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var candidate in CandidatePorts())
             {
-                if (string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
+                if(ExpectedUsbIdentity is {} expected&&!usbDevices.Any(d=>d.Port.Equals(candidate,StringComparison.OrdinalIgnoreCase)&&d.Identity==expected))continue;
+                if (tabPorts.Contains(candidate)||string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
                 if (cancellationToken.IsCancellationRequested)
                     break;
 
@@ -194,7 +202,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 try
                 {
                     if (_flashPaused) continue;
-                    if (string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
+                    if (tabPorts.Contains(candidate)||string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
                     port.Open();
                     await Task.Delay(1200, cancellationToken);
                     if (_flashPaused) continue;

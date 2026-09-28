@@ -20,6 +20,7 @@ internal sealed class LanDiscoveryServer
     }
 
     internal Func<byte[], IPAddress, byte[]?>? Tab5Response { get; set; }
+    internal Func<bool> LegacyEnabled {get;set;}=()=>true;
     internal string? DeviceHost => _deviceHost;
     internal LanPairing? Binding => Volatile.Read(ref _binding);
     internal void SetBinding(LanPairing? binding) => Volatile.Write(ref _binding, binding);
@@ -56,7 +57,7 @@ internal sealed class LanDiscoveryServer
                 continue;
             }
             var pairing = Binding;
-            if (pairing is null || !LanDiscoveryProtocol.TryReadRequest(
+            if (!LegacyEnabled() || pairing is null || !LanDiscoveryProtocol.TryReadRequest(
                 packet.Buffer, pairing.Token, out var nonce)) continue;
 
             var device = packet.RemoteEndPoint.Address;

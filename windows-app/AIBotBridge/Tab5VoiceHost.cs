@@ -159,6 +159,7 @@ internal interface ITab5VoiceEndpoint : IDisposable
 }
 internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
 {
+    internal bool Busy => _preparing || _session.Active;
     internal bool SettingsEnabled => Volatile.Read(ref _settings).Enabled;
     private sealed class PreviewForm : Form { protected override bool ShowWithoutActivation=>true; }
     private readonly Control _dispatcher=new();
@@ -218,9 +219,10 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         });
         return completion.Task;
     }
-    public void ShowSettings(IWin32Window owner) {
+    public void ShowSettings(IWin32Window owner)=>ShowNamedSettings(owner,"TAB5 · 语音设置");
+    internal void ShowNamedSettings(IWin32Window owner,string title) {
         if(_session.Active){MessageBox.Show(owner,"请先结束当前语音输入。","TAB5 语音");return;}
-        using var form=CreateSettings();form.ShowDialog(owner);
+        using var form=CreateSettings();form.Text=title;form.ShowDialog(owner);
     }
     internal Form CreateSettings(bool preview=false) {
         Form form=preview?new PreviewForm():new Form();
