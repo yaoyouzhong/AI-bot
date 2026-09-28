@@ -9,7 +9,9 @@ internal sealed class AboutForm : Form
 
     internal AboutForm()
     {
-        Text = "关于 AI-bot";
+        SuspendLayout();
+        Text = "关于 AI-bot";Font=new Font("Microsoft YaHei UI",9F);
+        AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(440, 235);
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -32,8 +34,12 @@ internal sealed class AboutForm : Form
         };
         Controls.Add(link);
         var close = new Button { Text = "关闭", DialogResult = DialogResult.OK, Size = new Size(90, 30), Location = new Point(330, 185) };
-        Controls.Add(close);
+        SettingsWindow.StyleButton(close);close.Anchor=AnchorStyles.Bottom|AnchorStyles.Right;Controls.Add(close);
         AcceptButton = close;
         CancelButton = close;
+        close.CausesValidation=false;
+        close.Click+=(_,_)=>Close();
+        SettingsWindow.FitScreen(this);
+        ResumeLayout(true);
     }
 }

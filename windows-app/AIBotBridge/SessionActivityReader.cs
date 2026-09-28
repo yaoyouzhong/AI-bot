@@ -22,6 +22,7 @@ internal static class SessionActivityReader
     }
 
     internal static object Diagnostics() => Cache.Diagnostics();
+    internal static IReadOnlyList<CodexLifecycleTracker.TaskActivity> TaskActivities=>CodexLifecycle.TaskActivities;
     internal static Task WaitForInitialScanAsync() => Cache.WaitForInitialScanAsync();
 
     internal static StatusSnapshot Capture() => Capture(Cache);

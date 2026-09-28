@@ -8,6 +8,69 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-tab5-holidays"){Tab5HolidaySelfTest.Run(args[1]);return;}
+        if(args.Length==1&&args[0]=="--tab5-wifi-list-once") {
+            using var service=new Tab5Service();var networks=service.ReadWifiNetworksAsync(CancellationToken.None).GetAwaiter().GetResult();
+            Console.WriteLine(JsonSerializer.Serialize(new{networks},JsonDefaults.Options));return;
+        }
+        if(args.Length==1&&args[0]=="--tab5-overview-once") {
+            var catalog=Tab5CodexCatalog.Recent();var desktop=new Tab5CodexDesktop();
+            var live=new Tab5LiveActivity((id,ct)=>desktop.ReadAsync(id,ct));
+            live.RefreshAsync(catalog.Take(16).ToArray(),CancellationToken.None).GetAwaiter().GetResult();
+            var states=live.Fresh().ToDictionary(s=>s.Id);var selected=Tab5CodexTasks.SelectOverview(catalog,states);
+            Console.WriteLine(JsonSerializer.Serialize(new {taskId=selected?.Id,state=selected is null?"none":states.GetValueOrDefault(selected.Id)?.State??"unknown",liveStates=states.Count},JsonDefaults.Options));return;
+        }
+        if(args.Length==1&&args[0]=="--self-test-tab5-ble"){Tab5BleTransferSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-hidden-settings") {ApplicationConfiguration.Initialize();SettingsLayoutSelfTest.CheckHiddenLaunch(args[1]);return;}
+        if(args.Length==2&&args[0]=="--self-test-settings-layout") {ApplicationConfiguration.Initialize();SettingsLayoutSelfTest.Run(args[1]);return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-voice"){ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.RunUi();Tab5VoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==3&&args[0]=="--tab5-voice-check"){ApplicationConfiguration.Initialize();Tab5VoiceCheck.Run(args[1],args[2]);return;}
+        if(args.Length==4&&args[0]=="--tab5-voice-check"){ApplicationConfiguration.Initialize();Tab5VoiceCheck.Run(args[1],args[2],args[3]);return;}
+        if(args.Length==2&&args[0]=="--preview-tab5-voice-settings"){ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.PreviewSettings(args[1]);return;}
+        if(args.Length==1&&args[0]=="--tab5-voice-devices"){
+            Console.WriteLine(JsonSerializer.Serialize(new{inputs=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Capture).Select(d=>new{d.Name,dji=Tab5VoiceAudio.IsDji(d.Name)}),cable=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Render).Any(d=>Tab5VoiceAudio.IsCable(d.Name))},JsonDefaults.Options));return;
+        }
+        if (args.Length == 2 && args[0] == "--tab5-offer-ota")
+        {
+            try {
+                var path=Path.GetFullPath(args[1]);
+                _=Tab5OtaPackage.Load(path);
+                RunTray(showTab5:true,otaPath:path);
+            } catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException) {
+                Console.Error.WriteLine("TAB5_OTA_OFFER_FAILED: "+ex.Message);Environment.ExitCode=1;
+            }
+            return;
+        }
+        if (args.Length == 1 && args[0] == "--tab5-connect") { RunTray(showTab5: true); return; }
+        if (args.Length == 1 && args[0] == "--tab5-mic-diagnostic")
+        {
+            Environment.SetEnvironmentVariable("AIBOT_TAB5_USB_PAUSED", "1");
+            Environment.SetEnvironmentVariable("AIBOT_TAB5_MIC_DIAGNOSTIC", "1");
+            RunTray(showTab5: true);
+            return;
+        }
+        if (args.Length == 2 && args[0] == "--capture-tab5")
+        {
+            ApplicationConfiguration.Initialize();
+            using var form = new Tab5ConnectionForm(new Tab5Service());
+            form.Show(); Application.DoEvents();
+            using var bitmap = new Bitmap(form.Width, form.Height);
+            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+            bitmap.Save(Path.GetFullPath(args[1]), System.Drawing.Imaging.ImageFormat.Png);
+            return;
+        }
+        if (args.Length == 2 && args[0] == "--tab5-pair")
+        {
+            var device = FlashDeviceDiscovery.Read().Single(d => d.Port.Equals(args[1], StringComparison.OrdinalIgnoreCase)
+                && d.Identity.Contains("VID_303A", StringComparison.OrdinalIgnoreCase));
+            new Tab5Service().PairUsbAsync(device, CancellationToken.None).GetAwaiter().GetResult();
+            Console.WriteLine("TAB5_USB_PAIRED " + device.Port); return;
+        }
+        if (args.Length == 1 && args[0] == "--self-test-tab5")
+        { Tab5SelfTest.RunAsync().GetAwaiter().GetResult(); return; }
         if (args.Length == 2 && args[0] == "--capture-flasher-complete")
         {
             ApplicationConfiguration.Initialize(); FirmwareFlashSelfTest.Capture(args[1], completedPreview: true); return;
@@ -171,6 +234,16 @@ internal static class Program
             DisplayPolicySelfTest.Run();
             return;
         }
+        if(args.Length==1&&args[0]=="--weather-settings") {
+            ApplicationConfiguration.Initialize();
+            var weather=new MigratedWeather.WeatherMonitor();weather.LoadCache();
+            using var form=new MigratedWeather.WeatherSettingsForm(weather);
+            form.Shown+=(_,_)=>SettingsWindow.Present(form);
+            Application.Run(form);return;
+        }
+        if(args.Length==2&&args[0]=="--diagnose-weather-location") {
+            MigratedWeatherTest.LocateAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;
+        }
         if (args.Contains("--test-migrated-weather"))
         {
             MigratedWeatherTest.RunAsync().GetAwaiter().GetResult();
@@ -258,6 +331,7 @@ internal static class Program
             return;
         }
 
+        if(args.Contains("--self-test-music-artwork")) {MusicLifecycleSelfTest.Run();return;}
         if (args.Contains("--self-test-music", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;
@@ -265,7 +339,7 @@ internal static class Program
             music.RefreshAsync(CancellationToken.None).GetAwaiter().GetResult();
             var snapshot = music.Snapshot;
             Console.WriteLine($"MUSIC_SELF_TEST_OK session={(string.IsNullOrEmpty(snapshot?.Title) ? "none" : "present")} " +
-                              $"playing={snapshot?.Playing ?? false} duration={snapshot?.DurationSeconds ?? 0:0}");
+                              $"playing={snapshot?.Playing ?? false} duration={snapshot?.DurationSeconds ?? 0:0} legacyBytes={snapshot?.CoverRgb565?.Length??0} tab5Bytes={snapshot?.Tab5CoverRgb565?.Length??0} sourcePixels={music.ArtworkSourceSize}");
             return;
         }
 
@@ -324,7 +398,7 @@ internal static class Program
         RunTray();
     }
 
-    private static void RunTray(bool authorizeZhipu = false)
+    private static void RunTray(bool authorizeZhipu = false, bool showTab5 = false, string? otaPath = null)
     {
         using var instance = new Mutex(false, @"Local\AIBotBridge.Instance." +
             System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value);
@@ -334,6 +408,7 @@ internal static class Program
         if (!acquired)
         {
             Console.WriteLine("BRIDGE_ALREADY_RUNNING");
+            if(otaPath is not null){Console.Error.WriteLine("TAB5_OTA_OFFER_FAILED: 请先退出正在运行的桥接，再提供固件。");Environment.ExitCode=1;}
             if (authorizeZhipu)
                 MessageBox.Show("桥接已在运行，请从托盘菜单打开智谱授权。", "AI-bot");
             return;
@@ -342,7 +417,9 @@ internal static class Program
         {
             ApplicationConfiguration.Initialize();
             var context = new TrayApplicationContext();
+            if(otaPath is not null)context.OfferTab5Ota(otaPath);
             if (authorizeZhipu) context.OpenZhipuAuthorization();
+            if (showTab5) context.OpenTab5Connection();
             Application.Run(context);
         }
         finally { instance.ReleaseMutex(); }

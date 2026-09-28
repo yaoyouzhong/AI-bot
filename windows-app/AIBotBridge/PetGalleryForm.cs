@@ -23,20 +23,25 @@ internal sealed class PetGalleryForm : Form
 
     internal PetGalleryForm(Action<string> selectPage, bool load = true)
     {
+        SuspendLayout();
         _selectPage = selectPage;
-        Text = "更换桌宠动画（petdex.dev）";
+        AutoScaleDimensions = new SizeF(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        Text = "桌宠动画";
         Font = new Font("Microsoft YaHei UI", 9);
-        ClientSize = new Size(480,620); MinimumSize = new Size(440,540);
+        ClientSize = new Size(480,540); MinimumSize = new Size(440,480);
         StartPosition = FormStartPosition.CenterScreen;
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(14), ColumnCount = 1, RowCount = 6 };
-        foreach (var style in new[] { new RowStyle(SizeType.Absolute,34), new RowStyle(SizeType.Percent,100), new RowStyle(SizeType.Absolute,150), new RowStyle(SizeType.Absolute,38), new RowStyle(SizeType.Absolute,40), new RowStyle(SizeType.Absolute,64) }) layout.RowStyles.Add(style);
+        foreach (var style in new[] { new RowStyle(SizeType.Absolute,34), new RowStyle(SizeType.Percent,100), new RowStyle(SizeType.Absolute,150), new RowStyle(SizeType.AutoSize), new RowStyle(SizeType.AutoSize), new RowStyle(SizeType.AutoSize) }) layout.RowStyles.Add(style);
         layout.Controls.Add(_search,0,0); layout.Controls.Add(_list,0,1); layout.Controls.Add(_preview,0,2);
-        var controls = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = Padding.Empty };
-        controls.ColumnStyles.Add(new(SizeType.Percent,30)); controls.ColumnStyles.Add(new(SizeType.Percent,40)); controls.ColumnStyles.Add(new(SizeType.Percent,30));
+        var controls = new TableLayoutPanel { AutoSize=true, Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = Padding.Empty };
+        controls.ColumnStyles.Add(new(SizeType.Percent,30)); controls.ColumnStyles.Add(new(SizeType.Percent,40)); controls.ColumnStyles.Add(new(SizeType.AutoSize));
+        SettingsWindow.StyleButton(_apply,true);_apply.Dock=DockStyle.None;_apply.Anchor=AnchorStyles.Top|AnchorStyles.Left;
         controls.Controls.Add(_owner,0,0); controls.Controls.Add(_motion,1,0); controls.Controls.Add(_apply,2,0);
         layout.Controls.Add(controls,0,3); layout.Controls.Add(_status,0,4);
-        layout.Controls.Add(new Label { Text = "图库素材仅用于本机；不随开源包分发。设备需在 USB 连接后同步。", Dock = DockStyle.Fill, ForeColor = SystemColors.GrayText },0,5);
-        Controls.Add(layout);
+        layout.Controls.Add(new Label { Text = "素材来自 petdex.dev，仅本机使用；USB 连接后同步。", AutoSize=true, Dock = DockStyle.Fill, ForeColor = SystemColors.GrayText },0,5);
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+        _status.AutoSize=true;_status.MinimumSize=new Size(0,30);Controls.Add(layout);
         _owner.Items.AddRange(["Claude", "Codex"]); _owner.SelectedIndex = 0;
         _motion.DropDownWidth = 240;
         _motion.Format += (_, e) => { if (e.ListItem is GalleryMotion m) e.Value = m.Label.Split(' ')[0]; };
@@ -49,6 +54,8 @@ internal sealed class PetGalleryForm : Form
         _apply.Click += (_,_) => Apply();
         _timer.Tick += (_,_) => PaintFrame(); _timer.Start();
         if (load) Shown += async (_,_) => await LoadAsync();
+        SettingsWindow.FitScreen(this);
+        ResumeLayout(true);
     }
     private string SelectedOwner => _owner.SelectedIndex == 0 ? "claude" : "codex";
     private async Task LoadAsync()

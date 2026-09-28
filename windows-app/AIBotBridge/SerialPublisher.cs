@@ -18,6 +18,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private long _pauseUntil;
     private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private volatile bool _flashPaused;
+    internal Func<string?>? ReservedPort { get; set; }
 
     // The gate covers probing as well as an established connection. A ready
     // acknowledgement means the serial handle has actually been disposed.
@@ -183,6 +184,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         {
             foreach (var candidate in CandidatePorts())
             {
+                if (string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
                 if (cancellationToken.IsCancellationRequested)
                     break;
 
@@ -192,6 +194,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 try
                 {
                     if (_flashPaused) continue;
+                    if (string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
                     port.Open();
                     await Task.Delay(1200, cancellationToken);
                     if (_flashPaused) continue;

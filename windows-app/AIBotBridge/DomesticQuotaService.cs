@@ -99,7 +99,7 @@ internal sealed class DomesticQuotaService
         });
         if (!match.HasValue) throw new JsonException("Alibaba quota fields are missing.");
         return Windowed("alibaba", TextRecursive(root, "SubscriptionName") ?? "Token Plan",
-            null, null, null, null, root) with {PlanPercent=Clamp(match),PlanResetsAt=DateRecursive(root)};
+            null, null, null, null, root) with {PlanPercent=Clamp(match),PlanResetsAt=DateRecursive(root),PlanExpiresAt=PlanExpiryRecursive(root)};
     }
 
     private static DomesticProviderQuotaSnapshot ParseKimi(JsonElement root)
@@ -130,7 +130,8 @@ internal sealed class DomesticQuotaService
         });
         if (!weekly.HasValue) throw new JsonException("Kimi quota fields are missing.");
         var plan = TextRecursive(root, "membership") ?? TextRecursive(root, "plan_name") ?? "Kimi Coding Plan";
-        return Windowed("kimi", plan, primary, primaryReset, weekly, weeklyReset, root);
+        return Windowed("kimi", plan, primary, primaryReset, weekly, weeklyReset, root)
+            with {PlanExpiresAt=PlanExpiryRecursive(root)};
     }
 
     private static DomesticProviderQuotaSnapshot ParseMiniMax(JsonElement root)
@@ -148,7 +149,8 @@ internal sealed class DomesticQuotaService
                 RemainingMilliseconds(value, "remains_time") ?? RemainingMilliseconds(value, "interval_remains_time"),
                 weekly, RemainingMilliseconds(value, "weekly_remains_time"), value);
         });
-        return result ?? throw new JsonException("MiniMax quota fields are missing.");
+        return result is null ? throw new JsonException("MiniMax quota fields are missing.") :
+            result with {PlanExpiresAt=PlanExpiryRecursive(root)};
     }
 
     private static DomesticProviderQuotaSnapshot ParseDeepSeek(JsonElement root)
@@ -230,12 +232,32 @@ internal sealed class DomesticQuotaService
             foreach (var property in value.EnumerateObject())
             {
                 var name = property.Name.ToLowerInvariant();
-                if (!(name.Contains("reset") || name.Contains("expire") || name.Contains("end_time"))) continue;
+                if (!name.Contains("reset")) continue;
                 if (property.Value.ValueKind == JsonValueKind.String &&
                     DateTimeOffset.TryParse(property.Value.GetString(), CultureInfo.InvariantCulture,
                         DateTimeStyles.AssumeLocal, out var parsed)) result = parsed;
                 else if (property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetInt64(out var epoch) &&
                          epoch is > 1700000000 and < 4102444800) result = DateTimeOffset.FromUnixTimeSeconds(epoch);
+            }
+        });
+        return result;
+    }
+    private static DateTimeOffset? PlanExpiryRecursive(JsonElement root)
+    {
+        DateTimeOffset? result=null;
+        Visit(root,value=>
+        {
+            if(result.HasValue||value.ValueKind!=JsonValueKind.Object)return;
+            foreach(var property in value.EnumerateObject()) {
+                var name=property.Name.ToLowerInvariant();
+                bool planField=name.Contains("plan")||name.Contains("subscription")||name.Contains("membership");
+                bool explicitExpiry=(planField&&(name.Contains("expir")||name.Contains("end")))||
+                    name is "expiredtime" or "expiretime" or "expired_time";
+                if(!explicitExpiry)continue;
+                if(property.Value.ValueKind==JsonValueKind.String&&
+                   DateTimeOffset.TryParse(property.Value.GetString(),CultureInfo.InvariantCulture,DateTimeStyles.AssumeLocal,out var date))result=date;
+                else if(property.Value.ValueKind==JsonValueKind.Number&&property.Value.TryGetInt64(out var epoch)&&
+                        epoch is >1700000000 and <4102444800)result=DateTimeOffset.FromUnixTimeSeconds(epoch);
             }
         });
         return result;

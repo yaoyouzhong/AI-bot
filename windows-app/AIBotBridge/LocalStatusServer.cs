@@ -9,11 +9,13 @@ internal sealed class LocalStatusServer
 {
     private readonly TcpListener _listener;
     private readonly Func<UsbDeviceInfo>? _deviceInfo;
+    private readonly Func<string>? _tab5Info;
 
-    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null)
+    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null)
     {
         _listener = new TcpListener(IPAddress.Loopback, port);
         _deviceInfo = deviceInfo;
+        _tab5Info = tab5Info;
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
@@ -93,6 +95,8 @@ internal sealed class LocalStatusServer
                 { diagnostics = JsonSerializer.Serialize(new { error = ex.GetType().Name }); }
             }
             if (activity) diagnostics = JsonSerializer.Serialize(SessionActivityReader.Diagnostics(), JsonDefaults.Options);
+            var tab5 = !browser && _tab5Info is not null && requestLine.StartsWith("GET /diagnostics/tab5 ", StringComparison.Ordinal);
+            if (tab5) diagnostics = JsonSerializer.Serialize(new { summary = _tab5Info!() });
             var webQuota = !browser && requestLine.StartsWith("GET /diagnostics/web-quota ", StringComparison.Ordinal);
             if (webQuota) diagnostics = JsonSerializer.Serialize(WebQuotaDiagnostics.Snapshot(), JsonDefaults.Options);
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
@@ -102,7 +106,7 @@ internal sealed class LocalStatusServer
                 : accepted ? "{\"ok\":true}" : "{\"error\":\"not_found\"}");
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota ? "200 OK" : "404 Not Found")}\r\n" +
+                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || tab5 ? "200 OK" : "404 Not Found")}\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
                 $"Content-Length: {payload.Length}\r\n" +
                 "Connection: close\r\n\r\n");

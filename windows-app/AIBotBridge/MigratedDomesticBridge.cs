@@ -14,6 +14,7 @@ internal sealed class MigratedDomesticBridge : IDisposable
     private TimeSpan _staleAfter = TimeSpan.FromMinutes(6);
     private DateTimeOffset _nextApiRefresh;
     private static readonly string[] Providers = ["qwen", "kimi", "minimax", "deepseek", "zhipu", "stepfun", "baidu", "xiaomi"];
+    internal Func<bool> Tab5Paired { get; set; } = () => false;
 
     internal DomesticQuotaSnapshot Snapshot
     {
@@ -38,15 +39,17 @@ internal sealed class MigratedDomesticBridge : IDisposable
     private HashSet<string> Monitored(DisplayPolicy policy)
     {
         return QuotaMonitoringPolicy.Monitored(policy,BridgeSettings.Load().Get("domestic_provider","alibaba"),
-            p=>_service.WasAuthorized(p) || _service.HasOfficialApi(p));
+            p=>_service.WasAuthorized(p) || _service.HasOfficialApi(p),Tab5Paired());
     }
+    private string[] WebProviders(HashSet<string> monitored) => QuotaMonitoringPolicy.OrderWeb(
+        Providers.Where(p=>monitored.Contains(p) && !_service.HasOfficialApi(p) && p is not ("stepfun" or "baidu")),Tab5Paired());
     internal void RefreshNext(DisplayPolicy policy)
     {
         _monitorPolicy=policy;
         var monitored=Monitored(policy);
         var selection=string.Join(",",monitored.Order());
         if(selection!=_monitorSelection) { _monitorSelection=selection; _nextRefresh=_nextApiRefresh=DateTimeOffset.MinValue; _providerIndex=0; }
-        var web=Providers.Where(p=>monitored.Contains(p) && !_service.HasOfficialApi(p) && p is not ("stepfun" or "baidu")).ToArray();
+        var web=WebProviders(monitored);
         _staleAfter=TimeSpan.FromSeconds(Math.Max(360,65*(web.Length+1)));
         // Allow a full background refresh round and its capture timeout before notifying.
         _service.RefreshHealth.WarningDelay=TimeSpan.FromSeconds(Math.Max(180,65*(web.Length+1)));
@@ -62,7 +65,7 @@ internal sealed class MigratedDomesticBridge : IDisposable
     {
         var monitored=Monitored(_monitorPolicy ?? DisplayModes.Load(BridgeSettings.Load()));
         foreach (var provider in monitored.Where(_service.HasOfficialApi)) _service.Refresh(provider,force:true);
-        var web=monitored.FirstOrDefault(p=>!_service.HasOfficialApi(p) && p is not ("stepfun" or "baidu"));
+        var web=WebProviders(monitored).FirstOrDefault();
         if(web is not null) _service.Refresh(web,force:true);
         _nextRefresh=DateTimeOffset.UtcNow.AddSeconds(65);
     }
@@ -90,9 +93,9 @@ internal sealed class MigratedDomesticBridge : IDisposable
         var value = DomesticQuotaService.Parse(provider, json);
         switch (value.Provider)
         {
-            case "alibaba": _service.SetQwen(value.PlanPercent!.Value, value.Plan, value.PlanResetsAt); break;
-            case "kimi": _service.SetKimi(value.WeeklyPercent!.Value, value.PrimaryPercent, value.Plan, value.WeeklyResetsAt, value.PrimaryResetsAt); break;
-            case "minimax": _service.SetMiniMax(value.WeeklyPercent!.Value, value.PrimaryPercent, value.Plan, value.WeeklyResetsAt, value.PrimaryResetsAt); break;
+            case "alibaba": _service.SetQwen(value.PlanPercent!.Value, value.Plan, value.PlanResetsAt, value.PlanExpiresAt); break;
+            case "kimi": _service.SetKimi(value.WeeklyPercent!.Value, value.PrimaryPercent, value.Plan, value.WeeklyResetsAt, value.PrimaryResetsAt, value.PlanExpiresAt); break;
+            case "minimax": _service.SetMiniMax(value.WeeklyPercent!.Value, value.PrimaryPercent, value.Plan, value.WeeklyResetsAt, value.PrimaryResetsAt, value.PlanExpiresAt); break;
             case "zhipu": _service.SetZhipu(value); break;
             case "deepseek": _service.SetDeepSeek(value.Balance!.Value, value.Currency, usedCost: value.UsedCost); break;
         }

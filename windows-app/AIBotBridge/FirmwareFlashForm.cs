@@ -51,7 +51,7 @@ internal sealed class FirmwareFlashForm : Form
 
     internal FirmwareFlashForm(bool preview = false, string? preferredPort = null)
     {
-        _preview = preview;
+        SuspendLayout();_preview = preview;
         _selection = new FlashDeviceSelection(preferredPort);
         Text = "AI-bot · 小屏刷机";
         using (var icon = typeof(FirmwareFlashForm).Assembly.GetManifestResourceStream("AIBotBridge.Assets.flash-icon.ico"))
@@ -59,7 +59,7 @@ internal sealed class FirmwareFlashForm : Form
         Font = new Font("Microsoft YaHei UI", 9);
         AutoScaleMode = AutoScaleMode.Dpi;
         AutoScaleDimensions = new SizeF(96, 96);
-        ClientSize = new Size(560, 245); MinimumSize = new Size(500, 250);
+        ClientSize = new Size(560, 300); MinimumSize = new Size(500, 290);
         BackColor = Color.White;
         ForeColor = Color.FromArgb(32, 44, 55);
         StartPosition = FormStartPosition.CenterScreen;
@@ -88,6 +88,8 @@ internal sealed class FirmwareFlashForm : Form
         _start.ForeColor = Color.White; _start.FlatStyle = FlatStyle.Flat; _start.FlatAppearance.BorderSize = 0;
         _start.Padding = new Padding(16, 6, 16, 6); _start.Margin = new Padding(0, 0, 8, 0);
         actions.Controls.Add(_start); actions.Controls.Add(_cancel); actionRow.Controls.Add(actions); actionRow.Controls.Add(_more); root.Controls.Add(actionRow);
+        foreach(var button in new[]{_refresh,_browse,_start,_backup,_cancel})SettingsWindow.StyleButton(button,button==_start);
+        SettingsWindow.FitScreen(this);
         _status.Margin = new Padding(0, 14, 0, 8); root.Controls.Add(_status);
         _progress.Visible = false; root.Controls.Add(_progress);
         var detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
@@ -97,7 +99,7 @@ internal sealed class FirmwareFlashForm : Form
         var backups = new Button { Text = "查看备份", AutoSize = true };
         foreach (var button in new[] { _refresh, _browse, _cancel, _backup, backups }) {
             button.FlatStyle = FlatStyle.Flat; button.FlatAppearance.BorderColor = Color.FromArgb(216, 224, 230);
-            button.BackColor = Color.White; button.ForeColor = ForeColor; button.Padding = new Padding(8, 3, 8, 3);
+            button.BackColor = Color.White; button.ForeColor = ForeColor; SettingsWindow.StyleButton(button);
             button.Margin = new Padding(0, 0, 8, 0);
         }
         _refresh.Margin = _browse.Margin = Padding.Empty;
@@ -105,7 +107,7 @@ internal sealed class FirmwareFlashForm : Form
         _details.Margin = new Padding(0, 10, 0, 0);
         backups.Click += (_, _) => { Directory.CreateDirectory(FirmwareFlasher.BackupDirectory); Process.Start(new ProcessStartInfo(FirmwareFlasher.BackupDirectory) { UseShellExecute = true }); };
         extra.Controls.Add(_backup); extra.Controls.Add(backups); detailLayout.Controls.Add(_deviceDetails); detailLayout.Controls.Add(extra); detailLayout.Controls.Add(_log);
-        _details.Controls.Add(detailLayout); root.Controls.Add(_details); Controls.Add(root);
+        _details.Controls.Add(detailLayout); root.Controls.Add(_details); Controls.Add(root);ResumeLayout(true);
         _more.LinkClicked += (_, _) => { _details.Visible = !_details.Visible; _more.Text = _details.Visible ? "收起选项 ▴" : "更多选项 ▾"; ResizeForDetails(); };
         _refresh.Click += async (_, _) => await RefreshDevicesAsync();
         _deviceTimer.Tick += async (_, _) => await RefreshDevicesAsync();
@@ -144,7 +146,7 @@ internal sealed class FirmwareFlashForm : Form
     {
         var scale = DeviceDpi / 96f;
         var area = Screen.FromControl(this).WorkingArea;
-        ClientSize = new Size(Math.Min((int)(560 * scale), area.Width - 80), Math.Min((int)((_details.Visible ? 440 : 245) * scale), area.Height - 100));
+        ClientSize = new Size(Math.Min((int)(560 * scale), area.Width - 80), Math.Min((int)((_details.Visible ? 480 : 300) * scale), area.Height - 100));
     }
 
     private async Task RefreshDevicesAsync()

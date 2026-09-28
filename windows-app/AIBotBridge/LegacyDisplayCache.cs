@@ -51,7 +51,7 @@ internal static class LegacyDisplayCache
             return new(id, Text(root, prefix + "Membership"), primary, Date(root, prefix + "FiveHourResetAt"), weekly,
                 Date(root, prefix + "WeeklyResetAt"), balance,
                 Number(root, prefix + "UsedCost"), Text(root, prefix + "Currency"), Date(root, prefix + "FetchedAt") ?? DateTimeOffset.UnixEpoch, true)
-                { PlanPercent=plan, PlanResetsAt=Date(root,prefix+"PlanResetAt") };
+                { PlanPercent=plan, PlanResetsAt=Date(root,prefix+"PlanResetAt"), PlanExpiresAt=Date(root,prefix+"PlanExpiresAt") };
         }
         return new(Provider("alibaba", "Qwen"), Provider("kimi", "Kimi"), Provider("minimax", "MiniMax"), Provider("deepseek", "DeepSeek"));
     }

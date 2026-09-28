@@ -56,12 +56,15 @@ sealed class DomesticQuotaSnapshot
     public double? DeepSeekUsedCost;
     public string DeepSeekCurrency = "";
     public DateTimeOffset? QwenPlanResetAt;
+    public DateTimeOffset? QwenPlanExpiresAt;
     public DateTimeOffset? QwenWeeklyResetAt;
     public DateTimeOffset? QwenFiveHourResetAt;
     public DateTimeOffset? KimiWeeklyResetAt;
     public DateTimeOffset? KimiFiveHourResetAt;
+    public DateTimeOffset? KimiPlanExpiresAt;
     public DateTimeOffset? MiniMaxWeeklyResetAt;
     public DateTimeOffset? MiniMaxFiveHourResetAt;
+    public DateTimeOffset? MiniMaxPlanExpiresAt;
     public string QwenMembership = "";
     public string KimiMembership = "";
     public string MiniMaxMembership = "";
@@ -115,12 +118,15 @@ sealed partial class DomesticQuotaService
                 DeepSeekUsedCost = _snapshot.DeepSeekUsedCost,
                 DeepSeekCurrency = _snapshot.DeepSeekCurrency,
                 QwenPlanResetAt = _snapshot.QwenPlanResetAt,
+                QwenPlanExpiresAt = _snapshot.QwenPlanExpiresAt,
                 QwenWeeklyResetAt = _snapshot.QwenWeeklyResetAt,
                 QwenFiveHourResetAt = _snapshot.QwenFiveHourResetAt,
                 KimiWeeklyResetAt = _snapshot.KimiWeeklyResetAt,
                 KimiFiveHourResetAt = _snapshot.KimiFiveHourResetAt,
+                KimiPlanExpiresAt = _snapshot.KimiPlanExpiresAt,
                 MiniMaxWeeklyResetAt = _snapshot.MiniMaxWeeklyResetAt,
                 MiniMaxFiveHourResetAt = _snapshot.MiniMaxFiveHourResetAt,
+                MiniMaxPlanExpiresAt = _snapshot.MiniMaxPlanExpiresAt,
                 QwenMembership = _snapshot.QwenMembership,
                 KimiMembership = _snapshot.KimiMembership,
                 MiniMaxMembership = _snapshot.MiniMaxMembership,
@@ -239,7 +245,7 @@ sealed partial class DomesticQuotaService
         }
     }
 
-    internal void SetQwen(double pct, string membership = null, DateTimeOffset? resetAt = null)
+    internal void SetQwen(double pct, string membership = null, DateTimeOffset? resetAt = null, DateTimeOffset? planExpiresAt = null)
     {
         RefreshHealth.Recover("qwen");
         lock (_lock)
@@ -248,12 +254,13 @@ sealed partial class DomesticQuotaService
             if (!string.IsNullOrWhiteSpace(membership))
                 _snapshot.QwenMembership = membership.Trim();
             if (resetAt.HasValue) _snapshot.QwenPlanResetAt = resetAt;
+            if (planExpiresAt.HasValue) _snapshot.QwenPlanExpiresAt = planExpiresAt;
             _snapshot.QwenFetchedAt = DateTime.UtcNow;
             Save();
         }
     }
 
-    internal void SetQwenPageMetadata(string resetText, string membership)
+    internal void SetQwenPageMetadata(string resetText, string membership, string expiryText = "")
     {
         lock (_lock)
         {
@@ -266,6 +273,7 @@ sealed partial class DomesticQuotaService
             }
             if (ParseResetAt(resetText) is DateTimeOffset resetAt)
                 _snapshot.QwenPlanResetAt = resetAt;
+            _snapshot.QwenPlanExpiresAt = ParseResetAt(expiryText);
             Save();
         }
     }
@@ -289,7 +297,7 @@ sealed partial class DomesticQuotaService
     }
 
     internal void SetKimi(double weeklyPct, double? fiveHourPct, string membership = null,
-        DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null)
+        DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null, DateTimeOffset? planExpiresAt = null)
     {
         RefreshHealth.Recover("kimi");
         lock (_lock)
@@ -298,6 +306,7 @@ sealed partial class DomesticQuotaService
             _snapshot.KimiFiveHourPct = fiveHourPct.HasValue ? Clamp(fiveHourPct.Value) : null;
             if (weeklyResetAt.HasValue) _snapshot.KimiWeeklyResetAt = weeklyResetAt;
             if (fiveHourResetAt.HasValue) _snapshot.KimiFiveHourResetAt = fiveHourResetAt;
+            if (planExpiresAt.HasValue) _snapshot.KimiPlanExpiresAt = planExpiresAt;
             if (!string.IsNullOrWhiteSpace(membership))
             {
                 _snapshot.KimiMembership = membership.Trim();
@@ -309,7 +318,7 @@ sealed partial class DomesticQuotaService
     }
 
     internal void SetMiniMax(double weeklyPct, double? fiveHourPct, string membership = null,
-        DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null)
+        DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null, DateTimeOffset? planExpiresAt = null)
     {
         RefreshHealth.Recover("minimax");
         lock (_lock)
@@ -318,6 +327,7 @@ sealed partial class DomesticQuotaService
             _snapshot.MiniMaxFiveHourPct = fiveHourPct.HasValue ? Clamp(fiveHourPct.Value) : null;
             if (weeklyResetAt.HasValue) _snapshot.MiniMaxWeeklyResetAt = weeklyResetAt;
             if (fiveHourResetAt.HasValue) _snapshot.MiniMaxFiveHourResetAt = fiveHourResetAt;
+            if (planExpiresAt.HasValue) _snapshot.MiniMaxPlanExpiresAt = planExpiresAt;
             if (!string.IsNullOrWhiteSpace(membership))
                 _snapshot.MiniMaxMembership = membership.Trim();
             _snapshot.MiniMaxFetchedAt = DateTime.UtcNow;
@@ -498,7 +508,7 @@ sealed class DomesticQuotaAuthForm : Form
         Dock = DockStyle.Bottom, Height = 60, TextAlign = ContentAlignment.MiddleLeft,
         Padding = new Padding(14, 0, 0, 0), BackColor = Color.FromArgb(248, 250, 252),
         ForeColor = Color.FromArgb(71, 85, 105),
-        Text = "选择左侧厂商：官方接口优先；未配置接口时使用网页授权。",
+        Text = "选择厂商，配置接口或网页登录。",
     };
     readonly TableLayoutPanel _miniMaxKeyPanel = new()
     {
@@ -535,8 +545,8 @@ sealed class DomesticQuotaAuthForm : Form
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Microsoft YaHei UI", 9);
-        Width = 1180;
-        Height = 800;
+        Width = 1060;
+        Height = 720;
         MinimumSize = new Size(900, 620);
         BackColor = Color.White;
 
@@ -547,7 +557,7 @@ sealed class DomesticQuotaAuthForm : Form
         };
         var navigationTitle = new Label
         {
-            Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 14), Text = "国产模型厂商\r\n配置接口或网页登录",
+            Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 14), Text = "模型厂商",
             Font = new Font("Microsoft YaHei UI", 11, FontStyle.Bold),
             ForeColor = Color.FromArgb(30, 41, 59),
         };
@@ -563,7 +573,7 @@ sealed class DomesticQuotaAuthForm : Form
         // Measure with the active font after DPI changes, including background-to-interactive transitions.
         void LayoutProviderList()
         {
-            navigation.Width = Math.Max(270, navigationTitle.Font.Height * 17);
+            navigation.Width = Math.Max(210, navigationTitle.Font.Height * 12);
             var width = Math.Max(160, providerList.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - providerList.Padding.Horizontal - 4);
             foreach (Control card in providerList.Controls)
             {
@@ -608,6 +618,9 @@ sealed class DomesticQuotaAuthForm : Form
         refresh.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
         refresh.Click += async (_, _) => { if(_activeProvider != null && _service.HasOfficialApi(_activeProvider.Id)) await SelectProvider(_activeProvider); else await ReloadWebView(); };
         header.Controls.Add(_providerTitle, 0, 0);
+        AIBotBridge.SettingsWindow.StyleButton(refresh);
+        AIBotBridge.SettingsWindow.StyleButton(_miniMaxSaveKey,true);
+        AIBotBridge.SettingsWindow.FitScreen(this);
         header.Controls.Add(refresh, 1, 0);
         header.Controls.Add(_providerState, 0, 1);
         header.SetColumnSpan(_providerState, 2);
@@ -622,7 +635,7 @@ sealed class DomesticQuotaAuthForm : Form
         _miniMaxApiKey.Dock = DockStyle.Fill;
         _miniMaxApiKey.Margin = new Padding(0, 4, 12, 0);
         _miniMaxSaveKey.AutoSize = true;
-        _miniMaxSaveKey.MinimumSize = new Size(108, 36);
+        AIBotBridge.SettingsWindow.StyleButton(_miniMaxSaveKey,true);
         _miniMaxSaveKey.Margin = new Padding(0);
         _miniMaxSaveKey.BackColor = Color.FromArgb(37, 99, 235);
         _miniMaxSaveKey.ForeColor = Color.White;
@@ -681,9 +694,9 @@ sealed class DomesticQuotaAuthForm : Form
         WindowState = FormWindowState.Normal;
         var area = targetScreen.WorkingArea;
         var scale = DeviceDpi / 96f;
-        var width = Math.Min(area.Width, (int)(1180 * scale));
-        var height = Math.Min(area.Height, (int)(800 * scale));
-        MinimumSize = new Size(Math.Min(area.Width, (int)(900 * scale)), Math.Min(area.Height, (int)(620 * scale)));
+        var width = Math.Min(area.Width-32, (int)(1060 * scale));
+        var height = Math.Min(area.Height-32, (int)(720 * scale));
+        MinimumSize = new Size(Math.Min(area.Width-32, (int)(900 * scale)), Math.Min(area.Height-32, (int)(620 * scale)));
         Bounds = new Rectangle(area.Left + (area.Width-width)/2, area.Top + (area.Height-height)/2, width, height);
         TopMost = true;
         var wasEverShown = _everShown;
@@ -813,7 +826,7 @@ sealed class DomesticQuotaAuthForm : Form
         _activeProvider = provider;
         foreach (var (id, card) in _providerCards)
             card.BackColor = id == provider.Id ? Color.FromArgb(224, 242, 254) : Color.White;
-        _providerTitle.Text = $"{provider.Name} · {provider.Product}";
+        _providerTitle.Text = provider.Name;
         _miniMaxApiKey.Clear();
         _baiduSecret.Clear(); _baiduPackage.Clear();
         _baiduSecretLabel.Visible = _baiduPackageLabel.Visible = _baiduSecret.Visible = _baiduPackage.Visible = provider.Id == "baidu";
@@ -821,19 +834,19 @@ sealed class DomesticQuotaAuthForm : Form
 
         _kimiPort.Visible = _kimiPortLabel.Visible = provider.Id == "kimi";
         _miniMaxApiKey.PlaceholderText = provider.Id == "baidu" ? "Access Key ID（AK）；三项均留空可测试已保存的配置" : provider.Id == "stepfun" ? "阶跃星辰 API Key（不是 Step Plan Key）" : provider.Id == "kimi" ? "Kimi Code 本地服务访问令牌（不是 Moonshot API Key）" : provider.Id == "deepseek" ? "DeepSeek API Key；留空测试已保存 Key" : "MiniMax Token Plan Key；留空测试已保存 Key";
-        _providerState.Text = provider.Id == "xiaomi" ? "网页登录读取 MiMo Token Plan 已用比例（Credits），不读取按量余额；实现已接通，真实套餐待验证。" : provider.Id == "baidu" ? "官方 API 查询指定模型资源包已用比例；不查询云余额。需填写 AK、SK 和模型量包 ID；尚未经真实账号验证。"
-            : provider.Id == "stepfun" ? "官方 API 查询开放平台人民币余额，不代表 Step Plan 套餐额度；尚未经真实账号验证。"
+        _providerState.Text = provider.Id == "xiaomi" ? "网页登录读取 Token Plan Credits 用量；真实套餐待验证。" : provider.Id == "baidu" ? "填写 AK、SK 和资源包 ID，读取资源包用量；真实账号待验证。"
+            : provider.Id == "stepfun" ? "读取开放平台余额，不含 Step Plan；真实账号待验证。"
             : provider.Id == "minimax"
-            ? "已支持 API 查询：保存 MiniMax Subscription Key 后自动读取；也可登录控制台作为兜底"
+            ? "保存 Subscription Key 自动查询，或登录控制台。"
             : provider.Id == "deepseek"
-            ? "官方余额 API 优先：在此保存 API Key；凭据仅保存在 Windows 凭据管理器"
+            ? "通过 API Key 读取官方余额。"
             : provider.Id == "kimi"
-            ? "优先使用 Kimi Code 官方本地 API：运行并登录 kimi web，填写其访问令牌和端口；未配置时用网页授权"
+            ? "运行并登录 kimi web，填写令牌和端口；也可网页登录。"
             : provider.Id == "zhipu"
-            ? "登录智谱开放平台后进入财务总览，自动读取可用余额（CNY）；不是 Coding Plan 订阅额度"
+            ? "登录后打开财务总览，读取余额，不含 Coding Plan。"
             : provider.CaptureSupported
-            ? "已支持准确额度读取：登录后进入订阅/用量页面即可自动捕获"
-            : "已列入厂商目录：可以登录控制台，准确额度读取规则尚待适配";
+            ? "登录后打开订阅或用量页，自动读取额度。"
+            : "可登录控制台，额度读取尚待适配。";
         _providerState.ForeColor = provider.CaptureSupported
             ? Color.FromArgb(22, 101, 52) : Color.FromArgb(180, 83, 9);
     }
@@ -1184,10 +1197,16 @@ sealed class DomesticQuotaAuthForm : Form
               if (/Coding\s*Plan/i.test(text)) membership = 'Coding Plan';
               else if (/Token\s*Plan/i.test(text) && /团队版/i.test(text)) membership = 'Token Plan 团队版';
               else if (/Token\s*Plan/i.test(text)) membership = 'Token Plan';
+              const planCard = Array.from(document.querySelectorAll('[class*="card"], [class*="panel"], [class*="plan"]'))
+                .map(node => node.innerText || '')
+                .filter(value => /Coding\s*Plan/i.test(value) && /到期|有效期/.test(value))
+                .sort((a, b) => a.length - b.length)[0] || '';
+              const expiry = planCard.match(/(?:套餐到期|计划到期|到期日期|到期时间|有效期至)\s*([0-9]{4}[-\/.]\d{1,2}[-\/.]\d{1,2}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/);
               return {
                 resetText: reset ? reset[1] : '',
                 usagePctText: usage ? usage[1] : '',
-                membership
+                membership,
+                expiryText: expiry ? expiry[1] : ''
               };
             })()
             """;
@@ -1206,7 +1225,9 @@ sealed class DomesticQuotaAuthForm : Form
                     ? usagePctValue.GetString()?.Trim() ?? "" : "";
                 var membership = root.TryGetProperty("membership", out var membershipValue)
                     ? membershipValue.GetString()?.Trim() ?? "" : "";
-                _service.SetQwenPageMetadata(reset, membership);
+                var expiry = root.TryGetProperty("expiryText", out var expiryValue)
+                    ? expiryValue.GetString()?.Trim() ?? "" : "";
+                _service.SetQwenPageMetadata(reset, membership, expiry);
                 if (double.TryParse(usagePctText, NumberStyles.Float,
                         CultureInfo.InvariantCulture, out var usagePct)
                     && usagePct is >= 0 and <= 100)

@@ -11,14 +11,18 @@ internal sealed class DeviceControlForm : Form
 
     internal DeviceControlForm(SerialPublisher serial, Action<string> selectMode, string selectedMode)
     {
+        SuspendLayout();
         _serial = serial;
         _selectMode = selectMode;
         Text = "AI-bot 设备控制";
-        FormBorderStyle = FormBorderStyle.FixedDialog;
+        AutoScaleDimensions = new SizeF(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        Font = new Font("Microsoft YaHei UI", 9F);
+        MinimumSize = new Size(400, 350);
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(340, 250);
+        ClientSize = new Size(440, 380);
 
         _mode.Items.Add(new ModeItem("智能跟随 / 轮播", "auto"));
         foreach (var page in DisplayModes.Pages) _mode.Items.Add(new ModeItem(page.Label, page.Mode));
@@ -48,7 +52,16 @@ internal sealed class DeviceControlForm : Form
         layout.Controls.Add(brightnessRow);
         layout.Controls.Add(applyBrightness);
         layout.Controls.Add(_status);
+        layout.AutoScroll = true;
         Controls.Add(layout);
+        SettingsWindow.FitFlow(layout);
+        brightnessRow.AutoSize = false;
+        brightnessRow.Height = 52;
+        brightnessRow.SizeChanged += (_, _) => _brightness.Width = Math.Max(120,
+            brightnessRow.ClientSize.Width - _brightnessValue.PreferredWidth - 20);
+        foreach (var button in new[] { applyMode, applyBrightness }) SettingsWindow.StyleButton(button);
+        SettingsWindow.FitScreen(this);
+        ResumeLayout(true);
     }
 
     private void ApplyMode()

@@ -19,7 +19,7 @@ static class WindowsLocation
     public static async Task<Result> LocateSilently()
     {
         var locator = new Geolocator { DesiredAccuracyInMeters = 1000 };
-        var position = await locator.GetGeopositionAsync(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(12));
+        var position = await locator.GetGeopositionAsync(TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(12));
         var point = position.Coordinate.Point.Position;
         return new Result(point.Latitude, point.Longitude,
             $"{point.Latitude:F4}, {point.Longitude:F4}");

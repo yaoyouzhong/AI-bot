@@ -29,7 +29,17 @@ internal sealed record WeatherSnapshot(
     int DateCenterX = 95,
     int RangeY = 34,
     int? AnimationIcon = null,
-    int? UtcOffsetSeconds = null);
+    int? UtcOffsetSeconds = null)
+{
+    public double? PressureHpa { get; init; }
+    public string? PressureKind { get; init; }
+    public string? LocationStatus { get; init; }
+    public string? AirQualityStandard { get; init; }
+    public WeatherHour[] Hourly { get; init; }=[];
+    public WeatherDay[] Daily { get; init; }=[];
+    public bool HourlyStale { get; init; }
+    public bool DailyStale { get; init; }
+}
 
 internal sealed record StockQuote(
     string Symbol,
@@ -75,6 +85,7 @@ internal sealed record DomesticProviderQuotaSnapshot(
 {
     public double? PlanPercent { get; init; }
     public DateTimeOffset? PlanResetsAt { get; init; }
+    public DateTimeOffset? PlanExpiresAt { get; init; }
 }
 
 internal sealed record DomesticQuotaSnapshot(
@@ -111,8 +122,11 @@ internal sealed record MusicSnapshot(
     double DurationSeconds,
     DateTimeOffset UpdatedAt)
 {
+    public bool TimelineAvailable { get; init; } = true;
     [System.Text.Json.Serialization.JsonIgnore]
     public byte[]? CoverRgb565 { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public byte[]? Tab5CoverRgb565 { get; init; }
     public bool HasArtwork => CoverRgb565 is {Length: > 0};
 }
 

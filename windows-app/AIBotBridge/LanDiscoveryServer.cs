@@ -19,6 +19,7 @@ internal sealed class LanDiscoveryServer
         _findAddress = findAddress ?? (host => LanPairingFactory.FindPrivateAddress(host, requireSubnet: true));
     }
 
+    internal Func<byte[], IPAddress, byte[]?>? Tab5Response { get; set; }
     internal string? DeviceHost => _deviceHost;
     internal LanPairing? Binding => Volatile.Read(ref _binding);
     internal void SetBinding(LanPairing? binding) => Volatile.Write(ref _binding, binding);
@@ -46,6 +47,14 @@ internal sealed class LanDiscoveryServer
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
             if (packet.Buffer.Length > 160 || packet.RemoteEndPoint.Address.AddressFamily != AddressFamily.InterNetwork)
                 continue;
+            if (Tab5Response?.Invoke(packet.Buffer, packet.RemoteEndPoint.Address) is { } tab5Reply) {
+                var bound=Binding;
+                if(bound is not null) {
+                    using var tab5Sender=new UdpClient(new IPEndPoint(bound.Address,0));
+                    await tab5Sender.SendAsync(tab5Reply,packet.RemoteEndPoint,cancellationToken);
+                }
+                continue;
+            }
             var pairing = Binding;
             if (pairing is null || !LanDiscoveryProtocol.TryReadRequest(
                 packet.Buffer, pairing.Token, out var nonce)) continue;

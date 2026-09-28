@@ -1,5 +1,7 @@
 # `@AIBOT` protocol version 1
 
+TAB5 uses separate `tab5_*` messages and `/tab5/v1/status`; see [TAB5 integration](TAB5.md). The ESP8266 protocol below is unchanged. TAB5 使用独立消息与接口，不改变下面的小屏协议。
+
 The Windows or macOS bridge and ESP8266 communicate at 460800 baud using UTF-8 JSON lines. Every frame is one line beginning with the ASCII prefix `@AIBOT `.
 
 ## Probe
@@ -239,3 +241,31 @@ Optional v1 `domesticQuotas.stepFun` carries the StepFun CNY API wallet, not Ste
 `domesticQuotas.xiaomi` is another optional v1 field, carrying only MiMo Token Plan `planPercent` (used Credits, 0–100), `plan`, `updatedAt`, and `stale`; it never fills weekly/five-hour or balance fields. Mode `domestic_xiaomi` renders it on updated firmware. Windows collects console responses; macOS currently preserves the field/mode only. Missing fields stay unknown.
 
 USB may omit null-valued optional fields inside each domestic quota object to stay within the existing 6144-byte limit. Firmware treats missing and null quota values identically; zero values are retained. LAN snapshots retain their full schema.
+
+## TAB5 voice development extension (2026-09-23)
+
+Paired TAB5 clients can POST `/tab5/v1/voice`. AES-256-GCM request and response packets use the existing TAB5 key and request nonce as AAD. Proof text is `POST|/tab5/v1/voice|deviceId|nonce|sha256(packet)` (lowercase hash); maximum encrypted request is 16384 bytes. JSON fields: `session`, `issuedAt` (UTC milliseconds, ±15 seconds), `op`; start adds `taskId`, subsequent requests add `voiceId`. Operations: start/poll/audio/stop/cancel/tab5. Audio adds sequential `seq` starting at zero and `pcm` (Base64 PCM16-LE, 16 kHz mono, at most 6400 bytes). Nonces are replay protected; malformed and out-of-order audio is rejected.
+
+Replies expose source dji/tab5, state, message and bounded UTF-8 draft text in the encrypted response only. DJI capture is preferred; absent/unavailable capture falls back to TAB5. VB-CABLE routes either source into the separately configured Doubao input method. Capture stops after 4 seconds without requests or 60 seconds total. No automatic task submission. Runtime is disabled until configured; this is source/simulation validation, not real audio, Doubao or TAB5 hardware acceptance. Existing ESP8266 endpoints and settings are unchanged.
+
+TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/selected，最多 5 项，不返回密码；`tab5_wifi_forget` 按配对 deviceId 和真实 SSID 删除，返回 tab5_wifi_forgotten 或 tab5_wifi_rejected。仅 USB 接收。
+# TAB5 日历详情增补（0.2.26）
+
+`calendar` 保留现有今日/明日字段，新增可选 `detail`：`terms[{year,dates}]`（24 节气的 MMDD）、`holidayYear`、`holidays[{start,end,name}]`（MMDD 范围）、`workdays[]`（补班 MMDD）、`birthdays[{name,month,day,lunar,leap,remind}]`。生日最多 32 项，提醒 0–30 天；只走已有鉴权 TAB5 状态通道，不改变 ESP8266 字段。
+
+生日在电脑托盘「内容设置 → 日历与生日」管理，仅保存到用户目录。无对应闰月时按普通月份，缺少农历三十或公历 2 月 29 日时按当月末日。TAB5 本地计算下一次生日及月历；缺少官方假期年份显示待更新，不将节日名称等同于放假安排。
+
+
+## TAB5 0.2.26 回复内容标识
+
+`codexTasks.replyView.hasText` 和加密读取回执内的 `replyView.hasText` 是可选布尔字段，表示当前分页有有效公开文字，false 表示等待/空内容占位。新版设备只在对应轮次的有效正文显示后清除未读，历史固定查看也适用；空占位继续重试。旧桥接缺少字段时设备兼容已知占位文字，旧设备忽略新增字段。读取轮询仍为每 3 秒，运行中的文字优先取桌面 IPC 公开消息。
+
+## TAB5 OTA 接收端流控能力（0.2.29）
+
+`GET /tab5/v1/ota/{sha256}` 保持 Device/Nonce/Proof 鉴权和镜像 SHA-256 校验。可选 `X-AIBot-OTA-Flow: tcp-v2` 开启 16 KiB 有界异步 TCP 写入，接收端包含合并写入和 P4 SDIO 包池修复；`tcp-v1`、缺失或未知能力值一律采用 2 KiB/64 ms 兼容流控。不能根据待安装版本或旧 USB 心跳启用全速。升级期间暂停 BLE 大帧，结束或失败均恢复。能力头不提供身份认证，不改变 ESP8266 协议。
+
+TAB5 0.2.30 新增可选 `data.ota.notes`（纯文本，最多 1024 UTF-8 字节）。桥接读取固件旁 `<文件名>.bin.notes.json` 的 `{version,sha256,notes}`，版本及 SHA 均与镜像匹配才接受说明；未带说明文件的旧固件保持兼容。设备升级页先显示版本号，再显示可滚动的更新内容；缺失时显示「暂无更新说明」。
+
+### TAB5 0.2.38 运行版本回报
+
+`GET /tab5/v1/status` 在既有设备/nonce/GET HMAC 鉴权之外，可带 `X-Tab5-Firmware`（最多 31 个 ASCII 字母、数字、点、横线或下划线）和 `X-Tab5-Firmware-Proof`，后者是配对密钥对 `FIRMWARE|{nonce}|{version}` 的 HMAC-SHA256 小写十六进制。缺失/无效附加证明不采纳版本，但保持旧状态请求兼容。USB 使用已校验设备 ID 与序号的 `tab5_ack.firmware`。版本观察有效期 15 秒，仅用于桥接升级窗口描述，不作为 OTA 完成、镜像完整性或启动健康的证明，不触发自动取消或升级。

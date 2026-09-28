@@ -24,12 +24,15 @@ internal sealed class DomesticQuotaAuthForm : Form
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private CoreWebView2DevToolsProtocolEventReceiver? _responses;
 
-    internal DomesticQuotaAuthForm(BridgeRuntime runtime)
+    internal DomesticQuotaAuthForm(BridgeRuntime runtime,bool initializeBrowser=true)
     {
+        SuspendLayout();
         _runtime = runtime;
-        Text = "AI-bot 国产模型额度授权";
+        AutoScaleDimensions = new SizeF(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        Text = "AI-bot 国产模型额度授权";Font=new Font("Microsoft YaHei UI",9F);
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(980, 720);
+        ClientSize = new Size(960, 660);
         MinimumSize = new Size(760, 560);
 
         _provider.Items.AddRange(Providers.Cast<object>().ToArray());
@@ -42,16 +45,21 @@ internal sealed class DomesticQuotaAuthForm : Form
         var top = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
-            Height = 44,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Padding = new Padding(8),
-            WrapContents = false
+            WrapContents = true
         };
         top.Controls.Add(_provider);
         top.Controls.Add(refresh);
         top.Controls.Add(_status);
         Controls.Add(_web);
         Controls.Add(top);
-        Shown += async (_, _) => await InitializeAsync();
+        top.SizeChanged += (_, _) => _status.MaximumSize = new Size(Math.Max(160, top.ClientSize.Width-top.Padding.Horizontal-12),0);
+        SettingsWindow.StyleButton(refresh);
+        if(initializeBrowser)Shown += async (_, _) => await InitializeAsync();
+        SettingsWindow.FitScreen(this);
+        ResumeLayout(true);
     }
 
     private async Task InitializeAsync()

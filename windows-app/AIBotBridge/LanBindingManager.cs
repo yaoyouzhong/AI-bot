@@ -12,7 +12,7 @@ internal static class LanBindingManager
         CancellationToken cancellationToken,
         Func<string?, IPAddress?>? selectAddress = null,
         Func<IPAddress, LanPairing>? createPairing = null,
-        LanDiscoveryServer? discovery = null)
+        LanDiscoveryServer? discovery = null, Tab5Service? tab5 = null)
     {
         Binding? current = null;
         try
@@ -43,7 +43,7 @@ internal static class LanBindingManager
                         : current.Pairing with { Address = address };
                     if (pairing is not null)
                     {
-                        var next = await TryStartAsync(pairing, snapshot, resources, cancellationToken);
+                        var next = await TryStartAsync(pairing, snapshot, resources, cancellationToken, tab5);
                         if (next is not null)
                         {
                             var previous = current;
@@ -55,6 +55,7 @@ internal static class LanBindingManager
                     }
                 }
 
+                tab5?.SetBinding(current?.Pairing);
                 await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
             }
         }
@@ -65,17 +66,18 @@ internal static class LanBindingManager
         {
             serial.SetPairing(null);
             discovery?.SetBinding(null);
+            tab5?.SetBinding(null);
             if (current is not null) await StopAsync(current);
         }
     }
 
     private static async Task<Binding?> TryStartAsync(LanPairing pairing,
         Func<StatusSnapshot> snapshot, Func<IReadOnlyList<ResourcePayload>> resources,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Tab5Service? tab5 = null)
     {
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var run = new LanStatusServer(pairing, resources).RunAsync(snapshot, stop.Token,
+        var run = new LanStatusServer(pairing, resources, tab5).RunAsync(snapshot, stop.Token,
             () => ready.TrySetResult());
         try
         {

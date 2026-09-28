@@ -16,6 +16,8 @@ internal static class TrayMenuSelfTest
             throw new InvalidOperationException("Legacy menu grouping/order changed.");
         menu.Items.OfType<ToolStripMenuItem>().Single(i => i.Text == "关于 AI-bot…").PerformClick();
         if (command != "about") throw new InvalidOperationException("About route failed.");
+        ((ToolStripMenuItem)menu.Items[4]).DropDownItems.OfType<ToolStripMenuItem>().Single(i=>i.Text=="日历与生日…").PerformClick();
+        if(command!="birthday-settings")throw new InvalidOperationException("Birthday route failed.");
         var display = (ToolStripMenuItem)menu.Items[2];
         ((ToolStripMenuItem)menu.Items[0]).DropDownItems.OfType<ToolStripMenuItem>().Single(i => i.Text == "Codex 额度趋势…").PerformClick();
         if (command != "quota-trend") throw new InvalidOperationException("Quota trend route failed.");

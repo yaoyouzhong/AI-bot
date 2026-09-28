@@ -14,14 +14,17 @@ internal sealed class SettingsForm : Form
 
     internal SettingsForm(BridgeSettings settings)
     {
+        SuspendLayout();
         _settings = settings;
         Text = "AI-bot 设置";
-        FormBorderStyle = FormBorderStyle.FixedDialog;
+        AutoScaleDimensions = new SizeF(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        Font = new Font("Microsoft YaHei UI", 9F);
+        MinimumSize = new Size(540, 400);
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(720, 520);
-        AutoScroll = true;
+        ClientSize = new Size(640, 450);
 
         _city.Text = settings.Get("weather_city");
         _latitude.Text = settings.Get("weather_latitude");
@@ -36,10 +39,10 @@ internal sealed class SettingsForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(18),
             ColumnCount = 2,
-            RowCount = 8,
-            AutoSize = true
+            RowCount = 7,
+            AutoScroll = true
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         AddRow(layout, 0, "天气城市", _city);
         AddRow(layout, 1, "纬度（可空）", _latitude);
@@ -53,9 +56,12 @@ internal sealed class SettingsForm : Form
             AutoSize = true,
             MaximumSize = new Size(420, 0),
             ForeColor = Color.DimGray,
-            Text = "支持 sh/sz/bj/hk/us 代码，最多 20 个；屏保设为 0 表示关闭。保存后重启桥接生效。"
+            Text = "股票最多 20 个；屏保 0 为关闭。保存后重启生效。"
         };
         layout.Controls.Add(note, 1, 6);
+        note.Dock = DockStyle.Fill;
+        layout.SizeChanged += (_, _) => note.MaximumSize = new Size(Math.Max(120,
+            layout.ClientSize.Width - layout.Padding.Horizontal - (int)layout.ColumnStyles[0].Width - note.Margin.Horizontal), 0);
 
         var save = new Button { Text = "保存", AutoSize = true };
         var cancel = new Button { Text = "取消", AutoSize = true, DialogResult = DialogResult.Cancel };
@@ -63,10 +69,18 @@ internal sealed class SettingsForm : Form
         var buttons = new FlowLayoutPanel { AutoSize = true, WrapContents = false };
         buttons.Controls.Add(save);
         buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons, 1, 7);
-        Controls.Add(layout);
+        var root = new TableLayoutPanel { Dock=DockStyle.Fill, ColumnCount=1, RowCount=2 };
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent,100));root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        buttons.Dock=DockStyle.Fill;buttons.Padding=new Padding(18,8,18,12);
+        SettingsWindow.StyleButton(save,true);SettingsWindow.StyleButton(cancel);
+        root.Controls.Add(layout,0,0);root.Controls.Add(buttons,0,1);Controls.Add(root);
         AcceptButton = save;
         CancelButton = cancel;
+        cancel.CausesValidation=false;
+        cancel.Click+=(_,_)=>Close();
+        SettingsWindow.FitScreen(this);
+        ResumeLayout(true);
     }
 
     internal void FocusSection(string? section)
@@ -79,6 +93,8 @@ internal sealed class SettingsForm : Form
     {
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row);
+        control.Dock = DockStyle.Fill;
+        control.Margin = new Padding(3, 8, 3, 8);
         layout.Controls.Add(control, 1, row);
     }
 

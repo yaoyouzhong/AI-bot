@@ -43,12 +43,21 @@ sealed class WeatherMonitor
         public double Low { get; set; }
         public double Pm25 { get; set; }
         public int Humidity { get; set; }
+        public double? AirQualityIndex { get; set; }
+        public string AirQualityStandard { get; set; } = "";
+        public double? PressureHpa { get; set; }
+        public string PressureKind { get; set; } = "";
         public int Icon { get; set; }
         public long EpochUtc { get; set; }
         public int UtcOffsetS { get; set; }
         public long UpdatedUtc { get; set; }
         public bool Stale { get; set; }
         public string Source { get; set; } = "";
+        public WeatherHour[] Hourly { get; set; }=[];
+        public WeatherDay[] Daily { get; set; }=[];
+        public bool HourlyStale { get; set; }
+        public bool DailyStale { get; set; }
+        public string ForecastLocation { get; set; }="";
     }
 
     readonly object _lock = new();
@@ -62,6 +71,8 @@ sealed class WeatherMonitor
     int _textRev;
     string _lastText = "";
     System.Threading.Timer _timer;
+    DateTimeOffset _nextWeatherRefresh;
+    public string LocationStatus { get; private set; } = "";
 
     public static string City { get => Settings.Get(CityKey); set => Settings.Set(CityKey, value.Trim()); }
     public static string QWeatherApiHost { get => Settings.Get(ApiHostKey); set => Settings.Set(ApiHostKey, NormalizeHost(value)); }
@@ -91,7 +102,8 @@ sealed class WeatherMonitor
     {
         LoadCache();
         _ = Refresh();
-        _timer = new System.Threading.Timer(_ => _ = Refresh(), null, TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(15));
+        // Check movement each minute; stationary weather retains its 15-minute cadence.
+        _timer = new System.Threading.Timer(_ => _ = Refresh(false), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
     }
 
     public void SetCity(string city)
@@ -141,24 +153,29 @@ sealed class WeatherMonitor
     }
 
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
-    public async Task Refresh()
+    public async Task Refresh(bool force=true)
     {
-        await _refreshGate.WaitAsync();
-        try { await RefreshCore(); }
+        if(!force) {if(!await _refreshGate.WaitAsync(0))return;}
+        else await _refreshGate.WaitAsync();
+        try { await RefreshCore(force); }
         finally { _refreshGate.Release(); }
     }
 
-    private async Task RefreshCore()
+    private async Task RefreshCore(bool force)
     {
         var city = City;
         var autoLocation = AutoLocation;
+        if(!autoLocation)LocationStatus="手动地区";
         if (city.Length == 0 && !autoLocation) return;
         try
         {
             var latitude = Latitude;
             var longitude = Longitude;
+            var savedLatitude=latitude;var savedLongitude=longitude;
             if (autoLocation)
                 (latitude, longitude) = await RefreshAutomaticLocation(latitude, longitude);
+            bool moved=latitude!=savedLatitude || longitude!=savedLongitude;
+            if(!force&&!moved&&DateTimeOffset.UtcNow<_nextWeatherRefresh)return;
             if (autoLocation && latitude == 0 && longitude == 0)
                 throw new InvalidOperationException("尚未取得 Windows 定位坐标。 ");
 
@@ -173,19 +190,22 @@ sealed class WeatherMonitor
             snapshot ??= await FetchOpenMeteo(city, autoLocation, latitude, longitude);
             SetSnapshot(snapshot);
             SaveCache(snapshot);
+            _nextWeatherRefresh=DateTimeOffset.UtcNow.AddMinutes(15);
         }
         catch
         {
+            _nextWeatherRefresh=DateTimeOffset.MinValue;
             lock (_lock) if (_snapshot.UpdatedUtc > 0) _snapshot.Stale = true;
         }
     }
 
-    static async Task<(double Latitude, double Longitude)> RefreshAutomaticLocation(
+    async Task<(double Latitude, double Longitude)> RefreshAutomaticLocation(
         double savedLatitude, double savedLongitude)
     {
         try
         {
             var current = await WindowsLocation.LocateSilently();
+            LocationStatus="Windows 自动定位";
             if (savedLatitude != 0 || savedLongitude != 0)
             {
                 var distance = DistanceMeters(savedLatitude, savedLongitude,
@@ -198,8 +218,11 @@ sealed class WeatherMonitor
             Settings.Set(LongitudeKey, current.Longitude.ToString("F6", CultureInfo.InvariantCulture));
             return (current.Latitude, current.Longitude);
         }
-        catch
+        catch(Exception ex)
         {
+            LocationStatus=ex is UnauthorizedAccessException
+                ? "定位权限不可用，使用上次位置；请在天气设置中获取当前位置"
+                : "定位暂不可用，使用上次位置";
             // Location services may be temporarily unavailable. Weather still
             // refreshes from the last known coordinates instead of going blank.
             return (savedLatitude, savedLongitude);
@@ -252,14 +275,19 @@ sealed class WeatherMonitor
         var displayCity = QWeatherDisplayCity(location, city);
 
         var nowTask = QWeatherJson(host, apiKey, $"/v7/weather/now?location={Uri.EscapeDataString(id)}&lang=zh");
-        var dailyTask = QWeatherJson(host, apiKey, $"/v7/weather/3d?location={Uri.EscapeDataString(id)}&lang=zh");
+        var dailyTask = QWeatherJson(host, apiKey, $"/v7/weather/7d?location={Uri.EscapeDataString(id)}&lang=zh");
+        async Task<WeatherHour[]> Hours() {
+            try {using var doc=await QWeatherJson(host,apiKey,$"/v7/weather/24h?location={Uri.EscapeDataString(id)}&lang=zh");RequireCode(doc.RootElement,"逐小时预报");return WeatherForecast.QHours(doc.RootElement);}
+            catch {return [];}
+        }
+        var hoursTask=Hours();
         using var nowDoc = await nowTask;
         using var dailyDoc = await dailyTask;
         RequireCode(nowDoc.RootElement, "实时天气");
         RequireCode(dailyDoc.RootElement, "每日预报");
         var now = nowDoc.RootElement.GetProperty("now");
         var daily = dailyDoc.RootElement.GetProperty("daily")[0];
-        var aqi = (Value: double.NaN, Category: "");
+        var aqi = (Value: double.NaN, Category: "", Code: "");
         var pm25 = -1.0;
         try
         {
@@ -271,7 +299,7 @@ sealed class WeatherMonitor
         catch
         {
             var fallbackAir = await FetchOpenMeteoAir(resolvedLat, resolvedLon);
-            aqi = (fallbackAir.Aqi, "");
+            aqi = (fallbackAir.Aqi, "", "us-epa");
             pm25 = fallbackAir.Pm25;
         }
         var updated = DateTimeOffset.TryParse(now.GetProperty("obsTime").GetString(), out var observed)
@@ -281,6 +309,8 @@ sealed class WeatherMonitor
             City = displayCity, ConfiguredCity = city,
             Condition = CompactCondition(now.GetProperty("text").GetString() ?? "--"),
             AirQuality = CompactAirCategory(aqi.Category, aqi.Value),
+            AirQualityIndex = double.IsFinite(aqi.Value)?aqi.Value:null, AirQualityStandard=aqi.Code,
+            PressureHpa = OptionalNumber(now,"pressure"), PressureKind="station",
             Temperature = ParseDouble(now.GetProperty("temp").GetString()),
             High = ParseDouble(daily.GetProperty("tempMax").GetString()),
             Low = ParseDouble(daily.GetProperty("tempMin").GetString()),
@@ -289,6 +319,7 @@ sealed class WeatherMonitor
             EpochUtc = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             UtcOffsetS = ParseUtcOffset(location.TryGetProperty("utcOffset", out var offset) ? offset.GetString() : null),
             UpdatedUtc = updated, Source = "qweather",
+            Hourly=await hoursTask,Daily=WeatherForecast.QDays(dailyDoc.RootElement),ForecastLocation=id,
         };
     }
 
@@ -315,7 +346,9 @@ sealed class WeatherMonitor
     static async Task<Snapshot> FetchOpenMeteo(string city, bool autoLocation, double latitude, double longitude)
     {
         double lat = latitude, lon = longitude;
-        var canonicalCity = city;
+        // Auto-location coordinates need not match the manually configured city.
+        // Open-Meteo has no reverse lookup here; never label new coordinates with an old district.
+        var canonicalCity = autoLocation ? "当前位置" : city;
         if (!autoLocation)
         {
             var geoUrl = "https://geocoding-api.open-meteo.com/v1/search?count=1&language=zh&name=" + Uri.EscapeDataString(city);
@@ -329,7 +362,7 @@ sealed class WeatherMonitor
         }
         var query = $"latitude={lat.ToString(CultureInfo.InvariantCulture)}&longitude={lon.ToString(CultureInfo.InvariantCulture)}";
         var weatherTask = Http.GetStringAsync("https://api.open-meteo.com/v1/forecast?" + query
-            + "&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto");
+            + "&current=temperature_2m,relative_humidity_2m,weather_code,pressure_msl&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,precipitation_sum&forecast_days=7&timezone=auto");
         var airTask = Http.GetStringAsync("https://air-quality-api.open-meteo.com/v1/air-quality?" + query + "&current=us_aqi,pm2_5");
         await Task.WhenAll(weatherTask, airTask);
         using var weatherDoc = JsonDocument.Parse(await weatherTask);
@@ -344,6 +377,8 @@ sealed class WeatherMonitor
         {
             City = canonicalCity, ConfiguredCity = city,
             Condition = ConditionFor(code), AirQuality = AirFor(aqi), Icon = IconFor(code),
+            AirQualityIndex=double.IsFinite(aqi)?aqi:null,AirQualityStandard="us-epa",
+            PressureHpa=OptionalNumber(current,"pressure_msl"),PressureKind="sea_level",
             Temperature = current.GetProperty("temperature_2m").GetDouble(),
             Pm25 = double.IsNaN(pm25) ? -1 : pm25,
             Humidity = current.GetProperty("relative_humidity_2m").GetInt32(),
@@ -352,6 +387,8 @@ sealed class WeatherMonitor
             EpochUtc = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             UtcOffsetS = weatherDoc.RootElement.TryGetProperty("utc_offset_seconds", out var offset) ? offset.GetInt32() : 0,
             UpdatedUtc = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), Source = "open-meteo",
+            Hourly=WeatherForecast.MeteoHours(weatherDoc.RootElement,DateTime.UtcNow.AddSeconds(weatherDoc.RootElement.TryGetProperty("utc_offset_seconds",out var utcOffset)?utcOffset.GetInt32():0),ConditionFor),
+            Daily=WeatherForecast.MeteoDays(weatherDoc.RootElement,ConditionFor),ForecastLocation=$"{lat:F4},{lon:F4}",
         };
     }
 
@@ -369,7 +406,14 @@ sealed class WeatherMonitor
     void SetSnapshot(Snapshot snapshot)
     {
         snapshot.Stale = false;
-        lock (_lock) _snapshot = snapshot;
+        lock (_lock) {
+            bool samePlace=snapshot.Source==_snapshot.Source&&snapshot.ForecastLocation.Length>0&&snapshot.ForecastLocation==_snapshot.ForecastLocation;
+            snapshot.HourlyStale=snapshot.Hourly.Length==0;
+            snapshot.DailyStale=snapshot.Daily.Length==0;
+            if(samePlace&&snapshot.HourlyStale)snapshot.Hourly=_snapshot.Hourly;
+            if(samePlace&&snapshot.DailyStale)snapshot.Daily=_snapshot.Daily;
+            _snapshot = snapshot;
+        }
         RenderText(snapshot);
     }
 
@@ -586,8 +630,11 @@ sealed class WeatherMonitor
     {
         City = value.City, ConfiguredCity = value.ConfiguredCity, Condition = value.Condition, AirQuality = value.AirQuality,
         Temperature = value.Temperature, High = value.High, Low = value.Low, Pm25 = value.Pm25, Humidity = value.Humidity,
+        AirQualityIndex=value.AirQualityIndex,AirQualityStandard=value.AirQualityStandard,
+        PressureHpa=value.PressureHpa,PressureKind=value.PressureKind,
         Icon = value.Icon, EpochUtc = value.EpochUtc, UtcOffsetS = value.UtcOffsetS,
         UpdatedUtc = value.UpdatedUtc, Stale = value.Stale, Source = value.Source,
+        Hourly=value.Hourly?.ToArray()??[],Daily=value.Daily?.ToArray()??[],HourlyStale=value.HourlyStale,DailyStale=value.DailyStale,ForecastLocation=value.ForecastLocation,
     };
 
     static async Task<JsonDocument> QWeatherJson(string host, string apiKey, string path)
@@ -608,10 +655,18 @@ sealed class WeatherMonitor
             throw new InvalidOperationException($"和风天气{endpoint}返回状态 {code.GetString() ?? "未知"}。 ");
     }
 
-    static (double Value, string Category) AirIndex(JsonElement root)
+    internal static double? OptionalNumber(JsonElement root,string key)
+    {
+        if(!root.TryGetProperty(key,out var value)) return null;
+        double result;
+        if(value.ValueKind==JsonValueKind.Number && value.TryGetDouble(out result) && double.IsFinite(result)) return result;
+        if(value.ValueKind==JsonValueKind.String && double.TryParse(value.GetString(),NumberStyles.Float,CultureInfo.InvariantCulture,out result) && double.IsFinite(result)) return result;
+        return null;
+    }
+    static (double Value, string Category, string Code) AirIndex(JsonElement root)
     {
         if (!root.TryGetProperty("indexes", out var indexes) || indexes.GetArrayLength() == 0)
-            return (double.NaN, "");
+            return (double.NaN, "", "");
         JsonElement selected = indexes[0];
         foreach (var item in indexes.EnumerateArray())
         {
@@ -622,7 +677,7 @@ sealed class WeatherMonitor
         var aqi = selected.TryGetProperty("aqi", out var number) && number.TryGetDouble(out var parsed)
             ? parsed : double.NaN;
         var category = selected.TryGetProperty("category", out var text) ? text.GetString() ?? "" : "";
-        return (aqi, category);
+        return (aqi, category, selected.TryGetProperty("code",out var selectedCode)?selectedCode.GetString()??"":"");
     }
 
     static double AirPollutant(JsonElement root, string code)

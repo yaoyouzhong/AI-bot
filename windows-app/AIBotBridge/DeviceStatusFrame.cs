@@ -27,7 +27,10 @@ internal static class DeviceStatusFrame
             while (quotes.Count > 20) quotes.RemoveAt(quotes.Count - 1);
             foreach (var quote in quotes.OfType<JsonObject>()) { quote.Remove("name"); quote.Remove("symbol"); }
         }
-        if (data["music"] is JsonObject music) music.Remove("album");
+        if (data["music"] is JsonObject music) {
+            music.Remove("album");
+            if(snapshot.Music?.TimelineAvailable==false){music["durationSeconds"]=0;music["elapsedSeconds"]=0;}
+        }
         var frame = new JsonObject { ["version"] = 1, ["type"] = "status", ["data"] = data };
         if (Encoding.UTF8.GetByteCount("@AIBOT " + frame.ToJsonString(JsonDefaults.Options)) > MaximumLineBytes)
             throw new InvalidOperationException("Device status exceeds the 6144-byte wire limit; no truncated JSON was sent.");

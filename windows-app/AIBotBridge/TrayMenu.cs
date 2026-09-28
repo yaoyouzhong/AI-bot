@@ -13,8 +13,16 @@ internal static class TrayMenu
             menu.Items.Add(item);
             return item;
         }
+        void Dispatch(string command)
+        {
+            // Finish closing the notification-area menu before showing a window.
+            // Otherwise the menu's foreground restoration can cover the new form.
+            if (!menu.IsHandleCreated) { action(command); return; }
+            menu.Close(ToolStripDropDownCloseReason.ItemClicked);
+            menu.BeginInvoke(() => { if (!menu.IsDisposed) action(command); });
+        }
         void Command(ToolStripMenuItem parent, string text, string command) =>
-            parent.DropDownItems.Add(text, null, (_, _) => action(command));
+            parent.DropDownItems.Add(text, null, (_, _) => Dispatch(command));
         void Mode(ToolStripMenuItem parent, string text, string mode)
         {
             var item = new ToolStripMenuItem(text) { Tag = mode };
@@ -46,6 +54,7 @@ internal static class TrayMenu
         device.DropDownOpening += (_, _) => summary.Text = connection();
         device.DropDownItems.Add(new ToolStripSeparator());
         Command(device, "设备控制…", "device");
+        Command(device, "TAB5 连接…", "tab5");
         Command(device, "设置连接串口…", "settings");
         Command(device, "小屏刷机…", "flash");
         var usb = new ToolStripMenuItem("USB 管理与诊断");
@@ -110,6 +119,7 @@ internal static class TrayMenu
 
         var content = Group("内容设置");
         Command(content, "设置自选股…", "stocks-settings");
+        Command(content, "日历与生日…", "birthday-settings");
         var weather = new ToolStripMenuItem("设置天气");
         Command(weather, "数据源与定位…", "weather-settings");
         var animations = new ToolStripMenuItem("右下角动画");
@@ -147,8 +157,8 @@ internal static class TrayMenu
         Command(service, "桥接服务地址…", "address");
         Command(service, "全部设置…", "settings");
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("关于 AI-bot…", null, (_, _) => action("about"));
-        menu.Items.Add("退出", null, (_, _) => action("exit"));
+        menu.Items.Add("关于 AI-bot…", null, (_, _) => Dispatch("about"));
+        menu.Items.Add("退出", null, (_, _) => Dispatch("exit"));
         return menu;
     }
 }

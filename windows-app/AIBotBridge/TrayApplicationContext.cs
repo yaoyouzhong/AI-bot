@@ -10,6 +10,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly BridgeSettings _settings;
     private readonly BridgeRuntime _runtime;
     private readonly SerialPublisher _serial;
+    private readonly Tab5Service? _tab5;
+    private Tab5ConnectionForm? _tab5Form;
+    private readonly string? _tab5Error;
     private readonly NotifyIcon _icon;
     private readonly System.Windows.Forms.Timer _timer;
     private int _screenSaverMinutes;
@@ -32,6 +35,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private long _lastWakeCompletion;
     private long _cycleStartedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
+    internal void OpenTab5Connection() => HandleMenuAction("tab5");
+    internal void OfferTab5Ota(string path) {
+        if(_tab5 is null||!_tab5.HasPairedDevice)throw new InvalidOperationException("请先配对 TAB5。");
+        _tab5.OfferOta(path);
+        Console.WriteLine("TAB5_OTA_OFFER_READY device_confirmation_required");
+    }
+
+
     internal TrayApplicationContext()
     {
         _settings = BridgeSettings.Load();
@@ -45,6 +56,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ? configuredPort
             : 8765;
         _serial = new SerialPublisher(null, _settings.Get("serial_port"));
+        try { _tab5 = new Tab5Service(); _tab5.AttachVoice(Environment.GetEnvironmentVariable("AIBOT_TAB5_MIC_DIAGNOSTIC")=="1"?new Tab5MicDiagnostic():new Tab5VoiceHost(physicalToggle:_tab5.TryVoiceHidToggle)); }
+        catch (Exception ex) when (ex is IOException or System.Security.Cryptography.CryptographicException or UnauthorizedAccessException or FormatException or JsonException or System.ComponentModel.Win32Exception)
+        { _tab5Error = "TAB5 配对记录无法加载，请保留原文件后处理：" + ex.GetType().Name; }
+        _serial.ReservedPort = () => _tab5?.ReservedPort;
+        _runtime.Domestic.Tab5Paired = () => _tab5?.HasPairedDevice == true;
 
         var menu = TrayMenu.Build(HandleMenuAction, SelectDisplayMode, () => _selectedMode,
             () => _serial.PortName is { } port ? $"已连接：{port}（USB）" : "等待 USB 设备（自动连接）", () => _runtime.Capture().Quotas);
@@ -64,6 +80,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(_exitSignal.WaitOne(0)){ExitThread();return;}
             while (_flashActions.TryDequeue(out var action)) action();
             var status = _runtime.Capture();
+            _tab5?.Publish(status);
             var codexForeground = ForegroundObserver.CodexVisible();
             if (codexForeground && !_codexWasForeground && status.Codex.CompletionActive)
                 SessionActivityReader.Signals.Acknowledge();
@@ -91,14 +108,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _flashActions.Enqueue(() => { RestartCycle(); done.TrySetResult(); });
                 return done.Task.WaitAsync(token);
             }, _shutdown.Token));
-        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo);
+        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo, () => _tab5?.DiagnosticSummary ?? _tab5Error ?? "TAB5 未启用");
         _ = Task.Run(() => server.RunAsync(_runtime.Capture, _shutdown.Token));
         var discovery = new LanDiscoveryServer();
+        if(_tab5 is not null)discovery.Tab5Response=_tab5.Discover;
         _ = Task.Run(() => LanBindingManager.RunAsync(httpPort, _serial,
-            _runtime.Capture, _runtime.Resources, _shutdown.Token, discovery: discovery));
+            _runtime.Capture, _runtime.Resources, _shutdown.Token, discovery: discovery, tab5: _tab5));
         _ = Task.Run(() => discovery.RunAsync(_shutdown.Token));
         _ = Task.Run(() => _serial.RunAsync(_runtime.Capture, _runtime.Resources, _shutdown.Token));
         _ = Task.Run(() => _serial.RunMetricsAsync(() => _runtime.SystemMetrics, _shutdown.Token));
+        if (_tab5 is not null) {
+            _ = Task.Run(() => _tab5.RunUsbAsync(_shutdown.Token));
+            _ = Task.Run(() => _tab5.RunBleAsync(_shutdown.Token));
+        }
     }
 
     private async void HandleMenuAction(string action)
@@ -158,6 +180,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         switch (action)
         {
+            case "tab5":
+                if (_tab5 is null) { MessageBox.Show(_tab5Error, "TAB5"); break; }
+                if (_tab5Form is null || _tab5Form.IsDisposed) _tab5Form = new Tab5ConnectionForm(_tab5);
+                SettingsWindow.Present(_tab5Form); break;
             case "refresh":
                 if (_refreshBusy) break;
                 _refreshBusy = true;
@@ -179,6 +205,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "settings": ShowSettings(); break;
             case "stocks-settings": ShowSettings("stocks"); break;
             case "weather-settings": ShowWeatherSettings(); break;
+            case "birthday-settings":
+                using (var dialog = new BirthdaySettingsForm()) dialog.ShowDialog();
+                break;
             case "device": ShowDeviceControl(); break;
             case "flash":
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) {
@@ -201,7 +230,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "pet": ImportPet(); break;
             case "pet-gallery":
                 if (_petGallery is null || _petGallery.IsDisposed) _petGallery = new PetGalleryForm(SelectDisplayMode);
-                _petGallery.Show(); _petGallery.Activate(); break;
+                SettingsWindow.Present(_petGallery); break;
             case "address": MessageBox.Show("本机状态接口：http://127.0.0.1:" +
                 (Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT") ?? "8765") +
                 "/status\n局域网回退使用独立鉴权，以上本机地址不能供设备访问。", "桥接服务地址"); break;
@@ -369,8 +398,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (_deviceControl is null || _deviceControl.IsDisposed)
             _deviceControl = new DeviceControlForm(_serial, SelectDisplayMode, _selectedMode);
-        _deviceControl.Show();
-        _deviceControl.Activate();
+        SettingsWindow.Present(_deviceControl);
     }
 
     private void ShowSettings(string? section = null)
@@ -380,8 +408,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _settingsForm = new SettingsForm(_settings);
             _settingsForm.FormClosed += (_,_)=>_runtime.ReloadSettings();
         }
-        _settingsForm.Show();
-        _settingsForm.Activate();
+        SettingsWindow.Present(_settingsForm);
         _settingsForm.FocusSection(section);
     }
 
@@ -400,8 +427,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (_weatherSettings is null || _weatherSettings.IsDisposed)
             _weatherSettings = new MigratedWeather.WeatherSettingsForm(_runtime.Weather);
-        _weatherSettings.Show();
-        _weatherSettings.Activate();
+        SettingsWindow.Present(_weatherSettings);
     }
 
     private void ImportPet(string? owner = null)
@@ -446,7 +472,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _settingsForm?.Close();
         _weatherSettings?.Close();
         _deviceControl?.Close();
+        _tab5Form?.Close();
         _shutdown.Cancel();
+        _tab5?.Dispose();
         _runtime.Dispose();
         _icon.Visible = false;
         _icon.Icon?.Dispose();

@@ -11,12 +11,14 @@ internal sealed class LanStatusServer
     private readonly TcpListener _listener;
     private readonly string _token;
     private readonly Func<IReadOnlyList<ResourcePayload>> _resources;
+    private readonly Tab5Service? _tab5;
 
-    internal LanStatusServer(LanPairing pairing, Func<IReadOnlyList<ResourcePayload>>? resources = null)
+    internal LanStatusServer(LanPairing pairing, Func<IReadOnlyList<ResourcePayload>>? resources = null, Tab5Service? tab5 = null)
     {
         _listener = new TcpListener(pairing.Address, pairing.Port);
         _token = pairing.Token;
         _resources = resources ?? (() => []);
+        _tab5 = tab5;
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken,
@@ -29,6 +31,7 @@ internal sealed class LanStatusServer
             while (!cancellationToken.IsCancellationRequested)
             {
                 var client = await _listener.AcceptTcpClientAsync(cancellationToken);
+                client.NoDelay = true;
                 _ = HandleAsync(client, snapshot, cancellationToken);
             }
         }
@@ -45,14 +48,15 @@ internal sealed class LanStatusServer
         TcpClient client, Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
     {
         using var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
-        try { await HandleCoreAsync(client,snapshot,timeout.Token); }
+        timeout.CancelAfter(TimeSpan.FromSeconds(60));
+        try { await HandleCoreAsync(client,snapshot,timeout,timeout.Token); }
         catch(Exception ex) when(ex is IOException or SocketException or OperationCanceledException) { client.Dispose(); }
     }
 
     private async Task HandleCoreAsync(
         TcpClient client,
         Func<StatusSnapshot> snapshot,
+        CancellationTokenSource timeout,
         CancellationToken cancellationToken)
     {
         using (client)
@@ -60,6 +64,59 @@ internal sealed class LanStatusServer
         {
             var lines = await ReadHeaderAsync(stream, cancellationToken);
             var requestLine = lines.FirstOrDefault() ?? string.Empty;
+            if(requestLine=="POST /tab5/v1/voice HTTP/1.1") {
+                await HandleVoiceAsync(stream,lines,timeout,cancellationToken);
+                return;
+            }
+            if (requestLine == "GET /tab5/v1/status HTTP/1.1")
+            {
+                string Header(string name) => lines.FirstOrDefault(l => l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
+                var packet = _tab5?.Respond(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),Header("X-AIBot-Assets"),Header("X-AIBot-Assets-Proof"),Header("X-Tab5-Firmware"),Header("X-Tab5-Firmware-Proof"));
+                var diagPath=Environment.GetEnvironmentVariable("AIBOT_TAB5_DIAG_LOG");
+                var diag=Header("X-Tab5-Diag");
+                if(packet is not null&&diagPath is not null&&diag.Length is >0 and <160&&diag.All(c=>char.IsAsciiDigit(c)||c is ',' or '-'))
+                {
+                    try { File.AppendAllText(diagPath,$"{DateTimeOffset.Now:O} DEV {diag}{Environment.NewLine}"); }
+                    catch(Exception ex) when(ex is IOException or UnauthorizedAccessException) { }
+                }
+                if (packet is null) await WriteResponseAsync(stream,"401 Unauthorized","{\"error\":\"unavailable_or_unauthorized\"}",cancellationToken);
+                else await WriteBytesAsync(stream,"200 OK",packet,cancellationToken);
+                return;
+            }
+            if(requestLine.StartsWith("GET /tab5/v1/ota/",StringComparison.Ordinal)&&requestLine.EndsWith(" HTTP/1.1",StringComparison.Ordinal)) {
+                string Header(string name)=>lines.FirstOrDefault(l=>l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
+                var sha=requestLine["GET /tab5/v1/ota/".Length..^" HTTP/1.1".Length];
+                var image=_tab5?.OtaImage(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),sha);
+                if(image is null)await WriteResponseAsync(stream,"401 Unauthorized","{\"error\":\"ota_unavailable_or_unauthorized\"}",cancellationToken);
+                else {
+                    timeout.CancelAfter(TimeSpan.FromMinutes(6));
+                    await _tab5!.TransferOtaAsync(stream,image,Header("X-AIBot-Device"),Header("X-AIBot-OTA-Flow"),cancellationToken);
+                }
+                return;
+            }
+            if (requestLine is "POST /tab5/v1/codex/turn HTTP/1.1" or "POST /tab5/v1/codex/read HTTP/1.1" or "POST /tab5/v1/codex/image HTTP/1.1")
+            {
+                bool imageOnly=requestLine=="POST /tab5/v1/codex/image HTTP/1.1";
+                string Header(string name) => lines.FirstOrDefault(l => l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
+                if (!int.TryParse(Header("Content-Length"), out var length) || length<28 || length>(imageOnly?Tab5CodexImages.MaxPacket:8192))
+                {
+                    // Drain only bounded photo-sized bodies before closing, so TCP
+                    // does not reset the socket and hide the explicit 413 response.
+                    if(length is >8192 and <=Tab5CodexImages.MaxPacket) {
+                        byte[] discard=new byte[8192];int remaining=length;
+                        while(remaining>0){int count=await stream.ReadAsync(discard.AsMemory(0,Math.Min(discard.Length,remaining)),cancellationToken);if(count==0)break;remaining-=count;}
+                    }
+                    await WriteResponseAsync(stream,"413 Content Too Large","{\"error\":\"invalid_length\"}",cancellationToken);
+                    return;
+                }
+                var packet=new byte[length];
+                await stream.ReadExactlyAsync(packet,cancellationToken);
+                var result=_tab5 is null ? (Status:503,Body:(object)new {error="tab5_unavailable"}) :
+                    await _tab5.SubmitCodexAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,requestLine.Contains("/codex/read ",StringComparison.Ordinal),imageOnly);
+                await WriteResponseAsync(stream,result.Status switch {200=>"200 OK",202=>"202 Accepted",400=>"400 Bad Request",401=>"401 Unauthorized",404=>"404 Not Found",409=>"409 Conflict",429=>"429 Too Many Requests",504=>"504 Gateway Timeout",_=>"503 Service Unavailable"},
+                    JsonSerializer.Serialize(result.Body,JsonDefaults.Options),cancellationToken);
+                return;
+            }
             var suppliedToken = lines
                 .FirstOrDefault(line => line.StartsWith("X-AIBot-Token:", StringComparison.OrdinalIgnoreCase))?
                 .Split(':', 2)[1].Trim() ?? string.Empty;
@@ -79,6 +136,27 @@ internal sealed class LanStatusServer
                 ? JsonSerializer.Serialize(snapshot(), JsonDefaults.Options)
                 : authenticated ? "{\"error\":\"not_found\"}" : "{\"error\":\"unauthorized\"}";
             await WriteResponseAsync(stream, statusCode, body, cancellationToken);
+        }
+    }
+
+    private async Task HandleVoiceAsync(NetworkStream stream, IReadOnlyList<string> lines,
+        CancellationTokenSource timeout, CancellationToken cancellationToken)
+    {
+        // One authenticated request per audio chunk, on one TCP connection for
+        // the voice session. Closing every 200 ms exhausts TAB5's lwIP memory.
+        timeout.CancelAfter(TimeSpan.FromSeconds(75));
+        for (int requests=0; requests<400; requests++)
+        {
+            string Header(string name)=>lines.FirstOrDefault(l=>l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
+            if(!int.TryParse(Header("Content-Length"),out int length)||length is <28 or >16384) {
+                await WriteResponseAsync(stream,"413 Content Too Large","{}",cancellationToken);return;
+            }
+            var packet=new byte[length];await stream.ReadExactlyAsync(packet,cancellationToken);
+            var reply=_tab5 is null?(Status:401,Packet:(byte[]?)null):await _tab5.VoiceAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken);
+            if(reply.Packet is null) {await WriteResponseAsync(stream,"401 Unauthorized","{}",cancellationToken);return;}
+            await WriteBytesAsync(stream,"200 OK",reply.Packet,cancellationToken,keepAlive:true);
+            lines=await ReadHeaderAsync(stream,cancellationToken);
+            if(lines.FirstOrDefault()!="POST /tab5/v1/voice HTTP/1.1")return;
         }
     }
 
@@ -113,12 +191,21 @@ internal sealed class LanStatusServer
         var payload = Encoding.UTF8.GetBytes(body);
         await WriteBytesAsync(stream, status, payload, cancellationToken, "application/json; charset=utf-8");
     }
-    private static async Task WriteBytesAsync(NetworkStream stream, string status, byte[] payload, CancellationToken cancellationToken, string contentType="application/octet-stream")
+    private static async Task WriteBytesAsync(NetworkStream stream, string status, byte[] payload, CancellationToken cancellationToken, string contentType="application/octet-stream", bool keepAlive=false)
     {
         var headers = Encoding.ASCII.GetBytes(
             $"HTTP/1.1 {status}\r\nContent-Type: {contentType}\r\n" +
-            $"Content-Length: {payload.Length}\r\nConnection: close\r\n\r\n");
-        await stream.WriteAsync(headers, cancellationToken);
-        await stream.WriteAsync(payload, cancellationToken);
+            $"Content-Length: {payload.Length}\r\nConnection: {(keepAlive?"keep-alive":"close")}\r\n\r\n");
+        // A voice reply must arrive as one TCP write. Separate header and body
+        // writes can wait for a delayed ACK on every 200 ms audio exchange.
+        if (keepAlive) {
+            var response = new byte[headers.Length + payload.Length];
+            Buffer.BlockCopy(headers, 0, response, 0, headers.Length);
+            Buffer.BlockCopy(payload, 0, response, headers.Length, payload.Length);
+            await stream.WriteAsync(response, cancellationToken);
+        } else {
+            await stream.WriteAsync(headers, cancellationToken);
+            await stream.WriteAsync(payload, cancellationToken);
+        }
     }
 }

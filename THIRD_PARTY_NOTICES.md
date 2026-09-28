@@ -58,3 +58,11 @@ https://github.com/espressif/esptool/tree/v4.9.1
 https://github.com/espressif/esptool/releases/tag/v4.9.1
 
 Device backups are private runtime data, never distribution materials.
+
+## TAB5 voice audio library
+
+The Windows TAB5 voice bridge uses NAudio.Wasapi and NAudio.Core 2.2.1 (MIT), by Mark Heath and contributors. Source: https://github.com/naudio/NAudio. The original MIT notice is retained in `licenses/naudio/license.txt`. VB-CABLE is a separately installed third-party driver and is not bundled or licensed by this repository.
+
+## Mainland China holiday dataset
+
+TAB5 checks the publicly maintained holiday-cn JSON dataset by NateScarlet (MIT): https://github.com/NateScarlet/holiday-cn. Each accepted year must cite a State Council notice; this is a third-party dataset, not an official government API. The 2026 test fixture comes from that project. Its original license is retained in `licenses/holiday-cn/LICENSE`. Cached schedules survive network failures; unpublished years are never generated from predictions.

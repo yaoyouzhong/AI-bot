@@ -12,11 +12,11 @@ internal sealed class CycleSettingsForm : Form
     private readonly Label _count = new() { AutoSize=true, Anchor=AnchorStyles.Left, ForeColor=Color.FromArgb(85,95,110) };
     internal CycleSettingsForm()
     {
-        Text="调整展示顺序";
+        SuspendLayout();Text="调整展示顺序";
         AutoScaleDimensions=new SizeF(96,96);
         AutoScaleMode=AutoScaleMode.Dpi;
         Font=new Font("Microsoft YaHei UI",10,FontStyle.Regular,GraphicsUnit.Point);
-        ClientSize=new Size(560,600);
+        ClientSize=new Size(500,520);
         MinimumSize=new Size(480,460);
         StartPosition=FormStartPosition.CenterScreen;
         MinimizeBox=false;
@@ -62,12 +62,15 @@ internal sealed class CycleSettingsForm : Form
         var cancel=new Button { Text="取消",AutoSize=true,MinimumSize=new Size(82,36),DialogResult=DialogResult.Cancel,Margin=Padding.Empty };
         save.Click+=(_,_)=>Save();actions.Controls.Add(save);actions.Controls.Add(cancel);footer.Controls.Add(actions,1,0);
         root.Controls.Add(footer,0,4);Controls.Add(root);AcceptButton=save;CancelButton=cancel;
+        cancel.CausesValidation=false;
+        cancel.Click+=(_,_)=>Close();
         _pages.SelectedIndexChanged+=(_,_)=>UpdateState();
         _pages.ItemChecked+=(_,_)=>UpdateState();
         _pages.Resize+=(_,_)=>_pages.Columns[0].Width=Math.Max(80,_pages.ClientSize.Width-SystemInformation.VerticalScrollBarWidth-4);
         _pages.KeyDown+=(_,e)=>{if(e.Alt&&(e.KeyCode==Keys.Up||e.KeyCode==Keys.Down)){MovePage(e.KeyCode==Keys.Up?-1:1);e.Handled=true;e.SuppressKeyPress=true;}};
         Shown+=(_,_)=>{if(_pages.Items.Count>0){_pages.Items[0].Selected=true;_pages.Select();}UpdateState();};
-        UpdateState();
+        foreach(var button in new[]{_up,_down,save,cancel})SettingsWindow.StyleButton(button,button==save);
+        SettingsWindow.FitScreen(this);ResumeLayout(true);UpdateState();
     }
     private void UpdateState()
     {

@@ -5,6 +5,30 @@ internal static class DisplayPolicySelfTest
     internal static void Run()
     {
         AutoFollowSelfTest.Run();
+        var stocksOnly = new DisplayPolicy("stocks",false,15,new[]{"domestic_deepseek","domestic_zhipu"});
+        bool Configured(string provider) => provider is "deepseek" or "zhipu";
+        Require(QuotaMonitoringPolicy.Monitored(stocksOnly,"alibaba",Configured).Count==0,
+            "ESP8266 alone preserves fixed-page quota monitoring.");
+        Require(QuotaMonitoringPolicy.Monitored(stocksOnly,"alibaba",Configured,tab5Paired:true).SetEquals(new[]{"deepseek","zhipu"}),
+            "Paired TAB5 refreshes configured quotas while ESP8266 stays on stocks with cycling disabled.");
+        Require(QuotaMonitoringPolicy.Monitored(stocksOnly,"alibaba",_=>true,tab5Paired:true).SetEquals(new[]{"deepseek","zhipu"}),
+            "Previously authorized but unselected providers must not be queried or emit quota warnings.");
+        Require(QuotaMonitoringPolicy.Monitored(stocksOnly with {Pages=new[]{"domestic_kimi"}},"alibaba",_=>true,tab5Paired:true).SetEquals(new[]{"kimi"}),
+            "Changing the selected pages immediately replaces TAB5 background provider demand.");
+        Require(QuotaMonitoringPolicy.Monitored(stocksOnly,"alibaba",_=>false,tab5Paired:true).Count==0,
+            "TAB5 must not query accounts that were never configured.");
+        var quotaCycle=stocksOnly with {SelectedMode="auto",CycleEnabled=true};
+        Require(QuotaMonitoringPolicy.Monitored(quotaCycle,"alibaba",Configured,tab5Paired:true).Count==2,
+            "TAB5 and ESP8266 demand must not duplicate provider requests.");
+        Require(!QuotaMonitoringPolicy.Monitored(stocksOnly,"alibaba",_=>true,tab5Paired:true).Contains("volcengine"),
+            "Unsupported catalog entries must not be scheduled.");
+        var webProviders=new[]{"qwen","kimi","deepseek","zhipu"};
+        Require(QuotaMonitoringPolicy.OrderWeb(webProviders,true).SequenceEqual(new[]{"zhipu","deepseek","qwen","kimi"}),
+            "TAB5 overview wallets refresh before older configured accounts at startup, without dropping providers.");
+        Require(QuotaMonitoringPolicy.OrderWeb(webProviders,false).SequenceEqual(webProviders),
+            "ESP8266-only web scheduling order stays unchanged.");
+        Require(QuotaMonitoringPolicy.OrderWeb(new[]{"kimi"},true).SequenceEqual(new[]{"kimi"}),
+            "Web priority must not add an unconfigured overview provider.");
         var folder = Path.Combine(Environment.CurrentDirectory, "artifacts", "policy-test-" + Guid.NewGuid().ToString("N"));
         var first = BridgeSettings.CreatePublicSelfTestSettings();
         var second = BridgeSettings.CreatePublicSelfTestSettings();
