@@ -189,7 +189,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             try{usbDevices=FlashDeviceDiscovery.Read();}
             catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or IOException or UnauthorizedAccessException){await Task.Delay(3000,cancellationToken);continue;}
             var tabPorts=usbDevices.Where(d=>d.Identity.Contains("VID_303A",StringComparison.OrdinalIgnoreCase)).Select(d=>d.Port).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var candidate in CandidatePorts())
+            foreach (var candidate in BoundPorts(ExpectedUsbIdentity,usbDevices,CandidatePorts))
             {
                 if(ExpectedUsbIdentity is {} expected&&!usbDevices.Any(d=>d.Port.Equals(candidate,StringComparison.OrdinalIgnoreCase)&&d.Identity==expected))continue;
                 if (tabPorts.Contains(candidate)||string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
@@ -419,6 +419,9 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         }
         return false;
     }
+
+    internal static IReadOnlyList<string> BoundPorts(string? identity,IReadOnlyList<FlashUsbDevice> devices,Func<IReadOnlyList<string>> unboundPorts)=>
+        identity is null?unboundPorts():devices.Where(d=>d.Identity==identity).Select(d=>d.Port).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     private IReadOnlyList<string> CandidatePorts()
     {

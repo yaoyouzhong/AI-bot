@@ -9,6 +9,11 @@ internal static class DeviceCenterSelfTest
     private static void Check(bool ok,string message){if(!ok)throw new InvalidOperationException(message);}
     internal static void Run(string directory) {
         AppPaths.BeginPublicSelfTest();Directory.CreateDirectory(directory);DeviceRegistrySelfTest.Run();
+        const string usb=@"USB\VID_1A86&PID_7523\REGISTERED";
+        var ports=new[]{new FlashUsbDevice("COM12",usb,"known"),new FlashUsbDevice("COM9",@"USB\VID_1A86&PID_7523\OTHER","other")};
+        Check(SerialPublisher.BoundPorts(usb,ports,()=>["COM9"]).SequenceEqual(["COM12"]),"Bound USB did not follow COM renumbering");
+        Check(SerialPublisher.BoundPorts(usb,[ports[1]],()=>["COM9"]).Count==0,"Unrelated device reused old COM binding");
+        Check(SerialPublisher.BoundPorts(null,ports,()=>["COM9"]).SequenceEqual(["COM9"]),"Legacy explicit port compatibility changed");
         Exception? failure=null;
         using(var runner=new Form{ShowInTaskbar=false,StartPosition=FormStartPosition.Manual,Location=new(-30000,-30000),Size=new(200,100)}) {
             runner.Shown+=async(_,_)=>{try{await CheckServicesAsync();await CheckLanAsync();}catch(Exception ex){failure=ex;}finally{runner.Close();}};
@@ -25,7 +30,7 @@ internal static class DeviceCenterSelfTest
                 foreach(var device in devices){var item=roots.Single(i=>Equals(i.Tag,device.Id));Check(item.DropDownItems.Cast<ToolStripItem>().All(i=>i.Enabled==device.Enabled),"Disabled menu action enabled");
                     var first=(ToolStripMenuItem)item.DropDownItems[0];first.PerformClick();if(device.Enabled)Check(target==device.Id&&action==DeviceCapabilities.Actions(device.Kind)[0].Action,"Menu target lost");}
             }
-            foreach(float scale in new[]{1F,1.25F,1.5F,2F})using(var form=new DeviceCenterForm(store,_=>new(false,"离线","USB：未连接  Wi-Fi：未连接  蓝牙：未连接","待连接读取"),(id,a)=>{target=id;action=a;},(_,_)=>Task.CompletedTask,()=>{},()=>{})) {
+            foreach(float scale in new[]{1F,1.25F,1.5F,2F})using(var form=new DeviceCenterForm(store,d=>new(false,"离线",d.Kind==HardwareKind.Tab5?"USB：未连接  Wi-Fi：未连接  蓝牙：未连接":"USB：未连接  Wi-Fi：未连接","待连接读取"),(id,a)=>{target=id;action=a;},(_,_)=>Task.CompletedTask,()=>{},()=>{})) {
                 form.Scale(new SizeF(scale,scale));Capture(form,directory,$"{key}-{scale:0.00}");
                 if(devices.Length>1){var list=Descendants(form).OfType<ListBox>().Single();list.SelectedIndex=1;Application.DoEvents();Check(Descendants(form).OfType<Button>().Any(b=>b.Text=="语音设置"),"Switch did not show TAB5 capabilities");Check(!Descendants(form).OfType<Button>().Any(b=>b.Text=="设备镜像"),"ESP action leaked into TAB5");}
                 form.Size=form.MinimumSize;Capture(form,directory,$"{key}-{scale:0.00}-minimum");
