@@ -42,7 +42,7 @@ internal sealed class MigratedDomesticBridge : IDisposable
             p=>_service.WasAuthorized(p) || _service.HasOfficialApi(p),Tab5Paired());
     }
     private string[] WebProviders(HashSet<string> monitored) => QuotaMonitoringPolicy.OrderWeb(
-        Providers.Where(p=>monitored.Contains(p) && !_service.HasOfficialApi(p) && p is not ("stepfun" or "baidu")),Tab5Paired());
+        Providers.Where(p=>monitored.Contains(p) && !_service.UsesOnlyOfficialApi(p) && p is not ("stepfun" or "baidu")),Tab5Paired());
     internal void RefreshNext(DisplayPolicy policy)
     {
         _monitorPolicy=policy;
@@ -59,14 +59,14 @@ internal sealed class MigratedDomesticBridge : IDisposable
         }
         if (DateTimeOffset.UtcNow < _nextRefresh || web.Length==0) return;
         _nextRefresh = DateTimeOffset.UtcNow.AddSeconds(65);
-        _service.Refresh(web[_providerIndex++ % web.Length]);
+        _service.Refresh(web[_providerIndex++ % web.Length],webOnly:true);
     }
     internal void RefreshNow()
     {
         var monitored=Monitored(_monitorPolicy ?? DisplayModes.Load(BridgeSettings.Load()));
         foreach (var provider in monitored.Where(_service.HasOfficialApi)) _service.Refresh(provider,force:true);
         var web=WebProviders(monitored).FirstOrDefault();
-        if(web is not null) _service.Refresh(web,force:true);
+        if(web is not null) _service.Refresh(web,force:true,webOnly:true);
         _nextRefresh=DateTimeOffset.UtcNow.AddSeconds(65);
     }
     internal string? TakeRefreshWarning(DisplayPolicy policy)

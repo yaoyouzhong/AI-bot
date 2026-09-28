@@ -15,6 +15,7 @@ internal static class Tab5SelfTest
         WeatherForecastSelfTest.Run();
         await Tab5OtaFlowSelfTest.RunAsync();
         QuotaHistorySelfTest.Run();
+        await QuotaHistorySelfTest.CollectionAsync();
         await Tab5CodexSelfTest.RunAsync();
         await Tab5ImageSelfTest.RunAsync();
         void Check(bool pass,string name) {if(!pass)throw new InvalidOperationException("TAB5 test failed: "+name);}

@@ -8,13 +8,13 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        if(args.Length==2&&args[0]=="--self-test-tab5-install"){Tab5InstallSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
-        if(args.Length==2&&args[0]=="--capture-tab5-install"){ApplicationConfiguration.Initialize();Tab5InstallSelfTest.Capture(args[1]);return;}
-        if(args.Length==2&&args[0]=="--self-test-tab5-install-tool"){Tab5InstallSelfTest.CheckToolAsync(args[1]).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-holidays"){Tab5HolidaySelfTest.Run(args[1]);return;}
+        if(args.Length==2&&args[0]=="--self-test-tab5-install"){Tab5InstallSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--capture-tab5-install"){ApplicationConfiguration.Initialize();Tab5InstallSelfTest.Capture(args[1]);return;}
+        if(args.Length==2&&args[0]=="--self-test-tab5-install-tool"){Tab5InstallSelfTest.CheckToolAsync(args[1]).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--tab5-wifi-list-once") {
             using var service=new Tab5Service();var networks=service.ReadWifiNetworksAsync(CancellationToken.None).GetAwaiter().GetResult();
             Console.WriteLine(JsonSerializer.Serialize(new{networks},JsonDefaults.Options));return;
@@ -35,6 +35,12 @@ internal static class Program
         if(args.Length==2&&args[0]=="--preview-tab5-voice-settings"){ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.PreviewSettings(args[1]);return;}
         if(args.Length==1&&args[0]=="--tab5-voice-devices"){
             Console.WriteLine(JsonSerializer.Serialize(new{inputs=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Capture).Select(d=>new{d.Name,dji=Tab5VoiceAudio.IsDji(d.Name)}),cable=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Render).Any(d=>Tab5VoiceAudio.IsCable(d.Name))},JsonDefaults.Options));return;
+        }
+        if(args.Length==1 && args[0]=="--verify-deepseek-web") {MediaCostSelfTest.VerifyWeb();return;}
+        if(args.Length==1 && args[0]=="--self-test-media-cost") {MediaCostSelfTest.Run();return;}
+        if(args.Length==4 && args[0]=="--netease-duration-once") {
+            var value=NeteaseLocalDuration.Read("cloudmusic.exe",args[1],args[2],args[3]);
+            Console.WriteLine("NETEASE_LOCAL_DURATION_SECONDS="+(value?.ToString(System.Globalization.CultureInfo.InvariantCulture)??"unknown"));return;
         }
         if (args.Length == 2 && args[0] == "--tab5-offer-ota")
         {
@@ -74,6 +80,17 @@ internal static class Program
         }
         if (args.Length == 1 && args[0] == "--self-test-tab5")
         { Tab5SelfTest.RunAsync().GetAwaiter().GetResult(); return; }
+        if (args.Length == 1 && args[0] == "--quota-history-once")
+        {
+            var rows = QuotaHistory.Shared.Read();
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, QuotaHistory.StatisticsZone).DateTime);
+            Console.WriteLine(JsonSerializer.Serialize(new {
+                timezone="Asia/Shanghai", unit="weekly_percentage_points", pollSeconds=60,
+                samples=rows.Length, lastSample=rows.LastOrDefault()?.At, storageError=QuotaHistory.Shared.Error,
+                days=QuotaHistory.Daily(rows,today,7,QuotaHistory.StatisticsZone)
+            },JsonDefaults.Options));
+            return;
+        }
         if (args.Length == 2 && args[0] == "--capture-flasher-complete")
         {
             ApplicationConfiguration.Initialize(); FirmwareFlashSelfTest.Capture(args[1], completedPreview: true); return;

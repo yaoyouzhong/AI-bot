@@ -14,6 +14,11 @@ sealed partial class DomesticQuotaService
         "minimax" => MiniMaxCredentialTarget, _ => throw new ArgumentOutOfRangeException(nameof(provider)) };
     private static string ApiKey(string provider) => provider == "minimax" ? MiniMaxApiKey() : CredentialStore.Read(Target(provider)).Trim();
     internal bool HasOfficialApi(string provider) => SupportsOfficialApi(provider) && ApiKey(provider).Length > 0;
+    internal bool UsesOnlyOfficialApi(string provider) => provider!="deepseek" && HasOfficialApi(provider);
+    private static string DeepSeekKeyScope() {
+        var key=ApiKey("deepseek");
+        return key.Length==0?"web":Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key)));
+    }
     internal void SaveOfficialApiKey(string provider, string key)
     {
         if (string.IsNullOrWhiteSpace(key)) return;
@@ -37,7 +42,7 @@ sealed partial class DomesticQuotaService
                 var response = await DeepSeekBalanceApi.FetchAsync(key, Snapshot.DeepSeekCurrency == "USD" ? "USD" : "CNY");
                 if (response.RateLimited) BackOff(provider);
                 if (key != ApiKey(provider)) return (false,"凭据已更换，请重新查询。");
-                if (response.Success) SetDeepSeek(response.Balance!.Value, response.Currency);
+                if (response.Success) SetDeepSeek(response.Balance!.Value, response.Currency, fromApi:true);
                 result = (response.Success, response.Success ? $"DeepSeek 官方 API 已更新：{response.Currency} {response.Balance:0.00}。" : response.Error);
             }
             else if (provider == "kimi")

@@ -24,10 +24,10 @@ internal sealed class QuotaHistory
         {
             if (File.Exists(_path))
             {
-                if (new FileInfo(_path).Length > 32 * 1024 * 1024) throw new InvalidDataException();
+                if (new FileInfo(_path).Length > 64 * 1024 * 1024) throw new InvalidDataException();
                 var rows = JsonSerializer.Deserialize<List<QuotaObservation>>(File.ReadAllText(_path)) ?? throw new InvalidDataException();
                 if (rows.Any(x => x is null || !Valid(x))) throw new InvalidDataException();
-                _samples.AddRange(rows.OrderBy(x => x.At).DistinctBy(x => x.At).TakeLast(70000));
+                _samples.AddRange(rows.OrderBy(x => x.At).DistinctBy(x => x.At).TakeLast(140000));
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
@@ -46,7 +46,7 @@ internal sealed class QuotaHistory
             if (_samples.LastOrDefault() is { } last && row.At <= last.At) return;
             _samples.Add(row);
             _samples.RemoveAll(x => x.At < row.At.AddDays(-90));
-            if (_samples.Count > 70000) _samples.RemoveRange(0, _samples.Count - 70000);
+            if (_samples.Count > 140000) _samples.RemoveRange(0, _samples.Count - 140000);
             if (_preserveOriginal) return; // Never overwrite damaged evidence; transient save failures can retry.
             try
             {
@@ -70,9 +70,10 @@ internal sealed class QuotaHistory
             var end = start.AddDays(1);
             var indexes = Enumerable.Range(0, rows.Count).Where(i => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(rows[i].At, zone).DateTime) == day).ToArray();
             double total = 0; int comparable = 0, resets = 0, uncertainResets = 0, gaps = 0;
-            // Closing midnight sample closes the previous day and is the next day's baseline.
-            var intervals = Enumerable.Range(0, rows.Count).Where(i => rows[i].At > start && rows[i].At <= end).ToArray();
-            bool partial = day >= today || !rows.Any(x => x.At == start && x.Weekly.HasValue) || !rows.Any(x => x.At == end && x.Weekly.HasValue);
+            // Attribute each short observed increment to the date of its later sample.
+            // This also gives midnight a deterministic owner without splitting rounded percentages.
+            var intervals = Enumerable.Range(0, rows.Count).Where(i => rows[i].At >= start && rows[i].At < end).ToArray();
+            bool partial = day >= today || !BoundaryCovered(rows, start) || !BoundaryCovered(rows, end);
             foreach (int i in intervals)
             {
                 if (i == 0) continue;
@@ -80,16 +81,23 @@ internal sealed class QuotaHistory
                 if (string.IsNullOrEmpty(previous.AccountFingerprint) || previous.AccountFingerprint != current.AccountFingerprint) partial = true;
                 if (previous.AccountFingerprint is not null && current.AccountFingerprint is not null && previous.AccountFingerprint != current.AccountFingerprint)
                 { gaps++; continue; }
-                // Crossing midnight cannot allocate consumption accurately to either day.
-                if (previous.At < start) { partial = true; continue; }
+                // User policy: normal short polling intervals spanning midnight belong to
+                // the later sample's day. Never pull multi-day downtime into today's total.
+                if (previous.At < start && (current.At - previous.At > TimeSpan.FromMinutes(5) ||
+                    string.IsNullOrEmpty(previous.AccountFingerprint))) { partial = true; continue; }
                 if (previous.Weekly is not double before || current.Weekly is not double after || previous.Plan != current.Plan)
                 { gaps++; partial = true; continue; }
-                if (current.At <= previous.At || current.At - previous.At > TimeSpan.FromMinutes(5)) { gaps++; partial = true; continue; }
+                if (current.At <= previous.At) { gaps++; partial = true; continue; }
                 // Allow up to a minute of timestamp rounding/jitter while both deadlines
                 // are still in the future. A usage drop remains anomalous regardless.
-                bool sameWindow = previous.WeeklyReset is { } previousReset && current.WeeklyReset is { } currentReset &&
-                    (currentReset == previousReset || previousReset > current.At && currentReset > current.At &&
-                        (currentReset - previousReset).Duration() <= TimeSpan.FromMinutes(1));
+                bool sameWindow = SameWindow(previous, current);
+                if (current.At - previous.At > TimeSpan.FromMinutes(5))
+                {
+                    gaps++; partial = true;
+                    // A same-day, same-account cumulative difference remains observable
+                    // after a pause. Resets or unknown account identity do not.
+                    if (string.IsNullOrEmpty(previous.AccountFingerprint) || !sameWindow || after < before) continue;
+                }
                 bool expired = !sameWindow && previous.WeeklyReset is { } expiry && expiry > previous.At && expiry <= current.At && current.WeeklyReset > expiry;
                 bool changed = !sameWindow || after < before;
                 if (expired) { resets++; partial = true; }
@@ -105,6 +113,22 @@ internal sealed class QuotaHistory
             result.Add(new(day, comparable == 0 ? null : Math.Round(total, 2), indexes.Length, partial, resets, uncertainResets, gaps));
         }
         return result.ToArray();
+    }
+    private static bool SameWindow(QuotaObservation previous, QuotaObservation current) =>
+        previous.WeeklyReset is { } previousReset && current.WeeklyReset is { } currentReset &&
+        (currentReset == previousReset || previousReset > current.At && currentReset > current.At &&
+            (currentReset - previousReset).Duration() <= TimeSpan.FromMinutes(1));
+
+    private static bool BoundaryCovered(IReadOnlyList<QuotaObservation> rows, DateTimeOffset boundary)
+    {
+        if (rows.Any(x => x.At == boundary && x.Weekly.HasValue && !string.IsNullOrEmpty(x.AccountFingerprint))) return true;
+        var before = rows.LastOrDefault(x => x.At < boundary);
+        var after = rows.FirstOrDefault(x => x.At > boundary);
+        // Continuity across midnight is sufficient for the daily sampling convention;
+        // a small increase is assigned to the later sample's day, never counted twice.
+        return before is not null && after is not null && after.At - before.At <= TimeSpan.FromMinutes(5) &&
+            !string.IsNullOrEmpty(before.AccountFingerprint) && before.AccountFingerprint == after.AccountFingerprint &&
+            before.Plan == after.Plan && before.Weekly.HasValue && after.Weekly >= before.Weekly && SameWindow(before, after);
     }
     internal static (double? Value, int Days) AverageRecorded(IEnumerable<QuotaDay> days, DateOnly today)
     {

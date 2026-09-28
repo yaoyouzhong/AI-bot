@@ -84,6 +84,11 @@ internal sealed class NowPlayingService
 
             var artist = properties?.Artist?.Trim() ?? string.Empty;
             var timelineAvailable=duration>0 || timeline.LastUpdatedTime.Year>2000;
+            if(duration<=0) {
+                var localDuration=await Task.Run(()=>NeteaseLocalDuration.Read(session.SourceAppUserModelId,
+                    title,artist,properties?.AlbumTitle?.Trim()??""),cancellationToken);
+                if(localDuration is {} seconds)duration=seconds;
+            }
             var resourceKey = session.SourceAppUserModelId + "\n" + title + "\n" + artist + "\n" + properties?.AlbumTitle;
             var coverBitmap = await RenderCoverBitmapAsync(properties?.Thumbnail);
             ApplySample(new MusicSnapshot(title, artist,

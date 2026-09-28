@@ -50,7 +50,7 @@ internal static class LegacyDisplayCache
             if (primary is null && weekly is null && plan is null && balance is null) return null;
             return new(id, Text(root, prefix + "Membership"), primary, Date(root, prefix + "FiveHourResetAt"), weekly,
                 Date(root, prefix + "WeeklyResetAt"), balance,
-                Number(root, prefix + "UsedCost"), Text(root, prefix + "Currency"), Date(root, prefix + "FetchedAt") ?? DateTimeOffset.UnixEpoch, true)
+                (id=="deepseek" && (Date(root,"DeepSeekUsedCostFetchedAt") is not { } usedAt || DateTimeOffset.UtcNow-usedAt>TimeSpan.FromHours(24)) ? null : Number(root, prefix + "UsedCost")), Text(root, prefix + "Currency"), Date(root, prefix + "FetchedAt") ?? DateTimeOffset.UnixEpoch, true)
                 { PlanPercent=plan, PlanResetsAt=Date(root,prefix+"PlanResetAt"), PlanExpiresAt=Date(root,prefix+"PlanExpiresAt") };
         }
         return new(Provider("alibaba", "Qwen"), Provider("kimi", "Kimi"), Provider("minimax", "MiniMax"), Provider("deepseek", "DeepSeek"));

@@ -15,7 +15,7 @@ Version `0.1.0` is an independent development baseline. The main Windows and fir
 
 ## Features
 
-- The Windows mirror's quota-trend button opens 7/30-day daily weekly-quota usage and separate five-hour snapshots, retained locally for 90 days. Daily totals require verified Beijing-midnight boundaries, account identity and resets; today is in progress, incomplete days show `--`, and averages include only complete days. Two-minute polling usually misses exact boundaries, so complete daily data may be unavailable; reliable accurate daily totals are not yet delivered. See [semantics and limitations](QUOTA_TRENDS.md). Earlier usage is not fabricated.
+- The Windows mirror's quota-trend button opens 7/30-day observed weekly-quota increments and separate five-hour snapshots, retained locally for 90 days. Polling runs every minute. Short cross-midnight increments belong to the later sample's Beijing date; verified same-day differences survive gaps. Partial values remain visible, missing days show `--`, and averages include only complete past days. See [semantics and limitations](QUOTA_TRENDS.md). Tokens are never converted to quota percentages and missing history is not fabricated.
 
 - Migration code includes attention/completion acknowledgement, local Token accounting, automatic priority/wake behavior, Wi-Fi resource synchronization, and macOS gallery/mirror/persistent pets. The Apple Silicon Mac test build passed tests, compilation and packaging; device acceptance remains pending.
 

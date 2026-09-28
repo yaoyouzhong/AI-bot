@@ -19,6 +19,14 @@ internal static class QuotaHistorySelfTest
         var restart = new QuotaHistory(folder); Require(restart.Read().Length == 2, "History persistence failed.");
         restart.Record(Q(at.AddMinutes(20), 60)); restart.Record(Q(at.AddMinutes(22), 62));
         Require(QuotaHistory.Daily(restart.Read(), new(2026,9,10), 1, TimeZoneInfo.Utc)[0].Growth == 10, "Offline gap counted as exact daily growth.");
+        var verifiedGap = QuotaHistory.Daily(restart.Read().Select(x => x with { AccountFingerprint = "same-account" }).ToArray(),
+            new(2026,9,10), 1, TimeZoneInfo.Utc)[0];
+        Require(verifiedGap.Growth == 42 && verifiedGap.Partial && verifiedGap.Gaps == 1,
+            "Same-account same-window cumulative use lost across a pause.");
+        var delayedPoll = QuotaHistory.Daily([
+            new(at,"PRO",25,reset,null,null,"same-account"),
+            new(at.AddSeconds(309),"PRO",26,reset,null,null,"same-account")],new(2026,9,10),1,TimeZoneInfo.Utc)[0];
+        Require(delayedPoll.Growth == 1 && delayedPoll.Partial, "Five-minute polling jitter discarded observable use.");
         restart.Record(Q(at.AddMinutes(24), 5)); restart.Record(Q(at.AddMinutes(26), 7));
         Require(QuotaHistory.Daily(restart.Read(), new(2026,9,10), 1, TimeZoneInfo.Utc)[0].Growth == 12, "Decline/new baseline failed.");
         var before = new QuotaObservation(at, "PRO", 95, at.AddMinutes(1), 0, null);
@@ -57,12 +65,20 @@ internal static class QuotaHistorySelfTest
         var uncertain = QuotaHistory.Daily([before,manual],new(2026,9,10),1,TimeZoneInfo.Utc)[0];
         Require(uncertain.UncertainResets==1 && uncertain.Growth is null && uncertain.Partial, "Unconfirmed reset fabricated consumption.");
         var start = new DateTimeOffset(2026,9,8,0,0,0,TimeSpan.Zero);
-        var complete = Enumerable.Range(0,721).Select(i=>new QuotaObservation(start.AddMinutes(i*2),"PRO",20+i/72.0,start.AddDays(7),null,null,"test-account")).ToArray();
+        var complete = Enumerable.Range(0,721).Select(i=>new QuotaObservation(start.AddMinutes(i*2),"PRO",20+Math.Min(i,719)/71.9,start.AddDays(7),null,null,"test-account")).ToArray();
         var full = QuotaHistory.Daily(complete,new(2026,9,10),3,TimeZoneInfo.Utc);
-        Require(full[0].Growth==10 && !full[0].Partial && full[1].Growth is null,"Midnight closing sample assigned to wrong day.");
+        Require(full[0].Growth==10 && !full[0].Partial && full[1].Growth==0,"Midnight sample assigned to wrong day or counted twice.");
         Require(QuotaHistory.AverageRecorded(full,new(2026,9,10))==(10.0,1),"Missing dates entered daily average.");
         Require(QuotaHistory.Daily(complete.Skip(1).ToArray(),new(2026,9,10),3,TimeZoneInfo.Utc)[0].Partial,"Missing midnight baseline accepted.");
         Require(QuotaHistory.Daily(complete.Take(720).ToArray(),new(2026,9,10),3,TimeZoneInfo.Utc)[0].Partial,"Missing closing midnight accepted.");
+        var jittered = Enumerable.Range(-1, 723).Select(i => new QuotaObservation(start.AddMinutes(i*2).AddSeconds(7),
+            "PRO",20+Math.Clamp(i,0,719)/71.9,start.AddDays(7),null,null,"test-account")).ToArray();
+        var jitteredDay = QuotaHistory.Daily(jittered,new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(jitteredDay.Growth == 10 && !jitteredDay.Partial, "Flat midnight boundaries with normal polling jitter never become complete.");
+        var midnightIncrease = jittered.Select((x,i) => i==0 ? x with {Weekly=19} : x).ToArray();
+        var crossingDay=QuotaHistory.Daily(midnightIncrease,new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(!crossingDay.Partial && crossingDay.Growth==11,
+            "Short cross-midnight increment not assigned once to the later sample's date.");
         var switched=complete.Select((x,i)=>i>360?x with{AccountFingerprint="another-account"}:x).ToArray();
         Require(QuotaHistory.Daily(switched,new(2026,9,10),3,TimeZoneInfo.Utc)[0].Partial,"Account switch treated as complete use.");
         Require(QuotaHistory.Daily([before, after with {Plan="PLUS"}], new(2026,9,10), 1, TimeZoneInfo.Utc)[0].Growth is null, "Plan change compared.");
@@ -97,5 +113,35 @@ internal static class QuotaHistorySelfTest
             preview.Save(Path.Combine(folder, $"trend-{size.Width}-{metric}-{details}.png")); form.Hide();
         }
         Console.WriteLine("QUOTA_HISTORY_SELF_TEST_OK baseline/growth/reset/gap/midnight/stale/duplicate/plan/restart/corrupt/UI; synthetic only");
+    }
+
+    internal static async Task CollectionAsync()
+    {
+        const string usage = """{"plan_type":"pro","rate_limit":{"primary_window":{"limit_window_seconds":604800,"used_percent":42,"reset_at":1791000000}}}""";
+        var directory = Path.Combine(Path.GetTempPath(), "aibot-collection-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            foreach (var failure in new[] { "timeout", "network", "json", "http" })
+            {
+                var history = new QuotaHistory(Path.Combine(directory, failure));
+                Task<string?> Send(string endpoint, CancellationToken ct)
+                {
+                    if (endpoint == "usage") return Task.FromResult<string?>(usage);
+                    if (history.Read().Length != 1) throw new InvalidOperationException("Usage not saved before optional credit request.");
+                    return failure switch
+                    {
+                        "timeout" => Task.FromException<string?>(new TaskCanceledException()),
+                        "network" => Task.FromException<string?>(new HttpRequestException()),
+                        "json" => Task.FromResult<string?>("broken json"),
+                        _ => Task.FromResult<string?>(null)
+                    };
+                }
+                var result = await QuotaService.CollectCodexAsync(Send,"PRO","synthetic-account",history,CancellationToken.None);
+                if (result?.WeeklyPercent != 42 || result.Stale || new QuotaHistory(Path.Combine(directory,failure)).Read().Length != 1)
+                    throw new InvalidOperationException("Optional credit failure lost valid usage: " + failure);
+            }
+            Console.WriteLine("QUOTA_COLLECTION_SELF_TEST_OK optional credit timeout/network/malformed/non-success preserve usage immediately");
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory,true); }
     }
 }

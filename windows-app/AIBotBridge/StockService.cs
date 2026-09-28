@@ -186,7 +186,8 @@ internal sealed class StockService
 
     internal static string Normalize(string input)
     {
-        var value = input.Trim();
+        // Users commonly paste codes such as "us LI"; spaces are separators, not part of a symbol.
+        var value = new string(input.Where(c => !char.IsWhiteSpace(c)).ToArray());
         if (value.Length == 6 && value.All(char.IsDigit))
             value = value[0] switch
             {

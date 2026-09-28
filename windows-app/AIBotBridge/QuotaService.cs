@@ -26,7 +26,7 @@ internal sealed class QuotaService
     internal async Task RunAsync(CancellationToken cancellationToken)
     {
         await RefreshAsync(cancellationToken);
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(2));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
         while (await timer.WaitForNextTickAsync(cancellationToken))
             await RefreshAsync(cancellationToken);
     }
@@ -154,22 +154,37 @@ internal sealed class QuotaService
         if (credential is null) return null;
         try
         {
-            var usage = await SendCodexAsync(
-                "https://chatgpt.com/backend-api/wham/usage", credential.Value, cancellationToken);
-            if (usage is null) return null;
-            var credits = await SendCodexAsync(
-                "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
-                credential.Value, cancellationToken);
-            var parsed = ParseCodex(usage, credits, credential.Value.Plan);
             // Bind history to the account actually used for this response, not a later auth-file read.
             var fingerprint = string.IsNullOrEmpty(credential.Value.AccountId) ? null :
                 Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(credential.Value.AccountId)));
-            QuotaHistory.Shared.Record(parsed, fingerprint);
-            return parsed;
+            return await CollectCodexAsync((endpoint, ct) => SendCodexAsync(
+                "https://chatgpt.com/backend-api/wham/" + endpoint, credential.Value, ct),
+                credential.Value.Plan, fingerprint, QuotaHistory.Shared, cancellationToken);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             return null;
+        }
+    }
+
+    internal static async Task<ProviderQuotaSnapshot?> CollectCodexAsync(
+        Func<string, CancellationToken, Task<string?>> send, string? plan, string? fingerprint,
+        QuotaHistory history, CancellationToken cancellationToken)
+    {
+        var usage = await send("usage", cancellationToken);
+        if (usage is null) return null;
+        var parsed = ParseCodex(usage, credentialPlan: plan);
+        // Persist a successful usage response immediately. Optional credit metadata must
+        // never discard it or move its observation time to the end of another request.
+        history.Record(parsed, fingerprint);
+        try
+        {
+            var credits = await send("rate-limit-reset-credits", cancellationToken);
+            return credits is null ? parsed : ParseCodex(usage, credits, plan) with { UpdatedAt = parsed.UpdatedAt };
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            return parsed;
         }
     }
 

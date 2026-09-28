@@ -34,6 +34,7 @@ internal static class DataSourceSelfTest
             """;
         var claude = QuotaService.ParseClaude(claudeJson);
         if(StockService.DisplayCode("us.IXIC")!=".IXIC")throw new InvalidOperationException("Nasdaq display code lost its leading dot.");
+        if(StockService.Normalize("us LI")!="usLI")throw new InvalidOperationException("Stock code whitespace was not normalized.");
         if (claude.Plan != "MAX" || claude.PrimaryPercent != 32.5 || claude.WeeklyPercent != 61.25 ||
             claude.PrimaryResetsAt?.ToUnixTimeSeconds() != 1788523200)
             throw new InvalidOperationException("Claude quota parser did not preserve windows or reset time.");
