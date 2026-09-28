@@ -24,7 +24,7 @@
 |---|---|
 | Release 构建 | 0 警告，0 错误 |
 | `--self-test-device-registry` | 空配置、迁移重复、双型号、同型号拒绝、停用/移除、坏配置、未来版本、中断临时文件、写入失败不改已提交状态 |
-| `--self-test-device-center <目录>` | 五种菜单/界面组合；固定设备目标；需求合并；采集取消；设备服务独立启停；OTA 忙碌移除拒绝；LAN 路由隔离；配对替换备份 |
+| `--self-test-device-center <目录>` | 五种菜单/界面组合；固定设备目标；需求合并；采集取消；设备服务独立启停；OTA 忙碌移除拒绝；LAN 路由隔离；配对替换备份；USB 改号及旧端口被其他设备复用 |
 | 设备中心布局 | 默认与最小窗口；100%/125%/150%/200% 布局缩放模拟；边界检查、截图复核。属于模拟缩放，不等于实际多显示器 DPI 切换 |
 | `--self-test-settings-layout <目录>` | 原设置、设备控制、天气、额度、授权、生日、语音、固件窗口；24 组关闭/取消/Esc 操作；横向边界和固定底部操作区 |
 | `--self-test-tray` | 原菜单与窗口行为兼容回归；新菜单另由设备中心自测覆盖 |
@@ -39,13 +39,13 @@
 | 数据/额度/显示/Codex | `--self-test-data`、`--self-test-media-cost`、`--self-test-display-policy`、`--self-test-codex-lifecycle` 通过 |
 | `--status-once` | 成功输出结构化快照；输出留本机，不作为硬件连接通过的证据 |
 
-本机截图与详细结果保存在 TAB5 工作区 `.tools/device-center-delivery-layout/`；原设置窗口截图另在 `.tools/device-center-acceptance/settings/`。这些是开发验证产物，不写入源码或用户配置。
+本机截图与详细结果保存在 TAB5 工作区 `.tools/device-center-final-package/`；原设置窗口截图另在 `.tools/device-center-acceptance/settings/`。这些是开发验证产物，不写入源码或用户配置。
 
 ## 候选包
 
-TAB5 工作区：`artifacts/bridge-device-center-20260928-0e1657e/`。程序入口 `bridge/AIBotBridge.exe`，使用当前电脑已有的 .NET 8 Windows Desktop Runtime；附带固定校验的刷机工具、许可、测试说明与 SHA-256 清单。程序代码提交 `0e1657e`，桥接 DLL SHA-256：`0b900ed9eff52478e482d18350117035dd94e7384192182d71fea337a1fb7e3f`。
+TAB5 工作区：`artifacts/bridge-device-center-20260928-6ff211d/`。程序入口 `bridge/AIBotBridge.exe`，使用当前电脑已有的 .NET 8 Windows Desktop Runtime；附带固定校验的刷机工具、许可、测试说明与 SHA-256 清单。程序代码提交 `6ff211d`，桥接 DLL SHA-256：`27e9e268c859d3111e5ee8219ae015adb8d03c4c5d22d1b48c23b5ad390e138c`。
 
-候选包本身再次运行设备中心自测及内置工具检查通过。它是独立待验收目录，未覆盖现有运行目录；未包含实际账号、配对资料、设备备份或状态快照。TAB5 0.2.38 固件候选保持原样。
+候选包本身再次运行设备中心自测、USB 管理模拟和状态输出通过；固定哈希的同一内置工具已完成离线镜像检查。它是独立待验收目录，未覆盖现有运行目录；未包含实际账号、配对资料、设备备份或状态快照。TAB5 0.2.38 固件候选保持原样。
 
 ## 次日真机验收
 
