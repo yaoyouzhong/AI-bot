@@ -270,6 +270,34 @@ internal sealed class Tab5Service : IDisposable
         return await _codexTasks.SubmitAsync(taskId.GetString()!,message.GetString()!,token,requestId.Length>0?requestId:null,operation,expectedTurn,images,id);
         }
     }
+    // Serialize installer/probe access with every TAB5 heartbeat and pairing command.
+    internal async Task WithInstallUsbAsync(FlashUsbDevice device, Func<Task> action, CancellationToken token)
+    {
+        await _usbGate.WaitAsync(token);
+        string? previous = _reservedPort;
+        try {
+            Volatile.Write(ref _reservedPort, device.Port);
+            CloseUsbPort();
+            FlashDeviceSelection.RequireSame(device, FlashDeviceDiscovery.Read());
+            await action();
+        } finally { CloseUsbPort(); Volatile.Write(ref _reservedPort, previous); _usbGate.Release(); }
+    }
+    internal async Task CheckInstalledUsbAsync(FlashUsbDevice device, string mac, string version, string elfSha, CancellationToken token)
+    {
+        await WithInstallUsbAsync(device, async () => {
+            using var port = Open(device.Port);
+            long previous = -1;
+            for (int i = 0; i < 3; i++) {
+                port.DiscardInBuffer(); Send(port, new { version = 1, type = "tab5_ping" });
+                using var hello = await ReadReplyAsync(port, "tab5_hello", token);
+                previous = Tab5InstallBootCheck.Hello(hello.RootElement, mac, version, previous);
+                if (i < 2) await Task.Delay(1200, token);
+            }
+            Send(port, new { version = 1, type = "tab5_ota_status" });
+            using var diagnostic = await ReadReplyAsync(port, "tab5_ota_diagnostic", token);
+            Tab5InstallBootCheck.Diagnostic(diagnostic.RootElement, version, elfSha);
+        }, token);
+    }
     internal async Task PairUsbAsync(FlashUsbDevice device,CancellationToken token)
     {
         Volatile.Write(ref _reservedPort,device.Port);

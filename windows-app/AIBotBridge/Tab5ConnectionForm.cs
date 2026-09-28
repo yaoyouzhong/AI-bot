@@ -43,6 +43,11 @@ internal sealed class Tab5ConnectionForm : Form
         var ports=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Name",Margin=new Padding(0,8,0,8)};usb.Controls.Add(ports);
         var refresh=new Button{Text="刷新设备"};var pair=new Button{Text="配对"};usb.Controls.Add(Buttons(refresh,pair));
         usb.Controls.Add(Note("首次使用时配对。"));
+        var firstInstall=new Button{Text="新设备首次安装…"};usb.Controls.Add(Buttons(firstInstall));
+        firstInstall.Click+=(_,_)=> {
+            using var installer=new Tab5InstallForm(service);
+            if(installer.ShowDialog(this)==DialogResult.OK){tabs.SelectedIndex=1;RefreshPorts();result.Text="启动已确认，请选择刚安装的 TAB5 并配对，再配置 Wi-Fi。";}
+        };
         void RefreshPorts() {
             var selected=(ports.SelectedItem as FlashUsbDevice)?.Port;
             ports.DataSource=FlashDeviceDiscovery.Read().Where(d=>d.Identity.Contains("VID_303A",StringComparison.OrdinalIgnoreCase)).ToArray();
