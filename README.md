@@ -7,6 +7,8 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 **v0.4.0 正式版**：改善系统繁忙时小屏误显 `PC OFF`；Windows 与新版固件可在笔记本或设备 IP 变化后，通过配对认证的局域网发现恢复 Wi-Fi 状态。详见[更新日志](CHANGELOG.zh.md)。
 
+**Windows 开发版（未发布）**：新增“我的设备”，按已添加的 TAB5 / ESP8266 显示功能并管理连接服务；账号和数据源共享。电脑侧验证已通过，真机验收待完成。见[设备中心验收与回退说明](docs/DEVICE-CENTER-VALIDATION.zh.md)。
+
 <p align="center">
   <strong>AI 状态，一眼便知。</strong><br>
   任务状态、账户额度，集中显示在桌面小屏。<br>

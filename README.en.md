@@ -7,6 +7,8 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 **v0.4.0 release:** reduces false `PC OFF` screens under host load. The Windows bridge and updated firmware use paired local discovery to recover Wi-Fi status after the laptop or device IP changes. See the [changelog](CHANGELOG.md).
 
+**Windows development build (unreleased):** My Devices exposes features and runs connection services only for registered TAB5 / ESP8266 devices, while sharing accounts and data sources. Desktop checks passed; hardware acceptance is pending. See the [device-center validation and rollback notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
+
 <p align="center">
   <strong>AI status at a glance.</strong><br>
   Task status and account quotas, together on a small desktop display.<br>

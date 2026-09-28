@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased — Windows Device Center
+
+- Show device features after registration and open My Devices on a tray left-click. The first version supports one TAB5 and one ESP8266.
+- Add a versioned registry, existing-pairing migration, explicit legacy-screen import, independent disable/remove operations and shared data-demand merging. Removal preserves settings, pairing recovery files and user content.
+- Separate TAB5 data demand from ESP8266 display pages. Unregistered hardware does not start its USB/BLE/voice services; disabling one device does not restart the other.
+- Bind device windows to a fixed target and block removal during recording, updates or installation. Legacy flashing/pairing entry points honor registration. Replacing retained TAB5 pairing requires confirmation in the add wizard and preserves an encrypted backup.
+
+Windows builds, isolated migration, simulated service/protocol tests, installer fault tests and layout scaling checks passed. No deployment or hardware flashing performed; three hardware combinations and actual cross-monitor DPI acceptance remain pending. See the [validation notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
+
 ## 0.4.0 - 2026-09-23
 
 - Keep the last valid device page visible for up to 30 seconds during brief host stalls while the eight-second USB-to-Wi-Fi fallback and offline diagnostics remain intact. Explicit host shutdown still shows offline immediately.
