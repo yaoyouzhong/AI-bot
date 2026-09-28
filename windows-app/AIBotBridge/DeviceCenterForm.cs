@@ -58,7 +58,14 @@ internal sealed class DeviceCenterForm : Form
                 _actions.Add((button,action));functions.Controls.Add(button);
             }
             functions.Controls.Add(Button("本设备的数据",()=>{using var dialog=new DeviceDataForm(_store,d.Id);if(dialog.ShowDialog(this)==DialogResult.OK){_action(d.Id,"data-changed");Reload();}}));
-            functions.SizeChanged+=(_,_)=>{int width=Math.Max(140,(functions.ClientSize.Width-16)/2);foreach(Control b in functions.Controls){b.AutoSize=false;b.Width=width;b.Height=Math.Max(b.MinimumSize.Height,b.GetPreferredSize(Size.Empty).Height);}};
+            void ArrangeActions() {
+                int available=Math.Max(100,functions.ClientSize.Width-12);
+                int preferred=functions.Controls.Cast<Control>().Max(b=>TextRenderer.MeasureText(b.Text,b.Font).Width+b.Padding.Horizontal+12);
+                int columns=available>=2*(preferred+8)?2:1;
+                int width=Math.Max(90,available/columns-6);
+                foreach(Control b in functions.Controls){b.AutoSize=false;b.Width=width;var text=TextRenderer.MeasureText(b.Text,b.Font,new Size(Math.Max(20,width-b.Padding.Horizontal-12),int.MaxValue),TextFormatFlags.WordBreak);b.Height=Math.Max(b.MinimumSize.Height,text.Height+b.Padding.Vertical+8);}
+            }
+            functions.SizeChanged+=(_,_)=>ArrangeActions();functions.FontChanged+=(_,_)=>ArrangeActions();
             _detail.Controls.Add(functions);
             AddText("设备管理",9,true);_detail.Controls.Add(management);
             if(_store.Snapshot.LegacyDecisionPending){var legacy=Row();legacy.Controls.Add(Button("导入原小屏配置",()=>_action("","migrate-legacy")));legacy.Controls.Add(Button("暂不使用",()=>_action("","dismiss-legacy")));_detail.Controls.Add(legacy);}

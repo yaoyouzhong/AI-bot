@@ -89,6 +89,10 @@ internal static class DeviceCenterSelfTest
     private static void Capture(Form form,string directory,string name) {
         form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);form.Show();Application.DoEvents();form.PerformLayout();
         foreach(var c in Descendants(form).Where(c=>c.Visible))if(c.Left < -2||c.Right>c.Parent!.ClientSize.Width+2)throw new InvalidOperationException($"{name}: clipped {c.GetType().Name} {c.Text} {c.Bounds} parent {c.Parent!.ClientSize}");
+        foreach(var button in Descendants(form).OfType<Button>().Where(b=>b.Visible&&!b.AutoSize)){
+            var text=TextRenderer.MeasureText(button.Text,button.Font,new Size(Math.Max(20,button.Width-button.Padding.Horizontal-12),int.MaxValue),TextFormatFlags.WordBreak);
+            Check(button.Height>=text.Height+button.Padding.Vertical,$"{name}: clipped button text {button.Text}");
+        }
         using var image=new Bitmap(form.Width,form.Height);form.DrawToBitmap(image,new Rectangle(Point.Empty,form.Size));image.Save(Path.Combine(directory,name+".png"));form.Hide();
     }
     private static IEnumerable<Control> Descendants(Control parent){foreach(Control c in parent.Controls){yield return c;foreach(var child in Descendants(c))yield return child;}}
