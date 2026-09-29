@@ -8,6 +8,10 @@ namespace AIBotBridge;
 
 internal static class Tab5SelfTest
 {
+    private sealed class RemovedUsbPort(Exception? error=null) : IDisposable {
+        internal int Disposals;
+        public void Dispose(){Disposals++;if(error is not null)throw error;}
+    }
     internal static async Task RunAsync()
     {
         Tab5DiscoveryProtocol.SelfTest();
@@ -19,6 +23,14 @@ internal static class Tab5SelfTest
         await Tab5CodexSelfTest.RunAsync();
         await Tab5ImageSelfTest.RunAsync();
         void Check(bool pass,string name) {if(!pass)throw new InvalidOperationException("TAB5 test failed: "+name);}
+        var removed=new RemovedUsbPort(new IOException("device removed"));
+        Check(!Tab5Service.DisposeUsbPort(removed)&&removed.Disposals==1,"unplug cleanup does not kill reconnect worker");
+        var reconnected=new RemovedUsbPort();
+        Check(Tab5Service.DisposeUsbPort(reconnected)&&reconnected.Disposals==1,"replacement port can close normally");
+        bool unexpectedPropagated=false;
+        try{Tab5Service.DisposeUsbPort(new RemovedUsbPort(new InvalidOperationException("unexpected")));}
+        catch(InvalidOperationException){unexpectedPropagated=true;}
+        Check(unexpectedPropagated,"unrelated cleanup faults are not hidden");
         using(var idle=JsonDocument.Parse("{\"status\":{\"type\":\"notLoaded\"},\"turns\":[{\"status\":\"completed\",\"completedAt\":1}]}"))
             Check(Tab5CodexTasks.CanContinue(idle.RootElement),"completed Codex task can continue");
         using(var active=JsonDocument.Parse("{\"status\":{\"type\":\"notLoaded\"},\"turns\":[{\"status\":\"interrupted\",\"completedAt\":null}]}"))

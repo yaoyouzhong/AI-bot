@@ -2,6 +2,7 @@ namespace AIBotBridge;
 
 internal static class SettingsWindow
 {
+    internal static Form? DialogOwner(Form? form)=>form is {IsDisposed:false,Disposing:false,Visible:true}?form:null;
     internal static void Present(Form form)
     {
         if (form.WindowState == FormWindowState.Minimized) form.WindowState = FormWindowState.Normal;
@@ -36,13 +37,16 @@ internal static class SettingsWindow
 
     internal static void FitScreen(Form form)
     {
+        if(form.StartPosition!=FormStartPosition.Manual)form.StartPosition=FormStartPosition.CenterScreen;
         // Called once after WinForms has applied DPI scaling. Use the actual
         // monitor work area, so the taskbar and bottom actions stay reachable.
         form.Shown += (_, _) => {
-            var area = Screen.FromControl(form).WorkingArea;
+            var area = (form.StartPosition==FormStartPosition.Manual?Screen.FromControl(form):Screen.FromPoint(Cursor.Position)).WorkingArea;
             int width = Math.Max(320, area.Width - 32), height = Math.Max(240, area.Height - 32);
             form.MinimumSize = new Size(Math.Min(form.MinimumSize.Width,width), Math.Min(form.MinimumSize.Height,height));
             form.Size = new Size(Math.Min(form.Width,width),Math.Min(form.Height,height));
+            if(form.StartPosition!=FormStartPosition.Manual)
+                form.Location=new Point(area.Left+(area.Width-form.Width)/2,area.Top+(area.Height-form.Height)/2);
         };
     }
 

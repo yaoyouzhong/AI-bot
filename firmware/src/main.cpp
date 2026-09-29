@@ -164,6 +164,7 @@ String netSession;
 uint32_t netSequence=0, netQueueUp[32]={},netQueueDown[32]={};
 int netQueueHead=0,netQueueCount=0;
 uint32_t systemChartFrames=0,systemChromeDraws=0,systemNumberDraws=0,systemSamplesConsumed=0;
+uint32_t systemDownDraws=0,systemUpDraws=0,systemNumberFallbacks=0;
 void queueNetworkSample(uint32_t up,uint32_t down) {
   if(netQueueCount==32){netQueueHead=(netQueueHead+1)%32;--netQueueCount;}
   int tail=(netQueueHead+netQueueCount)%32;netQueueUp[tail]=up;netQueueDown[tail]=down;++netQueueCount;
@@ -1129,17 +1130,30 @@ void drawSystem() {
     display.drawString("CPU",28,198,2);display.drawString("MEM",130,198,2);
     drawCentered("SYSTEM MONITOR",226,1,TFT_DARKGREY);
   }
-  auto number=[&](String value,String& prior,int x,int y,int w,uint16_t color){
-    if(value==prior)return;prior=value;
-    // Render the complete replacement offscreen, then push once: no blank phase
-    // and no leftover digit when 100% becomes 9%.
-    TFT_eSprite cell(&display);cell.setColorDepth(16);
-    if(!cell.createSprite(w,28)){prior="";return;}
-    cell.fillSprite(TFT_BLACK);cell.setTextColor(color,TFT_BLACK);cell.setTextDatum(TL_DATUM);
-    cell.drawString(value,0,0,4);cell.pushSprite(x,y);cell.deleteSprite();++systemNumberDraws;
+  auto number=[&](const String& value,String& prior,int x,int y,int w,uint16_t color)->bool {
+    if(value==prior)return false;
+    // Font 4 has binary coverage: a one-bit cell retains the exact text color
+    // while needing 421 bytes for DOWN instead of 6498 contiguous bytes.
+    // The wider DOWN cell could fail allocation while the narrower UP succeeds.
+    TFT_eSprite cell(&display);cell.setColorDepth(1);
+    if(cell.createSprite(w,28)) {
+      cell.fillSprite(0);cell.setTextColor(1,0);cell.setTextDatum(TL_DATUM);
+      cell.drawString(value,0,0,4);
+      // 1bpp colors live on the display, so restore them after this cell.
+      uint32_t foreground=display.bitmap_fg,background=display.bitmap_bg;
+      cell.setBitmapColor(color,TFT_BLACK);cell.pushSprite(x,y);
+      display.setBitmapColor(foreground,background);cell.deleteSprite();
+    } else {
+      // Even severe heap fragmentation must not silently hide a measurement.
+      ++systemNumberFallbacks;
+      display.fillRect(x,y,w,28,TFT_BLACK);
+      display.setTextColor(color,TFT_BLACK);display.setTextDatum(TL_DATUM);
+      display.drawString(value,x,y,display.textWidth(value,4)<=w?4:2);
+    }
+    prior=value;++systemNumberDraws;return true;
   };
-  number(compactRate(systemMetrics.downloadBytesPerSecond)+"/s",lastDown,12,20,116,TFT_GREEN);
-  number(compactRate(systemMetrics.uploadBytesPerSecond)+"/s",lastUp,132,20,108,TFT_YELLOW);
+  if(number(compactRate(systemMetrics.downloadBytesPerSecond)+"/s",lastDown,12,20,116,TFT_GREEN))++systemDownDraws;
+  if(number(compactRate(systemMetrics.uploadBytesPerSecond)+"/s",lastUp,132,20,108,TFT_YELLOW))++systemUpDraws;
   number(String(systemMetrics.cpuPercent,0)+"%",lastCpu,62,192,64,TFT_WHITE);
   number(String(systemMetrics.memoryPercent,0)+"%",lastMem,164,192,64,TFT_WHITE);
   bool chartChanged=chrome||netQueueCount>0;
@@ -1674,6 +1688,13 @@ void fillDeviceInfo(JsonObject response) {
   pages["system_chart_frames"]=systemChartFrames;
   pages["system_chrome_draws"]=systemChromeDraws;
   pages["system_number_draws"]=systemNumberDraws;
+  pages["system_down_draws"]=systemDownDraws;
+  pages["system_up_draws"]=systemUpDraws;
+  pages["system_number_fallbacks"]=systemNumberFallbacks;
+  pages["heap_free_bytes"]=ESP.getFreeHeap();
+  pages["heap_max_block_bytes"]=ESP.getMaxFreeBlockSize();
+  pages["upload_bytes_per_second"]=systemMetrics.uploadBytesPerSecond;
+  pages["download_bytes_per_second"]=systemMetrics.downloadBytesPerSecond;
   pages["system_samples_consumed"]=systemSamplesConsumed;
   pages["system_queue_depth"]=netQueueCount;
   pages["weather"] = weather.available;

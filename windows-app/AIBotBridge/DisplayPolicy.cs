@@ -4,6 +4,10 @@ internal sealed record DisplayPolicy(string SelectedMode, bool CycleEnabled, int
 
 internal static class DisplayModes
 {
+    internal const int CompletionNoticeSeconds=12;
+    internal static StatusSnapshot ExpireCompletionNotice(StatusSnapshot status)=>
+        status.Codex.CompletionActive&&status.EpochUtc-status.Codex.CompletionAt>=CompletionNoticeSeconds
+            ?status with {Codex=status.Codex with {CompletionActive=false}}:status;
     internal static readonly (string Label, string Mode)[] Pages =
     [("Claude", "claude"), ("Codex", "codex"), ("Claude + Codex 额度", "dual"),
      ("阿里云", "domestic_alibaba"), ("Kimi", "domestic_kimi"), ("MiniMax", "domestic_minimax"),
@@ -16,6 +20,16 @@ internal static class DisplayModes
         "domestic:kimi" => "domestic_kimi", "domestic:minimax" => "domestic_minimax",
         "domestic:deepseek" => "domestic_deepseek", "domestic:zhipu" or "glm" => "domestic_zhipu", _ => mode
     };
+    internal static bool TrySelect(string mode,out DisplayPolicy policy,out string error)
+    {
+        var settings=BridgeSettings.Load();policy=Load(settings);
+        if(!IsValid(mode)){error="无效的显示方式";return false;}
+        if(!settings.SaveEditable(new Dictionary<string,string>{["display_mode"]=mode,["display_cycle_enabled"]=mode=="auto"?"1":"0"},out error))return false;
+        // Explicitly resume cycling after the completion notification currently
+        // holding the Codex page. This does not mark any TAB5 chat as read.
+        if(mode=="auto")SessionActivityReader.Signals.Acknowledge();
+        policy=Load(settings) with {CycleStartedAt=DateTimeOffset.UtcNow.ToUnixTimeSeconds()};return true;
+    }
     internal static DisplayPolicy Load(BridgeSettings settings, string? selected = null)
     {
         var pages = settings.GetList("display_cycle_pages", "codex,claude,weather,stock")
@@ -45,6 +59,11 @@ internal static class DisplayModes
         if(codexWorking!=claudeWorking)return codexWorking?"codex":"claude";
         int interval=codexWorking?2:6;
         return Math.Max(0,status.EpochUtc-(policy?.CycleStartedAt??0))/interval%2==0?"claude":"codex";
+    }
+    internal static string? AutomaticNotice(StatusSnapshot status)
+    {
+        if(status.DomesticActivity?.NeedsInput==true||status.Codex.NeedsInput||status.Claude.NeedsInput)return "等待确认";
+        return status.Codex.CompletionActive?"任务已完成":null;
     }
     internal static string DomesticPage(string provider) => provider is "alibaba" or "kimi" or "minimax" or "deepseek" or "zhipu" or "stepfun" or "baidu" or "xiaomi" ? "domestic_"+provider : "activity";
 }

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -8,9 +8,18 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-display-settings"){ApplicationConfiguration.Initialize();DisplaySettingsSelfTest.Run();return;}
+        if(args.Length==2&&args[0]=="--test-esp-display"){ApplicationConfiguration.Initialize();DisplaySettingsSelfTest.RunHardware(int.Parse(args[1]));return;}
+        if(args.Length==2&&args[0]=="--test-esp-transports") {
+            ApplicationConfiguration.Initialize();
+            try{EspTransportHardwareTest.RunAsync(int.Parse(args[1])).GetAwaiter().GetResult();}
+            catch(Exception ex){Console.Error.WriteLine("ESP_TRANSPORTS_FAILED: "+ex.Message);Environment.ExitCode=1;}
+            return;
+        }
         if(args.Length==2&&args[0]=="--self-test-device-center"){ApplicationConfiguration.Initialize();DeviceCenterSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==1&&args[0]=="--self-test-device-registry"){DeviceRegistrySelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-rpc"){Tab5RpcSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-holidays"){Tab5HolidaySelfTest.Run(args[1]);return;}
@@ -38,6 +47,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--tab5-voice-devices"){
             Console.WriteLine(JsonSerializer.Serialize(new{inputs=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Capture).Select(d=>new{d.Name,dji=Tab5VoiceAudio.IsDji(d.Name)}),cable=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Render).Any(d=>Tab5VoiceAudio.IsCable(d.Name))},JsonDefaults.Options));return;
         }
+        if(args.Length==2 && args[0]=="--self-test-tab5-telemetry") {Tab5TelemetrySelfTest.Run(args[1]);return;}
         if(args.Length==1 && args[0]=="--verify-deepseek-web") {MediaCostSelfTest.VerifyWeb();return;}
         if(args.Length==1 && args[0]=="--self-test-media-cost") {MediaCostSelfTest.Run();return;}
         if(args.Length==4 && args[0]=="--netease-duration-once") {

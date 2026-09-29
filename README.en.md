@@ -1,5 +1,7 @@
 **Product introduction · 36 seconds**　[▶ Player stuck? Play directly](https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf)
 
+The TAB5 0.2.42 repair candidate prefers Wi-Fi for firmware upgrades, with USB as a fallback, without changing daily connection mode. BLE keeps daily data and conversation support but does not carry firmware downloads. Candidates 0.2.40 / 0.2.41 were withdrawn for an inflater stack-capacity defect; do not install them. Select Wi-Fi manually before upgrading older firmware. Installation and transport stability require device acceptance.
+
 https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 
@@ -7,7 +9,15 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 
 **v0.4.0 release:** reduces false `PC OFF` screens under host load. The Windows bridge and updated firmware use paired local discovery to recover Wi-Fi status after the laptop or device IP changes. See the [changelog](CHANGELOG.md).
 
-**Windows development build (unreleased):** My Devices exposes features and runs connection services only for registered TAB5 / ESP8266 devices, while sharing accounts and data sources. Desktop checks passed; hardware acceptance is pending. See the [device-center validation and rollback notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
+**Windows development build (unreleased):** My Devices exposes features and runs connection services only for registered TAB5 / ESP8266 devices, while sharing accounts and data sources. The main window separates My Devices, Accounts and Data, and Bridge Settings; common actions use two columns, connection details stay together, and management and diagnostics live in a menu. Desktop checks and the current dual-device USB connection passed; remaining hardware combinations await acceptance. See the [device-center validation and rollback notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
+
+Device Center provides all features and device registration. Left-click opens the small-screen preview and brightness slider when an ESP8266 is enabled, otherwise Device Center. Right-click offers Device Center, screen preview, common settings grouped by device, and Exit. Shared accounts and data settings are available in Device Center. Only registered devices appear, using their custom names; disabled devices are grayed out. Device management and occasional diagnostics remain in Device Center. Data updates and Codex quota-history collection run automatically while the bridge is running, with service status displayed in tables. Voice settings show only the enable toggle and preferred microphone by default; other options are under Troubleshooting.
+
+All three main pages share two-column action cards, with a compact Chinese label for Weather and Location. Data Settings separates data categories from domestic model providers, showing Chinese names, English names and the collected quota type. Provider choices follow the model-quota toggle. Add remains clickable when both models are registered and explains the one-device-per-model limit and replacement steps.
+
+ESP8266 Connection Settings offers Automatic (default), USB only and Wi-Fi only. Automatic prefers USB. Wi-Fi only stops USB data delivery while keeping USB power, configuration and flashing available; USB only blocks the small screen's Wi-Fi data endpoints. Saving applies the choice to this screen without a firmware update.
+
+Small-screen brightness, display mode and cycling are combined in Display Settings, where changes save and apply automatically. Preview uses previous/next navigation and a current-page menu containing only checked cycle pages in their saved order. Automatic Cycling runs on every click and shows the page position, switch countdown and task-alert interruptions. The popup keeps a fixed height and a slim brightness slider instead of stacking module buttons. Device Center orders small-screen actions as Display Settings, Appearance, Data Settings and Connection Settings, with firmware updates under Manage and the asset gallery under Appearance. Preview remains available from a tray left-click. TAB5 actions are ordered as Voice Settings, Calendar and Birthdays, Data Settings and Connection and Updates.
 
 <p align="center">
   <strong>AI status at a glance.</strong><br>
@@ -31,6 +41,8 @@ https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
 </p>
 
 ---
+
+The TAB5 0.2.39 development candidate adds USB / BLE firmware updates, history, sending and image attachments. Older firmware first needs a USB or Wi-Fi upgrade. Desktop builds and simulations passed; the new USB/BLE paths still await hardware acceptance.
 
 ## Stay with the work in front of you
 
@@ -147,7 +159,7 @@ BYTE SPROUT works out of the box; pet imports are optional. These are actual Win
 
 The screensaver supports lunar dates with leap-month labels. This release also requires updated firmware for the manual page-selection fix.
 
-**Setup:** right-click the tray → Model quotas → Domestic model quota settings. Full provider and plan labels are shown; API keys stay in Windows Credential Manager. See the [updated settings screenshot and guide](docs/DOMESTIC_QUOTA_SETUP.md). Unconfigured, never-authorized or unselected providers do not trigger automatic checks or failure reminders.
+**Setup:** right-click the tray → Device Center → Accounts and Data → Model Accounts. Full provider and plan labels are shown; API keys stay in Windows Credential Manager. See the [updated settings screenshot and guide](docs/DOMESTIC_QUOTA_SETUP.md). Unconfigured, never-authorized or unselected providers do not trigger automatic checks or failure reminders.
 
 ### Prepare the hardware
 

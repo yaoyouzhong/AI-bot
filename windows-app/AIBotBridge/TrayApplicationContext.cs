@@ -15,6 +15,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly DeviceServiceManager _services;
     private DeviceCenterForm? _center;
     private QuotaTrendForm? _trend;
+    private BridgeStatusForm? _statusForm;
     private readonly Dictionary<string,List<Form>> _deviceWindows=new();
     private bool _changingDevices;
     private bool _exiting;
@@ -31,7 +32,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private DateTimeOffset? _temporaryWakeUntil;
     private MirrorForm? _mirror;
     private PetGalleryForm? _petGallery;
-    private DeviceControlForm? _deviceControl;
     private SettingsForm? _settingsForm;
     private MigratedWeather.WeatherSettingsForm? _weatherSettings;
     private bool _deviceOperationBusy;
@@ -69,16 +69,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _serial=_services.Serial;
         _runtime.Domestic.Tab5Paired=()=>_devices.Snapshot.Devices.Any(d=>d.Enabled&&d.Kind==HardwareKind.Tab5);
         _runtime.Domestic.DeviceProviders=()=>new(_demand.Providers);
-        var menu=DeviceCenterMenu.Build(_devices.Snapshot,HandleMenuAction,HandleDeviceAction);
+        var menu=DeviceCenterMenu.Build(_devices.Snapshot,HandleDeviceAction,HandleMenuAction);
 
         _icon = new NotifyIcon
         {
             Icon = AppIcon.Load(),
-            Text = "AI-bot｜单击打开我的设备",
+            Text = _devices.Snapshot.Devices.Any(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled)?"AI-bot｜单击预览小屏，右键管理设备":"AI-bot｜单击打开设备中心",
             ContextMenuStrip = menu,
             Visible = true
         };
-        _icon.MouseUp += (_, e) => { if (e.Button == MouseButtons.Left) ShowDevices(); };
+        _icon.MouseUp += (_, e) => {
+            if(e.Button!=MouseButtons.Left)return;
+            var esp=_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled);
+            if(esp is null)ShowDevices();else if(_mirror?.Visible==true)_mirror.Hide();else HandleDeviceAction(esp.Id,"mirror");
+        };
 
         _timer = new System.Windows.Forms.Timer { Interval = 2000 };
         _timer.Tick += (_, _) =>
@@ -129,26 +133,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _demand=DeviceDataDemand.From(_devices.Snapshot,DisplayModes.Load(BridgeSettings.Load(),_selectedMode),BridgeSettings.Load().Get("domestic_provider","qwen"));
         return _runtime.ApplyDemandAsync(_demand);
     }
-    private void ShowDevices() {
-        if(_center is null||_center.IsDisposed)_center=new DeviceCenterForm(_devices,_services.View,HandleDeviceAction,ChangeDeviceAsync,AddDevice,()=>HandleMenuAction("accounts"));
-        _center.Reload();SettingsWindow.Present(_center);
+    private void ShowDevices(string page="devices") {
+        if(_center is null||_center.IsDisposed)_center=new DeviceCenterForm(_devices,_services.View,HandleDeviceAction,ChangeDeviceAsync,AddDevice,HandleMenuAction,
+            key=>key=="startup"?StartupRegistration.IsEnabled:_devices.Snapshot.DesktopQuotaHistory);
+        _center.Reload();_center.ShowPage(page);SettingsWindow.Present(_center);
     }
     private void ShowCommonSettings(bool bridge) {
-        using var form=new Form{Text=bridge?"AI-bot · 桥接设置":"AI-bot · 账号与数据源",Font=new Font("Microsoft YaHei UI",9F),AutoScaleMode=AutoScaleMode.Dpi,AutoScaleDimensions=new(96,96),ClientSize=new(460,320),MinimumSize=new(400,280),StartPosition=FormStartPosition.CenterScreen};
-        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(20),AutoScroll=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};form.Controls.Add(panel);SettingsWindow.FitFlow(panel);
-        panel.Controls.Add(new Label{Text=bridge?"电脑桥接的独立设置":"所有已添加设备共用以下账号和数据源。",AutoSize=true});
-        var actions=bridge?new[]{("开机启动", "startup"),("电脑额度历史采集","desktop-history"),("服务状态","status")}:new[]{("模型账号与授权","authorize"),("天气与定位","weather-settings"),("自选股票","stocks-settings"),("额度历史","quota-trend"),("刷新数据","refresh")};
-        foreach(var (label,action) in actions){var button=DeviceCenterForm.Button(label,()=>HandleMenuAction(action));if(action=="startup")button.Text+="："+(StartupRegistration.IsEnabled?"已启用":"已停用");if(action=="desktop-history")button.Text+="："+(_devices.Snapshot.DesktopQuotaHistory?"已启用":"已停用");button.Click+=(_,_)=>{if(action=="startup")button.Text=label+"："+(StartupRegistration.IsEnabled?"已启用":"已停用");if(action=="desktop-history")button.Text=label+"："+(_devices.Snapshot.DesktopQuotaHistory?"已启用":"已停用");};panel.Controls.Add(button);}
-        SettingsWindow.FitScreen(form);form.ShowDialog();
+        ShowDevices(bridge?"bridge-settings":"accounts");
     }
-    private void RebuildMenu() {var old=_icon.ContextMenuStrip;_icon.ContextMenuStrip=DeviceCenterMenu.Build(_devices.Snapshot,HandleMenuAction,HandleDeviceAction);old?.Dispose();_center?.Reload();}
+    private void RebuildMenu() {var old=_icon.ContextMenuStrip;_icon.ContextMenuStrip=DeviceCenterMenu.Build(_devices.Snapshot,HandleDeviceAction,HandleMenuAction);_icon.Text=_devices.Snapshot.Devices.Any(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled)?"AI-bot｜单击预览小屏，右键管理设备":"AI-bot｜单击打开设备中心";old?.Dispose();_center?.Reload();}
     private async void AddDevice() {
-        if(_changingDevices)return;
-        if(_devices.Snapshot.Devices.Length>=2){MessageBox.Show("已添加两种设备，请在设备中心管理现有设备。","我的设备");return;}
+        if(_changingDevices){MessageBox.Show(SettingsWindow.DialogOwner(_center),"正在更新设备，请稍候再试。","添加设备");return;}
         _changingDevices=true;
         try{
         using var dialog=new AddDeviceForm(_devices.Snapshot);
-        if(dialog.ShowDialog(_center)!=DialogResult.OK||dialog.Added is not {} device)return;
+        if(dialog.ShowDialog(SettingsWindow.DialogOwner(_center))!=DialogResult.OK||dialog.Added is not {} device)return;
         try{_devices.Add(device);await _services.ApplyAsync(_devices.Snapshot);await UpdateDemandAsync();RebuildMenu();}
         catch(Exception ex){_devices.Remove(device.Id);await _services.ApplyAsync(_devices.Snapshot);MessageBox.Show(ex.Message,"设备添加未完成");RebuildMenu();}
         }catch(Exception ex){MessageBox.Show(ex.Message,"添加设备未完成");}finally{_changingDevices=false;}
@@ -167,12 +166,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
     private void CloseDeviceWindows(string id) {if(_deviceWindows.TryGetValue(id,out var forms)){foreach(var f in forms.ToArray())if(!f.IsDisposed){f.Close();if(!f.IsDisposed&&f.Visible)throw new InvalidOperationException("设备窗口正在处理操作，请完成后再试。");f.Dispose();}_deviceWindows.Remove(id);}}
     private T DeviceWindow<T>(RegisteredDevice d,T form,string title) where T:Form {
-        form.Text=$"{d.Name} · {DeviceRegistryStore.Model(d.Kind)} · {title}";
+        form.Text=$"{d.Name} · {title}";
         if(!_deviceWindows.TryGetValue(d.Id,out var forms))_deviceWindows[d.Id]=forms=[];forms.Add(form);form.FormClosed+=(_,_)=>forms.Remove(form);return form;
     }
     private async void HandleDeviceAction(string id,string action) {
         try {
             if(_changingDevices)throw new InvalidOperationException("正在更新设备，请稍候。");
+            if(action=="open-device"){
+                if(!_devices.Snapshot.Devices.Any(d=>d.Id==id))throw new InvalidOperationException("设备已移除。");
+                ShowDevices();_center!.SelectDevice(id);return;
+            }
             if(action=="dismiss-legacy"){_devices.DismissLegacy();RebuildMenu();return;}
             if(action=="migrate-legacy") {
                 if(MessageBox.Show("沿用原 ESP8266 小屏配置？旧协议采用兼容绑定，连接后核实设备信息。","导入原小屏",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
@@ -190,23 +193,37 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var d=DeviceCapabilities.Require(_devices.Snapshot,id,action,_services.View(current).Online);
             if(action.StartsWith("mode:")){SelectDisplayMode(action[5..]);await UpdateDemandAsync();return;}
             if(action.StartsWith("animation:")){MigratedWeather.WeatherMonitor.Animation=action[10..];return;}
-            void Mode(string mode){try{DeviceCapabilities.Require(_devices.Snapshot,id,"mode:"+mode,true);SelectDisplayMode(mode);_=UpdateDemandAsync();}catch(Exception ex){MessageBox.Show(ex.Message);}}
+            bool Mode(string mode){try{DeviceCapabilities.Require(_devices.Snapshot,id,"mode:"+mode,true);bool applied=SelectDisplayMode(mode);if(applied)_=UpdateDemandAsync();return applied;}catch(Exception ex){MessageBox.Show(ex.Message);return false;}}
             switch(action) {
+                case "data":
+                    using(var form=DeviceWindow(d,new DeviceDataForm(_devices,d.Id),"数据设置"))if(form.ShowDialog(SettingsWindow.DialogOwner(_center))==DialogResult.OK){await UpdateDemandAsync();RebuildMenu();}break;
                 case "tab5":
                     if(_tab5 is null)throw new InvalidOperationException(_services.Error??"设备连接服务未启动，请停用后重新启用。");
                     if(_tab5Form is null||_tab5Form.IsDisposed)_tab5Form=DeviceWindow(d,new Tab5ConnectionForm(_tab5),"连接与固件升级");SettingsWindow.Present(_tab5Form);break;
-                case "voice": if(_tab5 is null)throw new InvalidOperationException("设备未连接到桥接服务。");_tab5.ShowVoiceSettings(_center!);break;
-                case "birthday-settings": using(var form=DeviceWindow(d,new BirthdaySettingsForm(),"日历与生日"))form.ShowDialog(_center);break;
-                case "legacy-settings": using(var form=DeviceWindow(d,new LegacyDeviceSettingsForm(),"连接与屏保"))form.ShowDialog(_center);_runtime.ReloadSettings();break;
-                case "cycle": using(var form=DeviceWindow(d,new CycleSettingsForm(),"轮播设置"))if(form.ShowDialog(_center)==DialogResult.OK)RestartCycle();await UpdateDemandAsync();break;
+                case "voice": if(_tab5 is null)throw new InvalidOperationException("设备未连接到桥接服务。");_tab5.ShowVoiceSettings(SettingsWindow.DialogOwner(_center)!);break;
+                case "birthday-settings": using(var form=DeviceWindow(d,new BirthdaySettingsForm(),"日历与生日"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                case "legacy-settings":
+                    using(var form=DeviceWindow(d,new LegacyDeviceSettingsForm(_serial,d.ConnectionMode,()=>_services.View(_devices.Snapshot.Devices.Single(x=>x.Id==d.Id))),"连接设置"))if(form.ShowDialog(SettingsWindow.DialogOwner(_center))==DialogResult.OK){
+                        var previous=_devices.Snapshot;
+                        var updated=previous.Devices.Single(x=>x.Id==d.Id) with {ConnectionMode=form.SelectedMode};
+                        var candidate=previous with {Devices=previous.Devices.Select(x=>x.Id==d.Id?updated:x).ToArray()};
+                        await _services.ApplyAsync(candidate);
+                        try{_devices.Update(updated);}catch{await _services.ApplyAsync(previous);throw;}
+                        _runtime.ReloadSettings();var value=BridgeSettings.Load().Get("screensaver_timeout_minutes");
+                        _screenSaverMinutes=int.TryParse(value,out int minutes)&&minutes is >0 and <=1440?minutes:0;
+                        RebuildMenu();
+                    }break;
+                case "cycle":
+                    using(var form=DeviceWindow(d,new CycleSettingsForm(_serial,policy=>{
+                        _selectedMode=policy.SelectedMode;_automaticScreenSaver=false;_temporaryWakeUntil=null;
+                        _cycleStartedAt=DateTimeOffset.UtcNow.ToUnixTimeSeconds();PublishDisplayPolicy();_serial.SendDisplayMode(policy.SelectedMode);_=UpdateDemandAsync();
+                    }),"显示设置"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "mirror":
                     if(_mirror is null||_mirror.IsDisposed)_mirror=DeviceWindow(d,new MirrorForm(_runtime.Capture,()=>_selectedMode,Mode,_serial.SendBrightness,()=>Task.Run(_serial.ReadDeviceInfo)),"设备镜像");_mirror.ShowAtTray();break;
-                case "device":
-                    if(_deviceControl is null||_deviceControl.IsDisposed)_deviceControl=DeviceWindow(d,new DeviceControlForm(_serial,Mode,_selectedMode),"亮度与显示");SettingsWindow.Present(_deviceControl);break;
                 case "appearance": ShowAppearance(d);break;
                 case "pet-gallery":
-                    if(_petGallery is null||_petGallery.IsDisposed)_petGallery=DeviceWindow(d,new PetGalleryForm(Mode),"桌宠素材");SettingsWindow.Present(_petGallery);break;
-                case "flash": using(var form=DeviceWindow(d,new FirmwareFlashForm(preferredPort:_serial.PortName),"固件升级"))form.ShowDialog(_center);break;
+                    if(_petGallery is null||_petGallery.IsDisposed)_petGallery=DeviceWindow(d,new PetGalleryForm(mode=>Mode(mode)),"桌宠素材");SettingsWindow.Present(_petGallery);break;
+                case "flash": using(var form=DeviceWindow(d,new FirmwareFlashForm(preferredPort:_serial.PortName),"固件升级"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "info": await ManageDeviceAsync(false);break;
                 case "reset": await ManageDeviceAsync(true);break;
                 case "fallback": await TestFallbackAsync();break;
@@ -215,15 +232,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     private void ShowAppearance(RegisteredDevice device) {
-        using var form=DeviceWindow(device,new Form{Font=new Font("Microsoft YaHei UI",9F),AutoScaleMode=AutoScaleMode.Dpi,AutoScaleDimensions=new(96,96),ClientSize=new(490,400),MinimumSize=new(440,350),StartPosition=FormStartPosition.CenterParent},"桌宠与天气外观");
-        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(16),AutoScroll=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};form.Controls.Add(panel);SettingsWindow.FitFlow(panel);
-        panel.Controls.Add(new Label{Text="天气右下角动画",AutoSize=true});var animation=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList};string[] values=["robot","house","plant","pet","off"];animation.Items.AddRange(new[]{"天气机器人","像素天气小屋","像素盆栽","天气萌宠","关闭动画"});animation.SelectedIndex=Math.Max(0,Array.IndexOf(values,MigratedWeather.WeatherMonitor.Animation));animation.SelectedIndexChanged+=(_,_)=>MigratedWeather.WeatherMonitor.Animation=values[animation.SelectedIndex];panel.Controls.Add(animation);
-        panel.Controls.Add(DeviceCenterForm.Button("选择本机通用桌宠",()=>ImportPet()));
-        foreach(string owner in new[]{"claude","codex"}) {
-            panel.Controls.Add(DeviceCenterForm.Button(owner+" · 选择本机动画",()=>ImportPet(owner)));
-            panel.Controls.Add(DeviceCenterForm.Button(owner+" · 恢复默认动画",()=>{try{PetAnimationStore.Shared.RestoreDefault(owner);MessageBox.Show(form,"已恢复默认动画，将在设备连接后同步。");}catch(Exception ex){MessageBox.Show(form,ex.Message);}}));
-        }
-        SettingsWindow.FitScreen(form);form.ShowDialog(_center);
+        using var form=DeviceWindow(device,new DeviceAppearanceForm(MigratedWeather.WeatherMonitor.Animation,
+            value=>MigratedWeather.WeatherMonitor.Animation=value,owner=>ImportPet(owner),
+            owner=>PetAnimationStore.Shared.RestoreDefault(owner),owner=>{
+                using var gallery=DeviceWindow(device,new PetGalleryForm(mode=>SelectDisplayMode(mode)),"桌宠素材");gallery.ShowDialog(owner);
+            }),"外观设置");form.ShowDialog(SettingsWindow.DialogOwner(_center));
     }
 
     private async void HandleMenuAction(string action)
@@ -234,7 +247,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 case "add-device": AddDevice();break;
                 case "bridge-settings": ShowCommonSettings(true);break;
                 case "accounts": ShowCommonSettings(false);break;
-                case "desktop-history": _devices.SetDesktopQuotaHistory(!_devices.Snapshot.DesktopQuotaHistory);await UpdateDemandAsync();RebuildMenu();break;
                 case "refresh":
                     if(_refreshBusy)return;_refreshBusy=true;
                     try{await _runtime.RefreshAsync();_mirror?.Invalidate();}finally{_refreshBusy=false;}break;
@@ -252,21 +264,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }catch(Exception ex){MessageBox.Show(ex.Message,"桥接操作未完成",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
     }
 
-    private void SelectDisplayMode(string mode)
+    private bool SelectDisplayMode(string mode)
     {
-        if (!_services.EspEnabled||!DisplayModes.IsValid(mode)) return;
-        if (!_settings.SaveEditable(new Dictionary<string,string> { ["display_mode"] = mode, ["display_cycle_enabled"] = "0" }, out var error))
-        { MessageBox.Show(error, "显示模式"); return; }
+        if (!_services.EspEnabled||!DisplayModes.IsValid(mode)) return false;
+        if (!DisplayModes.TrySelect(mode,out var policy,out var error))
+        { MessageBox.Show(error, "显示模式"); return false; }
         _selectedMode = mode;
         _automaticScreenSaver = false;
         _temporaryWakeUntil = null;
+        if(mode=="auto")_cycleStartedAt=policy.CycleStartedAt;
         PublishDisplayPolicy();
         if (!_serial.SendDisplayMode(mode))
         {
             MessageBox.Show("显示选择已保存，将通过可用连接应用；USB 当前未连接或正在回退测试。", "AI-bot",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
         }
+        return true;
     }
 
     private void PublishDisplayPolicy()
@@ -336,12 +349,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowStatus()
     {
-        var json = JsonSerializer.Serialize(
-            _runtime.Capture(),
-            new JsonSerializerOptions(JsonDefaults.Options) { WriteIndented = true });
-        var device = _serial.DeviceHost ?? "not discovered";
-        MessageBox.Show($"Device LAN: {device}\n\n{json}", "AI-bot status",
-            MessageBoxButtons.OK, MessageBoxIcon.Information);
+        if(_statusForm is null||_statusForm.IsDisposed)
+            _statusForm=new BridgeStatusForm(()=>BridgeStatusView.Capture(_devices.Snapshot,_services.View,_runtime.Capture(),_demand,_services.Error));
+        SettingsWindow.Present(_statusForm);
     }
 
     private async Task ManageDeviceAsync(bool reset)
@@ -371,6 +381,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private async Task TestFallbackAsync()
     {
+        if(_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266)?.ConnectionMode!=EspConnectionMode.Auto){
+            MessageBox.Show("请先在“连接设置”中选择“自动”，再检查 USB 与 Wi-Fi 自动切换。","连接诊断");return;
+        }
         if (_deviceOperationBusy) return;
         if (MessageBox.Show("保持 USB 插着。测试将暂停 USB 常规发送约 12 秒，LAN 服务继续运行，" +
                 "随后自动恢复。网络隔离时预期回退不通过。是否开始？", "Wi-Fi 回退测试",
@@ -459,11 +472,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _petGallery?.Close();
         _settingsForm?.Close();
         _weatherSettings?.Close();
-        _deviceControl?.Close();
         _tab5Form?.Close();
         _shutdown.Cancel();
         await _services.StopAsync();
-        _center?.Close();_trend?.Close();
+        _center?.Close();_trend?.Close();_statusForm?.Close();
         _runtime.Dispose();
         _icon.Visible = false;
         _icon.Icon?.Dispose();

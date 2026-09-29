@@ -14,6 +14,12 @@ internal static class DeviceStatusFrame
         // Keep LAN/mirror snapshots complete. USB omits only non-rendered metadata;
         // full Chinese stock/music labels are carried in binary resources.
         data.Remove("capturedAt"); data.Remove("time"); data.Remove("musicPlaying");
+        // Forecast series are rendered by TAB5, not the ESP8266. Keep them in
+        // the shared snapshot but out of its bounded USB heartbeat.
+        if(data["weather"] is JsonObject weather) {
+            weather.Remove("hourly");weather.Remove("daily");
+            weather.Remove("hourlyStale");weather.Remove("dailyStale");
+        }
         // Fast metrics frames carry the incremental tail; the heartbeat remains small.
         if(data["systemMetrics"] is JsonObject metrics) metrics.Remove("samples");
         if (data["domesticActivity"] is JsonObject activity) activity.Remove("providers");

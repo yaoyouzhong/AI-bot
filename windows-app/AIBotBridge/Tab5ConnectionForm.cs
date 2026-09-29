@@ -1,4 +1,4 @@
-namespace AIBotBridge;
+﻿namespace AIBotBridge;
 
 internal sealed class Tab5ConnectionForm : Form
 {
@@ -63,7 +63,7 @@ internal sealed class Tab5ConnectionForm : Form
             releaseNotes.Visible=cancelOta.Enabled=service.HasOta;releaseNotes.SetNotes(service.OtaNotes);
         }
         UpdateOffer();
-        upgrade.Controls.Add(Note("在 TAB5 上确认升级，保持 Wi-Fi 与供电。"));
+        upgrade.Controls.Add(Note("固件升级使用 USB 或 Wi-Fi，并保持供电。蓝牙用于日常数据和会话，不用于大体积固件下载。0.2.39 / 0.2.40 请先在 TAB5 将连接方式切到 USB 或 Wi-Fi。"));
         offerOta.Click+=(_,_)=> {
             using var pick=new OpenFileDialog{Title="选择 TAB5 固件",Filter="TAB5 固件 (*.bin)|*.bin",CheckFileExists=true};
             if(pick.ShowDialog(this)!=DialogResult.OK)return;

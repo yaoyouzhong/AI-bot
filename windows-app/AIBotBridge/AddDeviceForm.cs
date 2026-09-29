@@ -12,10 +12,16 @@ internal sealed class AddDeviceForm : Form
         Text="添加设备";Font=new Font("Microsoft YaHei UI",9F);AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         ClientSize=new(540,365);MinimumSize=new(480,350);StartPosition=FormStartPosition.CenterParent;
         var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,AutoScroll=true,WrapContents=false,Padding=new Padding(20)};Controls.Add(panel);SettingsWindow.FitFlow(panel);
-        panel.Controls.Add(new Label{Text="连接 USB 数据线，验证设备后添加。",AutoSize=true,Font=new Font(Font.FontFamily,12,FontStyle.Bold)});
         var kind=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Label"};
-        var choices=new[]{new Choice(HardwareKind.Tab5,"TAB5 平板"),new Choice(HardwareKind.Esp8266,"ESP8266 小屏")}.Where(c=>!registry.Devices.Any(d=>d.Kind==c.Kind)).ToArray();
-        if(choices.Length==0)throw new InvalidOperationException("当前已添加两种设备，请管理已有设备。");
+        var choices=new[]{new Choice(HardwareKind.Tab5,"M5Stack TAB5"),new Choice(HardwareKind.Esp8266,"ESP8266 小屏")}.Where(c=>!registry.Devices.Any(d=>d.Kind==c.Kind)).ToArray();
+        if(choices.Length==0) {
+            kind.Dispose();ClientSize=new(440,250);MinimumSize=new(420,260);
+            panel.Controls.Add(new Label{Text="支持的设备均已添加",AutoSize=true,Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,0,0,14)});
+            foreach(var device in registry.Devices)panel.Controls.Add(new Label{Text=DeviceRegistryStore.Model(device.Kind)+" · 已添加"+(device.Enabled?"":"（已停用）"),AutoSize=true,Margin=new Padding(0,0,0,10)});
+            panel.Controls.Add(new Label{Text="当前支持每种型号一台。\n如需更换，请先在原设备的“管理”菜单中移除，再添加新设备。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,6,0,14)});
+            var close=DeviceCenterForm.Button("关闭",()=>DialogResult=DialogResult.Cancel);panel.Controls.Add(close);AcceptButton=close;CancelButton=close;SettingsWindow.FitScreen(this);return;
+        }
+        panel.Controls.Add(new Label{Text="连接 USB 数据线，验证设备后添加。",AutoSize=true,Font=new Font(Font.FontFamily,12,FontStyle.Bold)});
         kind.Items.AddRange(choices.Cast<object>().ToArray());kind.SelectedIndex=0;panel.Controls.Add(kind);
         var ports=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Name"};panel.Controls.Add(ports);
         var name=new TextBox{Text=DeviceRegistryStore.Model(((Choice)kind.SelectedItem!).Kind),MaxLength=40};panel.Controls.Add(name);

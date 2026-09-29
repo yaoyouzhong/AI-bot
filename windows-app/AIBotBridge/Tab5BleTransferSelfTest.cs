@@ -4,6 +4,23 @@ internal static class Tab5BleTransferSelfTest
 {
     internal static async Task RunAsync()
     {
+        using(var gate=new SemaphoreSlim(1,1)) {
+            var entered=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            bool rpcEntered=false;
+            var status=Tab5BleTransfer.SerializeAsync(gate,async ()=>{entered.SetResult();await release.Task;return 1;},CancellationToken.None);
+            await entered.Task;
+            var rpc=Tab5BleTransfer.SerializeAsync(gate,()=>{rpcEntered=true;return Task.FromResult(2);},CancellationToken.None);
+            if(rpcEntered)throw new Exception("RPC overlapped an unfinished status/ACK exchange");
+            using var queuedCancel=new CancellationTokenSource();
+            var queued=Tab5BleTransfer.SerializeAsync<bool>(gate,()=>throw new Exception("Cancelled exchange ran"),queuedCancel.Token);
+            queuedCancel.Cancel();
+            try{await queued;throw new Exception("Queued cancellation ignored");}catch(OperationCanceledException){}
+            release.SetResult();await status;await rpc;
+            if(!rpcEntered||gate.CurrentCount!=1)throw new Exception("Queued RPC did not resume or gate leaked");
+            try{await Tab5BleTransfer.SerializeAsync<bool>(gate,()=>throw new IOException("injected"),CancellationToken.None);}catch(IOException){}
+            if(gate.CurrentCount!=1)throw new Exception("Failed exchange leaked ATT ownership");
+        }
         foreach(var size in new[]{20,244})foreach(var length in new[]{32,1024,21821,32768}) {
             int pending=0,barriers=0;
             for(int offset=0;offset<length;offset+=size) {

@@ -6,7 +6,9 @@ internal sealed record DeviceDataDemand(HashSet<string> Sources,HashSet<string> 
         var sources=registry.Devices.Where(d=>d.Enabled).SelectMany(d=>d.Sources).ToHashSet(StringComparer.Ordinal);
         var providers=registry.Devices.Where(d=>d.Enabled&&d.Sources.Contains("quotas")).SelectMany(d=>d.Providers).ToHashSet(StringComparer.Ordinal);
         if(registry.Devices.Any(d=>d.Enabled&&d.Kind==HardwareKind.Esp8266&&d.Sources.Contains("quotas")))providers.UnionWith(QuotaMonitoringPolicy.Selected(legacy,domesticProvider));
-        if(registry.DesktopQuotaHistory){sources.Add("quotas");providers.UnionWith(QuotaMonitoringPolicy.Selected(legacy with {SelectedMode="auto",CycleEnabled=true},domesticProvider));}
+        // Quota history belongs to the desktop app and runs while the app is open.
+        // Retain the legacy registry field for compatibility, but no longer use it as a switch.
+        sources.Add("quotas");
         return new(sources,providers);
     }
 }

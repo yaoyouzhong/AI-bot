@@ -16,10 +16,19 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private LanPairing? _pairing;
     private string? _preferredPort;
     internal string? ExpectedUsbIdentity {get;set;}
+    internal string ConnectionStatus {get;private set;}="等待 USB 设备";
+    internal string? LastConnectionError {get;private set;}
     internal void ReloadPort()=>_preferredPort=NormalizePort(BridgeSettings.Load().Get("serial_port"));
     private long _pauseUntil;
     private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private volatile bool _flashPaused;
+    private volatile bool _usbDataEnabled=true;
+    private long _lastStatusWrittenAt;
+    internal bool UsbDataEnabled {
+        get=>_usbDataEnabled;
+        set {lock(_portSync){_usbDataEnabled=value;if(!value)Interlocked.Exchange(ref _lastStatusWrittenAt,0);}}
+    }
+    internal bool UsbDataActive=>UsbDataEnabled&&PortName is not null&&Interlocked.Read(ref _lastStatusWrittenAt)>0&&Environment.TickCount64-Interlocked.Read(ref _lastStatusWrittenAt)<8000;
     internal bool FlashBusy=>_flashPaused;
     internal Func<string?>? ReservedPort { get; set; }
 
@@ -110,7 +119,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             {
                 // A resource transfer may hold the port for seconds. Sample after
                 // acquiring it so this frame cannot replace newer heartbeat data.
-                if (_activePort?.IsOpen != true || IsPaused) continue;
+                if (_activePort?.IsOpen != true || IsPaused || !UsbDataEnabled) continue;
                 var metrics = capture();
                 if (metrics is null || metrics.UpdatedAt == sentAt) continue;
                 if (TrySend(new { version = 1, type = "metrics", data = metrics })) sentAt = metrics.UpdatedAt;
@@ -142,7 +151,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         lock (_portSync)
         {
             LastResourceFailure = null;
-            if (_activePort?.IsOpen != true || IsPaused) { LastResourceFailure = "port closed or paused"; return false; }
+            if (_activePort?.IsOpen != true || IsPaused || !UsbDataEnabled) { LastResourceFailure = "port closed, paused or Wi-Fi selected"; return false; }
             var nextHeartbeat = Environment.TickCount64;
             foreach (var chunk in chunks)
             {
@@ -153,6 +162,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 if (_captureStatus is not null && Environment.TickCount64 >= nextHeartbeat)
                 {
                     _activePort.WriteLine(Prefix + DeviceStatusFrame.Create(_captureStatus()).ToJsonString(JsonDefaults.Options));
+                    Interlocked.Exchange(ref _lastStatusWrittenAt,Environment.TickCount64);
                     nextHeartbeat = Environment.TickCount64 + 2000;
                 }
                 var acknowledged = false;
@@ -187,9 +197,11 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         {
             IReadOnlyList<FlashUsbDevice> usbDevices;
             try{usbDevices=FlashDeviceDiscovery.Read();}
-            catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or IOException or UnauthorizedAccessException){await Task.Delay(3000,cancellationToken);continue;}
+            catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or IOException or UnauthorizedAccessException){ConnectionStatus="USB 检测失败："+ex.GetType().Name;await Task.Delay(3000,cancellationToken);continue;}
             var tabPorts=usbDevices.Where(d=>d.Identity.Contains("VID_303A",StringComparison.OrdinalIgnoreCase)).Select(d=>d.Port).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var candidate in BoundPorts(ExpectedUsbIdentity,usbDevices,CandidatePorts))
+            var candidates=BoundPorts(ExpectedUsbIdentity,usbDevices,CandidatePorts);
+            if(candidates.Count==0)ConnectionStatus="未找到已绑定的 USB 设备";
+            foreach (var candidate in candidates)
             {
                 if(ExpectedUsbIdentity is {} expected&&!usbDevices.Any(d=>d.Port.Equals(candidate,StringComparison.OrdinalIgnoreCase)&&d.Identity==expected))continue;
                 if (tabPorts.Contains(candidate)||string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
@@ -203,16 +215,17 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 {
                     if (_flashPaused) continue;
                     if (tabPorts.Contains(candidate)||string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
-                    port.Open();
+                    ConnectionStatus="正在连接 "+candidate;port.Open();
                     await Task.Delay(1200, cancellationToken);
                     if (_flashPaused) continue;
                     port.DiscardInBuffer();
                     port.WriteLine(Prefix + "{\"version\":1,\"type\":\"ping\"}");
 
                     if (!WaitForPong(port, out var deviceHost))
-                        continue;
+                        {ConnectionStatus=candidate+" 未回复心跳";continue;}
 
                     _portName = candidate;
+                    ConnectionStatus="已连接 · "+candidate;
                     _deviceHost = deviceHost;
                     lock (_portSync) _activePort = port;
                     var sentRevisions = new Dictionary<BinaryResourceKind, int>();
@@ -237,7 +250,9 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                             type = "lan_config",
                             data = new { host = pairing.Address.ToString(), port = pairing.Port, token = pairing.Token }
                         })) { sentPairing = pairing; _configuredLanHost = pairing.Address.ToString(); _configuredLanPort = pairing.Port; }
-                        foreach (var resource in resources())
+                        // Pairing and diagnostics remain available over USB in Wi-Fi mode,
+                        // but no status, metrics or resources may refresh the USB data path.
+                        foreach (var resource in UsbDataEnabled?resources():Array.Empty<ResourcePayload>())
                         {
                             if (sentRevisions.TryGetValue(resource.Kind, out var revision) &&
                                 revision == resource.Revision) continue;
@@ -248,7 +263,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                         {
                             // Capture after acquiring the port: an older heartbeat
                             // must not undo a mode selected while it was waiting.
-                            Write(port, DeviceStatusFrame.Create(snapshot()));
+                            Write(port, DeviceStatusFrame.Create(snapshot()));LastConnectionError=null;
                             _displayCommands.Drain();
                             if (port.IsOpen && port.BytesToRead > 0) port.ReadExisting();
                         }
@@ -263,6 +278,8 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                     ex is IOException or UnauthorizedAccessException or InvalidOperationException or TimeoutException)
                 {
                     // A port may disappear, be busy, or belong to a different device.
+                    LastConnectionError=ex.GetType().Name+" · "+ex.Message;
+                    ConnectionStatus=candidate+" · "+(ex is UnauthorizedAccessException?"端口被占用":ex is TimeoutException?"设备回复超时":ex is IOException?"连接中断":"数据发送失败");
                 }
                 finally
                 {
@@ -300,8 +317,10 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private void Write(SerialPort port, object frame)
     {
         lock (_portSync)
-            if (port.IsOpen && !IsPaused)
+            if (port.IsOpen && !IsPaused && UsbDataEnabled) {
                 port.WriteLine(Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options));
+                Interlocked.Exchange(ref _lastStatusWrittenAt,Environment.TickCount64);
+            }
     }
 
     private static SerialPort CreatePort(string name) => new(name, 460800)

@@ -4,7 +4,11 @@ namespace AIBotBridge;
 // Called under the reader gate. Only assistant-facing text is retained in this
 // bounded cache; it never resumes a thread or claims a stored turn is running.
 internal sealed class Tab5StoredReplies {
-    internal sealed record Selection(Tab5ActivityPage Page,string LatestId,string LatestState,bool HasPrevious,bool HasNext);
+    internal sealed record Selection(Tab5ActivityPage Page,string LatestId,string LatestState,bool HasPrevious,bool HasNext) {
+        internal string PreviousTurnId {get;init;}="";
+        internal string NextTurnId {get;init;}="";
+        internal Selection[] Neighbors {get;init;}=[];
+    }
     private sealed record Cached(long Length,DateTime Stamp,List<Tab5ActivityPage[]> Turns);
     private readonly Dictionary<string,Cached> _cache=new();
     internal Selection? Read(string? path,string home,string turn,int offset,int page) {
@@ -39,6 +43,12 @@ internal sealed class Tab5StoredReplies {
         if(selected<0)throw new Tab5CodexDesktop.Rejected("history_turn_unavailable");
         selected=Math.Clamp(selected+offset,0,cache.Turns.Count-1);
         var chosen=cache.Turns[selected];int p=page<0?chosen.Length-1:Math.Clamp(page,0,chosen.Length-1);
-        var latest=cache.Turns[^1][0];return new(chosen[p],latest.TurnId,latest.State,selected>0,selected<cache.Turns.Count-1);
+        var latest=cache.Turns[^1][0];
+        Selection At(int index,int atPage)=>new(cache.Turns[index][atPage],latest.TurnId,latest.State,index>0,index<cache.Turns.Count-1) {
+            PreviousTurnId=index>0?cache.Turns[index-1][0].TurnId:"",
+            NextTurnId=index+1<cache.Turns.Count?cache.Turns[index+1][0].TurnId:""
+        };
+        return At(selected,p) with {Neighbors=new[]{selected-1,selected+1,selected-2,selected-3}
+            .Where(i=>i>=0&&i<cache.Turns.Count).Select(i=>At(i,0)).ToArray()};
     }
 }

@@ -5,7 +5,9 @@ namespace AIBotBridge;
 
 [JsonConverter(typeof(JsonStringEnumConverter<HardwareKind>))]
 internal enum HardwareKind { Esp8266, Tab5 }
-internal sealed record RegisteredDevice(string Id,HardwareKind Kind,string Name,bool Enabled,string? HardwareId,string[] Sources,string[] Providers) {public string? UsbIdentity {get;init;} public DateTimeOffset CreatedAt {get;init;}=DateTimeOffset.UtcNow;}
+[JsonConverter(typeof(JsonStringEnumConverter<EspConnectionMode>))]
+internal enum EspConnectionMode { Auto, Usb, Wifi }
+internal sealed record RegisteredDevice(string Id,HardwareKind Kind,string Name,bool Enabled,string? HardwareId,string[] Sources,string[] Providers) {public string? UsbIdentity {get;init;} public EspConnectionMode ConnectionMode {get;init;}=EspConnectionMode.Auto; public DateTimeOffset CreatedAt {get;init;}=DateTimeOffset.UtcNow;}
 internal sealed record DeviceRegistry(int Version,bool MigrationComplete,bool LegacyDecisionPending,bool DesktopQuotaHistory,RegisteredDevice[] Devices);
 
 // Non-secret metadata only. Existing pairing and user content stores remain authoritative.
@@ -16,7 +18,7 @@ internal sealed class DeviceRegistryStore
     private DeviceRegistry _value;
     internal static readonly string[] SourceIds=["activity","quotas","weather","stocks","music","system"];
     internal static readonly string[] ProviderIds=["qwen","kimi","minimax","deepseek","zhipu","stepfun","baidu","xiaomi"];
-    internal static string Model(HardwareKind kind)=>kind==HardwareKind.Tab5?"TAB5 平板":"ESP8266 小屏";
+    internal static string Model(HardwareKind kind)=>kind==HardwareKind.Tab5?"M5Stack TAB5":"ESP8266 小屏";
     internal DeviceRegistryStore(string? path=null) {
         _path=path??Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData),"AI-bot","devices.json");
         _value=new(1,false,false,false,[]);
@@ -24,6 +26,8 @@ internal sealed class DeviceRegistryStore
             if(new FileInfo(_path).Length>65536)throw new InvalidDataException("设备清单过大，请恢复备份。");
             try{_value=JsonSerializer.Deserialize<DeviceRegistry>(File.ReadAllText(_path))??throw new InvalidDataException("设备清单为空。");Validate(_value);}
             catch(JsonException ex){throw new InvalidDataException("设备清单无法读取，原文件已保留。",ex);}
+            if(_value.Devices.Any(d=>d.Kind==HardwareKind.Tab5&&d.Name=="TAB5 平板"))
+                Save(_value with {Devices=_value.Devices.Select(d=>d.Kind==HardwareKind.Tab5&&d.Name=="TAB5 平板"?d with {Name="M5Stack TAB5"}:d).ToArray()});
         }
     }
     internal DeviceRegistry Snapshot {get {lock(_gate)return _value with {Devices=_value.Devices.Select(Clone).ToArray()};}}
@@ -65,7 +69,7 @@ internal sealed class DeviceRegistryStore
         if(value.Version!=1||value.Devices is null||value.Devices.Length>2)throw new InvalidDataException("设备清单版本不兼容或内容无效，原文件已保留。");
         if(value.Devices.Any(d=>d is null)||value.Devices.Select(d=>d.Id).Distinct().Count()!=value.Devices.Length||value.Devices.Select(d=>d.Kind).Distinct().Count()!=value.Devices.Length)throw new InvalidDataException("设备清单包含重复设备。");
         foreach(var d in value.Devices) {
-            if(!Guid.TryParseExact(d.Id,"N",out _)||!Enum.IsDefined(d.Kind)||string.IsNullOrWhiteSpace(d.Name)||d.Name.Length>40||d.Name.Any(char.IsControl)||
+            if(!Guid.TryParseExact(d.Id,"N",out _)||!Enum.IsDefined(d.Kind)||!Enum.IsDefined(d.ConnectionMode)||(d.Kind==HardwareKind.Tab5&&d.ConnectionMode!=EspConnectionMode.Auto)||string.IsNullOrWhiteSpace(d.Name)||d.Name.Length>40||d.Name.Any(char.IsControl)||
                 d.Sources is null||d.Providers is null||d.Sources.Any(s=>!SourceIds.Contains(s))||d.Providers.Any(p=>!ProviderIds.Contains(p))||
                 (d.UsbIdentity is not null&&!FlashDeviceDiscovery.IsUsbIdentity(d.UsbIdentity))||d.Sources.Distinct().Count()!=d.Sources.Length||d.Providers.Distinct().Count()!=d.Providers.Length||
                 (d.Kind==HardwareKind.Tab5?!Tab5Protocol.ValidId(d.HardwareId):d.HardwareId is not null))throw new InvalidDataException("设备名称、身份或数据选择无效。");

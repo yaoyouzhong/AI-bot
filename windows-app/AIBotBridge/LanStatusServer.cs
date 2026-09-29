@@ -117,10 +117,22 @@ internal sealed class LanStatusServer
                 }
                 var packet=new byte[length];
                 await stream.ReadExactlyAsync(packet,cancellationToken);
+                bool replyRead=requestLine.Contains("/codex/read ",StringComparison.Ordinal);
+                long readStarted=Environment.TickCount64;
+                if(replyRead)tab5?.RecordHttpRead("processing",readStarted);
+                try {
                 var result=tab5 is null ? (Status:503,Body:(object)new {error="tab5_unavailable"}) :
                     await tab5.SubmitCodexAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,requestLine.Contains("/codex/read ",StringComparison.Ordinal),imageOnly);
+                string replyBody=JsonSerializer.Serialize(result.Body,JsonDefaults.Options);
+                int bytes=System.Text.Encoding.UTF8.GetByteCount(replyBody);
+                if(replyRead)tab5?.RecordHttpRead("sending",readStarted,result.Status,bytes);
                 await WriteResponseAsync(stream,result.Status switch {200=>"200 OK",202=>"202 Accepted",400=>"400 Bad Request",401=>"401 Unauthorized",404=>"404 Not Found",409=>"409 Conflict",429=>"429 Too Many Requests",504=>"504 Gateway Timeout",_=>"503 Service Unavailable"},
-                    JsonSerializer.Serialize(result.Body,JsonDefaults.Options),cancellationToken);
+                    replyBody,cancellationToken);
+                if(replyRead)tab5?.RecordHttpRead("sent",readStarted,result.Status,bytes);
+                } catch(Exception ex) when(ex is IOException or SocketException or OperationCanceledException) {
+                    if(replyRead)tab5?.RecordHttpRead("failed "+ex.GetType().Name,readStarted);
+                    throw;
+                }
                 return;
             }
             if(!_legacyEnabled()){await WriteResponseAsync(stream,"404 Not Found","{\"error\":\"device_disabled\"}",cancellationToken);return;}
@@ -136,7 +148,6 @@ internal sealed class LanStatusServer
                 await WriteBytesAsync(stream, resource.Status, resource.Body, cancellationToken);
                 return;
             }
-            if(authenticated)_legacyActivity?.Invoke();
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
 
             var statusCode = !authenticated ? "401 Unauthorized" : found ? "200 OK" : "404 Not Found";
@@ -144,6 +155,7 @@ internal sealed class LanStatusServer
                 ? JsonSerializer.Serialize(snapshot(), JsonDefaults.Options)
                 : authenticated ? "{\"error\":\"not_found\"}" : "{\"error\":\"unauthorized\"}";
             await WriteResponseAsync(stream, statusCode, body, cancellationToken);
+            if(authenticated&&found)_legacyActivity?.Invoke();
         }
     }
 

@@ -50,6 +50,9 @@ internal sealed class BridgeRuntime : IDisposable
     {
         var now=DateTimeOffset.Now;
         var activity=_sources.Contains("activity")?SessionActivityReader.Capture():new StatusSnapshot(1,now.ToString("HH:mm:ss"),now.ToUnixTimeSeconds(),(int)now.Offset.TotalSeconds,now,new ToolState("idle",null),new ToolState("idle",null));
+        // Bound the display interruption, without changing the underlying task or unread state.
+        // The same snapshot drives the desktop preview, USB and LAN devices.
+        activity=DisplayModes.ExpireCompletionNotice(activity);
         var snapshot = activity with
         {
             Weather = _weather.Snapshot,

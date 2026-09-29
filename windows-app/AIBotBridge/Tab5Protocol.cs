@@ -54,7 +54,7 @@ internal static class Tab5Protocol
                 pcInput=new {session,sequence,lastInputTickMs=SystemIdleTime.LastInputTickMilliseconds()},
                 quotas=snapshot.Quotas is null?null:new {claude=SummaryQuota(snapshot.Quotas.Claude),codex=SummaryQuota(snapshot.Quotas.Codex,true)},
                 snapshot.Weather,stocks=snapshot.Stocks is null ? null : snapshot.Stocks with {Quotes=snapshot.Stocks.Quotes.Take(20).ToArray()},
-                systemMetrics=snapshot.SystemMetrics is null ? null : snapshot.SystemMetrics with {Samples=snapshot.SystemMetrics.Samples?.TakeLast(16).ToArray()},snapshot.Music,
+                systemMetrics=snapshot.SystemMetrics is null ? null : snapshot.SystemMetrics with {Samples=(snapshot.SystemMetrics.History??snapshot.SystemMetrics.Samples)?.TakeLast(64).ToArray()},snapshot.Music,
                 domesticActivity=snapshot.DomesticActivity is null?null:new {snapshot.DomesticActivity.ActiveProvider,snapshot.DomesticActivity.State,snapshot.DomesticActivity.NeedsInput,snapshot.DomesticActivity.TokensToday},
                 snapshot.FollowApp,resource,assetIds,codexTasks,ota,connectionHealth,
                 calendar=Calendar(snapshot),quotaDetails=Tab5Details.Quotas(snapshot),quotaTrend=Tab5QuotaTrend.Snapshot() }

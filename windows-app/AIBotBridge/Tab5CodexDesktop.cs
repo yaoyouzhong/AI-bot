@@ -35,6 +35,9 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
         internal bool IsHistory {get;init;}
         internal bool HasPrevious {get;init;}
         internal bool HasNext {get;init;}
+        internal string PreviousTurnId {get;init;}="";
+        internal string NextTurnId {get;init;}="";
+        internal State[] NeighborTurns {get;init;}=[];
         internal State Current=>LatestTurn.ValueKind==JsonValueKind.Object?this with {Turn=LatestTurn,IsHistory=false}:this;
         internal string TurnId => Text(Turn,"turnId");
         internal string Status => Text(Turn,"status");
@@ -128,14 +131,16 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
         int selected=string.IsNullOrEmpty(turnId)?turns.Count-1:turns.FindIndex(t=>Text(t,"turnId")==turnId);
         if(!string.IsNullOrEmpty(turnId)&&selected<0)throw new Rejected("history_turn_unavailable");
         if(turns.Count>0)selected=Math.Clamp(selected+turnOffset,0,turns.Count-1);
-        var turn=selected>=0?turns[selected]:default;
         var requests=Child(state,"requests");
-        return new(Text(Child(state,"threadRuntimeStatus"),"type"),Text(state,"rolloutPath"),turn,
+        State At(int index)=>new(Text(Child(state,"threadRuntimeStatus"),"type"),Text(state,"rolloutPath"),index>=0?turns[index]:default,
             requests.ValueKind==JsonValueKind.Array&&requests.GetArrayLength()>0) {
-                LatestTurn=turns.LastOrDefault(),IsHistory=selected>=0&&selected<turns.Count-1,
-                HasPrevious=selected>0||HasOlder(state),
-                HasNext=selected>=0&&selected<turns.Count-1
+                LatestTurn=turns.LastOrDefault(),IsHistory=index>=0&&index<turns.Count-1,
+                HasPrevious=index>0||HasOlder(state),HasNext=index>=0&&index<turns.Count-1,
+                PreviousTurnId=index>0?Text(turns[index-1],"turnId"):"",
+                NextTurnId=index>=0&&index+1<turns.Count?Text(turns[index+1],"turnId"):""
             };
+        // Reuse the one owner snapshot; prefetching must not open extra IPC requests.
+        return At(selected) with {NeighborTurns=new[]{selected-1,selected+1,selected-2,selected-3}.Where(i=>i>=0&&i<turns.Count).Select(At).ToArray()};
     }
     private static bool HasOlder(JsonElement state) {
         var canonical=Child(Child(Child(state,"turnHistory"),"history"),"isComplete");

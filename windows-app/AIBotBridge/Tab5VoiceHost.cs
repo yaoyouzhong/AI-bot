@@ -228,11 +228,11 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         Form form=preview?new PreviewForm():new Form();
         form.SuspendLayout();
         form.AutoScaleDimensions=new SizeF(96,96);form.AutoScaleMode=AutoScaleMode.Dpi;
-        form.Font=new Font("Microsoft YaHei UI",9F);form.MinimumSize=new Size(520,420);
-        form.Text="TAB5 语音设置";form.ClientSize=new Size(600,550);form.StartPosition=FormStartPosition.CenterParent;
+        form.Font=new Font("Microsoft YaHei UI",9F);form.MinimumSize=new Size(500,300);
+        form.Text="M5Stack TAB5 · 语音设置";form.ClientSize=new Size(560,270);form.StartPosition=FormStartPosition.CenterParent;
         var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(20)};form.Controls.Add(panel);
-        panel.Controls.Add(new Label {AutoSize=true,MaximumSize=new Size(590,0),Text="优先大疆，不可用时使用 TAB5。\nUSB / Wi-Fi 均优先接口调用，临时切换音源，结束后恢复。\n正常识别不显示 TAB5 弹窗；期间保持电脑解锁，勿切换输入焦点。"});
-        panel.Controls.Add(new Label {AutoSize=true,Text="大疆麦克风"});
+        var enabled=new CheckBox{Text="启用语音输入",AutoSize=true,Checked=_settings.Enabled,Margin=new Padding(3,0,3,12)};panel.Controls.Add(enabled);
+        panel.Controls.Add(new Label {AutoSize=true,Text="优先麦克风"});
         var inputs=new ComboBox{Width=590,DropDownStyle=ComboBoxStyle.DropDownList};panel.Controls.Add(inputs);
         inputs.Items.Add(new Tab5AudioDevice("","自动识别 DJI / Wireless Mic Rx"));
         foreach(var d in Tab5VoiceAudio.Devices(DataFlow.Capture).Where(d=>!Tab5VoiceAudio.IsCableCapture(d.Name)))inputs.Items.Add(d);
@@ -241,20 +241,29 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         if(_settings.DjiId.Length>0&&inputs.SelectedIndex==0) {
             inputs.Items.Add(new Tab5AudioDevice(_settings.DjiId,"之前选择的大疆设备（当前未连接）"));inputs.SelectedIndex=inputs.Items.Count-1;
         }
+        panel.Controls.Add(new Label{Text="不可用时使用 M5Stack TAB5 麦克风。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(3,6,3,12)});
+        var troubleshoot=new Button{Text="问题排查",AutoSize=true,Name="voice-troubleshoot"};SettingsWindow.StyleButton(troubleshoot);panel.Controls.Add(troubleshoot);
+        var advanced=new FlowLayoutPanel{AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false,Visible=false,Margin=Padding.Empty,Name="voice-advanced"};panel.Controls.Add(advanced);SettingsWindow.FitFlow(advanced);
+        troubleshoot.Click+=(_,_)=>{
+            advanced.Visible=!advanced.Visible;troubleshoot.Text=advanced.Visible?"收起排查":"问题排查";
+            int height=(int)Math.Round((advanced.Visible?500:270)*form.DeviceDpi/96d);
+            int available=Screen.FromControl(form).WorkingArea.Height-32-(form.Height-form.ClientSize.Height);
+            form.ClientSize=new Size(form.ClientSize.Width,Math.Min(height,available));
+        };
         string[] shortcuts=["LeftAltSpace","RightAltSpace","CtrlAltSpace"];
-        panel.Controls.Add(new Label{AutoSize=true,Text="旧版豆包的 USB 备用快捷键",Margin=new Padding(3,12,3,3)});
-        var keys=new ComboBox{Width=590,DropDownStyle=ComboBoxStyle.DropDownList};keys.Items.AddRange(["左 Alt + 空格","右 Alt + 空格","Ctrl + Alt + 空格"]);keys.SelectedIndex=Math.Max(0,Array.IndexOf(shortcuts,_settings.Shortcut));panel.Controls.Add(keys);
-        var test=new Button{Text="测试豆包识别",Width=300,Height=34};panel.Controls.Add(test);
+        advanced.Controls.Add(new Label{AutoSize=true,Text="旧版备用快捷键",Margin=new Padding(3,12,3,3)});
+        var keys=new ComboBox{Width=590,DropDownStyle=ComboBoxStyle.DropDownList};keys.Items.AddRange(["左 Alt + 空格","右 Alt + 空格","Ctrl + Alt + 空格"]);keys.SelectedIndex=Math.Max(0,Array.IndexOf(shortcuts,_settings.Shortcut));advanced.Controls.Add(keys);
+        var test=new Button{Text="测试识别"};advanced.Controls.Add(test);
         test.Click+=(_,_)=>_draft.ShowForSetup();
-        var enabled=new CheckBox{Text="已完成上述设置和测试，启用 TAB5 语音",AutoSize=true,MaximumSize=new Size(590,0),Checked=_settings.Enabled};panel.Controls.Add(enabled);
-        var status=new Label {AutoSize=true,MaximumSize=new Size(590,0)};panel.Controls.Add(status);
+
+        var status=new Label {AutoSize=true,MaximumSize=new Size(590,0),ForeColor=Color.DimGray};advanced.Controls.Add(status);
         Tab5VoiceAvailability? RefreshAvailability() {
             try {
                 var result=Tab5VoiceAudio.Inspect(Tab5VoiceAudio.Devices(DataFlow.Capture),Tab5VoiceAudio.Devices(DataFlow.Render),((Tab5AudioDevice)inputs.SelectedItem!).Id);
-                status.Text=result.Message+(result.CableReady?"\n仍需手动验证豆包麦克风选择、快捷键和实际识别。":"");return result;
+                status.Text=result.Message;return result;
             }catch(Exception ex) when(IsAudioError(ex)){status.Text="无法读取音频设备，请检查连接后重试。";return null;}
         }
-        var refresh=new Button{Text="检查音频",Width=220,Height=34};panel.Controls.Add(refresh);
+        var refresh=new Button{Text="检查音频"};advanced.Controls.Add(refresh);
         refresh.Click+=(_,_)=>RefreshAvailability();inputs.SelectedIndexChanged+=(_,_)=>RefreshAvailability();RefreshAvailability();
         var save=new Button{Text="保存"};var cancel=new Button{Text="取消",DialogResult=DialogResult.Cancel,CausesValidation=false};
         var actions=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,Padding=new Padding(20,8,20,12)};

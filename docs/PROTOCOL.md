@@ -4,6 +4,10 @@ TAB5 uses separate `tab5_*` messages and `/tab5/v1/status`; see [TAB5 integratio
 
 The Windows or macOS bridge and ESP8266 communicate at 460800 baud using UTF-8 JSON lines. Every frame is one line beginning with the ASCII prefix `@AIBOT `.
 
+### Windows connection preference
+
+Windows Device Center can select Automatic, USB only or Wi-Fi only for the registered ESP8266. This is host routing policy; version-1 frames and firmware remain unchanged. Automatic retains USB-first behavior and the firmware's 8-second freshness timeout. Wi-Fi only stops USB status, metrics and binary-resource delivery while still allowing USB pairing, device information and management commands. USB only rejects the legacy `/status` and `/resources` routes and legacy discovery responses; TAB5 endpoints are unaffected. The optional device-registry `ConnectionMode` field defaults to `Auto` for existing profiles and persists `Auto`, `Usb` or `Wifi`.
+
 ## Probe
 
 Host request:
@@ -269,3 +273,26 @@ TAB5 0.2.30 新增可选 `data.ota.notes`（纯文本，最多 1024 UTF-8 字节
 ### TAB5 0.2.38 运行版本回报
 
 `GET /tab5/v1/status` 在既有设备/nonce/GET HMAC 鉴权之外，可带 `X-Tab5-Firmware`（最多 31 个 ASCII 字母、数字、点、横线或下划线）和 `X-Tab5-Firmware-Proof`，后者是配对密钥对 `FIRMWARE|{nonce}|{version}` 的 HMAC-SHA256 小写十六进制。缺失/无效附加证明不采纳版本，但保持旧状态请求兼容。USB 使用已校验设备 ID 与序号的 `tab5_ack.firmware`。版本观察有效期 15 秒，仅用于桥接升级窗口描述，不作为 OTA 完成、镜像完整性或启动健康的证明，不触发自动取消或升级。
+
+
+## TAB5 0.2.39 USB/BLE application RPC (candidate)
+
+New GATT characteristic `7af50005-7f23-4a91-bc65-667a19320101` uses the voice mailbox wire framing independently: request id uint32 LE, offset/total uint16 LE, then bytes. USB advertises `rpcVersion:1` in hello/ack and tunnels the same fragments as base64 in `@AIBOT {version:1,type:tab5_rpc,deviceId,tag,data}` (null data means read); replies echo type/deviceId/tag plus ok and optional data. Request fragments are at most 480 bytes for BLE and 2048 for USB. Advance commands must match the previously read end. Response fragments require the same id, consecutive offsets and constant bounded total.
+
+Requests contain nonce ASCII32 + HMAC ASCII64 + AES-256-GCM packet, at most 12288 bytes including authentication. HMAC input is `POST|/tab5/v1/rpc|deviceId|nonce|sha256(packet)`. The nonce is GCM AAD; the entire `{status,body}` response is encrypted with it (maximum 32768 bytes). Session, issuedAt (-90/+10 seconds) and replay checks precede dispatch. One RPC has a 75-second deadline. No cross-transport automatic resend.
+
+### TAB5 0.2.40 telemetry
+
+0.2.44 compatibility additions: USB/BLE `kind:codex, op:read, inlineReply:true, rpcReplyVersion:1` requests may receive `{taskId,text,replyView,...,rpcReplyVersion:1}` inside the existing nonce-bound encrypted RPC `{status,body}` envelope. This omits redundant inner encryption/base64; HTTP never enables this response format, and legacy RPC keeps `encrypted`. Old bridges remain readable by the new firmware. All authentication, session/time and replay checks remain mandatory.
+
+TAB5 metrics and full snapshots now retain 64 raw 250 ms history samples, allowing delayed radio delivery to backfill approximately 16 seconds. On compression-safe receivers, `tab5_packed` may contain `tab5_metrics` as well as full state, with the same non-nesting, exact-size and session requirements. CPU/memory and instantaneous header values are independent of the device's one-point-per-second, two-second moving-average graph. Missing history beyond the retained window stays a gap.
+
+Safety revision in 0.2.42: 0.2.40/0.2.41 used a ROM convenience inflater whose ~11 KiB stack workspace exceeded the receiver task stacks. The bridge must send those versions plain full snapshots, while metrics packets remain supported. Packed Wi-Fi responses require authenticated firmware version >=0.2.42; packed BLE responses require `telemetryVersion:2`. BLE capability 1 supports metrics but receives plain full state. The new receiver allocates its inflater workspace on the heap and requires DONE, exact output size and full compressed-input consumption.
+
+0.2.41 upgrade policy: authenticated BLE RPC rejects `kind:ota` with encrypted status 409 / `firmware_requires_usb_or_wifi`; all other BLE operations remain available. OTA offers can still arrive over BLE. The device selects a fresh authenticated Wi-Fi link first, then a ready USB RPC link, independently of daily mode, and retains that transport for the entire installation. This is a preference among available links, not an automatic mid-download retry. A fresh Wi-Fi snapshot and an associated network are required; association alone is insufficient. Legacy 0.2.39/0.2.40 devices need manual Wi-Fi selection to bypass their USB-first routing.
+
+USB hello/ack and BLE info advertise `telemetryVersion:1`. Wi-Fi selects the new format only after validating the existing firmware-version proof for 0.2.40 or newer. Legacy peers retain full status packets. `tab5_packed` carries `{version:1, sequence, size, payload}`: payload is base64 zlib of a full `tab5_status`; exact expanded size must be 1..32768 bytes and nested packed envelopes are rejected. Radio authentication/encryption is unchanged.
+
+`tab5_metrics` carries `{version:1,deviceId,session,sequence,systemMetrics}`. It requires an existing full snapshot in the same paired session, rejects older sequence numbers, and acknowledges exact retransmissions. It does not refresh full-state heartbeat, replace task/session data or change OTA offers. USB returns `tab5_metrics_ack.sequence`; BLE retains the authenticated frame ACK. The producer shares the original 250 ms system sampler. USB has a separate bounded 250 ms worker; Wi-Fi polls at that target interval on the system page; BLE adapts to actual transfer completion and skips obsolete samples. Full status remains independent and is compressed on capable Wi-Fi/BLE receivers. Full authenticated snapshots now update OTA offers on all three transports.
+
+`kind:codex` reuses existing operation validation/journal; `kind:image-chunk` binds taskId/requestId/size/sha256/offset/data, at most 6144 decoded bytes per chunk and 2 MiB total, with exact duplicate acceptance and existing image decoder/storage checks; `kind:ota` requires the active offerId/sha256 and an exact valid offset/count (1..8192). Withdrawal or replacement rejects later reads. The firmware performs all existing inactive-partition, total SHA, project/version, boot and health checks. Legacy devices and ESP8266 frames are unchanged. Old TAB5 firmware requires an initial USB installation or Wi-Fi OTA to gain the new receiver. These are candidate capabilities verified by simulations, not a claim of hardware acceptance.

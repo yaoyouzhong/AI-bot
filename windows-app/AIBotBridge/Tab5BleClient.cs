@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Windows.Devices.Bluetooth;
@@ -10,7 +10,9 @@ namespace AIBotBridge;
 
 // Application encryption authenticates the USB-paired device without exposing its key over BLE.
 internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture,Action<string> status,Action<string> assets,Action<string>? diagnostic=null,
-    Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? voiceHandler=null)
+    Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? voiceHandler=null,
+    Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? rpcHandler=null,
+    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null)
 {
     internal async Task RunAsync(CancellationToken token)
     {
@@ -51,6 +53,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             stage="验证设备";
                             if(!Authenticate(first.RootElement,pairing,out var nonce)) continue;
                             ReadAssets(first.RootElement,pairing,nonce);
+                            int telemetry=first.RootElement.TryGetProperty("telemetryVersion",out var tv)&&tv.TryGetInt32(out int version)&&version is 1 or 2?version:0;
                             Tab5BleVoice? voice=null;
                             var voices=await service.GetCharacteristicsForUuidAsync(new Guid("7af50004-7f23-4a91-bc65-667a19320101"),BluetoothCacheMode.Uncached).AsTask(timeout.Token);
                             if(voiceHandler is not null&&voices.Status==GattCommunicationStatus.Success&&voices.Characteristics.Count==1) {
@@ -64,18 +67,36 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                     if(await endpoint.WriteValueAsync(writer.DetachBuffer(),GattWriteOption.WriteWithResponse).AsTask(ct)!=GattCommunicationStatus.Success)throw new IOException("BLE voice write failed");
                                 },voiceHandler,(int)session.MaxPduSize);
                             }
+                            Tab5BleVoice? rpc=null;
+                            if(rpcHandler is not null) {
+                                var endpoints=await service.GetCharacteristicsForUuidAsync(new Guid("7af50005-7f23-4a91-bc65-667a19320101"),BluetoothCacheMode.Uncached).AsTask(timeout.Token);
+                                if(endpoints.Status==GattCommunicationStatus.Success&&endpoints.Characteristics.Count==1) {
+                                    var endpoint=endpoints.Characteristics[0];
+                                    rpc=new Tab5BleVoice(async ct=> {
+                                        var value=await endpoint.ReadValueAsync(BluetoothCacheMode.Uncached).AsTask(ct);
+                                        if(value.Status!=GattCommunicationStatus.Success||value.Value.Length>488)throw new IOException("BLE RPC read failed");
+                                        using var reader=DataReader.FromBuffer(value.Value);var bytes=new byte[value.Value.Length];reader.ReadBytes(bytes);return bytes;
+                                    },async (bytes,ct)=> {
+                                        using var writer=new DataWriter();writer.WriteBytes(bytes);
+                                        if(await endpoint.WriteValueAsync(writer.DetachBuffer(),GattWriteOption.WriteWithResponse).AsTask(ct)!=GattCommunicationStatus.Success)throw new IOException("BLE RPC write failed");
+                                    },rpcHandler,(int)session.MaxPduSize,32768,75);
+                                }
+                            }
                             timeout.CancelAfter(Timeout.InfiniteTimeSpan);
                             status("设备已认证，等待数据确认");
                             stage="发送数据";
                             using var voiceStop=CancellationTokenSource.CreateLinkedTokenSource(token);
-                            // Separate bounded ATT operations on the SAME GATT session;
-                            // status frames cannot hold up a voice request for seconds.
-                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,voiceStop.Token);
+                            using var transferGate=new SemaphoreSlim(1,1);
+                            var rpcTask=rpc is null?Task.CompletedTask:PumpVoiceAsync(rpc,transferGate,"RPC",voiceStop.Token,rpcDiagnostic);
+                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,transferGate,"voice",voiceStop.Token);
                             try {
                             while(!token.IsCancellationRequested && store.Current?.DeviceId==pairing.DeviceId) {
                                 if(voiceTask.IsFaulted)await voiceTask;
-                                int pauseMs=2000;
-                                if(capture() is { } clear) {
+                                if(rpcTask.IsFaulted)await rpcTask;
+                                int cadence=telemetry>0?250:2000;
+                                int pauseMs=cadence;
+                                    await Tab5BleTransfer.SerializeAsync(transferGate,async ()=> {
+                                    if((telemetryCapture is null?capture():telemetryCapture(telemetry,rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000)) is not {} clear)return false;
                                     using var doc=JsonDocument.Parse(clear);var seq=doc.RootElement.GetProperty("sequence").GetInt64();
                                     var bytes=Tab5Protocol.WithLength(Tab5Protocol.Encrypt(Convert.FromBase64String(pairing.Key),nonce,clear));
                                     int size=Math.Clamp((int)session.MaxPduSize-3,20,244);
@@ -108,26 +129,39 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                         status("已连接 · 数据已确认");
                                         // A slow complete transfer has already paced this loop.
                                         // Avoid adding two more seconds to the 8-second freshness budget.
-                                        pauseMs=Math.Clamp(2000-(int)started.ElapsedMilliseconds,100,2000);
+                                        pauseMs=Math.Clamp(cadence-(int)started.ElapsedMilliseconds,20,cadence);
                                     } finally {confirmed?.Dispose();}
-                                }
+                                    return true;
+                                    },token);
                                 await Task.Delay(pauseMs,token);
                             }
-                            } finally {voiceStop.Cancel();try{await voiceTask;}catch(OperationCanceledException) when(voiceStop.IsCancellationRequested){}}
+                            } finally {voiceStop.Cancel();try{await Task.WhenAll(voiceTask,rpcTask);}catch(OperationCanceledException) when(voiceStop.IsCancellationRequested){}}
                             session.MaintainConnection=false;
                         }
                     } finally {foreach(var service in services.Services) service.Dispose();}
                 }
             } catch(OperationCanceledException) when(token.IsCancellationRequested) {return;}
             catch(Exception ex) when(ex is COMException or IOException or InvalidOperationException or UnauthorizedAccessException or OperationCanceledException or JsonException or ArgumentException or KeyNotFoundException or NotSupportedException) {
-                diagnostic?.Invoke(stage+"; "+ex.GetType().Name+" / 0x"+ex.HResult.ToString("X8"));
+                string source=ex.Message.StartsWith("RPC ")||ex.Message.StartsWith("voice ")?ex.Message:stage;
+                diagnostic?.Invoke("FAILED "+source+"; "+ex.GetType().Name+" / 0x"+ex.HResult.ToString("X8"));
                 status(ex is OperationCanceledException?"蓝牙通信超时，正在重连":"蓝牙连接中断，正在重连");
             }
             await Task.Delay(3000,token);
         }
     }
-    private static async Task PumpVoiceAsync(Tab5BleVoice voice,CancellationToken token) {
-        while(!token.IsCancellationRequested){await voice.PumpAsync(token);await Task.Delay(30,token);}
+    private static async Task PumpVoiceAsync(Tab5BleVoice voice,SemaphoreSlim gate,string name,CancellationToken token,Action<string>? diagnostic=null) {
+        // Idle voice + RPC mailboxes share the same radio with status frames.
+        // Polling both every 30 ms starves the status write queue on Windows.
+        try {
+            while(!token.IsCancellationRequested) {
+                long queued=Environment.TickCount64,entered=queued;
+                bool active=await Tab5BleTransfer.SerializeAsync(gate,()=>{entered=Environment.TickCount64;return voice.PumpAsync(token);},token);
+                if(active)diagnostic?.Invoke($"queue={entered-queued}ms; {voice.Timing}");
+                await Task.Delay(active?30:250,token);
+            }
+        }catch(Exception ex) when(!token.IsCancellationRequested&&(ex is IOException or COMException or OperationCanceledException)) {
+            throw new IOException(name+" "+voice.Progress,ex);
+        }
     }
     private void ReadAssets(JsonElement info,Tab5Pairing pairing,string nonce) {
         if(info.TryGetProperty("assetIds",out var ids)&&ids.ValueKind==JsonValueKind.String&&

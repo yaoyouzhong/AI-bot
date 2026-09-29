@@ -7,43 +7,55 @@ internal sealed class MirrorForm : Form
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 70 };
     private readonly Label _status = new() {TextAlign=ContentAlignment.MiddleCenter,ForeColor=SystemColors.GrayText};
     private readonly Label _level = new() {Text="--",TextAlign=ContentAlignment.MiddleRight,ForeColor=SystemColors.GrayText};
-    private readonly TrackBar _brightness = new() {AutoSize=false,Minimum=0,Maximum=100,Value=100,TickStyle=TickStyle.None};
-    private readonly List<RadioButton> _modes=[];
-    private bool _syncing;
+    private readonly PreviewBrightness _brightness = new();
+    private sealed record PageChoice(string Label,string Mode){public override string ToString()=>Label;}
+    private readonly PreviewButton _automatic=new(){Name="preview-auto",Text="自动轮播",Glyph="auto"};
+    private readonly PreviewButton _pages=new(){Name="preview-pages",Glyph="pages",AccessibleName="选择轮播页面"};
+    private readonly PreviewButton _previous=new(){Glyph="previous",AccessibleName="上一页"},_next=new(){Glyph="next",AccessibleName="下一页"},_close=new(){Glyph="close",AccessibleName="收起预览"};
+    private readonly ContextMenuStrip _pageMenu=new(){ShowImageMargin=false,ShowCheckMargin=true};
+    private PageChoice[] _choices=[];
+    private double _progress;
+    private StatusSnapshot? _frame;
+    private string _frameMode="auto";
+    internal string? LastPaintedMode {get;private set;}
+    internal int PaintCount {get;private set;}
+    internal bool PassiveTestWindow {get;set;}
+    protected override bool ShowWithoutActivation=>PassiveTestWindow||base.ShowWithoutActivation;
+    private readonly Label _playback=new(){Name="preview-playback",TextAlign=ContentAlignment.MiddleLeft,ForeColor=Color.FromArgb(109,121,139)};
+    private readonly Label _sun=new(){Text="亮度",TextAlign=ContentAlignment.MiddleCenter,ForeColor=SystemColors.GrayText};
+    private readonly TrendEntryButton _trendButton=new(){Text="Codex 额度趋势",AccessibleDescription="查看每日额度使用记录",Cursor=Cursors.Hand};
+    private readonly DisplayPolicy _fallbackPolicy=DisplayModes.Load(BridgeSettings.Load());
+    private string _pageSignature="";
     private long _lastBrightness;
-    private readonly Action<string>? _select;
+    private readonly Func<string,bool>? _select;
+    private long _autoFeedbackUntil;
+    private string _autoFeedback="";
     private readonly Func<int,bool>? _sendBrightness;
     private readonly Func<Task<UsbDeviceInfo>>? _readDevice;
     private QuotaTrendForm? _trend;
     private bool _openingQuotaTrend;
 
-    internal MirrorForm(Func<StatusSnapshot> capture, Func<string> mode,Action<string>? select=null,Func<int,bool>? brightness=null,Func<Task<UsbDeviceInfo>>? readDevice=null)
+    internal MirrorForm(Func<StatusSnapshot> capture, Func<string> mode,Func<string,bool>? select=null,Func<int,bool>? brightness=null,Func<Task<UsbDeviceInfo>>? readDevice=null)
     {
         _capture = capture;
         _mode = mode;
         _select=select;_sendBrightness=brightness;_readDevice=readDevice;
         Text = "AI-bot 240×240 镜像";
         AutoScaleMode=AutoScaleMode.None;FormBorderStyle=FormBorderStyle.None;StartPosition=FormStartPosition.Manual;
-        ShowInTaskbar=false;TopMost=true;ClientSize=new Size(360,472);BackColor=SystemColors.Control;
+        ShowInTaskbar=false;TopMost=true;ClientSize=new Size(360,498);BackColor=Color.FromArgb(246,248,251);
         DoubleBuffered = true;
-        var modes=new[]{("自动","auto"),("Claude","claude"),("Codex","codex"),("双额度","dual"),("国产","domestic"),("监控","system"),("天气","weather"),("股票","stocks")};
-        for(int i=0;i<modes.Length;i++) {
-            var entry=modes[i];var button=new ModeButton{Appearance=Appearance.Button,Text=entry.Item1,Tag=entry.Item2,TextAlign=ContentAlignment.MiddleCenter,FlatStyle=FlatStyle.Flat,Font=new Font("Microsoft YaHei UI",7.5f)};
-            button.SetBounds(14+i*41,312,41,28);button.CheckedChanged+=(_,_)=>{if(!_syncing&&button.Checked)_select?.Invoke(entry.Item2);};Controls.Add(button);_modes.Add(button);
-        }
-        var sun=new Label{Text="☀",TextAlign=ContentAlignment.MiddleCenter,ForeColor=SystemColors.GrayText};sun.SetBounds(12,346,24,26);Controls.Add(sun);
-        _brightness.SetBounds(36,346,260,26);Controls.Add(_brightness);_level.SetBounds(298,346,48,26);Controls.Add(_level);
-        _brightness.Scroll+=(_,_)=>SendBrightness(false);_brightness.MouseUp+=(_,_)=>SendBrightness(true);
-        _status.SetBounds(12,376,336,40);Controls.Add(_status);
-        var trend = new TrendEntryButton { Text = "Codex 额度趋势", AccessibleDescription = "查看每日额度使用记录", Cursor = Cursors.Hand };
-        trend.SetBounds(14,424,332,34); trend.Click += (_, _) => ShowQuotaTrend(); Controls.Add(trend);
-        float dpiScale=DeviceDpi/96f;
-        foreach(Control control in Controls)
-            control.Bounds=new Rectangle((int)Math.Round(control.Left*dpiScale),(int)Math.Round(control.Top*dpiScale),(int)Math.Round(control.Width*dpiScale),(int)Math.Round(control.Height*dpiScale));
-        ClientSize=new Size((int)Math.Round(360*dpiScale),(int)Math.Round(472*dpiScale));
+        Controls.AddRange([_automatic,_previous,_pages,_next,_close,_playback,_sun,_brightness,_level,_status,_trendButton]);
+        _automatic.Click+=(_,_)=>SelectPage("auto");
+        _pages.Click+=(_,_)=>ShowPageMenu();
+        _pages.ContextMenuStrip=_pageMenu;
+        _previous.Click+=(_,_)=>StepPage(-1);_next.Click+=(_,_)=>StepPage(1);_close.Click+=(_,_)=>Hide();
+        _brightness.Scroll+=(_,_)=>SendBrightness(false);_brightness.Committed+=(_,_)=>SendBrightness(true);
+        _trendButton.Click+=(_,_)=>ShowQuotaTrend();
+        SyncModes();LayoutShortcuts();
+        DpiChanged+=(_,_)=>LayoutShortcuts();
         _timer.Tick += (_, _) => {SyncModes();Invalidate();};
         VisibleChanged+=async(_,_)=>{if(Visible){_timer.Start();SyncModes();await RefreshDevice();}else _timer.Stop();};
-        Deactivate+=(_,_)=>{if(!_openingQuotaTrend)Hide();};
+        // Focus changes (notifications, menus, other apps) do not close the preview.
     }
     internal void ShowQuotaTrend()
     {
@@ -65,42 +77,101 @@ internal sealed class MirrorForm : Form
         internal TrendEntryButton() { FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; }
         protected override void OnPaint(PaintEventArgs e)
         {
-            e.Graphics.Clear(ClientRectangle.Contains(PointToClient(Cursor.Position)) ? Color.FromArgb(226, 237, 240) : Color.FromArgb(235, 242, 244));
+            e.Graphics.Clear(Parent?.BackColor??BackColor);
             float scale = DeviceDpi / 96f;
-            using var font = new Font("Microsoft YaHei UI", 13 * scale, FontStyle.Regular, GraphicsUnit.Pixel);
-            TextRenderer.DrawText(e.Graphics, Text, font, new Rectangle((int)(12*scale), 0, Width, Height), Color.FromArgb(23,85,106), TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+            using var font = new Font("Microsoft YaHei UI", 11 * scale, FontStyle.Regular, GraphicsUnit.Pixel);
+            TextRenderer.DrawText(e.Graphics, Text, font, ClientRectangle, Color.FromArgb(97,120,157), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
             if (Focused) ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -3, -3));
         }
     }
-    private void SyncModes(){_syncing=true;var mode=_mode();foreach(var button in _modes)button.Checked=button.Tag as string==mode;_syncing=false;}
-    private sealed class ModeButton : RadioButton
+    internal string DisplayedMode=>_frameMode;
+    private void SelectPage(string mode)
     {
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            e.Graphics.Clear(Checked ? SystemColors.ControlLight : SystemColors.Control);
-            ControlPaint.DrawBorder(e.Graphics,ClientRectangle,SystemColors.ControlDark,ButtonBorderStyle.Solid);
-            TextRenderer.DrawText(e.Graphics,Text,Font,ClientRectangle,ForeColor,TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.SingleLine|TextFormatFlags.NoPadding);
+        bool wasCycling=_automatic.Active;
+        bool applied=_select?.Invoke(mode)==true;
+        _autoFeedbackUntil=0;
+        if(mode=="auto"){
+            _autoFeedback=applied?(wasCycling?"已重新开始":"已开始轮播"):"未生效";
+            _autoFeedbackUntil=Environment.TickCount64+1400;
         }
+        SyncModes();Invalidate();
     }
-    private async Task RefreshDevice(){if(_readDevice is null)return;var requestedAt=_lastBrightness;try{var info=await _readDevice();if(IsDisposed||!Visible||requestedAt!=_lastBrightness)return;_brightness.Value=Math.Clamp(info.Brightness,0,100);_level.Text=info.Brightness+"%";_status.Text=$"USB 已连接 · {info.Mode}\n{info.Ip}";}catch(Exception ex)when(ex is IOException or TimeoutException or InvalidOperationException){if(!IsDisposed&&requestedAt==_lastBrightness)_status.Text="设备暂不可用，请连接后重试。";}}
+    internal string[] ShortcutPages=>_choices.Select(p=>p.Mode).ToArray();
+    internal void ShowPageMenu()
+    {
+        _pageMenu.Items.Clear();string current=DisplayedMode;
+        foreach(var page in _choices){var item=new ToolStripMenuItem(page.Label){Checked=page.Mode==current,Tag=page.Mode};item.Click+=(_,_)=>SelectPage(page.Mode);_pageMenu.Items.Add(item);}
+        _pageMenu.Show(_pages,new Point(0,_pages.Height+4));
+    }
+    private void StepPage(int direction)
+    {
+        if(_choices.Length==0)return;int index=Array.FindIndex(_choices,p=>p.Mode==DisplayedMode);
+        SelectPage(_choices[(index+direction+_choices.Length)%_choices.Length].Mode);
+    }
+    internal void SyncModes()
+    {
+        var live=DisplayModes.ExpireCompletionNotice(_capture());var policy=live.DisplayPolicy??_fallbackPolicy;
+        var pages=policy.Pages.Where(id=>DisplayModes.Pages.Any(p=>p.Mode==id)).Distinct().ToArray();
+        string signature=string.Join(',',pages);
+        if(_pageSignature!=signature||_choices.Length==0) {
+            _choices=pages.Select(id=>{var p=DisplayModes.Pages.First(p=>p.Mode==id);return new PageChoice(p.Label,p.Mode);}).ToArray();_pageSignature=signature;
+            if(_pageMenu.Visible)_pageMenu.Close();
+        }
+        string selected=live.DisplayPolicy?.SelectedMode??_mode();string effective=DisplayModes.Resolve(live,selected);
+        _frame=live;_frameMode=effective;
+        bool cycling=selected=="auto"&&policy.CycleEnabled;
+        if(_automatic.Active!=cycling){_automatic.Active=cycling;_automatic.Invalidate();}
+        var notice=DisplayModes.AutomaticNotice(live);
+        _automatic.Text=Environment.TickCount64<_autoFeedbackUntil&&(!cycling||notice is null)?_autoFeedback:cycling?(notice is null?"轮播中":"提醒中"):"自动轮播";
+        _automatic.AccessibleName=_automatic.Text;
+        _automatic.AccessibleDescription=cycling?"自动轮播已启用；再次点击重新开始轮播。":"启用自动轮播。";
+        string label=DisplayModes.Pages.FirstOrDefault(p=>p.Mode==effective).Label??(effective=="screensaver"?"屏保":effective);
+        _pages.Text=label;_pages.Enabled=_previous.Enabled=_next.Enabled=_choices.Length>0;
+        _progress=0;
+        if(cycling&&pages.Length>0) {
+            int interval=Math.Max(1,policy.IntervalSeconds);long elapsed=Math.Max(0,live.EpochUtc-policy.CycleStartedAt);int index=(int)(elapsed/interval%pages.Length);
+            _playback.Text=notice is not null?$"{notice} · {label}":pages.Length==1?"自动轮播 · 已选 1 页":$"轮播 {index+1}/{pages.Length} · {interval-elapsed%interval} 秒后切换";
+            if(notice is null)_progress=(double)(elapsed%interval)/interval;
+        }else _playback.Text=selected=="screensaver"?"屏保中":selected=="auto"?"智能跟随":"手动查看";
+    }
+    private void LayoutShortcuts()
+    {
+        float scale=DeviceDpi/96f;
+        int Px(float value)=>(int)Math.Round(value*scale);
+        void Place(Control control,int x,int y,int width,int height)=>control.SetBounds(Px(x),Px(y),Px(width),Px(height));
+        Place(_status,228,14,94,20);Place(_close,326,12,22,24);
+        Place(_previous,14,344,28,32);Place(_pages,44,344,142,32);Place(_next,188,344,28,32);Place(_automatic,230,344,116,32);
+        Place(_playback,18,387,328,20);
+        Place(_sun,18,422,32,26);Place(_brightness,58,422,232,26);Place(_level,298,422,46,26);
+        Place(_trendButton,14,461,332,26);ClientSize=new(Px(360),Px(501));
+        using var outline=PreviewButton.Round(new RectangleF(0,0,Width,Height),14*scale);var previous=Region;Region=new Region(outline);previous?.Dispose();
+    }
+    private async Task RefreshDevice(){if(_readDevice is null)return;var requestedAt=_lastBrightness;try{var info=await _readDevice();if(IsDisposed||!Visible||requestedAt!=_lastBrightness)return;_brightness.Value=Math.Clamp(info.Brightness,0,100);_level.Text=info.Brightness+"%";_status.Text="USB 已连接";}catch(Exception ex)when(ex is IOException or TimeoutException or InvalidOperationException){if(!IsDisposed&&requestedAt==_lastBrightness)_status.Text="设备暂不可用，请连接后重试。";}}
     private void SendBrightness(bool final){_level.Text=_brightness.Value+"%";if(!final&&Environment.TickCount64-_lastBrightness<250)return;_lastBrightness=Environment.TickCount64;_status.Text=_sendBrightness?.Invoke(_brightness.Value)==true?"亮度已发送":"亮度未发送：设备未连接或正在诊断。";}
-    internal void ShowAtTray(){var area=Screen.FromPoint(Cursor.Position).WorkingArea;Location=new Point(Math.Clamp(Cursor.Position.X-Width/2,area.Left+8,Math.Max(area.Left+8,area.Right-Width-8)),Math.Max(area.Top,area.Bottom-Height-8));Show();Activate();}
+    internal void ShowAtTray(){SyncModes();LayoutShortcuts();var area=Screen.FromPoint(Cursor.Position).WorkingArea;Location=new Point(Math.Clamp(Cursor.Position.X-Width/2,area.Left+8,Math.Max(area.Left+8,area.Right-Width-8)),Math.Max(area.Top,area.Bottom-Height-8));Show();Activate();}
+    protected override bool ProcessCmdKey(ref Message msg,Keys keyData){if(keyData==Keys.Escape){Hide();return true;}return base.ProcessCmdKey(ref msg,keyData);}
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _timer.Dispose(); _trend?.Dispose(); }
+        if (disposing) { _timer.Dispose(); _pageMenu.Dispose(); _trend?.Dispose(); }
         base.Dispose(disposing);
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        using var logical = RenderSnapshot(_capture(), EffectiveMode());
+        if(_frame is null)return;
+        using var logical = RenderSnapshot(_frame, _frameMode);
         e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
         e.Graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
         float scale=DeviceDpi/96f;
-        e.Graphics.DrawImage(logical,new Rectangle((int)(36*scale),(int)(14*scale),(int)(288*scale),(int)(288*scale)));
-        using var border=new Pen(Color.FromArgb(120,120,120));e.Graphics.DrawRectangle(border,0,0,Width-1,Height-1);
+        e.Graphics.DrawImage(logical,new Rectangle((int)(36*scale),(int)(44*scale),(int)(288*scale),(int)(288*scale)));
+        LastPaintedMode=_frameMode;PaintCount++;
+        e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using var title=new Font("Microsoft YaHei UI",12*scale,FontStyle.Bold,GraphicsUnit.Pixel);
+        TextRenderer.DrawText(e.Graphics,"小屏预览",title,new Point((int)(18*scale),(int)(15*scale)),Color.FromArgb(53,65,81));
+        using var line=new Pen(Color.FromArgb(220,227,237),2*scale);e.Graphics.DrawLine(line,18*scale,410*scale,342*scale,410*scale);
+        if(_progress>0){using var progress=new Pen(Color.FromArgb(109,146,209),2*scale);e.Graphics.DrawLine(progress,18*scale,410*scale,(18+324*(float)_progress)*scale,410*scale);}
     }
 
     internal static Bitmap RenderSnapshot(StatusSnapshot status, string mode)
@@ -111,12 +182,6 @@ internal sealed class MirrorForm : Form
         return bitmap;
     }
 
-    private string EffectiveMode()
-    {
-        var selected = _mode();
-        var live = _capture();
-        return DisplayModes.Resolve(live, live.DisplayPolicy?.SelectedMode ?? selected);
-    }
 
 
     private static void Draw(Graphics graphics, StatusSnapshot status, string mode)

@@ -4,6 +4,12 @@ internal static class DisplayPolicySelfTest
 {
     internal static void Run()
     {
+        foreach(int age in new[]{0,11,12,60}) {
+            var notice=new StatusSnapshot(1,"12:00",100+age,0,DateTimeOffset.UnixEpoch,new("idle",0,CompletionActive:true,CompletionAt:100,CompletionSequence:7),new("idle",0));
+            var display=DisplayModes.ExpireCompletionNotice(notice);
+            Require(display.Codex.CompletionActive==(age<12),"Completion display interruption did not expire after 12 seconds");
+            Require(display.Codex.CompletionSequence==7&&notice.Codex.CompletionActive,"Display timeout changed the underlying completion");
+        }
         AutoFollowSelfTest.Run();
         var stocksOnly = new DisplayPolicy("stocks",false,15,new[]{"domestic_deepseek","domestic_zhipu"});
         bool Configured(string provider) => provider is "deepseek" or "zhipu";

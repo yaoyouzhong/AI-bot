@@ -5,6 +5,13 @@ namespace AIBotBridge;
 // mandatory. Older firmware retains acknowledged writes with a size budget.
 internal static class Tab5BleTransfer
 {
+    // One complete exchange owns ATT, including its ACK. Waiting for another
+    // exchange must not consume this exchange's transfer timeout.
+    internal static async Task<T> SerializeAsync<T>(SemaphoreSlim gate,Func<Task<T>> exchange,CancellationToken token)
+    {
+        await gate.WaitAsync(token);
+        try{return await exchange();}finally{gate.Release();}
+    }
     // A response every sixteen chunks drains the host/controller queue. The last
     // chunk is also a barrier before the authenticated whole-frame ACK read.
     internal static bool RequiresResponse(int offset,int length,int total,int chunkSize,bool withoutResponse)

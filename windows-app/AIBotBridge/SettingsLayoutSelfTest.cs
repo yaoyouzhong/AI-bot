@@ -55,9 +55,13 @@ internal static class SettingsLayoutSelfTest
             Capture(settings,directory,"settings"); settings.Size=settings.MinimumSize;
             Capture(settings,directory,"settings-narrow");
         }
-        using(var control=new DeviceControlForm(new SerialPublisher(null),_=>{},"auto")) {
+        using(var control=new CycleSettingsForm(new SerialPublisher(null))) {
             Capture(control,directory,"device"); control.Size=control.MinimumSize;
             Capture(control,directory,"device-narrow");
+        }
+        using(var appearance=new DeviceAppearanceForm("pet",_=>{},_=>{},_=>{},_=>{})) {
+            Capture(appearance,directory,"appearance");appearance.Size=appearance.MinimumSize;
+            Capture(appearance,directory,"appearance-narrow");
         }
         using(var service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"unused-pairing.dat"))))
         using(var connection=new Tab5ConnectionForm(service,loadNetworks:false)) {

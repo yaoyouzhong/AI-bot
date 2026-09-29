@@ -4,12 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased — Windows Device Center
 
-- Show device features after registration and open My Devices on a tray left-click. The first version supports one TAB5 and one ESP8266.
+- Withdraw TAB5 firmware candidates 0.2.40/0.2.41 after hardware rollback exposed insufficient receiver stack capacity for compressed-state decoding. Candidate 0.2.42 uses a heap inflater workspace; the bridge stops sending compressed state to affected versions and adds BLE capability version 2. Full hardware acceptance remains required, and the intermittent USB transfer failure remains unresolved.
+
+- Serialize complete TAB5 BLE status, voice and conversation RPC exchanges and retain the latest failure stage. Limit firmware downloads to USB / Wi-Fi while keeping BLE data and conversation features. Format release notes with a heading, bullets, aligned wrapping and scrolling. The 0.2.41 candidate shows received KB from the first download fragments; hardware acceptance is recorded separately.
+
+- Recover from an IOException while disposing an unplugged TAB5 serial port instead of losing the reconnect worker or failing app shutdown. Add 250 ms system-metrics frames, compressed full state and legacy fallback for the 0.2.40 candidate; reduce idle BLE mailbox contention. Actual BLE cadence and firmware behavior still require hardware acceptance.
+
+- Add authenticated USB / BLE RPC for the TAB5 0.2.39 candidate: firmware ranges, history, drafts, send receipts and chunked image uploads, preserving send deduplication and image validation. Older firmware needs an initial USB or Wi-Fi upgrade. Builds and simulations pass; hardware acceptance remains pending.
+
+- Remove device-name hover tooltips from the tray menu so they cannot cover open submenus.
+- Fix Codex completion notices holding the task page after the visible notice ends. Limit the interruption to 12 seconds; explicitly selecting Automatic Cycling in the preview or Display Settings dismisses the existing completion notice while preserving pages, order and interval. Pending input requests still show their interruption reason.
+- Keep the preview open across focus changes and page-menu dismissal; retain explicit close, Escape and tray toggling. Add press feedback, a blue checked running state and started/restarted confirmation to Automatic Cycling, without reporting failed actions as successful.
+
+- Redesign the preview popup with a unified light surface, single-row page navigation, an on-demand page menu, cycle progress and a slim brightness slider. Replace the radio button that ignored clicks when already selected with an explicit Automatic Cycling action that saves and restarts cycling on every click. Show the actual cycle position, countdown or task-alert interruption. Regression coverage includes repeated clicks, menu selection, previous/next navigation and keyboard brightness adjustment.
+
+- Combine small-screen brightness, display mode and cycling in Display Settings without Apply buttons. Coalesce rapid slider changes and send the final pending value when closing. Read actual brightness without writing settings on opening; report send failures.
+- Keep the preview page menu synchronized with checked cycle pages and their order, with Automatic Cycling resuming cycling and a fixed popup height regardless of page count. Remove the duplicate preview card. Order small-screen cards as display, appearance, data and connection; move upgrades into Manage and the gallery into Appearance. Order TAB5 cards as voice, calendar and birthdays, data, and connection and updates.
+
+- Add per-screen Automatic, USB-only and Wi-Fi-only settings for ESP8266, defaulting to Automatic and applying without restarting device services or affecting TAB5. Wi-Fi only suppresses USB status, metrics and resources while retaining pairing/diagnostics. USB only blocks legacy LAN data and discovery. Connection status follows actual data activity; invalid HTTP routes no longer count as Wi-Fi heartbeats.
+
+- Use the same two-column action cards in My Devices, Accounts and Data, and Bridge Settings; shorten the Chinese Weather and Location label.
+- Rename Display Content / Data Selection to Data Settings. Explain the relationship between data categories and domestic model providers, show Chinese and English names with quota types, and disable provider choices without losing selections when model quotas are off.
+- Keep Add responsive at the two-device limit, showing registered models, the one-per-model limit and replacement steps.
+
+- Show device features after registration. A tray left-click opens the preview when an ESP8266 is enabled, otherwise Device Center. The first version supports one TAB5 and one ESP8266.
 - Add a versioned registry, existing-pairing migration, explicit legacy-screen import, independent disable/remove operations and shared data-demand merging. Removal preserves settings, pairing recovery files and user content.
 - Separate TAB5 data demand from ESP8266 display pages. Unregistered hardware does not start its USB/BLE/voice services; disabling one device does not restart the other.
 - Bind device windows to a fixed target and block removal during recording, updates or installation. Legacy flashing/pairing entry points honor registration. Replacing retained TAB5 pairing requires confirmation in the add wizard and preserves an encrypted backup.
 
-Windows builds, isolated migration, simulated service/protocol tests, installer fault tests and layout scaling checks passed. No deployment or hardware flashing performed; three hardware combinations and actual cross-monitor DPI acceptance remain pending. See the [validation notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
+- Offer Device Center, screen preview, common settings grouped by registered device, and Exit in the tray menu. Keep shared accounts and data settings in Device Center. Preserve custom names, gray out disabled devices and bind each shortcut to its device. Right-click preview always opens it; left-click still toggles it. Keep full management and diagnostics in Device Center. Use the default name M5Stack TAB5 and remove duplicate model text from the device list.
+- Use four-character Chinese labels for Accounts and Data and common Device Center actions.
+- Put the small-screen brightness slider first in Display Settings and read the actual device brightness on opening; keep brightness controls in the preview popup.
+- Fix a collapsed brightness-slider container under scaling. Connection settings show actual USB status without a COM input; align appearance controls by weather, shared pet, Claude and Codex.
+- Arrange common Device Center actions in two columns, display full default device names and compact connection status; move small-screen information, diagnostics and network reset into Manage.
+- Center settings windows in the current screen work area and avoid using a closed Device Center as the owner of birthday, voice or update dialogs, preventing disposed-object errors.
+- Remove manual refresh and the quota-collection toggle. Collect quotas and record Codex history while the bridge runs; show service status as connection/data tables and move About into Bridge Settings.
+- Show only the enable toggle and preferred microphone in voice settings by default. Move legacy shortcuts, recognition tests and audio checks into Troubleshooting while preserving microphone restoration.
+- Recover changed TAB5 USB instance identifiers only after probing and matching the paired device ID. Preserve the pairing key and reject unrelated devices.
+- Fix ESP8266 USB disconnections when shared weather included TAB5 hourly/daily forecasts and exceeded the 6144-byte heartbeat limit. Preserve current weather on the small screen and full TAB5 forecasts; expose the failed connection stage.
+
+Windows builds, isolated migration, simulated service/protocol tests, installer fault tests and layout scaling checks passed. The September 29 revision restored TAB5 USB/BLE acknowledgements and confirmed ESP8266 bridge-online state, increasing USB counters and rendered cycle pages. No hardware flashing performed; full three-transport switching, three hardware combinations and actual cross-monitor DPI acceptance remain pending. See the [validation notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
 
 ## 0.4.0 - 2026-09-23
 

@@ -11,6 +11,8 @@ internal static class DeviceRegistrySelfTest
             store.Migrate("001122334455",true,true);Check(store.Snapshot.Devices.Length==0,"Migration repeated");
             var tab=DeviceRegistryStore.Create(HardwareKind.Tab5,"书桌","001122334455");store.Add(tab);
             Check(new DeviceRegistryStore(path).Snapshot.Devices.Single().Id==tab.Id,"Registry did not persist");
+            store.Update(tab with{Name="TAB5 平板"});var branded=new DeviceRegistryStore(path);Check(branded.Snapshot.Devices.Single().Name=="M5Stack TAB5","Legacy default label not normalized");
+            branded.Update(tab);Check(new DeviceRegistryStore(path).Snapshot.Devices.Single().Name=="书桌","Custom name overwritten by brand migration");
             try{store.Add(tab with {Id=Guid.NewGuid().ToString("N")});throw new Exception("Duplicate model allowed");}catch(InvalidOperationException){}
             store.Update(tab with {Enabled=false});Check(!DeviceCapabilities.Allows(store.Snapshot.Devices[0],"voice"),"Disabled device action accepted");
             store.Remove(tab.Id);new DeviceRegistryStore(path).Migrate(tab.HardwareId,true,true);
@@ -18,6 +20,14 @@ internal static class DeviceRegistrySelfTest
             var migrated=new DeviceRegistryStore(Path.Combine(folder,"migrated.json"));migrated.Migrate(tab.HardwareId,true,true);
             Check(migrated.Snapshot.LegacyDecisionPending&&migrated.Snapshot.Devices.Length==1,"Legacy evidence fabricated ESP device");
             var esp=DeviceRegistryStore.Create(HardwareKind.Esp8266,"原小屏",null);migrated.Add(esp);
+            Check(esp.ConnectionMode==EspConnectionMode.Auto,"Existing devices must default to automatic transport");
+            foreach(var mode in Enum.GetValues<EspConnectionMode>()) {
+                migrated.Update(esp with {ConnectionMode=mode});
+                Check(new DeviceRegistryStore(Path.Combine(folder,"migrated.json")).Snapshot.Devices.Single(d=>d.Id==esp.Id).ConnectionMode==mode,"Transport mode did not survive restart");
+            }
+            migrated.Update(esp);
+            try{migrated.Update(esp with {ConnectionMode=(EspConnectionMode)99});throw new Exception("Invalid mode accepted");}catch(InvalidDataException){}
+            try{migrated.Update(migrated.Snapshot.Devices.Single(d=>d.Kind==HardwareKind.Tab5) with {ConnectionMode=EspConnectionMode.Wifi});throw new Exception("ESP mode leaked into TAB5");}catch(InvalidDataException){}
             Check(migrated.Snapshot.Devices.Length==2&&!migrated.Snapshot.LegacyDecisionPending,"Legacy confirmation failed");
             Check(!DeviceCapabilities.Allows(esp,"voice")&&!DeviceCapabilities.Allows(tab,"mirror"),"Cross-model actions exposed");
             try{DeviceCapabilities.Require(migrated.Snapshot,esp.Id,"reset",false);throw new Exception("Offline reset allowed");}catch(InvalidOperationException){}

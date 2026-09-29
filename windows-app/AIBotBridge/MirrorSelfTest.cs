@@ -118,23 +118,65 @@ internal static class MirrorSelfTest
                 throw new InvalidOperationException("Input alert must alternate red and restored quota border every 400 ms.");
         }
         var selected = "weather";
-        using (var popup = new MirrorForm(()=>status,()=>selected,mode=>selected=mode))
+        long baseEpoch=status.EpochUtc;
+        var brightnessSent=new List<int>();
+        var previewStatus=status with {EpochUtc=baseEpoch,DisplayPolicy=new("weather",false,15,["weather","domestic_deepseek","stocks","codex"],baseEpoch)};
+        int selections=0;bool allowSelection=true;
+        using (var popup = new MirrorForm(()=>previewStatus,()=>selected,mode=>{if(!allowSelection)return false;selected=mode;selections++;previewStatus=previewStatus with {DisplayPolicy=previewStatus.DisplayPolicy! with {SelectedMode=mode,CycleEnabled=mode=="auto",CycleStartedAt=previewStatus.EpochUtc}};return true;},level=>{brightnessSent.Add(level);return true;},()=>Task.FromResult(new UsbDeviceInfo("AI-bot",1,"","auto",80,true,true,1,1,0))))
         {
             if(popup.FormBorderStyle!=FormBorderStyle.None || !popup.TopMost || popup.ShowInTaskbar)
                 throw new InvalidOperationException("Mirror must remain a tray popup.");
-            var buttons=popup.Controls.OfType<RadioButton>().ToArray();
-            if(buttons.Length!=8 || popup.Controls.OfType<TrackBar>().Single().Maximum!=100)
-                throw new InvalidOperationException("Legacy mirror modes or brightness control missing.");
-            buttons.Single(b=>b.Tag as string=="stocks").Checked=true;
-            if(selected!="stocks") throw new InvalidOperationException("Mirror segmented mode callback failed.");
-            popup.Location=new Point(-30000,-30000);popup.Show();Application.DoEvents();
+            var pages=popup.Controls.OfType<Button>().Single(b=>b.Name=="preview-pages");
+            var automatic=popup.Controls.OfType<Button>().Single(b=>b.Name=="preview-auto");
+            var playback=popup.Controls.OfType<Label>().Single(l=>l.Name=="preview-playback");
+            if(!popup.ShortcutPages.SequenceEqual(new[]{"weather","domestic_deepseek","stocks","codex"}))throw new InvalidOperationException("Preview choices lost cycle selection/order");
+            popup.Location=new(-30000,-30000);popup.Show();Application.DoEvents();
+            void CapturePreview(string name){Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);using var shot=new Bitmap(popup.Width,popup.Height);popup.DrawToBitmap(shot,new Rectangle(Point.Empty,popup.Size));shot.Save(Path.Combine(Path.GetDirectoryName(outputPath)!,name+".png"));}
+            CapturePreview("preview-manual");
+            var slider=popup.Controls.OfType<PreviewBrightness>().Single();
+            if(slider.Value!=80||brightnessSent.Count!=0)throw new InvalidOperationException("Preview brightness read triggered a write");
+            foreach(var (key,expected) in new[]{(Keys.Right,81),(Keys.Home,0),(Keys.End,100)}){
+                typeof(PreviewBrightness).GetMethod("OnKeyDown",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(slider,[new KeyEventArgs(key)]);
+                if(slider.Value!=expected||brightnessSent.Last()!=expected)throw new InvalidOperationException("Preview brightness keyboard control failed");
+            }
+            pages.PerformClick();Application.DoEvents();
+            if(!popup.Visible||!pages.ContextMenuStrip!.Visible)throw new InvalidOperationException("Page menu hid preview");
+            if(!pages.ContextMenuStrip.Items.Cast<ToolStripItem>().Select(i=>i.Tag as string).SequenceEqual(popup.ShortcutPages))throw new InvalidOperationException("Page menu order differs from cycle");
+            pages.ContextMenuStrip.Items.OfType<ToolStripMenuItem>().Single(i=>i.Tag as string=="stocks").PerformClick();pages.ContextMenuStrip.Close();
+            if(selected!="stocks"||selections!=1||popup.DisplayedMode!="stocks")throw new InvalidOperationException("Manual preview choice failed");
+            allowSelection=false;automatic.PerformClick();
+            if(automatic.Text!="未生效"||((PreviewButton)automatic).Active)throw new InvalidOperationException("Failed automatic action falsely showed success");
+            allowSelection=true;
+            automatic.PerformClick();popup.SyncModes();
+            if(selected!="auto"||selections!=2||popup.DisplayedMode!="weather")throw new InvalidOperationException("Preview automatic action failed");
+            if(automatic.Text!="已开始轮播"||!((PreviewButton)automatic).Active)throw new InvalidOperationException("Automatic action lacks visible confirmation");
+            CapturePreview("preview-auto-started");
+            automatic.PerformClick();
+            if(selections!=3)throw new InvalidOperationException("Repeated automatic click was ignored");
+            if(automatic.Text!="已重新开始")throw new InvalidOperationException("Repeated automatic click lacks feedback");
+            CapturePreview("preview-auto-restarted");
+            previewStatus=previewStatus with {EpochUtc=baseEpoch+14};popup.SyncModes();
+            if(popup.DisplayedMode!="weather"||!playback.Text.Contains("1 秒后"))throw new InvalidOperationException("Preview cycle countdown wrong");
+            previewStatus=previewStatus with {EpochUtc=baseEpoch+15};popup.SyncModes();
+            if(popup.DisplayedMode!="domestic_deepseek"||!playback.Text.Contains("2/4")||pages.Text!="DeepSeek")throw new InvalidOperationException("Automatic preview did not advance to the next page");
+            previewStatus=previewStatus with {Codex=previewStatus.Codex with {NeedsInput=true}};popup.SyncModes();
+            if(!playback.Text.StartsWith("等待确认")||popup.DisplayedMode!="codex")throw new InvalidOperationException("Alert interruption hidden from user");
+            previewStatus=previewStatus with {Codex=previewStatus.Codex with {NeedsInput=false},DisplayPolicy=new("auto",true,30,["codex","weather"],baseEpoch)};popup.SyncModes();
+            if(!popup.ShortcutPages.SequenceEqual(new[]{"codex","weather"})||selections!=3)throw new InvalidOperationException("Live preview refresh changed mode or retained removed pages");
+            popup.Controls.OfType<Button>().Single(b=>b.AccessibleName=="下一页").PerformClick();popup.SyncModes();
+            if(selected!="weather")throw new InvalidOperationException("Next page skipped configured order");
+            popup.Controls.OfType<Button>().Single(b=>b.AccessibleName=="上一页").PerformClick();popup.SyncModes();
+            if(selected!="codex")throw new InvalidOperationException("Previous page skipped configured order");
+            var compactSize=popup.Size;
+            previewStatus=previewStatus with {DisplayPolicy=new("auto",true,15,DisplayModes.Pages.Select(p=>p.Mode).Reverse().ToArray(),baseEpoch)};popup.SyncModes();
+            if(!popup.ShortcutPages.SequenceEqual(previewStatus.DisplayPolicy.Pages)||popup.Size!=compactSize||popup.Controls.OfType<RadioButton>().Any())throw new InvalidOperationException("Many preview pages enlarged or stacked controls");
+            foreach(var control in popup.Controls.Cast<Control>())if(!popup.ClientRectangle.Contains(control.Bounds))throw new InvalidOperationException("Preview controls clipped");
             using var bitmap=new Bitmap(popup.Width,popup.Height);
             popup.DrawToBitmap(bitmap,new Rectangle(Point.Empty,popup.Size));
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-            bitmap.Save(Path.Combine(Path.GetDirectoryName(outputPath)!,"mirror-popup-self-test.png"));
-            popup.Hide();
+            bitmap.Save(Path.Combine(Path.GetDirectoryName(outputPath)!,"mirror-popup-self-test.png"));popup.Hide();
         }
-        Console.WriteLine("MIRROR_INTERACTION_SELF_TEST_OK popup/modes/brightness/no-art/400ms-red-alert");
+        Console.WriteLine("MIRROR_INTERACTION_SELF_TEST_OK compact selector, repeated auto click, countdown, timed advance, alert reason, live page list");
         if(SystemPageRenderer.Scale(0)!=10240 || SystemPageRenderer.Scale(70000)!=80000)
             throw new InvalidOperationException("System graph must preserve the legacy floor and 8/7 headroom.");
         if (System.Text.Json.JsonSerializer.Serialize(status, JsonDefaults.Options).Contains("coverRgb565", StringComparison.OrdinalIgnoreCase))
@@ -142,6 +184,11 @@ internal static class MirrorSelfTest
 
         var stress = status with
         {
+            Weather = status.Weather! with {
+                Hourly=Enumerable.Range(0,24).Select(i=>new WeatherHour(status.CapturedAt.AddHours(i).ToString("O"),"雷阵雨",28,90)).ToArray(),
+                Daily=Enumerable.Range(0,7).Select(i=>new WeatherDay(status.CapturedAt.AddDays(i).ToString("yyyy-MM-dd"),"多云转雷阵雨",20,30,90,10)).ToArray(),
+                HourlyStale=true,DailyStale=true
+            },
             Stocks = status.Stocks! with { Quotes = Enumerable.Range(0, 20).Select(i => new StockQuote("sh000001", "000001", new string('股', 100), "1234567890.12", "+100.00%", 1)).ToArray() },
             Music = status.Music! with { Title = new string('音', 200), Artist = new string('人', 200) },
             DisplayPolicy = new("auto", true, 15, DisplayModes.Pages.Select(p => p.Mode).ToArray())
@@ -152,6 +199,12 @@ internal static class MirrorSelfTest
             Baidu = new("baidu", "ernie-4.0-8k", null, null, null, null, null, null, null, status.CapturedAt, false) { PlanPercent = 25, PlanResetsAt = status.CapturedAt.AddDays(30) }
         }};
         var wire = DeviceStatusFrame.Create(stress);
+        if(wire["data"]?["weather"]?["hourly"] is not null||wire["data"]?["weather"]?["daily"] is not null||
+            wire["data"]?["weather"]?["temperature"]?.GetValue<double>()!=stress.Weather!.Temperature)
+            throw new InvalidOperationException("ESP weather heartbeat lost current conditions or retained unsupported forecasts.");
+        var full=System.Text.Json.JsonSerializer.SerializeToNode(stress,JsonDefaults.Options)!;
+        if(full["weather"]?["hourly"]?.AsArray().Count!=24||full["weather"]?["daily"]?.AsArray().Count!=7)
+            throw new InvalidOperationException("Compact USB weather mutated the shared TAB5/LAN forecast.");
         if(wire["data"]?["domesticQuotas"]?["xiaomi"]?["planPercent"]?.GetValue<double>()!=25) throw new InvalidOperationException("MiMo wire data missing.");
         if(wire["data"]?["domesticQuotas"]?["stepFun"]?["balance"]?.GetValue<double>() != 75.37 || wire["data"]?["domesticQuotas"]?["baidu"]?["planPercent"]?.GetValue<double>() != 25)
             throw new InvalidOperationException("Additional provider fields lost in device frame.");

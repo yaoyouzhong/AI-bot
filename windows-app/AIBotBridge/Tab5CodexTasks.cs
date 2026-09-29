@@ -151,6 +151,15 @@ internal sealed class Tab5CodexTasks : IDisposable
     private readonly Dictionary<string,string> _historyPaths=new();
     private readonly Tab5CodexActivity _activity=new();
     private readonly Tab5StoredReplies _storedReplies=new();
+    private readonly Func<string,string?> _rolloutPath=Tab5CodexCatalog.RolloutPath;
+    private readonly string _historyHome=Tab5CodexCatalog.HomePath;
+    internal string ReadDiagnostic {get;private set;}="尚无历史读取";
+    internal static Tab5CodexDesktop.State StoredState(Tab5StoredReplies.Selection local) {
+        JsonElement Turn(string id,string status)=>JsonSerializer.SerializeToElement(new {turnId=id,status});
+        return new("notLoaded","",Turn(local.Page.TurnId,local.Page.State),false) {
+            LatestTurn=Turn(local.LatestId,local.LatestState),IsHistory=local.Page.TurnId!=local.LatestId,
+            HasPrevious=local.HasPrevious,HasNext=local.HasNext,PreviousTurnId=local.PreviousTurnId,NextTurnId=local.NextTurnId};
+    }
     private Tab5ActivityPage? _view;
     private bool _viewHistory,_viewPrevious,_viewNext;
     private int _nextId;
@@ -166,9 +175,10 @@ internal sealed class Tab5CodexTasks : IDisposable
     private readonly CancellationTokenSource _lifetime=new();
 
     internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal()) { }
-    internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null)
+    internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null)
     {
         _desktop=desktop;_liveActivity=new((id,ct)=>desktop.ReadAsync(id,ct));_call=CallAsync;_connect=EnsureServerAsync;_catalog=catalog;_journal=journal;_images=images??new();
+        _rolloutPath=rolloutPath??Tab5CodexCatalog.RolloutPath;_historyHome=historyHome??Tab5CodexCatalog.HomePath;
         foreach(var record in journal?.Accepted()??[]) {
             _activeTurns[record.TaskId]=record.TurnId;_receipts[record.TaskId]="已发送 · 恢复动态";
         }
@@ -221,22 +231,22 @@ internal sealed class Tab5CodexTasks : IDisposable
         if(page < -1)return (400,new {error="invalid_page"});
         var allowed=_catalog().Select(t=>t.Id).ToHashSet();
         if(!allowed.Contains(taskId))return (404,new {error="task_not_in_recent_catalog"});
+        long readStarted=Environment.TickCount64;
         await _gate.WaitAsync(token);
+        long readEntered=Environment.TickCount64;
         try {
             if(_desktop is not null) {
                 Tab5CodexDesktop.State desktopState;Tab5ActivityPage? storedPage=null;
+                Tab5StoredReplies.Selection? storedSelection=null;
                 bool stored=false;
                 try {desktopState=await _desktop.ReadAsync(taskId,token,selectedTurn.Length==0?null:selectedTurn,ensureLoaded:false,turnOffset:turnOffset);}
                 catch(Tab5CodexDesktop.Rejected ex) when(ex.Code=="desktop_owner_unavailable") {
                     // Viewing never opens/navigates the desktop. Unloaded threads
                     // are read from their own local public reply log instead.
-                    var local=_storedReplies.Read(Tab5CodexCatalog.RolloutPath(taskId),Tab5CodexCatalog.HomePath,selectedTurn,turnOffset,page);
+                    var local=_storedReplies.Read(_rolloutPath(taskId),_historyHome,selectedTurn,turnOffset,page);
                     if(local is null)return(503,new {error="reply_unavailable"});
-                    storedPage=local.Page;stored=true;
-                    JsonElement Turn(string id,string status)=>JsonSerializer.SerializeToElement(new {turnId=id,status});
-                    desktopState=new("notLoaded","",Turn(local.Page.TurnId,local.Page.State),false) {
-                        LatestTurn=Turn(local.LatestId,local.LatestState),IsHistory=local.Page.TurnId!=local.LatestId,
-                        HasPrevious=local.HasPrevious,HasNext=local.HasNext};
+                    storedPage=local.Page;storedSelection=local;stored=true;
+                    desktopState=StoredState(local);
                 }
                 var activityView=storedPage??(string.IsNullOrEmpty(desktopState.TurnId)?null:_activity.Read(desktopState.Path,Tab5CodexCatalog.HomePath,page,desktopState.TurnId));
                 var desktopView=Tab5CodexActivity.FromDesktop(desktopState,page);
@@ -256,21 +266,33 @@ internal sealed class Tab5CodexTasks : IDisposable
                 UpdateControl(taskId,desktopState.Current);
                 var current=desktopState.Current;if(!stored)Completed(taskId,current.TurnId,current.Status,FinalResponse(current.Turn));
                 if(includeView) {
-                    object Payload(Tab5ActivityPage v)=>new {taskId,turnId=desktopState.TurnId,
-                        replyView=new {taskId,turnId=desktopState.TurnId,page=v.Page,pageCount=v.PageCount,hasText=v.HasText,
-                            history=desktopState.IsHistory,hasPrevious=desktopState.HasPrevious,hasNext=desktopState.HasNext,
-                            startedLabel=v.StartedAt>0?DateTimeOffset.FromUnixTimeSeconds(v.StartedAt).ToLocalTime().ToString("MM-dd HH:mm"):"",state=desktopState.Status},
-                        text=v.Text,receipt=desktopState.Receipt};
+                    object Payload(Tab5ActivityPage v,Tab5CodexDesktop.State s)=>new {taskId,turnId=s.TurnId,
+                        replyView=new {taskId,turnId=s.TurnId,page=v.Page,pageCount=v.PageCount,hasText=v.HasText,
+                            history=s.IsHistory,hasPrevious=s.HasPrevious,hasNext=s.HasNext,
+                            previousTurnId=s.PreviousTurnId,nextTurnId=s.NextTurnId,
+                            startedLabel=v.StartedAt>0?DateTimeOffset.FromUnixTimeSeconds(v.StartedAt).ToLocalTime().ToString("MM-dd HH:mm"):"",state=s.Status},
+                        text=v.Text,receipt=s.Receipt};
                     var neighbors=new List<object>();
+                    // Older turns first: trimming must not spend the entire
+                    // batch on same-turn pages and discard the next older click.
+                    foreach(var nearby in desktopState.NeighborTurns) {
+                        if(nearby.Status is not ("completed" or "interrupted" or "failed"))continue;
+                        var neighbor=Tab5CodexActivity.FromDesktop(nearby,0);
+                        if(neighbor.HasText)neighbors.Add(Payload(neighbor,nearby));
+                    }
+                    foreach(var nearby in storedSelection?.Neighbors??[]) {
+                        if(nearby.Page.HasText)neighbors.Add(Payload(nearby.Page,StoredState(nearby)));
+                    }
                     foreach(int adjacent in new[]{activityView.Page-1,activityView.Page+1}) {
                         if(adjacent<0||adjacent>=activityView.PageCount)continue;
-                        var neighbor=stored?_storedReplies.Read(Tab5CodexCatalog.RolloutPath(taskId),Tab5CodexCatalog.HomePath,desktopState.TurnId,0,adjacent)?.Page:
+                        var neighbor=stored?_storedReplies.Read(_rolloutPath(taskId),_historyHome,desktopState.TurnId,0,adjacent)?.Page:
                             useDesktopView?Tab5CodexActivity.FromDesktop(desktopState,adjacent):_activity.View(adjacent);
                         if(neighbor is null||neighbor.TurnId!=desktopState.TurnId)neighbor=Tab5CodexActivity.FromDesktop(desktopState,adjacent);
-                        neighbors.Add(Payload(neighbor));
+                        neighbors.Add(Payload(neighbor,desktopState));
                     }
+                    ReadDiagnostic=$"source={(stored?"stored":"owner")}; direction={turnOffset}; gate={readEntered-readStarted}ms; load={Environment.TickCount64-readEntered}ms; prefetched={neighbors.Count}";
                     return (200,new {status="loaded",taskId,turnId=desktopState.TurnId,
-                        replyView=JsonSerializer.SerializeToElement(Payload(activityView)).GetProperty("replyView"),
+                        replyView=JsonSerializer.SerializeToElement(Payload(activityView,desktopState)).GetProperty("replyView"),
                         text=activityView.Text,receipt=desktopState.Receipt,neighbors});
                 }
                 return (200,new {status="loaded",taskId,turnId=desktopState.TurnId});
