@@ -44,6 +44,8 @@ All notable changes to this project will be documented in this file.
 
 - Bound full-state deferral during continuous BLE reply reads to four seconds so metrics cannot indefinitely starve task/session freshness. Report paired-device authentication failures explicitly. Regression tests cover sustained read traffic and reconnect ordering; live acceptance is tracked in [the current checklist](docs/ACCEPTANCE-2026-09-30.md).
 
+- Distinguish sampling pauses from incomplete daily quota totals. Same-account cumulative readings recover same-day pauses and flat midnight intervals; verified scheduled/manual resets start new segments whose usage is added, including the first post-reset reading, without making the day partial. Keep ambiguous overnight growth, account changes and unexplained decreases partial. Original history is preserved.
+
 - Send a full TAB5 state first after every authenticated BLE reconnect, including during reply paging, so a rebooted device never receives metrics before its session baseline. Reconnect ordering tests pass. With firmware 0.2.55-ui, device-reboot reconnection and BLE-only overview/reply reading passed user hardware acceptance on 2026-09-30; long-duration stress testing was not performed.
 
 - Add per-device reconnect, session connection history and allowlisted diagnostic export; authenticated TAB5 display readback/save; an update center with P4 image and USB boot validation; frequent tasks and companion-firmware reading bookmarks; selective configuration backup/restore; and notification switches, quiet hours and session history. Matching TAB5 firmware candidate: 0.2.53-ui. These changes are not deployed; see [scope and validation](docs/DEVICE-DEVELOPMENT-2026-09-29.md).

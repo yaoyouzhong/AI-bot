@@ -73,7 +73,7 @@ internal sealed class QuotaHistory
             // Attribute each short observed increment to the date of its later sample.
             // This also gives midnight a deterministic owner without splitting rounded percentages.
             var intervals = Enumerable.Range(0, rows.Count).Where(i => rows[i].At >= start && rows[i].At < end).ToArray();
-            bool partial = day >= today || !BoundaryCovered(rows, start) || !BoundaryCovered(rows, end);
+            bool partial = indexes.Length == 0 || day >= today || !BoundaryCovered(rows, start) || !BoundaryCovered(rows, end);
             foreach (int i in intervals)
             {
                 if (i == 0) continue;
@@ -84,31 +84,39 @@ internal sealed class QuotaHistory
                 // User policy: normal short polling intervals spanning midnight belong to
                 // the later sample's day. Never pull multi-day downtime into today's total.
                 if (previous.At < start && (current.At - previous.At > TimeSpan.FromMinutes(5) ||
-                    string.IsNullOrEmpty(previous.AccountFingerprint))) { partial = true; continue; }
+                    string.IsNullOrEmpty(previous.AccountFingerprint)) && !VerifiedFlatInterval(previous,current))
+                { partial = true; continue; }
                 if (previous.Weekly is not double before || current.Weekly is not double after || previous.Plan != current.Plan)
                 { gaps++; partial = true; continue; }
                 if (current.At <= previous.At) { gaps++; partial = true; continue; }
                 // Allow up to a minute of timestamp rounding/jitter while both deadlines
                 // are still in the future. A usage drop remains anomalous regardless.
                 bool sameWindow = SameWindow(previous, current);
+                bool expired = !sameWindow && previous.WeeklyReset is { } expiry && expiry > previous.At && expiry <= current.At && current.WeeklyReset > expiry;
+                bool manualReset = !sameWindow && after < before && !string.IsNullOrEmpty(previous.AccountFingerprint) &&
+                    previous.WeeklyReset.HasValue && current.WeeklyReset > previous.WeeklyReset && current.WeeklyReset > current.At;
+                bool reset = expired || manualReset;
                 if (current.At - previous.At > TimeSpan.FromMinutes(5))
                 {
-                    gaps++; partial = true;
+                    gaps++;
                     // A same-day, same-account cumulative difference remains observable
-                    // after a pause. Resets or unknown account identity do not.
-                    if (string.IsNullOrEmpty(previous.AccountFingerprint) || !sameWindow || after < before) continue;
+                    // after a pause. Sampling continuity is not daily-total completeness:
+                    // only unresolvable intervals make the daily amount partial.
+                    if (string.IsNullOrEmpty(previous.AccountFingerprint) || (!sameWindow || after < before) && !reset)
+                    { partial = true; continue; }
                 }
-                bool expired = !sameWindow && previous.WeeklyReset is { } expiry && expiry > previous.At && expiry <= current.At && current.WeeklyReset > expiry;
-                bool changed = !sameWindow || after < before;
-                if (expired) { resets++; partial = true; }
-                else if (changed) { uncertainResets++; partial = true; }
-                if (sameWindow && after >= before)
+                if (reset)
+                {
+                    // A new window starts at zero: include its first observation even
+                    // when polling missed zero. Never fill the old segment up to 100.
+                    resets++; total += after; comparable++;
+                }
+                else if (sameWindow && after >= before || before == 0 && after == 0 &&
+                    !string.IsNullOrEmpty(previous.AccountFingerprint))
                 { total += after - before; comparable++; }
-                else if (expired)
-                { total += after; comparable++; }
-                else partial = true;
-                // Unconfirmed manual resets/corrections start a baseline. Never add 100-before,
-                // subtract usage, or assume a spent/expired reset credit proves a quota reset.
+                else { uncertainResets++; partial = true; }
+                // A drop without reset-window evidence may be a correction. Start a
+                // baseline without inventing consumption or inferring resets from credits.
             }
             result.Add(new(day, comparable == 0 ? null : Math.Round(total, 2), indexes.Length, partial, resets, uncertainResets, gaps));
         }
@@ -119,14 +127,19 @@ internal sealed class QuotaHistory
         (currentReset == previousReset || previousReset > current.At && currentReset > current.At &&
             (currentReset - previousReset).Duration() <= TimeSpan.FromMinutes(1));
 
+    private static bool VerifiedFlatInterval(QuotaObservation previous, QuotaObservation current) =>
+        !string.IsNullOrEmpty(previous.AccountFingerprint) && previous.AccountFingerprint == current.AccountFingerprint &&
+        previous.Plan == current.Plan && previous.Weekly.HasValue && previous.Weekly == current.Weekly && SameWindow(previous,current);
+
     private static bool BoundaryCovered(IReadOnlyList<QuotaObservation> rows, DateTimeOffset boundary)
     {
         if (rows.Any(x => x.At == boundary && x.Weekly.HasValue && !string.IsNullOrEmpty(x.AccountFingerprint))) return true;
         var before = rows.LastOrDefault(x => x.At < boundary);
         var after = rows.FirstOrDefault(x => x.At > boundary);
-        // Continuity across midnight is sufficient for the daily sampling convention;
-        // a small increase is assigned to the later sample's day, never counted twice.
-        return before is not null && after is not null && after.At - before.At <= TimeSpan.FromMinutes(5) &&
+        // A flat cumulative interval also covers midnight without guessing which day
+        // owns usage. An increase over a long overnight pause remains ambiguous.
+        return before is not null && after is not null &&
+            (after.At - before.At <= TimeSpan.FromMinutes(5) || VerifiedFlatInterval(before,after)) &&
             !string.IsNullOrEmpty(before.AccountFingerprint) && before.AccountFingerprint == after.AccountFingerprint &&
             before.Plan == after.Plan && before.Weekly.HasValue && after.Weekly >= before.Weekly && SameWindow(before, after);
     }

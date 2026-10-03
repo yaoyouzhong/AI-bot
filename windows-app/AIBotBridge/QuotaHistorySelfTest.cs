@@ -33,7 +33,7 @@ internal static class QuotaHistorySelfTest
         var after = new QuotaObservation(at.AddMinutes(2), "PRO", 3, at.AddDays(7), 3, null);
         var resetDay = QuotaHistory.Daily([before, after], new(2026,9,10), 1, TimeZoneInfo.Utc)[0];
         Require(resetDay.Growth == 3 && resetDay.Resets == 1, "Reset segmentation failed.");
-        Require(resetDay.Partial, "Unobserved pre-reset use marked complete.");
+        Require(resetDay.Partial, "Missing midnight boundaries marked complete.");
         var jitter = QuotaHistory.Daily([
             before with { Weekly = 20, WeeklyReset = at.AddDays(7) },
             after with { Weekly = 23, WeeklyReset = at.AddDays(7).AddSeconds(1) }
@@ -69,6 +69,40 @@ internal static class QuotaHistorySelfTest
         var full = QuotaHistory.Daily(complete,new(2026,9,10),3,TimeZoneInfo.Utc);
         Require(full[0].Growth==10 && !full[0].Partial && full[1].Growth==0,"Midnight sample assigned to wrong day or counted twice.");
         Require(QuotaHistory.AverageRecorded(full,new(2026,9,10))==(10.0,1),"Missing dates entered daily average.");
+        var paused = complete.Where((_,i)=>i<240||i>360).ToArray();
+        var recoveredDay = QuotaHistory.Daily(paused,new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(recoveredDay.Growth==10 && !recoveredDay.Partial && recoveredDay.Gaps==1,
+            "Same-day cumulative readings failed to recover a polling pause with covered midnight boundaries.");
+        var unknownPause = paused.Select((x,i)=>i==239?x with {AccountFingerprint=null}:x).ToArray();
+        Require(QuotaHistory.Daily(unknownPause,new(2026,9,10),3,TimeZoneInfo.Utc)[0].Partial,
+            "A pause with unknown account identity was treated as complete.");
+        var resetDuringPause = paused.Select((x,i)=>i>=240?x with {Weekly=1}:x).ToArray();
+        Require(QuotaHistory.Daily(resetDuringPause,new(2026,9,10),3,TimeZoneInfo.Utc)[0].Partial,
+            "An unverified decrease during a polling pause was treated as complete.");
+        QuotaObservation SampleAt(int minutes,double used)=>new(start.AddMinutes(minutes),"PRO",used,start.AddDays(7),null,null,"test-account");
+        var overnight = new[]{SampleAt(-60,20),SampleAt(60,20),SampleAt(1380,30),SampleAt(1500,30)};
+        var overnightDay=QuotaHistory.Daily(overnight,new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(overnightDay.Growth==10&&!overnightDay.Partial,
+            "Unchanged cumulative readings across midnight created a false missing-day boundary.");
+        var ambiguousNight=overnight.Select((x,i)=>i==0?x with{Weekly=19}:x).ToArray();
+        var ambiguousDay=QuotaHistory.Daily(ambiguousNight,new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(ambiguousDay.Growth==10&&ambiguousDay.Partial,"Unallocated overnight growth was assigned to one day.");
+        var noReadings=QuotaHistory.Daily(new[]{SampleAt(-60,20),SampleAt(1500,20)},new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(noReadings.Growth is null&&noReadings.Partial,"An entirely unobserved day became a complete zero.");
+        var segmented = new[]{SampleAt(0,60),SampleAt(60,77),SampleAt(62,3) with {WeeklyReset=start.AddDays(8)},
+            SampleAt(1439,28) with {WeeklyReset=start.AddDays(8)},SampleAt(1440,28) with {WeeklyReset=start.AddDays(8)}};
+        var segmentedDay=QuotaHistory.Daily(segmented,new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(segmentedDay.Growth==45&&segmentedDay.Resets==1&&!segmentedDay.Partial&&segmentedDay.UncertainResets==0,
+            "Normal manual reset lost the new segment's first use or made a covered day incomplete.");
+        var scheduled = segmented.Select((x,i)=>i<2?x with {WeeklyReset=start.AddMinutes(61)}:x).ToArray();
+        var scheduledDay=QuotaHistory.Daily(scheduled,new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(scheduledDay.Growth==45&&scheduledDay.Resets==1&&!scheduledDay.Partial,
+            "Scheduled reset was not accumulated as a normal new segment.");
+        var multiple = segmented.Take(3).Concat(new[]{SampleAt(120,28) with {WeeklyReset=start.AddDays(8)},
+            SampleAt(122,2) with {WeeklyReset=start.AddDays(9)},SampleAt(1439,7) with {WeeklyReset=start.AddDays(9)},
+            SampleAt(1440,7) with {WeeklyReset=start.AddDays(9)}}).ToArray();
+        var multipleDay=QuotaHistory.Daily(multiple,new(2026,9,10),3,TimeZoneInfo.Utc)[0];
+        Require(multipleDay.Growth==52&&multipleDay.Resets==2&&!multipleDay.Partial,"Multiple reset segments were not summed.");
         Require(QuotaHistory.Daily(complete.Skip(1).ToArray(),new(2026,9,10),3,TimeZoneInfo.Utc)[0].Partial,"Missing midnight baseline accepted.");
         Require(QuotaHistory.Daily(complete.Take(720).ToArray(),new(2026,9,10),3,TimeZoneInfo.Utc)[0].Partial,"Missing closing midnight accepted.");
         var jittered = Enumerable.Range(-1, 723).Select(i => new QuotaObservation(start.AddMinutes(i*2).AddSeconds(7),

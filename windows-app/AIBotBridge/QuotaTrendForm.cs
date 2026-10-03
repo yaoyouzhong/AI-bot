@@ -121,9 +121,9 @@ internal sealed class QuotaTrendForm : Form
             _table.Columns[1].ToolTipText = "单位：周额度百分点。例如已用比例从 68% 增至 70%，记录用量为 2。";
             foreach (var day in daily) _table.Rows.Add(day.Day.ToString("MM-dd"), day.Growth?.ToString("0.##") ?? "--", day.Samples,
                 string.Join("；", new[] {
-                    day.Resets > 0 ? $"到期重置 {day.Resets} 次" : null,
+                    day.Resets > 0 ? $"额度重置 {day.Resets} 次，分段累计" : null,
                     day.UncertainResets > 0 ? $"{day.UncertainResets} 处额度变化无法核实，未计入" : null,
-                    day.Gaps > 0 ? "记录断档" : null,
+                    day.Gaps > 0 ? (day.Partial ? "存在采样间隔或无效记录" : "采样间隔已由累计值补算") : null,
                     day.Samples == 0 ? "未采集" : day.Day == today ? "统计中；仅已记录时段" : day.Partial ? "仅已记录时段，非全天总量" : "完整统计日"
                 }.Where(x => x is not null)));
             _table.Columns[3].DefaultCellStyle.WrapMode = DataGridViewTriState.True;
