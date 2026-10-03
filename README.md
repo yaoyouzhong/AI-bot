@@ -1,6 +1,6 @@
 # AI-bot
 
-**AI 状态，一眼便知。** 本地优先的 AI 桌面助手，将 Claude Code / Codex 任务状态、账户额度与日常信息，集中显示在 **ESP8266 小屏或 M5Stack TAB5** 上。
+**AI 状态，一眼便知。** 桌面 AI 状态助手，将 Claude Code / Codex 任务状态、账户额度与日常信息，集中显示在 **ESP8266 小屏或 M5Stack TAB5** 上。
 
 [**下载 v0.5.0 正式版**](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0) · [安装与刷机指南](docs/INSTALL.zh.md) · [English](README.en.md)
 

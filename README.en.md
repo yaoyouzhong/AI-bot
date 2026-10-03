@@ -1,6 +1,6 @@
 # AI-bot
 
-**AI status at a glance.** A local-first desktop companion for Claude Code / Codex activity, account quotas and everyday information, on an **ESP8266 display or M5Stack TAB5**.
+**AI status at a glance.** A desktop AI status assistant that brings Claude Code / Codex activity, account quotas and everyday information to an **ESP8266 display or M5Stack TAB5**.
 
 [**Download v0.5.0**](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0) · [Installation and flashing guide](docs/INSTALL.zh.md#english-summary) · [简体中文](README.md)
 

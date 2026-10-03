@@ -9,6 +9,7 @@
 ## 内容与来源
 
 - 0–6 秒两种硬件；6–12 秒设备中心；12–18 秒任务状态；18–24 秒账户额度；24–30 秒 TAB5 查看与语音；30–36 秒天气/音乐/系统；36–42 秒两种刷机路线；42–48 秒桌宠与日历；48–54 秒产品定位与版本范围。
+- 封面与 0–6 秒开场并排展示 ESP8266 Codex 功能页和 TAB5 Codex 额度页，演示数据统一为 PRO、本周已用 88%、4 张重置卡；左侧由原生截图工具的 `--codex-pro-cover` 生成，不使用任务总览页代替。
 - 当前 WinForms 窗口、镜像和 TAB5 LVGL 预览使用固定演示数据。原生界面直接嵌入、局部裁切放大，没有重绘业务控件；来源和生成方式见[截图说明](SCREENSHOTS.md)。WinForms/LVGL 无法导入 React，浏览器工程负责外层排版和动效。画面不是硬件实拍，也不是新一轮真机验收。
 - 语音恢复镜头保留“本段可能不完整”的真实提示，发送仍需用户操作；未宣称断连已修复。首刷与升级镜头区分 TAB5 完整 ZIP 和应用 BIN，未宣称首刷恢复已实测。发布记录见[发布记录](RELEASE-0.5.0.md)。
 - 项目图标、原创 BYTE SPROUT 桌宠；不含私人动画、真实账户、凭据或会话。TAB5 预览所含服务标识保留相邻固件的来源说明。
@@ -20,7 +21,7 @@
 
 ## English
 
-The rebuilt 54-second overview uses Chinese captions at 1920×1080, 30 fps. It covers current Windows Device Center, ESP8266 and TAB5, including v0.5.0 changes, AI status/quotas, TAB5 voice interaction, daily information, separate flashing routes, the original pet and calendar. It does not demonstrate macOS runtime. Current native WinForms/LVGL pixels use synthetic fixtures; they are not hardware footage or fresh device acceptance. Music is composed in code for this film, with independent original synthesized SFX from the credited skill. Inter and Noto Sans SC use SIL OFL; the reproducible project retains applicable notices. Contact sheets, every cut, dense full-size frames, duration/codec/audio structure and loudness were checked. Subjective listening remains unverified. The MP4 is linked from README and stored in the repository rather than duplicated as an installation asset; exact media hashes are enforced in `licenses/materials.json`.
+The rebuilt 54-second overview uses Chinese captions at 1920×1080, 30 fps. It covers current Windows Device Center, ESP8266 and TAB5, including v0.5.0 changes, AI status/quotas, TAB5 voice interaction, daily information, separate flashing routes, the original pet and calendar. The cover and opening pair the ESP8266 Codex page with the TAB5 Codex quota page, using matching synthetic PRO, 88% weekly usage and four reset credits; the small-screen image is rendered natively with --codex-pro-cover. It does not demonstrate macOS runtime. Current native WinForms/LVGL pixels use synthetic fixtures; they are not hardware footage or fresh device acceptance. Music is composed in code for this film, with independent original synthesized SFX from the credited skill. Inter and Noto Sans SC use SIL OFL; the reproducible project retains applicable notices. Contact sheets, every cut, dense full-size frames, duration/codec/audio structure and loudness were checked. Subjective listening remains unverified. The MP4 is linked from README and stored in the repository rather than duplicated as an installation asset; exact media hashes are enforced in `licenses/materials.json`.
 
 ## 历史附件
 

@@ -10,7 +10,8 @@ internal static class DocCapture
         bool releaseUi = args.Length == 2 && args[1] == "--release-ui";
         bool screenSaverOnly = args.Length == 2 && args[1] == "--screensaver";
         bool quotaOnly = args.Length == 2 && args[1] == "--quota-api";
-        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi) throw new ArgumentException("Supply an output directory, optionally --screensaver or Claude and Codex APET paths for approved quota screenshots.");
+        bool codexCover = args.Length == 2 && args[1] == "--codex-pro-cover";
+        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi && !codexCover) throw new ArgumentException("Supply an output directory, optionally --screensaver, --codex-pro-cover or Claude and Codex APET paths for approved quota screenshots.");
         AppPaths.BeginPublicSelfTest(); // Must precede any settings/cache/credential access.
         Application.SetHighDpiMode(Environment.GetEnvironmentVariable("AIBOT_DOC_NATIVE_DPI") == "1" ? HighDpiMode.PerMonitorV2 : HighDpiMode.DpiUnaware);
         Application.EnableVisualStyles();
@@ -43,6 +44,20 @@ internal static class DocCapture
                 domestic with { Provider="zhipu", Plan="GLM", PrimaryPercent=null, WeeklyPercent=null, Balance=16.8, Currency="CNY" }),
             SystemMetrics: new(31.4,72.8,238900,4821100,now,Enumerable.Range(0,224).Select(i=>new NetworkSample((long)(180000+140000*Math.Sin(i/12.0)),(long)(3000000+2400000*Math.Sin(i/23.0)))).ToArray()),
             Music: new("桌面之光 · 示例曲目", "AI-bot 演示", "示例专辑", true, 95, 260, now));
+        if (codexCover)
+        {
+            // Match the adjacent native TAB5 Codex quota preview, using synthetic data only.
+            var codex = status.Quotas!.Codex! with { Plan="PRO", WeeklyPercent=88, ResetCreditsAvailable=4,
+                ResetCreditExpiresAt=new[]{
+                    new DateTimeOffset(2026,10,4,11,26,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds(),
+                    new DateTimeOffset(2026,10,5,13,38,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds(),
+                    new DateTimeOffset(2026,10,23,0,27,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds(),
+                    new DateTimeOffset(2026,11,4,11,26,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds() } };
+            using var image = MirrorForm.RenderSnapshot(status with { Quotas=status.Quotas with { Codex=codex } }, "codex");
+            image.Save(Path.Combine(output,"codex-pro-cover.png"),ImageFormat.Png);
+            Console.WriteLine("DOC_CODEX_COVER_OK native Codex page; synthetic PRO/weekly 88%; isolated profile");
+            return;
+        }
         if (releaseUi)
         {
             var store = new DeviceRegistryStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "doc-devices.json"));

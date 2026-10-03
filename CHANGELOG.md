@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Show the native ESP8266 Codex page beside TAB5 Codex quotas in the product cover and opening, using matching isolated demonstration values.
 - Separate bridge, ESP8266 and TAB5 version sources, changelogs, tag validation and package names. Keep the published v0.5.0 payload unchanged.
 - Query stable bridge and firmware releases independently in the Windows update center; retain legacy-bundle support.
 - Add isolated ESP8266-only packaging and minimal per-component download staging; check TAB5 image/source identity rather than filename alone.
