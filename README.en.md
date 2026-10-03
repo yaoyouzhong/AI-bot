@@ -15,13 +15,13 @@ The bridge and both firmwares update independently. Their numbers need not match
 
 [![54-second product overview](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · 54-second product overview
 
-https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e
+https://github.com/user-attachments/assets/540c8206-a33f-46e6-aee9-d738f691d45d
 
 [▶ Open video (54 seconds, Chinese captions)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media provenance](docs/PRODUCT_VIDEO.md)
 
 [Download pet animation ZIP](docs/assets/pet/AI-bot-pet.zip) · [Preview GIF](docs/assets/pet/AI-bot-mascot.gif) · [Import instructions](docs/assets/pet/README.md)
 
-The selected mascot appears only in this media design preview. Application, firmware and personal settings are unchanged. The public GitHub player still shows the previous render and will be synchronized on publication.
+The selected mascot appears only in this media design preview. Application, firmware and personal settings are unchanged. The public GitHub player and repository MP4 both use the updated mascot design preview.
 
 ## A live window on your desk
 
