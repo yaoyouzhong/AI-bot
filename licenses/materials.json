@@ -80,7 +80,8 @@
     "docs/assets/screens/tab5-quota.png": "68ef98c7fc4bd58ea5d67e87522bc0901dc6093196f98d3cdee306b344c795e7",
     "docs/assets/screens/tab5-activity.png": "57f64716f36428fefa3d15ced7d6589ac6a4bf9e1e660f49f6f5aeebcd89d665",
     "docs/assets/screens/tab5-voice.png": "32201af4797671048e7a5a7ee7a2cbf9dcd184fc60387f34e5cf61834d8f28d2",
-    "docs/assets/screens/tab5-calendar.png": "b78769659294730c23d0264a7731808f33f8e541e224be5b50496f3272aa247d"
+    "docs/assets/screens/tab5-calendar.png": "b78769659294730c23d0264a7731808f33f8e541e224be5b50496f3272aa247d",
+    "docs/development/TAB5-0.2.89-ui-source.zip": "357af4f077c061125c72656728d64e53511b781f00acb5e498af2065c92480e3"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

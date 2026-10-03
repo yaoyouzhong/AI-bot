@@ -1,66 +1,31 @@
-**[v0.5.0 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0)**: Device Center, TAB5 transport and voice recovery, and cumulative quota-history fixes. See [release records](docs/RELEASE-0.5.0.md) for checks and known limitations. The latest stable release remains v0.4.0.
+# AI-bot
 
-**2026-10-02 acceptance baseline**: TAB5 **0.2.89-ui** and the matching Windows bridge are deployed and boot-verified. This round fixes settings layouts, camera recovery, voice cursor insertion and disconnected-result recovery, attachment receipt queries, configuration restore and pointer visibility. See the [current acceptance record](docs/ACCEPTANCE-2026-10-02.md) for individual scopes. USB upgrade interruption investigation is paused at the user's request; physical keyboard, dual-device isolation and other environments remain untested. This is not full acceptance.
+**AI status at a glance.** A local-first desktop companion for Claude Code / Codex activity, account quotas and everyday information, on an **ESP8266 display or M5Stack TAB5**.
 
-**New product introduction · 54 seconds**: rebuilt from current Windows Device Center, ESP8266 and TAB5 interfaces. [Download the new video](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-product-intro-0.5.0.mp4).
+[**Download v0.5.0**](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0) · [Installation and flashing guide](docs/INSTALL.zh.md#english-summary) · [简体中文](README.md)
 
-[![AI-bot two-device introduction cover](docs/assets/product-intro/AI-bot-cover.png)](docs/assets/product-intro/AI-bot-product-intro.mp4)
+Windows and ESP8266 use **0.5.0**; TAB5 uses its independent **0.2.89-ui** firmware. The maintainer confirmed hardware acceptance on 2026-10-03, and v0.5.0 is the current stable release. See [release records](docs/RELEASE-0.5.0.md).
 
-The fixed local TAB5 firmware entry is `artifacts/firmware/tab5/latest/aibot_tab5.bin`; see the [firmware workflow](docs/TAB5-FIRMWARE-WORKFLOW.md) for preparation, archives and release-note previews. Historical .070 results for 18 three-channel bidirectional rounds remain in the [performance record](docs/TRANSPORT-PERFORMANCE-070.md) and do not establish current throughput or long-term stability. Fixed modes retain their selected channel. Versions 0.2.65, 0.2.40 and 0.2.41 were withdrawn; do not install them.
+![CI](https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml/badge.svg)
+[![MIT](https://img.shields.io/badge/own_source-MIT-81dce6)](LICENSE)
+![Version](https://img.shields.io/badge/release-v0.5.0-blue)
+![Hardware](https://img.shields.io/badge/hardware-ESP8266_%7C_TAB5-a6b5ff)
 
-Voice inserts at the current TAB5 cursor and retains the recording task through temporary device focus loss or page changes. Version 089 passed three recovery checks covering short and 45-second USB disconnections, original insertion position, cancellation and isolation of the next recording. Untransmitted audio is not guaranteed and messages are never sent automatically. See [089 voice recovery](docs/VOICE-RECOVERY-089.md).
+[![54-second product overview](docs/assets/product-intro/AI-bot-cover.png)](docs/assets/product-intro/AI-bot-product-intro.mp4)
 
-[▶ Product introduction (MP4, 54 seconds, Chinese captions)](docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video and screenshot provenance](docs/PRODUCT_VIDEO.md)
-
-**v0.4.0 release:** reduces false `PC OFF` screens under host load. The Windows bridge and updated firmware use paired local discovery to recover Wi-Fi status after the laptop or device IP changes. See the [changelog](CHANGELOG.md).
-
-**Windows v0.5.0 pre-release:** My Devices exposes features and runs connection services only for registered TAB5 / ESP8266 devices, while sharing accounts and data sources. The main window separates My Devices, Accounts and Data, and Bridge Settings; common actions use two columns, connection details stay together, and management and diagnostics live in a menu. Desktop checks and the current dual-device USB connection passed; remaining hardware combinations await acceptance. See the [device-center validation and rollback notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
-
-Device Center provides all features and device registration. Left-click opens the small-screen preview and brightness slider when an ESP8266 is enabled, otherwise Device Center. Right-click offers Device Center, screen preview, common settings grouped by device, and Exit. Shared accounts and data settings are available in Device Center. Only registered devices appear, using their custom names; disabled devices are grayed out. Device management and occasional diagnostics remain in Device Center. Data updates and Codex quota-history collection run automatically while the bridge is running, with service status displayed in tables. Voice settings show only the enable toggle and preferred microphone by default; other options are under Troubleshooting.
-
-All three main pages share two-column action cards, with a compact Chinese label for Weather and Location. Data Settings separates data categories from domestic model providers, showing Chinese names, English names and the collected quota type. Provider choices follow the model-quota toggle. Add remains clickable when both models are registered and explains the one-device-per-model limit and replacement steps.
-
-ESP8266 Connection Settings offers Automatic (default), USB only and Wi-Fi only. Automatic prefers USB. Wi-Fi only stops USB data delivery while keeping USB power, configuration and flashing available; USB only blocks the small screen's Wi-Fi data endpoints. Saving applies the choice to this screen without a firmware update.
-
-Small-screen brightness, display mode and cycling are combined in Display Settings, where changes save and apply automatically. Preview uses previous/next navigation and a current-page menu containing only checked cycle pages in their saved order. Automatic Cycling runs on every click and shows the page position, switch countdown and task-alert interruptions. The popup keeps a fixed height and a slim brightness slider instead of stacking module buttons. Device Center orders small-screen actions as Display Settings, Appearance, Data Settings and Connection Settings, with firmware updates under Manage and the asset gallery under Appearance. Preview remains available from a tray left-click. TAB5 actions are ordered as Display Settings, Voice Settings, Calendar and Birthdays, Frequent Tasks, Data Settings and Connection and Updates.
-
-<p align="center">
-  <strong>AI status at a glance.</strong><br>
-  Task status and account quotas, together on a small desktop display.<br>
-  <strong>Windows · macOS (Apple Silicon test build)</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml"><img src="https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml/badge.svg" alt="Live CI status"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/source-MIT-81dce6?style=flat-square&labelColor=142b43" alt="Own source: MIT"></a>
-  <img src="https://img.shields.io/badge/ESP8266-240_%C3%97_240-a6b5ff?style=flat-square&labelColor=142b43" alt="ESP8266, 240 by 240 display">
-  <img src="https://img.shields.io/badge/status-development-ffb183?style=flat-square&labelColor=142b43" alt="Development status">
-</p>
-
-<p align="center">
-  <a href="README.md">简体中文</a> · <strong>English</strong><br>
-  <a href="#a-live-window-on-your-desk">Features</a> ·
-  <a href="#get-started">Get started</a> ·
-  <a href="#current-status">Current status</a> ·
-  <a href="#explore-the-project">Documentation</a>
-</p>
-
----
-
-The TAB5 0.2.39 development candidate adds USB / BLE firmware updates, history, sending and image attachments. Older firmware first needs a USB or Wi-Fi upgrade. Desktop builds and simulations passed; the new USB/BLE paths still await hardware acceptance.
-
-## Stay with the work in front of you
-
-Is your terminal still busy, or waiting for your next step? How much of this week's
-quota have you used? AI-bot puts those signals on a small ESP8266 display.
-
-The desktop bridge reads local Claude Code / Codex activity and provider quotas,
-then sends them to the device. Windows connects over USB first and lives in the
-system tray; a left click opens the screen mirror. Mac has a menu-bar test build with a mirror; real-Mac acceptance remains pending.
-
-On Windows, Bridge service → Start at login uses a current-user scheduled task with a five-second delay, bypassing the ordinary startup queue. Repeated launches keep one bridge instance. Toggle an older startup registration off and on once to migrate it.
+[▶ Product overview (54 seconds, Chinese captions)](docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media provenance](docs/PRODUCT_VIDEO.md)
 
 ## A live window on your desk
+
+The bridge reads local AI activity and provider quotas and sends them to your device. Windows lives in the system tray; macOS provides a menu-bar app and screen mirror. Device features differ by platform.
+
+| Feature | What it shows |
+| --- | --- |
+| AI activity | Claude / Codex working, idle, offline and waiting for input; task-completion reminders |
+| Quotas and balances | Account usage, reset times, supported provider balances and recorded quota trends |
+| Everyday information | Weather, clock, stocks, system monitoring and now-playing music |
+| Companions and display | Original BYTE SPROUT pet, brightness, selected pages and automatic cycling |
+| TAB5 interaction | Touch interface, activity/history, voice input, calendar/birthdays and frequent tasks |
 
 <table>
 <tr>
@@ -75,70 +40,19 @@ On Windows, Bridge service → Start at login uses a current-user scheduled task
 </tr>
 </table>
 
-<sub>Actual Windows mirror captures with synthetic data, presented with Chinese labels. These are not device photographs; existing product names and abbreviations are preserved. The Codex companion is the maintainer’s selected artwork.</sub>
+<sub>Native Windows mirror captures with synthetic data and the original BYTE SPROUT. These are not hardware photographs.</sub>
 
-| Keep track of work | Keep your desk informed |
-| :--- | :--- |
-| **AI activity**<br>Working, idle and offline states for Claude / Codex; attention signals and an explicit main-task completion chime. | **Weather and time**<br>Local conditions, an independent clock and automatic screen saving. Keep the last successful data during temporary outages. |
-| **Quotas and balances**<br>Claude / Codex usage, resets and reset-credit details; Windows integrations for Alibaba, Kimi, MiniMax, DeepSeek and Zhipu; new MiMo, StepFun and Baidu adapters await live-account acceptance. | **Music and markets**<br>Now-playing title, artwork and progress; paged watchlists for mainland China, Hong Kong and US markets. |
-| **System monitoring**<br>CPU, memory and network activity, with live traffic graphs and a screen mirror. | **Animated companions**<br>The original BYTE SPROUT, plus local images/GIFs with license notices. Choose pets independently for Claude and Codex. |
+### Two devices, one Windows Device Center
 
-**Choose what stays on screen.** Pin a page or cycle through quotas, weather, stocks
-and more in your preferred order. Work events can wake the screen saver. When the
-PC goes offline and the device still has power, it shows an independent `PC OFF` clock.
+**My Devices / Accounts and Data / Bridge Settings** separates device settings from shared accounts. You can register one ESP8266 and one TAB5 together, manage their connections independently and share data sources.
 
-<details>
-<summary><strong>What quota history can and cannot tell you</strong></summary>
+- **ESP8266:** 240×240 ST7789 display using the SD2 pin configuration; USB-first automatic mode with paired Wi-Fi fallback, or a selected USB/Wi-Fi mode.
+- **TAB5:** touch display and USB / Wi-Fi / BLE connections. Automatic mode prefers USB, then Wi-Fi, then BLE; factory installation uses USB.
+- Tray left-click opens the enabled ESP8266 preview, or Device Center otherwise; right-click provides device settings. Start at login is under **Device Center → Bridge Settings**.
 
-Account quotas come from providers; local Token counts cover only visible local
-logs. They are separate metrics. Windows retains 90 days of quota history. Daily
-figures sum verifiable observed increments by Beijing date. Partial days also show
-recorded usage; today remains in progress and `--` means no comparable samples.
-Only complete historical days enter averages. Gaps are not estimated, and an
-unverified quota change does not prove the user performed a reset. See [quota trends](docs/QUOTA_TRENDS.md).
+![Windows Device Center](docs/assets/screens/device-center.png)
 
-</details>
-
-## Local-first, starting with the connection
-
-```mermaid
-flowchart LR
-    A["Local AI activity"] --> B["Desktop bridge"]
-    Q["Provider quotas · weather · markets"] --> B
-    B ==>|"USB first"| C["ESP8266 desktop display"]
-    B -.->|"Authenticated Wi-Fi fallback"| C
-    B --> M["Tray and screen mirror"]
-```
-
-- **Direct USB:** automatic discovery and handshake at 460800 baud; basic USB operation does not require LAN reachability.
-- **Bounded fallback:** attempts the paired LAN after USB goes stale. Windows and updated firmware can rediscover each other after either IP changes. Peers must be reachable on a local subnet that permits broadcast; simultaneous real DHCP renumbering remains unverified.
-- **Useful data survives outages:** temporary provider failures preserve the last successful display state.
-
-### Data moves only where it is needed
-
-Session logs supply state, model, time and Token metadata; conversation text is not
-uploaded. Account tokens are used only with matching provider endpoints, never in
-display caches, serial data or logs. Domestic sign-in uses an isolated browser
-profile. Private artwork, cookies, account caches and pairing data stay out of the
-repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset imports](docs/ASSET_POLICY.md).
-
-## Get started
-
-**Install the bridge → identify hardware → select first installation or upgrade → back up/write/verify → register and pair.** The [complete guide (Chinese, with English summary)](docs/INSTALL.zh.md) covers ESP8266 and TAB5 separately. TAB5 first installation requires a full ZIP; later upgrades use the application BIN. Windows provides both hardware flows; the current Mac flasher covers ESP8266.
-
-| Windows 10/11 | Mac (Apple Silicon) |
-| --- | --- |
-| [Download v0.5.0 pre-release installer](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-setup-win-x64.exe) | [Download v0.5.0 Mac pre-release](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-local-candidate-macos-arm64.zip) |
-
-For a stable release, use [v0.4.0](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.4.0); its menus differ from these screenshots.
-
-[![Current native Device Center with two hardware types, synthetic data](docs/assets/screens/device-center.png)](docs/INSTALL.zh.md)
-
-**Upgrading:** exit the bridge, install into the existing location and keep using your original shortcut. Do not launch copies from temporary extraction folders. Flashing tools are bundled; Windows setup downloads missing runtimes when needed.
-
-BYTE SPROUT works out of the box; pet imports are optional. These current native Windows mirror renders use fixed fictional data and the original pet, without private animations. They are not hardware photographs. See [screenshot provenance](docs/SCREENSHOTS.md).
-
-![Current native TAB5 quota page with fixed demo data, firmware preview](docs/assets/screens/tab5-quota.png)
+![TAB5 quota page, synthetic firmware preview](docs/assets/screens/tab5-quota.png)
 
 <details>
 <summary>More interface examples</summary>
@@ -163,80 +77,54 @@ BYTE SPROUT works out of the box; pet imports are optional. These current native
 
 </details>
 
-> **v0.4.0 release: Windows auto-discovery requires both the new bridge and firmware.** The Mac bridge does not yet support this discovery path. Missing runtimes require internet access.
-> The installer is unsigned; clean-machine install, upgrade and uninstall remain unverified. Mac is an Apple Silicon test build awaiting real-device acceptance.
+### Local data and clear quota boundaries
 
-The screensaver supports lunar dates with leap-month labels. This release also requires updated firmware for the manual page-selection fix.
+Activity collection extracts status, model, timestamps and token metadata from local logs. It does not upload conversation text. Account quotas come from provider interfaces; local token totals cover only visible local logs and are kept separate. Failed requests retain the last successful display data.
 
-**Setup:** right-click the tray → Device Center → Accounts and Data → Model Accounts. Full provider and plan labels are shown; API keys stay in Windows Credential Manager. See the [updated settings screenshot and guide](docs/DOMESTIC_QUOTA_SETUP.md). Unconfigured, never-authorized or unselected providers do not trigger automatic checks or failure reminders.
+Windows quota history retains up to 90 days of observed samples. Missing periods are not estimated; ambiguous changes remain uncertain. Provider availability depends on a valid supported account and authorization. See [quota trends](docs/QUOTA_TRENDS.md), [data sources](docs/DATA_SOURCES.md) and [asset policy](docs/ASSET_POLICY.md).
 
-### Prepare the hardware
+## Get started
 
-An ESP8266 / ESP-12S with a 240×240 ST7789 display using the SD2 pin layout, plus a
-**USB data cable**. Check the driver and pin mapping before using another board.
-See [firmware configuration](firmware/platformio.ini).
+**Install the app → choose your hardware → select factory installation or upgrade → back up, flash and verify → register and pair.** See the [illustrated guide](docs/INSTALL.zh.md).
 
-### Windows: build a local candidate
+| Download | Platform or purpose |
+| --- | --- |
+| [Windows installer](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-setup-win-x64.exe) | Windows 10/11 x64; flashing tools included |
+| [Mac application](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-local-candidate-macos-arm64.zip) | macOS 13+, Apple Silicon |
+| [ESP8266 firmware](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-0.5.0-firmware-materials.zip) | Firmware and corresponding source/build materials |
+| [TAB5 factory-install ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/TAB5-first-install-0.2.89-ui.zip) | Factory devices: full installation image |
+| [TAB5 upgrade ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/TAB5-upgrade-0.2.89-ui.zip) | Existing AI-bot devices: extract and select `aibot_tab5.bin` |
 
-Install Git, Python and the .NET 8 SDK, then run:
+[SHA-256 checksums](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt) cover all five packages. Their licenses and notices are included. Historical versions are available under [Releases](https://github.com/yaoyouzhong/AI-bot/releases).
 
-```powershell
-git clone https://github.com/yaoyouzhong/AI-bot.git
-cd AI-bot
-powershell -NoProfile -File scripts/package_windows_local.ps1
-```
+**TAB5 first installation also uses 0.2.89-ui.** Select the complete first-install ZIP, which includes bootloader, partitions and application. An application BIN alone cannot initialize a factory device. Keep the notes sidecar alongside the upgrade BIN.
 
-The script creates a Windows setup EXE, a complete Windows ZIP and a public-source ZIP under `artifacts/`,
-including notices and checksums, then tests the unpacked app. Add `-Firmware` to
-also build firmware and its source-materials archive; PlatformIO 6.1.18 is required.
+Use a USB data cable. ESP8266 requires the matching ST7789/SD2 wiring; TAB5 uses its USB-C data connector. Finish by verifying the actual screen and connections and preserving automatic cycling, pages, order and interval.
 
-For normal installation, follow the [complete illustrated guide (Chinese)](docs/INSTALL.zh.md); building from source is optional.
-
-[Windows installation and upgrades](docs/INSTALL.zh.md) · [Firmware and rebuilding](docs/FIRMWARE_PACKAGE.md) · [Full development reference](docs/REFERENCE.en.md)
-
-### macOS: Apple Silicon test build
-
-Targets macOS 13+ on M-series chips. Follow the [Mac section of the complete guide](docs/INSTALL.zh.md#mac) for installation, firmware and connection.
-The app is ad-hoc signed, without Developer ID signing or notarization. First launch, permissions and device behavior need real-Mac acceptance; Intel is unverified.
+Existing Windows users should exit the bridge, install to the original location and use their existing shortcut. Windows setup is unsigned. The Mac application is ad-hoc signed and not notarized; Intel Macs are unverified. Mac's flashing window currently supports ESP8266; the TAB5 factory-install, pairing and upgrade flows described here are Windows features.
 
 ## Current status
 
-| Platform / stage | Current evidence | Still to validate |
-| :--- | :--- | :--- |
-| **Windows** | Online setup, host detection, download integrity checks and isolated public regressions pass | Fresh installation, live authorization, sustained operation and full interaction acceptance |
-| **ESP8266** | Firmware build, five-minute Wi-Fi status run, discovery from an obsolete bridge port and USB recovery passed on hardware | Every physical page, music and simultaneous real DHCP renumbering |
-| **macOS (Apple Silicon test build)** | Automated tests, Release compilation and app packaging run in the cloud; see Actions | First launch, permissions, devices and sustained operation; Developer ID signing and notarization; Intel unverified |
-| **Distribution** | Setup EXE, Windows/Mac ZIPs, firmware materials and sources are packaged by tag with notices and SHA-256 | Fresh-logon startup, clean installation, real-Mac and complete device acceptance |
+| Component | Current release scope |
+| --- | --- |
+| Windows 0.5.0 | Device Center, both hardware models, shared accounts and separate device settings |
+| ESP8266 0.5.0 | Display pages, clock, pet, USB / Wi-Fi and automatic cycling |
+| TAB5 0.2.89-ui | Touch, activity/history, voice, calendar and USB / Wi-Fi / BLE |
+| macOS 0.5.0 | Apple Silicon menu-bar bridge, mirror and ESP8266 flashing |
 
-Candidate installation and acceptance: [Mac package](docs/INSTALL.zh.md) · [Release readiness](docs/RELEASE_READINESS.md) · [Candidate checklist](docs/CANDIDATE_ACCEPTANCE.md).
-
-Documentation updated: 2026-09-23, **v0.4.0**.
-Follow [Actions](https://github.com/yaoyouzhong/AI-bot/actions) and [release readiness](docs/RELEASE_READINESS.md) for updates.
+The maintainer confirmed hardware acceptance on 2026-10-03. Windows build/public regressions, macOS tests/build and ESP8266 build passed the [release workflow](https://github.com/yaoyouzhong/AI-bot/actions/runs/37091169252). Release status does not add new performance measurements or erase historical issues; details remain in [release records](docs/RELEASE-0.5.0.md).
 
 ## Explore the project
 
-| What you need | Start here |
-| :--- | :--- |
-| Features, commands and platform differences | [Feature and development reference](docs/REFERENCE.en.md) |
-| Architecture, data and caching | [Development](docs/DEVELOPMENT.md) · [Data sources](docs/DATA_SOURCES.md) |
-| Serial, resources and fallback | [Protocol](docs/PROTOCOL.md) · [USB validation](docs/USB_VALIDATION.md) |
-| Completion status and known limits | [Parity matrix](docs/FUNCTIONAL_PARITY.md) · [Acceptance audit](docs/FULL_PARITY_AUDIT_2026-09-09.md) |
-| Origins and distribution | [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Distribution terms](docs/DISTRIBUTION_TERMS.md) |
-| Recent changes | [Changelog](CHANGELOG.md) |
+| Topic | Reference |
+| --- | --- |
+| Installation and hardware flashing | [Illustrated guide](docs/INSTALL.zh.md) |
+| Features and platform differences | [Reference](docs/REFERENCE.en.md) |
+| Architecture, data and protocol | [Development](docs/DEVELOPMENT.md) · [Data sources](docs/DATA_SOURCES.md) · [Protocol](docs/PROTOCOL.md) |
+| TAB5 source and build snapshot | [Developer source guide](docs/development/TAB5-SOURCE.md) · [Firmware workflow](docs/TAB5-FIRMWARE-WORKFLOW.md) |
+| Source and licenses | [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [TAB5 license scope](docs/TAB5-LICENSE-SCOPE.md) |
+| Changes | [Changelog](CHANGELOG.md) |
 
-Feedback is welcome in [Issues](https://github.com/yaoyouzhong/AI-bot/issues).
-Include your platform, version, device and reproduction steps, with account details,
-tokens and private log contents removed.
+Own code, including TAB5, is **MIT licensed**. Third-party components, fonts and marks retain their original terms. This is an independent project with no affiliation with the named AI providers.
 
----
-
-<p align="center">
-  <strong>AI-bot</strong><br>
-  A window into the AI work on your desk.<br><br>
-  <a href="LICENSE">Own source: unified MIT, including TAB5</a> · Original BYTE SPROUT · Local-first<br>
-  <sub>Independent project. No affiliation with or endorsement by named AI providers. Third-party components retain their own licenses.</sub>
-</p>
-
-## Installation
-
-[Complete illustrated installation guide (Chinese)](docs/INSTALL.zh.md) — one page for downloads, Windows/Mac setup, device flashing, first connection, settings, upgrades and troubleshooting.
+Feedback: [Issues](https://github.com/yaoyouzhong/AI-bot/issues). Include platform, version, hardware and reproduction steps; remove credentials and private logs.

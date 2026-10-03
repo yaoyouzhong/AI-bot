@@ -4,8 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## 0.5.0 - 2026-10-03
 
-### Pre-release
-- Windows Device Center and TAB5 integration are the main changes since 0.4.0. TAB5 firmware has its own version: the accepted baseline is 0.2.89-ui. v0.4.0 remains the latest stable release.
+### Release
+- Windows Device Center and TAB5 integration are the main changes since 0.4.0. TAB5 firmware has its own version: the accepted baseline is 0.2.89-ui. v0.5.0 is the current stable release following maintainer-confirmed hardware acceptance on 2026-10-03.
 
 ### Features and fixes
 - Add device registration, capability-based menus and independent TAB5 / ESP8266 connection services, with shared accounts and data sources.
@@ -18,11 +18,11 @@ All notable changes to this project will be documented in this file.
 - Refresh the public regression suite for same-account DeepSeek cost retention and account/currency isolation; complete distribution-document fixtures.
 
 ### Validation and known limitations
-- Individual TAB5 checks are recorded in [the acceptance checklist](docs/ACCEPTANCE-2026-10-02.md). They do not establish full acceptance or long-term stability.
-- Intermittent USB disconnections and an interrupted USB firmware upgrade remain unresolved; investigation is paused. Retrying successfully is not a fix.
-- The latest quota fix passed source build and regression checks but has not been deployed for daily-use acceptance. Packaging and installation limitations are tracked in [release records](docs/RELEASE-0.5.0.md).
-- Physical keyboard, some dual-device/network/recovery scenarios, other DPI/multi-monitor environments and macOS runtime acceptance remain unverified. No new macOS build is claimed from Windows.
-- TAB5 firmware is maintained in the adjacent project. Separate 0.2.89-ui factory-install, application-upgrade and source/materials packages accompany this release; the standard firmware-materials ZIP remains ESP8266-only. Package validation and simulated installation passed; factory installation/restore hardware acceptance remains pending. No device is flashed during publication. The merged project's own code, including TAB5, is uniformly MIT licensed; [third-party license scope is preserved](docs/TAB5-LICENSE-SCOPE.md).
+- The maintainer confirmed hardware acceptance on 2026-10-03. Windows build/public regressions, macOS tests/build and ESP8266 build passed; see [release records](docs/RELEASE-0.5.0.md).
+- Historical individual checks remain in [the acceptance checklist](docs/ACCEPTANCE-2026-10-02.md). Formal release does not establish new speed measurements, long-term stability or a fix for previously recorded intermittent USB interruptions.
+- Mac remains Apple Silicon, ad-hoc signed and not notarized. Its platform-specific acceptance limits remain documented in the installation guide.
+- Release downloads now contain five user packages and one checksum list. TAB5 factory installation and application upgrade both use 0.2.89-ui; ESP8266 materials apply only to ESP8266. TAB5 [source/build snapshots](docs/development/TAB5-SOURCE.md) and the product video are available from the repository.
+- Own code, including TAB5, is uniformly MIT licensed; [third-party terms are preserved](docs/TAB5-LICENSE-SCOPE.md).
 
 Development-stage records, including superseded candidates, are preserved in [the development history](docs/DEVELOPMENT-0.5.0.en.md).
 

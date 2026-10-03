@@ -73,6 +73,13 @@ def reviewed_product_media(path, data):
     return path in REVIEWED_PRODUCT_MEDIA and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
 
 
+REVIEWED_SOURCE_ARCHIVE = "docs/development/TAB5-0.2.89-ui-source.zip"
+
+
+def reviewed_source_archive(path, data):
+    return path == REVIEWED_SOURCE_ARCHIVE and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
+
+
 def reviewed_doc_image(path, data):
     return (path.startswith("docs/assets/screens/")
             and path.removeprefix("docs/assets/screens/") in REVIEWED_DOC_NAMES
@@ -98,7 +105,8 @@ def findings(path, data):
             and not (path.replace(chr(92), '/') == 'windows-app/AIBotBridge/Assets/flash-icon.ico'
                      and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get('windows-app/AIBotBridge/Assets/flash-icon.ico'))
             and not reviewed_doc_image(normalized, data)
-            and not reviewed_product_media(path.replace(chr(92), "/"), data)):
+            and not reviewed_product_media(path.replace(chr(92), "/"), data)
+            and not reviewed_source_archive(path.replace(chr(92), "/"), data)):
         yield "unreviewed-binary-or-artwork", 0
     if (name in PRIVATE_NAMES or name == ".env" or name.startswith(".env.")
             and name not in {".env.example", ".env.sample"}
@@ -126,6 +134,9 @@ def main():
         assert list(findings("docs/assets/product-intro/AI-bot-product-intro.mp4", b"changed video"))
         for media in REVIEWED_PRODUCT_MEDIA:
             assert not list(findings(media, (ROOT / media).read_bytes()))
+        assert list(findings("docs/development/unknown.zip", b"archive"))
+        assert list(findings(REVIEWED_SOURCE_ARCHIVE, b"changed source archive"))
+        assert not list(findings(REVIEWED_SOURCE_ARCHIVE, (ROOT / REVIEWED_SOURCE_ARCHIVE).read_bytes()))
         print("PUBLIC_CONTENT_GUARD_SELF_TEST_OK")
         return 0
     if "--history" in sys.argv:

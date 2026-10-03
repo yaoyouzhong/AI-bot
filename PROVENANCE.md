@@ -107,3 +107,14 @@ The Windows and Mac BYTE SPROUT fallback uses the same original primitive-based
 geometry already present in AI-bot firmware. No external sprite was imported.
 These project-authored diagrams and captures are covered by the repository MIT
 license; third-party components retain their own licenses.
+
+## TAB5 developer snapshot, 2026-10-03
+
+`docs/development/TAB5-0.2.89-ui-source.zip` extracts the previously published
+TAB5 source/materials package. All 608 tracked project files match that package
+and the clean independently authored TAB5 source commit
+`2c45bbbc9e5aef1c4e57576096bd15fd4a304d92` byte-for-byte. Own code is MIT licensed;
+original component/font licenses, dependency locks, actual sdkconfig and SDK patch
+are retained. No Git history is imported. Downloaded managed dependency trees,
+compilers and caches are omitted; see `docs/development/TAB5-SOURCE.md` for scope.
+The exact archive SHA-256 is pinned in `licenses/materials.json`.
