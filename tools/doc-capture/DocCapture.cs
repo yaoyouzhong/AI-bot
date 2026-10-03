@@ -7,9 +7,10 @@ internal static class DocCapture
     [STAThread]
     private static void Main(string[] args)
     {
+        bool releaseUi = args.Length == 2 && args[1] == "--release-ui";
         bool screenSaverOnly = args.Length == 2 && args[1] == "--screensaver";
         bool quotaOnly = args.Length == 2 && args[1] == "--quota-api";
-        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly) throw new ArgumentException("Supply an output directory, optionally --screensaver or Claude and Codex APET paths for approved quota screenshots.");
+        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi) throw new ArgumentException("Supply an output directory, optionally --screensaver or Claude and Codex APET paths for approved quota screenshots.");
         AppPaths.BeginPublicSelfTest(); // Must precede any settings/cache/credential access.
         Application.SetHighDpiMode(Environment.GetEnvironmentVariable("AIBOT_DOC_NATIVE_DPI") == "1" ? HighDpiMode.PerMonitorV2 : HighDpiMode.DpiUnaware);
         Application.EnableVisualStyles();
@@ -22,7 +23,7 @@ internal static class DocCapture
             PetAnimationStore.Shared.Select("claude", PetAnimation.Decode(File.ReadAllBytes(args[1])));
             PetAnimationStore.Shared.Select("codex", PetAnimation.Decode(File.ReadAllBytes(args[2])));
         }
-        var now = new DateTimeOffset(2026, 9, 10, 10, 24, 0, TimeSpan.FromHours(8));
+        var now = new DateTimeOffset(2026, 10, 3, 10, 24, 0, TimeSpan.FromHours(8));
         var quota = new ProviderQuotaSnapshot("claude", "MAX", 34, now.AddHours(2), 61,
             now.AddDays(3), null, [], now, false);
         var domestic = new DomesticProviderQuotaSnapshot("kimi", "Ultra", 20, now.AddHours(3),
@@ -42,6 +43,36 @@ internal static class DocCapture
                 domestic with { Provider="zhipu", Plan="GLM", PrimaryPercent=null, WeeklyPercent=null, Balance=16.8, Currency="CNY" }),
             SystemMetrics: new(31.4,72.8,238900,4821100,now,Enumerable.Range(0,224).Select(i=>new NetworkSample((long)(180000+140000*Math.Sin(i/12.0)),(long)(3000000+2400000*Math.Sin(i/23.0)))).ToArray()),
             Music: new("桌面之光 · 示例曲目", "AI-bot 演示", "示例专辑", true, 95, 260, now));
+        if (releaseUi)
+        {
+            var store = new DeviceRegistryStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "doc-devices.json"));
+            store.Migrate(null, false, false);
+            var tab = DeviceRegistryStore.Create(HardwareKind.Tab5, "M5Stack TAB5", "001122334455");
+            var esp = DeviceRegistryStore.Create(HardwareKind.Esp8266, "ESP8266 小屏", null);
+            store.Add(tab); store.Add(esp);
+            using (var center = new DeviceCenterForm(store, d => new DeviceView(true, "在线（演示）", "演示连接", d.Kind == HardwareKind.Tab5 ? "0.2.89-ui" : "0.5.0", "数据已确认（演示）", "待机（演示）", d.Kind == HardwareKind.Tab5 ? "已连接（演示）" : null, "USB"), (_, _) => {}, (_, _) => Task.CompletedTask, () => {}, _ => {}))
+            {
+                center.ShowInTaskbar=false;center.StartPosition=FormStartPosition.Manual;center.Location=new(-32000,-32000);
+                center.Show();Application.DoEvents();
+                Save(center, "device-center");
+                center.SelectDevice(esp.Id);Application.DoEvents();Save(center, "device-center-esp8266");
+                center.ShowPage("accounts");Application.DoEvents();Save(center, "device-center-accounts");
+                center.ShowPage("bridge-settings");Application.DoEvents();Save(center, "device-center-bridge");
+            }
+            Capture(new AddDeviceForm(new DeviceRegistry(1,true,false,false,[]),preview:true), "add-device");
+            Capture(new FirmwareFlashForm(preview:true), "firmware-flasher");
+            using var service = new Tab5Service();
+            Capture(new Tab5InstallForm(service,preview:true), "tab5-first-install");
+            using(var connection = new Tab5ConnectionForm(service)) {
+                connection.ShowInTaskbar=false;connection.StartPosition=FormStartPosition.Manual;connection.Location=new(-32000,-32000);
+                connection.Show();Application.DoEvents();Save(connection,"tab5-connection");
+                var tabs=connection.Controls.OfType<TableLayoutPanel>().SelectMany(p=>p.Controls.OfType<TabControl>()).Single();
+                tabs.SelectedIndex=1;Application.DoEvents();Save(connection,"tab5-usb-pairing");
+                tabs.SelectedIndex=2;Application.DoEvents();Save(connection,"tab5-upgrade");
+            }
+            Console.WriteLine("DOC_RELEASE_UI_OK current native Forms; isolated synthetic data; no device write");
+            return;
+        }
         if (quotaOnly)
         {
             foreach (var provider in new[]{"deepseek","minimax","kimi","qwen","zhipu","stepfun","baidu","xiaomi"})
@@ -81,7 +112,7 @@ internal static class DocCapture
             image.Save(Path.Combine(output,"completed.png"));
         Capture(new SettingsForm(BridgeSettings.CreatePublicSelfTestSettings()), "settings");
         Capture(new PetGalleryForm(_=>{},load:false), "pet-gallery-empty");
-        var serial=new SerialPublisher(null); Capture(new DeviceControlForm(serial,_=>{},"auto"),"device-control");
+        Capture(new CycleSettingsForm(),"device-control");
         Capture(new MigratedWeather.WeatherSettingsForm(new MigratedWeather.WeatherMonitor()),"weather-settings");
         Capture(new MigratedDomestic.DomesticQuotaAuthForm(new MigratedDomestic.DomesticQuotaService(),initializeBrowser:false),"authorization-empty");
         Capture(new CycleSettingsForm(), "cycle-settings");
@@ -93,6 +124,11 @@ internal static class DocCapture
         { menu.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size)); bitmap.Save(Path.Combine(output,"tray-menu.png")); }
         menu.Close();
         Console.WriteLine("DOC_CAPTURE_OK isolated profile; synthetic values; no USB, HTTP, online data or private artwork");
+        void Save(Form form, string name) {
+            using var bitmap = new Bitmap(form.Width,form.Height);
+            form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));
+            bitmap.Save(Path.Combine(output,name+".png"));
+        }
         void Capture(Form form, string name)
         {
             using (form)

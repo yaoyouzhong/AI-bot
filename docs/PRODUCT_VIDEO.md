@@ -1,31 +1,27 @@
 # 产品介绍视频 / Product introduction video
 
-https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
+[![双硬件产品介绍封面](assets/product-intro/AI-bot-cover.png)](assets/product-intro/AI-bot-product-intro.mp4)
 
-[下载视频 / Download video](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
+[下载新版 MP4（54 秒）](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-product-intro-0.5.0.mp4) · [仓库内视频](assets/product-intro/AI-bot-product-intro.mp4)
 
-首页保留 GitHub 原生视频附件播放器，同时在播放器上方提供“卡住时直接播放”入口，打开同一附件的独立播放器；仓库原片作为下载备份。
-The homepage retains the native GitHub player and adds a direct attachment playback link above it for buffering failures. The repository MP4 remains a download fallback.
+2026-10-03 按用户选定方案重新制作：中文、1920×1080 横版、30fps、54 秒，沿用 AI-bot 当前白底蓝色设备中心风格，完整介绍 Windows 设备中心、ESP8266 与 M5Stack TAB5，展示 v0.5.0 预发布版的变化。新版随 v0.5.0 Release 附件提供；README 同时链接仓库内视频，不复用旧 36 秒附件。
 
 ## 内容与来源
 
-- 36 秒、1920×1080、30fps，H.264 视频与 AAC 音频。2026-09-19 制作，经维护者确认文案并授权上传。
-- 产品定位：**AI 状态，一眼便知。** 任务状态、账户额度，集中显示在桌面小屏。AI-bot · 你的 AI 状态桌面时钟。
-- 展示 AI 活动、等待输入/完成提示、账户额度、天气/音乐/系统、农历时钟与桌宠；这是产品介绍，不是版本更新公告。
-- 界面由 `tools/doc-capture/DocCapture.cs` 编译并调用原生 `MirrorForm.RenderSnapshot`，在隔离配置下生成，数据为固定虚构样例。没有读取真实账号、凭据、会话正文或私人动画。界面来源代码为 `b2404e4`。
-- 页面与图标来自本项目；桌宠为原创 BYTE SPROUT。不包含用户私有的第三方角色。画面是程序渲染，不是实体设备实拍或新一轮真机验收。
-- 英文字体 Inter、中文字体 Noto Sans SC，均使用 SIL Open Font License；这里只发布渲染后的视频和封面，不打包字体文件。
-- 配乐为本片代码原创合成；动作音效来自归藏 product video skill 的原创合成 WAV。没有使用参考片音轨、下载的第三方录音或 CodePilot 默认样式。
-- 制作工具使用 [归藏 product video skill](https://github.com/op7418/guizang-product-video-skill) 的 AGPL-3.0 脚手架；本目录不分发工具源码或其依赖。工具许可不自动改变渲染视频的许可，素材仍依各自来源使用。
-- 成片关键帧、字体/图片、时长/音轨与前后定位已检查；音频经过响度测量，未声明已完成实际听感验收。
-- 视频与封面 SHA-256 记录于 `licenses/materials.json`，公开内容检查仅接受这两个明确路径与对应字节。
+- 0–6 秒两种硬件；6–12 秒设备中心；12–18 秒任务状态；18–24 秒账户额度；24–30 秒 TAB5 查看与语音；30–36 秒天气/音乐/系统；36–42 秒两种刷机路线；42–48 秒桌宠与日历；48–54 秒产品定位与版本范围。
+- 当前 WinForms 窗口、镜像和 TAB5 LVGL 预览使用固定演示数据。原生界面直接嵌入、局部裁切放大，没有重绘业务控件；来源和生成方式见[截图说明](SCREENSHOTS.md)。WinForms/LVGL 无法导入 React，浏览器工程负责外层排版和动效。画面不是硬件实拍，也不是新一轮真机验收。
+- 语音恢复镜头保留“本段可能不完整”的真实提示，发送仍需用户操作；未宣称断连已修复。首刷与升级镜头区分 TAB5 完整 ZIP 和应用 BIN，未宣称首刷恢复已实测。候选限制见[发布记录](RELEASE-0.5.0.md)。
+- 项目图标、原创 BYTE SPROUT 桌宠；不含私人动画、真实账户、凭据或会话。TAB5 预览所含服务标识保留相邻固件的来源说明。
+- 英文 Inter、中文 Noto Sans SC，均为 SIL OFL；成片为字体渲染，不另附字体。可复现的本地工程保留字体许可。
+- 本片配乐由 `score.py` 原创合成，104 BPM；独立动作音效使用[归藏 product video skill](https://github.com/op7418/guizang-product-video-skill) 的原创合成 WAV。没有使用参考片音轨或下载第三方音乐。
+- 制作脚手架为上述技能的 AGPL-3.0 工程，源码交付保留 LICENSE / NOTICE；未使用其 BSL 默认样式。视频工程在本地 `artifacts/product-intro-0.5.0/`，另附可复现 ZIP；不把工具许可自动套用于全部产品素材。
+- 全片 2 fps 联系表、全部转场 10 fps 条带和信息密集镜头全尺寸帧已实际审阅。导出为 H.264 / AAC、48 kHz 双声道、MP4 faststart；媒体检查和交付结构检查通过。配乐与音效分别保留音轨及哈希；测得约 -16.0 LUFS、真峰值 -1.5 dBFS。**未完成实际听感确认**。
+- 视频与封面的精确 SHA-256 记录在 `licenses/materials.json`；公开内容检查只接受明确路径与对应字节。
 
 ## English
 
-A 36-second product overview with Chinese captions and English headings. The video shows AI activity, attention/completion indicators, account quotas, weather/music/system pages, and the clock/pet. Native Windows UI captures use isolated synthetic data; they are not hardware footage or new live-account/platform acceptance. The project icon and original BYTE SPROUT pet are used; no private artwork or credentials are included. Music is synthesized for this film and SFX are original synthesized assets from the credited production skill. Font families are Inter and Noto Sans SC (SIL OFL), rendered into the output without font redistribution. The AGPL production scaffold itself is not distributed here. Visual/media checks and loudness measurements are complete; subjective listening remains unverified. Exact media hashes are listed in `licenses/materials.json`.
+The rebuilt 54-second overview uses Chinese captions at 1920×1080, 30 fps. It covers current Windows Device Center, ESP8266 and TAB5, including v0.5.0 pre-release changes, AI status/quotas, TAB5 voice interaction, daily information, separate flashing routes, the original pet and calendar. It does not demonstrate macOS runtime. Current native WinForms/LVGL pixels use synthetic fixtures; they are not hardware footage or fresh device acceptance. Music is composed in code for this film, with independent original synthesized SFX from the credited skill. Inter and Noto Sans SC use SIL OFL; the reproducible project retains applicable notices. Contact sheets, every cut, dense full-size frames, duration/codec/audio structure and loudness were checked. Subjective listening remains unverified. The new MP4 accompanies the v0.5.0 Release, with the repository copy also linked; exact media hashes are enforced in `licenses/materials.json`.
 
-## 2026-09-21 播放链路复核
+## 历史附件
 
-原片为 H.264 High Level 4.0 / AAC、36 秒、约 2.2 MB，MP4 的 moov 索引位于媒体数据之前。附件和仓库原片的 GET Range 请求均返回 206。隔离 Chrome 中，GitHub 首页内嵌播放器等待后仅播放到约 1.5 秒；同一附件直链播放到约 13.4 秒，readyState=4，无播放错误。该结果说明文件可解码，不代表所有网络均流畅或已完成全片验收。HEAD 请求的 403 不能代替实际 GET 播放判断。
-
-新增直链是内嵌播放器缓冲时的备用入口，不宣称已修复 GitHub 自身的媒体传输链路。
+[2026-09-19 的旧 36 秒 GitHub 附件](https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf)仅作为历史记录，不是本次 54 秒新版。旧片的播放器与网络复核结果也不能用于证明新片的公开播放链路。公开发布与附件上传后需另行核验实际页面及播放。

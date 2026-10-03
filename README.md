@@ -1,19 +1,20 @@
+**[v0.5.0 预发布](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0)**：新增设备中心、TAB5 传输与语音恢复，并修复额度历史累计。验证与已知限制见[发布记录](docs/RELEASE-0.5.0.md)。最新稳定版仍为 v0.4.0。
+
 **2026-10-02 验收基线**：TAB5 **0.2.89-ui** 与配套 Windows 桥接已部署并核验启动。本轮完成设置布局、相机恢复、语音光标插入及断线结果回收、附件回执查询、配置恢复与鼠标可见性等修复；逐项范围见[当前验收记录](docs/ACCEPTANCE-2026-10-02.md)。USB 升级中断原因按用户要求暂缓定位，实体键盘、双设备隔离及其他环境仍待验收，不宣称全量通过。
 
-**产品介绍 · 36 秒**　[▶ 卡住时点此直接播放](https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf)
+**新版产品介绍 · 54 秒**：Windows 设备中心、ESP8266 与 TAB5，按当前界面重制。[下载新版视频](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-product-intro-0.5.0.mp4)。
+
+[![AI-bot 双硬件产品介绍封面](docs/assets/product-intro/AI-bot-cover.png)](docs/assets/product-intro/AI-bot-product-intro.mp4)
 
 TAB5 本地固件固定入口为 `artifacts/firmware/tab5/latest/aibot_tab5.bin`，生成、归档和更新说明预览见[固件工作流](docs/TAB5-FIRMWARE-WORKFLOW.md)。历史 .070 的 18 轮三通道双向测速结果保留在[性能记录](docs/TRANSPORT-PERFORMANCE-070.md)，不能外推为当前版本的速度或长期稳定性结论。固定模式只走指定通道；0.2.65、0.2.40 和 0.2.41 已撤回，请勿安装。
 
 语音按 TAB5 当前光标插入，设备临时失焦或切页保持本轮任务绑定。089 在短时及 45 秒 USB 断线后的文字回收、原插入点、取消恢复及新录音隔离三项复验通过；不保证未传出音频完整性，也不自动发送。详见[089 语音恢复](docs/VOICE-RECOVERY-089.md)。
 
-https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
-
-
-[▶ 下载产品介绍视频（MP4，36 秒）](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频来源说明](docs/PRODUCT_VIDEO.md)
+[▶ 产品介绍视频（MP4，54 秒）](docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频与截图来源说明](docs/PRODUCT_VIDEO.md)
 
 **v0.4.0 正式版**：改善系统繁忙时小屏误显 `PC OFF`；Windows 与新版固件可在笔记本或设备 IP 变化后，通过配对认证的局域网发现恢复 Wi-Fi 状态。详见[更新日志](CHANGELOG.zh.md)。
 
-**Windows 开发版（未发布）**：新增“我的设备”，按已添加的 TAB5 / ESP8266 显示功能并管理连接服务；账号和数据源共享。主窗口分为“我的设备 / 账号数据 / 桥接设置”；常用功能采用两列入口，连接信息集中显示，设备管理与诊断收进菜单。电脑侧验证及当前双设备 USB 连接已通过，其余真机组合待验收。见[设备中心验收与回退说明](docs/DEVICE-CENTER-VALIDATION.zh.md)。
+**Windows v0.5.0 预发布版**：新增“我的设备”，按已添加的 TAB5 / ESP8266 显示功能并管理连接服务；账号和数据源共享。主窗口分为“我的设备 / 账号数据 / 桥接设置”；常用功能采用两列入口，连接信息集中显示，设备管理与诊断收进菜单。电脑侧验证及当前双设备 USB 连接已通过，其余真机组合待验收。见[设备中心验收与回退说明](docs/DEVICE-CENTER-VALIDATION.zh.md)。
 
 设备中心提供完整功能和添加入口。已启用 ESP8266 时，托盘左键直接打开小屏预览与亮度滑块，否则打开设备中心；右键提供设备中心、小屏预览、按设备分组的常用设置和退出；公共账号数据统一在设备中心设置。仅展示已添加设备并保留自定义名称，停用设备置灰；设备管理与低频诊断仍在设备中心。桥接运行时自动更新数据并记录 Codex 额度历史；服务状态以表格展示。语音设置默认只显示启用开关和优先麦克风，其余选项收进“问题排查”。
 
@@ -118,25 +119,29 @@ flowchart LR
 
 ## 开始使用
 
-**下载 → 安装 → USB 连接 → 选择固件 → 开始刷机。** 所有步骤集中在 [完整版安装图文指南](docs/INSTALL.zh.md)，Windows 和 Mac 均无需敲命令。
+**下载应用 → 确认硬件 → 选择首刷或升级 → 备份/写入/核验 → 添加并配对。** [完整安装与刷机指南](docs/INSTALL.zh.md)分别说明 ESP8266 和 TAB5。TAB5 首刷用完整 ZIP，后续升级用 BIN；Windows 提供两种硬件的图形流程，Mac 当前刷机入口面向 ESP8266。
 
 | Windows 10/11 | Mac（Apple Silicon） |
 | --- | --- |
-| [下载安装包](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-setup-win-x64.exe) | [下载 Mac App](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-local-candidate-macos-arm64.zip) |
+| [下载 v0.5.0 预发布安装包](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-setup-win-x64.exe) | [下载 v0.5.0 Mac 预发布包](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-local-candidate-macos-arm64.zip) |
 
-[![小屏刷机窗口，连接设备后选择固件开始刷机](docs/assets/screens/firmware-flasher.png)](docs/INSTALL.zh.md)
+需要稳定版可下载 [v0.4.0](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.4.0)，其菜单与本页截图不同。
+
+[![当前设备中心，两种硬件使用不同刷机入口，演示数据](docs/assets/screens/device-center.png)](docs/INSTALL.zh.md)
 
 **已安装用户：** 退出桥接后安装到原位置，继续使用原来的快捷方式。不要从临时解压目录启动。刷机工具已内置；Windows 缺少运行环境时由安装器联网补齐。
 
-默认自带 BYTE SPROUT，无需导入桌宠。下面是实际 Windows 镜像渲染，数据为虚构样例；Codex 与 Claude 图使用维护者当前选用的萌宠，其余数值仍为示例；不是实体屏照片。
+默认自带 BYTE SPROUT，无需导入桌宠。下面是当前 Windows 镜像的原生渲染，数据为固定虚构样例，统一使用原创桌宠，不包含私人动画；不是实体屏照片。截图来源和生成方式见[素材说明](docs/SCREENSHOTS.md)。
+
+![TAB5 当前原生额度页，固定演示数据与固件预览](docs/assets/screens/tab5-quota.png)
 
 <details>
 <summary>展开更多界面示例</summary>
 
 <table>
 <tr>
-<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex 额度示例，使用当前选用的萌宠"><br><strong>Codex 额度</strong></td>
-<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude 额度示例，使用当前选用的萌宠"><br><strong>Claude 额度</strong></td>
+<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex 额度示例与原创桌宠"><br><strong>Codex 额度</strong></td>
+<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude 额度示例与原创桌宠"><br><strong>Claude 额度</strong></td>
 <td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="双额度示例"><br><strong>双额度总览</strong></td>
 </tr>
 <tr>

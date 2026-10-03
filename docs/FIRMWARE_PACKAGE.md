@@ -1,8 +1,12 @@
-# Firmware materials / 固件分发材料
+# ESP8266 firmware materials / ESP8266 固件分发材料
 
 具体刷写步骤见 [Windows 刷机图解](FLASH.zh.md)或 [Mac 刷机指南](FLASH_MAC.zh.md)，本文侧重分发材料与重建。
 
-本包是本地构建候选，包含 `firmware.bin`、AI-bot 固件源码、实际构建所用的
+**本包仅适用于 ESP8266，不含 TAB5 首次安装镜像或 TAB5 升级 BIN。** TAB5 首刷使用完整 `TAB5-first-install-0.2.89-ui.zip`，已有 AI-bot 使用 `aibot_tab5.bin` 与说明 sidecar，见[双硬件刷机指南](INSTALL.zh.md)。
+
+This archive covers ESP8266 only. TAB5 uses a separate full first-install ZIP or application upgrade BIN; the formats are not interchangeable.
+
+本包是预发布固件材料，包含 `firmware.bin`、AI-bot 固件源码、实际构建所用的
 Arduino core/库/PlatformIO 平台源码和随附 SDK 文件、许可、依赖版本及校验清单。
 不含设备 Flash 备份、Wi-Fi 信息、私人图片或用户配置，也不包含主机编译器。
 依赖材料排除不参与此固件构建的示例、测试及独立上传工具；保留 core、库、
@@ -39,7 +43,7 @@ PlatformIO 可能需要联网安装锁定的平台和编译工具。`rebuild.ini
 
 ## English
 
-This local candidate contains the firmware BIN, corresponding AI-bot/core/library
+This pre-release materials package contains the firmware BIN, corresponding AI-bot/core/library
 sources, platform scripts, bundled SDK files, notices, exact dependency versions
 and SHA-256 manifest. It contains no device dump, credentials, private artwork or
 host compiler. Install PlatformIO 6.1.18 and run the command above from the unpacked

@@ -1,10 +1,10 @@
 # 国产模型额度设置
 
-> 本功能包含在 v0.2.0 测试版中。适用于 Windows 桥接 App；设备的缓存提示需要更新固件。
+> 本页入口按 v0.5.0 预发布版更新。适用于 Windows 桥接 App；设备的缓存提示需要更新固件。
 
 ## 在哪里配置
 
-右键托盘 AI-bot → **模型额度 → 国产模型额度设置…**，选择左侧厂商。
+右键托盘 AI-bot → **设备中心 → 账号数据 → 模型账号**，选择左侧厂商。
 
 ![DeepSeek 接口设置示例](assets/screens/api-settings.png)
 
@@ -70,7 +70,7 @@ Volcengine Ark, Tencent Hunyuan, Huawei Pangu, iFlytek Spark, Baichuan and Yi re
 
 ## 小米 MiMo（网页登录，待真实套餐验证）
 
-入口：模型额度 → 国产模型额度设置 → 小米 MiMo。在内嵌官方页面登录并打开 Token Plan 用量页。显示的是套餐 Credits 的**已用比例**，不是人民币余额，也不是按量调用的 Token 数。当前未确认有公开 API Key 用量查询契约，因此没有增加伪造的 Key 查询入口。
+入口：设备中心 → 账号数据 → 模型账号 → 小米 MiMo。在内嵌官方页面登录并打开 Token Plan 用量页。显示的是套餐 Credits 的**已用比例**，不是人民币余额，也不是按量调用的 Token 数。当前未确认有公开 API Key 用量查询契约，因此没有增加伪造的 Key 查询入口。
 
 已接通官方控制台 `/api/v1/tokenPlan/usage` 响应采集、缓存、后台刷新、失效状态、Windows 镜像及 ESP8266 `domestic_xiaomi` 页面。地址必须是 HTTPS 官方精确主机与路径；HTTP 错误、登录错误、字段不明确、冲突计数和无套餐响应不覆盖旧值。解析规则仅接收明确的 `usagePercent`/`usedPercent`（0–100）、`usageRate`/`usedRate`（0–1），或 `totalCredits` 配合 `usedCredits`/`remainingCredits`，不递归猜测通用 `ratio`、钱款或限速字段。这些字段兼容规则已通过模拟测试，当前真实账号响应结构仍待验证；不匹配会明确报失败。
 

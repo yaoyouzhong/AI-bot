@@ -1,337 +1,160 @@
-# AI-bot 完整安装图文指南
+# AI-bot 安装与刷机指南：ESP8266 / M5Stack TAB5
 
-**从下载到小屏正常显示，只看这一页。** 适用 v0.4.0 正式版，更新于 2026-09-23。
+更新于 2026-10-03，按 **v0.5.0 Windows 预发布界面**编写。[v0.5.0 下载页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0)提供本页附件；稳定版仍为 v0.4.0，其菜单与本页不同。
 
-**Windows 路线：准备设备 → 下载两个包 → 安装电脑程序 → 给小屏刷固件 → USB 连接验收 → 设置自己的内容。**
+**先确认硬件，再选对应固件。** Windows 桥接、ESP8266 固件与 TAB5 固件分别编号。本轮 Windows / ESP8266 候选为 0.5.0，TAB5 为 **0.2.89-ui**，不要求三个版本号相同。
 
-- **Windows 10/11 x64**：按下面第 1～6 步做。
-- **Mac（macOS 13+、M 系列）**：先看第 1、2 步，再看本页的 [Mac 完整操作](#mac)。
-- **只用电脑镜像，没有小屏**：跳过第 1、4、5 步，安装后直接设置内容。
-- **已经装过 AI-bot**：看本页 [升级与卸载](#upgrade)。v0.2.2 的设备切页修复需要同时更新电脑程序和固件。
+| 设备与当前状态 | 所需文件 | 路线 |
+| --- | --- | --- |
+| ESP8266 / ESP-12S，240×240 ST7789，SD2 引脚方案 | `AI-bot-0.5.0-firmware-materials.zip`，或其内 `firmware.bin` | [ESP8266 刷机](#esp8266) |
+| 出厂系统或尚未安装 AI-bot 的 M5Stack TAB5 | `TAB5-first-install-0.2.89-ui.zip` | [TAB5 首次安装](#tab5-first) |
+| 已有 AI-bot、采用当前双 OTA 分区的 TAB5 | `aibot_tab5.bin`，同目录保留 `.bin.notes.json` | [TAB5 升级](#tab5-upgrade) |
+| 只用电脑镜像 | Windows 应用包 | 跳过设备刷机 |
 
-图片中的流程图是操作示意；应用截图使用离线样例。实际结果以自己的设备响应和实体屏为准。
+**TAB5 首刷也使用 0.2.89-ui，但要选择完整首次安装 ZIP。** ZIP 包含启动程序、分区表、OTA 初始化和同版本应用；单独的 BIN 只含应用，不能初始化出厂设备。两种硬件的 ZIP / BIN 不可互换。已有 AI-bot 的 TAB5 不重复首刷，旧分区不兼容时需单独迁移。
 
 <a id="prepare"></a>
-## 1. 准备好设备和数据线
+## 1. 准备设备
 
-| 准备项 | 要求 |
-| --- | --- |
-| 电脑 | Windows 10/11 x64，或 macOS 13+ 的 M 系列 Mac；下载安装包时保持联网，图形刷机无需额外下载工具 |
-| 小屏 | **ESP8266 / ESP-12S + 240×240 ST7789 + SD2 小电视引脚方案** |
-| USB 线 | 能传输数据，不能是仅充电线 |
-| 旧固件 | 有厂商恢复包就留好；没有则在第 4 步先备份 |
-
-外观相似的小电视可能使用不同芯片。**ESP32 或型号不清楚的设备不要直接刷本固件，先向卖家核对。** USB 直连不需要先配置 Wi-Fi。
-
-<details>
-<summary>自接线或需要与卖家核对：展开引脚表</summary>
-
-| 屏幕信号 | GPIO | NodeMCU 常见丝印 |
-| --- | ---: | --- |
-| MOSI / SDA | 13 | D7 |
-| SCLK / SCL | 14 | D5 |
-| CS | 15 | D8 |
-| DC | 0 | D3 |
-| RST | 2 | D4 |
-| BL | 5，低电平点亮 | D1 |
-
-D7 不是 GPIO7。此表只列信号，不用于推断供电接法。
-
-</details>
+- Windows 10/11 x64；USB 数据线，不能是仅充电线。
+- ESP8266 核对芯片、ST7789 及[引脚配置](../firmware/platformio.ini)，不能套用到其他 ESP32 小屏。
+- TAB5 用 **USB-C 数据接口**连接电脑，USB-A 外设接口不用于首刷。安装器核对 ESP32-P4、芯片修订、16 MiB 容量及安全状态；启用安全启动或闪存加密的设备不受支持，检查不通过就停止。
+- 留好原厂恢复资料。首次安装会替换 TAB5 P4 原固件与闪存设置，工具先完整备份；不改 C6 无线固件、SD 卡或 eFuse。
 
 <a id="download"></a>
-## 2. 下载对应电脑的应用包，再下载固件包
+## 2. 应用和固件选哪个
 
-**Windows 配小屏，只下载下表第 1、3 项。** Mac 配小屏下载第 2、3 项。版本要一致。
+从 [v0.5.0 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0)取得对应附件和 [SHA-256 校验清单](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt)。这是预发布版，未完成的验收见[发布记录](RELEASE-0.5.0.md)。
 
-| 用途 | 点击下载 | 下载后怎样处理 |
+| 文件 | 用途 | 处理 |
 | --- | --- | --- |
-| 1. Windows 应用 | [AIBotBridge-0.4.0-setup-win-x64.exe](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-setup-win-x64.exe) | 双击安装，内置刷机工具 |
-| 2. Mac 应用 | [AIBotBridge-0.4.0-local-candidate-macos-arm64.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-local-candidate-macos-arm64.zip) | 解压后把 App 放入“应用程序” |
-| 3. 小屏固件 | [AI-bot-0.4.0-firmware-materials.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AI-bot-0.4.0-firmware-materials.zip) | 新版刷机窗口直接选 ZIP；旧版手动刷写则解压 |
+| [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-setup-win-x64.exe) | Windows 应用，含刷机工具 | 双击安装 |
+| [Windows 便携 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-local-candidate-win-x64.zip) | Windows 便携版 | 完整解压 |
+| [ESP8266 固件材料 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-0.5.0-firmware-materials.zip) | **仅 ESP8266**，含固件与重建材料 | 图形刷机直接选 ZIP |
+| [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/TAB5-first-install-0.2.89-ui.zip) | **仅 TAB5 首次安装**，含完整 16 MiB 安装镜像与清单 | 首次安装窗口直接选 ZIP |
+| [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/TAB5-upgrade-0.2.89-ui.zip) | **已有 AI-bot 的 TAB5 升级**，含 `aibot_tab5.bin` 与说明 sidecar | 完整解压，升级窗口选 BIN |
+| [Mac Apple Silicon ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-local-candidate-macos-arm64.zip) | macOS 13+ 应用 | 完整解压 |
 
-[全部附件与校验文件](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.4.0)中，只需下载对应系统的应用和小屏固件；`SHA256SUMS.txt` 是统一校验清单，不能双击安装。GitHub 自动提供的 Source code 供开发者使用，普通安装无需下载。固件材料包约 30 MB，但只把里面的 `firmware.bin` 写入小屏。
+Windows 安装器与便携包二选一。GitHub 的 Source code ZIP 不是固件。校验值不符先重新取得文件，不继续刷写。
 
-**完成标志：电脑应用包与固件 ZIP 已下载。新版图形工具不需要解压固件包。**
+TAB5 源码与组件材料单独随 `TAB5-firmware-materials-0.2.89-ui.zip` 提供，其[许可范围](TAB5-LICENSE-SCOPE.md)与本仓库分开。
 
 <a id="windows"></a>
-## 3. 安装 Windows 程序
+## 3. 安装 Windows 应用并打开设备中心
 
-1. 双击第 2 步的 **setup-win-x64.exe**，点击“下一步”。
-2. 阅读并接受许可，安装位置保留默认值，按需要创建桌面快捷方式。
-3. 到“检查运行环境”页面后点击“安装”。已有组件自动跳过，缺少的 .NET 8 桌面运行时和 WebView2 会自动补装；保持联网，按提示处理微软安装器的管理员许可。
-4. 显示安装完成后，保留“启动 AI-bot”，点击“完成”。
-5. 在右下角托盘找 AI-bot；没看到时点 **向上的小箭头**展开隐藏图标。**左键打开镜像，右键打开菜单。没有大窗口是正常的。**
+1. 双击安装器，阅读许可，保留原安装位置，按需创建快捷方式。
+2. 保持联网。已有 .NET 8 Desktop Runtime / WebView2 自动跳过，缺少时按提示补装。
+3. 启动 AI-bot，在右下角托盘找图标，右键打开 **设备中心**。未启用 ESP8266 时左键也打开设备中心；启用后左键打开其小屏预览。
+4. 设备中心分为 **我的设备 / 账号数据 / 桥接设置**。点 **我的设备 → 添加**，选择实际硬件。出厂设备先“首次安装”，刷完再“验证并添加”；已有 AI-bot 固件可直接验证并添加。
+5. 当前支持每种型号一台，可同时添加 TAB5 和 ESP8266。
 
-![Windows 安装向导的五步操作示意，不是安装器截图](assets/guides/setup.svg)
+![当前原生设备中心，两种硬件均为隔离演示数据](assets/screens/device-center.png)
 
-**完成标志：托盘有 AI-bot，左键能打开电脑镜像。** 若微软安装器要求重启，先重启再从开始菜单打开 AI-bot。
-
-安装包目前未签名。若系统拦截，先核对是否来自本项目发布页及下载校验值；单位电脑按 IT 管理规定处理，不需要关闭系统防护。安装失败时按提示处理后重试，不继续把未完成安装当作成功。
+截图使用当前原生程序与固定演示数据，不读取真实账号或设备身份，不代表实体设备实拍。安装器未签名；系统拦截时核对来源及校验值，并遵守单位 IT 规定。
 
 <a id="flash"></a>
-## 4. 给小屏刷入固件（首次使用或更新设备时做）
+<a id="esp8266"></a>
+## 4A. ESP8266：首次刷机或更新
 
-**只有电脑程序和设备固件都更新，v0.2.2 的手动切页修复才完整生效。** 设备已装同版固件可直接进入第 5 步。
+1. 连接 USB，关闭其他串口工具，保持桥接运行。
+2. 新设备：**设备中心 → 我的设备 → 添加 → ESP8266 小屏 → ESP8266 首次安装…**。已有设备：选中该小屏 → **管理… → 固件升级**。
+3. **浏览…**：选 ESP8266 的 `firmware-materials.zip`，无需解压；也可选包内的 `firmware.bin`。
+4. 按提示识别目标设备，点 **开始刷机**。工具临时释放对应 USB，检查芯片、完整备份、写入并回读校验。备份不完整不写入。
+5. 准备/备份阶段可取消，写入与校验期间保持供电和数据连接。
+6. 显示“刷机完成”后关闭窗口；新设备在“添加”中刷新并**验证并添加**，已有设备检查 USB 恢复。
+7. **管理 → 设备信息**确认响应；用**显示设置**和预览切到系统监控、天气等页面，确认实体屏更新。最后恢复自动显示、循环展示，保留原页面、顺序和间隔。
 
-### 4.1 打开“小屏刷机”窗口
+![ESP8266 原生刷机窗口，离线演示状态](assets/screens/firmware-flasher.png)
 
-保持小屏通过 USB 数据线连接。右键 AI-bot 托盘 → **设备连接 → 小屏刷机…**。桥接保持运行，工具只会暂时释放 USB，结束后自动恢复连接。
+“更多选项”提供“只备份设备”和“查看备份”。备份可能含私人网络配置，不公开上传。无端口先换数据线/USB 口，确认 CH340 缺驱动后再装 [WCH 官方驱动](https://www.wch.cn/downloads/CH341SER_EXE.html)。进阶源码刷机见[ESP8266 构建说明](FLASH_BUILD.zh.md)；该页的 `0x0` 地址不适用于 TAB5 应用升级镜像。
 
-> **v0.4.0 已内置图形刷机工具，无需安装 Python 或运行命令。**
+<a id="tab5-first"></a>
+## 4B. TAB5：第一次从出厂系统安装
 
-![Windows 小屏刷机窗口的真实离线捕获，连接状态和文件名为示例](assets/screens/firmware-flasher.png)
+1. **设备中心 → 我的设备 → 添加 → M5Stack TAB5 → TAB5 首次安装…**。已有入口也可从 **连接升级 → USB 配对 → 新设备首次安装…**打开；已有 AI-bot 的设备走后续升级。
+2. 连接 USB-C 数据线。按 [M5Stack 官方说明](https://docs.m5stack.com/zh_CN/guide/tab5/restore_factory)，长按 RESET 约 2 秒，内部绿灯快速闪烁后松开，进入下载模式。
+3. 点 **刷新设备**，主动选择这台 TAB5 下载端口，不选其他 ESP32 板。首刷需主动选端口，和 ESP8266 界面不同。
+4. **选择安装包…**：选 `TAB5-first-install-0.2.89-ui.zip`。勾选“确认是 TAB5，允许替换原固件及设置”，点 **备份并安装**，核对目标设备与版本。
+5. 工具核对包、芯片、容量和安全状态，读取并校验原设备完整备份，再写入和校验。准备可取消，写入后保持供电，等待结束。
+6. 提示“写入校验通过”后，**短按 RESET**。等待屏幕启动，刷新并选择重启后的 USB 端口，点 **检查启动**。端口号可能变化。
+7. 检查通过后点 **进入 USB 配对**。新设备回“添加”中刷新、**验证并添加**，再打开该设备的 **连接升级 → USB 配对**完成配对。
+8. 需要无线时，在 **连接升级 → Wi-Fi**保存 2.4 GHz 网络，确认桥接有效数据；BLE 另行配对并确认数据。网络已关联不能代替桥接已连通。
+9. 检查实体屏、触摸、数据更新。恢复自动连接、自动显示和循环展示；新设备在显示设置选择页面，已有设置保留原顺序和间隔。
 
-### 4.2 连接小屏，选择固件
+![TAB5 原生首次安装窗口，隔离演示状态，未选择设备端口](assets/screens/tab5-first-install.png)
 
-1. 插入小屏。只有一台 USB 串口设备时会自动选中；通过桥接连接的小屏优先识别。只有多台设备无法区分时才需拔插一次小屏，**不用选择 COM 号**。
-2. 点击 **选择文件**，选第 2 步下载的 **firmware-materials.zip**，无需解压；已有 `firmware.bin` 也可以直接选。
-3. 点击 **开始刷机**。设备型号要求见第 1 步，工具会自动检查芯片。
+首刷 ZIP 包含相同的 **0.2.89-ui 应用**和首次启动所需内容，无需先刷旧版。089 已有升级后的真机启动记录，**不等于出厂设备首刷与原固件恢复整条链路已验收**。
 
-一直提示“请插入小屏”时，先换数据线和 USB 插口。确认设备使用 CH340 且缺驱动后，再安装 [WCH 官方驱动](https://www.wch.cn/downloads/CH341SER_EXE.html)。同时关闭其他串口软件。
+### TAB5 备份与恢复
 
-### 4.3 等待“刷机完成”
+备份默认在 `%LOCALAPPDATA%\AI-bot\device-backups\`；完整 `.bin` 配套 `.bin.json` 记录设备身份、大小与哈希，两者一并保留，不上传 Release。
 
-工具会依次完成：**准备官方工具 → 检查固件和芯片 → 完整备份 → 写入 → 回读校验**。安装包已包含刷机工具，刷机时无需联网下载；不用安装 Python、输入命令或填写刷写地址。
+若写入或启动失败，重新进入下载模式，选中**原同一台 TAB5**，点 **恢复原固件…**，选择对应 `.bin.json`。工具检查 MAC 和备份哈希，先备份当前内容再恢复。校验通过后短按 RESET，确认原系统启动。不用其他设备备份，不恢复 C6、SD 卡或 eFuse。
 
-备份时小屏可能暂时黑屏，请保持 USB 连接。百分比每秒最多刷新一次；读取停滞时会自动降速重试。
+<a id="tab5-upgrade"></a>
+## 4C. 已安装 AI-bot 的 TAB5：后续升级
 
-- **备份失败或文件不完整时不会继续写入。** 展开“更多选项”后，“只备份设备”可单独保存原固件，“查看备份”可以找到备份及校验文件。
-- Windows 在准备、备份阶段可以取消；写入与校验开始后保持供电，等待结束。备份可能包含网络配置，请勿公开上传。
-- 写入或校验失败会保留错误提示和记录，不会显示成功。检查连接后可重新开始，不要全片擦除。
+1. 设备中心选中 TAB5 → **连接升级 → 固件升级**。
+2. 保持有效连接和供电；日常自动模式优先 USB > Wi-Fi > BLE，首次安装仅 USB。USB 偶发断连/升级中断仍是已知问题，失败先保留错误并确认现有固件可启动。
+3. **选择固件…**：选 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。核对 **0.2.89-ui**、校验值及更新说明，确认提供。
+4. 在 TAB5 上按提示确认升级，等待传输、镜像校验和重启。“已提供固件”不等于安装完成。
+5. 重启后连接 USB，点电脑升级页 **核验启动（USB）**。核对版本、ELF 指纹、运行分区和 `VALID` 状态，不能只看版本号。
+6. 检查真实触摸、数据通道及本次更新功能；恢复原自动模式、轮播页面/顺序/间隔和连接选择。
 
-**完成标志：窗口显示“刷机完成，小屏正在重新连接”。** 桥接程序全程保持运行；工具恢复 USB 连接、智能跟随和循环展示，保留原有页面、顺序及间隔；若刷机前没有运行桥接，按提示从开始菜单启动 AI-bot。接着按第 5 步检查实体屏。
+![TAB5 原生连接与升级窗口，离线状态](assets/screens/tab5-upgrade.png)
+
+首次安装 ZIP 不用于这里。旧分区不支持时停止，使用对应迁移/恢复方案；不能用首刷来保留现有设置。本地固定升级入口见[固件工作流](TAB5-FIRMWARE-WORKFLOW.md)。
 
 <a id="connect"></a>
-## 5. 启动桥接，确认实体屏真的连上了
+## 5. 怎样算刷完并连上
 
-1. 保持 USB 数据线连接，关闭刷机窗口，从开始菜单启动 **AI-bot**。
-2. 右键托盘 → **设备连接 → USB 管理与诊断 → 设备信息…**，确认设备有响应、USB 与桥接在线。
-3. 右键托盘 → **显示模式 → 系统监控**，实体屏应显示并更新 CPU、内存等数据。
-4. 再选 **股票行情**或**天气时钟**，确认实体屏能切换。手动选页后不会被 AI 完成提醒抢走。
-5. 日常需要轮播时，选 **显示模式 → 智能跟随**，再勾选 **循环展示 → 启用循环展示**；在“调整展示顺序…”中选择页面和间隔。
+| 检查 | ESP8266 | TAB5 |
+| --- | --- | --- |
+| 身份与连接 | 已添加、设备信息有响应 | 已添加、USB 配对及有效数据确认 |
+| 真实画面 | 系统监控更新，实体屏切页 | 屏幕/触摸正常，首刷或升级启动核验通过 |
+| 无线（按需） | 实际 LAN 回退确认 | Wi-Fi、BLE 分别确认有效数据 |
+| 收尾 | 自动显示、循环展示，保留原页面/顺序/间隔 | 同左，并恢复原连接模式 |
 
-<img src="assets/screens/tray-menu.png" width="220" alt="AI-bot 真实托盘菜单的离线示例，包含设备连接、显示模式和循环展示入口">
-
-*上图为托盘菜单。设备信息入口在“设备连接”，切页入口在“显示模式”。首次连接可能还在同步文字和动画资源，等同步结束再判断是否缺图。*
-
-**到这里安装完成：设备信息有响应 + 实体屏有内容 + 手动切页正常。电脑镜像有图，不能代替实体屏验收。**
+镜像有画面、串口存在、上传到 100% 都不能单独证明实机成功。不拔掉唯一电源线测试无线回退。
 
 <a id="settings"></a>
-## 6. 设置自己的内容
+## 6. 内容设置
 
-基础连接成功后，只配置自己要用的功能，不需要一次填完所有项目。
-
-| 想设置什么 | Windows 托盘右键入口 | 怎么做 |
-| --- | --- | --- |
-| 天气 | 内容设置 → 设置天气 → 数据源与定位… | 设置所在城市或定位，保存后打开天气页查看 |
-| 股票 | 内容设置 → 设置自选股… | 输入市场前缀及代码，例如 `sh000001,hk00700,usAAPL`，保存后查看股票页 |
-| Claude / Codex | 先在本机对应工具完成登录，再选桥接服务 → 刷新状态 | 首次没有使用记录或额度时可能显示等待；不需要把密码填入普通设置 |
-| 国产模型 | 模型额度 → 国产模型额度设置… | 左侧选自己使用的厂商，按页面要求保存并测试或网页登录；未使用的厂商留空 |
-| 开机启动 | 桥接服务 → 开机启动 | 按需要勾选；安装器不会自动启用 |
-| 固定显示一页 | 显示模式 → 对应页面 | 固定选择会停止轮播；要轮播则重新启用循环展示 |
-
-<img src="assets/screens/api-settings.png" width="760" alt="国产模型设置窗口的离线示例，填写所选厂商资料后保存并测试">
-
-*接口型厂商按页面填写 API Key 等资料后点“保存并测试”；网页登录型厂商在内置页面完成登录后检查结果。网页打开不代表额度已经读到，要看到成功状态与数据。只开通普通 API 的账户不能当成订阅套餐。*
+公共账号、额度与数据源在**账号数据**；每台设备的内容开关在**数据设置**。亮度、页面和轮播在**显示设置**，TAB5 另有语音、日历生日和常用任务。电脑开机启动等在**桥接设置**。授权后检查真实数据，网页能打开不代表成功；密钥和密码不写入聊天、文档或发布包。
 
 <a id="mac"></a>
-## Mac 完整操作（M 系列，macOS 13+）
+## Mac 当前范围
 
-此分支把安装、刷机和连接都写在下面，不需要再找其他 Mac 教程。Intel Mac 不在当前发布范围；新版图形刷机功能已通过 Mac CI 测试和构建；首次启动、权限及硬件交互仍需实机验证。
+Mac 面向 macOS 13+、Apple Silicon；v0.5.0 Mac 包由 macOS 发布流水线测试、构建和打包，交互与真机验收仍待完成。解压后将 App 放入“应用程序”，按 [Apple 标准方式](https://support.apple.com/zh-cn/102445)打开未公证应用。
 
-### M1. 安装菜单栏应用
-
-下载第 2 步的 Mac ZIP，解压后把 `AIBotBridge.app` 拖到 **应用程序**，从 Finder 打开。它显示在屏幕顶部菜单栏，没有普通主窗口。
-
-应用尚未经过 Apple 公证。如果提示无法验证开发者，只有确认来自本项目且文件校验无误时，才按 Apple 的标准方式：先尝试打开一次，再到 **系统设置 → 隐私与安全性 → 仍要打开**，确认打开。若提示“将损坏电脑”或文件已损坏，停止并重新核对来源，不移除系统防护。[Apple 官方说明](https://support.apple.com/zh-cn/102445)
-
-### M2. 在界面里刷入固件
-
-新版菜单栏 **AI-bot → 小屏刷机…**，操作顺序与 Windows 相同：
-
-1. 连接 USB。应用自动识别已连接的小屏；多台设备无法区分时，按提示拔插一次小屏，不需要选择设备端口。
-2. 点 **选择文件**，选择第 2 步下载的固件 ZIP，或已有 `firmware.bin`。
-3. 点 **开始刷机**。安装包已包含 Apple Silicon 刷机工具，不需要 Python、Git 或 PlatformIO。
-4. 等到窗口显示 **刷机完成，小屏正在重新连接**。应用自动恢复 USB 连接与智能跟随、循环展示，原页面顺序和间隔不变。
-
-操作中不要退出应用或断开供电；Mac 窗口会阻止操作期间关闭。备份失败则停止，原固件不会被写入覆盖；展开“更多”→“查看备份”可找到备份。
-
-v0.4.0 已提供此入口。Mac 界面为原生窗口，Windows 图示仅用于说明操作顺序；Mac 设备实测仍待完成。
-
-无串口时先检查数据线和转接器；确认 CH340 缺驱动时使用 [WCH 官方 Mac 驱动](https://github.com/WCHSoftGroup/ch34xser_macos)。
-
-### M3. 连接和开始使用
-
-1. 保持 USB 连接，重新打开 `AIBotBridge.app`。
-2. 顶部菜单点 **查看设备信息…**，确认设备响应；“查看本机状态”可查看串口连接。
-3. **显示页面 → 系统监控**，再切到 **股票**，检查实体屏。
-4. 打开 **轮播页面设置…**，按需要勾选启用循环展示，保留自己的页面与顺序。
-5. 音乐功能按系统提示授权访问正在运行的 Music 或 Spotify；不使用则不必配置。其他内容在菜单对应设置中填写。
-
-**完成标志仍是设备响应和实体屏切页，不是只有电脑镜像打开。**
+Mac 菜单 **AI-bot → 小屏刷机…**面向 **ESP8266**：选 ESP8266 ZIP，等待备份、写入、回读校验和重新连接，实机行为仍需验证。本文 TAB5 首刷/配对/升级入口属于 Windows，不声明 Mac 已提供这些功能；TAB5 首刷使用 Windows 工具。
 
 <a id="optional"></a>
-## 可选：需要时再做
+## 可选网络
 
-<details>
-<summary>Wi-Fi 无线回退：USB 已经正常后再配置</summary>
-
-1. 退出桥接，保持小屏 USB 供电。设备没有可用 Wi-Fi 且没有 USB 心跳时，启动约 15 秒后可出现 `AI-bot-Setup` 热点。
-2. 手机或电脑连接该热点，按弹出的配网页选择自己的 2.4GHz Wi-Fi 并输入密码；不弹出时，在浏览器打开此热点连接的网关地址。
-3. 电脑回到正常网络，启动桥接并先用 USB 连好一次，让桥接自动下发回退配置。
-4. 电脑与设备处于可互通的局域网。在 Windows 的“设备连接 → USB 管理与诊断”或 Mac 顶部菜单，选“测试 Wi-Fi 回退（保持 USB 供电）…”。
-5. 查看测试结果，测试结束后恢复正常 USB 连接。不要拔掉唯一电源线。若网络有客户端隔离，联系网络管理员处理；USB 仍可正常使用。
-
-Windows v0.4.0 与新版固件在配对后，可在设备或笔记本 IP 改变时于同网段自动发现。设备需要独立供电才能拔掉连接笔记本的数据线；路由器隔离设备或过滤广播时无法发现。Mac 暂不支持此自动发现。
-
-“重置设备 Wi-Fi”不是普通安装步骤，仅在确实需要更换或清除设备网络时使用。
-
-</details>
-
-
-
-<details>
-<summary>检查下载是否完整（SHA-256）</summary>
-
-从同一发布页下载 `SHA256SUMS.txt`，其中列出了三个安装/固件附件的校验值。Windows 在下载目录打开 PowerShell，例如校验固件包：
-
-```powershell
-Get-FileHash -Algorithm SHA256 .\AI-bot-0.4.0-firmware-materials.zip
-Get-Content .\SHA256SUMS.txt
-```
-
-与清单中同名文件的哈希相同才使用，忽略字母大小写。校验 EXE 或其他 ZIP 时，把上面的文件名改成实际文件名。
-
-Mac 在下载目录打开终端，例如：
-
-```bash
-shasum -a 256 AIBotBridge-0.4.0-local-candidate-macos-arm64.zip
-cat SHA256SUMS.txt
-```
-
-比较清单中同名文件的哈希；一致才使用。校验完整性不等于项目数字签名。
-
-</details>
-
-<details>
-<summary>旧版兼容刷写：仅供没有“小屏刷机”菜单的旧版本使用</summary>
-
-新版图形工具发布后，普通安装直接按上面的界面步骤操作。以下保留旧版的完整兼容方法，无需跳到其他教程。
-
-#### Windows 旧版
-
-### 4.1 退出桥接，找出小屏的端口
-
-右键 AI-bot 托盘 → **退出**，同时关闭刷机软件、串口监视器等占用串口的程序。接好 USB 数据线。
-
-打开 Windows **设备管理器 → 端口（COM 和 LPT）**，拔下、再插上小屏，记住随设备出现的 COM 号。图中 `COM5` 只是示例，以自己的电脑为准。
-
-![通过插拔识别小屏 COM 端口的示意图](assets/guides/serial.svg)
-
-没有“端口”或插拔无变化时，先换数据线和 USB 插口。确认设备使用 CH340 且缺驱动后，再安装 [WCH 官方驱动](https://www.wch.cn/downloads/CH341SER_EXE.html)。
-
-### 4.2 准备刷机工具
-
-首次刷机需要 Python。已有能运行的 Python 可跳过安装；没有则下载 [Python 3.12 Windows 64 位安装器](https://www.python.org/downloads/release/python-31210/)，在页面的 Files 表选择 **Windows installer (64-bit)**，安装时勾选 **Add python.exe to PATH**。
-
-进入第 2 步**包含 firmware.bin 的解压文件夹**，点击资源管理器地址栏，输入 `powershell` 并回车。下面命令在这个窗口逐行执行，报错时先处理再继续：
-
-```powershell
-python --version
-python -m venv .venv-flash
-.\.venv-flash\Scripts\python.exe -m pip install esptool==4.8.1
-.\.venv-flash\Scripts\python.exe -m esptool version
-$flashPort = Read-Host '请输入小屏的实际 COM 号，例如 COM5'
-.\.venv-flash\Scripts\python.exe -m esptool --chip esp8266 --port $flashPort flash_id
-```
-
-**完成标志：工具显示 4.8.1，识别到 ESP8266 和 Flash 容量。** 如果 `python` 打开商店或找不到，安装 Python 后重新打开此 PowerShell 窗口。
-
-### 4.3 先备份，再写入
-
-仍在**同一个目录、同一个 PowerShell 窗口**，先备份原设备：
-
-```powershell
-$backupFile = 'backup-before-ai-bot-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.bin'
-.\.venv-flash\Scripts\python.exe -m esptool --chip esp8266 --port $flashPort --baud 115200 read_flash 0 ALL $backupFile
-```
-
-读取成功后，把备份留在安全位置；它可能包含私人网络配置，不要公开上传。备份失败就先停止。
-
-确认备份成功、桥接已退出，然后执行：
-
-```powershell
-.\.venv-flash\Scripts\python.exe -m esptool --chip esp8266 --port $flashPort --baud 115200 write_flash 0x0 .\firmware.bin
-```
-
-写入期间保持供电，不拔线。此命令只更新本项目固件，没有全片擦除；`0x0` 是本项目 ESP8266 固件地址，115200 是刷写速度，不是桥接通信速度。
-
-![刷写成功时需要看到的校验输出示意](assets/guides/flash-result.svg)
-
-**完成标志：写入到 100%，出现 `Hash of data verified`，设备重启并返回命令提示符。** 只看到 `Connecting...` 或出现报错，不算成功。
-
-#### Mac 旧版
-
-### M2. 刷入同一份现成固件
-
-设备型号、引脚要求与第 1 步相同。完整解压第 2 步的固件 ZIP，先退出 AI-bot 菜单栏应用。
-
-打开“终端”，输入 `cd `（后面有空格），把**含 firmware.bin 的文件夹**拖进去，再按回车。已有 Python 3 可复用；没有则从 [Python 官方 Mac 下载页](https://www.python.org/downloads/macos/)安装后重新打开终端。
-
-```bash
-python3 --version
-python3 -m venv .venv-flash
-.venv-flash/bin/python -m pip install esptool==4.8.1
-.venv-flash/bin/python -m esptool version
-.venv-flash/bin/python -m serial.tools.list_ports
-```
-
-设备拔下和插入后各执行一次最后一条，找出新增的 `/dev/cu.…` 端口；它不是 Windows 的 COM 号。把下列第一行替换成**自己的完整端口**：
-
-```bash
-FLASH_PORT='/dev/cu.wchusbserialXXXX'
-.venv-flash/bin/python -m esptool --chip esp8266 --port "$FLASH_PORT" flash_id
-BACKUP_FILE="backup-before-ai-bot-$(date +%Y%m%d-%H%M%S).bin"
-.venv-flash/bin/python -m esptool --chip esp8266 --port "$FLASH_PORT" --baud 115200 read_flash 0 ALL "$BACKUP_FILE"
-```
-
-确认识别为 ESP8266、备份成功后，在同一窗口写入：
-
-```bash
-.venv-flash/bin/python -m esptool --chip esp8266 --port "$FLASH_PORT" --baud 115200 write_flash 0x0 firmware.bin
-```
-
-出现 `Hash of data verified` 并重启才算完成。不用安装 Git、PlatformIO，也不用重新编译源码。备份只自己保留。无串口时先检查数据线和转接器；确认是 CH340 且缺驱动时使用 [WCH 官方 Mac 驱动](https://github.com/WCHSoftGroup/ch34xser_macos)。
-
-</details>
+ESP8266 USB 正常后再按[进阶说明](FLASH_BUILD.zh.md)配置 Wi-Fi 回退；TAB5 用其 Wi-Fi 页面保存网络。电脑与设备须在可互通局域网。重置网络和关闭防火墙不是常规刷机步骤。
 
 <a id="upgrade"></a>
-## 已安装用户：升级与卸载
+## 电脑程序升级与卸载
 
-**升级：退出旧桥接 → 安装到原位置（或在原目录替换完整 App/ZIP）→ 点击原来的快捷方式启动。** 不要从不同的临时解压目录启动。沿用同一位置和入口，无需重新固定快捷方式。要使用 v0.4.0 的 Windows IP 自动发现与小屏短时离线缓冲，电脑程序和设备固件都需更新；若不需要新功能，原有固件可继续 USB 工作。
+升级：正常退出桥接，安装到原位置或替换完整便携目录，用原快捷方式启动，不清空 AppData。电脑和设备分别升级。改变路径时重新设置开机启动。
 
-Windows 从旧 ZIP 迁移或改变安装位置后，在新版托盘关闭、再开启一次“开机启动”来更新路径。原来的页面、顺序、间隔和授权资料通常会保留，不要清空 AppData。
-
-Windows 卸载：先关闭托盘“开机启动”并退出程序，再到 **设置 → 应用 → AI-bot → 卸载**。用户配置和公共运行环境会保留。Mac 卸载：关闭登录启动项、退出应用，再从“应用程序”移除 App；这不会自动清除 Keychain 中的配对资料。
+Windows 卸载前关闭开机启动并退出，从系统“应用”卸载；用户设置与公共运行环境保留。Mac 先关闭登录项、退出，再移除 App；Keychain 配对资料不自动删除。
 
 <a id="troubleshooting"></a>
-## 卡在哪一步，就看这一行
+## 排错
 
-| 现象 | 处理方法 |
+| 现象 | 处理 |
 | --- | --- |
-| Windows 启动后没有大窗口 | 展开右下角隐藏托盘；左键 AI-bot 打开镜像 |
-| 缺 .NET 或授权页空白 | 用 EXE 安装器补齐运行环境；手动 ZIP 按本页可选步骤装 Desktop Runtime/WebView2 |
-| 提示安装文件缺失或校验失败 | 重新安装完整版；校验失败的工具不会执行，新固件不会写入 |
-| 一直找不到小屏 | 换数据线/USB 插口/转接器，再按芯片型号检查驱动 |
-| `Access denied`、串口打不开 | 从菜单退出 AI-bot，关闭其他串口工具，再核对端口 |
-| 一直 `Connecting...` | 确认型号、端口和数据线；按板卡厂商方法进入下载模式，不猜引脚短接 |
-| 找不到 `firmware.bin` | 进入固件材料包解压后的顶层，在该目录打开终端 |
-| 写入失败、校验失败 | 保留报错，检查供电和连接后重试；不要全片擦除 |
-| 写入成功但黑屏/花屏 | 核对 ESP8266、ST7789 和第 1 步引脚；外形相似不代表兼容 |
-| 小屏显示 `PC OFF` | 启动桥接，用“设备信息”确认连接；这表示暂未收到有效电脑状态 |
-| 镜像正常但小屏没反应 | 核对 USB 设备响应、串口占用以及是否刷了对应版本固件 |
-| 手动切页仍被提醒覆盖 | 电脑与固件都要更新到 v0.2.2；只装新版电脑程序不够 |
-| Mac 提示文件损坏或将损坏电脑 | 停止打开，重新核对来源与校验值；不要用移除隔离或关闭保护的命令 |
+| 没有 TAB5 首次安装入口 | 确认使用新版 Windows 设备中心，v0.4.0 菜单不同 |
+| TAB5 ZIP 被升级窗口拒绝 | 首刷 ZIP 与升级 BIN 用错入口，按顶部表选择 |
+| 没有端口 | 核对数据线；TAB5 进入下载模式后刷新，ESP8266 检查芯片驱动 |
+| 端口被占用 | 关闭其他串口工具，内置刷机保留桥接，让工具释放对应连接 |
+| 备份/写入/校验失败 | 保留错误，不判定成功；TAB5 必要时同设备备份恢复，不强制绕过检查 |
+| TAB5 重启后检查找不到设备 | 刷新、选择重启后的端口，端口号可能变化 |
+| ESP8266 黑屏/花屏 | 核对 ST7789、引脚和背光，不套用 TAB5 固件 |
+| PC OFF / 等待数据 | 检查对应已添加设备和有效桥接数据 |
 
-新版图形工具调用 SHA-256 固定的 Espressif esptool 4.9.1；旧版兼容命令使用 4.8.1。参数依据 [Espressif esptool v4 官方文档](https://docs.espressif.com/projects/esptool/en/release-v4/esp32/esptool/basic-commands.html)，写入地址来自本项目 ESP8266 配置。
+## English summary
+
+Windows v0.5.0 is a pre-release, available from the release links above; v0.4.0 remains the latest stable release. ESP8266 uses its firmware-materials ZIP or firmware.bin. Factory TAB5 devices use the full TAB5-first-install-0.2.89-ui.zip; existing AI-bot TAB5 devices extract TAB5-upgrade-0.2.89-ui.zip and select aibot_tab5.bin with the notes sidecar beside it. Both carry application version 0.2.89-ui but are not interchangeable. First installation verifies and backs up the P4 flash before replacing it. Hold RESET about two seconds until the green LED flashes rapidly, select the target download port, install, briefly reset, select the new application port and verify boot before registration/pairing. Restore accepts the same device's verified backup only. Existing devices verify boot over USB after upgrading. Preserve automatic cycling, pages, order and interval. Mac flashing here covers ESP8266; Windows TAB5 support does not imply Mac TAB5 support. Native UI screenshots use isolated synthetic data, not hardware footage. Upgrade acceptance does not establish the factory-install/restore hardware chain. TAB5 source/component materials have a separate license scope; no new blanket MIT grant is made by this publication.

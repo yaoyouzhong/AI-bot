@@ -13,6 +13,7 @@
     <Compile Include="../../windows-app/AIBotBridge/**/*.cs" Exclude="../../windows-app/AIBotBridge/**/obj/**;../../windows-app/AIBotBridge/**/bin/**;../../windows-app/AIBotBridge/Program.cs" />
     <EmbeddedResource Include="../../windows-app/AIBotBridge/Assets/app-icon.ico" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
   </ItemGroup>
   <Target Name="RemoveUnusedWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">

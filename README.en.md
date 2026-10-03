@@ -1,19 +1,20 @@
+**[v0.5.0 pre-release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0)**: Device Center, TAB5 transport and voice recovery, and cumulative quota-history fixes. See [release records](docs/RELEASE-0.5.0.md) for checks and known limitations. The latest stable release remains v0.4.0.
+
 **2026-10-02 acceptance baseline**: TAB5 **0.2.89-ui** and the matching Windows bridge are deployed and boot-verified. This round fixes settings layouts, camera recovery, voice cursor insertion and disconnected-result recovery, attachment receipt queries, configuration restore and pointer visibility. See the [current acceptance record](docs/ACCEPTANCE-2026-10-02.md) for individual scopes. USB upgrade interruption investigation is paused at the user's request; physical keyboard, dual-device isolation and other environments remain untested. This is not full acceptance.
 
-**Product introduction · 36 seconds**　[▶ Player stuck? Play directly](https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf)
+**New product introduction · 54 seconds**: rebuilt from current Windows Device Center, ESP8266 and TAB5 interfaces. [Download the new video](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-product-intro-0.5.0.mp4).
+
+[![AI-bot two-device introduction cover](docs/assets/product-intro/AI-bot-cover.png)](docs/assets/product-intro/AI-bot-product-intro.mp4)
 
 The fixed local TAB5 firmware entry is `artifacts/firmware/tab5/latest/aibot_tab5.bin`; see the [firmware workflow](docs/TAB5-FIRMWARE-WORKFLOW.md) for preparation, archives and release-note previews. Historical .070 results for 18 three-channel bidirectional rounds remain in the [performance record](docs/TRANSPORT-PERFORMANCE-070.md) and do not establish current throughput or long-term stability. Fixed modes retain their selected channel. Versions 0.2.65, 0.2.40 and 0.2.41 were withdrawn; do not install them.
 
 Voice inserts at the current TAB5 cursor and retains the recording task through temporary device focus loss or page changes. Version 089 passed three recovery checks covering short and 45-second USB disconnections, original insertion position, cancellation and isolation of the next recording. Untransmitted audio is not guaranteed and messages are never sent automatically. See [089 voice recovery](docs/VOICE-RECOVERY-089.md).
 
-https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf
-
-
-[▶ Download the 36-second product introduction (MP4, Chinese captions)](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video provenance](docs/PRODUCT_VIDEO.md)
+[▶ Product introduction (MP4, 54 seconds, Chinese captions)](docs/assets/product-intro/AI-bot-product-intro.mp4) · [Video and screenshot provenance](docs/PRODUCT_VIDEO.md)
 
 **v0.4.0 release:** reduces false `PC OFF` screens under host load. The Windows bridge and updated firmware use paired local discovery to recover Wi-Fi status after the laptop or device IP changes. See the [changelog](CHANGELOG.md).
 
-**Windows development build (unreleased):** My Devices exposes features and runs connection services only for registered TAB5 / ESP8266 devices, while sharing accounts and data sources. The main window separates My Devices, Accounts and Data, and Bridge Settings; common actions use two columns, connection details stay together, and management and diagnostics live in a menu. Desktop checks and the current dual-device USB connection passed; remaining hardware combinations await acceptance. See the [device-center validation and rollback notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
+**Windows v0.5.0 pre-release:** My Devices exposes features and runs connection services only for registered TAB5 / ESP8266 devices, while sharing accounts and data sources. The main window separates My Devices, Accounts and Data, and Bridge Settings; common actions use two columns, connection details stay together, and management and diagnostics live in a menu. Desktop checks and the current dual-device USB connection passed; remaining hardware combinations await acceptance. See the [device-center validation and rollback notes](docs/DEVICE-CENTER-VALIDATION.zh.md) (Chinese).
 
 Device Center provides all features and device registration. Left-click opens the small-screen preview and brightness slider when an ESP8266 is enabled, otherwise Device Center. Right-click offers Device Center, screen preview, common settings grouped by device, and Exit. Shared accounts and data settings are available in Device Center. Only registered devices appear, using their custom names; disabled devices are grayed out. Device management and occasional diagnostics remain in Device Center. Data updates and Codex quota-history collection run automatically while the bridge is running, with service status displayed in tables. Voice settings show only the enable toggle and preferred microphone by default; other options are under Troubleshooting.
 
@@ -123,25 +124,29 @@ repository. See [data sources and privacy](docs/DATA_SOURCES.md) and [asset impo
 
 ## Get started
 
-**Download → install → connect USB → choose firmware → start flashing.** Follow the [complete illustrated installation guide (Chinese)](docs/INSTALL.zh.md) for every Windows/Mac step on one page, without terminal commands.
+**Install the bridge → identify hardware → select first installation or upgrade → back up/write/verify → register and pair.** The [complete guide (Chinese, with English summary)](docs/INSTALL.zh.md) covers ESP8266 and TAB5 separately. TAB5 first installation requires a full ZIP; later upgrades use the application BIN. Windows provides both hardware flows; the current Mac flasher covers ESP8266.
 
 | Windows 10/11 | Mac (Apple Silicon) |
 | --- | --- |
-| [Download installer](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-setup-win-x64.exe) | [Download Mac app](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.4.0/AIBotBridge-0.4.0-local-candidate-macos-arm64.zip) |
+| [Download v0.5.0 pre-release installer](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-setup-win-x64.exe) | [Download v0.5.0 Mac pre-release](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-local-candidate-macos-arm64.zip) |
 
-[![Firmware flashing window: connect the device and select firmware](docs/assets/screens/firmware-flasher.png)](docs/INSTALL.zh.md)
+For a stable release, use [v0.4.0](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.4.0); its menus differ from these screenshots.
+
+[![Current native Device Center with two hardware types, synthetic data](docs/assets/screens/device-center.png)](docs/INSTALL.zh.md)
 
 **Upgrading:** exit the bridge, install into the existing location and keep using your original shortcut. Do not launch copies from temporary extraction folders. Flashing tools are bundled; Windows setup downloads missing runtimes when needed.
 
-BYTE SPROUT works out of the box; pet imports are optional. These are actual Windows mirror renders with fictional data. Codex and Claude screenshots show the maintainer’s currently selected pets with sample values; they are not photographs of a device.
+BYTE SPROUT works out of the box; pet imports are optional. These current native Windows mirror renders use fixed fictional data and the original pet, without private animations. They are not hardware photographs. See [screenshot provenance](docs/SCREENSHOTS.md).
+
+![Current native TAB5 quota page with fixed demo data, firmware preview](docs/assets/screens/tab5-quota.png)
 
 <details>
 <summary>More interface examples</summary>
 
 <table>
 <tr>
-<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample with the currently selected pet"><br><strong>Codex quota</strong></td>
-<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude quota sample with the currently selected pet"><br><strong>Claude quota</strong></td>
+<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample with the original pet"><br><strong>Codex quota</strong></td>
+<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude quota sample with the original pet"><br><strong>Claude quota</strong></td>
 <td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="Dual quota sample"><br><strong>Dual quotas</strong></td>
 </tr>
 <tr>
