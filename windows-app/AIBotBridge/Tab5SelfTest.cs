@@ -23,6 +23,16 @@ internal static class Tab5SelfTest
         await Tab5CodexSelfTest.RunAsync();
         await Tab5ImageSelfTest.RunAsync();
         void Check(bool pass,string name) {if(!pass)throw new InvalidOperationException("TAB5 test failed: "+name);}
+        var crashes=new Tab5CrashDiagnostics();
+        Check(!crashes.Observe(100,1)&&crashes.Observe(10,4),"new panic boot needs capture");
+        using(var trace=JsonDocument.Parse("{\"trace\":{\"crash\":1,\"cause\":27,\"stackGuard\":[[512,1,2,3],[0,0,0,0]]}}")) {
+            crashes.Record("0.2.81-ui",trace.RootElement);
+            Check(!crashes.Observe(11,4),"same boot is captured only once");
+            for(int boot=0;boot<10;boot++){Check(crashes.Observe(1,4),"next panic boot is detected");crashes.Record("0.2.81-ui",trace.RootElement);crashes.Observe(100,4);}
+        }
+        using(var saved=JsonDocument.Parse(crashes.Snapshot))Check(saved.RootElement.GetArrayLength()==8&&saved.RootElement[7].GetProperty("trace").GetProperty("stackGuard")[0][0].GetInt32()==512,"bounded records survive source document disposal");
+        var unavailable=new Tab5CrashDiagnostics();
+        Check(unavailable.Observe(1,4)&&unavailable.Observe(2,4)&&unavailable.Observe(3,4)&&!unavailable.Observe(4,4),"failed capture attempts are bounded within a boot");
         var removed=new RemovedUsbPort(new IOException("device removed"));
         Check(!Tab5Service.DisposeUsbPort(removed)&&removed.Disposals==1,"unplug cleanup does not kill reconnect worker");
         var reconnected=new RemovedUsbPort();
@@ -125,6 +135,17 @@ internal static class Tab5SelfTest
             }
             Console.WriteLine("TAB5_EXPANDED_FRAME_BYTES="+fullFrame.Length);
             var service=new Tab5Service(store);service.Publish(snapshot);
+            using(var recoveryStop=new CancellationTokenSource(TimeSpan.FromSeconds(6))) {
+                using var recovery=new Tab5Service(store);
+                int attempts=0;
+                recovery.UsbDevices=()=>{
+                    if(++attempts==1)throw new OperationCanceledException("serial I/O cancelled by device removal");
+                    recoveryStop.Cancel();return [];
+                };
+                try{await recovery.RunUsbStatusAsync(recoveryStop.Token);}catch(OperationCanceledException) when(recoveryStop.IsCancellationRequested){}
+                Check(attempts==2,"USB status worker survives I/O cancellation and retries without service restart");
+                Check(!Tab5UsbRecovery.IsDisconnect(new OperationCanceledException(),recoveryStop.Token),"lifetime cancellation still shuts down USB worker");
+            }
             using(var doc=JsonDocument.Parse(service.CurrentFrame!)) {
                 var data=doc.RootElement.GetProperty("data");
                 Check(data.GetProperty("quotas").ValueKind==JsonValueKind.Null,"unknown quota remains null");
@@ -190,13 +211,10 @@ internal static class Tab5SelfTest
                 Check(await NewOperation("draft-save")==404,"draft cannot target unknown task");
                 Check(await NewOperation("send")==404,"autosave cannot rate-limit a user's send");
             }
-            var otaBytes=new byte[1024];otaBytes[0]=0xE9;
-            BitConverter.GetBytes(0xABCD5432u).CopyTo(otaBytes,32);
-            Encoding.ASCII.GetBytes("0.2.7-test").CopyTo(otaBytes,48);
-            Encoding.ASCII.GetBytes("aibot_tab5").CopyTo(otaBytes,80);
+            var otaBytes=TestFirmwareImage.Create("0.2.7-test");
             var otaPath=Path.Combine(directory,"synthetic-tab5.bin");File.WriteAllBytes(otaPath,otaBytes);
             var largePath=Path.Combine(directory,"synthetic-large-tab5.bin");
-            var largeBytes=new byte[6_500_000];otaBytes.CopyTo(largeBytes,0);File.WriteAllBytes(largePath,largeBytes);
+            var largeBytes=TestFirmwareImage.Create("0.2.7-test",6_500_000);File.WriteAllBytes(largePath,largeBytes);
             Check(Tab5OtaPackage.Load(largePath).Image.Length==largeBytes.Length,"OTA accepts current 6.5 MB application");
             using(var tooLarge=new FileStream(largePath,FileMode.Create))tooLarge.SetLength(Tab5OtaPackage.MaximumSize+1L);
             bool oversizeRejected=false;try{Tab5OtaPackage.Load(largePath);}catch(ArgumentException){oversizeRejected=true;}

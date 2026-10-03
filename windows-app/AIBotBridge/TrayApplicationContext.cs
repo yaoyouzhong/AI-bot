@@ -16,6 +16,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private DeviceCenterForm? _center;
     private QuotaTrendForm? _trend;
     private BridgeStatusForm? _statusForm;
+    private UpdateCenterForm? _updatesForm;
+    private readonly BridgeNotifications _notifications=new();
+    private bool _notificationAttention;
+    private long _attentionSequence;
     private readonly Dictionary<string,List<Form>> _deviceWindows=new();
     private bool _changingDevices;
     private bool _exiting;
@@ -66,6 +70,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ? configuredPort
             : 8765;
         _services=new DeviceServiceManager(_runtime,httpPort,_shutdown.Token);
+        _runtime.MusicArtworkChanged+=()=>_tab5?.Publish(_runtime.Capture());
         _serial=_services.Serial;
         _runtime.Domestic.Tab5Paired=()=>_devices.Snapshot.Devices.Any(d=>d.Enabled&&d.Kind==HardwareKind.Tab5);
         _runtime.Domestic.DeviceProviders=()=>new(_demand.Providers);
@@ -91,6 +96,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             while (_flashActions.TryDequeue(out var action)) action();
             var status = _runtime.Capture();
             _tab5?.Publish(status);
+            _services.ObserveConnections(_devices.Snapshot);
             var codexForeground = ForegroundObserver.CodexVisible();
             if (codexForeground && !_codexWasForeground && status.Codex.CompletionActive)
                 SessionActivityReader.Signals.Acknowledge();
@@ -98,15 +104,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if (status.Codex.CompletionSequence > _lastCompletionSequence)
             {
                 _lastCompletionSequence = status.Codex.CompletionSequence;
-                _ = Task.Run(CompletionChime.Play);
+                Notify("completion",_lastCompletionSequence.ToString(),"任务完成","Codex 任务已完成，可在电脑或 TAB5 查看回复。",ToolTipIcon.Info);
             }
+            bool needsInput=status.Codex.NeedsInput||status.Claude.NeedsInput||status.DomesticActivity?.NeedsInput==true;
+            if(needsInput&&!_notificationAttention)Notify("attention",(++_attentionSequence).ToString(),"任务等待操作","请在电脑上检查需要确认的操作。",ToolTipIcon.Info);
+            _notificationAttention=needsInput;
             if(_services.EspEnabled)UpdateAutomaticScreenSaver(status);
             PublishDisplayPolicy();
             var quotaPolicy=DisplayModes.Load(BridgeSettings.Load(),_selectedMode);
             _runtime.Domestic.RefreshNext(quotaPolicy);
             if (DateTimeOffset.UtcNow >= _nextQuotaWarning && _runtime.Domestic.TakeRefreshWarning(quotaPolicy) is string warning) {
                 _nextQuotaWarning=DateTimeOffset.UtcNow.AddSeconds(30);
-                _icon.ShowBalloonTip(10000, "模型额度更新失败", warning, ToolTipIcon.Warning);
+                Notify("quota",warning,"模型额度更新失败",warning,ToolTipIcon.Warning);
             }
         };
         _timer.Start();
@@ -118,7 +127,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _flashActions.Enqueue(() => { RestartCycle(); done.TrySetResult(); });
                 return done.Task.WaitAsync(token);
             }, _shutdown.Token));
-        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo, () => _tab5?.DiagnosticSummary ?? _tab5Error ?? "TAB5 未启用");
+        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo, () => _tab5?.DiagnosticSummary ?? _tab5Error ?? "TAB5 未启用",_runtime.AcceptBrowserArtworkAsync,()=>_tab5?.CrashDiagnostic??"[]");
         _ = Task.Run(() => server.RunAsync(_runtime.Capture, _shutdown.Token));
         try{_services.ApplyAsync(_devices.Snapshot).GetAwaiter().GetResult();UpdateDemandAsync().GetAwaiter().GetResult();}
         catch(Exception ex){_tab5Error=ex.Message;}
@@ -195,11 +204,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(action.StartsWith("animation:")){MigratedWeather.WeatherMonitor.Animation=action[10..];return;}
             bool Mode(string mode){try{DeviceCapabilities.Require(_devices.Snapshot,id,"mode:"+mode,true);bool applied=SelectDisplayMode(mode);if(applied)_=UpdateDemandAsync();return applied;}catch(Exception ex){MessageBox.Show(ex.Message);return false;}}
             switch(action) {
+                case "tab5-display":
+                    if(_tab5 is null)throw new InvalidOperationException("TAB5 连接服务未启动。");
+                    using(var form=DeviceWindow(d,new Tab5DisplaySettingsForm(_tab5.DisplaySettingsAsync),"显示设置"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                case "task-pins":
+                    using(var form=DeviceWindow(d,new Tab5TaskPinsForm(),"常用任务"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "data":
                     using(var form=DeviceWindow(d,new DeviceDataForm(_devices,d.Id),"数据设置"))if(form.ShowDialog(SettingsWindow.DialogOwner(_center))==DialogResult.OK){await UpdateDemandAsync();RebuildMenu();}break;
+                case "upgrade-tab5":
+                    if(_tab5?.Busy==true)throw new InvalidOperationException("设备正在处理操作，请结束后再打开升级入口。");
+                    if(_tab5Form is not null&&!_tab5Form.IsDisposed)_tab5Form.Close();
+                    goto case "tab5";
                 case "tab5":
                     if(_tab5 is null)throw new InvalidOperationException(_services.Error??"设备连接服务未启动，请停用后重新启用。");
-                    if(_tab5Form is null||_tab5Form.IsDisposed)_tab5Form=DeviceWindow(d,new Tab5ConnectionForm(_tab5),"连接与固件升级");SettingsWindow.Present(_tab5Form);break;
+                    if(_tab5Form is null||_tab5Form.IsDisposed)_tab5Form=DeviceWindow(d,new Tab5ConnectionForm(_tab5,showUpgrade:action=="upgrade-tab5"),"连接与固件升级");SettingsWindow.Present(_tab5Form);break;
                 case "voice": if(_tab5 is null)throw new InvalidOperationException("设备未连接到桥接服务。");_tab5.ShowVoiceSettings(SettingsWindow.DialogOwner(_center)!);break;
                 case "birthday-settings": using(var form=DeviceWindow(d,new BirthdaySettingsForm(),"日历与生日"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "legacy-settings":
@@ -257,6 +275,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 case "weather-settings": ShowWeatherSettings();break;
                 case "authorize": ShowDomesticAuth();break;
                 case "status": ShowStatus();break;
+                case "updates": ShowUpdates();break;
+                case "notifications": using(var form=new NotificationSettingsForm(_notifications))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                case "configuration-backup": using(var form=new ConfigurationBackupForm(()=>{
+                    _runtime.ReloadSettings();_selectedMode=DisplayModes.Load(BridgeSettings.Load()).SelectedMode;_automaticScreenSaver=false;
+                    _cycleStartedAt=DateTimeOffset.UtcNow.ToUnixTimeSeconds();PublishDisplayPolicy();if(_services.EspEnabled)_serial.SendDisplayMode(_selectedMode);_=UpdateDemandAsync();RebuildMenu();
+                }))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "about": using(var dialog=new AboutForm())dialog.ShowDialog();break;
                 case "exit": ExitThread();break;
                 default: ShowDevices();break;
@@ -264,6 +288,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }catch(Exception ex){MessageBox.Show(ex.Message,"桥接操作未完成",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
     }
 
+    private void Notify(string kind,string key,string title,string message,ToolTipIcon icon) {
+        var decision=_notifications.Evaluate(kind,key,title,DateTimeOffset.Now);
+        if(decision.Show)_icon.ShowBalloonTip(10000,title,message,icon);
+        if(decision.Sound)_=Task.Run(CompletionChime.Play);
+    }
     private bool SelectDisplayMode(string mode)
     {
         if (!_services.EspEnabled||!DisplayModes.IsValid(mode)) return false;
@@ -350,8 +379,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void ShowStatus()
     {
         if(_statusForm is null||_statusForm.IsDisposed)
-            _statusForm=new BridgeStatusForm(()=>BridgeStatusView.Capture(_devices.Snapshot,_services.View,_runtime.Capture(),_demand,_services.Error));
+            _statusForm=new BridgeStatusForm(()=>BridgeStatusView.Capture(_devices.Snapshot,_services.View,_runtime.Capture(),_demand,_services.Error,_services.Health),ReconnectDeviceAsync,path=>_services.ExportDiagnostics(path,_devices.Snapshot));
         SettingsWindow.Present(_statusForm);
+    }
+    private void ShowUpdates() {
+        if(_updatesForm is null||_updatesForm.IsDisposed)_updatesForm=new UpdateCenterForm(()=>_devices.Snapshot.Devices.Select(d=>{
+            var v=_services.View(d);return new UpdateDevice(d.Id,d.Name,v.Firmware,v.Status,d.Enabled,d.Kind==HardwareKind.Tab5?"upgrade-tab5":"flash",d.Kind==HardwareKind.Tab5?"Wi-Fi / USB；蓝牙不下载固件":"USB；保留原固件备份");
+        }).ToArray(),HandleDeviceAction);
+        SettingsWindow.Present(_updatesForm);
+    }
+    private async Task ReconnectDeviceAsync(string id) {
+        if(_changingDevices||_deviceOperationBusy)throw new InvalidOperationException("设备操作尚未结束，请稍后重试。");
+        _changingDevices=true;
+        try {
+            await _services.ReconnectAsync(_devices.Snapshot,id);
+            if(_deviceWindows.TryGetValue(id,out var forms))foreach(var form in forms.ToArray())form.Close();
+            _tab5?.Publish(_runtime.Capture());RebuildMenu();
+        }finally{_changingDevices=false;}
     }
 
     private async Task ManageDeviceAsync(bool reset)
@@ -405,7 +449,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (_settingsForm is null || _settingsForm.IsDisposed)
         {
-            _settingsForm = new SettingsForm(_settings,includeDeviceSettings:false);
+            _settingsForm = new SettingsForm(includeDeviceSettings:false);
             _settingsForm.FormClosed += (_,_)=>_runtime.ReloadSettings();
         }
         SettingsWindow.Present(_settingsForm);
@@ -475,7 +519,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _tab5Form?.Close();
         _shutdown.Cancel();
         await _services.StopAsync();
-        _center?.Close();_trend?.Close();_statusForm?.Close();
+        _center?.Close();_trend?.Close();_statusForm?.Close();_updatesForm?.Close();
         _runtime.Dispose();
         _icon.Visible = false;
         _icon.Icon?.Dispose();

@@ -13,10 +13,11 @@ internal sealed class SettingsForm : Form
     private readonly NumericUpDown _screenSaver = new() { Minimum = 0, Maximum = 1440, Width = 100 };
     private readonly TextBox _serialPort = new() { Width = 120, CharacterCasing = CharacterCasing.Upper };
 
-    internal SettingsForm(BridgeSettings settings,bool includeDeviceSettings=true)
+    internal SettingsForm(BridgeSettings? settings=null,bool includeDeviceSettings=true)
     {
         SuspendLayout();
-        _settings = settings;_includeDeviceSettings=includeDeviceSettings;
+        // Reopened editors must see restores and edits made by other windows.
+        _settings = settings ?? BridgeSettings.Load();settings=_settings;_includeDeviceSettings=includeDeviceSettings;
         Text = "AI-bot 设置";
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;

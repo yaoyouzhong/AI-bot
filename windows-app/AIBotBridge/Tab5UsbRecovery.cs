@@ -2,6 +2,11 @@ namespace AIBotBridge;
 
 internal static class Tab5UsbRecovery
 {
+    // SerialStream can cancel an overlapped read when USB disappears, without
+    // cancellation of the bridge lifetime. That is a disconnect, not shutdown.
+    internal static bool IsDisconnect(Exception error,CancellationToken lifetime)=>
+        error is IOException or InvalidOperationException or UnauthorizedAccessException or TimeoutException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException or KeyNotFoundException ||
+        error is OperationCanceledException&&!lifetime.IsCancellationRequested;
     // Firmware USB descriptors or Windows enumeration may change the instance ID.
     // A different COM port is never sufficient evidence to rebind pairing.
     internal static async Task<FlashUsbDevice?> FindAsync(Tab5Pairing pairing,IReadOnlyList<FlashUsbDevice> devices,
@@ -12,7 +17,7 @@ internal static class Tab5UsbRecovery
         foreach(var candidate in devices.Where(d=>d.Identity.StartsWith("USB\\VID_303A&",StringComparison.OrdinalIgnoreCase))) {
             token.ThrowIfCancellationRequested();
             try{if(await identify(candidate,token)==pairing.DeviceId)return candidate;}
-            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException){}
+            catch(Exception ex) when(IsDisconnect(ex,token)){}
         }
         return null;
     }

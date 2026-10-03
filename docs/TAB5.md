@@ -1,5 +1,23 @@
 # TAB5 接入（开发中） / TAB5 integration (in development)
 
+## 0.2.53-ui 设置与阅读位置候选 / Settings and reading candidate
+
+Windows 设备中心新增 TAB5 显示设置。协议仍为 v1，原 ESP8266 不变。加密状态的 `data.connectionHealth.displayCommand` 为 `null` 或 `{version:1,requestId,expiresAt,settings}`；`requestId` 为 32 位小写十六进制，`expiresAt` 为 Unix 毫秒，20 秒有效。`settings:null` 只读；写入需要最近读取的 `revision`。
+
+Windows Device Center adds TAB5 display settings without changing ESP8266 or protocol v1. The encrypted snapshot carries the optional command above. A null settings object reads the device. Writes require the last observed revision; commands expire after 20 seconds.
+
+设置对象包含 `revision`（8 位十六进制内容修订号）、`brightness`（10–100）、`volume`（0–100）、`muted`、`selected`（-1 自动或 0–7）、`cycle`、`interval`（10/15/30/60 秒）、`saverMinutes`（0/1/5/10/30/60，0 关闭）、`alerts`、`enabled[8]`（0/1 且至少一页）及 `order[8]`（0–7 排列）。页面顺序为总览、模型额度、天气、行情、电脑状态、音乐、桌宠、时钟。启用轮播时 `selected=-1`。
+
+The settings schema covers brightness, volume/mute, selected page, cycling, interval, screensaver timeout, alerts and an eight-page mask/order. Page indices are Overview, Quotas, Weather, Stocks, System, Music, Pet and Clock. Cycling requires automatic selection. The revision detects changed values; it is not a security signature.
+
+设备在 LVGL 线程校验、保存并形成 `{kind:"display-settings",session,issuedAt,requestId,ok,error,settings}` 回执；USB/BLE 复用 RPC，Wi-Fi 新增 `POST /tab5/v1/rpc`。使用既有 AES-GCM、nonce、session/time 防重放及 HMAC：`POST|/tab5/v1/rpc|deviceId|nonce|sha256(packet)`。HTTP 200 内部仍包含 RPC `status`，不等于保存成功。桥接只有收到匹配请求的 `ok:true` 有效设置才显示已保存；冲突、设备本机编辑或保存失败要求重新读取。相同请求跨通道重复到达不再次写入；回执每两秒重试，最多 20 秒。桥接等待 25 秒后显示未确认。
+
+The LVGL task validates and persists settings, then reports through existing USB/BLE RPC or the new authenticated Wi-Fi route. HTTP success is not application success. The bridge requires a matching, valid successful report. Local editing, stale revisions and persistence errors are reported explicitly. Duplicate commands do not repeat writes; reports retry every two seconds for 20 seconds, while the host times out after 25 seconds.
+
+任务帧增加可忽略的 `pinned` 布尔字段；常用任务优先进入限长列表并在项目中置顶，不改变总览任务选择。设备 NVS 保存最多 32 个阅读书签，不保存回复正文；更改每 15 秒提交，手势与 OTA 期间延后。窗口、协议、NVS 模拟与固件构建验证不代表已部署或真机通过，详见 [开发记录](DEVICE-DEVELOPMENT-2026-09-29.md)。
+
+Task entries gain an optional `pinned` flag. Pins affect list priority, not the overview selection. The device persists up to 32 bookmarks without reply text, committing changes every 15 seconds outside gestures and OTA. Host/protocol/NVS simulations and firmware builds do not prove deployment or hardware acceptance; see the development record linked above.
+
 Windows 新增“USB 配对 → 新设备首次安装”候选入口：选择独立 TAB5 项目生成的完整安装 ZIP，先备份并核验 P4 闪存，再安装、校验、重启检查，随后回到 USB 配对和 Wi-Fi 设置。已安装 AI-bot 的设备仍使用 OTA；恢复原固件只接受同一设备的有效备份。使用既有固定版本 esptool 包，不要求用户安装 Python。出厂设备完整安装及恢复仍待真机验收，尚未发布。
 
 Windows adds a candidate first-install entry under USB pairing. It validates the full TAB5 ZIP, backs up and verifies P4 flash, installs and verifies it, then checks boot before returning to pairing/Wi-Fi setup. Existing installations use OTA; recovery requires a valid backup for the same device. The existing bundled esptool is reused without requiring Python. Physical stock-device installation and recovery acceptance are pending; this is not yet released.
@@ -24,6 +42,16 @@ The Windows bridge adds an independent TAB5 session using the shared BridgeRunti
 - A paired TAB5 refreshes providers selected for display and authorized/configured, even while temporarily showing another fixed page or disabling cycling. Previously authorized but unselected providers are neither queried nor included in failure alerts. Official APIs run every two minutes; web capture rotates every 65 seconds. Failures retain the last successful values marked stale.
 - 照片附件：独立加密接口 `/tab5/v1/codex/image` 暂存用户确认的图片，最多 3 张、每张 2 MiB。草稿与送达记录包含附件 ID；实际桌面提交使用 `localImage` 与文字同轮发送，收到桌面确认才清空草稿。存储卡端当前读取 JPG/JPEG，设备拍照直接编码 JPEG；不自动发送、不格式化存储卡。真机验收另记。
 - Photo attachments use the separate encrypted `/tab5/v1/codex/image` route, with up to three images of 2 MiB each. Drafts and delivery fingerprints include image IDs. Desktop requests contain real `localImage` inputs alongside text; only a confirmed desktop acknowledgement clears the draft. TAB5 currently reads JPG/JPEG from SD and encodes camera captures as JPEG. No automatic submission or card formatting. Hardware acceptance is tracked separately.
+
+### 0.2.61 传输优化候选 / Transport candidate
+
+只有自动连接模式按业务可用通道择优；照片当前优先整包 Wi-Fi HTTP，其次 USB RPC、蓝牙 RPC。仅 USB/Wi-Fi/蓝牙严格固定，不跨通道补发；必须有同一桥接会话的有效近期数据，不能仅依据 Wi-Fi 关联。OTA 仍只支持 Wi-Fi/USB，固定蓝牙时提示切换；语音当前只支持 Wi-Fi/蓝牙，固定 USB 时明确提示不支持，不再暗中改走无线。新增通道能力与现有通道性能是两项验收，不混为已完成。
+
+Only automatic mode selects among supported transports. Photos currently prefer whole-image Wi-Fi HTTP, then USB RPC, then BLE RPC, using fresh authenticated state from the same bridge session. Fixed modes never cross channels or automatically resubmit uncertain transfers. OTA supports Wi-Fi/USB; voice supports Wi-Fi/BLE. Unsupported fixed-mode combinations fail visibly instead of silently changing transport. Adding a transport is separate from optimizing existing transport performance.
+
+USB/BLE 图片片段支持最多 8192 原始字节，固件仅在旧桥接明确拒绝 `invalid_range` 时回退到 6144。12 KiB RPC 上限、加密、身份/时效、偏移检查及幂等附件 ID 不变。BLE RPC 和语音特征增加可选无响应写能力：仅 7 字节游标 ACK 使用它，下一次读取校验 ID/偏移；应用响应继续确认写。固件请求 MTU 517，协商不足时继续兼容较小 MTU。USB hello/ack 可选 `photoUploadDiag` 格式为 `通道,原始字节,端到端毫秒,状态`；设备端完成回执显示通道/耗时。桥接记录公共 USB RPC、BLE RPC 和 BLE 语音的字节量及请求/处理/响应耗时。不将这些本地验证等同于硬件速率上限。
+
+Image chunks carry up to 8192 raw bytes; firmware falls back to 6144 only after an explicit old-bridge `invalid_range` rejection. The 12 KiB RPC limit, encryption, identity/time checks, offsets and idempotent attachment IDs remain intact. BLE RPC and voice optionally advertise writes without response for seven-byte cursor ACKs only; the next read validates ID/offset, while application replies retain acknowledged writes. Firmware requests MTU 517 with smaller negotiated MTUs still supported. The optional USB `photoUploadDiag` field reports `transport,rawBytes,endToEndMs,status`. Device receipts show transport/duration; shared USB RPC, BLE RPC and BLE voice diagnostics report byte counts and phase timings. Local validation does not establish hardware throughput ceilings.
 
 详细固件和协议位于独立 `m5stack TAB5` 项目。发布时桥接仍在 AI-bot，TAB5 固件另行发布，并记录兼容版本。现有 CI、版本和发布脚本未修改。
 
@@ -87,6 +115,12 @@ DeepSeek API balance refreshes preserve the separately dated web usage sample. C
 
 TAB5 Codex 发送使用运行中 Codex 桌面的本地命名管道所有者，不再用独立 CLI 的 turn/start。协议为本地内部接口，按版本验证并在不兼容时明确失败；保持桌面权限审批、模型和线程上下文。202 仅表示桌面接收，最终完成由独立轮次跟踪产生 repliesReady；发送后断线/超时不自动重发。读取动态只取桌面对应轮次的公开内容，详情见 TAB5 项目的 docs/CODEX-REMOTE.md。设备 HTTP/AES-GCM 协议保持兼容。
 
+### 0.2.89-ui 语音断线恢复 / Voice reconnect recovery
+
+断线后停止收音，保留本轮会话与原光标，通过原通道 stop/poll 回收已识别文字；不重传不确定音频、不自动发送。桥接处理已收到的音频尾段，并将当前结果保留期延长到无请求 5 分钟。恢复可能不完整时明确提示补录；可取消恢复。配套桥接与固件已部署并通过启动核验，短时/45 秒 USB 断线恢复及取消后新录音隔离三项真机复验通过，原自动轮播已恢复并核验。此结论仅覆盖本轮场景，详见 [089 恢复记录](VOICE-RECOVERY-089.md)。
+
+After a disconnect, capture stops and the existing take is recovered over its original transport using stop/poll, preserving the insertion anchor without replaying uncertain audio or automatically sending. The bridge drains received audio and retains the current result for five minutes without requests. Partial recovery is clearly indicated and can be cancelled. The paired bridge and firmware were deployed and boot-verified. Short and 45-second USB disconnect recovery, plus isolation of a new recording after cancellation, passed user acceptance. The original automatic display cycle was restored and verified. Acceptance is limited to these scenarios.
+
 ### 2026-09-26 草稿和发送恢复
 
 - 同一配对加密协议新增 `op=draft-save`（turn 路由），`draft-load`、`receipt`（read 路由），以及显式的 `steer`、`interrupt`（turn 路由）。三类限速独立：草稿、读取、用户操作；nonce 仍共用防重放表。操作必须符合路由，畸形 op 拒绝；旧固件无 op 仍视为 send。
@@ -98,3 +132,71 @@ TAB5 Codex 发送使用运行中 Codex 桌面的本地命名管道所有者，�
 语音响应新增 `ready`：电脑完成快捷键确认、虚拟输出运行，并收到 TAB5 PCM 或 DJI 真实采集回调后才置为真；终止状态为假。TAB5 在此时显示“可以说话了”、开始计时，并播放一次短音。它确认音频通路，不代表豆包内部识别或最终文字成功。
 
 同一次启动复用已枚举的 VB-CABLE 端点，避免重复枚举延迟；诊断日志仅记录焦点、音频打开、快捷键和就绪耗时，不记录录音、正文或凭据。
+
+### 2026-09-30 BLE 窗口传输候选（0.2.63） / BLE window transport candidate
+
+语音/RPC 特征新增可选 Notify。订阅成功才使用 `3:u8 | requestId:u32 | nextOffset:u16 | credits:u8`（小端，credits 1–4），接收相同 ID/偏移/总长头的最多四片通知；旧固件/订阅失败继续 read + ACK。主机队列有界，缺片/乱序/通知失败拒绝处理，认证加密和幂等规则不变。回复每四片与最后一片确认，分片上限 488 字节；大 MTU 状态帧改用 488 字节、八片窗口，图片期间仍四片。图片/语音期间后台状态节奏降为每秒一次，完整状态刷新和历史采样规则保留。固定连接模式仍不跨通道。
+
+Voice/RPC characteristics optionally advertise Notify. After successful subscription, an eight-byte little-endian grant (`3:u8 | requestId:u32 | nextOffset:u16 | credits:u8`, 1–4 credits) requests a bounded notification window with the existing ID/offset/total header. Legacy firmware or a failed subscription retains read/ACK. Missing, out-of-order or failed notifications are rejected; authentication, encryption and idempotency remain unchanged. Replies require an ATT response every fourth fragment and on the final fragment, with a 488-byte value limit. Large-MTU status frames use eight-fragment windows (four during image uploads). Background status cadence becomes one second during image/voice activity; full-state refresh and sample history are preserved. Fixed modes never switch transports.
+
+0.2.62 真机基线：97,559 字节照片，BLE 104,244 ms，成功但速度未通过。0.2.63 仅本地验证；实际速度与语音体验待安装后测量，不能视为达到硬件上限。协议细节与测试见相邻 TAB5 `docs/BLE-WINDOW-063.md`。
+
+Hardware baseline on 0.2.62: a 97,559-byte photo completed over BLE in 104,244 ms; functionality passed but speed did not. Version 0.2.63 has local validation only; hardware throughput and voice behavior remain pending, and no hardware-limit claim is made. See the adjacent TAB5 repository's `docs/BLE-WINDOW-063.md` for protocol and test details.
+# 2026-09-30 三通道整合候选
+
+配套 0.2.65-ui 增加 BLE 已确认基线增量/协商窗口和无线参数诊断、USB 二进制邮箱/语音、Wi-Fi 二进制图片/RPC 长连接、BLE OTA 与 RAM 自动测速。固定通道不跨路，自动大数据选择 Wi-Fi > USB > BLE，日常自动顺序保持。尚未部署或通过真实性能验收；详见[整合记录](TRANSPORT-INTEGRATED-2026-09-30.md)及 TAB5 项目 `docs/TRANSPORT-INTEGRATED-065.md` 的协议边界。
+
+# 0.2.67 公共性能扩展 / Common performance extension
+
+认证状态 `rpcBinary=1` 协商 T5R1 元数据加原始数据格式；固定路由和原有认证、重放及业务约束保持。USB 原生有界读取、HTTP 有界预读、BLE 连续邮箱与协商窗口确认、Wi-Fi 临时性能策略、15 字段分阶段测速详见 [0.2.67 协议与证据](TRANSPORT-PERFORMANCE-067.md)。.067 启动核验、18 轮测速、仅蓝牙照片和短句语音已通过；当前 .068 见下节。
+
+Authenticated `rpcBinary=1` negotiates the T5R1 metadata/raw-data envelope while retaining fixed routing, authentication, replay and business checks. Bounded native USB reads, bounded HTTP read-ahead, continuous BLE mailbox service, negotiated acknowledgement windows, temporary Wi-Fi bulk policy and 15-field phase measurements are documented in the [0.2.67 protocol and evidence](TRANSPORT-PERFORMANCE-067.md). Version .067 passed boot verification, 18 benchmark rounds, and BLE-only photo/short voice checks. Current .068 results follow below.
+
+## 0.2.68 raw payload paths / 原始数据路径
+
+T5R1 格式与大小边界不变。照片、测速和 OTA 的 RPC 调用可直接处理原始字节，减少内部 Base64/JSON 转换；旧节点保留 JSON 回退。Wi-Fi TCP 新连接启用 TCP_NODELAY，蓝牙语音使用完成通知唤醒。详见 [0.2.68 性能与验收](TRANSPORT-PERFORMANCE-068.md)。已部署并通过启动核验、18 轮测速及仅蓝牙照片/短句语音；真实照片未证实继续提速，USB 短暂重连及其余业务验收仍待关闭。
+
+The T5R1 format and size limits are unchanged. Photo, benchmark and OTA RPC callers can pass raw bytes without intermediate Base64/JSON conversions; legacy peers retain JSON fallback. New Wi-Fi TCP connections use TCP_NODELAY, and BLE voice wakes on completion. See the [0.2.68 performance and acceptance record](TRANSPORT-PERFORMANCE-068.md). Deployment, boot verification, 18 benchmark rounds, and BLE-only photo/short voice checks passed. The real photo did not establish a further speed gain; transient USB reconnections and remaining workloads still need acceptance.
+
+## Music artwork .080 candidate / 音乐封面 .080 候选
+
+This extension keeps protocol version 1. On an authenticated firmware version at least
+0.2.80, slot 2 may use resource encoding=jpeg, width 1..560, height 1..336, frames=1.
+The ID is CRC32 of the packed JPEG, and 1024-byte aligned fragments still use total,
+offset, bytes and delays. Other slots and older firmware keep RLE565.
+
+A separate tab5_resources frame contains version, type, deviceId, session, sequence
+and resources (1..8 chunk objects). A paired, established same-session snapshot is
+required. Fragments do not replace snapshots, renew task freshness or trigger OTA.
+Wi-Fi uses at most eight chunks, BLE four; USB remains its bounded dedicated stream.
+BLE Info may expose firmware plus firmwareProof=HMAC(FIRMWARE|nonce|version).
+The Windows bridge requires the verified proof before enabling this version's codec.
+
+Windows optionally accepts POST /music/artwork on its loopback listener only, with
+X-AIBot-Music-Key and an extension origin. This is a separate local browser pairing
+key, never the TAB5 key. The companion sends current title/artist/artwork URLs and
+optionally the current YouTube video ID; no browser history or cookies. Artwork is
+matched exactly to the Windows title and artist. Downloads are bounded HTTPS images
+from public hosts, without cookies or redirects; failures retain the last success.
+
+协议版本仍为 1。JPEG 只用于 .080 及更新固件的音乐资源，原小屏和旧 TAB5
+资源保持兼容。资源专用帧必须属于已建立的配对会话，不延长任务新鲜度。
+本机浏览器接口使用独立授权，只有用户启用的网站会提供当前媒体信息；
+不会保存特定视频规则或下载到固件包。候选及真机边界见 MUSIC-ARTWORK-080.md。
+
+### .081 crash capture / 故障现场
+
+`tab5_crash_status` retains its version-1 envelope. The optional `trace.stackGuard`
+contains two `[rawStatus, triggerPc, minimumSp, maximumSp]` arrays. `taskName` and
+`taskBounds` describe the current fixed task identifier and its saved bounds;
+`irqStack` is `[depth, minimumSp, maximumSp]`. `interruptedContext` contains saved
+PC/RA/SP candidates; `irqCauseCandidate` is the saved s1 register, not an asserted
+interrupt cause or a backtrace. Older readers can ignore these additional fields.
+
+Windows retrieves this trace after a panic boot under the existing USB transaction
+gate and keeps eight records in RAM. `GET /diagnostics/tab5-crashes` is loopback-only
+and rejects browser origins. No device pairing, snapshot freshness or resource codec
+is changed by this capture. See CRASH-080.md for evidence and hardware limits.
+
+新增字段只补充数字故障现场。原始任务位置属于候选线索，不能视为已展开调用栈。
+桥接自动回收上次 panic；诊断版未被标记为崩溃修复。

@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "AI-bot 音乐封面",
+  "version": "0.1.0",
+  "description": "将已启用网站的当前媒体封面同步到本机 AI-bot。",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": {"service_worker": "background.js"},
+  "action": {"default_popup": "popup.html", "default_title": "AI-bot 音乐封面"}
+}

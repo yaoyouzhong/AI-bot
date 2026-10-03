@@ -102,10 +102,10 @@ internal sealed class DeviceCenterForm : Form
             _manage.Items.Add(new ToolStripSeparator());_manage.Items.Add("移除设备…",null,async(_,_)=>await Change(d,true));
             _connection.Margin=new Padding(0,0,0,12);_detail.Controls.Add(_health);_detail.Controls.Add(_transport);_detail.Controls.Add(_connection);
             var grid=ActionGrid(_detail);
-            string[] actions=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["voice","birthday-settings","data","tab5"];
+            string[] actions=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["tab5-display","voice","birthday-settings","task-pins","data","tab5"];
             foreach(string action in actions) {
                 if(action=="data"){
-                    Card(grid,"数据设置","采集内容与国产模型",()=>{using var dialog=new DeviceDataForm(_store,d.Id);if(dialog.ShowDialog(this)==DialogResult.OK){_action(d.Id,"data-changed");Reload();}});continue;
+                    Card(grid,"数据设置",Description(action),()=>{using var dialog=new DeviceDataForm(_store,d.Id);if(dialog.ShowDialog(this)==DialogResult.OK){_action(d.Id,"data-changed");Reload();}});continue;
                 }
                 string title=action switch {"tab5"=>"连接升级","birthday-settings"=>"日历生日","legacy-settings"=>"连接设置","cycle"=>"显示设置","appearance"=>"外观设置",_=>DeviceCapabilities.Actions(d.Kind).Single(c=>c.Action==action).Label};
                 var button=Card(grid,title,Description(action),()=>_action(d.Id,action));_actions.Add((button,action));
@@ -132,6 +132,9 @@ internal sealed class DeviceCenterForm : Form
         var bridge=ActionGrid(_bridge);
         Card(bridge,"开机启动",_setting("startup")?"已开启 · 点击关闭":"已关闭 · 点击开启",()=>_common("startup"));
         Card(bridge,"服务状态","连接状态与数据更新",()=>_common("status"));
+        Card(bridge,"软件固件","版本、兼容与升级入口",()=>_common("updates"));
+        Card(bridge,"配置迁移","备份、预览与选择恢复",()=>_common("configuration-backup"));
+        Card(bridge,"提醒管理","勿扰时段与提醒记录",()=>_common("notifications"));
         Card(bridge,"关于应用","版本、许可与项目信息",()=>_common("about"));
     }
     private async Task Change(RegisteredDevice d,bool remove) {
@@ -146,7 +149,7 @@ internal sealed class DeviceCenterForm : Form
     }
     private void RefreshStatus() {
         if(Selected is not { } d)return;var v=_view(d);
-        string state=d.Enabled?v.Status:"已停用";if(v.Online&&v.Transport is not null)state+=" · "+v.Transport;if(_state.Text!=state)_state.Text=state;_state.ForeColor=d.Enabled&&v.Online?Color.FromArgb(24,123,72):Color.DimGray;
+        string state=d.Enabled?v.Status:"已停用";if(_state.Text!=state)_state.Text=state;_state.ForeColor=d.Enabled&&v.Online?Color.FromArgb(24,123,72):Color.DimGray;
         string firmware="固件 "+v.Firmware;if(_firmware.Text!=firmware)_firmware.Text=firmware;
         bool structured=v.Usb is not null;_transport.Visible=structured;
         string?[] values=[v.Usb,v.Wifi,v.Bluetooth];string[] names=["USB","Wi-Fi","蓝牙"];
@@ -157,9 +160,9 @@ internal sealed class DeviceCenterForm : Form
         foreach(var item in _manage.Items.OfType<ToolStripMenuItem>().Where(i=>i.Tag is string))item.Enabled=DeviceCapabilities.Allows(d,(string)item.Tag!)&&(!DeviceCapabilities.RequiresOnline((string)item.Tag!)||v.Online);
     }
     private static string Description(string action)=>action switch {
-        "tab5"=>"连接、Wi-Fi 与固件", "voice"=>"豆包语音与麦克风", "birthday-settings"=>"生日、农历与提醒",
-        "legacy-settings"=>"连接方式与空闲屏保", "cycle"=>"亮度、页面与自动轮播", "mirror"=>"预览小屏当前画面",
-        "flash"=>"选择固件并升级", "pet-gallery"=>"浏览桌宠素材", "appearance"=>"天气动画、桌宠与素材", _=>""
+        "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"配置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "data"=>"选择需要的数据",
+        "legacy-settings"=>"设置连接与屏保", "cycle"=>"设置亮度与轮播", "mirror"=>"预览小屏当前画面",
+        "flash"=>"选择固件并升级", "pet-gallery"=>"浏览桌宠素材", "appearance"=>"选择动画与桌宠", _=>""
     };
     private static void Clear(Control panel){foreach(Control c in panel.Controls.Cast<Control>().ToArray())c.Dispose();panel.Controls.Clear();}
     private static FlowLayoutPanel Column(){var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(4),Margin=Padding.Empty,BackColor=Color.White};SettingsWindow.FitFlow(panel);return panel;}

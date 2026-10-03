@@ -9,13 +9,15 @@ internal sealed class Tab5BleVoice(
     Func<CancellationToken,Task<byte[]>> read,
     Func<byte[],CancellationToken,Task> write,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>> handle,
-    int mtu, int maximumResponse=12288, int deadlineSeconds=12, int fragmentSize=480, int responseChunk=0)
+    int mtu, int maximumResponse=12288, int deadlineSeconds=12, int fragmentSize=480, int responseChunk=0,string transportMode="read/ack",int maximumRequest=12288,Func<bool>? bulkPriority=null)
 {
     private uint _completed;
     internal long LastActive {get;private set;}
     internal uint CompletedCount {get;private set;}
     internal string Progress {get;private set;}="idle";
     internal string Timing {get;private set;}="pending";
+    private int _bulkActive;
+    internal bool BulkActive=>Volatile.Read(ref _bulkActive)!=0;
     internal async Task<bool> PumpAsync(CancellationToken token)
     {
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromSeconds(deadlineSeconds));
@@ -29,8 +31,10 @@ internal sealed class Tab5BleVoice(
         LastActive=Environment.TickCount64;
         if(id==_completed)return true;
         int total=BinaryPrimitives.ReadUInt16LittleEndian(part.AsSpan(6));
-        if(total is <124 or >12288)throw new IOException("BLE voice length invalid");
+        if(total<124||total>maximumRequest)throw new IOException("BLE voice length invalid");
         var request=new byte[total];int offset=0;
+        Volatile.Write(ref _bulkActive,total>12288||bulkPriority?.Invoke()==true?1:0);
+        try {
         while(true) {
             Progress=$"read request {offset}/{total}";
             if(part.Length<=8||part.Length>fragmentSize+8||BinaryPrimitives.ReadUInt32LittleEndian(part)!=id||
@@ -47,7 +51,7 @@ internal sealed class Tab5BleVoice(
         long handling=Environment.TickCount64;
         var (status,response)=await handle(Encoding.ASCII.GetString(request,0,32),Encoding.ASCII.GetString(request,32,64),request[96..],token);
         long writing=Environment.TickCount64;
-        if(status!=200||response is null||(response.Length<28||response.Length>maximumResponse))throw new IOException("BLE voice authentication failed");
+        if(status!=200||response is null||(response.Length<28||response.Length>maximumResponse))throw new IOException($"RPC response rejected: status={status}, bytes={response?.Length??0}");
         int chunk=responseChunk>0?responseChunk:Math.Clamp(mtu-3,20,244)-9;
         for(offset=0;offset<response.Length;offset+=chunk) {
             Progress=$"write response {offset}/{response.Length}";
@@ -59,6 +63,7 @@ internal sealed class Tab5BleVoice(
         }
         _completed=id;CompletedCount++;Progress=$"response accepted {response.Length}/{response.Length}";
         LastActive=Environment.TickCount64;
-        Timing=$"request={handling-started}ms; handler={writing-handling}ms; response={Environment.TickCount64-writing}ms; bytes={response.Length}";return true;
+        Timing=$"request={handling-started}ms; handler={writing-handling}ms; response={Environment.TickCount64-writing}ms; requestBytes={total}; bytes={response.Length}; mtu={mtu}; flow={transportMode}";return true;
+        } finally {Volatile.Write(ref _bulkActive,0);}
     }
 }

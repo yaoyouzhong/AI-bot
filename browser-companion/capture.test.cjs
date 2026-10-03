@@ -1,0 +1,16 @@
+const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
+const code=fs.readFileSync(__dirname+"/capture.js","utf8");
+const events=[];let tick,visibleTitle="Video A";
+const metadata={title:"Video A",artist:"Artist A",artwork:[{src:"https://images.example.org/small.jpg",sizes:"150x83"},{src:"https://images.example.org/large.jpg",sizes:"1280x720"}]};
+const media={ended:false,poster:""};const location={hostname:"www.youtube.com",pathname:"/watch",href:"https://www.youtube.com/watch?v=abcdefghijk"};
+const context={window:{dispatchEvent:event=>events.push(JSON.parse(event.detail))},document:{querySelector:s=>s==="video, audio"?media:{textContent:visibleTitle}},navigator:{mediaSession:{metadata}},location,URL,Date,CustomEvent:class{constructor(name,options){this.detail=options.detail;}},setInterval:fn=>tick=fn};
+vm.runInNewContext(code,context);assert.equal(events.length,1);assert.equal(events[0].youtubeVideoId,"abcdefghijk");assert.equal(events[0].artwork[0],"https://images.example.org/large.jpg");
+tick();assert.equal(events.length,1);
+location.href="https://www.youtube.com/watch?v=lmnopqrstuv";visibleTitle="Video B";tick();assert.equal(events.length,1);
+metadata.title="Video B";tick();assert.equal(events[1].youtubeVideoId,"lmnopqrstuv");assert.equal(events[1].title,"Video B");
+location.hostname="player.example.org";location.pathname="/music";metadata.title="Song C";metadata.artist="Artist C";tick();assert.equal(events[2].youtubeVideoId,"");assert.equal(events[2].title,"Song C");
+media.ended=true;metadata.title="Ended";tick();assert.equal(events.length,3);
+const manifest=JSON.parse(fs.readFileSync(__dirname+"/manifest.json","utf8"));
+assert(!manifest.permissions.includes("history")&&!manifest.permissions.includes("tabs")&&!manifest.permissions.includes("cookies"));
+assert.deepEqual(manifest.host_permissions,["http://127.0.0.1/*"]);
+console.log("BROWSER_CAPTURE_OK next-video/generic-media-session/largest-artwork/navigation-stale-title/ended/optional-site-access");

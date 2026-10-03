@@ -62,6 +62,8 @@ git status --short
 
 ## Release boundary
 
+- TAB5 本地固件交付统一使用 `artifacts/firmware/tab5/latest/aibot_tab5.bin`；通过 `scripts/prepare_tab5_firmware.ps1` 校验并生成，历史包保存在同级 `versions/`。更新说明必须包含分类标题和列表，并使用实际 sidecar 做预览。详见 `docs/TAB5-FIRMWARE-WORKFLOW.md`。
+
 - 未经明确授权，不执行 `git push`、创建标签或发布 GitHub Release。
 - CI 只验证；Release 工作流只响应显式推送的 `v*` 标签。
 - 发布包必须附带 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和 SHA-256 校验文件。

@@ -34,6 +34,7 @@ internal sealed class MirrorForm : Form
     private readonly Func<Task<UsbDeviceInfo>>? _readDevice;
     private QuotaTrendForm? _trend;
     private bool _openingQuotaTrend;
+    private bool _openingPageMenu;
 
     internal MirrorForm(Func<StatusSnapshot> capture, Func<string> mode,Func<string,bool>? select=null,Func<int,bool>? brightness=null,Func<Task<UsbDeviceInfo>>? readDevice=null)
     {
@@ -55,7 +56,11 @@ internal sealed class MirrorForm : Form
         DpiChanged+=(_,_)=>LayoutShortcuts();
         _timer.Tick += (_, _) => {SyncModes();Invalidate();};
         VisibleChanged+=async(_,_)=>{if(Visible){_timer.Start();SyncModes();await RefreshDevice();}else _timer.Stop();};
-        // Focus changes (notifications, menus, other apps) do not close the preview.
+        Deactivate+=(_,_)=>{if(!_openingPageMenu&&!_pageMenu.Visible)Hide();};
+        _pageMenu.Closed+=(_,e)=>{
+            if(e.CloseReason==ToolStripDropDownCloseReason.AppFocusChange||
+               e.CloseReason==ToolStripDropDownCloseReason.AppClicked&&!Bounds.Contains(Cursor.Position))Hide();
+        };
     }
     internal void ShowQuotaTrend()
     {
@@ -101,7 +106,8 @@ internal sealed class MirrorForm : Form
     {
         _pageMenu.Items.Clear();string current=DisplayedMode;
         foreach(var page in _choices){var item=new ToolStripMenuItem(page.Label){Checked=page.Mode==current,Tag=page.Mode};item.Click+=(_,_)=>SelectPage(page.Mode);_pageMenu.Items.Add(item);}
-        _pageMenu.Show(_pages,new Point(0,_pages.Height+4));
+        _openingPageMenu=true;
+        try{_pageMenu.Show(_pages,new Point(0,_pages.Height+4));}finally{_openingPageMenu=false;}
     }
     private void StepPage(int direction)
     {

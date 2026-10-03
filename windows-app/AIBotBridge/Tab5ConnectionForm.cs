@@ -1,11 +1,11 @@
-﻿namespace AIBotBridge;
+namespace AIBotBridge;
 
 internal sealed class Tab5ConnectionForm : Form
 {
     private readonly CancellationTokenSource _stop=new();
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=1000};
     private bool _resourcesDisposed;
-    internal Tab5ConnectionForm(Tab5Service service,bool loadNetworks=true)
+    internal Tab5ConnectionForm(Tab5Service service,bool loadNetworks=true,bool showUpgrade=false)
     {
         SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         Font=new Font("Microsoft YaHei UI",9F);Text="TAB5 连接";
@@ -23,6 +23,21 @@ internal sealed class Tab5ConnectionForm : Form
             tab.Controls.Add(panel);SettingsWindow.FitFlow(panel);return panel;
         }
         var network=Page("Wi-Fi");var usb=Page("USB 配对");var upgrade=Page("固件升级");var audio=Page("语音");
+        if(showUpgrade)tabs.SelectedIndex=2;
+        var benchmark=Page("传输测速");
+        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="不拍照、不写闪存。自动模式测试可用通道；固定模式只测所选通道。每路上下行各 3 次，USB 用于读取结果。"});
+        var benchmarkStart=new Button{Text="开始测速"};var benchmarkStop=new Button{Text="停止",Enabled=false};
+        benchmark.Controls.Add(Buttons(benchmarkStart,benchmarkStop));
+        var benchmarkResult=new TextBox{Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Height=220,Width=550,Text=Tab5Service.FormatBenchmark(service.BenchmarkDiagnostic)};benchmark.Controls.Add(benchmarkResult);
+        CancellationTokenSource? benchmarkCancel=null;
+        benchmarkStop.Click+=(_,_)=>benchmarkCancel?.Cancel();
+        benchmarkStart.Click+=async(_,_)=> {
+            benchmarkStart.Enabled=false;benchmarkStop.Enabled=true;benchmarkCancel=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
+            try {await service.BenchmarkAsync(value=>{if(!IsDisposed)benchmarkResult.Text=Tab5Service.FormatBenchmark(value);},benchmarkCancel.Token);}
+            catch(OperationCanceledException){if(!IsDisposed)benchmarkResult.Text="正在停止，等待当前分段结束。";}
+            catch(Exception ex){if(!IsDisposed)benchmarkResult.Text=ex.Message;}
+            finally{benchmarkCancel.Dispose();benchmarkCancel=null;if(!IsDisposed){benchmarkStart.Enabled=true;benchmarkStop.Enabled=false;}}
+        };
         var result=new Label{AutoSize=true,Dock=DockStyle.Fill,Padding=new Padding(0,8,0,0),MinimumSize=new Size(0,30),Text="",ForeColor=Color.FromArgb(64,83,101)};
         layout.Controls.Add(result,0,2);
         network.Controls.Add(Heading("已保存的 Wi-Fi"));
@@ -57,18 +72,24 @@ internal sealed class Tab5ConnectionForm : Form
         upgrade.Controls.Add(Heading("固件升级"));
         var otaStatus=new Label{AutoSize=true,MaximumSize=new Size(570,0),Text=service.OtaSummary,Margin=new Padding(0,12,0,16)};upgrade.Controls.Add(otaStatus);
         var offerOta=new Button{Text="选择固件…"};var cancelOta=new Button{Text="停止提供"};upgrade.Controls.Add(Buttons(offerOta,cancelOta));StyleCompactButton(offerOta,true);
+        var verifyOta=new Button{Text="核验启动（USB）"};upgrade.Controls.Add(Buttons(verifyOta));
+        verifyOta.Click+=async(_,_)=>{verifyOta.Enabled=false;try{result.Text="正在核验启动…";await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed)result.Text="启动核验通过。";}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed)result.Text=ex.Message;}finally{if(!IsDisposed)verifyOta.Enabled=true;}};
         var releaseNotes=new Tab5ReleaseNotes();upgrade.Controls.Add(releaseNotes);
         void UpdateOffer() {
             if(otaStatus.Text!=service.OtaSummary)otaStatus.Text=service.OtaSummary;
             releaseNotes.Visible=cancelOta.Enabled=service.HasOta;releaseNotes.SetNotes(service.OtaNotes);
         }
         UpdateOffer();
-        upgrade.Controls.Add(Note("固件升级使用 USB 或 Wi-Fi，并保持供电。蓝牙用于日常数据和会话，不用于大体积固件下载。0.2.39 / 0.2.40 请先在 TAB5 将连接方式切到 USB 或 Wi-Fi。"));
+        upgrade.Controls.Add(Note("升级需连接 USB 或 Wi-Fi，并保持供电。"));
         offerOta.Click+=(_,_)=> {
             using var pick=new OpenFileDialog{Title="选择 TAB5 固件",Filter="TAB5 固件 (*.bin)|*.bin",CheckFileExists=true};
             if(pick.ShowDialog(this)!=DialogResult.OK)return;
-            try{service.OfferOta(pick.FileName);UpdateOffer();result.Text="固件已提供。";}
-            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException){result.Text=ex.Message;}
+            try{
+                var candidate=Tab5OtaPackage.Load(pick.FileName);
+                if(MessageBox.Show(this,$"TAB5 固件 {candidate.Version}\n大小：{candidate.Image.Length:N0} 字节\nSHA-256：{candidate.Sha256}\nESP32-P4 镜像结构和内置校验通过。\n\n{candidate.Notes}\n\n提供给设备后，在 TAB5 上开始安装。", "确认固件",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return;
+                service.OfferOta(candidate);UpdateOffer();result.Text="已提供固件，等待设备确认。";
+            }
+            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException){result.Text=ex.Message;}
         };
         cancelOta.Click+=(_,_)=>{service.CancelOta();UpdateOffer();result.Text="";};
         audio.Controls.Add(Heading("语音输入"));audio.Controls.Add(Note("识别后在 TAB5 检查，再手动发送。"));

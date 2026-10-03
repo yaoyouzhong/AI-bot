@@ -21,9 +21,49 @@ internal static class Tab5BleVoiceSelfTest
         },handle,247);
         await rpc.PumpAsync(CancellationToken.None);return reply.ToArray();
     }
+    private static async Task VerifyBulkLifetimeAsync() {
+        foreach(bool continuation in new[]{false,true})foreach(int fault in new[]{0,1,2}) {
+            byte[] request=new byte[continuation?512:13000];int at=0;
+            var handling=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var handleRelease=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var responding=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var responseRelease=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var cancel=new CancellationTokenSource();
+            var pump=new Tab5BleVoice(ct=> {
+                ct.ThrowIfCancellationRequested();int n=Math.Min(480,request.Length-at);var p=new byte[8+n];
+                BinaryPrimitives.WriteUInt32LittleEndian(p,42);BinaryPrimitives.WriteUInt16LittleEndian(p.AsSpan(4),(ushort)at);
+                BinaryPrimitives.WriteUInt16LittleEndian(p.AsSpan(6),(ushort)request.Length);request.AsSpan(at,n).CopyTo(p.AsSpan(8));return Task.FromResult(p);
+            },async (p,ct)=> {
+                if(p[0]==1){at=BinaryPrimitives.ReadUInt16LittleEndian(p.AsSpan(5));return;}
+                responding.SetResult();await responseRelease.Task.WaitAsync(ct);
+                if(fault==2)throw new IOException("injected final response failure");
+            },async (_,_,body,ct)=> {
+                if(body.Length!=request.Length-96)throw new Exception("Bulk bytes changed");
+                handling.SetResult();await handleRelease.Task.WaitAsync(ct);
+                return (200,new byte[28]);
+            },247,maximumRequest:13000,bulkPriority:()=>continuation);
+            var running=pump.PumpAsync(cancel.Token);
+            await handling.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            if(!pump.BulkActive)throw new Exception("Photo priority ended before attachment handling completed");
+            if(fault==1) {
+                cancel.Cancel();
+                try{await running;throw new Exception("Bulk cancellation ignored");}catch(OperationCanceledException){}
+            }else {
+                handleRelease.SetResult();await responding.Task.WaitAsync(TimeSpan.FromSeconds(2));
+                if(!pump.BulkActive)throw new Exception("Photo priority ended before final reply acknowledgement");
+                responseRelease.SetResult();
+                try{await running;if(fault==2)throw new Exception("Response failure ignored");}
+                catch(IOException) when(fault==2){}
+            }
+            if(pump.BulkActive||pump.CompletedCount!=(fault==0?1u:0u))throw new Exception("Bulk priority leaked or failed response counted as completed");
+        }
+        Console.WriteLine("TAB5_BULK_PRIORITY_OK attachment handler/final response retain priority; success/cancel/failure release it");
+    }
     internal static async Task RunAsync(string? encodedFixture=null)
     {
-        foreach(int mtu in new[]{23,247}) {
+        await VerifyBulkLifetimeAsync();
+        await Tab5BleMailboxWindowSelfTest.RunAsync();
+        foreach(int mtu in new[]{23,247,517}) {
             var key=RandomNumberGenerator.GetBytes(32);string nonce=Guid.NewGuid().ToString("N");
             var clear=JsonSerializer.SerializeToUtf8Bytes(new {op="audio",seq=0,pcm=new string('A',2144)});
             var encrypted=Tab5Protocol.Encrypt(key,nonce,clear);
@@ -72,6 +112,6 @@ internal static class Tab5BleVoiceSelfTest
             double snr=10*Math.Log10(signal/error);if(snr<20)throw new Exception("ADPCM reconstruction quality failed");
             Console.WriteLine($"TAB5_ADPCM_CROSS_LANGUAGE_PASS SNR={snr:F1}dB input=6400 encoded=1606");
         }
-        Console.WriteLine("TAB5_BLE_VOICE_PASS fragmented encrypted RPC, MTU 23/247, single execution, invalid ordering, cancellation, bounded ADPCM");
+        Console.WriteLine("TAB5_BLE_VOICE_PASS fragmented encrypted RPC, MTU 23/247/517, single execution, invalid ordering, cancellation, bounded ADPCM");
     }
 }

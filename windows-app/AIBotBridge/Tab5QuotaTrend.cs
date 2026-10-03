@@ -9,6 +9,18 @@ internal static class Tab5QuotaTrend
     private static Trend? _cached;
     private static long _readAt;
     private static DateOnly _day;
+    internal static object Diagnostics()
+    {
+        var rows=QuotaHistory.Shared.Read();
+        var now=DateTimeOffset.UtcNow;
+        var today=DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now,QuotaHistory.StatisticsZone).DateTime);
+        return new {
+            samples=rows.Length,firstSample=rows.FirstOrDefault()?.At,lastSample=rows.LastOrDefault()?.At,
+            storageError=QuotaHistory.Shared.Error,
+            daily=QuotaHistory.Daily(rows,today,7,QuotaHistory.StatisticsZone),
+            transmitted=Snapshot()
+        };
+    }
     internal static Trend Snapshot()
     {
         lock (Gate)

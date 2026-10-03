@@ -35,6 +35,7 @@ internal static class DeviceStatusFrame
         }
         if (data["music"] is JsonObject music) {
             music.Remove("album");
+            music.Remove("artworkWidth");music.Remove("artworkHeight");
             if(snapshot.Music?.TimelineAvailable==false){music["durationSeconds"]=0;music["elapsedSeconds"]=0;}
         }
         var frame = new JsonObject { ["version"] = 1, ["type"] = "status", ["data"] = data };

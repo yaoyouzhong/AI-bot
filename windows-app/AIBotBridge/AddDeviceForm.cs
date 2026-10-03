@@ -9,17 +9,25 @@ internal sealed class AddDeviceForm : Form
     private bool _busy;
     internal RegisteredDevice? Added {get;private set;}
     internal AddDeviceForm(DeviceRegistry registry,bool preview=false) {
+        SuspendLayout();
         Text="添加设备";Font=new Font("Microsoft YaHei UI",9F);AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         ClientSize=new(540,365);MinimumSize=new(480,350);StartPosition=FormStartPosition.CenterParent;
         var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,AutoScroll=true,WrapContents=false,Padding=new Padding(20)};Controls.Add(panel);SettingsWindow.FitFlow(panel);
         var kind=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Label"};
         var choices=new[]{new Choice(HardwareKind.Tab5,"M5Stack TAB5"),new Choice(HardwareKind.Esp8266,"ESP8266 小屏")}.Where(c=>!registry.Devices.Any(d=>d.Kind==c.Kind)).ToArray();
         if(choices.Length==0) {
-            kind.Dispose();ClientSize=new(440,250);MinimumSize=new(420,260);
-            panel.Controls.Add(new Label{Text="支持的设备均已添加",AutoSize=true,Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,0,0,14)});
-            foreach(var device in registry.Devices)panel.Controls.Add(new Label{Text=DeviceRegistryStore.Model(device.Kind)+" · 已添加"+(device.Enabled?"":"（已停用）"),AutoSize=true,Margin=new Padding(0,0,0,10)});
-            panel.Controls.Add(new Label{Text="当前支持每种型号一台。\n如需更换，请先在原设备的“管理”菜单中移除，再添加新设备。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,6,0,14)});
-            var close=DeviceCenterForm.Button("关闭",()=>DialogResult=DialogResult.Cancel);panel.Controls.Add(close);AcceptButton=close;CancelButton=close;SettingsWindow.FitScreen(this);return;
+            kind.Dispose();Controls.Remove(panel);panel.Dispose();
+            MinimumSize=new(400,250);ClientSize=new(420,230);BackColor=Color.White;MinimizeBox=false;MaximizeBox=false;
+            var root=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Padding=new Padding(20,16,20,16),Margin=Padding.Empty};
+            root.ColumnStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));
+            var content=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,AutoScroll=true,WrapContents=false,Margin=Padding.Empty,Name="add-device-content"};
+            SettingsWindow.FitFlow(content);root.Controls.Add(content,0,0);
+            content.Controls.Add(new Label{Text="支持的设备均已添加",AutoSize=true,Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,0,0,12)});
+            foreach(var device in registry.Devices)content.Controls.Add(new Label{Text=DeviceRegistryStore.Model(device.Kind)+" · 已添加"+(device.Enabled?"":"（已停用）"),AutoSize=true,Margin=new Padding(0,0,0,8)});
+            content.Controls.Add(new Label{Text="当前支持每种型号一台。\n更换时先在设备中心“管理 → 移除设备”，再添加新设备。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,8,0,0)});
+            var footer=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,Margin=new Padding(0,12,0,0),Name="add-device-actions"};
+            var close=DeviceCenterForm.Button("关闭",()=>DialogResult=DialogResult.Cancel);close.Margin=Padding.Empty;footer.Controls.Add(close);root.Controls.Add(footer,0,1);Controls.Add(root);
+            AcceptButton=close;CancelButton=close;SettingsWindow.FitScreen(this);ResumeLayout(true);return;
         }
         panel.Controls.Add(new Label{Text="连接 USB 数据线，验证设备后添加。",AutoSize=true,Font=new Font(Font.FontFamily,12,FontStyle.Bold)});
         kind.Items.AddRange(choices.Cast<object>().ToArray());kind.SelectedIndex=0;panel.Controls.Add(kind);
@@ -60,7 +68,7 @@ internal sealed class AddDeviceForm : Form
             finally{_busy=false;if(!IsDisposed)add.Enabled=refresh.Enabled=kind.Enabled=ports.Enabled=install.Enabled=true;}
         };
         install.Text=((Choice)kind.SelectedItem!).Kind==HardwareKind.Tab5?"TAB5 首次安装…":"ESP8266 首次安装…";
-        FormClosing+=(_,e)=>{if(_busy){_stop.Cancel();e.Cancel=true;status.Text="正在取消验证，请稍候再关闭。";}};Refresh();SettingsWindow.FitScreen(this);
+        FormClosing+=(_,e)=>{if(_busy){_stop.Cancel();e.Cancel=true;status.Text="正在取消验证，请稍候再关闭。";}};Refresh();SettingsWindow.FitScreen(this);ResumeLayout(true);
     }
     private sealed record Choice(HardwareKind Kind,string Label);
     protected override void Dispose(bool disposing){if(disposing){_stop.Cancel();_stop.Dispose();}base.Dispose(disposing);}

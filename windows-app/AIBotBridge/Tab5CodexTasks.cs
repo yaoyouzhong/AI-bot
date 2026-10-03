@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace AIBotBridge;
 
-internal sealed record Tab5CodexTask(string Id, string Title, string Folder, long UpdatedAt, string ProjectId = "", int ProjectOrder = int.MaxValue);
+internal sealed record Tab5CodexTask(string Id, string Title, string Folder, long UpdatedAt, string ProjectId = "", int ProjectOrder = int.MaxValue) { public bool Pinned { get; init; } }
 internal sealed record Tab5SavedProject(string Id, string Name, string Root, int Order = 0);
 
 // The desktop catalog is only an index. Writes go through its live desktop owner.
@@ -211,8 +211,7 @@ internal sealed class Tab5CodexTasks : IDisposable
             ready=_readyReplies.ToArray().ToDictionary(p=>p.Key,p=>p.Value);
         }
         // Under transport pressure retain each project plus the viewed task first.
-        var essentials=catalog.GroupBy(t=>t.ProjectId).Select(g=>g.First().Id).ToHashSet();
-        var tasks=catalog.OrderByDescending(t=>t.Id==overview?.Id).ThenByDescending(t=>t.Id==viewed).ThenByDescending(t=>essentials.Contains(t.Id)).ThenByDescending(t=>ready.ContainsKey(t.Id)).Take(taskLimit).ToArray();
+        var tasks=Tab5TaskPins.Select(catalog,taskLimit,overview?.Id,viewed,ready.Keys.ToHashSet());
         if(view is not null&&viewed is not null)responses[viewed]=view.Text;
         var projects = tasks.GroupBy(t => t.ProjectId).OrderByDescending(g => g.Max(t => t.UpdatedAt))
             .ThenBy(g => g.Min(t => t.ProjectOrder))
@@ -471,8 +470,12 @@ internal sealed class Tab5CodexTasks : IDisposable
     private void UpdateControl(string taskId,Tab5CodexDesktop.State state)=>Volatile.Write(ref _control,
         new {taskId,turnId=state.TurnId,running=state.Runtime=="active"&&state.Status=="inProgress",waiting=state.Waiting});
     internal (int Status,object Body) UploadImage(string device,string taskId,string requestId,string base64) {
+        try{return UploadImageBytes(device,taskId,requestId,Convert.FromBase64String(base64));}
+        catch(Exception ex) when(ex is FormatException or OutOfMemoryException){return(400,new{error="invalid_image"});}
+    }
+    internal (int Status,object Body) UploadImageBytes(string device,string taskId,string requestId,byte[] bytes) {
         if(!_catalog().Any(t=>t.Id==taskId))return(404,new{error="task_not_in_recent_catalog"});
-        try{return(200,_images.Upload(device,taskId,requestId,Convert.FromBase64String(base64)));}
+        try{return(200,_images.Upload(device,taskId,requestId,bytes));}
         catch(Exception ex) when(ex is ArgumentException or FormatException or OutOfMemoryException){return(400,new{error="invalid_image"});}
         catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or CryptographicException or System.Runtime.InteropServices.ExternalException)
         {return(503,new{error="image_storage_unavailable"});}

@@ -24,21 +24,29 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     private Tab5DoubaoVoice? _doubao;
     private readonly Tab5DoubaoMicrophone _microphone=new();
     private Task _microphoneRestore=Task.CompletedTask;
+    private bool _completionHandled;
+    private readonly Label _status=new(){Text="使用豆包识别，回到 TAB5 检查后手动发送。",AutoSize=true,MaximumSize=new Size(420,0),Padding=new Padding(8),Dock=DockStyle.Top};
+    internal string TriggerMode=>_doubao is null?"USB HID compatibility":"verified native control";
     private string? _microphoneRestoreError;
     internal void InitializeDraft() {
         SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;Font=new Font("Microsoft YaHei UI",9F);
         Text="TAB5 语音输入";ClientSize=new Size(440,190);StartPosition=FormStartPosition.Manual;
         FormBorderStyle=FormBorderStyle.FixedToolWindow;ShowInTaskbar=false;Opacity=0;
         Controls.Add(_text);
-        Controls.Add(new Label {Text="使用豆包识别，回到 TAB5 检查后手动发送。",AutoSize=true,MaximumSize=new Size(420,0),Padding=new Padding(8),Dock=DockStyle.Top});
+        Controls.Add(_status);
         SettingsWindow.FitScreen(this);ResumeLayout(true);
     }
     string ITab5VoiceEditor.Text=>_text.Text;
     internal string InputLayout=>Tab5InputMethod.CurrentName();
     public bool SafeFocus=>Visible&&GetForegroundWindow()==Handle&&_text.Focused;
-    internal void Prepare() {Opacity=0;Show();Activate();_text.Focus();}
-    internal void ShowForSetup() {Opacity=1;Show();Activate();_text.Focus();}
-    internal void RevealFailure() {if(Visible)Opacity=1;}
+    internal void Prepare() {
+        _completionHandled=false;_status.Text="使用豆包识别，回到 TAB5 检查后手动发送。";
+        // The IME still needs a real focused edit control, but normal TAB5
+        // dictation must not expose a second desktop editor. Failures reveal it.
+        ShowInTaskbar=false;Opacity=0;Show();ActiveControl=_text;Activate();_text.Select();
+    }
+    internal void ShowForSetup() {ShowInTaskbar=true;Opacity=1;Show();ActiveControl=_text;Activate();_text.Select();}
+    internal void RevealFailure(string? message=null) {if(Visible){ShowInTaskbar=true;Opacity=1;if(message is not null)_status.Text=message;}}
     internal async Task PrepareAsync(CancellationToken token) {
         await _microphoneRestore;
         if(_microphoneRestoreError is not null) {
@@ -63,13 +71,25 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
             if(SafeFocus) {
                 if(stableSince==0)stableSince=Environment.TickCount64;
                 if(Environment.TickCount64-stableSince>=350) {
+                    // Do not discard ownership while the native worker is still
+                    // completing the previous stop (for example after focus loss).
+                    if(_doubao is not null&&!_doubao.CaptureStopped) {
+                        _doubao.Stop();
+                        long stopUntil=Environment.TickCount64+2500;
+                        while(!_doubao.CaptureStopped&&Environment.TickCount64<stopUntil)await Task.Delay(50,token);
+                        if(!_doubao.CaptureStopped)throw new InvalidOperationException("上一轮豆包语音尚未结束，请稍后重试");
+                        if(!SafeFocus)throw new InvalidOperationException("语音输入焦点已变化，请重新开始");
+                    }
                     _doubao=Tab5DoubaoVoice.TryCreate(()=>SafeFocus&&IsDoubaoLayout());
                     if(_doubao is not null) {
                         if(!_doubao.IsIdle)throw new InvalidOperationException("豆包正在处理其他语音，请先结束后重试");
-                        try {await _microphone.AcquireAsync();token.ThrowIfCancellationRequested();}
-                        catch {await _microphone.RestoreAsync();throw;}
-                        if(!SafeFocus) {await _microphone.RestoreAsync();throw new InvalidOperationException("语音输入焦点已变化，请重新开始");}
                     }
+                    // The USB keyboard fallback also needs the bridge's audio
+                    // endpoint. Otherwise an unavailable saved mic can make the
+                    // IME silently listen to a different physical microphone.
+                    try {await _microphone.AcquireAsync();token.ThrowIfCancellationRequested();}
+                    catch {await _microphone.RestoreAsync();throw;}
+                    if(!SafeFocus) {await _microphone.RestoreAsync();throw new InvalidOperationException("语音输入焦点已变化，请重新开始");}
                     return;
                 }
             } else {
@@ -78,16 +98,18 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
                     activationRequested=true;
                     RequestForegroundForVoice();
                 }
-                Activate();_text.Focus();
+                ActiveControl=_text;Activate();_text.Select();
             }
         }
         RevealFailure();
         throw new InvalidOperationException("Windows 未允许语音输入获得焦点，请点一下电脑上的语音输入框后重试");
     }
-    internal void CompleteReview() {
-        if(!Visible)return;
+    internal void CompleteReview(bool keepVisible=false) {
+        if(!Visible||_completionHandled)return;
         if(_doubao is not null&&!_doubao.CaptureStopped)return;
+        _completionHandled=true;
         _microphoneRestore=RestoreMicrophoneAsync();
+        if(keepVisible)return;
         var previous=_previousWindow;_previousWindow=IntPtr.Zero;
         // Restore only while we still own the foreground. Do not interrupt a
         // window the user deliberately switched to during recognition.
@@ -99,7 +121,7 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     }
     private async Task RestoreMicrophoneAsync() {
         try {await _microphone.RestoreAsync().ConfigureAwait(false);_microphoneRestoreError=null;}
-        catch(Exception ex) when(ex is InvalidOperationException or IOException or UnauthorizedAccessException) {
+        catch(Exception ex) when(ex is InvalidOperationException or IOException or UnauthorizedAccessException or JsonException or TimeoutException or OperationCanceledException) {
             _microphoneRestoreError="豆包麦克风尚未恢复，请在语音设置中检查";
             Tab5VoiceTiming.Log("doubao-microphone-restore-pending",Environment.TickCount64);
         }
@@ -126,6 +148,7 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     }
     bool ITab5VoiceEditor.Stop()=>_doubao is not null?_doubao.Stop():SafeFocus&&(physicalToggle?.Invoke(shortcut())??false);
     bool ITab5VoiceEditor.CaptureStopped=>_doubao?.CaptureStopped??true;
+    bool ITab5VoiceEditor.RecognitionComplete=>_doubao?.CaptureStopped==true;
     void ITab5VoiceEditor.Clear()=>_text.Clear();
     private static bool IsDoubaoLayout() {
         return Tab5InputMethod.IsDoubao(Tab5InputMethod.CurrentName());
@@ -159,6 +182,7 @@ internal interface ITab5VoiceEndpoint : IDisposable
 }
 internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
 {
+    internal string Diagnostic=>_session.Diagnostic+"; trigger="+_draft.TriggerMode;
     internal bool Busy => _preparing || _session.Active;
     internal bool SettingsEnabled => Volatile.Read(ref _settings).Enabled;
     private sealed class PreviewForm : Form { protected override bool ShowWithoutActivation=>true; }
@@ -180,7 +204,8 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
             _session.Tick();
             if(!_preparing&&_session.Snapshot().State is "review" or "cancelled")_draft.CompleteReview();
             if(!_preparing&&_session.Snapshot().State=="error") {
-                if(((ITab5VoiceEditor)_draft).CaptureStopped)_draft.CompleteReview();else _draft.RevealFailure();
+                _draft.RevealFailure(_session.Snapshot().Message);
+                if(((ITab5VoiceEditor)_draft).CaptureStopped)_draft.CompleteReview(keepVisible:true);
             }
         }catch(Exception ex) when(IsAudioError(ex)){_session.Fail("音频设备已断开，请重新开始");}};
         _timer.Start();
@@ -212,8 +237,9 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
             }catch(Tab5VoiceRequestException ex){
                 // A delayed request for an old voice session must not stop the current one.
                 completion.TrySetResult(new("","","","error",ex.Message,""));
-            }catch(Exception ex) when(IsAudioError(ex)||ex is ArgumentException){
-                _session.Fail(ex is ArgumentException or InvalidOperationException?ex.Message:"音频设备不可用，请检查电脑");
+            }catch(Exception ex) when(IsAudioError(ex)||ex is ArgumentException or IOException or JsonException or TimeoutException or UnauthorizedAccessException){
+                _session.Fail(ex is ArgumentException or InvalidOperationException?ex.Message:
+                    ex is IOException or JsonException or TimeoutException or UnauthorizedAccessException?"语音音源确认失败，请检查电脑语音设置":"音频设备不可用，请检查电脑");
                 completion.TrySetResult(_session.Snapshot());
             }finally{if(ownsPreparation)_preparing=false;}
         });

@@ -10,12 +10,16 @@ internal sealed class LocalStatusServer
     private readonly TcpListener _listener;
     private readonly Func<UsbDeviceInfo>? _deviceInfo;
     private readonly Func<string>? _tab5Info;
+    private readonly Func<string,CancellationToken,Task>? _musicArtwork;
+    private readonly Func<string>? _tab5Crashes;
 
-    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null)
+    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null,Func<string,CancellationToken,Task>? musicArtwork=null,Func<string>? tab5Crashes=null)
     {
         _listener = new TcpListener(IPAddress.Loopback, port);
         _deviceInfo = deviceInfo;
         _tab5Info = tab5Info;
+        _musicArtwork=musicArtwork;
+        _tab5Crashes=tab5Crashes;
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
@@ -57,17 +61,25 @@ internal sealed class LocalStatusServer
         using (var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true))
         {
             var requestLine = await reader.ReadLineAsync(cancellationToken) ?? string.Empty;
-            string? line; int length = 0; bool browser = false; int headerSize = requestLine.Length;
+            string? line; int length = 0; bool browser = false; int headerSize = requestLine.Length;string? origin=null,musicKey=null;
             do
             {
                 line = await reader.ReadLineAsync(cancellationToken);
                 headerSize += line?.Length ?? 0;
                 if (headerSize > 8192) return;
                 if (line?.StartsWith("Content-Length:",StringComparison.OrdinalIgnoreCase)==true) int.TryParse(line.Split(':',2)[1].Trim(),out length);
-                if (line?.StartsWith("Origin:",StringComparison.OrdinalIgnoreCase)==true) browser=true;
+                if (line?.StartsWith("Origin:",StringComparison.OrdinalIgnoreCase)==true){browser=true;origin=line.Split(':',2)[1].Trim();}
+                if(line?.StartsWith("X-AIBot-Music-Key:",StringComparison.OrdinalIgnoreCase)==true)musicKey=line.Split(':',2)[1].Trim();
             } while (!string.IsNullOrEmpty(line));
 
             bool accepted=false;
+            if(_musicArtwork is not null&&requestLine.StartsWith("POST /music/artwork ",StringComparison.Ordinal)&&length is >0 and <=16384&&BrowserMusicArtwork.Authorized(origin,musicKey)) {
+                var text=new StringBuilder();var character=new char[1];
+                while(Encoding.UTF8.GetByteCount(text.ToString())<length&&await reader.ReadAsync(character,cancellationToken)>0)text.Append(character[0]);
+                try {
+                    if(Encoding.UTF8.GetByteCount(text.ToString())==length){await _musicArtwork(text.ToString(),cancellationToken);accepted=true;}
+                }catch(Exception ex) when(ex is JsonException or ArgumentException or System.Net.Http.HttpRequestException or InvalidDataException){ }
+            }
             if (!browser && requestLine.StartsWith("POST /event ",StringComparison.Ordinal) && length is >0 and <=16384)
             {
                 var text=new StringBuilder(); var character=new char[1];
@@ -97,8 +109,12 @@ internal sealed class LocalStatusServer
             if (activity) diagnostics = JsonSerializer.Serialize(SessionActivityReader.Diagnostics(), JsonDefaults.Options);
             var tab5 = !browser && _tab5Info is not null && requestLine.StartsWith("GET /diagnostics/tab5 ", StringComparison.Ordinal);
             if (tab5) diagnostics = JsonSerializer.Serialize(new { summary = _tab5Info!() });
+            var crashes=!browser&&_tab5Crashes is not null&&requestLine.StartsWith("GET /diagnostics/tab5-crashes ",StringComparison.Ordinal);
+            if(crashes)diagnostics=_tab5Crashes!();
             var webQuota = !browser && requestLine.StartsWith("GET /diagnostics/web-quota ", StringComparison.Ordinal);
             if (webQuota) diagnostics = JsonSerializer.Serialize(WebQuotaDiagnostics.Snapshot(), JsonDefaults.Options);
+            var quotaHistory = !browser && requestLine.StartsWith("GET /diagnostics/quota-history ", StringComparison.Ordinal);
+            if (quotaHistory) diagnostics = JsonSerializer.Serialize(Tab5QuotaTrend.Diagnostics(), JsonDefaults.Options);
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
             var pets = !browser && requestLine.StartsWith("GET /diagnostics/pets ", StringComparison.Ordinal);
             var body = diagnostics ?? (pets ? JsonSerializer.Serialize(PetAnimationStore.Shared.Diagnostics(), JsonDefaults.Options) : found
@@ -106,7 +122,7 @@ internal sealed class LocalStatusServer
                 : accepted ? "{\"ok\":true}" : "{\"error\":\"not_found\"}");
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || tab5 ? "200 OK" : "404 Not Found")}\r\n" +
+                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || tab5 || crashes || quotaHistory ? "200 OK" : "404 Not Found")}\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
                 $"Content-Length: {payload.Length}\r\n" +
                 "Connection: close\r\n\r\n");

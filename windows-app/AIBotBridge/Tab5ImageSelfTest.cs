@@ -1,4 +1,5 @@
 using System.Net;
+using System.Buffers.Binary;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -7,6 +8,10 @@ namespace AIBotBridge;
 internal static class Tab5ImageSelfTest
 {
     internal static async Task RunAsync() {
+        foreach(bool binary in new[]{false,true})await RunFormatAsync(binary);
+        Console.WriteLine("TAB5_IMAGE_HTTP_OK binary and legacy encrypted uploads, route bounds, authentication, replay rejection and exact pixels (synthetic image only)");
+    }
+    private static async Task RunFormatAsync(bool binary) {
         string root=Path.Combine(Path.GetTempPath(),"tab5-image-http-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try {
@@ -30,6 +35,16 @@ internal static class Tab5ImageSelfTest
                 await ready.Task;using var client=new HttpClient();
                 string nonce=Guid.NewGuid().ToString("N");
                 var clear=JsonSerializer.SerializeToUtf8Bytes(new{op="image-upload",session,taskId=task,requestId=id,message="",image=Convert.ToBase64String(bytes),issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()});
+                if(binary) {
+                    var metadata=JsonSerializer.SerializeToUtf8Bytes(new{op="image-upload",session,taskId=task,requestId=id,message="",issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()});
+                    clear=new byte[8+metadata.Length+bytes.Length];"T5I1"u8.CopyTo(clear);
+                    BinaryPrimitives.WriteUInt32LittleEndian(clear.AsSpan(4),(uint)metadata.Length);metadata.CopyTo(clear,8);bytes.CopyTo(clear,8+metadata.Length);
+                    if(Tab5ImageBinary.MetadataLength(clear)!=metadata.Length)throw new Exception("Binary image metadata boundary changed");
+                    foreach(uint invalid in new uint[]{0,1,4097,uint.MaxValue}) {
+                        var malformed=clear.ToArray();BinaryPrimitives.WriteUInt32LittleEndian(malformed.AsSpan(4),invalid);
+                        try{Tab5ImageBinary.MetadataLength(malformed);throw new Exception("Invalid image boundary accepted");}catch(ArgumentException){}
+                    }
+                }
                 var packet=Tab5Protocol.Encrypt(key,nonce,clear,Tab5CodexImages.MaxPacket);
                 var proof=Tab5Protocol.Proof(key,$"POST|{pair.DeviceId}|{nonce}|{Convert.ToHexString(SHA256.HashData(packet)).ToLowerInvariant()}");
                 async Task<HttpStatusCode> Post(string route,string suppliedProof) {
@@ -45,6 +60,5 @@ internal static class Tab5ImageSelfTest
                 if(!File.ReadAllBytes(path).SequenceEqual(bytes))throw new Exception("Exact photo bytes survive encrypted HTTP and storage");
             } finally {stop.Cancel();await server;}
         }finally{Directory.Delete(root,true);}
-        Console.WriteLine("TAB5_IMAGE_HTTP_OK large encrypted upload, route bounds, authentication, replay rejection and exact pixels (synthetic image only)");
     }
 }

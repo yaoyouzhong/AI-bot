@@ -50,6 +50,19 @@ internal static class Tab5TelemetrySelfTest
                 throw new Exception("Delayed samples were truncated or compression changed values");
             Console.WriteLine($"TAB5_DELAYED_METRICS_OK samples=64 raw={delayedOutput.Length} packed={delayed.Length}");
             service.Publish(snapshot with {CapturedAt=DateTimeOffset.UtcNow});
+            // Reboot/reconnect discards the device's BLE baseline. Even while
+            // paging, its first frame must be full state before any metrics.
+            byte[] baseline=service.TelemetryFrame(2,true,true,true)!;
+            using(var initial=JsonDocument.Parse(baseline)) {
+                using var initialBytes=new MemoryStream(Convert.FromBase64String(initial.RootElement.GetProperty("payload").GetString()!));
+                using var initialUnzip=new ZLibStream(initialBytes,CompressionMode.Decompress);
+                using var initialJson=JsonDocument.Parse(initialUnzip);
+                if(initialJson.RootElement.GetProperty("type").GetString()!="tab5_status")throw new Exception("Fresh connection received metrics before full state");
+            }
+            service.ResetTelemetryChannel(2);
+            if(!baseline.AsSpan().SequenceEqual(service.TelemetryFrame(2,true,true,true)))throw new Exception("Reconnected device did not receive the full baseline again");
+            _=service.TelemetryFrame(2,true);
+            service.Publish(snapshot with {CapturedAt=DateTimeOffset.UtcNow});
             using(var interactive=JsonDocument.Parse(service.TelemetryFrame(2,true,true,true)!)) {
                 using var packedMetrics=new MemoryStream(Convert.FromBase64String(interactive.RootElement.GetProperty("payload").GetString()!));
                 using var unpackMetrics=new ZLibStream(packedMetrics,CompressionMode.Decompress);
@@ -60,6 +73,50 @@ internal static class Tab5TelemetrySelfTest
                 if(resumed.RootElement.GetProperty("type").GetString()!="tab5_packed")throw new Exception("Deferred catalog lost after interactive paging");
             }
             Console.WriteLine("TAB5_INTERACTIVE_TELEMETRY_OK metrics during paging; deferred full state resumes");
+            Console.WriteLine("TAB5_RECONNECT_TELEMETRY_OK full baseline before metrics, including interactive reconnect");
+            using(var cover=new Bitmap(640,360)) {
+                using(var graphics=Graphics.FromImage(cover))graphics.Clear(Color.Red);
+                var images=NowPlayingService.RenderCoverImages(cover);
+                service.ObserveFirmware("001122334455","0.2.80-ui");
+                service.Publish(snapshot with {Music=new("Video","Artist","",true,0,100,DateTimeOffset.UtcNow){CoverRgb565=images.Legacy,Tab5CoverRgb565=images.Tab5,Tab5CoverJpeg=images.Jpeg}});
+                byte[]? burst=null;
+                for(int i=0;i<4;i++){var candidate=service.TelemetryFrame(1,true)!;using var candidateJson=JsonDocument.Parse(candidate);if(candidateJson.RootElement.GetProperty("type").GetString()=="tab5_resources"){burst=candidate;break;}}
+                if(burst is null||burst.Length>Tab5Protocol.MaximumFrame)throw new Exception("Pending artwork did not get a bounded independent burst");
+                using var burstJson=JsonDocument.Parse(burst);
+                if(burstJson.RootElement.GetProperty("resources").GetArrayLength()>8||burstJson.RootElement.TryGetProperty("data",out _))throw new Exception("Image burst resent a status catalog");
+                service.Publish(snapshot);service.ObserveFirmware("001122334455","0.2.78-ui");
+                Console.WriteLine("TAB5_ARTWORK_BURST_OK bounded image fragments without catalog; legacy version fallback");
+            }
+            // Continuous live-reply reads keep the BLE RPC activity flag set.
+            // They must not starve the full state that keeps that same reader alive.
+            long clock=10000;service.TelemetryClock=()=>clock;service.ResetTelemetryChannel(2);
+            service.TelemetryFrame(2,true,true,true);
+            bool IsFull(byte[] value) {
+                using var wire=JsonDocument.Parse(value);
+                if(wire.RootElement.GetProperty("type").GetString()!="tab5_packed")return wire.RootElement.GetProperty("type").GetString()=="tab5_status";
+                using var bytes=new MemoryStream(Convert.FromBase64String(wire.RootElement.GetProperty("payload").GetString()!));
+                using var zip=new ZLibStream(bytes,CompressionMode.Decompress);using var json=JsonDocument.Parse(zip);
+                return json.RootElement.GetProperty("type").GetString()=="tab5_status";
+            }
+            for(int round=0;round<3;round++) {
+                clock+=3999;service.Publish(snapshot with {CapturedAt=DateTimeOffset.UtcNow});
+                if(IsFull(service.TelemetryFrame(2,true,true,true)!))throw new Exception("Interactive catalog was not deferred within its budget");
+                clock++;
+                if(!IsFull(service.TelemetryFrame(2,true,true,true)!))throw new Exception("Continuous BLE reads starved full state beyond four seconds");
+            }
+            service.ResetTelemetryChannel(2);
+            if(!IsFull(service.TelemetryFrame(2,true,true,true)!))throw new Exception("Reset lost first full state during active reads");
+            Console.WriteLine("TAB5_CONTINUOUS_READ_FRESHNESS_OK pending full state every four seconds despite continuous RPC activity");
+            service.ResetTelemetryChannel(2);_ = service.TelemetryFrame(2,true,true,true,true);
+            clock+=4000;service.Publish(snapshot with {CapturedAt=DateTimeOffset.UtcNow.AddSeconds(1)});
+            if(!IsFull(service.TelemetryFrame(2,true,true,true,true)!))throw new Exception("Unacknowledged baseline used for delta");
+            using(var confirmed=JsonDocument.Parse(service.CurrentFrame!))service.AcknowledgeTelemetry(2,confirmed.RootElement.GetProperty("sequence").GetInt64());
+            clock+=4000;service.Publish(snapshot with {CapturedAt=DateTimeOffset.UtcNow.AddSeconds(2)});
+            var change=service.TelemetryFrame(2,true,true,true,true)!;
+            if(IsFull(change))throw new Exception("ACKed baseline failed to reduce unchanged state");
+            service.ResetTelemetryChannel(2);
+            if(!IsFull(service.TelemetryFrame(2,true,true,true,true)!))throw new Exception("Reconnect reused stale delta baseline");
+            Console.WriteLine("TAB5_DELTA_ACK_OK baseline only after ACK; changed snapshot sends delta; reconnect returns full state");
         }finally{Directory.Delete(directory,true);}
     }
 }

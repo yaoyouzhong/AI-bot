@@ -123,10 +123,14 @@ internal sealed record MusicSnapshot(
     DateTimeOffset UpdatedAt)
 {
     public bool TimelineAvailable { get; init; } = true;
+    public int ArtworkWidth { get; init; }
+    public int ArtworkHeight { get; init; }
     [System.Text.Json.Serialization.JsonIgnore]
     public byte[]? CoverRgb565 { get; init; }
     [System.Text.Json.Serialization.JsonIgnore]
     public byte[]? Tab5CoverRgb565 { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public NowPlayingService.JpegCover? Tab5CoverJpeg { get; init; }
     public bool HasArtwork => CoverRgb565 is {Length: > 0};
 }
 

@@ -19,10 +19,19 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     private string _cableOutputId="";
     private int _inputLevel;
     private long _levelAt;
+    private readonly Tab5CaptureActivity _activity=new();
+    private int _tab5Samples;
+    public bool? CapturedSound=>_activity.Sound;
     public int InputLevel => Environment.TickCount64-Interlocked.Read(ref _levelAt)>600?0:Volatile.Read(ref _inputLevel);
-    private void Meter(byte[] bytes,int count,WaveFormat format) {
+    private void Meter(byte[] bytes,int count,WaveFormat format,bool readyCueWindow=false) {
         bool floating=format.Encoding==WaveFormatEncoding.IeeeFloat || format is WaveFormatExtensible extended&&extended.SubFormat==new Guid("00000003-0000-0010-8000-00aa00389b71");
-        Volatile.Write(ref _inputLevel,Tab5AudioMeter.Level(bytes.AsSpan(0,count),format.BitsPerSample,floating));
+        int level=Tab5AudioMeter.Measure(bytes.AsSpan(0,count),format.BitsPerSample,floating,out bool valid);
+        Volatile.Write(ref _inputLevel,level);
+        // Latch every received block, including speech between UI timer ticks
+        // and the final tail. Use the existing very low silence threshold;
+        // uncertain/noisy input keeps the normal recognition grace period.
+        bool cue=readyCueWindow&&valid&&level>=8&&Tab5ReadyCue.IsTone(bytes.AsSpan(0,count));
+        _activity.Observe(cue?0:level,valid);
         Interlocked.Exchange(ref _levelAt,Environment.TickCount64);
     }
     internal static bool IsDji(string name)=>name.Contains("DJI",StringComparison.OrdinalIgnoreCase)||name.Contains("Wireless Mic Rx",StringComparison.OrdinalIgnoreCase);
@@ -44,6 +53,8 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     }
     public string Start(bool forceTab5) {
         Stop();
+        _activity.Reset();
+        _tab5Samples=0;
         var inputs=Devices(DataFlow.Capture);var selectedId=djiId();
         var outputs=Devices(DataFlow.Render);
         var availability=Inspect(inputs,outputs,selectedId);
@@ -92,7 +103,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         }
     }
     public void UseTab5(){if(_source=="tab5")return;Stop();OpenOutput(new WaveFormat(16000,16,1));_source="tab5";}
-    public void Feed(byte[] pcm){if(_outputFailed||_source!="tab5"||_buffer is null)throw new InvalidOperationException("TAB5 音频未就绪");Meter(pcm,pcm.Length,_buffer.WaveFormat);_buffer.AddSamples(pcm,0,pcm.Length);}
+    public void Feed(byte[] pcm){if(_outputFailed||_source!="tab5"||_buffer is null)throw new InvalidOperationException("TAB5 音频未就绪");Meter(pcm,pcm.Length,_buffer.WaveFormat,_tab5Samples<16000);_tab5Samples+=pcm.Length/2;_buffer.AddSamples(pcm,0,pcm.Length);}
     public void Drain(){var capture=_capture;_capture=null;try{capture?.StopRecording();}finally{capture?.Dispose();}}
     public bool Drained {
         get {

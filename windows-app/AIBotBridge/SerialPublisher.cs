@@ -24,6 +24,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private volatile bool _flashPaused;
     private volatile bool _usbDataEnabled=true;
     private long _lastStatusWrittenAt;
+    internal long LastDataWrittenAt=>Interlocked.Read(ref _lastStatusWrittenAt);
     internal bool UsbDataEnabled {
         get=>_usbDataEnabled;
         set {lock(_portSync){_usbDataEnabled=value;if(!value)Interlocked.Exchange(ref _lastStatusWrittenAt,0);}}

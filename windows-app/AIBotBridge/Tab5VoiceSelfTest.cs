@@ -15,6 +15,7 @@ internal static class Tab5VoiceSelfTest
         public bool DjiHealthy=>Dji;
         public bool InputReady {get;set;}=true;
         public int InputLevel {get;set;}=50;
+        public bool? CapturedSound {get;set;}
         public bool Drained=>Empty;
         public void UseTab5()=>Source="tab5";
         public void Feed(byte[] pcm)=>Bytes+=pcm.Length;
@@ -25,6 +26,8 @@ internal static class Tab5VoiceSelfTest
     private sealed class Editor : ITab5VoiceEditor {
         public string Text {get;set;}="";public bool SafeFocus {get;set;}=true;
         internal int Stops;
+        public bool CaptureStopped {get;set;}=true;
+        public bool RecognitionComplete {get;set;}
         public bool Start()=>SafeFocus;
         public bool Stop(){Stops++;return SafeFocus;}
         public void Clear()=>Text="";
@@ -46,6 +49,15 @@ internal static class Tab5VoiceSelfTest
         Console.WriteLine("TAB5_VOICE_SETTINGS_PREVIEW_OK (read-only device check, capture disabled)");
     }
     internal static void RunUi() {
+        using(var draft=new Tab5VoiceDraft(()=>"",_=>false)) {
+            draft.InitializeDraft();draft.Prepare();Application.DoEvents();
+            Check(draft.Visible&&draft.Opacity==0&&!draft.ShowInTaskbar,"normal voice editor is transparent and absent from taskbar");
+            draft.RevealFailure("test failure");Application.DoEvents();
+            Check(draft.Opacity==1&&draft.ShowInTaskbar,"failure reveals a recoverable editor");
+            draft.Prepare();Application.DoEvents();
+            Check(draft.Opacity==0&&!draft.ShowInTaskbar,"retry returns to transparent editor");
+            draft.Hide();
+        }
         static Tab5VoiceReply Wait(Task<Tab5VoiceReply> reply) {
             long until=Environment.TickCount64+2000;
             while(!reply.IsCompleted&&Environment.TickCount64<until){Application.DoEvents();Thread.Sleep(5);}
@@ -69,6 +81,9 @@ internal static class Tab5VoiceSelfTest
     }
     internal static async Task RunAsync() {
         Tab5DoubaoVoiceSelfTest.Run();
+        CheckQuietCompletion();
+        CheckStoppedAudio();
+        CheckReconnectRecovery();
         Check(Tab5AudioMeter.Level(new byte[8],16)==0,"zero PCM has no level");
         Check(Tab5AudioMeter.Level(new byte[]{0,128},16)==100,"negative PCM16 full scale");
         Check(Tab5AudioMeter.Level(new byte[]{0,0,128},24)==100,"PCM24 sign extension");
@@ -110,7 +125,8 @@ internal static class Tab5VoiceSelfTest
         Check(voice.Snapshot().State=="review"&&voice.Snapshot().TaskId==task&&voice.Snapshot().Text==editor.Text,"draft remains attached to selected task");
         audio.Dji=false;start=voice.Handle(Json(new{op="start",taskId=task}));
         Check(start.Source=="tab5"&&start.Text=="","absent DJI falls back, previous text cleared");
-        now+=4001;voice.Tick();Check(!audio.Running,"lost heartbeat stops capture");
+        now+=4001;voice.Tick();Check(voice.Snapshot().State=="draining","lost heartbeat drains already received audio");
+        voice.Tick();now+=200;voice.Tick();Check(!audio.Running,"lost heartbeat ends capture after buffered tail");
         now+=8000;voice.Tick();audio.Dji=true;start=voice.Handle(Json(new{op="start",taskId=task}));
         voice.Handle(Json(new{op="tab5",voiceId=start.VoiceId}));Check(voice.Snapshot().Source=="tab5","manual fallback while receiver remains connected");
         editor.SafeFocus=false;voice.Tick();Check(!audio.Running&&voice.Snapshot().State=="error","focus loss stops microphone");
@@ -181,14 +197,15 @@ internal static class Tab5VoiceSelfTest
                 Check(reply.GetProperty("state").GetString()=="error"&&audio.Starts==starts,"HTTP replay never restarts microphone");
                 reply=await Send("audio",id,0,chunk);Check(audio.Bytes==8,"authenticated HTTP PCM is consumed");
                 Check(reply.GetProperty("ready").GetBoolean(),"encrypted reply confirms audio readiness on first acknowledged chunk");
-                using(var persistent=new TcpClient()) {
+                foreach(bool rpc in new[]{false,true})using(var persistent=new TcpClient()) {
                     await persistent.ConnectAsync(IPAddress.Loopback,port);
                     using var stream=persistent.GetStream();
                     for(int attempt=0;attempt<2;attempt++) {
                         string nonce=Guid.NewGuid().ToString("N");
-                        var body=Tab5Protocol.Encrypt(key,nonce,JsonSerializer.SerializeToUtf8Bytes(new{op="poll",taskId=task,voiceId=id,seq=0,pcm="",session,issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}));
-                        var proof=Tab5Protocol.Proof(key,$"POST|/tab5/v1/voice|{pair.DeviceId}|{nonce}|{Convert.ToHexString(SHA256.HashData(body)).ToLowerInvariant()}");
-                        byte[] header=Encoding.ASCII.GetBytes($"POST /tab5/v1/voice HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {body.Length}\r\nX-AIBot-Device: {pair.DeviceId}\r\nX-AIBot-Nonce: {nonce}\r\nX-AIBot-Proof: {proof}\r\n\r\n");
+                        var clear=rpc?JsonSerializer.SerializeToUtf8Bytes(new{kind="benchmark",offset=attempt*8192,count=8192,session,issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}):JsonSerializer.SerializeToUtf8Bytes(new{op="poll",taskId=task,voiceId=id,seq=0,pcm="",session,issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()});
+                        var body=Tab5Protocol.Encrypt(key,nonce,clear);string route=rpc?"rpc":"voice";
+                        var proof=Tab5Protocol.Proof(key,$"POST|/tab5/v1/{route}|{pair.DeviceId}|{nonce}|{Convert.ToHexString(SHA256.HashData(body)).ToLowerInvariant()}");
+                        byte[] header=Encoding.ASCII.GetBytes($"POST /tab5/v1/{route} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {body.Length}\r\nX-AIBot-Device: {pair.DeviceId}\r\nX-AIBot-Nonce: {nonce}\r\nX-AIBot-Proof: {proof}\r\n\r\n");
                         await stream.WriteAsync(header);await stream.WriteAsync(body);
                         var responseHeader=new List<byte>();var one=new byte[1];
                         while(responseHeader.Count<8192) {
@@ -201,13 +218,27 @@ internal static class Tab5VoiceSelfTest
                         int size=int.Parse(fields.Split("\r\n").Single(line=>line.StartsWith("Content-Length:",StringComparison.OrdinalIgnoreCase)).Split(':')[1].Trim());
                         var encrypted=new byte[size];await stream.ReadExactlyAsync(encrypted);
                         using var decoded=JsonDocument.Parse(Tab5Protocol.Decrypt(key,nonce,encrypted));
-                        Check(decoded.RootElement.GetProperty("voiceId").GetString()==id,"consecutive encrypted voice replies share one TCP connection");
+                        if(rpc)Check(decoded.RootElement.GetProperty("status").GetInt32()==200&&Convert.FromBase64String(decoded.RootElement.GetProperty("body").GetProperty("data").GetString()!).SequenceEqual(Tab5TransportBenchmark.Pattern(attempt*8192,8192)),"consecutive authenticated RPC bytes share one TCP connection");
+                        else Check(decoded.RootElement.GetProperty("voiceId").GetString()==id,"consecutive encrypted voice replies share one TCP connection");
                     }
                 }
                 await Send("audio",id,1,chunk,tamper:true);Check(audio.Bytes==8,"forged audio never consumed");
                 reply=await Send("poll",id,sessionOverride:"stale");Check(reply.GetProperty("state").GetString()=="error","old bridge session rejected");
                 editor.Text="测试草稿";reply=await Send("poll",id);Check(reply.GetProperty("text").GetString()=="测试草稿","Chinese draft returned encrypted");
                 await Send("cancel",id);Check(!audio.Running,"HTTP cancel releases audio");
+                async Task<JsonElement> UsbVoice(string op,string voiceId="") {
+                    string nonce=Guid.NewGuid().ToString("N");
+                    var body=Tab5Protocol.Encrypt(key,nonce,JsonSerializer.SerializeToUtf8Bytes(new{kind="voice",op,taskId=task,voiceId,source="tab5",seq=0,pcm=Convert.ToBase64String(chunk),session,issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}));
+                    var proof=Tab5Protocol.Proof(key,$"POST|/tab5/v1/rpc|{pair.DeviceId}|{nonce}|{Convert.ToHexString(SHA256.HashData(body)).ToLowerInvariant()}");
+                    var response=await service.RpcAsync(pair.DeviceId,nonce,proof,body,CancellationToken.None,transport:"USB");
+                    using var decoded=JsonDocument.Parse(Tab5Protocol.Decrypt(key,nonce,response.Packet!));
+                    Check(decoded.RootElement.GetProperty("status").GetInt32()==200,"USB voice RPC accepted");
+                    return decoded.RootElement.GetProperty("body").Clone();
+                }
+                var usbVoice=await UsbVoice("start");string usbVoiceId=usbVoice.GetProperty("voiceId").GetString()!;
+                Check(usbVoice.GetProperty("source").GetString()=="tab5","USB microphone source retained");
+                int beforeUsbBytes=audio.Bytes;await UsbVoice("audio",usbVoiceId);Check(audio.Bytes==beforeUsbBytes+chunk.Length,"USB authenticated PCM consumed");
+                await UsbVoice("cancel",usbVoiceId);Check(!audio.Running,"USB cancel releases microphone without sending a message");
                 async Task<JsonElement> Ble(string op,string voiceId="",bool tamper=false) {
                     string n=Guid.NewGuid().ToString("N");
                     var clear=JsonSerializer.SerializeToUtf8Bytes(new {op,taskId=task,voiceId,source="tab5",seq=0,codec="ima-adpcm8k",pcm=Convert.ToBase64String(new byte[]{4,0,0,0,0,0,0,0}),session,issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()});
@@ -231,5 +262,110 @@ internal static class Tab5VoiceSelfTest
             }finally{stop.Cancel();await server;}
         }finally{Directory.Delete(directory,true);}
         Console.WriteLine("TAB5_VOICE_SELF_TEST_OK routing, fallback, PCM order, drain, disconnect, focus, cancel, encrypted HTTP and draft return (synthetic audio/IME)");
+    }
+
+    private static void CheckReconnectRecovery() {
+        long now=1000;var audio=new Audio{Dji=false,Empty=false};var editor=new Editor();
+        using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+        string task=Guid.NewGuid().ToString();var take=voice.Handle(Json(new{op="start",taskId=task}));
+        voice.Handle(Json(new{op="audio",voiceId=take.VoiceId,seq=0,pcm=Convert.ToBase64String(new byte[]{1,0,2,0})}));
+        now+=4001;voice.Tick();Check(voice.Snapshot().State=="draining"&&audio.Running,"disconnect preserves already received playback tail");
+        now+=1000;voice.Tick();Check(editor.Stops==0,"disconnect does not cut queued playback");
+        audio.Empty=true;voice.Tick();now+=200;voice.Tick();
+        Check(!audio.Running&&editor.Stops==1,"disconnect ends IME after draining");
+        editor.Text="断线前已识别的文字";voice.Tick();now+=1200;voice.Tick();
+        Check(voice.Snapshot().State=="review","disconnected take settles without device polling");
+        now+=75000;voice.Tick();
+        var recovered=voice.Handle(Json(new{op="stop",voiceId=take.VoiceId}));
+        Check(recovered.VoiceId==take.VoiceId&&recovered.TaskId==task&&recovered.Text==editor.Text&&recovered.State=="review","same take survives device reply timeout and reconnect");
+        int starts=audio.Starts;long bytes=audio.Bytes;
+        for(int i=0;i<3;i++)Check(voice.Handle(Json(new{op="poll",voiceId=take.VoiceId})).Text==recovered.Text,"repeated recovery reads same full text");
+        Check(audio.Starts==starts&&audio.Bytes==bytes&&editor.Stops==1,"recovery neither starts capture nor replays PCM");
+        var next=voice.Handle(Json(new{op="start",taskId=task}));
+        bool rejected=false;try{voice.Handle(Json(new{op="stop",voiceId=take.VoiceId}));}catch(Tab5VoiceRequestException){rejected=true;}
+        Check(rejected&&audio.Running&&voice.Snapshot().VoiceId==next.VoiceId,"old recovery cannot touch a new take");
+        voice.Handle(Json(new{op="cancel",voiceId=next.VoiceId}));now+=300001;voice.Tick();
+        Check(voice.Snapshot().State=="idle"&&voice.Snapshot().Text=="","expired result is bounded and cleared");
+    }
+    private static void CheckQuietCompletion() {
+        static byte[] Pcm(Func<int,double> sample) {
+            var bytes=new byte[6400];
+            for(int i=0;i<3200;i++)System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(i*2),(short)(Math.Clamp(sample(i),-1,1)*32767));
+            return bytes;
+        }
+        foreach(int offset in new[]{0,160,640,1100}) {
+            var cue=Pcm(i=>{int t=i-offset;double envelope=t<0||t>=1920?0:Math.Min(1,Math.Min(t/160d,(1920-t)/160d));return .3*envelope*Math.Sin(2*Math.PI*880*t/16000);});
+            Check(Tab5ReadyCue.IsTone(cue),"known readiness tone with attack/release is distinct from speech");
+        }
+        Check(!Tab5ReadyCue.IsTone(new byte[6400]),"silence is not a readiness tone");
+        Check(!Tab5ReadyCue.IsTone(Pcm(i=>.3*Math.Sin(2*Math.PI*820*i/16000))),"nearby non-cue frequency keeps the recognition grace");
+        Check(!Tab5ReadyCue.IsTone(Pcm(i=>.3*Math.Sin(2*Math.PI*1200*i/16000))),"other tones do not bypass the activity latch");
+        Check(!Tab5ReadyCue.IsTone(Pcm(i=>.3*Math.Sin(2*Math.PI*880*i/16000)+.15*Math.Sin(2*Math.PI*220*i/16000)+.1*Math.Sin(2*Math.PI*440*i/16000))),"voice-like harmonics mixed with the cue retain the normal wait");
+        var activity=new Tab5CaptureActivity();
+        Check(activity.Sound is null,"missing capture evidence is not silence");
+        int level=Tab5AudioMeter.Measure(new byte[640],16,false,out bool valid);
+        activity.Observe(level,valid);Check(activity.Sound==false,"zero PCM confirms quiet capture");
+        activity.Observe(50,true);activity.Observe(0,true);
+        Check(activity.Sound==true,"speech between meter polls remains latched after a quiet tail");
+        activity.Reset();Check(activity.Sound is null,"next take does not inherit silence or speech");
+        level=Tab5AudioMeter.Measure(BitConverter.GetBytes(float.NaN),32,true,out valid);
+        activity.Observe(level,valid);Check(activity.Sound==true,"invalid capture cannot prove silence");
+        activity.Reset();level=Tab5AudioMeter.Measure(new byte[3],16,false,out valid);
+        activity.Observe(level,valid);Check(activity.Sound==true,"partial sample cannot prove silence");
+
+        long now=1000;var audio=new Audio{InputLevel=0,CapturedSound=false};var editor=new Editor();
+        using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+        string task=Guid.NewGuid().ToString();
+        Tab5VoiceReply StartAndStop() {
+            var start=voice.Handle(Json(new{op="start",taskId=task}));voice.Tick();
+            voice.Handle(Json(new{op="stop",voiceId=start.VoiceId}));voice.Tick();now+=200;voice.Tick();return start;
+        }
+        StartAndStop();now+=1199;voice.Tick();Check(voice.Active,"quiet completion retains the final commit guard");
+        now++;voice.Tick();Check(voice.Snapshot() is {State:"cancelled",Text:"",Message:"未检测到语音，已结束"}&&!audio.Running&&editor.Stops==1,"empty quiet take finishes at 1.2 seconds without a microphone error");
+        Check(voice.Diagnostic.Contains("finalWaitMs=1200"),"final wait diagnostic freezes at completion");
+
+        editor.CaptureStopped=false;StartAndStop();now+=1200;voice.Tick();
+        Check(voice.Active,"never dismiss while recognizer still owns capture");
+        editor.Text="稍晚返回的短句";voice.Tick();editor.CaptureStopped=true;now+=800;voice.Tick();
+        Check(voice.Snapshot().State=="review"&&voice.Snapshot().Text==editor.Text,"late text wins over quiet classification");
+
+        audio.CapturedSound=true;StartAndStop();now+=5000;voice.Tick();
+        Check(voice.Active,"previous sound retains full recognition grace despite silent ending");
+        editor.Text="最后一句";voice.Tick();now+=800;voice.Tick();Check(voice.Snapshot().State=="review","spoken late result remains intact");
+
+        audio.CapturedSound=null;StartAndStop();now+=1200;voice.Tick();Check(voice.Active,"unknown input evidence retains normal wait");
+        now+=6800;voice.Tick();Check(voice.Snapshot().State=="error","unknown empty result retains original diagnostic timeout");
+        audio.CapturedSound=false;StartAndStop();editor.Text="临时结果";voice.Tick();editor.Text="";now+=1200;voice.Tick();
+        Check(voice.Active,"a temporarily empty text revision is not no-speech completion");
+        voice.Handle(Json(new{op="cancel",voiceId=voice.Snapshot().VoiceId}));
+        audio.CapturedSound=true;editor.RecognitionComplete=false;StartAndStop();now+=1200;voice.Tick();
+        Check(voice.Active,"keyboard acknowledgement cannot prove final empty recognition");
+        editor.RecognitionComplete=true;voice.Tick();now+=799;voice.Tick();
+        Check(voice.Active,"native idle retains a final TSF delivery guard");
+        now++;voice.Tick();Check(voice.Snapshot() is {State:"cancelled",Message:"未识别到文字，已结束"},"confirmed native empty result finishes despite ambient sound");
+        StartAndStop();now+=400;voice.Tick();editor.RecognitionComplete=false;now+=800;voice.Tick();
+        Check(voice.Active,"busy recognizer resets idle proof");
+        editor.RecognitionComplete=true;voice.Tick();now+=600;editor.Text="最后返回的文字";voice.Tick();now+=800;voice.Tick();
+        Check(voice.Snapshot() is {State:"review",Text:"最后返回的文字"},"late committed text wins over native empty completion");
+        Console.WriteLine("TAB5_VOICE_QUIET_END_OK silence, native idle, pending commit, noise, late text and unknown capture; synthetic only");
+    }
+    private static void CheckStoppedAudio() {
+        long now=1000;var audio=new Audio{Dji=false};var editor=new Editor();
+        using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+        string task=Guid.NewGuid().ToString();
+        JsonElement Chunk(string id)=>Json(new{op="audio",voiceId=id,seq=0,pcm="AAA="});
+        var start=voice.Handle(Json(new{op="start",taskId=task}));
+        editor.SafeFocus=false;
+        var failed=voice.Handle(Chunk(start.VoiceId));
+        Check(failed.State=="error"&&failed.Message.Contains("焦点")&&audio.Bytes==0,"late audio preserves focus-loss cause and is not played");
+        Check(voice.Handle(Chunk(start.VoiceId))==failed&&editor.Stops==1,"repeated late audio neither replaces error nor repeats stop");
+        editor.SafeFocus=true;start=voice.Handle(Json(new{op="start",taskId=task}));
+        voice.Handle(Json(new{op="stop",voiceId=start.VoiceId}));
+        Check(voice.Handle(Chunk(start.VoiceId)).State=="draining"&&audio.Bytes==0,"audio after stop returns drain status without failing the take");
+        voice.Tick();now+=200;voice.Tick();
+        Check(voice.Handle(Chunk(start.VoiceId)).State=="recognizing"&&audio.Bytes==0,"audio during recognition cannot undo stop");
+        editor.Text="完整草稿";voice.Tick();now+=1200;voice.Tick();
+        Check(voice.Handle(Chunk(start.VoiceId)) is {State:"review",Text:"完整草稿"},"late audio preserves completed draft");
+        Console.WriteLine("TAB5_VOICE_LATE_AUDIO_OK focus failure, duplicate audio, drain, recognition and reviewed text; synthetic only");
     }
 }

@@ -71,6 +71,8 @@ internal static class DeviceCenterSelfTest
                 form.Scale(new SizeF(scale,scale));Capture(form,directory,$"{key}-{scale:0.00}");
                 if(devices.Length>1){var list=Descendants(form).OfType<ListBox>().Single();list.SelectedIndex=1;Application.DoEvents();Check(Descendants(form).OfType<Button>().Any(b=>b.Text=="语音设置"),"Switch did not show TAB5 capabilities");Check(!Descendants(form).OfType<Button>().Any(b=>b.Text=="画面预览"),"ESP action leaked into TAB5");}
                 form.Size=form.MinimumSize;Capture(form,directory,$"{key}-{scale:0.00}-minimum");
+                foreach(var card in Descendants(Descendants(form).OfType<TabControl>().Single().SelectedTab!).OfType<DeviceActionButton>())
+                    Check(TextRenderer.MeasureText(card.AccessibleDescription,card.Font,Size.Empty,TextFormatFlags.SingleLine).Width<=card.ClientSize.Width-24,"Device card subtitle truncated at minimum size: "+card.Text);
                 form.ShowPage("accounts");Capture(form,directory,$"{key}-{scale:0.00}-accounts");
                 var tabs=Descendants(form).OfType<TabControl>().Single();
                 Check(tabs.SelectedTab?.Name=="accounts","Shared settings did not navigate inside main window");
@@ -89,7 +91,7 @@ internal static class DeviceCenterSelfTest
                 foreach(var d in devices){
                     form.SelectDevice(d.Id);Check(((RegisteredDevice)Descendants(form).OfType<ListBox>().Single().SelectedItem!).Id==d.Id,"Direct device navigation selected wrong target");
                     var cards=Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().OrderBy(b=>b.PointToScreen(Point.Empty).Y).ThenBy(b=>b.PointToScreen(Point.Empty).X).Select(b=>b.Text).ToArray();
-                    Check(cards.SequenceEqual(d.Kind==HardwareKind.Tab5?new[]{"语音设置","日历生日","数据设置","连接升级"}:new[]{"显示设置","外观设置","数据设置","连接设置"}),"Device action order or duplicate entry regressed");
+                    Check(cards.SequenceEqual(d.Kind==HardwareKind.Tab5?new[]{"显示设置","语音设置","日历生日","常用任务","数据设置","连接升级"}:new[]{"显示设置","外观设置","数据设置","连接设置"}),"Device action order or duplicate entry regressed");
                     var button=Descendants(form).OfType<Button>().Single(b=>b.Text==(d.Kind==HardwareKind.Tab5?"语音设置":"连接设置"));
                     Check(button.Enabled==d.Enabled,"Disabled device action enabled");
                     if(d.Enabled){button.PerformClick();Check(target==d.Id&&action==(d.Kind==HardwareKind.Tab5?"voice":"legacy-settings"),"Device center action targeted wrong device");}
@@ -131,7 +133,17 @@ internal static class DeviceCenterSelfTest
             if(registered.Length==2) {
                 Check(!Descendants(add).OfType<ComboBox>().Any(),"Full registry still offered duplicate registration");
                 Check(Descendants(add).OfType<Label>().Any(l=>l.Text.Contains("每种型号一台")),"Registration limit has no explanation");
-                Check(add.Added is null&&add.CancelButton is not null,"Full registry modified a device or has no close action");continue;
+                Check(add.Added is null&&add.CancelButton is not null,"Full registry modified a device or has no close action");
+                foreach(float scale in new[]{1F,1.25F,1.5F,2F})using(var scaled=new AddDeviceForm(new(1,true,false,false,registered),preview:true)) {
+                    scaled.Scale(new SizeF(scale,scale));Capture(scaled,directory,$"add-device-{name}-{scale:0.00}");
+                    var close=(Button)scaled.CancelButton!;
+                    Check(scaled.ClientRectangle.Contains(scaled.RectangleToClient(close.RectangleToScreen(close.ClientRectangle))),"Add limit close button clipped under scaling");
+                    var content=Descendants(scaled).OfType<FlowLayoutPanel>().Single(p=>p.Name=="add-device-content");
+                    Check(!content.VerticalScroll.Visible,"Add limit default layout requires scrolling");
+                    scaled.Size=scaled.MinimumSize;Capture(scaled,directory,$"add-device-{name}-{scale:0.00}-minimum");
+                    Check(scaled.ClientRectangle.Contains(scaled.RectangleToClient(close.RectangleToScreen(close.ClientRectangle))),"Add limit close button clipped at minimum size");
+                }
+                continue;
             }
             var choices=Descendants(add).OfType<ComboBox>().First();Check(choices.Items.Count==2-registered.Length,"Already registered model offered for addition");
             if(registered.Length==1)Check(Descendants(add).OfType<Button>().Any(b=>b.Text==(registered[0].Kind==HardwareKind.Tab5?"ESP8266 首次安装…":"TAB5 首次安装…")),"First installation missing for unregistered model");

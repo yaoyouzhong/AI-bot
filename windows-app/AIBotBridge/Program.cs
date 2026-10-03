@@ -8,6 +8,15 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-browser-artwork") {AppPaths.BeginPublicSelfTest();BrowserMusicArtworkSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-crashes") {AppPaths.BeginPublicSelfTest();Tab5CrashDiagnosticsSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==3&&args[0]=="--test-tab5-usb-binary"){Tab5UsbReadHardwareTest.RunAsync(args[1],args[2]).GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-user-preferences"){UserPreferencesSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-device-recovery"){DeviceRecoverySelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-tab5-integrated-transfer"){Tab5IntegratedTransferSelfTest.Run(args[1]);return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-display-settings"){Tab5DisplaySettingsSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-upgrade"){UpgradeSelfTest.Run();return;}
+        if(args.Length==2&&args[0]=="--self-test-development-ui"){ApplicationConfiguration.Initialize();DevelopmentUiSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-display-settings"){ApplicationConfiguration.Initialize();DisplaySettingsSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--test-esp-display"){ApplicationConfiguration.Initialize();DisplaySettingsSelfTest.RunHardware(int.Parse(args[1]));return;}
         if(args.Length==2&&args[0]=="--test-esp-transports") {
@@ -99,6 +108,13 @@ internal static class Program
                 samples=rows.Length, lastSample=rows.LastOrDefault()?.At, storageError=QuotaHistory.Shared.Error,
                 days=QuotaHistory.Daily(rows,today,7,QuotaHistory.StatisticsZone)
             },JsonDefaults.Options));
+            return;
+        }
+        if (args.Length == 1 && args[0] == "--self-test-quota-history")
+        {
+            AppPaths.BeginPublicSelfTest();
+            ApplicationConfiguration.Initialize();
+            QuotaHistorySelfTest.Run();
             return;
         }
         if (args.Length == 2 && args[0] == "--capture-flasher-complete")
@@ -447,6 +463,7 @@ internal static class Program
         try
         {
             ApplicationConfiguration.Initialize();
+            using var pointerVisibility=new PointerVisibility();
             var context = new TrayApplicationContext();
             if(otaPath is not null)context.OfferTab5Ota(otaPath);
             if (authorizeZhipu) context.OpenZhipuAuthorization();

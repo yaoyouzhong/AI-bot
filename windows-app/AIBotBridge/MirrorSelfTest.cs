@@ -141,9 +141,14 @@ internal static class MirrorSelfTest
             }
             pages.PerformClick();Application.DoEvents();
             if(!popup.Visible||!pages.ContextMenuStrip!.Visible)throw new InvalidOperationException("Page menu hid preview");
+            typeof(Form).GetMethod("OnDeactivate",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(popup,[EventArgs.Empty]);
+            if(!popup.Visible)throw new InvalidOperationException("Owned menu deactivation hid preview");
             if(!pages.ContextMenuStrip.Items.Cast<ToolStripItem>().Select(i=>i.Tag as string).SequenceEqual(popup.ShortcutPages))throw new InvalidOperationException("Page menu order differs from cycle");
             pages.ContextMenuStrip.Items.OfType<ToolStripMenuItem>().Single(i=>i.Tag as string=="stocks").PerformClick();pages.ContextMenuStrip.Close();
             if(selected!="stocks"||selections!=1||popup.DisplayedMode!="stocks")throw new InvalidOperationException("Manual preview choice failed");
+            typeof(Form).GetMethod("OnDeactivate",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(popup,[EventArgs.Empty]);
+            if(popup.Visible)throw new InvalidOperationException("Outside focus did not dismiss preview");
+            popup.Show();Application.DoEvents();
             allowSelection=false;automatic.PerformClick();
             if(automatic.Text!="未生效"||((PreviewButton)automatic).Active)throw new InvalidOperationException("Failed automatic action falsely showed success");
             allowSelection=true;

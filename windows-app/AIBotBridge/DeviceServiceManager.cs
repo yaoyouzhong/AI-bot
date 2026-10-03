@@ -12,6 +12,16 @@ internal sealed class DeviceServiceManager
     internal string[] ActiveServices=>new[]{(_espStop,"esp8266"),(_tabStop,"tab5"),(_lanStop,"lan")}.Where(x=>x.Item1 is not null).Select(x=>x.Item2).ToArray();
     private Task Start(string name,Func<CancellationToken,Task> run,CancellationToken token)=>Task.Run(()=>_worker is null?run(token):_worker(name,token));
     private readonly SemaphoreSlim _change=new(1,1);
+    private readonly DeviceConnectionHistory _history=new();
+    internal ConnectionObservation Health(RegisteredDevice device) {
+        var view=View(device);
+        long at=device.Kind==HardwareKind.Tab5?Tab5?.LastCommunicationAt??0:Math.Max(Serial.LastDataWrittenAt,Interlocked.Read(ref _legacyLanAt));
+        var tasks=device.Kind==HardwareKind.Tab5?_tabTasks:_espTasks;
+        string reason=tasks.Any(t=>t.IsFaulted)?"连接服务异常":device.Kind==HardwareKind.Esp8266&&Serial.LastConnectionError is not null?"USB 通信中断":"有效通信超时";
+        return _history.Observe(device.Id,device.Enabled,view.Online,at,reason,DateTimeOffset.Now,Environment.TickCount64);
+    }
+    internal void ObserveConnections(DeviceRegistry registry){foreach(var device in registry.Devices)Health(device);}
+    internal void ExportDiagnostics(string path,DeviceRegistry registry)=>DeviceConnectionHistory.Export(path,registry.Devices.Select(d=>(d.Kind,Health(d),d.Enabled,View(d).Online)));
     internal SerialPublisher Serial {get;}
     internal Tab5Service? Tab5 {get;private set;}
     internal bool EspEnabled {get;private set;}
@@ -27,6 +37,9 @@ internal sealed class DeviceServiceManager
     }
     internal async Task ApplyAsync(DeviceRegistry registry) {
         await _change.WaitAsync(_shutdown);
+        try{await ApplyCoreAsync(registry);}finally{_change.Release();}
+    }
+    private async Task ApplyCoreAsync(DeviceRegistry registry) {
         try {
             var espDevice=registry.Devices.SingleOrDefault(d=>d.Enabled&&d.Kind==HardwareKind.Esp8266);
             bool esp=espDevice is not null;
@@ -62,7 +75,25 @@ internal sealed class DeviceServiceManager
             if(!esp&&tab is null&&_lanStop is not null){await StopAsync(_lanStop,_lanTasks);_lanStop=null;}
             if(failed is not null)throw failed;
             Error=null;
-        }catch(Exception ex){Error=ex.Message;throw;}finally{_change.Release();}
+        }catch(Exception ex){Error=ex.Message;throw;}
+    }
+    internal async Task ReconnectAsync(DeviceRegistry registry,string id) {
+        await _change.WaitAsync(_shutdown);
+        try {
+            var device=registry.Devices.SingleOrDefault(d=>d.Id==id&&d.Enabled)??throw new InvalidOperationException("设备已移除或停用。");
+            if(device.Kind==HardwareKind.Esp8266) {
+                if(Serial.FlashBusy)throw new InvalidOperationException("小屏正在升级，请稍后再试。");
+                var stop=_espStop;_espStop=null;EspEnabled=false;
+                if(stop is not null)await StopAsync(stop,_espTasks,true);
+                _espTasks=[];Interlocked.Exchange(ref _legacyLanAt,0);
+            } else {
+                var old=Tab5;old?.BeginStop(); // Atomically rejects active recording, RPC and upgrades.
+                var stop=_tabStop;_tabStop=null;Tab5=null;
+                try{if(stop is not null)await StopAsync(stop,_tabTasks,true);}finally{old?.Dispose();_tabTasks=[];}
+            }
+            _history.Restart(id);
+            await ApplyCoreAsync(registry);
+        }finally{_change.Release();}
     }
     internal DeviceView View(RegisteredDevice device) {
         if(!device.Enabled)return new(false,"已停用","连接服务已停止","待连接读取");
@@ -71,11 +102,14 @@ internal sealed class DeviceServiceManager
         if(device.Kind==HardwareKind.Tab5){var view=Tab5?.DeviceView??new(false,Error is null?"待配置":"连接异常",Error??"请连接或检查配对资料","待连接读取");return Tab5 is not null&&!view.Online&&view.Status=="离线"&&Environment.TickCount64-_tabStarted<15000?view with {Status="连接中"}:view;}
         bool usb=Serial.UsbDataActive,lan=EspLanEnabled&&Interlocked.Read(ref _legacyLanAt)>0&&Environment.TickCount64-Interlocked.Read(ref _legacyLanAt)<15000;
         string usbStatus=_espMode==EspConnectionMode.Wifi?"未使用":usb?"已连接":Serial.ConnectionStatus;
-        string wifiStatus=_espMode==EspConnectionMode.Usb?"未使用":lan?"已连接":"未连接";
+        // ESP firmware suspends LAN polling while USB data is fresh. Standby does not assert Wi-Fi association or fallback readiness.
+        string wifiStatus=_espMode==EspConnectionMode.Usb?"未使用":lan?"已连接":usb?"待命":"未连接";
         return new(usb||lan,usb||lan?"在线":Environment.TickCount64-_espStarted<15000?"连接中":"离线",$"USB：{usbStatus}  Wi-Fi：{wifiStatus}","兼容协议 v1",usbStatus,wifiStatus,null,usb?"USB":lan?"Wi-Fi":"无");
     }
-    private static async Task StopAsync(CancellationTokenSource stop,Task[] tasks) {
-        stop.Cancel();try{await Task.WhenAll(tasks);}catch(OperationCanceledException) when(stop.IsCancellationRequested){}finally{stop.Dispose();}
+    private static async Task StopAsync(CancellationTokenSource stop,Task[] tasks,bool recovering=false) {
+        stop.Cancel();try{await Task.WhenAll(tasks);}catch(OperationCanceledException) when(stop.IsCancellationRequested){}
+        catch(Exception) when(recovering&&tasks.Any(t=>t.IsFaulted)){/* Faulted worker is observed and replaced only for an explicit reconnect. */}
+        finally{stop.Dispose();}
     }
     internal async Task StopAsync(){await _change.WaitAsync();try{if(_lanStop is not null){await StopAsync(_lanStop,_lanTasks);_lanStop=null;}if(_espStop is not null){await StopAsync(_espStop,_espTasks);_espStop=null;}if(_tabStop is not null){await StopAsync(_tabStop,_tabTasks);_tabStop=null;}Tab5?.Dispose();Tab5=null;EspEnabled=false;}finally{_change.Release();}}
 }

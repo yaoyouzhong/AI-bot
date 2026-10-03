@@ -7,7 +7,7 @@ namespace AIBotBridge;
 
 internal sealed class LanStatusServer
 {
-    private const int MaxHeaderBytes = 8192;
+
     private readonly TcpListener _listener;
     private readonly string _token;
     private readonly Func<IReadOnlyList<ResourcePayload>> _resources;
@@ -65,13 +65,18 @@ internal sealed class LanStatusServer
         using (client)
         using (var stream = client.GetStream())
         {
-            var lines = await ReadHeaderAsync(stream, cancellationToken);
+            var input = new HttpConnectionReader(stream);
+            var lines = await input.ReadHeaderAsync(cancellationToken);
             var requestLine = lines.FirstOrDefault() ?? string.Empty;
             var tab5=_tab5;
             using var deviceStop=requestLine.Contains(" /tab5/",StringComparison.Ordinal)&&tab5 is not null?CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,tab5.LifetimeToken):null;
             if(deviceStop is not null)cancellationToken=deviceStop.Token;
+            if(requestLine=="POST /tab5/v1/rpc HTTP/1.1") {
+                await HandleVoiceAsync(stream,input,lines,timeout,cancellationToken,rpc:true);
+                return;
+            }
             if(requestLine=="POST /tab5/v1/voice HTTP/1.1") {
-                await HandleVoiceAsync(stream,lines,timeout,cancellationToken);
+                await HandleVoiceAsync(stream,input,lines,timeout,cancellationToken);
                 return;
             }
             if (requestLine == "GET /tab5/v1/status HTTP/1.1")
@@ -110,13 +115,13 @@ internal sealed class LanStatusServer
                     // does not reset the socket and hide the explicit 413 response.
                     if(length is >8192 and <=Tab5CodexImages.MaxPacket) {
                         byte[] discard=new byte[8192];int remaining=length;
-                        while(remaining>0){int count=await stream.ReadAsync(discard.AsMemory(0,Math.Min(discard.Length,remaining)),cancellationToken);if(count==0)break;remaining-=count;}
+                        while(remaining>0){int count=await input.ReadAsync(discard.AsMemory(0,Math.Min(discard.Length,remaining)),cancellationToken);if(count==0)break;remaining-=count;}
                     }
                     await WriteResponseAsync(stream,"413 Content Too Large","{\"error\":\"invalid_length\"}",cancellationToken);
                     return;
                 }
                 var packet=new byte[length];
-                await stream.ReadExactlyAsync(packet,cancellationToken);
+                await input.ReadExactlyAsync(packet,cancellationToken);
                 bool replyRead=requestLine.Contains("/codex/read ",StringComparison.Ordinal);
                 long readStarted=Environment.TickCount64;
                 if(replyRead)tab5?.RecordHttpRead("processing",readStarted);
@@ -159,8 +164,8 @@ internal sealed class LanStatusServer
         }
     }
 
-    private async Task HandleVoiceAsync(NetworkStream stream, IReadOnlyList<string> lines,
-        CancellationTokenSource timeout, CancellationToken cancellationToken)
+    private async Task HandleVoiceAsync(NetworkStream stream, HttpConnectionReader input, IReadOnlyList<string> lines,
+        CancellationTokenSource timeout, CancellationToken cancellationToken,bool rpc=false)
     {
         // One authenticated request per audio chunk, on one TCP connection for
         // the voice session. Closing every 200 ms exhausts TAB5's lwIP memory.
@@ -168,34 +173,18 @@ internal sealed class LanStatusServer
         for (int requests=0; requests<400; requests++)
         {
             string Header(string name)=>lines.FirstOrDefault(l=>l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
-            if(!int.TryParse(Header("Content-Length"),out int length)||length is <28 or >16384) {
+            if(!int.TryParse(Header("Content-Length"),out int length)||length<28||length>(rpc?Tab5RpcBinary.RequestMaximum:16384)) {
                 await WriteResponseAsync(stream,"413 Content Too Large","{}",cancellationToken);return;
             }
-            var packet=new byte[length];await stream.ReadExactlyAsync(packet,cancellationToken);
-            var reply=_tab5 is null?(Status:401,Packet:(byte[]?)null):await _tab5.VoiceAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken);
+            var packet=new byte[length];await input.ReadExactlyAsync(packet,cancellationToken);
+            var reply=_tab5 is null?(Status:401,Packet:(byte[]?)null):rpc?
+                await _tab5.RpcAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,allowOta:false,transport:"Wi-Fi"):
+                await _tab5.VoiceAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken);
             if(reply.Packet is null) {await WriteResponseAsync(stream,"401 Unauthorized","{}",cancellationToken);return;}
             await WriteBytesAsync(stream,"200 OK",reply.Packet,cancellationToken,keepAlive:true);
-            lines=await ReadHeaderAsync(stream,cancellationToken);
-            if(lines.FirstOrDefault()!="POST /tab5/v1/voice HTTP/1.1")return;
+            lines=await input.ReadHeaderAsync(cancellationToken);
+            if(lines.FirstOrDefault()!=(rpc?"POST /tab5/v1/rpc HTTP/1.1":"POST /tab5/v1/voice HTTP/1.1"))return;
         }
-    }
-
-    private static async Task<IReadOnlyList<string>> ReadHeaderAsync(
-        NetworkStream stream, CancellationToken cancellationToken)
-    {
-        var bytes = new List<byte>(512);
-        var one = new byte[1];
-        while (bytes.Count < MaxHeaderBytes)
-        {
-            if (await stream.ReadAsync(one, cancellationToken) == 0)
-                break;
-            bytes.Add(one[0]);
-            var count = bytes.Count;
-            if (count >= 4 && bytes[count - 4] == '\r' && bytes[count - 3] == '\n' &&
-                bytes[count - 2] == '\r' && bytes[count - 1] == '\n')
-                return Encoding.ASCII.GetString(bytes.ToArray()).Split("\r\n");
-        }
-        return Array.Empty<string>();
     }
 
     private static bool FixedTimeEquals(string expected, string actual)
