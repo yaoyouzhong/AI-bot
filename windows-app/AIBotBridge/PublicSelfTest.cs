@@ -37,6 +37,7 @@ internal static class PublicSelfTest
             _ = runtime.Resources();
         }
         DataSourceSelfTest.Run();
+        ComponentUpdateSelfTest.Run();
         FirmwareFlashSelfTest.RunAsync().GetAwaiter().GetResult();
         QuotaHistorySelfTest.Run();
         LunarDateSelfTest.Run();

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Separate bridge, ESP8266 and TAB5 version sources, changelogs, tag validation and package names. Keep the published v0.5.0 payload unchanged.
+- Query stable bridge and firmware releases independently in the Windows update center; retain legacy-bundle support.
+- Add isolated ESP8266-only packaging and minimal per-component download staging; check TAB5 image/source identity rather than filename alone.
+- Route authorized component-tag workflows separately: bridge and ESP8266 build and stage minimal draft downloads; TAB5 retains independent local image validation.
+
 ## 0.5.0 - 2026-10-03
 
 ### Release

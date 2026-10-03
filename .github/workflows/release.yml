@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "v*.*.*"
+      - "bridge-v*.*.*"
+      - "esp8266-v*.*.*"
+      - "tab5-v*.*.*"
 
 permissions:
   contents: read
@@ -11,22 +14,34 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      component: ${{ steps.target.outputs.component }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - name: Verify tag and finalized notes
+      - name: Verify component tag and finalized notes
+        id: target
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           python scripts/check_version.py --tag "$RELEASE_TAG"
           python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
+          component="$(python -c 'import os, sys; sys.path.insert(0, "scripts"); from component_versions import release_target; print(release_target(os.environ["RELEASE_TAG"])[0])')"
+          echo "component=$component" >> "$GITHUB_OUTPUT"
+      - name: TAB5 keeps independent local image validation
+        if: steps.target.outputs.component == 'tab5'
+        run: echo "TAB5 tag metadata checked. Build and verify its first-install, upgrade and public source materials locally before separately authorized publication."
   packages:
     needs: validate
+    if: needs.validate.outputs.component != 'tab5'
     uses: ./.github/workflows/candidate.yml
+    with:
+      component: ${{ needs.validate.outputs.component }}
   draft:
-    needs: packages
+    needs: [validate, packages]
+    if: needs.validate.outputs.component != 'tab5'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -40,15 +55,16 @@ jobs:
           pattern: candidate-*
           path: release-assets
           merge-multiple: true
-      - name: Verify complete assets and prepare metadata
+      - name: Verify only requested components and stage user downloads
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           SOURCE_SHA: ${{ github.sha }}
+          TARGET_COMPONENT: ${{ needs.validate.outputs.component }}
         run: |
-          python scripts/prepare_release_assets.py release-assets --commit "$SOURCE_SHA"
+          python scripts/prepare_release_assets.py release-assets --component "$TARGET_COMPONENT" --commit "$SOURCE_SHA" --publish-directory public-assets
           python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
       - name: Create reviewable draft only
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" release-assets/* --verify-tag --draft --title "$RELEASE_TAG" --notes-file release-notes.md
+        run: gh release create "$RELEASE_TAG" public-assets/* --verify-tag --draft --latest=false --title "$RELEASE_TAG" --notes-file release-notes.md

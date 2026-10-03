@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from prepare_release_assets import prepare, ROOT
+from test_component_versions import ComponentVersionTests, ComponentPayloadTests
 
 
 class PackagingTests(unittest.TestCase):

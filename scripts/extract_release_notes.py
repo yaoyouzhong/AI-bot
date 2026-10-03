@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import pathlib
 import re
+from component_versions import components, release_target
 
 
 def main() -> None:
@@ -15,10 +16,12 @@ def main() -> None:
     parser.add_argument("--require-final", action="store_true")
     args = parser.parse_args()
 
-    version = args.tag.removeprefix("v")
-    changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+    component, version = release_target(args.tag)
+    target = "bridge" if component == "bundle" else component
+    files = components()[target]["changelogs"]
+    changelog = pathlib.Path(files[0]).read_text(encoding="utf-8")
     if args.require_final:
-        for filename, heading in (("CHANGELOG.md", "Unreleased"), ("CHANGELOG.zh.md", "未发布")):
+        for filename, heading in zip(files, ("Unreleased", "未发布")):
             text = pathlib.Path(filename).read_text(encoding="utf-8")
             pending = re.search(rf"^## {heading}\s*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
             if pending and pending.group(1).strip():

@@ -20,7 +20,8 @@
 - USB 连续 8 秒无有效心跳后必须自动恢复 Wi-Fi HTTP 轮询；桥接恢复后自动回到用户配置页面。
 - 网络和供应商请求失败时保留最近一次成功的可显示数据，不能用空结果覆盖缓存。
 - `tokens_today` 只描述本机可见日志；供应商账户额度必须来自供应商接口或明确的本地授权状态，二者不得混算。
-- 版本源为根目录 `VERSION`；正式发布使用带注释的 `vX.Y.Z` 标签。
+- 桥接版本源为根目录 `VERSION`；ESP8266 使用 `firmware/VERSION`，TAB5 待发布镜像版本登记在 `versions/TAB5`。三者独立编号，不因另一组件更新而重编号或要求一起刷机。`release-manifest.json` 登记各自标签与更新日志，详见 `docs/COMPONENT-VERSIONS.md`。
+- 组件正式发布使用带注释的 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui` 标签；历史 `vX.Y.Z` 标签保留。自动发布衔接先应用并验证已授权的工作流更新。
 - README、CHANGELOG 的中英文内容必须同步。
 
 ## Required validation
@@ -65,5 +66,5 @@ git status --short
 - TAB5 本地固件交付统一使用 `artifacts/firmware/tab5/latest/aibot_tab5.bin`；通过 `scripts/prepare_tab5_firmware.ps1` 校验并生成，历史包保存在同级 `versions/`。更新说明必须包含分类标题和列表，并使用实际 sidecar 做预览。详见 `docs/TAB5-FIRMWARE-WORKFLOW.md`。
 
 - 未经明确授权，不执行 `git push`、创建标签或发布 GitHub Release。
-- CI 只验证；Release 工作流只响应显式推送的 `v*` 标签。
+- CI 只验证；Release 工作流只响应显式推送的历史 `v*` 或已登记的组件版本标签，默认只生成候选草稿。TAB5 标签校验元数据，固件仍由独立工程本地构建与核验。
 - 发布包必须附带 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和 SHA-256 校验文件。

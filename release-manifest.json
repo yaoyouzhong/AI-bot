@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "components": {
+    "bridge": {
+      "versionFile": "VERSION",
+      "tagPrefix": "bridge-v",
+      "changelogs": ["CHANGELOG.md", "CHANGELOG.zh.md"]
+    },
+    "esp8266": {
+      "versionFile": "firmware/VERSION",
+      "tagPrefix": "esp8266-v",
+      "changelogs": ["firmware/CHANGELOG.md", "firmware/CHANGELOG.zh.md"]
+    },
+    "tab5": {
+      "versionFile": "versions/TAB5",
+      "tagPrefix": "tab5-v",
+      "changelogs": ["docs/development/TAB5-CHANGELOG.md", "docs/development/TAB5-CHANGELOG.zh.md"]
+    }
+  }
+}

@@ -6,8 +6,12 @@ $auditPath = Join-Path $repoPath ('artifacts\release-check-' + [Guid]::NewGuid()
 # Never build over the resident bridge's files or send it an exit signal.
 Push-Location $repoPath
 try {
-    python scripts/check_version.py
+    python scripts/check_version.py --component bridge
     if ($LASTEXITCODE -ne 0) { throw 'Version check failed' }
+    if ($Firmware) {
+        python scripts/check_version.py --component esp8266
+        if ($LASTEXITCODE -ne 0) { throw 'ESP8266 version check failed' }
+    }
     python scripts/check_public_content.py
     if ($LASTEXITCODE -ne 0) { throw 'Public content guard failed' }
     python scripts/collect_distribution_materials.py verify

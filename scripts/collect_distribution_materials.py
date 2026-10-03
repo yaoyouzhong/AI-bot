@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import shutil
 import zipfile
+from component_versions import versions
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -176,8 +177,10 @@ def collect_firmware(stage: Path, core: Path):
     if not binary.is_file():
         raise ValueError("Build firmware from this source snapshot before packaging")
     stage.mkdir(parents=True)
-    for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md", "PROVENANCE.md", "VERSION"):
+    for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md", "PROVENANCE.md"):
         copy_file(ROOT / filename, stage / filename)
+    copy_file(firmware / "VERSION", stage / "VERSION")
+    write_json(stage / "COMPONENT.json", {"component": "esp8266", "version": versions(ROOT)["esp8266"], "protocolVersion": 1})
     copy_file(ROOT / "docs/FIRMWARE_PACKAGE.md", stage / "README.md")
     copy_file(ROOT / "docs/DISTRIBUTION_TERMS.md", stage / "DISTRIBUTION_TERMS.md")
     for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md", "WINDOWS_INSTALLER.md", "DOMESTIC_QUOTA_SETUP.md", "INSTALL.zh.md", "FLASH.zh.md", "FLASH_MAC.zh.md", "FLASH_BUILD.zh.md", "TAB5-FIRMWARE-WORKFLOW.md", "TAB5-LICENSE-SCOPE.md"):

@@ -29,6 +29,7 @@ try {
     })
     $manifest | Set-Content -LiteralPath (Join-Path $stage 'FILES.sha256') -Encoding ascii
     $version = (Get-Content (Join-Path $sourceRoot 'VERSION') -Raw).Trim()
+    $firmwareVersion = (Get-Content (Join-Path $sourceRoot 'firmware\VERSION') -Raw).Trim()
     $zip = Join-Path $sourceRoot "AIBotBridge-$version-local-candidate-win-x64.zip"
     Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
     ((Get-FileHash -LiteralPath $zip).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($zip)) | Set-Content -LiteralPath ($zip + '.sha256') -Encoding ascii
@@ -46,7 +47,7 @@ try {
     python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') source --stage (Join-Path $sourceRoot "AI-bot-$version-source.zip")
     if ($LASTEXITCODE -ne 0) { throw 'Source archive failed validation' }
     if ($Firmware) {
-        python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') firmware --stage (Join-Path $sourceRoot "AI-bot-$version-firmware-materials")
+        python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') firmware --stage (Join-Path $sourceRoot "AI-bot-$firmwareVersion-firmware-materials")
         if ($LASTEXITCODE -ne 0) { throw 'Firmware materials failed validation' }
     }
     if ($OutputDirectory) {
@@ -57,8 +58,8 @@ try {
             (Join-Path $sourceRoot "AI-bot-$version-source.zip"),
             (Join-Path $sourceRoot "AI-bot-$version-source.zip.sha256"))
         if ($Firmware) {
-            $deliverables += (Join-Path $sourceRoot "AI-bot-$version-firmware-materials.zip")
-            $deliverables += (Join-Path $sourceRoot "AI-bot-$version-firmware-materials.zip.sha256")
+            $deliverables += (Join-Path $sourceRoot "AI-bot-$firmwareVersion-firmware-materials.zip")
+            $deliverables += (Join-Path $sourceRoot "AI-bot-$firmwareVersion-firmware-materials.zip.sha256")
         }
         foreach ($file in $deliverables) { Copy-Item -LiteralPath $file -Destination $OutputDirectory }
     }

@@ -6,6 +6,8 @@
 
 Windows 与 ESP8266 版本为 **0.5.0**，TAB5 使用独立编号的 **0.2.89-ui** 固件。维护者已于 2026-10-03 确认真机验收，v0.5.0 为当前稳定版，详见[发布记录](docs/RELEASE-0.5.0.md)。
 
+桥接和两种固件分别更新，版本号无需相同；只按对应更新说明升级，无需每次一起刷机。[独立版本说明](docs/COMPONENT-VERSIONS.md)。
+
 ![CI](https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml/badge.svg)
 [![MIT](https://img.shields.io/badge/own_source-MIT-81dce6)](LICENSE)
 ![版本](https://img.shields.io/badge/release-v0.5.0-blue)

@@ -1,0 +1,104 @@
+diff --git a/.github/workflows/candidate.yml b/.github/workflows/candidate.yml
+index d98d4c5..623bebf 100644
+--- a/.github/workflows/candidate.yml
++++ b/.github/workflows/candidate.yml
+@@ -4,0 +5,6 @@ on:
++    inputs:
++      component:
++        description: Component to package
++        type: choice
++        options: [bundle, bridge, esp8266]
++        default: bundle
+@@ -5,0 +12,5 @@ on:
++    inputs:
++      component:
++        type: string
++        required: false
++        default: bundle
+@@ -11 +22,2 @@ jobs:
+-  windows-firmware:
++  windows:
++    if: inputs.component == 'bundle' || inputs.component == 'bridge'
+@@ -21,2 +32,0 @@ jobs:
+-      - name: Install build dependency
+-        run: python -m pip install platformio==6.1.18
+@@ -25 +35 @@ jobs:
+-      - name: Build, verify and package Windows, firmware and sources
++      - name: Build, verify and package bridge only
+@@ -27 +37,20 @@ jobs:
+-        run: powershell -NoProfile -File scripts/package_windows_local.ps1 -Firmware -OutputDirectory artifacts/candidate-windows-firmware
++        run: powershell -NoProfile -File scripts/package_windows_local.ps1 -OutputDirectory artifacts/candidate-windows-bridge
++      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
++        with:
++          name: candidate-windows-bridge
++          path: artifacts/candidate-windows-bridge/*
++          if-no-files-found: error
++  firmware:
++    if: inputs.component == 'bundle' || inputs.component == 'esp8266'
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
++      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
++        with:
++          python-version: '3.12'
++      - name: Install firmware build dependency
++        run: python -m pip install platformio==6.1.18
++      - name: Test packaging failure boundaries
++        run: python scripts/test_release_packaging.py
++      - name: Build, verify and package ESP8266 only
++        run: python scripts/package_esp8266_local.py artifacts/candidate-esp8266
+@@ -30,2 +59,2 @@ jobs:
+-          name: candidate-windows-firmware
+-          path: artifacts/candidate-windows-firmware/*
++          name: candidate-esp8266
++          path: artifacts/candidate-esp8266/*
+@@ -33,0 +63 @@ jobs:
++    if: inputs.component == 'bundle' || inputs.component == 'bridge'
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index d887269..4005d19 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -6,0 +7,3 @@ on:
++      - "bridge-v*.*.*"
++      - "esp8266-v*.*.*"
++      - "tab5-v*.*.*"
+@@ -13,0 +17,2 @@ jobs:
++    outputs:
++      component: ${{ steps.target.outputs.component }}
+@@ -19 +24,2 @@ jobs:
+-      - name: Verify tag and finalized notes
++      - name: Verify component tag and finalized notes
++        id: target
+@@ -24,0 +31,5 @@ jobs:
++          component="$(python -c 'import os, sys; sys.path.insert(0, "scripts"); from component_versions import release_target; print(release_target(os.environ["RELEASE_TAG"])[0])')"
++          echo "component=$component" >> "$GITHUB_OUTPUT"
++      - name: TAB5 keeps independent local image validation
++        if: steps.target.outputs.component == 'tab5'
++        run: echo "TAB5 tag metadata checked. Build and verify its first-install, upgrade and public source materials locally before separately authorized publication."
+@@ -26,0 +38 @@ jobs:
++    if: needs.validate.outputs.component != 'tab5'
+@@ -27,0 +40,2 @@ jobs:
++    with:
++      component: ${{ needs.validate.outputs.component }}
+@@ -29 +43,2 @@ jobs:
+-    needs: packages
++    needs: [validate, packages]
++    if: needs.validate.outputs.component != 'tab5'
+@@ -43 +58 @@ jobs:
+-      - name: Verify complete assets and prepare metadata
++      - name: Verify only requested components and stage user downloads
+@@ -46,0 +62 @@ jobs:
++          TARGET_COMPONENT: ${{ needs.validate.outputs.component }}
+@@ -48 +64 @@ jobs:
+-          python scripts/prepare_release_assets.py release-assets --commit "$SOURCE_SHA"
++          python scripts/prepare_release_assets.py release-assets --component "$TARGET_COMPONENT" --commit "$SOURCE_SHA" --publish-directory public-assets
+@@ -54 +70 @@ jobs:
+-        run: gh release create "$RELEASE_TAG" release-assets/* --verify-tag --draft --title "$RELEASE_TAG" --notes-file release-notes.md
++        run: gh release create "$RELEASE_TAG" public-assets/* --verify-tag --draft --latest=false --title "$RELEASE_TAG" --notes-file release-notes.md
+diff --git a/.releaserc.yml b/.releaserc.yml
+index b443e0e..d781be4 100644
+--- a/.releaserc.yml
++++ b/.releaserc.yml
+@@ -12 +12 @@ tag:
+-  prefix: v
++  prefix: bridge-v

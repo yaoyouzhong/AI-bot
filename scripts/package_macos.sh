@@ -5,7 +5,7 @@ cd "$repo_root"
 output="${1:?Usage: bash scripts/package_macos.sh NEW_OUTPUT_DIRECTORY}"
 [[ ! -e "$output" ]] || { echo 'Use a new output directory' >&2; exit 1; }
 [[ "$(uname -m)" == arm64 ]] || { echo 'This candidate targets Apple Silicon only' >&2; exit 1; }
-python3 scripts/check_version.py
+python3 scripts/check_version.py --component bridge
 python3 scripts/check_public_content.py
 python3 scripts/collect_distribution_materials.py verify
 swift test --package-path mac-app
