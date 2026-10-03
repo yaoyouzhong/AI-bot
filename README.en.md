@@ -13,11 +13,9 @@ The bridge and both firmwares update independently. Their numbers need not match
 ![Version](https://img.shields.io/badge/release-v0.5.0-blue)
 ![Hardware](https://img.shields.io/badge/hardware-ESP8266_%7C_TAB5-a6b5ff)
 
-[![54-second product overview](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · 54-second product overview
+[![96-second product overview](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · 96-second product overview
 
-https://github.com/user-attachments/assets/540c8206-a33f-46e6-aee9-d738f691d45d
-
-[▶ Open video (54 seconds, Chinese captions)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media provenance](docs/PRODUCT_VIDEO.md)
+[Download updated video (96 seconds, Chinese captions)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media provenance](docs/PRODUCT_VIDEO.md)
 
 [Download pet animation ZIP](docs/assets/pet/AI-bot-pet.zip) · [Preview GIF](docs/assets/pet/AI-bot-mascot.gif) · [Import instructions](docs/assets/pet/README.md)
 

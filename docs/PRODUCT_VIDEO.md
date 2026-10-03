@@ -1,30 +1,50 @@
 # 产品介绍视频 / Product introduction video
 
-[![双硬件产品介绍封面](assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · 54 秒产品介绍（桌宠设计预览）
+[![AI-bot 96 秒产品介绍封面](assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
-https://github.com/user-attachments/assets/540c8206-a33f-46e6-aee9-d738f691d45d
+[下载新版 MP4（96 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图与素材来源](SCREENSHOTS.md)
 
-[打开新版视频（54 秒）](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
-
-2026-10-03 按用户选定方案重新制作：中文、1920×1080 横版、30fps、54 秒，沿用 AI-bot 当前白底蓝色设备中心风格，完整介绍 Windows 设备中心、ESP8266 与 M5Stack TAB5，展示 v0.5.0的变化。首页和本页提供 GitHub 视频播放器，点击封面或“打开视频”可进入新版视频，同时保留 MP4 下载。Release 下载区只保留安装和固件所需文件，不复用旧 36 秒附件。
+2026-10-03 修订版：中文、1920×1080 横版、30fps、96 秒。首页及本页的封面和下载入口均指向仓库中的新版 MP4。旧 54 秒附件播放器已移除，新版暂以 MP4 下载提供。
 
 ## 内容与来源
 
-- 0–6 秒两种硬件；6–12 秒设备中心；12–18 秒任务状态；18–24 秒账户额度；24–30 秒 TAB5 查看与语音；30–36 秒天气/音乐/系统；36–42 秒两种刷机路线；42–48 秒桌宠与日历；48–54 秒产品定位与版本范围。
-- 封面与 0–6 秒开场并排展示 ESP8266 Codex 功能页和 TAB5 Codex 额度页，演示数据统一为 PRO、本周已用 88%、4 张重置卡；左侧由原生截图工具的 `--codex-pro-cover` 生成，不使用任务总览页代替。
-- 当前 WinForms 窗口、镜像和 TAB5 LVGL 预览使用固定演示数据。原生界面直接嵌入、局部裁切放大，没有重绘业务控件；来源和生成方式见[截图说明](SCREENSHOTS.md)。WinForms/LVGL 无法导入 React，浏览器工程负责外层排版和动效。画面不是硬件实拍，也不是新一轮真机验收。
-- 语音恢复镜头保留“本段可能不完整”的真实提示，发送仍需用户操作；未宣称断连已修复。首刷与升级镜头区分 TAB5 完整 ZIP 和应用 BIN，未宣称首刷恢复已实测。发布记录见[发布记录](RELEASE-0.5.0.md)。
-- 视频品牌图及桌宠已更新为选定的蓝紫尖顶形象，包含呼吸、键盘动作与墨镜反光循环；仅为素材设计预览，已安装程序图标、默认桌宠与固件保持现状。素材来源及 Codex 标识说明见 [桌宠素材](assets/pet/README.md)。不含私人动画、真实账户、凭据或会话。TAB5 预览所含服务标识保留相邻固件的来源说明。
-- 英文 Inter、中文 Noto Sans SC，均为 SIL OFL；成片为字体渲染，不另附字体。可复现的本地工程保留字体许可。
-- 本片配乐由 `score.py` 原创合成，104 BPM；独立动作音效使用[归藏 product video skill](https://github.com/op7418/guizang-product-video-skill) 的原创合成 WAV。没有使用参考片音轨或下载第三方音乐。
-- 制作脚手架为上述技能的 AGPL-3.0 工程，源码交付保留 LICENSE / NOTICE；未使用其 BSL 默认样式。视频工程在本地 `artifacts/product-intro-mascot-20261003/`，另附可复现 ZIP；不把工具许可自动套用于全部产品素材。
-- 全片 2 fps 联系表、全部转场 10 fps 条带和信息密集镜头全尺寸帧已实际审阅。导出为 H.264 / AAC、48 kHz 双声道、MP4 faststart；媒体检查和交付结构检查通过。配乐与音效分别保留音轨及哈希；测得约 -16.0 LUFS、真峰值 -1.5 dBFS。**未完成实际听感确认**。
-- 视频与封面的精确 SHA-256 记录在 `licenses/materials.json`；公开内容检查只接受明确路径与对应字节。
+- 开场采用蓝紫机器人品牌封面，结尾为“选一块适合你的桌面屏”。相同功能并排展示 ESP8266 和 TAB5：Codex 额度、DeepSeek 余额、智谱余额、任务状态、当前天气、行情、系统监控和音乐。DeepSeek、智谱的演示余额分别为 28.50、16.80 CNY。已移除 TAB5 独有的小时和七日天气镜头。
+- 音乐页完整展示左侧专辑封面，两种硬件均使用项目原创角色作为示例封面；曲名“桌面之光 · 示例曲目”和歌手“AI-bot 演示”是虚构演示信息，不是商业录音，也不显示“封面同步中”。
+- TAB5 亮点包括任务回复、豆包语音输入、拍照添加附件、四种时钟样式切换、日历提醒及设备中心。语音拍照段依次展示点击麦克风后的收音状态、音量条和识别文字，相机取景与拍摄确认，以及照片缩略图加入草稿。电脑端按透明收音方式呈现，不展示草稿输入框。相机使用项目原创形象作示例取景，不冒充实机摄影。
+- 界面来自原生 WinForms/LVGL 渲染，使用固定演示数据；没有重绘业务控件。Windows 与相邻 TAB5 工程的原生组件在隔离预览程序中运行，浏览器工程负责外层排版、镜头与动效。新增语音/相机素材执行原生按钮处理及离线状态分支，没有调用真实语音服务或发送消息。画面不是硬件实拍，也不是新一轮真机验收；不展示 macOS 运行态。
+- 品牌图及桌宠使用已选定的蓝紫尖顶形象；仅更新宣传素材，已安装程序图标、默认桌宠与固件保持现状。来源及标识说明见[桌宠素材](assets/pet/README.md)。不含真实账户、凭据或私人会话。
+- 配乐由 `score.py` 原创合成，104 BPM；18 个独立动作音效使用[归藏 product video skill](https://github.com/op7418/guizang-product-video-skill)的原创合成 WAV。未使用第三方歌曲。字体 Inter 与 Noto Sans SC 均为 SIL OFL。制作脚手架采用该技能的 AGPL-3.0 工程，源码保留 LICENSE / NOTICE，未使用其 BSL 默认样式。
+- 可复现工程位于本地 `artifacts/product-intro-highlights-20261003/`；源码归档为 `artifacts/video-storyboard-20261003/AI-bot-highlights-v4-source.zip`。这些本地产物未作为安装或固件附件发布。
+- 全片 2 fps 联系表、全部转场 10 fps 条带，以及语音/取景/拍摄确认/附件等全尺寸帧已审阅。H.264 / AAC、48 kHz 双声道、MP4 faststart；96 秒、2880 帧、完整解码与交付结构检查通过。混音约 -16.0 LUFS、真峰值 -1.5 dBFS；**尚未完成主观试听**。视频和封面的 SHA-256 登记于 `licenses/materials.json`。
+
+## 分镜 / Timeline
+
+| 时间 / Time | 展示内容 / Content |
+| --- | --- |
+| 0–6 s | 品牌封面 / Brand cover |
+| 6–12 s | Codex 额度对照 / Codex quota comparison |
+| 12–18 s | DeepSeek 余额对照 / DeepSeek balance comparison |
+| 18–24 s | 智谱余额对照 / Zhipu balance comparison |
+| 24–30 s | 任务状态对照 / Task status comparison |
+| 30–36 s | 当前天气对照 / Current weather comparison |
+| 36–42 s | 行情对照 / Market comparison |
+| 42–48 s | 系统与网络对照 / System and network comparison |
+| 48–54 s | 音乐与专辑封面对照 / Music and album artwork comparison |
+| 54–60 s | TAB5 任务回复 / TAB5 task replies |
+| 60–72 s | 豆包语音、拍照、附件 / Doubao dictation, camera and attachment |
+| 72–78 s | 四种时钟样式切换 / Four clock styles |
+| 78–84 s | 日历与提醒 / Calendar and reminders |
+| 84–90 s | 设备中心 / Device Center |
+| 90–96 s | 品牌结尾 / Closing brand frame |
 
 ## English
 
-The video branding and animated pet now use the selected periwinkle mascot as a media design preview; installed application icons, pet defaults and firmware remain unchanged. The rebuilt 54-second overview uses Chinese captions at 1920×1080, 30 fps. It covers current Windows Device Center, ESP8266 and TAB5, including v0.5.0 changes, AI status/quotas, TAB5 voice interaction, daily information, separate flashing routes, the selected mascot design preview and calendar. The cover and opening pair the ESP8266 Codex page with the TAB5 Codex quota page, using matching synthetic PRO, 88% weekly usage and four reset credits; the small-screen image is rendered natively with --codex-pro-cover. It does not demonstrate macOS runtime. Current native WinForms/LVGL pixels use synthetic fixtures; they are not hardware footage or fresh device acceptance. Music is composed in code for this film, with independent original synthesized SFX from the credited skill. Inter and Noto Sans SC use SIL OFL; the reproducible project retains applicable notices. Contact sheets, every cut, dense full-size frames, duration/codec/audio structure and loudness were checked. Subjective listening remains unverified. The README and this page provide a native GitHub video player, with cover and text links opening the public playback page for the same 54-second video. A separate MP4 download remains available. The video is stored in the repository rather than duplicated as an installation asset; exact media hashes are enforced in `licenses/materials.json`.
+The revised 96-second film uses Chinese captions at 1920×1080, 30 fps. The cover opens the film, followed by matching ESP8266/TAB5 views of Codex quotas, DeepSeek and Zhipu balances, task activity, current weather, markets, system/network data and music. The two domestic-provider balances are synthetic 28.50 and 16.80 CNY. TAB5-only hourly and seven-day forecasts have been removed. Both music views show the approved project mascot as sample album artwork with a fictional track; no artwork-sync placeholder remains.
 
-## 历史附件
+TAB5 highlights include task replies, Doubao dictation, camera attachments, four switchable clock styles, calendar reminders and Device Center. The 60–72-second sequence shows the native microphone-click recording state, meter and transcript, camera preview/review, and a photo thumbnail added to the draft. The desktop voice editor is omitted to reflect transparent operation. The camera image is an explicitly labeled sample of the project's original character, not real photography.
 
-[2026-09-19 的旧 36 秒 GitHub 附件](https://github.com/user-attachments/assets/dc69b524-0c0e-46cb-b92a-83d794968ccf)仅作为历史记录，不是本次 54 秒新版。旧片的播放器与网络复核结果也不能用于证明新片的公开播放链路。新版使用独立的 54 秒 GitHub 视频附件；仓库 MP4 作为素材与下载备份。
+Native WinForms/LVGL interfaces use offline fixtures and real UI handlers. They do not call the live speech service or send messages. These are rendered previews, not hardware footage or new device acceptance, and no macOS runtime is shown. Installed application icons, default pets and firmware are unchanged. Sources contain no real accounts, credentials or private conversations.
+
+The original 104 BPM code-generated score includes 18 independent synthesized action cues from the credited skill. Inter and Noto Sans SC are SIL OFL; the local reproducible project retains AGPL-3.0 scaffold notices and uses no BSL fallback styling. The project and versioned source ZIP paths are listed above; they are not installation assets. Full-film contact sheets, every cut and dense frames were visually reviewed. The 96-second, 2880-frame H.264/AAC export passed full decoding and delivery checks; the mix measures approximately -16 LUFS and -1.5 dBFS true peak. Subjective listening remains unverified. Exact video and cover hashes are recorded in `licenses/materials.json`.
+
+The README and this page now link to the updated repository MP4 for download. The old 54-second embedded attachment has been removed; a new inline GitHub player is not currently provided.

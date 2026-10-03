@@ -13,11 +13,9 @@ Windows 与 ESP8266 版本为 **0.5.0**，TAB5 使用独立编号的 **0.2.89-ui
 ![版本](https://img.shields.io/badge/release-v0.5.0-blue)
 ![硬件](https://img.shields.io/badge/hardware-ESP8266_%7C_TAB5-a6b5ff)
 
-[![AI-bot 双硬件产品介绍，54 秒](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · 54 秒产品介绍（桌宠设计预览）
+[![AI-bot 双硬件产品介绍，96 秒](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · 96 秒产品介绍（桌宠设计预览）
 
-https://github.com/user-attachments/assets/540c8206-a33f-46e6-aee9-d738f691d45d
-
-[▶ 打开视频（54 秒）](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频与截图来源](docs/PRODUCT_VIDEO.md)
+[下载新版视频（96 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频与截图来源](docs/PRODUCT_VIDEO.md)
 
 [下载桌宠动画包](docs/assets/pet/AI-bot-pet.zip) · [预览 GIF](docs/assets/pet/AI-bot-mascot.gif) · [导入说明](docs/assets/pet/README.md)
 
