@@ -1,10 +1,10 @@
 # 产品介绍视频 / Product introduction video
 
-[![双硬件产品介绍封面](assets/product-intro/AI-bot-cover.png)](https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e) · 54 秒产品介绍
+[![双硬件产品介绍封面](assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · 54 秒产品介绍
 
 https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e
 
-[打开新版视频（54 秒）](https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
+[打开新版视频（54 秒）](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
 2026-10-03 按用户选定方案重新制作：中文、1920×1080 横版、30fps、54 秒，沿用 AI-bot 当前白底蓝色设备中心风格，完整介绍 Windows 设备中心、ESP8266 与 M5Stack TAB5，展示 v0.5.0的变化。首页和本页提供 GitHub 视频播放器，点击封面或“打开视频”可进入新版视频，同时保留 MP4 下载。Release 下载区只保留安装和固件所需文件，不复用旧 36 秒附件。
 
@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e
 
 ## English
 
-The rebuilt 54-second overview uses Chinese captions at 1920×1080, 30 fps. It covers current Windows Device Center, ESP8266 and TAB5, including v0.5.0 changes, AI status/quotas, TAB5 voice interaction, daily information, separate flashing routes, the original pet and calendar. The cover and opening pair the ESP8266 Codex page with the TAB5 Codex quota page, using matching synthetic PRO, 88% weekly usage and four reset credits; the small-screen image is rendered natively with --codex-pro-cover. It does not demonstrate macOS runtime. Current native WinForms/LVGL pixels use synthetic fixtures; they are not hardware footage or fresh device acceptance. Music is composed in code for this film, with independent original synthesized SFX from the credited skill. Inter and Noto Sans SC use SIL OFL; the reproducible project retains applicable notices. Contact sheets, every cut, dense full-size frames, duration/codec/audio structure and loudness were checked. Subjective listening remains unverified. The README and this page provide a native GitHub video player, with cover and text links opening the same 54-second attachment. A separate MP4 download remains available. The video is stored in the repository rather than duplicated as an installation asset; exact media hashes are enforced in `licenses/materials.json`.
+The rebuilt 54-second overview uses Chinese captions at 1920×1080, 30 fps. It covers current Windows Device Center, ESP8266 and TAB5, including v0.5.0 changes, AI status/quotas, TAB5 voice interaction, daily information, separate flashing routes, the original pet and calendar. The cover and opening pair the ESP8266 Codex page with the TAB5 Codex quota page, using matching synthetic PRO, 88% weekly usage and four reset credits; the small-screen image is rendered natively with --codex-pro-cover. It does not demonstrate macOS runtime. Current native WinForms/LVGL pixels use synthetic fixtures; they are not hardware footage or fresh device acceptance. Music is composed in code for this film, with independent original synthesized SFX from the credited skill. Inter and Noto Sans SC use SIL OFL; the reproducible project retains applicable notices. Contact sheets, every cut, dense full-size frames, duration/codec/audio structure and loudness were checked. Subjective listening remains unverified. The README and this page provide a native GitHub video player, with cover and text links opening the public playback page for the same 54-second video. A separate MP4 download remains available. The video is stored in the repository rather than duplicated as an installation asset; exact media hashes are enforced in `licenses/materials.json`.
 
 ## 历史附件
 

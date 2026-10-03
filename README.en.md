@@ -13,11 +13,11 @@ The bridge and both firmwares update independently. Their numbers need not match
 ![Version](https://img.shields.io/badge/release-v0.5.0-blue)
 ![Hardware](https://img.shields.io/badge/hardware-ESP8266_%7C_TAB5-a6b5ff)
 
-[![54-second product overview](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e) · 54-second product overview
+[![54-second product overview](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · 54-second product overview
 
 https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e
 
-[▶ Open video (54 seconds, Chinese captions)](https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e) · [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media provenance](docs/PRODUCT_VIDEO.md)
+[▶ Open video (54 seconds, Chinese captions)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media provenance](docs/PRODUCT_VIDEO.md)
 
 ## A live window on your desk
 
