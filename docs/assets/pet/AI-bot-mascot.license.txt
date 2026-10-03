@@ -1,0 +1,14 @@
+AI-bot mascot design material, selected by the maintainer on 2026-10-03.
+
+The pixel character was generated for AI-bot using the built-in image generation tool.
+The six-frame animation was generated from the selected character and converted with
+tools/media-design. No third-party pet or animation sheet was imported.
+The project-generated character and animation contributions follow AI-bot's MIT license.
+
+The laptop carries the Codex product mark as a compatibility reference. That mark
+belongs to its respective owner, is separate from the generated character and is
+not granted or relicensed under AI-bot's MIT license. AI-bot is not affiliated with
+or endorsed by OpenAI. This notice records sources; it does not grant third-party rights.
+
+This is an optional downloadable design asset. It does not modify installed
+application or firmware defaults. No hardware installation or acceptance is implied.

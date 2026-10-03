@@ -51,7 +51,7 @@ settings framework, RGB565 implementation, and firmware globals were not importe
 
 Third-party libraries are consumed through their normal package managers and retain their own licenses. See `THIRD_PARTY_NOTICES.md`.
 
-Claude, Codex, OpenAI, Anthropic, and other product names may be referenced only to describe interoperability. AI-bot is not affiliated with or endorsed by those vendors. No vendor logo is distributed by this repository.
+Claude, Codex, OpenAI, Anthropic, and other product names are referenced to describe interoperability. AI-bot is not affiliated with or endorsed by those vendors. Application and firmware packages do not bundle vendor logos. The media-only mascot preview described below carries a separately attributed Codex mark.
 
 The built-in `BYTE SPROUT` pixel pet is drawn from geometric primitives in AI-bot firmware. It does not contain or derive from an imported sprite, screenshot, character, or logo.
 
@@ -118,3 +118,28 @@ original component/font licenses, dependency locks, actual sdkconfig and SDK pat
 are retained. No Git history is imported. Downloaded managed dependency trees,
 compilers and caches are omitted; see `docs/development/TAB5-SOURCE.md` for scope.
 The exact archive SHA-256 is pinned in `licenses/materials.json`.
+
+## Selected mascot media, 2026-10-03
+
+`docs/assets/pet/AI-bot-mascot.png` is the 1254×1254 transparent master selected
+by the maintainer in this task. Its SHA-256 is
+`d5b150a9d5382dedb4b6464efc9119b36cc94757f8193d0f3a026d2e62217533`.
+The pointed periwinkle character was generated using the built-in image generator;
+the six animation poses and the moving mint sunglass reflections were generated
+from that selected artwork. No Petdex or legacy character frames were copied.
+The reference laptop Codex mark was taken from the user's existing local Codex
+page-logo preview. It remains a vendor identifier, separate from AI-bot's generated
+character contributions and outside the project MIT grant.
+
+`tools/media-design` converts the generated 3×2 sheet into an aligned six-frame GIF.
+The existing product importer verifies six distinct 112×112 RGB565 frames with a
+2.4-second cycle. `tools/doc-capture --design-pet <gif>` selects this artwork only
+inside its isolated documentation profile, and emits complete native UI frames
+for the film so quotas and reset-credit badges retain their original draw order.
+Static screenshots and the film label the mascot as a design preview. Production
+application/firmware sources, defaults, private selections and devices are unchanged.
+
+The master, GIF and optional ZIP have exact path/hash records in
+`licenses/materials.json`. Runtime APET files remain excluded. The isolated video
+project retains the animation source sheet, generation prompts and conversion
+records for reproduction. Original vendor marks are not claimed as project artwork.

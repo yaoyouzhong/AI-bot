@@ -7,6 +7,15 @@ internal static class DocCapture
     [STAThread]
     private static void Main(string[] args)
     {
+        string? designPet = null;
+        PetAnimation? designAnimation = null;
+        int designIndex = Array.IndexOf(args, "--design-pet");
+        if (designIndex >= 0)
+        {
+            if (designIndex + 1 >= args.Length) throw new ArgumentException("--design-pet requires an approved GIF path.");
+            designPet = Path.GetFullPath(args[designIndex + 1]);
+            args = args.Take(designIndex).Concat(args.Skip(designIndex + 2)).ToArray();
+        }
         bool releaseUi = args.Length == 2 && args[1] == "--release-ui";
         bool screenSaverOnly = args.Length == 2 && args[1] == "--screensaver";
         bool quotaOnly = args.Length == 2 && args[1] == "--quota-api";
@@ -23,6 +32,15 @@ internal static class DocCapture
         {
             PetAnimationStore.Shared.Select("claude", PetAnimation.Decode(File.ReadAllBytes(args[1])));
             PetAnimationStore.Shared.Select("codex", PetAnimation.Decode(File.ReadAllBytes(args[2])));
+        }
+        if (designPet is not null)
+        {
+            if (!PetAnimation.TryImport(designPet, out var animation, out _, out var error))
+                throw new InvalidDataException(error);
+            designAnimation = animation;
+            PetAnimationStore.Shared.Select("claude", animation!);
+            PetAnimationStore.Shared.Select("codex", animation!);
+            Console.WriteLine("DOC_DESIGN_PREVIEW selected artwork in isolated profile; shipped defaults unchanged");
         }
         var now = new DateTimeOffset(2026, 10, 3, 10, 24, 0, TimeSpan.FromHours(8));
         var quota = new ProviderQuotaSnapshot("claude", "MAX", 34, now.AddHours(2), 61,
@@ -53,8 +71,10 @@ internal static class DocCapture
                     new DateTimeOffset(2026,10,5,13,38,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds(),
                     new DateTimeOffset(2026,10,23,0,27,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds(),
                     new DateTimeOffset(2026,11,4,11,26,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds() } };
-            using var image = MirrorForm.RenderSnapshot(status with { Quotas=status.Quotas with { Codex=codex } }, "codex");
+            var coverStatus = status with { Quotas=status.Quotas with { Codex=codex } };
+            using var image = MirrorForm.RenderSnapshot(coverStatus, "codex");
             image.Save(Path.Combine(output,"codex-pro-cover.png"),ImageFormat.Png);
+            SaveDesignFrames(coverStatus, "codex", "codex-pro-cover");
             Console.WriteLine("DOC_CODEX_COVER_OK native Codex page; synthetic PRO/weekly 88%; isolated profile");
             return;
         }
@@ -138,7 +158,24 @@ internal static class DocCapture
         using (var bitmap = new Bitmap(menu.Width,menu.Height))
         { menu.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size)); bitmap.Save(Path.Combine(output,"tray-menu.png")); }
         menu.Close();
+        SaveDesignFrames(status, "pet", "pet");
+        SaveDesignFrames(status with { Codex=new("working",0,NeedsInput:true), CapturedAt=DateTimeOffset.FromUnixTimeMilliseconds(800) }, "codex", "needs-input");
+        SaveDesignFrames(status with { Codex=new("idle",0,CompletionActive:true) }, "codex", "completed");
         Console.WriteLine("DOC_CAPTURE_OK isolated profile; synthetic values; no USB, HTTP, online data or private artwork");
+        void SaveDesignFrames(StatusSnapshot frameStatus, string mode, string name)
+        {
+            if (designAnimation is null) return;
+            for (int i = 0; i < designAnimation.Frames.Length; i++)
+            {
+                var still = new PetAnimation([400], [designAnimation.Frames[i]], designAnimation.Width, designAnimation.Height);
+                PetAnimationStore.Shared.Select("claude", still);
+                PetAnimationStore.Shared.Select("codex", still);
+                using var image = MirrorForm.RenderSnapshot(frameStatus, mode);
+                image.Save(Path.Combine(output, $"{name}-frame-{i:D2}.png"), ImageFormat.Png);
+            }
+            PetAnimationStore.Shared.Select("claude", designAnimation);
+            PetAnimationStore.Shared.Select("codex", designAnimation);
+        }
         void Save(Form form, string name) {
             using var bitmap = new Bitmap(form.Width,form.Height);
             form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));

@@ -13,11 +13,15 @@ Windows 与 ESP8266 版本为 **0.5.0**，TAB5 使用独立编号的 **0.2.89-ui
 ![版本](https://img.shields.io/badge/release-v0.5.0-blue)
 ![硬件](https://img.shields.io/badge/hardware-ESP8266_%7C_TAB5-a6b5ff)
 
-[![AI-bot 双硬件产品介绍，54 秒](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · 54 秒产品介绍
+[![AI-bot 双硬件产品介绍，54 秒](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · 54 秒产品介绍（桌宠设计预览）
 
 https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e
 
 [▶ 打开视频（54 秒）](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频与截图来源](docs/PRODUCT_VIDEO.md)
+
+[下载桌宠动画包](docs/assets/pet/AI-bot-pet.zip) · [预览 GIF](docs/assets/pet/AI-bot-mascot.gif) · [导入说明](docs/assets/pet/README.md)
+
+新版桌宠仅用于本轮截图与视频的设计展示，程序、固件和个人设置保持现状。GitHub 在线播放器仍为上一版，待发布时同步。
 
 ## 桌面上的实时窗口
 
@@ -33,7 +37,7 @@ https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e
 
 <table>
 <tr>
-<td align="center" width="33%"><strong>AI 额度与桌宠</strong><br><br><img src="docs/assets/screens/codex.png" width="240" height="240" alt="AI 额度与桌宠：实际程序界面，演示数据"><br>额度、重置时间与动画角色</td>
+<td align="center" width="33%"><strong>AI 额度与桌宠</strong><br><br><img src="docs/assets/screens/codex.png" width="240" height="240" alt="AI 额度与新桌宠设计预览：原生布局，演示数据"><br>额度、重置时间与动画角色</td>
 <td align="center" width="33%"><strong>天气时钟</strong><br><br><img src="docs/assets/screens/weather.png" width="240" height="240" alt="天气时钟：实际程序界面，演示数据"><br>城市天气、温度与湿度</td>
 <td align="center" width="33%"><strong>股票行情</strong><br><br><img src="docs/assets/screens/stocks.png" width="240" height="240" alt="股票行情：实际程序界面，演示数据"><br>自选股票、报价与涨跌幅</td>
 </tr>
@@ -44,7 +48,7 @@ https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e
 </tr>
 </table>
 
-<sub>以上为实际 Windows 镜像界面，使用固定演示数据与原创 BYTE SPROUT，并非实体屏照片。</sub>
+<sub>以上采用原生 Windows 镜像布局与固定演示数据；新桌宠为设计预览，程序与固件默认形象尚未替换，并非实体屏照片。</sub>
 
 ### 两种硬件，一个 Windows 设备中心
 

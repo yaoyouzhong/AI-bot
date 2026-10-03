@@ -66,3 +66,13 @@ The Windows TAB5 voice bridge uses NAudio.Wasapi and NAudio.Core 2.2.1 (MIT), by
 ## Mainland China holiday dataset
 
 TAB5 checks the publicly maintained holiday-cn JSON dataset by NateScarlet (MIT): https://github.com/NateScarlet/holiday-cn. Each accepted year must cite a State Council notice; this is a third-party dataset, not an official government API. The 2026 test fixture comes from that project. Its original license is retained in `licenses/holiday-cn/LICENSE`. Cached schedules survive network failures; unpublished years are never generated from predictions.
+
+## Selected mascot design media
+
+The optional PNG/GIF under `docs/assets/pet/` and selected documentation/video
+previews contain a Codex product mark on the laptop. That identifier remains the
+property of its respective owner and is outside AI-bot's MIT grant. AI-bot is not
+affiliated with or endorsed by OpenAI. The character and animation contributions
+were generated for this project; no legacy or Petdex animation was copied.
+See `PROVENANCE.md` and the same-name notice accompanying the GIF. These media
+assets are optional and do not replace installed application/firmware defaults.

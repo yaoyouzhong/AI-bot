@@ -19,6 +19,10 @@ https://github.com/user-attachments/assets/70e0e995-f303-4dd6-95b9-46cf52def08e
 
 [▶ Open video (54 seconds, Chinese captions)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/PRODUCT_VIDEO.md) · [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media provenance](docs/PRODUCT_VIDEO.md)
 
+[Download pet animation ZIP](docs/assets/pet/AI-bot-pet.zip) · [Preview GIF](docs/assets/pet/AI-bot-mascot.gif) · [Import instructions](docs/assets/pet/README.md)
+
+The selected mascot appears only in this media design preview. Application, firmware and personal settings are unchanged. The public GitHub player still shows the previous render and will be synchronized on publication.
+
 ## A live window on your desk
 
 The bridge reads local AI activity and provider quotas and sends them to your device. Windows lives in the system tray; macOS provides a menu-bar app and screen mirror. Device features differ by platform.
@@ -33,7 +37,7 @@ The bridge reads local AI activity and provider quotas and sends them to your de
 
 <table>
 <tr>
-<td align="center" width="33%"><strong>AI 额度与桌宠</strong><br><br><img src="docs/assets/screens/codex.png" width="240" height="240" alt="AI 额度与桌宠：实际程序界面，演示数据"><br>额度、重置时间与动画角色</td>
+<td align="center" width="33%"><strong>AI 额度与桌宠</strong><br><br><img src="docs/assets/screens/codex.png" width="240" height="240" alt="AI quota and selected pet design preview; native layout with synthetic data"><br>额度、重置时间与动画角色</td>
 <td align="center" width="33%"><strong>天气时钟</strong><br><br><img src="docs/assets/screens/weather.png" width="240" height="240" alt="天气时钟：实际程序界面，演示数据"><br>城市天气、温度与湿度</td>
 <td align="center" width="33%"><strong>股票行情</strong><br><br><img src="docs/assets/screens/stocks.png" width="240" height="240" alt="股票行情：实际程序界面，演示数据"><br>自选股票、报价与涨跌幅</td>
 </tr>
@@ -44,7 +48,7 @@ The bridge reads local AI activity and provider quotas and sends them to your de
 </tr>
 </table>
 
-<sub>Native Windows mirror captures with synthetic data and the original BYTE SPROUT. These are not hardware photographs.</sub>
+<sub>Native Windows mirror layouts with synthetic data. The selected mascot is a design preview; application and firmware defaults are unchanged. These are not hardware photographs.</sub>
 
 ### Two devices, one Windows Device Center
 
@@ -63,8 +67,8 @@ The bridge reads local AI activity and provider quotas and sends them to your de
 
 <table>
 <tr>
-<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample with the original pet"><br><strong>Codex quota</strong></td>
-<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude quota sample with the original pet"><br><strong>Claude quota</strong></td>
+<td align="center"><img src="docs/assets/screens/codex.png" width="240" alt="Codex quota sample with the selected pet design preview"><br><strong>Codex quota</strong></td>
+<td align="center"><img src="docs/assets/screens/claude.png" width="240" alt="Claude quota sample with the selected pet design preview"><br><strong>Claude quota</strong></td>
 <td align="center"><img src="docs/assets/screens/dual.png" width="240" alt="Dual quota sample"><br><strong>Dual quotas</strong></td>
 </tr>
 <tr>

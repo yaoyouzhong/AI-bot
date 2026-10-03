@@ -68,6 +68,16 @@ REVIEWED_PRODUCT_MEDIA = frozenset({
     "docs/assets/product-intro/AI-bot-cover.png",
 })
 
+REVIEWED_PET_MEDIA = frozenset({
+    "docs/assets/pet/AI-bot-mascot.png",
+    "docs/assets/pet/AI-bot-mascot.gif",
+    "docs/assets/pet/AI-bot-pet.zip",
+})
+
+
+def reviewed_pet_media(path, data):
+    return path in REVIEWED_PET_MEDIA and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
+
 
 def reviewed_product_media(path, data):
     return path in REVIEWED_PRODUCT_MEDIA and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
@@ -106,6 +116,7 @@ def findings(path, data):
                      and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get('windows-app/AIBotBridge/Assets/flash-icon.ico'))
             and not reviewed_doc_image(normalized, data)
             and not reviewed_product_media(path.replace(chr(92), "/"), data)
+            and not reviewed_pet_media(path.replace(chr(92), "/"), data)
             and not reviewed_source_archive(path.replace(chr(92), "/"), data)):
         yield "unreviewed-binary-or-artwork", 0
     if (name in PRIVATE_NAMES or name == ".env" or name.startswith(".env.")
@@ -131,6 +142,11 @@ def main():
         known = "docs/assets/screens/codex.png"
         assert not list(findings(known, (ROOT / known).read_bytes()))
         assert list(findings("docs/assets/product-intro/unknown.mp4", b"video"))
+        assert list(findings("docs/assets/pet/unknown.gif", b"animation"))
+        assert list(findings("docs/assets/pet/AI-bot-mascot.gif", b"changed animation"))
+        assert list(findings("docs/assets/pet/selected.apet", b"private runtime resource"))
+        for media in REVIEWED_PET_MEDIA:
+            assert not list(findings(media, (ROOT / media).read_bytes()))
         assert list(findings("docs/assets/product-intro/AI-bot-product-intro.mp4", b"changed video"))
         for media in REVIEWED_PRODUCT_MEDIA:
             assert not list(findings(media, (ROOT / media).read_bytes()))
