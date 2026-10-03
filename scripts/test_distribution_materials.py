@@ -22,6 +22,12 @@ class DistributionTests(unittest.TestCase):
         self.stage.mkdir()
         for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/DISTRIBUTION_TERMS.md',
                      'docs/WINDOWS_PACKAGE.md', 'docs/FIRMWARE_PACKAGE.md',
+                     'docs/WINDOWS_INSTALLER.md', 'docs/DOMESTIC_QUOTA_SETUP.md',
+                     'docs/assets/screens/api-settings.png',
+                     'docs/INSTALL.zh.md', 'docs/FLASH.zh.md', 'docs/FLASH_MAC.zh.md',
+                     'docs/FLASH_BUILD.zh.md', 'docs/TAB5-FIRMWARE-WORKFLOW.md', 'docs/TAB5-LICENSE-SCOPE.md',
+                     'docs/assets/screens/device-center.png', 'docs/assets/screens/firmware-flasher.png',
+                     'docs/assets/screens/tab5-first-install.png', 'docs/assets/screens/tab5-upgrade.png',
                      'licenses/windows-sdk/sdk_license.rtf', 'licenses/windows-sdk/REDIST.html'):
             self.write(name, 'synthetic fixture')
         self.package = self.root / 'packages/sample/1.0'
@@ -53,8 +59,33 @@ class DistributionTests(unittest.TestCase):
         materials.collect_windows(self.stage)
         self.assertTrue((self.stage / 'licenses/Microsoft.Windows.SDK.NET.Ref-10.0.19041.56/sdk_license.rtf').is_file())
         self.assertTrue((self.stage / 'DEPENDENCIES.json').is_file())
+        for name in ('WINDOWS_INSTALLER.md', 'DOMESTIC_QUOTA_SETUP.md', 'assets/screens/api-settings.png'):
+            self.assertEqual((self.stage / 'docs' / name).read_bytes(), (self.root / 'docs' / name).read_bytes())
         for name, expected in self.hashes.items():
             self.assertEqual(materials.digest(self.stage / name), expected)
+
+    def test_reviewed_notice_fills_package_omission(self):
+        (self.package / 'LICENSE').unlink()
+        self.write('licenses/sample/LICENSE.txt', 'reviewed upstream notice')
+        path = self.root / 'licenses/materials.json'
+        evidence = json.loads(path.read_text())
+        evidence['files']['sample/LICENSE.txt'] = materials.digest(self.root / 'licenses/sample/LICENSE.txt')
+        evidence['windowsPackageNotices'] = {'sample/1.0': 'sample/LICENSE.txt'}
+        path.write_text(json.dumps(evidence))
+        materials.collect_windows(self.stage)
+        self.assertEqual((self.stage / 'licenses/sample-1.0/LICENSE.txt').read_text(), 'reviewed upstream notice')
+        self.write('licenses/sample/LICENSE.txt', 'tampered')
+        with self.assertRaisesRegex(ValueError, 'evidence changed'):
+            materials.verify_evidence()
+
+    def test_unverified_notice_blocks_packaging(self):
+        (self.package / 'LICENSE').unlink()
+        path = self.root / 'licenses/materials.json'
+        evidence = json.loads(path.read_text())
+        evidence['windowsPackageNotices'] = {'sample/1.0': 'sample/LICENSE.txt'}
+        path.write_text(json.dumps(evidence))
+        with self.assertRaisesRegex(ValueError, 'Unverified package notice'):
+            materials.collect_windows(self.stage)
 
     def test_tampered_dll_blocks_packaging(self):
         (self.stage / 'WinRT.Runtime.dll').write_bytes(b'changed')

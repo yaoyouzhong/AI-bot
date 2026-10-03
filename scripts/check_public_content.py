@@ -17,6 +17,20 @@ RULES = {
 }
 # Individually reviewed documentation captures. Path AND bytes must match the record.
 REVIEWED_DOC_NAMES = frozenset({
+    'device-center.png',
+    'device-center-esp8266.png',
+    'device-center-accounts.png',
+    'device-center-bridge.png',
+    'add-device.png',
+    'tab5-first-install.png',
+    'tab5-upgrade.png',
+    'tab5-usb-pairing.png',
+    'tab5-connection.png',
+    'tab5-quota.png',
+    'tab5-activity.png',
+    'tab5-voice.png',
+    'tab5-calendar.png',
+
     'activity.png',
     'api-settings.png',
     'authorization-empty.png',

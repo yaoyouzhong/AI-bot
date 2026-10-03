@@ -94,7 +94,14 @@ def collect_windows(stage: Path):
             continue
         package = package_at(assets["packageFolders"], library["path"])
         target = stage / "licenses" / name.replace("/", "-")
-        texts = copy_notices(package, target)
+        reviewed_notice = evidence.get("windowsPackageNotices", {}).get(name)
+        if reviewed_notice and not notices_in(package):
+            if reviewed_notice not in evidence["files"]:
+                raise ValueError(f"Unverified package notice: {name}")
+            copy_file(ROOT / "licenses" / reviewed_notice, target / "LICENSE.txt")
+            texts = ["LICENSE.txt"]
+        else:
+            texts = copy_notices(package, target)
         for spec in package.glob("*.nuspec"):
             copy_file(spec, target / spec.name)
         records.append({"package": name, "licenseFiles": texts})
@@ -128,9 +135,10 @@ def collect_windows(stage: Path):
     copy_file(ROOT / "docs/DISTRIBUTION_TERMS.md", stage / "DISTRIBUTION_TERMS.md")
     copy_file(ROOT / "docs/WINDOWS_PACKAGE.md", stage / "README.md")
     copy_file(ROOT / "licenses/materials.json", stage / "licenses/materials.json")
-    for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md", "WINDOWS_INSTALLER.md", "DOMESTIC_QUOTA_SETUP.md"):
+    for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md", "WINDOWS_INSTALLER.md", "DOMESTIC_QUOTA_SETUP.md", "INSTALL.zh.md", "FLASH.zh.md", "FLASH_MAC.zh.md", "FLASH_BUILD.zh.md", "TAB5-FIRMWARE-WORKFLOW.md", "TAB5-LICENSE-SCOPE.md"):
         copy_file(ROOT / "docs" / name, stage / "docs" / name)
-    copy_file(ROOT / "docs/assets/screens/api-settings.png", stage / "docs/assets/screens/api-settings.png")
+    for name in ("api-settings", "device-center", "firmware-flasher", "tab5-first-install", "tab5-upgrade"):
+        copy_file(ROOT / "docs/assets/screens" / (name + ".png"), stage / "docs/assets/screens" / (name + ".png"))
     write_json(stage / "DEPENDENCIES.json", {"scope": "restored Windows publish dependencies",
                                              "packages": records})
     print(f"WINDOWS_DISTRIBUTION_MATERIALS_OK packages={len(records)}")
@@ -172,9 +180,10 @@ def collect_firmware(stage: Path, core: Path):
         copy_file(ROOT / filename, stage / filename)
     copy_file(ROOT / "docs/FIRMWARE_PACKAGE.md", stage / "README.md")
     copy_file(ROOT / "docs/DISTRIBUTION_TERMS.md", stage / "DISTRIBUTION_TERMS.md")
-    for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md", "WINDOWS_INSTALLER.md", "DOMESTIC_QUOTA_SETUP.md"):
+    for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md", "WINDOWS_INSTALLER.md", "DOMESTIC_QUOTA_SETUP.md", "INSTALL.zh.md", "FLASH.zh.md", "FLASH_MAC.zh.md", "FLASH_BUILD.zh.md", "TAB5-FIRMWARE-WORKFLOW.md", "TAB5-LICENSE-SCOPE.md"):
         copy_file(ROOT / "docs" / name, stage / "docs" / name)
-    copy_file(ROOT / "docs/assets/screens/api-settings.png", stage / "docs/assets/screens/api-settings.png")
+    for name in ("api-settings", "device-center", "firmware-flasher", "tab5-first-install", "tab5-upgrade"):
+        copy_file(ROOT / "docs/assets/screens" / (name + ".png"), stage / "docs/assets/screens" / (name + ".png"))
     copy_file(binary, stage / "firmware.bin")
     copy_tree(firmware, stage / "source/firmware")
     packages = {"framework-arduinoespressif8266": core / "packages/framework-arduinoespressif8266",

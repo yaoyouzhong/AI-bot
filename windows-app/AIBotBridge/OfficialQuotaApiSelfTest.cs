@@ -100,10 +100,11 @@ internal static class OfficialQuotaApiSelfTest
         }
         var retained=new MigratedDomestic.DomesticQuotaService();
         retained.SetDeepSeek(77.77,"CNY",usedCost:22.23);
+        var usageFetchedAt = retained.Snapshot.DeepSeekUsedCostFetchedAt;
         retained.ReportWebFailure("deepseek","login expired");
         Require(retained.Snapshot.DeepSeekBalance==77.77 && retained.RefreshHealth.Failed("deepseek"),"Failure retains last balance");
-        retained.SetDeepSeek(75.37,"CNY");
-        Require(retained.Snapshot.DeepSeekBalance==75.37 && retained.Snapshot.DeepSeekUsedCost==null && !retained.RefreshHealth.Failed("deepseek"),"Recovery replaces balance without carrying old-account cost");
+        retained.SetDeepSeek(75.37,"CNY",fromApi:true);
+        Require(retained.Snapshot.DeepSeekBalance==75.37 && retained.Snapshot.DeepSeekUsedCost==22.23 && retained.Snapshot.DeepSeekUsedCostFetchedAt==usageFetchedAt && !retained.RefreshHealth.Failed("deepseek"),"Same-account API recovery preserves web cost and its original age");
         Console.WriteLine("OFFICIAL_QUOTA_API_SELF_TEST_OK HTTP/auth/schema/currency/zero/Kimi-window/error/redaction/reminder-recovery; fake HTTP only");
     }
     private static void Require(bool condition,string message) { if(!condition) throw new InvalidOperationException(message); }

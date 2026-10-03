@@ -41,6 +41,7 @@ internal static class PublicSelfTest
         QuotaHistorySelfTest.Run();
         LunarDateSelfTest.Run();
         OfficialQuotaApiSelfTest.Run();
+        MediaCostSelfTest.Run();
         ListenerStartupSelfTest.RunAsync().GetAwaiter().GetResult();
         AdditionalQuotaSelfTest.Run();
         XiaomiQuotaSelfTest.Run();
