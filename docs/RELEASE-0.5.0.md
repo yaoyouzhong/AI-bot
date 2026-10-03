@@ -26,7 +26,7 @@ Windows Device Center, TAB5 integration and quota accumulation fixes; synchroniz
 | `AI-bot-product-intro-0.5.0.mp4` | 中文 54 秒完整介绍，1920×1080；视频工程单独在本地交付 |
 | `SHA256SUMS.txt` / `RELEASE-NOTES.md` | 校验清单与预发布说明 |
 
-TAB5 基线为独立工程 commit `dbef9dc0bddb1b28ad444ca22ad11f5c998e5b1a`；应用 SHA-256 为 `32ed1549f91f71d7f294cb1a47d1c06e80de19994b262d02106fdca8168c358a`。源码快照、组件许可与构建配置随独立材料包提供；未声明已完成独立环境的可复现重建。维护者已授权此次发布，未授予新的顶层开源许可，详见[TAB5 许可范围](TAB5-LICENSE-SCOPE.md)。新版 MP4 作为 Release 附件提供；旧 36 秒附件不代表新版。
+TAB5 应用基线为独立工程 commit `dbef9dc0bddb1b28ad444ca22ad11f5c998e5b1a`；应用 SHA-256 为 `32ed1549f91f71d7f294cb1a47d1c06e80de19994b262d02106fdca8168c358a`。源码快照、组件许可与构建配置随独立材料包提供；未声明已完成独立环境的可复现重建。合并项目自有代码（含该 TAB5 基线）统一按 MIT 开源，包内补入明确许可；第三方条款保留，详见[TAB5 许可范围](TAB5-LICENSE-SCOPE.md)。新版 MP4 作为 Release 附件提供；旧 36 秒附件不代表新版。
 
 ## 验证 / Validation
 
@@ -51,4 +51,4 @@ NAudio 2.2.1 NuGet 包仅声明 MIT，未携带正文；打包现按精确包版
 - Mac 构建、测试及打包由 macOS 发布 CI 执行，通过后才公开附件；Windows 验证不能代替 Mac 交互及真机验收。
 - TAB5 0.2.89-ui 已有升级后的启动记录；出厂首刷与原固件恢复整条真机链路尚未验收。
 - 实体键盘、部分双设备/网络/异常恢复、其他 DPI/多显示器仍待验收。
-- Published as a pre-release after explicit maintainer authorization and successful tag packaging. macOS tests/build/package run on macOS CI before publication; interactive Mac acceptance, Windows installation acceptance and the latest quota fix runtime acceptance remain pending. Intermittent USB interruptions remain unresolved. TAB5's independent source/component materials retain separate license scope; this publication grants no new blanket MIT license for TAB5 code.
+- Published as a pre-release after explicit maintainer authorization and successful tag packaging. macOS tests/build/package run on macOS CI before publication; interactive Mac acceptance, Windows installation acceptance and the latest quota fix runtime acceptance remain pending. Intermittent USB interruptions remain unresolved. The merged project's own code, including TAB5, is MIT licensed; third-party components and marks retain their original terms.

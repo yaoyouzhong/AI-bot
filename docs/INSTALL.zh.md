@@ -37,7 +37,7 @@
 
 Windows 安装器与便携包二选一。GitHub 的 Source code ZIP 不是固件。校验值不符先重新取得文件，不继续刷写。
 
-TAB5 源码与组件材料单独随 `TAB5-firmware-materials-0.2.89-ui.zip` 提供，其[许可范围](TAB5-LICENSE-SCOPE.md)与本仓库分开。
+TAB5 源码与组件材料单独随 `TAB5-firmware-materials-0.2.89-ui.zip` 提供。项目自有代码（含 TAB5）统一 MIT 开源，[第三方许可另行保留](TAB5-LICENSE-SCOPE.md)。
 
 <a id="windows"></a>
 ## 3. 安装 Windows 应用并打开设备中心
@@ -157,4 +157,4 @@ Windows 卸载前关闭开机启动并退出，从系统“应用”卸载；用
 
 ## English summary
 
-Windows v0.5.0 is a pre-release, available from the release links above; v0.4.0 remains the latest stable release. ESP8266 uses its firmware-materials ZIP or firmware.bin. Factory TAB5 devices use the full TAB5-first-install-0.2.89-ui.zip; existing AI-bot TAB5 devices extract TAB5-upgrade-0.2.89-ui.zip and select aibot_tab5.bin with the notes sidecar beside it. Both carry application version 0.2.89-ui but are not interchangeable. First installation verifies and backs up the P4 flash before replacing it. Hold RESET about two seconds until the green LED flashes rapidly, select the target download port, install, briefly reset, select the new application port and verify boot before registration/pairing. Restore accepts the same device's verified backup only. Existing devices verify boot over USB after upgrading. Preserve automatic cycling, pages, order and interval. Mac flashing here covers ESP8266; Windows TAB5 support does not imply Mac TAB5 support. Native UI screenshots use isolated synthetic data, not hardware footage. Upgrade acceptance does not establish the factory-install/restore hardware chain. TAB5 source/component materials have a separate license scope; no new blanket MIT grant is made by this publication.
+Windows v0.5.0 is a pre-release, available from the release links above; v0.4.0 remains the latest stable release. ESP8266 uses its firmware-materials ZIP or firmware.bin. Factory TAB5 devices use the full TAB5-first-install-0.2.89-ui.zip; existing AI-bot TAB5 devices extract TAB5-upgrade-0.2.89-ui.zip and select aibot_tab5.bin with the notes sidecar beside it. Both carry application version 0.2.89-ui but are not interchangeable. First installation verifies and backs up the P4 flash before replacing it. Hold RESET about two seconds until the green LED flashes rapidly, select the target download port, install, briefly reset, select the new application port and verify boot before registration/pairing. Restore accepts the same device's verified backup only. Existing devices verify boot over USB after upgrading. Preserve automatic cycling, pages, order and interval. Mac flashing here covers ESP8266; Windows TAB5 support does not imply Mac TAB5 support. Native UI screenshots use isolated synthetic data, not hardware footage. Upgrade acceptance does not establish the factory-install/restore hardware chain. The merged project's own code, including TAB5, is uniformly MIT licensed; third-party components retain their original licenses.

@@ -233,7 +233,7 @@ tokens and private log contents removed.
 <p align="center">
   <strong>AI-bot</strong><br>
   A window into the AI work on your desk.<br><br>
-  <a href="LICENSE">Own source: MIT</a> · Original BYTE SPROUT · Local-first<br>
+  <a href="LICENSE">Own source: unified MIT, including TAB5</a> · Original BYTE SPROUT · Local-first<br>
   <sub>Independent project. No affiliation with or endorsement by named AI providers. Third-party components retain their own licenses.</sub>
 </p>
 

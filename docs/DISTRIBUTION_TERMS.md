@@ -1,7 +1,7 @@
 # Distribution terms / 分发条款
 
 AI-bot 自有源码及其原创资源适用根目录 `LICENSE` 的 MIT 条款，版权属于
-姚有忠。第三方组件并未被重新许可为 MIT，完整条款位于包内 `licenses/`。
+姚有忠。统一授权包括 Windows/macOS 桥接及 ESP8266/TAB5 自有固件代码，见 [TAB5 范围](TAB5-LICENSE-SCOPE.md)。第三方组件并未被重新许可为 MIT，完整条款位于包内 `licenses/`。
 
 Windows 包中的 `Microsoft.Windows.SDK.NET.dll`、`WinRT.Runtime.dll` 原样来自
 Microsoft.Windows.SDK.NET.Ref，适用随包的微软 Windows SDK 条款。使用或再次
@@ -24,7 +24,7 @@ Windows ZIP 不包含运行时安装器。Windows 安装 EXE 仅包含原样的�
 
 ## English
 
-AI-bot's own code and original assets are MIT-licensed, copyright 姚有忠. Third-party
+AI-bot's own code and original assets, including its Windows/macOS bridges and ESP8266/TAB5 firmware, are MIT-licensed, copyright 姚有忠. Third-party
 components retain their own licenses; the package's `licenses/` directory contains
 their terms. Using or redistributing the unmodified Windows SDK projection/runtime
 DLLs requires compliance with the accompanying Windows SDK terms, including section

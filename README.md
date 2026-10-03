@@ -225,6 +225,6 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 <p align="center">
   <strong>AI-bot</strong><br>
   为桌面上的 AI 工作流，留一扇窗口。<br><br>
-  <a href="LICENSE">自有源码 MIT</a> · 原创 BYTE SPROUT · 本地优先<br>
+  <a href="LICENSE">自有源码统一 MIT（含 TAB5）</a> · 原创 BYTE SPROUT · 本地优先<br>
   <sub>独立项目，与所提及的 AI 厂商无隶属或背书关系。第三方组件遵循各自许可。</sub>
 </p>

@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 - Intermittent USB disconnections and an interrupted USB firmware upgrade remain unresolved; investigation is paused. Retrying successfully is not a fix.
 - The latest quota fix passed source build and regression checks but has not been deployed for daily-use acceptance. Packaging and installation limitations are tracked in [release records](docs/RELEASE-0.5.0.md).
 - Physical keyboard, some dual-device/network/recovery scenarios, other DPI/multi-monitor environments and macOS runtime acceptance remain unverified. No new macOS build is claimed from Windows.
-- TAB5 firmware is maintained in the adjacent project. Separate 0.2.89-ui factory-install, application-upgrade and source/materials packages accompany this release; the standard firmware-materials ZIP remains ESP8266-only. Package validation and simulated installation passed; factory installation/restore hardware acceptance remains pending. No device is flashed during publication. See the [separate TAB5 license scope](docs/TAB5-LICENSE-SCOPE.md).
+- TAB5 firmware is maintained in the adjacent project. Separate 0.2.89-ui factory-install, application-upgrade and source/materials packages accompany this release; the standard firmware-materials ZIP remains ESP8266-only. Package validation and simulated installation passed; factory installation/restore hardware acceptance remains pending. No device is flashed during publication. The merged project's own code, including TAB5, is uniformly MIT licensed; [third-party license scope is preserved](docs/TAB5-LICENSE-SCOPE.md).
 
 Development-stage records, including superseded candidates, are preserved in [the development history](docs/DEVELOPMENT-0.5.0.en.md).
 

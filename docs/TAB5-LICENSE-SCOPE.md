@@ -1,9 +1,9 @@
-# TAB5 0.2.89-ui 许可范围 / License scope
+# 统一 MIT 许可与 TAB5 范围 / Unified MIT license and TAB5 scope
 
-TAB5 固件属于独立工程。v0.5.0 随附首刷、升级及源码/组件材料包，经维护者授权发布；这次发布不为 TAB5 自有代码新增开源许可，也不修改相邻工程的许可文件。
+自 2026-10-03 起，合并后的 AI-bot 项目自有代码统一按根目录 `LICENSE` 的 MIT 条款开源，版权属于姚有忠。范围包括 Windows 桥接、macOS 桥接、ESP8266 固件、TAB5 自有固件代码、项目工具和自有文档。TAB5 授权正文同时保存在 `licenses/tab5/LICENSE`，并随首刷、升级及源码/组件材料包分发。
 
-包内的 AI-bot `LICENSE` 适用于本仓库提供的桥接、安装文档与公共打包资料，不能据此认定独立 TAB5 工程全部采用 MIT。TAB5 自有代码没有顶层开源许可授予；源码公开可查阅不等于已授予任意再分发、修改或商业使用权。
+该授权也适用于随 v0.5.0 提供的 TAB5 0.2.89-ui 自有代码基线 `dbef9dc0bddb1b28ad444ca22ad11f5c998e5b1a`。MIT 许可补充不修改应用镜像，BIN 身份与源码/构建配置记录仍随包提供；未声明已完成独立环境的可复现重建验证。
 
-ESP-IDF、LVGL、字体和其他第三方组件保留各自许可。实际组件正文随材料包提供，见 `THIRD_PARTY_NOTICES.md` 及 `licenses/`。源码快照、构建配置与应用镜像身份记录随包提供；未声明已完成独立环境的可复现重建验证。
+第三方内容不被重新许可：M5Stack BSP、ESP-IDF、LVGL、字体、拼音词库及其他组件保留各自版权、许可和 NOTICE。实际许可正文随材料包的 `licenses/` 提供，来源见 `THIRD_PARTY_NOTICES.md`。服务标识属于其各自权利人，MIT 许可不授予第三方商标权。
 
-TAB5 firmware is a separate project. Its factory-install, upgrade and source/component-materials packages accompany v0.5.0 with the maintainer's publication authorization. This publication does not add an open-source license for TAB5's own code or modify the adjacent project's licensing files. The bundled AI-bot MIT license covers the bridge, documentation and common packaging materials supplied by this repository; it is not a blanket MIT grant for the independent TAB5 project. Third-party components retain their respective licenses. Source availability is not a grant of unrestricted redistribution, modification or commercial-use rights. Package identity and source/build records are supplied without claiming an independently verified reproducible build.
+Effective 2026-10-03, the merged AI-bot project's own code is released under the root MIT License, copyright 2026 姚有忠. This includes the Windows/macOS bridges, ESP8266 firmware, TAB5's own firmware code, project tools and original documentation. The same grant covers the TAB5 0.2.89-ui baseline at `dbef9dc0bddb1b28ad444ca22ad11f5c998e5b1a`; a copy is retained in `licenses/tab5/LICENSE` and the TAB5 distribution packages. The license supplement does not change the application binary or claim independently verified reproducible builds. Third-party components, fonts, dictionaries and marks retain their original rights, licenses and notices; the project's MIT license does not relicense them or grant third-party trademark rights.

@@ -7,7 +7,8 @@
     "firmware-toolchain/COPYING.NEWLIB": "bc1fbe427c6165ae8d06203f65af8c9f5fd5463788f2e8f56bceb50eeda19449",
     "firmware-toolchain/GCC-COPYING3": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
     "firmware-toolchain/GCC-RUNTIME-EXCEPTION": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74",
-    "naudio/license.txt": "303e01786b271eb464b3f43d18a375f2f17d37bc708a37c2fdf45b289fb5bfaa"
+    "naudio/license.txt": "303e01786b271eb464b3f43d18a375f2f17d37bc708a37c2fdf45b289fb5bfaa",
+    "tab5/LICENSE": "cbe2da10dd101d296ba769426ec5e9cb42d8aefb808c31fe02a149f51b5fd0e3"
   },
   "windowsSdk": {
     "version": "10.0.19041.56",

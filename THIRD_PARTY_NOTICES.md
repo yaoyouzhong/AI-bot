@@ -1,6 +1,6 @@
 # Third-party notices
 
-AI-bot source code is licensed under the MIT License. Dependencies remain under their respective licenses.
+AI-bot's own source code, including its Windows/macOS bridges and ESP8266/TAB5 firmware, is licensed under the MIT License. Dependencies remain under their respective licenses. See [TAB5 scope](docs/TAB5-LICENSE-SCOPE.md); TAB5 packages retain their component notices separately. Third-party service marks are not covered by the project's MIT grant.
 
 | Component | Use | License/source |
 | --- | --- | --- |
