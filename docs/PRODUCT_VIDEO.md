@@ -2,9 +2,11 @@
 
 [![AI-bot 96 秒产品介绍封面](assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
+https://github.com/user-attachments/assets/31393f58-edd9-4a50-a81f-0e8d0ff72a80
+
 [下载新版 MP4（96 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图与素材来源](SCREENSHOTS.md)
 
-2026-10-03 修订版：中文、1920×1080 横版、30fps、96 秒。首页及本页的封面和下载入口均指向仓库中的新版 MP4。旧 54 秒附件播放器已移除，新版暂以 MP4 下载提供。
+2026-10-03 修订版：中文、1920×1080 横版、30fps、96 秒。中英文首页及本页均可通过 GitHub 内嵌播放器直接播放新版视频，下载入口提供同一版本的仓库 MP4。
 
 ## 内容与来源
 
@@ -47,4 +49,4 @@ Native WinForms/LVGL interfaces use offline fixtures and real UI handlers. They 
 
 The original 104 BPM code-generated score includes 18 independent synthesized action cues from the credited skill. Inter and Noto Sans SC are SIL OFL; the local reproducible project retains AGPL-3.0 scaffold notices and uses no BSL fallback styling. The project and versioned source ZIP paths are listed above; they are not installation assets. Full-film contact sheets, every cut and dense frames were visually reviewed. The 96-second, 2880-frame H.264/AAC export passed full decoding and delivery checks; the mix measures approximately -16 LUFS and -1.5 dBFS true peak. Subjective listening remains unverified. Exact video and cover hashes are recorded in `licenses/materials.json`.
 
-The README and this page now link to the updated repository MP4 for download. The old 54-second embedded attachment has been removed; a new inline GitHub player is not currently provided.
+Both READMEs and this page provide a native GitHub player for the updated 96-second video, with a download link to the identical repository MP4.

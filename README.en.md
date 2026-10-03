@@ -15,6 +15,8 @@ The bridge and both firmwares update independently. Their numbers need not match
 
 [![96-second product overview](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · 96-second product overview
 
+https://github.com/user-attachments/assets/31393f58-edd9-4a50-a81f-0e8d0ff72a80
+
 [Download updated video (96 seconds, Chinese captions)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media provenance](docs/PRODUCT_VIDEO.md)
 
 [Download pet animation ZIP](docs/assets/pet/AI-bot-pet.zip) · [Preview GIF](docs/assets/pet/AI-bot-mascot.gif) · [Import instructions](docs/assets/pet/README.md)
