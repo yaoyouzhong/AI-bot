@@ -12,11 +12,31 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 | 使用场景 | 功能 |
 | --- | --- |
-| **工作时，抬眼看进度** | Claude / Codex 工作、等待输入与完成提醒；账户额度、余额和重置时间。 |
-| **在 TAB5 上直达 Codex** | 从最近五个会话中选择目标，查看回复，语音输入草稿，确认后发送。支持取消、失败恢复和长按清空。[使用说明](docs/TAB5-QUICK-CONSOLE.md) |
-| **日常信息，随时看一眼** | 天气、时钟、股票、电脑负载、正在播放的音乐，以及桌宠与自选页面轮播。 |
-| **用屏保装点桌面** | TAB5 提供八种屏保：包括全年点阵、十二月花卉台历、每日名画与每日书法。艺术作品可随设备横竖转向。 |
-| **更新时，不用找错包** | Windows 的「软件与固件更新」统一查看版本与更新明细，下载并校验所选设备的适用包。[更新说明](docs/UPDATES.md) |
+| **工作时，抬眼看进度** | Claude / Codex 工作、等待输入与完成提醒，随时掌握任务状态。 |
+| **了解账户额度** | 查看账户用量、API 余额、重置时间与 Codex 重置卡；在电脑端查看额度历史。 |
+| **日常信息，随时看一眼** | 天气、时钟、股票、电脑负载和正在播放的音乐。 |
+| **按自己的习惯展示** | 固定页面、自动轮播或智能跟随；选择轮播内容、顺序、间隔与桌宠动画。 |
+| **在电脑端统一管理** | Windows 设备中心配置账号与数据源、管理两类设备；「软件与固件更新」查看明细、下载并校验适用包。[更新说明](docs/UPDATES.md) |
+
+<table><tr>
+<td align="center" width="33%"><strong>电脑端：配置与管理</strong><br><br><img src="docs/assets/screens/device-center-accounts.png" height="160" alt="Windows 设备中心：模型账号、天气定位、自选股票与额度历史"><br><br>配置数据来源，管理设备与更新</td>
+<td align="center" width="33%"><strong>ESP8266：状态与额度</strong><br><br><img src="docs/assets/screens/codex.png" height="160" alt="ESP8266 小屏：Codex 状态、额度与重置卡"><br><br>桌边看状态，按需轮播信息</td>
+<td align="center" width="33%"><strong>TAB5：任务与信息总览</strong><br><br><img src="docs/assets/screens/tab5-overview.png" height="160" alt="TAB5 总览：任务、额度、时钟与天气"><br><br>集中看信息，触控进入各个页面</td>
+</tr></table>
+
+<sub>以上为当前原生界面与固定演示数据；小屏画面来自电脑端镜像。[完整功能图鉴](docs/FEATURES.zh.md)</sub>
+
+### 两类设备，各有侧重
+
+| 设备 | 适合的使用方式 | 设备特点 |
+| --- | --- | --- |
+| **ESP8266 小屏** | 以展示为主，电脑端设置 | AI 状态与额度、日常信息轮播、桌宠和时钟屏保。[小屏完整界面](docs/FEATURES.zh.md#esp8266) |
+| **TAB5 触控大屏** | 展示与触控操作结合 | 任务阅读、Codex 直达、语音／相机草稿、日历及八种屏保；名画／书法支持横竖屏。[TAB5 完整界面](docs/FEATURES.zh.md#tab5) |
+
+<details>
+<summary><strong>查看 TAB5 特色：Codex 直达、全年点阵与十二月历</strong></summary>
+
+**Codex 直达：** 从最近五个会话中选择目标，查看回复，语音输入草稿，确认后发送。支持取消、失败恢复和长按清空。[使用说明](docs/TAB5-QUICK-CONSOLE.md)
 
 <table><tr>
 <td align="center" width="33%"><strong>Codex 直达</strong><br><br><img src="docs/assets/screens/tab5-quick.png" width="280" alt="TAB5 Codex 直达：选择会话与语音草稿"></td>
@@ -26,7 +46,9 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 全年点阵每天一个点，支持闰年、三种配色与自动昼夜切换；十二月历配合农历、节气和节假日。两者无需额外图库。名画与书法保留作品名、作者和博物馆；已核实的中文译名直接显示，其他作品保留馆藏原名。
 
-[名画竖屏效果](docs/assets/screens/tab5-painting-portrait.png) · [书法竖屏效果](docs/assets/screens/tab5-calligraphy-portrait.png) · [TAB5 完整界面](docs/FEATURES.zh.md#tab5) · [ESP8266 小屏界面](docs/FEATURES.zh.md#esp8266)
+[名画竖屏效果](docs/assets/screens/tab5-painting-portrait.png) · [书法竖屏效果](docs/assets/screens/tab5-calligraphy-portrait.png) · [完整屏保介绍](docs/FEATURES.zh.md#tab5)
+
+</details>
 
 ## 下载与搭配
 

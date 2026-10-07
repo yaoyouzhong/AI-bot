@@ -12,11 +12,31 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 | When you use it | What you get |
 | --- | --- |
-| **Follow work at a glance** | Claude / Codex activity, waiting-for-input and completion alerts; account quotas, balances and reset times. |
-| **Reach Codex from TAB5** | Pick one of five recent sessions, read replies, dictate a draft and confirm before sending. Cancel, recover from failures or hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md) |
-| **Keep everyday information nearby** | Weather, clocks, stocks, computer load, current music, a desktop pet and a configurable page cycle. |
-| **Enjoy the display between tasks** | Eight TAB5 screensavers, including Annual Dots, a monthly floral calendar, daily paintings and calligraphy. Art follows the device into landscape or portrait. |
-| **Find the right update** | Windows Software and Firmware Updates shows component versions and notes, then downloads and verifies the matching package. [Update guide](docs/UPDATES.md) |
+| **Follow work at a glance** | Claude / Codex activity, waiting-for-input and completion alerts keep task status visible. |
+| **Understand account quotas** | Account usage, API balances, reset times and Codex reset credits; quota history on the computer. |
+| **Keep everyday information nearby** | Weather, clocks, stocks, computer load and current music. |
+| **Choose how to display it** | A fixed page, a page cycle or activity-driven switching; choose pages, order, interval and pet animations. |
+| **Manage it from the computer** | Windows Device Center configures accounts and data sources and manages both device types. Software and Firmware Updates shows notes, then downloads and verifies the matching package. [Update guide](docs/UPDATES.md) |
+
+<table><tr>
+<td align="center" width="33%"><strong>Computer: setup and management</strong><br><br><img src="docs/assets/screens/device-center-accounts.png" height="160" alt="Windows Device Center: accounts, weather location, stocks and quota history"><br><br>Configure data, manage devices and updates</td>
+<td align="center" width="33%"><strong>ESP8266: status and quotas</strong><br><br><img src="docs/assets/screens/codex.png" height="160" alt="ESP8266 display: Codex status, quotas and reset credits"><br><br>Glance at status and cycle everyday information</td>
+<td align="center" width="33%"><strong>TAB5: tasks and information</strong><br><br><img src="docs/assets/screens/tab5-overview.png" height="160" alt="TAB5 overview: task, quotas, clock and weather"><br><br>See the overview and tap into each page</td>
+</tr></table>
+
+<sub>Current native interfaces with fixed demo data; the small display uses its computer mirror renderer. [Complete feature gallery](docs/FEATURES.zh.md)</sub>
+
+### Two devices, different strengths
+
+| Device | How you use it | Device features |
+| --- | --- | --- |
+| **ESP8266 small display** | Display-focused, configured on the computer | AI status and quotas, everyday page cycling, pets and a clock screensaver. [Complete small-display tour](docs/FEATURES.zh.md#esp8266) |
+| **TAB5 touch display** | Display and touch interaction | Task reading, Codex Direct, voice/camera drafts, calendar and eight screensavers; paintings/calligraphy support landscape and portrait. [Complete TAB5 tour](docs/FEATURES.zh.md#tab5) |
+
+<details>
+<summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
+
+**Codex Direct:** pick one of five recent sessions, read replies, dictate a draft and confirm before sending. Cancel, recover from failures or hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 
 <table><tr>
 <td align="center" width="33%"><strong>Codex Direct</strong><br><br><img src="docs/assets/screens/tab5-quick.png" width="280" alt="TAB5 Codex Direct: session selection and a dictated draft"></td>
@@ -26,7 +46,9 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 Annual Dots gives every day a dot, with leap-year support, three palettes and automatic day/night switching. The floral calendar includes lunar dates, solar terms and holidays. Neither needs an extra collection. Paintings and calligraphy retain the work title, artist and museum; verified Chinese titles appear on screen, with original collection titles retained otherwise.
 
-[Portrait painting](docs/assets/screens/tab5-painting-portrait.png) · [Portrait calligraphy](docs/assets/screens/tab5-calligraphy-portrait.png) · [Complete TAB5 tour](docs/FEATURES.zh.md#tab5) · [ESP8266 display tour](docs/FEATURES.zh.md#esp8266)
+[Portrait painting](docs/assets/screens/tab5-painting-portrait.png) · [Portrait calligraphy](docs/assets/screens/tab5-calligraphy-portrait.png) · [Complete screensaver guide](docs/FEATURES.zh.md#tab5)
+
+</details>
 
 ## Downloads and device pairing
 
