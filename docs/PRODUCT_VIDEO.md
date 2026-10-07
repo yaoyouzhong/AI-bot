@@ -1,10 +1,10 @@
 # 产品介绍视频 / Product introduction video
 
-[![AI-bot 126 秒新版产品介绍](assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
+https://github.com/user-attachments/assets/2278d971-7792-4377-a365-29d070240055
 
-[播放或下载新版 MP4（126 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图、作品与素材来源](SCREENSHOTS.md)
+[下载新版 MP4（126 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图、作品与素材来源](SCREENSHOTS.md)
 
-2026-10-07 修订版：中文、1920×1080、30 fps、126 秒。对应电脑端 0.6.0、ESP8266 0.5.0 与 TAB5 0.2.145-ui。封面和下载链接均指向新版仓库 MP4；旧版 GitHub 附件播放器已撤下，避免播放过期内容。
+2026-10-07 修订版：中文、1920×1080、30 fps、126 秒。对应电脑端 0.6.0、ESP8266 0.5.0 与 TAB5 0.2.145-ui。主页与本页使用 GitHub 原生播放器，可直接播放。附件与仓库 MP4 的 SHA-256 一致，均为本次 126 秒新版。
 
 ## 内容与来源
 
@@ -48,7 +48,7 @@
 
 ## English
 
-The revised film is 126 seconds at 1920×1080, 30 fps with Chinese captions, covering computer apps 0.6.0, ESP8266 0.5.0 and TAB5 0.2.145-ui. It leads with Codex Direct and unified updates, retains the dual-device feature tour, and adds Annual Dots (including color and day/night options), the floral calendar, landscape/portrait art and optional collection imports. The poster and download links open the new repository MP4; the outdated native GitHub attachment player was removed.
+The revised film is 126 seconds at 1920×1080, 30 fps with Chinese captions, covering computer apps 0.6.0, ESP8266 0.5.0 and TAB5 0.2.145-ui. It leads with Codex Direct and unified updates, retains the dual-device feature tour, and adds Annual Dots (including color and day/night options), the floral calendar, landscape/portrait art and optional collection imports. The homepage and this page embed a native GitHub player. Its attachment matches the repository MP4 by SHA-256; both contain the current 126-second film.
 
 All Windows and TAB5 interfaces were regenerated from current native code using isolated synthetic data. They are neither hardware footage nor evidence of live speech, message sending, installations or imports. No macOS runtime is shown. Voice/camera fixtures exercise native handlers with offline results. The project mascot supplies fictional camera and album artwork; installed defaults remain unchanged. Art credits and CC0/CC BY 4.0 licenses are recorded in SCREENSHOTS.md.
 
