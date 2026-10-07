@@ -17,6 +17,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private QuotaTrendForm? _trend;
     private BridgeStatusForm? _statusForm;
     private UpdateCenterForm? _updatesForm;
+    private readonly UpdateService _updates=new();
+    private DateTimeOffset _nextUpdateCheck=DateTimeOffset.UtcNow.AddSeconds(30),_nextUpdateNotice;
+    private bool _checkingUpdates,_updateBalloon;
     private readonly BridgeNotifications _notifications=new();
     private bool _notificationAttention;
     private long _attentionSequence;
@@ -88,6 +91,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var esp=_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled);
             if(esp is null)ShowDevices();else if(_mirror?.Visible==true)_mirror.Hide();else HandleDeviceAction(esp.Id,"mirror");
         };
+        _icon.BalloonTipClicked+=(_,_)=>{if(_updateBalloon){_updateBalloon=false;ShowUpdates();}};
 
         _timer = new System.Windows.Forms.Timer { Interval = 2000 };
         _timer.Tick += (_, _) =>
@@ -97,6 +101,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var status = _runtime.Capture();
             _tab5?.Publish(status);
             _services.ObserveConnections(_devices.Snapshot);
+            PollUpdates();
             var codexForeground = ForegroundObserver.CodexVisible();
             if (codexForeground && !_codexWasForeground && status.Codex.CompletionActive)
                 SessionActivityReader.Signals.Acknowledge();
@@ -290,7 +295,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void Notify(string kind,string key,string title,string message,ToolTipIcon icon) {
         var decision=_notifications.Evaluate(kind,key,title,DateTimeOffset.Now);
-        if(decision.Show)_icon.ShowBalloonTip(10000,title,message,icon);
+        if(decision.Show){_updateBalloon=false;_icon.ShowBalloonTip(10000,title,message,icon);}
         if(decision.Sound)_=Task.Run(CompletionChime.Play);
     }
     private bool SelectDisplayMode(string mode)
@@ -382,10 +387,55 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _statusForm=new BridgeStatusForm(()=>BridgeStatusView.Capture(_devices.Snapshot,_services.View,_runtime.Capture(),_demand,_services.Error,_services.Health),ReconnectDeviceAsync,path=>_services.ExportDiagnostics(path,_devices.Snapshot));
         SettingsWindow.Present(_statusForm);
     }
+    private UpdateDevice[] UpdateDevices()=>[new("bridge","电脑端 AI-bot",Application.ProductVersion.Split('+')[0],"运行中",true,"bridge","打开安装程序"),.._devices.Snapshot.Devices.Select(d=>{
+        var v=_services.View(d);return new UpdateDevice(d.Id,d.Name,v.Firmware,v.Status,d.Enabled,d.Kind==HardwareKind.Tab5?"upgrade-tab5":"flash",d.Kind==HardwareKind.Tab5?"在 TAB5 上确认安装":"连接 USB，先备份再升级");
+    })];
+    private async Task InstallUpdateAsync(UpdateDevice target,PreparedUpdate prepared) {
+        prepared.VerifyUnchanged();
+        if(_changingDevices||_deviceOperationBusy||_services.Busy)throw new InvalidOperationException("请先结束正在进行的设备操作。");
+        var current=UpdateDevices().SingleOrDefault(d=>d.Id==target.Id);
+        if(current is null||current.Component!=prepared.Release.Component||UpdateService.Blocked(current,prepared.Release) is not null)
+            throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
+        if(target.Component=="bridge") {
+            if(MessageBox.Show(_updatesForm,"安装程序已校验。现在打开安装程序更新电脑端？","更新电脑端",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(prepared.File){UseShellExecute=true});return;
+        }
+        var device=_devices.Snapshot.Devices.Single(d=>d.Id==target.Id);
+        if(target.Component=="tab5") {
+            if(_tab5 is null||!_tab5.HasPairedDevice||prepared.Tab5 is null)throw new InvalidOperationException("请先连接并配对 TAB5。");
+            if(_tab5Form is not null&&!_tab5Form.IsDisposed){_tab5Form.Close();if(!_tab5Form.IsDisposed&&_tab5Form.Visible)throw new InvalidOperationException("请先结束 TAB5 窗口中的操作。");}
+            _tab5.OfferOta(prepared.Tab5);
+            _tab5Form=DeviceWindow(device,new Tab5ConnectionForm(_tab5,loadNetworks:false,showUpgrade:true),"连接与固件升级");SettingsWindow.Present(_tab5Form);
+        } else {
+            _deviceOperationBusy=true;
+            try{using var form=DeviceWindow(device,new FirmwareFlashForm(preferredPort:_serial.PortName,preparedFirmware:prepared.File),"固件升级");form.ShowDialog(_updatesForm);}
+            finally{_deviceOperationBusy=false;}
+        }
+        await Task.CompletedTask;
+    }
+    private async void PollUpdates() {
+        if(_checkingUpdates||_exiting||DateTimeOffset.UtcNow<_nextUpdateNotice)return;
+        _nextUpdateNotice=DateTimeOffset.UtcNow.AddSeconds(30);
+        var preference=UpdateReminder.Read();if(!preference.Automatic)return;
+        _checkingUpdates=true;
+        try {
+            if(DateTimeOffset.UtcNow>=_nextUpdateCheck) {
+                _nextUpdateCheck=DateTimeOffset.UtcNow.AddHours(1);
+                await _updates.CheckAsync(_shutdown.Token);
+                _nextUpdateCheck=DateTimeOffset.UtcNow.AddHours(24);
+            }
+            if(_exiting||_notifications.Options.IsQuiet(DateTime.Now))return;
+            preference=UpdateReminder.Read();if(!preference.Automatic)return;
+            var devices=UpdateDevices();var keys=UpdateReminder.Pending(devices,_updates.Available,preference);if(keys.Length==0)return;
+            UpdateReminder.Remember(preference,keys);
+            string names=string.Join("、",devices.Where(d=>keys.Contains(d.Id+":"+(_updates.Available.GetValueOrDefault(d.Component)?.Version??""))).Select(d=>d.Name));
+            _updateBalloon=true;_icon.ShowBalloonTip(10000,"AI-bot 有可用更新",names+" · 点击查看更新说明并下载。",ToolTipIcon.Info);
+        }catch(Exception ex) when(ex is HttpRequestException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or OperationCanceledException or KeyNotFoundException){
+            // Query errors remain visible in the update center; retry in one hour.
+        }finally{_checkingUpdates=false;}
+    }
     private void ShowUpdates() {
-        if(_updatesForm is null||_updatesForm.IsDisposed)_updatesForm=new UpdateCenterForm(()=>_devices.Snapshot.Devices.Select(d=>{
-            var v=_services.View(d);return new UpdateDevice(d.Id,d.Name,v.Firmware,v.Status,d.Enabled,d.Kind==HardwareKind.Tab5?"upgrade-tab5":"flash",d.Kind==HardwareKind.Tab5?"Wi-Fi / USB；蓝牙不下载固件":"USB；保留原固件备份");
-        }).ToArray(),HandleDeviceAction);
+        if(_updatesForm is null||_updatesForm.IsDisposed)_updatesForm=new UpdateCenterForm(UpdateDevices,InstallUpdateAsync,_updates);
         SettingsWindow.Present(_updatesForm);
     }
     private async Task ReconnectDeviceAsync(string id) {
@@ -518,6 +568,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _weatherSettings?.Close();
         _tab5Form?.Close();
         _shutdown.Cancel();
+        _updates.Dispose();
         await _services.StopAsync();
         _center?.Close();_trend?.Close();_statusForm?.Close();_updatesForm?.Close();
         _runtime.Dispose();

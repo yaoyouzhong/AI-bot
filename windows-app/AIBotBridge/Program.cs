@@ -9,6 +9,9 @@ internal static class Program
     private static void Main(string[] args)
     {
         if(args.Length==1&&args[0]=="--self-test-profile-guard"){AppProfileGuardSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-unified-updates"){AppPaths.BeginPublicSelfTest();UpdateSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-update-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);UpdateUiSelfTest.Run(args[1]);return;}
+        if(args.Length==2&&args[0]=="--self-test-update-live"){AppPaths.BeginPublicSelfTest();UpdateLiveSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
         if(args.Length==0||!args[0].StartsWith("--self-test-",StringComparison.Ordinal)) {
             try { AppProfileGuard.EnsureDesktopProfile(); }
             catch(IOException ex) {

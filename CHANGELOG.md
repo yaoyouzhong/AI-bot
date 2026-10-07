@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## 0.5.1 - 2026-10-07
 
+- Complete Windows software and firmware updates: discover stable bridge, ESP8266 and TAB5 versions independently, notify, download and validate the matching package, then hand it to the installer or firmware tool. Local art editions are protected from replacement by public updates.
 - Improve TAB5 Codex Direct draft targeting, voice recovery and explicit send behavior.
 - Add compressed OTA transfer handling, exact-image boot verification and transport diagnostics.
 - Keep daily painting/calligraphy local-only: public Windows builds exclude gallery classes, routes, catalogs and images. Existing local installations are not replaced by candidate preparation.

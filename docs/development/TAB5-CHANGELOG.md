@@ -2,6 +2,12 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.143-ui - 2026-10-07
+
+- Prepare a new public candidate from the accepted display baseline, retaining lossless Chinese fonts and six public screensavers including the floral monthly calendar.
+- Keep automatic-screensaver state intact when a delayed background tab event arrives. Later gallery/heap diagnostic and cache experiments remain withdrawn.
+- Keep daily painting/calligraphy local-only. Public application headroom is 696,096 bytes without a partition change. Supersedes .133; public-image physical acceptance remains pending. See [candidate record](../RELEASE-CANDIDATE-0.5.1.md).
+
 ## 0.2.133-ui - 2026-10-07
 
 - Losslessly compress both full Chinese fonts, preserving all glyph coverage, metrics and pixels. Reuse decoded glyph caching to limit repeated decompression.

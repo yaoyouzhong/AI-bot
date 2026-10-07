@@ -1,35 +1,42 @@
-# 0.5.1 / TAB5 0.2.133-ui 发布候选
+# Windows 0.5.1 / TAB5 0.2.143-ui 发布候选
 
-2026-10-07。仅准备本地候选，尚未推送、打标签或公开发布。当前公开稳定版仍为 v0.5.0。
+2026-10-07。仅准备本地候选；未推送、打标签或公开发布。当前公开稳定版仍为 v0.5.0。旧 `.133` 及 `artifacts/development/tab5-release-132/` 中的 Windows 包已被本轮候选替代，不能用于本次发布。
 
-## 交付范围
+## 用户如何选择
 
-- Windows 桥接 0.5.1：Codex 直达草稿恢复、语音与传输改进；公开版不编译 DailyArt 实现，不提供名画或书法下载接口，不附带图库。
-- TAB5 0.2.133-ui：公开版保留六种屏保，包括十二月历花卉及年度昼夜配色；去除每日名画、每日书法入口与运行任务。
-- 中文字库改为 LVGL 无损压缩，保留全部字形、字号、像素和既有缓存。分区表不变。
-- ESP8266 0.5.0 不变。本轮 Windows 候选不代表 macOS 0.5.1 已构建或验收。
+| 用户场景 | 下载和使用方式 |
+| --- | --- |
+| Windows 电脑 | 安装 AI-bot 0.5.1；同时支持两种设备，不需要分别安装桥接程序 |
+| ESP8266 小屏 | 固件仍为 0.5.0，无需因电脑软件更新而重刷 |
+| 新 TAB5 | 使用 TAB5 0.2.143-ui 首刷 ZIP |
+| 已有 TAB5 | 从「软件与固件更新」下载对应升级 ZIP，在设备端确认安装 |
 
-## 本地完整功能
+三个组件独立编号。日常更新统一从 Windows「软件与固件更新」进入：查看当前/可用版本、说明和匹配的下载，校验后交给已有安装工具。可开启自动检查和提醒，不会自动安装。详见 [更新指南](UPDATES.md)。正式发布前保留 v0.5.0 稳定下载链接。
 
-已验收的 TAB5 .131、运行中的本地完整桥接、813 件作品及 3,804 张图片保留。名画和书法仅供本地使用，不发布独立图库 ZIP。公开候选不覆盖当前本地安装。
+## 交付内容
 
-本地完整桥接构建显式传入 `-p:LocalArt=true`。TAB5 构建显式使用 `scripts/build.ps1 -LocalArt -LocalVersion 0.2.132-ui`；公开构建默认关闭艺术屏保。本地优化实验 .132 与公开候选 .133 使用不同版本，避免混淆。
+- Windows 0.5.1：统一更新入口、Codex 草稿与语音恢复、OTA 和精确镜像核验。公开版不编译 DailyArt 实现、不提供图库接口、不附带作品集。
+- TAB5 0.2.143-ui：保留十二月历花卉、年度昼夜配色等六种公开屏保；不包含每日名画/书法或其下载、方向任务。首刷与升级包具有相同应用镜像，但用途不同。
+- 字库无损压缩保留全部字符、尺寸和像素。公开镜像 6,512,864 字节，现有 7,208,960 字节 OTA 槽位剩余 696,096 字节；不改分区或用户配置。
+- 813 件本地作品及 3,804 张图片保留，不发布图库 ZIP。本地桥接仍在固定路径运行，统一更新禁止公开包覆盖艺术完整版。本地 `.142` 为独立压缩验收候选，固定 OTA latest 保持本地版本；详见 [验收记录](TAB5-ACCEPTANCE-142.md)。
 
-## 验证边界
+## 验证与剩余条件
 
-- 完整本地字体优化镜像剩余 682,912 字节；公开镜像剩余 696,096 字节，原 .131 仅剩 2,624 字节。OTA 槽位均为 7,208,960 字节。
-- 16,132 个字形逐像素、存在性和度量核对通过；本地界面截图与原预览像素一致。
-- 公开固件构建、LVGL 界面回归、旧艺术屏保偏好回退通过；公开桥接构建及 RPC 测试确认两类图库接口拒绝请求且实现类型不存在。
-- Windows 分发材料按实际 SDK 10.0.22000.56 核验；保留 Microsoft 原始许可并检查 DLL 身份。
-- Windows 安装包已生成，独立空白配置与 ZIP 解压回归通过；未覆盖安装到现用桥接。`--status-once` 通过 `dotnet AIBotBridge.dll` 控制台宿主运行成功；隐藏启动环境中的 `dotnet run` 因 WinExe 无有效控制台句柄失败，未修改程序绕过。
-- 本地完整桥接另行构建，813 件作品的全部横竖屏 JPEG、日期映射与分块校验通过；本地艺术屏保两类各 12 种替换布局回归通过。
-- TAB5 首刷、OTA 升级和开发者源码包分别生成；首刷应用与 OTA 的版本及 SHA-256 必须一致，源码快照记录应用身份、源码 commit、SDK commit 和补丁。源码含默认关闭的本地选项，不含作品图库。
-- 实际包、日志和校验清单位于 `artifacts/development/tab5-release-132/`；目录名沿用本地容量实验编号，公开固件包内版本为 .133。公开候选保存在该目录，不替换供个人设备使用的固定 latest .131。
-- .132/.133 尚未刷入真机，字库解压的实际刷新表现、公开版完整交互仍待实机验收；.131 的验收不能代替新镜像验收。
-- macOS 构建与验收尚未执行。正式发布仍需针对具体 commit 和文件另行授权。
+- `.141` 精确镜像启动和用户实屏通过：普通界面、输入、两类艺术屏保及自动四方向稳定。它保留原显示/图片/缓存逻辑，仅修复自动屏保期间的后台翻页事件；撤回后续诊断和缓存实验。字体压缩不能据此前失败版本认定为蓝闪根因。
+- `.142` 只恢复两套压缩字体和配套缓存/生成选项：16,132 个字形存在性、度量和像素一致；23,990 项快速绘制核对通过；界面预览逐像素保持 `.141`；空间剩余 682,912 字节。精确镜像启动和用户实屏均通过：没有蓝闪，文字、图片和转向正常，原自动轮播已恢复。
+- Windows Release 构建、同一 Release DLL 的 `--status-once`、公开完整自测、分发材料及打包边界检查通过。隐藏宿主中直接 `dotnet run` 受 WinExe 控制台限制，未削弱启动保护；改用用户桌面环境运行同一 DLL 验证。
+- 更新服务故障、下载/交接窗口、下载期间设备移除，以及真实公开 `.89` OTA 下载/哈希/镜像/sidecar 校验通过；没有安装旧镜像。自动模式、原六页顺序及 15 秒间隔保留。
+- 新包集中在 `artifacts/development/release-closeout-143/`；原生预览、字体和镜像证据在 `artifacts/development/gallery-preview-sync/`。每个包保留许可证、SHA-256 和源码身份；最终包清单与状态见交付目录 `CLOSEOUT.json`。
+- **公开 `.143` 仍需实机验收。** 本地 `.142` 不能代替公开镜像六屏保、旧配置回退和首次安装验证；不为候选打包而覆盖现用艺术完整版。
+- **macOS 0.5.1 尚未构建和验收，统一更新入口目前仅实现于 Windows。** 当前 Windows 主机没有可用 Mac 构建环境；完整 bridge 发布材料验证仍要求真实 macOS 包，保留此门槛。ESP8266 没有源码变更，不宣称新一轮硬件验收。
+- 发布前需上述实机和 macOS 条件满足，再针对具体 commit、目标标签和候选文件获得公开发布授权。
 
 ## English
 
-Local candidates only: Windows bridge 0.5.1 and public TAB5 0.2.133-ui; no push, tags or public release. ESP8266 stays at 0.5.0. Daily painting/calligraphy, their service and artwork are local-only; public builds exclude them. The floral monthly calendar remains included. Existing full local installations and galleries are retained. Opt-in local builds use `LocalArt=true` for the bridge or `-LocalArt -LocalVersion 0.2.132-ui` for TAB5.
+Local candidates: Windows bridge 0.5.1 and public TAB5 0.2.143-ui; ESP8266 stays at 0.5.0. No push, tags or public release. Published v0.5.0 links remain valid until a new release exists. Old .133 and Windows packages under tab5-release-132 are superseded.
 
-Lossless Chinese font compression preserves all glyphs and the existing cache. Pixel/metric checks cover 16,132 glyphs, with unchanged local preview images. Free application space increases from 2,624 to 682,912 bytes in the full local experiment and 696,096 bytes in the public build without changing partitions. Public build/UI/preference/RPC checks pass. The Windows installer and extracted ZIP pass isolated-profile tests; the running bridge is not replaced. Status-once succeeds via the dotnet DLL console host; hidden `dotnet run` lacks a valid WinExe console handle. Local full-gallery tests cover all 813 works and both orientations. TAB5 first-install, OTA and source snapshots retain matching application identity, licenses and hashes; optional local source contains no artwork. Candidate artifacts remain under `artifacts/development/tab5-release-132/`, separate from the personal .131 latest package. New firmware hardware acceptance and macOS build/acceptance remain pending; neither is implied by .131 acceptance or compilation. Publication requires separate authorization for the concrete payload.
+Install one Windows bridge for either device. Component versions are independent; use Software and Firmware Updates for discovery, optional notifications, verified downloads and installation handoff. TAB5 first-install and OTA packages serve different purposes but contain the same application. Public builds retain six screensavers including the floral calendar and exclude daily art and its collections. The 813-work local collection remains private; local editions reject replacement by public updates.
+
+Public .143 is 6,512,864 bytes with 696,096 bytes free in the unchanged OTA partition. Stable .141 passed exact-image and physical acceptance. Local .142 independently restores lossless fonts and their cache, with 16,132 glyph comparisons, 23,990 drawing cases and unchanged preview pixels; exact-image boot and user physical acceptance pass with no blue flashes and normal text, pictures and orientation. Original cycling is restored. Previous failures do not establish font compression as the cause of blue flashing.
+
+Windows Release build, status-once using the same DLL in the desktop console host, full public regression, packaging boundaries and distribution materials pass. Existing update/download/device-removal and real public .89 package validation evidence remains applicable. Deliverables are under release-closeout-143 with hashes, licenses and source identity; CLOSEOUT.json records final outcomes. Public .143 physical acceptance and real macOS build/acceptance remain outstanding; the complete bridge release gate still requires the macOS package. Publication requires authorization for the concrete payload after these conditions are met.

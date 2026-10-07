@@ -49,7 +49,7 @@ internal sealed class FirmwareFlashForm : Form
         };
     }
 
-    internal FirmwareFlashForm(bool preview = false, string? preferredPort = null)
+    internal FirmwareFlashForm(bool preview = false, string? preferredPort = null, string? preparedFirmware = null)
     {
         SuspendLayout();_preview = preview;
         _selection = new FlashDeviceSelection(preferredPort);
@@ -82,6 +82,7 @@ internal sealed class FirmwareFlashForm : Form
         _browse.Text = "选择文件";
         fileRow.Controls.Add(_firmware); fileRow.Controls.Add(_browse); fileGroup.Controls.Add(fileRow); root.Controls.Add(fileGroup);
         _firmware.PlaceholderText = "选择固件";
+        if(preparedFirmware is not null){_firmwarePath=Path.GetFullPath(preparedFirmware);_firmware.Text=Path.GetFileName(preparedFirmware);_status.Text="更新已下载并校验。连接小屏后点击开始刷机；先备份，再写入。";}
         var actionRow = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 2, Margin = Padding.Empty };
         actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         var actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };

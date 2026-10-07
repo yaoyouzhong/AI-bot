@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | Windows / macOS 桥接 | 0.5.1（候选） | 根目录 `VERSION` | `bridge-v0.5.1` 等 |
 | ESP8266 固件 | 0.5.0 | `firmware/VERSION` | `esp8266-v0.5.1` 等 |
-| TAB5 固件 | 0.2.133-ui（公开候选） | `versions/TAB5` | `tab5-v0.2.133-ui` 等 |
+| TAB5 固件 | 0.2.143-ui（公开候选） | `versions/TAB5` | `tab5-v0.2.143-ui` 等 |
 
 表中未来标签仅为格式示例，不代表已经发布或当前版本已经增加。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
 
@@ -52,6 +52,8 @@ TAB5 验证同时检查镜像内版本、说明 sidecar、首刷与升级应用�
 
 Windows “检查更新”按正式发布中的组件标签及实际附件分别选择版本；忽略草稿、预发布、标签与包名不匹配的记录，也继续识别旧组合 Release。固件单独发布不会被当成电脑桥接更新，旧固件版本不从桥接版本号推断。
 
+Windows 0.5.1 候选的[统一更新入口](UPDATES.md)还提供每日检查、同版本提醒去重、适用包下载及 SHA-256 校验。选择电脑端打开安装器，ESP8266 交给先备份再写入的 USB 工具，TAB5 交给既有设备确认及启动核验流程。下载不会自动刷写；本地艺术完整版拒绝公开版桥接或 TAB5 自动更新，防止丢失本地功能。固件 ZIP 可声明 `minimumBridgeVersion` 和 `protocolVersion`（TAB5 在 `EDITION.json`，ESP8266 在 `COMPONENT.json`），不兼容时先升级电脑端。
+
 协议 `version=1` 是协议标识，不是软件或固件版本。组件之间不按版本数字相等判断兼容；涉及协议或必要功能变化时，在对应更新说明中写明最低支持版本及是否需要组合升级。普通用户按相应更新说明升级即可，无需每次一起刷机。
 
 ## 自动发布衔接
@@ -61,5 +63,7 @@ Windows “检查更新”按正式发布中的组件标签及实际附件分别
 本地调用 GitHub CLI 使用 `python scripts/github_cli.py ...` 或其 `run_cli` 入口。Windows 直接解析真实控制台版 `gh.exe`，跳过 PATH 中的 GUI 包装器，并结合 `CREATE_NO_WINDOW`、隐藏窗口及标准输入/输出/错误重定向；失败保留退出码与错误，不打开交互终端。创建标签、push、刷机或公开新版本仍须对应操作的明确授权。
 
 ## English
+
+The Windows 0.5.1 candidate adds daily update checks, deduplicated notifications, automatic selection/download and SHA-256 verification. Installation remains explicit through the existing Windows installer, ESP8266 backup/USB tool or TAB5 confirmation/boot-verification flow. Local art editions reject public bridge/TAB5 replacement. Firmware metadata may declare minimumBridgeVersion and protocolVersion; see UPDATES.md.
 
 The bridge, ESP8266 and TAB5 have independent version sources and changelogs. Only the changed component is renumbered and delivered. Windows/macOS share the bridge version line; TAB5 release declarations must match actual image, notes, first-install application and public source identity. Protocol version 1 is separate from release versions, and compatibility is based on supported protocol/features rather than equal numbers. Windows update checks select stable versions per component and retain legacy-bundle support. Component-specific packaging verifies only the requested payload and stages minimal user downloads plus checksums. Historical v0.5.0 tags/assets remain unchanged. The authorized CI patch routes bridge/ESP8266 component tags to draft packages only, while TAB5 tags validate metadata and retain independent local build/material validation. The candidate workflow also supports manual component selection. Pushing main triggers CI checks; explicitly pushing a version tag triggers its component candidate workflow. Local CLI calls use scripts/github_cli.py to resolve the real console executable, bypass GUI shims, hide its window and capture output/errors on Windows. Creating tags, pushing, flashing or publicly releasing still requires authorization for the corresponding action.

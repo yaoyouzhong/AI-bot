@@ -8,6 +8,11 @@ internal sealed partial class Tab5Service
     private readonly object _rpcLock=new();
 #if LOCAL_ART
     private readonly Tab5Gallery _gallery=new();
+    private volatile string _galleryDiagnostic="尚无图片请求";
+    private long _galleryRequests;
+    private string GalleryDiagnostic=>"\n艺术图片同步："+_galleryDiagnostic;
+#else
+    private string GalleryDiagnostic=>"";
 #endif
     internal Tab5QuickConsole QuickConsole {get;set;}=new();
     private readonly Dictionary<string,long> _rpcNonces=[];
@@ -81,8 +86,12 @@ internal sealed partial class Tab5Service
                     }
                 }
 #if LOCAL_ART
-                else if(Text(root,"kind")=="gallery")result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
-                    ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply);
+                else if(Text(root,"kind")=="gallery") {
+                    result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
+                        ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply);
+                    _galleryDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} request={Interlocked.Increment(ref _galleryRequests)}; transport={transport}; category={Text(root,"category")}; op={Text(root,"op")}; orientation={Text(root,"orientation")}; status={result.Status}; body="+
+                        JsonSerializer.Serialize(result.Body is Tab5RpcDataBody data?data.Metadata:result.Body,JsonDefaults.Options);
+                }
 #endif
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
                 else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy

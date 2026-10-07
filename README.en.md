@@ -1,6 +1,6 @@
 # AI-bot
 
-Public candidates in preparation are Windows bridge **0.5.1** and TAB5 **0.2.133-ui**. Daily painting and calligraphy remain local-only: public builds exclude their menus, download service and artwork collections. Existing local installations and galleries are retained. The floral monthly calendar remains part of the public candidate. See the [candidate record](docs/RELEASE-CANDIDATE-0.5.1.md) for validation and pending acceptance.
+Public candidates in preparation are Windows bridge **0.5.1** and TAB5 **0.2.143-ui**. Daily painting and calligraphy remain local-only: public builds exclude their menus, download service and artwork collections. Existing local installations and galleries are retained. The floral monthly calendar remains part of the public candidate. See the [candidate record](docs/RELEASE-CANDIDATE-0.5.1.md) for validation and pending acceptance.
 
 **AI status at a glance.** A desktop AI status assistant that brings Claude Code / Codex activity, account quotas and everyday information to an **ESP8266 display or M5Stack TAB5**.
 
@@ -9,6 +9,8 @@ Public candidates in preparation are Windows bridge **0.5.1** and TAB5 **0.2.133
 Windows and ESP8266 use **0.5.0**; TAB5 uses its independent **0.2.89-ui** firmware. The maintainer confirmed hardware acceptance on 2026-10-03, and v0.5.0 is the current stable release. See [release records](docs/RELEASE-0.5.0.md).
 
 The bridge and both firmwares update independently. Their numbers need not match; follow each component's notes rather than reflashing every device for every update. See [independent versions](docs/COMPONENT-VERSIONS.md).
+
+The Windows 0.5.1 candidate adds one Software and Firmware Updates entry: receive component-specific notifications, select a device, download and verify its matching package, then open the installation tool. Existing TAB5 installations get upgrade packages; first-time setup remains in the device center. See [updating instructions](docs/UPDATES.md).
 
 A development candidate adds [TAB5 Codex Direct](docs/TAB5-QUICK-CONSOLE.md): a permanent bottom-right entry, latest conversation on each click, and Doubao dictation staged for manual submission. The user confirmed voice insertion on 0.2.90-ui; the 0.2.92-ui entry and latest-conversation behavior await hardware acceptance.
 
