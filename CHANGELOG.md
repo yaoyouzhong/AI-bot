@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 - Improve TAB5 Codex Direct draft targeting, voice recovery and explicit send behavior.
 - Add compressed OTA transfer handling, exact-image boot verification and transport diagnostics.
 - Keep daily painting/calligraphy local-only: public Windows builds exclude gallery classes, routes, catalogs and images. Existing local installations are not replaced by candidate preparation.
-- Prepare a Windows candidate; macOS build/acceptance and public publication remain separate.
+- Keep macOS application behavior unchanged while synchronizing the bridge version. The new unified update entry is Windows-only; device firmware versions remain independent.
 
 ## Local development history (not public release notes)
 
