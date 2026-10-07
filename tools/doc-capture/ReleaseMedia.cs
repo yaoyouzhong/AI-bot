@@ -7,15 +7,18 @@ namespace AIBotBridge;
 // Current product controls, isolated fixture metadata; never downloads or flashes.
 internal static class ReleaseMedia
 {
+    // Run from the repository root, as documented in SCREENSHOTS.md.
+    internal static string BridgeVersion => File.ReadAllText("VERSION").Trim();
+    internal static string Tab5Version => File.ReadAllText(Path.Combine("versions", "TAB5")).Trim();
     internal static void Run(string output)
     {
         string releases=JsonSerializer.Serialize(new[]{
-            UpdateSelfTest.Release("bridge","0.6.0","AIBotBridge-0.6.0-setup-win-x64.exe",[]),
-            UpdateSelfTest.Release("tab5","0.2.145-ui","TAB5-upgrade-0.2.145-ui.zip",[]),
+            UpdateSelfTest.Release("bridge",BridgeVersion,$"AIBotBridge-{BridgeVersion}-setup-win-x64.exe",[]),
+            UpdateSelfTest.Release("tab5",Tab5Version,$"TAB5-upgrade-{Tab5Version}.zip",[]),
             UpdateSelfTest.Release("esp8266","0.5.0","AI-bot-0.5.0-firmware-materials.zip",[])});
         var handler=new UpdateSelfTest.Handler{Reply=(_,_)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(releases,Encoding.UTF8,"application/json")})};
         using var service=new UpdateService(handler);
-        UpdateDevice[] devices=[new("bridge","电脑端 AI-bot","0.5.0","运行中",true,"bridge","安装程序"),new("tab","M5Stack TAB5","0.2.131-ui","在线",true,"upgrade-tab5","在设备上确认安装"),new("esp","ESP8266 小屏","0.5.0","在线",true,"flash","USB，先备份再升级")];
+        UpdateDevice[] devices=[new("bridge","电脑端 AI-bot","0.6.0","运行中",true,"bridge","安装程序"),new("tab","M5Stack TAB5","0.2.147-ui","在线",true,"upgrade-tab5","在设备上确认安装"),new("esp","ESP8266 小屏","0.5.0","在线",true,"flash","USB，先备份再升级")];
         using(var form=new UpdateCenterForm(()=>devices,(_,_)=>throw new InvalidOperationException("Documentation must not install"),service)){
             Show(form);
             var deadline=DateTime.UtcNow.AddSeconds(10);

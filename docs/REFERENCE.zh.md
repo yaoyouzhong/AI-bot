@@ -1,6 +1,6 @@
 # 功能与开发参考
 
-当前版本：电脑端 **0.6.0**、ESP8266 **0.5.0**、TAB5 **0.2.145-ui**。三者独立编号。[首页](../README.md) · [English](REFERENCE.en.md)
+当前版本：电脑端 **0.6.1**、ESP8266 **0.5.0**、TAB5 **0.2.149-ui**。三者独立编号。[首页](../README.md) · [English](REFERENCE.en.md)
 
 ## 使用项目
 
@@ -10,7 +10,7 @@
 | 当前菜单、页面和功能 | [界面图鉴](FEATURES.zh.md) |
 | 更新提醒与适用包 | [软件与固件更新](UPDATES.md) |
 | 名画与书法安装 | [可选图库](GALLERY-PACKS.md) |
-| 新增功能与验证范围 | [三组件发布说明](RELEASE-0.6.0.md) · [TAB5 .145 验收](TAB5-ACCEPTANCE-145.md) |
+| 新增功能与验证范围 | [三组件发布说明](RELEASE-0.6.1.md) · [TAB5 .149 验收](TAB5-BLE-GALLERY-148.md) |
 
 Windows 支持 ESP8266 与 TAB5；macOS 13+ Apple Silicon 提供菜单栏、镜像与 ESP8266 功能，不包含 Windows 的 TAB5 服务、统一更新和艺术导入入口。Intel Mac 未验证。Mac 的测试／构建结果不代替 GUI 或设备验收。
 

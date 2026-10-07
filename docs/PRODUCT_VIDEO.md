@@ -6,6 +6,8 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 2026-10-07 修订：先介绍 AI-bot 的整体用途和双硬件关系，再展示日常场景、Codex 直达与屏保亮点，最后说明安装和更新。中文、1920×1080、30 fps、108 秒；对应电脑端 0.6.0、ESP8266 0.5.0 与 TAB5 0.2.145-ui。主页与本页使用 GitHub 原生播放器，附件与仓库 MP4 字节一致。
 
+本次 0.6.1 / .149 主要调整图库传输、缓存与诊断，影片所展示的界面布局仍适用，保留已审核视频。影片中的版本和更新列表属于拍摄时的演示数据；实际下载以[当前安装指南](INSTALL.zh.md)为准。
+
 ## 分镜 / Timeline
 
 | 时间 | 内容 |
@@ -41,6 +43,8 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 ## English
 
 The 108-second film introduces the overall product and device choices first, followed by everyday use, selected Codex Direct/screensaver highlights, then setup and updates. It uses Chinese captions at 1920×1080, 30 fps for computer apps 0.6.0, ESP8266 0.5.0 and TAB5 0.2.145-ui. The native GitHub attachment matches the repository MP4 by SHA-256.
+
+The 0.6.1 / .149 patch changes transfer, caching and diagnostics while retaining the filmed layouts, so the reviewed video is retained. Version/update examples belong to its original capture; use the current installation guide for downloads.
 
 All interfaces are native WinForms/LVGL captures with synthetic fixtures, not hardware footage or evidence of real speech, message sending, installs or imports. No macOS runtime is shown. The project character and fictional album artwork do not change installed defaults. Lin Liang and Wang Sishi artwork credits, CC0/CC BY 4.0 terms and modifications are recorded in SCREENSHOTS.md. Covers show quota interfaces.
 

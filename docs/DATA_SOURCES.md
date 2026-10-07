@@ -1,6 +1,6 @@
 # Data sources and privacy
 
-Applies to the current Windows 0.6.0 implementation unless a section names macOS. Configure shared sources under **Device Center → Account Data** and select each device's requirements under **My Devices → Data Settings**. Feature-specific flows such as [Codex Direct](TAB5-QUICK-CONSOLE.md) and [artwork imports](GALLERY-PACKS.md) have separate guides.
+Applies to the current Windows 0.6.1 implementation unless a section names macOS. Configure shared sources under **Device Center → Account Data** and select each device's requirements under **My Devices → Data Settings**. Feature-specific flows such as [Codex Direct](TAB5-QUICK-CONSOLE.md) and [artwork imports](GALLERY-PACKS.md) have separate guides.
 
 ## Weather
 

@@ -2,7 +2,7 @@
 
 具体刷写步骤见 [Windows 刷机图解](FLASH.zh.md)或 [Mac 刷机指南](FLASH_MAC.zh.md)，本文侧重分发材料与重建。
 
-**本包仅适用于 ESP8266，不含 TAB5 首次安装镜像或 TAB5 升级 BIN。** TAB5 首刷使用完整 `TAB5-first-install-0.2.145-ui.zip`，已有 AI-bot 使用 `aibot_tab5.bin` 与说明 sidecar，见[双硬件刷机指南](INSTALL.zh.md)。
+**本包仅适用于 ESP8266，不含 TAB5 首次安装镜像或 TAB5 升级 BIN。** TAB5 首刷使用完整 `TAB5-first-install-0.2.149-ui.zip`，已有 AI-bot 使用 `aibot_tab5.bin` 与说明 sidecar，见[双硬件刷机指南](INSTALL.zh.md)。
 
 This archive covers ESP8266 only. TAB5 uses a separate full first-install ZIP or application upgrade BIN; the formats are not interchangeable.
 

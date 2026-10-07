@@ -16,7 +16,7 @@ internal static class DocCapture
             designPet = Path.GetFullPath(args[designIndex + 1]);
             args = args.Take(designIndex).Concat(args.Skip(designIndex + 2)).ToArray();
         }
-        bool release060 = args.Length == 2 && args[1] == "--release060";
+        bool release060 = args.Length == 2 && args[1] is "--release-current" or "--release060";
         bool releaseUi = args.Length == 2 && args[1] == "--release-ui";
         bool screenSaverOnly = args.Length == 2 && args[1] == "--screensaver";
         bool quotaOnly = args.Length == 2 && args[1] == "--quota-api";
@@ -100,7 +100,7 @@ internal static class DocCapture
             var esp = DeviceRegistryStore.Create(HardwareKind.Esp8266, "ESP8266 小屏", null);
             store.Add(tab); store.Add(esp);
             CaptureTrayMenu(store.Snapshot);
-            using (var center = new DeviceCenterForm(store, d => new DeviceView(true, "在线（演示）", "演示连接", d.Kind == HardwareKind.Tab5 ? "0.2.145-ui" : "0.5.0", "数据已确认（演示）", "待机（演示）", d.Kind == HardwareKind.Tab5 ? "已连接（演示）" : null, "USB"), (_, _) => {}, (_, _) => Task.CompletedTask, () => {}, _ => {}))
+            using (var center = new DeviceCenterForm(store, d => new DeviceView(true, "在线（演示）", "演示连接", d.Kind == HardwareKind.Tab5 ? ReleaseMedia.Tab5Version : "0.5.0", "数据已确认（演示）", "待机（演示）", d.Kind == HardwareKind.Tab5 ? "已连接（演示）" : null, "USB"), (_, _) => {}, (_, _) => Task.CompletedTask, () => {}, _ => {}))
             {
                 center.ShowInTaskbar=false;center.StartPosition=FormStartPosition.Manual;center.Location=new(-32000,-32000);
                 center.Show();Application.DoEvents();

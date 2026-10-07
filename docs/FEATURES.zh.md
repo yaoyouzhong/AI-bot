@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-适用于电脑端 **0.6.0**、ESP8266 **0.5.0**、TAB5 **0.2.145-ui**，2026-10-07 按当前实现复核。[返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
+适用于电脑端 **0.6.1**、ESP8266 **0.5.0**、TAB5 **0.2.149-ui**，2026-10-07 按当前实现复核。[返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -155,7 +155,7 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-settings-connection.png" alt="设备设置：连接与网络"></td><td width="50%"><img src="assets/screens/tab5-settings-screen.png" alt="设备设置：屏幕与声音"></td></tr></table>
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容与轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，当前 .145"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容与轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，当前 .149"></td></tr></table>
 
 电脑端“我的设备”选 TAB5，可打开 **显示设置、语音设置、日历生日、常用任务、数据设置、连接升级**；托盘分组提供常用快捷入口。[安装与连接步骤](INSTALL.zh.md#tab5-first)
 
@@ -300,14 +300,14 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
 | ESP8266 0.5.0 | 小屏页面、时钟、桌宠、USB / Wi-Fi | 沿用已发布固件；本次文档更新没有重刷或重新完成全部硬件验收。 |
-| TAB5 0.2.145-ui | 触控、Codex 直达、八种屏保与艺术四方向 | 当前镜像和分页转向有[真机验收记录](TAB5-ACCEPTANCE-145.md)；不据此推定新一轮出厂首刷通过。 |
+| TAB5 0.2.149-ui | 触控、Codex 直达、八种屏保与艺术四方向 | 基础界面与分页转向沿用 [.145 验收](TAB5-ACCEPTANCE-145.md)；.149 的精确启动和两轮 BLE 冷下载见[补丁验收](TAB5-BLE-GALLERY-148.md)。未重做出厂首刷。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；未实现本文 Windows TAB5、统一更新及艺术导入入口。Intel Mac 未验证。 |
 
-[发布明细](RELEASE-0.6.0.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
+[发布明细](RELEASE-0.6.1.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.0, ESP8266 0.5.0 and TAB5 0.2.145-ui. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.1, ESP8266 0.5.0 and TAB5 0.2.149-ui. Start with the device overview, then follow the matching device tour.
 
 **TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, five clocks, calendar, pets and all four settings panels. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
 

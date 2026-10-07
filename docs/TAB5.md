@@ -1,15 +1,15 @@
 # TAB5 接入与开发记录 / Integration and development history
 
-当前公开版本为 **Windows 0.6.0 + TAB5 0.2.145-ui**。日常操作从托盘 **设备中心 → 我的设备 → TAB5** 进入；连接、配对与升级在“连接升级”。macOS 尚未提供 TAB5 接入。
+当前公开版本为 **Windows 0.6.1 + TAB5 0.2.149-ui**。日常操作从托盘 **设备中心 → 我的设备 → TAB5** 进入；连接、配对与升级在“连接升级”。macOS 尚未提供 TAB5 接入。
 
 - [首次安装、USB 配对与后续升级](INSTALL.zh.md#tab5-first)
 - [当前功能与屏保](FEATURES.zh.md) · [Codex 直达使用方法](TAB5-QUICK-CONSOLE.md)
 - [软件与固件更新](UPDATES.md) · [可选名画／书法图库](GALLERY-PACKS.md)
-- [.145 真机验收](TAB5-ACCEPTANCE-145.md) · [当前源码与构建快照](development/TAB5-SOURCE.md)
+- [.149 蓝牙下载验收](TAB5-BLE-GALLERY-148.md) · [当前源码与构建快照](development/TAB5-SOURCE.md)
 
 以下保留早期协议、候选和本机验收记录。**其中的版本、旧菜单、未发布状态和验收限制属于记录当时，不是当前安装说明。** 当前发布以以上入口及对应版本验收为准。
 
-Current public pairing: Windows 0.6.0 and TAB5 0.2.145-ui. Use Device Center → My Devices → TAB5 → Connection/Upgrade. The links above cover current installation, features, updates, source and acceptance. macOS does not support TAB5. The archived protocol and candidate notes below describe their original dates, not current menu paths or release status.
+Current public pairing: Windows 0.6.1 and TAB5 0.2.149-ui. Use Device Center → My Devices → TAB5 → Connection/Upgrade. The links above cover current installation, features, updates, source and acceptance. macOS does not support TAB5. The archived protocol and candidate notes below describe their original dates, not current menu paths or release status.
 
 <details>
 <summary>历史协议与验收记录 / Historical protocol and acceptance notes</summary>

@@ -1,6 +1,6 @@
 # Feature and development reference
 
-Current releases: computer apps **0.6.0**, ESP8266 **0.5.0**, TAB5 **0.2.145-ui**. Components have independent versions. [Home](../README.en.md) · [简体中文](REFERENCE.zh.md)
+Current releases: computer apps **0.6.1**, ESP8266 **0.5.0**, TAB5 **0.2.149-ui**. Components have independent versions. [Home](../README.en.md) · [简体中文](REFERENCE.zh.md)
 
 ## Using AI-bot
 
@@ -10,7 +10,7 @@ Current releases: computer apps **0.6.0**, ESP8266 **0.5.0**, TAB5 **0.2.145-ui*
 | Current menus, pages and features | [Feature gallery](FEATURES.zh.md) |
 | Update notices and matching packages | [Software and firmware updates](UPDATES.md) |
 | Painting and calligraphy installation | [Optional collections](GALLERY-PACKS.md) |
-| Changes and acceptance boundaries | [Component release notes](RELEASE-0.6.0.md) · [TAB5 .145 acceptance](TAB5-ACCEPTANCE-145.md) |
+| Changes and acceptance boundaries | [Component release notes](RELEASE-0.6.1.md) · [TAB5 .149 acceptance](TAB5-BLE-GALLERY-148.md) |
 
 Windows supports ESP8266 and TAB5. macOS 13+ on Apple Silicon provides its own menu-bar, mirror and ESP8266 implementation; it does not include the Windows TAB5 services, unified update UI or artwork imports. Intel Macs are unverified. Mac test/build results are separate from GUI and hardware acceptance.
 

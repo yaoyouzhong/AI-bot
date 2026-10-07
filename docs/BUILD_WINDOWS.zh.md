@@ -1,6 +1,6 @@
 # Windows 源码构建（进阶）
 
-适用于当前电脑端 **0.6.0** 的 Windows 10/11 x64 构建。普通用户直接使用[安装指南](INSTALL.zh.md)中的安装器；本页只讲构建与本地验证，不另维护一套菜单教程。
+适用于当前电脑端 **0.6.1** 的 Windows 10/11 x64 构建。普通用户直接使用[安装指南](INSTALL.zh.md)中的安装器；本页只讲构建与本地验证，不另维护一套菜单教程。
 
 ## 1. 准备环境
 
@@ -34,10 +34,10 @@ powershell -NoProfile -File scripts/package_windows_local.ps1
 
 脚本在隔离副本中构建并回归，生成 Windows 安装 EXE、ZIP、源码及许可和 SHA-256 校验文件，输出位置由成功日志给出。`-Firmware` 可额外构建 ESP8266 材料包，使用脚本所调用 Python 环境中的 PlatformIO。它不会替换正在运行的程序，也不会上传或公开发布。
 
-本地 ZIP 命名为 `AIBotBridge-0.6.0-local-candidate-win-x64.zip`；正式下载优先安装器。完整解压后保留 DLL、`runtimes/`、`licenses/` 等配套文件，不能只复制 EXE。ZIP 旁 `.sha256` 可与以下结果比对：
+本地 ZIP 命名为 `AIBotBridge-0.6.1-local-candidate-win-x64.zip`；正式下载优先安装器。完整解压后保留 DLL、`runtimes/`、`licenses/` 等配套文件，不能只复制 EXE。ZIP 旁 `.sha256` 可与以下结果比对：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\下载目录\AIBotBridge-0.6.0-local-candidate-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\下载目录\AIBotBridge-0.6.1-local-candidate-win-x64.zip'
 ```
 
 ## 4. 启动后的实际入口
@@ -58,4 +58,4 @@ Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\下载目录\AIBotBridge-0.6.0-l
 
 ## English
 
-Build Windows 0.6.0 with the SDK pinned in global.json, then run the status-once command and isolated public tests as appropriate. The packaging script builds from a verified isolated copy and emits installer, ZIP, source and checksum materials without deploying or publishing them. Runtime use starts from Device Center; installation and current UI paths are maintained in the linked installation and feature guides. Windows verification does not establish physical-device or Mac acceptance.
+Build Windows 0.6.1 with the SDK pinned in global.json, then run the status-once command and isolated public tests as appropriate. The packaging script builds from a verified isolated copy and emits installer, ZIP, source and checksum materials without deploying or publishing them. Runtime use starts from Device Center; installation and current UI paths are maintained in the linked installation and feature guides. Windows verification does not establish physical-device or Mac acceptance.

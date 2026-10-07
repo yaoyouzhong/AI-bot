@@ -1,6 +1,8 @@
-# TAB5 BLE 图库下载候选 .148 / BLE gallery candidate
+# TAB5 BLE 图库 .148–.149 修复与验收 / BLE gallery fixes and acceptance
 
-2026-10-07。`.148` 已获授权本地安装，精确启动核验通过，未发布；实测发现连续横竖图的暂停衔接遗漏，`.149` 已安装并核验，两轮竖屏下载改善；用户确认重连发生在升级/桥接重启附近，22:57 的再次启动也由用户主动测试触发。本页不将历史对照或模拟测试记为当前真机提速。
+2026-10-07。当前正式发布为 [.149](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui)，配套桥接为 [0.6.1](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.1)；下文保留候选阶段及两轮实测记录。
+
+`.148` 已获授权本地安装，精确启动核验通过，未发布；实测发现连续横竖图的暂停衔接遗漏，`.149` 已安装并核验，两轮竖屏下载改善；用户确认重连发生在升级/桥接重启附近，22:57 的再次启动也由用户主动测试触发。本页不将历史对照或模拟测试记为当前真机提速。
 
 ## .148 安装与发现的衔接问题
 
@@ -55,6 +57,8 @@ USB 健康回复新增可选 `wifiIsolation` 字段，格式沿用已有测速�
 验收用同一作品、相同方向和空设备缓存比较，并记录设备 fetch/decode、桥接传输及 Wi-Fi 暂停/恢复；缓存命中不得计入首次提速。结束恢复原自动轮播、六页顺序和 15 秒间隔。历史 26.15% 不作为 .148 承诺。
 
 ## English
+
+The current published releases are [TAB5 .149](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui) and [bridge 0.6.1](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.1). Candidate-stage observations below remain dated evidence.
 
 The locally installed .148 pauses Wi-Fi only for uncached gallery downloads in explicitly selected BLE-only mode. A 500 ms preparation budget falls back to normal coexistence; completion, failure, mode changes and a 35-second lease restore the driver. Failed starts retry. Automatic-mode fallback, saved networks, pairing, image quality and BLE window64/native7 remain unchanged. Cache hits do not pause networking. Lease ownership survives expiry until the original caller releases, preventing stale cancellation of a newer job. Diagnostic benchmarks retain their USB requirement.
 

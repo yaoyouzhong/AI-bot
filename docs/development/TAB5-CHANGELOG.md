@@ -4,7 +4,7 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ## 0.2.149-ui - 2026-10-07
 
-Locally installed; exact boot identity and two cold-image BLE transfers verified. Includes the .146–.148 fixes below.
+[Published](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui). Locally installed; exact boot identity and two cold-image BLE transfers verified. Includes the .146–.148 fixes below.
 
 - Repair wireless gallery RPC by explicitly using authenticated HTTP POST. Cache up to 2 MiB of JPEGs, prefetch the other layout and reclaim cache for camera, voice, attachments and OTA. Preserve the two decode buffers, image quality, pairing and partitions.
 

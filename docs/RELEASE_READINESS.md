@@ -1,6 +1,6 @@
 # 发布前检查 / Release readiness
 
-本页是 2026 年 9 月的历史准备记录，以下“没有正式 Release”等结论仅指当时。当前已发布电脑端 0.6.0、ESP8266 0.5.0、TAB5 0.2.145-ui，请看[当前发布说明](RELEASE-0.6.0.md)与[安装指南](INSTALL.zh.md)。
+本页是 2026 年 9 月的历史准备记录，以下“没有正式 Release”等结论仅指当时。当前已发布电脑端 0.6.1、ESP8266 0.5.0、TAB5 0.2.149-ui，请看[当前发布说明](RELEASE-0.6.1.md)与[安装指南](INSTALL.zh.md)。
 
 This is a historical preparation record, not current release status. See the current release notes and installation guide linked above.
 带日期的迁移/验收文档保留为历史证据，不能将其中的 PID、COM 号、候选哈希或等待操作当作当前指令。
