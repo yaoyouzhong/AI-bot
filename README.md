@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 全年点阵每天一个点，支持闰年、三种配色与自动昼夜切换；十二月历配合农历、节气和节假日。两者无需额外图库。名画与书法保留作品名、作者和博物馆；已核实的中文译名直接显示，其他作品保留馆藏原名。
 
-[名画竖屏效果](docs/assets/screens/tab5-painting-portrait.png) · [书法竖屏效果](docs/assets/screens/tab5-calligraphy-portrait.png) · [更多功能与截图](docs/FEATURES.zh.md)
+[名画竖屏效果](docs/assets/screens/tab5-painting-portrait.png) · [书法竖屏效果](docs/assets/screens/tab5-calligraphy-portrait.png) · [TAB5 完整界面](docs/FEATURES.zh.md#tab5) · [ESP8266 小屏界面](docs/FEATURES.zh.md#esp8266)
 
 ## 下载与搭配
 

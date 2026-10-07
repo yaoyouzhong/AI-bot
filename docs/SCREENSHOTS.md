@@ -27,6 +27,10 @@ dotnet tools/doc-capture/bin/Release/net8.0-windows10.0.19041.0/DocCapture.dll <
 
 素材库另用隔离原生测试夹具生成余额、音乐及语音/相机流程；当前 108 秒影片选取其中部分画面，不逐项展示所有功能：实际调用原生按钮处理函数，模拟收音、识别、拍摄确认与附件返回；不调用真实语音服务、不发送消息。相机和专辑封面采用项目原创角色，曲目“桌面之光 · 示例曲目”为虚构数据。本地生成脚本在 `artifacts/product-intro-story-20261007/`，见[视频来源](PRODUCT_VIDEO.md)。
 
+本次界面图鉴另补充 **26 张 TAB5 原生截图**：总览、应用、任务列表、四个设置分区、桌宠和经典圆盘 9 张在隔离夹具中重新生成，其余 17 张从上述当前影片的原生素材库选用并逐张复核。覆盖天气三种视图、行情、电脑状态、音乐、余额、回复、五种时钟及语音／相机草稿。重新生成批次的 LVGL 界面源码对应 TAB5 commit `02df4f2dbcb1c8535af7f5ffd518ae39f52844c1`；固件版本标签使用 `.145` 演示值，桌宠加载项目原创角色。脚本和捕获日志保存在本地 `artifacts/tab5-feature-guide-20261007/`，不操作设备或运行中的桥接。
+
+小屏的 Claude / Codex、双额度、活动、其他模型、天气、股票、系统、音乐、桌宠和时钟屏保截图也已逐项复核，沿用当前 Windows 镜像渲染；它们不是 ESP8266 的新一轮实机截图。本次只完善公开图鉴，没有替换程序或固件。
+
 | 画面 | 作者与作品 | 馆藏与许可 | 加工 |
 | --- | --- | --- | --- |
 | 每日名画横/竖屏 | 林良《孔雀竹石圖》（Peacocks and Bamboo） | [Cleveland Museum of Art，1964.242](https://www.clevelandart.org/art/1964.242)，CC0 | 图库排版、缩放；竖屏原生画面转正 |
@@ -40,7 +44,7 @@ dotnet tools/doc-capture/bin/Release/net8.0-windows10.0.19041.0/DocCapture.dll <
 
 本次审查发现旧截图生成器误用已退役的 `TrayMenu`。现已改为生产托盘使用的 `DeviceCenterMenu.Build`，并重新捕获、检查当前设备分组菜单。功能图鉴的入口同步改为设备中心三页布局；不再把旧七组菜单当作当前界面。
 
-已检查 52 张重新生成或新增的公开截图，重点窗口另以原尺寸复核。精确路径和 SHA-256 登记于 `licenses/materials.json`；公开内容检查同时约束路径与字节。相同布局可能产生相同哈希，不表示仍用旧代码。Windows 字体、主题与绘图库会影响外观，不承诺跨机器字节一致。
+早前批次已检查 52 张重新生成或新增的公开截图，重点窗口另以原尺寸复核。精确路径和 SHA-256 登记于 `licenses/materials.json`；公开内容检查同时约束路径与字节。相同布局可能产生相同哈希，不表示仍用旧代码。Windows 字体、主题与绘图库会影响外观，不承诺跨机器字节一致。
 
 `assets/guides/*.svg` 为独立绘制的流程示意，不是刷机结果；`hero.*.svg` 与 `scenes.svg` 保留为历史素材。历史上 2026-09-16 的导入桌宠和后续 BYTE SPROUT 预览不作为本次默认形象变更证据。源码中的显式 APET 捕获入口仍保留，但本次未读取个人 APET。安装过程中的原始备份和运行日志不公开。
 
@@ -49,6 +53,8 @@ dotnet tools/doc-capture/bin/Release/net8.0-windows10.0.19041.0/DocCapture.dll <
 Updated 2026-10-07 for Windows AI-bot 0.6.0 and TAB5 0.2.145-ui. Public screenshots are native WinForms/LVGL renders with isolated synthetic data, not hardware photography or new acceptance evidence. The Windows capture tool starts no bridge, serial service, account refresh or authentication browser. Update and collection windows use fixture release/install metadata; they perform no downloads, imports or flashing. Device Center now shows a synthetic `.145` device.
 
 Current TAB5 previews cover Codex Direct, Annual Dots in three colors, the floral calendar, landscape/portrait art, quotas, tasks, voice and calendar. Portrait screenshots are rotated to their physical viewing orientation. The 108-second film uses selected captures; it is not an exhaustive feature tour. Separate offline fixtures exercise native voice/camera handlers and simulated results without sending messages or contacting speech services. The original project character supplies sample camera and album artwork. Optional pet designs do not alter installed defaults.
+
+This gallery update adds 26 reviewed native TAB5 captures: nine freshly rendered overview/apps/tasks/settings/pet/classic-clock frames and 17 selected from the current film capture library. They cover the ordinary pages and draft workflows as well as highlights. Fresh LVGL captures use source commit `02df4f2dbcb1c8535af7f5ffd518ae39f52844c1`, a synthetic `.145` label and original project pet artwork. The existing ESP8266 mirror frames were also reviewed across all displayed page groups; they are not new physical-device captures. This update changes documentation and reviewed media only.
 
 Art attribution: Lin Liang, *Peacocks and Bamboo*, Cleveland Museum of Art 1964.242, CC0; Wang Sishi, running-script seven-character poem scroll, Tokyo National Museum / ColBase TB-6, CC BY 4.0. Source and license links appear in the table above. Images were resized and laid out for the gallery; portrait native frames were rotated upright. These licenses remain separate from the project's MIT terms, with no museum endorsement.
 

@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 Annual Dots gives every day a dot, with leap-year support, three palettes and automatic day/night switching. The floral calendar includes lunar dates, solar terms and holidays. Neither needs an extra collection. Paintings and calligraphy retain the work title, artist and museum; verified Chinese titles appear on screen, with original collection titles retained otherwise.
 
-[Portrait painting](docs/assets/screens/tab5-painting-portrait.png) · [Portrait calligraphy](docs/assets/screens/tab5-calligraphy-portrait.png) · [More features and screenshots](docs/FEATURES.zh.md)
+[Portrait painting](docs/assets/screens/tab5-painting-portrait.png) · [Portrait calligraphy](docs/assets/screens/tab5-calligraphy-portrait.png) · [Complete TAB5 tour](docs/FEATURES.zh.md#tab5) · [ESP8266 display tour](docs/FEATURES.zh.md#esp8266)
 
 ## Downloads and device pairing
 
