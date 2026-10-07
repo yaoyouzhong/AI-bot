@@ -27,17 +27,28 @@ internal sealed class Tab5ConnectionForm : Form
         var benchmark=Page("传输测速");
         benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="不拍照、不写闪存。自动模式测试可用通道；固定模式只测所选通道。每路上下行各 3 次，USB 用于读取结果。"});
         var benchmarkStart=new Button{Text="开始测速"};var benchmarkStop=new Button{Text="停止",Enabled=false};
+        var firmwareProbe=new Button{Text="完整固件预检",AutoSize=true};
+        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="完整固件预检：先选择固件，再以仅蓝牙接收、解压并核对整包校验值；不写闪存。需要 0.2.116-ui，传输预算 110 秒。"});
+        benchmark.Controls.Add(Buttons(firmwareProbe));
+        var benchmarkIsolation=new CheckBox{Text="预检时暂停 Wi-Fi，结束后恢复（需要 0.2.113-ui）",Checked=true,AutoSize=true};benchmark.Controls.Add(benchmarkIsolation);
+        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="暂停与恢复另需数秒；取消勾选可对照原链路。保存的网络配置保持不变。"});
         benchmark.Controls.Add(Buttons(benchmarkStart,benchmarkStop));
         var benchmarkResult=new TextBox{Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Height=220,Width=550,Text=Tab5Service.FormatBenchmark(service.BenchmarkDiagnostic)};benchmark.Controls.Add(benchmarkResult);
         CancellationTokenSource? benchmarkCancel=null;
         benchmarkStop.Click+=(_,_)=>benchmarkCancel?.Cancel();
-        benchmarkStart.Click+=async(_,_)=> {
+        async Task RunBenchmark(bool firmware=false) {
             benchmarkStart.Enabled=false;benchmarkStop.Enabled=true;benchmarkCancel=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
-            try {await service.BenchmarkAsync(value=>{if(!IsDisposed)benchmarkResult.Text=Tab5Service.FormatBenchmark(value);},benchmarkCancel.Token);}
+            benchmarkIsolation.Enabled=false;firmwareProbe.Enabled=false;
+            try {
+                string value=await service.BenchmarkAsync(value=>{if(!IsDisposed)benchmarkResult.Text=Tab5Service.FormatBenchmark(value);},benchmarkCancel.Token,firmware,firmware&&benchmarkIsolation.Checked,firmwareProbe:firmware);
+                if(firmware&&!IsDisposed)benchmarkResult.Text=service.BleOtaProbeDiagnostic+Environment.NewLine+Tab5Service.FormatBenchmark(value);
+            }
             catch(OperationCanceledException){if(!IsDisposed)benchmarkResult.Text="正在停止，等待当前分段结束。";}
             catch(Exception ex){if(!IsDisposed)benchmarkResult.Text=ex.Message;}
-            finally{benchmarkCancel.Dispose();benchmarkCancel=null;if(!IsDisposed){benchmarkStart.Enabled=true;benchmarkStop.Enabled=false;}}
-        };
+            finally{benchmarkCancel.Dispose();benchmarkCancel=null;if(!IsDisposed){benchmarkStart.Enabled=true;benchmarkStop.Enabled=false;benchmarkIsolation.Enabled=true;firmwareProbe.Enabled=true;}}
+        }
+        benchmarkStart.Click+=async(_,_)=>await RunBenchmark(false);
+        firmwareProbe.Click+=async(_,_)=>await RunBenchmark(true);
         var result=new Label{AutoSize=true,Dock=DockStyle.Fill,Padding=new Padding(0,8,0,0),MinimumSize=new Size(0,30),Text="",ForeColor=Color.FromArgb(64,83,101)};
         layout.Controls.Add(result,0,2);
         network.Controls.Add(Heading("已保存的 Wi-Fi"));
@@ -80,7 +91,7 @@ internal sealed class Tab5ConnectionForm : Form
             releaseNotes.Visible=cancelOta.Enabled=service.HasOta;releaseNotes.SetNotes(service.OtaNotes);
         }
         UpdateOffer();
-        upgrade.Controls.Add(Note("升级需连接 USB 或 Wi-Fi，并保持供电。"));
+        upgrade.Controls.Add(Note("升级支持 Wi-Fi、USB 或蓝牙，请保持供电。按 TAB5 连接设置选择通道；自动模式优先 Wi-Fi，其次 USB、蓝牙。"));
         offerOta.Click+=(_,_)=> {
             using var pick=new OpenFileDialog{Title="选择 TAB5 固件",Filter="TAB5 固件 (*.bin)|*.bin",CheckFileExists=true};
             if(pick.ShowDialog(this)!=DialogResult.OK)return;

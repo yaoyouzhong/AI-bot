@@ -7,8 +7,9 @@ internal sealed class Tab5OtaFlow
     // tcp-v1 receivers can exhaust the SDIO TX pool during flash writes.
     // Only authenticated requests advertising the packet-pool fix use full speed.
     internal static bool Fast(string capability)=>capability=="tcp-v2";
-    internal static async Task WriteAsync(Stream stream,byte[] image,bool fast,CancellationToken token,Action<int>? progress=null) {
-        var headers=Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {image.Length}\r\nConnection: close\r\n\r\n");
+    internal static async Task WriteAsync(Stream stream,byte[] image,bool fast,CancellationToken token,Action<int>? progress=null,bool compressed=false) {
+        string encoding=compressed?$"X-AIBot-OTA-Encoding: {Tab5OtaCompression.StreamEncoding}\r\n":"";
+        var headers=Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {image.Length}\r\n{encoding}Connection: close\r\n\r\n");
         await stream.WriteAsync(headers,token);
         progress?.Invoke(0);
         int chunk=fast?16384:2048;

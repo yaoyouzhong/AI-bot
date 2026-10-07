@@ -5,7 +5,12 @@ using System.Security.Cryptography;
 namespace AIBotBridge;
 internal static class Tab5UsbBinary
 {
-    internal const int Maximum=16393;
+    internal const int Maximum=65535;
+    internal const int LargeChunk=Maximum-9;
+    internal static int Chunk(System.Text.Json.JsonElement hello,bool binary) {
+        if(binary&&hello.TryGetProperty("rpcUsbBinaryChunk",out var large)&&large.TryGetInt32(out int n)&&n==LargeChunk)return LargeChunk;
+        return hello.TryGetProperty("rpcUsbChunk",out var old)&&old.TryGetInt32(out int legacy)&&legacy==16384?16384:2048;
+    }
     internal static int Length(byte[] header,uint tag) {
         if(header.Length!=16||!header.AsSpan(0,4).SequenceEqual("AIB2"u8)||BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(4))!=tag||
             BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(12))!=1)throw new IOException("USB binary identity/status mismatch");

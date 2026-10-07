@@ -6,6 +6,8 @@ namespace AIBotBridge;
 internal sealed partial class Tab5Service
 {
     private readonly object _rpcLock=new();
+    private readonly Tab5Gallery _gallery=new();
+    internal Tab5QuickConsole QuickConsole {get;set;}=new();
     private readonly Dictionary<string,long> _rpcNonces=[];
     private int _rpcRequests;
     private long _rpcOtaUntil;
@@ -68,7 +70,7 @@ internal sealed partial class Tab5Service
                 if(!valid)result=(400,new{error="invalid_session_or_time"});
                 else if(replay)result=(409,new{error="already_submitted"});
                 else if(!opened.Data.IsEmpty&&Text(root,"kind") is not ("image-chunk" or "benchmark"))result=(400,new{error="unexpected_binary_data"});
-                else if(Text(root,"kind")=="ota")result=allowOta?RpcOta(root,transport,binaryReply,bulkReply):(409,new{error="firmware_requires_usb_or_wifi"});
+                else if(Text(root,"kind") is "ota" or "ota_probe")result=allowOta?RpcOta(root,transport,binaryReply,bulkReply):(409,new{error="firmware_requires_ota_transport"});
                 else if(Text(root,"kind")=="image-chunk") {
                     result=RpcImage(root,id,opened.Data);
                     lock(_rpcLock) {
@@ -76,7 +78,11 @@ internal sealed partial class Tab5Service
                         _imageUploadDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} transport={transport}; status={result.Status}; received={image?.Received??0}/{image?.Bytes.Length??0}; elapsed={ (image is null?0:Environment.TickCount64-image.Started)}ms";
                     }
                 }
+                else if(Text(root,"kind")=="gallery")result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
+                    ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply);
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
+                else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy
+                    ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token);
                 else if(Text(root,"kind")=="benchmark")result=Tab5TransportBenchmark.Handle(root,opened.Data,binaryReply,bulkReply);
                 else if(Text(root,"kind")=="voice") {
                     // Reuse the same voice session, replay checks and explicit
@@ -113,9 +119,18 @@ internal sealed partial class Tab5Service
             offset<0||count<1||count>(bulkReply?Tab5RpcBinary.BulkData:transport=="USB"?16384:8192)||offset>offer.Image.Length-count)return(400,new{error="invalid_range"});
         // Keep removal/restart disabled between chunks. A lost device releases
         // the lease after 90 seconds; each authenticated chunk renews it.
-        Interlocked.Exchange(ref _rpcOtaUntil,Environment.TickCount64+90000);
-        _otaTransferDiagnostic=$"{transport}；已提供：{offset+count}/{offer.Image.Length}；等待设备校验";
-        return(200,binaryReply?new Tab5RpcDataBody(new{offset},offer.Image.AsMemory(offset,count)):new{offset,data=Convert.ToBase64String(offer.Image,offset,count)});
+        bool probe=Text(root,"kind")=="ota_probe";
+        if(probe&&transport!="BLE")return(400,new{error="probe_requires_ble"});
+        long now=Environment.TickCount64;
+        if(!probe) {
+            if(now>=Interlocked.Read(ref _rpcOtaUntil)){
+                Interlocked.Exchange(ref _usbRpcGateWaitMs,0);Interlocked.Exchange(ref _usbRpcGateWaitPeakMs,0);
+            }
+            Interlocked.Exchange(ref _rpcOtaUntil,now+90000);
+            _otaTransferDiagnostic=$"{transport}；已提供：{offset+count}/{offer.Image.Length}；等待设备校验";
+        }
+        return(200,binaryReply?Tab5OtaCompression.Range(offer.Image.AsMemory(offset,count),offset,
+            (transport=="BLE"||transport=="USB")&&bulkReply&&Text(root,"acceptEncoding")=="zlib"):new{offset,data=Convert.ToBase64String(offer.Image,offset,count)});
     }
     private (int Status,object Body) RpcImage(JsonElement root,string device,ReadOnlyMemory<byte> raw)
     {

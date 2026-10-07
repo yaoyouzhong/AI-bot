@@ -14,7 +14,9 @@ internal static class Tab5TaskPins
     internal static void Save(string[] pins){Validate(pins);lock(Gate){UserPreferenceFile.Write("tab5-task-pins.json",pins);_cache=pins.ToArray();Error=null;}}
     internal static Tab5CodexTask[] Select(IReadOnlyList<Tab5CodexTask> catalog,int limit,string? overview,string? viewed,HashSet<string> ready) {
         var pins=Load().ToHashSet();var essentials=catalog.GroupBy(t=>t.ProjectId).Select(g=>g.First().Id).ToHashSet();
+        var recent=catalog.OrderByDescending(t=>t.UpdatedAt).Take(5).Select(t=>t.Id).ToHashSet();
         return catalog.OrderByDescending(t=>t.Id==overview).ThenByDescending(t=>t.Id==viewed)
+            .ThenByDescending(t=>recent.Contains(t.Id))
             .ThenByDescending(t=>pins.Contains(t.Id)).ThenByDescending(t=>essentials.Contains(t.Id)).ThenByDescending(t=>ready.Contains(t.Id))
             .Take(limit).OrderByDescending(t=>pins.Contains(t.Id)).Select(t=>t with {Pinned=pins.Contains(t.Id)}).ToArray();
     }

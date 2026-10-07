@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using NAudio.Wave;
 
 namespace AIBotBridge;
 
@@ -11,14 +12,18 @@ internal static class Tab5VoiceSelfTest
     private static void Check(bool pass,string label){if(!pass)throw new InvalidOperationException("TAB5 voice: "+label);}
     private sealed class Audio : ITab5VoiceAudio {
         internal bool Dji=true,Running,Empty=true,FailStop;internal string Source="";internal int Bytes,Starts;
+        internal BufferedWaveProvider? Buffer;
+        internal bool Room=true;
+        public bool CanAcceptAudio=>Room&&(Buffer is null||Tab5VoiceAudio.HasPlaybackRoom(Buffer));
         public string Start(bool force){Running=true;Starts++;return Source=Dji&&!force?"dji":"tab5";}
         public bool DjiHealthy=>Dji;
+        public string SourceName=>Source=="dji"?"麦克风 (Wireless Mic Rx)":"TAB5 内置麦克风";
         public bool InputReady {get;set;}=true;
         public int InputLevel {get;set;}=50;
         public bool? CapturedSound {get;set;}
         public bool Drained=>Empty;
         public void UseTab5()=>Source="tab5";
-        public void Feed(byte[] pcm)=>Bytes+=pcm.Length;
+        public void Feed(byte[] pcm){Buffer?.AddSamples(pcm,0,pcm.Length);Bytes+=pcm.Length;}
         public void Drain(){}
         public void Stop(){Running=false;if(FailStop)throw new InvalidOperationException("synthetic unplug on stop");}
         public void Dispose()=>Stop();
@@ -26,6 +31,9 @@ internal static class Tab5VoiceSelfTest
     private sealed class Editor : ITab5VoiceEditor {
         public string Text {get;set;}="";public bool SafeFocus {get;set;}=true;
         internal int Stops;
+        internal bool RestoreAllowed;
+        internal int Restores;
+        public bool TryRestoreFocus(){Restores++;if(RestoreAllowed)SafeFocus=true;return SafeFocus;}
         public bool CaptureStopped {get;set;}=true;
         public bool RecognitionComplete {get;set;}
         public bool Start()=>SafeFocus;
@@ -33,7 +41,7 @@ internal static class Tab5VoiceSelfTest
         public void Clear()=>Text="";
     }
     private sealed class Endpoint(Tab5VoiceSession session) : ITab5VoiceEndpoint {
-        public Task<Tab5VoiceReply> HandleAsync(JsonElement request,CancellationToken token)=>Task.FromResult(session.Handle(request));
+        public Task<Tab5VoiceReply> HandleAsync(JsonElement request,CancellationToken token)=>session.HandleAsync(request,token);
         public void ShowSettings(IWin32Window owner){}
         public void Dispose()=>session.Dispose();
     }
@@ -79,7 +87,27 @@ internal static class Tab5VoiceSelfTest
         Check(reply.State=="recording"&&reply.Text==editor.Text,"active session survives rejected requests");
         Wait(enabled.HandleAsync(Json(new{op="cancel",voiceId=started.VoiceId}),CancellationToken.None));
     }
+    private static void CheckFocusRecovery() {
+        long now=1000;var audio=new Audio{Dji=false};var editor=new Editor{RestoreAllowed=true};
+        using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+        var started=voice.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString(),source="tab5"}));
+        voice.Tick();editor.Text="已有文字";editor.SafeFocus=false;
+        var continued=voice.Handle(Json(new{op="audio",voiceId=started.VoiceId,seq=0,pcm=Convert.ToBase64String(new byte[6400])}));
+        Check(continued.State=="recording"&&continued.VoiceId==started.VoiceId&&continued.Text=="已有文字"&&audio.Bytes==6400&&audio.Starts==1&&editor.Stops==0&&editor.Restores==1,"focus restoration keeps the same take and audio without restarting");
+        voice.Handle(Json(new{op="stop",voiceId=started.VoiceId}));
+        editor.SafeFocus=false;voice.Tick();
+        Check(voice.Snapshot().State=="draining"&&audio.Running&&editor.Stops==0&&editor.Restores==2,"draining focus restoration preserves queued tail");
+        voice.Handle(Json(new{op="cancel",voiceId=started.VoiceId}));
+        int restores=editor.Restores;editor.SafeFocus=false;voice.Tick();
+        Check(editor.Restores==restores&&!audio.Running,"cancelled take never reclaims focus");
+        editor.SafeFocus=true;voice.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString()}));
+        editor.RestoreAllowed=false;editor.SafeFocus=false;voice.Tick();
+        Check(voice.Snapshot().State=="error"&&!audio.Running&&audio.Starts==2,"failed recovery is visible and never starts a replacement take");
+        Console.WriteLine("TAB5_VOICE_FOCUS_RECOVERY_OK same_take_audio_text_tail preserved; no restart; synthetic only");
+    }
     internal static async Task RunAsync() {
+        CheckFocusRecovery();
+        await CheckAudioBackpressureAsync();
         Tab5DoubaoVoiceSelfTest.Run();
         CheckQuietCompletion();
         CheckStoppedAudio();
@@ -94,6 +122,7 @@ internal static class Tab5VoiceSelfTest
         var task=Guid.NewGuid().ToString();
         var start=voice.Handle(Json(new{op="start",taskId=task}));
         Check(start.Source=="dji"&&audio.Running,"DJI preferred on start");
+        Check(start.SourceName=="麦克风 (Wireless Mic Rx)","full selected endpoint name is retained without guessed model");
         Check(!start.Ready,"shortcut success alone never announces ready");
         audio.InputReady=false;voice.Tick();Check(!voice.Snapshot().Ready,"audio opening delay stays preparing");
         audio.InputReady=true;
@@ -104,6 +133,7 @@ internal static class Tab5VoiceSelfTest
         Check(voice.Snapshot().Silent&&voice.Snapshot().State=="recording","six seconds of silence warns without ending recording");
         audio.InputLevel=50;voice.Tick();Check(!voice.Snapshot().Silent&&voice.Snapshot().Level==50,"speech clears silence notice immediately");
         audio.Dji=false;voice.Tick();Check(voice.Snapshot().Source=="tab5","unplug during speech falls back");
+        Check(voice.Snapshot().SourceName=="TAB5 内置麦克风","fallback replaces the external microphone name");
         Check(!voice.Snapshot().Ready,"fallback waits for TAB5 audio before announcing ready");
         audio.Dji=true;voice.Tick();Check(voice.Snapshot().Source=="tab5","reconnect does not interrupt utterance");
         var chunk=new byte[]{1,0,2,0};
@@ -123,6 +153,11 @@ internal static class Tab5VoiceSelfTest
         Check(voice.Snapshot().State=="recognizing","minimum final commit guard before hiding draft");
         now+=1;voice.Tick();
         Check(voice.Snapshot().State=="review"&&voice.Snapshot().TaskId==task&&voice.Snapshot().Text==editor.Text,"draft remains attached to selected task");
+        Check(!voice.Snapshot().CanInsert,"unconfirmed recognizer cannot automatically insert");
+        editor.RecognitionComplete=true;
+        Check(voice.Snapshot().CanInsert,"explicit stop and complete transcript permit draft insertion");
+        editor.Text=new string('测',701);Check(!voice.Snapshot().CanInsert,"truncated transcript cannot automatically insert");
+        editor.RecognitionComplete=false;
         audio.Dji=false;start=voice.Handle(Json(new{op="start",taskId=task}));
         Check(start.Source=="tab5"&&start.Text=="","absent DJI falls back, previous text cleared");
         now+=4001;voice.Tick();Check(voice.Snapshot().State=="draining","lost heartbeat drains already received audio");
@@ -193,6 +228,7 @@ internal static class Tab5VoiceSelfTest
                 audio.Dji=false;
                 var reply=await Send("start",replay:true);string id=reply.GetProperty("voiceId").GetString()!;
                 Check(reply.GetProperty("source").GetString()=="tab5","HTTP start negotiates fallback");
+                Check(reply.GetProperty("sourceName").GetString()=="TAB5 内置麦克风","encrypted reply carries the actual source name");
                 int starts=audio.Starts;reply=await Send("start",replay:true);
                 Check(reply.GetProperty("state").GetString()=="error"&&audio.Starts==starts,"HTTP replay never restarts microphone");
                 reply=await Send("audio",id,0,chunk);Check(audio.Bytes==8,"authenticated HTTP PCM is consumed");
@@ -348,6 +384,50 @@ internal static class Tab5VoiceSelfTest
         editor.RecognitionComplete=true;voice.Tick();now+=600;editor.Text="最后返回的文字";voice.Tick();now+=800;voice.Tick();
         Check(voice.Snapshot() is {State:"review",Text:"最后返回的文字"},"late committed text wins over native empty completion");
         Console.WriteLine("TAB5_VOICE_QUIET_END_OK silence, native idle, pending commit, noise, late text and unknown capture; synthetic only");
+    }
+    private static async Task CheckAudioBackpressureAsync() {
+        BufferedWaveProvider Buffer()=>new(new WaveFormat(16000,16,1)){BufferDuration=TimeSpan.FromSeconds(2),DiscardOnBufferOverflow=false};
+        var burst=Buffer();bool overflow=false;
+        try{for(int i=0;i<11;i++)burst.AddSamples(new byte[6400],0,6400);}
+        catch(InvalidOperationException ex){overflow=ex.Message.Contains("Buffer full");}
+        Check(overflow,"real NAudio provider reproduces Buffer full on unpaced burst");
+        long now=1000;var audio=new Audio{Dji=false,Buffer=Buffer()};var editor=new Editor();
+        using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+        string task=Guid.NewGuid().ToString();
+        Tab5VoiceReply Start()=>voice.Handle(Json(new{op="start",taskId=task}));
+        JsonElement Chunk(string id,int seq,byte[] pcm)=>Json(new{op="audio",voiceId=id,seq,pcm=Convert.ToBase64String(pcm)});
+        var start=Start();using var expected=new MemoryStream();using var played=new MemoryStream();
+        int waits=0,peak=0;byte[] read=new byte[640];
+        for(int seq=0;seq<30;seq++) {
+            byte[] pcm=Enumerable.Range(0,6400).Select(i=>(byte)((seq*17+i)%251)).ToArray();expected.Write(pcm);
+            var reply=await voice.HandleAsync(Chunk(start.VoiceId,seq,pcm),default,_=>{
+                waits++;now+=20;Check(audio.Buffer.BufferedBytes>=read.Length,"never consume fabricated silence");
+                audio.Buffer.Read(read,0,read.Length);played.Write(read);return Task.CompletedTask;
+            });
+            Check(reply.State=="recording","paced burst remains recording");peak=Math.Max(peak,audio.Buffer.BufferedBytes);
+        }
+        while(audio.Buffer.BufferedBytes>0){int count=Math.Min(read.Length,audio.Buffer.BufferedBytes);audio.Buffer.Read(read,0,count);played.Write(read,0,count);}
+        Check(waits>0&&peak<=12800&&audio.Bytes==192000&&played.ToArray().SequenceEqual(expected.ToArray()),
+            "six-second network burst stays below 400ms playback with every byte in order");
+        audio.Buffer=null;audio.Room=false;voice.Handle(Json(new{op="cancel",voiceId=start.VoiceId}));start=Start();
+        int before=audio.Bytes;
+        var cancelled=await voice.HandleAsync(Chunk(start.VoiceId,0,new byte[6400]),default,_=>{
+            now+=20;voice.Handle(Json(new{op="cancel",voiceId=start.VoiceId}));return Task.CompletedTask;
+        });
+        Check(cancelled.State=="cancelled"&&audio.Bytes==before,"cancel interrupts backpressure without feeding pending audio");
+        start=Start();
+        var stalled=await voice.HandleAsync(Chunk(start.VoiceId,0,new byte[6400]),default,_=>{now+=20;return Task.CompletedTask;});
+        Check(stalled.State=="error"&&stalled.Message.Contains("播放积压")&&!stalled.CanInsert&&audio.Bytes==before&&!audio.Running,
+            "stalled playback fails boundedly without truncated success or buffer growth");
+        start=Start();
+        var lostFocus=await voice.HandleAsync(Chunk(start.VoiceId,0,new byte[6400]),default,_=>{now+=20;editor.SafeFocus=false;return Task.CompletedTask;});
+        Check(lostFocus.State=="error"&&audio.Bytes==before,"focus loss while waiting never feeds another owner");
+        editor.SafeFocus=true;start=Start();
+        using var cancel=new CancellationTokenSource();bool tokenCancelled=false;
+        try{await voice.HandleAsync(Chunk(start.VoiceId,0,new byte[6400]),cancel.Token,_=>{cancel.Cancel();return Task.CompletedTask;});}
+        catch(OperationCanceledException){tokenCancelled=true;}
+        Check(tokenCancelled&&audio.Bytes==before,"cancelled request does not feed audio");
+        Console.WriteLine("TAB5_AUDIO_BACKPRESSURE_OK real_NAudio_overflow_reproduced 6s_burst_exact_192000_bytes peak_400ms cancel_focus_stall_bounds");
     }
     private static void CheckStoppedAudio() {
         long now=1000;var audio=new Audio{Dji=false};var editor=new Editor();

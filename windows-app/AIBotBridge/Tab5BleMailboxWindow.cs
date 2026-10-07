@@ -9,10 +9,13 @@ internal sealed class Tab5BleMailboxWindow(
     Func<CancellationToken,Task<byte[]>> read,
     Func<byte[],bool,CancellationToken,Task> write,
     bool notifications,bool unacknowledged,int mtu,int credits=4,
-    Func<IReadOnlyList<byte[]>,CancellationToken,Task>? writeBatch=null,int notifyCredits=0)
+    Func<IReadOnlyList<byte[]>,CancellationToken,Task>? writeBatch=null,int notifyCredits=0,int bulkWriteCredits=0,Func<int>? bulkWriteLimit=null)
 {
+    internal const int DefaultBulkWriteCredits=64;
     private readonly List<byte[]> _pendingWrites=[];
     private readonly int _credits=Math.Clamp(credits,1,32);
+    private readonly int _bulkWriteCredits=Math.Clamp(bulkWriteCredits>0?bulkWriteCredits:credits,1,64);
+    internal int ActiveWriteCredits {get;private set;}
     private readonly int _notifyCredits=Math.Clamp(notifyCredits>0?notifyCredits:credits,1,32);
     private readonly Channel<byte[]> _packets=Channel.CreateBounded<byte[]>(new BoundedChannelOptions(Math.Clamp(notifyCredits>0?notifyCredits:credits,1,32)) {
         FullMode=BoundedChannelFullMode.Wait,SingleReader=true,SingleWriter=false,AllowSynchronousContinuations=false
@@ -20,7 +23,7 @@ internal sealed class Tab5BleMailboxWindow(
     private int _remaining;
     private string? _failure;
     internal int ResponseChunk=>Math.Clamp(mtu-3,20,488)-9;
-    internal string Mode=>$"{(notifications?$"notify{_notifyCredits}{(unacknowledged?"-command":"")}":"read")}/{(unacknowledged?$"write{_credits}":"ack")}";
+    internal string Mode=>$"{(notifications?$"notify{_notifyCredits}{(unacknowledged?"-command":"")}":"read")}/{(unacknowledged?$"write{_credits}/bulk{_bulkWriteCredits}":"ack")}";
     internal void Notify(byte[] packet) {
         if(packet.Length<=8||packet.Length>Math.Clamp(mtu-3,20,488)) {
             Fail("BLE notification length invalid");return;
@@ -63,7 +66,11 @@ internal sealed class Tab5BleMailboxWindow(
             int total=BinaryPrimitives.ReadUInt16LittleEndian(packet.AsSpan(7));
             // The negotiated bounded window and final fragment form ATT barriers.
             // The device rejects gaps, so the final success cannot hide a loss.
-            acknowledged=offset+packet.Length-9==total||(offset/ResponseChunk+1)%_credits==0;
+            // Freeze the limit for this response; comparisons switch only
+            // between complete probes, and never exceed the peer's offer.
+            if(offset==0)ActiveWriteCredits=total>12288?Math.Min(_bulkWriteCredits,Math.Clamp(bulkWriteLimit?.Invoke()??DefaultBulkWriteCredits,1,64)):_credits;
+            int responseCredits=ActiveWriteCredits;
+            acknowledged=offset+packet.Length-9==total||(offset/ResponseChunk+1)%responseCredits==0;
             if(writeBatch is not null) {
                 _pendingWrites.Add(packet);
                 if(!acknowledged)return;
@@ -74,12 +81,37 @@ internal sealed class Tab5BleMailboxWindow(
         await write(packet,acknowledged,token);
     }
     internal static async Task WriteBatchOrderedAsync(IReadOnlyList<byte[]> packets,Func<byte[],bool,CancellationToken,Task> send,CancellationToken token) {
-        if(packets.Count is <1 or >32)throw new IOException("BLE write window invalid");
+        if(packets.Count is <1 or >64)throw new IOException("BLE write window invalid");
         // Await each command to preserve submission order; the final
         // acknowledged write is a barrier before yielding the shared gate.
         for(int i=0;i<packets.Count;i++) {
             token.ThrowIfCancellationRequested();
             await send(packets[i],i==packets.Count-1,token);
         }
+    }
+    internal static async Task WriteBatchQueuedAsync(IReadOnlyList<byte[]> packets,Func<byte[],bool,CancellationToken,Task> send,CancellationToken token,int maximumPending=7) {
+        if(packets.Count is <1 or >64)throw new IOException("BLE queued write window invalid");
+        if(maximumPending is <1 or >31)throw new IOException("BLE native write bound invalid");
+        // Submit commands synchronously in cursor order, without Task.Run.
+        // send must submit the native operation before returning its Task.
+        // Normally at most seven commands are in flight. The explicit RAM
+        // comparison can test 31 within the same wire window. Drain each cohort; keep
+        // the gate until the window's final ATT barrier or full failure drain.
+        for(int start=0;start<packets.Count-1;start+=maximumPending) {
+            var pending=new List<Task>(maximumPending);
+            Exception? submissionFailure=null;
+            try {
+                for(int i=start;i<Math.Min(start+maximumPending,packets.Count-1);i++) {
+                    token.ThrowIfCancellationRequested();
+                    var operation=send(packets[i],false,token);pending.Add(operation);
+                    if(operation.IsFaulted||operation.IsCanceled)break;
+                }
+            }catch(Exception ex){submissionFailure=ex;}
+            // A synchronous submission failure also drains the whole cohort.
+            await Task.WhenAll(pending);
+            if(submissionFailure is not null)System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(submissionFailure).Throw();
+        }
+        token.ThrowIfCancellationRequested();
+        await send(packets[^1],true,token);
     }
 }

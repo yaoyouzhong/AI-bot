@@ -15,8 +15,10 @@ internal sealed partial class Tab5Service
     private byte[]? _packedSource,_packedFrame;
     private volatile int _usbTelemetryVersion;
     private volatile bool _usbPacked;
+    private volatile string _usbControlFailure="无";
     private void RecordUsbFailure(string stage,Exception ex) {
         _usbRpcLastFailure=$"{DateTimeOffset.Now:HH:mm:ss} USB {stage}; {ex.GetType().Name} / 0x{ex.HResult:X8}";
+        _usbControlFailure=_usbRpcLastFailure;
         if(_usbRpcFirstFailure=="无")_usbRpcFirstFailure=_usbRpcLastFailure;
     }
     private byte[] PackedFullFrame(byte[] full) {
@@ -71,7 +73,7 @@ internal sealed partial class Tab5Service
             }
             // Resource traffic reuses the established authenticated session. It
             // does not resend the catalog or change task freshness. RPC still wins.
-            if(!preferMetrics&&_assets.JpegSupported&&_assets.HasPending) {
+            if(!BackgroundTransferPaused&&!preferMetrics&&_assets.JpegSupported&&_assets.HasPending) {
                 var resources=_assets.NextBatch(channel==1?8:4);
                 if(resources.Length>0&&_store.Current is {} pair)return JsonSerializer.SerializeToUtf8Bytes(new {
                     version=1,type="tab5_resources",deviceId=pair.DeviceId,session=_session,
@@ -116,10 +118,11 @@ internal sealed partial class Tab5Service
     {
         using var timer=new PeriodicTimer(TimeSpan.FromMilliseconds(250));
         while(await timer.WaitForNextTickAsync(token)) {
-            if(_usbTelemetryVersion!=1||MetricsFrame() is not {} frame)continue;
+            if(_usbTelemetryVersion!=1||UsbMetricsFrame() is not {} frame)continue;
             await _usbGate.WaitAsync(token);
             try {
-                if(_usbTelemetryVersion!=1||_usbPort is not {} port)continue;
+                // An OTA range can start while this worker waits for the gate.
+                if(BackgroundTransferPaused||_usbTelemetryVersion!=1||_usbPort is not {} port)continue;
                 port.WriteLine(Tab5Protocol.Prefix+System.Text.Encoding.UTF8.GetString(frame));
                 using var ack=await ReadReplyAsync(port,"tab5_metrics_ack",token);
                 using var sent=JsonDocument.Parse(frame);
@@ -130,4 +133,5 @@ internal sealed partial class Tab5Service
             }finally{_usbGate.Release();}
         }
     }
+    internal byte[]? UsbMetricsFrame()=>BackgroundTransferPaused?null:MetricsFrame();
 }

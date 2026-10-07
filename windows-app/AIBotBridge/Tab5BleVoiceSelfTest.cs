@@ -61,6 +61,9 @@ internal static class Tab5BleVoiceSelfTest
     }
     internal static async Task RunAsync(string? encodedFixture=null)
     {
+        await Tab5BleSchedulingSelfTest.RunAsync();
+        await VerifyDownloadPriorityAsync();
+        VerifyOtaPreflight();
         await VerifyBulkLifetimeAsync();
         await Tab5BleMailboxWindowSelfTest.RunAsync();
         foreach(int mtu in new[]{23,247,517}) {
@@ -98,6 +101,10 @@ internal static class Tab5BleVoiceSelfTest
         byte[] zero=[4,0,0,0,0,0,0,0];
         if(!Tab5VoiceAdpcm.Decode(zero).SequenceEqual(new byte[8]))throw new Exception("ADPCM silence mismatch");
         if(!Tab5VoiceAdpcm.Decode8k(zero).SequenceEqual(new byte[16]))throw new Exception("8 kHz ADPCM duration mismatch");
+        for(int count=1;count<=3200;count++) {
+            var block=new byte[6+count/2];BinaryPrimitives.WriteUInt16LittleEndian(block,(ushort)count);
+            if(!Tab5VoiceAdpcm.Decode(block).SequenceEqual(new byte[count*2]))throw new Exception("16 kHz tail length/silence mismatch");
+        }
         foreach(var invalid in new[]{Array.Empty<byte>(),new byte[]{0,0,0,0,0,0},new byte[]{1,0,0,0,89,0},zero[..7]}) {
             try{Tab5VoiceAdpcm.Decode(invalid);throw new Exception("Malformed ADPCM accepted");}catch(ArgumentException){}
         }
@@ -113,5 +120,49 @@ internal static class Tab5BleVoiceSelfTest
             Console.WriteLine($"TAB5_ADPCM_CROSS_LANGUAGE_PASS SNR={snr:F1}dB input=6400 encoded=1606");
         }
         Console.WriteLine("TAB5_BLE_VOICE_PASS fragmented encrypted RPC, MTU 23/247/517, single execution, invalid ordering, cancellation, bounded ADPCM");
+    }
+    private static async Task VerifyDownloadPriorityAsync() {
+        foreach(int fault in new[]{0,1,2}) {
+            var release=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var writing=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var packet=new byte[132];packet[0]=42;packet[6]=124;
+            using var cancel=new CancellationTokenSource();
+            var pump=new Tab5BleVoice(_=>Task.FromResult(packet),async (_,ct)=> {
+                writing.TrySetResult();await release.Task.WaitAsync(ct);
+                if(fault==2)throw new IOException("download write rejected");
+            },(_,_,_,_)=>Task.FromResult<(int,byte[]?)>((200,new byte[49152])),517,maximumResponse:65535);
+            var running=pump.PumpAsync(cancel.Token);await writing.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            if(!pump.BulkActive)throw new Exception("Small OTA request did not prioritize first large response");
+            if(fault==1)cancel.Cancel();else release.SetResult();
+            try{await running;if(fault!=0)throw new Exception("Download failure ignored");}
+            catch(OperationCanceledException) when(fault==1){}
+            catch(IOException) when(fault==2){}
+            if(pump.BulkActive||pump.CompletedCount!=(fault==0?1u:0u))throw new Exception("Download priority leaked or premature success");
+        }
+        Console.WriteLine("BLE_FIRST_DOWNLOAD_PRIORITY_OK completion_cancel_failure");
+    }
+    private sealed class PreferenceLease(Action dispose):IDisposable {public void Dispose()=>dispose();}
+    private static void VerifyOtaPreflight() {
+        int requested=0,disposed=0;var values=new List<bool>();
+        using(var preference=new Tab5BleConnectionPreference(b=>{requested++;values.Add(b);return new PreferenceLease(()=>disposed++);})) {
+            preference.Update(false);preference.Update(true);preference.Update(true);
+            if(requested!=1||disposed!=0)throw new Exception("Repeated bulk requests churned connection parameters");
+            preference.Update(false);preference.Update(false);
+            if(requested!=2||disposed!=1||!values.SequenceEqual(new[]{true,false}))throw new Exception("Bulk preference not restored");
+        }
+        if(disposed!=2)throw new Exception("Connection preference leaked");
+        static string Result(int ms)=>"complete;"+string.Join(";",Enumerable.Range(1,3).Select(i=>$"BLE,down,{i},262144,{ms},0,6,0,0,0,0,0,100000,1000000,90000"));
+        string good=Result(2000),slow=Result(5000);
+        if(Tab5BleOtaEstimate.Seconds(good,6859616) is not {} fast||fast>=120||Tab5BleOtaEstimate.Seconds(slow,6859616) is not {} poor||poor<=120)
+            throw new Exception("BLE 120-second readiness threshold wrong");
+        foreach(string bad in new[]{good.Replace("complete","cancelled"),good.Replace("BLE","USB"),good.Replace("down","up"),good.Replace("262144","262143"),good.Replace(",2,",",1,"),good.Replace(",2000,0,",",2000,1,"),Result(0),Result(26000),good+";extra"})
+            if(Tab5BleOtaEstimate.Seconds(bad,6859616)!=null)throw new Exception("Incomplete/wrong-channel BLE estimate accepted");
+        if(Tab5BleOtaEstimate.Seconds(good,0)!=null)throw new Exception("Missing firmware accepted");
+        string budgetFailure=good.Replace("complete","failed").Replace("down,3,262144,2000,0","down,3,196608,5889,-2");
+        if(Tab5BleOtaEstimate.Seconds(budgetFailure,6859616)!=null||!Tab5BleOtaEstimate.Format(budgetFailure,6859616).Contains("已完成 2/3 轮"))
+            throw new Exception("Budget failure reason lost or incomplete run counted as valid");
+        string mixed=good.Replace("down,3,262144,2000","down,3,262144,5000");
+        if(Tab5BleOtaEstimate.Seconds(mixed,6859616)!=Tab5BleOtaEstimate.Seconds(slow,6859616))throw new Exception("Estimate did not use slowest round");
+        Console.WriteLine("BLE_OTA_ESTIMATE_OK strict_three_rounds_slowest_20percent_25seconds_120second_gate scoped_preference");
     }
 }

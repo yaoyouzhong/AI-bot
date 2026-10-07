@@ -8,6 +8,17 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-profile-guard"){AppProfileGuardSelfTest.Run();return;}
+        if(args.Length==0||!args[0].StartsWith("--self-test-",StringComparison.Ordinal)) {
+            try { AppProfileGuard.EnsureDesktopProfile(); }
+            catch(IOException ex) {
+                Environment.ExitCode=2;
+                if(args.Length==0)MessageBox.Show(ex.Message,"AI-bot 数据目录检查",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+                else { try { Console.Error.WriteLine(ex.Message); } catch(IOException) { } }
+                return;
+            }
+        }
+        if(args.Length==3&&args[0]=="--self-test-tab5-ota-compression"){AppPaths.BeginPublicSelfTest();Tab5OtaCompressionSelfTest.RunAsync(args[1],args[2]).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-browser-artwork") {AppPaths.BeginPublicSelfTest();BrowserMusicArtworkSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-crashes") {AppPaths.BeginPublicSelfTest();Tab5CrashDiagnosticsSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==3&&args[0]=="--test-tab5-usb-binary"){Tab5UsbReadHardwareTest.RunAsync(args[1],args[2]).GetAwaiter().GetResult();return;}
@@ -28,7 +39,9 @@ internal static class Program
         if(args.Length==2&&args[0]=="--self-test-device-center"){ApplicationConfiguration.Initialize();DeviceCenterSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==1&&args[0]=="--self-test-device-registry"){DeviceRegistrySelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
-        if(args.Length==1&&args[0]=="--self-test-tab5-rpc"){Tab5RpcSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-quick-console"){AppPaths.BeginPublicSelfTest();Tab5QuickConsoleSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-gallery"){AppPaths.BeginPublicSelfTest();Tab5GallerySelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-rpc"){AppPaths.BeginPublicSelfTest();Tab5RpcSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-holidays"){Tab5HolidaySelfTest.Run(args[1]);return;}
@@ -49,7 +62,8 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-tab5-ble"){Tab5BleTransferSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-hidden-settings") {ApplicationConfiguration.Initialize();SettingsLayoutSelfTest.CheckHiddenLaunch(args[1]);return;}
         if(args.Length==2&&args[0]=="--self-test-settings-layout") {ApplicationConfiguration.Initialize();SettingsLayoutSelfTest.Run(args[1]);return;}
-        if(args.Length==1&&args[0]=="--self-test-tab5-voice"){ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.RunUi();Tab5VoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-voice-core"){AppPaths.BeginPublicSelfTest();Tab5VoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-voice"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.RunUi();Tab5VoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==3&&args[0]=="--tab5-voice-check"){ApplicationConfiguration.Initialize();Tab5VoiceCheck.Run(args[1],args[2]);return;}
         if(args.Length==4&&args[0]=="--tab5-voice-check"){ApplicationConfiguration.Initialize();Tab5VoiceCheck.Run(args[1],args[2],args[3]);return;}
         if(args.Length==2&&args[0]=="--preview-tab5-voice-settings"){ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.PreviewSettings(args[1]);return;}

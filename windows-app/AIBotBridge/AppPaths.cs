@@ -17,7 +17,10 @@ internal static class AppPaths
 
     internal static string GetFolderPath(Environment.SpecialFolder folder)
     {
-        if (!IsPublicSelfTest) return Environment.GetFolderPath(folder);
+        if (!IsPublicSelfTest) {
+            AppProfileGuard.EnsureDesktopProfile();
+            return Environment.GetFolderPath(folder);
+        }
         var name = folder switch
         {
             Environment.SpecialFolder.UserProfile => "home",

@@ -49,7 +49,7 @@ internal static class Tab5Protocol
     internal static byte[] Snapshot(StatusSnapshot snapshot, string id, string session, long sequence, object? resource=null, string?[]? assetIds=null, object? codexTasks=null, object? ota=null, object? connectionHealth=null) =>
         JsonSerializer.SerializeToUtf8Bytes(new {
             version=1, type="tab5_status", deviceId=id, session, sequence,
-            data=new { imageBinary=1,rpcBinary=1,rpcBulk=1,snapshot.Time,snapshot.EpochUtc,epochMilliseconds=snapshot.CapturedAt.ToUnixTimeMilliseconds(),snapshot.UtcOffsetSeconds,snapshot.CapturedAt,
+            data=new { imageBinary=1,rpcBinary=1,rpcBulk=1,rpcOtaZlib=1,snapshot.Time,snapshot.EpochUtc,epochMilliseconds=snapshot.CapturedAt.ToUnixTimeMilliseconds(),snapshot.UtcOffsetSeconds,snapshot.CapturedAt,
                 snapshot.Codex,snapshot.Claude,
                 pcInput=new {session,sequence,lastInputTickMs=SystemIdleTime.LastInputTickMilliseconds()},
                 quotas=snapshot.Quotas is null?null:new {claude=SummaryQuota(snapshot.Quotas.Claude),codex=SummaryQuota(snapshot.Quotas.Codex,true)},

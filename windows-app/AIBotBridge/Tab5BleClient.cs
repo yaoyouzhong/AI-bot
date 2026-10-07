@@ -12,7 +12,7 @@ namespace AIBotBridge;
 internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture,Action<string> status,Action<string> assets,Action<string>? diagnostic=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? voiceHandler=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? rpcHandler=null,
-    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null)
+    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null)
 {
     internal async Task RunAsync(CancellationToken token)
     {
@@ -63,6 +63,8 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             int credits=first.RootElement.TryGetProperty("mailboxWindow",out var wc)&&wc.TryGetInt32(out int offered)?Math.Clamp(offered,1,8):4;
                             int rpcCredits=first.RootElement.TryGetProperty("rpcMailboxWindow",out var rw)&&rw.TryGetInt32(out int rpcOffered)?Math.Clamp(rpcOffered,1,8):credits; // Larger grants failed hardware acceptance; retain the proven eight-packet bound.
                             int rpcNotifyCredits=first.RootElement.TryGetProperty("rpcNotifyWindow",out var nw)&&nw.TryGetInt32(out int notifyOffered)?Math.Clamp(notifyOffered,1,32):rpcCredits;
+                            int rpcWriteCredits=BulkWriteCredits(first.RootElement,rpcCredits);
+                            bulkWriteSupported?.Invoke(rpcWriteCredits);
                             using var transferGate=new SemaphoreSlim(1,1);
                             Tab5BleVoice? voice=null;
                             var voices=await service.GetCharacteristicsForUuidAsync(new Guid("7af50004-7f23-4a91-bc65-667a19320101"),BluetoothCacheMode.Uncached).AsTask(timeout.Token);
@@ -76,7 +78,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             Tab5BleVoice? rpc=null;
                             var endpoints=await service.GetCharacteristicsForUuidAsync(new Guid("7af50005-7f23-4a91-bc65-667a19320101"),BluetoothCacheMode.Uncached).AsTask(timeout.Token);
                             using var rpcMailbox=rpcHandler is not null&&endpoints.Status==GattCommunicationStatus.Success&&endpoints.Characteristics.Count==1
-                                ?await Tab5BleGattMailbox.CreateAsync(endpoints.Characteristics[0],(int)session.MaxPduSize,timeout.Token,transferGate,rpcCredits,rpcNotifyCredits):null;
+                                ?await Tab5BleGattMailbox.CreateAsync(endpoints.Characteristics[0],(int)session.MaxPduSize,timeout.Token,transferGate,rpcCredits,rpcNotifyCredits,queueBulkResponses:true,bulkWriteCredits:rpcWriteCredits,nativeLimit:nativeLimit,bulkWriteLimit:bulkWriteLimit):null;
                             if(rpcMailbox is not null) {
                                 var window=rpcMailbox.Window;
                                 rpc=new Tab5BleVoice(window.ReadAsync,window.WriteAsync,rpcHandler!,
@@ -87,23 +89,33 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             status("设备已认证，等待数据确认");
                             stage="发送数据";
                             using var voiceStop=CancellationTokenSource.CreateLinkedTokenSource(token);
-                            var rpcTask=rpc is null?Task.CompletedTask:PumpVoiceAsync(rpc,"RPC",voiceStop.Token,rpcDiagnostic,()=>rpcMailbox!.QueuedMilliseconds,()=>rpcMailbox!.ReceiveDiagnostic);
-                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,"voice",voiceStop.Token,voiceDiagnostic,()=>voiceMailbox!.QueuedMilliseconds,bulkActive:()=>rpc?.BulkActive==true||imageUploadActive?.Invoke()==true);
+                            string preferenceStatus="默认连接参数";
+                            using var connectionPreference=Tab5BleConnectionPreference.ForDevice(device,s=>preferenceStatus=s);
+                            var rpcTask=rpc is null?Task.CompletedTask:PumpVoiceAsync(rpc,"RPC",voiceStop.Token,rpcDiagnostic,()=>rpcMailbox!.QueuedMilliseconds,
+                                ()=>rpcMailbox!.ReceiveDiagnostic,probeTrace:probeTrace,writeTiming:()=>rpcMailbox!.WriteTiming,
+                                linkDiagnostic:()=>"preference="+preferenceStatus+"; "+Tab5BleConnectionPreference.ReadLink(device));
+                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,"voice",voiceStop.Token,voiceDiagnostic,()=>voiceMailbox!.QueuedMilliseconds,bulkActive:()=>rpc?.BulkPriorityActive(Environment.TickCount64)==true||imageUploadActive?.Invoke()==true,probeTrace:probeTrace);
                             long telemetryAt=Environment.TickCount64;
                             try {
                             while(!token.IsCancellationRequested && store.Current?.DeviceId==pairing.DeviceId) {
+                                // A USB benchmark/upgrade must not change a merely
+                                // connected BLE radio. Require actual BLE RPC work.
+                                connectionPreference.Update(rpc?.BulkPriorityActive(Environment.TickCount64)==true||imageUploadActive?.Invoke()==true&&
+                                    rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000);
                                 if(voiceTask.IsFaulted)await voiceTask;
                                 if(rpcTask.IsFaulted)await rpcTask;
                                 // A large inbound RPC already proves a live paired link. Avoid
                                 // competing ATT status reads/writes through handling and response.
                                 // Keep voice polling independent so a recording can still start.
-                                if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkActive==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
-                                telemetryAt=Environment.TickCount64;
+                                if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
                                 bool bulkActive=imageUploadActive?.Invoke()==true||voice is not null&&voice.LastActive>0&&Environment.TickCount64-voice.LastActive<1500;
                                 int cadence=telemetry>0?(bulkActive?1000:250):2000;
                                 int pauseMs=cadence;
-                                    await Tab5BleTransfer.SerializeAsync(transferGate,async ()=> {
+                                    long telemetryStarted=Environment.TickCount64,traceTicket=probeTrace?.Ticket(telemetryStarted)??0;
+                                    bool sentTelemetry=await SendTelemetryAsync(transferGate,
+                                    ()=>DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true),async ()=> {
                                     if((telemetryCapture is null?capture():telemetryCapture(telemetry,rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000)) is not {} clear)return false;
+                                    telemetryAt=Environment.TickCount64;
                                     using var doc=JsonDocument.Parse(clear);var seq=doc.RootElement.GetProperty("sequence").GetInt64();
                                     var bytes=Tab5Protocol.WithLength(Tab5Protocol.Encrypt(Convert.FromBase64String(pairing.Key),nonce,clear));
                                     int size=Math.Clamp((int)session.MaxPduSize-3,20,488);
@@ -137,7 +149,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                         string link=confirmed.RootElement.TryGetProperty("link",out var ld)&&ld.ValueKind==JsonValueKind.Array&&ld.GetArrayLength()==10?"; link="+ld.GetRawText():"";
                                         if(confirmed.RootElement.TryGetProperty("mailboxStats",out var ms)&&ms.ValueKind==JsonValueKind.Array&&ms.GetArrayLength()==4)link+="; mailboxStats="+ms.GetRawText();
                                         if(confirmed.RootElement.TryGetProperty("rpcPacing",out var pacing)&&pacing.ValueKind==JsonValueKind.Array&&pacing.GetArrayLength()==3)link+="; rpcPacing="+pacing.GetRawText();
-                                        diagnostic?.Invoke($"{bytes.Length} bytes, MTU {session.MaxPduSize}, {(fast?$"window{window}":"request")}, {started.Elapsed.TotalSeconds:F1}s, ACK verified{link}");
+                                        diagnostic?.Invoke($"{bytes.Length} bytes, MTU {session.MaxPduSize}, {(fast?$"window{window}":"request")}, {started.Elapsed.TotalSeconds:F1}s, ACK verified{link}; connectionPreference={preferenceStatus}");
                                         status("已连接 · 数据已确认");
                                         // A slow complete transfer has already paced this loop.
                                         // Avoid adding two more seconds to the 8-second freshness budget.
@@ -145,7 +157,8 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                     } finally {confirmed?.Dispose();}
                                     return true;
                                     },token);
-                                await Task.Delay(pauseMs,token);
+                                if(sentTelemetry)probeTrace?.RecordActivity(traceTicket,"telemetry",telemetryStarted,Environment.TickCount64);
+                                await Task.Delay(sentTelemetry?pauseMs:50,token);
                             }
                             } finally {voiceStop.Cancel();try{await Task.WhenAll(voiceTask,rpcTask);}catch(OperationCanceledException) when(voiceStop.IsCancellationRequested){}}
                             session.MaintainConnection=false;
@@ -161,23 +174,41 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
             await Task.Delay(3000,token);
         }
     }
+    internal static int BulkWriteCredits(JsonElement info,int fallback)=>
+        info.TryGetProperty("rpcWriteWindow",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int offered)&&offered is >=8 and <=64
+            ?offered:fallback;
     internal static bool DeferTelemetry(long now,long lastTelemetry,bool receiving,bool uploadActive)=>(receiving||uploadActive)&&now-lastTelemetry<6000;
+    internal static Task<bool> SendTelemetryAsync(SemaphoreSlim gate,Func<bool> defer,Func<Task<bool>> send,CancellationToken token)=>
+        Tab5BleTransfer.SerializeAsync(gate,()=>defer()?Task.FromResult(false):send(),token);
     internal static int VoicePollDelay(long now,long lastActive,bool bulkActive)=>now-lastActive<1000?15:bulkActive?500:250;
-    private static async Task PumpVoiceAsync(Tab5BleVoice voice,string name,CancellationToken token,Action<string>? diagnostic=null,Func<long>? queuedTime=null,Func<string>? receiveDiagnostic=null,Func<bool>? bulkActive=null) {
+    private static async Task PumpVoiceAsync(Tab5BleVoice voice,string name,CancellationToken token,Action<string>? diagnostic=null,Func<long>? queuedTime=null,Func<string>? receiveDiagnostic=null,Func<bool>? bulkActive=null,
+        Tab5BleProbeTrace? probeTrace=null,Func<Tab5BleGattTiming>? writeTiming=null,Func<string>? linkDiagnostic=null) {
         // Idle voice + RPC mailboxes share the same radio with status frames.
         // Polling both every 30 ms starves the status write queue on Windows.
+        long started=0,traceTicket=0;
         try {
             while(!token.IsCancellationRequested) {
+                started=Environment.TickCount64;traceTicket=probeTrace?.Ticket(started)??0;
                 uint before=voice.CompletedCount;
                 long queued=queuedTime?.Invoke()??0;
                 bool active=await voice.PumpAsync(token);
-                if(active)diagnostic?.Invoke($"queue={(queuedTime?.Invoke()??0)-queued}ms; {voice.Timing}"+(receiveDiagnostic is null?"":"; "+receiveDiagnostic()));
+                // Preserve the snapshot from the real completed request. A
+                // repeated mailbox id is not another transfer or link sample.
+                if(active&&voice.CompletedCount!=before) {
+                    long waited=(queuedTime?.Invoke()??0)-queued;
+                    string link=linkDiagnostic?.Invoke()??"";
+                    diagnostic?.Invoke($"queue={waited}ms; {voice.Timing}"+(receiveDiagnostic is null?"":"; "+receiveDiagnostic())+(link.Length==0?"":"; "+link));
+                    if(name=="RPC"&&voice.LastTiming is {} timing)probeTrace?.RecordRpc(traceTicket,new(timing,waited,writeTiming?.Invoke(),link));
+                }
+                if(name!="RPC"||voice.CompletedCount==before)probeTrace?.RecordActivity(traceTicket,name=="RPC"?"rpc-idle":"voice-poll",started,Environment.TickCount64);
                 // GATT adapters own the gate for one read/grant/write window;
                 // notification waits and desktop handlers leave other flows free.
                 if(voice.CompletedCount!=before)continue;
                 await Task.Delay(VoicePollDelay(Environment.TickCount64,voice.LastActive,bulkActive?.Invoke()==true),token);
             }
-        }catch(Exception ex) when(!token.IsCancellationRequested&&(ex is IOException or COMException or OperationCanceledException)) {
+        }catch(Exception ex) when(ex is IOException or COMException or OperationCanceledException) {
+            probeTrace?.RecordActivity(traceTicket,"failure",started,Environment.TickCount64);
+            if(token.IsCancellationRequested)throw;
             throw new IOException(name+" "+voice.Progress,ex);
         }
     }

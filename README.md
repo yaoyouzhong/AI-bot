@@ -1,5 +1,11 @@
 # AI-bot
 
+新增艺术屏保自动竖屏：设备竖放时使用放大的竖屏排版，横屏版保持原样；支持两种竖放方向及倒置横屏，保留作品名、作者、馆藏及中文备注。四方向及书法花屏修复已获实机确认，见[.131记录](docs/TAB5-ACCEPTANCE-131.md)。
+
+开发中的 TAB5 [每日名画与每日书法](docs/TAB5-DAILY-ART.md)已达到两类各至少 366 件独立作品的年度数量标准：名画 402 件（含36件中国画），书法 411 件。书法本轮补齐63件后，再新增45件不超过3页的完整作品；另保留8件本地候选，长卷资料不删除。每日书法按展示页数从少到多排列，每件均记录作品名、作者标注和馆藏博物馆。名画同样具备这三项资料，其中48件作品名及作者已有中文，354件沿用馆方英文。已另补16件作品中文名、200件作者中文名的来源备注，未核实译名的保留原文；已核实备注也显示在屏保原文下方。逐件保存高清来源、许可、尺寸与校验值；名画另有24件中国画备选。电脑按日期同步，断开后保留最近画面。本地年度检查及图库自检通过；已随 `.125` 部署并通过精确启动核验，用户确认三种屏保正常，见[验收记录](docs/TAB5-ACCEPTANCE-125.md)。
+
+TAB5 本地 .124 优化十二月历：传统花卉配图、每月短句及精简页脚；年度点阵新增自动昼夜配色。详见[本地验收记录](docs/TAB5-ACCEPTANCE-124.md)；不改变下文正式发布版本。
+
 **AI 状态，一眼便知。** 桌面 AI 状态助手，将 Claude Code / Codex 任务状态、账户额度与日常信息，集中显示在 **ESP8266 小屏或 M5Stack TAB5** 上。
 
 [**下载 v0.5.0 正式版**](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0) · [安装与刷机指南](docs/INSTALL.zh.md) · [English](README.en.md)
@@ -7,6 +13,8 @@
 Windows 与 ESP8266 版本为 **0.5.0**，TAB5 使用独立编号的 **0.2.89-ui** 固件。维护者已于 2026-10-03 确认真机验收，v0.5.0 为当前稳定版，详见[发布记录](docs/RELEASE-0.5.0.md)。
 
 桥接和两种固件分别更新，版本号无需相同；只按对应更新说明升级，无需每次一起刷机。[独立版本说明](docs/COMPONENT-VERSIONS.md)。
+
+开发候选新增 [TAB5 Codex 直达](docs/TAB5-QUICK-CONSOLE.md)：右下角常驻入口，每次打开最新 Codex 会话，豆包语音识别文字仅填入电脑草稿，等待手动发送。用户已确认 0.2.90-ui 语音回填，0.2.92-ui 新入口与最新会话行为待真机验收。
 
 ![CI](https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml/badge.svg)
 [![MIT](https://img.shields.io/badge/own_source-MIT-81dce6)](LICENSE)
@@ -56,6 +64,7 @@ https://github.com/user-attachments/assets/31393f58-edd9-4a50-a81f-0e8d0ff72a80
 
 - **ESP8266 小屏**：240×240 ST7789、SD2 引脚方案；自动模式优先 USB，失联后回退至已配对 Wi-Fi，也可指定仅 USB 或仅 Wi-Fi。
 - **TAB5**：触摸屏，支持 USB / Wi-Fi / BLE；自动连接优先 USB > Wi-Fi > BLE，首次安装使用 USB。
+  本地 .117 OTA 候选支持 Wi-Fi / USB / 蓝牙协商压缩及蓝牙升级入口；升级自动择优为 Wi-Fi > USB > BLE，固定模式保持所选通道。内部验证与三通道真机升级验收分开记录，见 [TAB5 更新日志](docs/development/TAB5-CHANGELOG.zh.md)。
 - 托盘左键打开已启用 ESP8266 的预览，否则打开设备中心；右键提供设备设置。开机启动位于 **设备中心 → 桥接设置**。
 
 ![Windows 设备中心](docs/assets/screens/device-center.png)

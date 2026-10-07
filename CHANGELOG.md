@@ -4,6 +4,123 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- TAB5 .131 synchronizes gallery output caches before JPEG DMA, preventing dirty cache writeback from overwriting decoded pixels. Add dirty-tail fault modeling and pixel-level page-replacement checks. Installed with exact-image boot verification; the user confirms calligraphy corruption is resolved and original automatic cycling is restored. See [acceptance](docs/TAB5-ACCEPTANCE-131.md).
+
+- TAB5 .130 calibrates landscape direction from a fixed real-device pose and accepts inclined stands without the former Z-axis restriction. Adds a regression from the captured acceleration vector through to the displayed layout. Installed with exact-image boot verification; the user confirms all four directions and stable switching.
+
+- TAB5 .129 adds inverted landscape to daily art, rotating the cached original frame and date together without another download. Existing portrait behavior and normal landscape layout are retained.
+
+- TAB5 .128 corrects the hardware-observed portrait inversion, checks orientation without the whole-second UI delay, and prefetches the matching alternate layout; portrait direction and speed confirmed by the user.
+
+- TAB5 .127 corrects minimum BMI270 reset delays, retries sensor initialization and recovers interrupted readings. Sensor communication and exact-image boot checks pass; subsequent portrait direction feedback is addressed in .128.
+
+- TAB5 .126 adds automatic portrait layouts to daily art while preserving landscape views. Validate orientation stability, same-work/page switching, offline retention and a two-frame cache; see the [acceptance record](docs/TAB5-ACCEPTANCE-126.md).
+
+- Add 36 Chinese paintings to the TAB5 daily gallery (402 paintings total) and curate 24 separate reserves. Complete the pending 63-work calligraphy batch, then add 45 complete works with at most three frames each, reaching 411 calligraphy works. Order daily calligraphy by ascending frame count and record the holding museum alongside each verified title and author attribution, preserving anonymous or museum-romanized attributions. Add Chinese holding-museum metadata to all paintings and document that 48 have Chinese titles/authors while 354 retain museum English. Add sourced Chinese reference notes for 16 titles and the authors of 200 English-label works; retain all originals and omit unverified translations. Render verified notes below the original captions in 200 frames. Sources, licenses, original hashes and crops are recorded; paired layouts preserve complete couplets and panel sets. Eight further calligraphy reserves and downloaded scroll sources remain local. Annual quantity validation and all-frame gallery self-tests pass; reserves and details do not inflate work counts. Redistribute monthly calendar rows into the former footer space, reserving month controls only in preview. Deployed and flashed with .125; exact-image boot verification passes and the user confirms all three screensavers display normally. See [daily art notes](docs/TAB5-DAILY-ART.md).
+
+- Local TAB5 .124 removes repeated calendar-footer descriptions, replaces the cover term pair with a different monthly phrase, and uses twelve traditional floral illustrations. Lunar notes, terms and rest/workday marks remain in the grid. A new automatic annual style uses light colors from 07:00 to 19:00 local time and night colors otherwise. See the [acceptance record](docs/TAB5-ACCEPTANCE-124.md).
+
+- Local TAB5 .123 adds monthly-calendar and night-blue/warm-gray annual screensavers. Normal calendar mode hides month controls and follows the current month; preview supports month selection. Includes the approved brighter countdown. See the [acceptance record](docs/TAB5-ACCEPTANCE-123.md) for installation and hardware status.
+
+- Prepare the approved countdown color refinement: use the reset-date light text color for time digits and d/h/m units, retaining the muted prefix, weight and original position. Installed with .123; final visual acceptance is tracked separately.
+
+- .122 Wi-Fi installation and exact-image USB boot verification passed; original automatic cycling restored. Countdown color advice is pending after the user reported it too dark; no color change or final visual acceptance yet.
+
+- Record user acceptance of everyday .121 voice behavior and prepare the .122 local countdown-weight candidate. Only time digits/units become heavier; color/layout are unchanged. Not installed.
+
+- Prepare a typography-only quota countdown adjustment: medium-weight time digits and d/h/m units, preserving regular Chinese text, color, size, advances and position. Source/preview change; not installed.
+
+- TAB5 .121 completed authorized compressed Wi-Fi installation and exact-image USB boot verification. The paired bridge is deployed and original automatic cycling restored; everyday voice behavior is accepted by the user; deliberate focus loss and link faults remain separate. See [installation evidence](docs/TAB5-ACCEPTANCE-121.md).
+
+- Prepare same-take focus recovery only while the owned Doubao recorder remains active; preserve audio/text and never restart recognition automatically. TAB5 .121 auto mode prefers USB, and Wi-Fi/USB use existing 16 kHz IMA ADPCM to reduce audio payload by about 75%. Deployed and accepted for everyday voice use; seamless recovery after deliberate focus loss is not implied.
+
+- Pace TAB5 audio reception against Windows playback capacity instead of writing network bursts directly into the two-second buffer. Keep audio intact, bound the playback queue to 400 ms for 200 ms packets, yield while waiting and fail visibly on a stalled output. A real NAudio buffer test reproduces the former overflow and verifies an exact six-second burst; the user reports normal everyday behavior; precise latency gains lack a correlated timing trace.
+
+- Prepare TAB5 .121 with immediate stop acknowledgement and an animated progress ring throughout recognition and desktop staging. Ignore duplicate stop taps, stop hidden animations and retain audio-tail delivery and final-text checks. Installed and accepted for everyday voice use; no precise latency reduction claimed.
+
+- After verified TAB5 dictation staging, place the Codex insertion caret at the complete draft end using an empty accessibility text selection. Recheck the target and text, verify the resulting selection, and never repeat an already successful append if caret positioning is unavailable. Bridge-only fix; TAB5 .120 remains unchanged.
+
+- TAB5 .120 and its paired Windows bridge inspect the selected Codex composer when opening a conversation. A confirmed empty draft restores dictation and retires old send tickets; nonempty or unreadable drafts preserve existing controls. Observation never edits or submits a draft.
+
+- Prepare TAB5 .120 with a one-line voice review hint that explains continued dictation. Rename the staged-draft action to “继续语音” and use “重试录音” before successful staging; preserve the existing explicit recording and send steps. Local candidate only.
+
+- Continue TAB5 dictation at the desktop draft end instead of inserting a new line. Preserve existing punctuation and manual line breaks; insert a Chinese full stop only when the previous text lacks a separator. Keep target checks, exact readback and one-write safeguards.
+
+- TAB5 .119 uses a medium-weight percent sign in the annual screensaver; preserve the approved digits, rounded labels and layout. Authorized USB installation and exact-image boot verification passed; the user confirmed typography and preview/touch exit. The user also confirmed automatic entry and reboot persistence, completing annual screensaver acceptance. No public release.
+
+- Prepare TAB5 .118 annual-dot screensaver with device-side selection, full-screen preview, persisted style and leap-year rollover. Retain the classic saver and the quota countdown position; soften its color and separate time units. Hardware acceptance is pending.
+- Guard bridge startup against launcher-virtualized profile files before loading pairing or quota history. Preserve full Codex titles for exact target checks and reject duplicate titles outside the device's shortened task list. No profile migration or credential replacement.
+
+- Simplify the TAB5 bridge diagnostics page by removing the superseded short BLE OTA probe and completed window-comparison experiment from the normal UI. Retain transfer measurement, full-image preflight, boot verification and voice troubleshooting.
+
+- Add TAB5 .117 three-transport OTA compression, an explicit BLE upgrade entry and separate decoded-image/transfer progress. Add the Codex weekly reset countdown without duplicate elapsed-cycle information. Keep legacy raw fallback and image/boot checks. BLE installation and exact-image USB boot verification pass; recorded installation through verification took 114.185 seconds, excluding completion delay/reboot. Wi-Fi/USB compressed upgrades remain pending on hardware.
+
+- Prepare the local TAB5 .116 candidate and full-image RAM preflight. Exact-image compressed payload is 47.59% smaller; full-image hash and failure-path tests pass. The paired bridge binds results to the selected image, preflight never writes Flash, and Wi-Fi is restored on exit. Builds, regressions and actual notes previews pass; deployment and hardware acceptance remain pending.
+
+- Add internally validated TAB5 BLE OTA range compression: the exact .115 image payload is 47.57% smaller, all 140 authenticated encrypted ranges roundtrip, and native decoder bounds plus fault regressions pass. Preserve window64/native7, voice scheduling, raw fallback and full-image checks. No deployment or reflash; the 120-second hardware goal remains unverified. See `docs/TAB5-BLE-COMPRESSION.md`.
+
+- Withdraw the idle voice-poll deferral candidate and restore the verified window64/native7 bridge. Three RAM rounds took12.376s, but voice stop trouble also reproduced after rollback before recovering; causality remains unconfirmed. No full BLE OTA is scheduled.
+
+- TAB5 .114 passes both 32/64/32 BLE RAM comparisons (18 rounds). The repeat takes 15.979/12.982/14.865s; 64 reduces elapsed time by 12.7% against the final32 baseline, with six complete64 rounds across both runs. The bridge now defaults to min(peerOffer,64) for large replies, keeps native7, and restores64 after comparisons; older peers, voice and small replies retain their bounds. Bridge-only deployment is verified against all six file hashes and the listening process, with BLE data acknowledged and the original display policy restored; no reflash was needed. The conservative repeat estimate is172s, still above120s; no full BLE OTA acceptance or hardware-ceiling claim.
+
+- Same-process BLE queue comparison passes all nine RAM rounds: native 7/31/7 totals 12.658/14.547/13.459s. Queue31 is 11.4% slower than the two standard groups' mean; retain seven. TAB5 .114 advertises a 64-fragment response window. The bridge preserves final ACK, integrity, bounded concurrency and restoration; window acceptance is recorded above.
+
+- Restored BLE cohort sender passes in 17.555s (whole-image estimate 224s), versus its earlier 13.997s and rolling's 19.213s; variability prevents attributing all differences to code. Add a bridge-only, one-click 7/31/7 pending-write comparison with separate results and automatic restoration of seven on completion/failure/cancellation. Local checks pass; temporary queue-depth gains await hardware testing. Keep .113 and the 120s OTA gate; no firmware reflash or full BLE OTA.
+
+- Same-.113 BLE RAM comparison passed: temporarily stopping Wi-Fi took13.997s versus18.953s with Wi-Fi retained, 35.4% higher throughput in this one short pair. Wi-Fi recovered; estimates202s/280s exceed120s. The subsequent rolling-write trial also passed integrity but took19.213s with isolation (estimate236s), showing no speed gain. Withdraw that scheduling change and restore the seven-command cohort sender for a same-condition recheck; retain Wi-Fi isolation and .113 without reflashing. Radio variability still limits causal conclusions.
+
+- TAB5 .113 and its paired bridge add an optional BLE RAM preflight that temporarily stops Wi-Fi and restores it after completion, cancellation or failure. Preserve saved networks; bound the stop lease and report failed restoration. USB-only numeric diagnostics expose negotiated data lengths, connection settings and receive-handler timing without growing the BLE identity. Local checks pass; coexistence speed gains and the 120-second full-OTA target still require hardware evidence.
+
+- Bridge-only BLE scheduling preserves bulk priority for one second between successful large RPC replies and rechecks status deferral after acquiring the shared send gate. Required status refresh and active voice polling remain enabled. Add a bounded whole-preflight trace. Three hardware RAM rounds passed in 16.630 seconds versus 17.024 previously, a 2.3% shorter sample with the third round slower. The conservative whole-image estimate remains 213 seconds; sustained speedup and full BLE OTA are unverified. TAB5 .112 is unchanged.
+
+- TAB5 .112 negotiates a separate 32-packet large-response write window with the paired bridge, reducing a 48 KiB reply from 13 ATT barriers to four while retaining at most seven native writes in flight. Older firmware, small replies, voice and device notification pacing retain their previous bounds. .112 now passes all three BLE RAM downloads at 40.89–50.20 KiB/s; the conservative whole-image estimate is 222 seconds, still above the two-minute goal. Full BLE OTA remains unaccepted.
+
+- BLE large RPC replies now use a bounded queue of up to seven native write commands within the existing eight-packet window, drain submitted operations before the final ACK and preserve legacy/voice paths. Add actual connection and write-wait diagnostics plus explicit preflight budget-failure text. Bridge-only candidate for installed TAB5 .111; hardware speedup and the 120-second OTA target remain unverified.
+
+- TAB5 BLE OTA candidate: temporary Windows 11 throughput preference, first-response bulk priority and a bounded RAM-only download preflight for the user's 120-second upgrade target. Windows 10 and legacy benchmark behavior remain compatible. Real BLE performance remains unverified; see [preflight limits](docs/TAB5-BLE-OTA-PREFLIGHT.md).
+
+- TAB5 0.2.110-ui searches verified spare-image free space for an all-FF 128 KiB sample, preserves read errors and reports scan phase/count without erasing existing contents. .109 stopped before any writes; actual JEDEC ID is now available, and .110 completed three rounds at 8/16 KiB with restoration verified; 48/64 KiB were skipped by memory checks. Absolute hardware limits remain unproven. See [method and evidence](docs/TAB5-FLASH-BENCHMARK.md).
+
+- TAB5 0.2.109-ui repair candidate moves storage testing to an internal task stack and checks its memory location before Flash calls. The .108 image installed successfully, but its test panicked with a PSRAM stack; exact assertion text was unavailable. Native checks do not establish the repair's hardware acceptance, and no Flash hardware-limit result is claimed.
+
+- TAB5 0.2.108-ui adds an explicit local storage microbenchmark: three rounds of internal 8/16/48/64 KiB writes over a verified unused 128 KiB spare-partition tail, separate erase/write timings and restoration checks on completion, cancellation or failure. The paired bridge reads bounded numeric results and actual JEDEC identity through startup verification. Compare full-image OTA timing before discussing sustained limits; candidate checks do not establish hardware acceptance. See [method](docs/TAB5-FLASH-BENCHMARK.md).
+
+- TAB5 0.2.107-ui replaces the clear control's eraser with an original broom, preserving equal widths and long-press behavior. Upgrade progress follows successfully written bytes; distinguish remaining writes after download from final verification, showing elapsed verification time without a stuck 99% label. Preserve integrity checks and rollback; this fixes feedback rather than claiming shorter installation. The user confirmed the broom and this upgrade's feedback, and .107 passed exact startup verification with the original cycle preserved. Installing .107 used the previous receiver; the new write-progress path still needs independent observation on the next upgrade.
+
+- TAB5 0.2.106-ui candidate makes Previous/Next switch the desktop conversation and makes the Codex key open the current selection. Commit selection only after matching foreground confirmation and keep list order stable until reopening. Preserve unsubmitted staging on same-target reopening; failed navigation never authorizes voice in an unconfirmed target. Existing bridge support is reused; hardware acceptance is pending.
+
+- TAB5 0.2.105-ui local candidate restores “长按清空”, matches its width and icon/text alignment to Re-record, and hides it until a voice draft is confirmed. The deployed desktop bridge reconciles transient write-provider exceptions by reading the same composer without repeating input; mismatched or unreadable results remain unconfirmed. The user confirmed real first dictation and re-record append remain unsubmitted; new-layout installation and hardware acceptance are pending.
+
+- TAB5 0.2.103-ui USB recovery and .104 complete Wi-Fi upgrade passed exact-image boot verification. The user confirmed no blue screen; final verification took 0.881s, sender transfer 12.171s and device installation 18.845s excluding reboot. Existing network parameters and original display cycle are preserved; one upgrade does not establish extended stability.
+
+- TAB5 0.2.103-ui repair candidate recognizes the linked PSRAM instruction interval during SDK executable-address checks, preventing valid HTTP/pthread cleanup callbacks from being rejected on task deletion. It also adds retained OTA phase timing. The .101 Wi-Fi baseline crashed before verification and did not install .102; recover through USB first, then validate Wi-Fi on hardware. No speed gain is claimed.
+
+- TAB5 0.2.102-ui aligns the four connection-status columns: headings and state text share a left edge, checks follow the text with vertical row alignment, and subtle separators clarify grouping. Green/amber/gray meanings and Wi-Fi OTA transport remain unchanged.
+
+- Fix TAB5 bridge submission confirmation ending prematurely when Codex replaces its composer after Enter. Reacquire the editor and retry bounded observation while preserving a single Enter attempt and no replay after an uncertain result; add separate quick-submit diagnostics.
+
+- TAB5 0.2.101-ui candidate adds USB to Connection & Network and highlights positive states with green checks; USB without fresh desktop data shows an amber waiting state. Close and conversation arrows retain their appearance while locked during Codex key operations, fixing disabled-state flicker.
+
+- TAB5 0.2.101-ui distinguishes first staging, actual repeated append and confirmed submission hints. A compact outlined 清空 control with an original two-tone eraser beside Re-record clears the current desktop target composer only on long press and restores Doubao. The paired bridge checks the current target and readback and deduplicates requests without navigation or submission; the TAB5 draft remains intact. Physical acceptance is pending.
+
+- TAB5 0.2.100-ui local candidate centers the main keys, compacts the transcript panel and uses the official Doubao IME avatar. Green recording status shows the actual full microphone name; cancel and re-record icons share consistent sizing. Fix busy-state background flashing and desktop dictation overwriting the TAB5 local draft. The paired bridge appends further takes to the desktop Codex draft without submitting; only a separate click on the thick blue send arrow submits. Candidate builds and simulations do not establish hardware acceptance.
+
+- TAB5 0.2.99-ui development candidate groups Codex/豆包 on a mechanical deck with brushed-metal collars, graphite/red lacquer faces, press/rebound motion and centered official application icons. Short captions have clear space below the collars. Reuse the voice key for start, stop/staging and separate manual submission. Cancel/Re-record retains desktop drafts; submission binds staging and never repeats after uncertain input. A stopped Codex is launched through its registered URI with a bounded cold-start wait. New controls and motion await hardware acceptance.
+
+- On October 4, 2026 TAB5 0.2.97-ui USB installation and exact-image ota_0 VALID verification passed, retaining pairing and the original automatic cycle. The older receiver took 40.745 seconds for preparation/receiving/writing. The user confirmed .098 installation with smooth initial progress and no blue flash; reception continued during preparation with zero LCD underrun delta. Exact .098 boot verification and deployment closure remain unfinished.
+
+- Local TAB5 0.2.97-ui authenticates the first received block and waits for the upgrade overlay before backup erasure. ESP32-P4 PSRAM execution, bounded prefetch and preparation/LCD diagnostics target the initial pause and blue flash; hardware acceptance remains pending.
+
+- TAB5 0.2.96-ui uses the bottom-right Codex icon. The matching bridge pauses high-rate USB metrics and artwork during upgrades. A real USB installation reduced preparation/receive/write time from 59.570 to 38.526 seconds and passed exact-image boot verification; initial stalls and a blue flash remain unresolved. Codex Direct adds a scoped foreground activation fallback with actual-target verification, awaiting hardware confirmation.
+
+- TAB5 0.2.94-ui aligns receive blocks with one 48 KiB firmware reply and prepares the required backup-partition extent before reception; preparation/receive/write phase timing includes preparation erasure. Its USB installation and exact-image boot verification passed, but the older receiver still took 61.668 seconds. The functionally unchanged 0.2.95-ui measured 59.570 seconds for that phase with the new receiver; the speed target was not reached.
+
+- TAB5 0.2.92-ui negotiates larger USB binary fragments for single-frame 48 KiB firmware replies, keeps legacy receivers compatible, and retries only immutable OTA ranges with bounded timeouts. Partial USB sends poison the stream until reconnect. Fragmented internal memory falls back to 16/8 KiB flash staging before the slower external-memory path. Simulated fault tests pass; real upgrade speed and reliability remain pending.
+
+- Add TAB5 desktop quick controls for five recent Codex conversations and Doubao start/stop, staging complete recognition in the desktop composer without automatic submission. Existing text and uncertain results retain the draft. See [candidate scope](docs/TAB5-QUICK-CONSOLE.md); hardware acceptance is pending.
+- Fix draft insertion rejection for focused Codex composers and empty-field placeholder decorations. Reuse an open target window, wait for navigation readiness, and report insertion diagnostics without draft contents.
+- TAB5 0.2.91-ui renames the entry to “Codex 直达” and moves it to a dedicated bottom-right footer slot. Each return opens the latest conversation anew; dictation binds to the actual opened conversation and remains an unsubmitted draft. Hardware acceptance is pending.
+
 - Show the native ESP8266 Codex page beside TAB5 Codex quotas in the product cover and opening, using matching isolated demonstration values.
 - Separate bridge, ESP8266 and TAB5 version sources, changelogs, tag validation and package names. Keep the published v0.5.0 payload unchanged.
 - Query stable bridge and firmware releases independently in the Windows update center; retain legacy-bundle support.

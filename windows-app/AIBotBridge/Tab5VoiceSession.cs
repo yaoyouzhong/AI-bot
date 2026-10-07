@@ -6,6 +6,7 @@ namespace AIBotBridge;
 internal interface ITab5VoiceAudio : IDisposable
 {
     string Start(bool forceTab5);
+    string SourceName => "";
     bool DjiHealthy { get; }
     bool InputReady { get; }
     int InputLevel { get; }
@@ -16,12 +17,15 @@ internal interface ITab5VoiceAudio : IDisposable
     void Feed(byte[] pcm);
     void Drain();
     bool Drained { get; }
+    bool CanAcceptAudio => true;
+    string PlaybackDiagnostic => "";
     void Stop();
 }
 internal interface ITab5VoiceEditor
 {
     string Text { get; }
     bool SafeFocus { get; }
+    bool TryRestoreFocus()=>false;
     bool Start();
     bool Stop();
     bool CaptureStopped=>true;
@@ -30,14 +34,14 @@ internal interface ITab5VoiceEditor
     bool RecognitionComplete=>false;
     void Clear();
 }
-internal sealed record Tab5VoiceReply(string VoiceId, string TaskId, string Source, string State, string Message, string Text, bool Ready=false,int Level=0,bool Silent=false);
+internal sealed record Tab5VoiceReply(string VoiceId, string TaskId, string Source, string State, string Message, string Text, bool Ready=false,int Level=0,bool Silent=false,bool CanInsert=false,string SourceName="");
 internal sealed class Tab5VoiceRequestException(string message) : ArgumentException(message);
 
 // Only the UI owner calls this state machine. Tests use fake audio/editor and a monotonic clock.
 internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor editor, Func<long>? clock = null) : IDisposable
 {
     private readonly Func<long> _clock=clock??(()=>Environment.TickCount64);
-    private string _id="",_task="",_source="",_state="idle",_message="";
+    private string _id="",_task="",_source="",_sourceName="",_state="idle",_message="";
     private long _started,_lastSeen,_stopped,_drainedSince=-1,_waitingSince;
     private string _drainMessage="";
     private string _settlingText="";
@@ -48,13 +52,45 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
     private long _lastSignal;
     private bool _silent;
     private bool _quietTake,_receivedText;
+    private bool _explicitStop;
     private long _finalWaitMs;
     private long _recognizerIdleSince=-1;
     private string _endReason="";
+    private long _audioWaitMs,_audioWaitPeakMs;
+    private int _focusRestores;
+    private bool HasVoiceFocus() {
+        if(editor.SafeFocus)return true;
+        if(!editor.TryRestoreFocus()||!editor.SafeFocus)return false;
+        _focusRestores++;return true;
+    }
     internal bool Active => _state is "recording" or "draining" or "recognizing";
-    internal string Diagnostic=>$"state={_state}; source={_source}; sound={audio.CapturedSound?.ToString()??"unknown"}; quietEnd={_quietTake}; finalWaitMs={(_state=="recognizing"?Math.Max(0,_clock()-_stopped):_finalWaitMs)}; endReason={_endReason}";
+    internal string Diagnostic=>$"state={_state}; source={_source}; sound={audio.CapturedSound?.ToString()??"unknown"}; quietEnd={_quietTake}; finalWaitMs={(_state=="recognizing"?Math.Max(0,_clock()-_stopped):_finalWaitMs)}; endReason={_endReason}; audioWaitMs={_audioWaitMs}; audioWaitPeakMs={_audioWaitPeakMs}; focusRestores={_focusRestores}; {audio.PlaybackDiagnostic}";
+    internal async Task<Tab5VoiceReply> HandleAsync(JsonElement root,CancellationToken token,Func<CancellationToken,Task>? wait=null) {
+        bool PendingAudio()=>_state=="recording"&&_source=="tab5"&&
+            root.TryGetProperty("op",out var op)&&op.ValueKind==JsonValueKind.String&&op.GetString()=="audio"&&
+            root.TryGetProperty("voiceId",out var id)&&id.ValueKind==JsonValueKind.String&&id.GetString()==_id&&
+            root.TryGetProperty("seq",out var seq)&&seq.TryGetInt32(out int number)&&number==_nextChunk;
+        long started=_clock();bool waited=false;
+        while(PendingAudio()&&!audio.CanAcceptAudio) {
+            token.ThrowIfCancellationRequested();
+            _lastSeen=_clock();Tick();
+            if(!PendingAudio())break;
+            _audioWaitMs=_clock()-started;_audioWaitPeakMs=Math.Max(_audioWaitPeakMs,_audioWaitMs);
+            if(_audioWaitMs>=1500) {
+                Fail("电脑音频播放积压，请检查虚拟麦克风后重试");return Snapshot();
+            }
+            waited=true;
+            // Yield the UI thread so playback, stop/cancel and TSF can progress.
+            // The transport reply supplies backpressure; never drop audio.
+            await (wait?.Invoke(token)??Task.Delay(20,token));
+        }
+        if(waited){_audioWaitMs=_clock()-started;_audioWaitPeakMs=Math.Max(_audioWaitPeakMs,_audioWaitMs);}
+        token.ThrowIfCancellationRequested();
+        return Handle(root);
+    }
     internal Tab5VoiceReply Snapshot() => new(_id,_task,_source,_state,_message,BoundText(editor.Text),_state=="recording"&&_ready,
-        _state=="recording"&&_ready?Math.Clamp(audio.InputLevel,0,100):0,_state=="recording"&&_ready&&_silent);
+        _state=="recording"&&_ready?Math.Clamp(audio.InputLevel,0,100):0,_state=="recording"&&_ready&&_silent,
+        _state=="review"&&_explicitStop&&_endReason=="正在等待豆包返回文字"&&editor.RecognitionComplete&&Encoding.UTF8.GetByteCount(editor.Text)<=2000,_sourceName);
     internal static string BoundText(string text) {
         if(Encoding.UTF8.GetByteCount(text)<=2000)return text;
         var result=new StringBuilder();int bytes=0;
@@ -71,12 +107,15 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             _id=Guid.NewGuid().ToString("N");_task=Str("taskId");_nextChunk=0;_pcmBytes=0;_ready=false;
             _silent=false;_lastSignal=_clock();
             _quietTake=false;_receivedText=false;
+            _explicitStop=false;
             _stopped=_finalWaitMs=0;
+            _audioWaitMs=_audioWaitPeakMs=0;_focusRestores=0;
             _recognizerIdleSince=-1;_endReason="";
             editor.Clear();
             try {
                 long stageStarted=Environment.TickCount64;
                 _source=audio.Start(Str("source")=="tab5");
+                _sourceName=audio.SourceName;
                 Tab5VoiceTiming.Log("audio-open",stageStarted);stageStarted=Environment.TickCount64;
                 if(!editor.Start())throw new InvalidOperationException("请在电脑上打开语音草稿窗口并选择豆包输入法");
                 Tab5VoiceTiming.Log("shortcut",stageStarted);
@@ -109,7 +148,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
                     throw new ArgumentException("音频长度超出范围");
                 audio.Feed(pcm);_pcmBytes+=pcm.Length;_nextChunk++;Tick();break;
             case "stop":
-                if(_state=="recording")BeginDrain("正在等待豆包返回文字");
+                if(_state=="recording"){_explicitStop=true;BeginDrain("正在等待豆包返回文字");}
                 break;
             case "cancel":
                 if(_state is "recording" or "draining")End("已取消");
@@ -118,7 +157,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         }
         return Snapshot();
     }
-    private void SwitchToTab5() {audio.UseTab5();_source="tab5";_ready=false;_waitingSince=_clock();_message="正在准备 TAB5 收音";}
+    private void SwitchToTab5() {audio.UseTab5();_source="tab5";_sourceName=audio.SourceName;_ready=false;_waitingSince=_clock();_message="正在准备 TAB5 收音";}
     private void BeginDrain(string message) {
         audio.Drain();_state="draining";_stopped=_clock();_drainedSince=-1;
         _drainMessage=message;_message="正在送完最后一段声音";
@@ -139,7 +178,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
     internal void Tick() {
         if(Active&&!string.IsNullOrWhiteSpace(editor.Text))_receivedText=true;
         if(_state=="draining") {
-            if(!editor.SafeFocus){End("输入焦点已变化，收音已停止");return;}
+            if(!HasVoiceFocus()){End("输入焦点未能恢复，请检查豆包录音状态");return;}
             if(audio.Drained) {if(_drainedSince<0)_drainedSince=_clock();}
             else _drainedSince=-1;
             // BufferedBytes excludes samples already submitted to WASAPI. Leave playback
@@ -148,7 +187,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             else if(_clock()-_stopped>3000)Fail("最后一段声音未能送完，请检查电脑音频通路后重试");
         }
         if(_state=="recording") {
-            if(!editor.SafeFocus){End("输入焦点已变化，收音已停止");return;}
+            if(!HasVoiceFocus()){End("输入焦点未能恢复，请检查豆包录音状态");return;}
             if(_clock()-_lastSeen>4000){BeginDrain("连接已断开，收音已停止，等待取回识别文字");return;}
             if(_clock()-_started>=60000){BeginDrain("已达到 60 秒，等待识别文字");return;}
             if(_source=="dji"&&!audio.DjiHealthy)SwitchToTab5();
@@ -192,7 +231,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         // The device may spend up to 75 s detecting a lost reply, then 120 s
         // waiting for its original link. Keep this take beyond that window.
         if(!Active&&_id.Length>0&&_clock()-_lastSeen>300000) {
-            editor.Clear();_id=_task=_source="";_state="idle";
+            editor.Clear();_id=_task=_source=_sourceName="";_state="idle";
         }
     }
     internal void Fail(string message){if(_state is "recording" or "draining")End(message);_state="error";_message=message;}

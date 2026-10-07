@@ -34,3 +34,6 @@ page-logos/
 
 # Local flashing tutorial environment.
 .venv-flash/
+
+# Versioned separately as the DailyArt resource pack; catalog/provenance/hashes stay in Git.
+windows-app/AIBotBridge/Assets/DailyArt/*.jpg

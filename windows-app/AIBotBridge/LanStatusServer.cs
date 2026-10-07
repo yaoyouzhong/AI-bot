@@ -101,7 +101,7 @@ internal sealed class LanStatusServer
                 if(image is null)await WriteResponseAsync(stream,"401 Unauthorized","{\"error\":\"ota_unavailable_or_unauthorized\"}",cancellationToken);
                 else {
                     timeout.CancelAfter(TimeSpan.FromMinutes(6));
-                    await tab5!.TransferOtaAsync(stream,image,Header("X-AIBot-Device"),Header("X-AIBot-OTA-Flow"),cancellationToken);
+                    await tab5!.TransferOtaAsync(stream,image,Header("X-AIBot-Device"),Header("X-AIBot-OTA-Flow"),cancellationToken,Header("X-AIBot-OTA-Encoding"));
                 }
                 return;
             }

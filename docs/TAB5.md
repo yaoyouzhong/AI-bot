@@ -45,9 +45,9 @@ The Windows bridge adds an independent TAB5 session using the shared BridgeRunti
 
 ### 0.2.61 传输优化候选 / Transport candidate
 
-只有自动连接模式按业务可用通道择优；照片当前优先整包 Wi-Fi HTTP，其次 USB RPC、蓝牙 RPC。仅 USB/Wi-Fi/蓝牙严格固定，不跨通道补发；必须有同一桥接会话的有效近期数据，不能仅依据 Wi-Fi 关联。OTA 仍只支持 Wi-Fi/USB，固定蓝牙时提示切换；语音当前只支持 Wi-Fi/蓝牙，固定 USB 时明确提示不支持，不再暗中改走无线。新增通道能力与现有通道性能是两项验收，不混为已完成。
+只有自动连接模式按业务可用通道择优；照片当前优先整包 Wi-Fi HTTP，其次 USB RPC、蓝牙 RPC。仅 USB/Wi-Fi/蓝牙严格固定，不跨通道补发；必须有同一桥接会话的有效近期数据，不能仅依据 Wi-Fi 关联。OTA 自动优先 Wi-Fi、USB、蓝牙；.117 候选补齐蓝牙升级入口与三通道压缩，完整真机升级验收单独记录。语音当前只支持 Wi-Fi/蓝牙，固定 USB 时明确提示不支持，不再暗中改走无线。新增通道能力与现有通道性能是两项验收，不混为已完成。
 
-Only automatic mode selects among supported transports. Photos currently prefer whole-image Wi-Fi HTTP, then USB RPC, then BLE RPC, using fresh authenticated state from the same bridge session. Fixed modes never cross channels or automatically resubmit uncertain transfers. OTA supports Wi-Fi/USB; voice supports Wi-Fi/BLE. Unsupported fixed-mode combinations fail visibly instead of silently changing transport. Adding a transport is separate from optimizing existing transport performance.
+Only automatic mode selects among supported transports. Photos currently prefer whole-image Wi-Fi HTTP, then USB RPC, then BLE RPC, using fresh authenticated state from the same bridge session. Fixed modes never cross channels or automatically resubmit uncertain transfers. Automatic OTA prefers Wi-Fi, USB, then BLE; the .117 candidate completes the BLE entry and compression on all three transports, with full hardware installation acceptance recorded separately. Voice supports Wi-Fi/BLE. Unsupported fixed-mode combinations fail visibly instead of silently changing transport. Adding a transport is separate from optimizing existing transport performance.
 
 USB/BLE 图片片段支持最多 8192 原始字节，固件仅在旧桥接明确拒绝 `invalid_range` 时回退到 6144。12 KiB RPC 上限、加密、身份/时效、偏移检查及幂等附件 ID 不变。BLE RPC 和语音特征增加可选无响应写能力：仅 7 字节游标 ACK 使用它，下一次读取校验 ID/偏移；应用响应继续确认写。固件请求 MTU 517，协商不足时继续兼容较小 MTU。USB hello/ack 可选 `photoUploadDiag` 格式为 `通道,原始字节,端到端毫秒,状态`；设备端完成回执显示通道/耗时。桥接记录公共 USB RPC、BLE RPC 和 BLE 语音的字节量及请求/处理/响应耗时。不将这些本地验证等同于硬件速率上限。
 

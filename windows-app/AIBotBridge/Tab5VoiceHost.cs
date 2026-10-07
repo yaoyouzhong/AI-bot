@@ -39,6 +39,15 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     string ITab5VoiceEditor.Text=>_text.Text;
     internal string InputLayout=>Tab5InputMethod.CurrentName();
     public bool SafeFocus=>Visible&&GetForegroundWindow()==Handle&&_text.Focused;
+    public bool TryRestoreFocus() {
+        if(IsDisposed||!Visible||_completionHandled||_doubao?.CanRestoreFocus!=true)return false;
+        // Restore only this owned draft while the same take is still recording.
+        // No toggle/restart, shortcut, text mutation or global input-method change.
+        Tab5DesktopActivation.Raise(Handle,allowInput:false);
+        if(GetForegroundWindow()!=Handle)return false;
+        ActiveControl=_text;_text.Select();
+        return SafeFocus&&IsDoubaoLayout()&&_doubao.CanRestoreFocus;
+    }
     internal void Prepare() {
         _completionHandled=false;_status.Text="使用豆包识别，回到 TAB5 检查后手动发送。";
         // The IME still needs a real focused edit control, but normal TAB5
@@ -126,18 +135,7 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
             Tab5VoiceTiming.Log("doubao-microphone-restore-pending",Environment.TickCount64);
         }
     }
-    private void RequestForegroundForVoice() {
-        if(SetForegroundWindow(Handle))return;
-        // Only during an explicit TAB5 start request. An ALT press releases the
-        // foreground lock; it is not the Doubao shortcut (no Space is sent).
-        // Do not combine it with keys/buttons the user is holding down.
-        int[] heldKeys=[0x10,0x11,0x12,0x5B,0x5C,0x01,0x02];
-        if(GetForegroundWindow()==IntPtr.Zero||heldKeys.Any(key=>(GetAsyncKeyState(key)&0x8000)!=0))return;
-        Input[] tap=[Key(0xA4,false),Key(0xA4,true)];
-        uint sent=SendInput(2,tap,Marshal.SizeOf<Input>());
-        if(sent==1)SendInput(1,[Key(0xA4,true)],Marshal.SizeOf<Input>());
-        if(sent==2)SetForegroundWindow(Handle);
-    }
+    private void RequestForegroundForVoice()=>Tab5DesktopActivation.Raise(Handle);
     bool ITab5VoiceEditor.Start() {
         if(!SafeFocus)throw new InvalidOperationException("语音草稿窗口未获得输入焦点");
         if(!IsDoubaoLayout())throw new InvalidOperationException("请在语音草稿输入框切换到豆包输入法");
@@ -153,18 +151,11 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     private static bool IsDoubaoLayout() {
         return Tab5InputMethod.IsDoubao(Tab5InputMethod.CurrentName());
     }
-    private static Input Key(ushort key,bool up)=>new(){Type=1,Data=new InputUnion{Keyboard=new KeyboardInput{Vk=key,Flags=(up?2u:0u)|(key==0xA5?1u:0u)}}};
-    [StructLayout(LayoutKind.Sequential)] private struct Input {public uint Type;public InputUnion Data;}
-    [StructLayout(LayoutKind.Explicit)] private struct InputUnion {[FieldOffset(0)]public KeyboardInput Keyboard;[FieldOffset(0)]public MouseInput Mouse;}
-    [StructLayout(LayoutKind.Sequential)] private struct KeyboardInput {public ushort Vk,Scan;public uint Flags,Time;public UIntPtr Extra;}
-    [StructLayout(LayoutKind.Sequential)] private struct MouseInput {public int X,Y;public uint Data,Flags,Time;public UIntPtr Extra;}
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] [return:MarshalAs(UnmanagedType.Bool)] private static extern bool SetForegroundWindow(IntPtr window);
-    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window,out uint process);
     [DllImport("user32.dll")] [return:MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindow(IntPtr window);
     [DllImport("user32.dll")] [return:MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(IntPtr window);
-    [DllImport("user32.dll",SetLastError=true)] private static extern uint SendInput(uint count,Input[] inputs,int size);
     protected override void OnFormClosing(FormClosingEventArgs e){if(!_allowClose&&e.CloseReason==CloseReason.UserClosing){e.Cancel=true;Hide();}base.OnFormClosing(e);}
     internal void Shutdown(){
         try {
@@ -229,7 +220,7 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
                     if(_disposed)throw new OperationCanceledException(token);
                 }
                 long handleStarted=Environment.TickCount64;
-                var result=_session.Handle(request);
+                var result=await _session.HandleAsync(request,token);
                 if(ownsPreparation)Tab5VoiceTiming.Log("audio-and-shortcut",handleStarted);
                 completion.TrySetResult(result);
             }catch(OperationCanceledException){

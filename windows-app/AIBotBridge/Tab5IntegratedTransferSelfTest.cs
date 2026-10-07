@@ -23,10 +23,19 @@ internal static class Tab5IntegratedTransferSelfTest
         if(Tab5TelemetryDelta.Create(Encode(baseline),Encode(next)) is not null)throw new Exception("OTA offer skipped its full-frame consumer");
         byte[] header=new byte[16];"AIB2"u8.CopyTo(header);BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(4),42);
         BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(8),16393);BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(12),1);
-        if(Tab5UsbBinary.Length(header,42)!=16393)throw new Exception("USB maximum changed");
+        if(Tab5UsbBinary.Length(header,42)!=16393)throw new Exception("Legacy USB frame changed");
+        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(8),Tab5UsbBinary.Maximum);
+        if(Tab5UsbBinary.Length(header,42)!=65535)throw new Exception("Large USB frame rejected");
         for(int fault=0;fault<4;fault++) {
-            var bad=header.ToArray();if(fault==0)bad[0]++;if(fault==1)bad[4]++;if(fault==2)bad[8]++;if(fault==3)bad[12]=0;
+            var bad=header.ToArray();if(fault==0)bad[0]++;if(fault==1)bad[4]++;if(fault==2)BinaryPrimitives.WriteUInt32LittleEndian(bad.AsSpan(8),65536);if(fault==3)bad[12]=0;
             try{Tab5UsbBinary.Length(bad,42);throw new Exception("USB invalid response accepted");}catch(IOException){}
+        }
+        foreach(var capability in new[]{("{}",true,2048),("{\"rpcUsbChunk\":16384}",true,16384),
+            ("{\"rpcUsbChunk\":16384,\"rpcUsbBinaryChunk\":65526}",true,65526),
+            ("{\"rpcUsbChunk\":16384,\"rpcUsbBinaryChunk\":65526}",false,16384),
+            ("{\"rpcUsbChunk\":16384,\"rpcUsbBinaryChunk\":65527}",true,16384)}) {
+            using var caps=JsonDocument.Parse(capability.Item1);
+            if(Tab5UsbBinary.Chunk(caps.RootElement,capability.Item2)!=capability.Item3)throw new Exception("USB binary capability compatibility failed");
         }
         foreach(int length in new[]{1,8192}) {
             using var request=JsonDocument.Parse(JsonSerializer.Serialize(new{offset=8192,count=length,data=Convert.ToBase64String(Tab5TransportBenchmark.Pattern(8192,length))}));

@@ -8,7 +8,10 @@ using System.Text.RegularExpressions;
 
 namespace AIBotBridge;
 
-internal sealed record Tab5CodexTask(string Id, string Title, string Folder, long UpdatedAt, string ProjectId = "", int ProjectOrder = int.MaxValue) { public bool Pinned { get; init; } }
+internal sealed record Tab5CodexTask(string Id, string Title, string Folder, long UpdatedAt, string ProjectId = "", int ProjectOrder = int.MaxValue) {
+    public bool Pinned { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore] public string IdentityTitle { get; init; } = Title;
+}
 internal sealed record Tab5SavedProject(string Id, string Name, string Root, int Order = 0);
 
 // The desktop catalog is only an index. Writes go through its live desktop owner.
@@ -18,10 +21,18 @@ internal static class Tab5CodexCatalog
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
     private const string Sql = "SELECT thread_id,display_title,cwd,source_updated_at FROM local_thread_catalog WHERE host_id='local' AND COALESCE(missing_candidate,0)=0 AND thread_id IS NOT NULL AND display_title IS NOT NULL ORDER BY source_updated_at DESC LIMIT 512";
     private const string ProjectsSql = "SELECT p.id,p.name,r.path FROM projects p JOIN project_roots r ON r.project_id=p.id ORDER BY p.position,r.position";
-    internal static IReadOnlyList<Tab5CodexTask> Recent()
+    internal static IReadOnlyList<Tab5CodexTask> Recent()=>ReadCatalog(false);
+    internal static IReadOnlyList<Tab5CodexTask> ConfirmationCatalog()=>ReadCatalog(true);
+    internal static Tab5CodexTask WithDisplayTitle(Tab5CodexTask task) {
+        string title=new(task.IdentityTitle.Select(c=>char.IsControl(c)?' ':c).ToArray());
+        int length=Math.Min(title.Length,60);
+        if(length<title.Length&&char.IsHighSurrogate(title[length-1]))length--;
+        return task with {Title=title[..length]};
+    }
+    private static IReadOnlyList<Tab5CodexTask> ReadCatalog(bool confirmation)
     {
         var projects=SavedProjects();
-        if(projects.Count==0)return [];
+        if(projects.Count==0&&!confirmation)return [];
         var path = Path.Combine(HomePath, "sqlite", "codex-dev.db");
         if (!File.Exists(path)) return [];
         nint db = 0, statement = 0;
@@ -30,21 +41,47 @@ internal static class Tab5CodexCatalog
         {
             if (sqlite3_open_v2(path, out db, 1, 0) != 0) return [];
             sqlite3_busy_timeout(db, 100);
-            if (sqlite3_prepare_v2(db, Sql, -1, out statement, 0) != 0) return [];
-            while (sqlite3_step(statement) == 100)
+            // Confirmation must also see duplicate titles outside the device's
+            // project and recent-task limits; it never serializes this full list.
+            if (sqlite3_prepare_v2(db, confirmation?Sql.Replace(" LIMIT 512",""):Sql, -1, out statement, 0) != 0) return [];
+            int step;
+            while ((step=sqlite3_step(statement)) == 100)
             {
                 string id = Column(statement, 0), title = Column(statement, 1), folder = Column(statement, 2);
                 if (!Guid.TryParse(id, out _) || string.IsNullOrWhiteSpace(title)) continue;
                 var project=MatchProject(folder,projects);
-                if(project is null)continue;
-                title = new string(title.Select(c => char.IsControl(c) ? ' ' : c).ToArray());
-                tasks.Add(new(id, title.Length > 60 ? title[..60] : title, project.Name,
-                    (long)sqlite3_column_double(statement, 3), project.Id,project.Order));
+                if(project is null&&!confirmation)continue;
+                tasks.Add(WithDisplayTitle(new(id,title,project?.Name??"",
+                    (long)sqlite3_column_double(statement,3),project?.Id??"",project?.Order??int.MaxValue)));
             }
+            if(step!=101)return []; // A partial catalog cannot prove title uniqueness.
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) { return []; }
         finally { if (statement != 0) sqlite3_finalize(statement); if (db != 0) sqlite3_close(db); }
-        return SelectRecent(tasks);
+        var reconciled=ReconcileActivity(tasks,LocalActivity());
+        return confirmation?reconciled:SelectRecent(reconciled);
+    }
+    internal sealed record Activity(long UpdatedAt,bool Archived);
+    internal static IReadOnlyList<Tab5CodexTask> ReconcileActivity(IReadOnlyList<Tab5CodexTask> tasks,IReadOnlyDictionary<string,Activity> activity)=>
+        tasks.Where(t=>!activity.TryGetValue(t.Id,out var seen)||!seen.Archived)
+            .Select(t=>activity.TryGetValue(t.Id,out var seen)?t with {UpdatedAt=Math.Max(t.UpdatedAt,seen.UpdatedAt)}:t).ToArray();
+    private static IReadOnlyDictionary<string,Activity> LocalActivity() {
+        // The desktop catalog may lag while a turn is running. Read only the
+        // live activity timestamps of its known local IDs; retain display names
+        // and saved-project boundaries, and never import internal agent tasks.
+        var result=new Dictionary<string,Activity>();nint db=0,statement=0;
+        try {
+            if(sqlite3_open_v2(Path.Combine(HomePath,"state_5.sqlite"),out db,1,0)!=0)return result;
+            sqlite3_busy_timeout(db,100);
+            const string sql="SELECT id,updated_at,archived FROM threads ORDER BY updated_at DESC LIMIT 512";
+            if(sqlite3_prepare_v2(db,sql,-1,out statement,0)!=0)return result;
+            while(sqlite3_step(statement)==100) {
+                string id=Column(statement,0);if(!Guid.TryParse(id,out _))continue;
+                result[id]=new((long)sqlite3_column_double(statement,1),sqlite3_column_double(statement,2)!=0);
+            }
+        }catch(Exception ex) when(ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) {return result;}
+        finally {if(statement!=0)sqlite3_finalize(statement);if(db!=0)sqlite3_close(db);}
+        return result;
     }
     internal static IReadOnlyList<Tab5SavedProject> SavedProjects()
     {

@@ -47,7 +47,51 @@ internal sealed partial class Tab5Service
             var numbers=values.EnumerateArray().ToArray();
             if(numbers.All(x=>x.ValueKind==JsonValueKind.Number&&x.TryGetUInt32(out _)))fields.Add(key+"=["+string.Join(',',numbers.Select(x=>x.GetUInt32()))+"]");
         }
+        foreach(string key in new[]{"otaPhases","previousOtaPhases"}) {
+            if(!trace.TryGetProperty(key,out var phases)||phases.ValueKind!=JsonValueKind.Object||
+               !phases.TryGetProperty("transport",out var link)||link.ValueKind!=JsonValueKind.Number||!link.TryGetInt32(out int transport)||transport is < -1 or > 2)continue;
+            var phaseFields=new List<string>{$"transport={transport}"};
+            foreach(string name in new[]{"prepareMs","writeMs","freeWaitMs","readyWaitMs","verifyMs","installMs"})
+                if(phases.TryGetProperty(name,out var number)&&number.ValueKind==JsonValueKind.Number&&number.TryGetUInt32(out uint ms))phaseFields.Add($"{name}={ms}");
+            if(phaseFields.Count==7)fields.Add(key+"={"+string.Join(',',phaseFields)+"}");
+        }
+        string flash=FormatFlashBenchmark(root);if(flash.Length>0)fields.Add(flash);
         return fields.Count==0?"timing=unavailable":string.Join("; ",fields);
+    }
+    internal static string FormatFlashBenchmark(JsonElement root) {
+        if(!root.TryGetProperty("flashBenchmark",out var result)||result.ValueKind!=JsonValueKind.Object)return "";
+        var values=new List<string>();
+        foreach(string key in new[]{"state","sampleBytes","partitionAddress","offset","jedecId","pageBytes","restored","modified"}) {
+            if(!result.TryGetProperty(key,out var field)||field.ValueKind!=JsonValueKind.Number||!field.TryGetUInt32(out uint value))return "";
+            if((key=="state"&&value>4)||((key=="restored"||key=="modified")&&value>1))return "";
+            values.Add($"{key}={value}");
+        }
+        if(!result.TryGetProperty("error",out var error)||error.ValueKind!=JsonValueKind.Number||!error.TryGetInt32(out int code))return "";
+        values.Add($"error={code}");
+        foreach(string key in new[]{"phase","scanned"}) {
+            if(!result.TryGetProperty(key,out var field))continue;
+            if(field.ValueKind!=JsonValueKind.Number||!field.TryGetUInt32(out uint value)||(key=="phase"&&value>3))return "";
+            values.Add($"{key}={value}");
+        }
+        if(!result.TryGetProperty("rows",out var rows)||rows.ValueKind!=JsonValueKind.Array||rows.GetArrayLength()!=4)return "";
+        uint[] chunks=[8192,16384,49152,65536];int i=0;
+        foreach(var row in rows.EnumerateArray()) {
+            if(row.ValueKind!=JsonValueKind.Object)return "";
+            var data=new List<string>();
+            foreach(string key in new[]{"chunkBytes","completed","skipped"}) {
+                if(!row.TryGetProperty(key,out var field)||field.ValueKind!=JsonValueKind.Number||!field.TryGetUInt32(out uint value)||
+                    key=="chunkBytes"&&value!=chunks[i]||key=="completed"&&value>3||key=="skipped"&&value>1)return "";
+                data.Add($"{key}={value}");
+            }
+            foreach(string key in new[]{"eraseUs","writeUs"}) {
+                if(!row.TryGetProperty(key,out var array)||array.ValueKind!=JsonValueKind.Array||array.GetArrayLength()!=3)return "";
+                var numbers=array.EnumerateArray().ToArray();
+                if(numbers.Any(x=>x.ValueKind!=JsonValueKind.Number||!x.TryGetUInt32(out _)))return "";
+                data.Add(key+"=["+string.Join(',',numbers.Select(x=>x.GetUInt32()))+"]");
+            }
+            values.Add($"row{i}={{"+string.Join(',',data)+"}");i++;
+        }
+        return "flashBenchmark={"+string.Join(',',values)+"}";
     }
     internal static void VerifyUpgradeDiagnostic(JsonElement root,Tab5OtaPackage image) {
         string Text(string key)=>root.TryGetProperty(key,out var x)&&x.ValueKind==JsonValueKind.String?x.GetString()!:"";

@@ -15,12 +15,27 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     private volatile bool _captureFailed;
     private volatile bool _outputFailed;
     private string _source="";
+    public string SourceName {get;private set;}="";
     private bool _hasInputData;
     private string _cableOutputId="";
     private int _inputLevel;
     private long _levelAt;
     private readonly Tab5CaptureActivity _activity=new();
     private int _tab5Samples;
+    private int _peakBufferedMs;
+    private static int BufferedMs(BufferedWaveProvider buffer)=>(int)(1000L*buffer.BufferedBytes/buffer.WaveFormat.AverageBytesPerSecond);
+    // Admit one <=200ms TAB5 block only below the 200ms low watermark.
+    // Delayed network bursts stay upstream instead of filling two seconds here.
+    internal static bool HasPlaybackRoom(BufferedWaveProvider buffer)=>
+        buffer.BufferedBytes<=buffer.WaveFormat.AverageBytesPerSecond/5&&buffer.BufferLength-buffer.BufferedBytes>=6400;
+    public bool CanAcceptAudio {
+        get {
+            if(_outputFailed||_source!="tab5"||_buffer is null||_output?.PlaybackState!=PlaybackState.Playing)
+                throw new InvalidOperationException("TAB5 音频播放未就绪");
+            return HasPlaybackRoom(_buffer);
+        }
+    }
+    public string PlaybackDiagnostic=>$"playbackBufferedMs={(_buffer is null?0:BufferedMs(_buffer))}; playbackPeakMs={_peakBufferedMs}; output={_output?.PlaybackState.ToString()??"closed"}";
     public bool? CapturedSound=>_activity.Sound;
     public int InputLevel => Environment.TickCount64-Interlocked.Read(ref _levelAt)>600?0:Volatile.Read(ref _inputLevel);
     private void Meter(byte[] bytes,int count,WaveFormat format,bool readyCueWindow=false) {
@@ -55,6 +70,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         Stop();
         _activity.Reset();
         _tab5Samples=0;
+        _peakBufferedMs=0;
         var inputs=Devices(DataFlow.Capture);var selectedId=djiId();
         var outputs=Devices(DataFlow.Render);
         var availability=Inspect(inputs,outputs,selectedId);
@@ -75,7 +91,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
                     catch(InvalidOperationException){_captureFailed=true;}
                 };
                 _capture.RecordingStopped+=(_,_)=>_captureFailed=true;
-                _capture.StartRecording();_source="dji";return _source;
+                _capture.StartRecording();_source="dji";SourceName=selected.Name;return _source;
             } catch(Exception ex) when(ex is System.Runtime.InteropServices.COMException or InvalidOperationException or NAudio.MmException) {Stop();}
         }
         UseTab5();return _source;
@@ -102,8 +118,13 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
             return _source=="tab5"||(_source=="dji"&&DjiHealthy&&Volatile.Read(ref _hasInputData));
         }
     }
-    public void UseTab5(){if(_source=="tab5")return;Stop();OpenOutput(new WaveFormat(16000,16,1));_source="tab5";}
-    public void Feed(byte[] pcm){if(_outputFailed||_source!="tab5"||_buffer is null)throw new InvalidOperationException("TAB5 音频未就绪");Meter(pcm,pcm.Length,_buffer.WaveFormat,_tab5Samples<16000);_tab5Samples+=pcm.Length/2;_buffer.AddSamples(pcm,0,pcm.Length);}
+    public void UseTab5(){if(_source=="tab5")return;Stop();OpenOutput(new WaveFormat(16000,16,1));_source="tab5";SourceName="TAB5 内置麦克风";}
+    public void Feed(byte[] pcm){
+        if(_outputFailed||_source!="tab5"||_buffer is null)throw new InvalidOperationException("TAB5 音频未就绪");
+        if(pcm.Length>_buffer.BufferLength-_buffer.BufferedBytes)throw new InvalidOperationException("电脑音频缓冲已满，本段未完整送达");
+        Meter(pcm,pcm.Length,_buffer.WaveFormat,_tab5Samples<16000);_tab5Samples+=pcm.Length/2;
+        _buffer.AddSamples(pcm,0,pcm.Length);_peakBufferedMs=Math.Max(_peakBufferedMs,BufferedMs(_buffer));
+    }
     public void Drain(){var capture=_capture;_capture=null;try{capture?.StopRecording();}finally{capture?.Dispose();}}
     public bool Drained {
         get {
@@ -115,7 +136,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         // Detach first so a failure disposing one endpoint cannot strand the other
         // endpoint or make the next start reuse half-disposed capture state.
         var capture=_capture;var output=_output;var inputDevice=_inputDevice;var outputDevice=_outputDevice;
-        _capture=null;_output=null;_buffer=null;_inputDevice=null;_outputDevice=null;_source="";
+        _capture=null;_output=null;_buffer=null;_inputDevice=null;_outputDevice=null;_source=SourceName="";
         _hasInputData=false;
         Volatile.Write(ref _inputLevel,0);Interlocked.Exchange(ref _levelAt,0);
         try {try{capture?.StopRecording();}finally{capture?.Dispose();}}

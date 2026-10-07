@@ -7,22 +7,29 @@ internal sealed partial class Tab5Service
     private volatile int _usbRpcChunk=2048;
     private volatile bool _usbRpcBinary;
     private volatile string _usbRpcTiming="尚无请求";
+    private long _usbRpcGateWaitMs,_usbRpcGateWaitPeakMs;
     private async Task<byte[]> UsbRpcPacketAsync(byte[]? data,CancellationToken token)
     {
+        long waiting=Environment.TickCount64;
         await _usbGate.WaitAsync(token);
+        long waited=Environment.TickCount64-waiting;
+        Interlocked.Add(ref _usbRpcGateWaitMs,waited);
+        long peak=Interlocked.Read(ref _usbRpcGateWaitPeakMs);
+        while(waited>peak){long seen=Interlocked.CompareExchange(ref _usbRpcGateWaitPeakMs,waited,peak);if(seen==peak)break;peak=seen;}
         try {
             var pair=_store.Current;
             if(_usbRpcVersion!=1||pair is null||_usbPort is not {} port)throw new IOException("USB RPC disconnected");
             if(_usbRpcBinary) {
-                if(data?.Length>Tab5UsbBinary.Maximum)throw new IOException("USB binary request too large");
+                int chunk=_usbRpcChunk;
+                if(data?.Length>chunk+9)throw new IOException("USB binary request too large");
                 uint binaryTag=Tab5UsbBinary.Tag();
                 try {
-                    Send(port,new{version=1,type="tab5_rpc_binary",deviceId=pair.DeviceId,tag=binaryTag,count=data?.Length??0});
+                    Send(port,new{version=1,type="tab5_rpc_binary",deviceId=pair.DeviceId,tag=binaryTag,count=data?.Length??0,chunk});
                     if(data is not null)port.Write(data,0,data.Length);
                     long deadline=Environment.TickCount64+4000;
                     var header=await Tab5UsbBinary.ReadAsync(port,16,deadline,token);
                     int size=Tab5UsbBinary.Length(header,binaryTag);
-                    if(data is not null&&size!=0||data is null&&size<8)throw new IOException("USB binary reply length mismatch");
+                    if(data is not null&&size!=0||data is null&&(size<8||size>chunk+8))throw new IOException("USB binary reply length mismatch");
                     return await Tab5UsbBinary.ReadAsync(port,size,deadline,token);
                 }catch{CloseUsbPort();throw;} // discard a partial stream before any new command
             }

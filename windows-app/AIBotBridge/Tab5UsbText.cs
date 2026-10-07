@@ -15,7 +15,7 @@ internal static class Tab5UsbText
     // abandoned reads or timer polling; UTF-8 is decoded only after a full line.
     internal static JsonDocument ReadBlocking(Func<byte[],int,int> read,string type,long deadline,CancellationToken token) {
         var input=new byte[512];using var line=new MemoryStream();
-        int limit=type=="tab5_rpc"?32768:4096;
+        int limit=type=="tab5_rpc"?32768:type=="tab5_crash_diagnostic"?6144:4096;
         while(true) {
             token.ThrowIfCancellationRequested();long remaining=deadline-Environment.TickCount64;
             if(remaining<=0)throw new TimeoutException("未收到 TAB5 确认："+type);

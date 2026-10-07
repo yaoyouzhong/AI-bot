@@ -67,6 +67,7 @@ internal static class Tab5SelfTest
             var codex = new ProviderQuotaSnapshot("codex","pro",null,null,92,now.AddDays(3),3,
                 [now.AddDays(10).ToUnixTimeSeconds(),now.AddDays(11).ToUnixTimeSeconds(),now.AddDays(20).ToUnixTimeSeconds()],now,false);
             var mapped = Tab5Details.Quotas(snapshot with {Quotas=new(null,codex)})[1];
+            Check(mapped.WeeklyResetEpoch==codex.WeeklyResetsAt!.Value.ToUnixTimeSeconds(),"weekly countdown preserves the provider reset instant");
             Check(mapped.Plan=="PRO" && mapped.Primary is null && mapped.Weekly==92 && mapped.PlanPercent is null,
                 "Codex only exposes real limits and normalized membership");
             Check(mapped.CreditExpiries.Length==3 && mapped.CreditExpiries[0]=="2026-10-03 12:00", "every credit expiry preserved in display timezone");

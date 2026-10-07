@@ -1,6 +1,18 @@
 # `@AIBOT` protocol version 1
 
+TAB5 .120 配套 Windows 桥接为 `open-recent` 成功回执增加可选 `draftEmpty`（true / false / null）。只读检查限于前台已确认目标的主输入框；true 表示确认空草稿，撤销该目标旧发送凭据并使设备恢复语音。false、null 或缺字段不重置同一目标原状态。请求重放沿用首次结果。仅 Windows 支持此检查；macOS 未实现此桌面操作。USB / Wi-Fi / BLE 共用字段，ESP8266 不变。
+
+The .120 paired Windows bridge adds optional nullable `draftEmpty` to successful `open-recent` replies. Read-only inspection verifies the foreground target's main composer. Only true retires old target send tickets and restores device dictation; false, null or absence preserve same-target state. Replays retain the original observation. This Windows-only desktop operation is not implemented on macOS. USB, Wi-Fi and BLE share the field; ESP8266 is unchanged.
+
 TAB5 uses separate `tab5_*` messages and `/tab5/v1/status`; see [TAB5 integration](TAB5.md). The ESP8266 protocol below is unchanged. TAB5 使用独立消息与接口，不改变下面的小屏协议。
+
+## TAB5 .117 OTA transport compression
+
+USB and BLE bulk OTA RPC ranges negotiate `acceptEncoding:"zlib"` against authenticated `rpcOtaZlib=1`, retaining the existing 48 KiB decoded limit, encryption, original offsets and raw fallback. Wi-Fi OTA uses the existing authenticated GET with `X-AIBot-OTA-Flow: tcp-v2` plus `X-AIBot-OTA-Encoding: aibot-zlib-blocks-v1`; the bridge only enables compression when both capabilities match and echoes the encoding header. Missing headers retain the raw image path. The general Wi-Fi RPC endpoint still rejects OTA ranges with `firmware_requires_ota_transport`; Wi-Fi firmware uses the streaming GET.
+
+The HTTP body is a sequence of independent blocks: four little-endian uint32 fields (original offset, decoded bytes, payload bytes, encoding), then payload. Encoding 0 is raw; 1 is zlib. Decoded blocks are 49152 bytes except the last. Payload must be positive and no larger than decoded bytes; zlib must be smaller. Content-Length is the framed transfer length, while the offer's size and SHA-256 always describe the decoded image. Reject unknown/duplicate encoding headers, wrong offsets/sizes, truncation, trailing bytes and decode failure before accepting the image. Final full-image hash, identity and boot-partition checks remain mandatory.
+
+TAB5 三通道统一协商压缩，旧端与不适合压缩的数据保持原文兼容。自动升级优先 Wi-Fi、USB、BLE；固定模式只使用所选通道，开始后不跨通道续传。显示中的镜像进度按解压后字节计算，另列传输数据量（Wi-Fi 含分块头，USB/BLE 计 RPC 数据载荷，不含加密与链路开销），不能把镜像大小解释为下载量。蓝牙入口显示“通过蓝牙升级”；首次安装仍使用 USB 完整安装包。
 
 The Windows or macOS bridge and ESP8266 communicate at 460800 baud using UTF-8 JSON lines. Every frame is one line beginning with the ASCII prefix `@AIBOT `.
 
@@ -323,3 +335,163 @@ USB hello/ack adds `usbPacked:1`. Only this capability permits `tab5_packed` ful
 `displayDiag` 保留原 52 列，追加索引 52～55：完整普通页面快照数、完整预旋转页面快照数、分片重建被更新打断的累计次数、当前 PSRAM 空闲字节数。计数描述已发布的完整图片，可能是手势允许复用的旧内容；不能把它解释为所有页面都已更新至最新状态。桥接沿用字符串透传，不改变状态协议版本或控制命令。
 
 0.2.77 诊断候选保留前 56 列，追加 `displayDiag[56..74]`：schema（1）、上次 RTC 记录有效位、CPU0/CPU1 ROM 原始复位值，然后依次为 UI、刷新、LCD 提交/等待、缓存、Flash 五组 `(stage, atUs32, detail)`。同样的 19 个数字通过 `tab5_crash_status` 的 `trace.previousRuntime` 返回。UI/缓存/Flash 的阶段 1 为进入、0 为完成；刷新 1/2/3/0 为开始/渲染开始/渲染完成/刷新完成；LCD 1/2/3/0 为提交开始/提交返回/等待开始/等待完成。detail 为页面编号，Flash 为 0。各时间为上次运行低 32 位微秒，约 71.6 分钟回绕；独立通道是尽力保存的进度线索，不是调用栈，提交返回也不等于屏幕已完成传输。桥接继续透传字符串，老固件可以缺少尾部字段。
+
+## TAB5 0.2.92 USB OTA extension
+
+USB hello/ack adds `rpcUsbBinaryChunk:65526` while retaining `rpcUsbChunk:16384` for JSON and old bridges. Only `rpcUsbBinary:1` plus the new exact capability enables large fragments. `tab5_rpc_binary.chunk` accepts 2048, 16384 or 65526, defaults to 16384 when absent, and bounds writes to chunk+9 and reads to chunk+8. The AIB2 header and 65535-byte mailbox remain unchanged. A 48 KiB encrypted bulk OTA reply now fits one binary write. Old devices receive only their negotiated small fragments.
+
+USB sends are bounded to three seconds. An incomplete binary send or expired receive rejects further bytes until a CDC close/open (DTR edge) or physical reconnect clears partial framing and cancels the old mailbox. OTA range reads alone use ten-second waits and at most two retries after no valid reply, retaining exact offer/hash/offset/count and generating fresh authentication. Permanent errors and offset/length mismatches stop immediately; the existing explicit invalid_range downgrade remains. No voice, draft, send or other mutation gains retries. Flash staging tries 64/16/8 KiB internal buffers while retaining 96 KiB free; all image checks and inactive-partition protections remain. These rules supersede only the historical USB fragment and OTA deadline/retry statements above.
+
+USB 新能力只在明确协商后启用；旧桥接和旧固件继续使用小块。固件数据块缺少有效回复时最多重试两次，保持相同镜像与位置，不重试发送或语音操作。接收偏移错误或永久错误立即停止，保留原启动分区。0.2.92-ui 构建与故障模拟不代表真机速度或稳定性通过。
+
+### 0.2.94 OTA buffering and erase scheduling
+
+No wire-format change. The client owns two 48 KiB receive blocks, each matching one negotiated bulk range; older peers can fill them using smaller authenticated ranges. Internal flash staging prefers 48 KiB, then 16/8 KiB while retaining 96 KiB free. The validated image size is passed to `esp_ota_begin` to erase only the required backup-partition extent before reception, independently of staging size. Existing SDK rollback/running-partition guards and final SHA/image/boot validation remain. Retained OTA elapsed and flash-write timing now include this preparation erase; do not compare a download-only timer against whole upgrade time. Physical performance acceptance is pending.
+
+## TAB5 0.2.90 电脑快捷控制
+
+0.2.100-ui 配套桥接将 `stage-draft` 改为保留电脑原草稿并追加文字，仍不提交；重复请求只复用回执。快捷语音仅保留 TAB5 预览，不向 TAB5 本地编辑器回填。失败会返回 `composer_changed`、`composer_not_ready`、`composer_too_long` 或未确认写入/回读等具体原因。The .100 paired bridge appends stage-draft text to the existing desktop draft without submitting; request replay never appends twice. Quick Console recognition only uses its preview, leaving the TAB5 composer untouched. Structured error reasons distinguish changed, unavailable, oversized and unconfirmed drafts.
+
+0.2.101-ui 配套桥接在 `stage-draft` 成功回执增加可选 `appended` 布尔字段：只有原输入框非空且合并正文回读确认时为真。固件还要求同一操作流程已成功回填过前一段，才显示追加提示。旧桥接没有该字段时保留通用检查提示，不推断追加。The .101 paired bridge adds optional `appended` to successful staging replies, true only when the original composer was nonempty and merged text was verified. Firmware also requires a prior successful take in the same flow before displaying the append hint; older replies fall back to generic review guidance.
+
+0.2.101-ui 新增显式 `desktop.clear-draft`：UUID `requestId` 与明确 `taskId`，仅 TAB5 工具栏长按触发。电脑前台会话和主输入框必须与目标一致，不导航或发送回车；清空写入一次并回读确认，成功回执 `cleared=true`、`attempted=true/false`。实际尝试或确认已空后，原同会话的发送记录失效；相同请求 ID 复用回执，不重复清空后续新草稿。协议版本仍为 1，仅 Windows 支持。Candidate .101 adds explicit `desktop.clear-draft`, triggered by long press with a request UUID and explicit task ID. The current foreground target must match; it never navigates or sends Enter. A single write is verified by readback; confirmed empty inputs need no write. Attempted or confirmed clearing invalidates the old send tickets. Replayed requests return their receipt without clearing a subsequent draft. Protocol version remains 1; Windows only.
+
+新增已认证 `kind=desktop` 的 `open-recent` / `stage-draft` 操作，以及语音回执 `canInsert` 字段。参数、去重窗口和失败语义见 [快捷控制协议](TAB5-QUICK-CONSOLE.md)。`stage-draft` 仅预填电脑草稿，不调用任务发送接口。USB、Wi-Fi、BLE 复用现有加密 RPC，ESP8266 协议不变；当前仅 Windows 桥接支持，macOS 不新增此能力。
+
+0.2.100 配套桥接的语音回执增加可选 `sourceName`，来自实际选中并成功打开的 Windows 录音端点全称。自动回退时改为 `TAB5 内置麦克风`；`source` 仍为 `dji` / `tab5`，路由不变。旧端可忽略新增字段；没有名称时新固件保留原状态文案，不猜测型号。Codex 直达状态栏展示全称，过长时横向滚动。
+
+0.2.91-ui 的直达按钮省略 `open-recent.taskId`，每次新点击在电脑解析最新会话；回执补充 `folder`、`updatedAt`，面板与语音绑定返回的 `taskId`。同一请求重放保持首次解析目标，`stage-draft` 仍要求明确目标。The 0.2.91-ui direct button omits taskId to resolve the latest conversation on each new click. Replies add folder and updatedAt; voice binds to the returned ID. Replays retain the original resolution, and staging always requires an explicit target.
+
+0.2.106-ui 起，上一条/下一条和 Codex 按钮通过现有 `open-recent` 显式传入所选 `taskId`。箭头立即请求电脑切换，回执成功且目标一致后更新 TAB5 选中项；本次面板列表不因打开会话而重排，重新进入时按目录最新顺序初始化。失败或错目标回执保留原选中项，重新确认前阻止语音录入；同一已确认会话的再次唤起保留未发送的回填记录。沿用现有 Windows 显式目标能力，无新增协议字段或版本。From .106, arrows and the Codex key explicitly target the selected conversation using existing open-recent semantics. Commit selection only after matching foreground confirmation; preserve list order during a visit and refresh recency on reopening. Unconfirmed navigation blocks voice/input, and reopening the same confirmed target preserves its staged receipt. No wire-format or protocol-version change.
+
+0.2.99-ui 开发候选新增显式 `desktop.submit-draft`：要求原 `taskId`、本次 UUID `requestId` 与成功回填的 `draftRequestId`。仅手动第三次点击触发一次受控回车；15 分钟内同会话的回填记录在实际输入尝试时消费，桥接重启后不保留。成功回执为 `submitted=true,attempted=true`（回车及输入框清空已确认）；不确定结果不自动重试。取消或重新录音不提交，电脑草稿不清除。协议版本仍为 1，仅 Windows 支持。Candidate .099 adds explicit submit-draft with the staged task and one-use draftRequestId. Only a separate click presses Enter; successful staging expires after 15 minutes or bridge restart, and uncertain input is never replayed. Confirmation means Enter plus a cleared composer, not model completion. Reset never clears a desktop draft or submits it.
+
+During an OTA transfer the matching 0.2.96 desktop bridge suspends high-rate USB metrics, inline artwork and resource bursts. Full status heartbeats still renew the established session and clock; authentication, USB failover and boot checks are unchanged. Pending artwork resumes after the installed offered version is observed or the bounded transfer lease expires. USB diagnostics report cumulative and peak serial-gate wait in milliseconds. This is scheduling policy, not a wire-format change; physical effect requires a complete USB upgrade. Retained otaMs/previousOtaMs describe preparation through the end of receive/write, including preparation erase since 0.2.94; they exclude final image validation, completion dwell and reboot, so they are not end-to-end wall time.
+
+
+### 0.2.97 OTA preparation and display continuity
+
+USB hello/ack optionally adds `otaDiag:"prepareMs,bufferSlots,lcdUnderrunsDuringUpgrade,busy"`. Values describe the current boot/attempt and reset on reboot; capture them before restart. Old bridges ignore the field and new bridges display `--` when absent. Protocol version remains 1.
+
+The receiver authenticates and fills a first owned 48 KiB block, then waits for the preparation overlay to render before calling the SDK known-size backup-partition erase. Reception continues through a bounded PSRAM pool, retaining 4 MiB for UI/transport when expanding beyond the original two-block fallback. ESP32-P4 PSRAM XIP keeps the instruction/rodata cache available during flash operations. SDK rollback/running-partition guards, ownership/join rules, final SHA/image/boot checks and user confirmation remain. An initial read, UI preparation or receiver-start failure causes no flash write/erase or boot-partition change.
+
+首轮安装 0.2.97-ui 仍由旧接收程序执行；须在重启后的下一次真实升级测量新流程。构建及故障模拟通过不代表开头停滞或蓝闪已通过真机验收。
+
+### 0.2.103 OTA phase timing
+
+USB `tab5_crash_diagnostic.trace` optionally adds `otaPhases` and `previousOtaPhases`. Each is `null` when unavailable, otherwise a numeric object with `transport` (`-1` none, `0` USB, `1` Wi-Fi, `2` BLE), `prepareMs`, `writeMs`, `freeWaitMs`, `readyWaitMs`, `verifyMs` and `installMs`. Preparation is the SDK backup-partition erase; write excludes that preparation. Free wait is receiver backpressure waiting for a reusable block; ready wait is the writer waiting for a received block. Verify covers final SDK image validation, identity and boot-partition selection. Install spans worker start through successful boot-partition selection or the recorded failure, excluding the success-screen dwell, reboot and healthy boot. Reader and writer run concurrently: these values must not be summed. Existing `otaMs` and `previousOtaMs` retain their meanings. Unknown fields are ignored; no image, credentials or user text are added.
+
+0.2.103-ui 增加上述可选分阶段耗时，重启后以 `previousOtaPhases` 保留，缺失时为 `null`。分区准备与纯写入分开统计；等待空闲缓冲表示接收端背压，等待已接收缓冲表示写入端等待数据。`installMs` 不含成功页面停留、重启和健康启动，接收与写入重叠，不能直接相加。首轮安装由旧接收程序执行，须再升级一次才能取得新计时；协议版本仍为 1，旧字段、鉴权、镜像校验及回滚规则不变。
+
+0.2.108-ui adds optional root-level `tab5_crash_diagnostic.flashBenchmark`, outside `trace`. It is null before a manual local test or a numeric object with `state` (1 running, 2 complete, 3 failed, 4 cancelled), `sampleBytes` (131072), `partitionAddress`, `offset`, `jedecId`, `pageBytes`, signed `error`, and 0/1 `restored` / `modified`. `rows` contains exactly four entries in 8/16/48/64 KiB order, each with `chunkBytes`, `completed` (0–3), `skipped` (0/1), and three-element microsecond arrays `eraseUs` / `writeUs`. Interpret only completed rounds; zero slots may be unfinished. Results exist only in the current boot and are read through existing startup verification, never a new remote write command. The diagnostic line is bounded to 6144 bytes on the new bridge; ordinary small replies keep their 4096-byte cap. No user text, flash contents or credentials are exported. Old bridges ignore unknown fields; protocol remains version 1. See [measurement method and limits](TAB5-FLASH-BENCHMARK.md).
+
+新增的 `flashBenchmark` 位于 USB 诊断根对象，只记录本次启动的数值，状态、跳过项、三轮擦除/纯写入微秒及恢复确认均显式给出。设备必须手动开始，测试仅触及经校验备用镜像之外的空白尾区；小样本不能证明持续写入上限。电脑按数值白名单读取，普通小消息限长不变；鉴权、OTA 镜像检查和回滚不变。
+
+0.2.110-ui adds optional unsigned `phase` (0 checks, 1 blank-range scan/backup, 2 measurement, 3 restoration) and `scanned` (candidate windows checked). A scan read failure preserves its SDK error; no suitable all-FF 128 KiB window returns `ESP_ERR_NOT_FOUND` (261). Search windows are 64 KiB-aligned, beyond the verified spare image plus a 4 KiB guard. No mutation occurs during scanning. Older results without the optional fields remain accepted.
+
+0.2.110-ui 增加可选无符号 `phase`（0 前置检查、1 空白区查找/备份、2 测量、3 恢复）及 `scanned`（已检查候选窗口数）。读取失败保留 SDK 原始错误，无合适空白区返回 261；只在已验证镜像及 4 KiB 保护间隔以外按 64 KiB 对齐寻找完整 128 KiB 全空白区，扫描不写入。缺少新字段的旧结果仍兼容。
+
+0.2.107-ui 仅调整本地升级反馈：进度按成功写入闪存的字节计算（校验通过前最多 99），不再按网络接收量推进。下载完成后的剩余写入明确显示；最终 SHA/镜像/身份/启动检查单独显示“正在校验固件”与实时耗时，不附带 99% 文案。成功后才显示 100% 并等待原重启流程。协议、传输参数、完整性校验、回滚和既有分阶段计时语义不变；首轮装入 .107 仍使用旧接收程序，下一次升级才应用新反馈，不声明实际提速。
+
+The .107 local progress display follows successfully written flash bytes, capped at 99 before verification. Explicitly show pending writes after completed reception and a timed verification stage without a stuck 99% label. Show 100 only after all existing checks and boot-partition selection succeed. Transport, protocol, integrity, rollback and phase-timing semantics are unchanged. Installing .107 still uses the previous receiver; the new feedback applies to the following upgrade and does not claim faster installation.
+
+## Independent large-response write window (0.2.112-ui)
+
+The BLE identity optionally advertises `rpcWriteWindow:32`, independently of `mailboxWindow:8` and `rpcNotifyWindow:32`. New Windows bridges accept integers 8..32 only; absent/invalid values retain the existing RPC write bound. Only RPC responses over 12288 bytes use this limit; old clients, voice, small replies and acknowledged-only peers retain their previous behavior. Within a negotiated window, at most seven native write commands are pending, each cohort drains before the next, and the final fragment uses WriteWithResponse. Any command/submission/cancellation failure drains pending operations and prevents further submission; no automatic replay. Device ID/cursor/total/encryption checks and response buffer size are unchanged. Notification grants and their pacing are unaffected. Identity remains limited to 512 bytes (the maximum-width .112 production case is exactly 512). Hardware preflight is required; this capability does not claim a measured speed.
+
+BLE 身份新增可选 `rpcWriteWindow:32`，只协商超过 12288 字节的 RPC 回复回写窗口；与语音八片、通知三十二片独立。新桥接只接受 8..32 整数，缺失或无效则沿用旧限制；旧桥接忽略新字段。每组最多七个原生无响应写入，排空后才提交下一组；每窗口末片仍要求 ATT 确认，失败/取消不继续提交且先排空。身份最大组合 512 字节，接收缓冲、游标及鉴权规则不变。实际速度需短时预检。
+
+## BLE OTA preflight / 蓝牙升级短时预检（0.2.111-ui）
+
+### Optional write-window comparison / 可选确认窗口对照（0.2.114-ui）
+
+.114 changes the optional identity value to `rpcWriteWindow:64`; its maximum-width identity still fits 512 bytes. New bridges accept offered bounds 8..64, default to `min(offer,64)`, and permit an explicit isolated RAM comparison at 32/64/32 only after observing an offer of at least 64. Older bridges treat 64 as unsupported and fall back to their prior eight-packet bound. No receive-buffer growth or change to outgoing notification windows. Keep seven native commands pending, drain each cohort and acknowledge the last fragment of each selected window. Freeze the selected limit at response offset zero, capped by the peer offer; a selector change affects the next response only. At MTU517 a 49317-byte response uses two barriers at 64 instead of four at 32. Authentication, offsets, full-byte checks and no-replay behavior are unchanged.
+
+.114 仅将可选回写窗口能力改为 64，最大身份仍为 512 字节。新桥接接受 8..64，默认取设备能力与 64 的较小值；显式 32/64/32 隔离预检要求已观察到 64 能力。旧桥接回退原八片限制。接收缓冲和通知窗口不变，最多 7 个原生写入，仍按组排空并做窗口末尾确认；每个回复开始时固定窗口且不超过设备能力，中途选择变化只作用于下一回复。MTU517 下约 48 KiB 回复的确认从四次变为两次，真实速度需实测。
+
+The in-memory comparison diagnostic is renamed `蓝牙参数对照` with schema2, `kind` (`nativeQueue`/`writeWindow`), `activeWriteWindow`, and per-sample `writeWindow` in addition to native concurrency and the existing result/radio/isolation/trace fields. Optional `gatt.WriteWindow` reports the actual window for each queued bulk reply; zero means unused. It is not a firmware/USB protocol field. Following two complete hardware window comparisons, production defaults to native7/window64 (capped by the peer offer) after success, incomplete data, exceptions or cancellation. The native-queue comparison still fixes its wire window at32, independently of the production default. Existing pass and total deadlines remain. / 本地诊断改名并升为 schema2，分别保存排队上限与确认窗口，`gatt.WriteWindow` 记录实际大回复窗口；它们不是设备线上字段；两轮真机对照通过后，生产默认窗口 64/并发 7，且不超过设备能力，各种退出均恢复此默认值。原生排队对照内部仍固定窗口 32。
+
+### Host-only queue comparison / 仅主机排队对照（历史 schema1）
+
+The explicit desktop comparison temporarily tests native pending-write limits 7/31/7 while retaining cohort draining, the negotiated wire window (at most 32 fragments), authentication and final ATT confirmation. Each pass uses the existing isolated preflight; no new wire action or firmware capability is introduced. Default seven is restored on every exit; incomplete data or Wi-Fi restoration stops remaining passes. Total cancellation budget is 120s plus bounded cleanup; existing per-pass limits remain. No persistent tuning or automatic OTA.
+
+电脑显式排队对照仅临时采用 7/31/7 原生写入上限；每组排空、线上最多 32 片窗口、认证及最终确认不变。复用隔离预检，无新增固件协议；任何退出均恢复默认 7，结果或 Wi-Fi 恢复不完整时不继续下一组，总取消期限 120 秒加有界清理，不自动应用参数或刷机。
+
+Local diagnostic `蓝牙排队对照` is schema 1 JSON with `state`, `group`, `activeNativeLimit`, `plannedLimits` and at most three `samples`. Each sample contains `nativeLimit`, raw `result`, `radio`, `wifiIsolation`, bounded `trace` JSON string, `firmwareBytes`, nullable `estimateSeconds` and `complete`. States are running/complete/incomplete/cancelled/failed; complete means all RAM checks and driver restoration succeeded, not the 120s OTA target. The optional per-RPC `gatt.NativeLimit` is configured capacity (zero when unused), not observed peak concurrency. Snapshots contain timing/count data only and are memory-only; trace coverage must be checked against device bytes.
+
+本地诊断 JSON 独立保存最多三组数值结果；`complete` 仅指 RAM 检查及驱动恢复完整，不代表整包目标达标。`gatt.NativeLimit` 表示当次 RPC 使用的最大配置上限，未使用时为 0，不等同实际并发或空中包数。数据仅保留在内存，主机 trace 仍须核对字节覆盖后比较。
+
+### Optional Wi-Fi isolation / 可选 Wi-Fi 隔离（0.2.113-ui）
+
+USB `tab5_benchmark` adds capability `bleOtaProbeIsolation:true` and action `ble_ota_probe_isolated`. It requires both base/isolation capabilities, fixed BLE mode and physical USB; old clients ignore optional fields and unchecked new clients use the original action. Same RAM data/verification and 20s transfer budget; preparation/restoration each wait up to 6s, active request expiry is 35s and the host deadline is 40s. The existing Wi-Fi worker calls stop/start without changing saved settings. Cancellation, mode/USB loss, expiry and normal completion restore. Failed start retries every second; pending restoration prevents new tests and final success. Restored means driver started, not AP associated. Phase results `running;wifi_pause` / `running;wifi_restore` and failures `failed:isolation_mode`, `failed:isolation_busy`, `failed:isolation_prepare`, `failed:isolation_restore` are additive. A stopped/blocked driver call is not a hard real-time guarantee.
+
+USB 新增隔离能力与动作；新主机先核对能力，旧设备可取消勾选沿用原预检。仅蓝牙并保留 USB，暂停和恢复各等待最多 6 秒，传输原预算不变；35 秒请求期限和 40 秒主机期限独立。取消、模式/USB 变化、期限或正常完成均触发恢复；失败时每秒重试，未恢复不开始新测、不报告最终成功。恢复仅确认驱动启动，仍需核对路由器关联。保存配置、BLE 身份长度与空中协议不变。
+
+Optional USB reply CSV strings are numeric-only, at most 256 characters each; schema is the first field. Missing fields mean unsupported; wrong schema/field count/non-numeric content is invalid. They never carry credentials, IDs or payload text. / 可选 CSV 全部为数值，首字段为版本，最多 256 字符；缺失表示不支持，版本/字段数/格式错误表示无效，不含凭据、标识或正文。
+
+| Field | Schema 1 values in order / 字段顺序 |
+| --- | --- |
+| `bleRadio` (16 fields) | `schema,connected,intervalUs,latency,txOctets,rxOctets,intervalRequestRc,dataLengthRequestRc,phyRequestRc,connectionUpdateStatus,rxFragments,rxBytes,rxHandlerUs,rxSpanMs,maxRxGapUs,rejectedFragments` |
+| `wifiIsolation` (7 fields) | `schema,stage,stopRc,startRc,heldMs,restored,expired` |
+
+`bleRadio` link values are live at USB readback, not frozen at transfer completion; zero octets means the data-length event has not been observed. Capture counters reset on each preflight, stop before Wi-Fi restoration and remain until the next capture. `rxBytes` excludes the nine-byte BLE fragment header but includes encrypted RPC framing. Handler timing starts after the flat copy and includes parameter requests/lock waits, not pure CPU time. `rxSpanMs` runs from first handler entry to last exit; gaps run from previous exit to next entry. Unsigned 32-bit timer subtraction handles wrap within the bounded test. Metrics overlap and must not be summed as independent phases.
+
+`wifiIsolation.stage`: 0 idle, 1 arming, 2 stop requested, 3 stopped, 4 restoring. Stop/start return codes begin at -1, success is 0; `heldMs` measures confirmed stopped time before restarting, excluding later retry time. `restored=1` confirms successful driver start, `expired=1` records lease expiry. Values are per-field atomic snapshots, not a transaction. A normal (unchecked) run does not reset the last isolation history: retain the selected run mode when interpreting results.
+
+连接字段为读取时实时值；接收计数在本轮预检开始清零、结束停采且保留，字节包含加密 RPC 数据、不含九字节分片头。处理耗时含锁等待及参数申请，不代表纯 CPU；各计时不可简单相加。隔离阶段 0/1/2/3/4 分别为空闲/准备/申请暂停/已暂停/恢复中，返回码初始 -1、成功 0；暂停毫秒不含后续恢复重试。恢复标志不是联网确认。每字段原子读取不保证事务快照；常规预检保留上次隔离记录，分析时必须同时记录本轮勾选状态。
+
+`tab5_benchmark` adds USB action `ble_ota_probe` and optional response capability `bleOtaProbe:true`. New clients query status before starting and reject unsupported firmware. The device requires fixed BLE mode and a fresh paired link, downloads three 256 KiB samples only over BLE, and stops on mode/session change without fallback. A 20-second aggregate budget plus a five-second exchange bound limits normal completion/failure to about 25 seconds. No Flash write or automatic upgrade occurs. Existing start/status/cancel results remain compatible. Authenticated `kind=benchmark` requests may include `otaProbe:true`; this selects the device's shorter wait, not a new authorization or response format.
+
+USB 增加 `ble_ota_probe` 动作及响应能力 `bleOtaProbe:true`，新主机先读取能力再发起。设备要求仅蓝牙模式及新鲜认证连接，三轮各 256 KiB 下载；通道/会话变化即停止，不回退。总预算 20 秒、单次等待上限 5 秒，不写 Flash、不自动升级。旧 start/status/cancel 保持兼容。认证 benchmark 请求的 `otaProbe:true` 仅选择本地短等待，不改变鉴权规则。电脑使用最慢完整轮次及真实镜像大小，增加 20% 余量和 25 秒写入/校验/重启预算；估算不超过 120 秒才满足预检目标，不能代替完整 OTA 验收。
+
+### Idle voice polling during BLE bulk replies
+
+The optional local preflight trace counter `voiceDeferredCount` counts first voice-mailbox polls that yielded without a native GATT read after acquiring the shared gate. These are excluded from `voicePollCount`/`voicePollWallMs`; RPC counts and byte coverage are unchanged. No device wire field or capability changes. A real idle probe is permitted once 1000ms has elapsed since its last actual read, or immediately on first use, recent voice activity, or absence of bulk work. This is not a guaranteed response latency; lock, polling and GATT timing still apply. Fragment reads within an active request never take this deferral path. Authentication, notification error handling, request execution/deduplication,64/native7 and final ACK checks remain unchanged.
+
+本地预检新增可选 `voiceDeferredCount`，仅统计取得共享锁后未执行原生读取而让行的首次语音邮箱轮询；不计入真实 `voicePollCount`/`voicePollWallMs`，RPC 计数和字节覆盖口径不变。没有设备线上字段或能力变化。距上次真实读取达到 1000ms、首次使用、有近期语音活动或没有大传输时允许探测；实际响应还受轮询、排队和 GATT 影响。正在处理的请求分片不走延期路径，鉴权、通知错误、去重、窗口和最终确认保持原规则。
+
+
+## BLE OTA range compression (internal candidate, 2026-10-05)
+
+Authenticated per-link state optionally advertises `rpcOtaZlib=1`, alongside `rpcBinary=1,rpcBulk=1`. Only BLE bulk `kind:"ota"` requests opt in with `acceptEncoding:"zlib"`. Existing SHA-256, offer ID, raw `offset` and raw `count` (1..49152) keep their meaning. A useful compressed response uses T5R2 with body `{offset,encoding:"zlib",decodedSize:count}` and one independent zlib stream as its raw payload. Compression precedes the existing authenticated encryption. If compressed payload plus 96 metadata bytes is not smaller, return the original `{offset}` and raw bytes. USB, Wi-Fi, requests without opt-in, and older peers are unchanged.
+
+The receiver validates exact offset and integral decodedSize, requires negotiated encoding, and bounds output to the requested count. It requires successful zlib completion, checksum, complete input consumption and exact output size; unknown encodings, trailing/truncated data, oversized output and allocation failure abort the range. Only decompressed bytes advance the image offset or reach Flash; final image SHA-256/identity/boot checks remain mandatory. Host tests and firmware compilation pass; this is not device OTA acceptance. See [internal evidence](TAB5-BLE-COMPRESSION.md).
+
+已认证状态可声明 `rpcOtaZlib=1`；仅 BLE 批量 OTA 请求明确接受 zlib 时压缩，每个原始范围独立编码，保留原偏移、长度、重试及认证。元数据给出 `encoding` 和 `decodedSize`；不划算时回退原文。设备严格验证协商、偏移、整数原始长度、完整输入消费、精确输出长度和校验，异常不推进写入。旧设备及 USB/Wi-Fi 保持原路径。内部测试不等于真机升级通过。
+
+### 完整固件 RAM 预检 / Full-image RAM preflight (.116)
+
+`quotaDetails[].weeklyResetEpoch` is an optional UTC Unix timestamp in seconds from the provider's weekly reset time. The Codex single-weekly-limit card uses it for a locally ticking `距重置` countdown; missing values hide the countdown, and an elapsed deadline displays `等待重置同步` until refreshed. `weeklyReset` remains the formatted absolute time in the reset panel. No elapsed-cycle metric is added.
+
+`quotaDetails[].weeklyResetEpoch` 为供应商周额度重置时刻的 UTC Unix 秒数，可缺失。Codex 单周额度卡片使用本地时钟更新“距重置”；缺失时隐藏，到期后显示“等待重置同步”，不自行推算下个周期。右侧 `weeklyReset` 仍显示绝对重置时间。
+
+USB `tab5_benchmark` replies advertise `bleFirmwareProbe:true`. Actions `ble_firmware_probe` and `ble_firmware_probe_isolated` snapshot the authenticated BLE offer (`sha256`, `offerId`, `size`) and use the production range decoder without opening any Flash partition. Authenticated RPC `kind:"ota_probe"` has the same offer/range/authentication/compression constraints as `ota`, accepts BLE only and never acquires the 90-second OTA lease. The bridge pauses background assets/metrics for the active full-image preflight and releases that pause on exit.
+
+The device pins the BLE session, requires USB for control, limits transfer to 110 seconds (an in-flight range can take up to three 10-second attempts), and validates streaming SHA-256 over all decoded bytes. Optional Wi-Fi isolation has a 125-second lease; success is withheld until the worker confirms restart. USB/mode loss, cancellation and expiry request restoration without changing saved networks. The controller waits at most 160 seconds including bounded cleanup; no action starts OTA automatically.
+
+Terminal result: `complete;BLE,down,1,<rawBytes>,<ms>,0,<calls>,<encodeMs>,<exchangeMs>,<decodeMs>,<wireTx>,<wireRx>,<minInternal>,<minPsram>,<minLargest>;image,<sha256>,<size>;`. Failure/cancellation use their existing states, and negative error codes cannot pass. The bridge requires complete bytes and the exact selected image hash, then estimates full OTA as receive milliseconds / 1000 * 1.2 + 25. The 120-second threshold remains a screening estimate, not hardware OTA acceptance. The legacy three-round raw benchmark remains separate.
+
+完整固件预检仅接收、解压并计算整包哈希；桥接严格绑定所选镜像，失败不出升级通过结论。接收超时、分段重试、Wi-Fi 恢复和控制超时均有界。安装 .116 后可以对同一镜像做 RAM 预检；正常 OTA 仍拒绝重复安装当前版本，完整 OTA 验收应选择下一份真实升级候选，不能绕过该保护。
+
+## TAB5 .121 voice transport candidate
+
+Auto selection follows USB > Wi-Fi > BLE; fixed modes do not switch channels. Wi-Fi/USB audio requests now use the existing `codec=ima-adpcm` (16 kHz mono) decoder; BLE retains `ima-adpcm8k`. Independent blocks contain LE16 sample count, LE16 predictor, index, reserved byte, then low nibble first. At 3200 samples the block is 1606 bytes before Base64 instead of 6400 raw PCM bytes. This is lossy coding, not byte-exact PCM. Sequence validation, 60-second limit, stop/tail draining and no automatic audio retry remain unchanged. Paired bridge required; hardware continuity/recognition quality pending.
+# TAB5 daily gallery RPC extension
+
+Authenticated `/tab5/v1/rpc` requests may use `kind: "gallery"`. Existing pairing, encrypted envelope, session, timestamp and replay validation apply unchanged. This is a device-initiated pull extension; it does not change the existing three asset slots or ESP8266 frames. Unsupported bridges return an error and the device retains its cached image.
+
+- Common fields: `category` (`painting` / `calligraphy`), local `date` (`YYYY-MM-DD`), zero-based `frame`.
+- Optional `orientation` is `landscape` (default) or `portrait`. It selects a second layout of the same work and frame, without changing daily order or pagination. Portrait artwork is composed at 720×1280 and encoded rotated into the existing 1280×720 JPEG transport. Both manifest and read must carry the same orientation; the manifest echoes it. Unsupported portrait assets return 503; invalid orientation returns 400. A portrait-capable device rejects a portrait response without the matching echo, preserving its cached content when paired with an older bridge. Existing landscape callers need no changes.
+- `op: "manifest"` returns `id`, `title`, `author`, `source`, `license`, `date`, `size`, `sha256`, `frames`, `width:1280`, `height:720`.
+- `op: "read"` additionally requires the manifest `sha256`, `offset`, and `count`. It requires `binaryReply`; `count` is at most 8192, or 49152 with `bulkReply`. The binary reply metadata carries `offset` and actual `count`. Stale SHA returns 409; invalid ranges/category/date/frame return 400. Missing local files return 503.
+- The bridge returns 409 while foreground transfer or voice work has priority. The client checks the complete SHA-256 and exact decoded dimensions before presenting a new frame. Failure does not clear existing content. Artwork order is `(DateOnly.DayNumber - 2026-01-01.DayNumber) mod categoryCount`, normalized to a nonnegative index.
+
+On TAB5, only daily-art screensavers use BMI270 orientation. A stable 350 ms gravity direction (sampled every 100 ms) selects either portrait direction or the original landscape layout; near-flat/diagonal/shaking/stale samples retain the current orientation. A dominant in-plane gravity component of at least 4000 LSB permits ordinary inclined stands; no Z-dominance restriction applies. The UI checks orientation on its 50 ms clock tick and keeps at most two decoded frames, prefetching the matching alternate orientation of the current page. Positive raw Y selects the 180-degree counterpart of the pre-rotated portrait bitmap (corrected after .127 hardware feedback). Touch-to-exit and all other pages retain the existing landscape coordinates. Local USB diagnostic `tab5_orientation_status` returns `tab5_orientation_diagnostic` with readiness, orientation (0 normal landscape, 2 inverted landscape, ±1 portrait), raw accelerometer values, error and sample age; it does not change settings.
+
+每日图库通过既有配对加密 RPC 按需拉取，不扩大文件路径或网络地址访问权限。作品与落款同帧传送，校验、解码成功后整体替换；各屏保分别缓存，失败保留最近画面和日期。上述能力首版由 Windows 桥接提供。
+
+USB hello/ack also exposes optional artOrientation as ready,orientation,rawX,rawY,rawZ,error, surfaced by the bridge diagnostics for live hardware verification. Older devices omit this field.
+
+TAB5 .127 extends `artOrientation` CSV with `stage,i2cError,register,chipId,attempts` after the original six fields. Stage 1 identifies the chip; 2 loads Bosch configuration; 3/4 get/set acceleration configuration; 5 enables acceleration; 6 samples. `tab5_orientation_diagnostic.diagnostic` carries the same CSV. Initialization retries after 1 second for the first two failures, then every 30 seconds; ten consecutive sample failures trigger reinitialization. No orientation is trusted until a fresh sample succeeds.
+
+TAB5 .130 uses local orientation 0 for normal landscape (positive raw X, verified in a fixed user-held pose), 2 for inverted landscape (negative raw X), and retains the verified raw-Y portrait signs. The earlier .129 X-sign assumption is superseded. Both landscape directions share the original landscape image and frame cache. The bitmap and date overlay rotate together by 180 degrees; no additional gallery asset or RPC orientation value is introduced.

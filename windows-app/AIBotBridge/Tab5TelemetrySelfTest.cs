@@ -84,6 +84,20 @@ internal static class Tab5TelemetrySelfTest
                 if(burst is null||burst.Length>Tab5Protocol.MaximumFrame)throw new Exception("Pending artwork did not get a bounded independent burst");
                 using var burstJson=JsonDocument.Parse(burst);
                 if(burstJson.RootElement.GetProperty("resources").GetArrayLength()>8||burstJson.RootElement.TryGetProperty("data",out _))throw new Exception("Image burst resent a status catalog");
+                service.OtaTransferActive(true);
+                service.Publish(snapshot with {Music=new("Video","Artist","",true,0,100,DateTimeOffset.UtcNow){CoverRgb565=images.Legacy,Tab5CoverRgb565=images.Tab5,Tab5CoverJpeg=images.Jpeg}});
+                using(var upgrading=JsonDocument.Parse(service.CurrentFrame!)){
+                    var data=upgrading.RootElement.GetProperty("data");
+                    if(data.GetProperty("resource").ValueKind!=JsonValueKind.Null||data.GetProperty("epochMilliseconds").GetInt64()<=0||upgrading.RootElement.GetProperty("session").GetString() is not {Length:>0})throw new Exception("OTA heartbeat lost freshness or included artwork");
+                }
+                if(service.UsbMetricsFrame() is not null)throw new Exception("OTA did not suspend USB sampling");
+                for(int i=0;i<4;i++){using var quiet=JsonDocument.Parse(service.TelemetryFrame(1,true)!);if(quiet.RootElement.GetProperty("type").GetString()=="tab5_resources")throw new Exception("OTA consumed pending artwork fragments");}
+                service.OtaTransferActive(false);
+                if(service.UsbMetricsFrame() is null)throw new Exception("Completed streaming upgrade did not resume sampling");
+                bool resumedArtwork=false;
+                for(int i=0;i<4;i++){using var resumed=JsonDocument.Parse(service.TelemetryFrame(1,true)!);resumedArtwork|=resumed.RootElement.GetProperty("type").GetString()=="tab5_resources";}
+                if(!resumedArtwork)throw new Exception("Upgrade discarded deferred artwork");
+                Console.WriteLine("TAB5_OTA_BACKGROUND_OK USB metrics and artwork paused; session heartbeat retained; pending traffic resumes");
                 service.Publish(snapshot);service.ObserveFirmware("001122334455","0.2.78-ui");
                 Console.WriteLine("TAB5_ARTWORK_BURST_OK bounded image fragments without catalog; legacy version fallback");
             }

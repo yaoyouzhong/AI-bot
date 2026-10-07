@@ -1,5 +1,11 @@
 # AI-bot
 
+Automatic portrait art mode adds larger layouts in either portrait direction and an inverted landscape view while retaining existing landscape views, captions, museum credits and Chinese notes. All four orientations and the calligraphy corruption fix are hardware-accepted; see the [.131 record](docs/TAB5-ACCEPTANCE-131.md).
+
+The TAB5 [daily painting and Chinese calligraphy screensavers](docs/TAB5-DAILY-ART.md) now meet the annual quantity target of at least 366 distinct works per category: 402 paintings (36 Chinese) and 411 calligraphy works. After completing the pending 63-work batch, 45 complete works with at most three frames each were added. Eight further calligraphy reserves remain local, and downloaded scroll material is retained. Daily calligraphy is ordered by ascending display-frame count, with a title, author attribution and holding museum recorded for every work. Paintings retain the same metadata; 48 have Chinese titles and author names, while 354 retain museum English. Separate sourced notes add Chinese titles for 16 works and Chinese author names for 200; unverified names retain the original language. Verified notes also appear below the original screensaver captions. Sources, licenses, dimensions and hashes are recorded; 24 Chinese painting reserves remain separate. The PC synchronizes by date and the device retains its last frame while disconnected. Local annual validation and gallery self-tests pass. Deployed with .125; exact-image boot verification passes and the user confirms all three screensavers display normally. See the [acceptance record](docs/TAB5-ACCEPTANCE-125.md).
+
+Local TAB5 .124 refines the monthly calendar with traditional floral artwork, a different phrase for each month and a cleaner footer, and adds automatic day/night annual colors. See the [local acceptance record](docs/TAB5-ACCEPTANCE-124.md); the public release below is unchanged.
+
 **AI status at a glance.** A desktop AI status assistant that brings Claude Code / Codex activity, account quotas and everyday information to an **ESP8266 display or M5Stack TAB5**.
 
 [**Download v0.5.0**](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0) · [Installation and flashing guide](docs/INSTALL.zh.md#english-summary) · [简体中文](README.md)
@@ -7,6 +13,8 @@
 Windows and ESP8266 use **0.5.0**; TAB5 uses its independent **0.2.89-ui** firmware. The maintainer confirmed hardware acceptance on 2026-10-03, and v0.5.0 is the current stable release. See [release records](docs/RELEASE-0.5.0.md).
 
 The bridge and both firmwares update independently. Their numbers need not match; follow each component's notes rather than reflashing every device for every update. See [independent versions](docs/COMPONENT-VERSIONS.md).
+
+A development candidate adds [TAB5 Codex Direct](docs/TAB5-QUICK-CONSOLE.md): a permanent bottom-right entry, latest conversation on each click, and Doubao dictation staged for manual submission. The user confirmed voice insertion on 0.2.90-ui; the 0.2.92-ui entry and latest-conversation behavior await hardware acceptance.
 
 ![CI](https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml/badge.svg)
 [![MIT](https://img.shields.io/badge/own_source-MIT-81dce6)](LICENSE)
@@ -56,6 +64,7 @@ The bridge reads local AI activity and provider quotas and sends them to your de
 
 - **ESP8266:** 240×240 ST7789 display using the SD2 pin configuration; USB-first automatic mode with paired Wi-Fi fallback, or a selected USB/Wi-Fi mode.
 - **TAB5:** touch display and USB / Wi-Fi / BLE connections. Automatic mode prefers USB, then Wi-Fi, then BLE; factory installation uses USB.
+  The local .117 OTA candidate supports negotiated compression over Wi-Fi / USB / BLE and an explicit BLE upgrade entry. Automatic upgrades prefer Wi-Fi, then USB, then BLE; fixed modes retain their selected transport. Internal validation and hardware installation acceptance are tracked separately in the [TAB5 changelog](docs/development/TAB5-CHANGELOG.md).
 - Tray left-click opens the enabled ESP8266 preview, or Device Center otherwise; right-click provides device settings. Start at login is under **Device Center → Bridge Settings**.
 
 ![Windows Device Center](docs/assets/screens/device-center.png)

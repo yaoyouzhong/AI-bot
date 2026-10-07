@@ -13,6 +13,13 @@ internal sealed class Tab5DoubaoVoice(Func<int,int> send,Func<bool> safeFocus)
     private bool _ownsCapture;
     private bool _stopRequested;
     internal bool IsIdle=>send(Query)==0;
+    internal bool CanRestoreFocus {
+        get {
+            if(!_ownsCapture||_stopRequested)return false;
+            int state=send(Query);
+            return state>=0&&(state&1)!=0;
+        }
+    }
     internal bool CaptureStopped {
         get {
             if(!_stopRequested&&!_ownsCapture)return true;

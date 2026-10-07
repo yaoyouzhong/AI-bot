@@ -10,6 +10,7 @@ internal static class Tab5Details
         public string[] CreditExpiries { get; init; } = [];
         public string BillingMode { get; init; } = "subscription";
         public string PlanExpiry { get; init; } = "--";
+        public long? WeeklyResetEpoch { get; init; }
     }
     internal static string BillingMode(string id,DomesticProviderQuotaSnapshot? q)
     {
@@ -24,7 +25,7 @@ internal static class Tab5Details
         var result=new List<Quota>();
         void Main(string id,string name,ProviderQuotaSnapshot? q,long tokens)=>result.Add(new(id,name,PlanDisplay.Normalize(q?.Plan??""),id!="codex"||CodexHasFiveHour(q?.Plan)?q?.PrimaryPercent:null,q?.WeeklyPercent,null,null,null,null,
             Date(id!="codex"||CodexHasFiveHour(q?.Plan)?q?.PrimaryResetsAt:null),Date(q?.WeeklyResetsAt),"--",q?.ResetCreditsAvailable,q?.Stale??false,tokens)
-            {CreditExpiries=(q?.ResetCreditExpiresAt??[]).Order().Select(epoch=>
+            {WeeklyResetEpoch=q?.WeeklyResetsAt?.ToUnixTimeSeconds(),CreditExpiries=(q?.ResetCreditExpiresAt??[]).Order().Select(epoch=>
                 DateTimeOffset.FromUnixTimeSeconds(epoch).ToOffset(TimeSpan.FromSeconds(s.UtcOffsetSeconds)).ToString("yyyy-MM-dd HH:mm")).ToArray()});
         Main("claude","Claude",s.Quotas?.Claude,s.Claude.TokensToday);Main("codex","Codex",s.Quotas?.Codex,s.Codex.TokensToday);
         void Domestic(string id,string name,DomesticProviderQuotaSnapshot? q) =>result.Add(new(id,name,q?.Plan,q?.PrimaryPercent,q?.WeeklyPercent,q?.PlanPercent,q?.Balance,q?.UsedCost,q?.Currency,
