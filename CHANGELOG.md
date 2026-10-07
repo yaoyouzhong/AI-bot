@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.5.1 - 2026-10-07
+
+- Improve TAB5 Codex Direct draft targeting, voice recovery and explicit send behavior.
+- Add compressed OTA transfer handling, exact-image boot verification and transport diagnostics.
+- Keep daily painting/calligraphy local-only: public Windows builds exclude gallery classes, routes, catalogs and images. Existing local installations are not replaced by candidate preparation.
+- Prepare a Windows candidate; macOS build/acceptance and public publication remain separate.
+
+## Local development history (not public release notes)
+
 - TAB5 .131 synchronizes gallery output caches before JPEG DMA, preventing dirty cache writeback from overwriting decoded pixels. Add dirty-tail fault modeling and pixel-level page-replacement checks. Installed with exact-image boot verification; the user confirms calligraphy corruption is resolved and original automatic cycling is restored. See [acceptance](docs/TAB5-ACCEPTANCE-131.md).
 
 - TAB5 .130 calibrates landscape direction from a fixed real-device pose and accepts inclined stands without the former Z-axis restriction. Adds a regression from the captured acceleration vector through to the displayed layout. Installed with exact-image boot verification; the user confirms all four directions and stable switching.

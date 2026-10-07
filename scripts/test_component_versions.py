@@ -129,12 +129,19 @@ class ComponentPayloadTests(unittest.TestCase):
                 z.writestr("SOURCE-MANIFEST.json", json.dumps({"version": version, "applicationSha256": sha}))
             with patch("prepare_release_assets.ROOT", root):
                 validate_tab5(directory, version)
+                external = root / "candidate-source.zip"
+                source.rename(external)
+                validate_tab5(directory, version, source=external)
+                with zipfile.ZipFile(source, "w") as z:
+                    z.writestr("SOURCE-MANIFEST.json", json.dumps({"version": version, "applicationSha256": "wrong"}))
+                with self.assertRaises(ValueError):
+                    validate_tab5(directory, version, source=source)
                 notes["version"] = "0.2.90-ui"
                 with zipfile.ZipFile(directory/f"TAB5-upgrade-{version}.zip", "w") as z:
                     z.writestr("aibot_tab5.bin", image)
                     z.writestr("aibot_tab5.bin.notes.json", json.dumps(notes))
                 with self.assertRaises(ValueError):
-                    validate_tab5(directory, version)
+                    validate_tab5(directory, version, source=external)
 
 
 if __name__ == "__main__":

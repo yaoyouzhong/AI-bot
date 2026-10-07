@@ -2,6 +2,12 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.133-ui - 2026-10-07
+
+- Losslessly compress both full Chinese fonts, preserving all glyph coverage, metrics and pixels. Reuse decoded glyph caching to limit repeated decompression.
+- Public firmware exposes six screensaver styles; daily painting and calligraphy and their downloader/orientation task are excluded. Local installations and artwork files remain intact.
+- Keep the existing OTA partitions, NVS and asset layout. Local full-build experiment .132 is separate; public .133 hardware acceptance remains pending.
+
 ## 0.2.131-ui - Gallery decoder cache ownership
 
 - Write back and invalidate the aligned gallery output buffer before JPEG DMA; reject failed synchronization without replacing the visible frame.

@@ -6,7 +6,9 @@ namespace AIBotBridge;
 internal sealed partial class Tab5Service
 {
     private readonly object _rpcLock=new();
+#if LOCAL_ART
     private readonly Tab5Gallery _gallery=new();
+#endif
     internal Tab5QuickConsole QuickConsole {get;set;}=new();
     private readonly Dictionary<string,long> _rpcNonces=[];
     private int _rpcRequests;
@@ -78,8 +80,10 @@ internal sealed partial class Tab5Service
                         _imageUploadDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} transport={transport}; status={result.Status}; received={image?.Received??0}/{image?.Bytes.Length??0}; elapsed={ (image is null?0:Environment.TickCount64-image.Started)}ms";
                     }
                 }
+#if LOCAL_ART
                 else if(Text(root,"kind")=="gallery")result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
                     ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply);
+#endif
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
                 else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy
                     ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token);

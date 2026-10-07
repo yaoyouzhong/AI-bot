@@ -6,9 +6,9 @@
 
 | 组件 | 当前版本 | 版本文件 | 后续组件标签 |
 | --- | --- | --- | --- |
-| Windows / macOS 桥接 | 0.5.0 | 根目录 `VERSION` | `bridge-v0.5.1` 等 |
+| Windows / macOS 桥接 | 0.5.1（候选） | 根目录 `VERSION` | `bridge-v0.5.1` 等 |
 | ESP8266 固件 | 0.5.0 | `firmware/VERSION` | `esp8266-v0.5.1` 等 |
-| TAB5 固件 | 0.2.89-ui | `versions/TAB5` | `tab5-v0.2.90-ui` 等 |
+| TAB5 固件 | 0.2.133-ui（公开候选） | `versions/TAB5` | `tab5-v0.2.133-ui` 等 |
 
 表中未来标签仅为格式示例，不代表已经发布或当前版本已经增加。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
 

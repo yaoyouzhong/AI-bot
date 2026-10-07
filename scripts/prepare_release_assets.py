@@ -11,7 +11,7 @@ from component_versions import versions as declared_versions
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def prepare(directory: Path, version: str, commit: str, *, component="bundle", versions=None):
+def prepare(directory: Path, version: str, commit: str, *, component="bundle", versions=None, tab5_source=None):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Expected full source commit SHA")
     current = versions or {"bridge": version, "esp8266": version, "tab5": version}
@@ -34,14 +34,14 @@ def prepare(directory: Path, version: str, commit: str, *, component="bundle", v
         checksum = (directory / (name + ".sha256")).read_text(encoding="ascii").strip()
         if checksum != f"{actual}  {name}":
             raise ValueError(f"Archive checksum mismatch: {name}")
-    if component == "tab5":
-        validate_tab5(directory, tab)
+    source_record = validate_tab5(directory, tab, source=tab5_source) if component == "tab5" else None
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copyfile(ROOT / name, directory / name)
     (directory / "BUILD.json").write_text(json.dumps({
         "version": version, "component": component, "componentVersions": current, "sourceCommit": commit,
         "packageHashes": {name: hashlib.sha256((directory / name).read_bytes()).hexdigest() for name in archives},
-        "macOS": "arm64; ad-hoc signed; not notarized; interactive acceptance required",
+        "tab5Source": source_record,
+        "macOS": "arm64; ad-hoc signed; not notarized; interactive acceptance required" if component in ("bridge", "bundle") else "not included",
         "status": "candidate; publication requires separate acceptance"
     }, indent=2) + "\n", encoding="utf-8")
     lines = [f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}"
@@ -49,7 +49,7 @@ def prepare(directory: Path, version: str, commit: str, *, component="bundle", v
     (directory / "SHA256SUMS.txt").write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
-def validate_tab5(directory, version):
+def validate_tab5(directory, version, *, source=None):
     with zipfile.ZipFile(directory / f"TAB5-upgrade-{version}.zip") as upgrade:
         image = upgrade.read("aibot_tab5.bin")
         notes = json.loads(upgrade.read("aibot_tab5.bin.notes.json"))
@@ -65,11 +65,13 @@ def validate_tab5(directory, version):
         app = next(s for s in record["segments"] if s["name"] == "application.bin")
         if app["sha256"] != sha or factory[app["offset"]:app["offset"]+app["size"]] != image:
             raise ValueError("TAB5 first-install and upgrade application differ")
-    source = ROOT / f"docs/development/TAB5-{version}-source.zip"
+    source = Path(source) if source else ROOT / f"docs/development/TAB5-{version}-source.zip"
     with zipfile.ZipFile(source) as snapshot:
         record = json.loads(snapshot.read("SOURCE-MANIFEST.json"))
         if record["version"] != version or record["applicationSha256"] != sha:
             raise ValueError("TAB5 public source snapshot does not match the application")
+    return {"file": source.name, "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "sourceCommit": record.get("sourceCommit")}
 
 
 def user_payload(directory, output, component):
@@ -103,10 +105,13 @@ if __name__ == "__main__":
     parser.add_argument("--commit", required=True)
     parser.add_argument("--component", choices=("bundle", "bridge", "esp8266", "tab5"), default="bundle")
     parser.add_argument("--publish-directory", type=Path)
+    parser.add_argument("--tab5-source", type=Path, help="Validated local source snapshot; defaults to the versioned repository archive")
     args = parser.parse_args()
     current = declared_versions(ROOT)
     version = current["bridge" if args.component == "bundle" else args.component]
-    prepare(args.directory, version, args.commit, component=args.component, versions=current)
+    if args.tab5_source and args.component != "tab5":
+        parser.error("--tab5-source requires --component tab5")
+    prepare(args.directory, version, args.commit, component=args.component, versions=current, tab5_source=args.tab5_source)
     if args.publish_directory:
         user_payload(args.directory, args.publish_directory, args.component)
     print("RELEASE_ASSETS_OK")

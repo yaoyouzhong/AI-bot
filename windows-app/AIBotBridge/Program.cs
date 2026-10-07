@@ -40,7 +40,9 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-device-registry"){DeviceRegistrySelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-quick-console"){AppPaths.BeginPublicSelfTest();Tab5QuickConsoleSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+#if LOCAL_ART
         if(args.Length==1&&args[0]=="--self-test-tab5-gallery"){AppPaths.BeginPublicSelfTest();Tab5GallerySelfTest.Run();return;}
+#endif
         if(args.Length==1&&args[0]=="--self-test-tab5-rpc"){AppPaths.BeginPublicSelfTest();Tab5RpcSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}

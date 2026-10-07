@@ -1,5 +1,7 @@
-# DailyArt resources
+# Local-only DailyArt resources
 
-本目录的 catalog、来源、选集及 `files.json` 随源码提交；3,804 张 JPEG 作为独立作品集发布，不写入 Git 历史。现有本地图片保持原位，程序仍从此目录读取。干净源码检出需先从匹配版本的图库包恢复图片，再执行全图库验证和资源打包。
+每日名画与每日书法仅供本地使用，不发布图库 ZIP，也不包含在公开安装包或公开源码快照中。3,804 张 JPEG 留在本地并排除于 Git；catalog、来源、选集及 `files.json` 记录本地素材身份。
 
-The catalog, provenance, selections and `files.json` are versioned with source. The 3,804 JPEGs are distributed as a separate artwork pack and remain in this directory at runtime. Restore the matching resource pack before full gallery validation or asset packaging from a clean checkout. Per-work licenses and attribution are retained in `catalog.json` and `provenance.json`; the project MIT license does not relicense museum images.
+本地完整桥接使用 `dotnet build windows-app/AIBotBridge/AIBotBridge.csproj -c Release -p:LocalArt=true`；公开构建默认关闭此功能。保留现有图库目录与运行中的本地完整桥接。不要用公开版覆盖需要艺术屏保的本地安装。
+
+Daily painting and calligraphy are local-only. Neither artwork ZIPs nor these resources are included in public packages/source snapshots. JPEGs stay local and outside Git; catalog/provenance/hash metadata records their identity. Local full builds opt in with `-p:LocalArt=true`; public builds disable the feature by default.
