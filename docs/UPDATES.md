@@ -4,7 +4,7 @@
 
 ## 日常使用
 
-1. 在 Windows AI-bot 中打开「软件与固件更新」。列表同时显示电脑软件和设备中心已添加的设备，分别列出当前版本、可用版本及操作状态。
+1. 在 Windows 托盘右键进入「设备中心 → 桥接设置 → 软件固件」，打开「软件与固件更新」。列表同时显示电脑软件和设备中心已添加的设备，分别列出当前版本、可用版本及操作状态。
 2. 点「检查更新」，选择要更新的一行，查看「所选更新说明」。未知设备版本需先连接，不能根据电脑端版本猜测设备版本。
 3. 点「下载并安装电脑端」或「下载并准备升级」。程序自动选对应包并核对 SHA-256。下载可以取消，校验失败不会进入安装。
 4. 电脑端确认后打开安装程序；ESP8266 进入已有的小屏刷机窗口，连接 USB 后先备份再写入；TAB5 在设备「设置 → 固件升级」确认安装，重启后在升级工具核验启动。电脑端、两种硬件的版本号无需一致，也无需一起升级。
@@ -21,6 +21,6 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 ## English
 
-This describes Windows 0.6.0; v0.5.0 users need to install the newer computer app first. macOS does not yet implement this entry point. Open Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
+This describes Windows 0.6.0; v0.5.0 users need to install the newer computer app first. macOS does not yet implement this entry point. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
 
 Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and are deduplicated per device/version. Background checks never download or install. Failed queries retain the last successful in-memory catalog with an error. Unknown or changed device versions block upgrades. Local and public builds share the same features. Import optional artwork ZIPs through Artwork Collections; app upgrades preserve the user-data collection directory. Manual checking remains available when reminders are disabled. An accepted download does not prove installation, verified boot or physical display behavior.

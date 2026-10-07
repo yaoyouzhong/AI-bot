@@ -1,6 +1,6 @@
 # 国产模型额度设置
 
-> 本页入口按 v0.5.0 更新。适用于 Windows 桥接 App；设备的缓存提示需要更新固件。
+> 本页入口按 Windows 0.6.0 更新。适用于 Windows 桥接 App；设备的缓存提示需要更新固件。
 
 ## 在哪里配置
 
@@ -19,9 +19,9 @@ API Key/本地服务令牌只保存在 Windows 凭据管理器。输入框为密
 
 ## 刷新与故障提醒
 
-- 已选中且已配置的官方接口每两分钟尝试查询；已选中且成功授权过的网页按厂商轮询，避免同时切换同一个浏览器。托盘“刷新”会查询已配置的 API，并刷新当前选中的网页厂商。
+- 已选中且已配置的官方接口每两分钟尝试查询；已选中且成功授权过的网页按厂商轮询，避免同时切换同一个浏览器。在账号窗口按需保存并测试配置，在“桥接设置 → 服务状态”查看最近成功更新时间。
 - 网络失败、401/403、限流、无法识别的响应不会覆盖上次成功数据。限流按五分钟退避，网页超时约一分钟后报告。
-- 网页跳转登录页、相关接口拒绝授权、浏览器进程中断、超时都会进入统一故障状态。只有当前轮播选中的国产页面，或当前指定的单个国产页面，并且已成功授权取数或配置了 API 凭据，才自动检查和弹窗提醒；其他厂商不弹提醒。
+- 网页跳转登录页、相关接口拒绝授权、浏览器进程中断、超时都会进入统一故障状态。自动检查和提醒依据已启用设备的数据需求，以及该厂商是否已授权或配置 API；ESP8266 还合并其已选额度页面。TAB5 的数据设置独立参与，不要求当前停在额度页。未启用需求的厂商不自动检查或提醒。
 - 同一次故障只提醒一次，成功后解除；再次失效可重新提醒。多个厂商同时失败时，通知间隔至少 30 秒，避免相互覆盖。Windows 通知设置可能阻止气泡显示，但界面仍保留缓存提示。
 - Windows 镜像将旧数据标为“缓存数据 · 等待更新”，并显示上次更新时间；设备显示 `CACHED - CHECK APP`。余额保留，不冒充实时值。
 - 通常超过六分钟没有新数据会提示；选中多个网页厂商时，超时门槛会覆盖完整轮询周期，避免轮询尚未轮到就误报。官方余额 API 不返回累计消费，因此不会把旧的 USED 金额与新的余额拼在一起。
@@ -42,12 +42,12 @@ API Key/本地服务令牌只保存在 Windows 凭据管理器。输入框为密
 
 ## English
 
-Windows: open **Model quotas → Domestic quota settings**, select a provider, then save and test its credential. DeepSeek uses its official total-balance endpoint; MiniMax uses the China Token Plan endpoint. Kimi Code optionally uses the documented local `kimi web` usage API with its server bearer token and port, not a Moonshot wallet key. Ali Token Plan and Zhipu account balance retain authenticated browser collection because no matching documented public endpoint has been confirmed.
+Windows: open **Device Center → Account Data → Model Accounts**, select a provider, then save and test its credential. DeepSeek uses its official total-balance endpoint; MiniMax uses the China Token Plan endpoint. Kimi Code optionally uses the documented local `kimi web` usage API with its server bearer token and port, not a Moonshot wallet key. Ali Token Plan and Zhipu account balance retain authenticated browser collection because no matching documented public endpoint has been confirmed.
 
-Credentials stay in Windows Credential Manager. Selected, configured APIs take priority every two minutes; failed APIs never silently switch accounts through the browser. Browser fallback reports login redirects, authorization denial, process failure and timeout. Last-good data is retained and marked stale; notifications are deduplicated until recovery. The tray refresh command uses the same selected-and-configured provider scope. Unconfigured or unselected catalog entries do not trigger automatic checks or tray warnings. Real-account integration and deployed/hardware acceptance remain separate from simulated tests. Included in the v0.2.0 pre-release.
+Credentials stay in Windows Credential Manager. Selected, configured APIs take priority every two minutes; failed APIs never silently switch accounts through the browser. Browser fallback reports login redirects, authorization denial, process failure and timeout. Last-good data is retained and marked stale; notifications are deduplicated until recovery. Inspect recent successful updates in Bridge Settings → Service Status. Automatic checks use enabled devices’ selected quota providers, also merging the ESP8266 quota-page selection; TAB5 does not need to remain on its quota page. Unconfigured providers or providers outside that demand do not trigger automatic checks or tray warnings. Real-account integration and deployed/hardware acceptance remain separate from simulated tests. These adapters were introduced in the earlier v0.2.0 pre-release and remain part of 0.6.0.
 
 
-## 新增厂商接入进度（v0.2.0 测试版）
+## 厂商接入边界（初始实现于 v0.2.0）
 
 只有模型专属额度进入显示；腾讯云、华为云、百度智能云、火山引擎的云账号总余额不接入。
 
@@ -57,7 +57,7 @@ Credentials stay in Windows Credential Manager. Selected, configured APIs take p
 
 依据：[阶跃账户信息](https://platform.stepfun.com/docs/zh/api-reference/accounts/get)、[百度千帆指定量包查询](https://cloud.baidu.com/doc/qianfan/s/3mh4sv4ve)、[百度 BCE 签名规范](https://cloud.baidu.com/doc/Reference/s/njwvz1yfu)、[MiMo Token Plan 官方说明](https://mimo.mi.com/docs/zh-CN/quick-start/faq/token-plan)。核查日期：2026-09-16。
 
-Windows 与 ESP8266 新增阶跃余额/千帆量包显示页；旧固件需要更新才能显示。未执行刷机；构建不代表真机验收。macOS 仅同步可选协议字段与模式名称，未实现这两家的原生查询入口。
+Windows 与 ESP8266 新增阶跃余额/千帆量包显示页；旧固件需要更新才能显示。上述适配的初始构建不代表真实账号或逐项设备验收；当前发布状态见[发布说明](RELEASE-0.6.0.md)。macOS 仅同步可选协议字段与模式名称，未实现这两家的原生查询入口。
 
 ### Additional providers (v0.2.0 pre-release)
 

@@ -1,4 +1,18 @@
-# TAB5 接入（开发中） / TAB5 integration (in development)
+# TAB5 接入与开发记录 / Integration and development history
+
+当前公开版本为 **Windows 0.6.0 + TAB5 0.2.145-ui**。日常操作从托盘 **设备中心 → 我的设备 → TAB5** 进入；连接、配对与升级在“连接升级”。macOS 尚未提供 TAB5 接入。
+
+- [首次安装、USB 配对与后续升级](INSTALL.zh.md#tab5-first)
+- [当前功能与屏保](FEATURES.zh.md) · [Codex 直达使用方法](TAB5-QUICK-CONSOLE.md)
+- [软件与固件更新](UPDATES.md) · [可选名画／书法图库](GALLERY-PACKS.md)
+- [.145 真机验收](TAB5-ACCEPTANCE-145.md) · [当前源码与构建快照](development/TAB5-SOURCE.md)
+
+以下保留早期协议、候选和本机验收记录。**其中的版本、旧菜单、未发布状态和验收限制属于记录当时，不是当前安装说明。** 当前发布以以上入口及对应版本验收为准。
+
+Current public pairing: Windows 0.6.0 and TAB5 0.2.145-ui. Use Device Center → My Devices → TAB5 → Connection/Upgrade. The links above cover current installation, features, updates, source and acceptance. macOS does not support TAB5. The archived protocol and candidate notes below describe their original dates, not current menu paths or release status.
+
+<details>
+<summary>历史协议与验收记录 / Historical protocol and acceptance notes</summary>
 
 ## 0.2.53-ui 设置与阅读位置候选 / Settings and reading candidate
 
@@ -200,3 +214,5 @@ is changed by this capture. See CRASH-080.md for evidence and hardware limits.
 
 新增字段只补充数字故障现场。原始任务位置属于候选线索，不能视为已展开调用栈。
 桥接自动回收上次 panic；诊断版未被标记为崩溃修复。
+
+</details>

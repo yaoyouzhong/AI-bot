@@ -1,5 +1,26 @@
 # TAB5 Codex 直达 / Codex Direct
 
+适用于 Windows AI-bot 0.6.0 与 TAB5 0.2.145-ui。[返回功能图鉴](FEATURES.zh.md) · [安装与配对](INSTALL.zh.md)
+
+## 怎么使用
+
+1. 保持电脑端 AI-bot 和 Codex 运行，并让 TAB5 与桥接连接；需要语音时先在电脑端“设备中心 → TAB5 → 语音设置”完成配置。
+2. 点击 TAB5 右下角 Codex 直达入口，查看最近五个会话，通过前后切换选择目标并打开。
+3. 点击豆包语音按钮开始录音，完成后停止；识别文字进入所选电脑会话的草稿，不会自动发送。
+4. 检查草稿，可继续语音补充；确认后再点击蓝色箭头发送。需要放弃本轮录音时取消，需要清空已确认草稿时长按“清空”。
+5. 失败时按当前提示处理；草稿或目标不确定时不会自动改投其他会话。普通点击清空按钮不会执行清空。
+
+![当前 Codex 直达界面，演示数据](assets/screens/tab5-quick.png)
+
+单次录音最长 60 秒。语音、草稿写入与发送是三个阶段；录音期间保持目标与相关输入法状态稳定。日常功能的验收不等于主动失焦、异常断线和每种通道都完成专项覆盖。
+
+## English quick guide
+
+Keep the Windows bridge, Codex and TAB5 connected. Configure speech in Device Center → TAB5 → Voice Settings. Open Codex Direct from TAB5's bottom-right entry, select one of five recent sessions, dictate and stop, then review the desktop draft before explicitly sending. Continue dictation to append, cancel the current recording, or hold Clear when available. Recordings are limited to 60 seconds. Failure does not silently retarget another session or automatically resend.
+
+<details>
+<summary>验收范围与历史实现记录 / Acceptance and implementation history</summary>
+
 ## 当前验收状态 / Current acceptance
 
 2026-10-07 发布收尾：标准版 `.145` 已完成精确镜像启动核验；配套 Windows 0.6.0。Codex 直达的既有会话、语音草稿及显式发送验收保持有效，本次普通界面连续输入、两类艺术屏保与四方向、自动屏保验收通过，无蓝闪或持续等待图片。完整公开功能见 [0.6.0 三组件发布说明](RELEASE-0.6.0.md)。下文为历史过程，不应把旧版本的“待验”理解为当前发布状态；主动失焦、异常断线与逐通道专项仍按原证据范围处理。
@@ -115,3 +136,5 @@ An isolated real-IME probe bypassed the bridge focus-loss state machine and fed 
 桥接仅在本次拥有的豆包录音仍活动、未请求停止时尝试恢复原语音草稿焦点；恢复成功保留同一 voiceId、音频顺序和已有文字，不发送重新开始指令。`focusRestores` 记录成功次数。原生状态未知或已经停止时不自动重开录音，因此不能保证输入法自行结束后的无缝继续。
 
 用户录音期间只运行 `--self-test-tab5-voice-core`（无窗口、模拟音频/输入法）；`--self-test-tab5-voice` 包含激活测试窗口的 UI 验证，不能在用户录音期间调用。内部通过不代表真机连续录音通过。
+
+</details>

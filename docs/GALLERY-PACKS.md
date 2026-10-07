@@ -9,7 +9,7 @@
 
 书法包较大主要因为分页：411 件作品共有 1,500 页，而名画 402 件共 402 页。每页各有横、竖两种排版，因此书法有 3,000 张图片，名画有 804 张；单图平均大小相近。册页、长卷保留为同一作品，不把分页计作额外作品。
 
-1. 电脑端打开“软件与固件更新 → 屏保图库 → 下载图库”，在 TAB5 发布页选择喜欢的图库 ZIP。
+1. 电脑端打开“设备中心 → 桥接设置 → 软件固件”，再点“屏保图库 → 下载图库”，在 TAB5 发布页选择喜欢的图库 ZIP。
 2. 下载后点“导入图库 ZIP…”，直接选择 ZIP，无需手动解压或放进程序目录。程序验证每个文件、图片和目录；失败或取消时保留旧图库。
 3. 在 TAB5“设置 → 屏幕与声音”选择“每日名画”或“每日书法”，点击预览。自动屏保也使用同一图库。首次图片同步需要保持电脑和桥接运行。
 
@@ -21,7 +21,7 @@
 
 ## English
 
-Requires Windows AI-bot 0.6.0+ and TAB5 0.2.145-ui+. Open Software and Firmware Updates → Artwork Collections, download a painting or calligraphy ZIP from the TAB5 release, and import the ZIP without extracting it. Select the corresponding screensaver on TAB5. Keep the computer and bridge running for initial synchronization.
+Requires Windows AI-bot 0.6.0+ and TAB5 0.2.145-ui+. Open Device Center → Bridge Settings → Software/Firmware → Artwork Collections, download a painting or calligraphy ZIP from the TAB5 release, and import the ZIP without extracting it. Select the corresponding screensaver on TAB5. Keep the computer and bridge running for initial synchronization.
 
 Both collections are optional; missing packs do not affect other features. Imports validate paths, hashes, catalogs and JPEG dimensions before replacing a collection. Failed/cancelled imports retain the old collection. Data lives in the Windows user-data directory and survives application upgrades; replaced collections are retained as backups. Existing app-folder galleries remain supported, with imported category packs taking priority.
 

@@ -1,12 +1,14 @@
 # Data sources and privacy
 
+Applies to the current Windows 0.6.0 implementation unless a section names macOS. Configure shared sources under **Device Center → Account Data** and select each device's requirements under **My Devices → Data Settings**. Feature-specific flows such as [Codex Direct](TAB5-QUICK-CONSOLE.md) and [artwork imports](GALLERY-PACKS.md) have separate guides.
+
 ## Weather
 
-AI-bot uses the Open-Meteo forecast, air-quality, and optional geocoding APIs. The bridge sends the configured coordinate, or the configured city when coordinates are absent. Weather data are provided under CC BY 4.0 and must retain attribution to [Open-Meteo](https://open-meteo.com/).
+Windows uses QWeather when its assigned API host and key are configured, with Open-Meteo fallback. Otherwise it uses Open-Meteo forecast, air-quality and geocoding services. The bridge sends the configured city or coordinate; optional automatic location uses Windows location services. QWeather keys stay in Windows Credential Manager and are sent to the configured `qweatherapi.com` host. Open-Meteo data retain attribution to [Open-Meteo](https://open-meteo.com/).
 
-The bridge requests only current temperature, humidity, WMO weather code, daily high/low, US AQI, and PM2.5. A successful response is cached under `%APPDATA%\AI-bot`; a failed refresh keeps the prior snapshot and marks it stale.
+Current Windows weather includes conditions, temperature/range, humidity, pressure, available air-quality fields and hourly/daily forecasts. Fields and AQI standards depend on the provider; absent values remain unavailable. A successful response is cached in `%APPDATA%\AI-bot\weather-provider-cache.json`; failed refreshes preserve the last successful snapshot and mark it stale.
 
-The macOS source uses the same Open-Meteo fields and stores only non-secret preferences and last-successful display data in the app's `UserDefaults` domain. This path remains platform-unverified until it is built and exercised on macOS 13 or later.
+macOS has its own Open-Meteo implementation and stores non-secret preferences and last-successful display data in `UserDefaults`; do not assume it implements every Windows weather field or setting. CI tests/builds do not establish live-location or provider acceptance on a real Mac.
 
 ## Stocks
 
@@ -14,7 +16,7 @@ AI-bot currently reads quote responses from `qt.gtimg.cn` for configured `sh`, `
 
 The configured symbol list is sent to that quote endpoint. A successful response is cached under `%APPDATA%\AI-bot`; a failed refresh keeps the prior snapshot and marks it stale.
 
-The macOS source uses the same quote endpoint and stores only the configured symbols and last-successful display snapshot in `UserDefaults`. Its GB18030 decoding and live refresh still require a real macOS build and network test.
+The macOS source uses the same quote endpoint and stores the configured symbols and last-successful display snapshot in `UserDefaults`. Current CI tests/builds do not establish live refresh or physical-display acceptance.
 
 ## Claude and Codex account quotas
 
@@ -25,7 +27,7 @@ The bridge reads the existing local CLI sign-in files only when requesting accou
 
 Access tokens are held in memory for the request. They are not copied to AI-bot settings, status JSON, serial frames, logs, or caches. `%APPDATA%\AI-bot\usage-cache.json` contains only display data such as plan, utilization percentages, reset times, reset-credit counts, update time, and stale state. A failed request preserves the last successful snapshot. The current implementation does not refresh expired CLI credentials; the corresponding CLI must refresh its own sign-in first.
 
-The macOS source follows the same credential-file, destination-host, no-log, and display-only-cache boundaries. It refreshes every two minutes while running and stores its display-only cache in the app's `UserDefaults` domain. This code remains platform- and live-account-unverified until built and exercised on macOS.
+The macOS source follows the same credential-file, destination-host, no-log, and display-only-cache boundaries. It refreshes every two minutes while running and stores its display-only cache in `UserDefaults`. CI builds do not establish real-account acceptance.
 
 ## Music on macOS
 
@@ -37,11 +39,11 @@ The generated app bundle contains an `NSAppleEventsUsageDescription` and the Aut
 
 ## Domestic-provider quotas
 
-AI-bot has normalized parsers and last-successful cache fields for Alibaba Bailian Token Plan, Kimi Coding Plan, MiniMax Token Plan, and DeepSeek balance/cost responses. The Windows tray's `国产额度授权…` command opens each provider in an isolated WebView2 profile at `%APPDATA%\AI-bot\quota-auth-profile`. The browser observes JSON responses only from an explicit exact-host allow-list (`bailian.console.aliyun.com`, `www.kimi.com`, `platform.minimaxi.com`, `www.minimaxi.com`, and `platform.deepseek.com`) and passes candidate bodies to the selected provider parser. Unrelated JSON and unrecognized schemas are ignored; response bodies, cookies, and tokens are never logged or written to the display cache.
+Windows **Device Center → Account Data → Model Accounts** opens the provider configuration. DeepSeek balance, MiniMax Token Plan and Kimi's local usage service have credential-backed API paths. Ali Token Plan, Zhipu balance and other supported browser adapters use an isolated WebView2 profile at `%APPDATA%\AI-bot\quota-auth-profile`. Browser capture filters responses according to the selected provider and its endpoint rules before parsing display fields; it is not a general network-history export. Provider-specific support and unverified adapters are listed in [the setup guide](DOMESTIC_QUOTA_SETUP.md).
 
-MiniMax also has an automatic request path: it calls `https://www.minimaxi.com/v1/token_plan/remains` when the bridge process has one of `MINIMAX_SUBSCRIPTION_KEY`, `MINIMAX_TOKEN_PLAN_KEY`, or `MINIMAX_API_KEY`. The key is read from process environment, held in memory, and sent only to `www.minimaxi.com`. It is not copied to settings, status, serial, logs, or `%APPDATA%\AI-bot\domestic-quota-cache.json`.
+Keys saved through the Windows form reside in Windows Credential Manager. MiniMax checks its saved credential first, then the compatibility environment variables `MINIMAX_SUBSCRIPTION_KEY`, `MINIMAX_TOKEN_PLAN_KEY`, and `MINIMAX_API_KEY`; its endpoint is `https://www.minimaxi.com/v1/token_plan/remains`. Kimi's local-service token goes to the configured loopback service. The configured credentials are not stored in ordinary settings, device status frames or display caches.
 
-`domestic-quota-cache.json` stores only normalized display fields: provider/plan names, percentages, reset times, balance/cost/currency, update time, and stale state. The isolated WebView2 profile necessarily persists the providers' own cookies and browser storage, so it must not be committed, copied into release archives, or treated as a shareable cache. Parser and build tests are not evidence that a real account login still matches a provider's current response schema.
+The current Windows display cache is `domestic-provider-cache.json`; older `domestic-quota-cache.json` data may be read for compatibility. These caches hold normalized provider/plan names, percentages, reset times, balance/cost/currency and timestamps. Failed requests retain prior successful values. The WebView2 profile persists provider cookies and browser storage, so it must not be committed, copied into releases or treated as a shareable cache. Parser/build tests are not evidence that a real account still matches a provider's current response schema.
 
 ## Legacy settings compatibility
 

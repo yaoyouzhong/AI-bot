@@ -1,8 +1,8 @@
 # Codex 额度趋势
 
-Windows 左键镜像窗口底部“额度趋势”打开独立、可缩放的历史窗口，保留原 Claude/Codex、双额度页的显示和设备模式。TAB5 接收近七日摘要，原 ESP8266 协议保持不变。
+Windows 小屏镜像窗口底部“额度趋势”打开独立、可缩放的历史窗口，保留原 Claude/Codex、双额度页的显示和设备模式。TAB5 接收近七日摘要，原 ESP8266 协议保持不变。
 
-入口为镜像底部独立整行“Codex 额度趋势”，不与 USB 状态并排挤占空间；右键“模型额度 → Codex 额度趋势…”也打开同一个窗口。
+入口为镜像底部独立整行“Codex 额度趋势”，不与 USB 状态并排挤占空间；设备中心“账号数据 → 额度历史”也打开同一个窗口。
 Windows 正常启动时会检查 Codex MSIX 私有缓存中的既有 `.apet` 导入，只恢复当前配置目录缺失且通过解码验证的动画，不覆盖当前选择、不删除原文件，不复制凭据或其他缓存。公开自测不访问此私有来源。
 
 - 驻留桥接启动即采集，随后每分钟采集一次，不依赖当前显示页面。额度响应成功后立即保存；独立的重置卡请求超时、失败或格式异常不会丢掉有效额度记录。
@@ -20,7 +20,7 @@ Windows 正常启动时会检查 Codex MSIX 私有缓存中的既有 `.apet` 导
 
 ## English
 
-The mirror's quota-trend button opens a separate resizable Windows history window.
+Device Center → Account Data → Quota History, or the mirror's quota-trend button, opens a separate resizable Windows history window.
 The minimal layout keeps filters, recording times, chart/details, and one short
 scope note; no today headline or calculation-help button. Dates before
 recording began are omitted, while missing dates inside the period remain unknown.

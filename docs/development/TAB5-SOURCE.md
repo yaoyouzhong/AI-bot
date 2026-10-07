@@ -1,5 +1,29 @@
 # TAB5 开发者源码 / Developer source
 
+普通用户按[图文指南](../INSTALL.zh.md)选择首刷或升级包，无需源码。
+
+## 当前版本：0.2.145-ui
+
+下载 [TAB5 0.2.145-ui 源码与构建快照](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-0.2.145-ui-source.zip)，校验同一发布页的 [SHA256SUMS.txt](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt)。
+
+| 身份 | 值 |
+| --- | --- |
+| 源码提交 | `02df4f2dbcb1c8535af7f5ffd518ae39f52844c1` |
+| 对应应用 SHA-256 | `a9d98a8f9a9be26c32a7b426cd6c23ac819c11fb17add4ff8a02efd1e5e758b4` |
+| 源码 ZIP SHA-256 | `835615e5e28f486911596e3536a05b8c4606208ccf5f62fc6ef9d5a539e0ef95` |
+| ESP-IDF | 5.4.2，commit `f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0` |
+
+以包内 `SOURCE-MANIFEST.json`、`source/README.md`、`dependencies.lock`、实际 `sdkconfig` 和 SDK 差异记录为准。准备相应官方 ESP-IDF 环境后按工程说明构建 `source/firmware/`。源码快照不是刷机文件；依赖锁定不等于已在独立环境复现逐字节相同的 BIN，清单明确记录 `reproducibleBinaryVerified: false`。
+
+自有源码 MIT，组件、字体与词库保留原许可。图库支持包含在固件中，艺术图像另行下载；许可和镜像验收分别见[许可范围](../TAB5-LICENSE-SCOPE.md)与[.145 验收](../TAB5-ACCEPTANCE-145.md)。
+
+The current developer archive is 0.2.145-ui and matches the source/application identities above. Check the release checksum, then follow the included manifest, README, dependency lock, sdkconfig and SDK patch with ESP-IDF 5.4.2. It is not a flashing package; byte-identical independent reproduction remains unverified. Own code is MIT, third-party terms remain intact, and artwork collections are separate.
+
+<details>
+<summary>历史 0.2.89-ui 快照 / Historical snapshot</summary>
+
+### 0.2.89-ui 历史资料
+
 普通用户按[图文指南](../INSTALL.zh.md)下载首刷或升级包，无需本页源码。
 
 开发者下载：[TAB5 0.2.89-ui 源码与构建快照](TAB5-0.2.89-ui-source.zip)。精确哈希登记在 [`licenses/materials.json`](../../licenses/materials.json)，ZIP 内另有各文件 SHA-256。
@@ -20,3 +44,5 @@
 ## English
 
 The developer archive preserves 608 tracked TAB5 files byte-for-byte from the previously published materials package, original licenses, dependency locks, actual sdkconfig and SDK patch; no other project's Git history is imported. Own code is MIT licensed and third-party terms remain intact. Source/application commits are recorded above and in `SOURCE-MANIFEST.json`. Install the matching official ESP-IDF 5.4.2 environment, check its recorded commit and patch, and follow `source/README.md`. Locked dependencies are fetched from their original official sources. Downloaded dependency trees, compilers, caches and binaries are omitted; independently reproducible binaries are not claimed. End users should use factory-install or upgrade packages instead.
+
+</details>

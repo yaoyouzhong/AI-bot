@@ -37,14 +37,14 @@ python scripts/package_esp8266_local.py artifacts/esp8266-package
 标签检查按组件路由：
 
 ```powershell
-python scripts/check_version.py --tag bridge-v0.5.0
+python scripts/check_version.py --tag bridge-v0.6.0
 python scripts/check_version.py --tag esp8266-v0.5.0
-python scripts/check_version.py --tag tab5-v0.2.89-ui
+python scripts/check_version.py --tag tab5-v0.2.145-ui
 ```
 
 上述命令只检查格式与本地声明，不创建标签。历史 `vX.Y.Z` 保留为桥接主导的组合版本，包内各组件仍用独立版本。`extract_release_notes.py` 从对应组件的中英文日志选取说明；未完成的日志继续阻止正式打标签。
 
-`prepare_release_assets.py --component bridge|esp8266|tab5` 分别验证对应包，不要求另一组件同时交付。`--publish-directory` 从验收目录生成最少用户附件和一份校验清单：桥接为 Windows 安装器、Mac ZIP、清单；ESP8266 为固件材料 ZIP、清单；TAB5 为首刷 ZIP、升级 ZIP、清单。源码和构建记录保留在验收资料或仓库开发入口。
+`prepare_release_assets.py --component bridge|esp8266|tab5` 分别验证对应包，不要求另一组件同时交付。`--publish-directory` 从验收目录生成最少用户附件和一份校验清单：桥接为 Windows 安装器、Mac ZIP、清单；ESP8266 为固件材料 ZIP、清单；TAB5 为首刷 ZIP、升级 ZIP、清单。源码和构建记录保留在验收资料或仓库开发入口；当前 TAB5 .145 正式发布另附对应源码 ZIP 和两份可选图库 ZIP。
 
 TAB5 验证同时检查镜像内版本、说明 sidecar、首刷与升级应用字节及对应公开源码快照，不能只改文件名作为新固件。
 

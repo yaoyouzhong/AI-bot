@@ -1,129 +1,36 @@
 # Feature and development reference
 
-Start with the illustrated [installation](INSTALL.zh.md), [flashing](FLASH.zh.md) and [feature gallery](FEATURES.zh.md) guides (Chinese). Built-in BYTE SPROUT needs no import; existing custom selections retain priority.
+Current releases: computer apps **0.6.0**, ESP8266 **0.5.0**, TAB5 **0.2.145-ui**. Components have independent versions. [Home](../README.en.md) · [简体中文](REFERENCE.zh.md)
 
-Run commands from the repository root. See the [project homepage](../README.en.md) for current platform status and quick-start links.
+## Using AI-bot
 
-See [release readiness](RELEASE_READINESS.md). Windows and firmware have been
-deployed on the maintainer's device with partial acceptance; this is not full
-product validation. Dated migration notes are historical evidence, not current
-deployment or release status.
+| Purpose | Current guide |
+| --- | --- |
+| Downloads, first installation, pairing and upgrades | [Installation](INSTALL.zh.md) |
+| Current menus, pages and features | [Feature gallery](FEATURES.zh.md) |
+| Update notices and matching packages | [Software and firmware updates](UPDATES.md) |
+| Painting and calligraphy installation | [Optional collections](GALLERY-PACKS.md) |
+| Changes and acceptance boundaries | [Component release notes](RELEASE-0.6.0.md) · [TAB5 .145 acceptance](TAB5-ACCEPTANCE-145.md) |
 
-AI-bot is a local-first AI status clock. The target product includes Claude and Codex activity and account quotas, domestic-provider quotas, weather, stocks, system metrics, now playing, desktop pets, a screen saver, USB-first transport with Wi-Fi fallback, a Windows tray bridge, and a macOS menu-bar bridge.
+Windows supports ESP8266 and TAB5. macOS 13+ on Apple Silicon provides its own menu-bar, mirror and ESP8266 implementation; it does not include the Windows TAB5 services, unified update UI or artwork imports. Intel Macs are unverified. Mac test/build results are separate from GUI and hardware acceptance.
 
-Version `0.1.0` is an independent development baseline. The main Windows and firmware paths have been rebuilt, but live-account, physical-device, and macOS validation are still incomplete. The full feature set is mandatory rather than optional; current evidence for every capability is tracked in the [functional parity contract](FUNCTIONAL_PARITY.md). Do not treat `0.1.0` as a functional replacement for the earlier product until that matrix reaches its required validation levels.
+## Source and builds
 
-## Features
+| Component | Reference |
+| --- | --- |
+| `windows-app/AIBotBridge/` | .NET 8 Windows tray application; [build and packaging](BUILD_WINDOWS.zh.md) |
+| `mac-app/` | Independent Swift app; run `swift test --package-path mac-app` and `swift build -c release --package-path mac-app` on macOS |
+| `firmware/` | ESP8266 PlatformIO project; [build and flash](FLASH_BUILD.zh.md) |
+| TAB5 | Independent ESP-IDF [public source snapshot](development/TAB5-SOURCE.md) and [firmware workflow](TAB5-FIRMWARE-WORKFLOW.md) |
 
-- The Windows mirror's quota-trend button opens 7/30-day observed weekly-quota increments and separate five-hour snapshots, retained locally for 90 days. Polling runs every minute. Short cross-midnight increments belong to the later sample's Beijing date; verified same-day differences survive gaps. Partial values remain visible, missing days show `--`, and averages include only complete past days. See [semantics and limitations](QUOTA_TRENDS.md). Tokens are never converted to quota percentages and missing history is not fabricated.
+See [architecture](DEVELOPMENT.md), [data sources](DATA_SOURCES.md) and [protocol](PROTOCOL.md). USB uses 460800 baud; ESP8266 small messages use version-1 JSON prefixed with `@AIBOT `. TAB5 has a separate protocol service. Firmware and flashing routes are not interchangeable.
 
-- Migration code includes attention/completion acknowledgement, local Token accounting, automatic priority/wake behavior, Wi-Fi resource synchronization, and macOS gallery/mirror/persistent pets. The Apple Silicon Mac test build passed tests, compilation and packaging; device acceptance remains pending.
+The computer app's local read-only status endpoint defaults to `127.0.0.1:8765/status`; the TAB5 service defaults to port `18765`. LAN management requires pairing authentication. Local token metadata and provider account quotas are counted separately. See [quota-history semantics](QUOTA_TRENDS.md).
 
-- The Windows petdex gallery provides search, nine motion previews and Claude/Codex selection, supporting 8x9/8x11 sheets and the existing independent resource slots. Its layout follows the legacy picker; device display still needs hardware validation.
+## Releases and historical records
 
-- Windows supports separate Claude/Codex pet imports and restoration of locally imported defaults, with persistent selections and previous-selection backups. Legacy default pixels retain their original dimensions in private runtime caches, not public packages. Attention, completion pulses and acknowledgement are implemented but await device acceptance.
+[Component versioning](COMPONENT-VERSIONS.md) defines independent version sources, tags and changelogs. Main-branch pushes run CI; component tags enter candidate workflows, with verification and publication handled separately. An app update does not require both devices to update.
 
-- The screen saver follows the legacy large-clock dimensions: a 204×76 cyan seven-segment clock, yellow colon, calendar/weekday and slow movement. Other pages still require legacy visual alignment.
+[Release-readiness records](RELEASE_READINESS.md) and the [reimplementation parity contract](FUNCTIONAL_PARITY.md) retain historical evidence. They are not current installation instructions or release status. Use the releases and acceptance records linked above.
 
-- Derives `working`, `idle`, and `offline` states for Codex and Claude Code.
-- Exposes a read-only local endpoint at `127.0.0.1:8765/status`.
-- Uses USB serial at 460800 baud.
-- Implements ESP8266 handshake, rendering, and an eight-second offline state.
-- Adds token-authenticated Wi-Fi fallback, NTP/holdover time, and a `PC OFF` standalone clock.
-- Windows prefers QWeather with Open-Meteo fallback, retaining the legacy location/settings dialog and weather animations; A/H/US quotes retain last-successful caches.
-- Provides separate Claude/Codex, dual-quota and five domestic-provider quota/balance pages, configurable cycle order/pages and 10/15/30/60-second intervals. Stocks rotate four rows every five seconds.
-- Adds Claude/Codex quota parsing, last-successful caching, and a device quota page; live accounts and hardware remain unverified.
-- Shows individual Codex reset-credit expiry dates on quota/pet pages, two records per page rotating every four seconds; the dual page shows the total. Pet graphics and credit details occupy separate regions.
-- Uses large balance digits with a smaller baseline-aligned currency label, and caches the Windows adapter inventory for 30 seconds while excluding common virtual adapters.
-- Adds a normalized domestic-quota model, five response parsers (including Zhipu GLM available balance; see [authorization and limits](GLM_BALANCE.md)), isolated WebView2 sign-in capture, and a device summary; MiniMax also supports an environment-key request path.
-- Samples the Windows network graph every 250 ms with 224 points. Upload/download numbers update every two seconds using the last eight samples; CPU/memory numbers also update every two seconds. Small USB metric frames do not replace status heartbeats; LAN uses its normal polling cadence.
-- Reads Windows media-session title, artist, playback state, and progress; AUTO enters music while playing and resumes cycling after stop.
-- Includes the original geometric pixel pet `BYTE SPROUT`, which walks or idles with Claude/Codex activity and imports no legacy sprites.
-- Supports manual and idle-triggered screen saving, temporary AI/music event wake, and restoration after user input.
-- Implements COBS resource chunks, per-chunk and whole CRC32, ACK/retry, and validated LittleFS replacement.
-- Pre-renders a 232×44 CJK title/artist bitmap and 112×112 cover on track changes, transfers them reliably, and streams rows on-device.
-- Imports PNG/JPEG/BMP/GIF pets beside a license notice, retaining duration across at most eight sampled frames. Windows/macOS provide persistent role selections and default restoration; legacy defaults require explicit private local import and stay outside the repository.
-- Pre-renders CJK weather text and up to twenty stock names on Windows; the device reads the current page and falls back to symbols when assets are absent.
-- Restores the original robot icon, seven tray groups and left-click mirror, with reproducible offline rendering of 14 pages.
-- Retains the legacy domestic-quota authorization window, background refresh, rate-limit backoff and browser recovery in a new isolated profile; old display caches are adapted read-only.
-- Uses explicit main-task Codex completion events with no startup replay, duplicate or subagent alerts; retains the original synthesized completion sound.
-- Adds tray display controls and an idle-time-driven Windows screen saver.
-- Scans local session JSONL for lifecycle/model/time/Token metadata without displaying, persisting or uploading conversation text. Quota access tokens are read only from local CLI sign-in files and sent only to the matching provider domain; they never enter cache, status, serial, or logs.
-- Includes Windows and firmware CI plus tag-driven release scaffolding.
-
-Release gates still include end-to-end Wi-Fi fallback on a reachable network, real-Mac and hardware acceptance, and final-candidate stability, visual and installation checks. Partial account/USB checks on the maintainer's machine do not validate every provider or a fresh installation. Privately imported legacy pets and page logos are excluded from public packages; new users receive BYTE SPROUT. See [data sources and privacy](DATA_SOURCES.md) for outbound-data boundaries.
-
-## Layout
-
-```text
-windows-app/AIBotBridge/  Windows .NET 8 tray bridge
-mac-app/                  macOS menu-bar bridge (Apple Silicon test build, real-Mac acceptance pending)
-firmware/                 PlatformIO + Arduino ESP8266 firmware
-docs/                     Protocol and development documentation
-```
-
-## Windows
-
-See [Windows candidate packaging](WINDOWS_PACKAGE.md) for prerequisites, extraction, startup, upgrades and checksums. Developers can run `powershell -NoProfile -File scripts/package_windows_local.ps1` to build and verify an isolated ZIP without replacing the resident app or uploading it.
-
-Add `-Firmware` to also build firmware and produce [firmware materials](FIRMWARE_PACKAGE.md), including corresponding sources, third-party notices and rebuilding configuration. Both modes create a checked public-source ZIP with SHA-256 manifests. See [distribution terms](DISTRIBUTION_TERMS.md). The official Release workflow still requires separate integration and validation.
-
-Open `AIBotBridge.exe` from File Explorer for normal use. It is a GUI executable and does not create and dismiss a console on startup. For automation, use `dotnet AIBotBridge.dll --status-once` or `dotnet AIBotBridge.dll --self-test-public` to retain stdout and wait for the exit code; PowerShell returning immediately from a GUI EXE is not a passing test. Tool-launched processes may inherit tool lifetime management; launch the resident app through Explorer or a login startup entry explicitly enabled by the user.
-
-```powershell
-dotnet build windows-app\AIBotBridge\AIBotBridge.csproj -c Release
-dotnet run --project windows-app\AIBotBridge\AIBotBridge.csproj -- --status-once
-dotnet run --project windows-app\AIBotBridge\AIBotBridge.csproj
-```
-
-Release archives require the .NET 8 Desktop Runtime.
-
-Set `AIBOT_PORT` to constrain probing to one serial port.
-
-The local endpoint defaults to `127.0.0.1:8765`. Set `AIBOT_HTTP_PORT` when a test needs another port. A device-only listener also binds to the selected private LAN address, but it requires the random token provisioned over a USB handshake; unauthenticated requests receive 401.
-
-The tray's **Settings** command saves the weather city/coordinates, up to twenty stock symbols, automatic screen-saver delay, and a preferred serial port. Values are restricted to a non-secret allow-list in `%APPDATA%\AI-bot\settings.json` and take effect after restarting the bridge.
-
-## Firmware
-
-```powershell
-python -m platformio run -d firmware
-python -m platformio run -d firmware -t upload --upload-port COM7
-```
-
-Exit the Windows bridge before flashing so it releases the serial port. Do not unplug USB when it also supplies power. Keep the cable connected and select the Windows/macOS Wi-Fi fallback test menu: it pauses normal serial traffic for about 12 seconds, retains the LAN service, checks device counters and restores USB automatically. A failure on an isolated office network does not by itself indicate a USB defect.
-
-Windows/macOS device information and Wi-Fi reset now use USB without requiring an IP address, pairing token or Wi-Fi connectivity. Reset requires a separate user confirmation and is excluded from automatic tests. Windows also provides these commands (the first two require current firmware and hardware; exit the tray bridge first to release its serial and server ports):
-
-```powershell
-windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --test-usb-management
-windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --test-wifi-fallback
-windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.exe --self-test-usb-management
-```
-
-The USB management test covers status and device information, not every page or resource. The fallback test additionally requires provisioned Wi-Fi and reachability of the PC's LAN service. The synthetic self-test checks parsing and test orchestration without hardware. See [USB validation](USB_VALIDATION.md).
-
-## macOS
-
-The current Swift source includes a menu bar, Claude/Codex activity and account quotas, Open-Meteo weather, A/H/US stocks, CPU/memory/network metrics, Apple Music/Spotify metadata and progress, a localized music-text resource, last-successful caches, non-secret UserDefaults settings, a Keychain pairing token, authenticated LAN `/status`, `/dev/cu.*` discovery, a 460800-baud handshake, two-second status frames, USB provisioning for Wi-Fi fallback, menu controls for device pages and brightness, strict private-address discovery, USB device information, confirmed USB Wi-Fi reset, idle-time screen-saver entry/restoration, and 12-second AI/music event wake. Music access is disabled by default; enabling it from the menu may prompt for Automation permission, and the bridge queries only players that are already running. Validate it on macOS 13+:
-
-```bash
-swift test --package-path mac-app
-swift build -c release --package-path mac-app
-bash scripts/build_macos_app.sh
-```
-
-Music automation must be tested by launching the generated `artifacts/AIBotBridge.app`; the bare SwiftPM executable does not carry the Apple Events purpose string and Hardened Runtime entitlement. The script uses local ad-hoc signing for development validation, not a distribution identity.
-
-The current Windows host has no Swift toolchain. Mac source covers USB/LAN resources, weather/stocks/music, metrics, quotas, screen saver, device administration, activity events, local Tokens, gallery, mirror and persistent pets, with XCTest regression cases. Its 31 tests, Release compilation and Apple Silicon app packaging passed. Permissions, scripting fields, windows, restart caches, screen saver and serial still require real-Mac acceptance. It targets macOS 13+ as a test build; Intel is unverified, and Developer ID signing/notarization are not complete. Windows-only WebView2 domestic-provider authorization is not claimed as a Mac capability.
-
-## Privacy boundary
-
-The bridge scans local session JSONL and extracts only lifecycle events, model names, timestamps and Token usage, without displaying, persisting or uploading conversation text. Account quota requests read existing Claude/Codex CLI sign-in files; access tokens are used only with the matching official provider endpoint and are never written to AI-bot cache, status, serial, or logs. Domestic quota sign-in uses an isolated `%APPDATA%\AI-bot\quota-auth-profile` browser profile. Cookies remain in that WebView2 profile; the app parses display-only quota fields from explicitly allowed official-host responses and does not log response bodies, cookies, or tokens. The development endpoint binds only to loopback. The Wi-Fi fallback endpoint binds to the selected private adapter and requires a pairing token. Windows protects that token with the current user's DPAPI key; the device receives it only after a USB handshake. It is never stored in source, JSON settings, or logs.
-
-## License
-
-AI-bot source is available under the [MIT License](../LICENSE). Dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). See [PROVENANCE.md](../PROVENANCE.md) for origin details and the [asset policy](ASSET_POLICY.md) for runtime pet imports.
-# Parity acceptance status
-
-The latest [full parity audit](FULL_PARITY_AUDIT_2026-09-09.md) records 25 pixel-level Windows mirror comparisons and explicit remaining work. Matching mirrors do not certify the physical display, Wi-Fi fallback, or macOS. This is not a declaration that the stable legacy installation can be replaced.
+Own source is MIT licensed; third-party fonts, components and artworks retain their terms. [Provenance](../PROVENANCE.md) · [Distribution terms](DISTRIBUTION_TERMS.md) · [Third-party notices](../THIRD_PARTY_NOTICES.md)

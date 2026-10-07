@@ -1,4 +1,8 @@
-# Functional parity contract
+# Historical functional parity contract
+
+> 这是 2026-09 早期重实现阶段的合同与状态快照，不是当前发布功能表。当前 Windows 0.6.0、ESP8266 0.5.0、TAB5 0.2.145-ui 的功能与验证范围见[界面图鉴](FEATURES.zh.md)、[发布明细](RELEASE-0.6.0.md)及[验收记录](TAB5-ACCEPTANCE-145.md)。下文的“当前”“最新”均指原记录时点。
+>
+> This is an archived September 2026 reimplementation contract, not the current release matrix. “Current/latest” below refer to that historical snapshot. See the linked current guides and acceptance records.
 
 最新逐项证据及明确剩余项：[全功能对齐审计](FULL_PARITY_AUDIT_2026-09-09.md)。静态镜像对比不提升设备或平台验收等级。
 

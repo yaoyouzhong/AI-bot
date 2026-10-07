@@ -99,6 +99,7 @@ internal static class DocCapture
             var tab = DeviceRegistryStore.Create(HardwareKind.Tab5, "M5Stack TAB5", "001122334455");
             var esp = DeviceRegistryStore.Create(HardwareKind.Esp8266, "ESP8266 小屏", null);
             store.Add(tab); store.Add(esp);
+            CaptureTrayMenu(store.Snapshot);
             using (var center = new DeviceCenterForm(store, d => new DeviceView(true, "在线（演示）", "演示连接", d.Kind == HardwareKind.Tab5 ? "0.2.145-ui" : "0.5.0", "数据已确认（演示）", "待机（演示）", d.Kind == HardwareKind.Tab5 ? "已连接（演示）" : null, "USB"), (_, _) => {}, (_, _) => Task.CompletedTask, () => {}, _ => {}))
             {
                 center.ShowInTaskbar=false;center.StartPosition=FormStartPosition.Manual;center.Location=new(-32000,-32000);
@@ -167,11 +168,9 @@ internal static class DocCapture
         Capture(new CycleSettingsForm(), "cycle-settings");
         Capture(new QuotaTrendForm(), "quota-trend-empty");
         Capture(new MirrorForm(()=>status,()=>"codex"), "mirror-window");
-        using var menu = TrayMenu.Build(_=>{},_=>{},()=>"auto",()=>"USB 未连接（离线示例）",()=>status.Quotas);
-        menu.Show(new Point(-32000,-32000)); Application.DoEvents();
-        using (var bitmap = new Bitmap(menu.Width,menu.Height))
-        { menu.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size)); bitmap.Save(Path.Combine(output,"tray-menu.png")); }
-        menu.Close();
+        CaptureTrayMenu(new DeviceRegistry(1,true,false,false,[
+            DeviceRegistryStore.Create(HardwareKind.Esp8266,"ESP8266 小屏",null),
+            DeviceRegistryStore.Create(HardwareKind.Tab5,"M5Stack TAB5","001122334455")]));
         SaveDesignFrames(status, "pet", "pet");
         SaveDesignFrames(status with { Codex=new("working",0,NeedsInput:true), CapturedAt=DateTimeOffset.FromUnixTimeMilliseconds(800) }, "codex", "needs-input");
         SaveDesignFrames(status with { Codex=new("idle",0,CompletionActive:true) }, "codex", "completed");
@@ -189,6 +188,15 @@ internal static class DocCapture
             }
             PetAnimationStore.Shared.Select("claude", designAnimation);
             PetAnimationStore.Shared.Select("codex", designAnimation);
+        }
+        void CaptureTrayMenu(DeviceRegistry registry) {
+            // Use the same factory as TrayApplicationContext, not the retired TrayMenu.
+            using var menu = DeviceCenterMenu.Build(registry,(_,_)=>{},_=>{});
+            menu.Show(new Point(-32000,-32000)); Application.DoEvents();
+            using var bitmap = new Bitmap(menu.Width,menu.Height);
+            menu.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));
+            bitmap.Save(Path.Combine(output,"tray-menu.png"));
+            menu.Close();
         }
         void Save(Form form, string name) {
             using var bitmap = new Bitmap(form.Width,form.Height);
