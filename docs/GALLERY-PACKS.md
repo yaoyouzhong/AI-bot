@@ -7,6 +7,8 @@
 | 每日名画 | `AI-bot-DailyPainting-2026.10.07.zip` | 402 | 804 | 199 MiB |
 | 每日书法 | `AI-bot-DailyCalligraphy-2026.10.07.zip` | 411 | 3,000 | 726 MiB |
 
+书法包较大主要因为分页：411 件作品共有 1,500 页，而名画 402 件共 402 页。每页各有横、竖两种排版，因此书法有 3,000 张图片，名画有 804 张；单图平均大小相近。册页、长卷保留为同一作品，不把分页计作额外作品。
+
 1. 电脑端打开“软件与固件更新 → 屏保图库 → 下载图库”，在 TAB5 发布页选择喜欢的图库 ZIP。
 2. 下载后点“导入图库 ZIP…”，直接选择 ZIP，无需手动解压或放进程序目录。程序验证每个文件、图片和目录；失败或取消时保留旧图库。
 3. 在 TAB5“设置 → 屏幕与声音”选择“每日名画”或“每日书法”，点击预览。自动屏保也使用同一图库。首次图片同步需要保持电脑和桥接运行。
@@ -23,4 +25,4 @@ Requires Windows AI-bot 0.6.0+ and TAB5 0.2.145-ui+. Open Software and Firmware 
 
 Both collections are optional; missing packs do not affect other features. Imports validate paths, hashes, catalogs and JPEG dimensions before replacing a collection. Failed/cancelled imports retain the old collection. Data lives in the Windows user-data directory and survives application upgrades; replaced collections are retained as backups. Existing app-folder galleries remain supported, with imported category packs taking priority.
 
-Paintings: 402 works / 804 layout images / 199 MiB. Calligraphy: 411 works / 3,000 layout images / 726 MiB. Work counts exclude repeated pages and layouts. Each pack includes per-work attribution, museum, source, license and derivative records. Verified Chinese equivalents appear in captions; otherwise original collection titles remain. Project licensing does not replace image licensing. Download later collection versions manually and import them independently of firmware updates.
+Paintings: 402 works / 804 layout images / 199 MiB. Calligraphy: 411 works / 3,000 layout images / 726 MiB. The 411 calligraphy works contain 1,500 pages, versus 402 pages for painting. Both layouts are stored for every page, so page count is the main size difference; average image sizes are similar. Work counts exclude repeated pages and layouts. Each pack includes per-work attribution, museum, source, license and derivative records. Verified Chinese equivalents appear in captions; otherwise original collection titles remain. Project licensing does not replace image licensing. Download later collection versions manually and import them independently of firmware updates.

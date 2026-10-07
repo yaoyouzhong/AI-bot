@@ -1,52 +1,55 @@
 # 产品介绍视频 / Product introduction video
 
-[![AI-bot 96 秒产品介绍封面](assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
+[![AI-bot 126 秒新版产品介绍](assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
-https://github.com/user-attachments/assets/31393f58-edd9-4a50-a81f-0e8d0ff72a80
+[播放或下载新版 MP4（126 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图、作品与素材来源](SCREENSHOTS.md)
 
-[下载新版 MP4（96 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图与素材来源](SCREENSHOTS.md)
-
-2026-10-03 修订版：中文、1920×1080 横版、30fps、96 秒。中英文首页及本页均可通过 GitHub 内嵌播放器直接播放新版视频，下载入口提供同一版本的仓库 MP4。
+2026-10-07 修订版：中文、1920×1080、30 fps、126 秒。对应电脑端 0.6.0、ESP8266 0.5.0 与 TAB5 0.2.145-ui。封面和下载链接均指向新版仓库 MP4；旧版 GitHub 附件播放器已撤下，避免播放过期内容。
 
 ## 内容与来源
 
-- 开场采用蓝紫机器人品牌封面，结尾为“选一块适合你的桌面屏”。相同功能并排展示 ESP8266 和 TAB5：Codex 额度、DeepSeek 余额、智谱余额、任务状态、当前天气、行情、系统监控和音乐。DeepSeek、智谱的演示余额分别为 28.50、16.80 CNY。已移除 TAB5 独有的小时和七日天气镜头。
-- 音乐页完整展示左侧专辑封面，两种硬件均使用项目原创角色作为示例封面；曲名“桌面之光 · 示例曲目”和歌手“AI-bot 演示”是虚构演示信息，不是商业录音，也不显示“封面同步中”。
-- TAB5 亮点包括任务回复、豆包语音输入、拍照添加附件、四种时钟样式切换、日历提醒及设备中心。语音拍照段依次展示点击麦克风后的收音状态、音量条和识别文字，相机取景与拍摄确认，以及照片缩略图加入草稿。电脑端按透明收音方式呈现，不展示草稿输入框。相机使用项目原创形象作示例取景，不冒充实机摄影。
-- 界面来自原生 WinForms/LVGL 渲染，使用固定演示数据；没有重绘业务控件。Windows 与相邻 TAB5 工程的原生组件在隔离预览程序中运行，浏览器工程负责外层排版、镜头与动效。新增语音/相机素材执行原生按钮处理及离线状态分支，没有调用真实语音服务或发送消息。画面不是硬件实拍，也不是新一轮真机验收；不展示 macOS 运行态。
-- 品牌图及桌宠使用已选定的蓝紫尖顶形象；仅更新宣传素材，已安装程序图标、默认桌宠与固件保持现状。来源及标识说明见[桌宠素材](assets/pet/README.md)。不含真实账户、凭据或私人会话。
-- 配乐由 `score.py` 原创合成，104 BPM；18 个独立动作音效使用[归藏 product video skill](https://github.com/op7418/guizang-product-video-skill)的原创合成 WAV。未使用第三方歌曲。字体 Inter 与 Noto Sans SC 均为 SIL OFL。制作脚手架采用该技能的 AGPL-3.0 工程，源码保留 LICENSE / NOTICE，未使用其 BSL 默认样式。
-- 可复现工程位于本地 `artifacts/product-intro-highlights-20261003/`；源码归档为 `artifacts/video-storyboard-20261003/AI-bot-highlights-v4-source.zip`。这些本地产物未作为安装或固件附件发布。
-- 全片 2 fps 联系表、全部转场 10 fps 条带，以及语音/取景/拍摄确认/附件等全尺寸帧已审阅。H.264 / AAC、48 kHz 双声道、MP4 faststart；96 秒、2880 帧、完整解码与交付结构检查通过。混音约 -16.0 LUFS、真峰值 -1.5 dBFS；**尚未完成主观试听**。视频和封面的 SHA-256 登记于 `licenses/materials.json`。
+- 新版开场展示 Codex 直达和艺术竖屏，随后介绍统一更新。保留双硬件额度、DeepSeek/智谱余额、任务状态、天气、行情、系统、音乐等基础功能，再展示语音/相机附件、四种时钟、日历、设备中心、全年点阵（三种配色及自动昼夜说明）、十二月历、名画/书法横竖屏和独立图库导入。
+- Windows 和 TAB5 界面均重新从当前原生 WinForms/LVGL 代码渲染，使用固定演示数据；浏览器只负责外层排版与动效，不重画业务控件。画面不是硬件实拍，不展示 macOS 运行态，也不代替[真机验收](TAB5-ACCEPTANCE-145.md)。
+- 更新窗口模拟可用版本，图库窗口模拟已安装的 402 件名画/411 件书法状态，不代表影片拍摄时另做了真实升级或导入。语音/相机镜头运行真实原生按钮处理和离线返回分支，不调用语音服务或发送消息。
+- 桌宠使用已批准的项目蓝紫角色设计预览，默认形象不随宣传素材变更。相机取景和音乐封面使用同一原创角色；虚构曲目为“桌面之光 · 示例曲目 / AI-bot 演示”。不含真实账户、凭据或私人会话。
+- 作品包括林良《孔雀竹石圖》（Cleveland Museum of Art，CC0）和王嗣奭《行书七言律诗轴》（东京国立博物馆 / ColBase，CC BY 4.0）。书法也用于封面。逐项链接、署名与加工说明见[作品来源表](SCREENSHOTS.md#tab5-捕获与艺术作品)。
+- 配乐由 `score.py` 原创合成，104 BPM，24 个独立动作音效来自[归藏 product video skill](https://github.com/op7418/guizang-product-video-skill)的原创合成 WAV，无第三方歌曲。Inter 与 Noto Sans SC 为 SIL OFL。制作脚手架保留 AGPL-3.0 LICENSE/NOTICE，未使用 BSL 默认样式。
+- 可复现工程：本地 `artifacts/product-intro-release-060-20261007/`；源码归档 `artifacts/product-intro-release-060-20261007/AI-bot-060-video-source.zip`。包含分镜、界面像素、音频、脚本与许可，不包含 node_modules、运行日志或个人数据；这些本地文件不是安装包或固件包。
 
 ## 分镜 / Timeline
 
-| 时间 / Time | 展示内容 / Content |
+| 时间 / Time | 内容 / Content |
 | --- | --- |
-| 0–6 s | 品牌封面 / Brand cover |
-| 6–12 s | Codex 额度对照 / Codex quota comparison |
-| 12–18 s | DeepSeek 余额对照 / DeepSeek balance comparison |
-| 18–24 s | 智谱余额对照 / Zhipu balance comparison |
-| 24–30 s | 任务状态对照 / Task status comparison |
-| 30–36 s | 当前天气对照 / Current weather comparison |
-| 36–42 s | 行情对照 / Market comparison |
-| 42–48 s | 系统与网络对照 / System and network comparison |
-| 48–54 s | 音乐与专辑封面对照 / Music and album artwork comparison |
-| 54–60 s | TAB5 任务回复 / TAB5 task replies |
-| 60–72 s | 豆包语音、拍照、附件 / Doubao dictation, camera and attachment |
-| 72–78 s | 四种时钟样式切换 / Four clock styles |
-| 78–84 s | 日历与提醒 / Calendar and reminders |
-| 84–90 s | 设备中心 / Device Center |
-| 90–96 s | 品牌结尾 / Closing brand frame |
+| 0–6 s | 桌面 AI，触手可及 / AI-BOT |
+| 6–14 s | 选中会话，说完再发送 / CODEX DIRECT |
+| 14–22 s | 软件与固件，各自更新 / ONE UPDATE ENTRY |
+| 22–26.5 s | 同一份额度，两种查看方式 / ACCOUNT QUOTAS |
+| 26.5–31 s | DeepSeek 余额，两块屏同步看 / DEEPSEEK · API BALANCE |
+| 31–35.5 s | 智谱 GLM，额度同样一目了然 / ZHIPU · API BALANCE |
+| 35.5–40 s | 任务进行到哪，抬眼便知 / AI ACTIVITY |
+| 40–44.5 s | 今天的天气，两块屏都能看 / WEATHER |
+| 44.5–49 s | 关注的行情，随时看一眼 / MARKET WATCH |
+| 49–53.5 s | 电脑忙不忙，网络快不快 / PC MONITOR |
+| 53.5–58 s | 正在听的歌，也在桌面上 / NOW PLAYING |
+| 58–64 s | 离开主屏，也能阅读任务回复 / TAB5 · TASK HISTORY |
+| 64–76 s | 支持豆包语音输入 / 拍照添加附件 / TAB5 · VOICE & PHOTO |
+| 76–82 s | 多种时钟样式，随心切换 / TAB5 · CLOCK STYLES |
+| 82–88 s | 日期、节假日与生日，一起记住 / TAB5 · CALENDAR |
+| 88–94 s | 两种设备，一个管理入口 / DEVICE CENTER |
+| 94–100 s | 把一整年，放进一屏 / A YEAR IN DOTS |
+| 100–106 s | 十二个月，十二种花卉 / TWELVE FLOWERS |
+| 106–116 s | 横着看，竖着赏 / ROTATE TO APPRECIATE |
+| 116–120 s | 喜欢哪一类，就下载哪一包 / OPTIONAL COLLECTIONS |
+| 120–126 s | 选一块适合你的桌面屏 / AI-BOT |
+
+## 交付检查 / Delivery checks
+
+全片 2 fps 联系表（252 帧）、20 个转场的 10 fps 条带及信息密集镜头原尺寸画面已审阅，三种比例封面已检查。正向/反向定位画面逐像素一致；字体、图片与标题溢出检查通过。最终 MP4 为 H.264 / AAC、48 kHz 双声道、126 秒、3,780 帧，完整解码、faststart 与交付结构检查通过。混音约 -16 LUFS、真峰值 -1.4 dBFS；**尚未完成主观试听**。视频及公开封面的 SHA-256 登记于 `licenses/materials.json`。
 
 ## English
 
-The revised 96-second film uses Chinese captions at 1920×1080, 30 fps. The cover opens the film, followed by matching ESP8266/TAB5 views of Codex quotas, DeepSeek and Zhipu balances, task activity, current weather, markets, system/network data and music. The two domestic-provider balances are synthetic 28.50 and 16.80 CNY. TAB5-only hourly and seven-day forecasts have been removed. Both music views show the approved project mascot as sample album artwork with a fictional track; no artwork-sync placeholder remains.
+The revised film is 126 seconds at 1920×1080, 30 fps with Chinese captions, covering computer apps 0.6.0, ESP8266 0.5.0 and TAB5 0.2.145-ui. It leads with Codex Direct and unified updates, retains the dual-device feature tour, and adds Annual Dots (including color and day/night options), the floral calendar, landscape/portrait art and optional collection imports. The poster and download links open the new repository MP4; the outdated native GitHub attachment player was removed.
 
-TAB5 highlights include task replies, Doubao dictation, camera attachments, four switchable clock styles, calendar reminders and Device Center. The 60–72-second sequence shows the native microphone-click recording state, meter and transcript, camera preview/review, and a photo thumbnail added to the draft. The desktop voice editor is omitted to reflect transparent operation. The camera image is an explicitly labeled sample of the project's original character, not real photography.
+All Windows and TAB5 interfaces were regenerated from current native code using isolated synthetic data. They are neither hardware footage nor evidence of live speech, message sending, installations or imports. No macOS runtime is shown. Voice/camera fixtures exercise native handlers with offline results. The project mascot supplies fictional camera and album artwork; installed defaults remain unchanged. Art credits and CC0/CC BY 4.0 licenses are recorded in SCREENSHOTS.md.
 
-Native WinForms/LVGL interfaces use offline fixtures and real UI handlers. They do not call the live speech service or send messages. These are rendered previews, not hardware footage or new device acceptance, and no macOS runtime is shown. Installed application icons, default pets and firmware are unchanged. Sources contain no real accounts, credentials or private conversations.
-
-The original 104 BPM code-generated score includes 18 independent synthesized action cues from the credited skill. Inter and Noto Sans SC are SIL OFL; the local reproducible project retains AGPL-3.0 scaffold notices and uses no BSL fallback styling. The project and versioned source ZIP paths are listed above; they are not installation assets. Full-film contact sheets, every cut and dense frames were visually reviewed. The 96-second, 2880-frame H.264/AAC export passed full decoding and delivery checks; the mix measures approximately -16 LUFS and -1.5 dBFS true peak. Subjective listening remains unverified. Exact video and cover hashes are recorded in `licenses/materials.json`.
-
-Both READMEs and this page provide a native GitHub player for the updated 96-second video, with a download link to the identical repository MP4.
+The original 104 BPM score has 24 independent synthesized action cues. Font, scaffold and skill notices are retained. The reproducible local project and source archive are listed above. The 252-frame full-film contact review, all 20 transition strips, dense frames and three cover ratios were visually checked. Forward/backward seeking matches exactly. The 126-second, 3,780-frame H.264/AAC export passed full decoding, faststart, font/image/overflow and delivery checks. Audio is 48 kHz stereo at approximately -16 LUFS and -1.4 dBFS true peak. Subjective listening remains unverified. Exact public media hashes are registered in licenses/materials.json.

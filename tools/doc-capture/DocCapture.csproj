@@ -1,15 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <Version>0.6.0</Version>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <WindowsSdkPackageVersion>10.0.22000.56</WindowsSdkPackageVersion>
     <StartupObject>AIBotBridge.DocCapture</StartupObject>
   </PropertyGroup>
   <!-- Compile the current app source in a separate process/output directory. -->
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
     <Compile Include="../../windows-app/AIBotBridge/**/*.cs" Exclude="../../windows-app/AIBotBridge/**/obj/**;../../windows-app/AIBotBridge/**/bin/**;../../windows-app/AIBotBridge/Program.cs" />
     <EmbeddedResource Include="../../windows-app/AIBotBridge/Assets/app-icon.ico" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />

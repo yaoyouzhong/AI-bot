@@ -16,16 +16,18 @@ internal static class DocCapture
             designPet = Path.GetFullPath(args[designIndex + 1]);
             args = args.Take(designIndex).Concat(args.Skip(designIndex + 2)).ToArray();
         }
+        bool release060 = args.Length == 2 && args[1] == "--release060";
         bool releaseUi = args.Length == 2 && args[1] == "--release-ui";
         bool screenSaverOnly = args.Length == 2 && args[1] == "--screensaver";
         bool quotaOnly = args.Length == 2 && args[1] == "--quota-api";
         bool codexCover = args.Length == 2 && args[1] == "--codex-pro-cover";
-        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi && !codexCover) throw new ArgumentException("Supply an output directory, optionally --screensaver, --codex-pro-cover or Claude and Codex APET paths for approved quota screenshots.");
+        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi && !codexCover && !release060) throw new ArgumentException("Supply an output directory, optionally --screensaver, --codex-pro-cover or Claude and Codex APET paths for approved quota screenshots.");
         AppPaths.BeginPublicSelfTest(); // Must precede any settings/cache/credential access.
         Application.SetHighDpiMode(Environment.GetEnvironmentVariable("AIBOT_DOC_NATIVE_DPI") == "1" ? HighDpiMode.PerMonitorV2 : HighDpiMode.DpiUnaware);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        if(release060){ReleaseMedia.Run(output);return;}
         if (PetAnimationStore.Shared.AllResources().Count != 0)
             throw new InvalidOperationException("Documentation profile contains imported art.");
         if (args.Length == 3)
@@ -42,7 +44,7 @@ internal static class DocCapture
             PetAnimationStore.Shared.Select("codex", animation!);
             Console.WriteLine("DOC_DESIGN_PREVIEW selected artwork in isolated profile; shipped defaults unchanged");
         }
-        var now = new DateTimeOffset(2026, 10, 3, 10, 24, 0, TimeSpan.FromHours(8));
+        var now = new DateTimeOffset(2026, 10, 7, 10, 24, 0, TimeSpan.FromHours(8));
         var quota = new ProviderQuotaSnapshot("claude", "MAX", 34, now.AddHours(2), 61,
             now.AddDays(3), null, [], now, false);
         var domestic = new DomesticProviderQuotaSnapshot("kimi", "Ultra", 20, now.AddHours(3),
@@ -62,6 +64,18 @@ internal static class DocCapture
                 domestic with { Provider="zhipu", Plan="GLM", PrimaryPercent=null, WeeklyPercent=null, Balance=16.8, Currency="CNY" }),
             SystemMetrics: new(31.4,72.8,238900,4821100,now,Enumerable.Range(0,224).Select(i=>new NetworkSample((long)(180000+140000*Math.Sin(i/12.0)),(long)(3000000+2400000*Math.Sin(i/23.0)))).ToArray()),
             Music: new("桌面之光 · 示例曲目", "AI-bot 演示", "示例专辑", true, 95, 260, now));
+        if (designPet is not null)
+        {
+            // Use the approved project character as fictional album artwork.
+            using var original = new Bitmap(designPet);
+            using var cover = new Bitmap(112, 112);
+            using (var graphics = Graphics.FromImage(cover))
+            {
+                graphics.Clear(Color.FromArgb(31, 37, 42));
+                graphics.DrawImage(original, 0, 0, 112, 112);
+            }
+            status = status with { Music = status.Music! with { CoverRgb565 = PetAssetImporter.EncodeRgb565(cover) } };
+        }
         if (codexCover)
         {
             // Match the adjacent native TAB5 Codex quota preview, using synthetic data only.
@@ -85,7 +99,7 @@ internal static class DocCapture
             var tab = DeviceRegistryStore.Create(HardwareKind.Tab5, "M5Stack TAB5", "001122334455");
             var esp = DeviceRegistryStore.Create(HardwareKind.Esp8266, "ESP8266 小屏", null);
             store.Add(tab); store.Add(esp);
-            using (var center = new DeviceCenterForm(store, d => new DeviceView(true, "在线（演示）", "演示连接", d.Kind == HardwareKind.Tab5 ? "0.2.89-ui" : "0.5.0", "数据已确认（演示）", "待机（演示）", d.Kind == HardwareKind.Tab5 ? "已连接（演示）" : null, "USB"), (_, _) => {}, (_, _) => Task.CompletedTask, () => {}, _ => {}))
+            using (var center = new DeviceCenterForm(store, d => new DeviceView(true, "在线（演示）", "演示连接", d.Kind == HardwareKind.Tab5 ? "0.2.145-ui" : "0.5.0", "数据已确认（演示）", "待机（演示）", d.Kind == HardwareKind.Tab5 ? "已连接（演示）" : null, "USB"), (_, _) => {}, (_, _) => Task.CompletedTask, () => {}, _ => {}))
             {
                 center.ShowInTaskbar=false;center.StartPosition=FormStartPosition.Manual;center.Location=new(-32000,-32000);
                 center.Show();Application.DoEvents();

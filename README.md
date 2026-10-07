@@ -16,18 +16,62 @@ Windows 0.6.0 新增统一的「软件与固件更新」入口：自动提醒各
 
 ![CI](https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml/badge.svg)
 [![MIT](https://img.shields.io/badge/own_source-MIT-81dce6)](LICENSE)
-![版本](https://img.shields.io/badge/release-v0.5.0-blue)
+![版本](https://img.shields.io/badge/bridge-0.6.0-blue)
 ![硬件](https://img.shields.io/badge/hardware-ESP8266_%7C_TAB5-a6b5ff)
 
-[![AI-bot 双硬件产品介绍，96 秒](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · 96 秒产品介绍（桌宠设计预览）
+[![AI-bot 双硬件产品介绍，126 秒](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · 126 秒新版产品介绍
 
-https://github.com/user-attachments/assets/31393f58-edd9-4a50-a81f-0e8d0ff72a80
-
-[下载新版视频（96 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频与截图来源](docs/PRODUCT_VIDEO.md)
+[下载新版视频（126 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [视频与截图来源](docs/PRODUCT_VIDEO.md)
 
 [下载桌宠动画包](docs/assets/pet/AI-bot-pet.zip) · [预览 GIF](docs/assets/pet/AI-bot-mascot.gif) · [导入说明](docs/assets/pet/README.md)
 
-新版桌宠仅用于本轮截图与视频的设计展示，程序、固件和个人设置保持现状。GitHub 在线播放器与仓库 MP4 均使用新版桌宠设计预览。
+视频使用原生界面与固定演示数据，包含 Codex 直达、统一更新、十二月历、名画与书法横竖屏欣赏。桌宠为可导入的设计预览；不代表默认形象已更换。
+
+## 这次更新，先看这几项
+
+### Codex 直达：选择会话，说完再发送
+
+TAB5 右下角常驻入口可查看最近五个会话，前后切换目标；语音文字进入所选会话的草稿，检查后再发送。支持取消、失败恢复和长按清空。[操作说明](docs/TAB5-QUICK-CONSOLE.md)
+
+![Codex 直达原生界面，固定演示会话](docs/assets/screens/tab5-quick.png)
+
+### 一个入口，找到适合自己的更新
+
+电脑端打开「软件与固件更新」，分别查看电脑软件、ESP8266 与 TAB5 的版本和更新明细。选择设备后下载并校验对应包；三者独立编号，不必每次一起升级。[更新步骤](docs/UPDATES.md)
+
+![软件与固件更新，演示版本状态](docs/assets/screens/update-center.png)
+
+### 全年点阵：每天一个点，一眼看清今年进度
+
+「年度点阵」把全年 365／366 天放在同一屏，区分已过、今天与剩余日期，同时显示进度和天数。支持默认、暗夜、暖灰配色；自动昼夜模式按设备本地时间在 07:00–19:00 使用日间配色，其余时间切换夜间配色，无需下载图库。
+
+![年度点阵全年进度，原生固定日期演示](docs/assets/screens/tab5-annual.png)
+
+配色预览：[暗夜](docs/assets/screens/tab5-annual-night.png) · [暖灰](docs/assets/screens/tab5-annual-warm.png)。视频 94–100 秒单独介绍全年点阵。
+
+### 十二月历，以及可以竖着欣赏的名画与书法
+
+十二月历按月展示花卉，配合农历、节气与节假日信息。艺术屏保支持正反横屏和左右竖屏；预览与自动屏保均可转向，书法后续分页也可切换。画面保留作品名、作者和博物馆；已核实的中文译名用于显示，没有通用译名的保留馆藏原名。
+
+![十二月历十月花卉，原生预览](docs/assets/screens/tab5-floral.png)
+
+<table><tr>
+<td align="center" width="50%"><strong>每日名画 · 竖屏</strong><br><br><img src="docs/assets/screens/tab5-painting-portrait.png" width="320" alt="林良孔雀竹石图，竖屏原生预览"></td>
+<td align="center" width="50%"><strong>每日书法 · 竖屏</strong><br><br><img src="docs/assets/screens/tab5-calligraphy-portrait.png" width="320" alt="王嗣奭行书七言律诗轴，竖屏原生预览"></td>
+</tr></table>
+
+横屏效果：[名画](docs/assets/screens/tab5-painting.png) · [书法](docs/assets/screens/tab5-calligraphy.png)。图片及视频均为原生界面渲染，不是硬件实拍；作品出处、许可和截图方法见[素材说明](docs/SCREENSHOTS.md)。
+
+名画、书法分别下载，均不内置于固件；不下载也能使用其他屏保。电脑端「软件与固件更新 → 屏保图库」导入 ZIP，无需手动解压，软件升级保留图库。
+
+| 可选图库 | 独立作品 | 内容分页 | 横竖屏图片 | ZIP 大小 |
+| --- | ---: | ---: | ---: | ---: |
+| [每日名画](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/AI-bot-DailyPainting-2026.10.07.zip) | 402 | 402 | 804 | 199 MiB |
+| [每日书法](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/AI-bot-DailyCalligraphy-2026.10.07.zip) | 411 | 1,500 | 3,000 | 726 MiB |
+
+书法包含更多册页和长卷，同一作品可能有多页；每页另备横、竖两种排版，因此包约为名画的 3.6 倍，单张图片大小相近。分页与横竖图不会重复算作作品。[图库安装与许可说明](docs/GALLERY-PACKS.md)
+
+![屏保图库管理，演示已安装状态](docs/assets/screens/gallery-packs.png)
 
 ## 桌面上的实时窗口
 
@@ -62,7 +106,7 @@ https://github.com/user-attachments/assets/31393f58-edd9-4a50-a81f-0e8d0ff72a80
 
 - **ESP8266 小屏**：240×240 ST7789、SD2 引脚方案；自动模式优先 USB，失联后回退至已配对 Wi-Fi，也可指定仅 USB 或仅 Wi-Fi。
 - **TAB5**：触摸屏，支持 USB / Wi-Fi / BLE；自动连接优先 USB > Wi-Fi > BLE，首次安装使用 USB。
-  本地 .117 OTA 候选支持 Wi-Fi / USB / 蓝牙协商压缩及蓝牙升级入口；升级自动择优为 Wi-Fi > USB > BLE，固定模式保持所选通道。内部验证与三通道真机升级验收分开记录，见 [TAB5 更新日志](docs/development/TAB5-CHANGELOG.zh.md)。
+  固件升级支持 Wi-Fi / USB / 蓝牙及传输压缩；自动择优为 Wi-Fi > USB > BLE，固定模式保持所选通道。固件可单独更新，见 [更新指南](docs/UPDATES.md)和 [TAB5 更新日志](docs/development/TAB5-CHANGELOG.zh.md)。
 - 托盘左键打开已启用 ESP8266 的预览，否则打开设备中心；右键提供设备设置。开机启动位于 **设备中心 → 桥接设置**。
 
 ![Windows 设备中心](docs/assets/screens/device-center.png)
@@ -91,15 +135,15 @@ Windows 额度历史保留近 90 天采样；缺失时段不估算，无法核�
 
 | 下载 | 平台或用途 |
 | --- | --- |
-| [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-setup-win-x64.exe) | Windows 10/11 x64，内置刷机工具 |
-| [Mac 应用](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-local-candidate-macos-arm64.zip) | macOS 13+，Apple Silicon |
+| [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/AIBotBridge-0.6.0-setup-win-x64.exe) | Windows 10/11 x64，内置刷机工具 |
+| [Mac 应用](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/AIBotBridge-0.6.0-local-candidate-macos-arm64.zip) | macOS 13+，Apple Silicon |
 | [ESP8266 固件包](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-0.5.0-firmware-materials.zip) | 固件及对应源码、重建材料 |
-| [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/TAB5-first-install-0.2.89-ui.zip) | 出厂设备首次安装，含完整安装镜像 |
-| [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/TAB5-upgrade-0.2.89-ui.zip) | 已有 AI-bot 的设备，解压后选择 `aibot_tab5.bin` |
+| [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-first-install-0.2.145-ui.zip) | 出厂设备首次安装，含完整安装镜像 |
+| [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-upgrade-0.2.145-ui.zip) | 已有 AI-bot 的设备，解压后选择 `aibot_tab5.bin` |
 
-[SHA-256 校验清单](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt)覆盖以上五个包，许可与第三方声明已包含在包内。历史版本见 [Releases](https://github.com/yaoyouzhong/AI-bot/releases)。
+校验清单：[电脑端](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/SHA256SUMS.txt) · [TAB5 与图库](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) · [ESP8266](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt)。许可与第三方声明包含在包内；历史版本见 [Releases](https://github.com/yaoyouzhong/AI-bot/releases)。
 
-**第一次刷 TAB5 也是 0.2.89-ui。** 选择完整首刷 ZIP，其中包含启动程序、分区与应用；单独应用 BIN 不能初始化出厂设备。后续升级保留 BIN 同目录的更新说明 sidecar。
+**第一次刷 TAB5 也是 0.2.145-ui。** 选择完整首刷 ZIP，其中包含启动程序、分区与应用；单独应用 BIN 不能初始化出厂设备。后续升级保留 BIN 同目录的更新说明 sidecar。
 
 准备 USB 数据线；ESP8266 核对 ST7789 / SD2 引脚，TAB5 使用 USB-C 数据接口。完成后核验真实屏幕与连接，恢复自动展示，保留轮播页面、顺序与间隔。
 
@@ -109,12 +153,12 @@ Windows 额度历史保留近 90 天采样；缺失时段不估算，无法核�
 
 | 组件 | 当前版本与范围 |
 | --- | --- |
-| Windows 0.5.0 | 设备中心、双硬件、共享账号与独立设备设置 |
+| Windows 0.6.0 | 统一更新、可选图库导入、Codex 直达桥接与双硬件设备中心 |
 | ESP8266 0.5.0 | 显示页面、时钟、桌宠、USB / Wi-Fi 与轮播 |
-| TAB5 0.2.89-ui | 触摸、任务与历史、语音、日历及 USB / Wi-Fi / BLE |
-| macOS 0.5.0 | Apple Silicon 菜单栏桥接、镜像与 ESP8266 刷机 |
+| TAB5 0.2.145-ui | Codex 直达、八种屏保、艺术四方向显示、字体压缩与图片接收/分页修复 |
+| macOS 0.6.0 | Apple Silicon 菜单栏桥接、镜像与 ESP8266 刷机 |
 
-维护者已于 2026-10-03 确认真机验收。Windows 构建与公开回归、macOS 测试与构建、ESP8266 构建均通过[发布流水线](https://github.com/yaoyouzhong/AI-bot/actions/runs/37091169252)。正式发布不新增性能测量结论，也不抹除历史问题，细节保留在[发布记录](docs/RELEASE-0.5.0.md)。
+2026-10-07，TAB5 `.145` 已确认图片、第二页及后续分页竖屏正常；此前的普通界面、输入、预览及自动转向回归结果见[真机验收记录](docs/TAB5-ACCEPTANCE-145.md)。Windows 回归、macOS 测试与构建、ESP8266 构建通过[本次 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/37581182915)。macOS 的构建成功不代表新增 Windows 功能已移植或完成 Mac 真机验收。完整新增、优化和修复按三个组件列于[发布明细](docs/RELEASE-0.6.0.md)。
 
 ## 深入了解
 
