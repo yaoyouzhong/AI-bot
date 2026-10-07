@@ -10,28 +10,40 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 ## What it does
 
-| When you use it | What you get |
-| --- | --- |
-| **Follow work at a glance** | Claude / Codex activity, waiting-for-input and completion alerts keep task status visible. |
-| **Understand account quotas** | Account usage, API balances, reset times and Codex reset credits; quota history on the computer. |
-| **Keep everyday information nearby** | Weather, clocks, stocks, computer load and current music. |
-| **Choose how to display it** | A fixed page, a page cycle or activity-driven switching; choose pages, order, interval and pet animations. |
-| **Manage it from the computer** | Windows Device Center configures accounts and data sources and manages both device types. Software and Firmware Updates shows notes, then downloads and verifies the matching package. [Update guide](docs/UPDATES.md) |
+<table>
+<thead><tr><th width="160" nowrap="nowrap">Feature</th><th nowrap="nowrap">Details</th></tr></thead>
+<tbody>
+<tr><td nowrap="nowrap"><strong>Task status</strong></td><td nowrap="nowrap">Claude / Codex working, idle and waiting states; completion alerts.</td></tr>
+<tr><td nowrap="nowrap"><strong>Account quotas</strong></td><td nowrap="nowrap">Usage, API balances, resets and Codex credits; history on the computer.</td></tr>
+<tr><td nowrap="nowrap"><strong>Daily information</strong></td><td nowrap="nowrap">Weather, clocks, stocks, computer load and current music.</td></tr>
+<tr><td nowrap="nowrap"><strong>Display settings</strong></td><td nowrap="nowrap">Fixed page, cycle or smart switching; choose pages, order, interval and pets.</td></tr>
+<tr><td nowrap="nowrap"><strong>Device management</strong></td><td nowrap="nowrap">Windows Device Center: accounts, data, devices; check, download and verify updates. <a href="docs/UPDATES.md">Guide</a></td></tr>
+</tbody>
+</table>
 
-<table><tr>
-<td align="center" width="33%"><strong>Computer: setup and management</strong><br><br><img src="docs/assets/screens/device-center-accounts.png" height="160" alt="Windows Device Center: accounts, weather location, stocks and quota history"><br><br>Configure data, manage devices and updates</td>
-<td align="center" width="33%"><strong>ESP8266: status and quotas</strong><br><br><img src="docs/assets/screens/codex.png" height="160" alt="ESP8266 display: Codex status, quotas and reset credits"><br><br>Glance at status and cycle everyday information</td>
-<td align="center" width="33%"><strong>TAB5: tasks and information</strong><br><br><img src="docs/assets/screens/tab5-overview.png" height="160" alt="TAB5 overview: task, quotas, clock and weather"><br><br>See the overview and tap into each page</td>
-</tr></table>
+<table>
+<thead><tr><th width="33%" nowrap="nowrap">Computer app</th><th width="33%" nowrap="nowrap">ESP8266 display</th><th width="33%" nowrap="nowrap">TAB5 touch display</th></tr></thead>
+<tbody>
+<tr>
+<td align="center" valign="middle"><img src="docs/assets/screens/device-center.png" width="240" alt="Windows Device Center: My Devices and device settings"></td>
+<td align="center" valign="middle"><img src="docs/assets/screens/codex.png" width="180" alt="ESP8266 display: Codex status and quotas"></td>
+<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview.png" width="260" alt="TAB5 overview: task, quotas, clock and weather"></td>
+</tr>
+<tr><td align="center" nowrap="nowrap">Accounts, devices and updates</td><td align="center" nowrap="nowrap">Status, quotas and daily info</td><td align="center" nowrap="nowrap">Touch controls and overview</td></tr>
+</tbody>
+</table>
 
 <sub>Current native interfaces with fixed demo data; the small display uses its computer mirror renderer. [Complete feature gallery](docs/FEATURES.zh.md)</sub>
 
 ### Two devices, different strengths
 
-| Device | How you use it | Device features |
-| --- | --- | --- |
-| **ESP8266 small display** | Display-focused, configured on the computer | AI status and quotas, everyday page cycling, pets and a clock screensaver. [Complete small-display tour](docs/FEATURES.zh.md#esp8266) |
-| **TAB5 touch display** | Display and touch interaction | Task reading, Codex Direct, voice/camera drafts, calendar and eight screensavers; paintings/calligraphy support landscape and portrait. [Complete TAB5 tour](docs/FEATURES.zh.md#tab5) |
+<table>
+<thead><tr><th width="170" nowrap="nowrap">Device</th><th width="120" nowrap="nowrap">Operation</th><th nowrap="nowrap">Main features</th></tr></thead>
+<tbody>
+<tr><td nowrap="nowrap"><strong>ESP8266 display</strong></td><td nowrap="nowrap">PC setup</td><td nowrap="nowrap">AI status, quotas, page cycling, pets and clock. <a href="docs/FEATURES.zh.md#esp8266">Gallery</a></td></tr>
+<tr><td nowrap="nowrap"><strong>TAB5 touch display</strong></td><td nowrap="nowrap">Touch</td><td nowrap="nowrap">Codex Direct, voice/photo drafts, calendar and eight screensavers. <a href="docs/FEATURES.zh.md#tab5">Gallery</a></td></tr>
+</tbody>
+</table>
 
 <details>
 <summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
@@ -44,7 +56,7 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 <td align="center" width="33%"><strong>Floral calendar</strong><br><br><img src="docs/assets/screens/tab5-floral.png" width="280" alt="Monthly flowers, lunar dates and solar terms"></td>
 </tr></table>
 
-Annual Dots gives every day a dot, with leap-year support, three palettes and automatic day/night switching. The floral calendar includes lunar dates, solar terms and holidays. Neither needs an extra collection. Paintings and calligraphy retain the work title, artist and museum; verified Chinese titles appear on screen, with original collection titles retained otherwise.
+Annual Dots gives every day a dot, with leap-year support, three palettes and automatic day/night switching. The floral calendar includes lunar dates, solar terms and holidays. Neither needs an extra collection. Paintings and calligraphy support landscape and portrait and retain the work title, artist and museum; verified Chinese titles appear on screen, with original collection titles retained otherwise.
 
 [Portrait painting](docs/assets/screens/tab5-painting-portrait.png) · [Portrait calligraphy](docs/assets/screens/tab5-calligraphy-portrait.png) · [Complete screensaver guide](docs/FEATURES.zh.md#tab5)
 
