@@ -1,6 +1,6 @@
 # 软件与固件更新 / Software and firmware updates
 
-本页对应 Windows 0.5.1 候选；正式发布前，现用 v0.5.0 不具备这里完整的下载流程。macOS 尚未实现此入口。
+本页对应 Windows 0.6.0；旧版 v0.5.0 用户需先安装新电脑端才能使用完整下载流程。macOS 尚未实现此入口。
 
 ## 日常使用
 
@@ -11,7 +11,7 @@
 
 勾选「自动检查并提醒」后，程序启动约 30 秒开始检查，成功后每 24 小时再检查；失败约 1 小时后重试。每个设备的同一版本只提醒一次，遵守静默时段。点击提醒进入更新窗口。关闭自动提醒不影响手动检查。只有已添加、启用且已读取当前版本的设备参与可用升级判断。
 
-TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备中心的首刷流程。下载包与首次安装说明见[安装指南](INSTALL.zh.md)。公开版不包含名画、书法及图库；本地艺术完整版保留手动固件入口，统一更新不会用公开版覆盖本地电脑端或 TAB5。
+TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备中心的首刷流程。下载包与首次安装说明见[安装指南](INSTALL.zh.md)。本地与公开版功能统一，名画和书法图库独立下载；在本窗口“屏保图库”中导入 ZIP，程序升级保留图库。详见[图库说明](GALLERY-PACKS.md)。
 
 ## 验证与范围
 
@@ -21,6 +21,6 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 ## English
 
-This describes the Windows 0.5.1 candidate, not the current v0.5.0 stable app. macOS does not yet implement this entry point. Open Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
+This describes Windows 0.6.0; v0.5.0 users need to install the newer computer app first. macOS does not yet implement this entry point. Open Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
 
-Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and are deduplicated per device/version. Background checks never download or install. Failed queries retain the last successful in-memory catalog with an error. Unknown or changed device versions block upgrades. Local art builds reject public bridge/TAB5 replacement to preserve their private artwork features. Manual checking remains available when reminders are disabled. An accepted download does not prove installation, verified boot or physical display behavior.
+Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and are deduplicated per device/version. Background checks never download or install. Failed queries retain the last successful in-memory catalog with an error. Unknown or changed device versions block upgrades. Local and public builds share the same features. Import optional artwork ZIPs through Artwork Collections; app upgrades preserve the user-data collection directory. Manual checking remains available when reminders are disabled. An accepted download does not prove installation, verified boot or physical display behavior.

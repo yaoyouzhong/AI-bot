@@ -1,26 +1,26 @@
 # AI-bot 安装与刷机指南
 
-适用于 **v0.5.0 正式版**，更新于 2026-10-03。Windows 支持 ESP8266 与 TAB5；Mac 的刷机入口目前支持 ESP8266。
+适用于 **AI-bot 0.6.0 / TAB5 0.2.145-ui / ESP8266 0.5.0**，更新于 2026-10-07。Windows 支持 ESP8266 与 TAB5；Mac 的刷机入口目前支持 ESP8266。
 
 **先安装应用，再按你的设备选择下面一条路线。** 每条刷机路线只需 4 步。
 
 ## 1. 下载与安装
 
-从 [v0.5.0 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0)下载对应文件：
+从 [AI-bot 0.6.0 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.0)开始；TAB5 固件和可选图库在[配套 TAB5 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.145-ui)。按用途选择：
 
 | 你要做什么 | 下载什么 |
 | --- | --- |
-| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-setup-win-x64.exe) |
-| Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AIBotBridge-0.5.0-local-candidate-macos-arm64.zip) |
+| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/AIBotBridge-0.6.0-setup-win-x64.exe) |
+| Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/AIBotBridge-0.6.0-local-candidate-macos-arm64.zip) |
 | ESP8266 首刷或更新 | [ESP8266 固件 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-0.5.0-firmware-materials.zip) |
-| TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/TAB5-first-install-0.2.89-ui.zip) |
-| TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/TAB5-upgrade-0.2.89-ui.zip) |
+| TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-first-install-0.2.145-ui.zip) |
+| TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-upgrade-0.2.145-ui.zip) |
 
-**TAB5 首刷也是 0.2.89-ui，无需先刷旧版。** 首刷包直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
+**TAB5 首刷也是 0.2.145-ui，无需先刷旧版。** 首刷包直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
 
 桥接、ESP8266 和 TAB5 分别更新，版本号可以不同；以后只升级更新说明要求的部分，无需每次一起刷机。
 
-Windows 0.5.1 候选增加了统一的[软件与固件更新](UPDATES.md)：自动提醒、选择对应包、下载并校验，再进入现有安装流程。当前 v0.5.0 仍按本文手动下载；首次安装方法不变。
+Windows 0.6.0 提供统一的[软件与固件更新](UPDATES.md)：自动提醒、显示明细、选择对应包、下载并校验，再进入现有安装流程。旧版用户先安装新的电脑端；首次安装方法不变。名画／书法是可选的[独立图库](GALLERY-PACKS.md)，不下载也可使用其他功能。
 
 Windows：运行安装器，保持联网以便补齐缺少的运行环境；安装后在右下角托盘右键 → **设备中心**。已有用户先退出桥接，安装到原位置，再用原快捷方式启动。
 

@@ -1,18 +1,18 @@
 # AI-bot
 
-准备中的公开候选为 Windows 桥接 **0.5.1**、TAB5 **0.2.143-ui**。每日名画和每日书法仅供本地使用，公开版不提供入口、下载服务或作品集；现有本地安装及图库保留。十二月历花卉更新仍在公开候选范围内。候选状态与验证边界见[发布准备记录](docs/RELEASE-CANDIDATE-0.5.1.md)。
+本次更新 **AI-bot 0.6.0 + TAB5 0.2.145-ui**，ESP8266 保持 0.5.0。重点包括 Codex 直达、统一更新、十二月历与八种屏保。名画和书法公开保留，分别提供可选图库 ZIP；本地与公开版功能统一。见[完整更新明细与验收状态](docs/RELEASE-0.6.0.md)和[图库安装说明](docs/GALLERY-PACKS.md)。新固件已通过本次真机验收。
 
 **AI 状态，一眼便知。** 桌面 AI 状态助手，将 Claude Code / Codex 任务状态、账户额度与日常信息，集中显示在 **ESP8266 小屏或 M5Stack TAB5** 上。
 
-[**下载 v0.5.0 正式版**](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0) · [安装与刷机指南](docs/INSTALL.zh.md) · [English](README.en.md)
+[**下载 AI-bot 0.6.0**](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.0) · [TAB5 固件与可选图库](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.145-ui) · [安装与刷机指南](docs/INSTALL.zh.md) · [English](README.en.md)
 
-Windows 与 ESP8266 版本为 **0.5.0**，TAB5 使用独立编号的 **0.2.89-ui** 固件。维护者已于 2026-10-03 确认真机验收，v0.5.0 为当前稳定版，详见[发布记录](docs/RELEASE-0.5.0.md)。
+电脑端 **0.6.0**、ESP8266 **0.5.0**、TAB5 **0.2.145-ui**。先安装电脑端，再按设备选择固件；已有 0.5.0 小屏无需刷机。完整更新内容按三部分见[发布记录](docs/RELEASE-0.6.0.md)。
 
 桥接和两种固件分别更新，版本号无需相同；只按对应更新说明升级，无需每次一起刷机。[独立版本说明](docs/COMPONENT-VERSIONS.md)。
 
-Windows 0.5.1 候选新增统一的「软件与固件更新」入口：自动提醒各组件的新版本，选择设备后下载并校验适用包，再进入安装工具。已安装 AI-bot 的 TAB5 自动选升级包；首次安装仍通过设备中心完成。[后续更新用法](docs/UPDATES.md)。
+Windows 0.6.0 新增统一的「软件与固件更新」入口：自动提醒各组件的新版本，选择设备后下载并校验适用包，再进入安装工具。已安装 AI-bot 的 TAB5 自动选升级包；首次安装仍通过设备中心完成。[后续更新用法](docs/UPDATES.md)。
 
-开发候选新增 [TAB5 Codex 直达](docs/TAB5-QUICK-CONSOLE.md)：右下角常驻入口，每次打开最新 Codex 会话，豆包语音识别文字仅填入电脑草稿，等待手动发送。用户已确认 0.2.90-ui 语音回填，0.2.92-ui 新入口与最新会话行为待真机验收。
+本次重点 [TAB5 Codex 直达](docs/TAB5-QUICK-CONSOLE.md)：右下角常驻入口、最近五个会话及前后切换，语音文字填入所选会话草稿，确认后显式发送；支持取消、失败恢复与长按清空。
 
 ![CI](https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml/badge.svg)
 [![MIT](https://img.shields.io/badge/own_source-MIT-81dce6)](LICENSE)

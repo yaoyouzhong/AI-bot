@@ -52,27 +52,11 @@ internal static class Tab5RpcSelfTest
                 return JsonDocument.Parse(Tab5RpcBinary.Decode(Tab5Protocol.Decrypt(key,nonce,response.ToArray(),bulk?65535:32768),response:true));
             }
             long Now()=>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-#if LOCAL_ART
             foreach(string category in new[]{"painting","calligraphy"}) {
-                using var gallery=await Call(new{kind="gallery",op="manifest",category,date="2026-10-06",frame=0,session,issuedAt=Now()},binary:true);
-                if(gallery.RootElement.GetProperty("status").GetInt32()!=200||gallery.RootElement.GetProperty("body").GetProperty("width").GetInt32()!=1280)throw new Exception("Authenticated gallery route failed");
-                var manifest=gallery.RootElement.GetProperty("body");string gallerySha=manifest.GetProperty("sha256").GetString()!;int size=manifest.GetProperty("size").GetInt32();
-                using var artwork=new MemoryStream();
-                for(int offset=0;offset<size;offset+=49152) {
-                    using var chunk=await Call(new{kind="gallery",op="read",category,date="2026-10-06",frame=0,sha256=gallerySha,offset,count=49152,session,issuedAt=Now()},mtu:517,binary:true,bulk:true);
-                    if(chunk.RootElement.GetProperty("status").GetInt32()!=200)throw new Exception("Authenticated gallery read failed");
-                    artwork.Write(Convert.FromBase64String(chunk.RootElement.GetProperty("body").GetProperty("data").GetString()!));
-                }
-                if(artwork.Length!=size||Convert.ToHexString(SHA256.HashData(artwork.ToArray())).ToLowerInvariant()!=gallerySha)throw new Exception("Authenticated gallery download corrupted artwork");
+                using var missing=await Call(new{kind="gallery",op="manifest",category,date="2026-10-06",frame=0,session,issuedAt=Now()},binary:true);
+                if(missing.RootElement.GetProperty("status").GetInt32()!=404||missing.RootElement.GetProperty("body").GetProperty("error").GetString()!="gallery_pack_missing")throw new Exception("Missing optional gallery was not explained");
             }
-#else
-            foreach(string category in new[]{"painting","calligraphy"}) {
-                using var disabled=await Call(new{kind="gallery",op="manifest",category,date="2026-10-06",frame=0,session,issuedAt=Now()},binary:true);
-                if(disabled.RootElement.GetProperty("status").GetInt32()!=400)throw new Exception("Public bridge exposed local gallery route");
-            }
-            if(typeof(Tab5Service).Assembly.GetType("AIBotBridge.Tab5Gallery") is not null)throw new Exception("Public bridge contains gallery implementation");
-            Console.WriteLine("PUBLIC_GALLERY_EXCLUDED_OK both authenticated routes rejected, implementation absent");
-#endif
+
             int desktopOpens=0,desktopDrafts=0,desktopSubmits=0,desktopClears=0;
             string draftText="中文语音 & ? #\n等待手动发送";
             service.QuickConsole=new(()=>[new(task,"test","test",0)],(_,_)=>{desktopOpens++;return Task.FromResult(true);},

@@ -4,7 +4,7 @@ Artwork images retain their documented public-domain / CC0 / CC BY 4.0 status. D
 
 Museum records, actual reproduction URLs, source dimensions, crop coordinates and hashes are recorded in selection.json and provenance.json. Museum names identify collections, not endorsement.
 
-402 paintings (36 Chinese) and 411 calligraphy works are included. Both meet the annual quantity target. Another 24 Chinese painting reserves and 8 new calligraphy reserves remain outside this catalog. Not hardware-accepted.
+402 paintings (36 Chinese) and 411 calligraphy works are included. Both meet the annual quantity target. Another 24 Chinese painting reserves and 8 new calligraphy reserves remain outside this catalog. The user accepted both categories, four orientations and automatic screensavers on standard .143, followed by later-page portrait acceptance and exact-image boot validation on .145.
 
 Cleveland Museum of Art: https://www.clevelandart.org/open-access
 Met Open Access: https://www.metmuseum.org/about-the-met/policies-and-documents/open-access

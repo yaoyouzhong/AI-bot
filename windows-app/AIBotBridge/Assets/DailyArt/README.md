@@ -1,3 +1,6 @@
+> 已被 0.6.0 标准版与独立图库方案替代。当前范围及状态见 [图库说明](../../../../docs/GALLERY-PACKS.md)。
+> Superseded by the unified standard edition and optional collection packs; historical details below.
+
 # Local-only DailyArt resources
 
 每日名画与每日书法仅供本地使用，不发布图库 ZIP，也不包含在公开安装包或公开源码快照中。3,804 张 JPEG 留在本地并排除于 Git；catalog、来源、选集及 `files.json` 记录本地素材身份。

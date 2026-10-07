@@ -18,7 +18,8 @@ internal sealed class UpdateCenterForm : Form
         root.Controls.Add(new Label{Text="电脑软件与已添加设备分别检查更新，自动选择适用的安装包。",AutoSize=true,Dock=DockStyle.Fill},0,0);
         var tools=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};var check=new Button{Text="检查更新",AutoSize=true,Name="check"};
         var automatic=new CheckBox{Text="自动检查并提醒",AutoSize=true,Checked=UpdateReminder.Read().Automatic};
-        tools.Controls.AddRange([check,automatic]);root.Controls.Add(tools,0,1);
+        var galleries=new Button{Text="屏保图库…",AutoSize=true};galleries.Click+=(_,_)=>{using var form=new GalleryPackForm();form.ShowDialog(this);};
+        tools.Controls.AddRange([check,automatic,galleries]);root.Controls.Add(tools,0,1);
         var grid=new DataGridView{Name="updates",Dock=DockStyle.Fill,ReadOnly=true,AllowUserToAddRows=false,AllowUserToDeleteRows=false,RowHeadersVisible=false,AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill,AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.AllCells,BackgroundColor=Color.White,BorderStyle=BorderStyle.None,MultiSelect=false,SelectionMode=DataGridViewSelectionMode.FullRowSelect};
         foreach(string heading in new[]{"软件 / 设备","当前版本","可用版本","状态"})grid.Columns.Add(heading,heading);
         foreach(DataGridViewColumn column in grid.Columns)column.SortMode=DataGridViewColumnSortMode.NotSortable;

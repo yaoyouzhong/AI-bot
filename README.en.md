@@ -1,18 +1,18 @@
 # AI-bot
 
-Public candidates in preparation are Windows bridge **0.5.1** and TAB5 **0.2.143-ui**. Daily painting and calligraphy remain local-only: public builds exclude their menus, download service and artwork collections. Existing local installations and galleries are retained. The floral monthly calendar remains part of the public candidate. See the [candidate record](docs/RELEASE-CANDIDATE-0.5.1.md) for validation and pending acceptance.
+This update: **AI-bot 0.6.0 + TAB5 0.2.145-ui**; ESP8266 remains 0.5.0. Highlights include Codex Direct, unified updates, a floral calendar and eight screensavers. Painting/calligraphy features are public, with two optional downloadable collection ZIPs and the same local/public functionality. See [complete notes and acceptance status](docs/RELEASE-0.6.0.md) and [collection installation](docs/GALLERY-PACKS.md). Firmware hardware acceptance has passed.
 
 **AI status at a glance.** A desktop AI status assistant that brings Claude Code / Codex activity, account quotas and everyday information to an **ESP8266 display or M5Stack TAB5**.
 
-[**Download v0.5.0**](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.5.0) · [Installation and flashing guide](docs/INSTALL.zh.md#english-summary) · [简体中文](README.md)
+[**Download AI-bot 0.6.0**](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.0) · [TAB5 firmware and optional art](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.145-ui) · [Installation guide](docs/INSTALL.zh.md#english-summary) · [简体中文](README.md)
 
-Windows and ESP8266 use **0.5.0**; TAB5 uses its independent **0.2.89-ui** firmware. The maintainer confirmed hardware acceptance on 2026-10-03, and v0.5.0 is the current stable release. See [release records](docs/RELEASE-0.5.0.md).
+Computer app **0.6.0**, ESP8266 **0.5.0**, TAB5 **0.2.145-ui**. Install the app, then choose firmware for your device; ESP8266 0.5.0 needs no reflash. See [three-component release notes](docs/RELEASE-0.6.0.md).
 
 The bridge and both firmwares update independently. Their numbers need not match; follow each component's notes rather than reflashing every device for every update. See [independent versions](docs/COMPONENT-VERSIONS.md).
 
-The Windows 0.5.1 candidate adds one Software and Firmware Updates entry: receive component-specific notifications, select a device, download and verify its matching package, then open the installation tool. Existing TAB5 installations get upgrade packages; first-time setup remains in the device center. See [updating instructions](docs/UPDATES.md).
+The Windows 0.6.0 adds one Software and Firmware Updates entry: receive component-specific notifications, select a device, download and verify its matching package, then open the installation tool. Existing TAB5 installations get upgrade packages; first-time setup remains in the device center. See [updating instructions](docs/UPDATES.md).
 
-A development candidate adds [TAB5 Codex Direct](docs/TAB5-QUICK-CONSOLE.md): a permanent bottom-right entry, latest conversation on each click, and Doubao dictation staged for manual submission. The user confirmed voice insertion on 0.2.90-ui; the 0.2.92-ui entry and latest-conversation behavior await hardware acceptance.
+A release highlight is [TAB5 Codex Direct](docs/TAB5-QUICK-CONSOLE.md): a permanent bottom-right entry, five recent conversations and previous/next selection, voice drafts in the selected conversation, explicit sending, cancellation, failure recovery and long-press clearing.
 
 ![CI](https://github.com/yaoyouzhong/AI-bot/actions/workflows/ci.yml/badge.svg)
 [![MIT](https://img.shields.io/badge/own_source-MIT-81dce6)](LICENSE)

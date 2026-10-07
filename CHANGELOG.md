@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.0 - 2026-10-07
+
+- Add unified Windows software/firmware updates: independent component discovery, notes, reminders, matching downloads, hashes, embedded identity and compatibility checks, and explicit installation handoff.
+- Improve TAB5 Codex Direct session selection/activation, draft target validation, voice focus recovery, text append and explicit sending without duplicate insertion or sends.
+- Coordinate compressed Wi-Fi/USB/BLE OTA and transfers, retain legacy compatibility and verify the running image after installation.
+- Public builds retain daily paintings and calligraphy. Optional collection ZIPs support validated import, hot reload and preservation on failure; collections live outside the app directory, with legacy resource support.
+- Companion TAB5 0.2.145-ui adds Codex Direct, eight screensavers, a floral calendar, four-way artwork layouts and lossless font capacity optimization. ESP8266 remains 0.5.0 and need not be reflashed.
+- macOS keeps existing platform functionality with a synchronized version; the new update UI, TAB5 Codex and gallery services require Windows.
+- See [complete three-component notes and acceptance status](docs/RELEASE-0.6.0.md). This supersedes the unpublished 0.5.1 draft.
+
 ## 0.5.1 - 2026-10-07
 
 - Complete Windows software and firmware updates: discover stable bridge, ESP8266 and TAB5 versions independently, notify, download and validate the matching package, then hand it to the installer or firmware tool. Local art editions are protected from replacement by public updates.

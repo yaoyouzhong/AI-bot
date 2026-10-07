@@ -9,10 +9,25 @@ internal sealed class Tab5Gallery
 {
     internal sealed record Artwork(string Id,string Category,string Title,string Author,string Source,string License,string[] Frames,string? WorkId=null,string[]? PortraitFrames=null);
     private readonly string _directory;
-    private readonly Lazy<Artwork[]> _works;
+    private readonly string? _packs;
+    private readonly object _gate=new();
+    private readonly Dictionary<string,(long Stamp,long Length,Artwork[] Works)> _catalogs=[];
     internal Tab5Gallery(string? directory=null) {
         _directory=directory??Path.Combine(AppContext.BaseDirectory,"Assets","DailyArt");
-        _works=new(()=>JsonSerializer.Deserialize<Artwork[]>(File.ReadAllText(Path.Combine(_directory,"catalog.json")),JsonDefaults.Options)??[]);
+        _packs=directory is null?GalleryPack.Root:null;
+    }
+    internal Tab5Gallery(string legacyDirectory,string packsDirectory):this(legacyDirectory){_packs=packsDirectory;}
+    private Artwork[] Works(string directory) {
+        string path=Path.Combine(directory,"catalog.json");var file=new FileInfo(path);
+        if(!file.Exists)return [];
+        lock(_gate) {
+            if(!_catalogs.TryGetValue(path,out var cached)||cached.Stamp!=file.LastWriteTimeUtc.Ticks||cached.Length!=file.Length) {
+                if(file.Length>8*1024*1024)throw new InvalidDataException("Gallery catalog too large");
+                cached=(file.LastWriteTimeUtc.Ticks,file.Length,JsonSerializer.Deserialize<Artwork[]>(File.ReadAllText(path),JsonDefaults.Options)??[]);
+                _catalogs[path]=cached;
+            }
+            return cached.Works;
+        }
     }
     internal static int DayIndex(DateOnly date,int count)=>((date.DayNumber-new DateOnly(2026,1,1).DayNumber)%count+count)%count;
     internal (int Status,object Body) Handle(JsonElement request,bool binary,bool bulk)
@@ -21,8 +36,9 @@ internal sealed class Tab5Gallery
         try {
             string category=Text("category");
             if(category is not ("painting" or "calligraphy")||!DateOnly.TryParseExact(Text("date"),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out var date))return(400,new{error="invalid_gallery_date"});
-            var works=_works.Value.Where(w=>w.Category==category).ToArray();
-            if(works.Length==0)return(404,new{error="gallery_unavailable"});
+            string directory=_packs is not null&&File.Exists(Path.Combine(_packs,category,"catalog.json"))?Path.Combine(_packs,category):_directory;
+            var works=Works(directory).Where(w=>w.Category==category).ToArray();
+            if(works.Length==0)return(404,new{error="gallery_pack_missing",category});
             var work=works[DayIndex(date,works.Length)];
             string orientation=Text("orientation");
             if(orientation is not ("" or "landscape" or "portrait"))return(400,new{error="invalid_gallery_orientation"});
@@ -33,7 +49,7 @@ internal sealed class Tab5Gallery
             if(frame<0||frame>=work.Frames.Length)return(400,new{error="invalid_gallery_frame"});
             string filename=displayFrames[frame];
             if(filename!=Path.GetFileName(filename)||!filename.EndsWith(".jpg",StringComparison.OrdinalIgnoreCase))return(503,new{error="invalid_gallery_catalog"});
-            byte[] data=File.ReadAllBytes(Path.Combine(_directory,filename));
+            byte[] data=File.ReadAllBytes(Path.Combine(directory,filename));
             if(data.Length is <16 or >1048576)return(503,new{error="invalid_gallery_image"});
             string sha=Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
             if(Text("op")=="manifest")return(200,new{work.Id,work.Title,work.Author,work.Source,work.License,date=Text("date"),size=data.Length,sha256=sha,frames=work.Frames.Length,width=1280,height=720,orientation=portrait?"portrait":"landscape"});
@@ -42,7 +58,8 @@ internal sealed class Tab5Gallery
             if(!request.TryGetProperty("offset",out var o)||!o.TryGetInt32(out var offset)||!request.TryGetProperty("count",out var c)||!c.TryGetInt32(out var count)||offset<0||offset>=data.Length||count<=0||count>(bulk?49152:8192))return(400,new{error="invalid_gallery_range"});
             int size=Math.Min(count,data.Length-offset);
             return(200,new Tab5RpcDataBody(new{offset,count=size},data.AsMemory(offset,size)));
-        }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException) {
+        }catch(FileNotFoundException) {return(503,new{error="gallery_pack_incomplete"});}
+        catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException) {
             return(503,new{error="gallery_unavailable"});
         }
     }

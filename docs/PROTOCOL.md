@@ -509,3 +509,15 @@ Local .139 appends `;qos=DW,CPU,CACHE,DMA2D` read arbitration priorities to the 
 Local .140 retires the temporary .136–.139 DSI timing/QoS suffix and `tab5_display_pattern` command after the diagnostic experiments failed physical acceptance. It restores the .131 numeric display diagnostics; the optional `|gallery:` section remains for local art decoding. The old pattern script is historical and must not be used with .140. This rollback also failed physical acceptance and is not a confirmed blue-flash fix.
 
 Local .141 also withdraws `|gallery:` and restores the .131 response format. Consumers must continue treating `displayDiag` as optional opaque diagnostics, rather than requiring fields from a failed experimental version. No protocol version or artwork RPC contract changes.
+
+### Standard artwork collections (.143 / Windows 0.6.0)
+
+Gallery RPC is included in standard Windows builds. Missing category collections return `404 {"error":"gallery_pack_missing","category":"painting|calligraphy"}`; missing image files return `503 {"error":"gallery_pack_incomplete"}`. Existing authenticated manifest/read operations and portrait/layout fields retain protocol version 1. Imported category catalogs under `%LOCALAPPDATA%/AI-bot/DailyArt/{category}` take priority over legacy app-folder galleries and reload after import without restarting. macOS does not implement this service.
+
+TAB5 exposes optional opaque `galleryDiag` text alongside, separately from, `displayDiag`: six comma-separated integers are request count, worker active, category (0 painting / 1 calligraphy), portrait flag, stage and last status/error. Stages: 1 manifest, 2 JPEG allocation, 3 image chunks, 4 hash, 5 image metadata, 6 output allocation, 7 cache synchronization, 8 engine creation, 9 decode, 10 ready. Status is the last HTTP-like RPC status until a decoder/cache call supplies an ESP error; it must be interpreted with the stage. These are fixed atomic counters, with no heap traversal or display-driver changes. Counters do not by themselves prove successful visual rendering. Older clients ignore the additional field.
+
+Finished failed requests release the UI's prior 60-second retry reservation. Per-slot retry delays are 2, 4, 8, then at most 15 seconds; successful images reset backoff. Only one worker runs at a time and the previous displayed frame remains available. This does not assert that every possible transfer or decode failure is resolved.
+
+In .145, `galleryDiag` appends `frame,reused,outputAllocationAttempts` after the original six fields. `frame` is zero-based; `reused` reports whether the current worker received an existing decoder output buffer. The cumulative allocation-attempt counter distinguishes buffer reuse from repeatedly allocating a full RGB565 frame. Retired visible frames and failed-job outputs return to a one-slot atomic spare pool; the currently displayed bitmap is never lent to a worker. No bridge parsing change is required because the diagnostic string is forwarded verbatim.
+
+.145 在原六字段后追加零基页码、当前任务是否复用缓冲、累计输出缓冲分配尝试次数。翻页退役图和失败任务缓冲进入一个原子备用槽，下一任务直接复用；当前可见图不得借给解码任务。桥接原样转发此诊断字符串，不改变图片 RPC 契约。

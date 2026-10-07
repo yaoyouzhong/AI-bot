@@ -20,11 +20,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Packaging boundary tests failed' }
     $files = git -c "safe.directory=$($repoPath.Replace('\','/'))" ls-files --cached --others --exclude-standard
     if ($LASTEXITCODE -ne 0) { throw 'Source inventory failed' }
-    # Daily artwork is local-only. Public builds deliberately have neither its
-    # implementation classes nor its catalog, image files or research lists.
+    # Gallery support is shared by all builds. Optional collection data is packaged separately.
     $files = @($files | Where-Object {
         $_ -notlike 'windows-app/AIBotBridge/Assets/DailyArt/*' -and
-        $_ -notmatch '^windows-app/AIBotBridge/Tab5Gallery(?:SelfTest)?\.cs$' -and
         $_ -notmatch '^docs/TAB5-(?:CALLIGRAPHY|PAINTING|CHINESE-ART)-' -and
         $_ -notmatch '^scripts/(?:prepare_daily_art|verify_daily_art_year)\.py$'
     })

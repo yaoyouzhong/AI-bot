@@ -49,9 +49,6 @@ internal sealed class UpdateService : IDisposable
         if(!ComponentUpdateCatalog.TryNumber(device.Version,release.Component=="tab5",out var installed))return "连接设备后确认运行版本";
         if(release.Number==installed)return "已是最新版本";
         if(release.Number<installed)return "当前版本较新，保留现有版本";
-#if LOCAL_ART
-        if(release.Component is "bridge" or "tab5")return "本地艺术完整版：保留当前版本，公开更新不含名画和书法";
-#endif
         if(release.Package is null||release.Checksums is null)return "发布包缺少可信下载或校验信息";
         return null;
     }

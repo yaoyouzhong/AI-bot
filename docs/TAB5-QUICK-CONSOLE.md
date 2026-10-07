@@ -2,6 +2,10 @@
 
 ## 当前验收状态 / Current acceptance
 
+2026-10-07 发布收尾：标准版 `.145` 已完成精确镜像启动核验；配套 Windows 0.6.0。Codex 直达的既有会话、语音草稿及显式发送验收保持有效，本次普通界面连续输入、两类艺术屏保与四方向、自动屏保验收通过，无蓝闪或持续等待图片。完整公开功能见 [0.6.0 三组件发布说明](RELEASE-0.6.0.md)。下文为历史过程，不应把旧版本的“待验”理解为当前发布状态；主动失焦、异常断线与逐通道专项仍按原证据范围处理。
+
+Release closeout on 2026-10-07: standard .145 passed exact-image boot and user acceptance for ordinary typing, both art categories, four orientations and automatic screensavers. Existing Codex session/voice/draft/send acceptance remains valid. The Windows companion is 0.6.0. Historical pending notes below do not override this status; deliberate failures and per-transport coverage retain their stated boundaries.
+
 2026-10-06：.121 与配套桥接已安装，精确镜像启动核验通过；用户反馈“效果还是不错的，一切正常”，本轮日常语音优化通过。此前会话操作、追加草稿、光标及年度屏保的用户验收保持有效，不重复列为待验。主动失焦、断线及逐通道覆盖不由日常反馈推定通过。单次录音仍为 60 秒；延长到 3 分钟暂未实现。
 
 .122 倒计时数字/单位加粗已安装并通过精确启动核验；用户认为颜色偏暗，视觉确认仍待完成，桥接未更换。下面保留各次实现时的历史记录，其中“尚未部署/待验”不覆盖本节最新状态。当前安装证据见 [TAB5 .121](TAB5-ACCEPTANCE-121.md)。

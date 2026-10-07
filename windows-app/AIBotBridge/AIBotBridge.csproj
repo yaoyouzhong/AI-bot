@@ -11,9 +11,8 @@
     <AssemblyName>AIBotBridge</AssemblyName>
     <RootNamespace>AIBotBridge</RootNamespace>
     <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
-    <Version>0.5.1</Version>
+    <Version>0.6.0</Version>
     <LocalArt Condition="'$(LocalArt)' == ''">false</LocalArt>
-    <DefineConstants Condition="'$(LocalArt)' == 'true'">$(DefineConstants);LOCAL_ART</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
@@ -25,9 +24,6 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(LocalArt)' != 'true'">
-    <Compile Remove="Tab5Gallery.cs;Tab5GallerySelfTest.cs" />
   </ItemGroup>
 
   <Target Name="RemoveUnusedWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">

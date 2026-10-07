@@ -8,6 +8,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==4&&args[0]=="--self-test-gallery-packs"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryPackSelfTest.RunPackages(args[1],args[2],args[3]);return;}
         if(args.Length==1&&args[0]=="--self-test-profile-guard"){AppProfileGuardSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-unified-updates"){AppPaths.BeginPublicSelfTest();UpdateSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-update-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);UpdateUiSelfTest.Run(args[1]);return;}
@@ -43,9 +44,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-device-registry"){DeviceRegistrySelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-quick-console"){AppPaths.BeginPublicSelfTest();Tab5QuickConsoleSelfTest.RunAsync().GetAwaiter().GetResult();return;}
-#if LOCAL_ART
         if(args.Length==1&&args[0]=="--self-test-tab5-gallery"){AppPaths.BeginPublicSelfTest();Tab5GallerySelfTest.Run();return;}
-#endif
         if(args.Length==1&&args[0]=="--self-test-tab5-rpc"){AppPaths.BeginPublicSelfTest();Tab5RpcSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}

@@ -21,7 +21,7 @@ try {
     dotnet publish (Join-Path $sourceRoot 'windows-app\AIBotBridge\AIBotBridge.csproj') -c Release -r win-x64 --self-contained false -o $stage
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }
     if(Test-Path -LiteralPath (Join-Path $stage 'Assets/DailyArt')) { throw 'Public package must not contain local artwork resources' }
-    @{edition='public';localArt=$false;version=(Get-Content (Join-Path $sourceRoot 'VERSION') -Raw).Trim()} |
+    @{edition='standard';optionalArt=$true;bundledArt=$false;version=(Get-Content (Join-Path $sourceRoot 'VERSION') -Raw).Trim()} |
         ConvertTo-Json | Set-Content (Join-Path $stage 'EDITION.json') -Encoding utf8
     python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') windows --stage $stage
     if ($LASTEXITCODE -ne 0) { throw 'Distribution materials failed validation' }

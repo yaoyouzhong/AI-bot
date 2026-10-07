@@ -38,6 +38,7 @@ internal static class PublicSelfTest
         }
         DataSourceSelfTest.Run();
         ComponentUpdateSelfTest.Run();
+        GalleryPackSelfTest.Run();
         Task.Run(UpdateSelfTest.RunAsync).GetAwaiter().GetResult();
         FirmwareFlashSelfTest.RunAsync().GetAwaiter().GetResult();
         QuotaHistorySelfTest.Run();

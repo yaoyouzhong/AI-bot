@@ -1,5 +1,9 @@
 # TAB5 每日名画与每日书法 / Daily art screensavers
 
+当前为标准版 .145：独立可选图库、预览与自动屏保四方向、第二页及后续分页验收通过，详见 [.145 验收](TAB5-ACCEPTANCE-145.md)和[图库安装](GALLERY-PACKS.md)。下方 .131 状态为历史记录。
+
+Current: standard .145 with optional packs and accepted later-page portrait layouts; see [.145 acceptance](TAB5-ACCEPTANCE-145.md). The .131 status below is historical.
+
 2026-10-07最新状态：配套桥接、完整横竖屏图库及 .131 固件已部署。402件名画、411件书法，共1902个分页、3804张横竖屏JPEG；已核实中文备注显示在对应画面的原文下方。十二月历和三类屏保主链路在 .125 获确认，艺术屏保四方向在 .130 获确认，书法花屏修复在 .131 获确认。精确镜像启动核验通过，原自动轮播已恢复，当前见[.131验收记录](TAB5-ACCEPTANCE-131.md)。下方历史阶段记录不代表当前待办。
 
 Latest status (2026-10-07): the bridge, complete gallery and .131 firmware are deployed: 402 paintings, 411 calligraphy works, 1902 pages and 3804 landscape/portrait JPEGs. Verified Chinese notes appear beneath original captions. The user accepted all three screensavers with .125, four art orientations with .130 and the calligraphy corruption fix with .131. Exact-image boot verification passes and original automatic cycling is restored. See the [.131 acceptance record](TAB5-ACCEPTANCE-131.md); historical pending entries below are not current open items.

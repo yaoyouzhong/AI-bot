@@ -1,3 +1,6 @@
+> 已被 0.6.0 标准版与独立图库方案替代。当前范围及状态见 [发布说明](RELEASE-0.6.0.md)。
+> Superseded by the unified standard edition and optional collection packs; historical details below.
+
 # Windows 0.5.1 / TAB5 0.2.143-ui 发布候选
 
 2026-10-07。仅准备本地候选；未推送、打标签或公开发布。当前公开稳定版仍为 v0.5.0。旧 `.133` 及 `artifacts/development/tab5-release-132/` 中的 Windows 包已被本轮候选替代，不能用于本次发布。

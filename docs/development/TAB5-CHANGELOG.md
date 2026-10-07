@@ -2,11 +2,28 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.145-ui - 2026-10-07
+
+- Fix landscape fallback on later calligraphy pages in portrait: retain retired-frame and failed-job output buffers instead of allocating another 1.8 MB image.
+- Transfer spare-buffer ownership atomically between the UI and decoder; never lend the currently displayed bitmap to a worker.
+- Passed 24 page cycles, 96 orientation checks, both categories and failed-request retries with only two output allocations. Exact-image boot and user pagination acceptance passed; see [evidence](../TAB5-ACCEPTANCE-145.md).
+- Append frame, reuse and allocation-attempt diagnostics. Preserve the display baseline, orientation mapping, fonts and driver.
+- Supersede unpublished .143/.144; see [complete 0.6.0 notes](../RELEASE-0.6.0.md).
+
+## 0.2.144-ui - 2026-10-07
+
+- Retain .143 Codex Direct, eight screensavers, optional collection support, four-way art layouts, lossless fonts and three-transport OTA improvements.
+- Continued .143 observation captured decode-output allocation failure. Reuse an unused decoder buffer instead of allocating a third full image alongside two cached frames; bound cached/worker output storage to two images and protect the actual displayed fallback.
+- Retain 2–15 second retry backoff and lightweight receive stages, without restoring heap scans, driver or page-cache experiments.
+- Later-page portrait hardware acceptance failed; superseded by .145. See [complete 0.6.0 notes](../RELEASE-0.6.0.md). The unpublished .143 is superseded.
+
 ## 0.2.143-ui - 2026-10-07
 
-- Prepare a new public candidate from the accepted display baseline, retaining lossless Chinese fonts and six public screensavers including the floral monthly calendar.
-- Keep automatic-screensaver state intact when a delayed background tab event arrives. Later gallery/heap diagnostic and cache experiments remain withdrawn.
-- Keep daily painting/calligraphy local-only. Public application headroom is 696,096 bytes without a partition change. Supersedes .133; public-image physical acceptance remains pending. See [candidate record](../RELEASE-CANDIDATE-0.5.1.md).
+- Standard firmware retains all eight screensavers, including the floral monthly calendar, paintings and calligraphy. Import optional collections using Windows AI-bot 0.6.0; missing packs have explicit hints.
+- Codex Direct provides a permanent entry, five recent sessions, voice drafts and explicit sending. Improve quota/countdown styling, connection status and compressed three-transport OTA.
+- Art previews and automatic screensavers support four orientations; retain the accepted stable display path, JPEG cache synchronization and screensaver state fix. Lossless compressed fonts retain complete glyph coverage and caching.
+- Completed image failures retry with 2–15 second backoff instead of retaining a 60-second reservation; preserve the last successful image and record lightweight receive/decode stages. Exact-image boot and user acceptance of both art categories, all orientations, automatic screensavers and normal typing pass without blue flashes or persistent waits.
+- See [complete 0.6.0 notes and acceptance status](../RELEASE-0.6.0.md). The unpublished six-screensaver candidate is superseded.
 
 ## 0.2.133-ui - 2026-10-07
 
