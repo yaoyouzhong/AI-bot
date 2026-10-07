@@ -2,7 +2,7 @@
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.0.md) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.1.md) · [简体中文](README.md)
 
 https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
@@ -66,12 +66,12 @@ Annual Dots gives every day a dot, with leap-year support, three palettes and au
 
 **One computer app + the firmware for your device.** Choose either display, or connect one of each. The three components have independent version numbers and do not need to be updated together.
 
-### 1. Install the computer app · 0.6.0
+### 1. Install the computer app · 0.6.1
 
 | Your computer | Download | Supported devices |
 | --- | --- | --- |
-| Windows 10/11 x64 | [Windows installer](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/AIBotBridge-0.6.0-setup-win-x64.exe) | ESP8266 and TAB5 |
-| macOS 13+ · Apple Silicon | [Mac application ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/AIBotBridge-0.6.0-local-candidate-macos-arm64.zip) | ESP8266; menu-bar app and screen mirror |
+| Windows 10/11 x64 | [Windows installer](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/AIBotBridge-0.6.1-setup-win-x64.exe) | ESP8266 and TAB5 |
+| macOS 13+ · Apple Silicon | [Mac application ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/AIBotBridge-0.6.1-local-candidate-macos-arm64.zip) | ESP8266; menu-bar app and screen mirror |
 
 The TAB5, unified-update and artwork-import instructions describe Windows features. Windows setup is unsigned. The Mac app is ad-hoc signed and not notarized; Intel Macs are unverified.
 
@@ -80,7 +80,7 @@ The TAB5, unified-update and artwork-import instructions describe Windows featur
 | Your device | Firmware | Which package to use |
 | --- | --- | --- |
 | **ESP8266 small display** · 240×240 ST7789 | 0.5.0 | [Installation / upgrade package](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-0.5.0-firmware-materials.zip); no reflash needed if already on this version. |
-| **M5Stack TAB5** · touch display | 0.2.145-ui | Factory devices: [first-install ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-first-install-0.2.145-ui.zip). Existing AI-bot devices: [upgrade ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-upgrade-0.2.145-ui.zip). |
+| **M5Stack TAB5** · touch display | 0.2.149-ui | Factory devices: [first-install ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-first-install-0.2.149-ui.zip). Existing AI-bot devices: [upgrade ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-upgrade-0.2.149-ui.zip). |
 
 Select the TAB5 first-install ZIP directly. For an upgrade, extract the ZIP and select `aibot_tab5.bin`, keeping the release-notes file beside it. Firmware for the two devices is not interchangeable. See the [illustrated installation guide](docs/INSTALL.zh.md) for wiring, backup and flashing.
 
@@ -99,7 +99,7 @@ Import the ZIP through Windows Software and Firmware Updates → Artwork Collect
 <details>
 <summary>Checksums and earlier releases</summary>
 
-SHA-256: [computer apps](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/SHA256SUMS.txt) · [TAB5 and art collections](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) · [ESP8266](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt). [Earlier releases](https://github.com/yaoyouzhong/AI-bot/releases)
+SHA-256: [computer apps](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/SHA256SUMS.txt) · [TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/SHA256SUMS.txt) · [art collections](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) · [ESP8266](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt). [Earlier releases](https://github.com/yaoyouzhong/AI-bot/releases)
 
 </details>
 
@@ -113,7 +113,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.0.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/TAB5-ACCEPTANCE-145.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.1.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/TAB5-BLE-GALLERY-148.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](docs/development/TAB5-SOURCE.md) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

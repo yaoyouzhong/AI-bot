@@ -154,6 +154,10 @@ internal sealed partial class Tab5Service : IDisposable
     private int _port;
     private long _publishedAt;
     private volatile string _usbStatus="未配对";
+    private volatile string _usbConnectionDiagnostic="尚无连接采样";
+    private volatile string _usbConnectionAttempt="";
+    private long _usbConnectionStageAt;
+    private string UsbConnectionDiagnostic=>_usbConnectionDiagnostic+(_usbConnectionAttempt.Length==0?"":$"; current={_usbConnectionAttempt}; stageAgeMs={Environment.TickCount64-Interlocked.Read(ref _usbConnectionStageAt)}");
     private volatile string _bleStatus="未配对";
     private volatile string _bleDiagnostic="尚无传输";
     private volatile string _bleRpcDiagnostic="尚无请求";
@@ -172,7 +176,7 @@ internal sealed partial class Tab5Service : IDisposable
     internal DeviceView DeviceView { get {long now=Environment.TickCount64;bool Recent(long at)=>at>0&&now-at<15000;bool usb=Recent(Interlocked.Read(ref _usbAckAt)),wifi=Recent(Interlocked.Read(ref _wifiRequestAt)),ble=Recent(Interlocked.Read(ref _bleAckAt));return new(usb||wifi||ble,Busy?"正在处理":usb||wifi||ble?"在线":"离线",$"USB：{(usb?"已连接":"未连接")}  Wi-Fi：{(wifi?"已连接":"未连接")}  蓝牙：{(ble?"已连接":"未连接")}\n当前通道：{(usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无")}",_firmware.LastVersion(PairedId),usb?"已连接":"未连接",wifi?"已连接":"未连接",ble?"已连接":"未连接",usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无");}}
     private volatile bool _wifiReportedConnected;
     private volatile string _voiceAuthStatus="尚无语音请求";
-    internal string DiagnosticSummary => ProfileDiagnostic+GalleryDiagnostic+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙预检 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
+    internal string DiagnosticSummary => ProfileDiagnostic+GalleryDiagnostic+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
     private string? _reservedPort;
     internal string CrashDiagnostic=>_crashes.Snapshot;
     // All callers hold _usbGate. Keeping DTR and the CDC handle stable avoids
@@ -487,28 +491,38 @@ internal sealed partial class Tab5Service : IDisposable
             var pairing=_store.Current;
             if(pairing is not null) {
                 bool gateHeld=false;string stage="enumerate";
+                bool connecting=_usbPort is null;long began=Environment.TickCount64,stageAt=began;
+                var timings=new List<string>();
+                void Stage(string next) {
+                    long now=Environment.TickCount64;timings.Add($"{stage}={now-stageAt}ms");
+                    stage=next;stageAt=now;Interlocked.Exchange(ref _usbConnectionStageAt,now);_usbConnectionAttempt=next;
+                }
+                Interlocked.Exchange(ref _usbConnectionStageAt,began);_usbConnectionAttempt=stage;
                 try {
                     // SetupAPI enumeration must not monopolize the serial gate
                     // while firmware fragments or interactive RPCs are flowing.
                     var candidates=await Task.Run(UsbDevices,token);
+                    Stage("gate");
                     await _usbGate.WaitAsync(token);gateHeld=true;
-                    stage="discover_identity";
+                    Stage("discover_identity");
                     var device=await Tab5UsbRecovery.FindAsync(pairing,candidates,async(candidate,ct)=>{
                         try{return await ReadIdentityAsync(GetOrOpenUsbPort(candidate.Port),ct);}finally{CloseUsbPort();}
                     },token);
                     if(device is null) { _usbStatus="未连接"; Volatile.Write(ref _reservedPort,null); CloseUsbPort(); }
                     else {
                         Volatile.Write(ref _reservedPort,device.Port);
+                        Stage("open");
                         var port=GetOrOpenUsbPort(device.Port);
-                        stage="identity";
+                        Stage("identity");
                         if(await ReadIdentityAsync(port,token)!=pairing.DeviceId) throw new IOException("USB 设备身份不匹配");
                         if(!device.Identity.Equals(pairing.UsbIdentity,StringComparison.OrdinalIgnoreCase))_store.Pair(pairing.DeviceId,device.Identity);
+                        Stage("host");
                         if(_host is not null) Send(port,new {version=1,type="tab5_host",host=_host,port=_port});
                         if(CurrentFrame is { } frame) {
-                            stage="status_write";
+                            Stage("status_write");
                             byte[] wire=_usbPacked?PackedFullFrame(frame):frame;
                             port.WriteLine(Tab5Protocol.Prefix+Encoding.UTF8.GetString(wire));
-                            stage="status_ack";
+                            Stage("status_ack");
                             using var sent=JsonDocument.Parse(frame);
                             using var ack=await ReadReplyAsync(port,"tab5_ack",token);
                             if(ack.RootElement.GetProperty("deviceId").GetString()!=pairing.DeviceId ||
@@ -519,13 +533,16 @@ internal sealed partial class Tab5Service : IDisposable
                             _usbRpcChunk=Tab5UsbBinary.Chunk(ack.RootElement,_usbRpcBinary);
                             _usbTelemetryVersion=ack.RootElement.TryGetProperty("telemetryVersion",out var telemetryVersion)&&telemetryVersion.TryGetInt32(out var tv)?tv:0;
                             _usbStatus="已连接 · "+device.Port;Interlocked.Exchange(ref _usbAckAt,Environment.TickCount64);
+                            Stage("connected");
+                            if(connecting||_usbConnectionDiagnostic=="尚无连接采样"||Environment.TickCount64-began>=1000)
+                                _usbConnectionDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss.fff} total={Environment.TickCount64-began}ms; "+string.Join("; ",timings);
                             if(ack.RootElement.TryGetProperty("firmware",out var installedVersion)&&installedVersion.ValueKind==JsonValueKind.String)
                                 ObserveFirmware(pairing.DeviceId,installedVersion.GetString()!);
                             string? reportedAssets=ack.RootElement.TryGetProperty("assetIds",out var idsValue)&&idsValue.ValueKind==JsonValueKind.String?idsValue.GetString():null;
                             _assets.Acknowledge(reportedAssets);
                             if(ack.RootElement.TryGetProperty("uptimeMs",out var uptimeValue)&&uptimeValue.TryGetInt64(out long uptime)&&
                                ack.RootElement.TryGetProperty("resetReason",out var resetValue)&&resetValue.TryGetInt32(out int reset)&&_crashes.Observe(uptime,reset)) {
-                                stage="crash_trace";
+                                Stage("crash_trace");
                                 Send(port,new{version=1,type="tab5_crash_status"});
                                 using var crash=await ReadReplyAsync(port,"tab5_crash_diagnostic",token);
                                 _crashes.Record(ack.RootElement.TryGetProperty("firmware",out var crashVersion)?crashVersion.GetString()??"":"",crash.RootElement);
@@ -540,6 +557,7 @@ internal sealed partial class Tab5Service : IDisposable
                             _deviceHealth=$"固件：{(ack.RootElement.TryGetProperty("firmware",out var fw)?fw.GetString():"--")}；确认时间：{DateTimeOffset.Now:HH:mm:ss}；帧字节：{frame.Length}；含资源：{hasResource}；USB资源分片：{_usbResourceChunks}；Wi-Fi：{wifi}；运行毫秒：{Number("uptimeMs")}；重启原因：{Number("resetReason")}；屏保：{Number("saverActive")}；键鼠唤醒：{Number("pcWakeCount")}；界面心跳年龄：{Number("uiAgeMs")}；界面数据年龄：{Number("uiDataAgeMs")}；已选任务：{Number("taskSelected")}；输入会话就绪：{Number("inputSessionReady")}；语音检查：{Number("voiceCheck")}；点击时数据年龄：{Number("voiceAgeMs")}；语音阶段：{Number("voiceStage")}；HTTP：{Number("voiceHttp")}；语音往返毫秒：{Number("voiceRequestMs")}；音频序号：{Number("voiceSeq")}；背光设置次数：{Number("backlightChanges")}；亮度：{Number("backlightPercent")}；显示欠载：{Number("lcdUnderruns")}；页面：{Number("uiPage")}；资源位图：{Number("assetsReady")}；已持久化：{Number("assetsCached")}；三通道数据年龄：{ages}；BLE连接次数：{Number("bleConnectCount")}；BLE断开原因：{Number("bleDisconnectReason")}；显示诊断：{(ack.RootElement.TryGetProperty("displayDiag",out var displayDiag)?displayDiag.GetString():"--")}；升级准备诊断：{(ack.RootElement.TryGetProperty("otaDiag",out var otaDiag)?otaDiag.GetString():"--")}；显示错误：{Number("flushErrors")}；相机诊断：{(ack.RootElement.TryGetProperty("cameraDiag",out var cameraDiag)?cameraDiag.GetString():"--")}；照片诊断：{(ack.RootElement.TryGetProperty("photoDiag",out var photoDiag)?photoDiag.GetString():"--")}；上传诊断：{(ack.RootElement.TryGetProperty("photoUploadDiag",out var uploadDiag)?uploadDiag.GetString():"--")}";
                             if(ack.RootElement.TryGetProperty("artOrientation",out var artOrientation))_deviceHealth+="\n艺术屏保方向："+artOrientation.GetString();
                             if(ack.RootElement.TryGetProperty("galleryDiag",out var galleryDiag))_deviceHealth+="\n艺术图片接收："+galleryDiag.GetString();
+                            if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
                             // Bound each USB burst to preserve regular status heartbeats.
                             if(!BackgroundTransferPaused&&ack.RootElement.TryGetProperty("assetsReady",out var readyValue)&&readyValue.TryGetInt32(out var ready)) {
                                 int budget=16;
@@ -551,7 +569,7 @@ internal sealed partial class Tab5Service : IDisposable
                                         transfer=(asset.Id,0);
                                     }
                                     while(!BackgroundTransferPaused&&budget>0&&transfer.Offset<asset.Packed.Length) {
-                                        stage="resource";
+                                        Stage("resource");
                                         Send(port,new {version=1,type="tab5_resource",deviceId=pairing.DeviceId,resource=Tab5Assets.Chunk(asset,transfer.Offset)});
                                         using var resourceAck=await ReadReplyAsync(port,"tab5_resource_ack",token);
                                         if(resourceAck.RootElement.GetProperty("deviceId").GetString()!=pairing.DeviceId)throw new IOException("TAB5 资源确认不匹配");
@@ -566,8 +584,11 @@ internal sealed partial class Tab5Service : IDisposable
                             }
                         }
                     }
-                } catch(Exception ex) when(Tab5UsbRecovery.IsDisconnect(ex,token)) { RecordUsbFailure(stage,ex);if(gateHeld)CloseUsbPort();_usbStatus="等待连接（"+ex.GetType().Name+"）"; }
-                finally { if(gateHeld)_usbGate.Release(); }
+                } catch(Exception ex) when(Tab5UsbRecovery.IsDisconnect(ex,token)) {
+                    _usbConnectionDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss.fff} failed={stage}; {ex.GetType().Name}; total={Environment.TickCount64-began}ms; stageMs={Environment.TickCount64-stageAt}; "+string.Join("; ",timings);
+                    RecordUsbFailure(stage,ex);if(gateHeld)CloseUsbPort();_usbStatus="等待连接（"+ex.GetType().Name+"）";
+                }
+                finally { _usbConnectionAttempt="";if(gateHeld)_usbGate.Release(); }
             }
             await Task.Delay(pendingResources?40:2000,token);
         }
@@ -576,7 +597,7 @@ internal sealed partial class Tab5Service : IDisposable
         (nonce,proof,packet,ct)=>VoiceAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct,compact:true),
         (nonce,proof,packet,ct)=>RpcAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct,transport:"BLE"),
         (capability,interactive)=>Volatile.Read(ref _otaTransfers)>0?null:TelemetryFrame(2,capability>0,capability>=2,interactive,capability>=3),
-        s=>_bleRpcDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,()=>ResetTelemetryChannel(2),()=>ImageUploadActive,s=>_bleVoiceDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,seq=>AcknowledgeTelemetry(2,seq),version=>ObserveFirmware(_store.Current?.DeviceId??"",version),probeTrace:_bleProbeTrace,nativeLimit:()=>_bleQueueComparison.NativeLimit,bulkWriteLimit:()=>_bleQueueComparison.WriteWindow,bulkWriteSupported:n=>Volatile.Write(ref _bleWriteWindowSupported,n)).RunAsync(token);
+        s=>_bleRpcDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,()=>ResetTelemetryChannel(2),()=>ImageUploadActive||BleGalleryTransferActive,s=>_bleVoiceDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,seq=>AcknowledgeTelemetry(2,seq),version=>ObserveFirmware(_store.Current?.DeviceId??"",version),probeTrace:_bleProbeTrace,nativeLimit:()=>_bleQueueComparison.NativeLimit,bulkWriteLimit:()=>_bleQueueComparison.WriteWindow,bulkWriteSupported:n=>Volatile.Write(ref _bleWriteWindowSupported,n)).RunAsync(token);
     private static SerialPort Open(string name) {
         var port=new SerialPort(name,460800) {NewLine="\n",ReadTimeout=500,WriteTimeout=2500,DtrEnable=true,RtsEnable=false,Encoding=Encoding.UTF8};
         try {port.Open();return port;} catch {DisposeUsbPort(port);throw;}

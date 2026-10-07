@@ -22,6 +22,10 @@
 
 修改说明后须在桥接重新选择固件才能加载新说明；同版本不重复刷机。刷机仍需对应候选的用户授权，启动核验与恢复原自动轮播沿用项目规则。
 
+Windows 候选可在 development 目录构建和自检，实际运行沿用固定的 `windows-app/AIBotBridge/bin/Release/net8.0-windows10.0.19041.0/AIBotBridge.exe`。更新前正常退出并备份原运行文件，再部署已核验的二进制、核对哈希及用户资料目录、恢复轮播后从固定路径启动。每次从新候选目录运行可能再次触发 Windows 网络访问授权；不为测试改动防火墙规则。
+
 ## English
+
+Build and test Windows candidates under development, but run validated binaries from the existing fixed Release path. Exit normally, back up runtime files, verify deployed hashes and the user profile, restore the carousel and restart there. New executable paths may trigger repeated Windows network-access prompts; do not modify firewall rules for testing.
 
 For factory installation use a full first-install ZIP, not this application BIN. Both may carry version 0.2.89-ui; see INSTALL.zh.md. For an existing AI-bot installation, select `artifacts/firmware/tab5/latest/aibot_tab5.bin`. Its matching notes, manifest and checksum accompany it. `scripts/prepare_tab5_firmware.ps1` validates the image with the Release bridge loader and requires structured release notes before updating this fixed path. Previous image/note combinations are retained under `versions/<version>/<image-hash-prefix>-<notes-hash-prefix>/`; development artifacts remain available as evidence. Preview the actual notes with the adjacent TAB5 preview script. Preparing a candidate does not flash a device or publish a release.

@@ -2,6 +2,40 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.149-ui - 2026-10-07
+
+Locally installed; exact boot identity and two cold-image BLE transfers verified. Includes the .146–.148 fixes below.
+
+- Repair wireless gallery RPC by explicitly using authenticated HTTP POST. Cache up to 2 MiB of JPEGs, prefetch the other layout and reclaim cache for camera, voice, attachments and OTA. Preserve the two decode buffers, image quality, pairing and partitions.
+
+- Fix the portrait prefetch missing Wi-Fi isolation while the preceding landscape download is restoring the radio.
+- Consecutive layouts reuse the paused radio across a 600 ms idle window, without extending the original 35-second deadline. Preserve the bounded preparation fallback and mode-change restoration.
+- Regression tests exercise consecutive layouts, restoration contention, timeout and lease ownership; two uncached portrait fetches took 7,260 / 8,540 ms versus 9,484 ms in the .147 record (approximately 23% / 10% shorter, not a sustained guarantee). Wi-Fi restored successfully and no disconnect was observed during either transfer; recorded interruptions coincided with upgrade or deliberate restarts. The desktop continues at its existing fixed Release path.
+
+## 0.2.148-ui - 2026-10-07
+
+Locally installed and boot-verified, unpublished. Portrait prefetch missed isolation during restoration; the .149 candidate corrects this omission.
+
+- In explicit BLE-only mode, first gallery downloads request a temporary Wi-Fi pause of at most 35 seconds. Restore after completion, failure or a mode change. Fall back to coexistence after a 500 ms preparation budget; cache hits do not pause Wi-Fi.
+- Preserve automatic USB, Wi-Fi, BLE priority, credentials, pairing, partitions, image quality and window64/native7.
+- Include existing seven-field Wi-Fi isolation diagnostics in USB health replies and display restoration state in the bridge. See [candidate evidence and acceptance boundaries](../TAB5-BLE-GALLERY-148.md).
+
+## 0.2.147-ui - 2026-10-07
+
+Locally installed with hardware cache and three-transport gallery evidence; first BLE downloads remain slow. Unpublished.
+
+- Retain the .146 HTTP POST fix and daily USB, Wi-Fi, BLE priority.
+- Prefetch the other layout after displaying a page and retain at most 2 MiB of JPEGs. Cache hits skip gallery RPC; preserve the two output buffers and original image quality.
+- Camera, attachments, voice and OTA reclaim the cache first. Reboot, reclaim or eviction requires a new download. No SD card, pairing or partition change is required.
+- Temporarily disable Wi-Fi power saving during downloads; pair with desktop image snapshot reuse and BLE throughput scheduling. Add fetch/decode timing; actual speed gains remain unmeasured. See [candidate evidence](../TAB5-GALLERY-CACHE-147.md).
+
+## 0.2.146-ui - 2026-10-07
+
+Locally functionally verified, unpublished; performance issues remain tracked.
+
+- Use POST for authenticated HTTP RPC, fixing gallery clients that inherited GET and failed to synchronize wirelessly.
+- Exact boot image and all three gallery transports passed display, orientation and pagination acceptance. Slow BLE cold downloads, the USB screen indicator taking over ten seconds and the historical intermittent Codex message remain separately tracked in the [record](../TAB5-GALLERY-TRANSPORTS-146.md).
+
 ## 0.2.145-ui - 2026-10-07
 
 - Fix landscape fallback on later calligraphy pages in portrait: retain retired-frame and failed-job output buffers instead of allocating another 1.8 MB image.

@@ -1,8 +1,14 @@
 # TAB5 每日名画与每日书法 / Daily art screensavers
 
-当前为标准版 .145：独立可选图库、预览与自动屏保四方向、第二页及后续分页验收通过，详见 [.145 验收](TAB5-ACCEPTANCE-145.md)和[图库安装](GALLERY-PACKS.md)。下方 .131 状态为历史记录。
+2026-10-07 拔线复核：`.145` 的 Wi-Fi 图库 RPC 使用了默认 GET，导致 USB 拔出后可能停留旧书法横屏图或提示等待名画同步。`.146` 已修正并安装，精确镜像启动核验通过；用户确认 USB、Wi-Fi、BLE 下两类图库均可显示、转向及分页。BLE 等待体验和 USB 标识恢复慢的问题仍在处理，见[无线同步修复记录](TAB5-GALLERY-TRANSPORTS-146.md)。
 
-Current: standard .145 with optional packs and accepted later-page portrait layouts; see [.145 acceptance](TAB5-ACCEPTANCE-145.md). The .131 status below is historical.
+Unplugged follow-up (2026-10-07): .145 used the default GET method for gallery RPC over Wi-Fi. The fix in .146 is installed with exact-image boot verification. The user confirmed both galleries' display, rotation and paging over USB, Wi-Fi and BLE. BLE loading latency and the slow USB screen indicator remain under investigation. See the [transport repair record](TAB5-GALLERY-TRANSPORTS-146.md).
+
+后续 `.147` 已本地安装并完成三通道图库与缓存验证；缓存重复查看即时，BLE 首次下载仍慢，见[缓存与下载记录](TAB5-GALLERY-CACHE-147.md)。`.148` 已安装，仅蓝牙模式增加下载期间的临时 Wi-Fi 暂停；实测竖屏预取遗漏暂停，`.149` 已安装修复，两轮同图竖屏下载 7.26 / 8.54 秒，较 .147 单次记录分别缩短约 23% / 10%，见[候选记录](TAB5-BLE-GALLERY-148.md)。The installed .147 has three-transport gallery and cache evidence; cached revisits are immediate while first BLE downloads remain slow. The installed .148 temporarily pauses Wi-Fi during gallery downloads in explicit BLE-only mode, but portrait prefetch missed that pause during restoration. The installed .149 correction fetched the same uncached portrait in 7.26 / 8.54 seconds, approximately 23% / 10% shorter than the single .147 record; this does not establish a sustained gain.
+
+标准版 .145 的既有验收：独立可选图库、预览与自动屏保四方向、第二页及后续分页通过，详见 [.145 验收](TAB5-ACCEPTANCE-145.md)和[图库安装](GALLERY-PACKS.md)。当前状态以上方 .146 记录为准，下方 .131 状态为历史记录。
+
+Previous standard .145 acceptance covers optional packs and later-page portrait layouts; see [.145 acceptance](TAB5-ACCEPTANCE-145.md). The .146 record above is current; the .131 status below is historical.
 
 2026-10-07最新状态：配套桥接、完整横竖屏图库及 .131 固件已部署。402件名画、411件书法，共1902个分页、3804张横竖屏JPEG；已核实中文备注显示在对应画面的原文下方。十二月历和三类屏保主链路在 .125 获确认，艺术屏保四方向在 .130 获确认，书法花屏修复在 .131 获确认。精确镜像启动核验通过，原自动轮播已恢复，当前见[.131验收记录](TAB5-ACCEPTANCE-131.md)。下方历史阶段记录不代表当前待办。
 

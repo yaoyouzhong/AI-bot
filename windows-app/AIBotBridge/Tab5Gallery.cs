@@ -12,6 +12,8 @@ internal sealed class Tab5Gallery
     private readonly string? _packs;
     private readonly object _gate=new();
     private readonly Dictionary<string,(long Stamp,long Length,Artwork[] Works)> _catalogs=[];
+    private readonly Dictionary<string,(long Stamp,long Length,byte[] Bytes,string Sha,long Used)> _images=[];
+    private long _imageUse;
     internal Tab5Gallery(string? directory=null) {
         _directory=directory??Path.Combine(AppContext.BaseDirectory,"Assets","DailyArt");
         _packs=directory is null?GalleryPack.Root:null;
@@ -30,6 +32,23 @@ internal sealed class Tab5Gallery
         }
     }
     internal static int DayIndex(DateOnly date,int count)=>((date.DayNumber-new DateOnly(2026,1,1).DayNumber)%count+count)%count;
+    private (byte[] Bytes,string Sha) Image(string path) {
+        lock(_gate) {
+            var file=new FileInfo(path);
+            if(!file.Exists){_images.Remove(path);throw new FileNotFoundException();}
+            if(file.Length is <16 or >1048576)throw new InvalidDataException("Gallery image size invalid");
+            if(!_images.TryGetValue(path,out var cached)||cached.Stamp!=file.LastWriteTimeUtc.Ticks||cached.Length!=file.Length) {
+                byte[] bytes=File.ReadAllBytes(path);
+                if(bytes.Length is <16 or >1048576)throw new InvalidDataException("Gallery image size invalid");
+                cached=(file.LastWriteTimeUtc.Ticks,file.Length,bytes,Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),0);
+                // Four validated JPEGs cover both layouts of both categories.
+                // Every range still checks metadata, but reads/hashes only on change.
+                if(!_images.ContainsKey(path)&&_images.Count>=4)_images.Remove(_images.MinBy(entry=>entry.Value.Used).Key);
+            }
+            cached.Used=++_imageUse;_images[path]=cached;
+            return(cached.Bytes,cached.Sha);
+        }
+    }
     internal (int Status,object Body) Handle(JsonElement request,bool binary,bool bulk)
     {
         string Text(string key)=>request.TryGetProperty(key,out var value)&&value.ValueKind==JsonValueKind.String?value.GetString()!:"";
@@ -49,9 +68,7 @@ internal sealed class Tab5Gallery
             if(frame<0||frame>=work.Frames.Length)return(400,new{error="invalid_gallery_frame"});
             string filename=displayFrames[frame];
             if(filename!=Path.GetFileName(filename)||!filename.EndsWith(".jpg",StringComparison.OrdinalIgnoreCase))return(503,new{error="invalid_gallery_catalog"});
-            byte[] data=File.ReadAllBytes(Path.Combine(directory,filename));
-            if(data.Length is <16 or >1048576)return(503,new{error="invalid_gallery_image"});
-            string sha=Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
+            var (data,sha)=Image(Path.Combine(directory,filename));
             if(Text("op")=="manifest")return(200,new{work.Id,work.Title,work.Author,work.Source,work.License,date=Text("date"),size=data.Length,sha256=sha,frames=work.Frames.Length,width=1280,height=720,orientation=portrait?"portrait":"landscape"});
             if(Text("op")!="read"||!binary)return(400,new{error="gallery_requires_binary"});
             if(Text("sha256")!=sha)return(409,new{error="gallery_changed"});
@@ -59,6 +76,7 @@ internal sealed class Tab5Gallery
             int size=Math.Min(count,data.Length-offset);
             return(200,new Tab5RpcDataBody(new{offset,count=size},data.AsMemory(offset,size)));
         }catch(FileNotFoundException) {return(503,new{error="gallery_pack_incomplete"});}
+        catch(InvalidDataException) {return(503,new{error="invalid_gallery_image"});}
         catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException) {
             return(503,new{error="gallery_unavailable"});
         }

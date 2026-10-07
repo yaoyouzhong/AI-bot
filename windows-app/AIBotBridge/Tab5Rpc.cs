@@ -9,6 +9,8 @@ internal sealed partial class Tab5Service
     private readonly Tab5Gallery _gallery=new();
     private volatile string _galleryDiagnostic="尚无图片请求";
     private long _galleryRequests;
+    private long _bleGalleryUntil;
+    internal bool BleGalleryTransferActive=>Environment.TickCount64<Interlocked.Read(ref _bleGalleryUntil);
     private string GalleryDiagnostic=>"\n艺术图片同步："+_galleryDiagnostic;
     internal Tab5QuickConsole QuickConsole {get;set;}=new();
     private readonly Dictionary<string,long> _rpcNonces=[];
@@ -84,6 +86,10 @@ internal sealed partial class Tab5Service
                 else if(Text(root,"kind")=="gallery") {
                     result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
                         ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply);
+                    // A manifest is small, but starts a sequence of image ranges.
+                    // Keep the existing BLE throughput lease across that sequence;
+                    // USB/Wi-Fi requests and rejected/replayed packets never renew it.
+                    if(result.Status==200&&transport=="BLE")Interlocked.Exchange(ref _bleGalleryUntil,Environment.TickCount64+3000);
                     _galleryDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} request={Interlocked.Increment(ref _galleryRequests)}; transport={transport}; category={Text(root,"category")}; op={Text(root,"op")}; orientation={Text(root,"orientation")}; status={result.Status}; body="+
                         JsonSerializer.Serialize(result.Body is Tab5RpcDataBody data?data.Metadata:result.Body,JsonDefaults.Options);
                 }

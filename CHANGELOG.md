@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.1 - 2026-10-07
+
+- Reuse validated gallery image snapshots across range requests, avoiding repeated disk reads and SHA-256 calculation; invalidate on replacement or removal.
+- Keep BLE throughput preference across consecutive gallery requests, without renewing it for other transports or rejected requests.
+- Add USB enumeration/handshake timings and TAB5 Wi-Fi pause/restoration diagnostics; isolate the TAB5 self-test profile.
+- Pair with TAB5 0.2.149-ui for wireless gallery repair, bounded JPEG caching and continuous landscape/portrait BLE downloads. Two cold portrait transfers measured 7.26 / 8.54 seconds versus the earlier 9.48-second record; results vary.
+- macOS retains existing functionality with synchronized version metadata. ESP8266 and optional gallery packs are unchanged.
+- See [patch release details and validation boundaries](docs/RELEASE-0.6.1.md).
+
 ## 0.6.0 - 2026-10-07
 
 - Add unified Windows software/firmware updates: independent component discovery, notes, reminders, matching downloads, hashes, embedded identity and compatibility checks, and explicit installation handoff.

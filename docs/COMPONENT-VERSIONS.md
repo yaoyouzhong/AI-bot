@@ -6,9 +6,9 @@
 
 | 组件 | 当前版本 | 版本文件 | 后续组件标签 |
 | --- | --- | --- | --- |
-| Windows / macOS 桥接 | 0.6.0 | 根目录 `VERSION` | `bridge-v0.6.0` 等 |
+| Windows / macOS 桥接 | 0.6.1 | 根目录 `VERSION` | `bridge-v0.6.0` 等 |
 | ESP8266 固件 | 0.5.0 | `firmware/VERSION` | `esp8266-v0.6.0` 等 |
-| TAB5 固件 | 0.2.145-ui | `versions/TAB5` | `tab5-v0.2.145-ui` 等 |
+| TAB5 固件 | 0.2.149-ui（本地已验收） | `versions/TAB5` | `tab5-v0.2.149-ui` 等 |
 
 表中未来标签仅为格式示例，不代表已经发布或当前版本已经增加。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
 
@@ -39,7 +39,7 @@ python scripts/package_esp8266_local.py artifacts/esp8266-package
 ```powershell
 python scripts/check_version.py --tag bridge-v0.6.0
 python scripts/check_version.py --tag esp8266-v0.5.0
-python scripts/check_version.py --tag tab5-v0.2.145-ui
+python scripts/check_version.py --tag tab5-v0.2.149-ui
 ```
 
 上述命令只检查格式与本地声明，不创建标签。历史 `vX.Y.Z` 保留为桥接主导的组合版本，包内各组件仍用独立版本。`extract_release_notes.py` 从对应组件的中英文日志选取说明；未完成的日志继续阻止正式打标签。

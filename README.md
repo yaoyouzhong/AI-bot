@@ -2,7 +2,7 @@
 
 **AI 状态，一眼便知。** 把 Claude Code / Codex 的任务状态、账户额度与日常信息，放到桌边的 ESP8266 小屏或 M5Stack TAB5 上。
 
-[下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.0.md) · [English](README.en.md)
+[下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.1.md) · [English](README.en.md)
 
 https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
@@ -66,12 +66,12 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 **一份电脑软件 + 你所用设备的固件。** 两种硬件选其一即可，也可各连接一台；三者独立编号，不要求版本号相同，也不必一起升级。
 
-### 1. 先安装电脑软件 · 0.6.0
+### 1. 先安装电脑软件 · 0.6.1
 
 | 你的电脑 | 下载 | 支持的设备 |
 | --- | --- | --- |
-| Windows 10/11 x64 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/AIBotBridge-0.6.0-setup-win-x64.exe) | ESP8266、TAB5 |
-| macOS 13+ · Apple Silicon | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/AIBotBridge-0.6.0-local-candidate-macos-arm64.zip) | ESP8266；菜单栏与屏幕镜像 |
+| Windows 10/11 x64 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/AIBotBridge-0.6.1-setup-win-x64.exe) | ESP8266、TAB5 |
+| macOS 13+ · Apple Silicon | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/AIBotBridge-0.6.1-local-candidate-macos-arm64.zip) | ESP8266；菜单栏与屏幕镜像 |
 
 TAB5、统一更新和艺术图库导入的操作说明以 Windows 为准。Windows 安装器未签名；Mac 应用临时签名、未公证，Intel Mac 未验证。
 
@@ -80,7 +80,7 @@ TAB5、统一更新和艺术图库导入的操作说明以 Windows 为准。Wind
 | 你的设备 | 固件版本 | 下载与选择 |
 | --- | --- | --- |
 | **ESP8266 小屏** · 240×240 ST7789 | 0.5.0 | [首刷／升级通用包](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-0.5.0-firmware-materials.zip)；已是此版本无需重刷。 |
-| **M5Stack TAB5** · 触摸大屏 | 0.2.145-ui | 出厂设备选[首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-first-install-0.2.145-ui.zip)；已有 AI-bot 选[升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/TAB5-upgrade-0.2.145-ui.zip)。 |
+| **M5Stack TAB5** · 触摸大屏 | 0.2.149-ui | 出厂设备选[首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-first-install-0.2.149-ui.zip)；已有 AI-bot 选[升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-upgrade-0.2.149-ui.zip)。 |
 
 TAB5 首刷包直接选择 ZIP；升级包先解压，再选择 `aibot_tab5.bin`，保留同目录的更新说明文件。两种硬件的固件不可互换。详细接线、备份与刷写步骤见[安装图解](docs/INSTALL.zh.md)。
 
@@ -99,7 +99,7 @@ TAB5 首刷包直接选择 ZIP；升级包先解压，再选择 `aibot_tab5.bin`
 <details>
 <summary>校验文件与历史版本</summary>
 
-SHA-256：[电脑软件](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.0/SHA256SUMS.txt) · [TAB5 与图库](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) · [ESP8266](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt)。[历史版本](https://github.com/yaoyouzhong/AI-bot/releases)
+SHA-256：[电脑软件](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/SHA256SUMS.txt) · [TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/SHA256SUMS.txt) · [图库](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) · [ESP8266](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt)。[历史版本](https://github.com/yaoyouzhong/AI-bot/releases)
 
 </details>
 
@@ -113,7 +113,7 @@ SHA-256：[电脑软件](https://github.com/yaoyouzhong/AI-bot/releases/download
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次三组件更新明细](docs/RELEASE-0.6.0.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/TAB5-ACCEPTANCE-145.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次三组件更新明细](docs/RELEASE-0.6.1.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/TAB5-BLE-GALLERY-148.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](docs/development/TAB5-SOURCE.md) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

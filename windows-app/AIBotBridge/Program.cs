@@ -45,6 +45,7 @@ internal static class Program
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-quick-console"){AppPaths.BeginPublicSelfTest();Tab5QuickConsoleSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-gallery"){AppPaths.BeginPublicSelfTest();Tab5GallerySelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-gallery-transports"){AppPaths.BeginPublicSelfTest();Tab5GalleryTransportSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-rpc"){AppPaths.BeginPublicSelfTest();Tab5RpcSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-ble-voice"){Tab5BleVoiceSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
@@ -116,7 +117,7 @@ internal static class Program
             RunTray(showTab5:true);return;
         }
         if (args.Length == 1 && args[0] == "--self-test-tab5")
-        { Tab5SelfTest.RunAsync().GetAwaiter().GetResult(); return; }
+        { AppPaths.BeginPublicSelfTest(); Tab5SelfTest.RunAsync().GetAwaiter().GetResult(); return; }
         if (args.Length == 1 && args[0] == "--quota-history-once")
         {
             var rows = QuotaHistory.Shared.Read();
