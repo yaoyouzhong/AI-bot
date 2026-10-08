@@ -58,6 +58,25 @@ Windows 0.6.1 的[统一更新入口](UPDATES.md)还提供每日检查、同版�
 
 ## 文档与媒体同步
 
+完整用户下载入口为根目录 [DOWNLOADS.md](../DOWNLOADS.md) / [DOWNLOADS.en.md](../DOWNLOADS.en.md)。`download-catalog.json` 只登记已公开稳定版本的七类下载（Windows、Mac、ESP8266 通用包、TAB5 首刷／升级、书法、名画），不把本地候选当成已发布。
+
+维护流程：
+
+```powershell
+# 只读访问公开 Releases，验证下载 URL、附件大小、摘要与 SHA256SUMS.txt 后更新本地索引
+python scripts/download_catalog.py refresh
+# 生成中英文下载中心和 README 下载块
+python scripts/download_catalog.py sync
+# 离线检查生成内容是否过期；发布前另做在线核对
+python scripts/download_catalog.py check
+python scripts/download_catalog.py verify-online
+python scripts/test_download_catalog.py
+```
+
+`extract_release_notes.py` 自动在组件更新说明前添加完整下载表、固定入口和安装提示；本次组件使用目标标签的附件地址，其余沿用索引中的正式版本。草稿中的本次组件链接要到该 Release 公开且附件齐全后才可公开下载；原有打包检查继续验证本次组件的附件，下载索引检查不代替安装或真机验收。组件发布后重新 `refresh`、`sync` 并审查索引变动，使固定下载中心指向最新正式版本；旧 Release 内的固定入口仍可找到新版。上述命令只读取网络、修改本地文件，不推送或发布。
+
+`verify_release_local.ps1` 检查下载中心/README 是否与索引一致并运行边界测试。现有 Release 工作流调用的说明提取器已接入完整下载表，无需改变工作流的权限、触发条件或草稿发布边界。网站上的内容仍须经明确授权提交/推送或更新 Release 说明后生效。
+
 每次发布同时核对 README、中英文更新日志、安装/更新指南、功能图鉴、版本入口和下载链接，并区分当前说明与历史验收记录。截图仅在界面内容、显示版本或操作步骤变化时更新；未变化的截图和视频保留原捕获说明。替换截图后逐张复核并同步许可材料中的 SHA-256，避免文档、素材与发布附件不一致。
 
 ## 自动发布衔接
@@ -67,6 +86,8 @@ Windows 0.6.1 的[统一更新入口](UPDATES.md)还提供每日检查、同版�
 本地调用 GitHub CLI 使用 `python scripts/github_cli.py ...` 或其 `run_cli` 入口。Windows 直接解析真实控制台版 `gh.exe`，跳过 PATH 中的 GUI 包装器，并结合 `CREATE_NO_WINDOW`、隐藏窗口及标准输入/输出/错误重定向；失败保留退出码与错误，不打开交互终端。创建标签、push、刷机或公开新版本仍须对应操作的明确授权。
 
 ## English
+
+The fixed entry points are DOWNLOADS.md and DOWNLOADS.en.md. download-catalog.json records seven published stable downloads, separately from local candidate version files. Run `python scripts/download_catalog.py refresh`, then `sync` to update both centers and README tables; `check` detects stale generated content, and `verify-online` checks public assets, URL availability, sizes and published checksums. Run `python scripts/test_download_catalog.py` for completeness and component-isolation regressions. The release-notes extractor prepends all downloads, using the target tag for the releasing component and retaining published companion packages. Draft asset links become public only after publication with all required assets. Refresh and sync after publication to advance the fixed center. These tools never push, upload or publish; packaging checks and installation/hardware acceptance remain separate. The local release checker includes index checks; workflow permissions, triggers and draft boundaries are unchanged.
 
 Each release also reconciles README, bilingual changelogs, installation/update guides, feature references, version entries and download links. Preserve dated acceptance evidence. Refresh media only when visible content, versions or steps change; retain unchanged screenshots/videos with their original provenance. Visually review replacements and update their registered SHA-256 values.
 

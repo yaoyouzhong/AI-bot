@@ -7,6 +7,7 @@ import argparse
 import pathlib
 import re
 from component_versions import components, release_target
+from download_catalog import release_intro
 
 
 def main() -> None:
@@ -34,7 +35,7 @@ def main() -> None:
     if not match:
         raise SystemExit(f"no release notes found for {version}")
 
-    args.output.write_text(match.group(1).rstrip() + "\n", encoding="utf-8")
+    args.output.write_text(release_intro(args.tag) + match.group(1).rstrip() + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

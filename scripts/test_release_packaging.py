@@ -62,7 +62,13 @@ class PackagingTests(unittest.TestCase):
                 path.write_text(path.read_text(encoding="utf-8").replace("- Pending change", ""), encoding="utf-8")
             result = subprocess.run(command, cwd=directory, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Released change", (directory / "notes.md").read_text())
+            notes = (directory / "notes.md").read_text(encoding="utf-8")
+            self.assertIn("Released change", notes)
+            self.assertIn("/blob/main/DOWNLOADS.md", notes)
+            self.assertIn("AIBotBridge-0.1.0-setup-win-x64.exe", notes)
+            self.assertIn("AI-bot-0.1.0-firmware-materials.zip", notes)
+            self.assertIn("DailyCalligraphy-", notes)
+            self.assertIn("TAB5-first-install-", notes)
 
     def test_installer_missing_or_tampered_blocks_release(self):
         for mutation in ('missing', 'tampered'):

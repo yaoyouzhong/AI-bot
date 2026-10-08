@@ -2,6 +2,8 @@
 
 本页对应 Windows 0.6.1；旧版 v0.5.0 用户需先安装新电脑端才能使用完整下载流程。macOS 尚未实现此入口。
 
+[完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。待发布桥接的「完整下载与安装说明」链接也指向此处；目前公开的 0.6.1 仍打开旧安装指南。
+
 ## 日常使用
 
 1. 在 Windows 托盘右键进入「设备中心 → 桥接设置 → 软件固件」，打开「软件与固件更新」。列表同时显示电脑软件和设备中心已添加的设备，分别列出当前版本、可用版本及操作状态。
@@ -20,6 +22,8 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 此入口负责发现、下载和交接。安装后的真实运行版本、TAB5 精确镜像启动结果和实体屏效果仍需分别核验；下载成功不等于升级完成。自动后台检查不会下载安装器或刷写设备。
 
 ## English
+
+The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. The unreleased bridge's manual-download link opens this center; published 0.6.1 still opens the installation guide.
 
 This describes Windows 0.6.1; v0.5.0 users need to install the newer computer app first. macOS does not yet implement this entry point. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
 

@@ -6,7 +6,7 @@
 
 ## 1. 下载与安装
 
-从 [AI-bot 0.6.1 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.1)开始；TAB5 固件在[配套 TAB5 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui)；可选图库继续使用[原图库包](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.145-ui)，已有图库无需重下。按用途选择：
+从[完整下载中心](../DOWNLOADS.md)一次找到电脑桥接、小屏固件、TAB5 首刷／升级包与书法／名画图库。已有图库无需重下。按用途选择：
 
 | 你要做什么 | 下载什么 |
 | --- | --- |

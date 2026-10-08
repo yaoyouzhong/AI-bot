@@ -2,7 +2,7 @@
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.1.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.1.md) · [简体中文](README.md)
 
 https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
@@ -64,44 +64,25 @@ Annual Dots gives every day a dot, with leap-year support, three palettes and au
 
 ## Downloads and device pairing
 
-**One computer app + the firmware for your device.** Choose either display, or connect one of each. The three components have independent version numbers and do not need to be updated together.
+<!-- downloads:start -->
+| Use | Version | Download | SHA-256 |
+| --- | --- | --- | --- |
+| Windows bridge · Windows 10/11 x64 | 0.6.1 | [Download · 56 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/AIBotBridge-0.6.1-setup-win-x64.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.1 | [Download · 46 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/AIBotBridge-0.6.1-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/SHA256SUMS.txt) |
+| ESP8266 display · first install / upgrade | 0.5.0 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-0.5.0-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.149-ui | [Download · 4 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-first-install-0.2.149-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.149-ui | [Download · 4 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-upgrade-0.2.149-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/SHA256SUMS.txt) |
+| Daily Calligraphy · optional collection | 2026.10.07 | [Download · 726 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/AI-bot-DailyCalligraphy-2026.10.07.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) |
+| Daily Painting · optional collection | 2026.10.07 | [Download · 199 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/AI-bot-DailyPainting-2026.10.07.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) |
 
-### 1. Install the computer app · 0.6.1
+Install the computer bridge, then choose firmware for your device. Artwork collections are optional. Components update independently; reinstalling an unchanged version is unnecessary.
 
-| Your computer | Download | Supported devices |
-| --- | --- | --- |
-| Windows 10/11 x64 | [Windows installer](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/AIBotBridge-0.6.1-setup-win-x64.exe) | ESP8266 and TAB5 |
-| macOS 13+ · Apple Silicon | [Mac application ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/AIBotBridge-0.6.1-local-candidate-macos-arm64.zip) | ESP8266; menu-bar app and screen mirror |
+- **Factory TAB5**: choose the first-install ZIP. **Existing AI-bot**: extract the upgrade ZIP and select `aibot_tab5.bin`, keeping its release-notes file beside it. Firmware is not interchangeable between devices.
+- **Collections**: import ZIPs directly through Windows Software and Firmware Updates → Artwork Collections. App upgrades preserve collections. Requires Windows bridge 0.6.0+ and TAB5 0.2.145-ui+.
+- Windows supports ESP8266 and TAB5. Mac currently supports ESP8266; TAB5, unified updates and artwork import instructions apply to Windows. Windows setup is unsigned; Mac is ad-hoc signed and not notarized.
 
-The TAB5, unified-update and artwork-import instructions describe Windows features. Windows setup is unsigned. The Mac app is ad-hoc signed and not notarized; Intel Macs are unverified.
-
-### 2. Choose firmware for your display
-
-| Your device | Firmware | Which package to use |
-| --- | --- | --- |
-| **ESP8266 small display** · 240×240 ST7789 | 0.5.0 | [Installation / upgrade package](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/AI-bot-0.5.0-firmware-materials.zip); no reflash needed if already on this version. |
-| **M5Stack TAB5** · touch display | 0.2.149-ui | Factory devices: [first-install ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-first-install-0.2.149-ui.zip). Existing AI-bot devices: [upgrade ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-upgrade-0.2.149-ui.zip). |
-
-Select the TAB5 first-install ZIP directly. For an upgrade, extract the ZIP and select `aibot_tab5.bin`, keeping the release-notes file beside it. Firmware for the two devices is not interchangeable. See the [illustrated installation guide](docs/INSTALL.zh.md) for wiring, backup and flashing.
-
-<details>
-<summary><strong>Optional: painting and calligraphy collections for TAB5</strong></summary>
-
-| Collection | Distinct works | Download |
-| --- | ---: | --- |
-| Daily Painting | 402 | [Painting ZIP · 199 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/AI-bot-DailyPainting-2026.10.07.zip) |
-| Daily Calligraphy | 411 | [Calligraphy ZIP · 726 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/AI-bot-DailyCalligraphy-2026.10.07.zip) |
-
-Import the ZIP through Windows Software and Firmware Updates → Artwork Collections without extracting it. App upgrades preserve collections; other features work without them. Calligraphy includes multi-page albums and scrolls, making its package larger. Pages do not count as extra works. [Installation, sizes and licenses](docs/GALLERY-PACKS.md)
-
-</details>
-
-<details>
-<summary>Checksums and earlier releases</summary>
-
-SHA-256: [computer apps](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.1/SHA256SUMS.txt) · [TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/SHA256SUMS.txt) · [art collections](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) · [ESP8266](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.5.0/SHA256SUMS.txt). [Earlier releases](https://github.com/yaoyouzhong/AI-bot/releases)
-
-</details>
+[Installation guide](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [Collection sizes and licenses](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md) · [Earlier releases](https://github.com/yaoyouzhong/AI-bot/releases)
+<!-- downloads:end -->
 
 ## Setup and future updates
 

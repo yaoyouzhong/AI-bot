@@ -6,6 +6,10 @@ $auditPath = Join-Path $repoPath ('artifacts\release-check-' + [Guid]::NewGuid()
 # Never build over the resident bridge's files or send it an exit signal.
 Push-Location $repoPath
 try {
+    python scripts/download_catalog.py check
+    if ($LASTEXITCODE -ne 0) { throw 'Complete download index is stale or incomplete' }
+    python scripts/test_download_catalog.py
+    if ($LASTEXITCODE -ne 0) { throw 'Download index boundary tests failed' }
     python scripts/check_version.py --component bridge
     if ($LASTEXITCODE -ne 0) { throw 'Version check failed' }
     if ($Firmware) {

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "downloads": {
+    "windows": {
+      "version": "0.6.1",
+      "tag": "bridge-v0.6.1",
+      "file": "AIBotBridge-0.6.1-setup-win-x64.exe",
+      "size": 59132134,
+      "sha256": "26a65dbc84a1c4fe86a511633bfe4691a07e12d8c1213bc6c6c495b7caa0e6f1"
+    },
+    "macos": {
+      "version": "0.6.1",
+      "tag": "bridge-v0.6.1",
+      "file": "AIBotBridge-0.6.1-local-candidate-macos-arm64.zip",
+      "size": 47940183,
+      "sha256": "6a36aeab0ec0047718364901c34d320d3c8543510645ffa34e579197344a617c"
+    },
+    "esp8266": {
+      "version": "0.5.0",
+      "tag": "v0.5.0",
+      "file": "AI-bot-0.5.0-firmware-materials.zip",
+      "size": 31601065,
+      "sha256": "792e3927c0b31f2b2af48ddeefa1d56bf471e45007a6c91dce859b5dd203a713"
+    },
+    "tab5-first": {
+      "version": "0.2.149-ui",
+      "tag": "tab5-v0.2.149-ui",
+      "file": "TAB5-first-install-0.2.149-ui.zip",
+      "size": 4312404,
+      "sha256": "ecd47f21e0133aeda5c8a442e5c4042f620ef8fe10c97e3abb671936a441131c"
+    },
+    "tab5-upgrade": {
+      "version": "0.2.149-ui",
+      "tag": "tab5-v0.2.149-ui",
+      "file": "TAB5-upgrade-0.2.149-ui.zip",
+      "size": 4282654,
+      "sha256": "1bc7278433afa055e91f00e7aaa662eb00f90835196bc2acc15b4dc2c59ab322"
+    },
+    "calligraphy": {
+      "version": "2026.10.07",
+      "tag": "tab5-v0.2.145-ui",
+      "file": "AI-bot-DailyCalligraphy-2026.10.07.zip",
+      "size": 761702491,
+      "sha256": "2da9fb8320347ddda090489129a9a248fed92da5e288ddb35820e4b47fb2c0f5"
+    },
+    "painting": {
+      "version": "2026.10.07",
+      "tag": "tab5-v0.2.145-ui",
+      "file": "AI-bot-DailyPainting-2026.10.07.zip",
+      "size": 208836960,
+      "sha256": "51ea07f24bc43b79776a905995e57b393c0cfb42448b8168d8b03a2971baec55"
+    }
+  }
+}

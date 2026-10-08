@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add a complete download center for both computer apps, ESP8266, TAB5 first-install/upgrade packages and both artwork collections. Generate bilingual README and release download tables from one validated public index; link the Windows manual-download action to this center.
 ## 0.6.1 - 2026-10-07
 
 - Reuse validated gallery image snapshots across range requests, avoiding repeated disk reads and SHA-256 calculation; invalidate on replacement or removal.
