@@ -39,7 +39,7 @@ internal sealed class AddDeviceForm : Form
         var add=DeviceCenterForm.Button("验证并添加",()=>{},true);row.Controls.Add(add);panel.Controls.Add(row);
         var install=DeviceCenterForm.Button("首次安装固件…",()=>{try{
             if(((Choice)kind.SelectedItem!).Kind==HardwareKind.Tab5){using var service=new Tab5Service{AllowUnregisteredInstall=true};using var form=new Tab5InstallForm(service);form.ShowDialog(this);}
-            else {using var form=new FirmwareFlashForm(preferredPort:(ports.SelectedItem as FlashUsbDevice)?.Port);form.Text="新设备 · ESP8266 · 首次安装";form.ShowDialog(this);}
+            else {using var form=new FirmwareFlashForm(preferredPort:(ports.SelectedItem as FlashUsbDevice)?.Port,bridgeRunning:true,expectedUsbIdentity:(ports.SelectedItem as FlashUsbDevice)?.Identity);form.Text="新设备 · ESP8266 · 首次安装";form.ShowDialog(this);}
             Refresh();
         }catch(Exception ex){status.Text=ex.Message;}});panel.Controls.Add(install);panel.Controls.Add(status);
         kind.SelectedIndexChanged+=(_,_)=>{name.Text=DeviceRegistryStore.Model(((Choice)kind.SelectedItem!).Kind);install.Text=((Choice)kind.SelectedItem!).Kind==HardwareKind.Tab5?"TAB5 首次安装…":"ESP8266 首次安装…";Refresh();};

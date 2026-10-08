@@ -117,6 +117,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                     if((telemetryCapture is null?capture():telemetryCapture(telemetry,rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000)) is not {} clear)return false;
                                     telemetryAt=Environment.TickCount64;
                                     using var doc=JsonDocument.Parse(clear);var seq=doc.RootElement.GetProperty("sequence").GetInt64();
+                                    string frameType=doc.RootElement.TryGetProperty("type",out var kind)?kind.GetString()??"unknown":"status";
                                     var bytes=Tab5Protocol.WithLength(Tab5Protocol.Encrypt(Convert.FromBase64String(pairing.Key),nonce,clear));
                                     int size=Math.Clamp((int)session.MaxPduSize-3,20,488);
                                     bool fast=input.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse);
@@ -130,14 +131,29 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                                 using var writer=new DataWriter();writer.WriteBytes(part.ToArray());
                                                 bool response=Tab5BleTransfer.RequiresResponse(sent,part.Length,bytes.Length,size,fast,window);
                                                 stage=$"发送分片 {sent}/{bytes.Length} 字节，{(response?"等待分片确认":"连续发送")}，窗口 {window}，已用 {started.ElapsedMilliseconds}ms";
-                                                if(await input.WriteValueAsync(writer.DetachBuffer(),response?GattWriteOption.WriteWithResponse:GattWriteOption.WriteWithoutResponse).AsTask(ct)!=GattCommunicationStatus.Success)
-                                                    throw new IOException("BLE write failed");
+                                                long operationStarted=Environment.TickCount64;
+                                                GattCommunicationStatus? result=null;
+                                                try {
+                                                    result=await input.WriteValueAsync(writer.DetachBuffer(),response?GattWriteOption.WriteWithResponse:GattWriteOption.WriteWithoutResponse).AsTask(ct);
+                                                    if(result!=GattCommunicationStatus.Success)throw new IOException("BLE write failed");
+                                                } catch(Exception ex) when(ex is COMException or IOException or OperationCanceledException) {
+                                                    // Snapshot before disposing the session: a local timeout closes
+                                                    // an otherwise connected link and can itself produce reason 0x13.
+                                                    stage=$"GATT write; frame={frameType}; offset={sent}/{bytes.Length}; chunk={part.Length}; response={response}; window={window}; operationMs={Environment.TickCount64-operationStarted}; frameMs={started.ElapsedMilliseconds}; result={result?.ToString()??"no-result"}; operationCancelled={ct.IsCancellationRequested}; shutdown={token.IsCancellationRequested}; "+FailureLink(device,session);
+                                                    throw;
+                                                }
                                                 sent+=part.Length;
                                                 stage=$"发送数据 {sent}/{bytes.Length} 字节，MTU {session.MaxPduSize}，{started.Elapsed.TotalSeconds:F1} 秒";
                                             },
                                             async ct=> {
                                                 stage=$"等待整帧确认，{sent}/{bytes.Length} 字节，MTU {session.MaxPduSize}，已用 {started.Elapsed.TotalSeconds:F1} 秒";
-                                                var candidate=await ReadInfoAsync(info,ct);
+                                                long operationStarted=Environment.TickCount64;
+                                                JsonDocument candidate;
+                                                try {candidate=await ReadInfoAsync(info,ct);}
+                                                catch(Exception ex) when(ex is COMException or IOException or OperationCanceledException) {
+                                                    stage=$"GATT frame ACK; frame={frameType}; bytes={bytes.Length}; operationMs={Environment.TickCount64-operationStarted}; frameMs={started.ElapsedMilliseconds}; operationCancelled={ct.IsCancellationRequested}; shutdown={token.IsCancellationRequested}; "+FailureLink(device,session);
+                                                    throw;
+                                                }
                                                 if(!Authenticate(candidate.RootElement,pairing,out var nextNonce)||nextNonce!=nonce) {
                                                     candidate.Dispose();throw new IOException("BLE acknowledgement authentication failed");
                                                 }
@@ -172,6 +188,12 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                 status(ex is OperationCanceledException?"蓝牙通信超时，正在重连":"蓝牙连接中断，正在重连");
             }
             await Task.Delay(3000,token);
+        }
+    }
+    private static string FailureLink(BluetoothLEDevice device,GattSession session) {
+        try {return $"connection={device.ConnectionStatus}; session={session.SessionStatus}; mtu={session.MaxPduSize}; "+Tab5BleConnectionPreference.ReadLink(device);}
+        catch(Exception ex) when(ex is COMException or InvalidOperationException or ObjectDisposedException) {
+            return $"connection=unavailable/{ex.GetType().Name}/0x{ex.HResult:X8}";
         }
     }
     internal static int BulkWriteCredits(JsonElement info,int fallback)=>

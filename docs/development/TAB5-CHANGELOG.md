@@ -2,6 +2,14 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.150-ui - 2026-10-08
+
+Wi-Fi transfer and exact image fingerprint / ota_0 / VALID boot verification passed. This release does not fix intermittent Bluetooth disconnections.
+
+- Fix the camera entry covering the "Use TAB5" microphone switch during DJI recording on the Codex page. Give the switch its own space and match the microphone control height.
+- Hide the camera entry during voice preparation, recording and recognition; restore it after completion or cancellation.
+- LVGL previews and existing voice interaction regressions pass. The repaired firmware is running; the recording controls on the physical display still await user confirmation.
+
 ## 0.2.149-ui - 2026-10-07
 
 [Published](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui). Locally installed; exact boot identity and two cold-image BLE transfers verified. Includes the .146–.148 fixes below.

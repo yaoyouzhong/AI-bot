@@ -1,5 +1,9 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-08：仅替换更新窗口截图，展示桥接 0.6.2、TAB5 .150、小屏 0.5.1 及旧小屏手动准备入口。截图为隔离的原生控件与固定演示数据，不代表真实下载安装；其他截图保留以下原始捕获说明。
+
+2026-10-08: Only the Update Center capture is refreshed for bridge 0.6.2, TAB5 .150, ESP8266 0.5.1 and legacy screen manual preparation. This is an isolated native-control fixture, not installation evidence; other screenshots retain their original provenance below.
+
 2026-10-07 同步至 Windows AI-bot 0.6.1 与 TAB5 0.2.149-ui。仅刷新显示版本变化的更新中心、设备中心及 TAB5 固件设置页，其他截图和视频沿用已复核素材。Windows 窗口和 TAB5 页面来自原生 WinForms/LVGL 代码的隔离渲染，使用固定演示数据，**不是硬件实拍，也不替代真机验收**。基础功能见 [.145 验收记录](TAB5-ACCEPTANCE-145.md)，本次补丁另见 [.149 BLE 验收记录](TAB5-BLE-GALLERY-148.md)。
 
 ## Windows 捕获

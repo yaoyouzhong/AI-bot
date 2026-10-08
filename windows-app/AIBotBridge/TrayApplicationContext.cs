@@ -246,7 +246,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 case "appearance": ShowAppearance(d);break;
                 case "pet-gallery":
                     if(_petGallery is null||_petGallery.IsDisposed)_petGallery=DeviceWindow(d,new PetGalleryForm(mode=>Mode(mode)),"桌宠素材");SettingsWindow.Present(_petGallery);break;
-                case "flash": using(var form=DeviceWindow(d,new FirmwareFlashForm(preferredPort:_serial.PortName),"固件升级"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                case "flash": using(var form=DeviceWindow(d,new FirmwareFlashForm(preferredPort:_serial.PortName,bridgeRunning:true,expectedUsbIdentity:d.UsbIdentity),"固件升级"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "info": await ManageDeviceAsync(false);break;
                 case "reset": await ManageDeviceAsync(true);break;
                 case "fallback": await TestFallbackAsync();break;
@@ -388,13 +388,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         SettingsWindow.Present(_statusForm);
     }
     private UpdateDevice[] UpdateDevices()=>[new("bridge","电脑端 AI-bot",Application.ProductVersion.Split('+')[0],"运行中",true,"bridge","打开安装程序"),.._devices.Snapshot.Devices.Select(d=>{
-        var v=_services.View(d);return new UpdateDevice(d.Id,d.Name,v.Firmware,v.Status,d.Enabled,d.Kind==HardwareKind.Tab5?"upgrade-tab5":"flash",d.Kind==HardwareKind.Tab5?"在 TAB5 上确认安装":"连接 USB，先备份再升级");
+        return UpdateDevice.From(d,_services.View(d));
     })];
     private async Task InstallUpdateAsync(UpdateDevice target,PreparedUpdate prepared) {
         prepared.VerifyUnchanged();
         if(_changingDevices||_deviceOperationBusy||_services.Busy)throw new InvalidOperationException("请先结束正在进行的设备操作。");
         var current=UpdateDevices().SingleOrDefault(d=>d.Id==target.Id);
-        if(current is null||current.Component!=prepared.Release.Component||UpdateService.Blocked(current,prepared.Release) is not null)
+        if(!UpdateService.SameTarget(target,current,prepared.Release))
             throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
         if(target.Component=="bridge") {
             if(MessageBox.Show(_updatesForm,"安装程序已校验。现在打开安装程序更新电脑端？","更新电脑端",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
@@ -407,8 +407,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _tab5.OfferOta(prepared.Tab5);
             _tab5Form=DeviceWindow(device,new Tab5ConnectionForm(_tab5,loadNetworks:false,showUpgrade:true),"连接与固件升级");SettingsWindow.Present(_tab5Form);
         } else {
+            if(UpdateService.IsLegacyEsp(target)&&MessageBox.Show(_updatesForm,
+                $"小屏固件未上报版本，无法判断 {prepared.Release.Version} 是否比当前版本更新，也可能是同版本或更旧版本。\n\n继续后将打开 USB 刷机工具，先完整备份，再由你点击开始刷机。是否继续？",
+                "手动准备小屏升级",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)throw new OperationCanceledException();
+            if(!UpdateService.SameTarget(target,UpdateDevices().SingleOrDefault(d=>d.Id==target.Id),prepared.Release))
+                throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
             _deviceOperationBusy=true;
-            try{using var form=DeviceWindow(device,new FirmwareFlashForm(preferredPort:_serial.PortName,preparedFirmware:prepared.File),"固件升级");form.ShowDialog(_updatesForm);}
+            try{using var form=DeviceWindow(device,new FirmwareFlashForm(preferredPort:_serial.PortName,preparedFirmware:prepared.File,bridgeRunning:true,expectedUsbIdentity:device.UsbIdentity),"固件升级");form.ShowDialog(_updatesForm);}
             finally{_deviceOperationBusy=false;}
         }
         await Task.CompletedTask;

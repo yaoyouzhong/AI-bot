@@ -1483,6 +1483,8 @@ void sendControl(const char* type) {
   Serial.print(type);
   Serial.print("\",\"device\":\"esp8266\",\"ip\":\"");
   Serial.print(ip);
+  Serial.print("\",\"firmware\":\"");
+  Serial.print(AIBOT_FIRMWARE_VERSION);
   Serial.println("\"}");
 }
 
@@ -1670,6 +1672,7 @@ String displayModeName();
 
 void fillDeviceInfo(JsonObject response) {
   response["device"] = "AI-bot";
+  response["firmware"] = AIBOT_FIRMWARE_VERSION;
   response["version"] = 1;
   response["ip"] = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "";
   response["usb_active"] = usbFresh();
@@ -1978,6 +1981,7 @@ void pollBridge() {
   }
   http.setTimeout(1200);
   http.addHeader("X-AIBot-Token", bridge.token);
+  http.addHeader("X-AIBot-Firmware", AIBOT_FIRMWARE_VERSION);
   int status = http.GET(); bool updated = false;
   if (status == HTTP_CODE_OK) {
     JsonDocument document;

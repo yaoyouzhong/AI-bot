@@ -2,7 +2,7 @@
 
 **AI 状态，一眼便知。** 把 Claude Code / Codex 的任务状态、账户额度与日常信息，放到桌边的 ESP8266 小屏或 M5Stack TAB5 上。
 
-[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.1.md) · [English](README.en.md)
+[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.2.md) · [English](README.en.md)
 
 https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
@@ -94,7 +94,7 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次三组件更新明细](docs/RELEASE-0.6.1.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/TAB5-BLE-GALLERY-148.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次三组件更新明细](docs/RELEASE-0.6.2.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/TAB5-BLE-GALLERY-148.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](docs/development/TAB5-SOURCE.md) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

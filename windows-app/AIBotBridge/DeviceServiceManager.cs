@@ -70,7 +70,7 @@ internal sealed class DeviceServiceManager
                 _lanStop=CancellationTokenSource.CreateLinkedTokenSource(_shutdown);var token=_lanStop.Token;
                 var discovery=new LanDiscoveryServer{Tab5Response=(request,address)=>Tab5?.Discover(request,address),LegacyEnabled=()=>EspLanEnabled};
                 _lanTasks=[Start("discovery",discovery.RunAsync,token),Start("lan",ct=>LanBindingManager.RunAsync(_port,Serial,_runtime.Capture,_runtime.Resources,ct,discovery:discovery,
-                    tab5Provider:()=>Tab5,legacyEnabled:()=>EspLanEnabled,legacyActivity:()=>Interlocked.Exchange(ref _legacyLanAt,Environment.TickCount64)),token)];
+                    tab5Provider:()=>Tab5,legacyEnabled:()=>EspLanEnabled,legacyActivity:()=>Interlocked.Exchange(ref _legacyLanAt,Environment.TickCount64),legacyFirmware:Serial.ObserveLanFirmware),token)];
             }
             if(!esp&&tab is null&&_lanStop is not null){await StopAsync(_lanStop,_lanTasks);_lanStop=null;}
             if(failed is not null)throw failed;
@@ -104,7 +104,8 @@ internal sealed class DeviceServiceManager
         string usbStatus=_espMode==EspConnectionMode.Wifi?"未使用":usb?"已连接":Serial.ConnectionStatus;
         // ESP firmware suspends LAN polling while USB data is fresh. Standby does not assert Wi-Fi association or fallback readiness.
         string wifiStatus=_espMode==EspConnectionMode.Usb?"未使用":lan?"已连接":usb?"待命":"未连接";
-        return new(usb||lan,usb||lan?"在线":Environment.TickCount64-_espStarted<15000?"连接中":"离线",$"USB：{usbStatus}  Wi-Fi：{wifiStatus}","兼容协议 v1",usbStatus,wifiStatus,null,usb?"USB":lan?"Wi-Fi":"无");
+        string firmware=(usb?Serial.UsbFirmwareVersion:lan?Serial.LanFirmwareVersion:null)??"待连接读取";
+        return new(usb||lan,usb||lan?"在线":Environment.TickCount64-_espStarted<15000?"连接中":"离线",$"USB：{usbStatus}  Wi-Fi：{wifiStatus}",firmware,usbStatus,wifiStatus,null,usb?"USB":lan?"Wi-Fi":"无");
     }
     private static async Task StopAsync(CancellationTokenSource stop,Task[] tasks,bool recovering=false) {
         stop.Cancel();try{await Task.WhenAll(tasks);}catch(OperationCanceledException) when(stop.IsCancellationRequested){}

@@ -23,6 +23,7 @@ internal sealed class FirmwareFlashForm : Form
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, WordWrap = false, ScrollBars = ScrollBars.Both, BorderStyle = BorderStyle.None, BackColor = Color.FromArgb(246, 248, 250), ForeColor = Color.FromArgb(86, 99, 111), Dock = DockStyle.Fill, Font = new Font("Microsoft YaHei UI", 8.5f), AccessibleName = "刷机详细记录" };
     private string _firmwarePath = "";
     private readonly bool _preview;
+    private readonly bool _bridgeRunning;
     private readonly Panel _details = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly LinkLabel _more = new() { Text = "更多选项 ▾", AutoSize = true, Anchor = AnchorStyles.Right, LinkBehavior = LinkBehavior.NeverUnderline, LinkColor = Color.FromArgb(86, 99, 111) };
     private bool _busy;
@@ -49,10 +50,10 @@ internal sealed class FirmwareFlashForm : Form
         };
     }
 
-    internal FirmwareFlashForm(bool preview = false, string? preferredPort = null, string? preparedFirmware = null)
+    internal FirmwareFlashForm(bool preview = false, string? preferredPort = null, string? preparedFirmware = null, bool bridgeRunning = false, string? expectedUsbIdentity = null)
     {
-        SuspendLayout();_preview = preview;
-        _selection = new FlashDeviceSelection(preferredPort);
+        SuspendLayout();_preview = preview;_bridgeRunning=bridgeRunning;
+        _selection = new FlashDeviceSelection(preferredPort,expectedUsbIdentity);
         Text = "AI-bot · 小屏刷机";
         using (var icon = typeof(FirmwareFlashForm).Assembly.GetManifestResourceStream("AIBotBridge.Assets.flash-icon.ico"))
             if (icon is not null) Icon = new Icon(icon);
@@ -229,7 +230,9 @@ internal sealed class FirmwareFlashForm : Form
             var firmware = backupOnly ? "" : FirmwareFlasher.PrepareFirmware(_firmwarePath, work);
             using var tool = await FirmwareFlasher.PrepareToolAsync(Stage, cancellation.Token);
             bool Claim() { try { return bridge.WaitOne(0); } catch (AbandonedMutexException) { return true; } }
-            ownsBridge = Claim();
+            // A resident modal shares the mutex-owning UI thread: WaitOne would
+            // re-enter that mutex and incorrectly skip releasing the serial port.
+            ownsBridge = !_bridgeRunning && Claim();
             if (!ownsBridge)
             {
                 Stage("正在连接设备…");

@@ -10,6 +10,11 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private readonly object _portSync = new();
     private volatile string? _portName;
     private volatile string? _deviceHost;
+    private volatile string? _usbFirmwareVersion;
+    private volatile string? _lanFirmwareVersion;
+    internal string? UsbFirmwareVersion => _usbFirmwareVersion;
+    internal string? LanFirmwareVersion => _lanFirmwareVersion;
+    internal void ObserveLanFirmware(string? value) => _lanFirmwareVersion = EspFirmwareVersion.Read(value);
     private volatile string? _configuredLanHost;
     private volatile int _configuredLanPort;
     private SerialPort? _activePort;
@@ -108,7 +113,10 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     internal string? ConfiguredLanHost => _configuredLanHost;
     internal int ConfiguredLanPort => _configuredLanPort;
     internal LanPairing? CurrentPairing => Volatile.Read(ref _pairing);
-    internal void SetPairing(LanPairing? pairing) => Volatile.Write(ref _pairing, pairing);
+    internal void SetPairing(LanPairing? pairing) {
+        Volatile.Write(ref _pairing, pairing);
+        if(pairing is null)_lanFirmwareVersion=null;
+    }
 
     internal async Task RunMetricsAsync(Func<SystemMetricsSnapshot?> capture, CancellationToken cancellationToken)
     {
@@ -222,12 +230,13 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                     port.DiscardInBuffer();
                     port.WriteLine(Prefix + "{\"version\":1,\"type\":\"ping\"}");
 
-                    if (!WaitForPong(port, out var deviceHost))
+                    if (!WaitForPong(port, out var deviceHost, out var firmware))
                         {ConnectionStatus=candidate+" 未回复心跳";continue;}
 
                     _portName = candidate;
                     ConnectionStatus="已连接 · "+candidate;
                     _deviceHost = deviceHost;
+                    _usbFirmwareVersion = firmware;
                     lock (_portSync) _activePort = port;
                     var sentRevisions = new Dictionary<BinaryResourceKind, int>();
                     LanPairing? sentPairing = null;
@@ -288,6 +297,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                         if (ReferenceEquals(_activePort, port)) _activePort = null;
                     _portName = null;
                     _deviceHost = null;
+                    _usbFirmwareVersion = null;
                     _configuredLanHost = null;
                     _configuredLanPort = 0;
                     try { port.Dispose(); } finally { _connectionGate.Release(); }
@@ -333,16 +343,17 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         RtsEnable = false
     };
 
-    private static bool WaitForPong(SerialPort port, out string? deviceHost)
+    private static bool WaitForPong(SerialPort port, out string? deviceHost, out string? firmware)
     {
         deviceHost = null;
+        firmware = null;
         var deadline = DateTime.UtcNow.AddSeconds(3);
         while (DateTime.UtcNow < deadline)
         {
             try
             {
                 var line = port.ReadLine().Trim();
-                if (TryParsePong(line, out deviceHost))
+                if (TryParsePong(line, out deviceHost, out firmware))
                     return true;
             }
             catch (TimeoutException)
@@ -361,7 +372,9 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             try
             {
                 port.WriteLine(Prefix + "{\"version\":1,\"type\":\"ping\"}");
-                if (WaitForPong(port, out var deviceHost)) _deviceHost = deviceHost;
+                if (WaitForPong(port, out var deviceHost, out var firmware)) {
+                    _deviceHost = deviceHost; _usbFirmwareVersion = firmware;
+                }
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or TimeoutException)
             {
@@ -370,8 +383,12 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     }
 
     internal static bool TryParsePong(string line, out string? deviceHost)
+        => TryParsePong(line, out deviceHost, out _);
+
+    internal static bool TryParsePong(string line, out string? deviceHost, out string? firmware)
     {
         deviceHost = null;
+        firmware = null;
         if (!line.StartsWith(Prefix, StringComparison.Ordinal)) return false;
         try
         {
@@ -386,6 +403,8 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 var candidate = ip.GetString();
                 if (candidate is not null && IsPrivateIPv4(candidate)) deviceHost = candidate;
             }
+            firmware = EspFirmwareVersion.Read(root.TryGetProperty("firmware", out var field)
+                ? field.ValueKind == JsonValueKind.String ? field.GetString() ?? "" : "" : null);
             return true;
         }
         catch (JsonException)

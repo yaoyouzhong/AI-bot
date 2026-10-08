@@ -2,7 +2,7 @@
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.1.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.2.md) · [简体中文](README.md)
 
 https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
@@ -94,7 +94,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.1.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/TAB5-BLE-GALLERY-148.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.2.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/TAB5-BLE-GALLERY-148.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](docs/development/TAB5-SOURCE.md) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

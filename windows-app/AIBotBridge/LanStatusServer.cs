@@ -15,13 +15,15 @@ internal sealed class LanStatusServer
     private Tab5Service? _tab5 => _tab5Provider();
     private readonly Func<bool> _legacyEnabled;
     private readonly Action? _legacyActivity;
+    private readonly Action<string?>? _legacyFirmware;
 
-    internal LanStatusServer(LanPairing pairing, Func<IReadOnlyList<ResourcePayload>>? resources = null, Tab5Service? tab5 = null, Func<Tab5Service?>? tab5Provider = null, Func<bool>? legacyEnabled = null, Action? legacyActivity = null)
+    internal LanStatusServer(LanPairing pairing, Func<IReadOnlyList<ResourcePayload>>? resources = null, Tab5Service? tab5 = null, Func<Tab5Service?>? tab5Provider = null, Func<bool>? legacyEnabled = null, Action? legacyActivity = null, Action<string?>? legacyFirmware = null)
     {
         _listener = new TcpListener(pairing.Address, pairing.Port);
         _token = pairing.Token;
         _resources = resources ?? (() => []);
         _tab5Provider=tab5Provider??(()=>tab5);_legacyEnabled=legacyEnabled??(()=>true);_legacyActivity=legacyActivity;
+        _legacyFirmware=legacyFirmware;
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken,
@@ -160,7 +162,10 @@ internal sealed class LanStatusServer
                 ? JsonSerializer.Serialize(snapshot(), JsonDefaults.Options)
                 : authenticated ? "{\"error\":\"not_found\"}" : "{\"error\":\"unauthorized\"}";
             await WriteResponseAsync(stream, statusCode, body, cancellationToken);
-            if(authenticated&&found)_legacyActivity?.Invoke();
+            if(authenticated&&found) {
+                _legacyFirmware?.Invoke(lines.FirstOrDefault(line=>line.StartsWith("X-AIBot-Firmware:",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim());
+                _legacyActivity?.Invoke();
+            }
         }
     }
 

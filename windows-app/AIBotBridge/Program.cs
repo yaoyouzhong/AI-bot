@@ -8,6 +8,8 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-esp-updates"){AppPaths.BeginPublicSelfTest();EspUpdateSelfTest.Run();return;}
+        if(args.Length==3&&args[0]=="--test-esp-update-readonly"){AppPaths.BeginPublicSelfTest();EspUpdateSelfTest.ReadHardwareAsync(args[1],args[2]).GetAwaiter().GetResult();return;}
         if(args.Length==4&&args[0]=="--self-test-gallery-packs"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryPackSelfTest.RunPackages(args[1],args[2],args[3]);return;}
         if(args.Length==1&&args[0]=="--self-test-profile-guard"){AppProfileGuardSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-unified-updates"){AppPaths.BeginPublicSelfTest();UpdateSelfTest.RunAsync().GetAwaiter().GetResult();return;}

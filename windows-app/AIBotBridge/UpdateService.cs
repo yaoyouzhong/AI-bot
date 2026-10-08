@@ -52,6 +52,18 @@ internal sealed class UpdateService : IDisposable
         if(release.Package is null||release.Checksums is null)return "发布包缺少可信下载或校验信息";
         return null;
     }
+    // Missing legacy firmware identity is a manual migration, never a newer-version notification.
+    internal static bool IsLegacyEsp(UpdateDevice device)=>device.Component=="esp8266"&&device.Version==EspFirmwareVersion.Legacy;
+    internal static string? PreparationBlocked(UpdateDevice device,ComponentUpdate? release) {
+        if(!IsLegacyEsp(device))return Blocked(device,release);
+        if(!device.Enabled)return "设备未启用";
+        if(!device.Online)return "请先连接小屏";
+        if(release is null||release.Component!="esp8266")return "暂无可确认的正式版本";
+        return release.Package is null||release.Checksums is null?"发布包缺少可信下载或校验信息":null;
+    }
+    internal static bool SameTarget(UpdateDevice before,[System.Diagnostics.CodeAnalysis.NotNullWhen(true)] UpdateDevice? current,ComponentUpdate release)=>
+        current is not null&&current.Id==before.Id&&current.Component==before.Component&&current.Component==release.Component&&
+        current.Version==before.Version&&PreparationBlocked(current,release) is null;
     internal static string ReadChecksum(string text,string filename) {
         var matches=new List<string>();
         foreach(string line in text.TrimStart('\uFEFF').Split('\n')) {

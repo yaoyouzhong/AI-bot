@@ -1,5 +1,5 @@
 {
-  "reviewedOn": "2026-10-07",
+  "reviewedOn": "2026-10-08",
   "files": {
     "windows-sdk/REDIST.html": "52cd4791e8b457706267ebf1cb886de5562cea2d2ae68609c49f5f0c843a9222",
     "windows-sdk/sdk_license.rtf": "dd07eb178e00c6bba4148457fc00ff77cd4887eb521d504186fe59c9ec8bbe62",
@@ -95,7 +95,7 @@
     "docs/assets/screens/tab5-painting-portrait.png": "d655c99790a6b7597ddeca1e09f786119ca362cf7a1acde022b7518072c09d52",
     "docs/assets/screens/tab5-painting.png": "3271231b254b1385b456d2396883c18b8695b0cef51fa819e89897b88e9522cd",
     "docs/assets/screens/tab5-quick.png": "f7b83eaecfabb597e776c3c156964bf7bce803aeb8510852a5c2920f43dd2ceb",
-    "docs/assets/screens/update-center.png": "e71e941fe163e7c850e4a026340f21831d73e22ec86f0ae6e9ca41613b363852",
+    "docs/assets/screens/update-center.png": "bd490b558b45438ad984f4932c1beda1f1925921bb6143c68ee730c6d04c4779",
     "docs/assets/screens/tab5-apps.png": "2284dea33387d64872a66d4b82a61d000664453ce38874aca863c4b75fe663c6",
     "docs/assets/screens/tab5-camera.png": "9d98644aff6f299f7daa7cb67ef948d80a1f99e544673af45fcabce6affa6f61",
     "docs/assets/screens/tab5-clock-1.png": "efad05b4a46073f323bcf6d399a7491bf04d10dcd6c71e2a52da7196b573630e",

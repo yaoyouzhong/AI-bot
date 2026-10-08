@@ -112,6 +112,9 @@ internal static class FirmwareFlashSelfTest
         first.Reset([screen, other]); first.Update([screen, other]); Check(first.Selected is null, "reset does not guess");
         var empty = new FlashDeviceSelection(); empty.Update([]); empty.Update([screen, other]); Check(empty.Selected is null, "simultaneous arrivals remain ambiguous");
         var single = new FlashDeviceSelection(); single.Update([screen]); Check(single.Selected == screen, "already plugged single USB device selected");
+        var bound=new FlashDeviceSelection("COM9",screen.Identity);bound.Update([other]);Check(bound.Selected is null,"Bound update selected another USB device");
+        bound.Reset([other]);Check(bound.Selected is null,"Refresh forgot bound update identity");
+        var moved=screen with {Port="COM8"};bound.Update([other,moved]);Check(bound.Selected==moved,"Bound update did not follow COM change");
         single.Update([]); Check(single.Selected is null && single.Message == "正在确认连接…", "transient absence disables write without false disconnect");
         single.Update([screen]); Check(single.Selected == screen, "transient absence recovers automatically");
         single.ScanFailed(); single.Update([other]); Check(single.Selected is null, "scan error must not forget target identity");

@@ -71,16 +71,17 @@ internal sealed class FlashDeviceSelection
     private HashSet<string>? _previous;
     private string? _expectedIdentity;
     private readonly string? _bridgePort;
+    private readonly string? _boundIdentity;
     private DateTime? _missingSince;
     internal FlashUsbDevice? Selected { get; private set; }
     internal bool RecognizedBridge { get; private set; }
     internal string Message { get; private set; } = "正在识别小屏…";
-    internal FlashDeviceSelection(string? bridgePort = null) { _bridgePort = bridgePort; }
+    internal FlashDeviceSelection(string? bridgePort = null,string? boundIdentity = null) { _bridgePort = bridgePort; _boundIdentity=boundIdentity; _expectedIdentity=boundIdentity; }
 
     internal void Reset(IReadOnlyList<FlashUsbDevice> devices)
     {
         _previous = devices.Select(d => d.Identity).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _expectedIdentity = null; Selected = null; RecognizedBridge = false; _missingSince = null;
+        _expectedIdentity = _boundIdentity; Selected = null; RecognizedBridge = false; _missingSince = null;
         _previous = null;
         Update(devices);
     }
@@ -93,7 +94,7 @@ internal sealed class FlashDeviceSelection
         {
             _previous = now;
             var bridge = devices.SingleOrDefault(d => d.Port.Equals(_bridgePort, StringComparison.OrdinalIgnoreCase));
-            if (bridge is not null) { Selected = bridge; _expectedIdentity = bridge.Identity; RecognizedBridge = true; }
+            if (bridge is not null&&(_boundIdentity is null||bridge.Identity.Equals(_boundIdentity,StringComparison.OrdinalIgnoreCase))) { Selected = bridge; _expectedIdentity = bridge.Identity; RecognizedBridge = true; }
         }
         else if (_expectedIdentity is null)
         {

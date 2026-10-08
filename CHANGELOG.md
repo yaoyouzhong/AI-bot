@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.2 - 2026-10-08
+
 - Add a complete download center for both computer apps, ESP8266, TAB5 first-install/upgrade packages and both artwork collections. Generate bilingual README and release download tables from one validated public index; link the Windows manual-download action to this center.
+- Fix the ESP8266 update path: report the firmware component version over USB and authenticated Wi-Fi, and offer an explicitly confirmed manual preparation path for connected legacy firmware that cannot report its version. Unknown versions do not generate update reminders; changed targets and known downgrades remain blocked.
+- Release the resident bridge's USB connection before the in-app flasher runs, and retain the selected screen's USB identity across reconnects and COM-port changes. Backup and write verification remain mandatory.
+- Capture TAB5 GATT state, actual wait duration and connection parameters before closing a failed BLE session. Communication parameters are unchanged; the intermittent disconnection root cause remains under investigation.
+- Keep macOS functionality unchanged and synchronize bridge version metadata. ESP8266 0.5.1 independently adds firmware identity; TAB5 0.2.150-ui independently repairs voice-control layout.
+- See the [patch notes and validation boundaries](docs/RELEASE-0.6.2.md).
+
 ## 0.6.1 - 2026-10-07
 
 - Reuse validated gallery image snapshots across range requests, avoiding repeated disk reads and SHA-256 calculation; invalidate on replacement or removal.

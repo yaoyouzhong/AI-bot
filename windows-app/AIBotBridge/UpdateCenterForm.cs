@@ -1,8 +1,10 @@
 using System.Diagnostics;
 namespace AIBotBridge;
-internal sealed record UpdateDevice(string Id,string Name,string Version,string Status,bool Enabled,string Action,string Requirement)
+internal sealed record UpdateDevice(string Id,string Name,string Version,string Status,bool Enabled,string Action,string Requirement,bool Online=false)
 {
     internal string Component=>Action=="bridge"?"bridge":Action=="upgrade-tab5"?"tab5":"esp8266";
+    internal static UpdateDevice From(RegisteredDevice device,DeviceView view)=>new(device.Id,device.Name,view.Firmware,view.Status,device.Enabled,
+        device.Kind==HardwareKind.Tab5?"upgrade-tab5":"flash",device.Kind==HardwareKind.Tab5?"在 TAB5 上确认安装":"连接 USB，先备份再升级",view.Online);
 }
 internal sealed record UpdatePreferences(bool Automatic=true,string[]? Notified=null);
 internal sealed class UpdateCenterForm : Form
@@ -27,12 +29,12 @@ internal sealed class UpdateCenterForm : Form
         var state=new Label{Name="state",AutoSize=true,Dock=DockStyle.Fill,MaximumSize=new(700,0)};root.Controls.Add(state,0,3);
         var progress=new ProgressBar{Dock=DockStyle.Fill,Visible=false};root.Controls.Add(progress,0,4);
         var actions=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};var notes=new Button{Text="所选更新说明",AutoSize=true};
-        var download=new Button{Name="download",Text="下载并升级",AutoSize=true};var cancel=new Button{Text="取消下载",AutoSize=true,Enabled=false};var site=new LinkLabel{Text="手动下载与安装说明",AutoSize=true,Margin=new(12,9,0,0)};
+        var download=new Button{Name="download",Text="下载并升级",AutoSize=true};var cancel=new Button{Text="取消下载",AutoSize=true,Enabled=false};var site=new LinkLabel{Text="完整下载与安装说明",AutoSize=true,Margin=new(12,9,0,0)};
         actions.Controls.AddRange([notes,download,cancel,site]);root.Controls.Add(actions,0,5);
         UpdateDevice[] rows=[];bool refreshing=false;
         UpdateDevice? Selected()=>grid.CurrentCell is {} c&&c.RowIndex<rows.Length?rows[c.RowIndex]:null;
         ComponentUpdate? Release(UpdateDevice? d)=>d is not null&&service.Available.TryGetValue(d.Component,out var u)?u:null;
-        void Buttons(){var d=Selected();download.Enabled=!_busy&&d is not null&&UpdateService.Blocked(d,Release(d)) is null;download.Text=d?.Component=="bridge"?"下载并安装电脑端":"下载并准备升级";notes.Enabled=Release(d) is not null;}
+        void Buttons(){var d=Selected();download.Enabled=!_busy&&d is not null&&UpdateService.PreparationBlocked(d,Release(d)) is null;download.Text=d?.Component=="bridge"?"下载并安装电脑端":d is not null&&UpdateService.IsLegacyEsp(d)?"手动准备小屏升级":"下载并准备升级";notes.Enabled=Release(d) is not null;}
         void RefreshRows(){
             if(refreshing)return;
             refreshing=true;
@@ -46,7 +48,7 @@ internal sealed class UpdateCenterForm : Form
                     int index=Array.FindIndex(rows,d=>d.Id==id);if(index>=0)grid.CurrentCell=grid[0,index];
                 }else rows=next;
                 for(int i=0;i<rows.Length;i++){
-                    var d=rows[i];var u=Release(d);object[] values=[d.Name,d.Version,u?.Version??"待查询",UpdateService.Blocked(d,u)??"有更新 · "+d.Requirement];
+                    var d=rows[i];var u=Release(d);object[] values=[d.Name,d.Version,u?.Version??"待查询",UpdateService.PreparationBlocked(d,u)??(UpdateService.IsLegacyEsp(d)?"无法比较版本 · 可手动准备 USB 升级":"有更新 · "+d.Requirement)];
                     for(int j=0;j<values.Length;j++)if(!Equals(grid[j,i].Value,values[j]))grid[j,i].Value=values[j];
                 }
             }finally{refreshing=false;}
@@ -65,21 +67,21 @@ internal sealed class UpdateCenterForm : Form
         notes.Click+=(_,_)=>{if(Release(Selected()) is not {} u)return;using var detail=new Form{Text="更新说明 · "+u.Version,ClientSize=new(600,440),Font=Font,StartPosition=FormStartPosition.CenterParent};detail.Controls.Add(new TextBox{Multiline=true,ReadOnly=true,Dock=DockStyle.Fill,ScrollBars=ScrollBars.Vertical,Text=u.Notes});detail.ShowDialog(this);};
         cancel.Click+=(_,_)=>_operation?.Cancel();
         download.Click+=async(_,_)=>{
-            var target=Selected();var release=Release(target);if(target is null||release is null||UpdateService.Blocked(target,release) is not null)return;
+            var target=Selected();var release=Release(target);if(target is null||release is null||UpdateService.PreparationBlocked(target,release) is not null)return;
             _operation=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);_busy=true;check.Enabled=false;cancel.Enabled=true;progress.Value=0;progress.Visible=true;Buttons();state.Text="正在下载并校验 "+target.Name+" 的更新…";
             try {
                 var prepared=await service.DownloadAsync(release,Application.ProductVersion.Split('+')[0],new Progress<int>(value=>{if(!IsDisposed)progress.Value=Math.Clamp(value,0,100);}),_operation.Token);
                 _operation.Token.ThrowIfCancellationRequested();
                 var current=capture().SingleOrDefault(d=>d.Id==target.Id);
-                if(current is null||current.Component!=target.Component||UpdateService.Blocked(current,release) is not null)throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
+                if(!UpdateService.SameTarget(target,current,release))throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
                 cancel.Enabled=false;state.Text=target.Component=="tab5"?"校验通过，正在准备设备升级；仍需在 TAB5 上确认安装。":"校验通过，正在打开安装工具…";
                 await install(current,prepared);
                 if(!IsDisposed)state.Text=target.Component=="tab5"?"已交给 TAB5 升级工具。请在设备上确认安装，并在升级工具中核验启动。":"已交给安装工具。完成后重新检查运行版本。";
-            }catch(OperationCanceledException){if(!IsDisposed)state.Text="下载已取消，未安装或刷写。";}
+            }catch(OperationCanceledException){if(!IsDisposed)state.Text="操作已取消，未安装或刷写。";}
             catch(Exception ex){if(!IsDisposed)state.Text="更新未继续："+ex.Message;}
             finally{_operation?.Dispose();_operation=null;_busy=false;if(!IsDisposed){cancel.Enabled=false;check.Enabled=true;progress.Visible=false;RefreshRows();}}
         };
-        site.LinkClicked+=(_,_)=>{try{Process.Start(new ProcessStartInfo("https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md"){UseShellExecute=true});}catch(Exception ex){state.Text=ex.Message;}};
+        site.LinkClicked+=(_,_)=>{try{Process.Start(new ProcessStartInfo("https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md"){UseShellExecute=true});}catch(Exception ex){state.Text=ex.Message;}};
         Shown+=(_,_)=>{CatalogChanged();_timer.Start();if(service.CheckedAt is null)check.PerformClick();};_timer.Tick+=(_,_)=>RefreshRows();
         FormClosing+=(_,_)=>{_operation?.Cancel();_stop.Cancel();};SettingsWindow.FitScreen(this);
     }

@@ -13,7 +13,7 @@ internal static class LanBindingManager
         Func<string?, IPAddress?>? selectAddress = null,
         Func<IPAddress, LanPairing>? createPairing = null,
         LanDiscoveryServer? discovery = null, Tab5Service? tab5 = null,
-        Func<Tab5Service?>? tab5Provider = null, Func<bool>? legacyEnabled = null, Action? legacyActivity = null)
+        Func<Tab5Service?>? tab5Provider = null, Func<bool>? legacyEnabled = null, Action? legacyActivity = null, Action<string?>? legacyFirmware = null)
     {
         Binding? current = null;
         tab5Provider??=()=>tab5;legacyEnabled??=()=>true;
@@ -45,7 +45,7 @@ internal static class LanBindingManager
                         : current.Pairing with { Address = address };
                     if (pairing is not null)
                     {
-                        var next = await TryStartAsync(pairing, snapshot, resources, cancellationToken, tab5Provider, legacyEnabled, legacyActivity);
+                        var next = await TryStartAsync(pairing, snapshot, resources, cancellationToken, tab5Provider, legacyEnabled, legacyActivity, legacyFirmware);
                         if (next is not null)
                         {
                             var previous = current;
@@ -76,11 +76,11 @@ internal static class LanBindingManager
 
     private static async Task<Binding?> TryStartAsync(LanPairing pairing,
         Func<StatusSnapshot> snapshot, Func<IReadOnlyList<ResourcePayload>> resources,
-        CancellationToken cancellationToken, Func<Tab5Service?> tab5Provider, Func<bool> legacyEnabled, Action? legacyActivity)
+        CancellationToken cancellationToken, Func<Tab5Service?> tab5Provider, Func<bool> legacyEnabled, Action? legacyActivity, Action<string?>? legacyFirmware)
     {
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var run = new LanStatusServer(pairing, resources, tab5Provider:tab5Provider, legacyEnabled:legacyEnabled, legacyActivity:legacyActivity).RunAsync(snapshot, stop.Token,
+        var run = new LanStatusServer(pairing, resources, tab5Provider:tab5Provider, legacyEnabled:legacyEnabled, legacyActivity:legacyActivity, legacyFirmware:legacyFirmware).RunAsync(snapshot, stop.Token,
             () => ready.TrySetResult());
         try
         {

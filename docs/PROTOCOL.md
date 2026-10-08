@@ -22,6 +22,10 @@ Windows Device Center can select Automatic, USB only or Wi-Fi only for the regis
 
 ## Probe
 
+Unreleased ESP8266 update compatibility: `pong` includes optional `firmware:"X.Y.Z"`; `device_info.data.firmware` and authenticated `GET /status` requests' `X-AIBot-Firmware` header carry the same value, embedded from `firmware/VERSION` by PlatformIO. `version:1` remains the protocol number. Old firmware omits these fields; old hosts ignore them. Windows records the USB version after a validated ESP8266 pong and the Wi-Fi version only after successful token authentication on `/status`, using the currently active transport. USB disconnect and pairing reset clear the respective observations. Missing fields denote legacy unknown versions; malformed values are invalid, never version zero. Only connected legacy ESP8266 targets may use explicitly confirmed manual preparation; unknown TAB5/bridge versions remain blocked and unknown versions never trigger newer-version reminders.
+
+小屏待发布修复新增可选固件版本字段，版本来源为 `firmware/VERSION`，不改变协议版本 1。USB 心跳和设备信息携带 `firmware`，Wi-Fi 状态请求携带 `X-AIBot-Firmware`，桥接只接受已认证请求的版本。旧固件缺字段时保留未知状态，不推断当前版本；已连接旧小屏可手动准备升级，仍需明确确认、USB 备份与校验。该路径不触发“有更新”自动提醒。
+
 Host request:
 
 ```json
