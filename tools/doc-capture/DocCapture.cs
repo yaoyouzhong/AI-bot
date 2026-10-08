@@ -16,17 +16,19 @@ internal static class DocCapture
             designPet = Path.GetFullPath(args[designIndex + 1]);
             args = args.Take(designIndex).Concat(args.Skip(designIndex + 2)).ToArray();
         }
+        bool evergreen = args.Length == 2 && args[1] == "--evergreen-media";
         bool release060 = args.Length == 2 && args[1] is "--release-current" or "--release060";
         bool releaseUi = args.Length == 2 && args[1] == "--release-ui";
         bool screenSaverOnly = args.Length == 2 && args[1] == "--screensaver";
         bool quotaOnly = args.Length == 2 && args[1] == "--quota-api";
         bool codexCover = args.Length == 2 && args[1] == "--codex-pro-cover";
-        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi && !codexCover && !release060) throw new ArgumentException("Supply an output directory, optionally --screensaver, --codex-pro-cover or Claude and Codex APET paths for approved quota screenshots.");
+        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi && !codexCover && !release060 && !evergreen) throw new ArgumentException("Supply an output directory, optionally --screensaver, --codex-pro-cover or Claude and Codex APET paths for approved quota screenshots.");
         AppPaths.BeginPublicSelfTest(); // Must precede any settings/cache/credential access.
         Application.SetHighDpiMode(Environment.GetEnvironmentVariable("AIBOT_DOC_NATIVE_DPI") == "1" ? HighDpiMode.PerMonitorV2 : HighDpiMode.DpiUnaware);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        if(evergreen){ReleaseMedia.Run(output,evergreen:true);return;}
         if(release060){ReleaseMedia.Run(output);return;}
         if (PetAnimationStore.Shared.AllResources().Count != 0)
             throw new InvalidOperationException("Documentation profile contains imported art.");
@@ -79,13 +81,16 @@ internal static class DocCapture
         if (codexCover)
         {
             // Match the adjacent native TAB5 Codex quota preview, using synthetic data only.
-            var codex = status.Quotas!.Codex! with { Plan="PRO", WeeklyPercent=88, ResetCreditsAvailable=4,
+            var coverTime = new DateTimeOffset(2026,9,23,15,50,11,TimeSpan.FromHours(8));
+            var codex = status.Quotas!.Codex! with { Plan="PRO", PrimaryPercent=null, PrimaryResetsAt=null,
+                WeeklyPercent=88, WeeklyResetsAt=coverTime.AddDays(5).AddHours(14), ResetCreditsAvailable=4,
                 ResetCreditExpiresAt=new[]{
                     new DateTimeOffset(2026,10,4,11,26,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds(),
                     new DateTimeOffset(2026,10,5,13,38,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds(),
                     new DateTimeOffset(2026,10,23,0,27,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds(),
                     new DateTimeOffset(2026,11,4,11,26,0,TimeSpan.FromHours(8)).ToUnixTimeSeconds() } };
-            var coverStatus = status with { Quotas=status.Quotas with { Codex=codex } };
+            var coverStatus = status with { Time="15:50", EpochUtc=coverTime.ToUnixTimeSeconds(), CapturedAt=coverTime,
+                Quotas=status.Quotas with { Codex=codex } };
             using var image = MirrorForm.RenderSnapshot(coverStatus, "codex");
             image.Save(Path.Combine(output,"codex-pro-cover.png"),ImageFormat.Png);
             SaveDesignFrames(coverStatus, "codex", "codex-pro-cover");

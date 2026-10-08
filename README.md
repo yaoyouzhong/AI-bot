@@ -4,7 +4,7 @@
 
 [完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.2.md) · [English](README.en.md)
 
-https://github.com/user-attachments/assets/46e3c026-e084-46e2-a1e2-e069fdab49f1
+https://github.com/user-attachments/assets/2c6fc353-5958-4780-b087-63999f1bc710
 
 <sub>108 秒产品介绍，点击直接播放。画面来自原生界面与固定演示数据。[下载 MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [素材与作品来源](docs/PRODUCT_VIDEO.md)</sub>
 

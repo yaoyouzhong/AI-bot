@@ -1,8 +1,8 @@
 # 当前截图来源 / Screenshot provenance
 
-2026-10-08：更新窗口截图已替换，展示桥接 0.6.2、TAB5 .150、小屏 0.5.1 及旧小屏手动准备入口。截图为隔离的原生控件与固定演示数据，不代表真实下载安装；宣传视频另修复第 0 帧双设备画面，见 PRODUCT_VIDEO.md；其他截图保留以下原始捕获说明。
+2026-10-08：更新窗口截图已替换，展示桥接 0.6.2、TAB5 .150、小屏 0.5.1 及旧小屏手动准备入口。截图为隔离的原生控件与固定演示数据，不代表真实下载安装；宣传视频另修复第 0 帧双设备画面、对齐 WK 88% / 5d 14h 并移除画面版本号，见 PRODUCT_VIDEO.md；其他截图保留以下原始捕获说明。
 
-2026-10-08: Only the Update Center capture is refreshed for bridge 0.6.2, TAB5 .150, ESP8266 0.5.1 and legacy screen manual preparation. This is an isolated native-control fixture, not installation evidence; other screenshots retain their original provenance below.
+2026-10-08: Only the Update Center capture is refreshed for bridge 0.6.2, TAB5 .150, ESP8266 0.5.1 and legacy screen manual preparation. This is an isolated native-control fixture, not installation evidence; the promotional film separately aligns weekly usage/reset data, removes explicit release numbers and displays both devices from frame zero. Other screenshots retain their original provenance below.
 
 2026-10-07 同步至 Windows AI-bot 0.6.1 与 TAB5 0.2.149-ui。仅刷新显示版本变化的更新中心、设备中心及 TAB5 固件设置页，其他截图和视频沿用已复核素材。Windows 窗口和 TAB5 页面来自原生 WinForms/LVGL 代码的隔离渲染，使用固定演示数据，**不是硬件实拍，也不替代真机验收**。基础功能见 [.145 验收记录](TAB5-ACCEPTANCE-145.md)，本次补丁另见 [.149 BLE 验收记录](TAB5-BLE-GALLERY-148.md)。
 
@@ -21,11 +21,12 @@ dotnet tools/doc-capture/bin/Release/net8.0-windows10.0.19041.0/DocCapture.dll <
 dotnet tools/doc-capture/bin/Release/net8.0-windows10.0.19041.0/DocCapture.dll <output-directory> --codex-pro-cover --design-pet docs/assets/pet/AI-bot-mascot.gif
 ```
 
+- `--evergreen-media`：宣传视频专用的原生更新、设备中心与图库控件；具体版本显示为“已安装／可用更新”等占位文字，不改运行程序的版本检查或显示。
 - `--release-current`：使用真实更新窗口与图库管理窗口，模拟发布查询、旧版本设备和已安装图库的元数据。`update-center.png` 是“发现可用更新”的示例；`gallery-packs.png` 的 402/411 件状态来自与发布包一致的固定数据，不是另一次导入验证。不下载、安装或刷机。
-- `--release-ui`：当前托盘菜单、设备中心、添加设备、小屏刷机、TAB5 首刷、配对、连接与升级窗口；TAB5 固件演示版本从 `versions/TAB5` 读取，当前为 `.149`。
+- `--release-ui`：当前托盘菜单、设备中心、添加设备、小屏刷机、TAB5 首刷、配对、连接与升级窗口；TAB5 固件演示版本从 `versions/TAB5` 读取，不依赖文档中的手写版本。
 - `--quota-api`：固定的 DeepSeek 设置界面，输出 `api-settings-deepseek.png` 后用作公开 `api-settings.png`。
 - `--design-pet`：原生镜像和设置窗口；使用批准的项目 GIF 作为桌宠设计预览和虚构曲目的封面。它不改变已安装程序或固件的默认形象。
-- `--codex-pro-cover`：为视频生成与 TAB5 演示对应的 PRO、周用量 88%、四张重置卡及六帧桌宠画面。浏览器时间轴选择整页原生帧，不用图层覆盖业务控件。
+- `--codex-pro-cover`：为视频生成与 TAB5 演示对应的 PRO、仅 WK 周用量 88%、距重置 5d 14h、四张重置卡及新款桌宠六帧画面。额度截图使用与 TAB5 一致的固定演示时间，四张卡日期为 10/4、10/5、10/23、11/4。浏览器时间轴选择整页原生帧，不用图层覆盖业务控件。
 
 ## TAB5 捕获与艺术作品
 
