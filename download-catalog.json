@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "downloads": {
     "windows": {
-      "version": "0.6.1",
-      "tag": "bridge-v0.6.1",
-      "file": "AIBotBridge-0.6.1-setup-win-x64.exe",
-      "size": 59132134,
-      "sha256": "26a65dbc84a1c4fe86a511633bfe4691a07e12d8c1213bc6c6c495b7caa0e6f1"
+      "version": "0.6.2",
+      "tag": "bridge-v0.6.2",
+      "file": "AIBotBridge-0.6.2-setup-win-x64.exe",
+      "size": 59136868,
+      "sha256": "9f9a511df6e12aadbe590b92b2e9ac9bfc937e6f9da122f0fdf7dd0defd342a4"
     },
     "macos": {
-      "version": "0.6.1",
-      "tag": "bridge-v0.6.1",
-      "file": "AIBotBridge-0.6.1-local-candidate-macos-arm64.zip",
-      "size": 47940183,
-      "sha256": "6a36aeab0ec0047718364901c34d320d3c8543510645ffa34e579197344a617c"
+      "version": "0.6.2",
+      "tag": "bridge-v0.6.2",
+      "file": "AIBotBridge-0.6.2-local-candidate-macos-arm64.zip",
+      "size": 47940182,
+      "sha256": "2598ecd7f902e4325ea900e9a2d6ba6449b118670f0b6cc69cad4d7a282281ba"
     },
     "esp8266": {
-      "version": "0.5.0",
-      "tag": "v0.5.0",
-      "file": "AI-bot-0.5.0-firmware-materials.zip",
-      "size": 31601065,
-      "sha256": "792e3927c0b31f2b2af48ddeefa1d56bf471e45007a6c91dce859b5dd203a713"
+      "version": "0.5.1",
+      "tag": "esp8266-v0.5.1",
+      "file": "AI-bot-0.5.1-firmware-materials.zip",
+      "size": 31613479,
+      "sha256": "490fa11470c9a0f177cc400ed8009d5900acd8dffc200fffb0f4ded64daafef4"
     },
     "tab5-first": {
-      "version": "0.2.149-ui",
-      "tag": "tab5-v0.2.149-ui",
-      "file": "TAB5-first-install-0.2.149-ui.zip",
-      "size": 4312404,
-      "sha256": "ecd47f21e0133aeda5c8a442e5c4042f620ef8fe10c97e3abb671936a441131c"
+      "version": "0.2.150-ui",
+      "tag": "tab5-v0.2.150-ui",
+      "file": "TAB5-first-install-0.2.150-ui.zip",
+      "size": 4312466,
+      "sha256": "c15f0129e93c10a3464c6beacf3eb0f2f74634a84bb77d092aa8814109cf599b"
     },
     "tab5-upgrade": {
-      "version": "0.2.149-ui",
-      "tag": "tab5-v0.2.149-ui",
-      "file": "TAB5-upgrade-0.2.149-ui.zip",
-      "size": 4282654,
-      "sha256": "1bc7278433afa055e91f00e7aaa662eb00f90835196bc2acc15b4dc2c59ab322"
+      "version": "0.2.150-ui",
+      "tag": "tab5-v0.2.150-ui",
+      "file": "TAB5-upgrade-0.2.150-ui.zip",
+      "size": 4282612,
+      "sha256": "2172586d47e3ca62fb8105d743ab2e9f0f2b781708bb8832ad06b347f0580ac9"
     },
     "calligraphy": {
       "version": "2026.10.07",
