@@ -1,6 +1,6 @@
 # 当前截图来源 / Screenshot provenance
 
-2026-10-08：仅替换更新窗口截图，展示桥接 0.6.2、TAB5 .150、小屏 0.5.1 及旧小屏手动准备入口。截图为隔离的原生控件与固定演示数据，不代表真实下载安装；其他截图保留以下原始捕获说明。
+2026-10-08：更新窗口截图已替换，展示桥接 0.6.2、TAB5 .150、小屏 0.5.1 及旧小屏手动准备入口。截图为隔离的原生控件与固定演示数据，不代表真实下载安装；宣传视频另修复第 0 帧双设备画面，见 PRODUCT_VIDEO.md；其他截图保留以下原始捕获说明。
 
 2026-10-08: Only the Update Center capture is refreshed for bridge 0.6.2, TAB5 .150, ESP8266 0.5.1 and legacy screen manual preparation. This is an isolated native-control fixture, not installation evidence; other screenshots retain their original provenance below.
 

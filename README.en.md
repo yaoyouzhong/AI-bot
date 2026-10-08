@@ -4,7 +4,7 @@
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.2.md) · [简体中文](README.md)
 
-https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
+https://github.com/user-attachments/assets/46e3c026-e084-46e2-a1e2-e069fdab49f1
 
 <sub>108-second product tour with Chinese captions; click to play here. Native interfaces use fixed demo data. [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media and artwork credits](docs/PRODUCT_VIDEO.md)</sub>
 

@@ -1,12 +1,12 @@
 # 产品介绍视频 / Product introduction video
 
-https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
+https://github.com/user-attachments/assets/46e3c026-e084-46e2-a1e2-e069fdab49f1
 
 [下载 MP4（108 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图、作品与素材来源](SCREENSHOTS.md)
 
 2026-10-07 修订：先介绍 AI-bot 的整体用途和双硬件关系，再展示日常场景、Codex 直达与屏保亮点，最后说明安装和更新。中文、1920×1080、30 fps、108 秒；对应电脑端 0.6.0、ESP8266 0.5.0 与 TAB5 0.2.145-ui。主页与本页使用 GitHub 原生播放器，附件与仓库 MP4 字节一致。
 
-本次 0.6.1 / .149 主要调整图库传输、缓存与诊断，影片所展示的界面布局仍适用，保留已审核视频。影片中的版本和更新列表属于拍摄时的演示数据；实际下载以[当前安装指南](INSTALL.zh.md)为准。
+2026-10-08 修订开场：第 0 帧即完整显示双设备、标题及用途说明，取消首镜主体延迟淡入；无播放控件的首帧同步为 16:9 封面，解决默认只见标题、其余空白的问题。其余分镜和原音轨保持。影片中的版本和更新列表属于拍摄时的演示数据；实际下载以[当前安装指南](INSTALL.zh.md)为准。
 
 ## 分镜 / Timeline
 
@@ -34,9 +34,11 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 - 艺术作品为林良《孔雀竹石圖》（Cleveland Museum of Art，CC0）和王嗣奭《行书七言律诗轴》（东京国立博物馆 / ColBase，CC BY 4.0）。逐项链接、署名及加工说明见[作品来源表](SCREENSHOTS.md#tab5-捕获与艺术作品)。封面使用设备额度页面。
 - 配乐由 `score.py` 原创合成，104 BPM；23 个动作音效使用[归藏 product video skill](https://github.com/op7418/guizang-product-video-skill)的原创合成 WAV，无第三方歌曲。Inter、Noto Sans SC 为 SIL OFL。制作脚手架和混音脚本保留 AGPL-3.0 LICENSE / NOTICE，未使用 BSL 默认样式。
 
-可复现工程保存在本地 `artifacts/product-intro-story-20261007/`，源码归档为该目录下的 `AI-bot-story-video-source.zip`。包含分镜、原生界面像素、配乐／音效、混音与渲染脚本、字体和许可，不包含 node_modules、运行日志或私人数据；它不是应用安装包。
+可复现工程保存在本地 `artifacts/product-intro-story-20261007/`，源码归档为该目录下的 `AI-bot-story-video-source-20261008.zip`。包含分镜、原生界面像素、配乐／音效、混音与渲染脚本、字体和许可，不包含 node_modules、运行日志或私人数据；它不是应用安装包。
 
-## 交付检查
+2026-10-08 复核：已检查新 MP4 首帧和 216 帧全片联系表；正反向定位、字体、图片及标题溢出检查通过，完整解码通过。108 秒、3240 帧、H.264/AAC 不变；新旧 AAC 音轨 SHA-256 相同，未新增主观试听结论。原有转场与其他比例封面的验收记录属于下述历史版本。
+
+## 交付检查（原片记录）
 
 已审阅最终 MP4 的 2 fps 全片联系表（216 帧）、全部 12 个转场的 10 fps 条带、信息密集镜头原尺寸画面和三种封面比例。正反向定位一致，字体、图片、标题溢出检查通过。最终文件为 H.264 / AAC、48 kHz 双声道、108 秒、3,240 帧；完整解码和交付结构检查通过。编码后音频测量为 -16.04 LUFS、真峰值 -1.50 dB；**主观试听尚未完成**。精确媒体哈希登记于 `licenses/materials.json`。
 
@@ -44,8 +46,10 @@ https://github.com/user-attachments/assets/ea8a8241-625f-4afe-8d24-1e4dc3c043db
 
 The 108-second film introduces the overall product and device choices first, followed by everyday use, selected Codex Direct/screensaver highlights, then setup and updates. It uses Chinese captions at 1920×1080, 30 fps for computer apps 0.6.0, ESP8266 0.5.0 and TAB5 0.2.145-ui. The native GitHub attachment matches the repository MP4 by SHA-256.
 
-The 0.6.1 / .149 patch changes transfer, caching and diagnostics while retaining the filmed layouts, so the reviewed video is retained. Version/update examples belong to its original capture; use the current installation guide for downloads.
+The 2026-10-08 revision shows both devices, the title and purpose labels from frame zero, removing the opening visual delay that left the paused player mostly blank. The clean first frame is also the 16:9 cover; the remaining shots and original audio are preserved. Version/update examples belong to its original capture; use the current installation guide for downloads.
 
 All interfaces are native WinForms/LVGL captures with synthetic fixtures, not hardware footage or evidence of real speech, message sending, installs or imports. No macOS runtime is shown. The project character and fictional album artwork do not change installed defaults. Lin Liang and Wang Sishi artwork credits, CC0/CC BY 4.0 terms and modifications are recorded in SCREENSHOTS.md. Covers show quota interfaces.
 
 The original 104 BPM score uses 23 synthesized action cues. Font, scaffold and mixer notices are retained in the reproducible local project/archive listed above. All 216 contact frames, 12 transition strips, selected full-size frames and three covers were visually reviewed. Seeking, fonts/images, overflow, full decoding and media structure checks passed. The export contains 3,240 frames with 48 kHz stereo audio measured at -16.04 LUFS and -1.50 dB true peak. Subjective listening remains unverified.
+
+2026-10-08 verification: the new encoded first frame and all 216 contact frames were reviewed; deterministic seeking, fonts, images, overflow and full decoding passed. Duration remains 108 seconds / 3240 frames. The encoded AAC stream has the same SHA-256 as the original; subjective listening remains unverified. The transition-strip and other cover-ratio records above describe the original film.
