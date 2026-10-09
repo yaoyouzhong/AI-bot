@@ -11,6 +11,12 @@ class DownloadCatalogTests(unittest.TestCase):
     def setUp(self):
         self.data = catalog.load()
 
+    def next_gallery_version(self):
+        parts = max(tuple(map(int, self.data["downloads"][key]["version"].split(".")))
+                    for key in ("painting", "calligraphy"))
+        revision = parts[3] + 1 if len(parts) == 4 else 1
+        return f"{parts[0]:04d}.{parts[1]:02d}.{parts[2]:02d}.{revision}"
+
     def releases(self):
         releases = {}
         for entry in self.data["downloads"].values():
@@ -45,13 +51,14 @@ class DownloadCatalogTests(unittest.TestCase):
             catalog.discover(releases)
 
     def test_gallery_revision_is_discovered_and_preserves_other_components(self):
+        version = self.next_gallery_version()
         release = {"tag_name": "tab5-v0.2.156-ui", "published_at": "2026-10-09", "draft": False,
                    "prerelease": False, "assets": [{"name": "SHA256SUMS.txt"}]}
         expected = copy.deepcopy(self.data)
         for key in ("painting", "calligraphy"):
             entry = expected["downloads"][key]
-            entry.update(version="2026.10.08.1", tag=release["tag_name"],
-                         file=catalog.SPECS[key][1].format(version="2026.10.08.1"))
+            entry.update(version=version, tag=release["tag_name"],
+                         file=catalog.SPECS[key][1].format(version=version))
             release["assets"].append({"name": entry["file"], "size": entry["size"],
                                       "digest": "sha256:" + entry["sha256"]})
         self.assertEqual(catalog.discover(self.releases() + [release]), expected)
@@ -59,13 +66,14 @@ class DownloadCatalogTests(unittest.TestCase):
         self.assertEqual(catalog.discover(self.releases() + [release]), self.data)
 
     def test_curated_gallery_names_are_discovered_without_changing_firmware(self):
+        version = self.next_gallery_version()
         release = {"tag_name": "tab5-v0.2.156-ui", "published_at": "2026-10-09", "draft": False,
                    "prerelease": False, "assets": [{"name": "SHA256SUMS.txt"}]}
         expected = copy.deepcopy(self.data)
         for key in ("painting", "calligraphy"):
             entry = expected["downloads"][key]
-            entry.update(version="2026.10.09", tag=release["tag_name"],
-                         file=catalog.SPECS[key][1].format(version="Curated-2026.10.09"))
+            entry.update(version=version, tag=release["tag_name"],
+                         file=catalog.SPECS[key][1].format(version="Curated-" + version))
             release["assets"].append({"name": entry["file"], "size": entry["size"],
                                       "digest": "sha256:" + entry["sha256"]})
         self.assertEqual(catalog.discover(self.releases() + [release]), expected)

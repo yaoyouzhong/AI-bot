@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "downloads": {
     "windows": {
-      "version": "0.6.2",
-      "tag": "bridge-v0.6.2",
-      "file": "AIBotBridge-0.6.2-setup-win-x64.exe",
-      "size": 59136868,
-      "sha256": "9f9a511df6e12aadbe590b92b2e9ac9bfc937e6f9da122f0fdf7dd0defd342a4"
+      "version": "0.6.3",
+      "tag": "bridge-v0.6.3",
+      "file": "AIBotBridge-0.6.3-setup-win-x64.exe",
+      "size": 59286229,
+      "sha256": "e849af0fe7ca2ce5a0964d50d3a8f00e24a1afc40afa16ca4f87269cf976bc22"
     },
     "macos": {
-      "version": "0.6.2",
-      "tag": "bridge-v0.6.2",
-      "file": "AIBotBridge-0.6.2-local-candidate-macos-arm64.zip",
-      "size": 47940182,
-      "sha256": "2598ecd7f902e4325ea900e9a2d6ba6449b118670f0b6cc69cad4d7a282281ba"
+      "version": "0.6.3",
+      "tag": "bridge-v0.6.3",
+      "file": "AIBotBridge-0.6.3-local-candidate-macos-arm64.zip",
+      "size": 47941428,
+      "sha256": "121a89423a1d8d66f3c2d14472d9f9199b1dbc611db9778957f99c9096e61a0d"
     },
     "esp8266": {
       "version": "0.5.1",
@@ -23,32 +23,32 @@
       "sha256": "490fa11470c9a0f177cc400ed8009d5900acd8dffc200fffb0f4ded64daafef4"
     },
     "tab5-first": {
-      "version": "0.2.150-ui",
-      "tag": "tab5-v0.2.150-ui",
-      "file": "TAB5-first-install-0.2.150-ui.zip",
-      "size": 4312466,
-      "sha256": "c15f0129e93c10a3464c6beacf3eb0f2f74634a84bb77d092aa8814109cf599b"
+      "version": "0.2.156-ui",
+      "tag": "tab5-v0.2.156-ui",
+      "file": "TAB5-first-install-0.2.156-ui.zip",
+      "size": 4368239,
+      "sha256": "1117219ce1b904ba13e16290ae93fe058fe627c420d93b853ee4bf653fc090d6"
     },
     "tab5-upgrade": {
-      "version": "0.2.150-ui",
-      "tag": "tab5-v0.2.150-ui",
-      "file": "TAB5-upgrade-0.2.150-ui.zip",
-      "size": 4282612,
-      "sha256": "2172586d47e3ca62fb8105d743ab2e9f0f2b781708bb8832ad06b347f0580ac9"
+      "version": "0.2.156-ui",
+      "tag": "tab5-v0.2.156-ui",
+      "file": "TAB5-upgrade-0.2.156-ui.zip",
+      "size": 4338964,
+      "sha256": "abe1d140f43be0304a27d11d492b7d24e54bca09d44bebb1d219b85da5bdcf75"
     },
     "calligraphy": {
-      "version": "2026.10.07",
-      "tag": "tab5-v0.2.145-ui",
-      "file": "AI-bot-DailyCalligraphy-2026.10.07.zip",
-      "size": 761702491,
-      "sha256": "2da9fb8320347ddda090489129a9a248fed92da5e288ddb35820e4b47fb2c0f5"
+      "version": "2026.10.09",
+      "tag": "tab5-v0.2.156-ui",
+      "file": "AI-bot-DailyCalligraphy-Curated-2026.10.09.zip",
+      "size": 447081384,
+      "sha256": "d8561ddf4097d649f34c7ae5215a836007c4640d6efe75c0e75f24d037a5c71c"
     },
     "painting": {
-      "version": "2026.10.07",
-      "tag": "tab5-v0.2.145-ui",
-      "file": "AI-bot-DailyPainting-2026.10.07.zip",
-      "size": 208836960,
-      "sha256": "51ea07f24bc43b79776a905995e57b393c0cfb42448b8168d8b03a2971baec55"
+      "version": "2026.10.09",
+      "tag": "tab5-v0.2.156-ui",
+      "file": "AI-bot-DailyPainting-Curated-2026.10.09.zip",
+      "size": 221410711,
+      "sha256": "d1ec65bd547bb14e85440d56779cba40a85989023152eed08271a61e72c557d8"
     }
   }
 }

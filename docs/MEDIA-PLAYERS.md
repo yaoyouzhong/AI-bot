@@ -1,6 +1,6 @@
 # 媒体播放器显示 / Media playback display
 
-本次媒体接入纳入桥接 0.6.3 的发布准备，尚未公开。复用现有音乐页面和协议字段，ESP8266 / TAB5 无需为媒体来源扩展刷机。2026-10-08 完成候选代码、合成数据与隔离构建检查；2026-10-09 使用 QQ 音乐 `22.71.10.11.55` 实际采样确认系统／原生曲目、播放状态、推进的进度和公开封面。暂停、拖动、切歌及设备显示仍待交互验收。
+本次媒体接入已随桥接 0.6.3 正式发布。复用现有音乐页面和协议字段，ESP8266 / TAB5 无需为媒体来源扩展刷机。2026-10-08 完成候选代码、合成数据与隔离构建检查；2026-10-09 使用 QQ 音乐 `22.71.10.11.55` 实际采样确认系统／原生曲目、播放状态、推进的进度和公开封面。暂停、拖动、切歌及设备显示仍待交互验收。
 
 ## 接入范围
 
@@ -37,7 +37,7 @@ node browser-companion/capture.test.cjs
 
 ## English
 
-The media integration is included in bridge 0.6.3 release preparation and is not yet public. The existing music UI and protocol remain compatible; extending media sources alone does not require a firmware update.
+The media integration is published with bridge 0.6.3. The existing music UI and protocol remain compatible; extending media sources alone does not require a firmware update.
 
 On 2026-10-09, QQ Music `22.71.10.11.55` x86 was sampled live. Both system
 metadata/timeline and bounded native current-song reads worked; twelve native
@@ -45,11 +45,11 @@ samples advanced with playback, and public artwork reached 500×500. The locator
 interleaved string-initializer checks were corrected. Interactive pause, seek,
 track switching and real ESP8266/TAB5 rendering remain pending.
 
-Local Windows development only; publication remains paused. QQ Music adds a bounded read-only native adapter for the referenced x86 layout, with exact-song SMTC merging and asynchronous public artwork. Unknown layouts retain system-session fallback. NetEase support remains available. The bridge now enumerates all public Windows media sessions and chooses actual playing sources, retaining the system-current or previous source when multiple candidates remain. Spotify, Apple Music, Windows Media Player and other clients can use this route only when they publish SMTC data; recognition of a client name is not live compatibility acceptance. KuGou, Kuwo, VLC, PotPlayer and foobar2000 receive the same conditional system-interface support, without new native memory scanners.
+The original local Windows development and media-sampling record follows; publication is now tracked in RELEASE-0.6.3.md. QQ Music adds a bounded read-only native adapter for the referenced x86 layout, with exact-song SMTC merging and asynchronous public artwork. Unknown layouts retain system-session fallback. NetEase support remains available. The bridge now enumerates all public Windows media sessions and chooses actual playing sources, retaining the system-current or previous source when multiple candidates remain. Spotify, Apple Music, Windows Media Player and other clients can use this route only when they publish SMTC data; recognition of a client name is not live compatibility acceptance. KuGou, Kuwo, VLC, PotPlayer and foobar2000 receive the same conditional system-interface support, without new native memory scanners.
 
 The user confirms that existing Chrome website playback has consistently worked; retain that accepted baseline. New companion 0.2.0 behavior and Edge remain separate acceptance items. The optional Chrome/Edge companion supplies current Media Session metadata and real HTML media playback, position, rate and artwork for explicitly enabled websites. Ended or stale tabs expire; ambiguous simultaneous media are not assigned a guessed timeline. Sources/artwork remain separated and memory-only. Existing authenticated loopback/site permissions are retained. Live streams without a finite duration stay unknown. Other browsers use SMTC when available.
 
-Synthetic checks cover selection, native structure bounds, pause/seek/transition behavior, stale data, artwork ownership, browser timestamps/rate/end and unchanged device frames. QQ Music has real playback sampling as recorded above; its interactive behavior and dual-device rendering, and other uninstalled clients, still require acceptance. The user installed QQ Music and started the candidate bridge manually; no agent installation, automatic bridge replacement/restart, flash, commit, tag or publication was performed.
+Synthetic checks cover selection, native structure bounds, pause/seek/transition behavior, stale data, artwork ownership, browser timestamps/rate/end and unchanged device frames. QQ Music has real playback sampling as recorded above; its interactive behavior and dual-device rendering, and other uninstalled clients, still require acceptance. During the original media sampling, the user installed QQ Music and started the candidate bridge manually; those samples did not perform installation, automatic bridge replacement/restart or flashing. Subsequent commit, tag and publication status is tracked in RELEASE-0.6.3.md.
 
 `--test-media-live <local-output.json>` captures 12 read-only client observations
 without starting a bridge, claiming serial ports or changing settings. The local

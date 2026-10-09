@@ -6,15 +6,15 @@
 
 | 组件 | 当前版本 | 版本文件 | 后续组件标签 |
 | --- | --- | --- | --- |
-| Windows / macOS 桥接 | 0.6.3（发布准备，尚未公开） | 根目录 `VERSION` | `bridge-v0.6.3` 等 |
+| Windows / macOS 桥接 | 0.6.3（正式发布） | 根目录 `VERSION` | `bridge-v0.6.3` 等 |
 | ESP8266 固件 | 0.5.2（本地候选，尚未安装） | `firmware/VERSION` | `esp8266-v0.5.2` 等 |
-| TAB5 固件 | 0.2.156-ui（本地已安装，发布准备） | `versions/TAB5` | `tab5-v0.2.156-ui` 等 |
+| TAB5 固件 | 0.2.156-ui（正式发布，本地已安装） | `versions/TAB5` | `tab5-v0.2.156-ui` 等 |
 
 表中未来标签仅为格式示例，不代表已经发布或当前版本已经增加。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
 
 `versions/TAB5` 登记待发布镜像版本，不替代独立 TAB5 工程的镜像内版本；发布前核对其应用、sidecar、首刷包与公开源码身份。TAB5 本地候选仍由[固定固件工作流](TAB5-FIRMWARE-WORKFLOW.md)管理。
 
-本次桥接 `0.6.3`、TAB5 `0.2.156-ui` 与 ESP8266 `0.5.2` 的范围及验收边界见[版本说明](RELEASE-0.6.3.md)。.156 包含网络修复与设置布局调整，已本地安装并通过启动核验；ESP8266 0.5.2 尚未安装，本次正式附件保留 .5.1。作品集 `2026.10.09` 同期准备，作为独立可选 ZIP 附于 TAB5 Release；程序和固件不内置图片。Bridge and TAB5 are prepared together with optional collection ZIPs; ESP8266 .5.2 remains uninstalled and excluded from public attachments.
+本次桥接 `0.6.3`、TAB5 `0.2.156-ui` 与 ESP8266 `0.5.2` 的范围及验收边界见[版本说明](RELEASE-0.6.3.md)。.156 包含网络修复与设置布局调整，已本地安装并通过启动核验；ESP8266 0.5.2 尚未安装，本次正式附件保留 .5.1。年度精选集 `2026.10.09` 同期发布，作为独立可选 ZIP 附于 TAB5 Release；程序和固件不内置图片。Bridge and TAB5 are published together with optional curated collection ZIPs; ESP8266 .5.2 remains uninstalled and excluded from public attachments.
 
 ## 构建与检查
 

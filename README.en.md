@@ -1,14 +1,14 @@
 # AI-bot
 
-Release preparation covers bridge 0.6.3, TAB5 0.2.156-ui and curated collection edition 2026.10.09 (366 paintings and 366 calligraphy works). New packages are not public yet; the download table retains existing stable versions. [Changes and validation scope](docs/RELEASE-0.6.3.md) · [Collection installation](docs/GALLERY-PACKS.md)
+Released: bridge 0.6.3, TAB5 0.2.156-ui and annual curated collection edition 2026.10.09 (366 paintings and 366 Chinese calligraphy works). Only the curated edition is distributed as two optional ZIPs; current stable downloads are listed below. [Changes and validation scope](docs/RELEASE-0.6.3.md) · [Collection installation](docs/GALLERY-PACKS.md)
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.3.md) · [简体中文](README.md)
 
-The revised video, cover and changed screenshots are prepared with this candidate. The native player below still shows the previous public film; it will be replaced during publication.
+The revised video, cover and changed screenshots are synchronized with this release. The native player below shows the latest 108-second product film.
 
-https://github.com/user-attachments/assets/2c6fc353-5958-4780-b087-63999f1bc710
+https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
 
 <sub>108-second product tour with Chinese captions; click to play here. Native interfaces use fixed demo data. [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media and artwork credits](docs/PRODUCT_VIDEO.md)</sub>
 
@@ -71,13 +71,13 @@ Annual Dots gives every day a dot, with leap-year support, three palettes and au
 <!-- downloads:start -->
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.2 | [Download · 56 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.2/AIBotBridge-0.6.2-setup-win-x64.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.2/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.2 | [Download · 46 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.2/AIBotBridge-0.6.2-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.2/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.3 | [Download · 57 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.3/AIBotBridge-0.6.3-setup-win-x64.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.3/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.3 | [Download · 46 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.3/AIBotBridge-0.6.3-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.3/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.1 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.1/AI-bot-0.5.1-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.1/SHA256SUMS.txt) |
-| TAB5 · first install from factory system | 0.2.150-ui | [Download · 4 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.150-ui/TAB5-first-install-0.2.150-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.150-ui/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.150-ui | [Download · 4 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.150-ui/TAB5-upgrade-0.2.150-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.150-ui/SHA256SUMS.txt) |
-| Daily Calligraphy · optional collection | 2026.10.07 | [Download · 726 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/AI-bot-DailyCalligraphy-2026.10.07.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) |
-| Daily Painting · optional collection | 2026.10.07 | [Download · 199 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/AI-bot-DailyPainting-2026.10.07.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.145-ui/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.156-ui | [Download · 4 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/TAB5-first-install-0.2.156-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.156-ui | [Download · 4 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/TAB5-upgrade-0.2.156-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/SHA256SUMS.txt) |
+| Daily Calligraphy · optional collection | 2026.10.09 | [Download · 426 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/AI-bot-DailyCalligraphy-Curated-2026.10.09.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/SHA256SUMS.txt) |
+| Daily Painting · optional collection | 2026.10.09 | [Download · 211 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/AI-bot-DailyPainting-Curated-2026.10.09.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/SHA256SUMS.txt) |
 
 Install the computer bridge, then choose firmware for your device. Artwork collections are optional. Components update independently; reinstalling an unchanged version is unnecessary.
 

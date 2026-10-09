@@ -1,10 +1,10 @@
 # 产品介绍视频 / Product introduction video
 
-2026-10-09 本次候选同步：保持已批准的 108 秒分镜、转场与原音轨，替换 TAB5 .156 的周额度七等分、天气／电脑状态／音乐、Codex 直达和三个月历画面，以及当前 Windows 设备中心／更新控件。图库镜头改为 366 件名画、366 件中国书法的年度精选集，并使用当前桥接候选的实际隔离导入截图。未变化镜头沿用历史来源；不冒称新的硬件实拍。新 MP4 已完成导出与本地审阅，正式发布时替换主页和本页的 GitHub 原生播放器附件；下方现有公开附件仍为旧片。
+2026-10-09 本次发布同步：保持已批准的 108 秒分镜、转场与原音轨，替换 TAB5 .156 的周额度七等分、天气／电脑状态／音乐、Codex 直达和三个月历画面，以及当前 Windows 设备中心／更新控件。图库镜头改为 366 件名画、366 件中国书法的年度精选集，并使用当前桥接候选的实际隔离导入截图。未变化镜头沿用历史来源；不冒称新的硬件实拍。新 MP4 已完成导出与本地审阅，主页和本页的 GitHub 原生播放器附件已同步为本次成片。
 
-2026-10-09 candidate revision retains the approved 108-second timeline, transitions and original audio. Changed native TAB5 .156 quota, daily information, music, Codex Direct and calendar views, current Windows controls and the actual isolated 366 + 366 curated import are refreshed. Unchanged footage keeps historical provenance. The new native GitHub attachment is pending publication; the public player below still shows the previous film.
+2026-10-09 candidate revision retains the approved 108-second timeline, transitions and original audio. Changed native TAB5 .156 quota, daily information, music, Codex Direct and calendar views, current Windows controls and the actual isolated 366 + 366 curated import are refreshed. Unchanged footage keeps historical provenance. The native GitHub attachment and the player below are synchronized with the current export.
 
-https://github.com/user-attachments/assets/2c6fc353-5958-4780-b087-63999f1bc710
+https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
 
 [下载 MP4（108 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图、作品与素材来源](SCREENSHOTS.md)
 
@@ -59,6 +59,6 @@ The original 104 BPM score uses 23 synthesized action cues. Font, scaffold and m
 2026-10-08 verification: the new encoded first frame and all 216 contact frames were reviewed; deterministic seeking, fonts, images, overflow and full decoding passed. Duration remains 108 seconds / 3240 frames. The encoded AAC stream has the same SHA-256 as the original; subjective listening remains unverified. All three cover ratios were also reviewed; the transition-strip records above describe the original film.
 
 
-2026-10-09 成片核验：108 秒／3240 帧，完整解码、216 帧联系表、改动镜头前后转场与三个封面比例复核通过；原 AAC 字节及哈希完全保持。正反向定位、字体、图片和标题溢出检查通过。没有新增主观试听结论。新片、封面与来源哈希已本地同步；GitHub 原生视频附件在正式发布时替换，当前公开播放器仍为旧片。
+2026-10-09 成片核验：108 秒／3240 帧，完整解码、216 帧联系表、改动镜头前后转场与三个封面比例复核通过；原 AAC 字节及哈希完全保持。正反向定位、字体、图片和标题溢出检查通过。没有新增主观试听结论。新片、封面、来源哈希与 GitHub 原生视频附件已同步发布。
 
-2026-10-09 verification: 108 seconds / 3240 frames, full decode, 216 contact frames, affected transitions and three cover ratios reviewed. Original AAC bytes and hash are identical. Seeking, fonts, images and headline overflow passed. No new subjective listening claim. Local media and provenance hashes are synchronized; the native GitHub attachment is pending publication.
+2026-10-09 verification: 108 seconds / 3240 frames, full decode, 216 contact frames, affected transitions and three cover ratios reviewed. Original AAC bytes and hash are identical. Seeking, fonts, images and headline overflow passed. No new subjective listening claim. Media, provenance hashes and the native GitHub attachment are synchronized with this publication.
