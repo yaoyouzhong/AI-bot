@@ -43,6 +43,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private MigratedWeather.WeatherSettingsForm? _weatherSettings;
     private bool _deviceOperationBusy;
     private bool _refreshBusy;
+    private bool _startupBusy;
     private DateTimeOffset _nextQuotaWarning;
     private long _lastCompletionSequence;
     private bool _codexWasForeground;
@@ -132,7 +133,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _flashActions.Enqueue(() => { RestartCycle(); done.TrySetResult(); });
                 return done.Task.WaitAsync(token);
             }, _shutdown.Token));
-        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo, () => _tab5?.DiagnosticSummary ?? _tab5Error ?? "TAB5 未启用",_runtime.AcceptBrowserArtworkAsync,()=>_tab5?.CrashDiagnostic??"[]");
+        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo, () => _tab5?.DiagnosticSummary ?? _tab5Error ?? "TAB5 未启用",_runtime.AcceptBrowserArtworkAsync,()=>_tab5?.CrashDiagnostic??"[]",()=>_runtime.MusicDiagnostic);
         _ = Task.Run(() => server.RunAsync(_runtime.Capture, _shutdown.Token));
         try{_services.ApplyAsync(_devices.Snapshot).GetAwaiter().GetResult();UpdateDemandAsync().GetAwaiter().GetResult();}
         catch(Exception ex){_tab5Error=ex.Message;}
@@ -149,7 +150,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
     private void ShowDevices(string page="devices") {
         if(_center is null||_center.IsDisposed)_center=new DeviceCenterForm(_devices,_services.View,HandleDeviceAction,ChangeDeviceAsync,AddDevice,HandleMenuAction,
-            key=>key=="startup"?StartupRegistration.IsEnabled:_devices.Snapshot.DesktopQuotaHistory);
+            key=>key=="startup"?StartupRegistration.IsEnabled:_devices.Snapshot.DesktopQuotaHistory,ChangeStartupAsync);
         _center.Reload();_center.ShowPage(page);SettingsWindow.Present(_center);
     }
     private void ShowCommonSettings(bool bridge) {
@@ -273,7 +274,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 case "refresh":
                     if(_refreshBusy)return;_refreshBusy=true;
                     try{await _runtime.RefreshAsync();_mirror?.Invalidate();}finally{_refreshBusy=false;}break;
-                case "startup": StartupRegistration.SetEnabled(!StartupRegistration.IsEnabled);RebuildMenu();break;
+                case "startup": await ChangeStartupAsync(!StartupRegistration.IsEnabled);RebuildMenu();break;
                 case "quota-trend": if(_trend is null||_trend.IsDisposed)_trend=new QuotaTrendForm();SettingsWindow.Present(_trend);break;
                 case "settings": ShowSettings();break;
                 case "stocks-settings": ShowSettings("stocks");break;
@@ -291,6 +292,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 default: ShowDevices();break;
             }
         }catch(Exception ex){MessageBox.Show(ex.Message,"桥接操作未完成",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
+    }
+
+    private async Task ChangeStartupAsync(bool enabled)
+    {
+        if(_startupBusy)throw new InvalidOperationException("开机启动设置正在保存，请稍候。");
+        _startupBusy=true;
+        try{await Task.Run(()=>StartupRegistration.SetEnabled(enabled));}
+        finally{_startupBusy=false;}
     }
 
     private void Notify(string kind,string key,string title,string message,ToolTipIcon icon) {
@@ -502,9 +511,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowSettings(string? section = null)
     {
+        if(section=="weather"){ShowWeatherSettings();return;}
         if (_settingsForm is null || _settingsForm.IsDisposed)
         {
-            _settingsForm = new SettingsForm(includeDeviceSettings:false);
+            _settingsForm = new SettingsForm(includeDeviceSettings:false,quotes:_runtime.Capture().Stocks?.Quotes);
             _settingsForm.FormClosed += (_,_)=>_runtime.ReloadSettings();
         }
         SettingsWindow.Present(_settingsForm);

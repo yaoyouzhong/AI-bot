@@ -34,14 +34,16 @@ try {
     $version = (Get-Content (Join-Path $sourceRoot 'VERSION') -Raw).Trim()
     $firmwareVersion = (Get-Content (Join-Path $sourceRoot 'firmware\VERSION') -Raw).Trim()
     $zip = Join-Path $sourceRoot "AIBotBridge-$version-local-candidate-win-x64.zip"
-    Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
+    # Python ZIP operations support long dependency-notice paths on Windows.
+    # Compress-Archive in Windows PowerShell 5.1 fails after publish succeeds.
+    python -c "import pathlib,sys,zipfile; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; root=filesystem_path(pathlib.Path(sys.argv[2])); archive=zipfile.ZipFile(filesystem_path(pathlib.Path(sys.argv[3])), 'x', zipfile.ZIP_DEFLATED); [archive.write(p, p.relative_to(root).as_posix()) for p in sorted(root.rglob('*')) if p.is_file()]; archive.close()" $PSScriptRoot $stage $zip
+    if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP creation failed' }
     ((Get-FileHash -LiteralPath $zip).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($zip)) | Set-Content -LiteralPath ($zip + '.sha256') -Encoding ascii
     $extracted = Join-Path $sourceRoot 'artifacts\unpacked-check'
-    Expand-Archive -LiteralPath $zip -DestinationPath $extracted
-    foreach ($entry in $manifest) {
-        $hash,$relative = $entry -split '  ',2
-        if ((Get-FileHash -LiteralPath (Join-Path $extracted $relative)).Hash -ne $hash) { throw "Archive mismatch: $relative" }
-    }
+    python -c "import pathlib,sys,zipfile; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; archive=zipfile.ZipFile(filesystem_path(pathlib.Path(sys.argv[2]))); archive.extractall(filesystem_path(pathlib.Path(sys.argv[3]))); archive.close()" $PSScriptRoot $zip $extracted
+    if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP extraction failed' }
+    python -c "import hashlib,pathlib,sys; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; root=filesystem_path(pathlib.Path(sys.argv[2])); entries=[line.split('  ',1) for line in (root/'FILES.sha256').read_text(encoding='ascii').splitlines()]; assert all(hashlib.sha256((root/name).read_bytes()).hexdigest()==expected for expected,name in entries), 'Extracted archive mismatch'; print('WINDOWS_ARCHIVE_BYTES_OK',len(entries))" $PSScriptRoot $extracted
+    if ($LASTEXITCODE -ne 0) { throw 'Windows extracted archive verification failed' }
     Push-Location $extracted
     try {
         powershell -NoProfile -File (Join-Path $sourceRoot 'scripts\run_public_self_test.ps1') -BridgeDll .\AIBotBridge.dll

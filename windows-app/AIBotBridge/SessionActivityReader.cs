@@ -3,6 +3,8 @@ namespace AIBotBridge;
 internal static class SessionActivityReader
 {
     private static readonly CodexLifecycleTracker CodexLifecycle = new();
+    private static readonly Tab5CodexDesktop Desktop=new();
+    internal static readonly Tab5LiveActivity LiveActivity=new((id,ct)=>Desktop.ReadAsync(id,ct));
     private static readonly LocalUsageReader Usage = new();
     internal static readonly ActivitySignals Signals = new();
     private static IReadOnlyDictionary<string, LocalProviderUsage> _usage = new Dictionary<string, LocalProviderUsage>();
@@ -13,6 +15,7 @@ internal static class SessionActivityReader
     {
         var home = AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var codex = CodexLifecycle.Capture(Path.Combine(home, ".codex", "sessions"));
+        if(codex.State!="offline")LiveActivity.Refresh(Tab5CodexCatalog.Recent(),CancellationToken.None);
         if (Environment.TickCount64 >= _nextUsageScan)
         {
             _usage = Usage.Capture(Path.Combine(home, ".claude", "projects"), Path.Combine(home, ".codex", "sessions"));
@@ -43,9 +46,20 @@ internal static class SessionActivityReader
             EpochUtc: now.ToUnixTimeSeconds(),
             UtcOffsetSeconds: (int)now.Offset.TotalSeconds,
             CapturedAt: now,
-            Codex: Signals.Apply("codex",sample.Codex with { TokensToday=usage.GetValueOrDefault("codex")?.TokensToday??0 }),
+            Codex: MergeCodex(Signals.Apply("codex",sample.Codex with { TokensToday=usage.GetValueOrDefault("codex")?.TokensToday??0 }),CodexLifecycle.TaskActivities,LiveActivity.Fresh()),
             Claude: domestic.State != "offline" ? claude : Signals.Apply("claude",claude),
             DomesticActivity: domestic);
+    }
+    internal static ToolState MergeCodex(ToolState raw,IReadOnlyList<CodexLifecycleTracker.TaskActivity> logs,IReadOnlyList<CodexLifecycleTracker.TaskActivity> live)
+    {
+        if(raw.State=="offline")return raw;
+        var tasks=logs.GroupBy(t=>t.Id).ToDictionary(g=>g.Key,g=>g.MaxBy(t=>t.UpdatedAt)!);
+        foreach(var task in live.Where(t=>t.State is "working" or "waiting" or "idle"))tasks[task.Id]=task;
+        if(tasks.Values.Any(t=>t.State=="working"))return raw with {State="working",AgeSeconds=0,NeedsInput=raw.NeedsInput||tasks.Values.Any(t=>t.State=="waiting")};
+        if(tasks.Values.Any(t=>t.State=="waiting"))return raw with {State="working",AgeSeconds=0,NeedsInput=true};
+        // An explicit live completion supersedes the same turn's buffered working log.
+        if(live.Count>0&&tasks.Count>0&&tasks.Values.All(t=>t.State=="idle"))return raw with {State="idle",NeedsInput=false};
+        return raw;
     }
     private static DomesticActivitySnapshot Domestic(DateTimeOffset now, IReadOnlyDictionary<string, LocalProviderUsage> usage)
     {

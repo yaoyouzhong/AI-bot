@@ -83,9 +83,10 @@ internal static class DeviceCenterSelfTest
                 form.Reload();Check(tabs.SelectedTab?.Name=="accounts","Reload unexpectedly left shared settings");
                 form.ShowPage("bridge-settings");Capture(form,directory,$"{key}-{scale:0.00}-bridge");
                 form.Show();Application.DoEvents();
-                foreach(var (label,route) in new[]{("开机启动","startup"),("服务状态","status"),("关于应用","about")}) {
+                foreach(var (label,route) in new[]{("服务状态","status"),("关于应用","about")}) {
                     Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().Single(b=>b.Text==label).PerformClick();Check(action==route,"Bridge action route lost: "+label);
                 }
+                ((StartupSettingControl)form.Controls.Find("startup-setting",true).Single()).ChangeAsync().GetAwaiter().GetResult();Check(action=="startup","Startup setting action route lost");
                 form.ShowPage("devices");Check(Descendants(form).OfType<ListBox>().Single().SelectedItem is RegisteredDevice selected?devices.Any(d=>d.Id==selected.Id):devices.Length==0,"Device selection lost across navigation");
                 form.Show();Application.DoEvents();
                 foreach(var d in devices){

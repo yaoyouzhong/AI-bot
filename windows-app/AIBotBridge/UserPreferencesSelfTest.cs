@@ -17,8 +17,8 @@ internal static class UserPreferencesSelfTest
         using(var editor=new SettingsForm(includeDeviceSettings:false)) {
             IEnumerable<Control> Children(Control parent)=>parent.Controls.Cast<Control>().SelectMany(c=>new[]{c}.Concat(Children(c)));
             var fields=Children(editor).OfType<TextBox>().Select(c=>c.Text).ToArray();
-            Check(fields.Contains("sh000001")&&!fields.Contains("hk00700"),"Reopened stock editor showed pre-restore settings");
-            Check(fields.Contains("PrivateCity"),"Reopened stock editor changed an unselected field");
+            Check(editor.StockSymbols.Contains("sh000001")&&!editor.StockSymbols.Contains("hk00700"),"Reopened stock editor showed pre-restore settings");
+            Check(!fields.Contains("PrivateCity")&&BridgeSettings.Load().Get("weather_city")=="PrivateCity","Stock editor exposed or changed weather settings");
         }
         Check(ConfigurationBackup.Read(before).Settings["stock_symbols"]=="hk00700","Pre-restore backup missing original");
         ConfigurationBackup.Restore(incoming,[],true);Check(BirthdayStore.Load()[0].Name=="替换示例","Birthday selected restore failed");

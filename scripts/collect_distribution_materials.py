@@ -131,6 +131,13 @@ def collect_windows(stage: Path):
         binaries[filename] = expected
     records.append({"package": name, "binaries": binaries,
                     "licenseFiles": [p.name for p in target.iterdir()]})
+    for reference in ("netease-clock-reference", "qqmusic-clock-reference"):
+        for filename in ("LICENSE", "ORIGIN.md"):
+            relative = f"{reference}/{filename}"
+            if relative not in evidence["files"]:
+                raise ValueError(f"Unverified playback reference notice: {relative}")
+            copy_file(ROOT / "licenses" / relative, stage / "licenses" / relative)
+        records.append({"reference": reference, "licenseFiles": ["LICENSE", "ORIGIN.md"]})
     for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         copy_file(ROOT / filename, stage / filename)
     copy_file(ROOT / "docs/DISTRIBUTION_TERMS.md", stage / "DISTRIBUTION_TERMS.md")

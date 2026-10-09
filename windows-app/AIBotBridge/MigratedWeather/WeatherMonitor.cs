@@ -21,6 +21,7 @@ sealed class WeatherMonitor
     const string AutoLocationKey = "weather_auto_location";
     const string LatitudeKey = "weather_latitude";
     const string LongitudeKey = "weather_longitude";
+    const string ProviderKey = "weather_provider";
     const double LocationUpdateThresholdMeters = 1000;
     const string CredentialTarget = "AI-bot/QWeatherApiKey";
     static readonly HttpClient Http = new(new HttpClientHandler
@@ -80,6 +81,8 @@ sealed class WeatherMonitor
     public static double Latitude => ParseDouble(Settings.Get(LatitudeKey));
     public static double Longitude => ParseDouble(Settings.Get(LongitudeKey));
     public static bool HasQWeatherApiKey => CredentialStore.Read(CredentialTarget).Length > 0;
+    public static string Provider => Settings.Get(ProviderKey) is "open-meteo" or "qweather" ? Settings.Get(ProviderKey)
+        : HasQWeatherApiKey && QWeatherApiHost.Length>0 ? "qweather" : "open-meteo";
     public static string Animation
     {
         get
@@ -113,11 +116,16 @@ sealed class WeatherMonitor
     }
 
     public void ApplySettings(string host, string city, bool autoLocation,
-                              double latitude, double longitude, string apiKey)
+                              double latitude, double longitude, string apiKey, string provider=null)
     {
         host = NormalizeHost(host);
-        ValidateQWeatherHost(host);
-        QWeatherApiHost = host;
+        provider ??= string.IsNullOrWhiteSpace(apiKey)&&!HasQWeatherApiKey ? "open-meteo" : "qweather";
+        ValidateSettingsSource(host,apiKey,provider);
+        // Choosing the free source keeps the previously configured QWeather credentials.
+        if(provider=="qweather") {
+            if (!string.IsNullOrWhiteSpace(apiKey)) CredentialStore.Write(CredentialTarget, apiKey.Trim());
+            QWeatherApiHost = host;
+        }
         City = city;
         AutoLocation = autoLocation;
         if (autoLocation && latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180)
@@ -125,7 +133,7 @@ sealed class WeatherMonitor
             Settings.Set(LatitudeKey, latitude.ToString("F6", CultureInfo.InvariantCulture));
             Settings.Set(LongitudeKey, longitude.ToString("F6", CultureInfo.InvariantCulture));
         }
-        if (!string.IsNullOrWhiteSpace(apiKey)) CredentialStore.Write(CredentialTarget, apiKey.Trim());
+        Settings.Set(ProviderKey,provider);
         _ = Refresh();
     }
 
@@ -182,7 +190,7 @@ sealed class WeatherMonitor
             Snapshot snapshot = null;
             var host = QWeatherApiHost;
             var apiKey = CredentialStore.Read(CredentialTarget);
-            if (host.Length > 0 && apiKey.Length > 0)
+            if (Provider=="qweather" && host.Length > 0 && apiKey.Length > 0)
             {
                 try { snapshot = await FetchQWeather(host, apiKey, city, autoLocation, latitude, longitude); }
                 catch { /* provider fallback below */ }
@@ -244,11 +252,33 @@ sealed class WeatherMonitor
         return earthRadiusMeters * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
 
-    public async Task<Snapshot> TestQWeather(string host, string apiKey, string city,
-                                             bool autoLocation, double latitude, double longitude)
+    internal static void ValidateSettingsSource(string host,string apiKey,string provider=null)
     {
+        provider ??= string.IsNullOrWhiteSpace(apiKey)&&!HasQWeatherApiKey ? "open-meteo" : "qweather";
+        if(provider=="open-meteo")return;
+        if(provider!="qweather")throw new InvalidOperationException("请选择天气数据源。");
+        host=NormalizeHost(host);
+        if(host.Length==0)throw new InvalidOperationException("请填写和风 Host。");
+        ValidateQWeatherHost(host);
+        if(string.IsNullOrWhiteSpace(apiKey)&&!HasQWeatherApiKey)throw new InvalidOperationException("请填写和风 API Key，或选择免费天气。");
+    }
+
+    public async Task<Snapshot> TestSettings(string host, string apiKey, string city,
+                                             bool autoLocation, double latitude, double longitude,string provider=null)
+    {
+        if(!autoLocation&&string.IsNullOrWhiteSpace(city))throw new InvalidOperationException("请输入城市或区县。");
+        if(autoLocation&&(latitude==0&&longitude==0||latitude is < -90 or > 90||longitude is < -180 or > 180))throw new InvalidOperationException("请先获取当前位置。");
+        provider ??= string.IsNullOrWhiteSpace(apiKey)&&!HasQWeatherApiKey ? "open-meteo" : "qweather";
+        ValidateSettingsSource(host,apiKey,provider);
+        if(provider=="open-meteo")return await FetchOpenMeteo(city.Trim(),autoLocation,latitude,longitude);
         var key = string.IsNullOrWhiteSpace(apiKey) ? CredentialStore.Read(CredentialTarget) : apiKey.Trim();
-        if (key.Length == 0) throw new InvalidOperationException("请输入 API KEY。 ");
+        return await TestQWeather(host,key,city,autoLocation,latitude,longitude);
+    }
+
+    public async Task<Snapshot> TestQWeather(string host,string apiKey,string city,bool autoLocation,double latitude,double longitude)
+    {
+        var key=string.IsNullOrWhiteSpace(apiKey)?CredentialStore.Read(CredentialTarget):apiKey.Trim();
+        if(key.Length==0)throw new InvalidOperationException("请输入和风天气 API Key。");
         host = NormalizeHost(host);
         ValidateQWeatherHost(host);
         return await FetchQWeather(host, key, city.Trim(), autoLocation, latitude, longitude);

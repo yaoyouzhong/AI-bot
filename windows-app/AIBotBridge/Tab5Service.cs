@@ -176,7 +176,7 @@ internal sealed partial class Tab5Service : IDisposable
     internal DeviceView DeviceView { get {long now=Environment.TickCount64;bool Recent(long at)=>at>0&&now-at<15000;bool usb=Recent(Interlocked.Read(ref _usbAckAt)),wifi=Recent(Interlocked.Read(ref _wifiRequestAt)),ble=Recent(Interlocked.Read(ref _bleAckAt));return new(usb||wifi||ble,Busy?"正在处理":usb||wifi||ble?"在线":"离线",$"USB：{(usb?"已连接":"未连接")}  Wi-Fi：{(wifi?"已连接":"未连接")}  蓝牙：{(ble?"已连接":"未连接")}\n当前通道：{(usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无")}",_firmware.LastVersion(PairedId),usb?"已连接":"未连接",wifi?"已连接":"未连接",ble?"已连接":"未连接",usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无");}}
     private volatile bool _wifiReportedConnected;
     private volatile string _voiceAuthStatus="尚无语音请求";
-    internal string DiagnosticSummary => ProfileDiagnostic+GalleryDiagnostic+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
+    internal string DiagnosticSummary => ProfileDiagnostic+GalleryDiagnostic+"\n"+ConnectionSummary+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
     private string? _reservedPort;
     internal string CrashDiagnostic=>_crashes.Snapshot;
     // All callers hold _usbGate. Keeping DTR and the CDC handle stable avoids
@@ -214,7 +214,9 @@ internal sealed partial class Tab5Service : IDisposable
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
     private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand };
-    internal void Publish(StatusSnapshot snapshot)
+    private long _musicPublishedAt;
+    internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
+    private void Publish(StatusSnapshot snapshot,bool musicOnly)
     {
         lock(_publishLock) {
         _lastSnapshot=snapshot;
@@ -226,11 +228,32 @@ internal sealed partial class Tab5Service : IDisposable
         for(int limit=64;frame.Length>Tab5Protocol.MaximumFrame-28&&limit>=24;limit-=8)
             frame=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
         if(frame.Length > Tab5Protocol.MaximumFrame-28) { _usbStatus="状态数据超出协议上限"; return; }
-        Volatile.Write(ref _frame,frame); Interlocked.Exchange(ref _publishedAt,Environment.TickCount64);
+        Volatile.Write(ref _frame,frame);
+        long tick=PublicationClock();
+        Interlocked.Exchange(ref _musicPublishedAt,tick);
+        if(!musicOnly)Interlocked.Exchange(ref _publishedAt,tick);
         }
     }
     private void Republish() {lock(_publishLock){if(_lastSnapshot is {} snapshot)Publish(snapshot);}}
-    internal byte[]? CurrentFrame => Environment.TickCount64-Interlocked.Read(ref _publishedAt)<6000 ? Volatile.Read(ref _frame) : null;
+    internal Func<MusicSnapshot?>? MusicCapture {get;set;}
+    internal Func<long> PublicationClock {get;set;}=()=>Environment.TickCount64;
+    internal byte[]? CurrentFrame {
+        get {
+            long age=PublicationClock()-Interlocked.Read(ref _publishedAt);
+            // Reuse the cached non-music state; a clock update must not wait for
+            // the tray's two-second tick or rescan activity/quotas on each sample.
+            if(age is >=0 and <6000 && PublicationClock()-Interlocked.Read(ref _musicPublishedAt)>=500 && MusicCapture is {} capture) {
+                lock(_publishLock) {
+                    if(PublicationClock()-Interlocked.Read(ref _musicPublishedAt)>=500 && _lastSnapshot is {} snapshot &&
+                       capture() is {} music && music.Title.Length>0) {
+                        var now=DateTimeOffset.Now;
+                        Publish(snapshot with {Music=music,CapturedAt=now,EpochUtc=now.ToUnixTimeSeconds(),Time=now.ToString("HH:mm:ss")},true);
+                    }
+                }
+            }
+            return PublicationClock()-Interlocked.Read(ref _publishedAt)<6000 ? Volatile.Read(ref _frame) : null;
+        }
+    }
     internal byte[]? Discover(byte[] packet,System.Net.IPAddress peer) {
         var pair=_store.Current;var host=_host;var port=_port;
         if(pair is null||host is null||port<=0||
@@ -590,7 +613,7 @@ internal sealed partial class Tab5Service : IDisposable
                 }
                 finally { _usbConnectionAttempt="";if(gateHeld)_usbGate.Release(); }
             }
-            await Task.Delay(pendingResources?40:2000,token);
+            await Task.Delay(pendingResources?40:MusicCapture?.Invoke() is {Title.Length:>0,TimelineAvailable:true}?500:2000,token);
         }
     }
     internal Task RunBleAsync(CancellationToken token) => new Tab5BleClient(_store,()=>Volatile.Read(ref _otaTransfers)>0?null:CurrentFrame,s=>{_bleStatus=s;if(s=="已连接 · 数据已确认")Interlocked.Exchange(ref _bleAckAt,Environment.TickCount64);},_assets.Acknowledge,s=>{_bleDiagnostic=s;if(s.StartsWith("FAILED "))_bleLastFailure=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s;},

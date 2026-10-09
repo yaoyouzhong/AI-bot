@@ -38,8 +38,8 @@ internal sealed partial class Tab5Service
     }
 
     // Full state still refreshes every two seconds. The small metrics frame
-    // carries the same 250 ms samples as the original display, without sending
-    // the task catalog, weather and quota history four times per second.
+    // carries the bridge's once-per-second snapshot with measured 250 ms raw
+    // samples. Duplicate sample sequences leave numbers and curves unchanged.
     internal byte[]? TelemetryFrame(int channel,bool supported,bool compressionSafe=true,bool preferMetrics=false,bool deltaSupported=false)
     {
         var full=CurrentFrame;
@@ -52,10 +52,19 @@ internal sealed partial class Tab5Service
             // before metrics or interactive pacing can refer to that session.
             bool fullDue=_lastTelemetryFull[channel] is not null&&!ReferenceEquals(_lastTelemetryFull[channel],full)&&
                 TelemetryClock()-_lastTelemetryFullAt[channel]>=4000;
+            bool musicUrgent=_lastTelemetryFull[channel] is {} previous && MusicChangedUrgently(previous,full);
             if(!settingsPending&&_lastTelemetryFull[channel] is not null&&preferMetrics&&!fullDue&&MetricsFrame(compressionSafe) is {} interactiveMetrics)return interactiveMetrics;
             // Even if a slow radio transfer spans a full-state publication,
             // give current metrics a turn before sending another catalog.
-            if(_metricsTurn[channel]){_metricsTurn[channel]=false;if(!settingsPending&&!fullDue&&MetricsFrame(compressionSafe) is {} sample)return sample;}
+            if(_metricsTurn[channel]) {
+                _metricsTurn[channel]=false;
+                if(!settingsPending&&!fullDue&&!musicUrgent) {
+                    // Music publishes every 500 ms. Give pending artwork this
+                    // turn even when a newer full frame is already waiting.
+                    if(!preferMetrics&&ResourceFrame(channel) is {} resources)return resources;
+                    if(MetricsFrame(compressionSafe) is {} sample)return sample;
+                }
+            }
             if(!ReferenceEquals(_lastTelemetryFull[channel],full)) {
                 _lastTelemetryFull[channel]=full;
                 _lastTelemetryFullAt[channel]=TelemetryClock();
@@ -73,15 +82,30 @@ internal sealed partial class Tab5Service
             }
             // Resource traffic reuses the established authenticated session. It
             // does not resend the catalog or change task freshness. RPC still wins.
-            if(!BackgroundTransferPaused&&!preferMetrics&&_assets.JpegSupported&&_assets.HasPending) {
-                var resources=_assets.NextBatch(channel==1?8:4);
-                if(resources.Length>0&&_store.Current is {} pair)return JsonSerializer.SerializeToUtf8Bytes(new {
-                    version=1,type="tab5_resources",deviceId=pair.DeviceId,session=_session,
-                    sequence=Interlocked.Increment(ref _sequence),resources
-                },JsonDefaults.Options);
-            }
+            if(!preferMetrics&&ResourceFrame(channel) is {} resourceFrame)return resourceFrame;
             return MetricsFrame(compressionSafe)??(compressionSafe?_packedFrame:full);
         }
+    }
+    private byte[]? ResourceFrame(int channel) {
+        if(BackgroundTransferPaused||!_assets.JpegSupported||!_assets.HasPending||_store.Current is not {} pair)return null;
+        var resources=_assets.NextBatch(channel==1?8:4);
+        return resources.Length==0?null:JsonSerializer.SerializeToUtf8Bytes(new {
+            version=1,type="tab5_resources",deviceId=pair.DeviceId,session=_session,
+            sequence=Interlocked.Increment(ref _sequence),resources
+        },JsonDefaults.Options);
+    }
+    private static bool MusicChangedUrgently(byte[] previous,byte[] current) {
+        if(ReferenceEquals(previous,current))return false;
+        using var before=JsonDocument.Parse(previous);using var after=JsonDocument.Parse(current);
+        var old=before.RootElement.GetProperty("data").GetProperty("music");
+        var next=after.RootElement.GetProperty("data").GetProperty("music");
+        if(old.ValueKind!=JsonValueKind.Object||next.ValueKind!=JsonValueKind.Object)return old.ValueKind!=next.ValueKind;
+        foreach(string key in new[]{"title","artist","album","playing","timelineAvailable","durationSeconds"})
+            if(old.GetProperty(key).GetRawText()!=next.GetProperty(key).GetRawText())return true;
+        double positionDelta=next.GetProperty("elapsedSeconds").GetDouble()-old.GetProperty("elapsedSeconds").GetDouble();
+        double age=(after.RootElement.GetProperty("data").GetProperty("epochMilliseconds").GetInt64()-
+                    before.RootElement.GetProperty("data").GetProperty("epochMilliseconds").GetInt64())/1000.0;
+        return Math.Abs(positionDelta-(next.GetProperty("playing").GetBoolean()?Math.Max(0,age):0))>2;
     }
     internal void AcknowledgeTelemetry(int channel,long sequence) {
         lock(_telemetryLock) {

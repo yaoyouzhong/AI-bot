@@ -66,9 +66,16 @@ internal static class CodexLifecycleSelfTest
             Task.FromResult(new Tab5CodexDesktop.State(liveRunning?"active":"idle","",JsonSerializer.SerializeToElement(new {turnId="current",status=liveRunning?"inProgress":"completed",turnStartedAtMs=100000}),false)));
         liveCache.RefreshAsync(catalog,CancellationToken.None).GetAwaiter().GetResult();
         Check(liveCache.Fresh().All(t=>t.State=="working"),"Desktop runtime must override stale rollout state");
+        Check(SessionActivityReader.MergeCodex(new("idle",600,20,3,TokensToday:42),[],liveCache.Fresh()).State=="working","Global pet state ignored active desktop owner");
         liveRunning=false;liveCache.RefreshAsync(catalog,CancellationToken.None).GetAwaiter().GetResult();
         Check(liveCache.Fresh().All(t=>t.State=="idle"),"Desktop completion must clear working state");
         Check(liveCache.Fresh().All(t=>t.Completed&&t.TurnId=="current"),"Desktop completion identity must reach devices for PC-started tasks");
+        var staleLog=new CodexLifecycleTracker.TaskActivity(catalog[0].Id,"working",100,"old");
+        var merged=SessionActivityReader.MergeCodex(new("working",100,20,3,TokensToday:42),[staleLog],liveCache.Fresh());
+        Check(merged.State=="idle"&&merged.TokensToday==42&&merged.CompletionSequence==3,"Global live completion or counters lost");
+        Check(SessionActivityReader.MergeCodex(new("idle",0),[new("other","working",100)],liveCache.Fresh()).State=="working","An idle task hid a different running task");
+        Check(SessionActivityReader.MergeCodex(new("idle",0),[],[new("waiting","waiting",100)]).NeedsInput,"Desktop waiting state lost");
+        Check(SessionActivityReader.MergeCodex(new("offline",0),[],[new("stale","working",100)]).State=="offline","Closed desktop revived by cached activity");
         unavailable=true;liveCache.RefreshAsync(catalog,CancellationToken.None).GetAwaiter().GetResult();
         Check(liveCache.Fresh().Count==0,"Unavailable desktop owner must discard stale live state");
         Console.WriteLine("CODEX_LIFECYCLE_SELF_TEST_OK startup/explicit-state/partial/duplicate/subagent/same-second/truncate/overview-working-recent-long-output; no sound played");

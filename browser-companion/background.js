@@ -21,7 +21,7 @@ chrome.runtime.onMessage.addListener((message,sender,reply)=> {
   (async()=> {
     const origin=new URL(sender.url).origin+"/*";
     if(!await chrome.permissions.contains({origins:[origin]}))return;
-    const data=message.data;
+    const data={...message.data,sessionId:"browser:"+sender.tab.id,source:new URL(sender.url).hostname};
     if(typeof data?.title!=="string"||data.title.length>512||typeof data.artist!=="string"||data.artist.length>256)return;
     const body=JSON.stringify(data);if(new TextEncoder().encode(body).length>16384)return;
     try {

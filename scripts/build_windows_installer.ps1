@@ -71,9 +71,37 @@ $manifest = @(Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object Na
     (Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant() + '  ' + $_.FullName.Substring($stage.Length + 1).Replace('\','/')
 })
 $manifest | Set-Content -LiteralPath (Join-Path $stage 'FILES.sha256') -Encoding ascii
-& $compiler[0].FullName "/DAppVersion=$version" "/DStageDir=$stage" "/DDependencyDir=$cache" "/DOutputDirPath=$output" "/DDesktopUrl=$desktopUrl" "/DDesktopSha256=$desktopSha256" (Join-Path $root 'windows-app\installer\setup.iss')
+# Inno Setup still encounters MAX_PATH for dependency notices in nested audit
+# directories. Compile a byte-verified copy at a short, private temporary path;
+# keep the original stage and requested output as the authoritative artifacts.
+$compileRoot = Join-Path ([IO.Path]::GetTempPath()) ('aib-' + [Guid]::NewGuid().ToString('N').Substring(0,12))
+$compileStage = Join-Path $compileRoot 'stage'
+$compileOutput = Join-Path $compileRoot 'out'
+$copyScript = @'
+import hashlib, pathlib, shutil, sys
+sys.path.insert(0, sys.argv[1])
+from collect_distribution_materials import filesystem_path
+source, target = map(pathlib.Path, sys.argv[2:4])
+target.mkdir(parents=True, exist_ok=False)
+for original in filesystem_path(source).rglob('*'):
+    if original.is_symlink():
+        raise ValueError('Linked installer material')
+    if original.is_file():
+        destination = filesystem_path(target / original.relative_to(filesystem_path(source)))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(original, destination)
+        if hashlib.sha256(original.read_bytes()).digest() != hashlib.sha256(destination.read_bytes()).digest():
+            raise ValueError('Installer staging byte mismatch')
+print('INSTALLER_SHORT_STAGE_OK')
+'@
+python -c $copyScript (Join-Path $root 'scripts') $stage $compileStage
+if ($LASTEXITCODE -ne 0) { throw 'Installer staging failed' }
+& $compiler[0].FullName "/DAppVersion=$version" "/DStageDir=$compileStage" "/DDependencyDir=$cache" "/DOutputDirPath=$compileOutput" "/DDesktopUrl=$desktopUrl" "/DDesktopSha256=$desktopSha256" (Join-Path $root 'windows-app\installer\setup.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Windows installer compilation failed' }
 $setup = Join-Path $output "AIBotBridge-$version-setup-win-x64.exe"
+$compiledSetup = Join-Path $compileOutput ([IO.Path]::GetFileName($setup))
+Copy-Item -LiteralPath $compiledSetup -Destination $setup
+if ((Get-FileHash -LiteralPath $compiledSetup).Hash -ne (Get-FileHash -LiteralPath $setup).Hash) { throw 'Installer output byte mismatch' }
 ((Get-FileHash $setup).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($setup)) | Set-Content ($setup + '.sha256') -Encoding ascii
 
 # Exercise the actual compiled Pascal version rules and this host's detection
@@ -91,4 +119,10 @@ $detected = Get-Content $check -Encoding UTF8
 if ($detected[0] -ne 'desktopInstalled=1') { throw 'Installer missed the build host .NET 8 Desktop Runtime' }
 Write-Output ("INSTALLER_ENVIRONMENT_OK " + $detected[0] + ' ' + $detected[1])
 Remove-Item -LiteralPath $check
+# Only remove this invocation's unique temporary directory after validation.
+$tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+$resolvedCompileRoot = [IO.Path]::GetFullPath($compileRoot)
+if (!$resolvedCompileRoot.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -or
+    [IO.Path]::GetFileName($resolvedCompileRoot) -notmatch '^aib-[0-9a-f]{12}$') { throw 'Unexpected installer temporary path' }
+Remove-Item -LiteralPath $resolvedCompileRoot -Recurse -Force
 Write-Output "WINDOWS_INSTALLER_OK setup=$setup"

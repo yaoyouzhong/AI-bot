@@ -37,6 +37,7 @@ internal static class PublicSelfTest
             _ = runtime.Resources();
         }
         DataSourceSelfTest.Run();
+        MediaPlayerSelfTest.RunAsync().GetAwaiter().GetResult();
         ComponentUpdateSelfTest.Run();
         GalleryPackSelfTest.Run();
         Task.Run(UpdateSelfTest.RunAsync).GetAwaiter().GetResult();

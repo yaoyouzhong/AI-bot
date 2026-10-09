@@ -44,6 +44,23 @@ internal static class SettingsLayoutSelfTest
         }
         using(var weather=new MigratedWeather.WeatherSettingsForm(new MigratedWeather.WeatherMonitor())) {
             weather.UsePreviewData();
+            weather.ShowInTaskbar=false;weather.StartPosition=FormStartPosition.Manual;weather.Location=new(-30000,-30000);weather.Show();Application.DoEvents();
+            var source=weather.Controls.Find("weather-source-heading",true).Single();
+            var host=(TextBox)weather.Controls.Find("weather-host",true).Single();var key=(TextBox)weather.Controls.Find("weather-api-key",true).Single();
+            key.Text="unsaved-fixture";int top=source.Top;
+            foreach(bool manual in new[]{true,false,true,false}) {
+                ((RadioButton)weather.Controls.Find(manual?"weather-manual-location":"weather-auto-location",true).Single()).Checked=true;Application.DoEvents();
+                if(source.Top!=top||host.Text!="example.qweatherapi.com"||key.Text!="unsaved-fixture")throw new Exception("Location selection moved or replaced weather source");
+            }
+            key.Clear();MigratedWeather.WeatherMonitor.ValidateSettingsSource("","");
+            bool rejected=false;try{MigratedWeather.WeatherMonitor.ValidateSettingsSource("","fixture-key");}catch(InvalidOperationException){rejected=true;}if(!rejected)throw new Exception("Configured QWeather key accepted without host");
+            key.Text="unsaved-fixture";
+            ((RadioButton)weather.Controls.Find("weather-source-free",true).Single()).Checked=true;Application.DoEvents();
+            if(host.Visible||key.Visible||key.Text!="unsaved-fixture")throw new Exception("Free source exposed or replaced QWeather credential fields");
+            MigratedWeather.WeatherMonitor.ValidateSettingsSource("invalid-host","fixture-key","open-meteo");
+            ((RadioButton)weather.Controls.Find("weather-source-qweather",true).Single()).Checked=true;Application.DoEvents();
+            if(!host.Visible||!key.Visible||key.Text!="unsaved-fixture")throw new Exception("Returning to QWeather lost unsaved inputs");
+            key.Clear();
             Capture(weather,directory,"weather-default");
             weather.Size=weather.MinimumSize;
             Capture(weather,directory,"weather-narrow");
@@ -149,7 +166,7 @@ internal static class SettingsLayoutSelfTest
         foreach(var button in Descendants(form).OfType<Button>().Where(b=>b.Visible))
             if(button.Height>Math.Ceiling(44*form.DeviceDpi/96d))throw new InvalidOperationException(name+": stretched action button "+button.Text);
         if(form is MigratedWeather.WeatherSettingsForm) {
-            var fields=Descendants(form).OfType<TextBox>().ToArray();
+            var fields=Descendants(form).OfType<TextBox>().Where(f=>f.Visible&&f.Name is "weather-host" or "weather-api-key").ToArray();
             if(fields.Select(f=>f.Width).Distinct().Count()!=1)throw new InvalidOperationException(name+": unequal field widths");
             var footer=Descendants(form).Single(c=>c.Name=="weather-actions");
             var rect=form.RectangleToClient(footer.RectangleToScreen(footer.ClientRectangle));

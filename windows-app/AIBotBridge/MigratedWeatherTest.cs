@@ -2,6 +2,18 @@ namespace AIBotBridge;
 
 internal static class MigratedWeatherTest
 {
+    internal static async Task FreeAsync()
+    {
+        AppPaths.BeginPublicSelfTest();
+        var monitor=new MigratedWeather.WeatherMonitor();
+        // Public reference coordinates, no user location/credential reads or writes.
+        var snapshot=await monitor.TestSettings("ignored.qweatherapi.com","unused-fixture","",true,32,119,"open-meteo");
+        if(snapshot.Source!="open-meteo"||snapshot.UpdatedUtc<=0||snapshot.Daily.Length!=7||snapshot.Hourly.Length<24||snapshot.AirQualityStandard!="us-epa")
+            throw new InvalidOperationException("Free weather route returned incomplete data or incorrect source.");
+        var settings=BridgeSettings.Load();
+        if(!settings.SaveEditable(new Dictionary<string,string>{["weather_provider"]="open-meteo"},out var error)||MigratedWeather.WeatherMonitor.Provider!="open-meteo")throw new Exception(error);
+        Console.WriteLine($"FREE_WEATHER_OK source={snapshot.Source} hours={snapshot.Hourly.Length} days={snapshot.Daily.Length} AQI={snapshot.AirQualityStandard}; selected source saved in isolated profile");
+    }
     internal static async Task LocateAsync(string output)
     {
         object result;

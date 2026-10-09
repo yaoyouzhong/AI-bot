@@ -17,17 +17,21 @@ internal static class DocCapture
             args = args.Take(designIndex).Concat(args.Skip(designIndex + 2)).ToArray();
         }
         bool evergreen = args.Length == 2 && args[1] == "--evergreen-media";
+        bool updateLayout = args.Length == 2 && args[1] is "--update-layout" or "--retained-update-layout";
+        bool preferencesLayout = args.Length == 2 && args[1] == "--preferences-layout";
         bool release060 = args.Length == 2 && args[1] is "--release-current" or "--release060";
         bool releaseUi = args.Length == 2 && args[1] == "--release-ui";
         bool screenSaverOnly = args.Length == 2 && args[1] == "--screensaver";
         bool quotaOnly = args.Length == 2 && args[1] == "--quota-api";
         bool codexCover = args.Length == 2 && args[1] == "--codex-pro-cover";
-        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi && !codexCover && !release060 && !evergreen) throw new ArgumentException("Supply an output directory, optionally --screensaver, --codex-pro-cover or Claude and Codex APET paths for approved quota screenshots.");
+        if (args.Length is not (1 or 3) && !screenSaverOnly && !quotaOnly && !releaseUi && !codexCover && !release060 && !evergreen && !updateLayout && !preferencesLayout) throw new ArgumentException("Supply an output directory, optionally --screensaver, --codex-pro-cover, --update-layout, --preferences-layout or Claude and Codex APET paths for approved quota screenshots.");
         AppPaths.BeginPublicSelfTest(); // Must precede any settings/cache/credential access.
         Application.SetHighDpiMode(Environment.GetEnvironmentVariable("AIBOT_DOC_NATIVE_DPI") == "1" ? HighDpiMode.PerMonitorV2 : HighDpiMode.DpiUnaware);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        if(updateLayout){UpdateLayoutCapture.Run(output,args[1]=="--retained-update-layout");return;}
+        if(preferencesLayout){PreferencesLayoutCapture.Run(output);return;}
         if(evergreen){ReleaseMedia.Run(output,evergreen:true);return;}
         if(release060){ReleaseMedia.Run(output);return;}
         if (PetAnimationStore.Shared.AllResources().Count != 0)

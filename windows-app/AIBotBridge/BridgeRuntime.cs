@@ -19,6 +19,8 @@ internal sealed class BridgeRuntime : IDisposable
     private readonly AutoFollowTracker _follow=new();
     internal void SetDisplayPolicy(DisplayPolicy policy) => _displayPolicy = policy;
     internal event Action? MusicArtworkChanged {add=>_music.ArtworkChanged+=value;remove=>_music.ArtworkChanged-=value;}
+    internal string MusicDiagnostic => _music.Diagnostic;
+    internal MusicSnapshot? Music => _music.Snapshot;
     internal Task AcceptBrowserArtworkAsync(string json,CancellationToken token)=>_music.AcceptBrowserArtworkAsync(json,token);
 
     internal BridgeRuntime(bool startRefresh = true,Func<string,CancellationToken,Task>? collector=null)

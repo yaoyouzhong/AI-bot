@@ -8,6 +8,8 @@ internal static class DataSourceSelfTest
     {
         StockFallbackSelfTest.RunAsync().GetAwaiter().GetResult();
         MusicLifecycleSelfTest.Run();
+        NetworkDisplaySelfTest.Run();
+        NetworkDisplaySelfTest.RunLiveAsync().GetAwaiter().GetResult();
         const string forecast = """
             {"current":{"temperature_2m":23.5,"relative_humidity_2m":62,"weather_code":3},
              "daily":{"temperature_2m_max":[28.0],"temperature_2m_min":[18.0]}}

@@ -28,7 +28,9 @@ class DistributionTests(unittest.TestCase):
                      'docs/FLASH_BUILD.zh.md', 'docs/TAB5-FIRMWARE-WORKFLOW.md', 'docs/TAB5-LICENSE-SCOPE.md',
                      'docs/assets/screens/device-center.png', 'docs/assets/screens/firmware-flasher.png',
                      'docs/assets/screens/tab5-first-install.png', 'docs/assets/screens/tab5-upgrade.png',
-                     'licenses/windows-sdk/sdk_license.rtf', 'licenses/windows-sdk/REDIST.html'):
+                     'licenses/windows-sdk/sdk_license.rtf', 'licenses/windows-sdk/REDIST.html',
+                     'licenses/netease-clock-reference/LICENSE', 'licenses/netease-clock-reference/ORIGIN.md',
+                     'licenses/qqmusic-clock-reference/LICENSE', 'licenses/qqmusic-clock-reference/ORIGIN.md'):
             self.write(name, 'synthetic fixture')
         self.package = self.root / 'packages/sample/1.0'
         self.package.mkdir(parents=True)
@@ -43,6 +45,10 @@ class DistributionTests(unittest.TestCase):
             self.hashes[name] = hashlib.sha256(data).hexdigest()
         evidence = {'files': {'windows-sdk/sdk_license.rtf': materials.digest(self.root / 'licenses/windows-sdk/sdk_license.rtf')},
                     'windowsSdk': {'version': '10.0.19041.56', 'binaries': self.hashes}}
+        for reference in ('netease-clock-reference', 'qqmusic-clock-reference'):
+            for name in ('LICENSE', 'ORIGIN.md'):
+                relative = reference + '/' + name
+                evidence['files'][relative] = materials.digest(self.root / 'licenses' / relative)
         self.write('licenses/materials.json', json.dumps(evidence))
         assets = {'packageFolders': {str(self.root / 'packages'): {}},
                   'libraries': {'sample/1.0': {'type': 'package', 'path': 'sample/1.0'}},
@@ -57,6 +63,10 @@ class DistributionTests(unittest.TestCase):
 
     def test_complete_materials_preserve_original_dlls(self):
         materials.collect_windows(self.stage)
+        for reference in ('netease-clock-reference', 'qqmusic-clock-reference'):
+            for name in ('LICENSE', 'ORIGIN.md'):
+                relative = Path('licenses') / reference / name
+                self.assertEqual((self.stage / relative).read_bytes(), (self.root / relative).read_bytes())
         self.assertTrue((self.stage / 'licenses/Microsoft.Windows.SDK.NET.Ref-10.0.19041.56/sdk_license.rtf').is_file())
         self.assertTrue((self.stage / 'DEPENDENCIES.json').is_file())
         for name in ('WINDOWS_INSTALLER.md', 'DOMESTIC_QUOTA_SETUP.md', 'assets/screens/api-settings.png'):

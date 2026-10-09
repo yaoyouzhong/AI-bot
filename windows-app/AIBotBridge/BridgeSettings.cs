@@ -11,7 +11,7 @@ internal sealed class BridgeSettings
         "display_cycle_pages", "domestic_provider", "qweather_api_host", "kimi_membership",
         "screensaver_previous_mode", "screensaver_timeout_minutes", "serial_port",
         "kimi_usage_port", "stock_symbols", "weather_animation", "weather_auto_location", "weather_city",
-        "weather_latitude", "weather_longitude"
+        "weather_latitude", "weather_longitude", "weather_provider"
     };
 
     private readonly Dictionary<string, string> _values;

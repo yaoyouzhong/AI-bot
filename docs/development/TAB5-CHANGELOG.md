@@ -2,6 +2,63 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.156-ui - 2026-10-09
+
+Prepared release, installed locally with exact image identity, VALID partition state and advancing UI heartbeats. The user confirmed synchronized one-second network display on hardware. Not yet public; see the [deployment record](../LOCAL-063-156.md). This version includes .151–.155 changes since the last public .150 release.
+
+- Narrow the category buttons from 250 to 220 pixels and enlarge their labels from 24 to 30 pixels, retaining icons, four-character names and touch height.
+- Move and widen the right content frame while centering its existing control columns. Keep 30-pixel headings and 24-pixel body text, content and actions.
+- Include .155 network number/curve alignment. Bridge 0.6.3 publishes complete snapshots once per second, refreshing numbers and curves together; CPU/memory sampling remains every two seconds.
+- Show a large music cover with complete title, localized alias, artist and album hierarchy; position elapsed/total times at opposite progress-bar ends and retain unknown-clock fallback.
+- Divide the Codex weekly budget into seven daily planned sections while retaining continuous actual usage. Initially select the most recently active task session, preserving manual choices and drafts.
+- Add device information and consistent four-character settings categories; center Codex Direct titles with previous-page navigation, and distinguish installed firmware from the latest public release in empty upgrade states.
+- Retain all three calendar faces with more readable calligraphy coverage, incorporating .151–.154 weather, music and settings layout changes.
+
+## 0.2.155-ui - 2026-10-09
+
+Local repair candidate; not installed on hardware or publicly released.
+
+- Use the same trailing four measured 250 ms samples for upload/download numbers and the graph endpoint.
+- Apply each received batch through its latest sample, removing the extra one-second playback reserve and future-point preview that made numbers advance ahead of the curve.
+- Preserve measured traffic, missing-sample gaps, duplicate suppression, reconnect resets and slowly shrinking vertical scale. Transport fields and carousel settings remain unchanged.
+
+## 0.2.154-ui - 2026-10-08
+
+Installed locally, not publicly released. Exact device ELF identity, ota_1 / VALID state and three advancing UI heartbeats passed. The user confirmed normal four-character settings categories and calendar calligraphy; see the [local validation record](../LOCAL-063-154.md).
+
+- Center the Codex Direct title separately from the taller left-side Back control. Previous-page navigation and busy-operation locks remain intact.
+- When no upgrade is offered, center the status and next-step guidance, hide the empty notes card and upgrade control, and restore notes/actions when an offer returns.
+- When the running image matches the computer's offer, state that the current firmware is installed rather than implying it is the latest online release.
+- Use consistent four-character Chinese settings categories for network, screen/audio, content rotation, firmware upgrades and device information while retaining their functions.
+- Enter the task page at the project and session with the latest activity timestamp; retain manual selection and session drafts throughout the visit.
+- Retain all three calendar faces: keep WenKai and Ma Shan Zheng at 24 pixels and enlarge the harder-to-read Zhi Mang Xing to 28 pixels. Use 4-bit coverage and darker ink while preserving column spacing, baseline rhythm, poems, flowers and calendar layout. The user approved the comparison preview.
+
+## 0.2.153-ui - 2026-10-08
+
+Installed locally, not publicly released. Wi-Fi OTA, the exact running ELF fingerprint and ota_0 / VALID boot state passed; the user confirmed normal Device Information and Back control rendering.
+
+- Move the fixed model label from the overview header to Settings → Device Information, with the model, running firmware, device ID, live data transport and scrollable official hardware specifications.
+- Distinguish working, idle, waiting, offline and unknown pet states. The bridge's live session activity fixes incorrect idle indications.
+- Use a top-left Back control in Codex Direct, increasing its height from 48 to 64 pixels and returning to the previous page. Recording/submission locks remain intact.
+
+## 0.2.152-ui - 2026-10-08
+
+Installed locally including the .151 UI changes; not publicly released. Wi-Fi upgrade and exact device fingerprint / ota_1 / VALID boot verification pass. Physical appearance remains subject to user observation; see the [local validation record](../LOCAL-063-152.md).
+
+- Give music a large cover on the left and distinct title, localized alias, artist and album rows on the right. Place elapsed and total time at opposite ends of the progress bar without field prefixes; retain complete landscape artwork and unknown-clock fallback.
+- Divide the Codex weekly-used bar into seven equal sections using six separators. Each section represents a daily planned budget (1/7 of the weekly allowance); continuous fill still represents actual usage.
+- Retain the .151 Settings/Codex entry and weather-detail changes; preserve pairing, Wi-Fi, partitions and the small-screen protocol.
+
+## 0.2.151-ui - 2026-10-08
+
+Local UI candidate; not installed on a device or publicly released.
+
+- Give Settings and Codex Direct equal 56×56 touch areas, right margins and corner radii; center each in its header/footer row while retaining independent background styles.
+- Pre-render the smaller Codex brand asset to avoid runtime scaling differences between partial and full-frame rendering; retain all other brand assets unchanged.
+- Put the weather location and source on one line, using larger pale text and smaller muted blue-gray text for hierarchy; retain cached-data indicators.
+- Remove the local-time forecast caption and the duplicate source/current-weather caption at the temperature card's lower left.
+- Actual LVGL previews and existing rendering, swipe, page-entry and voice regressions pass; device appearance and touch acceptance await installation.
+
 ## 0.2.150-ui - 2026-10-08
 
 Wi-Fi transfer and exact image fingerprint / ota_0 / VALID boot verification passed. This release does not fix intermittent Bluetooth disconnections.

@@ -12,6 +12,7 @@ internal sealed class DeviceCenterForm : Form
     private readonly Action _add;
     private readonly Action<string> _common;
     private readonly Func<string,bool> _setting;
+    private readonly StartupSettingControl _startup;
     private readonly TabControl _pages=new(){Dock=DockStyle.Fill,Padding=new(18,9)};
     private readonly ListBox _list=new(){Dock=DockStyle.Fill,DisplayMember="Name",IntegralHeight=false,BorderStyle=BorderStyle.None,DrawMode=DrawMode.OwnerDrawFixed,ItemHeight=36};
     private readonly TableLayoutPanel _deviceLayout=new(){Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=Padding.Empty};
@@ -33,14 +34,15 @@ internal sealed class DeviceCenterForm : Form
     private RegisteredDevice? Selected=>_list.SelectedItem as RegisteredDevice;
 
     internal DeviceCenterForm(DeviceRegistryStore store,Func<RegisteredDevice,DeviceView> view,Action<string,string> action,
-        Func<RegisteredDevice,bool,Task> change,Action add,Action<string> common,Func<string,bool>? setting=null)
+        Func<RegisteredDevice,bool,Task> change,Action add,Action<string> common,Func<string,bool>? setting=null,Func<bool,Task>? changeStartup=null)
     {
         _store=store;_view=view;_action=action;_change=change;_add=add;_common=common;_setting=setting??(_=>false);
+        _startup=new StartupSettingControl(()=>_setting("startup"),changeStartup??(_=>{_common("startup");return Task.CompletedTask;}));
         _health.ColumnStyles.Add(new(SizeType.AutoSize));_health.ColumnStyles.Add(new(SizeType.Percent,100));_health.RowStyles.Add(new(SizeType.AutoSize));_state.Margin=new Padding(0,0,18,0);_firmware.Margin=Padding.Empty;_health.Controls.Add(_state,0,0);_health.Controls.Add(_firmware,1,0);
         for(int i=0;i<3;i++){_transport.ColumnStyles.Add(new(SizeType.Percent,100F/3));var label=_transportLabels[i];label.AutoSize=true;label.Dock=DockStyle.Fill;label.Margin=new Padding(0,0,8,0);_transport.Controls.Add(label,i,0);}
         _transport.RowStyles.Add(new(SizeType.AutoSize));
         Text="AI-bot · 设备中心";Font=new Font("Microsoft YaHei UI",9F);AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        ClientSize=new(840,600);MinimumSize=new(760,500);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;Padding=new Padding(12);
+        ClientSize=new(840,680);MinimumSize=new(760,500);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;Padding=new Padding(12);
         var devicesPage=Page("我的设备","devices");Page("账号数据","accounts").Controls.Add(_accounts);Page("桥接设置","bridge-settings").Controls.Add(_bridge);
         var body=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Margin=Padding.Empty};
         body.ColumnStyles.Add(new(SizeType.Percent,100));body.RowStyles.Add(new(SizeType.Percent,100));body.RowStyles.Add(new(SizeType.AutoSize));
@@ -128,9 +130,9 @@ internal sealed class DeviceCenterForm : Form
         Card(accounts,"天气定位","城市、定位与天气来源",()=>_common("weather-settings"));
         Card(accounts,"自选股票","管理关注的股票",()=>_common("stocks-settings"));
         Card(accounts,"额度历史","查看 Codex 额度记录",()=>_common("quota-trend"));
-        Clear(_bridge);Heading(_bridge,"桥接设置",12);Note(_bridge,"管理这台电脑上的桥接程序。");
+        _bridge.Controls.Remove(_startup);Clear(_bridge);Heading(_bridge,"桥接设置",12);Note(_bridge,"管理这台电脑上的桥接程序。");
+        _startup.RefreshState();_bridge.Controls.Add(_startup);
         var bridge=ActionGrid(_bridge);
-        Card(bridge,"开机启动",_setting("startup")?"已开启 · 点击关闭":"已关闭 · 点击开启",()=>_common("startup"));
         Card(bridge,"服务状态","连接状态与数据更新",()=>_common("status"));
         Card(bridge,"软件固件","版本、兼容与升级入口",()=>_common("updates"));
         Card(bridge,"配置迁移","备份、预览与选择恢复",()=>_common("configuration-backup"));

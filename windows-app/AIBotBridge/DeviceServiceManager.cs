@@ -61,6 +61,7 @@ internal sealed class DeviceServiceManager
                 var store=new Tab5PairingStore();if(store.Current?.DeviceId!=tab.HardwareId)throw new InvalidOperationException("TAB5 配对与设备清单不一致，请保留配对资料并重新连接。");
                 var service=new Tab5Service(store);service.AttachVoice(Environment.GetEnvironmentVariable("AIBOT_TAB5_MIC_DIAGNOSTIC")=="1"?new Tab5MicDiagnostic():new Tab5VoiceHost(physicalToggle:service.TryVoiceHidToggle));Tab5=service;_tabStarted=Environment.TickCount64;
                 service.SystemMetricsCapture=()=>_runtime.SystemMetrics;
+                service.MusicCapture=()=>_runtime.Music;
                 _tabStop=CancellationTokenSource.CreateLinkedTokenSource(_shutdown);var token=_tabStop.Token;
                 _tabTasks=[Start("tab5-usb",service.RunUsbAsync,token),Start("tab5-ble",service.RunBleAsync,token)];
                 }catch(Exception ex){Tab5?.Dispose();Tab5=null;failed=ex;}

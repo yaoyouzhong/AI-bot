@@ -5,6 +5,7 @@ namespace AIBotBridge;
 
 internal sealed class SystemMetricsService
 {
+    private const int CpuIntervalMilliseconds = 2000;
     private readonly object _sync = new();
     private CpuTimes? _previousCpu;
     private readonly Dictionary<string, NetworkTotals> _previousNetwork = new();
@@ -18,6 +19,7 @@ internal sealed class SystemMetricsService
     private long _sequence, _cpuAt;
     private double _cpuPercent, _memoryPercent;
     private readonly NetworkDisplayWindow _displayRates = new();
+    private readonly NetworkPublicationClock _publication = new();
 
     internal SystemMetricsSnapshot? Snapshot
     {
@@ -34,7 +36,7 @@ internal sealed class SystemMetricsService
     internal async Task<SystemMetricsSnapshot> CaptureForSelfTestAsync()
     {
         Sample();
-        await Task.Delay(NetworkDisplayWindow.IntervalMilliseconds + 100);
+        await Task.Delay(CpuIntervalMilliseconds + 100);
         Sample();
         return Snapshot ?? throw new InvalidOperationException("System metrics did not produce a second sample.");
     }
@@ -50,10 +52,12 @@ internal sealed class SystemMetricsService
     {
         var now = DateTimeOffset.UtcNow;
         var tick = Environment.TickCount64;
+        var publish = _publication.Due(tick);
         var seconds = _previousTick.HasValue ? (tick - _previousTick.Value) / 1000.0 : 0;
         var network = ReadNetworkRates(tick, seconds);
-        var displayRates = _displayRates.Update(tick, new(network.Sent, network.Received));
-        if (_previousCpu is null || tick - _cpuAt >= NetworkDisplayWindow.IntervalMilliseconds)
+        var displayRates = _previousTick.HasValue
+            ? _displayRates.Update(new(network.Sent, network.Received)) : new NetworkSample(0, 0);
+        if (_previousCpu is null || tick - _cpuAt >= CpuIntervalMilliseconds)
         {
             var cpu = ReadCpuTimes();
             if (_previousCpu is { } previous) _cpuPercent = Math.Round(CpuPercent(previous,cpu));
@@ -65,10 +69,12 @@ internal sealed class SystemMetricsService
             {
                 _history.Enqueue(new(network.Sent, network.Received));
                 while (_history.Count > 224) _history.Dequeue();
-                _snapshot = new SystemMetricsSnapshot(
-                    _cpuPercent, _memoryPercent,
-                    displayRates.Upload, displayRates.Download,
-                    now, _history.ToArray()) {SampleSession=_sampleSession,SampleSequence=++_sequence,Samples=_history.TakeLast(12).ToArray()};
+                _sequence++;
+                if (publish)
+                    _snapshot = new SystemMetricsSnapshot(
+                        _cpuPercent, _memoryPercent,
+                        displayRates.Upload, displayRates.Download,
+                        now, _history.ToArray()) {SampleSession=_sampleSession,SampleSequence=_sequence,Samples=_history.TakeLast(12).ToArray()};
             }
             _previousTick = tick;
         }
@@ -186,21 +192,36 @@ internal sealed class SystemMetricsService
     private static extern bool GlobalMemoryStatusEx(ref MemoryStatus buffer);
 }
 
-// Hold readable header values for two seconds; raw 250 ms graph samples are unchanged.
+// Publish an immutable numbers/history snapshot each second. Raw sampling
+// continues between publications; a late tick never replays missed updates.
+internal sealed class NetworkPublicationClock
+{
+    internal const int IntervalMilliseconds = 1000;
+    private long? _next;
+    internal bool Due(long tick)
+    {
+        if (_next is null) { _next = tick + IntervalMilliseconds; return false; }
+        if (tick < _next.Value) return false;
+        _next += ((tick - _next.Value) / IntervalMilliseconds + 1) * IntervalMilliseconds;
+        return true;
+    }
+}
+
+// Numbers and curves share the trailing four measured 250 ms samples.
 internal sealed class NetworkDisplayWindow
 {
-    internal const int IntervalMilliseconds = 2000;
+    internal const int SampleCount = 4;
     private readonly Queue<NetworkSample> _recent = new();
-    private long? _publishedAt;
-    private NetworkSample _value = new(0,0);
-    internal NetworkSample Update(long tick, NetworkSample sample)
+    internal NetworkSample Update(NetworkSample sample)
     {
         _recent.Enqueue(sample);
-        while(_recent.Count>8)_recent.Dequeue();
-        if(_publishedAt is null || tick-_publishedAt.Value>=IntervalMilliseconds) {
-            _value=new((long)_recent.Average(x=>x.Upload),(long)_recent.Average(x=>x.Download));
-            _publishedAt=tick;
-        }
-        return _value;
+        while (_recent.Count > SampleCount) _recent.Dequeue();
+        return new(_recent.Sum(x => x.Upload) / _recent.Count, _recent.Sum(x => x.Download) / _recent.Count);
+    }
+
+    internal static NetworkSample[] Smooth(IEnumerable<NetworkSample> history)
+    {
+        var window = new NetworkDisplayWindow();
+        return history.Select(window.Update).ToArray();
     }
 }

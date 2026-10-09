@@ -44,8 +44,11 @@ def validate(data):
     for key, (component, template, _, _) in SPECS.items():
         item = entries[key]
         version = item["version"]
-        pattern = r"\d{4}\.\d{2}\.\d{2}" if component == "gallery" else r"\d+\.\d+\.\d+" + (r"-ui" if component == "tab5" else "")
-        if not re.fullmatch(pattern, version) or item["file"] != template.format(version=version):
+        pattern = r"\d{4}\.\d{2}\.\d{2}(?:\.\d+)?" if component == "gallery" else r"\d+\.\d+\.\d+" + (r"-ui" if component == "tab5" else "")
+        filenames = {template.format(version=version)}
+        if component == "gallery":
+            filenames.add(template.format(version="Curated-" + version))
+        if not re.fullmatch(pattern, version) or item["file"] not in filenames:
             raise ValueError(f"Wrong version/package for {key}")
         tag_component, tag_version = release_target(item["tag"])
         if component != "gallery" and tag_component != "bundle" and (tag_component, tag_version) != (component, version):
@@ -78,7 +81,9 @@ def public_releases():
 def discover(releases):
     entries = {}
     for key, (component, template, _, _) in SPECS.items():
-        pattern = re.escape(template).replace(re.escape("{version}"), r"(?P<version>\d+\.\d+\.\d+(?:-ui)?)")
+        version_pattern = r"\d{4}\.\d{2}\.\d{2}(?:\.\d+)?" if component == "gallery" else r"\d+\.\d+\.\d+(?:-ui)?"
+        edition_pattern = r"(?:Curated-)?" if component == "gallery" else ""
+        pattern = re.escape(template).replace(re.escape("{version}"), rf"{edition_pattern}(?P<version>{version_pattern})")
         candidates = []
         for release in releases:
             if release.get("draft") or release.get("prerelease"):

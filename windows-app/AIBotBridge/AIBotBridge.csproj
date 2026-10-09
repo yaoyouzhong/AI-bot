@@ -11,13 +11,16 @@
     <AssemblyName>AIBotBridge</AssemblyName>
     <RootNamespace>AIBotBridge</RootNamespace>
     <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
-    <Version>0.6.2</Version>
+    <Version>0.6.3</Version>
     <LocalArt Condition="'$(LocalArt)' == ''">false</LocalArt>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
     <EmbeddedResource Include="Assets\app-icon.ico" />
     <EmbeddedResource Include="Assets\flash-icon.ico" />
+    <EmbeddedResource Include="../../CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.bridge" WithCulture="false" />
+    <EmbeddedResource Include="../../docs/development/TAB5-CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.tab5" WithCulture="false" />
+    <EmbeddedResource Include="../../firmware/CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.esp8266" WithCulture="false" />
     <Content Include="Assets\flash-icon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Assets\DailyArt\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(LocalArt)' == 'true'" />
     <Content Include="TestFixtures\claude_sprite.h" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

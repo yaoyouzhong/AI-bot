@@ -10,10 +10,11 @@ internal static class SystemPageRenderer
         using var green=new SolidBrush(Color.FromArgb(0,217,51));
         using var yellow=new SolidBrush(Color.FromArgb(255,204,0));
         var m = status.SystemMetrics;
+        var history = NetworkDisplayWindow.Smooth(m?.History?.TakeLast(224) ?? []);
+        var current = history.LastOrDefault() ?? new NetworkSample(m?.UploadBytesPerSecond ?? 0, m?.DownloadBytesPerSecond ?? 0);
         Text(g, "DOWN", 14, 8, 8, grey); Text(g, "UP", 134, 8, 8, grey);
-        Text(g, m is null ? "--" : Speed(m.DownloadBytesPerSecond) + "/s", 12, 19, 19, green);
-        Text(g, m is null ? "--" : Speed(m.UploadBytesPerSecond) + "/s", 132, 19, 19, yellow);
-        var history = m?.History?.TakeLast(224).ToArray() ?? [];
+        Text(g, m is null ? "--" : Speed(current.Download) + "/s", 12, 19, 19, green);
+        Text(g, m is null ? "--" : Speed(current.Upload) + "/s", 132, 19, 19, yellow);
         double scale = Scale(history.Select(p => Math.Max(p.Upload, p.Download)).DefaultIfEmpty(0).Max());
         using var grid = new Pen(Color.FromArgb(41, 41, 41));
         for (int q = 1; q <= 3; q++) g.DrawLine(grid, 8, 60 + q * 32, 232, 60 + q * 32);
@@ -27,7 +28,7 @@ internal static class SystemPageRenderer
                 return index < 0 ? 0 : up ? history[Math.Min(index, history.Length - 1)].Upload : history[Math.Min(index, history.Length - 1)].Download;
             }
             PointF[] Points(bool up) => Enumerable.Range(0, 224).Select(i => new PointF(8 + i,
-                187 - (float)Math.Clamp((Value(Math.Max(0, i - 1), up) + Value(i, up) + Value(Math.Min(223, i + 1), up)) / 3 / scale, 0, 1) * 126)).ToArray();
+                187 - (float)Math.Clamp(Value(i, up) / scale, 0, 1) * 126)).ToArray();
             var down = Points(false);
             using var fill = new SolidBrush(Color.FromArgb(0, 84, 0));
             g.FillPolygon(fill, new[] { new PointF(8, 187) }.Concat(down).Append(new PointF(231, 187)).ToArray());

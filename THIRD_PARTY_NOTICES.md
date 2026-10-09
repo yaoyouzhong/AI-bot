@@ -7,6 +7,8 @@ AI-bot's own source code, including its Windows/macOS bridges and ESP8266/TAB5 f
 | .NET and `System.IO.Ports` | Windows bridge runtime and serial transport | MIT, https://github.com/dotnet/runtime |
 | Microsoft.Web.WebView2 1.0.4078.44 | Authorization browser control/loader | Package's Microsoft BSD-style LICENSE.txt; browser Runtime installed separately under its Microsoft terms, https://developer.microsoft.com/microsoft-edge/webview2/ |
 | Microsoft.Windows.SDK.NET.Ref 10.0.19041.56 | Windows SDK .NET projection and WinRT runtime DLLs | Windows SDK terms, https://aka.ms/WinSDKLicenseURL; both net8.0 DLLs explicitly listed at https://learn.microsoft.com/en-us/legal/windows-sdk/redist#microsoftwindowssdknetref |
+| Kyle's NetEase Cloud Music playback reference | Two instruction signatures and playback field layout; independent read-only adapter | MIT, https://github.com/Kxnrl/NetEase-Cloud-Music-DiscordRPC; pinned source and original notice in `licenses/netease-clock-reference/` |
+| Kyle's QQ Music playback reference | One x86 initialization signature and current-song field/string layout; independent bounded read-only adapter | MIT, same pinned upstream revision; original notice and provenance in `licenses/qqmusic-clock-reference/` |
 | ESP8266 Arduino core | Firmware framework | LGPL-2.1 and component-specific notices, https://github.com/esp8266/Arduino |
 | TFT_eSPI | ST7789 display driver | FreeBSD/MIT/BSD component notices, https://github.com/Bodmer/TFT_eSPI |
 | ArduinoJson | Firmware JSON parser | MIT, https://github.com/bblanchon/ArduinoJson |
@@ -85,8 +87,11 @@ https://github.com/lxgw/LxgwWenKai/releases/tag/v1.522 (`LXGWWenKai-Regular.ttf`
 Source SHA-256: `39ad71264b588165b469e35e6afb162a378dacd1f95348160240ba9038ac3009`.
 The TAB5 source retains the complete license at `firmware/main/CalendarWenKai-OFL.txt`
 and the subset generator at `scripts/generate-calendar-font.py`.
-The custom subsets are named `tab5_calendar_month_48`, `tab5_calendar_verse_24`
-and `tab5_calendar_meta_18` (48/24/18 px, 2 bpp, losslessly compressed bitmaps).
+The custom subsets include `tab5_calendar_month_48`, `tab5_calendar_verse_24`
+and `tab5_calendar_meta_18`. The readability update keeps WenKai and Ma Shan Zheng
+verse subsets at 24 px and adds `tab5_calendar_running_28` at 28 px, with 4 bpp
+coverage, losslessly compressed bitmaps and the same pinned sources. Native-only
+comparison subsets render the October poem in WenKai 24 px and Zhi Mang Xing 26 px.
 Calendar glyphs and the 72/96/144 px numeral subsets use lossless bitmap compression.
 Numeral outlines, grayscale and metrics are unchanged; general Chinese UI fonts remain uncompressed.
 The poem body selects among three distinct OFL calligraphic faces by solar term:
@@ -187,3 +192,17 @@ The short batch also adds 26 Mia works (37 public-domain originals) and 17 Met w
 TAB5 portrait art mode uses Bosch Sensortec BMI270 SensorAPI under BSD-3-Clause. Copyright (c) 2023 Bosch Sensortec GmbH. The unmodified driver subset and official maximum-FIFO configuration come from M5Stack M5Tab5-UserDemo commit b4e356bc491ca070d54004718dad789c07d5fc93, platforms/tab5/components/sensor_bmi270. The TAB5 firmware retains full license text and source provenance in firmware/components/bosch_bmi270/LICENSE and SOURCE.md. Only accelerometer measurements are enabled; no copied third-party application UI is included.
 
 TAB5艺术屏保的方向检测使用Bosch官方BMI270驱动（BSD-3-Clause），完整许可与固定来源保留于独立TAB5工程上述路径。
+
+## Museum artwork expansion, 2026-10-08
+
+The first local batch added 1,363 paintings and 86 calligraphy works, reaching 1,765 / 497 independent works. Newly used sources are Cleveland Museum of Art (CC0), ColBase / Tokyo National Museum (CC BY 4.0 with source and layout-modification credit), and Minneapolis Institute of Art (Public domain). Complete albums and panel sets count once. Official original-language creator names, attribution/copy qualifications, per-image source URLs and SHA-256 fingerprints are retained in the DailyArt selection/provenance records. No generative repair or recoloring is performed.
+
+第一批本地图库新增1363件名画、86件书法，当时为1765／497件独立作品。新增来源为克利夫兰艺术博物馆（CC0）、ColBase／东京国立博物馆（CC BY 4.0，署名并说明排版加工）及明尼阿波利斯艺术博物馆（Public domain）。整册和成套作品各计一件；保留原语言姓名、归属限定、逐图URL与原图SHA-256，不生成式修复或改色。细节裁切另有记录，全幅仍保留。
+
+See [the expansion report](docs/art-guides/EXPANSION-2026-10-08.md), [CMA Open Access](https://www.clevelandart.org/open-access), and [ColBase terms](https://colbase.nich.go.jp/pages/term?locale=zh). Local optional ZIPs carry the full notices and source metadata; these files have not been publicly released or installed on the user's device.
+
+## Calligraphy supplement, 2026.10.08.1 / 书法追加来源
+
+The second local batch adds 370 calligraphy works from official museum services: ColBase / Tokyo National Museum 98 (CC BY 4.0, attribution and layout modification credit), Metropolitan Museum of Art 55 (CC0), Princeton University Art Museum 1 (Public domain; image courtesy credit), Cleveland Museum of Art 3 (CC0), and Minneapolis Institute of Art 213 (Public domain). Per-image official URLs, component identities and SHA-256 fingerprints are retained in selection.json and provenance.json. Complete sets count once; originals are resized and laid out, without generated repairs or recoloring.
+
+第二批新增书法370件，五家馆方来源及各自许可如上。逐图保留来源、组件身份及原图校验值；对联、三联幅、四屏、十二屏、整册均只算一件。拓本、摹本和传称限定不删改，图像仅缩放与排版，不进行生成式修补或改色。馆方现代介绍另以中文改写，不以图片开放许可代替文章许可。

@@ -8,6 +8,10 @@ from functools import lru_cache
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+# Reviewed museum handscroll TIFFs can be very wide. This bound admits the
+# complete official image rather than substituting a cropped web photograph.
+Image.MAX_IMAGE_PIXELS = 500_000_000
+
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('selection',type=Path);parser.add_argument('--font',type=Path,required=True);parser.add_argument('--output',type=Path,required=True);parser.add_argument('--source-root',type=Path)
     parser.add_argument('--portrait',action='store_true',help='Add upright artwork layout, encoded as a rotated native-size frame')
@@ -38,10 +42,17 @@ def main():
         if min(image.size)<600:raise ValueError(f"Insufficient detail: {work['id']} {image.size}")
         # Handscroll: show the whole work, then readable overlapping sections,
         # in the traditional right-to-left reading order. Never silently crop.
-        def source_views(art,label=''):
+        def source_views(art,label='',detail_crop=None):
             result=[(art,label)]
             def detail(text):return f'{label} · {text}' if label else text
-            if calligraphy and art.width>art.height*3:
+            if detail_crop:
+                left,top,right,bottom=detail_crop
+                if not (0<=left<right<=art.width and 0<=top<bottom<=art.height):
+                    raise ValueError('Reviewed detail bounds exceed the source')
+                # Keep the complete mounted work in its overview. Detail pages
+                # may omit a reviewed empty roller/mounting margin.
+                art=art.crop(tuple(detail_crop))
+            if (calligraphy or work.get('detailViews')) and art.width>art.height*3:
                 result[0]=(art,detail('全卷'))
                 width=round(art.height*1104/558);step=round(width*.9)
                 starts=list(range(max(0,art.width-width),-1,-step))
@@ -54,7 +65,7 @@ def main():
                 if starts[-1]!=art.height-height:starts.append(art.height-height)
                 result += [(art.crop((0,y,art.width,y+height)),detail(f'局部 {i+1}/{len(starts)}')) for i,y in enumerate(starts)]
             return result
-        views=source_views(image,work.get('detail',''))
+        views=source_views(image,work.get('detail',''),work.get('detailCrop'))
         # A complete album is one work. Its other original leaves remain
         # frames of that work, with their own source and integrity evidence.
         additional_sources=[]
@@ -74,21 +85,24 @@ def main():
                 'originalSize':page_size,'displaySourceSize':page_image.size,'crop':page.get('crop'),
                 'originalSha256':hashlib.sha256(page_source.read_bytes()).hexdigest()})
         if work.get('layout')=='paired-panels':
-            # Complete couplets / panel sets, two panels per display page.
+            # Complete couplets / panel sets, two panels per display page;
+            # a triptych stays together on its overview page.
             # Selection order is reading order (right panel, then left panel).
             # Downsample to a shared height, without stretching or upscaling.
-            if not calligraphy or len(panels) not in (2,4):
-                raise ValueError('Paired layout requires two or four calligraphy panels')
+            if not calligraphy or len(panels) not in (2,3,4,6,8,10,12):
+                raise ValueError('Panel layout requires a triptych or two to twelve paired panels')
             views=[]
-            for start in range(0,len(panels),2):
-                right,left=panels[start:start+2]
-                height=min(right.height,left.height)
-                right=right.resize((round(right.width*height/right.height),height),Image.Resampling.LANCZOS)
-                left=left.resize((round(left.width*height/left.height),height),Image.Resampling.LANCZOS)
+            group_size=3 if len(panels)==3 else 2
+            for start in range(0,len(panels),group_size):
+                group=panels[start:start+group_size]
+                height=min(p.height for p in group)
+                group=[p.resize((round(p.width*height/p.height),height),Image.Resampling.LANCZOS) for p in group]
                 gap=round(height*.025)
-                pair=Image.new('RGB',(left.width+gap+right.width,height),'#e7e0d1')
-                pair.paste(left,(0,0));pair.paste(right,(left.width+gap,0))
-                label='上下联' if len(panels)==2 else f'第{start+1}–{start+2}屏 / 共4屏'
+                pair=Image.new('RGB',(sum(p.width for p in group)+gap*(len(group)-1),height),'#e7e0d1')
+                x=0
+                for panel in reversed(group):
+                    pair.paste(panel,(x,0));x+=panel.width+gap
+                label='上下联' if len(panels)==2 else f'第{start+1}–{start+len(group)}屏 / 共{len(panels)}屏'
                 views.extend(source_views(pair,label))
         if len(views)>64:raise ValueError('Too many frames')
         frames=[]
@@ -145,6 +159,7 @@ def main():
             audit[-1]['chineseNotes']=work['chineseNotes']
         if additional_sources:audit[-1]['additionalSources']=additional_sources
         if work.get('layout'):audit[-1]['layout']=work['layout']
+        if work.get('detailCrop'):audit[-1]['detailCrop']=work['detailCrop']
         if rotation:audit[-1]['rotation']=rotation
     (args.output/'catalog.json').write_text(json.dumps(catalog,ensure_ascii=False,indent=2),encoding='utf-8')
     (args.output/'provenance.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2),encoding='utf-8')

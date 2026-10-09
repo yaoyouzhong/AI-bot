@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.3 - 2026-10-09
+
+Prepared release, not yet public. The Windows bridge runs locally and the user confirmed one-second synchronized network display on hardware. macOS only synchronizes version metadata; its new package requires macOS build validation. TAB5 0.2.156-ui and new collections are prepared together, with artwork remaining optional separate attachments. ESP8266 0.5.2 remains a candidate without hardware installation acceptance.
+
+- Align system-page network numbers with the current graph endpoint using one trailing-second average of raw 250 ms samples. Publish numbers and history together once per second, retaining the CPU/memory two-second interval and protocol fields. TAB5 .156 follows this cadence without another firmware update; the ESP8266 alignment candidate is separate.
+- Accompany this release with curated collection edition 2026.10.09: 366 paintings and 366 calligraphy works, totaling 732 independent works and 2,642 landscape/portrait images. Import either optional ZIP with per-work sources, image rights and fingerprints; app upgrades preserve installed collections. Guides and browser detail previews remain outside device integration.
+
+- Share read-only desktop session activity between the global Codex state and TAB5 task cards, preventing buffered logs or another completed session from making an active pet appear idle. Local token counts and offline fallback remain intact.
+- Choose free Open-Meteo or QWeather independently of location. Compact source descriptions compare credentials, forecasts and AQI; expand QWeather fields only when selected, keep them anchored when switching location, and preserve credentials when using the free source. Keep location notices with location controls; both displays share bridge weather data.
+- Arrange birthday entries and editing in separate columns, distinguishing new/add/update from save-and-sync. Show calendar, date and reminder details in the list while retaining date validation and cancellation without saving.
+- Hide upgrade actions for equal or newer local versions. Clarify the latest-published column, fit the window to its rows and content, and remove repeated component/status details and the large footer gap.
+- Provide bridge, TAB5 and ESP8266 notes together, distinguishing running versions, bundled local notes and published notes. Render Markdown as readable headings, lists and download links, with download references below change descriptions.
+- Keep TAB5 artwork bursts moving over Wi-Fi/BLE while music state refreshes every 500 ms; prioritize song changes, pause and seeking, and expose authenticated Wi-Fi communication separately from the listening address.
+- Replace the startup action card with a checkbox that immediately shows pending state, verifies and acknowledges the saved result, and restores the check on failure. Saving stays off the UI thread and survives Device Center refresh without a second toggle.
+- Size Service Status from native font metrics and device rows, targeting eight fully visible data/AI quota rows by default. Preserve the footer at minimum sizes and remove empty error/communication space.
+- Add read-only NetEase Cloud Music 3.x playback-time collection and exact-song enrichment with translated titles, artists and albums. TAB5 receives the full title; the small-screen text resource prefers its translated alias. Keep unknown clocks unavailable and retain the existing wire fields.
+- Add a bounded read-only QQ Music current-song adapter with metadata, playback state, progress and asynchronous track-bound cover acquisition. Unsupported builds fall back to system media sessions; QQ Music hardware/client acceptance is pending.
+- Correct QQ native locator checks for interleaved string initialization. Live playback sampling on `22.71.10.11.55` confirms metadata, advancing progress and 500×500 artwork; pause/seek/track switching and hardware display remain pending.
+- Select among Windows media sessions, preferring a playing source over a paused default. Spotify, Apple Music and other clients are covered when they publish SMTC; individual versions require verification. Chrome/Edge companion 0.2.0 supplies current website playback, seek, pause and playback rate, expires closed/stale tabs, and separates artwork by source and track. See [media support](docs/MEDIA-PLAYERS.md).
+- Clarify the Windows update center with aligned version columns, concise update states, a separate selected-component action area, and a lighter selection style. Keep download verification and explicit installation/firmware handoff safeguards.
+- Separate stock preferences from weather location: stock edits preserve weather settings, while city selection and automatic location stay in Weather & Location. Accept comma-separated or multiline stock codes.
+- Search stocks by code, Chinese name, full pinyin or initials; show market/code matches for explicit selection, reorder the watchlist with up/down controls, and preserve the list on failed or superseded searches.
+- Fix Device Center opening after disabling startup: Windows may report an absent scheduled task as FileNotFoundException (0x80070002), which now correctly means no startup task.
+- Write `--status-once` JSON directly as UTF-8 without changing the console code page, allowing redirected desktop verification without an attached console.
+
 ## 0.6.2 - 2026-10-08
 
 - Add a complete download center for both computer apps, ESP8266, TAB5 first-install/upgrade packages and both artwork collections. Generate bilingual README and release download tables from one validated public index; link the Windows manual-download action to this center.

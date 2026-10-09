@@ -12,14 +12,16 @@ internal sealed class LocalStatusServer
     private readonly Func<string>? _tab5Info;
     private readonly Func<string,CancellationToken,Task>? _musicArtwork;
     private readonly Func<string>? _tab5Crashes;
+    private readonly Func<string>? _musicInfo;
 
-    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null,Func<string,CancellationToken,Task>? musicArtwork=null,Func<string>? tab5Crashes=null)
+    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null,Func<string,CancellationToken,Task>? musicArtwork=null,Func<string>? tab5Crashes=null,Func<string>? musicInfo=null)
     {
         _listener = new TcpListener(IPAddress.Loopback, port);
         _deviceInfo = deviceInfo;
         _tab5Info = tab5Info;
         _musicArtwork=musicArtwork;
         _tab5Crashes=tab5Crashes;
+        _musicInfo=musicInfo;
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
@@ -115,6 +117,8 @@ internal sealed class LocalStatusServer
             if (webQuota) diagnostics = JsonSerializer.Serialize(WebQuotaDiagnostics.Snapshot(), JsonDefaults.Options);
             var quotaHistory = !browser && requestLine.StartsWith("GET /diagnostics/quota-history ", StringComparison.Ordinal);
             if (quotaHistory) diagnostics = JsonSerializer.Serialize(Tab5QuotaTrend.Diagnostics(), JsonDefaults.Options);
+            var musicInfo=!browser&&_musicInfo is not null&&requestLine.StartsWith("GET /diagnostics/music ",StringComparison.Ordinal);
+            if(musicInfo)diagnostics=JsonSerializer.Serialize(new {summary=_musicInfo!()});
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
             var pets = !browser && requestLine.StartsWith("GET /diagnostics/pets ", StringComparison.Ordinal);
             var body = diagnostics ?? (pets ? JsonSerializer.Serialize(PetAnimationStore.Shared.Diagnostics(), JsonDefaults.Options) : found
@@ -122,7 +126,7 @@ internal sealed class LocalStatusServer
                 : accepted ? "{\"ok\":true}" : "{\"error\":\"not_found\"}");
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || tab5 || crashes || quotaHistory ? "200 OK" : "404 Not Found")}\r\n" +
+                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || tab5 || crashes || quotaHistory || musicInfo ? "200 OK" : "404 Not Found")}\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
                 $"Content-Length: {payload.Length}\r\n" +
                 "Connection: close\r\n\r\n");

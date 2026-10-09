@@ -123,6 +123,8 @@ internal sealed record MusicSnapshot(
     DateTimeOffset UpdatedAt)
 {
     public bool TimelineAvailable { get; init; } = true;
+    [System.Text.Json.Serialization.JsonIgnore]
+    public double PlaybackRate { get; init; } = 1;
     public int ArtworkWidth { get; init; }
     public int ArtworkHeight { get; init; }
     [System.Text.Json.Serialization.JsonIgnore]

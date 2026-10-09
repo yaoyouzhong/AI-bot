@@ -84,6 +84,31 @@ internal static class Tab5TelemetrySelfTest
                 if(burst is null||burst.Length>Tab5Protocol.MaximumFrame)throw new Exception("Pending artwork did not get a bounded independent burst");
                 using var burstJson=JsonDocument.Parse(burst);
                 if(burstJson.RootElement.GetProperty("resources").GetArrayLength()>8||burstJson.RootElement.TryGetProperty("data",out _))throw new Exception("Image burst resent a status catalog");
+                long resourceClock=10000;service.TelemetryClock=()=>resourceClock;
+                var activeMusic=snapshot with {Music=new("Video","Artist","",true,0,100,DateTimeOffset.UtcNow){CoverRgb565=images.Legacy,Tab5CoverRgb565=images.Tab5,Tab5CoverJpeg=images.Jpeg}};
+                foreach(int channel in new[]{1,2}) {
+                    service.ResetTelemetryChannel(channel);service.Publish(activeMusic);_ = service.TelemetryFrame(channel,true);
+                    int bursts=0;
+                    for(int round=0;round<6;round++) {
+                        resourceClock+=500;service.Publish(activeMusic with {CapturedAt=DateTimeOffset.UtcNow.AddMilliseconds(round*500)});
+                        using var busy=JsonDocument.Parse(service.TelemetryFrame(channel,true)!);
+                        if(busy.RootElement.GetProperty("type").GetString()=="tab5_resources")bursts++;
+                    }
+                    if(bursts<2)throw new Exception("Frequent music publications starved artwork on channel "+channel);
+                    resourceClock+=500;service.Publish(activeMusic with {Music=activeMusic.Music! with {Playing=false}});
+                    using var pauseWire=JsonDocument.Parse(service.TelemetryFrame(channel,true)!);
+                    using var pauseBytes=new MemoryStream(Convert.FromBase64String(pauseWire.RootElement.GetProperty("payload").GetString()!));
+                    using var pauseZip=new ZLibStream(pauseBytes,CompressionMode.Decompress);using var pause=JsonDocument.Parse(pauseZip);
+                    if(pause.RootElement.GetProperty("type").GetString()!="tab5_status"||pause.RootElement.GetProperty("data").GetProperty("music").GetProperty("playing").GetBoolean())
+                        throw new Exception("Artwork delayed a music pause");
+                    resourceClock+=500;service.Publish(activeMusic with {Music=activeMusic.Music! with {Playing=false,ElapsedSeconds=40}});
+                    using var seekWire=JsonDocument.Parse(service.TelemetryFrame(channel,true)!);
+                    using var seekBytes=new MemoryStream(Convert.FromBase64String(seekWire.RootElement.GetProperty("payload").GetString()!));
+                    using var seekZip=new ZLibStream(seekBytes,CompressionMode.Decompress);using var seek=JsonDocument.Parse(seekZip);
+                    if(seek.RootElement.GetProperty("type").GetString()!="tab5_status"||seek.RootElement.GetProperty("data").GetProperty("music").GetProperty("elapsedSeconds").GetDouble()!=40)
+                        throw new Exception("Artwork delayed a paused seek");
+                }
+                Console.WriteLine("TAB5_MUSIC_ARTWORK_FAIRNESS_OK Wi-Fi/BLE bursts despite 500ms state changes; pause remains urgent");
                 service.OtaTransferActive(true);
                 service.Publish(snapshot with {Music=new("Video","Artist","",true,0,100,DateTimeOffset.UtcNow){CoverRgb565=images.Legacy,Tab5CoverRgb565=images.Tab5,Tab5CoverJpeg=images.Jpeg}});
                 using(var upgrading=JsonDocument.Parse(service.CurrentFrame!)){

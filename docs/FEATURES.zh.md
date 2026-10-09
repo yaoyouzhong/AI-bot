@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-适用于电脑端 **0.6.1**、ESP8266 **0.5.0**、TAB5 **0.2.149-ui**，2026-10-07 按当前实现复核。[返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
+发布准备范围：电脑端 **0.6.3**、TAB5 **0.2.156-ui** 与精选作品集 **2026.10.09**；ESP8266 沿用正式 **0.5.1**。2026-10-09 选择性刷新变化画面，未变化的素材保留[原捕获说明](SCREENSHOTS.md)。尚未公开的新包以[版本说明](RELEASE-0.6.3.md)为准。[返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -84,7 +84,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 <p><img src="assets/screens/tab5-painting-portrait.png" height="400" alt="每日名画竖屏：林良作品与馆藏署名"> <img src="assets/screens/tab5-calligraphy-portrait.png" height="400" alt="每日书法竖屏：王嗣奭作品与馆藏署名"></p>
 
-**402 件名画、411 件书法**分别提供可选下载包，分页和方向不重复计作作品。图片同步需要电脑及 AI-bot 运行；断线保留最近成功图片。[图库安装与许可](GALLERY-PACKS.md)
+本次精选作品集含 **366 件名画、366 件书法**，分别提供可选下载包，分页和方向不重复计作作品。图片同步需要电脑及 AI-bot 运行；断线保留最近成功图片。未公开前下载中心保留原正式包。[图库安装与许可](GALLERY-PACKS.md)
 
 <details>
 <summary>展开名画与书法的横屏排版</summary>
@@ -149,13 +149,13 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 </details>
 
 <details>
-<summary>设备设置：连接与网络、屏幕与声音、内容与轮播、固件升级</summary>
+<summary>设备设置：网络连接、屏幕声音、内容轮播、固件升级、设备信息</summary>
 
-右上角齿轮打开 **设置**，四个分区分别管理连接、亮度与音量及屏保、显示页面与轮播、Wi-Fi 固件升级。
+右上角齿轮打开 **设置**，五个分区分别管理连接、亮度与音量及屏保、显示页面与轮播、固件升级及设备信息。左侧分类为 220 像素、文字 30 像素，右侧保留标题与正文层级。
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-settings-connection.png" alt="设备设置：连接与网络"></td><td width="50%"><img src="assets/screens/tab5-settings-screen.png" alt="设备设置：屏幕与声音"></td></tr></table>
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容与轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，当前 .149"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，当前 .156"></td></tr></table>
 
 电脑端“我的设备”选 TAB5，可打开 **显示设置、语音设置、日历生日、常用任务、数据设置、连接升级**；托盘分组提供常用快捷入口。[安装与连接步骤](INSTALL.zh.md#tab5-first)
 

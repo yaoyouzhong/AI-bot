@@ -2,6 +2,18 @@
 
 AI-bot is a new implementation maintained by 姚有忠.
 
+The Windows NetEase playback adapter uses two instruction signatures and playback
+field layout facts from Kyle's MIT-licensed reference at
+`3a97a4b5c8b673ce2f69b0205adbc6a3ac861ba5`. The locator, checked process reads,
+metadata matching and bridge integration were independently written. The original
+MIT notice and exact origin are retained in `licenses/netease-clock-reference/`.
+
+The QQ Music reader independently implements bounded reads and PE relocation using
+the x86 initialization signature and current-song layout documented in the same
+MIT reference. Its exact origin and original notice are retained separately in
+`licenses/qqmusic-clock-reference/`. System-session selection and browser playback
+capture are original project code using public Windows/HTML media interfaces.
+
 The product direction and compatibility contract were informed by the observable behavior and documented requirements of an earlier personal ESP8266 status-clock project. AI-bot does not import that project's Git history or any third-party-authored source, documentation, screenshot, logo, sprite, or binary asset. Protocol names, source layout, user-interface text, and the clean-room implementation are written for AI-bot.
 
 Some later functionality in the earlier fork has commits authored by the AI-bot maintainer. Such code may only be reused after file- and dependency-level provenance review confirms that the reused expression is owned by that maintainer; otherwise only behavior is treated as a specification and the implementation is rewritten.
@@ -143,3 +155,15 @@ The master, GIF and optional ZIP have exact path/hash records in
 `licenses/materials.json`. Runtime APET files remain excluded. The isolated video
 project retains the animation source sheet, generation prompts and conversion
 records for reproduction. Original vendor marks are not claimed as project artwork.
+
+## Artwork collection expansion / 图库扩充 — 2026-10-08
+
+The first expansion batch reached 2,262 independent works (1,765 paintings / 497 calligraphy works), including 180 confirmed Chinese paintings and 16 newly complete Chinese painting albums. The batch adds 1,449 works using 1,668 originals. Per-work official records and per-image original hashes are retained; 1,583 new CMA image URLs were matched to official metadata. All 3,804 previous native image hashes remain unchanged. Complete albums, six-scroll calligraphy and four-season panel groups count once. Local source integration and annual/native-image checks passed; hardware installation is not asserted.
+
+第一批扩充后的本地博物馆图库为2262件独立作品（名画1765／书法497），中国画180件，本批含16册完整中国画册页。新增1449件作品使用1668张原图，1583条克利夫兰图像URL与官方记录逐一匹配；原有3804张原生图片哈希保持一致。册页、六屏书法及四季竹图各计一件。来源、审查与验证见[扩充说明](docs/art-guides/EXPANSION-2026-10-08.md)，不冒称已安装到设备。
+
+## Calligraphy supplement, 2026.10.08.1 / 书法追加批次
+
+A further 370 independent calligraphy works use 675 qualified official photographs: Tokyo National Museum / ColBase 98, Metropolitan Museum of Art 55, Princeton University Art Museum 1, Cleveland Museum of Art 3, and Minneapolis Institute of Art 213. Museum culture/place fields identify 108 as Chinese, 261 as Japanese and one as Korean; artist nationality is not substituted for object attribution. All selected image URLs match official records, original hashes are unique, and all 7,754 preceding native images remain unchanged. The resulting local catalogue has 2,632 works (1,765 paintings / 867 calligraphy works) and 9,744 native JPEGs.
+
+书法追加370件独立作品，使用675张馆方原图，来源及分布如上。按馆方文化／制作地字段统计，新增中国书法108件、日本书法261件、韩国书法1件。对联、三联幅、四屏、十二屏和整册各计一件；保留实际左右顺序、拓本、摹写、前半及传称等限定，不把碑刻时代冒称拓印时代。源图URL、许可、分辨率、校验值与组件身份分别核对；本地目录与隔离导入的验证不替代硬件安装。详见[扩充报告](docs/art-guides/EXPANSION-2026-10-08.md)。

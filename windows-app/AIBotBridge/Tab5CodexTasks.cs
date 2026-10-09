@@ -211,10 +211,10 @@ internal sealed class Tab5CodexTasks : IDisposable
     private readonly SemaphoreSlim _submitGate=new(1,1);
     private readonly CancellationTokenSource _lifetime=new();
 
-    internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal()) { }
-    internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null)
+    internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal(),liveActivity:SessionActivityReader.LiveActivity) { }
+    internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null,Tab5LiveActivity? liveActivity=null)
     {
-        _desktop=desktop;_liveActivity=new((id,ct)=>desktop.ReadAsync(id,ct));_call=CallAsync;_connect=EnsureServerAsync;_catalog=catalog;_journal=journal;_images=images??new();
+        _desktop=desktop;_liveActivity=liveActivity??new((id,ct)=>desktop.ReadAsync(id,ct));_call=CallAsync;_connect=EnsureServerAsync;_catalog=catalog;_journal=journal;_images=images??new();
         _rolloutPath=rolloutPath??Tab5CodexCatalog.RolloutPath;_historyHome=historyHome??Tab5CodexCatalog.HomePath;
         foreach(var record in journal?.Accepted()??[]) {
             _activeTurns[record.TaskId]=record.TurnId;_receipts[record.TaskId]="已发送 · 恢复动态";

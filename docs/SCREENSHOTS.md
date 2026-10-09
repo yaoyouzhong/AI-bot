@@ -1,5 +1,9 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-09 发布准备：选择性刷新 Windows 更新、设备中心、股票、天气及图库窗口，另同步主页所用 Codex 直达、十二月历与七等分周额度截图，并改用精选名单内《快雪时晴帖》书法示例，以及 TAB5 总览、系统、音乐、天气预报、模型额度、设置和日历画面。Windows 使用当前生产控件的隔离演示数据，图库窗口来自两个年度精选包（2026.10.09，各 366 件）的真实隔离导入；TAB5 使用 .156 源码的原生 LVGL 捕获，音乐为项目原创角色封面和虚构歌曲，主机夹具中的固件版本字段设为 .156。截图不是硬件实拍，未变化的素材与历史说明保留。逐图像素和路径／SHA-256 已复核并登记于 `licenses/materials.json`；本地记录位于 `artifacts/release-063-156-ready/`。
+
+2026-10-09 release preparation selectively refreshes changed Windows update/device/stock/weather/collection controls and homepage Codex Direct/monthly calendar/weekly quota views plus TAB5 overview/system/music/weather/quota/settings/calendar frames. Windows uses isolated production-control fixtures; the collection screenshot follows actual imports of both curated packs (2026.10.09, 366 works each). TAB5 uses native LVGL from .156 source, an original project character as a fictional album cover, and a host-only .156 version fixture. These are not hardware photographs. Reviewed image paths and fingerprints are registered; unchanged media and historical evidence remain intact.
+
 2026-10-08：更新窗口截图已替换，展示桥接 0.6.2、TAB5 .150、小屏 0.5.1 及旧小屏手动准备入口。截图为隔离的原生控件与固定演示数据，不代表真实下载安装；宣传视频另修复第 0 帧双设备画面、对齐 WK 88% / 5d 14h 并移除画面版本号，见 PRODUCT_VIDEO.md；其他截图保留以下原始捕获说明。
 
 2026-10-08: Only the Update Center capture is refreshed for bridge 0.6.2, TAB5 .150, ESP8266 0.5.1 and legacy screen manual preparation. This is an isolated native-control fixture, not installation evidence; the promotional film separately aligns weekly usage/reset data, removes explicit release numbers and displays both devices from frame zero. Other screenshots retain their original provenance below.
@@ -41,7 +45,8 @@ dotnet tools/doc-capture/bin/Release/net8.0-windows10.0.19041.0/DocCapture.dll <
 | 画面 | 作者与作品 | 馆藏与许可 | 加工 |
 | --- | --- | --- | --- |
 | 每日名画横/竖屏 | 林良《孔雀竹石圖》（Peacocks and Bamboo） | [Cleveland Museum of Art，1964.242](https://www.clevelandart.org/art/1964.242)，CC0 | 图库排版、缩放；竖屏原生画面转正 |
-| 每日书法横/竖屏 | 王嗣奭《行书七言律诗轴》 | [东京国立博物馆 / ColBase，TB-6](https://colbase.nich.go.jp/collection_items/tnm/TB-6?locale=zh)，[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | 图库排版、缩放；竖屏原生画面转正 |
+| 当前精选书法横/竖屏 | 王羲之《快雪时晴帖》（传唐摹本） | [国立故宫博物院（台北），馆藏记录](https://digitalarchive.npm.gov.tw/Collection/Detail/19?dep=P)，随包保留 Public domain 来源记录 | 当前 .156 原生布局、RGB565 解码；竖屏原生画面转正 |
+| 此前书法横/竖屏（历史素材） | 王嗣奭《行书七言律诗轴》 | [东京国立博物馆 / ColBase，TB-6](https://colbase.nich.go.jp/collection_items/tnm/TB-6?locale=zh)，[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | 图库排版、缩放；竖屏原生画面转正 |
 
 作品图像保留原图条款，项目 MIT 许可不替代作品许可；署名及来源同时保留在原生画面和本页。博物馆未为本项目背书。图库逐件来源与加工记录随独立 ZIP 分发。
 

@@ -18,10 +18,12 @@ internal static class StartupRegistration
         service.Connect();
         return service;
     }
-    private static dynamic? FindTask(dynamic folder)
+    internal static dynamic? FindTask(dynamic folder)
     {
         try { return folder.GetTask(TaskName); }
-        catch (COMException ex) when (ex.HResult == unchecked((int)0x80070002)) { return null; }
+        // The COM runtime can map ERROR_FILE_NOT_FOUND to FileNotFoundException.
+        // An absent logon task is a normal disabled state, including after removal.
+        catch (Exception ex) when (ex is COMException or FileNotFoundException && ex.HResult == unchecked((int)0x80070002)) { return null; }
     }
     internal static bool IsEnabled
     {

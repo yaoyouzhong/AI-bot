@@ -8,6 +8,15 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-media-players"){AppPaths.BeginPublicSelfTest();MediaPlayerSelfTest.RunAsync().GetAwaiter().GetResult();MusicLifecycleSelfTest.Run();return;}
+        if(args.Length==2&&args[0]=="--test-media-live"){MediaPlayerSelfTest.LiveAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-bridge-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();BridgeUiSelfTest.Run(Path.GetFullPath(args[1]));return;}
+        if(args.Length==1&&args[0]=="--self-test-netease-music"){AppPaths.BeginPublicSelfTest();NeteaseMusicSelfTest.Run();MusicLifecycleSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-weather-free"){MigratedWeatherTest.FreeAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-netease-live"){NeteaseMusicSelfTest.LiveAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-startup-read"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();StartupRegistrationSelfTest.Run();return;}
+        if(args.Length==2&&args[0]=="--self-test-stock-settings"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();StockSettingsSelfTest.Run(args[1]);return;}
+        if(args.Length==2&&args[0]=="--self-test-stock-search-live"){AppPaths.BeginPublicSelfTest();StockSettingsSelfTest.LiveAsync(args[1]).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-esp-updates"){AppPaths.BeginPublicSelfTest();EspUpdateSelfTest.Run();return;}
         if(args.Length==3&&args[0]=="--test-esp-update-readonly"){AppPaths.BeginPublicSelfTest();EspUpdateSelfTest.ReadHardwareAsync(args[1],args[2]).GetAwaiter().GetResult();return;}
         if(args.Length==4&&args[0]=="--self-test-gallery-packs"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryPackSelfTest.RunPackages(args[1],args[2],args[3]);return;}
@@ -77,7 +86,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--tab5-voice-devices"){
             Console.WriteLine(JsonSerializer.Serialize(new{inputs=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Capture).Select(d=>new{d.Name,dji=Tab5VoiceAudio.IsDji(d.Name)}),cable=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Render).Any(d=>Tab5VoiceAudio.IsCable(d.Name))},JsonDefaults.Options));return;
         }
-        if(args.Length==2 && args[0]=="--self-test-tab5-telemetry") {Tab5TelemetrySelfTest.Run(args[1]);return;}
+        if(args.Length==2 && args[0]=="--self-test-tab5-telemetry") {AppPaths.BeginPublicSelfTest();Tab5TelemetrySelfTest.Run(args[1]);return;}
         if(args.Length==1 && args[0]=="--verify-deepseek-web") {MediaCostSelfTest.VerifyWeb();return;}
         if(args.Length==1 && args[0]=="--self-test-media-cost") {MediaCostSelfTest.Run();return;}
         if(args.Length==4 && args[0]=="--netease-duration-once") {
@@ -447,10 +456,12 @@ internal static class Program
 
         if (args.Contains("--status-once", StringComparer.OrdinalIgnoreCase))
         {
-            Console.OutputEncoding = Encoding.UTF8;
+            // A desktop launcher may provide redirected output without a console.
+            // Write UTF-8 to that stream without changing the console code page.
+            using var output = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false), leaveOpen: true);
             using var runtime = new BridgeRuntime(startRefresh: false);
             SessionActivityReader.WaitForInitialScanAsync().GetAwaiter().GetResult();
-            Console.WriteLine(JsonSerializer.Serialize(
+            output.WriteLine(JsonSerializer.Serialize(
                 runtime.Capture(), JsonDefaults.Options));
             return;
         }

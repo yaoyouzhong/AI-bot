@@ -381,7 +381,7 @@ internal sealed class MirrorForm : Form
         using(var titleFont=new Font("Microsoft YaHei UI",15,FontStyle.Bold,GraphicsUnit.Pixel))
         using(var artistFont=new Font("Microsoft YaHei UI",12,FontStyle.Regular,GraphicsUnit.Pixel))
         using(var centered=new StringFormat{Alignment=StringAlignment.Center,Trimming=StringTrimming.EllipsisCharacter,FormatFlags=StringFormatFlags.NoWrap}) {
-            g.DrawString(string.IsNullOrEmpty(m?.Title)?"No Music":m.Title,titleFont,Brushes.White,new RectangleF(12,154,216,24),centered);
+            g.DrawString(string.IsNullOrEmpty(m?.Title)?"No Music":m.Title.Split('\n').Last(),titleFont,Brushes.White,new RectangleF(12,154,216,24),centered);
             g.DrawString(m?.Artist??"",artistFont,Brushes.LightGray,new RectangleF(12,178,216,20),centered);
         }
         var ratio = m?.DurationSeconds > 0 ? Math.Clamp(m.ElapsedSeconds / m.DurationSeconds, 0, 1) : 0;

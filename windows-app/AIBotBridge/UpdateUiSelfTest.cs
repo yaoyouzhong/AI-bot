@@ -26,6 +26,7 @@ internal static class UpdateUiSelfTest
         using var form=new UpdateCenterForm(()=>devices,(d,p)=>{p.VerifyUnchanged();target=d.Id;handoffs++;return Task.CompletedTask;},service);
         form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);form.ShowInTaskbar=false;
         var grid=(DataGridView)form.Controls.Find("updates",true).Single();var action=(Button)form.Controls.Find("download",true).Single();var state=(Label)form.Controls.Find("state",true).Single();
+        var notes=(LinkLabel)form.Controls.Find("release-notes",true).Single();var requirement=(Label)form.Controls.Find("requirement",true).Single();
         async Task Wait(Func<bool> done){var until=DateTime.UtcNow.AddSeconds(20);while(!done()){if(DateTime.UtcNow>until)throw new TimeoutException("Update UI: "+state.Text);await Task.Delay(5);}}
         Exception? failure=null;
         // Use the same persistent UI message loop as production. DoEvents-only
@@ -46,15 +47,32 @@ internal static class UpdateUiSelfTest
         await Wait(()=>action.Enabled);hold=true;action.PerformClick();await Wait(()=>!action.Enabled);
         devices=devices.Where(d=>d.Id!=esp.Id).ToArray();waiting.SetResult();await Wait(()=>state.Text.StartsWith("更新未继续")&&grid.Rows.Count==2);
         if(handoffs!=2)throw new Exception("Removed device still received update");
-        grid.CurrentCell=grid[0,0];await Task.Yield();if(action.Enabled)throw new Exception("Equal bridge version update enabled");
+        grid.CurrentCell=grid[0,0];await Wait(()=>!action.Visible);
+        if(action.Enabled||requirement.Visible||!notes.Enabled)throw new Exception("Equal version advertises an upgrade or repeats status");
+        foreach(int index in new[]{0,1}) {
+            devices[index]=devices[index] with {Version=index==0?"99.0.0":"99.0.0-ui"};
+            grid.CurrentCell=grid[0,index];await Wait(()=>grid[3,index].Value?.ToString()=="版本较新"&&!action.Visible&&notes.Text=="查看全部更新说明");
+            if(action.Enabled||requirement.Visible||!notes.Enabled)throw new Exception("Newer local version advertises an upgrade");
+            int before=handoffs;action.PerformClick();if(handoffs!=before)throw new Exception("Hidden downgrade action reached installer");
+        }
         foreach(float scale in new[]{1f,1.5f,2f}) {
             using var view=new UpdateCenterForm(()=>devices,(_,_)=>Task.CompletedTask,service);view.StartPosition=FormStartPosition.Manual;view.Location=new(-30000,-30000);view.ShowInTaskbar=false;view.Show();
+            var list=(DataGridView)view.Controls.Find("updates",true).Single();var detail=view.Controls.Find("update-actions",true).Single();
+            await Wait(()=>list.Rows.Count==devices.Length&&!view.Controls.Find("download",true).Single().Visible);
             if(scale!=1)view.Scale(new SizeF(scale,scale));view.PerformLayout();await Task.Yield();
+            int bottom=list.RectangleToScreen(list.ClientRectangle).Bottom;
+            if(detail.RectangleToScreen(detail.ClientRectangle).Top-bottom>24*scale)throw new Exception("Unused grid space separates actions from rows");
+            var footer=view.Controls.Find("update-footer",true).Single();
+            int allowance=footer.Parent!.Padding.Bottom+2;
+            await Wait(()=>view.RectangleToScreen(view.ClientRectangle).Bottom-footer.RectangleToScreen(footer.ClientRectangle).Bottom<=allowance);
+            int empty=view.RectangleToScreen(view.ClientRectangle).Bottom-footer.RectangleToScreen(footer.ClientRectangle).Bottom;
+            if(empty>allowance)throw new Exception("Unused space remains above or below footer: "+empty);
             using var bitmap=new Bitmap(view.Width,view.Height);view.DrawToBitmap(bitmap,new(Point.Empty,view.Size));bitmap.Save(Path.Combine(directory,$"updates-{scale}.png"));view.Close();
         }
+        UpdateNotesSelfTest.Run(directory);
         }catch(Exception ex){failure=ex;}finally{form.Close();}};
         Application.Run(form);
         if(failure is not null)throw new InvalidOperationException("Update UI regression failed",failure);
-        Console.WriteLine("UPDATE_UI_OK production ESP view, known and legacy downloads, changed/removed target blocked, equal version disabled, 1x/1.5x/2x captures; no real installation");
+        Console.WriteLine("UPDATE_UI_OK production ESP view, known and legacy downloads, changed/removed target blocked, equal/newer versions hide upgrade and repeated status, aggregate notes, content-height window, 1x/1.5x/2x captures; no real installation");
     }
 }

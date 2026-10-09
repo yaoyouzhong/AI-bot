@@ -93,7 +93,6 @@ internal sealed class CycleSettingsForm : Form
     internal static void VerifyLayout()
     {
         if(!AppPaths.IsPublicSelfTest)AppPaths.BeginPublicSelfTest();
-        var display=new NetworkDisplayWindow();for(int i=0;i<=16;i++){var value=display.Update(i*250,new(i*1000,i*2000));long expected=i<8?0:i<16?4500:12500;if(value.Upload!=expected||value.Download!=expected*2)throw new InvalidOperationException("Two-second network hold/average failed.");}
         var output=Path.Combine(Environment.CurrentDirectory,"artifacts","cycle-layout");Directory.CreateDirectory(output);
         foreach(float scale in new[]{1f,1.5f,2f}) {
             using var form=new CycleSettingsForm();form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);form.Show();Application.DoEvents();if(scale!=1)form.Scale(new SizeF(scale,scale));form.PerformLayout();Application.DoEvents();
@@ -103,6 +102,5 @@ internal sealed class CycleSettingsForm : Form
             using var bitmap=new Bitmap(form.Width,form.Height);form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,$"scale-{scale:0.0}.png"));form.Close();
         }
         Console.WriteLine("CYCLE_LAYOUT_OK 1x/1.5x/2x, order/check-state retained; isolated profile only");
-        Console.WriteLine("METRICS_DISPLAY_INTERVAL_OK 2000ms hold, 8-sample average");
     }
 }
