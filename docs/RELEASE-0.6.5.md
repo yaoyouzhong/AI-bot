@@ -26,7 +26,7 @@
 
 电脑已读同步已在 .168 实机清除未读数；汽水音乐已在 .175 实机验收。它们是对应版本的运行证据，不冒充 .176 新镜像的实机验收。本版完整目视／触摸、长期运行／睡眠恢复、新图库导入后的设备验收和 Apple Music 实际播放仍待完成；历史传输不稳定项目保留原验收边界。ESP8266 .5.2 经过构建和材料校验，尚未刷入实机，本次发布不自动升级设备。Windows 安装器未签名，Mac 为临时签名且未公证。
 
-新截图来自本版原生 UI 隔离渲染，使用演示数据，见 [截图来源](SCREENSHOTS.md)。未变化的素材和历史产品介绍视频保留，不以视频代替本版功能列表。[完整下载中心](../DOWNLOADS.md) · [图库说明](GALLERY-PACKS.md) · [全部素材审核](RELEASE-MEDIA-AUDIT-20261011.md)
+新截图来自本版原生 UI 隔离渲染，使用演示数据，见 [截图来源](SCREENSHOTS.md)。108 秒产品介绍和三种比例封面已同步实质变化镜头；未变化的画面保留来源记录。视频不代替完整功能列表或实机验收。[新版产品介绍](PRODUCT_VIDEO.md) · [完整下载中心](../DOWNLOADS.md) · [图库说明](GALLERY-PACKS.md) · [全部素材审核](RELEASE-MEDIA-AUDIT-20261011.md)
 
 ## English
 
@@ -38,4 +38,4 @@ All 8,538 baseline glyphs retain their metrics/bitmaps; the source font contains
 
 The unpublished bridge 0.6.4 candidate was superseded by 0.6.5 after complete regression exposed overly broad USB cleanup recovery; unrelated exceptions now remain visible. Installer dependency hashing also supports long paths.
 
-Windows Release/public-profile/package checks and fresh TAB5 build/native regressions passed. Firmware/source/notes/license package identity is verified separately. Physical read-sync (.168) and Soda playback (.175) evidence remains version-specific; .176 visual/touch, sustained/sleep recovery, new collection hardware imports and Apple playback remain pending. ESP8266 .5.2 passes build/material checks but remains unflashed and not hardware-accepted; publication never installs it automatically. Windows setup is unsigned; Apple Silicon macOS is ad-hoc signed and not notarized. New captures are native fixture renderings, not photographs; unchanged media and the historical product video remain.
+Windows Release/public-profile/package checks and fresh TAB5 build/native regressions passed. Firmware/source/notes/license package identity is verified separately. Physical read-sync (.168) and Soda playback (.175) evidence remains version-specific; .176 visual/touch, sustained/sleep recovery, new collection hardware imports and Apple playback remain pending. ESP8266 .5.2 passes build/material checks but remains unflashed and not hardware-accepted; publication never installs it automatically. Windows setup is unsigned; Apple Silicon macOS is ad-hoc signed and not notarized. New captures are native fixture renderings, not photographs; unchanged footage retains its provenance while the 108-second film and three cover ratios are refreshed for changed features, without replacing the full feature list or hardware acceptance.

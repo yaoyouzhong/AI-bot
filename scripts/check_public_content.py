@@ -112,6 +112,8 @@ DOC_ASSET_HASHES = json.loads((ROOT / "licenses/materials.json").read_text(encod
 REVIEWED_PRODUCT_MEDIA = frozenset({
     "docs/assets/product-intro/AI-bot-product-intro.mp4",
     "docs/assets/product-intro/AI-bot-cover.png",
+    "docs/assets/product-intro/AI-bot-cover-4x3.png",
+    "docs/assets/product-intro/AI-bot-cover-3x4.png",
 })
 
 REVIEWED_PET_MEDIA = frozenset({
