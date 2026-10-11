@@ -38,7 +38,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 | 看天气、行情、负载与音乐 | **应用**，选择对应卡片 |
 | 换时钟样式、查看桌宠 | **应用 → 时钟 / 桌宠** |
 | 看月历与生日 | 点击总览日期或顶部生日提醒；电脑端管理 **日历生日** |
-| 调节屏幕、声音、轮播或升级 | 右上角 **设置**；四个设置分区见下方完整图集 |
+| 调节屏幕、声音、轮播或升级 | 右上角 **设置**；五个设置分区见下方完整图集 |
 
 ### 重点一：直接操作 Codex，阅读任务与回复
 
@@ -69,7 +69,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-annual.png" alt="全年点阵：每天一颗点与年度进度"></td><td width="50%"><img src="assets/screens/tab5-floral.png" alt="十二月历：当月花卉、农历与节气"></td></tr></table>
 
-在 TAB5 **设置 → 屏幕与声音**选择并预览。八种屏保为经典、年度点阵、暗夜、暖灰、十二月历、自动昼夜、每日名画、每日书法。十二月历预览可切月，自动屏保跟随实际月份；自动昼夜按设备本地 07:00–19:00 使用日间配色，其余为夜间配色。
+在 TAB5 **设置 → 屏幕与声音**选择并预览。九种屏保为经典、年度点阵、暗夜、暖灰、十二月历、自动昼夜、每日名画、每日书法和日期倒计时。十二月历预览可切月，自动屏保跟随实际月份；自动昼夜按设备本地 07:00–19:00 使用日间配色，其余为夜间配色。
 
 <details>
 <summary>展开点阵暗夜与暖灰配色</summary>
@@ -82,9 +82,9 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 预览和自动艺术屏保均支持正反横屏、左右竖屏，书法后续分页也能转向；普通系统页面保持横屏。作品名、作者、博物馆与来源保留在画面中；已核实的中文译名直接显示，没有通用译名则保留馆藏原名。
 
-<p><img src="assets/screens/tab5-painting-portrait.png" height="400" alt="每日名画竖屏：林良作品与馆藏署名"> <img src="assets/screens/tab5-calligraphy-portrait.png" height="400" alt="每日书法竖屏：王嗣奭作品与馆藏署名"></p>
+<p><img src="assets/screens/tab5-painting-portrait.png" height="400" alt="每日名画竖屏：林良作品与馆藏署名"> <img src="assets/screens/tab5-calligraphy-portrait.png" height="400" alt="每日书法竖屏：王羲之快雪时晴帖（传唐摹本）与馆藏署名"></p>
 
-本次精选作品集含 **366 件名画、366 件书法**，分别提供可选下载包，分页和方向不重复计作作品。图片同步需要电脑及 AI-bot 运行；断线保留最近成功图片。未公开前下载中心保留原正式包。[图库安装与许可](GALLERY-PACKS.md)
+本次精选作品集含 **366 件名画、366 件书法**，分别提供可选下载包，分页和方向不重复计作作品。图片同步需要电脑及 AI-bot 运行；断线保留最近成功图片。本次程序更新沿用 2026.10.09 图库，新内容后续独立发布。[图库安装与许可](GALLERY-PACKS.md)
 
 <details>
 <summary>展开名画与书法的横屏排版</summary>
@@ -144,6 +144,8 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-clock-solar.png" alt="当地日出日落昼夜环"></td><td width="50%"><img src="assets/screens/tab5-clock-lcd.png" alt="经典绿色液晶时光"></td></tr></table>
 
+<table><tr><td width="50%"><img src="assets/screens/tab5-clock-geometric.png" alt="几何玩色"></td><td width="50%"><img src="assets/screens/tab5-clock-star.png" alt="星轨时钟"></td></tr></table>
+
 ![九宫格表盘选择](assets/screens/tab5-clock-picker.png)
 
 **两类倒计时独立：** 应用时钟内设置时长、开始／暂停／重置；日期倒计时在屏保设置中指定名称和日期，按天显示，未选中此屏保时隐藏配置。
@@ -165,7 +167,11 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-settings-connection.png" alt="设备设置：连接与网络"></td><td width="50%"><img src="assets/screens/tab5-settings-screen.png" alt="设备设置：屏幕与声音"></td></tr></table>
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，当前 .156"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，已提供 .176 升级包（演示）"></td></tr></table>
+
+![设备信息（演示元数据）](assets/screens/tab5-settings-info.png)
+
+固件升级图使用本版真实说明 sidecar；图中较旧的“当前版本”为离线夹具，示例展示向 .176 升级，不代表实机版本或跨全部历史分区兼容。
 
 电脑端“我的设备”选 TAB5，可打开 **显示设置、语音设置、日历生日、常用任务、数据设置、连接升级**；托盘分组提供常用快捷入口。[安装与连接步骤](INSTALL.zh.md#tab5-first)
 
@@ -309,17 +315,17 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 | 平台 | 当前范围 | 验证说明 |
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
-| ESP8266 0.5.0 | 小屏页面、时钟、桌宠、USB / Wi-Fi | 沿用已发布固件；本次文档更新没有重刷或重新完成全部硬件验收。 |
-| TAB5 0.2.149-ui | 触控、Codex 直达、八种屏保与艺术四方向 | 基础界面与分页转向沿用 [.145 验收](TAB5-ACCEPTANCE-145.md)；.149 的精确启动和两轮 BLE 冷下载见[补丁验收](TAB5-BLE-GALLERY-148.md)。未重做出厂首刷。 |
+| ESP8266 0.5.2 | 小屏页面、时钟、桌宠、USB / Wi-Fi；网速数字和曲线按一秒均值同步 | 本次构建、源码与分发材料校验通过，尚未安装或完成 .5.2 实机验收。 |
+| TAB5 0.2.176-ui | 触控、Codex 直达、九款时钟、计时、日期倒计时与艺术四方向 | 本版构建、原生 UI 回归与发布包校验通过；已读同步沿用 .168 实机证据，汽水音乐沿用 .175 实机证据。.176 完整实机验收、新图库导入和 Apple Music 播放待完成。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；未实现本文 Windows TAB5、统一更新及艺术导入入口。Intel Mac 未验证。 |
 
-[发布明细](RELEASE-0.6.1.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
+[发布明细](RELEASE-0.6.5.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.1, ESP8266 0.5.0 and TAB5 0.2.149-ui. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.5, ESP8266 0.5.2 and TAB5 0.2.176-ui. Start with the device overview, then follow the matching device tour.
 
-**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all four settings panels. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
+**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all five settings panels. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
 
 **ESP8266:** AI activity, quotas, reset times/cards and configurable cycling are the primary use. Expand the galleries for other providers, weather, stocks, metrics, music, pets and the clock screensaver. Control pages and settings from the computer; TAB5 touch operations, Codex Direct and art collections do not apply to the small display.
 

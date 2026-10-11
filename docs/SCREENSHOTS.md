@@ -15,6 +15,10 @@
 
 2026-10-07 同步至 Windows AI-bot 0.6.1 与 TAB5 0.2.149-ui。仅刷新显示版本变化的更新中心、设备中心及 TAB5 固件设置页，其他截图和视频沿用已复核素材。Windows 窗口和 TAB5 页面来自原生 WinForms/LVGL 代码的隔离渲染，使用固定演示数据，**不是硬件实拍，也不替代真机验收**。基础功能见 [.145 验收记录](TAB5-ACCEPTANCE-145.md)，本次补丁另见 [.149 BLE 验收记录](TAB5-BLE-GALLERY-148.md)。
 
+2026-10-11 补充审核：重新捕获当前 Windows 设备中心、各类安装与连接窗口、更新窗口及设置控件；刷新 TAB5 总览、模型页、应用入口和设置导航，补齐几何玩色、星轨与设备信息图。固件升级画面读取本版真实 .176 sidecar；“当前版本 .21”来自离线夹具，实际固件版本以镜像元数据为准，不作为真机版本证据。新图库和宣传视频未替换。[逐项审核](RELEASE-MEDIA-AUDIT-20261011.md)。
+
+Additional audit: current Windows controls and TAB5 overview/model/apps/settings frames are refreshed, with geometric/star faces and device information added. The upgrade view uses the actual .176 sidecar. Older installed-version labels are offline fixtures, not device or binary identities. New collection data and the historical film are retained unchanged.
+
 ## Windows 捕获
 
 `tools/doc-capture/DocCapture.cs` 在读取设置前启用公共测试隔离目录。不启动 BridgeRuntime、串口、HTTP 服务、账户刷新或授权浏览器，也不读取用户桌宠缓存。演示设备身份、账户额度、会话和音乐信息均为虚构样例。
@@ -31,7 +35,7 @@ dotnet tools/doc-capture/bin/Release/net8.0-windows10.0.19041.0/DocCapture.dll <
 ```
 
 - `--evergreen-media`：宣传视频专用的原生更新、设备中心与图库控件；具体版本显示为“已安装／可用更新”等占位文字，不改运行程序的版本检查或显示。
-- `--release-current`：使用真实更新窗口与图库管理窗口，模拟发布查询、旧版本设备和已安装图库的元数据。`update-center.png` 是“发现可用更新”的示例；`gallery-packs.png` 的 402/411 件状态来自与发布包一致的固定数据，不是另一次导入验证。不下载、安装或刷机。
+- `--release-current`：使用真实更新窗口与图库管理窗口，模拟发布查询、旧版本设备和已安装图库的元数据。`update-center.png` 是“发现可用更新”的示例；`gallery-packs.png` 的 366/366 件状态来自与发布包一致的固定数据，不是另一次导入验证。不下载、安装或刷机。
 - `--release-ui`：当前托盘菜单、设备中心、添加设备、小屏刷机、TAB5 首刷、配对、连接与升级窗口；TAB5 固件演示版本从 `versions/TAB5` 读取，不依赖文档中的手写版本。
 - `--quota-api`：固定的 DeepSeek 设置界面，输出 `api-settings-deepseek.png` 后用作公开 `api-settings.png`。
 - `--design-pet`：原生镜像和设置窗口；使用批准的项目 GIF 作为桌宠设计预览和虚构曲目的封面。它不改变已安装程序或固件的默认形象。
@@ -84,6 +88,6 @@ The earlier .145 TAB5 previews cover Codex Direct, Annual Dots in three colors, 
 
 The earlier gallery update added 26 reviewed native TAB5 captures: nine freshly rendered overview/apps/tasks/settings/pet/classic-clock frames and 17 selected from the current film capture library. They cover the ordinary pages and draft workflows as well as highlights. Fresh LVGL captures use source commit `02df4f2dbcb1c8535af7f5ffd518ae39f52844c1`, a synthetic `.145` label and original project pet artwork. The existing ESP8266 mirror frames were also reviewed across all displayed page groups; they are not new physical-device captures. This update changes documentation and reviewed media only.
 
-Art attribution: Lin Liang, *Peacocks and Bamboo*, Cleveland Museum of Art 1964.242, CC0; Wang Sishi, running-script seven-character poem scroll, Tokyo National Museum / ColBase TB-6, CC BY 4.0. Source and license links appear in the table above. Images were resized and laid out for the gallery; portrait native frames were rotated upright. These licenses remain separate from the project's MIT terms, with no museum endorsement.
+Current art attribution: Lin Liang, *Peacocks and Bamboo*, Cleveland Museum of Art 1964.242, CC0; attributed Wang Xizhi / Tang copy, *Timely Clearing After Snowfall*, National Palace Museum Taipei collection 19, with the published public-domain source record. The Wang Sishi / ColBase TB-6 CC BY 4.0 example belongs to historical exports. Source and license links appear in the table above. Images were resized and laid out for the gallery; portrait native frames were rotated upright. These licenses remain separate from the project's MIT terms, with no museum endorsement.
 
 The earlier batch contained 52 regenerated or added screenshots. A subsequent audit found that the tray fixture still used the retired TrayMenu factory; it now calls the production DeviceCenterMenu.Build factory, and the corrected grouped menu was recaptured and visually checked. Exact bytes and paths remain enforced in `licenses/materials.json`. Fonts/themes may affect cross-machine appearance. Historical diagrams are identified as illustrations, and private backups/runtime data are not published. See the separate hardware acceptance and video provenance records.

@@ -2,22 +2,22 @@
 
 普通用户按[图文指南](../INSTALL.zh.md)选择首刷或升级包，无需源码。
 
-## 当前版本：0.2.149-ui
+## 当前版本：0.2.176-ui
 
-下载 [TAB5 0.2.149-ui 源码与构建快照](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/TAB5-0.2.149-ui-source.zip)，校验同一发布页的 [SHA256SUMS.txt](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.149-ui/SHA256SUMS.txt)。
+下载 [TAB5 0.2.176-ui 源码与构建快照](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.176-ui/TAB5-0.2.176-ui-source.zip)，校验同一发布页的 [SHA256SUMS.txt](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.176-ui/SHA256SUMS.txt)。
 
 | 身份 | 值 |
 | --- | --- |
-| 源码提交 | `08de19b62e2e36cad0aac6d26b5e21e735ece401` |
-| 对应应用 SHA-256 | `59507517f4fa79f4192e982614d4861df56a81e088e78bf675e6a84184ec6946` |
-| 源码 ZIP SHA-256 | `53b044be956722a15b90db70a5ebd012f1279d8869555994d3cd098f69ed0acd` |
+| 源码提交 | `fff1687932c0c261cb769613879a288f1103d48a` |
+| 对应应用 SHA-256 | `02ad7d015ea9ab40ef46a0a8f5cfffd96f3bae37fbf8364ac54be4dfbe55a276` |
+| 源码 ZIP SHA-256 | `d911dc27da498f7d9d00a30d471d2d93ec15974c9f806e8e1942be7da0d5abc5` |
 | ESP-IDF | 5.4.2，commit `f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0` |
 
 以包内 `SOURCE-MANIFEST.json`、`source/README.md`、`dependencies.lock`、实际 `sdkconfig` 和 SDK 差异记录为准。准备相应官方 ESP-IDF 环境后按工程说明构建 `source/firmware/`。源码快照不是刷机文件；依赖锁定不等于已在独立环境复现逐字节相同的 BIN，清单明确记录 `reproducibleBinaryVerified: false`。
 
-自有源码 MIT，组件、字体与词库保留原许可。图库支持包含在固件中，艺术图像另行下载；许可和镜像验收分别见[许可范围](../TAB5-LICENSE-SCOPE.md)与[.149 验收](../TAB5-BLE-GALLERY-148.md)。
+自有源码 MIT，组件、字体与词库保留原许可。图库支持包含在固件中，艺术图像另行下载；许可和镜像验收分别见[许可范围](../TAB5-LICENSE-SCOPE.md)与[本版验证边界](../RELEASE-0.6.5.md)。
 
-The current developer archive is 0.2.149-ui and matches the source/application identities above. Check the release checksum, then follow the included manifest, README, dependency lock, sdkconfig and SDK patch with ESP-IDF 5.4.2. It is not a flashing package; byte-identical independent reproduction remains unverified. Own code is MIT, third-party terms remain intact, and artwork collections are separate.
+The current developer archive is 0.2.176-ui and matches the source/application identities above. Check the release checksum, then follow the included manifest, README, dependency lock, sdkconfig and SDK patch with ESP-IDF 5.4.2. It is not a flashing package; byte-identical independent reproduction remains unverified. Own code is MIT, third-party terms remain intact, and artwork collections are separate.
 
 <details>
 <summary>历史 0.2.89-ui 快照 / Historical snapshot</summary>

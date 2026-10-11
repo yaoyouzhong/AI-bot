@@ -1,5 +1,9 @@
 # 产品介绍视频 / Product introduction video
 
+2026-10-11 审核：此片及封面保留 2026-10-09 版本，未针对桥接 0.6.5／TAB5 .176 重新制作。新增时钟、两类倒计时、导航和已读同步没有在此片完整展示；不能称为本版最新功能全览。最新内容见 [本次发布说明](RELEASE-0.6.5.md)与 [功能图鉴](FEATURES.zh.md)。
+
+Audit 2026-10-11: the film and cover retain the 2026-10-09 edition. They have not been revised for bridge 0.6.5 / TAB5 .176 and do not fully show new clocks, countdowns, navigation or read synchronization. Use the current release record and feature guide for those changes.
+
 2026-10-09 本次发布同步：保持已批准的 108 秒分镜、转场与原音轨，替换 TAB5 .156 的周额度七等分、天气／电脑状态／音乐、Codex 直达和三个月历画面，以及当前 Windows 设备中心／更新控件。图库镜头改为 366 件名画、366 件中国书法的年度精选集，并使用当前桥接候选的实际隔离导入截图。未变化镜头沿用历史来源；不冒称新的硬件实拍。新 MP4 已完成导出与本地审阅，主页和本页的 GitHub 原生播放器附件已同步为本次成片。
 
 2026-10-09 candidate revision retains the approved 108-second timeline, transitions and original audio. Changed native TAB5 .156 quota, daily information, music, Codex Direct and calendar views, current Windows controls and the actual isolated 366 + 366 curated import are refreshed. Unchanged footage keeps historical provenance. The native GitHub attachment and the player below are synchronized with the current export.

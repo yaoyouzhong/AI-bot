@@ -13,11 +13,16 @@ internal static class ReleaseMedia
     internal static string EspVersion => File.ReadAllText(Path.Combine("firmware", "VERSION")).Trim();
     internal static void Run(string output, bool evergreen=false)
     {
-        string releases=JsonSerializer.Serialize(new[]{
+        using var catalog=JsonDocument.Parse(File.ReadAllText("download-catalog.json"));
+        var downloads=catalog.RootElement.GetProperty("downloads");
+        object GalleryAsset(string category) {var item=downloads.GetProperty(category);return new{name=item.GetProperty("file").GetString(),size=item.GetProperty("size").GetInt64(),digest="sha256:"+item.GetProperty("sha256").GetString(),browser_download_url=$"https://github.com/yaoyouzhong/AI-bot/releases/download/{item.GetProperty("tag").GetString()}/{item.GetProperty("file").GetString()}"};}
+        string sums=string.Join("\n",new[]{"painting","calligraphy"}.Select(category=>{var item=downloads.GetProperty(category);return item.GetProperty("sha256").GetString()+"  "+item.GetProperty("file").GetString();}));
+        string releases=JsonSerializer.Serialize(new object[]{
             UpdateSelfTest.Release("bridge",BridgeVersion,$"AIBotBridge-{BridgeVersion}-setup-win-x64.exe",[]),
             UpdateSelfTest.Release("tab5",Tab5Version,$"TAB5-upgrade-{Tab5Version}.zip",[]),
-            UpdateSelfTest.Release("esp8266",EspVersion,$"AI-bot-{EspVersion}-firmware-materials.zip",[])});
-        var handler=new UpdateSelfTest.Handler{Reply=(_,_)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(releases,Encoding.UTF8,"application/json")})};
+            UpdateSelfTest.Release("esp8266",EspVersion,$"AI-bot-{EspVersion}-firmware-materials.zip",[]),
+            new{tag_name=downloads.GetProperty("painting").GetProperty("tag").GetString(),draft=false,prerelease=false,body="Published collection fixture",published_at="2026-10-09T00:00:00Z",assets=new object[]{GalleryAsset("painting"),GalleryAsset("calligraphy"),new{name="SHA256SUMS.txt",size=sums.Length,browser_download_url="https://github.com/yaoyouzhong/AI-bot/releases/download/"+downloads.GetProperty("painting").GetProperty("tag").GetString()+"/SHA256SUMS.txt"}}}});
+        var handler=new UpdateSelfTest.Handler{Reply=(request,_)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(request.RequestUri!.AbsolutePath.EndsWith("/SHA256SUMS.txt")?sums:releases,Encoding.UTF8,"application/json")})};
         using var service=new UpdateService(handler);
         UpdateDevice[] devices=[new("bridge","电脑端 AI-bot","0.6.1","运行中",true,"bridge","安装程序",true),new("tab","M5Stack TAB5","0.2.149-ui","在线",true,"upgrade-tab5","在设备上确认安装",true),new("esp","ESP8266 小屏",EspFirmwareVersion.Legacy,"在线",true,"flash","USB，先备份再升级",true)];
         using(var form=new UpdateCenterForm(()=>devices,(_,_)=>throw new InvalidOperationException("Documentation must not install"),service)){
@@ -36,11 +41,11 @@ internal static class ReleaseMedia
         }
         // Counts match the published packs. These are UI-only fixture records,
         // not installed image data and not evidence of an import operation.
-        foreach(var (category,works,frames) in new[]{("painting",402,804),("calligraphy",411,3000)}){
+        foreach(var (category,works,frames) in new[]{("painting",366,860),("calligraphy",366,1782)}){
             var directory=Path.Combine(GalleryPack.Root,category);Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory,"PACK.json"),JsonSerializer.Serialize(new GalleryPackManifest(1,"2026.10.07",category,works,frames,[]),JsonDefaults.Options));
+            File.WriteAllText(Path.Combine(directory,"PACK.json"),JsonSerializer.Serialize(new GalleryPackManifest(1,"2026.10.09",category,works,frames,[]),JsonDefaults.Options));
         }
-        using(var form=new GalleryPackForm()){Show(form);Save(form,"gallery-packs");form.Close();}
+        using(var form=new GalleryPackForm(service,_=>throw new InvalidOperationException("Documentation must not open links"))){Show(form);Save(form,"gallery-packs");form.Close();}
         if(evergreen) {
             var store=new DeviceRegistryStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData),"promo-devices.json"));
             store.Migrate(null,false,false);

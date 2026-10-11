@@ -6,7 +6,7 @@ This release delivers bridge **0.6.5**, TAB5 **0.2.176-ui** and ESP8266 **0.5.2*
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.5.md) · [简体中文](README.md)
 
-The revised video, cover and changed screenshots are synchronized with this release. The native player below shows the latest 108-second product film.
+Changed interface captures are refreshed. The retained 108-second film was last revised on 2026-10-09 and does not cover this release's new clocks, countdowns or navigation. See the release record for current features and validation limits.
 
 https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
 

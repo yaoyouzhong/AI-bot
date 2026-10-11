@@ -5,26 +5,6 @@
 Bridge 0.6.5 supports independent image/text collection imports without embedding in-progress guide content; TAB5 .176 includes readers and extended fonts. No new collection is published here. Formal 2026.10.09 image-only packs remain compatible. New text and full imported-pack hardware acceptance follow separately; font coverage must be checked because packs do not install fonts.
 
 
-2026-10-11 第六轮：新增3件原文（2件核图正文、1件权威同篇参考），累计370/867件，余497件待核；年度书法187/366件。新增40条名画权威赏析，累计167条，其余2465件留空。新版资源`2026.10.11.5`已作本地图库交付。字库源码补入288个字符，覆盖全库无缺字并保留原有字形。桥接、固件及用户图库未部署更新；见[第六轮来源、包与字库验证](development/CALLIGRAPHY-ORIGINALS-2026-10-11-ROUND6.md)。以下为历史阶段记录。
-
-Sixth round: three originals added (two image-reviewed bodies and one explicit same-poem reference), totaling 370/867 with 497 unresolved and 187/366 annual coverage. Forty authoritative painting analyses bring the total to 167; 2,465 stay empty. Local edition `2026.10.11.5` includes the reviewed content. Font source adds 288 characters with complete gallery coverage and preserves existing glyphs. No bridge deployment, device flashing or user-gallery installation. Earlier entries are historical.
-
-2026-10-11 第五轮内容包：新增8件书法原文（6件核图正文、2件明确标注的参考版本），累计367/867件，余500件待核；年度书法可读184/366件。新增120条有逐件权威出处的欣赏提示（名画40、书法80），累计127条，其余2505件留空。资源版`2026.10.11.4`仅作本地图库交付，本轮未更新桥接、固件或用户已装图库。来源、包与验收见[第五轮来源、包与验证](development/CALLIGRAPHY-ORIGINALS-2026-10-11-ROUND5.md)。以下为历史阶段记录。
-
-Fifth content round: eight originals added (six image-reviewed bodies and two explicitly labelled references), totaling 367/867 with 500 remaining; annual coverage is 184/366. Another 120 work-specific authoritative notes were added (40 paintings, 80 calligraphy), totaling 127; 2,505 remain empty. Edition `2026.10.11.4` is a local content delivery. This round does not update the bridge, firmware or installed galleries. Entries below are historical.
-
-2026-10-11 第四轮：新增13件原文，累计359/867件，余508件待核；年度书法可读178/366件。资源版`2026.10.11.3`只保留7件逐件有权威赏析出处的欣赏提示，其余2625件留空，取消旧关键词模板。兼容源码在隔离目录构建与验证，运行桥接、设备固件和用户图库未被替换；新包先留本地。见[第四轮来源、包及验证](development/CALLIGRAPHY-ORIGINALS-2026-10-11-ROUND4.md)与[欣赏提示来源审计](development/ART-LOOKING-AUDIT-2026-10-11.md)。以下为历史阶段记录。
-
-Fourth round: 13 additions, 359/867 readable originals, 508 remaining; annual coverage 178/366. Edition `2026.10.11.3` retains only seven work-specific authoritative viewing notes and omits 2,625. Compatibility source changes were built and tested in isolation; live software, firmware and galleries were not replaced. New packs remain local. Entries below are historical.
-
-2026-10-11 第三轮内容包：本轮新增 76 件原文，累计 346/867 件，余 521 件待核；年度书法可读 171/366 件。已纳入 `2026.10.11.2` 年度书画和全量书法 ZIP，生产导入器隔离验证通过。本任务未更新桥接或固件；新增生僻字的设备字库覆盖仍需后续处理。见[来源、包与验证](development/CALLIGRAPHY-ORIGINALS-2026-10-11-ROUND3.md)。下方旧统计和部署状态为历史阶段记录。
-
-Third content-only round: 76 additions, 346/867 readable originals, 521 remaining; annual coverage 171/366. Edition `2026.10.11.2` passed isolated production imports. No bridge/firmware update was performed; new rare-glyph coverage remains a device-side limitation. Earlier entries below are historical.
-
-2026-10-11 本轮内容包更新：新增 58 件原文，累计 270/867 件，余 597 件待补；年度书法可读 141/366 件。已纳入 `2026.10.11.1` 年度书画及全量书法 ZIP。此轮仅处理图库内容，没有构建或部署桥接/固件；共享工作区同期的其他部署另记。见[本轮来源、包与验证](development/CALLIGRAPHY-ORIGINALS-2026-10-11.md)。下方先前数字为历史阶段记录。
-
-Content-only update: 58 additions, 270/867 readable originals, 597 remaining; annual coverage is 141/366. Resource edition `2026.10.11.1` includes annual packs and the full calligraphy pack. This round did not build or deploy a program. Earlier counts below are historical.
-
 Windows AI-bot 0.6.3 / TAB5 0.2.156-ui 与年度精选集 2026.10.09 已发布，由[完整下载中心](../DOWNLOADS.md)提供正式下载。图库兼容 0.6.0 / .145 或更新版本。软件、固件功能统一；图库可选，ESP8266 和其他屏保无需下载。
 
 | 内容 | 文件 | 独立作品 | 横竖屏图片 | 下载大小 |
@@ -32,7 +12,7 @@ Windows AI-bot 0.6.3 / TAB5 0.2.156-ui 与年度精选集 2026.10.09 已发布�
 | 每日名画 | `AI-bot-DailyPainting-Curated-2026.10.09.zip` | 366 | 860 | 211.15 MiB |
 | 每日书法 | `AI-bot-DailyCalligraphy-Curated-2026.10.09.zip` | 366 | 1,782 | 426.37 MiB |
 
-本次只分发年度精选集，全量图库保留本地。固定入选范围见[精选清单](art-guides/CURATED-ANNUAL-2026-10-09.md)。书法包较大主要因为分页：366 件作品共有 891 页，名画 366 件共 430 页。每页各有横、竖两种排版，因此书法有 1,782 张图片，名画有 860 张；单图平均大小相近。册页、长卷、对联及成套屏幅保留为同一作品，不把分页计作额外作品。两类合计 732 件独立作品、2,642 张图片。
+本次只分发年度精选集，全量图库保留本地。作品清单与来源保存在正式 ZIP 的目录及许可材料中。书法包较大主要因为分页：366 件作品共有 891 页，名画 366 件共 430 页。每页各有横、竖两种排版，因此书法有 1,782 张图片，名画有 860 张；单图平均大小相近。册页、长卷、对联及成套屏幅保留为同一作品，不把分页计作额外作品。两类合计 732 件独立作品、2,642 张图片。
 
 1. 电脑端打开“设备中心 → 桥接设置 → 软件固件”，再点“屏保图库 → 下载图库”，从[完整下载中心](../DOWNLOADS.md)选择喜欢的类别。本次年度精选集附于 TAB5 0.2.156-ui Release，各 366 件作品。
 2. 下载后点“导入图库 ZIP…”，直接选择 ZIP，无需手动解压或放进程序目录。程序验证每个文件、图片和目录；失败或取消时保留旧图库。
@@ -63,7 +43,7 @@ Viewing notes are optional and require work-specific authoritative analysis, a s
 
 大包按 2 MiB 分段下载，每段最多尝试三次。失败、取消和关闭窗口保留断点，再次点击或重启桥接后从已保存的字节位置继续；下载缓存位于 `%LOCALAPPDATA%/AI-bot/updates/gallery-downloads`，按完整包的 SHA-256 隔离，并核对类别、日期版本、文件名和大小。包校验值变化时使用新缓存，不混用分段。完整 SHA-256 不符会清除损坏的断点；安装成功才清理该包的下载缓存，旧图库备份保留。
 
-## 图片与导读一起更新（本地改动，尚未发布）
+## 图片与导读一起更新（本版程序支持，内容稍后发布）
 
 新的名画和书法包均使用 `PACK.json schemaVersion=2`，必须包含 `guides.zh.json`。每个类别只携带本包作品的简介、欣赏提示、已核实原文、原文说明和来源记录，以 `id/category/workId` 对应图片目录；同一作品的分页共用文字。未核实或待复核原文不会发送到阅读页，通行原文与原作释文保留各自说明。
 

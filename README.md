@@ -6,7 +6,7 @@
 
 [完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.5.md) · [English](README.en.md)
 
-本次变化截图已更新；下方保留 108 秒产品介绍，最新功能与验收边界见本次版本说明。
+本次变化截图已更新；下方保留 2026-10-09 的 108 秒产品介绍，尚未覆盖本版新增时钟、倒计时与导航。最新功能与验收边界见本次版本说明。
 
 https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
 
