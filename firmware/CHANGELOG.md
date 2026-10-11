@@ -4,7 +4,7 @@ ESP8266 versions are independent of the desktop bridge and TAB5.
 
 ## 0.5.2 - 2026-10-09
 
-Local repair candidate; not installed on hardware or publicly released.
+Published alongside bridge 0.6.4 and TAB5 .176; build and distribution-material checks pass. Hardware installation and acceptance remain pending.
 
 - Share the trailing four measured 250 ms samples between system-page numbers and curves. Consume the incoming batch before drawing both, preventing numbers from advancing ahead of the chart.
 - Clear old history when the bridge sampling session changes, average only measured samples at startup, and retain fonts, colors and the number-drawing allocation fallback.
