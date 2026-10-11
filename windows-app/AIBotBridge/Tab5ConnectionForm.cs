@@ -8,10 +8,10 @@ internal sealed class Tab5ConnectionForm : Form
     internal Tab5ConnectionForm(Tab5Service service,bool loadNetworks=true,bool showUpgrade=false)
     {
         SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        Font=new Font("Microsoft YaHei UI",9F);Text="TAB5 连接";
+        Font=SettingsWindow.BodyFont();Text="TAB5 连接";
         ClientSize=new Size(640,530);MinimumSize=new Size(560,440);StartPosition=FormStartPosition.CenterScreen;
-        BackColor=Color.FromArgb(246,248,250);
-        var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(16),ColumnCount=1,RowCount=3};
+        BackColor=Color.White;
+        var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(24),ColumnCount=1,RowCount=3};
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));layout.RowStyles.Add(new RowStyle(SizeType.Percent,100));layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));Controls.Add(layout);
         var state=new Label{AutoSize=true,Dock=DockStyle.Fill,Text=service.ConnectionSummary,Padding=new Padding(12),BackColor=Color.White,Margin=new Padding(0,0,0,12)};
@@ -25,12 +25,12 @@ internal sealed class Tab5ConnectionForm : Form
         var network=Page("Wi-Fi");var usb=Page("USB 配对");var upgrade=Page("固件升级");var audio=Page("语音");
         if(showUpgrade)tabs.SelectedIndex=2;
         var benchmark=Page("传输测速");
-        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="不拍照、不写闪存。自动模式测试可用通道；固定模式只测所选通道。每路上下行各 3 次，USB 用于读取结果。"});
+        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="测试可用通道的传输速度；固定模式仅测试所选通道。"});
         var benchmarkStart=new Button{Text="开始测速"};var benchmarkStop=new Button{Text="停止",Enabled=false};
         var firmwareProbe=new Button{Text="完整固件预检",AutoSize=true};
-        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="完整固件预检：先选择固件，再以仅蓝牙接收、解压并核对整包校验值；不写闪存。需要 0.2.116-ui，传输预算 110 秒。"});
+        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="完整固件预检：先选择固件，再以仅蓝牙接收、解压并核对整包校验值；不写闪存。传输预算 110 秒。"});
         benchmark.Controls.Add(Buttons(firmwareProbe));
-        var benchmarkIsolation=new CheckBox{Text="预检时暂停 Wi-Fi，结束后恢复（需要 0.2.113-ui）",Checked=true,AutoSize=true};benchmark.Controls.Add(benchmarkIsolation);
+        var benchmarkIsolation=new CheckBox{Text="预检时暂停 Wi-Fi，结束后恢复",Checked=true,AutoSize=true};benchmark.Controls.Add(benchmarkIsolation);
         benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="暂停与恢复另需数秒；取消勾选可对照原链路。保存的网络配置保持不变。"});
         benchmark.Controls.Add(Buttons(benchmarkStart,benchmarkStop));
         var benchmarkResult=new TextBox{Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Height=220,Width=550,Text=Tab5Service.FormatBenchmark(service.BenchmarkDiagnostic)};benchmark.Controls.Add(benchmarkResult);
@@ -91,7 +91,7 @@ internal sealed class Tab5ConnectionForm : Form
             releaseNotes.Visible=cancelOta.Enabled=service.HasOta;releaseNotes.SetNotes(service.OtaNotes);
         }
         UpdateOffer();
-        upgrade.Controls.Add(Note("升级支持 Wi-Fi、USB 或蓝牙，请保持供电。按 TAB5 连接设置选择通道；自动模式优先 Wi-Fi，其次 USB、蓝牙。"));
+        upgrade.Controls.Add(Note("升级期间保持供电；通道按设备连接设置选择。"));
         offerOta.Click+=(_,_)=> {
             using var pick=new OpenFileDialog{Title="选择 TAB5 固件",Filter="TAB5 固件 (*.bin)|*.bin",CheckFileExists=true};
             if(pick.ShowDialog(this)!=DialogResult.OK)return;
@@ -155,10 +155,10 @@ internal sealed class Tab5ConnectionForm : Form
             if(loadNetworks&&!busy&&!fields.ContainsFocus&&tabs.SelectedIndex==0&&Environment.TickCount64>=nextRefresh){nextRefresh=Environment.TickCount64+10000;await Run(RefreshNetworks,"",true);}
         };
         if(loadNetworks)Shown+=async(_,_)=>await Run(RefreshNetworks,"");
-        _timer.Start();RefreshPorts();SettingsWindow.FitScreen(this);ResumeLayout(true);
+        _timer.Start();RefreshPorts();SettingsWindow.AddTitle(layout,"连接与升级");SettingsWindow.FitScreen(this);ResumeLayout(true);
     }
     private static Label Note(string text)=>new(){Text=text,AutoSize=true,ForeColor=Color.FromArgb(86,102,117),Margin=new Padding(0,4,0,8)};
-    private static Label Heading(string text)=>new(){Text=text,AutoSize=true,Font=new Font("Microsoft YaHei UI",10F,FontStyle.Bold),Margin=new Padding(0,8,0,4)};
+    private static Label Heading(string text)=>new(){Text=text,AutoSize=true,Font=SettingsWindow.SectionFont(),Margin=new Padding(0,8,0,4)};
     private static FlowLayoutPanel Buttons(params Button[] buttons) {
         var row=new FlowLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,WrapContents=true,Margin=new Padding(0,2,0,2)};
         foreach(var button in buttons){StyleCompactButton(button);button.Margin=new Padding(0,0,6,2);row.Controls.Add(button);}return row;

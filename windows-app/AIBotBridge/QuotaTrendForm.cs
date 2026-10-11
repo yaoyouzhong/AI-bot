@@ -19,10 +19,10 @@ internal sealed class QuotaTrendForm : Form
         _history = history ?? QuotaHistory.Shared;
         SuspendLayout();
         Text = "Codex 额度趋势";AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        Font = new Font("Microsoft YaHei UI", 10, FontStyle.Regular, GraphicsUnit.Point);
+        Font = SettingsWindow.BodyFont();
         ClientSize = new Size(850, 500); MinimumSize = new Size(640, 420); BackColor = Color.White;
         StartPosition = FormStartPosition.Manual;
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), RowCount = 4, ColumnCount = 1 };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), RowCount = 4, ColumnCount = 1 };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         for (int i = 0; i < 2; i++) layout.RowStyles.Add(new(SizeType.AutoSize));
         layout.RowStyles.Add(new(SizeType.Percent, 100)); layout.RowStyles.Add(new(SizeType.AutoSize));
@@ -68,7 +68,7 @@ internal sealed class QuotaTrendForm : Form
         _chart.Selected += i => { if (i >= 0 && i < _table.Rows.Count) { _views.SelectedIndex = 1; _table.ClearSelection(); _table.Rows[i].Selected = true; _table.FirstDisplayedScrollingRowIndex = i; } };
         RefreshHistory();
         AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
-        SettingsWindow.FitScreen(this);
+        SettingsWindow.AddTitle(layout,"额度历史");SettingsWindow.FitScreen(this);
         ResumeLayout(true);
     }
     internal void SetTestView(int metric, int range, bool details) { _metric.SelectedIndex = metric; _range.SelectedIndex = range; _views.SelectedIndex = details ? 1 : 0; }

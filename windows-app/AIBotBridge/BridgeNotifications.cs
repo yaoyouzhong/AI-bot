@@ -38,8 +38,8 @@ internal sealed class NotificationSettingsForm : Form
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=2000};
     private bool _disposed;
     internal NotificationSettingsForm(BridgeNotifications notifications) {
-        Text="AI-bot · 电脑提醒";Font=new("Microsoft YaHei UI",9);AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new(96,96);ClientSize=new(600,390);MinimumSize=new(540,330);
-        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(16),ColumnCount=1,RowCount=5};for(int i=0;i<5;i++)root.RowStyles.Add(new(i==3?SizeType.Percent:SizeType.AutoSize,i==3?100:0));root.ColumnStyles.Add(new(SizeType.Percent,100));Controls.Add(root);
+        Text="AI-bot · 电脑提醒";Font=SettingsWindow.BodyFont();AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new(96,96);ClientSize=new(600,390);MinimumSize=new(540,330);
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=5};for(int i=0;i<5;i++)root.RowStyles.Add(new(i==3?SizeType.Percent:SizeType.AutoSize,i==3?100:0));root.ColumnStyles.Add(new(SizeType.Percent,100));Controls.Add(root);
         var value=notifications.Options;var checks=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};
         CheckBox Box(string text,bool selected){var box=new CheckBox{Text=text,Checked=selected,AutoSize=true};checks.Controls.Add(box);return box;}
         var completion=Box("Codex 完成",value.Completion);var attention=Box("等待操作",value.Attention);var quota=Box("额度异常",value.Quota);var sound=Box("完成音",value.Sound);root.Controls.Add(checks,0,0);
@@ -47,12 +47,12 @@ internal sealed class NotificationSettingsForm : Form
         DateTimePicker Time(int minute)=>new(){Format=DateTimePickerFormat.Custom,CustomFormat="HH:mm",ShowUpDown=true,Value=DateTime.Today.AddMinutes(minute),Width=90};
         var start=Time(value.QuietStart);var end=Time(value.QuietEnd);var separator=new Label{Text="—",AutoSize=true};var hours=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};hours.Controls.AddRange([quiet,start,separator,end]);root.Controls.Add(hours,0,1);
         void QuietVisibility(){start.Visible=end.Visible=separator.Visible=quiet.Checked;}quiet.CheckedChanged+=(_,_)=>QuietVisibility();QuietVisibility();
-        var info=new Label{Text=notifications.Error??"本次运行",AutoSize=true,Dock=DockStyle.Fill,ForeColor=Color.DimGray};root.Controls.Add(info,0,2);
+        var info=new Label{Text=notifications.Error??"提醒记录",AutoSize=true,Dock=DockStyle.Fill,ForeColor=Color.DimGray};root.Controls.Add(info,0,2);
         var grid=new DataGridView{Dock=DockStyle.Fill,ReadOnly=true,AllowUserToAddRows=false,RowHeadersVisible=false,AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill,BackgroundColor=Color.White};foreach(string column in new[]{"时间","提醒","处理"})grid.Columns.Add(column,column);root.Controls.Add(grid,0,3);
         void RefreshHistory(){grid.Rows.Clear();foreach(var entry in notifications.History)grid.Rows.Add(entry.At.ToLocalTime().ToString("MM-dd HH:mm:ss"),entry.Title,entry.Outcome);}
         var save=new Button{Text="保存",AutoSize=true,Anchor=AnchorStyles.Right};root.Controls.Add(save,0,4);
-        save.Click+=(_,_)=>{try{notifications.Save(new(completion.Checked,attention.Checked,quota.Checked,sound.Checked,quiet.Checked,start.Value.Hour*60+start.Value.Minute,end.Value.Hour*60+end.Value.Minute));info.Text="已保存 · 本次运行记录";}catch(Exception ex){info.Text=ex.Message;}};
-        Shown+=(_,_)=>{RefreshHistory();_timer.Start();};_timer.Tick+=(_,_)=>RefreshHistory();SettingsWindow.FitScreen(this);
+        save.Click+=(_,_)=>{try{notifications.Save(new(completion.Checked,attention.Checked,quota.Checked,sound.Checked,quiet.Checked,start.Value.Hour*60+start.Value.Minute,end.Value.Hour*60+end.Value.Minute));info.Text="已保存";}catch(Exception ex){info.Text=ex.Message;}};
+        SettingsWindow.StyleButton(save,true);SettingsWindow.AddTitle(root,"提醒管理");Shown+=(_,_)=>{RefreshHistory();_timer.Start();};_timer.Tick+=(_,_)=>RefreshHistory();SettingsWindow.FitScreen(this);
     }
     protected override void Dispose(bool disposing){if(disposing&&!_disposed){_disposed=true;_timer.Dispose();}base.Dispose(disposing);}
 }

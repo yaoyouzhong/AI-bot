@@ -41,7 +41,7 @@ internal sealed class DeviceCenterForm : Form
         _health.ColumnStyles.Add(new(SizeType.AutoSize));_health.ColumnStyles.Add(new(SizeType.Percent,100));_health.RowStyles.Add(new(SizeType.AutoSize));_state.Margin=new Padding(0,0,18,0);_firmware.Margin=Padding.Empty;_health.Controls.Add(_state,0,0);_health.Controls.Add(_firmware,1,0);
         for(int i=0;i<3;i++){_transport.ColumnStyles.Add(new(SizeType.Percent,100F/3));var label=_transportLabels[i];label.AutoSize=true;label.Dock=DockStyle.Fill;label.Margin=new Padding(0,0,8,0);_transport.Controls.Add(label,i,0);}
         _transport.RowStyles.Add(new(SizeType.AutoSize));
-        Text="AI-bot · 设备中心";Font=new Font("Microsoft YaHei UI",9F);AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
+        Text="AI-bot · 设备中心";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         ClientSize=new(840,680);MinimumSize=new(760,500);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;Padding=new Padding(12);
         var devicesPage=Page("我的设备","devices");Page("账号数据","accounts").Controls.Add(_accounts);Page("桥接设置","bridge-settings").Controls.Add(_bridge);
         var body=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Margin=Padding.Empty};
@@ -124,13 +124,13 @@ internal sealed class DeviceCenterForm : Form
         row.Controls.Add(Button("导入 ESP8266",()=>_action("","migrate-legacy")));row.Controls.Add(Button("不再提示",()=>_action("","dismiss-legacy")));_legacy.Controls.Add(row);
     }
     private void RenderShared() {
-        Clear(_accounts);Heading(_accounts,"账号数据",12);Note(_accounts,"在电脑上配置一次，所有已添加设备共用。");
+        Clear(_accounts);Heading(_accounts,"账号数据",17);
         var accounts=ActionGrid(_accounts);
         Card(accounts,"模型账号","登录与授权模型账号",()=>_common("authorize"));
         Card(accounts,"天气定位","城市、定位与天气来源",()=>_common("weather-settings"));
         Card(accounts,"自选股票","管理关注的股票",()=>_common("stocks-settings"));
         Card(accounts,"额度历史","查看 Codex 额度记录",()=>_common("quota-trend"));
-        _bridge.Controls.Remove(_startup);Clear(_bridge);Heading(_bridge,"桥接设置",12);Note(_bridge,"管理这台电脑上的桥接程序。");
+        _bridge.Controls.Remove(_startup);Clear(_bridge);Heading(_bridge,"桥接设置",17);
         _startup.RefreshState();_bridge.Controls.Add(_startup);
         var bridge=ActionGrid(_bridge);
         Card(bridge,"服务状态","连接状态与数据更新",()=>_common("status"));

@@ -2,7 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.6.4 - 2026-10-11
+
+### Features and experience
+
+- Recognize Soda Music and Apple Music through the shared music snapshot, artwork, duration and valid elapsed progress. Physical TAB5 checks passed Soda pause, resume, seek and continuous progress; Apple Music playback acceptance remains pending.
+- Import independent painting/calligraphy image-text packs containing introductions, viewing suggestions, verified originals and sources. Validate identity, hashes and device limits before atomic replacement and hot reload. Cancellation/failure preserves installed artwork and backups. This release ships the importer without new collections or in-progress text; legacy image-only packs remain compatible.
+- Check/download/verify/install formal curated categories directly, with chunk retries, resumable downloads, offline ZIP imports and downgrade prevention.
+- Unify Device Center typography, cards, tables, buttons, spacing and high-DPI layouts; simplify copy and repair window disposal/settings interactions.
+- Supply local sunrise, sunset and time-zone weather data for TAB5's day/night dial, retaining successful caches and default-time fallback.
+
+### Fixes and synchronization
+
+- Synchronize Codex desktop read state by account, host and exact reply turn to TAB5's top-right unread count, reply button and overview. Unavailable states and trimmed catalogues retain reminders; new replies require fresh confirmation. Desktop opening a reply cleared the physical TAB5 count from 1 to 0.
+- Carry actual quota periods/reset windows through collection, caching and TAB5 conversion, including new Kimi formats, explicit MiniMax windows and Zhipu units. Unknown monthly periods are not inferred.
+- Improve USB close/reopen buffer isolation and stale-response rejection; yield telemetry while serial is busy and send fresh snapshots after recovery. Enable immediate Wi-Fi ACK when supported and use authenticated BLE advertisement hints with normal-scan fallback.
+- Add content-free transfer stages, receive generations and numeric rejection diagnostics. Retry a recoverable compressed-state rejection once in plain form; other failures remain failures.
+
+### Delivery and acceptance
+
+- Companion TAB5 0.2.176-ui consolidates clocks, separate timer/day-countdown functions, faces, navigation, display modes, provider icons and extended fonts. Existing user artwork is retained; new collections will be released separately.
+- Local deployment, physical Soda playback and Codex read synchronization have evidence. New image/text pack hardware acceptance, Apple Music playback, sustained/sleep recovery and some transport stability remain separate. See the [release record](docs/RELEASE-0.6.4.md).
 
 ## 0.6.3 - 2026-10-09
 

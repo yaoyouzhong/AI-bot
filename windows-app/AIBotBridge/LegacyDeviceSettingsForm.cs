@@ -5,9 +5,10 @@ internal sealed class LegacyDeviceSettingsForm : Form
     private readonly ComboBox _mode=new(){DropDownStyle=ComboBoxStyle.DropDownList,Name="esp-connection-mode"};
     internal EspConnectionMode SelectedMode=>(EspConnectionMode)_mode.SelectedIndex;
     internal LegacyDeviceSettingsForm(SerialPublisher? serial=null,EspConnectionMode mode=EspConnectionMode.Auto,Func<DeviceView>? view=null) {
-        var settings=BridgeSettings.Load();Text="ESP8266 · 连接与屏保";Font=new Font("Microsoft YaHei UI",9F);AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
+        var settings=BridgeSettings.Load();Text="ESP8266 · 连接与屏保";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         ClientSize=new(440,350);MinimumSize=new(410,340);StartPosition=FormStartPosition.CenterScreen;
-        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(18)};Controls.Add(panel);SettingsWindow.FitFlow(panel);
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=2};root.ColumnStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));Controls.Add(root);
+        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Margin=Padding.Empty};root.Controls.Add(panel,0,0);SettingsWindow.FitFlow(panel);
         panel.Controls.Add(new Label{Text="连接方式",AutoSize=true});
         _mode.Items.AddRange(["自动（默认）","仅 USB","仅 Wi-Fi"]);_mode.SelectedIndex=(int)mode;panel.Controls.Add(_mode);
         var hint=new Label{AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(3,6,3,12)};panel.Controls.Add(hint);
@@ -22,9 +23,9 @@ internal sealed class LegacyDeviceSettingsForm : Form
         var timer=new System.Windows.Forms.Timer{Interval=1500};timer.Tick+=(_,_)=>RefreshConnection();timer.Start();Disposed+=(_,_)=>timer.Dispose();
         panel.Controls.Add(new Label{Text="屏保等待（分钟，0 为关闭）",AutoSize=true,Margin=new Padding(3,12,3,3)});
         var saver=new NumericUpDown{Minimum=0,Maximum=1440,Value=int.TryParse(settings.Get("screensaver_timeout_minutes"),out int minutes)?Math.Clamp(minutes,0,1440):0};panel.Controls.Add(saver);
-        var row=DeviceCenterForm.Row();row.Controls.Add(DeviceCenterForm.Button("保存",()=> {
+        var row=DeviceCenterForm.Row();row.Dock=DockStyle.Fill;row.FlowDirection=FlowDirection.RightToLeft;var save=DeviceCenterForm.Button("保存",()=> {
             if(!settings.SaveEditable(new Dictionary<string,string>{["screensaver_timeout_minutes"]=((int)saver.Value).ToString()},out string error)){MessageBox.Show(this,error);return;}
             DialogResult=DialogResult.OK;
-        },true));var cancel=DeviceCenterForm.Button("取消",Close);row.Controls.Add(cancel);CancelButton=cancel;panel.Controls.Add(row);SettingsWindow.FitScreen(this);
+        },true);var cancel=DeviceCenterForm.Button("取消",Close);row.Controls.Add(cancel);row.Controls.Add(save);CancelButton=cancel;AcceptButton=save;root.Controls.Add(row,0,1);SettingsWindow.AddTitle(root,"连接设置");SettingsWindow.FitScreen(this);
     }
 }

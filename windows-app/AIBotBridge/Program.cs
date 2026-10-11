@@ -8,6 +8,20 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-weather-forecast"){AppPaths.BeginPublicSelfTest();WeatherForecastSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-codex-read-sync"){AppPaths.BeginPublicSelfTest();Tab5CodexReadStateSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-codex-tasks"){AppPaths.BeginPublicSelfTest();Tab5CodexSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-codex-read-state-local"){
+            var state=Tab5CodexReadState.ReadLocal();Console.WriteLine(state is null?"CODEX_LOCAL_READ_STATE_UNAVAILABLE":"CODEX_LOCAL_READ_STATE_OK unread="+state.Unread.Count);return;
+        }
+        if(args.Length==2&&args[0]=="--self-test-device-center-style"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();DeviceCenterStyleSelfTest.Run(Path.GetFullPath(args[1]));return;}
+        if(args.Length==3&&args[0]=="--self-test-device-center-style"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();DeviceCenterStyleSelfTest.Run(Path.GetFullPath(args[1]),args[2]);return;}
+        if(args.Length==1&&args[0]=="--self-test-gallery-updates"){AppPaths.BeginPublicSelfTest();GalleryUpdateSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-gallery-pack-guides"){AppPaths.BeginPublicSelfTest();GalleryPackSelfTest.Run();return;}
+        if(args.Length==3&&args[0]=="--self-test-gallery-guide-packs"){AppPaths.BeginPublicSelfTest();GalleryPackSelfTest.RunGuidePackages(args[1],args[2]);return;}
+        if(args.Length==2&&args[0]=="--self-test-gallery-update-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.Run(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-gallery-update-live"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.RunLive(Path.GetFullPath(args[1]));return;}
+        if(args.Length==4&&args[0]=="--self-test-gallery-update-live-resume"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.RunLive(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]),Path.GetFullPath(args[3]));return;}
         if(args.Length==1&&args[0]=="--self-test-media-players"){AppPaths.BeginPublicSelfTest();MediaPlayerSelfTest.RunAsync().GetAwaiter().GetResult();MusicLifecycleSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--test-media-live"){MediaPlayerSelfTest.LiveAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-bridge-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();BridgeUiSelfTest.Run(Path.GetFullPath(args[1]));return;}
@@ -55,6 +69,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-device-registry"){DeviceRegistrySelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-quick-console"){AppPaths.BeginPublicSelfTest();Tab5QuickConsoleSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-art-guides"){AppPaths.BeginPublicSelfTest();Tab5ArtGuides.SelfTest();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-gallery"){AppPaths.BeginPublicSelfTest();Tab5GallerySelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-gallery-transports"){AppPaths.BeginPublicSelfTest();Tab5GalleryTransportSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-rpc"){AppPaths.BeginPublicSelfTest();Tab5RpcSelfTest.RunAsync().GetAwaiter().GetResult();return;}
@@ -105,6 +120,14 @@ internal static class Program
             return;
         }
         if (args.Length == 1 && args[0] == "--tab5-connect") { RunTray(showTab5: true); return; }
+        if(args.Length is 2 or 3&&args[0]=="--tab5-usb-metrics-diagnostic") {
+            if(args.Length==3) {
+                if(!int.TryParse(args[2],out int interval)||interval is <25 or >250)throw new ArgumentException("Diagnostic interval must be 25..250 ms");
+                Tab5Service.UsbMetricsTraceIntervalMs=interval;
+            }
+            Tab5Service.UsbMetricsTracePath=Path.GetFullPath(args[1]);
+            RunTray(showTab5:true);return;
+        }
         if (args.Length == 1 && args[0] == "--tab5-mic-diagnostic")
         {
             Environment.SetEnvironmentVariable("AIBOT_TAB5_USB_PAUSED", "1");

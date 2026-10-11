@@ -51,7 +51,12 @@ internal static class LegacyDisplayCache
             return new(id, Text(root, prefix + "Membership"), primary, Date(root, prefix + "FiveHourResetAt"), weekly,
                 Date(root, prefix + "WeeklyResetAt"), balance,
                 (id=="deepseek" && (Date(root,"DeepSeekUsedCostFetchedAt") is not { } usedAt || DateTimeOffset.UtcNow-usedAt>TimeSpan.FromHours(24)) ? null : Number(root, prefix + "UsedCost")), Text(root, prefix + "Currency"), Date(root, prefix + "FetchedAt") ?? DateTimeOffset.UnixEpoch, true)
-                { PlanPercent=plan, PlanResetsAt=Date(root,prefix+"PlanResetAt"), PlanExpiresAt=Date(root,prefix+"PlanExpiresAt") };
+                { PlanPercent=plan, PlanResetsAt=Date(root,prefix+"PlanResetAt"), PlanExpiresAt=Date(root,prefix+"PlanExpiresAt"),
+                  PrimaryWindowSeconds=Seconds("PrimaryWindowSeconds",primary.HasValue?18000:null),
+                  WeeklyWindowSeconds=Seconds("WeeklyWindowSeconds",weekly.HasValue?604800:null),
+                  PlanWindowSeconds=Seconds("PlanWindowSeconds",QuotaCycle.PersonalQwenSeconds(Text(root,prefix+"Membership"))) };
+            long? Seconds(string suffix,long? namedDuration) => Field(root,prefix+suffix).ValueKind==JsonValueKind.Undefined
+                ? namedDuration : QuotaCycle.ValidSeconds(Number(root,prefix+suffix));
         }
         return new(Provider("alibaba", "Qwen"), Provider("kimi", "Kimi"), Provider("minimax", "MiniMax"), Provider("deepseek", "DeepSeek"));
     }

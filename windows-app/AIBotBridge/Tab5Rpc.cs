@@ -57,7 +57,7 @@ internal sealed partial class Tab5Service
         _rpcAuthDiagnostic="verified";
         lock(_lifecycle){if(_stopping)return(503,null);_rpcRequests++;}
         try {
-            (int Status,object Body) result;bool binaryReply=false,bulkReply=false;
+            (int Status,object Body) result;bool binaryReply=false,bulkReply=false,galleryReply=false;
             try {
                 var opened=Tab5RpcBinary.Open(clear);using var doc=opened.Metadata;var root=doc.RootElement;
                 binaryReply=root.TryGetProperty("binaryReply",out var binary)&&binary.ValueKind==JsonValueKind.True;
@@ -84,6 +84,7 @@ internal sealed partial class Tab5Service
                     }
                 }
                 else if(Text(root,"kind")=="gallery") {
+                    galleryReply=true;
                     result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
                         ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply);
                     // A manifest is small, but starts a sequence of image ranges.
@@ -116,7 +117,7 @@ internal sealed partial class Tab5Service
             }
             byte[] response=result.Body is Tab5RpcDataBody raw?
                 Tab5RpcBinary.Pack(JsonSerializer.SerializeToUtf8Bytes(new{status=result.Status,body=raw.Metadata},JsonDefaults.Options),raw.Data.Span,bulk:bulkReply):
-                JsonSerializer.SerializeToUtf8Bytes(new{status=result.Status,body=result.Body},JsonDefaults.Options);
+                JsonSerializer.SerializeToUtf8Bytes(new{status=result.Status,body=result.Body},galleryReply?Tab5ArtGuides.WireOptions:JsonDefaults.Options);
             int maximum=bulkReply?Tab5RpcBinary.MailboxMaximum:Tab5Protocol.MaximumFrame;
             if(response.Length>maximum-28)response=JsonSerializer.SerializeToUtf8Bytes(new{status=413,body=new{error="response_too_large"}});
             if(binaryReply&&result.Body is not Tab5RpcDataBody)response=Tab5RpcBinary.Encode(response);

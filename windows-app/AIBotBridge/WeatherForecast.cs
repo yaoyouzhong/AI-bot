@@ -4,7 +4,8 @@ using System.Text.Json;
 namespace AIBotBridge;
 
 internal sealed record WeatherHour(string Time,string Condition,double? Temperature,double? RainProbability);
-internal sealed record WeatherDay(string Date,string Condition,double? Low,double? High,double? RainProbability,double? PrecipitationMm);
+internal sealed record WeatherDay(string Date,string Condition,double? Low,double? High,double? RainProbability,double? PrecipitationMm,
+    string? Sunrise=null,string? Sunset=null,double? DaylightSeconds=null);
 internal static class WeatherForecast
 {
     internal static double? Number(JsonElement value) {
@@ -17,13 +18,21 @@ internal static class WeatherForecast
     private static double? Number(JsonElement value,string key)=>value.TryGetProperty(key,out var item)?Number(item):null;
     private static string Text(JsonElement value,string key)=>value.TryGetProperty(key,out var item)&&item.ValueKind==JsonValueKind.String?item.GetString()??"":"";
     private static double? Percent(double? value)=>value is >=0 and <=100?value:null;
+    private static string? SolarTime(string stamp,string date) {
+        if(TimeOnly.TryParseExact(stamp,"HH:mm",CultureInfo.InvariantCulture,DateTimeStyles.None,out var time))return time.ToString("HH:mm",CultureInfo.InvariantCulture);
+        if(DateTime.TryParseExact(stamp,["yyyy-MM-dd'T'HH:mm","yyyy-MM-dd'T'HH:mm:ss"],CultureInfo.InvariantCulture,DateTimeStyles.None,out var at)&&
+            at.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture)==date)return at.ToString("HH:mm",CultureInfo.InvariantCulture);
+        return null;
+    }
     internal static WeatherHour[] QHours(JsonElement root)=>root.TryGetProperty("hourly",out var hours)&&hours.ValueKind==JsonValueKind.Array
         ?hours.EnumerateArray().Select(h=>new WeatherHour(Text(h,"fxTime"),Text(h,"text"),Number(h,"temp"),Percent(Number(h,"pop"))))
             .Where(h=>DateTimeOffset.TryParse(h.Time,CultureInfo.InvariantCulture,DateTimeStyles.None,out _)).OrderBy(h=>h.Time,StringComparer.Ordinal).Take(24).ToArray():[];
     internal static WeatherDay[] QDays(JsonElement root)=>root.TryGetProperty("daily",out var days)&&days.ValueKind==JsonValueKind.Array
-        ?days.EnumerateArray().Select(d=>new WeatherDay(Text(d,"fxDate"),Text(d,"textDay"),Number(d,"tempMin"),Number(d,"tempMax"),null,Number(d,"precip")))
+        ?days.EnumerateArray().Select(d=>new WeatherDay(Text(d,"fxDate"),Text(d,"textDay"),Number(d,"tempMin"),Number(d,"tempMax"),null,Number(d,"precip"),
+            SolarTime(Text(d,"sunrise"),Text(d,"fxDate")),SolarTime(Text(d,"sunset"),Text(d,"fxDate"))))
             .Where(d=>DateOnly.TryParseExact(d.Date,"yyyy-MM-dd",out _)).OrderBy(d=>d.Date,StringComparer.Ordinal).Take(7).ToArray():[];
     private static double? At(JsonElement array,string key,int i)=>array.TryGetProperty(key,out var values)&&values.ValueKind==JsonValueKind.Array&&i<values.GetArrayLength()?Number(values[i]):null;
+    private static string TextAt(JsonElement array,string key,int i)=>array.TryGetProperty(key,out var values)&&values.ValueKind==JsonValueKind.Array&&i<values.GetArrayLength()&&values[i].ValueKind==JsonValueKind.String?values[i].GetString()??"":"";
     internal static WeatherHour[] MeteoHours(JsonElement root,DateTime localNow,Func<int,string> condition) {
         if(!root.TryGetProperty("hourly",out var hours)||!hours.TryGetProperty("time",out var times))return [];
         var result=new List<WeatherHour>();int i=0;
@@ -43,7 +52,8 @@ internal static class WeatherForecast
         foreach(var time in times.EnumerateArray()) {
             string date=time.GetString()??"";var code=At(days,"weather_code",i);
             if(DateOnly.TryParseExact(date,"yyyy-MM-dd",out _)&&result.Count<7)
-                result.Add(new(date,code is double c?condition((int)c):"--",At(days,"temperature_2m_min",i),At(days,"temperature_2m_max",i),Percent(At(days,"precipitation_probability_max",i)),At(days,"precipitation_sum",i)));
+                result.Add(new(date,code is double c?condition((int)c):"--",At(days,"temperature_2m_min",i),At(days,"temperature_2m_max",i),Percent(At(days,"precipitation_probability_max",i)),At(days,"precipitation_sum",i),
+                    SolarTime(TextAt(days,"sunrise",i),date),SolarTime(TextAt(days,"sunset",i),date),At(days,"daylight_duration",i) is >=0 and <=86400?At(days,"daylight_duration",i):null));
             i++;
         }
         return result.ToArray();

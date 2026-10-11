@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
+using System.Runtime.InteropServices;
+using Windows.Media.Control;
 namespace AIBotBridge;
 
 internal static class MediaPlayerSelfTest
@@ -13,11 +15,36 @@ internal static class MediaPlayerSelfTest
         var samples=new List<object>();
         for(int i=0;i<12;i++){
             await music.RefreshAsync(stop.Token);
-            samples.Add(new{at=DateTimeOffset.UtcNow,music=music.Snapshot,diagnostic=music.Diagnostic});
+            samples.Add(new{at=DateTimeOffset.UtcNow,music=music.Snapshot,diagnostic=music.Diagnostic,
+                systemSessions=await SystemSessionsAsync(stop.Token)});
             if(i<11)await Task.Delay(500,stop.Token);
         }
         await File.WriteAllTextAsync(output,JsonSerializer.Serialize(new{acceptance="diagnostics only; verify against actual playback and device display",samples},JsonDefaults.Options));
         Console.WriteLine("MEDIA_LIVE_DIAGNOSTICS_WRITTEN "+output);
+    }
+    private static async Task<object[]> SystemSessionsAsync(CancellationToken token)
+    {
+        using var stop=CancellationTokenSource.CreateLinkedTokenSource(token);stop.CancelAfter(TimeSpan.FromSeconds(2));
+        try {
+            var manager=await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask(stop.Token);
+            return await Task.WhenAll(manager.GetSessions().Take(16).Select(async session=>{
+                string source=session.SourceAppUserModelId;
+                try {
+                    var properties=await session.TryGetMediaPropertiesAsync().AsTask(stop.Token);
+                    var clock=session.GetTimelineProperties();var playback=session.GetPlaybackInfo();
+                    return (object)new{source,player=MediaPlaybackSource.Name(source),title=properties.Title,artist=properties.Artist,
+                        album=properties.AlbumTitle,hasThumbnail=properties.Thumbnail is not null,state=playback.PlaybackStatus.ToString(),
+                        startSeconds=clock.StartTime.TotalSeconds,endSeconds=clock.EndTime.TotalSeconds,positionSeconds=clock.Position.TotalSeconds,
+                        timelineUpdatedAt=clock.LastUpdatedTime,playbackRate=playback.PlaybackRate};
+                }catch(Exception ex) when(ex is COMException or InvalidOperationException or UnauthorizedAccessException or OperationCanceledException){
+                    if(token.IsCancellationRequested)throw;
+                    return (object)new{source,readError=ex.GetType().Name};
+                }
+            }));
+        }catch(Exception ex) when(ex is COMException or InvalidOperationException or UnauthorizedAccessException or OperationCanceledException){
+            if(token.IsCancellationRequested)throw;
+            return [new{readError=ex.GetType().Name}];
+        }
     }
     internal static async Task RunAsync()
     {
@@ -32,6 +59,42 @@ internal static class MediaPlayerSelfTest
         Check(MediaPlaybackSource.Select([spotify with {Music=song with {Playing=false}},apple],spotify.Source)==apple,"Previous paused source hides a playing source");
         Check(MediaPlaybackSource.Select([spotify with {Music=song with {Title=""}}],"") is null,"Empty metadata chosen");
         Check(MediaPlaybackSource.Name("AppleInc.AppleMusic_abc") == "Apple Music"&&MediaPlaybackSource.Name("org.videolan.vlc")=="VLC","Source labels failed");
+        Check(MediaPlaybackSource.Name("SodaMusic.exe")=="汽水音乐"&&MediaPlaybackSource.Name("汽水音乐")=="汽水音乐"&&
+            MediaPlaybackSource.Name("AppleInc.AppleMusicWin_nzyj5cx40ttqa!App")=="Apple Music"&&
+            MediaPlaybackSource.Name("com.apple.Music")=="Apple Music","Soda/Apple client identities failed");
+        var soda=new MediaPlaybackSource("汽水音乐","soda-song",song,"smtc");
+        Check(MediaPlaybackSource.Select([apple with {Music=song with {Playing=false},SystemCurrent=true},soda],apple.Source)==soda,
+            "Paused Apple Music hides playing Soda Music");
+        Check(MediaPlaybackSource.Select([soda with {Music=song with {Playing=false}},apple],soda.Source)==apple,
+            "Paused Soda Music hides playing Apple Music");
+        Check(MediaPlaybackSource.Select([soda,apple],soda.Source)==soda&&MediaPlaybackSource.Select([soda,apple],apple.Source)==apple,
+            "Soda/Apple selection oscillates while both play");
+        var at=new DateTimeOffset(2026,10,11,6,0,0,TimeSpan.Zero);
+        MusicSnapshot SystemClock(double start=0,double end=240,double position=12,DateTimeOffset? stamp=null,bool playing=true,double? rate=1)=>
+            NowPlayingService.SystemSample(" 曲目 "," 歌手 "," 专辑 ",playing,start,end,position,stamp??at.AddSeconds(-1),at,rate);
+        Check(SystemClock().ElapsedSeconds==13&&SystemClock().TimelineAvailable&&SystemClock().Title=="曲目","System clock did not advance real data");
+        Check(SystemClock(start:100,end:340,position:112,rate:2).ElapsedSeconds==14,"System timeline origin or playback rate lost");
+        Check(SystemClock(stamp:at.AddHours(-1),playing:false).ElapsedSeconds==12,"Paused system clock advanced");
+        foreach(var unknown in new[]{SystemClock(end:0,position:42),SystemClock(position:300),SystemClock(stamp:DateTimeOffset.FromFileTime(0)),
+            SystemClock(position:-1),SystemClock(position:double.NaN),SystemClock(stamp:at.AddSeconds(3)),
+            SystemClock(stamp:at.AddHours(-1)),SystemClock(end:double.PositiveInfinity),SystemClock(end:100000)})
+            Check(!unknown.TimelineAvailable&&unknown.ElapsedSeconds==0,"Unavailable system timeline fabricated elapsed playback");
+        Check(SystemClock(stamp:DateTimeOffset.FromFileTime(0)).DurationSeconds==240,"Missing system clock erased a valid duration");
+        using(var switching=new NowPlayingService()) {
+            switching.ApplySample(soda.Music,soda.ResourceKey,[1,2]);
+            switching.ApplySample(apple.Music with {Title="Apple song",Playing=false,ElapsedSeconds=24},apple.ResourceKey,null);
+            Check(switching.Snapshot!.Title=="Apple song"&&!switching.Snapshot.Playing&&switching.Snapshot.ElapsedSeconds==24&&
+                !switching.Snapshot.HasArtwork,"Apple source retained Soda title, state, clock or cover");
+            var unknown=SystemClock(end:0,position:42);
+            switching.ApplySample(unknown,soda.ResourceKey,null);
+            var wireStatus=new StatusSnapshot(1,"",0,0,at,new("idle",null),new("idle",null),Music:switching.Snapshot);
+            using var tab5=JsonDocument.Parse(Tab5Protocol.Snapshot(wireStatus,"aabbccddeeff","test",1));
+            var tab5Song=tab5.RootElement.GetProperty("data").GetProperty("music");
+            var smallSong=DeviceStatusFrame.Create(wireStatus)["data"]!["music"]!;
+            Check(!tab5Song.GetProperty("timelineAvailable").GetBoolean()&&tab5Song.GetProperty("elapsedSeconds").GetDouble()==0&&
+                smallSong["elapsedSeconds"]!.Deserialize<double>()==0,"Unknown Soda clock became progress on a device");
+        }
+        Console.WriteLine("SODA_APPLE_MEDIA_SELF_TEST_OK identities, playing-source switching, stable selection, real/pause/rate clock, missing/invalid timeline remains unknown");
         Check(NowPlayingService.ProjectClock(song with {PlaybackRate=2},1).ElapsedSeconds==14,"Playback rate not applied");
         Check(NowPlayingService.ProjectClock(song with {Playing=false,PlaybackRate=2},1).ElapsedSeconds==12,"Paused playback advanced");
         Check(!NowPlayingService.ProjectClock(song,4).TimelineAvailable,"Stale samples fabricated a clock");

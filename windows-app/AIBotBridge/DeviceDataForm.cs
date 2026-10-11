@@ -7,16 +7,15 @@ internal sealed class DeviceDataForm : Form
         var device=store.Snapshot.Devices.Single(d=>d.Id==id);
         SuspendLayout();
         Text=$"{device.Name} · 数据设置";
-        Font=new Font("Microsoft YaHei UI",9F);AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        ClientSize=new(536,480);MinimumSize=new(500,420);StartPosition=FormStartPosition.CenterScreen;
+        Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
+        ClientSize=new(560,620);MinimumSize=new(520,480);StartPosition=FormStartPosition.CenterScreen;
         BackColor=Color.White;MinimizeBox=false;MaximizeBox=false;
-        var root=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Padding=new Padding(16),Margin=Padding.Empty};
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Padding=new Padding(24),Margin=Padding.Empty};
         root.ColumnStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));
         var body=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Margin=Padding.Empty};
         root.Controls.Add(body,0,0);
         Label Note(string text)=>new(){Text=text,AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,0,0,8)};
-        Label Heading(string text)=>new(){Text=text,AutoSize=true,Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,6,0,6)};
-        body.Controls.Add(Note("选择此设备需要的数据，账号在「账号数据」中统一管理。"));
+        Label Heading(string text)=>new(){Text=text,AutoSize=true,Font=SettingsWindow.SectionFont(),Margin=new Padding(0,6,0,6)};
         body.Controls.Add(Heading("采集内容"));
         var sourceGrid=new TableLayoutPanel{AutoSize=true,ColumnCount=3,RowCount=2,Margin=new Padding(0,0,0,10)};
         for(int column=0;column<3;column++)sourceGrid.ColumnStyles.Add(new(SizeType.Percent,100F/3));
@@ -62,7 +61,7 @@ internal sealed class DeviceDataForm : Form
         if(device.Kind==HardwareKind.Esp8266){var note=Note("小屏轮播中已选的模型也会采集。");note.Margin=new Padding(0,8,0,0);body.Controls.Add(note);}
         void UpdateQuotaOptions() {
             models.Enabled=sources["quotas"].Checked;
-            relation.Text=models.Enabled?"下方选择“模型额度”的国产模型；Codex 额度自动采集。":"先勾选上方“模型额度”即可启用；已选模型会保留。";
+            relation.Text=models.Enabled?"Codex 额度自动采集。":"勾选“模型额度”后可选择；已选模型保留。";
         }
         sources["quotas"].CheckedChanged+=(_,_)=>UpdateQuotaOptions();UpdateQuotaOptions();
         var footer=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,Margin=new Padding(0,12,0,0),Name="data-actions"};
@@ -76,6 +75,6 @@ internal sealed class DeviceDataForm : Form
             }catch(Exception ex){MessageBox.Show(this,ex.Message,"数据设置未保存");}
         },true);save.Name="save-data";
         footer.Controls.Add(cancel);footer.Controls.Add(save);root.Controls.Add(footer,0,1);Controls.Add(root);
-        AcceptButton=save;CancelButton=cancel;SettingsWindow.FitFlow(body);SettingsWindow.FitScreen(this);ResumeLayout(true);
+        SettingsWindow.AddTitle(root,"数据设置");AcceptButton=save;CancelButton=cancel;SettingsWindow.FitFlow(body);SettingsWindow.FitScreen(this);ResumeLayout(true);
     }
 }

@@ -392,7 +392,7 @@ sealed class WeatherMonitor
         }
         var query = $"latitude={lat.ToString(CultureInfo.InvariantCulture)}&longitude={lon.ToString(CultureInfo.InvariantCulture)}";
         var weatherTask = Http.GetStringAsync("https://api.open-meteo.com/v1/forecast?" + query
-            + "&current=temperature_2m,relative_humidity_2m,weather_code,pressure_msl&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,precipitation_sum&forecast_days=7&timezone=auto");
+            + "&current=temperature_2m,relative_humidity_2m,weather_code,pressure_msl&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration&forecast_days=7&timezone=auto");
         var airTask = Http.GetStringAsync("https://air-quality-api.open-meteo.com/v1/air-quality?" + query + "&current=us_aqi,pm2_5");
         await Task.WhenAll(weatherTask, airTask);
         using var weatherDoc = JsonDocument.Parse(await weatherTask);

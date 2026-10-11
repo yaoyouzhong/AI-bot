@@ -11,13 +11,13 @@ internal sealed class Tab5DisplaySettingsForm : Form
     private readonly ListView _pages=new(){View=View.Details,CheckBoxes=true,FullRowSelect=true,MultiSelect=false,HideSelection=false,HeaderStyle=ColumnHeaderStyle.None,Height=200,Width=400};
     private readonly Label _status=new(){AutoSize=true,MaximumSize=new(460,0)};
     private readonly Button _read=new(){Text="重新读取",AutoSize=true},_save=new(){Text="保存到设备",AutoSize=true};
-    private readonly TableLayoutPanel _body=new(){Dock=DockStyle.Fill,ColumnCount=2,RowCount=6,Padding=new(14),AutoScroll=true};
+    private readonly TableLayoutPanel _body=new(){Dock=DockStyle.Fill,ColumnCount=2,RowCount=6,Padding=Padding.Empty,AutoScroll=true};
     private bool _busy,_disposed;
     private static ComboBox Options(int[] values){var box=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=105,FormattingEnabled=true};foreach(int value in values)box.Items.Add(value);return box;}
     private static NumericUpDown Number(int min,int max)=>new(){Minimum=min,Maximum=max,Width=82};
     internal Tab5DisplaySettingsForm(Func<Tab5DisplaySettings?,CancellationToken,Task<Tab5DisplaySettings>> exchange) {
-        _exchange=exchange;Text="TAB5 · 显示设置";Font=new("Microsoft YaHei UI",9);AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new(96,96);ClientSize=new(540,510);MinimumSize=new(510,530);
-        var root=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2};root.ColumnStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));Controls.Add(root);root.Controls.Add(_body,0,0);
+        _exchange=exchange;Text="TAB5 · 显示设置";Font=SettingsWindow.BodyFont();AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new(96,96);ClientSize=new(560,610);MinimumSize=new(530,620);
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Padding=new(24)};root.ColumnStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));Controls.Add(root);root.Controls.Add(_body,0,0);
         _body.ColumnStyles.Add(new(SizeType.AutoSize));_body.ColumnStyles.Add(new(SizeType.Percent,100));
         for(int i=0;i<6;i++)_body.RowStyles.Add(new(i==5?SizeType.Percent:SizeType.AutoSize,i==5?100:0));
         void Row(int index,string title,params Control[] controls){var row=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,WrapContents=true,Margin=new(0,2,0,2)};row.Controls.AddRange(controls);_body.Controls.Add(new Label{Text=title,AutoSize=true,Anchor=AnchorStyles.Left,Margin=new(0,4,12,4)},0,index);_body.Controls.Add(row,1,index);}
@@ -30,12 +30,12 @@ internal sealed class Tab5DisplaySettingsForm : Form
         void Move(int step){if(_pages.SelectedIndices.Count!=1)return;int from=_pages.SelectedIndices[0],to=from+step;if(to<0||to>=8)return;var item=_pages.Items[from];_pages.Items.RemoveAt(from);_pages.Items.Insert(to,item);item.Selected=true;}
         up.Click+=(_,_)=>Move(-1);down.Click+=(_,_)=>Move(1);
         var order=new FlowLayoutPanel{Dock=DockStyle.Fill,AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false,Margin=Padding.Empty};order.Controls.Add(new Label{Text="轮播页",AutoSize=true});order.Controls.AddRange([up,down]);_body.Controls.Add(order,0,5);_body.Controls.Add(_pages,1,5);
-        var footer=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,Padding=new(18,0,18,10)};
-        var buttons=new FlowLayoutPanel{AutoSize=true};buttons.Controls.AddRange([_read,_save]);footer.Controls.Add(buttons);footer.Controls.Add(_status);root.Controls.Add(footer,0,1);
+        var footer=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,Padding=new(0,12,0,0)};
+        var buttons=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft};SettingsWindow.StyleButton(_save,true);SettingsWindow.StyleButton(_read);buttons.Controls.AddRange([_save,_read]);footer.Controls.Add(buttons);footer.Controls.Add(_status);root.Controls.Add(footer,0,1);
         footer.SizeChanged+=(_,_)=>_status.MaximumSize=new(Math.Max(100,footer.ClientSize.Width-footer.Padding.Horizontal-8),0);
         _read.Click+=async(_,_)=>await ExchangeAsync(false);_save.Click+=async(_,_)=>await ExchangeAsync(true);
         _cycle.CheckedChanged+=(_,_)=>{if(_cycle.Checked)_mode.SelectedIndex=0;};_mode.SelectedIndexChanged+=(_,_)=>{if(_mode.SelectedIndex>0)_cycle.Checked=false;};
-        Shown+=async(_,_)=>await ExchangeAsync(false);FormClosing+=(_,_)=>_stop.Cancel();SettingsWindow.FitScreen(this);_save.Enabled=false;
+        SettingsWindow.AddTitle(root,"显示设置");Shown+=async(_,_)=>await ExchangeAsync(false);FormClosing+=(_,_)=>_stop.Cancel();SettingsWindow.FitScreen(this);_save.Enabled=false;
     }
     private async Task ExchangeAsync(bool save) {
         if(_busy)return;

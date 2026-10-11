@@ -6,6 +6,7 @@ internal static class Tab5TelemetrySelfTest
 {
     internal static void Run(string? vectors=null)
     {
+        VerifyUsbSchedulingAsync().GetAwaiter().GetResult();
         var directory=Path.Combine(Path.GetTempPath(),"tab5-telemetry-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
         try {
             var store=new Tab5PairingStore(Path.Combine(directory,"pair.dat"));store.Pair("001122334455",@"USB\TEST");
@@ -157,5 +158,23 @@ internal static class Tab5TelemetrySelfTest
             if(!IsFull(service.TelemetryFrame(2,true,true,true,true)!))throw new Exception("Reconnect reused stale delta baseline");
             Console.WriteLine("TAB5_DELTA_ACK_OK baseline only after ACK; changed snapshot sends delta; reconnect returns full state");
         }finally{Directory.Delete(directory,true);}
+    }
+    private static async Task VerifyUsbSchedulingAsync() {
+        using var gate=new SemaphoreSlim(1,1);await gate.WaitAsync();
+        int sample=1,captured=0;
+        Task Send(){captured=sample;return Task.CompletedTask;}
+        // A busy bus must not accumulate metrics ahead of the next RPC.
+        var deferred=Tab5Service.TryUsbMetricsAsync(gate,Send,CancellationToken.None);
+        if(!deferred.IsCompleted||await deferred||captured!=0)throw new Exception("Busy USB metrics queued or captured an obsolete sample");
+        var rpc=gate.WaitAsync();sample=2;gate.Release();await rpc;
+        if(await Tab5Service.TryUsbMetricsAsync(gate,Send,CancellationToken.None))throw new Exception("Metrics bypassed RPC ownership");
+        gate.Release();
+        if(!await Tab5Service.TryUsbMetricsAsync(gate,Send,CancellationToken.None)||captured!=2)throw new Exception("USB metrics failed to resume with latest sample");
+        try{await Tab5Service.TryUsbMetricsAsync(gate,()=>throw new IOException("fixture"),CancellationToken.None);throw new Exception("USB failure swallowed");}catch(IOException){}
+        if(gate.CurrentCount!=1)throw new Exception("USB metrics leaked gate after failure");
+        using var stop=new CancellationTokenSource();stop.Cancel();
+        try{await Tab5Service.TryUsbMetricsAsync(gate,Send,stop.Token);throw new Exception("USB metrics ignored cancellation");}catch(OperationCanceledException){}
+        if(gate.CurrentCount!=1)throw new Exception("USB metrics leaked gate after cancellation");
+        Console.WriteLine("USB_METRICS_SCHEDULING_OK busy_skip_rpc_priority_latest_sample_failure_cancel_release");
     }
 }

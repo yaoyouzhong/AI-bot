@@ -6,6 +6,7 @@ namespace AIBotBridge;
 internal static class Tab5BleSchedulingSelfTest
 {
     internal static async Task RunAsync() {
+        await VerifyDiscoveryAsync();
         await VerifyBulkGapAsync();
         await VerifyQueuedTelemetryAsync();
         await VerifyQueueComparisonAsync();
@@ -16,6 +17,23 @@ internal static class Tab5BleSchedulingSelfTest
         Console.WriteLine("BLE_CONTINUOUS_SCHEDULING_OK bounded_gap_lease_no_poll_renewal_failure_cancel_release_gate_recheck_heartbeat_voice_trace_lifecycle");
     }
     private sealed class Lease:IDisposable {public void Dispose(){}}
+    private static async Task VerifyDiscoveryAsync() {
+        var discovery=new Tab5BleDiscovery();
+        if(discovery.Matches("device",42,1)||discovery.RetryDelay("device")!=3000)throw new Exception("Unverified BLE address enabled fast retry");
+        discovery.Remember("device",42,1);
+        if(!discovery.Matches("device",42,1)||discovery.Matches("other",42,1)||discovery.Matches("device",43,1)||discovery.Matches("device",42,0))throw new Exception("BLE discovery confused identity/address/type");
+        if(discovery.RetryDelay("device")!=250||!discovery.Matches("device",42,1)||discovery.RetryDelay("device")!=3000||discovery.Matches("device",42,1))throw new Exception("Failed quick retry did not restore full discovery");
+        discovery.Remember("device",42,1);
+        if(discovery.RetryDelay("other")!=3000||discovery.Matches("device",42,1))throw new Exception("Pairing change retained discovery hint");
+        var found=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waiting=Tab5BleDiscovery.WaitAsync(found.Task,CancellationToken.None);
+        if(waiting.IsCompleted)throw new Exception("Discovery ended without an advertisement");
+        found.SetResult();await waiting.WaitAsync(TimeSpan.FromSeconds(1));
+        await Tab5BleDiscovery.WaitAsync(new TaskCompletionSource().Task,CancellationToken.None,20).WaitAsync(TimeSpan.FromSeconds(1));
+        using var stop=new CancellationTokenSource();var cancelled=Tab5BleDiscovery.WaitAsync(new TaskCompletionSource().Task,stop.Token);stop.Cancel();
+        try{await cancelled;throw new Exception("Discovery ignored cancellation");}catch(OperationCanceledException){}
+        Console.WriteLine("BLE_DISCOVERY_OK authenticated_hint_only_early_advertisement_one_fast_retry_full_scan_fallback_pair_change_cancel");
+    }
     private static async Task VerifyBenchmarkReadbackAsync() {
         int calls=0;
         string result=await Tab5Service.ReadBenchmarkStatusAsync(_=>++calls==1?Task.FromException<string>(new IOException("port recovering")):Task.FromResult("complete;retained-result"),CancellationToken.None);

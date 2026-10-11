@@ -16,8 +16,12 @@ internal sealed partial class Tab5Service
     private volatile int _usbTelemetryVersion;
     private volatile bool _usbPacked;
     private volatile string _usbControlFailure="无";
+    private long _usbMetricsDeferred;
+    private long _usbStatusRecoveryAttempts,_usbStatusRecoverySucceeded;
     private void RecordUsbFailure(string stage,Exception ex) {
         _usbRpcLastFailure=$"{DateTimeOffset.Now:HH:mm:ss} USB {stage}; {ex.GetType().Name} / 0x{ex.HResult:X8}";
+        if(ex is Tab5UsbReplyTimeout timeout)_usbRpcLastFailure+="; "+timeout.Diagnostic;
+        if(ex is Tab5UsbRejected rejected)_usbRpcLastFailure+=$"; expected={rejected.Expected}; rejectReason={rejected.Reason}";
         _usbControlFailure=_usbRpcLastFailure;
         if(_usbRpcFirstFailure=="无")_usbRpcFirstFailure=_usbRpcLastFailure;
     }
@@ -140,22 +144,26 @@ internal sealed partial class Tab5Service
     }
     private async Task RunUsbMetricsAsync(CancellationToken token)
     {
-        using var timer=new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+        using var timer=new PeriodicTimer(TimeSpan.FromMilliseconds(UsbMetricsTracePath is null?250:UsbMetricsTraceIntervalMs));
         while(await timer.WaitForNextTickAsync(token)) {
-            if(_usbTelemetryVersion!=1||UsbMetricsFrame() is not {} frame)continue;
-            await _usbGate.WaitAsync(token);
-            try {
-                // An OTA range can start while this worker waits for the gate.
-                if(BackgroundTransferPaused||_usbTelemetryVersion!=1||_usbPort is not {} port)continue;
-                port.WriteLine(Tab5Protocol.Prefix+System.Text.Encoding.UTF8.GetString(frame));
-                using var ack=await ReadReplyAsync(port,"tab5_metrics_ack",token);
-                using var sent=JsonDocument.Parse(frame);
-                if(ack.RootElement.GetProperty("sequence").GetInt64()!=sent.RootElement.GetProperty("sequence").GetInt64())throw new IOException("USB metrics acknowledgement mismatch");
-            }catch(OperationCanceledException) when(token.IsCancellationRequested){return;}
-            catch(Exception ex) when(Tab5UsbRecovery.IsDisconnect(ex,token)) {
-                RecordUsbFailure("metrics",ex);CloseUsbPort();_usbStatus="USB 已断开，等待重新连接";
-            }finally{_usbGate.Release();}
+            if(_usbTelemetryVersion!=1||BackgroundTransferPaused)continue;
+            if(!await TryUsbMetricsAsync(_usbGate,async ()=> {
+                try {
+                    // Capture after ownership: a queued old sample/session must
+                    // not delay RPC or be sent after a reconnect. History retains
+                    // skipped samples for the next successful metrics frame.
+                    if(_usbTelemetryVersion!=1||_usbPort is not {} port||UsbMetricsFrame() is not {} frame)return;
+                    await SendUsbMetricsAsync(port,frame,token);
+                }catch(OperationCanceledException) when(token.IsCancellationRequested){throw;}
+                catch(Exception ex) when(Tab5UsbRecovery.IsDisconnect(ex,token)) {
+                    RecordUsbFailure("metrics",ex);CloseUsbPort();_usbStatus="USB 已断开，等待重新连接";
+                }
+            },token))Interlocked.Increment(ref _usbMetricsDeferred);
         }
+    }
+    internal static async Task<bool> TryUsbMetricsAsync(SemaphoreSlim gate,Func<Task> send,CancellationToken token) {
+        if(!await gate.WaitAsync(0,token))return false;
+        try {await send();return true;}finally{gate.Release();}
     }
     internal byte[]? UsbMetricsFrame()=>BackgroundTransferPaused?null:MetricsFrame();
 }

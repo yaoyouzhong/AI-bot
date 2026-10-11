@@ -13,6 +13,8 @@ internal sealed class Tab5Gallery
     private readonly object _gate=new();
     private readonly Dictionary<string,(long Stamp,long Length,Artwork[] Works)> _catalogs=[];
     private readonly Dictionary<string,(long Stamp,long Length,byte[] Bytes,string Sha,long Used)> _images=[];
+    private readonly Dictionary<string,(long Stamp,long Length,IReadOnlyDictionary<string,Tab5ArtGuides.Guide> Guides)> _guides=[];
+    private long _revision=-1;
     private long _imageUse;
     internal Tab5Gallery(string? directory=null) {
         _directory=directory??Path.Combine(AppContext.BaseDirectory,"Assets","DailyArt");
@@ -51,6 +53,32 @@ internal sealed class Tab5Gallery
     }
     internal (int Status,object Body) Handle(JsonElement request,bool binary,bool bulk)
     {
+        lock(GalleryPack.Gate) {
+            if(_revision!=GalleryPack.Revision) {
+                lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_revision=GalleryPack.Revision;}
+            }
+            return HandleCore(request,binary,bulk);
+        }
+    }
+    private Tab5ArtGuides.Guide? Guide(string directory,Artwork work,int version) {
+        string path=Path.Combine(directory,"guides.zh.json");var file=new FileInfo(path);
+        if(!file.Exists) {
+            var pack=_packs is not null&&directory==Path.Combine(_packs,work.Category)?GalleryPack.Installed(work.Category,_packs):null;
+            if(pack?.SchemaVersion==2)throw new InvalidDataException("Gallery guide missing");
+            return Tab5ArtGuides.ForReader(work.WorkId??work.Source,version);
+        }
+        lock(_gate) {
+            if(!_guides.TryGetValue(path,out var cached)||cached.Stamp!=file.LastWriteTimeUtc.Ticks||cached.Length!=file.Length) {
+                if(file.Length>8*1024*1024)throw new InvalidDataException("Gallery guide too large");
+                using var document=JsonDocument.Parse(File.ReadAllBytes(path));
+                cached=(file.LastWriteTimeUtc.Ticks,file.Length,Tab5ArtGuides.ReadPack(document.RootElement,Works(directory).Where(w=>w.Category==work.Category).ToArray()));
+                _guides[path]=cached;
+            }
+            return Tab5ArtGuides.ForReader(cached.Guides.GetValueOrDefault(work.WorkId??work.Source),version);
+        }
+    }
+    private (int Status,object Body) HandleCore(JsonElement request,bool binary,bool bulk)
+    {
         string Text(string key)=>request.TryGetProperty(key,out var value)&&value.ValueKind==JsonValueKind.String?value.GetString()!:"";
         try {
             string category=Text("category");
@@ -69,7 +97,12 @@ internal sealed class Tab5Gallery
             string filename=displayFrames[frame];
             if(filename!=Path.GetFileName(filename)||!filename.EndsWith(".jpg",StringComparison.OrdinalIgnoreCase))return(503,new{error="invalid_gallery_catalog"});
             var (data,sha)=Image(Path.Combine(directory,filename));
-            if(Text("op")=="manifest")return(200,new{work.Id,work.Title,work.Author,work.Source,work.License,date=Text("date"),size=data.Length,sha256=sha,frames=work.Frames.Length,width=1280,height=720,orientation=portrait?"portrait":"landscape"});
+            if(Text("op")=="manifest") {
+                bool include=request.TryGetProperty("includeGuide",out var requestedGuide)&&requestedGuide.ValueKind==JsonValueKind.True;
+                int guideVersion=request.TryGetProperty("guideVersion",out var requestedVersion)&&requestedVersion.ValueKind==JsonValueKind.Number&&requestedVersion.TryGetInt32(out var v)&&v==2?2:1;
+                var guide=include?Guide(directory,work,guideVersion):null;
+                return(200,new{work.Id,work.Title,work.Author,work.Source,work.License,date=Text("date"),size=data.Length,sha256=sha,frames=work.Frames.Length,width=1280,height=720,orientation=portrait?"portrait":"landscape",guideVersion,guide});
+            }
             if(Text("op")!="read"||!binary)return(400,new{error="gallery_requires_binary"});
             if(Text("sha256")!=sha)return(409,new{error="gallery_changed"});
             if(!request.TryGetProperty("offset",out var o)||!o.TryGetInt32(out var offset)||!request.TryGetProperty("count",out var c)||!c.TryGetInt32(out var count)||offset<0||offset>=data.Length||count<=0||count>(bulk?49152:8192))return(400,new{error="invalid_gallery_range"});

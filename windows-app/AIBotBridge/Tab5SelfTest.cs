@@ -16,6 +16,7 @@ internal static class Tab5SelfTest
     {
         Tab5DiscoveryProtocol.SelfTest();
         Tab5Calendar.SelfTest();
+        DomesticQuotaCycleSelfTest.Run();
         WeatherForecastSelfTest.Run();
         await Tab5OtaFlowSelfTest.RunAsync();
         QuotaHistorySelfTest.Run();
@@ -65,17 +66,34 @@ internal static class Tab5SelfTest
             var snapshot=new StatusSnapshot(1,"12:00",1000,28800,DateTimeOffset.UtcNow,new("working",0),new("offline",null));
             var now = new DateTimeOffset(2026,9,23,12,0,0,TimeSpan.FromHours(8));
             var codex = new ProviderQuotaSnapshot("codex","pro",null,null,92,now.AddDays(3),3,
-                [now.AddDays(10).ToUnixTimeSeconds(),now.AddDays(11).ToUnixTimeSeconds(),now.AddDays(20).ToUnixTimeSeconds()],now,false);
+                [now.AddDays(10).ToUnixTimeSeconds(),now.AddDays(11).ToUnixTimeSeconds(),now.AddDays(20).ToUnixTimeSeconds()],now,false)
+                {WeeklyWindowSeconds=604800};
             var mapped = Tab5Details.Quotas(snapshot with {Quotas=new(null,codex)})[1];
             Check(mapped.WeeklyResetEpoch==codex.WeeklyResetsAt!.Value.ToUnixTimeSeconds(),"weekly countdown preserves the provider reset instant");
+            var actualWindow=QuotaService.ParseCodex("""{"plan_type":"plus","rate_limit":{"primary_window":{"limit_window_seconds":9000,"used_percent":20,"reset_at":1792000000},"secondary_window":{"limit_window_seconds":259200,"used_percent":35,"reset_at":1792300000}}}""");
+            var windowDetails=Tab5Details.Quotas(snapshot with {Quotas=new(null,actualWindow)})[1];
+            Check(windowDetails.PrimaryWindowSeconds==9000 && windowDetails.WeeklyWindowSeconds==259200 &&
+                  windowDetails.PrimaryResetEpoch==1792000000 && windowDetails.WeeklyResetEpoch==1792300000,
+                "actual provider windows reach TAB5 without assuming five hours or seven days");
+            foreach(var duration in new[]{"null","0","-1","1.5","2147483648"}) {
+                var invalid=QuotaService.ParseCodex("{\"rate_limit\":{\"primary_window\":{\"limit_window_seconds\":"+duration+",\"used_percent\":20,\"reset_at\":1792000000}}}");
+                Check(invalid.PrimaryWindowSeconds is null && invalid.WeeklyWindowSeconds is null,"invalid duration remains unknown: "+duration);
+            }
+            var legacyWindow=QuotaService.ParseCodex("""{"rate_limit":{"primary_window":{"used_percent":20,"reset_at":1792000000}}}""");
+            Check(legacyWindow.PrimaryWindowSeconds is null,"missing duration does not use first observation or a guessed window");
+            var claudeWindow=QuotaService.ParseClaude("""{"five_hour":{"utilization":20,"resets_at":"2026-10-11T00:00:00Z"},"seven_day":{"utilization":35,"resets_at":"2026-10-15T00:00:00Z"}}""");
+            Check(claudeWindow.PrimaryWindowSeconds==18000 && claudeWindow.WeeklyWindowSeconds==604800,"Claude explicit named windows retained");
+            Check(mapped.WeeklyWindowSeconds==604800 && Tab5Details.Quotas(snapshot with {Quotas=new(null,codex with {WeeklyWindowSeconds=null})})[1].WeeklyWindowSeconds is null,
+                "legacy cached quota retains unknown time window");
+            Console.WriteLine("TAB5_QUOTA_WINDOW_OK actual API duration, named Claude windows, unknown legacy cache, invalid durations, wire timestamps");
             Check(mapped.Plan=="PRO" && mapped.Primary is null && mapped.Weekly==92 && mapped.PlanPercent is null,
                 "Codex only exposes real limits and normalized membership");
             Check(mapped.CreditExpiries.Length==3 && mapped.CreditExpiries[0]=="2026-10-03 12:00", "every credit expiry preserved in display timezone");
-            var oldPro=codex with {PrimaryPercent=42,PrimaryResetsAt=now.AddHours(2)};
+            var oldPro=codex with {PrimaryPercent=42,PrimaryResetsAt=now.AddHours(2),PrimaryWindowSeconds=18000};
             Check(Tab5Details.Quotas(snapshot with {Quotas=new(null,oldPro)})[1].Primary is null,
                 "PRO cached five-hour limit suppressed");
             var plus=Tab5Details.Quotas(snapshot with {Quotas=new(null,oldPro with {Plan=" plus "})})[1];
-            Check(plus.Primary==42 && plus.PrimaryReset!="--","PLUS five-hour limit retained");
+            Check(plus.Primary==42 && plus.PrimaryReset!="--" && plus.PrimaryWindowSeconds==18000 && plus.PrimaryResetEpoch.HasValue,"PLUS five-hour limit retained");
             var payg = new DomesticProviderQuotaSnapshot("zhipu","API PAYG",null,null,null,null,96.72,3.27,"CNY",now,false);
             var apiMapped = Tab5Details.Quotas(snapshot with {DomesticQuotas=new(null,null,null,payg with {Provider="deepseek",Plan=null,UsedCost=null},payg,null,null,null)});
             Check(apiMapped[5].BillingMode=="payg" && apiMapped[5].Cost is null && apiMapped[6].Balance==96.72 && apiMapped[6].Cost==3.27,
@@ -107,9 +125,9 @@ internal static class Tab5SelfTest
             var resource=new {slot=0,asset.Id,asset.Width,asset.Height,asset.Frames,asset.Delays,total=asset.Packed.Length,offset=0,bytes=Convert.ToBase64String(asset.Packed,0,1024)};
             var quota=new DomesticProviderQuotaSnapshot("test","测试套餐",52,DateTimeOffset.UtcNow,70,DateTimeOffset.UtcNow,12,3,"CNY",DateTimeOffset.UtcNow,true){PlanPercent=40,PlanResetsAt=DateTimeOffset.UtcNow};
             var full=snapshot with {
-                Weather=new("测试城市","多云",20,25,15,80,1,null,null,"qweather",now,false) {
+                Weather=new("测试城市","多云",20,25,15,80,1,null,null,"qweather",now,false,UtcOffsetSeconds:28800) {
                     Hourly=Enumerable.Range(0,24).Select(i=>new WeatherHour(now.AddHours(i).ToString("O"),"雷阵雨伴有大风",-10+i,80)).ToArray(),
-                    Daily=Enumerable.Range(0,7).Select(i=>new WeatherDay(now.AddDays(i).ToString("yyyy-MM-dd"),"雷阵雨伴有大风",-10,30,null,12.5)).ToArray()},
+                    Daily=Enumerable.Range(0,7).Select(i=>new WeatherDay(now.AddDays(i).ToString("yyyy-MM-dd"),"雷阵雨伴有大风",-10,30,null,12.5,"05:43","18:16",45180)).ToArray()},
                 Quotas=new(null,codex),
                 Stocks=new(Enumerable.Range(0,20).Select(i=>new StockQuote("sh600000","600000","测试股票名称", "12345.678","+12.34%",1)).ToArray(),DateTimeOffset.UtcNow,false),
                 DomesticQuotas=new(quota,quota,quota,quota,quota,quota,quota,quota),
@@ -127,12 +145,23 @@ internal static class Tab5SelfTest
                 Check(data.GetProperty("pcInput").GetProperty("sequence").GetInt64()==1, "PC input ordering reaches the wire");
                 Check(SystemIdleTime.ExpandInputTick(0x100000010L,0xfffffff0)==0xfffffff0L, "last input survives 32 bit tick wrap");
                 Check(SystemIdleTime.ExpandInputTick(1200,1000)==SystemIdleTime.ExpandInputTick(1500,1000), "idle heartbeats do not change last input");
-                Check(data.GetProperty("quotaDetails").GetArrayLength()==10,"all ten quota providers mapped");
+                Check(data.GetProperty("quotaDetails").GetArrayLength()==11,"eleven quota provider entries mapped");
+                var ark=data.GetProperty("quotaDetails")[10];
+                Check(ark.GetProperty("id").GetString()=="volcengine"&&ark.GetProperty("plan").GetString()=="待接入"&&
+                    ark.GetProperty("balance").ValueKind==JsonValueKind.Null&&ark.GetProperty("primary").ValueKind==JsonValueKind.Null&&
+                    ark.GetProperty("weekly").ValueKind==JsonValueKind.Null&&ark.GetProperty("planPercent").ValueKind==JsonValueKind.Null,
+                    "Ark is explicitly pending without fabricated quota or cloud-wallet data");
                 Check(data.GetProperty("stocks").GetProperty("quotes").GetArrayLength()==20,"all twenty stocks retained");
                 Check(data.GetProperty("quotaDetails")[2].GetProperty("balance").GetDouble()==12,"domestic balance mapped");
                 Check(data.GetProperty("quotaDetails")[0].GetProperty("primary").ValueKind==JsonValueKind.Null,"missing provider not converted to zero");
                 Check(data.GetProperty("quotaDetails")[1].GetProperty("creditExpiries").GetArrayLength()==3,"all credit dates reach the wire");
+                Check(data.GetProperty("quotaDetails")[1].GetProperty("weeklyWindowSeconds").GetInt64()==604800 &&
+                      !data.GetProperty("quotaDetails")[0].TryGetProperty("weeklyWindowSeconds",out _),"known cycle duration reaches the wire; unavailable duration omitted");
                 Check(data.GetProperty("quotaTrend").GetProperty("days").GetArrayLength()==7,"daily chart reaches the wire");
+                var weather=data.GetProperty("weather");var firstDay=weather.GetProperty("daily")[0];
+                Check(firstDay.GetProperty("sunrise").GetString()=="05:43"&&firstDay.GetProperty("sunset").GetString()=="18:16"&&
+                    firstDay.GetProperty("daylightSeconds").GetDouble()==45180&&weather.GetProperty("utcOffsetSeconds").GetInt32()==28800,
+                    "city solar times and timezone reach the shared USB/Wi-Fi/BLE snapshot");
             }
             Console.WriteLine("TAB5_EXPANDED_FRAME_BYTES="+fullFrame.Length);
             var service=new Tab5Service(store);service.Publish(snapshot);

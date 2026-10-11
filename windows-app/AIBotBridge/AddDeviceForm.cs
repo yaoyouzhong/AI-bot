@@ -6,13 +6,13 @@ namespace AIBotBridge;
 internal sealed class AddDeviceForm : Form
 {
     private readonly CancellationTokenSource _stop=new();
-    private bool _busy;
+    private bool _busy,_disposed;
     internal RegisteredDevice? Added {get;private set;}
     internal AddDeviceForm(DeviceRegistry registry,bool preview=false) {
         SuspendLayout();
-        Text="添加设备";Font=new Font("Microsoft YaHei UI",9F);AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        ClientSize=new(540,365);MinimumSize=new(480,350);StartPosition=FormStartPosition.CenterParent;
-        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,AutoScroll=true,WrapContents=false,Padding=new Padding(20)};Controls.Add(panel);SettingsWindow.FitFlow(panel);
+        Text="添加设备";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
+        ClientSize=new(540,440);MinimumSize=new(480,420);StartPosition=FormStartPosition.CenterParent;
+        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,AutoScroll=true,WrapContents=false,Padding=new Padding(24)};Controls.Add(panel);SettingsWindow.FitFlow(panel);
         var kind=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Label"};
         var choices=new[]{new Choice(HardwareKind.Tab5,"M5Stack TAB5"),new Choice(HardwareKind.Esp8266,"ESP8266 小屏")}.Where(c=>!registry.Devices.Any(d=>d.Kind==c.Kind)).ToArray();
         if(choices.Length==0) {
@@ -24,16 +24,18 @@ internal sealed class AddDeviceForm : Form
             SettingsWindow.FitFlow(content);root.Controls.Add(content,0,0);
             content.Controls.Add(new Label{Text="支持的设备均已添加",AutoSize=true,Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,0,0,12)});
             foreach(var device in registry.Devices)content.Controls.Add(new Label{Text=DeviceRegistryStore.Model(device.Kind)+" · 已添加"+(device.Enabled?"":"（已停用）"),AutoSize=true,Margin=new Padding(0,0,0,8)});
-            content.Controls.Add(new Label{Text="当前支持每种型号一台。\n更换时先在设备中心“管理 → 移除设备”，再添加新设备。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,8,0,0)});
+            content.Controls.Add(new Label{Text="每种型号一台；更换设备请先移除已有设备。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,8,0,0)});
             var footer=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,Margin=new Padding(0,12,0,0),Name="add-device-actions"};
             var close=DeviceCenterForm.Button("关闭",()=>DialogResult=DialogResult.Cancel);close.Margin=Padding.Empty;footer.Controls.Add(close);root.Controls.Add(footer,0,1);Controls.Add(root);
             AcceptButton=close;CancelButton=close;SettingsWindow.FitScreen(this);ResumeLayout(true);return;
         }
-        panel.Controls.Add(new Label{Text="连接 USB 数据线，验证设备后添加。",AutoSize=true,Font=new Font(Font.FontFamily,12,FontStyle.Bold)});
-        kind.Items.AddRange(choices.Cast<object>().ToArray());kind.SelectedIndex=0;panel.Controls.Add(kind);
-        var ports=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Name"};panel.Controls.Add(ports);
-        var name=new TextBox{Text=DeviceRegistryStore.Model(((Choice)kind.SelectedItem!).Kind),MaxLength=40};panel.Controls.Add(name);
-        var status=new Label{AutoSize=true,Text="USB 名称只用于发现；完成协议验证才会添加。",ForeColor=Color.DimGray};
+        panel.Controls.Add(new Label{Text="添加设备",AutoSize=true,Font=SettingsWindow.TitleFont()});
+        kind.Items.AddRange(choices.Cast<object>().ToArray());kind.SelectedIndex=0;
+        void Field(string title,Control input){panel.Controls.Add(new Label{Text=title,AutoSize=true,Margin=new(0,8,0,4)});input.Margin=new(0,0,0,4);panel.Controls.Add(input);}
+        Field("设备型号",kind);
+        var ports=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Name"};Field("USB 设备",ports);
+        var name=new TextBox{Text=DeviceRegistryStore.Model(((Choice)kind.SelectedItem!).Kind),MaxLength=40};Field("设备名称",name);
+        var status=new Label{AutoSize=true,Text="连接 USB 数据线后验证设备。",ForeColor=Color.DimGray};
         void Refresh(){try{if(!preview)ports.DataSource=FlashDeviceDiscovery.Read().Where(d=>((Choice)kind.SelectedItem!).Kind==HardwareKind.Tab5?d.Identity.Contains("VID_303A",StringComparison.OrdinalIgnoreCase):!d.Identity.Contains("VID_303A",StringComparison.OrdinalIgnoreCase)).ToArray();}catch(Exception ex){status.Text="读取设备列表失败："+ex.Message;}}
         var row=DeviceCenterForm.Row();var refresh=DeviceCenterForm.Button("刷新设备",Refresh);row.Controls.Add(refresh);
         var add=DeviceCenterForm.Button("验证并添加",()=>{},true);row.Controls.Add(add);panel.Controls.Add(row);
@@ -71,7 +73,7 @@ internal sealed class AddDeviceForm : Form
         FormClosing+=(_,e)=>{if(_busy){_stop.Cancel();e.Cancel=true;status.Text="正在取消验证，请稍候再关闭。";}};Refresh();SettingsWindow.FitScreen(this);ResumeLayout(true);
     }
     private sealed record Choice(HardwareKind Kind,string Label);
-    protected override void Dispose(bool disposing){if(disposing){_stop.Cancel();_stop.Dispose();}base.Dispose(disposing);}
+    protected override void Dispose(bool disposing){if(disposing&&!_disposed){_disposed=true;_stop.Cancel();_stop.Dispose();}base.Dispose(disposing);}
 }
 
 internal static class DeviceProbe

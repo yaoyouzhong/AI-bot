@@ -177,6 +177,7 @@ internal sealed class Tab5CodexTasks : IDisposable
     private readonly ConcurrentDictionary<string, string> _receipts = new();
     private readonly ConcurrentDictionary<string, string> _responses = new();
     private readonly ConcurrentDictionary<string, string> _readyReplies = new();
+    private readonly Tab5CodexReadState _readState=new();
     private readonly Dictionary<string, string> _terminalStates = new();
     private readonly Dictionary<string, string> _responseTurns = new();
     private readonly object _receiptLock = new();
@@ -222,8 +223,8 @@ internal sealed class Tab5CodexTasks : IDisposable
         foreach(var entry in _activeTurns)_=WatchDesktopAsync(entry.Key,entry.Value,_lifetime.Token);
     }
     // Allows protocol failures to be tested without sending a real Codex turn.
-    internal Tab5CodexTasks(Func<string,object,CancellationToken,Task<JsonElement>> call, Func<IReadOnlyList<Tab5CodexTask>> catalog)
-    { _call=call; _connect=_=>Task.CompletedTask; _catalog=catalog;_images=new(); }
+    internal Tab5CodexTasks(Func<string,object,CancellationToken,Task<JsonElement>> call, Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexReadState? readState=null)
+    { _call=call; _connect=_=>Task.CompletedTask; _catalog=catalog;_images=new();_readState=readState??new(()=>null); }
 
     internal object Snapshot()=>SnapshotLimited(80);
     internal static Tab5CodexTask? SelectOverview(IEnumerable<Tab5CodexTask> catalog,IReadOnlyDictionary<string,CodexLifecycleTracker.TaskActivity> activity)=>
@@ -236,7 +237,7 @@ internal sealed class Tab5CodexTasks : IDisposable
         _liveActivity?.Refresh(catalog,_lifetime.Token);
         foreach(var live in _liveActivity?.Fresh()??[])activity[live.Id]=live;
         // Publish completed turn identities from both desktop IPC and root logs.
-        // The device owns read acknowledgement, after that exact turn renders.
+        // Device reads and desktop reads both acknowledge the exact turn.
         foreach(var task in catalog)if(activity.TryGetValue(task.Id,out var state)&&state.Completed&&state.TurnId.Length>0)
             _readyReplies[task.Id]=state.TurnId;
         // The overview is independent from a task pinned by the reply reader.
@@ -249,6 +250,7 @@ internal sealed class Tab5CodexTasks : IDisposable
         }
         // Under transport pressure retain each project plus the viewed task first.
         var tasks=Tab5TaskPins.Select(catalog,taskLimit,overview?.Id,viewed,ready.Keys.ToHashSet());
+        var read=_readState.Synchronize(ready);
         if(view is not null&&viewed is not null)responses[viewed]=view.Text;
         var projects = tasks.GroupBy(t => t.ProjectId).OrderByDescending(g => g.Max(t => t.UpdatedAt))
             .ThenBy(g => g.Min(t => t.ProjectOrder))
@@ -256,6 +258,8 @@ internal sealed class Tab5CodexTasks : IDisposable
         return new { projects, tasks, overviewTask=overview is null?null:new {id=overview.Id,title=overview.Title,folder=overview.Folder,projectId=overview.ProjectId,state=activity.GetValueOrDefault(overview.Id)?.State??"idle"}, draftView=Volatile.Read(ref _draftView),control=Volatile.Read(ref _control),
             replyView=view is null?null:new {taskId=viewed,turnId=view.TurnId,page=view.Page,pageCount=view.PageCount,hasText=view.HasText,history=viewHistory,hasPrevious=viewPrevious,hasNext=viewNext,startedAt=view.StartedAt,startedLabel=view.StartedAt>0?DateTimeOffset.FromUnixTimeSeconds(view.StartedAt).ToLocalTime().ToString("MM-dd HH:mm"):"",state=view.State},
             repliesReady = tasks.Where(t=>ready.ContainsKey(t.Id)).Take(80).ToDictionary(t=>t.Id,t=>ready[t.Id]),
+            repliesRead = read,
+            repliesUnread = _readState.Unread,
             receipts = tasks.Where(t => _receipts.ContainsKey(t.Id)).Take(16).ToDictionary(t => t.Id, t => _receipts[t.Id]),
             responses = tasks.Where(t => responses.ContainsKey(t.Id)).Take(1).ToDictionary(t => t.Id, t => responses[t.Id]) };
     }

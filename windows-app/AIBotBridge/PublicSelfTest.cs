@@ -40,7 +40,9 @@ internal static class PublicSelfTest
         MediaPlayerSelfTest.RunAsync().GetAwaiter().GetResult();
         ComponentUpdateSelfTest.Run();
         GalleryPackSelfTest.Run();
+        Tab5ArtGuides.SelfTest();
         Task.Run(UpdateSelfTest.RunAsync).GetAwaiter().GetResult();
+        Task.Run(GalleryUpdateSelfTest.RunAsync).GetAwaiter().GetResult();
         FirmwareFlashSelfTest.RunAsync().GetAwaiter().GetResult();
         QuotaHistorySelfTest.Run();
         LunarDateSelfTest.Run();

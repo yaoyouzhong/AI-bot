@@ -20,7 +20,7 @@ internal sealed class DomesticQuotaAuthForm : Form
 
     private readonly BridgeRuntime _runtime;
     private readonly ComboBox _provider = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180 };
-    private readonly Label _status = new() { AutoSize = true, Text = "正在初始化隔离浏览器…" };
+    private readonly Label _status = new() { AutoSize = true, Text = "正在加载登录页…" };
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private CoreWebView2DevToolsProtocolEventReceiver? _responses;
 
@@ -30,7 +30,7 @@ internal sealed class DomesticQuotaAuthForm : Form
         _runtime = runtime;
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
-        Text = "AI-bot 国产模型额度授权";Font=new Font("Microsoft YaHei UI",9F);
+        Text = "AI-bot 国产模型额度授权";Font=SettingsWindow.BodyFont();
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(960, 660);
         MinimumSize = new Size(760, 560);
@@ -47,10 +47,10 @@ internal sealed class DomesticQuotaAuthForm : Form
             Dock = DockStyle.Top,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(8),
+            Padding = new Padding(24),
             WrapContents = true
         };
-        top.Controls.Add(_provider);
+        var heading=SettingsWindow.Title("模型账号");top.Controls.Add(heading);top.SetFlowBreak(heading,true);top.Controls.Add(_provider);
         top.Controls.Add(refresh);
         top.Controls.Add(_status);
         Controls.Add(_web);
@@ -75,7 +75,7 @@ internal sealed class DomesticQuotaAuthForm : Form
             await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Network.enable", "{}");
             _responses = _web.CoreWebView2.GetDevToolsProtocolEventReceiver("Network.responseReceived");
             _responses.DevToolsProtocolEventReceived += ResponseReceived;
-            _status.Text = "请登录当前厂商；只缓存可显示额度。";
+            _status.Text = "请登录所选平台。";
             NavigateSelected();
         }
         catch (Exception ex) when (ex is InvalidOperationException or COMException)

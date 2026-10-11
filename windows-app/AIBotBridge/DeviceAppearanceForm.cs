@@ -6,11 +6,12 @@ internal sealed class DeviceAppearanceForm : Form
     {
         SuspendLayout();Text="ESP8266 · 外观设置";
         AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        Font=new Font("Microsoft YaHei UI",9F);
-        ClientSize=new(430,340);MinimumSize=new(410,340);StartPosition=FormStartPosition.CenterScreen;
+        Font=SettingsWindow.BodyFont();
+        ClientSize=new(480,420);MinimumSize=new(440,390);StartPosition=FormStartPosition.CenterScreen;
         MaximizeBox=false;MinimizeBox=false;
-        var body=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(16),AutoScroll=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};Controls.Add(body);
-        Label Heading(string text)=>new(){Text=text,AutoSize=true,Font=new Font(Font,FontStyle.Bold),Margin=new Padding(3,4,3,8)};
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=2};root.ColumnStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));Controls.Add(root);
+        var body=new FlowLayoutPanel{Dock=DockStyle.Fill,AutoScroll=true,Margin=Padding.Empty,FlowDirection=FlowDirection.TopDown,WrapContents=false};root.Controls.Add(body,0,0);
+        Label Heading(string text)=>new(){Text=text,AutoSize=true,Font=SettingsWindow.SectionFont(),Margin=new Padding(0,4,0,8)};
         body.Controls.Add(Heading("天气动画"));
         string[] values=["robot","house","plant","pet","off"];
         var choices=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList};
@@ -20,7 +21,7 @@ internal sealed class DeviceAppearanceForm : Form
         var heading=Heading("桌宠动画");heading.Margin=new Padding(3,16,3,8);body.Controls.Add(heading);
         var rows=new TableLayoutPanel{AutoSize=true,ColumnCount=3,RowCount=3,Margin=Padding.Empty};
         rows.ColumnStyles.Add(new(SizeType.AutoSize));rows.ColumnStyles.Add(new(SizeType.Percent,50));rows.ColumnStyles.Add(new(SizeType.Percent,50));
-        var feedback=new Label{AutoSize=true,ForeColor=Color.DimGray,Text="更改后自动保存",Margin=new Padding(3,10,3,3)};
+        var feedback=new Label{AutoSize=true,ForeColor=Color.DimGray,Text="自动保存",Margin=new Padding(0,10,0,0)};
         int row=0;
         foreach(var (label,owner) in new (string,string?)[]{("通用",null),("Claude","claude"),("Codex","codex")}) {
             rows.RowStyles.Add(new(SizeType.AutoSize));
@@ -34,6 +35,7 @@ internal sealed class DeviceAppearanceForm : Form
         }
         body.Controls.Add(rows);
         if(browse is not null)body.Controls.Add(DeviceCenterForm.Button("素材图库",()=>browse(this)));
-        body.Controls.Add(feedback);SettingsWindow.FitFlow(body);SettingsWindow.FitScreen(this);ResumeLayout(true);
+        body.Controls.Add(feedback);var close=DeviceCenterForm.Button("关闭",Close);close.Anchor=AnchorStyles.Right;close.Margin=new(0,12,0,0);root.Controls.Add(close,0,1);CancelButton=close;
+        SettingsWindow.AddTitle(root,"外观设置");SettingsWindow.FitFlow(body);SettingsWindow.FitScreen(this);ResumeLayout(true);
     }
 }

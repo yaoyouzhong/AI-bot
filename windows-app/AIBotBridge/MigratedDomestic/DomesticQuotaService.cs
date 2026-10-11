@@ -45,6 +45,7 @@ sealed class DomesticQuotaSnapshot
     public double? XiaomiPlanPct;
     public double? KimiWeeklyPct;
     public double? KimiFiveHourPct;
+    public double? KimiPlanPct;
     public double? MiniMaxWeeklyPct;
     public double? MiniMaxFiveHourPct;
     public AIBotBridge.DomesticProviderQuotaSnapshot Zhipu;
@@ -67,6 +68,11 @@ sealed class DomesticQuotaSnapshot
     public DateTimeOffset? MiniMaxWeeklyResetAt;
     public DateTimeOffset? MiniMaxFiveHourResetAt;
     public DateTimeOffset? MiniMaxPlanExpiresAt;
+    public DateTimeOffset? KimiPlanResetAt;
+    public DateTimeOffset? XiaomiPlanResetAt;
+    public long? QwenPrimaryWindowSeconds, QwenWeeklyWindowSeconds, QwenPlanWindowSeconds;
+    public long? KimiPrimaryWindowSeconds, KimiWeeklyWindowSeconds, KimiPlanWindowSeconds;
+    public long? MiniMaxPrimaryWindowSeconds, MiniMaxWeeklyWindowSeconds, XiaomiPlanWindowSeconds;
     public string QwenMembership = "";
     public string KimiMembership = "";
     public string MiniMaxMembership = "";
@@ -109,6 +115,7 @@ sealed partial class DomesticQuotaService
                 XiaomiPlanPct = _snapshot.XiaomiPlanPct,
                 KimiWeeklyPct = _snapshot.KimiWeeklyPct,
                 KimiFiveHourPct = _snapshot.KimiFiveHourPct,
+                KimiPlanPct = _snapshot.KimiPlanPct,
                 MiniMaxWeeklyPct = _snapshot.MiniMaxWeeklyPct,
                 MiniMaxFiveHourPct = _snapshot.MiniMaxFiveHourPct,
                 Zhipu = _snapshot.Zhipu,
@@ -131,6 +138,17 @@ sealed partial class DomesticQuotaService
                 MiniMaxWeeklyResetAt = _snapshot.MiniMaxWeeklyResetAt,
                 MiniMaxFiveHourResetAt = _snapshot.MiniMaxFiveHourResetAt,
                 MiniMaxPlanExpiresAt = _snapshot.MiniMaxPlanExpiresAt,
+                KimiPlanResetAt = _snapshot.KimiPlanResetAt,
+                XiaomiPlanResetAt = _snapshot.XiaomiPlanResetAt,
+                QwenPrimaryWindowSeconds = _snapshot.QwenPrimaryWindowSeconds,
+                QwenWeeklyWindowSeconds = _snapshot.QwenWeeklyWindowSeconds,
+                QwenPlanWindowSeconds = _snapshot.QwenPlanWindowSeconds,
+                KimiPrimaryWindowSeconds = _snapshot.KimiPrimaryWindowSeconds,
+                KimiWeeklyWindowSeconds = _snapshot.KimiWeeklyWindowSeconds,
+                KimiPlanWindowSeconds = _snapshot.KimiPlanWindowSeconds,
+                MiniMaxPrimaryWindowSeconds = _snapshot.MiniMaxPrimaryWindowSeconds,
+                MiniMaxWeeklyWindowSeconds = _snapshot.MiniMaxWeeklyWindowSeconds,
+                XiaomiPlanWindowSeconds = _snapshot.XiaomiPlanWindowSeconds,
                 QwenMembership = _snapshot.QwenMembership,
                 KimiMembership = _snapshot.KimiMembership,
                 MiniMaxMembership = _snapshot.MiniMaxMembership,
@@ -214,7 +232,8 @@ sealed partial class DomesticQuotaService
                     ? "MiniMax 响应中没有可识别的额度字段。"
                     : $"MiniMax 额度接口返回 HTTP {(int)response.StatusCode}。");
             SetMiniMax(usage.Value.WeeklyPct, usage.Value.FiveHourPct,
-                usage.Value.Membership, usage.Value.WeeklyResetAt, usage.Value.FiveHourResetAt);
+                usage.Value.Membership, usage.Value.WeeklyResetAt, usage.Value.FiveHourResetAt,
+                primaryWindowSeconds:usage.Value.PrimaryWindowSeconds,weeklyWindowSeconds:usage.Value.WeeklyWindowSeconds);
             return (true, "已通过 MiniMax API 取得准确用量。");
         }
         catch (Exception)
@@ -249,7 +268,8 @@ sealed partial class DomesticQuotaService
         }
     }
 
-    internal void SetQwen(double pct, string membership = null, DateTimeOffset? resetAt = null, DateTimeOffset? planExpiresAt = null)
+    internal void SetQwen(double pct, string membership = null, DateTimeOffset? resetAt = null, DateTimeOffset? planExpiresAt = null,
+        long? windowSeconds = null)
     {
         RefreshHealth.Recover("qwen");
         lock (_lock)
@@ -257,7 +277,8 @@ sealed partial class DomesticQuotaService
             _snapshot.QwenPlanPct = Clamp(pct);
             if (!string.IsNullOrWhiteSpace(membership))
                 _snapshot.QwenMembership = membership.Trim();
-            if (resetAt.HasValue) _snapshot.QwenPlanResetAt = resetAt;
+            _snapshot.QwenPlanResetAt = resetAt;
+            _snapshot.QwenPlanWindowSeconds = windowSeconds ?? QuotaCycle.PersonalQwenSeconds(membership);
             if (planExpiresAt.HasValue) _snapshot.QwenPlanExpiresAt = planExpiresAt;
             _snapshot.QwenFetchedAt = DateTime.UtcNow;
             Save();
@@ -277,6 +298,7 @@ sealed partial class DomesticQuotaService
             }
             if (ParseResetAt(resetText) is DateTimeOffset resetAt)
                 _snapshot.QwenPlanResetAt = resetAt;
+            _snapshot.QwenPlanWindowSeconds = QuotaCycle.PersonalQwenSeconds(_snapshot.QwenMembership);
             _snapshot.QwenPlanExpiresAt = ParseResetAt(expiryText);
             Save();
         }
@@ -293,27 +315,36 @@ sealed partial class DomesticQuotaService
         RefreshHealth.Recover(value.Provider);
     }
 
-    internal void SetXiaomi(double pct)
+    internal void SetXiaomi(double pct) => SetXiaomi(XiaomiQuota.Snapshot(pct,DateTime.UtcNow)
+        ?? throw new JsonException("Invalid MiMo usage."));
+    internal void SetXiaomi(AIBotBridge.DomesticProviderQuotaSnapshot value)
     {
+        var pct=value.PlanPercent??double.NaN;
         if (!double.IsFinite(pct) || pct < 0 || pct > 100) throw new JsonException("Invalid MiMo usage.");
         RefreshHealth.Recover("xiaomi");
-        lock (_lock) { _snapshot.XiaomiPlanPct = Clamp(pct); _snapshot.XiaomiFetchedAt = DateTime.UtcNow; Save(); }
+        lock (_lock) { _snapshot.XiaomiPlanPct = Clamp(pct); _snapshot.XiaomiFetchedAt = DateTime.UtcNow;
+            _snapshot.XiaomiPlanResetAt=value.PlanResetsAt;_snapshot.XiaomiPlanWindowSeconds=value.PlanWindowSeconds;Save(); }
     }
 
     internal void SetKimi(double weeklyPct, double? fiveHourPct, string membership = null,
         DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null, DateTimeOffset? planExpiresAt = null)
+        => SetKimi(new AIBotBridge.DomesticProviderQuotaSnapshot("kimi",membership,fiveHourPct,fiveHourResetAt,weeklyPct,weeklyResetAt,
+            null,null,null,DateTimeOffset.UtcNow,false) {PrimaryWindowSeconds=fiveHourPct.HasValue?18000:null,
+                WeeklyWindowSeconds=604800,PlanExpiresAt=planExpiresAt});
+    internal void SetKimi(AIBotBridge.DomesticProviderQuotaSnapshot value)
     {
         RefreshHealth.Recover("kimi");
         lock (_lock)
         {
-            _snapshot.KimiWeeklyPct = Clamp(weeklyPct);
-            _snapshot.KimiFiveHourPct = fiveHourPct.HasValue ? Clamp(fiveHourPct.Value) : null;
-            if (weeklyResetAt.HasValue) _snapshot.KimiWeeklyResetAt = weeklyResetAt;
-            if (fiveHourResetAt.HasValue) _snapshot.KimiFiveHourResetAt = fiveHourResetAt;
-            if (planExpiresAt.HasValue) _snapshot.KimiPlanExpiresAt = planExpiresAt;
-            if (!string.IsNullOrWhiteSpace(membership))
+            _snapshot.KimiWeeklyPct = value.WeeklyPercent is double weekly?Clamp(weekly):null;
+            _snapshot.KimiFiveHourPct = value.PrimaryPercent is double primary?Clamp(primary):null;
+            _snapshot.KimiWeeklyResetAt=value.WeeklyResetsAt;_snapshot.KimiFiveHourResetAt=value.PrimaryResetsAt;
+            _snapshot.KimiPrimaryWindowSeconds=value.PrimaryWindowSeconds;_snapshot.KimiWeeklyWindowSeconds=value.WeeklyWindowSeconds;
+            _snapshot.KimiPlanPct=value.PlanPercent;_snapshot.KimiPlanResetAt=value.PlanResetsAt;_snapshot.KimiPlanWindowSeconds=value.PlanWindowSeconds;
+            if (value.PlanExpiresAt.HasValue) _snapshot.KimiPlanExpiresAt = value.PlanExpiresAt;
+            if (!string.IsNullOrWhiteSpace(value.Plan))
             {
-                _snapshot.KimiMembership = membership.Trim();
+                _snapshot.KimiMembership = value.Plan.Trim();
                 Settings.Set("kimi_membership", _snapshot.KimiMembership);
             }
             _snapshot.KimiFetchedAt = DateTime.UtcNow;
@@ -322,15 +353,18 @@ sealed partial class DomesticQuotaService
     }
 
     internal void SetMiniMax(double weeklyPct, double? fiveHourPct, string membership = null,
-        DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null, DateTimeOffset? planExpiresAt = null)
+        DateTimeOffset? weeklyResetAt = null, DateTimeOffset? fiveHourResetAt = null, DateTimeOffset? planExpiresAt = null,
+        long? primaryWindowSeconds = 18000,long? weeklyWindowSeconds = 604800)
     {
         RefreshHealth.Recover("minimax");
         lock (_lock)
         {
             _snapshot.MiniMaxWeeklyPct = Clamp(weeklyPct);
             _snapshot.MiniMaxFiveHourPct = fiveHourPct.HasValue ? Clamp(fiveHourPct.Value) : null;
-            if (weeklyResetAt.HasValue) _snapshot.MiniMaxWeeklyResetAt = weeklyResetAt;
-            if (fiveHourResetAt.HasValue) _snapshot.MiniMaxFiveHourResetAt = fiveHourResetAt;
+            _snapshot.MiniMaxWeeklyResetAt = weeklyResetAt;
+            _snapshot.MiniMaxFiveHourResetAt = fiveHourResetAt;
+            _snapshot.MiniMaxPrimaryWindowSeconds = fiveHourPct.HasValue?primaryWindowSeconds:null;
+            _snapshot.MiniMaxWeeklyWindowSeconds = weeklyWindowSeconds;
             if (planExpiresAt.HasValue) _snapshot.MiniMaxPlanExpiresAt = planExpiresAt;
             if (!string.IsNullOrWhiteSpace(membership))
                 _snapshot.MiniMaxMembership = membership.Trim();
@@ -462,9 +496,21 @@ sealed partial class DomesticQuotaService
     static DomesticQuotaSnapshot Load()
     {
         DomesticQuotaSnapshot snapshot;
-        try { snapshot = JsonSerializer.Deserialize<DomesticQuotaSnapshot>(File.ReadAllText(File.Exists(CachePath) ? CachePath : Path.Combine(
-            AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AIClockBridge", "domestic-quota-cache.json")),
-            new JsonSerializerOptions { IncludeFields = true }) ?? new(); }
+        try {
+            var json=File.ReadAllText(File.Exists(CachePath) ? CachePath : Path.Combine(
+                AIBotBridge.AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData),"AIClockBridge","domestic-quota-cache.json"));
+            snapshot=JsonSerializer.Deserialize<DomesticQuotaSnapshot>(json,new JsonSerializerOptions {IncludeFields=true})??new();
+            using var document=JsonDocument.Parse(json);
+            var cycles=AIBotBridge.LegacyDisplayCache.ParseDomestic(document.RootElement);
+            snapshot.QwenPrimaryWindowSeconds=cycles.Alibaba?.PrimaryWindowSeconds;
+            snapshot.QwenWeeklyWindowSeconds=cycles.Alibaba?.WeeklyWindowSeconds;
+            snapshot.QwenPlanWindowSeconds=cycles.Alibaba?.PlanWindowSeconds;
+            snapshot.KimiPrimaryWindowSeconds=cycles.Kimi?.PrimaryWindowSeconds;
+            snapshot.KimiWeeklyWindowSeconds=cycles.Kimi?.WeeklyWindowSeconds;
+            snapshot.KimiPlanWindowSeconds=cycles.Kimi?.PlanWindowSeconds;
+            snapshot.MiniMaxPrimaryWindowSeconds=cycles.MiniMax?.PrimaryWindowSeconds;
+            snapshot.MiniMaxWeeklyWindowSeconds=cycles.MiniMax?.WeeklyWindowSeconds;
+        }
         catch { snapshot = new(); }
         if (snapshot.KimiMembership.StartsWith("LEVEL_", StringComparison.OrdinalIgnoreCase))
             snapshot.KimiMembership = "";
@@ -1496,22 +1542,23 @@ sealed class DomesticQuotaAuthForm : Form
             double? fiveHourPct = null;
             string membership = null;
             if (responseInfo.ProviderId == "xiaomi") {
-                weeklyPct = XiaomiQuota.Parse(doc.RootElement);
-                _service.SetXiaomi(weeklyPct);
+                var value=XiaomiQuota.ParseSnapshot(doc.RootElement);
+                weeklyPct = value.PlanPercent!.Value;
+                _service.SetXiaomi(value);
             }
             else if (responseInfo.ProviderId == "kimi")
             {
-                var kimi = FindKimiUsage(doc.RootElement);
                 membership = FindKimiMembership(doc.RootElement);
-                if (kimi == null)
+                AIBotBridge.DomesticProviderQuotaSnapshot kimi;
+                try {kimi=AIBotBridge.DomesticQuotaService.Parse("kimi",body);}
+                catch(JsonException)
                 {
                     _service.SetKimiMembership(membership);
                     return;
                 }
-                weeklyPct = kimi.Value.WeeklyPct;
-                fiveHourPct = kimi.Value.FiveHourPct;
-                _service.SetKimi(weeklyPct, fiveHourPct, membership,
-                    kimi.Value.WeeklyResetAt, kimi.Value.FiveHourResetAt);
+                weeklyPct = kimi.WeeklyPercent??kimi.PlanPercent??kimi.PrimaryPercent??0;
+                fiveHourPct = kimi.PrimaryPercent;
+                _service.SetKimi(kimi with {Plan=membership});
                 QuotaDiagnostics.Log(
                     $"[quota] Kimi updated: Weekly {weeklyPct:0.##}%, 5H "
                     + (fiveHourPct.HasValue ? $"{fiveHourPct.Value:0.##}%" : "--"));
@@ -1524,7 +1571,8 @@ sealed class DomesticQuotaAuthForm : Form
                 fiveHourPct = miniMax.Value.FiveHourPct;
                 membership = miniMax.Value.Membership;
                 _service.SetMiniMax(weeklyPct, fiveHourPct, membership,
-                    miniMax.Value.WeeklyResetAt, miniMax.Value.FiveHourResetAt);
+                    miniMax.Value.WeeklyResetAt, miniMax.Value.FiveHourResetAt,
+                    primaryWindowSeconds:miniMax.Value.PrimaryWindowSeconds,weeklyWindowSeconds:miniMax.Value.WeeklyWindowSeconds);
                 QuotaDiagnostics.Log(
                     $"[quota] MiniMax updated: Weekly {weeklyPct:0.##}%, 5H "
                     + (fiveHourPct.HasValue ? $"{fiveHourPct.Value:0.##}%" : "--"));
@@ -1564,7 +1612,7 @@ sealed class DomesticQuotaAuthForm : Form
                 if (!pct.HasValue) return;
                 weeklyPct = pct.Value;
                 if (responseInfo.ProviderId == "qwen")
-                    _service.SetQwen(pct.Value, membership, qwen?.ResetAt);
+                    _service.SetQwen(pct.Value, membership, qwen?.ResetAt,windowSeconds:qwen?.WindowSeconds);
                 else _service.SetXiaomi(pct.Value);
             }
             var responseProvider = ProviderById(responseInfo.ProviderId);
@@ -1661,12 +1709,16 @@ sealed class DomesticQuotaAuthForm : Form
     }
 
     internal readonly record struct MiniMaxUsage(double WeeklyPct, double? FiveHourPct,
-        string Membership, DateTimeOffset? WeeklyResetAt, DateTimeOffset? FiveHourResetAt);
+        string Membership, DateTimeOffset? WeeklyResetAt, DateTimeOffset? FiveHourResetAt)
+    {
+        public long? PrimaryWindowSeconds {get;init;}=18000;
+        public long? WeeklyWindowSeconds {get;init;}=604800;
+    }
     internal readonly record struct DeepSeekBalance(double Total, double? Granted,
         double? ToppedUp, string Currency);
     readonly record struct KimiUsage(double WeeklyPct, double? FiveHourPct,
         DateTimeOffset? WeeklyResetAt, DateTimeOffset? FiveHourResetAt);
-    readonly record struct QwenUsage(double Pct, DateTimeOffset? ResetAt);
+    readonly record struct QwenUsage(double Pct, DateTimeOffset? ResetAt, long? WindowSeconds);
 
     internal static DeepSeekBalance? FindDeepSeekBalance(JsonElement element)
     {
@@ -1778,7 +1830,9 @@ sealed class DomesticQuotaAuthForm : Form
                     resetAt = DateTimeValue(value);
                     if (resetAt.HasValue) break;
                 }
-                return new QwenUsage(100.0 * Math.Max(0, total - remain) / total, resetAt);
+                var bounds=QuotaCycle.Bounds(element);
+                return new QwenUsage(100.0 * Math.Max(0, total - remain) / total, resetAt??bounds.Reset,
+                    resetAt is null||resetAt==bounds.Reset?bounds.Seconds:null);
             }
             foreach (var child in values.Values)
                 if (FindQwenUsage(child) is QwenUsage found) return found;
@@ -1991,7 +2045,8 @@ sealed class DomesticQuotaAuthForm : Form
         if (fiveHourPct.HasValue) score += 10;
         if (membership.Length > 0) score += 5;
         return (new MiniMaxUsage(weeklyPct.Value, fiveHourPct, membership,
-            weeklyResetAt, fiveHourResetAt), score);
+            weeklyResetAt, fiveHourResetAt) {PrimaryWindowSeconds=QuotaCycle.MiniMaxWindow(JsonSerializer.SerializeToElement(values),false),
+                WeeklyWindowSeconds=QuotaCycle.MiniMaxWindow(JsonSerializer.SerializeToElement(values),true)}, score);
     }
 
     static JsonElement ObjectFromValues(Dictionary<string, JsonElement> values, string name)

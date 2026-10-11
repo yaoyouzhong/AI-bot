@@ -21,11 +21,11 @@ internal sealed class Tab5InstallForm : Form
     internal Tab5InstallForm(Tab5Service service, bool preview = false)
     {
         _service = service; _preview = preview;
-        Text = "TAB5 首次安装"; Font = new Font("Microsoft YaHei UI", 9F);
+        Text = "TAB5 首次安装"; Font = SettingsWindow.BodyFont();
         AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(700, 690); MinimumSize = new Size(600, 550); StartPosition = FormStartPosition.CenterParent;
         BackColor = Color.White;
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 4 };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 1, RowCount = 4 };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         Controls.Add(layout);
@@ -63,7 +63,7 @@ internal sealed class Tab5InstallForm : Form
         _done.Click += (_, _) => { DialogResult = DialogResult.OK; Close(); };
         _cancel.Click += (_, _) => { if (_busy) _operation?.Cancel(); else Close(); };
         FormClosing += (_, e) => { if (_busy) { e.Cancel = true; if (!_writing) _operation?.Cancel(); } };
-        RefreshDevices(); SettingsWindow.FitScreen(this);
+        SettingsWindow.AddTitle(layout,"首次安装");RefreshDevices(); SettingsWindow.FitScreen(this);
     }
     private static Button Button(string text, bool primary = false) { var b = new Button { Text = text }; SettingsWindow.StyleButton(b, primary); return b; }
     private static FlowLayoutPanel Row(params Control[] controls) {

@@ -64,7 +64,11 @@ internal sealed record ProviderQuotaSnapshot(
     int? ResetCreditsAvailable,
     IReadOnlyList<long> ResetCreditExpiresAt,
     DateTimeOffset UpdatedAt,
-    bool Stale);
+    bool Stale)
+{
+    public long? PrimaryWindowSeconds { get; init; }
+    public long? WeeklyWindowSeconds { get; init; }
+}
 
 internal sealed record QuotaSnapshot(
     ProviderQuotaSnapshot? Claude,
@@ -86,6 +90,9 @@ internal sealed record DomesticProviderQuotaSnapshot(
     public double? PlanPercent { get; init; }
     public DateTimeOffset? PlanResetsAt { get; init; }
     public DateTimeOffset? PlanExpiresAt { get; init; }
+    public long? PrimaryWindowSeconds { get; init; }
+    public long? WeeklyWindowSeconds { get; init; }
+    public long? PlanWindowSeconds { get; init; }
 }
 
 internal sealed record DomesticQuotaSnapshot(

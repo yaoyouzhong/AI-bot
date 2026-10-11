@@ -2,6 +2,144 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.176-ui - 2026-10-11
+
+- Consolidate .157–.175 improvements while preserving automatic mode, cycle pages/order/interval and preferences. Extended fonts retain existing glyph metrics/pixels. New collection images and in-progress guide content are excluded.
+- Provide nine clock faces and a grid picker, including classic green seven-segment LCD. The day/night face retains a normal 12-hour inner dial and maps its 24-hour outer ring to local daylight/night/current time, with sun/moon sunrise/sunset markers and 06:00/18:00 defaults.
+- Use Clock/Timer segmented navigation, a large-number timer view and touch controls, retaining background timing. Keep the date/day countdown as a separate screensaver, hide unselected settings and refine layout/copy.
+- Unify top-left back navigation and left-aligned titles, retaining return hierarchy. Make cycle/fixed/automatic display choices mutually exclusive, display only applicable settings, roll back failed saves and protect the last cycle page.
+- Balance provider-icon visible areas across overview, selection and rotation; Codex uses 30×29, with additional provider selection/display interactions.
+- Synchronize desktop Codex read state and the top-right unread count. Support independent image/text collection updates; pause page/orientation changes while reading and restore the original image/page on return.
+- Consolidate actual quota periods, gallery orientation/footer/cache refresh, USB receive isolation/diagnostics and Wi-Fi/BLE recovery. Outstanding transport and sustained stability checks remain explicit.
+- Retain .175 boot/Soda evidence as version-specific records; validate this build, previews and packages separately. See the [release record](../RELEASE-0.6.4.md).
+
+## 0.2.175-ui - 2026-10-11
+
+- Give Codex Direct and Settings the same upper-left back arrow. Returning through Direct retains the original Settings/detail entry and its parent destination.
+- Place the 30 px, left-aligned Codex Direct title beside the back button, matching Settings.
+- Present Carousel / Fixed page / Automatic as three exclusive choices with only their relevant parameters. Mode and page selections stay in Settings; Back opens the chosen page.
+- Preserve carousel pages, order and interval. Browsing and changing clock faces retain the automatic/carousel mode; failed saves restore the previous choice, and at least one carousel page remains enabled.
+- Full native interaction regressions, ESP-IDF build, display/flash safety and production image validation passed. Device installation and physical acceptance are recorded separately in the [acceptance record](../TAB5-ACCEPTANCE-175.md). No public release.
+
+## 0.2.174-ui - 2026-10-11
+
+- Refine the clock dial, time/date hierarchy and selection layout. Provide nine faces and a grid picker while preserving existing IDs and saved choices.
+- Keep ordinary twelve-hour hands inside the day/night face. Its outer ring maps local twenty-four-hour time, daylight, night and the current point; use a sun for sunrise and a moon for sunset, show event times on the right and remove the metadata row beneath the dial.
+- Accept dated sunrise/sunset and city timezone data, use 06:00/18:00 defaults when unavailable, and handle valid same-day cache and polar states. Live collection of the new desktop weather fields remains pending.
+- Use a classic olive-green LCD face with seven-segment time and separate seconds. Retain Clock / Countdown segments and the independent date screensaver.
+- The user installed the update, and the live desktop window reports this version on the device. Complete boot verification and physical appearance acceptance remain pending; see [acceptance record](../TAB5-ACCEPTANCE-174.md). No public release.
+
+## 0.2.173-ui - 2026-10-11
+
+- Replace the clock countdown shortcut with matching Clock / Countdown segments in both headers. The selected page uses a pale blue background.
+- Switching to Clock keeps the timer running; returning preserves its remaining time. The running screen retains only large digits, with controls revealed by touch.
+- Remove the timer touch hint and the date-settings persistence footnote.
+
+## 0.2.172-ui - 2026-10-11
+
+- Show only large centered digits while the clock timer runs. Tap to reveal controls, which hide after five seconds; paused and completed timers retain their status and controls.
+- Refine duration fields, presets and date-countdown name/date/save layout. Hide the other form controls while entering a Chinese event name.
+- Show date configuration only for the date-countdown screensaver and move the sound controls up when it is hidden.
+
+## 0.2.171-ui - 2026-10-11
+
+- Add an independent hours/minutes/seconds timer under Apps → Clock, with 5/15/25-minute presets, pause, resume, reset and completion notification. It continues after closing the page and stops on device reboot.
+- Add a date countdown screensaver with a locally configured Chinese event name and target date. It counts local calendar days, distinguishes today from past dates and retains settings across restarts.
+- Keep both countdowns independent. Event-name Pinyin input is isolated from Codex drafts; the completion chime respects device volume and mute.
+- Balance provider logo sizes across overview and model selection, retaining the confirmed 30×29 Codex mark.
+- Gallery content remains a separate collection and release; this package imports no new gallery.
+
+## 0.2.170-ui - 2026-10-11
+
+- Use the same 30×29 visible Codex mark in overview and model selection, retaining the 36×36 canvas and other provider marks.
+- Expand the reading font for the current reviewed gallery introductions, viewing tips and verified originals; content editions continue to update independently through gallery packs.
+- Retain desktop read acknowledgement and TAB5 unread badge synchronization.
+
+## 0.2.169-ui - 2026-10-11
+
+- Normalize the visible Codex logo in overview cards to the same cropped official asset used in the model picker. Keep the 36×36 canvas, alignment and other provider marks unchanged.
+- Retain .168 desktop read synchronization; hardware verification recorded a badge change from 1 to hidden after opening the reply on the PC.
+
+## 0.2.168-ui - 2026-10-11
+
+- Installed locally: synchronize desktop read acknowledgements and unread badge; expose actual widget state for hardware verification. Exact ELF / ota_0 VALID boot verification and actual PC-open → badge 1-to-0 verification passed. No public release.
+
+## 0.2.167-ui - 2026-10-10
+
+Installed with user authorization. Exact full ELF / ota_1 VALID boot verification and physical visual acceptance pass; the original six-page, 15-second automatic carousel is restored. No public release. See the [.167 acceptance record](../TAB5-ACCEPTANCE-167.md).
+
+- Use cool/warm low and high temperature panels with directional marks and a static current-temperature range indicator. Missing or invalid data cannot imply a position.
+- Add existing official provider logos to all eleven overview model choices, align their centers with the checkboxes and separate them by at least 16 pixels. Normalize Codex's visible mark from the original high-resolution OpenAI asset.
+- Place calligraphy original text inside Artwork Details alongside Introduction and Viewing Tips, with a separately labeled explanation. Only fourteen reviewed transcriptions are currently available; unverified works show a clear message.
+- Retain the installed .166 daily art cache, orientation and paging behavior, and USB authentication/reconnect fixes. Keep the same partition layout and companion Windows bridge.
+
+## 0.2.164-ui - 2026-10-10
+
+Installed with exact-image authorization and full ELF/ota_1 VALID verification. Current-day cache and physical offline interaction pass; first-fill latency and USB authentication/reconnect timeouts prevent full acceptance. Unpublished; see the [.164 daily-cache and rotation record](../TAB5-ACCEPTANCE-164.md).
+
+- Prefetch every page and both layouts of today's painting and calligraphy into a single-day JPEG cache capped at 10 MiB, retaining exactly two RGB output buffers and a 4 MiB rendering reserve. Reboot or foreground memory reclamation requires refilling; insufficient memory pauses background fill.
+- Remove the 30-second manual-page/reader-return block on orientation loading and warm the reverse layout during the hold. Sample posture every 50 ms and confirm 150 ms stability while retaining shake/flat rejection.
+- Background synchronization yields to foreground requests; page taps made while busy are retained for execution when idle.
+- Display the firmware upgrade badge with a dark green circular background and white arrow. Retain all .163 fixes and the installed painting correction.
+
+## 0.2.163-ui - 2026-10-10
+
+Installed locally with exact-candidate authorization; full ELF/ota_0 VALID verification passes. The user reports usable landscape interaction and no blue flashes, but rotation is too slow. USB/BLE benchmark failures and a USB authentication failure prevent a stability pass; no public release. See the [.163 hardware record](../TAB5-ACCEPTANCE-163.md).
+
+- Release hidden main-page caches when entering painting or calligraphy screensavers, retaining memory for rotated rendering. Existing cache rebuild resumes after exit; ordinary screensavers are unchanged.
+- Follow device orientation while reading Details without changing the work, date or frame. Return restores that frame in the current orientation.
+- Retain .162 USB reconnect and all earlier optimizations. Rebuild the painting layout from the actual old collection to correct two work differences between the earlier local baseline and the user's gallery. Installation requires approval for the exact candidates.
+
+## 0.2.162-ui - 2026-10-10
+
+Installed locally with exact-hash authorization; embedded ELF and VALID partition verification pass. Hardware screensaver acceptance fails with blue flashes and unresponsive interaction/exit in portrait and landscape. Formal benchmark and sustained observation have not started; no public release occurred. See the [.162 hardware record](../TAB5-ACCEPTANCE-162.md).
+
+- Clear old CDC FIFOs at serial close, retain new connection input during delayed receiver recovery, and block replies from the old receive generation. Require both a ready bus and an open serial session. Authentication and channel fallback remain intact; sustained stability still requires hardware validation.
+- Retain all .161 gallery direction, footer and Details behavior. The separate painting pack displays full landscape title, artist and period beside the artwork, matching calligraphy's hierarchy. Production import matches the approved ZIP and calligraphy is unchanged, but two works differ from the actual old collection. Complete annual/portrait preservation fails; a correction candidate is being prepared. Installing firmware alone does not install this pack.
+
+## 0.2.161-ui - 2026-10-10
+
+Installed locally with exact-hash authorization; Wi-Fi OTA and boot checks pass, without public release. The user confirms the landscape footer and portrait Details orientation/Return. USB fails the first two RAM suites and all channels pass the third; sustained USB observation still fails. See the [gallery layout and USB recovery hardware record](../TAB5-ACCEPTANCE-161.md).
+
+- Align portrait Details with the pre-rotated bitmap in both portrait directions and reverse landscape; Return preserves the displayed frame.
+- Separate museum credit, centered paging and Details. Hide duplicate landscape titles, dates and the ambiguous first-page control. Rotate only the footer strip and preserve original JPEG bytes.
+- Add numeric USB rejection reasons and one bounded raw-state confirmation fallback in the matching bridge. Identity/sequence rejection and transport failures remain failures. Raw recovery has triggered and confirmed on hardware, while other USB failures remain; root cause and sustained stability have not passed acceptance.
+
+## 0.2.160-ui - 2026-10-10
+
+Installed locally with exact-hash authorization. BLE OTA, embedded ELF and VALID boot partition checks passed. All 54 RAM integrity cases across three hardware suites passed; sustained USB observation recorded rejection, disconnect and write timeouts and failed acceptance. The user also reported real gallery orientation/footer defects. See the [.160 hardware record](../TAB5-ACCEPTANCE-160.md).
+
+- Integrate 2632 reviewed artwork guides, binding overview, viewing hints and verified transcriptions to the displayed work. Reading pauses rotation; Return preserves the frame; unknown guides hide the entry.
+- Put decrypted replies in PSRAM, transfer body ownership and reject stale connection generations; add numeric RPC/CDC failure diagnostics. Local fault tests passed; sustained hardware stability did not.
+
+## 0.2.159-ui - 2026-10-10
+
+Installed locally with authorization and verified against the exact embedded ELF; not publicly released. The user confirmed the Codex quota screen. USB stability failed acceptance. See the [.159 hardware acceptance record](../TAB5-ACCEPTANCE-159.md) and [transport validation report](../TAB5-TRANSPORT-157.md). Includes the .158 overview, official logos and page spacing.
+
+- Replace the upgrade dot with a rounded 14×14 pixel arrow; show the number of tasks with unread replies on Codex, capped at `9+`. Both use deep green `#21854A` and retain task-specific read clearing.
+- Increase TCP send capacity from four to sixteen MSS (23,040 bytes), keeping SDIO and radio queue bounds. All twelve hardware 256-KiB RAM RPC uploads passed, with a 0.965-second median versus 18.032 seconds in three earlier .157 samples. These small, non-interleaved samples do not establish causation for one parameter or acceptance of OTA, gallery transfers or sustained stability.
+- Add a refined clock face and vertical time marker to quota bars for Codex and Claude, using each actual quota window. Five-hour limits support minute comparisons and weekly limits support hour comparisons, with second precision internally. No extra labels or external ruler; hide unknown or expired windows. A matching bridge build supplies the cycle metadata.
+- Divide quota bars internally for all providers, including domestic Token Plans: five equal parts for standard five-hour limits and package percentages, seven for weekly limits. A known integral one-to-seven-hour short window uses one segment per hour and its actual label. Percentage divisions do not imply an unknown package duration; PAYG balances have no quota bar.
+- Use the matching bridge's domestic cycle metadata for time markers, retaining actual short/week durations and package start/end bounds through cache conversion. Short markers support minute comparisons, package/week markers support hour comparisons. Unknown monthly periods remain hidden.
+
+## 0.2.158-ui - 2026-10-10
+
+Local UI candidate; not installed or publicly released. See the [UI consistency and adaptable overview audit](../TAB5-UI-AUDIT-2026-10-10.md).
+
+- Support the eleven quota provider entries in the overview, automatically selecting available accounts or pinning up to three equal-width cards. Preserve legacy selections.
+- Display each provider's current official logo in a uniform 36×36 pixel resource, with a distinct readable accent color.
+- Add the selectable Ark provider with its official mark and an explicit pending-collection state; do not substitute cloud-wallet values.
+- Show CPU/memory and a system shortcut without a Codex session; show an authorization prompt without quota data, preserving zero balances and cached results.
+- Centralize workbench visual tokens and align primary market/system/pet spacing. Retain dedicated music, clock and art compositions.
+
+## 0.2.157-ui - 2026-10-09
+
+Installed locally on October 10; exact ELF fingerprint, VALID partition and continuous UI heartbeats verified. Not publicly released; transport speed and sustained stability remain incomplete. See the [transport validation report](../TAB5-TRANSPORT-157.md).
+
+- Retry a gallery manifest/range at most twice after a missing valid response, retaining completed ranges on the same transport. Stop on explicit errors, foreground work, or a different fixed transport; verify the full SHA-256 before caching.
+- Bound USB/BLE gallery reply waits to eight seconds and Wi-Fi I/O waits to eight seconds. Preserve explicit HTTP errors and remove the fixed ten-millisecond pause between completed gallery ranges.
+- Rename the quota trend to “近7日 · 周额度使用（百分比）” and remove the partial-record annotation above the current day's bar, preserving values and incomplete-data semantics.
+
 ## 0.2.156-ui - 2026-10-09
 
 Prepared release, installed locally with exact image identity, VALID partition state and advancing UI heartbeats. The user confirmed synchronized one-second network display on hardware. Not yet public; see the [deployment record](../LOCAL-063-156.md). This version includes .151–.155 changes since the last public .150 release.

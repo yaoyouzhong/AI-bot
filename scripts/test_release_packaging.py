@@ -11,6 +11,16 @@ from test_component_versions import ComponentVersionTests, ComponentPayloadTests
 
 
 class PackagingTests(unittest.TestCase):
+    def test_standard_source_excludes_in_progress_artwork_text(self):
+        import xml.etree.ElementTree as ET
+        project = ET.parse(ROOT / 'windows-app/AIBotBridge/AIBotBridge.csproj')
+        guides = [item for item in project.findall('.//EmbeddedResource')
+                  if item.get('LogicalName') == 'AIBotBridge.ArtGuides']
+        self.assertEqual(len(guides), 1)
+        self.assertEqual(guides[0].get('Condition'), "'$(LocalArt)' == 'true'")
+        verifier = (ROOT / 'scripts/verify_release_local.ps1').read_text(encoding='utf-8')
+        self.assertIn("$_ -notlike 'docs/art-guides/*'", verifier)
+
     def seed(self, directory):
         for name in ("AIBotBridge-0.1.0-setup-win-x64.exe",
                      "AIBotBridge-0.1.0-local-candidate-win-x64.zip",

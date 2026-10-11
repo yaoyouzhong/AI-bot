@@ -90,22 +90,38 @@ internal sealed class DomesticQuotaService
 
     private static DomesticProviderQuotaSnapshot ParseAlibaba(JsonElement root)
     {
+        DateTimeOffset? cycleEnd=null;long? cycleSeconds=null;
         var match = Find(root, value =>
         {
             var total = Number(value, "TotalValue");
             var remaining = Number(value, "TotalSurplusValue") ?? Number(value, "SurplusValue");
-            return total is > 0 && remaining.HasValue
-                ? Math.Clamp(100 * (total.Value - remaining.Value) / total.Value, 0, 100) : null;
+            if(total is not >0||!remaining.HasValue)return null;
+            var bounds=QuotaCycle.Bounds(value);var reset=DateRecursive(value);
+            cycleEnd=reset??bounds.Reset;cycleSeconds=reset is null||reset==bounds.Reset?bounds.Seconds:null;
+            return Math.Clamp(100 * (total.Value - remaining.Value) / total.Value, 0, 100);
         });
         if (!match.HasValue) throw new JsonException("Alibaba quota fields are missing.");
-        return Windowed("alibaba", TextRecursive(root, "SubscriptionName") ?? "Token Plan",
-            null, null, null, null, root) with {PlanPercent=Clamp(match),PlanResetsAt=DateRecursive(root),PlanExpiresAt=PlanExpiryRecursive(root)};
+        var plan=TextRecursive(root,"SubscriptionName")??"Token Plan";
+        return Windowed("alibaba",plan,null,null,null,null,root) with {PlanPercent=Clamp(match),
+            PlanResetsAt=cycleEnd,PlanWindowSeconds=cycleSeconds??QuotaCycle.PersonalQwenSeconds(plan),PlanExpiresAt=PlanExpiryRecursive(root)};
     }
 
     private static DomesticProviderQuotaSnapshot ParseKimi(JsonElement root)
     {
+        DomesticProviderQuotaSnapshot? named=null;
+        Visit(root,row=>{
+            var usages=QuotaCycle.Field(row,"usages");
+            if(named is null&&usages.ValueKind==JsonValueKind.Object&&
+                (QuotaCycle.Field(usages,"limit5h").ValueKind==JsonValueKind.Object||
+                 QuotaCycle.Field(usages,"limit7d").ValueKind==JsonValueKind.Object||
+                 QuotaCycle.Field(usages,"monthTotal").ValueKind==JsonValueKind.Object||
+                 QuotaCycle.Field(usages,"monthCode").ValueKind==JsonValueKind.Object))
+                named=KimiUsageApi.Parse(JsonSerializer.SerializeToElement(new {data=new {kind="ok",quota=new {usages}}}));
+        });
+        if(named is not null)return named with {Plan=TextRecursive(root,"membership")??TextRecursive(root,"plan_name"),PlanExpiresAt=PlanExpiryRecursive(root)};
         double? weekly = null, primary = null;
         DateTimeOffset? weeklyReset = null, primaryReset = null;
+        long? primarySeconds=null,weeklySeconds=null;
         Visit(root, value =>
         {
             if (weekly.HasValue || value.ValueKind != JsonValueKind.Object ||
@@ -115,6 +131,8 @@ internal sealed class DomesticQuotaService
                 if (!Property(usage, "detail", out var detail)) continue;
                 weekly = UsedPercent(detail);
                 weeklyReset = DateRecursive(detail) ?? DateRecursive(usage);
+                var weekWindow=QuotaCycle.Field(usage,"window");
+                weeklySeconds=weekWindow.ValueKind==JsonValueKind.Undefined?604800:QuotaCycle.WindowSeconds(weekWindow);
                 if (Property(usage, "limits", out var limits) && limits.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var limit in limits.EnumerateArray())
@@ -122,6 +140,8 @@ internal sealed class DomesticQuotaService
                         if (!Property(limit, "detail", out var rateDetail)) continue;
                         primary = UsedPercent(rateDetail);
                         primaryReset = DateRecursive(rateDetail) ?? DateRecursive(limit);
+                        var shortWindow=QuotaCycle.Field(limit,"window");
+                        primarySeconds=shortWindow.ValueKind==JsonValueKind.Undefined?18000:QuotaCycle.WindowSeconds(shortWindow);
                         if (primary.HasValue) break;
                     }
                 }
@@ -131,7 +151,7 @@ internal sealed class DomesticQuotaService
         if (!weekly.HasValue) throw new JsonException("Kimi quota fields are missing.");
         var plan = TextRecursive(root, "membership") ?? TextRecursive(root, "plan_name") ?? "Kimi Coding Plan";
         return Windowed("kimi", plan, primary, primaryReset, weekly, weeklyReset, root)
-            with {PlanExpiresAt=PlanExpiryRecursive(root)};
+            with {PrimaryWindowSeconds=primary.HasValue?primarySeconds:null,WeeklyWindowSeconds=weeklySeconds,PlanExpiresAt=PlanExpiryRecursive(root)};
     }
 
     private static DomesticProviderQuotaSnapshot ParseMiniMax(JsonElement root)
@@ -147,7 +167,9 @@ internal sealed class DomesticQuotaService
             var plan = Text(value, "combo_name") ?? Text(value, "plan_name") ?? "Token Plan";
             result = Windowed("minimax", plan, primary,
                 RemainingMilliseconds(value, "remains_time") ?? RemainingMilliseconds(value, "interval_remains_time"),
-                weekly, RemainingMilliseconds(value, "weekly_remains_time"), value);
+                weekly, RemainingMilliseconds(value, "weekly_remains_time"), value)
+                with {PrimaryWindowSeconds=primary.HasValue?QuotaCycle.MiniMaxWindow(value,false):null,
+                    WeeklyWindowSeconds=QuotaCycle.MiniMaxWindow(value,true)};
         });
         return result is null ? throw new JsonException("MiniMax quota fields are missing.") :
             result with {PlanExpiresAt=PlanExpiryRecursive(root)};

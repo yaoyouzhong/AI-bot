@@ -1,4 +1,28 @@
+## 可选权威欣赏提示 / Optional authoritative viewing notes
+
+`guide.looking` 可以为空字符串，表示没有逐件审定的权威赏析；不得由标题关键词生成通用段落。非空文字在图库来源中保存权威出处与证据。协议字段、版本及 UTF-8 上限不变；设备收到空字段时正文为空，当前固件仍保留“欣赏提示”标签。隐藏空标签未在本轮改动或设备验证。
+
+`guide.looking` may be empty when no authoritative work-specific analysis has been reviewed. Nonempty notes retain source provenance in the pack. Fields, protocol versions and UTF-8 bounds are unchanged. Current firmware shows an empty body under its existing tab; hiding that tab is outside this content/validation change and is not claimed as verified.
+
 # `@AIBOT` protocol version 1
+
+## TAB5 .160 artwork guides and USB diagnostics
+
+Local gallery-package change: schema-2 packs require hashed `guides.zh.json`, scoped to the installed category and validated against catalogue `id/category/workId`. Existing `includeGuide` and `guideVersion` replies read the installed pack's text instead of the embedded catalogue. Schema-1 packages without guides retain the embedded fallback. Import swaps images and guides together and invalidates running bridge caches. Gallery JSON uses UTF-8 while retaining JSON escaping; image hashes, authentication and binary chunk limits are unchanged. Authenticated state replies optionally carry `data.connectionHealth.galleryPacks` with `painting` and `calligraphy` SHA-256 content digests. A supporting device refreshes only the affected category's JPEG, guide and decoded-image cache after its active transfer/consumer finishes; it retains the previous bitmap until fresh data arrives. Missing, invalid or unchanged digests preserve caches. Legacy devices ignore these fields and fetch their cached day again after a restart. The extension is not deployed on .167.
+
+中文：两类新版图库包必须含已校验的导读；简介、欣赏提示、已核实原文随图片整体导入并即时重读。旧包保持内置文字回退，新包缺少导读时报错。认证状态可附带 `connectionHealth.galleryPacks` 两类别的64位小写十六进制内容校验值，纯文字更新也改变校验值。支持此字段的设备等活动传输和结果消费结束后，只清理受影响类别的当天缓存；另一类别保持可用，旧位图显示到新数据就绪。缺失、非法或未变的值不清缓存。旧设备继续原行为，重启后获取新内容。新增能力尚未部署到 .167。
+
+2026-10-10 local extension: a manifest request with `includeGuide:true,guideVersion:2` receives v2 guides containing complete reviewed object text or explicitly labelled literary reference text. The v2 transcription buffer is 8192 UTF-8 bytes including NUL; other field bounds remain unchanged. Both reply versions are accepted by the new reader. Absent, non-numeric or unsupported requested versions receive v1. Text exceeding the old 512-byte bound is replaced by a short whole-text upgrade notice for v1 readers, never a truncated poem. Entire v2 manifests stay within 16 KiB of the existing 32 KiB RPC reply limit. The new catalogue/reader is locally validated; .167 hardware acceptance does not cover this extension.
+
+中文：新增本地 `guideVersion:2` 协商，将原文缓冲扩为含终止字节的8192字节；简介、欣赏提示等字段上限不变。核实的作品正文与明确标注的通行原文分开登记。旧端仍用v1，长文显示完整原文需升级的短提示，不截断正文。三通道共用相同字段，图片、哈希与认证协议不变；本次新增内容尚未安装验收。
+
+Authenticated `kind:"gallery", op:"manifest", includeGuide:true` requests optionally receive `guideVersion:1` and `guide`. The reviewed guide is joined by stable catalogue `workId`, never by a daily index or a translated title. Its strings are `workId,title,author,period,museum,brief,overview,looking,transcription,explanation`; missing or unknown guides are null. Only source-verified transcriptions and their explanations are supplied. Requests omitting the flag receive no guide text. Existing image size/hash, JPEG bytes, ranges, date selection, encryption and protocol version are unchanged. Windows implements this optional service; macOS does not.
+
+Device UTF-8 buffers include the terminating byte: 80/256/128/96/80/256/640/384/512/512 bytes in field order. Oversized fields reject the guide without truncation. A guide becomes visible only after the matching image succeeds; category/date/work identity must match the displayed frame. Reading pins the displayed work and orientation, and returns to that frame. Missing text hides the Details control and preserves the image.
+
+USB hello/full ACK optionally add content-free `rpcDiag` and `usbDiag` strings. `rpcDiag` contains three semicolon-separated channel groups (USB/Wi-Fi/BLE), each `failureCount,lastStage,lastError,replyBytes`. Stages 1–5 mean absent transport reply, decrypt/authentication, envelope/JSON decoding, reply status/body validation and a connection-generation change during decoding. Local errors -1001/-1002/-1003/-1004/-1005/-1006 mean bounds/unpaired/allocation/envelope/stale-generation/invalid-reply respectively; cryptographic library errors retain their original values. `usbDiag` is `cdcEpoch,rxBytes,jsonLines,lineOverflows,binaryExpirations,incompleteWrites`. These counters carry no packet content, keys or nonces and do not establish hardware stability. Older peers ignore the fields.
+
+中文：.160 导读按稳定作品身份提供，同一作品分页共用文字；只显示审定的简介、欣赏提示和已核实释文。字段按 UTF-8 字节检查，过长时隐藏入口而不截断、不覆盖成功图片。新增 USB／RPC 数值诊断用于区分收包、认证、解码和连接代次失败；旧端兼容，图片与认证协议不变，诊断本身不代表真机通过。
 
 TAB5 .120 配套 Windows 桥接为 `open-recent` 成功回执增加可选 `draftEmpty`（true / false / null）。只读检查限于前台已确认目标的主输入框；true 表示确认空草稿，撤销该目标旧发送凭据并使设备恢复语音。false、null 或缺字段不重置同一目标原状态。请求重放沿用首次结果。仅 Windows 支持此检查；macOS 未实现此桌面操作。USB / Wi-Fi / BLE 共用字段，ESP8266 不变。
 
@@ -19,6 +43,14 @@ The Windows or macOS bridge and ESP8266 communicate at 460800 baud using UTF-8 J
 ### Windows connection preference
 
 Windows Device Center can select Automatic, USB only or Wi-Fi only for the registered ESP8266. This is host routing policy; version-1 frames and firmware remain unchanged. Automatic retains USB-first behavior and the firmware's 8-second freshness timeout. Wi-Fi only stops USB status, metrics and binary-resource delivery while still allowing USB pairing, device information and management commands. USB only rejects the legacy `/status` and `/resources` routes and legacy discovery responses; TAB5 endpoints are unaffected. The optional device-registry `ConnectionMode` field defaults to `Auto` for existing profiles and persists `Auto`, `Usb` or `Wifi`.
+
+## TAB5 development clock solar data
+
+Optional `weather.daily` fields `sunrise` and `sunset` contain validated city-local `HH:mm`; `date` identifies that city's forecast day. `daylightSeconds` is nullable and ranges from 0 to 86400; explicit endpoints identify polar night/day. Windows retains these fields from its existing QWeather daily request and adds sunrise/sunset/daylight duration to the existing Open-Meteo request. No extra request, authentication change or protocol-version change is introduced. USB, Wi-Fi and BLE share the TAB5 snapshot fields; legacy ESP8266 USB frames continue to omit forecast series.
+
+中文：昼夜环按 `weather.utcOffsetSeconds` 匹配当地当天的每日预报，将事件时刻换算到时钟原有时区以判断当前昼夜及白昼进度；独立日出日落标签仍显示天气城市当地时间。当日有效缓存可继续显示并标注“缓存”；缺少、过期日期或非法时间时使用当地默认日出 06:00、日落 18:00 并标注“默认”，不显示“待更新”。极昼／极夜仅由明确的 86400／0 秒数据识别，不能从缺少时间推断，也不虚构极昼／极夜的事件时间。旧桥接、旧缓存或未提供此扩展的平台可继续使用默认时间。本扩展仅本地验证，尚未部署验收。
+
+The clock matches today's date in the weather city's timezone and projects event times onto the clock's existing timezone to determine day/night and daylight progress. Separate event labels remain city-local. Valid same-day cached values are labelled as cached; absent, invalid or wrong-date data uses local defaults 06:00/18:00, labelled as default. Polar states require explicit duration endpoints and do not invent event times. Missing fields from older bridges/caches/platforms remain compatible with this fallback. Locally validated; no deployment or hardware acceptance claimed. Provider fields: [Open-Meteo](https://open-meteo.com/en/docs), [QWeather daily forecast](https://dev.qweather.com/en/docs/api/weather/weather-daily-forecast/).
 
 ## Probe
 
@@ -282,6 +314,16 @@ TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/sele
 
 `codexTasks.replyView.hasText` 和加密读取回执内的 `replyView.hasText` 是可选布尔字段，表示当前分页有有效公开文字，false 表示等待/空内容占位。新版设备只在对应轮次的有效正文显示后清除未读，历史固定查看也适用；空占位继续重试。旧桥接缺少字段时设备兼容已知占位文字，旧设备忽略新增字段。读取轮询仍为每 3 秒，运行中的文字优先取桌面 IPC 公开消息。
 
+## Codex 桌面已读同步（可选字段）
+
+`codexTasks.repliesRead` 为 `{taskId: turnId}`，最多 80 项，与 `repliesReady` 共用完成轮次标识；通过现有 USB/Wi-Fi/BLE 鉴权状态通道传输。桥接只读当前账户、标准本地主机的 Codex 桌面未读记录。完成轮次及桌面未读写入稳定至少 5 秒后，已读任务才生成确认；新轮次重新等待，文件不可用、账户/主机不匹配或未知 schema 不生成确认。
+
+`codexTasks.repliesUnread` 使用相同结构，表示当前桌面明确标为未读的完成轮次。TAB5 首次接收时恢复未读数字且不播放历史回复提示音；同一桌面未读状态不会反复覆盖设备上的本地已读。桌面确认已读后再次标为未读，可重新恢复提醒。未知桌面状态返回空映射，不据此清除设备未读。
+
+TAB5 USB 心跳中的可选 `codexNotice` 是界面线程从实际 LVGL 右上角控件读回的打包诊断值：低 8 位为队列未读数，8–15 位为数字标签（10 表示 `9+`），第 16 位为控件可见状态。桥接在设备诊断中显示此值，缺少字段时显示 `--`；该值只用于验收，不参与已读状态同步。
+
+设备收到确认后，仅清除 taskId 与 turnId 同时匹配的提醒，并立即重算右上角未读数、回复按钮和概览状态；旧轮次确认不能清除新轮次。确认独立于缩减的任务目录，避免传输裁剪留下旧数字。缺失字段不清除，旧客户端忽略字段。设备阅读仍按有效正文显示确认，当前为电脑已读到 TAB5 的同步，不写回 Codex 数据。
+
 ## TAB5 OTA 接收端流控能力（0.2.29）
 
 `GET /tab5/v1/ota/{sha256}` 保持 Device/Nonce/Proof 鉴权和镜像 SHA-256 校验。可选 `X-AIBot-OTA-Flow: tcp-v2` 开启 16 KiB 有界异步 TCP 写入，接收端包含合并写入和 P4 SDIO 包池修复；`tcp-v1`、缺失或未知能力值一律采用 2 KiB/64 ms 兼容流控。不能根据待安装版本或旧 USB 心跳启用全速。升级期间暂停 BLE 大帧，结束或失败均恢复。能力头不提供身份认证，不改变 ESP8266 协议。
@@ -326,6 +368,10 @@ BLE credit windows remain 1..8 packets, maximum 488-byte ATT payload. Shared hos
 The corrected 0.2.71 bridge retains the original complete-window grant ordering. An early-refill experiment failed hardware acceptance and was withdrawn. Large inbound RPCs defer periodic BLE telemetry for at most three seconds; voice polling and response barriers remain independent. Local diagnostics record only notification counts and timing, with no payload content.
 
 USB hello/ack adds `usbPacked:1`. Only this capability permits `tab5_packed` full status over USB, acknowledged as `tab5_ack` with matching device and sequence. Metrics remain plain `tab5_metrics`/`tab5_metrics_ack`. Receiver rejection returns `tab5_ack_rejected` or `tab5_metrics_ack_rejected`; no freshness is advanced on rejection. Expanded status remains bounded by 32768. Old receivers get raw status. See [implementation and validation](TRANSPORT-PERFORMANCE-070.md).
+
+本地 .161 候选为 USB 拒绝确认增加可选数值 `rejectReason`：1=JSON 解析，2=压缩展开或工作区分配，3=无效信封，4=未配对或身份不符，5=旧序号或无效会话；0/缺失表示旧端未说明。配套桥接保持串口锁，仅对压缩完整状态的 0/1/2 拒绝尝试一次同一原文与序号，仍校验完整 ACK 的设备和序号。身份、序号、未知新代码、原文再次拒绝、I/O、超时或取消均不能就地重试，继续正常断连恢复。新诊断只记录数字与阶段，不保存正文；`USB 状态恢复` 分别统计尝试与已确认数，恢复成功不抹去稳定性验收中的故障。
+
+English: the local .161 candidate adds optional numeric USB `rejectReason` (JSON=1, unpack/allocation=2, envelope=3, full-state identity=4, full-state sequence/session=5; absent/0 is legacy). Metrics/delta prerequisite failures can report the generic envelope code. Its matching bridge retries the exact raw full state once, under the same serial gate, only after a packed full-state rejection with reason 0/1/2. The normal device-ID/sequence ACK check still applies. Identity, sequence, unknown codes, raw rejection and transport/cancellation failures remain failures. Recovery counters are content-free and cannot establish hardware stability.
 
 071c 本地诊断候选：仅设置进程环境 AIBOT_TAB5_BLE_THROUGHPUT=1 时，在已认证 BLE 连接内尝试 Windows 11 ThroughputOptimized；空闲 2 秒释放并恢复 Balanced，失败保留原通道行为。pcPreference 仅报告请求生命周期，不能作为吞吐验收结论。USB 启动核验通过后读取现有 tab5_crash_status 数值诊断，将 previousOtaMs=[总接收写入,读,写] 保存到本机诊断；读写并行，后两项不相加。未修改线上消息格式。
 
@@ -465,9 +511,23 @@ The receiver validates exact offset and integral decodedSize, requires negotiate
 
 ### 完整固件 RAM 预检 / Full-image RAM preflight (.116)
 
-`quotaDetails[].weeklyResetEpoch` is an optional UTC Unix timestamp in seconds from the provider's weekly reset time. The Codex single-weekly-limit card uses it for a locally ticking `距重置` countdown; missing values hide the countdown, and an elapsed deadline displays `等待重置同步` until refreshed. `weeklyReset` remains the formatted absolute time in the reset panel. No elapsed-cycle metric is added.
+`quotaDetails[].weeklyResetEpoch` is an optional UTC Unix timestamp in seconds from the provider's weekly reset time. The Codex single-weekly-limit card uses it for a locally ticking `距重置` countdown; missing values hide the countdown, and an elapsed deadline displays `等待重置同步` until refreshed. `weeklyReset` remains the formatted absolute time in the reset panel.
 
 `quotaDetails[].weeklyResetEpoch` 为供应商周额度重置时刻的 UTC Unix 秒数，可缺失。Codex 单周额度卡片使用本地时钟更新“距重置”；缺失时隐藏，到期后显示“等待重置同步”，不自行推算下个周期。右侧 `weeklyReset` 仍显示绝对重置时间。
+
+TAB5 .159 additionally accepts optional `primaryResetEpoch` / `weeklyResetEpoch` / `planResetEpoch` and their matching `primaryWindowSeconds` / `weeklyWindowSeconds` / `planWindowSeconds`. Durations are positive whole seconds, at most 2,147,483,647. Codex retains the API's actual `limit_window_seconds`; Claude's explicitly named `five_hour` and `seven_day` windows are 18,000 and 604,800 seconds. Domestic adapters preserve explicit API durations, documented named windows and actual quota-period bounds through capture, cache reload and conversion. Named legacy five-hour/weekly fields recover their durations; generic package fields do not. An explicit unknown/invalid duration stays unknown. Older firmware ignores these additional fields. See [domestic cycle policies](DOMESTIC_QUOTA_SETUP.md#额度周期与-tab5-159).
+
+TAB5 .159 增加可选的 `primaryResetEpoch`／`weeklyResetEpoch`／`planResetEpoch` 及对应的 `primaryWindowSeconds`／`weeklyWindowSeconds`／`planWindowSeconds`。周期长度为正整数秒，最大 2,147,483,647；Codex 保留接口实际返回的 `limit_window_seconds`，Claude 的明确命名窗口 `five_hour`／`seven_day` 分别为 18,000／604,800 秒。国产适配器在采集、缓存重载及转换时保留实际 API 长度、已确认的命名窗口或额度起止时刻。旧缓存的明确五小时／周字段可恢复周期，通用套餐字段不推算；显式未知或无效长度仍保持未知。旧固件可忽略新增字段，详见[国产周期规则](DOMESTIC_QUOTA_SETUP.md#额度周期与-tab5-159)。
+
+Each visible quota bar independently computes elapsed time as `(nowUtc - (resetEpoch - windowSeconds)) / windowSeconds` using the bridge UTC sample and elapsed device clock time. A small clock face and vertical line show its position without extra text or an external ruler. Short limits support minute comparisons; weekly/package limits support hour comparisons, with second precision internally. Unknown, invalid, not-yet-started or expired windows hide the marker; retained cached quota does not imply a new cycle. All providers share internal divisions: five parts for package percentages, seven for weekly percentages; a known integral one-to-seven-hour primary window has one part per hour, otherwise five parts. Its existing label uses actual hours/minutes when available. These divisions measure usage fractions, not an inferred package duration. PAYG balances do not receive quota bars or a time marker.
+
+每条可见额度进度条独立用 `(nowUtc - (resetEpoch - windowSeconds)) / windowSeconds` 计算已过时间，当前 UTC 来自桥接采样与设备经过时间。以小表盘和竖线表示位置，不增加文字或底部刻度；短周期按分钟、周及套餐周期按小时比对，内部保留秒级精度。信息不足、无效、尚未开始或已到期时隐藏标记；保留的额度缓存不表示开始了新周期。所有供应商统一使用条内等分：套餐百分比分 5 份，周额度分 7 份；明确为 1 至 7 个整小时的短周期每小时一份，其他短周期仍为 5 份，原有标签按实际小时／分钟显示。这些分隔表示用量比例，不推断套餐周期。按量余额页面不显示额度条或时间标记。
+
+### TAB5 overview provider selection / 总览供应商选择（0.2.158-ui）
+
+Windows appends an optional eleventh `quotaDetails` entry with `id="volcengine"`, `name="火山方舟"` and `plan="待接入"`. Existing indices 0–9 remain unchanged. The quota fields are null: the existing console entry has no verified model-specific quota adapter. Do not substitute whole-cloud wallets or local token counts. Older TAB5 firmware ignores the appended entry; the new UI also accepts a ten-entry payload and shows Ark as pending when manually selected. macOS currently does not produce TAB5 `quotaDetails` payloads.
+
+Windows 在 `quotaDetails` 末尾追加可选第十一项：`id="volcengine"`、`name="火山方舟"`、`plan="待接入"`，保留原 0–9 索引。模型额度字段保持 null；已有控制台入口没有经过验证的模型专属额度适配，不得使用云钱包或本机 token 记录代替。旧 TAB5 忽略追加项；新 UI 兼容十项旧消息，手动选择方舟时显示待接入。macOS 当前不生成 TAB5 `quotaDetails` 消息。
 
 USB `tab5_benchmark` replies advertise `bleFirmwareProbe:true`. Actions `ble_firmware_probe` and `ble_firmware_probe_isolated` snapshot the authenticated BLE offer (`sha256`, `offerId`, `size`) and use the production range decoder without opening any Flash partition. Authenticated RPC `kind:"ota_probe"` has the same offer/range/authentication/compression constraints as `ota`, accepts BLE only and never acquires the 90-second OTA lease. The bridge pauses background assets/metrics for the active full-image preflight and releases that pause on exit.
 

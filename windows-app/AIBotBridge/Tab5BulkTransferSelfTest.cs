@@ -6,6 +6,7 @@ namespace AIBotBridge;
 internal static class Tab5BulkTransferSelfTest
 {
     internal static void Run(string directory) {
+        Tab5UsbStatusSelfTest.RunAsync().GetAwaiter().GetResult();
         foreach(int size in new[]{16385,49152}) {
             byte[] bytes=Tab5TransportBenchmark.Pattern(0,size);
             byte[] metadata=JsonSerializer.SerializeToUtf8Bytes(new{status=200,body=new{offset=0}});
@@ -40,6 +41,19 @@ internal static class Tab5BulkTransferSelfTest
             if(reads!=1)throw new Exception("Abandoned text read");
         }
         try{Tab5UsbText.ReadBlocking((_,t)=>{Thread.Sleep(t);throw new TimeoutException();},"tab5_ack",Environment.TickCount64+5,CancellationToken.None);throw new Exception("Text deadline ignored");}catch(TimeoutException){}
+        foreach(string payload in new[]{"","private-content\n@AIBOT {"}) {
+            byte[] input=Encoding.UTF8.GetBytes(payload);bool delivered=false;
+            try {
+                Tab5UsbText.ReadBlocking((b,t)=>{
+                    if(!delivered&&input.Length>0){delivered=true;input.CopyTo(b,0);return input.Length;}
+                    Thread.Sleep(t);throw new TimeoutException();
+                },"tab5_metrics_ack",Environment.TickCount64+20,CancellationToken.None);
+                throw new Exception("Missing metrics ACK accepted");
+            }catch(Tab5UsbReplyTimeout ex) {
+                if(!ex.Diagnostic.Contains($"receivedBytes={input.Length}; completeLines={(input.Length>0?1:0)}; pendingBytes={(input.Length>0?8:0)};")||ex.Diagnostic.Contains("private-content"))
+                    throw new Exception("USB timeout counters incorrect or received content leaked");
+            }
+        }
         foreach(string wire in new[]{"@AIBOT {\"type\":\"tab5_ack_rejected\"}\n",new string('x',4097)}) {
             byte[] data=Encoding.UTF8.GetBytes(wire);int at=0;
             try{Tab5UsbText.ReadBlocking((b,_)=>{int n=Math.Min(b.Length,data.Length-at);Array.Copy(data,at,b,0,n);at+=n;return n;},"tab5_ack",Environment.TickCount64+1000,CancellationToken.None);throw new Exception("Rejected/overlong text accepted");}catch(IOException){}

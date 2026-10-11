@@ -2,6 +2,20 @@ namespace AIBotBridge;
 
 internal static class Tab5UsbRecovery
 {
+    // Check ownership after acquiring the gate. A handler can finish after a
+    // reconnect; its old reply must neither use nor close the new connection.
+    internal static async Task<T> InSessionAsync<T>(SemaphoreSlim gate,long generation,Func<long> current,
+        Func<Task<T>> transfer,Action close,Action<long> waited,CancellationToken token)
+    {
+        long started=Environment.TickCount64;
+        await gate.WaitAsync(token);
+        try {
+            waited(Environment.TickCount64-started);
+            if(generation!=current())throw new IOException("USB RPC connection replaced");
+            try {return await transfer();}
+            catch {close();throw;} // Text and binary partial replies both poison the stream.
+        } finally {gate.Release();}
+    }
     // SerialStream can cancel an overlapped read when USB disappears, without
     // cancellation of the bridge lifetime. That is a disconnect, not shutdown.
     internal static bool IsDisconnect(Exception error,CancellationToken lifetime)=>

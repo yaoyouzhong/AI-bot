@@ -19,9 +19,11 @@ internal sealed class UpdateService : IDisposable
     private readonly HttpClient _http;
     private readonly SemaphoreSlim _query=new(1,1);
     internal IReadOnlyDictionary<string,ComponentUpdate> Available {get;private set;}=new Dictionary<string,ComponentUpdate>();
+    internal IReadOnlyDictionary<string,GalleryUpdate> Galleries {get;private set;}=new Dictionary<string,GalleryUpdate>();
     internal DateTimeOffset? CheckedAt {get;private set;}
     internal string? Error {get;private set;}
     internal event Action? Changed;
+    internal event Action<string>? TransferTrace;
     internal UpdateService(HttpMessageHandler? handler=null) {
         _http=new(handler??new HttpClientHandler{AllowAutoRedirect=false}){Timeout=TimeSpan.FromMinutes(10)};
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("AI-bot/"+Application.ProductVersion.Split('+')[0]);
@@ -31,12 +33,15 @@ internal sealed class UpdateService : IDisposable
         try {
             using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancellation);deadline.CancelAfter(TimeSpan.FromSeconds(45));
             var next=new Dictionary<string,ComponentUpdate>(StringComparer.Ordinal);
+            var galleries=new Dictionary<string,GalleryUpdate>(StringComparer.Ordinal);
             for(int page=1;page<=10;page++) {
                 byte[] bytes=await ReadAsync(new($"https://api.github.com/repos/yaoyouzhong/AI-bot/releases?per_page=100&page={page}"),2*1024*1024,deadline.Token);
                 using var doc=JsonDocument.Parse(bytes);
                 foreach(var item in ComponentUpdateCatalog.Read(doc.RootElement))
                     if(!next.TryGetValue(item.Key,out var old)||item.Value.Number>old.Number)next[item.Key]=item.Value;
-                if(doc.RootElement.GetArrayLength()<100){Available=next;CheckedAt=DateTimeOffset.UtcNow;Error=null;Changed?.Invoke();return;}
+                foreach(var item in GalleryUpdateCatalog.Read(doc.RootElement))
+                    if(!galleries.TryGetValue(item.Key,out var old)||item.Value.Number>old.Number)galleries[item.Key]=item.Value;
+                if(doc.RootElement.GetArrayLength()<100){Available=next;Galleries=galleries;CheckedAt=DateTimeOffset.UtcNow;Error=null;Changed?.Invoke();return;}
             }
             throw new InvalidDataException("发布记录超过查询范围，请稍后重试。");
         }
@@ -73,11 +78,15 @@ internal sealed class UpdateService : IDisposable
         if(matches.Count!=1)throw new InvalidDataException("校验清单缺少对应文件或存在重复项。");
         return matches[0];
     }
-    private async Task<HttpResponseMessage> OpenAsync(Uri uri,CancellationToken token) {
+    private async Task<HttpResponseMessage> OpenAsync(Uri uri,CancellationToken token,long? from=null,long? to=null) {
         for(int redirect=0;redirect<6;redirect++) {
             if(uri.Scheme!="https"||uri.UserInfo!=""||uri.Port!=443||uri.Host is not ("api.github.com" or "github.com" or "release-assets.githubusercontent.com" or "objects.githubusercontent.com"))
                 throw new InvalidDataException("更新下载地址不受信任。");
-            var response=await _http.GetAsync(uri,HttpCompletionOption.ResponseHeadersRead,token);
+            using var request=new HttpRequestMessage(HttpMethod.Get,uri);
+            if(from is not null)request.Headers.Range=new(from,to);
+            TransferTrace?.Invoke($"host={uri.Host} request range={from}-{to}");
+            var response=await _http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,token).ConfigureAwait(false);
+            TransferTrace?.Invoke($"host={uri.Host} status={(int)response.StatusCode}");
             if((int)response.StatusCode is >=300 and <400) {
                 var location=response.Headers.Location;response.Dispose();
                 if(location is null)throw new IOException("下载跳转缺少地址。");
@@ -123,6 +132,81 @@ internal sealed class UpdateService : IDisposable
             // This fresh, owned directory contains only files created by this call.
             if(Directory.Exists(directory))Directory.Delete(directory,true);
             throw;
+        }
+    }
+    internal async Task<PreparedGalleryUpdate> DownloadGalleryAsync(GalleryUpdate update,IProgress<int>? progress,CancellationToken token) {
+        token.ThrowIfCancellationRequested();
+        if(GalleryUpdateCatalog.Blocked(null,update) is {} reason)throw new InvalidDataException(reason);
+        var asset=update.Package!;
+        string expected=ReadChecksum(Encoding.UTF8.GetString(await ReadAsync(update.Checksums!.Url,256*1024,token)),asset.Name);
+        if(Path.GetFileName(asset.Name)!=asset.Name)throw new InvalidDataException("下载文件名无效。");
+        string directory=GalleryDownloadDirectory(expected);
+        Directory.CreateDirectory(directory);
+        string metadata=Path.Combine(directory,"DOWNLOAD.json"),file=Path.Combine(directory,asset.Name),partial=file+".part";
+        var identity=new GalleryDownloadIdentity(1,update.Category,update.Version,asset.Name,asset.Size,expected);
+        if(File.Exists(metadata)) {
+            if(JsonSerializer.Deserialize<GalleryDownloadIdentity>(File.ReadAllText(metadata),JsonDefaults.Options)!=identity)
+                throw new InvalidDataException("断点记录与当前图库包不一致，未混用下载内容。");
+        }else {
+            string staging=metadata+".tmp";
+            File.WriteAllText(staging,JsonSerializer.Serialize(identity,JsonDefaults.Options));File.Move(staging,metadata);
+        }
+        if(File.Exists(file)) {
+            if(new FileInfo(file).Length==asset.Size&&await Task.Run(()=>FirmwareFlasher.MatchesHash(file,expected),token))return new(update,file,expected);
+            File.Delete(file);
+        }
+        await using(var output=new FileStream(partial,FileMode.OpenOrCreate,FileAccess.Write,FileShare.None,65536,true)) {
+            if(output.Length>asset.Size)output.SetLength(0);
+            progress?.Report((int)(output.Length*100/asset.Size));
+            await TransferGalleryAsync(asset,output,progress,token);
+        }
+        token.ThrowIfCancellationRequested();
+        if(!await Task.Run(()=>FirmwareFlasher.MatchesHash(partial,expected),token)) {
+            File.Delete(partial);throw new InvalidDataException("图库下载校验失败，已清除损坏的断点，原图库保持不变。");
+        }
+        token.ThrowIfCancellationRequested();File.Move(partial,file);return new(update,file,expected);
+    }
+    private static string GalleryDownloadDirectory(string sha) {
+        if(!Regex.IsMatch(sha,@"^[a-f0-9]{64}$",RegexOptions.CultureInvariant))throw new InvalidDataException("图库校验值无效。");
+        return Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AI-bot","updates","gallery-downloads",sha);
+    }
+    internal static void ClearGalleryDownload(PreparedGalleryUpdate prepared) {
+        string directory=GalleryDownloadDirectory(prepared.Sha256),file=Path.Combine(directory,prepared.Release.Package!.Name);
+        if(Path.GetFullPath(file)!=Path.GetFullPath(prepared.File)||Path.GetFileName(prepared.Release.Package.Name)!=prepared.Release.Package.Name)
+            throw new InvalidDataException("图库下载缓存路径不一致。");
+        foreach(string path in new[]{file,file+".part",Path.Combine(directory,"DOWNLOAD.json"),Path.Combine(directory,"DOWNLOAD.json.tmp")})File.Delete(path);
+        Directory.Delete(directory);
+    }
+    private async Task TransferGalleryAsync(UpdateAsset asset,Stream target,IProgress<int>? progress,CancellationToken token) {
+        if(asset.Size<=4*1024*1024&&target.Length==0){await TransferAsync(asset.Url,target,2L*1024*1024*1024,asset.Size,progress,token);return;}
+        const int chunk=2*1024*1024;byte[] buffer=new byte[65536];long offset=target.Length;
+        while(offset<asset.Size) {
+            long end=Math.Min(asset.Size-1,offset+chunk-1);
+            for(int attempt=0;;attempt++) {
+                token.ThrowIfCancellationRequested();target.SetLength(offset);target.Position=offset;
+                try {
+                    using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromMinutes(2));
+                    using var response=await OpenAsync(asset.Url,deadline.Token,offset,end);
+                    bool full=response.StatusCode==System.Net.HttpStatusCode.OK&&offset==0;
+                    var range=response.Content.Headers.ContentRange;
+                    if(!full&&(response.StatusCode!=System.Net.HttpStatusCode.PartialContent||range is null||range.Unit!="bytes"||range.From!=offset||range.To!=end||range.Length!=asset.Size))
+                        throw new InvalidDataException("图库分段响应与发布文件不一致。");
+                    if(full)deadline.CancelAfter(TimeSpan.FromMinutes(10));
+                    long length=full?asset.Size:end-offset+1,received=0;
+                    if(response.Content.Headers.ContentLength is {} size&&size!=length)throw new InvalidDataException("图库分段大小异常。");
+                    using var input=await response.Content.ReadAsStreamAsync(deadline.Token);
+                    while(true) {
+                        int count=await input.ReadAsync(buffer,deadline.Token);if(count==0)break;received+=count;
+                        if(received>length)throw new InvalidDataException("图库分段内容超限。");
+                        await target.WriteAsync(buffer.AsMemory(0,count),deadline.Token);
+                        progress?.Report((int)((offset+received)*100/asset.Size));
+                    }
+                    if(received!=length)throw new IOException("图库分段下载未完成。");
+                    offset+=received;break;
+                }catch(Exception ex) when(attempt<2&&!token.IsCancellationRequested&&ex is HttpRequestException or IOException or OperationCanceledException) {
+                    await Task.Delay(500*(attempt+1),token);
+                }
+            }
         }
     }
     internal static PreparedUpdate ValidatePackage(ComponentUpdate update,string path,string sha,string bridgeVersion) {

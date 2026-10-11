@@ -18,11 +18,11 @@ internal sealed class UpdateNotesForm : Form
         return (match.Groups[1].Value,text[start..(end<0?text.Length:end)].Trim());
     }
     internal UpdateNotesForm(IReadOnlyDictionary<string,ComponentUpdate> published,UpdateDevice[] devices,string selected) {
-        Text="AI-bot · 全部更新说明";Font=new("Microsoft YaHei UI",10);BackColor=Color.White;
+        Text="AI-bot · 全部更新说明";Font=SettingsWindow.BodyFont();BackColor=Color.White;
         AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(860,620);MinimumSize=new(640,460);
-        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(22),ColumnCount=1,RowCount=3};
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=3};
         root.ColumnStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));Controls.Add(root);
-        root.Controls.Add(new Label{Text="更新说明",Font=new(Font.FontFamily,18,FontStyle.Bold),AutoSize=true,Margin=new(0,0,0,16)},0,0);
+        root.Controls.Add(new Label{Text="更新说明",Font=SettingsWindow.TitleFont(),AutoSize=true,Margin=new(0,0,0,16)},0,0);
         var tabs=new TabControl{Name="notes-components",Dock=DockStyle.Fill};root.Controls.Add(tabs,0,1);
         foreach(var (component,title) in new[]{("bridge","电脑桥接"),("tab5","TAB5 固件"),("esp8266","小屏固件")}) {
             var local=Bundled(component);published.TryGetValue(component,out var release);

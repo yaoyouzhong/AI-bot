@@ -33,7 +33,8 @@ internal sealed class MigratedDomesticBridge : IDisposable
                 Pick(parsed.MiniMax, _fallback?.MiniMax), Pick(parsed.DeepSeek, _fallback?.DeepSeek),
                 ZhipuBalance.Normalize(Pick(_service.Snapshot.Zhipu, _fallback?.Zhipu)),
                 Pick(_service.Snapshot.StepFun, null), Pick(_service.Snapshot.Baidu, null),
-                Pick(XiaomiQuota.Snapshot(_service.Snapshot.XiaomiPlanPct, _service.Snapshot.XiaomiFetchedAt), null));
+                Pick(XiaomiQuota.Snapshot(_service.Snapshot.XiaomiPlanPct, _service.Snapshot.XiaomiFetchedAt,
+                    _service.Snapshot.XiaomiPlanResetAt,_service.Snapshot.XiaomiPlanWindowSeconds), null));
         }
     }
     // Called by the tray's UI timer: WebView2 and its window remain on the STA.
@@ -90,14 +91,15 @@ internal sealed class MigratedDomesticBridge : IDisposable
     {
         if(provider=="xiaomi") {
             using var doc=JsonDocument.Parse(json);
-            _service.SetXiaomi(XiaomiQuota.Parse(doc.RootElement)); return;
+            _service.SetXiaomi(XiaomiQuota.ParseSnapshot(doc.RootElement)); return;
         }
         var value = DomesticQuotaService.Parse(provider, json);
         switch (value.Provider)
         {
-            case "alibaba": _service.SetQwen(value.PlanPercent!.Value, value.Plan, value.PlanResetsAt, value.PlanExpiresAt); break;
-            case "kimi": _service.SetKimi(value.WeeklyPercent!.Value, value.PrimaryPercent, value.Plan, value.WeeklyResetsAt, value.PrimaryResetsAt, value.PlanExpiresAt); break;
-            case "minimax": _service.SetMiniMax(value.WeeklyPercent!.Value, value.PrimaryPercent, value.Plan, value.WeeklyResetsAt, value.PrimaryResetsAt, value.PlanExpiresAt); break;
+            case "alibaba": _service.SetQwen(value.PlanPercent!.Value, value.Plan, value.PlanResetsAt, value.PlanExpiresAt,value.PlanWindowSeconds); break;
+            case "kimi": _service.SetKimi(value); break;
+            case "minimax": _service.SetMiniMax(value.WeeklyPercent!.Value, value.PrimaryPercent, value.Plan, value.WeeklyResetsAt, value.PrimaryResetsAt, value.PlanExpiresAt,
+                value.PrimaryWindowSeconds,value.WeeklyWindowSeconds); break;
             case "zhipu": _service.SetZhipu(value); break;
             case "deepseek": _service.SetDeepSeek(value.Balance!.Value, value.Currency, usedCost: value.UsedCost); break;
         }

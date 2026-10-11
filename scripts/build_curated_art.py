@@ -2,7 +2,7 @@
 
 The checked-in selection is explicit. Rebuilds never silently replace works with
 different candidates. Native image bytes, original page order and attribution
-qualifiers are retained; guide material remains a separate review-only artifact.
+qualifiers are retained; reviewed guide material is bundled with each category.
 """
 import argparse
 from collections import Counter
@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 import shutil
 
-from package_daily_art import package
+from package_daily_art import package, select_guides
 from verify_daily_art_year import verify
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +33,7 @@ def sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def build(manifest_path, output):
+def build(manifest_path, output, category=None):
     manifest = read(manifest_path)
     if output.exists():
         raise ValueError('Choose a new output directory; previous editions are preserved')
@@ -79,7 +79,12 @@ def build(manifest_path, output):
     if not annual['ready']:
         raise ValueError(annual['errors'])
     print('CURATED_ANNUAL_OK 366 paintings + 366 Chinese calligraphy works', flush=True)
-    package(stage, output / 'packs', manifest['version'])
+    # Freeze one guide snapshot for both ZIPs, the audit copy and the preview.
+    guides = select_guides(read(ROOT / 'docs/art-guides/catalog.zh.json'), chosen, manifest['version'])
+    guide_by_id = {w['id']: w for w in guides['works']}
+    guides['edition'] = 'curated-' + manifest['version']
+    write(stage / 'guides.zh.json', guides)
+    package(stage, output / 'packs', manifest['version'], category=category)
     packs = read(output / 'packs/packs.json')
     for info in packs:
         old = output / 'packs' / info['file']
@@ -90,10 +95,6 @@ def build(manifest_path, output):
         info['file'] = target.name
         info['edition'] = 'curated-annual'
     write(output / 'packs/packs.json', packs)
-    guides = read(ROOT / 'docs/art-guides/catalog.zh.json')
-    guide_by_id = {w['id']: w for w in guides['works']}
-    guides['edition'] = 'curated-' + manifest['version']
-    guides['works'] = [guide_by_id[w['id']] for w in chosen]
     write(output / 'guides.zh.json', guides)
     write(output / 'selection.json', dict(manifest, works=ordered))
     with (output / 'selection.csv').open('w', encoding='utf-8-sig', newline='') as stream:
@@ -108,11 +109,18 @@ def build(manifest_path, output):
         images = ''.join(f'<img loading="lazy" src="gallery/{esc(n)}" alt="{esc(work["title"])} 第{i+1}页">'
                          for i, n in enumerate(work['frames']))
         guide = guide_by_id[row['id']]
+        original = guide['transcription']
+        original_text = original.get('text', '') if original['status'] in ('source_verified', 'reference_verified') else '这幅作品的原文尚未核实。'
+        original_note = original.get('explanation', '') if original['status'] in ('source_verified', 'reference_verified') else ''
+        sources = ''.join(f'<li><a href="{esc(s["url"])}" target="_blank" rel="noopener">{esc(s.get("publisher", "来源"))}</a></li>' for s in guide['sources'] if s.get('url'))
+        looking_html = f'<h3>欣赏提示</h3><p>{esc(guide["looking"])}</p>' if guide['looking'].strip() else ''
         cards.append(f'<article data-category="{row["category"]}" data-search="{esc(row["title"]+" "+row["author"]+" "+row["theme"])}">'
-                     f'<h2>{esc(row["title"])}</h2><p>{esc(row["author"])} · {esc(row["museum"])}</p>'
+                     f'<h2>{esc(guide["title"])}</h2><p>{esc(guide["author"])} · {esc(row["museum"])}</p>'
                      f'<p>{esc(row["region"])} · {esc(row["theme"] if row["category"]=="painting" else (row["script"] if row["script"]!="馆藏未细分书体" else "书法"))} · {row["pages"]}页</p>'
                      f'<details><summary>查看作品与导读</summary>{images}<p>{esc(guide["brief"])}</p>'
-                     f'<p>{esc(guide["overview"])}</p><p>{esc(guide["looking"])}</p>'
+                     f'<h3>简介</h3><p>{esc(guide["overview"])}</p>'
+                     f'{looking_html}'
+                     f'<h3>原文</h3><p style="white-space:pre-wrap">{esc(original_text)}</p><p>{esc(original_note)}</p><ul>{sources}</ul>'
                      f'<a href="{esc(work["source"])}" target="_blank" rel="noopener">馆藏来源</a></details></article>')
     (output / 'index.html').write_text('''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>名画与书法 · 年度精选</title><style>body{margin:0;background:#f3eee4;color:#29251f;font:16px/1.8 system-ui}main{max-width:1100px;margin:auto;padding:40px 24px}h1{font-size:36px;font-weight:500}h2{font-size:20px;font-weight:500}header{position:sticky;top:0;background:#f3eee4ed;padding:12px 0;backdrop-filter:blur(8px)}input,select{padding:10px;margin-right:12px;border:1px solid #cabfae;border-radius:4px;background:#fffaf1}section{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}article{border-top:1px solid #cbbfae;padding:12px}p{margin:6px 0}summary,a{color:#826242;cursor:pointer}img{display:block;width:100%;height:auto;margin:10px 0}[hidden]{display:none!important}</style><main>
@@ -121,7 +129,7 @@ def build(manifest_path, output):
         + ''.join(cards) + '''</section></main><script>const c=document.querySelector('#category'),q=document.querySelector('#search');function filter(){let n=0;document.querySelectorAll('article').forEach(a=>{a.hidden=!!((c.value&&a.dataset.category!==c.value)||!a.dataset.search.toLowerCase().includes(q.value.trim().toLowerCase()));if(!a.hidden)n++});document.querySelector('#count').textContent=n+'件'}c.onchange=filter;q.oninput=filter;</script></html>''', encoding='utf-8')
     summary = {'status': 'passed', 'edition': manifest['version'], 'counts': {}, 'packs': packs,
                'fullLibraryUnchanged': source_hashes == {n: sha(ASSETS / n) for n in source_hashes},
-               'nativeImagesUnchanged': True, 'guideStatus': 'preview_only', 'hardwareVerified': False,
+               'nativeImagesUnchanged': True, 'guideStatus': 'packaged', 'hardwareVerified': False,
                'selectionManifestSha256': sha(manifest_path)}
     for category in ('painting', 'calligraphy'):
         group = [r for r in rows if r['category'] == category]
@@ -139,5 +147,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--selection', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--category', choices=('painting', 'calligraphy'), help='Package only the selected category; keep the reviewed annual selection unchanged')
     args = parser.parse_args()
-    build(args.selection, args.output)
+    build(args.selection, args.output, args.category)

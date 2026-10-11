@@ -9,6 +9,7 @@ internal static class LanServerSelfTest
 {
     internal static async Task RunAsync()
     {
+        await VerifyTcpUploadPolicyAsync();
         var port = ReservePort();
         const string token = "self-test-token-that-is-never-used-in-production";
         using var shutdown = new CancellationTokenSource();
@@ -53,6 +54,29 @@ internal static class LanServerSelfTest
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
         return port;
+    }
+
+    private static async Task VerifyTcpUploadPolicyAsync()
+    {
+        var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();
+        try {
+            using var client=new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback,((IPEndPoint)listener.LocalEndpoint).Port);
+            using var accepted=await listener.AcceptTcpClientAsync();
+            string policy=Tab5TcpUpload.Configure(accepted.Client);
+            if(policy!=Tab5TcpUpload.Configure(accepted.Client))throw new Exception("TCP upload policy changed on reuse");
+            byte[] expected=Enumerable.Range(0,262144).Select(i=>(byte)(i*31+17)).ToArray();
+            var read=new byte[expected.Length];
+            var receive=accepted.GetStream().ReadExactlyAsync(read).AsTask();
+            for(int offset=0;offset<expected.Length;offset+=997)
+                await client.GetStream().WriteAsync(expected.AsMemory(offset,Math.Min(997,expected.Length-offset)));
+            await receive.WaitAsync(TimeSpan.FromSeconds(5));
+            if(!expected.AsSpan().SequenceEqual(read))throw new Exception("TCP upload bytes changed");
+            using var udp=new Socket(AddressFamily.InterNetwork,SocketType.Dgram,ProtocolType.Udp);
+            if(!Tab5TcpUpload.Configure(udp).StartsWith("ack=default;",StringComparison.Ordinal))
+                throw new Exception("Unsupported ACK option did not retain default policy");
+            Console.WriteLine($"TCP_UPLOAD_SOCKET_OK {policy}; 256 KiB exact fragmented upload; socket reuse; unsupported-option fallback");
+        }finally {listener.Stop();}
     }
 
     private static async Task WaitUntilListeningAsync(HttpClient client)

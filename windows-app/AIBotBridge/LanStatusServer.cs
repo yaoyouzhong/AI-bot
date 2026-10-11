@@ -74,11 +74,11 @@ internal sealed class LanStatusServer
             using var deviceStop=requestLine.Contains(" /tab5/",StringComparison.Ordinal)&&tab5 is not null?CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,tab5.LifetimeToken):null;
             if(deviceStop is not null)cancellationToken=deviceStop.Token;
             if(requestLine=="POST /tab5/v1/rpc HTTP/1.1") {
-                await HandleVoiceAsync(stream,input,lines,timeout,cancellationToken,rpc:true);
+                await HandleVoiceAsync(client.Client,stream,input,lines,timeout,cancellationToken,rpc:true);
                 return;
             }
             if(requestLine=="POST /tab5/v1/voice HTTP/1.1") {
-                await HandleVoiceAsync(stream,input,lines,timeout,cancellationToken);
+                await HandleVoiceAsync(client.Client,stream,input,lines,timeout,cancellationToken);
                 return;
             }
             if (requestLine == "GET /tab5/v1/status HTTP/1.1")
@@ -169,24 +169,33 @@ internal sealed class LanStatusServer
         }
     }
 
-    private async Task HandleVoiceAsync(NetworkStream stream, HttpConnectionReader input, IReadOnlyList<string> lines,
+    private async Task HandleVoiceAsync(Socket socket,NetworkStream stream, HttpConnectionReader input, IReadOnlyList<string> lines,
         CancellationTokenSource timeout, CancellationToken cancellationToken,bool rpc=false)
     {
         // One authenticated request per audio chunk, on one TCP connection for
         // the voice session. Closing every 200 ms exhausts TAB5's lwIP memory.
         timeout.CancelAfter(TimeSpan.FromSeconds(75));
+        string ackPolicy=rpc?Tab5TcpUpload.Configure(socket):"ack=default";
         for (int requests=0; requests<400; requests++)
         {
             string Header(string name)=>lines.FirstOrDefault(l=>l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
             if(!int.TryParse(Header("Content-Length"),out int length)||length<28||length>(rpc?Tab5RpcBinary.RequestMaximum:16384)) {
                 await WriteResponseAsync(stream,"413 Content Too Large","{}",cancellationToken);return;
             }
+            long started=Environment.TickCount64;
             var packet=new byte[length];await input.ReadExactlyAsync(packet,cancellationToken);
-            var reply=_tab5 is null?(Status:401,Packet:(byte[]?)null):rpc?
-                await _tab5.RpcAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,allowOta:false,transport:"Wi-Fi"):
-                await _tab5.VoiceAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken);
-            if(reply.Packet is null) {await WriteResponseAsync(stream,"401 Unauthorized","{}",cancellationToken);return;}
+            long received=Environment.TickCount64;var service=_tab5;
+            var reply=service is null?(Status:401,Packet:(byte[]?)null):rpc?
+                await service.RpcAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,allowOta:false,transport:"Wi-Fi"):
+                await service.VoiceAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken);
+            long handled=Environment.TickCount64;
+            if(reply.Packet is null) {
+                await WriteResponseAsync(stream,"401 Unauthorized","{}",cancellationToken);
+                if(rpc)service?.RecordTcpUpload(ackPolicy,length,received-started,handled-received,Environment.TickCount64-handled,reply.Status);
+                return;
+            }
             await WriteBytesAsync(stream,"200 OK",reply.Packet,cancellationToken,keepAlive:true);
+            if(rpc)service?.RecordTcpUpload(ackPolicy,length,received-started,handled-received,Environment.TickCount64-handled,reply.Status);
             lines=await input.ReadHeaderAsync(cancellationToken);
             if(lines.FirstOrDefault()!=(rpc?"POST /tab5/v1/rpc HTTP/1.1":"POST /tab5/v1/voice HTTP/1.1"))return;
         }

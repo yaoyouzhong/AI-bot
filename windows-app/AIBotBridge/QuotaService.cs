@@ -68,7 +68,11 @@ internal sealed class QuotaService
             PlanDisplay.Normalize(String(root, "plan_type") ?? String(root, "subscription_type") ?? credentialPlan),
             Number(fiveHour, "utilization"), Date(fiveHour, "resets_at"),
             Number(sevenDay, "utilization"), Date(sevenDay, "resets_at"),
-            null, Array.Empty<long>(), DateTimeOffset.UtcNow, false);
+            null, Array.Empty<long>(), DateTimeOffset.UtcNow, false)
+        {
+            PrimaryWindowSeconds = fiveHour.ValueKind == JsonValueKind.Object ? 5 * 3600 : null,
+            WeeklyWindowSeconds = sevenDay.ValueKind == JsonValueKind.Object ? 7 * 86400 : null
+        };
     }
 
     internal static ProviderQuotaSnapshot ParseCodex(string usageJson, string? creditsJson = null,
@@ -81,6 +85,7 @@ internal sealed class QuotaService
 
         double? primaryPercent = null, weeklyPercent = null;
         DateTimeOffset? primaryReset = null, weeklyReset = null;
+        long? primaryWindowSeconds = null, weeklyWindowSeconds = null;
         foreach (var name in new[] { "primary_window", "secondary_window" })
         {
             if (!rateLimit.TryGetProperty(name, out var window) || window.ValueKind != JsonValueKind.Object)
@@ -91,11 +96,13 @@ internal sealed class QuotaService
             {
                 weeklyPercent = Number(window, "used_percent");
                 weeklyReset = UnixDate(window, "reset_at");
+                weeklyWindowSeconds = WindowSeconds(seconds);
             }
             else
             {
                 primaryPercent = Number(window, "used_percent");
                 primaryReset = UnixDate(window, "reset_at");
+                primaryWindowSeconds = WindowSeconds(seconds);
             }
         }
 
@@ -124,8 +131,16 @@ internal sealed class QuotaService
         return new ProviderQuotaSnapshot(
             "codex", PlanDisplay.Normalize(String(root, "plan_type") ?? credentialPlan),
             primaryPercent, primaryReset, weeklyPercent, weeklyReset,
-            available, expirations, DateTimeOffset.UtcNow, false);
+            available, expirations, DateTimeOffset.UtcNow, false)
+        {
+            PrimaryWindowSeconds = primaryWindowSeconds,
+            WeeklyWindowSeconds = weeklyWindowSeconds
+        };
     }
+
+    private static long? WindowSeconds(double? seconds) =>
+        seconds is > 0 and <= int.MaxValue && seconds.Value == Math.Truncate(seconds.Value)
+            ? (long)seconds.Value : null;
 
     private static async Task<ProviderQuotaSnapshot?> FetchClaudeAsync(CancellationToken cancellationToken)
     {

@@ -40,6 +40,34 @@ API Key/本地服务令牌只保存在 Windows 凭据管理器。输入框为密
 
 测试使用模拟 HTTP 与隔离配置，不代表已用真实 Key 完成五个厂商的在线验收，也不代表当前驻留程序已经升级。
 
+## 额度周期与 TAB5 .159
+
+周期信息随额度采集、缓存和 TAB5 协议传递。时间位置由当前重置时间减去完整周期得到起点，再用当前时间计算；不把剩余倒计时、首次观察时间或套餐到期日当作完整周期。短周期按分钟、周及套餐周期按小时比对，内部保留秒级精度。额度条仍只显示表盘与竖线，不增加解释文字或底部刻度。
+
+| 来源 | 周期处理与边界 |
+| --- | --- |
+| Kimi Code | 官方本地 API 的 `limit5h` / `limit7d` 分别对应 5 小时 / 7 天，保存各自的重置时间；兼容旧版显式 `duration` / `unit`。`monthTotal` 优先、缺失时才使用 `monthCode`；月套餐须有同一额度行的实际起止时间，只有重置时间时不猜测月长度。 |
+| MiniMax | 保留明确的 5 小时与周窗口；响应提供显式周期时以其为准，例如 7 小时。剩余毫秒数只用于重置时刻，不作为完整周期。 |
+| 阿里 Token Plan | 优先使用该额度行实际起止时间。只有明确标为个人版 Token Plan 才能使用官方规定的 30 天周期；个人版不补造每周额度。通用或其他版本套餐不套用该规则。 |
+| 智谱 Coding Plan | 已有接口解析器保留 `TOKENS_LIMIT` 的实际单位、次数和重置时间；例如小时单位、次数 7 为 7 小时。当前账号入口仍查询账户余额，不因本次改动切换到 Coding Plan，也不将余额换算为时间进度。 |
+| 小米 MiMo | 仅在同一套餐额度响应提供可信起止时间时计算周期；单有百分比或到期时间时保留使用进度，隐藏时间标记。真实订阅响应仍待验证。 |
+| 百度千帆模型资源包 | 只在指定资源包有有效生效与到期时间时比较整个有效期；这是资源包有效期，不改称周套餐。真实账号仍待验证。 |
+| DeepSeek、阶跃余额及未接入厂商 | 余额没有额度周期；未接入套餐不编造周期或用量。 |
+
+短周期默认分 5 份，明确为 1 至 7 个整小时的周期每小时一份；周额度分 7 份，套餐百分比分 5 份。旧缓存只有明确命名的五小时／周窗口可以恢复固定周期；显式空值或无效周期仍保持未知，不能用默认值覆盖。各额度条独立处理，缺少某一周期不影响其他条。
+
+依据：[Kimi 本地 Server API](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/server-api.html)、[Kimi Code 权益说明](https://www.kimi.com/help/kimi-code/benefits)、[MiniMax Token Plan](https://platform.minimaxi.com/subscribe/token-plan)、[阿里个人版 FAQ](https://help.aliyun.com/zh/model-studio/token-plan-personal-faq)。2026-10-10 的模拟接口、缓存重载、协议及原生显示测试已覆盖 5 / 7 小时、7 天和 28 / 31 天边界；这些测试不代替各厂商真实账号刷新或设备安装验收。时间标记需要配套新版 Windows 桥接；只刷固件不能使旧桥接补齐周期字段。
+
+最终 .159 与配套桥接已本地安装并完成精确启动核验，用户确认 Codex 的实际周周期时间标记显示正常。现有国产套餐缓存已过期，仍缺少有效套餐的在线及物理页面验收；不能将 Codex 或模拟数据的结果推广为所有厂商已通过。见[实机验收记录](TAB5-ACCEPTANCE-159.md)。
+
+### Quota periods and TAB5 .159
+
+Collection, persisted cache and TAB5 conversion retain each quota row's reset instant and complete period. Minute comparisons apply to short windows; hour comparisons apply to weekly/package windows, with second precision internally. The UI keeps only the clock and vertical marker. Kimi's named five-hour/seven-day windows and its explicit legacy durations are supported; monthly rows require actual start/end bounds. MiniMax retains fixed or explicit windows. Ali's documented 30-day fallback applies only to an explicitly identified personal Token Plan, with no invented weekly allowance. GLM's existing Coding Plan parser preserves explicit units; the current wallet account configuration is not switched. MiMo and Baidu retain trustworthy same-row package bounds only. Wallets and pending adapters have no invented periods. A countdown or expiry alone is insufficient.
+
+Explicit one-to-seven whole-hour windows use one internal division per hour; standard short/package percentages use five divisions and weekly percentages use seven. Unknown/invalid periods hide their own marker, while other valid bars continue. Only absent, explicitly named legacy five-hour/weekly fields can recover standard periods; explicit null/invalid fields remain unknown. Simulated API/cache/protocol/native checks are separate from live subscriptions and device acceptance. A matching bridge is required.
+
+The final .159 image and matching bridge were installed locally, with exact-ELF boot verification and user-confirmed Codex weekly time markers. Retained domestic-plan records have expired; live current-plan and physical-screen acceptance are still unavailable. Codex or fixture results cannot establish acceptance for every provider. See the [hardware record](TAB5-ACCEPTANCE-159.md).
+
 ## English
 
 Windows: open **Device Center → Account Data → Model Accounts**, select a provider, then save and test its credential. DeepSeek uses its official total-balance endpoint; MiniMax uses the China Token Plan endpoint. Kimi Code optionally uses the documented local `kimi web` usage API with its server bearer token and port, not a Moonshot wallet key. Ali Token Plan and Zhipu account balance retain authenticated browser collection because no matching documented public endpoint has been confirmed.

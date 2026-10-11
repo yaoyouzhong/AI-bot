@@ -33,7 +33,7 @@ internal sealed class SettingsForm : Form
         Text = includeDeviceSettings ? "AI-bot · 股票与设备设置" : "AI-bot · 自选股票";
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
-        Font = new Font("Microsoft YaHei UI", 9.5F);
+        Font = SettingsWindow.BodyFont();
         BackColor=Color.White;ForeColor=Color.FromArgb(32,43,59);
         MinimumSize = new Size(620, includeDeviceSettings ? 720 : 610);
         MaximizeBox = false;
@@ -51,7 +51,7 @@ internal sealed class SettingsForm : Form
 
         var layout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=8,Padding=new(24,24,24,8),Margin=Padding.Empty};layout.ColumnStyles.Add(new(SizeType.Percent,100));
         for(int i=0;i<8;i++)layout.RowStyles.Add(new(i==5?SizeType.Percent:SizeType.AutoSize,i==5?100:0));
-        layout.Controls.Add(new Label{Text="自选股票",AutoSize=true,Font=new(Font.FontFamily,17,FontStyle.Bold),Margin=new(0,0,0,8)},0,0);
+        layout.Controls.Add(new Label{Text="自选股票",AutoSize=true,Font=SettingsWindow.TitleFont(),Margin=new(0,0,0,8)},0,0);
         layout.Controls.Add(new Label{Text="添加关注的股票与指数，所有已添加设备共用此列表。",AutoSize=true,ForeColor=Color.FromArgb(88,101,119),Margin=new(0,0,0,20)},0,1);
         var entry=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=3,Margin=new(0,0,0,8)};entry.ColumnStyles.Add(new(SizeType.AutoSize));entry.ColumnStyles.Add(new(SizeType.Percent,100));entry.ColumnStyles.Add(new(SizeType.AutoSize));
         var add=new Button{Text="搜索",Name="search-stock",Margin=new(12,0,0,0)};SettingsWindow.StyleButton(add);

@@ -16,13 +16,13 @@ internal sealed class UpdateCenterForm : Form
     internal UpdateCenterForm(Func<UpdateDevice[]> capture,Func<UpdateDevice,PreparedUpdate,Task> install,UpdateService service) {
         SuspendLayout();
         var ink=Color.FromArgb(32,43,59);var muted=Color.FromArgb(88,101,119);var blue=Color.FromArgb(34,109,215);
-        Text="AI-bot · 软件与固件更新";Font=new("Microsoft YaHei UI",9.5f);ForeColor=ink;BackColor=Color.White;AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(850,550);MinimumSize=new(760,0);AutoScroll=true;
+        Text="AI-bot · 软件与固件更新";Font=SettingsWindow.BodyFont();ForeColor=ink;BackColor=Color.White;AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(850,550);MinimumSize=new(760,0);AutoScroll=true;
         var root=new TableLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,Padding=new(24),ColumnCount=1,RowCount=7};Controls.Add(root);
         root.ColumnStyles.Add(new(SizeType.Percent,100));for(int i=0;i<7;i++)root.RowStyles.Add(new(SizeType.AutoSize));
         var heading=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=1,Margin=new(0,0,0,18)};
         heading.ColumnStyles.Add(new(SizeType.Percent,100));
         heading.Controls.Add(new Label{Text="软件与固件更新",Font=new(Font.FontFamily,17,FontStyle.Bold),AutoSize=true,Margin=new(0,0,0,6)},0,0);
-        var subtitle=new Label{Text="电脑软件、TAB5 和小屏分别更新，选择一项查看详情。",ForeColor=muted,AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty};heading.Controls.Add(subtitle,0,1);root.Controls.Add(heading,0,0);
+        var subtitle=new Label{Text="各组件独立更新。",ForeColor=muted,AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty};heading.Controls.Add(subtitle,0,1);root.Controls.Add(heading,0,0);
         var tools=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,0,0,14)};var check=new Button{Text="检查更新",Name="check",Margin=new(0,0,16,0)};SettingsWindow.StyleButton(check);
         var automatic=new CheckBox{Text="自动检查并提醒",AutoSize=true,Checked=UpdateReminder.Read().Automatic,Margin=new(0,7,0,0)};
         tools.Controls.AddRange([check,automatic]);root.Controls.Add(tools,0,1);
@@ -43,7 +43,7 @@ internal sealed class UpdateCenterForm : Form
         var state=new Label{Name="state",AutoSize=true,Dock=DockStyle.Fill,ForeColor=muted,Margin=new(0,12,0,8)};root.Controls.Add(state,0,4);
         var progress=new ProgressBar{Dock=DockStyle.Fill,Visible=false,Height=8,Margin=new(0,0,0,10)};root.Controls.Add(progress,0,5);
         var footer=new TableLayoutPanel{Name="update-footer",AutoSize=true,Dock=DockStyle.Fill,ColumnCount=2,Margin=Padding.Empty};footer.ColumnStyles.Add(new(SizeType.Percent,50));footer.ColumnStyles.Add(new(SizeType.Percent,50));
-        var galleries=new LinkLabel{Text="屏保图库…",AutoSize=true,LinkColor=blue,Margin=Padding.Empty};galleries.LinkClicked+=(_,_)=>{using var form=new GalleryPackForm();form.ShowDialog(this);};
+        var galleries=new LinkLabel{Text="屏保图库…",AutoSize=true,LinkColor=blue,Margin=Padding.Empty};galleries.LinkClicked+=(_,_)=>{using var form=new GalleryPackForm(service);form.ShowDialog(this);};
         var site=new LinkLabel{Text="完整下载与安装说明",AutoSize=true,LinkColor=blue,Anchor=AnchorStyles.Top|AnchorStyles.Right,Margin=Padding.Empty};footer.Controls.Add(galleries,0,0);footer.Controls.Add(site,1,0);root.Controls.Add(footer,0,6);
         bool fitting=false,fitPending=false;
         void FitContentHeight(){
@@ -70,7 +70,7 @@ internal sealed class UpdateCenterForm : Form
             notes.Text="查看全部更新说明";notes.Enabled=true;
             requirement.Visible=!retained;
             actions.Margin=new(0,retained?0:12,0,0);
-            requirement.Text=d is null?"在上方列表选择一项，查看更新状态和操作。":blocked is not null?blocked:
+            requirement.Text=d is null?"请选择组件":blocked is not null?blocked:
                 UpdateService.IsLegacyEsp(d)?"旧固件未提供版本号，无法比较版本。连接 USB 后先完整备份，再手动确认刷机。":d.Component switch {
                     "bridge"=>"下载并校验安装包后，打开安装程序完成更新。",
                     "tab5"=>"下载并校验固件后，打开升级工具；仍需在 TAB5 上确认安装。",
@@ -107,7 +107,7 @@ internal sealed class UpdateCenterForm : Form
             }finally{refreshing=false;}
             Buttons();
         }
-        void CatalogChanged(){if(_disposed||IsDisposed)return;RefreshRows();if(!_busy)state.Text=service.Error is {} error?"检查未完成，保留上次结果："+error:service.CheckedAt is {} time?"已检查 · "+time.ToLocalTime().ToString("MM-dd HH:mm"):"点击检查更新；下载不会自动开始刷写。";}
+        void CatalogChanged(){if(_disposed||IsDisposed)return;RefreshRows();if(!_busy)state.Text=service.Error is {} error?"检查未完成，保留上次结果："+error:service.CheckedAt is {} time?"已检查 · "+time.ToLocalTime().ToString("MM-dd HH:mm"):"尚未检查更新";}
         service.Changed+=CatalogChanged;FormClosed+=(_,_)=>service.Changed-=CatalogChanged;
         automatic.CheckedChanged+=(_,_)=>{try{UserPreferenceFile.Write("updates.json",UpdateReminder.Read() with {Automatic=automatic.Checked});}catch(Exception ex){state.Text="提醒设置未保存："+ex.Message;}};
         grid.CurrentCellChanged+=(_,_)=>{if(!refreshing&&IsHandleCreated)BeginInvoke((Action)(()=>{if(!IsDisposed)Buttons();}));};

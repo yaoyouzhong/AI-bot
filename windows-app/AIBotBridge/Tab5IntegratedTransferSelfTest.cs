@@ -50,6 +50,7 @@ internal static class Tab5IntegratedTransferSelfTest
         try{Tab5UsbBinary.ReadAsync((_,_,_)=>0,16,Environment.TickCount64+5,CancellationToken.None).GetAwaiter().GetResult();throw new Exception("Truncated USB stream accepted");}catch(IOException){}
         using(var stopped=new CancellationTokenSource()) {stopped.Cancel();try{Tab5UsbBinary.ReadAsync((_,_,_)=>throw new Exception("Cancelled read executed"),16,Environment.TickCount64+1000,stopped.Token).GetAwaiter().GetResult();throw new Exception("USB cancel ignored");}catch(OperationCanceledException){}}
         VerifyIoAsync().GetAwaiter().GetResult();
+        Tab5UsbReconnectSelfTest.RunAsync().GetAwaiter().GetResult();
         foreach(int size in new[]{1,8192,16384}) {
             byte[] payload=Tab5TransportBenchmark.Pattern(0,size);
             byte[] json=JsonSerializer.SerializeToUtf8Bytes(new{status=200,body=new{offset=0,data=Convert.ToBase64String(payload)}},JsonDefaults.Options);

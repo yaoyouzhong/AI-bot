@@ -20,14 +20,14 @@ internal sealed class CycleSettingsForm : Form
     internal CycleSettingsForm(Func<Task<UsbDeviceInfo>> read,Func<int,bool> send,Action<DisplayPolicy>? apply=null)
     {
         SuspendLayout();Text="ESP8266 · 显示设置";AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        Font=new Font("Microsoft YaHei UI",9F);ClientSize=new(500,520);MinimumSize=new(460,480);StartPosition=FormStartPosition.CenterScreen;MinimizeBox=false;
+        Font=SettingsWindow.BodyFont();ClientSize=new(500,520);MinimumSize=new(460,480);StartPosition=FormStartPosition.CenterScreen;MinimizeBox=false;
         _apply=apply;_saved=DisplayModes.Load(BridgeSettings.Load());
         _brightness=new BrightnessControl(read,send){Dock=DockStyle.Fill,Margin=new Padding(0,0,0,14)};
         _mode.Items.AddRange([new ModeChoice("自动轮播","auto",true),new ModeChoice("智能跟随","auto")]);
         foreach(var page in DisplayModes.Pages)_mode.Items.Add(new ModeChoice(page.Label,page.Mode));
         foreach(var (label,mode) in new[]{("综合动态","activity"),("双模型额度","quotas"),("国产模型","domestic"),("屏保","screensaver")})_mode.Items.Add(new ModeChoice(label,mode));
         _interval.Items.AddRange([10,15,30,60]);_pages.Columns.Add("页面",300);LoadPolicy(_saved);
-        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(18),ColumnCount=1,RowCount=6};root.ColumnStyles.Add(new(SizeType.Percent,100));
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(24),ColumnCount=1,RowCount=6};root.ColumnStyles.Add(new(SizeType.Percent,100));
         for(int i=0;i<6;i++)root.RowStyles.Add(new(i==4?SizeType.Percent:SizeType.AutoSize,i==4?100:0));
         root.Controls.Add(_brightness,0,0);
         var modeRow=new TableLayoutPanel{Dock=DockStyle.Fill,AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,0,0,12)};
@@ -41,7 +41,7 @@ internal sealed class CycleSettingsForm : Form
         _up.Margin=new Padding(0,0,0,8);_down.Margin=Padding.Empty;_up.Click+=(_,_)=>MovePage(-1);_down.Click+=(_,_)=>MovePage(1);moves.Controls.Add(_up);moves.Controls.Add(_down);body.Controls.Add(moves,1,0);root.Controls.Add(body,0,4);
         var footer=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=new Padding(0,12,0,0)};footer.ColumnStyles.Add(new(SizeType.Percent,100));footer.ColumnStyles.Add(new(SizeType.AutoSize));footer.RowStyles.Add(new(SizeType.AutoSize));footer.Controls.Add(_count,0,0);
         var close=new Button{Text="关闭",AutoSize=true,DialogResult=DialogResult.Cancel};close.Click+=(_,_)=>Close();footer.Controls.Add(close,1,0);root.Controls.Add(footer,0,5);Controls.Add(root);CancelButton=close;AcceptButton=close;
-        foreach(var button in new[]{_up,_down,close})SettingsWindow.StyleButton(button);
+        SettingsWindow.AddTitle(root,"显示设置");foreach(var button in new[]{_up,_down,close})SettingsWindow.StyleButton(button);
         _mode.SelectionChangeCommitted+=(_,_)=>{UpdateState();Save(resumeCycle:(_mode.SelectedItem as ModeChoice)?.Cycle==true);};_interval.SelectedIndexChanged+=(_,_)=>Save();
         _pages.SelectedIndexChanged+=(_,_)=>UpdateState();
         _pages.ItemCheck+=(_,e)=>{if(_ready&&!_loading&&e.NewValue==CheckState.Unchecked&&_pages.CheckedItems.Count==1){e.NewValue=CheckState.Checked;_hint.Text="至少保留一个轮播页面。";}};

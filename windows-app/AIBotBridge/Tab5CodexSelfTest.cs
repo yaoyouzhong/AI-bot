@@ -5,6 +5,7 @@ namespace AIBotBridge;
 internal static class Tab5CodexSelfTest
 {
     internal static async Task RunAsync() {
+        Tab5CodexReadStateSelfTest.Run();
         Tab5CodexJournalSelfTest.Run();
         await Tab5CodexDesktopSelfTest.RunAsync();
         await Tab5HistorySelfTest.RunAsync();
@@ -184,8 +185,10 @@ internal static class Tab5CodexSelfTest
             if(JsonSerializer.SerializeToElement(bridge.Snapshot()).GetProperty("repliesReady").EnumerateObject().Any())
                 throw new Exception("Interrupted approval is not a new reply");
         }
+        long readClock=0;
+        var desktopRead=new Tab5CodexReadState(()=>new("synthetic-account",[]),()=>readClock);
         using(var bridge=new Tab5CodexTasks((method,_,_)=>Task.FromResult(method=="turn/start"?
-            Json("{\"result\":{\"turn\":{\"id\":\"synthetic-turn\"}}}"):idle),()=>[new(taskId,"Synthetic task","test",0)]))
+            Json("{\"result\":{\"turn\":{\"id\":\"synthetic-turn\"}}}"):idle),()=>[new(taskId,"Synthetic task","test",0)],desktopRead))
         using(var input=new MemoryStream())
         using(var writer=new StreamWriter(input))
         using(var output=new MemoryStream(System.Text.Encoding.UTF8.GetBytes("null\n{not-json\n{\"method\":42}\n{\"method\":\"turn/completed\",\"params\":null}\n"+
@@ -201,6 +204,14 @@ internal static class Tab5CodexSelfTest
                 throw new InvalidOperationException("TAB5 Codex: final reply must be visible to TAB5");
             if(snapshot.GetProperty("repliesReady").GetProperty(taskId).GetString()!="synthetic-turn")
                 throw new Exception("Completed submitted turn must carry a reply notice");
+            readClock=5000;
+            snapshot=JsonSerializer.SerializeToElement(bridge.SnapshotLimited(1));
+            if(snapshot.GetProperty("repliesRead").GetProperty(taskId).GetString()!="synthetic-turn")
+                throw new Exception("Desktop read acknowledgement lost during snapshot limiting");
+            var status=new StatusSnapshot(1,"12:00",1000,28800,DateTimeOffset.UtcNow,new("idle",0),new("idle",0));
+            using var wire=JsonDocument.Parse(Tab5Protocol.Snapshot(status,"test","session",1,codexTasks:snapshot));
+            if(wire.RootElement.GetProperty("data").GetProperty("codexTasks").GetProperty("repliesRead").GetProperty(taskId).GetString()!="synthetic-turn")
+                throw new Exception("Desktop read acknowledgement lost on shared transport wire");
         }
         using(var empty=new Tab5CodexTasks((method,_,_)=>Task.FromResult(method=="turn/start"?
             Json("{\"result\":{\"turn\":{\"id\":\"empty-turn\"}}}"):idle),()=>[new(taskId,"Synthetic","test",0)])) {

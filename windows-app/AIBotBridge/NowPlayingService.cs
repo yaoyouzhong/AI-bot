@@ -166,6 +166,23 @@ internal sealed class NowPlayingService : IDisposable
     {
         try{return RenderCoverBytes(bytes);}catch(Exception ex) when(ex is IOException or ArgumentException or ExternalException){return null;}
     }
+    // Some clients publish song/cover metadata without a playback timeline.
+    // Keep a valid total duration, but never expose a fabricated elapsed clock.
+    internal static MusicSnapshot SystemSample(string title,string artist,string album,bool playing,
+        double start,double end,double position,DateTimeOffset updatedAt,DateTimeOffset now,double? playbackRate)
+    {
+        double rate=playbackRate??1;if(!double.IsFinite(rate)||rate is <0 or >16)rate=1;
+        double duration=end-start,elapsed=position-start;
+        bool durationValid=double.IsFinite(start)&&double.IsFinite(end)&&start>=0&&duration is >0 and <=86400;
+        bool available=durationValid&&double.IsFinite(elapsed)&&elapsed>=0&&elapsed<=duration+2&&
+            updatedAt.Year>2000&&updatedAt<=now.AddSeconds(1);
+        if(playing&&available) {
+            elapsed+=Math.Max(0,(now-updatedAt).TotalSeconds)*rate;
+            if(elapsed>duration+2)available=false;
+        }
+        return new(title.Trim(),artist.Trim(),album.Trim(),playing,available?Math.Min(duration,elapsed):0,durationValid?duration:0,now)
+            {TimelineAvailable=available,PlaybackRate=rate};
+    }
     private static async Task<MediaPlaybackSource?> ReadSystemAsync(GlobalSystemMediaTransportControlsSession session,bool current,CancellationToken token)
     {
         try {
@@ -175,14 +192,12 @@ internal sealed class NowPlayingService : IDisposable
             var playback=session.GetPlaybackInfo();
             if(playback.PlaybackStatus is not (GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing or GlobalSystemMediaTransportControlsSessionPlaybackStatus.Paused))return null;
             var timeline=session.GetTimelineProperties();bool playing=playback.PlaybackStatus==GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-            double rate=playback.PlaybackRate??1;if(!double.IsFinite(rate)||rate is <0 or >16)rate=1;
-            var now=DateTimeOffset.UtcNow;double duration=Math.Max(0,(timeline.EndTime-timeline.StartTime).TotalSeconds),elapsed=Math.Max(0,(timeline.Position-timeline.StartTime).TotalSeconds);
-            bool available=timeline.LastUpdatedTime.Year>2000&&timeline.LastUpdatedTime<=now.AddSeconds(1)&&duration is >0 and <=86400&&elapsed<=duration+2;
-            if(playing&&available)elapsed+=Math.Max(0,(now-timeline.LastUpdatedTime).TotalSeconds)*rate;
-            if(duration>0)elapsed=Math.Min(duration,elapsed);
-            var music=new MusicSnapshot(title,properties?.Artist?.Trim()??"",properties?.AlbumTitle?.Trim()??"",playing,elapsed,duration,now){TimelineAvailable=available,PlaybackRate=rate};
+            var music=SystemSample(title,properties?.Artist??"",properties?.AlbumTitle??"",playing,
+                timeline.StartTime.TotalSeconds,timeline.EndTime.TotalSeconds,timeline.Position.TotalSeconds,
+                timeline.LastUpdatedTime,DateTimeOffset.UtcNow,playback.PlaybackRate);
             string source=session.SourceAppUserModelId;
-            return new(source,title+"\n"+music.Artist+"\n"+music.Album,music,"smtc",current,properties?.Thumbnail);
+            return new(source,title+"\n"+music.Artist+"\n"+music.Album,music,
+                "smtc; timeline="+(music.TimelineAvailable?"available":music.DurationSeconds>0?"duration only":"unavailable"),current,properties?.Thumbnail);
         }catch(OperationCanceledException) when(token.IsCancellationRequested){throw;}
         catch(OperationCanceledException){return null;}
         catch(Exception ex) when(ex is UnauthorizedAccessException or InvalidOperationException or COMException or TimeoutException){return null;}

@@ -31,7 +31,7 @@ sealed class WeatherSettingsForm : Form
         SuspendLayout();
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
-        Font = new Font("Microsoft YaHei UI", 9F);
+        Font = SettingsWindow.BodyFont();
         Text = "AI-bot · 天气与定位";
         ClientSize = new Size(620, 570);
         MinimumSize = new Size(560, 480);
@@ -46,9 +46,9 @@ sealed class WeatherSettingsForm : Form
         root.RowStyles.Add(new RowStyle(SizeType.Percent,100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        var header = new TableLayoutPanel { Dock=DockStyle.Fill, AutoSize=true, ColumnCount=1, Padding=new Padding(24,18,24,14), Margin=Padding.Empty, BackColor=Color.White };
-        header.Controls.Add(new Label { Text="天气与定位", AutoSize=true, Font=new Font(Font.FontFamily,16F,FontStyle.Bold), Margin=new Padding(0,0,0,6) });
-        header.Controls.Add(new Label { Text="设置天气位置与数据源，TAB5 和小屏共用。", AutoSize=true, ForeColor=Color.FromArgb(90,106,123), Margin=Padding.Empty });
+        var header = new TableLayoutPanel { Dock=DockStyle.Fill, AutoSize=true, ColumnCount=1, Padding=new Padding(24,24,24,14), Margin=Padding.Empty, BackColor=Color.White };
+        header.Controls.Add(new Label { Text="天气与定位", AutoSize=true, Font=SettingsWindow.TitleFont(), Margin=new Padding(0,0,0,6) });
+        header.Controls.Add(new Label { Text="所有设备共用天气设置。", AutoSize=true, ForeColor=Color.FromArgb(90,106,123), Margin=Padding.Empty });
         root.Controls.Add(header,0,0);
         var body = new FlowLayoutPanel { Name="weather-body", Dock=DockStyle.Fill, FlowDirection=FlowDirection.TopDown, WrapContents=false, AutoScroll=true, Padding=new Padding(24,18,20,14), Margin=Padding.Empty };
         body.Controls.Add(new Label{Text="天气位置",AutoSize=true,Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,0,0,10)});

@@ -10,10 +10,10 @@ internal sealed class AboutForm : Form
     internal AboutForm()
     {
         SuspendLayout();
-        Text = "关于 AI-bot";Font=new Font("Microsoft YaHei UI",9F);
+        Text = "关于 AI-bot";Font=SettingsWindow.BodyFont();
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(440, 235);
+        ClientSize = new Size(440, 280);MinimumSize=new(420,310);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -22,19 +22,22 @@ internal sealed class AboutForm : Form
         var version = typeof(AboutForm).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             .Split('+')[0] ?? Application.ProductVersion.Split('+')[0];
-        Controls.Add(new Label { Text = "AI-bot · AI 状态桌面时钟", AutoSize = true, Location = new Point(20, 20) });
-        Controls.Add(new Label { Text = "版本：" + version, AutoSize = true, Location = new Point(20, 55) });
-        Controls.Add(new Label { Text = "作者：yaoyouzhong & Codex", UseMnemonic = false, AutoSize = true, Location = new Point(20, 90) });
-        var link = new LinkLabel { Text = RepositoryUrl, AutoSize = true, Location = new Point(20, 125) };
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=6};root.ColumnStyles.Add(new(SizeType.Percent,100));
+        for(int i=0;i<6;i++)root.RowStyles.Add(new(i==5?SizeType.Percent:SizeType.AutoSize,i==5?100:0));Controls.Add(root);
+        root.Controls.Add(SettingsWindow.Title("关于 AI-bot"),0,0);
+        root.Controls.Add(new Label { Text = "AI 状态桌面时钟", AutoSize = true,Margin=new(0,0,0,12) },0,1);
+        root.Controls.Add(new Label { Text = "版本：" + version, AutoSize = true,Margin=new(0,0,0,8) },0,2);
+        root.Controls.Add(new Label { Text = "作者：yaoyouzhong & Codex", UseMnemonic = false, AutoSize = true,Margin=new(0,0,0,8) },0,3);
+        var link = new LinkLabel { Text = "GitHub 项目主页", AutoSize = true,Margin=Padding.Empty };
         link.LinkClicked += (_, _) =>
         {
             try { Process.Start(new ProcessStartInfo(RepositoryUrl) { UseShellExecute = true }); }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
             { MessageBox.Show(this, "无法打开浏览器，请手动访问：\n" + RepositoryUrl, "GitHub", MessageBoxButtons.OK, MessageBoxIcon.Information); }
         };
-        Controls.Add(link);
-        var close = new Button { Text = "关闭", DialogResult = DialogResult.OK, Size = new Size(90, 30), Location = new Point(330, 185) };
-        SettingsWindow.StyleButton(close);close.Anchor=AnchorStyles.Bottom|AnchorStyles.Right;Controls.Add(close);
+        root.Controls.Add(link,0,4);
+        var close = new Button { Text = "关闭", DialogResult = DialogResult.OK,Anchor=AnchorStyles.Bottom|AnchorStyles.Right,Margin=new(0,12,0,0) };
+        SettingsWindow.StyleButton(close);root.Controls.Add(close,0,5);
         AcceptButton = close;
         CancelButton = close;
         close.CausesValidation=false;

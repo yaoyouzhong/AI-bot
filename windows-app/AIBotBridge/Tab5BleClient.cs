@@ -16,6 +16,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
 {
     internal async Task RunAsync(CancellationToken token)
     {
+        var discovery=new Tab5BleDiscovery();
         while(!token.IsCancellationRequested) {
             if(store.Current is not { } pairing) {await Task.Delay(2000,token);continue;}
             string stage="检查蓝牙适配器";
@@ -27,12 +28,16 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                 stage="扫描";
                 status("正在寻找已配对 TAB5");
                 var candidates=new ConcurrentDictionary<ulong,BluetoothAddressType>();
+                var preferred=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 var watcher=new BluetoothLEAdvertisementWatcher {ScanningMode=BluetoothLEScanningMode.Active};
                 watcher.AdvertisementFilter.Advertisement.ServiceUuids.Add(Tab5Protocol.Service);
-                watcher.Received+=(_,e)=>candidates.TryAdd(e.BluetoothAddress,e.BluetoothAddressType);
-                try {watcher.Start();await Task.Delay(4000,token);} finally {watcher.Stop();}
+                watcher.Received+=(_,e)=>{
+                    candidates.TryAdd(e.BluetoothAddress,e.BluetoothAddressType);
+                    if(discovery.Matches(pairing.DeviceId,e.BluetoothAddress,(int)e.BluetoothAddressType))preferred.TrySetResult();
+                };
+                try {watcher.Start();await Tab5BleDiscovery.WaitAsync(preferred.Task,token);} finally {watcher.Stop();}
                 if(candidates.IsEmpty) status("未发现已配对 TAB5，自动重试");
-                foreach(var address in candidates.Keys) {
+                foreach(var address in candidates.Keys.OrderByDescending(a=>discovery.Matches(pairing.DeviceId,a,(int)candidates[a]))) {
                     stage="连接设备";
                     using var device=await BluetoothLEDevice.FromBluetoothAddressAsync(address,candidates[address]).AsTask(token);
                     if(device is null) continue;
@@ -167,6 +172,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                         if(confirmed.RootElement.TryGetProperty("rpcPacing",out var pacing)&&pacing.ValueKind==JsonValueKind.Array&&pacing.GetArrayLength()==3)link+="; rpcPacing="+pacing.GetRawText();
                                         diagnostic?.Invoke($"{bytes.Length} bytes, MTU {session.MaxPduSize}, {(fast?$"window{window}":"request")}, {started.Elapsed.TotalSeconds:F1}s, ACK verified{link}; connectionPreference={preferenceStatus}");
                                         status("已连接 · 数据已确认");
+                                        discovery.Remember(pairing.DeviceId,address,(int)candidates[address]);
                                         // A slow complete transfer has already paced this loop.
                                         // Avoid adding two more seconds to the 8-second freshness budget.
                                         pauseMs=Math.Clamp(cadence-(int)started.ElapsedMilliseconds,20,cadence);
@@ -187,7 +193,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                 diagnostic?.Invoke("FAILED "+source+"; "+ex.GetType().Name+" / 0x"+ex.HResult.ToString("X8"));
                 status(ex is OperationCanceledException?"蓝牙通信超时，正在重连":"蓝牙连接中断，正在重连");
             }
-            await Task.Delay(3000,token);
+            await Task.Delay(discovery.RetryDelay(store.Current?.DeviceId),token);
         }
     }
     private static string FailureLink(BluetoothLEDevice device,GattSession session) {

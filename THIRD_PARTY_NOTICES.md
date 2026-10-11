@@ -187,6 +187,16 @@ The short batch also adds 26 Mia works (37 public-domain originals) and 17 Met w
 
 短幅批次另含明尼阿波利斯26件（37张Public Domain原图）和大都会17件（17张CC0原图）。8副完整对联与1组四屏各算一件，每页并排两屏，保留全部文字、落款及逐图来源和校验值。未核实汉字的作者沿用馆方罗马字姓名。另8件Mia候选仅留本地，不在分发catalog内。
 
+## TAB5 supplemental reading glyphs / 阅读补充字形
+
+The TAB5 `tab5_font_24` subset includes supplementary ideographs, including U+276C4, U+28811 and U+2C64E, from Plangothic P1 Regular V2.9.5795, Copyright (c) 2024 Fitzgerald P. Köeingsegg, under SIL OFL 1.1. Source: https://github.com/Losketch/Plangothic-Project/releases/tag/V2.9.5795. Source font SHA-256: `322a96735fd2ee13bb58337e338d891eda3c3a8231f866222e684c9a4b1b5833`. The full license is retained in the separate TAB5 project at `firmware/main/Plangothic-OFL.txt`; the modified subset uses the project name `tab5_font_24`.
+
+TAB5 阅读字库补入生僻字（包括上述三个），保留上游 SIL OFL 1.1 许可及来源校验值。
+
+Noto Sans Regular (Copyright 2015–2021 Google LLC) supplies U+202F; Noto Sans Math Regular (Copyright 2018 Google LLC) supplies U+21A4. Both use SIL OFL 1.1 from notofonts/noto-fonts commit `ffebf8c1ee449e544955a7e813c54f9b73848eac`; source SHA-256 values are `b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5` and `80b61fd613d3519197e64fff6f7e71fdc7f3e6526440ea4115b554ef7fd59af7`. Full license: separate TAB5 project `firmware/main/NotoSupplement-OFL.txt`. Source: https://github.com/notofonts/noto-fonts/tree/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf .
+
+阅读字库另从上述官方 Noto Sans / Noto Sans Math 补入窄不换行空格和箭头符号；原有字形的尺寸与压缩像素保留，新字形单独追加。本地图库 ZIP 包不含固件字库，不会替换设备程序。
+
 ## Bosch BMI270 orientation sensor
 
 TAB5 portrait art mode uses Bosch Sensortec BMI270 SensorAPI under BSD-3-Clause. Copyright (c) 2023 Bosch Sensortec GmbH. The unmodified driver subset and official maximum-FIFO configuration come from M5Stack M5Tab5-UserDemo commit b4e356bc491ca070d54004718dad789c07d5fc93, platforms/tab5/components/sensor_bmi270. The TAB5 firmware retains full license text and source provenance in firmware/components/bosch_bmi270/LICENSE and SOURCE.md. Only accelerometer measurements are enabled; no copied third-party application UI is included.

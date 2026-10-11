@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-本次发布范围：电脑端 **0.6.3**、TAB5 **0.2.156-ui** 与精选作品集 **2026.10.09**；ESP8266 沿用正式 **0.5.1**。2026-10-09 选择性刷新变化画面，未变化的素材保留[原捕获说明](SCREENSHOTS.md)。本次变化及验收范围见[版本说明](RELEASE-0.6.3.md)。[返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
+本次发布范围：电脑端 **0.6.4**、TAB5 **0.2.176-ui**；ESP8266 沿用正式 **0.5.1**，现有图库 **2026.10.09** 保留，新的名画与书法集后续单独发布。时钟、倒计时、导航及展示模式截图按本版更新，未变化素材保留[原捕获说明](SCREENSHOTS.md)。[版本说明](RELEASE-0.6.4.md) · [返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -16,7 +16,7 @@ AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两
 
 | 设备 | 适合怎样使用 | 操作方式 | 主要区别 |
 | --- | --- | --- | --- |
-| **TAB5 · 1280×720** | 查看任务、触控操作、阅读回复与欣赏艺术作品 | 屏幕上的导航、应用和设置；电脑端配置账号与内容 | 提供 Codex 直达、语音／相机草稿、日历与八种屏保；艺术屏保支持横竖屏 |
+| **TAB5 · 1280×720** | 查看任务、触控操作、阅读回复与欣赏艺术作品 | 屏幕上的导航、应用和设置；电脑端配置账号与内容 | 提供 Codex 直达、语音／相机草稿、日历与日期倒计时等屏保；艺术屏保支持横竖屏 |
 | **ESP8266 · 240×240** | 随时看 AI 状态、额度和轮播信息 | 在电脑端选择页面、轮播与桌宠 | 聚焦简洁展示；没有 TAB5 的触控、Codex 直达或艺术图库 |
 
 Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台说明](#validation)。
@@ -95,7 +95,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 ### 常用页面完整图集
 
-下面按使用场景展开，包含额度、天气三种视图、行情、电脑状态、音乐、五种时钟、月历、桌宠和设备设置。
+下面按使用场景展开，包含额度、天气三种视图、行情、电脑状态、音乐、九种时钟、月历、桌宠和设备设置。
 
 <details>
 <summary>账户额度：Claude / Codex 用量、重置卡与模型 API 余额</summary>
@@ -132,15 +132,25 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 </details>
 
 <details>
-<summary>时钟、日历与桌宠：五种表盘、农历节气与生日</summary>
+<summary>时钟、日历与桌宠：九种表盘、农历节气与生日</summary>
 
-**应用 → 时钟**打开时钟页，点击页面切换五种样式：经典圆盘、纯数字、轨道圆盘、奶油刻度、方形表盘。
+**应用 → 时钟**打开时钟页，用左右按钮或九宫格选择经典圆盘、纯数字、轨道圆盘、奶油刻度、方形表盘、昼夜环、几何玩色、星轨和液晶时光。时钟／倒计时使用顶部的分段入口，计时中只显示大数字，轻触后显示操作；切回时钟仍继续计时。
 
 ![经典圆盘时钟](assets/screens/tab5-clock-0.png)
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-clock-1.png" alt="纯数字时钟"></td><td width="50%"><img src="assets/screens/tab5-clock-2.png" alt="轨道圆盘时钟"></td></tr></table>
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-clock-3.png" alt="奶油刻度时钟"></td><td width="50%"><img src="assets/screens/tab5-clock-4.png" alt="方形表盘时钟"></td></tr></table>
+
+<table><tr><td width="50%"><img src="assets/screens/tab5-clock-solar.png" alt="当地日出日落昼夜环"></td><td width="50%"><img src="assets/screens/tab5-clock-lcd.png" alt="经典绿色液晶时光"></td></tr></table>
+
+![九宫格表盘选择](assets/screens/tab5-clock-picker.png)
+
+**两类倒计时独立：** 应用时钟内设置时长、开始／暂停／重置；日期倒计时在屏保设置中指定名称和日期，按天显示，未选中此屏保时隐藏配置。
+
+<table><tr><td width="50%"><img src="assets/screens/tab5-clock-countdown.png" alt="时钟独立倒计时"></td><td width="50%"><img src="assets/screens/tab5-date-countdown.png" alt="屏保按天日期倒计时"></td></tr></table>
+
+![日期倒计时配置入口](assets/screens/tab5-countdown-settings.png)
 
 **日历**从总览日期或顶部生日提醒进入，显示月历、农历、节气、节假日与生日；电脑端 **日历生日**管理生日信息。**应用 → 桌宠**同时展示 Claude / Codex 状态与各自角色；下图为自选动画。
 
@@ -309,7 +319,7 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.1, ESP8266 0.5.0 and TAB5 0.2.149-ui. Start with the device overview, then follow the matching device tour.
 
-**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, five clocks, calendar, pets and all four settings panels. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
+**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all four settings panels. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
 
 **ESP8266:** AI activity, quotas, reset times/cards and configurable cycling are the primary use. Expand the galleries for other providers, weather, stocks, metrics, music, pets and the clock screensaver. Control pages and settings from the computer; TAB5 touch operations, Codex Direct and art collections do not apply to the small display.
 

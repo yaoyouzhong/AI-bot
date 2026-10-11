@@ -28,10 +28,10 @@ internal sealed class PetGalleryForm : Form
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         Text = "桌宠动画";
-        Font = new Font("Microsoft YaHei UI", 9);
+        Font = SettingsWindow.BodyFont();
         ClientSize = new Size(480,540); MinimumSize = new Size(440,480);
         StartPosition = FormStartPosition.CenterScreen;
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(14), ColumnCount = 1, RowCount = 6 };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 1, RowCount = 6 };
         foreach (var style in new[] { new RowStyle(SizeType.Absolute,34), new RowStyle(SizeType.Percent,100), new RowStyle(SizeType.Absolute,150), new RowStyle(SizeType.AutoSize), new RowStyle(SizeType.AutoSize), new RowStyle(SizeType.AutoSize) }) layout.RowStyles.Add(style);
         layout.Controls.Add(_search,0,0); layout.Controls.Add(_list,0,1); layout.Controls.Add(_preview,0,2);
         var controls = new TableLayoutPanel { AutoSize=true, Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = Padding.Empty };
@@ -39,7 +39,7 @@ internal sealed class PetGalleryForm : Form
         SettingsWindow.StyleButton(_apply,true);_apply.Dock=DockStyle.None;_apply.Anchor=AnchorStyles.Top|AnchorStyles.Left;
         controls.Controls.Add(_owner,0,0); controls.Controls.Add(_motion,1,0); controls.Controls.Add(_apply,2,0);
         layout.Controls.Add(controls,0,3); layout.Controls.Add(_status,0,4);
-        layout.Controls.Add(new Label { Text = "素材来自 petdex.dev，仅本机使用；USB 连接后同步。", AutoSize=true, Dock = DockStyle.Fill, ForeColor = SystemColors.GrayText },0,5);
+        layout.Controls.Add(new Label { Text = "素材来源：petdex.dev", AutoSize=true, Dock = DockStyle.Fill, ForeColor = SystemColors.GrayText },0,5);
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
         _status.AutoSize=true;_status.MinimumSize=new Size(0,30);Controls.Add(layout);
         _owner.Items.AddRange(["Claude", "Codex"]); _owner.SelectedIndex = 0;
@@ -54,7 +54,7 @@ internal sealed class PetGalleryForm : Form
         _apply.Click += (_,_) => Apply();
         _timer.Tick += (_,_) => PaintFrame(); _timer.Start();
         if (load) Shown += async (_,_) => await LoadAsync();
-        SettingsWindow.FitScreen(this);
+        SettingsWindow.AddTitle(layout,"桌宠素材");SettingsWindow.FitScreen(this);
         ResumeLayout(true);
     }
     private string SelectedOwner => _owner.SelectedIndex == 0 ? "claude" : "codex";

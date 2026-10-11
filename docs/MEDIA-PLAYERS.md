@@ -8,12 +8,16 @@
 | --- | --- | --- |
 | QQ 音乐 Windows 客户端 | 原生只读采集；有 SMTC 时匹配同曲数据 | 曲名、歌手、专辑、当前／总时长、播放／暂停及公开封面；无需注入插件。原生匹配参考的 x86 `QQMusic.dll` 结构，未知版本或架构回退系统接口。`22.71.10.11.55` 已确认实际播放采样；暂停／拖动／切歌及设备显示待验。 |
 | 网易云音乐 | 保留原生采集与系统接口 | 保留真实时间、中文别名与专辑；本次回归不替代既有版本的实际兼容性记录。 |
-| Spotify、Apple Music、Windows 媒体播放器及其他桌面客户端 | Windows SMTC | 自动发现所有上报的媒体会话。具体字段、封面和时间线由客户端提供；没有上报的内容保持未知。应用名称识别不等于该应用所有版本均已验收。 |
+| 汽水音乐 Windows 客户端 | Windows SMTC，识别 `汽水音乐`／`SodaMusic` 来源 | 本机 `3.7.0` 已实测曲名、歌手、封面、总时长、实时进度、暂停与跳转，并已部署桥接、由用户确认 TAB5 `.175` 实际显示和进度同步。专辑字段按客户端上报保留，未上报时为空。有效时间线才显示进度，详见[接入记录](development/SODA-APPLE-MUSIC-2026-10-11.md)，不修改或注入客户端。 |
+| Apple Music Windows 客户端 | Windows SMTC，识别 Apple Music 包／进程来源 | 沿用已存在的系统媒体接入，补充来源与时间线回归。曲名、歌手、专辑、播放／暂停、封面和时间由客户端提供；本机 `1.1540.23042.0` 无有效订阅，按用户要求先完成开发，真实播放与设备验收延期。见[接入记录](development/SODA-APPLE-MUSIC-2026-10-11.md)。 |
+| Spotify、Windows 媒体播放器及其他桌面客户端 | Windows SMTC | 自动发现所有上报的媒体会话。具体字段、封面和时间线由客户端提供；没有上报的内容保持未知。应用名称识别不等于该应用所有版本均已验收。 |
 | 酷狗、酷我、VLC、PotPlayer、foobar2000 | Windows SMTC（客户端有上报时） | 同一通用接入路径；需要客户端本身或其已启用组件提供媒体会话。本次没有为这些应用实现内存扫描，也不宣称无条件兼容。 |
 | Chrome / Edge 的网页音乐、视频 | SMTC；可选媒体助手补充 HTML Media 状态 | 用户确认 Chrome 网页播放此前一直正常，保留该已验基线。助手只处理用户逐个启用的网站；0.2.0 新增进度、暂停、倍速和标签页失效处理另行验收，不把既有正常播放重新列为未知。直播保持进度未知。Edge 及新增网站／能力未逐项实测。 |
 | Firefox / Brave / Opera 等浏览器 | Windows SMTC（有上报时） | 通用系统会话接入；本项目现有媒体助手面向 Chrome / Edge。 |
 
 多个来源同时打开时，先选正在播放的来源；同为播放中时优先 Windows 当前媒体会话，否则保留此前来源。都暂停时保留可用的当前／原来源。切换时整组替换曲名、歌手、专辑、时间和封面，不把上一首或另一个播放器的数据混入当前歌曲。
+
+2026-10-11 接入明确列入汽水音乐与 Apple Music。两者沿用同一采集与设备发送路径，无新增协议或固件要求。客户端未提供有效时间戳、时长或位置时，不显示推算进度；保留有效总时长。播放时间线超过曲目末端、负值、异常时戳或无效时长也保持未知。本机桥接已部署，汽水音乐 TAB5 验收通过；Apple Music 实际播放延期。
 
 QQ 封面下载在后台进行；曲目变化会放弃旧封面，下载失败不阻塞曲名和进度。只读取当前用户会话中的 QQMusic 进程及有限的当前歌曲字段，架构、签名、指针、长度或歌曲身份不匹配时停止原生采集。封面仅允许腾讯公开图像域名，使用 HTTPS、大小限制与独立取消；不读取账号文件或注入 DLL。
 
@@ -38,6 +42,8 @@ node browser-companion/capture.test.cjs
 ## English
 
 The media integration is published with bridge 0.6.3. The existing music UI and protocol remain compatible; extending media sources alone does not require a firmware update.
+
+The 2026-10-11 integration explicitly recognizes Soda Music (its Chinese application ID and SodaMusic executable) and Apple Music Windows package/process identities. Both use public Windows media sessions and the existing shared snapshot, artwork and device frames. Live Soda Music 3.7.0 sampling confirmed title, artist, artwork, duration, elapsed progress, pause and seek; album metadata remains empty when the client does not report it. The candidate is deployed locally, and the user confirmed physical TAB5 .175 artwork, metadata, pause, resume, seek and advancing progress. Apple Music 1.1540.23042.0 has no active subscription, and the user requested completing development while deferring its live playback test. Real cross-player switching and ESP8266 display remain pending; see the integration record above. Invalid or absent timeline timestamps/positions/durations never become invented elapsed progress, while a valid total duration is retained.
 
 On 2026-10-09, QQ Music `22.71.10.11.55` x86 was sampled live. Both system
 metadata/timeline and bounded native current-song reads worked; twelve native

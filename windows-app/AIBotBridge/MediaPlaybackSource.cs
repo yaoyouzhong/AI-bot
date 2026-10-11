@@ -27,7 +27,7 @@ internal sealed record MediaPlaybackSource(string Source,string Identity,MusicSn
     {
         if(source.StartsWith("browser-companion:",StringComparison.Ordinal))return "浏览器 · "+source.Split(':')[1];
         string s=source.ToLowerInvariant();
-        foreach(var (id,name) in new[]{("qqmusic","QQ音乐"),("cloudmusic","网易云音乐"),("netease","网易云音乐"),("spotify","Spotify"),("applemusic","Apple Music"),("appleinc.applemusic","Apple Music"),("kugou","酷狗音乐"),("kwmusic","酷我音乐"),("kuwo","酷我音乐"),("foobar","foobar2000"),("vlc","VLC"),("potplayer","PotPlayer"),("msedge","Microsoft Edge"),("chrome","Google Chrome"),("firefox","Firefox"),("zunemusic","Windows 媒体播放器"),("wmplayer","Windows Media Player")})
+        foreach(var (id,name) in new[]{("qqmusic","QQ音乐"),("cloudmusic","网易云音乐"),("netease","网易云音乐"),("sodamusic","汽水音乐"),("汽水音乐","汽水音乐"),("spotify","Spotify"),("applemusic","Apple Music"),("com.apple.music","Apple Music"),("appleinc.applemusic","Apple Music"),("kugou","酷狗音乐"),("kwmusic","酷我音乐"),("kuwo","酷我音乐"),("foobar","foobar2000"),("vlc","VLC"),("potplayer","PotPlayer"),("msedge","Microsoft Edge"),("chrome","Google Chrome"),("firefox","Firefox"),("zunemusic","Windows 媒体播放器"),("wmplayer","Windows Media Player")})
             if(s.Contains(id,StringComparison.Ordinal))return name;
         return source;
     }

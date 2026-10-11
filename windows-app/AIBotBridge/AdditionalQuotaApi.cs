@@ -57,6 +57,8 @@ internal static class AdditionalQuotaApi
         if (total <= 0 || used < 0 || used > total || string.IsNullOrWhiteSpace(model) || model.Length > 100 || status is not ("Pending" or "Active" or "Exhausted" or "Expired")) throw new JsonException("Invalid package.");
         var expiry = DateTimeOffset.Parse(i.GetProperty("expiredTime").GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
         var pct = status is "Expired" or "Exhausted" || expiry <= DateTimeOffset.UtcNow ? 100 : used / total * 100;
-        return new(provider, model, null, null, null, null, null, null, null, DateTimeOffset.UtcNow, false) { PlanPercent = pct, PlanResetsAt = expiry, PlanExpiresAt = expiry };
+        var bounds=QuotaCycle.Bounds(i);
+        return new(provider, model, null, null, null, null, null, null, null, DateTimeOffset.UtcNow, false)
+            {PlanPercent=pct,PlanResetsAt=expiry,PlanExpiresAt=expiry,PlanWindowSeconds=bounds.Reset==expiry?bounds.Seconds:null};
     }
 }

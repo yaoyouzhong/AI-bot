@@ -18,6 +18,9 @@ internal static class Tab5GalleryTransportSelfTest
     {
         static void Check(bool value,string message){if(!value)throw new Exception(message);}
         var files=new Dictionary<string,byte[]>();
+        var guideFiles=new Dictionary<string,Dictionary<string,byte[]>>();
+        var expectedGuides=new Dictionary<string,Tab5ArtGuides.Guide>();
+        var identities=new Dictionary<string,string>{{"painting","https://www.artic.edu/artworks/16568"},{"calligraphy","colbase:tnm:TB-363"}};
         foreach(string category in new[]{"painting","calligraphy"}) {
             string directory=Path.Combine(GalleryPack.Root,category);Directory.CreateDirectory(directory);
             string[] landscape=new string[3],portrait=new string[3];
@@ -32,9 +35,27 @@ internal static class Tab5GalleryTransportSelfTest
                 files.Add(name,bytes);File.WriteAllBytes(Path.Combine(directory,name),bytes);
                 (vertical?portrait:landscape)[page]=name;
             }
-            File.WriteAllText(Path.Combine(directory,"catalog.json"),JsonSerializer.Serialize(new[]{
-                new Tab5Gallery.Artwork(category,category,"fixture","fixture","https://example.invalid/test","test",landscape,category,portrait)
-            },JsonDefaults.Options));
+            byte[] catalog=JsonSerializer.SerializeToUtf8Bytes(new[]{
+                new Tab5Gallery.Artwork(category,category,"fixture","fixture","https://example.invalid/test","test",landscape,identities[category],portrait)
+            },JsonDefaults.Options);
+            var guide=new Tab5ArtGuides.Guide(identities[category],"测试作品","测试作者","测试年代","测试藏馆","简要导读","图库包里的简介","图库包里的欣赏提示",
+                category=="calligraphy"?new string('文',2400):"","原文说明");expectedGuides[category]=guide;
+            var packFiles=files.Where(p=>p.Key.StartsWith(category+"-",StringComparison.Ordinal)).ToDictionary(p=>p.Key,p=>p.Value);
+            packFiles["catalog.json"]=catalog;packFiles["provenance.json"]="[]"u8.ToArray();packFiles["selection.json"]="[]"u8.ToArray();
+            packFiles["LICENSE"]="fixture"u8.ToArray();packFiles["THIRD_PARTY_NOTICES.md"]="fixture"u8.ToArray();
+            packFiles["guides.zh.json"]=GuideBytes(category,guide);guideFiles[category]=packFiles;
+            Install(category,"2026.10.10");
+        }
+        byte[] GuideBytes(string category,Tab5ArtGuides.Guide guide)=>JsonSerializer.SerializeToUtf8Bytes(new{schemaVersion=1,language="zh-CN",works=new[]{new{
+            id=category,category,guide.WorkId,guide.Title,guide.Author,guide.Period,guide.Museum,guide.Brief,guide.Overview,guide.Looking,
+            transcription=new{status=category=="painting"?"not_available":"reference_verified",text=guide.Transcription,explanation=guide.Explanation},
+            sources=new[]{new{id="museum",url="https://example.invalid/test"}}
+        }}},JsonDefaults.Options);
+        void Install(string category,string version) {
+            var content=new Dictionary<string,byte[]>(guideFiles[category]);
+            var hashes=content.ToDictionary(p=>p.Key,p=>Convert.ToHexString(SHA256.HashData(p.Value)).ToLowerInvariant());
+            content["PACK.json"]=JsonSerializer.SerializeToUtf8Bytes(new GalleryPackManifest(2,version,category,1,6,hashes),JsonDefaults.Options);
+            string archive=Path.Combine(GalleryPack.Root,category+"-"+version+".zip");File.WriteAllBytes(archive,UpdateSelfTest.Zip(content));GalleryPack.Install(archive);
         }
         var store=new Tab5PairingStore(Path.Combine(GalleryPack.Root,"test-pair.dat"));
         var pair=store.Pair("001122aabbcc",@"USB\GALLERY-TEST");byte[] key=Convert.FromBase64String(pair.Key);
@@ -42,6 +63,12 @@ internal static class Tab5GalleryTransportSelfTest
         var snapshot=new StatusSnapshot(1,"12:00",1000,28800,DateTimeOffset.UtcNow,new("idle",0),new("idle",0));
         service.Publish(snapshot);using var state=JsonDocument.Parse(service.CurrentFrame!);
         string session=state.RootElement.GetProperty("session").GetString()!;
+        var packDigests=state.RootElement.GetProperty("data").GetProperty("connectionHealth").GetProperty("galleryPacks");
+        var previousDigests=new Dictionary<string,string>();
+        foreach(string category in new[]{"painting","calligraphy"}) {
+            previousDigests[category]=packDigests.GetProperty(category).GetString()!;
+            Check(previousDigests[category].Length==64,"Authenticated state omitted installed gallery digest");
+        }
         var probe=new TcpListener(IPAddress.Loopback,0);probe.Start();int port=((IPEndPoint)probe.LocalEndpoint).Port;probe.Stop();
         using var stop=new CancellationTokenSource();
         var server=new LanStatusServer(new(IPAddress.Loopback,port,"fixture"),tab5:service);
@@ -83,8 +110,21 @@ internal static class Tab5GalleryTransportSelfTest
                 int images=0;
                 foreach(string category in new[]{"painting","calligraphy"})foreach(string orientation in new[]{"landscape","portrait"})for(int page=0;page<3;page++) {
                     const string date="2026-10-07";
-                    var manifest=await Call(link,new{op="manifest",category,orientation,date,frame=page});
+                    var manifest=await Call(link,new{op="manifest",category,orientation,date,frame=page,includeGuide=true,guideVersion=2});
                     Check(manifest.Status==200&&manifest.Body.GetProperty("orientation").GetString()==orientation,"Gallery layout missing");
+                    var guide=manifest.Body.GetProperty("guide");var expectedGuide=expectedGuides[category];
+                    Check(guide.GetProperty("workId").GetString()==identities[category]&&guide.GetProperty("overview").GetString()==expectedGuide.Overview&&guide.GetProperty("looking").GetString()==expectedGuide.Looking,"Guide identity or reviewed text changed across pages/layouts/transports");
+                    Check((guide.GetProperty("transcription").GetString()!.Length>0)==(category=="calligraphy"),"Unverified transcription shown or reviewed text missing");
+                    Check(manifest.Body.GetProperty("guideVersion").GetInt32()==2&&guide.GetProperty("transcription").GetString()==expectedGuide.Transcription,"Long reference text lost across transport");
+                    Check(JsonSerializer.SerializeToUtf8Bytes(new{status=manifest.Status,body=manifest.Body},Tab5ArtGuides.WireOptions).Length<=16384,"Complete v2 manifest exceeds reply budget");
+                    if(page==0&&orientation=="landscape") {
+                        var oldManifest=await Call(link,new{op="manifest",category,date,frame=page});
+                        Check(!oldManifest.Body.TryGetProperty("guide",out var oldGuide)||oldGuide.ValueKind==JsonValueKind.Null,"Old firmware received unsolicited reading text");
+                        var v1=await Call(link,new{op="manifest",category,date,frame=page,includeGuide=true});
+                        string legacyOriginal=v1.Body.GetProperty("guide").GetProperty("transcription").GetString()!;
+                        Check(v1.Body.GetProperty("guideVersion").GetInt32()==1&&Encoding.UTF8.GetByteCount(legacyOriginal)<512,"v1 original exceeds device buffer");
+                        if(category=="calligraphy")Check(legacyOriginal.Contains("当前设备版本")&&!legacyOriginal.Contains("天地玄黄"),"Legacy long text was truncated instead of replaced with notice");
+                    }
                     Check(service.BleGalleryTransferActive==(link=="BLE")&&!service.ImageUploadActive,"Gallery priority changed another transport or blocked its own ranges");
                     int size=manifest.Body.GetProperty("size").GetInt32();string sha=manifest.Body.GetProperty("sha256").GetString()!;
                     using var data=new MemoryStream();
@@ -105,6 +145,25 @@ internal static class Tab5GalleryTransportSelfTest
                 }
                 Console.WriteLine($"GALLERY_TRANSPORT_OK {link}: {images} images, 2 categories, 2 orientations, 3 pages, 48 KiB/8 KiB ranges, SHA-256 and JPEG decode");
             }
+            foreach(string category in new[]{"painting","calligraphy"}) {
+                var updated=expectedGuides[category] with {Overview="导入后更新的简介",Looking="导入后更新的欣赏提示",Transcription=category=="calligraphy"?"导入后更新的原文":""};
+                guideFiles[category]["guides.zh.json"]=GuideBytes(category,updated);Install(category,"2026.10.11");
+                service.Publish(snapshot);
+                using var refreshedState=JsonDocument.Parse(service.CurrentFrame!);
+                var revisions=refreshedState.RootElement.GetProperty("data").GetProperty("connectionHealth").GetProperty("galleryPacks");
+                string digest=revisions.GetProperty(category).GetString()!;
+                Check(digest.Length==64&&digest!=previousDigests[category],"Text-only import did not notify device caches");
+                string other=category=="painting"?"calligraphy":"painting";
+                Check(revisions.GetProperty(other).GetString()==previousDigests[other],"Unchanged category digest changed");
+                previousDigests[category]=digest;
+                foreach(string link in new[]{"USB","Wi-Fi","BLE"}) {
+                    var manifest=await Call(link,new{op="manifest",category,date="2026-10-07",includeGuide=true,guideVersion=2});
+                    var guide=manifest.Body.GetProperty("guide");
+                    Check(manifest.Status==200&&guide.GetProperty("overview").GetString()==updated.Overview&&guide.GetProperty("looking").GetString()==updated.Looking&&guide.GetProperty("transcription").GetString()==updated.Transcription,"Import did not hot reload pack guide across authenticated transports");
+                }
+            }
+            Console.WriteLine("GALLERY_GUIDE_TRANSPORTS_OK imported pack text, both categories; text-only replacement in running service; authenticated HTTP and USB/BLE mailbox simulations");
+            Console.WriteLine("GALLERY_PACK_DIGESTS_OK authenticated state changes only the imported category, including text-only editions");
             await Task.Delay(3100);
             Check(!service.BleGalleryTransferActive,"Gallery throughput preference did not expire");
             var invalidated=await Call("BLE",new{op="read",category="painting",orientation="portrait",date="2026-10-07",frame=0,offset=0,count=8192,sha256="stale"});

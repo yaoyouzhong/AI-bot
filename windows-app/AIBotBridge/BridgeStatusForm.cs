@@ -43,13 +43,14 @@ internal sealed class BridgeStatusForm : Form
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=2000};
     internal BridgeStatusForm(Func<BridgeStatusView> capture,Func<string,Task>? reconnect=null,Action<string>? export=null)
     {
-        _capture=capture;_canReconnect=reconnect is not null;Text="AI-bot · 服务状态";Font=new Font("Microsoft YaHei UI",9F);
+        _capture=capture;_canReconnect=reconnect is not null;Text="AI-bot · 服务状态";Font=SettingsWindow.BodyFont();
         AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(760,660);MinimumSize=new(680,580);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;
         _devices.Name="status-devices";_data.Name="status-data";
-        var root=_layout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=9,Padding=new Padding(16)};
+        var root=_layout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=9,Padding=new Padding(24)};
         root.ColumnStyles.Add(new(SizeType.Percent,100));
         foreach(var style in new[]{new RowStyle(SizeType.AutoSize),new RowStyle(SizeType.AutoSize),new RowStyle(SizeType.Absolute,100),new RowStyle(SizeType.AutoSize),new RowStyle(SizeType.Percent,100),new RowStyle(SizeType.AutoSize),new RowStyle(SizeType.AutoSize)})root.RowStyles.Add(style);
-        root.Controls.Add(_summary,0,0);root.Controls.Add(Title("设备连接"),0,1);root.Controls.Add(_devices,0,2);
+        var heading=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=1,Margin=Padding.Empty};heading.ColumnStyles.Add(new(SizeType.Percent,100));heading.Controls.Add(SettingsWindow.Title("服务状态"),0,0);heading.Controls.Add(_summary,0,1);
+        root.Controls.Add(heading,0,0);root.Controls.Add(Title("设备连接"),0,1);root.Controls.Add(_devices,0,2);
         root.Controls.Add(Title("数据更新"),0,3);root.Controls.Add(_data,0,4);root.Controls.Add(_error,0,5);root.Controls.Add(_updated,0,6);Controls.Add(root);
         root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.AutoSize));root.Controls.Add(_health,0,7);
         var actions=new FlowLayoutPanel{Dock=DockStyle.Fill,AutoSize=true,Margin=new Padding(0,8,0,0)};

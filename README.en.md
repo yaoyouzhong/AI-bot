@@ -1,10 +1,10 @@
 # AI-bot
 
-Released: bridge 0.6.3, TAB5 0.2.156-ui and annual curated collection edition 2026.10.09 (366 paintings and 366 Chinese calligraphy works). Only the curated edition is distributed as two optional ZIPs; current stable downloads are listed below. [Changes and validation scope](docs/RELEASE-0.6.3.md) · [Collection installation](docs/GALLERY-PACKS.md)
+This release delivers bridge **0.6.4** and TAB5 **0.2.176-ui**: Codex desktop read sync, Soda/Apple media integration, nine clock faces, separate timer and date-countdown functions, consistent navigation/display modes and extended fonts. New painting/calligraphy collections will follow independently; published curated edition **2026.10.09** and installed user artwork are retained. [Changes and validation scope](docs/RELEASE-0.6.4.md) · [Collection installation](docs/GALLERY-PACKS.md)
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.3.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.4.md) · [简体中文](README.md)
 
 The revised video, cover and changed screenshots are synchronized with this release. The native player below shows the latest 108-second product film.
 
@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
 <tbody>
 <tr><td nowrap="nowrap"><strong>Task status</strong></td><td nowrap="nowrap">Claude / Codex working, idle and waiting states; completion alerts.</td></tr>
 <tr><td nowrap="nowrap"><strong>Account quotas</strong></td><td nowrap="nowrap">Usage, API balances, resets and Codex credits; history on the computer.</td></tr>
-<tr><td nowrap="nowrap"><strong>Daily information</strong></td><td nowrap="nowrap">Weather, clocks, stocks, computer load and media playback; dedicated NetEase and QQ Music adapters, Windows media sessions for other clients, and optional Chrome/Edge website playback. See <a href="docs/MEDIA-PLAYERS.md">support and validation limits</a>.</td></tr>
+<tr><td nowrap="nowrap"><strong>Daily information</strong></td><td nowrap="nowrap">Weather, clocks, stocks, computer load and media playback; dedicated NetEase and QQ Music adapters, Windows media sessions for Soda Music, Apple Music and other clients, and optional Chrome/Edge website playback. See <a href="docs/MEDIA-PLAYERS.md">support and validation limits</a>.</td></tr>
 <tr><td nowrap="nowrap"><strong>Display settings</strong></td><td nowrap="nowrap">Fixed page, cycle or smart switching; choose pages, order, interval and pets.</td></tr>
 <tr><td nowrap="nowrap"><strong>Device management</strong></td><td nowrap="nowrap">Windows Device Center: accounts, data, devices; check, download and verify updates. <a href="docs/UPDATES.md">Guide</a></td></tr>
 </tbody>
@@ -98,7 +98,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.3.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/TAB5-BLE-GALLERY-148.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.4.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/TAB5-BLE-GALLERY-148.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](docs/development/TAB5-SOURCE.md) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

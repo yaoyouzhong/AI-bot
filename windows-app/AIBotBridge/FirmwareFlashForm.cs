@@ -57,19 +57,19 @@ internal sealed class FirmwareFlashForm : Form
         Text = "AI-bot · 小屏刷机";
         using (var icon = typeof(FirmwareFlashForm).Assembly.GetManifestResourceStream("AIBotBridge.Assets.flash-icon.ico"))
             if (icon is not null) Icon = new Icon(icon);
-        Font = new Font("Microsoft YaHei UI", 9);
+        Font = SettingsWindow.BodyFont();
         AutoScaleMode = AutoScaleMode.Dpi;
         AutoScaleDimensions = new SizeF(96, 96);
         ClientSize = new Size(560, 300); MinimumSize = new Size(500, 290);
         BackColor = Color.White;
         ForeColor = Color.FromArgb(32, 44, 55);
         StartPosition = FormStartPosition.CenterScreen;
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(22), ColumnCount = 1, RowCount = 7 };
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(24), ColumnCount = 1, RowCount = 7 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         for (var i = 0; i < 6; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.Controls.Add(new Label { Text = "小屏刷机", Font = new Font(Font.FontFamily, 14, FontStyle.Bold), AutoSize = true, Margin = new Padding(0, 0, 0, 16) });
-        var portRow = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 3, BackColor = Color.FromArgb(240, 248, 247), Padding = new Padding(12, 8, 12, 8), Margin = new Padding(0, 0, 0, 18) };
+        root.Controls.Add(new Label { Text = "小屏刷机", Font = SettingsWindow.TitleFont(), AutoSize = true, Margin = new Padding(0, 0, 0, 16) });
+        var portRow = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 3, BackColor = SettingsWindow.Surface, Padding = new Padding(12, 8, 12, 8), Margin = new Padding(0, 0, 0, 18) };
         portRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         portRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         portRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -181,7 +181,7 @@ internal sealed class FirmwareFlashForm : Form
         _refresh.Enabled = _browse.Enabled = !_busy;
         _backup.Enabled = !_busy && (_preview || _selection.Selected is not null);
         _start.Enabled = _backup.Enabled && (_preview || File.Exists(_firmwarePath));
-        _start.BackColor = _start.Enabled ? Color.FromArgb(8, 127, 131) : Color.FromArgb(232, 237, 240);
+        _start.BackColor = _start.Enabled ? SettingsWindow.Accent : Color.FromArgb(232, 237, 240);
         _start.ForeColor = _start.Enabled ? Color.White : Color.FromArgb(132, 143, 151);
         _start.Text = _busy ? "处理中…" : "开始刷机";
         _cancel.Enabled = _busy && !_writing; _cancel.Visible = _busy;

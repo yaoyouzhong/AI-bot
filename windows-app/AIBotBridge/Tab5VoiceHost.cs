@@ -29,7 +29,7 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     internal string TriggerMode=>_doubao is null?"USB HID compatibility":"verified native control";
     private string? _microphoneRestoreError;
     internal void InitializeDraft() {
-        SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;Font=new Font("Microsoft YaHei UI",9F);
+        SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;Font=SettingsWindow.BodyFont();
         Text="TAB5 语音输入";ClientSize=new Size(440,190);StartPosition=FormStartPosition.Manual;
         FormBorderStyle=FormBorderStyle.FixedToolWindow;ShowInTaskbar=false;Opacity=0;
         Controls.Add(_text);
@@ -245,9 +245,9 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         Form form=preview?new PreviewForm():new Form();
         form.SuspendLayout();
         form.AutoScaleDimensions=new SizeF(96,96);form.AutoScaleMode=AutoScaleMode.Dpi;
-        form.Font=new Font("Microsoft YaHei UI",9F);form.MinimumSize=new Size(500,300);
-        form.Text="M5Stack TAB5 · 语音设置";form.ClientSize=new Size(560,270);form.StartPosition=FormStartPosition.CenterParent;
-        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(20)};form.Controls.Add(panel);
+        form.Font=SettingsWindow.BodyFont();form.MinimumSize=new Size(500,300);
+        form.Text="M5Stack TAB5 · 语音设置";form.ClientSize=new Size(560,330);form.StartPosition=FormStartPosition.CenterParent;
+        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(24)};form.Controls.Add(panel);panel.Controls.Add(SettingsWindow.Title("语音设置"));
         var enabled=new CheckBox{Text="启用语音输入",AutoSize=true,Checked=_settings.Enabled,Margin=new Padding(3,0,3,12)};panel.Controls.Add(enabled);
         panel.Controls.Add(new Label {AutoSize=true,Text="优先麦克风"});
         var inputs=new ComboBox{Width=590,DropDownStyle=ComboBoxStyle.DropDownList};panel.Controls.Add(inputs);
@@ -258,12 +258,12 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         if(_settings.DjiId.Length>0&&inputs.SelectedIndex==0) {
             inputs.Items.Add(new Tab5AudioDevice(_settings.DjiId,"之前选择的大疆设备（当前未连接）"));inputs.SelectedIndex=inputs.Items.Count-1;
         }
-        panel.Controls.Add(new Label{Text="不可用时使用 M5Stack TAB5 麦克风。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(3,6,3,12)});
+        panel.Controls.Add(new Label{Text="不可用时自动使用 TAB5 麦克风。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(3,6,3,12)});
         var troubleshoot=new Button{Text="问题排查",AutoSize=true,Name="voice-troubleshoot"};SettingsWindow.StyleButton(troubleshoot);panel.Controls.Add(troubleshoot);
         var advanced=new FlowLayoutPanel{AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false,Visible=false,Margin=Padding.Empty,Name="voice-advanced"};panel.Controls.Add(advanced);SettingsWindow.FitFlow(advanced);
         troubleshoot.Click+=(_,_)=>{
             advanced.Visible=!advanced.Visible;troubleshoot.Text=advanced.Visible?"收起排查":"问题排查";
-            int height=(int)Math.Round((advanced.Visible?500:270)*form.DeviceDpi/96d);
+            int height=(int)Math.Round((advanced.Visible?560:330)*form.DeviceDpi/96d);
             int available=Screen.FromControl(form).WorkingArea.Height-32-(form.Height-form.ClientSize.Height);
             form.ClientSize=new Size(form.ClientSize.Width,Math.Min(height,available));
         };
@@ -283,8 +283,8 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         var refresh=new Button{Text="检查音频"};advanced.Controls.Add(refresh);
         refresh.Click+=(_,_)=>RefreshAvailability();inputs.SelectedIndexChanged+=(_,_)=>RefreshAvailability();RefreshAvailability();
         var save=new Button{Text="保存"};var cancel=new Button{Text="取消",DialogResult=DialogResult.Cancel,CausesValidation=false};
-        var actions=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,Padding=new Padding(20,8,20,12)};
-        actions.Controls.AddRange([save,cancel]);form.Controls.Add(actions);panel.BringToFront();
+        var actions=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(24,8,24,24)};
+        actions.Controls.AddRange([cancel,save]);form.Controls.Add(actions);panel.BringToFront();
         cancel.Click+=(_,_)=>form.Close();form.CancelButton=cancel;SettingsWindow.StyleButton(cancel);
         save.Click+=(_,_)=> {
             if(enabled.Checked&&RefreshAvailability()?.CableReady!=true){MessageBox.Show(form,"请先完成音频通路配置。");return;}

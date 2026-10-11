@@ -49,8 +49,8 @@ sealed partial class DomesticQuotaService
             {
                 var value = await KimiUsageApi.FetchAsync(key, KimiPort);
                 if (key != ApiKey(provider)) return (false,"凭据已更换，请重新查询。");
-                SetKimi(value.WeeklyPercent!.Value,value.PrimaryPercent,null,value.WeeklyResetsAt,value.PrimaryResetsAt);
-                result = (true,"Kimi Code 官方本地服务已更新周额度和五小时额度。");
+                SetKimi(value);
+                result = (true,"Kimi Code 官方本地服务已更新账户提供的额度窗口。");
             }
             else if (provider is "stepfun" or "baidu") {
                 var value = await AdditionalQuotaApi.FetchAsync(provider, key);

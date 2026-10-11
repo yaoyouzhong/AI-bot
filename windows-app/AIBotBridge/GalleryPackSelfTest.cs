@@ -5,6 +5,28 @@ using System.Text.Json;
 namespace AIBotBridge;
 internal static class GalleryPackSelfTest
 {
+    internal static void RunGuidePackages(params string[] archives) {
+        var gallery=new Tab5Gallery();
+        foreach(string archive in archives) {
+            var pack=GalleryPack.Install(archive);
+            string directory=Path.Combine(GalleryPack.Root,pack.Category);
+            var works=JsonSerializer.Deserialize<Tab5Gallery.Artwork[]>(File.ReadAllBytes(Path.Combine(directory,"catalog.json")),JsonDefaults.Options)!;
+            using var source=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(directory,"guides.zh.json")));
+            var expected=Tab5ArtGuides.ReadPack(source.RootElement,works);
+            for(int day=0;day<works.Length;day++)foreach(string orientation in new[]{"landscape","portrait"}) {
+                string date=new DateOnly(2026,1,1).AddDays(day).ToString("yyyy-MM-dd");
+                var reply=gallery.Handle(JsonSerializer.SerializeToElement(new{op="manifest",category=pack.Category,date,orientation,includeGuide=true,guideVersion=2},JsonDefaults.Options),true,true);
+                var body=JsonSerializer.SerializeToElement(reply.Body,JsonDefaults.Options);
+                if(reply.Status!=200||body.GetProperty("id").GetString()!=works[day].Id)throw new Exception("Generated package daily identity mismatch");
+                var actual=body.GetProperty("guide").Deserialize<Tab5ArtGuides.Guide>(JsonDefaults.Options);
+                if(actual!=expected[works[day].WorkId??works[day].Source])throw new Exception("Generated package guide not served verbatim");
+                string sha=body.GetProperty("sha256").GetString()!;
+                var image=gallery.Handle(JsonSerializer.SerializeToElement(new{op="read",category=pack.Category,date,orientation,offset=0,count=49152,sha256=sha},JsonDefaults.Options),true,true);
+                if(image.Status!=200||image.Body is not Tab5RpcDataBody)throw new Exception("Generated package image unavailable");
+            }
+            Console.WriteLine($"GENERATED_GUIDE_PACK_OK category={pack.Category} works={works.Length} images={pack.Frames} originals={expected.Values.Count(g=>g.Transcription.Length>0)}; production import, both orientations, exact text and image transport");
+        }
+    }
     internal static void RunPackages(string painting,string calligraphy,string output) {
         Directory.CreateDirectory(output);
         var gallery=new Tab5Gallery();
@@ -33,12 +55,12 @@ internal static class GalleryPackSelfTest
             ["catalog.json"]=JsonSerializer.SerializeToUtf8Bytes(new[]{new Tab5Gallery.Artwork("test",category,title,"作者","https://example.invalid/work","CC0",["work.jpg"],"one",["work-portrait.jpg"])},JsonDefaults.Options),
             ["provenance.json"]="[]"u8.ToArray(),["selection.json"]="[]"u8.ToArray(),["LICENSE"]="fixture"u8.ToArray(),["THIRD_PARTY_NOTICES.md"]="fixture"u8.ToArray(),
             ["work.jpg"]=Jpeg(),["work-portrait.jpg"]=Jpeg()};
-        string Archive(Dictionary<string,byte[]> files,string category="painting",Action<Dictionary<string,byte[]>>? change=null){
+        string Archive(Dictionary<string,byte[]> files,string category="painting",Action<Dictionary<string,byte[]>>? change=null,int schema=1,string version="2026.10.07"){
             var hashes=files.ToDictionary(p=>p.Key,p=>Convert.ToHexString(SHA256.HashData(p.Value)).ToLowerInvariant());
-            files["PACK.json"]=JsonSerializer.SerializeToUtf8Bytes(new GalleryPackManifest(1,"2026.10.07",category,1,2,hashes),JsonDefaults.Options);change?.Invoke(files);
+            files["PACK.json"]=JsonSerializer.SerializeToUtf8Bytes(new GalleryPackManifest(schema,version,category,1,2,hashes),JsonDefaults.Options);change?.Invoke(files);
             string path=Path.Combine(root,Guid.NewGuid()+".zip");File.WriteAllBytes(path,UpdateSelfTest.Zip(files));return path;
         }
-        void Reject(string path){try{GalleryPack.Install(path,packs);}catch(Exception ex) when(ex is InvalidDataException or ArgumentException){return;}throw new Exception("Invalid gallery accepted");}
+        void Reject(string path){try{GalleryPack.Install(path,packs);}catch(Exception ex) when(ex is InvalidDataException or ArgumentException or JsonException){return;}throw new Exception("Invalid gallery accepted");}
         var gallery=new Tab5Gallery(legacy,packs);
         (int Status,JsonElement Body) Manifest(string category){var reply=gallery.Handle(JsonSerializer.SerializeToElement(new{category,date="2026-10-07",op="manifest",frame=0},JsonDefaults.Options),true,true);return(reply.Status,JsonSerializer.SerializeToElement(reply.Body,JsonDefaults.Options));}
         Check(Manifest("painting").Status==404,"Absent gallery must be explained");
@@ -63,7 +85,61 @@ internal static class GalleryPackSelfTest
         Directory.CreateDirectory(legacy);foreach(var pair in Files("painting"))File.WriteAllBytes(Path.Combine(legacy,pair.Key),pair.Value);
         var old=new Tab5Gallery(legacy,Path.Combine(root,"empty"));
         Check(old.Handle(JsonSerializer.SerializeToElement(new{category="painting",date="2026-10-07",op="manifest"}),true,true).Status==200,"Existing local collection no longer works");
+        Console.WriteLine("GALLERY_PACK_TEST bundled guides/identity/hot replacement");
+        byte[] Guides(string category,string overview="新版简介",string original="已核实原文",string status="source_verified",string identity="one")=>JsonSerializer.SerializeToUtf8Bytes(new{
+            schemaVersion=1,language="zh-CN",works=new[]{new{id="test",category,workId=identity,title="作品",author="作者",period="年代",museum="藏馆",brief="简要导读",overview,looking="欣赏提示",
+                transcription=new{status,text=original,explanation="原文说明"},sources=new[]{new{id="museum",url="https://example.invalid/work"}}}}
+        },JsonDefaults.Options);
+        Dictionary<string,byte[]> WithGuide(string category,string overview="新版简介",string original="已核实原文",string status="source_verified") {
+            var files=Files(category);files["guides.zh.json"]=Guides(category,overview,original,status);return files;
+        }
+        (int Status,JsonElement Body) Reading(string category,int version=2) {
+            var reply=gallery.Handle(JsonSerializer.SerializeToElement(new{category,date="2026-10-07",op="manifest",includeGuide=true,guideVersion=version},JsonDefaults.Options),true,true);
+            return(reply.Status,JsonSerializer.SerializeToElement(reply.Body,JsonDefaults.Options));
+        }
+        GalleryPack.Install(Archive(WithGuide("painting"),schema:2),packs);
+        Check(Reading("painting").Body.GetProperty("guide").GetProperty("overview").GetString()=="新版简介","Pack introduction not served");
+        GalleryPack.Install(Archive(WithGuide("calligraphy",original:new string('文',1000)),"calligraphy",schema:2),packs);
+        Check(Reading("calligraphy").Body.GetProperty("guide").GetProperty("transcription").GetString()==new string('文',1000),"Full original text lost");
+        Check(Reading("calligraphy",1).Body.GetProperty("guide").GetProperty("transcription").GetString()!.Contains("当前设备版本"),"Old device compatibility lost");
+        string guidePath=Path.Combine(packs,"painting","guides.zh.json"),catalogPath=Path.Combine(packs,"painting","catalog.json");
+        DateTime guideStamp=File.GetLastWriteTimeUtc(guidePath),catalogStamp=File.GetLastWriteTimeUtc(catalogPath);
+        long guideLength=new FileInfo(guidePath).Length;
+        GalleryPack.Install(Archive(WithGuide("painting","更新简介","更新后原文"),schema:2,version:"2026.10.08"),packs);
+        File.SetLastWriteTimeUtc(guidePath,guideStamp);File.SetLastWriteTimeUtc(catalogPath,catalogStamp);
+        Check(new FileInfo(guidePath).Length==guideLength,"Replacement fixture must have identical length");
+        var updated=Reading("painting").Body.GetProperty("guide");
+        Check(updated.GetProperty("overview").GetString()=="更新简介"&&updated.GetProperty("looking").GetString()=="欣赏提示"&&updated.GetProperty("transcription").GetString()=="更新后原文","Same-size/timestamp text-only update not hot loaded");
+        Check(Reading("calligraphy").Body.GetProperty("guide").GetProperty("transcription").GetString()==new string('文',1000),"Painting update replaced calligraphy text");
+        var mismatched=WithGuide("painting");mismatched["guides.zh.json"]=Guides("painting",identity:"different-work");Reject(Archive(mismatched,schema:2));
+        var crossCategory=WithGuide("painting");crossCategory["guides.zh.json"]=Guides("calligraphy");Reject(Archive(crossCategory,schema:2));
+        var longText=WithGuide("painting",original:new string('文',2731));Reject(Archive(longText,schema:2));
+        Reject(Archive(WithGuide("painting",original:new string('<',2730)),schema:2));
+        Reject(Archive(WithGuide("painting",original:""),schema:2));
+        var malformed=WithGuide("painting");malformed["guides.zh.json"]="{}"u8.ToArray();Reject(Archive(malformed,schema:2));
+        var duplicate=WithGuide("painting");var document=System.Text.Json.Nodes.JsonNode.Parse(duplicate["guides.zh.json"])!;
+        var rows=document["works"]!.AsArray();rows.Add(rows[0]!.DeepClone());duplicate["guides.zh.json"]=JsonSerializer.SerializeToUtf8Bytes(document,JsonDefaults.Options);Reject(Archive(duplicate,schema:2));
+        Reject(Archive(Files("painting"),schema:2));
+        Reject(Archive(WithGuide("painting"),schema:2,change:f=>f["guides.zh.json"][0]^=1));
+        using(var stop=new CancellationTokenSource()){stop.Cancel();try{GalleryPack.Install(Archive(WithGuide("painting","取消更新"),schema:2),packs,cancellation:stop.Token);throw new Exception("Cancelled text update accepted");}catch(OperationCanceledException){}}
+        Check(Reading("painting").Body.GetProperty("guide").GetProperty("overview").GetString()=="更新简介","Invalid/cancelled guide import replaced installed text");
+        foreach(string status in new[]{"not_available","withheld_pending_review"}) {
+            GalleryPack.Install(Archive(WithGuide("painting",status:status),schema:2),packs);
+            Check(Reading("painting").Body.GetProperty("guide").GetProperty("transcription").GetString()=="","Unreviewed original leaked to reader");
+        }
+        // Old packages still use the existing reviewed embedded fallback.
+        var legacyFiles=Files("painting");var legacyWork=new Tab5Gallery.Artwork("test","painting","作品","作者","https://example.invalid/work","CC0",["work.jpg"],"https://www.artic.edu/artworks/16568",["work-portrait.jpg"]);
+        legacyFiles["catalog.json"]=JsonSerializer.SerializeToUtf8Bytes(new[]{legacyWork},JsonDefaults.Options);GalleryPack.Install(Archive(legacyFiles),packs);
+        var legacyGuide=Reading("painting");
+        Check(legacyGuide.Status==200,"Legacy image-only pack unavailable");
+        var embedded=Tab5ArtGuides.Find(legacyWork.WorkId!);
+        Check(embedded is null?legacyGuide.Body.GetProperty("guide").ValueKind==JsonValueKind.Null:
+            legacyGuide.Body.GetProperty("guide").GetProperty("overview").GetString()==embedded.Overview,"Legacy package fallback lost or unreleased text leaked");
+        // Missing v2 guide must never silently fall back to stale embedded text.
+        GalleryPack.Install(Archive(WithGuide("painting"),schema:2),packs);File.Delete(guidePath);
+        Check(Reading("painting").Status==503,"Missing v2 guide silently substituted embedded text");
         Check(!Directory.EnumerateDirectories(packs,".install-*").Any(),"Temporary imports not cleaned");
+        Console.WriteLine("GALLERY_PACK_GUIDES_OK both categories; images and text installed atomically; same-size/time text-only hot update; v1/v2 readers; verified-only originals; identity/hash/bounds/missing/cancellation rejection; legacy fallback; backups");
         Console.WriteLine("GALLERY_PACK_OK independent optional packs, hot reload, real JPEG transport, legacy data, corruption/path/dimensions/cancellation rejection, prior data preserved");
     }
 }

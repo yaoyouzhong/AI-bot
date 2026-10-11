@@ -34,10 +34,18 @@ internal static class XiaomiQuota
         if(candidates.Count==0 || candidates.Any(n=>n<0 || n>100 || !double.IsFinite(n)) || candidates.Any(n=>Math.Abs(n-candidates[0])>0.1)) throw new JsonException("Missing or ambiguous plan usage.");
         return candidates[0];
     }
-    internal static DomesticProviderQuotaSnapshot? Snapshot(double? percent, DateTime? fetchedAt)
+    internal static DomesticProviderQuotaSnapshot ParseSnapshot(JsonElement root)
+    {
+        var percent=Parse(root);var data=root.TryGetProperty("data",out var d)?d:root;
+        var bounds=QuotaCycle.Bounds(data);
+        return Snapshot(percent,DateTime.UtcNow,bounds.Reset,bounds.Seconds)!;
+    }
+    internal static DomesticProviderQuotaSnapshot? Snapshot(double? percent, DateTime? fetchedAt,
+        DateTimeOffset? reset=null,long? windowSeconds=null)
     {
         if(percent is not double p || !double.IsFinite(p) || p<0 || p>100 || fetchedAt is null) return null;
         return new("xiaomi","MiMo Token Plan",null,null,null,null,null,null,null,
-            new DateTimeOffset(DateTime.SpecifyKind(fetchedAt.Value,DateTimeKind.Utc)),false) { PlanPercent=p };
+            new DateTimeOffset(DateTime.SpecifyKind(fetchedAt.Value,DateTimeKind.Utc)),false)
+            {PlanPercent=p,PlanResetsAt=reset,PlanWindowSeconds=windowSeconds};
     }
 }

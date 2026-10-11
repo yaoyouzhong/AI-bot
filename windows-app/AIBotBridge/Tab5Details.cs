@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AIBotBridge;
 
 internal static class Tab5Details
@@ -11,6 +13,11 @@ internal static class Tab5Details
         public string BillingMode { get; init; } = "subscription";
         public string PlanExpiry { get; init; } = "--";
         public long? WeeklyResetEpoch { get; init; }
+        [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] public long? PrimaryResetEpoch { get; init; }
+        [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] public long? PlanResetEpoch { get; init; }
+        [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] public long? PrimaryWindowSeconds { get; init; }
+        [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] public long? WeeklyWindowSeconds { get; init; }
+        [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] public long? PlanWindowSeconds { get; init; }
     }
     internal static string BillingMode(string id,DomesticProviderQuotaSnapshot? q)
     {
@@ -25,16 +32,26 @@ internal static class Tab5Details
         var result=new List<Quota>();
         void Main(string id,string name,ProviderQuotaSnapshot? q,long tokens)=>result.Add(new(id,name,PlanDisplay.Normalize(q?.Plan??""),id!="codex"||CodexHasFiveHour(q?.Plan)?q?.PrimaryPercent:null,q?.WeeklyPercent,null,null,null,null,
             Date(id!="codex"||CodexHasFiveHour(q?.Plan)?q?.PrimaryResetsAt:null),Date(q?.WeeklyResetsAt),"--",q?.ResetCreditsAvailable,q?.Stale??false,tokens)
-            {WeeklyResetEpoch=q?.WeeklyResetsAt?.ToUnixTimeSeconds(),CreditExpiries=(q?.ResetCreditExpiresAt??[]).Order().Select(epoch=>
+            {WeeklyResetEpoch=q?.WeeklyResetsAt?.ToUnixTimeSeconds(),
+                PrimaryResetEpoch=id!="codex"||CodexHasFiveHour(q?.Plan)?q?.PrimaryResetsAt?.ToUnixTimeSeconds():null,
+                PrimaryWindowSeconds=id!="codex"||CodexHasFiveHour(q?.Plan)?q?.PrimaryWindowSeconds:null,
+                WeeklyWindowSeconds=q?.WeeklyWindowSeconds,CreditExpiries=(q?.ResetCreditExpiresAt??[]).Order().Select(epoch=>
                 DateTimeOffset.FromUnixTimeSeconds(epoch).ToOffset(TimeSpan.FromSeconds(s.UtcOffsetSeconds)).ToString("yyyy-MM-dd HH:mm")).ToArray()});
         Main("claude","Claude",s.Quotas?.Claude,s.Claude.TokensToday);Main("codex","Codex",s.Quotas?.Codex,s.Codex.TokensToday);
         void Domestic(string id,string name,DomesticProviderQuotaSnapshot? q) =>result.Add(new(id,name,q?.Plan,q?.PrimaryPercent,q?.WeeklyPercent,q?.PlanPercent,q?.Balance,q?.UsedCost,q?.Currency,
             Date(q?.PrimaryResetsAt),Date(q?.WeeklyResetsAt),Date(q?.PlanResetsAt),null,q?.Stale??false,s.DomesticActivity?.Providers.GetValueOrDefault(id)?.TokensToday??0)
-            {BillingMode=BillingMode(id,q),PlanExpiry=q?.PlanExpiresAt?.ToOffset(TimeSpan.FromSeconds(s.UtcOffsetSeconds)).ToString("yyyy-MM-dd")??"--"});
-        Domestic("alibaba","阿里",s.DomesticQuotas?.Alibaba);Domestic("kimi","Kimi",s.DomesticQuotas?.Kimi);
+            {BillingMode=BillingMode(id,q),PlanExpiry=q?.PlanExpiresAt?.ToOffset(TimeSpan.FromSeconds(s.UtcOffsetSeconds)).ToString("yyyy-MM-dd")??"--",
+                PrimaryResetEpoch=q?.PrimaryResetsAt?.ToUnixTimeSeconds(),WeeklyResetEpoch=q?.WeeklyResetsAt?.ToUnixTimeSeconds(),
+                PlanResetEpoch=q?.PlanResetsAt?.ToUnixTimeSeconds(),PrimaryWindowSeconds=q?.PrimaryWindowSeconds,
+                WeeklyWindowSeconds=q?.WeeklyWindowSeconds,PlanWindowSeconds=q?.PlanWindowSeconds});
+        Domestic("alibaba","百炼",s.DomesticQuotas?.Alibaba);Domestic("kimi","Kimi",s.DomesticQuotas?.Kimi);
         Domestic("minimax","MiniMax",s.DomesticQuotas?.MiniMax);Domestic("deepseek","DeepSeek",s.DomesticQuotas?.DeepSeek);
         Domestic("zhipu","智谱",s.DomesticQuotas?.Zhipu);Domestic("stepfun","阶跃",s.DomesticQuotas?.StepFun);
         Domestic("baidu","百度",s.DomesticQuotas?.Baidu);Domestic("xiaomi","小米",s.DomesticQuotas?.Xiaomi);
+        // Keep the established provider positions. Ark already has a console
+        // entry, but no verified model-specific quota adapter; never invent
+        // account values or substitute the whole-cloud wallet.
+        result.Add(new("volcengine","火山方舟","待接入",null,null,null,null,null,null,"--","--","--",null,false,0));
         return result.ToArray();
     }
 }
