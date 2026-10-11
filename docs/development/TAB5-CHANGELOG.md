@@ -6,6 +6,7 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 - Automatically synchronize both complete installed collections from Windows over USB/Wi-Fi to TF, including every work/page/layout and complete optional guide. Settings show progress; finished collections remain available offline across reboots/year changes. Resume interrupted work, prioritize foreground operations and reuse identical JPEGs on revision changes; text-only changes transfer no image ranges. BLE retains individual-image synchronization.
 - Alternate complete records, excluding corrupt/incomplete/stale revisions. Absent/full/read-only/failed cards fall back to the bridge. Photos and gallery access share one nonformatting mount/lock without deleting unrelated files. Import ZIPs on the computer; unsaved works still require the bridge.
+- Keep project-written TF files under `aibot/`, split artwork by category/work, and reserve module directories for photos, persistent data and reproducible caches; create directories only when used.
 - Freeze 9,027 mapped font glyphs, adding 11 to public .176 while preserving all 9,016 existing metrics/bitmaps. All 5,557 required characters in the frozen guide snapshot are covered; future content still requires coverage checks.
 - New collections remain separate; in-progress artwork/text is excluded. Build, host tests, package validation and TF hardware acceptance are separate records. See the [release record](../RELEASE-0.6.6.md).
 
