@@ -65,5 +65,6 @@ try {
         }
         foreach ($file in $deliverables) { Copy-Item -LiteralPath $file -Destination $OutputDirectory }
     }
-    Write-Output "LOCAL_WINDOWS_PACKAGE_OK zip=$zip files=$($manifest.Count)"
+    $manifestCount = @(Get-Content -LiteralPath (Join-Path $stage 'FILES.sha256') -Encoding ascii).Count
+    Write-Output "LOCAL_WINDOWS_PACKAGE_OK zip=$zip files=$manifestCount"
 } finally { Pop-Location }
