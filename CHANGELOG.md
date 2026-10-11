@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 ### Notes and companion firmware
 
 - Generate maintained Chinese notes before English notes, retain verified download sizes and resolve repository-document links for Release pages.
-- Companion TAB5 0.2.177-ui adds persistent TF artwork caching and the latest font. Images, introductions, viewing suggestions and originals continue through independent collection packs; no new collection ships here, installed packs remain compatible and ESP8266 firmware is unchanged. See the [release record](docs/RELEASE-0.6.6.md).
+- Companion TAB5 0.2.177-ui adds whole-library TF synchronization and the latest font. Images, introductions, viewing suggestions and originals continue through independent collection packs; no new collection ships here, installed packs remain compatible and ESP8266 firmware is unchanged. See the [release record](docs/RELEASE-0.6.6.md).
 
 ## 0.6.5 - 2026-10-11
 

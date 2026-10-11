@@ -82,10 +82,19 @@ internal sealed class Tab5Gallery
         string Text(string key)=>request.TryGetProperty(key,out var value)&&value.ValueKind==JsonValueKind.String?value.GetString()!:"";
         try {
             string category=Text("category");
-            if(category is not ("painting" or "calligraphy")||!DateOnly.TryParseExact(Text("date"),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out var date))return(400,new{error="invalid_gallery_date"});
+            DateOnly date=default;
+            if(category is not ("painting" or "calligraphy")||(Text("op")!="catalog"&&!DateOnly.TryParseExact(Text("date"),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out date)))return(400,new{error="invalid_gallery_date"});
             string directory=_packs is not null&&File.Exists(Path.Combine(_packs,category,"catalog.json"))?Path.Combine(_packs,category):_directory;
             var works=Works(directory).Where(w=>w.Category==category).ToArray();
             if(works.Length==0)return(404,new{error="gallery_pack_missing",category});
+            if(Text("op")=="catalog") {
+                var installed=_packs is not null?GalleryPack.Installed(category,_packs):null;
+                if(installed is null)return(409,new{error="gallery_catalog_requires_installed_pack"});
+                if(works.Length!=installed.Works||works.Length>4096||works.Any(w=>w.Frames.Length is <1 or >64||w.PortraitFrames?.Length!=w.Frames.Length))
+                    return(503,new{error="invalid_gallery_catalog"});
+                string revision=Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(installed,JsonDefaults.Options))).ToLowerInvariant();
+                return(200,new{syncVersion=1,works=works.Length,revision,baseDate="2026-01-01"});
+            }
             var work=works[DayIndex(date,works.Length)];
             string orientation=Text("orientation");
             if(orientation is not ("" or "landscape" or "portrait"))return(400,new{error="invalid_gallery_orientation"});

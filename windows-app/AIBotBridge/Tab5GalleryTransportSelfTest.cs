@@ -107,6 +107,11 @@ internal static class Tab5GalleryTransportSelfTest
             var rejected=await Call("BLE",new{op="manifest",category="unknown",date="2026-10-07"});
             Check(rejected.Status==400&&!service.BleGalleryTransferActive,"Rejected request acquired BLE gallery priority");
             foreach(string link in new[]{"USB","Wi-Fi","BLE"}) {
+                foreach(string category in new[]{"painting","calligraphy"}) {
+                    var catalog=await Call(link,new{op="catalog",category});
+                    Check(catalog.Status==200&&catalog.Body.GetProperty("syncVersion").GetInt32()==1&&catalog.Body.GetProperty("works").GetInt32()==1&&
+                          catalog.Body.GetProperty("baseDate").GetString()=="2026-01-01"&&catalog.Body.GetProperty("revision").GetString()==previousDigests[category],"Whole collection catalog identity disagrees with authenticated state");
+                }
                 int images=0;
                 foreach(string category in new[]{"painting","calligraphy"})foreach(string orientation in new[]{"landscape","portrait"})for(int page=0;page<3;page++) {
                     const string date="2026-10-07";

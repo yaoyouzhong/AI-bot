@@ -6,13 +6,19 @@
 
 # `@AIBOT` protocol version 1
 
-## TF 图库持久缓存（本地开发） / Persistent TF gallery cache (local)
+## TAB5 .177 TF 整库同步 / Complete TF collection synchronization
+
+卡内全部项目数据统一位于 `aibot/`；图库采用 `gallery/<类别>/works/<作品索引键>/<页码>-<方向>.<记录槽>.aig`，进度为类别目录的 `catalog.0/.1`。照片、其他持久数据和可重建缓存分别使用 `photos/`、`data/<模块>/`、`cache/<模块>/`，按需创建。完整归属及兼容规则见 [TF 卡目录约定](TF-STORAGE.md)。
+
+All project writers use the `aibot/` namespace. Gallery records are grouped by category and canonical work key, with category-local alternating progress records; future photos, persistent module data and caches use the documented separate namespaces. See [TF storage layout](TF-STORAGE.md).
 
 TF 卡保存设备已验证的 JPEG 与完整导读；RPC 请求、认证、图片哈希和二进制分片上限不变。设备使用已有 `connectionHealth.galleryPacks` 校验值匹配卡记录，纯文字更新同样排除旧记录。没有桥接版本信息时可复用最近保存的完整记录，重新连接后以新的认证内容版本为准。卡记录采用自有格式，不将任意卡路径作为远端图库请求参数。
 
-可选 `galleryDiag` 字符串保留前 15 个诊断计数，尾部增加 `tfState,tfHits,tfWrites,tfWriteFailures`；`tfState` 为 0 未探测、1 已挂载、-1 暂不可用／等待重试。字段只记录数字，不包含文件路径、原文、账号或凭据。现有桥接按诊断字符串显示，旧接收端继续兼容；此能力未部署到正式 .176。
+可选 `galleryDiag` 字符串保留前 15 个诊断计数，尾部增加 `tfState,tfHits,tfWrites,tfWriteFailures,paintingDone,paintingTotal,calligraphyDone,calligraphyTotal`；`tfState` 为 0 未探测、1 已挂载、-1 暂不可用／等待重试。字段只记录数字，不包含文件路径、原文、账号或凭据。现有桥接按诊断字符串显示，旧接收端继续兼容；正式 .176 不含此能力。
 
 The local TF cache stores verified JPEGs and complete optional guides without changing RPC/authentication/range contracts. Existing authenticated category digests select records, including text-only revisions; offline reads may reuse the last complete record until a new digest arrives. Optional `galleryDiag` retains its first 15 counters and appends TF mount state, hits, writes and write failures. These numeric diagnostics contain no paths or private content. Public .176 does not include this local change.
+
+Windows .6.6 authenticated state advertises optional `connectionHealth.gallerySyncVersion=1`. Supporting devices can request `{kind:"gallery",op:"catalog",category}` using the existing authenticated RPC. Replies bind `syncVersion=1,works` (1..4096), `revision` (the same category SHA-256 as `galleryPacks`) and `baseDate="2026-01-01"`. Stable canonical dates from that base enumerate each installed work once; normal manifest/read and v2-guide limits remain unchanged. Reject counts/catalogs/revisions that disagree. Old bridges and Mac omit this capability and retain their existing paths. A device stores a checked category count/cursor/revision; canonical date modulo count preserves daily selection across years. Whole-library copying uses USB/Wi-Fi, while BLE retains individual fetches. Advance the durable cursor only after both layouts of all pages in a work are saved; reuse checked partial pages on restart. New category revisions refresh metadata and reuse an old JPEG only after its bytes match the authenticated new manifest hash. Numeric diagnostics append completed/total work counts. Offline use and incomplete updates never imply full hardware acceptance.
 
 ## TAB5 .160 artwork guides and USB diagnostics
 

@@ -4,8 +4,8 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ## 0.2.177-ui - 2026-10-11
 
-- Persist synchronized artwork on TF by category/date/page/orientation. One verified record binds JPEG, identity and complete optional introductions, viewing suggestions and originals. Prefer memory/TF on revisits; saved dates survive restarts and unsynchronized dates still require the bridge.
-- Alternate complete records, excluding corrupt/incomplete/stale revisions. Absent/full/read-only/failed cards fall back to the bridge. Photos and gallery access share one nonformatting mount/lock without deleting unrelated files. Whole annual-ZIP import and initial full-library copying are outside this change.
+- Automatically synchronize both complete installed collections from Windows over USB/Wi-Fi to TF, including every work/page/layout and complete optional guide. Settings show progress; finished collections remain available offline across reboots/year changes. Resume interrupted work, prioritize foreground operations and reuse identical JPEGs on revision changes; text-only changes transfer no image ranges. BLE retains individual-image synchronization.
+- Alternate complete records, excluding corrupt/incomplete/stale revisions. Absent/full/read-only/failed cards fall back to the bridge. Photos and gallery access share one nonformatting mount/lock without deleting unrelated files. Import ZIPs on the computer; unsaved works still require the bridge.
 - Freeze 9,027 mapped font glyphs, adding 11 to public .176 while preserving all 9,016 existing metrics/bitmaps. All 5,557 required characters in the frozen guide snapshot are covered; future content still requires coverage checks.
 - New collections remain separate; in-progress artwork/text is excluded. Build, host tests, package validation and TF hardware acceptance are separate records. See the [release record](../RELEASE-0.6.6.md).
 
