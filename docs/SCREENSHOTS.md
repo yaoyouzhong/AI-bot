@@ -1,8 +1,8 @@
 # 当前截图来源 / Screenshot provenance
 
-2026-10-11：桥接 0.6.5／TAB5 .176 发布选择性更新时钟表盘、绿色液晶、昼夜环、倒计时、显示模式及 Codex 返回标题画面，来自本次源码的原生 LVGL 演示捕获，非硬件实拍。现有图库和历史视频未替换；实际功能范围及待验收项见 [发布说明](RELEASE-0.6.5.md)。图片逐张复核，并登记 SHA-256。
+2026-10-11：桥接 0.6.5／TAB5 .176 发布选择性更新时钟表盘、绿色液晶、昼夜环、倒计时、显示模式及 Codex 返回标题画面，来自本次源码的原生 LVGL 演示捕获，非硬件实拍。宣传视频和三种比例封面同步刷新；现有图库仍为正式 2026.10.09 内容。实际功能范围及待验收项见 [发布说明](RELEASE-0.6.5.md)。图片逐张复核，并登记 SHA-256。
 
-2026-10-11: Selectively refreshed native LVGL clock faces, green LCD, solar ring, countdown, display modes and Codex navigation/title captures for bridge 0.6.5 / TAB5 .176. These use fixtures, not hardware photography; published collection images and historical video remain. See the release record for acceptance boundaries. Captures are visually reviewed and hash-registered.
+2026-10-11: Selectively refreshed native LVGL clock faces, green LCD, solar ring, countdown, display modes and Codex navigation/title captures for bridge 0.6.5 / TAB5 .176. These use fixtures, not hardware photography. The film and all three cover ratios are refreshed; artwork remains the published 2026.10.09 edition. See the release record for acceptance boundaries. Captures are visually reviewed and hash-registered.
 
 
 2026-10-09 本次发布：选择性刷新 Windows 更新、设备中心、股票、天气及图库窗口，另同步主页所用 Codex 直达、十二月历与七等分周额度截图，并改用精选名单内《快雪时晴帖》书法示例，以及 TAB5 总览、系统、音乐、天气预报、模型额度、设置和日历画面。Windows 使用当前生产控件的隔离演示数据，图库窗口来自两个年度精选包（2026.10.09，各 366 件）的真实隔离导入；TAB5 使用 .156 源码的原生 LVGL 捕获，音乐为项目原创角色封面和虚构歌曲，主机夹具中的固件版本字段设为 .156。截图不是硬件实拍，未变化的素材与历史说明保留。逐图像素和路径／SHA-256 已复核并登记于 `licenses/materials.json`；本地记录位于 `artifacts/release-063-156-ready/`。

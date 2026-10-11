@@ -1,68 +1,55 @@
 # 产品介绍视频 / Product introduction video
 
-2026-10-11 审核：此片及封面保留 2026-10-09 版本，未针对桥接 0.6.5／TAB5 .176 重新制作。新增时钟、两类倒计时、导航和已读同步没有在此片完整展示；不能称为本版最新功能全览。最新内容见 [本次发布说明](RELEASE-0.6.5.md)与 [功能图鉴](FEATURES.zh.md)。
+2026-10-11 更新：对应已发布的桥接 0.6.5、TAB5 0.2.176-ui 和 ESP8266 0.5.2。108 秒、1920×1080、30 fps、14 个镜头，新增九款表盘、绿色液晶、当地日出日落的昼夜环、两类独立倒计时与 Codex 已读同步，刷新直达导航、汽水音乐、图库管理、安装更新与显示模式画面。16:9、4:3 和 3:4 封面全部刷新。原有精选图库 2026.10.09 保留；整理中的新名画、书法和图文内容不纳入本片。
 
-Audit 2026-10-11: the film and cover retain the 2026-10-09 edition. They have not been revised for bridge 0.6.5 / TAB5 .176 and do not fully show new clocks, countdowns, navigation or read synchronization. Use the current release record and feature guide for those changes.
+The 2026-10-11 revision reflects released bridge 0.6.5, TAB5 0.2.176-ui and ESP8266 0.5.2. The 108-second, 14-shot film adds current clock faces, green LCD, solar ring, separate timer/date-countdown functions and Codex read synchronization; navigation, Soda playback, collection management, setup/update and display-mode scenes are refreshed. All three cover ratios are updated. Only published gallery edition 2026.10.09 is shown; no new collection content is released.
 
-2026-10-09 本次发布同步：保持已批准的 108 秒分镜、转场与原音轨，替换 TAB5 .156 的周额度七等分、天气／电脑状态／音乐、Codex 直达和三个月历画面，以及当前 Windows 设备中心／更新控件。图库镜头改为 366 件名画、366 件中国书法的年度精选集，并使用当前桥接候选的实际隔离导入截图。未变化镜头沿用历史来源；不冒称新的硬件实拍。新 MP4 已完成导出与本地审阅，主页和本页的 GitHub 原生播放器附件已同步为本次成片。
+https://github.com/user-attachments/assets/f954fcd7-e3e1-44f5-9a85-efd6a4fe7e27
 
-2026-10-09 candidate revision retains the approved 108-second timeline, transitions and original audio. Changed native TAB5 .156 quota, daily information, music, Codex Direct and calendar views, current Windows controls and the actual isolated 366 + 366 curated import are refreshed. Unchanged footage keeps historical provenance. The native GitHub attachment and the player below are synchronized with the current export.
-
-https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
-
-[下载 MP4（108 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [截图、作品与素材来源](SCREENSHOTS.md)
-
-2026-10-07 修订：先介绍 AI-bot 的整体用途和双硬件关系，再展示日常场景、Codex 直达与屏保亮点，最后说明安装和更新。中文、1920×1080、30 fps、108 秒；对应电脑端 0.6.0、ESP8266 0.5.0 与 TAB5 0.2.145-ui。主页与本页使用 GitHub 原生播放器，附件与仓库 MP4 字节一致。
-
-2026-10-08 修订开场：第 0 帧即完整显示双设备、标题及用途说明，取消首镜主体延迟淡入；无播放控件的首帧同步为 16:9 封面，解决默认只见标题、其余空白的问题。小屏仅展示 WK 周额度，使用批准的新款桌宠；两边均为 88%、距重置 5d 14h。画面、页脚和封面不展示具体版本号，设备中心、更新和图库原生控件使用“已安装／可用更新”等宣传专用占位文字。仅版本递增不要求重做视频；功能或界面实质变化时更新对应镜头。原音轨保持，实际下载以[完整下载中心](../DOWNLOADS.md)为准。
+[下载 MP4（108 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [横版封面](assets/product-intro/AI-bot-cover.png) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) · [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png) · [素材与作品来源](SCREENSHOTS.md)
 
 ## 分镜 / Timeline
 
 | 时间 | 内容 |
 | --- | --- |
-| 0–8 s | 整体用途：电脑同步状态，小屏常显、大屏触控 |
-| 8–17 s | AI 任务进展、等待输入与完成状态 |
-| 17–24 s | 账户额度、余额与恢复时间 |
-| 24–33 s | 日常场景：天气、电脑负载、音乐 |
-| 33–45 s | Codex 直达：选择会话、语音输入、确认草稿 |
-| 45–51 s | 在 TAB5 阅读回复与历史 |
-| 51–59 s | 全年点阵、三种配色与自动昼夜 |
-| 59–67 s | 十二月花卉台历 |
-| 67–81 s | 名画和书法：横竖排版、作品与馆藏信息 |
-| 81–87 s | 两类可选图库，按需下载和导入 |
-| 87–95 s | 先安装电脑软件，再添加自己的设备 |
-| 95–102 s | 统一更新入口，三个组件各自更新 |
-| 102–108 s | 回到产品用途与开始使用的步骤 |
+| 0–8 s | 让 AI 进展，留在桌边；电脑同步状态与额度；小屏常显，大屏触控。 |
+| 8–15 s | 不用切回主屏，也知道任务进展；Claude / Codex · 工作状态 · 等待输入 · 完成提醒 |
+| 15–21 s | 还剩多少额度，什么时候恢复；账户额度、余额与重置时间，抬眼便知。 |
+| 21–31 s | 日常信息，也有自己的位置；天气、负载与网速；汽水音乐的封面和进度同步。 |
+| 31–42 s | 选好会话，说出下一步；最近会话 → 语音草稿 → 检查后发送；返回入口统一。 |
+| 42–48 s | 电脑已经读过，屏上也同步；会话未读状态与右上角数字同步；回复和历史继续查看。 |
+| 48–57 s | 九款表盘，换一种看时间的方式；经典圆盘、昼夜环与绿色液晶；日出日落随当地数据变化。 |
+| 57–64 s | 专注这一刻，也期待重要那一天；时钟计时只显示剩余时间；屏保按天倒数，各自独立。 |
+| 64–70 s | 空闲时，把时间变成风景；全年点阵、自动昼夜配色与十二月花卉台历。 |
+| 70–81 s | 横着看，竖着细细欣赏；已有名画与书法随设备转向，作品与馆藏信息同屏。 |
+| 81–87 s | 图库独立更新，介绍跟着作品走；简介、欣赏提示与原文可随图库包导入；新内容稍后单独发布。 |
+| 87–95 s | 一份电脑软件，配你喜欢的屏；先安装电脑 AI-bot，再添加 ESP8266 或 TAB5。 |
+| 95–102 s | 安装与展示，在各自入口安排；统一入口更新组件；固定或自动轮播，选择更清楚。 |
+| 102–108 s | 把进展留在桌边，把注意力留给工作；从电脑端开始，选择适合你的桌面屏。 |
 
-## 画面、作品与音频来源
+## 画面与来源
 
-- Windows / TAB5 画面来自当前原生 WinForms / LVGL 代码的隔离渲染，使用固定演示数据。浏览器只编排外层画面和动效，不重画业务控件。不是硬件实拍，不展示 macOS 运行态，也不代替[真机验收](TAB5-ACCEPTANCE-145.md)。完整功能另见[界面图鉴](FEATURES.zh.md)。
-- 更新窗口模拟发现可用版本；2026-10-09 图库窗口为两个最终精选包的实际隔离导入状态，各 366 件。此前版本的 402／411 件为模拟元数据。语音镜头使用原生流程的离线模拟结果，不调用语音服务或发送消息，也不代表拍摄时另做了真实升级或导入。
-- 蓝紫桌宠与音乐封面使用已批准的项目角色设计预览；宣传素材不修改已安装程序的默认形象。曲目“桌面之光 · 示例曲目”为虚构数据，不含真实账户或私人会话。
-- 当前精选示例为林良《孔雀竹石圖》（Cleveland Museum of Art，CC0）和王羲之《快雪时晴帖》（传唐摹本，台北国立故宫博物院，随包保留 Public domain 来源记录），均已核对入选名单。原片历史示例为林良《孔雀竹石圖》（Cleveland Museum of Art，CC0）和王嗣奭《行书七言律诗轴》（东京国立博物馆 / ColBase，CC BY 4.0）。逐项链接、署名及加工说明见[作品来源表](SCREENSHOTS.md#tab5-捕获与艺术作品)。封面使用设备额度页面。
-- 配乐由 `score.py` 原创合成，104 BPM；23 个动作音效使用[归藏 product video skill](https://github.com/op7418/guizang-product-video-skill)的原创合成 WAV，无第三方歌曲。Inter、Noto Sans SC 为 SIL OFL。制作脚手架和混音脚本保留 AGPL-3.0 LICENSE / NOTICE，未使用 BSL 默认样式。
+- Windows 使用生产 WinForms 控件和当前正式版本元数据的隔离夹具；更新、设备和图库窗口使用“已安装／可用更新”宣传占位。没有下载、安装、导入新图库或连接真实账户。
+- TAB5 新增和变化镜头来自冻结 .176 源码的原生 LVGL 捕获，源提交 `fff1687932c0c261cb769613879a288f1103d48a`。已读映射驱动实际通知渲染；25 分钟计时和音乐进度由原生逻辑生成逐秒状态。语音、回填、发送界面采用远端桩，未发送任何消息。无实机摄影，也不替代[本版设备验收范围](RELEASE-0.6.5.md#验证与限制)。
+- 未变化的额度、全年点阵、花卉和艺术镜头保留原有原生来源记录。影片展示代表性场景，不穷举所有功能；macOS 运行态未展示，Apple Music 订阅播放验收仍待完成。
+- 名画仍为林良《孔雀竹石圖》（Cleveland Museum of Art，CC0），书法为王羲之《快雪时晴帖》（传唐摹本，台北国立故宫博物院，正式包保留 Public domain 来源记录）。不新增作品或未发布导读。完整链接、署名与加工说明见[作品来源](SCREENSHOTS.md#tab5-捕获与艺术作品)。
+- 蓝紫桌宠、封面和音乐的示例专辑图沿用已批准的项目角色；“桌面之光 · 示例曲目”为虚构音乐数据，汽水来源标签用于说明支持能力，不使用真实商业专辑图片。宣传素材不更改用户默认桌宠。
+- 封面并置原有 Codex Pro 周额度示例与新的昼夜环。16:9 为第 0 帧完整画面，4:3 与 3:4 各自重排；不显示组件版本号。仅版本递增无需重做影片，功能或界面发生实质变化时刷新相关镜头。
 
-本次可复现工程为 `artifacts/product-intro-release-20261009/`，源码归档为该目录下的 `AI-bot-story-video-source-20261009-curated.zip`；旧工程与 `20261008-evergreen.zip` 保留历史记录。包含分镜、原生界面像素、配乐／音效、混音与渲染脚本、字体和许可，不包含 node_modules、运行日志或私人数据；它不是应用安装包。
+## 声音、工程与验收
 
-2026-10-08 复核：已检查新 MP4 首帧和 216 帧全片联系表；正反向定位、字体、图片及标题溢出检查通过，完整解码通过。108 秒、3240 帧、H.264/AAC 不变；新旧 AAC 音轨 SHA-256 相同，未新增主观试听结论。三种比例封面已同步复核；原有转场条带的验收记录属于下述历史版本。
+沿用 `score.py` 原创 104 BPM 配乐，28 个动作音效按本次分镜重新对位并混音。音效来自[归藏 product video skill](https://github.com/op7418/guizang-product-video-skill)的原创合成 WAV；制作脚手架和混音脚本保留 AGPL-3.0 LICENSE／NOTICE，未使用 BSL 默认样式。Inter 和 Noto Sans SC 保留 SIL OFL 许可。没有第三方歌曲。
 
-## 交付检查（原片记录）
+可复现工程：`artifacts/product-intro-release-20261011/`；源码归档：`AI-bot-story-video-source-20261011.zip`。包含分镜、真实界面像素、原生捕获夹具、配乐／音效、混音和导出脚本、字体与许可；不含 node_modules、运行配置、私人账户、日志或新图库内容。历史 20261009 工程继续保留。
 
-已审阅最终 MP4 的 2 fps 全片联系表（216 帧）、全部 12 个转场的 10 fps 条带、信息密集镜头原尺寸画面和三种封面比例。正反向定位一致，字体、图片、标题溢出检查通过。最终文件为 H.264 / AAC、48 kHz 双声道、108 秒、3,240 帧；完整解码和交付结构检查通过。编码后音频测量为 -16.04 LUFS、真峰值 -1.50 dB；**主观试听尚未完成**。精确媒体哈希登记于 `licenses/materials.json`。
+成片检查覆盖正反向定位、字体／图片加载、标题和界面边界、完整解码、2 fps 全片联系表、13 处 10 fps 转场、密集画面原尺寸复核，以及三种封面和 320 px 缩略图。H.264／AAC、48 kHz 双声道，108 秒／3,240 帧；精确媒体 SHA-256 登记于 `licenses/materials.json`。音效落点和混音电平检查通过；**主观试听未完成**，不将自动检查写成听感验收。
 
 ## English
 
-The original 108-second film introduced the overall product and device choices first, followed by everyday use, selected Codex Direct/screensaver highlights, then setup and updates. Its Chinese captions at 1920×1080, 30 fps represented computer apps 0.6.0, ESP8266 0.5.0 and TAB5 0.2.145-ui. The previously published native GitHub attachment matched that historical repository MP4 by SHA-256; the current local revision is described above.
+The film retains the approved product palette, overview-first narrative, 108-second duration and original score. Current changed features use isolated native WinForms/LVGL interfaces. Actual native read maps clear an unread count, the 25-minute timer decreases, and synthetic Soda progress advances. Voice/desktop stubs submit no messages; none of this is new hardware acceptance. Unchanged annual/calendar/art footage retains earlier provenance. macOS runtime and subscribed Apple Music playback are not shown. Artwork remains the previously published Lin Liang and attributed Tang-copy Wang Xizhi selections, with complete museum attribution in SCREENSHOTS.md.
 
-The 2026-10-08 revision shows both devices, the title and purpose labels from frame zero, removing the opening visual delay that left the paused player mostly blank. The clean first frame is also the 16:9 cover; the small screen shows only the weekly quota with the approved new mascot, aligned with TAB5 at 88% and 5d 14h until reset. Film frames, footers and covers omit explicit release numbers. Native device/update/gallery controls use presentation-only installed/available placeholders; runtime controls are unchanged. Version increments alone do not require a new film; material feature or interface changes do. The original audio is preserved. Use the complete download center for current packages.
+Three cover ratios are refreshed around the new solar-ring face; the 16:9 poster is the complete clean first frame. The original 104 BPM score is mixed with 28 retimed synthesized action cues. AGPL scaffold/mixer, original SFX notices and OFL fonts remain in the reproducible local project/source archive. Deterministic seeking, fonts/images, layout, full decoding, 216 contact frames, all 13 transitions and three covers are reviewed separately. The export is H.264/AAC, 48 kHz stereo, 108 seconds / 3,240 frames. Exact hashes are registered. Subjective listening remains unverified.
 
-Interfaces are native WinForms/LVGL captures. The current curated gallery panel shows actual isolated imports; other scenes use synthetic fixtures, without hardware footage or new real speech, message sending or installation acceptance. No macOS runtime is shown. The project character and fictional album artwork do not change installed defaults. Current curated examples use Lin Liang and the attributed Tang copy of Wang Xizhi; the historical Wang Sishi example is retained only in older exports. Artwork credits, source terms and modifications are recorded in SCREENSHOTS.md. Covers show quota interfaces.
+## 历史记录
 
-The original 104 BPM score uses 23 synthesized action cues. Font, scaffold and mixer notices are retained in the reproducible local project/archive listed above. All 216 contact frames, 12 transition strips, selected full-size frames and three covers were visually reviewed. Seeking, fonts/images, overflow, full decoding and media structure checks passed. The export contains 3,240 frames with 48 kHz stereo audio measured at -16.04 LUFS and -1.50 dB true peak. Subjective listening remains unverified.
-
-2026-10-08 verification: the new encoded first frame and all 216 contact frames were reviewed; deterministic seeking, fonts, images, overflow and full decoding passed. Duration remains 108 seconds / 3240 frames. The encoded AAC stream has the same SHA-256 as the original; subjective listening remains unverified. All three cover ratios were also reviewed; the transition-strip records above describe the original film.
-
-
-2026-10-09 成片核验：108 秒／3240 帧，完整解码、216 帧联系表、改动镜头前后转场与三个封面比例复核通过；原 AAC 字节及哈希完全保持。正反向定位、字体、图片和标题溢出检查通过。没有新增主观试听结论。新片、封面、来源哈希与 GitHub 原生视频附件已同步发布。
-
-2026-10-09 verification: 108 seconds / 3240 frames, full decode, 216 contact frames, affected transitions and three cover ratios reviewed. Original AAC bytes and hash are identical. Seeking, fonts, images and headline overflow passed. No new subjective listening claim. Media, provenance hashes and the native GitHub attachment are synchronized with this publication.
+2026-10-07 原片建立“整体用途 → 日常场景 → Codex／屏保 → 安装更新”的叙事。2026-10-08 将开场改为第 0 帧完整显示双设备，去除版本号，并更正 Pro 周额度示例。2026-10-09 刷新 .156 日常页面和正式 366 + 366 精选图库；旧片采用 13 个镜头和 23 个音效。上述历史文件和来源留在对应本地工程，不代表当前成片。

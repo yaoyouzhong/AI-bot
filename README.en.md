@@ -6,9 +6,9 @@ This release delivers bridge **0.6.5**, TAB5 **0.2.176-ui** and ESP8266 **0.5.2*
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.5.md) · [简体中文](README.md)
 
-Changed interface captures are refreshed. The retained 108-second film was last revised on 2026-10-09 and does not cover this release's new clocks, countdowns or navigation. See the release record for current features and validation limits.
+Screenshots, the film and covers are synchronized with this release. The updated 108-second tour adds nine clock faces, two independent countdown functions, read synchronization and consistent navigation, and refreshes music, collection management and setup/update scenes. Native interfaces use isolated demo data; see the release record for hardware validation limits.
 
-https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
+https://github.com/user-attachments/assets/f954fcd7-e3e1-44f5-9a85-efd6a4fe7e27
 
 <sub>108-second product tour with Chinese captions; click to play here. Native interfaces use fixed demo data. [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media and artwork credits](docs/PRODUCT_VIDEO.md)</sub>
 
