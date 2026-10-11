@@ -209,6 +209,7 @@ internal static class Program
         }
         if (args.Length == 1 && args[0] == "--self-test-flash-tool")
         {
+            AppPaths.BeginPublicSelfTest();
             FirmwareFlashSelfTest.CheckBundledToolAsync().GetAwaiter().GetResult(); return;
         }
         if (args.Length == 2 && args[0] == "--capture-flasher")
