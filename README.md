@@ -8,7 +8,7 @@
 
 截图、视频和封面已同步到本版。下方 108 秒产品介绍新增九款表盘、两种独立倒计时、已读同步与统一导航，刷新音乐、图库管理和安装更新画面；使用原生界面的隔离演示数据，实际验收边界见本次版本说明。
 
-https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
+https://github.com/user-attachments/assets/f954fcd7-e3e1-44f5-9a85-efd6a4fe7e27
 
 <sub>108 秒产品介绍，点击直接播放。画面来自原生界面与固定演示数据。[下载 MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [素材与作品来源](docs/PRODUCT_VIDEO.md)</sub>
 

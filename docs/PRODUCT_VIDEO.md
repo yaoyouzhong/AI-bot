@@ -4,7 +4,7 @@
 
 The 2026-10-11 revision reflects released bridge 0.6.5, TAB5 0.2.176-ui and ESP8266 0.5.2. The 108-second, 14-shot film adds current clock faces, green LCD, solar ring, separate timer/date-countdown functions and Codex read synchronization; navigation, Soda playback, collection management, setup/update and display-mode scenes are refreshed. All three cover ratios are updated. Only published gallery edition 2026.10.09 is shown; no new collection content is released.
 
-https://github.com/user-attachments/assets/b3ed82f4-226d-47ae-9f83-c5a0a79e6ec6
+https://github.com/user-attachments/assets/f954fcd7-e3e1-44f5-9a85-efd6a4fe7e27
 
 [下载 MP4（108 秒）](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [横版封面](assets/product-intro/AI-bot-cover.png) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) · [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png) · [素材与作品来源](SCREENSHOTS.md)
 
