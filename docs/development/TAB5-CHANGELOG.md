@@ -11,7 +11,7 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 - Balance provider-icon visible areas across overview, selection and rotation; Codex uses 30×29, with additional provider selection/display interactions.
 - Synchronize desktop Codex read state and the top-right unread count. Support independent image/text collection updates; pause page/orientation changes while reading and restore the original image/page on return.
 - Consolidate actual quota periods, gallery orientation/footer/cache refresh, USB receive isolation/diagnostics and Wi-Fi/BLE recovery. Outstanding transport and sustained stability checks remain explicit.
-- Retain .175 boot/Soda evidence as version-specific records; validate this build, previews and packages separately. See the [release record](../RELEASE-0.6.4.md).
+- Retain .175 boot/Soda evidence as version-specific records; validate this build, previews and packages separately. See the [release record](../RELEASE-0.6.5.md).
 
 ## 0.2.175-ui - 2026-10-11
 

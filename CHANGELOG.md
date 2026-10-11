@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.6.4 - 2026-10-11
+## 0.6.5 - 2026-10-11
 
 ### Features and experience
 
@@ -19,10 +19,12 @@ All notable changes to this project will be documented in this file.
 - Improve USB close/reopen buffer isolation and stale-response rejection; yield telemetry while serial is busy and send fresh snapshots after recovery. Enable immediate Wi-Fi ACK when supported and use authenticated BLE advertisement hints with normal-scan fallback.
 - Add content-free transfer stages, receive generations and numeric rejection diagnostics. Retry a recoverable compressed-state rejection once in plain form; other failures remain failures.
 
+- Limit USB disposal recovery to transport/device-removal failures; unrelated cleanup exceptions remain visible. Preserve complete dependency hashes when building installers from long Windows paths.
+
 ### Delivery and acceptance
 
 - Companion TAB5 0.2.176-ui consolidates clocks, separate timer/day-countdown functions, faces, navigation, display modes, provider icons and extended fonts. Existing user artwork is retained; new collections will be released separately.
-- Local deployment, physical Soda playback and Codex read synchronization have evidence. New image/text pack hardware acceptance, Apple Music playback, sustained/sleep recovery and some transport stability remain separate. See the [release record](docs/RELEASE-0.6.4.md).
+- Local deployment, physical Soda playback and Codex read synchronization have evidence. New image/text pack hardware acceptance, Apple Music playback, sustained/sleep recovery and some transport stability remain separate. See the [release record](docs/RELEASE-0.6.5.md).
 
 ## 0.6.3 - 2026-10-09
 

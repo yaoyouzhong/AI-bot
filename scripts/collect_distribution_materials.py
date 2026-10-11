@@ -169,6 +169,7 @@ def copy_tree(source: Path, target: Path, dependency=False):
 
 
 def manifest(stage: Path):
+    stage = filesystem_path(stage)
     lines = [f"{digest(p)}  {p.relative_to(stage).as_posix()}" for p in sorted(stage.rglob("*"))
              if p.is_file() and p.name != "FILES.sha256"]
     (stage / "FILES.sha256").write_text("\n".join(lines) + "\n", encoding="ascii")

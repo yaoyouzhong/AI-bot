@@ -1,5 +1,6 @@
 """Packaging boundaries: reject corrupt/incomplete sets and stale release notes."""
 import hashlib
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -11,6 +12,24 @@ from test_component_versions import ComponentVersionTests, ComponentPayloadTests
 
 
 class PackagingTests(unittest.TestCase):
+    def test_license_manifest_preserves_long_paths_and_detects_changed_bytes(self):
+        from collect_distribution_materials import filesystem_path, manifest
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp)
+            relative = '/'.join(['licenses'] + ['dependency-' + 'x' * 55] * 5 + ['NOTICE.txt'])
+            notice = filesystem_path(stage / relative)
+            try:
+                notice.parent.mkdir(parents=True)
+                notice.write_bytes(b'complete upstream license')
+                manifest(stage)
+                inventory = (stage / 'FILES.sha256').read_text(encoding='ascii').splitlines()
+                expected = hashlib.sha256(notice.read_bytes()).hexdigest()
+                self.assertEqual(inventory, [f'{expected}  {relative}'])
+                notice.write_bytes(b'changed upstream license')
+                self.assertNotEqual(expected, hashlib.sha256(notice.read_bytes()).hexdigest())
+            finally:
+                shutil.rmtree(filesystem_path(stage / 'licenses'))
+
     def test_standard_source_excludes_in_progress_artwork_text(self):
         import xml.etree.ElementTree as ET
         project = ET.parse(ROOT / 'windows-app/AIBotBridge/AIBotBridge.csproj')

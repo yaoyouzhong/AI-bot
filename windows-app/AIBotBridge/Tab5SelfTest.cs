@@ -36,12 +36,17 @@ internal static class Tab5SelfTest
         Check(unavailable.Observe(1,4)&&unavailable.Observe(2,4)&&unavailable.Observe(3,4)&&!unavailable.Observe(4,4),"failed capture attempts are bounded within a boot");
         var removed=new RemovedUsbPort(new IOException("device removed"));
         Check(!Tab5Service.DisposeUsbPort(removed)&&removed.Disposals==1,"unplug cleanup does not kill reconnect worker");
+        Check(!Tab5Service.DisposeUsbPort(new RemovedUsbPort(new System.ComponentModel.Win32Exception(1167))),"native device removal does not kill reconnect worker");
         var reconnected=new RemovedUsbPort();
         Check(Tab5Service.DisposeUsbPort(reconnected)&&reconnected.Disposals==1,"replacement port can close normally");
         bool unexpectedPropagated=false;
         try{Tab5Service.DisposeUsbPort(new RemovedUsbPort(new InvalidOperationException("unexpected")));}
         catch(InvalidOperationException){unexpectedPropagated=true;}
         Check(unexpectedPropagated,"unrelated cleanup faults are not hidden");
+        bool unrelatedNativePropagated=false;
+        try{Tab5Service.DisposeUsbPort(new RemovedUsbPort(new System.ComponentModel.Win32Exception(5)));}
+        catch(System.ComponentModel.Win32Exception){unrelatedNativePropagated=true;}
+        Check(unrelatedNativePropagated,"unrelated native cleanup faults are not hidden");
         using(var idle=JsonDocument.Parse("{\"status\":{\"type\":\"notLoaded\"},\"turns\":[{\"status\":\"completed\",\"completedAt\":1}]}"))
             Check(Tab5CodexTasks.CanContinue(idle.RootElement),"completed Codex task can continue");
         using(var active=JsonDocument.Parse("{\"status\":{\"type\":\"notLoaded\"},\"turns\":[{\"status\":\"interrupted\",\"completedAt\":null}]}"))

@@ -26,11 +26,8 @@ try {
     python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') windows --stage $stage
     if ($LASTEXITCODE -ne 0) { throw 'Distribution materials failed validation' }
     & (Join-Path $sourceRoot 'scripts\build_windows_installer.ps1') -StageDirectory $stage -OutputDirectory $sourceRoot -CacheDirectory (Join-Path $repoPath 'artifacts\installer-tools')
-    $manifest = @(Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object Name -ne 'FILES.sha256' | Sort-Object FullName | ForEach-Object {
-        $relative = $_.FullName.Substring($stage.Length + 1).Replace('\','/')
-        (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $relative
-    })
-    $manifest | Set-Content -LiteralPath (Join-Path $stage 'FILES.sha256') -Encoding ascii
+    python -c "import pathlib,sys; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import manifest; manifest(pathlib.Path(sys.argv[2]))" $PSScriptRoot $stage
+    if ($LASTEXITCODE -ne 0) { throw 'Windows file manifest failed' }
     $version = (Get-Content (Join-Path $sourceRoot 'VERSION') -Raw).Trim()
     $firmwareVersion = (Get-Content (Join-Path $sourceRoot 'firmware\VERSION') -Raw).Trim()
     $zip = Join-Path $sourceRoot "AIBotBridge-$version-local-candidate-win-x64.zip"

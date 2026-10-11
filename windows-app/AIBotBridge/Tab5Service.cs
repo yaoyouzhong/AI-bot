@@ -200,7 +200,8 @@ internal sealed partial class Tab5Service : IDisposable
         // Windows may report ERROR_NO_SUCH_DEVICE while disposing a CDC
         // handle after unplug/reboot. The handle has already been detached;
         // this cleanup failure must not terminate the reconnect worker.
-        catch(Exception ex) when(ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception) {return false;}
+        catch(IOException) {return false;}
+        catch(System.ComponentModel.Win32Exception ex) when(ex.NativeErrorCode is 6 or 21 or 31 or 995 or 1167) {return false;}
     }
     internal string? ReservedPort => Volatile.Read(ref _reservedPort);
     internal bool HasPairedDevice => _store.Current is not null;

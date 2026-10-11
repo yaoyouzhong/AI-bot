@@ -67,10 +67,8 @@ Copy-Item -LiteralPath $license -Destination $licenseDir
 
 # Regenerate after adding installer notices so both ZIP and installed files have
 # a complete manifest. Exclude the manifest itself, which cannot hash itself.
-$manifest = @(Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object Name -ne 'FILES.sha256' | Sort-Object FullName | ForEach-Object {
-    (Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant() + '  ' + $_.FullName.Substring($stage.Length + 1).Replace('\','/')
-})
-$manifest | Set-Content -LiteralPath (Join-Path $stage 'FILES.sha256') -Encoding ascii
+python -c "import pathlib,sys; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import manifest; manifest(pathlib.Path(sys.argv[2]))" (Join-Path $root 'scripts') $stage
+if ($LASTEXITCODE -ne 0) { throw 'Installer file manifest failed' }
 # Inno Setup still encounters MAX_PATH for dependency notices in nested audit
 # directories. Compile a byte-verified copy at a short, private temporary path;
 # keep the original stage and requested output as the authoritative artifacts.
