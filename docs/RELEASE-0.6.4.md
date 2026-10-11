@@ -1,6 +1,6 @@
 # AI-bot 0.6.4 与 TAB5 0.2.176-ui
 
-本次发布桥接程序与 TAB5 固件，新增字库随固件交付。名画集、书法集及整理中的简介、欣赏提示和原文不纳入本次发布，继续使用正式精选集 2026.10.09；用户已安装图库保留。ESP8266 保持正式 0.5.1。
+本次发布桥接程序与 TAB5 固件，新增字库随固件交付。名画集、书法集及整理中的简介、欣赏提示和原文不纳入本次发布，继续使用正式精选集 2026.10.09；用户已安装图库保留。ESP8266 同期发布 0.5.2：修复网速数字与曲线的一秒均值对齐及桥接会话变化后的旧曲线清除。
 
 ## 主要变化
 
@@ -22,16 +22,16 @@
 
 桥接 Release 构建、公共空白用户目录自测及打包边界测试通过。TAB5 使用本次 .176 版本重新构建并运行原生 LVGL 回归，首刷、升级镜像、说明、源码身份和许可材料分别核验。完整交付哈希与结果保存在本地 `artifacts/development/release-064-176/`。
 
-电脑已读同步已在 .168 实机清除未读数；汽水音乐已在 .175 实机验收。它们是对应版本的运行证据，不冒充 .176 新镜像的实机验收。本版完整目视／触摸、长期运行／睡眠恢复、新图库导入后的设备验收和 Apple Music 实际播放仍待完成；历史传输不稳定项目保留原验收边界。Windows 安装器未签名，Mac 为临时签名且未公证。
+电脑已读同步已在 .168 实机清除未读数；汽水音乐已在 .175 实机验收。它们是对应版本的运行证据，不冒充 .176 新镜像的实机验收。本版完整目视／触摸、长期运行／睡眠恢复、新图库导入后的设备验收和 Apple Music 实际播放仍待完成；历史传输不稳定项目保留原验收边界。ESP8266 .5.2 经过构建和材料校验，尚未刷入实机，本次发布不自动升级设备。Windows 安装器未签名，Mac 为临时签名且未公证。
 
 新截图来自本版原生 UI 隔离渲染，使用演示数据，见 [截图来源](SCREENSHOTS.md)。未变化的素材和历史产品介绍视频保留，不以视频代替本版功能列表。[完整下载中心](../DOWNLOADS.md) · [图库说明](GALLERY-PACKS.md)
 
 ## English
 
-This release delivers bridge 0.6.4 and TAB5 0.2.176-ui with extended fonts built into firmware. New collections and in-progress introductions, viewing suggestions and originals are excluded. Published curated edition 2026.10.09 and ESP8266 0.5.1 remain available; installed user artwork is preserved.
+This release delivers bridge 0.6.4 and TAB5 0.2.176-ui with extended fonts built into firmware. New collections and in-progress introductions, viewing suggestions and originals are excluded. Published curated edition 2026.10.09 remains available; ESP8266 0.5.2 ships alongside with aligned one-second network means and session-change history reset; installed user artwork is preserved.
 
 Highlights include exact-turn desktop Codex read synchronization, Soda/Apple media-session recognition, nine clock faces and a classic green LCD, local sunrise/sunset day/night ring, separate clock timer and date-countdown screensaver, consistent navigation/titles, explicit display modes, balanced provider icons, refined Windows settings, actual quota periods and transport recovery/diagnostics. Independent image/text pack imports retain identity/hash checks, atomic installation, backups and hot reload; standard bridge builds do not embed the curation catalogue.
 
 All 8,538 baseline glyphs retain their metrics/bitmaps; the source font contains 9,013 glyphs. Future gallery text must still pass coverage against the frozen release font. Upgrade and first-install ZIPs serve different installation states and cannot be interchanged. macOS is rebuilt on its existing platform scope, without claiming Windows feature parity.
 
-Windows Release/public-profile/package checks and fresh TAB5 build/native regressions passed. Firmware/source/notes/license package identity is verified separately. Physical read-sync (.168) and Soda playback (.175) evidence remains version-specific; .176 visual/touch, sustained/sleep recovery, new collection hardware imports and Apple playback remain pending. Windows setup is unsigned; Apple Silicon macOS is ad-hoc signed and not notarized. New captures are native fixture renderings, not photographs; unchanged media and the historical product video remain.
+Windows Release/public-profile/package checks and fresh TAB5 build/native regressions passed. Firmware/source/notes/license package identity is verified separately. Physical read-sync (.168) and Soda playback (.175) evidence remains version-specific; .176 visual/touch, sustained/sleep recovery, new collection hardware imports and Apple playback remain pending. ESP8266 .5.2 passes build/material checks but remains unflashed and not hardware-accepted; publication never installs it automatically. Windows setup is unsigned; Apple Silicon macOS is ad-hoc signed and not notarized. New captures are native fixture renderings, not photographs; unchanged media and the historical product video remain.

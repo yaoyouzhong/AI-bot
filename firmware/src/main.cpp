@@ -162,7 +162,7 @@ uint32_t netUp[224] = {}, netDown[224] = {};
 String netSampleStamp;
 String netSession;
 uint32_t netSequence=0, netQueueUp[32]={},netQueueDown[32]={};
-int netQueueHead=0,netQueueCount=0;
+int netQueueHead=0,netQueueCount=0,netHistoryCount=0;
 uint32_t systemChartFrames=0,systemChromeDraws=0,systemNumberDraws=0,systemSamplesConsumed=0;
 uint32_t systemDownDraws=0,systemUpDraws=0,systemNumberFallbacks=0;
 void queueNetworkSample(uint32_t up,uint32_t down) {
@@ -393,7 +393,10 @@ void updateMetrics(JsonObjectConst metrics) {
   systemMetrics.available = true;
   String session=metrics["sampleSession"]|"";
   if(session.length()) {
-    if(session!=netSession){netSession=session;netSequence=0;netQueueHead=netQueueCount=0;}
+    if(session!=netSession){
+      netSession=session;netSequence=0;netQueueHead=netQueueCount=netHistoryCount=0;
+      memset(netUp,0,sizeof(netUp));memset(netDown,0,sizeof(netDown));
+    }
     if(metrics["samples"].is<JsonArrayConst>()) {
       auto samples=metrics["samples"].as<JsonArrayConst>();
       uint32_t sequence=metrics["sampleSequence"]|0U;
@@ -1108,6 +1111,13 @@ void drawDomestic() {
 }
 
 
+uint32_t networkMean(const uint32_t* samples,int index) {
+  int first=max(224-netHistoryCount,index-3);
+  if(index<first)return 0;
+  uint64_t sum=0;
+  for(int i=first;i<=index;i++)sum+=samples[i];
+  return sum/(index-first+1);
+}
 void drawSystem() {
   static uint32_t generation=UINT32_MAX,lastTick=0;
   static String lastDown,lastUp,lastCpu,lastMem,lastScale;
@@ -1152,22 +1162,24 @@ void drawSystem() {
     }
     prior=value;++systemNumberDraws;return true;
   };
-  if(number(compactRate(systemMetrics.downloadBytesPerSecond)+"/s",lastDown,12,20,116,TFT_GREEN))++systemDownDraws;
-  if(number(compactRate(systemMetrics.uploadBytesPerSecond)+"/s",lastUp,132,20,108,TFT_YELLOW))++systemUpDraws;
-  number(String(systemMetrics.cpuPercent,0)+"%",lastCpu,62,192,64,TFT_WHITE);
-  number(String(systemMetrics.memoryPercent,0)+"%",lastMem,164,192,64,TFT_WHITE);
   bool chartChanged=chrome||netQueueCount>0;
-  int steps=netQueueCount>16?3:1;
-  while(steps-->0&&netQueueCount>0){
+  while(netQueueCount>0){
     for(int i=0;i<223;i++){netUp[i]=netUp[i+1];netDown[i]=netDown[i+1];}
     netUp[223]=netQueueUp[netQueueHead];netDown[223]=netQueueDown[netQueueHead];
     netQueueHead=(netQueueHead+1)%32;--netQueueCount;
+    netHistoryCount=min(224,netHistoryCount+1);
     ++systemSamplesConsumed;
   }
+  uint32_t currentDown=netHistoryCount?networkMean(netDown,223):systemMetrics.downloadBytesPerSecond;
+  uint32_t currentUp=netHistoryCount?networkMean(netUp,223):systemMetrics.uploadBytesPerSecond;
+  if(number(compactRate(currentDown)+"/s",lastDown,12,20,116,TFT_GREEN))++systemDownDraws;
+  if(number(compactRate(currentUp)+"/s",lastUp,132,20,108,TFT_YELLOW))++systemUpDraws;
+  number(String(systemMetrics.cpuPercent,0)+"%",lastCpu,62,192,64,TFT_WHITE);
+  number(String(systemMetrics.memoryPercent,0)+"%",lastMem,164,192,64,TFT_WHITE);
   if(!chartChanged){screenDirty=false;return;}
   ++systemChartFrames;
   double peak = 1000;
-  for (int i = 0; i < 224; ++i) peak = max(peak, static_cast<double>(max(netUp[i], netDown[i])));
+  for (int i = 0; i < 224; ++i) peak = max(peak, static_cast<double>(max(networkMean(netUp,i), networkMean(netDown,i))));
   double scale = max(10240.0, peak + floor(peak / 7));
   display.setTextColor(TFT_DARKGREY, TFT_BLACK);
   String scaleText=compactRate(scale);
@@ -1175,9 +1187,8 @@ void drawSystem() {
   static uint8_t downTop[224],downBottom[224],upTop[224],upBottom[224];
   int previousDown = 187, previousUp = 187;
   for (int i = 0; i < 224; ++i) {
-    int lo = max(0, i - 1), hi = min(223, i + 1);
-    double down = (static_cast<double>(netDown[lo]) + netDown[i] + netDown[hi]) / 3;
-    double up = (static_cast<double>(netUp[lo]) + netUp[i] + netUp[hi]) / 3;
+    double down = networkMean(netDown,i);
+    double up = networkMean(netUp,i);
     int dy = 187 - static_cast<int>(min(1.0, down / scale) * 126);
     int uy = 187 - static_cast<int>(min(1.0, up / scale) * 126);
     int dlTop=min(dy,i==0?dy:previousDown),dlBottom=min(187,max(dy,i==0?dy:previousDown)+4);

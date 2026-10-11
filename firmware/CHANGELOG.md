@@ -2,6 +2,14 @@
 
 ESP8266 versions are independent of the desktop bridge and TAB5.
 
+## 0.5.2 - 2026-10-09
+
+Local repair candidate; not installed on hardware or publicly released.
+
+- Share the trailing four measured 250 ms samples between system-page numbers and curves. Consume the incoming batch before drawing both, preventing numbers from advancing ahead of the chart.
+- Clear old history when the bridge sampling session changes, average only measured samples at startup, and retain fonts, colors and the number-drawing allocation fallback.
+- Preserve protocol version 1, 460800 baud, pairing and USB/Wi-Fi fallback.
+
 ## 0.5.1 - 2026-10-08
 
 - Embed the component version from firmware/VERSION and report it through USB heartbeat, device information and authenticated Wi-Fi requests so the bridge can compare upgrades.
