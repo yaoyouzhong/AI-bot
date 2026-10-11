@@ -14,6 +14,7 @@ mkdir -p "$repo_root/artifacts"
 output="$(cd "$output" && pwd)"
 stage="$(mktemp -d "$repo_root/artifacts/mac-package.XXXXXX")"
 bash scripts/build_macos_app.sh "$stage/AIBotBridge.app"
+python3 scripts/test_flash_tool_bundle.py
 lipo "$stage/AIBotBridge.app/Contents/MacOS/AIBotBridge" -verify_arch arm64
 cp LICENSE THIRD_PARTY_NOTICES.md "$stage/"
 cp docs/MAC_PACKAGE.md "$stage/README.md"
@@ -26,5 +27,6 @@ ditto -x -k "$archive" "$unpacked"
 (cd "$unpacked" && shasum -a 256 -c FILES.sha256)
 plutil -lint "$unpacked/AIBotBridge.app/Contents/Info.plist"
 codesign --verify --deep --strict --verbose=2 "$unpacked/AIBotBridge.app"
+"$unpacked/AIBotBridge.app/Contents/MacOS/AIBotBridge" --self-test-flash-tool
 (cd "$output" && shasum -a 256 "$(basename "$archive")" > "$(basename "$archive").sha256")
 echo "MAC_PACKAGE_OK zip=$archive; interactive acceptance pending; ad-hoc signed, not notarized"

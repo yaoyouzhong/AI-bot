@@ -6,6 +6,14 @@
 
 # `@AIBOT` protocol version 1
 
+## TF 图库持久缓存（本地开发） / Persistent TF gallery cache (local)
+
+TF 卡保存设备已验证的 JPEG 与完整导读；RPC 请求、认证、图片哈希和二进制分片上限不变。设备使用已有 `connectionHealth.galleryPacks` 校验值匹配卡记录，纯文字更新同样排除旧记录。没有桥接版本信息时可复用最近保存的完整记录，重新连接后以新的认证内容版本为准。卡记录采用自有格式，不将任意卡路径作为远端图库请求参数。
+
+可选 `galleryDiag` 字符串保留前 15 个诊断计数，尾部增加 `tfState,tfHits,tfWrites,tfWriteFailures`；`tfState` 为 0 未探测、1 已挂载、-1 暂不可用／等待重试。字段只记录数字，不包含文件路径、原文、账号或凭据。现有桥接按诊断字符串显示，旧接收端继续兼容；此能力未部署到正式 .176。
+
+The local TF cache stores verified JPEGs and complete optional guides without changing RPC/authentication/range contracts. Existing authenticated category digests select records, including text-only revisions; offline reads may reuse the last complete record until a new digest arrives. Optional `galleryDiag` retains its first 15 counters and appends TF mount state, hits, writes and write failures. These numeric diagnostics contain no paths or private content. Public .176 does not include this local change.
+
 ## TAB5 .160 artwork guides and USB diagnostics
 
 Local gallery-package change: schema-2 packs require hashed `guides.zh.json`, scoped to the installed category and validated against catalogue `id/category/workId`. Existing `includeGuide` and `guideVersion` replies read the installed pack's text instead of the embedded catalogue. Schema-1 packages without guides retain the embedded fallback. Import swaps images and guides together and invalidates running bridge caches. Gallery JSON uses UTF-8 while retaining JSON escaping; image hashes, authentication and binary chunk limits are unchanged. Authenticated state replies optionally carry `data.connectionHealth.galleryPacks` with `painting` and `calligraphy` SHA-256 content digests. A supporting device refreshes only the affected category's JPEG, guide and decoded-image cache after its active transfer/consumer finishes; it retains the previous bitmap until fresh data arrives. Missing, invalid or unchanged digests preserve caches. Legacy devices ignore these fields and fetch their cached day again after a restart. The extension is not deployed on .167.

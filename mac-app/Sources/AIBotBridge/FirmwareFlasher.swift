@@ -9,7 +9,7 @@ enum FlashError: LocalizedError {
 /// All blocking work runs off the main thread. Only official, hash-pinned tools are executed.
 final class MacFirmwareFlasher {
     static let toolURL = URL(string: "https://github.com/espressif/esptool/releases/download/v4.9.1/esptool-v4.9.1-macos-arm64.tar.gz")!
-    static let toolHash = "13d9e4667a0a61096d4f6650e87cf4d9d99b4d66bdcc58dace2a127016c38e49"
+    static let toolHash = "606dd95c708cc6753fe09c7b2649192d71ae0cb39f0bfac503897e25a3cd43ec"
     static var root: URL { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("AI-bot") }
     static var backupDirectory: URL { root.appendingPathComponent("device-backups") }
     typealias Runner = ([String]) throws -> String
@@ -43,6 +43,18 @@ final class MacFirmwareFlasher {
             }
             return ToolInstall(executable: tool, folder: folder)
         } catch { try? FileManager.default.removeItem(at: folder); throw error }
+    }
+
+    static func checkBundledTool() throws {
+        let tool = try prepareTool(stage: { _ in })
+        defer { tool.cleanup() }
+        guard try process(tool.executable.path, ["version"]).contains("4.9.1") else {
+            throw FlashError.failed("刷机工具版本不符。")
+        }
+        for command in ["read_flash", "write_flash", "verify_flash"] {
+            _ = try process(tool.executable.path, ["--chip", "esp8266", command, "--help"])
+        }
+        print("MAC_FLASH_BUNDLE_OK pinned subset; offline executable; read/write/verify commands; no device accessed")
     }
 
     static func prepareFirmware(_ selected: URL, at folder: URL) throws -> URL {

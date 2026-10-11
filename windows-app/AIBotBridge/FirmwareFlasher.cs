@@ -6,12 +6,12 @@ using System.Text.RegularExpressions;
 
 namespace AIBotBridge;
 
-// Uses Espressif's unmodified standalone tool; users do not need Python.
+// Uses Espressif's unmodified executable in a pinned archive subset; no Python is needed.
 internal sealed class FirmwareFlasher
 {
     internal const string ToolVersion = "4.9.1";
     internal const string ToolUrl = "https://github.com/espressif/esptool/releases/download/v4.9.1/esptool-v4.9.1-windows-amd64.zip";
-    internal const string ToolHash = "6d3d08187e21af57c6f2ba4ebbed9f1b53240d271a506ab888ddd0f5bfa8eaf7";
+    internal const string ToolHash = "1ae3e2fae3d23719956a9f0cd649dccd7e9bf524e073f613e1d7a189b509c25e";
     internal static string CacheDirectory => Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI-bot", "flash-tools");
     internal static string BackupDirectory => Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI-bot", "device-backups");
     internal delegate Task<string> Runner(string[] arguments, CancellationToken cancellation);

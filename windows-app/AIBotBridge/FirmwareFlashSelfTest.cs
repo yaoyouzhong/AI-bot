@@ -122,6 +122,16 @@ internal static class FirmwareFlashSelfTest
         Console.WriteLine("FLASH_DEVICE_SELECTION_OK bridge/USB-only/replug/ambiguity/disconnect/identity/COM-reuse");
     }
 
+    internal static async Task CheckBundledToolAsync()
+    {
+        using var tool = await FirmwareFlasher.PrepareToolAsync(_ => { }, CancellationToken.None);
+        var version = await FirmwareFlasher.RunProcessAsync(tool.Executable, ["version"], _ => { }, default);
+        Check(version.Contains(FirmwareFlasher.ToolVersion), "bundled executable version");
+        foreach (var command in new[] { "read_flash", "write_flash", "verify_flash" })
+            await FirmwareFlasher.RunProcessAsync(tool.Executable, ["--chip", "esp8266", command, "--help"], _ => { }, default);
+        Console.WriteLine("WINDOWS_FLASH_BUNDLE_OK pinned subset; offline executable; read/write/verify commands; no device accessed");
+    }
+
     internal static async Task RunDeviceBackupAsync(string port)
     {
         var device = FlashDeviceDiscovery.Read().Single(d => d.Port == port);

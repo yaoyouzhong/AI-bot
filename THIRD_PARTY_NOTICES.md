@@ -47,12 +47,14 @@ runtimes and the user's AppData.
 
 ## Graphical firmware tool
 
-Windows and Apple Silicon Mac packages include unmodified Espressif esptool 4.9.1
-standalone archives fetched from the official GitHub release at build time.
-Each platform pins the archive SHA-256 reported by that release and verifies it
-before extraction/execution. The build also includes the matching esptool source
+Windows and Apple Silicon Mac packages include the unmodified Espressif esptool 4.9.1
+standalone executable, LICENSE and README from the official GitHub release.
+The build verifies the full upstream archive and executable SHA-256, then creates
+a deterministic archive subset omitting unused tools. Each runtime pins that subset's
+SHA-256 before extraction/execution. The build also includes the matching esptool source
 distribution (with its GPL license) and an ORIGIN.json hash/source record.
-Original bundled dependency notices remain inside the unmodified tool archive.
+Original LICENSE and README bytes remain inside the subset; ORIGIN.json records
+upstream, subset, executable and source hashes plus the selected file list.
 Runtime flashing requires no tool download. Generated archives are not committed.
 The flasher icon is original geometric artwork from tools/build_flash_icon.py.
 Source, licenses and releases:

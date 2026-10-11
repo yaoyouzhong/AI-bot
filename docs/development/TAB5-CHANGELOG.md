@@ -2,6 +2,13 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.177-ui - 2026-10-11
+
+- Persist synchronized artwork on TF by category/date/page/orientation. One verified record binds JPEG, identity and complete optional introductions, viewing suggestions and originals. Prefer memory/TF on revisits; saved dates survive restarts and unsynchronized dates still require the bridge.
+- Alternate complete records, excluding corrupt/incomplete/stale revisions. Absent/full/read-only/failed cards fall back to the bridge. Photos and gallery access share one nonformatting mount/lock without deleting unrelated files. Whole annual-ZIP import and initial full-library copying are outside this change.
+- Freeze 9,027 mapped font glyphs, adding 11 to public .176 while preserving all 9,016 existing metrics/bitmaps. All 5,557 required characters in the frozen guide snapshot are covered; future content still requires coverage checks.
+- New collections remain separate; in-progress artwork/text is excluded. Build, host tests, package validation and TF hardware acceptance are separate records. See the [release record](../RELEASE-0.6.6.md).
+
 ## 0.2.176-ui - 2026-10-11
 
 - Consolidate .157–.175 improvements while preserving automatic mode, cycle pages/order/interval and preferences. Extended fonts retain existing glyph metrics/pixels. New collection images and in-progress guide content are excluded.

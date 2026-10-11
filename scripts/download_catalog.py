@@ -143,7 +143,11 @@ def table(data, language="zh", tag=None):
         component, version = release_target(tag)
         for key, (kind, template, _, _) in SPECS.items():
             if kind == component or component == "bundle" and kind in ("bridge", "esp8266"):
-                entries[key] = {"tag": tag, "version": version, "file": template.format(version=version)}
+                target = {"tag": tag, "version": version, "file": template.format(version=version)}
+                # A published target already has verified size/hash metadata.
+                # Unknown draft assets must not inherit the previous package size.
+                if any(entries[key].get(field) != value for field, value in target.items()):
+                    entries[key] = target
                 changed.add(key)
     zh = language == "zh"
     lines = ["| 用途 | 版本 | 下载 | SHA-256 |" if zh else "| Use | Version | Download | SHA-256 |", "| --- | --- | --- | --- |"]

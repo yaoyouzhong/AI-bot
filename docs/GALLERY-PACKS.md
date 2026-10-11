@@ -4,6 +4,16 @@
 
 Bridge 0.6.5 supports independent image/text collection imports without embedding in-progress guide content; TAB5 .176 includes readers and extended fonts. No new collection is published here. Formal 2026.10.09 image-only packs remain compatible. New text and full imported-pack hardware acceptance follow separately; font coverage must be checked because packs do not install fonts.
 
+## TF 卡存储（本地开发，尚未部署） / TF storage (local, not deployed)
+
+2026-10-11：TAB5 新增共享 TF 卡挂载与图库持久缓存。已通过桥接认证、SHA-256 和图片尺寸检查的作品按日期、类别、页码及横竖屏保存到 `/sdcard/aibot/gallery/painting` 或 `calligraphy`；每份 `.aig` 记录同时包含 JPEG、作品身份、简介、欣赏提示及原文，文字保持原有完整长度。再次查看优先使用内存或 TF 卡，缺少记录时沿用 USB／Wi-Fi／BLE 获取。已保存日期可跨重启复用；尚未同步的日期仍需桥接，整套年度 ZIP 的直接导入和一次性全量搬运不包含在此改动中。
+
+认证状态提供新类别内容版本时，旧卡记录不再作为该版本的缓存；两个类别独立匹配。每项使用两份轮换记录，完整写入并刷盘后提交，损坏或未完成的记录不参与展示。卡不存在、容量不足、只读或读取失败时保留原内存／桥接路径。照片浏览与图库共用挂载和文件访问锁，发生介质错误后延时重新挂载；不格式化卡、不清理其他用户文件。图库包仍在电脑端独立导入，不改变已有包格式和传输协议。
+
+验证覆盖文件往返、8191 字节原文、模拟重启／离线、横竖屏与类别／版本隔离、损坏记录、容量不足、提交失败、内存不足及并发挂载；完整 ESP-IDF 构建和设备 TF 卡实机验收分别记录。该逻辑尚未部署，已发布的 TAB5 .176 不包含此能力。
+
+The local TF extension persists verified image/reading records under `/sdcard/aibot/gallery`, keyed by date, category, page and orientation. Memory/TF reads precede existing authenticated USB/Wi-Fi/BLE transfers. Cached dates survive restarts; uncached dates still require the bridge. Images and complete optional guides are one checksummed record, with independent category revision matching and alternating committed copies. Absent/full/read-only/failed cards preserve existing paths. Photo browsing and gallery access share one mount/lock, with delayed remount after media failures and no formatting or unrelated-file deletion. Whole annual-ZIP import/initial full-library copying is outside this change. Host tests and firmware builds are separate from TF hardware acceptance; published .176 remains unchanged.
+
 
 Windows AI-bot 0.6.3 / TAB5 0.2.156-ui 与年度精选集 2026.10.09 已发布，由[完整下载中心](../DOWNLOADS.md)提供正式下载。图库兼容 0.6.0 / .145 或更新版本。软件、固件功能统一；图库可选，ESP8266 和其他屏保无需下载。
 

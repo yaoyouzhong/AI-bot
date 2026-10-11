@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.6 - 2026-10-11
+
+### Packages and offline flashing
+
+- Windows and Apple Silicon Mac packages retain only the required esptool executable, original LICENSE/README and matching source, omitting three unused tools. Executable bytes remain unchanged; builds verify upstream inputs and runtimes verify the pinned subset. Flashing still requires no tool download or Python installation.
+- Launch the tool from the final unpacked package to check its version and read/write/verify commands. Preserve complete backups, capacity checks and post-write verification.
+
+### Notes and companion firmware
+
+- Generate maintained Chinese notes before English notes, retain verified download sizes and resolve repository-document links for Release pages.
+- Companion TAB5 0.2.177-ui adds persistent TF artwork caching and the latest font. Images, introductions, viewing suggestions and originals continue through independent collection packs; no new collection ships here, installed packs remain compatible and ESP8266 firmware is unchanged. See the [release record](docs/RELEASE-0.6.6.md).
+
 ## 0.6.5 - 2026-10-11
 
 ### Features and experience

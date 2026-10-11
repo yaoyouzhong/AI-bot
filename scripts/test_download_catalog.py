@@ -105,6 +105,18 @@ class DownloadCatalogTests(unittest.TestCase):
     def test_readmes_and_centers_match_index(self):
         catalog.sync(self.data, check=True)
 
+    def test_published_release_keeps_verified_sizes_without_reusing_draft_sizes(self):
+        for key in ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade"):
+            item = self.data["downloads"][key]
+            for language in ("zh", "en"):
+                rendered = catalog.table(self.data, language, tag=item["tag"])
+                row = next(line for line in rendered.splitlines() if catalog.asset_url(item) in line)
+                self.assertIn(f"{item['size'] / 1048576:.0f} MiB", row)
+        draft = catalog.table(self.data, tag="bridge-v99.0.0")
+        for line in draft.splitlines():
+            if "bridge-v99.0.0" in line:
+                self.assertNotIn("MiB", line)
+
 
 if __name__ == "__main__":
     unittest.main()
