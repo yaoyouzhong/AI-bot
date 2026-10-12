@@ -5,7 +5,7 @@ internal sealed class GalleryBrowserForm : Form
 {
     private readonly Tab5Gallery _gallery;
     private readonly ComboBox _category=new(){Name="browse-category",DropDownStyle=ComboBoxStyle.DropDownList,Width=136};
-    private readonly DateTimePicker _date=new(){Name="browse-date",Format=DateTimePickerFormat.Custom,CustomFormat="yyyy-MM-dd",Width=132};
+    private readonly DateTimePicker _date=new(){Name="browse-date",Format=DateTimePickerFormat.Custom,CustomFormat="yyyy-MM-dd",Width=168};
     private readonly TextBox _search=new(){Name="browse-search",PlaceholderText="作品名或作者",Width=188};
     private readonly GalleryWorkList _list=new(){Name="browse-works",Dock=DockStyle.Fill,BorderStyle=BorderStyle.None,DrawMode=DrawMode.OwnerDrawFixed,IntegralHeight=false};
     private readonly Label _summary=new(){Name="browse-summary",AutoSize=true,Dock=DockStyle.Fill,ForeColor=SettingsWindow.Muted};
