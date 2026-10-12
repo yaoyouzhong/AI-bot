@@ -18,6 +18,8 @@ internal static class Tab5UsbStatusSelfTest
                !delta.RootElement.GetProperty("changes").EnumerateArray().Any(x=>x.GetProperty("path")[0].GetString()=="unread"&&x.GetProperty("value").GetInt32()==0))throw new Exception("USB incremental unread state missing");
         }
         if(state.Wire(changed,true,true).Length>=Tab5Service.PackTelemetry(changed).Length/4)throw new Exception("Unchanged catalog still owns USB lane");
+        byte[] acknowledged=state.Wire(changed,true,true);state.Confirm(changed,acknowledged);
+        if(!ReferenceEquals(state.Wire(changed,true,true),acknowledged))throw new Exception("Repeated publication resent the catalog instead of exact ACKed delta");
         state.Reset();
         using(var reset=JsonDocument.Parse(state.Wire(changed,false,true)))if(reset.RootElement.GetProperty("type").GetString()!="tab5_status")throw new Exception("Reconnect omitted full baseline");
         using(var hello=JsonDocument.Parse("{\"type\":\"tab5_hello\",\"version\":1,\"deviceId\":\""+device+"\",\"usbPacked\":1,\"usbDelta\":1}"))

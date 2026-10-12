@@ -571,7 +571,7 @@ internal sealed partial class Tab5Service : IDisposable
                             using var ack=result.Ack;
                             if(ack.RootElement.GetProperty("deviceId").GetString()!=pairing.DeviceId ||
                                 ack.RootElement.GetProperty("sequence").GetInt64()!=sent.RootElement.GetProperty("sequence").GetInt64()) throw new IOException("TAB5 数据确认不匹配。");
-                            _usbState.Confirm(frame);
+                            _usbState.Confirm(frame,result.Retried?frame:wire);
                             if(result.Retried)Interlocked.Increment(ref _usbStatusRecoverySucceeded);
                             _usbPacked=ack.RootElement.TryGetProperty("usbPacked",out var packed)&&packed.TryGetInt32(out int pv)&&pv==1;
                             _usbRpcVersion=ack.RootElement.TryGetProperty("rpcVersion",out var rpcVersion)&&rpcVersion.TryGetInt32(out var rv)?rv:0;
