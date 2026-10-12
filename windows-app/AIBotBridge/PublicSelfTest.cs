@@ -55,6 +55,8 @@ internal static class PublicSelfTest
         DisplayPolicySelfTest.Run();
         DisplayCommandQueueSelfTest.RunAsync().GetAwaiter().GetResult();
         Task.Run(Tab5UsbReconnectSelfTest.RunAsync).GetAwaiter().GetResult();
+        Task.Run(Tab5GalleryStreamSelfTest.RunProtocolAsync).GetAwaiter().GetResult();
+        Task.Run(Tab5UsbStatusSelfTest.RunAsync).GetAwaiter().GetResult();
         PetAnimationSelfTest.Run();
         PetSelectionSelfTest.Run();
         MigrationRegressionSelfTest.RunAsync().GetAwaiter().GetResult();

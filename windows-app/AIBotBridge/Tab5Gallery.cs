@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -53,11 +53,11 @@ internal sealed class Tab5Gallery
             return(cached.Bytes,cached.Sha);
         }
     }
-    internal (int Status,object Body) Handle(JsonElement request,bool binary,bool bulk)
+    internal (int Status,object Body) Handle(JsonElement request,bool binary,bool bulk,bool stream=false)
     {
         lock(GalleryPack.Gate) {
             RefreshRevision();
-            return HandleCore(request,binary,bulk);
+            return HandleCore(request,binary,bulk,stream);
         }
     }
     private void RefreshRevision() {
@@ -113,7 +113,7 @@ internal sealed class Tab5Gallery
             return Tab5ArtGuides.ForReader(cached.Guides.GetValueOrDefault(work.WorkId??work.Source),version);
         }
     }
-    private (int Status,object Body) HandleCore(JsonElement request,bool binary,bool bulk)
+    private (int Status,object Body) HandleCore(JsonElement request,bool binary,bool bulk,bool stream)
     {
         string Text(string key)=>request.TryGetProperty(key,out var value)&&value.ValueKind==JsonValueKind.String?value.GetString()!:"";
         try {
@@ -159,7 +159,7 @@ internal sealed class Tab5Gallery
             }
             if(Text("op")!="read"||!binary)return(400,new{error="gallery_requires_binary"});
             if(Text("sha256")!=sha)return(409,new{error="gallery_changed"});
-            if(!request.TryGetProperty("offset",out var o)||!o.TryGetInt32(out var offset)||!request.TryGetProperty("count",out var c)||!c.TryGetInt32(out var count)||offset<0||offset>=data.Length||count<=0||count>(bulk?49152:8192))return(400,new{error="invalid_gallery_range"});
+            if(!request.TryGetProperty("offset",out var o)||!o.TryGetInt32(out var offset)||!request.TryGetProperty("count",out var c)||!c.TryGetInt32(out var count)||offset<0||offset>=data.Length||count<=0||count>(stream?Tab5GalleryStream.MaximumImage:bulk?49152:8192))return(400,new{error="invalid_gallery_range"});
             int size=Math.Min(count,data.Length-offset);
             return(200,new Tab5RpcDataBody(new{offset,count=size},data.AsMemory(offset,size)));
         }catch(FileNotFoundException) {return(503,new{error="gallery_pack_incomplete"});}

@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -6,7 +6,7 @@ namespace AIBotBridge;
 internal sealed partial class Tab5Service
 {
     private readonly object _rpcLock=new();
-    private readonly Tab5Gallery _gallery=new();
+    private readonly Tab5Gallery _gallery;
     private volatile string _galleryDiagnostic="尚无图片请求";
     private long _galleryRequests;
     private long _bleGalleryUntil;
@@ -57,7 +57,7 @@ internal sealed partial class Tab5Service
         _rpcAuthDiagnostic="verified";
         lock(_lifecycle){if(_stopping)return(503,null);_rpcRequests++;}
         try {
-            (int Status,object Body) result;bool binaryReply=false,bulkReply=false,galleryReply=false;
+            (int Status,object Body) result;bool binaryReply=false,bulkReply=false,galleryReply=false,streamReply=false;
             try {
                 var opened=Tab5RpcBinary.Open(clear);using var doc=opened.Metadata;var root=doc.RootElement;
                 binaryReply=root.TryGetProperty("binaryReply",out var binary)&&binary.ValueKind==JsonValueKind.True;
@@ -85,8 +85,9 @@ internal sealed partial class Tab5Service
                 }
                 else if(Text(root,"kind")=="gallery") {
                     galleryReply=true;
+                    streamReply=transport=="Wi-Fi"&&bulkReply&&Text(root,"op")=="read"&&root.TryGetProperty("streamReply",out var stream)&&stream.ValueKind==JsonValueKind.True;
                     result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
-                        ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply);
+                        ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply,streamReply);
                     // A manifest is small, but starts a sequence of image ranges.
                     // Keep the existing BLE throughput lease across that sequence;
                     // USB/Wi-Fi requests and rejected/replayed packets never renew it.
@@ -115,6 +116,8 @@ internal sealed partial class Tab5Service
             }catch(Exception ex) when(ex is JsonException or FormatException or InvalidOperationException or ArgumentException) {
                 result=(400,new{error="invalid_request"});
             }
+            if(streamReply&&result.Status==200&&result.Body is Tab5RpcDataBody streamData)
+                return(200,Tab5GalleryStream.Encode(streamData,key,nonce));
             byte[] response=result.Body is Tab5RpcDataBody raw?
                 Tab5RpcBinary.Pack(JsonSerializer.SerializeToUtf8Bytes(new{status=result.Status,body=raw.Metadata},JsonDefaults.Options),raw.Data.Span,bulk:bulkReply):
                 JsonSerializer.SerializeToUtf8Bytes(new{status=result.Status,body=result.Body},galleryReply?Tab5ArtGuides.WireOptions:JsonDefaults.Options);

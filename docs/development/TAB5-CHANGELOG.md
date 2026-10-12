@@ -4,6 +4,8 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ## 0.2.181-ui - 2026-10-12
 
+- Authenticate continuous Wi-Fi gallery blocks individually and receive concurrently with a bounded, backpressured TF writer. Sync payloads before committing checkpoints; promote AIG2 records without rewriting JPEGs, retaining AIG1 and old resume compatibility. USB state deltas preserve unread/settings/music freshness while avoiding repeated full catalogs.
+
 - Prevent whole-library synchronization from stalling behind retained offscreen UI snapshots. Reclaim only rebuildable offscreen caches and avoid hidden preheating during synchronization; preserve the original 5 MiB worker reserve, active gestures, visible pixels and image/text verification.
 - In automatic transport mode prefer a fresh authenticated Wi-Fi path for whole-library reads, with USB fallback. Keep explicit channel selections, foreground priority and per-request binding; validated checkpoints remain reusable across transports.
 - Retain .180 side navigation/Wi-Fi diagnostics and .179 complete reading, storage management and range-resume fixes. Performance and wireless recovery still require the latest image's hardware acceptance.

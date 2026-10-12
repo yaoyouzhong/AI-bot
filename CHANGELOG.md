@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.6 - 2026-10-12
 
+- Receive Wi-Fi galleries as continuous independently authenticated blocks while a bounded concurrent TF writer applies backpressure. Promote written JPEGs without a second full image write, preserving old records and resume prefixes. Send USB state deltas against exact ACKed baselines and revalidate identity on reconnect. Implementation and simulated regressions pass; physical throughput acceptance remains pending.
+
 ### Packages and offline flashing
 
 - Windows and Apple Silicon Mac packages retain only the required esptool executable, original LICENSE/README and matching source, omitting three unused tools. Executable bytes remain unchanged; builds verify upstream inputs and runtimes verify the pinned subset. Flashing still requires no tool download or Python installation.

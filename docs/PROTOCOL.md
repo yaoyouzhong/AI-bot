@@ -617,3 +617,18 @@ Finished failed requests release the UI's prior 60-second retry reservation. Per
 In .145, `galleryDiag` appends `frame,reused,outputAllocationAttempts` after the original six fields. `frame` is zero-based; `reused` reports whether the current worker received an existing decoder output buffer. The cumulative allocation-attempt counter distinguishes buffer reuse from repeatedly allocating a full RGB565 frame. Retired visible frames and failed-job outputs return to a one-slot atomic spare pool; the currently displayed bitmap is never lent to a worker. No bridge parsing change is required because the diagnostic string is forwarded verbatim.
 
 .145 在原六字段后追加零基页码、当前任务是否复用缓冲、累计输出缓冲分配尝试次数。翻页退役图和失败任务缓冲进入一个原子备用槽，下一任务直接复用；当前可见图不得借给解码任务。桥接原样转发此诊断字符串，不改变图片 RPC 契约。
+
+
+## TAB5 gallery continuous response and USB state delta (181 candidate)
+
+中文：Windows 在配对状态的 `data.connectionHealth.galleryStream=1` 中声明可选连续响应能力。仅 Wi-Fi 的 `gallery/read`、`binaryReply=true`、`bulkReply=true` 和 `streamReply=true` 共同生效时，允许请求最多 1 MiB 的 SHA 绑定图片范围；USB／BLE 保留原始范围上限。请求继续使用原 `/tab5/v1/rpc` 的设备、会话、时间、nonce 防重放、HMAC 和 AES-GCM 校验。
+
+HTTP 响应为 `T5S1`、u32LE 起始偏移、u32LE 图片字节数、u32LE 块数，随后连续发送多个 `u32LE 密文长度 + AES-GCM 密文包`。每块仍用 T5R2，JPEG 载荷最多 49152 字节；每次加密使用独立随机 IV，AAD 为该次请求 nonce。鉴权后的 `body` 包含 `offset,count,streamOffset,streamBytes,block,blocks`，所有位置、数量、次序和总长必须匹配请求与预期，否则拒绝；最终仍检查完整图片 SHA-256 与 JPEG 尺寸。外层标记不构成鉴权依据。错误／忙碌／重放沿用普通有界加密响应。旧桥接未声明能力时继续使用原范围协议。
+
+接收块逐个鉴权，验证通过的前缀才交给并行写卡任务；窗口有界，慢写卡产生背压。断线保留已校验并落盘的前缀，不把暂存当成完成作品。可选 `galleryTransferDiag` 为四个非负整数：当前任务本次验证接收的 JPEG 字节、检查点写入的 JPEG 字节、检查点写入累计毫秒、接收回调与写入任务重叠的次数。它用于真机区分传输与写卡，不能单独作为速度验收。
+
+USB hello 可声明 `usbDelta=1`，桥接仅对本条仍打开且已确认设备身份的 CDC 会话使用已 ACK 的状态作为增量基线，按原状态发布频率发送 `tab5_delta`／压缩增量。设备沿用既有完整状态 ACK 和序号校验；重连、会话变化或基线不匹配恢复完整状态，旧固件继续完整帧。正常状态循环不再对同一打开句柄重复执行身份 ping；新连接及显式配置操作仍核对身份。图库保存不会暂停未读数字、设置或音乐状态更新。
+
+English: optional authenticated `connectionHealth.galleryStream=1` enables one continuous HTTP response for SHA-bound Wi-Fi gallery reads of up to 1 MiB. The original device/session/time/replay/HMAC/AES-GCM request checks apply. USB/BLE and unnegotiated peers retain their existing limits. T5S1 carries three u32LE fields (offset, bytes, blocks), followed by length-prefixed independently encrypted T5R2 blocks with <=49152 data bytes, independent random AES IVs and request-nonce AAD. Each authenticated body binds its range, total stream range and ordinal; validate all of them and the final JPEG hash/dimensions. Ordinary encrypted error responses remain bounded. Verified blocks feed a concurrent, bounded TF writer with backpressure and durable resume. The four-field content-free `galleryTransferDiag` records received bytes, checkpoint data bytes, checkpoint write milliseconds and receive/write overlaps, pending physical throughput acceptance.
+
+An identity-validated USB hello may advertise `usbDelta=1`; the bridge then sends state deltas against the exact ACKed baseline on that live CDC handle, retaining the usual publication cadence and ACK checks. Reset the baseline on reconnect; legacy peers get full frames. Initial connection and explicit configuration still verify identity. Firmware source tests and builds do not establish hardware throughput or Wi-Fi stability.

@@ -1,4 +1,4 @@
-using System.IO.Ports;
+﻿using System.IO.Ports;
 using System.Text;
 using System.Text.Json;
 
@@ -18,6 +18,8 @@ internal sealed partial class Tab5Service : IDisposable
     private readonly SemaphoreSlim _usbGate = new(1,1);
     private SerialPort? _usbPort;
     private long _usbGeneration;
+    private readonly Tab5UsbState _usbState=new();
+    private bool _usbDelta;
     internal Func<IReadOnlyList<FlashUsbDevice>> UsbDevices {get;set;}=FlashDeviceDiscovery.Read;
     private volatile string _hidDiagnostic="未触发";
     private readonly string _session=Guid.NewGuid().ToString("N");
@@ -192,6 +194,7 @@ internal sealed partial class Tab5Service : IDisposable
         Interlocked.Increment(ref _usbGeneration);
         Interlocked.Exchange(ref _usbAckAt,0);
         _usbDataActive="";
+        _usbState.Reset();_usbDelta=false;
         _usbMetricsDiagnosticPrevious=null;
         _usbPacked=false;_usbRpcVersion=_usbTelemetryVersion=0;_usbRpcBinary=false;_usbRpcChunk=2048;var port=_usbPort;_usbPort=null;
         if(port is not null)_usbStatus="USB 已断开，等待重新连接";
@@ -217,12 +220,13 @@ internal sealed partial class Tab5Service : IDisposable
             return $"USB：{_usbStatus}\nWi-Fi：{wifi}\n蓝牙：{_bleStatus}\n电脑服务地址：{_host??"等待可用局域网"}{(_port>0?":"+_port:"")}";
         }
     }
-    internal Tab5Service(Tab5PairingStore? store=null,Tab5CodexTasks? codexTasks=null) {
+    internal Tab5Service(Tab5PairingStore? store=null,Tab5CodexTasks? codexTasks=null,Tab5Gallery? gallery=null) {
         _store=store??new();
         _codexTasks=codexTasks??new();
+        _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1 };
+    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1 };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
     private void Publish(StatusSnapshot snapshot,bool musicOnly)
@@ -523,7 +527,7 @@ internal sealed partial class Tab5Service : IDisposable
             var pairing=_store.Current;
             if(pairing is not null) {
                 bool gateHeld=false;string stage="enumerate";
-                bool connecting=_usbPort is null;long began=Environment.TickCount64,stageAt=began;
+                bool connecting=_usbPort is null||!_usbPort.IsOpen;long began=Environment.TickCount64,stageAt=began;
                 var timings=new List<string>();
                 void Stage(string next) {
                     long now=Environment.TickCount64;timings.Add($"{stage}={now-stageAt}ms");
@@ -546,12 +550,17 @@ internal sealed partial class Tab5Service : IDisposable
                         Stage("open");
                         var port=GetOrOpenUsbPort(device.Port);
                         Stage("identity");
-                        if(await ReadIdentityAsync(port,token,hello=>_usbPacked=Tab5UsbStatus.SupportsPacked(hello,pairing.DeviceId))!=pairing.DeviceId) throw new IOException("USB 设备身份不匹配");
+                        if(connecting||_usbRpcVersion==0) {
+                            if(await ReadIdentityAsync(port,token,hello=>{
+                                _usbPacked=Tab5UsbStatus.SupportsPacked(hello,pairing.DeviceId);
+                                _usbDelta=Tab5UsbState.SupportsDelta(hello,pairing.DeviceId);
+                            })!=pairing.DeviceId)throw new IOException("USB 设备身份不匹配");
+                        }
                         if(!device.Identity.Equals(pairing.UsbIdentity,StringComparison.OrdinalIgnoreCase))_store.Pair(pairing.DeviceId,device.Identity);
                         Stage("host");
                         if(_host is not null) Send(port,new {version=1,type="tab5_host",host=_host,port=_port});
                         if(CurrentFrame is { } frame) {
-                            byte[] wire=_usbPacked?PackedFullFrame(frame):frame;
+                            byte[] wire=_usbState.Wire(frame,_usbPacked,_usbDelta);
                             var result=await Tab5UsbStatus.SendAsync(frame,wire,
                                 bytes=>port.WriteLine(Tab5Protocol.Prefix+Encoding.UTF8.GetString(bytes)),
                                 ()=>ReadReplyAsync(port,"tab5_ack",token),next=>{
@@ -562,6 +571,7 @@ internal sealed partial class Tab5Service : IDisposable
                             using var ack=result.Ack;
                             if(ack.RootElement.GetProperty("deviceId").GetString()!=pairing.DeviceId ||
                                 ack.RootElement.GetProperty("sequence").GetInt64()!=sent.RootElement.GetProperty("sequence").GetInt64()) throw new IOException("TAB5 数据确认不匹配。");
+                            _usbState.Confirm(frame);
                             if(result.Retried)Interlocked.Increment(ref _usbStatusRecoverySucceeded);
                             _usbPacked=ack.RootElement.TryGetProperty("usbPacked",out var packed)&&packed.TryGetInt32(out int pv)&&pv==1;
                             _usbRpcVersion=ack.RootElement.TryGetProperty("rpcVersion",out var rpcVersion)&&rpcVersion.TryGetInt32(out var rv)?rv:0;
@@ -596,6 +606,7 @@ internal sealed partial class Tab5Service : IDisposable
                             if(ack.RootElement.TryGetProperty("rpcDiag",out var rpcDiag)&&rpcDiag.ValueKind==JsonValueKind.String)_deviceHealth+="\n设备 RPC 失败诊断："+rpcDiag.GetString();
                             if(ack.RootElement.TryGetProperty("usbDiag",out var usbDiag)&&usbDiag.ValueKind==JsonValueKind.String)_deviceHealth+="\n设备 USB 诊断："+usbDiag.GetString();
                             if(ack.RootElement.TryGetProperty("galleryDiag",out var galleryDiag))_deviceHealth+="\n艺术图片接收："+galleryDiag.GetString();
+                            if(ack.RootElement.TryGetProperty("galleryTransferDiag",out _))_deviceHealth+="\n图库接收与写卡："+NumericProbeDiagnostic(ack.RootElement,"galleryTransferDiag",4);
                             if(ack.RootElement.TryGetProperty("wifiDiag",out _))_deviceHealth+="\n设备 Wi-Fi 诊断："+NumericProbeDiagnostic(ack.RootElement,"wifiDiag",16);
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
                             // Bound each USB burst to preserve regular status heartbeats.

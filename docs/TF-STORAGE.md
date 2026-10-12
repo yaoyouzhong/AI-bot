@@ -4,9 +4,9 @@
 
 当前固件需要 FAT／FAT32 卡，不支持 exFAT。128GB 实卡已在电脑按整卡容量格式化为 FAT32、32KB 分配单元，并通过读写校验；不需要缩成 32GB 分区。新卡先在电脑准备好文件系统，设备不会自动格式化。
 
-目录及记录名称需要 FAT 长文件名支持：默认配置启用 `CONFIG_FATFS_LFN_HEAP=y`，缺少支持时构建直接报错。已安装 .177 缺少此配置，可能挂载成功但无法保存；修复已登记到待构建 .178。实际卡挂载与保存分别验收。
+目录及记录名称需要 FAT 长文件名支持：默认配置启用 `CONFIG_FATFS_LFN_HEAP=y`，缺少支持时构建直接报错。已安装 .177 缺少此配置，可能挂载成功但无法保存；修复已包含在 .178，当前 .179 沿用。实际卡挂载与保存分别验收。
 
-待构建 .178 提供独立的「设置 → 存储与缓存」：卡状态由后台检测，不依赖屏保选择或桥接在线；本页同时显示图库保存进度。缓存位置默认「设备缓存」，即原来的按需下载与 PSRAM 内存缓存，重启后需重新同步图片，不是把整套图片写入内置闪存。插卡本身不会开启图库保存；主动选择「TF 卡」并保存成功后才启用整库同步与读卡。设置保存在设备上，失败恢复原选择。卡缺失或不可用时保留该选择并回退设备缓存；切回设备缓存不删除卡上作品。当前选择只控制图库，未来其他模块在本页增加各自的存储设置。
+当前 .179 提供独立的「设置 → 存储管理」，入口位于「内容轮播」下面：卡状态由后台检测，不依赖屏保选择或桥接在线；本页同时显示图库保存进度。缓存位置默认「设备缓存」，即原来的按需下载与 PSRAM 内存缓存，重启后需重新同步图片，不是把整套图片写入内置闪存。插卡本身不会开启图库保存；主动选择「TF 卡」并保存成功后才启用整库同步与读卡。设置保存在设备上，失败恢复原选择。卡缺失或不可用时保留该选择并回退设备缓存；切回设备缓存不删除卡上作品。当前选择只控制图库，未来其他模块在本页增加各自的存储设置。
 
 整库保存与浏览入口是两项能力：TAB5 每日屏保按当天日期选作品，左右翻页只切换同一作品的分页，设备上尚未提供往期作品选择页。Windows 桥接待发布源程序已在「屏保图库 → 浏览作品」提供电脑端整库浏览、按日期查找、搜索和全屏缩放；不向 TAB5 发送作品或改变屏保日期，见[图库说明](GALLERY-PACKS.md)。
 
@@ -15,6 +15,9 @@ aibot/
 ├── gallery/
 │   ├── painting/
 │   │   ├── catalog.0 / catalog.1
+│   │   ├── download.aig.part        # 当前图片的连续写入暂存
+│   │   ├── download.aic             # 已落盘前缀的校验日志
+│   │   ├── download.aip             # 旧版断点记录，兼容读取后迁移
 │   │   └── works/<作品索引键>/
 │   │       └── <页码>-<l或p>.<0或1>.aig
 │   └── calligraphy/                 # 相同结构
@@ -23,7 +26,9 @@ aibot/
 └── cache/<模块名>/                 # 可重新生成的数据，预留
 ```
 
-- **图库**：保存已导入整套图库的图片、简介、欣赏提示和原文（包中存在时），并保留完整性校验和同步进度。作品索引键是从 `2026-01-01` 起枚举的稳定键，不是每日下载日期；每件作品的全部分页及横竖屏分别保存。`l` 表示横屏，`p` 表示竖屏，页码从 `00` 开始。图片与文字在同一 `.aig` 记录中，两份记录轮换提交；未完成的 `.part` 只写在同一作品目录，不作为有效内容读取。
+- **图库**：保存已导入整套图库的图片、简介、欣赏提示和原文（包中存在时），并保留完整性校验和同步进度。作品索引键是从 `2026-01-01` 起枚举的稳定键，不是每日下载日期；每件作品的全部分页及横竖屏分别保存。`l` 表示横屏，`p` 表示竖屏，页码从 `00` 开始。图片与文字在同一 `.aig` 记录中，两份记录轮换提交；新下载的 `download.aig.part` 保存在所属类别目录，完成校验后转入对应作品目录；未完成暂存不作为有效内容读取。
+- **续传与并行写入**：每类一个 `download.aig.part` 和小型 `download.aic` 日志，绑定作品、稳定索引、方向、页码、图库版本、完整图片 SHA-256 与大小。网络接收任务与写卡任务并行，使用已有最多 1 MiB 的 JPEG 缓冲区，接收任务最多领先两个 192 KiB 检查点块；写入变慢时施加背压。每个传输块先独立鉴权，写卡并同步完成后再提交该段的长度／位置／SHA-256 日志。重启只读回校验通过的前缀；损坏尾段重新下载。正常中断补存已鉴权的小尾段，突然断电可能重传未提交部分。完整 JPEG／资料校验通过后，追加导读并填充记录头，通过轮换槽位提交；图片字节不再整幅复制写第二遍。新记录内部格式为 AIG2，目录布局仍为 v1；兼容已有 AIG1 完成文件和旧 `download.aip` 断点，已完成图片不因固件升级重新下载。长原文仅在作品／日期／版本／全文哈希一致时复用。
+
 - **照片**：后续由项目保存到卡的照片使用 `photos/`。当前照片功能读取用户选择的 JPG，不向卡保存拍摄照片；仍可浏览卡上原有目录，不移动旧照片。
 - **其他数据**：例如未来的笔记或历史记录放入 `data/<模块名>/`；缩略图、下载缓存等可以重建的内容放入 `cache/<模块名>/`。这些是目录约定，不表示相关功能已经实现。目录按需创建，预留目录不提前占位。
 - **归属与升级**：各模块只替换自己的已校验记录，不格式化卡，不移动、删除其他目录的用户文件。卡满、只读或不可用时暂停保存并保留原有内容。后续若调整结构，需要明确版本兼容或迁移逻辑，不能静默换路径丢弃旧资料。
@@ -33,10 +38,12 @@ The card layout is v1. All project-written files live under `aibot/`; `/sdcard` 
 
 The current firmware requires FAT/FAT32 and does not enable exFAT. A real 128GB card was formatted at full capacity on the computer with FAT32 and 32KiB allocation units and passed read/write verification; a 32GB partition is unnecessary. Prepare new cards on the computer; the device does not format automatically.
 
-Directory/record names require FAT long filenames. Defaults enable `CONFIG_FATFS_LFN_HEAP=y`; builds reject missing support. Installed .177 lacked it and could mount without saving; the fix is registered for pending .178. Mounting and saving are separate hardware checks.
+Directory/record names require FAT long filenames. Defaults enable `CONFIG_FATFS_LFN_HEAP=y`; builds reject missing support. Installed .177 lacked it and could mount without saving; the fix was included in .178 and is retained by .179. Mounting and saving are separate hardware checks.
 
-Pending .178 adds Settings → Storage & Cache. Background card detection and the gallery progress row are independent of the selected screensaver and bridge connection. The default Device cache retains on-demand downloads and the existing PSRAM image cache; images require synchronization after reboot, rather than persisting the complete collection to internal flash. Inserting a card does not opt in. Only an explicitly saved TF choice enables gallery card reads/writes and complete-library synchronization. The device persists the choice and restores it after failed saves. An unavailable card falls back to device caching without clearing the choice; disabling TF leaves saved works intact. This choice controls galleries only; future modules can add their own storage settings here.
+Current .179 provides Settings → Storage Management below Content Rotation. Background card detection and the gallery progress row are independent of the selected screensaver and bridge connection. The default Device cache retains on-demand downloads and the existing PSRAM image cache; images require synchronization after reboot, rather than persisting the complete collection to internal flash. Inserting a card does not opt in. Only an explicitly saved TF choice enables gallery card reads/writes and complete-library synchronization. The device persists the choice and restores it after failed saves. An unavailable card falls back to device caching without clearing the choice; disabling TF leaves saved works intact. This choice controls galleries only; future modules can add their own storage settings here.
 
 Complete-library storage and browsing are separate capabilities. TAB5 selects by today's date, and arrows only change pages within that work; no on-device past-work selection page is implemented. Pending Windows bridge source adds Artwork Collections → Browse Works for desktop collection browsing, date lookup, search and fullscreen zoom. It sends no artwork to TAB5 and does not change screensaver dates; see [Gallery packs](GALLERY-PACKS.md).
 
 Future project-written photos use `photos/`, persistent module data uses `data/<module>/`, and reproducible caches use `cache/<module>/`. Reserved namespaces are created only when used and do not imply implemented features. Current photo browsing reads user-selected JPGs without relocating them or saving camera captures to TF. Writers own only their module files, preserve unrelated user content, and pause on card errors. A future layout change requires explicit compatibility/migration. Existing pairing and Wi-Fi credential storage remains unchanged.
+
+Per-category `download.aig.part` holds sequential JPEG bytes and `download.aic` holds durable checksummed ranges. Network reception and TF writes run concurrently in the existing bounded JPEG buffer, with two 192 KiB checkpoints of producer lead and backpressure. Authenticate each incoming block before making its immutable prefix available to the writer; sync image data before committing the corresponding journal record. Reopen only verified prefixes after reconnect/reboot. Commit a complete image and guide as an alternating AIG2 record by appending metadata and replacing its header, without rewriting the JPEG. Existing AIG1 records and legacy AIP resume prefixes remain readable; already saved images are not retransferred for a firmware-only upgrade. Directory layout remains v1. Graceful interruption saves verified tails; abrupt power loss can retransmit uncommitted data. Staging is never a display source.

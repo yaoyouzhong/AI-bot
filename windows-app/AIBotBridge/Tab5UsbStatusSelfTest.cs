@@ -8,6 +8,20 @@ internal static class Tab5UsbStatusSelfTest
     internal static async Task RunAsync()
     {
         const string device="001122334455";
+        var state=new Tab5UsbState();
+        byte[] Baseline(long sequence,int unread)=>JsonSerializer.SerializeToUtf8Bytes(new{version=1,type="tab5_status",deviceId=device,session="fixture",sequence,data=new{catalog=Enumerable.Range(0,400).Select(i=>new{id=i,text=$"work-{i}-"+new string((char)('a'+i%26),25)}),unread}});
+        byte[] baseline=Baseline(1,9),changed=Baseline(2,0);
+        if(state.Wire(baseline,true,true).Length==0)throw new Exception("USB first full state missing");
+        state.Confirm(baseline);
+        using(var delta=JsonDocument.Parse(state.Wire(changed,true,true))) {
+            if(delta.RootElement.GetProperty("type").GetString()!="tab5_delta"||delta.RootElement.GetProperty("baseSequence").GetInt64()!=1||
+               !delta.RootElement.GetProperty("changes").EnumerateArray().Any(x=>x.GetProperty("path")[0].GetString()=="unread"&&x.GetProperty("value").GetInt32()==0))throw new Exception("USB incremental unread state missing");
+        }
+        if(state.Wire(changed,true,true).Length>=Tab5Service.PackTelemetry(changed).Length/4)throw new Exception("Unchanged catalog still owns USB lane");
+        state.Reset();
+        using(var reset=JsonDocument.Parse(state.Wire(changed,false,true)))if(reset.RootElement.GetProperty("type").GetString()!="tab5_status")throw new Exception("Reconnect omitted full baseline");
+        using(var hello=JsonDocument.Parse("{\"type\":\"tab5_hello\",\"version\":1,\"deviceId\":\""+device+"\",\"usbPacked\":1,\"usbDelta\":1}"))
+            if(!Tab5UsbState.SupportsDelta(hello.RootElement,device)||Tab5UsbState.SupportsDelta(hello.RootElement,"ffeeddccbbaa"))throw new Exception("USB delta negotiated without identity");
         foreach(string fields in new[]{"\"usbPacked\":1","\"usbPacked\":0","\"usbPacked\":2","\"usbPacked\":\"1\"","\"usbPacked\":null","\"other\":1"}) {
             using var hello=JsonDocument.Parse("{\"type\":\"tab5_hello\",\"version\":1,\"deviceId\":\""+device+"\","+fields+"}");
             if(Tab5UsbStatus.SupportsPacked(hello.RootElement,device)!=(fields=="\"usbPacked\":1")||
