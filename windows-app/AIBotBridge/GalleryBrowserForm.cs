@@ -14,7 +14,8 @@ internal sealed class GalleryBrowserForm : Form
     private readonly Label _imageState=new(){Name="browse-image-state",Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleCenter,ForeColor=SettingsWindow.Muted};
     private readonly Label _pageCount=new(){Name="browse-page-count",AutoSize=true,Margin=new(8,7,8,0)};
     private readonly GalleryImageView _image=new(){Name="browse-image",Dock=DockStyle.Fill};
-    private readonly Button _previousWork,_nextWork,_previousPage,_nextPage,_findDate,_fit,_fullscreen,_readerToggle;
+    private readonly Button _previousPage,_nextPage,_findDate,_fullscreen,_readerToggle;
+    private readonly ContextMenuStrip _imageMenu=new();
     private readonly Dictionary<string,TextBox> _reading=[];
     private readonly Dictionary<int,Bitmap> _thumbnails=[];
     private readonly HashSet<int> _thumbnailFailures=[];
@@ -45,24 +46,31 @@ internal sealed class GalleryBrowserForm : Form
         content.ColumnStyles.Add(new(SizeType.Percent,30));content.ColumnStyles.Add(new(SizeType.Percent,70));content.RowStyles.Add(new(SizeType.Percent,100));root.Controls.Add(content,0,2);
         var directory=new Panel{Dock=DockStyle.Fill,Margin=new(0,0,20,0),Padding=new(1),BackColor=SettingsWindow.Border};content.Controls.Add(directory,0,0);
         _list.BackColor=Color.White;_list.Margin=Padding.Empty;directory.Controls.Add(_list);
-        var details=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=6,Margin=Padding.Empty};content.Controls.Add(details,1,0);
+        var details=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=5,Margin=Padding.Empty};content.Controls.Add(details,1,0);
         details.ColumnStyles.Add(new(SizeType.Percent,100));
-        details.RowStyles.Add(new(SizeType.AutoSize));details.RowStyles.Add(new(SizeType.AutoSize));details.RowStyles.Add(new(SizeType.Percent,100));details.RowStyles.Add(new(SizeType.AutoSize));details.RowStyles.Add(new(SizeType.Absolute,0));details.RowStyles.Add(new(SizeType.AutoSize));
+        details.RowStyles.Add(new(SizeType.AutoSize));details.RowStyles.Add(new(SizeType.AutoSize));details.RowStyles.Add(new(SizeType.Percent,100));details.RowStyles.Add(new(SizeType.AutoSize));details.RowStyles.Add(new(SizeType.Absolute,0));
         _title.Margin=new(0,0,0,6);_metadata.Margin=new(0,0,0,12);details.Controls.Add(_title,0,0);details.Controls.Add(_metadata,0,1);
         var imagePanel=new Panel{Dock=DockStyle.Fill,BackColor=SettingsWindow.Surface,Margin=Padding.Empty};imagePanel.Controls.Add(_image);imagePanel.Controls.Add(_imageState);details.Controls.Add(imagePanel,0,2);
-        var frame=Flow();frame.Margin=new(0,8,0,0);details.Controls.Add(frame,0,3);
-        _previousPage=Action("上一页","browse-previous-page",()=>ChangeFrame(-1));_nextPage=Action("下一页","browse-next-page",()=>ChangeFrame(1));frame.Controls.AddRange([_previousPage,_pageCount,_nextPage]);
+        var toolbar=new TableLayoutPanel{Name="browse-actions",AutoSize=true,Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=new(0,10,0,0)};details.Controls.Add(toolbar,0,3);
+        toolbar.ColumnStyles.Add(new(SizeType.Percent,100));toolbar.ColumnStyles.Add(new(SizeType.AutoSize));toolbar.RowStyles.Add(new(SizeType.AutoSize));
+        var frame=Flow();frame.WrapContents=false;toolbar.Controls.Add(frame,0,0);
+        _previousPage=Action("‹","browse-previous-page",()=>ChangeFrame(-1));_previousPage.AccessibleName="上一页";
+        _nextPage=Action("›","browse-next-page",()=>ChangeFrame(1));_nextPage.AccessibleName="下一页";
+        foreach(var button in new[]{_previousPage,_nextPage}){button.MinimumSize=new(32,30);button.Size=new(32,30);button.Margin=Padding.Empty;}
+        frame.Controls.AddRange([_previousPage,_pageCount,_nextPage]);
         var reading=new TabControl{Name="browse-reading",Dock=DockStyle.Fill,Margin=new(0,12,0,0),Visible=false};details.Controls.Add(reading,0,4);
         _readerToggle=Action("阅读资料","browse-toggle-reading",()=>{_readingOpen=!_readingOpen;reading.Visible=_readingOpen;details.RowStyles[2]=new(SizeType.Percent,_readingOpen?65:100);details.RowStyles[4]=_readingOpen?new(SizeType.Percent,35):new(SizeType.Absolute,0);});
         _readerToggle.Click+=(_,_)=>_readerToggle.Text=_readingOpen?"收起资料":"阅读资料";
-        _fit=Action("适合窗口","browse-fit",()=>_image.ResetView());_fullscreen=Action("全屏观看","browse-fullscreen",()=>ShowFullscreen());
-        frame.Controls.AddRange([_readerToggle,_fit,_fullscreen]);_image.MouseDoubleClick+=(_,_)=>ShowFullscreen();
+        _fullscreen=Action("全屏观看","browse-fullscreen",()=>ShowFullscreen());_fullscreen.Margin=Padding.Empty;
+        var actions=Flow();actions.WrapContents=false;toolbar.Controls.Add(actions,1,0);actions.Controls.AddRange([_readerToggle,_fullscreen]);
+        var fit=new ToolStripMenuItem("适合窗口"){Name="browse-fit",ShortcutKeys=Keys.Control|Keys.D0};fit.Click+=(_,_)=>_image.ResetView();_imageMenu.Items.Add(fit);
+        _imageMenu.Opening+=(_,e)=>e.Cancel=!_image.HasImage;_image.ContextMenuStrip=_imageMenu;
+        KeyPreview=true;KeyDown+=(_,e)=>{if(e.Control&&e.KeyCode==Keys.D0){_image.ResetView();e.Handled=true;e.SuppressKeyPress=true;}};
+        _image.MouseDoubleClick+=(_,_)=>ShowFullscreen();
         foreach(string name in new[]{"简介","欣赏提示","原文"}) {
             var tab=new TabPage(name){Padding=new(12),BackColor=Color.White};reading.TabPages.Add(tab);
             var text=new TextBox{Name="browse-reading-"+name,Dock=DockStyle.Fill,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,BorderStyle=BorderStyle.None,BackColor=Color.White,ForeColor=SettingsWindow.Ink};tab.Controls.Add(text);_reading[name]=text;
         }
-        var navigate=Flow();navigate.Margin=new(0,12,0,0);details.Controls.Add(navigate,0,5);
-        _previousWork=Action("上一件","browse-previous-work",()=>ChangeWork(-1));_nextWork=Action("下一件","browse-next-work",()=>ChangeWork(1));navigate.Controls.AddRange([_previousWork,_nextWork]);
         _list.DrawItem+=DrawWork;_list.ViewportChanged+=(_,_)=>QueueThumbnails();_list.SelectedIndexChanged+=async(_,_)=>{if(!_changing&&_list.SelectedItem is int selected){_selected=selected;_frame=0;UpdateNavigation();QueueThumbnails();await LoadDetailAsync();}};
         _category.SelectedIndexChanged+=async(_,_)=>await ReloadAsync();_search.TextChanged+=(_,_)=>{if(!_changing)ApplyFilter();};
         void Fit(){int width=Math.Max(80,details.ClientSize.Width-details.Padding.Horizontal);_title.MaximumSize=_metadata.MaximumSize=new(width,0);_summary.MaximumSize=new(Math.Max(100,root.ClientSize.Width-root.Padding.Horizontal),0);_summary.MinimumSize=new(0,(int)Math.Ceiling(_summary.Font.GetHeight()+4));_list.ItemHeight=(int)Math.Ceiling(Font.GetHeight()*4.8);}
@@ -104,10 +112,6 @@ internal sealed class GalleryBrowserForm : Form
         if(_catalog is null||_catalog.Works.Length==0)return;
         _changing=true;_search.Text="";_changing=false;
         ApplyFilter(Tab5Gallery.DayIndex(DateOnly.FromDateTime(_date.Value),_catalog.Works.Length));
-    }
-    private void ChangeWork(int direction) {
-        int position=Array.IndexOf(_filtered,_selected)+direction;if(position<0||position>=_filtered.Length)return;
-        _selected=_filtered[position];_changing=true;_list.SelectedItem=_selected;_changing=false;_frame=0;QueueThumbnails();UpdateNavigation();_ = LoadDetailAsync();
     }
     private void ChangeFrame(int direction){if(_catalog is null||_selected<0)return;int frame=_frame+direction;if(frame<0||frame>=_catalog.Works[_selected].Frames.Length)return;_frame=frame;UpdateNavigation();_ = LoadDetailAsync();}
     private void RenderList() {
@@ -172,11 +176,10 @@ internal sealed class GalleryBrowserForm : Form
         _title.Text="";_metadata.Text="";foreach(var text in _reading.Values)text.Text="";
     }
     private void UpdateNavigation() {
-        int position=Array.IndexOf(_filtered,_selected);int frames=_catalog is not null&&_selected>=0?_catalog.Works[_selected].Frames.Length:0;
-        _previousWork.Enabled=position>0;_nextWork.Enabled=position>=0&&position+1<_filtered.Length;
+        int frames=_catalog is not null&&_selected>=0?_catalog.Works[_selected].Frames.Length:0;
         _previousPage.Enabled=_frame>0&&frames>0;_nextPage.Enabled=frames>0&&_frame+1<frames;
         _previousPage.Visible=_nextPage.Visible=_pageCount.Visible=frames>1;
-        _readerToggle.Enabled=_fit.Enabled=_fullscreen.Enabled=_image.HasImage;
+        _readerToggle.Enabled=_fullscreen.Enabled=_image.HasImage;
         _findDate.Enabled=_catalog is not null&&_catalog.Works.Length>0;_pageCount.Text=frames==0?"":$"{_frame+1} / {frames} 页";
     }
     private void DrawWork(object? sender,DrawItemEventArgs e) {
@@ -195,7 +198,7 @@ internal sealed class GalleryBrowserForm : Form
     private void ClearThumbnails(){foreach(var thumbnail in _thumbnails.Values)thumbnail.Dispose();_thumbnails.Clear();_thumbnailFailures.Clear();}
     private void ShowFullscreen(){if(_image.CopyImage() is not Bitmap image)return;using var form=new GalleryImageFullscreenForm(image,_title.Text);form.ShowDialog(this);}
     protected override void Dispose(bool disposing) {
-        if(disposing&&!_closed){_closed=true;foreach(var stop in new[]{_catalogStop,_thumbnailStop,_detailStop}){stop?.Cancel();stop?.Dispose();}ClearThumbnails();}
+        if(disposing&&!_closed){_closed=true;foreach(var stop in new[]{_catalogStop,_thumbnailStop,_detailStop}){stop?.Cancel();stop?.Dispose();}ClearThumbnails();_imageMenu.Dispose();}
         base.Dispose(disposing);
     }
 }

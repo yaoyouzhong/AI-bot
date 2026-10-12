@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 
 ### Desktop artwork browsing
 
+- Simplify gallery management and browsing: keep primary actions in one row, move directory/help into More, use the work list for selection, and retain compact paging, reading and fullscreen actions.
+
 - Add Browse Works to Artwork Collections for installed painting and calligraphy packs. Find by date, search titles/artists, and navigate works/pages; introductions, viewing suggestions and complete originals expand on demand, with the image taking priority by default.
 - Open fullscreen by button or double-click, zoom with the mouse wheel, drag to pan, fit the image and exit with Esc. Legacy image-only packs remain browsable without invented text. No artwork is sent to TAB5 and daily screensaver dates are unchanged. Native Windows interactions, complete reads of both installed collections and normal/minimum layouts at 100/150/200% passed; deployment acceptance is recorded separately.
 

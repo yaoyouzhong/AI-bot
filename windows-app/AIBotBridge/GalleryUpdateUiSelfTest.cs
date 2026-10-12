@@ -62,7 +62,7 @@ internal static class GalleryUpdateUiSelfTest
                 if(minimum)view.Size=view.MinimumSize;if(scale!=1)view.Scale(new SizeF(scale,scale));view.PerformLayout();await Task.Yield();
                 await Wait(()=>((Button)view.Controls.Find("gallery-check",true).Single()).Enabled);
                 if(scale==1&&!minimum) {
-                    var footer=view.Controls.Find("gallery-download-center",true).Single();
+                    var footer=view.Controls.Find("gallery-actions",true).Single();
                     await Wait(()=>view.RectangleToScreen(view.ClientRectangle).Contains(footer.RectangleToScreen(footer.ClientRectangle)));
                     GalleryUpdateSelfTest.Check(view.RectangleToScreen(view.ClientRectangle).Contains(footer.RectangleToScreen(footer.ClientRectangle)),"Default gallery window requires scrolling to its actions/footer");
                 }

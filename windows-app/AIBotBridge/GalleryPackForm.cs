@@ -6,15 +6,16 @@ internal sealed class GalleryPackForm : Form
     private CancellationTokenSource? _operation;
     private readonly UpdateService _service;
     private readonly bool _ownsService;
+    private readonly ContextMenuStrip _moreMenu=new();
     private bool _disposed,_busy;
     internal Exception? OperationError {get;private set;}
     internal GalleryPackForm(UpdateService? service=null,Action<string>? openUrl=null) {
         _service=service??new UpdateService();_ownsService=service is null;
         openUrl??=url=>Process.Start(new ProcessStartInfo(url){UseShellExecute=true});
         Text="AI-bot · 屏保图库";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        BackColor=Color.White;ClientSize=new(680,430);MinimumSize=new(560,380);AutoScroll=true;
-        var root=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Padding=new(24),ColumnCount=1,RowCount=8};Controls.Add(root);
-        root.ColumnStyles.Add(new(SizeType.Percent,100));for(int i=0;i<8;i++)root.RowStyles.Add(new(SizeType.AutoSize));
+        BackColor=Color.White;ClientSize=new(680,430);MinimumSize=new(660,380);AutoScroll=true;
+        var root=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Padding=new(24),ColumnCount=1,RowCount=7};Controls.Add(root);
+        root.ColumnStyles.Add(new(SizeType.Percent,100));for(int i=0;i<7;i++)root.RowStyles.Add(new(SizeType.AutoSize));
         var description=new Label{Text="图片和作品导读随图库一起更新，支持断点续传。",AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,0,0,16)};root.Controls.Add(description,0,0);
         var currentLabels=new Dictionary<string,Label>();var latestLabels=new Dictionary<string,Label>();var statusLabels=new Dictionary<string,Label>();var updateButtons=new Dictionary<string,Button>();
         foreach(string category in new[]{"painting","calligraphy"}) {
@@ -32,17 +33,23 @@ internal sealed class GalleryPackForm : Form
             currentLabels[category]=current;latestLabels[category]=latest;statusLabels[category]=status;updateButtons[category]=update;
             root.Controls.Add(card,0,category=="painting"?1:2);
         }
-        var warning=new Label{Text="旧图库保留为备份。",AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,2,0,14)};root.Controls.Add(warning,0,3);
-        var tools=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty};
+        var warning=new Label{Text="旧图库保留为备份。",ForeColor=SettingsWindow.Muted,AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,2,0,16)};root.Controls.Add(warning,0,3);
+        var tools=new TableLayoutPanel{Name="gallery-actions",AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty,ColumnCount=2,RowCount=1};
+        tools.ColumnStyles.Add(new(SizeType.Percent,100));tools.ColumnStyles.Add(new(SizeType.AutoSize));tools.RowStyles.Add(new(SizeType.AutoSize));
+        var main=new FlowLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Fill,WrapContents=false,Margin=Padding.Empty};
         var check=new Button{Name="gallery-check",Text="检查更新",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(check);
-        var import=new Button{Name="gallery-import",Text="导入图库 ZIP…",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(import);
-        var browse=new Button{Name="gallery-browse",Text="浏览作品",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(browse);
-        var open=new Button{Text="打开图库目录",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(open);
-        var cancel=new Button{Name="gallery-cancel",Text="取消",Visible=false};SettingsWindow.StyleButton(cancel);
-        tools.Controls.AddRange([browse,check,import,open,cancel]);root.Controls.Add(tools,0,4);
-        var message=new Label{Name="gallery-state",AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,12,0,10)};root.Controls.Add(message,0,5);
+        var import=new Button{Name="gallery-import",Text="导入图库…",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(import);
+        var browse=new Button{Name="gallery-browse",Text="浏览作品",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(browse,true);
+        var more=new Button{Name="gallery-more",Text="更多",Anchor=AnchorStyles.Right,Margin=Padding.Empty};SettingsWindow.StyleButton(more);
+        var open=new ToolStripMenuItem("打开图库目录"){Name="gallery-open-directory"};
+        var site=new ToolStripMenuItem("下载与安装说明"){Name="gallery-download-center"};
+        _moreMenu.Items.AddRange([open,site]);more.Click+=(_,_)=>_moreMenu.Show(more,new Point(0,more.Height));
+        main.Controls.AddRange([browse,import,check]);tools.Controls.Add(main,0,0);tools.Controls.Add(more,1,0);root.Controls.Add(tools,0,4);
+        var operationRow=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,12,0,0),ColumnCount=2,RowCount=1};
+        operationRow.ColumnStyles.Add(new(SizeType.Percent,100));operationRow.ColumnStyles.Add(new(SizeType.AutoSize));operationRow.RowStyles.Add(new(SizeType.AutoSize));root.Controls.Add(operationRow,0,5);
+        var message=new Label{Name="gallery-state",AutoSize=true,Dock=DockStyle.Fill,ForeColor=SettingsWindow.Muted,Margin=new(0,5,12,10)};operationRow.Controls.Add(message,0,0);
+        var cancel=new Button{Name="gallery-cancel",Text="取消操作",Visible=false,Anchor=AnchorStyles.Top|AnchorStyles.Right,Margin=Padding.Empty};SettingsWindow.StyleButton(cancel);operationRow.Controls.Add(cancel,1,0);
         var progress=new ProgressBar{Name="gallery-progress",Dock=DockStyle.Fill,Height=8,Visible=false,Margin=new(0,0,0,12)};root.Controls.Add(progress,0,6);
-        var site=new LinkLabel{Name="gallery-download-center",Text="完整下载与安装说明",AutoSize=true,Margin=Padding.Empty};root.Controls.Add(site,0,7);
         bool fitting=false,fitPending=false;
         void FitContentHeight() {
             if(fitting||IsDisposed||!Visible)return;fitting=true;
@@ -50,7 +57,8 @@ internal sealed class GalleryPackForm : Form
             finally{fitting=false;}
         }
         root.Layout+=(_,_)=>{if(fitPending||fitting||!IsHandleCreated||IsDisposed)return;fitPending=true;BeginInvoke((Action)(()=>{fitPending=false;FitContentHeight();}));};
-        root.SizeChanged+=(_,_)=>{int width=Math.Max(100,root.ClientSize.Width-root.Padding.Horizontal);foreach(var label in new[]{description,warning,message})label.MaximumSize=new(width,0);};
+        root.SizeChanged+=(_,_)=>{int width=Math.Max(100,root.ClientSize.Width-root.Padding.Horizontal);foreach(var label in new[]{description,warning})label.MaximumSize=new(width,0);};
+        operationRow.SizeChanged+=(_,_)=>message.MaximumSize=new(Math.Max(100,operationRow.ClientSize.Width-(cancel.Visible?cancel.Width:0)-message.Margin.Horizontal),0);
         void RefreshStatus() {
             check.Enabled=import.Enabled=browse.Enabled=!_busy;
             foreach(string category in currentLabels.Keys) {
@@ -115,7 +123,7 @@ internal sealed class GalleryPackForm : Form
         };
         cancel.Click+=(_,_)=>{cancel.Enabled=false;_operation?.Cancel();};
         browse.Click+=(_,_)=>{using var form=new GalleryBrowserForm();form.ShowDialog(this);};
-        site.LinkClicked+=(_,_)=>{try{openUrl("https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md");}catch(Exception ex){message.Text=ex.Message;}};
+        site.Click+=(_,_)=>{try{openUrl("https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md");}catch(Exception ex){message.Text=ex.Message;}};
         open.Click+=(_,_)=>{try{Directory.CreateDirectory(GalleryPack.Root);Process.Start(new ProcessStartInfo(GalleryPack.Root){UseShellExecute=true});}catch(Exception ex){message.Text=ex.Message;}};
         import.Click+=async(_,_)=>{
             if(_busy)return;
@@ -131,5 +139,5 @@ internal sealed class GalleryPackForm : Form
         };
         SettingsWindow.AddTitle(root,"屏保图库");Shown+=async(_,_)=>{FitContentHeight();await CheckAsync();};FormClosing+=(_,_)=>_stop.Cancel();RefreshStatus();SettingsWindow.FitScreen(this);
     }
-    protected override void Dispose(bool disposing){if(disposing&&!_disposed){_disposed=true;_stop.Cancel();_stop.Dispose();if(_ownsService)_service.Dispose();}base.Dispose(disposing);}
+    protected override void Dispose(bool disposing){if(disposing&&!_disposed){_disposed=true;_stop.Cancel();_stop.Dispose();_moreMenu.Dispose();if(_ownsService)_service.Dispose();}base.Dispose(disposing);}
 }

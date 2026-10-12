@@ -106,7 +106,8 @@ internal static class GalleryBrowserSelfTest
             Check(!Descendants(browser).Any(c=>c.Text.Contains("在 Tab5 查看")),"Unrequested device action present");
             Control<DateTimePicker>("browse-date").Value=new DateTime(2026,1,1);await Click("browse-find-date");Check(browser.SelectedWorkId=="painting0","Date selection failed");Capture(browser,"painting-reader");
             await Click("browse-next-page");Check(Control<Label>("browse-page-count").Text=="2 / 2 页","Page navigation failed");
-            await Click("browse-next-work");Check(browser.SelectedWorkId=="painting1"&&!Control<Button>("browse-next-page").Enabled,"Work navigation retained old page");
+            Control<ListBox>("browse-works").SelectedIndex=1;await Wait(()=>browser.PendingLoads==0);Check(browser.SelectedWorkId=="painting1"&&!Control<Button>("browse-next-page").Enabled,"Work navigation retained old page");
+            var image=Control<GalleryImageView>("browse-image");image.ZoomAt(3,new(120,80));image.ContextMenuStrip!.Items.Find("browse-fit",false).OfType<ToolStripMenuItem>().Single().PerformClick();Check(image.Zoom==1,"Image menu fit reset failed");
             Check(Control<TextBox>("browse-reading-原文").Text.Contains("暂无已核实原文"),"Unverified text appeared in UI");
             Control<TextBox>("browse-search").Text="核实中文名";await Wait(()=>browser.PendingLoads==0);Check(Control<ListBox>("browse-works").Items.Count==1&&browser.SelectedWorkId=="painting0","Displayed Chinese title search failed");
             Control<TextBox>("browse-search").Text="核实名";await Wait(()=>browser.PendingLoads==0);Check(Control<ListBox>("browse-works").Items.Count==1,"Displayed Chinese artist search failed");
