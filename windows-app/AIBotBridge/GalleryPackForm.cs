@@ -36,9 +36,10 @@ internal sealed class GalleryPackForm : Form
         var tools=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty};
         var check=new Button{Name="gallery-check",Text="检查更新",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(check);
         var import=new Button{Name="gallery-import",Text="导入图库 ZIP…",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(import);
+        var browse=new Button{Name="gallery-browse",Text="浏览作品",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(browse);
         var open=new Button{Text="打开图库目录",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(open);
         var cancel=new Button{Name="gallery-cancel",Text="取消",Visible=false};SettingsWindow.StyleButton(cancel);
-        tools.Controls.AddRange([check,import,open,cancel]);root.Controls.Add(tools,0,4);
+        tools.Controls.AddRange([browse,check,import,open,cancel]);root.Controls.Add(tools,0,4);
         var message=new Label{Name="gallery-state",AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,12,0,10)};root.Controls.Add(message,0,5);
         var progress=new ProgressBar{Name="gallery-progress",Dock=DockStyle.Fill,Height=8,Visible=false,Margin=new(0,0,0,12)};root.Controls.Add(progress,0,6);
         var site=new LinkLabel{Name="gallery-download-center",Text="完整下载与安装说明",AutoSize=true,Margin=Padding.Empty};root.Controls.Add(site,0,7);
@@ -51,7 +52,7 @@ internal sealed class GalleryPackForm : Form
         root.Layout+=(_,_)=>{if(fitPending||fitting||!IsHandleCreated||IsDisposed)return;fitPending=true;BeginInvoke((Action)(()=>{fitPending=false;FitContentHeight();}));};
         root.SizeChanged+=(_,_)=>{int width=Math.Max(100,root.ClientSize.Width-root.Padding.Horizontal);foreach(var label in new[]{description,warning,message})label.MaximumSize=new(width,0);};
         void RefreshStatus() {
-            check.Enabled=import.Enabled=!_busy;
+            check.Enabled=import.Enabled=browse.Enabled=!_busy;
             foreach(string category in currentLabels.Keys) {
                 var installed=GalleryPack.Installed(category);_service.Galleries.TryGetValue(category,out var release);
                 currentLabels[category].Text=installed is null?"已安装：尚未导入图库包":$"已安装：{installed.Version} · {installed.Works} 件";
@@ -113,6 +114,7 @@ internal sealed class GalleryPackForm : Form
             }
         };
         cancel.Click+=(_,_)=>{cancel.Enabled=false;_operation?.Cancel();};
+        browse.Click+=(_,_)=>{using var form=new GalleryBrowserForm();form.ShowDialog(this);};
         site.LinkClicked+=(_,_)=>{try{openUrl("https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md");}catch(Exception ex){message.Text=ex.Message;}};
         open.Click+=(_,_)=>{try{Directory.CreateDirectory(GalleryPack.Root);Process.Start(new ProcessStartInfo(GalleryPack.Root){UseShellExecute=true});}catch(Exception ex){message.Text=ex.Message;}};
         import.Click+=async(_,_)=>{

@@ -2,17 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.6.6 - 2026-10-11
+## 0.6.6 - 2026-10-12
 
 ### Packages and offline flashing
 
 - Windows and Apple Silicon Mac packages retain only the required esptool executable, original LICENSE/README and matching source, omitting three unused tools. Executable bytes remain unchanged; builds verify upstream inputs and runtimes verify the pinned subset. Flashing still requires no tool download or Python installation.
 - Launch the tool from the final unpacked package to check its version and read/write/verify commands. Preserve complete backups, capacity checks and post-write verification.
 
+### Desktop artwork browsing
+
+- Add Browse Works to Artwork Collections for installed painting and calligraphy packs. Find by date, search titles/artists, and navigate works/pages; introductions, viewing suggestions and complete originals expand on demand, with the image taking priority by default.
+- Open fullscreen by button or double-click, zoom with the mouse wheel, drag to pan, fit the image and exit with Esc. Legacy image-only packs remain browsable without invented text. No artwork is sent to TAB5 and daily screensaver dates are unchanged. Native Windows interactions, complete reads of both installed collections and normal/minimum layouts at 100/150/200% passed; deployment acceptance is recorded separately.
+
 ### Notes and companion firmware
 
+- Windows verifies ESP8266 0.5.3's fixed device identity before recovering a changed USB socket/COM path. Preserve binding updates against stale settings saves; display USB/Wi-Fi/Bluetooth connection status on one line, with full-text tooltips when space is narrow.
 - Generate maintained Chinese notes before English notes, retain verified download sizes and resolve repository-document links for Release pages.
-- Companion TAB5 0.2.177-ui adds whole-library TF synchronization and the latest font. Images, introductions, viewing suggestions and originals continue through independent collection packs; no new collection ships here, installed packs remain compatible and ESP8266 firmware is unchanged. See the [release record](docs/RELEASE-0.6.6.md).
+- Release annual collections as two independent optional image/text ZIPs, with 366 paintings and 366 calligraphy works. Reviewed introductions, work-specific appreciation, complete originals or explicitly scoped references and source records update together. Page and orientation counts never inflate the number of works. Installed older image-only packs remain compatible.
+- Support complete long originals through checked reading pages on the companion TAB5 firmware; older readers receive a whole-text upgrade notice. Preserve the complete text in the pack and desktop browser. Object transcriptions and version-labelled reference texts retain their distinct review scope.
+- Companion TAB5 0.2.178-ui includes the latest font and complete-library TF synchronization, fixes FAT long filenames, and adds independent Storage & Cache settings. Device cache remains the default; explicitly select TF to save complete installed libraries. Card status no longer depends on the screensaver, and Codex Direct hides its initial empty result panel. ESP8266 0.5.3 ships independently with the small-display USB recovery changes. Build, local checks and hardware acceptance are separately recorded in the [release record](docs/RELEASE-0.6.6.md).
 
 ## 0.6.5 - 2026-10-11
 

@@ -53,7 +53,7 @@ internal sealed class AddDeviceForm : Form
             _busy=true;add.Enabled=refresh.Enabled=kind.Enabled=ports.Enabled=install.Enabled=false;status.Text="正在验证设备…";
             using var timeout=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);timeout.CancelAfter(TimeSpan.FromSeconds(20));
             try {
-                string? id=null;
+                string? id=null,espId=null;
                 if(selected.Kind==HardwareKind.Tab5){
                     using var service=new Tab5Service();
                     try{await service.PairUsbAsync(device,timeout.Token);}
@@ -64,8 +64,8 @@ internal sealed class AddDeviceForm : Form
                     }
                     id=service.PairedId;
                 }
-                else await DeviceProbe.VerifyEspAsync(device,timeout.Token);
-                Added=DeviceRegistryStore.Create(selected.Kind,name.Text,id) with {UsbIdentity=device.Identity};DialogResult=DialogResult.OK;
+                else espId=(await DeviceProbe.VerifyEspAsync(device,timeout.Token)).DeviceId;
+                Added=DeviceRegistryStore.Create(selected.Kind,name.Text,id) with {UsbIdentity=device.Identity,EspDeviceId=EspUsbRecovery.ValidId(espId)?espId:null};DialogResult=DialogResult.OK;
             }catch(Exception ex){status.Text=ex is OperationCanceledException?"验证已取消或超时，未添加设备。":ex.Message;}
             finally{_busy=false;if(!IsDisposed)add.Enabled=refresh.Enabled=kind.Enabled=ports.Enabled=install.Enabled=true;}
         };
@@ -78,14 +78,14 @@ internal sealed class AddDeviceForm : Form
 
 internal static class DeviceProbe
 {
-    internal static Task VerifyEspAsync(FlashUsbDevice device,CancellationToken token)=>Task.Run(async()=> {
+    internal static Task<UsbDeviceInfo> VerifyEspAsync(FlashUsbDevice device,CancellationToken token)=>Task.Run(async()=> {
         FlashDeviceSelection.RequireSame(device,FlashDeviceDiscovery.Read());
         using var port=new SerialPort(device.Port,460800){ReadTimeout=500,WriteTimeout=1500,NewLine="\n",DtrEnable=false,RtsEnable=false};
         port.Open();await Task.Delay(1200,token);port.DiscardInBuffer();
         uint request=(uint)Random.Shared.Next(1,int.MaxValue);
         port.WriteLine("@AIBOT "+JsonSerializer.Serialize(new{version=1,type="device_info_request",request_id=request}));
         long end=Environment.TickCount64+6000;
-        while(Environment.TickCount64<end){token.ThrowIfCancellationRequested();try{var reply=UsbDeviceProtocol.ParseReply(port.ReadLine().Trim(),"device_info",request);if(reply is not null){_=UsbDeviceProtocol.ReadInfo(reply.Value);return;}}catch(TimeoutException){}}
+        while(Environment.TickCount64<end){token.ThrowIfCancellationRequested();try{var reply=UsbDeviceProtocol.ParseReply(port.ReadLine().Trim(),"device_info",request);if(reply is not null)return UsbDeviceProtocol.ReadInfo(reply.Value);}catch(TimeoutException){}}
         throw new IOException("未收到 ESP8266 小屏的有效协议回执，请检查连接与固件。");
     },token);
 }

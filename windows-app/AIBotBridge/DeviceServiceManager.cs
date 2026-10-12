@@ -52,7 +52,7 @@ internal sealed class DeviceServiceManager
             if(!esp&&_espStop is not null){EspEnabled=false;await StopAsync(_espStop,_espTasks);_espStop=null;Serial.SetPairing(null);Interlocked.Exchange(ref _legacyLanAt,0);}
             if(tab is null&&_tabStop is not null){var old=Tab5;old?.BeginStop();Tab5=null;await StopAsync(_tabStop,_tabTasks);_tabStop=null;old?.Dispose();}
             if(esp&&_espStop is null) {
-                Serial.ExpectedUsbIdentity=registry.Devices.Single(d=>d.Kind==HardwareKind.Esp8266).UsbIdentity;Serial.ReloadPort();_espStarted=Environment.TickCount64;EspEnabled=true;_espStop=CancellationTokenSource.CreateLinkedTokenSource(_shutdown);var token=_espStop.Token;
+                Serial.ExpectedUsbIdentity=espDevice!.UsbIdentity;Serial.ExpectedEspDeviceId=espDevice.EspDeviceId;Serial.ReloadPort();_espStarted=Environment.TickCount64;EspEnabled=true;_espStop=CancellationTokenSource.CreateLinkedTokenSource(_shutdown);var token=_espStop.Token;
                 _espTasks=[Start("esp-usb",ct=>Serial.RunAsync(_runtime.Capture,_runtime.Resources,ct),token),Start("esp-metrics",ct=>Serial.RunMetricsAsync(()=>_runtime.SystemMetrics,ct),token)];
             }
             Exception? failed=null;

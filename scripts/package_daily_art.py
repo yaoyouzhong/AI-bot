@@ -23,6 +23,43 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def text_pages(text):
+    pages, current, used, wire_used = [], [], 0, 0
+    for char in text:
+        size = len(char.encode("utf-8"))
+        encoded = json.dumps(char,ensure_ascii=False)[1:-1]
+        if char in '<>&\'+`"' or ord(char)>0xffff:
+            wire_size = 12 if ord(char)>0xffff else 6
+        else:
+            wire_size = len(encoded.encode('utf-8'))
+        if used + size > 4095 or wire_used + wire_size > 6144:
+            pages.append("".join(current))
+            current, used, wire_used = [], 0, 0
+        current.append(char)
+        used += size
+        wire_used += wire_size
+    pages.append("".join(current))
+    if len(text.encode('utf-8'))>32760 or len(pages) > 32:
+        raise ValueError("Original exceeds bounded reading page count")
+    return pages
+
+
+def portable_metadata(value):
+    """Keep evidence URLs/digests; research paths are not package dependencies."""
+    if isinstance(value, list):
+        return [portable_metadata(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    result = {}
+    for key, item in value.items():
+        if key in ('snapshot', 'retainedFrom', 'completeReferenceFile', 'completeReaderHtmlFile', 'candidatePath'):
+            continue
+        if isinstance(item, str) and re.match(r'^(?:artifacts|docs|sources|windows-app|reference-texts)/|^[A-Za-z]:[\\/]', item):
+            continue
+        result[key] = portable_metadata(item)
+    return result
+
+
 def select_guides(document, works, version):
     if document.get("schemaVersion") != 1 or document.get("language") != "zh-CN":
         raise ValueError("Unsupported guide schema or language")
@@ -57,17 +94,27 @@ def select_guides(document, works, version):
         if original["status"] in ("source_verified", "reference_verified"):
             if not original.get("text", "").strip():
                 raise ValueError("Reviewed original text is empty")
-            for field, limit in (("text", 8192), ("explanation", 512)):
+            for field, limit in (("text", 32761 if "completeReferenceText" in original else 8192), ("explanation", 512)):
                 value = original.get(field, "")
                 if not isinstance(value, str) or "\0" in value or len(value.encode("utf-8")) >= limit:
                     raise ValueError("Original text exceeds device bounds")
+            full = original.get("completeReferenceText", original["text"])
+            if not isinstance(full, str) or not full.strip() or "\0" in full or len(full.encode("utf-8")) > 4095 * 8:
+                raise ValueError("Complete original exceeds bounded reading pages")
+            if original.get("completeReferenceTextSha256", digest(full.encode("utf-8"))) != digest(full.encode("utf-8")):
+                raise ValueError("Complete original checksum mismatch")
+            if len(original["text"].encode('utf-8'))>=8192 and original["text"]!=full:
+                raise ValueError("Oversized original differs from complete text")
+            pages = text_pages(full)
         reader = {name: row.get(name, "") for name in limits}
         reviewed = original["status"] in ("source_verified", "reference_verified")
-        reader.update(transcription=original.get("text", "") if reviewed else "",
+        reader.update(transcription=pages[0] if reviewed and len(full.encode("utf-8")) >= 8192 else original.get("completeReferenceText",original.get("text", "")) if reviewed else "",
                       explanation=original.get("explanation", "") if reviewed else "")
+        if reviewed and len(full.encode("utf-8")) >= 8192:
+            reader.update(transcriptionPages=len(pages), transcriptionSha256=digest(full.encode("utf-8")))
         reply = {"status": 200, "body": {**{key: work[key] for key in ("id", "title", "author", "source", "license")},
                  "date": "2026-10-10", "size": 1048576, "sha256": "f" * 64, "frames": len(work["frames"]),
-                 "width": 1280, "height": 720, "orientation": "portrait", "guideVersion": 2, "guide": reader}}
+                 "width": 1280, "height": 720, "orientation": "portrait", "guideVersion": 3, "guide": reader}}
         # Gallery replies retain CJK UTF-8 while escaping HTML-sensitive text.
         # The production importer independently checks its exact wire encoding.
         wire = json.dumps(reply, ensure_ascii=False, separators=(",", ":")).replace('\\"', '\\u0022')
@@ -86,7 +133,16 @@ def select_guides(document, works, version):
         if original["status"] not in ("source_verified", "reference_verified"):
             packaged["transcription"]["text"] = ""
             packaged["transcription"]["explanation"] = ""
-        selected.append(packaged)
+            packaged["transcription"].pop("completeReferenceText", None)
+            packaged["transcription"].pop("completeReferenceTextSha256", None)
+        elif "completeReferenceText" in original:
+            packaged["transcription"]["completeReferenceTextSha256"] = digest(full.encode("utf-8"))
+            if len(full.encode('utf-8'))>=8192:
+                packaged["transcription"]["text"] = "这幅作品所写的诗文已补入完整原文。\n当前设备版本只支持短篇，请升级后阅读完整正文。"
+        # References to archived local files never become install-time dependencies.
+        for field in ("completeReferenceFile", "completeReaderHtmlFile"):
+            packaged["transcription"].pop(field, None)
+        selected.append(portable_metadata(packaged))
     return {"schemaVersion": 1, "language": "zh-CN", "edition": "pack-" + version,
             "status": "packaged", "works": selected}
 
@@ -176,12 +232,12 @@ def package(source, output, version, guides_path=None, category=None):
             "README.md": (f"# 每日{chinese}图库 {version}\n\n"
                           f"{len(works)} 件独立作品，{len(names)} 张横竖屏图片。\n\n"
                           "需要支持导读随包更新的新版 Windows AI-bot；旧桥接会拒绝本格式，请先升级。\n"
-                          "图片需要 TAB5 0.2.145-ui 或更新版本；作品详情需要支持导读的固件，完整长原文需要 guideVersion=2。\n"
+                          "图片需要 TAB5 0.2.145-ui 或更新版本；作品详情需要支持导读的固件。超过8,191 UTF-8字节的完整原文需要本次候选桥接及支持 guideVersion=3 的待构建固件；旧设备显示升级提示，不把节录当作全文。本包不含固件，不会部署设备。\n"
                           "在电脑端“检查更新 → 屏保图库”选择“导入图库 ZIP…”，直接选择本包，无需解压。\n"
                           "然后在 TAB5 设置中选择对应屏保。仅需下载喜欢的类别，其他功能无需图库。\n"
                           "图库保存在 %LOCALAPPDATA%/AI-bot/DailyArt，程序升级会保留。\n\n"
                           "简介、欣赏提示、已核实原文与逐件来源包含在 guides.zh.json，与图片一同校验、安装和更新。未核实原文保持缺省。\n"
-                          "A bridge supporting pack-bundled guides is required; older bridges reject this schema and must be upgraded first. Images require TAB5 .145+, reading requires guide-capable firmware, and full long originals require guideVersion=2. Import this ZIP through Check for updates → Artwork collections. No extraction is needed.\n"
+                          "A bridge supporting pack-bundled guides is required; older bridges reject this schema and must be upgraded first. Images require TAB5 .145+, reading requires guide-capable firmware. Complete originals above 8,191 UTF-8 bytes require this candidate bridge and pending guideVersion=3 firmware; earlier devices show an upgrade notice. This pack includes no firmware and does not deploy a device. Import this ZIP through Check for updates → Artwork collections. No extraction is needed.\n"
                           "Introductions, viewing suggestions, reviewed originals and source records update with the images, without rebuilding the bridge for later text editions.\n"
                           "Each category is optional. Application upgrades preserve installed collections.\n"
                           "See THIRD_PARTY_NOTICES.md and per-work metadata for image rights; LICENSE covers project-authored material only.\n").encode("utf-8"),

@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
+using System.Security.Cryptography;
 
 namespace AIBotBridge;
 
@@ -11,7 +12,21 @@ internal static class Tab5ArtGuides
     // Native readers already consume UTF-8. Avoid doubling Chinese originals
     // into ASCII \uXXXX escapes, retaining JSON's HTML-sensitive escaping.
     internal static readonly JsonSerializerOptions WireOptions=new(JsonDefaults.Options){Encoder=JavaScriptEncoder.Create(UnicodeRanges.All)};
-    internal sealed record Guide(string WorkId,string Title,string Author,string Period,string Museum,string Brief,string Overview,string Looking,string Transcription,string Explanation);
+    internal const int TextPageBytes=4095,MaxTextPages=32,MaxOriginalBytes=32760;
+    internal sealed record Guide(string WorkId,string Title,string Author,string Period,string Museum,string Brief,string Overview,string Looking,string Transcription,string Explanation,int TranscriptionPages=1,string TranscriptionSha256="");
+    internal static string[] TextPages(string text) {
+        if(Encoding.UTF8.GetByteCount(text)>MaxOriginalBytes)throw new InvalidDataException("Artwork original exceeds complete text limit");
+        var pages=new List<string>();var page=new StringBuilder();int bytes=0,wireBytes=0;
+        foreach(var rune in text.EnumerateRunes()) {
+            string value=rune.ToString();int escaped=JsonSerializer.SerializeToUtf8Bytes(value,WireOptions).Length-2;
+            if(bytes+rune.Utf8SequenceLength>TextPageBytes||wireBytes+escaped>6144){pages.Add(page.ToString());page.Clear();bytes=wireBytes=0;}
+            page.Append(value);bytes+=rune.Utf8SequenceLength;wireBytes+=escaped;
+        }
+        if(page.Length>0||pages.Count==0)pages.Add(page.ToString());
+        if(pages.Count>MaxTextPages)throw new InvalidDataException("Artwork original exceeds bounded reading page count");
+        return pages.ToArray();
+    }
+    internal static string TextHash(string text)=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
     private static readonly Lazy<IReadOnlyDictionary<string,Guide>> Catalog=new(()=> {
         using var stream=typeof(Tab5ArtGuides).Assembly.GetManifestResourceStream("AIBotBridge.ArtGuides");
         // Standard releases receive artwork text only from installed collection packs.
@@ -46,7 +61,7 @@ internal static class Tab5ArtGuides
                 var guide=guides[work.WorkId??work.Source];
                 if(string.IsNullOrWhiteSpace(guide.Title)||string.IsNullOrWhiteSpace(guide.Author)||string.IsNullOrWhiteSpace(guide.Overview))
                     throw new InvalidDataException("图库导读内容不完整。");
-                var manifest=new{status=200,body=new{work.Id,work.Title,work.Author,work.Source,work.License,date="2026-10-10",size=1048576,sha256=new string('f',64),frames=work.Frames.Length,width=1280,height=720,orientation="portrait",guideVersion=2,guide}};
+                var manifest=new{status=200,body=new{work.Id,work.Title,work.Author,work.Source,work.License,date="2026-10-10",size=1048576,sha256=new string('f',64),frames=work.Frames.Length,width=1280,height=720,orientation="portrait",guideVersion=3,guide=ForReader(guide,3)}};
                 if(JsonSerializer.SerializeToUtf8Bytes(manifest,WireOptions).Length>16384)
                     throw new InvalidDataException("图库导读超过设备回复上限。");
             }
@@ -70,6 +85,14 @@ internal static class Tab5ArtGuides
             if(row.TryGetProperty("transcription",out var original)&&original.ValueKind==JsonValueKind.Object&&
                original.TryGetProperty("status",out var status)&&status.GetString() is "source_verified" or "reference_verified") {
                 transcription=Text(original,"text",8192);explanation=Text(original,"explanation",512);
+                if(original.TryGetProperty("completeReferenceText",out _)) {
+                    string complete=Text(original,"completeReferenceText",MaxOriginalBytes+1);
+                    if(string.IsNullOrWhiteSpace(complete))throw new InvalidDataException("Artwork complete original is empty");
+                    if(original.TryGetProperty("completeReferenceTextSha256",out var hash)&&hash.GetString()!=TextHash(complete))
+                        throw new InvalidDataException("Artwork complete original checksum mismatch");
+                    transcription=complete;
+                }
+                TextPages(transcription);
             }
             var guide=new Guide(id,Text(row,"title",256),Text(row,"author",128),Text(row,"period",96),Text(row,"museum",80),
                 Text(row,"brief",256),Text(row,"overview",640),Text(row,"looking",384),transcription,explanation);
@@ -81,8 +104,13 @@ internal static class Tab5ArtGuides
         return ForReader(Find(workId),version);
     }
     internal static Guide? ForReader(Guide? guide,int version) {
-        if(guide is not null&&version<2&&Encoding.UTF8.GetByteCount(guide.Transcription)>=512)
+        if(version==0)return guide; // Local Windows reading has no device wire bound.
+        if(guide is not null&&(version<2&&Encoding.UTF8.GetByteCount(guide.Transcription)>=512||version<3&&Encoding.UTF8.GetByteCount(guide.Transcription)>=8192))
             return guide with {Transcription="这幅作品所写的诗文已补入完整原文。\n当前设备版本只支持短篇，请升级后阅读完整正文。",Explanation=""};
+        if(guide is not null&&version>=3&&Encoding.UTF8.GetByteCount(guide.Transcription)>=8192) {
+            var pages=TextPages(guide.Transcription);
+            return guide with {Transcription=pages[0],TranscriptionPages=pages.Length,TranscriptionSha256=TextHash(guide.Transcription)};
+        }
         return guide;
     }
     internal static void SelfTest() {
@@ -93,6 +121,9 @@ internal static class Tab5ArtGuides
             var fixture=new Guide("fixture","作品","作者","年代","藏馆","简要导读","简介","欣赏提示",new string('文',1000),"原文说明");
             if(ForReader(fixture,2)!=fixture||ForReader(fixture,1)?.Transcription.Contains("当前设备版本")!=true||ForReader((Guide?)null,2) is not null)
                 throw new Exception("Pack-only guide reader compatibility failed");
+            string hostile=string.Concat(Enumerable.Repeat("<>&\"'`+\\\n𠀀文",1000));
+            var pages=TextPages(hostile);
+            if(string.Concat(pages)!=hostile||pages.Any(page=>Encoding.UTF8.GetByteCount(page)>TextPageBytes||JsonSerializer.SerializeToUtf8Bytes(new{status=200,body=new{workId="fixture",page=31,pages=32,sha256=new string('f',64),pageSha256=new string('f',64),text=page}},WireOptions).Length>8192))throw new Exception("Escaped Unicode original page exceeds wire bound or changes text");
             Console.WriteLine("ART_GUIDES_PACK_ONLY_OK no bundled collection text; full v2 original, v1 upgrade notice and absent legacy guide");
             return;
         }

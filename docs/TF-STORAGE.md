@@ -2,6 +2,14 @@
 
 目录格式为 v1。卡根目录只由本项目创建 `aibot/`，设备挂载点 `/sdcard` 不属于卡内目录。由 `firmware/main/sd_paths.h` 集中定义路径；新功能必须沿用下列用途，并在所属模块目录内读写，不能自行在卡根目录新增文件。
 
+当前固件需要 FAT／FAT32 卡，不支持 exFAT。128GB 实卡已在电脑按整卡容量格式化为 FAT32、32KB 分配单元，并通过读写校验；不需要缩成 32GB 分区。新卡先在电脑准备好文件系统，设备不会自动格式化。
+
+目录及记录名称需要 FAT 长文件名支持：默认配置启用 `CONFIG_FATFS_LFN_HEAP=y`，缺少支持时构建直接报错。已安装 .177 缺少此配置，可能挂载成功但无法保存；修复已登记到待构建 .178。实际卡挂载与保存分别验收。
+
+待构建 .178 提供独立的「设置 → 存储与缓存」：卡状态由后台检测，不依赖屏保选择或桥接在线；本页同时显示图库保存进度。缓存位置默认「设备缓存」，即原来的按需下载与 PSRAM 内存缓存，重启后需重新同步图片，不是把整套图片写入内置闪存。插卡本身不会开启图库保存；主动选择「TF 卡」并保存成功后才启用整库同步与读卡。设置保存在设备上，失败恢复原选择。卡缺失或不可用时保留该选择并回退设备缓存；切回设备缓存不删除卡上作品。当前选择只控制图库，未来其他模块在本页增加各自的存储设置。
+
+整库保存与浏览入口是两项能力：TAB5 每日屏保按当天日期选作品，左右翻页只切换同一作品的分页，设备上尚未提供往期作品选择页。Windows 桥接待发布源程序已在「屏保图库 → 浏览作品」提供电脑端整库浏览、按日期查找、搜索和全屏缩放；不向 TAB5 发送作品或改变屏保日期，见[图库说明](GALLERY-PACKS.md)。
+
 ```text
 aibot/
 ├── gallery/
@@ -22,5 +30,13 @@ aibot/
 - **配置**：配对密钥和 Wi-Fi 凭据继续使用现有设备安全配置路径，本次不迁移到 TF 卡。
 
 The card layout is v1. All project-written files live under `aibot/`; `/sdcard` is a device mount point. `sd_paths.h` centralizes names. Gallery category directories contain checked alternating cursors and per-work records under `works/<canonical key>/`. These keys enumerate works from 2026-01-01 and are independent of the viewing/download date. Each record binds its page/orientation, verified JPEG and optional full guide; temporary `.part` files stay beside their destination.
+
+The current firmware requires FAT/FAT32 and does not enable exFAT. A real 128GB card was formatted at full capacity on the computer with FAT32 and 32KiB allocation units and passed read/write verification; a 32GB partition is unnecessary. Prepare new cards on the computer; the device does not format automatically.
+
+Directory/record names require FAT long filenames. Defaults enable `CONFIG_FATFS_LFN_HEAP=y`; builds reject missing support. Installed .177 lacked it and could mount without saving; the fix is registered for pending .178. Mounting and saving are separate hardware checks.
+
+Pending .178 adds Settings → Storage & Cache. Background card detection and the gallery progress row are independent of the selected screensaver and bridge connection. The default Device cache retains on-demand downloads and the existing PSRAM image cache; images require synchronization after reboot, rather than persisting the complete collection to internal flash. Inserting a card does not opt in. Only an explicitly saved TF choice enables gallery card reads/writes and complete-library synchronization. The device persists the choice and restores it after failed saves. An unavailable card falls back to device caching without clearing the choice; disabling TF leaves saved works intact. This choice controls galleries only; future modules can add their own storage settings here.
+
+Complete-library storage and browsing are separate capabilities. TAB5 selects by today's date, and arrows only change pages within that work; no on-device past-work selection page is implemented. Pending Windows bridge source adds Artwork Collections → Browse Works for desktop collection browsing, date lookup, search and fullscreen zoom. It sends no artwork to TAB5 and does not change screensaver dates; see [Gallery packs](GALLERY-PACKS.md).
 
 Future project-written photos use `photos/`, persistent module data uses `data/<module>/`, and reproducible caches use `cache/<module>/`. Reserved namespaces are created only when used and do not imply implemented features. Current photo browsing reads user-selected JPGs without relocating them or saving camera captures to TF. Writers own only their module files, preserve unrelated user content, and pause on card errors. A future layout change requires explicit compatibility/migration. Existing pairing and Wi-Fi credential storage remains unchanged.

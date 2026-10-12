@@ -358,7 +358,8 @@ final class SerialBridge {
               response.version == 1, response.type == "pong",
               response.device == "esp8266" else { return nil }
         let host = response.ip.flatMap { PrivateIPv4Address.isValid($0) ? $0 : nil }
-        return SerialHandshake(deviceHost: host)
+        let id = response.device_id.flatMap { $0.range(of: "^esp8266-[0-9a-f]{12}$", options: .regularExpression) != nil && $0 != "esp8266-000000000000" && $0 != "esp8266-ffffffffffff" ? $0 : nil }
+        return SerialHandshake(deviceHost: host, deviceId: id)
     }
 
     private static func write(_ data: Data, to descriptor: Int32) -> Bool {
@@ -448,11 +449,13 @@ final class SerialBridge {
         let type: String
         let device: String
         let ip: String?
+        let device_id: String?
     }
 }
 
 struct SerialHandshake {
     let deviceHost: String?
+    let deviceId: String?
 }
 
 struct USBDeviceReply: Decodable {

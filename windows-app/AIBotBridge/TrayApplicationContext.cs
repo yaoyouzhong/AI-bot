@@ -76,6 +76,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _services=new DeviceServiceManager(_runtime,httpPort,_shutdown.Token);
         _runtime.MusicArtworkChanged+=()=>_tab5?.Publish(_runtime.Capture());
         _serial=_services.Serial;
+        _serial.AcceptUsbIdentity=(oldIdentity,device,deviceId)=>{
+            var registered=_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled&&d.UsbIdentity==oldIdentity);
+            if(registered is null||_shutdown.IsCancellationRequested)return false;
+            if(!_devices.AcceptEspUsbIdentity(registered.Id,oldIdentity,device,deviceId))return false;
+            _flashActions.Enqueue(()=>_center?.Reload());return true;
+        };
         _runtime.Domestic.Tab5Paired=()=>_devices.Snapshot.Devices.Any(d=>d.Enabled&&d.Kind==HardwareKind.Tab5);
         _runtime.Domestic.DeviceProviders=()=>new(_demand.Providers);
         var menu=DeviceCenterMenu.Build(_devices.Snapshot,HandleDeviceAction,HandleMenuAction);

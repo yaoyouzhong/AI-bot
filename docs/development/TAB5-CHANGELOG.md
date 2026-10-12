@@ -2,6 +2,16 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.178-ui - 2026-10-12
+
+- Fix .177's disabled FAT long filenames, which prevented creating calligraphy, date and record paths even after mounting. Use heap buffers and preserve the `aibot/` layout, checked records and nonformatting behavior.
+- Reject firmware configurations lacking long filenames. The actual SDK FatFs regression covers 128GB FAT32, 32KiB clusters, both categories, temporary-file commits and remount/readback; hardware acceptance is recorded separately.
+- Add an independent Storage & Cache settings category with background TF detection, regardless of screensaver or bridge state. Gallery caching defaults to the existing device cache; explicitly select TF to enable complete-library storage. Preserve the choice, roll back failed saves, fall back when TF is unavailable and retain card files when disabled.
+- Hide Codex Direct's empty bottom result panel on initial entry. Show compact operation feedback or expand for recognized text, preserving voice, draft and send flows.
+- Native host regressions cover storage status, cache choice, save rollback, card removal/reinsertion and Codex interactions. Build and installed-device acceptance are recorded separately. Validate long filename flags during ESP-IDF configuration without falsely rejecting unloaded flags during dependency discovery.
+- Include the latest font, preserving existing glyph metrics and pixels and checking coverage against the final annual reading material. Artwork images and reading data remain separate optional packs, with 366 independent works in each category.
+- Read complete long originals through bounded, checked reading pages, preserving full text and clearly labelled reference scope. Coordinate with Windows bridge 0.6.6 for the new reading capability; old packs continue to work. Source, packages, build and hardware acceptance are separately verified in the [release record](../RELEASE-0.6.6.md).
+
 ## 0.2.177-ui - 2026-10-11
 
 - Automatically synchronize both complete installed collections from Windows over USB/Wi-Fi to TF, including every work/page/layout and complete optional guide. Settings show progress; finished collections remain available offline across reboots/year changes. Resume interrupted work, prioritize foreground operations and reuse identical JPEGs on revision changes; text-only changes transfer no image ranges. BLE retains individual-image synchronization.

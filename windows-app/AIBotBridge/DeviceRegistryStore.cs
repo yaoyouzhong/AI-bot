@@ -7,7 +7,7 @@ namespace AIBotBridge;
 internal enum HardwareKind { Esp8266, Tab5 }
 [JsonConverter(typeof(JsonStringEnumConverter<EspConnectionMode>))]
 internal enum EspConnectionMode { Auto, Usb, Wifi }
-internal sealed record RegisteredDevice(string Id,HardwareKind Kind,string Name,bool Enabled,string? HardwareId,string[] Sources,string[] Providers) {public string? UsbIdentity {get;init;} public EspConnectionMode ConnectionMode {get;init;}=EspConnectionMode.Auto; public DateTimeOffset CreatedAt {get;init;}=DateTimeOffset.UtcNow;}
+internal sealed record RegisteredDevice(string Id,HardwareKind Kind,string Name,bool Enabled,string? HardwareId,string[] Sources,string[] Providers) {public string? UsbIdentity {get;init;} public string? EspDeviceId {get;init;} public EspConnectionMode ConnectionMode {get;init;}=EspConnectionMode.Auto; public DateTimeOffset CreatedAt {get;init;}=DateTimeOffset.UtcNow;}
 internal sealed record DeviceRegistry(int Version,bool MigrationComplete,bool LegacyDecisionPending,bool DesktopQuotaHistory,RegisteredDevice[] Devices);
 
 // Non-secret metadata only. Existing pairing and user content stores remain authoritative.
@@ -51,7 +51,18 @@ internal sealed class DeviceRegistryStore
         lock(_gate) {
             var old=_value.Devices.SingleOrDefault(d=>d.Id==device.Id)??throw new InvalidOperationException("设备已移除。");
             if(old.Kind!=device.Kind||old.HardwareId!=device.HardwareId)throw new InvalidOperationException("设备身份不可通过设置替换。");
+            // A settings dialog may still hold a snapshot from before USB recovery.
+            // Ordinary saves cannot undo the transport binding or learned device ID.
+            if(device.Kind==HardwareKind.Esp8266)device=device with{UsbIdentity=old.UsbIdentity,EspDeviceId=old.EspDeviceId};
             Save(_value with {Devices=_value.Devices.Select(d=>d.Id==device.Id?Clone(device):d).ToArray()});
+        }
+    }
+    internal bool AcceptEspUsbIdentity(string id,string? expectedIdentity,FlashUsbDevice usb,string? deviceId) {
+        lock(_gate) {
+            var old=_value.Devices.SingleOrDefault(d=>d.Id==id&&d.Kind==HardwareKind.Esp8266&&d.Enabled);
+            if(old is null||old.UsbIdentity!=expectedIdentity||old.EspDeviceId is not null&&!EspUsbRecovery.Matches(old.EspDeviceId,deviceId))return false;
+            var next=old with{UsbIdentity=usb.Identity,EspDeviceId=deviceId??old.EspDeviceId};
+            Save(_value with{Devices=_value.Devices.Select(d=>d.Id==id?next:d).ToArray()});return true;
         }
     }
     internal void Remove(string id) {lock(_gate)Save(_value with {Devices=_value.Devices.Where(d=>d.Id!=id).ToArray()});}
@@ -71,7 +82,7 @@ internal sealed class DeviceRegistryStore
         foreach(var d in value.Devices) {
             if(!Guid.TryParseExact(d.Id,"N",out _)||!Enum.IsDefined(d.Kind)||!Enum.IsDefined(d.ConnectionMode)||(d.Kind==HardwareKind.Tab5&&d.ConnectionMode!=EspConnectionMode.Auto)||string.IsNullOrWhiteSpace(d.Name)||d.Name.Length>40||d.Name.Any(char.IsControl)||
                 d.Sources is null||d.Providers is null||d.Sources.Any(s=>!SourceIds.Contains(s))||d.Providers.Any(p=>!ProviderIds.Contains(p))||
-                (d.UsbIdentity is not null&&!FlashDeviceDiscovery.IsUsbIdentity(d.UsbIdentity))||d.Sources.Distinct().Count()!=d.Sources.Length||d.Providers.Distinct().Count()!=d.Providers.Length||
+                (d.UsbIdentity is not null&&!FlashDeviceDiscovery.IsUsbIdentity(d.UsbIdentity))||(d.EspDeviceId is not null&&(d.Kind!=HardwareKind.Esp8266||!EspUsbRecovery.ValidId(d.EspDeviceId)))||d.Sources.Distinct().Count()!=d.Sources.Length||d.Providers.Distinct().Count()!=d.Providers.Length||
                 (d.Kind==HardwareKind.Tab5?!Tab5Protocol.ValidId(d.HardwareId):d.HardwareId is not null))throw new InvalidDataException("设备名称、身份或数据选择无效。");
         }
     }

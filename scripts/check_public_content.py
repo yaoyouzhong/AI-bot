@@ -44,6 +44,7 @@ REVIEWED_DOC_NAMES = frozenset({
     'tab5-settings-content.png',
     'tab5-settings-firmware.png',
     'tab5-settings-screen.png',
+    'tab5-settings-storage.png',
     'tab5-seven-days.png',
     'tab5-stocks.png',
     'tab5-system.png',

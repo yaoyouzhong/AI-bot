@@ -16,6 +16,8 @@ internal sealed class Tab5Gallery
     private readonly Dictionary<string,(long Stamp,long Length,IReadOnlyDictionary<string,Tab5ArtGuides.Guide> Guides)> _guides=[];
     private long _revision=-1;
     private long _imageUse;
+    internal sealed record BrowserCatalog(string Category,string? Version,Artwork[] Works);
+    internal sealed record BrowserPage(Artwork Work,Tab5ArtGuides.Guide? Guide,byte[] Jpeg);
     internal Tab5Gallery(string? directory=null) {
         _directory=directory??Path.Combine(AppContext.BaseDirectory,"Assets","DailyArt");
         _packs=directory is null?GalleryPack.Root:null;
@@ -54,10 +56,44 @@ internal sealed class Tab5Gallery
     internal (int Status,object Body) Handle(JsonElement request,bool binary,bool bulk)
     {
         lock(GalleryPack.Gate) {
-            if(_revision!=GalleryPack.Revision) {
-                lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_revision=GalleryPack.Revision;}
-            }
+            RefreshRevision();
             return HandleCore(request,binary,bulk);
+        }
+    }
+    private void RefreshRevision() {
+        if(_revision==GalleryPack.Revision)return;
+        lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_revision=GalleryPack.Revision;}
+    }
+    private string CategoryDirectory(string category)=>_packs is not null&&File.Exists(Path.Combine(_packs,category,"catalog.json"))?Path.Combine(_packs,category):_directory;
+    private Artwork[] BrowserWorks(string directory,string category) {
+        var works=Works(directory).Where(w=>w.Category==category).ToArray();
+        if(works.Length>4096||works.Any(w=>string.IsNullOrWhiteSpace(w.Id)||w.Frames is null||w.Frames.Length is <1 or >64)||works.Select(w=>w.Id).Distinct(StringComparer.Ordinal).Count()!=works.Length)
+            throw new InvalidDataException("图库目录无效，请重新导入图库包。");
+        return works;
+    }
+    internal BrowserCatalog Browse(string category) {
+        if(!GalleryPack.Category(category))throw new ArgumentException("未知图库类别。");
+        lock(GalleryPack.Gate) {
+            RefreshRevision();string directory=CategoryDirectory(category);
+            var works=BrowserWorks(directory,category);
+            // Use the same verified captions for the list, search and detail view.
+            works=works.Select(work=>{
+                var guide=Guide(directory,work,0);
+                return work with{Title=string.IsNullOrWhiteSpace(guide?.Title)?work.Title:guide.Title,Author=string.IsNullOrWhiteSpace(guide?.Author)?work.Author:guide.Author};
+            }).ToArray();
+            return new(category,_packs is not null?GalleryPack.Installed(category,_packs)?.Version:null,works);
+        }
+    }
+    internal BrowserPage BrowsePage(string category,string id,int frame) {
+        if(!GalleryPack.Category(category))throw new ArgumentException("未知图库类别。");
+        lock(GalleryPack.Gate) {
+            RefreshRevision();string directory=CategoryDirectory(category);
+            var work=BrowserWorks(directory,category).SingleOrDefault(w=>w.Id==id)??throw new InvalidDataException("作品已更新，请刷新目录。");
+            if(frame<0||frame>=work.Frames.Length)throw new ArgumentOutOfRangeException(nameof(frame));
+            string filename=work.Frames[frame];
+            if(filename!=Path.GetFileName(filename)||!filename.EndsWith(".jpg",StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("图库图片路径无效。");
+            var image=Image(Path.Combine(directory,filename));
+            return new(work,Guide(directory,work,0),image.Bytes);
         }
     }
     private Tab5ArtGuides.Guide? Guide(string directory,Artwork work,int version) {
@@ -84,7 +120,7 @@ internal sealed class Tab5Gallery
             string category=Text("category");
             DateOnly date=default;
             if(category is not ("painting" or "calligraphy")||(Text("op")!="catalog"&&!DateOnly.TryParseExact(Text("date"),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out date)))return(400,new{error="invalid_gallery_date"});
-            string directory=_packs is not null&&File.Exists(Path.Combine(_packs,category,"catalog.json"))?Path.Combine(_packs,category):_directory;
+            string directory=CategoryDirectory(category);
             var works=Works(directory).Where(w=>w.Category==category).ToArray();
             if(works.Length==0)return(404,new{error="gallery_pack_missing",category});
             if(Text("op")=="catalog") {
@@ -96,6 +132,15 @@ internal sealed class Tab5Gallery
                 return(200,new{syncVersion=1,works=works.Length,revision,baseDate="2026-01-01"});
             }
             var work=works[DayIndex(date,works.Length)];
+            if(Text("op")=="guidePage") {
+                var full=Guide(directory,work,0);
+                if(full is null||Text("workId")!=full.WorkId||Text("sha256")!=Tab5ArtGuides.TextHash(full.Transcription))
+                    return(409,new{error="gallery_guide_changed"});
+                var pages=Tab5ArtGuides.TextPages(full.Transcription);
+                if(!request.TryGetProperty("page",out var requestedPage)||!requestedPage.TryGetInt32(out int page)||page<0||page>=pages.Length)
+                    return(400,new{error="invalid_gallery_guide_page"});
+                return(200,new{workId=full.WorkId,page,pages=pages.Length,sha256=Text("sha256"),pageSha256=Tab5ArtGuides.TextHash(pages[page]),text=pages[page]});
+            }
             string orientation=Text("orientation");
             if(orientation is not ("" or "landscape" or "portrait"))return(400,new{error="invalid_gallery_orientation"});
             bool portrait=orientation=="portrait";
@@ -108,7 +153,7 @@ internal sealed class Tab5Gallery
             var (data,sha)=Image(Path.Combine(directory,filename));
             if(Text("op")=="manifest") {
                 bool include=request.TryGetProperty("includeGuide",out var requestedGuide)&&requestedGuide.ValueKind==JsonValueKind.True;
-                int guideVersion=request.TryGetProperty("guideVersion",out var requestedVersion)&&requestedVersion.ValueKind==JsonValueKind.Number&&requestedVersion.TryGetInt32(out var v)&&v==2?2:1;
+                int guideVersion=request.TryGetProperty("guideVersion",out var requestedVersion)&&requestedVersion.ValueKind==JsonValueKind.Number&&requestedVersion.TryGetInt32(out var v)&&v is 2 or 3?v:1;
                 var guide=include?Guide(directory,work,guideVersion):null;
                 return(200,new{work.Id,work.Title,work.Author,work.Source,work.License,date=Text("date"),size=data.Length,sha256=sha,frames=work.Frames.Length,width=1280,height=720,orientation=portrait?"portrait":"landscape",guideVersion,guide});
             }

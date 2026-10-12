@@ -6,6 +6,14 @@
 
 # `@AIBOT` protocol version 1
 
+## ESP8266 fixed USB identity (local 0.5.3)
+
+ESP8266 `hello`/`pong` and `device_info.data` add optional `device_id`, formatted `esp8266-` followed by 12 lowercase hexadecimal digits from the factory station MAC. Authenticated `/api/info` returns the same field. This ID is independent of Wi-Fi association, IP address, COM number and USB socket. Protocol version 1 and 460800 baud remain unchanged; older receivers ignore the field and older firmware can omit it.
+
+Windows learns the ID only on the registered USB path or an explicitly configured initial port, then stores non-secret `EspDeviceId` beside `UsbIdentity`. On reconnection it probes matching USB-adapter models, including multiple candidates, and sends no pairing/configuration, state or resources to a mismatched or ID-less candidate. Only an exact ID match updates the USB instance binding, atomically preserving user data/settings. Ordinary settings saves cannot revert that binding. Legacy firmware keeps its existing binding until a trusted connection learns the new ID. macOS decodes the optional field for compatibility; automatic persistent rebinding is currently Windows-specific.
+
+中文：新增固定 `device_id`，没有 Wi-Fi、换 USB 插口和 COM 号、重启后仍可通过 USB 上报。Windows 在已确认的连接登记设备 ID；换口后逐一探测同类 USB 设备，仅向固定 ID 一致的小屏发送配置与数据并自动更新绑定。其他小屏或旧固件缺少 ID 时不能替代已登记设备。保留协议版本、波特率、已有配对及循环设置；macOS 同步兼容字段解析，尚未提供同等持久重绑定功能。0.5.3 已本地安装，通过真实 COM8 → COM7 换口和不配置 LAN 的实际串口恢复测试；验收期间未关闭设备 Wi-Fi。
+
 ## TAB5 .177 TF 整库同步 / Complete TF collection synchronization
 
 卡内全部项目数据统一位于 `aibot/`；图库采用 `gallery/<类别>/works/<作品索引键>/<页码>-<方向>.<记录槽>.aig`，进度为类别目录的 `catalog.0/.1`。照片、其他持久数据和可重建缓存分别使用 `photos/`、`data/<模块>/`、`cache/<模块>/`，按需创建。完整归属及兼容规则见 [TF 卡目录约定](TF-STORAGE.md)。

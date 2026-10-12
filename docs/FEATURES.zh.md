@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-本次发布范围：电脑端 **0.6.5**、TAB5 **0.2.176-ui**；ESP8266 同期发布 **0.5.2**（实机验收待完成），现有图库 **2026.10.09** 保留，新的名画与书法集后续单独发布。时钟、倒计时、导航及展示模式截图按本版更新，未变化素材保留[原捕获说明](SCREENSHOTS.md)。[版本说明](RELEASE-0.6.5.md) · [返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
+本次发布范围：电脑端 **0.6.6**、TAB5 **0.2.178-ui**、ESP8266 **0.5.3**，以及年度精选名画和书法各 **366 件**的独立图文包。新增电脑浏览作品、独立存储与缓存、完整长原文阅读、最新字库及小屏 USB 身份恢复。截图为原生隔离演示，最终构建与设备验收见[版本说明](RELEASE-0.6.6.md)，未变化素材保留[原捕获说明](SCREENSHOTS.md)。[返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -315,17 +315,17 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 | 平台 | 当前范围 | 验证说明 |
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
-| ESP8266 0.5.2 | 小屏页面、时钟、桌宠、USB / Wi-Fi；网速数字和曲线按一秒均值同步 | 本次构建、源码与分发材料校验通过，尚未安装或完成 .5.2 实机验收。 |
-| TAB5 0.2.176-ui | 触控、Codex 直达、九款时钟、计时、日期倒计时与艺术四方向 | 本版构建、原生 UI 回归与发布包校验通过；已读同步沿用 .168 实机证据，汽水音乐沿用 .175 实机证据。.176 完整实机验收、新图库导入和 Apple Music 播放待完成。 |
+| ESP8266 0.5.3 | 小屏页面、时钟、桌宠、USB / Wi-Fi、固定身份换口恢复 | 换口重连与无 LAN 配置实际 UART 恢复通过；设备 Wi-Fi 未实际关闭。 |
+| TAB5 0.2.178-ui | 触控、时钟、计时、艺术四方向、最新字库、完整長文与独立存储设置 | 本地回归与最终包检查、真实启动与存储分别记录，见本版发布明细；不追加 Apple Music 或长期运行的验收结论。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；未实现本文 Windows TAB5、统一更新及艺术导入入口。Intel Mac 未验证。 |
 
-[发布明细](RELEASE-0.6.5.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
+[发布明细](RELEASE-0.6.6.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.5, ESP8266 0.5.2 and TAB5 0.2.176-ui. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.6, ESP8266 0.5.3 and TAB5 0.2.178-ui, plus two independent 366-work annual image/text packs. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
-**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all five settings panels. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
+**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage & Cache. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
 
 **ESP8266:** AI activity, quotas, reset times/cards and configurable cycling are the primary use. Expand the galleries for other providers, weather, stocks, metrics, music, pets and the clock screensaver. Control pages and settings from the computer; TAB5 touch operations, Codex Direct and art collections do not apply to the small display.
 

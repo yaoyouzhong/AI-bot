@@ -1,5 +1,5 @@
 {
-  "reviewedOn": "2026-10-11",
+  "reviewedOn": "2026-10-12",
   "files": {
     "windows-sdk/REDIST.html": "52cd4791e8b457706267ebf1cb886de5562cea2d2ae68609c49f5f0c843a9222",
     "windows-sdk/sdk_license.rtf": "dd07eb178e00c6bba4148457fc00ff77cd4887eb521d504186fe59c9ec8bbe62",
@@ -68,8 +68,8 @@
     "docs/assets/guides/serial.svg": "e457b5ac4e3e23babb4d4026f500ea8b9a91acd4c278ad19ae75a103085e11f8",
     "docs/assets/guides/flash-result.svg": "29f268002ab65d368d1d7217ccaf71108c51b7ae699a0d8f8fe28e3ad73cecf3",
     "docs/assets/guides/setup.svg": "5d8b26939336e30c876e3f6a5e3909eb5dce72409b5a6b7a7c796051b787ac89",
-    "docs/assets/product-intro/AI-bot-cover.png": "52b967d2de555fbc42f343843dbefdcf581ebd6b8f1936f5023e69ffd44fc174",
-    "docs/assets/product-intro/AI-bot-product-intro.mp4": "07845280a1580f53e140af6279f904e4598801bac5baed03eaa1f155b17edd84",
+    "docs/assets/product-intro/AI-bot-cover.png": "a45a02c119d24ad028669af7844900ce0c61732ece2ec9115074ed4c1cbe5e36",
+    "docs/assets/product-intro/AI-bot-product-intro.mp4": "c11bcfd9183fd95a1a4610d5ff110530df2e5531a0aa66168b13649bd7f7498a",
     "docs/assets/screens/firmware-flasher.png": "1d98e295caa5a18a156607af352a84de66580066f1860734bb6a8b01e94cbf0a",
     "windows-app/AIBotBridge/Assets/flash-icon.ico": "af7ba3d354f2043e26f6935965d1600f498d812229478474dd9caf4ded94f555",
     "docs/assets/screens/device-center.png": "df91d3c5e76af0f1af4e38b18e2390e35510f1adcb2e7eb5f62585b94e782dbb",
@@ -135,8 +135,9 @@
     "docs/assets/screens/tab5-settings-info.png": "a66ee63f08a642139fa8554b2721231d007cc8a80f19014008efb9a54e7059ac",
     "docs/assets/screens/tab5-clock-geometric.png": "88daaac5e82737ed83b0b5a4e23b7485524f4f5428790ee362d5552c8125ce6c",
     "docs/assets/screens/tab5-clock-star.png": "35fdf448f542a429eeb3c67a995ae068c47de75f7a912f7ac194040a5585692f",
-    "docs/assets/product-intro/AI-bot-cover-3x4.png": "dc3420f42f35d20d6e352369a07ea2c63e7455cab8131b0bcde53ff4007557f0",
-    "docs/assets/product-intro/AI-bot-cover-4x3.png": "54eb3fdcd7b48e44571014a1d32cfcad886159b5f57b9940cb2c62f1949a65ac"
+    "docs/assets/product-intro/AI-bot-cover-3x4.png": "ff8b821a45dbc10270c3b6dd172a7b89163c9a482c105cddf3df127247dafa93",
+    "docs/assets/product-intro/AI-bot-cover-4x3.png": "eb26512232d27cd0eb23bbdf8e6f61b187e595b1c5f64647f5870d3ccc70a18c",
+    "docs/assets/screens/tab5-settings-storage.png": "8ab98474d7757ed4f2110c42662168cde765e2db0fc12d5b6543ec550a0631e5"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

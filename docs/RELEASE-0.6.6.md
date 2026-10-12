@@ -1,52 +1,48 @@
-# 桥接 0.6.6 与 TAB5 0.2.177-ui
+# AI-bot 0.6.6／TAB5 0.2.178-ui／ESP8266 0.5.3
 
-本次精简 Windows／Apple Silicon Mac 安装材料，保留离线刷机；TAB5 增加 TF 卡整库同步及最新字库。新图库内容仍整理中，本次不发布；现有图库继续兼容。ESP8266 0.5.2 保持原下载。
+2026-10-12 统一发布范围包含电脑桥接、两种设备固件、最新字库及年度精选书画。名画与书法是分别可选的独立 ZIP，程序安装包和固件不嵌入作品图片或阅读数据。软件升级保留原图库；导入新版类别时，图片、简介、欣赏资料、完整正文／参考文本及来源一起校验和更新。
 
-## 精简与校验
+## 本次变化
 
-从已核验的 Espressif 4.9.1 官方独立档案中保留 esptool、LICENSE、README，移除未使用的 espefuse、espsecure、esp_rfc2217_server。可执行文件字节与官方版本一致，完整匹配源码和现有依赖许可保留。ORIGIN.json 记录官方档案、精简档案、可执行文件与源码的校验值；运行时仍校验固定档案哈希后从新临时目录提取，不依赖网络、Python 或以前的工具缓存。
+- Windows「屏保图库 → 浏览作品」支持日期查找、作品名／作者搜索、分页、完整阅读、双击全屏、滚轮缩放、拖动、适合窗口和 Esc 返回。主界面以图片为主，阅读资料默认收起。
+- Windows 与 Apple Silicon Mac 精简未使用的三个 esptool 工具，保留实际可执行文件、匹配源码及许可，保留离线备份、刷机和校验。Mac 的可用功能沿用平台范围，不提供 Windows 的 TAB5、图库导入／同步入口。
+- 小屏换 USB 插口后，Windows 先匹配 ESP8266 0.5.3 的固定设备身份，再恢复数据及新路径；不凭 COM 号或同型号自动认领。设备中心 USB／Wi-Fi／蓝牙状态保持单行，窄空间可查看完整提示。
+- TAB5 新增独立「设置 → 存储与缓存」，后台检测 TF 卡。默认设备缓存，主动选择 TF 卡才整库保存；卡不可用时回退，不格式化或删除其他文件。项目数据统一放在 `aibot/` 各模块目录下。
+- 修复 FAT 长文件名配置。USB／Wi-Fi 保存电脑已安装的两套图库，包括全部作品、分页、横竖屏及完整文字；中断续存、同图复用。保存完成后可跨重启／年份离线读取，未保存的作品仍需要桥接。BLE 保留单幅同步。
+- Codex 直达首次进入隐藏底部空框；保留语音、草稿和明确发送流程。原有已读同步、音乐、九款表盘与两类独立倒计时继续保留。
+- 长文以带逐段及全文校验的 Unicode 分段阅读，7 篇全文全部保留，共 26 段；打开阅读时取得独立快照，TF 保存完整段集。旧阅读端收到升级提示，不把节录当全文。
 
-备份、写入、校验命令和串口选择保护保留。Windows 安装所需的 .NET／WebView2 条件与此前一致；保留离线刷机不意味着缺少运行时的新电脑可全程离线安装。
+## 年度图库与字库
 
-## TF 卡与字库
+| 内容 | 版本 | 独立作品 | 横竖屏图片 |
+| --- | --- | ---: | ---: |
+| 名画年度精选 | 2026.10.11.23 | 366 | 826 |
+| 书法年度精选 | 2026.10.12.32 | 366 | 3,802 |
 
-TF 卡采用统一的 `aibot/` 项目目录：图库、照片、其他持久数据及可重建缓存各有固定位置，按需创建，不散放卡根目录。目录和后续扩展约定见 [TF 卡目录约定](TF-STORAGE.md)。
+名画以作品价值及同件权威欣赏资料逐件选择。书法包含 304 件既有作品和 62 件新增原作资料；整册、整卷仍只计一件，照片、分页与方向不重复计作品。7 篇超过旧容量的完整参考随包保留，原文范围和异文说明单独标注；参考文本不冒称本件逐字精校。
 
-首次连接支持此功能的 Windows 桥接后，TAB5 通过 USB／Wi-Fi 自动把电脑已安装的整套名画、书法同步到 `/sdcard/aibot/gallery`，包括每件作品的所有分页、横竖屏图片、简介、欣赏提示与原文。不是每天取一幅缓存。进度在选择名画／书法的屏保设置中显示；完整保存后，日常选取直接读卡，可跨重启和年份离线使用。尚未保存的作品仍需桥接。
+最终字库为 **10,535 个字形**，两包所需 **7,208 种显示字符缺字 0**；原有 .177 的 9,027 个字形指标与压缩位图保持一致。字库随 TAB5 固件升级，导入图库不会安装字体。建议先升级 Windows 0.6.6 和 TAB5 .178，再导入新包，获得完整长文分段与 TF 存储能力；既有旧图片包保持兼容。
 
-全库后台任务不分配 RGB 显示帧，浏览、语音、照片及 OTA 优先；中断后从已完成作品继续，未完成作品中已校验的页面也会复用。完整复制只走 USB／Wi-Fi，BLE 保留单幅获取能力。图库版本更新时重读新元数据，SHA-256 相同的图片直接复用卡上字节，纯文字更新不重传图片；两个类别独立更新。无卡、卡满或只读时暂停保存并保留现有显示路径，不把部分同步显示为已完成。图库包仍在电脑端导入，不直接把 ZIP 当作 TF 卡文件读取；Mac 当前不提供 Windows 的图库同步入口。
+## 包与使用
 
-图片与文字同一记录，各自校验 SHA-256。两份轮换记录保留完整提交，未完成或损坏记录不参与展示；已认证的内容版本排除旧记录。无卡、只读、容量不足或介质错误时沿用内存／桥接。照片与图库共用挂载和文件访问锁，不格式化、不删除其他用户文件。
+从[完整下载中心](../DOWNLOADS.md)下载所需组件。Windows 安装器／Mac ZIP、ESP8266 通用包、TAB5 首刷和升级包分别提供，不互换。TAB5 首刷含启动及分区材料，升级只安装应用；两包必须绑定同一个 .178 应用。图库 ZIP 在 Windows 导入，无需解压，不直接拷到 TF 根目录。
 
-冻结字库含 9,027 个映射字形，比正式 .176 增加 11 个；原有 9,016 个字形尺寸及位图逐项保持。最新导读快照所需的 5,561 个字符全部覆盖。字形随固件安装，图库导入不会更新字库；整理后的新内容发布前再核查缺字。只有字库进入固件，整理中的图片、导读和原文未打包。
+现有 Windows 安装运行时要求不变；新电脑缺少 .NET／WebView2 时仍需安装对应运行环境。Mac 包为 Apple Silicon、ad-hoc 签名，非 Developer ID 公证，Intel 不在本次交付范围。
 
-## 验证记录
+## 验证记录与限制
 
-候选已完成构建、打包和本机部署，公开下载暂仍为 0.6.5／.176。最终包与对应 SHA-256 已校验：
+两份图库 ZIP 已逐成员验证 CRC、SHA-256 与清单；字体保持及显示覆盖通过。正式消费者隔离导入验证全部图片、完整正文和原子更新；7 篇长文验证分段重组、过期请求拒绝、离线存储、失败保留、独立阅读快照和四朝向触摸。Windows 最终源码构建及公开回归通过，浏览界面覆盖 100%／150%／200% 正常和最小窗口。
 
-| 材料 | 0.6.5／.176 字节数 | 本次字节数 | 变化 |
-| --- | ---: | ---: | --- |
-| Windows 安装包 | 59,406,746 | 24,649,549 | 减少 58.5% |
-| Apple Silicon Mac 包 | 47,942,147 | 14,258,130 | 减少 70.3% |
-| TAB5 首次安装 ZIP | 4,599,024 | 4,609,229 | 应用、启动与分区材料 |
-| TAB5 升级 ZIP | 4,568,451 | 4,579,423 | 仅供已有 AI-bot 设备升级 |
+ESP8266 .5.3 已实机安装并验证固定身份、真实 COM8→COM7 换口恢复和持续 USB 同步；另有无 LAN 配置的实际 UART 恢复测试。没有实际关闭设备 Wi-Fi，不将此称为“关 Wi-Fi 后物理换口”验收。Mac 对端字段解析需在实际 macOS CI 完成测试和构建。
 
-- 桥接源提交 `fa4175284ae18efa5e213a1ec0440c04ab8fa8d4`；[Windows／Mac CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/38140957461) 通过。Windows Release 构建零警告／错误；750 项认证图库目录、清单与范围传输检查通过。四项真实官方工具输入测试通过，解压后的 Windows EXE 和 Mac 应用完成离线 esptool 版本及读取／写入／校验命令检查；没有访问或刷写设备。Mac Swift 测试、Release 构建、文件与严格签名校验通过；Mac 交互验收未新增。
-- TAB5 源提交 `b742cb1b3333fb6c4357c0a6d120d05a6799dd03`；ESP-IDF 构建、实际 ELF 显示／执行安全检查通过。原生测试覆盖整库分页和横竖屏、冷启动续存、跨年份离线读取、纯文字更新零图片传输，以及损坏／卡满／只读／提交失败。原生设置布局及实际 sidecar 首屏／滚动说明已验证。这些测试不代替真实卡验收。
-- .177 应用为 6,915,232 字节，SHA-256 `0f6a93a05d11a82cf2a583ebb13eaff5ae0901f90d6faf76b1a8cab5cc426da5`；首次安装、升级和公共源码清单绑定同一镜像。源码记录保留完整依赖许可和构建输入，不宣称已复现逐字节二进制。
-- 本机沿原 Release 路径直接部署桥接 0.6.6，保留旧程序备份和既有图库。通过正常桌面环境启动，读回自动轮播、原六页顺序及 15 秒间隔。工具启动环境被数据目录保护拒绝时，没有绕过保护或迁移配对数据。
-- 用户完成 .177 升级后，USB 只读核验确认三个递增运行心跳、正常显示心跳、零显示写入错误、精确 ELF 指纹和 `ota_0 / VALID`。设备回报 TF 状态为未挂载，两个类别已保存数量均为 0；真实整库保存和断开桥接后读卡尚未验收，正在核对卡格式和介质状态，不格式化卡。
-
-本次原始证据位于 `artifacts/development/compact-tf-release-20261011/`。此前汽水音乐、Codex 已读同步、Apple Music 和长期稳定性的验收边界沿用 0.6.5。
+本记录先随候选源码冻结；最终组件 CI、镜像／源码／首刷／升级一致性、实际 TAB5 启动与 TF 保存验收、公开附件摘要及视频完整审片，在发布交付记录中补齐后才公开候选。构建、模拟与截图不代替真实设备验收。Apple Music 实际播放、长期运行／睡眠恢复等此前尚未通过项继续保留，不因本次发布称为已验收。
 
 ## English
 
-Bridge 0.6.6 trims Windows/Apple Silicon Mac tool bundles while preserving offline flashing, matching source and notices. Official esptool executable bytes are unchanged; builds verify upstream inputs and runtimes verify a deterministic subset. Existing backup/write/verify protections and installer runtime requirements remain intact.
+The combined release targets bridge 0.6.6, TAB5 0.2.178-ui and ESP8266 0.5.3, with separately optional annual packs of 366 paintings and 366 calligraphy works. Packages update images, reviewed introductions/appreciation, complete originals or explicitly scoped references and sources atomically. Old image-only collections remain compatible; desktop upgrades preserve installed data.
 
-TAB5 0.2.177-ui automatically synchronizes both complete installed collections from a supporting Windows bridge over USB/Wi-Fi: every work, page, orientation and complete optional guide. Settings show per-category progress. Saved collections remain available offline across reboot/year changes; unsaved works require the bridge. Persistent cursors resume interrupted work and verified pages avoid duplicate transfers. Background jobs allocate no RGB frames and yield to foreground use; BLE retains individual-image transfers. Changed revisions refresh metadata and reuse identical JPEGs, so text-only changes require no image ranges. Alternating checked records exclude incomplete/corrupt/stale data. Card failures pause saving/fall back; shared gallery/photo locking does not format or delete unrelated files. ZIP import remains on the computer. Mac does not currently offer Windows artwork synchronization.
+Windows adds past-work browsing, search, full reading, fullscreen, wheel zoom and pan. Compact Windows/Apple Silicon tool bundles retain offline flashing and matching licenses/source. ESP8266 reports a stable identity for verified Windows USB recovery after port changes. Actual port-change and no-LAN-config UART tests passed; device Wi-Fi was not physically disabled.
 
-The frozen font maps 9,027 glyphs, adds 11 to public .176, and preserves all 9,016 prior metrics/bitmaps. The latest guide snapshot requires 5,561 characters, all covered. Font updates ship in firmware; future collection text requires another coverage check. New collection images/text remain excluded and ESP8266 0.5.2 remains unchanged.
+TAB5 adds independent Storage & Cache, checked FAT long filenames, opt-in complete-library TF storage under `aibot/`, resumable synchronization and image reuse. Device cache remains the default. Completed content is readable offline; unsaved works need the bridge. Seven complete long references remain intact as 26 checked reading segments and independent snapshots. The final 10,535-glyph font covers all 7,208 required display characters and preserves the previous .177 glyph metrics/bitmap data. Font installation requires firmware; collection imports do not install fonts.
 
-Validated candidates are 24,649,549 bytes for Windows (58.5% smaller), 14,258,130 bytes for Mac (70.3% smaller), 4,609,229 bytes for TAB5 first installation and 4,579,423 bytes for upgrade. Bridge binaries/source identify `fa4175284ae18efa5e213a1ec0440c04ab8fa8d4`; the linked CI passed Windows/macOS builds, Swift tests, package/signature verification and actual unpacked offline tool checks. Four real-input tool tests and 750 authenticated artwork transport checks passed. TAB5 source identifies `b742cb1b3333fb6c4357c0a6d120d05a6799dd03`; native full-library/resume/revision/error/UI tests, ESP-IDF build, real ELF guards and actual sidecar previews passed. First-install/upgrade/source materials bind the same 6,915,232-byte image and SHA-256 recorded above; byte-for-byte rebuild reproducibility is not claimed.
-
-Bridge 0.6.6 was directly deployed at the original local path with backup, existing collections and the original six-page/15-second automatic carousel preserved. Normal desktop startup passed the profile guard; redirected tool startup was rejected and no guard bypass or pairing-data migration occurred. Following the user's .177 upgrade, three read-only USB heartbeats verified the exact ELF, healthy display and `ota_0 / VALID`. The card currently reports unmounted with zero persisted works: physical complete-library saving and offline card playback remain pending card/filesystem diagnosis. No card formatting occurred. Public downloads still identify .6.5/.176 until publication; original evidence is under the development directory above. Previous .6.5 acceptance limits remain.
+Both packs and source-local tests are verified. Final build/CI, image/source/factory/upgrade consistency, actual TAB5 startup/storage and public download verification are recorded separately before publication. Native captures are fixtures, not hardware photography. Mac retains its existing platform scope and is arm64/ad-hoc signed, not notarized. Apple Music subscribed playback and long-term acceptance remain pending.

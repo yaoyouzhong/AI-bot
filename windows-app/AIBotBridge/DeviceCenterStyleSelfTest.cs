@@ -26,6 +26,10 @@ internal static class DeviceCenterStyleSelfTest
             UpdateDevice[] devices=[new("bridge","电脑端 AI-bot","0.6.3","运行中",true,"bridge","安装程序"),new("tab5","M5Stack TAB5","0.2.156-ui","在线",true,"upgrade-tab5","在设备上确认")];
             var pages=new List<(string Name,Func<Form> Create,Action<Form>? Prepare)> {
                 ("devices",Center,f=>((DeviceCenterForm)f).ShowPage("devices")),
+                ("esp-usb-interrupted",()=>CenterWith(new(true,"在线","Wi-Fi","0.5.1",Usb:"COM7 · 连接中断",Wifi:"已连接")),f=>((DeviceCenterForm)f).SelectDevice(esp.Id)),
+                ("esp-usb-missing",()=>CenterWith(new(true,"在线","Wi-Fi","0.5.1",Usb:"未找到已绑定的 USB 设备",Wifi:"已连接")),f=>((DeviceCenterForm)f).SelectDevice(esp.Id)),
+                ("esp-usb-connected",()=>CenterWith(new(true,"在线","USB","0.5.1",Usb:"已连接",Wifi:"待命")),f=>((DeviceCenterForm)f).SelectDevice(esp.Id)),
+                ("tab-usb-connecting",()=>CenterWith(new(true,"在线","Wi-Fi","0.2.156-ui",Usb:"正在连接 COM9",Wifi:"已连接",Bluetooth:"未连接")),f=>((DeviceCenterForm)f).SelectDevice(tab.Id)),
                 ("accounts",Center,f=>((DeviceCenterForm)f).ShowPage("accounts")),
                 ("bridge-settings",Center,f=>((DeviceCenterForm)f).ShowPage("bridge-settings")),
                 ("add-device",()=>new AddDeviceForm(new(1,true,false,false,[]),preview:true),null),
@@ -70,6 +74,11 @@ internal static class DeviceCenterStyleSelfTest
                         Check(TextRenderer.MeasureText(button.Text,button.Font).Width<=button.ClientSize.Width+2,"Button text clipped: "+name+" "+button.Text);
                     }
                     if(control is Label label&&label.AutoSize)Check(label.Height+2>=label.GetPreferredSize(new(label.Width,0)).Height,"Label text clipped: "+name+" "+label.Text);
+                    if(control is Label transport&&transport.Name.StartsWith("transport-",StringComparison.Ordinal)) {
+                        var line=TextRenderer.MeasureText(transport.Text,transport.Font,Size.Empty,TextFormatFlags.SingleLine);
+                        Check(transport.AutoEllipsis&&!transport.AutoSize&&transport.Height>=line.Height,"Transport row wraps/clips vertically: "+name+" "+transport.Text);
+                        if(page.Name=="esp-usb-interrupted")Check(transport.Width>=line.Width,"Reported interruption text truncated: "+name+" "+transport.Text);
+                    }
                     if(control is not (Label or Button or ComboBox or TextBox or NumericUpDown or CheckBox or ListView or CheckedListBox))continue;
                     var bounds=control.RectangleToScreen(control.ClientRectangle);bool scrolling=false;
                     for(Control? parent=control.Parent;parent is not null;parent=parent.Parent) {
@@ -84,6 +93,7 @@ internal static class DeviceCenterStyleSelfTest
             if(issues.Count>0)throw new InvalidOperationException(string.Join("\n",issues));
             void Check(bool ok,string issue){if(!ok)issues.Add(issue);}
             Form Center()=>new DeviceCenterForm(store,_=>new(true,"在线","Wi-Fi","0.2.156-ui",Usb:"待命",Wifi:"已连接",Bluetooth:"待命",Transport:"Wi-Fi"),(_,_)=>{},(_,_)=>Task.CompletedTask,()=>{},_=>{});
+            Form CenterWith(DeviceView view)=>new DeviceCenterForm(store,_=>view,(_,_)=>{},(_,_)=>Task.CompletedTask,()=>{},_=>{});
         }
     }
     private static IEnumerable<Control> Descendants(Control root){foreach(Control control in root.Controls){yield return control;foreach(var child in Descendants(control))yield return child;}}

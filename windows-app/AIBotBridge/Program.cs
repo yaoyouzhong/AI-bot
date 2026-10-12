@@ -8,6 +8,9 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-esp-usb-recovery"){EspUsbRecoverySelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--test-esp-usb-recovery"){EspUsbRecoverySelfTest.RunHardwareAsync().GetAwaiter().GetResult();return;}
+        if(args.Length is 2 or 3&&args[0]=="--self-test-gallery-browser"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryBrowserSelfTest.Run(Path.GetFullPath(args[1]),args.Length==3?Path.GetFullPath(args[2]):null);return;}
         if(args.Length==1&&args[0]=="--self-test-weather-forecast"){AppPaths.BeginPublicSelfTest();WeatherForecastSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-read-sync"){AppPaths.BeginPublicSelfTest();Tab5CodexReadStateSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-tasks"){AppPaths.BeginPublicSelfTest();Tab5CodexSelfTest.RunAsync().GetAwaiter().GetResult();return;}
@@ -19,6 +22,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-gallery-updates"){AppPaths.BeginPublicSelfTest();GalleryUpdateSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-gallery-pack-guides"){AppPaths.BeginPublicSelfTest();GalleryPackSelfTest.Run();return;}
         if(args.Length==3&&args[0]=="--self-test-gallery-guide-packs"){AppPaths.BeginPublicSelfTest();GalleryPackSelfTest.RunGuidePackages(args[1],args[2]);return;}
+        if(args.Length==3&&args[0]=="--self-test-gallery-annual-pack"){AppPaths.BeginPublicSelfTest();GalleryPackSelfTest.RunAnnualPack(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]));return;}
         if(args.Length==2&&args[0]=="--self-test-gallery-update-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--self-test-gallery-update-live"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.RunLive(Path.GetFullPath(args[1]));return;}
         if(args.Length==4&&args[0]=="--self-test-gallery-update-live-resume"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.RunLive(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]),Path.GetFullPath(args[3]));return;}

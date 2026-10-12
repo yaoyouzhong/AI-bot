@@ -1487,6 +1487,17 @@ void drawScreenSaver() {
   screenDirty = false;
 }
 
+const char* usbDeviceId() {
+  static char id[21] = {};
+  if (!id[0]) {
+    uint8_t mac[6] = {};
+    WiFi.macAddress(mac); // Factory station MAC is available without association.
+    snprintf(id, sizeof(id), "esp8266-%02x%02x%02x%02x%02x%02x",
+        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  }
+  return id;
+}
+
 void sendControl(const char* type) {
   String ip = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "";
   Serial.print(kPrefix);
@@ -1496,6 +1507,8 @@ void sendControl(const char* type) {
   Serial.print(ip);
   Serial.print("\",\"firmware\":\"");
   Serial.print(AIBOT_FIRMWARE_VERSION);
+  Serial.print("\",\"device_id\":\"");
+  Serial.print(usbDeviceId());
   Serial.println("\"}");
 }
 
@@ -1683,6 +1696,7 @@ String displayModeName();
 
 void fillDeviceInfo(JsonObject response) {
   response["device"] = "AI-bot";
+  response["device_id"] = usbDeviceId();
   response["firmware"] = AIBOT_FIRMWARE_VERSION;
   response["version"] = 1;
   response["ip"] = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "";

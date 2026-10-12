@@ -24,8 +24,9 @@ internal sealed class DeviceCenterForm : Form
     private readonly Label _firmware=new(){AutoSize=true,ForeColor=Color.DimGray};
     private readonly TableLayoutPanel _health=new(){AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,0,0,6)};
     private readonly Label _connection=new(){AutoSize=true,ForeColor=Color.DimGray};
-    private readonly TableLayoutPanel _transport=new(){AutoSize=true,ColumnCount=3,RowCount=1,Margin=new Padding(0,4,0,8)};
+    private readonly TableLayoutPanel _transport=new(){Name="connection-transports",ColumnCount=3,RowCount=1,Margin=new Padding(0,4,0,8)};
     private readonly Label[] _transportLabels=[new(),new(),new()];
+    private readonly ToolTip _transportTips=new();
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=1500};
     private readonly List<(Button Button,string Action)> _actions=[];
     private readonly ContextMenuStrip _manage=new();
@@ -39,10 +40,10 @@ internal sealed class DeviceCenterForm : Form
         _store=store;_view=view;_action=action;_change=change;_add=add;_common=common;_setting=setting??(_=>false);
         _startup=new StartupSettingControl(()=>_setting("startup"),changeStartup??(_=>{_common("startup");return Task.CompletedTask;}));
         _health.ColumnStyles.Add(new(SizeType.AutoSize));_health.ColumnStyles.Add(new(SizeType.Percent,100));_health.RowStyles.Add(new(SizeType.AutoSize));_state.Margin=new Padding(0,0,18,0);_firmware.Margin=Padding.Empty;_health.Controls.Add(_state,0,0);_health.Controls.Add(_firmware,1,0);
-        for(int i=0;i<3;i++){_transport.ColumnStyles.Add(new(SizeType.Percent,100F/3));var label=_transportLabels[i];label.AutoSize=true;label.Dock=DockStyle.Fill;label.Margin=new Padding(0,0,8,0);_transport.Controls.Add(label,i,0);}
-        _transport.RowStyles.Add(new(SizeType.AutoSize));
+        for(int i=0;i<3;i++){_transport.ColumnStyles.Add(new(SizeType.Absolute));var label=_transportLabels[i];label.Name="transport-"+i;label.AutoSize=false;label.AutoEllipsis=true;label.UseMnemonic=false;label.TextAlign=ContentAlignment.MiddleLeft;label.Dock=DockStyle.Fill;label.Margin=new Padding(0,0,12,0);label.FontChanged+=(_,_)=>FitTransports();_transport.Controls.Add(label,i,0);}
+        _transport.RowStyles.Add(new(SizeType.Percent,100));_transport.SizeChanged+=(_,_)=>FitTransports();
         Text="AI-bot · 设备中心";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        ClientSize=new(840,680);MinimumSize=new(760,500);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;Padding=new Padding(12);
+        ClientSize=new(840,680);MinimumSize=new(820,500);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;Padding=new Padding(12);
         var devicesPage=Page("我的设备","devices");Page("账号数据","accounts").Controls.Add(_accounts);Page("桥接设置","bridge-settings").Controls.Add(_bridge);
         var body=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Margin=Padding.Empty};
         body.ColumnStyles.Add(new(SizeType.Percent,100));body.RowStyles.Add(new(SizeType.Percent,100));body.RowStyles.Add(new(SizeType.AutoSize));
@@ -155,11 +156,24 @@ internal sealed class DeviceCenterForm : Form
         string firmware="固件 "+v.Firmware;if(_firmware.Text!=firmware)_firmware.Text=firmware;
         bool structured=v.Usb is not null;_transport.Visible=structured;
         string?[] values=[v.Usb,v.Wifi,v.Bluetooth];string[] names=["USB","Wi-Fi","蓝牙"];
-        for(int i=0;i<3;i++){var label=_transportLabels[i];string text=names[i]+" · "+(values[i]??"不支持");if(label.Text!=text)label.Text=text;label.ForeColor=d.Enabled&&values[i]=="已连接"?Color.FromArgb(24,123,72):Color.DimGray;}
-        _transportLabels[2].Visible=d.Kind==HardwareKind.Tab5;_transport.ColumnStyles[2].Width=d.Kind==HardwareKind.Tab5?100F/3:0;
+        for(int i=0;i<3;i++){var label=_transportLabels[i];string text=names[i]+" · "+(values[i]??"不支持");if(label.Text!=text){label.Text=text;_transportTips.SetToolTip(label,text);}label.ForeColor=d.Enabled&&values[i]=="已连接"?Color.FromArgb(24,123,72):Color.DimGray;}
+        _transportLabels[2].Visible=d.Kind==HardwareKind.Tab5;FitTransports();
         _connection.Visible=!structured;string connection=v.Connection;if(_connection.Text!=connection)_connection.Text=connection;
         foreach(var (button,action) in _actions)button.Enabled=DeviceCapabilities.Allows(d,action)&&(!DeviceCapabilities.RequiresOnline(action)||v.Online);
         foreach(var item in _manage.Items.OfType<ToolStripMenuItem>().Where(i=>i.Tag is string))item.Enabled=DeviceCapabilities.Allows(d,(string)item.Tag!)&&(!DeviceCapabilities.RequiresOnline((string)item.Tag!)||v.Online);
+    }
+    private void FitTransports() {
+        if(_transport.ColumnStyles.Count!=3)return;
+        int count=Selected?.Kind==HardwareKind.Tab5?3:2;
+        int[] widths=_transportLabels.Take(count).Select(label=>TextRenderer.MeasureText(label.Text,label.Font,Size.Empty,TextFormatFlags.SingleLine).Width+label.Margin.Horizontal).ToArray();
+        int total=widths.Sum(),available=Math.Max(1,_transport.ClientSize.Width);
+        int height=_transportLabels.Take(count).Max(label=>TextRenderer.MeasureText("USB",label.Font,Size.Empty,TextFormatFlags.SingleLine).Height);
+        if(_transport.Height!=height)_transport.Height=height;
+        int used=0;
+        for(int i=0;i<3;i++){
+            int width=i>=count?0:i==count-1?Math.Max(0,available-used):total<=available?widths[i]:available*widths[i]/Math.Max(1,total);
+            if(_transport.ColumnStyles[i].Width!=width)_transport.ColumnStyles[i].Width=width;used+=width;
+        }
     }
     private static string Description(string action)=>action switch {
         "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"配置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "data"=>"选择需要的数据",
@@ -182,5 +196,5 @@ internal sealed class DeviceCenterForm : Form
     }
     internal static FlowLayoutPanel Row()=>new(){AutoSize=true,WrapContents=true,Margin=new Padding(0,4,0,8)};
     internal static Button Button(string text,Action click,bool primary=false) {var b=new Button{Text=text,AutoSize=true};SettingsWindow.StyleButton(b,primary);b.Click+=(_,_)=>click();return b;}
-    protected override void Dispose(bool disposing){if(disposing){_timer.Stop();_timer.Dispose();_manage.Dispose();_health.Dispose();_connection.Dispose();_transport.Dispose();}base.Dispose(disposing);}
+    protected override void Dispose(bool disposing){if(disposing){_timer.Stop();_timer.Dispose();_manage.Dispose();_transportTips.Dispose();_health.Dispose();_connection.Dispose();_transport.Dispose();}base.Dispose(disposing);}
 }

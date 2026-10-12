@@ -1,18 +1,28 @@
 # 图库包 / Gallery packs
 
-桥接 0.6.5 支持名画与书法图文包独立导入，标准程序不嵌入整理中的图库文字。TAB5 .176 带阅读能力与扩充字库。本次不发布新图库，现有正式 2026.10.09 图片包保持兼容；没有文字的旧包仍正常展示图片。新包导入后的完整设备验收与内容核实留待后续发布。图库包不安装字体，新正文需检查缺字。
+年度精选名画 2026.10.11.23、书法 2026.10.12.32 各 366 件，以独立图文 ZIP 提供。图片、简介、权威欣赏资料、原文或明确标注的参考及来源一起更新。Windows 0.6.6 与 TAB5 .178 支持完整长文分段、最新字库及 TF 整库保存；先升级程序／固件，再导入内容。旧图片包继续兼容，字库由固件安装，图库包不安装字体。
 
-Bridge 0.6.5 supports independent image/text collection imports without embedding in-progress guide content; TAB5 .176 includes readers and extended fonts. No new collection is published here. Formal 2026.10.09 image-only packs remain compatible. New text and full imported-pack hardware acceptance follow separately; font coverage must be checked because packs do not install fonts.
+Two independent annual packs contain 366 paintings and 366 calligraphy works, with images and reviewed reading/source material updated together. Windows 0.6.6 and TAB5 .178 support complete long-text paging, the latest font and opt-in complete-library TF storage. Upgrade the app/firmware before importing new content; old image-only packs remain compatible. Collection imports do not install fonts.
 
-## TF 卡整库保存 / Complete TF collection storage
+## 电脑浏览作品 / Desktop browsing
 
-TAB5 .177 配合 Windows 桥接 0.6.6，通过 USB／Wi-Fi 在后台同步电脑已安装的整套名画、书法，保存每件作品的所有分页、横竖屏图片和配套阅读文字；选择名画／书法时，屏保设置显示完成作品数。全部保存后直接读卡，跨重启和年份离线展示；尚未保存的作品仍需桥接。首次复制不是每天只缓存一幅。图库 ZIP 仍在电脑端导入，整理中的新内容不随程序包发送到卡。
+Windows 桥接在「设备中心 → 桥接设置 → 软件／固件 → 屏保图库」增加「浏览作品」。左侧滚动选择已安装名画或书法，支持作品名／作者搜索及按日期查找；日期映射与每日屏保一致，跨年份连续循环。右侧以图片为主，单页作品隐藏分页按钮，简介、欣赏提示与完整原文通过「阅读资料」按需展开。
+
+点击「全屏观看」或双击图片放大观看；鼠标滚轮围绕指针缩放，拖动查看细节，「适合窗口／屏幕」恢复完整画面，Esc 退出全屏。图片使用已安装包里的横屏展示页，放大不增加原图分辨率。旧图片包仍可浏览，没有核实的文字显示缺失状态。导入后可刷新目录，不修改图库文件、设备设置或每日作品日期；暂不提供「在 TAB5 查看」。
+
+追加源程序已通过 Windows 原生入口、查找与导航、全屏／滚轮／拖动／退出、取消与失败状态，以及 100%／150%／200% 正常和最小窗口检查；只读逐页解码本机两类各 366 件作品。证据见 `artifacts/development/gallery-browser-20261011/`。尚未部署或对外发布，不需要构建 TAB5 固件。
+
+Windows source adds Device Center → Bridge Settings → Software/Firmware → Artwork Collections → Browse Works. Scroll installed paintings/calligraphy, search titles/artists, or find by date using the same continuous mapping as the daily screensaver. The image dominates; single-page works hide paging controls and reading tabs expand on demand. Fullscreen via button/double-click, pointer-anchored wheel zoom, drag to pan, fit reset and Esc are supported. It uses packaged landscape presentation pages, so zoom does not add source resolution. Legacy image-only packs remain browsable; missing verified text is not fabricated. Refresh after imports; no pack files, device settings or daily dates are changed, and no View on TAB5 action is provided. Native interactions, failure/cancellation states, normal/minimum layouts at 100/150/200% and read-only full-page decoding of both installed 366-work collections passed. This source addition is not deployed or published and requires no TAB5 firmware build.
+
+## TF 卡整库保存（待构建 .178） / Complete TF collection storage (pending .178)
+
+TAB5 .178 待构建源程序配合 Windows 桥接 0.6.6，在「设置 → 存储与缓存」主动选择 TF 卡后，通过 USB／Wi-Fi 在后台同步电脑已安装的整套名画、书法，保存每件作品的所有分页、横竖屏图片和配套阅读文字；本页独立显示卡状态及完成作品数。默认仍为设备内存缓存，插卡不会自动启用整库保存。全部保存后直接读卡，跨重启和年份离线展示；尚未保存的作品仍需桥接。首次复制不是每天只缓存一幅。图库 ZIP 仍在电脑端导入，整理中的新内容不随程序包发送到卡。已安装 .177 缺少 FAT 长文件名配置，修复及新设置界面均等待字库稳定后构建和实卡验收。
 
 中断后按持久进度续存，并复用已经校验的分页；前台浏览、阅读、语音、照片及 OTA 优先，不在后台分配 RGB 显示帧。内容更新按类别校验版本，重新获取元数据，相同 SHA-256 的图片复用卡上字节；仅修改简介、欣赏提示或原文不重传图片。BLE 保留当前作品传输能力，全库复制使用 USB／Wi-Fi。
 
 作品图文以完整校验记录保存在 `/sdcard/aibot/gallery/painting` 和 `calligraphy`，每件作品单独放入 `works/<作品索引键>/`，两份轮换记录排除损坏或未完成内容。项目所有卡内数据统一使用 `aibot/`，预留照片、其他数据及缓存目录，详见 [TF 卡目录约定](TF-STORAGE.md)。无卡、卡满、只读或介质错误时暂停保存并保留内存／桥接路径；不格式化卡、不删除其他用户文件。全库主链路、断点、跨年离线和文字更新已做主机回归，实际 TF 卡验收另行记录。已发布 .176 不含此功能。
 
-TAB5 .177 with Windows bridge 0.6.6 synchronizes both complete installed collections over USB/Wi-Fi: every work/page/orientation and optional full guide. Settings show completed works. Finished collections read directly from TF across reboots and years; unsaved works still require the bridge. Persistent cursors and checked pages resume interrupted copies. Foreground use has priority and background jobs allocate no RGB frame. Category revisions refresh metadata while identical JPEGs are reused; text-only updates transfer no image ranges. BLE retains individual transfers. ZIPs remain imported on the computer and new in-progress content is excluded. Alternating records, card-failure fallback and shared nonformatting photo/gallery locking preserve unrelated files. Host regression is separate from hardware acceptance; public .176 is unchanged.
+Pending TAB5 .178 source with Windows bridge 0.6.6 synchronizes both complete installed collections over USB/Wi-Fi only after explicitly choosing TF in Settings → Storage & Cache: every work/page/orientation and optional full guide. Independent settings show card status and completed works; the default remains device memory cache and inserting a card does not opt in. Finished collections read directly from TF across reboots and years; unsaved works still require the bridge. Persistent cursors and checked pages resume interrupted copies. Foreground use has priority and background jobs allocate no RGB frame. Category revisions refresh metadata while identical JPEGs are reused; text-only updates transfer no image ranges. BLE retains individual transfers. ZIPs remain imported on the computer and new in-progress content is excluded. Alternating records, card-failure fallback and shared nonformatting photo/gallery locking preserve unrelated files. Installed .177 lacked FAT long-filename support; its fix and the new settings await finalized fonts, firmware construction and separate hardware acceptance. Public .176 is unchanged.
 
 
 Windows AI-bot 0.6.3 / TAB5 0.2.156-ui 与年度精选集 2026.10.09 已发布，由[完整下载中心](../DOWNLOADS.md)提供正式下载。图库兼容 0.6.0 / .145 或更新版本。软件、固件功能统一；图库可选，ESP8266 和其他屏保无需下载。
@@ -43,7 +53,7 @@ Viewing notes are optional and require work-specific authoritative analysis, a s
 
 新书法集和名画集使用 `PACK.json` schemaVersion=2，包内的 `guides.zh.json` 与图片一起校验和安装，按稳定作品身份对应简介、欣赏提示、已核实原文及来源。包内文字优先于桥接的旧版内置导读。后续只更新内容时，重新导入对应类别 ZIP 即可，无需同时重新编译或升级桥接；名画与书法独立替换，旧包保留为备份。文字更新同样触发内容校验值变化，支持此能力的设备会重新同步受影响类别的当天缓存，并保持旧图片显示直到新图片就绪。
 
-该能力已随桥接 0.6.5 与 TAB5 .168 本地部署，尚未公开发布；新版内容包导入后的完整图文刷新仍需真机验收。完成首次能力升级后，后续内容更新走图库包。旧包继续兼容。原文未核实时不打包推测正文；设备仅显示“这幅作品的原文尚未核实。”。包版本、来源链接和校验值随包保存，工作区研究快照路径不写入包内。单篇原文目前最多 8,191 UTF-8 字节，超限正文在打包前报错，不截断。新增生僻字需核对设备字库覆盖；图库包本身不安装设备字体。
+该能力已随桥接 0.6.5 与 TAB5 .168 本地部署，尚未公开发布；新版内容包导入后的完整图文刷新仍需真机验收。完成首次能力升级后，后续内容更新走图库包。旧包继续兼容。原文未核实时不打包推测正文；设备仅显示“这幅作品的原文尚未核实。”。包版本、来源链接和校验值随包保存，工作区研究快照路径不写入包内。原有单字段上限仍为 8,191 UTF-8 字节；新增完整原文按下述 v3 分段阅读，上限 32,760 UTF-8 字节，不截断。新增生僻字需核对设备字库覆盖；图库包本身不安装设备字体。
 
 **桥接 0.6.5**：打开“屏保图库”自动检查正式精选集，分别显示“已安装”和“最新精选”日期版本与更新状态。点击对应类别的“下载并安装／升级”，程序直接下载、验证发布包 SHA-256、检查包内类别和版本，再校验全部目录与图片并安装，无需浏览器下载或手动导入。保留“检查更新”和离线 ZIP 导入；相同或更高的本机版本不会提供在线降级。
 
@@ -59,7 +69,25 @@ Viewing notes are optional and require work-specific authoritative analysis, a s
 
 导读文件与图片一起纳入包内 SHA-256 清单。导入先验证哈希、作品身份、覆盖范围和设备字段上限，全部通过后才整体替换对应类别；导入失败或取消时保留原图片和原文字，旧类别仍保留为备份。桥接导入后立即重新读取，不需重启桥接。支持内容版本通知的设备会自动重新同步受影响类别的当天缓存，另一类别继续可用；旧设备重启后获取新内容，程序不会自动重启设备。
 
-新桥接安装一次后，后续名画、书法内容可以各自按日期版本发布和导入，不因文字增补再次升级桥接。旧 `schemaVersion=1` 图片包继续兼容并使用桥接内置导读作为回退；新格式的导读缺失时报告图库无效，不用内置旧文字替代。旧桥接不支持 `schemaVersion=2`，需要先升级到包含本次改动的版本。设备沿用既有 `guideVersion:1/2` 协商，长原文在 v1 读页显示升级提示，在 v2 读页完整提供；认证状态增加可选类别内容校验值，不改变图片传输及认证规则，正式版本号保持不变。
+新桥接安装一次后，后续名画、书法内容可以各自按日期版本发布和导入，不因文字增补再次升级桥接。旧 `schemaVersion=1` 图片包继续兼容并使用桥接内置导读作为回退；新格式的导读缺失时报告图库无效，不用内置旧文字替代。旧桥接不支持 `schemaVersion=2`，需要先升级到包含本次改动的版本。认证状态增加可选类别内容校验值，不改变图片传输及认证规则，正式版本号保持不变。
+
+年度书法包保留已核实或已标明参考范围的 `completeReferenceText`，以独立的 `completeReferenceTextSha256` 校验内嵌正文；原有 `completeReferenceSha256` 仍标识参考文件，不混作正文哈希。Windows 目录阅读使用完整正文。v1 在正文达到 512 字节时、v2 在达到 8,192 字节时返回整篇升级提示，不发送节录冒充全文。v3 对超出原单字段上限的正文返回第 1 段、`transcriptionPages` 和全文 `transcriptionSha256`；认证的 `gallery/guidePage` 请求携带 `category/date/workId/sha256/page`，返回 `workId/page/pages/sha256/pageSha256/text`。段号从 0 开始；段边界保持 Unicode 字符完整，每段最多 4,095 UTF-8 字节，实际 JSON 回复不超过 8 KiB；manifest 不超过 16 KiB。正文最多 32 段、32,760 字节，身份或正文哈希变化报 409，越界段号报 400。
+
+TAB5 候选源码在同一认证后台 worker 中获取并校验全部段，再提供“上一段／下一段”；不扩张原 `transcription[8192]` 字段。阅读页使用打开时冻结的已校验段快照，关闭即释放；既有图库修订通知仍可关闭阅读页。保存到 TF 时将已校验段一起保存，读回重新核对完整正文哈希，缺段或损坏不当作完整原文。图库包不携带固件；v3 需要本次候选桥接及支持该能力的待构建固件。本地打包和模拟／native 测试不等于真机验收；本次不部署设备。
+
+这 7 篇接入的是已标明范围的完整参考文本。分页重组和 SHA-256 只证明正文传输完整，不把参考本升级为本件逐字释文；包内继续保留逐件来源、异文、缺文和待精校说明。
+
+| 作品 | 阅读与精校界限 |
+| --- | --- |
+| 道因法师碑（拓本） | 完整来源版本参考，保留原录阙五字；未据参考本补造碑面缺文。 |
+| 行书居庸赋卷 | 同篇完整参考，保留组字描述和原注；本件异文、题识和后跋待精校。 |
+| 书谱 | 馆方主文完整参考；未冒称独立逐字对照墨迹的释文。 |
+| 自书诗稿册 | 馆方诗稿记录完整参考；本件逐字异文与图像对照待精校。 |
+| 颜氏家庙碑（拓本） | 固定古籍参考正文含刊刻尾记；本件世系、人名、异体及碑面拼接范围待精校。 |
+| 佛顶尊胜陀罗尼经（拓本） | 已识别的汉译经文完整参考；刻录起止、咒音字形和题款未逐一对照。 |
+| 楷书《离骚》《九歌》卷 | 《离骚》及《九歌》十一篇按已核篇序提供参考；本件异文、卷末题记、题跋、款印仍待精校。 |
+
+本次仅交付本地作品包与桥接候选、阅读客户端源码及本机验证证据；不构建正式 TAB5 固件，不安装到用户图库、不部署或刷写设备，不推送或公开发布。
 
 `scripts/package_daily_art.py` 默认同时生成两个独立 ZIP，可用 `--guides` 指定审定资料，或自动使用源目录内的 `guides.zh.json`；否则使用项目审定目录。`--category painting|calligraphy` 可只打包一个类别。年度精选构建器 `scripts/build_curated_art.py` 同样支持 `--category`，在已锁定的作品范围及年度顺序内加入导读，不增加作品或改动 JPEG；同一次构建的包和审阅副本使用同一文字快照。这里只实现程序和打包流程，内容采集与正式图库发布继续独立进行。
 
@@ -69,11 +97,15 @@ Viewing notes are optional and require work-specific authoritative analysis, a s
 
 ## English
 
-**Pack-bundled reading material (bridge 0.6.5):** schemaVersion=2 packs include `guides.zh.json`, with introductions, viewing suggestions, reviewed originals and portable source records bound to stable artwork identities. Imports validate and atomically replace images and text together. Pack text takes priority over optional local embedded guides. After the initial capability update, later content editions need only the corresponding category ZIP; rebuilding or upgrading the bridge alongside each collection is unnecessary. Authenticated content digests also refresh the affected device cache, retaining the previous bitmap until new data arrives. This capability is included in bridge 0.6.5 and TAB5 .176; full hardware acceptance of newly imported image/text packs is pending. Older packs remain compatible, unverified originals stay empty, and originals above 8,191 UTF-8 bytes are rejected rather than truncated. New rare characters must be checked against the device font; gallery packs do not install fonts.
+**Pack-bundled reading material (bridge 0.6.5):** schemaVersion=2 packs include `guides.zh.json`, with introductions, viewing suggestions, reviewed originals and portable source records bound to stable artwork identities. Imports validate and atomically replace images and text together. Pack text takes priority over optional local embedded guides. After the initial capability update, later content editions need only the corresponding category ZIP; rebuilding or upgrading the bridge alongside each collection is unnecessary. Authenticated content digests also refresh the affected device cache, retaining the previous bitmap until new data arrives. This capability is included in bridge 0.6.5 and TAB5 .176; full hardware acceptance of newly imported image/text packs is pending. Older packs remain compatible and unverified originals stay empty. The existing 8,191-byte field is unchanged; v3 segmented reading supports complete originals up to 32,760 UTF-8 bytes without truncation. New rare characters must be checked against the device font; gallery packs do not install fonts.
 
 **Pack guides (bridge 0.6.5):** both painting and calligraphy packs now use `PACK.json schemaVersion=2` and require `guides.zh.json`. Each category bundles introductions, viewing suggestions, reviewed originals, explanations and source records only for its own works, bound by `id/category/workId`. Hashes, coverage, identity and device field limits are validated before atomically replacing images and text. Failed/cancelled imports retain both; old collections remain as backups. The running bridge reloads successful imports immediately. Supporting devices refresh the affected category cache from authenticated content digests; legacy devices fetch cached content again after a restart. Imports never restart devices automatically.
 
-After installing the bridge containing this change once, later painting or calligraphy editions update independently through their ZIPs, without another bridge upgrade for text changes. Legacy schema-1 image-only packs remain compatible; optional local builds may retain embedded-guide fallback; schema-2 packs never substitute embedded text for missing packaged guides. Earlier bridges reject schema 2 and must be upgraded first. Existing guide v1/v2 negotiation remains unchanged, including the whole-text upgrade notice for long originals on v1 readers. `package_daily_art.py` accepts `--guides` and optional `--category painting|calligraphy`; the annual builder also accepts `--category` and freezes the same guide snapshot for packages and review artifacts. No collection research or public release is performed by this change.
+After installing the bridge containing this change once, later painting or calligraphy editions update independently through their ZIPs, without another bridge upgrade for text changes. Legacy schema-1 image-only packs remain compatible; optional local builds may retain embedded-guide fallback; schema-2 packs never substitute embedded text for missing packaged guides. Earlier bridges reject schema 2 and must be upgraded first. `package_daily_art.py` accepts `--guides` and optional `--category painting|calligraphy`; the annual builder also accepts `--category` and freezes the same guide snapshot for packages and review artifacts. No public release is performed by this change.
+
+**Annual complete-text reader v3:** reviewed `completeReferenceText` retains its stated reference/collation scope and gets a distinct `completeReferenceTextSha256` over the embedded UTF-8 text; legacy `completeReferenceSha256` remains the reference-file evidence hash. Windows browsing reads complete text. v1 returns a whole-text upgrade notice at 512 bytes, v2 at 8,192 bytes. For longer originals, v3 manifests include page 0, `transcriptionPages` and complete `transcriptionSha256`. Authenticated `gallery/guidePage` reads use `category/date/workId/sha256/page` and return `workId/page/pages/sha256/pageSha256/text`. Page numbering starts at 0; Unicode characters are never split. Each page contains at most 4,095 UTF-8 bytes and its actual JSON reply is bounded to 8 KiB; manifests remain below 16 KiB. Originals are bounded to 32 pages and 32,760 bytes. Stale identity/hash returns 409 and invalid page indexes return 400. The candidate TAB5 worker retrieves and verifies all pages on its existing authenticated link, then the reader offers previous/next-page controls without enlarging `transcription[8192]`. The open reader owns a frozen verified page snapshot and releases it on close; existing pack-revision handling may still close the reader. TF metadata persists and revalidates the complete page set for offline reading. This requires the candidate bridge and pending v3 firmware; ZIPs include no firmware. Local/native verification is separate from hardware acceptance; no device deployment is performed.
+
+**Scope of the seven complete references:** paged reassembly and SHA-256 establish complete transmission, not independent character-by-character transcription of the specific object. The Daoyin stele retains five explicitly missing source characters; the Juyong rhapsody retains character descriptions/annotations and pending object variants/colophons. Shupu and the self-written poem album retain their complete museum-reference scope without claiming independent image collation. The Yan family stele includes the fixed literary reference's inscription tail while names, variants and the specific rubbing's coverage remain pending. The Usnisa Vijaya scripture retains the identified complete translated reference, with carved extent, dharani forms and inscriptions still to check. The Lisao/Jiuge scroll preserves Lisao and all eleven Jiuge songs in their checked order, while object variants, final notes, colophons and seals remain pending. Per-work source and collation disclosures remain in the pack. This work delivers local collection ZIPs, the bridge candidate, reader source and local evidence only: no formal TAB5 firmware build, user-library installation, device deployment/flashing, push or public release.
 
 **Bridge 0.6.5:** opening Artwork Collections checks formal curated editions and compares their date-based versions with installed packs. Each category can be downloaded, checksum-verified and installed directly in the window. Large packs use 2 MiB chunks with up to three attempts each; partial downloads persist across failures, cancellation, window closure and bridge restarts. Caches are keyed by SHA-256 and validate category, edition, filename and size, so different packages cannot mix bytes. A bad final checksum clears the corrupt checkpoint. ZIP import remains available offline. Online updates cannot downgrade; failures or cancellations preserve installed artwork, and old category folders remain as backups. Updated selections replace rather than merge old works. Successful installation reads back the edition, hot-reloads gallery data and removes that package's download cache.
 
