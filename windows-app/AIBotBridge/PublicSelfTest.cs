@@ -54,6 +54,7 @@ internal static class PublicSelfTest
         CodexLifecycleSelfTest.Run();
         DisplayPolicySelfTest.Run();
         DisplayCommandQueueSelfTest.RunAsync().GetAwaiter().GetResult();
+        Task.Run(Tab5UsbReconnectSelfTest.RunAsync).GetAwaiter().GetResult();
         PetAnimationSelfTest.Run();
         PetSelectionSelfTest.Run();
         MigrationRegressionSelfTest.RunAsync().GetAwaiter().GetResult();

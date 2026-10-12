@@ -115,19 +115,17 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                 if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
                                 bool bulkActive=imageUploadActive?.Invoke()==true||voice is not null&&voice.LastActive>0&&Environment.TickCount64-voice.LastActive<1500;
                                 if(!bulkActive&&standby?.Invoke()==true) {
-                                    // USB already carries current state. Keep the authenticated BLE
-                                    // connection and its voice/RPC pumps, without a redundant catalog.
-                                    // Recheck after owning ATT: USB may disappear while we wait.
-                                    stage="验证 USB 优先时的蓝牙待命连接";
-                                    bool verified=await ProbeStandbyAsync(transferGate,standby,async ()=> {
-                                        using var probe=CancellationTokenSource.CreateLinkedTokenSource(token);probe.CancelAfter(TimeSpan.FromSeconds(4));
-                                        using var current=await ReadInfoAsync(info,probe.Token);
-                                        if(!AuthenticateStandby(current.RootElement,pairing,nonce))throw new IOException("BLE standby authentication failed");
-                                        ReadAssets(current.RootElement,pairing,nonce);
-                                        diagnostic?.Invoke($"standby; USB active; device proof verified; MTU {session.MaxPduSize}; voice/RPC enabled");
+                                    // Identity and nonce were authenticated when this GATT session opened.
+                                    // An extra uncached ATT read each second can time out behind bulk
+                                    // traffic and tear down a healthy standby connection. Keep the
+                                    // same live session; normal fallback still requires its signed ACK.
+                                    stage="检查 USB 优先时的蓝牙待命连接";
+                                    bool verified=KeepAuthenticatedStandby(standby,
+                                        ()=>device.ConnectionStatus==BluetoothConnectionStatus.Connected&&session.SessionStatus==GattSessionStatus.Active,()=> {
+                                        diagnostic?.Invoke($"standby; USB active; authenticated session; link active; MTU {session.MaxPduSize}; voice/RPC enabled");
                                         status("已连接 · USB 优先待命");
                                         discovery.Remember(pairing.DeviceId,address,(int)candidates[address]);
-                                    },token);
+                                    });
                                     if(verified){await Task.Delay(1000,token);continue;}
                                 }
                                 int cadence=telemetry>0?(bulkActive?1000:250):2000;
@@ -224,8 +222,11 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
     internal static bool DeferTelemetry(long now,long lastTelemetry,bool receiving,bool uploadActive)=>(receiving||uploadActive)&&now-lastTelemetry<6000;
     internal static bool UsbOwnsActiveState(long now,long acknowledgedAt,string active)=>
         active=="USB"&&acknowledgedAt>0&&now>=acknowledgedAt&&now-acknowledgedAt<6000;
-    internal static Task<bool> ProbeStandbyAsync(SemaphoreSlim gate,Func<bool> standby,Func<Task> probe,CancellationToken token)=>
-        Tab5BleTransfer.SerializeAsync(gate,async ()=>{if(!standby())return false;await probe();return true;},token);
+    internal static bool KeepAuthenticatedStandby(Func<bool> standby,Func<bool> linkActive,Action confirmed) {
+        if(!standby())return false;
+        if(!linkActive())throw new IOException("Authenticated BLE standby session disconnected");
+        confirmed();return true;
+    }
     internal static bool AuthenticateStandby(JsonElement info,Tab5Pairing pairing,string expectedNonce)=>
         Authenticate(info,pairing,out var nonce)&&nonce==expectedNonce;
     internal static Task<bool> SendTelemetryAsync(SemaphoreSlim gate,Func<bool> defer,Func<Task<bool>> send,CancellationToken token)=>

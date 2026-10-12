@@ -2,6 +2,12 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.181-ui - 2026-10-12
+
+- Prevent whole-library synchronization from stalling behind retained offscreen UI snapshots. Reclaim only rebuildable offscreen caches and avoid hidden preheating during synchronization; preserve the original 5 MiB worker reserve, active gestures, visible pixels and image/text verification.
+- In automatic transport mode prefer a fresh authenticated Wi-Fi path for whole-library reads, with USB fallback. Keep explicit channel selections, foreground priority and per-request binding; validated checkpoints remain reusable across transports.
+- Retain .180 side navigation/Wi-Fi diagnostics and .179 complete reading, storage management and range-resume fixes. Performance and wireless recovery still require the latest image's hardware acceptance.
+
 ## 0.2.180-ui - 2026-10-12
 
 - Place multi-page painting/calligraphy arrows at the artwork sides for both pack formats. Rotate each small control independently, preserve legacy portrait caption pixels, and hide navigation for single-page works.

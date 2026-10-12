@@ -19,17 +19,20 @@ internal static class Tab5BleTransferSelfTest
             if(Tab5BleClient.AuthenticateStandby(invalid.RootElement,standbyPair,standbyNonce))throw new Exception("Standby accepted a changed nonce, wrong identity or forged proof");
         }
         using(var gate=new SemaphoreSlim(1,1)) {
-            await gate.WaitAsync();bool usbActive=true;int probes=0;
-            var queued=Tab5BleClient.ProbeStandbyAsync(gate,()=>usbActive,()=>{probes++;return Task.CompletedTask;},CancellationToken.None);
-            usbActive=false;gate.Release();
-            if(await queued||probes!=0)throw new Exception("Queued standby probe delayed USB-to-BLE fallback");
-            for(int i=0;i<5;i++)if(!await Tab5BleClient.ProbeStandbyAsync(gate,()=>true,()=>{probes++;return Task.CompletedTask;},CancellationToken.None))throw new Exception("Standby probe missing");
+            // An in-progress RPC owns ATT. Keeping an already authenticated
+            // standby session must not queue any idle ATT work behind it.
+            await gate.WaitAsync();bool usbActive=true;int confirmations=0;
+            for(int i=0;i<600;i++)if(!Tab5BleClient.KeepAuthenticatedStandby(()=>usbActive,()=>true,()=>confirmations++))throw new Exception("Live standby session lost");
+            if(gate.CurrentCount!=0||confirmations!=600)throw new Exception("Standby touched the busy ATT gate");
+            usbActive=false;
+            if(Tab5BleClient.KeepAuthenticatedStandby(()=>usbActive,()=>throw new Exception("Stale USB should fall back"),()=>confirmations++))throw new Exception("Standby masked USB disappearance");
+            gate.Release();
             int catalogs=0;
             if(!await Tab5BleClient.SendTelemetryAsync(gate,()=>false,()=>{catalogs++;return Task.FromResult(true);},CancellationToken.None)||catalogs!=1)throw new Exception("BLE fallback suppressed its state frame");
-            try{await Tab5BleClient.ProbeStandbyAsync(gate,()=>true,()=>throw new IOException("invalid proof"),CancellationToken.None);throw new Exception("Standby failure swallowed");}catch(IOException){}
-            if(gate.CurrentCount!=1)throw new Exception("Standby failure retained ATT ownership");
+            try{Tab5BleClient.KeepAuthenticatedStandby(()=>true,()=>false,()=>confirmations++);throw new Exception("Disconnected standby session accepted");}catch(IOException){}
+            if(confirmations!=600||gate.CurrentCount!=1)throw new Exception("Failed standby acknowledged data or retained ATT ownership");
         }
-        Console.WriteLine("TAB5_BLE_STANDBY_OK authenticated connection probes; no stale/forced-link standby; ATT serialization; USB disappearance rechecked; full-state fallback retained");
+        Console.WriteLine("TAB5_BLE_STANDBY_OK authenticated session; 600 busy-ATT standby checks without extra reads; physical disconnect rejected; no stale/forced-link standby; signed full-state fallback retained");
         // A photo spanning several RPC chunks should keep telemetry out of
         // inter-chunk gaps, while a long/stuck upload must retain fresh status.
         long lastTelemetry=0,maxGap=0;int updatesDuringPhoto=0,updatesDuringLongUpload=0;
