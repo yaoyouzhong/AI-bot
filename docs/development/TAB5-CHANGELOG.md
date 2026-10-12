@@ -2,8 +2,14 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.180-ui - 2026-10-12
+
+- Place multi-page painting/calligraphy arrows at the artwork sides for both pack formats. Rotate each small control independently, preserve legacy portrait caption pixels, and hide navigation for single-page works.
+- Add numeric device Wi-Fi diagnostics for driver/configuration results. After a disconnected no-AP failure, scan only the saved SSID at most once per 30 seconds; retain network configuration and authentication.
+
 ## 0.2.179-ui - 2026-10-12
 
+- Keep manual paging visible for multi-page legacy image-only packs independently of optional guide text. Retain original image captions, offer details only when text is available, and preserve matching complete guides when promoting cached JPEGs to TF.
 - Rename the setting to Storage Management and place it below Content Rotation; retain the saved cache choice.
 - Resume within unfinished TF gallery images across reconnect/reboot using checksummed prefix records bound to pack revision, work, layout, frame and expected JPEG SHA-256. Reject torn tails or changed content; only complete image/text commits become offline display sources. Completed works/pages remain reusable.
 - Checkpoint each 192 KiB and flush smaller verified tails on graceful interruption, reducing per-range storage writes. Abrupt power loss may require retransmitting the uncommitted tail. Keep at most one staging file per category under `aibot/gallery/<category>/download.aip`.
