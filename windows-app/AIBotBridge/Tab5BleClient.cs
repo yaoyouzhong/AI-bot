@@ -12,7 +12,7 @@ namespace AIBotBridge;
 internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture,Action<string> status,Action<string> assets,Action<string>? diagnostic=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? voiceHandler=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? rpcHandler=null,
-    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null)
+    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null,Func<bool>? standby=null)
 {
     internal async Task RunAsync(CancellationToken token)
     {
@@ -114,6 +114,22 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                 // Keep voice polling independent so a recording can still start.
                                 if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
                                 bool bulkActive=imageUploadActive?.Invoke()==true||voice is not null&&voice.LastActive>0&&Environment.TickCount64-voice.LastActive<1500;
+                                if(!bulkActive&&standby?.Invoke()==true) {
+                                    // USB already carries current state. Keep the authenticated BLE
+                                    // connection and its voice/RPC pumps, without a redundant catalog.
+                                    // Recheck after owning ATT: USB may disappear while we wait.
+                                    stage="验证 USB 优先时的蓝牙待命连接";
+                                    bool verified=await ProbeStandbyAsync(transferGate,standby,async ()=> {
+                                        using var probe=CancellationTokenSource.CreateLinkedTokenSource(token);probe.CancelAfter(TimeSpan.FromSeconds(4));
+                                        using var current=await ReadInfoAsync(info,probe.Token);
+                                        if(!AuthenticateStandby(current.RootElement,pairing,nonce))throw new IOException("BLE standby authentication failed");
+                                        ReadAssets(current.RootElement,pairing,nonce);
+                                        diagnostic?.Invoke($"standby; USB active; device proof verified; MTU {session.MaxPduSize}; voice/RPC enabled");
+                                        status("已连接 · USB 优先待命");
+                                        discovery.Remember(pairing.DeviceId,address,(int)candidates[address]);
+                                    },token);
+                                    if(verified){await Task.Delay(1000,token);continue;}
+                                }
                                 int cadence=telemetry>0?(bulkActive?1000:250):2000;
                                 int pauseMs=cadence;
                                     long telemetryStarted=Environment.TickCount64,traceTicket=probeTrace?.Ticket(telemetryStarted)??0;
@@ -206,6 +222,12 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
         info.TryGetProperty("rpcWriteWindow",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int offered)&&offered is >=8 and <=64
             ?offered:fallback;
     internal static bool DeferTelemetry(long now,long lastTelemetry,bool receiving,bool uploadActive)=>(receiving||uploadActive)&&now-lastTelemetry<6000;
+    internal static bool UsbOwnsActiveState(long now,long acknowledgedAt,string active)=>
+        active=="USB"&&acknowledgedAt>0&&now>=acknowledgedAt&&now-acknowledgedAt<6000;
+    internal static Task<bool> ProbeStandbyAsync(SemaphoreSlim gate,Func<bool> standby,Func<Task> probe,CancellationToken token)=>
+        Tab5BleTransfer.SerializeAsync(gate,async ()=>{if(!standby())return false;await probe();return true;},token);
+    internal static bool AuthenticateStandby(JsonElement info,Tab5Pairing pairing,string expectedNonce)=>
+        Authenticate(info,pairing,out var nonce)&&nonce==expectedNonce;
     internal static Task<bool> SendTelemetryAsync(SemaphoreSlim gate,Func<bool> defer,Func<Task<bool>> send,CancellationToken token)=>
         Tab5BleTransfer.SerializeAsync(gate,()=>defer()?Task.FromResult(false):send(),token);
     internal static int VoicePollDelay(long now,long lastActive,bool bulkActive)=>now-lastActive<1000?15:bulkActive?500:250;

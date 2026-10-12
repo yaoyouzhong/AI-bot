@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 
 ### Notes and companion firmware
 
+- Keep an authenticated BLE standby connection and voice/RPC while confirmed USB carries current state, avoiding redundant full frames. Resume normal BLE telemetry when USB expires or BLE is selected; retain identity/nonce proof and mandatory full-frame acknowledgment. Sustained hardware acceptance is recorded separately.
+
 - Windows verifies ESP8266 0.5.3's fixed device identity before recovering a changed USB socket/COM path. Preserve binding updates against stale settings saves; display USB/Wi-Fi/Bluetooth connection status on one line, with full-text tooltips when space is narrow.
 - Generate maintained Chinese notes before English notes, retain verified download sizes and resolve repository-document links for Release pages.
 - Release annual collections as two independent optional image/text ZIPs, with 366 paintings and 366 calligraphy works. Reviewed introductions, work-specific appreciation, complete originals or explicitly scoped references and source records update together. Page and orientation counts never inflate the number of works. Installed older image-only packs remain compatible.
