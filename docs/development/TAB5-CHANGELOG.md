@@ -2,6 +2,14 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.179-ui - 2026-10-12
+
+- Rename the setting to Storage Management and place it below Content Rotation; retain the saved cache choice.
+- Resume within unfinished TF gallery images across reconnect/reboot using checksummed prefix records bound to pack revision, work, layout, frame and expected JPEG SHA-256. Reject torn tails or changed content; only complete image/text commits become offline display sources. Completed works/pages remain reusable.
+- Checkpoint each 192 KiB and flush smaller verified tails on graceful interruption, reducing per-range storage writes. Abrupt power loss may require retransmitting the uncommitted tail. Keep at most one staging file per category under `aibot/gallery/<category>/download.aip`.
+- Reuse a checked complete original across frames/layouts only when date, work, revision and full-text hash match; revalidate after a pack update. Avoid retrying already-persisted background images because of an unrelated RGB reserve check; retain foreground priority.
+- Include .178 long-filename fixes, complete readers and the latest 10,535-glyph font. Native resume/integrity/failure preservation, whole-library offline and seven long-original regressions passed; final image and hardware acceptance are recorded separately.
+
 ## 0.2.178-ui - 2026-10-12
 
 - Fix .177's disabled FAT long filenames, which prevented creating calligraphy, date and record paths even after mounting. Use heap buffers and preserve the `aibot/` layout, checked records and nonformatting behavior.
