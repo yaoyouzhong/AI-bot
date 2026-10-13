@@ -2,6 +2,13 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.190-ui - 2026-10-13
+
+### Desktop-initiated upgrades
+
+- Accept bounded requests from the paired bridge. Reuse local draft/busy guards on LVGL, require an authenticated commit, and atomically bind installation to the authorized offer ID/SHA-256. Expired, duplicate, withdrawn or mismatched intents cannot start an upgrade.
+- Retain device-triggered installation, OTA slots/rollback, transport preferences and TF files. Windows 0.6.6 exposes Start Upgrade for compatible devices; older firmware needs one device-confirmed installation. Physical trigger acceptance is recorded separately.
+
 ## 0.2.189-ui - 2026-10-13
 
 ### Artwork reading

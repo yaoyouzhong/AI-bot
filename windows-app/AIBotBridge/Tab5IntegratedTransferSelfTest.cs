@@ -8,6 +8,7 @@ internal static class Tab5IntegratedTransferSelfTest
     internal static void Run(string directory) {
         Directory.CreateDirectory(directory);
         Tab5BulkTransferSelfTest.Run(directory);
+        Tab5RemoteOtaSelfTest.RunAsync().GetAwaiter().GetResult();
         var baseline=new JsonObject{["version"]=1,["type"]="tab5_status",["deviceId"]="001122334455",["session"]="delta-test",["sequence"]=1000,
             ["data"]=new JsonObject{["epochMilliseconds"]=1000,["codex"]=new JsonObject{["keep"]=new string('x',16000),["nested"]=new JsonObject{["old"]=true,["nullable"]=1}},["claude"]=new JsonObject()}};
         var next=baseline.DeepClone();next["sequence"]=1001;next["data"]!["epochMilliseconds"]=2000;

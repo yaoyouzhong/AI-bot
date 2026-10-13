@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -34,7 +34,10 @@ internal sealed partial class Tab5Service
     internal void ObserveFirmware(string id,string version) {
         _firmware.Observe(id,version);
         _assets.ObserveFirmware(version);
-        if(Volatile.Read(ref _ota)?.Version==version)Interlocked.Exchange(ref _rpcOtaUntil,0);
+        if(Volatile.Read(ref _ota)?.Version==version) {
+            Interlocked.Exchange(ref _rpcOtaUntil,0);
+            lock(_remoteOtaLock){_remoteOta?.Completion.TrySetResult(true);if(_remoteOtaStatus.Length>0)_remoteOtaStatus="设备已回报新版本，请核验启动。";}
+        }
     }
     private sealed class Tab5RpcImage(string device,string task,string id,int size,string sha)
     {
@@ -98,6 +101,7 @@ internal sealed partial class Tab5Service
                     _galleryDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} request={Interlocked.Increment(ref _galleryRequests)}; transport={transport}; category={Text(root,"category")}; op={Text(root,"op")}; orientation={Text(root,"orientation")}; status={result.Status}; body="+
                         JsonSerializer.Serialize(result.Body is Tab5RpcDataBody data?data.Metadata:result.Body,JsonDefaults.Options);
                 }
+                else if(Text(root,"kind")=="ota-control")result=ReceiveRemoteOta(root);
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
                 else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy
                     ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token);

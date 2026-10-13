@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.6 - 2026-10-12
 
+- Add Windows TAB5 Start Upgrade through the existing paired, authenticated state/RPC path. Save device drafts, check active work, obtain a matching start receipt and display transfer progress; reject duplicate, expired or mismatched requests. Requires TAB5 0.2.190-ui+; older devices need one device-confirmed upgrade first. Add same-Windows-user local IPC/CLI scoped to the device and offered SHA-256. Preserve TF collections.
+- Place boot verification beside its status and bind confirmation to the selected image and device. Simplify transfer tests to gallery/card and communication modes with one Start/Stop row, a compact result and expandable diagnostics; remove BLE firmware preflight controls from this page.
+
 - Negotiate TAB5 0.2.189-ui request-ready USB waiting to wake on newly published requests and reduce post-empty-poll delays. Preserve legacy paths and clear capability state on disconnect. Companion firmware reuses valid gallery Wi-Fi connections and optimizes the actual portrait reader layer; installed artwork, authentication and existing glyphs remain compatible. Measure physical throughput and responsiveness separately.
 
 - Name the transport benchmark explicitly to distinguish it from gallery-to-TF measurement. Retain bounded numeric USB binary rejection diagnostics and display optional TAB5 wireless startup diagnostics, without logging payloads or credentials.

@@ -4,6 +4,7 @@ namespace AIBotBridge;
 internal static class UpgradeSelfTest
 {
     internal static void Run() {
+        if(!AppPaths.IsPublicSelfTest)AppPaths.BeginPublicSelfTest();
         string path=Path.Combine(Path.GetTempPath(),"aibot-image-"+Guid.NewGuid().ToString("N")+".bin");
         try {
             byte[] bytes=TestFirmwareImage.Create("0.2.53-test");File.WriteAllBytes(path,bytes);var image=Tab5OtaPackage.Load(path);
@@ -18,6 +19,19 @@ internal static class UpgradeSelfTest
             }
             CheckDiagnostic("ota_0",0x20000,2,image.ElfSha256,true);CheckDiagnostic("ota_1",0x700000,2,image.ElfSha256,true);
             CheckDiagnostic("ota_1",0x700000,1,image.ElfSha256,false);CheckDiagnostic("ota_0",0x20000,2,new string('0',64),false);
+            string pairPath=Path.Combine(Path.GetTempPath(),"aibot-boot-"+Guid.NewGuid().ToString("N"));
+            try {
+                var pairStore=new Tab5PairingStore(pairPath);
+                var pair=pairStore.Pair("001122aabbcc",@"USB\OFFLINE-BOOT");
+                using var paired=new Tab5Service(pairStore);paired.UsbDevices=()=>[];
+                var snapshot=new StatusSnapshot(1,"12:00",DateTimeOffset.UtcNow.ToUnixTimeSeconds(),0,DateTimeOffset.UtcNow,new("idle",null),new("idle",null));paired.Publish(snapshot);paired.ObserveFirmware(pair.DeviceId,image.Version);
+                string nonce=Guid.NewGuid().ToString("N");paired.Respond(pair.DeviceId,nonce,Tab5Protocol.Proof(Convert.FromBase64String(pair.Key),$"GET|{pair.DeviceId}|{nonce}"));paired.OfferOta(image);
+                if(paired.UpgradeBootSummary.Contains("通过"))throw new Exception("Version report treated as boot verification");
+                paired.RecordVerifiedBoot(JsonSerializer.SerializeToElement(new{type="tab5_ota_diagnostic",firmware=image.Version,partition="ota_0",address=0x20000,state=2,stateError=0,elfSha256=image.ElfSha256}),image,pair.DeviceId);
+                if(paired.UpgradeBootSummary!="启动核验通过")throw new Exception("Valid exact boot not displayed");
+                paired.OfferOta(image with{Image=TestFirmwareImage.Create(image.Version)});
+                if(paired.UpgradeBootSummary.Contains("通过"))throw new Exception("Old boot confirmation reused for different image");
+            }finally{if(File.Exists(pairPath))File.Delete(pairPath);}
             var trace=JsonSerializer.SerializeToElement(new{trace=new{previousStage=8,previousOffset=123,previousTotal=123,previousError=0,previousStackFree=4096,previousOtaMs=new[]{1000,800,700},abortDetail="private fixture text"}});
             string timing=Tab5Service.FormatUpgradeTiming(trace);
             if(!timing.Contains("previousOtaMs=[1000,800,700]")||timing.Contains("private fixture"))throw new Exception("OTA timing missing or non-numeric trace leaked");

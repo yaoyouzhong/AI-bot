@@ -19,6 +19,35 @@ internal sealed partial class Tab5Service
     internal string BleQueueComparisonSummary=>_bleQueueComparison.Summary;
     internal string BleOtaProbeDiagnostic=>_bleOtaProbeDiagnostic;
     internal string BenchmarkDiagnostic=>_benchmarkDiagnostic;
+    internal static string FormatBenchmarkOverview(string result) {
+        string[] rows=result.Split(';',StringSplitOptions.RemoveEmptyEntries);
+        if(rows.Length==0||rows[0]=="尚未测速")return "选择测试类型，然后开始测速。";
+        string state=rows[0] switch {"running"=>"测速中…","complete"=>"测速完成","failed"=>"测速未全部完成","cancelled"=>"测速已停止",_=>FormatBenchmark(rows[0])};
+        var lines=new List<string>{state};
+        var samples=new List<(string Link,string Direction,long Bytes,long Ms,int Error)>();
+        foreach(string row in rows.Skip(1)) {
+            string[] fields=row.Split(',');
+            if(fields.Length==9&&fields[0]=="gallery") {
+                if(!fields.Skip(2).All(x=>uint.TryParse(x,out _))||uint.Parse(fields[2])>8){lines.Add("样本数据无效，请查看详细数据。");continue;}
+                uint bytes=uint.Parse(fields[3]),ms=uint.Parse(fields[4]);
+                lines.Add($"图库写卡 · {fields[1]} · {fields[2]}/8 个样本");
+                if(ms>0)lines.Add($"{bytes*1000.0/ms/1024:F1} KiB/s   {bytes/1048576.0:F2} MiB / {ms/1000.0:F2} 秒");
+                if(fields[8]!="0")lines.Add($"错误状态 {fields[8]}，请查看详细数据。");
+            } else if(fields.Length>=6&&fields[0] is "USB" or "Wi-Fi" or "BLE"&&fields[1] is "up" or "down"&&
+                long.TryParse(fields[3],out long bytes)&&bytes>=0&&long.TryParse(fields[4],out long ms)&&ms>=0&&int.TryParse(fields[5],out int error))
+                samples.Add((fields[0],fields[1],bytes,ms,error));
+        }
+        foreach(var link in samples.GroupBy(x=>x.Link)) {
+            var rates=new List<string>();
+            foreach(string direction in new[]{"up","down"}) {
+                var valid=link.Where(x=>x.Direction==direction&&x.Error==0&&x.Bytes>0&&x.Ms>0).ToArray();
+                if(valid.Length>0)rates.Add($"{(direction=="up"?"上传":"下载")} {valid.Sum(x=>(double)x.Bytes)*1000/valid.Sum(x=>(double)x.Ms)/1024:F1} KiB/s");
+            }
+            if(rates.Count>0)lines.Add(link.Key+"   "+string.Join("   ",rates));
+        }
+        int failures=samples.Count(x=>x.Error!=0);if(failures>0)lines.Add($"{failures} 个样本失败，请查看详细数据。");
+        return string.Join(Environment.NewLine,lines);
+    }
     internal static string FormatBenchmark(string result) {
         string[] rows=result.Split(';',StringSplitOptions.RemoveEmptyEntries);
         if(rows.Length==0)return "尚未测速";

@@ -1,4 +1,4 @@
-﻿using System.IO.Ports;
+using System.IO.Ports;
 using System.Text;
 using System.Text.Json;
 
@@ -53,11 +53,12 @@ internal sealed partial class Tab5Service : IDisposable
         lock(_lifecycle){if(active){if(_stopping)throw new OperationCanceledException("TAB5 服务已停止。");Interlocked.Increment(ref _otaTransfers);}else Interlocked.Decrement(ref _otaTransfers);}
     }
     internal string OtaSummary=>HasOta&&Environment.TickCount64<Interlocked.Read(ref _rpcOtaUntil)?Volatile.Read(ref _ota)?.Version+" · 更新处理中，等待设备校验":_firmware.Summary(_store.Current?.DeviceId,Volatile.Read(ref _ota)?.Version,Volatile.Read(ref _otaTransfers)>0);
+    internal string OtaTransferSummary=>_otaTransferDiagnostic;
     internal string OtaNotes=>Volatile.Read(ref _ota)?.Notes??"";
     internal bool HasOta=>Volatile.Read(ref _ota) is not null;
     internal void OfferOta(string path)=>OfferOta(Tab5OtaPackage.Load(path));
-    internal void OfferOta(Tab5OtaPackage image) {lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备忙，请稍后提供固件。");Volatile.Write(ref _ota,image);}}
-    internal void CancelOta()=>Volatile.Write(ref _ota,null);
+    internal void OfferOta(Tab5OtaPackage image) {lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备忙，请稍后提供固件。");Volatile.Write(ref _ota,image);_remoteOtaStatus="";}}
+    internal void CancelOta(){lock(_lifecycle){if(Busy||RemoteOtaPending)throw new InvalidOperationException("设备正在处理操作，暂时不能停止提供固件。");Volatile.Write(ref _ota,null);}}
     private ITab5VoiceEndpoint? _voice;
     private readonly Dictionary<string,long> _voiceNonces=[];
     internal void AttachVoice(ITab5VoiceEndpoint voice)=>_voice=voice;
@@ -180,7 +181,7 @@ internal sealed partial class Tab5Service : IDisposable
     internal DeviceView DeviceView { get {long now=Environment.TickCount64;bool Recent(long at)=>at>0&&now-at<15000;bool usb=Recent(Interlocked.Read(ref _usbAckAt)),wifi=Recent(Interlocked.Read(ref _wifiRequestAt)),ble=Recent(Interlocked.Read(ref _bleAckAt));return new(usb||wifi||ble,Busy?"正在处理":usb||wifi||ble?"在线":"离线",$"USB：{(usb?"已连接":"未连接")}  Wi-Fi：{(wifi?"已连接":"未连接")}  蓝牙：{(ble?"已连接":"未连接")}\n当前通道：{(usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无")}",_firmware.LastVersion(PairedId),usb?"已连接":"未连接",wifi?"已连接":"未连接",ble?"已连接":"未连接",usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无");}}
     private volatile bool _wifiReportedConnected;
     private volatile string _voiceAuthStatus="尚无语音请求";
-    internal string DiagnosticSummary => ProfileDiagnostic+GalleryDiagnostic+TcpUploadDiagnostic+GalleryHostDiagnostic+"\n"+ConnectionSummary+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"; metricsDeferred="+Interlocked.Read(ref _usbMetricsDeferred)+"\nUSB 状态恢复：attempts="+Interlocked.Read(ref _usbStatusRecoveryAttempts)+"; confirmed="+Interlocked.Read(ref _usbStatusRecoverySucceeded)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
+    internal string DiagnosticSummary => ProfileDiagnostic+GalleryDiagnostic+TcpUploadDiagnostic+GalleryHostDiagnostic+"\n"+ConnectionSummary+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"; metricsDeferred="+Interlocked.Read(ref _usbMetricsDeferred)+"\nUSB 状态恢复：attempts="+Interlocked.Read(ref _usbStatusRecoveryAttempts)+"; confirmed="+Interlocked.Read(ref _usbStatusRecoverySucceeded)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n电脑升级："+RemoteOtaStatus+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
     private string? _reservedPort;
     internal string CrashDiagnostic=>_crashes.Snapshot;
     // All callers hold _usbGate. Keeping DTR and the CDC handle stable avoids
@@ -226,7 +227,7 @@ internal sealed partial class Tab5Service : IDisposable
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,
+    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);

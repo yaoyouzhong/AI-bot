@@ -59,6 +59,27 @@ internal static class DeviceCenterStyleSelfTest
                 ("tab5-install",()=>new Tab5InstallForm(tab5,preview:true),null)
             };
             foreach(int index in Enumerable.Range(0,5)) {int selected=index;pages.Add(("tab5-connection-"+index,()=>new Tab5ConnectionForm(tab5,loadNetworks:false),f=>Descendants(f).OfType<TabControl>().Single().SelectedIndex=selected));}
+            var pairingStore=new Tab5PairingStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"style-fixtures","remote-pair.dat"));
+            var pairing=pairingStore.Pair("001122aabbcc",@"USB\OFFLINE-STYLE");
+            using var remoteTab5=new Tab5Service(pairingStore);remoteTab5.UsbDevices=()=>[];
+            foreach(string state in new[]{"ready","legacy","verified"}) {
+                string fixture=state;
+                pages.Add(("tab5-upgrade-"+state,()=> {
+                    var snapshot=new StatusSnapshot(1,"12:00",DateTimeOffset.UtcNow.ToUnixTimeSeconds(),0,DateTimeOffset.UtcNow,new("idle",null),new("idle",null));
+                    remoteTab5.Publish(snapshot);remoteTab5.ObserveFirmware(pairing.DeviceId,fixture=="legacy"?"0.2.188-ui":"0.2.190-ui");
+                    string nonce=Guid.NewGuid().ToString("N");remoteTab5.Respond(pairing.DeviceId,nonce,Tab5Protocol.Proof(Convert.FromBase64String(pairing.Key),$"GET|{pairing.DeviceId}|{nonce}"));
+                    var image=new Tab5OtaPackage(new byte[1024],new string('a',64),fixture=="ready"?"0.2.191-ui":"0.2.190-ui",new string('b',32),"## 固件升级\n- 支持在电脑端开始升级\n## 兼容\n- 保留配对、图库和自动轮播");
+                    remoteTab5.OfferOta(image);
+                    if(fixture=="verified")remoteTab5.RecordVerifiedBoot(JsonSerializer.SerializeToElement(new{type="tab5_ota_diagnostic",firmware=image.Version,elfSha256=image.ElfSha256,partition="ota_0",address=0x20000,state=2,stateError=0}),image,pairing.DeviceId);
+                    return new Tab5ConnectionForm(remoteTab5,loadNetworks:false);
+                },f=>Descendants(f).OfType<TabControl>().Single().SelectedIndex=2));
+            }
+            foreach(bool detail in new[]{false,true})pages.Add(("tab5-speed-"+(detail?"details":"summary"),()=>new Tab5ConnectionForm(tab5,loadNetworks:false),f=> {
+                Descendants(f).OfType<TabControl>().Single().SelectedIndex=4;
+                string sample="complete;gallery,Wi-Fi,8,2199663,7876,6900,1800,42,0;gallery_rpc,10,5800,120,5,8;gallery_io,2199663,2199663,200,900,80,8,4194304,128";
+                ((TextBox)f.Controls.Find("benchmark-result",true).Single()).Text=detail?Tab5Service.FormatBenchmark(sample):Tab5Service.FormatBenchmarkOverview(sample);
+                if(detail)Descendants(f).OfType<LinkLabel>().Single().Text="收起详细数据";
+            }));
             foreach(string component in new[]{"bridge","tab5","esp8266"})pages.Add(("release-notes-"+component,()=>new UpdateNotesForm(new Dictionary<string,ComponentUpdate>(),devices,component),null));
             if(only is not null){var selected=only.Split(',').ToHashSet(StringComparer.Ordinal);pages.RemoveAll(p=>!selected.Contains(p.Name));if(pages.Count!=selected.Count)throw new ArgumentException("Unknown page filter");}
             var issues=new HashSet<string>();var captures=new List<object>();
@@ -67,6 +88,15 @@ internal static class DeviceCenterStyleSelfTest
                 if(minimum)form.Size=form.MinimumSize;if(scale!=1)form.Scale(new SizeF(scale,scale));form.PerformLayout();await Task.Delay(30);Application.DoEvents();
                 string name=$"{page.Name}-{scale:0.0}-{(minimum?"minimum":"normal")}";
                 Check(form.BackColor==Color.White,"Non-white window: "+page.Name);
+                if(page.Name.StartsWith("tab5-upgrade-",StringComparison.Ordinal)||page.Name.StartsWith("tab5-speed-",StringComparison.Ordinal)) {
+                    var selectedTab=Descendants(form).OfType<TabControl>().Single().SelectedTab!;
+                    var viewport=selectedTab.Controls.OfType<ScrollableControl>().Single();
+                    if(viewport.HorizontalScroll.Visible) {
+                        Console.WriteLine($"UPGRADE_WIDTH {name} viewport={viewport.ClientSize} pad={viewport.Padding} display={viewport.DisplayRectangle} scrollMin={viewport.AutoScrollMinSize} scrollMargin={viewport.AutoScrollMargin} minimum={viewport.MinimumSize}");
+                        foreach(Control child in viewport.Controls)Console.WriteLine($"UPGRADE_CHILD {child.GetType().Name} text={child.Text} bounds={child.Bounds} margin={child.Margin} min={child.MinimumSize} max={child.MaximumSize}");
+                    }
+                    Check(!viewport.HorizontalScroll.Visible,"Upgrade page requires horizontal scrolling: "+name);
+                }
                 if(scale==1)Check(Math.Abs(form.Font.SizeInPoints-9.5)<.01,"Body typography differs: "+page.Name);
                 foreach(Control control in Descendants(form).Where(c=>c.Visible)) {
                     if(control is Button button&&button.GetType()==typeof(Button)) {

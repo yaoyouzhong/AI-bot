@@ -65,15 +65,25 @@ Windows：运行安装器，保持联网以便补齐缺少的运行环境；安�
 ![图 5：TAB5 USB 配对；若尚未配对，选择本机端口后点“配对”](assets/screens/tab5-usb-pairing.png)
 
 <a id="tab5-upgrade"></a>
+Windows 0.6.6 与 TAB5 0.2.190-ui+ 支持在“连接与固件升级 → 固件升级”选择固件后直接点击 **开始升级**，设备保存草稿、检查忙碌状态后回传结果，并按原连接设置下载／写入。较旧固件需先在 TAB5 上完成一次升级；之后不必每次在设备上点击。已有 TF 图库不重传，完成后仍核验启动。
+
+Windows 0.6.6 with TAB5 0.2.190-ui+ supports **Start Upgrade** in the desktop firmware tab after selecting the image. Device drafts and busy guards remain active; older firmware needs one device-confirmed upgrade first. Subsequent updates can start from the desktop. Preserve TF data and verify the new boot afterward.
+
 ### C. TAB5：已有 AI-bot，后续升级 · 4 步
 
 1. **解压并打开升级页。** 完整解压 `TAB5-upgrade-0.2.178-ui.zip`。设备中心选中 TAB5 → **连接升级 → 固件升级**，保持有效连接和供电。
 2. **提供固件。** 点 **选择固件…**，选解压后的 `aibot_tab5.bin`，同目录保留更新说明文件；核对版本 **0.2.178-ui** 与更新说明，确认提供。
 
-![图 6：TAB5 固件升级；“选择固件…”只接受应用 BIN，完成后点“核验启动（USB）”](assets/screens/tab5-upgrade.png)
+![图 6：TAB5 固件升级界面示例；升级完成后在状态旁点“核验启动”](assets/screens/tab5-upgrade.png)
 
-3. **在 TAB5 上确认安装。** 按设备提示开始升级，等待传输、校验与重启。“已提供固件”只是准备完成，不代表已安装。
-4. **核验并恢复显示。** 重启后用 USB 连接电脑，点 **核验启动（USB）**，看到“启动核验通过”后检查触摸与数据；恢复原连接模式、自动展示及轮播设置。
+3. **开始升级。** 支持的设备在电脑点 **开始升级**；旧固件先在 TAB5 上完成一次升级。等待传输、校验与重启。“已提供固件”只是准备完成，不代表已安装。
+4. **核验并恢复显示。** 重启后用 USB 连接电脑，在升级页的核验状态旁点 **核验启动**，看到“启动核验通过”后检查触摸与数据；恢复原连接模式、自动展示及轮播设置。
+
+**传输测速：** “连接升级 → 传输测速”选择 **图库写卡**或 **通信传输**，点 **开始测速**。前者测独立样本的传输、校验和写卡速度，保留现有图库；后者只测通信。默认显示速度和完成状态，点 **查看详细数据**展开分段耗时。需连接 USB 读取结果；图库测试通道按 TAB5 的连接方式选择。
+
+**Transfer tests:** Select **Gallery/Card** or **Communication** in the transfer test tab, then **Start Test**. Gallery tests include sample transfer, validation and card writes while retaining installed collections; communication tests do not write to the card. Expand details for phase timings. USB is required to read results; gallery transport follows the device connection setting.
+
+![TAB5 传输测速界面示例：选择测试类型，开始／停止，结果与可展开的详细数据](assets/screens/tab5-transfer-test.png)
 
 首刷 ZIP 不用于应用升级。旧分区不兼容时停止操作，按对应迁移方案处理，不用首刷来保留已有设置。
 

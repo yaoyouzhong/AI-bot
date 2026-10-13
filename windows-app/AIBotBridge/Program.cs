@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -8,6 +8,13 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if((args.Length==1&&args[0]=="--tab5-ota-info")||(args.Length==3&&args[0]=="--tab5-start-ota")) {
+            try {
+                var result=Tab5OtaControl.CallAsync(args.Length==1?"info":"start",args.Length==3?args[1]:null,args.Length==3?args[2]:null).GetAwaiter().GetResult();
+                Console.WriteLine(JsonSerializer.Serialize(result,JsonDefaults.Options));if(!result.GetProperty("ok").GetBoolean())Environment.ExitCode=1;
+            }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or TimeoutException or OperationCanceledException or JsonException){Console.Error.WriteLine("TAB5_LOCAL_CONTROL_FAILED: "+ex.GetType().Name);Environment.ExitCode=1;}
+            return;
+        }
         if(args.Length==1&&args[0]=="--self-test-esp-usb-recovery"){EspUsbRecoverySelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--test-esp-usb-recovery"){EspUsbRecoverySelfTest.RunHardwareAsync().GetAwaiter().GetResult();return;}
         if(args.Length is 2 or 3&&args[0]=="--self-test-gallery-browser"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryBrowserSelfTest.Run(Path.GetFullPath(args[1]),args.Length==3?Path.GetFullPath(args[2]):null);return;}
@@ -58,6 +65,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-user-preferences"){UserPreferencesSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-device-recovery"){DeviceRecoverySelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-integrated-transfer"){Tab5IntegratedTransferSelfTest.Run(args[1]);return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-remote-ota"){Tab5RemoteOtaSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-display-settings"){Tab5DisplaySettingsSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-upgrade"){UpgradeSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-development-ui"){ApplicationConfiguration.Initialize();DevelopmentUiSelfTest.Run(args[1]);return;}

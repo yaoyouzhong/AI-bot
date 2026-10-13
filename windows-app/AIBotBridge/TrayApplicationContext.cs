@@ -13,6 +13,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private Tab5Service? _tab5=>_services.Tab5;
     private readonly DeviceRegistryStore _devices;
     private readonly DeviceServiceManager _services;
+    private readonly Task _otaControlTask;
     private DeviceCenterForm? _center;
     private QuotaTrendForm? _trend;
     private BridgeStatusForm? _statusForm;
@@ -55,7 +56,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     internal void OfferTab5Ota(string path) {
         if(_tab5 is null||!_tab5.HasPairedDevice)throw new InvalidOperationException("请先配对 TAB5。");
         _tab5.OfferOta(path);
-        Console.WriteLine("TAB5_OTA_OFFER_READY device_confirmation_required");
+        Console.WriteLine("TAB5_OTA_OFFER_READY installation_not_started");
     }
 
 
@@ -74,6 +75,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ? configuredPort
             : 8765;
         _services=new DeviceServiceManager(_runtime,httpPort,_shutdown.Token);
+        _otaControlTask=Tab5OtaControl.RunAsync(()=>_tab5,_shutdown.Token);
         _runtime.MusicArtworkChanged+=()=>_tab5?.Publish(_runtime.Capture());
         _serial=_services.Serial;
         _serial.AcceptUsbIdentity=(oldIdentity,device,deviceId)=>{
@@ -590,6 +592,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _tab5Form?.Close();
         _shutdown.Cancel();
         _updates.Dispose();
+        await _otaControlTask;
         await _services.StopAsync();
         _center?.Close();_trend?.Close();_statusForm?.Close();_updatesForm?.Close();
         _runtime.Dispose();
