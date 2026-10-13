@@ -108,6 +108,7 @@ internal sealed partial class Tab5Service
     }
     internal async Task<string> GalleryBenchmarkAsync(Action<string> progress,CancellationToken token) {
         if(Busy||Interlocked.CompareExchange(ref _benchmarkRunning,2,0)!=0)throw new InvalidOperationException("请等待当前操作结束后测速。");
+        Volatile.Write(ref _galleryHostProfile,new Tab5GalleryHostProfile());
         bool started=false;
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromMinutes(4));
         try {

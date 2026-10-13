@@ -14,8 +14,10 @@ internal sealed partial class Tab5Service
         long peak=Interlocked.Read(ref _usbRpcGateWaitPeakMs);
         while(waited>peak){long seen=Interlocked.CompareExchange(ref _usbRpcGateWaitPeakMs,waited,peak);if(seen==peak)break;peak=seen;}
     }
-    private Task<byte[]> UsbRpcPacketAsync(byte[]? data,long generation,CancellationToken token)=>
-        Tab5UsbRecovery.InSessionAsync(_usbGate,generation,()=>Interlocked.Read(ref _usbGeneration),async ()=> {
+    private Task<byte[]> UsbRpcPacketAsync(byte[]? data,long generation,CancellationToken token) {
+        var profile=ActiveGalleryHostProfile;long queued=Tab5GalleryHostProfile.Now;
+        return Tab5UsbRecovery.InSessionAsync(_usbGate,generation,()=>Interlocked.Read(ref _usbGeneration),async ()=> {
+            long acquired=Tab5GalleryHostProfile.Now;
             var pair=_store.Current;
             if(_usbRpcVersion!=1||pair is null||_usbPort is not {} port)throw new IOException("USB RPC disconnected");
             if(_usbRpcBinary) {
@@ -23,12 +25,24 @@ internal sealed partial class Tab5Service
                 if(data?.Length>chunk+9)throw new IOException("USB binary request too large");
                 uint binaryTag=Tab5UsbBinary.Tag();
                 Send(port,new{version=1,type="tab5_rpc_binary",deviceId=pair.DeviceId,tag=binaryTag,count=data?.Length??0,chunk});
+                long commandSent=Tab5GalleryHostProfile.Now;
                 if(data is not null)port.Write(data,0,data.Length);
+                long bodySent=Tab5GalleryHostProfile.Now;
                 long deadline=Environment.TickCount64+4000;
                 var header=await Tab5UsbBinary.ReadAsync(port,16,deadline,token);
+                long headerRead=Tab5GalleryHostProfile.Now;
                 int size=Tab5UsbBinary.Length(header,binaryTag);
                 if(data is not null&&size!=0||data is null&&(size<8||size>chunk+8))throw new IOException("USB binary reply length mismatch");
-                return await Tab5UsbBinary.ReadAsync(port,size,deadline,token);
+                var binaryReply=await Tab5UsbBinary.ReadAsync(port,size,deadline,token);
+                long finished=Tab5GalleryHostProfile.Now;
+                if(profile is not null) {
+                    if(data is null&&binaryReply.Length>=8&&System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(binaryReply)==0)
+                        profile.Idle(Tab5GalleryHostProfile.Us(queued,finished));
+                    else profile.Add(new{kind="usb",tx=data?.Length??0,rx=size,gateUs=Tab5GalleryHostProfile.Us(queued,acquired),
+                        commandUs=Tab5GalleryHostProfile.Us(acquired,commandSent),writeUs=Tab5GalleryHostProfile.Us(commandSent,bodySent),
+                        headerUs=Tab5GalleryHostProfile.Us(bodySent,headerRead),readUs=Tab5GalleryHostProfile.Us(headerRead,finished)});
+                }
+                return binaryReply;
             }
             string tag=Guid.NewGuid().ToString("N");
             Send(port,new{version=1,type="tab5_rpc",deviceId=pair.DeviceId,tag,chunk=_usbRpcChunk,data=data is null?null:Convert.ToBase64String(data)});
@@ -38,6 +52,7 @@ internal sealed partial class Tab5Service
             if(!r.GetProperty("ok").GetBoolean())throw new IOException("USB RPC device rejected fragment");
             return data is null?Convert.FromBase64String(r.GetProperty("data").GetString()!):[];
         },CloseUsbPort,RecordUsbRpcGateWait,token);
+    }
     private async Task RunUsbRpcAsync(CancellationToken token)
     {
         // Gate is held for one serial transaction only. A slow desktop request
