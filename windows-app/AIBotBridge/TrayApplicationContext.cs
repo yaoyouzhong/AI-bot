@@ -9,6 +9,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly EventWaitHandle _exitSignal = BridgeLifetime.Listen();
     private readonly BridgeSettings _settings;
     private readonly BridgeRuntime _runtime;
+    private readonly RuntimeHealthGuard? _healthGuard;
     private readonly SerialPublisher _serial;
     private Tab5Service? _tab5=>_services.Tab5;
     private readonly DeviceRegistryStore _devices;
@@ -21,6 +22,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly UpdateService _updates=new();
     private DateTimeOffset _nextUpdateCheck=DateTimeOffset.UtcNow.AddSeconds(30),_nextUpdateNotice;
     private bool _checkingUpdates,_updateBalloon;
+    private bool _healthBalloon;
+    private string _healthSession="";
+    private long _healthSequence;
     private readonly BridgeNotifications _notifications=new();
     private bool _notificationAttention;
     private long _attentionSequence;
@@ -53,6 +57,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private long _cycleStartedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
     internal void OpenTab5Connection() {var tab=_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Tab5&&d.Enabled);if(tab is null)ShowDevices();else HandleDeviceAction(tab.Id,"tab5");}
+    internal void OpenDevices()=>ShowDevices();
     internal void OfferTab5Ota(string path) {
         if(_tab5 is null||!_tab5.HasPairedDevice)throw new InvalidOperationException("请先配对 TAB5。");
         _tab5.OfferOta(path);
@@ -76,6 +81,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             : 8765;
         _services=new DeviceServiceManager(_runtime,httpPort,_shutdown.Token);
         _otaControlTask=Tab5OtaControl.RunAsync(()=>_tab5,_shutdown.Token);
+        if(!AppPaths.IsPublicSelfTest) {
+            try{_healthGuard=RuntimeHealthGuard.Start();_runtime.GuardCheck=()=>_healthGuard.Capture(DateTimeOffset.UtcNow);}
+            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException) {
+                _runtime.GuardCheck=()=>RuntimeHealthGuard.Check(5,DateTimeOffset.UtcNow) with{Detail="独立守护未启动（"+ex.GetType().Name+"）。"};
+            }
+        }
         _runtime.MusicArtworkChanged+=()=>_tab5?.Publish(_runtime.Capture());
         _serial=_services.Serial;
         _serial.AcceptUsbIdentity=(oldIdentity,device,deviceId)=>{
@@ -100,15 +111,24 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var esp=_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled);
             if(esp is null)ShowDevices();else if(_mirror?.Visible==true)_mirror.Hide();else HandleDeviceAction(esp.Id,"mirror");
         };
-        _icon.BalloonTipClicked+=(_,_)=>{if(_updateBalloon){_updateBalloon=false;ShowUpdates();}};
+        _icon.BalloonTipClicked+=(_,_)=>{if(_healthBalloon){_healthBalloon=false;HandleMenuAction("runtime-health");}else if(_updateBalloon){_updateBalloon=false;ShowUpdates();}};
+        _icon.BalloonTipShown+=(_,_)=>_notifications.BalloonShown();
 
         _timer = new System.Windows.Forms.Timer { Interval = 2000 };
         _timer.Tick += (_, _) =>
         {
             if(_exitSignal.WaitOne(0)){ExitThread();return;}
             while (_flashActions.TryDequeue(out var action)) action();
+            _healthGuard?.Pulse(_runtime.Health.Snapshot,_runtime.MonitorExpected,_runtime.Health.Options.Enabled,_runtime.FaultedCollectors+_services.FaultedServices);
             var status = _runtime.Capture();
             _tab5?.Publish(status);
+            if(status.RuntimeHealth is {} health&&(health.Session!=_healthSession||health.Sequence>_healthSequence)) {
+                _healthSession=health.Session;_healthSequence=health.Sequence;
+                var alerts=health.Alerts.Where(a=>!a.HandledExternally).ToArray();
+                if(alerts.Length>0)Notify("health",health.Session+":"+health.Sequence,
+                    string.Join(" · ",alerts.Select(a=>a.Title).Distinct().Take(2)),
+                    string.Join(" · ",alerts.Select(a=>a.ShortAdvice).Where(s=>s.Length>0).Distinct().Take(1)),ToolTipIcon.Warning);
+            }
             _services.ObserveConnections(_devices.Snapshot);
             PollUpdates();
             var codexForeground = ForegroundObserver.CodexVisible();
@@ -291,6 +311,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 case "status": ShowStatus();break;
                 case "updates": ShowUpdates();break;
                 case "notifications": using(var form=new NotificationSettingsForm(_notifications))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                case "runtime-health": using(var form=new RuntimeHealthForm(_runtime.Health))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "configuration-backup": using(var form=new ConfigurationBackupForm(()=>{
                     _runtime.ReloadSettings();_selectedMode=DisplayModes.Load(BridgeSettings.Load()).SelectedMode;_automaticScreenSaver=false;
                     _cycleStartedAt=DateTimeOffset.UtcNow.ToUnixTimeSeconds();PublishDisplayPolicy();if(_services.EspEnabled)_serial.SendDisplayMode(_selectedMode);_=UpdateDemandAsync();RebuildMenu();
@@ -312,7 +333,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void Notify(string kind,string key,string title,string message,ToolTipIcon icon) {
         var decision=_notifications.Evaluate(kind,key,title,DateTimeOffset.Now);
-        if(decision.Show){_updateBalloon=false;_icon.ShowBalloonTip(10000,title,message,icon);}
+        if(decision.Show){_updateBalloon=false;_healthBalloon=kind=="health";_icon.ShowBalloonTip(10000,title,message,icon);}
         if(decision.Sound)_=Task.Run(CompletionChime.Play);
     }
     private bool SelectDisplayMode(string mode)
@@ -451,7 +472,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var devices=UpdateDevices();var keys=UpdateReminder.Pending(devices,_updates.Available,preference);if(keys.Length==0)return;
             UpdateReminder.Remember(preference,keys);
             string names=string.Join("、",devices.Where(d=>keys.Contains(d.Id+":"+(_updates.Available.GetValueOrDefault(d.Component)?.Version??""))).Select(d=>d.Name));
-            _updateBalloon=true;_icon.ShowBalloonTip(10000,"AI-bot 有可用更新",names+" · 点击查看更新说明并下载。",ToolTipIcon.Info);
+            _notifications.IgnoreUntrackedBalloon();_healthBalloon=false;_updateBalloon=true;_icon.ShowBalloonTip(10000,"AI-bot 有可用更新",names+" · 点击查看更新说明并下载。",ToolTipIcon.Info);
         }catch(Exception ex) when(ex is HttpRequestException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or OperationCanceledException or KeyNotFoundException){
             // Query errors remain visible in the update center; retry in one hour.
         }finally{_checkingUpdates=false;}
@@ -581,6 +602,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     protected override async void ExitThreadCore()
     {
         if(_exiting)return;_exiting=true;
+        _healthGuard?.BeginExit();
         _timer.Stop();
         _timer.Dispose();
         _exitSignal.Dispose();
@@ -596,6 +618,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         await _services.StopAsync();
         _center?.Close();_trend?.Close();_statusForm?.Close();_updatesForm?.Close();
         _runtime.Dispose();
+        _healthGuard?.Dispose();
         _icon.Visible = false;
         _icon.Icon?.Dispose();
         _icon.Dispose();

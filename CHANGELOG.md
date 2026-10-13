@@ -2,7 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.6.6 - 2026-10-12
+## 0.6.6 - 2026-10-13
+
+- Extend runtime monitoring with actual Codex connection errors, a session-scoped independent bridge watchdog, and memory commit/paging pressure. Reuse existing requests and metadata, notify only on confirmed anomalies, and keep concise cause/action views. The corresponding TAB5 monitor is included in the candidate; hardware acceptance is recorded separately.
+
+- Add Windows runtime monitoring for proxy response, actual per-target PAC routing and sustained CPU/memory/scheduler/disk pressure; reuse notification quiet hours and deduplication. Add short TAB5 notices, a graphical System monitor and concise cause/action details. The bridge is updated locally with real sampling and native notification receipts verified; TAB5 remains unflashed. Align the four setting checkboxes in two rows and fix orderly shutdown when a device worker has failed. See [runtime monitoring](docs/RUNTIME-MONITOR.md).
+
 
 - Add Windows TAB5 Start Upgrade through the existing paired, authenticated state/RPC path. Save device drafts, check active work, obtain a matching start receipt and display transfer progress; reject duplicate, expired or mismatched requests. Requires TAB5 0.2.190-ui+; older devices need one device-confirmed upgrade first. Add same-Windows-user local IPC/CLI scoped to the device and offered SHA-256. Preserve TF collections.
 - Place boot verification beside its status and bind confirmation to the selected image and device. Simplify transfer tests to gallery/card and communication modes with one Start/Stop row, a compact result and expandable diagnostics; remove BLE firmware preflight controls from this page.

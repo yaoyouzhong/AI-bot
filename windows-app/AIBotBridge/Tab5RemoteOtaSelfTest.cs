@@ -13,6 +13,9 @@ internal static class Tab5RemoteOtaSelfTest
         using var tasks=new Tab5CodexTasks(new Tab5CodexDesktop("unused-remote-ota-test"),()=>[],new Tab5CodexJournal());
         using var service=new Tab5Service(store,tasks);
         var snapshot=new StatusSnapshot(1,"12:00",DateTimeOffset.UtcNow.ToUnixTimeSeconds(),0,DateTimeOffset.UtcNow,new("idle",null),new("idle",null));
+        snapshot=snapshot with {RuntimeHealth=new("remote-health-fixture",1,DateTimeOffset.UtcNow,
+            new[]{"cpu","memory","queue","disk","vpn","pac","codex","bridge"}.Select(k=>new RuntimeHealthCheck(k,k,"ok","正常","","",DateTimeOffset.UtcNow)).ToArray(),[],
+            new SystemPressure(0,0,1,0,8000,8,DateTimeOffset.UtcNow){CommitPercent=50,CommittedMemoryMb=8000,CommitLimitMb=16000})};
         service.Publish(snapshot);
         var image=new Tab5OtaPackage(new byte[1024],new string('a',64),"0.2.191-ui",new string('b',32));service.OfferOta(image);
         var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();int port=((IPEndPoint)listener.LocalEndpoint).Port;listener.Stop();
@@ -50,6 +53,9 @@ internal static class Tab5RemoteOtaSelfTest
             long until=Environment.TickCount64+2000;
             while(!service.RemoteOtaPending||Command().GetProperty("data").GetProperty("connectionHealth").GetProperty("otaCommand").ValueKind!=JsonValueKind.Object){if(localStart.IsCompleted||Environment.TickCount64>=until)throw new Exception("IPC start did not publish");await Task.Delay(5);}
             Task pending=localStart;var frame=Command();
+            var health=frame.GetProperty("data").GetProperty("runtimeHealth");
+            if(health.GetProperty("checks").GetArrayLength()!=8||health.GetProperty("pressure").GetProperty("commitPercent").GetDouble()!=50)
+                throw new Exception("Remote upgrade publication lost runtime monitoring");
             if(!service.Busy||!service.RemoteOtaPending)throw new Exception("Request not protected");
             try{service.CancelOta();throw new Exception("Pending image withdrawn");}catch(InvalidOperationException){}
             try{await service.StartOtaAsync(CancellationToken.None);throw new Exception("Double start accepted");}catch(InvalidOperationException){}

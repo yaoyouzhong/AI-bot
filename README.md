@@ -14,6 +14,8 @@ https://github.com/user-attachments/assets/f954fcd7-e3e1-44f5-9a85-efd6a4fe7e27
 
 ## 能做什么
 
+本地开发：[运行监控](docs/RUNTIME-MONITOR.md)在 Windows 桥接中检测 VPN / PAC 和电脑持续负载；桥接已在本机更新并验证真实采样与 Windows 通知。TAB5 的简短提醒、图形监控和原因／建议详情仍为原生页面预览，尚未刷机。
+
 <table>
 <thead><tr><th width="120" nowrap="nowrap">功能</th><th nowrap="nowrap">说明</th></tr></thead>
 <tbody>

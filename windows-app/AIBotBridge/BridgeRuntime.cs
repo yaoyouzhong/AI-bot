@@ -9,12 +9,16 @@ internal sealed class BridgeRuntime : IDisposable
     private readonly MigratedDomesticBridge _domesticQuotas;
     private readonly SystemMetricsService _systemMetrics;
     private readonly NowPlayingService _music;
+    private readonly RuntimeHealthService _health;
     private readonly LocalizedTextResources _localizedText = new();
-    private readonly Dictionary<string,(CancellationTokenSource Stop,Task Run)> _workers = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string,(CancellationTokenSource Stop,Task Run)> _workers = new();
     private HashSet<string> _sources=DeviceRegistryStore.SourceIds.ToHashSet();
     private readonly Func<string,CancellationToken,Task>? _collector;
     private readonly SemaphoreSlim _demandGate=new(1,1);
     internal string[] ActiveCollectors=>_workers.Keys.Order().ToArray();
+    internal int FaultedCollectors=>_workers.Values.Count(w=>w.Run.IsFaulted);
+    internal bool MonitorExpected=>_workers.ContainsKey("health")&&_health.Options.Enabled;
+    internal Func<RuntimeHealthCheck?>? GuardCheck {get;set;}
     private DisplayPolicy? _displayPolicy;
     private readonly AutoFollowTracker _follow=new();
     internal void SetDisplayPolicy(DisplayPolicy policy) => _displayPolicy = policy;
@@ -33,18 +37,19 @@ internal sealed class BridgeRuntime : IDisposable
         _domesticQuotas = new MigratedDomesticBridge();
         _systemMetrics = new SystemMetricsService();
         _music = new NowPlayingService();
+        _health = new RuntimeHealthService(()=>_systemMetrics.Snapshot);
         if(startRefresh)StartCollectors(_sources);
     }
     private void StartCollectors(HashSet<string> sources) {
-        foreach(var (name,run) in new (string,Func<CancellationToken,Task>)[]{("weather",_weather.RunAsync),("stocks",_stocks.RunAsync),("quotas",_quotas.RunAsync),("system",_systemMetrics.RunAsync),("music",_music.RunAsync)}) {
-            if(!sources.Contains(name)||_workers.ContainsKey(name))continue;
+        foreach(var (name,run) in new (string,Func<CancellationToken,Task>)[]{("weather",_weather.RunAsync),("stocks",_stocks.RunAsync),("quotas",_quotas.RunAsync),("system",_systemMetrics.RunAsync),("music",_music.RunAsync),("health",_health.RunAsync)}) {
+            if(!sources.Contains(name=="health"?"system":name)||_workers.ContainsKey(name))continue;
             var stop=CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);_workers[name]=(stop,Task.Run(()=>_collector is null?run(stop.Token):_collector(name,stop.Token)));
         }
     }
     internal async Task ApplyDemandAsync(DeviceDataDemand demand) {
         await _demandGate.WaitAsync();try {
-            foreach(string key in _workers.Keys.Where(k=>!demand.Sources.Contains(k)).ToArray()) {
-                var worker=_workers[key];worker.Stop.Cancel();try{await worker.Run;}catch(OperationCanceledException) when(worker.Stop.IsCancellationRequested){}finally{worker.Stop.Dispose();_workers.Remove(key);}
+            foreach(string key in _workers.Keys.Where(k=>!demand.Sources.Contains(k=="health"?"system":k)).ToArray()) {
+                var worker=_workers[key];worker.Stop.Cancel();try{await worker.Run;}catch(OperationCanceledException) when(worker.Stop.IsCancellationRequested){}finally{worker.Stop.Dispose();_workers.TryRemove(key,out _);}
             }
             _sources=new(demand.Sources);StartCollectors(_sources);
         }finally{_demandGate.Release();}
@@ -65,7 +70,8 @@ internal sealed class BridgeRuntime : IDisposable
             DomesticQuotas = _domesticQuotas.Snapshot,
             SystemMetrics = _systemMetrics.Snapshot,
             Music = _music.Snapshot,
-            DisplayPolicy = _displayPolicy
+            DisplayPolicy = _displayPolicy,
+            RuntimeHealth = _sources.Contains("system")?_health.Capture(GuardCheck?.Invoke()):null
         };
         return snapshot with {FollowApp=_follow.Update(snapshot,Environment.TickCount64)};
     }
@@ -75,6 +81,7 @@ internal sealed class BridgeRuntime : IDisposable
 
     internal MigratedWeather.WeatherMonitor Weather => _weather.Monitor;
     internal SystemMetricsSnapshot? SystemMetrics => _systemMetrics.Snapshot;
+    internal RuntimeHealthService Health => _health;
     internal MigratedDomesticBridge Domestic => _domesticQuotas;
     internal void ReloadSettings() => _stocks.ReloadSettings(BridgeSettings.Load());
     internal Task RefreshAsync() { var tasks=new List<Task>();if(_sources.Contains("quotas")){_domesticQuotas.RefreshNow();tasks.Add(_quotas.RefreshAsync(_shutdown.Token));}if(_sources.Contains("weather"))tasks.Add(_weather.Monitor.Refresh());if(_sources.Contains("stocks"))tasks.Add(_stocks.RefreshAsync(_shutdown.Token));return Task.WhenAll(tasks); }

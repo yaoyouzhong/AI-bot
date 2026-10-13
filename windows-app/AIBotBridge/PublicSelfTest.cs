@@ -64,6 +64,7 @@ internal static class PublicSelfTest
         CycleSettingsForm.VerifyLayout();
         MirrorSelfTest.Run(Path.Combine(Environment.CurrentDirectory, "artifacts", "public-mirror.png"));
         Task.Run(Tab5RemoteOtaSelfTest.RunAsync).GetAwaiter().GetResult();
+        Task.Run(()=>RuntimeHealthSelfTest.RunAsync(Path.Combine(Environment.CurrentDirectory,"artifacts","public-runtime-health"))).GetAwaiter().GetResult();
         Console.WriteLine("PUBLIC_SELF_TEST_OK fresh profile, empty pages, fixture regressions; no real credentials, USB or production bridge");
     }
 }

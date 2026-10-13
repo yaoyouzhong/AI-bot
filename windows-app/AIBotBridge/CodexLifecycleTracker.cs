@@ -108,7 +108,8 @@ internal sealed class CodexLifecycleTracker
         for (int i = 0; i < merged.Length; i++)
         {
             if (merged[i] != 10) continue;
-            var line=Encoding.UTF8.GetString(merged,start,i-start);ObserveTask(cursor,line);Observe(path,line);start=i+1;
+            var line=Encoding.UTF8.GetString(merged,start,i-start);ObserveTask(cursor,line);Observe(path,line);
+            CodexConnectionHealth.Shared.ObserveModelEvent(line,DateTimeOffset.UtcNow);start=i+1;
         }
         cursor.Partial = merged.Length - start <= 1024 * 1024 ? merged.AsSpan(start).ToArray() : [];
     }

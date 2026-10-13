@@ -4,6 +4,11 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ## 0.2.190-ui - 2026-10-13
 
+### Runtime monitoring
+
+- Add a monitor entry in System for desktop CPU/memory, commit and paging pressure, VPN/PAC routing, actual Codex connections and bridge watchdog health. Confirmed anomalies show brief causes and actions; absent data from older bridges remains unknown.
+- Preserve the primary system statistics, hierarchical return and stale-data presentation. Monitoring coexists with desktop upgrade requests. Desktop/native regressions and TAB5 hardware acceptance are recorded separately.
+
 ### Desktop-initiated upgrades
 
 - Accept bounded requests from the paired bridge. Reuse local draft/busy guards on LVGL, require an authenticated commit, and atomically bind installation to the authorized offer ID/SHA-256. Expired, duplicate, withdrawn or mismatched intents cannot start an upgrade.

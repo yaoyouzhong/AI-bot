@@ -160,7 +160,8 @@ internal sealed record StatusSnapshot(
     MusicSnapshot? Music = null,
     DisplayPolicy? DisplayPolicy = null,
     DomesticActivitySnapshot? DomesticActivity = null,
-    string? FollowApp = null);
+    string? FollowApp = null,
+    RuntimeHealthSnapshot? RuntimeHealth = null);
 
 internal static class JsonDefaults
 {

@@ -172,12 +172,15 @@ internal sealed class QuotaService
             // Bind history to the account actually used for this response, not a later auth-file read.
             var fingerprint = string.IsNullOrEmpty(credential.Value.AccountId) ? null :
                 Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(credential.Value.AccountId)));
-            return await CollectCodexAsync((endpoint, ct) => SendCodexAsync(
+            var result=await CollectCodexAsync((endpoint, ct) => SendCodexAsync(
                 "https://chatgpt.com/backend-api/wham/" + endpoint, credential.Value, ct),
                 credential.Value.Plan, fingerprint, QuotaHistory.Shared, cancellationToken);
+            if(result is not null)CodexConnectionHealth.Shared.Observe("usage","ok",DateTimeOffset.UtcNow);
+            return result;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
+            if(!cancellationToken.IsCancellationRequested)CodexConnectionHealth.Shared.Observe("usage",ex is TaskCanceledException?"timeout":ex is HttpRequestException?"network":"unknown",DateTimeOffset.UtcNow);
             return null;
         }
     }
@@ -214,6 +217,8 @@ internal sealed class QuotaService
         if (!string.IsNullOrWhiteSpace(credential.AccountId))
             request.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", credential.AccountId);
         using var response = await Http.SendAsync(request, cancellationToken);
+        // Optional credit metadata must not mask a failed usage request.
+        if(!response.IsSuccessStatusCode&&url.EndsWith("/usage",StringComparison.Ordinal))CodexConnectionHealth.Shared.ObserveHttp((int)response.StatusCode,DateTimeOffset.UtcNow);
         return response.IsSuccessStatusCode
             ? await response.Content.ReadAsStringAsync(cancellationToken) : null;
     }
