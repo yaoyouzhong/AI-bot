@@ -112,9 +112,10 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                 // A large inbound RPC already proves a live paired link. Avoid
                                 // competing ATT status reads/writes through handling and response.
                                 // Keep voice polling independent so a recording can still start.
-                                if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
-                                bool bulkActive=imageUploadActive?.Invoke()==true||voice is not null&&voice.LastActive>0&&Environment.TickCount64-voice.LastActive<1500;
-                                if(!bulkActive&&standby?.Invoke()==true) {
+                                // USB ownership takes precedence even during a long gallery/USB
+                                // benchmark. Its six-second telemetry deferral is not a reason
+                                // to start competing BLE status frames on a standby connection.
+                                if(standby?.Invoke()==true) {
                                     // Identity and nonce were authenticated when this GATT session opened.
                                     // An extra uncached ATT read each second can time out behind bulk
                                     // traffic and tear down a healthy standby connection. Keep the
@@ -128,11 +129,13 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                     });
                                     if(verified){await Task.Delay(1000,token);continue;}
                                 }
+                                if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
+                                bool bulkActive=imageUploadActive?.Invoke()==true||voice is not null&&voice.LastActive>0&&Environment.TickCount64-voice.LastActive<1500;
                                 int cadence=telemetry>0?(bulkActive?1000:250):2000;
                                 int pauseMs=cadence;
                                     long telemetryStarted=Environment.TickCount64,traceTicket=probeTrace?.Ticket(telemetryStarted)??0;
                                     bool sentTelemetry=await SendTelemetryAsync(transferGate,
-                                    ()=>DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true),async ()=> {
+                                    ()=>DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true,standby?.Invoke()==true),async ()=> {
                                     if((telemetryCapture is null?capture():telemetryCapture(telemetry,rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000)) is not {} clear)return false;
                                     telemetryAt=Environment.TickCount64;
                                     using var doc=JsonDocument.Parse(clear);var seq=doc.RootElement.GetProperty("sequence").GetInt64();
@@ -219,7 +222,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
     internal static int BulkWriteCredits(JsonElement info,int fallback)=>
         info.TryGetProperty("rpcWriteWindow",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int offered)&&offered is >=8 and <=64
             ?offered:fallback;
-    internal static bool DeferTelemetry(long now,long lastTelemetry,bool receiving,bool uploadActive)=>(receiving||uploadActive)&&now-lastTelemetry<6000;
+    internal static bool DeferTelemetry(long now,long lastTelemetry,bool receiving,bool uploadActive,bool usbOwnsState=false)=>usbOwnsState||(receiving||uploadActive)&&now-lastTelemetry<6000;
     internal static bool UsbOwnsActiveState(long now,long acknowledgedAt,string active)=>
         active=="USB"&&acknowledgedAt>0&&now>=acknowledgedAt&&now-acknowledgedAt<6000;
     internal static bool ReportStandby(long now,long usbAt,long bleAt,string active,string status)=>

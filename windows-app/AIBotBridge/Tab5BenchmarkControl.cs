@@ -40,6 +40,15 @@ internal sealed partial class Tab5Service
                 if(fields[8]!="0")lines.Add($"错误状态：{fields[8]}");
                 continue;
             }
+            if(fields[0]=="gallery_io"||fields[0]=="gallery_rpc") {
+                int expected=fields[0]=="gallery_io"?9:6;
+                if(fields.Length!=expected||!fields.Skip(1).All(x=>uint.TryParse(x,System.Globalization.NumberStyles.None,System.Globalization.CultureInfo.InvariantCulture,out _))){lines.Add("分段耗时数据无效");continue;}
+                if(expected==9) {
+                    lines.Add($"读卡 {fields[3]} ms / {uint.Parse(fields[1])/1048576.0:F2} MiB · 写卡 {fields[4]} ms / {uint.Parse(fields[2])/1048576.0:F2} MiB · 落盘 {fields[5]} ms（{fields[6]} 次）");
+                    lines.Add($"对齐批量读写 {uint.Parse(fields[7])/1048576.0:F2} MiB · 边缘读写 {fields[8]} B");
+                } else lines.Add($"请求编码 {fields[1]} ms · 传输及服务等待 {fields[2]} ms · 解密解码 {fields[3]} ms · 等待写卡 {fields[4]} ms（流式传输） · {fields[5]} 次请求");
+                continue;
+            }
             if(fields.Length>=4) {
                 string direction=fields[1]=="up"?"上传":"下载";
                 if(fields.Length>=6&&long.TryParse(fields[3],out long bytes)&&long.TryParse(fields[4],out long ms)) {

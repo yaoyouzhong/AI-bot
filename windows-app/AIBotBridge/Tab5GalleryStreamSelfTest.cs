@@ -41,6 +41,10 @@ internal static class Tab5GalleryStreamSelfTest
         string sample=Tab5Service.FormatBenchmark("complete;gallery,Wi-Fi,8,8388608,8000,6000,3000,42,0");
         if(!sample.Contains("1024.0 KiB/s",StringComparison.Ordinal)||!sample.Contains("8/8",StringComparison.Ordinal)||!sample.Contains("42 次",StringComparison.Ordinal))throw new Exception("Gallery benchmark effective-byte/timing report changed");
         if(Tab5Service.FormatBenchmark("running;gallery,USB,0,0,0,0,0,0,0").Contains("NaN",StringComparison.Ordinal))throw new Exception("Empty gallery timing divided by zero");
+        string profile=Tab5Service.FormatBenchmark("complete;gallery_io,2097152,1048576,100,200,30,8,3144704,1024;gallery_rpc,10,20,30,40,8");
+        if(!profile.Contains("读卡 100 ms / 2.00 MiB",StringComparison.Ordinal)||!profile.Contains("落盘 30 ms（8 次）",StringComparison.Ordinal)||!profile.Contains("等待写卡 40 ms",StringComparison.Ordinal))throw new Exception("Gallery stage profile lost units/fields");
+        foreach(string bad in new[]{"gallery_io,1,2,3","gallery_rpc,1,2,3,4,-1","gallery_rpc,1,2,3,4,4294967296"})
+            if(!Tab5Service.FormatBenchmark("complete;"+bad).Contains("分段耗时数据无效",StringComparison.Ordinal))throw new Exception("Invalid gallery profile accepted");
         foreach(string counters in new[]{"0,0,0,0","1048576,1048576,243,17","4294967295,4294967295,4294967295,4294967295"}) {
             var value=JsonSerializer.SerializeToElement(new{galleryTransferDiag=counters});
             if(Tab5GalleryStream.TransferDiagnostic(value)!=counters)throw new Exception("Real gallery counters rejected as a versioned probe");

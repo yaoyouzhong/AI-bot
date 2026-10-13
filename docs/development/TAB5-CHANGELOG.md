@@ -2,6 +2,13 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.184-ui - 2026-10-13
+
+### Gallery storage and diagnostics
+
+- Transfer aligned multi-sector spans through a bounded 32 KiB aligned buffer, separating partial-sector edges in existing cache files. Keep image/text formats, checksums, durable checkpoints, alternate slots and resume compatibility.
+- Report card read/write/fsync and authenticated RPC stage timings for the same eight isolated samples. Existing installed galleries are preserved; actual speed and sustained BLE behavior require physical acceptance with the matching bridge.
+
 ## 0.2.183-ui - 2026-10-13
 
 - Explicit sync measurement now uses the existing hidden-page cache trim even after both libraries are complete, retaining the 5 MiB safety reserve and avoiding a zero-byte preflight rejection.

@@ -35,6 +35,19 @@ internal static class Tab5BleTransferSelfTest
             if(confirmations!=600||gate.CurrentCount!=1)throw new Exception("Failed standby acknowledged data or retained ATT ownership");
         }
         Console.WriteLine("TAB5_BLE_STANDBY_OK authenticated session; 600 busy-ATT standby checks without extra reads; physical disconnect rejected; no stale/forced-link standby; signed full-state fallback retained");
+        using(var gate=new SemaphoreSlim(1,1)) {
+            int frames=0;
+            for(long now=0;now<=180000;now+=1000) {
+                if(await Tab5BleClient.SendTelemetryAsync(gate,()=>Tab5BleClient.DeferTelemetry(now,0,false,true,true),()=>{frames++;return Task.FromResult(true);},CancellationToken.None))
+                    throw new Exception("Long USB gallery test started a competing BLE status frame");
+            }
+            if(frames!=0||!await Tab5BleClient.SendTelemetryAsync(gate,()=>Tab5BleClient.DeferTelemetry(180001,0,false,true,false),()=>{frames++;return Task.FromResult(true);},CancellationToken.None)||frames!=1)
+                throw new Exception("Expired USB ownership did not restore BLE fallback");
+            await gate.WaitAsync();bool usbOwns=false;
+            var queued=Tab5BleClient.SendTelemetryAsync(gate,()=>Tab5BleClient.DeferTelemetry(200000,0,false,false,usbOwns),()=>{frames++;return Task.FromResult(true);},CancellationToken.None);
+            usbOwns=true;gate.Release();
+            if(await queued||frames!=1)throw new Exception("BLE status ignored USB ownership acquired while awaiting ATT");
+        }
         // A photo spanning several RPC chunks should keep telemetry out of
         // inter-chunk gaps, while a long/stuck upload must retain fresh status.
         long lastTelemetry=0,maxGap=0;int updatesDuringPhoto=0,updatesDuringLongUpload=0;
