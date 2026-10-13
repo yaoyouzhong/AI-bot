@@ -9,6 +9,13 @@ namespace AIBotBridge;
 internal static class Tab5GalleryStream
 {
     internal const int MaximumImage=1048576;
+    internal static string TransferDiagnostic(JsonElement reply)
+    {
+        if(!reply.TryGetProperty("galleryTransferDiag",out var value))return "unsupported";
+        if(value.ValueKind!=JsonValueKind.String||value.GetString() is not {} text||text.Length>43)return "invalid";
+        string[] parts=text.Split(',');
+        return parts.Length==4&&parts.All(x=>uint.TryParse(x,System.Globalization.NumberStyles.None,System.Globalization.CultureInfo.InvariantCulture,out _))?text:"invalid";
+    }
     internal static byte[] Encode(Tab5RpcDataBody body,byte[] key,string nonce)
     {
         var metadata=JsonSerializer.SerializeToElement(body.Metadata,JsonDefaults.Options);

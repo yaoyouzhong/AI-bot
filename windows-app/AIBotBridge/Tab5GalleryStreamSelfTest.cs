@@ -38,6 +38,15 @@ internal static class Tab5GalleryStreamSelfTest
     }
     internal static async Task RunProtocolAsync()
     {
+        foreach(string counters in new[]{"0,0,0,0","1048576,1048576,243,17","4294967295,4294967295,4294967295,4294967295"}) {
+            var value=JsonSerializer.SerializeToElement(new{galleryTransferDiag=counters});
+            if(Tab5GalleryStream.TransferDiagnostic(value)!=counters)throw new Exception("Real gallery counters rejected as a versioned probe");
+        }
+        foreach(string counters in new[]{"-1,0,0,0","4294967296,0,0,0","0,0,0","0,0,0,0,0","1,2,x,4"," 0,0,0,0"}) {
+            var value=JsonSerializer.SerializeToElement(new{galleryTransferDiag=counters});
+            if(Tab5GalleryStream.TransferDiagnostic(value)!="invalid")throw new Exception("Invalid gallery counter accepted");
+        }
+        Console.WriteLine("GALLERY_TRANSFER_DIAGNOSTIC_OK idle and transferred bytes; unsigned bounds; no version prefix");
         string root=Path.Combine(Path.GetTempPath(),"aibot-stream-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
         try {
             byte[] image=Enumerable.Range(0,1048576).Select(i=>(byte)(i*31+17)).ToArray();
