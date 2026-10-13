@@ -16,6 +16,10 @@ The Windows bridge validates the exact numeric shape. Older bridge versions and 
 
 中文：USB 健康回复可附带 `wifiDiag`，依次记录版本、初始化、联网、设置返回值、连接返回值、断开原因、连接请求次数、扫描返回值、扫描次数、匹配热点数、最强信号、信道、配置读回返回值、网络名是否匹配、固定信道、是否锁定热点。扫描只在未联网且确实报“未找到热点”时执行，每30秒最多一次。数字读回不触发扫描、不更改已保存网络；未采样返回值及热点数为-1，成功返回值为0。各字段不是同一事务快照。诊断不含网络名称、密码或硬件地址，旧接收端兼容。
 
+TAB5 0.2.188-ui optionally reports `wirelessBootDiag` as `1,resetReason,powerCycled,hostedInitResult`. It describes startup only: board power is prepared before SDK transport initialization; software reset prepares the C6 rail before Wi-Fi/BLE tasks exist. Zero init result is API success, not proof of association. Ordinary runtime AP failures do not power-cycle a live radio. Older bridges ignore this optional numeric field.
+
+中文：TAB5 0.2.188-ui 可附带 `wirelessBootDiag`，格式为 `1,重启原因,启动时是否重置电源,Hosted初始化返回值`。先准备板级电源，再启动 SDK 通信；软件重启的电源准备发生在 Wi-Fi／蓝牙任务创建之前。返回值 0 只表示 API 成功，不等于已连接热点。运行中的普通关联失败不切断模组电源，旧桥接兼容忽略该字段。
+
 ## ESP8266 fixed USB identity (local 0.5.3)
 
 ESP8266 `hello`/`pong` and `device_info.data` add optional `device_id`, formatted `esp8266-` followed by 12 lowercase hexadecimal digits from the factory station MAC. Authenticated `/api/info` returns the same field. This ID is independent of Wi-Fi association, IP address, COM number and USB socket. Protocol version 1 and 460800 baud remain unchanged; older receivers ignore the field and older firmware can omit it.

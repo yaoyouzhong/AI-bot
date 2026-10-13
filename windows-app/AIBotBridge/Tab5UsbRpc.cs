@@ -69,7 +69,7 @@ internal sealed partial class Tab5Service
             try{if(await pump.PumpAsync(token))_usbRpcTiming=$"{DateTimeOffset.Now:HH:mm:ss} chunk={chunk}; {pump.Timing}";}
             catch(OperationCanceledException) when(token.IsCancellationRequested){return;}
             catch(Exception ex) when(Tab5UsbRecovery.IsDisconnect(ex,token)||ex is FormatException) {
-                string reason=ex.Message.StartsWith("USB RPC ")||ex.Message.StartsWith("RPC response rejected:")?"; "+ex.Message:
+                string reason=ex.Message.StartsWith("USB RPC ")||ex.Message.StartsWith("USB binary ")||ex.Message.StartsWith("RPC response rejected:")?"; "+ex.Message:
                     "; at "+new System.Diagnostics.StackTrace(ex).GetFrame(0)?.GetMethod()?.DeclaringType?.FullName;
                 _usbRpcLastFailure=$"{DateTimeOffset.Now:HH:mm:ss} {pump.Progress}; {ex.GetType().Name} / 0x{ex.HResult:X8}{reason}; auth={_rpcAuthDiagnostic}";
                 if(_usbRpcFirstFailure=="无")_usbRpcFirstFailure=_usbRpcLastFailure;

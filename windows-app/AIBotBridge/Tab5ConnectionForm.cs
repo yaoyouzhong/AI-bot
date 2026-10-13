@@ -25,8 +25,8 @@ internal sealed class Tab5ConnectionForm : Form
         var network=Page("Wi-Fi");var usb=Page("USB 配对");var upgrade=Page("固件升级");var audio=Page("语音");
         if(showUpgrade)tabs.SelectedIndex=2;
         var benchmark=Page("传输测速");
-        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="测试可用通道的传输速度；固定模式仅测试所选通道。"});
-        var benchmarkStart=new Button{Text="开始测速"};var benchmarkStop=new Button{Text="停止",Enabled=false};
+        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="图库测速包含接收与写卡；通信测速仅测传输速度。"});
+        var benchmarkStart=new Button{Text="通信测速",AutoSize=true};var benchmarkStop=new Button{Text="停止",Enabled=false};
         var galleryBenchmark=new Button{Text="图库同步测速",AutoSize=true};
         benchmark.Controls.Add(Buttons(galleryBenchmark));
         benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="图库测速：接收 8 个作品样本并写入 TF 卡，原图库保留。自动模式优先 Wi-Fi；仅 USB 模式测试 USB。"});

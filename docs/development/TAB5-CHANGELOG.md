@@ -2,6 +2,13 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.188-ui - 2026-10-13
+
+### Wireless startup
+
+- Initialize the unmodified ESP-Hosted SDK after the Tab5 I/O-expander power rail is ready, before large USB/audio/UI allocations. The pinned automatic constructor is excluded by the application build; source-layout changes fail configuration rather than silently restoring the old order.
+- On a software restart, power-cycle the C6 before creating radio transport tasks. Ordinary association failures never reset a live Wi-Fi/BLE module; credentials and installed TF collections remain intact. Add numeric startup diagnostics. Native ordering and failure tests are separate from OTA recovery acceptance.
+
 ## 0.2.187-ui - 2026-10-13
 
 ### USB receive batching

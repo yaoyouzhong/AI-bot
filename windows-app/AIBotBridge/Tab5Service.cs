@@ -610,6 +610,7 @@ internal sealed partial class Tab5Service : IDisposable
                             if(ack.RootElement.TryGetProperty("galleryDiag",out var galleryDiag))_deviceHealth+="\n艺术图片接收："+galleryDiag.GetString();
                             if(ack.RootElement.TryGetProperty("galleryTransferDiag",out _))_deviceHealth+="\n图库接收与写卡："+Tab5GalleryStream.TransferDiagnostic(ack.RootElement);
                             if(ack.RootElement.TryGetProperty("wifiDiag",out _))_deviceHealth+="\n设备 Wi-Fi 诊断："+NumericProbeDiagnostic(ack.RootElement,"wifiDiag",16);
+                            if(ack.RootElement.TryGetProperty("wirelessBootDiag",out _))_deviceHealth+="\n设备无线启动："+NumericProbeDiagnostic(ack.RootElement,"wirelessBootDiag",4);
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
                             // Bound each USB burst to preserve regular status heartbeats.
                             if(!BackgroundTransferPaused&&ack.RootElement.TryGetProperty("assetsReady",out var readyValue)&&readyValue.TryGetInt32(out var ready)) {
