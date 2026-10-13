@@ -1,5 +1,5 @@
 {
-  "reviewedOn": "2026-10-12",
+  "reviewedOn": "2026-10-13",
   "files": {
     "windows-sdk/REDIST.html": "52cd4791e8b457706267ebf1cb886de5562cea2d2ae68609c49f5f0c843a9222",
     "windows-sdk/sdk_license.rtf": "dd07eb178e00c6bba4148457fc00ff77cd4887eb521d504186fe59c9ec8bbe62",
@@ -78,7 +78,7 @@
     "docs/assets/screens/device-center-bridge.png": "c3858d16fe74410f1a76c6f607d6afc471927b8001c63a381db74e9dbfe52ad8",
     "docs/assets/screens/add-device.png": "e059d5cc127ef64946db8e187a846f5ab05e639a7ef644a642f18ab2967de5d7",
     "docs/assets/screens/tab5-first-install.png": "c5ac066a89c817043f52f485d282143f02640814e158e79630ce1da456ca029c",
-    "docs/assets/screens/tab5-upgrade.png": "24c6e868d0d2eaa8ea25acc4baf21870503f91867f7b2e5a8a9b41177e20a816",
+    "docs/assets/screens/tab5-upgrade.png": "fc31a3670f6de0ecd92f6b67af08ab3ff46e71658e65e378f3cde8d388e331ad",
     "docs/assets/screens/tab5-usb-pairing.png": "6d554310dbc299ac67d3e9b3b4fde1004de39c6c06205c1f989b121fca35936f",
     "docs/assets/screens/tab5-connection.png": "29dd479dae22eab26f079fbb28ccf90e32eab7ce12df89f77c18221a9b0d7f69",
     "docs/assets/screens/tab5-quota.png": "0f89b687f133ff446d69aff1c88457d981bf09ab67fc5f2afb341a5d4ef50e9e",
@@ -137,7 +137,8 @@
     "docs/assets/screens/tab5-clock-star.png": "35fdf448f542a429eeb3c67a995ae068c47de75f7a912f7ac194040a5585692f",
     "docs/assets/product-intro/AI-bot-cover-3x4.png": "ff8b821a45dbc10270c3b6dd172a7b89163c9a482c105cddf3df127247dafa93",
     "docs/assets/product-intro/AI-bot-cover-4x3.png": "eb26512232d27cd0eb23bbdf8e6f61b187e595b1c5f64647f5870d3ccc70a18c",
-    "docs/assets/screens/tab5-settings-storage.png": "8ab98474d7757ed4f2110c42662168cde765e2db0fc12d5b6543ec550a0631e5"
+    "docs/assets/screens/tab5-settings-storage.png": "8ab98474d7757ed4f2110c42662168cde765e2db0fc12d5b6543ec550a0631e5",
+    "docs/assets/screens/tab5-transfer-test.png": "23e3a68adbe8c13250099c1b5a6a2d392738628d435e3895bfa712944e92f219"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",
