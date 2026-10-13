@@ -14,12 +14,13 @@ internal static class Tab5RpcSelfTest
             string task=Guid.NewGuid().ToString(),imageId=Guid.NewGuid().ToString();
             var images=new Tab5CodexImages(Path.Combine(root,"images"));
             using var tasks=new Tab5CodexTasks(new Tab5CodexDesktop("unused-rpc-test"),()=>[new(task,"test","test",0)],new Tab5CodexJournal(Path.Combine(root,"draft.dat")),images);
-            using var service=new Tab5Service(store,tasks);
+            string galleryRoot=Path.Combine(root,"gallery");Directory.CreateDirectory(galleryRoot);
+            using var service=new Tab5Service(store,tasks,new Tab5Gallery(galleryRoot));
             service.SystemMetricsCapture=()=>new(9,55,100,200,DateTimeOffset.UtcNow){SampleSession="ota-test",SampleSequence=1,Samples=[new(100,200)]};
             service.Publish(new StatusSnapshot(1,"12:00",1000,28800,DateTimeOffset.UtcNow,new("idle",0),new("idle",0)));
             using var frame=JsonDocument.Parse(service.CurrentFrame!);string session=frame.RootElement.GetProperty("session").GetString()!;
             int calls=0;
-            async Task<JsonDocument> Call(object value,int mtu=247,int fragment=480,int responseChunk=0,bool allowOta=true,bool binary=false,bool bulk=false,int replayStatus=409) {
+            async Task<JsonDocument> Call(object value,int mtu=247,int fragment=480,int responseChunk=0,bool allowOta=true,bool binary=false,bool bulk=false,int replayStatus=409,string transport="USB") {
                 // Firmware cJSON does not HTML-escape '+' in base64. Match the
                 // production device bytes when checking the 12 KiB envelope.
                 string nonce=Guid.NewGuid().ToString("N");byte[] clear=JsonSerializer.SerializeToUtf8Bytes(value,new JsonSerializerOptions{Encoder=System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping});
@@ -41,7 +42,7 @@ internal static class Tab5RpcSelfTest
                     if(p[0]==1)at=BinaryPrimitives.ReadUInt16LittleEndian(p.AsSpan(5));
                     else {responseWrites++;if(p.Length>(responseChunk>0?responseChunk+9:mtu-3)||BinaryPrimitives.ReadUInt16LittleEndian(p.AsSpan(5))!=response.Count)throw new Exception("RPC fragment mismatch");response.AddRange(p[9..]);}
                     return Task.CompletedTask;
-                },async(n,p,b,ct)=>{calls++;return await service.RpcAsync(pair.DeviceId,n,p,b,ct,allowOta);},mtu,bulk?65535:32768,75,fragment,responseChunk,maximumRequest:bulk?65535:12288);
+                },async(n,p,b,ct)=>{calls++;return await service.RpcAsync(pair.DeviceId,n,p,b,ct,allowOta,transport);},mtu,bulk?65535:32768,75,fragment,responseChunk,maximumRequest:bulk?65535:12288);
                 int before=calls;await pump.PumpAsync(CancellationToken.None);await pump.PumpAsync(CancellationToken.None);
                 if(calls!=before+1||pump.CompletedCount!=1)throw new Exception("RPC executed twice or duplicate response counted as new work");
                 if(responseChunk==Tab5UsbBinary.LargeChunk&&responseWrites!=1)throw new Exception("48 KiB USB reply did not fit one write");
@@ -56,6 +57,27 @@ internal static class Tab5RpcSelfTest
                 using var missing=await Call(new{kind="gallery",op="manifest",category,date="2026-10-06",frame=0,session,issuedAt=Now()},binary:true);
                 if(missing.RootElement.GetProperty("status").GetInt32()!=404||missing.RootElement.GetProperty("body").GetProperty("error").GetString()!="gallery_pack_missing")throw new Exception("Missing optional gallery was not explained");
             }
+
+            using(var fixture=new Bitmap(1280,720))fixture.Save(Path.Combine(galleryRoot,"sample.jpg"),System.Drawing.Imaging.ImageFormat.Jpeg);
+            byte[] sample=File.ReadAllBytes(Path.Combine(galleryRoot,"sample.jpg"));
+            File.WriteAllText(Path.Combine(galleryRoot,"catalog.json"),JsonSerializer.Serialize(new[]{new Tab5Gallery.Artwork("sample","painting","Sample","Test","local-test","test",["sample.jpg"])},JsonDefaults.Options));
+            var benchmarkField=typeof(Tab5Service).GetField("_benchmarkRunning",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
+            async Task GalleryProbe(int expected,string transport) {
+                using var manifest=await Call(new{kind="gallery",op="manifest",category="painting",date="2026-01-01",frame=0,session,issuedAt=Now()},binary:true,transport:transport);
+                if(manifest.RootElement.GetProperty("status").GetInt32()!=expected)throw new Exception("Gallery benchmark manifest gate failed: "+transport);
+                if(expected!=200)return;
+                string hash=manifest.RootElement.GetProperty("body").GetProperty("sha256").GetString()!;
+                using var read=await Call(new{kind="gallery",op="read",category="painting",date="2026-01-01",frame=0,sha256=hash,offset=0,count=sample.Length,session,issuedAt=Now()},bulk:true,transport:transport);
+                if(read.RootElement.GetProperty("status").GetInt32()!=200||!Convert.FromBase64String(read.RootElement.GetProperty("body").GetProperty("data").GetString()!).SequenceEqual(sample))throw new Exception("Gallery benchmark authenticated image read failed: "+transport);
+            }
+            try {
+                foreach(string transport in new[]{"Wi-Fi","USB"}) {
+                    benchmarkField.SetValue(service,1);await GalleryProbe(409,transport);
+                    benchmarkField.SetValue(service,2);
+                    if(!service.Busy||!service.ImageUploadActive)throw new Exception("Gallery measurement must keep competing operations excluded");
+                    await GalleryProbe(200,transport);
+                }
+            }finally {benchmarkField.SetValue(service,0);}
 
             int desktopOpens=0,desktopDrafts=0,desktopSubmits=0,desktopClears=0;
             string draftText="中文语音 & ? #\n等待手动发送";
@@ -124,6 +146,10 @@ internal static class Tab5RpcSelfTest
                 using var r=await Call(new{kind="image-chunk",session,issuedAt=Now(),taskId=task,requestId=imageId,sha256=sha,size=photo.Length,offset,data=Convert.ToBase64String(photo,offset,count)},offset==0?23:247,allowOta:false,binary:repeat==1,bulk:repeat==2);
                 if(r.RootElement.GetProperty("status").GetInt32()!=200)throw new Exception("Chunk upload failed: "+r.RootElement);
                 if(service.ImageUploadActive!=(repeat==0&&offset+count<photo.Length))throw new Exception("Image pacing lease does not match pending bytes or completed replay");
+                if(repeat==0&&offset==0&&count<photo.Length) {
+                    benchmarkField.SetValue(service,2);
+                    try {await GalleryProbe(409,"Wi-Fi");}finally {benchmarkField.SetValue(service,0);}
+                }
             }
             if(!File.ReadAllBytes(images.Resolve(pair.DeviceId,task,[imageId],true).Single()).SequenceEqual(photo))throw new Exception("Attachment bytes changed");
             using(var r=await Call(new{kind="image-chunk",session,issuedAt=Now(),taskId=Guid.NewGuid().ToString(),requestId=imageId,sha256=sha,size=photo.Length,offset=6144,data=Convert.ToBase64String(photo,6144,100)}))
@@ -159,6 +185,8 @@ internal static class Tab5RpcSelfTest
                 if(result.RootElement.GetProperty("status").GetInt32()!=200||!Convert.FromBase64String(result.RootElement.GetProperty("body").GetProperty("data").GetString()!).SequenceEqual(firmware.AsSpan(offset,count).ToArray()))throw new Exception("Bulk OTA bytes changed");
             }
             if(!service.BackgroundTransferPaused||service.UsbMetricsFrame() is not null)throw new Exception("Authenticated upgrade competed with high-rate USB metrics");
+            benchmarkField.SetValue(service,2);
+            try {await GalleryProbe(409,"Wi-Fi");}finally {benchmarkField.SetValue(service,0);}
             service.ObserveFirmware(pair.DeviceId,package.Version);
             if(service.BackgroundTransferPaused||service.UsbMetricsFrame() is null)throw new Exception("Installed image did not resume USB metrics");
             service.CancelOta();

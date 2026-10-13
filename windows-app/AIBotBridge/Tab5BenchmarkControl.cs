@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace AIBotBridge;
 internal sealed partial class Tab5Service
 {
-    private int _benchmarkRunning;
+    private int _benchmarkRunning; // 1: transport probe; 2: gallery receive/card test
     private int _firmwareProbeRunning;
     private int _bleWriteWindowSupported;
     private volatile string _benchmarkDiagnostic="尚未测速";
@@ -98,7 +98,7 @@ internal sealed partial class Tab5Service
         }
     }
     internal async Task<string> GalleryBenchmarkAsync(Action<string> progress,CancellationToken token) {
-        if(Busy||Interlocked.CompareExchange(ref _benchmarkRunning,1,0)!=0)throw new InvalidOperationException("请等待当前操作结束后测速。");
+        if(Busy||Interlocked.CompareExchange(ref _benchmarkRunning,2,0)!=0)throw new InvalidOperationException("请等待当前操作结束后测速。");
         bool started=false;
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromMinutes(4));
         try {

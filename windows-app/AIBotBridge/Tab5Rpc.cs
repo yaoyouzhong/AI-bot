@@ -18,7 +18,8 @@ internal sealed partial class Tab5Service
     private long _rpcOtaUntil;
     private Tab5RpcImage? _rpcImage;
     private volatile string _imageUploadDiagnostic="尚无图片上传";
-    internal bool ImageUploadActive {get {lock(_rpcLock)return Volatile.Read(ref _benchmarkRunning)>0||Environment.TickCount64<Interlocked.Read(ref _rpcOtaUntil)||_rpcImage is {} image&&image.Received<image.Bytes.Length&&Environment.TickCount64-image.Touched<90000;}}
+    private bool ImageTransferPending {get {lock(_rpcLock)return Environment.TickCount64<Interlocked.Read(ref _rpcOtaUntil)||_rpcImage is {} image&&image.Received<image.Bytes.Length&&Environment.TickCount64-image.Touched<90000;}}
+    internal bool ImageUploadActive=>Volatile.Read(ref _benchmarkRunning)>0||ImageTransferPending;
     private volatile string _rpcAuthDiagnostic="尚无请求";
     private (int Status,byte[]? Packet) RejectRpc(string reason) {_rpcAuthDiagnostic=reason;return(401,null);}
     internal string ProfileDiagnostic {
@@ -86,7 +87,9 @@ internal sealed partial class Tab5Service
                 else if(Text(root,"kind")=="gallery") {
                     galleryReply=true;
                     streamReply=transport=="Wi-Fi"&&bulkReply&&Text(root,"op")=="read"&&root.TryGetProperty("streamReply",out var stream)&&stream.ValueKind==JsonValueKind.True;
-                    result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
+                    // The gallery test owns the benchmark gate but needs this actual
+                    // image path. Keep OTA, photo uploads and other probes exclusive.
+                    result=BackgroundTransferPaused||Volatile.Read(ref _benchmarkRunning)==1||ImageTransferPending||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
                         ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply,streamReply);
                     // A manifest is small, but starts a sequence of image ranges.
                     // Keep the existing BLE throughput lease across that sequence;
