@@ -196,7 +196,7 @@ internal sealed partial class Tab5Service : IDisposable
         _usbDataActive="";
         _usbState.Reset();_usbDelta=false;
         _usbMetricsDiagnosticPrevious=null;
-        _usbPacked=false;_usbRpcVersion=_usbTelemetryVersion=0;_usbRpcBinary=false;_usbRpcChunk=2048;var port=_usbPort;_usbPort=null;
+        _usbPacked=false;_usbRpcVersion=_usbTelemetryVersion=0;_usbRpcBinary=_usbRxBatch=false;_usbRpcChunk=2048;var port=_usbPort;_usbPort=null;
         if(port is not null)_usbStatus="USB 已断开，等待重新连接";
         if(!DisposeUsbPort(port))_usbStatus="USB 已断开，等待重新连接";
     }
@@ -563,7 +563,7 @@ internal sealed partial class Tab5Service : IDisposable
                         if(CurrentFrame is { } frame) {
                             byte[] wire=_usbState.Wire(frame,_usbPacked,_usbDelta);
                             var result=await Tab5UsbStatus.SendAsync(frame,wire,
-                                bytes=>port.WriteLine(Tab5Protocol.Prefix+Encoding.UTF8.GetString(bytes)),
+                                bytes=>Tab5UsbShortPacket.Line(port,Tab5Protocol.Prefix+Encoding.UTF8.GetString(bytes)),
                                 ()=>ReadReplyAsync(port,"tab5_ack",token),next=>{
                                     if(next=="status_recovery_write")Interlocked.Increment(ref _usbStatusRecoveryAttempts);
                                     Stage(next);
@@ -578,6 +578,7 @@ internal sealed partial class Tab5Service : IDisposable
                             _usbRpcVersion=ack.RootElement.TryGetProperty("rpcVersion",out var rpcVersion)&&rpcVersion.TryGetInt32(out var rv)?rv:0;
                             _usbRpcBinary=ack.RootElement.TryGetProperty("rpcUsbBinary",out var binary)&&binary.TryGetInt32(out int bv)&&bv==1;
                             _usbRpcChunk=Tab5UsbBinary.Chunk(ack.RootElement,_usbRpcBinary);
+                            _usbRxBatch=_usbRpcBinary&&Tab5UsbShortPacket.SupportsBatch(ack.RootElement);
                             _usbTelemetryVersion=ack.RootElement.TryGetProperty("telemetryVersion",out var telemetryVersion)&&telemetryVersion.TryGetInt32(out var tv)?tv:0;
                             _usbStatus="已连接 · "+device.Port;Interlocked.Exchange(ref _usbAckAt,Environment.TickCount64);
                             _usbDataActive=ack.RootElement.TryGetProperty("active",out var activeLink)&&activeLink.ValueKind==JsonValueKind.String?activeLink.GetString()??"":"";
@@ -652,9 +653,11 @@ internal sealed partial class Tab5Service : IDisposable
         s=>_bleRpcDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,()=>ResetTelemetryChannel(2),()=>ImageUploadActive||BleGalleryTransferActive,s=>_bleVoiceDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,seq=>AcknowledgeTelemetry(2,seq),version=>ObserveFirmware(_store.Current?.DeviceId??"",version),probeTrace:_bleProbeTrace,nativeLimit:()=>_bleQueueComparison.NativeLimit,bulkWriteLimit:()=>_bleQueueComparison.WriteWindow,bulkWriteSupported:n=>Volatile.Write(ref _bleWriteWindowSupported,n),standby:()=>Tab5BleClient.UsbOwnsActiveState(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),_usbDataActive)).RunAsync(token);
     private static SerialPort Open(string name) {
         var port=new SerialPort(name,460800) {NewLine="\n",ReadTimeout=500,WriteTimeout=2500,DtrEnable=true,RtsEnable=false,Encoding=Encoding.UTF8};
-        try {port.Open();return port;} catch {DisposeUsbPort(port);throw;}
+        // Separate short transfer drains any old bulk DMA completion after
+        // DTR close before discovery; this is an ignored empty legacy line.
+        try {port.Open();port.Write("\n");return port;} catch {DisposeUsbPort(port);throw;}
     }
-    private static void Send(SerialPort port,object frame)=>port.WriteLine(Tab5Protocol.Prefix+JsonSerializer.Serialize(frame,JsonDefaults.Options));
+    private static void Send(SerialPort port,object frame)=>Tab5UsbShortPacket.Line(port,Tab5Protocol.Prefix+JsonSerializer.Serialize(frame,JsonDefaults.Options));
     private static async Task<string> ReadIdentityAsync(SerialPort port,CancellationToken token,Action<JsonElement>? observe=null) {
         port.DiscardInBuffer(); Send(port,new {version=1,type="tab5_ping"});
         using var reply=await ReadReplyAsync(port,"tab5_hello",token);

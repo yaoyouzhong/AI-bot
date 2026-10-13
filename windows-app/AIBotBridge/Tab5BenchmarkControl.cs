@@ -48,7 +48,10 @@ internal sealed partial class Tab5Service
                     lines.Add($"对齐批量读写 {uint.Parse(fields[7])/1048576.0:F2} MiB · 边缘读写 {fields[8]} B");
                 } else if(expected==6) lines.Add($"请求编码 {fields[1]} ms · 传输及服务等待 {fields[2]} ms · 解密解码 {fields[3]} ms · 等待写卡 {fields[4]} ms（流式传输） · {fields[5]} 次请求");
                 else if(expected==5) lines.Add($"网络批量读取 {fields[1]} ms · 等待接收数据 {fields[2]} ms · 并行接收 {fields[3]} 次 · 缓冲最高 {uint.Parse(fields[4])/1024.0:F1} KiB");
-                else lines.Add($"USB 收包 {uint.Parse(fields[1])/1024.0:F1} KiB · 缓冲读取 {fields[4]} ms · 数据复制 {fields[5]} ms · 接收唤醒最长 {fields[7]} μs");
+                else {
+                    string wake=uint.Parse(fields[7])<=180_000_000?fields[7]+" μs":"--";
+                    lines.Add($"USB 收包 {uint.Parse(fields[1])/1024.0:F1} KiB · 缓冲读取 {fields[4]} ms · 数据复制 {fields[5]} ms · 接收唤醒最长 {wake}");
+                }
                 continue;
             }
             if(fields.Length>=4) {

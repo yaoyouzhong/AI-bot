@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.6 - 2026-10-12
 
+- Negotiate TAB5 0.2.187-ui binary receive batches and terminate aligned CDC writes outside the declared payload. Send an empty short transfer before identity discovery so an old partial bulk receive can be discarded after DTR close. Preserve legacy single-packet devices and all authenticated payload bytes; physical USB gains remain pending.
+
 - Parse the optional TAB5 0.2.186-ui network receive and USB FIFO/wakeup counters with explicit units. Receive, decrypt and card-writing stages can overlap; these diagnostics do not constitute a measured speed gain.
 
 - Pause idle BLE voice/RPC mailbox reads while fresh authenticated USB owns the device, drain active responses before standby and resume on USB expiry. Retain actual link-failure detection and report underlying GATT read failures.

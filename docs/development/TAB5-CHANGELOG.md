@@ -2,6 +2,14 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.187-ui - 2026-10-13
+
+### USB receive batching
+
+- The installed TinyUSB CDC driver defaults to one 64-byte receive submission even with an 8 KiB endpoint buffer. Negotiate up to 4 KiB submissions for binary bodies with a supporting bridge, retaining one-packet legacy control and default behavior.
+- Bind pending DMA to its DTR generation before submission. Discard stale bulk completions during reopen and use a short discovery barrier; preserve existing same-core task ordering, framing, authentication and resume data.
+- Reject a receive notification sampled after its caller's timestamp rather than reporting an unsigned multi-billion-microsecond wait. Hardware throughput acceptance remains separate.
+
 ## 0.2.186-ui - 2026-10-13
 
 ### Parallel gallery reception

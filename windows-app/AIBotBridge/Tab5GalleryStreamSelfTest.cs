@@ -45,6 +45,7 @@ internal static class Tab5GalleryStreamSelfTest
         if(!profile.Contains("读卡 100 ms / 2.00 MiB",StringComparison.Ordinal)||!profile.Contains("落盘 30 ms（8 次）",StringComparison.Ordinal)||!profile.Contains("等待写卡 40 ms",StringComparison.Ordinal))throw new Exception("Gallery stage profile lost units/fields");
         string receive=Tab5Service.FormatBenchmark("complete;gallery_rx,100,200,8,65536;usb_rx,2097152,256,8192,10,20,250,45,128,1,32,62");
         if(!receive.Contains("并行接收 8 次",StringComparison.Ordinal)||!receive.Contains("缓冲最高 64.0 KiB",StringComparison.Ordinal)||!receive.Contains("USB 收包 2048.0 KiB",StringComparison.Ordinal)||!receive.Contains("接收唤醒最长 45 μs",StringComparison.Ordinal))throw new Exception("Receive pipeline diagnostics lost units or were parsed as generic speed samples");
+        if(!Tab5Service.FormatBenchmark("complete;usb_rx,1,2,3,4,5,6,4294967275,1,2,3,4").Contains("接收唤醒最长 --",StringComparison.Ordinal))throw new Exception("Invalid pre-fix unsigned notification interval displayed as a real stall");
         foreach(string bad in new[]{"gallery_io,1,2,3","gallery_rpc,1,2,3,4,-1","gallery_rpc,1,2,3,4,4294967296","gallery_rx,1,2,3,-1","usb_rx,1,2,3,4,5,6,7,8,9,10,4294967296"})
             if(!Tab5Service.FormatBenchmark("complete;"+bad).Contains("分段耗时数据无效",StringComparison.Ordinal))throw new Exception("Invalid gallery profile accepted");
         foreach(string counters in new[]{"0,0,0,0","1048576,1048576,243,17","4294967295,4294967295,4294967295,4294967295"}) {

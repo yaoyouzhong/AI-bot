@@ -6,6 +6,7 @@ internal sealed partial class Tab5Service
     private volatile int _usbRpcVersion;
     private volatile int _usbRpcChunk=2048;
     private volatile bool _usbRpcBinary;
+    private volatile bool _usbRxBatch;
     private volatile string _usbRpcTiming="尚无请求";
     private long _usbRpcGateWaitMs,_usbRpcGateWaitPeakMs;
     private void RecordUsbRpcGateWait(long waited)
@@ -24,9 +25,9 @@ internal sealed partial class Tab5Service
                 int chunk=_usbRpcChunk;
                 if(data?.Length>chunk+9)throw new IOException("USB binary request too large");
                 uint binaryTag=Tab5UsbBinary.Tag();
-                Send(port,new{version=1,type="tab5_rpc_binary",deviceId=pair.DeviceId,tag=binaryTag,count=data?.Length??0,chunk});
+                Send(port,new{version=1,type="tab5_rpc_binary",deviceId=pair.DeviceId,tag=binaryTag,count=data?.Length??0,chunk,rxBatch=_usbRxBatch?4096:0});
                 long commandSent=Tab5GalleryHostProfile.Now;
-                if(data is not null)port.Write(data,0,data.Length);
+                if(data is not null)Tab5UsbShortPacket.Write(port,data);
                 long bodySent=Tab5GalleryHostProfile.Now;
                 long deadline=Environment.TickCount64+4000;
                 var header=await Tab5UsbBinary.ReadAsync(port,16,deadline,token);
