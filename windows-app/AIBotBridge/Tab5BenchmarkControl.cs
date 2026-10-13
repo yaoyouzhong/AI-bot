@@ -40,13 +40,15 @@ internal sealed partial class Tab5Service
                 if(fields[8]!="0")lines.Add($"错误状态：{fields[8]}");
                 continue;
             }
-            if(fields[0]=="gallery_io"||fields[0]=="gallery_rpc") {
-                int expected=fields[0]=="gallery_io"?9:6;
+            if(fields[0] is "gallery_io" or "gallery_rpc" or "gallery_rx" or "usb_rx") {
+                int expected=fields[0] switch {"gallery_io"=>9,"gallery_rpc"=>6,"gallery_rx"=>5,_=>12};
                 if(fields.Length!=expected||!fields.Skip(1).All(x=>uint.TryParse(x,System.Globalization.NumberStyles.None,System.Globalization.CultureInfo.InvariantCulture,out _))){lines.Add("分段耗时数据无效");continue;}
                 if(expected==9) {
                     lines.Add($"读卡 {fields[3]} ms / {uint.Parse(fields[1])/1048576.0:F2} MiB · 写卡 {fields[4]} ms / {uint.Parse(fields[2])/1048576.0:F2} MiB · 落盘 {fields[5]} ms（{fields[6]} 次）");
                     lines.Add($"对齐批量读写 {uint.Parse(fields[7])/1048576.0:F2} MiB · 边缘读写 {fields[8]} B");
-                } else lines.Add($"请求编码 {fields[1]} ms · 传输及服务等待 {fields[2]} ms · 解密解码 {fields[3]} ms · 等待写卡 {fields[4]} ms（流式传输） · {fields[5]} 次请求");
+                } else if(expected==6) lines.Add($"请求编码 {fields[1]} ms · 传输及服务等待 {fields[2]} ms · 解密解码 {fields[3]} ms · 等待写卡 {fields[4]} ms（流式传输） · {fields[5]} 次请求");
+                else if(expected==5) lines.Add($"网络批量读取 {fields[1]} ms · 等待接收数据 {fields[2]} ms · 并行接收 {fields[3]} 次 · 缓冲最高 {uint.Parse(fields[4])/1024.0:F1} KiB");
+                else lines.Add($"USB 收包 {uint.Parse(fields[1])/1024.0:F1} KiB · 缓冲读取 {fields[4]} ms · 数据复制 {fields[5]} ms · 接收唤醒最长 {fields[7]} μs");
                 continue;
             }
             if(fields.Length>=4) {

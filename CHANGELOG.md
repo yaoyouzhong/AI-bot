@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.6 - 2026-10-12
 
+- Parse the optional TAB5 0.2.186-ui network receive and USB FIFO/wakeup counters with explicit units. Receive, decrypt and card-writing stages can overlap; these diagnostics do not constitute a measured speed gain.
+
 - Pause idle BLE voice/RPC mailbox reads while fresh authenticated USB owns the device, drain active responses before standby and resume on USB expiry. Retain actual link-failure detection and report underlying GATT read failures.
 
 - Companion TAB5 0.2.185-ui improves CDC receive batching and Wi-Fi multi-profile recovery; existing TF libraries and credentials remain compatible. Further throughput and reconnect acceptance are pending.

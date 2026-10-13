@@ -2,6 +2,14 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.186-ui - 2026-10-13
+
+### Parallel gallery reception
+
+- Read HTTP responses in batches up to 16 KiB through a bounded 64 KiB PSRAM receiver, separate from authentication and the existing concurrent card writer. Retain synchronous fallback, safe cancellation, authenticated resumable prefixes and complete-file verification.
+- Match the TCP receive window and mailbox using the ESP-IDF documented sizing formula, preferring PSRAM for Wi-Fi/lwIP allocations. Existing saved galleries, credentials and cache choices remain compatible.
+- Add optional network read/wait and passive USB FIFO/wakeup/hardware counters. No USB endpoint or scheduling change is included. Native tests and builds are distinct from physical throughput and sustained BLE acceptance; hardware gains remain pending.
+
 ## 0.2.185-ui - 2026-10-13
 
 ### USB reception and Wi-Fi recovery
