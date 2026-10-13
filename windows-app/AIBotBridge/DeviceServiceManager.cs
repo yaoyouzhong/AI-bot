@@ -113,5 +113,13 @@ internal sealed class DeviceServiceManager
         catch(Exception) when(recovering&&tasks.Any(t=>t.IsFaulted)){/* Faulted worker is observed and replaced only for an explicit reconnect. */}
         finally{stop.Dispose();}
     }
-    internal async Task StopAsync(){await _change.WaitAsync();try{if(_lanStop is not null){await StopAsync(_lanStop,_lanTasks);_lanStop=null;}if(_espStop is not null){await StopAsync(_espStop,_espTasks);_espStop=null;}if(_tabStop is not null){await StopAsync(_tabStop,_tabTasks);_tabStop=null;}Tab5?.Dispose();Tab5=null;EspEnabled=false;}finally{_change.Release();}}
+    private async Task StopForExitAsync(string name,CancellationTokenSource stop,Task[] tasks) {
+        try{await StopAsync(stop,tasks);}
+        catch(Exception ex) when(tasks.Any(t=>t.IsFaulted)) {
+            // An already failed device worker must still be observed and the
+            // remaining workers stopped when the user exits the bridge.
+            Error=name+" 服务停止前存在异常（"+ex.GetBaseException().GetType().Name+"）";
+        }
+    }
+    internal async Task StopAsync(){await _change.WaitAsync();try{if(_lanStop is not null){await StopForExitAsync("LAN",_lanStop,_lanTasks);_lanStop=null;}if(_espStop is not null){await StopForExitAsync("ESP8266",_espStop,_espTasks);_espStop=null;}if(_tabStop is not null){await StopForExitAsync("TAB5",_tabStop,_tabTasks);_tabStop=null;}Tab5?.Dispose();Tab5=null;EspEnabled=false;}finally{_change.Release();}}
 }

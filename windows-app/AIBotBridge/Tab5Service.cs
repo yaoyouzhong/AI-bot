@@ -503,7 +503,14 @@ internal sealed partial class Tab5Service : IDisposable
     }
 
 
-    internal Task RunUsbAsync(CancellationToken token)=>Task.WhenAll(RunUsbStatusAsync(token),RunUsbRpcAsync(token),RunUsbMetricsAsync(token));
+    internal Task RunUsbAsync(CancellationToken token) {
+        var status=RunUsbStatusAsync(token);
+        _=status.ContinueWith(failed=>{
+            var error=failed.Exception!.GetBaseException();_usbStatus="连接服务异常（"+error.GetType().Name+"）";RecordUsbFailure("status-worker",error);
+            _usbConnectionDiagnostic="状态服务失败；"+error.GetType().Name+"；"+new System.Diagnostics.StackTrace(error).GetFrame(0)?.GetMethod()?.DeclaringType?.FullName;
+        },CancellationToken.None,TaskContinuationOptions.OnlyOnFaulted|TaskContinuationOptions.ExecuteSynchronously,TaskScheduler.Default);
+        return Task.WhenAll(status,RunUsbRpcAsync(token),RunUsbMetricsAsync(token));
+    }
     internal async Task RunUsbStatusAsync(CancellationToken token)
     {
         while(!token.IsCancellationRequested) {

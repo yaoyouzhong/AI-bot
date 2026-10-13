@@ -599,3 +599,17 @@ Finished failed requests release the UI's prior 60-second retry reservation. Per
 In .145, `galleryDiag` appends `frame,reused,outputAllocationAttempts` after the original six fields. `frame` is zero-based; `reused` reports whether the current worker received an existing decoder output buffer. The cumulative allocation-attempt counter distinguishes buffer reuse from repeatedly allocating a full RGB565 frame. Retired visible frames and failed-job outputs return to a one-slot atomic spare pool; the currently displayed bitmap is never lent to a worker. No bridge parsing change is required because the diagnostic string is forwarded verbatim.
 
 .145 在原六字段后追加零基页码、当前任务是否复用缓冲、累计输出缓冲分配尝试次数。翻页退役图和失败任务缓冲进入一个原子备用槽，下一任务直接复用；当前可见图不得借给解码任务。桥接原样转发此诊断字符串，不改变图片 RPC 契约。
+
+## TAB5 runtime monitoring (optional, version 1)
+
+`tab5_status.data.runtimeHealth` is an optional Windows-collected object; absent/null means no available monitor. Existing ESP8266 frames and macOS collectors keep their current contracts. Older TAB5 firmware can ignore the additional field. No input, node-selection or client-restart command is added.
+
+The object carries `session`, alarm `sequence`, `updatedAt` / `epochUtc`, `checks`, `alerts`, optional `pressure`, `latencyHistory`, cached small-transfer throughput. Checks identify `cpu`, `memory`, `queue`, `disk`, `vpn`, `pac` and optionally `settings`; state is `ok`, `observing`, `warning`, `error`, `unknown` or `disabled`. Each check has a short summary, full detail/advice and observation timestamp. Successful response latency/time remains available when a later probe fails. `pressure` exposes processor queue, physical-disk I/O queue/latency, page input, available physical MB and logical processor count. Null counters are unknown, never zero.
+
+`latencyHistory` has at most ten `{epochUtc, milliseconds, reachable}` points from actual probe rounds. Missing/failed samples render as gaps; repeated frames never create graph points. The main page shows only a short confirmed alarm title, while System → Runtime monitor groups graphical indicators and opens concise causes, key evidence and suggested actions on demand. Full raw diagnostic text remains available on the Windows bridge.
+
+Alarm IDs belong to `session`; `sequence` increases only when a confirmed anomaly begins or changes severity. Repeat frames reuse IDs. System pressure must remain beyond the configured threshold; network anomalies require consecutive probe rounds. Confirmed recovery removes the alert. Device freshness is checked independently: an expired bridge frame or old monitor `epochUtc` removes healthy state and the live graph. Monitoring does not invoke a Codex model or export credentials/PAC query parameters.
+
+Alerts expose full `advice` and optional `shortAdvice` for compact views. Receivers may fall back to `advice` if the short form is absent. Entering System defaults to the existing computer statistics and upload/download graph; the monitor is a secondary entry.
+
+See [runtime monitoring](RUNTIME-MONITOR.md) for defaults, diagnostics, validation and the unflashed-preview boundary.

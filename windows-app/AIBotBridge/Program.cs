@@ -8,6 +8,14 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-serial-runtime"){
+            using var port=new System.IO.Ports.SerialPort();
+            Console.WriteLine("SERIAL_RUNTIME_OK ports="+System.IO.Ports.SerialPort.GetPortNames().Length);return;
+        }
+        if(args.Length==2&&args[0]=="--self-test-runtime-health"){AppPaths.BeginPublicSelfTest();RuntimeHealthSelfTest.RunAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--runtime-health-once"){RuntimeHealthSelfTest.LiveAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
+        if(args.Length==3&&args[0]=="--runtime-health-watch"){RuntimeHealthSelfTest.WatchAsync(Path.GetFullPath(args[1]),Math.Clamp(int.Parse(args[2]),10,300)).GetAwaiter().GetResult();return;}
+        if(args.Length==3&&args[0]=="--self-test-runtime-health-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();RuntimeHealthSelfTest.PreviewForm(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]));return;}
         if(args.Length==1&&args[0]=="--self-test-weather-forecast"){AppPaths.BeginPublicSelfTest();WeatherForecastSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-read-sync"){AppPaths.BeginPublicSelfTest();Tab5CodexReadStateSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-tasks"){AppPaths.BeginPublicSelfTest();Tab5CodexSelfTest.RunAsync().GetAwaiter().GetResult();return;}
@@ -288,6 +296,7 @@ internal static class Program
         if(args.Contains("--test-bridge-grace")){try{BridgeGraceDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("BRIDGE_GRACE_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==1&&args[0]=="--diagnose-deepseek"){QuotaRequestDiagnostics.ProbeAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--exit"){BridgeLifetime.RequestExit();return;}
+        if(args.Length==1&&args[0]=="--devices"){RunTray(showDevices:true);return;}
         if(args.Contains("--test-system-refresh")){try{SystemRefreshDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("SYSTEM_REFRESH_DEVICE_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==2&&args[0]=="--audit-device-test-cache") {DeviceAcceptanceTest.AuditTemporaryResources(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--audit-legacy-device-assets") {LegacyDeviceAssetImport.Run(Path.GetFullPath(args[1]),false);return;}
@@ -505,7 +514,7 @@ internal static class Program
         RunTray();
     }
 
-    private static void RunTray(bool authorizeZhipu = false, bool showTab5 = false, string? otaPath = null)
+    private static void RunTray(bool authorizeZhipu = false, bool showTab5 = false, string? otaPath = null,bool showDevices=false)
     {
         using var instance = new Mutex(false, @"Local\AIBotBridge.Instance." +
             System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value);
@@ -528,6 +537,7 @@ internal static class Program
             if(otaPath is not null)context.OfferTab5Ota(otaPath);
             if (authorizeZhipu) context.OpenZhipuAuthorization();
             if (showTab5) context.OpenTab5Connection();
+            if (showDevices) context.OpenDevices();
             Application.Run(context);
         }
         catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException or FormatException or JsonException) {

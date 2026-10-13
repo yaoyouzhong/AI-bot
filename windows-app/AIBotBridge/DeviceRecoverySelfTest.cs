@@ -44,6 +44,9 @@ internal static class DeviceRecoverySelfTest
             fail=false;await manager.ReconnectAsync(registry,esp.Id);await Task.Delay(80);
             Check(manager.View(esp).Status!="连接异常","Faulted worker could not be recovered");
             Check(pair.Current.Key==new Tab5PairingStore().Current!.Key,"Reconnect altered credentials");
+            fail=true;await manager.ReconnectAsync(registry,esp.Id);await Task.Delay(80);
+            await manager.StopAsync();
+            Check(manager.ActiveServices.Length==0&&manager.Error?.Contains(nameof(IOException))==true,"Faulted worker interrupted bridge shutdown or lost its error");
         }finally{await manager.StopAsync();}
         Console.WriteLine("DEVICE_RECOVERY_OK timestamps, counters, private export, isolated restart, busy protection, fault recovery");
     }

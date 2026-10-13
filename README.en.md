@@ -1,5 +1,7 @@
 # AI-bot
 
+Local development: [Runtime monitoring](docs/RUNTIME-MONITOR.md) checks VPN/PAC routing and sustained Windows pressure. The bridge has been updated locally and verified with real sampling and Windows notification delivery. Concise TAB5 notices, graphical monitoring and cause/action details remain native previews; TAB5 has not been flashed.
+
 This release delivers bridge **0.6.5**, TAB5 **0.2.176-ui** and ESP8266 **0.5.2**: Codex desktop read sync, Soda/Apple media integration, nine clock faces, separate timer and date-countdown functions, consistent navigation/display modes and extended fonts. New painting/calligraphy collections will follow independently; published curated edition **2026.10.09** and installed user artwork are retained. [Changes and validation scope](docs/RELEASE-0.6.5.md) · [Collection installation](docs/GALLERY-PACKS.md)
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.

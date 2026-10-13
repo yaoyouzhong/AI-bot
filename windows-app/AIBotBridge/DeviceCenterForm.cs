@@ -137,6 +137,7 @@ internal sealed class DeviceCenterForm : Form
         Card(bridge,"软件固件","版本、兼容与升级入口",()=>_common("updates"));
         Card(bridge,"配置迁移","备份、预览与选择恢复",()=>_common("configuration-backup"));
         Card(bridge,"提醒管理","勿扰时段与提醒记录",()=>_common("notifications"));
+        Card(bridge,"运行监控","VPN / PAC 与电脑流畅度",()=>_common("runtime-health"));
         Card(bridge,"关于应用","版本、许可与项目信息",()=>_common("about"));
     }
     private async Task Change(RegisteredDevice d,bool remove) {

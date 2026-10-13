@@ -56,7 +56,7 @@ internal static class Tab5Protocol
                 snapshot.Weather,stocks=snapshot.Stocks is null ? null : snapshot.Stocks with {Quotes=snapshot.Stocks.Quotes.Take(20).ToArray()},
                 systemMetrics=snapshot.SystemMetrics is null ? null : snapshot.SystemMetrics with {Samples=(snapshot.SystemMetrics.History??snapshot.SystemMetrics.Samples)?.TakeLast(64).ToArray()},snapshot.Music,
                 domesticActivity=snapshot.DomesticActivity is null?null:new {snapshot.DomesticActivity.ActiveProvider,snapshot.DomesticActivity.State,snapshot.DomesticActivity.NeedsInput,snapshot.DomesticActivity.TokensToday},
-                snapshot.FollowApp,resource,assetIds,codexTasks,ota,connectionHealth,
+                snapshot.FollowApp,snapshot.RuntimeHealth,resource,assetIds,codexTasks,ota,connectionHealth,
                 calendar=Calendar(snapshot),quotaDetails=Tab5Details.Quotas(snapshot),quotaTrend=Tab5QuotaTrend.Snapshot() }
         },JsonDefaults.Options);
     private static object? SummaryQuota(ProviderQuotaSnapshot? quota,bool codex=false)=>quota is null?null:new {

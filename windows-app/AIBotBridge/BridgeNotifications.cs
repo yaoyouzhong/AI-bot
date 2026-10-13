@@ -1,5 +1,5 @@
 namespace AIBotBridge;
-internal sealed record NotificationOptions(bool Completion=true,bool Attention=true,bool Quota=true,bool Sound=true,bool Quiet=false,int QuietStart=1320,int QuietEnd=480)
+internal sealed record NotificationOptions(bool Completion=true,bool Attention=true,bool Quota=true,bool Sound=true,bool Quiet=false,int QuietStart=1320,int QuietEnd=480,bool Health=true)
 {
     internal void Validate(){if(QuietStart is <0 or >=1440||QuietEnd is <0 or >=1440||Quiet&&QuietStart==QuietEnd)throw new InvalidOperationException("勿扰开始和结束时间须不同。");}
     internal bool IsQuiet(DateTime local){int minute=local.Hour*60+local.Minute;return Quiet&&(QuietStart<QuietEnd?minute>=QuietStart&&minute<QuietEnd:minute>=QuietStart||minute<QuietEnd);}
@@ -12,6 +12,7 @@ internal sealed class BridgeNotifications
     private readonly List<NotificationEntry> _history=[];
     private readonly Dictionary<string,DateTimeOffset> _seen=[];
     private readonly Dictionary<string,DateTimeOffset> _lastShown=[];
+    private NotificationEntry? _pendingBalloon;
     internal string? Error {get;private set;}
     internal NotificationOptions Options {
         get{if(_options is not null)return _options;try{var value=UserPreferenceFile.Read<NotificationOptions>("notifications.json")??new();value.Validate();_options=value;}
@@ -19,18 +20,26 @@ internal sealed class BridgeNotifications
     }
     internal void Save(NotificationOptions value){value.Validate();UserPreferenceFile.Write("notifications.json",value);_options=value;Error=null;}
     internal NotificationEntry[] History=>_history.AsEnumerable().Reverse().ToArray();
+    internal void BalloonShown() {
+        if(_pendingBalloon is {} pending&&DateTimeOffset.Now-pending.At<TimeSpan.FromSeconds(30)) {
+            int index=_history.IndexOf(pending);if(index>=0)_history[index]=pending with {Outcome="系统已显示"};
+        }
+        _pendingBalloon=null;
+    }
+    internal void IgnoreUntrackedBalloon()=>_pendingBalloon=null;
     internal NotificationDecision Evaluate(string kind,string key,string title,DateTimeOffset at) {
-        if(kind is not ("completion" or "attention" or "quota"))throw new ArgumentException("Unknown notification kind");
+        if(kind is not ("completion" or "attention" or "quota" or "health"))throw new ArgumentException("Unknown notification kind");
         var options=Options;
         foreach(var old in _seen.Where(p=>at-p.Value>TimeSpan.FromHours(24)).Select(p=>p.Key).ToArray())_seen.Remove(old);
         string identity=kind+":"+key;if(_seen.ContainsKey(identity))return new(false,false);
         if(_seen.Count>=512)_seen.Remove(_seen.MinBy(p=>p.Value).Key);_seen[identity]=at;
-        bool enabled=kind switch{"completion"=>options.Completion,"attention"=>options.Attention,_=>options.Quota};
+        bool enabled=kind switch{"completion"=>options.Completion,"attention"=>options.Attention,"health"=>options.Health,_=>options.Quota};
         string outcome=!enabled?"已关闭":options.IsQuiet(at.LocalDateTime)?"勿扰时段":
             _lastShown.TryGetValue(kind,out var previous)&&at-previous<TimeSpan.FromSeconds(kind=="quota"?300:10)?"合并频繁提醒":"已请求通知";
         bool show=outcome=="已请求通知";if(show)_lastShown[kind]=at;
-        _history.Add(new(at,kind,title,outcome));if(_history.Count>100)_history.RemoveAt(0);
-        return new(show,show&&options.Sound&&kind=="completion");
+        var entry=new NotificationEntry(at,kind,title,outcome);_history.Add(entry);if(show)_pendingBalloon=entry;
+        if(_history.Count>100)_history.RemoveAt(0);
+        return new(show,show&&options.Sound&&kind is "completion" or "health");
     }
 }
 internal sealed class NotificationSettingsForm : Form
@@ -42,7 +51,7 @@ internal sealed class NotificationSettingsForm : Form
         var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=5};for(int i=0;i<5;i++)root.RowStyles.Add(new(i==3?SizeType.Percent:SizeType.AutoSize,i==3?100:0));root.ColumnStyles.Add(new(SizeType.Percent,100));Controls.Add(root);
         var value=notifications.Options;var checks=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};
         CheckBox Box(string text,bool selected){var box=new CheckBox{Text=text,Checked=selected,AutoSize=true};checks.Controls.Add(box);return box;}
-        var completion=Box("Codex 完成",value.Completion);var attention=Box("等待操作",value.Attention);var quota=Box("额度异常",value.Quota);var sound=Box("完成音",value.Sound);root.Controls.Add(checks,0,0);
+        var completion=Box("Codex 完成",value.Completion);var attention=Box("等待操作",value.Attention);var quota=Box("额度异常",value.Quota);var health=Box("运行异常",value.Health);var sound=Box("提醒音",value.Sound);root.Controls.Add(checks,0,0);
         var quiet=new CheckBox{Text="勿扰时段",Checked=value.Quiet,AutoSize=true};
         DateTimePicker Time(int minute)=>new(){Format=DateTimePickerFormat.Custom,CustomFormat="HH:mm",ShowUpDown=true,Value=DateTime.Today.AddMinutes(minute),Width=90};
         var start=Time(value.QuietStart);var end=Time(value.QuietEnd);var separator=new Label{Text="—",AutoSize=true};var hours=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};hours.Controls.AddRange([quiet,start,separator,end]);root.Controls.Add(hours,0,1);
@@ -51,7 +60,7 @@ internal sealed class NotificationSettingsForm : Form
         var grid=new DataGridView{Dock=DockStyle.Fill,ReadOnly=true,AllowUserToAddRows=false,RowHeadersVisible=false,AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill,BackgroundColor=Color.White};foreach(string column in new[]{"时间","提醒","处理"})grid.Columns.Add(column,column);root.Controls.Add(grid,0,3);
         void RefreshHistory(){grid.Rows.Clear();foreach(var entry in notifications.History)grid.Rows.Add(entry.At.ToLocalTime().ToString("MM-dd HH:mm:ss"),entry.Title,entry.Outcome);}
         var save=new Button{Text="保存",AutoSize=true,Anchor=AnchorStyles.Right};root.Controls.Add(save,0,4);
-        save.Click+=(_,_)=>{try{notifications.Save(new(completion.Checked,attention.Checked,quota.Checked,sound.Checked,quiet.Checked,start.Value.Hour*60+start.Value.Minute,end.Value.Hour*60+end.Value.Minute));info.Text="已保存";}catch(Exception ex){info.Text=ex.Message;}};
+        save.Click+=(_,_)=>{try{notifications.Save(new(completion.Checked,attention.Checked,quota.Checked,sound.Checked,quiet.Checked,start.Value.Hour*60+start.Value.Minute,end.Value.Hour*60+end.Value.Minute,health.Checked));info.Text="已保存";}catch(Exception ex){info.Text=ex.Message;}};
         SettingsWindow.StyleButton(save,true);SettingsWindow.AddTitle(root,"提醒管理");Shown+=(_,_)=>{RefreshHistory();_timer.Start();};_timer.Tick+=(_,_)=>RefreshHistory();SettingsWindow.FitScreen(this);
     }
     protected override void Dispose(bool disposing){if(disposing&&!_disposed){_disposed=true;_timer.Dispose();}base.Dispose(disposing);}

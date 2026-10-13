@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased — local preview
+
+- Add Windows runtime monitoring for proxy response, actual per-target PAC routing and sustained CPU/memory/scheduler/disk pressure; reuse notification quiet hours and deduplication. Add short TAB5 notices, a graphical System monitor and concise cause/action details. The bridge is updated locally with real sampling and native notification receipts verified; TAB5 remains unflashed. Align the four setting checkboxes in two rows and fix orderly shutdown when a device worker has failed. See [runtime monitoring](docs/RUNTIME-MONITOR.md).
+
 ## 0.6.6 - 2026-10-11
 
 ### Packages and offline flashing
