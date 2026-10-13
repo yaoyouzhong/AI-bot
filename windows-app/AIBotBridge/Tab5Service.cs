@@ -196,7 +196,7 @@ internal sealed partial class Tab5Service : IDisposable
         _usbDataActive="";
         _usbState.Reset();_usbDelta=false;
         _usbMetricsDiagnosticPrevious=null;
-        _usbPacked=false;_usbRpcVersion=_usbTelemetryVersion=0;_usbRpcBinary=_usbRxBatch=false;_usbRpcChunk=2048;var port=_usbPort;_usbPort=null;
+        _usbPacked=false;_usbRpcVersion=_usbTelemetryVersion=_usbRpcWait=0;_usbRpcBinary=_usbRxBatch=false;_usbRpcChunk=2048;var port=_usbPort;_usbPort=null;
         if(port is not null)_usbStatus="USB 已断开，等待重新连接";
         if(!DisposeUsbPort(port))_usbStatus="USB 已断开，等待重新连接";
     }
@@ -579,6 +579,7 @@ internal sealed partial class Tab5Service : IDisposable
                             _usbRpcBinary=ack.RootElement.TryGetProperty("rpcUsbBinary",out var binary)&&binary.TryGetInt32(out int bv)&&bv==1;
                             _usbRpcChunk=Tab5UsbBinary.Chunk(ack.RootElement,_usbRpcBinary);
                             _usbRxBatch=_usbRpcBinary&&Tab5UsbShortPacket.SupportsBatch(ack.RootElement);
+                            _usbRpcWait=_usbRpcBinary?Tab5UsbShortPacket.ReadyWait(ack.RootElement):0;
                             _usbTelemetryVersion=ack.RootElement.TryGetProperty("telemetryVersion",out var telemetryVersion)&&telemetryVersion.TryGetInt32(out var tv)?tv:0;
                             _usbStatus="已连接 · "+device.Port;Interlocked.Exchange(ref _usbAckAt,Environment.TickCount64);
                             _usbDataActive=ack.RootElement.TryGetProperty("active",out var activeLink)&&activeLink.ValueKind==JsonValueKind.String?activeLink.GetString()??"":"";

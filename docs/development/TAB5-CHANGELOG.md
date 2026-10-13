@@ -6,8 +6,13 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ### Artwork reading
 
-- Sample unscaled RGB565 layers at 90/180/270 degrees in bounded tiles, reducing repeated arithmetic and distant PSRAM row reads when rotating a portrait reader. Preserve LVGL's sampling coordinates, colors and edge alpha; other formats, scales and angles retain the original path. No additional full-page allocation.
+- Sample unscaled RGB565/ARGB8888 layers at 90/180/270 degrees in bounded tiles, covering the actual portrait reader's transparent layer and reducing repeated arithmetic and distant PSRAM row reads. Preserve LVGL's sampling coordinates, colors and edge alpha; other formats, scales and angles retain the original path. No additional full-page allocation.
 - Add numeric preparation, layout and first-refresh timings for opening artwork details. Text, orientation, scrolling, return behavior and TF formats remain compatible. Actual responsiveness requires separate hardware acceptance.
+
+### Gallery transfer
+
+- Negotiate a bounded USB request-ready wait. Publishing a request or disconnecting wakes the reader immediately, reducing desktop delays after empty polls. Preserve framing, generation isolation, deadlines and legacy firmware behavior.
+- Reuse an exclusive HTTP client and valid connection across successful background gallery saves to avoid per-image reconnection and TCP slow start. Changed endpoints, lifetime/request limits, cancellation and incomplete or failed transfers release the connection. Each request retains fresh authentication; verified checkpoints and TF files remain compatible. Measure actual gains separately using the same sample set.
 
 ## 0.2.188-ui - 2026-10-13
 

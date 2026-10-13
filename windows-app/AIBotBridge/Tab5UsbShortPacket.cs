@@ -7,6 +7,8 @@ internal static class Tab5UsbShortPacket
 {
     internal static bool SupportsBatch(JsonElement hello)=>
         hello.TryGetProperty("usbRxBatch",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int size)&&size==4096;
+    internal static int ReadyWait(JsonElement hello)=>
+        hello.TryGetProperty("rpcUsbWait",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int size)&&size==20?20:0;
     // A newline outside the declared binary body/JSON line is ignored by the
     // existing parser. It terminates a 64-byte-aligned CDC write without
     // requiring Windows SerialPort to issue a ZLP. Empty writes stay empty.

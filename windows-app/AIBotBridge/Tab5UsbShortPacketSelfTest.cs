@@ -18,6 +18,11 @@ internal static class Tab5UsbShortPacketSelfTest
             if(Tab5UsbShortPacket.SupportsBatch(hello.RootElement))throw new Exception("Invalid/legacy CDC batch capability accepted");
         }
         using(var hello=JsonDocument.Parse("{\"usbRxBatch\":4096}"))if(!Tab5UsbShortPacket.SupportsBatch(hello.RootElement))throw new Exception("CDC batch capability missing");
+        foreach(string capability in new[]{"{}","{\"rpcUsbWait\":0}","{\"rpcUsbWait\":21}","{\"rpcUsbWait\":-1}","{\"rpcUsbWait\":\"20\"}","{\"rpcUsbWait\":null}","{\"rpcUsbWait\":4294967296}"}) {
+            using var hello=JsonDocument.Parse(capability);
+            if(Tab5UsbShortPacket.ReadyWait(hello.RootElement)!=0)throw new Exception("Legacy/invalid USB ready wait accepted");
+        }
+        using(var hello=JsonDocument.Parse("{\"rpcUsbWait\":20}"))if(Tab5UsbShortPacket.ReadyWait(hello.RootElement)!=20)throw new Exception("USB ready wait capability missing");
         for(int count=0;count<64;count++) {
             byte[] line=Encoding.UTF8.GetBytes(Tab5Protocol.Prefix+"{\"text\":\"书法"+new string('x',count)+"\"}\n");
             byte[] ended=Tab5UsbShortPacket.Terminate(line);

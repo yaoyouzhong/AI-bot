@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.6 - 2026-10-12
 
+- Negotiate TAB5 0.2.189-ui request-ready USB waiting to wake on newly published requests and reduce post-empty-poll delays. Preserve legacy paths and clear capability state on disconnect. Companion firmware reuses valid gallery Wi-Fi connections and optimizes the actual portrait reader layer; installed artwork, authentication and existing glyphs remain compatible. Measure physical throughput and responsiveness separately.
+
 - Name the transport benchmark explicitly to distinguish it from gallery-to-TF measurement. Retain bounded numeric USB binary rejection diagnostics and display optional TAB5 wireless startup diagnostics, without logging payloads or credentials.
 
 - Negotiate TAB5 0.2.187-ui binary receive batches and terminate aligned CDC writes outside the declared payload. Send an empty short transfer before identity discovery so an old partial bulk receive can be discarded after DTR close. Preserve legacy single-packet devices and all authenticated payload bytes; physical USB gains remain pending.

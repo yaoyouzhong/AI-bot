@@ -7,6 +7,7 @@ internal sealed partial class Tab5Service
     private volatile int _usbRpcChunk=2048;
     private volatile bool _usbRpcBinary;
     private volatile bool _usbRxBatch;
+    private volatile int _usbRpcWait;
     private volatile string _usbRpcTiming="尚无请求";
     private long _usbRpcGateWaitMs,_usbRpcGateWaitPeakMs;
     private void RecordUsbRpcGateWait(long waited)
@@ -25,7 +26,8 @@ internal sealed partial class Tab5Service
                 int chunk=_usbRpcChunk;
                 if(data?.Length>chunk+9)throw new IOException("USB binary request too large");
                 uint binaryTag=Tab5UsbBinary.Tag();
-                Send(port,new{version=1,type="tab5_rpc_binary",deviceId=pair.DeviceId,tag=binaryTag,count=data?.Length??0,chunk,rxBatch=_usbRxBatch?4096:0});
+                Send(port,new{version=1,type="tab5_rpc_binary",deviceId=pair.DeviceId,tag=binaryTag,count=data?.Length??0,chunk,
+                    rxBatch=_usbRxBatch?4096:0,waitMs=data is null?_usbRpcWait:0});
                 long commandSent=Tab5GalleryHostProfile.Now;
                 if(data is not null)Tab5UsbShortPacket.Write(port,data);
                 long bodySent=Tab5GalleryHostProfile.Now;
@@ -76,6 +78,7 @@ internal sealed partial class Tab5Service
                 pump=null;await Task.Delay(500,token);
             }
             if(pump is not null&&pump.CompletedCount!=before)continue; // The device may already have queued the next range.
+            if(pump is not null&&_usbRpcWait>0)continue; // The peer bounded-waits for a new request instead of sleeping after an empty poll.
             await Task.Delay(pump is not null && Environment.TickCount64-pump.LastActive<1000?5:20,token);
         }
     }
