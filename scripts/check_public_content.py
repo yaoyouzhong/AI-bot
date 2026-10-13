@@ -71,6 +71,7 @@ REVIEWED_DOC_NAMES = frozenset({
     'add-device.png',
     'tab5-first-install.png',
     'tab5-upgrade.png',
+    'tab5-transfer-test.png',
     'tab5-usb-pairing.png',
     'tab5-connection.png',
     'tab5-quota.png',
@@ -188,6 +189,9 @@ def main():
         assert not list(findings("windows-app/AIBotBridge/Assets/app-icon.ico", b"icon"))
         assert list(findings("docs/assets/screens/unreviewed.png", b"image"))
         assert list(findings("docs/assets/screens/codex.png", b"changed image"))
+        assert list(findings("docs/assets/screens/tab5-transfer-test.png", b"changed image"))
+        speed_image = "docs/assets/screens/tab5-transfer-test.png"
+        assert not list(findings(speed_image, (ROOT / speed_image).read_bytes()))
         known = "docs/assets/screens/codex.png"
         assert not list(findings(known, (ROOT / known).read_bytes()))
         assert list(findings("docs/assets/product-intro/unknown.mp4", b"video"))
