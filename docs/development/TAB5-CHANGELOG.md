@@ -2,6 +2,11 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.183-ui - 2026-10-13
+
+- Explicit sync measurement now uses the existing hidden-page cache trim even after both libraries are complete, retaining the 5 MiB safety reserve and avoiding a zero-byte preflight rejection.
+- Report distinct preflight failures; exercise the production UI memory preparation with completed libraries and 4 MiB free memory.
+
 ## 0.2.182-ui - 2026-10-13
 
 - Add an opt-in gallery sync test to TAB5 connection diagnostics: eight real artwork samples use authenticated receive and the production card writer in an isolated TF directory, preserving installed works and cursors. Report effective bytes, elapsed/receive/write time and overlap; cancellation supported. Requires 0.2.182-ui; physical throughput acceptance remains separate.
