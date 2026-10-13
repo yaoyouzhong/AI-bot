@@ -2,6 +2,14 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.185-ui - 2026-10-13
+
+### USB reception and Wi-Fi recovery
+
+- Use the installed official USB component's recommended 8 KiB CDC endpoint/RX buffers, batched binary reception and data-arrival wakeups. Retain same-core task priorities, disconnect-generation isolation and protocol compatibility.
+- Run targeted no-AP scans with multiple saved networks too. Wait for association and IP assignment before retrying or changing profiles; scan all channels and prefer stronger matching access points, preserving network credentials.
+- Keep saved galleries, complete guides and resumable prefixes without a full resync. Build/regression checks do not substitute for physical Wi-Fi recovery, USB throughput and sustained BLE acceptance.
+
 ## 0.2.184-ui - 2026-10-13
 
 ### Gallery storage and diagnostics

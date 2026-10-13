@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.6 - 2026-10-12
 
+- Companion TAB5 0.2.185-ui improves CDC receive batching and Wi-Fi multi-profile recovery; existing TF libraries and credentials remain compatible. Further throughput and reconnect acceptance are pending.
+
 - Keep authenticated USB-owned BLE standby during long gallery tests and recheck ownership after waiting for ATT, while preserving fallback on stale USB. TAB5 0.2.184-ui adds aligned multi-sector card I/O and measured RPC/read/write/fsync stages; measured hardware gains remain pending.
 
 - Add an opt-in gallery sync test to TAB5 connection diagnostics: eight real artwork samples use authenticated receive and the production card writer in an isolated TF directory, preserving installed works and cursors. Report effective bytes, elapsed/receive/write time and overlap; cancellation supported. Use 0.2.183-ui for completed-library memory preparation. Allow the test's own authenticated gallery requests while continuing to exclude OTA, photo uploads and other probes; physical throughput acceptance remains separate.
