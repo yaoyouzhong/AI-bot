@@ -5,6 +5,37 @@ internal static class Tab5BleTransferSelfTest
 {
     internal static async Task RunAsync()
     {
+        using(var cancel=new CancellationTokenSource(TimeSpan.FromSeconds(5))) {
+            int reads=0,checks=0;bool usbOwns=true;
+            var parked=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var resumed=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var idle=new Tab5BleVoice(_=>{Interlocked.Increment(ref reads);resumed.TrySetResult();return Task.FromResult(new byte[8]);},
+                (_,_)=>Task.CompletedTask,(_,_,_,_)=>throw new Exception("Idle mailbox invoked handler"),517);
+            var pump=Tab5BleClient.PumpVoiceAsync(idle,"voice",cancel.Token,idleStandby:()=>{
+                if(Interlocked.Increment(ref checks)>=2)parked.TrySetResult();return Volatile.Read(ref usbOwns);
+            });
+            await parked.Task.WaitAsync(cancel.Token);
+            if(Volatile.Read(ref reads)!=0)throw new Exception("USB standby performed an idle ATT read");
+            Volatile.Write(ref usbOwns,false);await resumed.Task.WaitAsync(cancel.Token);cancel.Cancel();
+            try{await pump;}catch(OperationCanceledException){}
+        }
+        using(var cancel=new CancellationTokenSource(TimeSpan.FromSeconds(5))) {
+            bool usbOwns=false;int written=0;
+            var handling=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var parked=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var request=new byte[132];request[0]=1;request[6]=124;
+            var active=new Tab5BleVoice(_=>Task.FromResult(request), (packet,_)=>{written+=packet.Length-9;return Task.CompletedTask;},
+                async (_,_,_,ct)=>{handling.SetResult();await release.Task.WaitAsync(ct);return (200,new byte[28]);},517);
+            var pump=Tab5BleClient.PumpVoiceAsync(active,"RPC",cancel.Token,idleStandby:()=>{
+                if(Volatile.Read(ref usbOwns))parked.TrySetResult();return Volatile.Read(ref usbOwns);
+            });
+            await handling.Task.WaitAsync(cancel.Token);Volatile.Write(ref usbOwns,true);release.SetResult();
+            await parked.Task.WaitAsync(cancel.Token);
+            if(active.CompletedCount!=1||written!=28)throw new Exception("USB standby interrupted an in-flight BLE response");
+            cancel.Cancel();try{await pump;}catch(OperationCanceledException){}
+        }
+        Console.WriteLine("BLE_MAILBOX_STANDBY_OK zero idle ATT reads under USB; fallback resumes; active response drains before parking");
         foreach(var test in new[]{(9000L,9000L,"USB","已连接 · USB 优先待命",true),(0L,9000L,"USB","已连接 · USB 优先待命",false),(9000L,4000L,"USB","已连接 · USB 优先待命",false),(9000L,11000L,"USB","已连接 · USB 优先待命",false),(9000L,9000L,"BLE","已连接 · USB 优先待命",false),(9000L,9000L,"USB","正在寻找已配对 TAB5",false)})
             if(Tab5BleClient.ReportStandby(10000,test.Item1,test.Item2,test.Item3,test.Item4)!=test.Item5)throw new Exception("Standby display must require fresh USB and a live authenticated BLE session");
         // A standby connection must remain authenticated, and lose standby

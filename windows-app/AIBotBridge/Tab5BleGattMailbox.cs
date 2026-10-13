@@ -23,7 +23,7 @@ internal sealed class Tab5BleGattMailbox : IDisposable
             ResetWriteTiming();long started=Environment.TickCount64;
             var result=await endpoint.ReadValueAsync(BluetoothCacheMode.Uncached).AsTask(ct);
             Interlocked.Exchange(ref _readMs,Environment.TickCount64-started);
-            if(result.Status!=GattCommunicationStatus.Success||result.Value.Length>488)throw new IOException("BLE mailbox read failed");
+            if(result.Status!=GattCommunicationStatus.Success||result.Value.Length>488)throw new IOException($"BLE mailbox read failed: status={result.Status}; protocol={result.ProtocolError?.ToString("X2")??"none"}; bytes={result.Value?.Length??0}");
             using var reader=DataReader.FromBuffer(result.Value);var bytes=new byte[result.Value.Length];reader.ReadBytes(bytes);
             Interlocked.Exchange(ref _notifyStarted,0);Interlocked.Exchange(ref _notifyLast,0);
             Interlocked.Exchange(ref _notifyCount,0);Interlocked.Exchange(ref _notifyMaxGap,0);

@@ -98,8 +98,8 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             using var connectionPreference=Tab5BleConnectionPreference.ForDevice(device,s=>preferenceStatus=s);
                             var rpcTask=rpc is null?Task.CompletedTask:PumpVoiceAsync(rpc,"RPC",voiceStop.Token,rpcDiagnostic,()=>rpcMailbox!.QueuedMilliseconds,
                                 ()=>rpcMailbox!.ReceiveDiagnostic,probeTrace:probeTrace,writeTiming:()=>rpcMailbox!.WriteTiming,
-                                linkDiagnostic:()=>"preference="+preferenceStatus+"; "+Tab5BleConnectionPreference.ReadLink(device));
-                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,"voice",voiceStop.Token,voiceDiagnostic,()=>voiceMailbox!.QueuedMilliseconds,bulkActive:()=>rpc?.BulkPriorityActive(Environment.TickCount64)==true||imageUploadActive?.Invoke()==true,probeTrace:probeTrace);
+                                linkDiagnostic:()=>"preference="+preferenceStatus+"; "+Tab5BleConnectionPreference.ReadLink(device),idleStandby:standby);
+                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,"voice",voiceStop.Token,voiceDiagnostic,()=>voiceMailbox!.QueuedMilliseconds,bulkActive:()=>rpc?.BulkPriorityActive(Environment.TickCount64)==true||imageUploadActive?.Invoke()==true,probeTrace:probeTrace,idleStandby:standby);
                             long telemetryAt=Environment.TickCount64;
                             try {
                             while(!token.IsCancellationRequested && store.Current?.DeviceId==pairing.DeviceId) {
@@ -123,7 +123,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                     stage="检查 USB 优先时的蓝牙待命连接";
                                     bool verified=KeepAuthenticatedStandby(standby,
                                         ()=>device.ConnectionStatus==BluetoothConnectionStatus.Connected&&session.SessionStatus==GattSessionStatus.Active,()=> {
-                                        diagnostic?.Invoke($"standby; USB active; authenticated session; link active; MTU {session.MaxPduSize}; voice/RPC enabled");
+                                        diagnostic?.Invoke($"standby; USB active; authenticated session; link active; MTU {session.MaxPduSize}; idle mailboxes paused; USB voice/RPC active");
                                         status("已连接 · USB 优先待命");
                                         discovery.Remember(pairing.DeviceId,address,(int)candidates[address]);
                                     });
@@ -238,13 +238,18 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
     internal static Task<bool> SendTelemetryAsync(SemaphoreSlim gate,Func<bool> defer,Func<Task<bool>> send,CancellationToken token)=>
         Tab5BleTransfer.SerializeAsync(gate,()=>defer()?Task.FromResult(false):send(),token);
     internal static int VoicePollDelay(long now,long lastActive,bool bulkActive)=>now-lastActive<1000?15:bulkActive?500:250;
-    private static async Task PumpVoiceAsync(Tab5BleVoice voice,string name,CancellationToken token,Action<string>? diagnostic=null,Func<long>? queuedTime=null,Func<string>? receiveDiagnostic=null,Func<bool>? bulkActive=null,
-        Tab5BleProbeTrace? probeTrace=null,Func<Tab5BleGattTiming>? writeTiming=null,Func<string>? linkDiagnostic=null) {
+    internal static async Task PumpVoiceAsync(Tab5BleVoice voice,string name,CancellationToken token,Action<string>? diagnostic=null,Func<long>? queuedTime=null,Func<string>? receiveDiagnostic=null,Func<bool>? bulkActive=null,
+        Tab5BleProbeTrace? probeTrace=null,Func<Tab5BleGattTiming>? writeTiming=null,Func<string>? linkDiagnostic=null,Func<bool>? idleStandby=null) {
         // Idle voice + RPC mailboxes share the same radio with status frames.
         // Polling both every 30 ms starves the status write queue on Windows.
         long started=0,traceTicket=0;
         try {
             while(!token.IsCancellationRequested) {
+                // USB owns voice and RPC as well as status. An idle GATT read
+                // still consumes ATT and can fail even with status writes paused.
+                // Check only between complete requests: drain any in-flight
+                // response, and resume polling as soon as USB ownership expires.
+                if(idleStandby?.Invoke()==true){await Task.Delay(250,token);continue;}
                 started=Environment.TickCount64;traceTicket=probeTrace?.Ticket(started)??0;
                 uint before=voice.CompletedCount;
                 long queued=queuedTime?.Invoke()??0;
@@ -266,7 +271,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
         }catch(Exception ex) when(ex is IOException or COMException or OperationCanceledException) {
             probeTrace?.RecordActivity(traceTicket,"failure",started,Environment.TickCount64);
             if(token.IsCancellationRequested)throw;
-            throw new IOException(name+" "+voice.Progress,ex);
+            throw new IOException(name+" "+voice.Progress+"; "+ex.GetType().Name+"/0x"+ex.HResult.ToString("X8")+(ex is IOException?"; "+ex.Message:""),ex);
         }
     }
     private void ReadAssets(JsonElement info,Tab5Pairing pairing,string nonce) {

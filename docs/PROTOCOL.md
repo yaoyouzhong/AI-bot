@@ -635,6 +635,10 @@ An identity-validated USB hello may advertise `usbDelta=1`; the bridge then send
 
 ### BLE standby display / 蓝牙待命显示
 
+Fresh authenticated USB ownership also pauses Windows idle BLE voice/RPC mailbox polls between complete requests. An active response drains before standby; USB expiry resumes polling. Session/link checks remain active, and the protocol, authentication and notification windows are unchanged.
+
+USB 已鉴权且有效时，Windows 在完整请求之间暂停蓝牙语音／RPC 空闲轮询；进行中的响应完成后才待命，USB 失效后恢复轮询。保留会话／物理连接检查，不改变协议、鉴权或通知窗口。
+
 认证状态的可选 `connectionHealth.bleStandby` 布尔值仅说明显示状态。Windows 只有在 USB 为当前通道、USB 确认和本地已鉴权 BLE 活连接确认均未过期时才声明 `true`。设备还必须确认 BLE 物理连接、USB 数据新鲜，且此标记来自未过期的 USB 状态，才显示浅蓝色待命图标。正在接收 BLE 数据仍显示绿色，物理连接等待数据显示黄色，断开显示灰色。标记不刷新 BLE 数据时间，不改变路由或授权；缺失字段（包括旧桥接和未实现此能力的 Mac）沿用原状态显示。
 
 The optional authenticated `connectionHealth.bleStandby` boolean is display-only. Windows reports true only while USB owns the active state and both its ACK and the authenticated live BLE session confirmation remain fresh. The device additionally requires a connected BLE link, fresh USB data and a fresh USB snapshot carrying this flag before showing pale-blue standby. Fresh BLE data stays green, a physical connection awaiting data amber, and a disconnected link grey. This flag neither renews BLE data nor changes routing or authorization. Missing fields retain legacy display behavior.
