@@ -222,6 +222,9 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
     internal static bool DeferTelemetry(long now,long lastTelemetry,bool receiving,bool uploadActive)=>(receiving||uploadActive)&&now-lastTelemetry<6000;
     internal static bool UsbOwnsActiveState(long now,long acknowledgedAt,string active)=>
         active=="USB"&&acknowledgedAt>0&&now>=acknowledgedAt&&now-acknowledgedAt<6000;
+    internal static bool ReportStandby(long now,long usbAt,long bleAt,string active,string status)=>
+        status=="已连接 · USB 优先待命"&&UsbOwnsActiveState(now,usbAt,active)&&
+        bleAt>0&&now>=bleAt&&now-bleAt<6000;
     internal static bool KeepAuthenticatedStandby(Func<bool> standby,Func<bool> linkActive,Action confirmed) {
         if(!standby())return false;
         if(!linkActive())throw new IOException("Authenticated BLE standby session disconnected");

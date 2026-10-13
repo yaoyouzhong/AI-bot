@@ -226,7 +226,8 @@ internal sealed partial class Tab5Service : IDisposable
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1 };
+    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,
+        bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
     private void Publish(StatusSnapshot snapshot,bool musicOnly)

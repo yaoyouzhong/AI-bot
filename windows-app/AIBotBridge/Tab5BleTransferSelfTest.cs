@@ -5,6 +5,8 @@ internal static class Tab5BleTransferSelfTest
 {
     internal static async Task RunAsync()
     {
+        foreach(var test in new[]{(9000L,9000L,"USB","已连接 · USB 优先待命",true),(0L,9000L,"USB","已连接 · USB 优先待命",false),(9000L,4000L,"USB","已连接 · USB 优先待命",false),(9000L,11000L,"USB","已连接 · USB 优先待命",false),(9000L,9000L,"BLE","已连接 · USB 优先待命",false),(9000L,9000L,"USB","正在寻找已配对 TAB5",false)})
+            if(Tab5BleClient.ReportStandby(10000,test.Item1,test.Item2,test.Item3,test.Item4)!=test.Item5)throw new Exception("Standby display must require fresh USB and a live authenticated BLE session");
         // A standby connection must remain authenticated, and lose standby
         // immediately when the already-ACKed USB state is stale or not active.
         foreach(var test in new[]{(10000L,9000L,"USB",true),(15000L,9000L,"USB",false),(10000L,0L,"USB",false),(10000L,11000L,"USB",false),(10000L,9000L,"BLE",false),(10000L,9000L,"Wi-Fi",false),(10000L,9000L,"",false)})

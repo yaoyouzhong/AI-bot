@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.6 - 2026-10-12
 
+- Add an opt-in gallery sync test to TAB5 connection diagnostics: eight real artwork samples use authenticated receive and the production card writer in an isolated TF directory, preserving installed works and cursors. Report effective bytes, elapsed/receive/write time and overlap; cancellation supported. Requires 0.2.182-ui; physical throughput acceptance remains separate.
+
+- Report authenticated BLE standby under active USB for supporting TAB5 status displays. Parse gallery receive/write counters as unsigned counters rather than a version-prefixed probe.
 - Receive Wi-Fi galleries as continuous independently authenticated blocks while a bounded concurrent TF writer applies backpressure. Promote written JPEGs without a second full image write, preserving old records and resume prefixes. Send USB state deltas against exact ACKed baselines and revalidate identity on reconnect. Implementation and simulated regressions pass; physical throughput acceptance remains pending.
 
 ### Packages and offline flashing

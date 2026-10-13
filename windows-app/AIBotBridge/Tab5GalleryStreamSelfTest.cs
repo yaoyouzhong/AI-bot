@@ -38,6 +38,9 @@ internal static class Tab5GalleryStreamSelfTest
     }
     internal static async Task RunProtocolAsync()
     {
+        string sample=Tab5Service.FormatBenchmark("complete;gallery,Wi-Fi,8,8388608,8000,6000,3000,42,0");
+        if(!sample.Contains("1024.0 KiB/s",StringComparison.Ordinal)||!sample.Contains("8/8",StringComparison.Ordinal)||!sample.Contains("42 次",StringComparison.Ordinal))throw new Exception("Gallery benchmark effective-byte/timing report changed");
+        if(Tab5Service.FormatBenchmark("running;gallery,USB,0,0,0,0,0,0,0").Contains("NaN",StringComparison.Ordinal))throw new Exception("Empty gallery timing divided by zero");
         foreach(string counters in new[]{"0,0,0,0","1048576,1048576,243,17","4294967295,4294967295,4294967295,4294967295"}) {
             var value=JsonSerializer.SerializeToElement(new{galleryTransferDiag=counters});
             if(Tab5GalleryStream.TransferDiagnostic(value)!=counters)throw new Exception("Real gallery counters rejected as a versioned probe");

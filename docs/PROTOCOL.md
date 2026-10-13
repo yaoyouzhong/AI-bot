@@ -632,3 +632,18 @@ USB hello 可声明 `usbDelta=1`，桥接仅对本条仍打开且已确认设备
 English: optional authenticated `connectionHealth.galleryStream=1` enables one continuous HTTP response for SHA-bound Wi-Fi gallery reads of up to 1 MiB. The original device/session/time/replay/HMAC/AES-GCM request checks apply. USB/BLE and unnegotiated peers retain their existing limits. T5S1 carries three u32LE fields (offset, bytes, blocks), followed by length-prefixed independently encrypted T5R2 blocks with <=49152 data bytes, independent random AES IVs and request-nonce AAD. Each authenticated body binds its range, total stream range and ordinal; validate all of them and the final JPEG hash/dimensions. Ordinary encrypted error responses remain bounded. Verified blocks feed a concurrent, bounded TF writer with backpressure and durable resume. The four-field content-free `galleryTransferDiag` records received bytes, checkpoint data bytes, checkpoint write milliseconds and receive/write overlaps, pending physical throughput acceptance.
 
 An identity-validated USB hello may advertise `usbDelta=1`; the bridge then sends state deltas against the exact ACKed baseline on that live CDC handle, retaining the usual publication cadence and ACK checks. Reset the baseline on reconnect; legacy peers get full frames. Initial connection and explicit configuration still verify identity. Firmware source tests and builds do not establish hardware throughput or Wi-Fi stability.
+
+### BLE standby display / 蓝牙待命显示
+
+认证状态的可选 `connectionHealth.bleStandby` 布尔值仅说明显示状态。Windows 只有在 USB 为当前通道、USB 确认和本地已鉴权 BLE 活连接确认均未过期时才声明 `true`。设备还必须确认 BLE 物理连接、USB 数据新鲜，且此标记来自未过期的 USB 状态，才显示浅蓝色待命图标。正在接收 BLE 数据仍显示绿色，物理连接等待数据显示黄色，断开显示灰色。标记不刷新 BLE 数据时间，不改变路由或授权；缺失字段（包括旧桥接和未实现此能力的 Mac）沿用原状态显示。
+
+The optional authenticated `connectionHealth.bleStandby` boolean is display-only. Windows reports true only while USB owns the active state and both its ACK and the authenticated live BLE session confirmation remain fresh. The device additionally requires a connected BLE link, fresh USB data and a fresh USB snapshot carrying this flag before showing pale-blue standby. Fresh BLE data stays green, a physical connection awaiting data amber, and a disconnected link grey. This flag neither renews BLE data nor changes routing or authorization. Missing fields retain legacy display behavior.
+
+
+### Gallery receive/write acceptance samples / 图库同步测速
+
+The paired USB `tab5_benchmark` control accepts `gallery_start`, `gallery_status`, and `gallery_cancel` when the reply advertises `gallerySpeed: true` (TAB5 0.2.182-ui). This is opt-in diagnostics, separate from the RAM-only channel benchmark. Eight real manifests/JPEGs (two categories, two dates, both orientations) use the production authenticated download, bounded concurrent card writer, whole-image hash and committed image/text store. Automatic mode prefers Wi-Fi; USB-only mode measures USB. BLE is not a bulk-library test transport. The original link mode and credentials are never changed.
+
+Results are `state;gallery,transport,completed,receivedBytes,totalMs,receiveMs,writeMs,overlapCount,error`. `totalMs` includes sample preparation, inter-sample scheduling, validation and durable commit from first sample start; receive and write times overlap and must not be added. Only `complete` with eight samples is a successful run. A 180-second device deadline and explicit cancellation bound the task; partial/failure results are not throughput acceptance.
+
+测速需要已启用 TF 卡及已安装图库。样本使用 `/aibot/cache/gallery-speed/` 下的独立存储根，复用正式图库目录格式；原图库图片、导读、断点和进度均不修改。每次重新接收样本，不把缓存命中算作传输。测试记录固定为 8 个键、每键两槽，连同临时分段最多约 24 MiB，并由后续测试复用。桥接“TAB5 连接 → 测速 → 图库同步测速”显示实际字节、端到端时间、接收/写卡阶段与重叠次数。失败、中止、代码回归和模拟文件写入均不算真机速度验收。

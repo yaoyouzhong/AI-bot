@@ -11,6 +11,7 @@ internal sealed partial class Tab5Service
     private bool _bleOtaProbeSupported;
     private bool _bleOtaIsolationSupported;
     private bool _bleFirmwareProbeSupported;
+    private bool _gallerySpeedSupported;
     private volatile string _bleRadioDiagnostic="未采样",_wifiIsolationDiagnostic="未采样";
     private volatile string _bleOtaProbeDiagnostic="尚未预检";
     private readonly Tab5BleProbeTrace _bleProbeTrace=new();
@@ -30,6 +31,15 @@ internal sealed partial class Tab5Service
         foreach(string row in rows.Skip(1)) {
             var fields=row.Split(',');
             if(fields.Length==3&&fields[0]=="image") {lines.Add($"完整固件 SHA-256：{fields[1]}；{fields[2]} 字节");continue;}
+            if(fields.Length==9&&fields[0]=="gallery"&&fields.Skip(2).All(x=>long.TryParse(x,out _))) {
+                long bytes=long.Parse(fields[3]),elapsed=long.Parse(fields[4]);
+                lines.Add($"图库 → TF 卡 · {fields[1]} · 完成 {fields[2]}/8 个样本");
+                lines.Add($"实际接收 {bytes/1048576.0:F2} MiB · 总耗时 {elapsed/1000.0:F2} 秒 · {(elapsed>0?bytes*1000.0/elapsed/1024:0):F1} KiB/s");
+                lines.Add($"接收阶段 {long.Parse(fields[5])/1000.0:F2} 秒 · 写卡 {long.Parse(fields[6])/1000.0:F2} 秒 · 写卡期间收到数据 {fields[7]} 次");
+                lines.Add("耗时包含实际样本校验与落盘；接收与写卡有重叠，两项时间不能相加。原图库保留。");
+                if(fields[8]!="0")lines.Add($"错误状态：{fields[8]}");
+                continue;
+            }
             if(fields.Length>=4) {
                 string direction=fields[1]=="up"?"上传":"下载";
                 if(fields.Length>=6&&long.TryParse(fields[3],out long bytes)&&long.TryParse(fields[4],out long ms)) {
@@ -70,6 +80,7 @@ internal sealed partial class Tab5Service
             _wifiPowerDiagnostic=reply.RootElement.TryGetProperty("wifiPower",out var power)?power.GetString()??"invalid":"unsupported";
             _bleOtaProbeSupported=reply.RootElement.TryGetProperty("bleOtaProbe",out var probe)&&probe.ValueKind==JsonValueKind.True;
             _bleFirmwareProbeSupported=reply.RootElement.TryGetProperty("bleFirmwareProbe",out var firmware)&&firmware.ValueKind==JsonValueKind.True;
+            _gallerySpeedSupported=reply.RootElement.TryGetProperty("gallerySpeed",out var gallery)&&gallery.ValueKind==JsonValueKind.True;
             _bleOtaIsolationSupported=reply.RootElement.TryGetProperty("bleOtaProbeIsolation",out var isolation)&&isolation.ValueKind==JsonValueKind.True;
             _bleRadioDiagnostic=NumericProbeDiagnostic(reply.RootElement,"bleRadio",16);
             _wifiIsolationDiagnostic=NumericProbeDiagnostic(reply.RootElement,"wifiIsolation",7);
@@ -84,6 +95,30 @@ internal sealed partial class Tab5Service
             try{return await read(token);}
             catch(IOException) when(attempt<3&&!token.IsCancellationRequested) {await Task.Delay(250,token);}
             catch(TimeoutException) when(attempt<3&&!token.IsCancellationRequested) {await Task.Delay(250,token);}
+        }
+    }
+    internal async Task<string> GalleryBenchmarkAsync(Action<string> progress,CancellationToken token) {
+        if(Busy||Interlocked.CompareExchange(ref _benchmarkRunning,1,0)!=0)throw new InvalidOperationException("请等待当前操作结束后测速。");
+        bool started=false;
+        using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromMinutes(4));
+        try {
+            await BenchmarkCommandAsync("gallery_status",deadline.Token);
+            if(!_gallerySpeedSupported)throw new NotSupportedException("图库同步测速需要先安装 0.2.182-ui 或更新固件。");
+            started=true; // A lost start reply must still trigger cancellation, never a second start.
+            string result=await BenchmarkCommandAsync("gallery_start",deadline.Token);
+            while(true) {
+                _benchmarkDiagnostic=result;progress(result);
+                if(!result.StartsWith("running;",StringComparison.Ordinal))return result;
+                await Task.Delay(1000,deadline.Token);
+                result=await ReadBenchmarkStatusAsync(ct=>BenchmarkCommandAsync("gallery_status",ct),deadline.Token);
+            }
+        }finally {
+            if(started) {
+                using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                try{_benchmarkDiagnostic=await BenchmarkCommandAsync("gallery_cancel",stop.Token);}
+                catch(Exception ex) when(ex is IOException or OperationCanceledException or InvalidOperationException or TimeoutException){_benchmarkDiagnostic="停止请求未确认；设备将在本次测速时限内结束。";}
+            }
+            Interlocked.Exchange(ref _benchmarkRunning,0);
         }
     }
     internal async Task<string> BenchmarkAsync(Action<string> progress,CancellationToken token,bool bleOtaProbe=false,bool isolateWifi=false,bool compareQueue=false,bool firmwareProbe=false) {

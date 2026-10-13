@@ -2,6 +2,13 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.182-ui - 2026-10-13
+
+- Add an opt-in gallery sync test to TAB5 connection diagnostics: eight real artwork samples use authenticated receive and the production card writer in an isolated TF directory, preserving installed works and cursors. Report effective bytes, elapsed/receive/write time and overlap; cancellation supported. Requires 0.2.182-ui; physical throughput acceptance remains separate.
+
+- Move image-text gallery navigation beside the bottom page counter in both orientations. Align visible glyph centers and enlarge touch targets to 80×72 without enlarging arrow glyphs. Preserve legacy image-pack caption pixels and paging compatibility.
+- Show fresh, bridge-confirmed authenticated BLE standby under active USB in pale blue, separately from amber waiting. Stale reports and physical disconnection cannot retain standby; routing is unchanged.
+
 ## 0.2.181-ui - 2026-10-12
 
 - Authenticate continuous Wi-Fi gallery blocks individually and receive concurrently with a bounded, backpressured TF writer. Sync payloads before committing checkpoints; promote AIG2 records without rewriting JPEGs, retaining AIG1 and old resume compatibility. USB state deltas preserve unread/settings/music freshness while avoiding repeated full catalogs.

@@ -27,6 +27,9 @@ internal sealed class Tab5ConnectionForm : Form
         var benchmark=Page("传输测速");
         benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="测试可用通道的传输速度；固定模式仅测试所选通道。"});
         var benchmarkStart=new Button{Text="开始测速"};var benchmarkStop=new Button{Text="停止",Enabled=false};
+        var galleryBenchmark=new Button{Text="图库同步测速",AutoSize=true};
+        benchmark.Controls.Add(Buttons(galleryBenchmark));
+        benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="图库测速：接收 8 个作品样本并写入 TF 卡，原图库保留。自动模式优先 Wi-Fi；仅 USB 模式测试 USB。"});
         var firmwareProbe=new Button{Text="完整固件预检",AutoSize=true};
         benchmark.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(550,0),Text="完整固件预检：先选择固件，再以仅蓝牙接收、解压并核对整包校验值；不写闪存。传输预算 110 秒。"});
         benchmark.Controls.Add(Buttons(firmwareProbe));
@@ -36,19 +39,21 @@ internal sealed class Tab5ConnectionForm : Form
         var benchmarkResult=new TextBox{Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Height=220,Width=550,Text=Tab5Service.FormatBenchmark(service.BenchmarkDiagnostic)};benchmark.Controls.Add(benchmarkResult);
         CancellationTokenSource? benchmarkCancel=null;
         benchmarkStop.Click+=(_,_)=>benchmarkCancel?.Cancel();
-        async Task RunBenchmark(bool firmware=false) {
+        async Task RunBenchmark(bool firmware=false,bool gallery=false) {
             benchmarkStart.Enabled=false;benchmarkStop.Enabled=true;benchmarkCancel=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
-            benchmarkIsolation.Enabled=false;firmwareProbe.Enabled=false;
+            benchmarkIsolation.Enabled=false;firmwareProbe.Enabled=false;galleryBenchmark.Enabled=false;
             try {
-                string value=await service.BenchmarkAsync(value=>{if(!IsDisposed)benchmarkResult.Text=Tab5Service.FormatBenchmark(value);},benchmarkCancel.Token,firmware,firmware&&benchmarkIsolation.Checked,firmwareProbe:firmware);
+                void Progress(string value){if(!IsDisposed)benchmarkResult.Text=Tab5Service.FormatBenchmark(value);}
+                string value=gallery?await service.GalleryBenchmarkAsync(Progress,benchmarkCancel.Token):await service.BenchmarkAsync(Progress,benchmarkCancel.Token,firmware,firmware&&benchmarkIsolation.Checked,firmwareProbe:firmware);
                 if(firmware&&!IsDisposed)benchmarkResult.Text=service.BleOtaProbeDiagnostic+Environment.NewLine+Tab5Service.FormatBenchmark(value);
             }
             catch(OperationCanceledException){if(!IsDisposed)benchmarkResult.Text="正在停止，等待当前分段结束。";}
             catch(Exception ex){if(!IsDisposed)benchmarkResult.Text=ex.Message;}
-            finally{benchmarkCancel.Dispose();benchmarkCancel=null;if(!IsDisposed){benchmarkStart.Enabled=true;benchmarkStop.Enabled=false;benchmarkIsolation.Enabled=true;firmwareProbe.Enabled=true;}}
+            finally{benchmarkCancel.Dispose();benchmarkCancel=null;if(!IsDisposed){benchmarkStart.Enabled=true;benchmarkStop.Enabled=false;benchmarkIsolation.Enabled=true;firmwareProbe.Enabled=true;galleryBenchmark.Enabled=true;}}
         }
         benchmarkStart.Click+=async(_,_)=>await RunBenchmark(false);
         firmwareProbe.Click+=async(_,_)=>await RunBenchmark(true);
+        galleryBenchmark.Click+=async(_,_)=>await RunBenchmark(gallery:true);
         var result=new Label{AutoSize=true,Dock=DockStyle.Fill,Padding=new Padding(0,8,0,0),MinimumSize=new Size(0,30),Text="",ForeColor=Color.FromArgb(64,83,101)};
         layout.Controls.Add(result,0,2);
         network.Controls.Add(Heading("已保存的 Wi-Fi"));
