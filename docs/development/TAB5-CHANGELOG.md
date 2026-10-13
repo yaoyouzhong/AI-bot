@@ -2,6 +2,13 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.189-ui - 2026-10-13
+
+### Artwork reading
+
+- Sample unscaled RGB565 layers at 90/180/270 degrees in bounded tiles, reducing repeated arithmetic and distant PSRAM row reads when rotating a portrait reader. Preserve LVGL's sampling coordinates, colors and edge alpha; other formats, scales and angles retain the original path. No additional full-page allocation.
+- Add numeric preparation, layout and first-refresh timings for opening artwork details. Text, orientation, scrolling, return behavior and TF formats remain compatible. Actual responsiveness requires separate hardware acceptance.
+
 ## 0.2.188-ui - 2026-10-13
 
 ### Wireless startup
