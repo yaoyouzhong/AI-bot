@@ -2,6 +2,136 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.194-ui - 2026-10-14
+
+- Give BLE-only bulk RPCs a separate 35-second inactivity lease, renewed only after a complete authenticated success. Failure, 600 ms idle or no progress restores Wi-Fi; late replies cannot revive expired leases. Original gallery and diagnostic deadlines remain unchanged.
+- Installed and boot-verified in `ota_1`, `VALID`, with Overview as the first observed usable page. Pairing, both 366-work galleries and the original six-page order/15-second cycle were preserved. The user confirmed rotation resumed after leaving Settings.
+- All six 256 KiB transfers completed with error 0: aggregate upload 19.50 KiB/s and download 18.86 KiB/s. The observed gains over one 192 run were about 8%/22%, with varying workloads. The 80.7-second pause restored without expiry; the last response recorded one successful exact confirmed replay.
+- Native checks cover 64 successful ranges over two minutes and idle/failure/expiry/mode/recovery behavior. Whole-image BLE OTA, longer stability and the speed objective remain unaccepted. Physical multi-page artwork navigation is deferred by the user. See the [closeout record](TAB5-194-ACCEPTANCE-20261014.md) for identities and limits.
+
+## 0.2.193-ui - 2026-10-14
+
+- Start on Overview, hold the saved display interval, then resume saved fixed-page or cycle behavior. Manual navigation wins; page order and interval remain intact. Installed; the user confirmed the actual first screen.
+- Introduce temporary Wi-Fi isolation for BLE-only bulk RPCs. The second physical download stopped at 96/256 KiB while the 35-second lease expired. This policy mismatch is repaired in 194; it does not establish overall acceleration or the sole cause of the earlier 192 OTA interruption.
+
+## 0.2.192-ui - 2026-10-14
+
+- Negotiate exact-prefix response replay: accept only byte-identical ciphertext for the same request/total; reject stale, altered, gapped or partially overlapping fragments. The bridge repairs an explicit ATT 0E once using confirmed writes; other errors propagate.
+- Retain eight-packet notification bounds and backpressure. Installed and boot-verified; all six 256 KiB transfers completed at aggregate upload 18.115/download 15.433 KiB/s. Completeness passed; the speed objective remains open.
+
+## 0.2.191-ui - 2026-10-14
+
+- Render the final disconnected monitor state directly, fixing repeated left-card repainting after bridge exit while retaining details, alert deduplication and recovery. The user confirmed no flicker and automatic recovery.
+- Preserve accepted calligraphy layouts; landscape paintings show title, author and period left of the artwork, with compact portrait information. Painting pack 2026.10.14.1 was imported and its layout/reading accepted. Multi-page navigation was deferred because both daily works had one page.
+- Fix offline TF scheduling without a PC snapshot and JPEG decoder DMA descriptor allocation. Installed and boot-verified; both previews display correctly without synchronization prompts, and the original rotation works. Calligraphy re-import was unnecessary.
+- BLE's second download still failed at this stage and was subsequently addressed by 192/194. Historical build/simulation evidence is distinct from physical results.
+
+## 0.2.190-ui - 2026-10-13
+
+### Runtime monitoring
+
+- Add a monitor entry in System for desktop CPU/memory, commit and paging pressure, VPN/PAC routing, actual Codex connections and bridge watchdog health. Confirmed anomalies show brief causes and actions; absent data from older bridges remains unknown.
+- Preserve the primary system statistics, hierarchical return and stale-data presentation. Monitoring coexists with desktop upgrade requests. Desktop/native regressions and TAB5 hardware acceptance are recorded separately.
+
+### Desktop-initiated upgrades
+
+- Accept bounded requests from the paired bridge. Reuse local draft/busy guards on LVGL, require an authenticated commit, and atomically bind installation to the authorized offer ID/SHA-256. Expired, duplicate, withdrawn or mismatched intents cannot start an upgrade.
+- Retain device-triggered installation, OTA slots/rollback, transport preferences and TF files. Windows 0.6.6 exposes Start Upgrade for compatible devices; older firmware needs one device-confirmed installation. Physical trigger acceptance is recorded separately.
+
+## 0.2.189-ui - 2026-10-13
+
+### Artwork reading
+
+- Sample unscaled RGB565/ARGB8888 layers at 90/180/270 degrees in bounded tiles, covering the actual portrait reader's transparent layer and reducing repeated arithmetic and distant PSRAM row reads. Preserve LVGL's sampling coordinates, colors and edge alpha; other formats, scales and angles retain the original path. No additional full-page allocation.
+- Add numeric preparation, layout and first-refresh timings for opening artwork details. Text, orientation, scrolling, return behavior and TF formats remain compatible. Actual responsiveness requires separate hardware acceptance.
+
+### Gallery transfer
+
+- Negotiate a bounded USB request-ready wait. Publishing a request or disconnecting wakes the reader immediately, reducing desktop delays after empty polls. Preserve framing, generation isolation, deadlines and legacy firmware behavior.
+- Reuse an exclusive HTTP client and valid connection across successful background gallery saves to avoid per-image reconnection and TCP slow start. Changed endpoints, lifetime/request limits, cancellation and incomplete or failed transfers release the connection. Each request retains fresh authentication; verified checkpoints and TF files remain compatible. Measure actual gains separately using the same sample set.
+
+## 0.2.188-ui - 2026-10-13
+
+### Wireless startup
+
+- Initialize the unmodified ESP-Hosted SDK after the Tab5 I/O-expander power rail is ready, before large USB/audio/UI allocations. The pinned automatic constructor is excluded by the application build; source-layout changes fail configuration rather than silently restoring the old order.
+- On a software restart, power-cycle the C6 before creating radio transport tasks. Ordinary association failures never reset a live Wi-Fi/BLE module; credentials and installed TF collections remain intact. Add numeric startup diagnostics. Native ordering and failure tests are separate from OTA recovery acceptance.
+
+## 0.2.187-ui - 2026-10-13
+
+### USB receive batching
+
+- The installed TinyUSB CDC driver defaults to one 64-byte receive submission even with an 8 KiB endpoint buffer. Negotiate up to 4 KiB submissions for binary bodies with a supporting bridge, retaining one-packet legacy control and default behavior.
+- Bind pending DMA to its DTR generation before submission. Discard stale bulk completions during reopen and use a short discovery barrier; preserve existing same-core task ordering, framing, authentication and resume data.
+- Reject a receive notification sampled after its caller's timestamp rather than reporting an unsigned multi-billion-microsecond wait. Hardware throughput acceptance remains separate.
+
+## 0.2.186-ui - 2026-10-13
+
+### Parallel gallery reception
+
+- Read HTTP responses in batches up to 16 KiB through a bounded 64 KiB PSRAM receiver, separate from authentication and the existing concurrent card writer. Retain synchronous fallback, safe cancellation, authenticated resumable prefixes and complete-file verification.
+- Match the TCP receive window and mailbox using the ESP-IDF documented sizing formula, preferring PSRAM for Wi-Fi/lwIP allocations. Existing saved galleries, credentials and cache choices remain compatible.
+- Add optional network read/wait and passive USB FIFO/wakeup/hardware counters. No USB endpoint or scheduling change is included. Native tests and builds are distinct from physical throughput and sustained BLE acceptance; hardware gains remain pending.
+
+## 0.2.185-ui - 2026-10-13
+
+### USB reception and Wi-Fi recovery
+
+- Use the installed official USB component's recommended 8 KiB CDC endpoint/RX buffers, batched binary reception and data-arrival wakeups. Retain same-core task priorities, disconnect-generation isolation and protocol compatibility.
+- Run targeted no-AP scans with multiple saved networks too. Wait for association and IP assignment before retrying or changing profiles; scan all channels and prefer stronger matching access points, preserving network credentials.
+- Keep saved galleries, complete guides and resumable prefixes without a full resync. Build/regression checks do not substitute for physical Wi-Fi recovery, USB throughput and sustained BLE acceptance.
+
+## 0.2.184-ui - 2026-10-13
+
+### Gallery storage and diagnostics
+
+- Transfer aligned multi-sector spans through a bounded 32 KiB aligned buffer, separating partial-sector edges in existing cache files. Keep image/text formats, checksums, durable checkpoints, alternate slots and resume compatibility.
+- Report card read/write/fsync and authenticated RPC stage timings for the same eight isolated samples. Existing installed galleries are preserved; actual speed and sustained BLE behavior require physical acceptance with the matching bridge.
+
+## 0.2.183-ui - 2026-10-13
+
+- Explicit sync measurement now uses the existing hidden-page cache trim even after both libraries are complete, retaining the 5 MiB safety reserve and avoiding a zero-byte preflight rejection.
+- Report distinct preflight failures; exercise the production UI memory preparation with completed libraries and 4 MiB free memory.
+
+## 0.2.182-ui - 2026-10-13
+
+- Add an opt-in gallery sync test to TAB5 connection diagnostics: eight real artwork samples use authenticated receive and the production card writer in an isolated TF directory, preserving installed works and cursors. Report effective bytes, elapsed/receive/write time and overlap; cancellation supported. Requires 0.2.182-ui; physical throughput acceptance remains separate.
+
+- Move image-text gallery navigation beside the bottom page counter in both orientations. Align visible glyph centers and enlarge touch targets to 80×72 without enlarging arrow glyphs. Preserve legacy image-pack caption pixels and paging compatibility.
+- Show fresh, bridge-confirmed authenticated BLE standby under active USB in pale blue, separately from amber waiting. Stale reports and physical disconnection cannot retain standby; routing is unchanged.
+
+## 0.2.181-ui - 2026-10-12
+
+- Authenticate continuous Wi-Fi gallery blocks individually and receive concurrently with a bounded, backpressured TF writer. Sync payloads before committing checkpoints; promote AIG2 records without rewriting JPEGs, retaining AIG1 and old resume compatibility. USB state deltas preserve unread/settings/music freshness while avoiding repeated full catalogs.
+
+- Prevent whole-library synchronization from stalling behind retained offscreen UI snapshots. Reclaim only rebuildable offscreen caches and avoid hidden preheating during synchronization; preserve the original 5 MiB worker reserve, active gestures, visible pixels and image/text verification.
+- In automatic transport mode prefer a fresh authenticated Wi-Fi path for whole-library reads, with USB fallback. Keep explicit channel selections, foreground priority and per-request binding; validated checkpoints remain reusable across transports.
+- Retain .180 side navigation/Wi-Fi diagnostics and .179 complete reading, storage management and range-resume fixes. Performance and wireless recovery still require the latest image's hardware acceptance.
+
+## 0.2.180-ui - 2026-10-12
+
+- Place multi-page painting/calligraphy arrows at the artwork sides for both pack formats. Rotate each small control independently, preserve legacy portrait caption pixels, and hide navigation for single-page works.
+- Add numeric device Wi-Fi diagnostics for driver/configuration results. After a disconnected no-AP failure, scan only the saved SSID at most once per 30 seconds; retain network configuration and authentication.
+
+## 0.2.179-ui - 2026-10-12
+
+- Keep manual paging visible for multi-page legacy image-only packs independently of optional guide text. Retain original image captions, offer details only when text is available, and preserve matching complete guides when promoting cached JPEGs to TF.
+- Rename the setting to Storage Management and place it below Content Rotation; retain the saved cache choice.
+- Resume within unfinished TF gallery images across reconnect/reboot using checksummed prefix records bound to pack revision, work, layout, frame and expected JPEG SHA-256. Reject torn tails or changed content; only complete image/text commits become offline display sources. Completed works/pages remain reusable.
+- Checkpoint each 192 KiB and flush smaller verified tails on graceful interruption, reducing per-range storage writes. Abrupt power loss may require retransmitting the uncommitted tail. Keep at most one staging file per category under `aibot/gallery/<category>/download.aip`.
+- Reuse a checked complete original across frames/layouts only when date, work, revision and full-text hash match; revalidate after a pack update. Avoid retrying already-persisted background images because of an unrelated RGB reserve check; retain foreground priority.
+- Include .178 long-filename fixes, complete readers and the latest 10,535-glyph font. Native resume/integrity/failure preservation, whole-library offline and seven long-original regressions passed; final image and hardware acceptance are recorded separately.
+
+## 0.2.178-ui - 2026-10-12
+
+- Fix .177's disabled FAT long filenames, which prevented creating calligraphy, date and record paths even after mounting. Use heap buffers and preserve the `aibot/` layout, checked records and nonformatting behavior.
+- Reject firmware configurations lacking long filenames. The actual SDK FatFs regression covers 128GB FAT32, 32KiB clusters, both categories, temporary-file commits and remount/readback; hardware acceptance is recorded separately.
+- Add an independent Storage & Cache settings category with background TF detection, regardless of screensaver or bridge state. Gallery caching defaults to the existing device cache; explicitly select TF to enable complete-library storage. Preserve the choice, roll back failed saves, fall back when TF is unavailable and retain card files when disabled.
+- Hide Codex Direct's empty bottom result panel on initial entry. Show compact operation feedback or expand for recognized text, preserving voice, draft and send flows.
+- Native host regressions cover storage status, cache choice, save rollback, card removal/reinsertion and Codex interactions. Build and installed-device acceptance are recorded separately. Validate long filename flags during ESP-IDF configuration without falsely rejecting unloaded flags during dependency discovery.
+- Include the latest font, preserving existing glyph metrics and pixels and checking coverage against the final annual reading material. Artwork images and reading data remain separate optional packs, with 366 independent works in each category.
+- Read complete long originals through bounded, checked reading pages, preserving full text and clearly labelled reference scope. Coordinate with Windows bridge 0.6.6 for the new reading capability; old packs continue to work. Source, packages, build and hardware acceptance are separately verified in the [release record](../RELEASE-0.6.6.md).
+
 ## 0.2.177-ui - 2026-10-11
 
 - Automatically synchronize both complete installed collections from Windows over USB/Wi-Fi to TF, including every work/page/layout and complete optional guide. Settings show progress; finished collections remain available offline across reboots/year changes. Resume interrupted work, prioritize foreground operations and reuse identical JPEGs on revision changes; text-only changes transfer no image ranges. BLE retains individual-image synchronization.
