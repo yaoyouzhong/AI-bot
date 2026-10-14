@@ -1,20 +1,18 @@
 # AI-bot
 
-Local release preparation covers bridge 0.6.6 and installed TAB5 0.2.194-ui. See the [preparation record](docs/RELEASE-PREP-20261014.md) for fixes, evidence and remaining acceptance; the download center remains the authority for public availability.
+Current stable releases are bridge 0.6.6 and TAB5 0.2.194-ui. See the [release record](docs/RELEASE-0.6.6.md) for fixes, physical evidence and remaining acceptance; component downloads are listed below.
 
-Local development: [Runtime monitoring](docs/RUNTIME-MONITOR.md) checks VPN/PAC routing and sustained Windows pressure. The bridge has been updated locally and verified with real sampling and Windows notification delivery. Concise TAB5 notices, graphical monitoring and cause/action details remain native previews; TAB5 has not been flashed.
-
-This release delivers bridge **0.6.5**, TAB5 **0.2.176-ui** and ESP8266 **0.5.2**: Codex desktop read sync, Soda/Apple media integration, nine clock faces, separate timer and date-countdown functions, consistent navigation/display modes and extended fonts. New painting/calligraphy collections will follow independently; published curated edition **2026.10.09** and installed user artwork are retained. [Changes and validation scope](docs/RELEASE-0.6.6.md) · [Collection installation](docs/GALLERY-PACKS.md)
+This release adds [runtime monitoring](docs/RUNTIME-MONITOR.md), desktop artwork browsing and complete TF storage/offline previews. It fixes disconnected monitor flicker and continuous BLE transfer recovery, and starts on Overview. Painting layout edition **2026.10.14.1** places landscape title, artist and period beside the artwork, with compact portrait information. Public ESP8266 **0.5.2** and calligraphy **2026.10.09** remain; app upgrades preserve installed galleries. [Changes and validation scope](docs/RELEASE-0.6.6.md) · [Collection installation](docs/GALLERY-PACKS.md)
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.6.md) · [简体中文](README.md)
 
-Screenshots, the film and covers are synchronized with this release. The updated 108-second tour adds nine clock faces, two independent countdown functions, read synchronization and consistent navigation, and refreshes music, collection management and setup/update scenes. Native interfaces use isolated demo data; see the release record for hardware validation limits.
+Screenshots, the film and covers are synchronized with this release. The 108-second tour refreshes monitoring, offline TF galleries, artwork captions and firmware updates, retaining clocks, timers and Codex scenes. Native interfaces use isolated demo data; see the release record for hardware validation limits.
 
-https://github.com/user-attachments/assets/f954fcd7-e3e1-44f5-9a85-efd6a4fe7e27
+https://github.com/user-attachments/assets/4b9e1321-ccf9-4035-89e0-4ae690ca19b6
 
-<sub>108-second product tour with Chinese captions; click to play here. Native interfaces use fixed demo data. [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media and artwork credits](docs/PRODUCT_VIDEO.md)</sub>
+<sub>108-second product tour with Chinese captions; click to play here. Updated monitoring, TF storage, landscape captions and firmware-update scenes use isolated native demo data. [Download MP4](https://github.com/yaoyouzhong/AI-bot/raw/refs/heads/main/docs/assets/product-intro/AI-bot-product-intro.mp4) · [Media and artwork credits](docs/PRODUCT_VIDEO.md)</sub>
 
 ## What it does
 
@@ -75,13 +73,13 @@ Annual Dots gives every day a dot, with leap-year support, three palettes and au
 <!-- downloads:start -->
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.5 | [Download · 57 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.5/AIBotBridge-0.6.5-setup-win-x64.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.5/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.5 | [Download · 46 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.5/AIBotBridge-0.6.5-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.5/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.6 | [Download · 23 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.6/AIBotBridge-0.6.6-setup-win-x64.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.6/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.6 | [Download · 14 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.6/AIBotBridge-0.6.6-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.6/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.2 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.2/AI-bot-0.5.2-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.2/SHA256SUMS.txt) |
-| TAB5 · first install from factory system | 0.2.176-ui | [Download · 4 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.176-ui/TAB5-first-install-0.2.176-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.176-ui/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.176-ui | [Download · 4 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.176-ui/TAB5-upgrade-0.2.176-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.176-ui/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.194-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/TAB5-first-install-0.2.194-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.194-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/TAB5-upgrade-0.2.194-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · optional collection | 2026.10.09 | [Download · 426 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/AI-bot-DailyCalligraphy-Curated-2026.10.09.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/SHA256SUMS.txt) |
-| Daily Painting · optional collection | 2026.10.09 | [Download · 211 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/AI-bot-DailyPainting-Curated-2026.10.09.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.156-ui/SHA256SUMS.txt) |
+| Daily Painting · optional collection | 2026.10.14.1 | [Download · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
 
 Install the computer bridge, then choose firmware for your device. Artwork collections are optional. Components update independently; reinstalling an unchanged version is unnecessary.
 
@@ -96,7 +94,7 @@ Install the computer bridge, then choose firmware for your device. Artwork colle
 
 1. **Install and open the computer app.** On Windows, right-click the tray icon and open Device Center. Existing users should exit the bridge and install to the original location.
 2. **Add your device.** Use a USB data cable and follow the [illustrated guide](docs/INSTALL.zh.md) for initial flashing, registration and pairing. Devices already running AI-bot can be verified and added directly.
-3. **Choose what to display.** Configure accounts, everyday information and cycling pages. Import a collection before using its TAB5 art screensaver; keep the computer and bridge running during image synchronization.
+3. **Choose what to display.** Configure accounts, everyday information and cycling pages. Import a collection before using its TAB5 art screensaver; keep the computer and bridge running during initial synchronization. Completed TF libraries remain available offline.
 
 For later updates, open Windows Device Center → Bridge Settings → Software/Firmware to reach **Software and Firmware Updates** to read each component's notes, download and verify its package, then follow the installation prompts. Enable automatic checks for new-version notifications; installation still requires your confirmation. Download and import artwork collections separately as needed. [Full update steps](docs/UPDATES.md)
 

@@ -1,5 +1,50 @@
 # 图库包 / Gallery packs
 
+2026-10-14 正式版本：Windows 桥接 **0.6.6**、TAB5 **0.2.194-ui**。名画布局包 **2026.10.14.1** 已同步横屏标题、作者和年代；书法沿用 **2026.10.09** 正式精选集。两类各 366 件独立作品，分开下载和导入。整理中的新书法与文字集不属于本次发布。
+
+The current releases are Windows bridge 0.6.6 and TAB5 0.2.194-ui. Painting layout edition 2026.10.14.1 updates landscape title, author and period; published calligraphy edition 2026.10.09 is retained. Each optional category contains 366 independent works. Unpublished editorial collections are excluded.
+
+| 类别 / Category | 文件 / File | 作品 / Works | 横竖屏图片 / Images | 大小 / Size |
+| --- | --- | ---: | ---: | ---: |
+| 每日名画 / Painting | `AI-bot-DailyPainting-Curated-2026.10.14.1.zip` | 366 | 826 | 191.26 MiB |
+| 每日书法 / Calligraphy | `AI-bot-DailyCalligraphy-Curated-2026.10.09.zip` | 366 | 1,782 | 426.37 MiB |
+
+名画包共有 413 页，横竖各一张；本轮只更新横屏，413 张竖屏字节保持。分页、册页和方向不增加独立作品数。来源、许可和完整校验清单保留在 ZIP 中；项目 MIT 许可不替代作品图像许可。
+
+Paintings contain 413 pages in two orientations. All 413 portrait files retain their reviewed bytes. Pages, albums and orientations are not counted as additional works. Attribution, image licenses and checksums remain in each pack.
+
+## 下载、浏览与导入 / Download, browse and import
+
+1. 从[完整下载中心](../DOWNLOADS.md)选择需要的图库。在 Windows「设备中心 → 桥接设置 → 软件固件 → 屏保图库」检查或导入 ZIP，无需解压。升级软件保留已安装图库，更新某一类别不改另一类别。
+2. 点击「浏览作品」，按作品名、作者或日期查找；支持全屏、滚轮缩放、拖动及阅读资料。单页作品不显示上一页／下一页。
+3. 在 TAB5「设置 → 屏幕与声音」选择每日名画或每日书法，并打开预览。横屏将作品名、作者和年代置于图画左侧；竖屏显示简化信息。书法保持相同布局原则。
+
+Import ZIPs directly in Windows Artwork Collections. App upgrades preserve installed data; replacing one category leaves the other intact. Browse Works supports title/artist/date search, fullscreen, zoom, pan and available reading material. Select the matching TAB5 screensaver. Landscape metadata sits beside the artwork; portrait information is compact. Failed or cancelled imports preserve the previous pack and its backup.
+
+## TF 卡整库保存 / Complete TF storage
+
+默认使用设备缓存。主动在「设置 → 存储管理」选择 FAT32 TF 卡后，电脑桥接通过 USB／Wi-Fi 保存已安装的整套图片与可用资料；插卡不会自动启用整库复制。首次保存需保持电脑和桥接运行，页面显示名画／书法保存进度，中断后按校验进度续存。
+
+保存完成后直接读卡，退出桥接或重启后仍可预览已保存作品。未保存作品仍需同步；无卡、卡满或介质异常时保留已有内容并回退，不格式化卡或删除其他文件。数据位于 `/sdcard/aibot/gallery/`；[目录约定](TF-STORAGE.md)。BLE 用于单幅同步，全库保存使用 USB／Wi-Fi。
+
+Device cache remains the default. Explicitly choose FAT32 TF storage to copy installed collections over USB/Wi-Fi. Keep the bridge running for the initial copy; verified progress resumes after interruption. Completed works load directly from TF across bridge shutdowns and restarts. Unsaved content still requires synchronization. No automatic card formatting or deletion of unrelated files is performed; BLE retains individual transfers.
+
+本轮真实设备已确认两类预览不再停在“等待电脑同步图片”、横竖布局正确及原轮播恢复。多页作品实机翻页由用户安排后续核验；长期 BLE 稳定性、提速和整包 BLE OTA 仍不声明通过。[发布与验收](RELEASE-0.6.6.md)。截图采用原生隔离数据，不替代真机结论。
+
+Both saved screensavers, layouts and restored cycling passed the current hardware checks. Physical multi-page navigation is deferred; prolonged BLE stability, the speed objective and whole-image BLE OTA remain open. Native fixture screenshots are separate from hardware evidence.
+
+## 内容与来源 / Content and sources
+
+作品资料按各包实际内容显示，不将缺失的欣赏提示或释文补写为事实。欣赏提示须有对应作品的权威出处；没有证据时留空。程序支持图片与资料一起校验、按类别独立更新以及完整长文分段；这不代表所有本地整理资料已公开发布。
+
+Reading material follows the actual installed pack. Unverified appreciation or transcription is not invented. Per-work authoritative evidence is required for appreciation hints. The software can verify and update images and text together, including paged long references; unpublished local editorial material remains excluded.
+
+<details>
+<summary>历史开发记录 / Historical development notes</summary>
+
+下列版本和“待构建／未发布”描述是当时记录；当前下载、交付范围和验收以本页上方为准。
+
+
 年度精选名画 2026.10.11.23、书法 2026.10.12.32 各 366 件，以独立图文 ZIP 提供。图片、简介、权威欣赏资料、原文或明确标注的参考及来源一起更新。Windows 0.6.6 与 TAB5 .178 支持完整长文分段、最新字库及 TF 整库保存；先升级程序／固件，再导入内容。旧图片包继续兼容，字库由固件安装，图库包不安装字体。
 
 Two independent annual packs contain 366 paintings and 366 calligraphy works, with images and reviewed reading/source material updated together. Windows 0.6.6 and TAB5 .178 support complete long-text paging, the latest font and opt-in complete-library TF storage. Upgrade the app/firmware before importing new content; old image-only packs remain compatible. Collection imports do not install fonts.
@@ -118,3 +163,5 @@ Both collections are optional; missing packs do not affect other features. Impor
 Only the annual curated edition is distributed; the full library stays local. Paintings: 366 works / 860 layout images / 211.15 MiB. Calligraphy: 366 works / 1,782 layout images / 426.37 MiB. Calligraphy has 891 pages, versus 430 for painting, with landscape and portrait layouts for each page. Work counts exclude repeated pages, layouts and components of the same album or set. Each pack includes per-work attribution, museum, source, license and derivative records. Verified Chinese equivalents appear in captions; otherwise original collection titles remain. Project licensing does not replace image licensing. Import collection updates independently of firmware updates; browser guide/detail previews remain outside device integration.
 
 Bridge 0.6.1 / TAB5 .149 repairs wireless image synchronization and caches recently viewed images. Cold BLE downloads still take seconds: two runs of the same portrait took 7.26 / 8.54 seconds, without an under-eight-second guarantee. Cache hits avoid downloading; restarts or reclamation require another synchronization. Explicit BLE-only mode temporarily pauses Wi-Fi during downloads and restores it afterward; automatic-mode fallback remains unchanged. See the [hardware record](TAB5-BLE-GALLERY-148.md).
+
+</details>

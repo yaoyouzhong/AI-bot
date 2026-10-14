@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.6.6 - 2026-10-13
+## 0.6.6 - 2026-10-14
+
+- Publish the accepted bridge with TAB5 0.2.194-ui and painting layout edition 2026.10.14.1; retain existing public ESP8266 0.5.2 and calligraphy downloads. Synchronize both homepages, screenshots, the 108-second video/three covers, installation guide and complete download index. Hardware acceptance and open BLE/multi-page checks remain explicit.
 
 - Exclude unused runtime-health details from the bounded ESP8266 USB heartbeat, fixing PC Off while retaining full desktop/TAB5 diagnostics.
 - Negotiate exact-prefix BLE replay and recover an explicit rejected window once; preserve authentication, bounded queues, cancellation and legacy peers. The installed 194 six-transfer run passed; speed gains remain limited.

@@ -10,7 +10,10 @@ internal static class ReleaseMedia
     // Run from the repository root, as documented in SCREENSHOTS.md.
     internal static string BridgeVersion => File.ReadAllText("VERSION").Trim();
     internal static string Tab5Version => File.ReadAllText(Path.Combine("versions", "TAB5")).Trim();
-    internal static string EspVersion => File.ReadAllText(Path.Combine("firmware", "VERSION")).Trim();
+    internal static string EspVersion {
+        get { using var catalog=JsonDocument.Parse(File.ReadAllText("download-catalog.json"));
+            return catalog.RootElement.GetProperty("downloads").GetProperty("esp8266").GetProperty("version").GetString()!; }
+    }
     internal static void Run(string output, bool evergreen=false)
     {
         using var catalog=JsonDocument.Parse(File.ReadAllText("download-catalog.json"));
@@ -41,9 +44,10 @@ internal static class ReleaseMedia
         }
         // Counts match the published packs. These are UI-only fixture records,
         // not installed image data and not evidence of an import operation.
-        foreach(var (category,works,frames) in new[]{("painting",366,860),("calligraphy",366,1782)}){
+        foreach(var (category,works,frames) in new[]{("painting",366,826),("calligraphy",366,1782)}){
             var directory=Path.Combine(GalleryPack.Root,category);Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory,"PACK.json"),JsonSerializer.Serialize(new GalleryPackManifest(1,"2026.10.09",category,works,frames,[]),JsonDefaults.Options));
+            string edition=downloads.GetProperty(category).GetProperty("version").GetString()!;
+            File.WriteAllText(Path.Combine(directory,"PACK.json"),JsonSerializer.Serialize(new GalleryPackManifest(1,edition,category,works,frames,[]),JsonDefaults.Options));
         }
         using(var form=new GalleryPackForm(service,_=>throw new InvalidOperationException("Documentation must not open links"))){Show(form);Save(form,"gallery-packs");form.Close();}
         if(evergreen) {
