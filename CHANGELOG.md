@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.6 - 2026-10-13
 
+- Exclude unused runtime-health details from the bounded ESP8266 USB heartbeat, fixing PC Off while retaining full desktop/TAB5 diagnostics.
+- Negotiate exact-prefix BLE replay and recover an explicit rejected window once; preserve authentication, bounded queues, cancellation and legacy peers. The installed 194 six-transfer run passed; speed gains remain limited.
+- Final local delivery and remaining hardware acceptance are recorded in [194 closeout](docs/development/TAB5-194-ACCEPTANCE-20261014.md); whole-image BLE OTA and multi-page navigation remain deferred.
+
+
 - Extend runtime monitoring with actual Codex connection errors, a session-scoped independent bridge watchdog, and memory commit/paging pressure. Reuse existing requests and metadata, notify only on confirmed anomalies, and keep concise cause/action views. The corresponding TAB5 monitor is included in the candidate; hardware acceptance is recorded separately.
 
 - Add Windows runtime monitoring for proxy response, actual per-target PAC routing and sustained CPU/memory/scheduler/disk pressure; reuse notification quiet hours and deduplication. Add short TAB5 notices, a graphical System monitor and concise cause/action details. The bridge is updated locally with real sampling and native notification receipts verified; TAB5 remains unflashed. Align the four setting checkboxes in two rows and fix orderly shutdown when a device worker has failed. See [runtime monitoring](docs/RUNTIME-MONITOR.md).

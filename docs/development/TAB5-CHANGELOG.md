@@ -2,6 +2,30 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.194-ui - 2026-10-14
+
+- Give BLE-only bulk RPCs a separate 35-second inactivity lease, renewed only after a complete authenticated success. Failure, 600 ms idle or no progress restores Wi-Fi; late replies cannot revive expired leases. Original gallery and diagnostic deadlines remain unchanged.
+- Installed and boot-verified in `ota_1`, `VALID`, with Overview as the first observed usable page. Pairing, both 366-work galleries and the original six-page order/15-second cycle were preserved. The user confirmed rotation resumed after leaving Settings.
+- All six 256 KiB transfers completed with error 0: aggregate upload 19.50 KiB/s and download 18.86 KiB/s. The observed gains over one 192 run were about 8%/22%, with varying workloads. The 80.7-second pause restored without expiry; the last response recorded one successful exact confirmed replay.
+- Native checks cover 64 successful ranges over two minutes and idle/failure/expiry/mode/recovery behavior. Whole-image BLE OTA, longer stability and the speed objective remain unaccepted. Physical multi-page artwork navigation is deferred by the user. See the [closeout record](TAB5-194-ACCEPTANCE-20261014.md) for identities and limits.
+
+## 0.2.193-ui - 2026-10-14
+
+- Start on Overview, hold the saved display interval, then resume saved fixed-page or cycle behavior. Manual navigation wins; page order and interval remain intact. Installed; the user confirmed the actual first screen.
+- Introduce temporary Wi-Fi isolation for BLE-only bulk RPCs. The second physical download stopped at 96/256 KiB while the 35-second lease expired. This policy mismatch is repaired in 194; it does not establish overall acceleration or the sole cause of the earlier 192 OTA interruption.
+
+## 0.2.192-ui - 2026-10-14
+
+- Negotiate exact-prefix response replay: accept only byte-identical ciphertext for the same request/total; reject stale, altered, gapped or partially overlapping fragments. The bridge repairs an explicit ATT 0E once using confirmed writes; other errors propagate.
+- Retain eight-packet notification bounds and backpressure. Installed and boot-verified; all six 256 KiB transfers completed at aggregate upload 18.115/download 15.433 KiB/s. Completeness passed; the speed objective remains open.
+
+## 0.2.191-ui - 2026-10-14
+
+- Render the final disconnected monitor state directly, fixing repeated left-card repainting after bridge exit while retaining details, alert deduplication and recovery. The user confirmed no flicker and automatic recovery.
+- Preserve accepted calligraphy layouts; landscape paintings show title, author and period left of the artwork, with compact portrait information. Painting pack 2026.10.14.1 was imported and its layout/reading accepted. Multi-page navigation was deferred because both daily works had one page.
+- Fix offline TF scheduling without a PC snapshot and JPEG decoder DMA descriptor allocation. Installed and boot-verified; both previews display correctly without synchronization prompts, and the original rotation works. Calligraphy re-import was unnecessary.
+- BLE's second download still failed at this stage and was subsequently addressed by 192/194. Historical build/simulation evidence is distinct from physical results.
+
 ## 0.2.190-ui - 2026-10-13
 
 ### Runtime monitoring

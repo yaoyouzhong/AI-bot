@@ -1,5 +1,7 @@
 # AI-bot
 
+Local release preparation covers bridge 0.6.6 and installed TAB5 0.2.194-ui. See the [preparation record](docs/RELEASE-PREP-20261014.md) for fixes, evidence and remaining acceptance; the download center remains the authority for public availability.
+
 Local development: [Runtime monitoring](docs/RUNTIME-MONITOR.md) checks VPN/PAC routing and sustained Windows pressure. The bridge has been updated locally and verified with real sampling and Windows notification delivery. Concise TAB5 notices, graphical monitoring and cause/action details remain native previews; TAB5 has not been flashed.
 
 This release delivers bridge **0.6.5**, TAB5 **0.2.176-ui** and ESP8266 **0.5.2**: Codex desktop read sync, Soda/Apple media integration, nine clock faces, separate timer and date-countdown functions, consistent navigation/display modes and extended fonts. New painting/calligraphy collections will follow independently; published curated edition **2026.10.09** and installed user artwork are retained. [Changes and validation scope](docs/RELEASE-0.6.6.md) · [Collection installation](docs/GALLERY-PACKS.md)
