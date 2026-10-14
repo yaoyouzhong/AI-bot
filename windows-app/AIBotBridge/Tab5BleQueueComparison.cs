@@ -10,6 +10,7 @@ internal sealed class Tab5BleQueueComparison
     private int _running,_nativeLimit=7,_writeWindow=Tab5BleMailboxWindow.DefaultBulkWriteCredits;
     private volatile string _json="尚未对照",_summary="尚未对照";
     internal int NativeLimit=>Volatile.Read(ref _nativeLimit);
+    internal bool Active=>Volatile.Read(ref _running)!=0;
     internal int WriteWindow=>Volatile.Read(ref _writeWindow);
     internal string Json=>_json;
     internal string Summary=>_summary;

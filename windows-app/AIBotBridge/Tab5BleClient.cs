@@ -12,7 +12,7 @@ namespace AIBotBridge;
 internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture,Action<string> status,Action<string> assets,Action<string>? diagnostic=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? voiceHandler=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? rpcHandler=null,
-    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null,Func<bool>? standby=null)
+    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null,Func<bool>? standby=null,Func<bool>? queueComparisonActive=null)
 {
     internal async Task RunAsync(CancellationToken token)
     {
@@ -69,6 +69,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             int rpcCredits=first.RootElement.TryGetProperty("rpcMailboxWindow",out var rw)&&rw.TryGetInt32(out int rpcOffered)?Math.Clamp(rpcOffered,1,8):credits; // Larger grants failed hardware acceptance; retain the proven eight-packet bound.
                             int rpcNotifyCredits=first.RootElement.TryGetProperty("rpcNotifyWindow",out var nw)&&nw.TryGetInt32(out int notifyOffered)?Math.Clamp(notifyOffered,1,32):rpcCredits;
                             int rpcWriteCredits=BulkWriteCredits(first.RootElement,rpcCredits);
+                            bool responseReplay=ResponseReplaySupported(first.RootElement);
                             bulkWriteSupported?.Invoke(rpcWriteCredits);
                             using var transferGate=new SemaphoreSlim(1,1);
                             Tab5BleVoice? voice=null;
@@ -83,7 +84,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             Tab5BleVoice? rpc=null;
                             var endpoints=await service.GetCharacteristicsForUuidAsync(new Guid("7af50005-7f23-4a91-bc65-667a19320101"),BluetoothCacheMode.Uncached).AsTask(timeout.Token);
                             using var rpcMailbox=rpcHandler is not null&&endpoints.Status==GattCommunicationStatus.Success&&endpoints.Characteristics.Count==1
-                                ?await Tab5BleGattMailbox.CreateAsync(endpoints.Characteristics[0],(int)session.MaxPduSize,timeout.Token,transferGate,rpcCredits,rpcNotifyCredits,queueBulkResponses:true,bulkWriteCredits:rpcWriteCredits,nativeLimit:nativeLimit,bulkWriteLimit:bulkWriteLimit):null;
+                                ?await Tab5BleGattMailbox.CreateAsync(endpoints.Characteristics[0],(int)session.MaxPduSize,timeout.Token,transferGate,rpcCredits,rpcNotifyCredits,queueBulkResponses:true,bulkWriteCredits:rpcWriteCredits,nativeLimit:nativeLimit,bulkWriteLimit:bulkWriteLimit,queueComparisonActive:queueComparisonActive,responseReplay:responseReplay):null;
                             if(rpcMailbox is not null) {
                                 var window=rpcMailbox.Window;
                                 rpc=new Tab5BleVoice(window.ReadAsync,window.WriteAsync,rpcHandler!,
@@ -219,6 +220,8 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
             return $"connection=unavailable/{ex.GetType().Name}/0x{ex.HResult:X8}";
         }
     }
+    internal static bool ResponseReplaySupported(JsonElement info)=>
+        info.TryGetProperty("rpcReplay",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int version)&&version==1;
     internal static int BulkWriteCredits(JsonElement info,int fallback)=>
         info.TryGetProperty("rpcWriteWindow",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int offered)&&offered is >=8 and <=64
             ?offered:fallback;

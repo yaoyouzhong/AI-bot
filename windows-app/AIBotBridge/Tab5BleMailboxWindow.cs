@@ -89,19 +89,46 @@ internal sealed class Tab5BleMailboxWindow(
             await send(packets[i],i==packets.Count-1,token);
         }
     }
+    internal static async Task WriteBatchConfirmedAsync(IReadOnlyList<byte[]> packets,Func<byte[],bool,CancellationToken,Task> send,CancellationToken token) {
+        if(packets.Count is <1 or >64)throw new IOException("BLE confirmed write window invalid");
+        // A command's native completion does not confirm remote delivery or
+        // cursor acceptance. Finish each ATT response before submitting the
+        // next fragment; preserve peer validation and propagate any rejection.
+        foreach(var packet in packets) {
+            token.ThrowIfCancellationRequested();
+            await send(packet,true,token);
+        }
+    }
+    internal static async Task<bool> WriteBatchRecoverableAsync(IReadOnlyList<byte[]> packets,Func<byte[],bool,CancellationToken,Task> send,CancellationToken token) {
+        if(packets.Count is <1 or >64)throw new IOException("BLE recoverable write window invalid");
+        try {
+            // Serial native submissions preserve ordering without the per-
+            // cohort round trips. The final ATT response checks the cursor.
+            await WriteBatchOrderedAsync(packets,send,token);
+            return false;
+        }catch(Tab5BleMailboxWriteException ex) when(ex.ProtocolError==0x0e) {
+            // Only a negotiated peer can accept exact duplicate ciphertext.
+            // Fill its missing prefix using acknowledged writes, once. Never
+            // retry disconnects, authentication errors or cancellations.
+            await WriteBatchConfirmedAsync(packets,send,token);
+            return true;
+        }
+    }
     internal static async Task WriteBatchQueuedAsync(IReadOnlyList<byte[]> packets,Func<byte[],bool,CancellationToken,Task> send,CancellationToken token,int maximumPending=7) {
         if(packets.Count is <1 or >64)throw new IOException("BLE queued write window invalid");
         if(maximumPending is <1 or >31)throw new IOException("BLE native write bound invalid");
         // Submit commands synchronously in cursor order, without Task.Run.
         // send must submit the native operation before returning its Task.
-        // Normally at most seven commands are in flight. The explicit RAM
-        // comparison can test 31 within the same wire window. Drain each cohort; keep
-        // the gate until the window's final ATT barrier or full failure drain.
-        for(int start=0;start<packets.Count-1;start+=maximumPending) {
+        // Native completion of a WriteWithoutResponse only empties the local
+        // submission queue; it does not acknowledge the peer's receive cursor.
+        // Drain and confirm each cohort before adding more commands to the air
+        // queue. Keep the shared gate through every barrier and failure drain.
+        for(int start=0;start<packets.Count;start+=maximumPending+1) {
+            int end=Math.Min(start+maximumPending+1,packets.Count);
             var pending=new List<Task>(maximumPending);
             Exception? submissionFailure=null;
             try {
-                for(int i=start;i<Math.Min(start+maximumPending,packets.Count-1);i++) {
+                for(int i=start;i<end-1;i++) {
                     token.ThrowIfCancellationRequested();
                     var operation=send(packets[i],false,token);pending.Add(operation);
                     if(operation.IsFaulted||operation.IsCanceled)break;
@@ -110,8 +137,12 @@ internal sealed class Tab5BleMailboxWindow(
             // A synchronous submission failure also drains the whole cohort.
             await Task.WhenAll(pending);
             if(submissionFailure is not null)System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(submissionFailure).Throw();
+            token.ThrowIfCancellationRequested();
+            await send(packets[end-1],true,token);
         }
-        token.ThrowIfCancellationRequested();
-        await send(packets[^1],true,token);
     }
+}
+
+internal sealed class Tab5BleMailboxWriteException(string message,Exception inner,byte? protocolError) : IOException(message,inner) {
+    internal byte? ProtocolError {get;}=protocolError;
 }

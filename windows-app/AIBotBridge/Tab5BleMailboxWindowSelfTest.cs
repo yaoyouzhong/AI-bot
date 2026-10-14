@@ -5,8 +5,11 @@ namespace AIBotBridge;
 internal static class Tab5BleMailboxWindowSelfTest
 {
     internal static async Task RunAsync() {
+        await VerifyConfirmedBulkAsync();
+        await VerifyRecoverableBulkAsync();
         await VerifyQueuedBatchesAsync();
         await VerifyExtendedQueuedBatchesAsync();
+        await VerifyPeerBackpressureAsync();
         await VerifyBulkWriteNegotiationAsync();
         await VerifyWriteLimitSnapshotAsync();
         foreach(int credits in new[]{4,8,16,32})foreach(int mtu in new[]{23,247,517})foreach(bool notify in new[]{false,true})foreach(bool fast in new[]{false,true})
@@ -26,6 +29,104 @@ internal static class Tab5BleMailboxWindowSelfTest
             try {await overflow.ReadAsync(CancellationToken.None);throw new Exception("Overflow accepted");}catch(IOException){}
         }
         Console.WriteLine("TAB5_BLE_WINDOW_PASS MTU 23/247/517; notify/legacy; grant command/ack; exact bytes; final ATT barrier; stale/order/drop/grant-loss/cancel/overflow rejected");
+    }
+    private static async Task VerifyRecoverableBulkAsync() {
+        foreach(int mtu in new[]{23,247,517})foreach(int total in new[]{12289,49316,65535})foreach(int drop in new[]{-1,0,7,31,47,63}) {
+            byte[] expected=Enumerable.Range(0,total).Select(i=>(byte)(i%251)).ToArray(),received=new byte[total];
+            int accepted=0,commands=0,acks=0,recoveries=0;
+            Task Send(byte[] p,bool ack,CancellationToken ct) {
+                ct.ThrowIfCancellationRequested();int at=BinaryPrimitives.ReadUInt16LittleEndian(p.AsSpan(5)),count=p.Length-9;
+                if(ack)acks++;else if(commands++==drop)return Task.CompletedTask; // native command completed, peer missed it
+                bool duplicate=at<accepted&&at+count<=accepted&&received.AsSpan(at,count).SequenceEqual(p.AsSpan(9));
+                if(at!=accepted&&!duplicate) {
+                    if(ack)throw new Tab5BleMailboxWriteException("Peer cursor rejection",new IOException(),0x0e);
+                    return Task.CompletedTask; // rejected commands cannot return ATT error
+                }
+                if(!duplicate){p.AsSpan(9).CopyTo(received.AsSpan(at));accepted+=count;}
+                return Task.CompletedTask;
+            }
+            var window=new Tab5BleMailboxWindow(_=>throw new Exception("Unexpected read"),Send,false,true,mtu,8,
+                async(packets,ct)=>{if(await Tab5BleMailboxWindow.WriteBatchRecoverableAsync(packets,Send,ct))recoveries++;},bulkWriteCredits:64);
+            for(int at=0;at<total;at+=window.ResponseChunk) {
+                var p=new byte[9+Math.Min(window.ResponseChunk,total-at)];p[0]=2;
+                BinaryPrimitives.WriteUInt16LittleEndian(p.AsSpan(5),(ushort)at);BinaryPrimitives.WriteUInt16LittleEndian(p.AsSpan(7),(ushort)total);
+                expected.AsSpan(at,p.Length-9).CopyTo(p.AsSpan(9));await window.WriteAsync(p,CancellationToken.None);
+            }
+            if(accepted!=total||!received.SequenceEqual(expected)||recoveries!=(drop>=0&&drop<commands?1:0))throw new Exception("Recoverable bulk incomplete or duplicate bytes changed");
+            int fragments=(total+window.ResponseChunk-1)/window.ResponseChunk;
+            if(drop<0&&acks!=(fragments+63)/64)throw new Exception("Clean bulk retained per-cohort confirmation overhead");
+            if(mtu==517&&total==49316&&drop<0&&acks!=2)throw new Exception("48 KiB bulk did not reduce thirteen barriers to two");
+        }
+        foreach(byte error in new byte[]{0x05,0x0d,0x0e}) {
+            int calls=0;
+            try {
+                await Tab5BleMailboxWindow.WriteBatchRecoverableAsync([new byte[1]],(_,_,_)=>{calls++;throw new Tab5BleMailboxWriteException("persistent rejection",new IOException(),error);},CancellationToken.None);
+                throw new Exception("Persistent ATT rejection swallowed");
+            }catch(Tab5BleMailboxWriteException ex) when(ex.ProtocolError==error){}
+            if(calls!=(error==0x0e?2:1))throw new Exception("Replay unbounded or attempted for unrelated ATT error");
+        }
+        int cancelledCalls=0;using var cancel=new CancellationTokenSource();cancel.Cancel();
+        try {
+            await Tab5BleMailboxWindow.WriteBatchRecoverableAsync([new byte[1]],(_,_,_)=>{cancelledCalls++;return Task.CompletedTask;},cancel.Token);
+            throw new Exception("Cancelled recoverable write accepted");
+        }catch(OperationCanceledException) when(cancel.IsCancellationRequested){}
+        if(cancelledCalls!=0)throw new Exception("Cancelled recovery sent data");
+        foreach(string json in new[]{"{}","{\"rpcReplay\":0}","{\"rpcReplay\":2}","{\"rpcReplay\":true}","{\"rpcReplay\":\"1\"}","{\"rpcReplay\":null}"}) {
+            using var doc=System.Text.Json.JsonDocument.Parse(json);
+            if(Tab5BleClient.ResponseReplaySupported(doc.RootElement))throw new Exception("Unsupported peer replay negotiated");
+        }
+        using(var doc=System.Text.Json.JsonDocument.Parse("{\"rpcReplay\":1}"))if(!Tab5BleClient.ResponseReplaySupported(doc.RootElement))throw new Exception("Replay capability not negotiated");
+        Console.WriteLine("BLE_RECOVERABLE_BULK_OK exact_bytes_MTU23_247_517_lost_command_window_replay_bounded_rejection_cancel_strict_negotiation_clean_48K_two_ACKs");
+    }
+    private static async Task VerifyConfirmedBulkAsync() {
+        foreach(int mtu in new[]{23,247,517})foreach(int total in new[]{12289,49316,65535})foreach(int fault in new[]{0,1,2}) {
+            var expected=Enumerable.Range(0,total).Select(i=>(byte)(i%251)).ToArray();
+            var received=new List<byte>();int submissions=0;
+            int chunk=Math.Clamp(mtu-3,20,488)-9,failAt=Math.Min(47,(total+chunk-1)/chunk-1);
+            using var cancel=new CancellationTokenSource();
+            async Task Send(byte[] p,bool ack,CancellationToken ct) {
+                ct.ThrowIfCancellationRequested();
+                // A controller is allowed to complete/drop unacknowledged
+                // commands locally. The reliable path must never use one.
+                if(!ack)return;
+                if(BinaryPrimitives.ReadUInt16LittleEndian(p.AsSpan(5))!=received.Count)throw new IOException("Peer rejected cursor gap");
+                int position=submissions++;
+                await Task.Yield(); // peer acceptance happens after submission
+                ct.ThrowIfCancellationRequested();
+                if(fault==1&&position==failAt)throw new IOException("ATT rejected fragment");
+                if(fault==2&&position==4){cancel.Cancel();ct.ThrowIfCancellationRequested();}
+                received.AddRange(p[9..]);
+            }
+            var window=new Tab5BleMailboxWindow(_=>throw new Exception("Unexpected read"),Send,false,true,mtu,8,
+                (packets,ct)=>Tab5BleMailboxWindow.WriteBatchConfirmedAsync(packets,Send,ct),bulkWriteCredits:64);
+            try {
+                for(int at=0;at<total;at+=window.ResponseChunk) {
+                    var p=new byte[9+Math.Min(window.ResponseChunk,total-at)];p[0]=2;
+                    BinaryPrimitives.WriteUInt16LittleEndian(p.AsSpan(5),(ushort)at);
+                    BinaryPrimitives.WriteUInt16LittleEndian(p.AsSpan(7),(ushort)total);
+                    expected.AsSpan(at,p.Length-9).CopyTo(p.AsSpan(9));
+                    await window.WriteAsync(p,cancel.Token);
+                }
+                if(fault!=0||!received.SequenceEqual(expected))throw new Exception("Confirmed bulk lost bytes or swallowed rejection");
+            }catch(IOException ex) when(fault==1&&ex.Message=="ATT rejected fragment") {
+                if(submissions!=failAt+1||received.Count!=failAt*window.ResponseChunk)throw new Exception("Confirmed bulk continued after rejection");
+            }catch(OperationCanceledException) when(fault==2&&cancel.IsCancellationRequested) {
+                if(submissions!=5||received.Count!=4*window.ResponseChunk)throw new Exception("Confirmed bulk continued after cancellation");
+            }
+        }
+        var pending=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);int sent=0;
+        var run=Tab5BleMailboxWindow.WriteBatchConfirmedAsync([new byte[1],new byte[1]],(_,ack,_)=> {
+            if(!ack)throw new Exception("Confirmed write became command");
+            return ++sent==1?pending.Task:Task.CompletedTask;
+        },CancellationToken.None);
+        if(sent!=1||run.IsCompleted)throw new Exception("Confirmed sender advanced before peer acceptance");
+        pending.SetResult();await run;
+        if(sent!=2)throw new Exception("Confirmed sender lost final fragment");
+        foreach(int count in new[]{0,65})try {
+            await Tab5BleMailboxWindow.WriteBatchConfirmedAsync(Enumerable.Range(0,count).Select(_=>new byte[1]).ToArray(),(_,_,_)=>throw new Exception("Invalid batch sent"),CancellationToken.None);
+            throw new Exception("Invalid confirmed batch accepted");
+        }catch(IOException){}
+        Console.WriteLine("BLE_CONFIRMED_BULK_OK exact_bytes_MTU23_247_517_12K_48K_64K_peer_ack_before_next_rejection_cancel_final_bound");
     }
     private static async Task ExchangeAsync(int mtu,bool notify,bool fast,int fault,int credits=4,int size=12288,int notifyCredits=0,bool queued=false) {
         int receiveCredits=notifyCredits>0?notifyCredits:credits;
@@ -77,7 +178,8 @@ internal static class Tab5BleMailboxWindowSelfTest
         },mtu,maximumResponse:size==65535?65535:12288,maximumRequest:size,responseChunk:window.ResponseChunk,transportMode:window.Mode);
         using var cancel=new CancellationTokenSource();if(fault is 4 or 6)cancel.CancelAfter(30);
         await pump.PumpAsync(cancel.Token);
-        if(handled!=1||!received.SequenceEqual(response)||!finalBarrier||barriers!=(fast?(responsePackets+credits-1)/credits:responsePackets))
+        int expectedCredits=queued?Math.Min(credits,8):credits;
+        if(handled!=1||!received.SequenceEqual(response)||!finalBarrier||barriers!=(fast?(responsePackets+expectedCredits-1)/expectedCredits:responsePackets))
             throw new Exception("Window response bytes/barriers");
         if(notify&&(reads!=1||grants!=(request.Length-480+receiveCredits*(Math.Min(mtu-3,488)-8)-1)/(receiveCredits*(Math.Min(mtu-3,488)-8))))
             throw new Exception("Window did not replace per-fragment reads");
@@ -137,42 +239,67 @@ internal static class Tab5BleMailboxWindowSelfTest
         Console.WriteLine("BLE_QUEUED_BATCH_OK native7_31_ordered_submission_final_barrier_full_drain_command_failure_cancel_sync_immediate_failure_bounds");
     }
     private static async Task VerifyExtendedQueuedBatchesAsync() {
-        foreach(int window in new[]{32,64})foreach(int fault in new[]{0,1,2,3}) {
+        foreach(int window in new[]{32,64})foreach(int fault in new[]{0,1,2,3,4}) {
             var packets=Enumerable.Range(0,window).Select(i=>new byte[]{(byte)i}).ToArray();
-            var releases=Enumerable.Range(0,window-1).Select(_=>new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
-            var submitted=Enumerable.Range(0,window-1).Select(_=>new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
-            var operations=new List<Task>();var order=new List<int>();int active=0,peak=0,barriers=0;
+            var releases=Enumerable.Range(0,window).Select(_=>new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
+            var submitted=Enumerable.Range(0,window).Select(_=>new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
+            var operations=new Task?[window];var order=new List<int>();int active=0,peak=0,barriers=0;
             using var cancel=new CancellationTokenSource();
             Task Send(byte[] data,bool ack,CancellationToken ct) {
                 int index=data[0];order.Add(index);
-                if(ack){if(active!=0||index!=window-1)throw new Exception("Early extended barrier");barriers++;return Task.CompletedTask;}
+                if(ack){
+                    if(active!=0||(index+1)%8!=0)throw new Exception("Cohort barrier ran before commands drained");
+                    barriers++;submitted[index].SetResult();
+                    return fault==4&&index==15?Task.FromException(new IOException("Second cohort barrier failed")):Task.CompletedTask;
+                }
                 if(fault==2&&index==10){submitted[index].SetResult();throw new IOException("Second cohort submission failed");}
                 active++;peak=Math.Max(peak,active);
                 async Task Complete() {
                     try{await releases[index].Task;ct.ThrowIfCancellationRequested();if(fault==1&&index==9)throw new IOException("Second cohort completion failed");}
                     finally{Interlocked.Decrement(ref active);}
                 }
-                var operation=Complete();operations.Add(operation);submitted[index].SetResult();return operation;
+                var operation=Complete();operations[index]=operation;submitted[index].SetResult();return operation;
             }
             var run=Tab5BleMailboxWindow.WriteBatchQueuedAsync(packets,Send,cancel.Token);
-            for(int start=0;start<window-1;start+=7) {
-                bool failedCohort=fault!=0&&start==7;
-                int end=failedCohort&&fault==2?10:Math.Min(start+7,window-1);
-                await submitted[failedCohort&&fault==2?10:end-1].Task.WaitAsync(TimeSpan.FromSeconds(2));
-                if(peak>7||barriers!=0||!order.SequenceEqual(Enumerable.Range(0,failedCohort&&fault==2?11:end)))throw new Exception("Extended queue bound/order");
+            for(int start=0;start<window;start+=8) {
+                bool failedCohort=fault!=0&&start==8;
+                int end=failedCohort&&fault==2?10:Math.Min(start+7,window);
+                int target=failedCohort&&fault==2?10:end-1;
+                await submitted[target].Task.WaitAsync(TimeSpan.FromSeconds(2));
+                int previousBarriers=start/8;
+                if(peak>7||barriers!=previousBarriers||!order.SequenceEqual(Enumerable.Range(0,target+1)))throw new Exception("Extended queue bound/order");
                 if(failedCohort&&fault==3)cancel.Cancel();
                 for(int i=end-2;i>=start;i--)releases[i].SetResult();
-                try{await Task.WhenAll(operations.Skip(start).Take(end-start-1));}catch(Exception ex) when(ex is IOException or OperationCanceledException){}
-                if(run.IsCompleted||barriers!=0)throw new Exception("Extended window did not drain cohort");
+                try{await Task.WhenAll(operations.Skip(start).Take(end-start-1).Select(x=>x!));}catch(Exception ex) when(ex is IOException or OperationCanceledException){}
+                if(run.IsCompleted||barriers!=previousBarriers)throw new Exception("Extended window did not drain cohort");
                 releases[end-1].SetResult();
+                if(failedCohort&&fault!=4)break;
+                await submitted[start+7].Task.WaitAsync(TimeSpan.FromSeconds(2));
                 if(failedCohort)break;
             }
             try{await run.WaitAsync(TimeSpan.FromSeconds(2));if(fault!=0)throw new Exception("Extended fault ignored");}
-            catch(IOException) when(fault is 1 or 2){}
+            catch(IOException) when(fault is 1 or 2 or 4){}
             catch(OperationCanceledException) when(fault==3){}
-            if(active!=0||peak>7||barriers!=(fault==0?1:0))throw new Exception("Extended window leaked native work");
+            if(active!=0||peak>7||barriers!=(fault==0?window/8:fault==4?2:1))throw new Exception("Extended window leaked native work");
         }
-        Console.WriteLine("BLE_EXTENDED_QUEUE_OK window32_64_native7_later_cohort_failure_cancel_full_drain");
+        Console.WriteLine("BLE_EXTENDED_QUEUE_OK window32_64_native7_each_cohort_confirmed_later_failure_cancel_full_drain");
+    }
+    private static async Task VerifyPeerBackpressureAsync() {
+        foreach(int size in new[]{1,7,8,9,32,64}) {
+            int pendingAtPeer=0,barriers=0,next=0;
+            var packets=Enumerable.Range(0,size).Select(i=>new byte[]{(byte)i}).ToArray();
+            Task Send(byte[] packet,bool ack,CancellationToken token) {
+                if(packet[0]!=next++)throw new Exception("Peer submission order changed");
+                if(ack){pendingAtPeer=0;barriers++;}
+                else if(++pendingAtPeer>7)throw new IOException("Peer queue overflow despite local native completions");
+                // Native WriteWithoutResponse completions happen immediately,
+                // but the peer only confirms processing at the ATT barrier.
+                return Task.CompletedTask;
+            }
+            await Tab5BleMailboxWindow.WriteBatchQueuedAsync(packets,Send,CancellationToken.None);
+            if(next!=size||pendingAtPeer!=0||barriers!=(size+7)/8)throw new Exception("Peer backpressure or final barrier missing");
+        }
+        Console.WriteLine("BLE_PEER_BACKPRESSURE_OK local_completion_not_peer_ack_bounded_commands_and_final_barrier");
     }
     private static async Task VerifyWriteLimitSnapshotAsync() {
         int requested=32,barriers=0;const int total=49317;
@@ -210,9 +337,10 @@ internal static class Tab5BleMailboxWindowSelfTest
                 await window.WriteAsync(p,CancellationToken.None);
             }
             int credits=total>12288?Math.Min(peer,limit==0?64:limit):8;
-            if(received!=total||barriers!=(fast?(fragments+credits-1)/credits:fragments))throw new Exception("Bulk/legacy ACK boundary");
-            if(mtu==517&&total==49317&&fast&&credits==64&&barriers!=2)throw new Exception("48 KiB reply did not use two barriers");
+            int wireCredits=Math.Min(credits,8);
+            if(received!=total||barriers!=(fast?(fragments+wireCredits-1)/wireCredits:fragments))throw new Exception("Bulk/legacy ACK boundary");
+            if(mtu==517&&total==49317&&fast&&credits==64&&barriers!=13)throw new Exception("48 KiB reply did not confirm each cohort");
         }
-        Console.WriteLine("BLE_WRITE_NEGOTIATION_OK peer8_32_64_default64_override32_small8_legacy_ACK_MTU23_247_517_two_barriers");
+        Console.WriteLine("BLE_WRITE_NEGOTIATION_OK peer8_32_64_default64_override32_small8_legacy_ACK_MTU23_247_517_cohort_barriers");
     }
 }

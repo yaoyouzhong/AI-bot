@@ -114,6 +114,25 @@ internal static class RuntimeHealthSelfTest
         var healthyMetrics=new SystemMetricsSnapshot(34,62,162816,3952640,start) {SampleSession="monitor-preview",SampleSequence=64,
             Samples=Enumerable.Range(0,64).Select(i=>new NetworkSample(162816+(i%6)*3000,3952640+(i%12)*200000)).ToArray()};
         var healthyPressure=new SystemPressure(1,0,4,0,12500,16,start);
+        var largeHealth=new RuntimeHealthSnapshot("heartbeat-regression",1,start,
+            Enumerable.Range(0,8).Select(i=>Check("warning",start,"check"+i) with {Detail=new string('诊',1000)}).ToArray(),
+            [new("alert","cpu","warning","系统繁忙",new string('诊',1000),start)],healthyPressure);
+        var heartbeat=new StatusSnapshot(1,"10:30:00",start.ToUnixTimeSeconds(),28800,start,new("working",2),new("idle",10),
+            SystemMetrics:healthyMetrics,DisplayPolicy:new("auto",true,15,["codex","weather","system"]),RuntimeHealth:largeHealth);
+        Require(System.Text.Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(heartbeat,JsonDefaults.Options))>DeviceStatusFrame.MaximumLineBytes,
+            "health fixture did not reproduce an oversized snapshot");
+        var compact=DeviceStatusFrame.Create(heartbeat);
+        var baseline=DeviceStatusFrame.Create(heartbeat with {RuntimeHealth=null});
+        Require(compact.ToJsonString(JsonDefaults.Options)==baseline.ToJsonString(JsonDefaults.Options),
+            "health diagnostics interrupted or changed the ESP8266 heartbeat");
+        Require(compact["data"]?["systemMetrics"]?["cpuPercent"]?.GetValue<double>()==healthyMetrics.CpuPercent&&
+            compact["data"]?["displayPolicy"]?["pages"]?.AsArray().Count==3&&
+            System.Text.Encoding.UTF8.GetByteCount("@AIBOT "+compact.ToJsonString(JsonDefaults.Options))<=DeviceStatusFrame.MaximumLineBytes,
+            "bounded heartbeat lost system data or cycle policy");
+        using(var complete=JsonDocument.Parse(Tab5Protocol.Snapshot(heartbeat,"001122aabbcc","fixture-session",1)))
+            Require(complete.RootElement.GetProperty("data").GetProperty("runtimeHealth").GetProperty("checks")[0].GetProperty("detail").GetString()==largeHealth.Checks[0].Detail&&
+                heartbeat.RuntimeHealth==largeHealth,"ESP8266 compaction changed shared or TAB5 health data");
+        Console.WriteLine("ESP_HEALTH_HEARTBEAT_SELF_TEST_OK oversized_health, bounded_frame, cycle_policy, complete_tab5_health");
         Fixture("normal",normal,healthyMetrics,healthyPressure);
         Fixture("pac-fault",brokenPac,healthyMetrics,healthyPressure);
         Fixture("vpn-slow",slow,healthyMetrics,healthyPressure);

@@ -10,11 +10,13 @@ from pathlib import Path
 from PIL import Image
 
 
-def verify(directory: Path):
+def verify(directory: Path, category=None):
+    if category not in (None, 'painting', 'calligraphy'):
+        raise ValueError('Unsupported annual gallery category')
     catalog = json.loads((directory / 'catalog.json').read_text(encoding='utf-8'))
     provenance = {x['id']: x for x in json.loads((directory / 'provenance.json').read_text(encoding='utf-8'))}
     errors, counts = [], {}
-    for category in ('painting', 'calligraphy'):
+    for category in ((category,) if category else ('painting', 'calligraphy')):
         works = [x for x in catalog if x['category'] == category]
         identities = [x.get('workId', x['source']) for x in works]
         count = len(set(identities))
@@ -83,8 +85,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', type=Path)
     parser.add_argument('--report', type=Path)
+    parser.add_argument('--category', choices=('painting', 'calligraphy'),
+                        help='Validate one independently packaged collection; default requires both')
     args = parser.parse_args()
-    result = verify(args.directory)
+    result = verify(args.directory, args.category)
     output = json.dumps(result, ensure_ascii=False, indent=2)
     if args.report:
         args.report.write_text(output + '\n', encoding='utf-8')
