@@ -6,6 +6,28 @@
 
 # `@AIBOT` protocol version 1
 
+## Optional TAB5 Wi-Fi connection diagnostics
+
+USB health replies may contain `wifiDiag`, a comma-separated numeric schema with 16 fields:
+`schema,initialized,connected,setConfigRc,connectRc,disconnectReason,connectRequests,scanRc,scanRuns,matchedAPs,bestRssi,bestChannel,getConfigRc,ssidMatches,stationChannel,bssidLocked`.
+API return codes begin at -1 (not sampled); success is 0. `matchedAPs=-1` means no completed scan, 0 means the targeted scan found no matching AP. RSSI/channel are 0 without a match. The scan runs only after `NO_AP_FOUND`, no more than once per 30 seconds, while disconnected. Readback does not trigger a scan or change saved credentials. Fields are atomic observations, not one transaction.
+
+The Windows bridge validates the exact numeric shape. Older bridge versions and the macOS ESP8266 receiver ignore this optional TAB5 diagnostic. Existing protocol versions, authentication and network configuration contracts remain unchanged. No SSID, password, BSSID or credential is exported.
+
+中文：USB 健康回复可附带 `wifiDiag`，依次记录版本、初始化、联网、设置返回值、连接返回值、断开原因、连接请求次数、扫描返回值、扫描次数、匹配热点数、最强信号、信道、配置读回返回值、网络名是否匹配、固定信道、是否锁定热点。扫描只在未联网且确实报“未找到热点”时执行，每30秒最多一次。数字读回不触发扫描、不更改已保存网络；未采样返回值及热点数为-1，成功返回值为0。各字段不是同一事务快照。诊断不含网络名称、密码或硬件地址，旧接收端兼容。
+
+TAB5 0.2.188-ui optionally reports `wirelessBootDiag` as `1,resetReason,powerCycled,hostedInitResult`. It describes startup only: board power is prepared before SDK transport initialization; software reset prepares the C6 rail before Wi-Fi/BLE tasks exist. Zero init result is API success, not proof of association. Ordinary runtime AP failures do not power-cycle a live radio. Older bridges ignore this optional numeric field.
+
+中文：TAB5 0.2.188-ui 可附带 `wirelessBootDiag`，格式为 `1,重启原因,启动时是否重置电源,Hosted初始化返回值`。先准备板级电源，再启动 SDK 通信；软件重启的电源准备发生在 Wi-Fi／蓝牙任务创建之前。返回值 0 只表示 API 成功，不等于已连接热点。运行中的普通关联失败不切断模组电源，旧桥接兼容忽略该字段。
+
+## ESP8266 fixed USB identity (local 0.5.3)
+
+ESP8266 `hello`/`pong` and `device_info.data` add optional `device_id`, formatted `esp8266-` followed by 12 lowercase hexadecimal digits from the factory station MAC. Authenticated `/api/info` returns the same field. This ID is independent of Wi-Fi association, IP address, COM number and USB socket. Protocol version 1 and 460800 baud remain unchanged; older receivers ignore the field and older firmware can omit it.
+
+Windows learns the ID only on the registered USB path or an explicitly configured initial port, then stores non-secret `EspDeviceId` beside `UsbIdentity`. On reconnection it probes matching USB-adapter models, including multiple candidates, and sends no pairing/configuration, state or resources to a mismatched or ID-less candidate. Only an exact ID match updates the USB instance binding, atomically preserving user data/settings. Ordinary settings saves cannot revert that binding. Legacy firmware keeps its existing binding until a trusted connection learns the new ID. macOS decodes the optional field for compatibility; automatic persistent rebinding is currently Windows-specific.
+
+中文：新增固定 `device_id`，没有 Wi-Fi、换 USB 插口和 COM 号、重启后仍可通过 USB 上报。Windows 在已确认的连接登记设备 ID；换口后逐一探测同类 USB 设备，仅向固定 ID 一致的小屏发送配置与数据并自动更新绑定。其他小屏或旧固件缺少 ID 时不能替代已登记设备。保留协议版本、波特率、已有配对及循环设置；macOS 同步兼容字段解析，尚未提供同等持久重绑定功能。0.5.3 已本地安装，通过真实 COM8 → COM7 换口和不配置 LAN 的实际串口恢复测试；验收期间未关闭设备 Wi-Fi。
+
 ## TAB5 .177 TF 整库同步 / Complete TF collection synchronization
 
 卡内全部项目数据统一位于 `aibot/`；图库采用 `gallery/<类别>/works/<作品索引键>/<页码>-<方向>.<记录槽>.aig`，进度为类别目录的 `catalog.0/.1`。照片、其他持久数据和可重建缓存分别使用 `photos/`、`data/<模块>/`、`cache/<模块>/`，按需创建。完整归属及兼容规则见 [TF 卡目录约定](TF-STORAGE.md)。
@@ -600,6 +622,81 @@ In .145, `galleryDiag` appends `frame,reused,outputAllocationAttempts` after the
 
 .145 在原六字段后追加零基页码、当前任务是否复用缓冲、累计输出缓冲分配尝试次数。翻页退役图和失败任务缓冲进入一个原子备用槽，下一任务直接复用；当前可见图不得借给解码任务。桥接原样转发此诊断字符串，不改变图片 RPC 契约。
 
+
+## TAB5 gallery continuous response and USB state delta (181 candidate)
+
+中文：Windows 在配对状态的 `data.connectionHealth.galleryStream=1` 中声明可选连续响应能力。仅 Wi-Fi 的 `gallery/read`、`binaryReply=true`、`bulkReply=true` 和 `streamReply=true` 共同生效时，允许请求最多 1 MiB 的 SHA 绑定图片范围；USB／BLE 保留原始范围上限。请求继续使用原 `/tab5/v1/rpc` 的设备、会话、时间、nonce 防重放、HMAC 和 AES-GCM 校验。
+
+HTTP 响应为 `T5S1`、u32LE 起始偏移、u32LE 图片字节数、u32LE 块数，随后连续发送多个 `u32LE 密文长度 + AES-GCM 密文包`。每块仍用 T5R2，JPEG 载荷最多 49152 字节；每次加密使用独立随机 IV，AAD 为该次请求 nonce。鉴权后的 `body` 包含 `offset,count,streamOffset,streamBytes,block,blocks`，所有位置、数量、次序和总长必须匹配请求与预期，否则拒绝；最终仍检查完整图片 SHA-256 与 JPEG 尺寸。外层标记不构成鉴权依据。错误／忙碌／重放沿用普通有界加密响应。旧桥接未声明能力时继续使用原范围协议。
+
+接收块逐个鉴权，验证通过的前缀才交给并行写卡任务；窗口有界，慢写卡产生背压。断线保留已校验并落盘的前缀，不把暂存当成完成作品。可选 `galleryTransferDiag` 为四个非负整数：当前任务本次验证接收的 JPEG 字节、检查点写入的 JPEG 字节、检查点写入累计毫秒、接收回调与写入任务重叠的次数。它用于真机区分传输与写卡，不能单独作为速度验收。
+
+USB hello 可声明 `usbDelta=1`，桥接仅对本条仍打开且已确认设备身份的 CDC 会话使用已 ACK 的状态作为增量基线，按原状态发布频率发送 `tab5_delta`／压缩增量。设备沿用既有完整状态 ACK 和序号校验；重连、会话变化或基线不匹配恢复完整状态，旧固件继续完整帧。正常状态循环不再对同一打开句柄重复执行身份 ping；新连接及显式配置操作仍核对身份。图库保存不会暂停未读数字、设置或音乐状态更新。
+
+English: optional authenticated `connectionHealth.galleryStream=1` enables one continuous HTTP response for SHA-bound Wi-Fi gallery reads of up to 1 MiB. The original device/session/time/replay/HMAC/AES-GCM request checks apply. USB/BLE and unnegotiated peers retain their existing limits. T5S1 carries three u32LE fields (offset, bytes, blocks), followed by length-prefixed independently encrypted T5R2 blocks with <=49152 data bytes, independent random AES IVs and request-nonce AAD. Each authenticated body binds its range, total stream range and ordinal; validate all of them and the final JPEG hash/dimensions. Ordinary encrypted error responses remain bounded. Verified blocks feed a concurrent, bounded TF writer with backpressure and durable resume. The four-field content-free `galleryTransferDiag` records received bytes, checkpoint data bytes, checkpoint write milliseconds and receive/write overlaps, pending physical throughput acceptance.
+
+An identity-validated USB hello may advertise `usbDelta=1`; the bridge then sends state deltas against the exact ACKed baseline on that live CDC handle, retaining the usual publication cadence and ACK checks. Reset the baseline on reconnect; legacy peers get full frames. Initial connection and explicit configuration still verify identity. Firmware source tests and builds do not establish hardware throughput or Wi-Fi stability.
+
+### BLE standby display / 蓝牙待命显示
+
+Fresh authenticated USB ownership also pauses Windows idle BLE voice/RPC mailbox polls between complete requests. An active response drains before standby; USB expiry resumes polling. Session/link checks remain active, and the protocol, authentication and notification windows are unchanged.
+
+USB 已鉴权且有效时，Windows 在完整请求之间暂停蓝牙语音／RPC 空闲轮询；进行中的响应完成后才待命，USB 失效后恢复轮询。保留会话／物理连接检查，不改变协议、鉴权或通知窗口。
+
+认证状态的可选 `connectionHealth.bleStandby` 布尔值仅说明显示状态。Windows 只有在 USB 为当前通道、USB 确认和本地已鉴权 BLE 活连接确认均未过期时才声明 `true`。设备还必须确认 BLE 物理连接、USB 数据新鲜，且此标记来自未过期的 USB 状态，才显示浅蓝色待命图标。正在接收 BLE 数据仍显示绿色，物理连接等待数据显示黄色，断开显示灰色。标记不刷新 BLE 数据时间，不改变路由或授权；缺失字段（包括旧桥接和未实现此能力的 Mac）沿用原状态显示。
+
+The optional authenticated `connectionHealth.bleStandby` boolean is display-only. Windows reports true only while USB owns the active state and both its ACK and the authenticated live BLE session confirmation remain fresh. The device additionally requires a connected BLE link, fresh USB data and a fresh USB snapshot carrying this flag before showing pale-blue standby. Fresh BLE data stays green, a physical connection awaiting data amber, and a disconnected link grey. This flag neither renews BLE data nor changes routing or authorization. Missing fields retain legacy display behavior.
+
+
+### Gallery receive/write acceptance samples / 图库同步测速
+
+The paired USB `tab5_benchmark` control accepts `gallery_start`, `gallery_status`, and `gallery_cancel` when the reply advertises `gallerySpeed: true` (introduced in TAB5 0.2.182-ui; use 0.2.183-ui for completed-library memory preparation). This is opt-in diagnostics, separate from the RAM-only channel benchmark. Eight real manifests/JPEGs (two categories, two dates, both orientations) use the production authenticated download, bounded concurrent card writer, whole-image hash and committed image/text store. Automatic mode prefers Wi-Fi; USB-only mode measures USB. BLE is not a bulk-library test transport. The original link mode and credentials are never changed. The gallery measurement holds the benchmark gate while allowing its own authenticated gallery RPCs; OTA, photo uploads and unrelated probes remain exclusive.
+
+Results are `state;gallery,transport,completed,receivedBytes,totalMs,receiveMs,writeMs,overlapCount,error`. `totalMs` includes sample preparation, inter-sample scheduling, validation and durable commit from first sample start; receive and write times overlap and must not be added. Only `complete` with eight samples is a successful run. A 180-second device deadline and explicit cancellation bound the task; partial/failure results are not throughput acceptance.
+
+测速需要已启用 TF 卡及已安装图库。样本使用 `/aibot/cache/gallery-speed/` 下的独立存储根，复用正式图库目录格式；原图库图片、导读、断点和进度均不修改。每次重新接收样本，不把缓存命中算作传输。测试记录固定为 8 个键、每键两槽，连同临时分段最多约 24 MiB，并由后续测试复用。桥接“TAB5 连接 → 传输测速”选择“图库写卡”，再点“开始测速”；默认显示实际字节、端到端时间和速度，详细数据保留接收/写卡阶段与重叠次数。“通信传输”只测通信，两类结果不可混算；汇总速率仅使用成功样本的有效字节与耗时，失败样本另行提示。失败、中止、代码回归和模拟文件写入均不算真机速度验收。
+
+TAB5 0.2.184-ui optionally appends `;gallery_io,readBytes,writeBytes,readMs,writeMs,syncMs,syncCalls,bulkBytes,edgeBytes;gallery_rpc,encodeMs,exchangeMs,decodeMs,streamBackpressureMs,calls`. Counters reset at the first isolated sample and snapshot only between completed samples. Card times include production reads/verification, writes and durable fsync; bulk/edge count both reads and writes. Exchange includes transport and bridge response wait; Wi-Fi streaming excludes measured decrypt and writer-backpressure callbacks. Stream backpressure is zero on non-streaming USB. Stages overlap and cannot be summed as wall time. Older nine-field results remain valid.
+
+0.2.184-ui 可追加上述读写和 RPC 分段统计：首个独立样本开始时清零，每个样本结束后快照。读卡包含校验读取，落盘统计保留正式 fsync；批量与边缘字节包含读和写。传输等待包含桥接响应耗时，Wi-Fi 流式统计排除已记录的解密与写卡背压，非流式 USB 的流式背压为零。各阶段可能重叠，不能相加代替总时间；旧九字段结果仍兼容。
+
+TAB5 0.2.186-ui adds optional `;gallery_rx,networkReadMs,consumerWaitMs,receiveAheadCalls,receivePeakBytes`. The HTTP receiver reads up to 16 KiB into a bounded 64 KiB PSRAM ring while the original authenticated consumer and card writer continue. Allocation/task failure falls back to synchronous reads. Cancellation joins the receiver before closing its HTTP handle or freeing storage; the existing eight-second socket timeout bounds a stalled read. Only authenticated blocks enter durable checkpoints. Counters are captured between completed samples; network read and consumer wait overlap other stages and are not additive wall times. `receiveAheadCalls` counts exchanges using the parallel receiver. Zero means this path was not used, not an absent network delay.
+
+0.2.186-ui 可追加网络读取、消费者等待、并行接收请求数及缓冲峰值。接收任务以最多 16 KiB 批量读取到 64 KiB PSRAM 环形缓冲，与原有校验及写卡流程并行；内存或任务创建失败时回退到同步读取。取消时先等待接收任务结束，再关闭 HTTP 或释放缓冲，阻塞读取仍受原有八秒超时约束。只有校验通过的块才能保存为断点。各项耗时可重叠，不能相加；并行请求数为零表示没有使用该路径，不能据此判定网络没有等待。
+
+USB gallery replies also optionally append `;usb_rx,receivedBytes,readSpans,maxSpanBytes,readMs,copyMs,notifications,notifyPeakUs,packetCountMax,ghwcfg2,gahbcfg,rxFifoWords`. They reset on `gallery_start`; byte/span/copy counters cover binary reply bodies, and notifications cover the active binary receive interval. Read timing covers the FIFO read that supplied each span, so a read supplying multiple bodies can be counted more than once. Notification latency is the interval from the latest observed notification to its next drained span, not every packet's bus latency. P4 OTG-FS registers are read-only diagnostic snapshots; packet count is sampled after FIFO drain and may miss transient peaks. These counters do not prove physical USB throughput limits or a speed improvement. The original gallery result and legacy clients remain compatible; no USB wire payload, endpoint, baud rate or transport preference changes.
+
+USB 图库回复还可追加收包字节、读取段数、最大段、FIFO 读取／复制耗时、通知数、最近通知到读取的最长间隔及硬件快照。开始测速时清零，字节统计只含二进制回复正文；同一次 FIFO 读取若供给多个正文，读取耗时可能重复计数。通知间隔不是每个 USB 包的总线延迟，读取后的硬件计数也可能错过瞬时峰值。寄存器仅只读采样；这些数据用于定位接收等待，不能单独证明硬件速度上限或优化收益。原测速结果及旧客户端保持兼容，USB 数据格式、端点、串口速率和连接偏好不变。
+
+TAB5 0.2.187-ui advertises `usbRxBatch: 4096` on USB status/hello replies. A supporting bridge may request `rxBatch: 4096` on a nonempty `tab5_rpc_binary` body; absent/zero retains the legacy single-MPS receive path. Other values are rejected. Only this body's OUT reception uses batches up to 4 KiB, within the existing allocated CDC buffers and FS packet count. Whole-image authentication, byte count and replay boundaries do not change. Binary completion, timeout and disconnect reset batching. The matching bridge ends each 64-byte-aligned write with one newline outside its declared binary body or JSON line; unaligned writes need no padding. Empty lines are ignored by both old and new parsers. On serial open it sends a separate one-byte newline before discovery. DMA ownership is recorded before hardware submission; a pending bulk completion from a closed DTR generation is discarded before parser wakeup, then the current generation is rearmed at one MPS. Ordinary legacy single-MPS completions are not discarded by this batch fence.
+
+0.2.187-ui 通过 USB 回复声明 `usbRxBatch: 4096`。新版桥接仅在非空二进制正文请求中指定 `rxBatch: 4096`；缺省或零继续使用旧单包接收，其他值拒绝。该正文以最多 4 KiB 批量接收，保留原有缓冲、鉴权、字节计数和防重放边界，正文结束、超时或断线恢复普通接收。桥接在每次恰好为 64 字节倍数的写入末尾追加一个正文／JSON 行之外的换行，避免依赖 Windows 串口驱动发送 ZLP；非整包无需追加。新旧解析器均忽略空行。串口打开时另发一个单字节换行，再进行身份查询；设备在硬件提交前记录 DMA 代际，丢弃关闭前尚未完成的批量接收，避免旧前缀进入新连接。旧单包路径保留。
+
+TAB5 0.2.189-ui may append `;ortho,1,calls,pixels,totalUs,peakUs` and `;reader,1,opens,prepareUs,layoutUs,firstRefreshUs` to the optional opaque `displayDiag` string, after every existing field and previous crash record. Orthogonal counters cover only the eligible RGB565/ARGB8888 right-angle software path; totals are unsigned rolling observations, not a consistent trace. Reader values describe the latest successful open: prepare includes motion completion, work lookup and deep-copying the already resident guide; layout includes updating labels and the reader geometry; first-refresh is elapsed from the click callback to `LV_EVENT_REFR_READY`. Zero first-refresh can mean a render is still pending. Closing before refresh cancels the pending observation. No artwork text, device identity or credentials are logged. Neither timings nor conformance tests replace physical interaction acceptance.
+
+0.2.189-ui 可在不透明诊断字符串 `displayDiag` 的全部旧字段和上次崩溃记录之后追加两个独立版本段：右角 RGB565／ARGB8888 路径的调用数、像素数、总耗时／峰值，以及作品详情最近一次成功打开的准备、排版和首帧完成耗时。准备阶段包含结束转场、核对当前作品及深拷贝内存中的资料；首帧从点击回调开始，到刷新完成事件为止，尚未刷新时可为零，提前关闭会取消待记录值。累计值可能无符号回绕，不作为完整时序。字段不含作品文字、身份或凭据；旧客户端继续忽略扩展，不改变控制命令、图库格式、缓存或鉴权。
+
+TAB5 0.2.189-ui may advertise `rpcUsbWait:20` when its process-lifetime readiness semaphore and USB mailbox buffers are available. A supporting bridge requests `waitMs:20` only on an empty `tab5_rpc_binary` read (`count:0`). Missing/zero retains immediate legacy reads; other values, nonnumeric values, and nonzero waits on body writes are rejected. The device waits until an unconsumed request is published, the connection generation changes, or a 20 ms deadline expires (rounded to FreeRTOS ticks); it neither holds the mailbox mutex while waiting nor allocates a semaphore per poll. Existing binary reply identity, byte count, status and encryption are unchanged. The bridge omits its post-empty-poll timer only after this capability is negotiated and resets it on disconnect. Low-memory devices advertise zero and retain the original path. BLE behavior is unchanged.
+
+0.2.189-ui 仅在固定请求就绪信号量及 USB 邮箱缓冲可用时声明 `rpcUsbWait:20`。新版桥接只在空正文读取时请求 `waitMs:20`，旧值缺省／零继续立即读取；拒绝其他值及带正文的非零等待。新请求发布或连接代际变化立即唤醒，超时按 FreeRTOS 时钟节拍限制；不持有邮箱锁等待，也不逐次分配信号量。保留二进制标识、长度、状态、鉴权及 BLE 行为。桥接只对协商成功的连接取消空轮询后的定时等待，断开清零；低内存回退保持旧路径。
+
+Gallery HTTP connection reuse is local resource management, with no new wire contract. A single idle client is moved into exclusive worker ownership and returned only after authenticated, complete, successfully persisted background-library responses. Handles are never shared concurrently. Endpoint, 60 s lifetime and 200-request budget checks precede reuse; the desktop's current limits are 75 s/400 requests per connection. Every RPC still sets fresh device/nonce/proof headers. Cancellation, partial data, invalid authentication/hash, storage failure or an occupied idle slot cleans up the borrowed client. Older servers requesting `Connection: close` remain supported by ESP-IDF reconnection. Image, guide, catalog, resume and cache formats do not change.
+
+图库连接复用只管理本地资源，不新增网络命令。一个空闲客户端移交给独占的后台任务，只有鉴权、正文、文件校验及保存成功才可归还；不会并发共享句柄。复用前检查地址、60 秒寿命和 200 次请求预算，保留每次新鲜请求头及服务器关闭后的 SDK 重连。取消、部分正文、鉴权／哈希错误、保存失败或空闲槽已有句柄时清理当前资源。图库、导读、目录、续传及缓存格式不变。
+
+
+### TAB5 0.2.190-ui desktop upgrade request / 电脑发起升级
+
+Windows 0.6.6 may publish `connectionHealth.otaCommand` only after an explicit desktop start action. It contains `version:1`, lowercase 32-character `requestId`/`offerId`, a 64-character `sha256`, and integral `expiresAt` in UTC milliseconds (30 s). The offer bytes are immutable. Pending intent forces full authenticated status publications and prevents replacing/withdrawing the image or a second start. Firmware 0.2.190-ui+ retains the same encrypted status, session/sequence checks and authenticated RPC transport; no unauthenticated network start endpoint is added.
+
+LVGL processes only a fresh (<6 s) accepted frame, compares the selected offer, and runs the shared manual save/busy guards. It reports `kind:ota-control`, `stage:ready|rejected`, and the exact request/offer/hash with the existing RPC session/time/HMAC/AES-GCM/replay checks. The desktop returns `commit:true` only while that intent and image remain current and unexpired. LVGL rechecks freshness, scope and active work, then atomically copies only the authorized offer into the existing OTA task. It reports `started|rejected`; errors include `device_busy`, `draft_pending`, `draft_save_failed`, `offer_changed`, `no_link`, `start_failed`. Duplicate intent/result frames do not reinstall. Lost/late confirmation does not authorize another image or an automatic retry. A timeout means unconfirmed, not proven failure; preserve power and inspect boot/transfer state before retrying. After accepted commit the desktop retains a bounded lifecycle lease, while actual transfer traffic keeps the existing OTA guards. Version observation, start receipt and USB VALID/ELF verification remain distinct.
+
+`connectionHealth.otaCommand` 仅由电脑上明确的“开始升级”动作创建，绑定不可变镜像、请求编号、offerId、SHA-256 和 30 秒截止时间。设备使用已配对的加密状态及 RPC 通道；界面线程先复用草稿保存／忙碌检查，再向电脑请求提交确认，提交前后均核对当前请求，启动时在锁内原子核对并复制指定镜像。回传准备、开始或具体拒绝原因；重复／过期／撤回／不匹配请求不启动安装。未收到回执属于未确认，不自动重发新请求；启动回执、版本回报和精确镜像启动核验分别判断。USB／Wi-Fi／BLE 沿用设备的通道选择，已有图库和配对不修改。旧设备需先通过原手动入口安装一次支持本协议的固件。
+
+Windows also exposes a byte-mode named pipe with .NET `PipeOptions.CurrentUserOnly`, scoped by the Windows user's SID and matching elevation level. See [Microsoft PipeOptions](https://learn.microsoft.com/dotnet/api/system.io.pipes.pipeoptions). It accepts only `info` and `start`, with a 4-byte little-endian length and at most 4096 bytes of JSON, bounded read/response time and no operation retry. `--tab5-ota-info` reads non-secret offer/device metadata. `--tab5-start-ota <deviceId> <sha256>` starts only the already selected image on the matching paired device through the same lifecycle/receipt path. It operates through the running bridge and never overrides AppProfileGuard, loads a separate user profile, changes credentials, or flashes ROM. The interface does not expose pairing keys. This Windows feature does not imply Mac TAB5 support.
+
+本机命令仅当前 Windows 用户可连接，必须核对正在运行的桥接内已选择的设备和固件校验值；不另开资料目录、不绕过保护、不修改凭据，不提供首刷或任意文件刷写接口。该入口没有增加开放的 HTTP 升级接口。
+
 ## TAB5 runtime monitoring (optional, version 1)
 
 `tab5_status.data.runtimeHealth` is an optional Windows-collected object; absent/null means no available monitor. Existing ESP8266 frames and macOS collectors keep their current contracts. Older TAB5 firmware can ignore the additional field. No input, node-selection or client-restart command is added.
@@ -613,3 +710,5 @@ Alarm IDs belong to `session`; `sequence` increases only when a confirmed anomal
 Alerts expose full `advice` and optional `shortAdvice` for compact views. Receivers may fall back to `advice` if the short form is absent. Entering System defaults to the existing computer statistics and upload/download graph; the monitor is a secondary entry.
 
 See [runtime monitoring](RUNTIME-MONITOR.md) for defaults, diagnostics, validation and the unflashed-preview boundary.
+
+Additional optional checks `codex` and `bridge` report actual authenticated/model-connection observations and independent bridge/UI/collector health. The `pressure` object can add `commitPercent`, `committedMemoryMb`, and `commitLimitMb`; missing values remain unknown. Optional alert/check `handledExternally` only suppresses duplicate Windows notifications already handled by the independent guard; devices continue presenting the alert normally. Guarded presentation removes stale counters and latency history even when the HTTP publisher remains alive. No new device command or model request is introduced.

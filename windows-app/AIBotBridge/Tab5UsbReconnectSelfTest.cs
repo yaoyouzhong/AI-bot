@@ -7,6 +7,7 @@ internal static class Tab5UsbReconnectSelfTest
     private sealed class BrokenClose(Exception failure):IDisposable {public void Dispose()=>throw failure;}
     internal static async Task RunAsync()
     {
+        Tab5UsbShortPacketSelfTest.Run();
         using var gate=new SemaphoreSlim(1,1);
         long generation=1;int writes=0,closed=0;
         void Close(){closed++;Interlocked.Increment(ref generation);}

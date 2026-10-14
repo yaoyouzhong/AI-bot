@@ -35,6 +35,7 @@ struct DeviceInfo: Decodable {
     let uptimeMs: UInt32?
     let usbStatusCount: UInt32?
     let lanStatusCount: UInt32?
+    let deviceId: String?
 
     enum CodingKeys: String, CodingKey {
         case device, version, ip, mode, brightness
@@ -43,6 +44,7 @@ struct DeviceInfo: Decodable {
         case uptimeMs = "uptime_ms"
         case usbStatusCount = "usb_status_count"
         case lanStatusCount = "lan_status_count"
+        case deviceId = "device_id"
     }
 }
 

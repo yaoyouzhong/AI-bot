@@ -11,11 +11,14 @@ internal sealed class BridgeRuntime : IDisposable
     private readonly NowPlayingService _music;
     private readonly RuntimeHealthService _health;
     private readonly LocalizedTextResources _localizedText = new();
-    private readonly Dictionary<string,(CancellationTokenSource Stop,Task Run)> _workers = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string,(CancellationTokenSource Stop,Task Run)> _workers = new();
     private HashSet<string> _sources=DeviceRegistryStore.SourceIds.ToHashSet();
     private readonly Func<string,CancellationToken,Task>? _collector;
     private readonly SemaphoreSlim _demandGate=new(1,1);
     internal string[] ActiveCollectors=>_workers.Keys.Order().ToArray();
+    internal int FaultedCollectors=>_workers.Values.Count(w=>w.Run.IsFaulted);
+    internal bool MonitorExpected=>_workers.ContainsKey("health")&&_health.Options.Enabled;
+    internal Func<RuntimeHealthCheck?>? GuardCheck {get;set;}
     private DisplayPolicy? _displayPolicy;
     private readonly AutoFollowTracker _follow=new();
     internal void SetDisplayPolicy(DisplayPolicy policy) => _displayPolicy = policy;
@@ -46,7 +49,7 @@ internal sealed class BridgeRuntime : IDisposable
     internal async Task ApplyDemandAsync(DeviceDataDemand demand) {
         await _demandGate.WaitAsync();try {
             foreach(string key in _workers.Keys.Where(k=>!demand.Sources.Contains(k=="health"?"system":k)).ToArray()) {
-                var worker=_workers[key];worker.Stop.Cancel();try{await worker.Run;}catch(OperationCanceledException) when(worker.Stop.IsCancellationRequested){}finally{worker.Stop.Dispose();_workers.Remove(key);}
+                var worker=_workers[key];worker.Stop.Cancel();try{await worker.Run;}catch(OperationCanceledException) when(worker.Stop.IsCancellationRequested){}finally{worker.Stop.Dispose();_workers.TryRemove(key,out _);}
             }
             _sources=new(demand.Sources);StartCollectors(_sources);
         }finally{_demandGate.Release();}
@@ -68,7 +71,7 @@ internal sealed class BridgeRuntime : IDisposable
             SystemMetrics = _systemMetrics.Snapshot,
             Music = _music.Snapshot,
             DisplayPolicy = _displayPolicy,
-            RuntimeHealth = _sources.Contains("system")?_health.Snapshot:null
+            RuntimeHealth = _sources.Contains("system")?_health.Capture(GuardCheck?.Invoke()):null
         };
         return snapshot with {FollowApp=_follow.Update(snapshot,Environment.TickCount64)};
     }

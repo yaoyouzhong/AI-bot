@@ -1,6 +1,6 @@
 # TAB5 本地固件目录 / Local firmware directory
 
-首次安装与升级的使用说明见[双硬件安装指南](INSTALL.zh.md)。TAB5 首次安装需要包含启动程序、分区表及初始化内容的完整 ZIP；下面固定路径仅用于已安装 AI-bot 的 TAB5 升级。首刷与升级应用可以同为 0.2.176-ui，文件格式不同。
+首次安装与升级的使用说明见[双硬件安装指南](INSTALL.zh.md)。TAB5 首次安装需要包含启动程序、分区表及初始化内容的完整 ZIP；下面固定路径仅用于已安装 AI-bot 的 TAB5 升级。首刷与升级应用可以同为 0.2.178-ui，文件格式不同。
 
 用户选择升级固件时始终使用 `artifacts/firmware/tab5/latest/aibot_tab5.bin`。同目录包含与镜像匹配的 `.bin.notes.json`、`manifest.json` 和 `SHA256SUMS.txt`。这些是本地 OTA 候选，不代表已经刷入或公开发布。
 
@@ -28,4 +28,4 @@ Windows 候选可在 development 目录构建和自检，实际运行沿用固�
 
 Build and test Windows candidates under development, but run validated binaries from the existing fixed Release path. Exit normally, back up runtime files, verify deployed hashes and the user profile, restore the carousel and restart there. New executable paths may trigger repeated Windows network-access prompts; do not modify firewall rules for testing.
 
-For factory installation use a full first-install ZIP, not this application BIN. Both may carry version 0.2.176-ui; see INSTALL.zh.md. For an existing AI-bot installation, select `artifacts/firmware/tab5/latest/aibot_tab5.bin`. Its matching notes, manifest and checksum accompany it. `scripts/prepare_tab5_firmware.ps1` validates the image with the Release bridge loader and requires structured release notes before updating this fixed path. Previous image/note combinations are retained under `versions/<version>/<image-hash-prefix>-<notes-hash-prefix>/`; development artifacts remain available as evidence. Preview the actual notes with the adjacent TAB5 preview script. Preparing a candidate does not flash a device or publish a release.
+For factory installation use a full first-install ZIP, not this application BIN. Both may carry version 0.2.178-ui; see INSTALL.zh.md. For an existing AI-bot installation, select `artifacts/firmware/tab5/latest/aibot_tab5.bin`. Its matching notes, manifest and checksum accompany it. `scripts/prepare_tab5_firmware.ps1` validates the image with the Release bridge loader and requires structured release notes before updating this fixed path. Previous image/note combinations are retained under `versions/<version>/<image-hash-prefix>-<notes-hash-prefix>/`; development artifacts remain available as evidence. Preview the actual notes with the adjacent TAB5 preview script. Preparing a candidate does not flash a device or publish a release.

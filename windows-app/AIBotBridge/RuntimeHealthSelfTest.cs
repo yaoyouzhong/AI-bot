@@ -26,6 +26,44 @@ internal static class RuntimeHealthSelfTest
         system=RuntimeHealthService.SystemChecks(new(99,95,0,0,start),pressure with {DiskQueue=10,DiskLatencyMs=100},new(),start);
         Require(system.All(c=>c.State=="warning"),"pressure combination not detected");
         Require(RuntimeHealthService.SystemChecks(new(0,0,0,0,start.AddMinutes(-1)),pressure,new(),start).First().State=="unknown","stale metrics green");
+        var commitPressure=pressure with{CommitPercent=95,CommittedMemoryMb=9500,CommitLimitMb=10000};
+        Require(RuntimeHealthService.SystemChecks(new(20,60,0,0,start),commitPressure,new(),start).Single(c=>c.Key=="memory").Summary.Contains("提交"),"commit exhaustion missed at low physical use");
+        var pagingPressure=pressure with{PagesInputPerSecond=2000,AvailableMemoryMb=900,DiskLatencyMs=30,CommitPercent=80};
+        Require(RuntimeHealthService.SystemChecks(new(20,60,0,0,start),pagingPressure,new(),start).Single(c=>c.Key=="memory").Summary.Contains("换页"),"sustained paging combination missed");
+        Require(RuntimeHealthService.SystemChecks(new(20,60,0,0,start),pagingPressure with{AvailableMemoryMb=8000,CommitPercent=50},new(),start).Single(c=>c.Key=="memory").State=="ok","mapped file input falsely became paging pressure");
+        var connections=new CodexConnectionHealth();
+        Require(connections.Capture(start).State=="unknown","no business observation declared healthy");
+        for(int i=0;i<3;i++)connections.Observe("model","network",start.AddSeconds(i));
+        connections.Observe("usage","ok",start.AddSeconds(3));
+        Require(connections.Capture(start.AddSeconds(4)).Summary=="Codex 连接不稳","usage success masked model connection errors");
+        connections.Observe("model","ok",start.AddSeconds(5));Require(connections.Capture(start.AddSeconds(5)).State=="warning","one success cleared connection alarm");
+        connections.Observe("model","ok",start.AddSeconds(6));Require(connections.Capture(start.AddSeconds(6)).State=="ok","two actual successes did not recover");
+        connections.ObserveHttp(401,start.AddSeconds(7));Require(connections.Capture(start.AddSeconds(7)).State=="observing","single authenticated failure alerted");
+        connections.ObserveHttp(401,start.AddSeconds(8));Require(connections.Capture(start.AddSeconds(8)).Summary.Contains("登录"),"authentication failure unclassified");
+        Require(connections.Capture(start.AddMinutes(6)).State=="unknown","expired connection evidence retained healthy or failure state");
+        var flapping=new CodexConnectionHealth();
+        for(int i=0;i<3;i++){flapping.Observe("model","network",start.AddSeconds(i*3));if(i<2){flapping.Observe("model","ok",start.AddSeconds(i*3+1));flapping.Observe("model","ok",start.AddSeconds(i*3+2));}}
+        Require(flapping.Capture(start.AddSeconds(7)).State=="warning","frequent reconnects masked by intermittent successful requests");
+        var serverFailure=new CodexConnectionHealth();for(int i=0;i<3;i++)serverFailure.ObserveHttp(503,start.AddSeconds(i));
+        var serverCheck=serverFailure.Capture(start.AddSeconds(4));
+        Require(serverCheck.Summary.Contains("服务")&&new RuntimeHealthAlert("fixture","codex","warning",serverCheck.Summary,serverCheck.Advice,start).ShortAdvice=="稍后重试","service error incorrectly advised changing network settings");
+        var model=new CodexConnectionHealth();
+        for(int i=0;i<3;i++)model.ObserveModelEvent(JsonSerializer.Serialize(new{type="event_msg",timestamp=start.AddSeconds(i),payload=new{type="error",codex_error_info="ResponseStreamDisconnected",message="private-fixture"}}),start.AddSeconds(i));
+        Require(model.Capture(start.AddSeconds(3)).State=="warning"&&!JsonSerializer.Serialize(model.Capture(start.AddSeconds(3))).Contains("private-fixture"),"model metadata classification or privacy failed");
+        model.ObserveModelEvent(JsonSerializer.Serialize(new{type="event_msg",timestamp=start.AddSeconds(4),payload=new{type="turn_aborted"}}),start.AddSeconds(4));
+        Require(model.Capture(start.AddSeconds(4)).State=="warning","user cancellation relabeled connection failure");
+        var guardPolicy=new RuntimeHealthGuard.Policy();
+        for(long now=1000;now<=70000;now+=2000)Require(guardPolicy.Update(now,now,now,true,true,0,true,false)==0,"fresh guard warned");
+        int guardCode=0;for(long now=72000;now<=120000;now+=2000)guardCode=guardPolicy.Update(now,70000,now,true,true,0,true,false);
+        Require(guardCode==1,"stalled UI not detected");
+        Require(guardPolicy.Update(122000,122000,122000,true,true,0,true,false)==0,"guard did not recover");
+        Require(guardPolicy.Update(124000,0,0,true,true,0,false,true)==0,"normal exit alerted");
+        Require(guardPolicy.Update(126000,0,0,true,true,0,false,false)==4,"unexpected process exit missed");
+        Require(guardPolicy.Update(128000,0,0,true,false,0,false,false)==0,"disabled monitor alerted");
+        Require(guardPolicy.Update(500000,70000,70000,true,true,0,true,false)==0,"sleep gap caused immediate stale alarm");
+        var stalledMonitor=new RuntimeHealthGuard.Policy();
+        for(long now=1000;now<=70000;now+=2000)guardCode=stalledMonitor.Update(now,now,1000,true,true,0,true,false);
+        Require(guardCode==2,"collector stopped without alarm");
         Require(WindowsPacRoute.ParseProxy("http://user:secret@localhost:7890")==null,"credential URI accepted");
         Require(WindowsPacRoute.ParseProxy("http=localhost:7890;https=localhost:7891")?.Port==7891,"HTTPS proxy selection");
         var proxy=new Uri("http://127.0.0.1:7890");
@@ -56,11 +94,11 @@ internal static class RuntimeHealthSelfTest
             await runtime.ApplyDemandAsync(new([],[]));Require(collectorStarts==2&&collectorStops==2,"removing system demand left a monitor running");
         }
         var fixtures=new List<object>();
-        void Fixture(string name,RuntimeNetworkRound net,SystemMetricsSnapshot metrics,SystemPressure pressure,bool systemBusy=false) {
+        void Fixture(string name,RuntimeNetworkRound net,SystemMetricsSnapshot metrics,SystemPressure pressure,bool systemBusy=false,RuntimeHealthCheck? extra=null) {
             var engine=new RuntimeHealthPolicy();RuntimeHealthCheck[] checks=[];
             for(int i=0;i<3;i++) {
                 var at=start.AddSeconds(i*30);
-                checks=net.Checks.Concat(RuntimeHealthService.SystemChecks(metrics with {UpdatedAt=at},pressure with {UpdatedAt=at},options,at))
+                checks=net.Checks.Concat(RuntimeHealthService.SystemChecks(metrics with {UpdatedAt=at},pressure with {UpdatedAt=at},options,at)).Concat(extra is null?[]:new[]{extra})
                     .Select(c=>engine.Apply(c with {UpdatedAt=at},2,TimeSpan.Zero,TimeSpan.FromSeconds(90))).ToArray();
             }
             var atNow=start.AddSeconds(60);
@@ -76,10 +114,34 @@ internal static class RuntimeHealthSelfTest
         var healthyMetrics=new SystemMetricsSnapshot(34,62,162816,3952640,start) {SampleSession="monitor-preview",SampleSequence=64,
             Samples=Enumerable.Range(0,64).Select(i=>new NetworkSample(162816+(i%6)*3000,3952640+(i%12)*200000)).ToArray()};
         var healthyPressure=new SystemPressure(1,0,4,0,12500,16,start);
+        var largeHealth=new RuntimeHealthSnapshot("heartbeat-regression",1,start,
+            Enumerable.Range(0,8).Select(i=>Check("warning",start,"check"+i) with {Detail=new string('诊',1000)}).ToArray(),
+            [new("alert","cpu","warning","系统繁忙",new string('诊',1000),start)],healthyPressure);
+        var heartbeat=new StatusSnapshot(1,"10:30:00",start.ToUnixTimeSeconds(),28800,start,new("working",2),new("idle",10),
+            SystemMetrics:healthyMetrics,DisplayPolicy:new("auto",true,15,["codex","weather","system"]),RuntimeHealth:largeHealth);
+        Require(System.Text.Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(heartbeat,JsonDefaults.Options))>DeviceStatusFrame.MaximumLineBytes,
+            "health fixture did not reproduce an oversized snapshot");
+        var compact=DeviceStatusFrame.Create(heartbeat);
+        var baseline=DeviceStatusFrame.Create(heartbeat with {RuntimeHealth=null});
+        Require(compact.ToJsonString(JsonDefaults.Options)==baseline.ToJsonString(JsonDefaults.Options),
+            "health diagnostics interrupted or changed the ESP8266 heartbeat");
+        Require(compact["data"]?["systemMetrics"]?["cpuPercent"]?.GetValue<double>()==healthyMetrics.CpuPercent&&
+            compact["data"]?["displayPolicy"]?["pages"]?.AsArray().Count==3&&
+            System.Text.Encoding.UTF8.GetByteCount("@AIBOT "+compact.ToJsonString(JsonDefaults.Options))<=DeviceStatusFrame.MaximumLineBytes,
+            "bounded heartbeat lost system data or cycle policy");
+        using(var complete=JsonDocument.Parse(Tab5Protocol.Snapshot(heartbeat,"001122aabbcc","fixture-session",1)))
+            Require(complete.RootElement.GetProperty("data").GetProperty("runtimeHealth").GetProperty("checks")[0].GetProperty("detail").GetString()==largeHealth.Checks[0].Detail&&
+                heartbeat.RuntimeHealth==largeHealth,"ESP8266 compaction changed shared or TAB5 health data");
+        Console.WriteLine("ESP_HEALTH_HEARTBEAT_SELF_TEST_OK oversized_health, bounded_frame, cycle_policy, complete_tab5_health");
         Fixture("normal",normal,healthyMetrics,healthyPressure);
         Fixture("pac-fault",brokenPac,healthyMetrics,healthyPressure);
         Fixture("vpn-slow",slow,healthyMetrics,healthyPressure);
         Fixture("system-busy",normal,healthyMetrics with {CpuPercent=97,MemoryPercent=95},healthyPressure with {ProcessorQueue=48,DiskQueue=5,DiskLatencyMs=85,AvailableMemoryMb=450},true);
+        Fixture("commit-pressure",normal,healthyMetrics,healthyPressure with{CommitPercent=95,CommittedMemoryMb=9500,CommitLimitMb=10000});
+        Fixture("paging-pressure",normal,healthyMetrics,healthyPressure with{PagesInputPerSecond=2000,AvailableMemoryMb=900,DiskLatencyMs=30,CommitPercent=80});
+        Fixture("codex-disconnect",normal,healthyMetrics,healthyPressure,extra:model.Capture(start.AddSeconds(4)));
+        Fixture("bridge-stall",normal,healthyMetrics,healthyPressure,extra:RuntimeHealthGuard.Check(2,start,true));
+        Fixture("codex-service",normal,healthyMetrics,healthyPressure,extra:serverCheck);
         File.WriteAllText(Path.Combine(directory,"preview-fixtures.json"),JsonSerializer.Serialize(new{simulated=true,scenarios=fixtures},JsonDefaults.Options));
         var encoded=File.ReadAllText(Path.Combine(directory,"preview-fixtures.json"));Require(!encoded.Contains("private-value"),"PAC URL query leaked");
         var notifications=new BridgeNotifications();var decision=notifications.Evaluate("health","same","PAC 异常",start);
@@ -87,7 +149,7 @@ internal static class RuntimeHealthSelfTest
         notifications.BalloonShown();Require(notifications.History.Single().Outcome=="系统已显示","native notification receipt was not recorded");
         var muted=new BridgeNotifications();muted.Save(new(Health:false));muted.Evaluate("health","muted","PAC 异常",start);muted.BalloonShown();
         Require(muted.History.Single().Outcome=="已关闭","suppressed notification became shown");
-        Console.WriteLine("RUNTIME_HEALTH_SELF_TEST_OK sustained_pressure, spike_filter, recovery, sleep_gap, route_comparison, PAC_restart_advice, slow_exit, stale_unknown, privacy, protocol, notification_dedup");
+        Console.WriteLine("RUNTIME_HEALTH_SELF_TEST_OK sustained_pressure, commit_pressure, paging_combination, model_connection, auth_classification, independent_recovery, guard_heartbeat_exit_sleep, privacy, protocol, notification_dedup");
     }
     internal static async Task LiveAsync(string path) {
         var metricsService=new SystemMetricsService();

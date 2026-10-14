@@ -2,6 +2,12 @@
 
 ESP8266 versions are independent of the desktop bridge and TAB5.
 
+## 0.5.3 - 2026-10-12
+
+- Report a persistent `device_id` derived from the station MAC in USB hello/pong, USB device information and authenticated Wi-Fi information. It remains available without a Wi-Fi connection and across USB sockets, COM changes and reboots.
+- A supporting Windows bridge records this ID on the trusted connection and verifies it before automatically updating a changed USB binding. Existing firmware and bridges retain protocol version 1 compatibility.
+- Locally installed with complete Flash backup and write/read verification. A real COM8-to-COM7 move retained the fixed ID and automatically restored USB data. A separate UART recovery test with no LAN configuration passed; device Wi-Fi was not disabled during acceptance. No public release was created.
+
 ## 0.5.2 - 2026-10-09
 
 Published alongside bridge 0.6.5 and TAB5 .176; build and distribution-material checks pass. Hardware installation and acceptance remain pending.

@@ -12,7 +12,7 @@ namespace AIBotBridge;
 internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture,Action<string> status,Action<string> assets,Action<string>? diagnostic=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? voiceHandler=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? rpcHandler=null,
-    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null)
+    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null,Func<bool>? standby=null,Func<bool>? queueComparisonActive=null)
 {
     internal async Task RunAsync(CancellationToken token)
     {
@@ -69,6 +69,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             int rpcCredits=first.RootElement.TryGetProperty("rpcMailboxWindow",out var rw)&&rw.TryGetInt32(out int rpcOffered)?Math.Clamp(rpcOffered,1,8):credits; // Larger grants failed hardware acceptance; retain the proven eight-packet bound.
                             int rpcNotifyCredits=first.RootElement.TryGetProperty("rpcNotifyWindow",out var nw)&&nw.TryGetInt32(out int notifyOffered)?Math.Clamp(notifyOffered,1,32):rpcCredits;
                             int rpcWriteCredits=BulkWriteCredits(first.RootElement,rpcCredits);
+                            bool responseReplay=ResponseReplaySupported(first.RootElement);
                             bulkWriteSupported?.Invoke(rpcWriteCredits);
                             using var transferGate=new SemaphoreSlim(1,1);
                             Tab5BleVoice? voice=null;
@@ -83,7 +84,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             Tab5BleVoice? rpc=null;
                             var endpoints=await service.GetCharacteristicsForUuidAsync(new Guid("7af50005-7f23-4a91-bc65-667a19320101"),BluetoothCacheMode.Uncached).AsTask(timeout.Token);
                             using var rpcMailbox=rpcHandler is not null&&endpoints.Status==GattCommunicationStatus.Success&&endpoints.Characteristics.Count==1
-                                ?await Tab5BleGattMailbox.CreateAsync(endpoints.Characteristics[0],(int)session.MaxPduSize,timeout.Token,transferGate,rpcCredits,rpcNotifyCredits,queueBulkResponses:true,bulkWriteCredits:rpcWriteCredits,nativeLimit:nativeLimit,bulkWriteLimit:bulkWriteLimit):null;
+                                ?await Tab5BleGattMailbox.CreateAsync(endpoints.Characteristics[0],(int)session.MaxPduSize,timeout.Token,transferGate,rpcCredits,rpcNotifyCredits,queueBulkResponses:true,bulkWriteCredits:rpcWriteCredits,nativeLimit:nativeLimit,bulkWriteLimit:bulkWriteLimit,queueComparisonActive:queueComparisonActive,responseReplay:responseReplay):null;
                             if(rpcMailbox is not null) {
                                 var window=rpcMailbox.Window;
                                 rpc=new Tab5BleVoice(window.ReadAsync,window.WriteAsync,rpcHandler!,
@@ -98,8 +99,8 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                             using var connectionPreference=Tab5BleConnectionPreference.ForDevice(device,s=>preferenceStatus=s);
                             var rpcTask=rpc is null?Task.CompletedTask:PumpVoiceAsync(rpc,"RPC",voiceStop.Token,rpcDiagnostic,()=>rpcMailbox!.QueuedMilliseconds,
                                 ()=>rpcMailbox!.ReceiveDiagnostic,probeTrace:probeTrace,writeTiming:()=>rpcMailbox!.WriteTiming,
-                                linkDiagnostic:()=>"preference="+preferenceStatus+"; "+Tab5BleConnectionPreference.ReadLink(device));
-                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,"voice",voiceStop.Token,voiceDiagnostic,()=>voiceMailbox!.QueuedMilliseconds,bulkActive:()=>rpc?.BulkPriorityActive(Environment.TickCount64)==true||imageUploadActive?.Invoke()==true,probeTrace:probeTrace);
+                                linkDiagnostic:()=>"preference="+preferenceStatus+"; "+Tab5BleConnectionPreference.ReadLink(device),idleStandby:standby);
+                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,"voice",voiceStop.Token,voiceDiagnostic,()=>voiceMailbox!.QueuedMilliseconds,bulkActive:()=>rpc?.BulkPriorityActive(Environment.TickCount64)==true||imageUploadActive?.Invoke()==true,probeTrace:probeTrace,idleStandby:standby);
                             long telemetryAt=Environment.TickCount64;
                             try {
                             while(!token.IsCancellationRequested && store.Current?.DeviceId==pairing.DeviceId) {
@@ -112,13 +113,30 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                 // A large inbound RPC already proves a live paired link. Avoid
                                 // competing ATT status reads/writes through handling and response.
                                 // Keep voice polling independent so a recording can still start.
+                                // USB ownership takes precedence even during a long gallery/USB
+                                // benchmark. Its six-second telemetry deferral is not a reason
+                                // to start competing BLE status frames on a standby connection.
+                                if(standby?.Invoke()==true) {
+                                    // Identity and nonce were authenticated when this GATT session opened.
+                                    // An extra uncached ATT read each second can time out behind bulk
+                                    // traffic and tear down a healthy standby connection. Keep the
+                                    // same live session; normal fallback still requires its signed ACK.
+                                    stage="检查 USB 优先时的蓝牙待命连接";
+                                    bool verified=KeepAuthenticatedStandby(standby,
+                                        ()=>device.ConnectionStatus==BluetoothConnectionStatus.Connected&&session.SessionStatus==GattSessionStatus.Active,()=> {
+                                        diagnostic?.Invoke($"standby; USB active; authenticated session; link active; MTU {session.MaxPduSize}; idle mailboxes paused; USB voice/RPC active");
+                                        status("已连接 · USB 优先待命");
+                                        discovery.Remember(pairing.DeviceId,address,(int)candidates[address]);
+                                    });
+                                    if(verified){await Task.Delay(1000,token);continue;}
+                                }
                                 if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
                                 bool bulkActive=imageUploadActive?.Invoke()==true||voice is not null&&voice.LastActive>0&&Environment.TickCount64-voice.LastActive<1500;
                                 int cadence=telemetry>0?(bulkActive?1000:250):2000;
                                 int pauseMs=cadence;
                                     long telemetryStarted=Environment.TickCount64,traceTicket=probeTrace?.Ticket(telemetryStarted)??0;
                                     bool sentTelemetry=await SendTelemetryAsync(transferGate,
-                                    ()=>DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true),async ()=> {
+                                    ()=>DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true,standby?.Invoke()==true),async ()=> {
                                     if((telemetryCapture is null?capture():telemetryCapture(telemetry,rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000)) is not {} clear)return false;
                                     telemetryAt=Environment.TickCount64;
                                     using var doc=JsonDocument.Parse(clear);var seq=doc.RootElement.GetProperty("sequence").GetInt64();
@@ -202,20 +220,39 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
             return $"connection=unavailable/{ex.GetType().Name}/0x{ex.HResult:X8}";
         }
     }
+    internal static bool ResponseReplaySupported(JsonElement info)=>
+        info.TryGetProperty("rpcReplay",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int version)&&version==1;
     internal static int BulkWriteCredits(JsonElement info,int fallback)=>
         info.TryGetProperty("rpcWriteWindow",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int offered)&&offered is >=8 and <=64
             ?offered:fallback;
-    internal static bool DeferTelemetry(long now,long lastTelemetry,bool receiving,bool uploadActive)=>(receiving||uploadActive)&&now-lastTelemetry<6000;
+    internal static bool DeferTelemetry(long now,long lastTelemetry,bool receiving,bool uploadActive,bool usbOwnsState=false)=>usbOwnsState||(receiving||uploadActive)&&now-lastTelemetry<6000;
+    internal static bool UsbOwnsActiveState(long now,long acknowledgedAt,string active)=>
+        active=="USB"&&acknowledgedAt>0&&now>=acknowledgedAt&&now-acknowledgedAt<6000;
+    internal static bool ReportStandby(long now,long usbAt,long bleAt,string active,string status)=>
+        status=="已连接 · USB 优先待命"&&UsbOwnsActiveState(now,usbAt,active)&&
+        bleAt>0&&now>=bleAt&&now-bleAt<6000;
+    internal static bool KeepAuthenticatedStandby(Func<bool> standby,Func<bool> linkActive,Action confirmed) {
+        if(!standby())return false;
+        if(!linkActive())throw new IOException("Authenticated BLE standby session disconnected");
+        confirmed();return true;
+    }
+    internal static bool AuthenticateStandby(JsonElement info,Tab5Pairing pairing,string expectedNonce)=>
+        Authenticate(info,pairing,out var nonce)&&nonce==expectedNonce;
     internal static Task<bool> SendTelemetryAsync(SemaphoreSlim gate,Func<bool> defer,Func<Task<bool>> send,CancellationToken token)=>
         Tab5BleTransfer.SerializeAsync(gate,()=>defer()?Task.FromResult(false):send(),token);
     internal static int VoicePollDelay(long now,long lastActive,bool bulkActive)=>now-lastActive<1000?15:bulkActive?500:250;
-    private static async Task PumpVoiceAsync(Tab5BleVoice voice,string name,CancellationToken token,Action<string>? diagnostic=null,Func<long>? queuedTime=null,Func<string>? receiveDiagnostic=null,Func<bool>? bulkActive=null,
-        Tab5BleProbeTrace? probeTrace=null,Func<Tab5BleGattTiming>? writeTiming=null,Func<string>? linkDiagnostic=null) {
+    internal static async Task PumpVoiceAsync(Tab5BleVoice voice,string name,CancellationToken token,Action<string>? diagnostic=null,Func<long>? queuedTime=null,Func<string>? receiveDiagnostic=null,Func<bool>? bulkActive=null,
+        Tab5BleProbeTrace? probeTrace=null,Func<Tab5BleGattTiming>? writeTiming=null,Func<string>? linkDiagnostic=null,Func<bool>? idleStandby=null) {
         // Idle voice + RPC mailboxes share the same radio with status frames.
         // Polling both every 30 ms starves the status write queue on Windows.
         long started=0,traceTicket=0;
         try {
             while(!token.IsCancellationRequested) {
+                // USB owns voice and RPC as well as status. An idle GATT read
+                // still consumes ATT and can fail even with status writes paused.
+                // Check only between complete requests: drain any in-flight
+                // response, and resume polling as soon as USB ownership expires.
+                if(idleStandby?.Invoke()==true){await Task.Delay(250,token);continue;}
                 started=Environment.TickCount64;traceTicket=probeTrace?.Ticket(started)??0;
                 uint before=voice.CompletedCount;
                 long queued=queuedTime?.Invoke()??0;
@@ -237,7 +274,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
         }catch(Exception ex) when(ex is IOException or COMException or OperationCanceledException) {
             probeTrace?.RecordActivity(traceTicket,"failure",started,Environment.TickCount64);
             if(token.IsCancellationRequested)throw;
-            throw new IOException(name+" "+voice.Progress,ex);
+            throw new IOException(name+" "+voice.Progress+"; "+ex.GetType().Name+"/0x"+ex.HResult.ToString("X8")+(ex is IOException?"; "+ex.Message:""),ex);
         }
     }
     private void ReadAssets(JsonElement info,Tab5Pairing pairing,string nonce) {

@@ -63,7 +63,7 @@ internal sealed class RuntimeHealthOverview : UserControl
         _notice.Text=alert?.Title??(fresh&&known&&vpn?.State=="ok"&&pac?.State is "ok" or "disabled"?"运行正常":snapshot is null?"等待检测":"状态待确认");
         _notice.ForeColor=alert is null?Color.DimGray:StateColor(alert.State);
         _advice.Text=alert?.ShortAdvice??(snapshot is null?"启用系统数据后开始监控。":$"数据更新 {snapshot.UpdatedAt.ToLocalTime():HH:mm:ss}");
-        _detailGroup=alert?.Key is "cpu" or "memory" or "queue" or "disk"?"system":"network";
+        _detailGroup=alert?.Key is "codex" or "bridge"?"connection":alert?.Key is "cpu" or "memory" or "queue" or "disk"?"system":"network";
         if(!fresh&&snapshot is not null){_notice.Text="监控已中断";_advice.Text="检查桥接程序。";}
     }
 }
@@ -71,10 +71,10 @@ internal sealed class RuntimeHealthOverview : UserControl
 internal sealed class RuntimeHealthDetailForm : Form
 {
     internal RuntimeHealthDetailForm(string group,RuntimeHealthSnapshot? snapshot,SystemMetricsSnapshot? metrics) {
-        Text=group=="system"?"AI-bot · 电脑详情":"AI-bot · 网络详情";Font=SettingsWindow.BodyFont();AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new(96,96);ClientSize=new(800,580);MinimumSize=new(600,420);
+        Text=group=="system"?"AI-bot · 电脑详情":group=="connection"?"AI-bot · 连接与监控":"AI-bot · 网络详情";Font=SettingsWindow.BodyFont();AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new(96,96);ClientSize=new(800,580);MinimumSize=new(600,420);
         var body=new TextBox{Dock=DockStyle.Fill,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,BorderStyle=BorderStyle.None,BackColor=Color.White,Margin=new(20)};
         var panel=new Panel{Dock=DockStyle.Fill,Padding=new(24),BackColor=Color.White};panel.Controls.Add(body);Controls.Add(panel);
-        var keys=group=="system"?new[]{"cpu","memory","queue","disk"}:new[]{"vpn","pac"};
+        var keys=group=="system"?new[]{"cpu","memory","queue","disk"}:group=="connection"?new[]{"codex","bridge"}:new[]{"vpn","pac"};
         body.Text=snapshot is null?"等待监控数据。":string.Join("\r\n\r\n",snapshot.Checks.Where(c=>keys.Contains(c.Key)).Select(c=>$"{c.Label} · {c.Summary}\r\n{c.Detail}"+(c.Advice.Length==0?"":"\r\n"+c.Advice)));
         if(group=="system"&&metrics is not null)body.AppendText($"\r\n\r\n整机流量\r\n上传 {metrics.UploadBytesPerSecond/1024.0:0.#} KB/s · 下载 {metrics.DownloadBytesPerSecond/1024.0:0.#} KB/s");
         if(group=="network"&&snapshot?.ThroughputMbps is {} speed)body.AppendText($"\r\n\r\n小流量吞吐 {speed:0.##} Mbps · {snapshot.ThroughputAt?.ToLocalTime():HH:mm:ss}\r\n此采样不代表节点最大带宽。");

@@ -12,8 +12,11 @@ internal static class Tab5UsbBinary
         return hello.TryGetProperty("rpcUsbChunk",out var old)&&old.TryGetInt32(out int legacy)&&legacy==16384?16384:2048;
     }
     internal static int Length(byte[] header,uint tag) {
-        if(header.Length!=16||!header.AsSpan(0,4).SequenceEqual("AIB2"u8)||BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(4))!=tag||
-            BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(12))!=1)throw new IOException("USB binary identity/status mismatch");
+        if(header.Length!=16)throw new IOException("USB binary header length invalid");
+        bool magic=header.AsSpan(0,4).SequenceEqual("AIB2"u8),matches=BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(4))==tag;
+        uint status=BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(12));
+        if(!magic||!matches||status!=1)
+            throw new IOException($"USB binary identity/status mismatch; magic={magic}; tagMatches={matches}; status={status}");
         uint length=BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(8));
         if(length>Maximum)throw new IOException("USB binary packet too large");return (int)length;
     }

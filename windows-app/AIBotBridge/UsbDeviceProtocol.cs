@@ -11,7 +11,8 @@ internal sealed record UsbDeviceInfo(
     [property: JsonPropertyName("usb_status_count")] uint UsbStatusCount,
     [property: JsonPropertyName("lan_status_count")] uint LanStatusCount,
     [property: JsonPropertyName("page_data")] JsonElement? PageData = null,
-    string? Firmware = null);
+    string? Firmware = null,
+    [property: JsonPropertyName("device_id")] string? DeviceId = null);
 
 internal static class UsbDeviceProtocol
 {

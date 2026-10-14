@@ -48,7 +48,7 @@ internal sealed partial class Tab5Service
     {
         var full=CurrentFrame;
         if(full is null||!supported)return full;
-        bool settingsPending=DisplayCommand is not null;
+        bool settingsPending=DisplayCommand is not null||RemoteOtaPending;
         lock(_telemetryLock) {
             // Give reply RPCs priority briefly, but keep full state moving:
             // metrics do not renew the device's task/session freshness.
@@ -78,7 +78,7 @@ internal sealed partial class Tab5Service
                 // Full catalogs occupy seconds of radio time. Compress once
                 // per publication; keep high-rate metrics on the fast path.
                 if(!ReferenceEquals(_packedSource,full)){_packedFrame=PackTelemetry(full,CompressionLevel.Optimal);_packedSource=full;}
-                if(deltaSupported&&_ackTelemetry[channel] is {} baseline&&Tab5TelemetryDelta.Create(baseline,full) is {} delta) {
+                if(deltaSupported&&!RemoteOtaPending&&_ackTelemetry[channel] is {} baseline&&Tab5TelemetryDelta.Create(baseline,full) is {} delta) {
                     var packedDelta=PackTelemetry(delta,CompressionLevel.Optimal);
                     if(packedDelta.Length<_packedFrame!.Length)return packedDelta;
                 }

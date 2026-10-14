@@ -4,11 +4,29 @@ namespace AIBotBridge;
 internal sealed partial class Tab5Service
 {
     private volatile string _upgradeDiagnostic="尚未核验";
+    private sealed record VerifiedBoot(string DeviceId,string Version,string ElfSha256);
+    private volatile VerifiedBoot? _verifiedBoot;
+    internal bool CanVerifyUpgrade=>HasOta&&!Busy&&DeviceView.Online&&DeviceView.Usb=="已连接"&&DeviceView.Firmware==Volatile.Read(ref _ota)?.Version;
+    internal string UpgradeBootSummary {
+        get {
+            var image=Volatile.Read(ref _ota);var view=DeviceView;var verified=_verifiedBoot;
+            if(image is null)return "选择固件后可核验启动";
+            if(!view.Online)return "启动核验 · 等待设备连接";
+            if(view.Firmware!=image.Version)return "启动核验 · 升级完成后可核验";
+            if(verified is not null&&verified.DeviceId==PairedId&&verified.Version==image.Version&&verified.ElfSha256==image.ElfSha256)return "启动核验通过";
+            return view.Usb=="已连接"?"启动核验 · 尚未核验":"启动核验 · 请连接 USB";
+        }
+    }
+    internal void RecordVerifiedBoot(JsonElement root,Tab5OtaPackage image,string deviceId) {
+        VerifyUpgradeDiagnostic(root,image);
+        _verifiedBoot=new(deviceId,image.Version,image.ElfSha256);
+    }
     internal async Task VerifyUpgradeAsync(CancellationToken token) {
         var image=Volatile.Read(ref _ota)??throw new InvalidOperationException("请先选择本次升级的固件，用于核对版本和指纹。");
         var pair=_store.Current??throw new IOException("TAB5 尚未配对。");
         var device=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)??throw new IOException("启动核验需要连接已配对 TAB5 的 USB。");
         lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备仍在处理操作，请等待升级结束。");_installBusy++;}
+        _verifiedBoot=null;_upgradeDiagnostic="正在核验";
         try {
             await _usbGate.WaitAsync(token);
             try {
@@ -20,7 +38,7 @@ internal sealed partial class Tab5Service
                     if(i<2)await Task.Delay(1200,token);
                 }
                 Send(port,new{version=1,type="tab5_ota_status"});using var reply=await ReadReplyAsync(port,"tab5_ota_diagnostic",token);
-                VerifyUpgradeDiagnostic(reply.RootElement,image);
+                RecordVerifiedBoot(reply.RootElement,image,pair.DeviceId);
                 string verified=$"verified; firmware={image.Version}; elfSha256={image.ElfSha256}; partition={reply.RootElement.GetProperty("partition").GetString()}; state=VALID";
                 _upgradeDiagnostic=verified+"; timing=unavailable";
                 // Retained numeric timing survives the OTA reboot. Collect it
@@ -35,7 +53,8 @@ internal sealed partial class Tab5Service
                     _upgradeDiagnostic+=$"; timingRead={ex.GetType().Name}";
                 }
             }finally{CloseUsbPort();_usbGate.Release();}
-        }finally{lock(_lifecycle)_installBusy--;}
+        }catch(Exception ex){if(_verifiedBoot is null)_upgradeDiagnostic="failed; "+ex.GetType().Name;throw;}
+        finally{lock(_lifecycle)_installBusy--;}
     }
     internal static string FormatUpgradeTiming(JsonElement root) {
         if(!root.TryGetProperty("trace",out var trace)||trace.ValueKind!=JsonValueKind.Object)return "timing=unavailable";

@@ -185,18 +185,27 @@ internal sealed class LanStatusServer
             long started=Environment.TickCount64;
             var packet=new byte[length];await input.ReadExactlyAsync(packet,cancellationToken);
             long received=Environment.TickCount64;var service=_tab5;
+            var galleryProfile=rpc?service?.ActiveGalleryHostProfile:null;
+            long profileStart=Tab5GalleryHostProfile.Now;
             var reply=service is null?(Status:401,Packet:(byte[]?)null):rpc?
                 await service.RpcAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,allowOta:false,transport:"Wi-Fi"):
                 await service.VoiceAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken);
             long handled=Environment.TickCount64;
+            long profileHandled=Tab5GalleryHostProfile.Now;
             if(reply.Packet is null) {
                 await WriteResponseAsync(stream,"401 Unauthorized","{}",cancellationToken);
                 if(rpc)service?.RecordTcpUpload(ackPolicy,length,received-started,handled-received,Environment.TickCount64-handled,reply.Status);
                 return;
             }
             await WriteBytesAsync(stream,"200 OK",reply.Packet,cancellationToken,keepAlive:true);
+            long profileWritten=Tab5GalleryHostProfile.Now;
+            // Socket Write completion only means queued locally. Inspect again
+            // after the next peer request, when its previous response was read.
+            if(galleryProfile is not null)galleryProfile.Add(new{kind="wifiWrite",tx=reply.Packet.Length,
+                handleUs=Tab5GalleryHostProfile.Us(profileStart,profileHandled),writeUs=Tab5GalleryHostProfile.Us(profileHandled,profileWritten),tcp=Tab5GalleryHostProfile.Tcp(socket)});
             if(rpc)service?.RecordTcpUpload(ackPolicy,length,received-started,handled-received,Environment.TickCount64-handled,reply.Status);
             lines=await input.ReadHeaderAsync(cancellationToken);
+            if(galleryProfile is not null)galleryProfile.Add(new{kind="wifiPeer",waitUs=Tab5GalleryHostProfile.Us(profileWritten,Tab5GalleryHostProfile.Now),tcp=Tab5GalleryHostProfile.Tcp(socket)});
             if(lines.FirstOrDefault()!=(rpc?"POST /tab5/v1/rpc HTTP/1.1":"POST /tab5/v1/voice HTTP/1.1"))return;
         }
     }

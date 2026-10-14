@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace AIBotBridge;
 internal sealed partial class Tab5Service
 {
-    private int _benchmarkRunning;
+    private int _benchmarkRunning; // 1: transport probe; 2: gallery receive/card test
     private int _firmwareProbeRunning;
     private int _bleWriteWindowSupported;
     private volatile string _benchmarkDiagnostic="尚未测速";
@@ -11,6 +11,7 @@ internal sealed partial class Tab5Service
     private bool _bleOtaProbeSupported;
     private bool _bleOtaIsolationSupported;
     private bool _bleFirmwareProbeSupported;
+    private bool _gallerySpeedSupported;
     private volatile string _bleRadioDiagnostic="未采样",_wifiIsolationDiagnostic="未采样";
     private volatile string _bleOtaProbeDiagnostic="尚未预检";
     private readonly Tab5BleProbeTrace _bleProbeTrace=new();
@@ -18,6 +19,35 @@ internal sealed partial class Tab5Service
     internal string BleQueueComparisonSummary=>_bleQueueComparison.Summary;
     internal string BleOtaProbeDiagnostic=>_bleOtaProbeDiagnostic;
     internal string BenchmarkDiagnostic=>_benchmarkDiagnostic;
+    internal static string FormatBenchmarkOverview(string result) {
+        string[] rows=result.Split(';',StringSplitOptions.RemoveEmptyEntries);
+        if(rows.Length==0||rows[0]=="尚未测速")return "选择测试类型，然后开始测速。";
+        string state=rows[0] switch {"running"=>"测速中…","complete"=>"测速完成","failed"=>"测速未全部完成","cancelled"=>"测速已停止",_=>FormatBenchmark(rows[0])};
+        var lines=new List<string>{state};
+        var samples=new List<(string Link,string Direction,long Bytes,long Ms,int Error)>();
+        foreach(string row in rows.Skip(1)) {
+            string[] fields=row.Split(',');
+            if(fields.Length==9&&fields[0]=="gallery") {
+                if(!fields.Skip(2).All(x=>uint.TryParse(x,out _))||uint.Parse(fields[2])>8){lines.Add("样本数据无效，请查看详细数据。");continue;}
+                uint bytes=uint.Parse(fields[3]),ms=uint.Parse(fields[4]);
+                lines.Add($"图库写卡 · {fields[1]} · {fields[2]}/8 个样本");
+                if(ms>0)lines.Add($"{bytes*1000.0/ms/1024:F1} KiB/s   {bytes/1048576.0:F2} MiB / {ms/1000.0:F2} 秒");
+                if(fields[8]!="0")lines.Add($"错误状态 {fields[8]}，请查看详细数据。");
+            } else if(fields.Length>=6&&fields[0] is "USB" or "Wi-Fi" or "BLE"&&fields[1] is "up" or "down"&&
+                long.TryParse(fields[3],out long bytes)&&bytes>=0&&long.TryParse(fields[4],out long ms)&&ms>=0&&int.TryParse(fields[5],out int error))
+                samples.Add((fields[0],fields[1],bytes,ms,error));
+        }
+        foreach(var link in samples.GroupBy(x=>x.Link)) {
+            var rates=new List<string>();
+            foreach(string direction in new[]{"up","down"}) {
+                var valid=link.Where(x=>x.Direction==direction&&x.Error==0&&x.Bytes>0&&x.Ms>0).ToArray();
+                if(valid.Length>0)rates.Add($"{(direction=="up"?"上传":"下载")} {valid.Sum(x=>(double)x.Bytes)*1000/valid.Sum(x=>(double)x.Ms)/1024:F1} KiB/s");
+            }
+            if(rates.Count>0)lines.Add(link.Key+"   "+string.Join("   ",rates));
+        }
+        int failures=samples.Count(x=>x.Error!=0);if(failures>0)lines.Add($"{failures} 个样本失败，请查看详细数据。");
+        return string.Join(Environment.NewLine,lines);
+    }
     internal static string FormatBenchmark(string result) {
         string[] rows=result.Split(';',StringSplitOptions.RemoveEmptyEntries);
         if(rows.Length==0)return "尚未测速";
@@ -30,6 +60,29 @@ internal sealed partial class Tab5Service
         foreach(string row in rows.Skip(1)) {
             var fields=row.Split(',');
             if(fields.Length==3&&fields[0]=="image") {lines.Add($"完整固件 SHA-256：{fields[1]}；{fields[2]} 字节");continue;}
+            if(fields.Length==9&&fields[0]=="gallery"&&fields.Skip(2).All(x=>long.TryParse(x,out _))) {
+                long bytes=long.Parse(fields[3]),elapsed=long.Parse(fields[4]);
+                lines.Add($"图库 → TF 卡 · {fields[1]} · 完成 {fields[2]}/8 个样本");
+                lines.Add($"实际接收 {bytes/1048576.0:F2} MiB · 总耗时 {elapsed/1000.0:F2} 秒 · {(elapsed>0?bytes*1000.0/elapsed/1024:0):F1} KiB/s");
+                lines.Add($"接收阶段 {long.Parse(fields[5])/1000.0:F2} 秒 · 写卡 {long.Parse(fields[6])/1000.0:F2} 秒 · 写卡期间收到数据 {fields[7]} 次");
+                lines.Add("耗时包含实际样本校验与落盘；接收与写卡有重叠，两项时间不能相加。原图库保留。");
+                if(fields[8]!="0")lines.Add($"错误状态：{fields[8]}");
+                continue;
+            }
+            if(fields[0] is "gallery_io" or "gallery_rpc" or "gallery_rx" or "usb_rx") {
+                int expected=fields[0] switch {"gallery_io"=>9,"gallery_rpc"=>6,"gallery_rx"=>5,_=>12};
+                if(fields.Length!=expected||!fields.Skip(1).All(x=>uint.TryParse(x,System.Globalization.NumberStyles.None,System.Globalization.CultureInfo.InvariantCulture,out _))){lines.Add("分段耗时数据无效");continue;}
+                if(expected==9) {
+                    lines.Add($"读卡 {fields[3]} ms / {uint.Parse(fields[1])/1048576.0:F2} MiB · 写卡 {fields[4]} ms / {uint.Parse(fields[2])/1048576.0:F2} MiB · 落盘 {fields[5]} ms（{fields[6]} 次）");
+                    lines.Add($"对齐批量读写 {uint.Parse(fields[7])/1048576.0:F2} MiB · 边缘读写 {fields[8]} B");
+                } else if(expected==6) lines.Add($"请求编码 {fields[1]} ms · 传输及服务等待 {fields[2]} ms · 解密解码 {fields[3]} ms · 等待写卡 {fields[4]} ms（流式传输） · {fields[5]} 次请求");
+                else if(expected==5) lines.Add($"网络批量读取 {fields[1]} ms · 等待接收数据 {fields[2]} ms · 并行接收 {fields[3]} 次 · 缓冲最高 {uint.Parse(fields[4])/1024.0:F1} KiB");
+                else {
+                    string wake=uint.Parse(fields[7])<=180_000_000?fields[7]+" μs":"--";
+                    lines.Add($"USB 收包 {uint.Parse(fields[1])/1024.0:F1} KiB · 缓冲读取 {fields[4]} ms · 数据复制 {fields[5]} ms · 接收唤醒最长 {wake}");
+                }
+                continue;
+            }
             if(fields.Length>=4) {
                 string direction=fields[1]=="up"?"上传":"下载";
                 if(fields.Length>=6&&long.TryParse(fields[3],out long bytes)&&long.TryParse(fields[4],out long ms)) {
@@ -70,6 +123,7 @@ internal sealed partial class Tab5Service
             _wifiPowerDiagnostic=reply.RootElement.TryGetProperty("wifiPower",out var power)?power.GetString()??"invalid":"unsupported";
             _bleOtaProbeSupported=reply.RootElement.TryGetProperty("bleOtaProbe",out var probe)&&probe.ValueKind==JsonValueKind.True;
             _bleFirmwareProbeSupported=reply.RootElement.TryGetProperty("bleFirmwareProbe",out var firmware)&&firmware.ValueKind==JsonValueKind.True;
+            _gallerySpeedSupported=reply.RootElement.TryGetProperty("gallerySpeed",out var gallery)&&gallery.ValueKind==JsonValueKind.True;
             _bleOtaIsolationSupported=reply.RootElement.TryGetProperty("bleOtaProbeIsolation",out var isolation)&&isolation.ValueKind==JsonValueKind.True;
             _bleRadioDiagnostic=NumericProbeDiagnostic(reply.RootElement,"bleRadio",16);
             _wifiIsolationDiagnostic=NumericProbeDiagnostic(reply.RootElement,"wifiIsolation",7);
@@ -84,6 +138,31 @@ internal sealed partial class Tab5Service
             try{return await read(token);}
             catch(IOException) when(attempt<3&&!token.IsCancellationRequested) {await Task.Delay(250,token);}
             catch(TimeoutException) when(attempt<3&&!token.IsCancellationRequested) {await Task.Delay(250,token);}
+        }
+    }
+    internal async Task<string> GalleryBenchmarkAsync(Action<string> progress,CancellationToken token) {
+        if(Busy||Interlocked.CompareExchange(ref _benchmarkRunning,2,0)!=0)throw new InvalidOperationException("请等待当前操作结束后测速。");
+        Volatile.Write(ref _galleryHostProfile,new Tab5GalleryHostProfile());
+        bool started=false;
+        using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromMinutes(4));
+        try {
+            await BenchmarkCommandAsync("gallery_status",deadline.Token);
+            if(!_gallerySpeedSupported)throw new NotSupportedException("图库同步测速需要先安装 0.2.182-ui 或更新固件。");
+            started=true; // A lost start reply must still trigger cancellation, never a second start.
+            string result=await BenchmarkCommandAsync("gallery_start",deadline.Token);
+            while(true) {
+                _benchmarkDiagnostic=result;progress(result);
+                if(!result.StartsWith("running;",StringComparison.Ordinal))return result;
+                await Task.Delay(1000,deadline.Token);
+                result=await ReadBenchmarkStatusAsync(ct=>BenchmarkCommandAsync("gallery_status",ct),deadline.Token);
+            }
+        }finally {
+            if(started) {
+                using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                try{_benchmarkDiagnostic=await BenchmarkCommandAsync("gallery_cancel",stop.Token);}
+                catch(Exception ex) when(ex is IOException or OperationCanceledException or InvalidOperationException or TimeoutException){_benchmarkDiagnostic="停止请求未确认；设备将在本次测速时限内结束。";}
+            }
+            Interlocked.Exchange(ref _benchmarkRunning,0);
         }
     }
     internal async Task<string> BenchmarkAsync(Action<string> progress,CancellationToken token,bool bleOtaProbe=false,bool isolateWifi=false,bool compareQueue=false,bool firmwareProbe=false) {

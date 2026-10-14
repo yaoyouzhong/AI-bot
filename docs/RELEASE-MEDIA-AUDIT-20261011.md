@@ -13,7 +13,7 @@
 
 截图来自生产 WinForms／LVGL 的隔离演示数据，不是硬件照片。图库窗口使用正式版元数据夹具，不导入或下载新图库。固件升级截图读取本版实际 sidecar，旧的当前版本标签属于夹具，不作为实机版本或跨分区兼容证明。Windows／Mac 新包构建测试与独立设备验收分别记录；Apple Music 实际播放和 ESP8266 .5.2 实机验收仍待完成。
 
-本次视频更新保留 108 秒时长、产品风格和原创配乐，并按新分镜重新对位 28 个动作音效。已读、计时和音乐进度使用实际原生 UI 逻辑的隔离状态；封面使用新的昼夜环。新图库不纳入影片。细节和可复现工程见 [产品介绍视频](PRODUCT_VIDEO.md)。
+本次视频更新保留 108 秒时长、产品风格和原创配乐，并按新分镜重新对位 28 个动作音效。已读、计时和音乐进度使用实际原生 UI 逻辑的隔离状态；原刷新封面使用昼夜环，随后本地修正为大小屏 Codex 周额度对比；线上视频附件尚未替换。新图库不纳入影片。细节和可复现工程见 [产品介绍视频](PRODUCT_VIDEO.md)。
 
 All 87 public screenshots were visually reviewed and their registered fingerprints checked. Forty-two changed captures are refreshed; forty-five unchanged or historical captures are retained. Current descriptions, installation routes, developer-source identities and acceptance limits are synchronized. The updated 108-second, 14-shot film covers new clock faces, separate timer/date-countdown functions, read synchronization and navigation, and refreshes music, collection management and setup/update scenes. All three cover ratios, the native homepage player, MP4 identity and references are synchronized; unchanged footage retains its provenance. No new collection is released.
 
@@ -61,3 +61,9 @@ All 87 public screenshots were visually reviewed and their registered fingerprin
 - `docs/assets/screens/tab5-usb-pairing.png`
 - `docs/assets/screens/update-center.png`
 - `docs/assets/screens/weather-settings.png`
+
+## 本地同功能对比修正 / Local same-function correction
+
+开场和三种封面均恢复 Codex Pro 周额度 88%／5d 14h 的双设备对比，昼夜环仍在 48–57 秒。完整导出及解码、216 张联系帧、转场和封面复核通过；GitHub 不可变视频附件仍为原版，本地材料未推送。
+
+Local opening/covers now compare Codex Pro weekly quota on both devices, retaining the solar ring in its clock scene. Complete export/decode and contact/transition/cover review passed. The existing GitHub video attachment remains unchanged; this correction is not pushed.

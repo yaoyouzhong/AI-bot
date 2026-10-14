@@ -1,9 +1,84 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 namespace AIBotBridge;
 internal static class Tab5BleTransferSelfTest
 {
     internal static async Task RunAsync()
     {
+        using(var cancel=new CancellationTokenSource(TimeSpan.FromSeconds(5))) {
+            int reads=0,checks=0;bool usbOwns=true;
+            var parked=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var resumed=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var idle=new Tab5BleVoice(_=>{Interlocked.Increment(ref reads);resumed.TrySetResult();return Task.FromResult(new byte[8]);},
+                (_,_)=>Task.CompletedTask,(_,_,_,_)=>throw new Exception("Idle mailbox invoked handler"),517);
+            var pump=Tab5BleClient.PumpVoiceAsync(idle,"voice",cancel.Token,idleStandby:()=>{
+                if(Interlocked.Increment(ref checks)>=2)parked.TrySetResult();return Volatile.Read(ref usbOwns);
+            });
+            await parked.Task.WaitAsync(cancel.Token);
+            if(Volatile.Read(ref reads)!=0)throw new Exception("USB standby performed an idle ATT read");
+            Volatile.Write(ref usbOwns,false);await resumed.Task.WaitAsync(cancel.Token);cancel.Cancel();
+            try{await pump;}catch(OperationCanceledException){}
+        }
+        using(var cancel=new CancellationTokenSource(TimeSpan.FromSeconds(5))) {
+            bool usbOwns=false;int written=0;
+            var handling=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var parked=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var request=new byte[132];request[0]=1;request[6]=124;
+            var active=new Tab5BleVoice(_=>Task.FromResult(request), (packet,_)=>{written+=packet.Length-9;return Task.CompletedTask;},
+                async (_,_,_,ct)=>{handling.SetResult();await release.Task.WaitAsync(ct);return (200,new byte[28]);},517);
+            var pump=Tab5BleClient.PumpVoiceAsync(active,"RPC",cancel.Token,idleStandby:()=>{
+                if(Volatile.Read(ref usbOwns))parked.TrySetResult();return Volatile.Read(ref usbOwns);
+            });
+            await handling.Task.WaitAsync(cancel.Token);Volatile.Write(ref usbOwns,true);release.SetResult();
+            await parked.Task.WaitAsync(cancel.Token);
+            if(active.CompletedCount!=1||written!=28)throw new Exception("USB standby interrupted an in-flight BLE response");
+            cancel.Cancel();try{await pump;}catch(OperationCanceledException){}
+        }
+        Console.WriteLine("BLE_MAILBOX_STANDBY_OK zero idle ATT reads under USB; fallback resumes; active response drains before parking");
+        foreach(var test in new[]{(9000L,9000L,"USB","已连接 · USB 优先待命",true),(0L,9000L,"USB","已连接 · USB 优先待命",false),(9000L,4000L,"USB","已连接 · USB 优先待命",false),(9000L,11000L,"USB","已连接 · USB 优先待命",false),(9000L,9000L,"BLE","已连接 · USB 优先待命",false),(9000L,9000L,"USB","正在寻找已配对 TAB5",false)})
+            if(Tab5BleClient.ReportStandby(10000,test.Item1,test.Item2,test.Item3,test.Item4)!=test.Item5)throw new Exception("Standby display must require fresh USB and a live authenticated BLE session");
+        // A standby connection must remain authenticated, and lose standby
+        // immediately when the already-ACKed USB state is stale or not active.
+        foreach(var test in new[]{(10000L,9000L,"USB",true),(15000L,9000L,"USB",false),(10000L,0L,"USB",false),(10000L,11000L,"USB",false),(10000L,9000L,"BLE",false),(10000L,9000L,"Wi-Fi",false),(10000L,9000L,"",false)})
+            if(Tab5BleClient.UsbOwnsActiveState(test.Item1,test.Item2,test.Item3)!=test.Item4)throw new Exception("BLE standby masked stale USB or the user's selected transport");
+        byte[] standbyKey=new byte[32];string standbyNonce=new('a',32);
+        var standbyPair=new Tab5Pairing("001122334455","fixture",Convert.ToBase64String(standbyKey));
+        JsonDocument Info(string id,string nonce,string proof)=>JsonDocument.Parse(JsonSerializer.Serialize(new{deviceId=id,nonce,ack=42,proof}));
+        using(var valid=Info(standbyPair.DeviceId,standbyNonce,Tab5Protocol.Proof(standbyKey,standbyNonce+"|42")))
+            if(!Tab5BleClient.AuthenticateStandby(valid.RootElement,standbyPair,standbyNonce))throw new Exception("Authenticated standby connection rejected");
+        foreach(var test in new[]{(standbyPair.DeviceId,new string('b',32),false),("998877665544",standbyNonce,false),(standbyPair.DeviceId,standbyNonce,true)}) {
+            using var invalid=Info(test.Item1,test.Item2,test.Item3?new string('0',64):Tab5Protocol.Proof(standbyKey,test.Item2+"|42"));
+            if(Tab5BleClient.AuthenticateStandby(invalid.RootElement,standbyPair,standbyNonce))throw new Exception("Standby accepted a changed nonce, wrong identity or forged proof");
+        }
+        using(var gate=new SemaphoreSlim(1,1)) {
+            // An in-progress RPC owns ATT. Keeping an already authenticated
+            // standby session must not queue any idle ATT work behind it.
+            await gate.WaitAsync();bool usbActive=true;int confirmations=0;
+            for(int i=0;i<600;i++)if(!Tab5BleClient.KeepAuthenticatedStandby(()=>usbActive,()=>true,()=>confirmations++))throw new Exception("Live standby session lost");
+            if(gate.CurrentCount!=0||confirmations!=600)throw new Exception("Standby touched the busy ATT gate");
+            usbActive=false;
+            if(Tab5BleClient.KeepAuthenticatedStandby(()=>usbActive,()=>throw new Exception("Stale USB should fall back"),()=>confirmations++))throw new Exception("Standby masked USB disappearance");
+            gate.Release();
+            int catalogs=0;
+            if(!await Tab5BleClient.SendTelemetryAsync(gate,()=>false,()=>{catalogs++;return Task.FromResult(true);},CancellationToken.None)||catalogs!=1)throw new Exception("BLE fallback suppressed its state frame");
+            try{Tab5BleClient.KeepAuthenticatedStandby(()=>true,()=>false,()=>confirmations++);throw new Exception("Disconnected standby session accepted");}catch(IOException){}
+            if(confirmations!=600||gate.CurrentCount!=1)throw new Exception("Failed standby acknowledged data or retained ATT ownership");
+        }
+        Console.WriteLine("TAB5_BLE_STANDBY_OK authenticated session; 600 busy-ATT standby checks without extra reads; physical disconnect rejected; no stale/forced-link standby; signed full-state fallback retained");
+        using(var gate=new SemaphoreSlim(1,1)) {
+            int frames=0;
+            for(long now=0;now<=180000;now+=1000) {
+                if(await Tab5BleClient.SendTelemetryAsync(gate,()=>Tab5BleClient.DeferTelemetry(now,0,false,true,true),()=>{frames++;return Task.FromResult(true);},CancellationToken.None))
+                    throw new Exception("Long USB gallery test started a competing BLE status frame");
+            }
+            if(frames!=0||!await Tab5BleClient.SendTelemetryAsync(gate,()=>Tab5BleClient.DeferTelemetry(180001,0,false,true,false),()=>{frames++;return Task.FromResult(true);},CancellationToken.None)||frames!=1)
+                throw new Exception("Expired USB ownership did not restore BLE fallback");
+            await gate.WaitAsync();bool usbOwns=false;
+            var queued=Tab5BleClient.SendTelemetryAsync(gate,()=>Tab5BleClient.DeferTelemetry(200000,0,false,false,usbOwns),()=>{frames++;return Task.FromResult(true);},CancellationToken.None);
+            usbOwns=true;gate.Release();
+            if(await queued||frames!=1)throw new Exception("BLE status ignored USB ownership acquired while awaiting ATT");
+        }
         // A photo spanning several RPC chunks should keep telemetry out of
         // inter-chunk gaps, while a long/stuck upload must retain fresh status.
         long lastTelemetry=0,maxGap=0;int updatesDuringPhoto=0,updatesDuringLongUpload=0;

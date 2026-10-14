@@ -1,5 +1,14 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-12：新增 TAB5 独立「存储与缓存」画面，来自 .178 源码的原生 LVGL 隔离预览。卡已就绪、设备缓存为演示状态，不代表实卡验收；原始捕获及 SHA-256 保留。最终升级与新图库的画面另在本次发布记录核验。
+
+2026-10-12: Added the independent TAB5 Storage & Cache screen from the .178 native LVGL fixture. Ready card status and the default device cache are demonstration data, not hardware acceptance. The capture and SHA-256 are retained; final firmware and collection captures are verified in this release record.
+
+2026-10-11 本地宣传素材修正：开场与三种封面恢复大小屏 Codex 周额度对比，保留新表盘专属镜头；未推送或替换 GitHub 视频附件。原生界面来源沿用，新的媒体 SHA-256 已登记，见 [修正说明](PRODUCT_VIDEO.md#本地对比修正--local-comparison-correction)。
+
+2026-10-11 local media correction restores same-function Codex weekly-quota comparison in the opening and three covers, retaining the dedicated clock scene. Native provenance remains unchanged and replacement media hashes are registered; nothing has been pushed or uploaded.
+
+
 2026-10-11：桥接 0.6.5／TAB5 .176 发布选择性更新时钟表盘、绿色液晶、昼夜环、倒计时、显示模式及 Codex 返回标题画面，来自本次源码的原生 LVGL 演示捕获，非硬件实拍。宣传视频和三种比例封面同步刷新；现有图库仍为正式 2026.10.09 内容。实际功能范围及待验收项见 [发布说明](RELEASE-0.6.5.md)。图片逐张复核，并登记 SHA-256。
 
 2026-10-11: Selectively refreshed native LVGL clock faces, green LCD, solar ring, countdown, display modes and Codex navigation/title captures for bridge 0.6.5 / TAB5 .176. These use fixtures, not hardware photography. The film and all three cover ratios are refreshed; artwork remains the published 2026.10.09 edition. See the release record for acceptance boundaries. Captures are visually reviewed and hash-registered.

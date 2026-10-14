@@ -1,6 +1,7 @@
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Storage.Streams;
+using System.Runtime.InteropServices;
 
 namespace AIBotBridge;
 
@@ -9,21 +10,22 @@ internal sealed class Tab5BleGattMailbox : IDisposable
     private readonly GattCharacteristic _endpoint;
     private readonly bool _subscribed;
     private readonly SemaphoreSlim _gate;
+    private readonly int _mtu;
     private long _queuedMs;
     private long _notifyStarted,_notifyLast,_notifyCount,_notifyMaxGap;
-    private long _readMs,_commandCount,_commandMs,_ackCount,_ackMs,_batchCount,_batchMs,_queuedBatches;
+    private long _readMs,_commandCount,_commandMs,_ackCount,_ackMs,_batchCount,_batchMs,_queuedBatches,_confirmedBatches,_recoverableBatches,_replayedBatches;
     private long _nativeLimit,_writeWindow;
     internal long QueuedMilliseconds=>Interlocked.Read(ref _queuedMs);
     internal Tab5BleGattTiming WriteTiming=>new(Interlocked.Read(ref _readMs),Interlocked.Read(ref _commandCount),Interlocked.Read(ref _commandMs),Interlocked.Read(ref _ackCount),Interlocked.Read(ref _ackMs),Interlocked.Read(ref _batchCount),Interlocked.Read(ref _batchMs),Interlocked.Read(ref _queuedBatches),Interlocked.Read(ref _nativeLimit),Interlocked.Read(ref _writeWindow));
-    internal string ReceiveDiagnostic=>$"notifyCount={Interlocked.Read(ref _notifyCount)}; notifySpan={Math.Max(0,Interlocked.Read(ref _notifyLast)-Interlocked.Read(ref _notifyStarted))}ms; notifyMaxGap={Interlocked.Read(ref _notifyMaxGap)}ms; readMs={Interlocked.Read(ref _readMs)}; commandCount={Interlocked.Read(ref _commandCount)}; commandWaitSumMs={Interlocked.Read(ref _commandMs)}; ackCount={Interlocked.Read(ref _ackCount)}; ackWaitSumMs={Interlocked.Read(ref _ackMs)}; batches={Interlocked.Read(ref _batchCount)}; batchWallMs={Interlocked.Read(ref _batchMs)}; queuedBatches={Interlocked.Read(ref _queuedBatches)}";
+    internal string ReceiveDiagnostic=>$"notifyCount={Interlocked.Read(ref _notifyCount)}; notifySpan={Math.Max(0,Interlocked.Read(ref _notifyLast)-Interlocked.Read(ref _notifyStarted))}ms; notifyMaxGap={Interlocked.Read(ref _notifyMaxGap)}ms; readMs={Interlocked.Read(ref _readMs)}; commandCount={Interlocked.Read(ref _commandCount)}; commandWaitSumMs={Interlocked.Read(ref _commandMs)}; ackCount={Interlocked.Read(ref _ackCount)}; ackWaitSumMs={Interlocked.Read(ref _ackMs)}; batches={Interlocked.Read(ref _batchCount)}; batchWallMs={Interlocked.Read(ref _batchMs)}; queuedBatches={Interlocked.Read(ref _queuedBatches)}; confirmedBatches={Interlocked.Read(ref _confirmedBatches)}; recoverableBatches={Interlocked.Read(ref _recoverableBatches)}; replayedBatches={Interlocked.Read(ref _replayedBatches)}";
     internal Tab5BleMailboxWindow Window {get;}
-    private Tab5BleGattMailbox(GattCharacteristic endpoint,int mtu,bool notifications,int credits,SemaphoreSlim gate,int notifyCredits=0,bool queueBulkResponses=false,int bulkWriteCredits=0,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null) {
-        _endpoint=endpoint;_subscribed=notifications;_gate=gate;
+    private Tab5BleGattMailbox(GattCharacteristic endpoint,int mtu,bool notifications,int credits,SemaphoreSlim gate,int notifyCredits=0,bool queueBulkResponses=false,int bulkWriteCredits=0,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Func<bool>? queueComparisonActive=null,bool responseReplay=false) {
+        _endpoint=endpoint;_subscribed=notifications;_gate=gate;_mtu=mtu;
         Window=new Tab5BleMailboxWindow(ct=>SerializedAsync(async ()=> {
             ResetWriteTiming();long started=Environment.TickCount64;
             var result=await endpoint.ReadValueAsync(BluetoothCacheMode.Uncached).AsTask(ct);
             Interlocked.Exchange(ref _readMs,Environment.TickCount64-started);
-            if(result.Status!=GattCommunicationStatus.Success||result.Value.Length>488)throw new IOException("BLE mailbox read failed");
+            if(result.Status!=GattCommunicationStatus.Success||result.Value.Length>488)throw new IOException($"BLE mailbox read failed: status={result.Status}; protocol={result.ProtocolError?.ToString("X2")??"none"}; bytes={result.Value?.Length??0}");
             using var reader=DataReader.FromBuffer(result.Value);var bytes=new byte[result.Value.Length];reader.ReadBytes(bytes);
             Interlocked.Exchange(ref _notifyStarted,0);Interlocked.Exchange(ref _notifyLast,0);
             Interlocked.Exchange(ref _notifyCount,0);Interlocked.Exchange(ref _notifyMaxGap,0);
@@ -32,8 +34,11 @@ internal sealed class Tab5BleGattMailbox : IDisposable
         notifications,endpoint.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse),mtu,credits,
         (packets,ct)=>SerializedAsync(async ()=> {
             long started=Environment.TickCount64;
-            bool queued=queueBulkResponses&&packets.Count<=64&&packets[0].Length>9&&
+            bool bulk=queueBulkResponses&&packets.Count<=64&&packets[0].Length>9&&
                 System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(packets[0].AsSpan(7))>12288;
+            // Only an explicitly requested parameter comparison uses commands.
+            // Normal bulk replies wait for peer acceptance of every fragment.
+            bool queued=bulk&&(queueComparisonActive?.Invoke()??false);
             Interlocked.Increment(ref _batchCount);if(queued)Interlocked.Increment(ref _queuedBatches);
             try {
                 if(queued) {
@@ -41,6 +46,16 @@ internal sealed class Tab5BleGattMailbox : IDisposable
                     Interlocked.Exchange(ref _nativeLimit,Math.Max(Interlocked.Read(ref _nativeLimit),limit));
                     Interlocked.Exchange(ref _writeWindow,Window!.ActiveWriteCredits);
                     await Tab5BleMailboxWindow.WriteBatchQueuedAsync(packets,WriteAsync,ct,limit);
+                }
+                else if(bulk&&responseReplay) {
+                    Interlocked.Increment(ref _recoverableBatches);
+                    Interlocked.Exchange(ref _nativeLimit,1);Interlocked.Exchange(ref _writeWindow,Window!.ActiveWriteCredits);
+                    if(await Tab5BleMailboxWindow.WriteBatchRecoverableAsync(packets,WriteAsync,ct))Interlocked.Increment(ref _replayedBatches);
+                }
+                else if(bulk) {
+                    Interlocked.Increment(ref _confirmedBatches);
+                    Interlocked.Exchange(ref _nativeLimit,1);Interlocked.Exchange(ref _writeWindow,1);
+                    await Tab5BleMailboxWindow.WriteBatchConfirmedAsync(packets,WriteAsync,ct);
                 }
                 else await Tab5BleMailboxWindow.WriteBatchOrderedAsync(packets,WriteAsync,ct);
                 return true;
@@ -51,6 +66,8 @@ internal sealed class Tab5BleGattMailbox : IDisposable
         Interlocked.Exchange(ref _commandCount,0);Interlocked.Exchange(ref _commandMs,0);
         Interlocked.Exchange(ref _ackCount,0);Interlocked.Exchange(ref _ackMs,0);
         Interlocked.Exchange(ref _batchCount,0);Interlocked.Exchange(ref _batchMs,0);Interlocked.Exchange(ref _queuedBatches,0);
+        Interlocked.Exchange(ref _confirmedBatches,0);
+        Interlocked.Exchange(ref _recoverableBatches,0);Interlocked.Exchange(ref _replayedBatches,0);
         Interlocked.Exchange(ref _nativeLimit,0);
         Interlocked.Exchange(ref _writeWindow,0);
     }
@@ -62,24 +79,35 @@ internal sealed class Tab5BleGattMailbox : IDisposable
     private async Task WriteAsync(byte[] bytes,bool acknowledged,CancellationToken token) {
         using var writer=new DataWriter();writer.WriteBytes(bytes);
         long started=Environment.TickCount64;
+        GattCommunicationStatus? status=null;byte? protocol=null;
         try {
             // No await before native submission: the bounded batch relies on
             // invocation order, while the device still rejects cursor gaps.
-            if(await _endpoint.WriteValueAsync(writer.DetachBuffer(),acknowledged?GattWriteOption.WriteWithResponse:GattWriteOption.WriteWithoutResponse).AsTask(token)!=GattCommunicationStatus.Success)
+            var result=await _endpoint.WriteValueWithResultAsync(writer.DetachBuffer(),acknowledged?GattWriteOption.WriteWithResponse:GattWriteOption.WriteWithoutResponse).AsTask(token);
+            status=result.Status;protocol=result.ProtocolError;
+            if(status!=GattCommunicationStatus.Success)
                 throw new IOException("BLE mailbox write failed");
+        }catch(Exception ex) when(ex is COMException or IOException) {
+            // Record framing only, never encrypted payload, nonce or proof.
+            // A queued batch's outer cursor identifies its last submission,
+            // so preserve the exact native operation that actually failed.
+            string fragment=bytes.Length>9&&bytes[0]==2
+                ?$"offset={System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(5))}; total={System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(7))}"
+                :$"opcode={(bytes.Length>0?bytes[0]:-1)}";
+            throw new Tab5BleMailboxWriteException($"BLE mailbox write failed; {fragment}; bytes={bytes.Length}; acknowledged={acknowledged}; mtu={_mtu}; operationMs={Environment.TickCount64-started}; status={status?.ToString()??"no-result"}; protocol={protocol?.ToString("X2")??"none"}; native=0x{ex.HResult:X8}",ex,protocol);
         }finally {
             if(acknowledged){Interlocked.Increment(ref _ackCount);Interlocked.Add(ref _ackMs,Environment.TickCount64-started);}
             else{Interlocked.Increment(ref _commandCount);Interlocked.Add(ref _commandMs,Environment.TickCount64-started);}
         }
     }
-    internal static async Task<Tab5BleGattMailbox> CreateAsync(GattCharacteristic endpoint,int mtu,CancellationToken token,SemaphoreSlim gate,int credits=4,int notifyCredits=0,bool queueBulkResponses=false,int bulkWriteCredits=0,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null) {
-        if(!endpoint.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))return new(endpoint,mtu,false,credits,gate,notifyCredits,queueBulkResponses,bulkWriteCredits,nativeLimit,bulkWriteLimit);
-        var adapter=new Tab5BleGattMailbox(endpoint,mtu,true,credits,gate,notifyCredits,queueBulkResponses,bulkWriteCredits,nativeLimit,bulkWriteLimit);
+    internal static async Task<Tab5BleGattMailbox> CreateAsync(GattCharacteristic endpoint,int mtu,CancellationToken token,SemaphoreSlim gate,int credits=4,int notifyCredits=0,bool queueBulkResponses=false,int bulkWriteCredits=0,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Func<bool>? queueComparisonActive=null,bool responseReplay=false) {
+        if(!endpoint.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))return new(endpoint,mtu,false,credits,gate,notifyCredits,queueBulkResponses,bulkWriteCredits,nativeLimit,bulkWriteLimit,queueComparisonActive,responseReplay);
+        var adapter=new Tab5BleGattMailbox(endpoint,mtu,true,credits,gate,notifyCredits,queueBulkResponses,bulkWriteCredits,nativeLimit,bulkWriteLimit,queueComparisonActive,responseReplay);
         endpoint.ValueChanged+=adapter.Changed;
         try {
             if(await endpoint.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.Notify).AsTask(token)==GattCommunicationStatus.Success)return adapter;
         }catch {adapter.Dispose();throw;}
-        adapter.Dispose();return new(endpoint,mtu,false,credits,gate,notifyCredits,queueBulkResponses,bulkWriteCredits,nativeLimit,bulkWriteLimit); // unsupported CCCD retains legacy reads
+        adapter.Dispose();return new(endpoint,mtu,false,credits,gate,notifyCredits,queueBulkResponses,bulkWriteCredits,nativeLimit,bulkWriteLimit,queueComparisonActive,responseReplay); // unsupported CCCD retains legacy reads
     }
     private void Changed(GattCharacteristic sender,GattValueChangedEventArgs args) {
         long now=Environment.TickCount64,previous=Interlocked.Exchange(ref _notifyLast,now);

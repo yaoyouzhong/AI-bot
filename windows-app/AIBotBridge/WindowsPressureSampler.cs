@@ -22,7 +22,13 @@ internal sealed class WindowsPressureSampler : IDisposable
         }
         var memory=new MemoryStatus {Length=(uint)Marshal.SizeOf<MemoryStatus>()};
         long? free=GlobalMemoryStatusEx(ref memory)?(long)(memory.AvailablePhysical/1048576):null;
-        return new(Read(0),Read(1),Read(2)*1000,Read(3),free,Environment.ProcessorCount,now);
+        var performance=new PerformanceInformation{Size=(uint)Marshal.SizeOf<PerformanceInformation>()};
+        bool commit=GetPerformanceInfo(ref performance,performance.Size)&&performance.CommitLimit>0&&performance.PageSize>0;
+        return new(Read(0),Read(1),Read(2)*1000,Read(3),free,Environment.ProcessorCount,now) {
+            CommitPercent=commit?Math.Round((double)performance.CommitTotal/performance.CommitLimit*100,1):null,
+            CommittedMemoryMb=commit?(long)((double)performance.CommitTotal*performance.PageSize/1048576):null,
+            CommitLimitMb=commit?(long)((double)performance.CommitLimit*performance.PageSize/1048576):null
+        };
     }
     public void Dispose(){if(_query!=IntPtr.Zero){PdhCloseQuery(_query);_query=IntPtr.Zero;}}
     [StructLayout(LayoutKind.Explicit,Size=16)] private struct CounterValue {
@@ -31,6 +37,12 @@ internal sealed class WindowsPressureSampler : IDisposable
     [StructLayout(LayoutKind.Sequential)]private struct MemoryStatus {
         internal uint Length,Load;internal ulong TotalPhysical,AvailablePhysical,TotalPageFile,AvailablePageFile,TotalVirtual,AvailableVirtual,AvailableExtendedVirtual;
     }
+    [StructLayout(LayoutKind.Sequential)]private struct PerformanceInformation {
+        internal uint Size;
+        internal nuint CommitTotal,CommitLimit,CommitPeak,PhysicalTotal,PhysicalAvailable,SystemCache,KernelTotal,KernelPaged,KernelNonpaged,PageSize;
+        internal uint HandleCount,ProcessCount,ThreadCount;
+    }
+    [DllImport("psapi.dll")][return:MarshalAs(UnmanagedType.Bool)]private static extern bool GetPerformanceInfo(ref PerformanceInformation value,uint size);
     [DllImport("pdh.dll",EntryPoint="PdhOpenQueryW",CharSet=CharSet.Unicode)]private static extern uint PdhOpenQuery(string? source,UIntPtr data,out IntPtr query);
     [DllImport("pdh.dll",EntryPoint="PdhAddEnglishCounterW",CharSet=CharSet.Unicode)]private static extern uint PdhAddEnglishCounter(IntPtr query,string path,UIntPtr data,out IntPtr counter);
     [DllImport("pdh.dll")]private static extern uint PdhCollectQueryData(IntPtr query);

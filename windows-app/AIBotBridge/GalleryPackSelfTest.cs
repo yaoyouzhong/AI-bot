@@ -5,6 +5,61 @@ using System.Text.Json;
 namespace AIBotBridge;
 internal static class GalleryPackSelfTest
 {
+    internal static void RunAnnualPack(string archive,string output) {
+        Directory.CreateDirectory(output);
+        var installed=GalleryPack.Install(archive);var gallery=new Tab5Gallery();
+        if(installed.Category!="calligraphy"||installed.Works!=366)throw new Exception("Annual pack must contain exactly 366 independent calligraphy works");
+        var catalog=gallery.Browse("calligraphy");
+        string directory=Path.Combine(GalleryPack.Root,"calligraphy");
+        using var document=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(directory,"guides.zh.json")));
+        var rows=document.RootElement.GetProperty("works").EnumerateArray().ToDictionary(row=>row.GetProperty("id").GetString()!,StringComparer.Ordinal);
+        var proof=new List<object>();var native=new List<object>();int images=0;
+        JsonElement Body((int Status,object Body) reply) {
+            if(reply.Status!=200)throw new Exception("Annual gallery request failed: "+reply.Status);
+            return JsonSerializer.SerializeToElement(reply.Body,Tab5ArtGuides.WireOptions);
+        }
+        for(int day=0;day<catalog.Works.Length;day++) {
+            var work=catalog.Works[day];string date=new DateOnly(2026,1,1).AddDays(day).ToString("yyyy-MM-dd");
+            var original=rows[work.Id].GetProperty("transcription");
+            string text=original.TryGetProperty("completeReferenceText",out var full)?full.GetString()!:original.GetProperty("text").GetString()!;
+            bool reviewed=original.GetProperty("status").GetString() is "source_verified" or "reference_verified";
+            if(!reviewed)text="";
+            var local=gallery.BrowsePage("calligraphy",work.Id,0);
+            if(local.Guide?.Transcription!=text)throw new Exception("Windows browser lost complete original: "+work.Id);
+            foreach(string orientation in new[]{"landscape","portrait"})for(int frame=0;frame<work.Frames.Length;frame++) {
+                var manifest=Body(gallery.Handle(JsonSerializer.SerializeToElement(new{op="manifest",category="calligraphy",date,orientation,frame,includeGuide=true,guideVersion=3}),true,true));
+                if(manifest.GetProperty("id").GetString()!=work.Id||manifest.GetProperty("orientation").GetString()!=orientation)throw new Exception("Annual frame identity/orientation mismatch");
+                if(JsonSerializer.SerializeToUtf8Bytes(new{status=200,body=manifest},Tab5ArtGuides.WireOptions).Length>16384)throw new Exception("Annual manifest exceeds wire budget");
+                var image=gallery.Handle(JsonSerializer.SerializeToElement(new{op="read",category="calligraphy",date,orientation,frame,sha256=manifest.GetProperty("sha256").GetString(),offset=0,count=49152}),true,true);
+                if(image.Status!=200||image.Body is not Tab5RpcDataBody)throw new Exception("Annual image transport unavailable");images++;
+            }
+            if(Encoding.UTF8.GetByteCount(text)<8192)continue;
+            foreach(int version in new[]{1,2}) {
+                var legacy=Body(gallery.Handle(JsonSerializer.SerializeToElement(new{op="manifest",category="calligraphy",date,includeGuide=true,guideVersion=version}),true,true));
+                if(!legacy.GetProperty("guide").GetProperty("transcription").GetString()!.Contains("当前设备版本")||legacy.GetProperty("guide").GetProperty("explanation").GetString()!="")throw new Exception("Legacy reader received excerpt labelled as complete text");
+            }
+            var first=Body(gallery.Handle(JsonSerializer.SerializeToElement(new{op="manifest",category="calligraphy",date,includeGuide=true,guideVersion=3}),true,true)).GetProperty("guide");
+            int count=first.GetProperty("transcriptionPages").GetInt32();string sha=first.GetProperty("transcriptionSha256").GetString()!;
+            var pages=new List<JsonElement>();var rebuilt=new StringBuilder();
+            for(int page=0;page<count;page++) {
+                var reply=gallery.Handle(JsonSerializer.SerializeToElement(new{op="guidePage",category="calligraphy",date,workId=work.WorkId,sha256=sha,page}),true,true);
+                var body=Body(reply);string part=body.GetProperty("text").GetString()!;
+                if(body.GetProperty("page").GetInt32()!=page||body.GetProperty("pages").GetInt32()!=count||body.GetProperty("pageSha256").GetString()!=Tab5ArtGuides.TextHash(part)||Encoding.UTF8.GetByteCount(part)>4095||JsonSerializer.SerializeToUtf8Bytes(new{status=200,body},Tab5ArtGuides.WireOptions).Length>8192)throw new Exception("Invalid bounded original page");
+                pages.Add(body.Clone());rebuilt.Append(part);
+            }
+            if(rebuilt.ToString()!=text||sha!=Tab5ArtGuides.TextHash(text)||first.GetProperty("transcription").GetString()!=pages[0].GetProperty("text").GetString())throw new Exception("Complete original page assembly changed text");
+            foreach(var invalid in new[]{new{workId=work.WorkId,sha256=new string('0',64),page=0},new{workId=(string?)"unrelated",sha256=sha,page=0},new{workId=work.WorkId,sha256=sha,page=count},new{workId=work.WorkId,sha256=sha,page=-1}}) {
+                int status=gallery.Handle(JsonSerializer.SerializeToElement(new{op="guidePage",category="calligraphy",date,invalid.workId,invalid.sha256,invalid.page}),true,true).Status;
+                if(status is not (400 or 409))throw new Exception("Invalid/stale original page accepted");
+            }
+            proof.Add(new{work.Id,bytes=Encoding.UTF8.GetByteCount(text),pages=count,sha256=sha,legacyUpgradeNotice=true});
+            native.Add(new{work.Id,date,guide=first,pages,fullText=text});
+        }
+        if(proof.Count!=7)throw new Exception("Annual pack must expose all seven complete long originals");
+        File.WriteAllBytes(Path.Combine(output,"native-long-readers.json"),JsonSerializer.SerializeToUtf8Bytes(native,Tab5ArtGuides.WireOptions));
+        File.WriteAllBytes(Path.Combine(output,"annual-pack-verification.json"),JsonSerializer.SerializeToUtf8Bytes(new{works=366,images,longOriginals=proof,isolatedProfile=true},Tab5ArtGuides.WireOptions));
+        Console.WriteLine($"ANNUAL_CALLIGRAPHY_PACK_OK works=366 images={images} longOriginals=7; production isolated install; full Windows text, v1/v2 notice, bounded v3 pages, exact reassembly SHA-256 and invalid/stale requests rejected");
+    }
     internal static void RunGuidePackages(params string[] archives) {
         var gallery=new Tab5Gallery();
         foreach(string archive in archives) {

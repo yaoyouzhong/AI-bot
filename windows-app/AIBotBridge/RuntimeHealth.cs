@@ -18,18 +18,27 @@ internal sealed record RuntimeHealthCheck(string Key,string Label,string State,s
 {
     public double? LastSuccessfulLatencyMs {get;init;}
     public DateTimeOffset? LastSuccessfulAt {get;init;}
+    public bool HandledExternally {get;init;}
 }
 internal sealed record RuntimeHealthAlert(string Id,string Key,string State,string Title,string Advice,DateTimeOffset Since)
 {
+    public bool HandledExternally {get;init;}
     public string ShortAdvice=>Key switch {
         "pac"=>Advice.Contains("重启")?"建议重启 VPN 客户端":"检查 PAC 规则",
         "vpn"=>Title=="目标响应异常"?"检查目标服务":"检查或更换节点",
-        "memory"=>"检查内存占用","disk"=>"检查磁盘读写","cpu" or "queue"=>"减少并行任务",_=>"检查监控设置"
+        "memory"=>"检查内存占用","disk"=>"检查磁盘读写","cpu" or "queue"=>"减少并行任务",
+        "codex"=>Title.Contains("登录")?"检查登录状态":Title.Contains("受限")||Title.Contains("服务")?"稍后重试":"检查 VPN / PAC",
+        "bridge"=>"重启桥接程序",_=>"检查监控设置"
     };
 }
 internal sealed record RuntimeLatencyPoint(long EpochUtc,double? Milliseconds,bool Reachable);
 internal sealed record SystemPressure(double? ProcessorQueue,double? DiskQueue,double? DiskLatencyMs,
-    double? PagesInputPerSecond,long? AvailableMemoryMb,int LogicalProcessors,DateTimeOffset UpdatedAt);
+    double? PagesInputPerSecond,long? AvailableMemoryMb,int LogicalProcessors,DateTimeOffset UpdatedAt)
+{
+    public double? CommitPercent {get;init;}
+    public long? CommittedMemoryMb {get;init;}
+    public long? CommitLimitMb {get;init;}
+}
 internal sealed record RuntimeHealthSnapshot(string Session,long Sequence,DateTimeOffset UpdatedAt,
     RuntimeHealthCheck[] Checks,RuntimeHealthAlert[] Alerts,SystemPressure? Pressure=null,
     double? ThroughputMbps=null,DateTimeOffset? ThroughputAt=null,RuntimeLatencyPoint[]? LatencyHistory=null)
@@ -61,7 +70,7 @@ internal sealed class RuntimeHealthPolicy
         if(confirmed&&entry.Stable!=check.State) {
             entry.Stable=check.State;
             entry.Alert=check.State is "warning" or "error"
-                ?new(Session+":"+(++Sequence),check.Key,check.State,check.Summary,check.Advice,entry.Since):null;
+                ?new RuntimeHealthAlert(Session+":"+(++Sequence),check.Key,check.State,check.Summary,check.Advice,entry.Since){HandledExternally=check.HandledExternally}:null;
         }
         if(entry.Alert is {} alert) {
             if(check.State==entry.Stable)entry.Alert=alert with {Advice=check.Advice,Title=check.Summary};

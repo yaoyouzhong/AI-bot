@@ -9,10 +9,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly EventWaitHandle _exitSignal = BridgeLifetime.Listen();
     private readonly BridgeSettings _settings;
     private readonly BridgeRuntime _runtime;
+    private readonly RuntimeHealthGuard? _healthGuard;
     private readonly SerialPublisher _serial;
     private Tab5Service? _tab5=>_services.Tab5;
     private readonly DeviceRegistryStore _devices;
     private readonly DeviceServiceManager _services;
+    private readonly Task _otaControlTask;
     private DeviceCenterForm? _center;
     private QuotaTrendForm? _trend;
     private BridgeStatusForm? _statusForm;
@@ -59,7 +61,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     internal void OfferTab5Ota(string path) {
         if(_tab5 is null||!_tab5.HasPairedDevice)throw new InvalidOperationException("请先配对 TAB5。");
         _tab5.OfferOta(path);
-        Console.WriteLine("TAB5_OTA_OFFER_READY device_confirmation_required");
+        Console.WriteLine("TAB5_OTA_OFFER_READY installation_not_started");
     }
 
 
@@ -78,8 +80,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ? configuredPort
             : 8765;
         _services=new DeviceServiceManager(_runtime,httpPort,_shutdown.Token);
+        _otaControlTask=Tab5OtaControl.RunAsync(()=>_tab5,_shutdown.Token);
+        if(!AppPaths.IsPublicSelfTest) {
+            try{_healthGuard=RuntimeHealthGuard.Start();_runtime.GuardCheck=()=>_healthGuard.Capture(DateTimeOffset.UtcNow);}
+            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException) {
+                _runtime.GuardCheck=()=>RuntimeHealthGuard.Check(5,DateTimeOffset.UtcNow) with{Detail="独立守护未启动（"+ex.GetType().Name+"）。"};
+            }
+        }
         _runtime.MusicArtworkChanged+=()=>_tab5?.Publish(_runtime.Capture());
         _serial=_services.Serial;
+        _serial.AcceptUsbIdentity=(oldIdentity,device,deviceId)=>{
+            var registered=_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled&&d.UsbIdentity==oldIdentity);
+            if(registered is null||_shutdown.IsCancellationRequested)return false;
+            if(!_devices.AcceptEspUsbIdentity(registered.Id,oldIdentity,device,deviceId))return false;
+            _flashActions.Enqueue(()=>_center?.Reload());return true;
+        };
         _runtime.Domestic.Tab5Paired=()=>_devices.Snapshot.Devices.Any(d=>d.Enabled&&d.Kind==HardwareKind.Tab5);
         _runtime.Domestic.DeviceProviders=()=>new(_demand.Providers);
         var menu=DeviceCenterMenu.Build(_devices.Snapshot,HandleDeviceAction,HandleMenuAction);
@@ -104,13 +119,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             if(_exitSignal.WaitOne(0)){ExitThread();return;}
             while (_flashActions.TryDequeue(out var action)) action();
+            _healthGuard?.Pulse(_runtime.Health.Snapshot,_runtime.MonitorExpected,_runtime.Health.Options.Enabled,_runtime.FaultedCollectors+_services.FaultedServices);
             var status = _runtime.Capture();
             _tab5?.Publish(status);
             if(status.RuntimeHealth is {} health&&(health.Session!=_healthSession||health.Sequence>_healthSequence)) {
                 _healthSession=health.Session;_healthSequence=health.Sequence;
-                if(health.Alerts.Length>0)Notify("health",health.Session+":"+health.Sequence,
-                    string.Join(" · ",health.Alerts.Select(a=>a.Title).Distinct().Take(3)),
-                    string.Join("\n",health.Alerts.Select(a=>a.Advice).Where(s=>s.Length>0).Distinct().Take(2)),ToolTipIcon.Warning);
+                var alerts=health.Alerts.Where(a=>!a.HandledExternally).ToArray();
+                if(alerts.Length>0)Notify("health",health.Session+":"+health.Sequence,
+                    string.Join(" · ",alerts.Select(a=>a.Title).Distinct().Take(2)),
+                    string.Join(" · ",alerts.Select(a=>a.ShortAdvice).Where(s=>s.Length>0).Distinct().Take(1)),ToolTipIcon.Warning);
             }
             _services.ObserveConnections(_devices.Snapshot);
             PollUpdates();
@@ -585,6 +602,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     protected override async void ExitThreadCore()
     {
         if(_exiting)return;_exiting=true;
+        _healthGuard?.BeginExit();
         _timer.Stop();
         _timer.Dispose();
         _exitSignal.Dispose();
@@ -596,9 +614,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _tab5Form?.Close();
         _shutdown.Cancel();
         _updates.Dispose();
+        await _otaControlTask;
         await _services.StopAsync();
         _center?.Close();_trend?.Close();_statusForm?.Close();_updatesForm?.Close();
         _runtime.Dispose();
+        _healthGuard?.Dispose();
         _icon.Visible = false;
         _icon.Icon?.Dispose();
         _icon.Dispose();

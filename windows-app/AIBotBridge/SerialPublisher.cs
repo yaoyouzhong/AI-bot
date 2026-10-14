@@ -21,6 +21,8 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private LanPairing? _pairing;
     private string? _preferredPort;
     internal string? ExpectedUsbIdentity {get;set;}
+    internal string? ExpectedEspDeviceId {get;set;}
+    internal Func<string?,FlashUsbDevice,string?,bool>? AcceptUsbIdentity {get;set;}
     internal string ConnectionStatus {get;private set;}="等待 USB 设备";
     internal string? LastConnectionError {get;private set;}
     internal void ReloadPort()=>_preferredPort=NormalizePort(BridgeSettings.Load().Get("serial_port"));
@@ -209,10 +211,13 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or IOException or UnauthorizedAccessException){ConnectionStatus="USB 检测失败："+ex.GetType().Name;await Task.Delay(3000,cancellationToken);continue;}
             var tabPorts=usbDevices.Where(d=>d.Identity.Contains("VID_303A",StringComparison.OrdinalIgnoreCase)).Select(d=>d.Port).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var candidates=BoundPorts(ExpectedUsbIdentity,usbDevices,CandidatePorts);
+            IReadOnlyList<FlashUsbDevice> recovery=AcceptUsbIdentity is not null?EspUsbRecovery.Candidates(ExpectedUsbIdentity,ExpectedEspDeviceId,usbDevices,ReservedPort?.Invoke()):[];
+            if(recovery.Count>0)candidates=candidates.Concat(recovery.Select(d=>d.Port)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             if(candidates.Count==0)ConnectionStatus="未找到已绑定的 USB 设备";
             foreach (var candidate in candidates)
             {
-                if(ExpectedUsbIdentity is {} expected&&!usbDevices.Any(d=>d.Port.Equals(candidate,StringComparison.OrdinalIgnoreCase)&&d.Identity==expected))continue;
+                var recoveryDevice=recovery.SingleOrDefault(d=>d.Port==candidate);bool recovering=recoveryDevice is not null;
+                if(!recovering&&ExpectedUsbIdentity is {} expected&&!usbDevices.Any(d=>d.Port.Equals(candidate,StringComparison.OrdinalIgnoreCase)&&d.Identity==expected))continue;
                 if (tabPorts.Contains(candidate)||string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
                 if (cancellationToken.IsCancellationRequested)
                     break;
@@ -230,8 +235,20 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                     port.DiscardInBuffer();
                     port.WriteLine(Prefix + "{\"version\":1,\"type\":\"ping\"}");
 
-                    if (!WaitForPong(port, out var deviceHost, out var firmware))
+                    if (!WaitForPong(port, out var deviceHost, out var firmware, out var deviceId))
                         {ConnectionStatus=candidate+" 未回复心跳";continue;}
+
+                    if(ExpectedEspDeviceId is not null&&!EspUsbRecovery.Matches(ExpectedEspDeviceId,deviceId)) {
+                        ConnectionStatus=candidate+" · 设备身份不匹配";continue;
+                    }
+                    if(recovering&&!EspUsbRecovery.Matches(ExpectedEspDeviceId,deviceId))continue;
+                    var connectedDevice=usbDevices.SingleOrDefault(d=>d.Port==candidate);
+                    if(connectedDevice is not null&&AcceptUsbIdentity is not null&&
+                        (recovering||ExpectedUsbIdentity is null||ExpectedEspDeviceId is null&&deviceId is not null)) {
+                        FlashDeviceSelection.RequireSame(connectedDevice,FlashDeviceDiscovery.Read());
+                        if(!AcceptUsbIdentity(ExpectedUsbIdentity,connectedDevice,deviceId)){ConnectionStatus=candidate+" · 绑定未更新";continue;}
+                        ExpectedUsbIdentity=connectedDevice.Identity;ExpectedEspDeviceId=deviceId;
+                    }
 
                     _portName = candidate;
                     ConnectionStatus="已连接 · "+candidate;
@@ -285,7 +302,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                     break;
                 }
                 catch (Exception ex) when (
-                    ex is IOException or UnauthorizedAccessException or InvalidOperationException or TimeoutException)
+                    ex is IOException or UnauthorizedAccessException or InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
                 {
                     // A port may disappear, be busy, or belong to a different device.
                     LastConnectionError=ex.GetType().Name+" · "+ex.Message;
@@ -344,16 +361,20 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     };
 
     private static bool WaitForPong(SerialPort port, out string? deviceHost, out string? firmware)
+        =>WaitForPong(port,out deviceHost,out firmware,out _);
+
+    private static bool WaitForPong(SerialPort port, out string? deviceHost, out string? firmware,out string? deviceId)
     {
         deviceHost = null;
         firmware = null;
+        deviceId = null;
         var deadline = DateTime.UtcNow.AddSeconds(3);
         while (DateTime.UtcNow < deadline)
         {
             try
             {
                 var line = port.ReadLine().Trim();
-                if (TryParsePong(line, out deviceHost, out firmware))
+                if (TryParsePong(line, out deviceHost, out firmware,out deviceId))
                     return true;
             }
             catch (TimeoutException)
@@ -386,9 +407,13 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         => TryParsePong(line, out deviceHost, out _);
 
     internal static bool TryParsePong(string line, out string? deviceHost, out string? firmware)
+        =>TryParsePong(line,out deviceHost,out firmware,out _);
+
+    internal static bool TryParsePong(string line, out string? deviceHost, out string? firmware,out string? deviceId)
     {
         deviceHost = null;
         firmware = null;
+        deviceId = null;
         if (!line.StartsWith(Prefix, StringComparison.Ordinal)) return false;
         try
         {
@@ -405,6 +430,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             }
             firmware = EspFirmwareVersion.Read(root.TryGetProperty("firmware", out var field)
                 ? field.ValueKind == JsonValueKind.String ? field.GetString() ?? "" : "" : null);
+            if(root.TryGetProperty("device_id",out var id)&&id.ValueKind==JsonValueKind.String&&EspUsbRecovery.ValidId(id.GetString()))deviceId=id.GetString();
             return true;
         }
         catch (JsonException)

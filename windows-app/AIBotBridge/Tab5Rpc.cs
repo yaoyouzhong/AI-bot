@@ -6,7 +6,7 @@ namespace AIBotBridge;
 internal sealed partial class Tab5Service
 {
     private readonly object _rpcLock=new();
-    private readonly Tab5Gallery _gallery=new();
+    private readonly Tab5Gallery _gallery;
     private volatile string _galleryDiagnostic="尚无图片请求";
     private long _galleryRequests;
     private long _bleGalleryUntil;
@@ -18,7 +18,8 @@ internal sealed partial class Tab5Service
     private long _rpcOtaUntil;
     private Tab5RpcImage? _rpcImage;
     private volatile string _imageUploadDiagnostic="尚无图片上传";
-    internal bool ImageUploadActive {get {lock(_rpcLock)return Volatile.Read(ref _benchmarkRunning)>0||Environment.TickCount64<Interlocked.Read(ref _rpcOtaUntil)||_rpcImage is {} image&&image.Received<image.Bytes.Length&&Environment.TickCount64-image.Touched<90000;}}
+    private bool ImageTransferPending {get {lock(_rpcLock)return Environment.TickCount64<Interlocked.Read(ref _rpcOtaUntil)||_rpcImage is {} image&&image.Received<image.Bytes.Length&&Environment.TickCount64-image.Touched<90000;}}
+    internal bool ImageUploadActive=>Volatile.Read(ref _benchmarkRunning)>0||ImageTransferPending;
     private volatile string _rpcAuthDiagnostic="尚无请求";
     private (int Status,byte[]? Packet) RejectRpc(string reason) {_rpcAuthDiagnostic=reason;return(401,null);}
     internal string ProfileDiagnostic {
@@ -33,7 +34,10 @@ internal sealed partial class Tab5Service
     internal void ObserveFirmware(string id,string version) {
         _firmware.Observe(id,version);
         _assets.ObserveFirmware(version);
-        if(Volatile.Read(ref _ota)?.Version==version)Interlocked.Exchange(ref _rpcOtaUntil,0);
+        if(Volatile.Read(ref _ota)?.Version==version) {
+            Interlocked.Exchange(ref _rpcOtaUntil,0);
+            lock(_remoteOtaLock){_remoteOta?.Completion.TrySetResult(true);if(_remoteOtaStatus.Length>0)_remoteOtaStatus="设备已回报新版本，请核验启动。";}
+        }
     }
     private sealed class Tab5RpcImage(string device,string task,string id,int size,string sha)
     {
@@ -57,7 +61,7 @@ internal sealed partial class Tab5Service
         _rpcAuthDiagnostic="verified";
         lock(_lifecycle){if(_stopping)return(503,null);_rpcRequests++;}
         try {
-            (int Status,object Body) result;bool binaryReply=false,bulkReply=false,galleryReply=false;
+            (int Status,object Body) result;bool binaryReply=false,bulkReply=false,galleryReply=false,streamReply=false;
             try {
                 var opened=Tab5RpcBinary.Open(clear);using var doc=opened.Metadata;var root=doc.RootElement;
                 binaryReply=root.TryGetProperty("binaryReply",out var binary)&&binary.ValueKind==JsonValueKind.True;
@@ -85,8 +89,11 @@ internal sealed partial class Tab5Service
                 }
                 else if(Text(root,"kind")=="gallery") {
                     galleryReply=true;
-                    result=BackgroundTransferPaused||ImageUploadActive||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
-                        ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply);
+                    streamReply=transport=="Wi-Fi"&&bulkReply&&Text(root,"op")=="read"&&root.TryGetProperty("streamReply",out var stream)&&stream.ValueKind==JsonValueKind.True;
+                    // The gallery test owns the benchmark gate but needs this actual
+                    // image path. Keep OTA, photo uploads and other probes exclusive.
+                    result=BackgroundTransferPaused||Volatile.Read(ref _benchmarkRunning)==1||ImageTransferPending||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
+                        ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply,streamReply);
                     // A manifest is small, but starts a sequence of image ranges.
                     // Keep the existing BLE throughput lease across that sequence;
                     // USB/Wi-Fi requests and rejected/replayed packets never renew it.
@@ -94,6 +101,7 @@ internal sealed partial class Tab5Service
                     _galleryDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} request={Interlocked.Increment(ref _galleryRequests)}; transport={transport}; category={Text(root,"category")}; op={Text(root,"op")}; orientation={Text(root,"orientation")}; status={result.Status}; body="+
                         JsonSerializer.Serialize(result.Body is Tab5RpcDataBody data?data.Metadata:result.Body,JsonDefaults.Options);
                 }
+                else if(Text(root,"kind")=="ota-control")result=ReceiveRemoteOta(root);
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
                 else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy
                     ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token);
@@ -115,6 +123,8 @@ internal sealed partial class Tab5Service
             }catch(Exception ex) when(ex is JsonException or FormatException or InvalidOperationException or ArgumentException) {
                 result=(400,new{error="invalid_request"});
             }
+            if(streamReply&&result.Status==200&&result.Body is Tab5RpcDataBody streamData)
+                return(200,Tab5GalleryStream.Encode(streamData,key,nonce));
             byte[] response=result.Body is Tab5RpcDataBody raw?
                 Tab5RpcBinary.Pack(JsonSerializer.SerializeToUtf8Bytes(new{status=result.Status,body=raw.Metadata},JsonDefaults.Options),raw.Data.Span,bulk:bulkReply):
                 JsonSerializer.SerializeToUtf8Bytes(new{status=result.Status,body=result.Body},galleryReply?Tab5ArtGuides.WireOptions:JsonDefaults.Options);

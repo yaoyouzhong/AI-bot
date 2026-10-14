@@ -148,6 +148,11 @@ final class AIBotBridgeTests: XCTestCase {
             #"@AIBOT {"version":1,"type":"hello","device":"esp8266","ip":"10.0.0.8"}"#))
         XCTAssertNil(SerialBridge.parsePong(
             #"@AIBOT {"version":1,"type":"pong","device":"other","ip":"10.0.0.8"}"#))
+        XCTAssertEqual(SerialBridge.parsePong(
+            #"@AIBOT {"version":1,"type":"pong","device":"esp8266","ip":"","device_id":"esp8266-aabbccddeeff"}"#)?.deviceId, "esp8266-aabbccddeeff")
+        XCTAssertNil(current.deviceId)
+        XCTAssertNil(SerialBridge.parsePong(
+            #"@AIBOT {"version":1,"type":"pong","device":"esp8266","device_id":"invalid"}"#)?.deviceId)
     }
 
     func testDeviceAdminRequestBoundaryAndInfoParsing() throws {

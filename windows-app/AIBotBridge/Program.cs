@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -8,6 +8,18 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if((args.Length==1&&args[0]=="--tab5-ota-info")||(args.Length==3&&args[0]=="--tab5-start-ota")) {
+            try {
+                var result=Tab5OtaControl.CallAsync(args.Length==1?"info":"start",args.Length==3?args[1]:null,args.Length==3?args[2]:null).GetAwaiter().GetResult();
+                Console.WriteLine(JsonSerializer.Serialize(result,JsonDefaults.Options));if(!result.GetProperty("ok").GetBoolean())Environment.ExitCode=1;
+            }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or TimeoutException or OperationCanceledException or JsonException){Console.Error.WriteLine("TAB5_LOCAL_CONTROL_FAILED: "+ex.GetType().Name);Environment.ExitCode=1;}
+            return;
+        }
+        if(args.Length==1&&args[0]=="--self-test-esp-usb-recovery"){EspUsbRecoverySelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--test-esp-usb-recovery"){EspUsbRecoverySelfTest.RunHardwareAsync().GetAwaiter().GetResult();return;}
+        if(args.Length is 2 or 3&&args[0]=="--self-test-gallery-browser"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryBrowserSelfTest.Run(Path.GetFullPath(args[1]),args.Length==3?Path.GetFullPath(args[2]):null);return;}
+        if(args.Length is 3 or 5&&args[0]=="--runtime-health-guard"){if(args.Length==5&&args[3]!="--self-test")throw new ArgumentException("Invalid guard arguments");RuntimeHealthGuard.Run(int.Parse(args[1]),args[2],args.Length==5?Path.GetFullPath(args[4]):null);return;}
+        if(args.Length==3&&args[0]=="--self-test-runtime-health-guard-parent"){AppPaths.BeginPublicSelfTest();RuntimeHealthGuardSelfTest.ParentAsync(Path.GetFullPath(args[1]),args[2]).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-serial-runtime"){
             using var port=new System.IO.Ports.SerialPort();
             Console.WriteLine("SERIAL_RUNTIME_OK ports="+System.IO.Ports.SerialPort.GetPortNames().Length);return;
@@ -27,6 +39,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-gallery-updates"){AppPaths.BeginPublicSelfTest();GalleryUpdateSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-gallery-pack-guides"){AppPaths.BeginPublicSelfTest();GalleryPackSelfTest.Run();return;}
         if(args.Length==3&&args[0]=="--self-test-gallery-guide-packs"){AppPaths.BeginPublicSelfTest();GalleryPackSelfTest.RunGuidePackages(args[1],args[2]);return;}
+        if(args.Length==3&&args[0]=="--self-test-gallery-annual-pack"){AppPaths.BeginPublicSelfTest();GalleryPackSelfTest.RunAnnualPack(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]));return;}
         if(args.Length==2&&args[0]=="--self-test-gallery-update-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--self-test-gallery-update-live"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.RunLive(Path.GetFullPath(args[1]));return;}
         if(args.Length==4&&args[0]=="--self-test-gallery-update-live-resume"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryUpdateUiSelfTest.RunLive(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]),Path.GetFullPath(args[3]));return;}
@@ -62,6 +75,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-user-preferences"){UserPreferencesSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-device-recovery"){DeviceRecoverySelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-integrated-transfer"){Tab5IntegratedTransferSelfTest.Run(args[1]);return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-remote-ota"){Tab5RemoteOtaSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-display-settings"){Tab5DisplaySettingsSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-upgrade"){UpgradeSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-development-ui"){ApplicationConfiguration.Initialize();DevelopmentUiSelfTest.Run(args[1]);return;}

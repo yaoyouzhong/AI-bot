@@ -2,21 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased — local preview
+## 0.6.6 - 2026-10-13
 
-- Add Windows runtime monitoring for proxy response, actual per-target PAC routing and sustained CPU/memory/scheduler/disk pressure; reuse notification quiet hours and deduplication. Add short TAB5 notices, a graphical System monitor and concise cause/action details. The bridge is updated locally with real sampling and native notification receipts verified; TAB5 remains unflashed. Align the four setting checkboxes in two rows and fix orderly shutdown when a device worker has failed. See [runtime monitoring](docs/RUNTIME-MONITOR.md).
+- Exclude unused runtime-health details from the bounded ESP8266 USB heartbeat, fixing PC Off while retaining full desktop/TAB5 diagnostics.
+- Negotiate exact-prefix BLE replay and recover an explicit rejected window once; preserve authentication, bounded queues, cancellation and legacy peers. The installed 194 six-transfer run passed; speed gains remain limited.
+- Final local delivery and remaining hardware acceptance are recorded in [194 closeout](docs/development/TAB5-194-ACCEPTANCE-20261014.md); whole-image BLE OTA and multi-page navigation remain deferred.
 
-## 0.6.6 - 2026-10-11
+
+- Extend runtime monitoring with actual Codex connection errors, a session-scoped independent bridge watchdog, and memory commit/paging pressure. Reuse existing requests and metadata, notify only on confirmed anomalies, and keep concise cause/action views. The corresponding TAB5 monitor is included in the candidate; hardware acceptance is recorded separately.
+
+- Add Windows runtime monitoring for proxy response, actual per-target PAC routing and sustained CPU/memory/scheduler/disk pressure; reuse notification quiet hours and deduplication. Add short TAB5 notices, a graphical System monitor and concise cause/action details. Real bridge sampling and native notification receipts were verified; the subsequent installed TAB5 194 monitor and recovery passed user acceptance, as recorded in the closeout. Align the four setting checkboxes in two rows and fix orderly shutdown when a device worker has failed. See [runtime monitoring](docs/RUNTIME-MONITOR.md).
+
+
+- Add Windows TAB5 Start Upgrade through the existing paired, authenticated state/RPC path. Save device drafts, check active work, obtain a matching start receipt and display transfer progress; reject duplicate, expired or mismatched requests. Requires TAB5 0.2.190-ui+; older devices need one device-confirmed upgrade first. Add same-Windows-user local IPC/CLI scoped to the device and offered SHA-256. Preserve TF collections.
+- Place boot verification beside its status and bind confirmation to the selected image and device. Simplify transfer tests to gallery/card and communication modes with one Start/Stop row, a compact result and expandable diagnostics; remove BLE firmware preflight controls from this page.
+
+- Negotiate TAB5 0.2.189-ui request-ready USB waiting to wake on newly published requests and reduce post-empty-poll delays. Preserve legacy paths and clear capability state on disconnect. Companion firmware reuses valid gallery Wi-Fi connections and optimizes the actual portrait reader layer; installed artwork, authentication and existing glyphs remain compatible. Measure physical throughput and responsiveness separately.
+
+- Name the transport benchmark explicitly to distinguish it from gallery-to-TF measurement. Retain bounded numeric USB binary rejection diagnostics and display optional TAB5 wireless startup diagnostics, without logging payloads or credentials.
+
+- Negotiate TAB5 0.2.187-ui binary receive batches and terminate aligned CDC writes outside the declared payload. Send an empty short transfer before identity discovery so an old partial bulk receive can be discarded after DTR close. Preserve legacy single-packet devices and all authenticated payload bytes; physical USB gains remain pending.
+
+- Parse the optional TAB5 0.2.186-ui network receive and USB FIFO/wakeup counters with explicit units. Receive, decrypt and card-writing stages can overlap; these diagnostics do not constitute a measured speed gain.
+
+- Pause idle BLE voice/RPC mailbox reads while fresh authenticated USB owns the device, drain active responses before standby and resume on USB expiry. Retain actual link-failure detection and report underlying GATT read failures.
+
+- Companion TAB5 0.2.185-ui improves CDC receive batching and Wi-Fi multi-profile recovery; existing TF libraries and credentials remain compatible. Further throughput and reconnect acceptance are pending.
+
+- Keep authenticated USB-owned BLE standby during long gallery tests and recheck ownership after waiting for ATT, while preserving fallback on stale USB. TAB5 0.2.184-ui adds aligned multi-sector card I/O and measured RPC/read/write/fsync stages; measured hardware gains remain pending.
+
+- Add an opt-in gallery sync test to TAB5 connection diagnostics: eight real artwork samples use authenticated receive and the production card writer in an isolated TF directory, preserving installed works and cursors. Report effective bytes, elapsed/receive/write time and overlap; cancellation supported. Use 0.2.183-ui for completed-library memory preparation. Allow the test's own authenticated gallery requests while continuing to exclude OTA, photo uploads and other probes; physical throughput acceptance remains separate.
+
+- Report authenticated BLE standby under active USB for supporting TAB5 status displays. Parse gallery receive/write counters as unsigned counters rather than a version-prefixed probe.
+- Receive Wi-Fi galleries as continuous independently authenticated blocks while a bounded concurrent TF writer applies backpressure. Promote written JPEGs without a second full image write, preserving old records and resume prefixes. Send USB state deltas against exact ACKed baselines and revalidate identity on reconnect. Implementation and simulated regressions pass; physical throughput acceptance remains pending.
 
 ### Packages and offline flashing
 
 - Windows and Apple Silicon Mac packages retain only the required esptool executable, original LICENSE/README and matching source, omitting three unused tools. Executable bytes remain unchanged; builds verify upstream inputs and runtimes verify the pinned subset. Flashing still requires no tool download or Python installation.
 - Launch the tool from the final unpacked package to check its version and read/write/verify commands. Preserve complete backups, capacity checks and post-write verification.
 
+### Desktop artwork browsing
+
+- Simplify gallery management and browsing: keep primary actions in one row, move directory/help into More, use the work list for selection, and retain compact paging, reading and fullscreen actions.
+
+- Add Browse Works to Artwork Collections for installed painting and calligraphy packs. Find by date, search titles/artists, and navigate works/pages; introductions, viewing suggestions and complete originals expand on demand, with the image taking priority by default.
+- Open fullscreen by button or double-click, zoom with the mouse wheel, drag to pan, fit the image and exit with Esc. Legacy image-only packs remain browsable without invented text. No artwork is sent to TAB5 and daily screensaver dates are unchanged. Native Windows interactions, complete reads of both installed collections and normal/minimum layouts at 100/150/200% passed; deployment acceptance is recorded separately.
+
 ### Notes and companion firmware
 
+- Keep the authenticated BLE standby session without extra idle ATT reads that can time out behind gallery traffic; physical link/session loss still reconnects, and USB expiry restores signed BLE telemetry. Treat expected CDC close-state/time-out errors as recoverable and include USB reconnect regression in normal CI.
+
+- Keep an authenticated BLE standby connection and voice/RPC while confirmed USB carries current state, avoiding redundant full frames. Resume normal BLE telemetry when USB expires or BLE is selected; retain identity/nonce proof and mandatory full-frame acknowledgment. Sustained hardware acceptance is recorded separately.
+
+- Windows verifies ESP8266 0.5.3's fixed device identity before recovering a changed USB socket/COM path. Preserve binding updates against stale settings saves; display USB/Wi-Fi/Bluetooth connection status on one line, with full-text tooltips when space is narrow.
 - Generate maintained Chinese notes before English notes, retain verified download sizes and resolve repository-document links for Release pages.
-- Companion TAB5 0.2.177-ui adds whole-library TF synchronization and the latest font. Images, introductions, viewing suggestions and originals continue through independent collection packs; no new collection ships here, installed packs remain compatible and ESP8266 firmware is unchanged. See the [release record](docs/RELEASE-0.6.6.md).
+- Release annual collections as two independent optional image/text ZIPs, with 366 paintings and 366 calligraphy works. Reviewed introductions, work-specific appreciation, complete originals or explicitly scoped references and source records update together. Page and orientation counts never inflate the number of works. Installed older image-only packs remain compatible.
+- Support complete long originals through checked reading pages on the companion TAB5 firmware; older readers receive a whole-text upgrade notice. Preserve the complete text in the pack and desktop browser. Object transcriptions and version-labelled reference texts retain their distinct review scope.
+- Companion TAB5 0.2.181-ui includes the latest font and complete-library TF synchronization, fixes FAT long filenames, and adds independent Storage Management settings. Device cache remains the default; explicitly select TF to save complete installed libraries. Card status no longer depends on the screensaver, and Codex Direct hides its initial empty result panel. ESP8266 0.5.3 ships independently with the small-display USB recovery changes. Build, local checks and hardware acceptance are separately recorded in the [release record](docs/RELEASE-0.6.6.md).
 
 ## 0.6.5 - 2026-10-11
 

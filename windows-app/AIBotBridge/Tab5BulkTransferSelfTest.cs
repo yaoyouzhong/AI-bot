@@ -6,7 +6,9 @@ namespace AIBotBridge;
 internal static class Tab5BulkTransferSelfTest
 {
     internal static void Run(string directory) {
+        Tab5GalleryHostProfileSelfTest.RunAsync().GetAwaiter().GetResult();
         Tab5UsbStatusSelfTest.RunAsync().GetAwaiter().GetResult();
+        Tab5GalleryStreamSelfTest.Run(directory);
         foreach(int size in new[]{16385,49152}) {
             byte[] bytes=Tab5TransportBenchmark.Pattern(0,size);
             byte[] metadata=JsonSerializer.SerializeToUtf8Bytes(new{status=200,body=new{offset=0}});

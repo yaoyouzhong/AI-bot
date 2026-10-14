@@ -1,12 +1,14 @@
 # AI-bot
 
+Local release preparation covers bridge 0.6.6 and installed TAB5 0.2.194-ui. See the [preparation record](docs/RELEASE-PREP-20261014.md) for fixes, evidence and remaining acceptance; the download center remains the authority for public availability.
+
 Local development: [Runtime monitoring](docs/RUNTIME-MONITOR.md) checks VPN/PAC routing and sustained Windows pressure. The bridge has been updated locally and verified with real sampling and Windows notification delivery. Concise TAB5 notices, graphical monitoring and cause/action details remain native previews; TAB5 has not been flashed.
 
-This release delivers bridge **0.6.5**, TAB5 **0.2.176-ui** and ESP8266 **0.5.2**: Codex desktop read sync, Soda/Apple media integration, nine clock faces, separate timer and date-countdown functions, consistent navigation/display modes and extended fonts. New painting/calligraphy collections will follow independently; published curated edition **2026.10.09** and installed user artwork are retained. [Changes and validation scope](docs/RELEASE-0.6.5.md) · [Collection installation](docs/GALLERY-PACKS.md)
+This release delivers bridge **0.6.5**, TAB5 **0.2.176-ui** and ESP8266 **0.5.2**: Codex desktop read sync, Soda/Apple media integration, nine clock faces, separate timer and date-countdown functions, consistent navigation/display modes and extended fonts. New painting/calligraphy collections will follow independently; published curated edition **2026.10.09** and installed user artwork are retained. [Changes and validation scope](docs/RELEASE-0.6.6.md) · [Collection installation](docs/GALLERY-PACKS.md)
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.5.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.6.md) · [简体中文](README.md)
 
 Screenshots, the film and covers are synchronized with this release. The updated 108-second tour adds nine clock faces, two independent countdown functions, read synchronization and consistent navigation, and refreshes music, collection management and setup/update scenes. Native interfaces use isolated demo data; see the release record for hardware validation limits.
 
@@ -100,7 +102,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.5.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/TAB5-BLE-GALLERY-148.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.6.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/TAB5-BLE-GALLERY-148.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](docs/development/TAB5-SOURCE.md) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)
