@@ -7,7 +7,7 @@
 - TAB5：进入`应用 → 系统`默认显示常看的 CPU / 内存、整机上传／下载速率和流量曲线；「运行监控」入口位于系统页标题旁，与流量图分开。点击该入口或首页短异常提示才进入监控页。左上角箭头依次返回：检测详情 → 运行监控 → 电脑状态 → 来源页面。退出后再次进入系统仍显示电脑状态。
 - 运行监控按两类组织：左侧 VPN 响应数字、最近 10 次趋势、PAC 状态；右侧 CPU / 内存条、CPU 等待队列、磁盘响应。底部专门显示当前异常及简短建议。
 - 点 VPN / 电脑卡片查看相应检测结果；「检测详情」打开当前异常对应的网络或系统分组。详情分为「异常原因」「处理建议」两栏，只保留关键证据与最多三条简短建议；正常、未确认、关闭及断连分别提示，不显示重复状态、HTTP 明细或完整日志。原始诊断继续保留在电脑桥接详情中。本功能不展示 Codex 用量、任务计数或会话详情，原有其他页面保持原功能。
-- 首页没有正常状态说明或诊断长文；异常时只显示「PAC 异常」「VPN 变慢」「系统繁忙」等短标题。点击进入运行监控。一次异常只响一次，恢复后自动清除；新的持续异常可再次提醒。任务完成、等待审批等原有短时提示保留优先级。
+- 首页没有正常状态说明或诊断长文；异常时使用「系统监控：内存紧张」「系统监控：系统繁忙」等短标题，前置原生感叹号警告图标：一般告警为黄色，严重错误为红色。Windows 通知使用相同前缀及对应的系统警告／错误图标，具体外观由 Windows 控制。点击进入运行监控。一次异常只响一次，恢复后自动清除；新的持续异常可再次提醒。任务完成、等待审批等原有短时提示保留优先级。
 - 监控数据过期或桥接断开时显示中断，取消绿色状态与趋势。不能用旧状态表示正常。
 - Windows：`设备中心 → 桥接设置 → 运行监控` 主窗口只显示 VPN / PAC 和电脑负载两组简短状态、数字及异常建议；完整说明在「网络详情」「电脑详情」中查看。检测设置为独立标签页，可配置间隔、阈值、预期代理路径和小流量测速；提醒管理提供运行异常开关、提醒音及勿扰时段。
 - 补充检查继续在后台运行，不增加概览卡片：异常时显示「Codex 连接不稳」「监控采样已停滞」「内存提交量偏高」等短标题和一条建议。点击异常打开对应原因／建议，仍不展示 Codex 用量或任务详情。没有加入磁盘剩余空间检测。
@@ -55,6 +55,8 @@ PAC 服务地址与代理流量入口分别读取，不硬编码本机端口。�
 系统指标是瓶颈线索，不直接测量桌面绘制延迟；不采集每个软件私有任务队列，也不判定 Codex 官方全局服务健康。小流量测速包含连接开销，不代表最大带宽；本功能未接入 VPN 客户端节点管理 API，因此不显示或切换具体节点名称。网络故障分支经过受控自测，实际 VPN／PAC 未被故意破坏；没有进行提醒音的耳听验收。
 
 ## English
+
+The alert presentation update uses a native exclamation warning icon followed by `系统监控：` (System monitor) and the concise cause. TAB5 warnings are amber and errors red; Windows notifications use the same prefix with the matching OS warning/error icon. Recovery removes the notice, and task/approval banners retain priority. Source changes and native previews do not establish deployment or physical acceptance.
 
 All monitor changes are included in the bridge 0.6.6 / TAB5 0.2.190-ui candidate alongside desktop upgrade and transfer features. The independently deployed Windows monitor has live evidence; the combined package must be verified against its frozen source and image. TAB5 still runs 0.2.188-ui and has not accepted the new monitor pages on hardware.
 

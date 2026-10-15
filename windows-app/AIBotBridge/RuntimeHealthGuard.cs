@@ -87,9 +87,10 @@ internal sealed class RuntimeHealthGuard : IDisposable
             if(code!=previous) {
                 previous=code;view.Write(Handled,0L);
                 if(code!=0) {
-                    var check=Check(code,DateTimeOffset.UtcNow);var decision=notices.Evaluate("health",name+":"+(++sequence),check.Summary,DateTimeOffset.Now);
+                    var check=Check(code,DateTimeOffset.UtcNow);string title="系统监控："+check.Summary;
+                    var decision=notices.Evaluate("health",name+":"+(++sequence),title,DateTimeOffset.Now);
                     view.Write(AlarmSequence,sequence);
-                    if(decision.Show){icon.Visible=true;icon.ShowBalloonTip(10000,(testReport is null?"":"监控自测 · ")+check.Summary,"建议重启桥接程序",ToolTipIcon.Warning);hideAt=now+15000;}
+                    if(decision.Show){icon.Visible=true;icon.ShowBalloonTip(10000,(testReport is null?"":"监控自测 · ")+title,"建议重启桥接程序",check.State=="error"?ToolTipIcon.Error:ToolTipIcon.Warning);hideAt=now+15000;}
                     // A suppressed alert must not be shown again by the parent.
                     view.Write(Handled,1L);
                     if(decision.Sound)_=Task.Run(CompletionChime.Play);

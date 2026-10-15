@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Prefix runtime alerts with `系统监控：` and show an amber warning or red error icon. Preserve concise titles, recovery clearing and task-banner priority. Native previews and source checks are separate from bridge deployment and TAB5 flashing.
+
 - Display bridge and legacy bundle release titles as `AI-bot vX.Y.Z`; retain component tags and download URLs. Reconcile current bilingual release instructions and links with the published download index.
 
 ## 0.6.6 - 2026-10-14

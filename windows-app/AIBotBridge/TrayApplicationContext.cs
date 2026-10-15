@@ -126,8 +126,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _healthSession=health.Session;_healthSequence=health.Sequence;
                 var alerts=health.Alerts.Where(a=>!a.HandledExternally).ToArray();
                 if(alerts.Length>0)Notify("health",health.Session+":"+health.Sequence,
-                    string.Join(" · ",alerts.Select(a=>a.Title).Distinct().Take(2)),
-                    string.Join(" · ",alerts.Select(a=>a.ShortAdvice).Where(s=>s.Length>0).Distinct().Take(1)),ToolTipIcon.Warning);
+                    "系统监控："+string.Join(" · ",alerts.Select(a=>a.Title).Distinct().Take(2)),
+                    string.Join(" · ",alerts.Select(a=>a.ShortAdvice).Where(s=>s.Length>0).Distinct().Take(1)),
+                    alerts.Any(a=>a.State=="error")?ToolTipIcon.Error:ToolTipIcon.Warning);
             }
             _services.ObserveConnections(_devices.Snapshot);
             PollUpdates();
