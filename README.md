@@ -102,7 +102,7 @@ https://github.com/user-attachments/assets/4b9e1321-ccf9-4035-89e0-4ae690ca19b6
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次三组件更新明细](docs/RELEASE-0.6.6.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/TAB5-BLE-GALLERY-148.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.6.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-194-ACCEPTANCE-20261014.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](docs/development/TAB5-SOURCE.md) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

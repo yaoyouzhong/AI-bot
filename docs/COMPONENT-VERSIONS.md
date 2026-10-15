@@ -16,6 +16,8 @@
 
 本轮发布桥接 `0.6.6` 与 TAB5 `0.2.194-ui`；ESP8266 源码候选 `0.5.3` 不在本轮发布，公开下载保持 `0.5.2`。范围与验收边界见[本版说明](RELEASE-0.6.6.md)，发布准备记录保留为历史证据。最新字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保留兼容。The three independently versioned components and optional annual image/text packs are verified separately.
 
+桥接与历史组合版的发布展示标题使用 `AI-bot vX.Y.Z`，例如 `AI-bot v0.6.6`；Git 标签仍为 `bridge-v0.6.6`（历史组合版为 `vX.Y.Z`）。标题仅影响页面展示，更新识别与下载地址继续使用原组件标签。ESP8266 和 TAB5 保留各自组件名称。
+
 ## 构建与检查
 
 仅构建桥接：
@@ -46,7 +48,7 @@ python scripts/check_version.py --tag tab5-v0.2.151-ui
 
 上述命令只检查格式与本地声明，不创建标签。历史 `vX.Y.Z` 保留为桥接主导的组合版本，包内各组件仍用独立版本。`extract_release_notes.py` 从对应组件的中英文日志选取说明；未完成的日志继续阻止正式打标签。
 
-`prepare_release_assets.py --component bridge|esp8266|tab5` 分别验证对应包，不要求另一组件同时交付。`--publish-directory` 从验收目录生成最少用户附件和一份校验清单：桥接为 Windows 安装器、Mac ZIP、清单；ESP8266 为固件材料 ZIP、清单；TAB5 为首刷 ZIP、升级 ZIP、清单。源码和构建记录保留在验收资料或仓库开发入口；当前 TAB5 .149 正式发布另附对应源码 ZIP；可选图库继续使用 .145 发布页的原包。
+`prepare_release_assets.py --component bridge|esp8266|tab5` 分别验证对应包，不要求另一组件同时交付。`--publish-directory` 从验收目录生成最少用户附件和一份校验清单：桥接为 Windows 安装器、Mac ZIP、清单；ESP8266 为固件材料 ZIP、清单；TAB5 为首刷 ZIP、升级 ZIP、清单。源码和构建记录保留在验收资料或仓库开发入口；当前 TAB5 .194 正式发布另附对应源码 ZIP；可选名画与书法包分别按下载索引中的正式版本提供。
 
 TAB5 验证同时检查镜像内版本、说明 sidecar、首刷与升级应用字节及对应公开源码快照，不能只改文件名作为新固件。
 
@@ -88,6 +90,8 @@ python scripts/test_download_catalog.py
 本地调用 GitHub CLI 使用 `python scripts/github_cli.py ...` 或其 `run_cli` 入口。Windows 直接解析真实控制台版 `gh.exe`，跳过 PATH 中的 GUI 包装器，并结合 `CREATE_NO_WINDOW`、隐藏窗口及标准输入/输出/错误重定向；失败保留退出码与错误，不打开交互终端。创建标签、push、刷机或公开新版本仍须对应操作的明确授权。
 
 ## English
+
+Bridge and legacy bundle release titles use `AI-bot vX.Y.Z`, for example `AI-bot v0.6.6`. Git tags remain `bridge-v0.6.6` (or legacy `vX.Y.Z`); update discovery and download URLs continue using component tags. ESP8266 and TAB5 retain their component names.
 
 The fixed entry points are DOWNLOADS.md and DOWNLOADS.en.md. download-catalog.json records seven published stable downloads, separately from local candidate version files. Run `python scripts/download_catalog.py refresh`, then `sync` to update both centers and README tables; `check` detects stale generated content, and `verify-online` checks public assets, URL availability, sizes and published checksums. Run `python scripts/test_download_catalog.py` for completeness and component-isolation regressions. The release-notes extractor prepends all downloads, using the target tag for the releasing component and retaining published companion packages. Draft asset links become public only after publication with all required assets. Refresh and sync after publication to advance the fixed center. These tools never push, upload or publish; packaging checks and installation/hardware acceptance remain separate. The local release checker includes index checks; workflow permissions, triggers and draft boundaries are unchanged.
 

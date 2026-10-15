@@ -84,7 +84,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 <p><img src="assets/screens/tab5-painting-portrait.png" height="400" alt="每日名画竖屏：林良作品与馆藏署名"> <img src="assets/screens/tab5-calligraphy-portrait.png" height="400" alt="每日书法竖屏：王羲之快雪时晴帖（传唐摹本）与馆藏署名"></p>
 
-本次精选作品集含 **366 件名画、366 件书法**，分别提供可选下载包，分页和方向不重复计作作品。图片同步需要电脑及 AI-bot 运行；断线保留最近成功图片。本次程序更新沿用 2026.10.09 图库，新内容后续独立发布。[图库安装与许可](GALLERY-PACKS.md)
+本次精选作品集含 **366 件名画、366 件书法**，分别提供可选下载包，分页和方向不重复计作作品。图片同步需要电脑及 AI-bot 运行；断线保留最近成功图片。本次名画布局包为 2026.10.14.1，书法沿用 2026.10.09 正式精选集。[图库安装与许可](GALLERY-PACKS.md)
 
 <details>
 <summary>展开名画与书法的横屏排版</summary>
@@ -328,14 +328,14 @@ Runtime monitoring reports connection and computer-health causes and advice. Com
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
 | ESP8266 0.5.2 | 原正式小屏页面、时钟、桌宠、USB / Wi-Fi | 本轮沿用公开包；源码中的 0.5.3 固定身份候选不在本次发布。 |
-| TAB5 0.2.194-ui | 触控、时钟、计时、艺术四方向、最新字库、完整長文与独立存储设置 | 本地回归与最终包检查、真实启动与存储分别记录，见本版发布明细；不追加 Apple Music 或长期运行的验收结论。 |
+| TAB5 0.2.194-ui | 触控、时钟、计时、艺术四方向、最新字库、完整长文与独立存储设置 | 本地回归与最终包检查、真实启动与存储分别记录，见本版发布明细；不追加 Apple Music 或长期运行的验收结论。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；未实现本文 Windows TAB5、统一更新及艺术导入入口。Intel Mac 未验证。 |
 
 [发布明细](RELEASE-0.6.6.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.6, ESP8266 0.5.2 and TAB5 0.2.194-ui, plus two independent 366-work annual image/text packs. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.6, ESP8266 0.5.2 and TAB5 0.2.194-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
 **TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage & Cache. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
 

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Display bridge and legacy bundle release titles as `AI-bot vX.Y.Z`; retain component tags and download URLs. Reconcile current bilingual release instructions and links with the published download index.
+
 ## 0.6.6 - 2026-10-14
 
 - Publish the accepted bridge with TAB5 0.2.194-ui and painting layout edition 2026.10.14.1; retain existing public ESP8266 0.5.2 and calligraphy downloads. Synchronize both homepages, screenshots, the 108-second video/three covers, installation guide and complete download index. Hardware acceptance and open BLE/multi-page checks remain explicit.
