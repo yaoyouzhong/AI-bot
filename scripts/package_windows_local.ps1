@@ -36,7 +36,10 @@ try {
     python -c "import pathlib,sys,zipfile; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; root=filesystem_path(pathlib.Path(sys.argv[2])); archive=zipfile.ZipFile(filesystem_path(pathlib.Path(sys.argv[3])), 'x', zipfile.ZIP_DEFLATED); [archive.write(p, p.relative_to(root).as_posix()) for p in sorted(root.rglob('*')) if p.is_file()]; archive.close()" $PSScriptRoot $stage $zip
     if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP creation failed' }
     ((Get-FileHash -LiteralPath $zip).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($zip)) | Set-Content -LiteralPath ($zip + '.sha256') -Encoding ascii
-    $extracted = Join-Path $sourceRoot 'artifacts\unpacked-check'
+    # The bundled Python tool still needs a CreateProcess-compatible path.
+    # A deep managed worktree plus public self-test profile can exceed MAX_PATH.
+    # Exercise the same final archive from a short, unique extraction directory.
+    $extracted = Join-Path ([IO.Path]::GetTempPath()) ('aibu-' + [Guid]::NewGuid().ToString('N').Substring(0,12))
     python -c "import pathlib,sys,zipfile; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; archive=zipfile.ZipFile(filesystem_path(pathlib.Path(sys.argv[2]))); archive.extractall(filesystem_path(pathlib.Path(sys.argv[3]))); archive.close()" $PSScriptRoot $zip $extracted
     if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP extraction failed' }
     python -c "import hashlib,pathlib,sys; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; root=filesystem_path(pathlib.Path(sys.argv[2])); entries=[line.split('  ',1) for line in (root/'FILES.sha256').read_text(encoding='ascii').splitlines()]; assert all(hashlib.sha256((root/name).read_bytes()).hexdigest()==expected for expected,name in entries), 'Extracted archive mismatch'; print('WINDOWS_ARCHIVE_BYTES_OK',len(entries))" $PSScriptRoot $extracted
@@ -48,6 +51,7 @@ try {
         dotnet .\AIBotBridge.dll --self-test-flash-tool
         if ($LASTEXITCODE -ne 0) { throw 'Offline bundled flashing tool failed' }
     } finally { Pop-Location }
+    Write-Output "UNPACKED_CHECK_EVIDENCE=$extracted"
     python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') source --stage (Join-Path $sourceRoot "AI-bot-$version-source.zip")
     if ($LASTEXITCODE -ne 0) { throw 'Source archive failed validation' }
     if ($Firmware) {
