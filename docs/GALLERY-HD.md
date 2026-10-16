@@ -2,7 +2,11 @@
 
 名画与书法各 366 件，版本 **2026.10.16**。完整包包含高清素材、TAB5 标准展示图、简介、已核实欣赏资料、原文或明确标注的参考文本，以及来源和许可；无需先安装标准版。电脑优先使用高清，TAB5 使用适配设备的展示图。
 
+<a id="download"></a>
+
 ## 推荐下载与安装
+
+从[完整下载表](../DOWNLOADS.md)选择同类的标准版或高清完整版即可；高清名画 **1.86 GiB／15 段**，高清书法 **2.89 GiB／24 段**。以下下载工具同时支持两套，按提示选择一套。
 
 1. 安装 [AI-bot 桥接 0.6.7](../DOWNLOADS.md)。
 2. 将以下三个文件下载到**同一个空文件夹**：
@@ -20,6 +24,8 @@
 ## 手动分段与完整哈希
 
 每段最大 **128 MiB**，末段较小。上传侧也按独立分段恢复；服务器大小和 SHA-256 与本地一致才记为完成。GitHub 不支持单个附件从中间续传，上传中断最多重传当前未完成段。
+
+<a id="painting"></a>
 
 <details>
 <summary>高清名画：15 段，完整 ZIP 1,992,399,321 字节</summary>
@@ -43,6 +49,8 @@
 - [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part015](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part015)
 
 </details>
+
+<a id="calligraphy"></a>
 
 <details>
 <summary>高清书法：24 段，完整 ZIP 3,102,016,661 字节</summary>

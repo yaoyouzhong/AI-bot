@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 REPO = "https://github.com/yaoyouzhong/AI-bot"
 API = "https://api.github.com/repos/yaoyouzhong/AI-bot"
 CATALOG = ROOT / "download-catalog.json"
+HD_CATALOG = ROOT / "gallery-hd-downloads.json"
 CENTER = REPO + "/blob/main/DOWNLOADS.md"
+HD_GUIDE = REPO + "/blob/main/docs/GALLERY-HD.md"
 # id: component, asset template, Chinese label, English label
 SPECS = {
     "windows": ("bridge", "AIBotBridge-{version}-setup-win-x64.exe", "Windows 桥接 · Windows 10/11 x64", "Windows bridge · Windows 10/11 x64"),
@@ -22,8 +24,8 @@ SPECS = {
     "esp8266": ("esp8266", "AI-bot-{version}-firmware-materials.zip", "ESP8266 小屏 · 首刷／升级通用", "ESP8266 display · first install / upgrade"),
     "tab5-first": ("tab5", "TAB5-first-install-{version}.zip", "TAB5 · 出厂系统首次安装", "TAB5 · first install from factory system"),
     "tab5-upgrade": ("tab5", "TAB5-upgrade-{version}.zip", "TAB5 · 已有 AI-bot 升级", "TAB5 · upgrade existing AI-bot"),
-    "calligraphy": ("gallery", "AI-bot-DailyCalligraphy-{version}.zip", "每日书法 · 可选图库", "Daily Calligraphy · optional collection"),
-    "painting": ("gallery", "AI-bot-DailyPainting-{version}.zip", "每日名画 · 可选图库", "Daily Painting · optional collection"),
+    "calligraphy": ("gallery", "AI-bot-DailyCalligraphy-{version}.zip", "每日书法 · 标准版", "Daily Calligraphy · standard"),
+    "painting": ("gallery", "AI-bot-DailyPainting-{version}.zip", "每日名画 · 标准版", "Daily Painting · standard"),
 }
 START, END = "<!-- downloads:start -->", "<!-- downloads:end -->"
 
@@ -65,6 +67,19 @@ def validate(data):
 
 def load():
     return validate(json.loads(CATALOG.read_text(encoding="utf-8")))
+
+
+def load_hd():
+    data = json.loads(HD_CATALOG.read_text(encoding="utf-8"))
+    if data.get("schemaVersion") != 1 or set(data.get("collections", {})) != {"painting", "calligraphy"}:
+        raise ValueError("HD index must contain both complete collections")
+    release_target(data["tag"])
+    for key, item in data["collections"].items():
+        expected = f"AI-bot-Gallery-HD-{key.title()}-{data['version']}.zip"
+        if (item["file"] != expected or item["size"] <= 0 or item["parts"] <= 0
+                or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])):
+            raise ValueError(f"Invalid complete HD archive: {key}")
+    return data
 
 
 def public_releases():
@@ -134,6 +149,14 @@ def verify_online(data):
             if length and int(length) != item["size"]:
                 raise ValueError(f"Download size changed: {key}")
         print(f"OK {key}: public asset, checksum and download URL")
+    hd = load_hd()
+    with request(asset_url(hd, "HD-Gallery-parts.json")) as response:
+        archives = {a["name"]: a for a in json.load(response)["archives"]}
+    for key, item in hd["collections"].items():
+        archive = archives.get(item["file"], {})
+        if (archive.get("bytes"), archive.get("sha256"), len(archive.get("parts", []))) != (item["size"], item["sha256"], item["parts"]):
+            raise ValueError(f"Published HD manifest mismatch: {key}")
+        print(f"OK HD {key}: complete archive size, hash and part count")
 
 
 def table(data, language="zh", tag=None):
@@ -150,6 +173,7 @@ def table(data, language="zh", tag=None):
                     entries[key] = target
                 changed.add(key)
     zh = language == "zh"
+    hd = load_hd()
     lines = ["| 用途 | 版本 | 下载 | SHA-256 |" if zh else "| Use | Version | Download | SHA-256 |", "| --- | --- | --- | --- |"]
     for key, spec in SPECS.items():
         item = entries[key]
@@ -158,6 +182,12 @@ def table(data, language="zh", tag=None):
         if "size" in item:
             label += f" · {item['size'] / 1048576:.0f} MiB"
         lines.append(f"| {spec[2 if zh else 3]} | {version} | [{label}]({asset_url(item)}) | [SHA-256]({asset_url(item, 'SHA256SUMS.txt')}) |")
+        if key in hd["collections"]:
+            collection = hd["collections"][key]
+            title = spec[2].replace("标准版", "高清完整版") if zh else spec[3].replace("standard", "complete HD")
+            label = (f"分段续传 · {collection['parts']} 段" if zh else f"Resumable · {collection['parts']} parts")
+            label += f" · {collection['size'] / 1073741824:.2f} GiB"
+            lines.append(f"| {title} | {hd['version']} | [{label}]({HD_GUIDE}#download) | [SHA-256]({HD_GUIDE}#{key}) |")
     return "\n".join(lines)
 
 
@@ -167,7 +197,7 @@ def guidance(language):
 
 - **首次使用 TAB5**：选择首刷 ZIP；**已有 AI-bot**：选择升级 ZIP，解压后选择 `aibot_tab5.bin`，保留旁边的更新说明文件。两种硬件的固件不能混用。
 - **图库**：Windows「软件与固件更新 → 屏保图库」直接导入 ZIP，无需解压；升级电脑软件会保留图库。图库要求 Windows 桥接 0.6.0+、TAB5 0.2.145-ui+。
-- **高清完整图库**：电脑桥接 0.6.7+ 可选[分段续传下载与安装]({REPO}/blob/main/docs/GALLERY-HD.md)，含对应标准图和导读，无需先装标准版。标准名画沿用原包。
+- **图库版本选择**：同一类别选择标准版或高清完整版即可。高清版含对应标准图和导读，无需重复安装；电脑桥接 0.6.7+ 可浏览高清原作，TAB5 使用适配展示图。点击上表「分段续传」按说明下载、合并后导入；标准名画沿用原包。
 - Windows 支持 ESP8266 与 TAB5；Mac 当前支持 ESP8266，TAB5、统一更新与图库导入说明适用于 Windows。Windows 安装器未签名；Mac 为临时签名，未公证。
 
 [安装与刷机步骤]({REPO}/blob/main/docs/INSTALL.zh.md) · [图库容量与许可]({REPO}/blob/main/docs/GALLERY-PACKS.md) · [历史发布]({REPO}/releases)"""
@@ -175,7 +205,7 @@ def guidance(language):
 
 - **Factory TAB5**: choose the first-install ZIP. **Existing AI-bot**: extract the upgrade ZIP and select `aibot_tab5.bin`, keeping its release-notes file beside it. Firmware is not interchangeable between devices.
 - **Collections**: import ZIPs directly through Windows Software and Firmware Updates → Artwork Collections. App upgrades preserve collections. Requires Windows bridge 0.6.0+ and TAB5 0.2.145-ui+.
-- **Complete HD editions**: bridge 0.6.7+ supports optional [resumable downloads and import]({REPO}/blob/main/docs/GALLERY-HD.md), including standard previews and guides. A separate standard import is unnecessary; standard painting is retained.
+- **Choose an edition**: choose standard or complete HD for each collection. HD includes standard previews and guides, so a separate standard import is unnecessary. Bridge 0.6.7+ displays HD originals; TAB5 uses device previews. Follow the table's resumable-download links to download, merge and import. Standard painting is retained.
 - Windows supports ESP8266 and TAB5. Mac currently supports ESP8266; TAB5, unified updates and artwork import instructions apply to Windows. Windows setup is unsigned; Mac is ad-hoc signed and not notarized.
 
 [Installation guide]({REPO}/blob/main/docs/INSTALL.zh.md) · [Collection sizes and licenses]({REPO}/blob/main/docs/GALLERY-PACKS.md) · [Earlier releases]({REPO}/releases)"""

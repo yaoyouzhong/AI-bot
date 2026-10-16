@@ -99,8 +99,23 @@ class DownloadCatalogTests(unittest.TestCase):
                 else:
                     self.assertNotIn(catalog.asset_url(item), rendered)
             self.assertEqual(rendered.count("本次发布"), len(changed))
-            self.assertEqual(rendered.count("[SHA-256]"), 7)
+            self.assertEqual(rendered.count("[SHA-256]"), 9)
         self.assertEqual(self.data, catalog.load())
+
+    def test_hd_editions_follow_matching_standard_rows_with_resumable_links(self):
+        hd = catalog.load_hd()
+        for language in ("zh", "en"):
+            rows = catalog.table(self.data, language).splitlines()
+            for key, collection in hd["collections"].items():
+                standard = next(i for i, row in enumerate(rows) if catalog.asset_url(self.data["downloads"][key]) in row)
+                row = rows[standard + 1]
+                self.assertIn(catalog.HD_GUIDE + "#download", row)
+                self.assertIn(catalog.HD_GUIDE + "#" + key, row)
+                self.assertIn(f"{collection['size'] / 1073741824:.2f} GiB", row)
+                self.assertIn(str(collection["parts"]) + (" 段" if language == "zh" else " parts"), row)
+                self.assertNotIn(".part", row)
+                # Complete archives are merged locally, not single published ZIP assets.
+                self.assertNotIn(catalog.asset_url(hd, collection["file"]), row)
 
     def test_readmes_and_centers_match_index(self):
         catalog.sync(self.data, check=True)
