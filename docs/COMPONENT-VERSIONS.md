@@ -18,7 +18,7 @@
 
 此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。本次范围及尚未完成的实机项目见[0.6.7／205 说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
 
-桥接与历史组合版的发布展示标题使用 `AI-bot vX.Y.Z`，例如 `AI-bot v0.6.6`；Git 标签仍为 `bridge-v0.6.6`（历史组合版为 `vX.Y.Z`）。标题仅影响页面展示，更新识别与下载地址继续使用原组件标签。ESP8266 和 TAB5 保留各自组件名称。
+桥接与历史组合版的发布展示标题统一使用 `AI Bot v版本号`，例如 `AI Bot v0.6.7`；不在标题追加功能说明。Git 标签仍为 `bridge-v0.6.7`（历史组合版为 `vX.Y.Z`）。标题仅影响页面展示，更新识别与下载地址继续使用原组件标签。ESP8266 和 TAB5 保留各自原来的命名方式。
 
 ## 构建与检查
 
@@ -93,7 +93,7 @@ python scripts/test_download_catalog.py
 
 ## English
 
-Bridge and legacy bundle release titles use `AI-bot vX.Y.Z`, for example `AI-bot v0.6.6`. Git tags remain `bridge-v0.6.6` (or legacy `vX.Y.Z`); update discovery and download URLs continue using component tags. ESP8266 and TAB5 retain their component names.
+Bridge and legacy bundle release titles consistently use `AI Bot v<version>`, for example `AI Bot v0.6.7`, without feature descriptions. Git tags remain `bridge-v0.6.7` (or legacy `vX.Y.Z`); update discovery and download URLs continue using component tags. ESP8266 and TAB5 retain their existing naming conventions.
 
 The fixed entry points are DOWNLOADS.md and DOWNLOADS.en.md. download-catalog.json records seven published stable downloads, separately from local candidate version files. Run `python scripts/download_catalog.py refresh`, then `sync` to update both centers and README tables; `check` detects stale generated content, and `verify-online` checks public assets, URL availability, sizes and published checksums. Run `python scripts/test_download_catalog.py` for completeness and component-isolation regressions. The release-notes extractor prepends all downloads, using the target tag for the releasing component and retaining published companion packages. Draft asset links become public only after publication with all required assets. Refresh and sync after publication to advance the fixed center. These tools never push, upload or publish; packaging checks and installation/hardware acceptance remain separate. The local release checker includes index checks; workflow permissions, triggers and draft boundaries are unchanged.
 
