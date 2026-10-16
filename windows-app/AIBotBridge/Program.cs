@@ -22,6 +22,7 @@ internal static class Program
             return;
         }
         if(args.Length==1&&args[0]=="--self-test-esp-usb-recovery"){EspUsbRecoverySelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-serial-disconnect"){AppPaths.BeginPublicSelfTest();SerialDisconnectSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--test-esp-usb-recovery"){EspUsbRecoverySelfTest.RunHardwareAsync().GetAwaiter().GetResult();return;}
         if(args.Length==3&&args[0]=="--self-test-hd-import-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryHdPackSelfTest.RunUi(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]));return;}
         if(args.Length==3&&args[0]=="--self-test-hd-import"){AppPaths.BeginPublicSelfTest();Task.Run(()=>GalleryHdPackSelfTest.Run(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]))).GetAwaiter().GetResult();return;}

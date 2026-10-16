@@ -39,6 +39,7 @@ internal static class PublicSelfTest
         DataSourceSelfTest.Run();
         MediaPlayerSelfTest.RunAsync().GetAwaiter().GetResult();
         ComponentUpdateSelfTest.Run();
+        Task.Run(SerialDisconnectSelfTest.RunAsync).GetAwaiter().GetResult();
         GalleryPackSelfTest.Run();
         Tab5ArtGuides.SelfTest();
         Task.Run(UpdateSelfTest.RunAsync).GetAwaiter().GetResult();
