@@ -4,13 +4,13 @@
 
 ## 版本来源
 
-| 组件 | 当前版本 | 版本文件 | 后续组件标签 |
+| 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows / macOS 桥接 | 0.6.7（本轮交付；公开状态以下载中心为准） | 根目录 `VERSION` | `bridge-v0.6.7` |
-| ESP8266 固件 | 0.5.3（本轮独立打包） | `firmware/VERSION` | `esp8266-v0.5.3` |
-| TAB5 固件 | 0.2.205-ui（本轮交付；保留实机验收边界） | `versions/TAB5` | `tab5-v0.2.205-ui` |
+| Windows / macOS 桥接 | 0.6.7（已发布） | 根目录 `VERSION` | `bridge-v0.6.7` |
+| ESP8266 固件 | 0.5.3（已发布） | `firmware/VERSION` | `esp8266-v0.5.3` |
+| TAB5 固件 | 0.2.205-ui（已发布；保留实机验收边界） | `versions/TAB5` | `tab5-v0.2.205-ui` |
 
-表中未来标签仅为格式示例，不代表已经发布或当前版本已经增加。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
+表中列出本轮已发布组件标签；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
 
 2026-10-16 本轮范围为桥接 0.6.7、TAB5 0.2.205-ui、ESP8266 0.5.3、标准书法 2026.10.15.1 和两套高清完整图库 2026.10.16。标准名画沿用已有正式下载；不集成浏览器高清音乐封面扩展。构建、打包、公开附件和真机验收分别记录，公开下载索引仅在附件实际发布后刷新。The October 16 delivery covers bridge 0.6.7, TAB5 0.2.205-ui, ESP8266 0.5.3, standard calligraphy 2026.10.15.1 and both optional complete HD collections 2026.10.16. Existing standard painting remains unchanged; the browser music-artwork extension is not integrated. See [scope and acceptance boundaries](RELEASE-0.6.7.md).
 

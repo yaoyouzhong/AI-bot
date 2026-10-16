@@ -1,33 +1,87 @@
 # 高清完整图库 / Complete HD collections
 
-名画与书法各 366 件，版本 2026.10.16。两套完整包均含电脑高清素材、适配 TAB5 的标准展示图、作品简介、已核实欣赏资料、正文或明确标注的参考文本、来源和许可，无需先安装标准版。电脑浏览优先高清，TAB5 使用标准展示图；素材不适用时自动回退展示图。
+名画与书法各 366 件，版本 **2026.10.16**。完整包包含高清素材、TAB5 标准展示图、简介、已核实欣赏资料、原文或明确标注的参考文本，以及来源和许可；无需先安装标准版。电脑优先使用高清，TAB5 使用适配设备的展示图。
 
-## 下载
+## 推荐下载与安装
 
-附件将随 [TAB5 0.2.205-ui](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.205-ui) 提供，公开前链接可能尚不可用。
+1. 安装 [AI-bot 桥接 0.6.7](../DOWNLOADS.md)。
+2. 将以下三个文件下载到**同一个空文件夹**：
+   - [Download-HD-Gallery.cmd](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/Download-HD-Gallery.cmd)
+   - [Merge-HD-Gallery.ps1](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/Merge-HD-Gallery.ps1)
+   - [HD-Gallery-parts.json](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/HD-Gallery-parts.json)
+3. 双击 **Download-HD-Gallery.cmd**，输入 **1（名画）**或 **2（书法）**。工具逐段下载并检查 SHA-256，再合并、核验完整 ZIP。中断后再次运行即可续传；已完成段不重复下载，未完成段用 HTTP Range 接着下载（服务端不支持 Range 时只重下该段）。不改变系统执行策略。
+4. 合并时预留至少 **4 GiB（名画）／6 GiB（书法）**，导入还需额外安装空间。原分段保留，不覆盖不同的已有 ZIP。
+5. 打开 **设备中心 → 屏保图库 → 安装图库包…**，选择合并后的完整 ZIP，无需手动解压，不能直接选 `.partNNN`。
 
-| 内容 | 文件 |
-| --- | --- |
-| 高清名画完整包 | [AI-bot-Gallery-HD-Painting-2026.10.16.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip) |
-| 高清书法第 1 卷 | [ZIP.001](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.001) |
-| 高清书法第 2 卷 | [ZIP.002](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.002) |
-| 书法合并工具 | [Merge-HD-Calligraphy.cmd](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/Merge-HD-Calligraphy.cmd) |
-| 标准书法新版 | [AI-bot-DailyCalligraphy-2026.10.15.1.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-2026.10.15.1.zip) |
-| 校验清单 | [SHA256SUMS.txt](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
+手动下载：从下方选择一套的全部分段，再下载合并脚本、清单和 [Merge-HD-Gallery.cmd](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/Merge-HD-Gallery.cmd)，放在同一文件夹，双击 Merge CMD。合并中断后也可重跑。
 
-标准名画没有重复发布，继续使用[下载中心](../DOWNLOADS.md)里的正式版本。
+标准名画 **2026.10.14.1** 沿用原包，不重复发布。仅需标准书法展示图的用户，单独安装 [AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip)；高清书法已包含该标准版，无需重复导入。完整附件和校验清单见 [205 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.205-ui)及 [SHA256SUMS.txt](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt)。
 
-## 安装
+## 手动分段与完整哈希
 
-1. 安装 AI-bot 桥接 0.6.7。名画直接下载完整 ZIP。
-2. 高清书法需将两卷和合并工具下载到同一文件夹，预留至少 4 GiB 空间，双击 CMD。工具逐卷核验 SHA-256，再合并及核验完整 ZIP，原卷保留。失败时保留现场文件；已有不同文件不会被覆盖。
-3. 打开设备中心 → 屏保图库 → 安装图库包，选择完整 ZIP，无需手动解压，不选择分卷文件。
-4. 仅需标准书法展示图时，选择标准书法 ZIP。已经导入高清书法完整包的用户无需重复导入。
+每段最大 **128 MiB**，末段较小。上传侧也按独立分段恢复；服务器大小和 SHA-256 与本地一致才记为完成。GitHub 不支持单个附件从中间续传，上传中断最多重传当前未完成段。
 
-取消或导入失败保留旧图库；图片、资料和对应预览一起更新。超大原作采用有界解码，并非任意放大都保持原始像素。分发版《汉宫春晓图》使用处理后的 JPEG，未包含 1.2 GB TIFF；处理和来源记录随包保留。
+<details>
+<summary>高清名画：15 段，完整 ZIP 1,992,399,321 字节</summary>
+
+完整 ZIP SHA-256：`ad436d154821abbd9b3203e6ad73f0c25cb2463a50bc9d039f6a7c8e28698749`
+
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part001](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part001)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part002](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part002)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part003](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part003)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part004](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part004)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part005](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part005)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part006](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part006)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part007](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part007)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part008](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part008)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part009](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part009)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part010](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part010)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part011](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part011)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part012](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part012)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part013](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part013)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part014](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part014)
+- [AI-bot-Gallery-HD-Painting-2026.10.16.zip.part015](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Painting-2026.10.16.zip.part015)
+
+</details>
+
+<details>
+<summary>高清书法：24 段，完整 ZIP 3,102,016,661 字节</summary>
+
+完整 ZIP SHA-256：`02efde0d682aa56495707697d5c0bc53e79a2655dfdd47cc9520f6a058f88064`
+
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part001](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part001)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part002](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part002)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part003](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part003)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part004](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part004)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part005](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part005)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part006](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part006)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part007](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part007)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part008](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part008)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part009](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part009)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part010](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part010)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part011](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part011)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part012](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part012)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part013](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part013)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part014](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part014)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part015](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part015)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part016](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part016)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part017](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part017)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part018](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part018)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part019](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part019)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part020](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part020)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part021](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part021)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part022](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part022)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part023](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part023)
+- [AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part024](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip.part024)
+
+</details>
+
+## 画质与内容边界
+
+取消或导入失败保留旧图库；图片、资料和对应预览一起更新。高清原作采用有界解码，超大作品并非无限放大仍保持全部原始像素。分发版《汉宫春晓图》使用处理后的 JPEG，不含 1.2 GB TIFF；处理和来源记录随包保留。作品图像的原许可独立适用。
 
 ## English
 
-Each complete HD edition contains 366 works, desktop originals, device previews, guides and attribution. Install bridge 0.6.7, then import a full ZIP through Device center → Artwork collections → Install gallery package. Standard painting remains at its existing public version. Standard calligraphy is also available separately; it is already included in complete HD calligraphy.
+Both complete HD editions contain 366 works, desktop originals, matching TAB5 previews, guides and source/license records. Standard installation is unnecessary. Install bridge 0.6.7, download the three helpers linked above to one empty folder, run Download-HD-Gallery.cmd and choose 1 (painting) or 2 (calligraphy). It downloads 128 MiB parts, resumes interrupted HTTP transfers, verifies each part and the final archive, and retains all parts. Run again after interruption. Reserve at least 4/6 GiB for download plus merging, with additional import space. Import the complete ZIP through Device Center → Artwork Collections → Install Gallery Package; never import an individual part.
 
-For HD calligraphy, download both parts and the merge CMD to one folder, reserve at least 4 GiB, and run the helper. It validates part and final SHA-256 values, retains the parts and refuses to overwrite a different existing ZIP. Import the reconstructed ZIP, never an individual part. HD images are used by the desktop browser; TAB5 receives device previews. Bounded decoding and documented distribution derivatives retain their stated limits and sources.
+Manual parts and an offline merge CMD are also linked above. Completed upload/download parts are reused; GitHub upload recovery occurs at part boundaries because its release API does not resume inside one asset. Standard painting remains unchanged. Standard calligraphy 2026.10.15.1 is separately available and is already included in complete HD calligraphy. Bounded image decoding, distribution derivatives and individual licenses retain their stated limits.

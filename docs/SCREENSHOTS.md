@@ -1,5 +1,10 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-16：刷新桥接 0.6.7 原生设备中心、安装／连接窗口；新增 TAB5 205 原生日程、编辑与提醒截图，固件页读取真实 205 sidecar。电脑浏览／全屏来自正式 Windows 发布包对两套最终高清完整包的实际隔离导入，各 366 件；全目录标准分页解码通过，所示米芾《行书虹县诗卷》沿用下述 ColBase TB-1459／CC BY 4.0 署名。图库管理图来自实际完整包导入与公开发布元数据的离线副本；设备、状态和旧安装版本为演示夹具，不调用私人账户，不刷机。未变画面保持原来源。新版 108 秒影片与三种封面另见 [PRODUCT_VIDEO](PRODUCT_VIDEO.md)。精确截图哈希登记在 materials.json。
+
+2026-10-16 refresh: native bridge 0.6.7 device/install/connection controls; TAB5 205 agenda/editor/reminder and real sidecar captures; actual final HD imports and full-page reads in the release Windows binary. Both categories have 366 works. Mi Fu / ColBase TB-1459 retains CC BY 4.0. Gallery management uses real complete imports and a cached public-release response. Native fixtures are not hardware photography or physical 205 acceptance. Unchanged captures retain earlier provenance. Hashes are individually registered.
+
+
 2026-10-12 本轮刷新 Windows 图库、浏览／全屏、设备中心、安装和更新入口；图库底部保持单行，浏览底部只保留紧凑分页、阅读与全屏。浏览图像来自两个最终年度包的真实隔离导入和全目录读取，示例为米芾《行书虹县诗卷》，[东京国立博物馆／ColBase TB-1459](https://colbase.nich.go.jp/collection_items/tnm/TB-1459?locale=zh)，CC BY 4.0，按图库排版缩放。管理窗口的线上状态来自隔离发布数据夹具，不代表再次安装或公开下载验证。TAB5 存储、直达、轮播和真实 .178 sidecar 来自冻结源码 f6d5f74 的 LVGL 原生捕获；更新预览中的“当前版本 .21”是演示旧设备，不能作为真实镜像证据。瞬时保存反馈在隔离捕获中清除。截图为原生渲染，不是硬件照片；逐张许可哈希登记在 materials.json。
 
 The 2026-10-12 refresh includes current gallery management/browsing/fullscreen, device/install/update windows and frozen .178 native storage/navigation/sidecar captures. The browser reads actual final installed packs in an isolated profile; the displayed Mi Fu scroll is attributed to Tokyo National Museum / ColBase TB-1459, CC BY 4.0. Online update statuses and older installed versions are offline fixtures. Transient feedback is dismissed in the isolated capture only. No image is hardware photography or proof of a public download.

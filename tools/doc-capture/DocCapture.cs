@@ -17,6 +17,7 @@ internal static class DocCapture
             args = args.Take(designIndex).Concat(args.Skip(designIndex + 2)).ToArray();
         }
         bool evergreen = args.Length == 2 && args[1] == "--evergreen-media";
+        bool completeHd = args.Length == 3 && args[1] == "--complete-hd";
         bool updateLayout = args.Length == 2 && args[1] is "--update-layout" or "--retained-update-layout";
         bool preferencesLayout = args.Length == 2 && args[1] == "--preferences-layout";
         bool release060 = args.Length == 2 && args[1] is "--release-current" or "--release060";
@@ -30,6 +31,7 @@ internal static class DocCapture
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        if(completeHd){CompleteHdCapture.Run(output,Path.GetFullPath(args[2]));return;}
         if(updateLayout){UpdateLayoutCapture.Run(output,args[1]=="--retained-update-layout");return;}
         if(preferencesLayout){PreferencesLayoutCapture.Run(output);return;}
         if(evergreen){ReleaseMedia.Run(output,evergreen:true);return;}
@@ -109,7 +111,7 @@ internal static class DocCapture
             var esp = DeviceRegistryStore.Create(HardwareKind.Esp8266, "ESP8266 小屏", null);
             store.Add(tab); store.Add(esp);
             CaptureTrayMenu(store.Snapshot);
-            using (var center = new DeviceCenterForm(store, d => new DeviceView(true, "在线（演示）", "演示连接", d.Kind == HardwareKind.Tab5 ? ReleaseMedia.Tab5Version : "0.5.0", "数据已确认（演示）", "待机（演示）", d.Kind == HardwareKind.Tab5 ? "已连接（演示）" : null, "USB"), (_, _) => {}, (_, _) => Task.CompletedTask, () => {}, _ => {}))
+            using (var center = new DeviceCenterForm(store, d => new DeviceView(true, "在线（演示）", "演示连接", d.Kind == HardwareKind.Tab5 ? ReleaseMedia.Tab5Version : ReleaseMedia.EspVersion, "数据已确认（演示）", "待机（演示）", d.Kind == HardwareKind.Tab5 ? "已连接（演示）" : null, "USB"), (_, _) => {}, (_, _) => Task.CompletedTask, () => {}, _ => {}))
             {
                 center.ShowInTaskbar=false;center.StartPosition=FormStartPosition.Manual;center.Location=new(-32000,-32000);
                 center.Show();Application.DoEvents();

@@ -1,6 +1,6 @@
 # AI-bot 0.6.7 / TAB5 0.2.205-ui
 
-2026-10-16。本次准备 Windows／Apple Silicon Mac 桥接 0.6.7、TAB5 0.2.205-ui、ESP8266 0.5.3、标准书法 2026.10.15.1 和名画／书法高清完整图库 2026.10.16。标准名画沿用现有 2026.10.14.1，不重复上传；不集成浏览器高清音乐封面扩展。
+2026-10-16。本次发布 Windows／Apple Silicon Mac 桥接 0.6.7、TAB5 0.2.205-ui、ESP8266 0.5.3、标准书法 2026.10.15.1 和名画／书法高清完整图库 2026.10.16。标准名画沿用现有 2026.10.14.1，不重复上传；不集成浏览器高清音乐封面扩展。
 
 ## 变化与使用
 
@@ -14,11 +14,11 @@
 
 桥接提供 Windows 安装程序、Apple Silicon Mac ZIP 及 SHA-256；TAB5 提供首刷 ZIP、升级 ZIP 和对应源码 ZIP；ESP8266 提供固件及源码材料 ZIP。图库独立提供，不嵌入安装器或固件。标准名画保留原下载。
 
-高清名画可直接下载 ZIP；高清书法因超过 GitHub 单附件 2 GiB，提供两卷和带哈希校验的双击合并工具。工具保留原卷，不覆盖已有不同文件。合并成完整 ZIP 后在“屏保图库 → 安装图库包…”导入，不能直接选择 .001/.002。
+高清名画与书法统一以 128 MiB 分段提供，配套下载／断点续传、逐段与整包 SHA-256 校验及合并工具。上传恢复按段进行，已完成段不重传；下载支持 HTTP Range。合并后导入完整 ZIP，不能直接选择分段。[普通用户操作说明](GALLERY-HD.md)
 
 ## 验证与边界
 
-发布准备的具体哈希、构建、自检、包内许可、公开附件与下载索引验证记录在发布证据目录。本页在附件公开前不代表已经发布；稳定下载中心继续指向现有版本，公开后再按实际附件刷新。
+Windows 和 Mac 发布工作流、ESP8266 构建及 TAB5 元数据校验通过；附件按服务器大小与 SHA-256 核验后公开。Windows 最终包完整自检、实际离线刷机工具调用（未接硬件）、两套完整高清包实际导入、全分页读取与原生浏览通过。51 个 TAB5／图库附件逐项登记；标准名画沿用旧包。分段恢复、HTTP 中断续传及完整真实包合并分别有验证记录。
 
 205 的原生提醒预览、持久化／交互回归和构建不等于 205 已刷入实机。已有 201 四方向显示、USB 断接恢复，以及 204 到期保留和离线删除的用户确认继续保留；满额腾位、BLE 整包 OTA 和长期运行仍有独立实机边界。本次发布不操作现用设备。
 
@@ -26,6 +26,6 @@ Mac 为 Apple Silicon、临时签名、未公证，功能范围与 Windows 不�
 
 ## English
 
-This delivery prepares bridge 0.6.7, TAB5 0.2.205-ui, ESP8266 0.5.3, standard calligraphy 2026.10.15.1 and both optional complete HD collections 2026.10.16. Keep existing standard painting 2026.10.14.1. Do not integrate the browser music-artwork extension. Each HD package contains 366 works, matching device previews, guides and source records; a separate standard installation is unnecessary. Desktop HD originals are not sent to TAB5.
+This delivery publishes bridge 0.6.7, TAB5 0.2.205-ui, ESP8266 0.5.3, standard calligraphy 2026.10.15.1 and both optional complete HD collections 2026.10.16. Keep existing standard painting 2026.10.14.1. Do not integrate the browser music-artwork extension. Each HD package contains 366 works, matching device previews, guides and source records; a separate standard installation is unnecessary. Desktop HD originals are not sent to TAB5.
 
-The calligraphy HD ZIP exceeds GitHub's per-asset limit, so its two parts and a hash-verifying merge helper are distributed together. Import the reconstructed ZIP. Keep factory/upgrade TAB5 packages distinct and bind them to the same application and source snapshot. macOS is arm64, ad-hoc signed and not notarized. Native previews/builds are not 205 physical acceptance; retain the scoped 201/204 hardware evidence and open full-capacity/BLE/long-run boundaries. Preparation does not flash devices. Published attachment identity and verification are recorded separately before the download index advances.
+Both HD archives use 128 MiB parts with resumable upload boundaries and a Range-capable download/merge helper, verifying part and complete SHA-256 values. Import the reconstructed ZIP. Keep factory/upgrade TAB5 packages distinct and bind them to the same application and source snapshot. macOS is arm64, ad-hoc signed and not notarized. Native previews/builds are not 205 physical acceptance; retain the scoped 201/204 hardware evidence and open full-capacity/BLE/long-run boundaries. Preparation does not flash devices. Published attachment identity, actual complete imports and full-page native reads are verified before the download index advances.
