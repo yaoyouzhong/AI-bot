@@ -299,12 +299,23 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 从 **设备中心 → 桥接设置 → 软件固件**打开“软件与固件更新”，查看各组件版本、说明和适用包。自动检查只提醒，不自动安装。首次安装硬件走“我的设备 → 添加”的对应首刷流程；后续升级按已安装设备办理。[完整安装指南](INSTALL.zh.md) · [更新步骤](UPDATES.md)
 
-图库在更新窗口的“屏保图库”中导入 ZIP，软件升级保留图库。**桥接设置 → 配置迁移**提供备份、预览与选择恢复；配置、配对资料和设备原固件备份留在本地，不作为公开素材发布。
+图库在更新窗口的“屏保图库”中导入 ZIP，软件升级保留图库。“浏览作品”可查往期、搜索作者或作品，并展开完整资料。左侧列表切换作品，图片下方翻页；全屏支持滚轮缩放和拖动，右键或 Ctrl+0 还原。目录和安装说明在“更多”菜单。**桥接设置 → 配置迁移**提供备份、预览与选择恢复；配置、配对资料和设备原固件备份留在本地，不作为公开素材发布。
 
 <details>
 <summary>展开软件与固件更新窗口</summary>
 
 ![统一更新：分别查看电脑端和两类固件的版本及说明](assets/screens/update-center.png)
+
+</details>
+
+<details>
+<summary>展开年度图库与电脑浏览界面</summary>
+
+![年度图库：主要操作排成一行](assets/screens/gallery-packs.png)
+
+![浏览作品：紧凑翻页、阅读资料与全屏](assets/screens/gallery-browser.png)
+
+![全屏放大：滚轮缩放与拖动](assets/screens/gallery-fullscreen.png)
 
 </details>
 
@@ -337,8 +348,10 @@ Runtime monitoring reports connection and computer-health causes and advice. Com
 
 AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.6, ESP8266 0.5.2 and TAB5 0.2.194-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
-**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage & Cache. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
+**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
 
 **ESP8266:** AI activity, quotas, reset times/cards and configurable cycling are the primary use. Expand the galleries for other providers, weather, stocks, metrics, music, pets and the clock screensaver. Control pages and settings from the computer; TAB5 touch operations, Codex Direct and art collections do not apply to the small display.
 
 Device Center groups My Devices, Account Data and Bridge Settings. Components update independently through the Windows unified update window. Screenshots are native renders with isolated synthetic data, not hardware photos or additional acceptance evidence. macOS has its own menu-bar/ESP8266 implementation, without the Windows TAB5, unified-update or artwork-import flows. See the linked installation, provenance and hardware records for exact boundaries.
+
+The collection manager keeps primary actions on one row, with directory/help in More. Select works in the left list; compact image paging, reading and fullscreen remain below the image. Right-click or Ctrl+0 restores the image; wheel zoom and drag also work fullscreen.

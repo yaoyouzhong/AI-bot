@@ -218,3 +218,6 @@ See [the expansion report](docs/art-guides/EXPANSION-2026-10-08.md), [CMA Open A
 The second local batch adds 370 calligraphy works from official museum services: ColBase / Tokyo National Museum 98 (CC BY 4.0, attribution and layout modification credit), Metropolitan Museum of Art 55 (CC0), Princeton University Art Museum 1 (Public domain; image courtesy credit), Cleveland Museum of Art 3 (CC0), and Minneapolis Institute of Art 213 (Public domain). Per-image official URLs, component identities and SHA-256 fingerprints are retained in selection.json and provenance.json. Complete sets count once; originals are resized and laid out, without generated repairs or recoloring.
 
 第二批新增书法370件，五家馆方来源及各自许可如上。逐图保留来源、组件身份及原图校验值；对联、三联幅、四屏、十二屏、整册均只算一件。拓本、摹本和传称限定不删改，图像仅缩放与排版，不进行生成式修补或改色。馆方现代介绍另以中文改写，不以图片开放许可代替文章许可。
+
+### Desktop connection icons / 电脑连接图标
+USB (U+F287), Wi-Fi (U+F1EB), Bluetooth (U+F293) reuse the exact Font Awesome outlines from TAB5's LVGL FontAwesome5-Solid+Brands+Regular.woff. Copyright Font Awesome; font-derived outlines under SIL OFL 1.1. Reproducible extraction: scripts/extract_tab5_transport_icons.py; source SHA-256 is recorded in Tab5TransportGlyphs.cs. License and attribution: licenses/font-awesome/. Shape geometry is unchanged, scaled and tinted at runtime. Source: https://github.com/lvgl/lvgl/tree/master/scripts/built_in_font .

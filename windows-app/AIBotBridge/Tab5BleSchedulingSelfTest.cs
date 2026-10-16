@@ -104,8 +104,9 @@ internal static class Tab5BleSchedulingSelfTest
         foreach(var flags in new[]{(false,false,false),(true,false,true)}) {
             try{Tab5Service.ProbeAction(flags.Item1,flags.Item2,flags.Item3);throw new Exception("Unsupported probe was sent");}catch(NotSupportedException){}
         }
-        using var doc=JsonDocument.Parse("{\"wifiIsolation\":\"1,0,0,0,20000,1,0\",\"bleRadio\":\"1,1,15000,0,251,251,0,0,0,0,1650,789381,11000,16630,30000,0\",\"invalid\":\"1,0,text,0,0,0,0\"}");
+        using var doc=JsonDocument.Parse("{\"wifiIsolation\":\"1,0,0,0,20000,1,0\",\"wifiRecoveryDiag\":\"1,1,0,2,1,0,0,0\",\"bleRadio\":\"1,1,15000,0,251,251,0,0,0,0,1650,789381,11000,16630,30000,0\",\"invalid\":\"1,0,text,0,0,0,0\"}");
         if(Tab5Service.NumericProbeDiagnostic(doc.RootElement,"wifiIsolation",7)!="1,0,0,0,20000,1,0"||Tab5Service.NumericProbeDiagnostic(doc.RootElement,"bleRadio",16)=="invalid"||
+           Tab5Service.NumericProbeDiagnostic(doc.RootElement,"wifiRecoveryDiag",8)!="1,1,0,2,1,0,0,0"||Tab5Service.NumericProbeDiagnostic(doc.RootElement,"wifiRecoveryDiag",7)!="invalid"||
            Tab5Service.NumericProbeDiagnostic(doc.RootElement,"invalid",7)!="invalid"||Tab5Service.NumericProbeDiagnostic(doc.RootElement,"missing",7)!="unsupported")throw new Exception("Radio diagnostic validation failed");
     }
     private static async Task VerifyBulkGapAsync() {

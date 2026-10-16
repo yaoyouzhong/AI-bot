@@ -1,8 +1,10 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text.Unicode;
 
 namespace AIBotBridge;
 
@@ -10,6 +12,13 @@ internal static class Tab5Protocol
 {
     internal const string Prefix = "@AIBOT ";
     internal const int MaximumFrame = 32768;
+    internal const int MaximumStatusFrame = 65536;
+    internal const int StatusTargetFrame = 49152;
+    // This is UTF-8 device JSON, not HTML. Keep Chinese characters compact
+    // without changing the shared desktop/persistence serializer or values.
+    internal static readonly JsonSerializerOptions StatusJson = new(JsonDefaults.Options) {
+        Encoder=JavaScriptEncoder.Create(UnicodeRanges.All)
+    };
     internal static readonly Guid Service = new("7af50001-7f23-4a91-bc65-667a19320101");
     internal static readonly Guid Info = new("7af50002-7f23-4a91-bc65-667a19320101");
     internal static readonly Guid Input = new("7af50003-7f23-4a91-bc65-667a19320101");
@@ -57,8 +66,8 @@ internal static class Tab5Protocol
                 systemMetrics=snapshot.SystemMetrics is null ? null : snapshot.SystemMetrics with {Samples=(snapshot.SystemMetrics.History??snapshot.SystemMetrics.Samples)?.TakeLast(64).ToArray()},snapshot.Music,
                 domesticActivity=snapshot.DomesticActivity is null?null:new {snapshot.DomesticActivity.ActiveProvider,snapshot.DomesticActivity.State,snapshot.DomesticActivity.NeedsInput,snapshot.DomesticActivity.TokensToday},
                 snapshot.FollowApp,snapshot.RuntimeHealth,resource,assetIds,codexTasks,ota,connectionHealth,
-                calendar=Calendar(snapshot),quotaDetails=Tab5Details.Quotas(snapshot),quotaTrend=Tab5QuotaTrend.Snapshot() }
-        },JsonDefaults.Options);
+                calendar=Calendar(snapshot),agenda=AgendaStore.Shared.Summary(),quotaDetails=Tab5Details.Quotas(snapshot),quotaTrend=Tab5QuotaTrend.Snapshot() }
+        },StatusJson);
     private static object? SummaryQuota(ProviderQuotaSnapshot? quota,bool codex=false)=>quota is null?null:new {
         PrimaryPercent=!codex||Tab5Details.CodexHasFiveHour(quota.Plan)?quota.PrimaryPercent:null,quota.WeeklyPercent,quota.Stale};
     private static object Calendar(StatusSnapshot s) {

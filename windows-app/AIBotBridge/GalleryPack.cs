@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -11,6 +11,7 @@ internal static class GalleryPack
     // Readers see a complete category before or after the atomic directory swap.
     internal static object Gate {get;}=new();
     internal static long Revision {get;private set;}
+    internal static void NotifyInstalled(){lock(Gate)Revision++;}
     private static long _revisionsRead=-1;
     private static object _contentRevisions=new{painting="",calligraphy=""};
     // A content digest changes even when an editor reuses an edition label.
@@ -38,7 +39,7 @@ internal static class GalleryPack
         try{return JsonSerializer.Deserialize<GalleryPackManifest>(File.ReadAllText(path),JsonDefaults.Options);}
         catch(Exception ex) when(ex is IOException or JsonException or UnauthorizedAccessException){return null;}
     }
-    internal static GalleryPackManifest Install(string archive,string? root=null,IProgress<int>? progress=null,CancellationToken cancellation=default,GalleryUpdate? expected=null) {
+    internal static GalleryPackManifest Install(string archive,string? root=null,IProgress<int>? progress=null,CancellationToken cancellation=default,GalleryUpdate? expected=null,bool notify=true) {
         string destination=Path.GetFullPath(root??Root);Directory.CreateDirectory(destination);
         string stage=Path.Combine(destination,".install-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(stage);
         try {
@@ -111,7 +112,7 @@ internal static class GalleryPack
                 cancellation.ThrowIfCancellationRequested();
                 bool previous=Directory.Exists(target);if(previous)Directory.Move(target,backup);
                 try{Directory.Move(stage,target);}catch{if(previous)Directory.Move(backup,target);throw;}
-                Revision++;
+                if(notify)Revision++;
             }
             // Previous installed data remains as a backup. Never remove user artwork.
             progress?.Report(100);return manifest;

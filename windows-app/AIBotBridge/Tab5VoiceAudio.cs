@@ -4,7 +4,7 @@ using NAudio.Wave;
 namespace AIBotBridge;
 
 internal sealed record Tab5AudioDevice(string Id,string Name) { public override string ToString()=>Name; }
-internal sealed record Tab5VoiceAvailability(bool CableReady,bool DjiAvailable,string Message);
+internal sealed record Tab5VoiceAvailability(bool CableReady,bool DjiAvailable,string Message) {internal bool Ready=>CableReady||DjiAvailable;}
 internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
 {
     private WasapiCapture? _capture;
@@ -15,6 +15,9 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     private volatile bool _captureFailed;
     private volatile bool _outputFailed;
     private string _source="";
+    private bool _prepared;
+    internal string? ExistingInputId=>_source=="dji"?_inputDevice?.ID:null;
+    public bool CanSwitchToTab5=>_source!="dji";
     public string SourceName {get;private set;}="";
     private bool _hasInputData;
     private string _cableOutputId="";
@@ -62,11 +65,22 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         bool render=outputs.Any(d=>IsCable(d.Name));
         bool capture=inputs.Any(d=>IsCableCapture(d.Name));
         bool dji=SelectInput(inputs,selectedId) is not null;
-        string message=!render||!capture?"VB-CABLE 音频通路未就绪，请安装后检查录音端和播放端是否启用。":
-            dji?"已检测到大疆输入设备；开始时尝试大疆，打开失败则改用 TAB5。":"未检测到所选大疆输入设备；开始时使用 TAB5 收音。";
+        string message=dji?"已检测到大疆；电脑与 TAB5 共用豆包当前的大疆麦克风，不切换音源。":
+            render&&capture?"大疆未连接，开始时使用 TAB5 内置麦克风，用完恢复电脑原音源。":"大疆未连接；TAB5 内置麦克风的音频通路未就绪。";
         return new(render&&capture,dji,message);
     }
     public string Start(bool forceTab5) {
+        if(_prepared){_prepared=false;return _source;}
+        return StartCore(forceTab5);
+    }
+    public void ValidateTab5() {
+        var availability=Inspect(Devices(DataFlow.Capture),Devices(DataFlow.Render),djiId());
+        if(!availability.CableReady)throw new InvalidOperationException("TAB5 内置麦克风的音频通路未就绪，请检查 VB-CABLE");
+    }
+    internal string Prepare(bool forceTab5) {
+        string source=StartCore(forceTab5);_prepared=true;return source;
+    }
+    private string StartCore(bool forceTab5) {
         Stop();
         _activity.Reset();
         _tab5Samples=0;
@@ -74,26 +88,26 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         var inputs=Devices(DataFlow.Capture);var selectedId=djiId();
         var outputs=Devices(DataFlow.Render);
         var availability=Inspect(inputs,outputs,selectedId);
-        if(!availability.CableReady)throw new InvalidOperationException(availability.Message);
-        _cableOutputId=outputs.First(d=>IsCable(d.Name)).Id;
+        _cableOutputId=outputs.FirstOrDefault(d=>IsCable(d.Name))?.Id??"";
         var selected=SelectInput(inputs,selectedId);
         if(!forceTab5&&selected is not null) {
             try {
                 using var enumerator=new MMDeviceEnumerator();
                 _inputDevice=enumerator.GetDevice(selected.Id);_capture=new WasapiCapture(_inputDevice);
-                OpenOutput(_capture.WaveFormat);_captureFailed=false;_lastData=Environment.TickCount64;
-                var buffer=_buffer!;
+                // Shared-mode capture meters DJI only. The IME hears the same
+                // physical endpoint directly; do not replay it into VB-CABLE.
+                _captureFailed=_outputFailed=false;_lastData=Environment.TickCount64;
                 var inputFormat=_capture.WaveFormat;
                 _capture.DataAvailable+=(_,e)=> {
                     if(e.BytesRecorded<=0)return;
                     Meter(e.Buffer,e.BytesRecorded,inputFormat);
-                    try {buffer.AddSamples(e.Buffer,0,e.BytesRecorded);Interlocked.Exchange(ref _lastData,Environment.TickCount64);Volatile.Write(ref _hasInputData,true);}
-                    catch(InvalidOperationException){_captureFailed=true;}
+                    Interlocked.Exchange(ref _lastData,Environment.TickCount64);Volatile.Write(ref _hasInputData,true);
                 };
                 _capture.RecordingStopped+=(_,_)=>_captureFailed=true;
                 _capture.StartRecording();_source="dji";SourceName=selected.Name;return _source;
             } catch(Exception ex) when(ex is System.Runtime.InteropServices.COMException or InvalidOperationException or NAudio.MmException) {Stop();}
         }
+        if(!availability.CableReady)throw new InvalidOperationException(availability.Message);
         UseTab5();return _source;
     }
     private void OpenOutput(WaveFormat format) {
@@ -114,8 +128,8 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     }
     public bool InputReady {
         get {
-            if(_outputFailed||_output?.PlaybackState!=PlaybackState.Playing)return false;
-            return _source=="tab5"||(_source=="dji"&&DjiHealthy&&Volatile.Read(ref _hasInputData));
+            if(_source=="dji")return DjiHealthy&&Volatile.Read(ref _hasInputData);
+            return !_outputFailed&&_output?.PlaybackState==PlaybackState.Playing&&_source=="tab5";
         }
     }
     public void UseTab5(){if(_source=="tab5")return;Stop();OpenOutput(new WaveFormat(16000,16,1));_source="tab5";SourceName="TAB5 内置麦克风";}
@@ -137,7 +151,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         // endpoint or make the next start reuse half-disposed capture state.
         var capture=_capture;var output=_output;var inputDevice=_inputDevice;var outputDevice=_outputDevice;
         _capture=null;_output=null;_buffer=null;_inputDevice=null;_outputDevice=null;_source=SourceName="";
-        _hasInputData=false;
+        _hasInputData=false;_prepared=false;
         Volatile.Write(ref _inputLevel,0);Interlocked.Exchange(ref _levelAt,0);
         try {try{capture?.StopRecording();}finally{capture?.Dispose();}}
         finally {

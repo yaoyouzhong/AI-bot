@@ -19,6 +19,18 @@ internal static class UpgradeSelfTest
             }
             CheckDiagnostic("ota_0",0x20000,2,image.ElfSha256,true);CheckDiagnostic("ota_1",0x700000,2,image.ElfSha256,true);
             CheckDiagnostic("ota_1",0x700000,1,image.ElfSha256,false);CheckDiagnostic("ota_0",0x20000,2,new string('0',64),false);
+            string transfer="Wi-Fi 分块压缩；镜像：7175664；实际传输：4565309/4565309；耗时毫秒：13407；等待设备校验";
+            var verifiedText=Tab5UpgradeStatusText.Create("0.2.198-ui",true,true,true,false,"","设备已回报新版本，请核验启动。","",transfer);
+            if(verifiedText.State!="已核验"||verifiedText.Hint.Length!=0||verifiedText.Transfer!="固件 6.84 MiB（分块压缩）"||
+                verifiedText.Progress!="已通过 Wi-Fi 传输 · 4.35 MiB　耗时 13.4 秒")throw new Exception("Verified upgrade retains stale guidance or unreadable transfer units");
+            var usbText=Tab5UpgradeStatusText.Create("0.2.199-ui",true,true,false,false,"","","","USB；已提供：6686880/6686880；等待设备校验");
+            if(usbText.Transfer.Length!=0||usbText.Progress!="已通过 USB 传输 · 6.38 MiB")throw new Exception("USB channel should be part of the transfer result");
+            var pendingText=Tab5UpgradeStatusText.Create("0.2.198-ui",true,true,false,false,"","设备已开始升级，请保持供电。","",transfer);
+            if(!pendingText.Hint.Contains("请核验启动")||pendingText.Hint.Contains("开始升级"))throw new Exception("Running firmware did not supersede old remote request state");
+            var manualText=Tab5UpgradeStatusText.Create("0.2.199-ui",true,false,false,true,"","升级请求未确认，请核对设备状态后重试。","",transfer);
+            if(manualText.Hint.Contains("未确认")||manualText.State!="正在传输")throw new Exception("Active manual transfer retained a stale remote request failure");
+            var interruptedText=Tab5UpgradeStatusText.Create("0.2.198-ui",true,false,false,false,"","","","传输中断；耗时毫秒：1000");
+            if(interruptedText.State!="传输中断"||!interruptedText.Hint.Contains("重新开始"))throw new Exception("Transfer interruption recovery guidance lost");
             string pairPath=Path.Combine(Path.GetTempPath(),"aibot-boot-"+Guid.NewGuid().ToString("N"));
             try {
                 var pairStore=new Tab5PairingStore(pairPath);

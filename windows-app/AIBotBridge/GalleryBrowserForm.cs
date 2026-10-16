@@ -1,9 +1,10 @@
-namespace AIBotBridge;
+﻿namespace AIBotBridge;
 
 // Local, read-only collection browsing. No device commands or date overrides.
 internal sealed class GalleryBrowserForm : Form
 {
     private readonly Tab5Gallery _gallery;
+    private readonly GalleryDesktopImages _desktop;
     private readonly ComboBox _category=new(){Name="browse-category",DropDownStyle=ComboBoxStyle.DropDownList,Width=136};
     private readonly DateTimePicker _date=new(){Name="browse-date",Format=DateTimePickerFormat.Custom,CustomFormat="yyyy-MM-dd",Width=168};
     private readonly TextBox _search=new(){Name="browse-search",PlaceholderText="作品名或作者",Width=188};
@@ -23,15 +24,20 @@ internal sealed class GalleryBrowserForm : Form
     private Tab5Gallery.BrowserCatalog? _catalog;
     private int[] _filtered=[];
     private int _selected=-1,_frame,_pending;
+    private GalleryReaderTabs _readingTabs=null!;
     private bool _changing,_closed,_thumbnailsQueued,_readingOpen;
+    private GalleryImageFullscreenForm? _fullscreenViewer;
+    private int _fullscreenImageRevision=-1,_displayedFrame;
+    private string? _displayedWork;
+    private string _pageError="";
     internal int PendingLoads=>_pending;
     internal string? SelectedWorkId=>_catalog is not null&&_selected>=0?_catalog.Works[_selected].Id:null;
 
-    internal GalleryBrowserForm(Tab5Gallery? gallery=null,DateOnly? today=null) {
-        _gallery=gallery??new();Text="AI-bot · 浏览作品";Font=SettingsWindow.BodyFont();
+    internal GalleryBrowserForm(Tab5Gallery? gallery=null,DateOnly? today=null,GalleryDesktopImages? desktop=null) {
+        _gallery=gallery??new();_desktop=desktop??new();Text="AI-bot · 浏览作品";Font=SettingsWindow.BodyFont();
         AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(1160,780);MinimumSize=new(960,680);
         _date.Value=(today??DateOnly.FromDateTime(DateTime.Today)).ToDateTime(TimeOnly.MinValue);
-        _category.Items.AddRange(["每日名画","每日书法"]);_category.SelectedIndex=0;
+        _category.Items.AddRange(["每日名画","每日书法"]);_category.SelectedIndex=1;
         var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(20),ColumnCount=1,RowCount=3};Controls.Add(root);
         root.ColumnStyles.Add(new(SizeType.Percent,100));
         root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.Percent,100));
@@ -42,6 +48,7 @@ internal sealed class GalleryBrowserForm : Form
         filters.Controls.Add(Action("今日","browse-today",()=>{_date.Value=DateTime.Today;FindDate();}));
         filters.Controls.Add(Caption("搜索"));_search.AccessibleName="作品名或作者";
         filters.Controls.Add(_search);filters.Controls.Add(Action("刷新","browse-refresh",async()=>await ReloadAsync()));
+        filters.Controls.Add(Action("管理图库…","browse-manage",()=>{using var manager=new GalleryPackForm();manager.ShowDialog(this);_ = ReloadAsync();}));
         var content=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=Padding.Empty};
         content.ColumnStyles.Add(new(SizeType.Percent,30));content.ColumnStyles.Add(new(SizeType.Percent,70));content.RowStyles.Add(new(SizeType.Percent,100));root.Controls.Add(content,0,2);
         var directory=new Panel{Dock=DockStyle.Fill,Margin=new(0,0,20,0),Padding=new(1),BackColor=SettingsWindow.Border};content.Controls.Add(directory,0,0);
@@ -56,21 +63,21 @@ internal sealed class GalleryBrowserForm : Form
         var frame=Flow();frame.WrapContents=false;toolbar.Controls.Add(frame,0,0);
         _previousPage=Action("‹","browse-previous-page",()=>ChangeFrame(-1));_previousPage.AccessibleName="上一页";
         _nextPage=Action("›","browse-next-page",()=>ChangeFrame(1));_nextPage.AccessibleName="下一页";
-        foreach(var button in new[]{_previousPage,_nextPage}){button.MinimumSize=new(32,30);button.Size=new(32,30);button.Margin=Padding.Empty;}
-        frame.Controls.AddRange([_previousPage,_pageCount,_nextPage]);
-        var reading=new TabControl{Name="browse-reading",Dock=DockStyle.Fill,Margin=new(0,12,0,0),Visible=false};details.Controls.Add(reading,0,4);
-        _readerToggle=Action("阅读资料","browse-toggle-reading",()=>{_readingOpen=!_readingOpen;reading.Visible=_readingOpen;details.RowStyles[2]=new(SizeType.Percent,_readingOpen?65:100);details.RowStyles[4]=_readingOpen?new(SizeType.Percent,35):new(SizeType.Absolute,0);});
-        _readerToggle.Click+=(_,_)=>_readerToggle.Text=_readingOpen?"收起资料":"阅读资料";
+        foreach(var button in new[]{_previousPage,_nextPage})GalleryReaderTabs.StyleArrow(button);
+        var picture=GalleryReaderTabs.ImageStage(_image,_imageState,_previousPage,_nextPage);imagePanel.Controls.Add(picture);
+        frame.Controls.Add(Action("|‹","browse-first-page",()=>ChangeFrame(-_frame)));frame.Controls.Add(_pageCount);
+        var reading=_readingTabs=new GalleryReaderTabs("browse"){Visible=false};var comparison=new GalleryComparisonStage(picture,reading);imagePanel.Controls.Add(comparison);comparison.BringToFront();
+        foreach(var pair in reading.Bodies)_reading[pair.Key]=pair.Value;
+        _readerToggle=Action("作品详情 (I)","browse-toggle-reading",()=>{
+            _readingOpen=!_readingOpen;comparison.ShowReading(_readingOpen);frame.Visible=true;if(_readingOpen){reading.BringToFront();reading.Focus();}else _image.Focus();
+            _readerToggle!.Text=_readingOpen?"返回作品 (I)":"作品详情 (I)";UpdateNavigation();
+        });
         _fullscreen=Action("全屏观看","browse-fullscreen",()=>ShowFullscreen());_fullscreen.Margin=Padding.Empty;
         var actions=Flow();actions.WrapContents=false;toolbar.Controls.Add(actions,1,0);actions.Controls.AddRange([_readerToggle,_fullscreen]);
         var fit=new ToolStripMenuItem("适合窗口"){Name="browse-fit",ShortcutKeys=Keys.Control|Keys.D0};fit.Click+=(_,_)=>_image.ResetView();_imageMenu.Items.Add(fit);
         _imageMenu.Opening+=(_,e)=>e.Cancel=!_image.HasImage;_image.ContextMenuStrip=_imageMenu;
         KeyPreview=true;KeyDown+=(_,e)=>{if(e.Control&&e.KeyCode==Keys.D0){_image.ResetView();e.Handled=true;e.SuppressKeyPress=true;}};
         _image.MouseDoubleClick+=(_,_)=>ShowFullscreen();
-        foreach(string name in new[]{"简介","欣赏提示","原文"}) {
-            var tab=new TabPage(name){Padding=new(12),BackColor=Color.White};reading.TabPages.Add(tab);
-            var text=new TextBox{Name="browse-reading-"+name,Dock=DockStyle.Fill,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,BorderStyle=BorderStyle.None,BackColor=Color.White,ForeColor=SettingsWindow.Ink};tab.Controls.Add(text);_reading[name]=text;
-        }
         _list.DrawItem+=DrawWork;_list.ViewportChanged+=(_,_)=>QueueThumbnails();_list.SelectedIndexChanged+=async(_,_)=>{if(!_changing&&_list.SelectedItem is int selected){_selected=selected;_frame=0;UpdateNavigation();QueueThumbnails();await LoadDetailAsync();}};
         _category.SelectedIndexChanged+=async(_,_)=>await ReloadAsync();_search.TextChanged+=(_,_)=>{if(!_changing)ApplyFilter();};
         void Fit(){int width=Math.Max(80,details.ClientSize.Width-details.Padding.Horizontal);_title.MaximumSize=_metadata.MaximumSize=new(width,0);_summary.MaximumSize=new(Math.Max(100,root.ClientSize.Width-root.Padding.Horizontal),0);_summary.MinimumSize=new(0,(int)Math.Ceiling(_summary.Font.GetHeight()+4));_list.ItemHeight=(int)Math.Ceiling(Font.GetHeight()*4.8);}
@@ -113,7 +120,7 @@ internal sealed class GalleryBrowserForm : Form
         _changing=true;_search.Text="";_changing=false;
         ApplyFilter(Tab5Gallery.DayIndex(DateOnly.FromDateTime(_date.Value),_catalog.Works.Length));
     }
-    private void ChangeFrame(int direction){if(_catalog is null||_selected<0)return;int frame=_frame+direction;if(frame<0||frame>=_catalog.Works[_selected].Frames.Length)return;_frame=frame;UpdateNavigation();_ = LoadDetailAsync();}
+    private void ChangeFrame(int direction){if(_catalog is null||_selected<0)return;int count=_catalog.Works[_selected].Frames.Length;if(count<=1)return;int frame=((_frame+direction)%count+count)%count;if(frame==_frame)return;_frame=frame;UpdateNavigation();_ = LoadDetailAsync();}
     private void RenderList() {
         _thumbnailStop?.Cancel();ClearThumbnails();_changing=true;_list.BeginUpdate();
         try{_list.Items.Clear();foreach(int index in _filtered)_list.Items.Add(index);_list.SelectedItem=_selected;}
@@ -149,21 +156,29 @@ internal sealed class GalleryBrowserForm : Form
     private async Task LoadDetailAsync() {
         var token=Replace(ref _detailStop);if(_catalog is null||_selected<0)return;
         var work=_catalog.Works[_selected];string category=_catalog.Category;int frame=_frame;
-        ClearDetail("正在读取作品…");_title.Text=work.Title;_metadata.Text=work.Author;UpdateNavigation();Interlocked.Increment(ref _pending);
+        string identity=category+"/"+work.Id;bool retainImage=_image.HasImage&&_displayedWork==identity;_pageError="";
+        if(!retainImage){ClearDetail("正在读取作品…");_title.Text=work.Title;_metadata.Text=work.Author;}
+        UpdateNavigation();Interlocked.Increment(ref _pending);
         Bitmap? bitmap=null;
         try {
             var page=await Task.Run(()=>_gallery.BrowsePage(category,work.Id,frame),token);token.ThrowIfCancellationRequested();
-            bitmap=await Task.Run(()=>Decode(page.Jpeg),token);
+            var original=await Task.Run(()=>_desktop.LoadAsync(page,frame,token),token);
+            bitmap=original?.Image??await Task.Run(()=>Decode(page.Jpeg),token);
             if(_closed||token.IsCancellationRequested)return;
             var guide=page.Guide;_title.Text=string.IsNullOrWhiteSpace(guide?.Title)?page.Work.Title:guide.Title;
-            _metadata.Text=string.Join(" · ",new[]{guide?.Author??page.Work.Author,guide?.Period,guide?.Museum}.Where(s=>!string.IsNullOrWhiteSpace(s)));
-            _image.SetImage(bitmap);bitmap=null;_image.Visible=true;_imageState.Visible=false;UpdateNavigation();
+            _metadata.Text=string.Join(" · ",new[]{guide?.Author??page.Work.Author,guide?.Period,guide?.Museum,original is null?"标准预览":$"高清原图 {original.Width}×{original.Height}"}.Where(s=>!string.IsNullOrWhiteSpace(s)));
+            _image.SetImage(bitmap);bitmap=null;_displayedWork=identity;_displayedFrame=frame;_image.Visible=true;_imageState.Visible=false;
             _reading["简介"].Text=guide is null?"此图库尚未提供作品简介。":string.Join(Environment.NewLine+Environment.NewLine,new[]{guide.Brief,guide.Overview}.Where(s=>!string.IsNullOrWhiteSpace(s)));
             _reading["欣赏提示"].Text=string.IsNullOrWhiteSpace(guide?.Looking)?"此作品暂无已核实的欣赏提示。":guide.Looking;
             _reading["原文"].Text=string.IsNullOrWhiteSpace(guide?.Transcription)?"此作品暂无已核实原文。":guide.Transcription+(string.IsNullOrWhiteSpace(guide.Explanation)?"":Environment.NewLine+Environment.NewLine+guide.Explanation);
+            UpdateNavigation();
         }catch(OperationCanceledException){}
         catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException) {
-            if(!_closed&&!token.IsCancellationRequested)ClearDetail("作品读取失败："+ex.Message+Environment.NewLine+"请刷新目录；缺少文件时重新导入图库。");
+            if(!_closed&&!token.IsCancellationRequested){
+                if(retainImage){_frame=_displayedFrame;_pageError=" · 翻页失败，请重试";}
+                else ClearDetail("作品读取失败："+ex.Message+Environment.NewLine+"请刷新目录；缺少文件时重新导入图库。");
+                UpdateNavigation();
+            }
         }finally{bitmap?.Dispose();Interlocked.Decrement(ref _pending);}
     }
     private static Bitmap Decode(byte[] jpeg,Size? size=null) {
@@ -177,10 +192,15 @@ internal sealed class GalleryBrowserForm : Form
     }
     private void UpdateNavigation() {
         int frames=_catalog is not null&&_selected>=0?_catalog.Works[_selected].Frames.Length:0;
-        _previousPage.Enabled=_frame>0&&frames>0;_nextPage.Enabled=frames>0&&_frame+1<frames;
-        _previousPage.Visible=_nextPage.Visible=_pageCount.Visible=frames>1;
-        _readerToggle.Enabled=_fullscreen.Enabled=_image.HasImage;
-        _findDate.Enabled=_catalog is not null&&_catalog.Works.Length>0;_pageCount.Text=frames==0?"":$"{_frame+1} / {frames} 页";
+        _previousPage.Enabled=_nextPage.Enabled=frames>1;
+        _previousPage.Visible=_nextPage.Visible=frames>1&&!_readingOpen;_pageCount.Visible=frames>0;
+        _readerToggle.Enabled=_readingOpen||_image.HasImage;_fullscreen.Enabled=_image.HasImage;
+        _findDate.Enabled=_catalog is not null&&_catalog.Works.Length>0;_pageCount.Text=frames==0?"":$"{_frame+1} / {frames} 页"+_pageError;
+        if(_fullscreenViewer is not null){
+            bool replaceImage=_fullscreenImageRevision!=_image.ImageRevision;
+            _fullscreenViewer.SetPage(replaceImage?_image.CopyImage():null,replaceImage,_imageState.Text,_pageCount.Text,_previousPage.Enabled,_nextPage.Enabled,_title.Text,_metadata.Text,_reading.ToDictionary(p=>p.Key,p=>p.Value.Text));
+            _fullscreenImageRevision=_image.ImageRevision;
+        }
     }
     private void DrawWork(object? sender,DrawItemEventArgs e) {
         if(e.Index<0||_catalog is null)return;int index=(int)_list.Items[e.Index];var work=_catalog.Works[index];bool selected=(e.State&DrawItemState.Selected)!=0;
@@ -196,7 +216,20 @@ internal sealed class GalleryBrowserForm : Form
         e.DrawFocusRectangle();
     }
     private void ClearThumbnails(){foreach(var thumbnail in _thumbnails.Values)thumbnail.Dispose();_thumbnails.Clear();_thumbnailFailures.Clear();}
-    private void ShowFullscreen(){if(_image.CopyImage() is not Bitmap image)return;using var form=new GalleryImageFullscreenForm(image,_title.Text);form.ShowDialog(this);}
+    protected override bool ProcessCmdKey(ref Message msg,Keys keyData) {
+        Control? focused=ActiveControl;while(focused is ContainerControl container&&container.ActiveControl is not null)focused=container.ActiveControl;
+        bool editing=focused is TextBoxBase text&&!text.ReadOnly||focused is ComboBox or DateTimePicker;
+        if(!editing&&keyData==Keys.I&&_readerToggle.Enabled){_readerToggle.PerformClick();return true;}
+        if(!editing&&_readingOpen&&_readingTabs.HandleReadingKey(keyData))return true;
+        if(keyData==Keys.Escape&&_readingOpen){_readerToggle.PerformClick();return true;}
+        if(!_readingOpen&&keyData is Keys.Left or Keys.Right&&focused is not TextBoxBase and not ComboBox and not DateTimePicker and not TabControl){ChangeFrame(keyData==Keys.Left?-1:1);return true;}
+        return base.ProcessCmdKey(ref msg,keyData);
+    }
+    private void ShowFullscreen(){
+        if(_image.CopyImage() is not Bitmap image)return;
+        using var form=new GalleryImageFullscreenForm(image,_title.Text,ChangeFrame);_fullscreenViewer=form;_fullscreenImageRevision=_image.ImageRevision;UpdateNavigation();
+        try{form.ShowDialog(this);}finally{_fullscreenViewer=null;}
+    }
     protected override void Dispose(bool disposing) {
         if(disposing&&!_closed){_closed=true;foreach(var stop in new[]{_catalogStop,_thumbnailStop,_detailStop}){stop?.Cancel();stop?.Dispose();}ClearThumbnails();_imageMenu.Dispose();}
         base.Dispose(disposing);

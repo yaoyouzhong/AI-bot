@@ -30,7 +30,17 @@ internal static class UserPreferencesSelfTest
         Check(Tab5CodexTasks.SelectOverview(catalog,new Dictionary<string,CodexLifecycleTracker.TaskActivity>())?.Id==a,"Pin changed overview priority");
         Check(UserPreferenceFile.Read<string[]>("tab5-task-pins.json")!.SequenceEqual([b]),"Pins not persistent");
         var notifications=new BridgeNotifications();var noon=new DateTimeOffset(DateTime.Today.AddHours(12));
-        Check(notifications.Evaluate("completion","one","完成",noon).Sound,"Default completion lost");Check(!notifications.Evaluate("completion","one","完成",noon.AddMinutes(1)).Show&&notifications.History.Length==1,"Duplicate not suppressed");
+        var fallback=notifications.Evaluate("completion","one","完成",noon);Check(fallback.Sound&&!fallback.Show,"Small display fallback should sound without duplicate popup");Check(!notifications.Evaluate("completion","one","完成",noon.AddMinutes(1)).Sound&&notifications.History.Length==1,"Duplicate not suppressed");
+        var onTab5=notifications.Evaluate("completion","tab5","完成",noon.AddMinutes(2),completionOnDevice:true);Check(!onTab5.Show&&!onTab5.Sound,"TAB5 and small display together caused desktop duplication");
+        var offline=notifications.Evaluate("completion","offline","完成",noon.AddMinutes(3));Check(offline.Sound&&!offline.Show,"TAB5 disconnect did not restore desktop fallback sound");
+        using(var tab5=new Tab5Service(new Tab5PairingStore(UserPreferenceFile.PathFor("sound-route-pair.dat")))) {
+            Check(!tab5.CompletionNoticeAvailable,"Configured TAB5 without fresh traffic suppressed fallback");
+            foreach(string name in new[]{"_usbAckAt","_wifiRequestAt","_bleAckAt"}) {
+                var field=typeof(Tab5Service).GetField(name,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
+                field.SetValue(tab5,Environment.TickCount64);Check(tab5.CompletionNoticeAvailable,"Fresh authenticated transport did not select TAB5");
+                field.SetValue(tab5,Environment.TickCount64-9000);Check(!tab5.CompletionNoticeAvailable,"Expired transport suppressed Windows fallback");field.SetValue(tab5,0L);
+            }
+        }
         Check(!notifications.Evaluate("completion","two","完成",noon.AddSeconds(2)).Show,"Burst not coalesced");
         notifications.Save(new(Quiet:true));Check(!notifications.Evaluate("attention","night","操作",new(DateTime.Today.AddHours(23))).Show,"Overnight quiet start failed");
         Check(!notifications.Evaluate("attention","morning","操作",new(DateTime.Today.AddDays(1).AddHours(7))).Show,"Overnight quiet end failed");

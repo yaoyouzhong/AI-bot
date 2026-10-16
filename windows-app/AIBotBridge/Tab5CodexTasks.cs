@@ -250,6 +250,7 @@ internal sealed class Tab5CodexTasks : IDisposable
         }
         // Under transport pressure retain each project plus the viewed task first.
         var tasks=Tab5TaskPins.Select(catalog,taskLimit,overview?.Id,viewed,ready.Keys.ToHashSet());
+        var taskIds=tasks.Select(t=>t.Id).ToHashSet();
         var read=_readState.Synchronize(ready);
         if(view is not null&&viewed is not null)responses[viewed]=view.Text;
         var projects = tasks.GroupBy(t => t.ProjectId).OrderByDescending(g => g.Max(t => t.UpdatedAt))
@@ -258,10 +259,12 @@ internal sealed class Tab5CodexTasks : IDisposable
         return new { projects, tasks, overviewTask=overview is null?null:new {id=overview.Id,title=overview.Title,folder=overview.Folder,projectId=overview.ProjectId,state=activity.GetValueOrDefault(overview.Id)?.State??"idle"}, draftView=Volatile.Read(ref _draftView),control=Volatile.Read(ref _control),
             replyView=view is null?null:new {taskId=viewed,turnId=view.TurnId,page=view.Page,pageCount=view.PageCount,hasText=view.HasText,history=viewHistory,hasPrevious=viewPrevious,hasNext=viewNext,startedAt=view.StartedAt,startedLabel=view.StartedAt>0?DateTimeOffset.FromUnixTimeSeconds(view.StartedAt).ToLocalTime().ToString("MM-dd HH:mm"):"",state=view.State},
             repliesReady = tasks.Where(t=>ready.ContainsKey(t.Id)).Take(80).ToDictionary(t=>t.Id,t=>ready[t.Id]),
-            repliesRead = read,
-            repliesUnread = _readState.Unread,
+            // Shrinking the catalog must also shrink its per-task maps. Keep
+            // the full desktop read state above so expanding it loses no ACKs.
+            repliesRead = read.Where(p=>taskIds.Contains(p.Key)).ToDictionary(p=>p.Key,p=>p.Value),
+            repliesUnread = _readState.Unread.Where(p=>taskIds.Contains(p.Key)).ToDictionary(p=>p.Key,p=>p.Value),
             receipts = tasks.Where(t => _receipts.ContainsKey(t.Id)).Take(16).ToDictionary(t => t.Id, t => _receipts[t.Id]),
-            responses = tasks.Where(t => responses.ContainsKey(t.Id)).Take(1).ToDictionary(t => t.Id, t => responses[t.Id]) };
+            responses = tasks.Where(t => responses.ContainsKey(t.Id)).OrderByDescending(t=>t.Id==viewed).Take(1).ToDictionary(t => t.Id, t => responses[t.Id]) };
     }
 
     internal Task<(int Status, object Body)> ReadAsync(string taskId,CancellationToken token)=>ReadPageAsync(taskId,-1,token);

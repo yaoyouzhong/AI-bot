@@ -17,6 +17,6 @@
 - 2026-10-14 11:27:01–11:28:49（北京时间），真实小屏 22 次回读全部 `usb_active=true`、`bridge_online=true`、`mode=auto`、`display_cached=false`，渲染页均非 offline。USB 状态计数从 36 增至 86，uptime 连续增长，未见重启；最大回读耗时 405 ms。
 - 覆盖六页自动切换：Codex → DeepSeek → 智谱 → 天气 → 股票 → 系统，间隔 15 秒。桥接与设备均处于自动模式，循环启用；`settings.json` 和 `devices.json` 的前后 SHA-256 分别一致。
 - 桌面状态仍含 8 项监控检查；TAB5 USB 和 Wi-Fi 回读正常。
-- `git diff --check` 通过。以上为当时阶段：尚未提交、推送、打包发布或刷写固件。后续桥接修复已包含在 194 配套候选并完成本地提交，当前交付边界见发布准备记录。
+- `git diff --check` 通过。未提交、推送、打包发布或刷写固件。
 
 本次证据是实体设备的在线状态、绘制页和计数回读，未拍摄实体屏幕；约 109 秒观察不等于长期稳定性验证。完整采样、配置和旧程序备份位于本地忽略目录 `artifacts/development/pc-off-20261014/`。

@@ -1,5 +1,7 @@
 # AI-bot
 
+本次准备 Windows／Mac 桥接 0.6.7、TAB5 0.2.205-ui、ESP8266 0.5.3、标准书法 2026.10.15.1 和两套高清图库 2026.10.16。标准名画保持原版；浏览器高清音乐封面扩展不集成。候选与实机边界见[本次说明](docs/RELEASE-0.6.7.md)。
+
 当前正式版：桥接 0.6.6、TAB5 0.2.194-ui。修复、实机结果与剩余验收见[本版说明](docs/RELEASE-0.6.6.md)；各组件下载集中在下方。
 
 本次提供运行监控、电脑浏览作品、TF 整库保存与离线预览；修复监控断连闪屏和连续 BLE 传输，重启默认总览。名画布局包 **2026.10.14.1** 将横屏作品名、作者和年代置于图画左侧，竖屏保留简化信息。ESP8266 **0.5.2** 与书法 **2026.10.09** 沿用，软件升级保留用户图库。[本次变化与验证范围](docs/RELEASE-0.6.6.md) · [图库安装说明](docs/GALLERY-PACKS.md)
@@ -48,13 +50,15 @@ https://github.com/user-attachments/assets/4b9e1321-ccf9-4035-89e0-4ae690ca19b6
 <table>
 <thead><tr><th width="150" nowrap="nowrap">设备</th><th width="110" nowrap="nowrap">使用方式</th><th nowrap="nowrap">主要功能</th></tr></thead>
 <tbody>
-<tr><td nowrap="nowrap"><strong>ESP8266 小屏</strong></td><td nowrap="nowrap">电脑配置</td><td nowrap="nowrap">AI 状态与额度、日常轮播、桌宠与时钟屏保。<a href="docs/FEATURES.zh.md#esp8266">界面图鉴</a></td></tr>
-<tr><td nowrap="nowrap"><strong>TAB5 触控大屏</strong></td><td nowrap="nowrap">触控操作</td><td nowrap="nowrap">Codex 直达、语音／拍照草稿、日历与八种屏保。<a href="docs/FEATURES.zh.md#tab5">界面图鉴</a></td></tr>
+<tr><td nowrap="nowrap"><strong>ESP8266 小屏</strong></td><td nowrap="nowrap">电脑配置</td><td><strong>桌边状态看板，以 AI 任务状态与账户额度为核心。</strong><br>随时查看 Claude / Codex 状态、用量与重置时间；按需轮播天气、行情、电脑负载和音乐信息，搭配桌宠与时钟屏保。<a href="docs/FEATURES.zh.md#esp8266">界面图鉴</a></td></tr>
+<tr><td nowrap="nowrap"><strong>TAB5 触控大屏</strong></td><td nowrap="nowrap">触控操作</td><td><strong>触手可及的 AI 工作助手，集中查看信息、直接操作任务。</strong><br>查看 AI 任务状态与账户额度，阅读和继续 Codex 会话，支持语音输入与拍照附件；管理日程待办与到期提醒，兼具电脑运行监控、天气行情、音乐信息、日历生日与时钟倒计时，并提供桌宠和多种屏保。<a href="docs/FEATURES.zh.md#tab5">界面图鉴</a></td></tr>
 </tbody>
 </table>
 
 <details>
 <summary><strong>查看 TAB5 特色：Codex 直达、全年点阵与十二月历</strong></summary>
+
+新版另已加入**日程待办与到期提醒**，支持设备本地保存、离线操作和电脑辅助同步；目前处于本地验收阶段，尚未包含在下方 0.2.194-ui 正式下载中。[开发与验收记录](docs/development/TAB5-CHANGELOG.zh.md)
 
 **Codex 直达：** 从最近五个会话中选择目标，查看回复，语音输入草稿，确认后发送。支持取消、失败恢复和长按清空。[使用说明](docs/TAB5-QUICK-CONSOLE.md)
 

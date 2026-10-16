@@ -16,7 +16,7 @@ internal static class DeviceCenterMenu
             ((ToolStripDropDownMenu)group.DropDown).ShowImageMargin=false;
             (string Key,string Label)[] actions=device.Kind==HardwareKind.Esp8266
                 ?[("cycle","显示设置"),("appearance","外观设置"),("data","数据设置"),("legacy-settings","连接设置")]
-                :[("voice","语音设置"),("birthday-settings","日历生日"),("data","数据设置"),("tab5","连接升级")];
+                :[("gallery-browser","屏保图库"),("voice","语音设置"),("birthday-settings","日历生日"),("data","数据设置"),("tab5","连接升级")];
             foreach(var (key,label) in actions)group.DropDownItems.Add(Entry(label,key,()=>deviceAction(device.Id,key)));
             menu.Items.Add(group);
         }

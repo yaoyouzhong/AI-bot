@@ -18,9 +18,9 @@ internal static class Tab5BleTransfer
         => !withoutResponse || (offset/chunkSize+1)%window==0 || offset+length>=total;
     internal static async Task SendAsync(byte[] packet,int chunkSize,bool withoutResponse,
         Func<ReadOnlyMemory<byte>,CancellationToken,Task> write,
-        Func<CancellationToken,Task<bool>> acknowledge,CancellationToken token,int window=16)
+        Func<CancellationToken,Task<bool>> acknowledge,CancellationToken token,int window=16,int maximum=Tab5Protocol.MaximumFrame)
     {
-        if(packet.Length<4||packet.Length>Tab5Protocol.MaximumFrame+4||chunkSize is <20 or >488||window is <1 or >16)
+        if(maximum is not (Tab5Protocol.MaximumFrame or Tab5Protocol.MaximumStatusFrame)||packet.Length<4||packet.Length>maximum+4||chunkSize is <20 or >488||window is <1 or >16)
             throw new ArgumentOutOfRangeException(nameof(packet));
         int chunks=(packet.Length+chunkSize-1)/chunkSize;
         using var transfer=CancellationTokenSource.CreateLinkedTokenSource(token);

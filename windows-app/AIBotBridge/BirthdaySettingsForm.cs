@@ -18,7 +18,7 @@ internal sealed class BirthdaySettingsForm:Form
     internal BirthdaySettingsForm(bool preview=false)
     {
         Text="日历与生日";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        ClientSize=new Size(740,600);MinimumSize=new Size(640,510);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;ForeColor=Color.FromArgb(32,43,59);
+        ClientSize=new Size(960,660);MinimumSize=new Size(840,600);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;ForeColor=Color.FromArgb(32,43,59);
         var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(24),ColumnCount=2,RowCount=4};
         root.ColumnStyles.Add(new(SizeType.Percent,40));root.ColumnStyles.Add(new(SizeType.Percent,60));
         root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.AutoSize));
@@ -28,7 +28,7 @@ internal sealed class BirthdaySettingsForm:Form
         var listPanel=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=3,Margin=new(0,0,20,0)};
         listPanel.ColumnStyles.Add(new(SizeType.Percent,100));listPanel.RowStyles.Add(new(SizeType.AutoSize));listPanel.RowStyles.Add(new(SizeType.Percent,100));listPanel.RowStyles.Add(new(SizeType.AutoSize));
         var editScroll=new FlowLayoutPanel{Dock=DockStyle.Fill,AutoScroll=true,FlowDirection=FlowDirection.TopDown,WrapContents=false,Padding=new(14),Margin=Padding.Empty,BackColor=Color.FromArgb(246,248,251)};
-        void Field(string caption,Control control){var group=new TableLayoutPanel{AutoSize=true,ColumnCount=1,Margin=new(0,0,0,14)};group.ColumnStyles.Add(new(SizeType.Percent,100));group.Controls.Add(new Label{Text=caption,AutoSize=true,Margin=new(0,0,0,6)},0,0);control.Dock=DockStyle.Fill;control.Margin=Padding.Empty;group.Controls.Add(control,0,1);editScroll.Controls.Add(group);}
+        void Field(string caption,Control control){var group=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=new(0,0,0,20)};group.ColumnStyles.Add(new(SizeType.Absolute,TextRenderer.MeasureText("生日日期",Font).Width+18));group.ColumnStyles.Add(new(SizeType.Percent,100));group.FontChanged+=(_,_)=>group.ColumnStyles[0].Width=TextRenderer.MeasureText("生日日期",group.Font).Width+18;group.Controls.Add(new Label{Text=caption,AutoSize=true,Margin=new(0,5,18,0)},0,0);control.Dock=DockStyle.Fill;control.Margin=Padding.Empty;group.Controls.Add(control,1,0);editScroll.Controls.Add(group);}
         Field("姓名",_name);
         var calendars=new FlowLayoutPanel{AutoSize=true,WrapContents=false};_solar.Margin=new(0,0,20,0);_lunar.Margin=Padding.Empty;calendars.Controls.AddRange([_solar,_lunar]);Field("生日历法",calendars);
         var date=new TableLayoutPanel{AutoSize=true,ColumnCount=1};date.ColumnStyles.Add(new(SizeType.Percent,100));
@@ -66,7 +66,7 @@ internal sealed class BirthdaySettingsForm:Form
         try {var candidate=_entries.ToList();int selected=_list.SelectedIndex;if(selected>=0)candidate[selected]=entry;else {selected=candidate.Count;candidate.Add(entry);}BirthdayStore.Validate(candidate.ToArray());_entries.Clear();_entries.AddRange(candidate);RefreshList();_list.SelectedIndex=selected;_status.Text="列表已更新，保存后同步。";return true;}
         catch(InvalidOperationException ex){_status.Text=ex.Message;return false;}
     }
-    private void RefreshList(){_list.Items.Clear();foreach(var b in _entries)_list.Items.Add($"{b.Name}  ·  {(b.Lunar?"农历":"公历")}{(b.Leap?"闰":"")}{b.Month}/{b.Day}");_listTitle.Text=$"生日列表 · {_entries.Count} 人";}
+    private void RefreshList(){_list.Items.Clear();foreach(var b in _entries)_list.Items.Add($"{b.Name}  ·  {(b.Lunar?"农历":"公历")}{(b.Leap?"闰":"")}{b.Month}/{b.Day}");_listTitle.Text=$"生日（{_entries.Count}）";}
     internal static void SelfTest()
     {
         if(!AppPaths.IsPublicSelfTest)throw new InvalidOperationException("Birthday UI test requires an isolated profile.");

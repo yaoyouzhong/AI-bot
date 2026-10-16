@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -11,13 +11,16 @@
     <AssemblyName>AIBotBridge</AssemblyName>
     <RootNamespace>AIBotBridge</RootNamespace>
     <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
-    <Version>0.6.6</Version>
+    <Version>0.6.7</Version>
     <LocalArt Condition="'$(LocalArt)' == ''">false</LocalArt>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
     <EmbeddedResource Include="Assets\app-icon.ico" />
     <EmbeddedResource Include="Assets\flash-icon.ico" />
+    <EmbeddedResource Include="../../licenses/font-awesome/OFL.txt" LogicalName="AIBotBridge.FontAwesome.OFL" />
+    <EmbeddedResource Include="../../licenses/font-awesome/LICENSE.txt" LogicalName="AIBotBridge.FontAwesome.Notice" />
+    <EmbeddedResource Include="Assets\runtime-health.wav" LogicalName="AIBotBridge.RuntimeHealthSound" />
     <EmbeddedResource Include="../../docs/art-guides/catalog.zh.json" LogicalName="AIBotBridge.ArtGuides" WithCulture="false" Condition="'$(LocalArt)' == 'true'" />
     <EmbeddedResource Include="../../CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.bridge" WithCulture="false" />
     <EmbeddedResource Include="../../docs/development/TAB5-CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.tab5" WithCulture="false" />

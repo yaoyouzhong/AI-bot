@@ -239,11 +239,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(action.StartsWith("animation:")){MigratedWeather.WeatherMonitor.Animation=action[10..];return;}
             bool Mode(string mode){try{DeviceCapabilities.Require(_devices.Snapshot,id,"mode:"+mode,true);bool applied=SelectDisplayMode(mode);if(applied)_=UpdateDemandAsync();return applied;}catch(Exception ex){MessageBox.Show(ex.Message);return false;}}
             switch(action) {
+                case "gallery-browser":
+                    using(var form=DeviceWindow(d,new GalleryBrowserForm(),"屏保图库"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "tab5-display":
                     if(_tab5 is null)throw new InvalidOperationException("TAB5 连接服务未启动。");
                     using(var form=DeviceWindow(d,new Tab5DisplaySettingsForm(_tab5.DisplaySettingsAsync),"显示设置"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "task-pins":
                     using(var form=DeviceWindow(d,new Tab5TaskPinsForm(),"常用任务"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                case "agenda":
+                    using(var form=DeviceWindow(d,new AgendaForm(),"日程待办"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
                 case "data":
                     using(var form=DeviceWindow(d,new DeviceDataForm(_devices,d.Id),"数据设置"))if(form.ShowDialog(SettingsWindow.DialogOwner(_center))==DialogResult.OK){await UpdateDemandAsync();RebuildMenu();}break;
                 case "upgrade-tab5":
@@ -333,9 +337,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     private void Notify(string kind,string key,string title,string message,ToolTipIcon icon) {
-        var decision=_notifications.Evaluate(kind,key,title,DateTimeOffset.Now);
+        var decision=_notifications.Evaluate(kind,key,title,DateTimeOffset.Now,completionOnDevice:kind=="completion"&&_tab5?.CompletionNoticeAvailable==true);
         if(decision.Show){_updateBalloon=false;_healthBalloon=kind=="health";_icon.ShowBalloonTip(10000,title,message,icon);}
-        if(decision.Sound)_=Task.Run(CompletionChime.Play);
+        if(decision.Sound)_=Task.Run(kind=="health"?CompletionChime.PlayHealth:CompletionChime.Play);
     }
     private bool SelectDisplayMode(string mode)
     {

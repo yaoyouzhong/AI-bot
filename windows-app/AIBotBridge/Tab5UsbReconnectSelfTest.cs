@@ -5,6 +5,12 @@ namespace AIBotBridge;
 internal static class Tab5UsbReconnectSelfTest
 {
     private sealed class BrokenClose(Exception failure):IDisposable {public void Dispose()=>throw failure;}
+    private sealed class RemovedSerialPort:System.IO.Ports.SerialPort {
+        protected override void Dispose(bool disposing) {
+            if(disposing)throw new InvalidOperationException("serial handle removed during close");
+            base.Dispose(false);
+        }
+    }
     internal static async Task RunAsync()
     {
         Tab5UsbShortPacketSelfTest.Run();
@@ -46,8 +52,12 @@ internal static class Tab5UsbReconnectSelfTest
 
         var nativeFailure=new System.ComponentModel.Win32Exception(121);
         if(!Tab5UsbRecovery.IsDisconnect(nativeFailure,CancellationToken.None))throw new Exception("Native serial error stops reconnect worker");
-        foreach(Exception closeFailure in new Exception[]{new IOException(),new InvalidOperationException(),nativeFailure})
+        foreach(Exception closeFailure in new Exception[]{new IOException(),nativeFailure})
             if(Tab5Service.DisposeUsbPort(new BrokenClose(closeFailure)))throw new Exception("Native cleanup failure reported success");
+        if(Tab5Service.DisposeUsbPort(new RemovedSerialPort()))throw new Exception("Removed SerialPort cleanup reported success");
+        var unrelatedClose=new InvalidOperationException("unrelated owner invariant");
+        try{Tab5Service.DisposeUsbPort(new BrokenClose(unrelatedClose));throw new Exception("Unrelated cleanup fault hidden");}
+        catch(InvalidOperationException ex) when(ReferenceEquals(ex,unrelatedClose)){}
         foreach(Exception fault in new Exception[]{new IOException(),new TimeoutException(),new FormatException(),new OperationCanceledException(),nativeFailure}) {
             int before=closed;
             try{await Transfer<int>(generation,()=>throw fault);throw new Exception("Partial transaction failure swallowed");}

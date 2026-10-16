@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -8,16 +8,25 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        if((args.Length==1&&args[0]=="--tab5-ota-info")||(args.Length==3&&args[0]=="--tab5-start-ota")) {
+        if(args.Length==2&&args[0]=="--preview-notification-sounds"){AppPaths.BeginPublicSelfTest();CompletionChime.ExportPreviews(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-agenda"){AppPaths.BeginPublicSelfTest();AgendaSelfTest.Run(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-agenda-ui") {
+            AppPaths.BeginPublicSelfTest();if(!Application.SetHighDpiMode(HighDpiMode.DpiUnaware))throw new InvalidOperationException("DPI test process must start before any windows.");
+            Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);AgendaSelfTest.LayoutSimulations(AgendaStore.Shared,Path.GetFullPath(args[1]));return;
+        }
+        if((args.Length==1&&args[0]=="--tab5-ota-info")||(args.Length==3&&(args[0]=="--tab5-start-ota"||args[0]=="--tab5-verify-ota"))) {
             try {
-                var result=Tab5OtaControl.CallAsync(args.Length==1?"info":"start",args.Length==3?args[1]:null,args.Length==3?args[2]:null).GetAwaiter().GetResult();
+                var result=Tab5OtaControl.CallAsync(args.Length==1?"info":args[0]=="--tab5-verify-ota"?"verify":"start",args.Length==3?args[1]:null,args.Length==3?args[2]:null).GetAwaiter().GetResult();
                 Console.WriteLine(JsonSerializer.Serialize(result,JsonDefaults.Options));if(!result.GetProperty("ok").GetBoolean())Environment.ExitCode=1;
             }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or TimeoutException or OperationCanceledException or JsonException){Console.Error.WriteLine("TAB5_LOCAL_CONTROL_FAILED: "+ex.GetType().Name);Environment.ExitCode=1;}
             return;
         }
         if(args.Length==1&&args[0]=="--self-test-esp-usb-recovery"){EspUsbRecoverySelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--test-esp-usb-recovery"){EspUsbRecoverySelfTest.RunHardwareAsync().GetAwaiter().GetResult();return;}
-        if(args.Length is 2 or 3&&args[0]=="--self-test-gallery-browser"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryBrowserSelfTest.Run(Path.GetFullPath(args[1]),args.Length==3?Path.GetFullPath(args[2]):null);return;}
+        if(args.Length==3&&args[0]=="--self-test-hd-import-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryHdPackSelfTest.RunUi(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]));return;}
+        if(args.Length==3&&args[0]=="--self-test-hd-import"){AppPaths.BeginPublicSelfTest();Task.Run(()=>GalleryHdPackSelfTest.Run(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]))).GetAwaiter().GetResult();return;}
+        if(args.Length==4&&args[0]=="--self-test-desktop-art"){AppPaths.BeginPublicSelfTest();Task.Run(()=>GalleryDesktopImagesSelfTest.Run(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]),Path.GetFullPath(args[3]))).GetAwaiter().GetResult();return;}
+        if(args.Length is 2 or 3 or 4&&args[0]=="--self-test-gallery-browser"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryBrowserSelfTest.Run(Path.GetFullPath(args[1]),args.Length>=3?Path.GetFullPath(args[2]):null,args.Length==4?Path.GetFullPath(args[3]):null);return;}
         if(args.Length is 3 or 5&&args[0]=="--runtime-health-guard"){if(args.Length==5&&args[3]!="--self-test")throw new ArgumentException("Invalid guard arguments");RuntimeHealthGuard.Run(int.Parse(args[1]),args[2],args.Length==5?Path.GetFullPath(args[4]):null);return;}
         if(args.Length==3&&args[0]=="--self-test-runtime-health-guard-parent"){AppPaths.BeginPublicSelfTest();RuntimeHealthGuardSelfTest.ParentAsync(Path.GetFullPath(args[1]),args[2]).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-serial-runtime"){

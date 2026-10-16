@@ -11,6 +11,7 @@ from functools import lru_cache
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 import numpy as np
+from art_information_panel import draw_information_panel
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / 'artifacts/development/annual-calligraphy-installable-20261012/new-layouts'
@@ -191,11 +192,18 @@ def views(image,label,identity):
     return result
 
 
+def native_page_label(identity,pdf_page,index,count):
+    roles={('expansion-npm-wenfu',6):'正文起首与沈度题签',
+           ('expansion-npm-wen-qingjing',1):'经文起首与钱榖补画',
+           ('expansion-npm-wen-qingjing',3):'经文末段与周天球后跋',
+           ('expansion-npm-zhu-poems95',19):'正文末段与后跋'}
+    return f'{roles.get((identity,pdf_page),"正文")} {index+1}/{count}'
+
+
 def render_frame(art,work,label,portrait):
     frame=Image.new('RGB',(720,1280) if portrait else (1280,720),'#e7e0d1')
     draw=ImageDraw.Draw(frame);ink='#332e27';muted='#776e60'
-    vertical=art.width<art.height*1.15
-    x,y,w,h=(16,14,688,1124) if portrait else (500,42,730,578) if vertical else (64,34,1152,584)
+    x,y,w,h=(16,14,688,1124) if portrait else (500,42,730,578)
     rendered=ImageOps.contain(art,(w,h),Image.Resampling.LANCZOS)
     frame.paste(rendered,(x+(w-rendered.width)//2,y+(h-rendered.height)//2))
     if portrait:
@@ -203,21 +211,8 @@ def render_frame(art,work,label,portrait):
         author,author_font=fit(draw,work['author'],672,22)
         draw.text((24,1152),title,font=title_font,fill=ink)
         draw.text((24,1186),author,font=author_font,fill=muted)
-    elif vertical:
-        draw.rectangle((102,183,128,186),fill='#964b39')
-        title,title_font=fit(draw,work['title'],350,40)
-        author,author_font=fit(draw,work['author'],350,23)
-        draw.text((100,216),title,font=title_font,fill=ink)
-        draw.text((104,283),author,font=author_font,fill=muted)
-        period,period_font=fit(draw,work.get('period',''),350,20)
-        draw.text((104,321),period,font=period_font,fill=muted)
     else:
-        # The label has its own footer row so long titles cannot collide with it.
-        title,title_font=fit(draw,work['title'],720,27)
-        title_width=draw.textlength(title,font=title_font)
-        author,author_font=fit(draw,work['author'],min(300,1020-title_width),20)
-        draw.text((64,635),title,font=title_font,fill=ink)
-        draw.text((90+title_width,641),author,font=author_font,fill=muted)
+        draw_information_panel(draw,work,font,ink,muted,'#964b39')
     credit,credit_font=fit(draw,work['museum']+' · '+work['license'],672 if portrait else 850,16)
     draw.text((24 if portrait else 64,1246 if portrait else 684),credit,font=credit_font,fill=muted)
     detail,detail_font=fit(draw,label,672 if portrait else 280,17)
@@ -256,16 +251,7 @@ def render(rows,output,materials,only=None):
             assert list(image.size)==list(row['originalSize'])
             crop=row['crop'];art=image.crop(crop)
             assert min(art.size)>=600,(work['id'],art.size)
-            role='正文'
-            if work['id']=='expansion-npm-wenfu' and row['pdfPage']==6:
-                role='正文起首与沈度题签'
-            elif work['id']=='expansion-npm-wen-qingjing' and row['pdfPage']==1:
-                role='经文起首与钱榖补画'
-            elif work['id']=='expansion-npm-wen-qingjing' and row['pdfPage']==3:
-                role='经文末段与周天球后跋'
-            elif work['id']=='expansion-npm-zhu-poems95' and row['pdfPage']==19:
-                role='正文末段与后跋'
-            label=f'{role} {i+1}/{len(work["nativeImages"])}'
+            label=native_page_label(work['id'],row['pdfPage'],i,len(work['nativeImages']))
             for view,label,detail_crop in views(art,label,work['id']):
                 full.append((view,label,native['path'],detail_crop))
             origins.append({'file':native['path'],'imageSource':work.get('rights',{}).get('downloadUrl') or work['source'],
@@ -287,7 +273,9 @@ def render(rows,output,materials,only=None):
                        {'frames':frames,'portraitFrames':portraits})
         provenance.append({k:work[k] for k in ['id','source','license','museum']}|origins[0]|
                           {'frames':len(frames),'additionalSources':origins[1:],
-                           'displayLayout':'reviewed-native-page-with-overlapping-detail',
+                           'displayLayout':'calligraphy-information-panel',
+                           'displayMetadata':{k:work[k] for k in ('title','author','period','museum')},
+                           'sourceLayout':'reviewed-native-page-with-overlapping-detail',
                            'displayOrientation':'portrait composed 720x1280 then ROTATE_90; encoded 1280x720',
                            'mainBodyPdfPages':work['imageReview']['recommendedMainBodyPdfPages'],
                            'overlapPolicy':'continuous photographs retain reviewed shared text; no inferred stitching or source-pixel repainting'})

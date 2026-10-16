@@ -6,15 +6,17 @@
 
 | 组件 | 当前版本 | 版本文件 | 后续组件标签 |
 | --- | --- | --- | --- |
-| Windows / macOS 桥接 | 0.6.6（正式版） | 根目录 `VERSION` | `bridge-v0.6.6` 等 |
-| ESP8266 固件 | 0.5.3（独立既有候选，本轮不重建） | `firmware/VERSION` | `esp8266-v0.5.3` 等 |
-| TAB5 固件 | 0.2.194-ui（已安装、正式版） | `versions/TAB5` | `tab5-v0.2.194-ui` 等 |
+| Windows / macOS 桥接 | 0.6.7（本轮交付；公开状态以下载中心为准） | 根目录 `VERSION` | `bridge-v0.6.7` |
+| ESP8266 固件 | 0.5.3（本轮独立打包） | `firmware/VERSION` | `esp8266-v0.5.3` |
+| TAB5 固件 | 0.2.205-ui（本轮交付；保留实机验收边界） | `versions/TAB5` | `tab5-v0.2.205-ui` |
 
 表中未来标签仅为格式示例，不代表已经发布或当前版本已经增加。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
 
+2026-10-16 本轮范围为桥接 0.6.7、TAB5 0.2.205-ui、ESP8266 0.5.3、标准书法 2026.10.15.1 和两套高清完整图库 2026.10.16。标准名画沿用已有正式下载；不集成浏览器高清音乐封面扩展。构建、打包、公开附件和真机验收分别记录，公开下载索引仅在附件实际发布后刷新。The October 16 delivery covers bridge 0.6.7, TAB5 0.2.205-ui, ESP8266 0.5.3, standard calligraphy 2026.10.15.1 and both optional complete HD collections 2026.10.16. Existing standard painting remains unchanged; the browser music-artwork extension is not integrated. See [scope and acceptance boundaries](RELEASE-0.6.7.md).
+
 `versions/TAB5` 登记待发布镜像版本，不替代独立 TAB5 工程的镜像内版本；发布前核对其应用、sidecar、首刷包与公开源码身份。TAB5 本地候选仍由[固定固件工作流](TAB5-FIRMWARE-WORKFLOW.md)管理。
 
-本轮发布桥接 `0.6.6` 与 TAB5 `0.2.194-ui`；ESP8266 源码候选 `0.5.3` 不在本轮发布，公开下载保持 `0.5.2`。范围与验收边界见[本版说明](RELEASE-0.6.6.md)，发布准备记录保留为历史证据。最新字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保留兼容。The three independently versioned components and optional annual image/text packs are verified separately.
+此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。本次范围及尚未完成的实机项目见[0.6.7／205 说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
 
 桥接与历史组合版的发布展示标题使用 `AI-bot vX.Y.Z`，例如 `AI-bot v0.6.6`；Git 标签仍为 `bridge-v0.6.6`（历史组合版为 `vX.Y.Z`）。标题仅影响页面展示，更新识别与下载地址继续使用原组件标签。ESP8266 和 TAB5 保留各自组件名称。
 

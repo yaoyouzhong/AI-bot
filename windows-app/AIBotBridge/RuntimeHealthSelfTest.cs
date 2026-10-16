@@ -67,11 +67,11 @@ internal static class RuntimeHealthSelfTest
         Require(WindowsPacRoute.ParseProxy("http://user:secret@localhost:7890")==null,"credential URI accepted");
         Require(WindowsPacRoute.ParseProxy("http=localhost:7890;https=localhost:7891")?.Port==7891,"HTTPS proxy selection");
         var proxy=new Uri("http://127.0.0.1:7890");
-        RuntimeNetworkProbe Probe(bool pacAvailable,bool routeProxy=true,bool reachable=true,double ms=400)=>new() {
+        RuntimeNetworkProbe Probe(bool pacAvailable,bool routeProxy=true,bool reachable=true,double ms=400,Func<Uri,RuntimeProbeResult>? result=null)=>new() {
             Configuration=()=>new("http://127.0.0.1:7893/pac?private-value","127.0.0.1:7890",false),ProcessProxy=_=>null,
             Resolve=(_,_)=>new(true,routeProxy?proxy:null,routeProxy?"代理":"直连"),
             FetchPac=(_,_)=>Task.FromResult(new RuntimeProbeResult(pacAvailable,pacAvailable?200:null,10,pacAvailable?"":"连接失败")),
-            Send=(_,_,_)=>Task.FromResult(new RuntimeProbeResult(reachable,reachable?401:null,reachable?ms:null,reachable?"":"超时"))
+            Send=(uri,_,_)=>Task.FromResult(result?.Invoke(uri)??new RuntimeProbeResult(reachable,reachable?401:null,reachable?ms:null,reachable?"":"超时"))
         };
         var options=new RuntimeHealthOptions(Throughput:false);
         var normal=await Probe(true).CaptureAsync(options,CancellationToken.None);
@@ -84,6 +84,29 @@ internal static class RuntimeHealthSelfTest
         Require(unavailable.Checks.Single(c=>c.Key=="vpn").State=="error","network loss missed");
         var slow=await Probe(true,true,true,4200).CaptureAsync(options,CancellationToken.None);
         Require(slow.Checks.Single(c=>c.Key=="vpn").State=="warning","slow responses missed");
+        var targetFailures=new List<RuntimeNetworkRound>();
+        foreach(bool chat in new[]{true,false})foreach(var failure in new[]{
+            (Result:new RuntimeProbeResult(false,null,null,"超时"),Text:"连接超时"),
+            (Result:new RuntimeProbeResult(false,null,null,"DNS 失败"),Text:"域名解析失败"),
+            (Result:new RuntimeProbeResult(false,null,null,"TLS 失败"),Text:"安全连接失败"),
+            (Result:new RuntimeProbeResult(false,null,null,"连接失败"),Text:"连接失败"),
+            (Result:new RuntimeProbeResult(true,503,400,""),Text:"响应异常")}) {
+            var round=await Probe(true,result:uri=>(uri==RuntimeNetworkProbe.ChatGpt)==chat?failure.Result:new(true,401,400,"")).CaptureAsync(options,CancellationToken.None);
+            var check=round.Checks.Single(c=>c.Key=="vpn");
+            Require(check.State=="error"&&check.Summary==(chat?"ChatGPT ":"资源服务")+failure.Text&&check.Advice.Contains(chat?"资源服务仍可连接":"ChatGPT 仍可连接"),"single target failure lost service, cause or responding peer");
+            var engine=new RuntimeHealthPolicy();
+            for(int i=0;i<2;i++)engine.Apply(check with {UpdatedAt=start.AddSeconds(i*30)},3,TimeSpan.Zero,TimeSpan.FromSeconds(90));
+            Require(engine.Alerts.Length==0,"single target failure bypassed confirmation");
+            engine.Apply(check with {UpdatedAt=start.AddSeconds(60)},3,TimeSpan.Zero,TimeSpan.FromSeconds(90));
+            Require(engine.Alerts.Single().Title==check.Summary&&engine.Alerts.Single().ShortAdvice==(chat?"检查 ChatGPT 连接":"检查资源服务连接"),"single target alert lost title or advised changing nodes");
+            for(int i=0;i<2;i++)engine.Apply(check with {State="ok",Summary="出口响应正常",Advice="",UpdatedAt=start.AddSeconds(90+i*30)},2,TimeSpan.Zero,TimeSpan.FromSeconds(90));
+            Require(engine.Alerts.Length==0,"single target alert did not recover");
+            targetFailures.Add(round);
+        }
+        foreach(int status in new[]{401,403,404,429}) {
+            var round=await Probe(true,result:uri=>new(true,uri==RuntimeNetworkProbe.ChatGpt?status:200,400,"")).CaptureAsync(options,CancellationToken.None);
+            Require(round.Checks.Single(c=>c.Key=="vpn").State==(status is 403 or 429?"unknown":"ok"),"unauthenticated HTTP response misclassified as connection failure");
+        }
         var networkPolicy=new RuntimeHealthPolicy();
         for(int i=0;i<3;i++)networkPolicy.Apply(brokenPac.Checks[1] with {UpdatedAt=start.AddSeconds(i*30)},3,TimeSpan.Zero,TimeSpan.FromSeconds(90));
         Require(networkPolicy.Alerts.Length==1,"three failed rounds did not alarm");
@@ -142,6 +165,9 @@ internal static class RuntimeHealthSelfTest
         Fixture("codex-disconnect",normal,healthyMetrics,healthyPressure,extra:model.Capture(start.AddSeconds(4)));
         Fixture("bridge-stall",normal,healthyMetrics,healthyPressure,extra:RuntimeHealthGuard.Check(2,start,true));
         Fixture("codex-service",normal,healthyMetrics,healthyPressure,extra:serverCheck);
+        Fixture("chat-timeout",targetFailures[0],healthyMetrics,healthyPressure);
+        Fixture("assets-connect",targetFailures[8],healthyMetrics,healthyPressure);
+        Fixture("chat-http",targetFailures[4],healthyMetrics,healthyPressure);
         File.WriteAllText(Path.Combine(directory,"preview-fixtures.json"),JsonSerializer.Serialize(new{simulated=true,scenarios=fixtures},JsonDefaults.Options));
         var encoded=File.ReadAllText(Path.Combine(directory,"preview-fixtures.json"));Require(!encoded.Contains("private-value"),"PAC URL query leaked");
         var notifications=new BridgeNotifications();var decision=notifications.Evaluate("health","same","PAC 异常",start);
@@ -179,13 +205,15 @@ internal static class RuntimeHealthSelfTest
     }
     internal static void PreviewForm(string fixtures,string directory) {
         Directory.CreateDirectory(directory);using var document=JsonDocument.Parse(File.ReadAllText(fixtures));
-        var health=document.RootElement.GetProperty("scenarios")[1].GetProperty("data").GetProperty("runtimeHealth").Deserialize<RuntimeHealthSnapshot>(JsonDefaults.Options)!;
-        var fakeMetrics=document.RootElement.GetProperty("scenarios")[1].GetProperty("data").GetProperty("systemMetrics").Deserialize<SystemMetricsSnapshot>(JsonDefaults.Options)!;
+        foreach(var scenario in document.RootElement.GetProperty("scenarios").EnumerateArray().Where(s=>s.GetProperty("name").GetString() is "pac-fault" or "chat-timeout" or "assets-connect" or "chat-http")) {
+        string name=scenario.GetProperty("name").GetString()!;
+        var health=scenario.GetProperty("data").GetProperty("runtimeHealth").Deserialize<RuntimeHealthSnapshot>(JsonDefaults.Options)!;
+        var fakeMetrics=scenario.GetProperty("data").GetProperty("systemMetrics").Deserialize<SystemMetricsSnapshot>(JsonDefaults.Options)!;
         var service=new RuntimeHealthService(()=>fakeMetrics with {UpdatedAt=DateTimeOffset.UtcNow});
         foreach(float scale in new[]{1f,1.5f,2f})foreach(var size in new[]{new Size(880,650),new Size(680,500)}) {
             using var form=new RuntimeHealthForm(service,()=>health with {UpdatedAt=DateTimeOffset.UtcNow}){Opacity=0};form.ClientSize=size;form.Show();
             if(scale!=1)form.Scale(new SizeF(scale,scale));form.PerformLayout();Application.DoEvents();
-            string suffix=scale==1?"":$"-{scale*100:0}pct";
+            string suffix=(scale==1?"":$"-{scale*100:0}pct")+(name=="pac-fault"?"":"-"+name);
             void Verify(Control parent) {
                 foreach(Control control in parent.Controls) {
                     if(!control.Visible)continue;
@@ -201,6 +229,7 @@ internal static class RuntimeHealthSelfTest
             bitmap.Save(Path.Combine(directory,$"bridge-monitor-{size.Width}{suffix}.png"),System.Drawing.Imaging.ImageFormat.Png);
             var tabs=(TabControl)form.Controls.Find("monitor-tabs",true).Single();tabs.SelectedIndex=1;Application.DoEvents();
             Verify(form);form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,form.Size));bitmap.Save(Path.Combine(directory,$"bridge-monitor-settings-{size.Width}{suffix}.png"),System.Drawing.Imaging.ImageFormat.Png);form.Close();
+        }
         }
         Console.WriteLine("RUNTIME_HEALTH_FORM_PREVIEW_OK normal_and_minimum 100_150_200pct_layout native_WinForms_render; no_settings_written");
     }

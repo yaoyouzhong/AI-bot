@@ -11,12 +11,13 @@ internal static class Tab5VoiceSelfTest
 {
     private static void Check(bool pass,string label){if(!pass)throw new InvalidOperationException("TAB5 voice: "+label);}
     private sealed class Audio : ITab5VoiceAudio {
-        internal bool Dji=true,Running,Empty=true,FailStop;internal string Source="";internal int Bytes,Starts;
+        internal bool Dji=true,Running,Empty=true,FailStop,Direct;internal string Source="";internal int Bytes,Starts;
         internal BufferedWaveProvider? Buffer;
         internal bool Room=true;
         public bool CanAcceptAudio=>Room&&(Buffer is null||Tab5VoiceAudio.HasPlaybackRoom(Buffer));
         public string Start(bool force){Running=true;Starts++;return Source=Dji&&!force?"dji":"tab5";}
         public bool DjiHealthy=>Dji;
+        public bool CanSwitchToTab5=>!Direct;
         public string SourceName=>Source=="dji"?"麦克风 (Wireless Mic Rx)":"TAB5 内置麦克风";
         public bool InputReady {get;set;}=true;
         public int InputLevel {get;set;}=50;
@@ -30,14 +31,16 @@ internal static class Tab5VoiceSelfTest
     }
     private sealed class Editor : ITab5VoiceEditor {
         public string Text {get;set;}="";public bool SafeFocus {get;set;}=true;
-        internal int Stops;
+        internal int Stops,Starts;
+        internal bool RejectStart;
+        internal Action? OnStart,OnStop;
         internal bool RestoreAllowed;
         internal int Restores;
         public bool TryRestoreFocus(){Restores++;if(RestoreAllowed)SafeFocus=true;return SafeFocus;}
         public bool CaptureStopped {get;set;}=true;
         public bool RecognitionComplete {get;set;}
-        public bool Start()=>SafeFocus;
-        public bool Stop(){Stops++;return SafeFocus;}
+        public bool Start(){Starts++;OnStart?.Invoke();return SafeFocus&&!RejectStart;}
+        public bool Stop(){Stops++;OnStop?.Invoke();return SafeFocus;}
         public void Clear()=>Text="";
     }
     private sealed class Endpoint(Tab5VoiceSession session) : ITab5VoiceEndpoint {
@@ -46,6 +49,109 @@ internal static class Tab5VoiceSelfTest
         public void Dispose()=>session.Dispose();
     }
     private static JsonElement Json(object value)=>JsonSerializer.SerializeToElement(value);
+    internal static void RunAgendaOwner() {
+        foreach(bool dji in new[]{true,false}) {
+            const string owner=Tab5VoiceSession.AgendaOwner;long now=1000;
+            var audio=new Audio{Dji=dji,Direct=dji,CapturedSound=true};var editor=new Editor{RecognitionComplete=true};
+            using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+            // Firmware 197 explicitly requested TAB5. Its agenda owner now uses
+            // the same DJI-first policy without requiring an extra device flash.
+            var started=voice.Handle(Json(new{op="start",taskId=owner,source="tab5"}));
+            Check(started.Source==(dji?"dji":"tab5")&&started.TaskId==owner,"agenda prefers shared DJI and uses built-in mic only when absent");
+            if(!dji)voice.Handle(Json(new{op="audio",voiceId=started.VoiceId,seq=0,pcm=Convert.ToBase64String(new byte[1280])}));
+            editor.Text="客户会议";
+            voice.Handle(Json(new{op="stop",voiceId=started.VoiceId}));now++;voice.Tick();now+=250;voice.Tick();now+=1500;
+            var result=voice.Handle(Json(new{op="poll",voiceId=started.VoiceId}));Check(result.State=="review"&&result.CanInsert&&result.Text=="客户会议"&&result.TaskId==owner,"agenda explicit-stop transcript was not returned for local review");
+            voice.Handle(Json(new{op="cancel",voiceId=started.VoiceId}));Check(voice.Snapshot().Text=="","agenda cancellation did not clear the isolated voice draft");
+        }
+    }
+    private static void CheckDirectDji() {
+        long now=1000;var audio=new Audio{Direct=true};var editor=new Editor{RecognitionComplete=true};
+        using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+        voice.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString()}));editor.Text="保留这段草稿";audio.Dji=false;voice.Tick();
+        Check(voice.Snapshot().State=="error"&&!audio.Running&&editor.Stops==1&&voice.Snapshot().Text=="保留这段草稿"&&voice.Snapshot().Message.Contains("大疆"),"direct DJI disconnect ends the owned take and preserves text without switching IME mid-recording");
+        now+=10;var restart=voice.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString()}));
+        Check(restart.Source=="tab5","a new take uses built-in microphone after DJI disconnect");
+    }
+    private static async Task CheckSharedSourceSwitchAsync() {
+        string directory=Path.Combine(Path.GetTempPath(),"tab5-source-switch-"+Guid.NewGuid().ToString("N"));
+        try {
+            foreach(string owner in new[]{Tab5VoiceSession.AgendaOwner,Guid.NewGuid().ToString()})
+            foreach(string outcome in new[]{"ok","prepare-error","start-error","cancel-wait","cancel-prepare","token","timeout","focus"}) {
+                long now=1000;int prepared=0,writes=0;string selected="dji";
+                var audio=new Audio{Direct=true,CapturedSound=true};var editor=new Editor();
+                editor.OnStart=()=>{editor.RecognitionComplete=false;editor.CaptureStopped=false;};
+                editor.OnStop=()=>{editor.CaptureStopped=true;editor.RecognitionComplete=editor.Stops>1;};
+                string journal=Path.Combine(directory,Guid.NewGuid().ToString("N"),"lease.json");
+                var mic=new Tab5DoubaoMicrophone(journal,(method,payload)=> {
+                    if(method=="settings.update") {
+                        Check(editor.RecognitionComplete&&File.Exists(journal),"source switch must wait for idle recognition and commit recovery before settings writes");
+                        writes++;selected=JsonSerializer.SerializeToElement(payload).GetProperty("patch").GetProperty("voice").GetProperty("selectedMicrophoneId").GetString()!;
+                    }
+                    return Task.FromResult(Json(new {selectedMicrophoneId=selected,devices=new[]{new{id="dji",name="麦克风 (Wireless Mic Rx)"},new{id="cable",name="CABLE Output (VB-Audio Virtual Cable)"}}}));
+                },()=>editor.RecognitionComplete,()=>now);
+                using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+                using var cancellation=new CancellationTokenSource();
+                // Shared-mode lease precedes Start, while the desktop recognizer is idle.
+                editor.RecognitionComplete=true;await mic.AcquireAsync("dji");
+                var started=voice.Handle(Json(new{op="start",taskId=owner}));editor.Text="第一段";
+                Check(writes==0&&!mic.HasPendingRestore,"ordinary DJI capture must not switch the desktop input");
+                var command=Json(new{op="tab5",voiceId=started.VoiceId});
+                var stale=Json(new{op="tab5",voiceId="old-voice"});
+                Check(!voice.NeedsSourcePreparation(stale),"stale source switch must not prepare a microphone");
+                try{await voice.HandleAsync(stale,CancellationToken.None);throw new InvalidOperationException("stale switch accepted");}
+                catch(Tab5VoiceRequestException){}
+                Check(editor.Stops==0&&audio.Starts==1,"stale source switch must leave current recording intact");
+                Task Wait(CancellationToken token) {
+                    now+=50;
+                    if(now>=1250)editor.Text="第一段。";
+                    if(now>=1400&&outcome!="timeout")editor.RecognitionComplete=true;
+                    if(now>=1300&&outcome=="focus")editor.SafeFocus=false;
+                    if(now>=1300&&outcome=="token")cancellation.Cancel();
+                    if(now>=1300&&outcome=="cancel-wait")voice.Handle(Json(new{op="cancel",voiceId=started.VoiceId}));
+                    voice.Tick();
+                    Check(!voice.Snapshot().Ready&&editor.Starts==1,"handoff cannot announce readiness or restart before the committed first segment");
+                    return Task.CompletedTask;
+                }
+                async Task Prepare(CancellationToken token) {
+                    prepared++;
+                    Check(editor.RecognitionComplete&&editor.Text=="第一段。"&&!audio.Running&&editor.Stops==1,
+                        "prepare waits for final text and the old owned recording to stop");
+                    mic.Release();await mic.Recovery;await mic.AcquireAsync();
+                    if(outcome=="prepare-error")throw new IOException("synthetic preparation failure after channel change");
+                    if(outcome=="cancel-prepare")voice.Handle(Json(new{op="cancel",voiceId=started.VoiceId}));
+                    editor.RejectStart=outcome=="start-error";
+                }
+                bool failed=false;
+                try {
+                    var switched=await voice.HandleAsync(command,cancellation.Token,Wait,Prepare);
+                    Check(outcome=="ok","expected source-switch failure did not occur: "+outcome);
+                    Check(switched.VoiceId==started.VoiceId&&switched.TaskId==owner&&switched.Source=="tab5"&&switched.Text=="第一段。"&&!switched.Ready&&audio.Starts==2&&editor.Starts==2,
+                        "shared DJI handoff preserves owner, voice identity and committed text, then waits for device PCM");
+                    Check(selected=="cable"&&writes==1&&mic.HasPendingRestore,"built-in capture holds the recovery journal");
+                    await voice.HandleAsync(command,CancellationToken.None,Wait,Prepare);
+                    Check(prepared==1&&audio.Starts==2&&editor.Starts==2&&writes==1,"duplicate switch cannot restart, clear text or borrow a second input");
+                    voice.Handle(Json(new{op="audio",voiceId=started.VoiceId,seq=0,pcm=Convert.ToBase64String(new byte[1280])}));
+                    Check(voice.Snapshot().Ready,"switched input announces ready only after acknowledged TAB5 audio");
+                    editor.Text+="第二段。";voice.Handle(Json(new{op="stop",voiceId=started.VoiceId}));
+                    voice.Tick();now+=250;voice.Tick();now+=1500;voice.Tick();
+                    Check(voice.Snapshot().State=="review"&&voice.Snapshot().CanInsert&&voice.Snapshot().Text=="第一段。第二段。",
+                        "explicit final stop returns both source segments once without losing the first segment");
+                } catch(Exception ex) when(ex is OperationCanceledException or IOException or InvalidOperationException&&outcome!="ok") {
+                    failed=true;
+                    Check(!voice.Active&&!audio.Running,"failed or cancelled handoff cannot leave capture active: "+outcome);
+                    bool cancelled=outcome.StartsWith("cancel",StringComparison.Ordinal);
+                    Check(cancelled?voice.Snapshot().State=="cancelled"&&editor.Text=="":voice.Snapshot().State=="error"&&editor.Text.StartsWith("第一段",StringComparison.Ordinal),
+                        "cancel discards the take; other handoff failures preserve committed text: "+outcome);
+                } finally {
+                    mic.Release();await mic.Recovery;
+                }
+                Check(failed==(outcome!="ok"),"source-switch result must match the injected scenario");
+                Check(selected=="dji"&&!mic.HasPendingRestore&&writes==(prepared>0?2:0),"completion/failure/cancel restores only a borrowed built-in channel");
+            }
+        } finally {if(Directory.Exists(directory))Directory.Delete(directory,true);}
+        Console.WriteLine("TAB5_VOICE_SOURCE_SWITCH_OK both owners; committed first text; same identity; PCM readiness; duplicate/stale isolation; failure/cancel/timeout/focus restoration; synthetic only");
+    }
     internal static void PreviewSettings(string path) {
         using var host=new Tab5VoiceHost(new Tab5VoiceSettings());
         using var form=host.CreateSettings(preview:true);
@@ -109,6 +215,7 @@ internal static class Tab5VoiceSelfTest
         CheckFocusRecovery();
         await CheckAudioBackpressureAsync();
         Tab5DoubaoVoiceSelfTest.Run();
+        RunAgendaOwner();CheckDirectDji();await CheckSharedSourceSwitchAsync();
         CheckQuietCompletion();
         CheckStoppedAudio();
         CheckReconnectRecovery();
@@ -189,7 +296,7 @@ internal static class Tab5VoiceSelfTest
         Tab5AudioDevice[] capture=[new("dji","麦克风 (Wireless Mic Rx)"),new("cable-out","CABLE Output (VB-Audio Virtual Cable)")];
         Tab5AudioDevice[] render=[new("cable-in","CABLE Input (VB-Audio Virtual Cable)")];
         Check(Tab5VoiceAudio.Inspect(capture,render,"") is {CableReady:true,DjiAvailable:true},"both virtual endpoints and DJI detected");
-        Check(!Tab5VoiceAudio.Inspect(capture[..1],render,"").CableReady,"missing cable capture endpoint blocks setup");
+        Check(Tab5VoiceAudio.Inspect(capture[..1],[],"") is {CableReady:false,DjiAvailable:true,Ready:true},"direct DJI does not require virtual cable");
         Check(!Tab5VoiceAudio.Inspect(capture,render,"disconnected-id").DjiAvailable,"disconnected explicit device never selects unrelated input");
         Check(!Tab5VoiceAudio.Inspect(capture,render,"cable-out").DjiAvailable&&Tab5VoiceAudio.SelectInput(capture,"cable-out") is null,"saved virtual cable selection cannot feed output back into itself");
         Check(Tab5VoiceAudio.SelectInput(capture,"dji")?.Id=="dji","explicit physical input remains available");

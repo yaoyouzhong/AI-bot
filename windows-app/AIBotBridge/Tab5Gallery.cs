@@ -14,6 +14,7 @@ internal sealed class Tab5Gallery
     private readonly Dictionary<string,(long Stamp,long Length,Artwork[] Works)> _catalogs=[];
     private readonly Dictionary<string,(long Stamp,long Length,byte[] Bytes,string Sha,long Used)> _images=[];
     private readonly Dictionary<string,(long Stamp,long Length,IReadOnlyDictionary<string,Tab5ArtGuides.Guide> Guides)> _guides=[];
+    private readonly Dictionary<string,(long Stamp,long Length,string Digest)> _digests=[];
     private long _revision=-1;
     private long _imageUse;
     internal sealed record BrowserCatalog(string Category,string? Version,Artwork[] Works);
@@ -62,7 +63,21 @@ internal sealed class Tab5Gallery
     }
     private void RefreshRevision() {
         if(_revision==GalleryPack.Revision)return;
-        lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_revision=GalleryPack.Revision;}
+        lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_digests.Clear();_revision=GalleryPack.Revision;}
+    }
+    private string ContentDigest(string category) {
+        if(_packs is null)return "";
+        var file=new FileInfo(Path.Combine(_packs,category,"PACK.json"));
+        if(!file.Exists){_digests.Remove(category);return "";}
+        lock(_gate) {
+            if(!_digests.TryGetValue(category,out var cached)||cached.Stamp!=file.LastWriteTimeUtc.Ticks||cached.Length!=file.Length) {
+                var manifest=GalleryPack.Installed(category,_packs);
+                if(manifest is null)return "";
+                cached=(file.LastWriteTimeUtc.Ticks,file.Length,Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(manifest,JsonDefaults.Options))).ToLowerInvariant());
+                _digests[category]=cached;
+            }
+            return cached.Digest;
+        }
     }
     private string CategoryDirectory(string category)=>_packs is not null&&File.Exists(Path.Combine(_packs,category,"catalog.json"))?Path.Combine(_packs,category):_directory;
     private Artwork[] BrowserWorks(string directory,string category) {
@@ -128,7 +143,7 @@ internal sealed class Tab5Gallery
                 if(installed is null)return(409,new{error="gallery_catalog_requires_installed_pack"});
                 if(works.Length!=installed.Works||works.Length>4096||works.Any(w=>w.Frames.Length is <1 or >64||w.PortraitFrames?.Length!=w.Frames.Length))
                     return(503,new{error="invalid_gallery_catalog"});
-                string revision=Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(installed,JsonDefaults.Options))).ToLowerInvariant();
+                string revision=ContentDigest(category);
                 return(200,new{syncVersion=1,works=works.Length,revision,baseDate="2026-01-01"});
             }
             var work=works[DayIndex(date,works.Length)];
@@ -155,7 +170,11 @@ internal sealed class Tab5Gallery
                 bool include=request.TryGetProperty("includeGuide",out var requestedGuide)&&requestedGuide.ValueKind==JsonValueKind.True;
                 int guideVersion=request.TryGetProperty("guideVersion",out var requestedVersion)&&requestedVersion.ValueKind==JsonValueKind.Number&&requestedVersion.TryGetInt32(out var v)&&v is 2 or 3?v:1;
                 var guide=include?Guide(directory,work,guideVersion):null;
-                return(200,new{work.Id,work.Title,work.Author,work.Source,work.License,date=Text("date"),size=data.Length,sha256=sha,frames=work.Frames.Length,width=1280,height=720,orientation=portrait?"portrait":"landscape",guideVersion,guide});
+                // Only a client holding this exact category revision and work
+                // may reuse text. Legacy clients continue receiving full guides.
+                bool guideUnchanged=guideVersion==3&&guide is not null&&Text("guideWorkId")==guide.WorkId&&
+                    Text("guideRevision").Length==64&&Text("guideRevision")==ContentDigest(category);
+                return(200,new{work.Id,work.Title,work.Author,work.Source,work.License,date=Text("date"),size=data.Length,sha256=sha,frames=work.Frames.Length,width=1280,height=720,orientation=portrait?"portrait":"landscape",guideVersion,workId=guide?.WorkId,guideUnchanged,guide=guideUnchanged?null:guide});
             }
             if(Text("op")!="read"||!binary)return(400,new{error="gallery_requires_binary"});
             if(Text("sha256")!=sha)return(409,new{error="gallery_changed"});

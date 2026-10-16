@@ -76,8 +76,9 @@ internal sealed class RuntimeNetworkProbe
         string detail=$"ChatGPT {Describe(results[0])}；资源服务 {Describe(results[1])}。近 {_failures.Count} 次失败 {_failures.Count(x=>x)} 次。";
         if(failed&&_lastLatency.HasValue)detail+=$"上次成功 {_lastLatency:0} ms（{_lastSuccess?.ToLocalTime():HH:mm:ss}）。";
         var vpn=new RuntimeHealthCheck("vpn","VPN / 代理",failed?"error":slow?"warning":results.Any(r=>r.Restricted)?"unknown":"ok",
-            failed?(results.All(r=>!r.Reachable)?"代理连接异常":"目标响应异常"):slow?"VPN 变慢":results.Any(r=>r.Restricted)?"目标限制访问":"出口响应正常",detail,
-            failed?(results.All(r=>!r.Reachable)?"检查 VPN 客户端和出口；持续失败时尝试更换节点。":"检查对应服务；单个目标异常不能确定是节点故障。"):
+            failed?(results.All(r=>!r.Reachable)?"代理连接异常":TargetFailure(results[0].Reachable?"资源服务":"ChatGPT",results[0].Reachable?results[1]:results[0])):slow?"VPN 变慢":results.Any(r=>r.Restricted)?"目标限制访问":"出口响应正常",detail,
+            failed?(results.All(r=>!r.Reachable)?"检查 VPN 客户端和出口；持续失败时尝试更换节点。":
+                results[0].Reachable?"ChatGPT 仍可连接。请稍后重试；若持续失败，检查资源服务的网络连接。":"资源服务仍可连接。请稍后重试；若持续失败，检查 ChatGPT 的网络连接。"):
             slow?"多个目标持续变慢时，检查节点或更换节点。":"",now,latency,endpoint) {LastSuccessfulLatencyMs=_lastLatency,LastSuccessfulAt=_lastSuccess};
         RuntimeHealthCheck pac;
         if(!configured)pac=new("pac","PAC 路由","disabled","未配置 PAC","当前使用环境代理、静态代理或直连；不判定 PAC 故障。","",now);
@@ -103,6 +104,8 @@ internal sealed class RuntimeNetworkProbe
         }
         return new([vpn,pac],throughput,speedAt,routeChanged,_history.ToArray());
     }
+    private static string TargetFailure(string name,RuntimeProbeResult result)=>name+(name=="ChatGPT"?" ":"")+(result.Responded?"响应异常":result.Failure switch {
+        "超时"=>"连接超时","DNS 失败"=>"域名解析失败","TLS 失败"=>"安全连接失败",_=>"连接失败"});
     private static string Describe(RuntimeProbeResult result)=>result.Responded?$"HTTP {result.Status} · {result.Milliseconds:0} ms":result.Failure;
     private static async Task<RuntimeProbeResult> ProbePacAsync(string text,CancellationToken stop) {
         if(!Uri.TryCreate(text,UriKind.Absolute,out var uri)||uri.Scheme is not ("http" or "https")||uri.UserInfo.Length>0)

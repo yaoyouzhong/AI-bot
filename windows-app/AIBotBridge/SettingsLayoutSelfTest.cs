@@ -17,6 +17,12 @@ internal static class SettingsLayoutSelfTest
     {
         if(!AppPaths.IsPublicSelfTest)AppPaths.BeginPublicSelfTest();
         directory=Path.GetFullPath(directory); Directory.CreateDirectory(directory);
+        if(Environment.GetEnvironmentVariable("AIBOT_BIRTHDAY_LAYOUT_ONLY")=="1") {
+            using(var form=new BirthdaySettingsForm(preview:true)) {
+                Capture(form,directory,"birthdays");form.Size=form.MinimumSize;Capture(form,directory,"birthdays-narrow");
+            }
+            BirthdaySettingsForm.SelfTest();Console.WriteLine("BIRTHDAY_LAYOUT_OK normal/minimum window; native preview; add/edit/cancel preserve stored data");return;
+        }
         if(Environment.GetEnvironmentVariable("AIBOT_TAB5_LAYOUT_ONLY")=="1") {
             using var tab5Service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"unused-pairing.dat")));
             if(Environment.GetEnvironmentVariable("AIBOT_TAB5_LAYOUT_OTA") is {Length:>0} otaFixture)tab5Service.OfferOta(otaFixture);

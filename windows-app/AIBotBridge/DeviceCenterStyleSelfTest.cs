@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 namespace AIBotBridge;
 
@@ -26,6 +26,10 @@ internal static class DeviceCenterStyleSelfTest
             UpdateDevice[] devices=[new("bridge","电脑端 AI-bot","0.6.3","运行中",true,"bridge","安装程序"),new("tab5","M5Stack TAB5","0.2.156-ui","在线",true,"upgrade-tab5","在设备上确认")];
             var pages=new List<(string Name,Func<Form> Create,Action<Form>? Prepare)> {
                 ("devices",Center,f=>((DeviceCenterForm)f).ShowPage("devices")),
+                ("tab-wifi-bridge-pending",()=>CenterWith(new(true,"在线","USB","0.2.204-ui",Usb:"已连接",Wifi:"已联网 · 桥接未通",Bluetooth:"已连接")),null),
+                ("tab-wifi-bridge-ready",()=>CenterWith(new(true,"在线","Wi-Fi","0.2.204-ui",Usb:"未连接",Wifi:"已联网 · 桥接正常",Bluetooth:"未连接")),null),
+                ("tab-wifi-offline",()=>CenterWith(new(true,"在线","USB","0.2.204-ui",Usb:"已连接",Wifi:"未联网",Bluetooth:"已连接")),null),
+                ("tab-wifi-unknown",()=>CenterWith(new(false,"离线","无","0.2.204-ui",Usb:"未连接",Wifi:"等待设备回报",Bluetooth:"未连接")),null),
                 ("esp-usb-interrupted",()=>CenterWith(new(true,"在线","Wi-Fi","0.5.1",Usb:"COM7 · 连接中断",Wifi:"已连接")),f=>((DeviceCenterForm)f).SelectDevice(esp.Id)),
                 ("esp-usb-missing",()=>CenterWith(new(true,"在线","Wi-Fi","0.5.1",Usb:"未找到已绑定的 USB 设备",Wifi:"已连接")),f=>((DeviceCenterForm)f).SelectDevice(esp.Id)),
                 ("esp-usb-connected",()=>CenterWith(new(true,"在线","USB","0.5.1",Usb:"已连接",Wifi:"待命")),f=>((DeviceCenterForm)f).SelectDevice(esp.Id)),
@@ -62,7 +66,7 @@ internal static class DeviceCenterStyleSelfTest
             var pairingStore=new Tab5PairingStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"style-fixtures","remote-pair.dat"));
             var pairing=pairingStore.Pair("001122aabbcc",@"USB\OFFLINE-STYLE");
             using var remoteTab5=new Tab5Service(pairingStore);remoteTab5.UsbDevices=()=>[];
-            foreach(string state in new[]{"ready","legacy","verified"}) {
+            foreach(string state in new[]{"ready","legacy","reported","reported-usb","verified"}) {
                 string fixture=state;
                 pages.Add(("tab5-upgrade-"+state,()=> {
                     var snapshot=new StatusSnapshot(1,"12:00",DateTimeOffset.UtcNow.ToUnixTimeSeconds(),0,DateTimeOffset.UtcNow,new("idle",null),new("idle",null));
@@ -70,6 +74,8 @@ internal static class DeviceCenterStyleSelfTest
                     string nonce=Guid.NewGuid().ToString("N");remoteTab5.Respond(pairing.DeviceId,nonce,Tab5Protocol.Proof(Convert.FromBase64String(pairing.Key),$"GET|{pairing.DeviceId}|{nonce}"));
                     var image=new Tab5OtaPackage(new byte[1024],new string('a',64),fixture=="ready"?"0.2.191-ui":"0.2.190-ui",new string('b',32),"## 固件升级\n- 支持在电脑端开始升级\n## 兼容\n- 保留配对、图库和自动轮播");
                     remoteTab5.OfferOta(image);
+                    typeof(Tab5Service).GetField("_otaTransferDiagnostic",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!
+                        .SetValue(remoteTab5,fixture=="reported-usb"?"USB；已提供：6686880/6686880；等待设备校验":fixture is "reported" or "verified"?"Wi-Fi 分块压缩；镜像：7175664；实际传输：4565309/4565309；耗时毫秒：13407；等待设备校验":"尚无升级传输");
                     if(fixture=="verified")remoteTab5.RecordVerifiedBoot(JsonSerializer.SerializeToElement(new{type="tab5_ota_diagnostic",firmware=image.Version,elfSha256=image.ElfSha256,partition="ota_0",address=0x20000,state=2,stateError=0}),image,pairing.DeviceId);
                     return new Tab5ConnectionForm(remoteTab5,loadNetworks:false);
                 },f=>Descendants(f).OfType<TabControl>().Single().SelectedIndex=2));
@@ -83,11 +89,23 @@ internal static class DeviceCenterStyleSelfTest
             foreach(string component in new[]{"bridge","tab5","esp8266"})pages.Add(("release-notes-"+component,()=>new UpdateNotesForm(new Dictionary<string,ComponentUpdate>(),devices,component),null));
             if(only is not null){var selected=only.Split(',').ToHashSet(StringComparer.Ordinal);pages.RemoveAll(p=>!selected.Contains(p.Name));if(pages.Count!=selected.Count)throw new ArgumentException("Unknown page filter");}
             var issues=new HashSet<string>();var captures=new List<object>();
-            foreach(var page in pages)foreach(float scale in new[]{1f,1.5f,2f})foreach(bool minimum in new[]{false,true}) {
+            foreach(var page in pages)foreach(float scale in new[]{1f,1.5f,1.75f,2f})foreach(bool minimum in new[]{false,true}) {
                 using var form=page.Create();form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);form.ShowInTaskbar=false;form.Show();page.Prepare?.Invoke(form);
+                if(page.Name.StartsWith("tab5-upgrade-",StringComparison.Ordinal)) {
+                    var status=Descendants(form).OfType<Tab5UpgradeStatusView>().Single();var expected=remoteTab5.UpgradeStatusText;
+                    for(int update=0;update<8;update++){status.SetStatus(new("未选择固件","","选择固件后可查看版本和更新内容。","",""));form.PerformLayout();status.SetStatus(expected);form.PerformLayout();}
+                }
                 if(minimum)form.Size=form.MinimumSize;if(scale!=1)form.Scale(new SizeF(scale,scale));form.PerformLayout();await Task.Delay(30);Application.DoEvents();
-                string name=$"{page.Name}-{scale:0.0}-{(minimum?"minimum":"normal")}";
+                string name=$"{page.Name}-{scale:0.0#}-{(minimum?"minimum":"normal")}";
                 Check(form.BackColor==Color.White,"Non-white window: "+page.Name);
+                if(page.Name=="esp-connection") {
+                    var saver=form.Controls.Find("esp-screensaver-minutes",true).Single();
+                    var footer=((Button)form.AcceptButton!).Parent!;
+                    var saverBounds=form.RectangleToClient(saver.RectangleToScreen(saver.ClientRectangle));
+                    var footerBounds=form.RectangleToClient(footer.RectangleToScreen(footer.ClientRectangle));
+                    Check(saverBounds.Bottom<=footerBounds.Top,"Connection settings footer overlaps screen-saver input: "+name);
+                    Check(!Descendants(form).OfType<ScrollableControl>().Any(c=>c.AutoScroll),"Connection settings unexpectedly require scrolling: "+name);
+                }
                 if(page.Name.StartsWith("tab5-upgrade-",StringComparison.Ordinal)||page.Name.StartsWith("tab5-speed-",StringComparison.Ordinal)) {
                     var selectedTab=Descendants(form).OfType<TabControl>().Single().SelectedTab!;
                     var viewport=selectedTab.Controls.OfType<ScrollableControl>().Single();
@@ -96,6 +114,14 @@ internal static class DeviceCenterStyleSelfTest
                         foreach(Control child in viewport.Controls)Console.WriteLine($"UPGRADE_CHILD {child.GetType().Name} text={child.Text} bounds={child.Bounds} margin={child.Margin} min={child.MinimumSize} max={child.MaximumSize}");
                     }
                     Check(!viewport.HorizontalScroll.Visible,"Upgrade page requires horizontal scrolling: "+name);
+                    if(page.Name.StartsWith("tab5-upgrade-",StringComparison.Ordinal)) {
+                        var status=Descendants(form).OfType<Tab5UpgradeStatusView>().Single();
+                        Check(status.Height<=status.GetPreferredSize(new(status.Width,0)).Height+2,"Upgrade status stretched after updates: "+name);
+                        Check(Descendants(form).OfType<Tab5ReleaseNotes>().Single().Height>=32,"Release notes squeezed out by status: "+name);
+                        var transfer=form.Controls.Find("upgrade-transfer",true).Single();var progress=form.Controls.Find("upgrade-progress",true).Single();
+                        if(page.Name=="tab5-upgrade-reported-usb")Check(!transfer.Visible&&progress.Text=="已通过 USB 传输 · 6.38 MiB","USB channel detached from transfer result: "+name);
+                        if(transfer.Visible&&progress.Visible)Check(progress.Top-transfer.Bottom<20*scale*form.DeviceDpi/96f,"Transfer progress separated from its caption: "+name);
+                    }
                 }
                 if(scale==1)Check(Math.Abs(form.Font.SizeInPoints-9.5)<.01,"Body typography differs: "+page.Name);
                 foreach(Control control in Descendants(form).Where(c=>c.Visible)) {
@@ -106,7 +132,9 @@ internal static class DeviceCenterStyleSelfTest
                     if(control is Label label&&label.AutoSize)Check(label.Height+2>=label.GetPreferredSize(new(label.Width,0)).Height,"Label text clipped: "+name+" "+label.Text);
                     if(control is Label transport&&transport.Name.StartsWith("transport-",StringComparison.Ordinal)) {
                         var line=TextRenderer.MeasureText(transport.Text,transport.Font,Size.Empty,TextFormatFlags.SingleLine);
-                        Check(transport.AutoEllipsis&&!transport.AutoSize&&transport.Height>=line.Height,"Transport row wraps/clips vertically: "+name+" "+transport.Text);
+                        bool wrappedWifi=!transport.AutoEllipsis;
+                        var required=wrappedWifi?TextRenderer.MeasureText(transport.Text,transport.Font,new Size(transport.ClientSize.Width,int.MaxValue),TextFormatFlags.WordBreak):line;
+                        Check(!transport.AutoSize&&transport.Height>=required.Height,"Transport text clipped vertically: "+name+" "+transport.Text);
                         if(page.Name=="esp-usb-interrupted")Check(transport.Width>=line.Width,"Reported interruption text truncated: "+name+" "+transport.Text);
                     }
                     if(control is not (Label or Button or ComboBox or TextBox or NumericUpDown or CheckBox or ListView or CheckedListBox))continue;

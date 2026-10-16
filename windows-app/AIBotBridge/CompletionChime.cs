@@ -5,21 +5,37 @@ static class CompletionChime
     const int SampleRate = 44_100;
     static readonly object PlaybackLock = new();
     static readonly byte[] Wave = BuildWave();
+    static readonly byte[] HealthWave = LoadHealthWave();
 
-    public static void Play()
+    public static void Play() => Play(Wave, health: false);
+    public static void PlayHealth() => Play(HealthWave, health: true);
+    internal static void ExportPreviews(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        File.WriteAllBytes(Path.Combine(directory,"windows-completion-fallback.wav"),Wave);
+        File.WriteAllBytes(Path.Combine(directory,"runtime-health.wav"),HealthWave);
+    }
+    static byte[] LoadHealthWave()
+    {
+        using var resource=typeof(CompletionChime).Assembly.GetManifestResourceStream("AIBotBridge.RuntimeHealthSound")
+            ?? throw new InvalidDataException("Runtime health sound missing");
+        using var output=new MemoryStream();resource.CopyTo(output);return output.ToArray();
+    }
+    static void Play(byte[] wave, bool health)
     {
         lock (PlaybackLock)
         {
             try
             {
-                using var stream = new MemoryStream(Wave, writable: false);
+                using var stream = new MemoryStream(wave, writable: false);
                 using var player = new System.Media.SoundPlayer(stream);
                 player.PlaySync();
             }
             catch
             {
                 // Keep a completion cue even if the synthesized WAV cannot be played.
-                System.Media.SystemSounds.Asterisk.Play();
+                if(health)System.Media.SystemSounds.Exclamation.Play();
+                else System.Media.SystemSounds.Asterisk.Play();
             }
         }
     }

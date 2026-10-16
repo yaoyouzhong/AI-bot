@@ -36,6 +36,10 @@ aibot/
 
 The card layout is v1. All project-written files live under `aibot/`; `/sdcard` is a device mount point. `sd_paths.h` centralizes names. Gallery category directories contain checked alternating cursors and per-work records under `works/<canonical key>/`. These keys enumerate works from 2026-01-01 and are independent of the viewing/download date. Each record binds its page/orientation, verified JPEG and optional full guide; temporary `.part` files stay beside their destination.
 
+2026-10-15 增量优化候选额外使用 `<页码>-<l或p>.<0或1>.aig.meta` 两槽元数据文件。`AIBART03` 引用已有完整图片槽及序号，在 JPEG 未变时只写新资料，不复制 JPEG；读取仍验证源槽、作品身份及图片 SHA-256。普通图片更新保护上一有效槽，失败可回退。既有 AIG1/AIG2 不迁移；照片和用户其他文件不变。旧固件不识别新元数据引用，回退旧版后可能重新获取对应版本的资料。
+
+The 2026-10-15 incremental candidate adds alternating `.aig.meta` sidecars. AIG3 references an existing complete image slot and serial, updating text without rewriting unchanged JPEGs. Reads still verify source identity, work and JPEG SHA-256; image replacement retains a complete survivor. AIG1/AIG2 need no migration. Older firmware ignores sidecars and may refetch the required revision after downgrade.
+
 The current firmware requires FAT/FAT32 and does not enable exFAT. A real 128GB card was formatted at full capacity on the computer with FAT32 and 32KiB allocation units and passed read/write verification; a 32GB partition is unnecessary. Prepare new cards on the computer; the device does not format automatically.
 
 Directory/record names require FAT long filenames. Defaults enable `CONFIG_FATFS_LFN_HEAP=y`; builds reject missing support. Installed .177 lacked it and could mount without saving; the fix was included in .178 and is retained by .179. Mounting and saving are separate hardware checks.

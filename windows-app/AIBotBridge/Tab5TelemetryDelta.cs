@@ -20,7 +20,7 @@ internal static class Tab5TelemetryDelta
         var frame=new JsonObject { ["version"]=1,["type"]="tab5_delta",["deviceId"]=after["deviceId"]!.DeepClone(),
             ["session"]=after["session"]!.DeepClone(),["sequence"]=after["sequence"]!.DeepClone(),
             ["baseSequence"]=before["sequence"]!.DeepClone(),["changes"]=changes };
-        return JsonSerializer.SerializeToUtf8Bytes(frame,JsonDefaults.Options);
+        return JsonSerializer.SerializeToUtf8Bytes(frame,Tab5Protocol.StatusJson);
     }
     private static bool Diff(JsonNode? before,JsonNode? after,string[] path,JsonArray changes)
     {

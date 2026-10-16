@@ -148,15 +148,26 @@ internal static class GalleryPackSelfTest
         Dictionary<string,byte[]> WithGuide(string category,string overview="新版简介",string original="已核实原文",string status="source_verified") {
             var files=Files(category);files["guides.zh.json"]=Guides(category,overview,original,status);return files;
         }
-        (int Status,JsonElement Body) Reading(string category,int version=2) {
-            var reply=gallery.Handle(JsonSerializer.SerializeToElement(new{category,date="2026-10-07",op="manifest",includeGuide=true,guideVersion=version},JsonDefaults.Options),true,true);
+        (int Status,JsonElement Body) Reading(string category,int version=2,string guideRevision="",string guideWorkId="") {
+            var reply=gallery.Handle(JsonSerializer.SerializeToElement(new{category,date="2026-10-07",op="manifest",includeGuide=true,guideVersion=version,guideRevision,guideWorkId},JsonDefaults.Options),true,true);
             return(reply.Status,JsonSerializer.SerializeToElement(reply.Body,JsonDefaults.Options));
+        }
+        string CatalogRevision(string category) {
+            var reply=gallery.Handle(JsonSerializer.SerializeToElement(new{category,op="catalog"},JsonDefaults.Options),true,true);
+            Check(reply.Status==200,"Installed catalog unavailable");
+            return JsonSerializer.SerializeToElement(reply.Body,JsonDefaults.Options).GetProperty("revision").GetString()!;
         }
         GalleryPack.Install(Archive(WithGuide("painting"),schema:2),packs);
         Check(Reading("painting").Body.GetProperty("guide").GetProperty("overview").GetString()=="新版简介","Pack introduction not served");
         GalleryPack.Install(Archive(WithGuide("calligraphy",original:new string('文',1000)),"calligraphy",schema:2),packs);
         Check(Reading("calligraphy").Body.GetProperty("guide").GetProperty("transcription").GetString()==new string('文',1000),"Full original text lost");
         Check(Reading("calligraphy",1).Body.GetProperty("guide").GetProperty("transcription").GetString()!.Contains("当前设备版本"),"Old device compatibility lost");
+        string guideRevision=CatalogRevision("painting");
+        var reference=Reading("painting",3,guideRevision,"one").Body;
+        Check(reference.GetProperty("guideUnchanged").GetBoolean()&&reference.GetProperty("guide").ValueKind==JsonValueKind.Null&&reference.GetProperty("workId").GetString()=="one","Unchanged work guide not omitted");
+        foreach(var hint in new[]{("", "one"),(new string('0',64),"one"),(guideRevision,"another-work")})
+            Check(!Reading("painting",3,hint.Item1,hint.Item2).Body.GetProperty("guideUnchanged").GetBoolean(),"Unproven guide reused");
+        Check(Reading("painting",2,guideRevision,"one").Body.GetProperty("guide").ValueKind==JsonValueKind.Object,"Legacy reader guide omitted");
         string guidePath=Path.Combine(packs,"painting","guides.zh.json"),catalogPath=Path.Combine(packs,"painting","catalog.json");
         DateTime guideStamp=File.GetLastWriteTimeUtc(guidePath),catalogStamp=File.GetLastWriteTimeUtc(catalogPath);
         long guideLength=new FileInfo(guidePath).Length;
@@ -165,6 +176,10 @@ internal static class GalleryPackSelfTest
         Check(new FileInfo(guidePath).Length==guideLength,"Replacement fixture must have identical length");
         var updated=Reading("painting").Body.GetProperty("guide");
         Check(updated.GetProperty("overview").GetString()=="更新简介"&&updated.GetProperty("looking").GetString()=="欣赏提示"&&updated.GetProperty("transcription").GetString()=="更新后原文","Same-size/timestamp text-only update not hot loaded");
+        var changed=Reading("painting",3,guideRevision,"one").Body;
+        Check(!changed.GetProperty("guideUnchanged").GetBoolean()&&changed.GetProperty("guide").GetProperty("overview").GetString()=="更新简介"&&CatalogRevision("painting")!=guideRevision,"Stale guide hint survived text-only hot update");
+        Check(Reading("painting",3,CatalogRevision("painting"),"one").Body.GetProperty("guideUnchanged").GetBoolean(),"Updated guide hint not reusable");
+        Console.WriteLine("GALLERY_GUIDE_REFERENCE_OK exact revision/work only; old readers and stale/wrong hints receive full text; same-size/time update invalidates digest");
         Check(Reading("calligraphy").Body.GetProperty("guide").GetProperty("transcription").GetString()==new string('文',1000),"Painting update replaced calligraphy text");
         var mismatched=WithGuide("painting");mismatched["guides.zh.json"]=Guides("painting",identity:"different-work");Reject(Archive(mismatched,schema:2));
         var crossCategory=WithGuide("painting");crossCategory["guides.zh.json"]=Guides("calligraphy");Reject(Archive(crossCategory,schema:2));

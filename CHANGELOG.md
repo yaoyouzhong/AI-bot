@@ -4,9 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- Prefix runtime alerts with `系统监控：` and show an amber warning or red error icon. Preserve concise titles, recovery clearing and task-banner priority. Native previews and source checks are separate from bridge deployment and TAB5 flashing.
+## 0.6.7 - 2026-10-16
 
-- Display bridge and legacy bundle release titles as `AI-bot vX.Y.Z`; retain component tags and download URLs. Reconcile current bilingual release instructions and links with the published download index.
+### Agenda and devices
+
+- Add to-dos, advance reminders, recurrence and name dictation with TAB5 0.2.205-ui. Preserve local edits, durable offline deletion receipts, reconnection sync and concurrent-edit copies. Keep up to 16 items; only inserting into a full list may replace its oldest-ended expired one-off. Editing and expiry alone never delete items.
+- Negotiate TAB5 status capacity by authenticated device version, with a 64 KiB ceiling and 48 KiB normal target while retaining 32 KiB peers, degradation and recovery. Serial cleanup tolerates genuine disconnection errors without hiding unrelated invariant failures.
+- Use “管理 ▾” in Device center. Distinguish offline Wi-Fi, associated Wi-Fi without bridge traffic, healthy bridge traffic and unavailable device reports consistently across the device and connection pages. Preserve USB priority, device identities, pairing and display preferences.
+
+### Collections and notifications
+
+- Desktop artwork browsing adds separate image/reader areas, Pinyin filtering, keyboard and cyclic navigation, full screen, zoom and bounded HD decoding. Each optional complete HD collection contains 366 works and its matching device previews, guides, reviewed text and sources. Failed or cancelled imports preserve installed data. Desktop HD originals are not transferred to TAB5.
+- Reuse unchanged JPEGs and complete guides during synchronization, retaining segmented full-text checks and recovery. Standard calligraphy 2026.10.15.1 corrects landscape titles, authors and periods; retain the existing standard painting edition.
+- Keep concise severity-colored runtime alerts and the existing recovery-clearing rules. Online TAB5 handles completion notifications, with a desktop fallback sound when no fresh TAB5 traffic exists. The browser music-artwork extension is not integrated.
+
+### Validation boundaries
+
+- Record Windows builds, isolated public self-tests, imports and layouts separately from real installation acceptance. macOS keeps its platform-specific scope and must build/test on macOS.
+- TAB5 205 reminder layout has native-preview and build evidence, not an installed-205 hardware claim. Preserve user-confirmed four-orientation 201 display tests and 204 expiry retention/offline deletion. Full-capacity eviction, whole-image BLE OTA and long-running stability retain separate hardware boundaries.
 
 ## 0.6.6 - 2026-10-14
 

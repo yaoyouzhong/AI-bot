@@ -66,6 +66,8 @@ REVIEWED_DOC_NAMES = frozenset({
     'tab5-calligraphy-portrait.png',
     'update-center.png',
     'gallery-packs.png',
+    'gallery-browser.png',
+    'gallery-fullscreen.png',
     'device-center.png',
     'device-center-esp8266.png',
     'device-center-accounts.png',

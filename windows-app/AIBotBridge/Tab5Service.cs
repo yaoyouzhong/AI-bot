@@ -24,6 +24,8 @@ internal sealed partial class Tab5Service : IDisposable
     private volatile string _hidDiagnostic="未触发";
     private readonly string _session=Guid.NewGuid().ToString("N");
     private byte[]? _frame;
+    private byte[]? _legacyStatusFrame;
+    private int _statusMaximum=Tab5Protocol.MaximumFrame,_usbStatusMaximum=Tab5Protocol.MaximumFrame;
     private StatusSnapshot? _lastSnapshot;
     private long _sequence;
     private readonly Tab5Assets _assets=new();
@@ -57,7 +59,7 @@ internal sealed partial class Tab5Service : IDisposable
     internal string OtaNotes=>Volatile.Read(ref _ota)?.Notes??"";
     internal bool HasOta=>Volatile.Read(ref _ota) is not null;
     internal void OfferOta(string path)=>OfferOta(Tab5OtaPackage.Load(path));
-    internal void OfferOta(Tab5OtaPackage image) {lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备忙，请稍后提供固件。");Volatile.Write(ref _ota,image);_remoteOtaStatus="";}}
+    internal void OfferOta(Tab5OtaPackage image) {lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备忙，请稍后提供固件。");if(Volatile.Read(ref _ota)?.Sha256!=image.Sha256)_otaTransferDiagnostic="尚无升级传输";Volatile.Write(ref _ota,image);_remoteOtaStatus="";}}
     internal void CancelOta(){lock(_lifecycle){if(Busy||RemoteOtaPending)throw new InvalidOperationException("设备正在处理操作，暂时不能停止提供固件。");Volatile.Write(ref _ota,null);}}
     private ITab5VoiceEndpoint? _voice;
     private readonly Dictionary<string,long> _voiceNonces=[];
@@ -157,6 +159,9 @@ internal sealed partial class Tab5Service : IDisposable
     private string? _host;
     private int _port;
     private long _publishedAt;
+    private volatile string _statusFrameDiagnostic="尚未生成";
+    private bool _statusFrameDegraded;
+    private long _statusFallbacks,_statusRecoveries;
     private volatile string _usbStatus="未配对";
     private volatile string _usbConnectionDiagnostic="尚无连接采样";
     private volatile string _usbConnectionAttempt="";
@@ -178,8 +183,12 @@ internal sealed partial class Tab5Service : IDisposable
     private int _installBusy;
     internal bool Busy=>Volatile.Read(ref _benchmarkRunning)>0||Volatile.Read(ref _rpcRequests)>0||Environment.TickCount64<Interlocked.Read(ref _rpcOtaUntil)||Volatile.Read(ref _voiceRequests)>0||Volatile.Read(ref _otaTransfers)>0||Volatile.Read(ref _installBusy)>0||(_voice as Tab5VoiceHost)?.Busy==true;
     internal string? PairedId=>_store.Current?.DeviceId;
-    internal DeviceView DeviceView { get {long now=Environment.TickCount64;bool Recent(long at)=>at>0&&now-at<15000;bool usb=Recent(Interlocked.Read(ref _usbAckAt)),wifi=Recent(Interlocked.Read(ref _wifiRequestAt)),ble=Recent(Interlocked.Read(ref _bleAckAt));return new(usb||wifi||ble,Busy?"正在处理":usb||wifi||ble?"在线":"离线",$"USB：{(usb?"已连接":"未连接")}  Wi-Fi：{(wifi?"已连接":"未连接")}  蓝牙：{(ble?"已连接":"未连接")}\n当前通道：{(usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无")}",_firmware.LastVersion(PairedId),usb?"已连接":"未连接",wifi?"已连接":"未连接",ble?"已连接":"未连接",usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无");}}
+    internal DeviceView DeviceView { get {long now=Environment.TickCount64;bool Recent(long at)=>at>0&&now-at<15000;bool usb=Recent(Interlocked.Read(ref _usbAckAt)),wifi=WifiBridgeReady(now,Interlocked.Read(ref _wifiRequestAt)),ble=Recent(Interlocked.Read(ref _bleAckAt));string wifiStatus=WifiConnectionStatus;return new(usb||wifi||ble,Busy?"正在处理":usb||wifi||ble?"在线":"离线",$"USB：{(usb?"已连接":"未连接")}  Wi-Fi：{wifiStatus}  蓝牙：{(ble?"已连接":"未连接")}\n当前通道：{(usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无")}",_firmware.LastVersion(PairedId),usb?"已连接":"未连接",wifiStatus,ble?"已连接":"未连接",usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无");}}
     private volatile bool _wifiReportedConnected;
+    private static bool WifiBridgeReady(long now,long request)=>request>0&&now>=request&&now-request<8000;
+    internal static string DescribeWifi(long now,long request,long report,bool connected)=>WifiBridgeReady(now,request)?"已联网 · 桥接正常":
+        report>0&&now>=report&&now-report<8000?connected?"已联网 · 桥接未通":"未联网":"等待设备回报";
+    private string WifiConnectionStatus=>DescribeWifi(Environment.TickCount64,Interlocked.Read(ref _wifiRequestAt),Interlocked.Read(ref _wifiReportAt),_wifiReportedConnected);
     private volatile string _voiceAuthStatus="尚无语音请求";
     internal string DiagnosticSummary => ProfileDiagnostic+GalleryDiagnostic+TcpUploadDiagnostic+GalleryHostDiagnostic+"\n"+ConnectionSummary+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"; metricsDeferred="+Interlocked.Read(ref _usbMetricsDeferred)+"\nUSB 状态恢复：attempts="+Interlocked.Read(ref _usbStatusRecoveryAttempts)+"; confirmed="+Interlocked.Read(ref _usbStatusRecoverySucceeded)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n电脑升级："+RemoteOtaStatus+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
     private string? _reservedPort;
@@ -196,6 +205,7 @@ internal sealed partial class Tab5Service : IDisposable
         Interlocked.Exchange(ref _usbAckAt,0);
         _usbDataActive="";
         _usbState.Reset();_usbDelta=false;
+        _usbStatusMaximum=Tab5Protocol.MaximumFrame;
         _usbMetricsDiagnosticPrevious=null;
         _usbPacked=false;_usbRpcVersion=_usbTelemetryVersion=_usbRpcWait=0;_usbRpcBinary=_usbRxBatch=false;_usbRpcChunk=2048;var port=_usbPort;_usbPort=null;
         if(port is not null)_usbStatus="USB 已断开，等待重新连接";
@@ -207,18 +217,15 @@ internal sealed partial class Tab5Service : IDisposable
         // handle after unplug/reboot. The handle has already been detached;
         // this cleanup failure must not terminate the reconnect worker.
         catch(IOException) {return false;}
-        catch(InvalidOperationException) {return false;}
+        catch(InvalidOperationException) when(port is System.IO.Ports.SerialPort) {return false;}
         catch(System.ComponentModel.Win32Exception ex) when(ex.NativeErrorCode is 6 or 21 or 31 or 121 or 995 or 1167) {return false;}
     }
     internal string? ReservedPort => Volatile.Read(ref _reservedPort);
     internal bool HasPairedDevice => _store.Current is not null;
-    internal string Summary => $"设备：{_store.Current?.DeviceId ?? "未配对"}\nUSB：{_usbStatus}\n蓝牙：{_bleStatus}\nWi-Fi 服务：{_host ?? "等待可用局域网"}:{_port}";
+    internal string Summary => $"设备：{_store.Current?.DeviceId ?? "未配对"}\nUSB：{_usbStatus}\n蓝牙：{_bleStatus}\nWi-Fi 服务：{_host ?? "等待可用局域网"}:{_port}\n状态帧：{_statusFrameDiagnostic}";
     internal string ConnectionSummary {
         get {
-            long now=Environment.TickCount64,request=Interlocked.Read(ref _wifiRequestAt),report=Interlocked.Read(ref _wifiReportAt);
-            string wifi=request>0&&now-request<8000?"已连接 · 桥接通信正常":report>0&&now-report<8000?
-                _wifiReportedConnected?"已联网 · 等待桥接请求":"未连接":"等待设备回报";
-            return $"USB：{_usbStatus}\nWi-Fi：{wifi}\n蓝牙：{_bleStatus}\n电脑服务地址：{_host??"等待可用局域网"}{(_port>0?":"+_port:"")}";
+            return $"USB：{_usbStatus}\nWi-Fi：{WifiConnectionStatus}\n蓝牙：{_bleStatus}\n电脑服务地址：{_host??"等待可用局域网"}{(_port>0?":"+_port:"")}";
         }
     }
     internal Tab5Service(Tab5PairingStore? store=null,Tab5CodexTasks? codexTasks=null,Tab5Gallery? gallery=null) {
@@ -237,12 +244,33 @@ internal sealed partial class Tab5Service : IDisposable
         _lastSnapshot=snapshot;
         var pairing=_store.Current; if(pairing is null) return;
         var resource=BackgroundTransferPaused?null:_assets.Next(snapshot);var sequence=Interlocked.Increment(ref _sequence);
-        var frame=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
-        if(frame.Length > Tab5Protocol.MaximumFrame-28 && resource is not null)
-            frame=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
-        for(int limit=64;frame.Length>Tab5Protocol.MaximumFrame-28&&limit>=24;limit-=8)
-            frame=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
-        if(frame.Length > Tab5Protocol.MaximumFrame-28) { _usbStatus="状态数据超出协议上限"; return; }
+        int maximum=Volatile.Read(ref _statusMaximum),budget=Tab5StatusCapacity.Budget(maximum);
+        byte[] Build(int cap,byte[]? previous,out int initial,out int taskLimit,out bool degraded,out string[] deferredFields) {
+            int target=Tab5StatusCapacity.Budget(cap);taskLimit=80;
+            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
+            initial=bytes.Length;
+            if(bytes.Length>target&&resource is not null)
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
+            foreach(int limit in new[]{64,56,48,40,32,24,16,8,2}) {
+                if(bytes.Length<=target)break;
+                taskLimit=limit;
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
+            }
+            degraded=bytes.Length>target;deferredFields=[];
+            return degraded?Tab5StatusRecovery.Build(bytes,previous,out deferredFields,cap):bytes;
+        }
+        var frame=Build(maximum,Volatile.Read(ref _frame),out int initialBytes,out int taskLimit,out bool degraded,out var skipped);
+        var legacy=frame.Length>Tab5StatusCapacity.Budget(Tab5Protocol.MaximumFrame)
+            ?Build(Tab5Protocol.MaximumFrame,Volatile.Read(ref _legacyStatusFrame),out _,out _,out _,out _):frame;
+        string deferred="";
+        if(degraded) {
+            if(!_statusFrameDegraded)_statusFallbacks++;
+            _statusFrameDegraded=true;deferred="; deferred="+string.Join(",",skipped);
+        } else if(_statusFrameDegraded) {
+            _statusFrameDegraded=false;_statusRecoveries++;
+        }
+        _statusFrameDiagnostic=$"bytes={frame.Length}; initialBytes={initialBytes}; maximum={maximum-28}; target={budget}; legacyBytes={legacy.Length}; taskLimit={taskLimit}; degraded={_statusFrameDegraded}; fallbacks={_statusFallbacks}; recoveries={_statusRecoveries}"+deferred;
+        Volatile.Write(ref _legacyStatusFrame,legacy);
         Volatile.Write(ref _frame,frame);
         long tick=PublicationClock();
         Interlocked.Exchange(ref _musicPublishedAt,tick);
@@ -269,6 +297,10 @@ internal sealed partial class Tab5Service : IDisposable
             return PublicationClock()-Interlocked.Read(ref _publishedAt)<6000 ? Volatile.Read(ref _frame) : null;
         }
     }
+    internal byte[]? CurrentFrameForMaximum(int maximum) {
+        var frame=CurrentFrame;
+        return frame is null||frame.Length<=maximum-28?frame:Volatile.Read(ref _legacyStatusFrame);
+    }
     internal byte[]? Discover(byte[] packet,System.Net.IPAddress peer) {
         var pair=_store.Current;var host=_host;var port=_port;
         if(pair is null||host is null||port<=0||
@@ -279,17 +311,20 @@ internal sealed partial class Tab5Service : IDisposable
     internal void SetBinding(LanPairing? binding) { _host=binding?.Address.ToString(); _port=binding?.Port??0; }
     internal byte[]? Respond(string id,string nonce,string proof,string? assets=null,string? assetsProof=null,string? firmware=null,string? firmwareProof=null)
     {
-        var pairing=_store.Current; var frame=CurrentFrame;
+        var pairing=_store.Current; var frame=CurrentFrameForMaximum(Tab5Protocol.MaximumFrame);
         if(pairing is null || pairing.DeviceId!=id || !Tab5Protocol.ValidNonce(nonce) || frame is null) return null;
         var key=Convert.FromBase64String(pairing.Key);
         if(!Tab5Protocol.Verify(key,"GET|"+id+"|"+nonce,proof)) return null;
+        int maximum=Tab5Protocol.MaximumFrame;
         if(firmware is not null&&firmware.Length<=31&&Tab5Protocol.Verify(key,"FIRMWARE|"+nonce+"|"+firmware,firmwareProof)) {
+            maximum=Tab5StatusCapacity.ForFirmware(firmware);
             ObserveFirmware(id,firmware);
-            if(Version.TryParse(firmware.Split('-')[0],out var version)&&version>=new Version(0,2,40))frame=TelemetryFrame(1,true,version>=new Version(0,2,42))??frame;
+            frame=CurrentFrameForMaximum(maximum)??frame;
+            if(Version.TryParse(firmware.Split('-')[0],out var version)&&version>=new Version(0,2,40))frame=TelemetryFrame(1,true,version>=new Version(0,2,42),maximum:maximum)??frame;
         }
         Interlocked.Exchange(ref _wifiRequestAt,Environment.TickCount64);
         if(Tab5Assets.ValidIds(assets)&&Tab5Protocol.Verify(key,"ASSETS|"+nonce+"|"+assets,assetsProof))_assets.Acknowledge(assets);
-        return Tab5Protocol.Encrypt(key,nonce,frame);
+        return Tab5Protocol.Encrypt(key,nonce,frame,maximum);
     }
     internal byte[]? OtaImage(string id,string nonce,string proof,string sha) {
         var pairing=_store.Current;var image=Volatile.Read(ref _ota);
@@ -562,14 +597,15 @@ internal sealed partial class Tab5Service : IDisposable
                         if(connecting||_usbRpcVersion==0) {
                             if(await ReadIdentityAsync(port,token,hello=>{
                                 _usbPacked=Tab5UsbStatus.SupportsPacked(hello,pairing.DeviceId);
+                                _usbStatusMaximum=Tab5StatusCapacity.FromUsbHello(hello,pairing.DeviceId);
                                 _usbDelta=Tab5UsbState.SupportsDelta(hello,pairing.DeviceId);
                             })!=pairing.DeviceId)throw new IOException("USB 设备身份不匹配");
                         }
                         if(!device.Identity.Equals(pairing.UsbIdentity,StringComparison.OrdinalIgnoreCase))_store.Pair(pairing.DeviceId,device.Identity);
                         Stage("host");
                         if(_host is not null) Send(port,new {version=1,type="tab5_host",host=_host,port=_port});
-                        if(CurrentFrame is { } frame) {
-                            byte[] wire=_usbState.Wire(frame,_usbPacked,_usbDelta);
+                        if(CurrentFrameForMaximum(_usbStatusMaximum) is { } frame) {
+                            byte[] wire=_usbState.Wire(frame,_usbPacked,_usbDelta,_usbStatusMaximum);
                             var result=await Tab5UsbStatus.SendAsync(frame,wire,
                                 bytes=>Tab5UsbShortPacket.Line(port,Tab5Protocol.Prefix+Encoding.UTF8.GetString(bytes)),
                                 ()=>ReadReplyAsync(port,"tab5_ack",token),next=>{
@@ -594,8 +630,10 @@ internal sealed partial class Tab5Service : IDisposable
                             Stage("connected");
                             if(connecting||_usbConnectionDiagnostic=="尚无连接采样"||Environment.TickCount64-began>=1000)
                                 _usbConnectionDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss.fff} total={Environment.TickCount64-began}ms; "+string.Join("; ",timings);
-                            if(ack.RootElement.TryGetProperty("firmware",out var installedVersion)&&installedVersion.ValueKind==JsonValueKind.String)
+                            if(ack.RootElement.TryGetProperty("firmware",out var installedVersion)&&installedVersion.ValueKind==JsonValueKind.String) {
+                                _usbStatusMaximum=Tab5StatusCapacity.ForFirmware(installedVersion.GetString());
                                 ObserveFirmware(pairing.DeviceId,installedVersion.GetString()!);
+                            }
                             string? reportedAssets=ack.RootElement.TryGetProperty("assetIds",out var idsValue)&&idsValue.ValueKind==JsonValueKind.String?idsValue.GetString():null;
                             _assets.Acknowledge(reportedAssets);
                             if(ack.RootElement.TryGetProperty("uptimeMs",out var uptimeValue)&&uptimeValue.TryGetInt64(out long uptime)&&
@@ -619,6 +657,7 @@ internal sealed partial class Tab5Service : IDisposable
                             if(ack.RootElement.TryGetProperty("galleryDiag",out var galleryDiag))_deviceHealth+="\n艺术图片接收："+galleryDiag.GetString();
                             if(ack.RootElement.TryGetProperty("galleryTransferDiag",out _))_deviceHealth+="\n图库接收与写卡："+Tab5GalleryStream.TransferDiagnostic(ack.RootElement);
                             if(ack.RootElement.TryGetProperty("wifiDiag",out _))_deviceHealth+="\n设备 Wi-Fi 诊断："+NumericProbeDiagnostic(ack.RootElement,"wifiDiag",16);
+                            if(ack.RootElement.TryGetProperty("wifiRecoveryDiag",out _))_deviceHealth+="\n设备 Wi-Fi 恢复："+NumericProbeDiagnostic(ack.RootElement,"wifiRecoveryDiag",8);
                             if(ack.RootElement.TryGetProperty("wirelessBootDiag",out _))_deviceHealth+="\n设备无线启动："+NumericProbeDiagnostic(ack.RootElement,"wirelessBootDiag",4);
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
                             // Bound each USB burst to preserve regular status heartbeats.
@@ -656,10 +695,10 @@ internal sealed partial class Tab5Service : IDisposable
             await Task.Delay(pendingResources?40:MusicCapture?.Invoke() is {Title.Length:>0,TimelineAvailable:true}?500:2000,token);
         }
     }
-    internal Task RunBleAsync(CancellationToken token) => new Tab5BleClient(_store,()=>Volatile.Read(ref _otaTransfers)>0?null:CurrentFrame,s=>{_bleStatus=s;if(s is "已连接 · 数据已确认" or "已连接 · USB 优先待命")Interlocked.Exchange(ref _bleAckAt,Environment.TickCount64);},_assets.Acknowledge,s=>{_bleDiagnostic=s;if(s.StartsWith("FAILED "))_bleLastFailure=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s;},
+    internal Task RunBleAsync(CancellationToken token) => new Tab5BleClient(_store,maximum=>Volatile.Read(ref _otaTransfers)>0?null:CurrentFrameForMaximum(maximum),s=>{_bleStatus=s;if(s is "已连接 · 数据已确认" or "已连接 · USB 优先待命")Interlocked.Exchange(ref _bleAckAt,Environment.TickCount64);},_assets.Acknowledge,s=>{_bleDiagnostic=s;if(s.StartsWith("FAILED "))_bleLastFailure=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s;},
         (nonce,proof,packet,ct)=>VoiceAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct,compact:true),
         (nonce,proof,packet,ct)=>RpcAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct,transport:"BLE"),
-        (capability,interactive)=>Volatile.Read(ref _otaTransfers)>0?null:TelemetryFrame(2,capability>0,capability>=2,interactive,capability>=3),
+        (capability,interactive,maximum)=>Volatile.Read(ref _otaTransfers)>0?null:TelemetryFrame(2,capability>0,capability>=2,interactive,capability>=3,maximum),
         s=>_bleRpcDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,()=>ResetTelemetryChannel(2),()=>ImageUploadActive||BleGalleryTransferActive,s=>_bleVoiceDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,seq=>AcknowledgeTelemetry(2,seq),version=>ObserveFirmware(_store.Current?.DeviceId??"",version),probeTrace:_bleProbeTrace,nativeLimit:()=>_bleQueueComparison.NativeLimit,bulkWriteLimit:()=>_bleQueueComparison.WriteWindow,bulkWriteSupported:n=>Volatile.Write(ref _bleWriteWindowSupported,n),standby:()=>Tab5BleClient.UsbOwnsActiveState(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),_usbDataActive),queueComparisonActive:()=>_bleQueueComparison.Active).RunAsync(token);
     private static SerialPort Open(string name) {
         var port=new SerialPort(name,460800) {NewLine="\n",ReadTimeout=500,WriteTimeout=2500,DtrEnable=true,RtsEnable=false,Encoding=Encoding.UTF8};

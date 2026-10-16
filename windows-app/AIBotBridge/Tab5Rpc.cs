@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -32,8 +32,11 @@ internal sealed partial class Tab5Service
         }
     }
     internal void ObserveFirmware(string id,string version) {
+        if(_store.Current?.DeviceId!=id)return;
         _firmware.Observe(id,version);
         _assets.ObserveFirmware(version);
+        int maximum=Tab5StatusCapacity.ForFirmware(version);
+        if(Interlocked.Exchange(ref _statusMaximum,maximum)!=maximum)Republish();
         if(Volatile.Read(ref _ota)?.Version==version) {
             Interlocked.Exchange(ref _rpcOtaUntil,0);
             lock(_remoteOtaLock){_remoteOta?.Completion.TrySetResult(true);if(_remoteOtaStatus.Length>0)_remoteOtaStatus="设备已回报新版本，请核验启动。";}
@@ -103,6 +106,7 @@ internal sealed partial class Tab5Service
                 }
                 else if(Text(root,"kind")=="ota-control")result=ReceiveRemoteOta(root);
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
+                else if(Text(root,"kind")=="agenda")result=AgendaStore.Shared.Rpc(root);
                 else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy
                     ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token);
                 else if(Text(root,"kind")=="benchmark")result=Tab5TransportBenchmark.Handle(root,opened.Data,binaryReply,bulkReply);

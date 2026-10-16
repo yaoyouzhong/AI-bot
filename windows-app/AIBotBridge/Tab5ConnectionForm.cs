@@ -9,7 +9,7 @@ internal sealed class Tab5ConnectionForm : Form
     {
         SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         Font=SettingsWindow.BodyFont();Text="TAB5 连接与升级";
-        ClientSize=new Size(640,530);MinimumSize=new Size(560,440);StartPosition=FormStartPosition.CenterScreen;
+        ClientSize=new Size(640,530);MinimumSize=new Size(560,520);StartPosition=FormStartPosition.CenterScreen;
         BackColor=Color.White;
         var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(24),ColumnCount=1,RowCount=3};
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
@@ -86,20 +86,18 @@ internal sealed class Tab5ConnectionForm : Form
             for(int i=0;i<ports.Items.Count;i++)if(ports.Items[i] is FlashUsbDevice device&&device.Port==selected)ports.SelectedIndex=i;
         }
         refresh.Click+=(_,_)=>RefreshPorts();
-        var otaStatus=new Label{AutoSize=true,MaximumSize=new Size(570,0),Text=service.OtaSummary,Margin=new Padding(0,0,0,10)};upgrade.Controls.Add(otaStatus);
+        var otaStatus=new Tab5UpgradeStatusView();upgrade.Controls.Add(otaStatus);
         var offerOta=new Button{Text="选择固件…"};var cancelOta=new Button{Text="停止提供"};var startOta=new Button{Text="开始升级"};upgrade.Controls.Add(Buttons(startOta,offerOta,cancelOta));StyleCompactButton(startOta,true);
         var bootRow=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,8,0,8)};
         bootRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));bootRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         var bootState=new Label{AutoSize=true,Anchor=AnchorStyles.Left,ForeColor=SettingsWindow.Muted,Margin=new Padding(0,4,8,4)};
         var verifyOta=new Button{Text="核验启动",Anchor=AnchorStyles.Right,Margin=Padding.Empty};StyleCompactButton(verifyOta);bootRow.Controls.Add(bootState,0,0);bootRow.Controls.Add(verifyOta,1,0);upgrade.Controls.Add(bootRow);
-        bool verifying=false;
+        bool verifying=false,otaResult=false;
         var releaseNotes=new Tab5ReleaseNotes{Dock=DockStyle.Fill};upgrade.Controls.Add(releaseNotes);
-        verifyOta.Click+=async(_,_)=>{verifying=true;verifyOta.Enabled=false;bootState.Text="正在核验启动…";try{await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed)result.Text="启动核验通过。";}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed)result.Text=ex.Message;}finally{verifying=false;if(!IsDisposed)UpdateOffer();}};
+        verifyOta.Click+=async(_,_)=>{verifying=true;verifyOta.Enabled=false;bootState.Text="正在核验启动…";try{await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed){result.Text="";otaResult=false;}}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed){result.Text=ex.Message;otaResult=true;}}finally{verifying=false;if(!IsDisposed)UpdateOffer();}};
         void UpdateOffer() {
-            var status=string.Join("\n",new[]{service.OtaSummary,service.RemoteOtaStatus,service.OtaStartHint}.Where(x=>x.Length>0));
-            if(service.RemoteOtaStatus.Length>0&&service.OtaTransferSummary!="尚无升级传输")status+="\n"+service.OtaTransferSummary;
-            status=status.Trim();
-            if(otaStatus.Text!=status)otaStatus.Text=status;
+            var presentation=service.UpgradeStatusText;otaStatus.SetStatus(presentation);
+            if(otaResult&&presentation.State is "设备已运行" or "已核验"){result.Text="";otaResult=false;}
             startOta.Enabled=service.CanStartOta;offerOta.Enabled=!service.Busy;
             if(!verifying)bootState.Text=service.UpgradeBootSummary;
             verifyOta.Enabled=!verifying&&service.CanVerifyUpgrade;
@@ -113,7 +111,7 @@ internal sealed class Tab5ConnectionForm : Form
         tabs.SelectedIndexChanged+=(_,_)=>UpdateConnection();UpdateConnection();
         UpdateOffer();
         startOta.Click+=async(_,_)=> {
-            startOta.Enabled=false;
+            startOta.Enabled=false;otaResult=true;
             try {await service.StartOtaAsync(_stop.Token);if(!IsDisposed)result.Text=service.RemoteOtaStatus;}
             catch(OperationCanceledException){}
             catch(Exception ex) when(ex is IOException or InvalidOperationException){if(!IsDisposed)result.Text=ex.Message;}

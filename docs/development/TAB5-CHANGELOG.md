@@ -2,6 +2,93 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.205-ui - 2026-10-16
+
+### Reminder layout
+
+- Use a centered 640×300 agenda reminder, retaining the dark background, light-blue border and existing typography. Allow two title lines; size snooze and acknowledge controls by role without stretching a sole action.
+- Preserve 204 expiry retention, full-list insertion eviction and offline deletion sync, 203 compact persistence/Wi-Fi recovery, and 201 bounded rendering, complete reading texts and existing font coverage. Companion bridge 0.6.7 is recommended.
+- Native reminder previews, storage/interaction regressions and firmware builds are verified. 205 has not been flashed to the current device; 201/204 physical evidence is not complete 205 hardware acceptance. Publication does not flash devices.
+
+## 0.2.204-ui - 2026-10-16
+
+### Agenda retention
+
+- Retain ended one-offs in All. Only an insertion into a full 16-item list reclaims the oldest-ended one-off; edits, reads and time passing do not prune. Keep recurring, future and undated entries.
+- Commit replacement and deletion receipt atomically. Preserve all records on failure, require updated companion retention support, and acknowledge elapsed offline edits without resurrecting evicted entries. Keep 203 compact storage and Wi-Fi fixes. Local candidate; hardware acceptance pending.
+
+## 0.2.203-ui - 2026-10-16
+
+- Compact agenda storage to at most 3,574 bytes and repair pinned NVS SDK blob cleanup; add Wi-Fi station recovery. Boot, Wi-Fi connection, setting persistence, offline agenda reboot and deletion passed physical checks. The original automatic-expiry rule is superseded by 204.
+
+## 0.2.202-ui - 2026-10-16
+
+### Agenda synchronization and visibility
+
+- Accept a complete six-range annual schedule when a combined holiday names all seven holidays. A calendar refresh failure retains the last-good calendar while independently confirming a valid item snapshot; unknown workday years still pause their reminders.
+- Save locally first: create/edit/delete and reminders work offline; durable deletion metadata survives reboot and synchronizes after reconnect. Pending synchronization is separate from local save success; concurrent changes are preserved as copies. Add an Ended list with editing access and automatically select the retained item after saving a past event.
+- Replace the agenda recording cancel cross with the selected trash icon, retaining its hit area and original-name preservation.
+- Add a confirmed Delete action to TAB5, and place the companion Windows Delete Item action beside its list; preserve confirmation and edition checks. Shorten the Windows agenda label to “日程待办” and expand/align the birthday form. Keep existing user records and the accepted 201 rendering fixes. Local checks and installation acceptance are recorded separately.
+
+## 0.2.201-ui - 2026-10-15
+
+### Rendering stability
+
+- Split eligible unscaled 90/180/270-degree LVGL layers into bounded strips. Preserve edge sampling with overlap and disjoint output clips, avoiding the reproduced large contiguous allocation without changing pixels.
+- Both galleries pass eight rounds of four-direction artwork/detail/chapter/return checks with an explicit 700 KiB drawing budget. Local comparisons preserve 307 normal captures and 41 constrained captures exactly. This is a local candidate; the earlier physical portrait freeze is not a confirmed diagnosis or completed device acceptance.
+- Preserve the 200 agenda, audio, status-capacity and recovery features. Companion USB cleanup retains disconnected-port recovery and exposes unrelated invariant errors.
+
+## 0.2.200-ui - 2026-10-15
+
+### Agenda editor
+
+- Keep the microphone beside the name, with stationary stop controls during capture and keyboard input. Remove the device time switch: new items are timed, existing undated items are preserved.
+- Show start and duration without an end row. Open custom timing on demand while retaining automatic expiry. Add one- and three-minute advance reminders.
+- Add Chinese official workdays, including holidays and weekend makeup days, independently from Monday-Friday. Persist annual calendars separately; unknown years visibly pause reminders.
+
+### Notifications and acceptance
+
+- Use the selected synthesized cuckoo for monitoring; keep the Codex completion chime and add offline “Codex任务已完成” speech. Preserve mute, notification settings and capture priority. Windows does not duplicate completion popups; it supplies a fallback chime only without fresh TAB5 traffic, including silent small-display-only setups.
+- Group the companion desktop upgrade channel with transfer results and keep status height bounded so actions and notes remain visible. This is a local candidate; flashing, listening and touch acceptance remain separate.
+
+## 0.2.199-ui - 2026-10-15
+
+### App restoration and capacity
+
+- Build from the agenda-capable 197 working baseline in `tab5-178`, restoring the agenda entry, offline reminders and editing while retaining subsequent agenda/voice UI changes and existing apps.
+- Apply the 64 KiB status ceiling, 48 KiB bridge normal target and automatic overflow recovery. Preserve pairing, agenda NVS, gallery and carousel settings.
+- Local build, native UI and capacity-boundary checks pass. Record flashing and real touch/voice acceptance separately.
+
+## 0.2.198-ui - 2026-10-15
+
+### Connectivity and status capacity
+
+- Installed and boot-verified locally, then retired because it was built from the wrong source directory and omitted agenda. Corrected by 199. Raise encrypted status packets to 64 KiB with a companion bridge normal target of 48 KiB; older bridges retain their 32 KiB packets.
+- Update bounded USB, Wi-Fi, BLE, decryption, decompression and delta-tree limits together. Place larger receive buffers in PSRAM; keep independent RPC and voice limits.
+- The companion bridge budgets task/read-state maps together, retains valid state during overflow and automatically retries full content without restarting or renewing cached sample timestamps.
+
+## 0.2.197-ui - 2026-10-15
+
+### Firmware size
+
+- Local candidate, not flashed or published. Retain 196 agenda, gallery synchronization and runtime alerts, with the existing partitions and configuration storage.
+- Keep every glyph, metric and advance; compact only the 24px character map. Compress small brand icons with the existing LVGL LZ4 decoder, preserving colors and alpha.
+- Retain every offline Pinyin entry, weight, syllable boundary and candidate order. Use compact offsets and shared string suffixes without whole-dictionary decompression or a runtime dictionary cache.
+- Compare font pixels, decoded icons and dictionary lookup against a frozen pre-compaction snapshot. Record builds/native regressions separately from physical acceptance.
+
+## 0.2.196-ui - 2026-10-15
+
+### Agenda and reminders
+
+- Local acceptance candidate, not flashed or published. Add a start-first timeline, automatic ending at the configured end and no manual completion control. The list displays only start times.
+- Create/edit names, start/end times, repeats and advance reminders locally. Open the month grid and hour/minute rollers on demand, use Today/Tomorrow and duration shortcuts, preserve duration when moving the start, and leave drafts unchanged on cancel.
+- Keep an independent Chinese touch keyboard. Name dictation uses the TAB5 microphone and enabled Windows recognition bridge, returning text to an unsaved draft after explicit stop. Offline keyboard editing remains available; Windows 0.6.7 supplies bidirectional definition synchronization and conflict protection.
+
+### Gallery and acceptance
+
+- Include the 195 local gallery candidate's unchanged-JPEG metadata updates and complete-guide reuse within a work, retaining resume, full-text checks and failure recovery. Preserve the standalone 195 archive.
+- Retain existing OTA partitions, glyph coverage and user data. Build/native preview results do not establish physical RTC, audio, voice or three-transport acceptance. Capacity, provenance and afternoon checks are recorded separately.
+
 ## 0.2.194-ui - 2026-10-14
 
 - Give BLE-only bulk RPCs a separate 35-second inactivity lease, renewed only after a complete authenticated success. Failure, 600 ms idle or no progress restores Wi-Fi; late replies cannot revive expired leases. Original gallery and diagnostic deadlines remain unchanged.

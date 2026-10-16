@@ -25,7 +25,8 @@ internal sealed record RuntimeHealthAlert(string Id,string Key,string State,stri
     public bool HandledExternally {get;init;}
     public string ShortAdvice=>Key switch {
         "pac"=>Advice.Contains("重启")?"建议重启 VPN 客户端":"检查 PAC 规则",
-        "vpn"=>Title=="目标响应异常"?"检查目标服务":"检查或更换节点",
+        "vpn"=>Title.StartsWith("ChatGPT ",StringComparison.Ordinal)?"检查 ChatGPT 连接":
+            Title.StartsWith("资源服务",StringComparison.Ordinal)?"检查资源服务连接":Title=="目标响应异常"?"查看网络详情":"检查或更换节点",
         "memory"=>"检查内存占用","disk"=>"检查磁盘读写","cpu" or "queue"=>"减少并行任务",
         "codex"=>Title.Contains("登录")?"检查登录状态":Title.Contains("受限")||Title.Contains("服务")?"稍后重试":"检查 VPN / PAC",
         "bridge"=>"重启桥接程序",_=>"检查监控设置"

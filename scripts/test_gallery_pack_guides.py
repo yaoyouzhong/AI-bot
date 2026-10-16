@@ -5,6 +5,8 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import zipfile
 
 from package_daily_art import ROOT, package, select_guides
@@ -68,6 +70,33 @@ def run(output):
         shutil.copyfile(assets / name, stage / name)
     (stage / "files.json").write_bytes(encode({"count": len(names), "files": {n: inventory[n] for n in names}}))
     (stage / "guides.zh.json").write_bytes(encode(guides))
+    # Packaging fixtures must exercise the current renderer contract as well
+    # as guide bounds. Archived JPEGs can carry the reported hidden captions.
+    rows=read(stage/'selection.json')
+    calligraphy=[copy.deepcopy(w) for w in rows if w['category']=='calligraphy']
+    for work in calligraphy:
+        for page in [work]+work.get('additionalSources',[]):
+            for base in (ROOT,ROOT/'artifacts/development/tab5-daily-art'):
+                path=base/page['file']
+                if path.is_file():page['file']=str(path);break
+            else:raise FileNotFoundError(page['file'])
+    render_selection=output/'caption-selection.json';render_selection.write_bytes(encode(calligraphy))
+    rendered=output/'caption-layouts'
+    subprocess.run([sys.executable,str(ROOT/'scripts/prepare_daily_art.py'),str(render_selection),
+                    '--font',str(ROOT.parent/'m5stack TAB5/.tools/font-builder/wenkai-1.522/LXGWWenKai-Regular.ttf'),
+                    '--guides',str(stage/'guides.zh.json'),'--output',str(rendered)],check=True)
+    expected={w['id']:w['frames'] for w in chosen if w['category']=='calligraphy'}
+    for work in read(rendered/'catalog.json'):
+        assert work['frames']==expected[work['id']]
+        for name in work['frames']:
+            shutil.copyfile(rendered/name,stage/name);inventory[name]=hashlib.sha256((stage/name).read_bytes()).hexdigest()
+    corrected={w['id']:w for w in read(rendered/'provenance.json')}
+    provenance=read(stage/'provenance.json')
+    for work in provenance:
+        if work['id'] in corrected:
+            for key in ('displayLayout','displayMetadata'):work[key]=corrected[work['id']][key]
+    (stage/'provenance.json').write_bytes(encode(provenance))
+    (stage/'files.json').write_bytes(encode({'count':len(names),'files':{name:inventory[name] for name in names}}))
     package(stage, output / "packs", "2026.10.10")
     # A later calligraphy-only edition can use only calligraphy guide records.
     single_guides = select_guides(guides, [w for w in chosen if w["category"] == "calligraphy"], "2026.10.11")

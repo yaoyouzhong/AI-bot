@@ -1,4 +1,4 @@
-namespace AIBotBridge;
+﻿namespace AIBotBridge;
 
 internal sealed record DeviceView(bool Online,string Status,string Connection,string Firmware,
     string? Usb=null,string? Wifi=null,string? Bluetooth=null,string? Transport=null);
@@ -24,8 +24,9 @@ internal sealed class DeviceCenterForm : Form
     private readonly Label _firmware=new(){AutoSize=true,ForeColor=Color.DimGray};
     private readonly TableLayoutPanel _health=new(){AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,0,0,6)};
     private readonly Label _connection=new(){AutoSize=true,ForeColor=Color.DimGray};
-    private readonly TableLayoutPanel _transport=new(){Name="connection-transports",ColumnCount=3,RowCount=1,Margin=new Padding(0,4,0,8)};
-    private readonly Label[] _transportLabels=[new(),new(),new()];
+    private readonly TableLayoutPanel _transport=new(){Name="connection-transports",ColumnCount=3,RowCount=2,Margin=new Padding(0,8,0,12)};
+    private readonly TransportStatusLabel[] _transportLabels=[new(0),new(1),new(2)];
+    private readonly Label[] _transportTitles=[new(),new(),new()];
     private readonly ToolTip _transportTips=new();
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=1500};
     private readonly List<(Button Button,string Action)> _actions=[];
@@ -40,8 +41,8 @@ internal sealed class DeviceCenterForm : Form
         _store=store;_view=view;_action=action;_change=change;_add=add;_common=common;_setting=setting??(_=>false);
         _startup=new StartupSettingControl(()=>_setting("startup"),changeStartup??(_=>{_common("startup");return Task.CompletedTask;}));
         _health.ColumnStyles.Add(new(SizeType.AutoSize));_health.ColumnStyles.Add(new(SizeType.Percent,100));_health.RowStyles.Add(new(SizeType.AutoSize));_state.Margin=new Padding(0,0,18,0);_firmware.Margin=Padding.Empty;_health.Controls.Add(_state,0,0);_health.Controls.Add(_firmware,1,0);
-        for(int i=0;i<3;i++){_transport.ColumnStyles.Add(new(SizeType.Absolute));var label=_transportLabels[i];label.Name="transport-"+i;label.AutoSize=false;label.AutoEllipsis=true;label.UseMnemonic=false;label.TextAlign=ContentAlignment.MiddleLeft;label.Dock=DockStyle.Fill;label.Margin=new Padding(0,0,12,0);label.FontChanged+=(_,_)=>FitTransports();_transport.Controls.Add(label,i,0);}
-        _transport.RowStyles.Add(new(SizeType.Percent,100));_transport.SizeChanged+=(_,_)=>FitTransports();
+        for(int i=0;i<3;i++){_transport.ColumnStyles.Add(new(SizeType.Absolute));var label=_transportLabels[i];label.Name="transport-"+i;label.AutoSize=false;label.AutoEllipsis=true;label.UseMnemonic=false;label.TextAlign=ContentAlignment.MiddleLeft;label.Dock=DockStyle.Fill;label.Margin=new Padding(0,0,12,0);label.FontChanged+=(_,_)=>FitTransports();_transport.Controls.Add(label,i,1);var title=_transportTitles[i];title.Text=new[]{"USB","Wi-Fi","蓝牙"}[i];title.AutoSize=false;title.Dock=DockStyle.Fill;title.ForeColor=SettingsWindow.Muted;title.Margin=new Padding(0,0,12,4);_transport.Controls.Add(title,i,0);}
+        _transport.RowStyles.Add(new(SizeType.Absolute,0));_transport.RowStyles.Add(new(SizeType.Percent,100));_transport.SizeChanged+=(_,_)=>FitTransports();
         Text="AI-bot · 设备中心";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         ClientSize=new(840,680);MinimumSize=new(820,500);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;Padding=new Padding(12);
         var devicesPage=Page("我的设备","devices");Page("账号数据","accounts").Controls.Add(_accounts);Page("桥接设置","bridge-settings").Controls.Add(_bridge);
@@ -54,7 +55,7 @@ internal sealed class DeviceCenterForm : Form
         _list.BackColor=sidebar.BackColor;sidebar.Controls.Add(_list,0,0);
         _addButton=Button("＋ 添加",_add,true);_addButton.Name="add-device";_addButton.Dock=DockStyle.Fill;sidebar.Controls.Add(_addButton,0,1);
         split.Controls.Add(sidebar,0,0);split.Controls.Add(_detail,1,0);body.Controls.Add(split,0,0);
-        _legacy.Dock=DockStyle.Top;_legacy.AutoSize=true;_legacy.AutoScroll=false;_legacy.Padding=new Padding(12,8,12,8);_legacy.Margin=new Padding(0,10,0,0);_legacy.BackColor=Color.FromArgb(242,246,252);body.Controls.Add(_legacy,0,1);
+        _legacy.Dock=DockStyle.Top;_legacy.AutoSize=true;_legacy.AutoScroll=false;_legacy.Padding=new Padding(12,8,12,8);_legacy.Margin=new Padding(0,4,0,0);_legacy.BackColor=Color.FromArgb(242,246,252);body.Controls.Add(_legacy,0,1);
         devicesPage.Controls.Add(body);Controls.Add(_pages);
         _list.DrawItem+=DrawDevice;_list.SizeChanged+=(_,_)=>FitDeviceNames();_list.FontChanged+=(_,_)=>FitDeviceNames();_list.SelectedIndexChanged+=(_,_)=>{if(!_reloading)Render();};
         _timer.Tick+=(_,_)=>RefreshStatus();_timer.Start();Reload();SettingsWindow.FitScreen(this);
@@ -93,7 +94,7 @@ internal sealed class DeviceCenterForm : Form
             var heading=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,0,0,6)};
             heading.ColumnStyles.Add(new(SizeType.Percent,100));heading.ColumnStyles.Add(new(SizeType.AutoSize));heading.RowStyles.Add(new(SizeType.AutoSize));
             heading.Controls.Add(new Label{Text=d.Name,AutoSize=true,MaximumSize=new(400,0),Font=new Font(Font.FontFamily,12,FontStyle.Bold),Anchor=AnchorStyles.Left,Margin=new Padding(0,3,8,3)},0,0);
-            var manage=Button("管理…",()=>{});manage.Click+=(_,_)=>_manage.Show(manage,new Point(0,manage.Height));heading.Controls.Add(manage,1,0);_detail.Controls.Add(heading);
+            var manage=Button("管理 ▾",()=>{});manage.Click+=(_,_)=>_manage.Show(manage,new Point(0,manage.Height));heading.Controls.Add(manage,1,0);_detail.Controls.Add(heading);
             _manage.Items.Add("修改名称",null,(_,_)=>Rename(d));
             _manage.Items.Add(d.Enabled?"停用设备":"启用设备",null,async(_,_)=>await Change(d,false));
             if(d.Kind==HardwareKind.Esp8266){
@@ -105,7 +106,7 @@ internal sealed class DeviceCenterForm : Form
             _manage.Items.Add(new ToolStripSeparator());_manage.Items.Add("移除设备…",null,async(_,_)=>await Change(d,true));
             _connection.Margin=new Padding(0,0,0,12);_detail.Controls.Add(_health);_detail.Controls.Add(_transport);_detail.Controls.Add(_connection);
             var grid=ActionGrid(_detail);
-            string[] actions=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["tab5-display","voice","birthday-settings","task-pins","data","tab5"];
+            string[] actions=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["tab5-display","voice","birthday-settings","agenda","gallery-browser","task-pins","data","tab5"];
             foreach(string action in actions) {
                 if(action=="data"){
                     Card(grid,"数据设置",Description(action),()=>{using var dialog=new DeviceDataForm(_store,d.Id);if(dialog.ShowDialog(this)==DialogResult.OK){_action(d.Id,"data-changed");Reload();}});continue;
@@ -157,7 +158,7 @@ internal sealed class DeviceCenterForm : Form
         string firmware="固件 "+v.Firmware;if(_firmware.Text!=firmware)_firmware.Text=firmware;
         bool structured=v.Usb is not null;_transport.Visible=structured;
         string?[] values=[v.Usb,v.Wifi,v.Bluetooth];string[] names=["USB","Wi-Fi","蓝牙"];
-        for(int i=0;i<3;i++){var label=_transportLabels[i];string text=names[i]+" · "+(values[i]??"不支持");if(label.Text!=text){label.Text=text;_transportTips.SetToolTip(label,text);}label.ForeColor=d.Enabled&&values[i]=="已连接"?Color.FromArgb(24,123,72):Color.DimGray;}
+        for(int i=0;i<3;i++){var label=_transportLabels[i];string text=names[i]+" · "+(values[i]??"不支持");string shown=d.Kind==HardwareKind.Tab5?(values[i]??"不支持"):text;if(d.Kind==HardwareKind.Tab5&&i==1)shown=values[i] switch{"已联网 · 桥接正常"=>"已连接","已联网 · 桥接未通"=>"桥接未通","等待设备回报"=>"等待回报",_=>shown};if(label.Text!=shown){label.Text=shown;}_transportTips.SetToolTip(label,text);label.AccessibleName=text;label.ForeColor=!d.Enabled?Color.DimGray:values[i] is "已连接" or "已联网 · 桥接正常"?Color.FromArgb(24,123,72):values[i]=="已联网 · 桥接未通"?Color.FromArgb(162,112,25):Color.DimGray;}
         _transportLabels[2].Visible=d.Kind==HardwareKind.Tab5;FitTransports();
         _connection.Visible=!structured;string connection=v.Connection;if(_connection.Text!=connection)_connection.Text=connection;
         foreach(var (button,action) in _actions)button.Enabled=DeviceCapabilities.Allows(d,action)&&(!DeviceCapabilities.RequiresOnline(action)||v.Online);
@@ -165,18 +166,46 @@ internal sealed class DeviceCenterForm : Form
     }
     private void FitTransports() {
         if(_transport.ColumnStyles.Count!=3)return;
-        int count=Selected?.Kind==HardwareKind.Tab5?3:2;
+        bool tab=Selected?.Kind==HardwareKind.Tab5;
+        foreach(var title in _transportTitles)title.Visible=false;
+        foreach(var label in _transportLabels){label.ShowSymbol=tab;label.Padding=tab?new Padding(label.Font.Height+18,0,0,0):Padding.Empty;}
+        if(tab){
+            _transport.Padding=new Padding(8);_transport.BackColor=SettingsWindow.Surface;
+            int tabWidth=Math.Max(3,_transport.ClientSize.Width-_transport.Padding.Horizontal);
+            int heading=0,tabHeight=Font.Height+8;
+            _transport.RowStyles[0].Height=heading;
+            for(int i=0;i<3;i++){
+                int width=i==2?tabWidth-2*(tabWidth/3):tabWidth/3;_transport.ColumnStyles[i].Width=width;
+                var label=_transportLabels[i];label.AutoEllipsis=false;
+                tabHeight=Math.Max(tabHeight,TextRenderer.MeasureText(label.Text,label.Font,new Size(Math.Max(1,width-label.Margin.Horizontal-label.Padding.Horizontal),int.MaxValue),TextFormatFlags.WordBreak).Height);
+            }
+            _transport.Height=heading+tabHeight+_transport.Padding.Vertical+2;return;
+        }
+        _transport.Padding=Padding.Empty;_transport.BackColor=Color.White;_transport.RowStyles[0].Height=0;
+        int count=2;
         int[] widths=_transportLabels.Take(count).Select(label=>TextRenderer.MeasureText(label.Text,label.Font,Size.Empty,TextFormatFlags.SingleLine).Width+label.Margin.Horizontal).ToArray();
         int total=widths.Sum(),available=Math.Max(1,_transport.ClientSize.Width);
         int height=_transportLabels.Take(count).Max(label=>TextRenderer.MeasureText("USB",label.Font,Size.Empty,TextFormatFlags.SingleLine).Height);
-        if(_transport.Height!=height)_transport.Height=height;
         int used=0;
         for(int i=0;i<3;i++){
             int width=i>=count?0:i==count-1?Math.Max(0,available-used):total<=available?widths[i]:available*widths[i]/Math.Max(1,total);
+            if(count==3)width=i==0?Math.Min(widths[0],available/3):i==1?Math.Max(1,available-used-Math.Min(widths[2],available/3)):Math.Max(0,available-used);
             if(_transport.ColumnStyles[i].Width!=width)_transport.ColumnStyles[i].Width=width;used+=width;
+            bool wrap=i==1&&Selected?.Kind==HardwareKind.Tab5;
+            _transportLabels[i].AutoEllipsis=!wrap;
+            if(wrap){
+                var label=_transportLabels[i];int contentWidth=Math.Max(1,width-label.Margin.Horizontal);
+                string text=(_transportTips.GetToolTip(label)??label.Text).Replace(" · 桥接","\n桥接",StringComparison.Ordinal);
+                if(TextRenderer.MeasureText(text.Split('\n')[0],label.Font).Width>contentWidth)text=text.Replace("Wi-Fi · ","Wi-Fi\n",StringComparison.Ordinal);
+                if(label.Text!=text)label.Text=text;
+                height=Math.Max(height,TextRenderer.MeasureText(text,label.Font,new Size(contentWidth,int.MaxValue),TextFormatFlags.WordBreak).Height);
+            }
         }
+        if(_transport.Height!=height)_transport.Height=height;
     }
     private static string Description(string action)=>action switch {
+        "agenda"=>"管理事项与提醒",
+        "gallery-browser"=>"浏览名画与书法",
         "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"配置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "data"=>"选择需要的数据",
         "legacy-settings"=>"设置连接与屏保", "cycle"=>"设置亮度与轮播", "mirror"=>"预览小屏当前画面",
         "flash"=>"选择固件并升级", "pet-gallery"=>"浏览桌宠素材", "appearance"=>"选择动画与桌宠", _=>""
@@ -186,7 +215,7 @@ internal sealed class DeviceCenterForm : Form
     private void Heading(Control parent,string text,float size=14)=>parent.Controls.Add(new Label{Text=text,AutoSize=true,Font=new Font(Font.FontFamily,size,FontStyle.Bold),Margin=new Padding(0,4,0,10)});
     private static void Note(Control parent,string text)=>parent.Controls.Add(new Label{Text=text,AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,0,0,12)});
     private static TableLayoutPanel ActionGrid(Control parent) {
-        var grid=new TableLayoutPanel{AutoSize=true,ColumnCount=2,Margin=new Padding(0,10,0,0)};
+        var grid=new TableLayoutPanel{AutoSize=true,ColumnCount=2,Margin=new Padding(0,4,0,0)};
         grid.ColumnStyles.Add(new(SizeType.Percent,50));grid.ColumnStyles.Add(new(SizeType.Percent,50));parent.Controls.Add(grid);return grid;
     }
     private static Button Card(TableLayoutPanel grid,string title,string description,Action action) {

@@ -1,6 +1,6 @@
 # 运行监控 / Runtime monitor
 
-本功能已纳入桥接 0.6.6／TAB5 0.2.190-ui 统一候选。独立监控版本的 Windows 实际采样、通知显示回执和正常退出／重启已验证；合并后的包须按具体源码和镜像重新核验。TAB5 页面已通过原生 LVGL 预览，真机仍运行 0.2.188-ui，监控页面尚未在设备上验收。
+本功能是本地开发候选：Windows 桥接已在本机更新，真实采样、Windows 通知显示回执、正常退出与重启已经验证；TAB5 页面仍为原生 LVGL 预览，尚未刷机。现有固件、版本和升级包保持原有状态。
 
 ## 页面与提醒
 
@@ -17,7 +17,7 @@
 - Codex 实际连接：复用桥接已有的认证用量请求结果以及新模型事件中的固定错误类型，不增加模型请求或额外额度查询。单个来源的连接／超时异常在 5 分钟内达到三次才提醒，登录失效或访问受限连续两次才提醒；两次实际成功确认恢复。认证查询成功不覆盖模型连接失败。用户取消、等待审批、长时间无输出均不按连接故障处理；没有五分钟内的实际结果时显示待确认，不能用 VPN 探测成功证明业务正常。只保留分类、计数和时间，丢弃事件正文、会话标识及凭据。
 - 桥接守护：桥接启动时创建一个同用户、会话内的独立子进程，正常退出时通知其结束；不安装 Windows 服务／计划任务、不自动重启。每两秒检查界面心跳、监控采样时间和服务任务失败。启动及睡眠恢复预留 20 秒；界面超过 15 秒、采样超过 10 秒或服务已失败，再持续 30 秒才提醒。整个桥接异常退出单独提醒。正常退出、停用监控、短暂停顿不会提示异常，提醒开关／勿扰设置继续生效；同一异常不由父子进程重复通知。
 - 内存压力：`GetPerformanceInfo` 读取实际提交量和当前提交上限，比例达到原内存阈值（默认 90%）持续 30 秒后提醒。换页读入 ≥1000 页/秒必须同时满足可用内存 <1024 MB 或提交比例 ≥85%，以及磁盘响应 ≥20 ms，持续 30 秒后提醒；单独文件映射读取不触发换页告警。提交上限可能随分页文件扩展而改变；此比例不等于物理内存占用。
-- 新提醒只进入已有短提示和检测详情。桥接异常退出后无法再向 TAB5 发布新状态，设备端继续按心跳过期显示中断；独立守护在电脑上发提醒。TAB5 新页面纳入待验收镜像。
+- 新提醒只进入已有短提示和检测详情。桥接异常退出后无法再向 TAB5 发布新状态，设备端继续按心跳过期显示中断；独立守护在电脑上发提醒。TAB5 新页面仍不刷机。
 
 ## 采样与判断
 
@@ -37,7 +37,7 @@ PAC 服务地址与代理流量入口分别读取，不硬编码本机端口。�
 - PAC 不可用但诊断出口可响应：建议重启 VPN 客户端后复查。
 - PAC 返回与设置不符的直连路径：提示检查 PAC 规则，可以先重启客户端。
 - 出口多个目标持续变慢/连接失败：提示检查客户端和出口，必要时更换节点。
-- 单个目标响应异常：提示检查对应服务，不确定为节点故障。
+- 单个目标异常：短提示直接显示服务与现象，如「ChatGPT 连接超时」「资源服务连接失败」；DNS / TLS 失败分别显示「域名解析失败」「安全连接失败」，HTTP 5xx 显示「响应异常」。详情说明另一服务仍可连接，提示稍后重试并检查对应服务的网络连接，不确定为节点故障。
 - 不带认证时的 HTTP 401 / 404 仅说明目标产生了 HTTP 响应，不能证明登录、额度、模型调用或桌面 UI 正常；403 / 429 显示限制访问待确认。
 
 失败保留最近成功响应及小流量吞吐的时间戳，路由改变时重置比较基线与吞吐缓存。PAC URL 查询参数、代理凭据、账户凭据及请求内容不进入监控状态和预览材料。检测不自动修改代理/PAC、不切换节点、不重启客户端、不发送 Codex 消息。
@@ -58,7 +58,7 @@ PAC 服务地址与代理流量入口分别读取，不硬编码本机端口。�
 
 The alert presentation update uses a native exclamation warning icon followed by `系统监控：` (System monitor) and the concise cause. TAB5 warnings are amber and errors red; Windows notifications use the same prefix with the matching OS warning/error icon. Recovery removes the notice, and task/approval banners retain priority. Source changes and native previews do not establish deployment or physical acceptance.
 
-All monitor changes are included in the bridge 0.6.6 / TAB5 0.2.190-ui candidate alongside desktop upgrade and transfer features. The independently deployed Windows monitor has live evidence; the combined package must be verified against its frozen source and image. TAB5 still runs 0.2.188-ui and has not accepted the new monitor pages on hardware.
+Single-target failures name the affected service and observed problem (connection timeout, DNS resolution, TLS connection, connection failure or abnormal HTTP response). Details identify the other responding service and suggest retrying and checking the affected connection, without attributing the failure to the VPN node. Alert thresholds and recovery rules are unchanged.
 
 The added checks were deployed locally on 2026-10-13: 45 snapshots over 90 seconds produced no false alerts, all eight final checks were healthy, and real bridge/guard shutdown and restart passed. Controlled parent crash and stopped-collector fixtures each produced one native Windows display receipt; intentional exit produced none. Connection/memory policies, nine native monitor scenarios, full LVGL regression, Windows scaling and font coverage passed. One startup probe failure recovered during confirmation without alerting. Failure cases did not disrupt the live VPN/login or exhaust memory. TAB5 remains on 0.2.188-ui.
 

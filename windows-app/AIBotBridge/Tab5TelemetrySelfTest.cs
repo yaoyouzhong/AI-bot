@@ -6,6 +6,8 @@ internal static class Tab5TelemetrySelfTest
 {
     internal static void Run(string? vectors=null)
     {
+        Tab5StatusBudgetSelfTest.RunAsync().GetAwaiter().GetResult();
+        Tab5StatusCapacitySelfTest.RunAsync(vectors).GetAwaiter().GetResult();
         VerifyUsbSchedulingAsync().GetAwaiter().GetResult();
         var directory=Path.Combine(Path.GetTempPath(),"tab5-telemetry-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
         try {

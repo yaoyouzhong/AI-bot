@@ -44,9 +44,9 @@ internal sealed partial class Tab5Service
     // Full state still refreshes every two seconds. The small metrics frame
     // carries the bridge's once-per-second snapshot with measured 250 ms raw
     // samples. Duplicate sample sequences leave numbers and curves unchanged.
-    internal byte[]? TelemetryFrame(int channel,bool supported,bool compressionSafe=true,bool preferMetrics=false,bool deltaSupported=false)
+    internal byte[]? TelemetryFrame(int channel,bool supported,bool compressionSafe=true,bool preferMetrics=false,bool deltaSupported=false,int maximum=Tab5Protocol.MaximumFrame)
     {
-        var full=CurrentFrame;
+        var full=CurrentFrameForMaximum(maximum);
         if(full is null||!supported)return full;
         bool settingsPending=DisplayCommand is not null||RemoteOtaPending;
         lock(_telemetryLock) {
@@ -78,7 +78,7 @@ internal sealed partial class Tab5Service
                 // Full catalogs occupy seconds of radio time. Compress once
                 // per publication; keep high-rate metrics on the fast path.
                 if(!ReferenceEquals(_packedSource,full)){_packedFrame=PackTelemetry(full,CompressionLevel.Optimal);_packedSource=full;}
-                if(deltaSupported&&!RemoteOtaPending&&_ackTelemetry[channel] is {} baseline&&Tab5TelemetryDelta.Create(baseline,full) is {} delta) {
+                if(deltaSupported&&!RemoteOtaPending&&_ackTelemetry[channel] is {} baseline&&Tab5TelemetryDelta.Create(baseline,full) is {} delta&&delta.Length<=maximum-28) {
                     var packedDelta=PackTelemetry(delta,CompressionLevel.Optimal);
                     if(packedDelta.Length<_packedFrame!.Length)return packedDelta;
                 }

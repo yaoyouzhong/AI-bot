@@ -47,6 +47,8 @@ internal static class Tab5RemoteOtaSelfTest
                 var info=await Tab5OtaControl.CallAsync("info",name:pipeName);
                 if(!info.GetProperty("ok").GetBoolean()||info.GetProperty("body").GetProperty("sha256").GetString()!=image.Sha256)throw new Exception("IPC offer metadata differs");
                 var invalid=await Tab5OtaControl.CallAsync("start",pair.DeviceId,new string('e',64),pipeName);
+                var invalidVerify=await Tab5OtaControl.CallAsync("verify",pair.DeviceId,new string('e',64),pipeName);
+                if(invalidVerify.GetProperty("ok").GetBoolean())throw new Exception("Local boot verification accepted the wrong image");
                 if(invalid.GetProperty("ok").GetBoolean()||service.RemoteOtaPending)throw new Exception("IPC wrong image started");
             }catch{pipeStop.Cancel();await pipeServer;throw;}
             var localStart=Tab5OtaControl.CallAsync("start",pair.DeviceId,image.Sha256,pipeName);

@@ -9,10 +9,10 @@ using Windows.Storage.Streams;
 namespace AIBotBridge;
 
 // Application encryption authenticates the USB-paired device without exposing its key over BLE.
-internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture,Action<string> status,Action<string> assets,Action<string>? diagnostic=null,
+internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> capture,Action<string> status,Action<string> assets,Action<string>? diagnostic=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? voiceHandler=null,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? rpcHandler=null,
-    Func<int,bool,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null,Func<bool>? standby=null,Func<bool>? queueComparisonActive=null)
+    Func<int,bool,int,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null,Func<bool>? standby=null,Func<bool>? queueComparisonActive=null)
 {
     internal async Task RunAsync(CancellationToken token)
     {
@@ -63,7 +63,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                 }
                                 continue;
                             }
-                            ReadAssets(first.RootElement,pairing,nonce);
+                            int statusMaximum=ReadAssets(first.RootElement,pairing,nonce);
                             int telemetry=first.RootElement.TryGetProperty("telemetryVersion",out var tv)&&tv.TryGetInt32(out int version)&&version is >=1 and <=3?version:0;
                             int credits=first.RootElement.TryGetProperty("mailboxWindow",out var wc)&&wc.TryGetInt32(out int offered)?Math.Clamp(offered,1,8):4;
                             int rpcCredits=first.RootElement.TryGetProperty("rpcMailboxWindow",out var rw)&&rw.TryGetInt32(out int rpcOffered)?Math.Clamp(rpcOffered,1,8):credits; // Larger grants failed hardware acceptance; retain the proven eight-packet bound.
@@ -137,11 +137,11 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                     long telemetryStarted=Environment.TickCount64,traceTicket=probeTrace?.Ticket(telemetryStarted)??0;
                                     bool sentTelemetry=await SendTelemetryAsync(transferGate,
                                     ()=>DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true,standby?.Invoke()==true),async ()=> {
-                                    if((telemetryCapture is null?capture():telemetryCapture(telemetry,rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000)) is not {} clear)return false;
+                                    if((telemetryCapture is null?capture(statusMaximum):telemetryCapture(telemetry,rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000,statusMaximum)) is not {} clear)return false;
                                     telemetryAt=Environment.TickCount64;
                                     using var doc=JsonDocument.Parse(clear);var seq=doc.RootElement.GetProperty("sequence").GetInt64();
                                     string frameType=doc.RootElement.TryGetProperty("type",out var kind)?kind.GetString()??"unknown":"status";
-                                    var bytes=Tab5Protocol.WithLength(Tab5Protocol.Encrypt(Convert.FromBase64String(pairing.Key),nonce,clear));
+                                    var bytes=Tab5Protocol.WithLength(Tab5Protocol.Encrypt(Convert.FromBase64String(pairing.Key),nonce,clear,statusMaximum));
                                     int size=Math.Clamp((int)session.MaxPduSize-3,20,488);
                                     bool fast=input.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse);
                                     int window=imageUploadActive?.Invoke()==true?4:(size>244?8:16);
@@ -182,8 +182,10 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
                                                 }
                                                 if(candidate.RootElement.GetProperty("ack").GetInt64()!=seq){stage=$"整帧确认尚未匹配，{sent}/{bytes.Length} 字节，已用 {started.Elapsed.TotalSeconds:F1} 秒";candidate.Dispose();return false;}
                                                 confirmed=candidate;return true;
-                                            },token,window);
-                                        ReadAssets(confirmed!.RootElement,pairing,nonce);
+                                            },token,window,statusMaximum);
+                                        int nextMaximum=ReadAssets(confirmed!.RootElement,pairing,nonce);
+                                        if(nextMaximum!=statusMaximum)resetTelemetry?.Invoke();
+                                        statusMaximum=nextMaximum;
                                         telemetryAcknowledged?.Invoke(seq);
                                         string link=confirmed.RootElement.TryGetProperty("link",out var ld)&&ld.ValueKind==JsonValueKind.Array&&ld.GetArrayLength()==10?"; link="+ld.GetRawText():"";
                                         if(confirmed.RootElement.TryGetProperty("mailboxStats",out var ms)&&ms.ValueKind==JsonValueKind.Array&&ms.GetArrayLength()==4)link+="; mailboxStats="+ms.GetRawText();
@@ -277,13 +279,14 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<byte[]?> capture
             throw new IOException(name+" "+voice.Progress+"; "+ex.GetType().Name+"/0x"+ex.HResult.ToString("X8")+(ex is IOException?"; "+ex.Message:""),ex);
         }
     }
-    private void ReadAssets(JsonElement info,Tab5Pairing pairing,string nonce) {
+    private int ReadAssets(JsonElement info,Tab5Pairing pairing,string nonce) {
         if(info.TryGetProperty("firmware",out var fw)&&fw.ValueKind==JsonValueKind.String&&
             info.TryGetProperty("firmwareProof",out var fp)&&fp.ValueKind==JsonValueKind.String&&
             Tab5Protocol.Verify(Convert.FromBase64String(pairing.Key),"FIRMWARE|"+nonce+"|"+fw.GetString(),fp.GetString()))firmwareObserved?.Invoke(fw.GetString()!);
         if(info.TryGetProperty("assetIds",out var ids)&&ids.ValueKind==JsonValueKind.String&&
             info.TryGetProperty("assetProof",out var proof)&&proof.ValueKind==JsonValueKind.String&&Tab5Assets.ValidIds(ids.GetString())&&
             Tab5Protocol.Verify(Convert.FromBase64String(pairing.Key),"ASSETS|"+nonce+"|"+ids.GetString(),proof.GetString()))assets(ids.GetString()!);
+        return Tab5StatusCapacity.FromSignedFirmware(info,pairing,nonce);
     }
     private static async Task<JsonDocument> ReadInfoAsync(GattCharacteristic info,CancellationToken token) {
         var result=await info.ReadValueAsync(BluetoothCacheMode.Uncached).AsTask(token);

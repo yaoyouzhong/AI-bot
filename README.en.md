@@ -1,5 +1,7 @@
 # AI-bot
 
+This delivery prepares bridge 0.6.7, TAB5 0.2.205-ui, ESP8266 0.5.3, standard calligraphy 2026.10.15.1 and both optional HD collections 2026.10.16. Standard painting remains unchanged; the browser music-artwork extension is not integrated. See [scope and acceptance boundaries](docs/RELEASE-0.6.7.md).
+
 Current stable releases are bridge 0.6.6 and TAB5 0.2.194-ui. See the [release record](docs/RELEASE-0.6.6.md) for fixes, physical evidence and remaining acceptance; component downloads are listed below.
 
 This release adds [runtime monitoring](docs/RUNTIME-MONITOR.md), desktop artwork browsing and complete TF storage/offline previews. It fixes disconnected monitor flicker and continuous BLE transfer recovery, and starts on Overview. Painting layout edition **2026.10.14.1** places landscape title, artist and period beside the artwork, with compact portrait information. Public ESP8266 **0.5.2** and calligraphy **2026.10.09** remain; app upgrades preserve installed galleries. [Changes and validation scope](docs/RELEASE-0.6.6.md) · [Collection installation](docs/GALLERY-PACKS.md)
@@ -46,13 +48,15 @@ https://github.com/user-attachments/assets/4b9e1321-ccf9-4035-89e0-4ae690ca19b6
 <table>
 <thead><tr><th width="170" nowrap="nowrap">Device</th><th width="120" nowrap="nowrap">Operation</th><th nowrap="nowrap">Main features</th></tr></thead>
 <tbody>
-<tr><td nowrap="nowrap"><strong>ESP8266 display</strong></td><td nowrap="nowrap">PC setup</td><td nowrap="nowrap">AI status, quotas, page cycling, pets and clock. <a href="docs/FEATURES.zh.md#esp8266">Gallery</a></td></tr>
-<tr><td nowrap="nowrap"><strong>TAB5 touch display</strong></td><td nowrap="nowrap">Touch</td><td nowrap="nowrap">Codex Direct, voice/photo drafts, calendar and eight screensavers. <a href="docs/FEATURES.zh.md#tab5">Gallery</a></td></tr>
+<tr><td nowrap="nowrap"><strong>ESP8266 display</strong></td><td nowrap="nowrap">PC setup</td><td><strong>A desktop status display focused on AI activity and account quotas.</strong><br>Check Claude / Codex status, usage and reset times at a glance; optionally cycle through weather, stocks, computer load and music information, with pets and a clock screensaver. <a href="docs/FEATURES.zh.md#esp8266">Gallery</a></td></tr>
+<tr><td nowrap="nowrap"><strong>TAB5 touch display</strong></td><td nowrap="nowrap">Touch</td><td><strong>An AI work companion within reach: view information and interact with tasks directly.</strong><br>Check AI task status and account quotas, read and continue Codex conversations, and use voice input and photo attachments; manage to-dos and scheduled reminders, and access computer monitoring, weather, stocks, music information, calendars, birthdays, clocks and countdowns, with pets and a choice of screensavers. <a href="docs/FEATURES.zh.md#tab5">Gallery</a></td></tr>
 </tbody>
 </table>
 
 <details>
 <summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
+
+The upcoming version also adds **to-dos and scheduled reminders**, with local storage, offline operation and computer-assisted synchronization. These features are undergoing local acceptance and are not included in the stable 0.2.194-ui downloads below. [Development and acceptance record](docs/development/TAB5-CHANGELOG.md)
 
 **Codex Direct:** pick one of five recent sessions, read replies, dictate a draft and confirm before sending. Cancel, recover from failures or hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 

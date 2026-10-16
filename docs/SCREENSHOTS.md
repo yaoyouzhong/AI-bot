@@ -1,16 +1,16 @@
 # 当前截图来源 / Screenshot provenance
 
-2026-10-14：本轮更新设备中心、配对／连接／升级、更新中心、名画横竖屏、存储管理及新增运行监控截图。Windows 为生产 WinForms 控件的隔离演示数据；监控来自已验收 F6 DLL。TAB5 来自 .194 源码 `69cf5de8830059690f2ff336fdeb1323276fe43a` 的原生 LVGL。名画直接加载本次 2026.10.14.1 包中 CC0《孔雀竹石圖》的实际图像。升级页读取真实 .194 sidecar，旧版安装标签为夹具；不是硬件摄影或另一次刷机。视频附件、MP4 和三种封面一起刷新，SHA-256 登记于 `licenses/materials.json`。未变化截图继续沿用以下历史来源。
+2026-10-12 本轮刷新 Windows 图库、浏览／全屏、设备中心、安装和更新入口；图库底部保持单行，浏览底部只保留紧凑分页、阅读与全屏。浏览图像来自两个最终年度包的真实隔离导入和全目录读取，示例为米芾《行书虹县诗卷》，[东京国立博物馆／ColBase TB-1459](https://colbase.nich.go.jp/collection_items/tnm/TB-1459?locale=zh)，CC BY 4.0，按图库排版缩放。管理窗口的线上状态来自隔离发布数据夹具，不代表再次安装或公开下载验证。TAB5 存储、直达、轮播和真实 .178 sidecar 来自冻结源码 f6d5f74 的 LVGL 原生捕获；更新预览中的“当前版本 .21”是演示旧设备，不能作为真实镜像证据。瞬时保存反馈在隔离捕获中清除。截图为原生渲染，不是硬件照片；逐张许可哈希登记在 materials.json。
 
-The 2026-10-14 revision refreshes production Windows setup/update controls and native .194 TAB5 artwork, storage and runtime monitoring. Fixtures are isolated from user accounts/devices. Painting pixels are from the reviewed pack; actual .194 sidecar notes do not turn fixture installed-version labels into hardware evidence. Video attachment, MP4 and covers are synchronized; exact hashes are registered. Historical provenance for unchanged images follows.
+The 2026-10-12 refresh includes current gallery management/browsing/fullscreen, device/install/update windows and frozen .178 native storage/navigation/sidecar captures. The browser reads actual final installed packs in an isolated profile; the displayed Mi Fu scroll is attributed to Tokyo National Museum / ColBase TB-1459, CC BY 4.0. Online update statuses and older installed versions are offline fixtures. Transient feedback is dismissed in the isolated capture only. No image is hardware photography or proof of a public download.
 
-2026-10-12：新增 TAB5 独立「存储与缓存」画面，来自 .178 源码的原生 LVGL 隔离预览。卡已就绪、设备缓存为演示状态，不代表实卡验收；原始捕获及 SHA-256 保留。最终升级与新图库的画面另在本次发布记录核验。
+2026-10-12：新增 TAB5 独立「存储管理」画面，来自 .178 源码的原生 LVGL 隔离预览。卡已就绪、设备缓存为演示状态，不代表实卡验收；原始捕获及 SHA-256 保留。最终升级与新图库的画面另在本次发布记录核验。
 
-2026-10-12: Added the independent TAB5 Storage & Cache screen from the .178 native LVGL fixture. Ready card status and the default device cache are demonstration data, not hardware acceptance. The capture and SHA-256 are retained; final firmware and collection captures are verified in this release record.
+2026-10-12: Added the independent TAB5 Storage Management screen from the .178 native LVGL fixture. Ready card status and the default device cache are demonstration data, not hardware acceptance. The capture and SHA-256 are retained; final firmware and collection captures are verified in this release record.
 
-2026-10-11 本地宣传素材修正：开场与三种封面恢复大小屏 Codex 周额度对比，保留新表盘专属镜头；当时未推送或替换 GitHub 视频附件；本次已重新上传。原生界面来源沿用，新的媒体 SHA-256 已登记，见 [修正说明](PRODUCT_VIDEO.md#本地对比修正--local-comparison-correction)。
+2026-10-11 本地宣传素材修正：开场与三种封面恢复大小屏 Codex 周额度对比，保留新表盘专属镜头；未推送或替换 GitHub 视频附件。原生界面来源沿用，新的媒体 SHA-256 已登记，见 [修正说明](PRODUCT_VIDEO.md#本地对比修正--local-comparison-correction)。
 
-2026-10-11 local media correction restores same-function Codex weekly-quota comparison in the opening and three covers, retaining the dedicated clock scene. Native provenance remains unchanged and replacement media hashes are registered; that revision was local; the current release uploads a new attachment.
+2026-10-11 local media correction restores same-function Codex weekly-quota comparison in the opening and three covers, retaining the dedicated clock scene. Native provenance remains unchanged and replacement media hashes are registered; nothing has been pushed or uploaded.
 
 
 2026-10-11：桥接 0.6.5／TAB5 .176 发布选择性更新时钟表盘、绿色液晶、昼夜环、倒计时、显示模式及 Codex 返回标题画面，来自本次源码的原生 LVGL 演示捕获，非硬件实拍。宣传视频和三种比例封面同步刷新；现有图库仍为正式 2026.10.09 内容。实际功能范围及待验收项见 [发布说明](RELEASE-0.6.5.md)。图片逐张复核，并登记 SHA-256。

@@ -93,7 +93,7 @@ internal sealed class RuntimeHealthGuard : IDisposable
                     if(decision.Show){icon.Visible=true;icon.ShowBalloonTip(10000,(testReport is null?"":"监控自测 · ")+title,"建议重启桥接程序",check.State=="error"?ToolTipIcon.Error:ToolTipIcon.Warning);hideAt=now+15000;}
                     // A suppressed alert must not be shown again by the parent.
                     view.Write(Handled,1L);
-                    if(decision.Sound)_=Task.Run(CompletionChime.Play);
+                    if(decision.Sound)_=Task.Run(CompletionChime.PlayHealth);
                 }
             }
             if(icon.Visible&&now>=hideAt)icon.Visible=false;

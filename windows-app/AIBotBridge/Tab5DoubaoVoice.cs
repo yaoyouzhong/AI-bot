@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace AIBotBridge;
 
-// Local interoperability with verified installed Doubao builds. No vendor
-// binary is distributed or modified. Unknown builds fail closed to USB.
+// Local interoperability with the installed Doubao service. No vendor binary
+// is distributed or modified. Validate actual replies, not a version allowlist.
 // Keep explicit start/stop separate: a repeated toggle can start recording.
 internal sealed class Tab5DoubaoVoice(Func<int,int> send,Func<bool> safeFocus)
 {
@@ -74,37 +75,28 @@ internal sealed class Tab5DoubaoVoice(Func<int,int> send,Func<bool> safeFocus)
     private static SimpleMessage? _native;
     private static readonly object Gate=new();
     private const string Pipe=@"\\.\pipe\ObricIme\oime-server";
-    private static readonly (string Name,string Sha)[][] Builds=[[
-        ("rpc.dll","A3EAD1A55850257BAC01A878C899F42291A1F41BD2B834E0CAA5C5B66A674E02"),
-        ("tsf-oime-core.dll","77D58BFC5BBC9016EE58135967603FBAB19A30E79A1C338BCE6A2DF62CE60A83"),
-        ("ImeService.exe","94B17BDCA571AC3CD2DAFA687B4CB8E3A789CDA9D044276483003B0A9E8F77A6")],
-        // 0.9.1.22: same explicit controls and query bitset, including pending
-        // stop/commit flags. Keep the entire build matched, never a DLL alone.
-        [("rpc.dll","0BE0CB35D864D06B2C8B5267D9F0669A1383493F557A45C6A1EBBFA203E85E53"),
-        ("tsf-oime-core.dll","8544BFB87D8D2CC847B13E2CCC9BBD2220B20BCEAFDD1FC88AD5EAFF5A28BB02"),
-        ("ImeService.exe","94ACE7E504E6AA70C15095D5219604AEE93E17247EB85429A046C7A4FDB95E90")]];
-    internal static bool MatchesBuild(Func<string,string?> hash)=>Builds.Any(build=>build.All(file=>
-        string.Equals(hash(file.Name),file.Sha,StringComparison.OrdinalIgnoreCase)));
     internal static Tab5DoubaoVoice? TryCreate(Func<bool> safeFocus) {
         lock(Gate) {
             if(_native is null) {
                 try {
-                    // Use the TSF module already loaded into our own draft process.
-                    string? tsf=Process.GetCurrentProcess().Modules.Cast<ProcessModule>()
-                        .FirstOrDefault(m=>m.ModuleName.Equals("tsf-oime-core.dll",StringComparison.OrdinalIgnoreCase))?.FileName;
-                    if(tsf is null)return null;
-                    string directory=Path.GetDirectoryName(tsf)!;
-                    var hashes=new Dictionary<string,string?>();
-                    foreach(var name in Builds.SelectMany(build=>build).Select(file=>file.Name).Distinct()) {
-                        string file=Path.Combine(directory,name);
-                        hashes[name]=File.Exists(file)?Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))):null;
+                    // Probe the running service before taking focus.
+                    // A focused TSF control is still required for actual capture.
+                    string? service=null;
+                    foreach(var process in Process.GetProcessesByName("ImeService")) {
+                        using(process) {
+                            try {service=ProcessImage(process.Id);}
+                            catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or InvalidOperationException) {continue;}
+                        }
+                        if(service is not null)break;
                     }
-                    if(!MatchesBuild(name=>hashes[name]))return null;
-                    // Load dependencies only beside the verified DLL and in normal
+                    if(service is null)return null;
+                    string directory=Path.GetDirectoryName(service)!;
+                    // Load dependencies only beside the installed service and in normal
                     // system locations, never from the current working directory.
                     IntPtr module=LoadLibraryEx(Path.Combine(directory,"rpc.dll"),IntPtr.Zero,0x1100);
                     if(module==IntPtr.Zero)return null;
-                    _native=Marshal.GetDelegateForFunctionPointer<SimpleMessage>(NativeLibrary.GetExport(module,"RpcPipe_SimpleMessage"));
+                    if(!NativeLibrary.TryGetExport(module,"RpcPipe_SimpleMessage",out var address)){NativeLibrary.Free(module);return null;}
+                    _native=Marshal.GetDelegateForFunctionPointer<SimpleMessage>(address);
                     // Deliberately retain the module for the delegate's process lifetime.
                 }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or ArgumentException){return null;}
             }
@@ -114,4 +106,17 @@ internal sealed class Tab5DoubaoVoice(Func<int,int> send,Func<bool> safeFocus)
     }
     [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
     private static extern IntPtr LoadLibraryEx(string path,IntPtr file,uint flags);
+    private static string? ProcessImage(int id) {
+        // UIAccess/elevated IME workers need not grant PROCESS_VM_READ, which
+        // Process.MainModule requires. Query only their executable path.
+        using var process=OpenProcess(0x1000,false,id);
+        if(process.IsInvalid)return null;
+        var path=new StringBuilder(32768);int length=path.Capacity;
+        return QueryFullProcessImageName(process,0,path,ref length)?path.ToString():null;
+    }
+    [DllImport("kernel32.dll",SetLastError=true)]
+    private static extern SafeProcessHandle OpenProcess(uint access,[MarshalAs(UnmanagedType.Bool)]bool inherit,int id);
+    [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
+    [return:MarshalAs(UnmanagedType.Bool)]
+    private static extern bool QueryFullProcessImageName(SafeProcessHandle process,int flags,StringBuilder name,ref int length);
 }
