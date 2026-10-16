@@ -104,6 +104,7 @@ def run(output):
     package(stage, output / "calligraphy-only", "2026.10.11", output / "calligraphy-guides.zh.json", "calligraphy")
     assert len(list((output / "calligraphy-only").glob("*.zip"))) == 1
     assert not list((output / "calligraphy-only").glob("*Painting*"))
+    assert not list((output / "calligraphy-only").glob("*-painting-*"))
     for path in (output / "packs").glob("*.zip"):
         with zipfile.ZipFile(path) as archive:
             manifest = json.loads(archive.read("PACK.json"))

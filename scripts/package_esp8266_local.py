@@ -9,6 +9,7 @@ import tempfile
 
 from component_versions import ROOT, versions
 from check_public_content import findings
+from artifact_names import name as artifact_name
 
 
 def run(command, cwd):
@@ -45,7 +46,7 @@ def package(output):
     (audit / "SOURCE_FILES.sha256").write_text("\n".join(inventory)+"\n", encoding="utf-8")
     run([sys.executable, "-m", "platformio", "run", "-d", "firmware"], audit)
     version = versions(audit)["esp8266"]
-    stage = audit / f"AI-bot-{version}-firmware-materials"
+    stage = audit / artifact_name("esp8266", version).removesuffix(".zip")
     run([sys.executable, "scripts/collect_distribution_materials.py", "firmware", "--stage", str(stage)], audit)
     output.mkdir(parents=True)
     for suffix in (".zip", ".zip.sha256"):

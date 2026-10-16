@@ -73,7 +73,7 @@ class DownloadCatalogTests(unittest.TestCase):
         for key in ("painting", "calligraphy"):
             entry = expected["downloads"][key]
             entry.update(version=version, tag=release["tag_name"],
-                         file=catalog.SPECS[key][1].format(version="Curated-" + version))
+                         file=catalog.artifact_names(key, version)[1])
             release["assets"].append({"name": entry["file"], "size": entry["size"],
                                       "digest": "sha256:" + entry["sha256"]})
         self.assertEqual(catalog.discover(self.releases() + [release]), expected)
@@ -121,6 +121,15 @@ class DownloadCatalogTests(unittest.TestCase):
 
     def test_readmes_and_centers_match_index(self):
         catalog.sync(self.data, check=True)
+
+    def test_canonical_names_win_over_compatibility_aliases_at_same_version(self):
+        releases = self.releases()
+        expected = copy.deepcopy(self.data)
+        for key, entry in expected["downloads"].items():
+            entry["file"] = catalog.artifact_names(key, entry["version"])[0]
+            release = next(r for r in releases if r["tag_name"] == entry["tag"])
+            release["assets"].append({"name": entry["file"], "size": entry["size"], "digest": "sha256:" + entry["sha256"]})
+        self.assertEqual(catalog.discover(releases), expected)
 
     def test_published_release_keeps_verified_sizes_without_reusing_draft_sizes(self):
         for key in ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade"):

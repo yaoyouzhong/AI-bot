@@ -9,7 +9,7 @@ if (-not $Collection) {
 $baseDirectory = (Get-Location).Path
 $manifest = [IO.File]::ReadAllText((Join-Path $baseDirectory 'HD-Gallery-parts.json')) | ConvertFrom-Json
 if ($manifest.schema -ne 1) { throw 'Unsupported manifest schema.' }
-$archive = @($manifest.archives | Where-Object { $_.name -like "AI-bot-Gallery-HD-$Collection-*.zip" })
+$archive = @($manifest.archives | Where-Object { $_.name -like "AI-bot-Gallery-HD-$Collection-*.zip" -or $_.name -like "AI-bot-gallery-$Collection-hd-*.zip" })
 if ($archive.Count -ne 1) { throw 'Collection missing or ambiguous.' }
 $archive = $archive[0]
 function SafePath([string]$name) {

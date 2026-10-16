@@ -9,6 +9,7 @@ import re
 import urllib.request
 
 from component_versions import release_target
+from artifact_names import TEMPLATES, names as artifact_names, match as match_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "https://github.com/yaoyouzhong/AI-bot"
@@ -19,13 +20,13 @@ CENTER = REPO + "/blob/main/DOWNLOADS.md"
 HD_GUIDE = REPO + "/blob/main/docs/GALLERY-HD.md"
 # id: component, asset template, Chinese label, English label
 SPECS = {
-    "windows": ("bridge", "AIBotBridge-{version}-setup-win-x64.exe", "Windows 桥接 · Windows 10/11 x64", "Windows bridge · Windows 10/11 x64"),
-    "macos": ("bridge", "AIBotBridge-{version}-local-candidate-macos-arm64.zip", "Mac 桥接 · macOS 13+ / Apple Silicon", "Mac bridge · macOS 13+ / Apple Silicon"),
-    "esp8266": ("esp8266", "AI-bot-{version}-firmware-materials.zip", "ESP8266 小屏 · 首刷／升级通用", "ESP8266 display · first install / upgrade"),
-    "tab5-first": ("tab5", "TAB5-first-install-{version}.zip", "TAB5 · 出厂系统首次安装", "TAB5 · first install from factory system"),
-    "tab5-upgrade": ("tab5", "TAB5-upgrade-{version}.zip", "TAB5 · 已有 AI-bot 升级", "TAB5 · upgrade existing AI-bot"),
-    "calligraphy": ("gallery", "AI-bot-DailyCalligraphy-{version}.zip", "每日书法 · 标准版", "Daily Calligraphy · standard"),
-    "painting": ("gallery", "AI-bot-DailyPainting-{version}.zip", "每日名画 · 标准版", "Daily Painting · standard"),
+    "windows": ("bridge", TEMPLATES["windows"][0], "Windows 桥接 · Windows 10/11 x64", "Windows bridge · Windows 10/11 x64"),
+    "macos": ("bridge", TEMPLATES["macos"][0], "Mac 桥接 · macOS 13+ / Apple Silicon", "Mac bridge · macOS 13+ / Apple Silicon"),
+    "esp8266": ("esp8266", TEMPLATES["esp8266"][0], "ESP8266 小屏 · 首刷／升级通用", "ESP8266 display · first install / upgrade"),
+    "tab5-first": ("tab5", TEMPLATES["tab5-first"][0], "TAB5 · 出厂系统首次安装", "TAB5 · first install from factory system"),
+    "tab5-upgrade": ("tab5", TEMPLATES["tab5-upgrade"][0], "TAB5 · 已有 AI-bot 升级", "TAB5 · upgrade existing AI-bot"),
+    "calligraphy": ("gallery", TEMPLATES["calligraphy"][0], "每日书法 · 标准版", "Daily Calligraphy · standard"),
+    "painting": ("gallery", TEMPLATES["painting"][0], "每日名画 · 标准版", "Daily Painting · standard"),
 }
 START, END = "<!-- downloads:start -->", "<!-- downloads:end -->"
 
@@ -47,9 +48,7 @@ def validate(data):
         item = entries[key]
         version = item["version"]
         pattern = r"\d{4}\.\d{2}\.\d{2}(?:\.\d+)?" if component == "gallery" else r"\d+\.\d+\.\d+" + (r"-ui" if component == "tab5" else "")
-        filenames = {template.format(version=version)}
-        if component == "gallery":
-            filenames.add(template.format(version="Curated-" + version))
+        filenames = artifact_names(key, version)
         if not re.fullmatch(pattern, version) or item["file"] not in filenames:
             raise ValueError(f"Wrong version/package for {key}")
         tag_component, tag_version = release_target(item["tag"])
@@ -75,8 +74,8 @@ def load_hd():
         raise ValueError("HD index must contain both complete collections")
     release_target(data["tag"])
     for key, item in data["collections"].items():
-        expected = f"AI-bot-Gallery-HD-{key.title()}-{data['version']}.zip"
-        if (item["file"] != expected or item["size"] <= 0 or item["parts"] <= 0
+        expected = artifact_names(key + "-hd", data["version"])
+        if (item["file"] not in expected or item["size"] <= 0 or item["parts"] <= 0
                 or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])):
             raise ValueError(f"Invalid complete HD archive: {key}")
     return data
@@ -96,9 +95,6 @@ def public_releases():
 def discover(releases):
     entries = {}
     for key, (component, template, _, _) in SPECS.items():
-        version_pattern = r"\d{4}\.\d{2}\.\d{2}(?:\.\d+)?" if component == "gallery" else r"\d+\.\d+\.\d+(?:-ui)?"
-        edition_pattern = r"(?:Curated-)?" if component == "gallery" else ""
-        pattern = re.escape(template).replace(re.escape("{version}"), rf"{edition_pattern}(?P<version>{version_pattern})")
         candidates = []
         for release in releases:
             if release.get("draft") or release.get("prerelease"):
@@ -108,19 +104,19 @@ def discover(releases):
             except ValueError:
                 continue
             for asset in release["assets"]:
-                match = re.fullmatch(pattern, asset["name"])
+                match = match_artifact(key, asset["name"])
                 if not match:
                     continue
-                version = match["version"]
+                version, priority = match
                 if component != "gallery" and tag_component != "bundle" and (tag_component, tag_version) != (component, version):
                     continue
                 if component in ("bridge", "esp8266") and tag_component == "bundle" and tag_version != version:
                     continue
                 order = tuple(map(int, version.removesuffix("-ui").split(".")))
-                candidates.append((order, release["published_at"], release, asset, version))
+                candidates.append((order, release["published_at"], -priority, release, asset, version))
         if not candidates:
             raise ValueError(f"No published package for {key}")
-        _, _, release, asset, version = max(candidates, key=lambda c: c[:2])
+        _, _, _, release, asset, version = max(candidates, key=lambda c: c[:3])
         if "SHA256SUMS.txt" not in {a["name"] for a in release["assets"]}:
             raise ValueError(f"Missing checksum file for {key}")
         entries[key] = {"version": version, "tag": release["tag_name"], "file": asset["name"],
@@ -167,6 +163,8 @@ def table(data, language="zh", tag=None):
         for key, (kind, template, _, _) in SPECS.items():
             if kind == component or component == "bundle" and kind in ("bridge", "esp8266"):
                 target = {"tag": tag, "version": version, "file": template.format(version=version)}
+                if entries[key]["tag"] == tag and entries[key]["version"] == version:
+                    target["file"] = entries[key]["file"]
                 # A published target already has verified size/hash metadata.
                 # Unknown draft assets must not inherit the previous package size.
                 if any(entries[key].get(field) != value for field, value in target.items()):

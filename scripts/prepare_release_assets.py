@@ -7,6 +7,7 @@ import re
 import shutil
 import zipfile
 from component_versions import versions as declared_versions
+from artifact_names import COMPONENT_KEYS, UPDATE_ALIASES, name as artifact_name, names as artifact_names, resolve
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,13 +17,8 @@ def prepare(directory: Path, version: str, commit: str, *, component="bundle", v
         raise ValueError("Expected full source commit SHA")
     current = versions or {"bridge": version, "esp8266": version, "tab5": version}
     bridge, esp, tab = (current[name] for name in ("bridge", "esp8266", "tab5"))
-    sets = {
-        "bridge": [f"AIBotBridge-{bridge}-setup-win-x64.exe", f"AIBotBridge-{bridge}-local-candidate-win-x64.zip",
-                   f"AIBotBridge-{bridge}-local-candidate-macos-arm64.zip", f"AI-bot-{bridge}-source.zip"],
-        "esp8266": [f"AI-bot-{esp}-firmware-materials.zip"],
-        "tab5": [f"TAB5-first-install-{tab}.zip", f"TAB5-upgrade-{tab}.zip"],
-    }
-    archives = sets["bridge"] + sets["esp8266"] if component == "bundle" else sets[component]
+    keys = COMPONENT_KEYS["bridge"] + COMPONENT_KEYS["esp8266"] if component == "bundle" else COMPONENT_KEYS[component]
+    archives = [resolve(directory, key, current["bridge" if key in COMPONENT_KEYS["bridge"] else "esp8266" if key == "esp8266" else "tab5"]) for key in keys]
     expected = {name + suffix for name in archives for suffix in ("", ".sha256")}
     if {p.name for p in directory.iterdir()} != expected:
         raise ValueError(f"Expected exactly {component} packages and their sidecar hashes: {', '.join(archives)}")
@@ -50,14 +46,14 @@ def prepare(directory: Path, version: str, commit: str, *, component="bundle", v
 
 
 def validate_tab5(directory, version, *, source=None):
-    with zipfile.ZipFile(directory / f"TAB5-upgrade-{version}.zip") as upgrade:
+    with zipfile.ZipFile(directory / resolve(directory, "tab5-upgrade", version)) as upgrade:
         image = upgrade.read("aibot_tab5.bin")
         notes = json.loads(upgrade.read("aibot_tab5.bin.notes.json"))
         image_version = image[48:80].split(b"\0", 1)[0].decode("ascii")
         sha = hashlib.sha256(image).hexdigest()
         if image_version != version or notes["version"] != version or notes["sha256"] != sha:
             raise ValueError("TAB5 embedded version, sidecar and release version disagree")
-    with zipfile.ZipFile(directory / f"TAB5-first-install-{version}.zip") as first:
+    with zipfile.ZipFile(directory / resolve(directory, "tab5-first", version)) as first:
         record = json.loads(first.read("manifest.json"))
         factory = first.read("factory.bin")
         if record["version"] != version or hashlib.sha256(factory).hexdigest() != record["imageSha256"]:
@@ -65,7 +61,7 @@ def validate_tab5(directory, version, *, source=None):
         app = next(s for s in record["segments"] if s["name"] == "application.bin")
         if app["sha256"] != sha or factory[app["offset"]:app["offset"]+app["size"]] != image:
             raise ValueError("TAB5 first-install and upgrade application differ")
-    source = Path(source) if source else ROOT / f"docs/development/TAB5-{version}-source.zip"
+    source = Path(source) if source else ROOT / "docs/development" / resolve(ROOT / "docs/development", "tab5-source", version)
     with zipfile.ZipFile(source) as snapshot:
         record = json.loads(snapshot.read("SOURCE-MANIFEST.json"))
         if record["version"] != version or record["applicationSha256"] != sha:
@@ -85,16 +81,23 @@ def user_payload(directory, output, component):
     expected = {name + suffix for name in hashes for suffix in ("", ".sha256")} | {"BUILD.json", "LICENSE", "THIRD_PARTY_NOTICES.md", "SHA256SUMS.txt"}
     if {p.name for p in directory.iterdir()} != expected:
         raise ValueError("Validated package directory changed")
-    names = [name for name in hashes if name.endswith(("-setup-win-x64.exe", "-local-candidate-macos-arm64.zip", "-firmware-materials.zip"))
-             or name.startswith(("TAB5-first-install-", "TAB5-upgrade-")) and name.endswith(".zip")]
+    names = {}
+    versions = metadata["componentVersions"]
+    for key in ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade"):
+        version = versions["bridge" if key in ("windows", "macos") else "esp8266" if key == "esp8266" else "tab5"]
+        for source in artifact_names(key, version):
+            if source not in hashes: continue
+            names[artifact_name(key, version)] = source
+            if key in UPDATE_ALIASES:
+                names[artifact_names(key, version)[1]] = source
     # Recheck the validated bytes immediately before copying into the publication directory.
-    for name in names:
+    for name in set(names.values()):
         digest = hashlib.sha256((directory / name).read_bytes()).hexdigest()
         if digest != hashes[name] or (directory / (name + ".sha256")).read_text(encoding="ascii").strip() != f"{digest}  {name}":
             raise ValueError(f"Package changed after validation: {name}")
     output.mkdir(parents=True)
-    for name in sorted(names):
-        shutil.copyfile(directory / name, output / name)
+    for target, source in sorted(names.items()):
+        shutil.copyfile(directory / source, output / target)
     lines = [f"{hashlib.sha256((output / name).read_bytes()).hexdigest()}  {name}" for name in sorted(names)]
     (output / "SHA256SUMS.txt").write_text("\n".join(lines)+"\n", encoding="ascii")
 

@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Standardize bridge release titles as `AI-bot v<version>` and future artifact names; preserve firmware versions without `v`, published download URLs and legacy update aliases.
+- Recover from serial access-denied and driver errors during ESP8266 metrics writes so an unplugged small display does not terminate the worker and trigger a global bridge alarm on TAB5.
+
 ## 0.6.7 - 2026-10-16
 
 ### Agenda and devices

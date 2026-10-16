@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import zipfile
+from artifact_names import name as artifact_name
 
 ROOT = Path(__file__).resolve().parents[1]
 LICENSES = {
@@ -253,7 +254,7 @@ def package(source, output, version, guides_path=None, category=None):
             raise ValueError("Guide file exceeds importer limit")
         hashes = {n: digest(data) for n, data in metadata.items()} | {n: files[n] for n in names}
         manifest = {"schemaVersion": 2, "version": version, "category": pack_category, "works": len(works), "frames": len(names), "files": hashes}
-        target = output / f"AI-bot-Daily{english}-{version}.zip"
+        target = output / artifact_name(pack_category, version)
         with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
             archive.writestr("PACK.json", encode(manifest))
             for name, data in metadata.items():

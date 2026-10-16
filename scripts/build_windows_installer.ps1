@@ -96,7 +96,9 @@ python -c $copyScript (Join-Path $root 'scripts') $stage $compileStage
 if ($LASTEXITCODE -ne 0) { throw 'Installer staging failed' }
 & $compiler[0].FullName "/DAppVersion=$version" "/DStageDir=$compileStage" "/DDependencyDir=$cache" "/DOutputDirPath=$compileOutput" "/DDesktopUrl=$desktopUrl" "/DDesktopSha256=$desktopSha256" (Join-Path $root 'windows-app\installer\setup.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Windows installer compilation failed' }
-$setup = Join-Path $output "AIBotBridge-$version-setup-win-x64.exe"
+$setupName = & python (Join-Path $root 'scripts\artifact_names.py') windows $version
+if ($LASTEXITCODE -ne 0) { throw 'Installer naming failed' }
+$setup = Join-Path $output $setupName
 $compiledSetup = Join-Path $compileOutput ([IO.Path]::GetFileName($setup))
 Copy-Item -LiteralPath $compiledSetup -Destination $setup
 if ((Get-FileHash -LiteralPath $compiledSetup).Hash -ne (Get-FileHash -LiteralPath $setup).Hash) { throw 'Installer output byte mismatch' }

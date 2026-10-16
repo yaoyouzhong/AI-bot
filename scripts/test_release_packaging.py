@@ -94,8 +94,8 @@ class PackagingTests(unittest.TestCase):
             notes = (directory / "notes.md").read_text(encoding="utf-8")
             self.assertIn("Released change", notes)
             self.assertIn("/blob/main/DOWNLOADS.md", notes)
-            self.assertIn("AIBotBridge-0.1.0-setup-win-x64.exe", notes)
-            self.assertIn("AI-bot-0.1.0-firmware-materials.zip", notes)
+            self.assertIn("AI-bot-bridge-v0.1.0-windows-x64-setup.exe", notes)
+            self.assertIn("AI-bot-esp8266-0.1.0-firmware.zip", notes)
             self.assertIn("DailyCalligraphy-", notes)
             self.assertIn("TAB5-first-install-", notes)
 
