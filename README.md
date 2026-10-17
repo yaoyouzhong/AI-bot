@@ -10,9 +10,9 @@
 
 新版 108 秒视频更新日程布局、经典时钟昼夜切换与设备管理，保留双屏额度开场、表盘和 Codex 直达。画面来自原生界面的隔离演示数据，非硬件实拍。
 
-[![播放新版 108 秒产品介绍](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4)
+https://github.com/user-attachments/assets/35c3cbc8-2436-4cac-8f02-942b0708ddf7
 
-<sub>108 秒中文产品介绍，点击封面打开新版 MP4。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4)</sub>
+<sub>108 秒中文产品介绍，点击播放器直接观看。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4)</sub>
 
 ## 能做什么
 
