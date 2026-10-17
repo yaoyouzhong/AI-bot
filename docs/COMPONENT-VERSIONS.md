@@ -2,6 +2,8 @@
 
 桥接、ESP8266 和 TAB5 分别更新，不要求三个版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
 
+本地候选准备：Windows **0.6.9**、TAB5 **0.2.217-ui**。下表仍为已发布版本，公开附件确认后再更新；Mac 与 ESP8266 不重建。Local preparation targets Windows 0.6.9 and TAB5 0.2.217-ui; the published table remains unchanged until publication. See [preparation record](RELEASE-0.6.9.md).
+
 ## 版本来源
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |

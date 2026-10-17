@@ -97,7 +97,7 @@ class PackagingTests(unittest.TestCase):
             self.assertIn("AI-bot-bridge-v0.1.0-windows-x64-setup.exe", notes)
             self.assertIn("AI-bot-esp8266-0.1.0-firmware.zip", notes)
             self.assertIn("DailyCalligraphy-", notes)
-            self.assertIn("TAB5-first-install-", notes)
+            self.assertRegex(notes, r"/releases/download/tab5-v([0-9.]+-ui)/AI-bot-tab5-\1-first-install\.zip")
 
     def test_installer_missing_or_tampered_blocks_release(self):
         for mutation in ('missing', 'tampered'):

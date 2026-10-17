@@ -9,7 +9,7 @@ internal static class UnsavedChanges
     private static readonly ConditionalWeakTable<Form,State> States=new();
     internal static Func<Form,bool> Confirm= form=>MessageBox.Show(form,"有尚未保存的修改。放弃修改并关闭？",form.Text,MessageBoxButtons.OKCancel,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)==DialogResult.OK;
     internal static void TrackKnown(Form form) {
-        if(form is not (Tab5TaskPinsForm or DeviceDataForm or LegacyDeviceSettingsForm or BirthdaySettingsForm or AgendaForm or Tab5DisplaySettingsForm or SettingsForm or MigratedWeather.WeatherSettingsForm))return;
+        if(form is not (ComputerControlForm or Tab5TaskPinsForm or DeviceDataForm or LegacyDeviceSettingsForm or BirthdaySettingsForm or AgendaForm or Tab5DisplaySettingsForm or SettingsForm or MigratedWeather.WeatherSettingsForm))return;
         Track(form);
     }
     internal static void Track(Form form) {
@@ -26,6 +26,7 @@ internal static class UnsavedChanges
     internal static void MarkSaved(Form form){if(States.TryGetValue(form,out var state))state.Baseline=Capture(form);}
     private static string Capture(Form form) {
         if(form is BirthdaySettingsForm birthdays)return birthdays.EditFingerprint;
+        if(form is ComputerControlForm computer)return computer.EditFingerprint;
         var values=new List<string>();
         void Read(Control parent){foreach(Control c in parent.Controls){
             switch(c){

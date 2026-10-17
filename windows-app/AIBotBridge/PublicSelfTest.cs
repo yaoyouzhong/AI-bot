@@ -37,6 +37,7 @@ internal static class PublicSelfTest
             _ = runtime.Resources();
         }
         WindowWorkspaceSelfTest.Run(Path.Combine(Path.GetTempPath(),"aibot-window-test-"+Guid.NewGuid().ToString("N")));
+        ComputerControlSelfTest.Run(Path.Combine(Path.GetTempPath(),"aibot-computer-test-"+Guid.NewGuid().ToString("N")));
         DataSourceSelfTest.Run();
         MediaPlayerSelfTest.RunAsync().GetAwaiter().GetResult();
         ComponentUpdateSelfTest.Run();

@@ -11,7 +11,7 @@ internal sealed record MediaPlaybackSource(string Source,string Identity,MusicSn
         for(int i=sources.Count-1;i>=0;i--)if(QqMusicPlaybackReader.IsQq(sources[i].Source)) {
             var candidate=sources[i];var song=candidate.Music;
             if(!qq.Matches(song.Title,song.Artist,song.Album)){sources.RemoveAt(i);continue;}
-            sources[i]=candidate with {Music=song.TimelineAvailable?song:qq.Snapshot(sampledAt),
+            sources[i]=candidate with {Music=song.TimelineAvailable?song:qq.Snapshot(sampledAt) with{SystemMediaSource=song.SystemMediaSource},
                 CoverUrl=qq.CoverUrl,Diagnostic="smtc + "+diagnostic};
         }
         if(!sources.Any(s=>QqMusicPlaybackReader.IsQq(s.Source)))sources.Add(new("qqmusic-native",qq.Identity,qq.Snapshot(sampledAt),diagnostic,CoverUrl:qq.CoverUrl));

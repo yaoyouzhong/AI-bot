@@ -6,6 +6,8 @@ Beyond work, AI-bot serves as a desk clock and information display for weather, 
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.8.md) · [简体中文](README.md)
 
+Upcoming candidates: Windows **0.6.9** and TAB5 **0.2.217-ui** add PC volume, mute, lock, launchers with icons and up to ten saved Wi-Fi networks. See [preparation and verification](docs/RELEASE-0.6.9.md) and [computer control](docs/COMPUTER-CONTROL.md). Downloads continue to point to published stable packages.
+
 ## Choose your desktop display
 
 AI-bot pairs a computer app with a desktop display. Choose the device that fits how you want to use it.

@@ -112,7 +112,7 @@ internal sealed class NowPlayingService : IDisposable
                     (s.Music.Album.Length==0||s.Music.Album==browser.Music.Album)).ToArray();
                 // Only one enabled tab may enrich a matching system session.
                 bool unique=browserSources.Count(s=>s.Music.Title==browser.Music.Title&&s.Music.Artist==browser.Music.Artist)==1;
-                if(unique&&matches.Length==1){var matching=matches[0];candidates.Remove(matching);candidates.Add(browser with {SystemCurrent=matching.SystemCurrent,Thumbnail=matching.Thumbnail});}
+                if(unique&&matches.Length==1){var matching=matches[0];candidates.Remove(matching);candidates.Add(browser with {SystemCurrent=matching.SystemCurrent,Thumbnail=matching.Thumbnail,Music=browser.Music with{SystemMediaSource=matching.Music.SystemMediaSource}});}
                 else candidates.Add(browser);
             }
             var selected=MediaPlaybackSource.Select(candidates,_selectedSource);
@@ -196,6 +196,7 @@ internal sealed class NowPlayingService : IDisposable
                 timeline.StartTime.TotalSeconds,timeline.EndTime.TotalSeconds,timeline.Position.TotalSeconds,
                 timeline.LastUpdatedTime,DateTimeOffset.UtcNow,playback.PlaybackRate);
             string source=session.SourceAppUserModelId;
+            music=music with{SystemMediaSource=source};
             return new(source,title+"\n"+music.Artist+"\n"+music.Album,music,
                 "smtc; timeline="+(music.TimelineAvailable?"available":music.DurationSeconds>0?"duration only":"unavailable"),current,properties?.Thumbnail);
         }catch(OperationCanceledException) when(token.IsCancellationRequested){throw;}

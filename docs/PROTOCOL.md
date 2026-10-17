@@ -342,7 +342,7 @@ Replies expose source dji/tab5, state, message and bounded UTF-8 draft text in t
 
 2026-10-15 local candidate: existing `op=tab5` also supports direct shared DJI input. The host stops its owned DJI segment and waits for idle/stable committed text before borrowing the built-in channel, preserving voiceId, owner and draft; final explicit stop returns both segments. During handoff the existing recording state remains with ready=false. No new field/version is needed. 普通大疆直连不切换豆包音源；手动 `tab5` 请求先结束并保留大疆文字，再临时借用／归还内置麦克风通道，保持原会话及完整草稿。此候选尚未部署，真实切换验收另记。
 
-TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/selected，最多 5 项，不返回密码；`tab5_wifi_forget` 按配对 deviceId 和真实 SSID 删除，返回 tab5_wifi_forgotten 或 tab5_wifi_rejected。仅 USB 接收。
+TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/selected，最多 10 项（216 起；旧固件为 5 项），不返回密码；`tab5_wifi_forget` 按配对 deviceId 和真实 SSID 删除，返回 tab5_wifi_forgotten 或 tab5_wifi_rejected。仅 USB 接收。
 # TAB5 日历详情增补（0.2.26）
 
 `calendar` 保留现有今日/明日字段，新增可选 `detail`：`terms[{year,dates}]`（24 节气的 MMDD）、`holidayYear`、`holidays[{start,end,name}]`（MMDD 范围）、`workdays[]`（补班 MMDD）、`birthdays[{name,month,day,lunar,leap,remind}]`。生日最多 32 项，提醒 0–30 天；只走已有鉴权 TAB5 状态通道，不改变 ESP8266 字段。
@@ -745,3 +745,13 @@ Active items plus deletion metadata are stored as one 5,872-byte versioned envel
 Device eviction and insertion share one atomic compact NVS transaction, including the existing `{id,edit,baseEdit}` deletion receipt. The 16-receipt bound remains: reconnect is required when full, rather than dropping unacknowledged removals. Sync applies deletions before edits, preserves incoming editions and concurrent conflict copies, and reclaims only the excess count from pre-existing expired host entries. Expired incoming edits still require precise acknowledgement; lost responses cannot cause additional eviction. 204 rejects snapshots from older bridges without the retention capability. The compact `agenda_v3` encoding introduced by 203 remains unchanged (maximum 3,574 bytes), with no new history archive.
 
 中文：过期先保留，仅满 16 条且新增时清理最早结束的一条；不足 16 条、编辑及重启不清理。新建与清理原子保存，离线删除回执补同步，待同步队列满时提示连接电脑，失败保留原记录。“全部”可查看已结束事项。电脑批量合并保护本批离线编辑及冲突副本，只清理补足容量所需的旧过期记录；两端声明 retentionSupport=2，204 不采纳旧桥接响应。沿用 203 紧凑存储，不增加持久历史备份。
+
+TAB5 216 expands saved Wi-Fi profiles to ten. NVS wifi_profiles3 stores version 3 with ten slots; migration reads fixed five-slot v1/v2 blobs without changing the pairing/config ABI or removing the old keys. SSIDs, passwords, labels, preferred selection and an authoritative empty list are preserved. A full list rejects an eleventh distinct SSID while allowing updates to existing entries.
+
+Optional USB wifiHttpDiag contains nine numeric fields: version=1, status attempt count, ESP open error, socket errno, HTTP status, authenticated valid-status count, destination IPv4 as host-order uint32, destination port, local IPv4 as host-order uint32. It contains no credentials or authentication headers; old clients ignore it.
+
+## TAB5 217 connection path diagnostics / 连接路径诊断
+
+Optional wifiPathDiag contains 17 numeric fields: version=1, IPv4 netmask, gateway IPv4, AP channel, RSSI, STA MAC as uint48, BSSID as uint48, station-is-default boolean, probe count, gateway TCP/80 errno, host TCP/configured-port errno, transport ESP error, TLS code, TLS flags, Wi-Fi power-save mode, AP query result, netif MAC as uint48. IPv4 values are host-order uint32. Zero probe errno means connect succeeded. On failed bridge HTTP connects only, the Wi-Fi worker samples at most once per 30 seconds, using nonblocking sockets with one-second connect waits; USB only copies the snapshot. Probes close their sockets, send no HTTP request, skip OTA, and do not change network settings.
+
+中文：桥接连接失败时对网关与电脑做有界 TCP 对照，并记录掩码、网关、信号和底层错误；不修改网络、密码或配对。诊断新增不等于连通问题已修复。

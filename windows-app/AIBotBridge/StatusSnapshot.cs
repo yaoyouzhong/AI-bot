@@ -129,6 +129,8 @@ internal sealed record MusicSnapshot(
     double DurationSeconds,
     DateTimeOffset UpdatedAt)
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? SystemMediaSource { get; init; }
     public bool TimelineAvailable { get; init; } = true;
     [System.Text.Json.Serialization.JsonIgnore]
     public double PlaybackRate { get; init; } = 1;

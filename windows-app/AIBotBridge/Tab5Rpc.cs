@@ -13,6 +13,8 @@ internal sealed partial class Tab5Service
     internal bool BleGalleryTransferActive=>Environment.TickCount64<Interlocked.Read(ref _bleGalleryUntil);
     private string GalleryDiagnostic=>"\n艺术图片同步："+_galleryDiagnostic;
     internal Tab5QuickConsole QuickConsole {get;set;}=new();
+    private ComputerControlService? _computerControl;
+    internal ComputerControlService ComputerControl {get{lock(_rpcLock)return _computerControl??=new(new WindowsComputerControlBackend(()=>Volatile.Read(ref _lastSnapshot)?.Music));}set{lock(_rpcLock)_computerControl=value;}}
     private readonly Dictionary<string,long> _rpcNonces=[];
     private int _rpcRequests;
     private long _rpcOtaUntil;
@@ -107,6 +109,7 @@ internal sealed partial class Tab5Service
                 else if(Text(root,"kind")=="ota-control")result=ReceiveRemoteOta(root);
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
                 else if(Text(root,"kind")=="agenda")result=AgendaStore.Shared.Rpc(root);
+                else if(Text(root,"kind")=="computer-control")result=await ComputerControl.HandleAsync(root,token);
                 else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy
                     ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token);
                 else if(Text(root,"kind")=="benchmark")result=Tab5TransportBenchmark.Handle(root,opened.Data,binaryReply,bulkReply);

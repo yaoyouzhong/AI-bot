@@ -106,7 +106,7 @@ internal sealed class DeviceCenterForm : Form
             _manage.Items.Add(new ToolStripSeparator());_manage.Items.Add("移除设备…",null,async(_,_)=>await Change(d,true));
             _connection.Margin=new Padding(0,0,0,12);_detail.Controls.Add(_health);_detail.Controls.Add(_transport);_detail.Controls.Add(_connection);
             var grid=ActionGrid(_detail);
-            string[] actions=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["tab5-display","voice","birthday-settings","agenda","gallery-browser","task-pins","data","tab5"];
+            string[] actions=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["tab5-display","voice","birthday-settings","agenda","computer-control","gallery-browser","task-pins","data","tab5"];
             foreach(string action in actions) {
                 if(action=="data"){
                     Card(grid,"数据设置",Description(action),()=>{using var dialog=new DeviceDataForm(_store,d.Id);if(dialog.ShowDialog(this)==DialogResult.OK){_action(d.Id,"data-changed");Reload();}});continue;
@@ -206,7 +206,7 @@ internal sealed class DeviceCenterForm : Form
     private static string Description(string action)=>action switch {
         "agenda"=>"管理事项与提醒",
         "gallery-browser"=>"浏览名画与书法",
-        "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"配置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "data"=>"选择需要的数据",
+        "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"配置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "computer-control"=>"设置常用软件与文件夹", "data"=>"选择需要的数据",
         "legacy-settings"=>"设置连接与屏保", "cycle"=>"设置亮度与轮播", "mirror"=>"预览小屏当前画面",
         "flash"=>"选择固件并升级", "pet-gallery"=>"浏览桌宠素材", "appearance"=>"选择动画与桌宠", _=>""
     };

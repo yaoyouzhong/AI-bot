@@ -235,7 +235,7 @@ internal sealed partial class Tab5Service : IDisposable
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,
+    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
@@ -509,7 +509,7 @@ internal sealed partial class Tab5Service : IDisposable
     internal static SavedWifiNetwork[] ParseWifiList(JsonElement root,string deviceId) {
         if(!root.TryGetProperty("deviceId",out var id)||id.GetString()!=deviceId||
            !root.TryGetProperty("version",out var version)||!version.TryGetInt32(out var v)||v!=1||
-           !root.TryGetProperty("networks",out var networks)||networks.ValueKind!=JsonValueKind.Array||networks.GetArrayLength()>5)
+           !root.TryGetProperty("networks",out var networks)||networks.ValueKind!=JsonValueKind.Array||networks.GetArrayLength()>10)
             throw new IOException("Wi-Fi 列表响应无效。");
         var result=new List<SavedWifiNetwork>();
         foreach(var entry in networks.EnumerateArray()) {
@@ -659,6 +659,8 @@ internal sealed partial class Tab5Service : IDisposable
                             if(ack.RootElement.TryGetProperty("galleryTransferDiag",out _))_deviceHealth+="\n图库接收与写卡："+Tab5GalleryStream.TransferDiagnostic(ack.RootElement);
                             if(ack.RootElement.TryGetProperty("wifiDiag",out _))_deviceHealth+="\n设备 Wi-Fi 诊断："+NumericProbeDiagnostic(ack.RootElement,"wifiDiag",16);
                             if(ack.RootElement.TryGetProperty("wifiRecoveryDiag",out _))_deviceHealth+="\n设备 Wi-Fi 恢复："+NumericProbeDiagnostic(ack.RootElement,"wifiRecoveryDiag",8);
+                            if(ack.RootElement.TryGetProperty("wifiHttpDiag",out _))_deviceHealth+="\n设备 Wi-Fi HTTP："+NumericProbeDiagnostic(ack.RootElement,"wifiHttpDiag",9);
+                            if(ack.RootElement.TryGetProperty("wifiPathDiag",out _))_deviceHealth+="\n设备 Wi-Fi 路径："+NumericProbeDiagnostic(ack.RootElement,"wifiPathDiag",17);
                             if(ack.RootElement.TryGetProperty("wirelessBootDiag",out _))_deviceHealth+="\n设备无线启动："+NumericProbeDiagnostic(ack.RootElement,"wirelessBootDiag",4);
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
                             // Bound each USB burst to preserve regular status heartbeats.

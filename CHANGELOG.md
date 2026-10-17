@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.9 - 2026-10-17
+
+### TAB5 computer control
+
+- Add PC master volume, mute, workstation lock and up to four locally configured application/folder launchers with names and system icons. Muting displays an enlarged slashed-speaker icon.
+- Report the actual Windows session lock state and keep controls steady during polling. Playback controls live on the Music page and recheck the displayed song against the current system media session before acting.
+- Reuse paired encrypted RPC, opaque locally configured launcher IDs, duplicate receipts and bounded failure handling. Devices cannot supply paths or commands.
+
+### Network management and diagnostics
+
+- Read up to ten saved Wi-Fi networks on TAB5 216/217 while retaining older firmware support and network labels.
+- Show device HTTP and gateway/PC path diagnostics without changing networks, pairing or firewall settings. The observed connectivity incident recovered after reconnecting the PC Wi-Fi; no permanent fix for an unidentified NIC/AP fault is claimed.
+
+### Delivery scope
+
+- Prepare Windows 0.6.9 and TAB5 0.2.217-ui. Mac stays on 0.6.7, ESP8266 on 0.5.3, and existing artwork packs retain their versions. Full computer control requires this Windows bridge.
+- Existing physical acceptance covers volume, mute, launcher icons/opening, lock/unlock state, steady controls and Wi-Fi volume control with USB unplugged. Candidate package and installation results are tracked separately in the [release preparation record](docs/RELEASE-0.6.9.md).
+
 ## 0.6.8 - 2026-10-16
 
 ### Connection and diagnostics

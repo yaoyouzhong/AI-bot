@@ -21,6 +21,7 @@ internal static class Program
             }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or TimeoutException or OperationCanceledException or JsonException){Console.Error.WriteLine("TAB5_LOCAL_CONTROL_FAILED: "+ex.GetType().Name);Environment.ExitCode=1;}
             return;
         }
+        if(args.Length==2&&args[0]=="--self-test-computer-control"){AppPaths.BeginPublicSelfTest();Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);ComputerControlSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==1&&args[0]=="--self-test-esp-usb-recovery"){EspUsbRecoverySelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-serial-disconnect"){AppPaths.BeginPublicSelfTest();SerialDisconnectSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--test-esp-usb-recovery"){EspUsbRecoverySelfTest.RunHardwareAsync().GetAwaiter().GetResult();return;}

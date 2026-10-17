@@ -272,6 +272,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
                     using(var form=DeviceWindow(d,new Tab5DisplaySettingsForm(_tab5.DisplaySettingsAsync),"显示设置"))await ShowPanelAsync(panelKey,form);break;
                 case "task-pins":
                     using(var form=DeviceWindow(d,new Tab5TaskPinsForm(),"常用任务"))await ShowPanelAsync(panelKey,form);break;
+                case "computer-control":
+                    using(var form=DeviceWindow(d,new ComputerControlForm(),"电脑控制"))await ShowPanelAsync(panelKey,form);break;
                 case "agenda":
                     using(var form=DeviceWindow(d,new AgendaForm(),"日程待办"))await ShowPanelAsync(panelKey,form);break;
                 case "data":

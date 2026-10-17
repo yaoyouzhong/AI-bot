@@ -6,6 +6,8 @@
 
 [完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.8.md) · [English](README.en.md)
 
+待发布候选：Windows **0.6.9** 与 TAB5 **0.2.217-ui** 增加电脑音量、静音、锁屏和带图标的快捷启动，TAB5 最多保存 10 个 Wi-Fi。见[准备范围与验证](docs/RELEASE-0.6.9.md)和[电脑控制说明](docs/COMPUTER-CONTROL.md)。公开下载仍指向当前稳定版。
+
 ## 选择适合你的桌面屏幕
 
 AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择。
