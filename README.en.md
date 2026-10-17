@@ -18,6 +18,7 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 <p><strong>Desktop status display</strong></p>
 <p align="center"><img src="docs/assets/hardware/esp8266-product-composite.png" width="280" alt="Product composite of an ESP8266 SD2-style desktop display showing the AI-bot quota interface"></p>
 <p>A compact ESP8266-based device with a 240 × 240 color screen. Keep AI task status, model quotas, weather and music information beside your computer, with settings managed from the computer app.</p>
+<p><strong>Cable note:</strong> The included power cable supplies power only. Use a USB data cable for flashing or connecting the display to the computer over USB.</p>
 <p><strong>Connections:</strong> USB / Wi-Fi<br><strong>Computer support:</strong> Windows / macOS<br><strong>Best for:</strong> keeping information visible at a glance.</p>
 <p><a href="docs/INSTALL.zh.md#esp8266">Setup and connection</a> · <a href="docs/FEATURES.zh.md#esp8266">Interface gallery</a></p>
 </td>
@@ -26,10 +27,20 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 <h3>M5Stack TAB5 touchscreen</h3>
 <p><strong>Interactive desktop companion</strong></p>
 <p align="center"><img src="docs/assets/hardware/tab5-product-composite.png" width="280" alt="Composite of official M5Stack TAB5 hardware and the native AI-bot quota interface"></p>
+<p><a href="https://shop.m5stack.com/pages/about-us">M5Stack</a> makes modular hardware for IoT development, including controllers, sensors and expansion modules. TAB5 is its 5-inch touchscreen terminal.</p>
 <details>
-<summary>View the side ports — official photo</summary>
+<summary>View all four sides and the back (5 official photos)</summary>
+<p align="center"><strong>USB side</strong></p>
 <p align="center"><a href="docs/assets/hardware/tab5-side-official.png"><img src="docs/assets/hardware/tab5-side-official.png" width="360" alt="Official TAB5 side photo showing USB-A, USB-C, headset jack and PORT.A"></a></p>
-<p><sub>Official M5Stack photo, cropped to remove whitespace. Click to enlarge.</sub></p>
+<p align="center"><strong>GPIO / microSD side</strong></p>
+<p align="center"><a href="docs/assets/hardware/tab5-side-gpio-official.png"><img src="docs/assets/hardware/tab5-side-gpio-official.png" width="360" alt="Official TAB5 side photo showing GPIO expansion, microSD slot, tripod mount and speaker"></a></p>
+<p align="center"><strong>M5 logo side</strong></p>
+<p align="center"><a href="docs/assets/hardware/tab5-side-logo-official.png"><img src="docs/assets/hardware/tab5-side-logo-official.png" width="360" alt="Official photo of the M5 logo side of TAB5"></a></p>
+<p align="center"><strong>External antenna side</strong></p>
+<p align="center"><a href="docs/assets/hardware/tab5-side-antenna-official.png"><img src="docs/assets/hardware/tab5-side-antenna-official.png" width="360" alt="Official TAB5 side photo showing external antenna connectors and product identification"></a></p>
+<p align="center"><strong>Back</strong></p>
+<p align="center"><a href="docs/assets/hardware/tab5-back-official.png"><img src="docs/assets/hardware/tab5-back-official.png" width="260" alt="Official TAB5 back photo showing the battery mount, M5-Bus and pin labels"></a></p>
+<p><sub>All five are official M5Stack photos, cropped only to remove whitespace. Click to enlarge.</sub></p>
 </details>
 <p>A desktop device with a 5-inch touchscreen. View status and quotas, continue Codex conversations, dictate messages, add photo attachments and manage reminders, with clocks, paintings and calligraphy for everyday display.</p>
 <p><strong>Connections:</strong> USB / Wi-Fi / Bluetooth<br><strong>Computer support:</strong> Windows<br><strong>Best for:</strong> touch interaction, task handling and a wider range of display options.</p>

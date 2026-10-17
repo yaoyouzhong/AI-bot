@@ -31,6 +31,25 @@ The final TAB5 base is the user-approved angled composite derived from generativ
 - 仅裁去原图留白：1200 × 1200 原图裁剪框为 `(282, 521, 947, 667)`，输出 665 × 146；未缩放、重绘、锐化或改变接口。版权归 M5Stack，不纳入项目 MIT 许可。主页作为可展开的补充实图，主合成图保持不变。
 - Cropped only to remove whitespace, using the coordinates above. No scaling, redrawing, sharpening or port changes. M5Stack retains copyright; the photo is excluded from the project's MIT license. The homepage provides it as an expandable detail; the approved main composite is unchanged.
 
+### TAB5 四侧与背面补全 / All four sides and back
+
+主页可展开查看共 5 张官方实拍。USB 接口侧沿用上图，其余 4 张通过官方图片服务取裁剪版本，去除空白，无缩放、重绘、锐化或生成式编辑。点击可查看本地全尺寸裁剪图。M5Stack 保留版权，不纳入本项目 MIT 许可。
+
+The expandable homepage gallery contains five official photos. The USB side above is retained. Four additional renditions use the official image service to crop whitespace, with no resizing, redrawing, sharpening or generative editing. M5Stack retains copyright; the photos are excluded from the project MIT license. The delivered decoded pixels were compared with the corresponding source rectangles.
+
+| 视角 / View | 文件 / File | 官方原图 / Official original | 裁剪框 x,y,width,height |
+| --- | --- | --- | --- |
+| GPIO / microSD 侧 | `assets/hardware/tab5-side-gpio-official.png` | [C145_11.webp](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/C145_11.webp) | 90,535,1000,125 |
+| M5 标识侧 / Logo side | `assets/hardware/tab5-side-logo-official.png` | [C145_12.webp](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/C145_12.webp) | 190,530,820,165 |
+| 外置天线侧 / Antenna side | `assets/hardware/tab5-side-antenna-official.png` | [C145_13.webp](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/C145_13.webp) | 65,530,1025,135 |
+| 背面 / Back | `assets/hardware/tab5-back-official.png` | [C145_09.webp](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/C145_09.webp) | 315,150,575,910 |
+
+官方图片服务参数 / Official rendition query: `?x-oss-process=image/crop,x_X,y_Y,w_WIDTH,h_HEIGHT/format,png`.
+
+品牌简介依据 [M5Stack 官方 About Us](https://shop.m5stack.com/pages/about-us)：模块化物联网开发硬件，涵盖主控、传感器及扩展模块；TAB5 定位与尺寸依据上述官方产品页。小屏供电线提示依据用户对随附线材的说明，中英文主页及安装前检查同步标明 USB 连接需支持数据传输。
+
+The short brand introduction is based on M5Stack's official About Us page; the TAB5 description follows its official product page. The compact-display cable note follows the user's supplied-cable information and distinguishes power-only cables from USB data cables.
+
 ## 生成与验证 / Generation and validation
 
 小屏与 TAB5 底图使用内置 `image_gen.imagegen`。TAB5 最终屏幕改用 Pillow / NumPy / OpenCV 精确合成，不再使用生成式编辑。原始界面截图保持不变。最终图片 SHA-256 登记在 `licenses/materials.json`。

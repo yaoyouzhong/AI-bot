@@ -18,6 +18,7 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 <p><strong>桌面状态看板</strong></p>
 <p align="center"><img src="docs/assets/hardware/esp8266-product-composite.png" width="280" alt="ESP8266 SD2 小电视外形与 AI-bot 额度界面的产品合成示意"></p>
 <p>采用 ESP8266 的小型桌面设备，搭配 240 × 240 彩屏。放在电脑旁，随时查看 AI 任务状态、模型额度、天气和音乐信息，主要通过电脑配置。</p>
+<p><strong>线材提醒：</strong>小屏随附电源线只能供电；刷机或通过 USB 连接电脑时，请换用支持数据传输的 USB 数据线。</p>
 <p><strong>连接方式：</strong>USB / Wi-Fi<br><strong>电脑支持：</strong>Windows / macOS<br><strong>适合：</strong>以信息展示为主，希望抬眼就能查看状态的用户。</p>
 <p><a href="docs/INSTALL.zh.md#esp8266">安装与连接</a> · <a href="docs/FEATURES.zh.md#esp8266">查看界面</a></p>
 </td>
@@ -26,10 +27,20 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 <h3>M5Stack TAB5 大屏</h3>
 <p><strong>触控桌面助手</strong></p>
 <p align="center"><img src="docs/assets/hardware/tab5-product-composite.png" width="280" alt="M5Stack TAB5 官方机身与 AI-bot 原生额度界面的合成展示"></p>
+<p><a href="https://shop.m5stack.com/pages/about-us">M5Stack</a> 是面向物联网开发的模块化硬件品牌，提供主控、传感器与扩展模块；TAB5 是其 5 英寸触控终端。</p>
 <details>
-<summary>查看侧面接口实图</summary>
+<summary>查看 4 个侧面与背面实图（共 5 张）</summary>
+<p align="center"><strong>USB 接口侧</strong></p>
 <p align="center"><a href="docs/assets/hardware/tab5-side-official.png"><img src="docs/assets/hardware/tab5-side-official.png" width="360" alt="TAB5 官方侧面实图：USB-A、USB-C、耳机接口与 PORT.A"></a></p>
-<p><sub>M5Stack 官方实图，仅裁去留白。点击图片可放大。</sub></p>
+<p align="center"><strong>GPIO / microSD 侧</strong></p>
+<p align="center"><a href="docs/assets/hardware/tab5-side-gpio-official.png"><img src="docs/assets/hardware/tab5-side-gpio-official.png" width="360" alt="TAB5 官方侧面实图：GPIO 扩展口、microSD 卡槽、支架螺孔与扬声器"></a></p>
+<p align="center"><strong>M5 标识侧</strong></p>
+<p align="center"><a href="docs/assets/hardware/tab5-side-logo-official.png"><img src="docs/assets/hardware/tab5-side-logo-official.png" width="360" alt="TAB5 官方 M5 标识侧实图"></a></p>
+<p align="center"><strong>外置天线接口侧</strong></p>
+<p align="center"><a href="docs/assets/hardware/tab5-side-antenna-official.png"><img src="docs/assets/hardware/tab5-side-antenna-official.png" width="360" alt="TAB5 官方侧面实图：外置天线接口与产品标识"></a></p>
+<p align="center"><strong>背面</strong></p>
+<p align="center"><a href="docs/assets/hardware/tab5-back-official.png"><img src="docs/assets/hardware/tab5-back-official.png" width="260" alt="TAB5 官方背面实图：电池位、M5-Bus 与接口引脚标注"></a></p>
+<p><sub>5 张均为 M5Stack 官方实图，仅裁去留白。点击图片可放大。</sub></p>
 </details>
 <p>配备 5 英寸触控屏的桌面设备。除了查看状态和额度，还能继续 Codex 会话、语音输入、拍照添加附件和管理日程，也可展示时钟、名画与书法。</p>
 <p><strong>连接方式：</strong>USB / Wi-Fi / 蓝牙<br><strong>电脑支持：</strong>Windows<br><strong>适合：</strong>需要触控操作、处理任务和更丰富展示的用户。</p>

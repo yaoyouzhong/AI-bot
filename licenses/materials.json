@@ -30,6 +30,10 @@
     "toolchain-xtensa": "2.100300.220621"
   },
   "sourceAssets": {
+    "docs/assets/hardware/tab5-side-gpio-official.png": "1811028e5369594aa27ceaf1e7f03def2bf5e3990cf7ceaf21cc0bb00112dd23",
+    "docs/assets/hardware/tab5-side-logo-official.png": "4be40bd6fef2e9dec4f253e3f3eca26e8b4fb137931c2d513335c46bffe92580",
+    "docs/assets/hardware/tab5-side-antenna-official.png": "4535755612be0b2c4b91ab02daece96fc4cbb6a82daf83760a76920b18fa4581",
+    "docs/assets/hardware/tab5-back-official.png": "9fae013711f8abdeda1d45ba00dfd09b5e398dbcb6c6101cbe083fc7924f727b",
     "docs/assets/hardware/tab5-side-official.png": "ecca65231372c164013a48ca87d4ede15e37131352e40502e93c3a2f590afdf4",
     "docs/assets/hardware/esp8266-product-composite.png": "49c0f5dc7cece9e4da6c97ef4a35a67e8766d6f9065c62daa6213a3dfe74f972",
     "docs/assets/hardware/tab5-product-composite.png": "19df9e3976181607bdb2fcb85d6c68e654ec1a066556f28af96539e628c5f66e",

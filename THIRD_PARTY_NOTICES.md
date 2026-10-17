@@ -229,3 +229,5 @@ The TAB5 composite is based on M5Stack official product photography, with the na
 TAB5 合成图使用 M5Stack 官方产品实图与本项目额度界面；官方图片及衍生部分不纳入项目 MIT 许可。小屏使用 SD2 外形参考，未再分发参考原照片。两图均标明合成展示，来源、修改与生成记录见上述文档。
 
 `docs/assets/hardware/tab5-side-official.png` is cropped from M5Stack's official `C145_10.webp` photograph, with no redrawing or sharpening. Copyright remains with M5Stack; this photo is excluded from the project's MIT license. / TAB5 侧面图取自 M5Stack 官方实图，仅裁去留白，未重绘或锐化，不纳入本项目 MIT 许可。来源及裁剪坐标见上述配图记录。
+
+The additional GPIO, M5 logo, antenna and back photographs (`tab5-side-gpio-official.png`, `tab5-side-logo-official.png`, `tab5-side-antenna-official.png`, `tab5-back-official.png`) are whitespace-only crops of official `C145_11.webp`, `C145_12.webp`, `C145_13.webp` and `C145_09.webp`. M5Stack retains copyright; these photographs are excluded from the project MIT license. Source URLs, exact crop rectangles and file hashes are recorded in [HARDWARE-IMAGES](docs/HARDWARE-IMAGES.md) and `licenses/materials.json`. / 新增三侧面与背面实图同属 M5Stack 官方照片，仅去除留白，不重绘、不锐化，不纳入项目 MIT 许可。
