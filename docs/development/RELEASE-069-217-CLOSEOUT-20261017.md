@@ -21,9 +21,11 @@
 | 公开下载 | 14 个基础附件 HEAD 与首尾最多各 4 KiB Range 均匹配本地；不是远端整包重新下载校验 |
 | 索引与许可 | 完整下载索引 refresh／sync／check；13 项索引、6 项组件测试；分发许可证据通过 |
 | 截图与视频 | 8 张相关原生截图；116 秒／3,480 帧／15 镜头／35 音效、232 联系帧、14 切点及三封面已审阅；解码、字体图像及定位／音频结构通过 |
-| 公开页面与原生播放器 | 本轮补验中，待登记 |
+| 文档提交 CI | [39034819677](https://github.com/yaoyouzhong/AI-bot/actions/runs/39034819677) 三平台检查成功；附件关联由浏览器保存于 `c6311fc` |
+| 公开媒体 | 6 个 Release 媒体附件 HEAD／首尾 Range 匹配；主页新附件 GET Range 206、video/mp4，首尾字节匹配本地。附件重定向使用 GET 签名，不能用重定向后的 HEAD 403 代替播放判断 |
+| 公开页面与原生播放器 | 主页显示新版本，116 秒视频 readyState 4；播放／暂停与跳转继续补验 |
 
-视频附件新地址 `https://github.com/user-attachments/assets/d6130fef-1c86-4e4c-b976-43d941d5f403`，重新上传本次 9,098,411 字节导出，未沿用旧附件。媒体 MP4、工程与三种封面随 Windows Release 分发，另附 VIDEO-SHA256SUMS.txt；来源、署名及哈希见 PRODUCT_VIDEO、SCREENSHOTS、THIRD_PARTY_NOTICES 与 materials.json。主观试听未验；原生预览不是硬件摄影。
+视频附件新地址 `https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b`，重新上传本次 9,098,411 字节导出，未沿用旧附件。媒体 MP4、工程与三种封面随 Windows Release 分发，另附 VIDEO-SHA256SUMS.txt；来源、署名及哈希见 PRODUCT_VIDEO、SCREENSHOTS、THIRD_PARTY_NOTICES 与 materials.json。主观试听未验；原生预览不是硬件摄影。
 
 本机详细证据保留于 `artifacts/release-069-217-20261017`、`artifacts/publish-069-217-20261017` 和 `artifacts/product-intro-release-069-217-20261017`，不把私人状态 JSON、测试配对数据或配置纳入公开仓库。
 

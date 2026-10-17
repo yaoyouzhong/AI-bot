@@ -55,7 +55,7 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 The updated 116-second Chinese tour adds PC controls, lock state and ten-network management, alongside the refined agenda and automatic day/night classic clock, retaining the same-function dual-quota opening, clocks and Codex scenes. Native interfaces use isolated demo data, not hardware photographs.
 
-https://github.com/user-attachments/assets/d6130fef-1c86-4e4c-b976-43d941d5f403
+https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
 
 <sub>116-second Chinese tour. Play directly in the player above. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/AI-bot-product-intro-20261017-069-217.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
 

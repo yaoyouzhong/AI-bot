@@ -2,7 +2,7 @@
 
 2026-10-17 更新：Windows **0.6.9**、TAB5 **0.2.217-ui**、ESP8266 **0.5.3**；Mac 保留 **0.6.7**，不出镜。116 秒中文产品片，1920×1080、30 fps、15 个镜头。新增电脑音量、静音、锁屏状态和带图标的快捷启动，以及十网络管理和实际 217 更新说明；保留双屏额度开场、Codex、时钟、日程、监控与艺术浏览。
 
-https://github.com/user-attachments/assets/d6130fef-1c86-4e4c-b976-43d941d5f403
+https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
 
 [MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/AI-bot-product-intro-20261017-069-217.mp4) · [可复现视频工程](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/AI-bot-product-video-source-20261017-069-217.zip) · [媒体校验清单](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/VIDEO-SHA256SUMS.txt) · [16:9](assets/product-intro/AI-bot-cover.png) / [4:3](assets/product-intro/AI-bot-cover-4x3.png) / [3:4](assets/product-intro/AI-bot-cover-3x4.png) 封面
 
