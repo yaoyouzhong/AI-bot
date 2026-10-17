@@ -1,5 +1,7 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-17：新增首页硬件介绍配图，均为硬件外观与 AI-bot 原生额度页的合成展示，非实机拍摄，使用固定演示数据。来源、修改方式与提示词见 [硬件配图记录](HARDWARE-IMAGES.md)。原生截图保持不变。 / Added two hardware composites using native quota screen references; not hardware photographs. Sources, edits and prompts are recorded separately.
+
 2026-10-17：刷新 Windows 0.6.8 原生设备中心、更新窗口和服务状态，TAB5 210 日程首页／空状态／编辑／提醒、经典时钟昼夜、年度点阵、屏幕声音及实际 210 sidecar。Windows 来源为发布提交 `68382bf`；TAB5 原生来源为已验收独立源码 `dc61c08`，同一批原生回归 PPM 保留像素转 PNG。设备信息和升级页的旧“当前版本”、电量及时间均是固定夹具，不是运行态或真机版本证据；新固件身份见发布包。新 Windows 窗口在读取设置前启用隔离测试目录，无账户、硬件写入、真实麦克风或消息发送。未变化画面保留原来源与许可。新版视频及三种封面见 [PRODUCT_VIDEO](PRODUCT_VIDEO.md)，精确摘要在 `licenses/materials.json`。
 
 October 17 refresh: native Windows 0.6.8 management/update/status controls and TAB5 210 agenda, centered empty state, classic-clock day/night colors, annual dots and real update notes. These are isolated synthetic fixtures, not hardware photographs. Older installed-version labels, missing battery readings and fixed times are fixture state. Release identity and physical 210 acceptance are recorded separately. Unchanged captures retain their original provenance.

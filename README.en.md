@@ -2,11 +2,38 @@
 
 **Your AI status, all on one screen.** AI-bot is a desktop AI companion that works with your computer, bringing AI task status, account quotas across providers and everyday information to a dedicated display, with fewer trips between windows. Follow Claude Code / Codex progress and view plan usage or API balances for Chinese AI services including DeepSeek, Zhipu, Kimi, MiniMax and Alibaba Model Studio.
 
-Choose the compact ESP8266 display for status, quotas and alerts at a glance. Choose the M5Stack TAB5 touchscreen to also read and continue Codex conversations, enter ideas by voice and manage tasks and reminders, keeping both progress and your next action within reach.
-
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.8.md) · [简体中文](README.md)
+
+## Choose your desktop display
+
+AI-bot pairs a computer app with a desktop display. Choose the device that fits how you want to use it.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<p align="right"><a href="docs/FLASH_BUILD.zh.md#1-核对硬件并留好回退材料">Hardware details ↗</a></p>
+<h3>ESP8266 compact display</h3>
+<p><strong>Desktop status display</strong></p>
+<p align="center"><img src="docs/assets/hardware/esp8266-product-composite.png" width="280" alt="Product composite of an ESP8266 SD2-style desktop display showing the AI-bot quota interface"></p>
+<p>A compact ESP8266-based device with a 240 × 240 color screen. Keep AI task status, model quotas, weather and music information beside your computer, with settings managed from the computer app.</p>
+<p><strong>Connections:</strong> USB / Wi-Fi<br><strong>Computer support:</strong> Windows / macOS<br><strong>Best for:</strong> keeping information visible at a glance.</p>
+<p><a href="docs/INSTALL.zh.md#esp8266">Setup and connection</a> · <a href="docs/FEATURES.zh.md#esp8266">Interface gallery</a></p>
+</td>
+<td width="50%" valign="top">
+<p align="right"><a href="https://docs.m5stack.com/en/core/Tab5">Hardware details ↗</a></p>
+<h3>M5Stack TAB5 touchscreen</h3>
+<p><strong>Interactive desktop companion</strong></p>
+<p align="center"><img src="docs/assets/hardware/tab5-product-composite.png" width="280" alt="Composite of official M5Stack TAB5 hardware and the native AI-bot quota interface"></p>
+<p>A desktop device with a 5-inch touchscreen. View status and quotas, continue Codex conversations, dictate messages, add photo attachments and manage reminders, with clocks, paintings and calligraphy for everyday display.</p>
+<p><strong>Connections:</strong> USB / Wi-Fi / Bluetooth<br><strong>Computer support:</strong> Windows<br><strong>Best for:</strong> touch interaction, task handling and a wider range of display options.</p>
+<p><a href="docs/INSTALL.zh.md#tab5-first">Setup and connection</a> · <a href="docs/FEATURES.zh.md#tab5">Interface gallery</a></p>
+</td>
+</tr>
+</table>
+
+<sub>Both pictures combine hardware imagery with the AI-bot interface and demo data; they are not hardware photographs or shown to a common physical scale. <a href="docs/HARDWARE-IMAGES.md">Image sources and notes</a></sub>
 
 The updated 108-second Chinese tour covers the refined agenda, automatic day/night classic clock and current device management, retaining the same-function dual-quota opening, clocks and Codex scenes. Native interfaces use isolated demo data, not hardware photographs.
 
@@ -40,16 +67,6 @@ https://github.com/user-attachments/assets/35c3cbc8-2436-4cac-8f02-942b0708ddf7
 </table>
 
 <sub>Current native interfaces with fixed demo data; the small display uses its computer mirror renderer. [Complete feature gallery](docs/FEATURES.zh.md)</sub>
-
-### Two devices, different strengths
-
-<table>
-<thead><tr><th width="170" nowrap="nowrap">Device</th><th width="120" nowrap="nowrap">Operation</th><th nowrap="nowrap">Main features</th></tr></thead>
-<tbody>
-<tr><td nowrap="nowrap"><strong>ESP8266 display</strong></td><td nowrap="nowrap">PC setup</td><td><strong>A desktop status display focused on AI activity and account quotas.</strong><br>Check Claude / Codex status, usage and reset times at a glance; optionally cycle through weather, stocks, computer load and music information, with pets and a clock screensaver. <a href="docs/FEATURES.zh.md#esp8266">Gallery</a></td></tr>
-<tr><td nowrap="nowrap"><strong>TAB5 touch display</strong></td><td nowrap="nowrap">Touch</td><td><strong>An AI work companion within reach: view information and interact with tasks directly.</strong><br>Check AI task status and account quotas, read and continue Codex conversations, and use voice input and photo attachments; manage to-dos and scheduled reminders, and access computer monitoring, weather, stocks, music information, calendars, birthdays, clocks and countdowns, with pets and a choice of screensavers. <a href="docs/FEATURES.zh.md#tab5">Gallery</a></td></tr>
-</tbody>
-</table>
 
 <details>
 <summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>

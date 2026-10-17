@@ -221,3 +221,9 @@ The second local batch adds 370 calligraphy works from official museum services:
 
 ### Desktop connection icons / 电脑连接图标
 USB (U+F287), Wi-Fi (U+F1EB), Bluetooth (U+F293) reuse the exact Font Awesome outlines from TAB5's LVGL FontAwesome5-Solid+Brands+Regular.woff. Copyright Font Awesome; font-derived outlines under SIL OFL 1.1. Reproducible extraction: scripts/extract_tab5_transport_icons.py; source SHA-256 is recorded in Tab5TransportGlyphs.cs. License and attribution: licenses/font-awesome/. Shape geometry is unchanged, scaled and tinted at runtime. Source: https://github.com/lvgl/lvgl/tree/master/scripts/built_in_font .
+
+## Hardware introduction composites / 硬件介绍合成图
+
+The TAB5 composite is based on M5Stack official product photography, with the native AI-bot quota screen inserted. M5Stack retains rights to the photograph and its derivative portions; the project MIT license does not cover these portions. The ESP8266 composite uses an SD2 enclosure reference from GetIoT; the reference photo is not redistributed. Reference photographs, hardware designs and pre-existing UI artwork retain their respective rights. Both images are labeled composites with demo data, not hardware photographs or vendor endorsements. Sources and modification records: [HARDWARE-IMAGES](docs/HARDWARE-IMAGES.md).
+
+TAB5 合成图使用 M5Stack 官方产品实图与本项目额度界面；官方图片及衍生部分不纳入项目 MIT 许可。小屏使用 SD2 外形参考，未再分发参考原照片。两图均标明合成展示，来源、修改与生成记录见上述文档。

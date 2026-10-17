@@ -2,11 +2,38 @@
 
 **AI 状态，一屏掌握。** AI-bot 是一款搭配电脑使用的桌面 AI 助手，将 AI 任务状态、多平台账户额度和日常信息集中呈现在独立屏幕上，减少来回切换窗口。支持查看 Claude Code / Codex 的工作进度，以及 DeepSeek、智谱、Kimi、MiniMax、阿里百炼等国产模型服务的套餐用量或 API 余额。
 
-选择 ESP8266 小屏，把状态、额度和提醒放在手边；选择 M5Stack TAB5 触控大屏，还能查看和继续 Codex 会话，用语音输入想法，管理日程待办，让查看进度与接着处理任务更顺手。
-
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
 [完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.8.md) · [English](README.en.md)
+
+## 选择适合你的桌面屏幕
+
+AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择。
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<p align="right"><a href="docs/FLASH_BUILD.zh.md#1-核对硬件并留好回退材料">硬件介绍 ↗</a></p>
+<h3>ESP8266 小屏</h3>
+<p><strong>桌面状态看板</strong></p>
+<p align="center"><img src="docs/assets/hardware/esp8266-product-composite.png" width="280" alt="ESP8266 SD2 小电视外形与 AI-bot 额度界面的产品合成示意"></p>
+<p>采用 ESP8266 的小型桌面设备，搭配 240 × 240 彩屏。放在电脑旁，随时查看 AI 任务状态、模型额度、天气和音乐信息，主要通过电脑配置。</p>
+<p><strong>连接方式：</strong>USB / Wi-Fi<br><strong>电脑支持：</strong>Windows / macOS<br><strong>适合：</strong>以信息展示为主，希望抬眼就能查看状态的用户。</p>
+<p><a href="docs/INSTALL.zh.md#esp8266">安装与连接</a> · <a href="docs/FEATURES.zh.md#esp8266">查看界面</a></p>
+</td>
+<td width="50%" valign="top">
+<p align="right"><a href="https://docs.m5stack.com/zh_CN/core/Tab5">硬件介绍 ↗</a></p>
+<h3>M5Stack TAB5 大屏</h3>
+<p><strong>触控桌面助手</strong></p>
+<p align="center"><img src="docs/assets/hardware/tab5-product-composite.png" width="280" alt="M5Stack TAB5 官方机身与 AI-bot 原生额度界面的合成展示"></p>
+<p>配备 5 英寸触控屏的桌面设备。除了查看状态和额度，还能继续 Codex 会话、语音输入、拍照添加附件和管理日程，也可展示时钟、名画与书法。</p>
+<p><strong>连接方式：</strong>USB / Wi-Fi / 蓝牙<br><strong>电脑支持：</strong>Windows<br><strong>适合：</strong>需要触控操作、处理任务和更丰富展示的用户。</p>
+<p><a href="docs/INSTALL.zh.md#tab5-first">安装与连接</a> · <a href="docs/FEATURES.zh.md#tab5">查看界面</a></p>
+</td>
+</tr>
+</table>
+
+<sub>两图均为硬件外观与 AI-bot 界面的合成展示，使用演示数据，非实机拍摄；不按实物比例排列。<a href="docs/HARDWARE-IMAGES.md">图片来源与说明</a></sub>
 
 新版 108 秒视频更新日程布局、经典时钟昼夜切换与设备管理，保留双屏额度开场、表盘和 Codex 直达。画面来自原生界面的隔离演示数据，非硬件实拍。
 
@@ -42,16 +69,6 @@ https://github.com/user-attachments/assets/35c3cbc8-2436-4cac-8f02-942b0708ddf7
 </table>
 
 <sub>以上为当前原生界面与固定演示数据；小屏画面来自电脑端镜像。[完整功能图鉴](docs/FEATURES.zh.md)</sub>
-
-### 两类设备，各有侧重
-
-<table>
-<thead><tr><th width="150" nowrap="nowrap">设备</th><th width="110" nowrap="nowrap">使用方式</th><th nowrap="nowrap">主要功能</th></tr></thead>
-<tbody>
-<tr><td nowrap="nowrap"><strong>ESP8266 小屏</strong></td><td nowrap="nowrap">电脑配置</td><td><strong>桌边状态看板，以 AI 任务状态与账户额度为核心。</strong><br>随时查看 Claude / Codex 状态、用量与重置时间；按需轮播天气、行情、电脑负载和音乐信息，搭配桌宠与时钟屏保。<a href="docs/FEATURES.zh.md#esp8266">界面图鉴</a></td></tr>
-<tr><td nowrap="nowrap"><strong>TAB5 触控大屏</strong></td><td nowrap="nowrap">触控操作</td><td><strong>触手可及的 AI 工作助手，集中查看信息、直接操作任务。</strong><br>查看 AI 任务状态与账户额度，阅读和继续 Codex 会话，支持语音输入与拍照附件；管理日程待办与到期提醒，兼具电脑运行监控、天气行情、音乐信息、日历生日与时钟倒计时，并提供桌宠和多种屏保。<a href="docs/FEATURES.zh.md#tab5">界面图鉴</a></td></tr>
-</tbody>
-</table>
 
 <details>
 <summary><strong>查看 TAB5 特色：Codex 直达、全年点阵与十二月历</strong></summary>
