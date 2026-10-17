@@ -2,6 +2,26 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.217-ui - 2026-10-17
+
+### Computer control and music
+
+- Add PC volume, mute, lock and up to four launchers with application/folder icons. The enlarged volume value is centered above the mute button and becomes a slashed-speaker icon when muted.
+- Show actual locked/unlocked state and prevent polling flicker. Music offers supported previous/play-pause/next actions while retaining idle-state and long-title behavior.
+- Move large icon buffers to PSRAM, resolving the early 213 candidate's boot abort/rollback while preserving internal OTA staging memory.
+
+### Networks and display
+
+- Expand saved networks from five to ten, migrating existing credentials, labels and preferred selection while preserving an intentionally empty list. Updating existing entries remains possible at capacity.
+- Add bounded gateway/PC TCP checks and transport errors after bridge connection failures, without changing settings or credentials and while pausing during OTA. Real wireless control recovered after a PC Wi-Fi reconnect; diagnostics alone are not a connectivity fix.
+- Include post-210 automatic 180-degree landscape rotation, orientation lock and matching touch, refined two-column display/audio settings, countdown units and navigation changes.
+
+### Validation and compatibility
+
+- Installed image passed exact ELF and ota_0 VALID checks. User acceptance covers volume, mute, launchers, lock state, steady controls and Wi-Fi volume control with USB unplugged. Ten-slot storage/migration passed regression tests; existing real networks were retained without adding ten test credentials to the device.
+- Full computer control and ten-network management require Windows 0.6.9. Mac retains 0.6.7 without these controls. Preserve TAB5 display preferences; do not apply the ESP8266 carousel reset. First-install and upgrade packages share application bytes but have different formats.
+- Local candidate preparation, package/installation checks and long-term stability have separate evidence. See the [release preparation record](../RELEASE-0.6.9.md).
+
 ## 0.2.210-ui - 2026-10-17
 
 ### Agenda home
