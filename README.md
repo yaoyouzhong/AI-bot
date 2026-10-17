@@ -53,9 +53,9 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 <sub>两图均为硬件外观与 AI-bot 界面的合成展示，使用演示数据，非实机拍摄；不按实物比例排列。<a href="docs/HARDWARE-IMAGES.md">图片来源与说明</a></sub>
 
-新版 116 秒视频加入电脑控制、锁屏状态与十网络管理，并保留日程和经典时钟昼夜切换，保留双屏额度开场、表盘和 Codex 直达。画面来自原生界面的隔离演示数据，非硬件实拍。
+新版 116 秒视频加入电脑控制、锁屏状态与十网络管理，并保留日程、经典时钟昼夜切换、双屏额度开场与 Codex 直达。画面来自原生界面的隔离演示数据，非硬件实拍。
 
-https://github.com/user-attachments/assets/d6130fef-1c86-4e4c-b976-43d941d5f403
+https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
 
 <sub>116 秒中文产品介绍，点击播放器直接观看。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/AI-bot-product-intro-20261017-069-217.mp4)</sub>
 
