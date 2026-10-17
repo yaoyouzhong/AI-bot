@@ -42,10 +42,10 @@ https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
 
 已完成完整音视频解码、3,480 帧结构、232 张 2 fps 联系帧、14 处 10 fps 切点、密集原尺寸画面与三比例封面审查；字体／图像加载、正反定位一致和混音落点／电平检查通过。主混音 -16 LUFS／-1.5 dBTP。静止比例提示已人工复核：保留阅读停留与真实状态变化，不为指标增加装饰动作。**主观试听未验**。
 
-本次新影片已重新上传 GitHub 附件，公开主页播放器验证另记于[发布收尾](development/RELEASE-069-217-CLOSEOUT-20261017.md)。MP4 为 9,098,411 字节，SHA-256 `4f4a99b33a77738a6e65a6905bf931e44e4e67ad51b1dc25b555fe84301bac07`。全部媒体摘要登记在 `licenses/materials.json`。
+本次新影片已重新上传并保存为 GitHub 附件；公开主页实际播放、暂停、继续、进度跳转及到达结尾均通过，证据另记于[发布收尾](development/RELEASE-069-217-CLOSEOUT-20261017.md)。MP4 为 9,098,411 字节，SHA-256 `4f4a99b33a77738a6e65a6905bf931e44e4e67ad51b1dc25b555fe84301bac07`。全部媒体摘要登记在 `licenses/materials.json`。
 
 ## English
 
 This 116-second Chinese tour covers Windows 0.6.9, TAB5 217 and ESP8266 0.5.3; Mac remains 0.6.7 and is not shown. Fifteen scenes add PC volume/mute/lock, real lock state, launchers with icons, ten-network management and the actual 217 notes. Native production fixtures are separate from hardware acceptance. Unchanged footage retains its prior provenance. Opening and three covers compare the same Codex Pro quota.
 
-Mi Fu / Tokyo National Museum / ColBase TB-1459 retains CC BY 4.0 and crop/scaling credit. Original 104 BPM music and 35 synthesized cues retain AGPL/OFL and original notices; no commercial music is added. Full decode, contact sheets, cuts, dense frames, covers, fonts/images, deterministic seek, mix timing and levels passed. Subjective listening remains unverified. The new attachment uses the current MP4 bytes; public native-player checks are recorded separately in the release closeout. Reproduction source and checksums accompany the bridge release.
+Mi Fu / Tokyo National Museum / ColBase TB-1459 retains CC BY 4.0 and crop/scaling credit. Original 104 BPM music and 35 synthesized cues retain AGPL/OFL and original notices; no commercial music is added. Full decode, contact sheets, cuts, dense frames, covers, fonts/images, deterministic seek, mix timing and levels passed. Subjective listening remains unverified. The new attachment uses the current MP4 bytes; public native-player checks passed for play, pause/resume, seeking and reaching the end, with evidence in the release closeout. Reproduction source and checksums accompany the bridge release.
