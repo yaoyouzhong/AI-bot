@@ -10,9 +10,9 @@ Painting and calligraphy each use content edition **2026.1**, with 366 works per
 
 The updated 108-second Chinese tour covers the refined agenda, automatic day/night classic clock and current device management, retaining the same-function dual-quota opening, clocks and Codex scenes. Native interfaces use isolated demo data, not hardware photographs.
 
-[![Open the updated 108-second product tour](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4)
+https://github.com/user-attachments/assets/35c3cbc8-2436-4cac-8f02-942b0708ddf7
 
-<sub>108-second Chinese tour. Click the poster to open the new MP4. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
+<sub>108-second Chinese tour. Play directly in the player above. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
 
 ## What it does
 

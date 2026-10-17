@@ -31,3 +31,16 @@ TAB5 首刷与升级应用一致，应用 SHA-256：`21e733f4c9f5e0940c4d3a7d5de
 ## English
 
 Windows 0.6.8 and TAB5 0.2.210-ui are stable public releases; Mac retains 0.6.7. Published binaries preserve accepted bytes and independent source identities. Release/source CI and the documentation/media CI passed. Twenty assets passed local full hashes, GitHub server digest/size checks, public HEAD and bounded first/last Range comparisons; no full remote re-download was performed. Bilingual home/download pages, installation/update/feature guides, native screenshots, the 108-second video, three covers and reproducible media sources are updated. The public homepage was checked in a browser. Media decode, contact sheets, transitions, dense frames, fonts, deterministic seeking and audio structure/timing passed; subjective listening and in-browser playback remain unverified. Hardware acceptance is separate from synthetic screenshots. Future releases must complete the linked documentation/media closeout checklist.
+
+## 2026-10-17 主页播放补验 / Public playback follow-up
+
+此前封面指向 Release 下载附件，无法提供主页内播放。通过 GitHub Markdown 编辑器重新上传本版原始 MP4，恢复独占一行的原生视频附件地址：
+
+https://github.com/user-attachments/assets/35c3cbc8-2436-4cac-8f02-942b0708ddf7
+
+- 主页修复提交：`36519098833d907ef9fa9a9c0a6552bb02e2889b`；英文主页和视频说明同步使用同一附件。
+- 公开主页 Chrome 实际点播：0 → 9.393 秒；暂停在 13.81353 秒，二次采样保持不变；方向键跳转到 14.8935 秒，继续播放推进到 23.732 秒。End 到 108 秒且 `ended=true`；Home 回到 0 秒后可重新播放，最后暂停在 23.160 秒，未报媒体错误。
+- 原生 `<video controls>` 时长 108 秒、`readyState=4`。公开附件 HEAD 为 200、`video/mp4`、8,534,575 字节；本地原片 SHA-256 仍为 `7aa9cfa4d53002d1c9375ae36c2c3b6fab3b6eebb5f8413161630af702c57e13`。大小匹配不替代远端完整哈希。
+- 本地浏览器连接修复与截图证据位于 `artifacts/browser-connection-repair-20261017/`，不将私人连接日志或浏览器资料发布到仓库。
+
+This follow-up completes the previously unverified public in-browser playback check. Play, pause/resume, seek, end and replay passed on the public homepage. The download link remains separate. Subjective listening remains unverified; accepted application/firmware/media bytes were not rebuilt or replaced.

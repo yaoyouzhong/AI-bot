@@ -2,7 +2,7 @@
 
 2026-10-17 更新：Windows **0.6.8**、TAB5 **0.2.210-ui**（Mac 保留 **0.6.7**，不出镜）、ESP8266 **0.5.3**。沿用已批准的 108 秒中文产品片，1920×1080、30 fps、14 个镜头。本轮刷新经典时钟昼夜配色、日程空状态／新首页／到点提醒和设备管理／真实 210 更新说明；高清作品浏览与原文阅读沿用原生素材；保留同功能双屏额度开场、Codex、表盘和日历镜头。
 
-[![打开新版产品介绍](assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4)
+https://github.com/user-attachments/assets/35c3cbc8-2436-4cac-8f02-942b0708ddf7
 
 [新版 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4) · [可复现视频工程](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-video-source-20261017.zip) · [媒体校验清单](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/VIDEO-SHA256SUMS.txt) · [16:9](assets/product-intro/AI-bot-cover.png) / [4:3](assets/product-intro/AI-bot-cover-4x3.png) / [3:4](assets/product-intro/AI-bot-cover-3x4.png) 封面
 
@@ -39,10 +39,10 @@ Windows 新镜头来自正式 0.6.8 源码编译的隔离 WinForms；日程、�
 
 源工程 `product-intro-release-068-210-20261017`；公开 ZIP 包含分镜、固定原生像素、源码、音效、配乐、导出脚本、字体与许可，可从像素重新导出。无需下载整个高清图库；不含 node_modules、设备二进制、完整图库、私人配置、账户或日志。此前 20261014 工程及来源记录保留。
 
-已检查：完整音视频解码、3,240 帧时长／编码结构、216 张 2 fps 联系帧、13 处 10 fps 转场、变化镜头的原尺寸帧、三种封面、字体与图像加载、确定性定位，以及音效时序和电平。媒体 SHA-256 登记在 `licenses/materials.json`，Release 附独立校验清单。**主观试听未验**；音轨结构、电平和动作落点单独检查。主页通过封面链接提供新版 MP4；[本次收尾记录](development/RELEASE-068-210-CLOSEOUT-20261017.md)保留主观试听和网页内播放未验的边界。
+已检查：完整音视频解码、3,240 帧时长／编码结构、216 张 2 fps 联系帧、13 处 10 fps 转场、变化镜头的原尺寸帧、三种封面、字体与图像加载、确定性定位，以及音效时序和电平。媒体 SHA-256 登记在 `licenses/materials.json`，Release 附独立校验清单。2026-10-17 已恢复 GitHub 原生播放器，在公开主页实际验证播放、暂停／继续、进度跳转、到达结尾及重新播放；附件公开响应为 `video/mp4`，大小 8,534,575 字节，与已发布 MP4 一致。[本次收尾记录](development/RELEASE-068-210-CLOSEOUT-20261017.md)保留原始检查和本次补验结果。**主观试听未验**；音轨结构、电平和动作落点单独检查。
 
 ## English
 
 The updated 108-second Chinese tour covers Windows 0.6.8, TAB5 210 and ESP8266 0.5.3; Mac 0.6.7 remains available but is not demonstrated. Updated scenes show automatic day/night classic clocks, the centered agenda empty state and refined list/detail layout, current Windows controls and the actual 210 sidecar. HD artwork/reading footage is retained. Unchanged native footage retains its earlier source record. Opening and all three covers compare the same Codex Pro weekly quota on both displays. Captures use isolated fixtures, not hardware photographs; physical 210 acceptance has a separate record.
 
-Mi Fu's Hongxian Poems is attributed to Tokyo National Museum / ColBase TB-1459, CC BY 4.0; native crops and scaling retain this license. The original 104 BPM score and 31 synthesized action cues retain AGPL/OFL and original sound notices. Source ZIP and media checksums are attached to the bridge release. Full decode, contacts, transitions, dense frames and covers were visually reviewed; audio structure/timing passed. Subjective listening remains unverified. Audio structure, levels and cue timing are checked separately; in-browser playback remains unverified, as recorded in this release closeout. macOS runtime and subscribed Apple Music playback are outside this film.
+Mi Fu's Hongxian Poems is attributed to Tokyo National Museum / ColBase TB-1459, CC BY 4.0; native crops and scaling retain this license. The original 104 BPM score and 31 synthesized action cues retain AGPL/OFL and original sound notices. Source ZIP and media checksums are attached to the bridge release. Full decode, contacts, transitions, dense frames and covers were visually reviewed; audio structure/timing passed. The native GitHub player was restored and publicly tested on 2026-10-17: play, pause/resume, seeking, reaching the end and replay all passed. The public attachment serves video/mp4 with the same 8,534,575-byte length as the published file. Subjective listening remains unverified; audio structure, levels and cue timing are checked separately. macOS runtime and subscribed Apple Music playback are outside this film.

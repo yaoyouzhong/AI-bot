@@ -11,4 +11,8 @@
 7. 运行公开内容与许可检查、文档链接检查和 `git diff --check`；核验公开主页、安装说明、媒体及实际下载入口。大文件优先比对本地完整哈希、服务器 digest、HEAD 和小 Range；不把抽查称为远端完整下载校验。
 8. 记录正式发布地址、提交、附件摘要、验证和剩余限制。以上项目均有完成证据后交付。
 
+GitHub 主页视频必须保留独占一行的当前 `https://github.com/user-attachments/assets/...` 地址，让 GitHub 渲染原生播放器；Release MP4 链接单独用于下载。更新影片时重新上传对应字节，不能把播放器替换为封面下载链接，不能沿用旧影片的附件地址。
+
+Keep the current standalone GitHub user-attachment URL for the homepage's native player and a separate Release MP4 download link. Upload the current film when refreshing media; do not replace the player with a poster download link or reuse an earlier film's attachment.
+
 Every release follows this checklist: confirm component/platform scope and authorization; preserve accepted package bytes; validate source, tests, installation and hardware separately; publish verified assets under annotated component tags; refresh bilingual home/download/release pages; reconcile all introductions and installation/update instructions; update relevant screenshots, the product video, covers and reproducible media sources; register licensing and hashes; verify public pages and downloads; then record completion evidence. An unchanged platform retains its existing published version. A successful upload alone does not complete release closeout.
