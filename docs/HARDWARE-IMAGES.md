@@ -24,6 +24,13 @@ The SD2 reference informed the enclosure shape; its original photograph is not r
 
 The final TAB5 base is the user-approved angled composite derived from generative editing of M5Stack's official photo, not the untouched official photograph. A single planar perspective transform places the complete native UI capture onto its LCD. All pixels outside the LCD remain identical to the approved base. M5Stack retains rights to the product photograph and its derivative portions; these are not covered by the project's MIT license. No vendor endorsement is implied.
 
+### TAB5 侧面接口实图 / Official side-port photo
+
+- 文件 / file: `assets/hardware/tab5-side-official.png`.
+- 来源 / source: [M5Stack 官方 TAB5 产品页](https://docs.m5stack.com/zh_CN/core/Tab5)，[官方侧面照片 C145_10.webp](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/C145_10.webp).
+- 仅裁去原图留白：1200 × 1200 原图裁剪框为 `(282, 521, 947, 667)`，输出 665 × 146；未缩放、重绘、锐化或改变接口。版权归 M5Stack，不纳入项目 MIT 许可。主页作为可展开的补充实图，主合成图保持不变。
+- Cropped only to remove whitespace, using the coordinates above. No scaling, redrawing, sharpening or port changes. M5Stack retains copyright; the photo is excluded from the project's MIT license. The homepage provides it as an expandable detail; the approved main composite is unchanged.
+
 ## 生成与验证 / Generation and validation
 
 小屏与 TAB5 底图使用内置 `image_gen.imagegen`。TAB5 最终屏幕改用 Pillow / NumPy / OpenCV 精确合成，不再使用生成式编辑。原始界面截图保持不变。最终图片 SHA-256 登记在 `licenses/materials.json`。

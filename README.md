@@ -26,6 +26,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 <h3>M5Stack TAB5 大屏</h3>
 <p><strong>触控桌面助手</strong></p>
 <p align="center"><img src="docs/assets/hardware/tab5-product-composite.png" width="280" alt="M5Stack TAB5 官方机身与 AI-bot 原生额度界面的合成展示"></p>
+<details>
+<summary>查看侧面接口实图</summary>
+<p align="center"><a href="docs/assets/hardware/tab5-side-official.png"><img src="docs/assets/hardware/tab5-side-official.png" width="360" alt="TAB5 官方侧面实图：USB-A、USB-C、耳机接口与 PORT.A"></a></p>
+<p><sub>M5Stack 官方实图，仅裁去留白。点击图片可放大。</sub></p>
+</details>
 <p>配备 5 英寸触控屏的桌面设备。除了查看状态和额度，还能继续 Codex 会话、语音输入、拍照添加附件和管理日程，也可展示时钟、名画与书法。</p>
 <p><strong>连接方式：</strong>USB / Wi-Fi / 蓝牙<br><strong>电脑支持：</strong>Windows<br><strong>适合：</strong>需要触控操作、处理任务和更丰富展示的用户。</p>
 <p><a href="docs/INSTALL.zh.md#tab5-first">安装与连接</a> · <a href="docs/FEATURES.zh.md#tab5">查看界面</a></p>

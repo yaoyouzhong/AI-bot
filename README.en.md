@@ -26,6 +26,11 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 <h3>M5Stack TAB5 touchscreen</h3>
 <p><strong>Interactive desktop companion</strong></p>
 <p align="center"><img src="docs/assets/hardware/tab5-product-composite.png" width="280" alt="Composite of official M5Stack TAB5 hardware and the native AI-bot quota interface"></p>
+<details>
+<summary>View the side ports — official photo</summary>
+<p align="center"><a href="docs/assets/hardware/tab5-side-official.png"><img src="docs/assets/hardware/tab5-side-official.png" width="360" alt="Official TAB5 side photo showing USB-A, USB-C, headset jack and PORT.A"></a></p>
+<p><sub>Official M5Stack photo, cropped to remove whitespace. Click to enlarge.</sub></p>
+</details>
 <p>A desktop device with a 5-inch touchscreen. View status and quotas, continue Codex conversations, dictate messages, add photo attachments and manage reminders, with clocks, paintings and calligraphy for everyday display.</p>
 <p><strong>Connections:</strong> USB / Wi-Fi / Bluetooth<br><strong>Computer support:</strong> Windows<br><strong>Best for:</strong> touch interaction, task handling and a wider range of display options.</p>
 <p><a href="docs/INSTALL.zh.md#tab5-first">Setup and connection</a> · <a href="docs/FEATURES.zh.md#tab5">Interface gallery</a></p>

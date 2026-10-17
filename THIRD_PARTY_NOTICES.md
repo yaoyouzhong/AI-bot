@@ -227,3 +227,5 @@ USB (U+F287), Wi-Fi (U+F1EB), Bluetooth (U+F293) reuse the exact Font Awesome ou
 The TAB5 composite is based on M5Stack official product photography, with the native AI-bot quota screen inserted. M5Stack retains rights to the photograph and its derivative portions; the project MIT license does not cover these portions. The ESP8266 composite uses an SD2 enclosure reference from GetIoT; the reference photo is not redistributed. Reference photographs, hardware designs and pre-existing UI artwork retain their respective rights. Both images are labeled composites with demo data, not hardware photographs or vendor endorsements. Sources and modification records: [HARDWARE-IMAGES](docs/HARDWARE-IMAGES.md).
 
 TAB5 合成图使用 M5Stack 官方产品实图与本项目额度界面；官方图片及衍生部分不纳入项目 MIT 许可。小屏使用 SD2 外形参考，未再分发参考原照片。两图均标明合成展示，来源、修改与生成记录见上述文档。
+
+`docs/assets/hardware/tab5-side-official.png` is cropped from M5Stack's official `C145_10.webp` photograph, with no redrawing or sharpening. Copyright remains with M5Stack; this photo is excluded from the project's MIT license. / TAB5 侧面图取自 M5Stack 官方实图，仅裁去留白，未重绘或锐化，不纳入本项目 MIT 许可。来源及裁剪坐标见上述配图记录。

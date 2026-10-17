@@ -30,6 +30,7 @@
     "toolchain-xtensa": "2.100300.220621"
   },
   "sourceAssets": {
+    "docs/assets/hardware/tab5-side-official.png": "ecca65231372c164013a48ca87d4ede15e37131352e40502e93c3a2f590afdf4",
     "docs/assets/hardware/esp8266-product-composite.png": "49c0f5dc7cece9e4da6c97ef4a35a67e8766d6f9065c62daa6213a3dfe74f972",
     "docs/assets/hardware/tab5-product-composite.png": "19df9e3976181607bdb2fcb85d6c68e654ec1a066556f28af96539e628c5f66e",
     "docs/assets/screens/api-settings.png": "0afe0765eccf5ae9d59d79e7c2efd7881bf96e3d78cbd10347827bf0ec60e819",
