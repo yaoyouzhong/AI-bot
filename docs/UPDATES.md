@@ -1,8 +1,8 @@
 # 软件与固件更新 / Software and firmware updates
 
-本页对应 Windows 0.6.7；旧版 v0.5.0 用户需先安装新电脑端才能使用完整下载流程。macOS 尚未实现此入口。
+本页对应 Windows 0.6.8；旧版 v0.5.0 用户需先安装新电脑端才能使用完整下载流程。macOS 尚未实现此入口。
 
-[完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.7 的「完整下载与安装说明」链接也指向此处。
+[完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.8 的「完整下载与安装说明」链接也指向此处。
 
 ## 日常使用
 
@@ -25,16 +25,16 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 ## English
 
-The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.7's manual-download link opens this center.
+The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.8's manual-download link opens this center.
 
-This describes Windows 0.6.7; v0.5.0 users need to install the newer computer app first. macOS does not yet implement this entry point. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
+This describes Windows 0.6.8; v0.5.0 users need to install the newer computer app first. macOS does not yet implement this entry point. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
 
 Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and are deduplicated per device/version. Background checks never download or install. Failed queries retain the last successful in-memory catalog with an error. Unknown or changed device versions block automatic upgrade selection. Local and public builds share the same features. Import optional artwork ZIPs through Artwork Collections; app upgrades preserve the user-data collection directory. Manual checking remains available when reminders are disabled. An accepted download does not prove installation, verified boot or physical display behavior.
 
 0.6.2 fix: connected legacy ESP8266 devices that omit their firmware version offer a clearly labeled manual preparation action. This does not assert that a newer version exists and never generates an automatic update notification. After downloading and verifying the latest stable package, the user must acknowledge that the version cannot be compared and may be equal or older. The existing USB tool still requires an explicit start, complete backup, write and verification, bound to the selected screen's USB identity when available. Offline devices, malformed versions and target/version changes block continuation. New firmware reports its component version over USB and authenticated Wi-Fi requests. The 0.6.1 and earlier installers do not include this fix.
 
-## 0.6.8 候选：下载续传 / Candidate: resumable downloads
+## 0.6.8：下载续传 / Resumable downloads
 
-Windows 安装包和固件下载中断或取消后，已下载内容保存在本机；再次选择同一更新可继续，程序重启后也可恢复。缓存按组件、版本、文件名、大小和完整 SHA-256 隔离。完整文件仍需校验固件类型、内置版本、协议与最低桥接版本；下载成功不等于已安装。服务器不支持续传时从头安全下载，损坏断点清除后重新下载。本项尚未公开发布。
+Windows 安装包和固件下载中断或取消后，已下载内容保存在本机；再次选择同一更新可继续，程序重启后也可恢复。缓存按组件、版本、文件名、大小和完整 SHA-256 隔离。完整文件仍需校验固件类型、内置版本、协议与最低桥接版本；下载成功不等于已安装。服务器不支持续传时从头安全下载，损坏断点清除后重新下载。本项已公开发布。
 
-The 0.6.8 Windows candidate retains interrupted/cancelled installer and firmware downloads across app sessions. Resume only the same component, version, filename, size and checksum. Complete packages still require identity, protocol and minimum-bridge validation; download completion is not installation. Servers ignoring Range safely restart the transfer; corrupt partial files are discarded. This candidate is not yet publicly released.
+Windows 0.6.8 retains interrupted/cancelled installer and firmware downloads across app sessions. Resume only the same component, version, filename, size and checksum. Complete packages still require identity, protocol and minimum-bridge validation; download completion is not installation. Servers ignoring Range safely restart the transfer; corrupt partial files are discarded. This version is publicly released.

@@ -1,12 +1,12 @@
 # AI-bot 安装与刷机指南
 
-适用于 **AI-bot 0.6.7 / TAB5 0.2.205-ui**，ESP8266 为 0.5.3，更新于 2026-10-16。Windows 支持 ESP8266 与 TAB5；Mac 的刷机入口目前支持 ESP8266。
+适用于 **Windows 0.6.8 / Mac 0.6.7 / TAB5 0.2.210-ui**，ESP8266 为 0.5.3，更新于 2026-10-17。Windows 支持 ESP8266 与 TAB5；Mac 的刷机入口目前支持 ESP8266。
 
 **先安装应用，再按你的设备选择下面一条路线。** 每条刷机路线只需 4 步。
 
 新增字库已编译进 TAB5 固件，无需单独安装。年度精选名画、书法各 366 件，以两个独立图库包提供；当前名画布局版为 2026.10.14.1，书法为 2026.10.15.1。作品资料以实际安装包为准，整理中的文字不作为已发布内容。软件升级保留已安装图库，导入图文包时对应类别的图片和文字一起校验更新；分页不重复计作作品。使用方法见 [图库说明](GALLERY-PACKS.md)。ESP8266 0.5.3 增加固定设备身份与 USB 换口恢复；Apple Music 实际播放待有可播放内容后验收。
 
-可选[高清完整图库](GALLERY-HD.md)各 366 件，包含标准图与资料。按说明下载三个工具文件，即可分段续传、自动合并并导入完整 ZIP，无需先装标准版。日程在「设备中心 → 日程待办」或 TAB5「应用 → 日程」管理，最多 16 项；离线修改重连后同步。205 的实机边界见[发布记录](RELEASE-0.6.7.md)。
+可选[高清完整图库](GALLERY-HD.md)各 366 件，包含标准图与资料。按说明下载三个工具文件，即可分段续传、自动合并并导入完整 ZIP，无需先装标准版。日程在「设备中心 → 日程待办」或 TAB5「应用 → 日程」管理，最多 16 项；离线修改重连后同步。210 的日程、内存、写入与重启电量已通过本地真机验收，详见[发布记录](RELEASE-0.6.8.md)。
 
 ## 1. 下载与安装
 
@@ -14,17 +14,17 @@
 
 | 你要做什么 | 下载什么 |
 | --- | --- |
-| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AIBotBridge-0.6.7-setup-win-x64.exe) |
+| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-bridge-v0.6.8-windows-x64-setup.exe) |
 | Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AIBotBridge-0.6.7-local-candidate-macos-arm64.zip) |
 | ESP8266 首刷或更新 | [ESP8266 固件 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/AI-bot-0.5.3-firmware-materials.zip) |
-| TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/TAB5-first-install-0.2.205-ui.zip) |
-| TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/TAB5-upgrade-0.2.205-ui.zip) |
+| TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/AI-bot-tab5-0.2.210-ui-first-install.zip) |
+| TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/AI-bot-tab5-0.2.210-ui-upgrade.zip) |
 
-**TAB5 首刷也是 0.2.205-ui，无需先刷旧版。** 首刷包直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
+**TAB5 首刷也是 0.2.210-ui，无需先刷旧版。** 首刷包直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
 
 桥接、ESP8266 和 TAB5 分别更新，版本号可以不同；以后只升级更新说明要求的部分，无需每次一起刷机。
 
-Windows 0.6.7 从“设备中心 → 桥接设置 → 软件固件”打开统一的[软件与固件更新](UPDATES.md)：自动提醒、显示明细、选择对应包、下载并校验，再进入现有安装流程。旧版用户先安装新的电脑端；首次安装方法不变。名画／书法是可选的[独立图库](GALLERY-PACKS.md)，不下载也可使用其他功能。
+Windows 0.6.8 从“设备中心 → 桥接设置 → 软件固件”打开统一的[软件与固件更新](UPDATES.md)：自动提醒、显示明细、选择对应包、下载并校验，再进入现有安装流程。旧版用户先安装新的电脑端；首次安装方法不变。名画／书法是可选的[独立图库](GALLERY-PACKS.md)，不下载也可使用其他功能。
 
 Windows：运行安装器，保持联网以便补齐缺少的运行环境；安装后在右下角托盘右键 → **设备中心**。已有用户先退出桥接，安装到原位置，再用原快捷方式启动。
 
@@ -57,7 +57,7 @@ Windows：运行安装器，保持联网以便补齐缺少的运行环境；安�
 使用 **USB-C 数据接口**连接电脑。首次安装会替换 P4 原固件与设置，工具先完整备份；保留备份以便恢复。已有 AI-bot 的设备使用下方升级路线。
 
 1. **进入安装窗口与下载模式。** “添加”里选 **M5Stack TAB5 → TAB5 首次安装…**。连接 USB-C，长按 RESET 约 2 秒，内部绿灯快速闪烁后松开；点 **刷新设备**，选择这台 TAB5 的端口。[进入下载模式的官方说明](https://docs.m5stack.com/zh_CN/guide/tab5/restore_factory)。
-2. **选择首刷 ZIP 并安装。** 点 **选择安装包…**，选 `TAB5-first-install-0.2.205-ui.zip`，勾选“确认是 TAB5，允许替换原固件及设置”，点 **备份并安装**。按提示确认设备；等待备份、写入、校验结束，不拔线。
+2. **选择首刷 ZIP 并安装。** 点 **选择安装包…**，选 `AI-bot-tab5-0.2.210-ui-first-install.zip`，勾选“确认是 TAB5，允许替换原固件及设置”，点 **备份并安装**。按提示确认设备；等待备份、写入、校验结束，不拔线。
 
 ![图 4：TAB5 首次安装；上方选端口，中间选 ZIP 并安装，下方检查启动](assets/screens/tab5-first-install.png)
 
@@ -67,14 +67,14 @@ Windows：运行安装器，保持联网以便补齐缺少的运行环境；安�
 ![图 5：TAB5 USB 配对；若尚未配对，选择本机端口后点“配对”](assets/screens/tab5-usb-pairing.png)
 
 <a id="tab5-upgrade"></a>
-Windows 0.6.7 与 TAB5 0.2.190-ui+ 支持在“连接与固件升级 → 固件升级”选择固件后直接点击 **开始升级**，设备保存草稿、检查忙碌状态后回传结果，并按原连接设置下载／写入。较旧固件需先在 TAB5 上完成一次升级；之后不必每次在设备上点击。已有 TF 图库不重传，完成后仍核验启动。
+Windows 0.6.8 与 TAB5 0.2.190-ui+ 支持在“连接与固件升级 → 固件升级”选择固件后直接点击 **开始升级**，设备保存草稿、检查忙碌状态后回传结果，并按原连接设置下载／写入。较旧固件需先在 TAB5 上完成一次升级；之后不必每次在设备上点击。已有 TF 图库不重传，完成后仍核验启动。
 
-Windows 0.6.7 with TAB5 0.2.190-ui+ supports **Start Upgrade** in the desktop firmware tab after selecting the image. Device drafts and busy guards remain active; older firmware needs one device-confirmed upgrade first. Subsequent updates can start from the desktop. Preserve TF data and verify the new boot afterward.
+Windows 0.6.8 with TAB5 0.2.190-ui+ supports **Start Upgrade** in the desktop firmware tab after selecting the image. Device drafts and busy guards remain active; older firmware needs one device-confirmed upgrade first. Subsequent updates can start from the desktop. Preserve TF data and verify the new boot afterward.
 
 ### C. TAB5：已有 AI-bot，后续升级 · 4 步
 
-1. **解压并打开升级页。** 完整解压 `TAB5-upgrade-0.2.205-ui.zip`。设备中心选中 TAB5 → **连接升级 → 固件升级**，保持有效连接和供电。
-2. **提供固件。** 点 **选择固件…**，选解压后的 `aibot_tab5.bin`，同目录保留更新说明文件；核对版本 **0.2.205-ui** 与更新说明，确认提供。
+1. **解压并打开升级页。** 完整解压 `AI-bot-tab5-0.2.210-ui-upgrade.zip`。设备中心选中 TAB5 → **连接升级 → 固件升级**，保持有效连接和供电。
+2. **提供固件。** 点 **选择固件…**，选解压后的 `aibot_tab5.bin`，同目录保留更新说明文件；核对版本 **0.2.210-ui** 与更新说明，确认提供。
 
 ![图 6：TAB5 固件升级界面示例；升级完成后在状态旁点“核验启动”](assets/screens/tab5-upgrade.png)
 
@@ -128,14 +128,23 @@ TAB5 需要无线时，在 **连接升级 → Wi-Fi** 保存网络并确认有�
 
 备份保存在 `%LOCALAPPDATA%\AI-bot\device-backups\`，TAB5 的 `.bin` 和 `.bin.json` 一起保留；备份可能包含私人设置，不公开上传。USB 偶发中断仍有历史记录，失败先保留错误，不把重试成功理解为已修复。
 
-需要核对下载完整性时，使用对应组件发布页的 SHA-256 清单：[电脑端](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/SHA256SUMS.txt)、[TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt)、[名画](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt)、[书法](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt)、[ESP8266](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/SHA256SUMS.txt)。[发布与验收记录](RELEASE-0.6.7.md) · [TAB5 开发者源码](development/TAB5-SOURCE.md) · [许可范围](TAB5-LICENSE-SCOPE.md)
+需要核对下载完整性时，使用对应组件发布页的 SHA-256 清单：[Windows](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/SHA256SUMS.txt)、[Mac](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/SHA256SUMS.txt)、[TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/SHA256SUMS.txt)、[名画](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt)、[书法](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt)、[ESP8266](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/SHA256SUMS.txt)。[发布与验收记录](RELEASE-0.6.8.md) · [TAB5 开发者源码](development/TAB5-SOURCE.md) · [许可范围](TAB5-LICENSE-SCOPE.md)
 
 ## English summary
 
-Current releases are computer apps 0.6.7, TAB5 0.2.205-ui and ESP8266 0.5.3. Install the app and choose one hardware route. Windows Device Center separates My Devices, Account Data and Bridge Settings; open Bridge Settings → Software/Firmware for later updates. Each Windows flashing route has four steps: connect/open, select the correct firmware, complete installation/restart, and verify/register. ESP8266 accepts its firmware ZIP directly. Factory TAB5 devices use the full first-install ZIP at 0.2.205-ui: enter download mode, back up/install, reset and check boot, then verify/add to pair. Existing AI-bot TAB5 devices extract the upgrade ZIP and select the application BIN with its notes file, confirm installation on TAB5, then verify boot over USB. Do not interchange hardware packages. Preserve automatic display/cycling and existing settings. Mac flashing currently covers ESP8266; Windows TAB5 support does not imply Mac TAB5 support. Images show native Windows controls with synthetic data, not hardware photographs. Original backups stay private. Optional annual packs contain 366 paintings and 366 calligraphy works. The public painting layout edition is 2026.10.14.1 and calligraphy edition is 2026.10.15.1; reading material follows the installed pack, and unpublished editorial work is excluded. Importing replaces images and reading material together while app upgrades preserve installed packs. Browse Works supports past works, search, fullscreen, wheel zoom, pan and full reading. Settings → Storage & Cache shows TF status independently; device cache remains the default. Explicitly select a FAT32 TF card to save complete installed libraries over a Windows USB/Wi-Fi bridge; only completed works are available offline. Own code is MIT licensed, with third-party terms preserved.
+Current releases are Windows 0.6.8, Mac 0.6.7, TAB5 0.2.210-ui and ESP8266 0.5.3. Install the app and choose one hardware route. Windows Device Center separates My Devices, Account Data and Bridge Settings; open Bridge Settings → Software/Firmware for later updates. Each Windows flashing route has four steps: connect/open, select the correct firmware, complete installation/restart, and verify/register. ESP8266 accepts its firmware ZIP directly. Factory TAB5 devices use the full first-install ZIP at 0.2.210-ui: enter download mode, back up/install, reset and check boot, then verify/add to pair. Existing AI-bot TAB5 devices extract the upgrade ZIP and select the application BIN with its notes file, confirm installation on TAB5, then verify boot over USB. Do not interchange hardware packages. Preserve TAB5 display preferences. Restore automatic display/cycling only for ESP8266. Mac flashing currently covers ESP8266; Windows TAB5 support does not imply Mac TAB5 support. Images show native Windows controls with synthetic data, not hardware photographs. Original backups stay private. Optional annual packs contain 366 paintings and 366 calligraphy works. The public painting layout edition is 2026.10.14.1 and calligraphy edition is 2026.10.15.1; reading material follows the installed pack, and unpublished editorial work is excluded. Importing replaces images and reading material together while app upgrades preserve installed packs. Browse Works supports past works, search, fullscreen, wheel zoom, pan and full reading. Settings → Storage & Cache shows TF status independently; device cache remains the default. Explicitly select a FAT32 TF card to save complete installed libraries over a Windows USB/Wi-Fi bridge; only completed works are available offline. Own code is MIT licensed, with third-party terms preserved.
 
-Complete optional HD collections include standard previews and guides. Use the [resumable download and import guide](GALLERY-HD.md); a separate standard import is unnecessary. Agenda/reminders are available in Device Center or TAB5 Apps → Agenda, with offline changes synchronized after reconnecting. Native previews are distinct from physical 205 acceptance.
+Complete optional HD collections include standard previews and guides. Use the [resumable download and import guide](GALLERY-HD.md); a separate standard import is unnecessary. Agenda/reminders are available in Device Center or TAB5 Apps → Agenda, with offline changes synchronized after reconnecting. Native previews use isolated data; 210 agenda, memory, writing and reboot battery acceptance are documented separately.
 
 设备中心“管理 ▾”展开设备操作。Wi-Fi 黄色表示设备已联网，但 Wi-Fi 桥接通道尚未连通；USB 可独立保持连接。连接页与首页采用统一状态判断。
 
 The Manage dropdown opens device actions. Yellow Wi-Fi means the device joined a network but its Wi-Fi bridge channel is not connected; USB can still work independently. Device overview and connection settings share the same state rules.
+
+## 0.6.8／210 使用要点
+
+- 更新下载中断后再次选择同一组件和版本，可继续下载；仍会完整校验 SHA-256，完成下载不会自动安装。
+- 日程有事项时，左侧“今日／全部”筛选和“新建”与列表对齐，右侧显示时间和详情；无事项时居中显示“暂无事项”和“新建”。名称旁麦克风需要电脑语音服务；离线可使用键盘输入。
+- “设置 → 屏幕声音”保留经典时钟、年度点阵和年度点阵暖灰等选项，没有独立“暗夜”或“自动昼夜”选项。经典时钟和年度点阵按本地时间 07:00–19:00 显示日间配色，其余为夜间。轻触退出预览；不要求 TAB5 改成轮播。
+- 插电重启且尚无可信电量时会自动估算并恢复充电，无需拔线恢复；采样期间可能短暂显示“--”。USB 写入速度受连接和设备状态影响，本次验收写入为 9.609 秒，不作为所有连接的速度承诺。
+
+Interrupted Windows update downloads can resume for the same component and package identity, with full verification before explicit installation. TAB5 210 has aligned agenda filtering, a centered empty state and keyboard input when offline; dictation requires the computer voice service. Classic Clock and Annual Dots follow local day/night time without separate Night/Auto choices. TAB5 keeps its display preferences. Battery estimation recovers automatically after a powered USB reboot; initial sampling can temporarily show “--”.

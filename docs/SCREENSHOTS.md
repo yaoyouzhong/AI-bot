@@ -1,5 +1,9 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-17：刷新 Windows 0.6.8 原生设备中心、更新窗口和服务状态，TAB5 210 日程首页／空状态／编辑／提醒、经典时钟昼夜、年度点阵、屏幕声音及实际 210 sidecar。Windows 来源为发布提交 `68382bf`；TAB5 原生来源为已验收独立源码 `dc61c08`，同一批原生回归 PPM 保留像素转 PNG。设备信息和升级页的旧“当前版本”、电量及时间均是固定夹具，不是运行态或真机版本证据；新固件身份见发布包。新 Windows 窗口在读取设置前启用隔离测试目录，无账户、硬件写入、真实麦克风或消息发送。未变化画面保留原来源与许可。新版视频及三种封面见 [PRODUCT_VIDEO](PRODUCT_VIDEO.md)，精确摘要在 `licenses/materials.json`。
+
+October 17 refresh: native Windows 0.6.8 management/update/status controls and TAB5 210 agenda, centered empty state, classic-clock day/night colors, annual dots and real update notes. These are isolated synthetic fixtures, not hardware photographs. Older installed-version labels, missing battery readings and fixed times are fixture state. Release identity and physical 210 acceptance are recorded separately. Unchanged captures retain their original provenance.
+
 2026-10-16：刷新桥接 0.6.7 原生设备中心、安装／连接窗口；新增 TAB5 205 原生日程、编辑与提醒截图，固件页读取真实 205 sidecar。电脑浏览／全屏来自正式 Windows 发布包对两套最终高清完整包的实际隔离导入，各 366 件；全目录标准分页解码通过，所示米芾《行书虹县诗卷》沿用下述 ColBase TB-1459／CC BY 4.0 署名。图库管理图来自实际完整包导入与公开发布元数据的离线副本；设备、状态和旧安装版本为演示夹具，不调用私人账户，不刷机。未变画面保持原来源。新版 108 秒影片与三种封面另见 [PRODUCT_VIDEO](PRODUCT_VIDEO.md)。精确截图哈希登记在 materials.json。
 
 2026-10-16 refresh: native bridge 0.6.7 device/install/connection controls; TAB5 205 agenda/editor/reminder and real sidecar captures; actual final HD imports and full-page reads in the release Windows binary. Both categories have 366 works. Mi Fu / ColBase TB-1459 retains CC BY 4.0. Gallery management uses real complete imports and a cached public-release response. Native fixtures are not hardware photography or physical 205 acceptance. Unchanged captures retain earlier provenance. Hashes are individually registered.

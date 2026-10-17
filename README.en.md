@@ -1,20 +1,18 @@
 # AI-bot
 
-Candidate **AI-bot v0.6.8** improves Windows connection diagnostics, resumable updates and Device Center window behavior. Windows installation acceptance is complete locally; TAB5 0.2.210-ui agenda layout, memory, OTA writing and reboot battery display have passed local hardware acceptance and remain unpublished. See [candidate scope and validation](docs/RELEASE-0.6.8.md). Published downloads remain unchanged until release.
-
-Current stable releases: **bridge 0.6.7, TAB5 0.2.205-ui and ESP8266 0.5.3**. This update adds agenda/reminders with offline edits and reconnect synchronization, clearer management/Wi-Fi states, and desktop HD artwork browsing with fullscreen and independent reading. [Changes and validation boundaries](docs/RELEASE-0.6.7.md)
+Current stable releases: **Windows 0.6.8, Mac 0.6.7, TAB5 0.2.210-ui and ESP8266 0.5.3**. Windows improves connection diagnostics, resumable downloads and Device Center windows. TAB5 adds the refined agenda and centered empty state, automatic day/night screensavers, restored firmware writing speed and automatic battery estimates after a connected-USB reboot. Codex membership remains Pro. [Changes and validation](docs/RELEASE-0.6.8.md)
 
 Standard calligraphy is **2026.10.15.1**; standard painting **2026.10.14.1** is retained. Optional **2026.10.16 complete HD collections** contain 366 works each, including standard previews and guides. Use the [resumable download/merge helper](docs/GALLERY-HD.md), then import the full ZIP.
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.7.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.8.md) · [简体中文](README.md)
 
-The updated 108-second Chinese tour covers agenda/reminders, HD browsing and device management, retaining the same-function dual-quota opening, clocks and Codex scenes. Native interfaces use isolated demo data, not hardware photographs.
+The updated 108-second Chinese tour covers the refined agenda, automatic day/night classic clock and current device management, retaining the same-function dual-quota opening, clocks and Codex scenes. Native interfaces use isolated demo data, not hardware photographs.
 
-[![Open the updated 108-second product tour](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AI-bot-product-intro-20261016.mp4)
+[![Open the updated 108-second product tour](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4)
 
-<sub>108-second Chinese tour. Click the poster to open the new MP4. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AI-bot-product-intro-20261016.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
+<sub>108-second Chinese tour. Click the poster to open the new MP4. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-product-intro-20261017.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
 
 ## What it does
 
@@ -31,7 +29,7 @@ The updated 108-second Chinese tour covers agenda/reminders, HD browsing and dev
 
 <table><tr><td width="50%" align="center"><strong>Agenda and reminders</strong><br><img src="docs/assets/screens/tab5-agenda-reminder.png" width="420" alt="TAB5 native reminder with acknowledge and snooze"></td><td width="50%" align="center"><strong>Desktop HD collections</strong><br><img src="docs/assets/screens/gallery-fullscreen.png" width="420" alt="Native HD calligraphy fullscreen zoom"></td></tr></table>
 
-[Agenda and device guide](docs/RELEASE-0.6.7.md) · [HD downloads and installation](docs/GALLERY-HD.md)
+[Agenda and device guide](docs/RELEASE-0.6.8.md) · [HD downloads and installation](docs/GALLERY-HD.md)
 
 <table>
 <thead><tr><th width="33%" nowrap="nowrap">Computer app</th><th width="33%" nowrap="nowrap">ESP8266 display</th><th width="33%" nowrap="nowrap">TAB5 touch display</th></tr></thead>
@@ -60,7 +58,7 @@ The updated 108-second Chinese tour covers agenda/reminders, HD browsing and dev
 <details>
 <summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
 
-**Agenda and scheduled reminders** are included in TAB5 205: local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.7.md)
+**Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.8.md)
 
 **Codex Direct:** pick one of five recent sessions, read replies, dictate a draft and confirm before sending. Cancel, recover from failures or hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -70,7 +68,7 @@ The updated 108-second Chinese tour covers agenda/reminders, HD browsing and dev
 <td align="center" width="33%"><strong>Floral calendar</strong><br><br><img src="docs/assets/screens/tab5-floral.png" width="280" alt="Monthly flowers, lunar dates and solar terms"></td>
 </tr></table>
 
-Annual Dots gives every day a dot, with leap-year support, three palettes and automatic day/night switching. The floral calendar includes lunar dates, solar terms and holidays. Neither needs an extra collection. Paintings and calligraphy support landscape and portrait and retain the work title, artist and museum; verified Chinese titles appear on screen, with original collection titles retained otherwise.
+Annual Dots gives every day a dot, with leap-year support, automatic day/night colors plus a separate warm-gray choice. The floral calendar includes lunar dates, solar terms and holidays. Neither needs an extra collection. Paintings and calligraphy support landscape and portrait and retain the work title, artist and museum; verified Chinese titles appear on screen, with original collection titles retained otherwise.
 
 [Portrait painting](docs/assets/screens/tab5-painting-portrait.png) · [Portrait calligraphy](docs/assets/screens/tab5-calligraphy-portrait.png) · [Complete screensaver guide](docs/FEATURES.zh.md#tab5)
 
@@ -81,11 +79,11 @@ Annual Dots gives every day a dot, with leap-year support, three palettes and au
 <!-- downloads:start -->
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.7 | [Download · 24 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AIBotBridge-0.6.7-setup-win-x64.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.8 | [Download · 24 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/AI-bot-bridge-v0.6.8-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.8/SHA256SUMS.txt) |
 | Mac bridge · macOS 13+ / Apple Silicon | 0.6.7 | [Download · 14 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AIBotBridge-0.6.7-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.3 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/AI-bot-0.5.3-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/SHA256SUMS.txt) |
-| TAB5 · first install from factory system | 0.2.205-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/TAB5-first-install-0.2.205-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.205-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/TAB5-upgrade-0.2.205-ui.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.210-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/AI-bot-tab5-0.2.210-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.210-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/AI-bot-tab5-0.2.210-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · standard | 2026.10.15.1 | [Download · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · complete HD | 2026.10.16 | [Download · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
 | Daily Painting · standard | 2026.10.14.1 | [Download · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
@@ -111,7 +109,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.7.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-194-ACCEPTANCE-20261014.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.8.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-210-ACCEPTANCE-20261017.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](docs/development/TAB5-SOURCE.md) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

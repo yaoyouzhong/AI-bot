@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-当前桥接 **0.6.7**、TAB5 **0.2.205-ui**、ESP8266 **0.5.3**。两类图库各 366 件；标准书法 **2026.10.15.1**，标准名画沿用 **2026.10.14.1**，另提供 **2026.10.16 高清完整包**。[本版范围与验收](RELEASE-0.6.7.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
+当前 Windows **0.6.8**、Mac **0.6.7**、TAB5 **0.2.210-ui**、ESP8266 **0.5.3**。两类图库各 366 件；标准书法 **2026.10.15.1**，标准名画沿用 **2026.10.14.1**，另提供 **2026.10.16 高清完整包**。[本版范围与验收](RELEASE-0.6.8.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -42,7 +42,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 ### 日程待办与提醒
 
-**应用 → 日程**查看今日或全部事项，新建、编辑、语音输入名称并设置开始时间、持续时长、重复和提前提醒。到点显示提醒框，可选择“知道了”或在时长允许时延后 10 分钟；到期事项保留。设备本地持久化，离线修改或删除重连后与电脑同步。最多 16 项，只有满额新增才清理最早结束的过期单次事项；保存失败保留原记录与输入。电脑端入口为设备中心的“日程待办”。
+**应用 → 日程**使用下移的“今日／全部”分段筛选，左侧显示列表、右侧突出所选事项的时间与详情；无事项时居中显示“暂无事项”和“新建”。新建、编辑并设置开始时间、持续时长、重复和提前提醒。到点显示提醒框，可选择“知道了”或在时长允许时延后 10 分钟；到期事项保留。设备本地持久化，离线修改或删除重连后与电脑同步。最多 16 项，只有满额新增才清理最早结束的过期单次事项；保存失败保留原记录与输入。电脑端入口为设备中心的“日程待办”。点击名称旁麦克风时需要电脑语音服务；离线可用键盘输入。
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-agenda-editor.png" alt="TAB5 新建日程，时间、重复和提前提醒"></td><td width="50%"><img src="assets/screens/tab5-agenda-reminder.png" alt="TAB5 居中日程提醒框"></td></tr></table>
 
@@ -75,7 +75,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-annual.png" alt="全年点阵：每天一颗点与年度进度"></td><td width="50%"><img src="assets/screens/tab5-floral.png" alt="十二月历：当月花卉、农历与节气"></td></tr></table>
 
-在 TAB5 **设置 → 屏幕与声音**选择并预览。九种屏保为经典、年度点阵、暗夜、暖灰、十二月历、自动昼夜、每日名画、每日书法和日期倒计时。十二月历预览可切月，自动屏保跟随实际月份；自动昼夜按设备本地 07:00–19:00 使用日间配色，其余为夜间配色。
+在 TAB5 **设置 → 屏幕与声音**选择并预览。屏保选项包括经典时钟、年度点阵、年度点阵暖灰、十二月历、每日名画、每日书法和日期倒计时。经典时钟和年度点阵按设备本地 07:00–19:00 使用日间配色，其余为夜间配色；不再单列暗夜与自动昼夜。经典时钟秒数变化时时分位置稳定，每分钟保留轻微移位。十二月历预览可切月，自动屏保跟随实际月份。
 
 <details>
 <summary>展开点阵暗夜与暖灰配色</summary>
@@ -173,11 +173,11 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-settings-connection.png" alt="设备设置：连接与网络"></td><td width="50%"><img src="assets/screens/tab5-settings-screen.png" alt="设备设置：屏幕与声音"></td></tr></table>
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，已提供 .205 升级包（演示）"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，已提供 .210 升级包（演示）"></td></tr></table>
 
 ![设备信息（演示元数据）](assets/screens/tab5-settings-info.png)
 
-固件升级图使用本版真实说明 sidecar；图中较旧的“当前版本”为离线夹具，示例展示向 .205 升级，不代表实机版本或跨全部历史分区兼容。
+固件升级图使用本版真实说明 sidecar；图中较旧的“当前版本”为离线夹具，示例展示向 .210 升级，不代表实机版本或跨全部历史分区兼容。
 
 电脑端“我的设备”选 TAB5，可打开 **显示设置、语音设置、日历生日、常用任务、数据设置、连接升级**；托盘分组提供常用快捷入口。[安装与连接步骤](INSTALL.zh.md#tab5-first)
 
@@ -341,20 +341,24 @@ Runtime monitoring reports connection and computer-health causes and advice. Com
 
 <a id="validation"></a>
 
+<table><tr><td width="50%"><img src="assets/screens/tab5-agenda.png" alt="210 日程分段筛选、列表与独立详情"></td><td width="50%"><img src="assets/screens/tab5-agenda-empty.png" alt="210 日程空状态与居中新建"></td></tr></table>
+
+<table><tr><td width="50%"><img src="assets/screens/tab5-classic-day.png" alt="经典时钟白天配色"></td><td width="50%"><img src="assets/screens/tab5-classic-night.png" alt="经典时钟夜间配色"></td></tr></table>
+
 ## 5. 平台与验证范围
 
 | 平台 | 当前范围 | 验证说明 |
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
 | ESP8266 0.5.3 | 小屏页面、时钟、桌宠、USB / Wi-Fi 与固定设备身份 | 真实 USB 换口与未配置 LAN 恢复已验证，具体记录见本版发布说明。 |
-| TAB5 0.2.205-ui | 触控、时钟、艺术图库、日程提醒、离线事项同步与存储设置 | 205 原生回归和最终包检查通过；201／204 已有实机结果保留，205 未刷入实机，满额腾位、BLE 整包 OTA 和长期运行另验。 |
+| TAB5 0.2.210-ui | 触控、时钟、艺术图库、日程提醒、离线事项同步与存储设置 | 210 原生回归、最终包与本地真机验收通过：日程、内部内存、USB 写入和插电重启电量；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；未实现本文 Windows TAB5、统一更新及艺术导入入口。Intel Mac 未验证。 |
 
-[发布明细](RELEASE-0.6.7.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
+[发布明细](RELEASE-0.6.8.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.7, ESP8266 0.5.3 and TAB5 0.2.205-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.8, Mac download 0.6.7, ESP8266 0.5.3 and TAB5 0.2.210-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
 **TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
 
@@ -364,4 +368,4 @@ Device Center groups My Devices, Account Data and Bridge Settings. Components up
 
 The collection manager keeps primary actions on one row, with directory/help in More. Select works in the left list; compact image paging, reading and fullscreen remain below the image. Right-click or Ctrl+0 restores the image; wheel zoom and drag also work fullscreen.
 
-Agenda/reminders in TAB5 205 support local persistence, offline edits/deletions and reconnect sync, with explicit save, repeat and advance reminders. Complete optional HD editions include device previews and guides; desktop browsing prefers verified HD originals with bounded decoding. Physical 205 acceptance remains separate from native screenshots.
+Agenda/reminders in TAB5 210 support local persistence, offline edits/deletions and reconnect sync, with explicit save, repeat and advance reminders. Complete optional HD editions include device previews and guides; desktop browsing prefers verified HD originals with bounded decoding. The refined agenda, internal memory, USB writing and connected-USB reboot battery display passed local 210 hardware acceptance; native screenshots remain isolated fixtures. Offline name entry uses the keyboard; dictation requires the computer voice service.
