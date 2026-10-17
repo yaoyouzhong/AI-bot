@@ -6,6 +6,12 @@ The Windows bridge provides master volume, mute, workstation lock and up to four
 
 完整功能需要 Windows 桥接 **0.6.9** 与 TAB5 **0.2.217-ui**；其他平台未提供本轮控制。Full functionality requires Windows 0.6.9 and TAB5 0.2.217-ui; other platforms do not advertise these controls.
 
+![TAB5 电脑控制，隔离演示](assets/screens/tab5-computer-control.png)
+
+![Windows 快捷启动配置，最终发布包的隔离自检](assets/screens/computer-control-settings.png)
+
+原生截图使用固定演示数据，不是真机照片；用户已确认真实音量、静音、启动图标与打开、锁屏状态及无闪动。临时启动项已恢复为空。 / Native fixtures are separate from physical acceptance; temporary verification launchers were cleared.
+
 ## Capabilities / 能力
 
 状态快照的 `connectionHealth.computerControlVersion=1` 表示支持此协议。缺失标识的旧桥接或其他平台不能展示可操作状态。音量使用默认 Multimedia 输出端点；没有音频设备时禁用音量和静音。播放控制使用 Windows 当前 GSMTC 媒体会话和该会话报告的能力，仅当来源标识、歌名和歌手与桥接最近发布的歌曲一致时提供控制；执行前再次核验。没有会话、展示来源没有 GSMTC 身份或当前会话不匹配时禁用，避免展示 QQ 音乐却操作其他播放器。

@@ -20,7 +20,7 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 - Installed image passed exact ELF and ota_0 VALID checks. User acceptance covers volume, mute, launchers, lock state, steady controls and Wi-Fi volume control with USB unplugged. Ten-slot storage/migration passed regression tests; existing real networks were retained without adding ten test credentials to the device.
 - Full computer control and ten-network management require Windows 0.6.9. Mac retains 0.6.7 without these controls. Preserve TAB5 display preferences; do not apply the ESP8266 carousel reset. First-install and upgrade packages share application bytes but have different formats.
-- Local candidate preparation, package/installation checks and long-term stability have separate evidence. See the [release preparation record](../RELEASE-0.6.9.md).
+- Formal publication, package/installation checks and long-term stability have separate evidence. See the [release record](../RELEASE-0.6.9.md).
 
 ## 0.2.210-ui - 2026-10-17
 

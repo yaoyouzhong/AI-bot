@@ -1,5 +1,7 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-17 0.6.9／217：新增电脑控制、静音、锁屏、十网络、Windows 启动配置，刷新应用入口、音乐空闲和实际 217 sidecar。TAB5 来源 `d31a601` 的原生 LVGL；Windows 配置来自最终发布 ZIP 内 DLL 的隔离自检。程序／文件夹画面使用通用类型字形，不打包本机软件提取图标。固定时间、电量、网络名与旧当前版本均是夹具，不冒充真机运行态。逐张 SHA-256 在 materials.json；真实验收另见发布记录。 / New native control, mute, lock, ten-network and final Windows settings fixtures; updated Apps, music idle state and actual 217 notes. Synthetic state is separate from physical acceptance.
+
 2026-10-17：新增首页硬件介绍配图，均为硬件外观与 AI-bot 原生额度页的合成展示，非实机拍摄，使用固定演示数据。来源、修改方式与提示词见 [硬件配图记录](HARDWARE-IMAGES.md)。原生截图保持不变。 / Added two hardware composites using native quota screen references; not hardware photographs. Sources, edits and prompts are recorded separately.
 
 2026-10-17：刷新 Windows 0.6.8 原生设备中心、更新窗口和服务状态，TAB5 210 日程首页／空状态／编辑／提醒、经典时钟昼夜、年度点阵、屏幕声音及实际 210 sidecar。Windows 来源为发布提交 `68382bf`；TAB5 原生来源为已验收独立源码 `dc61c08`，同一批原生回归 PPM 保留像素转 PNG。设备信息和升级页的旧“当前版本”、电量及时间均是固定夹具，不是运行态或真机版本证据；新固件身份见发布包。新 Windows 窗口在读取设置前启用隔离测试目录，无账户、硬件写入、真实麦克风或消息发送。未变化画面保留原来源与许可。新版视频及三种封面见 [PRODUCT_VIDEO](PRODUCT_VIDEO.md)，精确摘要在 `licenses/materials.json`。

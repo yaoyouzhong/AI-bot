@@ -75,8 +75,8 @@
     "docs/assets/guides/serial.svg": "e457b5ac4e3e23babb4d4026f500ea8b9a91acd4c278ad19ae75a103085e11f8",
     "docs/assets/guides/flash-result.svg": "29f268002ab65d368d1d7217ccaf71108c51b7ae699a0d8f8fe28e3ad73cecf3",
     "docs/assets/guides/setup.svg": "5d8b26939336e30c876e3f6a5e3909eb5dce72409b5a6b7a7c796051b787ac89",
-    "docs/assets/product-intro/AI-bot-cover.png": "366f8ff5d73100f18cdde80b6e7125f938045a0616243d281a7b3b86075f4b96",
-    "docs/assets/product-intro/AI-bot-product-intro.mp4": "7aa9cfa4d53002d1c9375ae36c2c3b6fab3b6eebb5f8413161630af702c57e13",
+    "docs/assets/product-intro/AI-bot-cover.png": "1cfc352ea7dab32de59511bca8f82125fb4e4f01acc73478567e5e9926460b32",
+    "docs/assets/product-intro/AI-bot-product-intro.mp4": "4f4a99b33a77738a6e65a6905bf931e44e4e67ad51b1dc25b555fe84301bac07",
     "docs/assets/screens/firmware-flasher.png": "1d98e295caa5a18a156607af352a84de66580066f1860734bb6a8b01e94cbf0a",
     "windows-app/AIBotBridge/Assets/flash-icon.ico": "af7ba3d354f2043e26f6935965d1600f498d812229478474dd9caf4ded94f555",
     "docs/assets/screens/device-center.png": "85b914378814e3274d8677ad6ad63541d33c71d9f6166140b66ae5135cb965cb",
@@ -107,7 +107,7 @@
     "docs/assets/screens/tab5-painting.png": "468c40adcda721aaef61c095a8c191959cb342858ca5fee8151fd285e1a7278d",
     "docs/assets/screens/tab5-quick.png": "32c77f17bd0fcd4d8fb4935cce2bc545f349bfc5bdb9fd3ffb2d18f2e7d51ee8",
     "docs/assets/screens/update-center.png": "da4d1c1f10330d58770be0a13b634fe2d59a24ed53133967f4f4fbad488e169a",
-    "docs/assets/screens/tab5-apps.png": "27345274281c383c53be487ff2fc9481af6d9d4fd093ba5fa265a87281ce97a3",
+    "docs/assets/screens/tab5-apps.png": "43cfcf1306db28a0af29cc384d0866a0def187f781e862483ef557d561f5e38b",
     "docs/assets/screens/tab5-camera.png": "9d98644aff6f299f7daa7cb67ef948d80a1f99e544673af45fcabce6affa6f61",
     "docs/assets/screens/tab5-clock-1.png": "3fec9245d582e542eaab8840309562a469e14624820aa1853561e26d68e9be3f",
     "docs/assets/screens/tab5-clock-2.png": "2afcad803e8d98f79845d230fdebcbdb8bf031dfd3f26451ef3d870ba6a11c11",
@@ -122,7 +122,7 @@
     "docs/assets/screens/tab5-reply.png": "46097a16c5c94ffb51e2ee1680bbc4d645507bc87e64e05481b963f25f830b60",
     "docs/assets/screens/tab5-settings-connection.png": "44db9d5fe853d1d876163f6dedbee17ca3539e3c1845d03c0614f786d8131c9b",
     "docs/assets/screens/tab5-settings-content.png": "40f33f7dd14ca2945f5f482a127dec63ad59a2bc7187657475d7049839c8ddf5",
-    "docs/assets/screens/tab5-settings-firmware.png": "7b9eb38c9358911232a5551627f8d4f55ce7190f1be688d22a0696654069ad71",
+    "docs/assets/screens/tab5-settings-firmware.png": "ad11ad77cec2c2a8cb3a7e1d389d2943673849a8343d962aca2c5dcb52734af0",
     "docs/assets/screens/tab5-settings-screen.png": "b69f9380c9f374cb57141f6fb24f67e3b0df1a72433b5847fcbdb0cf55a193ae",
     "docs/assets/screens/tab5-seven-days.png": "147b17d651dc7252231f92543aaf80e5e925616e82439fb26cff49d05ec6cde0",
     "docs/assets/screens/tab5-stocks.png": "8f3b6361f7012749fd28970d3e6a0ac930455125ab120b39cdb3f189df9ddc8c",
@@ -142,8 +142,8 @@
     "docs/assets/screens/tab5-settings-info.png": "aec6540079f4eaef5467189a9b9580762b913ac1455e9d7d9ce53478c95e85b3",
     "docs/assets/screens/tab5-clock-geometric.png": "88daaac5e82737ed83b0b5a4e23b7485524f4f5428790ee362d5552c8125ce6c",
     "docs/assets/screens/tab5-clock-star.png": "35fdf448f542a429eeb3c67a995ae068c47de75f7a912f7ac194040a5585692f",
-    "docs/assets/product-intro/AI-bot-cover-3x4.png": "c38d7a6c0490a2efd5b208cfca14b6cebee824bd17920c4ab8816597b6380d0d",
-    "docs/assets/product-intro/AI-bot-cover-4x3.png": "0ab1d93386d297947bdf82d8409b13b678f6b0bcbf2929ed6ebeae423db502dc",
+    "docs/assets/product-intro/AI-bot-cover-3x4.png": "99de57c892365d723c2fe46f172c949d264f4e78efa404c3d1c013ba13add7df",
+    "docs/assets/product-intro/AI-bot-cover-4x3.png": "57c593c3fabbc8ace3935388a5e0be120e9793c2ab989cbab3b3d8e6a3c8bc36",
     "docs/assets/screens/tab5-settings-storage.png": "e0423598b37941a0dbbb9337358ddcf2e42579c9c36a802d85ff1126339ca621",
     "docs/assets/screens/gallery-browser.png": "547b550acd6857d95927c5c7dc7628d07f2647178fdc4a50537e59411b8716e7",
     "docs/assets/screens/gallery-fullscreen.png": "58cef39ef6b0b9273f459802af3fa214a3ed21bc16594769c40cbb87abf7b24b",
@@ -155,7 +155,13 @@
     "docs/assets/screens/tab5-agenda-reminder.png": "015bed49e60b1e222b08a4acdc1f87295b45ad0f0101d3949c7c07119c6488bd",
     "docs/assets/screens/tab5-agenda-empty.png": "7868493d6f5c4c5266586c375160d034dbf08921f049a5202b49e49fd67182b8",
     "docs/assets/screens/tab5-classic-day.png": "d2554271ac2599a85ee317bf9bbaecbc0113e7faf0fad1c10648a955fc9d6350",
-    "docs/assets/screens/tab5-classic-night.png": "138122b8613ec3ce4a10211b6c6aecb938aff22bd4ce6ae12948e7ad613be918"
+    "docs/assets/screens/tab5-classic-night.png": "138122b8613ec3ce4a10211b6c6aecb938aff22bd4ce6ae12948e7ad613be918",
+    "docs/assets/screens/tab5-computer-control.png": "c8162de00ee803ab185d4e4504728d17cb298bd324e9d7770d00342ff030156d",
+    "docs/assets/screens/tab5-computer-control-muted.png": "100242b57675206a7e73d4e4153faff28fd5ac96e5a2f91d8534a26e7eeec5de",
+    "docs/assets/screens/tab5-computer-control-locked.png": "1dc63de9efa63cd7752d028342e028bacf75cefe2d7ae74450ae6b443d4ede11",
+    "docs/assets/screens/tab5-network-ten.png": "11985d0cda9db5723d610438d7b21b1142fbbf434ec4fb69b2c29b02f3be58d8",
+    "docs/assets/screens/computer-control-settings.png": "76c96e7b844d5285cac72f5612f9aa3d8a68e965bf69cb477f9e2ca4c742d83e",
+    "docs/assets/screens/tab5-music-idle.png": "2b14feff330f5e2298d2b69ed59af42b940c00598fdee887bfe21f2a345dec82"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",
@@ -168,6 +174,18 @@
     "nativeFixtures": true,
     "durationSeconds": 108,
     "sfxCues": 29,
+    "subjectiveListening": "Unverified"
+  },
+  "productVideo20261017Release069": {
+    "sourceArchive": "AI-bot-product-video-source-20261017-069-217.zip",
+    "sourceArchiveSha256": "61448f28a2e82daa6ed06f853084eab7e2c816a76cfacaa7cac01d060eaa7963",
+    "videoSha256": "4f4a99b33a77738a6e65a6905bf931e44e4e67ad51b1dc25b555fe84301bac07",
+    "sourceCommit": "9a570d4b443b1354306d753afcca9fe8f0fbd387",
+    "tab5SourceCommit": "d31a601289dbfc4edf8da82d0f91a7f926dbd090",
+    "nativeFixtures": true,
+    "durationSeconds": 116,
+    "sfxCues": 35,
+    "nativeAttachment": "https://github.com/user-attachments/assets/d6130fef-1c86-4e4c-b976-43d941d5f403",
     "subjectiveListening": "Unverified"
   }
 }

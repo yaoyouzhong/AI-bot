@@ -19,8 +19,8 @@ All notable changes to this project will be documented in this file.
 
 ### Delivery scope
 
-- Prepare Windows 0.6.9 and TAB5 0.2.217-ui. Mac stays on 0.6.7, ESP8266 on 0.5.3, and existing artwork packs retain their versions. Full computer control requires this Windows bridge.
-- Existing physical acceptance covers volume, mute, launcher icons/opening, lock/unlock state, steady controls and Wi-Fi volume control with USB unplugged. Candidate package and installation results are tracked separately in the [release preparation record](docs/RELEASE-0.6.9.md).
+- Publish Windows 0.6.9 and TAB5 0.2.217-ui. Mac stays on 0.6.7, ESP8266 on 0.5.3, and existing artwork packs retain their versions. Full computer control requires this Windows bridge.
+- Existing physical acceptance covers volume, mute, launcher icons/opening, lock/unlock state, steady controls and Wi-Fi volume control with USB unplugged. Package and installation results are tracked separately in the [release record](docs/RELEASE-0.6.9.md).
 
 ## 0.6.8 - 2026-10-16
 

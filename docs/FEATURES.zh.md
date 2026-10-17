@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-当前 Windows **0.6.8**、Mac **0.6.7**、TAB5 **0.2.210-ui**、ESP8266 **0.5.3**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.8.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
+当前 Windows **0.6.9**、Mac **0.6.7**、TAB5 **0.2.217-ui**、ESP8266 **0.5.3**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.9.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -173,11 +173,11 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-settings-connection.png" alt="设备设置：连接与网络"></td><td width="50%"><img src="assets/screens/tab5-settings-screen.png" alt="设备设置：屏幕与声音"></td></tr></table>
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，已提供 .210 升级包（演示）"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，已提供 .217 升级包（演示）"></td></tr></table>
 
 ![设备信息（演示元数据）](assets/screens/tab5-settings-info.png)
 
-固件升级图使用本版真实说明 sidecar；图中较旧的“当前版本”为离线夹具，示例展示向 .210 升级，不代表实机版本或跨全部历史分区兼容。
+固件升级图使用本版真实说明 sidecar；图中较旧的“当前版本”为离线夹具，示例展示向 .217 升级，不代表实机版本或跨全部历史分区兼容。
 
 电脑端“我的设备”选 TAB5，可打开 **显示设置、语音设置、日历生日、常用任务、数据设置、连接升级**；托盘分组提供常用快捷入口。[安装与连接步骤](INSTALL.zh.md#tab5-first)
 
@@ -345,22 +345,40 @@ Runtime monitoring reports connection and computer-health causes and advice. Com
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-classic-day.png" alt="经典时钟白天配色"></td><td width="50%"><img src="assets/screens/tab5-classic-night.png" alt="经典时钟夜间配色"></td></tr></table>
 
+没有曲目时音乐页显示空闲，清除旧曲名与封面。 / With no current track, the music page clears stale metadata and artwork.
+
+![音乐空闲原生界面](assets/screens/tab5-music-idle.png)
+
+## 电脑控制与网络 / Computer controls and network
+
+**应用 → 控制**调节电脑音量、静音或锁屏；静音图标为扬声器加斜杠，数字／图标位于静音按钮上方居中。电脑锁定后显示“已锁屏”，解锁后恢复。最多四个快捷启动项在 Windows 设备中心配置，显示程序或文件夹图标。播放／暂停及上一首／下一首在音乐页，按实际媒体会话能力启用。[完整说明](COMPUTER-CONTROL.md)
+
+![电脑控制与启动项，隔离演示](assets/screens/tab5-computer-control.png)
+
+<table><tr><td width="50%"><img src="assets/screens/tab5-computer-control-muted.png" alt="静音状态"></td><td width="50%"><img src="assets/screens/tab5-computer-control-locked.png" alt="电脑已锁屏"></td></tr></table>
+
+网络设置最多保存 **10 个 Wi-Fi**，迁移既有记录、备注与优先项。黄色图标表示已经连上路由器但电脑桥接尚未通过；“桥接正常／鉴权通过”才表示电脑通路已就绪。下图选中第十项，使用合成网络名，不是真机配置清单。
+
+![十网络容量原生预览](assets/screens/tab5-network-ten.png)
+
+Windows 0.6.9 + TAB5 217 provide volume/mute/lock, actual lock state and four local launchers with icons. Media controls follow the matching Windows media session. Save ten networks with migration; router connectivity and authenticated bridge readiness are separate states. Native fixture images do not establish hardware acceptance.
+
 ## 5. 平台与验证范围
 
 | 平台 | 当前范围 | 验证说明 |
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
 | ESP8266 0.5.3 | 小屏页面、时钟、桌宠、USB / Wi-Fi 与固定设备身份 | 真实 USB 换口与未配置 LAN 恢复已验证，具体记录见本版发布说明。 |
-| TAB5 0.2.210-ui | 触控、时钟、艺术图库、日程提醒、离线事项同步与存储设置 | 210 原生回归、最终包与本地真机验收通过：日程、内部内存、USB 写入和插电重启电量；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
+| TAB5 0.2.217-ui | 电脑控制、十网络、横屏翻转、时钟、图库、日程与存储 | 217 精确镜像启动、215 控制／锁屏／无闪动及拔 USB 后 Wi-Fi 音量获确认；210 的日程、内存和重启验收沿用；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；未实现本文 Windows TAB5、统一更新及艺术导入入口。Intel Mac 未验证。 |
 
-[发布明细](RELEASE-0.6.8.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
+[发布明细](RELEASE-0.6.9.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.8, Mac download 0.6.7, ESP8266 0.5.3 and TAB5 0.2.210-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.9, Mac download 0.6.7, ESP8266 0.5.3 and TAB5 0.2.217-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
-**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
+**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Art screensavers support portrait rotation; normal system pages remain landscape and can automatically flip 180 degrees with touch following. Art collections are optional downloads.
 
 **ESP8266:** AI activity, quotas, reset times/cards and configurable cycling are the primary use. Expand the galleries for other providers, weather, stocks, metrics, music, pets and the clock screensaver. Control pages and settings from the computer; TAB5 touch operations, Codex Direct and art collections do not apply to the small display.
 

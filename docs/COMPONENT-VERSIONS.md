@@ -2,16 +2,16 @@
 
 桥接、ESP8266 和 TAB5 分别更新，不要求三个版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
 
-本地候选准备：Windows **0.6.9**、TAB5 **0.2.217-ui**。下表仍为已发布版本，公开附件确认后再更新；Mac 与 ESP8266 不重建。Local preparation targets Windows 0.6.9 and TAB5 0.2.217-ui; the published table remains unchanged until publication. See [preparation record](RELEASE-0.6.9.md).
+2026-10-17 已发布 Windows **0.6.9** 与 TAB5 **0.2.217-ui**；Mac 与 ESP8266 保留已发布包。Windows 0.6.9 and TAB5 217 are published; see the [release record](RELEASE-0.6.9.md).
 
 ## 版本来源
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows 桥接 | 0.6.8（已发布） | 根目录 `VERSION` | `bridge-v0.6.8` |
+| Windows 桥接 | 0.6.9（已发布） | 根目录 `VERSION` | `bridge-v0.6.9` |
 | Mac 桥接 | 0.6.7（沿用已发布包） | 按实际 Mac 附件识别 | `bridge-v0.6.7` |
 | ESP8266 固件 | 0.5.3（已发布） | `firmware/VERSION` | `esp8266-v0.5.3` |
-| TAB5 固件 | 0.2.210-ui（已发布） | `versions/TAB5` | `tab5-v0.2.210-ui` |
+| TAB5 固件 | 0.2.217-ui（已发布） | `versions/TAB5` | `tab5-v0.2.217-ui` |
 
 表中登记各平台实际已发布版本；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接源码元数据共用版本线，正式下载按平台实际存在的附件分别取版本；本次 Mac 无功能改动，保留 0.6.7，不以源码中的候选版本号替代已发布版本。
 
@@ -19,7 +19,7 @@
 
 `versions/TAB5` 登记待发布镜像版本，不替代独立 TAB5 工程的镜像内版本；发布前核对其应用、sidecar、首刷包与公开源码身份。TAB5 本地候选仍由[固定固件工作流](TAB5-FIRMWARE-WORKFLOW.md)管理。
 
-此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。本轮范围及验收见 [0.6.8／210 说明](RELEASE-0.6.8.md)，此前结果保留在 [0.6.7／205 历史说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
+此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。本轮范围及验收见 [0.6.9／217 说明](RELEASE-0.6.9.md)，此前结果保留在 [0.6.7／205 历史说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
 
 桥接与历史组合版的发布展示标题统一使用 `AI-bot v版本号`，例如 `AI-bot v0.6.7`；功能说明放在正文。ESP8266 和 TAB5 保留各自命名方式，固件版本值和新包名不加 `v`。Git 标签保留现有前缀。后续构建物和旧客户端兼容规则见[命名规范](NAMING-CONVENTIONS.md)。
 
@@ -106,4 +106,4 @@ Windows 0.6.2 retains daily update checks, deduplicated notifications, automatic
 
 The bridge, ESP8266 and TAB5 have independent version sources and changelogs. Only the changed component is renumbered and delivered. Windows/macOS source metadata shares the bridge version line, while published downloads are selected independently per platform; TAB5 release declarations must match actual image, notes, first-install application and public source identity. Protocol version 1 is separate from release versions, and compatibility is based on supported protocol/features rather than equal numbers. Windows update checks select stable versions per component and retain legacy-bundle support. Component-specific packaging verifies only the requested payload and stages minimal user downloads plus checksums. Historical v0.5.0 tags/assets remain unchanged. The authorized CI patch routes bridge/ESP8266 component tags to draft packages only, while TAB5 tags validate metadata and retain independent local build/material validation. The candidate workflow also supports manual component selection. Pushing main triggers CI checks; explicitly pushing a version tag triggers its component candidate workflow. Local CLI calls use scripts/github_cli.py to resolve the real console executable, bypass GUI shims, hide its window and capture output/errors on Windows. Creating tags, pushing, flashing or publicly releasing still requires authorization for the corresponding action.
 
-Windows 0.6.8 and TAB5 0.2.210-ui are published; Mac retains 0.6.7. See [release scope and acceptance](RELEASE-0.6.8.md).
+Windows 0.6.9 and TAB5 0.2.217-ui are published; Mac retains 0.6.7. See [release scope and acceptance](RELEASE-0.6.9.md).

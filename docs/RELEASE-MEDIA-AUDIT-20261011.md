@@ -67,3 +67,9 @@ All 87 public screenshots were visually reviewed and their registered fingerprin
 开场和三种封面均恢复 Codex Pro 周额度 88%／5d 14h 的双设备对比，昼夜环仍在 48–57 秒。完整导出及解码、216 张联系帧、转场和封面复核通过；GitHub 不可变视频附件仍为原版，本地材料未推送。
 
 Local opening/covers now compare Codex Pro weekly quota on both devices, retaining the solar ring in its clock scene. Complete export/decode and contact/transition/cover review passed. The existing GitHub video attachment remains unchanged; this correction is not pushed.
+
+## 2026-10-17 0.6.9／217 更新
+
+本轮刷新 8 张相关原生截图：控制／静音／锁屏、十网络、电脑启动设置、应用入口、音乐空闲和实际 217 说明；保留未变化画面的来源。116 秒／15 镜头／35 音效与三比例封面已审阅，含 232 联系帧、14 切点、密集画面和全片解码；音频电平和时序通过，主观试听未验。新影片重新上传为 GitHub 原生附件，公开播放证据见 [本轮收尾](development/RELEASE-069-217-CLOSEOUT-20261017.md)。源工程及校验清单随 Windows Release 分发。来源、许可及精确媒体摘要在 PRODUCT_VIDEO、SCREENSHOTS 与 materials.json。
+
+Eight native captures, the 116-second/15-shot film, 35 cues and all three covers are refreshed. Decode, contacts, cuts, dense frames, font/image loading and audio structure/timing passed. Subjective listening remains unverified. Public playback has its own closeout evidence; synthetic fixtures do not replace hardware acceptance.

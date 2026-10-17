@@ -231,3 +231,9 @@ TAB5 合成图使用 M5Stack 官方产品实图与本项目额度界面；官方
 `docs/assets/hardware/tab5-side-official.png` is cropped from M5Stack's official `C145_10.webp` photograph, with no redrawing or sharpening. Copyright remains with M5Stack; this photo is excluded from the project's MIT license. / TAB5 侧面图取自 M5Stack 官方实图，仅裁去留白，未重绘或锐化，不纳入本项目 MIT 许可。来源及裁剪坐标见上述配图记录。
 
 The additional GPIO, M5 logo, antenna and back photographs (`tab5-side-gpio-official.png`, `tab5-side-logo-official.png`, `tab5-side-antenna-official.png`, `tab5-back-official.png`) are whitespace-only crops of official `C145_11.webp`, `C145_12.webp`, `C145_13.webp` and `C145_09.webp`. M5Stack retains copyright; these photographs are excluded from the project MIT license. Source URLs, exact crop rectangles and file hashes are recorded in [HARDWARE-IMAGES](docs/HARDWARE-IMAGES.md) and `licenses/materials.json`. / 新增三侧面与背面实图同属 M5Stack 官方照片，仅去除留白，不重绘、不锐化，不纳入项目 MIT 许可。
+
+## Product film 0.6.9 / TAB5 217
+
+The separately distributed product-video source contains adapted scaffold and audio mixing/effect code from https://github.com/op7418/guizang-product-video-skill under AGPL-3.0; its LICENSE and NOTICE remain in that archive. Inter and Noto Sans SC retain OFL notices. Original project music, mascot and native fixture captures retain their own provenance. Mi Fu, Hongxian Poems, Tokyo National Museum / ColBase TB-1459 (https://colbase.nich.go.jp/collection_items/tnm/TB-1459?locale=zh), is CC BY 4.0, scaled/cropped inside native UI. This does not imply museum endorsement. No commercial song/album artwork or runtime-extracted launcher icons are redistributed. Details and hashes: [PRODUCT_VIDEO](docs/PRODUCT_VIDEO.md), [SCREENSHOTS](docs/SCREENSHOTS.md), licenses/materials.json.
+
+独立视频工程保留上述 AGPL／OFL 与作品署名条款，不将第三方素材自动归入项目 MIT；控制画面仅使用通用类型字形。
