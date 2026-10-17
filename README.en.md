@@ -1,10 +1,10 @@
 # AI-bot
 
-Current stable releases: **Windows 0.6.8, Mac 0.6.7, TAB5 0.2.210-ui and ESP8266 0.5.3**. Windows improves connection diagnostics, resumable downloads and Device Center windows. TAB5 adds the refined agenda and centered empty state, automatic day/night screensavers, restored firmware writing speed and automatic battery estimates after a connected-USB reboot. Codex membership remains Pro. [Changes and validation](docs/RELEASE-0.6.8.md)
+**Your AI status, all on one screen.** AI-bot is a desktop AI companion that works with your computer, bringing AI task status, account quotas across providers and everyday information to a dedicated display, with fewer trips between windows. Follow Claude Code / Codex progress and view plan usage or API balances for Chinese AI services including DeepSeek, Zhipu, Kimi, MiniMax and Alibaba Model Studio.
 
-Painting and calligraphy each use content edition **2026.1**, with 366 works per collection. Choose standard or complete HD; HD includes matching standard previews and guides. [Edition numbering](docs/GALLERY-VERSIONS.md). Use the [resumable download/merge helper](docs/GALLERY-HD.md), then import the full ZIP.
+Choose the compact ESP8266 display for status, quotas and alerts at a glance. Choose the M5Stack TAB5 touchscreen to also read and continue Codex conversations, enter ideas by voice and manage tasks and reminders, keeping both progress and your next action within reach.
 
-**Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
+Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.8.md) · [简体中文](README.md)
 
