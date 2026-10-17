@@ -2,7 +2,7 @@
 
 Current stable releases: **Windows 0.6.8, Mac 0.6.7, TAB5 0.2.210-ui and ESP8266 0.5.3**. Windows improves connection diagnostics, resumable downloads and Device Center windows. TAB5 adds the refined agenda and centered empty state, automatic day/night screensavers, restored firmware writing speed and automatic battery estimates after a connected-USB reboot. Codex membership remains Pro. [Changes and validation](docs/RELEASE-0.6.8.md)
 
-Standard calligraphy is **2026.10.15.1**; standard painting **2026.10.14.1** is retained. Optional **2026.10.16 complete HD collections** contain 366 works each, including standard previews and guides. Use the [resumable download/merge helper](docs/GALLERY-HD.md), then import the full ZIP.
+Painting and calligraphy each use content edition **2026.1**, with 366 works per collection. Choose standard or complete HD; HD includes matching standard previews and guides. [Edition numbering](docs/GALLERY-VERSIONS.md). Use the [resumable download/merge helper](docs/GALLERY-HD.md), then import the full ZIP.
 
 **Your AI status, at a glance.** Bring Claude Code / Codex task status, account quotas and everyday information to an ESP8266 desktop display or M5Stack TAB5.
 
@@ -26,10 +26,6 @@ The updated 108-second Chinese tour covers the refined agenda, automatic day/nig
 <tr><td nowrap="nowrap"><strong>Device management</strong></td><td nowrap="nowrap">Windows Device Center: accounts, data, devices; check, download and verify updates. <a href="docs/UPDATES.md">Guide</a></td></tr>
 </tbody>
 </table>
-
-<table><tr><td width="50%" align="center"><strong>Agenda and reminders</strong><br><img src="docs/assets/screens/tab5-agenda-reminder.png" width="420" alt="TAB5 native reminder with acknowledge and snooze"></td><td width="50%" align="center"><strong>Desktop HD collections</strong><br><img src="docs/assets/screens/gallery-fullscreen.png" width="420" alt="Native HD calligraphy fullscreen zoom"></td></tr></table>
-
-[Agenda and device guide](docs/RELEASE-0.6.8.md) · [HD downloads and installation](docs/GALLERY-HD.md)
 
 <table>
 <thead><tr><th width="33%" nowrap="nowrap">Computer app</th><th width="33%" nowrap="nowrap">ESP8266 display</th><th width="33%" nowrap="nowrap">TAB5 touch display</th></tr></thead>
@@ -84,10 +80,10 @@ Annual Dots gives every day a dot, with leap-year support, automatic day/night c
 | ESP8266 display · first install / upgrade | 0.5.3 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/AI-bot-0.5.3-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/SHA256SUMS.txt) |
 | TAB5 · first install from factory system | 0.2.210-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/AI-bot-tab5-0.2.210-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/SHA256SUMS.txt) |
 | TAB5 · upgrade existing AI-bot | 0.2.210-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/AI-bot-tab5-0.2.210-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/SHA256SUMS.txt) |
-| Daily Calligraphy · standard | 2026.10.15.1 | [Download · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
-| Daily Calligraphy · complete HD | 2026.10.16 | [Download · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
-| Daily Painting · standard | 2026.10.14.1 | [Download · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
-| Daily Painting · complete HD | 2026.10.16 | [Download · 1.86 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#painting) |
+| Daily Calligraphy · standard | 2026.1 | [Download · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
+| Daily Calligraphy · complete HD | 2026.1 | [Download · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
+| Daily Painting · standard | 2026.1 | [Download · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
+| Daily Painting · complete HD | 2026.1 | [Download · 1.86 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#painting) |
 
 Install the computer bridge, then choose firmware for your device. Artwork collections are optional. Components update independently; reinstalling an unchanged version is unnecessary.
 

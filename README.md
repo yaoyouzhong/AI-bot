@@ -2,7 +2,7 @@
 
 当前正式版：**Windows 0.6.8、Mac 0.6.7、TAB5 0.2.210-ui、ESP8266 0.5.3**。Windows 优化连接诊断、更新下载续传和设备中心窗口交互；TAB5 更新日程布局与空状态、屏保昼夜切换，恢复固件写入速度和插电重启电量显示。Codex 会员保留 Pro。[本版变化与验证范围](docs/RELEASE-0.6.8.md)
 
-标准书法更新为 **2026.10.15.1**；标准名画 **2026.10.14.1** 沿用原包。可选两套 **2026.10.16 高清完整图库**，各 366 件，已含标准图和导读；通过[分段续传工具](docs/GALLERY-HD.md)下载合并，再导入完整 ZIP。
+每日书法与每日名画均为 **2026.1 内容版**，各 366 件。按需选择标准版或高清完整版；高清版已含标准图和导读，无需重复安装。[版次说明](docs/GALLERY-VERSIONS.md)。通过[分段续传工具](docs/GALLERY-HD.md)下载合并，再导入完整 ZIP。
 
 **AI 状态，一眼便知。** 把 Claude Code / Codex 的任务状态、账户额度与日常信息，放到桌边的 ESP8266 小屏或 M5Stack TAB5 上。
 
@@ -28,10 +28,6 @@
 <tr><td nowrap="nowrap"><strong>设备管理</strong></td><td nowrap="nowrap">Windows 设备中心配置账号、数据与设备；统一查看更新并下载校验。<a href="docs/UPDATES.md">更新说明</a></td></tr>
 </tbody>
 </table>
-
-<table><tr><td width="50%" align="center"><strong>日程提醒</strong><br><img src="docs/assets/screens/tab5-agenda-reminder.png" width="420" alt="TAB5 日程提醒：知道了或延后提醒"></td><td width="50%" align="center"><strong>电脑高清图库</strong><br><img src="docs/assets/screens/gallery-fullscreen.png" width="420" alt="高清书法原生全屏放大浏览"></td></tr></table>
-
-[日程与设备使用说明](docs/RELEASE-0.6.8.md) · [高清图库下载与安装](docs/GALLERY-HD.md)
 
 <table>
 <thead><tr><th width="33%" nowrap="nowrap">电脑端管理</th><th width="33%" nowrap="nowrap">ESP8266 小屏</th><th width="33%" nowrap="nowrap">TAB5 触控大屏</th></tr></thead>
@@ -86,10 +82,10 @@
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.3 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/AI-bot-0.5.3-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/SHA256SUMS.txt) |
 | TAB5 · 出厂系统首次安装 | 0.2.210-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/AI-bot-tab5-0.2.210-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.210-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/AI-bot-tab5-0.2.210-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.210-ui/SHA256SUMS.txt) |
-| 每日书法 · 标准版 | 2026.10.15.1 | [下载 · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
-| 每日书法 · 高清完整版 | 2026.10.16 | [下载 · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
-| 每日名画 · 标准版 | 2026.10.14.1 | [下载 · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
-| 每日名画 · 高清完整版 | 2026.10.16 | [下载 · 1.86 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#painting) |
+| 每日书法 · 标准版 | 2026.1 | [下载 · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
+| 每日书法 · 高清完整版 | 2026.1 | [下载 · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
+| 每日名画 · 标准版 | 2026.1 | [下载 · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
+| 每日名画 · 高清完整版 | 2026.1 | [下载 · 1.86 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#painting) |
 
 先安装电脑桥接，再按设备选择固件；书法、名画按需下载。各组件独立更新，已是所列版本无需重装或重刷。
 

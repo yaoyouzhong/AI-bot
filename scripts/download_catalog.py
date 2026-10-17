@@ -29,6 +29,17 @@ SPECS = {
     "painting": ("gallery", TEMPLATES["painting"][0], "每日名画 · 标准版", "Daily Painting · standard"),
 }
 START, END = "<!-- downloads:start -->", "<!-- downloads:end -->"
+# Public content editions; keep package versions/URLs/hashes untouched. These HD
+# editions include the matching standard previews and guides. Unknown revisions
+# retain their package version until their content edition is reviewed.
+GALLERY_EDITIONS = {
+    "painting": {"2026.10.14.1": "2026.1", "2026.10.16": "2026.1"},
+    "calligraphy": {"2026.10.15.1": "2026.1", "2026.10.16": "2026.1"},
+}
+
+
+def gallery_edition(category, version):
+    return GALLERY_EDITIONS.get(category, {}).get(version, version)
 
 
 def request(url, method="GET"):
@@ -180,7 +191,7 @@ def table(data, language="zh", tag=None):
     lines = ["| 用途 | 版本 | 下载 | SHA-256 |" if zh else "| Use | Version | Download | SHA-256 |", "| --- | --- | --- | --- |"]
     for key, spec in SPECS.items():
         item = entries[key]
-        version = item["version"] + ((" · 本次发布" if zh else " · this release") if key in changed else "")
+        version = gallery_edition(key, item["version"]) + ((" · 本次发布" if zh else " · this release") if key in changed else "")
         label = "下载" if zh else "Download"
         if "size" in item:
             label += f" · {item['size'] / 1048576:.0f} MiB"
@@ -189,7 +200,7 @@ def table(data, language="zh", tag=None):
             collection = hd["collections"][key]
             title = spec[2].replace("标准版", "高清完整版") if zh else spec[3].replace("standard", "complete HD")
             label = ("下载" if zh else "Download") + f" · {collection['size'] / 1073741824:.2f} GiB"
-            lines.append(f"| {title} | {hd['version']} | [{label}]({HD_GUIDE}#download) | [SHA-256]({HD_GUIDE}#{key}) |")
+            lines.append(f"| {title} | {gallery_edition(key, hd['version'])} | [{label}]({HD_GUIDE}#download) | [SHA-256]({HD_GUIDE}#{key}) |")
     return "\n".join(lines)
 
 

@@ -36,6 +36,21 @@ class DownloadCatalogTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Incomplete paired release"):
             catalog.validate(data)
 
+    def test_gallery_content_editions_preserve_package_identity(self):
+        before = copy.deepcopy(self.data)
+        for language in ("zh", "en"):
+            rows = catalog.table(self.data, language).splitlines()
+            for key in ("painting", "calligraphy"):
+                item = self.data["downloads"][key]
+                index = next(i for i, row in enumerate(rows) if catalog.asset_url(item) in row)
+                self.assertIn("| 2026.1 |", rows[index])
+                self.assertIn("| 2026.1 |", rows[index + 1])
+                self.assertIn(item["file"], rows[index])
+            self.assertNotIn("| 2026.10.16 |", "\n".join(rows))
+        self.assertEqual(before, self.data)
+        self.assertEqual(catalog.gallery_edition("painting", "2026.10.18"), "2026.10.18")
+        self.assertEqual(catalog.gallery_edition("windows", "0.6.8"), "0.6.8")
+
     def test_stable_discovery_ignores_drafts_prereleases_and_wrong_tags(self):
         releases = self.releases()
         for flags in ({"draft": True}, {"prerelease": True}, {"tag_name": "esp8266-v99.0.0"}):
