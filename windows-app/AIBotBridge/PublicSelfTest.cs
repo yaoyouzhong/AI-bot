@@ -36,6 +36,7 @@ internal static class PublicSelfTest
             Console.WriteLine("BUILTIN_PET_FRESH_PROFILE_OK claude/codex/pet; animated; no imported resource");
             _ = runtime.Resources();
         }
+        WindowWorkspaceSelfTest.Run(Path.Combine(Path.GetTempPath(),"aibot-window-test-"+Guid.NewGuid().ToString("N")));
         DataSourceSelfTest.Run();
         MediaPlayerSelfTest.RunAsync().GetAwaiter().GetResult();
         ComponentUpdateSelfTest.Run();
@@ -43,6 +44,8 @@ internal static class PublicSelfTest
         GalleryPackSelfTest.Run();
         Tab5ArtGuides.SelfTest();
         Task.Run(UpdateSelfTest.RunAsync).GetAwaiter().GetResult();
+        Task.Run(PackageResumeSelfTest.RunAsync).GetAwaiter().GetResult();
+        Task.Run(DeviceRecoverySelfTest.RunAsync).GetAwaiter().GetResult();
         Task.Run(GalleryUpdateSelfTest.RunAsync).GetAwaiter().GetResult();
         FirmwareFlashSelfTest.RunAsync().GetAwaiter().GetResult();
         QuotaHistorySelfTest.Run();

@@ -29,6 +29,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private bool _notificationAttention;
     private long _attentionSequence;
     private readonly Dictionary<string,List<Form>> _deviceWindows=new();
+    private readonly WindowWorkspace _panels=new();
     private bool _changingDevices;
     private bool _exiting;
     private DeviceDataDemand _demand=new([],[]);
@@ -119,7 +120,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             if(_exitSignal.WaitOne(0)){ExitThread();return;}
             while (_flashActions.TryDequeue(out var action)) action();
-            _healthGuard?.Pulse(_runtime.Health.Snapshot,_runtime.MonitorExpected,_runtime.Health.Options.Enabled,_runtime.FaultedCollectors+_services.FaultedServices);
+            _healthGuard?.Pulse(_runtime.Health.Snapshot,_runtime.MonitorExpected,_runtime.Health.Options.Enabled,_runtime.FaultedCollectors+_services.FaultedServices,_services.FaultSources|(_runtime.FaultedCollectors>0?RuntimeFaultSource.Collectors:0));
             var status = _runtime.Capture();
             _tab5?.Publish(status);
             if(status.RuntimeHealth is {} health&&(health.Session!=_healthSession||health.Sequence>_healthSequence)) {
@@ -178,10 +179,24 @@ internal sealed class TrayApplicationContext : ApplicationContext
         return _runtime.ApplyDemandAsync(_demand);
     }
     private void ShowDevices(string page="devices") {
-        if(_center is null||_center.IsDisposed)_center=new DeviceCenterForm(_devices,_services.View,HandleDeviceAction,ChangeDeviceAsync,AddDevice,HandleMenuAction,
-            key=>key=="startup"?StartupRegistration.IsEnabled:_devices.Snapshot.DesktopQuotaHistory,ChangeStartupAsync);
+        if(_center is null||_center.IsDisposed) {
+            _center=new DeviceCenterForm(_devices,_services.View,HandleDeviceAction,ChangeDeviceAsync,AddDevice,HandleMenuAction,
+                key=>key=="startup"?StartupRegistration.IsEnabled:_devices.Snapshot.DesktopQuotaHistory,ChangeStartupAsync);
+            _center.FormClosing+=(_,e)=>{if(!e.Cancel&&!ClosePanels())e.Cancel=true;};
+        }
         _center.Reload();_center.ShowPage(page);SettingsWindow.Present(_center);
     }
+    private bool ClosePanels() {
+        if(!_panels.CloseAll())return false;
+        foreach(var form in _center?.OwnedForms.ToArray()??[]) {if(form.IsDisposed)continue;form.Close();if(!form.IsDisposed&&form.Visible)return false;}
+        return true;
+    }
+    private Form PanelOwner() {if(_center is null||_center.IsDisposed||!_center.Visible)ShowDevices();return _center!;}
+    private Task<DialogResult> ShowPanelAsync(string key,Form form) {
+        UnsavedChanges.TrackKnown(form);
+        return _panels.ShowAsync(key,form,PanelOwner());
+    }
+    private void PresentPanel(string key,Form form) {UnsavedChanges.TrackKnown(form);_panels.Present(key,form,PanelOwner());}
     private void ShowCommonSettings(bool bridge) {
         ShowDevices(bridge?"bridge-settings":"accounts");
     }
@@ -197,7 +212,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }catch(Exception ex){MessageBox.Show(ex.Message,"添加设备未完成");}finally{_changingDevices=false;}
     }
     private async Task ChangeDeviceAsync(RegisteredDevice device,bool remove) {
-        if(_changingDevices||_deviceOperationBusy||_services.Busy)throw new InvalidOperationException("设备正在处理操作，请结束录音、升级或安装后再试。");
+        if(_changingDevices||(device.Kind==HardwareKind.Esp8266?(_deviceOperationBusy||_serial.FlashBusy):_tab5?.Busy==true))throw new InvalidOperationException("设备正在处理操作，请结束录音、升级或安装后再试。");
         _changingDevices=true;var previous=_devices.Snapshot;
         try {
             CloseDeviceWindows(device.Id);
@@ -208,7 +223,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
             await UpdateDemandAsync();RebuildMenu();
         }finally{_changingDevices=false;}
     }
-    private void CloseDeviceWindows(string id) {if(_deviceWindows.TryGetValue(id,out var forms)){foreach(var f in forms.ToArray())if(!f.IsDisposed){f.Close();if(!f.IsDisposed&&f.Visible)throw new InvalidOperationException("设备窗口正在处理操作，请完成后再试。");f.Dispose();}_deviceWindows.Remove(id);}}
+    private void CloseDeviceWindows(string id) {
+        var windows=_deviceWindows.GetValueOrDefault(id)?.ToList()??[];
+        if(_devices.Snapshot.Devices.Any(d=>d.Id==id&&d.Kind==HardwareKind.Tab5)&&_tab5?.VoiceSettingsWindow is {} voice)windows.Add(voice);
+        foreach(var form in windows.Distinct()) {
+            if(form.IsDisposed)continue;form.Close();
+            if(!form.IsDisposed&&form.Visible)throw new InvalidOperationException("设备窗口有未保存内容或正在处理操作，请完成后再试。");
+            form.Dispose();
+        }
+        _deviceWindows.Remove(id);
+    }
     private T DeviceWindow<T>(RegisteredDevice d,T form,string title) where T:Form {
         form.Text=$"{d.Name} · {title}";
         if(!_deviceWindows.TryGetValue(d.Id,out var forms))_deviceWindows[d.Id]=forms=[];forms.Add(form);form.FormClosed+=(_,_)=>forms.Remove(form);return form;
@@ -238,29 +262,31 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(action.StartsWith("mode:")){SelectDisplayMode(action[5..]);await UpdateDemandAsync();return;}
             if(action.StartsWith("animation:")){MigratedWeather.WeatherMonitor.Animation=action[10..];return;}
             bool Mode(string mode){try{DeviceCapabilities.Require(_devices.Snapshot,id,"mode:"+mode,true);bool applied=SelectDisplayMode(mode);if(applied)_=UpdateDemandAsync();return applied;}catch(Exception ex){MessageBox.Show(ex.Message);return false;}}
+            string panelKey="device:"+id+":"+(action=="upgrade-tab5"?"tab5":action);
+            if(_panels.Activate(panelKey)){if(action=="upgrade-tab5")_tab5Form?.ShowUpgrade();return;}
             switch(action) {
                 case "gallery-browser":
-                    using(var form=DeviceWindow(d,new GalleryBrowserForm(),"屏保图库"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                    using(var form=DeviceWindow(d,new GalleryBrowserForm(),"屏保图库"))await ShowPanelAsync(panelKey,form);break;
                 case "tab5-display":
                     if(_tab5 is null)throw new InvalidOperationException("TAB5 连接服务未启动。");
-                    using(var form=DeviceWindow(d,new Tab5DisplaySettingsForm(_tab5.DisplaySettingsAsync),"显示设置"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                    using(var form=DeviceWindow(d,new Tab5DisplaySettingsForm(_tab5.DisplaySettingsAsync),"显示设置"))await ShowPanelAsync(panelKey,form);break;
                 case "task-pins":
-                    using(var form=DeviceWindow(d,new Tab5TaskPinsForm(),"常用任务"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                    using(var form=DeviceWindow(d,new Tab5TaskPinsForm(),"常用任务"))await ShowPanelAsync(panelKey,form);break;
                 case "agenda":
-                    using(var form=DeviceWindow(d,new AgendaForm(),"日程待办"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                    using(var form=DeviceWindow(d,new AgendaForm(),"日程待办"))await ShowPanelAsync(panelKey,form);break;
                 case "data":
-                    using(var form=DeviceWindow(d,new DeviceDataForm(_devices,d.Id),"数据设置"))if(form.ShowDialog(SettingsWindow.DialogOwner(_center))==DialogResult.OK){await UpdateDemandAsync();RebuildMenu();}break;
+                    using(var form=DeviceWindow(d,new DeviceDataForm(_devices,d.Id),"数据设置"))if(await ShowPanelAsync(panelKey,form)==DialogResult.OK){await UpdateDemandAsync();RebuildMenu();}break;
                 case "upgrade-tab5":
                     if(_tab5?.Busy==true)throw new InvalidOperationException("设备正在处理操作，请结束后再打开升级入口。");
-                    if(_tab5Form is not null&&!_tab5Form.IsDisposed)_tab5Form.Close();
+                    if(_tab5Form is not null&&!_tab5Form.IsDisposed){_tab5Form.ShowUpgrade();PresentPanel(panelKey,_tab5Form);break;}
                     goto case "tab5";
                 case "tab5":
                     if(_tab5 is null)throw new InvalidOperationException(_services.Error??"设备连接服务未启动，请停用后重新启用。");
-                    if(_tab5Form is null||_tab5Form.IsDisposed)_tab5Form=DeviceWindow(d,new Tab5ConnectionForm(_tab5,showUpgrade:action=="upgrade-tab5"),"连接与固件升级");SettingsWindow.Present(_tab5Form);break;
-                case "voice": if(_tab5 is null)throw new InvalidOperationException("设备未连接到桥接服务。");_tab5.ShowVoiceSettings(SettingsWindow.DialogOwner(_center)!);break;
-                case "birthday-settings": using(var form=DeviceWindow(d,new BirthdaySettingsForm(),"日历与生日"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                    if(_tab5Form is null||_tab5Form.IsDisposed)_tab5Form=DeviceWindow(d,new Tab5ConnectionForm(_tab5,showUpgrade:action=="upgrade-tab5"),"连接与固件升级");PresentPanel(panelKey,_tab5Form);break;
+                case "voice": if(_tab5 is null)throw new InvalidOperationException("设备未连接到桥接服务。");_tab5.ShowVoiceSettings(PanelOwner());break;
+                case "birthday-settings": using(var form=DeviceWindow(d,new BirthdaySettingsForm(),"日历与生日"))await ShowPanelAsync(panelKey,form);break;
                 case "legacy-settings":
-                    using(var form=DeviceWindow(d,new LegacyDeviceSettingsForm(_serial,d.ConnectionMode,()=>_services.View(_devices.Snapshot.Devices.Single(x=>x.Id==d.Id))),"连接设置"))if(form.ShowDialog(SettingsWindow.DialogOwner(_center))==DialogResult.OK){
+                    using(var form=DeviceWindow(d,new LegacyDeviceSettingsForm(_serial,d.ConnectionMode,()=>_services.View(_devices.Snapshot.Devices.Single(x=>x.Id==d.Id))),"连接设置"))if(await ShowPanelAsync(panelKey,form)==DialogResult.OK){
                         var previous=_devices.Snapshot;
                         var updated=previous.Devices.Single(x=>x.Id==d.Id) with {ConnectionMode=form.SelectedMode};
                         var candidate=previous with {Devices=previous.Devices.Select(x=>x.Id==d.Id?updated:x).ToArray()};
@@ -274,13 +300,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
                     using(var form=DeviceWindow(d,new CycleSettingsForm(_serial,policy=>{
                         _selectedMode=policy.SelectedMode;_automaticScreenSaver=false;_temporaryWakeUntil=null;
                         _cycleStartedAt=DateTimeOffset.UtcNow.ToUnixTimeSeconds();PublishDisplayPolicy();_serial.SendDisplayMode(policy.SelectedMode);_=UpdateDemandAsync();
-                    }),"显示设置"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                    }),"显示设置"))await ShowPanelAsync(panelKey,form);break;
                 case "mirror":
                     if(_mirror is null||_mirror.IsDisposed)_mirror=DeviceWindow(d,new MirrorForm(_runtime.Capture,()=>_selectedMode,Mode,_serial.SendBrightness,()=>Task.Run(_serial.ReadDeviceInfo)),"设备镜像");_mirror.ShowAtTray();break;
-                case "appearance": ShowAppearance(d);break;
+                case "appearance": await ShowAppearanceAsync(d);break;
                 case "pet-gallery":
-                    if(_petGallery is null||_petGallery.IsDisposed)_petGallery=DeviceWindow(d,new PetGalleryForm(mode=>Mode(mode)),"桌宠素材");SettingsWindow.Present(_petGallery);break;
-                case "flash": using(var form=DeviceWindow(d,new FirmwareFlashForm(preferredPort:_serial.PortName,bridgeRunning:true,expectedUsbIdentity:d.UsbIdentity),"固件升级"))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                    if(_petGallery is null||_petGallery.IsDisposed)_petGallery=DeviceWindow(d,new PetGalleryForm(mode=>Mode(mode)),"桌宠素材");PresentPanel(panelKey,_petGallery);break;
+                case "flash": using(var form=DeviceWindow(d,new FirmwareFlashForm(preferredPort:_serial.PortName,bridgeRunning:true,expectedUsbIdentity:d.UsbIdentity),"固件升级"))await ShowPanelAsync(panelKey,form);break;
                 case "info": await ManageDeviceAsync(false);break;
                 case "reset": await ManageDeviceAsync(true);break;
                 case "fallback": await TestFallbackAsync();break;
@@ -288,17 +314,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }catch(Exception ex){MessageBox.Show(ex.Message,"设备操作未完成");}
     }
 
-    private void ShowAppearance(RegisteredDevice device) {
+    private async Task ShowAppearanceAsync(RegisteredDevice device) {
         using var form=DeviceWindow(device,new DeviceAppearanceForm(MigratedWeather.WeatherMonitor.Animation,
             value=>MigratedWeather.WeatherMonitor.Animation=value,owner=>ImportPet(owner),
             owner=>PetAnimationStore.Shared.RestoreDefault(owner),owner=>{
-                using var gallery=DeviceWindow(device,new PetGalleryForm(mode=>SelectDisplayMode(mode)),"桌宠素材");gallery.ShowDialog(owner);
-            }),"外观设置");form.ShowDialog(SettingsWindow.DialogOwner(_center));
+                HandleDeviceAction(device.Id,"pet-gallery");
+            }),"外观设置");await ShowPanelAsync("device:"+device.Id+":appearance",form);
     }
 
     private async void HandleMenuAction(string action)
     {
         try {
+            string panelKey="common:"+action;
+            if(_panels.Activate(panelKey))return;
             switch(action) {
                 case "devices": ShowDevices();break;
                 case "add-device": AddDevice();break;
@@ -308,20 +336,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
                     if(_refreshBusy)return;_refreshBusy=true;
                     try{await _runtime.RefreshAsync();_mirror?.Invalidate();}finally{_refreshBusy=false;}break;
                 case "startup": await ChangeStartupAsync(!StartupRegistration.IsEnabled);RebuildMenu();break;
-                case "quota-trend": if(_trend is null||_trend.IsDisposed)_trend=new QuotaTrendForm();SettingsWindow.Present(_trend);break;
+                case "quota-trend": if(_trend is null||_trend.IsDisposed)_trend=new QuotaTrendForm();PresentPanel(panelKey,_trend);break;
                 case "settings": ShowSettings();break;
                 case "stocks-settings": ShowSettings("stocks");break;
                 case "weather-settings": ShowWeatherSettings();break;
                 case "authorize": ShowDomesticAuth();break;
                 case "status": ShowStatus();break;
                 case "updates": ShowUpdates();break;
-                case "notifications": using(var form=new NotificationSettingsForm(_notifications))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
-                case "runtime-health": using(var form=new RuntimeHealthForm(_runtime.Health))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
+                case "notifications": using(var form=new NotificationSettingsForm(_notifications))await ShowPanelAsync(panelKey,form);break;
+                case "runtime-health": using(var form=new RuntimeHealthForm(_runtime.Health))await ShowPanelAsync(panelKey,form);break;
                 case "configuration-backup": using(var form=new ConfigurationBackupForm(()=>{
                     _runtime.ReloadSettings();_selectedMode=DisplayModes.Load(BridgeSettings.Load()).SelectedMode;_automaticScreenSaver=false;
                     _cycleStartedAt=DateTimeOffset.UtcNow.ToUnixTimeSeconds();PublishDisplayPolicy();if(_services.EspEnabled)_serial.SendDisplayMode(_selectedMode);_=UpdateDemandAsync();RebuildMenu();
-                }))form.ShowDialog(SettingsWindow.DialogOwner(_center));break;
-                case "about": using(var dialog=new AboutForm())dialog.ShowDialog();break;
+                }))await ShowPanelAsync(panelKey,form);break;
+                case "about": using(var dialog=new AboutForm())await ShowPanelAsync(panelKey,dialog);break;
                 case "exit": ExitThread();break;
                 default: ShowDevices();break;
             }
@@ -428,14 +456,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if(_statusForm is null||_statusForm.IsDisposed)
             _statusForm=new BridgeStatusForm(()=>BridgeStatusView.Capture(_devices.Snapshot,_services.View,_runtime.Capture(),_demand,_services.Error,_services.Health),ReconnectDeviceAsync,path=>_services.ExportDiagnostics(path,_devices.Snapshot));
-        SettingsWindow.Present(_statusForm);
+        PresentPanel("common:status",_statusForm);
     }
     private UpdateDevice[] UpdateDevices()=>[new("bridge","电脑端 AI-bot",Application.ProductVersion.Split('+')[0],"运行中",true,"bridge","打开安装程序"),.._devices.Snapshot.Devices.Select(d=>{
         return UpdateDevice.From(d,_services.View(d));
     })];
     private async Task InstallUpdateAsync(UpdateDevice target,PreparedUpdate prepared) {
         prepared.VerifyUnchanged();
-        if(_changingDevices||_deviceOperationBusy||_services.Busy)throw new InvalidOperationException("请先结束正在进行的设备操作。");
+        if(_changingDevices||(target.Component=="bridge"?(_deviceOperationBusy||_services.Busy):target.Component=="esp8266"?(_deviceOperationBusy||_serial.FlashBusy):_tab5?.Busy==true))throw new InvalidOperationException("请先结束正在进行的设备操作。");
         var current=UpdateDevices().SingleOrDefault(d=>d.Id==target.Id);
         if(!UpdateService.SameTarget(target,current,prepared.Release))
             throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
@@ -448,7 +476,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(_tab5 is null||!_tab5.HasPairedDevice||prepared.Tab5 is null)throw new InvalidOperationException("请先连接并配对 TAB5。");
             if(_tab5Form is not null&&!_tab5Form.IsDisposed){_tab5Form.Close();if(!_tab5Form.IsDisposed&&_tab5Form.Visible)throw new InvalidOperationException("请先结束 TAB5 窗口中的操作。");}
             _tab5.OfferOta(prepared.Tab5);
-            _tab5Form=DeviceWindow(device,new Tab5ConnectionForm(_tab5,loadNetworks:false,showUpgrade:true),"连接与固件升级");SettingsWindow.Present(_tab5Form);
+            _tab5Form=DeviceWindow(device,new Tab5ConnectionForm(_tab5,loadNetworks:false,showUpgrade:true),"连接与固件升级");PresentPanel("device:"+device.Id+":tab5",_tab5Form);
         } else {
             if(UpdateService.IsLegacyEsp(target)&&MessageBox.Show(_updatesForm,
                 $"小屏固件未上报版本，无法判断 {prepared.Release.Version} 是否比当前版本更新，也可能是同版本或更旧版本。\n\n继续后将打开 USB 刷机工具，先完整备份，再由你点击开始刷机。是否继续？",
@@ -456,7 +484,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(!UpdateService.SameTarget(target,UpdateDevices().SingleOrDefault(d=>d.Id==target.Id),prepared.Release))
                 throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
             _deviceOperationBusy=true;
-            try{using var form=DeviceWindow(device,new FirmwareFlashForm(preferredPort:_serial.PortName,preparedFirmware:prepared.File,bridgeRunning:true,expectedUsbIdentity:device.UsbIdentity),"固件升级");form.ShowDialog(_updatesForm);}
+            try{string key="device:"+device.Id+":flash";if(_panels.Activate(key))throw new InvalidOperationException("请先关闭已有的小屏升级窗口，再准备此更新包。");using var form=DeviceWindow(device,new FirmwareFlashForm(preferredPort:_serial.PortName,preparedFirmware:prepared.File,bridgeRunning:true,expectedUsbIdentity:device.UsbIdentity),"固件升级");await ShowPanelAsync(key,form);}
             finally{_deviceOperationBusy=false;}
         }
         await Task.CompletedTask;
@@ -484,14 +512,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
     private void ShowUpdates() {
         if(_updatesForm is null||_updatesForm.IsDisposed)_updatesForm=new UpdateCenterForm(UpdateDevices,InstallUpdateAsync,_updates);
-        SettingsWindow.Present(_updatesForm);
+        PresentPanel("common:updates",_updatesForm);
     }
     private async Task ReconnectDeviceAsync(string id) {
-        if(_changingDevices||_deviceOperationBusy)throw new InvalidOperationException("设备操作尚未结束，请稍后重试。");
+        if(_changingDevices||(_devices.Snapshot.Devices.SingleOrDefault(d=>d.Id==id)?.Kind==HardwareKind.Esp8266&&_deviceOperationBusy))throw new InvalidOperationException("设备操作尚未结束，请稍后重试。");
         _changingDevices=true;
         try {
+            CloseDeviceWindows(id);
             await _services.ReconnectAsync(_devices.Snapshot,id);
-            if(_deviceWindows.TryGetValue(id,out var forms))foreach(var form in forms.ToArray())form.Close();
             _tab5?.Publish(_runtime.Capture());RebuildMenu();
         }finally{_changingDevices=false;}
     }
@@ -551,7 +579,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _settingsForm = new SettingsForm(includeDeviceSettings:false,quotes:_runtime.Capture().Stocks?.Quotes);
             _settingsForm.FormClosed += (_,_)=>_runtime.ReloadSettings();
         }
-        SettingsWindow.Present(_settingsForm);
+        PresentPanel("common:settings",_settingsForm);
         _settingsForm.FocusSection(section);
     }
 
@@ -570,7 +598,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (_weatherSettings is null || _weatherSettings.IsDisposed)
             _weatherSettings = new MigratedWeather.WeatherSettingsForm(_runtime.Weather);
-        SettingsWindow.Present(_weatherSettings);
+        PresentPanel("common:weather-settings",_weatherSettings);
     }
 
     private void ImportPet(string? owner = null)
@@ -606,7 +634,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     protected override async void ExitThreadCore()
     {
-        if(_exiting)return;_exiting=true;
+        if(_exiting)return;if(!ClosePanels())return;_exiting=true;
         _healthGuard?.BeginExit();
         _timer.Stop();
         _timer.Dispose();

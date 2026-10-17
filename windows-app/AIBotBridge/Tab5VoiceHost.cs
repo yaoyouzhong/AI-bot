@@ -249,10 +249,14 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         });
         return completion.Task;
     }
+    private Form? _settingsWindow;
+    internal Form? SettingsWindowForm=>_settingsWindow is {IsDisposed:false}?_settingsWindow:null;
     public void ShowSettings(IWin32Window owner)=>ShowNamedSettings(owner,"TAB5 · 语音设置");
     internal void ShowNamedSettings(IWin32Window owner,string title) {
         if(_session.Active){MessageBox.Show(owner,"请先结束当前语音输入。","TAB5 语音");return;}
-        using var form=CreateSettings();form.Text=title;form.ShowDialog(owner);
+        if(_settingsWindow is null||_settingsWindow.IsDisposed){_settingsWindow=CreateSettings();_settingsWindow.Text=title;UnsavedChanges.Track(_settingsWindow);}
+        if(owner is Form parent){while(parent.Owner is {} ancestor)parent=ancestor;_settingsWindow.Owner=parent;}
+        SettingsWindow.Present(_settingsWindow);
     }
     internal Form CreateSettings(bool preview=false) {
         Form form=preview?new PreviewForm():new Form();
@@ -301,7 +305,7 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         cancel.Click+=(_,_)=>form.Close();form.CancelButton=cancel;SettingsWindow.StyleButton(cancel);
         save.Click+=(_,_)=> {
             if(enabled.Checked&&RefreshAvailability()?.Ready!=true){MessageBox.Show(form,"请先连接大疆，或配置 TAB5 内置麦克风的音频通路。");return;}
-            try{var settings=new Tab5VoiceSettings(enabled.Checked,((Tab5AudioDevice)inputs.SelectedItem!).Id,shortcuts[keys.SelectedIndex]);settings.Save();_settings=settings;form.Close();}
+            try{var settings=new Tab5VoiceSettings(enabled.Checked,((Tab5AudioDevice)inputs.SelectedItem!).Id,shortcuts[keys.SelectedIndex]);settings.Save();_settings=settings;form.DialogResult=DialogResult.OK;form.Close();}
             catch(Exception ex) when(ex is IOException or UnauthorizedAccessException){MessageBox.Show(form,"设置未保存："+ex.GetType().Name);}
         };
         SettingsWindow.FitFlow(panel);

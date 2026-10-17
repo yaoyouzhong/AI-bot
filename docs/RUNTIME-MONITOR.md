@@ -73,3 +73,9 @@ System opens the frequently viewed computer statistics, upload/download rates an
 PAC availability, actual Windows per-target selection and explicit exit probes are separate evidence. A working exit with broken PAC suggests restarting the VPN client; slow exits suggest inspecting or changing the node. No automatic proxy changes, node switching, client restarts, credential export or model requests occur. HTTP reachability cannot prove authenticated Codex service health. Native notification delivery is verified; physical acceptance of the new TAB5 pages and audible notification verification remain pending. Network failure branches were controlled tests; the live VPN configuration was not disrupted.
 
 Sources: [Windows PAC routing](https://learn.microsoft.com/en-us/windows/win32/api/winhttp/nf-winhttp-winhttpgetproxyforurl), [Windows performance counters](https://learn.microsoft.com/en-us/windows/win32/api/pdh/nf-pdh-pdhaddenglishcounterw), [Windows performance diagnostics](https://learn.microsoft.com/en-us/troubleshoot/windows-server/support-tools/troubleshoot-issues-performance-monitor), [OpenAI error categories](https://developers.openai.com/api/docs/guides/error-codes).
+
+## 0.6.8 候选：故障来源 / Candidate: fault attribution
+
+后台服务失败时区分小屏通信、TAB5 通信、局域网连接和数据采集；多项失败列出所有涉及的类别。设备未接入不是服务故障。设备通信任务失败可从服务状态选择对应设备重新连接；其他服务故障建议重启桥接。保持原有守护等待、确认、静默及恢复清除逻辑，不修改固件协议。本项尚待候选验收与公开发布。
+
+The 0.6.8 candidate distinguishes ESP8266, TAB5, LAN and data-collection worker failures, listing all affected categories when multiple fail. An unplugged device alone is not a service fault. Existing guard timing, confirmation, quiet hours and recovery remain unchanged; no firmware protocol change is required. Candidate acceptance and publication remain separate.

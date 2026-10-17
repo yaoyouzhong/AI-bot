@@ -66,6 +66,7 @@ internal sealed partial class Tab5Service : IDisposable
     internal void AttachVoice(ITab5VoiceEndpoint voice)=>_voice=voice;
     internal bool AllowUnregisteredInstall {get;set;}
     internal string WindowTitle {get;set;}="TAB5";
+    internal Form? VoiceSettingsWindow=>(_voice as Tab5VoiceHost)?.SettingsWindowForm;
     internal void ShowVoiceSettings(IWin32Window owner){if(_voice is Tab5VoiceHost host)host.ShowNamedSettings(owner,WindowTitle+" · 语音设置");else _voice?.ShowSettings(owner);}
     // The installed Doubao keyboard hook ignores SendInput. Ask the paired
     // TAB5 to send the shortcut through its composite USB keyboard interface.

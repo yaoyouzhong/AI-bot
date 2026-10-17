@@ -42,7 +42,7 @@ internal sealed class LegacyDeviceSettingsForm : Form
         var row=DeviceCenterForm.Row();row.Dock=DockStyle.Fill;row.Margin=Padding.Empty;row.Padding=new(0,16,0,0);row.FlowDirection=FlowDirection.RightToLeft;row.WrapContents=false;
         var save=DeviceCenterForm.Button("保存",()=> {
             if(!settings.SaveEditable(new Dictionary<string,string>{["screensaver_timeout_minutes"]=((int)saver.Value).ToString()},out string error)){MessageBox.Show(this,error);return;}
-            DialogResult=DialogResult.OK;
+            DialogResult=DialogResult.OK;Close();
         },true);var cancel=DeviceCenterForm.Button("取消",Close);cancel.DialogResult=DialogResult.Cancel;cancel.CausesValidation=false;
         row.Controls.Add(cancel);row.Controls.Add(save);CancelButton=cancel;AcceptButton=save;root.Controls.Add(row,0,5);Controls.Add(root);SettingsWindow.FitScreen(this);ResumeLayout(false);
     }

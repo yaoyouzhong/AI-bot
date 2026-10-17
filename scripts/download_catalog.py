@@ -58,7 +58,8 @@ def validate(data):
             raise ValueError(f"Legacy tag and package disagree: {key}")
         if not re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) or not isinstance(item["size"], int) or item["size"] <= 0:
             raise ValueError(f"Missing size or SHA-256: {key}")
-    for left, right in (("windows", "macos"), ("tab5-first", "tab5-upgrade")):
+    # Desktop platforms may ship independently; first-install/OTA must still agree.
+    for left, right in (("tab5-first", "tab5-upgrade"),):
         if any(entries[left][field] != entries[right][field] for field in ("tag", "version")):
             raise ValueError(f"Incomplete paired release: {left}, {right}")
     return data
@@ -160,8 +161,12 @@ def table(data, language="zh", tag=None):
     changed = set()
     if tag:
         component, version = release_target(tag)
+        published = any(item["tag"] == tag for item in entries.values())
         for key, (kind, template, _, _) in SPECS.items():
             if kind == component or component == "bundle" and kind in ("bridge", "esp8266"):
+                # A published Windows-only release must not invent a Mac download.
+                if published and entries[key]["tag"] != tag:
+                    continue
                 target = {"tag": tag, "version": version, "file": template.format(version=version)}
                 if entries[key]["tag"] == tag and entries[key]["version"] == version:
                     target["file"] = entries[key]["file"]

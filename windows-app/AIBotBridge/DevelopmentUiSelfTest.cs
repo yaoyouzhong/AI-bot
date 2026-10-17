@@ -10,7 +10,7 @@ internal static class DevelopmentUiSelfTest
             using var updateService=new UpdateService(new UpdateSelfTest.Handler());
             using var updates=new UpdateCenterForm(()=>[new("bridge","电脑端 AI-bot","0.5.1","运行中",true,"bridge","安装程序"),new("a","M5Stack TAB5","0.2.53-ui","在线",true,"upgrade-tab5","在设备上确认"),new("b","ESP8266 小屏","兼容协议 v1","在线",true,"flash","连接 USB")],(_,_)=>Task.CompletedTask,updateService);Capture(updates,"updates",scale);
             var observation=new ConnectionObservation(DateTimeOffset.Now,DateTimeOffset.Now.AddMinutes(-2),"有效通信超时",2,1);
-            using var health=new BridgeStatusForm(()=>new([new("M5Stack TAB5","在线","Wi-Fi","0.2.53-ui","a",true,observation)],[],1,null),_=>Task.CompletedTask,_=>{});Capture(health,"connection-health",scale);
+            using var health=new BridgeStatusForm(()=>new([new("M5Stack TAB5","在线","Wi-Fi","0.2.53-ui","a",true,observation,Advice:ConnectionAdvice.For(true,new(false,"离线","","",Wifi:"已联网 · 桥接未通")))],[],1,null),_=>Task.CompletedTask,_=>{});Capture(health,"connection-health",scale);
             using var backup=new ConfigurationBackupForm(()=>{});Capture(backup,"configuration-backup",scale);
             using var backupMinimum=new ConfigurationBackupForm(()=>{});backupMinimum.Size=backupMinimum.MinimumSize;Capture(backupMinimum,"configuration-backup-minimum",scale);
             var notifications=new BridgeNotifications();notifications.Evaluate("completion","demo","任务完成",DateTimeOffset.Now);

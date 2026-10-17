@@ -5,7 +5,7 @@ namespace AIBotBridge;
 internal static class DeviceRecoverySelfTest
 {
     internal static async Task RunAsync() {
-        AppPaths.BeginPublicSelfTest();
+        if(!AppPaths.IsPublicSelfTest)AppPaths.BeginPublicSelfTest();
         void Check(bool ok,string text){if(!ok)throw new InvalidOperationException(text);}
         var history=new DeviceConnectionHistory();var now=DateTimeOffset.UtcNow;
         var a=history.Observe("secret-id",true,true,1000,"private",now,1000);
@@ -41,8 +41,19 @@ internal static class DeviceRecoverySelfTest
             Check(!ReferenceEquals(original,manager.Tab5)&&starts["tab5-usb"]==2&&starts["lan"]==1,"TAB5 was not independently recreated");
             fail=true;await manager.ReconnectAsync(registry,esp.Id);await Task.Delay(80);
             Check(manager.View(esp).Status=="连接异常","Worker failure not visible");
+            Check(manager.FaultSources==RuntimeFaultSource.Esp8266,"ESP failure attributed to unrelated device");
+            var fault=RuntimeHealthGuard.Check(3,now,sources:manager.FaultSources);
+            Check(fault.Summary=="小屏通信服务异常"&&fault.Advice.Contains("重新连接"),"Fault source/advice lost");
+            Check(ConnectionAdvice.For(true,manager.View(esp)).Contains("重新连接"),"Service failure guidance missing");
             fail=false;await manager.ReconnectAsync(registry,esp.Id);await Task.Delay(80);
-            Check(manager.View(esp).Status!="连接异常","Faulted worker could not be recovered");
+            Check(manager.View(esp).Status!="连接异常"&&manager.FaultSources==RuntimeFaultSource.None,"Faulted worker could not be recovered");
+            Check(ConnectionAdvice.For(true,new(false,"离线","","",Wifi:"已联网 · 桥接未通")).Contains("同一局域网"),"Wi-Fi guidance lost");
+            Check(ConnectionAdvice.For(true,new(false,"离线","","",Wifi:"等待设备回报")).Contains("等待接入"),"Offline treated as service fault");
+            Check(ConnectionAdvice.For(false,new(false,"离线","","" )).Contains("已停用"),"Disabled device guidance incorrect");
+            Check(RuntimeHealthGuard.Check(3,now,sources:RuntimeFaultSource.Tab5).Summary=="TAB5 通信服务异常","TAB5 fault source lost");
+            var multiple=RuntimeHealthGuard.Check(3,now,sources:RuntimeFaultSource.Esp8266|RuntimeFaultSource.Lan);
+            Check(multiple.Detail.Contains("小屏通信")&&multiple.Detail.Contains("局域网"),"Multiple fault sources lost");
+            Check(RuntimeHealthGuard.Check(0,now,sources:RuntimeFaultSource.Esp8266).State=="ok","Stale source revived recovered alarm");
             Check(pair.Current.Key==new Tab5PairingStore().Current!.Key,"Reconnect altered credentials");
             fail=true;await manager.ReconnectAsync(registry,esp.Id);await Task.Delay(80);
             await manager.StopAsync();

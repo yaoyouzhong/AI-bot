@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.8 - 2026-10-16
+
+### Connection and diagnostics
+
+- Identify failed screen, TAB5, LAN and data-collection services with actionable advice, preserving existing alarm timing, deduplication and recovery rules.
+- Explain disabled, disconnected, connecting, Wi-Fi bridge-unreachable and failed-service states in Service Status, reusing per-device reconnect.
+
+### Window behavior
+
+- Ordinary settings and viewers keep Device Center usable, reuse a window for the same device/function and retain the original device target.
+- Preserve save/cancel completion for modeless windows. Closing Device Center closes owned panels while unsaved edits and active device operations can veto closing. Keep explicit deletion, reset and installation confirmations.
+
+### Update downloads
+
+- Resume Windows installer and device firmware downloads after cancellation, network interruption or app restart; reuse fully verified packages. Bind caches to component, version, filename, size and SHA-256.
+- Validate ranges and full-file checksums; safely restart when servers ignore Range. Corrupt content never reaches installation or flashing, and device/version/compatibility checks remain enforced.
+
+
+
 - Standardize bridge release titles as `AI-bot v<version>` and future artifact names; preserve firmware versions without `v`, published download URLs and legacy update aliases.
 - Recover from serial access-denied and driver errors during ESP8266 metrics writes so an unplugged small display does not terminate the worker and trigger a global bridge alarm on TAB5.
 

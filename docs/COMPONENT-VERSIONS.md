@@ -6,11 +6,11 @@
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows / macOS 桥接 | 0.6.7（已发布） | 根目录 `VERSION` | `bridge-v0.6.7` |
+| Windows / macOS 桥接 | 0.6.8（候选；公开版仍为 0.6.7） | 根目录 `VERSION` | `bridge-v0.6.8`（待发布） |
 | ESP8266 固件 | 0.5.3（已发布） | `firmware/VERSION` | `esp8266-v0.5.3` |
-| TAB5 固件 | 0.2.205-ui（已发布；保留实机验收边界） | `versions/TAB5` | `tab5-v0.2.205-ui` |
+| TAB5 固件 | 0.2.210-ui（本地候选；公开版仍为 0.2.205-ui） | `versions/TAB5` | `tab5-v0.2.210-ui`（待发布） |
 
-表中列出本轮已发布组件标签；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
+表中区分本地候选与已发布组件标签；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接的 Windows 项目元数据与 Mac Info.plist 仍在同一桥接版本线内同步。
 
 2026-10-16 本轮范围为桥接 0.6.7、TAB5 0.2.205-ui、ESP8266 0.5.3、标准书法 2026.10.15.1 和两套高清完整图库 2026.10.16。标准名画沿用已有正式下载；不集成浏览器高清音乐封面扩展。构建、打包、公开附件和真机验收分别记录，公开下载索引仅在附件实际发布后刷新。The October 16 delivery covers bridge 0.6.7, TAB5 0.2.205-ui, ESP8266 0.5.3, standard calligraphy 2026.10.15.1 and both optional complete HD collections 2026.10.16. Existing standard painting remains unchanged; the browser music-artwork extension is not integrated. See [scope and acceptance boundaries](RELEASE-0.6.7.md).
 
@@ -102,3 +102,5 @@ Each release also reconciles README, bilingual changelogs, installation/update g
 Windows 0.6.2 retains daily update checks, deduplicated notifications, automatic selection/download and SHA-256 verification. Installation remains explicit through the existing Windows installer, ESP8266 backup/USB tool or TAB5 confirmation/boot-verification flow. Local/public functionality is unified; upgrades preserve separately installed artwork collections. Firmware metadata may declare minimumBridgeVersion and protocolVersion; see UPDATES.md.
 
 The bridge, ESP8266 and TAB5 have independent version sources and changelogs. Only the changed component is renumbered and delivered. Windows/macOS share the bridge version line; TAB5 release declarations must match actual image, notes, first-install application and public source identity. Protocol version 1 is separate from release versions, and compatibility is based on supported protocol/features rather than equal numbers. Windows update checks select stable versions per component and retain legacy-bundle support. Component-specific packaging verifies only the requested payload and stages minimal user downloads plus checksums. Historical v0.5.0 tags/assets remain unchanged. The authorized CI patch routes bridge/ESP8266 component tags to draft packages only, while TAB5 tags validate metadata and retain independent local build/material validation. The candidate workflow also supports manual component selection. Pushing main triggers CI checks; explicitly pushing a version tag triggers its component candidate workflow. Local CLI calls use scripts/github_cli.py to resolve the real console executable, bypass GUI shims, hide its window and capture output/errors on Windows. Creating tags, pushing, flashing or publicly releasing still requires authorization for the corresponding action.
+
+Bridge 0.6.8 is a local candidate; public downloads and the existing 0.6.7 release remain unchanged until publication. See [candidate scope](RELEASE-0.6.8.md).

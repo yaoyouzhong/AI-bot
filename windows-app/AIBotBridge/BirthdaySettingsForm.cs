@@ -15,6 +15,13 @@ internal sealed class BirthdaySettingsForm:Form
     private readonly Label _listTitle=new(){AutoSize=true,Margin=new(0,6,0,0)};
     private readonly List<Birthday> _entries=[];
     private readonly Label _status=new(){AutoSize=true,ForeColor=Color.DimGray,Dock=DockStyle.Fill};
+    internal string EditFingerprint {
+        get {
+            Birthday? selected=_list.SelectedIndex>=0?_entries[_list.SelectedIndex]:null;
+            bool pending=_name.Text.Trim().Length>0&&(selected is null||selected.Name!=_name.Text.Trim()||selected.Month!=(int)_month.Value||selected.Day!=(int)_day.Value||selected.Lunar!=_lunar.Checked||selected.Leap!=_leap.Checked||selected.RemindDays!=(int)_remind.Value);
+            return System.Text.Json.JsonSerializer.Serialize(new {Entries=_entries,Pending=pending});
+        }
+    }
     internal BirthdaySettingsForm(bool preview=false)
     {
         Text="日历与生日";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;

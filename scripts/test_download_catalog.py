@@ -44,11 +44,24 @@ class DownloadCatalogTests(unittest.TestCase):
             releases.append(invalid)
         self.assertEqual(catalog.discover(releases), self.data)
 
-    def test_newer_incomplete_bridge_is_not_silently_hidden(self):
+    def test_windows_only_release_preserves_current_mac_download(self):
         releases = self.releases() + [{"tag_name": "bridge-v99.0.0", "published_at": "2020-01-01", "draft": False, "prerelease": False,
             "assets": [{"name": "AIBotBridge-99.0.0-setup-win-x64.exe", "size": 10, "digest": "sha256:"+"a"*64}, {"name": "SHA256SUMS.txt"}]}]
-        with self.assertRaisesRegex(ValueError, "Incomplete paired release"):
-            catalog.discover(releases)
+        result = catalog.discover(releases)
+        self.assertEqual(result["downloads"]["windows"]["version"], "99.0.0")
+        self.assertEqual(result["downloads"]["macos"], self.data["downloads"]["macos"])
+        for language in ("zh", "en"):
+            rendered = catalog.table(result, language, tag="bridge-v99.0.0")
+            self.assertIn(catalog.asset_url(self.data["downloads"]["macos"]), rendered)
+            self.assertNotIn("macos-arm64.zip", "\n".join(row for row in rendered.splitlines() if "bridge-v99.0.0" in row))
+            self.assertEqual(rendered.count("本次发布" if language == "zh" else "this release"), 1)
+
+    def test_mac_only_release_preserves_current_windows_download(self):
+        releases = self.releases() + [{"tag_name": "bridge-v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,
+            "assets": [{"name": "AI-bot-bridge-v99.0.0-macos-arm64.zip", "size": 10, "digest": "sha256:"+"b"*64}, {"name": "SHA256SUMS.txt"}]}]
+        result = catalog.discover(releases)
+        self.assertEqual(result["downloads"]["macos"]["version"], "99.0.0")
+        self.assertEqual(result["downloads"]["windows"], self.data["downloads"]["windows"])
 
     def test_gallery_revision_is_discovered_and_preserves_other_components(self):
         version = self.next_gallery_version()

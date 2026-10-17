@@ -3,12 +3,16 @@ using System.IO.MemoryMappedFiles;
 
 namespace AIBotBridge;
 
+[Flags]
+internal enum RuntimeFaultSource { None=0, Esp8266=1, Tab5=2, Lan=4, Collectors=8 }
+
+
 // One ephemeral child per tray session. No service, scheduled task, automatic
 // restart or persistent system setting is installed. Only heartbeat integers
 // cross this same-user mapping; it survives a crashed parent until reporting.
 internal sealed class RuntimeHealthGuard : IDisposable
 {
-    private const int Ui=0,Monitor=8,Expected=16,Enabled=24,Exit=32,Faults=40,Code=48,GuardAt=56,Handled=64,Displayed=72,AlarmSequence=80;
+    private const int Ui=0,Monitor=8,Expected=16,Enabled=24,Exit=32,Faults=40,Code=48,GuardAt=56,Handled=64,Displayed=72,AlarmSequence=80,Sources=88;
     private readonly MemoryMappedFile _map;
     private readonly MemoryMappedViewAccessor _view;
     private readonly Process? _child;
@@ -32,9 +36,9 @@ internal sealed class RuntimeHealthGuard : IDisposable
             return new(map,view,child);
         }catch{view.Write(Exit,1L);view.Dispose();map.Dispose();throw;}
     }
-    internal void Pulse(RuntimeHealthSnapshot? sample,bool expected,bool enabled,int faults) {
+    internal void Pulse(RuntimeHealthSnapshot? sample,bool expected,bool enabled,int faults,RuntimeFaultSource sources=RuntimeFaultSource.None) {
         long now=Environment.TickCount64;
-        _view.Write(Expected,expected?1L:0L);_view.Write(Enabled,enabled?1L:0L);_view.Write(Faults,(long)faults);
+        _view.Write(Expected,expected?1L:0L);_view.Write(Enabled,enabled?1L:0L);_view.Write(Sources,(long)sources);_view.Write(Faults,(long)faults);
         _view.Write(Monitor,sample is null?0L:now-Math.Max(0,(long)(DateTimeOffset.UtcNow-sample.UpdatedAt).TotalMilliseconds));
         _view.Write(Ui,now);
     }
@@ -42,12 +46,27 @@ internal sealed class RuntimeHealthGuard : IDisposable
         bool ready=_view.ReadInt64(GuardAt)>0&&Environment.TickCount64-_view.ReadInt64(GuardAt)<10000;
         int code=(int)_view.ReadInt64(Code);
         if(!ready)code=Environment.TickCount64-_started<20000?0:5;
-        var check=Check(code,now,_view.ReadInt64(Handled)>0);
+        var check=Check(code,now,_view.ReadInt64(Handled)>0,(RuntimeFaultSource)_view.ReadInt64(Sources));
         return !ready&&code==0?check with{State="observing",Summary="守护正在连接"}:check;
     }
-    internal static RuntimeHealthCheck Check(int code,DateTimeOffset at,bool external=false) {
+    internal static RuntimeHealthCheck Check(int code,DateTimeOffset at,bool external=false,RuntimeFaultSource sources=RuntimeFaultSource.None) {
         string title=code switch{1=>"桥接界面无响应",2=>"监控采样已停滞",3=>"桥接服务异常",4=>"桥接异常退出",5=>"监控守护已中断",_=>"桥接心跳正常"};
-        return new("bridge","桥接与采样",code==0?"ok":"error",title,code==0?"界面心跳、采样和服务任务受到独立守护。":"独立守护确认心跳或服务异常。",code==0?"":"重启桥接程序。",at){HandledExternally=external};
+        string detail=code==0?"界面心跳、采样和服务任务受到独立守护。":"独立守护确认心跳或服务异常。";
+        string advice=code==0?"":"重启桥接程序。";
+        if(code==3&&sources!=RuntimeFaultSource.None) {
+            var affected=new List<string>();
+            if(sources.HasFlag(RuntimeFaultSource.Esp8266))affected.Add("小屏通信");
+            if(sources.HasFlag(RuntimeFaultSource.Tab5))affected.Add("TAB5 通信");
+            if(sources.HasFlag(RuntimeFaultSource.Lan))affected.Add("局域网连接");
+            if(sources.HasFlag(RuntimeFaultSource.Collectors))affected.Add("数据采集");
+            if(affected.Count>0) {
+                title=affected.Count==1?affected[0]+"服务异常":"多个桥接服务异常";
+                detail="异常来源："+string.Join("、",affected)+"。设备未接入本身不会触发此报警。";
+                advice=(sources&~(RuntimeFaultSource.Esp8266|RuntimeFaultSource.Tab5))==0
+                    ?"在服务状态中选择对应设备，点击“重新连接”；仍未恢复时重启桥接。":"重启桥接程序；若反复出现，请导出连接诊断。";
+            }
+        }
+        return new("bridge","桥接与采样",code==0?"ok":"error",title,detail,advice,at){HandledExternally=external};
     }
     internal void BeginExit()=>_view.Write(Exit,1L);
     public void Dispose(){BeginExit();_child?.Dispose();_view.Dispose();_map.Dispose();}
@@ -87,10 +106,10 @@ internal sealed class RuntimeHealthGuard : IDisposable
             if(code!=previous) {
                 previous=code;view.Write(Handled,0L);
                 if(code!=0) {
-                    var check=Check(code,DateTimeOffset.UtcNow);string title="系统监控："+check.Summary;
+                    var check=Check(code,DateTimeOffset.UtcNow,sources:(RuntimeFaultSource)view.ReadInt64(Sources));string title="系统监控："+check.Summary;
                     var decision=notices.Evaluate("health",name+":"+(++sequence),title,DateTimeOffset.Now);
                     view.Write(AlarmSequence,sequence);
-                    if(decision.Show){icon.Visible=true;icon.ShowBalloonTip(10000,(testReport is null?"":"监控自测 · ")+title,"建议重启桥接程序",check.State=="error"?ToolTipIcon.Error:ToolTipIcon.Warning);hideAt=now+15000;}
+                    if(decision.Show){icon.Visible=true;icon.ShowBalloonTip(10000,(testReport is null?"":"监控自测 · ")+title,check.Advice,check.State=="error"?ToolTipIcon.Error:ToolTipIcon.Warning);hideAt=now+15000;}
                     // A suppressed alert must not be shown again by the parent.
                     view.Write(Handled,1L);
                     if(decision.Sound)_=Task.Run(CompletionChime.PlayHealth);

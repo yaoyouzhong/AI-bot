@@ -109,6 +109,7 @@ sealed class WeatherSettingsForm : Form
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         var cancel = new Button { Text="取消", DialogResult=DialogResult.Cancel };
+        cancel.Click+=(_,_)=>Close();
         foreach(var button in new[]{_locate,_test,_save,cancel})SettingsWindow.StyleButton(button,button==_save);
         _test.Margin=Padding.Empty; cancel.Margin=new Padding(0,0,10,0); _save.Margin=Padding.Empty;
         footer.Controls.Add(_test,0,0); footer.Controls.Add(cancel,1,0); footer.Controls.Add(_save,2,0);

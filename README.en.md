@@ -1,5 +1,7 @@
 # AI-bot
 
+Candidate **AI-bot v0.6.8** improves Windows connection diagnostics, resumable updates and Device Center window behavior. Windows installation acceptance is complete locally; TAB5 0.2.210-ui agenda layout, memory, OTA writing and reboot battery display have passed local hardware acceptance and remain unpublished. See [candidate scope and validation](docs/RELEASE-0.6.8.md). Published downloads remain unchanged until release.
+
 Current stable releases: **bridge 0.6.7, TAB5 0.2.205-ui and ESP8266 0.5.3**. This update adds agenda/reminders with offline edits and reconnect synchronization, clearer management/Wi-Fi states, and desktop HD artwork browsing with fullscreen and independent reading. [Changes and validation boundaries](docs/RELEASE-0.6.7.md)
 
 Standard calligraphy is **2026.10.15.1**; standard painting **2026.10.14.1** is retained. Optional **2026.10.16 complete HD collections** contain 366 works each, including standard previews and guides. Use the [resumable download/merge helper](docs/GALLERY-HD.md), then import the full ZIP.

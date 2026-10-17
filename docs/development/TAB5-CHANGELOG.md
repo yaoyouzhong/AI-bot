@@ -2,6 +2,63 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.210-ui - 2026-10-17
+
+### Agenda home
+
+- Combine Today/All into a segmented filter, lower the toolbar and align it with the left timeline. Place New beside the list and emphasize the selected appointment's time and title on a separate detail surface.
+- Preserve five complete rows, long titles, scrolling, selection and centered empty states. Add no instructional text; editing, reminders, synchronization and deletion are unchanged.
+- Includes the changes since public 205: automatic day/night classic-clock and annual-dot screensavers, stable hour/minute positions while seconds update, simpler screensaver choices, centered agenda empty states and concise editing hints, restored internal-memory OTA staging, and automatic battery estimates after a connected-USB reboot.
+- Native regressions and local hardware acceptance passed: agenda layout, 9.609-second OTA writing, retained internal memory and connected-USB reboot battery recovery. See the [210 record](TAB5-210-ACCEPTANCE-20261017.md).
+- Preserve TAB5 display preferences during acceptance; automatic-mode/carousel restoration applies only to the small-screen device.
+
+### Windows builds
+
+- Generate Windows compiler response files from tracked CMake configuration, preserving long argument lists across fresh builds and regeneration without hand-editing Ninja files.
+
+- Use up to eight physical build cores, with at most two performance cores, BelowNormal priority and a matching compiler/linker job pool. Preserve incremental outputs and restore the caller after failures.
+
+## 0.2.209-ui - 2026-10-17
+
+### Automatic battery estimate recovery
+
+- When starting on charge without a trusted percentage, briefly pause charging to obtain a settled voltage estimate, then restore charging automatically. Keep established estimates across normal plug/unplug and transient read failures; do not substitute charging voltage for a known percentage.
+- Verify charger-control writes, retry monitor initialization, restore charging after failed sampling, and bound each calibration attempt to 90 seconds before a five-minute retry interval. Native tests cover connected USB, zero battery current, read/write faults, restoration retries, unstable samples and timeouts. Physical acceptance is tracked separately.
+- Retain 208's agenda empty state and internal OTA staging. The separate version-only 209 validation image was superseded before deployment; this candidate includes the battery fix.
+
+## 0.2.208-ui - 2026-10-17
+
+### Internal memory and OTA staging
+
+- Move independent UI voice snapshots and text buffers to PSRAM; the linked candidate recovers 30,270 bytes of internal static memory after reserving a 4 KiB internal OTA staging buffer.
+- Keep OTA writes in internal memory when larger allocations are unavailable. Add a 4 KiB storage benchmark using the existing internal readback buffer so low-memory devices can measure this path. Native low-memory and failure-path regressions pass; hardware results are recorded separately during acceptance.
+- Acceptance limitation: the production benchmark entry remains hidden and the bridge formatter still expects the original 8 KiB first row. The benchmark has not run on hardware; validate the new writer with a full OTA instead.
+
+### Agenda empty state
+
+- Group the empty-state message and New button in the center. Hide irrelevant top filters when there are no items; retain a centered All action when other dates contain items.
+- Restore the existing timeline toolbar when items become visible. Keep the concise wording and the verified 207 classic clock fix.
+
+## 0.2.207-ui - 2026-10-17
+
+### Classic clock stability
+
+- Reserve a fixed seconds width from the widest value in the actual font so seconds updates no longer move the hours/minutes. Preserve the existing colors, grouping, day/night switching and minute-by-minute drift.
+- Add all-60-second position and clipping regressions. Native, firmware and physical acceptance results are recorded separately in the local acceptance record; this is an unpublished candidate.
+
+### Agenda home
+
+- Place the timeline beside the selected item's details, show five complete rows, and separate New from the contextual Edit/Delete controls.
+- Remove persistent capacity-cleanup and empty-list instruction text. Keep actionable save, sync and failure states; scheduling, retention and deletion behavior are unchanged.
+
+## 0.2.206-ui - 2026-10-17
+
+### Screensaver clock
+
+- Center the classic clock's large hours/minutes and smaller seconds as a group, with the date and weekday beneath. Both classic and annual clocks use light colors from 07:00 to 19:00 device-local time and a black background otherwise; an unavailable clock defaults to night.
+- Simplify annual clock choices, retain warm gray, and map legacy day/night styles to automatic switching without rewriting stored preferences. Preserve brightness, touch/PC wake and minute-by-minute drift.
+- Native layout, transition and preference regressions passed. Firmware build and physical-device acceptance are tracked separately in the local acceptance record; this is an unpublished candidate.
+
 ## 0.2.205-ui - 2026-10-16
 
 ### Reminder layout

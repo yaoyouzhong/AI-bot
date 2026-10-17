@@ -11,6 +11,8 @@ internal sealed class DeviceServiceManager
     private readonly Func<string,CancellationToken,Task>? _worker;
     internal string[] ActiveServices=>new[]{(_espStop,"esp8266"),(_tabStop,"tab5"),(_lanStop,"lan")}.Where(x=>x.Item1 is not null).Select(x=>x.Item2).ToArray();
     internal int FaultedServices=>_espTasks.Concat(_tabTasks).Concat(_lanTasks).Count(t=>t.IsFaulted);
+    internal RuntimeFaultSource FaultSources=>( _espTasks.Any(t=>t.IsFaulted)?RuntimeFaultSource.Esp8266:0)
+        |(_tabTasks.Any(t=>t.IsFaulted)?RuntimeFaultSource.Tab5:0)|(_lanTasks.Any(t=>t.IsFaulted)?RuntimeFaultSource.Lan:0);
     private Task Start(string name,Func<CancellationToken,Task> run,CancellationToken token)=>Task.Run(()=>_worker is null?run(token):_worker(name,token));
     private readonly SemaphoreSlim _change=new(1,1);
     private readonly DeviceConnectionHistory _history=new();
@@ -100,7 +102,7 @@ internal sealed class DeviceServiceManager
     internal DeviceView View(RegisteredDevice device) {
         if(!device.Enabled)return new(false,"已停用","连接服务已停止","待连接读取");
         var tasks=device.Kind==HardwareKind.Tab5?_tabTasks:_espTasks;
-        if(tasks.Any(t=>t.IsFaulted))return new(false,"连接异常","连接服务遇到错误，请停用后重新启用设备。","待连接读取");
+        if(tasks.Any(t=>t.IsFaulted))return new(false,"连接异常","连接服务遇到错误，请在服务状态中选择本设备并点击“重新连接”。","待连接读取");
         if(device.Kind==HardwareKind.Tab5){var view=Tab5?.DeviceView??new(false,Error is null?"待配置":"连接异常",Error??"请连接或检查配对资料","待连接读取");return Tab5 is not null&&!view.Online&&view.Status=="离线"&&Environment.TickCount64-_tabStarted<15000?view with {Status="连接中"}:view;}
         bool usb=Serial.UsbDataActive,lan=EspLanEnabled&&Interlocked.Read(ref _legacyLanAt)>0&&Environment.TickCount64-Interlocked.Read(ref _legacyLanAt)<15000;
         string usbStatus=_espMode==EspConnectionMode.Wifi?"未使用":usb?"已连接":Serial.ConnectionStatus;

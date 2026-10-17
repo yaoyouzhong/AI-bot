@@ -5,6 +5,7 @@ internal sealed class Tab5ConnectionForm : Form
     private readonly CancellationTokenSource _stop=new();
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=1000};
     private bool _resourcesDisposed;
+    internal void ShowUpgrade(){if(Controls.Find("connection-tabs",true).FirstOrDefault() is TabControl tabs)tabs.SelectedIndex=2;}
     internal Tab5ConnectionForm(Tab5Service service,bool loadNetworks=true,bool showUpgrade=false)
     {
         SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
@@ -16,7 +17,7 @@ internal sealed class Tab5ConnectionForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));layout.RowStyles.Add(new RowStyle(SizeType.Percent,100));layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));Controls.Add(layout);
         var state=new Label{AutoSize=true,Dock=DockStyle.Fill,Text=service.ConnectionSummary,Padding=new Padding(12),BackColor=Color.White,Margin=new Padding(0,0,0,12)};
         layout.Controls.Add(state,0,0);
-        var tabs=new TabControl{Dock=DockStyle.Fill,Padding=new Point(12,6),Margin=Padding.Empty};layout.Controls.Add(tabs,0,1);
+        var tabs=new TabControl{Name="connection-tabs",Dock=DockStyle.Fill,Padding=new Point(12,6),Margin=Padding.Empty};layout.Controls.Add(tabs,0,1);
         Panel Page(string title) {
             var tab=new TabPage(title){BackColor=Color.White,Padding=new Padding(4)};tabs.TabPages.Add(tab);
             Panel panel=title is "固件升级" or "传输测速"?new ContentPage{Dock=DockStyle.Fill,Padding=new Padding(10)}:
@@ -131,6 +132,11 @@ internal sealed class Tab5ConnectionForm : Form
         audio.Controls.Add(Heading("语音输入"));audio.Controls.Add(Note("识别后在 TAB5 检查，再手动发送。"));
         var voice=new Button{Text="语音设置…"};audio.Controls.Add(Buttons(voice));voice.Click+=(_,_)=>service.ShowVoiceSettings(this);
         bool busy=false,loading=false;
+        FormClosing+=(_,e)=>{
+            if(busy||verifying||service.Busy||benchmarkCancel is not null) {
+                e.Cancel=true;result.Text="设备正在处理操作，请先完成升级／录音，或停止测速后再关闭。";
+            }
+        };
         Tab5Service.SavedWifiNetwork? Selected()=>saved.SelectedItems.Count==1?saved.SelectedItems[0].Tag as Tab5Service.SavedWifiNetwork:null;
         void FillSelection() {
             var selected=Selected();forget.Enabled=!busy&&selected is not null;

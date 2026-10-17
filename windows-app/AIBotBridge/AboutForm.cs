@@ -37,6 +37,7 @@ internal sealed class AboutForm : Form
         };
         root.Controls.Add(link,0,4);
         var close = new Button { Text = "关闭", DialogResult = DialogResult.OK,Anchor=AnchorStyles.Bottom|AnchorStyles.Right,Margin=new(0,12,0,0) };
+        close.Click+=(_,_)=>Close();
         SettingsWindow.StyleButton(close);root.Controls.Add(close,0,5);
         AcceptButton = close;
         CancelButton = close;
