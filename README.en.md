@@ -55,9 +55,9 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 The updated 116-second Chinese tour adds computer unlock, automatic TightVNC setup/import and bidirectional read synchronization, uses the actual .234 notes and retains agenda, clocks, quotas and artwork browsing. Native interfaces use isolated demo data, not hardware photographs.
 
-[![AI-bot 0.6.10 / TAB5 234](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
+https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 
-<sub>116-second Chinese tour. Click the cover to open the GitHub video page. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
+<sub>116-second Chinese tour. Play directly on this page. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
 
 ## What it does
 
