@@ -49,7 +49,7 @@ enum MacTab5Protocol {
     }
 
     static func encrypt(_ clear: Data, key: Data, challenge: String, nonce: Data? = nil, maximum: Int = maximumFrame) throws -> Data {
-        guard (28...65536).contains(maximum), key.count == 32, isHex(challenge, count: 32), clear.count <= maximum - 28 else { throw MacTab5Error.invalidPacket }
+        guard (28...3 * 1024 * 1024).contains(maximum), key.count == 32, isHex(challenge, count: 32), clear.count <= maximum - 28 else { throw MacTab5Error.invalidPacket }
         let iv = try nonce.map { try AES.GCM.Nonce(data: $0) } ?? AES.GCM.Nonce()
         guard iv.withUnsafeBytes({ $0.count }) == 12 else { throw MacTab5Error.invalidPacket }
         let sealed = try AES.GCM.seal(clear, using: SymmetricKey(data: key), nonce: iv, authenticating: Data(challenge.utf8))

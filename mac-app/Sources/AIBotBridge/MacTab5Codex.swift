@@ -8,6 +8,7 @@ final class MacTab5Codex {
     private let queue = DispatchQueue(label: "AI-bot.tab5-codex")
     private let call: Call, enabled: () -> Bool, sendEnabled: () -> Bool
     let store: MacTab5PrivateStore
+    let photos: MacTab5Photos
     private var timer: DispatchSourceTimer?
     private var catalog: [[String: Any]] = []
     private var projection: [String: Any] = [:]
@@ -19,7 +20,7 @@ final class MacTab5Codex {
     private let rpc: MacTab5CodexRPC?
 
     init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, call: Call? = nil) {
-        self.store = store; self.enabled = enabled; self.sendEnabled = sendEnabled
+        self.store = store; photos = MacTab5Photos(store: store); self.enabled = enabled; self.sendEnabled = sendEnabled
         if let call { self.call = call; rpc = nil }
         else { let rpc = MacTab5CodexRPC(); self.rpc = rpc; self.call = rpc.call }
     }
@@ -89,8 +90,9 @@ final class MacTab5Codex {
             }
             if op == "draft-load" || op == "draft-save" {
                 if op == "draft-save" {
-                    guard let text = root["message"] as? String, text.utf8.count <= 2000, (root["images"] as? [String] ?? []).isEmpty else { return .error(400, "invalid_draft") }
-                    drafts[binding] = ["text": text, "images": [String]()]; data["drafts"] = drafts; try saveJournal(data)
+                    guard let text = root["message"] as? String, text.utf8.count <= 2000 else { return .error(400, "invalid_draft") }
+                    let images = root["images"] as? [String] ?? []; _ = try photos.inputs(images, device: device, task: task)
+                    drafts[binding] = ["text": text, "images": images]; data["drafts"] = drafts; try saveJournal(data)
                 } else {
                     let draft = drafts[binding] as? [String: Any] ?? ["text": "", "images": [String]()]
                     let pending = receipts.first { entry in guard let value = entry.value as? [String: Any] else { return false }; return value["binding"] as? String == binding && value["status"] as? Int == 504 }
@@ -102,11 +104,14 @@ final class MacTab5Codex {
             }
             guard sendEnabled(), ["send", "steer", "interrupt"].contains(op) else { return .error(403, "codex_send_not_enabled") }
             let text = root["message"] as? String ?? "", expected = root["expectedTurn"] as? String ?? ""
-            guard text.utf8.count <= 2000, op == "interrupt" || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  (root["images"] as? [String] ?? []).isEmpty, op == "send" || Self.id(expected) != nil else { return .error(400, "invalid_request") }
-            let fingerprint = MacTab5Protocol.sha256(try MacTab5Protocol.json(["binding": binding, "op": op, "text": text, "expected": expected]))
+            let images = root["images"] as? [String] ?? []
+            guard text.utf8.count <= 2000, op == "interrupt" || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !images.isEmpty,
+                  op == "send" || Self.id(expected) != nil else { return .error(400, "invalid_request") }
+            let fingerprint = MacTab5Protocol.sha256(try MacTab5Protocol.json(["binding": binding, "op": op, "text": text, "expected": expected, "images": images]))
             if let receipt = receipts[id] as? [String: Any] { return receipt["fingerprint"] as? String == fingerprint ? receiptResult(receipt) : .error(409, "request_id_conflict") }
             guard receipts.count < 4096 else { return .error(429, "receipt_store_full") }
+            var inputs = try photos.inputs(images, device: device, task: task)
+            if !text.isEmpty { inputs.insert(["type": "text", "text": text], at: 0) }
             let thread = try readThread(task), turns = thread["turns"] as? [[String: Any]] ?? [], last = turns.last ?? [:]
             let flags = (thread["status"] as? [String: Any])?["activeFlags"] as? [String] ?? []
             if flags.contains("waitingOnApproval") || flags.contains("waitingOnUserInput") { return .error(409, "task_waiting_for_input") }
@@ -115,14 +120,14 @@ final class MacTab5Codex {
             // Persist the uncertain receipt BEFORE any side effect, including resume.
             var receipt: [String: Any] = ["binding": binding, "fingerprint": fingerprint, "operation": op, "expectedTurn": expected, "status": 504, "body": ["error": "delivery_unknown"]]
             receipts[id] = receipt; data["receipts"] = receipts
-            if op != "interrupt" { drafts[binding] = ["text": text, "images": [String]()]; data["drafts"] = drafts }
+            if op != "interrupt" { drafts[binding] = ["text": text, "images": images]; data["drafts"] = drafts }
             try saveJournal(data)
             do {
                 let result: [String: Any]
                 if op == "send" {
                     _ = try call("thread/resume", ["threadId": task])
-                    result = try call("turn/start", ["threadId": task, "input": [["type": "text", "text": text]]])
-                } else if op == "steer" { result = try call("turn/steer", ["threadId": task, "expectedTurnId": expected, "input": [["type": "text", "text": text]]]) }
+                    result = try call("turn/start", ["threadId": task, "input": inputs])
+                } else if op == "steer" { result = try call("turn/steer", ["threadId": task, "expectedTurnId": expected, "input": inputs]) }
                 else { result = try call("turn/interrupt", ["threadId": task, "turnId": expected]) }
                 let turn = (result["turn"] as? [String: Any])?["id"] as? String ?? result["turnId"] as? String ?? (op == "interrupt" ? expected : "")
                 guard Self.id(turn) != nil else { return .error(504, "delivery_unknown") }

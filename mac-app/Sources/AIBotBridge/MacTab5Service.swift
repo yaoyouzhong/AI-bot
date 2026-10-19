@@ -154,6 +154,7 @@ final class MacTab5Service {
         if computer.isEnabled { health["computerControlVersion"] = 1 }
         additions["connectionHealth"] = health
         additions["codexTasks"] = codex.snapshot()
+        if codex.isEnabled { additions["imageBinary"] = 1 }
         return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session,
                                             sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover)
     }
@@ -237,7 +238,11 @@ final class MacTab5Service {
         lock.unlock()
         var result = MacTab5RPCResult(status, body)
         if dispatchOperation {
-            if !raw.isEmpty { result = .error(400, "unexpected_binary_data") }
+            if root["kind"] as? String == "image-chunk", codex.isEnabled, let task = MacTab5Codex.id(root["taskId"]), codex.contains(task) {
+                let bytes = raw.isEmpty ? Data(base64Encoded: root["data"] as? String ?? "") ?? Data() : raw
+                result = codex.photos.upload(root, bytes: bytes, device: device)
+            }
+            else if !raw.isEmpty { result = .error(400, "unexpected_binary_data") }
             else if root["kind"] as? String == "gallery" { result = gallery.handle(root, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
             else if root["kind"] as? String == "computer-control" { result = computer.handle(root) }
             else if root["kind"] as? String == "codex" { result = codex.handle(root, device: device) }
@@ -283,6 +288,31 @@ final class MacTab5Service {
             return (status, try MacTab5Protocol.json(body))
         } catch { return (500, Data()) }
     }
+
+    func imageHTTP(device: String, nonce: String, proof: String, packet: Data) -> (Int, Data) {
+        guard codex.isEnabled, let pair = currentPairing, pair.confirmed, pair.deviceId == device, packet.count <= 3 * 1024 * 1024,
+              MacTab5Protocol.isHex(nonce, count: 32), MacTab5Protocol.verify(key: pair.key, message: "POST|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))", proof: proof),
+              let clear = try? MacTab5Protocol.decrypt(packet, key: pair.key, challenge: nonce, maximum: 3 * 1024 * 1024) else { return (401, Data()) }
+        do {
+            let root: [String: Any], bytes: Data
+            if clear.starts(with: Data("T5I1".utf8)) {
+                guard clear.count >= 10 else { return (400, Data()) }; let count = Int(MacTab5Mailbox.u32(clear, 4))
+                guard (2...4096).contains(count), clear.count > 8 + count else { return (400, Data()) }
+                root = try MacTab5Protocol.object(Data(clear[8..<8 + count])); bytes = Data(clear.dropFirst(8 + count))
+            } else { root = try MacTab5Protocol.object(clear); bytes = Data(base64Encoded: root["image"] as? String ?? "") ?? Data() }
+            guard root["op"] as? String == "image-upload", let task = MacTab5Codex.id(root["taskId"]), codex.contains(task) else { return (400, Data()) }
+            let now = Int64(Date().timeIntervalSince1970 * 1000), tick = ProcessInfo.processInfo.systemUptime
+            lock.lock()
+            guard !stopped, currentIdentityMatches(pair), root["session"] as? String == session, let issued = MacTab5Protocol.integer(root["issuedAt"]), issued >= now - 90000, issued <= now + 10000 else { lock.unlock(); return (400, Data()) }
+            nonces = nonces.filter { tick - $0.value < 100 }
+            guard nonces[nonce] == nil, nonces.count < 8192 else { lock.unlock(); return (409, Data()) }
+            nonces[nonce] = tick; activeOperations += 1; lock.unlock()
+            let result = codex.photos.upload(root, bytes: bytes, device: device)
+            lock.lock(); activeOperations -= 1; lock.unlock()
+            return (result.status, try MacTab5Protocol.json(result.body))
+        } catch { return (400, Data()) }
+    }
+    private func currentIdentityMatches(_ pair: MacTab5Pairing) -> Bool { pairing == pair }
 
     func discovery(_ packet: Data, address: String) -> Data? {
         guard packet.count <= 160, PrivateIPv4Address.isValid(address), let text = String(data: packet, encoding: .ascii) else { return nil }
