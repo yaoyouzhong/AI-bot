@@ -36,6 +36,8 @@ UI plan: keep native AppKit controls, system semantic background/label/separator
 - 增加真实子进程 stdio 握手测试后，发现 Mac `read(upToCount:)` 等待缓冲区导致短 JSON-RPC 超时，改用当前可用数据读取。`e53eea3` 的 [Mac CI 39282804628](https://github.com/yaoyouzhong/AI-bot/actions/runs/39282804628) 确认 105 测试及 Release/App/工具/原生视图渲染通过，0 失败、0 跳过。
 - 原生渲染另发现 AppKit `document` 属性命名冲突和透明背景影响检查，均已修复；`47a2648` 的 [Mac CI 39283265532](https://github.com/yaoyouzhong/AI-bot/actions/runs/39283265532) 已生成可读 PNG，逐张查看连接、权限/交互、资源、首刷与显示设置表单，控件未重叠或裁切。最后收紧表单行高，避免固定页行伸展。PNG 使用固定数据，不是真机画面或权限验收。
 - 最后补充：Codex 目录失联超过 30 秒保留可见缓存，但禁止新发送/桌面写入；阅读回执重新核对当前终态轮次。HTTP 设备操作放到有界后台队列，慢 Codex 请求不阻塞日常状态连接；新增真实回环 HTTP 并发回归。最终提交结果以 CI 附件和本地 `verify_mac_tab5_ci_artifacts.py` 复核为准。
+- `0eed5c7` 的 [Mac CI 39284171856](https://github.com/yaoyouzhong/AI-bot/actions/runs/39284171856) 附件完成本地复核：108 项测试，0 失败、0 跳过；Release、候选 App、P4/ESP8266 工具与 8 张原生 PNG 通过，内外层 SHA 与源码 SHA 一致。覆盖监听 ready 后临时端口、真实 HTTP 并发和语音自然结束/报错释放收音。
+- 高清完整包入口补充：外层有目录并包含 `standard.zip`，现在按清单验证外层目录、类别/作品数与内置 ZIP SHA，再流式读取、验证并原子启用 TAB5 适配子集；支持安全的中文文件名。桌面高清原作不解压、不宣称已验证，也不包含 Mac 高清浏览器。新增损坏包保留原图库的实际 ZIP 回归；最终 CI 覆盖该入口。
 
 候选使用、权限、版本差异与集中真机清单见 [双语指南](../MAC-TAB5-CANDIDATE.md)。代码保存在独立测试 worktree/测试分支，不覆盖原始 checkout 的 Windows/固件未提交改动。远端 main 未更新。
 
