@@ -63,11 +63,13 @@ jobs:
           bash scripts/build_macos_app.sh "$GITHUB_WORKSPACE/artifacts/macos-tab5/AIBotBridge.app" 2>&1 | tee artifacts/macos-tab5/bundle.log
           app="$GITHUB_WORKSPACE/artifacts/macos-tab5/AIBotBridge.app"
           "$app/Contents/MacOS/AIBotBridge" --self-test-flash-tool 2>&1 | tee artifacts/macos-tab5/flash-tool-check.log
+          "$app/Contents/MacOS/AIBotBridge" --self-test-tab5-ui "$GITHUB_WORKSPACE/artifacts/macos-tab5/ui" 2>&1 | tee artifacts/macos-tab5/ui-check.log
           cp LICENSE THIRD_PARTY_NOTICES.md "$app/Contents/Resources/"
           printf '%s\n' "$GITHUB_SHA" > "$app/Contents/Resources/SOURCE_SHA.txt"
           codesign --force --sign - --options runtime --entitlements mac-app/AIBotBridge.entitlements "$app"
           codesign --verify --deep --strict "$app"
           tar -C artifacts/macos-tab5 -czf artifacts/macos-tab5/mac-tab5-candidate-app.tar.gz AIBotBridge.app
+          (cd artifacts/macos-tab5 && shasum -a 256 *.tar.gz > BUILD_SHA256SUMS.txt)
       - name: Upload CI diagnostics and build
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -78,5 +80,18 @@ jobs:
             artifacts/macos-tab5/*.log
             artifacts/macos-tab5/*.xml
             artifacts/macos-tab5/*.tar.gz
+            artifacts/macos-tab5/ui/*.png
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload small validation reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mac-tab5-reports-${{ github.sha }}
+          path: |
+            artifacts/macos-tab5/*.txt
+            artifacts/macos-tab5/*.log
+            artifacts/macos-tab5/*.xml
+            artifacts/macos-tab5/ui/*.png
           if-no-files-found: error
           retention-days: 14

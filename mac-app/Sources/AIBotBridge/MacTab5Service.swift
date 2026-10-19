@@ -30,6 +30,7 @@ final class MacTab5Service {
     let computer: MacTab5Computer
     let codex: MacTab5Codex
     let voice: MacTab5Voice
+    let desktop: MacTab5Desktop
     let firmwareControl = MacTab5Firmware()
     private var activeOperations = 0
     private var displayCompletion: DisplayCompletion?
@@ -38,6 +39,7 @@ final class MacTab5Service {
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }) {
         self.port = port; self.host = host; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
+        desktop = MacTab5Desktop(codex: codex)
         do { pairing = try load(); try pairing?.validate() }
         catch { pairingReadable = false; usbNote = "无法读取配对记录，请检查钥匙串权限" }
     }
@@ -255,6 +257,7 @@ final class MacTab5Service {
             else if root["kind"] as? String == "computer-control" { result = computer.handle(root) }
             else if root["kind"] as? String == "codex" { result = codex.handle(root, device: device) }
             else if root["kind"] as? String == "voice" { result = voice.handle(root, device: device) }
+            else if root["kind"] as? String == "desktop" { result = desktop.handle(root, device: device) }
             else { result = firmwareControl.handle(root, device: device, transport: transport, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
             lock.lock(); activeOperations -= 1; lock.unlock()
         }
