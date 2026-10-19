@@ -15,6 +15,7 @@ final class MacTab5Service {
     private var sequence: Int64 = 0
     private var lanReady = false
     private var stopped = false
+    private var maintenance = false
     private var lastUSB: TimeInterval = -.infinity
     private var lastWiFi: TimeInterval = -.infinity
     private var lastBLE: TimeInterval = -.infinity
@@ -42,6 +43,11 @@ final class MacTab5Service {
     }
 
     var currentPairing: MacTab5Pairing? { lock.lock(); defer { lock.unlock() }; return pairing }
+    func setMaintenance(_ value: Bool) -> Bool {
+        lock.lock()
+        if value && (activeOperations > 0 || displayCompletion != nil || firmwareControl.busy) { lock.unlock(); return false }
+        maintenance = value; lock.unlock(); if value { voice.stop() }; return true
+    }
     var usbActive: Bool { lock.lock(); defer { lock.unlock() }; return ProcessInfo.processInfo.systemUptime - lastUSB < 8 }
     var configurationBusy: Bool { lock.lock(); defer { lock.unlock() }; return displayCompletion != nil || activeOperations > 0 || firmwareControl.busy }
     var bootTransport: String? {
@@ -104,7 +110,7 @@ final class MacTab5Service {
     // explicitly with the same key, without silently invalidating the device.
     func preparePairing(device: String, path: String) throws -> MacTab5Pairing {
         lock.lock(); defer { lock.unlock() }
-        guard !stopped else { throw MacTab5Error.unavailable }
+        guard !stopped, !maintenance else { throw MacTab5Error.unavailable }
         if !pairingReadable {
             let recovered = try loadPairing(); try recovered?.validate()
             pairing = recovered; pairingReadable = true
@@ -142,7 +148,7 @@ final class MacTab5Service {
                                          "session": session, "sequence": sequence, "resources": chunks])
     }
     private func frameLocked() throws -> Data {
-        guard !stopped else { throw MacTab5Error.unavailable }
+        guard !stopped, !maintenance else { throw MacTab5Error.unavailable }
         guard let pair = pairing, pair.confirmed, let snapshot else { throw MacTab5Error.pairingRequired }
         sequence += 1
         var additions = assets.projection()
@@ -164,7 +170,7 @@ final class MacTab5Service {
     func displaySettings(_ desired: MacTab5DisplaySettings?, completion: @escaping DisplayCompletion) {
         lock.lock()
         do {
-            guard !stopped else { throw MacTab5Error.unavailable }
+            guard !stopped, !maintenance else { throw MacTab5Error.unavailable }
             guard pairing?.confirmed == true else { throw MacTab5Error.pairingRequired }
             let now = ProcessInfo.processInfo.systemUptime
             guard now - lastUSB < 8 || now - lastWiFi < 8 || now - lastBLE < 8 else { throw MacTab5Error.unavailable }
@@ -190,7 +196,7 @@ final class MacTab5Service {
 
     func status(device: String, nonce: String, proof: String, headers: [String: String] = [:]) -> (Int, Data) {
         lock.lock(); defer { lock.unlock() }
-        guard !stopped else { return (503, Data()) }
+        guard !stopped, !maintenance else { return (503, Data()) }
         guard let pair = pairing, pair.confirmed, pair.deviceId == device,
               MacTab5Protocol.isHex(nonce, count: 32),
               MacTab5Protocol.verify(key: pair.key, message: "GET|\(device)|\(nonce)", proof: proof) else { return (401, Data()) }
@@ -207,7 +213,7 @@ final class MacTab5Service {
 
     func rpc(device: String, nonce: String, proof: String, packet: Data, transport: String = "USB") -> (Int, Data) {
         lock.lock()
-        guard !stopped else { lock.unlock(); return (503, Data()) }
+        guard !stopped, !maintenance else { lock.unlock(); return (503, Data()) }
         guard let pair = pairing, pair.confirmed, pair.deviceId == device,
               MacTab5Protocol.isHex(nonce, count: 32), (28...MacTab5Protocol.maximumRPC).contains(packet.count),
               MacTab5Protocol.verify(key: pair.key, message: "POST|/tab5/v1/rpc|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))", proof: proof) else {
@@ -262,7 +268,7 @@ final class MacTab5Service {
 
     func ota(device: String, nonce: String, proof: String, sha: String) -> (Int, Data) {
         lock.lock(); defer { lock.unlock() }
-        guard !stopped else { return (503, Data()) }
+        guard !stopped, !maintenance else { return (503, Data()) }
         guard let pair = pairing, pair.confirmed, pair.deviceId == device, MacTab5Protocol.isHex(sha, count: 64), MacTab5Protocol.isHex(nonce, count: 32),
               MacTab5Protocol.verify(key: pair.key, message: "GET|/tab5/v1/ota/\(sha)|\(device)|\(nonce)", proof: proof) else { return (401, Data()) }
         guard let bytes = firmwareControl.bytes(sha: sha) else { return (404, Data()) }
@@ -306,7 +312,7 @@ final class MacTab5Service {
             guard root["op"] as? String == "image-upload", let task = MacTab5Codex.id(root["taskId"]), codex.contains(task) else { return (400, Data()) }
             let now = Int64(Date().timeIntervalSince1970 * 1000), tick = ProcessInfo.processInfo.systemUptime
             lock.lock()
-            guard !stopped, currentIdentityMatches(pair), root["session"] as? String == session, let issued = MacTab5Protocol.integer(root["issuedAt"]), issued >= now - 90000, issued <= now + 10000 else { lock.unlock(); return (400, Data()) }
+            guard !stopped, !maintenance, currentIdentityMatches(pair), root["session"] as? String == session, let issued = MacTab5Protocol.integer(root["issuedAt"]), issued >= now - 90000, issued <= now + 10000 else { lock.unlock(); return (400, Data()) }
             nonces = nonces.filter { tick - $0.value < 100 }
             guard nonces[nonce] == nil, nonces.count < 8192 else { lock.unlock(); return (409, Data()) }
             nonces[nonce] = tick; activeOperations += 1; lock.unlock()

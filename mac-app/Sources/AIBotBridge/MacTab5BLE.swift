@@ -76,6 +76,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         }
     }
     func stop() { setEnabled(false) }
+    func stopAndWait() { queue.sync { enabled = false; central?.stopScan(); reset("蓝牙已暂停，正在操作设备"); timer?.cancel(); timer = nil } }
     private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
     private func reset(_ message: String) {
         readCompletion = nil; writeCompletion = nil; reading = nil; writing = nil; packets = []; awaitingWrite = false

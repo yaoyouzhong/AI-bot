@@ -5,6 +5,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private let usb: MacTab5USB
     private let canBegin: () -> Bool
     private let changeBluetooth: (Bool) -> Void
+    private let install: () -> Void
     private let bluetooth = NSButton(checkboxWithTitle: "启用 TAB5 蓝牙连接", target: nil, action: nil)
     private let connection = NSTextField(wrappingLabelWithString: "")
     private let result = NSTextField(wrappingLabelWithString: "")
@@ -17,8 +18,8 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private var features: MacTab5FeaturesWindow?
     private(set) var busy = false
 
-    init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }, changeBluetooth: @escaping (Bool) -> Void = { _ in }) {
-        self.service = service; self.usb = usb; self.canBegin = canBegin; self.changeBluetooth = changeBluetooth
+    init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }, changeBluetooth: @escaping (Bool) -> Void = { _ in }, install: @escaping () -> Void = {}) {
+        self.service = service; self.usb = usb; self.canBegin = canBegin; self.changeBluetooth = changeBluetooth; self.install = install
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 610, height: 700),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         super.init(window: window)
@@ -70,6 +71,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(action("读取并修改显示设置…", #selector(editDisplay)))
         stack.addArrangedSubview(action("资源与固件…", #selector(openTools)))
         stack.addArrangedSubview(action("交互与权限…", #selector(openFeatures)))
+        stack.addArrangedSubview(action("首次安装与备份恢复…", #selector(openInstall)))
         stack.addArrangedSubview(note("亮度、声音、页面和轮播设置以 TAB5 实际值为准；保存需要设备确认。"))
         result.textColor = .secondaryLabelColor
         stack.addArrangedSubview(result); result.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -104,6 +106,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     }
     private func refreshStatus() { connection.stringValue = service.connectionSummary }
     var toolsBusy: Bool { tools?.busy == true }
+    @objc private func openInstall() { if allowOperation() { install() } }
     @objc private func openFeatures() {
         if features == nil { features = MacTab5FeaturesWindow(service: service) }; features?.open()
     }

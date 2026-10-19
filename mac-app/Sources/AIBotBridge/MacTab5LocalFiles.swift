@@ -36,7 +36,7 @@ enum MacTab5LocalProcess {
 struct MacTab5Archive {
     let url: URL
     let names: [String]
-    init(_ url: URL, maximumSize: Int = 2 * 1024 * 1024 * 1024) throws {
+    init(_ url: URL, maximumSize: Int = 2 * 1024 * 1024 * 1024, allowNested: Bool = false) throws {
         guard url.isFileURL, url.pathExtension.lowercased() == "zip",
               let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0, size <= maximumSize else { throw MacTab5LocalError.invalid("请选择有效的 AI-bot ZIP 包。") }
         self.url = url
@@ -44,10 +44,15 @@ struct MacTab5Archive {
         guard let text = String(data: listing, encoding: .utf8) else { throw MacTab5Error.invalidPacket }
         names = text.split(separator: "\n").map(String.init)
         guard !names.isEmpty, names.count <= 8192, Set(names.map { $0.lowercased() }).count == names.count,
-              names.allSatisfy(Self.safeName) else { throw MacTab5LocalError.invalid("ZIP 含重复或不安全的文件名。") }
+              names.allSatisfy({ allowNested ? Self.safePath($0) : Self.safeName($0) }) else { throw MacTab5LocalError.invalid("ZIP 含重复或不安全的文件名。") }
     }
     static func safeName(_ name: String) -> Bool {
         !name.isEmpty && !name.contains("..") && name.range(of: "^[A-Za-z0-9][A-Za-z0-9_.-]*$", options: .regularExpression) != nil
+    }
+    static func safePath(_ name: String) -> Bool {
+        let value = name.hasSuffix("/") ? String(name.dropLast()) : name
+        let parts = value.split(separator: "/", omittingEmptySubsequences: false)
+        return parts.count <= 8 && parts.allSatisfy { safeName(String($0)) }
     }
     func read(_ name: String, maximum: Int) throws -> Data {
         guard Self.safeName(name), names.contains(name) else { throw MacTab5LocalError.invalid("包内缺少必需文件。") }

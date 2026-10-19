@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var port: UInt16 = 8765
     private var deviceOperationBusy = false
     private var flasher: MacFirmwareFlashWindow?
+    private var tab5Installer: MacTab5InstallWindow?
     private var flashSerialStopped = false
     private var gallery: MacPetGalleryWindow?
     private var mirror: MacMirrorWindow?
@@ -116,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if flasher?.busy == true { flasher?.open(); return .terminateCancel }
+        if tab5Installer?.busy == true { tab5Installer?.open(); return .terminateCancel }
         if tab5Window?.busy == true { tab5Window?.open(); return .terminateCancel }
         if tab5Window?.toolsBusy == true || tab5?.configurationBusy == true { tab5Window?.open(); return .terminateCancel }
         return .terminateNow
@@ -144,6 +146,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             })
         }
         flasher?.open()
+    }
+
+    private func openTab5Installer() {
+        if tab5Installer == nil {
+            tab5Installer = MacTab5InstallWindow(begin: { [weak self] in
+                guard let self, !self.deviceOperationBusy, self.tab5Window?.busy != true, self.tab5Window?.toolsBusy != true, self.tab5?.configurationBusy != true, self.tab5?.setMaintenance(true) == true else { return false }
+                self.deviceOperationBusy = true; return true
+            }, suspend: { [weak self] in
+                self?.serial?.stopAndWait(); self?.tab5USB?.stopAndWait(); self?.tab5BLE?.stopAndWait()
+            }, finish: { [weak self] suspended in
+                guard let self else { return }; _ = self.tab5?.setMaintenance(false)
+                if suspended { self.serial?.start(); self.tab5USB?.start(); self.tab5BLE?.setEnabled(UserDefaults.standard.bool(forKey: MacTab5BLE.enabledKey)) }
+                self.deviceOperationBusy = false
+            })
+        }
+        tab5Installer?.open()
     }
 
     private func buildMenu() -> NSMenu {
@@ -242,7 +260,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openTab5() {
         guard let service = tab5, let usb = tab5USB else { return }
         if tab5Window == nil {
-            tab5Window = MacTab5Window(service: service, usb: usb, canBegin: { [weak self] in self?.deviceOperationBusy == false }, changeBluetooth: { [weak self] enabled in self?.tab5BLE?.setEnabled(enabled) })
+            tab5Window = MacTab5Window(service: service, usb: usb, canBegin: { [weak self] in self?.deviceOperationBusy == false }, changeBluetooth: { [weak self] enabled in self?.tab5BLE?.setEnabled(enabled) }, install: { [weak self] in self?.openTab5Installer() })
         }
         tab5Window?.open()
     }
