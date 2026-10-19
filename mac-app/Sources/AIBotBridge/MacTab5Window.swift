@@ -4,6 +4,8 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private let service: MacTab5Service
     private let usb: MacTab5USB
     private let canBegin: () -> Bool
+    private let changeBluetooth: (Bool) -> Void
+    private let bluetooth = NSButton(checkboxWithTitle: "启用 TAB5 蓝牙连接", target: nil, action: nil)
     private let connection = NSTextField(wrappingLabelWithString: "")
     private let result = NSTextField(wrappingLabelWithString: "")
     private let ports = NSPopUpButton()
@@ -13,8 +15,8 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private var timer: Timer?
     private(set) var busy = false
 
-    init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }) {
-        self.service = service; self.usb = usb; self.canBegin = canBegin
+    init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }, changeBluetooth: @escaping (Bool) -> Void = { _ in }) {
+        self.service = service; self.usb = usb; self.canBegin = canBegin; self.changeBluetooth = changeBluetooth
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 610, height: 700),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         super.init(window: window)
@@ -24,7 +26,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         let content = window.contentView!
         let scroll = NSScrollView(frame: content.bounds); scroll.autoresizingMask = [.width, .height]
         scroll.hasVerticalScroller = true; scroll.drawsBackground = false
-        let document = MacTab5DocumentView(frame: NSRect(x: 0, y: 0, width: content.bounds.width, height: 760))
+        let document = MacTab5DocumentView(frame: NSRect(x: 0, y: 0, width: content.bounds.width, height: 820))
         document.autoresizingMask = [.width]; scroll.documentView = document
         content.addSubview(scroll); document.addSubview(stack)
         NSLayoutConstraint.activate([
@@ -38,6 +40,10 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(connection)
         connection.font = .systemFont(ofSize: 13)
         connection.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        bluetooth.state = UserDefaults.standard.bool(forKey: MacTab5BLE.enabledKey) ? .on : .off
+        bluetooth.target = self; bluetooth.action = #selector(toggleBluetooth)
+        stack.addArrangedSubview(bluetooth)
+        stack.addArrangedSubview(note("首次启用会请求蓝牙权限。USB 数据正常时蓝牙待命；设备固定连接模式仍由 TAB5 设置决定。"))
         addSeparator(to: stack)
         stack.addArrangedSubview(heading("USB 配对"))
         let refresh = action("刷新串口", #selector(refreshPorts))
@@ -93,6 +99,11 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         result.stringValue = message
     }
     private func refreshStatus() { connection.stringValue = service.connectionSummary }
+    @objc private func toggleBluetooth() {
+        guard allowOperation() else { bluetooth.state = bluetooth.state == .on ? .off : .on; return }
+        let enabled = bluetooth.state == .on
+        UserDefaults.standard.set(enabled, forKey: MacTab5BLE.enabledKey); changeBluetooth(enabled)
+    }
     private func allowOperation() -> Bool {
         guard !busy else { return false }
         guard canBegin() else { result.stringValue = "请先完成小屏刷机操作，再操作 TAB5。"; return false }

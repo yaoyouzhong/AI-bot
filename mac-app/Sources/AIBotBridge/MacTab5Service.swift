@@ -17,6 +17,9 @@ final class MacTab5Service {
     private var stopped = false
     private var lastUSB: TimeInterval = -.infinity
     private var lastWiFi: TimeInterval = -.infinity
+    private var lastBLE: TimeInterval = -.infinity
+    private var bleNote = "尚未启用"
+    private var firmware: String?
     private var usbNote = "尚未连接"
     private var discoveryNote = "等待启动"
     private var nonces: [String: TimeInterval] = [:]
@@ -32,6 +35,7 @@ final class MacTab5Service {
     }
 
     var currentPairing: MacTab5Pairing? { lock.lock(); defer { lock.unlock() }; return pairing }
+    var usbActive: Bool { lock.lock(); defer { lock.unlock() }; return ProcessInfo.processInfo.systemUptime - lastUSB < 8 }
     var configurationBusy: Bool { lock.lock(); defer { lock.unlock() }; return displayCompletion != nil }
     var connectionSummary: String {
         lock.lock(); defer { lock.unlock() }
@@ -40,7 +44,7 @@ final class MacTab5Service {
         let usb = now - lastUSB < 8 ? "数据已确认" : usbNote
         let wifi = !lanReady ? "LAN 服务未就绪" : now - lastWiFi < 8 ? "收到已认证请求" : "等待设备连接"
         let confirmation = pairing?.confirmed == false ? "\nUSB 配对结果未确认，请重新配对。" : ""
-        return "\(device)\nUSB：\(usb)\nWi-Fi：\(wifi)\n自动发现：\(discoveryNote)\(confirmation)"
+        return "\(device)\nUSB：\(usb)\nWi-Fi：\(wifi)\n蓝牙：\(bleNote)\n自动发现：\(discoveryNote)\(confirmation)"
     }
     var lanConfiguration: (String, UInt16)? {
         lock.lock(); defer { lock.unlock() }
@@ -49,6 +53,16 @@ final class MacTab5Service {
     }
     func setLANReady(_ ready: Bool) { lock.lock(); lanReady = ready && !stopped; if !lanReady { lastWiFi = -.infinity }; lock.unlock() }
     func setDiscoveryState(_ note: String) { lock.lock(); discoveryNote = note; lock.unlock() }
+    func bleState(_ note: String, confirmed: Bool = false) {
+        lock.lock(); bleNote = note; lastBLE = confirmed ? ProcessInfo.processInfo.systemUptime : -.infinity; lock.unlock()
+    }
+    func observeBLEInfo(_ root: [String: Any], nonce: String) {
+        lock.lock(); defer { lock.unlock() }
+        guard let pair = pairing, let version = root["firmware"] as? String, version.utf8.count <= 40,
+              let proof = root["firmwareProof"] as? String,
+              MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: proof) else { return }
+        firmware = version
+    }
     func publish(_ value: MacStatusSnapshot) { lock.lock(); snapshot = value; lock.unlock() }
     func usbState(_ note: String, confirmed: Bool = false) {
         lock.lock(); usbNote = note
@@ -102,7 +116,7 @@ final class MacTab5Service {
             guard !stopped else { throw MacTab5Error.unavailable }
             guard pairing?.confirmed == true else { throw MacTab5Error.pairingRequired }
             let now = ProcessInfo.processInfo.systemUptime
-            guard now - lastUSB < 8 || now - lastWiFi < 8 else { throw MacTab5Error.unavailable }
+            guard now - lastUSB < 8 || now - lastWiFi < 8 || now - lastBLE < 8 else { throw MacTab5Error.unavailable }
             let id = try display.begin(desired, now: Int64(Date().timeIntervalSince1970 * 1000))
             displayCompletion = completion
             lock.unlock()
@@ -119,7 +133,7 @@ final class MacTab5Service {
         lock.lock()
         let callback = displayCompletion; displayCompletion = nil; display.cancel()
         stopped = true
-        lastUSB = -.infinity; lastWiFi = -.infinity; lanReady = false
+        lastUSB = -.infinity; lastWiFi = -.infinity; lastBLE = -.infinity; lanReady = false
         lock.unlock(); callback?(.failure(MacTab5Error.unconfirmed))
     }
 

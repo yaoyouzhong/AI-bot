@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var tab5: MacTab5Service?
     private var tab5USB: MacTab5USB?
     private var tab5Discovery: MacTab5Discovery?
+    private var tab5BLE: MacTab5BLE?
     private var tab5Window: MacTab5Window?
     private var screenSaverState = AutomaticScreenSaverState()
     private var port: UInt16 = 8765
@@ -72,6 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         serial?.start()
         tab5USB = MacTab5USB(service: tab5)
         tab5USB?.start()
+        tab5BLE = MacTab5BLE(service: tab5)
+        tab5BLE?.setEnabled(UserDefaults.standard.bool(forKey: MacTab5BLE.enabledKey))
         tab5Discovery = MacTab5Discovery(service: tab5)
         do { try tab5Discovery?.start() }
         catch {
@@ -105,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         serial?.stop()
         tab5USB?.stopAndWait()
         tab5Discovery?.stop()
+        tab5BLE?.stop()
         tab5?.stop()
         server?.stop()
     }
@@ -235,7 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openTab5() {
         guard let service = tab5, let usb = tab5USB else { return }
         if tab5Window == nil {
-            tab5Window = MacTab5Window(service: service, usb: usb, canBegin: { [weak self] in self?.deviceOperationBusy == false })
+            tab5Window = MacTab5Window(service: service, usb: usb, canBegin: { [weak self] in self?.deviceOperationBusy == false }, changeBluetooth: { [weak self] enabled in self?.tab5BLE?.setEnabled(enabled) })
         }
         tab5Window?.open()
     }
