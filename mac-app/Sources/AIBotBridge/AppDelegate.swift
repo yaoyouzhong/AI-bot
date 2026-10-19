@@ -45,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
         let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: { [dataStore] in dataStore.snapshot().music }))
         self.tab5 = tab5
+        tab5.codex.start()
         tab5.publish(reader.capture(extras: dataStore.snapshot()))
         server = HTTPStatusServer(port: port, token: PairingTokenStore.read, resources: { [weak self] in self?.resourceSnapshot() ?? [] }, event: { [weak self] agent, event, message in
             self?.reader.signals.record(agent:agent,event:event,message:message) ?? false

@@ -18,6 +18,8 @@ UI plan: keep native AppKit controls, system semantic background/label/separator
 
 ## 模块证据 / Module evidence
 
+- Codex：通过官方本地 App Server 协议及已安装 CLI 的 `app-server proxy` 连接桌面服务。独立开关控制公开回复读取与主动发送；不启动独立会话服务器，不改模型或审批策略。加密草稿与持久化不确定回执先于发送，重复 ID 不重发；历史分页、终态、运行中追加/中断和设备绑定阅读回执分别处理。Mac 原生前台/输入框确认仍需后续快捷控制台适配和真机验收。协议依据：[官方 App Server 文档](https://learn.chatgpt.com/docs/app-server)及本机 CLI 生成的公开 schema；测试只使用夹具，不读取或发送真实用户对话。
+
 - CoreBluetooth：`17f3922` 在 [Mac CI 39274063784](https://github.com/yaoyouzhong/AI-bot/actions/runs/39274063784) 通过 60 项测试和 Release 编译。覆盖身份/nonce/ACK、MTU 边界、USB 优先和纯 BLE 显示事务；真实权限、射频和唤醒留待集中联调。
 - 资源与二进制 RPC：实现现有 Mac 桌宠和 112×112 音乐封面的 RLE565/CRC/1024 字节分块，按设备 ACK 停止发送。USB 专用资源命令、BLE 独立资源帧与状态/RPC 交替调度。T5R1/T5R2、49152 字节原始数据和 65535 字节邮箱有独立边界校验；Windows AES/HMAC 和实际固件邮箱七种长度互验通过。
 - 资源模块 `86f242d` 在 [Mac CI 39275017824](https://github.com/yaoyouzhong/AI-bot/actions/runs/39275017824) 通过 66 项测试和 Release 编译。

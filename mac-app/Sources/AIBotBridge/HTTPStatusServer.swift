@@ -98,6 +98,8 @@ final class HTTPStatusServer {
                 result = tab5.status(device: device, nonce: nonce, proof: proof, headers: request.headers)
             } else if request.method == "POST", request.target == "/tab5/v1/rpc" {
                 result = tab5.rpc(device: device, nonce: nonce, proof: proof, packet: request.body, transport: "Wi-Fi")
+            } else if request.method == "POST", request.target == "/tab5/v1/codex/read" || request.target == "/tab5/v1/codex/turn" {
+                result = tab5.codexHTTP(device: device, nonce: nonce, proof: proof, packet: request.body, operation: request.target.hasSuffix("/read") ? "read" : "turn")
             } else if request.method == "GET", request.target.hasPrefix("/tab5/v1/ota/"), request.body.isEmpty {
                 result = tab5.ota(device: device, nonce: nonce, proof: proof, sha: String(request.target.dropFirst("/tab5/v1/ota/".count)))
             } else { result = (404, Data()) }
