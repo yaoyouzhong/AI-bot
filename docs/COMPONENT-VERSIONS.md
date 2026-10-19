@@ -2,20 +2,22 @@
 
 桥接、ESP8266 和 TAB5 分别更新，不要求三个版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
 
-2026-10-17 已发布 Windows **0.6.9** 与 TAB5 **0.2.217-ui**；Mac 与 ESP8266 保留已发布包。Windows 0.6.9 and TAB5 217 are published; see the [release record](RELEASE-0.6.9.md).
+本地候选准备：Windows **0.6.10**、TAB5 **0.2.234-ui**。下表列出已公开版本；Mac 与 ESP8266 不重建。Local preparation targets Windows 0.6.10 and TAB5 0.2.234-ui; the table lists published versions. See [closeout record](development/RELEASE-0610-229-CLOSEOUT-20261019.md).
 
 ## 版本来源
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows 桥接 | 0.6.9（已发布） | 根目录 `VERSION` | `bridge-v0.6.9` |
+| Windows 桥接 | 0.6.9（已发布；本地候选 0.6.10） | 根目录 `VERSION` | `bridge-v0.6.9` |
 | Mac 桥接 | 0.6.7（沿用已发布包） | 按实际 Mac 附件识别 | `bridge-v0.6.7` |
 | ESP8266 固件 | 0.5.3（已发布） | `firmware/VERSION` | `esp8266-v0.5.3` |
-| TAB5 固件 | 0.2.217-ui（已发布） | `versions/TAB5` | `tab5-v0.2.217-ui` |
+| TAB5 固件 | 0.2.217-ui（已发布；本地候选 0.2.234-ui） | `versions/TAB5` | `tab5-v0.2.217-ui` |
 
 表中登记各平台实际已发布版本；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接源码元数据共用版本线，正式下载按平台实际存在的附件分别取版本；本次 Mac 无功能改动，保留 0.6.7，不以源码中的候选版本号替代已发布版本。
 
 上一轮 2026-10-16 的范围为桥接 0.6.7、TAB5 0.2.205-ui、ESP8266 0.5.3、标准书法 2026.10.15.1 和两套高清完整图库 2026.10.16。标准名画沿用已有正式下载；不集成浏览器高清音乐封面扩展。构建、打包、公开附件和真机验收分别记录，公开下载索引仅在附件实际发布后刷新。The October 16 delivery covers bridge 0.6.7, TAB5 0.2.205-ui, ESP8266 0.5.3, standard calligraphy 2026.10.15.1 and both optional complete HD collections 2026.10.16. Existing standard painting remains unchanged; the browser music-artwork extension is not integrated. See [scope and acceptance boundaries](RELEASE-0.6.7.md).
+
+2026-10-15 的 Windows 0.6.7／TAB5 0.2.196-ui 为日程与图库同步本地验收候选；后续 TAB5 0.2.197-ui 仅作字体索引、图标和词库的无损减包，继续配套同一 Windows 候选。构建、打包和真机验收分别记录；Mac 仅同步版本元数据，本次不提供新的 Mac 构建。公开下载索引保持正式版，不把本地包标作已发布。The October 15 Windows 0.6.7/TAB5 0.2.196-ui pair is a local agenda/gallery acceptance candidate; TAB5 0.2.197-ui adds lossless font-map, icon and dictionary compaction with the same Windows candidate. Mac metadata is aligned without a new Mac build, and published download entries remain unchanged.
 
 `versions/TAB5` 登记待发布镜像版本，不替代独立 TAB5 工程的镜像内版本；发布前核对其应用、sidecar、首刷包与公开源码身份。TAB5 本地候选仍由[固定固件工作流](TAB5-FIRMWARE-WORKFLOW.md)管理。
 
@@ -106,4 +108,6 @@ Windows 0.6.2 retains daily update checks, deduplicated notifications, automatic
 
 The bridge, ESP8266 and TAB5 have independent version sources and changelogs. Only the changed component is renumbered and delivered. Windows/macOS source metadata shares the bridge version line, while published downloads are selected independently per platform; TAB5 release declarations must match actual image, notes, first-install application and public source identity. Protocol version 1 is separate from release versions, and compatibility is based on supported protocol/features rather than equal numbers. Windows update checks select stable versions per component and retain legacy-bundle support. Component-specific packaging verifies only the requested payload and stages minimal user downloads plus checksums. Historical v0.5.0 tags/assets remain unchanged. The authorized CI patch routes bridge/ESP8266 component tags to draft packages only, while TAB5 tags validate metadata and retain independent local build/material validation. The candidate workflow also supports manual component selection. Pushing main triggers CI checks; explicitly pushing a version tag triggers its component candidate workflow. Local CLI calls use scripts/github_cli.py to resolve the real console executable, bypass GUI shims, hide its window and capture output/errors on Windows. Creating tags, pushing, flashing or publicly releasing still requires authorization for the corresponding action.
 
-Windows 0.6.9 and TAB5 0.2.217-ui are published; Mac retains 0.6.7. See [release scope and acceptance](RELEASE-0.6.9.md).
+Windows 0.6.8 and TAB5 0.2.210-ui are published; Mac retains 0.6.7. See [release scope and acceptance](RELEASE-0.6.8.md).
+
+本轮本地候选为 Windows 0.6.10 与 TAB5 0.2.234-ui；版本文件及固定镜像一致。Mac/ESP8266 不重建，公开下载保持已发布版本；最终验收见 [收尾记录](development/RELEASE-0610-229-CLOSEOUT-20261019.md)。

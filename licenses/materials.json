@@ -1,5 +1,5 @@
 {
-  "reviewedOn": "2026-10-17",
+  "reviewedOn": "2026-10-19",
   "files": {
     "windows-sdk/REDIST.html": "52cd4791e8b457706267ebf1cb886de5562cea2d2ae68609c49f5f0c843a9222",
     "windows-sdk/sdk_license.rtf": "dd07eb178e00c6bba4148457fc00ff77cd4887eb521d504186fe59c9ec8bbe62",
@@ -12,7 +12,9 @@
     "netease-clock-reference/LICENSE": "91b7f61e4d71c4a2a2b3357bc2ff217ca54bb5354686c367c45a2c3873ea6a0f",
     "netease-clock-reference/ORIGIN.md": "c061cd4d362525074a32c6caea02590c2d89e511906075dc936d77bd049930d3",
     "qqmusic-clock-reference/LICENSE": "91b7f61e4d71c4a2a2b3357bc2ff217ca54bb5354686c367c45a2c3873ea6a0f",
-    "qqmusic-clock-reference/ORIGIN.md": "77276784ca0cba26fa4951ed03952b4fa15999ee94a118eef77b8d0ddb105b38"
+    "qqmusic-clock-reference/ORIGIN.md": "77276784ca0cba26fa4951ed03952b4fa15999ee94a118eef77b8d0ddb105b38",
+    "tightvnc/LICENSE.txt": "189b1af95d661151e054cea10c91b3d754e4de4d3fecfb074c1fb29476f7167b",
+    "tightvnc/ORIGIN.md": "be49a52472aab700600a01a96ac051e4f0d91fd790a7451c64fc41718823d586"
   },
   "windowsSdk": {
     "version": "10.0.22000.56",
@@ -161,7 +163,10 @@
     "docs/assets/screens/tab5-computer-control-locked.png": "1dc63de9efa63cd7752d028342e028bacf75cefe2d7ae74450ae6b443d4ede11",
     "docs/assets/screens/tab5-network-ten.png": "11985d0cda9db5723d610438d7b21b1142fbbf434ec4fb69b2c29b02f3be58d8",
     "docs/assets/screens/computer-control-settings.png": "76c96e7b844d5285cac72f5612f9aa3d8a68e965bf69cb477f9e2ca4c742d83e",
-    "docs/assets/screens/tab5-music-idle.png": "2b14feff330f5e2298d2b69ed59af42b940c00598fdee887bfe21f2a345dec82"
+    "docs/assets/screens/tab5-music-idle.png": "2b14feff330f5e2298d2b69ed59af42b940c00598fdee887bfe21f2a345dec82",
+    "docs/assets/screens/tab5-wifi-unlock-candidate.png": "61793026193bbde338a24c1c392790ade1d601bdd965e9b6c169384e56fe82a2",
+    "docs/assets/screens/tab5-firmware-notes-234.png": "30e7b6bb7672ab29140a57c9306de07232031f6c4a1e0d0dca4ece42e04303e0",
+    "docs/assets/screens/tab5-firmware-notes-234-scrolled.png": "f25ee09f5e06e048342f143b3e352de701aa81716c73cbc2d57802564870afc8"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

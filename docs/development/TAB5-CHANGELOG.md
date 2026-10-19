@@ -2,6 +2,22 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.230-ui - 2026-10-19
+
+### Control recovery and read synchronization
+
+- Continue read-only status polling during a volume drag and cancel abandoned gestures. An expired/disabled slider can recover without rebooting or replaying a command; stale status no longer claims the PC is ready.
+- Acknowledge matching public replies after actual display on TAB5. The paired bridge rechecks device, account, host and the latest terminal turn, updates Codex through versioned desktop IPC and confirms its saved state. Prefetch, empty replies and old turns do not mark newer content read.
+- Retain the exact .229 unlock implementation. This is a local candidate; physical acceptance and remaining release work are recorded in [the repair record](TAB5-CONTROL-READ-SYNC-20261019.md).
+
+## 0.2.229-ui - 2026-10-19
+
+### Computer unlock
+
+- Replace fixed USB/Bluetooth preparation with consistent, fresh samples across requests. Unknown/changed states and disconnects reset observation; bounded wake settling, single-use authorization and no PIN replay remain.
+- Retain transport labels and the latest eight diagnostic entries. Prevent ordinary control-state expiry from cancelling an in-progress unlock. Cancellation/disconnect reports incomplete without automatic retry.
+- Existing hardware acceptance covers repeated USB/BLE, USB black-screen wake, cancellation and exact Wi-Fi boot verification. Regression with the new 0.6.10 bridge is tracked separately in the [closeout record](RELEASE-0610-229-CLOSEOUT-20261019.md).
+
 ## 0.2.217-ui - 2026-10-17
 
 ### Computer control and music

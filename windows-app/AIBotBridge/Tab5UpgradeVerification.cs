@@ -6,7 +6,7 @@ internal sealed partial class Tab5Service
     private volatile string _upgradeDiagnostic="尚未核验";
     private sealed record VerifiedBoot(string DeviceId,string Version,string ElfSha256);
     private volatile VerifiedBoot? _verifiedBoot;
-    internal bool CanVerifyUpgrade=>HasOta&&!Busy&&DeviceView.Online&&DeviceView.Usb=="已连接"&&DeviceView.Firmware==Volatile.Read(ref _ota)?.Version;
+    internal bool CanVerifyUpgrade=>HasOta&&!Busy&&DeviceView.Online&&(DeviceView.Usb=="已连接"||SupportsWirelessBoot(DeviceView.Firmware))&&DeviceView.Firmware==Volatile.Read(ref _ota)?.Version;
     internal string UpgradeBootSummary {
         get {
             var image=Volatile.Read(ref _ota);var view=DeviceView;var verified=_verifiedBoot;
@@ -14,7 +14,7 @@ internal sealed partial class Tab5Service
             if(!view.Online)return "启动核验 · 等待设备连接";
             if(view.Firmware!=image.Version)return "启动核验 · 升级完成后可核验";
             if(verified is not null&&verified.DeviceId==PairedId&&verified.Version==image.Version&&verified.ElfSha256==image.ElfSha256)return "启动核验通过";
-            return view.Usb=="已连接"?"启动核验 · 尚未核验":"启动核验 · 请连接 USB";
+            return view.Usb=="已连接"?"启动核验 · 尚未核验":SupportsWirelessBoot(view.Firmware)?"启动核验 · 可通过无线核验":"启动核验 · 此固件需连接 USB";
         }
     }
     internal void RecordVerifiedBoot(JsonElement root,Tab5OtaPackage image,string deviceId) {
@@ -24,7 +24,8 @@ internal sealed partial class Tab5Service
     internal async Task VerifyUpgradeAsync(CancellationToken token) {
         var image=Volatile.Read(ref _ota)??throw new InvalidOperationException("请先选择本次升级的固件，用于核对版本和指纹。");
         var pair=_store.Current??throw new IOException("TAB5 尚未配对。");
-        var device=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)??throw new IOException("启动核验需要连接已配对 TAB5 的 USB。");
+        var device=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity);
+        if(device is null){await VerifyWirelessBootAsync(image,pair.DeviceId,token);return;}
         lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备仍在处理操作，请等待升级结束。");_installBusy++;}
         _verifiedBoot=null;_upgradeDiagnostic="正在核验";
         try {

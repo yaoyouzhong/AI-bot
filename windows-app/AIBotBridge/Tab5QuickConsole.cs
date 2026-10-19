@@ -15,6 +15,7 @@ internal sealed class Tab5QuickConsole
     private readonly Func<string,CancellationToken,Task<Tab5CodexComposer.SubmitResult>> _submit;
     private readonly Func<string,CancellationToken,Task<Tab5CodexComposer.ClearDraftResult>> _clear;
     private readonly Func<string,bool?> _readDraftEmpty;
+    private readonly Func<bool> _desktopInteractive;
     private readonly SemaphoreSlim _gate=new(1,1);
     private readonly Dictionary<string,(int Status,object Body)> _receipts=[];
     private readonly Dictionary<string,(long At,string Target)> _requests=[];
@@ -22,11 +23,13 @@ internal sealed class Tab5QuickConsole
     internal Tab5QuickConsole(Func<IReadOnlyList<Tab5CodexTask>>? catalog=null,
         Func<string,CancellationToken,Task<bool>>? open=null,Func<string,string,CancellationToken,Task<Tab5CodexComposer.StageResult>>? stage=null,
         Func<string,CancellationToken,Task<Tab5CodexComposer.SubmitResult>>? submit=null,
-        Func<string,CancellationToken,Task<Tab5CodexComposer.ClearDraftResult>>? clear=null,Func<string,bool?>? readDraftEmpty=null) {
+        Func<string,CancellationToken,Task<Tab5CodexComposer.ClearDraftResult>>? clear=null,Func<string,bool?>? readDraftEmpty=null,
+        Func<bool>? desktopInteractive=null) {
         _catalog=catalog??Tab5CodexCatalog.Recent;_open=open??OpenAsync;_stage=stage??Tab5CodexComposer.StageWithResultAsync;
         _submit=submit??Tab5CodexComposer.SubmitAsync;
         _clear=clear??Tab5CodexComposer.ClearAsync;
         _readDraftEmpty=readDraftEmpty??Tab5CodexComposer.ReadDraftEmpty;
+        _desktopInteractive=desktopInteractive??Tab5DesktopActivation.IsInteractive;
     }
     internal static Tab5CodexTask? Select(IReadOnlyList<Tab5CodexTask> tasks,string id)=>
         id.Length==0?tasks.MaxBy(t=>t.UpdatedAt):tasks.FirstOrDefault(t=>t.Id==id);
@@ -78,6 +81,10 @@ internal sealed class Tab5QuickConsole
             // resolve a different recent conversation on replay.
             _receipts[requestId]=(409,new{error="desktop_open_unconfirmed"});
             _requests[requestId]=(now,fingerprint);
+            if(op=="open-recent"&&!_desktopInteractive()) {
+                var blocked=(Status:409,Body:(object)new{error="desktop_not_interactive",foreground=false,taskId=task.Id});
+                _receipts[requestId]=blocked;return blocked;
+            }
             var stageResult=op=="stage-draft"?await _stage(task.Id,text,token):null;
             bool staged=stageResult?.Staged==true;
             if(staged) {
@@ -92,7 +99,8 @@ internal sealed class Tab5QuickConsole
                 taskId=task.Id,title=task.Title,projectId=task.ProjectId,folder=task.Folder,updatedAt=task.UpdatedAt,
                 selection=target.Length==0?"updated":"selected",
                 foreground,staged,appended=staged&&stageResult!.Appended,draftEmpty,
-                error=foreground?"":op=="stage-draft"?stageResult!.Error:"desktop_foreground_unconfirmed"
+                error=foreground?"":op=="stage-draft"?stageResult!.Error:
+                    !_desktopInteractive()?"desktop_not_interactive":"desktop_foreground_unconfirmed"
             });
             _receipts[requestId]=result;return result;
         }catch(Exception ex) when(ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception) {
@@ -101,6 +109,7 @@ internal sealed class Tab5QuickConsole
     }
     internal static async Task<bool> OpenAsync(string id,CancellationToken token) {
         token.ThrowIfCancellationRequested();
+        if(!Tab5DesktopActivation.IsInteractive())return false;
         long started=Environment.TickCount64;
         string? title=Tab5CodexComposer.UniqueTitle(id);
         bool tapped=false,inputBlocked=false,partialTap=false,foreground=false,target=false;
@@ -116,6 +125,7 @@ internal sealed class Tab5QuickConsole
             tapped|=result.Tapped;inputBlocked|=result.InputBlocked;partialTap|=result.PartialTap;
         }
         bool Confirm() {
+            if(!Tab5DesktopActivation.IsInteractive())return false;
             foreground=ForegroundObserver.CodexVisible();
             target=foreground&&(title is null||Tab5CodexComposer.WindowMatches(GetForegroundWindow(),title));
             return foreground&&target&&!partialTap;
@@ -128,9 +138,11 @@ internal sealed class Tab5QuickConsole
             Raise(window);
             if(Confirm())return Result("existing_target_verified",true);
         }
+        if(!Tab5DesktopActivation.IsInteractive())return Result("desktop_not_interactive");
         using(var process=Process.Start(new ProcessStartInfo(Tab5CodexDesktop.ThreadUri(id)){UseShellExecute=true})) { }
         int attempts=windows.Length==0?100:40;
         for(int attempt=0;attempt<attempts;attempt++) {
+            if(!Tab5DesktopActivation.IsInteractive())return Result("desktop_not_interactive");
             if(Confirm())return Result("navigated_target_verified",true);
             if(attempt%10==0){windows=DesktopWindows().ToArray();windowCount=windows.Length;}
             foreach(var window in windows) {

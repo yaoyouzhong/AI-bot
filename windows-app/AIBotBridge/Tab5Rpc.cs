@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -13,8 +13,12 @@ internal sealed partial class Tab5Service
     internal bool BleGalleryTransferActive=>Environment.TickCount64<Interlocked.Read(ref _bleGalleryUntil);
     private string GalleryDiagnostic=>"\n艺术图片同步："+_galleryDiagnostic;
     internal Tab5QuickConsole QuickConsole {get;set;}=new();
+    private readonly Tab5PinStore _pinStore=new();
+    private Tab5PinBroker? _pinBroker;
+    private Tab5WifiUnlock? _wifiUnlock;
+    internal Tab5WifiUnlock WifiUnlock {get {lock(_rpcLock)return _wifiUnlock??=new(_pinStore);}set{lock(_rpcLock)_wifiUnlock=value;}}
     private ComputerControlService? _computerControl;
-    internal ComputerControlService ComputerControl {get{lock(_rpcLock)return _computerControl??=new(new WindowsComputerControlBackend(()=>Volatile.Read(ref _lastSnapshot)?.Music));}set{lock(_rpcLock)_computerControl=value;}}
+    internal ComputerControlService ComputerControl {get{lock(_rpcLock)return _computerControl??=new(new WindowsComputerControlBackend(()=>Volatile.Read(ref _lastSnapshot)?.Music),savedPinAvailable:()=>_pinStore.IsEnabled(_store.Current));}set{lock(_rpcLock)_computerControl=value;}}
     private readonly Dictionary<string,long> _rpcNonces=[];
     private int _rpcRequests;
     private long _rpcOtaUntil;
@@ -106,10 +110,20 @@ internal sealed partial class Tab5Service
                     _galleryDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} request={Interlocked.Increment(ref _galleryRequests)}; transport={transport}; category={Text(root,"category")}; op={Text(root,"op")}; orientation={Text(root,"orientation")}; status={result.Status}; body="+
                         JsonSerializer.Serialize(result.Body is Tab5RpcDataBody data?data.Metadata:result.Body,JsonDefaults.Options);
                 }
+                else if(Text(root,"kind")=="boot-verify")result=ReceiveBootProbe(root,id,transport);
                 else if(Text(root,"kind")=="ota-control")result=ReceiveRemoteOta(root);
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
                 else if(Text(root,"kind")=="agenda")result=AgendaStore.Shared.Rpc(root);
-                else if(Text(root,"kind")=="computer-control")result=await ComputerControl.HandleAsync(root,token);
+                else if(Text(root,"kind")=="wifi-unlock")result=await WifiUnlock.HandleAsync(root,pair,transport,_session,token);
+                else if(Text(root,"kind")=="unlock-pin") {
+                    Tab5PinBroker broker;lock(_rpcLock)broker=_pinBroker??=new(_pinStore);
+                    result=broker.Handle(root,pair,transport);
+                }
+                else if(Text(root,"kind")=="computer-control") {
+                    result=await ComputerControl.HandleAsync(root,token);
+                    if(result.Status==200&&Text(root,"op")=="status"&&Tab5UnlockDiagnostic.TryReadHistory(root,out string history))
+                        _unlockHistory=$"解锁记录（设备本次启动，最近 8 次；{DateTimeOffset.Now:HH:mm:ss} 收到）：\n"+history;
+                }
                 else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy
                     ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token);
                 else if(Text(root,"kind")=="benchmark")result=Tab5TransportBenchmark.Handle(root,opened.Data,binaryReply,bulkReply);
@@ -125,7 +139,7 @@ internal sealed partial class Tab5Service
                     // Same authenticated payload and journal as LAN, no duplicate
                     // sending implementation and no cross-link automatic retry.
                     string legacyProof=Tab5Protocol.Proof(key,$"POST|{id}|{nonce}|{digest}");
-                    result=await SubmitCodexAsync(id,nonce,legacyProof,packet,token,op is "read" or "draft-load" or "receipt",rpcEnvelope:true);
+                    result=await SubmitCodexAsync(id,nonce,legacyProof,packet,token,op is "read" or "read-ack" or "draft-load" or "receipt",rpcEnvelope:true);
                 } else result=(400,new{error="invalid_operation"});
             }catch(Exception ex) when(ex is JsonException or FormatException or InvalidOperationException or ArgumentException) {
                 result=(400,new{error="invalid_request"});

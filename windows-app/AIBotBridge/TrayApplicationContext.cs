@@ -4,6 +4,7 @@ namespace AIBotBridge;
 
 internal sealed class TrayApplicationContext : ApplicationContext
 {
+    private readonly WindowsDisplayPower _displayPower = new();
     private readonly System.Collections.Concurrent.ConcurrentQueue<Action> _flashActions = new();
     private readonly CancellationTokenSource _shutdown = new();
     private readonly EventWaitHandle _exitSignal = BridgeLifetime.Listen();
@@ -652,6 +653,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         await _otaControlTask;
         await _services.StopAsync();
         _center?.Close();_trend?.Close();_statusForm?.Close();_updatesForm?.Close();
+        _displayPower.Dispose();
         _runtime.Dispose();
         _healthGuard?.Dispose();
         _icon.Visible = false;

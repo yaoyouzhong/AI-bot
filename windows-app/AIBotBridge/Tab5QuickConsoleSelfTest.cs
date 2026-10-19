@@ -30,6 +30,9 @@ internal static class Tab5QuickConsoleSelfTest
         Check(Tab5DesktopActivation.Raise(2,calls:focus with {TapAlt=()=>1}).PartialTap&&releases==1,"partial Alt input releases the key without retrying navigation");
         Check(!Tab5DesktopActivation.Raise(0,calls:focus).Foreground,"missing window rejected");
         Check(Tab5DesktopActivation.Raise(2,calls:focus with {Foreground=()=>0}).InputBlocked&&taps==1,"inaccessible desktop prevents input");
+        int previousActivations=activations;
+        Check(Tab5DesktopActivation.Raise(2,calls:focus with {Interactive=()=>false}).InputBlocked&&
+            activations==previousActivations&&taps==1,"locked desktop never activates or injects Alt");
         Check(Tab5CodexComposer.HasClass("ProseMirror ProseMirror-focused","ProseMirror"),"focused editor remains a composer");
         Check(!Tab5CodexComposer.HasClass("ProseMirror-trailingBreak","ProseMirror"),"decoration is not a composer");
         Check(Tab5CodexComposer.IsComposerBodyClass("relative _ComposerLayoutBody_gcdh7_2"),"main composer container identified");
@@ -138,7 +141,7 @@ internal static class Tab5QuickConsoleSelfTest
         Check(Tab5QuickConsole.Select([],"") is null,"empty catalog");
         int latestOpens=0;string latestOpened="";
         Tab5CodexTask[] changing=[a];
-        var latestController=new Tab5QuickConsole(()=>changing,(id,_)=>{latestOpens++;latestOpened=id;return Task.FromResult(true);});
+        var latestController=new Tab5QuickConsole(()=>changing,(id,_)=>{latestOpens++;latestOpened=id;return Task.FromResult(true);},desktopInteractive:()=>true);
         string latestRequest=Guid.NewGuid().ToString();
         JsonElement Latest(string requestId)=>JsonSerializer.SerializeToElement(new{op="open-recent",requestId});
         Check((await latestController.HandleAsync(Latest(latestRequest),default)).Status==200&&latestOpened==a.Id,"resolve latest at click time");
@@ -149,7 +152,7 @@ internal static class Tab5QuickConsoleSelfTest
         Check(latestResult.Status==200&&latestOpened==b.Id&&latestOpens==2,"next click resolves new latest");
         Check(latestBody.GetProperty("taskId").GetString()==b.Id&&latestBody.GetProperty("folder").GetString()==b.Folder&&latestBody.GetProperty("updatedAt").GetInt64()==b.UpdatedAt,"latest reply carries actual panel target");
         int opens=0;string opened="";
-        var controller=new Tab5QuickConsole(()=>tasks,(id,_)=>{opens++;opened=id;return Task.FromResult(true);});
+        var controller=new Tab5QuickConsole(()=>tasks,(id,_)=>{opens++;opened=id;return Task.FromResult(true);},desktopInteractive:()=>true);
         string request=Guid.NewGuid().ToString();
         JsonElement Request(string id,string requestId)=>JsonSerializer.SerializeToElement(new{op="open-recent",taskId=id,requestId});
         var result=await controller.HandleAsync(Request(c.Id,request),default);
@@ -161,7 +164,19 @@ internal static class Tab5QuickConsoleSelfTest
         Check(result.Status==409&&opens==1,"request id cannot change target");
         result=await controller.HandleAsync(Request(c.Id,Guid.NewGuid().ToString()),default);
         Check(result.Status==404&&opens==1,"removed conversation rejected");
-        controller=new(()=>tasks,(_,_)=>Task.FromResult(false));
+        bool interactive=false;int blockedOpens=0,draftReads=0;
+        var lockedController=new Tab5QuickConsole(()=>tasks,(_,_)=>{blockedOpens++;return Task.FromResult(true);},
+            readDraftEmpty:_=>{draftReads++;return false;},desktopInteractive:()=>interactive);
+        string lockedRequest=Guid.NewGuid().ToString();
+        var lockedResult=await lockedController.HandleAsync(Request(b.Id,lockedRequest),default);
+        Check(lockedResult.Status==409&&JsonSerializer.SerializeToElement(lockedResult.Body).GetProperty("error").GetString()=="desktop_not_interactive"&&
+            blockedOpens==0&&draftReads==0,"locked desktop returns explicit error without opening or observing draft");
+        interactive=true;
+        Check((await lockedController.HandleAsync(Request(b.Id,lockedRequest),default)).Status==409&&blockedOpens==0,
+            "unlock cannot replay a blocked request into navigation");
+        Check((await lockedController.HandleAsync(Request(b.Id,Guid.NewGuid().ToString()),default)).Status==200&&blockedOpens==1&&draftReads==1,
+            "explicit new click after unlock resumes navigation");
+        controller=new(()=>tasks,(_,_)=>Task.FromResult(false),desktopInteractive:()=>true);
         Check((await controller.HandleAsync(Request(b.Id,Guid.NewGuid().ToString()),default)).Status==409,"foreground failure is not success");
         int stages=0;string stagedText="";
         controller=new(()=>tasks,(_,_)=>throw new Exception("draft must not call open-only delegate"),
@@ -193,7 +208,7 @@ internal static class Tab5QuickConsoleSelfTest
             var sync=new Tab5QuickConsole(()=>tasks,(_,_)=>Task.FromResult(openedOk),
                 stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"")),
                 submit:(_,_)=>{sends++;return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,true,""));},
-                readDraftEmpty:target=>{Check(target==b.Id,"inspect only the confirmed target");reads++;return empty;});
+                readDraftEmpty:target=>{Check(target==b.Id,"inspect only the confirmed target");reads++;return empty;},desktopInteractive:()=>true);
             string ticket=Guid.NewGuid().ToString(),openId=Guid.NewGuid().ToString();
             await sync.HandleAsync(Draft("retained draft",ticket),default);
             Check(reads==0,"staging does not run open-only observation");

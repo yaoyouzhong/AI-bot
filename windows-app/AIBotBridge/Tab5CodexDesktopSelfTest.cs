@@ -13,6 +13,8 @@ internal static class Tab5CodexDesktopSelfTest
         var dispatched=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var accept=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var clients=new List<Task>();string? expectedImage=null;
+        Tab5CodexReadState.Identity? identity=new("synthetic-account",new {identity=new {kind="chatgpt",accountId="test-account",userId="test-user"},executionHostKey="local:test-host"});
+        Tab5CodexReadState.Snapshot readState=new("synthetic-account",[task]);int readAcks=0;
         async Task Write(Stream s,object value) {
             byte[] b=JsonSerializer.SerializeToUtf8Bytes(value),h=new byte[4];BinaryPrimitives.WriteUInt32LittleEndian(h,(uint)b.Length);
             // Deliberately split the frame: production must tolerate partial reads.
@@ -29,6 +31,12 @@ internal static class Tab5CodexDesktopSelfTest
                     var p=Tab5CodexDesktop.Child(m,"params");object result=new{};
                     if(method=="initialize")result=new{clientId=Guid.NewGuid().ToString()};
                     else if(method=="thread-owner-discovery")result=new{supportsUntrustedAppInput=true};
+                    else if(method=="thread-read-state-changed") {
+                        if(m.GetProperty("version").GetInt32()!=3||Tab5CodexDesktop.Text(p,"hostId")!="local"||Tab5CodexDesktop.Text(p,"conversationId")!=task||
+                           p.GetProperty("hasUnreadTurn").GetBoolean()||Tab5CodexDesktop.Text(p.GetProperty("context"),"executionHostKey")!="local:test-host"||
+                           Tab5CodexDesktop.Text(p.GetProperty("context").GetProperty("identity"),"accountId")!="test-account")throw new Exception("Read state IPC scope/version contract");
+                        Interlocked.Increment(ref readAcks);readState=new("synthetic-account",[]);continue;
+                    }
                     else if(method=="thread-stream-following-changed") {
                         object item=new {type="agentMessage",text=completed?"测试完成":"正在处理",phase=completed?"final_answer":"commentary"};
                         object live=new {turnId=turn,turnStartedAtMs=123000,status=completed?"completed":starts>0?"inProgress":"completed",items=new[]{item},@params=new{clientUserMessageId=lastMessage}};
@@ -79,8 +87,22 @@ internal static class Tab5CodexDesktopSelfTest
                 }
             }catch(OperationCanceledException) { }
         });
-        using var bridge=new Tab5CodexTasks(new Tab5CodexDesktop(pipe),()=>[new(task,"Synthetic desktop task","test",0)]);
+        var desktop=new Tab5CodexDesktop(pipe,readIdentity:()=>identity,readState:()=>readState);
+        using var bridge=new Tab5CodexTasks(desktop,()=>[new(task,"Synthetic desktop task","test",0)]);
         try {
+            var page=await bridge.ReadPageAsync(task,0,stop.Token,includeView:true,device:"test-device");
+            string receipt=JsonSerializer.SerializeToElement(page.Body).GetProperty("replyView").GetProperty("readReceipt").GetString()!;
+            if(page.Status!=200||!Guid.TryParse(receipt,out _)||readAcks!=0)throw new Exception("Loading/prefetch must never acknowledge a read");
+            if((await bridge.ConfirmReadAsync("other-device",task,turn,receipt,stop.Token)).Status!=409||readAcks!=0)throw new Exception("Read receipt is bound to its device");
+            identity=identity! with {Scope="other-account"};
+            if((await bridge.ConfirmReadAsync("test-device",task,turn,receipt,stop.Token)).Status!=409||readAcks!=0)throw new Exception("Account change invalidates read receipt");
+            identity=identity with {Scope="synthetic-account"};
+            string originalTurn=turn;turn=Guid.NewGuid().ToString();
+            if((await bridge.ConfirmReadAsync("test-device",task,originalTurn,receipt,stop.Token)).Status!=409||readAcks!=0)throw new Exception("An older view cannot consume a newer turn");
+            turn=originalTurn;
+            if((await bridge.ConfirmReadAsync("test-device",task,turn,receipt,stop.Token)).Status!=200||readAcks!=1||readState.Unread.Contains(task))throw new Exception("Rendered exact turn must sync through desktop IPC");
+            if((await bridge.ConfirmReadAsync("test-device",task,turn,receipt,stop.Token)).Status!=200||readAcks!=2)throw new Exception("Lost read acknowledgement can retry idempotently");
+            Console.WriteLine("CODEX_REVERSE_READ_ACK_OK render_receipt, no_prefetch_write, device, identity, new_turn, ipc_v3, persisted_confirmation, retry");
             var sending=bridge.SubmitAsync(task,"测试发送",stop.Token);
             await dispatched.Task.WaitAsync(stop.Token);
             // A delayed send acknowledgement cannot block reading current activity.

@@ -111,6 +111,9 @@ FinishedLabel=AI-bot 已安装。启动后请在右下角托盘查找图标：�
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; Flags: checkedonce
 
+[UninstallRun]
+Filename: "{app}\AIBotBridge.exe"; Parameters: "--tightvnc-uninstall-prompt"; Flags: runhidden; RunOnceId: "TightVNC-component-removal"
+
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#DependencyDir}\webview2-bootstrapper.exe"; Flags: dontcopy

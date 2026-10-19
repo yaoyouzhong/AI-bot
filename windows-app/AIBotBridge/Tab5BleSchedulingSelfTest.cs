@@ -9,6 +9,7 @@ internal static class Tab5BleSchedulingSelfTest
         await VerifyDiscoveryAsync();
         await VerifyBulkGapAsync();
         await VerifyQueuedTelemetryAsync();
+        await VerifyInteractivePriorityAsync();
         await VerifyQueueComparisonAsync();
         await VerifyQueueComparisonAsync(true);
         await VerifyBenchmarkReadbackAsync();
@@ -18,6 +19,9 @@ internal static class Tab5BleSchedulingSelfTest
     }
     private sealed class Lease:IDisposable {public void Dispose(){}}
     private static async Task VerifyDiscoveryAsync() {
+        if(!Tab5BleDiscovery.PairedNameMatches("e8f60ae2ec56","AI-bot TAB5 e2ec56")||
+           Tab5BleDiscovery.PairedNameMatches("e8f60ae2ec56","AI-bot TAB5 123456")||
+           Tab5BleDiscovery.PairedNameMatches("short","AI-bot TAB5 short"))throw new Exception("OS paired candidate name filtering failed");
         var discovery=new Tab5BleDiscovery();
         if(discovery.Matches("device",42,1)||discovery.RetryDelay("device")!=3000)throw new Exception("Unverified BLE address enabled fast retry");
         discovery.Remember("device",42,1);
@@ -161,6 +165,61 @@ internal static class Tab5BleSchedulingSelfTest
         if(Tab5BleClient.VoicePollDelay(now,now-100,true)!=15||Tab5BleClient.VoicePollDelay(now,0,true)!=500||Tab5BleClient.VoicePollDelay(now,0,false)!=250)
             throw new Exception("Bulk gap changed active voice or normal polling");
     }
+
+    private static async Task VerifyInteractivePriorityAsync() {
+        foreach(int fault in new[]{0,1,2}) {
+            long now=10000;uint id=1;int handled=0,sent=0;
+            using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var gate=new SemaphoreSlim(1,1);await gate.WaitAsync(stop.Token);
+            var handling=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var handledReply=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var writing=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var finishWrite=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var pump=new Tab5BleVoice(_=> {
+                var packet=new byte[id==0?8:132];BinaryPrimitives.WriteUInt32LittleEndian(packet,id);
+                if(id!=0)BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(6),124);
+                return Task.FromResult(packet);
+            },async (_,ct)=> {
+                writing.TrySetResult();await finishWrite.Task.WaitAsync(ct);now+=20;
+                if(fault==1)throw new IOException("fixture response failure");
+                if(fault==2){stop.Cancel();ct.ThrowIfCancellationRequested();}
+            },async (_,_,_,ct)=> {
+                handled++;handling.TrySetResult();await handledReply.Task.WaitAsync(ct);
+                return (200,new byte[170]);
+            },517,clock:()=>now);
+            bool Defer()=>Tab5BleClient.DeferTelemetry(now,9500,pump.InteractivePriorityActive(now),false);
+            var queued=Tab5BleClient.SendTelemetryAsync(gate,Defer,()=>{sent++;return Task.FromResult(true);},stop.Token);
+            var running=pump.PumpAsync(stop.Token);await handling.Task.WaitAsync(stop.Token);
+            if(pump.BulkActive)throw new Exception("Short authorization request became a bulk transfer");
+            gate.Release();
+            if(await queued||sent!=0)throw new Exception("Short authorization handler lost ATT to queued telemetry");
+            handledReply.SetResult();await writing.Task.WaitAsync(stop.Token);
+            if(!Defer())throw new Exception("Short authorization response lost telemetry priority");
+            now=15500;
+            if(Defer())throw new Exception("Interactive priority starved six-second status freshness");
+            now=10200;finishWrite.SetResult();
+            try {await running;if(fault!=0)throw new Exception("Failed response returned success");}
+            catch(IOException) when(fault==1){}
+            catch(OperationCanceledException) when(fault==2){}
+            if(gate.CurrentCount!=1)throw new Exception("Interactive flow retained ATT ownership");
+            if(fault!=0) {
+                if(Defer()||pump.CompletedCount!=0)throw new Exception("Failed/cancelled response retained priority");
+                continue;
+            }
+            long completed=now;
+            if(!Defer()||pump.BulkPriorityActive(now)||pump.CompletedCount!=1)throw new Exception("Short RPC gap lost its bounded priority");
+            now=completed+400;await pump.PumpAsync(stop.Token);
+            if(handled!=1||pump.CompletedCount!=1)throw new Exception("Duplicate short request executed again");
+            now=completed+500;
+            if(Defer())throw new Exception("Duplicate short request renewed priority");
+            id=0;await pump.PumpAsync(stop.Token);
+            if(Defer())throw new Exception("Idle mailbox renewed interactive priority");
+            now=completed-1;
+            if(Defer())throw new Exception("Backwards clock accepted interactive lease");
+        }
+        Console.WriteLine("BLE_INTERACTIVE_PRIORITY_OK short_handler_response_and_gap_defer_queued_telemetry six_second_freshness idle_duplicate_no_renew failure_cancel_release");
+    }
+
     private static void VerifyProbeTrace() {
         var trace=new Tab5BleProbeTrace();
         if(trace.Ticket(0)!=0||trace.Json!="尚未预检")throw new Exception("Trace captured before preflight");

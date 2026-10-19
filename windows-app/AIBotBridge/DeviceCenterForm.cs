@@ -1,4 +1,4 @@
-﻿namespace AIBotBridge;
+namespace AIBotBridge;
 
 internal sealed record DeviceView(bool Online,string Status,string Connection,string Firmware,
     string? Usb=null,string? Wifi=null,string? Bluetooth=null,string? Transport=null);

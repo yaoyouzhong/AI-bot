@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 
 namespace AIBotBridge;
@@ -8,6 +8,23 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--self-test-tightvnc-component"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();try{TightVncSelfTest.Run(Path.GetFullPath(args[1]));}catch(Exception ex){Console.Error.WriteLine("TIGHTVNC_COMPONENT_SELF_TEST_FAILED: "+ex);Environment.ExitCode=1;}return;}
+        if(args.Length==2&&args[0]=="--test-tightvnc-sandbox"){AppPaths.BeginPublicSelfTest();Environment.ExitCode=0;TightVncSelfTest.SandboxAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--diagnose-tightvnc-sandbox"){AppPaths.BeginPublicSelfTest();TightVncSelfTest.DiagnoseSandboxAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--test-tightvnc-sandbox-success"){AppPaths.BeginPublicSelfTest();TightVncSelfTest.SandboxAsync(Path.GetFullPath(args[1]),testRollback:false).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--clean-tightvnc-sandbox"){AppPaths.BeginPublicSelfTest();TightVncSelfTest.CleanSandboxAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--provision-tightvnc-sandbox"){ApplicationConfiguration.Initialize();try{TightVncSelfTest.SandboxAsync(Path.GetFullPath(args[1]),testRollback:false,keepInstalled:true).GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("TIGHTVNC_SANDBOX_PROVISION_FAILED: "+ex);Environment.ExitCode=1;}return;}
+        if(args.Length==1&&args[0]=="--check-wifi-keyboard"){AppProfileGuard.EnsureDesktopProfile();TightVncSelfTest.CheckDesktopAsync().GetAwaiter().GetResult();return;}
+
+        if(args.Length==4&&args[0]=="--tightvnc-worker"){Environment.ExitCode=TightVncElevation.WorkerAsync(args[1],args[2],args[3]).GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-wireless-boot"){Tab5Service.WirelessBootSelfTestAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--tightvnc-inspect"){Console.WriteLine(JsonSerializer.Serialize(TightVncMachine.Inspect(TightVncPackage.Sid)));return;}
+        if(args.Length==1&&args[0]=="--tightvnc-uninstall-prompt"){AppProfileGuard.EnsureDesktopProfile();ApplicationConfiguration.Initialize();Environment.ExitCode=TightVncMaintenance.UninstallPrompt();return;}
+        if(args.Length==1&&args[0]=="--configure-wifi-keyboard"){AppProfileGuard.EnsureDesktopProfile();ApplicationConfiguration.Initialize();WifiKeyboardSettings.Configure();return;}
+        if(args.Length==2&&args[0]=="--self-test-wifi-unlock"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();WifiUnlockSelfTest.RunAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-tab5-pin"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Tab5PinSelfTest.Run(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-computer-control"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();ComputerControlSelfTest.Run(Path.GetFullPath(args[1]));return;}
+
         if(args.Length==2&&args[0]=="--preview-notification-sounds"){AppPaths.BeginPublicSelfTest();CompletionChime.ExportPreviews(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--self-test-agenda"){AppPaths.BeginPublicSelfTest();AgendaSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--self-test-agenda-ui") {
@@ -21,7 +38,6 @@ internal static class Program
             }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or TimeoutException or OperationCanceledException or JsonException){Console.Error.WriteLine("TAB5_LOCAL_CONTROL_FAILED: "+ex.GetType().Name);Environment.ExitCode=1;}
             return;
         }
-        if(args.Length==2&&args[0]=="--self-test-computer-control"){AppPaths.BeginPublicSelfTest();Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);ComputerControlSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==1&&args[0]=="--self-test-esp-usb-recovery"){EspUsbRecoverySelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-serial-disconnect"){AppPaths.BeginPublicSelfTest();SerialDisconnectSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--test-esp-usb-recovery"){EspUsbRecoverySelfTest.RunHardwareAsync().GetAwaiter().GetResult();return;}
@@ -200,7 +216,8 @@ internal static class Program
         {
             AppPaths.BeginPublicSelfTest();
             ApplicationConfiguration.Initialize();
-            QuotaHistorySelfTest.Run();
+            try { QuotaHistorySelfTest.Run(); }
+            catch(Exception ex) { Console.Error.WriteLine("QUOTA_HISTORY_SELF_TEST_FAILED: "+ex); Environment.ExitCode=1; }
             return;
         }
         if (args.Length == 2 && args[0] == "--capture-flasher-complete")
@@ -301,7 +318,8 @@ internal static class Program
         {
             AppPaths.BeginPublicSelfTest();
             ApplicationConfiguration.Initialize();
-            PublicSelfTest.Run();
+            try { PublicSelfTest.Run(); }
+            catch(Exception ex) { Console.Error.WriteLine("PUBLIC_SELF_TEST_FAILED: "+ex); Environment.ExitCode=1; }
             return;
         }
         if(args.Length==1&&args[0]=="--restore-cycle-default") {

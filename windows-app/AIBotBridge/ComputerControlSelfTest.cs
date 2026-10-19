@@ -13,6 +13,8 @@ internal static class ComputerControlSelfTest
     private sealed class Backend:IComputerControlBackend {
         internal ComputerControlState State=new(VolumeAvailable:true,Volume:40,CanLock:true,MediaAvailable:true,CanPlayPause:true,CanPrevious:true,CanNext:true);
         internal int Calls;internal bool Fail,Throw;internal string? Launched;
+        internal ComputerLockScreenState LockScreen=new();
+        public ComputerLockScreenState ReadLockScreen()=>LockScreen;
         public Task<ComputerControlState> ReadAsync(CancellationToken token)=>Task.FromResult(State);
         public Task<bool> ExecuteAsync(ComputerCommand command,ComputerLauncher? launcher,CancellationToken token) {
             Calls++;if(Throw)throw new IOException("simulated OS failure");if(Fail)return Task.FromResult(false);
@@ -27,6 +29,18 @@ internal static class ComputerControlSelfTest
         if(!AppPaths.IsPublicSelfTest)throw new InvalidOperationException("Computer control tests require an isolated profile.");
         Check(WindowsSessionLock.Decode(0)==true&&WindowsSessionLock.Decode(1)==false&&WindowsSessionLock.Decode(-1) is null,"session lock flags decoded incorrectly");
         Check(WindowsSessionLock.Read() is not null,"actual desktop lock state unavailable");
+        Check(WindowsDisplayPower.Read() is null,"display state assumed before registration");
+        Check(WindowsDisplayPower.Decode(0)==0&&WindowsDisplayPower.Decode(1)==1&&WindowsDisplayPower.Decode(2)==2&&
+            WindowsDisplayPower.Decode(-1) is null&&WindowsDisplayPower.Decode(3) is null,"invalid display state accepted");
+        string windows=Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        string cover=Path.Combine(windows,"SystemApps","Microsoft.LockApp_cw5n1h2txyewy","LockApp.exe");
+        Check(WindowsLockScreen.IsCover(true,"Windows.UI.Core.CoreWindow",cover,1,1,windows),"real cover metadata not recognized");
+        Check(!WindowsLockScreen.IsCover(false,"Windows.UI.Core.CoreWindow",cover,1,1,windows)&&
+            !WindowsLockScreen.IsCover(null,"Windows.UI.Core.CoreWindow",cover,1,1,windows)&&
+            !WindowsLockScreen.IsCover(true,"other",cover,1,1,windows)&&
+            !WindowsLockScreen.IsCover(true,"Windows.UI.Core.CoreWindow",cover,2,1,windows)&&
+            !WindowsLockScreen.IsCover(true,"Windows.UI.Core.CoreWindow",Path.Combine(directory,"LockApp.exe"),1,1,windows)&&
+            !WindowsLockScreen.IsCover(true,"Windows.UI.Core.CoreWindow",null,1,1,windows),"ambiguous/spoofed metadata permits Space");
         Directory.CreateDirectory(directory);var store=new ComputerLauncherStore(Path.Combine(directory,"computer-launchers.json"));
         string target=Path.Combine(directory,"fixture-folder");Directory.CreateDirectory(target);
         var item=new ComputerLauncher(Guid.NewGuid().ToString("D"),"项目文件夹",target);store.Save([item]);
@@ -78,6 +92,24 @@ internal static class ComputerControlSelfTest
         var backend=new Backend();var clock=new FixtureClock();var service=new ComputerControlService(backend,store,clock);
         async Task<(int Status,JsonElement Body)> Call(object command) {using var document=JsonDocument.Parse(JsonSerializer.Serialize(command));var reply=await service.HandleAsync(document.RootElement,CancellationToken.None);return(reply.Status,JsonSerializer.SerializeToElement(reply.Body,JsonDefaults.Options));}
         var status=await Call(new{op="status"});Check(status.Status==200&&status.Body.GetProperty("launchers").GetArrayLength()==1&&!status.Body.GetProperty("launchers")[0].TryGetProperty("path",out _),"status leaks a path or misses launchers");
+        Check(!status.Body.TryGetProperty("displayState",out var missingDisplay)||missingDisplay.ValueKind==JsonValueKind.Null,"unknown display assumed on");
+        foreach(int display in new[]{0,1,2}) {
+            backend.State=backend.State with{DisplayState=display};
+            var screen=await Call(new{op="status"});
+            Check(screen.Body.GetProperty("displayState").GetInt32()==display&&backend.Calls==0,"ordinary screen report mutated OS or lost state");
+        }
+        backend.State=backend.State with{DisplayState=null};
+        var unknown=await Call(new{op="lock-screen"});
+        Check(unknown.Status==200&&(!unknown.Body.TryGetProperty("lockScreenCover",out var unknownCover)||unknownCover.ValueKind==JsonValueKind.Null)&&backend.Calls==0,"unknown lock page became confirmed cover or invoked OS");
+        backend.LockScreen=new(Locked:true,LockScreenCover:true);
+        var cover=await Call(new{op="lock-screen"});Check(cover.Body.GetProperty("lockScreenCover").GetBoolean()&&backend.Calls==0,"read-only cover probe failed");
+        Check((await Call(new{op="lock-screen",pin="public-fixture"})).Status==400&&backend.Calls==0,"probe accepts credential parameter");
+        foreach(int display in new[]{0,1,2}) {
+            backend.LockScreen=new(Locked:true,DisplayState:display);
+            var power=await Call(new{op="lock-screen"});
+            Check(power.Body.GetProperty("displayState").GetInt32()==display&&backend.Calls==0,"power probe mutated or lost state");
+        }
+        backend.LockScreen=new(Locked:true);
         string revision=status.Body.GetProperty("iconRevision").GetString()!;
         Check(status.Body.GetProperty("launchers")[0].GetProperty("icon").GetString()!.Length==5464,"icon not included in initial state");
         var cached=await Call(new{op="status",iconRevision=revision});
@@ -122,6 +154,13 @@ internal static class ComputerControlSelfTest
             if(reply.Status!=200)return reply.Status;using var json=JsonDocument.Parse(Tab5Protocol.Decrypt(key,nonce,reply.Packet!));return json.RootElement.GetProperty("status").GetInt32();
         }
         var command=new{op="lock",requestId=Guid.NewGuid()};
+        string history="1;"+string.Concat(new uint[]{1,8,10000,1200,50,uint.MaxValue,uint.MaxValue,0x10000,300}.Select(x=>x.ToString("X8")));
+        Check(await Call(new{op="status",unlockHistory=history},false)==401&&await Call(new{op="status",unlockHistory=history},stale:true)==400&&!service.DiagnosticSummary.Contains("attempt=1; transport=USB"),"history bypasses authentication or freshness");
+        Check(await Call(new{op="status",unlockHistory=history})==200&&service.DiagnosticSummary.Contains("attempt=1; transport=USB; result=failure"),"authenticated history not retained");
+        Check(await Call(new{op="status"})==200&&service.DiagnosticSummary.Contains("attempt=1; transport=USB; result=failure"),"ordinary status erased history");
+        Check(await Call(new{op="status",unlockHistory="unbounded-text"})==400&&await Call(new{op="lock-screen",unlockHistory=history})==400,"history allowed unbounded text or mutation probe");
+        Check(await Call(new{op="lock-screen"},false)==401&&await Call(new{op="lock-screen"},stale:true)==400&&
+            await Call(new{op="lock-screen"},sessionOverride:"old-session")==400&&await Call(new{op="lock-screen"})==200&&backend.Calls==0,"lock-screen bypasses authenticated session or causes a side effect");
         Check(await Call(command,false)==401&&await Call(command,stale:true)==400&&await Call(command,sessionOverride:"old-session")==400&&backend.Calls==0,"unauthenticated/stale RPC invoked OS");
         Check(await Call(command)==200&&await Call(command)==200&&backend.Calls==1,"authenticated RPC duplicate invoked OS twice");
         Check(await Call(new{op="mute",muted=true,command.requestId})==409&&backend.Calls==1,"authenticated RPC conflict invoked OS");

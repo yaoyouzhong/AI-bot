@@ -1,5 +1,9 @@
 # 产品介绍视频 / Product introduction video
 
+本轮 0.6.10 / TAB5 .234 的 116 秒影片正在最终导出和审阅；沿用已批准的方向和声音，更新实际 .234 sidecar。下方 .217 为此前已公开记录。最终结果见 [本轮媒体记录](development/RELEASE-0610-MEDIA-20261019.md)。
+
+The 116-second 0.6.10 / TAB5 .234 revision is being exported and reviewed with the approved direction/audio and actual .234 sidecar. The .217 record below remains the previous published film until publication. See the linked current media record.
+
 2026-10-17 更新：Windows **0.6.9**、TAB5 **0.2.217-ui**、ESP8266 **0.5.3**；Mac 保留 **0.6.7**，不出镜。116 秒中文产品片，1920×1080、30 fps、15 个镜头。新增电脑音量、静音、锁屏状态和带图标的快捷启动，以及十网络管理和实际 217 更新说明；保留双屏额度开场、Codex、时钟、日程、监控与艺术浏览。
 
 https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b

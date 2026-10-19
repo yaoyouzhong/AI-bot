@@ -6,7 +6,7 @@ Beyond work, AI-bot serves as a desk clock and information display for weather, 
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.9.md) · [简体中文](README.md)
 
-Published Windows **0.6.9** and TAB5 **0.2.217-ui** add PC volume, mute, lock state, launchers with icons and up to ten saved Wi-Fi networks. See [release and verification](docs/RELEASE-0.6.9.md) and [computer control](docs/COMPUTER-CONTROL.md).
+Prepared release: Windows **0.6.10** and TAB5 **0.2.234-ui** add computer unlock and automatic component setup, and fix volume-drag recovery, bidirectional read sync, BLE boot verification and battery-display continuity. Related hardware acceptance is complete; see [the release notes](docs/RELEASE-0.6.10.md). Downloads retain published stable packages until publication.
 
 ## Choose your desktop display
 
@@ -156,3 +156,5 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)
 
 Own code, including TAB5, is [MIT licensed](LICENSE). Third-party components and artworks retain their original licenses. This independent project has no affiliation with the named AI providers. [Report issues](https://github.com/yaoyouzhong/AI-bot/issues) with your platform, versions, hardware and reproduction steps; remove credentials and private logs.
+
+The local Windows 0.6.10 / TAB5 0.2.234-ui release adds computer unlock and automatic TightVNC setup/import without a manually entered component password. Volume-drag recovery, bidirectional Codex read sync, isolated BLE boot verification and battery display after reboot/USB changes have passed hardware acceptance. Public downloads retain released versions. [Preparation and acceptance](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).

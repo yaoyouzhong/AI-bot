@@ -191,7 +191,8 @@ internal sealed partial class Tab5Service : IDisposable
         report>0&&now>=report&&now-report<8000?connected?"已联网 · 桥接未通":"未联网":"等待设备回报";
     private string WifiConnectionStatus=>DescribeWifi(Environment.TickCount64,Interlocked.Read(ref _wifiRequestAt),Interlocked.Read(ref _wifiReportAt),_wifiReportedConnected);
     private volatile string _voiceAuthStatus="尚无语音请求";
-    internal string DiagnosticSummary => ProfileDiagnostic+GalleryDiagnostic+TcpUploadDiagnostic+GalleryHostDiagnostic+"\n"+ConnectionSummary+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"; metricsDeferred="+Interlocked.Read(ref _usbMetricsDeferred)+"\nUSB 状态恢复：attempts="+Interlocked.Read(ref _usbStatusRecoveryAttempts)+"; confirmed="+Interlocked.Read(ref _usbStatusRecoverySucceeded)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n电脑升级："+RemoteOtaStatus+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
+    private volatile string _unlockHistory="解锁记录：等待设备回传";
+    internal string DiagnosticSummary => ProfileDiagnostic+"\n"+_unlockHistory+"\nWi-Fi 解锁："+(_wifiUnlock?.Diagnostic??"尚无请求")+GalleryDiagnostic+TcpUploadDiagnostic+GalleryHostDiagnostic+"\n"+ConnectionSummary+"\n"+Summary+"\n"+_deviceHealth+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"; metricsDeferred="+Interlocked.Read(ref _usbMetricsDeferred)+"\nUSB 状态恢复：attempts="+Interlocked.Read(ref _usbStatusRecoveryAttempts)+"; confirmed="+Interlocked.Read(ref _usbStatusRecoverySucceeded)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n电脑升级："+RemoteOtaStatus+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
     private string? _reservedPort;
     internal string CrashDiagnostic=>_crashes.Snapshot;
     // All callers hold _usbGate. Keeping DTR and the CDC handle stable avoids
@@ -235,7 +236,7 @@ internal sealed partial class Tab5Service : IDisposable
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,
+    private object ConnectionHealth => new { voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommand,bootVerifyCommand=BootVerifyCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
@@ -353,8 +354,8 @@ internal sealed partial class Tab5Service : IDisposable
         var root=doc.RootElement;
         if(root.ValueKind==JsonValueKind.Object&&root.TryGetProperty("op",out var opKind)&&opKind.ValueKind!=JsonValueKind.String)return (400,new {error="invalid_operation"});
         string operation=root.ValueKind==JsonValueKind.Object&&root.TryGetProperty("op",out var op)&&op.ValueKind==JsonValueKind.String?op.GetString()!:"send";
-        if(operation is not ("send" or "read" or "draft-save" or "draft-load" or "receipt" or "steer" or "interrupt" or "image-upload")||imageOnly!=(operation=="image-upload"))return (400,new {error="invalid_operation"});
-        bool readOperation=operation is "read" or "draft-load" or "receipt";
+        if(operation is not ("send" or "read" or "read-ack" or "draft-save" or "draft-load" or "receipt" or "steer" or "interrupt" or "image-upload")||imageOnly!=(operation=="image-upload"))return (400,new {error="invalid_operation"});
+        bool readOperation=operation is "read" or "read-ack" or "draft-load" or "receipt";
         if(readOnly!=readOperation)return (400,new {error="invalid_operation"});
         if(root.ValueKind!=JsonValueKind.Object || !root.TryGetProperty("session",out var session) || session.ValueKind!=JsonValueKind.String || session.GetString()!=_session ||
            !root.TryGetProperty("taskId",out var taskId) || !root.TryGetProperty("message",out var message) ||
@@ -391,9 +392,10 @@ internal sealed partial class Tab5Service : IDisposable
         if(operation=="draft-save")return _codexTasks.Draft(taskId.GetString()!,requestId,message.GetString()!,images,id);
         if(operation=="draft-load")return _codexTasks.Draft(taskId.GetString()!,requestId);
         if(operation=="receipt")return await _codexTasks.ReceiptAsync(taskId.GetString()!,requestId,token);
+        if(operation=="read-ack")return await _codexTasks.ConfirmReadAsync(id,taskId.GetString()!,readTurn,requestId,token);
         if(operation=="read") {
             bool inlineReply=root.TryGetProperty("inlineReply",out var inline)&&inline.ValueKind==JsonValueKind.True;
-            var result=await _codexTasks.ReadPageAsync(taskId.GetString()!,page,token,readTurn,turnOffset,inlineReply);
+            var result=await _codexTasks.ReadPageAsync(taskId.GetString()!,page,token,readTurn,turnOffset,inlineReply,id);
             // Public text must never be returned as cleartext over LAN. Bind the
             // encrypted response to this authenticated request's nonce.
             if(inlineReply&&result.Status==200) {
@@ -771,7 +773,7 @@ internal sealed partial class Tab5Service : IDisposable
     }
     public void Dispose() {
         lock(_lifecycle){_stopping=true;_lifetime.Cancel();}
-        _voice?.Dispose();_codexTasks.Dispose();
+        _voice?.Dispose();_codexTasks.Dispose();_wifiUnlock?.Dispose();
         if(_usbGate.Wait(1500))try{CloseUsbPort();}finally{_usbGate.Release();}
     }
 }

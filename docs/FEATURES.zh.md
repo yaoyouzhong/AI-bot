@@ -387,3 +387,7 @@ Device Center groups My Devices, Account Data and Bridge Settings. Components up
 The collection manager keeps primary actions on one row, with directory/help in More. Select works in the left list; compact image paging, reading and fullscreen remain below the image. Right-click or Ctrl+0 restores the image; wheel zoom and drag also work fullscreen.
 
 Agenda/reminders in TAB5 210 support local persistence, offline edits/deletions and reconnect sync, with explicit save, repeat and advance reminders. Complete optional HD editions include device previews and guides; desktop browsing prefers verified HD originals with bounded decoding. The refined agenda, internal memory, USB writing and connected-USB reboot battery display passed local 210 hardware acceptance; native screenshots remain isolated fixtures. Offline name entry uses the keyboard; dictation requires the computer voice service.
+
+## 本地候选：电脑一键解锁
+
+TAB5 可经 USB、蓝牙或 Wi-Fi 解锁；Windows 端保存 PIN，TightVNC 密码自动生成或从兼容安装自动接入，页面不要求填写。组件安装／卸载需管理员确认，已有外部安装保留原配置。最终验收与支持边界见 [本轮收尾](development/RELEASE-0610-229-CLOSEOUT-20261019.md)。

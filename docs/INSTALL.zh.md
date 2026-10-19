@@ -104,6 +104,10 @@ TAB5 的 **设置 → 存储与缓存** 独立显示 TF 卡状态。默认使用
 
 电脑端 **屏保图库 → 浏览作品** 支持往期作品、搜索、完整阅读资料、双击全屏、滚轮缩放、拖动及 Esc 退出。
 
+开发候选新增 **电脑控制 → 一键解锁设置 → Wi-Fi 解锁设置**：点击“安装并启用”，通过 Windows 管理员确认后离线安装 TightVNC Server，自动生成并加密保存组件密码。已有 TightVNC 点击“自动接入”，验证兼容性后复用本机认证并保留原配置，全程无需填写或设置 TightVNC 密码；不兼容时明确提示，停止接入。仅 AI-bot 安装且未被修改的组件可从此页卸载。卸载 AI-bot 时也可选择移除该组件，Windows PIN 和配对保留。此功能尚未进入当前公开安装包。
+
+Development candidate: Computer Control → One-click Unlock Settings → Wi-Fi Unlock Settings installs the bundled Server on demand after Windows administrator approval. Component passwords are generated and protected locally. Compatible existing installations automatically import local authentication without requesting a password or changing existing settings. Unsupported installations stop explicitly. Only unchanged AI-bot-owned components can be removed. AI-bot uninstall offers the same optional removal while preserving PIN and pairing. Current public packages do not yet include this feature.
+
 ![TAB5 独立的存储与缓存设置，默认使用设备缓存](assets/screens/tab5-settings-storage.png)
 
 TAB5 需要无线时，在 **连接升级 → Wi-Fi** 保存网络并确认有效数据。先把 USB 主流程完成，再按需设置无线；Wi-Fi 已关联不等于桥接数据已连通。ESP8266 无线设置见[进阶说明](FLASH_BUILD.zh.md)。
@@ -136,9 +140,9 @@ TAB5 需要无线时，在 **连接升级 → Wi-Fi** 保存网络并确认有�
 
 ## 电脑控制与十网络 / Computer controls and ten saved networks
 
-Windows 0.6.9 与 TAB5 0.2.217-ui 配套提供音量、静音、实际锁屏状态和带图标的快捷启动；电脑端“设备中心 → TAB5 → 电脑控制”配置最多四项。十网络管理同样需要新桥接。先更新桥接，再按已有 TAB5 升级步骤选升级 ZIP 或应用 BIN；保留已存网络、配对和展示设置。上方下载入口已指向本次正式包。
+Windows 0.6.9 与 TAB5 0.2.217-ui 配套提供音量、静音、实际锁屏状态和带图标的快捷启动；电脑端“设备中心 → TAB5 → 电脑控制”配置最多四项。十网络管理同样需要新桥接。先更新桥接，再按已有 TAB5 升级步骤选升级 ZIP 或应用 BIN；保留已存网络、配对和展示设置。这些功能已随 0.6.9／217 公开；本轮 0.6.10／234 的新变化见下节，下载入口在对应正式发布后更新。
 
-Windows 0.6.9 and TAB5 0.2.217-ui jointly provide PC controls, launcher icons and ten-network management. Update the bridge first, then follow the existing TAB5 upgrade path; retain pairing, saved networks and display preferences. Public download links above point to these stable releases.
+Windows 0.6.9 and TAB5 0.2.217-ui jointly provide PC controls, launcher icons and ten-network management. Update the bridge first, then follow the existing TAB5 upgrade path; retain pairing, saved networks and display preferences. These controls were published with 0.6.9/217. New 0.6.10/234 changes are described below; their download links advance only after publication.
 
 ## English summary
 
@@ -158,3 +162,11 @@ The Manage dropdown opens device actions. Yellow Wi-Fi means the device joined a
 - 插电重启且尚无可信电量时会自动估算并恢复充电，无需拔线恢复；采样期间可能短暂显示“--”。USB 写入速度受连接和设备状态影响，本次验收写入为 9.609 秒，不作为所有连接的速度承诺。
 
 Interrupted Windows update downloads can resume for the same component and package identity, with full verification before explicit installation. TAB5 210 has aligned agenda filtering, a centered empty state and keyboard input when offline; dictation requires the computer voice service. Classic Clock and Annual Dots follow local day/night time without separate Night/Auto choices. TAB5 keeps its display preferences. Battery estimation recovers automatically after a powered USB reboot; initial sampling can temporarily show “--”.
+
+## Windows 0.6.10 / TAB5 234 更新
+
+先正常退出旧 Windows 托盘程序，运行 0.6.10 安装器，保留设置、PIN、配对和图库。TAB5 已有 AI-bot 选择 0.2.234-ui 升级 ZIP；出厂系统首次安装选择首刷 ZIP，不能混用。通过现有固件升级入口提供应用 BIN，在 TAB5 核对版本后确认升级并等待自动重启；Windows 和固件分别编号，无需为本次固件修复再次安装相同桥接。
+
+一键解锁首次在 Windows「电脑控制 → 一键解锁设置」配置自己的 Windows PIN；Wi-Fi 分支按需安装／自动接入 TightVNC，管理员确认仅用于组件安装或卸载。配套桥接不要求填写 TightVNC 密码。保留 TAB5 当前展示设置，不执行 ESP8266 轮播恢复。音量恢复、双向已读同步、纯 BLE 启动核验及电量显示的实际结果与剩余限制见 [0.6.10 说明](RELEASE-0.6.10.md)。已完成的真机项目不因升级重复验收。
+
+Normally exit the old tray bridge and run the 0.6.10 installer, retaining settings, PIN, pairing and collections. Existing AI-bot devices use the .234 upgrade ZIP; factory-system devices use the distinct first-install ZIP. Offer the application BIN through the existing firmware-upgrade entry, confirm its version on TAB5 and wait for automatic reboot. Bridge and firmware versions are independent. Configure the Windows PIN in Computer control → Unlock settings; the Wi-Fi path installs/imports TightVNC automatically, with administrator confirmation for component installation/removal and no manually entered component password. Preserve TAB5 display settings. Hardware results and remaining limits are recorded in the linked release notes; previously passed tests are retained.

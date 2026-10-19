@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.10 - 2026-10-19
+
+### Computer unlock
+
+- Add offline TightVNC Server installation, automatic configuration/import and ownership-checked removal to Wi-Fi unlock. No manually entered component password is required. Compatible existing installations retain their settings, password and ownership.
+- Align both unlock settings windows, with Save at the lower right and window × / Esc for closing. Cancellation, disconnect and failure never replay a PIN automatically; the latest eight diagnostic entries retain transport, phase, result and split timing.
+- Pair with TAB5 0.2.230-ui for faster USB/Bluetooth preparation. Give short RPC handling/responses bounded priority over ordinary telemetry while retaining authorization deadlines and cancellation. Display the actual unlock transport.
+- Verify exact firmware, running partition and fresh UI heartbeats over paired Wi-Fi/Bluetooth. Existing hardware acceptance covers Wi-Fi; isolated BLE acceptance is recorded separately.
+
+### Delivery and validation
+
+- Recover the TAB5 control page after a volume drag expires or is interrupted, without replaying a volume command. Synchronize a reply actually displayed on TAB5 back to Codex desktop read state through identity/turn-bound receipts; prefetching never marks it read.
+
+- Preserve the published 0.6.9 update entry points, independent windows and unsaved-change protection. Do not rebuild unchanged Mac or ESP8266 components.
+- Retry atomic history/credential replacement for a bounded interval when a file is temporarily held. Persistent failures preserve the original and report an error. Installation, hardware regression and validation boundaries are tracked in the [closeout record](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).
+
 ## Unreleased
 
 ## 0.6.9 - 2026-10-17

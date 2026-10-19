@@ -16,7 +16,7 @@ internal static class QuotaHistorySelfTest
         var day = QuotaHistory.Daily(history.Read(), new(2026,9,10), 7, TimeZoneInfo.Utc)[^1];
         Require(day.Growth == 8 && day.Samples == 2 && day.Partial, "Growth/duplicate/stale/baseline failed.");
         Require(QuotaHistory.Daily(history.Read(), new(2026,9,10), 7, TimeZoneInfo.Utc)[0].Growth is null, "Missing day became zero.");
-        var restart = new QuotaHistory(folder); Require(restart.Read().Length == 2, "History persistence failed.");
+        var restart = new QuotaHistory(folder); Require(restart.Read().Length == 2, $"History persistence failed: save={history.PersistenceDiagnostic ?? "none"}; load={restart.Error ?? "none"}.");
         restart.Record(Q(at.AddMinutes(20), 60)); restart.Record(Q(at.AddMinutes(22), 62));
         Require(QuotaHistory.Daily(restart.Read(), new(2026,9,10), 1, TimeZoneInfo.Utc)[0].Growth == 10, "Offline gap counted as exact daily growth.");
         var verifiedGap = QuotaHistory.Daily(restart.Read().Select(x => x with { AccountFingerprint = "same-account" }).ToArray(),

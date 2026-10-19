@@ -49,6 +49,7 @@ internal static class PublicSelfTest
         Task.Run(DeviceRecoverySelfTest.RunAsync).GetAwaiter().GetResult();
         Task.Run(GalleryUpdateSelfTest.RunAsync).GetAwaiter().GetResult();
         FirmwareFlashSelfTest.RunAsync().GetAwaiter().GetResult();
+        AtomicFileReplacement.SelfTest(Path.Combine(Environment.CurrentDirectory,"artifacts","public-atomic-file"));
         QuotaHistorySelfTest.Run();
         LunarDateSelfTest.Run();
         OfficialQuotaApiSelfTest.Run();
@@ -70,6 +71,11 @@ internal static class PublicSelfTest
         MirrorSelfTest.Run(Path.Combine(Environment.CurrentDirectory, "artifacts", "public-mirror.png"));
         Task.Run(Tab5RemoteOtaSelfTest.RunAsync).GetAwaiter().GetResult();
         Task.Run(()=>RuntimeHealthSelfTest.RunAsync(Path.Combine(Environment.CurrentDirectory,"artifacts","public-runtime-health"))).GetAwaiter().GetResult();
+        TightVncSelfTest.Run(Path.Combine(Environment.CurrentDirectory,"artifacts","public-tightvnc"));
+        Task.Run(()=>WifiUnlockSelfTest.RunAsync(Path.Combine(Environment.CurrentDirectory,"artifacts","public-wifi-unlock"))).GetAwaiter().GetResult();
+        Tab5PinSelfTest.Run(Path.Combine(Environment.CurrentDirectory,"artifacts","public-tab5-pin"));
+        ComputerControlSelfTest.Run(Path.Combine(Environment.CurrentDirectory,"artifacts","public-computer-control"));
+        Task.Run(Tab5Service.WirelessBootSelfTestAsync).GetAwaiter().GetResult();
         Console.WriteLine("PUBLIC_SELF_TEST_OK fresh profile, empty pages, fixture regressions; no real credentials, USB or production bridge");
     }
 }

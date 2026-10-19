@@ -14,6 +14,30 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>>? rpcHandler=null,
     Func<int,bool,int,byte[]?>? telemetryCapture=null,Action<string>? rpcDiagnostic=null,Action? resetTelemetry=null,Func<bool>? imageUploadActive=null,Action<string>? voiceDiagnostic=null,Action<long>? telemetryAcknowledged=null,Action<string>? firmwareObserved=null,Tab5BleProbeTrace? probeTrace=null,Func<int>? nativeLimit=null,Func<int>? bulkWriteLimit=null,Action<int>? bulkWriteSupported=null,Func<bool>? standby=null,Func<bool>? queueComparisonActive=null)
 {
+    // Read-only acceptance probe: no status write, pairing change or key event.
+    internal static async Task<object> ProbePairedAsync() {
+        var pairing=new Tab5PairingStore().Current??throw new IOException("TAB5 not paired with bridge");
+        using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        var hints=await Tab5BleDiscovery.PairedCandidatesAsync(pairing.DeviceId,stop.Token);bool serviceFound=false;
+        foreach(var hint in hints) {
+            using var device=await BluetoothLEDevice.FromBluetoothAddressAsync(hint.Address,hint.Type).AsTask(stop.Token);
+            if(device is null)continue;
+            var services=await device.GetGattServicesForUuidAsync(Tab5Protocol.Service,BluetoothCacheMode.Uncached).AsTask(stop.Token);
+            try {
+                if(services.Status!=GattCommunicationStatus.Success)continue;
+                foreach(var service in services.Services) {
+                    serviceFound=true;
+                    var infos=await service.GetCharacteristicsForUuidAsync(Tab5Protocol.Info,BluetoothCacheMode.Uncached).AsTask(stop.Token);
+                    if(infos.Status!=GattCommunicationStatus.Success||infos.Characteristics.Count!=1)continue;
+                    using var info=await ReadInfoAsync(infos.Characteristics[0],stop.Token);
+                    if(Authenticate(info.RootElement,pairing,out _))return new{pairedCandidates=hints.Count,serviceFound=true,authenticated=true,inputSent=false};
+                }
+            }finally{foreach(var service in services.Services)service.Dispose();}
+        }
+        var inventory=await Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(BluetoothLEDevice.GetDeviceSelectorFromPairingState(true)).AsTask(stop.Token);
+        var names=inventory.Where(d=>d.Name.Contains("TAB5",StringComparison.OrdinalIgnoreCase)).Select(d=>new{name=d.Name,paired=d.Pairing.IsPaired,kind=d.Kind.ToString()}).ToArray();
+        return new{pairedCandidates=hints.Count,serviceFound,authenticated=false,inputSent=false,inventoryCount=inventory.Count,matchingNames=names};
+    }
     internal async Task RunAsync(CancellationToken token)
     {
         var discovery=new Tab5BleDiscovery();
@@ -28,6 +52,15 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                 stage="扫描";
                 status("正在寻找已配对 TAB5");
                 var candidates=new ConcurrentDictionary<ulong,BluetoothAddressType>();
+                using(var pairedTimeout=CancellationTokenSource.CreateLinkedTokenSource(token)) {
+                    pairedTimeout.CancelAfter(TimeSpan.FromSeconds(3));
+                    try {
+                        foreach(var known in await Tab5BleDiscovery.PairedCandidatesAsync(pairing.DeviceId,pairedTimeout.Token))candidates.TryAdd(known.Address,known.Type);
+                    }catch(OperationCanceledException) when(!token.IsCancellationRequested){diagnostic?.Invoke("OS paired-device lookup timed out; advertisement scan continues");}
+                    catch(Exception ex) when(ex is COMException or InvalidOperationException or UnauthorizedAccessException or ArgumentException) {
+                        diagnostic?.Invoke("OS paired-device lookup unavailable; "+ex.GetType().Name+"; advertisement scan continues");
+                    }
+                }
                 var preferred=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 var watcher=new BluetoothLEAdvertisementWatcher {ScanningMode=BluetoothLEScanningMode.Active};
                 watcher.AdvertisementFilter.Advertisement.ServiceUuids.Add(Tab5Protocol.Service);
@@ -63,6 +96,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                 }
                                 continue;
                             }
+                            _keyboardDiagnostic=_unlockFailureDiagnostic="";ReadKeyboardDiagnostics(first.RootElement);
                             int statusMaximum=ReadAssets(first.RootElement,pairing,nonce);
                             int telemetry=first.RootElement.TryGetProperty("telemetryVersion",out var tv)&&tv.TryGetInt32(out int version)&&version is >=1 and <=3?version:0;
                             int credits=first.RootElement.TryGetProperty("mailboxWindow",out var wc)&&wc.TryGetInt32(out int offered)?Math.Clamp(offered,1,8):4;
@@ -110,7 +144,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                     rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000);
                                 if(voiceTask.IsFaulted)await voiceTask;
                                 if(rpcTask.IsFaulted)await rpcTask;
-                                // A large inbound RPC already proves a live paired link. Avoid
+                                // A short control/credential or bulk RPC already proves a live paired link. Avoid
                                 // competing ATT status reads/writes through handling and response.
                                 // Keep voice polling independent so a recording can still start.
                                 // USB ownership takes precedence even during a long gallery/USB
@@ -130,13 +164,13 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                     });
                                     if(verified){await Task.Delay(1000,token);continue;}
                                 }
-                                if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
+                                if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.InteractivePriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
                                 bool bulkActive=imageUploadActive?.Invoke()==true||voice is not null&&voice.LastActive>0&&Environment.TickCount64-voice.LastActive<1500;
                                 int cadence=telemetry>0?(bulkActive?1000:250):2000;
                                 int pauseMs=cadence;
                                     long telemetryStarted=Environment.TickCount64,traceTicket=probeTrace?.Ticket(telemetryStarted)??0;
                                     bool sentTelemetry=await SendTelemetryAsync(transferGate,
-                                    ()=>DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.BulkPriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true,standby?.Invoke()==true),async ()=> {
+                                    ()=>DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.InteractivePriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true,standby?.Invoke()==true),async ()=> {
                                     if((telemetryCapture is null?capture(statusMaximum):telemetryCapture(telemetry,rpc is not null&&rpc.LastActive>0&&Environment.TickCount64-rpc.LastActive<3000,statusMaximum)) is not {} clear)return false;
                                     telemetryAt=Environment.TickCount64;
                                     using var doc=JsonDocument.Parse(clear);var seq=doc.RootElement.GetProperty("sequence").GetInt64();
@@ -180,6 +214,9 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                                 if(!Authenticate(candidate.RootElement,pairing,out var nextNonce)||nextNonce!=nonce) {
                                                     candidate.Dispose();throw new IOException("BLE acknowledgement authentication failed");
                                                 }
+                                                // Retain both alternating diagnostic fields even when this
+                                                // authenticated read precedes the current frame's ACK.
+                                                ReadKeyboardDiagnostics(candidate.RootElement);
                                                 if(candidate.RootElement.GetProperty("ack").GetInt64()!=seq){stage=$"整帧确认尚未匹配，{sent}/{bytes.Length} 字节，已用 {started.Elapsed.TotalSeconds:F1} 秒";candidate.Dispose();return false;}
                                                 confirmed=candidate;return true;
                                             },token,window,statusMaximum);
@@ -190,6 +227,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                         string link=confirmed.RootElement.TryGetProperty("link",out var ld)&&ld.ValueKind==JsonValueKind.Array&&ld.GetArrayLength()==10?"; link="+ld.GetRawText():"";
                                         if(confirmed.RootElement.TryGetProperty("mailboxStats",out var ms)&&ms.ValueKind==JsonValueKind.Array&&ms.GetArrayLength()==4)link+="; mailboxStats="+ms.GetRawText();
                                         if(confirmed.RootElement.TryGetProperty("rpcPacing",out var pacing)&&pacing.ValueKind==JsonValueKind.Array&&pacing.GetArrayLength()==3)link+="; rpcPacing="+pacing.GetRawText();
+                                        link+=ReadKeyboardDiagnostics(confirmed.RootElement);
                                         diagnostic?.Invoke($"{bytes.Length} bytes, MTU {session.MaxPduSize}, {(fast?$"window{window}":"request")}, {started.Elapsed.TotalSeconds:F1}s, ACK verified{link}; connectionPreference={preferenceStatus}");
                                         status("已连接 · 数据已确认");
                                         discovery.Remember(pairing.DeviceId,address,(int)candidates[address]);
@@ -221,6 +259,20 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
         catch(Exception ex) when(ex is COMException or InvalidOperationException or ObjectDisposedException) {
             return $"connection=unavailable/{ex.GetType().Name}/0x{ex.HResult:X8}";
         }
+    }
+    // Optional read-only device flags. These never authorize input or change
+    // connection, pairing, cadence, freshness or retry behavior.
+    internal static string KeyboardStateDiagnostic(JsonElement info)=>
+        info.TryGetProperty("k",out var field)&&field.ValueKind==JsonValueKind.Number&&field.TryGetUInt32(out uint bits)?"; hidState="+bits.ToString("X8"):"";
+    private string _keyboardDiagnostic="",_unlockFailureDiagnostic="",_diagnosticDevice="";
+    private long _keyboardDiagnosticAt;
+    private string ReadKeyboardDiagnostics(JsonElement info) {
+        string id=info.TryGetProperty("deviceId",out var device)&&device.ValueKind==JsonValueKind.String?device.GetString()??"":"";
+        if(id!=_diagnosticDevice){_keyboardDiagnostic=_unlockFailureDiagnostic="";_diagnosticDevice=id;}
+        string keyboard=KeyboardStateDiagnostic(info),failure=Tab5UnlockDiagnostic.Read(info);
+        if(keyboard.Length>0){_keyboardDiagnostic=keyboard;_keyboardDiagnosticAt=Environment.TickCount64;}
+        if(failure.Length>0)_unlockFailureDiagnostic="; "+failure;
+        return _keyboardDiagnostic+(_keyboardDiagnostic.Length>0?$"; hidSampleAgeMs={Environment.TickCount64-_keyboardDiagnosticAt}":"")+_unlockFailureDiagnostic;
     }
     internal static bool ResponseReplaySupported(JsonElement info)=>
         info.TryGetProperty("rpcReplay",out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt32(out int version)&&version==1;

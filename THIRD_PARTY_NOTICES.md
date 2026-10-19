@@ -232,6 +232,23 @@ TAB5 合成图使用 M5Stack 官方产品实图与本项目额度界面；官方
 
 The additional GPIO, M5 logo, antenna and back photographs (`tab5-side-gpio-official.png`, `tab5-side-logo-official.png`, `tab5-side-antenna-official.png`, `tab5-back-official.png`) are whitespace-only crops of official `C145_11.webp`, `C145_12.webp`, `C145_13.webp` and `C145_09.webp`. M5Stack retains copyright; these photographs are excluded from the project MIT license. Source URLs, exact crop rectangles and file hashes are recorded in [HARDWARE-IMAGES](docs/HARDWARE-IMAGES.md) and `licenses/materials.json`. / 新增三侧面与背面实图同属 M5Stack 官方照片，仅去除留白，不重绘、不锐化，不纳入项目 MIT 许可。
 
+## Optional TightVNC Server / 可选 Wi-Fi 解锁组件
+
+Windows packages include the unmodified official TightVNC 2.8.90 x64 MSI as a
+separate, optional GPL v2 component, copyright GlavSoft LLC and the contributors
+identified in its source. AI-bot communicates with its local service through RFB;
+no TightVNC source is incorporated into the bridge. The MSI, full corresponding
+official source archive, GPL text and origin/hash record are shipped together in
+`components/tightvnc/`. Server installation requires a separate user action and
+Windows administrator authorization. Viewer is not installed. Source and license:
+https://www.tightvnc.com/download/ and https://www.tightvnc.com/licensing.php .
+Pinned filenames, SHA-256 values and provenance: `licenses/tightvnc/ORIGIN.md`
+in the repository, copied to `components/tightvnc/ORIGIN.md` in Windows packages.
+
+Windows 包随附独立、可选的官方 TightVNC 2.8.90 x64 MSI（未修改，GPL v2），
+并在同目录附完整对应源码、GPL 许可及来源校验记录。用户主动点击安装并授权后，
+仅安装 Server 服务。AI-bot 通过本机 RFB 通信，不将 TightVNC 源码并入桥接。
+
 ## Product film 0.6.9 / TAB5 217
 
 The separately distributed product-video source contains adapted scaffold and audio mixing/effect code from https://github.com/op7418/guizang-product-video-skill under AGPL-3.0; its LICENSE and NOTICE remain in that archive. Inter and Noto Sans SC retain OFL notices. Original project music, mascot and native fixture captures retain their own provenance. Mi Fu, Hongxian Poems, Tokyo National Museum / ColBase TB-1459 (https://colbase.nich.go.jp/collection_items/tnm/TB-1459?locale=zh), is CC BY 4.0, scaled/cropped inside native UI. This does not imply museum endorsement. No commercial song/album artwork or runtime-extracted launcher icons are redistributed. Details and hashes: [PRODUCT_VIDEO](docs/PRODUCT_VIDEO.md), [SCREENSHOTS](docs/SCREENSHOTS.md), licenses/materials.json.

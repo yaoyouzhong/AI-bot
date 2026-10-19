@@ -17,6 +17,7 @@ internal sealed class QuotaHistory
     private readonly List<QuotaObservation> _samples = new();
     private readonly bool _preserveOriginal;
     internal string? Error { get; private set; }
+    internal string? PersistenceDiagnostic { get; private set; }
     internal QuotaHistory(string? directory = null)
     {
         _path = Path.Combine(directory ?? Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot"), "codex-quota-history.json");
@@ -52,11 +53,12 @@ internal sealed class QuotaHistory
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
                 File.WriteAllText(_path + ".tmp", JsonSerializer.Serialize(_samples));
-                File.Move(_path + ".tmp", _path, true);
+                AtomicFileReplacement.Move(_path + ".tmp", _path);
                 Error = null;
+                PersistenceDiagnostic = null;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            { Error = "历史保存失败，数据暂存在内存；下次采样自动重试，请检查数据目录权限。"; }
+            { Error = "历史保存失败，数据暂存在内存；下次采样自动重试，请检查数据目录权限。"; PersistenceDiagnostic = $"{ex.GetType().Name}/0x{ex.HResult:x8}"; }
         }
     }
 

@@ -10,7 +10,7 @@ internal sealed record ComputerLauncher(string Id,string Name,string Path);
 internal sealed record ComputerLauncherView(string Id,string Name,string Kind="app",string? Icon=null);
 internal sealed record ComputerControlState(int Version=1,bool VolumeAvailable=false,int Volume=0,bool Muted=false,
     bool CanLock=false,bool MediaAvailable=false,bool CanPlayPause=false,bool CanPrevious=false,bool CanNext=false,
-    bool Playing=false,ComputerLauncherView[]? Launchers=null,string IconRevision="",bool? Locked=null);
+    bool Playing=false,ComputerLauncherView[]? Launchers=null,string IconRevision="",bool? Locked=null,int? DisplayState=null,bool OneClickUnlock=false);
 internal sealed record ComputerCommand(string Op,int? Volume=null,bool? Muted=null,string? LauncherId=null,string? Action=null);
 
 internal sealed class ComputerLauncherStore
@@ -45,12 +45,14 @@ internal sealed class ComputerLauncherStore
 
 internal interface IComputerControlBackend
 {
+    ComputerLockScreenState ReadLockScreen()=>new();
     Task<ComputerControlState> ReadAsync(CancellationToken token);
     Task<bool> ExecuteAsync(ComputerCommand command,ComputerLauncher? launcher,CancellationToken token);
 }
 
 internal sealed class WindowsComputerControlBackend(Func<MusicSnapshot?>? displayedMusic=null) : IComputerControlBackend
 {
+    public ComputerLockScreenState ReadLockScreen()=>WindowsLockScreen.Read();
     [DllImport("user32.dll",SetLastError=true)] [return:MarshalAs(UnmanagedType.Bool)] private static extern bool LockWorkStation();
     private GlobalSystemMediaTransportControlsSessionManager? _media;
     private async Task<GlobalSystemMediaTransportControlsSession?> SessionAsync(CancellationToken token) {
@@ -73,7 +75,7 @@ internal sealed class WindowsComputerControlBackend(Func<MusicSnapshot?>? displa
             state=state with{MediaAvailable=true,CanPlayPause=controls.IsPlayPauseToggleEnabled,CanPrevious=controls.IsPreviousEnabled,CanNext=controls.IsNextEnabled,
                 Playing=playback.PlaybackStatus==GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing};
         }}catch(Exception ex) when(ex is COMException or InvalidOperationException or UnauthorizedAccessException or OperationCanceledException){ }
-        return state;
+        return state with{DisplayState=WindowsDisplayPower.Read()};
     }
     public async Task<bool> ExecuteAsync(ComputerCommand command,ComputerLauncher? launcher,CancellationToken token) {
         token.ThrowIfCancellationRequested();
@@ -105,7 +107,7 @@ internal sealed class WindowsComputerControlBackend(Func<MusicSnapshot?>? displa
     }
 }
 
-internal sealed class ComputerControlService(IComputerControlBackend? backend=null,ComputerLauncherStore? launchers=null,TimeProvider? clock=null)
+internal sealed class ComputerControlService(IComputerControlBackend? backend=null,ComputerLauncherStore? launchers=null,TimeProvider? clock=null,Func<bool>? savedPinAvailable=null)
 {
     private readonly ComputerLauncherIcons _icons=new();
     private readonly IComputerControlBackend _backend=backend??new WindowsComputerControlBackend();
@@ -121,18 +123,22 @@ internal sealed class ComputerControlService(IComputerControlBackend? backend=nu
         ComputerControlState state;
         try{state=await _backend.ReadAsync(timeout.Token);}catch(Exception ex) when(IsUnavailable(ex)){state=new();}
         var icons=_icons.Get(_launchers.Load(),knownIcons);
-        return state with{Launchers=icons.Views,IconRevision=icons.Revision};
+        return state with{Launchers=icons.Views,IconRevision=icons.Revision,OneClickUnlock=savedPinAvailable?.Invoke()==true};
     }
     private static bool IsUnavailable(Exception ex)=>ex is COMException or InvalidOperationException or IOException or UnauthorizedAccessException or OperationCanceledException or System.ComponentModel.Win32Exception;
     internal async Task<(int Status,object Body)> HandleAsync(JsonElement root,CancellationToken token) {
         if(root.ValueKind!=JsonValueKind.Object)return(400,new{error="invalid_request"});
         string op=Text(root,"op");ComputerCommand command=new(op);
-        if(op is not ("status" or "volume" or "mute" or "lock" or "launch" or "media"))return(400,new{error="invalid_operation"});
+        if(op is not ("status" or "lock-screen" or "volume" or "mute" or "lock" or "launch" or "media"))return(400,new{error="invalid_operation"});
         string[] fields=op switch {"volume"=>["volume"],"mute"=>["muted"],"launch"=>["launcherId"],"media"=>["action"],_=>[]};
-        string[] envelope=["kind","op","requestId","session","issuedAt","binaryReply","bulkReply","iconRevision"];
+        string[] envelope=["kind","op","requestId","session","issuedAt","binaryReply","bulkReply","iconRevision","unlockHistory"];
         if(root.EnumerateObject().Any(p=>!envelope.Contains(p.Name)&&!fields.Contains(p.Name))||root.EnumerateObject().Select(p=>p.Name).Distinct().Count()!=root.EnumerateObject().Count())return(400,new{error="invalid_parameters"});
+        if(root.TryGetProperty("unlockHistory",out _)&&(op!="status"||!Tab5UnlockDiagnostic.TryReadHistory(root,out _)))return(400,new{error="invalid_unlock_history"});
         string knownIcons=Text(root,"iconRevision");
         if(knownIcons.Length>64||knownIcons.Any(c=>!Uri.IsHexDigit(c)))return(400,new{error="invalid_icon_revision"});
+        // A fresh, read-only probe independent of audio/media/icon work and
+        // command receipts. Unknown remains unknown; no Windows key injection.
+        if(op=="lock-screen")return(200,_backend.ReadLockScreen());
         if(op=="volume") {if(!root.TryGetProperty("volume",out var v)||v.ValueKind!=JsonValueKind.Number||!v.TryGetInt32(out int level)||level is <0 or >100)return(400,new{error="invalid_volume"});command=command with{Volume=level};}
         if(op=="mute") {if(!root.TryGetProperty("muted",out var m)||m.ValueKind is not (JsonValueKind.True or JsonValueKind.False))return(400,new{error="invalid_muted"});command=command with{Muted=m.GetBoolean()};}
         if(op=="launch") {if(!Guid.TryParseExact(Text(root,"launcherId"),"D",out var launcherId))return(400,new{error="invalid_launcher"});command=command with{LauncherId=launcherId.ToString("D")};}

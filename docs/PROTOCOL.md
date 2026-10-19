@@ -362,7 +362,13 @@ TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/sele
 
 TAB5 USB 心跳中的可选 `codexNotice` 是界面线程从实际 LVGL 右上角控件读回的打包诊断值：低 8 位为队列未读数，8–15 位为数字标签（10 表示 `9+`），第 16 位为控件可见状态。桥接在设备诊断中显示此值，缺少字段时显示 `--`；该值只用于验收，不参与已读状态同步。
 
-设备收到确认后，仅清除 taskId 与 turnId 同时匹配的提醒，并立即重算右上角未读数、回复按钮和概览状态；旧轮次确认不能清除新轮次。确认独立于缩减的任务目录，避免传输裁剪留下旧数字。缺失字段不清除，旧客户端忽略字段。设备阅读仍按有效正文显示确认，当前为电脑已读到 TAB5 的同步，不写回 Codex 数据。
+设备收到确认后，仅清除 taskId 与 turnId 同时匹配的提醒，并立即重算右上角未读数、回复按钮和概览状态；旧轮次确认不能清除新轮次。确认独立于缩减的任务目录，避免传输裁剪留下旧数字。缺失字段不清除，旧客户端忽略字段。设备阅读仍按有效正文显示确认。旧固件仅支持电脑到设备的同步；以下可选回执增加设备到电脑的同步。
+
+Windows 0.6.10 / TAB5 0.2.230-ui 本地候选：加密读取的 `replyView.readReceipt` 是可选 UUID，只为当前最新且已结束、含有效公开文字的回复生成，绑定配对设备、taskId、turnId、Codex 账户和本地主机，五分钟内有效。历史预取和读取响应本身不修改桌面已读状态。设备在匹配正文实际显示于打开的回复页后，才通过现有鉴权 RPC 发送 `kind:codex, op:read-ack, taskId, turnId, requestId:readReceipt, message:""`；会话、时间和 nonce 校验保持不变。无回执的旧桥接无需发送。
+
+桥接再次核对最新轮次、结束状态和账户，再通过桌面 `thread-read-state-changed` v3 IPC 广播发送 `hasUnreadTurn:false` 及桌面验证的 identity/executionHostKey 上下文，不直接改写 Codex 状态文件，不打开会话或发送消息。只有读回相同账户/主机的已读状态后才返回 200；旧回执、账号或更新轮次冲突返回 409，桌面未确认返回 503。设备仅对幂等已读回执有界重试，不重放消息或按键。该桌面 IPC 属于版本化内部协议，升级不兼容时保留未确认结果。
+
+English: the local Windows 0.6.10 / TAB5 .230 candidate adds an optional, five-minute `replyView.readReceipt` bound to device, task, latest terminal turn and Codex identity/host. Loading or prefetching never writes read state. After matching public content is rendered in the open reply view, the device sends authenticated `codex/read-ack` with its task/turn and receipt in `requestId`. The bridge rechecks identity and the latest terminal turn, broadcasts the version-3 desktop read-state contract, and confirms the desktop-owned persisted state before returning 200. Conflicts return 409; unavailable confirmation returns 503. No direct state-file writes, foreground navigation, new message or keyboard input occurs. Only this idempotent receipt may retry; unknown IPC compatibility fails closed.
 
 ## TAB5 OTA 接收端流控能力（0.2.29）
 
@@ -447,6 +453,8 @@ No wire-format change. The client owns two 48 KiB receive blocks, each matching 
 0.2.101-ui 新增显式 `desktop.clear-draft`：UUID `requestId` 与明确 `taskId`，仅 TAB5 工具栏长按触发。电脑前台会话和主输入框必须与目标一致，不导航或发送回车；清空写入一次并回读确认，成功回执 `cleared=true`、`attempted=true/false`。实际尝试或确认已空后，原同会话的发送记录失效；相同请求 ID 复用回执，不重复清空后续新草稿。协议版本仍为 1，仅 Windows 支持。Candidate .101 adds explicit `desktop.clear-draft`, triggered by long press with a request UUID and explicit task ID. The current foreground target must match; it never navigates or sends Enter. A single write is verified by readback; confirmed empty inputs need no write. Attempted or confirmed clearing invalidates the old send tickets. Replayed requests return their receipt without clearing a subsequent draft. Protocol version remains 1; Windows only.
 
 新增已认证 `kind=desktop` 的 `open-recent` / `stage-draft` 操作，以及语音回执 `canInsert` 字段。参数、去重窗口和失败语义见 [快捷控制协议](TAB5-QUICK-CONSOLE.md)。`stage-draft` 仅预填电脑草稿，不调用任务发送接口。USB、Wi-Fi、BLE 复用现有加密 RPC，ESP8266 协议不变；当前仅 Windows 桥接支持，macOS 不新增此能力。
+
+`open-recent` 在 Windows 桌面不可交互时返回 409，`error=desktop_not_interactive`、`foreground=false`；拒绝发生在启动或唤起前。该回执沿用请求 ID 去重，解锁后通过新点击重试。此错误值兼容现有通用 409 处理，不改变协议版本。When the Windows desktop cannot receive input, `open-recent` returns 409 with `error=desktop_not_interactive` and `foreground=false` before navigation. Replay preserves the rejection; retry requires a new click after unlock. Existing clients retain generic 409 handling without a protocol-version change.
 
 0.2.100 配套桥接的语音回执增加可选 `sourceName`，来自实际选中并成功打开的 Windows 录音端点全称。自动回退时改为 `TAB5 内置麦克风`；`source` 仍为 `dji` / `tab5`，路由不变。旧端可忽略新增字段；没有名称时新固件保留原状态文案，不猜测型号。Codex 直达状态栏展示全称，过长时横向滚动。
 
@@ -745,6 +753,87 @@ Active items plus deletion metadata are stored as one 5,872-byte versioned envel
 Device eviction and insertion share one atomic compact NVS transaction, including the existing `{id,edit,baseEdit}` deletion receipt. The 16-receipt bound remains: reconnect is required when full, rather than dropping unacknowledged removals. Sync applies deletions before edits, preserves incoming editions and concurrent conflict copies, and reclaims only the excess count from pre-existing expired host entries. Expired incoming edits still require precise acknowledgement; lost responses cannot cause additional eviction. 204 rejects snapshots from older bridges without the retention capability. The compact `agenda_v3` encoding introduced by 203 remains unchanged (maximum 3,574 bytes), with no new history archive.
 
 中文：过期先保留，仅满 16 条且新增时清理最早结束的一条；不足 16 条、编辑及重启不清理。新建与清理原子保存，离线删除回执补同步，待同步队列满时提示连接电脑，失败保留原记录。“全部”可查看已结束事项。电脑批量合并保护本批离线编辑及冲突副本，只清理补足容量所需的旧过期记录；两端声明 retentionSupport=2，204 不采纳旧桥接响应。沿用 203 紧凑存储，不增加持久历史备份。
+
+## TAB5 BLE keyboard unlock candidate / 蓝牙键盘解锁候选
+
+`0.2.217-ble-unlock` adds the standard HID service `0x1812` and Device Information `0x180A` beside the existing private GATT service. Report ID 1 carries an 8-byte keyboard input report and LED output; report and boot keyboard modes are supported. Advertising keeps the existing private UUID and adds HID UUID and keyboard appearance within the 31-byte limit. No existing JSON/RPC fields or protocol version change.
+
+HID input is permitted only on an encrypted, MITM-authenticated, bonded connection with notifications enabled, recent authenticated bridge data on that same BLE connection, and fresh locked-state evidence. PIN is never an RPC payload or a persisted value. Pairing needs explicit on-device numeric comparison; repeated pairing needs separate consent before removing that peer's old bond. A submitted sequence is one-shot and cleared on use/cancel/error. Enter waits for fresh post-digit locked state; success requires observed unlocked state, not a successful notification call.
+
+候选仅增加标准蓝牙键盘服务，保留现有桥接、语音和数据协议。复用应用控制页的锁屏按钮，每次由用户输入数字 PIN，不保存、不经 HTTP/RPC 发送、不自动重试。蓝牙绑定密钥与 Windows PIN 分开处理。当前为刷机前候选，编译、模拟和界面预览均不代表真机解锁已通过。验收计划见 `docs/development/TAB5-BLE-UNLOCK-20261017.md`。
+
+
+## Conservative BLE lock-screen preparation / 保守蓝牙锁屏封面准备
+
+The separate conservative BLE cover-preparation candidate adds read-only `kind=computer-control, op=lock-screen` on the existing authenticated RPC envelope. Response: `{version:1, locked:true|false|null, lockScreenCover:true|null}`; null may be omitted. `true` requires a locked current session and a stable foreground CoreWindow owned by the Windows SystemApps LockApp image. Denied, unknown, another window and transitional states never confirm a PIN field/provider/focus. Older bridges return an unsupported-operation error; devices continue with manual PIN-page preparation and send no Space.
+
+Only an explicit opening of the existing BLE unlock modal requests this sample. The reply is bound to that modal's request ID and expires 1,500 ms after request dispatch on the device's monotonic clock, including round-trip time. With fresh positive cover evidence and the existing secure BLE/HID/bridge/lock/connection-generation gates, TAB5 may enqueue exactly one Space press/release, never Enter or PIN as preparation. Key-down rechecks the same evidence; key-up remains best effort. No background poll, reconnect, cancellation, timeout or late reply initiates/retries preparation. This is a best-effort observation across asynchronous Windows/radio transitions, not atomic PIN-focus verification. Full hardware acceptance remains separate.
+
+中文：保守蓝牙候选仅增加一次只读封面检查，不安装组件、不操作安全桌面、不读取 PIN。复用原解锁按钮与面板，只有明确的封面证据才发送一次蓝牙空格；过期、失败、旧桥接及未知状态均不发，也不宣称 PIN 框或焦点已确认。每次 PIN 仍由用户输入，不保存。此准备步骤不用于 Wi-Fi 键盘路径；候选说明见 `docs/development/TAB5-BLE-COVER-20261018.md`。
+
+## Optional Wi-Fi keyboard candidate / 可选 Wi-Fi 键盘候选
+
+`connectionHealth.wifiKeyboardVersion=1` means the current user configured the optional local adapter; it is not an unlock or service health acknowledgement. Firmware selects it only at opening the existing unlock panel with fresh Wi-Fi and USB/BLE absent. The choice stays fixed during the transaction.
+
+`kind=wifi-keyboard` uses the existing paired-device encrypted RPC envelope and adds `op=begin|submit|step|finish|cancel`. `begin(confirmPinPage=true)` returns a one-use `offer`, AES-256 key and 15-second deadline. `submit(offer,sealed)` stages 4–64 numeric bytes encrypted as nonce[12]+tag[16]+ciphertext, with ASCII offer ID as AAD. No clear PIN field is accepted. `step(offer,next)` advances exactly one sequential numeric key press/release and renews a 2-second lease; replay or wrong sequence stops the transaction. `finish` requires all digits consumed and rechecks console lock state before one Enter. Cancellation and expiry wipe staged bytes and close the local connection. No operation is automatically retried or forwarded to USB/BLE. Only fresh unlocked computer state confirms success.
+
+本候选复用现有锁屏按钮和加密通信，Windows 普通权限桥接仅对接经过身份检查的本机厂商服务；不启动旧的临时 SYSTEM 辅助程序，不更改登录认证方式。可选服务独立授权安装；PIN 不保存，独立组件访问密码用当前用户 DPAPI 保存。协议与验收说明见 `TAB5-WIRELESS-UNLOCK-20261018.md`（公共桥接目录在 `docs/development/`）。
+
+
+## BLE display-wake preparation candidate / 蓝牙熄屏唤醒准备候选
+
+The undeployed `0.2.219-ble-wake` candidate extends the existing authenticated read-only `computer-control / lock-screen` reply with optional `displayState:0|1|2|null` (Off, On, Dim, unknown). The ordinary interactive bridge tracks `GUID_SESSION_DISPLAY_STATUS` notifications in memory; registration failure, startup without a notification and suspend invalidate the state. Missing fields from older bridges are unknown; the new firmware does not fall back to unchecked PIN input. Existing firmware ignores the optional field. Protocol version and authentication envelopes stay unchanged; the probe never accepts or carries a PIN.
+
+Opening the existing BLE unlock panel and explicitly confirming submission each start a bounded preparation (8 seconds). Fresh Off evidence, bound to the current request and secure connection, permits one modifier-only Left Shift press/release (`report[0]=0x02`, all character slots zero). TAB5 then reads the state again; On alone does not establish the page. Only a fresh positive LockApp cover observation permits one Space press/release, followed by another read. Waiting may repeat read-only queries, but never repeats either wake key. Key-down has a 500 ms dispatch deadline and rechecks evidence; request age is at most 1,500 ms including RPC time. Key-up remains best effort when evidence changes or cancellation races a send.
+
+The user-confirmed PIN stays only in the device's volatile buffer while preparation is pending, and starts exactly once after fresh On/Dim evidence. The backend rechecks that same request before the first digit. Cancel, close, expiry, link/session change, unknown state or failure clears pending PIN and stops the action; there is no automatic PIN replay. A lit page with unknown cover is not positive PIN-field/focus evidence: the existing user prompt to confirm the PIN page remains. Display events and radio processing are asynchronous; this is not atomic secure-desktop focus verification or a sleep/resume guarantee.
+
+中文：候选新增独立的屏幕电源状态，先以无字符的 Shift 唤醒，再重新检测是否为壁纸页，仅明确壁纸时发一次空格。面板打开后再次熄屏也由提交前检查覆盖，准备失败清空并停止，不自动重发 PIN。复用原按钮，不保存 PIN、不改变系统电源策略、不安装新组件，也不接入未安装的 Wi-Fi 解锁组件。完整记录见 `docs/development/TAB5-BLE-SCREEN-WAKE-20261018.md`；此候选尚未刷入，真机结果单独验收。
+
+## BLE early-screen-off observation candidate / 蓝牙早期熄屏观察候选
+
+The firmware-only `0.2.220-ui` candidate reuses the deployed `.219` bridge and the same authenticated read-only reply. Its explicit open/submit preparation budget is 12 seconds. An initial On/Dim sample, before a completed wake, is observed for approximately 6 seconds to accommodate delayed screen-off notifications; a fresh Off sample can trigger the existing modifier-only wake sooner. Unknown/expired reads and transient HID readiness may only cause bounded read-only retries. Peer disconnection, loss of security, connection-generation change, positive unlocked state, expiry, or uncertainty in an accepted key transaction stops preparation. At the user's request, a completed Shift transaction, including release, is followed by at least 1,500 ms settling and a NEW read. Only another fresh Off response may authorize one extra modifier-only Shift: two at most per explicit preparation. On/Dim skips the extra Shift; unknown state cannot authorize a key, and a failed/uncertain first transaction cannot be retried. Space is still accepted at most once, PIN is never automatically replayed, and rejected pre-admission attempts need new evidence. Freshness, dispatch deadlines, backend authentication, wire fields and protocol version are unchanged.
+
+中文：`.219` 已部署，但刚黑屏约5秒的一次点击仍未通过用户验收；“请确认电脑已显示PIN登录页”不证明已发Shift。新候选让打开时未就绪的面板也进入准备，初始亮屏最多观察约6秒、准备最多12秒。按用户追加要求，第一次Shift事务完成后等待1.5秒，再重新查询；只有仍明确熄屏才最多补发一次，绝不连续盲发或发送第三次。空格仍最多一次，PIN不自动重发；未知状态只查询，失败/不确定的按键事务停止。原本已亮PIN页的打开与确认也可能各增加约6秒等待；通知延迟不受该取值保证，未知封面仍不表示已确认PIN焦点。未刷入、不安装Wi-Fi解锁组件，精确修订候选与验证见 `docs/development/TAB5-BLE-PREPARATION-20261018.md`。
+
+
+## BLE simple unlock feedback and fast confirmation candidate / 蓝牙解锁简化反馈与快速提交候选
+
+The local `0.2.221-ui` candidate adds optional `displayState:0|1|2|null` to ordinary authenticated `computer-control / status` replies, using the existing Windows session-display notification reader. The firmware caches it for UI feedback for less than 4,000 ms from request dispatch, including RPC latency. Missing, invalid or expired values are unknown. This does not add a poll, protocol version, RPC operation, service, driver, or Wi-Fi unlock adapter. Older firmware ignores it. This UI cache can disable local editing but cannot authorize HID: the separate `lock-screen` request ID, 1,500 ms evidence age, 500 ms dispatch deadline and all existing secure-peer/locked-state gates still apply.
+
+When connection, lock state and preparation are ready, the panel only asks for the current Windows PIN and says it is not saved. Processing uses one brief wait message; failure asks the user to close and reopen the panel. Display-state diagnostics are not shown in the normal flow. A transient HID/status freshness gap clears local PIN and disables editing; recovery on the same secure peer can restore local editing. Disconnect, security loss, connection-generation change or a positive unlocked state revokes preparation. Confirmation always starts a NEW request.
+
+Opening retains the `.220` bounded early-screen-off observation (about 6 seconds within a 12-second preparation). Confirmation removes the repeated fixed 6-second observation: a fresh positive reply can immediately proceed, while unknown/missing evidence stops and clears the confirmed action. A fresh Off or cover reply can extend the confirmation budget once for the existing wake preparation. Shift remains at most twice with at least 1,500 ms settling and a fresh Off read between attempts; Space remains at most once. There is no automatic PIN replay. Windows notifications may lag physical screen transitions; fresh RPC data is not atomic secure-desktop PIN-focus proof. The user-requested tradeoff is quicker submission and explicit close/reopen after failure, not a guaranteed physical-state oracle.
+
+中文：正常仅显示“请输入 Windows PIN（不保存）”；处理中一句“请稍候”，异常才提示关闭面板重试。常规状态的可选 displayState 仅用于界面反馈和本地编辑门控，4秒内过期，不扩大按键授权；提交仍用新的请求绑定证据，去掉重复的固定6秒等待。短暂未就绪恢复可重新输入，PIN在未就绪、取消、失败等路径清除，断连／安全丢失／连接代次改变必须重新打开。打开面板的早期熄屏观察和有限Shift／Space保持。系统通知可能滞后，不宣称精确确认PIN焦点。候选未部署、未刷入，不安装Wi-Fi组件；审查与本地证据见 `docs/development/TAB5-BLE-SIMPLE-UNLOCK-20261018.md`，不能以构建或模拟代替新版本真机验收。
+
+### TAB5 USB / BLE one-click unlock local candidate (0.2.224-ui)
+
+本地未部署候选新增可选 `computer-control/status` 字段 `oneClickUnlock:bool`。旧桥接缺少字段按 false 处理，旧固件忽略新字段。只在一键解锁开关打开且当前配对设备有可用的 PC 加密 PIN 记录时为 true，不包含 PIN、长度或账户信息。关闭开关保留记录，但新的 USB/BLE unlock-pin 请求不能取得 PIN（返回 404）。
+
+新增 `kind=unlock-pin, op=read, requestId=<UUID-D>`，仅在 USB/BLE 的既有鉴权 RPC 内可用；Wi-Fi 返回 400。沿用 session、issuedAt、nonce、AES-GCM 和请求 proof 校验。成功 body 为 `{version:1,requestId,packet:<base64>}`。`packet` 格式为 12 字节 IV + 16 字节 GCM tag + 4–64 字节数字 PIN 密文；AES-256-GCM 密钥为设备配对密钥，AAD 为 requestId 去掉连字符后的 32 字节 ASCII。请求 ID 为一次性，重复返回 409；未配置返回 404，无法解密记录返回 503，屏幕未就绪返回 409。设备单次取用，6 秒超时和取消后迟到回复都不能产生输入。协议版本仍为 1。
+
+USB hello/ACK 增加可选 `usbHidState:uint32` 状态位，仅包含连接、同代次认证、就绪、忙、失败和解锁 UI 阶段。不包含 PIN、按键、输入长度。共享诊断位 10 为一键模式，22 为 USB 输入，31 为一键请求失败。USB 就绪证明来自加密 RPC 回复，不能由普通 CDC 状态 JSON 获得。
+
+English: the undeployed local candidate adds optional `oneClickUnlock` to computer status and USB/BLE-only authenticated `unlock-pin/read`. Its encrypted response packet uses the pairing key and the 32 ASCII characters of the hyphen-free request UUID as GCM AAD; no plaintext PIN enters JSON or diagnostics. Duplicate request IDs, stale/cancelled responses and Wi-Fi retrieval are rejected. `usbHidState` is optional, credential-free readiness/UI telemetry. Existing peers may omit or ignore these fields. See `development/TAB5-USB-ONECLICK-20261018.md` for boundaries and acceptance.
+
+The independent PC enable switch must be on as well as a valid pairing-bound PIN being configured. Saving a PIN alone does not enable one-click unlock; turning the switch off retains the PIN and rejects new credential grants on both USB and BLE. No firmware or protocol-version change is needed for this switch revision.
+
+### TAB5 Wi-Fi one-click unlock candidate (0.2.227-ui)
+
+本地未部署候选新增可选 `connectionHealth.wifiUnlockVersion=1`；只有电脑 Wi-Fi 解锁独立开关已开、当前配对 PIN 可用时通告，否则为 0。旧对端可以忽略。保持协议 version=1 及原配对 AES-GCM、HMAC、nonce、session、issuedAt 和二进制包检查。
+
+新增 `kind=wifi-unlock`，仅 Wi-Fi。`begin {requestId:<UUID-D>}` 返回 `{ok,offer:<32hex>,next:0,stage:"preparing",unlocked:false}`；`poll {requestId,offer,next}` 消耗确切 next，返回新的 next 与 `preparing/sending/confirming`。`cancel {requestId,offer}` 撤销。Windows 实际未锁定且数字发送完整后才返回 `{ok:true,unlocked:true,stage:"unlocked"}`。响应不含 PIN、加密 PIN、密钥、账户或窗口文本，网络不能指定键值。
+
+requestId 按配对身份与桥接会话单次消费；保留 120 秒，容量 256，满时拒绝。offer 绑定相同身份/会话/配对记录。40 秒总预算、2500ms 活动租约、250ms 清理周期、2000ms I/O 超时。重复 next、过期、取消或错误停止且不重发；已接受的在途单个输入无法保证撤回。已有 `unlock-pin/read` 仍仅 USB/BLE，Wi-Fi 拒绝。
+
+English: optional `wifiUnlockVersion=1` advertises explicitly enabled Wi-Fi one-click unlock with a usable pairing-bound saved PIN. Wi-Fi-only authenticated `wifi-unlock/begin,poll,cancel` carries UUID/offer/sequence and status only, never a PIN or key. Each poll consumes its sequence before side effects, with bounded preparation, a 40s total budget and 2.5s lease. The PC uses its local saved PIN through an authenticated loopback vendor service; actual session unlock is required for success. USB/BLE PIN export policy is unchanged. This is an undeployed candidate; see `development/TAB5-WIFI-ONECLICK-20261018.md` for implementation and acceptance limits.
+
+### TAB5 unlock history candidate (0.2.228-ui, local)
+
+`computer-control` / `status` optionally carries `unlockHistory`: `1;` followed by 1–8 semicolon-separated rows, each exactly nine 8-digit hexadecimal uint32 words (maximum 585 characters). The authenticated, session-bound RPC envelope and replay validation remain mandatory. Other computer-control operations reject this field. This is numeric troubleshooting data only; it never authorizes input. Fields, flags and acknowledgement semantics are documented in [the candidate record](development/TAB5-WIFI-ONECLICK-20261018.md). Candidate firmware requires its matching bridge decoder. PIN, keycodes, account data and text are excluded.
+
+TAB5 0.2.228-ui 本地候选在 `computer-control/status` 中可携带严格定长、最多 8 条的 `unlockHistory` 诊断，复用原有鉴权与会话/重放校验；字段与确认规则见上述候选记录。诊断不参与解锁授权，不包含凭据、按键或文本。
 
 TAB5 216 expands saved Wi-Fi profiles to ten. NVS wifi_profiles3 stores version 3 with ten slots; migration reads fixed five-slot v1/v2 blobs without changing the pairing/config ABI or removing the old keys. SSIDs, passwords, labels, preferred selection and an authoritative empty list are preserved. A full list rejects an eleventh distinct SSID while allowing updates to existing entries.
 

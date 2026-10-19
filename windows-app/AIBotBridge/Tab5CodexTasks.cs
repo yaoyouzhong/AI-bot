@@ -189,6 +189,8 @@ internal sealed class Tab5CodexTasks : IDisposable
     private readonly Dictionary<string,string> _historyPaths=new();
     private readonly Tab5CodexActivity _activity=new();
     private readonly Tab5StoredReplies _storedReplies=new();
+    private sealed record ReadReceipt(string Device,string Task,string Turn,Tab5CodexReadState.Identity Identity,long Expires);
+    private readonly Dictionary<string,ReadReceipt> _readReceipts=new();
     private readonly Func<string,string?> _rolloutPath=Tab5CodexCatalog.RolloutPath;
     private readonly string _historyHome=Tab5CodexCatalog.HomePath;
     internal string ReadDiagnostic {get;private set;}="尚无历史读取";
@@ -268,7 +270,7 @@ internal sealed class Tab5CodexTasks : IDisposable
     }
 
     internal Task<(int Status, object Body)> ReadAsync(string taskId,CancellationToken token)=>ReadPageAsync(taskId,-1,token);
-    internal async Task<(int Status, object Body)> ReadPageAsync(string taskId,int page,CancellationToken token,string selectedTurn="",int turnOffset=0,bool includeView=false) {
+    internal async Task<(int Status, object Body)> ReadPageAsync(string taskId,int page,CancellationToken token,string selectedTurn="",int turnOffset=0,bool includeView=false,string device="") {
         if(!Guid.TryParse(taskId,out _))return (400,new {error="invalid_request"});
         if(turnOffset is < -1 or > 1||selectedTurn.Length>0&&!Guid.TryParse(selectedTurn,out _)||turnOffset!=0&&selectedTurn.Length==0)return (400,new {error="invalid_turn"});
         if(page < -1)return (400,new {error="invalid_page"});
@@ -279,6 +281,7 @@ internal sealed class Tab5CodexTasks : IDisposable
         long readEntered=Environment.TickCount64;
         try {
             if(_desktop is not null) {
+                var readIdentity=_desktop.ReadIdentity();
                 Tab5CodexDesktop.State desktopState;Tab5ActivityPage? storedPage=null;
                 Tab5StoredReplies.Selection? storedSelection=null;
                 bool stored=false;
@@ -309,8 +312,22 @@ internal sealed class Tab5CodexTasks : IDisposable
                 UpdateControl(taskId,desktopState.Current);
                 var current=desktopState.Current;if(!stored)Completed(taskId,current.TurnId,current.Status,FinalResponse(current.Turn));
                 if(includeView) {
+                    string readReceipt="";
+                    if(device.Length>0&&readIdentity is not null&&_desktop.ReadIdentity()?.Scope==readIdentity.Scope&&
+                       !desktopState.IsHistory&&desktopState.TurnId==current.TurnId&&activityView.HasText&&
+                       current.Status is "completed" or "interrupted" or "failed") {
+                        long now=Environment.TickCount64;
+                        foreach(var key in _readReceipts.Where(p=>p.Value.Expires<now).Select(p=>p.Key).ToArray())_readReceipts.Remove(key);
+                        readReceipt=_readReceipts.FirstOrDefault(p=>p.Value.Device==device&&p.Value.Task==taskId&&p.Value.Turn==current.TurnId&&p.Value.Identity.Scope==readIdentity.Scope).Key??"";
+                        if(readReceipt.Length==0) {
+                            if(_readReceipts.Count>=80)_readReceipts.Remove(_readReceipts.MinBy(p=>p.Value.Expires).Key);
+                            readReceipt=Guid.NewGuid().ToString();
+                        }
+                        _readReceipts[readReceipt]=new(device,taskId,current.TurnId,readIdentity,now+300000);
+                    }
                     object Payload(Tab5ActivityPage v,Tab5CodexDesktop.State s)=>new {taskId,turnId=s.TurnId,
                         replyView=new {taskId,turnId=s.TurnId,page=v.Page,pageCount=v.PageCount,hasText=v.HasText,
+                            readReceipt=s.TurnId==desktopState.TurnId?readReceipt:"",
                             history=s.IsHistory,hasPrevious=s.HasPrevious,hasNext=s.HasNext,
                             previousTurnId=s.PreviousTurnId,nextTurnId=s.NextTurnId,
                             startedLabel=v.StartedAt>0?DateTimeOffset.FromUnixTimeSeconds(v.StartedAt).ToLocalTime().ToString("MM-dd HH:mm"):"",state=s.Status},
@@ -382,6 +399,29 @@ internal sealed class Tab5CodexTasks : IDisposable
             return (200,new {status="loaded",taskId});
         }catch(Exception ex) when(ex is TimeoutException or OperationCanceledException or IOException or UnauthorizedAccessException or InvalidOperationException or JsonException or System.ComponentModel.Win32Exception) {
             return (503,new {error="reply_unavailable"});
+        }finally{_gate.Release();}
+    }
+
+    internal async Task<(int Status,object Body)> ConfirmReadAsync(string device,string taskId,string turn,string receipt,CancellationToken token) {
+        if(!Guid.TryParse(taskId,out _)||!Guid.TryParse(turn,out _)||!Guid.TryParse(receipt,out _))return(400,new{error="invalid_read_receipt"});
+        await _gate.WaitAsync(token);
+        try {
+            if(_desktop is null||!_readReceipts.TryGetValue(receipt,out var issued)||issued.Device!=device||issued.Task!=taskId||issued.Turn!=turn||
+               issued.Expires<Environment.TickCount64||_desktop.ReadIdentity()?.Scope!=issued.Identity.Scope||!_catalog().Any(t=>t.Id==taskId))
+                return(409,new{error="read_receipt_changed"});
+            Tab5CodexDesktop.State latest;
+            try{latest=await _desktop.ReadAsync(taskId,token);}
+            catch(Tab5CodexDesktop.Rejected ex) when(ex.Code=="desktop_owner_unavailable") {
+                var local=_storedReplies.Read(_rolloutPath(taskId),_historyHome,"",0,-1);
+                if(local is null)return(503,new{error="reply_unavailable"});
+                latest=StoredState(local);
+            }
+            if(latest.TurnId!=turn||latest.Status is not ("completed" or "interrupted" or "failed"))return(409,new{error="turn_changed"});
+            if(!await _desktop.MarkReadAsync(taskId,issued.Identity,token))return(503,new{error="desktop_read_unconfirmed"});
+            // Keep the bounded receipt for idempotent retry after a lost reply.
+            return(200,new{status="read",taskId,turnId=turn});
+        }catch(Exception ex) when(ex is IOException or OperationCanceledException) {
+            return(503,new{error="desktop_read_unavailable"});
         }finally{_gate.Release();}
     }
 

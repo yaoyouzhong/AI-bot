@@ -6,7 +6,7 @@
 
 [完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.9.md) · [English](README.en.md)
 
-已发布 Windows **0.6.9** 与 TAB5 **0.2.217-ui**：电脑音量、静音、锁屏状态、带图标的快捷启动，以及最多 10 个 Wi-Fi。见[更新与验证](docs/RELEASE-0.6.9.md)和[电脑控制说明](docs/COMPUTER-CONTROL.md)。
+待发布：Windows **0.6.10** 与 TAB5 **0.2.234-ui** 增加电脑一键解锁与组件自动接入，修复音量拖动、双向已读同步、蓝牙启动核验和电量显示连续性。相关真机验收已完成，见[本轮说明](docs/RELEASE-0.6.10.md)。公开下载在发布前保留现有稳定版。
 
 ## 选择适合你的桌面屏幕
 
@@ -158,3 +158,5 @@ https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)
 
 自有代码（含 TAB5）采用 [MIT 许可](LICENSE)，第三方组件与艺术作品保留原许可。项目独立开发，与提及的 AI 厂商无隶属关系。[反馈问题](https://github.com/yaoyouzhong/AI-bot/issues)时请附平台、版本、硬件与复现步骤，并移除凭据和私人日志。
+
+本地 Windows 0.6.10 / TAB5 0.2.234-ui 增加电脑一键解锁与 TightVNC 自动安装／接入，无需填写组件密码；音量拖动恢复、双向 Codex 已读同步、纯 BLE 启动核验及重启／USB 变化后的电量显示已完成真机验收。当前公开下载仍沿用正式版本。[准备与验收记录](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md)。

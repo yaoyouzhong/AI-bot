@@ -117,3 +117,17 @@ The earlier gallery update added 26 reviewed native TAB5 captures: nine freshly 
 Current art attribution: Lin Liang, *Peacocks and Bamboo*, Cleveland Museum of Art 1964.242, CC0; attributed Wang Xizhi / Tang copy, *Timely Clearing After Snowfall*, National Palace Museum Taipei collection 19, with the published public-domain source record. The Wang Sishi / ColBase TB-6 CC BY 4.0 example belongs to historical exports. Source and license links appear in the table above. Images were resized and laid out for the gallery; portrait native frames were rotated upright. These licenses remain separate from the project's MIT terms, with no museum endorsement.
 
 The earlier batch contained 52 regenerated or added screenshots. A subsequent audit found that the tray fixture still used the retired TrayMenu factory; it now calls the production DeviceCenterMenu.Build factory, and the corrected grouped menu was recaptured and visually checked. Exact bytes and paths remain enforced in `licenses/materials.json`. Fonts/themes may affect cross-machine appearance. Historical diagrams are identified as illustrations, and private backups/runtime data are not published. See the separate hardware acceptance and video provenance records.
+
+## 0.6.10 local candidate / 本地候选
+
+[Wi-Fi 解锁原生预览](assets/screens/tab5-wifi-unlock-candidate.png)：隔离合成状态，无真实凭据。此前图片保留各自捕获版本；最终发布媒体另行核验。
+
+## TAB5 234 actual firmware notes / 实际升级说明
+
+![234 更新说明](assets/screens/tab5-firmware-notes-234.png)
+
+![234 更新说明滚动后](assets/screens/tab5-firmware-notes-234-scrolled.png)
+
+上述画面由 .234 实际 sidecar 的原生 LVGL 预览生成，顶部和滚动后的内容均已审阅。“当前 .21”为隔离夹具；目标 .234 及说明来自真实交付元数据，不能视为硬件摄影。原版 c608 的精确 .234／VALID／三实时样本纯 BLE 实机核验另见 [验收](development/TAB5-BLE-UPTIME-20261019.md)。其他界面没有因报告时间修复重画；既有原生素材来源保留。
+
+These are native LVGL previews using the actual .234 sidecar. The current .21 is a synthetic fixture; target .234 and its notes are actual delivery metadata. Both top and scrolled states were visually reviewed. They are isolated captures, with separate linked exact-image/VALID/three-sample BLE hardware acceptance. Unchanged native footage retains its existing provenance.

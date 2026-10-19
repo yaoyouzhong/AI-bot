@@ -67,6 +67,8 @@ Copy-Item -LiteralPath $license -Destination $licenseDir
 
 # Regenerate after adding installer notices so both ZIP and installed files have
 # a complete manifest. Exclude the manifest itself, which cannot hash itself.
+& (Join-Path $PSScriptRoot 'prepare_tightvnc_component.ps1') -StageDirectory $stage -CacheDirectory (Join-Path $cache 'tightvnc')
+if ($LASTEXITCODE -ne 0) { throw 'Offline TightVNC component preparation failed' }
 python -c "import pathlib,sys; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import manifest; manifest(pathlib.Path(sys.argv[2]))" (Join-Path $root 'scripts') $stage
 if ($LASTEXITCODE -ne 0) { throw 'Installer file manifest failed' }
 # Inno Setup still encounters MAX_PATH for dependency notices in nested audit
