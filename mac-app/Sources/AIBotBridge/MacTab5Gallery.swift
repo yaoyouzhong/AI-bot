@@ -87,29 +87,31 @@ final class MacTab5Gallery {
     }
     private func installHD(_ archive: MacTab5Archive) throws -> MacTab5GalleryManifest {
         let files = archive.names.filter { !$0.hasSuffix("/") }
-        guard let first = files.first, first.contains("/") else { throw MacTab5Error.invalidPacket }
+        guard let first = files.first, first.contains("/") else { throw MacTab5LocalError.invalid("高清完整包缺少外层目录。") }
         let prefix = String(first.split(separator: "/")[0]) + "/"
         guard files.allSatisfy({ $0.hasPrefix(prefix) }), files.contains(prefix + "standard.zip"), files.contains(prefix + "desktop-index.relative.json") else { throw MacTab5LocalError.invalid("请选择包含 TAB5 展示图库的高清完整包。") }
         let listing = try archive.read(prefix + "SHA256SUMS.txt", maximum: 4 * 1024 * 1024)
-        guard let text = String(data: listing, encoding: .utf8) else { throw MacTab5Error.invalidPacket }
+        guard let text = String(data: listing, encoding: .utf8) else { throw MacTab5LocalError.invalid("高清校验清单不是 UTF-8。") }
         var hashes: [String: String] = [:]
         for raw in text.split(separator: "\n") {
             let line = String(raw).trimmingCharacters(in: .newlines), hash = String(line.prefix(64)).lowercased(), name = String(line.dropFirst(66))
-            guard line.count >= 67, line.dropFirst(64).prefix(2) == "  ", MacTab5Protocol.isHex(hash, count: 64), MacTab5Archive.safeUnicodePath(name), hashes[name] == nil else { throw MacTab5Error.invalidPacket }
+            guard line.count >= 67, line.dropFirst(64).prefix(2) == "  ", MacTab5Protocol.isHex(hash, count: 64), MacTab5Archive.safeUnicodePath(name), hashes[name] == nil else { throw MacTab5LocalError.invalid("高清校验清单格式或文件名无效。") }
             hashes[name] = hash
         }
-        guard Set(hashes.keys.map { prefix + $0 }) == Set(files).subtracting([prefix + "SHA256SUMS.txt"]), let expected = hashes["standard.zip"], let catalogHash = hashes["catalog.json"] else { throw MacTab5Error.invalidPacket }
+        guard Set(hashes.keys.map { prefix + $0 }) == Set(files).subtracting([prefix + "SHA256SUMS.txt"]), let expected = hashes["standard.zip"], let catalogHash = hashes["catalog.json"] else { throw MacTab5LocalError.invalid("高清 ZIP 文件集合与校验清单不一致。") }
         let catalogBytes = try archive.read(prefix + "catalog.json", maximum: 16 * 1024 * 1024)
-        guard MacTab5Protocol.sha256(catalogBytes) == catalogHash else { throw MacTab5Error.invalidPacket }
+        guard MacTab5Protocol.sha256(catalogBytes) == catalogHash else { throw MacTab5LocalError.invalid("高清目录 SHA-256 不一致。") }
         let catalog = try MacTab5Protocol.object(catalogBytes)
-        guard MacTab5Protocol.integer(catalog["schema"]) == 1, let category = catalog["category"] as? String, ["painting", "calligraphy"].contains(category), let works = catalog["works"] as? [[String: Any]], (1...2000).contains(works.count) else { throw MacTab5Error.invalidPacket }
+        guard MacTab5Protocol.integer(catalog["schema"]) == 1, let category = catalog["category"] as? String, ["painting", "calligraphy"].contains(category), let works = catalog["works"] as? [[String: Any]], (1...2000).contains(works.count) else { throw MacTab5LocalError.invalid("高清目录 schema、类别或作品数量无效。") }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let stage = directory.appendingPathComponent(".hd-import-" + MacTab5Protocol.identifier())
         try FileManager.default.createDirectory(at: stage, withIntermediateDirectories: false)
         defer { try? FileManager.default.removeItem(at: stage) }
         let zip = stage.appendingPathComponent("standard.zip")
         try archive.copy(prefix + "standard.zip", to: zip, maximum: 2 * 1024 * 1024 * 1024, sha256: expected)
-        let prepared = MacTab5Gallery(directory: stage.appendingPathComponent("prepared")), manifest = try prepared.installStandard(MacTab5Archive(zip))
+        let prepared = MacTab5Gallery(directory: stage.appendingPathComponent("prepared")), manifest: MacTab5GalleryManifest
+        do { manifest = try prepared.installStandard(MacTab5Archive(zip)) }
+        catch { throw MacTab5LocalError.invalid("内置 TAB5 图库未通过校验：\(error.localizedDescription)") }
         guard manifest.category == category, manifest.works == works.count, manifest.schemaVersion == 2 else { throw MacTab5LocalError.invalid("高清包与内置 TAB5 图库不一致，原图库保持不变。") }
         try activate(prepared.directory.appendingPathComponent(category), category: category)
         // Only the complete, verified TAB5 subset is imported. Desktop originals

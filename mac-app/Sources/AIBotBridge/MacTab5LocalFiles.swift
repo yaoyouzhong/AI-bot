@@ -44,7 +44,7 @@ struct MacTab5Archive {
               let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0, size <= maximumSize else { throw MacTab5LocalError.invalid("请选择有效的 AI-bot ZIP 包。") }
         self.url = url; nested = allowNested; unicode = allowUnicode
         let listing = try MacTab5LocalProcess.run("/usr/bin/unzip", ["-Z1", url.path], maximum: 16 * 1024 * 1024)
-        guard let text = String(data: listing, encoding: .utf8) else { throw MacTab5Error.invalidPacket }
+        guard let text = String(data: listing, encoding: .utf8) else { throw MacTab5LocalError.invalid("ZIP 文件名编码不是 UTF-8，无法安全导入。") }
         names = text.split(separator: "\n").map(String.init)
         guard !names.isEmpty, names.count <= maximumEntries, Set(names.map { $0.lowercased() }).count == names.count,
               names.allSatisfy({ allowUnicode ? Self.safeUnicodePath($0) : allowNested ? Self.safePath($0) : Self.safeName($0) }) else { throw MacTab5LocalError.invalid("ZIP 含重复或不安全的文件名。") }
@@ -84,7 +84,7 @@ struct MacTab5Archive {
         do {
             while true { let bytes = pipe.fileHandleForReading.availableData; if bytes.isEmpty { break }; count += bytes.count; guard count <= maximum else { throw MacTab5Error.invalidPacket }; digest.update(data: bytes); try output.write(contentsOf: bytes) }
             process.waitUntilExit()
-            guard process.terminationStatus == 0, count > 0, digest.finalize().map({ String(format: "%02x", $0) }).joined() == sha256 else { throw MacTab5Error.invalidPacket }
+            guard process.terminationStatus == 0, count > 0, digest.finalize().map({ String(format: "%02x", $0) }).joined() == sha256 else { throw MacTab5LocalError.invalid("内置 TAB5 ZIP 的长度、读取结果或 SHA-256 不匹配。") }
         } catch { timeout.perform(); process.waitUntilExit(); throw error }
     }
 }
