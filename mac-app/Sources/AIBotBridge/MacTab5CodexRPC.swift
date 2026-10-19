@@ -42,10 +42,12 @@ final class MacTab5CodexRPC {
         condition.lock(); ended = false; answers.removeAll(); generation = UUID(); let owner = generation; condition.unlock()
         try child.run(); process = child; input = stdin.fileHandleForWriting
         // Drain diagnostics without retaining or logging paths, prompts or tokens.
-        DispatchQueue.global(qos: .utility).async { while let chunk = try? stderr.fileHandleForReading.read(upToCount: 4096), !chunk.isEmpty {} }
+        DispatchQueue.global(qos: .utility).async { while !stderr.fileHandleForReading.availableData.isEmpty {} }
         DispatchQueue.global(qos: .utility).async { [weak self] in
             var buffer = Data()
-            while let chunk = try? stdout.fileHandleForReading.read(upToCount: 16384), !chunk.isEmpty {
+            while true {
+                let chunk = stdout.fileHandleForReading.availableData
+                if chunk.isEmpty { break }
                 buffer.append(chunk)
                 if buffer.count > 8 * 1024 * 1024 { break }
                 while let newline = buffer.firstIndex(of: 10) {
