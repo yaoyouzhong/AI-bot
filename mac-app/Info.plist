@@ -33,5 +33,9 @@
     <string>AI-bot connects to your paired clock and provides authenticated Wi-Fi fallback on your local network.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>AI-bot connects to your USB-paired TAB5 to exchange authenticated display data and device requests over Bluetooth.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>When explicitly enabled, AI-bot transcribes your TAB5 or Mac microphone locally for review before you choose to send or insert the text.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>AI-bot records the Mac default microphone only after you start an authorized TAB5 voice session.</string>
 </dict>
 </plist>

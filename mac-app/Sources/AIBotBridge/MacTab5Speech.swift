@@ -1,0 +1,48 @@
+import Foundation
+import AVFoundation
+import Speech
+
+final class MacTab5Speech {
+    private let lock = NSRecursiveLock()
+    private var recognizer: SFSpeechRecognizer?
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var recognition: SFSpeechRecognitionTask?
+    private var engine: AVAudioEngine?
+    func backend() -> MacTab5SpeechBackend { .init(start: start, feed: feed, finish: finish, cancel: cancel) }
+    static func authorize(_ completion: @escaping (Bool) -> Void) {
+        SFSpeechRecognizer.requestAuthorization { status in
+            guard status == .authorized else { DispatchQueue.main.async { completion(false) }; return }
+            AVCaptureDevice.requestAccess(for: .audio) { allowed in DispatchQueue.main.async { completion(allowed) } }
+        }
+    }
+    private func start(_ source: String, callback: @escaping (String, Bool, Bool) -> Void) throws {
+        lock.lock(); defer { lock.unlock() }; cancel()
+        guard SFSpeechRecognizer.authorizationStatus() == .authorized, let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")), recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else { throw MacTab5Error.unavailable }
+        let request = SFSpeechAudioBufferRecognitionRequest(); request.requiresOnDeviceRecognition = true; request.shouldReportPartialResults = true; request.taskHint = .dictation
+        self.recognizer = recognizer; self.request = request
+        let callbacks = OperationQueue(); callbacks.maxConcurrentOperationCount = 1; recognizer.queue = callbacks
+        recognition = recognizer.recognitionTask(with: request) { result, error in callback(result?.bestTranscription.formattedString ?? "", result?.isFinal == true, error != nil) }
+        if source == "pc" {
+            guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { cancel(); throw MacTab5Error.unavailable }
+            let engine = AVAudioEngine(), input = engine.inputNode, format = input.outputFormat(forBus: 0)
+            guard format.sampleRate > 0, format.channelCount > 0 else { cancel(); throw MacTab5Error.unavailable }
+            input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in request.append(buffer) }
+            self.engine = engine; engine.prepare()
+            do { try engine.start() } catch { cancel(); throw error }
+        }
+    }
+    private func feed(_ pcm: [Int16]) throws {
+        lock.lock(); defer { lock.unlock() }
+        guard let request, let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false), let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(pcm.count)), let channel = buffer.floatChannelData?[0] else { throw MacTab5Error.unavailable }
+        buffer.frameLength = AVAudioFrameCount(pcm.count)
+        for index in pcm.indices { channel[index] = Float(pcm[index]) / 32768 }; request.append(buffer)
+    }
+    private func finish() {
+        lock.lock(); defer { lock.unlock() }; engine?.stop(); engine?.inputNode.removeTap(onBus: 0); engine = nil; request?.endAudio()
+    }
+    private func cancel() {
+        lock.lock(); defer { lock.unlock() }; engine?.stop(); engine?.inputNode.removeTap(onBus: 0); engine = nil
+        recognition?.cancel(); recognition = nil; request = nil; recognizer = nil
+    }
+    deinit { cancel() }
+}

@@ -7,6 +7,7 @@ final class MacTab5FeaturesWindow: NSWindowController {
     private let music = NSButton(checkboxWithTitle: "允许读取并控制 Apple Music／Spotify", target: nil, action: nil)
     private let codex = NSButton(checkboxWithTitle: "允许 TAB5 查看 Codex 会话与公开回复、同步加密草稿", target: nil, action: nil)
     private let send = NSButton(checkboxWithTitle: "允许在 TAB5 明确点击后发送、追加或中断 Codex 任务", target: nil, action: nil)
+    private let voice = NSButton(checkboxWithTitle: "允许 TAB5 使用 Mac 本地语音识别", target: nil, action: nil)
     private let launchers = NSPopUpButton()
     private let result = NSTextField(wrappingLabelWithString: "")
     init(service: MacTab5Service) {
@@ -27,6 +28,9 @@ final class MacTab5FeaturesWindow: NSWindowController {
         send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend); stack.addArrangedSubview(send)
         label("连接已运行的 Codex 本地 App Server，不修改登录、模型或审批策略。后台统计始终只读文件元数据；启用此项后才读取公开回复。草稿与送达记录在本机加密保存，发送结果未知时请在电脑核查，不会自动重发。")
         let cli = NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)); stack.addArrangedSubview(cli)
+        label("语音输入", size: 15)
+        voice.state = service.voice.isEnabled ? .on : .off; voice.target = self; voice.action = #selector(toggleVoice); stack.addArrangedSubview(voice)
+        label("支持 TAB5 收音或 Mac 默认麦克风（可在系统设置选择 USB 麦克风）。仅在系统支持该语言的本地识别时启动；不自动上传音频。识别文字先预览，确认后才能发送或填入事项／日期。首次启用会请求系统权限。")
         label("常用入口（最多四个）", size: 15)
         stack.addArrangedSubview(launchers)
         let add = NSButton(title: "添加本机程序或文件夹…", target: self, action: #selector(addLauncher))
@@ -44,6 +48,10 @@ final class MacTab5FeaturesWindow: NSWindowController {
     @objc private func toggleMusic() { UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey) }
     @objc private func toggleCodex() { UserDefaults.standard.set(codex.state == .on, forKey: MacTab5Codex.enabledKey); if codex.state == .off { UserDefaults.standard.set(false, forKey: MacTab5Codex.sendKey); send.state = .off } }
     @objc private func toggleSend() { if codex.state != .on { send.state = .off }; UserDefaults.standard.set(send.state == .on, forKey: MacTab5Codex.sendKey) }
+    @objc private func toggleVoice() {
+        if voice.state == .off { UserDefaults.standard.set(false, forKey: MacTab5Voice.enabledKey); service.voice.stop(); return }
+        MacTab5Speech.authorize { [weak self] allowed in guard let self else { return }; self.voice.state = allowed ? .on : .off; UserDefaults.standard.set(allowed, forKey: MacTab5Voice.enabledKey); self.result.stringValue = allowed ? "语音权限已授权；开始时仍会检查本地语言模型是否可用。" : "权限未完整授权，请到系统设置检查。" }
+    }
     @objc private func chooseCLI() {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url, FileManager.default.isExecutableFile(atPath: url.path) else { return }

@@ -56,6 +56,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var awaitingWrite = false
     private var completed: [CBUUID: UInt32] = [:]
     private var resourceTurn = false
+    private var voiceTurn = false
 
     init(service: MacTab5Service) { self.service = service; super.init() }
     func setEnabled(_ value: Bool) {
@@ -100,7 +101,8 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         else if service.assets.hasPending && resourceTurn { resourceTurn = false; sendStatus(pair, resources: true) }
         else {
             resourceTurn = true
-            if let endpoint = characteristics[MacTab5BLEWire.rpc] { pump(endpoint, pair: pair) }
+            let uuid = voiceTurn ? MacTab5BLEWire.voice : MacTab5BLEWire.rpc; voiceTurn.toggle()
+            if let endpoint = characteristics[uuid] { pump(endpoint, pair: pair) }
             else { busy = false }
         }
     }
@@ -241,7 +243,9 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             }
             let array = [UInt8](request)
             guard let nonce = String(bytes: array[0..<32], encoding: .ascii), let proof = String(bytes: array[32..<96], encoding: .ascii), let peer else { throw MacTab5Error.invalidPacket }
-            let reply = service.rpc(device: pair.deviceId, nonce: nonce, proof: proof, packet: Data(array[96...]), transport: "BLE")
+            let reply = endpoint.uuid == MacTab5BLEWire.voice
+                ? service.voicePacket(device: pair.deviceId, nonce: nonce, proof: proof, packet: Data(array[96...]), transport: "BLE")
+                : service.rpc(device: pair.deviceId, nonce: nonce, proof: proof, packet: Data(array[96...]), transport: "BLE")
             guard reply.0 == 200 else { throw MacTab5Error.invalidPacket }
             let size = writeMaximum(peer) - 9
             guard size > 0 else { throw MacTab5Error.invalidPacket }

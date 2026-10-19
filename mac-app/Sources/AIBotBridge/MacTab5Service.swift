@@ -28,14 +28,15 @@ final class MacTab5Service {
     let gallery: MacTab5Gallery
     let computer: MacTab5Computer
     let codex: MacTab5Codex
+    let voice: MacTab5Voice
     let firmwareControl = MacTab5Firmware()
     private var activeOperations = 0
     private var displayCompletion: DisplayCompletion?
 
-    init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(), computer: MacTab5Computer = MacTab5Computer(), codex: MacTab5Codex = MacTab5Codex(),
+    init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(), computer: MacTab5Computer = MacTab5Computer(), codex: MacTab5Codex = MacTab5Codex(), voice: MacTab5Voice = MacTab5Voice(),
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }) {
-        self.port = port; self.host = host; self.gallery = gallery; self.computer = computer; self.codex = codex; loadPairing = load; savePairing = save
+        self.port = port; self.host = host; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
         do { pairing = try load(); try pairing?.validate() }
         catch { pairingReadable = false; usbNote = "无法读取配对记录，请检查钥匙串权限" }
     }
@@ -152,6 +153,7 @@ final class MacTab5Service {
         health["displayCommand"] = display.command.map { $0 as Any } ?? NSNull()
         health["galleryPacks"] = gallery.revisions(); health["gallerySyncVersion"] = 1
         if computer.isEnabled { health["computerControlVersion"] = 1 }
+        health["voiceEnabled"] = voice.isEnabled
         additions["connectionHealth"] = health
         additions["codexTasks"] = codex.snapshot()
         if codex.isEnabled { additions["imageBinary"] = 1 }
@@ -183,7 +185,7 @@ final class MacTab5Service {
         let callback = displayCompletion; displayCompletion = nil; display.cancel()
         stopped = true
         lastUSB = -.infinity; lastWiFi = -.infinity; lastBLE = -.infinity; lanReady = false
-        lock.unlock(); callback?(.failure(MacTab5Error.unconfirmed)); codex.stop()
+        lock.unlock(); callback?(.failure(MacTab5Error.unconfirmed)); codex.stop(); voice.stop()
     }
 
     func status(device: String, nonce: String, proof: String, headers: [String: String] = [:]) -> (Int, Data) {
@@ -246,6 +248,7 @@ final class MacTab5Service {
             else if root["kind"] as? String == "gallery" { result = gallery.handle(root, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
             else if root["kind"] as? String == "computer-control" { result = computer.handle(root) }
             else if root["kind"] as? String == "codex" { result = codex.handle(root, device: device) }
+            else if root["kind"] as? String == "voice" { result = voice.handle(root, device: device) }
             else { result = firmwareControl.handle(root, device: device, transport: transport, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
             lock.lock(); activeOperations -= 1; lock.unlock()
         }
@@ -313,6 +316,22 @@ final class MacTab5Service {
         } catch { return (400, Data()) }
     }
     private func currentIdentityMatches(_ pair: MacTab5Pairing) -> Bool { pairing == pair }
+
+    func voicePacket(device: String, nonce: String, proof: String, packet: Data, transport: String) -> (Int, Data) {
+        guard let pair = currentPairing, pair.confirmed, pair.deviceId == device, packet.count <= 16028,
+              MacTab5Protocol.isHex(nonce, count: 32), MacTab5Protocol.verify(key: pair.key, message: "POST|/tab5/v1/voice|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))", proof: proof),
+              var root = try? MacTab5Protocol.object(MacTab5Protocol.decrypt(packet, key: pair.key, challenge: nonce)) else { return (401, Data()) }
+        root["kind"] = "voice"
+        do {
+            let sealed = try MacTab5Protocol.encrypt(MacTab5Protocol.json(root), key: pair.key, challenge: nonce)
+            let rpcProof = MacTab5Protocol.proof(key: pair.key, message: "POST|/tab5/v1/rpc|\(device)|\(nonce)|\(MacTab5Protocol.sha256(sealed))")
+            let result = rpc(device: device, nonce: nonce, proof: rpcProof, packet: sealed, transport: transport)
+            guard result.0 == 200 else { return result }
+            let decoded = try MacTab5Protocol.object(MacTab5Protocol.decrypt(result.1, key: pair.key, challenge: nonce))
+            guard let status = decoded["status"] as? Int, let body = decoded["body"] as? [String: Any] else { return (500, Data()) }
+            return (status, try MacTab5Protocol.encrypt(MacTab5Protocol.json(body), key: pair.key, challenge: nonce))
+        } catch { return (500, Data()) }
+    }
 
     func discovery(_ packet: Data, address: String) -> Data? {
         guard packet.count <= 160, PrivateIPv4Address.isValid(address), let text = String(data: packet, encoding: .ascii) else { return nil }
