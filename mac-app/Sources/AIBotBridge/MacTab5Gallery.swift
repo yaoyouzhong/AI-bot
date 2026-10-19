@@ -31,7 +31,11 @@ final class MacTab5Gallery {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("AI-bot/Tab5/Galleries", isDirectory: true)
     }
     func install(_ url: URL) throws -> MacTab5GalleryManifest {
-        let archive = try MacTab5Archive(url)
+        let archive = try MacTab5Archive(url, maximumSize: 16 * 1024 * 1024 * 1024, allowNested: true, allowUnicode: true, maximumEntries: 20000)
+        if !archive.names.contains("PACK.json") { return try installHD(archive) }
+        return try installStandard(archive)
+    }
+    private func installStandard(_ archive: MacTab5Archive) throws -> MacTab5GalleryManifest {
         let bytes = try archive.read("PACK.json", maximum: 2 * 1024 * 1024)
         let manifest = try JSONDecoder().decode(MacTab5GalleryManifest.self, from: bytes)
         return try install(manifest: manifest, manifestBytes: bytes, names: archive.names) { try archive.read($0, maximum: $0.hasSuffix(".jpg") ? 1048576 : 16 * 1024 * 1024) }
@@ -67,14 +71,49 @@ final class MacTab5Gallery {
               Set(images) == Set(manifest.files.keys.filter { $0.hasSuffix(".jpg") }) else { throw MacTab5LocalError.invalid("图库作品、分页或图片清单无效。") }
         if manifest.files["guides.zh.json"] != nil { _ = try MacTab5ArtGuide.read(Data(contentsOf: staging.appendingPathComponent("guides.zh.json")), works: works) }
         try manifestBytes.write(to: staging.appendingPathComponent("PACK.json"), options: .withoutOverwriting)
+        try activate(staging, category: manifest.category)
+        return manifest
+    }
+    private func activate(_ staging: URL, category: String) throws {
         lock.lock(); defer { lock.unlock() }
-        let target = directory.appendingPathComponent(manifest.category, isDirectory: true)
-        let backup = directory.appendingPathComponent(manifest.category + ".backup-" + MacTab5Protocol.identifier())
+        let fm = FileManager.default, target = directory.appendingPathComponent(category, isDirectory: true)
+        let backup = directory.appendingPathComponent(category + ".backup-" + MacTab5Protocol.identifier())
         let previous = fm.fileExists(atPath: target.path)
         if previous { try fm.moveItem(at: target, to: backup) }
         do { try fm.moveItem(at: staging, to: target) }
         catch { if previous { try? fm.moveItem(at: backup, to: target) }; throw error }
         // Previous installed artwork remains in a backup until separately removed.
+        catalogs.removeValue(forKey: category); lastImage = nil
+    }
+    private func installHD(_ archive: MacTab5Archive) throws -> MacTab5GalleryManifest {
+        let files = archive.names.filter { !$0.hasSuffix("/") }
+        guard let first = files.first, first.contains("/") else { throw MacTab5Error.invalidPacket }
+        let prefix = String(first.split(separator: "/")[0]) + "/"
+        guard files.allSatisfy({ $0.hasPrefix(prefix) }), files.contains(prefix + "standard.zip"), files.contains(prefix + "desktop-index.relative.json") else { throw MacTab5LocalError.invalid("请选择包含 TAB5 展示图库的高清完整包。") }
+        let listing = try archive.read(prefix + "SHA256SUMS.txt", maximum: 4 * 1024 * 1024)
+        guard let text = String(data: listing, encoding: .utf8) else { throw MacTab5Error.invalidPacket }
+        var hashes: [String: String] = [:]
+        for raw in text.split(separator: "\n") {
+            let line = String(raw).trimmingCharacters(in: .newlines), hash = String(line.prefix(64)).lowercased(), name = String(line.dropFirst(66))
+            guard line.count >= 67, line.dropFirst(64).prefix(2) == "  ", MacTab5Protocol.isHex(hash, count: 64), MacTab5Archive.safeUnicodePath(name), hashes[name] == nil else { throw MacTab5Error.invalidPacket }
+            hashes[name] = hash
+        }
+        guard Set(hashes.keys.map { prefix + $0 }) == Set(files).subtracting([prefix + "SHA256SUMS.txt"]), let expected = hashes["standard.zip"], let catalogHash = hashes["catalog.json"] else { throw MacTab5Error.invalidPacket }
+        let catalogBytes = try archive.read(prefix + "catalog.json", maximum: 16 * 1024 * 1024)
+        guard MacTab5Protocol.sha256(catalogBytes) == catalogHash else { throw MacTab5Error.invalidPacket }
+        let catalog = try MacTab5Protocol.object(catalogBytes)
+        guard MacTab5Protocol.integer(catalog["schema"]) == 1, let category = catalog["category"] as? String, ["painting", "calligraphy"].contains(category), let works = catalog["works"] as? [[String: Any]], (1...2000).contains(works.count) else { throw MacTab5Error.invalidPacket }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let stage = directory.appendingPathComponent(".hd-import-" + MacTab5Protocol.identifier())
+        try FileManager.default.createDirectory(at: stage, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: stage) }
+        let zip = stage.appendingPathComponent("standard.zip")
+        try archive.copy(prefix + "standard.zip", to: zip, maximum: 2 * 1024 * 1024 * 1024, sha256: expected)
+        let prepared = MacTab5Gallery(directory: stage.appendingPathComponent("prepared")), manifest = try prepared.installStandard(MacTab5Archive(zip))
+        guard manifest.category == category, manifest.works == works.count, manifest.schemaVersion == 2 else { throw MacTab5LocalError.invalid("高清包与内置 TAB5 图库不一致，原图库保持不变。") }
+        try activate(prepared.directory.appendingPathComponent(category), category: category)
+        // Only the complete, verified TAB5 subset is imported. Desktop originals
+        // are never extracted or advertised as a Mac high-resolution browser.
         return manifest
     }
     static func validateJPEG(_ bytes: Data) throws {

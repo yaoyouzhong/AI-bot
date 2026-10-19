@@ -13,6 +13,8 @@
 
 **资源与固件**中导入现有 AI-bot 图库 ZIP；保留来源、许可、导读和全部图片 SHA。标准/高清包按类别导入，旧图库保留备份。设备显示专用 1280×720 JPEG，支持多页与横竖屏。电脑桌宠选择和当前音乐封面自动转为设备资源，收到资源确认后停止发送。
 
+高清完整包校验外层索引和内置 `standard.zip` 的 SHA，再验证并导入 TAB5 适配图库；不解压或加载电脑端高清原作。本候选不含 Mac 高清原作浏览器，也不把未读取的高清原作称为已核验。
+
 选择升级 BIN 时保留相邻 `.notes.json`；也可选择完整升级 ZIP。先预览版本、SHA 和说明，再显式开始升级。选择固件不等于已经写入。USB、Wi-Fi、BLE 共用验证与回执；原始数据传输完成也不等于新固件启动成功。
 
 升级或首刷后，保持所选精确应用镜像，点 **核验所选固件的启动状态**。必须核对版本、ELF SHA、VALID 运行分区及三个递增的实时 UI 样本。旧设备版本不支持无线核验时使用 USB。屏幕、触摸和实际数据仍需要人眼确认。
@@ -61,6 +63,8 @@ This unpublished Apple Silicon/macOS 13+ candidate lives on `codex/mac-tab5-phas
 Open **TAB5** from the menu bar. USB-pair the explicitly selected AI-bot device, then provision Wi-Fi over USB. Local discovery requires the same LAN; Bluetooth is separately opt-in. Read actual display settings before editing and require the matching device receipt before reporting success. Preserve TAB5 display preferences during upgrades and validation.
 
 **Resources and firmware** imports standard/HD gallery ZIPs with provenance, licensing, guides, image decoding and complete hashes. Device pet/music resources stop after acknowledged transfer. Select a BIN plus matching notes or an upgrade ZIP, review it and explicitly start. Boot verification requires the exact version/ELF, VALID partition and three advancing live UI samples; transferred bytes alone are insufficient.
+
+For an HD full bundle, validate the outer catalog and embedded standard ZIP hash, then validate/import only its complete TAB5 subset. Desktop HD originals are not extracted or advertised as verified; this candidate does not include a Mac HD-original browser.
 
 **Interaction and permissions** independently enables CoreAudio volume/mute, whitelisted local launchers, lock, Music/Spotify, Codex and voice. Unknown Mac lock/display state remains unknown; one-click unlock is unavailable. Music commands bind to the displayed track, execute once and read back actual state. First use requires the relevant macOS Automation/Accessibility permissions.
 
