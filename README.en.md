@@ -6,7 +6,7 @@ Beyond work, AI-bot serves as a desk clock and information display for weather, 
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.10.md) · [简体中文](README.md)
 
-Prepared release: Windows **0.6.10** and TAB5 **0.2.234-ui** add computer unlock and automatic component setup, and fix volume-drag recovery, bidirectional read sync, BLE boot verification and battery-display continuity. Related hardware acceptance is complete; see [the release notes](docs/RELEASE-0.6.10.md). Downloads retain published stable packages until publication.
+Published: Windows **0.6.10** and TAB5 **0.2.234-ui** add computer unlock and automatic component setup, and fix volume-drag recovery, bidirectional read sync, BLE boot verification and battery-display continuity. Related hardware acceptance is complete; see [the release notes](docs/RELEASE-0.6.10.md). The download center is updated; Mac, ESP8266 and collections retain independent versions.
 
 ## Choose your desktop display
 
@@ -53,7 +53,7 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 <sub>Both pictures combine hardware imagery with the AI-bot interface and demo data; they are not hardware photographs or shown to a common physical scale. <a href="docs/HARDWARE-IMAGES.md">Image sources and notes</a></sub>
 
-The updated 116-second Chinese tour adds PC controls, lock state and ten-network management, alongside the refined agenda and automatic day/night classic clock, retaining the same-function dual-quota opening, clocks and Codex scenes. Native interfaces use isolated demo data, not hardware photographs.
+The updated 116-second Chinese tour adds computer unlock, automatic TightVNC setup/import and bidirectional read synchronization, uses the actual .234 notes and retains agenda, clocks, quotas and artwork browsing. Native interfaces use isolated demo data, not hardware photographs.
 
 [![AI-bot 0.6.10 / TAB5 234](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
@@ -67,7 +67,7 @@ The updated 116-second Chinese tour adds PC controls, lock state and ten-network
 <tr><td nowrap="nowrap"><strong>Task status</strong></td><td nowrap="nowrap">Claude / Codex working, idle and waiting states; completion alerts.</td></tr>
 <tr><td nowrap="nowrap"><strong>Account quotas</strong></td><td nowrap="nowrap">Usage, API balances, resets and Codex credits; history on the computer.</td></tr>
 <tr><td nowrap="nowrap"><strong>Daily information</strong></td><td nowrap="nowrap">Weather, clocks, stocks, computer load and media playback; dedicated NetEase and QQ Music adapters, Windows media sessions for Soda Music, Apple Music and other clients, and optional Chrome/Edge website playback. See <a href="docs/MEDIA-PLAYERS.md">support and validation limits</a>.</td></tr>
-<tr><td nowrap="nowrap"><strong>PC controls</strong></td><td>Adjust volume, mute or lock from TAB5; follow lock state and open up to four local apps/folders with icons.</td></tr>
+<tr><td nowrap="nowrap"><strong>PC controls</strong></td><td>Adjust volume, mute, lock or unlock from TAB5; follow lock state and open up to four local apps/folders with icons. Wi-Fi unlock automatically installs/imports its optional component.</td></tr>
 <tr><td nowrap="nowrap"><strong>Display settings</strong></td><td nowrap="nowrap">Fixed page, cycle or smart switching; choose pages, order, interval and pets.</td></tr>
 <tr><td nowrap="nowrap"><strong>Device management</strong></td><td nowrap="nowrap">Windows Device Center: accounts, data, devices; check, download and verify updates. <a href="docs/UPDATES.md">Guide</a></td></tr>
 </tbody>
@@ -120,11 +120,11 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 <!-- downloads:start -->
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.9 | [Download · 24 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/AI-bot-bridge-v0.6.9-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.10 | [Download · 27 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-bridge-v0.6.10-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/SHA256SUMS.txt) |
 | Mac bridge · macOS 13+ / Apple Silicon | 0.6.7 | [Download · 14 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AIBotBridge-0.6.7-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.3 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/AI-bot-0.5.3-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/SHA256SUMS.txt) |
-| TAB5 · first install from factory system | 0.2.217-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/AI-bot-tab5-0.2.217-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.217-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/AI-bot-tab5-0.2.217-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.234-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/AI-bot-tab5-0.2.234-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.234-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/AI-bot-tab5-0.2.234-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · standard | 2026.1 | [Download · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · complete HD | 2026.1 | [Download · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
 | Daily Painting · standard | 2026.1 | [Download · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
@@ -157,4 +157,4 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 Own code, including TAB5, is [MIT licensed](LICENSE). Third-party components and artworks retain their original licenses. This independent project has no affiliation with the named AI providers. [Report issues](https://github.com/yaoyouzhong/AI-bot/issues) with your platform, versions, hardware and reproduction steps; remove credentials and private logs.
 
-The local Windows 0.6.10 / TAB5 0.2.234-ui release adds computer unlock and automatic TightVNC setup/import without a manually entered component password. Volume-drag recovery, bidirectional Codex read sync, isolated BLE boot verification and battery display after reboot/USB changes have passed hardware acceptance. Public downloads retain released versions. [Preparation and acceptance](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).
+The Windows 0.6.10 / TAB5 0.2.234-ui release adds computer unlock and automatic TightVNC setup/import without a manually entered component password. Volume-drag recovery, bidirectional Codex read sync, isolated BLE boot verification and battery display after reboot/USB changes have passed hardware acceptance. The installer, firmware and corresponding source are published. [Preparation and acceptance](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).

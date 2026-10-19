@@ -6,7 +6,7 @@
 
 [完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.10.md) · [English](README.en.md)
 
-待发布：Windows **0.6.10** 与 TAB5 **0.2.234-ui** 增加电脑一键解锁与组件自动接入，修复音量拖动、双向已读同步、蓝牙启动核验和电量显示连续性。相关真机验收已完成，见[本轮说明](docs/RELEASE-0.6.10.md)。公开下载在发布前保留现有稳定版。
+已发布：Windows **0.6.10** 与 TAB5 **0.2.234-ui** 增加电脑一键解锁与组件自动接入，修复音量拖动、双向已读同步、蓝牙启动核验和电量显示连续性。相关真机验收已完成，见[本轮说明](docs/RELEASE-0.6.10.md)。完整下载中心已更新，Mac、ESP8266 和图库保留各自版本。
 
 ## 选择适合你的桌面屏幕
 
@@ -69,7 +69,7 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 <tr><td nowrap="nowrap"><strong>任务状态</strong></td><td nowrap="nowrap">Claude / Codex 工作、空闲、待输入状态及完成提醒。</td></tr>
 <tr><td nowrap="nowrap"><strong>账户额度</strong></td><td nowrap="nowrap">账户用量、API 余额、重置时间与 Codex 重置卡；电脑端提供额度历史。</td></tr>
 <tr><td nowrap="nowrap"><strong>日常信息</strong></td><td nowrap="nowrap">天气、时钟、股票、电脑负载与媒体播放信息；网易云音乐与 QQ 音乐有专门适配，汽水音乐、Apple Music 等客户端通过 Windows 媒体会话接入，Chrome／Edge 可补充网页播放信息。实际兼容范围见<a href="docs/MEDIA-PLAYERS.md">媒体支持说明</a>。</td></tr>
-<tr><td nowrap="nowrap"><strong>电脑控制</strong></td><td>在 TAB5 调节音量、静音和锁屏，查看锁定状态，点选最多四个带图标的程序或文件夹。</td></tr>
+<tr><td nowrap="nowrap"><strong>电脑控制</strong></td><td>在 TAB5 调节音量、静音、锁屏或一键解锁，查看锁定状态，点选最多四个带图标的程序或文件夹；Wi-Fi 解锁组件自动安装／接入。</td></tr>
 <tr><td nowrap="nowrap"><strong>显示设置</strong></td><td nowrap="nowrap">固定页、轮播或智能跟随；可选页面、顺序、间隔与桌宠动画。</td></tr>
 <tr><td nowrap="nowrap"><strong>设备管理</strong></td><td nowrap="nowrap">Windows 设备中心配置账号、数据与设备；统一查看更新并下载校验。<a href="docs/UPDATES.md">更新说明</a></td></tr>
 </tbody>
@@ -122,11 +122,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 <!-- downloads:start -->
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
-| Windows 桥接 · Windows 10/11 x64 | 0.6.9 | [下载 · 24 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/AI-bot-bridge-v0.6.9-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/SHA256SUMS.txt) |
+| Windows 桥接 · Windows 10/11 x64 | 0.6.10 | [下载 · 27 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-bridge-v0.6.10-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/SHA256SUMS.txt) |
 | Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.7 | [下载 · 14 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AIBotBridge-0.6.7-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.3 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/AI-bot-0.5.3-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/SHA256SUMS.txt) |
-| TAB5 · 出厂系统首次安装 | 0.2.217-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/AI-bot-tab5-0.2.217-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/SHA256SUMS.txt) |
-| TAB5 · 已有 AI-bot 升级 | 0.2.217-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/AI-bot-tab5-0.2.217-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/SHA256SUMS.txt) |
+| TAB5 · 出厂系统首次安装 | 0.2.234-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/AI-bot-tab5-0.2.234-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/SHA256SUMS.txt) |
+| TAB5 · 已有 AI-bot 升级 | 0.2.234-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/AI-bot-tab5-0.2.234-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/SHA256SUMS.txt) |
 | 每日书法 · 标准版 | 2026.1 | [下载 · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
 | 每日书法 · 高清完整版 | 2026.1 | [下载 · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
 | 每日名画 · 标准版 | 2026.1 | [下载 · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
@@ -159,4 +159,4 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 自有代码（含 TAB5）采用 [MIT 许可](LICENSE)，第三方组件与艺术作品保留原许可。项目独立开发，与提及的 AI 厂商无隶属关系。[反馈问题](https://github.com/yaoyouzhong/AI-bot/issues)时请附平台、版本、硬件与复现步骤，并移除凭据和私人日志。
 
-本地 Windows 0.6.10 / TAB5 0.2.234-ui 增加电脑一键解锁与 TightVNC 自动安装／接入，无需填写组件密码；音量拖动恢复、双向 Codex 已读同步、纯 BLE 启动核验及重启／USB 变化后的电量显示已完成真机验收。当前公开下载仍沿用正式版本。[准备与验收记录](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md)。
+Windows 0.6.10 / TAB5 0.2.234-ui 增加电脑一键解锁与 TightVNC 自动安装／接入，无需填写组件密码；音量拖动恢复、双向 Codex 已读同步、纯 BLE 启动核验及重启／USB 变化后的电量显示已完成真机验收。安装包、固件和对应源码已正式发布。[准备与验收记录](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md)。

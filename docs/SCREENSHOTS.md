@@ -118,7 +118,7 @@ Current art attribution: Lin Liang, *Peacocks and Bamboo*, Cleveland Museum of A
 
 The earlier batch contained 52 regenerated or added screenshots. A subsequent audit found that the tray fixture still used the retired TrayMenu factory; it now calls the production DeviceCenterMenu.Build factory, and the corrected grouped menu was recaptured and visually checked. Exact bytes and paths remain enforced in `licenses/materials.json`. Fonts/themes may affect cross-machine appearance. Historical diagrams are identified as illustrations, and private backups/runtime data are not published. See the separate hardware acceptance and video provenance records.
 
-## 0.6.10 local candidate / 本地候选
+## 0.6.10 Wi-Fi unlock settings / Wi-Fi 解锁设置
 
 [Wi-Fi 解锁原生预览](assets/screens/tab5-wifi-unlock-candidate.png)：隔离合成状态，无真实凭据。此前图片保留各自捕获版本；最终发布媒体另行核验。
 

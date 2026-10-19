@@ -82,3 +82,11 @@ State may include nullable `locked`, read from the current Windows session's WTS
 读取状态期间保留可用控件的外观，避免每两秒灰亮切换；操作仍受单请求门控，不在忙时重复发出。启动项和音乐布局只在实际变化时更新。
 
 Read-only polling retains the last usable appearance rather than flashing controls disabled/enabled. Commands retain the one-request gate. Launcher and music layouts update only when they change.
+
+## One-click unlock / 电脑一键解锁（0.6.10 / 234）
+
+TAB5「应用 → 控制」按实际 USB、BLE 或 Wi-Fi 通道解锁 Windows。Windows PIN 独立加密保存在电脑；取消、断线和失败停止，不自动换通道重发。Windows「电脑控制 → 一键解锁设置 → Wi-Fi 解锁设置」可离线安装／自动接入 TightVNC，兼容已有安装保留原配置及归属，无需用户填写组件密码。安装／卸载需管理员确认，外部或已修改组件受到归属保护。
+
+TAB5 .234 包含音量拖动遗留手势恢复、实际阅读后的双向 Codex 已读同步、BLE 启动报告整数时间和电量显示连续性。原版 c608 的纯 BLE 三实时样本／精确 ELF／VALID 核验与新增电量观察已通过，既有成功项目没有重复验收，见 [发布说明](RELEASE-0.6.10.md)。
+
+TAB5 unlocks Windows through its actual USB, BLE or Wi-Fi path. The Windows PIN stays separately encrypted on the PC. Cancellation, disconnect and failure stop without automatic transport switching/replay. Wi-Fi settings install/import compatible TightVNC authentication automatically, retaining existing settings/ownership with administrator confirmation for component lifecycle operations. No manually entered component password is required. The .234 firmware also repairs volume-gesture recovery, rendered-reply read synchronization, integer BLE boot reports and battery continuity. Exact-image/VALID/three-live-sample BLE and new battery acceptance passed separately from native previews; earlier passed physical tests were retained.

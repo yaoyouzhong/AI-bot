@@ -173,7 +173,7 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-settings-connection.png" alt="设备设置：连接与网络"></td><td width="50%"><img src="assets/screens/tab5-settings-screen.png" alt="设备设置：屏幕与声音"></td></tr></table>
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，已提供 .217 升级包（演示）"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-firmware-notes-234.png" alt="设备设置：实际 .234 更新说明（原生隔离预览，当前 .21 为夹具）"></td></tr></table>
 
 ![设备信息（演示元数据）](assets/screens/tab5-settings-info.png)
 
