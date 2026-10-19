@@ -31,7 +31,11 @@ struct MacTab5FirmwareImage {
     }
     static func load(_ url: URL) throws -> Self {
         if url.pathExtension.lowercased() == "zip" {
-            let archive = try MacTab5Archive(url, maximumSize: 32 * 1024 * 1024)
+            let archive = try MacTab5Archive(url, maximumSize: 32 * 1024 * 1024, allowNested: true)
+            if archive.names.contains("factory.bin"), archive.names.contains("manifest.json") {
+                let package = try MacTab5InstallPackage.load(url), part = package.manifest.segments[3]
+                return try Self(bytes: Data(package.image[part.offset..<part.offset + part.size]))
+            }
             let bytes = try archive.read("aibot_tab5.bin", maximum: maximum)
             let sidecar = archive.names.contains("aibot_tab5.bin.notes.json") ? try archive.read("aibot_tab5.bin.notes.json", maximum: 8192) : nil
             return try Self(bytes: bytes, sidecar: sidecar)

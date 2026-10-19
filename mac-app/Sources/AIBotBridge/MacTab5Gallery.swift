@@ -23,6 +23,9 @@ struct MacTab5Artwork: Codable {
 
 final class MacTab5Gallery {
     private let lock = NSLock()
+    private struct Cache { let stamp: String; let bytes: Data; let manifest: MacTab5GalleryManifest; let works: [MacTab5Artwork]; let guides: [String: [String: Any]] }
+    private var catalogs: [String: Cache] = [:]
+    private var lastImage: (path: String, stamp: String, sha: String, bytes: Data)?
     let directory: URL
     init(directory: URL? = nil) {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("AI-bot/Tab5/Galleries", isDirectory: true)
@@ -91,24 +94,43 @@ final class MacTab5Gallery {
         lock.lock(); defer { lock.unlock() }
         var revisions: [String: String] = [:]
         for category in ["painting", "calligraphy"] {
-            if let bytes = try? Data(contentsOf: directory.appendingPathComponent(category + "/PACK.json")), bytes.count <= 2 * 1024 * 1024 { revisions[category] = MacTab5Protocol.sha256(bytes) }
+            if let cache = try? load(category) { revisions[category] = MacTab5Protocol.sha256(cache.bytes) }
         }
         return revisions
+    }
+    private func stamp(_ url: URL, maximum: Int) throws -> String {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .fileResourceIdentifierKey])
+        guard let size = values.fileSize, size > 0, size <= maximum else { throw MacTab5Error.invalidPacket }
+        return "\(size)|\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)|\(String(describing: values.fileResourceIdentifier))"
+    }
+    private func load(_ category: String) throws -> Cache {
+        let root = directory.appendingPathComponent(category), pack = root.appendingPathComponent("PACK.json"), catalog = root.appendingPathComponent("catalog.json")
+        let bytes: Data, manifest: MacTab5GalleryManifest
+        let packStamp = try stamp(pack, maximum: 2 * 1024 * 1024), catalogStamp = try stamp(catalog, maximum: 16 * 1024 * 1024)
+        if let previous = catalogs[category], previous.stamp.hasPrefix(packStamp + "|") { bytes = previous.bytes; manifest = previous.manifest }
+        else { bytes = try Data(contentsOf: pack); manifest = try JSONDecoder().decode(MacTab5GalleryManifest.self, from: bytes) }
+        let guideURL = root.appendingPathComponent("guides.zh.json"), guideStamp = manifest.files["guides.zh.json"] == nil ? "" : try stamp(guideURL, maximum: 16 * 1024 * 1024)
+        let identity = packStamp + "|" + catalogStamp + "|" + guideStamp
+        if let previous = catalogs[category], previous.stamp == identity { return previous }
+        let workBytes = try Data(contentsOf: catalog), works = try JSONDecoder().decode([MacTab5Artwork].self, from: workBytes)
+        guard manifest.category == category, [1,2].contains(manifest.schemaVersion), MacTab5Protocol.sha256(workBytes) == manifest.files["catalog.json"],
+              !works.isEmpty, works.count <= 2000, works.count == manifest.works,
+              works.allSatisfy({ $0.category == category && (1...64).contains($0.frames.count) && $0.frames.count == $0.portraitFrames.count && ($0.frames + $0.portraitFrames).allSatisfy(MacTab5Archive.safeName) }) else { throw MacTab5Error.invalidPacket }
+        var guides: [String: [String: Any]] = [:]
+        if !guideStamp.isEmpty { let guideBytes = try Data(contentsOf: guideURL); guard MacTab5Protocol.sha256(guideBytes) == manifest.files["guides.zh.json"] else { throw MacTab5Error.invalidPacket }; guides = try MacTab5ArtGuide.read(guideBytes, works: works) }
+        let cache = Cache(stamp: identity, bytes: bytes, manifest: manifest, works: works, guides: guides); catalogs[category] = cache; return cache
     }
     func handle(_ request: [String: Any], binary: Bool, bulk: Bool) -> MacTab5RPCResult {
         lock.lock(); defer { lock.unlock() }
         do {
             guard let category = request["category"] as? String, ["painting", "calligraphy"].contains(category) else { return .error(400, "invalid_gallery_category") }
             let root = directory.appendingPathComponent(category)
-            let manifestBytes = try Data(contentsOf: root.appendingPathComponent("PACK.json"))
-            let manifest = try JSONDecoder().decode(MacTab5GalleryManifest.self, from: manifestBytes)
-            let works = try JSONDecoder().decode([MacTab5Artwork].self, from: Data(contentsOf: root.appendingPathComponent("catalog.json")))
-            guard !works.isEmpty, works.count == manifest.works else { return .error(503, "invalid_gallery_catalog") }
+            let cache = try load(category), manifestBytes = cache.bytes, manifest = cache.manifest, works = cache.works
             if request["op"] as? String == "catalog" { return .init(200, ["syncVersion": 1, "works": works.count, "revision": MacTab5Protocol.sha256(manifestBytes), "baseDate": "2026-01-01"]) }
             let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"; formatter.isLenient = false
             guard let text = request["date"] as? String, let date = formatter.date(from: text), formatter.string(from: date) == text else { return .error(400, "invalid_gallery_date") }
             let work = works[Self.dayIndex(date, count: works.count)]
-            let guide = manifest.files["guides.zh.json"] != nil ? try MacTab5ArtGuide.read(Data(contentsOf: root.appendingPathComponent("guides.zh.json")), works: works)[work.workId ?? work.source] : nil
+            let guide = cache.guides[work.workId ?? work.source]
             if request["op"] as? String == "guidePage" {
                 guard let guide, let text = guide["transcription"] as? String,
                       request["workId"] as? String == guide["workId"] as? String,
@@ -123,8 +145,9 @@ final class MacTab5Gallery {
             guard ["landscape", "portrait", ""].contains(orientation), frame >= 0, frame < work.frames.count else { return .error(400, "invalid_gallery_frame") }
             let file = orientation == "portrait" ? work.portraitFrames[frame] : work.frames[frame]
             guard MacTab5Archive.safeName(file), let expected = manifest.files[file] else { return .error(503, "invalid_gallery_catalog") }
-            let bytes = try Data(contentsOf: root.appendingPathComponent(file))
-            guard bytes.count <= 1048576, MacTab5Protocol.sha256(bytes) == expected else { return .error(503, "gallery_pack_incomplete") }
+            let imageURL = root.appendingPathComponent(file), imageStamp = try stamp(imageURL, maximum: 1048576), bytes: Data
+            if let previous = lastImage, previous.path == imageURL.path, previous.stamp == imageStamp, previous.sha == expected { bytes = previous.bytes }
+            else { bytes = try Data(contentsOf: imageURL); guard MacTab5Protocol.sha256(bytes) == expected else { return .error(503, "gallery_pack_incomplete") }; lastImage = (imageURL.path, imageStamp, expected, bytes) }
             if request["op"] as? String == "manifest" {
                 let version = Int(MacTab5Protocol.integer(request["guideVersion"]) ?? 1)
                 var body: [String: Any] = ["id": work.id, "title": work.title, "author": work.author, "source": work.source, "license": work.license,

@@ -131,4 +131,16 @@ final class MacTab5FirmwareGalleryTests: XCTestCase {
         XCTAssertEqual(projected["transcriptionPages"] as? Int, pages.count)
         XCTAssertEqual(projected["transcriptionSha256"] as? String, MacTab5Protocol.sha256(Data(text.utf8)))
     }
+    func testCachedGalleryRevalidatesChangedCatalogAndImageBeforeServing() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString); defer { try? FileManager.default.removeItem(at: root) }
+        let gallery = MacTab5Gallery(directory: root), files = try MacTab5TestData.galleryFiles()
+        let manifest = MacTab5GalleryManifest(schemaVersion: 1, version: "2026.10.19", category: "painting", works: 1, frames: 2, files: files.mapValues(MacTab5Protocol.sha256))
+        _ = try gallery.install(manifest: manifest, manifestBytes: JSONEncoder().encode(manifest), names: Array(files.keys) + ["PACK.json"]) { files[$0]! }
+        let request: [String: Any] = ["category": "painting", "op": "manifest", "date": "2026-10-19"]
+        XCTAssertEqual(gallery.handle(request, binary: true, bulk: true).status, 200)
+        try Data([0,1,2]).write(to: root.appendingPathComponent("painting/landscape.jpg"), options: .atomic)
+        XCTAssertEqual(gallery.handle(request, binary: true, bulk: true).status, 503)
+        try Data("[]".utf8).write(to: root.appendingPathComponent("painting/catalog.json"), options: .atomic)
+        XCTAssertEqual(gallery.handle(["category": "painting", "op": "catalog"], binary: true, bulk: true).status, 503)
+    }
 }

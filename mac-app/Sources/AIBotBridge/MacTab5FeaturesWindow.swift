@@ -11,7 +11,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let desktop = NSButton(checkboxWithTitle: "允许快捷控制台打开并核对 Codex 桌面输入框", target: nil, action: nil)
     private let launchers = NSPopUpButton()
     private let result = NSTextField(wrappingLabelWithString: "")
-    private var body: NSStackView?, document: NSView?
+    private var body: NSStackView?, documentView: NSView?
     init(service: MacTab5Service) {
         self.service = service
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 650, height: 560), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
@@ -19,7 +19,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 14; stack.translatesAutoresizingMaskIntoConstraints = false
         let content = window.contentView!, scroll = NSScrollView(frame: window.contentView!.bounds); scroll.autoresizingMask = [.width, .height]; scroll.hasVerticalScroller = true; scroll.drawsBackground = false
         let document = MacTab5FeaturesDocument(frame: NSRect(x: 0, y: 0, width: content.bounds.width, height: 1600)); document.autoresizingMask = [.width]
-        self.document = document; body = stack; scroll.documentView = document; content.addSubview(scroll); document.addSubview(stack)
+        self.documentView = document; body = stack; scroll.documentView = document; content.addSubview(scroll); document.addSubview(stack)
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 24), stack.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -24), stack.topAnchor.constraint(equalTo: document.topAnchor, constant: 24)])
         func label(_ text: String, size: CGFloat = 13) { let label = NSTextField(wrappingLabelWithString: text); label.font = .systemFont(ofSize: size); stack.addArrangedSubview(label); label.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
         label("交互与权限", size: 23)
@@ -50,7 +50,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     func windowDidResize(_ notification: Notification) { resizeDocument() }
-    private func resizeDocument() { window?.contentView?.layoutSubtreeIfNeeded(); if let document, let body { document.setFrameSize(NSSize(width: document.frame.width, height: max(window?.contentView?.bounds.height ?? 560, body.fittingSize.height + 48))) } }
+    private func resizeDocument() { window?.contentView?.layoutSubtreeIfNeeded(); if let documentView, let body { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(window?.contentView?.bounds.height ?? 560, body.fittingSize.height + 48))) } }
     func open() { reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }
     @objc private func toggleMusic() { UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey) }

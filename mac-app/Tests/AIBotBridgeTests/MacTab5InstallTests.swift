@@ -39,6 +39,13 @@ final class MacTab5InstallTests: XCTestCase {
         XCTAssertThrowsError(try MacTab5InstallPackage(manifest: .init(format: m.format, kind: m.kind, chip: m.chip, project: m.project, version: m.version, flashBytes: m.flashBytes, imageSha256: MacTab5Protocol.sha256(image), segments: m.segments), image: image))
         var partitions = Data(value.image[0x8000..<0x8000 + 224]); partitions[209] ^= 1; XCTAssertThrowsError(try MacTab5InstallPackage.partitions(partitions))
     }
+    func testFirstInstallZIPCanAlsoSelectExactApplicationForBootVerification() throws {
+        let root = try directory(), value = try package(), image = root.appendingPathComponent("factory.bin"), manifest = root.appendingPathComponent("manifest.json"), zip = root.appendingPathComponent("fixture.zip")
+        try value.image.write(to: image); try JSONEncoder().encode(value.manifest).write(to: manifest)
+        _ = try MacTab5LocalProcess.run("/usr/bin/zip", ["-q", "-j", zip.path, image.path, manifest.path], timeout: 60)
+        let selected = try MacTab5FirmwareImage.load(zip)
+        XCTAssertEqual(selected.version, value.manifest.version); XCTAssertEqual(selected.sha256, value.manifest.segments[3].sha256)
+    }
     func testBackupAndVerifyPrecedeWriteAndNoWriteRetriesOrReset() throws {
         let root = try directory(), device = Device(), installer = MacTab5Installer(run: device.run)
         let backup = try installer.execute(port: "/dev/cu.usbmodem-test", package: package(), directory: root, work: root.appendingPathComponent("work"))
