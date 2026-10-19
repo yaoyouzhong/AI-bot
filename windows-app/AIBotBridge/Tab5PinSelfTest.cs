@@ -84,7 +84,20 @@ internal static class Tab5PinSelfTest
             input.Text=repeat.Text="123456";Event(eye,"OnMouseDown",down);((Button)controls.Single(c=>c.Name=="save-pin")).PerformClick();Check(store.Has(pair)&&input.Text.Length==0&&repeat.Text.Length==0&&input.UseSystemPasswordChar,"UI save failed");Check(store.IsEnabled(pair),"UI switch plus PIN not enabled");
             toggle.Checked=false;Check(store.Has(pair)&&!store.IsEnabled(pair),"UI off deleted PIN or remained enabled");toggle.Checked=true;Check(store.IsEnabled(pair),"UI reenable failed");
             input.Text=repeat.Text="654321";((Button)controls.Single(c=>c.Name=="save-pin")).PerformClick();Check(store.Read(pair)!.AsSpan().SequenceEqual("654321"u8),"UI modify failed");
-            foreach(var name in new[]{"saved-pin","repeat-pin","saved-pin-eye","repeat-pin-eye","save-pin","delete-pin","enable-oneclick"}){var c=controls.Single(c=>c.Name==name);var bounds=form.RectangleToClient(c.RectangleToScreen(c.ClientRectangle));Check(form.ClientRectangle.Contains(bounds)&&bounds.Height>=20,"clipped PIN control");}
+            // FitScreen intentionally caps scaled dialogs to the monitor. The
+            // production body scrolls, and feedback may have scrolled it down.
+            // Verify each control is reachable, then retain strict clipping checks.
+            foreach(var name in new[]{"saved-pin","repeat-pin","saved-pin-eye","repeat-pin-eye","save-pin","delete-pin","enable-oneclick","wifi-unlock-settings"}){
+                var c=controls.Single(c=>c.Name==name);
+                for(Control? ancestor=c.Parent;ancestor!=null;ancestor=ancestor.Parent)
+                    if(ancestor is ScrollableControl{AutoScroll:true} viewport)viewport.ScrollControlIntoView(c);
+                Application.DoEvents();
+                var bounds=form.RectangleToClient(c.RectangleToScreen(c.ClientRectangle));
+                Check(form.ClientRectangle.Contains(bounds)&&bounds.Height>=20,$"clipped PIN control {name}; scale={scale}; bounds={bounds}; client={form.ClientRectangle}");
+                for(Control? ancestor=c.Parent;ancestor!=null;ancestor=ancestor.Parent)
+                    if(ancestor is ScrollableControl{AutoScroll:true} viewport)
+                        Check(viewport.ClientRectangle.Contains(viewport.RectangleToClient(c.RectangleToScreen(c.ClientRectangle))),$"PIN viewport clipped {name}; scale={scale}");
+            }
             var footer=controls.Where(c=>c.Name is "save-pin" or "delete-pin").ToArray();Check(footer[0].Top==footer[1].Top&&footer[0].Height==footer[1].Height,"PIN footer alignment");
             using var bitmap=new Bitmap(form.Width,form.Height);form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,form.Size));bitmap.Save(Path.Combine(directory,$"pin-settings-{scale:0.0}.png"));
             ((Button)controls.Single(c=>c.Name=="delete-pin")).PerformClick();Check(!store.Has(pair)&&!toggle.Checked&&!store.IsEnabled(pair),"UI delete failed");
