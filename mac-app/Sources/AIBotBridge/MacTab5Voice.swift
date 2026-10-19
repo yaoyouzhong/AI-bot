@@ -16,7 +16,7 @@ final class MacTab5Voice {
     private var started: TimeInterval = 0, seen: TimeInterval = 0, stopped: TimeInterval = 0
     private var sequence = 0, samples = 0, level = 0
     private var hashes: [Int: String] = [:]
-    private var final = false
+    private var isFinal = false
     private var timer: DispatchSourceTimer?
     init(enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, backend: MacTab5SpeechBackend? = nil) {
         self.enabled = enabled; self.clock = clock; self.backend = backend ?? MacTab5Speech().backend()
@@ -35,7 +35,7 @@ final class MacTab5Voice {
         if state == "recognizing", now - stopped > 15 { state = "error"; message = "识别结果未完整确认，请检查文字后重新录入"; backend.cancel() }
     }
     private func snapshot() -> MacTab5RPCResult {
-        .init(200, ["voiceId": id, "taskId": task, "source": source, "sourceName": source == "tab5" ? "TAB5 麦克风 · Mac 本地识别" : "Mac 默认麦克风 · 本地识别", "state": state, "message": message, "text": text, "ready": state == "recording", "level": state == "recording" ? level : 0, "silent": state == "recording" && samples > 16000 && level == 0, "canInsert": state == "review" && final && !text.isEmpty])
+        .init(200, ["voiceId": id, "taskId": task, "source": source, "sourceName": source == "tab5" ? "TAB5 麦克风 · Mac 本地识别" : "Mac 默认麦克风 · 本地识别", "state": state, "message": message, "text": text, "ready": state == "recording", "level": state == "recording" ? level : 0, "silent": state == "recording" && samples > 16000 && level == 0, "canInsert": state == "review" && isFinal && !text.isEmpty])
     }
     func handle(_ root: [String: Any], device: String) -> MacTab5RPCResult {
         lock.lock(); defer { lock.unlock() }
@@ -46,7 +46,7 @@ final class MacTab5Voice {
             guard let task = MacTab5Codex.id(root["taskId"]), let session = root["session"] as? String else { return .error(400, "invalid_voice_owner") }
             if ["recording", "recognizing"].contains(state) { return .error(409, "voice_busy") }
             backend.cancel(); id = UUID().uuidString.lowercased(); self.device = device; self.task = task; self.session = session
-            source = root["source"] as? String == "tab5" ? "tab5" : "pc"; state = "recording"; text = ""; message = "请开始说话"; final = false
+            source = root["source"] as? String == "tab5" ? "tab5" : "pc"; state = "recording"; text = ""; message = "请开始说话"; isFinal = false
             sequence = 0; samples = 0; level = 0; hashes.removeAll(); started = clock(); seen = started
             do { try beginBackend(); return snapshot() }
             catch { state = "error"; message = "本地语音不可用，请在 Mac 授权语音识别和麦克风，并确认该语言支持离线识别。"; backend.cancel(); return snapshot() }
@@ -54,7 +54,7 @@ final class MacTab5Voice {
         guard !id.isEmpty, root["voiceId"] as? String == id, device == self.device, root["session"] as? String == session else { return .error(409, "voice_session_changed") }
         seen = clock()
         if op == "poll" { return snapshot() }
-        if op == "cancel" { backend.cancel(); text = ""; state = "cancelled"; message = "已取消"; final = false; return snapshot() }
+        if op == "cancel" { backend.cancel(); text = ""; state = "cancelled"; message = "已取消"; isFinal = false; return snapshot() }
         if op == "stop" {
             if state == "recording" { state = "recognizing"; stopped = clock(); message = "正在完成本地识别"; backend.finish() }
             return snapshot()
@@ -83,7 +83,7 @@ final class MacTab5Voice {
             if !result.isEmpty { self.text = Self.bounded(result, maximum: 2000) }
             if result.utf8.count > 2000 { self.state = "error"; self.message = "识别文字超过长度限制，请分段录入"; self.backend.cancel(); return }
             if error { self.state = "error"; self.message = "识别中断，文字可能不完整，请检查后重新录入" }
-            else if done { self.final = true; self.state = "review"; self.message = self.text.isEmpty ? "没有识别到文字，请重录" : "请检查文字，确认后再发送" }
+            else if done { self.isFinal = true; self.state = "review"; self.message = self.text.isEmpty ? "没有识别到文字，请重录" : "请检查文字，确认后再发送" }
         }
     }
     static func bounded(_ text: String, maximum: Int) -> String { var result = ""; for char in text { let next = String(char); if result.utf8.count + next.utf8.count > maximum { break }; result += next }; return result }
