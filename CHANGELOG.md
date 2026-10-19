@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased Mac TAB5 candidate - 2026-10-20
+
+- Complete the five-stage Mac candidate scope: shared USB/Wi-Fi/BLE authentication and receipts, daily display/settings, covers/pets/gallery, exact-image OTA/boot checks, computer/music controls, opt-in Codex replies/encrypted drafts/one-time delivery, bound photos, local Speech capture/review, and verified 16 MiB P4 first install/backup/restore.
+- Add module Mac tests/Release, ad-hoc candidate-app/tool checks, fixture-only native UI rendering, checksums and an offline bilingual guide. Fix native XCTest report collection, Swift compatibility, Keychain-helper visibility and Codex pipe buffering from actual CI failures. Hardware, Automation/playback, Accessibility composer compatibility and on-device speech availability await physical acceptance. No merge to main, deployment, tag or publication. See the [candidate guide](docs/MAC-TAB5-CANDIDATE.md) and [evidence](docs/development/MAC-TAB5-PORTING.md).
+
 ## 0.6.10 - 2026-10-19
 
 ### Computer unlock

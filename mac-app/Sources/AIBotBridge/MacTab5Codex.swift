@@ -26,9 +26,17 @@ final class MacTab5Codex {
     }
     var isEnabled: Bool { enabled() }
     var summary: String { stateLock.lock(); defer { stateLock.unlock() }; return note }
-    func snapshot() -> [String: Any]? {
+    func snapshot(taskLimit: Int = 16) -> [String: Any]? {
         guard enabled() else { return nil }
-        stateLock.lock(); defer { stateLock.unlock() }; return projection
+        stateLock.lock(); defer { stateLock.unlock() }
+        var value = projection
+        let tasks = projection["tasks"] as? [[String: Any]] ?? [], viewed = (projection["replyView"] as? [String: Any])?["taskId"] as? String
+        var selected = Array(tasks.prefix(max(1, taskLimit)))
+        if let viewed, let task = tasks.first(where: { $0["id"] as? String == viewed }), !selected.contains(where: { $0["id"] as? String == viewed }) { selected[selected.count - 1] = task }
+        let ids = Set(selected.compactMap { $0["id"] as? String }), projects = Set(selected.compactMap { $0["projectId"] as? String })
+        value["tasks"] = selected; value["projects"] = (projection["projects"] as? [[String: Any]] ?? []).filter { projects.contains($0["id"] as? String ?? "") }
+        for key in ["repliesReady", "repliesRead", "repliesUnread", "receipts", "responses"] { if let map = projection[key] as? [String: Any] { value[key] = map.filter { ids.contains($0.key) } } }
+        return value
     }
     func start() {
         guard timer == nil else { return }
@@ -80,6 +88,8 @@ final class MacTab5Codex {
             if op == "read-ack" {
                 guard let turn = Self.id(root["turnId"]), let receipt = readReceipts[id], receipt.0 == device, receipt.1 == task, receipt.2 == turn,
                       receipt.3 > ProcessInfo.processInfo.systemUptime, ready[task] == turn else { return .error(409, "read_receipt_expired") }
+                let latest = (try readThread(task)["turns"] as? [[String: Any]])?.last
+                guard latest?["id"] as? String == turn, ["completed", "failed", "interrupted"].contains(latest?["status"] as? String ?? "") else { return .error(409, "read_turn_changed") }
                 read[task] = turn; updateReadState(); return .init(200, ["accepted": true])
             }
             var data = try loadJournal(), receipts = data["receipts"] as! [String: Any], drafts = data["drafts"] as! [String: Any]

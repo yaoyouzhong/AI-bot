@@ -59,7 +59,8 @@ final class MacTab5Service {
     }
     func requestUpgrade() throws {
         lock.lock(); defer { lock.unlock() }
-        guard !stopped, let pair = pairing, pair.confirmed, let version = firmware, let image = firmwareControl.selected,
+        let now = ProcessInfo.processInfo.systemUptime
+        guard !stopped, !maintenance, activeOperations == 0, now - lastUSB < 8 || now - lastWiFi < 8 || now - lastBLE < 8, let pair = pairing, pair.confirmed, let version = firmware, let image = firmwareControl.selected,
               version != image.version, displayCompletion == nil else { throw MacTab5LocalError.invalid("请先连接 TAB5、选择不同版本固件并完成当前操作。") }
         let parts = version.replacingOccurrences(of: "-ui", with: "").split(separator: ".").compactMap { Int($0) }
         guard parts.count == 3, parts.lexicographicallyPrecedes([0, 2, 190]) == false else { throw MacTab5LocalError.invalid("此设备需先在 TAB5 上确认一次升级，之后才支持电脑端开始升级。") }
@@ -142,7 +143,7 @@ final class MacTab5Service {
     }
     func resourceFrame() throws -> Data {
         lock.lock(); defer { lock.unlock() }
-        guard !stopped, let pair = pairing, pair.confirmed else { throw MacTab5Error.pairingRequired }
+        guard !stopped, !maintenance, let pair = pairing, pair.confirmed else { throw MacTab5Error.pairingRequired }
         let chunks = assets.batch(4)
         guard !chunks.isEmpty else { throw MacTab5Error.unavailable }
         sequence += 1
@@ -165,8 +166,12 @@ final class MacTab5Service {
         additions["connectionHealth"] = health
         additions["codexTasks"] = codex.snapshot()
         if codex.isEnabled { additions["imageBinary"] = 1 }
-        return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session,
-                                            sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover)
+        for count in [16, 8, 4, 1] {
+            additions["codexTasks"] = codex.snapshot(taskLimit: count)
+            do { return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover) }
+            catch MacTab5Error.invalidPacket { if count == 1 { throw MacTab5Error.invalidPacket } }
+        }
+        throw MacTab5Error.invalidPacket
     }
 
     func displaySettings(_ desired: MacTab5DisplaySettings?, completion: @escaping DisplayCompletion) {
@@ -346,7 +351,7 @@ final class MacTab5Service {
         guard packet.count <= 160, PrivateIPv4Address.isValid(address), let text = String(data: packet, encoding: .ascii) else { return nil }
         let parts = text.components(separatedBy: "|")
         lock.lock(); defer { lock.unlock() }
-        guard lanReady, let pair = pairing, pair.confirmed, parts.count == 4, parts[0] == "TAB5_DISCOVER_V1",
+        guard lanReady, !maintenance, let pair = pairing, pair.confirmed, parts.count == 4, parts[0] == "TAB5_DISCOVER_V1",
               parts[1] == pair.deviceId, MacTab5Protocol.isHex(parts[2], count: 32),
               MacTab5Protocol.verify(key: pair.key, message: parts.prefix(3).joined(separator: "|"), proof: parts[3]) else { return nil }
         let body = "TAB5_BRIDGE_V1|\(pair.deviceId)|\(parts[2])|\(address)|\(port)"

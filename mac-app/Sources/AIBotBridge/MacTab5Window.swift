@@ -16,6 +16,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private var timer: Timer?
     private var tools: MacTab5ToolsWindow?
     private var features: MacTab5FeaturesWindow?
+    private var stackView: NSStackView?, documentView: NSView?
     private(set) var busy = false
 
     init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }, changeBluetooth: @escaping (Bool) -> Void = { _ in }, install: @escaping () -> Void = {}) {
@@ -30,6 +31,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         let scroll = NSScrollView(frame: content.bounds); scroll.autoresizingMask = [.width, .height]
         scroll.hasVerticalScroller = true; scroll.drawsBackground = false
         let document = MacTab5DocumentView(frame: NSRect(x: 0, y: 0, width: content.bounds.width, height: 820))
+        stackView = stack; documentView = document
         document.autoresizingMask = [.width]; scroll.documentView = document
         content.addSubview(scroll); document.addSubview(stack)
         NSLayoutConstraint.activate([
@@ -72,6 +74,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(action("资源与固件…", #selector(openTools)))
         stack.addArrangedSubview(action("交互与权限…", #selector(openFeatures)))
         stack.addArrangedSubview(action("首次安装与备份恢复…", #selector(openInstall)))
+        stack.addArrangedSubview(action("使用与验收说明…", #selector(openGuide)))
         stack.addArrangedSubview(note("亮度、声音、页面和轮播设置以 TAB5 实际值为准；保存需要设备确认。"))
         result.textColor = .secondaryLabelColor
         stack.addArrangedSubview(result); result.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -104,7 +107,12 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         ssid.isEnabled = !value; password.isEnabled = !value
         result.stringValue = message
     }
-    private func refreshStatus() { connection.stringValue = service.connectionSummary }
+    private func refreshStatus() {
+        connection.stringValue = service.connectionSummary; window?.contentView?.layoutSubtreeIfNeeded()
+        if let documentView, let stackView { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(window?.contentView?.bounds.height ?? 700, stackView.fittingSize.height + 48))) }
+    }
+    func windowDidResize(_ notification: Notification) { refreshStatus() }
+    @objc private func openGuide() { if let url = Bundle.main.url(forResource: "MAC-TAB5-CANDIDATE", withExtension: "md") { _ = NSWorkspace.shared.open(url) } }
     var toolsBusy: Bool { tools?.busy == true }
     @objc private func openInstall() { if allowOperation() { install() } }
     @objc private func openFeatures() {
@@ -180,7 +188,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     }
 }
 
-private final class MacTab5SettingsForm: NSObject {
+final class MacTab5SettingsForm: NSObject {
     private let brightness = NSTextField()
     private let volume = NSTextField()
     private let muted = NSButton(checkboxWithTitle: "静音", target: nil, action: nil)
@@ -217,24 +225,31 @@ private final class MacTab5SettingsForm: NSObject {
         let alert = NSAlert(); alert.messageText = "TAB5 显示设置"
         alert.informativeText = "以下为设备实际设置。勾选参与轮播的页面，使用上下按钮调整顺序。"
         alert.addButton(withTitle: "保存到 TAB5"); alert.addButton(withTitle: "取消")
-        let grid = NSGridView(views: [
-            [NSTextField(labelWithString: "亮度（10–100）"), form.brightness],
-            [NSTextField(labelWithString: "音量（0–100）"), form.volume],
-            [NSTextField(labelWithString: "固定页面"), form.selected],
-            [NSTextField(labelWithString: "轮播间隔"), form.interval],
-            [NSTextField(labelWithString: "屏保等待"), form.saver]
-        ])
-        grid.rowSpacing = 8; grid.columnSpacing = 14; grid.column(at: 0).xPlacement = .trailing
-        let flags = NSStackView(views: [form.muted, form.cycle, form.alerts]); flags.spacing = 18
-        let body = NSStackView(views: [grid, flags, form.pageRows]); body.orientation = .vertical; body.alignment = .leading; body.spacing = 14
-        body.frame = NSRect(x: 0, y: 0, width: 430, height: 460)
-        grid.widthAnchor.constraint(equalToConstant: 430).isActive = true
-        alert.accessoryView = body
+        alert.accessoryView = form.contents()
         while alert.runModal() == .alertFirstButtonReturn {
             do { return try form.value() }
             catch { alert.informativeText = error.localizedDescription }
         }
         return nil
+    }
+    static func fixture() -> (NSObject, NSView) {
+        let form = MacTab5SettingsForm(.init(revision: "00000000", brightness: 80, volume: 50, muted: false, selected: -1, cycle: true, interval: 15, saverMinutes: 5, alerts: true, enabled: Array(repeating: 1, count: 8), order: Array(0..<8)))
+        return (form, form.contents())
+    }
+    private func contents() -> NSView {
+        let grid = NSGridView(views: [
+            [NSTextField(labelWithString: "亮度（10–100）"), brightness],
+            [NSTextField(labelWithString: "音量（0–100）"), volume],
+            [NSTextField(labelWithString: "固定页面"), selected],
+            [NSTextField(labelWithString: "轮播间隔"), interval],
+            [NSTextField(labelWithString: "屏保等待"), saver]
+        ])
+        grid.rowSpacing = 8; grid.columnSpacing = 14; grid.column(at: 0).xPlacement = .trailing
+        let flags = NSStackView(views: [muted, cycle, alerts]); flags.spacing = 18
+        let body = NSStackView(views: [grid, flags, pageRows]); body.orientation = .vertical; body.alignment = .leading; body.spacing = 14
+        body.frame = NSRect(x: 0, y: 0, width: 430, height: 460)
+        grid.widthAnchor.constraint(equalToConstant: 430).isActive = true
+        return body
     }
     @objc private func cycleChanged() {
         selected.isEnabled = cycle.state != .on

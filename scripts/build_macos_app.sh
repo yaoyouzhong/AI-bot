@@ -14,6 +14,12 @@ swift build -c release --package-path "$package_root"
 mkdir -p "$contents/MacOS"
 install -m 755 "$package_root/.build/release/AIBotBridge" "$contents/MacOS/AIBotBridge"
 install -m 644 "$package_root/Info.plist" "$contents/Info.plist"
+mkdir -p "$contents/Resources"
+install -m 644 "$repo_root/LICENSE" "$repo_root/THIRD_PARTY_NOTICES.md" "$repo_root/docs/MAC-TAB5-CANDIDATE.md" "$contents/Resources/"
+git -C "$repo_root" rev-parse HEAD > "$contents/Resources/SOURCE_SHA.txt"
+if ! git -C "$repo_root" diff --quiet -- mac-app; then
+    printf '%s\n' 'working-tree-changes=yes' >> "$contents/Resources/SOURCE_SHA.txt"
+fi
 python3 "$repo_root/scripts/bundle_flash_tool.py" macos "$contents/Resources/flash-tools"
 plutil -lint "$contents/Info.plist"
 codesign --force --sign - --options runtime \

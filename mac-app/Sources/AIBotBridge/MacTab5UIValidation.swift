@@ -22,13 +22,22 @@ enum MacTab5UIValidation {
             if let scroll = content.subviews.compactMap({ $0 as? NSScrollView }).first, let document = scroll.documentView { try render(document, to: output.appendingPathComponent(name + "-full.png")) }
             window.close()
         }
-        print("MAC_TAB5_NATIVE_UI_RENDER_OK four fixture windows; no hardware, live conversation or permission accessed")
+        let settings = MacTab5SettingsForm.fixture()
+        try render(settings.1, to: output.appendingPathComponent("display-settings.png")); withExtendedLifetime(settings.0) {}
+        print("MAC_TAB5_NATIVE_UI_RENDER_OK four fixture windows and display settings; no hardware, live conversation or permission accessed")
     }
     private static func render(_ view: NSView, to url: URL) throws {
         view.layoutSubtreeIfNeeded()
         guard view.bounds.width >= 100, view.bounds.height >= 100, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw MacTab5Error.unavailable }
         view.cacheDisplay(in: view.bounds, to: bitmap)
-        guard let bytes = bitmap.representation(using: .png, properties: [:]), bytes.count > 1000 else { throw MacTab5Error.unavailable }
+        // AppKit view caches retain transparency outside controls. Composite the
+        // native drawing over the window's semantic background for inspection.
+        let drawing = NSImage(size: view.bounds.size); drawing.addRepresentation(bitmap)
+        let opaque = NSImage(size: view.bounds.size)
+        opaque.lockFocus()
+        NSAppearance(named: .aqua)!.performAsCurrentDrawingAppearance { NSColor.windowBackgroundColor.setFill(); NSRect(origin: .zero, size: view.bounds.size).fill(); drawing.draw(in: NSRect(origin: .zero, size: view.bounds.size)) }
+        opaque.unlockFocus()
+        guard let tiff = opaque.tiffRepresentation, let composed = NSBitmapImageRep(data: tiff), let bytes = composed.representation(using: .png, properties: [:]), bytes.count > 1000 else { throw MacTab5Error.unavailable }
         try bytes.write(to: url, options: .withoutOverwriting)
     }
 }
