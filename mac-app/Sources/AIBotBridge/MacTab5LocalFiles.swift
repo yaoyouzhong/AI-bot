@@ -43,9 +43,7 @@ struct MacTab5Archive {
         guard url.isFileURL, url.pathExtension.lowercased() == "zip",
               let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0, size <= maximumSize else { throw MacTab5LocalError.invalid("请选择有效的 AI-bot ZIP 包。") }
         self.url = url; nested = allowNested; unicode = allowUnicode
-        let listing = try MacTab5LocalProcess.run("/usr/bin/unzip", ["-Z1", url.path], maximum: 16 * 1024 * 1024)
-        guard let text = String(data: listing, encoding: .utf8) else { throw MacTab5LocalError.invalid("ZIP 文件名编码不是 UTF-8，无法安全导入。") }
-        names = text.split(separator: "\n").map(String.init)
+        names = try MacTab5ZIPDirectory.names(url, maximumEntries: maximumEntries)
         guard !names.isEmpty, names.count <= maximumEntries, Set(names.map { $0.lowercased() }).count == names.count,
               names.allSatisfy({ allowUnicode ? Self.safeUnicodePath($0) : allowNested ? Self.safePath($0) : Self.safeName($0) }) else { throw MacTab5LocalError.invalid("ZIP 含重复或不安全的文件名。") }
     }

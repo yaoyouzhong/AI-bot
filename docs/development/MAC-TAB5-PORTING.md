@@ -38,6 +38,7 @@ UI plan: keep native AppKit controls, system semantic background/label/separator
 - 最后补充：Codex 目录失联超过 30 秒保留可见缓存，但禁止新发送/桌面写入；阅读回执重新核对当前终态轮次。HTTP 设备操作放到有界后台队列，慢 Codex 请求不阻塞日常状态连接；新增真实回环 HTTP 并发回归。最终提交结果以 CI 附件和本地 `verify_mac_tab5_ci_artifacts.py` 复核为准。
 - `0eed5c7` 的 [Mac CI 39284171856](https://github.com/yaoyouzhong/AI-bot/actions/runs/39284171856) 附件完成本地复核：108 项测试，0 失败、0 跳过；Release、候选 App、P4/ESP8266 工具与 8 张原生 PNG 通过，内外层 SHA 与源码 SHA 一致。覆盖监听 ready 后临时端口、真实 HTTP 并发和语音自然结束/报错释放收音。
 - 高清完整包入口补充：外层有目录并包含 `standard.zip`，现在按清单验证外层目录、类别/作品数与内置 ZIP SHA，再流式读取、验证并原子启用 TAB5 适配子集；支持安全的中文文件名。桌面高清原作不解压、不宣称已验证，也不包含 Mac 高清浏览器。新增损坏包保留原图库的实际 ZIP 回归；最终 CI 覆盖该入口。
+- Mac 系统 `unzip` 的文件名列表会按本机编码转换，中文 ZIP 回归实际暴露非 UTF-8 输出。改为按 [PKWARE ZIP 格式说明](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT)独立读取有界 central directory、UTF-8/Unicode path 与 ZIP64；解压仍由系统工具执行并受大小/SHA 约束。新增小体积强制 ZIP64 与分卷/截断拒绝夹具，不创建 GiB 级测试文件。
 
 候选使用、权限、版本差异与集中真机清单见 [双语指南](../MAC-TAB5-CANDIDATE.md)。代码保存在独立测试 worktree/测试分支，不覆盖原始 checkout 的 Windows/固件未提交改动。远端 main 未更新。
 
