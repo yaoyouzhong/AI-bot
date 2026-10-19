@@ -18,6 +18,7 @@ final class MacTab5Desktop {
         guard let id = MacTab5Codex.id(root["requestId"]), let op = root["op"] as? String, ["open-recent", "stage-draft", "clear-draft", "submit-draft"].contains(op) else { return .error(400, "invalid_request") }
         let tasks = codex.snapshot()?["tasks"] as? [[String: Any]] ?? []
         guard let task = MacTab5Codex.id(root["taskId"] ?? tasks.first?["id"]), let entry = tasks.first(where: { $0["id"] as? String == task }) else { return .error(404, "task_not_in_recent_catalog") }
+        guard codex.contains(task) else { return .error(503, "codex_catalog_stale") }
         do {
             var records = try codex.store.read("desktop-receipts").map(MacTab5Protocol.object) ?? [:]
             let binding = device + "|" + task, text = root["text"] as? String ?? "", draftID = root["draftRequestId"] as? String ?? ""

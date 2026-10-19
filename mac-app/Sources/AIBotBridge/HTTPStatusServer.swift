@@ -10,10 +10,12 @@ final class HTTPStatusServer {
     private let acknowledge: () -> Void
     private let tab5: MacTab5Service?
     private let queue = DispatchQueue(label: "AI-bot.status-server")
+    private let requests: OperationQueue = { let queue = OperationQueue(); queue.name = "AI-bot.tab5-requests"; queue.maxConcurrentOperationCount = 2; return queue }()
+    private var pendingRequests = 0 // owned by the listener queue
     private var listener: NWListener?
 
     init(port: UInt16, token: @escaping () -> String?, resources: @escaping () -> [MacResourcePayload] = { [] }, event: @escaping (String,String,String)->Bool = {_,_,_ in false}, acknowledge: @escaping ()->Void = {}, tab5: MacTab5Service? = nil, snapshot: @escaping () -> Data) {
-        self.port = NWEndpoint.Port(rawValue: port)!
+        self.port = port == 0 ? .any : NWEndpoint.Port(rawValue: port)!
         self.token = token
         self.snapshot = snapshot
         self.resources = resources
@@ -40,6 +42,7 @@ final class HTTPStatusServer {
         listener?.cancel()
         listener = nil
     }
+    var boundPort: UInt16? { queue.sync { listener?.port?.rawValue } }
 
     private func accept(_ connection: NWConnection) {
         connection.start(queue: queue)
@@ -62,14 +65,26 @@ final class HTTPStatusServer {
                 timeout.cancel()
                 var loopback = false
                 if case let .hostPort(host, _) = connection.endpoint { loopback = ["127.0.0.1", "::1"].contains(String(describing: host)) }
-                let response = self.response(for: request, raw: next, loopback: loopback)
-                let sendTimeout = DispatchWorkItem { connection.cancel() }
-                self.queue.asyncAfter(deadline: .now() + 180, execute: sendTimeout)
-                self.send(response, offset: 0, connection: connection, timeout: sendTimeout)
+                if request.method == "POST", request.target.hasPrefix("/tab5/") {
+                    guard self.pendingRequests < 8 else { self.deliver(self.http(status: "503 Service Unavailable", body: Data()), connection: connection); return }
+                    self.pendingRequests += 1
+                    let raw = next, local = loopback
+                    self.requests.addOperation { [weak self] in
+                        guard let self else { connection.cancel(); return }
+                        let response = self.response(for: request, raw: raw, loopback: local)
+                        self.queue.async { self.pendingRequests -= 1; self.deliver(response, connection: connection) }
+                    }
+                } else { self.deliver(self.response(for: request, raw: next, loopback: loopback), connection: connection) }
             } catch {
                 connection.send(content: self.http(status: "400 Bad Request", body: Data()), completion: .contentProcessed { _ in connection.cancel() })
             }
         }
+    }
+
+    private func deliver(_ response: Data, connection: NWConnection) {
+        let timeout = DispatchWorkItem { connection.cancel() }
+        queue.asyncAfter(deadline: .now() + 180, execute: timeout)
+        send(response, offset: 0, connection: connection, timeout: timeout)
     }
 
     private func send(_ bytes: Data, offset: Int, connection: NWConnection, timeout: DispatchWorkItem) {

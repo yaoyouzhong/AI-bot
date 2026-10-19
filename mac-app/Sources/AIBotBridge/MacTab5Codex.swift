@@ -7,6 +7,8 @@ final class MacTab5Codex {
     private let gate = NSLock(), stateLock = NSLock()
     private let queue = DispatchQueue(label: "AI-bot.tab5-codex")
     private let call: Call, enabled: () -> Bool, sendEnabled: () -> Bool
+    private let clock: () -> TimeInterval
+    private var catalogUpdated: TimeInterval = -.infinity
     let store: MacTab5PrivateStore
     let photos: MacTab5Photos
     private var timer: DispatchSourceTimer?
@@ -19,8 +21,8 @@ final class MacTab5Codex {
     private var note = "尚未启用"
     private let rpc: MacTab5CodexRPC?
 
-    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, call: Call? = nil) {
-        self.store = store; photos = MacTab5Photos(store: store); self.enabled = enabled; self.sendEnabled = sendEnabled
+    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, call: Call? = nil) {
+        self.store = store; photos = MacTab5Photos(store: store); self.enabled = enabled; self.sendEnabled = sendEnabled; self.clock = clock
         if let call { self.call = call; rpc = nil }
         else { let rpc = MacTab5CodexRPC(); self.rpc = rpc; self.call = rpc.call }
     }
@@ -58,6 +60,7 @@ final class MacTab5Codex {
                 let status = root["status"] as? [String: Any] ?? [:]
                 return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": root["updatedAt"] as? Int64 ?? 0, "state": status["type"] as? String ?? "unknown"]
             }
+            catalogUpdated = clock()
             stateLock.lock()
             projection["tasks"] = catalog
             var projects: [[String: Any]] = []; var seen = Set<String>()
@@ -75,7 +78,7 @@ final class MacTab5Codex {
     }
     private func saveJournal(_ value: [String: Any]) throws { try store.write("journal", MacTab5Protocol.json(value)); journal = value }
     static func id(_ value: Any?) -> String? { guard let text = value as? String, text.count == 36, UUID(uuidString: text) != nil else { return nil }; return text.lowercased() }
-    func contains(_ task: String) -> Bool { gate.lock(); defer { gate.unlock() }; return catalog.contains { $0["id"] as? String == task } }
+    func contains(_ task: String) -> Bool { gate.lock(); defer { gate.unlock() }; return enabled() && clock() - catalogUpdated <= 30 && catalog.contains { $0["id"] as? String == task } }
 
     func handle(_ root: [String: Any], device: String) -> MacTab5RPCResult {
         guard enabled() else { return .error(403, "codex_not_enabled") }
@@ -119,6 +122,7 @@ final class MacTab5Codex {
                   op == "send" || Self.id(expected) != nil else { return .error(400, "invalid_request") }
             let fingerprint = MacTab5Protocol.sha256(try MacTab5Protocol.json(["binding": binding, "op": op, "text": text, "expected": expected, "images": images]))
             if let receipt = receipts[id] as? [String: Any] { return receipt["fingerprint"] as? String == fingerprint ? receiptResult(receipt) : .error(409, "request_id_conflict") }
+            guard clock() - catalogUpdated <= 30 else { return .error(503, "codex_catalog_stale") }
             guard receipts.count < 4096 else { return .error(429, "receipt_store_full") }
             var inputs = try photos.inputs(images, device: device, task: task)
             if !text.isEmpty { inputs.insert(["type": "text", "text": text], at: 0) }

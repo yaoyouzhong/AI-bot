@@ -57,6 +57,7 @@ final class MacTab5CodexTests: XCTestCase {
         let ack: [String: Any] = ["op": "read-ack", "taskId": api.task, "turnId": api.turn, "requestId": receipt]
         XCTAssertEqual(codex.handle(ack, device: "B").status, 409); XCTAssertEqual(codex.handle(ack, device: "A").status, 200)
         api.running = true
+        XCTAssertEqual(codex.handle(ack, device: "A").status, 409)
         XCTAssertEqual(codex.handle(["op": "send", "taskId": api.task, "message": "hello", "requestId": UUID().uuidString], device: "A").status, 409)
         XCTAssertEqual(codex.handle(["op": "steer", "taskId": api.task, "message": "hello", "expectedTurn": UUID().uuidString, "requestId": UUID().uuidString], device: "A").status, 409)
     }
@@ -65,5 +66,14 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual(try storage.read("draft-A"), Data("机密草稿".utf8)); XCTAssertNil(try storage.read("draft-B"))
         let text = String(repeating: "中文🙂e\u{301}", count: 1500), pages = MacTab5Codex.pages(text)
         XCTAssertGreaterThan(pages.count, 1); XCTAssertEqual(pages.joined(), text); XCTAssertTrue(pages.allSatisfy { $0.utf8.count <= 3500 })
+    }
+    func testCachedCatalogRemainsVisibleButStaleActionsCannotSend() throws {
+        let api = API(); var now: TimeInterval = 0
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { true }, clock: { now }, call: api.call); codex.refresh()
+        XCTAssertTrue(codex.contains(api.task)); now = 31
+        XCTAssertFalse(codex.contains(api.task)); XCTAssertFalse((codex.snapshot()?["tasks"] as? [[String: Any]] ?? []).isEmpty)
+        let request: [String: Any] = ["op": "send", "taskId": api.task, "requestId": UUID().uuidString, "message": "do not send while stale"]
+        XCTAssertEqual(codex.handle(request, device: "A").status, 503); XCTAssertFalse(api.calls.contains { $0.0 == "turn/start" })
+        codex.refresh(); XCTAssertEqual(codex.handle(request, device: "A").status, 202)
     }
 }
