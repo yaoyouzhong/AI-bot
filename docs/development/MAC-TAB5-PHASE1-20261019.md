@@ -51,11 +51,11 @@ English: Windows reference and firmware ABI checks passed. Mac CI passed all 55 
 ## GitHub Actions 验证 / CI evidence
 
 - [首轮运行 / Initial run 39271302634](https://github.com/yaoyouzhong/AI-bot/actions/runs/39271302634)：源码 `eab54a11957ee1165cd728e739f079b96f2ef873`；macOS 14.8.9、arm64、Swift 5.10；55 项测试 0 失败，Release 编译成功。没有发现 Swift 编译或测试失败。
-- 产物复核发现两处测试工作流问题并修正：显式 Bash 使用 `-eo pipefail`，避免 `tee` 隐藏失败；XCTest XML 使用工作区绝对路径，并检查非空，避免 Swift 包相对路径导致漏传报告。后续运行见[测试分支工作流](https://github.com/yaoyouzhong/AI-bot/actions/workflows/macos-tab5.yml?query=branch%3Acodex%2Fmac-tab5-phase1-ci)，具体结果对应各自源码 SHA。
+- 产物复核发现两处测试工作流问题并修正：显式 Bash 使用 `-eo pipefail`，避免 `tee` 隐藏失败；XCTest XML 使用工作区绝对路径并检查非空。第二轮 39272076828 的测试仍全通过、Release 成功，但非空检查正确报错：Swift 5.10 的串行 XCTest 未生成 XML。按 [SwiftPM 已知问题](https://github.com/swiftlang/swift-package-manager/issues/4752)，使用 `--parallel --num-workers 1` 启用报告生成，保持一次只执行一个测试，不跳过或弱化断言。后续运行见[测试分支工作流](https://github.com/yaoyouzhong/AI-bot/actions/workflows/macos-tab5.yml?query=branch%3Acodex%2Fmac-tab5-phase1-ci)，具体结果对应各自源码 SHA。
 - 工作流仅在测试分支 push 或手动触发时运行，权限为 `contents: read`。保存环境、测试/编译日志、XCTest XML 和带来源 SHA、许可、SHA-256 的 Release 二进制检查包，保留 14 天；不执行签名、公证、安装、部署、标签或 Release。
 - 原有 `AppDelegate.swift:10` 音乐服务初始化的 `UserDefaults` 跨 actor 警告在基线 CI 39251154041 已存在。本轮未修改音乐服务或 Apple Events；仍有该非致命警告，不能声称零警告。上传 action 另有 Node 20 弃用提示，运行已由托管 runner 切到 Node 24。
 
-English: the linked initial run proves 55 passing tests and Release compilation on macOS arm64. Artifact inspection led to explicit Bash pipefail and an absolute, required XCTest XML path. Subsequent branch runs carry their exact source SHA. Artifacts are inspection builds retained for 14 days, without deployment or publication. The existing music-service concurrency warning and the upload action's Node deprecation notice remain recorded.
+English: the linked initial run proves 55 passing tests and Release compilation on macOS arm64. Artifact inspection led to explicit Bash pipefail and an absolute, required XCTest XML path. The second run correctly failed the report check despite passing tests/build: Swift 5.10 does not generate serial XCTest XML. Use the documented parallel harness with one worker to produce it while executing one test at a time. Subsequent branch runs carry their exact source SHA. Artifacts are inspection builds retained for 14 days, without deployment or publication. The existing music-service concurrency warning and the upload action's Node deprecation notice remain recorded.
 
 Windows 本地复核命令（路径对应本机证据）：
 
