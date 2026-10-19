@@ -8,8 +8,8 @@
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows 桥接 | 0.6.10（已发布） | 根目录 `VERSION` | `bridge-v0.6.10` |
-| Mac 桥接 | 0.6.7（沿用已发布包） | 按实际 Mac 附件识别 | `bridge-v0.6.7` |
+| Windows 桥接 | 0.6.10（已发布） | 根目录 `VERSION` | `v0.6.10` |
+| Mac 桥接 | 0.6.7（沿用已发布包） | 按实际 Mac 附件识别 | `v0.6.7` |
 | ESP8266 固件 | 0.5.3（已发布） | `firmware/VERSION` | `esp8266-v0.5.3` |
 | TAB5 固件 | 0.2.234-ui（已发布） | `versions/TAB5` | `tab5-v0.2.234-ui` |
 
@@ -23,7 +23,7 @@
 
 此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。本轮范围及验收见 [0.6.10／234 说明](RELEASE-0.6.10.md)，此前结果保留在 [0.6.7／205 历史说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
 
-桥接与历史组合版的发布展示标题统一使用 `AI-bot v版本号`，例如 `AI-bot v0.6.7`；功能说明放在正文。ESP8266 和 TAB5 保留各自命名方式，固件版本值和新包名不加 `v`。Git 标签保留现有前缀。后续构建物和旧客户端兼容规则见[命名规范](NAMING-CONVENTIONS.md)。
+桥接与历史组合版的发布展示标题统一使用 `AI-bot v版本号`，例如 `AI-bot v0.6.7`；功能说明放在正文。ESP8266 和 TAB5 保留各自命名方式，固件版本值和新包名不加 `v`。电脑端 Git 发布标签统一为 `vX.Y.Z`；固件保留组件前缀。后续构建物和旧客户端兼容规则见[命名规范](NAMING-CONVENTIONS.md)。
 
 ## 构建与检查
 
@@ -48,12 +48,12 @@ python scripts/package_esp8266_local.py artifacts/esp8266-package
 标签检查按组件路由：
 
 ```powershell
-python scripts/check_version.py --tag bridge-v0.6.2
+python scripts/check_version.py --tag v0.6.10
 python scripts/check_version.py --tag esp8266-v0.5.1
 python scripts/check_version.py --tag tab5-v0.2.151-ui
 ```
 
-上述命令只检查格式与本地声明，不创建标签。历史 `vX.Y.Z` 保留为桥接主导的组合版本，包内各组件仍用独立版本。`extract_release_notes.py` 从对应组件的中英文日志选取说明；未完成的日志继续阻止正式打标签。
+上述命令只检查格式与本地声明，不创建标签。0.5.0 及更早的 `vX.Y.Z` 保留为桥接主导的组合版本；0.5.1 起的 `vX.Y.Z` 只路由电脑端，不能触发固件打包。旧 `bridge-vX.Y.Z` 仍可读取为兼容别名。包内各组件仍用独立版本。`extract_release_notes.py` 从对应组件的中英文日志选取说明；未完成的日志继续阻止正式打标签。
 
 `prepare_release_assets.py --component bridge|esp8266|tab5` 分别验证对应包，不要求另一组件同时交付。`--publish-directory` 从验收目录生成最少用户附件和一份校验清单：桥接为 Windows 安装器、Mac ZIP、清单；ESP8266 为固件材料 ZIP、清单；TAB5 为首刷 ZIP、升级 ZIP、清单。源码和构建记录保留在验收资料或仓库开发入口；当前 TAB5 .194 正式发布另附对应源码 ZIP；可选名画与书法包分别按下载索引中的正式版本提供。
 

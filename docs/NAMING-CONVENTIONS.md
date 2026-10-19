@@ -49,6 +49,6 @@ HD parts append `.part001`, `.part002` to the complete ZIP name. Retain `SHA256S
 
 [`scripts/artifact_names.py`](../scripts/artifact_names.py) defines canonical names and legacy aliases. Packaging validation, publication staging, download indexing and Windows update discovery accept both, preferring canonical names for equal versions. Existing public assets and URLs remain available. Future Windows installers, ESP8266 packages and TAB5 upgrades retain byte-identical legacy-name aliases with published checksums so installed older bridges can discover updates. Do not duplicate large collections for naming alone; existing collection assets remain usable, while new collection names require a compatible bridge.
 
-Git 标签沿用 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui`，其中固件标签里的 `v` 是历史路由结构；内部固件文件仍使用 `aibot_tab5.bin` 等既有名称。发布名称、外层包名和内部协议名称分别承担不同用途。
+电脑端 Git 发布标签统一为 `vX.Y.Z`，发布标题为 `AI-bot vX.Y.Z`；ESP8266 和 TAB5 标签仍为 `esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui`。0.5.0 及更早的 `vX.Y.Z` 保留组合版语义；旧 `bridge-vX.Y.Z` Git 引用仅保留为历史兼容别名，发布与下载入口使用新标签。已发布附件保留文件名、字节与 SHA-256，不为标签迁移重新打包。内部固件文件仍使用 `aibot_tab5.bin` 等既有名称。
 
-Keep component Git tag prefixes (`bridge-v`, `esp8266-v`, `tab5-v`) for routing and history, and retain internal firmware names such as `aibot_tab5.bin`. Firmware tag prefixes are separate from displayed version values and canonical package filenames.
+Desktop release tags use `vX.Y.Z` with the title `AI-bot vX.Y.Z`. Firmware keeps `esp8266-v` and `tab5-v`. Tags through `v0.5.0` retain bundle semantics; old `bridge-v` Git refs are historical aliases only. Public release/download links use the canonical tags. Preserve existing asset names, bytes, checksums and internal firmware names such as `aibot_tab5.bin`.

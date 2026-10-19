@@ -29,9 +29,12 @@ class ComponentVersionTests(unittest.TestCase):
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text(f"## {expected[name]} - 2026-10-03\n\n- Fixture.\n")
             self.assertEqual(expected, versions(root))
-            for component, tag in (("bridge", "bridge-v2.0.0"), ("esp8266", "esp8266-v0.5.0"), ("tab5", "tab5-v0.2.89-ui")):
+            for component, tag in (("bridge", "v2.0.0"), ("esp8266", "esp8266-v0.5.0"), ("tab5", "tab5-v0.2.89-ui")):
                 self.assertEqual((component, expected[component]), release_target(tag, root))
-            self.assertEqual(("bundle", "2.0.0"), release_target("v2.0.0", root))
+            self.assertEqual(("bridge", "2.0.0"), release_target("bridge-v2.0.0", root))
+            self.assertEqual(("bundle", "0.5.0"), release_target("v0.5.0", root))
+            self.assertEqual(("bridge", "0.5.1"), release_target("v0.5.1", root))
+            self.assertEqual(("bridge", "0.6.10"), release_target("v0.6.10", root))
             for tag in ("tab5-vbroken", "unknown-v2.0.0", "esp8266-v../0.5.0"):
                 with self.assertRaises(ValueError):
                     release_target(tag, root)
@@ -41,7 +44,7 @@ class ComponentVersionTests(unittest.TestCase):
             plist = root / "mac-app/Info.plist"
             plist.parent.mkdir()
             plist.write_text("<plist><dict><key>CFBundleShortVersionString</key><string>2.0.0</string></dict></plist>")
-            with patch.object(check_version, "ROOT", root), patch.object(sys, "argv", ["check_version", "--tag", "bridge-v2.0.0"]):
+            with patch.object(check_version, "ROOT", root), patch.object(sys, "argv", ["check_version", "--tag", "v2.0.0"]):
                 self.assertEqual(0, check_version.main())
             with patch.object(check_version, "ROOT", root), patch.object(sys, "argv", ["check_version", "--tag", "esp8266-v2.0.0"]):
                 with self.assertRaises(SystemExit):

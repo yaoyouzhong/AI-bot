@@ -5,7 +5,7 @@
 ## 发布身份
 
 - 远端 `https://github.com/yaoyouzhong/AI-bot.git`，目标 `main`。
-- [Windows 0.6.9](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.9)：2026-10-17 12:44:46 UTC 发布；[TAB5 217](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.217-ui)：12:44:43 UTC 发布。
+- [Windows 0.6.9](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.9)：2026-10-17 12:44:46 UTC 发布；[TAB5 217](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.217-ui)：12:44:43 UTC 发布。
 - 两枚带注释标签指向 `9a570d4b443b1354306d753afcca9fe8f0fbd387`。桥接编译提交 `a81096f`；后续提交只补齐包内已有日志，907 项归档源码与发布源码一致。
 - TAB5 独立源码 `d31a601289dbfc4edf8da82d0f91a7f926dbd090`。实际应用／ELF／源码与六项交付包 SHA-256 见[本版说明](../RELEASE-0.6.9.md)。已验收包字节保持不变。
 - Mac 0.6.7、ESP8266 0.5.3 与全部图库保留；未发布 CI 生成的 Mac 0.6.9。

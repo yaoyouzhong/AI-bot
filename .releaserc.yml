@@ -9,7 +9,7 @@ changelog:
       lang: zh
 
 tag:
-  prefix: bridge-v
+  prefix: v
   sign: false
 
 include:

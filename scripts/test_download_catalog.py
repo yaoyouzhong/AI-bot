@@ -54,25 +54,25 @@ class DownloadCatalogTests(unittest.TestCase):
     def test_stable_discovery_ignores_drafts_prereleases_and_wrong_tags(self):
         releases = self.releases()
         for flags in ({"draft": True}, {"prerelease": True}, {"tag_name": "esp8266-v99.0.0"}):
-            invalid = {"tag_name": "bridge-v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,
+            invalid = {"tag_name": "v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,
                        "assets": [{"name": "AIBotBridge-99.0.0-setup-win-x64.exe", "size": 10, "digest": "sha256:" + "a"*64}], **flags}
             releases.append(invalid)
         self.assertEqual(catalog.discover(releases), self.data)
 
     def test_windows_only_release_preserves_current_mac_download(self):
-        releases = self.releases() + [{"tag_name": "bridge-v99.0.0", "published_at": "2020-01-01", "draft": False, "prerelease": False,
+        releases = self.releases() + [{"tag_name": "v99.0.0", "published_at": "2020-01-01", "draft": False, "prerelease": False,
             "assets": [{"name": "AIBotBridge-99.0.0-setup-win-x64.exe", "size": 10, "digest": "sha256:"+"a"*64}, {"name": "SHA256SUMS.txt"}]}]
         result = catalog.discover(releases)
         self.assertEqual(result["downloads"]["windows"]["version"], "99.0.0")
         self.assertEqual(result["downloads"]["macos"], self.data["downloads"]["macos"])
         for language in ("zh", "en"):
-            rendered = catalog.table(result, language, tag="bridge-v99.0.0")
+            rendered = catalog.table(result, language, tag="v99.0.0")
             self.assertIn(catalog.asset_url(self.data["downloads"]["macos"]), rendered)
-            self.assertNotIn("macos-arm64.zip", "\n".join(row for row in rendered.splitlines() if "bridge-v99.0.0" in row))
+            self.assertNotIn("macos-arm64.zip", "\n".join(row for row in rendered.splitlines() if "v99.0.0" in row))
             self.assertEqual(rendered.count("本次发布" if language == "zh" else "this release"), 1)
 
     def test_mac_only_release_preserves_current_windows_download(self):
-        releases = self.releases() + [{"tag_name": "bridge-v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,
+        releases = self.releases() + [{"tag_name": "v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,
             "assets": [{"name": "AI-bot-bridge-v99.0.0-macos-arm64.zip", "size": 10, "digest": "sha256:"+"b"*64}, {"name": "SHA256SUMS.txt"}]}]
         result = catalog.discover(releases)
         self.assertEqual(result["downloads"]["macos"]["version"], "99.0.0")
@@ -118,7 +118,7 @@ class DownloadCatalogTests(unittest.TestCase):
                 catalog.verify_online(self.data)
 
     def test_component_release_changes_only_its_own_downloads(self):
-        for tag, changed in (("bridge-v99.0.0", {"windows", "macos"}), ("esp8266-v99.0.0", {"esp8266"}),
+        for tag, changed in (("v99.0.0", {"windows", "macos"}), ("esp8266-v99.0.0", {"esp8266"}),
                              ("tab5-v99.0.0-ui", {"tab5-first", "tab5-upgrade"})):
             rendered = catalog.table(self.data, tag=tag)
             for key, item in self.data["downloads"].items():
@@ -166,9 +166,9 @@ class DownloadCatalogTests(unittest.TestCase):
                 rendered = catalog.table(self.data, language, tag=item["tag"])
                 row = next(line for line in rendered.splitlines() if catalog.asset_url(item) in line)
                 self.assertIn(f"{item['size'] / 1048576:.0f} MiB", row)
-        draft = catalog.table(self.data, tag="bridge-v99.0.0")
+        draft = catalog.table(self.data, tag="v99.0.0")
         for line in draft.splitlines():
-            if "bridge-v99.0.0" in line:
+            if "v99.0.0" in line:
                 self.assertNotIn("MiB", line)
 
 
