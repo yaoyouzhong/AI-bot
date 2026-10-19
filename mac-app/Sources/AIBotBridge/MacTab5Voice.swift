@@ -82,8 +82,12 @@ final class MacTab5Voice {
             guard self.id == owner, ["recording", "recognizing"].contains(self.state) else { return }
             if !result.isEmpty { self.text = Self.bounded(result, maximum: 2000) }
             if result.utf8.count > 2000 { self.state = "error"; self.message = "识别文字超过长度限制，请分段录入"; self.backend.cancel(); return }
-            if error { self.state = "error"; self.message = "识别中断，文字可能不完整，请检查后重新录入" }
-            else if done { self.isFinal = true; self.state = "review"; self.message = self.text.isEmpty ? "没有识别到文字，请重录" : "请检查文字，确认后再发送" }
+            if error { self.state = "error"; self.message = "识别中断，文字可能不完整，请检查后重新录入"; self.backend.cancel() }
+            else if done {
+                let wasRecording = self.state == "recording"
+                self.isFinal = true; self.state = "review"; self.message = self.text.isEmpty ? "没有识别到文字，请重录" : "请检查文字，确认后再发送"
+                if wasRecording { self.backend.finish() }
+            }
         }
     }
     static func bounded(_ text: String, maximum: Int) -> String { var result = ""; for char in text { let next = String(char); if result.utf8.count + next.utf8.count > maximum { break }; result += next }; return result }

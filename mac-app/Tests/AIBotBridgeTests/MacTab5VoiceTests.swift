@@ -58,4 +58,11 @@ final class MacTab5VoiceTests: XCTestCase {
         XCTAssertEqual(result.body["state"] as? String, "error"); XCTAssertEqual(result.body["canInsert"] as? Bool, false)
         XCTAssertLessThanOrEqual((result.body["text"] as! String).utf8.count, 2000)
     }
+    func testRecognizerFinalOrErrorAlwaysReleasesCapture() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend())
+        let first = start(voice); backend.callback?("自然结束", true, false)
+        XCTAssertEqual(backend.finishes, 1); XCTAssertEqual(voice.handle(request("poll", first), device: "A").body["state"] as? String, "review")
+        let second = start(voice), before = backend.cancels; backend.callback?("", false, true)
+        XCTAssertEqual(backend.cancels, before + 1); XCTAssertEqual(voice.handle(request("poll", second), device: "A").body["state"] as? String, "error")
+    }
 }
