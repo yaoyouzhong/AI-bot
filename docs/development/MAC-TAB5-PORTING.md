@@ -15,3 +15,10 @@ The user authorized remaining development and per-module Mac CI on the test bran
 UI plan: keep native AppKit controls, system semantic background/label/separator/accent colors and system font sizes 23/15/13/12. Left-aligned connection status remains above USB/Wi-Fi setup. Add explicit Bluetooth and feature opt-ins, then separate resource/firmware actions; use scroll views for long settings. Match the existing Mac menu-bar utility, without adding a web dashboard or decorative animation. CI UI snapshots and physical permission/interaction checks have separate evidence.
 
 协议保持 v1；每种通道共用配对身份、认证、重放校验、事务和结果。CI 只能证明该提交的编译与自动化测试；不能证明真实蓝牙吞吐、屏幕显示、权限或 OTA 启动。缺失的供应商/平台能力不伪造、不通告。
+
+## 模块证据 / Module evidence
+
+- CoreBluetooth：`17f3922` 在 [Mac CI 39274063784](https://github.com/yaoyouzhong/AI-bot/actions/runs/39274063784) 通过 60 项测试和 Release 编译。覆盖身份/nonce/ACK、MTU 边界、USB 优先和纯 BLE 显示事务；真实权限、射频和唤醒留待集中联调。
+- 资源与二进制 RPC：实现现有 Mac 桌宠和 112×112 音乐封面的 RLE565/CRC/1024 字节分块，按设备 ACK 停止发送。USB 专用资源命令、BLE 独立资源帧与状态/RPC 交替调度。T5R1/T5R2、49152 字节原始数据和 65535 字节邮箱有独立边界校验；Windows AES/HMAC 和实际固件邮箱七种长度互验通过。
+
+English: the linked CoreBluetooth module run passed 60 tests and Release compilation. Resource transfer reuses existing Mac selections/artwork, device CRC acknowledgements and the unchanged binary RPC formats; the actual firmware mailbox passes seven size scenarios up to 65535 bytes. Hardware acceptance remains pending.

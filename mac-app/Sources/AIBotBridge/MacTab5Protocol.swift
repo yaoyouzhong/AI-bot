@@ -30,7 +30,7 @@ enum MacTab5Error: LocalizedError, Equatable {
 enum MacTab5Protocol {
     static let prefix = "@AIBOT "
     static let maximumFrame = 32_768
-    static let maximumRPC = 12_288
+    static let maximumRPC = MacTab5Binary.maximumRequest
 
     static func isHex(_ value: String, count: Int) -> Bool {
         value.utf8.count == count && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
@@ -48,8 +48,8 @@ enum MacTab5Protocol {
         return zip(expected.utf8, proof.utf8).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
     }
 
-    static func encrypt(_ clear: Data, key: Data, challenge: String, nonce: Data? = nil) throws -> Data {
-        guard key.count == 32, isHex(challenge, count: 32), clear.count <= maximumFrame - 28 else { throw MacTab5Error.invalidPacket }
+    static func encrypt(_ clear: Data, key: Data, challenge: String, nonce: Data? = nil, maximum: Int = maximumFrame) throws -> Data {
+        guard (28...65536).contains(maximum), key.count == 32, isHex(challenge, count: 32), clear.count <= maximum - 28 else { throw MacTab5Error.invalidPacket }
         let iv = try nonce.map { try AES.GCM.Nonce(data: $0) } ?? AES.GCM.Nonce()
         guard iv.withUnsafeBytes({ $0.count }) == 12 else { throw MacTab5Error.invalidPacket }
         let sealed = try AES.GCM.seal(clear, using: SymmetricKey(data: key), nonce: iv, authenticating: Data(challenge.utf8))
@@ -59,8 +59,8 @@ enum MacTab5Protocol {
         return packet
     }
 
-    static func decrypt(_ packet: Data, key: Data, challenge: String) throws -> Data {
-        guard key.count == 32, isHex(challenge, count: 32), (28...maximumRPC).contains(packet.count) else { throw MacTab5Error.invalidPacket }
+    static func decrypt(_ packet: Data, key: Data, challenge: String, maximum: Int = MacTab5Binary.maximumMailbox) throws -> Data {
+        guard key.count == 32, isHex(challenge, count: 32), (28...maximum).contains(packet.count) else { throw MacTab5Error.invalidPacket }
         let bytes = [UInt8](packet)
         let sealed = try AES.GCM.SealedBox(nonce: AES.GCM.Nonce(data: bytes[0..<12]),
                                          ciphertext: bytes[28...], tag: bytes[12..<28])
@@ -85,7 +85,7 @@ enum MacTab5Protocol {
     }
 
     static func snapshot(_ snapshot: MacStatusSnapshot, device: String, session: String, sequence: Int64,
-                         command: [String: Any]?) throws -> Data {
+                         command: [String: Any]?, additions: [String: Any] = [:], hasArtwork: Bool = false) throws -> Data {
         let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
         var data = try object(encoder.encode(snapshot))
         // ESP8266 display preferences and unavailable capabilities are not TAB5 settings.
@@ -102,7 +102,7 @@ enum MacTab5Protocol {
         if var stocks = data["stocks"] as? [String: Any], let quotes = stocks["quotes"] as? [[String: Any]] {
             stocks["quotes"] = Array(quotes.prefix(20)); data["stocks"] = stocks
         }
-        if var music = data["music"] as? [String: Any] { music["hasArtwork"] = false; data["music"] = music }
+        if var music = data["music"] as? [String: Any] { music["hasArtwork"] = hasArtwork; data["music"] = music }
         let zone = TimeZone(secondsFromGMT: snapshot.utcOffsetSeconds) ?? .gmt
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
         let date = Date(timeIntervalSince1970: TimeInterval(snapshot.epochUtc))
@@ -111,6 +111,7 @@ enum MacTab5Protocol {
                             "weekday": "星期" + ["日", "一", "二", "三", "四", "五", "六"][(parts.weekday ?? 1) - 1],
                             "lunar": LunarDate.format(epoch: snapshot.epochUtc, utcOffset: snapshot.utcOffsetSeconds)]
         data["quotaDetails"] = quotaDetails(snapshot)
+        for (key, value) in additions { data[key] = value }
         let frame = try json(["version": 1, "type": "tab5_status", "deviceId": device,
                               "session": session, "sequence": sequence, "data": data])
         guard frame.count <= maximumFrame - 28 else { throw MacTab5Error.invalidPacket }

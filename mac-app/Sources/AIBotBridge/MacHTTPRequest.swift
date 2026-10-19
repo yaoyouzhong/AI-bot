@@ -31,7 +31,7 @@ struct MacHTTPRequest {
         guard headers["transfer-encoding"] == nil else { throw MacTab5Error.invalidPacket }
         let lengthText = headers["content-length"] ?? "0"
         guard !lengthText.isEmpty, lengthText.utf8.allSatisfy({ (48...57).contains($0) }),
-              let length = Int(lengthText), (0...16384).contains(length) else { throw MacTab5Error.invalidPacket }
+              let length = Int(lengthText), (0...(start[1] == "/tab5/v1/rpc" ? MacTab5Binary.maximumRequest : 16384)).contains(length) else { throw MacTab5Error.invalidPacket }
         let actual = bytes.count - end.upperBound
         if actual < length { return nil }
         guard actual == length else { throw MacTab5Error.invalidPacket }

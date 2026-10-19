@@ -24,6 +24,7 @@ final class MacTab5Service {
     private var discoveryNote = "等待启动"
     private var nonces: [String: TimeInterval] = [:]
     private let display = MacTab5DisplayTransaction()
+    let assets = MacTab5Assets()
     private var displayCompletion: DisplayCompletion?
 
     init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4,
@@ -58,10 +59,19 @@ final class MacTab5Service {
     }
     func observeBLEInfo(_ root: [String: Any], nonce: String) {
         lock.lock(); defer { lock.unlock() }
-        guard let pair = pairing, let version = root["firmware"] as? String, version.utf8.count <= 40,
+        guard let pair = pairing else { return }
+        if let ids = root["assetIds"] as? String, let proof = root["assetProof"] as? String,
+           MacTab5Protocol.verify(key: pair.key, message: "ASSETS|\(nonce)|\(ids)", proof: proof) { assets.acknowledge(ids) }
+        guard let version = root["firmware"] as? String, version.utf8.count <= 40,
               let proof = root["firmwareProof"] as? String,
               MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: proof) else { return }
         firmware = version
+    }
+    func observeUSBInfo(_ root: [String: Any]) {
+        lock.lock(); defer { lock.unlock() }
+        guard root["deviceId"] as? String == pairing?.deviceId else { return }
+        if let ids = root["assetIds"] as? String { assets.acknowledge(ids) }
+        if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version }
     }
     func publish(_ value: MacStatusSnapshot) { lock.lock(); snapshot = value; lock.unlock() }
     func usbState(_ note: String, confirmed: Bool = false) {
@@ -102,12 +112,23 @@ final class MacTab5Service {
         lock.lock(); defer { lock.unlock() }
         return try frameLocked()
     }
+    func resourceFrame() throws -> Data {
+        lock.lock(); defer { lock.unlock() }
+        guard !stopped, let pair = pairing, pair.confirmed else { throw MacTab5Error.pairingRequired }
+        let chunks = assets.batch(4)
+        guard !chunks.isEmpty else { throw MacTab5Error.unavailable }
+        sequence += 1
+        return try MacTab5Protocol.json(["version": 1, "type": "tab5_resources", "deviceId": pair.deviceId,
+                                         "session": session, "sequence": sequence, "resources": chunks])
+    }
     private func frameLocked() throws -> Data {
         guard !stopped else { throw MacTab5Error.unavailable }
         guard let pair = pairing, pair.confirmed, let snapshot else { throw MacTab5Error.pairingRequired }
         sequence += 1
+        var additions = assets.projection()
+        additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
         return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session,
-                                            sequence: sequence, command: display.command)
+                                            sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover)
     }
 
     func displaySettings(_ desired: MacTab5DisplaySettings?, completion: @escaping DisplayCompletion) {
@@ -137,13 +158,15 @@ final class MacTab5Service {
         lock.unlock(); callback?(.failure(MacTab5Error.unconfirmed))
     }
 
-    func status(device: String, nonce: String, proof: String) -> (Int, Data) {
+    func status(device: String, nonce: String, proof: String, headers: [String: String] = [:]) -> (Int, Data) {
         lock.lock(); defer { lock.unlock() }
         guard !stopped else { return (503, Data()) }
         guard let pair = pairing, pair.confirmed, pair.deviceId == device,
               MacTab5Protocol.isHex(nonce, count: 32),
               MacTab5Protocol.verify(key: pair.key, message: "GET|\(device)|\(nonce)", proof: proof) else { return (401, Data()) }
         do {
+            if let ids = headers["x-aibot-assets"], let assetProof = headers["x-aibot-assets-proof"],
+               MacTab5Protocol.verify(key: pair.key, message: "ASSETS|\(nonce)|\(ids)", proof: assetProof) { assets.acknowledge(ids) }
             let packet = try MacTab5Protocol.encrypt(frameLocked(), key: pair.key, challenge: nonce)
             lastWiFi = ProcessInfo.processInfo.systemUptime
             return (200, packet)
@@ -159,7 +182,8 @@ final class MacTab5Service {
             lock.unlock(); return (401, Data())
         }
         let root: [String: Any]
-        do { root = try MacTab5Protocol.object(MacTab5Protocol.decrypt(packet, key: pair.key, challenge: nonce)) }
+        let raw: Data
+        do { (root, raw) = try MacTab5Binary.open(MacTab5Protocol.decrypt(packet, key: pair.key, challenge: nonce)) }
         catch { lock.unlock(); return (401, Data()) }
         let now = Int64(Date().timeIntervalSince1970 * 1000), monotonic = ProcessInfo.processInfo.systemUptime
         var status = 400, body: [String: Any] = ["error": "invalid_session_or_time"]
@@ -171,7 +195,8 @@ final class MacTab5Service {
             if nonces[nonce] != nil || nonces.count >= 8192 { status = 409; body = ["error": "already_submitted"] }
             else {
                 nonces[nonce] = monotonic
-                if root["kind"] as? String == "display-settings" {
+                if !raw.isEmpty { status = 400; body = ["error": "unexpected_binary_data"] }
+                else if root["kind"] as? String == "display-settings" {
                     do {
                         (status, delivery) = try display.receive(root, monotonic: monotonic)
                         body = status == 200 ? ["accepted": true] : ["error": "request_expired"]
@@ -180,7 +205,7 @@ final class MacTab5Service {
                 } else { status = 400; body = ["error": "invalid_operation"] }
             }
         }
-        let reply = try? MacTab5Protocol.encrypt(MacTab5Protocol.json(["status": status, "body": body]), key: pair.key, challenge: nonce)
+        let reply = try? MacTab5Protocol.encrypt(MacTab5Protocol.json(["status": status, "body": body]), key: pair.key, challenge: nonce, maximum: MacTab5Binary.maximumMailbox)
         lock.unlock()
         if let delivery { callback?(delivery) }
         return reply.map { (200, $0) } ?? (500, Data())

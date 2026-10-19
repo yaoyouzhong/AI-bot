@@ -55,6 +55,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var packetIndex = 0
     private var awaitingWrite = false
     private var completed: [CBUUID: UInt32] = [:]
+    private var resourceTurn = false
 
     init(service: MacTab5Service) { self.service = service; super.init() }
     func setEnabled(_ value: Bool) {
@@ -96,7 +97,9 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         guard !service.usbActive else { service.bleState("已认证 · USB 优先待命"); return }
         busy = true; deadline = now + 75
         if now - lastFrame >= 2 { sendStatus(pair) }
+        else if service.assets.hasPending && resourceTurn { resourceTurn = false; sendStatus(pair, resources: true) }
         else {
+            resourceTurn = true
             if let endpoint = characteristics[MacTab5BLEWire.rpc] { pump(endpoint, pair: pair) }
             else { busy = false }
         }
@@ -180,20 +183,20 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private func writeMaximum(_ peer: CBPeripheral) -> Int {
         min(488, peer.maximumWriteValueLength(for: .withResponse), peer.maximumWriteValueLength(for: .withoutResponse))
     }
-    private func sendStatus(_ pair: MacTab5Pairing) {
+    private func sendStatus(_ pair: MacTab5Pairing, resources: Bool = false) {
         guard let peer, let input = characteristics[MacTab5BLEWire.input], let nonce else { reset("蓝牙状态不可用"); return }
         do {
-            let clear = try service.frame(), root = try MacTab5Protocol.object(clear)
+            let clear = try (resources ? service.resourceFrame() : service.frame()), root = try MacTab5Protocol.object(clear)
             guard let sequence = MacTab5Protocol.integer(root["sequence"]) else { throw MacTab5Error.invalidPacket }
             let packet = try MacTab5Protocol.encrypt(clear, key: pair.key, challenge: nonce)
             write(try MacTab5BLEWire.fragments(packet, maximum: writeMaximum(peer), lengthPrefix: true), to: input) { [weak self] result in
                 guard let self else { return }
-                do { try result.get(); self.confirmFrame(pair, nonce: nonce, sequence: sequence, attempts: 0) }
+                do { try result.get(); self.confirmFrame(pair, nonce: nonce, sequence: sequence, attempts: 0, resources: resources) }
                 catch { self.reset("蓝牙发送未确认，等待重连") }
             }
         } catch { reset("蓝牙状态帧无效") }
     }
-    private func confirmFrame(_ pair: MacTab5Pairing, nonce: String, sequence: Int64, attempts: Int) {
+    private func confirmFrame(_ pair: MacTab5Pairing, nonce: String, sequence: Int64, attempts: Int, resources: Bool) {
         guard self.nonce == nonce, authenticatedDevice == pair.deviceId, enabled else { return }
         guard let info = characteristics[MacTab5BLEWire.info] else { reset("蓝牙服务已断开"); return }
         read(info) { [weak self] result in
@@ -202,10 +205,11 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
                 let (_, ack, root) = try MacTab5BLEWire.authenticate(result.get(), pair: pair, nonce: nonce)
                 if ack != sequence {
                     guard attempts < 15 else { throw MacTab5Error.unconfirmed }
-                    self.queue.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.confirmFrame(pair, nonce: nonce, sequence: sequence, attempts: attempts + 1) }; return
+                    self.queue.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.confirmFrame(pair, nonce: nonce, sequence: sequence, attempts: attempts + 1, resources: resources) }; return
                 }
                 self.service.observeBLEInfo(root, nonce: nonce)
-                self.lastFrame = self.now; self.busy = false; self.service.bleState("数据已确认", confirmed: true)
+                if !resources { self.lastFrame = self.now }
+                self.busy = false; self.service.bleState("数据已确认", confirmed: true)
             } catch { self.reset("蓝牙整帧确认失败，等待重连") }
         }
     }

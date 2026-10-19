@@ -103,9 +103,16 @@ final class MacTab5USB {
                 guard ack["deviceId"] as? String == pair.deviceId,
                       MacTab5Protocol.integer(ack["sequence"]) == MacTab5Protocol.integer(root["sequence"]) else { throw MacTab5Error.invalidPacket }
                 service.usbState("数据已确认", confirmed: true)
+                service.observeUSBInfo(ack)
                 lastStatus = ProcessInfo.processInfo.systemUptime
             }
             if rpcSupported { try pump(wire, device: pair.deviceId) }
+            if !service.configurationBusy, let chunk = service.assets.projection()["resource"] as? [String: Any] {
+                try wire.send(["version": 1, "type": "tab5_resource", "deviceId": pair.deviceId, "resource": chunk])
+                let ack = try wire.reply("tab5_resource_ack")
+                guard ack["deviceId"] as? String == pair.deviceId else { throw MacTab5Error.identity }
+                service.observeUSBInfo(ack)
+            }
         } catch { close("USB 未确认，等待重连") }
     }
 
@@ -130,7 +137,7 @@ final class MacTab5USB {
         let total = Int(MacTab5Mailbox.u16(part, 6))
         guard (124...(MacTab5Protocol.maximumRPC + 96)).contains(total) else { throw MacTab5Error.invalidPacket }
         var request = Data()
-        let deadline = ProcessInfo.processInfo.systemUptime + 12
+        let deadline = ProcessInfo.processInfo.systemUptime + 75
         while true {
             guard ProcessInfo.processInfo.systemUptime < deadline else { throw MacTab5Error.timeout }
             try MacTab5Mailbox.append(part, id: id, total: total, to: &request)
@@ -143,7 +150,7 @@ final class MacTab5USB {
         guard let nonce = String(bytes: bytes[0..<32], encoding: .ascii),
               let proof = String(bytes: bytes[32..<96], encoding: .ascii) else { throw MacTab5Error.invalidPacket }
         let (status, response) = service.rpc(device: device, nonce: nonce, proof: proof, packet: Data(bytes[96...]))
-        guard status == 200, (28...MacTab5Protocol.maximumRPC).contains(response.count) else { throw MacTab5Error.invalidPacket }
+        guard status == 200, (28...MacTab5Binary.maximumMailbox).contains(response.count) else { throw MacTab5Error.invalidPacket }
         for fragment in try MacTab5Mailbox.response(response, id: id) {
             guard ProcessInfo.processInfo.systemUptime < deadline else { throw MacTab5Error.timeout }
             _ = try mailbox(wire, device: device, data: fragment)
@@ -167,7 +174,7 @@ enum MacTab5Mailbox {
         request.append(part.dropFirst(8))
     }
     static func response(_ packet: Data, id: UInt32) throws -> [Data] {
-        guard id != 0, (28...MacTab5Protocol.maximumRPC).contains(packet.count) else { throw MacTab5Error.invalidPacket }
+        guard id != 0, (28...MacTab5Binary.maximumMailbox).contains(packet.count) else { throw MacTab5Error.invalidPacket }
         return stride(from: 0, to: packet.count, by: 2048).map { offset in
             var fragment = Data([2]); append32(id, to: &fragment); append16(offset, to: &fragment); append16(packet.count, to: &fragment)
             fragment.append(packet.subdata(in: offset..<min(offset + 2048, packet.count))); return fragment

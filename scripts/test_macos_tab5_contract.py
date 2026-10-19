@@ -58,7 +58,7 @@ def main():
     compile_command = [compiler] + (["cc"] if compiler.stem == "zig" else [])
     run(compile_command + ["-I", args.firmware_main.resolve(), ROOT / "scripts/mac_tab5_interop/mailbox_reference.c", "-o", executable.resolve()])
     tests = []
-    for size in [124, 2048, 2049, 5000, 12384]:
+    for size in [124, 2048, 2049, 5000, 12384, 49152, 65535]:
         request = bytes(i % 251 for i in range(size))
         response = bytes((i + 31) % 251 for i in range(max(28, size - 96)))
         incoming = [struct.pack("<IHH", 0x12345678, offset, size) + request[offset:offset + 2048] for offset in range(0, size, 2048)]
@@ -71,7 +71,7 @@ def main():
         vector = args.output / f"mailbox-{size}.bin"
         vector.write_bytes(encoded)
         tests.append(run([executable.resolve(), vector.resolve()]).strip())
-    print("FIRMWARE_MAILBOX_INTEROP_OK scenarios=5")
+    print(f"FIRMWARE_MAILBOX_INTEROP_OK scenarios={len(tests)}")
     report = dict(swiftSyntaxFiles=len(sources), windowsReference=result, firmwareMailbox=tests,
                   swiftTests="NOT RUN: macOS required", macReleaseBuild="NOT RUN: macOS required",
                   nativeUI="NOT RUN: macOS required", deviceAcceptance="NOT RUN: no deployment authorized")

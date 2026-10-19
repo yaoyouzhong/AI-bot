@@ -213,6 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateTitle() {
         Task { await self.musicService.refreshIfEnabled() }
         let snapshot = reader.capture(extras: dataStore.snapshot())
+        tab5?.assets.update(pets: [MacPetCache.shared.selection("claude"), MacPetCache.shared.selection("codex")], cover: dataStore.snapshot().musicCover)
         tab5?.publish(snapshot)
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
         updateAutomaticScreenSaver(snapshot)

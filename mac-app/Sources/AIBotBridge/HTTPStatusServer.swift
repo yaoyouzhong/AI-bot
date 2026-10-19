@@ -82,7 +82,7 @@ final class HTTPStatusServer {
             let proof = request.headers["x-aibot-proof"] ?? ""
             let result: (Int, Data)
             if request.method == "GET", request.target == "/tab5/v1/status", request.body.isEmpty {
-                result = tab5.status(device: device, nonce: nonce, proof: proof)
+                result = tab5.status(device: device, nonce: nonce, proof: proof, headers: request.headers)
             } else if request.method == "POST", request.target == "/tab5/v1/rpc" {
                 result = tab5.rpc(device: device, nonce: nonce, proof: proof, packet: request.body)
             } else { result = (404, Data()) }
