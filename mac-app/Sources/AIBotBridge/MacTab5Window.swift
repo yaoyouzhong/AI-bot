@@ -245,10 +245,12 @@ final class MacTab5SettingsForm: NSObject {
             [NSTextField(labelWithString: "屏保等待"), saver]
         ])
         grid.rowSpacing = 8; grid.columnSpacing = 14; grid.column(at: 0).xPlacement = .trailing
+        for row in 0..<5 { grid.row(at: row).height = 24 }
         let flags = NSStackView(views: [muted, cycle, alerts]); flags.spacing = 18
         let body = NSStackView(views: [grid, flags, pageRows]); body.orientation = .vertical; body.alignment = .leading; body.spacing = 14
         body.frame = NSRect(x: 0, y: 0, width: 430, height: 460)
         grid.widthAnchor.constraint(equalToConstant: 430).isActive = true
+        body.layoutSubtreeIfNeeded(); body.setFrameSize(NSSize(width: 430, height: body.fittingSize.height))
         return body
     }
     @objc private func cycleChanged() {

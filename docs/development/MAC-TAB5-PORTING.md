@@ -6,11 +6,11 @@ The user authorized remaining development and per-module Mac CI on the test bran
 
 | 阶段 / Stage | 模块 / Module | 状态 / State |
 | --- | --- | --- |
-| 1 可行性 | USB、协议互验、Mac 构建基础 | 已通过首轮 55 测试及 Release；Codex/语音路径随交互模块继续验证 |
-| 2 日常可用 | USB/Wi-Fi、日常数据、显示设置 | 源码与 CI 通过；真机待联调 |
-| 3 无线与资源 | CoreBluetooth、封面/桌宠/图库、OTA | 开发中，逐模块 CI |
-| 4 交互 | 电脑/音乐控制、Codex、照片、语音 | 待开发与 CI |
-| 5 完整交付 | 首刷、备份恢复、候选安装包、权限引导 | 待开发与 CI；不发布 |
+| 1 可行性 | USB/BLE、公开 Codex App Server、Mac 本地 Speech | 路径与原生编译/夹具测试完成；目标 Mac 版本/权限待现场确认 |
+| 2 日常可用 | USB/Wi-Fi、日常数据、显示设置 | 源码与 CI 通过；设备回执与协议互验完成，真机待联调 |
+| 3 无线与资源 | CoreBluetooth、封面/桌宠/图库、OTA | 开发与自动测试完成；射频、吞吐、真实屏幕和新固件启动待现场确认 |
+| 4 交互 | 电脑/音乐、Codex、照片、语音、快捷控制台 | 105 测试覆盖；真实播放、语言模型、精确桌面输入框版本兼容待现场验收 |
+| 5 完整交付 | 首刷、备份恢复、候选安装包、权限引导 | 代码/模拟设备流程/候选 App 与原生视图渲染完成；不安装、不发布 |
 
 UI plan: keep native AppKit controls, system semantic background/label/separator/accent colors and system font sizes 23/15/13/12. Left-aligned connection status remains above USB/Wi-Fi setup. Add explicit Bluetooth and feature opt-ins, then separate resource/firmware actions; use scroll views for long settings. Match the existing Mac menu-bar utility, without adding a web dashboard or decorative animation. CI UI snapshots and physical permission/interaction checks have separate evidence.
 
@@ -31,4 +31,14 @@ UI plan: keep native AppKit controls, system semantic background/label/separator
 - 电脑/音乐：新增默认关闭的授权入口、CoreAudio 实际音量/静音读写、白名单快捷启动、Music/Spotify 单次操作和只读状态确认。请求 ID 的结果缓存覆盖失败与不确定结果，冲突 ID 不执行。未知锁定/屏幕状态保持 null，Mac 不通告一键解锁。Apple Events 在主线程执行；同时修复原音乐服务默认 UserDefaults 参数引起的跨 actor 警告。
 - 音乐改动的 CI 同时生成临时签名候选 App、校验签名及内置刷机工具，不安装或部署。实际自动化提示、播放/暂停和锁屏权限验证按用户安排留待次日真机联调。
 
+- 电脑/音乐 `5c06b75` 的 [Mac CI 39278118225](https://github.com/yaoyouzhong/AI-bot/actions/runs/39278118225) 附件确认 78 测试，0 失败、0 跳过；Release、签名 App、内置工具帮助检查通过。
+- 首轮后续模块 CI 揭示私有随机数辅助方法不可跨文件访问，已用系统安全随机数 API 修复。综合 `f3dba8c` 的 [Mac CI 39281930425](https://github.com/yaoyouzhong/AI-bot/actions/runs/39281930425) 附件确认 99 测试及 Release/App 通过，0 失败、0 跳过。包括照片、语音、16 MiB 首刷、原机备份/恢复及失败不写入流程；无真实设备写入。
+- 增加真实子进程 stdio 握手测试后，发现 Mac `read(upToCount:)` 等待缓冲区导致短 JSON-RPC 超时，改用当前可用数据读取。`e53eea3` 的 [Mac CI 39282804628](https://github.com/yaoyouzhong/AI-bot/actions/runs/39282804628) 确认 105 测试及 Release/App/工具/原生视图渲染通过，0 失败、0 跳过。
+- 原生渲染另发现 AppKit `document` 属性命名冲突和透明背景影响检查，均已修复；`47a2648` 的 [Mac CI 39283265532](https://github.com/yaoyouzhong/AI-bot/actions/runs/39283265532) 已生成可读 PNG，逐张查看连接、权限/交互、资源、首刷与显示设置表单，控件未重叠或裁切。最后收紧表单行高，避免固定页行伸展。PNG 使用固定数据，不是真机画面或权限验收。
+- 最后补充：Codex 目录失联超过 30 秒保留可见缓存，但禁止新发送/桌面写入；阅读回执重新核对当前终态轮次。HTTP 设备操作放到有界后台队列，慢 Codex 请求不阻塞日常状态连接；新增真实回环 HTTP 并发回归。最终提交结果以 CI 附件和本地 `verify_mac_tab5_ci_artifacts.py` 复核为准。
+
+候选使用、权限、版本差异与集中真机清单见 [双语指南](../MAC-TAB5-CANDIDATE.md)。代码保存在独立测试 worktree/测试分支，不覆盖原始 checkout 的 Windows/固件未提交改动。远端 main 未更新。
+
 English: the linked CoreBluetooth module run passed 60 tests and Release compilation. Resource transfer reuses existing Mac selections/artwork, device CRC acknowledgements and the unchanged binary RPC formats; the actual firmware mailbox passes seven size scenarios up to 65535 bytes. Hardware acceptance remains pending.
+
+All five stages now have candidate implementations and module CI evidence. Integrated runs reached 99 then 105 tests with no failures/skips, Release and ad-hoc app/tool checks. Actual child-process testing exposed and fixed short-pipe buffering. Native AppKit fixture PNGs were inspected after correcting transparent backgrounds; they are not physical acceptance. The final regression adds stale-action blocking, current-turn read receipts and live status during slow Codex requests. No main update, installation, hardware write, deployment or publication occurred.
