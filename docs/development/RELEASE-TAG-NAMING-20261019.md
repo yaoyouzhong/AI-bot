@@ -21,6 +21,6 @@
 
 GitHub 实测不为旧标签的附件路径提供跳转：迁移后的 `/releases/download/bridge-v…/…` 返回 404，新 `/releases/download/v…/…` 正常。维护中的公开链接已修正；外部收藏、复制出去的旧直链需改用新地址。保留旧 Git 引用不能恢复旧附件路由。已安装电脑端通过 GitHub Release API 重新检查更新后获取新地址，原有安装器兼容文件名和校验信息均保留。
 
-本机详细证据保存在主工作目录 `artifacts/release-tag-naming-20261019/`：迁移前后元数据、逐项操作日志、新旧提交对应表、129 项下载检查、真实更新服务报告和测试宿主源码。仅本次创建的导出目录、编译中间目录、解压副本和下载测试缓存已在保存报告后清理；主工作目录既有开发改动保留，命名补丁以定向替换同步。
+本机详细证据保存在主工作目录 `artifacts/release-tag-naming-20261019/`：迁移前后元数据、逐项操作日志、新旧提交对应表、129 项下载检查、真实更新服务报告和测试宿主源码。自动审批拒绝删除本次创建的导出目录、编译中间目录、解压副本和下载测试缓存，返回 `blocked by policy` 且未提供具体原因；这些临时副本保留，不影响发布及更新验证。主工作目录既有开发改动保留，命名补丁以定向替换同步。
 
 Desktop releases now use `vX.Y.Z`; all 12 migrated annotations retain their original commits, all release identities/statuses and all 295 repository assets are unchanged. Bilingual public links and future publishing rules are synchronized. Thirty-seven local regressions, all three CI jobs, 129 public download checks and the original published Windows updater's complete installer download/hash validation passed. No installer or device write was performed. GitHub does not redirect old tag-specific asset URLs, so external bookmarks need the new addresses; API-based update discovery and legacy installer aliases remain valid.
