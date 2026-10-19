@@ -241,7 +241,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             }
             let array = [UInt8](request)
             guard let nonce = String(bytes: array[0..<32], encoding: .ascii), let proof = String(bytes: array[32..<96], encoding: .ascii), let peer else { throw MacTab5Error.invalidPacket }
-            let reply = service.rpc(device: pair.deviceId, nonce: nonce, proof: proof, packet: Data(array[96...]))
+            let reply = service.rpc(device: pair.deviceId, nonce: nonce, proof: proof, packet: Data(array[96...]), transport: "BLE")
             guard reply.0 == 200 else { throw MacTab5Error.invalidPacket }
             let size = writeMaximum(peer) - 9
             guard size > 0 else { throw MacTab5Error.invalidPacket }

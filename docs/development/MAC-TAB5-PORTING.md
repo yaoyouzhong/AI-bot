@@ -20,5 +20,9 @@ UI plan: keep native AppKit controls, system semantic background/label/separator
 
 - CoreBluetooth：`17f3922` 在 [Mac CI 39274063784](https://github.com/yaoyouzhong/AI-bot/actions/runs/39274063784) 通过 60 项测试和 Release 编译。覆盖身份/nonce/ACK、MTU 边界、USB 优先和纯 BLE 显示事务；真实权限、射频和唤醒留待集中联调。
 - 资源与二进制 RPC：实现现有 Mac 桌宠和 112×112 音乐封面的 RLE565/CRC/1024 字节分块，按设备 ACK 停止发送。USB 专用资源命令、BLE 独立资源帧与状态/RPC 交替调度。T5R1/T5R2、49152 字节原始数据和 65535 字节邮箱有独立边界校验；Windows AES/HMAC 和实际固件邮箱七种长度互验通过。
+- 资源模块 `86f242d` 在 [Mac CI 39275017824](https://github.com/yaoyouzhong/AI-bot/actions/runs/39275017824) 通过 66 项测试和 Release 编译。
+- 图库与 OTA：ZIP 按安全的单层文件名逐项读取，不向归档提供的路径解压；验证全部 SHA、JPEG 尺寸、分页和已核实导读。切换前保留旧图库备份。OTA 对齐已发布 .234 源码，先校验 P4 镜像结构、项目、SHA 与说明；只显式提供和开始升级，HTTP 分块等候 TCP 背压，USB/BLE 使用现有 RPC。精确 ELF、VALID 分区和三个递增实时样本才构成启动通过。
+
+对应固件参考为公开 `AI-bot-tab5-0.2.234-ui-source.zip`，SHA-256 `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890`；仅在忽略的 artifacts 中只读对照，未修改或重建固件。
 
 English: the linked CoreBluetooth module run passed 60 tests and Release compilation. Resource transfer reuses existing Mac selections/artwork, device CRC acknowledgements and the unchanged binary RPC formats; the actual firmware mailbox passes seven size scenarios up to 65535 bytes. Hardware acceptance remains pending.

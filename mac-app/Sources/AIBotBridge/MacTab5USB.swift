@@ -78,6 +78,25 @@ final class MacTab5USB {
             } catch { self.close("Wi-Fi 写入结果未确认"); completion(.failure(error)) }
         }
     }
+    func verifyBoot(completion: @escaping (Result<Void, Error>) -> Void) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            do {
+                guard let pair = self.service.currentPairing, pair.confirmed, let wire = self.wire else { throw MacTab5Error.unavailable }
+                try self.service.firmwareControl.beginBootCheck(device: pair.deviceId, transport: "USB")
+                var hellos: [[String: Any]] = []
+                for index in 0..<3 {
+                    try wire.send(["version": 1, "type": "tab5_ping"])
+                    hellos.append(try wire.reply("tab5_hello"))
+                    if index < 2 { Thread.sleep(forTimeInterval: 1.2) }
+                }
+                try wire.send(["version": 1, "type": "tab5_ota_status"])
+                let diagnostic = try wire.reply("tab5_ota_diagnostic")
+                try self.service.firmwareControl.completeUSBCheck(hellos: hellos, diagnostic: diagnostic, device: pair.deviceId)
+                completion(.success(Void()))
+            } catch { completion(.failure(error)) }
+        }
+    }
 
     private func step() {
         guard let pair = service.currentPairing, pair.confirmed else { return }

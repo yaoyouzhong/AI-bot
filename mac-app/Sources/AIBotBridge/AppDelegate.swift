@@ -116,13 +116,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if flasher?.busy == true { flasher?.open(); return .terminateCancel }
         if tab5Window?.busy == true { tab5Window?.open(); return .terminateCancel }
+        if tab5Window?.toolsBusy == true || tab5?.configurationBusy == true { tab5Window?.open(); return .terminateCancel }
         return .terminateNow
     }
 
     @objc private func openFlasher() {
         if flasher == nil {
             flasher = MacFirmwareFlashWindow(bridgePort: serial?.portName, begin: { [weak self] in
-                guard let self, !self.deviceOperationBusy, self.tab5Window?.busy != true else { return false }
+                guard let self, !self.deviceOperationBusy, self.tab5Window?.busy != true, self.tab5Window?.toolsBusy != true, self.tab5?.configurationBusy != true else { return false }
                 self.deviceOperationBusy = true
                 return true
             }, suspend: { [weak self] in

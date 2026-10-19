@@ -13,6 +13,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private let password = NSSecureTextField()
     private var actions: [NSButton] = []
     private var timer: Timer?
+    private var tools: MacTab5ToolsWindow?
     private(set) var busy = false
 
     init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }, changeBluetooth: @escaping (Bool) -> Void = { _ in }) {
@@ -66,6 +67,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         addSeparator(to: stack)
         stack.addArrangedSubview(heading("显示设置"))
         stack.addArrangedSubview(action("读取并修改显示设置…", #selector(editDisplay)))
+        stack.addArrangedSubview(action("资源与固件…", #selector(openTools)))
         stack.addArrangedSubview(note("亮度、声音、页面和轮播设置以 TAB5 实际值为准；保存需要设备确认。"))
         result.textColor = .secondaryLabelColor
         stack.addArrangedSubview(result); result.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -99,6 +101,11 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         result.stringValue = message
     }
     private func refreshStatus() { connection.stringValue = service.connectionSummary }
+    var toolsBusy: Bool { tools?.busy == true }
+    @objc private func openTools() {
+        if tools == nil { tools = MacTab5ToolsWindow(service: service, usb: usb, canBegin: { [weak self] in self?.busy == false && self?.canBegin() == true }) }
+        tools?.open()
+    }
     @objc private func toggleBluetooth() {
         guard allowOperation() else { bluetooth.state = bluetooth.state == .on ? .off : .on; return }
         let enabled = bluetooth.state == .on

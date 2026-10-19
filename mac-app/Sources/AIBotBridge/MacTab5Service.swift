@@ -25,19 +25,35 @@ final class MacTab5Service {
     private var nonces: [String: TimeInterval] = [:]
     private let display = MacTab5DisplayTransaction()
     let assets = MacTab5Assets()
+    let gallery: MacTab5Gallery
+    let firmwareControl = MacTab5Firmware()
+    private var activeOperations = 0
     private var displayCompletion: DisplayCompletion?
 
-    init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4,
+    init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(),
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }) {
-        self.port = port; self.host = host; loadPairing = load; savePairing = save
+        self.port = port; self.host = host; self.gallery = gallery; loadPairing = load; savePairing = save
         do { pairing = try load(); try pairing?.validate() }
         catch { pairingReadable = false; usbNote = "无法读取配对记录，请检查钥匙串权限" }
     }
 
     var currentPairing: MacTab5Pairing? { lock.lock(); defer { lock.unlock() }; return pairing }
     var usbActive: Bool { lock.lock(); defer { lock.unlock() }; return ProcessInfo.processInfo.systemUptime - lastUSB < 8 }
-    var configurationBusy: Bool { lock.lock(); defer { lock.unlock() }; return displayCompletion != nil }
+    var configurationBusy: Bool { lock.lock(); defer { lock.unlock() }; return displayCompletion != nil || activeOperations > 0 || firmwareControl.busy }
+    var bootTransport: String? {
+        lock.lock(); defer { lock.unlock() }
+        let now = ProcessInfo.processInfo.systemUptime
+        return now - lastWiFi < 8 ? "Wi-Fi" : now - lastBLE < 8 ? "BLE" : nil
+    }
+    func requestUpgrade() throws {
+        lock.lock(); defer { lock.unlock() }
+        guard !stopped, let pair = pairing, pair.confirmed, let version = firmware, let image = firmwareControl.selected,
+              version != image.version, displayCompletion == nil else { throw MacTab5LocalError.invalid("请先连接 TAB5、选择不同版本固件并完成当前操作。") }
+        let parts = version.replacingOccurrences(of: "-ui", with: "").split(separator: ".").compactMap { Int($0) }
+        guard parts.count == 3, parts.lexicographicallyPrecedes([0, 2, 190]) == false else { throw MacTab5LocalError.invalid("此设备需先在 TAB5 上确认一次升级，之后才支持电脑端开始升级。") }
+        try firmwareControl.start(device: pair.deviceId)
+    }
     var connectionSummary: String {
         lock.lock(); defer { lock.unlock() }
         let now = ProcessInfo.processInfo.systemUptime
@@ -66,12 +82,13 @@ final class MacTab5Service {
               let proof = root["firmwareProof"] as? String,
               MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: proof) else { return }
         firmware = version
+        firmwareControl.observeVersion(version)
     }
     func observeUSBInfo(_ root: [String: Any]) {
         lock.lock(); defer { lock.unlock() }
         guard root["deviceId"] as? String == pairing?.deviceId else { return }
         if let ids = root["assetIds"] as? String { assets.acknowledge(ids) }
-        if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version }
+        if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version; firmwareControl.observeVersion(version) }
     }
     func publish(_ value: MacStatusSnapshot) { lock.lock(); snapshot = value; lock.unlock() }
     func usbState(_ note: String, confirmed: Bool = false) {
@@ -89,7 +106,7 @@ final class MacTab5Service {
             let recovered = try loadPairing(); try recovered?.validate()
             pairing = recovered; pairingReadable = true
         }
-        guard displayCompletion == nil else { throw MacTab5Error.busy }
+        guard displayCompletion == nil, activeOperations == 0, !firmwareControl.busy else { throw MacTab5Error.busy }
         if let existing = pairing, existing.deviceId != device { throw MacTab5Error.identity }
         var key = pairing?.key ?? Data()
         if key.isEmpty {
@@ -127,6 +144,12 @@ final class MacTab5Service {
         sequence += 1
         var additions = assets.projection()
         additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
+        let offer = firmwareControl.projection()
+        additions["ota"] = offer.offer.map { $0 as Any } ?? NSNull()
+        var health = offer.health
+        health["displayCommand"] = display.command.map { $0 as Any } ?? NSNull()
+        health["galleryPacks"] = gallery.revisions(); health["gallerySyncVersion"] = 1
+        additions["connectionHealth"] = health
         return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session,
                                             sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover)
     }
@@ -167,13 +190,15 @@ final class MacTab5Service {
         do {
             if let ids = headers["x-aibot-assets"], let assetProof = headers["x-aibot-assets-proof"],
                MacTab5Protocol.verify(key: pair.key, message: "ASSETS|\(nonce)|\(ids)", proof: assetProof) { assets.acknowledge(ids) }
+            if let version = headers["x-tab5-firmware"], version.utf8.count <= 40, let firmwareProof = headers["x-tab5-firmware-proof"],
+               MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: firmwareProof) { firmware = version; firmwareControl.observeVersion(version) }
             let packet = try MacTab5Protocol.encrypt(frameLocked(), key: pair.key, challenge: nonce)
             lastWiFi = ProcessInfo.processInfo.systemUptime
             return (200, packet)
         } catch { return (503, Data()) }
     }
 
-    func rpc(device: String, nonce: String, proof: String, packet: Data) -> (Int, Data) {
+    func rpc(device: String, nonce: String, proof: String, packet: Data, transport: String = "USB") -> (Int, Data) {
         lock.lock()
         guard !stopped else { lock.unlock(); return (503, Data()) }
         guard let pair = pairing, pair.confirmed, pair.deviceId == device,
@@ -189,26 +214,45 @@ final class MacTab5Service {
         var status = 400, body: [String: Any] = ["error": "invalid_session_or_time"]
         var delivery: Result<MacTab5DisplaySettings, Error>?
         var callback: DisplayCompletion?
+        var dispatchOperation = false
         if root["session"] as? String == session, let issued = MacTab5Protocol.integer(root["issuedAt"]),
            issued >= now - 90_000, issued <= now + 10_000 {
             nonces = nonces.filter { monotonic - $0.value < 100 }
             if nonces[nonce] != nil || nonces.count >= 8192 { status = 409; body = ["error": "already_submitted"] }
             else {
                 nonces[nonce] = monotonic
-                if !raw.isEmpty { status = 400; body = ["error": "unexpected_binary_data"] }
-                else if root["kind"] as? String == "display-settings" {
+                if root["kind"] as? String == "display-settings", raw.isEmpty {
                     do {
                         (status, delivery) = try display.receive(root, monotonic: monotonic)
                         body = status == 200 ? ["accepted": true] : ["error": "request_expired"]
                         if delivery != nil { callback = displayCompletion; displayCompletion = nil }
                     } catch { status = 400; body = ["error": "invalid_settings"] }
-                } else { status = 400; body = ["error": "invalid_operation"] }
+                } else { dispatchOperation = true; activeOperations += 1 }
             }
         }
-        let reply = try? MacTab5Protocol.encrypt(MacTab5Protocol.json(["status": status, "body": body]), key: pair.key, challenge: nonce, maximum: MacTab5Binary.maximumMailbox)
         lock.unlock()
+        var result = MacTab5RPCResult(status, body)
+        if dispatchOperation {
+            if !raw.isEmpty { result = .error(400, "unexpected_binary_data") }
+            else if root["kind"] as? String == "gallery" { result = gallery.handle(root, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
+            else { result = firmwareControl.handle(root, device: device, transport: transport, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
+            lock.lock(); activeOperations -= 1; lock.unlock()
+        }
+        let binary = root["binaryReply"] as? Bool == true, bulk = binary && root["bulkReply"] as? Bool == true
+        var clear = try? MacTab5Binary.encode(result, binary: binary, bulk: bulk)
+        if (clear?.count ?? Int.max) > MacTab5Binary.maximumMailbox - 28 { clear = try? MacTab5Binary.encode(.error(413, "response_too_large"), binary: false, bulk: false) }
+        let reply = clear.flatMap { try? MacTab5Protocol.encrypt($0, key: pair.key, challenge: nonce, maximum: MacTab5Binary.maximumMailbox) }
         if let delivery { callback?(delivery) }
         return reply.map { (200, $0) } ?? (500, Data())
+    }
+
+    func ota(device: String, nonce: String, proof: String, sha: String) -> (Int, Data) {
+        lock.lock(); defer { lock.unlock() }
+        guard !stopped else { return (503, Data()) }
+        guard let pair = pairing, pair.confirmed, pair.deviceId == device, MacTab5Protocol.isHex(sha, count: 64), MacTab5Protocol.isHex(nonce, count: 32),
+              MacTab5Protocol.verify(key: pair.key, message: "GET|/tab5/v1/ota/\(sha)|\(device)|\(nonce)", proof: proof) else { return (401, Data()) }
+        guard let bytes = firmwareControl.bytes(sha: sha) else { return (404, Data()) }
+        return (200, bytes)
     }
 
     func discovery(_ packet: Data, address: String) -> Data? {
