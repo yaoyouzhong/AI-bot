@@ -4,7 +4,7 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.9.md) · [English](README.en.md)
+[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.10.md) · [English](README.en.md)
 
 待发布：Windows **0.6.10** 与 TAB5 **0.2.234-ui** 增加电脑一键解锁与组件自动接入，修复音量拖动、双向已读同步、蓝牙启动核验和电量显示连续性。相关真机验收已完成，见[本轮说明](docs/RELEASE-0.6.10.md)。公开下载在发布前保留现有稳定版。
 
@@ -53,11 +53,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 <sub>两图均为硬件外观与 AI-bot 界面的合成展示，使用演示数据，非实机拍摄；不按实物比例排列。<a href="docs/HARDWARE-IMAGES.md">图片来源与说明</a></sub>
 
-新版 116 秒视频加入电脑控制、锁屏状态与十网络管理，并保留日程、经典时钟昼夜切换、双屏额度开场与 Codex 直达。画面来自原生界面的隔离演示数据，非硬件实拍。
+新版 116 秒视频展示电脑一键解锁、TightVNC 自动安装／接入与双向已读同步，使用实际 234 更新说明，并保留日程、时钟、额度和艺术浏览。画面来自原生界面的隔离演示数据，非硬件实拍。
 
-https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
+[![AI-bot 0.6.10 / TAB5 234](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
-<sub>116 秒中文产品介绍，点击播放器直接观看。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/AI-bot-product-intro-20261017-069-217.mp4)</sub>
+<sub>116 秒中文产品介绍，点击封面打开 GitHub 视频页。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4)</sub>
 
 ## 能做什么
 
@@ -92,7 +92,7 @@ https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
 <details>
 <summary><strong>查看 TAB5 特色：Codex 直达、全年点阵与十二月历</strong></summary>
 
-**日程待办与到期提醒**已包含在 TAB5 210：今日／全部分段筛选与列表对齐，空状态居中新建；本地保存、离线编辑与删除、重连同步，支持时间、重复和提前提醒。最多 16 项；到期事项保留，满额新增时才清理最早结束的过期单次事项。[使用与实机边界](docs/RELEASE-0.6.9.md)
+**日程待办与到期提醒**已包含在 TAB5 210：今日／全部分段筛选与列表对齐，空状态居中新建；本地保存、离线编辑与删除、重连同步，支持时间、重复和提前提醒。最多 16 项；到期事项保留，满额新增时才清理最早结束的过期单次事项。[使用与实机边界](docs/RELEASE-0.6.10.md)
 
 **Codex 直达：** 从最近五个会话中选择目标，查看回复，语音输入草稿，确认后发送。支持取消、失败恢复和长按清空。[使用说明](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -152,7 +152,7 @@ https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.9.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.10.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](docs/development/TAB5-SOURCE.md) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

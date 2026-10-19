@@ -2,6 +2,20 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.234-ui - 2026-10-19
+
+### BLE verification and display continuity
+
+- Repair integer uptime in refreshed BLE boot reports. The original bridge now accepts three authenticated live samples for the exact ELF and VALID partition; health thresholds are unchanged. Retain bounded busy-report retries and correct cross-core heartbeat ordering.
+- Retain recent trusted battery percentages across one transient conversion failure, retry brief read failures sooner and sample immediately at startup. Confirmed absence/staleness still clears the estimate; cold charging calibration is preserved. User observation confirmed quick display after reboot and normal USB-change display.
+- Includes .229/.230 computer unlock, volume-drag recovery and bidirectional Codex read synchronization. Opening an actually displayed matching reply on TAB5 clears desktop unread state; prefetch does not.
+
+### Validation and compatibility
+
+- Original Windows 0.6.10 / c608 passed one isolated BLE check in 9.34 seconds with exact .234 ELF, ota_1 VALID and three live samples, with no isolation violations. Earlier passed physical cases were retained without repetition. PC WLAN was restored.
+- Native worker/actual c608 wire replay, full native UI, all 962 corresponding-source entries, factory erase regions and licensed package hashes passed. Captures use isolated fixtures, with separate hardware evidence. Preserve pairing, PIN and display settings; keep first-install and upgrade formats distinct.
+- Full read synchronization and unlock use Windows 0.6.10. Mac, ESP8266 and collections retain existing releases. See [release notes](../RELEASE-0.6.10.md), [BLE root cause](TAB5-BLE-UPTIME-20261019.md) and [battery acceptance](TAB5-BATTERY-DISPLAY-20261019.md).
+
 ## 0.2.230-ui - 2026-10-19
 
 ### Control recovery and read synchronization

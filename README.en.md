@@ -4,7 +4,7 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.9.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.10.md) · [简体中文](README.md)
 
 Prepared release: Windows **0.6.10** and TAB5 **0.2.234-ui** add computer unlock and automatic component setup, and fix volume-drag recovery, bidirectional read sync, BLE boot verification and battery-display continuity. Related hardware acceptance is complete; see [the release notes](docs/RELEASE-0.6.10.md). Downloads retain published stable packages until publication.
 
@@ -55,9 +55,9 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 The updated 116-second Chinese tour adds PC controls, lock state and ten-network management, alongside the refined agenda and automatic day/night classic clock, retaining the same-function dual-quota opening, clocks and Codex scenes. Native interfaces use isolated demo data, not hardware photographs.
 
-https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
+[![AI-bot 0.6.10 / TAB5 234](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
 
-<sub>116-second Chinese tour. Play directly in the player above. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.9/AI-bot-product-intro-20261017-069-217.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
+<sub>116-second Chinese tour. Click the cover to open the GitHub video page. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
 
 ## What it does
 
@@ -90,7 +90,7 @@ https://github.com/user-attachments/assets/f8aefacb-cf94-40c2-9b07-8be8b348a03b
 <details>
 <summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
 
-**Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.9.md)
+**Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.10.md)
 
 **Codex Direct:** pick one of five recent sessions, read replies, dictate a draft and confirm before sending. Cancel, recover from failures or hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -150,7 +150,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.9.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.10.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](docs/development/TAB5-SOURCE.md) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

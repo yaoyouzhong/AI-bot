@@ -8,8 +8,8 @@ All notable changes to this project will be documented in this file.
 
 - Add offline TightVNC Server installation, automatic configuration/import and ownership-checked removal to Wi-Fi unlock. No manually entered component password is required. Compatible existing installations retain their settings, password and ownership.
 - Align both unlock settings windows, with Save at the lower right and window × / Esc for closing. Cancellation, disconnect and failure never replay a PIN automatically; the latest eight diagnostic entries retain transport, phase, result and split timing.
-- Pair with TAB5 0.2.230-ui for faster USB/Bluetooth preparation. Give short RPC handling/responses bounded priority over ordinary telemetry while retaining authorization deadlines and cancellation. Display the actual unlock transport.
-- Verify exact firmware, running partition and fresh UI heartbeats over paired Wi-Fi/Bluetooth. Existing hardware acceptance covers Wi-Fi; isolated BLE acceptance is recorded separately.
+- Pair with TAB5 0.2.234-ui for faster USB/Bluetooth preparation. Give short RPC handling/responses bounded priority over ordinary telemetry while retaining authorization deadlines and cancellation. Display the actual unlock transport.
+- Verify exact firmware, running partition and fresh UI heartbeats over paired Wi-Fi/Bluetooth. Wi-Fi and exact .234 isolated BLE three-sample acceptance have separate hardware records.
 
 ### Delivery and validation
 
