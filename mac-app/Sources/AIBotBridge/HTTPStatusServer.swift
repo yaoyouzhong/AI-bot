@@ -13,6 +13,7 @@ final class HTTPStatusServer {
     private let requests: OperationQueue = { let queue = OperationQueue(); queue.name = "AI-bot.tab5-requests"; queue.maxConcurrentOperationCount = 2; return queue }()
     private var pendingRequests = 0 // owned by the listener queue
     private var listener: NWListener?
+    private var listening = false
 
     init(port: UInt16, token: @escaping () -> String?, resources: @escaping () -> [MacResourcePayload] = { [] }, event: @escaping (String,String,String)->Bool = {_,_,_ in false}, acknowledge: @escaping ()->Void = {}, tab5: MacTab5Service? = nil, snapshot: @escaping () -> Data) {
         self.port = port == 0 ? .any : NWEndpoint.Port(rawValue: port)!
@@ -27,8 +28,8 @@ final class HTTPStatusServer {
         let listener = try NWListener(using: .tcp, on: port)
         listener.stateUpdateHandler = { [weak self] state in
             switch state {
-            case .ready: self?.tab5?.setLANReady(true)
-            case .failed, .cancelled: self?.tab5?.setLANReady(false)
+            case .ready: self?.listening = true; self?.tab5?.setLANReady(true)
+            case .failed, .cancelled: self?.listening = false; self?.tab5?.setLANReady(false)
             default: break
             }
         }
@@ -42,7 +43,7 @@ final class HTTPStatusServer {
         listener?.cancel()
         listener = nil
     }
-    var boundPort: UInt16? { queue.sync { listener?.port?.rawValue } }
+    var boundPort: UInt16? { queue.sync { guard listening, let value = listener?.port?.rawValue, value != 0 else { return nil }; return value } }
 
     private func accept(_ connection: NWConnection) {
         connection.start(queue: queue)
