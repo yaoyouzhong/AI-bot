@@ -16,7 +16,7 @@ enum MacTab5TestData {
         bytes.replaceSubrange(48..<48 + version.utf8.count, with: version.utf8)
         bytes.replaceSubrange(80..<90, with: "aibot_tab5".utf8)
         bytes[991] = bytes[32..<976].reduce(UInt8(0xef), ^)
-        bytes.replaceSubrange(992..<1024, with: SHA256.hash(data: bytes.prefix(992)))
+        bytes.replaceSubrange(992..<1024, with: Data(SHA256.hash(data: bytes.prefix(992))))
         return bytes
     }
     static func jpeg() throws -> Data {
