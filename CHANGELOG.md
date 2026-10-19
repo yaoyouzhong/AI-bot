@@ -20,7 +20,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- Add a local macOS TAB5 USB/Wi-Fi, daily-display and acknowledged display-settings implementation, isolated from ESP8266 settings. Independent protocol/reference checks passed on Windows; Swift tests, Mac Release build, native UI and hardware acceptance remain pending. No deployment or release; see the [phase-one record](docs/development/MAC-TAB5-PHASE1-20261019.md).
+- Add a macOS TAB5 USB/Wi-Fi, daily-display and acknowledged display-settings candidate, isolated from ESP8266 settings. Independent protocol/reference checks passed on Windows; 55 Swift tests and Release compilation passed in Mac CI. Preserve command failures through log pipelines and collect the XCTest XML using an absolute path. Native UI and hardware acceptance remain pending. No deployment or release; see the [phase-one record](docs/development/MAC-TAB5-PHASE1-20261019.md).
 
 ## 0.6.9 - 2026-10-17
 

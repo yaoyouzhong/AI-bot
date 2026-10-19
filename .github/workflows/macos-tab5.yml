@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: mac-tab5-${{ github.ref }}
   cancel-in-progress: true
@@ -32,7 +36,8 @@ jobs:
       - name: Test macOS bridge
         id: tests
         run: |
-          swift test --package-path mac-app --xunit-output artifacts/macos-tab5/test-results.xml 2>&1 | tee artifacts/macos-tab5/tests.log
+          swift test --package-path mac-app --xunit-output "$GITHUB_WORKSPACE/artifacts/macos-tab5/test-results.xml" 2>&1 | tee artifacts/macos-tab5/tests.log
+          test -s artifacts/macos-tab5/test-results.xml
       - name: Compile Release configuration
         id: release
         if: ${{ !cancelled() }}

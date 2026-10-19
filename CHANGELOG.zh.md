@@ -20,7 +20,7 @@
 
 ## 未发布
 
-- 新增 Mac TAB5 USB／Wi-Fi、日常展示与设备回执确认的显示设置本地实现，与 ESP8266 设置隔离。Windows 上独立协议互验通过；Swift 测试、Mac Release 构建、原生界面与真机验收待完成。未部署、未发布，见[第一阶段记录](docs/development/MAC-TAB5-PHASE1-20261019.md)。
+- 新增 Mac TAB5 USB／Wi-Fi、日常展示与设备回执确认的显示设置候选，与 ESP8266 设置隔离。Windows 上独立协议互验通过；Mac CI 的 55 项 Swift 测试及 Release 编译通过。CI 日志管道保留命令失败退出码，XCTest XML 改用绝对路径收集。原生界面与真机验收待完成。未部署、未发布，见[第一阶段记录](docs/development/MAC-TAB5-PHASE1-20261019.md)。
 
 ## 0.6.9 - 2026-10-17
 

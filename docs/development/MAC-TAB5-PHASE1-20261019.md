@@ -1,8 +1,8 @@
-# macOS TAB5 phase one / 第一阶段本地实现
+# macOS TAB5 phase one / 第一阶段实现与 CI 验证
 
-2026-10-19。**仅本地源码候选；未部署、未操作真实配对、未刷机、未提交、未推送或发布。Mac 编译、原生界面及设备验收尚未完成。** 已发布 Mac 下载包支持范围不变。
+2026-10-19。**开发候选已按授权推送到 `codex/mac-tab5-phase1-ci` 测试分支；Mac CI 的 55 项测试和 Release 编译通过。未部署、未操作真实配对、未刷机、未创建标签或 Release。原生界面及设备验收尚未完成。** 已发布 Mac 下载包支持范围不变。
 
-**Local source candidate only. No deployment, live pairing, flash, commit, push or publication. Mac compilation, native UI and hardware acceptance remain pending.** Published Mac packages retain their existing support scope.
+**Development candidate pushed to the authorized `codex/mac-tab5-phase1-ci` test branch. Mac CI passed 55 tests and Release compilation. No deployment, live pairing, flash, tag or Release. Native UI and hardware acceptance remain pending.** Published Mac packages retain their existing support scope.
 
 ## 实现范围 / Implementation
 
@@ -39,14 +39,23 @@ English: retains protocol v1 and device-side transport selection. The compatibil
 | 畸形数据 | 实际 Windows 参照拒绝 4 类篡改包、8 类非法显示设置 |
 | 固件邮箱 ABI | 编译实际未修改的 `rpc_mailbox.inc`；124/2048/2049/5000/12384 字节五场景通过，核对 ID、偏移拒绝和最终重组字节 |
 | 差异检查 | 本轮范围 `git diff --check` 通过；既有行尾转换提示不属于空白错误 |
-| Swift XCTest、Mac Release 构建 | **未执行：当前主机无 macOS/Swift 环境** |
+| Swift XCTest、Mac Release 构建 | **Mac Actions 通过：55 项测试、0 失败；Release 编译成功**。本地 Windows 主机仍未执行 Swift |
 | 原生 UI、权限及 USB/Wi-Fi 实机 | **未执行：需 Mac，设备验收/部署另行授权** |
 
-证据：`artifacts/mac-tab5-20261019/checks/results.json`，参照 DLL 位于同目录上级 `windows-reference/`。Python 语法依赖与 C 编译器只存入忽略的本次 artifacts；未全局安装、未修改系统设置。向量密钥是公开合成测试数据，不是用户凭据。
+Windows 本地证据：`artifacts/mac-tab5-20261019/checks/results.json`，参照 DLL 位于同目录上级 `windows-reference/`。Python 语法依赖与 C 编译器只存入忽略的本次 artifacts；未全局安装、未修改系统设置。向量密钥是公开合成测试数据，不是用户凭据。
 
-新增 19 个 XCTest 方法，覆盖加密、日常数据映射、HTTP 分包/鉴权隔离及二进制设置回执主链路、设置读写与冲突、会话/时效/重放/重复回执、忙碌/取消、配对保存失败、发现、邮箱和串口互斥。**已编写，未在 Mac 执行，不计为通过。**
+新增 19 个 XCTest 方法，覆盖加密、日常数据映射、HTTP 分包/鉴权隔离及二进制设置回执主链路、设置读写与冲突、会话/时效/重放/重复回执、忙碌/取消、配对保存失败、发现、邮箱和串口互斥。**已在 Mac CI 执行通过；加上既有 36 项，共 55 项。**
 
-English: Windows reference and firmware ABI checks passed; 19 new XCTest methods are prepared but unexecuted. Syntax parsing does not establish Swift compilation. No Mac/device success is claimed.
+English: Windows reference and firmware ABI checks passed. Mac CI passed all 55 XCTest methods, including 19 new TAB5 tests, and Release compilation. Syntax parsing alone does not establish compilation. No native UI or physical device success is claimed.
+
+## GitHub Actions 验证 / CI evidence
+
+- [首轮运行 / Initial run 39271302634](https://github.com/yaoyouzhong/AI-bot/actions/runs/39271302634)：源码 `eab54a11957ee1165cd728e739f079b96f2ef873`；macOS 14.8.9、arm64、Swift 5.10；55 项测试 0 失败，Release 编译成功。没有发现 Swift 编译或测试失败。
+- 产物复核发现两处测试工作流问题并修正：显式 Bash 使用 `-eo pipefail`，避免 `tee` 隐藏失败；XCTest XML 使用工作区绝对路径，并检查非空，避免 Swift 包相对路径导致漏传报告。后续运行见[测试分支工作流](https://github.com/yaoyouzhong/AI-bot/actions/workflows/macos-tab5.yml?query=branch%3Acodex%2Fmac-tab5-phase1-ci)，具体结果对应各自源码 SHA。
+- 工作流仅在测试分支 push 或手动触发时运行，权限为 `contents: read`。保存环境、测试/编译日志、XCTest XML 和带来源 SHA、许可、SHA-256 的 Release 二进制检查包，保留 14 天；不执行签名、公证、安装、部署、标签或 Release。
+- 原有 `AppDelegate.swift:10` 音乐服务初始化的 `UserDefaults` 跨 actor 警告在基线 CI 39251154041 已存在。本轮未修改音乐服务或 Apple Events；仍有该非致命警告，不能声称零警告。上传 action 另有 Node 20 弃用提示，运行已由托管 runner 切到 Node 24。
+
+English: the linked initial run proves 55 passing tests and Release compilation on macOS arm64. Artifact inspection led to explicit Bash pipefail and an absolute, required XCTest XML path. Subsequent branch runs carry their exact source SHA. Artifacts are inspection builds retained for 14 days, without deployment or publication. The existing music-service concurrency warning and the upload action's Node deprecation notice remain recorded.
 
 Windows 本地复核命令（路径对应本机证据）：
 
@@ -64,6 +73,6 @@ Mac 构建/测试入口（不部署、不发布）：
 bash scripts/verify_macos_tab5.sh
 ```
 
-后续先完成 Mac 编译与测试并处理任何失败，再核验窗口可见布局。真实 Keychain/局域网权限拒绝与恢复、USB 配对/拔插/改端口、纯 Wi-Fi 设置回执、本机修改冲突、断连及睡眠唤醒需单独实机验收。本次不得以运行上述脚本为由替换在用程序、重新配对设备或刷机。
+后续核验窗口可见布局。真实 Keychain/局域网权限拒绝与恢复、USB 配对/拔插/改端口、纯 Wi-Fi 设置回执、本机修改冲突、断连及睡眠唤醒需单独实机验收。本次不得以运行上述脚本为由替换在用程序、重新配对设备或刷机。
 
-Next: run the Mac gate, fix failures and inspect native layouts, then separately authorize physical acceptance for permissions, pairing, reconnect, Wi-Fi-only settings and sleep/wake. Build/test commands do not authorize deployment or live pairing.
+Next: inspect native layouts, then separately authorize physical acceptance for permissions, pairing, reconnect, Wi-Fi-only settings and sleep/wake. Build/test commands do not authorize deployment or live pairing.
