@@ -32,7 +32,9 @@ final class MacTab5PrivateStore {
         let status = SecItemCopyMatching(read as CFDictionary, &value)
         if status == errSecSuccess, let bytes = value as? Data, bytes.count == 32 { return bytes }
         guard status == errSecItemNotFound else { throw MacTab5Error.keychain }
-        let bytes = try MacTab5Random.key()
+        var bytes = Data(count: 32)
+        let random = bytes.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, $0.count, $0.baseAddress!) }
+        guard random == errSecSuccess else { throw MacTab5Error.keychain }
         var item = query; item[kSecValueData as String] = bytes; item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let added = SecItemAdd(item as CFDictionary, nil)
         if added == errSecDuplicateItem { return try keychainKey() }
