@@ -26,14 +26,15 @@ final class MacTab5Service {
     private let display = MacTab5DisplayTransaction()
     let assets = MacTab5Assets()
     let gallery: MacTab5Gallery
+    let computer: MacTab5Computer
     let firmwareControl = MacTab5Firmware()
     private var activeOperations = 0
     private var displayCompletion: DisplayCompletion?
 
-    init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(),
+    init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(), computer: MacTab5Computer = MacTab5Computer(),
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }) {
-        self.port = port; self.host = host; self.gallery = gallery; loadPairing = load; savePairing = save
+        self.port = port; self.host = host; self.gallery = gallery; self.computer = computer; loadPairing = load; savePairing = save
         do { pairing = try load(); try pairing?.validate() }
         catch { pairingReadable = false; usbNote = "无法读取配对记录，请检查钥匙串权限" }
     }
@@ -149,6 +150,7 @@ final class MacTab5Service {
         var health = offer.health
         health["displayCommand"] = display.command.map { $0 as Any } ?? NSNull()
         health["galleryPacks"] = gallery.revisions(); health["gallerySyncVersion"] = 1
+        if computer.isEnabled { health["computerControlVersion"] = 1 }
         additions["connectionHealth"] = health
         return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session,
                                             sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover)
@@ -235,6 +237,7 @@ final class MacTab5Service {
         if dispatchOperation {
             if !raw.isEmpty { result = .error(400, "unexpected_binary_data") }
             else if root["kind"] as? String == "gallery" { result = gallery.handle(root, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
+            else if root["kind"] as? String == "computer-control" { result = computer.handle(root) }
             else { result = firmwareControl.handle(root, device: device, transport: transport, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
             lock.lock(); activeOperations -= 1; lock.unlock()
         }

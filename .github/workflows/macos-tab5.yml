@@ -56,6 +56,18 @@ jobs:
             shasum -a 256 AIBotBridge LICENSE THIRD_PARTY_NOTICES.md SOURCE_SHA.txt > SHA256SUMS.txt
           )
           tar -C artifacts/macos-tab5/binary -czf artifacts/macos-tab5/mac-tab5-release-build.tar.gz .
+      - name: Build and check candidate app bundle
+        id: bundle
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' && steps.release.outcome == 'success' }}
+        run: |
+          bash scripts/build_macos_app.sh "$GITHUB_WORKSPACE/artifacts/macos-tab5/AIBotBridge.app" 2>&1 | tee artifacts/macos-tab5/bundle.log
+          app="$GITHUB_WORKSPACE/artifacts/macos-tab5/AIBotBridge.app"
+          "$app/Contents/MacOS/AIBotBridge" --self-test-flash-tool 2>&1 | tee artifacts/macos-tab5/flash-tool-check.log
+          cp LICENSE THIRD_PARTY_NOTICES.md "$app/Contents/Resources/"
+          printf '%s\n' "$GITHUB_SHA" > "$app/Contents/Resources/SOURCE_SHA.txt"
+          codesign --force --sign - --options runtime --entitlements mac-app/AIBotBridge.entitlements "$app"
+          codesign --verify --deep --strict "$app"
+          tar -C artifacts/macos-tab5 -czf artifacts/macos-tab5/mac-tab5-candidate-app.tar.gz AIBotBridge.app
       - name: Upload CI diagnostics and build
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

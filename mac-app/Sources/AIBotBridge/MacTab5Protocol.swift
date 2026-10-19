@@ -83,6 +83,7 @@ enum MacTab5Protocol {
               n.doubleValue == Double(n.int64Value) else { return nil }
         return n.int64Value
     }
+    static func isBoolean(_ value: Any?) -> Bool { value.map { CFGetTypeID($0 as CFTypeRef) == CFBooleanGetTypeID() } ?? false }
 
     static func snapshot(_ snapshot: MacStatusSnapshot, device: String, session: String, sequence: Int64,
                          command: [String: Any]?, additions: [String: Any] = [:], hasArtwork: Bool = false) throws -> Data {

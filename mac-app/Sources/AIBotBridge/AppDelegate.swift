@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do { _ = try PairingTokenStore.loadOrCreate() }
         catch { show("配对令牌创建失败", "无法使用 Keychain 保存设备配对令牌。") }
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
-        let tab5 = MacTab5Service(port: port)
+        let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: { [dataStore] in dataStore.snapshot().music }))
         self.tab5 = tab5
         tab5.publish(reader.capture(extras: dataStore.snapshot()))
         server = HTTPStatusServer(port: port, token: PairingTokenStore.read, resources: { [weak self] in self?.resourceSnapshot() ?? [] }, event: { [weak self] agent, event, message in

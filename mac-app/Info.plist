@@ -28,7 +28,7 @@
         <true/>
     </dict>
     <key>NSAppleEventsUsageDescription</key>
-    <string>AI-bot reads the current track from a running music player for display on your device.</string>
+    <string>When enabled, AI-bot reads the current track and controls playback in Music or Spotify for your paired TAB5. Explicit lock requests use System Events.</string>
     <key>NSLocalNetworkUsageDescription</key>
     <string>AI-bot connects to your paired clock and provides authenticated Wi-Fi fallback on your local network.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>

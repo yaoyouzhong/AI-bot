@@ -14,6 +14,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private var actions: [NSButton] = []
     private var timer: Timer?
     private var tools: MacTab5ToolsWindow?
+    private var features: MacTab5FeaturesWindow?
     private(set) var busy = false
 
     init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }, changeBluetooth: @escaping (Bool) -> Void = { _ in }) {
@@ -68,6 +69,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(heading("显示设置"))
         stack.addArrangedSubview(action("读取并修改显示设置…", #selector(editDisplay)))
         stack.addArrangedSubview(action("资源与固件…", #selector(openTools)))
+        stack.addArrangedSubview(action("交互与权限…", #selector(openFeatures)))
         stack.addArrangedSubview(note("亮度、声音、页面和轮播设置以 TAB5 实际值为准；保存需要设备确认。"))
         result.textColor = .secondaryLabelColor
         stack.addArrangedSubview(result); result.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -102,6 +104,9 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     }
     private func refreshStatus() { connection.stringValue = service.connectionSummary }
     var toolsBusy: Bool { tools?.busy == true }
+    @objc private func openFeatures() {
+        if features == nil { features = MacTab5FeaturesWindow(service: service) }; features?.open()
+    }
     @objc private func openTools() {
         if tools == nil { tools = MacTab5ToolsWindow(service: service, usb: usb, canBegin: { [weak self] in self?.busy == false && self?.canBegin() == true }) }
         tools?.open()

@@ -25,4 +25,8 @@ UI plan: keep native AppKit controls, system semantic background/label/separator
 
 对应固件参考为公开 `AI-bot-tab5-0.2.234-ui-source.zip`，SHA-256 `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890`；仅在忽略的 artifacts 中只读对照，未修改或重建固件。
 
+- 图库/OTA `d75f7f9` 在 [Mac CI 39277128869](https://github.com/yaoyouzhong/AI-bot/actions/runs/39277128869) 通过测试及 Release。修复 Swift 5.10 测试夹具的 Digest 集合类型兼容性，没有弱化校验。
+- 电脑/音乐：新增默认关闭的授权入口、CoreAudio 实际音量/静音读写、白名单快捷启动、Music/Spotify 单次操作和只读状态确认。请求 ID 的结果缓存覆盖失败与不确定结果，冲突 ID 不执行。未知锁定/屏幕状态保持 null，Mac 不通告一键解锁。Apple Events 在主线程执行；同时修复原音乐服务默认 UserDefaults 参数引起的跨 actor 警告。
+- 音乐改动的 CI 同时生成临时签名候选 App、校验签名及内置刷机工具，不安装或部署。实际自动化提示、播放/暂停和锁屏权限验证按用户安排留待次日真机联调。
+
 English: the linked CoreBluetooth module run passed 60 tests and Release compilation. Resource transfer reuses existing Mac selections/artwork, device CRC acknowledgements and the unchanged binary RPC formats; the actual firmware mailbox passes seven size scenarios up to 65535 bytes. Hardware acceptance remains pending.

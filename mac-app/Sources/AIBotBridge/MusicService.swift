@@ -76,9 +76,9 @@ actor MacMusicService {
     private var resourceKey = ""
     private static let maximumArtworkBytes = 10 * 1_024 * 1_024
 
-    init(store: MacDataStore, defaults: UserDefaults = .standard) {
+    init(store: MacDataStore) {
         self.store = store
-        self.defaults = defaults
+        self.defaults = .standard
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 5
         configuration.timeoutIntervalForResource = 8
@@ -127,7 +127,7 @@ actor MacMusicService {
                              elapsedSeconds: elapsed, durationSeconds: duration, updatedAt: now)
     }
 
-    private static func isRunning(_ provider: MacMusicProvider) -> Bool {
+    static func isRunning(_ provider: MacMusicProvider) -> Bool {
         !NSRunningApplication.runningApplications(
             withBundleIdentifier: provider.bundleIdentifier).isEmpty
     }
@@ -151,7 +151,7 @@ actor MacMusicService {
         return String(singleLine.prefix(96))
     }
 
-    private static func read(_ provider: MacMusicProvider) -> MusicSnapshot? {
+    static func read(_ provider: MacMusicProvider) -> MusicSnapshot? {
         guard let result = execute(provider.scriptSource), result.numberOfItems == 6 else { return nil }
         let values = (1...6).map { result.atIndex($0)?.stringValue ?? "" }
         return parse(values: values)
@@ -206,6 +206,7 @@ actor MacMusicService {
     }
 
     private static func execute(_ source: String) -> NSAppleEventDescriptor? {
+        if !Thread.isMainThread { return DispatchQueue.main.sync { execute(source) } }
         guard let script = NSAppleScript(source: source) else { return nil }
         var error: NSDictionary?
         let result = script.executeAndReturnError(&error)
