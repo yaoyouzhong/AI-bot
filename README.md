@@ -55,9 +55,9 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 新版 116 秒视频展示电脑一键解锁、TightVNC 自动安装／接入与双向已读同步，使用实际 234 更新说明，并保留日程、时钟、额度和艺术浏览。画面来自原生界面的隔离演示数据，非硬件实拍。
 
-[![AI-bot 0.6.10 / TAB5 234](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/assets/product-intro/AI-bot-product-intro.mp4)
+https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 
-<sub>116 秒中文产品介绍，点击封面打开 GitHub 视频页。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4)</sub>
+<sub>116 秒中文产品介绍，可在本页直接播放。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4)</sub>
 
 ## 能做什么
 
