@@ -1,0 +1,294 @@
+{
+  "note": "PUBLIC SYNTHETIC TEST DATA ONLY",
+  "keyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "nonceHex": "000102030405060708090a0b",
+  "challenge": "0123456789abcdef0123456789abcdef",
+  "device": "001122334455",
+  "clearHex": "7b226572726f72223a22222c226973737565644174223a313830303030303030303030302c226b696e64223a22646973706c61792d73657474696e6773222c226f6b223a747275652c22726571756573744964223a223232323232323232323232323232323232323232323232323232323232323232222c2273657373696f6e223a223131313131313131313131313131313131313131313131313131313131313131222c2273657474696e6773223a7b22616c65727473223a747275652c226272696768746e657373223a37352c226379636c65223a747275652c22656e61626c6564223a5b312c312c312c312c312c312c312c315d2c22696e74657276616c223a31352c226d75746564223a66616c73652c226f72646572223a5b302c312c322c332c342c352c362c375d2c227265766973696f6e223a223132333461626364222c2273617665724d696e75746573223a352c2273656c6563746564223a2d312c22766f6c756d65223a34307d7d",
+  "packetHex": "000102030405060708090a0b7faa1e2604da435ea268e403fedd320a3c20b369b78ab039b763b5a793800b1ef6b3e3758459654d0057d5b52d59308231209ecc83e379f11ac05dd7aae3414b9e3501f477a5c6ae4bfe447e6bc1d9cc9f57e440a7a353043076d80b9efa6b9b4cc3ad404c41615acfcfacfe4ac28bbff9ca6bd49673fa28ac2e0c807a47134d88555099d1f707b66f8c32bef18f0160996822f785e6fa6239d079900ceb7df307c5d2040420a27bbd6ed946cbe3d8dfa2a6af37c5ddbf1bd317b494b8f3a481e6ecab4eeed907cf47e5b4b504a09bd1713ee39d65a9b8ac4425f1dc8d74f5a682079b1a5822808503e4ffeb632de19b214fb1cbc41a58147e7694399920506084a29544b101d48935020907eeee34e078f3c8a1a8f66a5302ab176395175c6bb6c7afe1a2e4f3cb145d4f6b51c4967a2d31f27b96f1e222be0a166d57b982a1fdbc322d20fba135a2132c24a409248baaf15d06a913199fc692364933a66907e038edb1b036f66d25c61b12e8d56ac5741ed5fbf33b1ebe4dca8619a3851f55",
+  "proofMessage": "POST|/tab5/v1/rpc|001122334455|0123456789abcdef0123456789abcdef|9c0630d22945e4a8212daa3bdaf69c51437e551d2e16e004cf53d446a8f25d46",
+  "proof": "d0bf61f1e9f06c29c54effab84cf0d79aa59b64af62ac0cd28abf9e5ecec5c40",
+  "settings": {
+    "revision": "1234abcd",
+    "brightness": 75,
+    "volume": 40,
+    "muted": false,
+    "selected": -1,
+    "cycle": true,
+    "interval": 15,
+    "saverMinutes": 5,
+    "alerts": true,
+    "enabled": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "invalidSettings": [
+    {
+      "revision": "1234abcd",
+      "brightness": 9,
+      "volume": 40,
+      "muted": false,
+      "selected": -1,
+      "cycle": true,
+      "interval": 15,
+      "saverMinutes": 5,
+      "alerts": true,
+      "enabled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "revision": "1234abcd",
+      "brightness": 75,
+      "volume": 101,
+      "muted": false,
+      "selected": -1,
+      "cycle": true,
+      "interval": 15,
+      "saverMinutes": 5,
+      "alerts": true,
+      "enabled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "revision": "1234abcd",
+      "brightness": 75,
+      "volume": 40,
+      "muted": false,
+      "selected": 0,
+      "cycle": true,
+      "interval": 15,
+      "saverMinutes": 5,
+      "alerts": true,
+      "enabled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "revision": "1234abcd",
+      "brightness": 75,
+      "volume": 40,
+      "muted": false,
+      "selected": -1,
+      "cycle": true,
+      "interval": 11,
+      "saverMinutes": 5,
+      "alerts": true,
+      "enabled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "revision": "1234abcd",
+      "brightness": 75,
+      "volume": 40,
+      "muted": false,
+      "selected": -1,
+      "cycle": true,
+      "interval": 15,
+      "saverMinutes": 2,
+      "alerts": true,
+      "enabled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "revision": "1234abcd",
+      "brightness": 75,
+      "volume": 40,
+      "muted": false,
+      "selected": -1,
+      "cycle": true,
+      "interval": 15,
+      "saverMinutes": 5,
+      "alerts": true,
+      "enabled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "revision": "1234abcd",
+      "brightness": 75,
+      "volume": 40,
+      "muted": false,
+      "selected": -1,
+      "cycle": true,
+      "interval": 15,
+      "saverMinutes": 5,
+      "alerts": true,
+      "enabled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "order": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "revision": "bad",
+      "brightness": 75,
+      "volume": 40,
+      "muted": false,
+      "selected": -1,
+      "cycle": true,
+      "interval": 15,
+      "saverMinutes": 5,
+      "alerts": true,
+      "enabled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "order": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  ],
+  "discovery": "TAB5_DISCOVER_V1|001122334455|0123456789abcdef0123456789abcdef|a8527b13506a6b335691c612b2799dbade59a0a2fa34b0fad37ead9d10f4903b",
+  "discoveryReply": "TAB5_BRIDGE_V1|001122334455|0123456789abcdef0123456789abcdef|192.168.1.20|8765|de2acc719d4d11143d434ff5d21badc134b56a6e17e1678d15c1324b4e3a0ee1"
+}

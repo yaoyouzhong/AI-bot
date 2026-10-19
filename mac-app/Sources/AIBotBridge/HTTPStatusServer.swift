@@ -8,25 +8,35 @@ final class HTTPStatusServer {
     private let resources: () -> [MacResourcePayload]
     private let event: (String,String,String) -> Bool
     private let acknowledge: () -> Void
+    private let tab5: MacTab5Service?
     private let queue = DispatchQueue(label: "AI-bot.status-server")
     private var listener: NWListener?
 
-    init(port: UInt16, token: @escaping () -> String?, resources: @escaping () -> [MacResourcePayload] = { [] }, event: @escaping (String,String,String)->Bool = {_,_,_ in false}, acknowledge: @escaping ()->Void = {}, snapshot: @escaping () -> Data) {
+    init(port: UInt16, token: @escaping () -> String?, resources: @escaping () -> [MacResourcePayload] = { [] }, event: @escaping (String,String,String)->Bool = {_,_,_ in false}, acknowledge: @escaping ()->Void = {}, tab5: MacTab5Service? = nil, snapshot: @escaping () -> Data) {
         self.port = NWEndpoint.Port(rawValue: port)!
         self.token = token
         self.snapshot = snapshot
         self.resources = resources
         self.event=event;self.acknowledge=acknowledge
+        self.tab5 = tab5
     }
 
     func start() throws {
         let listener = try NWListener(using: .tcp, on: port)
+        listener.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .ready: self?.tab5?.setLANReady(true)
+            case .failed, .cancelled: self?.tab5?.setLANReady(false)
+            default: break
+            }
+        }
         listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
         listener.start(queue: queue)
         self.listener = listener
     }
 
     func stop() {
+        tab5?.setLANReady(false)
         listener?.cancel()
         listener = nil
     }
@@ -42,30 +52,45 @@ final class HTTPStatusServer {
             guard let self else { connection.cancel(); return }
             var next = buffer
             if let data { next.append(data) }
-            let headerEnd = next.range(of: Data("\r\n\r\n".utf8))
-            let headerComplete = headerEnd != nil
-            if let end=headerEnd {
-                guard end.upperBound<=8192,let headers=String(data:next[..<end.lowerBound],encoding:.utf8) else {connection.cancel();return}
-                let lengths=headers.components(separatedBy:"\r\n").filter{$0.lowercased().hasPrefix("content-length:")}
-                guard lengths.count<=1 else{connection.cancel();return}
-                let length=lengths.first.flatMap{Int($0.split(separator:":",maxSplits:1).last?.trimmingCharacters(in:.whitespaces) ?? "")} ?? 0
-                guard (0...16384).contains(length) else{connection.cancel();return}
-                if next.count-end.upperBound<length && !complete && error == nil {self.read(connection,buffer:next);return}
-                guard next.count-end.upperBound==length else{connection.cancel();return}
+            do {
+                guard let request = try MacHTTPRequest.parse(next) else {
+                    if !complete && error == nil { self.read(connection, buffer: next) }
+                    else { connection.cancel() }
+                    return
+                }
+                var loopback = false
+                if case let .hostPort(host, _) = connection.endpoint { loopback = ["127.0.0.1", "::1"].contains(String(describing: host)) }
+                let response = self.response(for: request, raw: next, loopback: loopback)
+                connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
+            } catch {
+                connection.send(content: self.http(status: "400 Bad Request", body: Data()), completion: .contentProcessed { _ in connection.cancel() })
             }
-            if !headerComplete && !complete && error == nil && next.count < 65_536 {
-                self.read(connection, buffer: next)
-                return
-            }
-            guard headerComplete, let request = String(data: next, encoding: .utf8) else {
-                connection.cancel()
-                return
-            }
-            var loopback=false
-            if case let .hostPort(host,_) = connection.endpoint { loopback = ["127.0.0.1","::1"].contains(String(describing:host)) }
-            let response = self.response(for: request, loopback:loopback)
-            connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
         }
+    }
+
+    func response(for data: Data, loopback: Bool = false) -> Data {
+        guard let request = try? MacHTTPRequest.parse(data) else { return http(status: "400 Bad Request", body: Data()) }
+        return response(for: request, raw: data, loopback: loopback)
+    }
+
+    private func response(for request: MacHTTPRequest, raw: Data, loopback: Bool) -> Data {
+        if request.target.hasPrefix("/tab5/") {
+            guard request.headers["origin"] == nil else { return http(status: "403 Forbidden", body: Data()) }
+            guard let tab5 else { return http(status: "404 Not Found", body: Data()) }
+            let device = request.headers["x-aibot-device"] ?? ""
+            let nonce = request.headers["x-aibot-nonce"] ?? ""
+            let proof = request.headers["x-aibot-proof"] ?? ""
+            let result: (Int, Data)
+            if request.method == "GET", request.target == "/tab5/v1/status", request.body.isEmpty {
+                result = tab5.status(device: device, nonce: nonce, proof: proof)
+            } else if request.method == "POST", request.target == "/tab5/v1/rpc" {
+                result = tab5.rpc(device: device, nonce: nonce, proof: proof, packet: request.body)
+            } else { result = (404, Data()) }
+            let names = [200: "OK", 400: "Bad Request", 401: "Unauthorized", 404: "Not Found", 500: "Internal Server Error", 503: "Service Unavailable"]
+            return http(status: "\(result.0) \(names[result.0] ?? "Error")", body: result.1, type: "application/octet-stream")
+        }
+        guard let text = String(data: raw, encoding: .utf8) else { return http(status: "400 Bad Request", body: Data()) }
+        return response(for: text, loopback: loopback)
     }
 
     func response(for request: String, loopback: Bool = false) -> Data {

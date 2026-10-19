@@ -17,6 +17,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var quotaTimer: Timer?
     private var metricsTimer: Timer?
     private var serial: SerialBridge?
+    private var tab5: MacTab5Service?
+    private var tab5USB: MacTab5USB?
+    private var tab5Discovery: MacTab5Discovery?
+    private var tab5Window: MacTab5Window?
     private var screenSaverState = AutomaticScreenSaverState()
     private var port: UInt16 = 8765
     private var deviceOperationBusy = false
@@ -38,9 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do { _ = try PairingTokenStore.loadOrCreate() }
         catch { show("配对令牌创建失败", "无法使用 Keychain 保存设备配对令牌。") }
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
+        let tab5 = MacTab5Service(port: port)
+        self.tab5 = tab5
+        tab5.publish(reader.capture(extras: dataStore.snapshot()))
         server = HTTPStatusServer(port: port, token: PairingTokenStore.read, resources: { [weak self] in self?.resourceSnapshot() ?? [] }, event: { [weak self] agent, event, message in
             self?.reader.signals.record(agent:agent,event:event,message:message) ?? false
-        }, acknowledge: { [weak self] in self?.reader.signals.acknowledge() }) { [weak self] in
+        }, acknowledge: { [weak self] in self?.reader.signals.acknowledge() }, tab5: tab5) { [weak self] in
             guard let self else { return Data("{\"version\":1}".utf8) }
             return self.reader.json(extras: self.dataStore.snapshot())
         }
@@ -63,6 +70,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return self.resourceSnapshot()
         })
         serial?.start()
+        tab5USB = MacTab5USB(service: tab5)
+        tab5USB?.start()
+        tab5Discovery = MacTab5Discovery(service: tab5)
+        do { try tab5Discovery?.start() }
+        catch {
+            tab5.setDiscoveryState("未启动；可通过 USB 写入电脑地址")
+            show("TAB5 自动发现未启动", "USB 连接仍可使用；Wi-Fi 请先通过 USB 写入电脑地址。")
+        }
         metricsTimer=Timer.scheduledTimer(withTimeInterval:0.25,repeats:true){[weak self] _ in
             guard let self,let metrics=self.systemMetrics.capture() else{return}
             self.dataStore.update(systemMetrics:metrics)
@@ -88,22 +103,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quotaTimer?.invalidate()
         metricsTimer?.invalidate()
         serial?.stop()
+        tab5USB?.stopAndWait()
+        tab5Discovery?.stop()
+        tab5?.stop()
         server?.stop()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if flasher?.busy == true { flasher?.open(); return .terminateCancel }
+        if tab5Window?.busy == true { tab5Window?.open(); return .terminateCancel }
         return .terminateNow
     }
 
     @objc private func openFlasher() {
         if flasher == nil {
             flasher = MacFirmwareFlashWindow(bridgePort: serial?.portName, begin: { [weak self] in
-                guard let self, !self.deviceOperationBusy else { return false }
+                guard let self, !self.deviceOperationBusy, self.tab5Window?.busy != true else { return false }
                 self.deviceOperationBusy = true
                 return true
             }, suspend: { [weak self] in
                 self?.serial?.stopAndWait()
+                self?.tab5USB?.stopAndWait()
                 // The worker's completion is dispatched to main after this assignment.
                 self?.flashSerialStopped = true
             }, finish: { [weak self] success in
@@ -113,7 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     UserDefaults.standard.set(true, forKey: "display_cycle_enabled")
                     self.screenSaverState.select("auto"); self.reader.select("auto")
                 }
-                if self.flashSerialStopped { self.serial?.start(); self.flashSerialStopped = false }
+                if self.flashSerialStopped { self.serial?.start(); self.tab5USB?.start(); self.flashSerialStopped = false }
                 self.deviceOperationBusy = false
             })
         }
@@ -124,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(item("查看本机状态", #selector(showStatus)))
         menu.addItem(item("设备镜像", #selector(openMirror)))
+        menu.addItem(item("TAB5…", #selector(openTab5)))
         menu.addItem(item("确认 Codex 完成提醒", #selector(acknowledgeCompletion)))
         let displayItem = NSMenuItem(title: "显示页面", action: nil, keyEquivalent: "")
         let displayMenu = NSMenu()
@@ -188,6 +209,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateTitle() {
         Task { await self.musicService.refreshIfEnabled() }
         let snapshot = reader.capture(extras: dataStore.snapshot())
+        tab5?.publish(snapshot)
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
         updateAutomaticScreenSaver(snapshot)
     }
@@ -210,6 +232,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func acknowledgeCompletion() { reader.signals.acknowledge() }
+    @objc private func openTab5() {
+        guard let service = tab5, let usb = tab5USB else { return }
+        if tab5Window == nil {
+            tab5Window = MacTab5Window(service: service, usb: usb, canBegin: { [weak self] in self?.deviceOperationBusy == false })
+        }
+        tab5Window?.open()
+    }
     @objc private func statusClicked(){guard let button=statusItem.button else{return};if NSApp.currentEvent?.type == .rightMouseUp {buildMenu().popUp(positioning:nil,at:NSPoint(x:0,y:button.bounds.minY),in:button)}else{openMirror()}}
     @objc private func openMirror() {
         guard let button=statusItem.button else{return}

@@ -7,6 +7,6 @@ let package = Package(
     products: [.executable(name: "AIBotBridge", targets: ["AIBotBridge"])],
     targets: [
         .executableTarget(name: "AIBotBridge"),
-        .testTarget(name: "AIBotBridgeTests", dependencies: ["AIBotBridge"])
+        .testTarget(name: "AIBotBridgeTests", dependencies: ["AIBotBridge"], resources: [.copy("Fixtures")])
     ]
 )

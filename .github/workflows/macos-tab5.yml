@@ -1,0 +1,65 @@
+name: Mac TAB5 validation
+
+on:
+  push:
+    branches: [codex/mac-tab5-phase1-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-tab5-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Record source and toolchain
+        run: |
+          mkdir -p artifacts/macos-tab5
+          {
+            git rev-parse HEAD
+            sw_vers
+            uname -m
+            swift --version
+          } | tee artifacts/macos-tab5/environment.txt
+      - name: Test macOS bridge
+        id: tests
+        run: |
+          swift test --package-path mac-app --xunit-output artifacts/macos-tab5/test-results.xml 2>&1 | tee artifacts/macos-tab5/tests.log
+      - name: Compile Release configuration
+        id: release
+        if: ${{ !cancelled() }}
+        run: |
+          swift build --package-path mac-app -c release 2>&1 | tee artifacts/macos-tab5/release.log
+      - name: Preserve successful build for inspection
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' && steps.release.outcome == 'success' }}
+        run: |
+          mkdir -p artifacts/macos-tab5/binary
+          binary="$(swift build --package-path mac-app -c release --show-bin-path)/AIBotBridge"
+          cp "$binary" artifacts/macos-tab5/binary/
+          cp LICENSE THIRD_PARTY_NOTICES.md artifacts/macos-tab5/binary/
+          printf '%s\n' "$GITHUB_SHA" > artifacts/macos-tab5/binary/SOURCE_SHA.txt
+          (
+            cd artifacts/macos-tab5/binary
+            shasum -a 256 AIBotBridge LICENSE THIRD_PARTY_NOTICES.md SOURCE_SHA.txt > SHA256SUMS.txt
+          )
+          tar -C artifacts/macos-tab5/binary -czf artifacts/macos-tab5/mac-tab5-release-build.tar.gz .
+      - name: Upload CI diagnostics and build
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mac-tab5-ci-${{ github.sha }}
+          path: |
+            artifacts/macos-tab5/*.txt
+            artifacts/macos-tab5/*.log
+            artifacts/macos-tab5/*.xml
+            artifacts/macos-tab5/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
