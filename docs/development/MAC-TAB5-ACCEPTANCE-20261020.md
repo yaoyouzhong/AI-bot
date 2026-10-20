@@ -6,19 +6,19 @@
 
 ## 当前检查点
 
-当前运行程序为 `d93c318`，[Mac CI 39387247309](https://github.com/yaoyouzhong/AI-bot/actions/runs/39387247309) 与完整下载附件已核验：171 项测试、0 失败／跳过，音乐 ASan/UBSan、Release、候选包／工具、8 张原生 PNG、源码及包哈希通过。用户处理钥匙串后新候选 USB 数据确认、Wi-Fi 认证请求与 BLE USB 优先待命均自动恢复。`604ac8c`／`a3bd642` 的 Codex 只读与阅读位置保持验收结论仍保留，不因额度或音乐修复重新开启会话访问。
+当前运行程序为 `3fc848b`，[Mac CI 39388819221](https://github.com/yaoyouzhong/AI-bot/actions/runs/39388819221) 与完整下载附件已核验：173 项测试、0 失败／跳过，音乐 ASan/UBSan、Release、候选包／工具、8 张原生 PNG、源码及包哈希通过。用户处理钥匙串后新候选 USB 数据确认、Wi-Fi 认证请求与 BLE USB 优先待命均自动恢复。`604ac8c`／`a3bd642` 的 Codex 只读与阅读位置保持验收结论仍保留，不因额度或音乐修复重新开启会话访问。
 
-本轮补齐 Mac 原来遗漏的七日额度历史、逐张重置卡到期信息和实际窗口长度；真实接口预检返回可用周额度及完整重置卡日期，用户已确认实体卡片信息正常。首个历史样本尚不能计算增量，七日图显示未知；已自动观察到相隔 120 秒的两次真实采样，用户对“今天显示 0、前六天仍为 --”反馈正常，该显示路径通过。过去未采集的日期保持未知，不反推或填造历史。
+本轮补齐 Mac 原来遗漏的七日额度历史、逐张重置卡到期信息和实际窗口长度；真实接口预检返回可用周额度及完整重置卡日期，用户已确认实体卡片信息正常。首个历史样本尚不能计算增量，七日图显示未知；已自动观察到相隔 120 秒的两次真实采样，用户对“今天显示 0、前六天仍为 --”反馈正常，该显示路径通过；后续用户又确认当日数值随实际采样增加，动态累计显示正常。过去未采集的日期保持未知，不反推或填造历史。
 
-音乐重新按 Windows 发送路径排查：有有效时间轴时，Mac USB 从 2 秒改为 500 ms，保留相位及阻塞保护；不修改或刷写固件。新候选已临时开启音乐、导入并播放原本地测试曲目，其他交互开关仍关闭。用户发现当前播放时间间歇消失、总时长不变，故音乐计时未通过。只读进程采样证实主线程活动扫描阻塞音乐 Apple Events，正在修复并复验，详见[音乐调查](MAC-TAB5-MUSIC-TIMING-FOLLOWUP.md)。下表与旧段落保留先前已完成结果，不能将此前清理记录套用于正在进行的新一轮音乐测试。
+音乐重新按 Windows 发送路径排查：有有效时间轴时，Mac USB 从 2 秒改为 500 ms，保留相位及阻塞保护；不修改或刷写固件。新候选已临时开启音乐、导入并播放原本地测试曲目，其他交互开关仍关闭。`d93c318` 出现当前播放时间间歇消失、总时长不变，未通过。只读进程采样定位主线程活动扫描阻塞音乐 Apple Events；`3fc848b` 改为后台扫描后累计 281 帧均可用、最大样本年龄 0.53 秒，用户确认当前时间显示及逐秒前进“正常了”，本轮 USB 音乐计时通过，详见[音乐调查](MAC-TAB5-MUSIC-TIMING-FOLLOWUP.md)。自动在 Music 恢复播放后再暂停，累计 370 个生成帧仍无不可用时间轴、最大样本年龄 0.53 秒。随后关闭音乐开关并确认“尚未启用”，仅将原测试曲从资料库移除并放入可恢复废纸篓，退出 Music；其他交互开关均关闭。Mac 已返回 TAB5 主窗口，三通道正常；用户已确认设备返回原日常总览页。下表与旧段落保留先前结果。
 
 | 交接阶段 | 当前结论与剩余项 |
 | --- | --- |
-| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 171 项通过；本机 XCTest 工具链仍受阻 |
+| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 173 项通过；本机 XCTest 工具链仍受阻 |
 | 2 USB | 配对、数据、设置读写、拔插与桥接重启恢复通过 |
 | 3 Wi-Fi | 纯 Wi-Fi 认证与设置读写、USB 返回通过；配网、地址恢复、固定模式和八秒阈值精测待验 |
 | 4 BLE | 实际认证／数据／设置、开关重连、睡眠恢复、USB 优先、系统撤权恢复通过；首次直接拒绝与精确延时确认待验 |
-| 5 展示与资源 | 亮度持久化、设备声音、固定页／轮播／屏保、图库导入／失败保留／分页／方向通过；日常数据逐项、桌宠及音乐均匀计时仍未完成 |
+| 5 展示与资源 | 亮度持久化、设备声音、固定页／轮播／屏保、图库导入／失败保留／分页／方向通过；USB Apple Music 均匀计时本轮通过；日常数据逐项、桌宠及其他音乐通道待验 |
 | 6 系统与音乐 | Apple Music 标题／封面／单次控制、系统音量／静音／取消静音、文件夹入口通过；Spotify、程序入口、锁屏／辅助功能拒绝恢复待验 |
 | 7 Codex | 公开 socket 缺失与 proxy 传输假设已查清；不部署服务的标准 stdio 只读连接、实体首页任务、公开回复和阅读位置保持通过。实时状态／发送／追加／中断仍不可用 |
 | 8 照片与语音 | 语音授权、空录音停止提示通过；HTTP 长连接修复后纯 Wi-Fi 单次成功识别，收到 7.4 秒音频；静默提示短停顿复验通过；USB 单次录音及取消保留原名称通过；BLE 语音／长期稳定性、逐字准确率、照片／任务附件待验 |
@@ -323,9 +323,9 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 
 ## English
 
-The quota/music candidate `d93c318` passed [CI 39387247309](https://github.com/yaoyouzhong/AI-bot/actions/runs/39387247309) and full artifact verification: 171 tests, zero failures/skips, Release/app/tools/PNGs/sanitizers and hashes. The user authorized Keychain startup; USB, Wi-Fi and Bluetooth standby recovered normally. Physical reset-credit expiry details passed. After two actual quota samples 120 seconds apart, the user also confirmed today's zero and unknown earlier days. Historical data is not invented.
+The quota/music candidate `d93c318` passed [CI 39387247309](https://github.com/yaoyouzhong/AI-bot/actions/runs/39387247309) and full artifact verification: 171 tests, zero failures/skips, Release/app/tools/PNGs/sanitizers and hashes. The user authorized Keychain startup; USB, Wi-Fi and Bluetooth standby recovered normally. Physical reset-credit expiry details passed. After two actual quota samples 120 seconds apart, the user also confirmed today's zero and unknown earlier days. The user later confirmed the current-day value increased with subsequent usage sampling, validating live accumulation. Historical data is not invented.
 
-Only the music opt-in was temporarily enabled and the original local fixture imported/played. The 500 ms USB candidate has not passed music acceptance: elapsed time intermittently disappears while total duration remains. Stack sampling identified main-thread activity scanning blocking music Apple Events; a background-sampling repair is being validated. Firmware and other opt-ins remain unchanged, and this new music test has not yet been cleaned up. The following paragraphs retain earlier checkpoints.
+Only the music opt-in was temporarily enabled and the original local fixture imported/played. The earlier 500 ms USB candidate `d93c318` failed music acceptance: elapsed time intermittently disappears while total duration remains. Stack sampling identified main-thread activity scanning blocking music Apple Events. The background-sampling repair `3fc848b` passed [CI 39388819221](https://github.com/yaoyouzhong/AI-bot/actions/runs/39388819221) and full artifact verification with 173 tests, zero failures/skips; normal-app revalidation followed. The user confirmed elapsed-time visibility and uniform progression now normal on USB; diagnostics counted 281 generated frames with zero unavailable timelines and maximum age 0.53 seconds. After automated Music resume/pause, the counters reached 370 generated frames with zero unavailable timelines and maximum age 0.53 seconds. Music access was disabled, the fixture removed from the library into recoverable Trash, and Music quit; all interaction opt-ins are off. The Mac TAB5 window shows all three transports healthy; the user confirmed returning the device to its original daily overview. Firmware and display settings remain unchanged. The following paragraphs retain earlier checkpoints.
 
 The latest physically checked program is `a3bd642`, with [CI 39385101526](https://github.com/yaoyouzhong/AI-bot/actions/runs/39385101526) and full artifacts verifying 164 tests, zero failures/skips, Release/app/tools, eight PNGs, music sanitizers and source/package hashes. Local Release/app/fixture checks passed; local XCTest remained unavailable.
 

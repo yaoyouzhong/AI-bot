@@ -20,6 +20,14 @@ The user reports smooth playback timing on Windows with the same TAB5. The synth
 
 In the normal `d93c318` app the user reported intermittent disappearance of elapsed time while duration remained visible, so the 171-test candidate did not pass music timing acceptance. A five-second, stack-only process sample placed 1989/2533 main-thread samples in activity scanning via `updateTitle`; 1987 music-worker samples waited on the main queue for Apple Events. Delayed samples exceed the existing three-second timeline validity bound while duration remains cached. The follow-up moves activity scanning to one background queue with coalesced requests and nonblocking snapshots; first/long-stale activity is unknown. Cached ages advance, local token accounting and hooks remain intact. It preserves the three-second music freshness limit and adds metadata-free age/frame-availability diagnostics. Physical revalidation is still required.
 
+### 后台采样候选的自动检查
+
+`3fc848b` 的 [Mac CI 39388819221](https://github.com/yaoyouzhong/AI-bot/actions/runs/39388819221) 与完整附件核验通过 173 项测试、0 失败／跳过，以及 Release、签名候选包、工具、原生界面夹具、音乐 ASan/UBSan 和哈希核验。本机 Release 与候选包通过；本机 XCTest 仍不可用，未伪记本机测试通过。
+
+正常退出旧候选后启动新候选，用户处理钥匙串，USB／Wi-Fi／BLE 自动恢复，只有音乐交互开关开启。重新播放原本地测试曲目后，诊断累计生成 117 帧，其中进度不可用 0 帧，最大样本年龄 0.53 秒。这里统计桥接构建帧，不等同于 117 个实体屏幕样本。另一次五秒栈采样确认活动解析位于 `AI-bot.activity-sampling` 后台串行队列，主线程不再执行该扫描。随后累计 281 帧仍为 0 不可用、最大年龄 0.53 秒。用户针对“当前时间是否还消失、是否均匀逐秒前进”的本轮观察明确反馈“正常了”，当前 USB 下的可见性与计时均匀度通过；不外推为 Spotify 或各无线通道长时间验收。后续自动恢复／暂停 Music 后累计 370 帧仍无不可用、最大样本年龄不变；音乐开关已关闭、测试媒体移入可恢复废纸篓、Music 已退出。
+
+Candidate `3fc848b` passed the linked CI and complete artifact verification: 173 tests, zero failures/skips, Release/app/tools/UI fixtures, sanitizers and hashes. Local Release/bundling passed; local XCTest remains unavailable. After normal replacement and user Keychain handling, USB/Wi-Fi/BLE recovered with only music enabled. During actual local-fixture playback, diagnostics counted 117 generated frames, zero unavailable timelines and a maximum sample age of 0.53 seconds. Generated frames are not screen measurements. A second five-second stack sample placed activity parsing on its dedicated background serial queue instead of the main thread. At 281 generated frames the unavailable count remained zero and maximum age 0.53 seconds. The user explicitly reported normal elapsed-time visibility and uniform progression for this observation on USB. After automated Music resume/pause, the counters reached 370 frames with zero unavailable timelines and the same maximum age. The music opt-in was disabled, fixture media moved to recoverable Trash and Music quit. This does not establish Spotify or prolonged timing acceptance over every wireless transport.
+
 本项来自 2026-10-20 Mac 联调，不代表已修改或刷入固件。本轮授权修改范围为 Mac 桥接，实际 OTA、首刷、恢复 Flash 均需另行明确授权。
 
 ## 现场与已完成的 Mac 修复

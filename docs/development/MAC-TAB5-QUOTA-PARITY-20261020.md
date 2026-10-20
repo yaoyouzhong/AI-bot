@@ -19,3 +19,9 @@ Credit expiry dates use the status timezone and retain duplicate dates for disti
 Mac keeps bounded, display-only observations in the application-support file above, with a hashed account discriminator and no credentials, response bodies or conversations. It retains 90 days/up to 140000 rows, preserves corrupt files, and reports persistence warnings. The seven-day chart follows Windows' observed-increment contract in Asia/Shanghai, measured in weekly percentage points. Unknown days are not zero; current/incomplete days are partial. Account/plan changes, resets, corrections, midnight and long gaps are handled separately. It does not infer historical usage from current totals/tokens or import another host's history.
 
 Regression coverage includes projection, duplicate expiries, persistence, optional-request failure, unknown/zero history, resets/corrections, account boundaries, midnight/gaps and corrupt-file preservation. Build/CI evidence and physical acceptance are recorded separately.
+
+## 实机验收 / Physical acceptance
+
+`d93c318` 的 Mac CI／完整附件通过 171 项测试。用户确认重置卡信息完整；两次相隔 120 秒的真实采样后，当日零增量与前六日未知显示正常，后续当日数值也随新采样增加。卡片、未知／零值区分和动态累计显示均已实机确认。本记录不保存实际账户用量；过去未采集的历史仍保留未知。
+
+Candidate `d93c318` passed Mac CI and full artifact verification with 171 tests. The user confirmed complete credit details, today's observed zero versus earlier unknown days after two real samples 120 seconds apart, and subsequent increase of today's accumulated value. Card details, unknown/zero distinction and live accumulation passed physical acceptance. Actual account usage values are not retained here; unobserved history remains unknown.
