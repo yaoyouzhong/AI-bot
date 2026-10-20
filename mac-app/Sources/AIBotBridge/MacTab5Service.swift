@@ -161,7 +161,7 @@ final class MacTab5Service {
         var health = offer.health
         health["displayCommand"] = display.command.map { $0 as Any } ?? NSNull()
         health["galleryPacks"] = gallery.revisions(); health["gallerySyncVersion"] = 1
-        if computer.isEnabled { health["computerControlVersion"] = 1 }
+        if computer.hasCapabilities { health["computerControlVersion"] = 1 }
         health["voiceEnabled"] = voice.isEnabled
         additions["connectionHealth"] = health
         additions["codexTasks"] = codex.snapshot()

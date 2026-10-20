@@ -12,11 +12,54 @@ final class MacTab5ComputerTests: XCTestCase {
         XCTAssertEqual(control.handle(request).status, 200); XCTAssertEqual(volume, 75); XCTAssertEqual(calls, 1)
     }
     func testDuplicateCommandsAndChangedPayloadCannotRepeatSideEffects() {
-        let defaults = preferences(); defaults.set(true, forKey: MacTab5Computer.enabledKey); var calls = 0
+        let defaults = preferences(); defaults.set(true, forKey: MacMusicService.enabledKey); var calls = 0
         let control = MacTab5Computer(defaults: defaults, backend: .init(read: { ["mediaAvailable": true] }, perform: { _, _, _ in calls += 1; return true }))
         var request: [String: Any] = ["op": "media", "action": "next", "requestId": UUID().uuidString]
         XCTAssertEqual(control.handle(request).status, 200); XCTAssertEqual(control.handle(request).status, 200); XCTAssertEqual(calls, 1)
         request["action"] = "previous"; XCTAssertEqual(control.handle(request).status, 409); XCTAssertEqual(calls, 1)
+    }
+    func testMusicOnlyOptInPermitsMediaAndMasksComputerCapabilities() {
+        let defaults = preferences(); defaults.set(true, forKey: MacMusicService.enabledKey)
+        var calls = 0
+        let control = MacTab5Computer(defaults: defaults, backend: .init(
+            read: { ["volumeAvailable": true, "volume": 31, "muted": false, "canLock": true, "mediaAvailable": true, "canPlayPause": true] },
+            perform: { _, _, _ in calls += 1; return true }))
+        XCTAssertFalse(control.isEnabled); XCTAssertTrue(control.hasCapabilities)
+        let request: [String: Any] = ["op": "media", "action": "play-pause", "requestId": UUID().uuidString]
+        XCTAssertEqual(control.handle(request).status, 200); XCTAssertEqual(calls, 1)
+        let state = control.handle(["op": "status"])
+        XCTAssertEqual(state.status, 200); XCTAssertEqual(state.body["mediaAvailable"] as? Bool, true)
+        XCTAssertEqual(state.body["volumeAvailable"] as? Bool, false); XCTAssertEqual(state.body["canLock"] as? Bool, false)
+        XCTAssertNil(state.body["volume"]); XCTAssertNil(state.body["muted"])
+        XCTAssertEqual((state.body["launchers"] as? [[String: String]])?.count, 0)
+        for command: [String: Any] in [["op": "volume", "volume": 10], ["op": "mute", "muted": true], ["op": "lock"], ["op": "launch", "launcherId": UUID().uuidString]] {
+            var denied = command; denied["requestId"] = UUID().uuidString
+            XCTAssertEqual(control.handle(denied).status, 403)
+        }
+        XCTAssertEqual(calls, 1)
+    }
+    func testComputerOnlyOptInDoesNotPermitMusicCommands() {
+        let defaults = preferences(); defaults.set(true, forKey: MacTab5Computer.enabledKey)
+        var calls = 0
+        let control = MacTab5Computer(defaults: defaults, backend: .init(
+            read: { ["volumeAvailable": true, "volume": 31, "muted": false, "mediaAvailable": true, "canPlayPause": true, "playing": true] },
+            perform: { _, _, _ in calls += 1; return true }))
+        let state = control.handle(["op": "status"])
+        XCTAssertEqual(state.body["volumeAvailable"] as? Bool, true)
+        XCTAssertEqual(state.body["mediaAvailable"] as? Bool, false)
+        XCTAssertNil(state.body["canPlayPause"]); XCTAssertNil(state.body["playing"])
+        XCTAssertEqual(control.handle(["op": "media", "action": "next", "requestId": UUID().uuidString]).status, 403)
+        XCTAssertEqual(calls, 0)
+    }
+    func testMusicPermissionRevocationDeniesEvenAnAlreadyRecordedRequest() {
+        let defaults = preferences(); defaults.set(true, forKey: MacMusicService.enabledKey)
+        var calls = 0
+        let control = MacTab5Computer(defaults: defaults, backend: .init(read: { [:] }, perform: { _, _, _ in calls += 1; return true }))
+        let request: [String: Any] = ["op": "media", "action": "play-pause", "requestId": UUID().uuidString]
+        XCTAssertEqual(control.handle(request).status, 200)
+        defaults.set(false, forKey: MacMusicService.enabledKey)
+        XCTAssertFalse(control.hasCapabilities)
+        XCTAssertEqual(control.handle(request).status, 403); XCTAssertEqual(calls, 1)
     }
     func testUnconfirmedWriteIsNotOptimisticallySavedOrRetried() {
         let defaults = preferences(); defaults.set(true, forKey: MacTab5Computer.enabledKey); var calls = 0

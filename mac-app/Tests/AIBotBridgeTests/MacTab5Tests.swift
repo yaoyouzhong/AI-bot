@@ -26,9 +26,9 @@ final class MacTab5Tests: XCTestCase {
                                  weather: nil, stocks: nil, systemMetrics: nil, quotas: nil, music: nil,
                                  displayPolicy: MacDisplayPolicy(selectedMode: "weather", cycleEnabled: false, intervalSeconds: 30, pages: ["weather"]))
     }
-    private func service() -> MacTab5Service {
+    private func service(computer: MacTab5Computer = MacTab5Computer()) -> MacTab5Service {
         let pair = MacTab5Pairing(deviceId: device, usbPath: "/dev/cu.usbmodem-fixture", key: key, confirmed: true)
-        let service = MacTab5Service(port: 8765, host: { "192.168.1.20" }, load: { pair }, save: { _ in })
+        let service = MacTab5Service(port: 8765, host: { "192.168.1.20" }, computer: computer, load: { pair }, save: { _ in })
         service.publish(snapshot()); service.usbState("fixture", confirmed: true); return service
     }
     private func send(_ root: [String: Any], to service: MacTab5Service, nonce: String = MacTab5Protocol.identifier()) throws -> (Int, [String: Any]) {
@@ -81,6 +81,23 @@ final class MacTab5Tests: XCTestCase {
         XCTAssertTrue(health["displayCommand"] is NSNull)
         XCTAssertNil(health["computerControlVersion"]); XCTAssertNil(health["voiceEnabled"])
         XCTAssertEqual((data["calendar"] as? [String: Any])?["lunar"] as? String, LunarDate.format(epoch: 1800000000, utcOffset: 28800))
+    }
+
+    func testMusicOnlyPermissionAdvertisesTheSharedControlTransport() throws {
+        let suite = "AI-bot-music-capability-test-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: MacMusicService.enabledKey)
+        let control = MacTab5Computer(defaults: defaults, backend: .init(read: { [:] }, perform: { _, _, _ in false }))
+        let service = service(computer: control)
+        func health() throws -> [String: Any] {
+            let root = try MacTab5Protocol.object(service.frame())
+            return try XCTUnwrap((root["data"] as? [String: Any])?["connectionHealth"] as? [String: Any])
+        }
+        XCTAssertFalse(control.isEnabled)
+        XCTAssertEqual(try health()["computerControlVersion"] as? Int, 1)
+        defaults.set(false, forKey: MacMusicService.enabledKey)
+        XCTAssertNil(try health()["computerControlVersion"])
     }
 
     func testQuotaProjectionUsesActualTAB5KeysAndCodexPlanBoundary() throws {

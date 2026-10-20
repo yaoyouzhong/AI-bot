@@ -70,6 +70,14 @@
 
 独立本机检查已确认修复后缓存保留、已确认退出仍清理、明确关闭仍清理且不探测；Release 构建通过。它不代替 XCTest 或真实音乐验收。本机 `swift test` 仍在编译测试目标时报缺少 XCTest，没有测试执行。程序提交 `50240016ba810f1f302a6e77e598f7b8c7ffbcf8` 的 [Mac CI 39362895479](https://github.com/yaoyouzhong/AI-bot/actions/runs/39362895479) 与完整下载附件核验通过：122 项测试，0 失败、0 跳过，Release、候选包、工具、8 张原生 PNG、源码与内外层包哈希一致。本机候选包及签名通过，位于 `artifacts/mac-tab5-20261020/5024001/AIBotBridge.app`。新正常候选的自动化授权、播放／暂停实机回归待继续。
 
+## 本轮修复：音乐播放控制遵循独立授权
+
+进入音乐实机验收前，用户确认电脑控制与音乐两个开关原本均关闭。新候选 `5024001` 启动后，USB“数据已确认”、蓝牙“已认证，USB 优先待命”；只读进程核对仅该候选运行，无认证的两个状态路由仍返回 HTTP 401。用户启用音乐后看到自动化授权弹窗，但因没有订阅，尚未播放曲目；没有将弹窗出现写成播放通过。已准备带原创几何图形封面的原创本地测试音频，不需要订阅，不读取用户现有媒体；导入、播放与后续从资料库移除分别跟踪。
+
+另一个独立复现显示：仅打开音乐开关时，`computer-control` 的全局电脑开关检查返回 403，播放动作没有执行，且状态未通告共有控制通道，与界面“允许读取并控制音乐”不一致。现在音乐开关单独授权媒体动作，并在它或电脑开关启用时通告已有控制版本。音量、静音、锁屏和常用入口仍只由电脑控制开关授权；音乐单独启用时隐藏这些能力和数值，电脑单独启用时隐藏媒体控制。请求去重、执行前权限复核、实际播放器绑定和结果读回保持。现有 v1 消息和字段未改变，已对照 TAB5 的能力标志消费逻辑。
+
+四个回归覆盖音乐独立控制及电脑动作拒绝、反向授权隔离、撤销后拒绝旧请求，以及共有通道能力随开关变化。使用实际编译对象的合成后端检查先复现 403，再确认媒体动作成功且音量写入仍拒绝；未发送真实 Apple Events。Release 通过；本机全量 XCTest 仍缺少模块、未执行。完整 CI、新候选与正常 App 音乐回归待继续。
+
 ## 本轮修复：正式固件包的许可证目录
 
 使用当前 Mac 代码的固件加载器读取 SHA 已核对的官方 `.234` 升级 ZIP，实际复现“ZIP 含重复或不安全的文件名”。官方包的七个许可证路径有九段，例如 `licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE`；原 `safePath` 最多接受八段，导致合法升级包与同类首刷包无法进入预览。
@@ -149,6 +157,10 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 - 固件工具：已核对公开 `.234` 源码 ZIP SHA `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890` 和升级 ZIP SHA `900612d0338c2350a3eda19a991536ce28475cce9667a4752613fccde211d509`；App 选包/说明预览待验收。OTA、首刷和恢复保持未执行。
 
 ## English
+
+Before music acceptance, the user confirmed both computer-control and music opt-ins were off. Normal candidate `5024001` recovered acknowledged USB data and authenticated BLE standby; only that candidate was running and both unauthenticated status routes returned 401. Enabling music showed an Automation prompt, but no song played because the user lacks a subscription. Prompt appearance is not playback acceptance. Original local audio with a synthetic cover was prepared without accessing existing media; import/playback and later library removal are tracked separately.
+
+A separate synthetic-backend reproduction found that the music-only opt-in returned 403 before media execution and omitted the shared control transport. Media commands now follow the music opt-in independently. The existing control-version capability is advertised when either feature is enabled. Volume, mute, lock and launchers remain gated by computer permission and are masked from music-only status; computer-only status masks media controls. Deduplication, pre-effect permission recheck, exact-player binding and readback remain. Existing v1 messages/fields are unchanged and firmware capability consumers were checked. Four regressions cover both opt-in directions, revocation of a recorded request and transport advertisement. The actual-object synthetic check failed before the repair and passed afterward, with volume writes still denied and no real Apple Events. Release passed; local XCTest remains blocked before execution. Full CI, the new candidate and normal-app music acceptance remain pending.
 
 On normal candidate `791d898`, the user imported the official painting archive and confirmed 366 works. Its active manifest independently matched the official package, including 826 images. Today's work has one page, so physical pagination used a temporary one-work CC0 subset from that same archive, preserving original images, source/license records and guides: ten pages per orientation, twenty images total. No clock/date was changed and this local-only subset is not a release artifact. The user confirmed normal preview, next/previous images and page numbers, then normal images/text/paging in portrait and landscape without black frames or abnormal clipping. An otherwise identical local archive with one changed image byte and unchanged manifest SHA was rejected by both the isolated loader and normal app. All 28 installed resource-file hashes stayed unchanged and the user confirmed physical paging still worked after rejection. Failure retention passed. These archives/source assets remain ignored. The user subsequently confirmed successful full official-pack reimport; its manifest independently matched 366 works/826 images and the original archive. The user then restored the original saver type and automatic orientation, left device settings and returned to overview. Temporary resource/display restoration passed. Artwork covers, pets and the HD full-bundle path remain separate checks.
 

@@ -42,27 +42,43 @@ final class MacTab5Computer {
     static let enabledKey = "tab5_computer_control_enabled"
     private let lock = NSLock()
     private let enabled: () -> Bool
+    private let musicEnabled: () -> Bool
     let launchers: MacTab5Launchers
     private let backend: MacTab5ComputerBackend
     private var receipts: [String: (String, MacTab5RPCResult, TimeInterval)] = [:]
     init(defaults: UserDefaults = .standard, backend: MacTab5ComputerBackend? = nil, music: @escaping () -> MusicSnapshot? = { nil }) {
-        enabled = { defaults.bool(forKey: Self.enabledKey) }; launchers = MacTab5Launchers(defaults: defaults)
+        enabled = { defaults.bool(forKey: Self.enabledKey) }
+        musicEnabled = { defaults.bool(forKey: MacMusicService.enabledKey) }
+        launchers = MacTab5Launchers(defaults: defaults)
         self.backend = backend ?? MacTab5ComputerBackend(read: { try MacTab5ComputerPlatform.read(music: music()) }, perform: { try MacTab5ComputerPlatform.perform($0, request: $1, launcher: $2, music: music()) })
     }
     var isEnabled: Bool { enabled() }
+    var hasCapabilities: Bool { enabled() || musicEnabled() }
+    private func permits(_ op: String) -> Bool {
+        op == "media" ? musicEnabled() : enabled()
+    }
     private func state() throws -> [String: Any] {
         var state = try backend.read(); state["version"] = 1; state["oneClickUnlock"] = false
-        state["launchers"] = try launchers.load().map { ["id": $0.id, "name": $0.name, "kind": $0.path.hasSuffix(".app") ? "app" : "folder"] }
+        state["launchers"] = enabled() ? try launchers.load().map { ["id": $0.id, "name": $0.name, "kind": $0.path.hasSuffix(".app") ? "app" : "folder"] } : []
+        if !enabled() {
+            state["volumeAvailable"] = false; state["canLock"] = false
+            state.removeValue(forKey: "volume"); state.removeValue(forKey: "muted")
+        }
+        if !musicEnabled() {
+            state["mediaAvailable"] = false
+            for key in ["canPlayPause", "canPrevious", "canNext", "playing"] { state.removeValue(forKey: key) }
+        }
         return state
     }
     func handle(_ root: [String: Any]) -> MacTab5RPCResult {
-        guard enabled() else { return .error(403, "computer_control_disabled") }
+        guard hasCapabilities else { return .error(403, "computer_control_disabled") }
         let op = root["op"] as? String ?? ""
         let fields: [String: Set<String>] = ["status": [], "lock-screen": [], "volume": ["volume"], "mute": ["muted"], "lock": [], "launch": ["launcherId"], "media": ["action"]]
         guard let parameters = fields[op], Set(root.keys).isSubset(of: parameters.union(["kind", "op", "requestId", "session", "issuedAt", "binaryReply", "bulkReply", "iconRevision", "unlockHistory"])) else { return .error(400, "invalid_parameters") }
         if op == "volume", !(MacTab5Protocol.integer(root["volume"]).map { (0...100).contains($0) } ?? false) { return .error(400, "invalid_volume") }
         if op == "mute", !MacTab5Protocol.isBoolean(root["muted"]) { return .error(400, "invalid_muted") }
         if op == "media", !["play-pause", "previous", "next"].contains(root["action"] as? String ?? "") { return .error(400, "invalid_media_action") }
+        guard op == "status" || op == "lock-screen" || permits(op) else { return .error(403, op == "media" ? "music_control_disabled" : "computer_control_disabled") }
         lock.lock(); defer { lock.unlock() }
         do {
             if op == "status" { return .init(200, try state()) }
@@ -84,7 +100,7 @@ final class MacTab5Computer {
             // Reserve before the effect. Failure/uncertainty is retained too;
             // the same request cannot repeat a key, track skip or application launch.
             receipts[id] = (fingerprint, .error(503, "command_unconfirmed"), now)
-            guard enabled() else { return .error(403, "computer_control_disabled") }
+            guard permits(op) else { return .error(403, op == "media" ? "music_control_disabled" : "computer_control_disabled") }
             let accepted = try backend.perform(op, root, launcher)
             let actual = try state()
             var confirmed = accepted

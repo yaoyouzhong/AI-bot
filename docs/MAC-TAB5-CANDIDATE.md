@@ -30,7 +30,7 @@
 | 功能 | 使用与边界 |
 | --- | --- |
 | 音量/静音/锁屏/常用入口 | 读取 CoreAudio 实际结果；最多四个本机程序或文件夹。设备不能传入任意路径或命令。锁屏需要辅助功能；锁定/屏幕状态未知时保持未知，不提供 Mac 一键解锁。 |
-| Apple Music / Spotify | 首次触发自动化授权。控制与已显示歌曲绑定，只发送一次，随后读取状态；未知结果不重复跳曲。 |
+| Apple Music / Spotify | 音乐开关独立授权播放控制，无需开启音量／锁屏等电脑控制。首次触发自动化授权。控制与已显示歌曲绑定，只发送一次，随后读取状态；未知结果不重复跳曲。 |
 | Codex 回复和草稿 | 先运行本机 Codex 桌面应用。桥接通过本机 CLI `app-server proxy` 连接现有服务；可在高级入口选择已安装的 CLI。只投影近期会话标题、项目名与公开助手回复，不导出推理、工具输出、原始日志或完整本机路径。后台活动统计继续只读文件元数据。 |
 | Codex 发送 | 第二个独立开关。TAB5 明确点击后才发送/追加/中断；保持已有模型、权限和审批策略。草稿及送达记录由 Keychain 密钥加密，先记录再发送。超时保留草稿和“不确定”回执，不自动重发，先到电脑检查。审批/用户问题在电脑处理，不自动批准。 |
 | 快捷控制台 | 另需辅助功能。只有公共辅助功能地址能证明精确任务 UUID、且主输入框可确认时才写入和读回。Codex 版本没有提供这些信息时安全拒绝；不能把通用标题或“已请求打开”算成已到前台。此版本相关能力必须在目标 Mac 实测。普通 Codex 会话操作不依赖此输入框。 |
@@ -78,7 +78,7 @@ The login-Keychain prompt for AI-bot Bridge and service `io.github.yaoyouzhong.A
 
 For an HD full bundle, validate the outer catalog and embedded standard ZIP hash, then validate/import only its complete TAB5 subset. Desktop HD originals are not extracted or advertised as verified; this candidate does not include a Mac HD-original browser.
 
-**Interaction and permissions** independently enables CoreAudio volume/mute, whitelisted local launchers, lock, Music/Spotify, Codex and voice. Unknown Mac lock/display state remains unknown; one-click unlock is unavailable. Music commands bind to the displayed track, execute once and read back actual state. First use requires the relevant macOS Automation/Accessibility permissions.
+**Interaction and permissions** independently enables CoreAudio volume/mute, whitelisted local launchers, lock, Music/Spotify, Codex and voice. Unknown Mac lock/display state remains unknown; one-click unlock is unavailable. The music opt-in independently authorizes playback controls without enabling volume, lock or launchers. Music commands bind to the displayed track, execute once and read back actual state. First use requires the relevant macOS Automation/Accessibility permissions.
 
 Codex connects to the existing desktop service through its installed CLI's local `app-server proxy`. Reply/draft access and sending have separate opt-ins. Only public assistant messages are projected; background activity remains metadata-only. Device/task-bound drafts, images and delivery receipts are encrypted using a Keychain key. Reserve delivery before sending, retain uncertain outcomes, never replay an uncertain send, and handle approvals on the computer. Desktop quick-console typing additionally requires Accessibility proof of the exact task URL and main composer; unsupported desktop versions return unconfirmed instead of guessing by title. This version-sensitive path needs physical acceptance.
 
