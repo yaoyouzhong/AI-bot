@@ -24,6 +24,14 @@
 
 The native Swift transport connects only to the existing owner-checked Unix socket, verifies kernel peer UID/PID against the running Codex app, and bounds frames, messages and deadlines. It subscribes to an exact owner/version and closes cleanly; public history remains on the read-only App Server. Production start/interrupt use the desktop owner with policy inheritance, explicit opt-in and durable uncertain receipts. Native read-only probes verified actual runtime state and acknowledgement structure without changing a task. Installed steer v1 lacks a caller-bound expected turn, so it fails closed and is advertised unavailable; full controls are not claimed complete. Tests cover routing, incompatibility, privacy, opt-in and delivery uncertainty; actual designated-task mutations, composer identity and lock acceptance remain pending.
 
+### 自动验证与现场停点
+
+程序 `0e07a26e227fd89999dde495478613ec01319057` 的 [Mac CI 39441248398](https://github.com/yaoyouzhong/AI-bot/actions/runs/39441248398) 与完整下载附件核验通过：200 项测试、0 失败／跳过，Release、App、工具、8 张原生界面 PNG 和源码／包哈希一致。本机 Release 与临时候选签名通过，路径 `artifacts/mac-tab5-20261020/0e07a26/AIBotBridge.app`。尚未启动此候选、开启写入开关或执行真实任务写入。
+
+目前运行的仍是日历修复候选 `29f1654`。用户完成钥匙串授权后，自动确认 USB 数据已确认、Wi-Fi 收到已认证请求、BLE 已认证／USB 优先待命，随后已询问 2026 年 10 月日历“休／班”标记及待更新提示消失情况；截至本记录尚无实体反馈。后续界面核对被 CUA 报告的 Mac 锁屏阻挡，已请求用户手动解锁，没有执行自动解锁，也没有把此次锁屏当成锁屏功能测试。解锁后先完成日历与原有开关／天气状态核对，再按新候选授权流程和用户指定测试任务推进。
+
+Candidate `0e07a26` passed CI 39441248398 and full artifact verification (200 tests, zero failures/skips; Release/app/tools/native UI/hashes), plus local Release/signing. It has not been launched or enabled for mutations. Running calendar candidate `29f1654` recovered USB/Wi-Fi/BLE after user Keychain authorization; physical October calendar checks remain unanswered. CUA subsequently reported a locked Mac, so user unlock was requested. No automatic unlock or lock-feature acceptance occurred. Resume existing-state/calendar verification before the next candidate and specifically authorized test-task mutations.
+
 ## English
 
 The user requested full Codex controls, direct navigation, lock acceptance and missing pet/diagnostic/calendar data. Preserve daily read-only authorization and all no-merge/deploy/release/flash boundaries. Real task mutations require the user's specifically designated test task; never approve its permission requests automatically.

@@ -22,6 +22,8 @@ The calendar page consumes annual `calendar.detail` tables independently of home
 
 Subsequent validation: `29f1654` passed CI 39403630848 and full artifact verification (191 tests, zero failures/skips; Release/app/tools/native UI/source hashes), plus local Release/signing. The old candidate exited normally and the new temporary app started. User-handled Keychain authorization, connection recovery and physical calendar verification are pending at this checkpoint.
 
+用户随后回复已授权，自动核对 `29f1654` 窗口确认 USB、Wi-Fi、BLE 均已恢复。已请求实体检查 2026 年 10 月 1–7 日“休”、10 日“班”及无“放假安排待更新”；尚未收到结果。继续界面检查时 Mac 已锁屏，等待手动解锁，不将连接恢复记为日历实机通过。/ The user completed authorization; the normal candidate confirmed all three transports. Physical October 2026 holiday/workday markers remain pending. Later UI inspection was blocked by a locked Mac, awaiting manual unlock; transport recovery is not calendar acceptance.
+
 - 网络：Mac 只有瞬时上传／下载，没有 `sampleSession`、`sampleSequence` 和 `samples`。实际 `.234` 的 `render_system` 只有收到样本数组才调用 `render_chart`。新增单调时钟的 250 ms 采样、64 条有界历史、一秒不可变发布和末四样本均值；桥接重启更换会话，长采样间隔保留序号缺口，不重放虚构样本。TAB5 仍通过已有完整快照收到历史，本轮没有新增快速 metrics 传输。CPU／内存单独每两秒采样。
 - 天气：本机没有城市／坐标或缓存，Mac 原先没有自动定位实现。新增用户主动选择的 Core Location 路径，默认关闭；位置仅按约一公里网格取整后查询既有 Open-Meteo 服务，不记录／持久化精确坐标。授权拒绝／超时有状态提示。手动城市继续可用，空气质量失败不再使成功天气丢失，主天气失败仍保留上次结果。
 - 首页：实际页面农历下方读取 `calendar.holidayLabel`，Mac 原来只有日期、星期和农历。独立实现当前／次日的节气和工作日／补班／假期标签，采用公开的 2026 年事实表；未知年份明确显示待更新，不推算法定假日。本轮未实现 Windows 的联网节假日年度更新、生日管理或完整日历详情。
