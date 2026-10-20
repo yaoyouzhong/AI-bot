@@ -98,3 +98,13 @@ The user confirmed both Open-Meteo forecast tabs on the physical TAB5. Missing A
 Host/UI fix `afa1f0d` passed CI 39399002879 and complete artifact checks: 186 tests, zero failures/skips. Its standalone bundle was not launched, to combine this follow-up into one candidate and avoid another redundant Keychain authorization. Actual QWeather responses and the new device fields remain pending.
 
 Sources: [Open-Meteo air quality](https://open-meteo.com/en/docs/air-quality-api), [Open-Meteo weather](https://open-meteo.com/en/docs), [QWeather current air](https://dev.qweather.com/en/docs/api/air-quality/air-current/), [QWeather current weather](https://dev.qweather.com/en/docs/api/weather/weather-now-webapi-v7/).
+
+
+`fbebfa9` 的 [CI 39400001872](https://github.com/yaoyouzhong/AI-bot/actions/runs/39400001872) 及完整附件核验通过：189 项测试、0 失败／跳过，Release／签名候选／工具／原生 UI 与哈希通过。独立链接实际 Debug 对象，使用固定公开坐标 0,0 的原生 URLSession 检查，天气与空气质量均 HTTP 200，解析确认 24 小时／7 天、气压值和类型、AQI 数值／等级／标准均存在；只记录状态与字段存在性，没有使用或记录用户位置。后续 `06dd164` 补充中国地区返回标准的覆盖，最终候选仍待完整 CI 与上机。
+
+`fbebfa9` passed CI 39400001872 and full artifact verification: 189 tests, no failures/skips, Release/bundle/tools/native UI/hashes. A native URLSession harness linked against actual Debug objects queried fixed public coordinates (0,0): both endpoints returned HTTP 200, with 24 hours/seven days and populated pressure/type and AQI/category/standard. Only status and field presence were recorded, with no user location. Follow-up `06dd164` adds Chinese regional-standard coverage; final CI and device acceptance remain pending.
+
+
+最终程序 `06dd164` 的 [CI 39400345443](https://github.com/yaoyouzhong/AI-bot/actions/runs/39400345443) 及完整附件核验通过：190 项测试，0 失败／跳过。Mac 本机 Release 与临时签名候选包通过，XCTest 仍不可用。新候选路径 `artifacts/mac-tab5-20261020/06dd164/AIBotBridge.app`，尚未启动：尝试正常退出旧 `efb9620` 时，应用退出菜单禁用；工具仅看到 TAB5 主窗，截图不可用，Escape／取消快捷键未解除。已请用户处理尚未结束的设置／提示并正常退出，未同时启动第二个桥接。新增空气质量／气压与和风实机验收仍待完成。
+
+Final code `06dd164` passed CI 39400345443 and complete artifacts: 190 tests, zero failures/skips. Local Release and signed bundle passed; local XCTest remains unavailable. The new candidate is built but not launched: normal exit of old `efb9620` was disabled, the UI tool exposed only its main TAB5 window with no screenshot, and cancel shortcuts did not resolve it. The user was asked to dismiss any outstanding settings/alert and exit normally. No second bridge was launched. Actual AQI/pressure and QWeather device acceptance are still pending.
