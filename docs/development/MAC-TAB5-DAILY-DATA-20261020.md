@@ -18,6 +18,10 @@ Running candidate `06dd164` passed CI 39400345443 and full artifacts (190 tests,
 
 The calendar page consumes annual `calendar.detail` tables independently of home labels. Mac already held published 2026 facts but omitted that object. The patch sends holiday ranges, compensating workdays and 24 solar terms using existing fields, retains the known 2026 table across year boundaries and does not invent future schedules or birthdays. Firmware is unchanged. A serialized-contract regression covers the actual consumer fields and unknown-year boundary. At this checkpoint local XCTest is unavailable; Release, CI and physical calendar acceptance are pending, and running candidate `06dd164` does not contain the change.
 
+后续验证：程序 `29f1654e231a1f6e2f241a37093744fb9e164891` 的 [Mac CI 39403630848](https://github.com/yaoyouzhong/AI-bot/actions/runs/39403630848) 与完整附件核验通过，191 项测试、0 失败／跳过，Release／App／工具／原生界面与源码哈希均通过。本机 Release 和候选签名通过。已通过正常快捷键退出 `06dd164`，启动 `artifacts/mac-tab5-20261020/29f1654/AIBotBridge.app`；本次记录时等待用户处理系统钥匙串授权，连接恢复与实体日历尚未确认。
+
+Subsequent validation: `29f1654` passed CI 39403630848 and full artifact verification (191 tests, zero failures/skips; Release/app/tools/native UI/source hashes), plus local Release/signing. The old candidate exited normally and the new temporary app started. User-handled Keychain authorization, connection recovery and physical calendar verification are pending at this checkpoint.
+
 - 网络：Mac 只有瞬时上传／下载，没有 `sampleSession`、`sampleSequence` 和 `samples`。实际 `.234` 的 `render_system` 只有收到样本数组才调用 `render_chart`。新增单调时钟的 250 ms 采样、64 条有界历史、一秒不可变发布和末四样本均值；桥接重启更换会话，长采样间隔保留序号缺口，不重放虚构样本。TAB5 仍通过已有完整快照收到历史，本轮没有新增快速 metrics 传输。CPU／内存单独每两秒采样。
 - 天气：本机没有城市／坐标或缓存，Mac 原先没有自动定位实现。新增用户主动选择的 Core Location 路径，默认关闭；位置仅按约一公里网格取整后查询既有 Open-Meteo 服务，不记录／持久化精确坐标。授权拒绝／超时有状态提示。手动城市继续可用，空气质量失败不再使成功天气丢失，主天气失败仍保留上次结果。
 - 首页：实际页面农历下方读取 `calendar.holidayLabel`，Mac 原来只有日期、星期和农历。独立实现当前／次日的节气和工作日／补班／假期标签，采用公开的 2026 年事实表；未知年份明确显示待更新，不推算法定假日。本轮未实现 Windows 的联网节假日年度更新、生日管理或完整日历详情。
