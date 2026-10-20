@@ -66,9 +66,12 @@ actor MacQWeatherService {
     }
     nonisolated static func validHost(_ host: String) -> Bool {
         let parts = host.split(separator: ".", omittingEmptySubsequences: false)
-        guard parts.count == 3, parts[1] == "qweatherapi", parts[2] == "com", (1...63).contains(parts[0].count),
-              parts[0].first != "-", parts[0].last != "-" else { return false }
-        return parts[0].utf8.allSatisfy { (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }
+        guard host.utf8.count <= 253, parts.count >= 3,
+              parts.suffix(2) == ["qweatherapi", "com"] else { return false }
+        return parts.dropLast(2).allSatisfy { part in
+            (1...63).contains(part.count) && part.first != "-" && part.last != "-" &&
+            part.utf8.allSatisfy { (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }
+        }
     }
     nonisolated static func request(host: String, key: String, path: String, location: String) throws -> URLRequest {
         guard validHost(host), ["/v7/weather/now", "/v7/weather/7d", "/v7/weather/24h", "/geo/v2/city/lookup"].contains(path),

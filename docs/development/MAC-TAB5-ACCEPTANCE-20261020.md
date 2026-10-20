@@ -6,9 +6,9 @@
 
 ## 当前检查点
 
-日常数据后续：当前运行 `2ce7c7d`，完整 [Mac CI 39391053508](https://github.com/yaoyouzhong/AI-bot/actions/runs/39391053508) 附件核验 180 项测试、0 失败／跳过。网络曲线及首页工作日文字已获实体确认，自动定位授权后正常 App 已取得天气，设备天气反馈待收集；国产额度授权／显示及微信二维码修正仍在联调，详见[日常数据补齐](MAC-TAB5-DAILY-DATA-20261020.md)。
+日常数据后续：当前运行 `efb9620`，完整 [Mac CI 39393139531](https://github.com/yaoyouzhong/AI-bot/actions/runs/39393139531) 附件核验 185 项测试、0 失败／跳过。网络曲线、首页工作日文字、Open-Meteo 当前天气、DeepSeek 余额、智谱微信二维码／登录取回余额及设备显示均获实体确认。Mac 已补齐 24 小时／7 天预报与和风设置，实际预报及和风授权／显示仍在联调；未改设备固件，详见[日常数据补齐](MAC-TAB5-DAILY-DATA-20261020.md)。
 
-Daily-data follow-up: running candidate `2ce7c7d` passed full CI/artifact verification (180 tests, zero failures/skips). Physical network curves and the home workday label passed. Authorized automatic location fetched weather in the normal app; device weather feedback, domestic-balance authorization/display and the WeChat QR fix remain under validation. See the bilingual daily-data record.
+Daily-data follow-up: running candidate `efb9620` passed full CI/artifact verification (185 tests, zero failures/skips). Physical network curves, the home workday label, current Open-Meteo weather, DeepSeek balance and GLM WeChat QR/login/balance display passed. The Mac now provides hourly/daily forecast fields and QWeather settings; actual forecasts and QWeather authorization/display remain under validation. Firmware is unchanged. See the bilingual daily-data record.
 
 以下音乐检查点保留其当时结果：
 

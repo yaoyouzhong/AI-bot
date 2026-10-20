@@ -342,7 +342,7 @@ actor MacDataService {
     }
 
     private static func forecastNote(_ value: WeatherSnapshot) -> String {
-        "天气：已更新 · \(value.hourly?.count ?? 0) 小时 / \(value.daily?.count ?? 0) 天" +
+        "天气：\(value.source == "qweather" ? "和风天气" : "Open-Meteo") 已更新 · \(value.hourly?.count ?? 0) 小时 / \(value.daily?.count ?? 0) 天" +
         ((value.hourlyStale == true || value.dailyStale == true) ? " · 部分预报为缓存" : "")
     }
 

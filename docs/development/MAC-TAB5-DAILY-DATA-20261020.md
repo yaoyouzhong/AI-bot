@@ -54,18 +54,32 @@ Local Release, candidate app and strict signing verification passed. Local XCTes
 
 用户确认当前天气后发现两个预报页为空，并要求测试和风天气。原因是原 Mac 仅请求 `forecast_days=1` 和当前／最高／最低温，没有小时或每日数组。对照实际 `.234` 的 `ui_weather.h` 及 Windows 已有字段后，Mac 独立补齐既有 `hourly`（最多 24）和 `daily`（最多 7）、城市时区、降雨未知值及日出／日落信息；不修改协议版本或设备代码。缓存重载、查询失败和部分预报失败均保留已取得的序列并标记缓存，不制造零值。
 
-天气设置新增 Open-Meteo／和风选项。和风按 Windows 当前使用的官方 v7 城市接口查询 now／24h／7d；自动位置以两位小数发送，手动城市通过和风 GeoAPI 解析。API Host 只允许控制台分配的单层 `*.qweatherapi.com` 域名；API Key 按 Host 分开保存在钥匙串，以请求头发送，拒绝重定向。没有导入 Windows 密钥或执行真实和风请求；需要用户在正常 App 中授权并填写。当前和风路径未接入空气质量、JWT 或新版 v1 接口；官方已提示 v7 将弃用，后续须跟进，不能将该兼容实现表述为完整供应商功能。
+天气设置新增 Open-Meteo／和风选项。和风按 Windows 当前使用的官方 v7 城市接口查询 now／24h／7d；自动位置以两位小数发送，手动城市通过和风 GeoAPI 解析。API Host 只允许控制台分配的合法 `qweatherapi.com` 子域名（包括区域多级域名）；API Key 按 Host 分开保存在钥匙串，以请求头发送，拒绝重定向。没有导入 Windows 密钥或执行真实和风请求；需要用户在正常 App 中授权并填写。当前和风路径未接入空气质量、JWT 或新版 v1 接口；官方已提示 v7 将弃用，后续须跟进，不能将该兼容实现表述为完整供应商功能。
 
-新增预报测试覆盖城市时区（含非整小时偏移）、24／7 上限、缺失及越界降雨概率、日期与日出校验、部分失败、缓存重载、实际 TAB5 快照字段及请求目标／密钥头。`a2078fd` 二维码补丁 CI 39392319817 已通过 181 项测试；天气后续候选与实机结果尚待核验。
+新增预报测试覆盖城市时区（含非整小时偏移）、24／7 上限、缺失及越界降雨概率、日期与日出校验、部分失败、缓存重载、实际 TAB5 快照字段及请求目标／密钥头。`a2078fd` 二维码补丁 CI 39392319817 已通过 181 项测试；天气后续 `efb9620` 的 [CI 39393139531](https://github.com/yaoyouzhong/AI-bot/actions/runs/39393139531) 与完整附件核验通过：185 项测试，0 失败／跳过，Release、签名候选、工具、8 张原生 PNG 和源码／包哈希均通过。本机 Release／签名候选通过，本机 XCTest 仍缺失。候选正常启动，用户完成钥匙串授权；USB 数据确认、Wi-Fi 认证请求及 BLE USB 优先待命均恢复。用户已确认智谱二维码出现、登录后取回余额、TAB5 显示正常，扫码与额度链路实机通过。预报实机仍待核验。
 
 The user confirmed current weather but reported empty 24-hour/seven-day tabs and requested QWeather testing. The old Mac request fetched only one day's extrema/current conditions. The independent Mac projection now supplies the existing hourly/daily arrays (24/7 maximum), city timezone, nullable precipitation and solar fields, following the actual `.234` consumer and established Windows schema. Cache reload and failures retain known series as cached, without fabricated zero values. Firmware and protocol versions are unchanged.
 
-Weather settings add Open-Meteo/QWeather selection. QWeather uses the same official v7 now/24h/7d family currently used by Windows, rounded automatic coordinates or provider GeoAPI city lookup. Keys are stored per API Host in Keychain and sent only in request headers to validated single-label `*.qweatherapi.com` hosts; redirects are denied. No Windows credential import or actual QWeather request has occurred. Air quality, JWT and the newer v1 API are not part of this implementation; the provider's announced v7 deprecation remains a follow-up. Explicit normal-app authorization and user-entered credentials are required for real acceptance.
+Weather settings add Open-Meteo/QWeather selection. QWeather uses the same official v7 now/24h/7d family currently used by Windows, rounded automatic coordinates or provider GeoAPI city lookup. Keys are stored per API Host in Keychain and sent only in request headers to validated valid `qweatherapi.com` subdomains, including regional multi-label hosts; redirects are denied. No Windows credential import or actual QWeather request has occurred. Air quality, JWT and the newer v1 API are not part of this implementation; the provider's announced v7 deprecation remains a follow-up. Explicit normal-app authorization and user-entered credentials are required for real acceptance.
 
-New regressions cover timezone offsets, series bounds, null/invalid precipitation, dates/solar data, partial failure, cache reload, actual TAB5 wire fields and credential destination/header restrictions. QR fix `a2078fd` passed CI 39392319817 with 181 tests; forecast candidate and hardware acceptance remain pending.
+New regressions cover timezone offsets, series bounds, null/invalid precipitation, dates/solar data, partial failure, cache reload, actual TAB5 wire fields and credential destination/header restrictions. QR fix `a2078fd` passed CI 39392319817 with 181 tests; Forecast commit `efb9620` passed [CI 39393139531](https://github.com/yaoyouzhong/AI-bot/actions/runs/39393139531) and complete artifact verification: 185 tests, zero failures/skips, Release, signed bundle/tools, eight native PNGs and source/package hashes. Local Release/bundle verification passed; local XCTest is still unavailable. The candidate started normally after user Keychain authorization, with USB data confirmed, authenticated Wi-Fi requests and authenticated BLE USB-priority standby. The user confirmed the WeChat QR appeared, login retrieved the balance and TAB5 displayed it correctly. QR/balance acceptance passed; forecast hardware acceptance is still pending.
 
 接口依据 / API references:
 
 - [和风认证 / Authentication](https://dev.qweather.com/en/docs/configuration/authentication/)
 - [和风 v7 小时预报 / Hourly forecast](https://dev.qweather.com/en/docs/api/weather/weather-hourly-forecast-webapi-v7/)
 - [和风 v7 每日预报 / Daily forecast](https://dev.qweather.com/en/docs/api/weather/weather-daily-forecast-webapi-v7/)
+
+本机正常额度窗口已显示 DeepSeek 余额已更新，授权由用户在 App 内完成；没有读取或记录 API Key／余额数值，用户确认实体 DeepSeek 额度页已有数据，该链路实机通过。
+
+The normal app now reports DeepSeek balance updated after the user configured access in-app. No API key or balance amount was read or recorded; the user confirmed DeepSeek data on the physical device, so that path passed acceptance.
+
+
+`efb9620` 实际刷新曾显示天气查询失败并保留旧缓存。使用固定公开测试坐标（非用户位置），独立链接真实 Debug 对象的原生 URLSession／解析检查返回 HTTP 200、24 小时和 7 天；只记录状态和序列数量，不替代正常 App／设备预报验收。和风设置已交给用户在本机填写；未读取密钥。
+
+A normal `efb9620` refresh reported a query failure and retained its cache. An isolated native URLSession/parser check linked to actual Debug objects, using fixed public test coordinates rather than the user's location, returned HTTP 200 with 24 hours and seven days. Only status/counts were recorded; this does not replace normal-app/device forecast acceptance. QWeather setup awaits user entry in the app; no key was read.
+
+
+和风首次配置未切换成功：正常设置窗口的来源仍为 Open-Meteo；新增 Host 校验错误地只接受单级子域名，误拒绝控制台分配的区域多级域名。修正为逐段 DNS 校验后严格限定 `qweatherapi.com` 后缀，仍拒绝伪造后缀、空标签、userinfo、协议／端口／路径。设置仅在选择和风时展示凭据字段，切换来源保留未提交输入；状态提示增加实际来源名称。补充真实格式（合成域名）与 UI 切换回归；不保存用户 Host、密钥或金额到此记录。该补充候选仍待构建／CI／实机。
+
+The first QWeather configuration did not switch the selected provider from Open-Meteo. The new host validator incorrectly accepted only single-label subdomains, rejecting a legitimate regional multi-label host. It now validates each DNS label and strictly requires the qweatherapi.com suffix, still rejecting lookalike suffixes, empty labels, userinfo, schemes, ports and paths. Credential fields appear only when QWeather is selected and preserve unsubmitted edits across source changes; status includes the actual source. Synthetic regional-host and UI-switch regressions were added. No user host, key or balance is recorded. This follow-up awaits build/CI/hardware checks.

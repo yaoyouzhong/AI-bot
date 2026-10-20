@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 @testable import AIBotBridge
 
 final class WeatherForecastTests: XCTestCase {
@@ -76,11 +77,32 @@ final class WeatherForecastTests: XCTestCase {
         let r = try MacQWeatherService.request(host: "test.qweatherapi.com", key: key, path: "/v7/weather/24h", location: "12.34,56.78")
         XCTAssertEqual(r.value(forHTTPHeaderField: "X-QW-Api-Key"), key)
         XCTAssertFalse(r.url!.absoluteString.contains(key))
-        for host in ["https://test.qweatherapi.com", "test.qweatherapi.com.evil.example", "qweatherapi.com", "a.b.qweatherapi.com", "test.qweatherapi.com:443", "-test.qweatherapi.com", "test.qweatherapi.com/path"] {
+        for host in ["test.qweatherapi.com", "test.re.qweatherapi.com"] {
+            XCTAssertTrue(MacQWeatherService.validHost(host))
+            XCTAssertEqual(try MacQWeatherService.request(host: host, key: key, path: "/v7/weather/now", location: "fixture").url?.host, host)
+        }
+        for host in ["https://test.qweatherapi.com", "test.qweatherapi.com.evil.example", "qweatherapi.com", "a..qweatherapi.com", "a.-re.qweatherapi.com", "a.re-.qweatherapi.com", "test.qweatherapi.com:443", "-test.qweatherapi.com", "test.qweatherapi.com/path", "user@test.qweatherapi.com"] {
             XCTAssertFalse(MacQWeatherService.validHost(host))
             XCTAssertThrowsError(try MacQWeatherService.request(host: host, key: key, path: "/v7/weather/now", location: "fixture"))
         }
         XCTAssertThrowsError(try MacQWeatherService.request(host: "test.qweatherapi.com", key: key, path: "/unrelated", location: "fixture"))
         XCTAssertThrowsError(try MacQWeatherService.request(host: "test.qweatherapi.com", key: "bad\r\nkey", path: "/v7/weather/now", location: "fixture"))
+    }
+
+    @MainActor
+    func testWeatherSourceSelectionShowsOnlyRelevantCredentialsAndKeepsEdits() async {
+        _ = NSApplication.shared
+        let provider = NSPopUpButton()
+        provider.addItems(withTitles: ["Open-Meteo", "和风天气"])
+        let host = NSTextField(string: "fixture.re.qweatherapi.com")
+        let key = NSSecureTextField(string: "synthetic-unsaved")
+        let fields = MacWeatherSourceFields(provider: provider, fields: [host, key])
+        XCTAssertTrue(host.isHidden); XCTAssertTrue(key.isHidden)
+        provider.selectItem(at: 1); fields.update()
+        XCTAssertFalse(host.isHidden); XCTAssertFalse(key.isHidden)
+        provider.selectItem(at: 0); fields.update()
+        provider.selectItem(at: 1); fields.update()
+        XCTAssertEqual(host.stringValue, "fixture.re.qweatherapi.com")
+        XCTAssertEqual(key.stringValue, "synthetic-unsaved")
     }
 }

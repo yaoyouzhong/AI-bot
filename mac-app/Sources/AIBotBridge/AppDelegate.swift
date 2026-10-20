@@ -2,6 +2,20 @@ import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
+final class MacWeatherSourceFields: NSObject {
+    private let provider: NSPopUpButton
+    private let fields: [NSView]
+    init(provider: NSPopUpButton, fields: [NSView]) {
+        self.provider = provider; self.fields = fields
+        super.init()
+        provider.target = self; provider.action = #selector(update)
+        update()
+    }
+    @objc func update() {
+        fields.forEach { $0.isHidden = provider.indexOfSelectedItem != 1 }
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let reader = SessionActivityReader()
     private let dataStore = MacDataStore(quotaHistory: MacQuotaHistory())
@@ -583,15 +597,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stack.alignment = .leading
         stack.spacing = 8
         stack.addArrangedSubview(automatic)
+        stack.addArrangedSubview(NSTextField(labelWithString: "天气来源"))
         stack.addArrangedSubview(provider)
+        var credentialViews: [NSView] = []
         for (label, field) in [("和风 API Host（仅和风使用）", weatherHost), ("和风 API Key（仅保存到钥匙串）", weatherKey), ("天气城市", city), ("纬度（可空）", latitude),
                                ("经度（可空）", longitude), ("股票代码（逗号分隔，最多 20 个）", stocks)] {
             let title = NSTextField(labelWithString: label)
             field.frame.size.width = 420
             stack.addArrangedSubview(title)
             stack.addArrangedSubview(field)
+            if field === weatherHost || field === weatherKey { credentialViews += [title, field] }
         }
-        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 420)
+        let sourceFields = MacWeatherSourceFields(provider: provider, fields: credentialViews)
+        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 450)
 
         let alert = NSAlert()
         alert.messageText = "天气和股票设置"
@@ -599,7 +617,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.accessoryView = stack
         alert.addButton(withTitle: "保存")
         alert.addButton(withTitle: "取消")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard withExtendedLifetime(sourceFields, { alert.runModal() }) == .alertFirstButtonReturn else { return }
 
         let latitudeText = latitude.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let longitudeText = longitude.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
