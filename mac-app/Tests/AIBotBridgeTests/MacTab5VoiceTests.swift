@@ -205,4 +205,35 @@ final class MacTab5VoiceTests: XCTestCase {
         XCTAssertTrue(voice.diagnostics.contains("Wi-Fi · 请求 · 401"))
         XCTAssertFalse(voice.diagnostics.contains("private"))
     }
+
+    func testNoSoundHintRequiresThreeContinuousSecondsAndClearsOnSignal() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend()), id = start(voice)
+        var audio = request("audio", id); audio["pcm"] = Data(repeating: 0, count: 6400).base64EncodedString()
+        for index in 0..<15 {
+            audio["seq"] = index
+            XCTAssertEqual(voice.handle(audio, device: "A").body["silent"] as? Bool, index == 14)
+        }
+        audio["seq"] = 15; audio["pcm"] = Data((0..<3200).flatMap { _ in [UInt8(0xb0), 0x04] }).base64EncodedString()
+        XCTAssertEqual(voice.handle(audio, device: "A").body["silent"] as? Bool, false)
+        audio["pcm"] = Data(repeating: 0, count: 6400).base64EncodedString()
+        for index in 16..<30 {
+            audio["seq"] = index
+            XCTAssertEqual(voice.handle(audio, device: "A").body["silent"] as? Bool, false)
+        }
+        audio["seq"] = 30
+        XCTAssertEqual(voice.handle(audio, device: "A").body["silent"] as? Bool, true)
+        _ = voice.handle(request("cancel", id), device: "A")
+        let next = start(voice)
+        XCTAssertEqual(voice.handle(request("poll", next), device: "A").body["silent"] as? Bool, false)
+    }
+
+    func testDuplicateAudioAndPollingDoNotAdvanceSilenceHint() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend()), id = start(voice)
+        var audio = request("audio", id); audio["seq"] = 0; audio["pcm"] = Data(repeating: 0, count: 6400).base64EncodedString()
+        for _ in 0..<20 {
+            XCTAssertEqual(voice.handle(audio, device: "A").body["silent"] as? Bool, false)
+            XCTAssertEqual(voice.handle(request("poll", id), device: "A").body["silent"] as? Bool, false)
+        }
+        XCTAssertEqual(backend.feeds, 1)
+    }
 }

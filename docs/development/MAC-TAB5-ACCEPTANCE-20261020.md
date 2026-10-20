@@ -6,21 +6,21 @@
 
 ## 当前检查点
 
-当前已验程序为 `888086b`，具体修复、CI 与操作证据见下文。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
+当前已验程序为 `7ad1c24`，具体修复、CI 与操作证据见下文。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
 
 | 交接阶段 | 当前结论与剩余项 |
 | --- | --- |
-| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 147 项通过；本机 XCTest 工具链仍受阻 |
+| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 150 项通过；本机 XCTest 工具链仍受阻 |
 | 2 USB | 配对、数据、设置读写、拔插与桥接重启恢复通过 |
 | 3 Wi-Fi | 纯 Wi-Fi 认证与设置读写、USB 返回通过；配网、地址恢复、固定模式和八秒阈值精测待验 |
 | 4 BLE | 实际认证／数据／设置、开关重连、睡眠恢复、USB 优先、系统撤权恢复通过；首次直接拒绝与精确延时确认待验 |
 | 5 展示与资源 | 亮度持久化、设备声音、固定页／轮播／屏保、图库导入／失败保留／分页／方向通过；日常数据逐项、桌宠及音乐均匀计时仍未完成 |
 | 6 系统与音乐 | Apple Music 标题／封面／单次控制、系统音量／静音／取消静音、文件夹入口通过；Spotify、程序入口、锁屏／辅助功能拒绝恢复待验 |
 | 7 Codex | 已安装 CLI 已定位；公开代理默认 socket 缺失、握手前退出。实际任务链路受阻，未执行发送／追加／中断 |
-| 8 照片与语音 | 正常 App 语音权限与静默手动停止提示通过；正常语音仍无法完整录完，提前结束／不完整恢复未通过；照片与任务附件尚未实机通过 |
+| 8 照片与语音 | 语音授权、空录音停止提示通过；HTTP 长连接修复后纯 Wi-Fi 单次成功识别，收到 7.4 秒音频；静默提示去抖、USB／BLE 稳定性、准确最终文字及取消仍待复验，照片／任务附件未通过 |
 | 9 固件工具 | 官方包离线检查、正常 App 版本／SHA／说明预览、当前镜像只读 USB 启动核验通过；实际 OTA／首刷／恢复均未执行 |
 
-临时音乐页／开关／曲目、系统音量／静音和文件夹入口均已收尾。语音开关已暂停并恢复关闭；用户已退出未保存的日程编辑，未保存测试内容。当前为隔离语音问题暂时断开 USB、关闭桥接蓝牙，不将整体九阶段写成完成。
+临时音乐页／开关／曲目、系统音量／静音和文件夹入口均已收尾。语音开关已暂停并恢复关闭；用户曾退出未保存日程；最新录音复验重新进入未保存编辑，尚未保存测试内容。当前为隔离语音问题暂时断开 USB、关闭桥接蓝牙，不将整体九阶段写成完成。
 
 ## 环境与基础检查
 
@@ -196,6 +196,14 @@
 
 Mac 仅对 HTTP/1.1、成功且逐次鉴权的语音 POST 保持顺序连接；每次重新解析及检查 nonce／证明，失败关闭。显式 `Connection: close`（含逗号列表）、HTTP/1.0、其他路由保持关闭。每连接最多 640 请求／120 秒，读取空闲上限仍为 10 秒；既有请求体／队列上限及组合报文拒绝规则保持。新增真实 loopback socket 回归覆盖同连接多块／停止、后续错误证明关闭、显式关闭／HTTP1.0和普通状态路由关闭。没有自动重发音频或改动固件／协议字段。新正常候选与 CI 另记。
 
+### 长连接实机成功与静默提示去抖
+
+程序提交 `7ad1c240e27ca82e9b633f2aacf82596f32ada6a` 的 [Mac CI 39378349053](https://github.com/yaoyouzhong/AI-bot/actions/runs/39378349053) 及完整附件核验通过：150 项测试，0 失败／跳过，含真实 TCP 回归；Release／候选／工具、8 张原生 PNG 与源码／包哈希一致。本机 Release、候选严格签名及随包工具检查通过，本机 XCTest 仍在执行前受阻。正常退出旧候选、启动该精确路径并由用户处理同类钥匙串提示后，助手自动接管，核对纯 Wi-Fi、其他开关关闭以及两个无认证路由 401。
+
+本次用户反馈识别成功；正常 Mac 窗口同时显示 **37 块／7.4 秒**音频、最近电平 4%／峰值 100%、最终待检查状态和 Wi-Fi 查询 200，没有记录到拒绝。相较旧候选的零音频，此次持续收音与识别实际通过一次；用户未给出逐字最终文字，因此不宣称准确率或长期／USB 稳定性全部通过。未保存日程。
+
+用户同时反馈收音中频繁“检测不到语音”，影响使用。原静默标志在总收音一秒后，只要当前约 200 ms 块的峰值取整为零就立即触发，正常短停顿也会切换提示。修复按去重后接受的 PCM 时长累计连续低电平，满三秒才设置既有 `silent` 标志；一有信号立即清除，新录音归零，轮询与重复块不推进计时。提示不自动停止录音，音频和本地识别策略保持。新增两项回归覆盖连续静默／短停顿／信号恢复／新会话，以及重复与轮询不累计。实际对象合成 PCM 检查、本机 Release 和测试语法检查通过；本机 XCTest 仍在执行前受阻。下一候选 CI 与实机结果另记。
+
 ## 本轮修复：正式固件包的许可证目录
 
 使用当前 Mac 代码的固件加载器读取 SHA 已核对的官方 `.234` 升级 ZIP，实际复现“ZIP 含重复或不安全的文件名”。官方包的七个许可证路径有九段，例如 `licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE`；原 `safePath` 最多接受八段，导致合法升级包与同类首刷包无法进入预览。
@@ -276,7 +284,7 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 
 ## English
 
-Current verified program is `888086b`; older pending statements retain their historical context. USB and actual BLE settings/reconnection/sleep recovery passed, as did pure-Wi-Fi settings and USB return. Provisioning/address recovery/fixed modes/exact fallback timing remain pending. Display controls/persistence, gallery import/failure retention/pagination/orientation passed; individual daily data, pets and even music timing remain unfinished. Apple Music metadata/artwork/control, system volume/mute/unmute and folder launch passed; Spotify, application launch and lock/Accessibility denial/recovery remain pending. Codex proxy initialization is blocked before handshake, and no real task send/append/interrupt was executed. Voice permissions passed, but premature connection interruption keeps capture stability unaccepted; photo/task attachments remain unaccepted. Normal-app firmware preview and read-only current-image USB boot verification passed; no firmware write occurred. Temporary music/media, system audio and folder-launcher cleanup completed; voice was disabled again and the user exited the unsaved agenda editor without saving. USB is temporarily disconnected and bridge BLE disabled for voice isolation. The full nine-stage acceptance is not complete.
+Current verified program is `7ad1c24`; older pending statements retain their historical context. USB and actual BLE settings/reconnection/sleep recovery passed, as did pure-Wi-Fi settings and USB return. Provisioning/address recovery/fixed modes/exact fallback timing remain pending. Display controls/persistence, gallery import/failure retention/pagination/orientation passed; individual daily data, pets and even music timing remain unfinished. Apple Music metadata/artwork/control, system volume/mute/unmute and folder launch passed; Spotify, application launch and lock/Accessibility denial/recovery remain pending. Codex proxy initialization is blocked before handshake, and no real task send/append/interrupt was executed. Voice permissions and one 7.4-second Wi-Fi take passed after the HTTP persistence repair; no-sound hint debouncing, exact final text, USB/BLE and sustained capture stability remain pending, as do photo/task attachments. Normal-app firmware preview and read-only current-image USB boot verification passed; no firmware write occurred. Temporary music/media, system audio and folder-launcher cleanup completed; voice was disabled again; the user previously left the unsaved editor, then reopened it for the latest retest without saving. USB is temporarily disconnected and bridge BLE disabled for voice isolation. The full nine-stage acceptance is not complete.
 
 Fixed-cadence program commit `3c82bcce4df49af2b3e1c64445664500eabf7a43` passed [Mac CI 39368358000](https://github.com/yaoyouzhong/AI-bot/actions/runs/39368358000) and full artifact verification: 136 tests, zero failures/skips, Release/app/tools, eight native PNGs and matching source/package hashes. An actual-object synthetic cadence check passed twenty varying ACKs, control rephasing and blocked-write burst suppression without device access. Local Release/bundle/signature passed; local XCTest remains unavailable. The previous candidate was normally quit before exact `3c82bcc` launch. The user handled system authorization and confirmed opening TAB5; the unique process and both unauthenticated HTTP 401 routes were verified. Bridge-window selection repeatedly timed out, including after reconnecting the UI tool, so USB/BLE row text is not independently reconfirmed for this run. Read-only stack symbols showed AppKit event processing, music polling and USB work; no persistent freeze was established and no Keychain contents were inspected. Music UI automation remained available and restarted the fixture.
 
@@ -311,6 +319,10 @@ A separate actual-object check with synthetic pairing/backend passed the real HT
 Program `888086b22fca492cc7f81ce0518873499ed6b901` passed [Mac CI 39377742095](https://github.com/yaoyouzhong/AI-bot/actions/runs/39377742095) and full artifact verification: 147 tests, zero failures/skips, Release/app/tools, eight PNGs and matching hashes. Exact-path normal launch, expected user Keychain handling, automated selection, authenticated Wi-Fi with USB absent/BLE off and both unauthenticated 401 routes were verified. Another physical take still reported connection interruption/recovery. The normal Mac window showed zero accepted audio blocks/seconds and zero recent/peak level, with recovery Stop/later Poll returning Wi-Fi 200 and no recorded rejection. Zero level here means no audio arrived; it does not establish microphone hardware failure. Dynamic diagnostic layout remained readable. Voice was disabled again; no agenda was saved and the editor remains open for retest.
 
 The device streams start/audio/stop through one HTTP client, but Mac previously returned Connection: close and cancelled every socket; single-call settings acceptance does not cover this stream. An actual-server synthetic-pairing/backend loopback client with automatic reconnection disabled reproduced failed sequential exchanges before the repair, then completed start, fifty audio blocks and stop on one socket afterward. This supports a Wi-Fi connection-lifecycle incompatibility, not resolution of all USB failures; see the [official ESP HTTP client guidance](https://docs.espressif.com/projects/esp-idf/en/v5.3/esp32/api-reference/protocols/esp_http_client.html). Only successful individually authenticated HTTP/1.1 voice POSTs now persist. Each request is freshly parsed and nonce/proof checked; failures, explicit Close tokens, HTTP/1.0 and other routes close. Connections are limited to 640 requests/120 seconds with the existing ten-second read idle timeout, body/queue bounds and combined-message rejection intact. Three live loopback regressions cover same-socket audio/stop and subsequent invalid proof, explicit-close/HTTP1.0 and ordinary status closure. No audio replay, wire-field or firmware change was introduced. New normal candidate/CI checks follow separately.
+
+Program `7ad1c240e27ca82e9b633f2aacf82596f32ada6a` passed [Mac CI 39378349053](https://github.com/yaoyouzhong/AI-bot/actions/runs/39378349053) and full artifact verification: 150 tests, zero failures/skips including live TCP regressions, Release/app/tools, eight PNGs and matching hashes. Local Release/bundle/signature/tool checks passed while local XCTest remains unavailable. The previous candidate was normally quit, exact new path launched, expected Keychain permission handled by the user, and automated selection reconfirmed Wi-Fi-only transport, other opt-ins off and both unauthenticated 401 routes. The user reported successful recognition; the normal Mac window independently showed 37 blocks/7.4 seconds, recent level 4%/peak 100%, final review and Wi-Fi Poll 200 with no rejection recorded. This is one actual successful capture/recognition after the earlier zero-audio failure. Exact final text was not supplied, so accuracy, long-term or USB stability is not claimed passed. No agenda was saved.
+
+The user still found repeated no-speech hints disruptive. Previously, after one second of audio, any current approximately 200 ms block with rounded-zero peak immediately set silent, including normal pauses. The repair requires three continuous quiet seconds of accepted, deduplicated PCM; any signal clears it, new takes reset it, and polls/duplicate chunks do not advance it. Existing silent wire semantics, capture and local recognition stay intact; the hint does not stop recording. Two regressions cover silence/pauses/signal/new take and duplicates/polls. Actual-object synthetic PCM checks, local Release and test-source parsing passed; local XCTest remains blocked before execution. New CI and physical results follow separately.
 
 Normal candidate `754fd02` passed local bundle/signature/tool checks and was automatically launched after normal quit of the previous app; the user handled its expected system authorization. USB, authenticated Wi-Fi, BLE standby, the unique exact process and both unauthenticated HTTP 401 checks recovered. Its [Mac CI 39367861614](https://github.com/yaoyouzhong/AI-bot/actions/runs/39367861614) and complete downloaded artifacts verified 134 tests with zero failures/skips, Release/app/tools, eight native PNGs and source/package hashes. The initial thirty-second report selected backwards-or-skipped seconds; clarification specifically reported forward skips with no backwards movement. No rewind was reported in this observation, but forward stepping remains unpassed. Firmware adds a whole-second base to whole seconds since receipt. The old USB cadence waited two seconds after each ACK, accumulating transport/callback time into phase drift. The follow-up keeps original deadlines, restarts phase for control changes and skips missed slots after a blocked write instead of bursting. Two regressions cover repeated ACK/callback delays, control and blocked writes. A synthetic phase model can produce rapid adjacent second changes with ACK-based drift and avoids them with fixed phase; this is not hardware timing evidence and physical revalidation is pending.
 
