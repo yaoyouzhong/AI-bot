@@ -44,6 +44,21 @@
 
 验证必须包括有界／变化的传输延迟、重复状态、暂停／恢复、零位置、前后跳转、切歌、失联／恢复及曲末边界。随后分别做 Windows／Mac 与 USB／Wi-Fi／BLE 的实际画面观察。真实写入前仍需独立授权，写入后另核对精确版本、ELF、VALID 分区、实时 UI 样本及屏幕触摸；本文件不授权写入。
 
+## 后续离线修正参考（不刷机）
+
+本轮新增独立原创的 `scripts/mac_tab5_interop/music_timeline_reference.h` 与 C 回归。它保留毫秒与本地单调时钟相位，以现有 `pcInput.session/sequence` 拒绝同会话的重复／乱序时间样本；切歌、桥接会话切换、暂停／恢复及超过 350 ms 的真实跳转重新锚定。未知／失联时不投影，曲末有上限，非有限输入和非法时钟返回不可用。协议字段未改变。350 ms 内的细小跳转与采样抖动在现有 v1 字段下无法可靠区分，这是明确的参考算法限制，不能宣称所有跳转精度通过。
+
+运行：
+
+```bash
+python3 scripts/test_tab5_music_timeline.py --output artifacts/music-reference \
+  --firmware-source artifacts/mac-tab5-20261020/reference/AI-bot-tab5-0.2.234-ui-source.zip
+```
+
+脚本先做主机 C 回归；可选 ZIP 必须匹配上文精确 SHA 与源码上下文，才生成 `tab5-0.2.234-music-timing-review.patch`。补丁只在一次性临时源码副本中检查和应用、比较生成字节；原 ZIP、独立固件工程及设备不变。补丁不是固件镜像，没有完成 ESP-IDF 编译或实机验收。参考头文件目前不进入任何固件构建。
+
+本机 UBSan 回归通过：两种变化延迟场景原表达式每秒停留 900–1100 ms，候选 1000 ms，均无回退／跳秒；生命周期、重复／乱序、前后跳转、失联／恢复、曲末与非法输入断言通过。ASan 版本在本机系统上未能结束，已终止，不能记为通过；CI 使用其受支持的 Mac 工具链另跑 ASan/UBSan。所有数字仍为合成回放，当前实体 `.234` 的不均匀计时仍未解决。
+
 ## English
 
 On `3c82bcc`, the user reported that skipped seconds were gone but second dwell remained uneven. Music timing is improved, not fully accepted. Mac CI and complete artifacts verified 136 tests with zero failures/skips; these are not firmware timing measurements.
@@ -53,3 +68,5 @@ The official running `.234` source archive is bound by the SHA above. Its `ui.c`
 An isolated replay used original synthetic samples, the published music expression and the actual wall-clock helper. With a two-second sender and 50 ms renderer, constant transport produced 1000 ms dwell in both. Bounded transport/sample jitter produced 900–1100 ms dwell in current music and 1000 ms with the steady helper, without skipped/backwards seconds. These are synthetic code-replay results, not device measurements or acceptance of a future patch. No device was accessed and no firmware was built or written. A separate twelve-probe address-resolution timing aggregate did not establish that lookup as the main cause; address selection was unchanged and no addresses were printed.
 
 The firmware follow-up must retain millisecond anchors and monotonic time, keep phase during continuous playback, and correctly reset for zero/new track/pause/resume/real seeks. Unknown or stale timelines must not invent progress. Keep existing v1 music fields and Windows/Mac compatibility. Regress delay variation, duplicates, lifecycle, genuine forward/backward seeks, disconnect and end-of-track, then physically verify both hosts and all three transports. Firmware changes/writes remain outside this Mac-only implementation scope and require separate authorization; this document grants none.
+
+An original host-only C reference and runner now cover that lifecycle. Existing session/sequence fields reject duplicate/out-of-order samples; phase is kept within 350 ms jitter, and larger seeks reset. Sub-350 ms seeks cannot reliably be distinguished from jitter in v1. Local UBSan replay passed with 900–1100 ms legacy versus 1000 ms candidate dwell and the lifecycle/boundary assertions. Local ASan binaries did not finish and were terminated; they did not pass. CI separately exercises ASan/UBSan. An optional exact-SHA/context-checked source ZIP produces an unapplied review patch and verifies it only in a disposable copy. No firmware image or ESP-IDF build was produced, no independent firmware project changed and no device was accessed. The reference is not linked into firmware; running `.234` timing remains unaccepted.

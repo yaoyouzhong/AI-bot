@@ -34,9 +34,16 @@ final class MacTab5Codex {
         var value = projection
         let tasks = projection["tasks"] as? [[String: Any]] ?? [], viewed = (projection["replyView"] as? [String: Any])?["taskId"] as? String
         var selected = Array(tasks.prefix(max(1, taskLimit)))
-        if let viewed, let task = tasks.first(where: { $0["id"] as? String == viewed }), !selected.contains(where: { $0["id"] as? String == viewed }) { selected[selected.count - 1] = task }
+        var pinned = Set<String>()
+        for task in [tasks.first(where: { $0["id"] as? String == viewed }), Self.overview(tasks)].compactMap({ $0 }) {
+            guard let id = task["id"] as? String else { continue }
+            if !selected.contains(where: { $0["id"] as? String == id }),
+               let index = selected.indices.reversed().first(where: { !pinned.contains(selected[$0]["id"] as? String ?? "") }) { selected[index] = task }
+            pinned.insert(id)
+        }
         let ids = Set(selected.compactMap { $0["id"] as? String }), projects = Set(selected.compactMap { $0["projectId"] as? String })
-        value["tasks"] = selected; value["projects"] = (projection["projects"] as? [[String: Any]] ?? []).filter { projects.contains($0["id"] as? String ?? "") }
+        value["tasks"] = selected; value["overviewTask"] = Self.overview(selected)
+        value["projects"] = (projection["projects"] as? [[String: Any]] ?? []).filter { projects.contains($0["id"] as? String ?? "") }
         for key in ["repliesReady", "repliesRead", "repliesUnread", "receipts", "responses"] { if let map = projection[key] as? [String: Any] { value[key] = map.filter { ids.contains($0.key) } } }
         return value
     }
@@ -57,18 +64,47 @@ final class MacTab5Codex {
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Codex 会话"
-                let status = root["status"] as? [String: Any] ?? [:]
-                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": root["updatedAt"] as? Int64 ?? 0, "state": status["type"] as? String ?? "unknown"]
+                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": root["updatedAt"] as? Int64 ?? 0, "state": Self.taskState(root["status"] as? [String: Any] ?? [:])]
             }
             catalogUpdated = clock()
             stateLock.lock()
             projection["tasks"] = catalog
             var projects: [[String: Any]] = []; var seen = Set<String>()
             for task in catalog { let id = task["projectId"] as! String; if seen.insert(id).inserted { projects.append(["id": id, "name": task["folder"]!]) } }
-            projection["projects"] = projects; projection["overviewTask"] = catalog.first
+            projection["projects"] = projects; projection["overviewTask"] = Self.overview(catalog)
             note = "已连接本机 Codex · \(catalog.count) 个近期会话"; stateLock.unlock()
             if !viewedTask.isEmpty, catalog.contains(where: { $0["id"] as? String == viewedTask }) { _ = try page(task: viewedTask, root: [:], device: viewedDevice) }
-        } catch { stateLock.lock(); note = "Codex 未连接；请检查 CLI 与桌面 App Server 的本机代理是否可用。保留最近数据。"; projection["control"] = NSNull(); stateLock.unlock() }
+        } catch { stateLock.lock(); note = Self.connectionFailure(error); projection["control"] = NSNull(); stateLock.unlock() }
+    }
+    // App Server status names differ from the existing TAB5 v1 task states.
+    static func taskState(_ status: [String: Any]) -> String {
+        switch status["type"] as? String {
+        case "idle": return "idle"
+        case "active":
+            guard let flags = status["activeFlags"] as? [String] else { return "unknown" }
+            if flags.contains("waitingOnApproval") || flags.contains("waitingOnUserInput") { return "waiting" }
+            return flags.isEmpty ? "working" : "unknown"
+        default: return "unknown"
+        }
+    }
+    private static func overview(_ tasks: [[String: Any]]) -> [String: Any]? {
+        tasks.max { left, right in
+            let a = left["state"] as? String == "working", b = right["state"] as? String == "working"
+            if a != b { return !a }
+            return (left["updatedAt"] as? Int64 ?? 0) < (right["updatedAt"] as? Int64 ?? 0)
+        }
+    }
+    static func connectionFailure(_ error: Error) -> String {
+        let reason: String
+        switch error as? MacTab5CodexFailure {
+        case .cliUnavailable: reason = "未找到可执行的 Codex CLI，请选择已安装的 CLI。"
+        case .proxyUnavailable: reason = "本机 App Server 代理在初始化前退出；桌面 App 已打开也不代表控制 socket 可用。"
+        case .timeout: reason = "本机 App Server 响应超时。"
+        case .rejected: reason = "本机 App Server 拒绝请求，请检查版本兼容性。"
+        case .protocolError: reason = "本机 App Server 返回了不兼容的数据。"
+        default: reason = "本机 App Server 连接中断。"
+        }
+        return "Codex 未连接；" + reason + "保留最近数据，不自动部署或启动服务。"
     }
     private func loadJournal() throws -> [String: Any] {
         if let journal { return journal }

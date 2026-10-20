@@ -76,4 +76,56 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual(codex.handle(request, device: "A").status, 503); XCTAssertFalse(api.calls.contains { $0.0 == "turn/start" })
         codex.refresh(); XCTAssertEqual(codex.handle(request, device: "A").status, 202)
     }
+    func testAppServerStatesMatchExistingDeviceVocabulary() {
+        XCTAssertEqual(MacTab5Codex.taskState(["type": "active", "activeFlags": [String]()]), "working")
+        for flag in ["waitingOnApproval", "waitingOnUserInput"] {
+            XCTAssertEqual(MacTab5Codex.taskState(["type": "active", "activeFlags": [flag]]), "waiting")
+        }
+        XCTAssertEqual(MacTab5Codex.taskState(["type": "idle"]), "idle")
+        for state in ["notLoaded", "systemError", "futureStatus", "active"] {
+            XCTAssertEqual(MacTab5Codex.taskState(["type": state]), "unknown")
+        }
+        XCTAssertEqual(MacTab5Codex.taskState(["type": "active", "activeFlags": ["futureFlag"]]), "unknown")
+    }
+    func testHomeKeepsWorkingTaskAndReaderAcrossBoundedTransportSnapshots() throws {
+        let api = API(), working = UUID().uuidString.lowercased()
+        let entries: [[String: Any]] = (0..<20).map { index -> [String: Any] in
+            let id = index == 19 ? working : index == 18 ? api.task : UUID().uuidString.lowercased()
+            let status: [String: Any] = index == 19 ? ["type": "active", "activeFlags": [String]()] : ["type": "idle"]
+            return ["id": id, "cwd": "/synthetic/project\(index)", "name": "Synthetic \(index)", "updatedAt": Int64(100 - index), "status": status]
+        }
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
+            if method == "thread/list" { return ["data": entries] }
+            return try api.call(method, params)
+        })
+        codex.refresh()
+        XCTAssertEqual(codex.handle(["op": "read", "taskId": api.task], device: "fixture").status, 200)
+        for limit in [2, 8, 16] {
+            let snapshot = try XCTUnwrap(codex.snapshot(taskLimit: limit)), tasks = try XCTUnwrap(snapshot["tasks"] as? [[String: Any]])
+            XCTAssertEqual(tasks.count, limit)
+            XCTAssertTrue(tasks.contains { $0["id"] as? String == working })
+            XCTAssertTrue(tasks.contains { $0["id"] as? String == api.task })
+            XCTAssertEqual((snapshot["overviewTask"] as? [String: Any])?["id"] as? String, working)
+            XCTAssertEqual((snapshot["overviewTask"] as? [String: Any])?["state"] as? String, "working")
+        }
+        let single = try XCTUnwrap(codex.snapshot(taskLimit: 1))
+        XCTAssertEqual((single["overviewTask"] as? [String: Any])?["id"] as? String, api.task)
+        XCTAssertEqual((single["tasks"] as? [[String: Any]])?.count, 1)
+    }
+    func testConnectionFailureRetainsPublicDataAndSuppressesControlsAndPrivateDetails() throws {
+        let api = API(); var failed = false
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
+            if failed { throw MacTab5CodexFailure.proxyUnavailable }
+            return try api.call(method, params)
+        })
+        codex.refresh(); _ = codex.handle(["op": "read", "taskId": api.task], device: "fixture")
+        failed = true; codex.refresh()
+        XCTAssertEqual((codex.snapshot()?["responses"] as? [String: String])?[api.task], api.text)
+        XCTAssertTrue(codex.snapshot()?["control"] is NSNull)
+        XCTAssertTrue(codex.summary.contains("初始化前退出"))
+        let privateError = NSError(domain: "PRIVATE_TOKEN", code: 1, userInfo: [NSLocalizedDescriptionKey: "PRIVATE_PROMPT /private/path"])
+        let summary = MacTab5Codex.connectionFailure(privateError)
+        XCTAssertFalse(summary.contains("PRIVATE")); XCTAssertFalse(summary.contains("/private/"))
+        failed = false; codex.refresh(); XCTAssertTrue(codex.summary.contains("已连接"))
+    }
 }

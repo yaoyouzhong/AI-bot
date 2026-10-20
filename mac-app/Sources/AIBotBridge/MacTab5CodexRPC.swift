@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-enum MacTab5CodexFailure: Error { case unavailable, rejected, timeout, protocolError }
+enum MacTab5CodexFailure: Error { case cliUnavailable, proxyUnavailable, unavailable, rejected, timeout, protocolError }
 
 // Public Codex stdio protocol over its local desktop control-socket proxy.
 // No independent app-server, login, API key, model or approval-policy override.
@@ -38,7 +38,8 @@ final class MacTab5CodexRPC {
         do {
             if process?.isRunning != true {
                 try start()
-                _ = try request("initialize", ["clientInfo": ["name": "aibot_tab5_mac", "title": "AI-bot TAB5", "version": "1.0"]])
+                do { _ = try request("initialize", ["clientInfo": ["name": "aibot_tab5_mac", "title": "AI-bot TAB5", "version": "1.0"]]) }
+                catch MacTab5CodexFailure.unavailable { throw MacTab5CodexFailure.proxyUnavailable }
                 try write(["method": "initialized"])
             }
             return try request(method, params)
@@ -47,12 +48,13 @@ final class MacTab5CodexRPC {
     func stop() { calls.lock(); stopLocked(); calls.unlock() }
     deinit { stopLocked() }
     private func start() throws {
-        guard let path = executable() else { throw MacTab5CodexFailure.unavailable }
+        guard let path = executable() else { throw MacTab5CodexFailure.cliUnavailable }
         let child = Process(), stdin = Pipe(), stdout = Pipe(), stderr = Pipe()
         child.executableURL = URL(fileURLWithPath: path); child.arguments = ["app-server", "proxy"]
         child.standardInput = stdin; child.standardOutput = stdout; child.standardError = stderr
         condition.lock(); ended = false; answers.removeAll(); generation = UUID(); let owner = generation; condition.unlock()
-        try child.run(); process = child; input = stdin.fileHandleForWriting
+        do { try child.run() } catch { throw MacTab5CodexFailure.cliUnavailable }
+        process = child; input = stdin.fileHandleForWriting
         // Drain diagnostics without retaining or logging paths, prompts or tokens.
         DispatchQueue.global(qos: .utility).async { while !stderr.fileHandleForReading.availableData.isEmpty {} }
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -96,7 +98,8 @@ final class MacTab5CodexRPC {
     private func write(_ root: [String: Any]) throws {
         writes.lock(); defer { writes.unlock() }
         guard let input else { throw MacTab5CodexFailure.unavailable }
-        var bytes = try MacTab5Protocol.json(root); bytes.append(10); try input.write(contentsOf: bytes)
+        var bytes = try MacTab5Protocol.json(root); bytes.append(10)
+        do { try input.write(contentsOf: bytes) } catch { throw MacTab5CodexFailure.unavailable }
     }
     private func stopLocked() {
         try? input?.close(); input = nil

@@ -44,4 +44,21 @@ final class MacTab5CodexRPCTests: XCTestCase {
         XCTAssertEqual(requests.filter { $0["method"] as? String == "thread/list" }.count, 2)
         XCTAssertTrue(requests.allSatisfy { $0["jsonrpc"] == nil })
     }
+    func testMissingCLIAndProxyExitHaveDistinctSafeFailures() throws {
+        let missing = MacTab5CodexRPC(executable: { nil })
+        XCTAssertThrowsError(try missing.call("thread/list", [:])) { error in
+            guard case MacTab5CodexFailure.cliUnavailable = error else { return XCTFail("Expected missing CLI") }
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let tool = root.appendingPathComponent("fixture-codex")
+        try "#!/usr/bin/env python3\nimport sys\nsys.stdin.readline()\nsys.stderr.write('PRIVATE_TOKEN /private/socket\\n')\nsys.exit(1)\n".write(to: tool, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: tool.path)
+        let rpc = MacTab5CodexRPC(executable: { tool.path })
+        XCTAssertThrowsError(try rpc.call("thread/list", [:])) { error in
+            guard case MacTab5CodexFailure.proxyUnavailable = error else { return XCTFail("Expected early proxy exit") }
+        }
+        rpc.stop()
+    }
 }

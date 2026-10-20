@@ -33,6 +33,9 @@ jobs:
             uname -m
             swift --version
           } | tee artifacts/macos-tab5/environment.txt
+      - name: Check host-only music timing reference
+        run: |
+          python3 scripts/test_tab5_music_timeline.py --address-sanitizer --output artifacts/macos-tab5/music-reference 2>&1 | tee artifacts/macos-tab5/music-reference.log
       - name: Test macOS bridge
         id: tests
         run: |
