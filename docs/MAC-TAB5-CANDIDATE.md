@@ -9,6 +9,10 @@
 3. **显示设置**先读取设备实际值，再编辑亮度、声音、固定页、轮播页面/顺序、间隔和屏保等待。只有匹配回执确认才显示保存成功；未确认时重新读取。不因测试或 TAB5 升级恢复 ESP8266 的默认轮播。
 4. 蓝牙默认关闭，勾选后才创建 CoreBluetooth 管理器并请求权限。仅连接已通过 USB 配对的设备。通过系统设置管理本地网络、蓝牙、自动化、辅助功能、语音识别和麦克风权限。
 
+首次系统蓝牙配对显示数字时，核对 Mac 与实体 TAB5 的数字一致，并在两端确认。固件同时提供 HID 键盘服务，macOS 可能打开“键盘设置助理”；可以退出该助理，TAB5 状态与设置传输无需配置键盘布局。不要将“重新配对／清除旧配对”当作普通数字确认。
+
+以 AI-bot Bridge 名义访问 `io.github.yaoyouzhong.AI-bot` 的“登录”钥匙串弹窗，与蓝牙配对是两种授权。“允许”仅针对此次访问；“始终允许”记住该候选对相应项目的许可，详见 [Apple 说明](https://support.apple.com/zh-cn/guide/keychain-access/kyca1243/mac)。本地临时签名候选更换构建后可能再次询问；不需要开启所有 App 的访问权限。
+
 ## 资源与固件
 
 **资源与固件**中导入现有 AI-bot 图库 ZIP；保留来源、许可、导读和全部图片 SHA。标准/高清包按类别导入，旧图库保留备份。设备显示专用 1280×720 JPEG，支持多页与横竖屏。电脑桌宠选择和当前音乐封面自动转为设备资源，收到资源确认后停止发送。
@@ -65,6 +69,10 @@ CI 附件包括 xUnit、日志、工具链、源码 SHA、含 LICENSE/第三方�
 This unpublished Apple Silicon/macOS 13+ candidate lives on `codex/mac-tab5-phase1-ci`. It does not replace public downloads. Physical acceptance is scheduled for daytime on 2026-10-20. No deployment, installation, hardware write, main merge, tag or Release is performed in this work. Intel support remains unverified.
 
 Open **TAB5** from the menu bar. USB-pair the explicitly selected AI-bot device, then provision Wi-Fi over USB. Local discovery requires the same LAN; Bluetooth is separately opt-in. Read actual display settings before editing and require the matching device receipt before reporting success. Preserve TAB5 display preferences during upgrades and validation.
+
+For a system Bluetooth numeric-comparison prompt, compare the Mac and physical TAB5 displays and confirm both ends. The firmware also exposes a HID keyboard service, so macOS may open Keyboard Setup Assistant. You can quit the assistant; TAB5 status/settings transfer requires no keyboard-layout setup. A request to re-pair or delete an old bond is a separate operation.
+
+The login-Keychain prompt for AI-bot Bridge and service `io.github.yaoyouzhong.AI-bot` is separate from Bluetooth pairing. Allow grants one-time access; Always Allow remembers access for that candidate and item, as described by [Apple](https://support.apple.com/guide/keychain-access/kyca1243/mac). A newly built ad-hoc candidate may need renewed authorization. Do not enable access for all applications.
 
 **Resources and firmware** imports standard/HD gallery ZIPs with provenance, licensing, guides, image decoding and complete hashes. Device pet/music resources stop after acknowledged transfer. Select a BIN plus matching notes or an upgrade ZIP, review it and explicitly start. Boot verification requires the exact version/ELF, VALID partition and three advancing live UI samples; transferred bytes alone are insufficient.
 
