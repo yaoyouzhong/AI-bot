@@ -3,13 +3,21 @@ import Foundation
 
 struct MacTab5StatusCadence {
     private var next: TimeInterval = 0
+    private var interval: TimeInterval = 2
     func isDue(_ now: TimeInterval) -> Bool { now >= next }
-    mutating func acknowledge(started: TimeInterval, finished: TimeInterval, urgent: Bool) {
-        // Keep the original send phase; adding two seconds to every ACK makes
-        // the device's whole-second interpolation repeatedly change phase.
-        let deadline = next == 0 || urgent || started - next >= 2 ? started + 2 : next + 2
+    static func interval(for music: MusicSnapshot?, at now: Date) -> TimeInterval {
+        guard let music, !music.title.isEmpty, music.timeline(at: now).available else { return 2 }
+        // Match the existing Windows USB path for an available music timeline.
+        return 0.5
+    }
+    mutating func acknowledge(started: TimeInterval, finished: TimeInterval, urgent: Bool,
+                              interval requested: TimeInterval = 2) {
+        // Preserve phase across ACK delays, resetting only on cadence/control changes.
+        let deadline = next == 0 || urgent || requested != interval || started - next >= requested
+            ? started + requested : next + requested
+        interval = requested
         // A blocked transport must not send a burst to catch up missed slots.
-        next = deadline > finished ? deadline : finished + 2
+        next = deadline > finished ? deadline : finished + requested
     }
 }
 
@@ -139,7 +147,8 @@ final class MacTab5USB {
                       MacTab5Protocol.integer(ack["sequence"]) == MacTab5Protocol.integer(root["sequence"]) else { throw MacTab5Error.invalidPacket }
                 service.usbState("数据已确认", confirmed: true)
                 service.observeUSBInfo(ack)
-                statusCadence.acknowledge(started: started, finished: ProcessInfo.processInfo.systemUptime, urgent: urgent)
+                statusCadence.acknowledge(started: started, finished: ProcessInfo.processInfo.systemUptime,
+                                         urgent: urgent, interval: MacTab5StatusCadence.interval(for: music, at: Date()))
                 lastMusic = music
             }
             if rpcSupported { try pump(wire, device: pair.deviceId) }

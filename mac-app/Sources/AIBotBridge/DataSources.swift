@@ -8,6 +8,7 @@ struct MacDataExtras {
     let quotas: QuotaSnapshot?
     let music: MusicSnapshot?
     let musicCover: Data?
+    var quotaTrend: MacQuotaTrend? = nil
 
     static let empty = MacDataExtras(weather: nil, stocks: nil, systemMetrics: nil,
                                      quotas: nil, music: MusicSnapshot.empty(), musicCover: nil)
@@ -43,6 +44,7 @@ struct MacDataPreferences {
 final class MacDataStore {
     private let lock = NSLock()
     private let defaults: UserDefaults
+    private let quotaHistory: MacQuotaHistory?
     private var weather: WeatherSnapshot?
     private var stocks: StockSnapshot?
     private var systemMetrics: SystemMetricsSnapshot?
@@ -56,8 +58,9 @@ final class MacDataStore {
         return value
     }()
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, quotaHistory: MacQuotaHistory? = nil) {
         self.defaults = defaults
+        self.quotaHistory = quotaHistory
         if let data = defaults.data(forKey: "weather_cache"),
            let value = try? decoder.decode(WeatherSnapshot.self, from: data) {
             weather = WeatherSnapshot(city: value.city, condition: value.condition,
@@ -80,7 +83,7 @@ final class MacDataStore {
         lock.lock()
         defer { lock.unlock() }
         return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics,
-                             quotas: quotas, music: music, musicCover: musicCover)
+                             quotas: quotas, music: music, musicCover: musicCover, quotaTrend: quotaHistory?.snapshot())
     }
 
     func update(weather value: WeatherSnapshot) {
@@ -158,6 +161,11 @@ final class MacDataStore {
            let data = Self.encode(next) { defaults.set(data, forKey: "quota_cache") }
     }
 
+    func recordCodexQuota(_ value: ProviderQuotaSnapshot, account: String?) {
+        lock.lock(); defer { lock.unlock() }
+        quotaHistory?.record(value, account: account)
+    }
+
     static func mergeCodex(_ fresh: ProviderQuotaSnapshot?, previous: ProviderQuotaSnapshot?) -> ProviderQuotaSnapshot? {
         guard let fresh else { return stale(previous) }
         guard let previous, (fresh.resetCreditsAvailable ?? 0) > 0,
@@ -168,7 +176,9 @@ final class MacDataStore {
                                      weeklyPercent: fresh.weeklyPercent, weeklyResetsAt: fresh.weeklyResetsAt,
                                      resetCreditsAvailable: fresh.resetCreditsAvailable,
                                      resetCreditExpiresAt: previous.resetCreditExpiresAt,
-                                     updatedAt: fresh.updatedAt, stale: true)
+                                     updatedAt: fresh.updatedAt, stale: true,
+                                     primaryWindowSeconds: fresh.primaryWindowSeconds,
+                                     weeklyWindowSeconds: fresh.weeklyWindowSeconds)
     }
 
     private static func stale(_ value: ProviderQuotaSnapshot?) -> ProviderQuotaSnapshot? {
@@ -180,7 +190,9 @@ final class MacDataStore {
                                      weeklyResetsAt: value.weeklyResetsAt,
                                      resetCreditsAvailable: value.resetCreditsAvailable,
                                      resetCreditExpiresAt: value.resetCreditExpiresAt,
-                                     updatedAt: value.updatedAt, stale: true)
+                                     updatedAt: value.updatedAt, stale: true,
+                                     primaryWindowSeconds: value.primaryWindowSeconds,
+                                     weeklyWindowSeconds: value.weeklyWindowSeconds)
     }
 
     private static func encode<T: Encodable>(_ value: T) -> Data? {

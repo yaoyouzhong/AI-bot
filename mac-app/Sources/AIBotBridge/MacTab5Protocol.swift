@@ -137,12 +137,18 @@ enum MacTab5Protocol {
             value["weekly"] = quota?.weeklyPercent
             value["primaryResetEpoch"] = hasPrimary ? quota?.primaryResetsAt.map { Int64($0.timeIntervalSince1970) } : nil
             value["weeklyResetEpoch"] = quota?.weeklyResetsAt.map { Int64($0.timeIntervalSince1970) }
+            value["primaryWindowSeconds"] = hasPrimary ? quota?.primaryWindowSeconds : nil
+            value["weeklyWindowSeconds"] = quota?.weeklyWindowSeconds
             let formatter = DateFormatter(); formatter.dateFormat = "MM-dd HH:mm"
             formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: snapshot.utcOffsetSeconds)
             value["primaryReset"] = hasPrimary ? quota?.primaryResetsAt.map { formatter.string(from: $0) } ?? "--" : "--"
             value["weeklyReset"] = quota?.weeklyResetsAt.map { formatter.string(from: $0) } ?? "--"
             value["planReset"] = "--"
             value["credits"] = quota?.resetCreditsAvailable
+            formatter.dateFormat = "yyyy-MM-dd HH:mm"
+            value["creditExpiries"] = quota?.resetCreditExpiresAt.sorted().map {
+                formatter.string(from: Date(timeIntervalSince1970: Double($0)))
+            } ?? []
             return value
         }
     }

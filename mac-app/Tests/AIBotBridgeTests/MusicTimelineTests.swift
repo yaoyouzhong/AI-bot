@@ -146,4 +146,27 @@ final class MusicTimelineTests: XCTestCase {
         cadence.acknowledge(started: 102.5, finished: 106, urgent: false)
         XCTAssertFalse(cadence.isDue(107.99)); XCTAssertTrue(cadence.isDue(108))
     }
+
+    func testUSBMusicCadenceMatchesWindowsAndRetainsPhaseWithoutBursts() {
+        XCTAssertEqual(MacTab5StatusCadence.interval(for: track(), at: start), 0.5)
+        XCTAssertEqual(MacTab5StatusCadence.interval(for: track(10, playing: false), at: start), 0.5)
+        XCTAssertEqual(MacTab5StatusCadence.interval(for: track(), at: start.addingTimeInterval(4)), 2)
+        XCTAssertEqual(MacTab5StatusCadence.interval(for: .empty(at: start), at: start), 2)
+        XCTAssertEqual(MacTab5StatusCadence.interval(for: nil, at: start), 2)
+        var cadence = MacTab5StatusCadence()
+        cadence.acknowledge(started: 100, finished: 100.1, urgent: false)
+        // Starting music switches promptly from the slow idle schedule.
+        cadence.acknowledge(started: 100.2, finished: 100.3, urgent: true, interval: 0.5)
+        for index in 1...20 {
+            let slot = 100.2 + Double(index) * 0.5
+            XCTAssertFalse(cadence.isDue(slot - 0.001))
+            XCTAssertTrue(cadence.isDue(slot + 0.0001))
+            cadence.acknowledge(started: slot + 0.01, finished: slot + 0.08 + Double(index % 3) * 0.03,
+                                urgent: false, interval: 0.5)
+        }
+        cadence.acknowledge(started: 110.7, finished: 112, urgent: false, interval: 0.5)
+        XCTAssertFalse(cadence.isDue(112.49)); XCTAssertTrue(cadence.isDue(112.5))
+        cadence.acknowledge(started: 112.5, finished: 112.6, urgent: false, interval: 2)
+        XCTAssertFalse(cadence.isDue(114.49)); XCTAssertTrue(cadence.isDue(114.5))
+    }
 }

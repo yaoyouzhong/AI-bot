@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let reader = SessionActivityReader()
-    private let dataStore = MacDataStore()
+    private let dataStore = MacDataStore(quotaHistory: MacQuotaHistory())
     private lazy var dataService = MacDataService(store: dataStore)
     private lazy var quotaService = MacQuotaService(store: dataStore)
     private lazy var musicService = MacMusicService(store: dataStore)

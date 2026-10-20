@@ -59,6 +59,8 @@ struct ProviderQuotaSnapshot: Codable, Equatable {
     let resetCreditExpiresAt: [Int64]
     let updatedAt: Date
     let stale: Bool
+    var primaryWindowSeconds: Int64? = nil
+    var weeklyWindowSeconds: Int64? = nil
 }
 
 struct QuotaSnapshot: Codable, Equatable {
@@ -147,6 +149,7 @@ struct MacStatusSnapshot: Codable {
     var domesticActivity: MacDomesticActivity? = nil
     var domesticQuotas: DomesticQuotaSnapshot? = nil
     var followApp: String? = nil
+    var quotaTrend: MacQuotaTrend? = nil
 }
 
 final class SessionActivityReader {
@@ -192,6 +195,7 @@ final class SessionActivityReader {
             domesticActivity: domestic
         )
         snapshot.followApp=follow.update(snapshot,milliseconds:Int64(ProcessInfo.processInfo.systemUptime*1000))
+        snapshot.quotaTrend = extras.quotaTrend
         return snapshot
     }
 

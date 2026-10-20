@@ -1,4 +1,14 @@
-# TAB5 音乐计时的固件后续项 / Firmware follow-up for music timing
+# TAB5 音乐计时调查 / Music timing investigation
+
+## 2026-10-20 调查方向修正 / Investigation correction
+
+用户补充：同一 TAB5 在 Windows 下音乐计时正常。因此下文合成回放只能说明设备表达式对某些输入时序敏感，不能证明当前 Mac 实机问题必须修改固件。独立参考补丁保持未应用，不作为上机验收的前提。
+
+核对双方桥接后，Windows `Tab5Service.RunUsbAsync` 在有有效音乐时间轴时使用 500 ms 间隔，`CurrentFrame` 也可每 500 ms 重新投影；Mac 当时采样虽为 500 ms，USB 状态仍固定 2 秒。当前 Mac 修正按有效时间轴使用 500 ms、无曲目或过期样本使用 2 秒，保留不累计 ACK 延迟、控制立即发送和阻塞后不追发的约束。小数位置和发送时刻投影继续沿用现有修复，不改 v1 或设备代码。
+
+新回归覆盖播放／暂停、未知／过期时钟、频率切换、变动 ACK 延迟及阻塞不追发。该差异已修正，但尚不能把根因或显示均匀度写为实机通过。下一步只换 Mac 候选，在当前 TAB5 固件上验收；用户明确要求不刷机。
+
+The user reports smooth playback timing on Windows with the same TAB5. The synthetic replay below demonstrates sensitivity to some input timing, not proof that the observed Mac problem requires firmware changes. The independent review patch remains unapplied and is not an acceptance prerequisite. Windows uses a 500 ms USB interval and can republish current music every 500 ms; Mac sampled at 500 ms but sent USB status every two seconds. The Mac candidate now selects 500 ms for a valid timeline, retaining two seconds for absent/stale music, stable send phase, urgent controls and no catch-up bursts. Tests cover those transitions and delays. Physical smoothness and causation remain unconfirmed; acceptance will use the current firmware without flashing.
 
 本项来自 2026-10-20 Mac 联调，不代表已修改或刷入固件。本轮授权修改范围为 Mac 桥接，实际 OTA、首刷、恢复 Flash 均需另行明确授权。
 

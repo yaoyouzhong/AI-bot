@@ -104,15 +104,28 @@ final class MacTab5Tests: XCTestCase {
         var source = snapshot()
         let q = ProviderQuotaSnapshot(provider: "codex", plan: "pro", primaryPercent: 30, primaryResetsAt: Date(),
                                       weeklyPercent: 80, weeklyResetsAt: Date(), resetCreditsAvailable: 2,
-                                      resetCreditExpiresAt: [], updatedAt: Date(), stale: true)
+                                      resetCreditExpiresAt: [1800000000, 1800000000], updatedAt: Date(), stale: true,
+                                      primaryWindowSeconds: 18000, weeklyWindowSeconds: 604800)
         source = MacStatusSnapshot(version: source.version, time: source.time, epochUtc: source.epochUtc, utcOffsetSeconds: source.utcOffsetSeconds,
                                    capturedAt: source.capturedAt, codex: source.codex, claude: source.claude, musicPlaying: nil,
                                    weather: nil, stocks: nil, systemMetrics: nil, quotas: QuotaSnapshot(claude: nil, codex: q), music: nil)
+        source.quotaTrend = MacQuotaHistory.build([], now: source.capturedAt)
         let root = try MacTab5Protocol.object(MacTab5Protocol.snapshot(source, device: device, session: "1", sequence: 1, command: nil))
         let details = (root["data"] as! [String: Any])["quotaDetails"] as! [[String: Any]]
         XCTAssertNil(details[1]["primary"]); XCTAssertEqual(details[1]["weekly"] as? Int, 80)
         XCTAssertEqual(details[1]["credits"] as? Int, 2); XCTAssertEqual(details[1]["stale"] as? Bool, true)
         XCTAssertNil(details[1]["primaryPercent"])
+        XCTAssertNil(details[1]["primaryWindowSeconds"])
+        XCTAssertEqual(details[1]["weeklyWindowSeconds"] as? Int, 604800)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: source.utcOffsetSeconds)
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        let expiry = formatter.string(from: Date(timeIntervalSince1970: 1800000000))
+        XCTAssertEqual(details[1]["creditExpiries"] as? [String], [expiry, expiry])
+        let trend = (root["data"] as! [String: Any])["quotaTrend"] as! [String: Any]
+        XCTAssertEqual(trend["unit"] as? String, "weekly_percentage_points")
+        XCTAssertEqual((trend["days"] as? [Any])?.count, 7)
     }
 
     func testDailyPayloadPreservesSourcesAndStaleFlags() throws {
