@@ -35,6 +35,7 @@ final class MacTab5Service {
     let voice: MacTab5Voice
     let desktop: MacTab5Desktop
     let firmwareControl = MacTab5Firmware()
+    private let runtimeHealth = MacRuntimeHealth()
     private var activeOperations = 0
     private var displayCompletion: DisplayCompletion?
 
@@ -170,6 +171,9 @@ final class MacTab5Service {
         let now = Date()
         if let media { assets.updateCover(media.cover) }
         var additions = assets.projection()
+        additions["runtimeHealth"] = runtimeHealth.snapshot(metrics: snapshot.systemMetrics, now: now,
+            logicalProcessors: ProcessInfo.processInfo.activeProcessorCount, codexEnabled: codex.isEnabled,
+            desktopObserved: codex.canMutate)
         additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
         let offer = firmwareControl.projection()
         additions["ota"] = offer.offer.map { $0 as Any } ?? NSNull()

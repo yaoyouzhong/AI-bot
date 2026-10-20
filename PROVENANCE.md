@@ -67,6 +67,10 @@ Claude, Codex, OpenAI, Anthropic, and other product names are referenced to desc
 
 The built-in `BYTE SPROUT` pixel pet is drawn from geometric primitives in AI-bot firmware. It does not contain or derive from an imported sprite, screenshot, character, or logo.
 
+The Mac preview's existing original geometry is shared by `MacByteSprout` and
+encoded in memory as a two-frame TAB5 fallback when no user animation exists.
+No external artwork, vendor mark or generated bitmap is added to the app bundle.
+
 ## Source closeout review, 2026-09-10
 
 Rechecked full-file blame at the legacy commit above: CompletionChime 84 lines,

@@ -678,7 +678,11 @@ TAB5 0.2.184-ui optionally appends `;gallery_io,readBytes,writeBytes,readMs,writ
 
 ## TAB5 runtime monitoring (optional, version 1)
 
-`tab5_status.data.runtimeHealth` is an optional Windows-collected object; absent/null means no available monitor. Existing ESP8266 frames and macOS collectors keep their current contracts. Older TAB5 firmware can ignore the additional field. No input, node-selection or client-restart command is added.
+`tab5_status.data.runtimeHealth` is an optional host-collected object; absent/null means no available monitor. Existing ESP8266 frames keep their current contract. Older TAB5 firmware can ignore the additional field. No input, node-selection or client-restart command is added.
+
+The Mac producer supplies observed CPU/memory checks and bridge sampling health using these same fields. Its monitor epoch comes from CPU/VM observation, not later network publication. Sustained high occupancy is observed for 30 seconds before a warning; recovery requires 10 seconds of lower observations, with sampling gaps resetting the observation window. Uncollected queue/disk/exit-route/PAC measurements remain `unknown` and latency history stays empty; local Codex ownership does not claim model-service connectivity. No provider request, proxy configuration change or new device command is introduced.
+
+Mac 使用相同字段提供实际 CPU／内存及桥接采样检查；监控时间取 CPU／VM 实际采样，不随网络快照续期。持续高占用观察 30 秒后警告，较低采样持续 10 秒后恢复，采样断档重新观察。未采集的队列、磁盘、出口和 PAC 保持未知，延迟历史为空；本机 Codex 持有者连接不冒充模型出口连通。本项不新增供应商请求、代理配置改动或设备命令。
 
 The object carries `session`, alarm `sequence`, `updatedAt` / `epochUtc`, `checks`, `alerts`, optional `pressure`, `latencyHistory`, cached small-transfer throughput. Checks identify `cpu`, `memory`, `queue`, `disk`, `vpn`, `pac` and optionally `settings`; state is `ok`, `observing`, `warning`, `error`, `unknown` or `disabled`. Each check has a short summary, full detail/advice and observation timestamp. Successful response latency/time remains available when a later probe fails. `pressure` exposes processor queue, physical-disk I/O queue/latency, page input, available physical MB and logical processor count. Null counters are unknown, never zero.
 

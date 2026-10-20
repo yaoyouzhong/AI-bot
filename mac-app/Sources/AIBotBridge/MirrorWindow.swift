@@ -154,16 +154,7 @@ final class MacMirrorView:NSView {
     }
     // Original BYTE SPROUT; importing artwork is optional.
     private func defaultPet(centerY:CGFloat,working:Bool,tick:Int) {
-        let x:CGFloat=91,y=centerY-49
-        let shell:NSColor=working ? .cyan:.darkGray
-        func box(_ dx:CGFloat,_ dy:CGFloat,_ w:CGFloat,_ h:CGFloat,_ color:NSColor){color.setFill();NSRect(x:x+dx,y:y+dy,width:w,height:h).fill()}
-        box(27,0,4,10,shell);box(23,0,12,4,shell)
-        shell.setFill();NSBezierPath(roundedRect:NSRect(x:x+8,y:y+10,width:42,height:35),xRadius:5,yRadius:5).fill()
-        box(14,17,30,19,.black);box(20,23,5,6,working ? .green:.lightGray);box(34,23,5,6,working ? .green:.lightGray)
-        shell.setFill();NSBezierPath(roundedRect:NSRect(x:x+12,y:y+48,width:34,height:42),xRadius:5,yRadius:5).fill()
-        box(20,59,18,5,.black);box(5,54,7,27,shell);box(46,54,7,27,shell)
-        let step=working && (tick/240)%2==1
-        box(step ? 6:15,90,17,8,shell);box(step ? 32:41,90,17,8,shell)
+        MacByteSprout.draw(x: 91, y: centerY - 49, working: working, tick: tick)
     }
     private func quota(_ q:ProviderQuotaSnapshot?,label:String,top:CGFloat){text(label+"  "+(q?.plan ?? ""),20,top,200,23,15,.cyan);text("5H \(percent(q?.primaryPercent))  \(reset(q?.primaryResetsAt))",20,top+28,200,24,14,.white);text("WK \(percent(q?.weeklyPercent))  \(reset(q?.weeklyResetsAt))",20,top+55,200,24,14,.white)}
     private func percent(_ value:Double?)->String {value.map{String(format:"%.0f%%",$0)} ?? "--"}

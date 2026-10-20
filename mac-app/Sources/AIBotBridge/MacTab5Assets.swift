@@ -47,11 +47,13 @@ final class MacTab5Assets {
     }
     private func updatePetsLocked(_ pets: [MacPetAnimation?]) {
         for index in 0..<2 {
-            let pet = index < pets.count ? pets[index] : nil
-            let source = pet.flatMap { try? $0.encode() }
-            guard source != sources[index] else { continue }; sources[index] = source; offsets[index] = 0
-            if let pet { assets[index] = try? .rgb565(slot: index, width: pet.width, height: pet.height, delays: pet.delays, raw: pet.frames.reduce(into: Data()) { $0.append($1) }) }
-            else { assets[index] = nil }
+            let selected = index < pets.count ? pets[index] : nil
+            // A transient unreadable selection must not clear a last-good asset.
+            if selected == nil, assets[index] != nil { continue }
+            guard let pet = selected ?? MacByteSprout.animation, let source = try? pet.encode() else { continue }
+            guard source != sources[index],
+                  let asset = try? MacTab5Asset.rgb565(slot: index, width: pet.width, height: pet.height, delays: pet.delays, raw: pet.frames.reduce(into: Data()) { $0.append($1) }) else { continue }
+            sources[index] = source; offsets[index] = 0; assets[index] = asset
         }
     }
     func updateCover(_ cover: Data?) {

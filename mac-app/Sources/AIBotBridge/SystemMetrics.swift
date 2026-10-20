@@ -19,11 +19,13 @@ final class MacSystemMetricsService {
     private var previousNetworkAt: TimeInterval?
     private var cpuAt = -Double.infinity
     private var cpuPercent = 0.0, memoryPercent = 0.0
+    private var pressureObservedAt: Date?
     private var history = MacNetworkHistory()
     private var snapshot: SystemMetricsSnapshot?
 
     func capture(now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> SystemMetricsSnapshot? {
         if uptime - cpuAt >= 2, let cpu = Self.readCpu(), let memory = Self.readMemoryPercent() {
+            if previousCpu != nil { pressureObservedAt = now }
             cpuPercent = previousCpu.map { Self.cpuPercent(previous: $0, current: cpu) } ?? 0
             memoryPercent = memory; previousCpu = cpu; cpuAt = uptime
         }
@@ -39,7 +41,7 @@ final class MacSystemMetricsService {
             snapshot = SystemMetricsSnapshot(cpuPercent: cpuPercent, memoryPercent: memoryPercent,
                 uploadBytesPerSecond: publication.mean.upload, downloadBytesPerSecond: publication.mean.download,
                 updatedAt: now, sampleSession: history.session, sampleSequence: publication.sequence,
-                samples: publication.samples)
+                samples: publication.samples, pressureObservedAt: pressureObservedAt)
         }
         return snapshot
     }

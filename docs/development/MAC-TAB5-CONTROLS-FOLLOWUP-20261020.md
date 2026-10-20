@@ -37,3 +37,21 @@ Candidate `0e07a26` passed CI 39441248398 and full artifact verification (200 te
 The user requested full Codex controls, direct navigation, lock acceptance and missing pet/diagnostic/calendar data. Preserve daily read-only authorization and all no-merge/deploy/release/flash boundaries. Real task mutations require the user's specifically designated test task; never approve its permission requests automatically.
 
 A read-only probe of the existing, owner-checked desktop IPC socket succeeded at initialization, exact current-task owner discovery, snapshot subscription and unsubscribe. No mutation or service deployment occurred, and no task contents were retained. This is version-specific desktop IPC, not a stable public API: implementation must validate owner/version/identity/state and fail closed, retaining public read-only history rather than resuming desktop tasks in an independent process. The device diagnostics consumer expects the currently missing `runtimeHealth`; unavailable measurements must remain unknown. All four local selected/default pet files are absent, which does not establish a transport failure. Calendar annual detail was added in `29f1654`, with hardware verification tracked separately. Full controls, direct navigation, lock, pets and diagnostics remain pending.
+
+## 系统诊断数据补齐
+
+在等待用户手动解锁期间，新增 Mac `runtimeHealth` 生产端，沿用实际 `.234` 消费字段。先提供已采集 CPU／内存和桥接采样检查。CPU ≥90%、内存占用 ≥92% 持续有效采样 30 秒才确认警告，低于阈值持续 10 秒才解除；重复帧不累计观察时间，采样断档重新观察。告警会话／序号仅在新警告确认时更新。内存占用不是 Apple 的系统内存压力等级，文字明确区分。
+
+CPU／VM 独立采样时间只保留在内存模型，不加入既有 `systemMetrics` JSON；较新的网络发布不能刷新旧 CPU／内存的观察时间，设备依据真实 `epochUtc` 判断监控是否过期。没有可用压力采样时不伪造监控。实际未采集的 VPN／PAC 路由、处理器队列、磁盘延迟保持 `unknown`；没有延迟历史点，不填零、不发探测请求、不读取代理 URL 或凭证。本机 Codex 持有者只证明本机连接，不标记模型服务出口正常。上述未采集项仍是功能缺口，不算完整诊断验收完成。
+
+回归包含既有 JSON 契约、未知项、重复帧、持续确认／恢复、断档和网络续期边界。完整 CI 与候选实体诊断另行记录；此前日历候选仍是现场运行版本。
+
+While UI access is blocked by the locked Mac, the Mac producer now supplies the existing runtimeHealth envelope with measured CPU/memory and sampling checks. High occupancy requires 30 seconds of actual observations; recovery requires 10 seconds, and gaps reset observation. Repeated frames do not manufacture samples or new alarms. CPU/VM freshness is internal-only and cannot be renewed by network publication. Unsupported VPN/PAC routing, queue and disk counters remain unknown, with no fabricated latency points or extra probe requests. Desktop ownership is not model connectivity. Those capabilities and physical diagnostic acceptance remain incomplete.
+
+## 桌宠默认资源补齐
+
+进一步对照 Windows 调用方确认：没有用户动画时，Windows TAB5 资源层会生成项目自有的 BYTE SPROUT 默认动画；Mac 仅在本机镜像视图绘制同一自有几何图形，资源层把空选择变为无资源，导致设备端空白。现将 Mac 已有绘图提取为共享函数，在内存生成两个 112×112、240 ms 动画帧，仍通过既有 RLE565 分块与 CRC 回执同步。已有自选／导入动画优先；临时读不到选择时保留上次成功资源，不删除或覆盖用户文件，不导入旧个人素材，不添加图片二进制到发布包。
+
+实际编译对象已生成原生预览并执行资源确认模拟。首次预览发现重复翻转导致倒置，已修正并加入天线、眼睛、脚步坐标断言以及两帧差异回归；两帧最终预览已逐张核对为正向、脚步不同；原生资源回执模拟通过。完整 CI 待验证。新增测试覆盖空配置默认同步、不落地选择文件、用户选择优先和缺失／损坏读取保留。以上均不等于设备桌宠实际显示与动画验收。
+
+Windows already sends the project's geometric BYTE SPROUT fallback when no user animation is selected. Mac drew it only in its local preview and omitted device assets. The shared original Mac drawing now produces two in-memory 112×112 frames with 240 ms delays through the existing RLE565/CRC transport. User artwork takes priority and last-good assets survive unavailable selections; no private files or external artwork are imported or bundled. Native preview caught and corrected a duplicate row inversion, with pixel/orientation, frame, acknowledgement and selection regressions added. Both final decoded RGB565 previews were inspected upright with different footsteps; native resource acknowledgement passed. Full CI and physical animation acceptance remain pending.
