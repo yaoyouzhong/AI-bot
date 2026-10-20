@@ -51,6 +51,14 @@
 - **设备声音开启试听通过，人工反馈**：仅降低 TAB5 设备提示音量，保持非静音，收到保存回执；在实体“设置 → 屏幕声音”点试听，用户明确听到提示音。此项不涉及 Mac 系统输出音量，也没有将“听到”推断为音量精确比例正确。
 - **设备静音设置与试听禁用通过，人工反馈**：Mac 勾选静音保存成功后，用户看到实体试听按钮变灰。公开 `.234` 设备端 `sound_refresh` 在静音或音量为零时禁用试听，与观察一致；不将禁用按钮写成已执行的无声试听。随后恢复原设备音量并取消静音，用户确认保存成功。固定页、轮播、屏保与其他资源仍待验收。
 
+## 本轮修复：音乐读取失败保留成功缓存
+
+源码复核发现，自动化权限拒绝、超时或无效歌曲结果都返回空读取；原轮询将其计作无播放，累计三次后清空最近成功的歌曲和封面。使用真实 `MacMusicService` 编译对象与合成读取后端，已复现四次读取失败清除预置成功缓存。此检查没有启动音乐 App 或发送 Apple Events。
+
+轮询现在区分读取失败与已确认停止／程序退出：若没有成功选中的歌曲且任一运行中播放器读取失败，保留最近成功数据和封面，并重置连续空样本计数；连续三次已确认无播放仍清理，用户明确关闭音乐功能仍立即清理。播放器选择顺序、Apple Events、权限、单次控制与读回逻辑保持。四个回归覆盖连续失败、另一播放器停止时仍有失败、失败打断空样本计数，以及明确关闭不探测播放器。
+
+独立本机检查已确认修复后缓存保留、已确认退出仍清理、明确关闭仍清理且不探测；Release 构建通过。它不代替 XCTest 或真实音乐验收。本机 `swift test` 仍在编译测试目标时报缺少 XCTest，没有测试执行。完整 CI 与新正常候选的自动化授权、播放／暂停实机回归待继续。
+
 ## 本轮修复：正式固件包的许可证目录
 
 使用当前 Mac 代码的固件加载器读取 SHA 已核对的官方 `.234` 升级 ZIP，实际复现“ZIP 含重复或不安全的文件名”。官方包的七个许可证路径有九段，例如 `licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE`；原 `safePath` 最多接受八段，导致合法升级包与同类首刷包无法进入预览。
@@ -130,6 +138,8 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 - 固件工具：已核对公开 `.234` 源码 ZIP SHA `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890` 和升级 ZIP SHA `900612d0338c2350a3eda19a991536ce28475cce9667a4752613fccde211d509`；App 选包/说明预览待验收。OTA、首刷和恢复保持未执行。
 
 ## English
+
+Source review and a synthetic backend using the actual compiled `MacMusicService` reproduced a separate cache defect: four failed player reads erased previously successful metadata and artwork. The poller now distinguishes failure from confirmed stop or application exit. With no selected successful track, any running-player read failure preserves cached data and resets the empty-poll count. Three consecutive confirmed empty polls still clear playback; explicit feature disable clears immediately without probing players. Four regressions cover failures, a stopped second player, interrupted empty-poll debounce and opt-out. A local independent check passed cache preservation, confirmed exit and explicit disable after failing before the repair. It started no music app and sent no Apple Events. Release passed. Local XCTest is still blocked before execution; full CI and normal-candidate Automation/play-pause acceptance remain pending.
 
 On the normal `791d898` candidate, reducing only TAB5 brightness produced a matching save receipt and a visibly dimmer screen. After a normal power-off/on, USB recovered acknowledged data and the picture was normal; fresh settings readback retained the temporary brightness. Restoring the original brightness was acknowledged and visibly confirmed, passing effect, persistence and restoration without firmware writes. Lowering only device notification volume while unmuted was acknowledged and the physical preview tone was heard. Muting was then saved and the user observed a disabled preview button, matching the published `.234` UI logic. This verifies the muted control state, not a performed silent preview or exact volume ratio. The user subsequently acknowledged successful restoration of the original device volume and unmuted state. The private restoration baseline stays only in ignored local evidence. Mac system audio, fixed pages, cycling, screensaver and resources remain separate checks.
 

@@ -86,7 +86,13 @@ actor MacMusicService {
     }
 
     func refreshIfEnabled() async {
-        guard defaults.bool(forKey: Self.enabledKey) else {
+        await refresh(enabled: defaults.bool(forKey: Self.enabledKey),
+                      isRunning: Self.isRunning, read: Self.read)
+    }
+
+    func refresh(enabled: Bool, isRunning: (MacMusicProvider) -> Bool,
+                 read: (MacMusicProvider) -> MusicSnapshot?) async {
+        guard enabled else {
             emptySamples = 0
             resourceKey=""
             store.update(music: .empty())
@@ -94,9 +100,10 @@ actor MacMusicService {
         }
 
         var selected: (MacMusicProvider, MusicSnapshot)?
+        var readFailed = false
         for provider in [MacMusicProvider.appleMusic, .spotify] {
-            guard Self.isRunning(provider) else { continue }
-            guard let snapshot = Self.read(provider) else { continue }
+            guard isRunning(provider) else { continue }
+            guard let snapshot = read(provider) else { readFailed = true; continue }
             if snapshot.playing {
                 selected = (provider, snapshot)
                 break
@@ -109,6 +116,9 @@ actor MacMusicService {
             return
         }
 
+        // Permission errors and timeouts do not establish that playback stopped.
+        // Require consecutive confirmed empty polls before clearing the cache.
+        if readFailed { emptySamples = 0; return }
         emptySamples += 1
         if emptySamples >= 3 { resourceKey="";store.update(music: .empty()) }
     }
