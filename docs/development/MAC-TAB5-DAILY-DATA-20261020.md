@@ -10,6 +10,14 @@ Running candidate `06dd164` passed CI 39400345443 and full artifacts (190 tests,
 
 ## 已定位与修正
 
+### 日历全年安排补齐（接续）
+
+用户报告日历“放假安排待更新”。对照当前 `.234` 实际消费端，日历页读取 `calendar.detail.holidayYears`（兼容回退 `holidayYear`），与首页的 `holidayLabel` 分开。Mac 已有 2026 年公开事实表，但此前没有发送 `detail`，所以即使浏览已知年份也会显示待更新。现补发同一事实表的全年假期、补班日及 24 节气，保持已有协议；跨年浏览仍保留已知的 2026 表，不把它重标为未知年份，不伪造生日数据。未公布／尚未收录年份继续提示待更新。未修改固件。
+
+新增 JSON 消费契约回归，验证春节范围、补班日、节气位置及跨年不冒充 2027 年。此记录时源码修复已完成，本机 XCTest 仍缺失，Release／CI 与新候选实体日历验收待完成；当前运行的 `06dd164` 尚不含修复。
+
+The calendar page consumes annual `calendar.detail` tables independently of home labels. Mac already held published 2026 facts but omitted that object. The patch sends holiday ranges, compensating workdays and 24 solar terms using existing fields, retains the known 2026 table across year boundaries and does not invent future schedules or birthdays. Firmware is unchanged. A serialized-contract regression covers the actual consumer fields and unknown-year boundary. At this checkpoint local XCTest is unavailable; Release, CI and physical calendar acceptance are pending, and running candidate `06dd164` does not contain the change.
+
 - 网络：Mac 只有瞬时上传／下载，没有 `sampleSession`、`sampleSequence` 和 `samples`。实际 `.234` 的 `render_system` 只有收到样本数组才调用 `render_chart`。新增单调时钟的 250 ms 采样、64 条有界历史、一秒不可变发布和末四样本均值；桥接重启更换会话，长采样间隔保留序号缺口，不重放虚构样本。TAB5 仍通过已有完整快照收到历史，本轮没有新增快速 metrics 传输。CPU／内存单独每两秒采样。
 - 天气：本机没有城市／坐标或缓存，Mac 原先没有自动定位实现。新增用户主动选择的 Core Location 路径，默认关闭；位置仅按约一公里网格取整后查询既有 Open-Meteo 服务，不记录／持久化精确坐标。授权拒绝／超时有状态提示。手动城市继续可用，空气质量失败不再使成功天气丢失，主天气失败仍保留上次结果。
 - 首页：实际页面农历下方读取 `calendar.holidayLabel`，Mac 原来只有日期、星期和农历。独立实现当前／次日的节气和工作日／补班／假期标签，采用公开的 2026 年事实表；未知年份明确显示待更新，不推算法定假日。本轮未实现 Windows 的联网节假日年度更新、生日管理或完整日历详情。

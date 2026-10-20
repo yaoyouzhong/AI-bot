@@ -62,6 +62,32 @@ final class DailyDataParityTests: XCTestCase {
         XCTAssertEqual(grid.0, 12.35); XCTAssertEqual(grid.1, -65.43)
     }
 
+    func testCalendarPageReceivesPublishedAnnualTablesWithoutInventingFutureYears() throws {
+        // Exercise the JSON types and keys actually consumed by calendar_schedule,
+        // calendar_holiday and calendar_term on the existing TAB5.
+        for date in ["2026-10-20T12:00:00Z", "2027-01-01T00:00:00Z"] {
+            let epoch = Int64(try XCTUnwrap(ISO8601DateFormatter().date(from: date)).timeIntervalSince1970)
+            let wire = try JSONSerialization.data(withJSONObject: MacTab5Calendar.snapshot(epoch: epoch, offset: 28800))
+            let value = try XCTUnwrap(JSONSerialization.jsonObject(with: wire) as? [String: Any])
+            let detail = try XCTUnwrap(value["detail"] as? [String: Any])
+            let years = try XCTUnwrap(detail["holidayYears"] as? [[String: Any]])
+            XCTAssertEqual(years.compactMap { $0["year"] as? Int }, [2026])
+            XCTAssertEqual(detail["holidayYear"] as? Int, 2026)
+            let ranges = try XCTUnwrap(years.first?["holidays"] as? [[String: Any]])
+            XCTAssertEqual(ranges.count, 7)
+            let spring = try XCTUnwrap(ranges.first { $0["name"] as? String == "春节" })
+            XCTAssertEqual(spring["start"] as? Int, 215)
+            XCTAssertEqual(spring["end"] as? Int, 223)
+            XCTAssertEqual(years.first?["workdays"] as? [Int], [104,214,228,509,920,1010])
+            let terms = try XCTUnwrap(detail["terms"] as? [[String: Any]])
+            XCTAssertEqual(terms.first?["year"] as? Int, 2026)
+            let dates = try XCTUnwrap(terms.first?["dates"] as? [Int])
+            XCTAssertEqual(dates.count, 24)
+            XCTAssertEqual(dates[17], 923) // 秋分
+            XCTAssertEqual(dates[23], 1222) // 冬至
+        }
+    }
+
     func testDomesticOfficialParsersKeepUnknownsAndRejectAmbiguousBalances() throws {
         let deep = try MacDomesticQuotaParser.deepSeek(Data(#"{"balance_infos":[{"currency":"USD","total_balance":"2.00"},{"currency":"CNY","total_balance":"12.50"}]}"#.utf8))
         XCTAssertEqual(deep.balance, 12.5); XCTAssertEqual(deep.currency, "CNY")

@@ -13,6 +13,21 @@ enum MacTab5Calendar {
                                    (501,505,"劳动节"),(619,621,"端午节"),(925,927,"中秋节"),(1001,1007,"国庆节")]
     private static let workdays: Set<Int> = [104,214,228,509,920,1010]
 
+    private static var detail: [String: Any] {
+        // The calendar page reads annual tables, independently of the home labels.
+        // Keep the published year available when browsing across New Year; never
+        // relabel these facts as an unknown future year's holiday arrangement.
+        let ranges = holidays.map { ["start": $0.0, "end": $0.1, "name": $0.2] as [String: Any] }
+        let year: [String: Any] = [
+            "year": 2026,
+            "holidays": ranges,
+            "workdays": workdays.sorted()
+        ]
+        return ["terms": [["year": 2026, "dates": dates2026]],
+                "holidayYear": 2026, "holidays": ranges,
+                "workdays": workdays.sorted(), "holidayYears": [year]]
+    }
+
     static func labels(_ date: Date, calendar: Calendar) -> (term: String, holiday: String) {
         let p = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
         guard p.year == 2026, let month = p.month, let day = p.day else {
@@ -48,6 +63,7 @@ enum MacTab5Calendar {
                 "solarTermLabel": a.term, "holidayLabel": a.holiday,
                 "nextDate": format.string(from: tomorrow),
                 "nextLunar": LunarDate.format(epoch: Int64(tomorrow.timeIntervalSince1970), utcOffset: offset),
-                "nextSolarTermLabel": b.term, "nextHolidayLabel": b.holiday]
+                "nextSolarTermLabel": b.term, "nextHolidayLabel": b.holiday,
+                "detail": detail]
     }
 }
