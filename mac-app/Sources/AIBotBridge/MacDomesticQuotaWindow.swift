@@ -58,6 +58,15 @@ final class MacDomesticQuotaWindow: NSWindowController, WKScriptMessageHandler, 
         return url.scheme == "https" && url.host == "bigmodel.cn" && (url.port == nil || url.port == 443)
             && url.path == "/api/biz/account/query-customer-account-report"
     }
+    nonisolated static func navigationAllowed(_ url: URL, isMainFrame: Bool) -> Bool {
+        // WxLogin creates an empty iframe before navigating it to qrconnect.
+        // Keep this exception inside subframes; finance capture stays main-frame only.
+        if !isMainFrame && url.absoluteString == "about:blank" { return true }
+        guard url.scheme == "https", url.port == nil || url.port == 443,
+              url.user == nil, url.password == nil, let host = url.host else { return false }
+        if host == "bigmodel.cn" || host.hasSuffix(".bigmodel.cn") { return true }
+        return !isMainFrame && host == "open.weixin.qq.com" && url.path == "/connect/qrconnect"
+    }
     @objc private func openZhipu() {
         if let browserWindow { browserWindow.makeKeyAndOrderFront(nil); browser?.reload(); return }
         let config = WKWebViewConfiguration()
@@ -119,8 +128,8 @@ final class MacDomesticQuotaWindow: NSWindowController, WKScriptMessageHandler, 
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = navigationAction.request.url, url.scheme == "https",
-              let host = url.host, host == "bigmodel.cn" || host.hasSuffix(".bigmodel.cn") else {
+        guard let url = navigationAction.request.url,
+              Self.navigationAllowed(url, isMainFrame: navigationAction.targetFrame?.isMainFrame ?? true) else {
             decisionHandler(.cancel); return
         }
         decisionHandler(.allow)

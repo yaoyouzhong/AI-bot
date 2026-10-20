@@ -13,7 +13,13 @@
 
 ## 验证与边界
 
-新增回归涵盖网络发布／同一均值／有界历史／采样断档，日历调休／假期／跨年未知，空气质量失败与粗粒度坐标，余额真实字段／重复币种／非法值／缓存及固定数组位置，智谱接口来源约束。自动测试不等于定位、授权、真实余额和实体曲线验收；新候选这些实机项目仍待执行。正常候选的音乐和 Codex 已通过结果继续保留。
+新增回归涵盖网络发布／同一均值／有界历史／采样断档，日历调休／假期／跨年未知，空气质量失败与粗粒度坐标，余额真实字段／重复币种／非法值／缓存及固定数组位置，智谱接口来源约束。自动测试不等于定位、授权、真实余额和实体曲线验收。`2ce7c7d` 的 [Mac CI 39391053508](https://github.com/yaoyouzhong/AI-bot/actions/runs/39391053508) 及完整下载附件核验通过：180 项测试、0 失败／跳过、Release、候选包、随包工具、8 张原生界面 PNG 和哈希检查。用户在实体 TAB5 确认网络上传／下载曲线持续更新、首页农历下方工作日文字均正常。正常候选的音乐和 Codex 已通过结果继续保留。
+
+用户明确允许自动定位天气后保存开关；第一次定位失败。系统设置显示 AI-bot 的定位权限关闭，按该次授权开启并重试，正常候选显示“天气：已更新”。实体天气尚待反馈；没有记录位置、温度或账户金额。
+
+用户另报告智谱微信扫码没有二维码。官方登录页引用的 [微信 WxLogin 脚本](https://res.wx.qq.com/connect/zh_CN/htmledition/js/wxLogin.js) 创建 `open.weixin.qq.com/connect/qrconnect` 内嵌框架，旧导航策略只允许 bigmodel.cn，因此拦截了二维码。修正仅为子框架放行该 HTTPS 地址及初始 about:blank，拒绝主框架转往微信、其他微信路径、非标准端口和伪造域名；余额捕获仍只接受智谱主框架的精确财务接口。新增导航回归；新候选及扫码实机验证待执行，不能据代码修正写为通过。
+
+本机 Release、候选 App 与严格签名核验通过；本机 XCTest 仍缺失，完整测试在 Mac CI 执行。单独链接实际 Debug 对象的原生采样检查读取了本机网卡计数，序号从 4 增长到 24、历史累积为 24 条；只记录样本个数和序号，未记录流量内容、接口地址或速率数值。该检查不替代 TAB5 图形验收。
 
 事实与接口依据：
 
@@ -35,4 +41,10 @@ Calendar supplies today's/tomorrow's solar-term and holiday/workday labels using
 
 Domestic balances preserve the established eleven provider positions (DeepSeek 5, GLM 6), PAYG fields and unknown values. DeepSeek's key stays in Keychain; the official balance endpoint is polled every two minutes after authorization, redirects are denied and key changes clear the previous account cache. Errors preserve stale data, with no model calls or financial actions. GLM uses a temporary official-finance WebKit session, observing only the exact finance response requested by that page. Main-frame origin, path, size and schema are validated; credentials/cookies/storage and arbitrary DOM amounts are not read. Closing the finance window releases its session and marks the last balance cached; reopening or manual refresh updates it. Closed-window automatic GLM refresh is not implemented.
 
-Regressions cover network publication/mean/bounds/gaps, calendar boundaries, optional air-quality failure, coarse coordinates, official balance fields/schema failures, cache preservation/provider positions and finance endpoint restrictions. Physical location, authorization, actual balances and device charts remain pending; earlier music and Codex acceptance stays valid.
+Regressions cover network publication/mean/bounds/gaps, calendar boundaries, optional air-quality failure, coarse coordinates, official balance fields/schema failures, cache preservation/provider positions and finance endpoint restrictions. Commit `2ce7c7d` passed Mac CI 39391053508 and complete downloaded artifact verification: 180 tests, zero failures/skips, Release, bundle/tools, eight native PNGs and hashes. The user confirmed live network curves and the home workday line on the actual TAB5. Earlier music and Codex acceptance stays valid.
+
+The user explicitly authorized automatic-location weather. The initial request failed while the app’s system location permission was off. After enabling that permission within the authorized scope and retrying, the normal candidate reported weather updated. Device weather feedback and actual domestic balances remain pending; no location, weather values or account amounts were recorded.
+
+The user reported a blank WeChat QR login. The official WxLogin script embeds open.weixin.qq.com/connect/qrconnect, which the old BigModel-only navigation policy blocked. The fix permits only that HTTPS subframe and its initial about:blank, rejecting main-frame WeChat navigation, other paths, nonstandard ports and lookalike domains. Finance capture remains restricted to the exact BigModel main-frame endpoint. A navigation regression was added; candidate and QR-device acceptance are still pending.
+
+Local Release, candidate app and strict signing verification passed. Local XCTest remains unavailable; full tests run on Mac CI. An isolated harness linked to the actual Debug objects verified native network counter sampling: sequence advanced from 4 to 24 with 24 retained samples. Only counts/sequences were recorded, not traffic contents, interface addresses or rate values. This does not replace physical chart acceptance.

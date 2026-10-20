@@ -119,4 +119,29 @@ final class DailyDataParityTests: XCTestCase {
             XCTAssertFalse(MacDomesticQuotaWindow.financeEndpoint(url))
         }
     }
+
+    func testZhipuWeChatLoginAllowsOnlyOfficialQRCodeSubframe() {
+        let qr = URL(string: "https://open.weixin.qq.com/connect/qrconnect?appid=synthetic&scope=snsapi_login")!
+        XCTAssertTrue(MacDomesticQuotaWindow.navigationAllowed(qr, isMainFrame: false))
+        XCTAssertFalse(MacDomesticQuotaWindow.navigationAllowed(qr, isMainFrame: true))
+        XCTAssertFalse(MacDomesticQuotaWindow.financeEndpoint(qr.absoluteString))
+        let blank = URL(string: "about:blank")!
+        XCTAssertTrue(MacDomesticQuotaWindow.navigationAllowed(blank, isMainFrame: false))
+        XCTAssertFalse(MacDomesticQuotaWindow.navigationAllowed(blank, isMainFrame: true))
+        for url in ["https://bigmodel.cn/login", "https://bigmodel.cn/login/callback?code=synthetic",
+                    "https://static.bigmodel.cn/resource"] {
+            XCTAssertTrue(MacDomesticQuotaWindow.navigationAllowed(URL(string: url)!, isMainFrame: true))
+            XCTAssertTrue(MacDomesticQuotaWindow.navigationAllowed(URL(string: url)!, isMainFrame: false))
+        }
+        for url in ["http://open.weixin.qq.com/connect/qrconnect",
+                    "https://open.weixin.qq.com.evil.example/connect/qrconnect",
+                    "https://open.weixin.qq.com:444/connect/qrconnect",
+                    "https://open.weixin.qq.com/connect/other",
+                    "https://user@open.weixin.qq.com/connect/qrconnect",
+                    "https://bigmodel.cn.evil.example/login",
+                    "https://bigmodel.cn:444/login",
+                    "javascript:void(0)", "data:text/html,fixture"] {
+            XCTAssertFalse(MacDomesticQuotaWindow.navigationAllowed(URL(string: url)!, isMainFrame: false))
+        }
+    }
 }

@@ -6,6 +6,12 @@
 
 ## 当前检查点
 
+日常数据后续：当前运行 `2ce7c7d`，完整 [Mac CI 39391053508](https://github.com/yaoyouzhong/AI-bot/actions/runs/39391053508) 附件核验 180 项测试、0 失败／跳过。网络曲线及首页工作日文字已获实体确认，自动定位授权后正常 App 已取得天气，设备天气反馈待收集；国产额度授权／显示及微信二维码修正仍在联调，详见[日常数据补齐](MAC-TAB5-DAILY-DATA-20261020.md)。
+
+Daily-data follow-up: running candidate `2ce7c7d` passed full CI/artifact verification (180 tests, zero failures/skips). Physical network curves and the home workday label passed. Authorized automatic location fetched weather in the normal app; device weather feedback, domestic-balance authorization/display and the WeChat QR fix remain under validation. See the bilingual daily-data record.
+
+以下音乐检查点保留其当时结果：
+
 当前运行程序为 `3fc848b`，[Mac CI 39388819221](https://github.com/yaoyouzhong/AI-bot/actions/runs/39388819221) 与完整下载附件已核验：173 项测试、0 失败／跳过，音乐 ASan/UBSan、Release、候选包／工具、8 张原生 PNG、源码及包哈希通过。用户处理钥匙串后新候选 USB 数据确认、Wi-Fi 认证请求与 BLE USB 优先待命均自动恢复。`604ac8c`／`a3bd642` 的 Codex 只读与阅读位置保持验收结论仍保留，不因额度或音乐修复重新开启会话访问。
 
 本轮补齐 Mac 原来遗漏的七日额度历史、逐张重置卡到期信息和实际窗口长度；真实接口预检返回可用周额度及完整重置卡日期，用户已确认实体卡片信息正常。首个历史样本尚不能计算增量，七日图显示未知；已自动观察到相隔 120 秒的两次真实采样，用户对“今天显示 0、前六天仍为 --”反馈正常，该显示路径通过；后续用户又确认当日数值随实际采样增加，动态累计显示正常。过去未采集的日期保持未知，不反推或填造历史。
