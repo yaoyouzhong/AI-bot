@@ -116,6 +116,20 @@ final class WeatherForecastTests: XCTestCase {
         XCTAssertThrowsError(try MacQWeatherService.airRequest(host: "test.qweatherapi.com", key: "fixture", latitude: .nan, longitude: 0))
     }
 
+    func testQAirUsesActualChineseLocalStandard() throws {
+        // QWeather returns a regional index, not US EPA data in every country.
+        for code in ["cn-mee", "cn-mee-1h"] {
+            for (aqi, label) in [(50, "优"), (100, "良"), (150, "轻度污染"),
+                                 (200, "中度污染"), (300, "重度污染"), (500, "严重污染")] {
+                var w = try MacDataService.parseWeather(forecast: meteo(), air: nil, city: "Synthetic", now: now)
+                let data = Data("{\"indexes\":[{\"code\":\"\(code)\",\"aqi\":\(aqi)}]}".utf8)
+                MacWeatherForecast.addQAir(data, to: &w)
+                XCTAssertEqual(w.airQualityIndex, aqi); XCTAssertEqual(w.airQualityLabel, label)
+                XCTAssertEqual(w.airQualityStandard, code)
+            }
+        }
+    }
+
     func testWeatherFactsSurvivePartialFailureAndReachDevice() throws {
         let name = "weather-facts-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!

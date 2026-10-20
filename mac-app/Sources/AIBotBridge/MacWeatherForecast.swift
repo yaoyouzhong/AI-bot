@@ -99,11 +99,22 @@ enum MacWeatherForecast {
         guard let data, let r = try? root(data) else { return }
         // The existing device field uses integer AQI. Never round fractional QAQI into that scale.
         let indexes = r["indexes"] as? [[String: Any]] ?? []
-        if let item = indexes.first(where: { $0["code"] as? String == "us-epa" }),
+        let supported = ["cn-mee", "cn-mee-1h", "us-epa", "us-epa-nc"]
+        if let item = supported.lazy.compactMap({ code in indexes.first { $0["code"] as? String == code } }).first,
+           let standard = item["code"] as? String,
            let aqi = number(item["aqi"], range: 0...10000) {
             value.airQualityIndex = Int(aqi.rounded())
-            value.airQualityStandard = "us-epa"
-            value.airQualityLabel = usAirLabel(value.airQualityIndex!)
+            value.airQualityStandard = standard
+            if standard.hasPrefix("cn-mee") {
+                switch value.airQualityIndex! {
+                case ...50: value.airQualityLabel = "优"
+                case ...100: value.airQualityLabel = "良"
+                case ...150: value.airQualityLabel = "轻度污染"
+                case ...200: value.airQualityLabel = "中度污染"
+                case ...300: value.airQualityLabel = "重度污染"
+                default: value.airQualityLabel = "严重污染"
+                }
+            } else { value.airQualityLabel = usAirLabel(value.airQualityIndex!) }
         }
         let pollutants = r["pollutants"] as? [[String: Any]] ?? []
         if let pm = pollutants.first(where: { $0["code"] as? String == "pm2p5" }),
