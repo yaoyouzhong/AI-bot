@@ -16,6 +16,8 @@
 
 四项 XCTest 回归覆盖状态兼容、首页／受限列表、断线缓存与隐私、CLI／代理失败区分。另用实际 Debug 对象在原创合成目录验证状态、首页与阅读任务保留、缓存和公开内容边界，并确认本机真实代理的安全失败分类；这不等于 XCTest 或实机验收。本机 Release 通过；XCTest 仍在执行前因缺少模块受阻，完整测试以本轮 Mac CI 为准。
 
+程序 `ef773a0` 的 CI 已通过，报告确认四项新回归均已执行。[最新源码 `1788914` 的 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/39381792622) 与完整附件核验为 156 项、0 失败／跳过，以及 Release／App／工具、原生渲染和源码／包哈希通过。实际 RPC 客户端还与已安装 CLI 在空临时目录中完成上述只读隔离探测，用户实际桌面数据未接入。新候选经用户本机钥匙串授权后正常运行，USB 与 BLE 自动恢复；所有交互开关仍关闭。
+
 ## 首页为什么显示电脑状态
 
 已核对运行 `.234` 精确源码 `ui.c` 的 `render_home_task`：缺少有效 `overviewTask`／任务列表时，同一首页卡片回退 CPU、内存及“电脑状态”；有有效任务才显示任务标题与继续 Codex 入口。这与普通后台 Codex 活跃统计独立。现场 Codex 功能开关已恢复关闭，而且现有代理未连接，所以没有可用任务。没有改动首页布局或用户展示设置。
@@ -29,5 +31,7 @@
 The installed `0.163.0-alpha.10.2` public proxy still exits before initialization because its default control socket is absent; read-only daemon version probing confirms ENOENT. The desktop child uses stdio. No daemon, internal IPC, raw rollout access, user configuration change or real-task mutation was used. A short-lived CLI process under an empty temporary CODEX_HOME passed initialization/empty list and rejected a missing synthetic thread, then exited and was removed. This isolated probe is not attachment to the user's desktop service.
 
 App Server active/empty flags now maps to existing TAB5 working; approval/input waits map to waiting. Idle stays idle; unloaded/error/future states remain unknown. The home card prefers a working task and bounded snapshots preserve it alongside the reader when capacity permits; one-slot snapshots retain the reader with an internally consistent overview. Safe connection errors distinguish missing CLI, pre-handshake exit, timeout, rejection, invalid data and disconnect, retain cached public data and suppress controls without exposing diagnostics or secrets. Four new regressions cover these paths. Actual Debug-object synthetic checks and local Release passed; local XCTest is still blocked before execution and full tests depend on Mac CI.
+
+Both program ef773a0 and latest reference-only follow-up 1788914 passed CI. The latter's full artifacts verified 156 tests with zero failures/skips, Release/app/tools, native PNGs and source/package hashes. Actual RPC-client/installed-CLI isolated probing also passed without attaching user desktop data. After user-handled Keychain authorization the new candidate ran normally with automatic USB/BLE recovery; all interaction switches remained off.
 
 The exact running .234 source intentionally falls back to CPU/memory on the home task card when no valid task exists. The feature is currently off and the proxy unavailable, so no task is projected; the layout was not changed. A public attachable desktop endpoint is still required for real catalog/reply/draft/delivery acceptance. No real test task was designated and no send, steer or interrupt was performed. Feature switches and device display preferences are preserved.

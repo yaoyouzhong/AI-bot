@@ -59,6 +59,8 @@ python3 scripts/test_tab5_music_timeline.py --output artifacts/music-reference \
 
 本机 UBSan 回归通过：两种变化延迟场景原表达式每秒停留 900–1100 ms，候选 1000 ms，均无回退／跳秒；生命周期、重复／乱序、前后跳转、失联／恢复、曲末与非法输入断言通过。ASan 版本在本机系统上未能结束，已终止，不能记为通过；CI 使用其受支持的 Mac 工具链另跑 ASan/UBSan。所有数字仍为合成回放，当前实体 `.234` 的不均匀计时仍未解决。
 
+最新参考提交 `1788914` 还覆盖失联后旧样本不能重新激活时钟。[Mac CI 39381792622](https://github.com/yaoyouzhong/AI-bot/actions/runs/39381792622) 的音乐 ASan/UBSan 回归已通过；完整附件同时核验 156 项 Swift 测试、0 失败／跳过、Release／App／工具与源码／包哈希。实际补丁 SHA 为 `e797c562012a71e6fb37d3905d6522d036c3d78ff5ee3a0062730e0bb27bd2db`，仍未应用到独立固件工程。
+
 ## English
 
 On `3c82bcc`, the user reported that skipped seconds were gone but second dwell remained uneven. Music timing is improved, not fully accepted. Mac CI and complete artifacts verified 136 tests with zero failures/skips; these are not firmware timing measurements.
@@ -70,3 +72,5 @@ An isolated replay used original synthetic samples, the published music expressi
 The firmware follow-up must retain millisecond anchors and monotonic time, keep phase during continuous playback, and correctly reset for zero/new track/pause/resume/real seeks. Unknown or stale timelines must not invent progress. Keep existing v1 music fields and Windows/Mac compatibility. Regress delay variation, duplicates, lifecycle, genuine forward/backward seeks, disconnect and end-of-track, then physically verify both hosts and all three transports. Firmware changes/writes remain outside this Mac-only implementation scope and require separate authorization; this document grants none.
 
 An original host-only C reference and runner now cover that lifecycle. Existing session/sequence fields reject duplicate/out-of-order samples; phase is kept within 350 ms jitter, and larger seeks reset. Sub-350 ms seeks cannot reliably be distinguished from jitter in v1. Local UBSan replay passed with 900–1100 ms legacy versus 1000 ms candidate dwell and the lifecycle/boundary assertions. Local ASan binaries did not finish and were terminated; they did not pass. CI separately exercises ASan/UBSan. An optional exact-SHA/context-checked source ZIP produces an unapplied review patch and verifies it only in a disposable copy. No firmware image or ESP-IDF build was produced, no independent firmware project changed and no device was accessed. The reference is not linked into firmware; running `.234` timing remains unaccepted.
+
+Reference commit 1788914 also prevents old samples from reactivating a lost clock. The linked CI's ASan/UBSan music regressions passed; complete artifacts verified 156 Swift tests with zero failures/skips and Release/app/tools/source/package hashes. The generated review patch is bound by the SHA above and remains unapplied to the independent firmware project.

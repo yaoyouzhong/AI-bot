@@ -6,21 +6,30 @@
 
 ## 当前检查点
 
-当前已验程序为 `4e0b253`，具体修复、CI 与操作证据见下文。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
+当前运行程序为 `ef773a0`，音乐离线参考的最新源码为 `1788914`（两者间无 Mac 程序差异）。[Mac CI 39381792622](https://github.com/yaoyouzhong/AI-bot/actions/runs/39381792622) 与完整下载附件已核验：156 项测试、0 失败／跳过，音乐 ASan/UBSan、Release、候选包／工具、8 张原生 PNG、源码及包哈希通过。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
 
 | 交接阶段 | 当前结论与剩余项 |
 | --- | --- |
-| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 152 项通过；本机 XCTest 工具链仍受阻 |
+| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 156 项通过；本机 XCTest 工具链仍受阻 |
 | 2 USB | 配对、数据、设置读写、拔插与桥接重启恢复通过 |
 | 3 Wi-Fi | 纯 Wi-Fi 认证与设置读写、USB 返回通过；配网、地址恢复、固定模式和八秒阈值精测待验 |
 | 4 BLE | 实际认证／数据／设置、开关重连、睡眠恢复、USB 优先、系统撤权恢复通过；首次直接拒绝与精确延时确认待验 |
 | 5 展示与资源 | 亮度持久化、设备声音、固定页／轮播／屏保、图库导入／失败保留／分页／方向通过；日常数据逐项、桌宠及音乐均匀计时仍未完成 |
 | 6 系统与音乐 | Apple Music 标题／封面／单次控制、系统音量／静音／取消静音、文件夹入口通过；Spotify、程序入口、锁屏／辅助功能拒绝恢复待验 |
-| 7 Codex | 已安装 CLI 已定位；公开代理默认 socket 缺失、握手前退出。实际任务链路受阻，未执行发送／追加／中断 |
+| 7 Codex | 状态词汇、首页任务选择／传输裁剪及安全失败分类已修，隔离实际 CLI／RPC 与回归通过；公开代理默认 socket 仍缺失。实际任务链路受阻，未执行发送／追加／中断 |
 | 8 照片与语音 | 语音授权、空录音停止提示通过；HTTP 长连接修复后纯 Wi-Fi 单次成功识别，收到 7.4 秒音频；静默提示短停顿复验通过；USB 单次录音及取消保留原名称通过；BLE 语音／长期稳定性、逐字准确率、照片／任务附件待验 |
 | 9 固件工具 | 官方包离线检查、正常 App 版本／SHA／说明预览、当前镜像只读 USB 启动核验通过；实际 OTA／首刷／恢复均未执行 |
 
 临时音乐页／开关／曲目、系统音量／静音和文件夹入口均已收尾。语音测试开关已关闭，用户退出未保存测试日程返回日常页面；USB 已接回自动确认，蓝牙已恢复认证及 USB 优先待命。最终只读设置与阶段基线一致，表单取消未保存。不将整体九阶段写成完成。
+
+## 音乐计时与 Codex 后续
+
+- 音乐已准备原创主机 C 修正参考、生命周期回归与精确 `.234` 源码的接入补丁生成器。变化延迟回放由原表达式 900–1100 ms 改善为候选 1000 ms；本机 UBSan、CI ASan/UBSan 通过，错误来源包被拒绝，补丁只在临时源码副本检查应用。**参考头文件未进入固件构建，没有固件镜像／ESP-IDF 构建／设备写入，实体音乐均匀计时仍未通过**。350 ms 内跳转与抖动不可可靠区分的限制已记录，见[音乐后续](MAC-TAB5-MUSIC-TIMING-FOLLOWUP.md)。
+- 本机 CLI 导出的公开 schema 确认 App Server 的 `active` 与设备 `working` 词汇不同；现已映射运行／等待／未知状态，首页优先实际运行任务，并在小列表中保留阅读与首页任务。代理握手前退出等错误采用安全分类，失败保留公开缓存、撤下控制。四项新回归通过。实际 RPC 对象与已安装 CLI 在空临时 CODEX_HOME 的短暂 stdio 隔离探测中通过初始化／空列表／不存在合成任务的拒绝；未读取用户会话、未登录或调用模型，也未创建真实任务。当前桌面公开代理仍因 socket 缺失受阻，未部署 daemon，见[Codex 后续](MAC-TAB5-CODEX-LINK-20261020.md)。
+- 用户询问首页从 Codex 变为“电脑状态”。精确运行源码的 `render_home_task` 已确认：没有有效任务时，同一任务卡片回退 CPU／内存；当前 Codex 开关关闭且代理未连通，因而无可用任务。没有改首页布局或展示设置。
+- 正常退出旧 `4e0b253` 后，自动启动精确 `ef773a0` 候选；用户处理同类钥匙串授权。随后助手自动选取正常窗口确认 USB 数据 ACK、Wi-Fi 已认证请求、BLE 已认证且 USB 优先待命。单一候选进程、8765 监听及串口独占已核对。全部交互开关仍为关闭、入口为空；未启用真实任务读写，未保存设备设置，未新增日程或重放音乐夹具。窗口已返回 TAB5 主界面。没有为文档／离线参考变动再次更换签名候选。
+
+实际程序 `ef773a06ee902520f24461ce517d2dece1cda77e` 的 [CI 39381673453](https://github.com/yaoyouzhong/AI-bot/actions/runs/39381673453) 也通过；小报告核对 156 项、4 项新增回归及音乐日志。`1788914521bd8349baeeb829bcca8699ce3fd6c1` 只增加音乐参考的失联恢复／旧样本边界，最新完整附件核验汇总保存在忽略目录 `ci-1788914-verification.json`。本机 XCTest 仍未执行，不把隔离检查或 CI 记作真实任务与设备计时通过。
 
 ## 环境与基础检查
 
@@ -301,6 +310,12 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 - 固件工具：正常 App 选包／真实说明预览及当前镜像只读启动核验已通过；OTA、首刷、恢复 Flash 未执行，仍需单独明确授权。当前不改写设备。
 
 ## English
+
+The running app is now `ef773a0`; `1788914` only tightens the offline music reference. [CI 39381792622](https://github.com/yaoyouzhong/AI-bot/actions/runs/39381792622) and complete downloaded artifacts verified 156 tests, zero failures/skips, music ASan/UBSan, Release/app/tools, eight native PNGs and source/package hashes. The running program's own CI also passed and its small reports verified the same 156 tests including four new regressions. Local XCTest remains blocked before execution.
+
+The original host-only music reference preserves fractional phase and covers playback lifecycle, seeks, duplicates/out-of-order samples, unknown/lost clocks and recovery boundaries. Bounded-jitter synthetic dwell is 1000 ms versus 900–1100 ms for the published expression. An exact-source-SHA/context generator verifies an unapplied review patch only in a disposable copy and rejects incorrect archives. It is not linked into firmware; no firmware image or ESP-IDF build was produced and physical timing remains unaccepted. Sub-350 ms seeks remain indistinguishable from jitter.
+
+Codex active/waiting/unknown state translation, working-task home selection, bounded reader/home retention and safe connection failure classification now have four passing regressions. Actual RPC objects and the installed CLI passed an empty temporary-home stdio probe without real conversation access, login, inference or task creation. The desktop public proxy still exits before initialization because its socket is missing; no daemon/internal IPC workaround or real send/steer/interrupt was used. Running .234 intentionally falls back to CPU/memory on its home task card when no valid task exists; neither home layout nor display preferences changed. After a normal old-app quit and the user's Keychain handling, the new exact-path candidate recovered USB ACKs, authenticated Wi-Fi and BLE USB-priority standby. A single process/listener/serial owner and all interaction switches off were confirmed automatically. No settings, agenda or music fixture was saved or replayed in this follow-up. See the linked music/Codex follow-up documents for evidence and remaining conditions.
 
 Current verified program is `4e0b253`; older pending statements retain their historical context. USB and actual BLE settings/reconnection/sleep recovery passed, as did pure-Wi-Fi settings and USB return. Provisioning/address recovery/fixed modes/exact fallback timing remain pending. Display controls/persistence, gallery import/failure retention/pagination/orientation passed; individual daily data, pets and even music timing remain unfinished. Apple Music metadata/artwork/control, system volume/mute/unmute and folder launch passed; Spotify, application launch and lock/Accessibility denial/recovery remain pending. Codex proxy initialization is blocked before handshake, and no real task send/append/interrupt was executed. Voice permissions and one 7.4-second Wi-Fi take passed after the HTTP persistence repair; short-pause no-sound hint acceptance also passed; one USB take and cancellation preserving the original name also passed. BLE voice, sustained capture stability, transcript accuracy and photo/task attachments remain pending. Normal-app firmware preview and read-only current-image USB boot verification passed; no firmware write occurred. Temporary music/media, system audio and folder-launcher cleanup completed; voice is disabled again and the user left the unsaved test agenda without saving. USB is acknowledged, BLE restored to authenticated USB-priority standby, and final read-only display settings matched the phase baseline; the form was cancelled without saving. The full nine-stage acceptance is not complete.
 
