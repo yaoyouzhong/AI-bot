@@ -2,6 +2,12 @@
 
 接续音乐与 Codex 七日额度验收，用户另报告网络曲线、天气、首页农历下方信息、DeepSeek 和智谱额度缺失。本轮仍只修改 Mac 桥接，保持既有 v1 字段；不修改 Windows 或设备代码，不刷机、部署、发布或合并 main。
 
+## 最新验收结果 / Latest acceptance
+
+当前运行 `06dd164`，完整 [Mac CI 39400345443](https://github.com/yaoyouzhong/AI-bot/actions/runs/39400345443) 与附件核验通过：190 项测试、0 失败／跳过，本机 Release／签名包通过。实体已确认网络曲线、首页工作日、DeepSeek／智谱余额及微信二维码，Open-Meteo 当前／24 小时／7 天天气，以及和风来源／实时天气／AQI 等级／站点气压／24 小时／7 天预报均正常。用户已返回原日常总览，保留其选择的和风和自动定位；USB／Wi-Fi／BLE 正常。未记录位置、密钥、余额或天气具体数值，未修改或刷写固件。下文保留各阶段当时的待验与失败记录。
+
+Running candidate `06dd164` passed CI 39400345443 and full artifacts (190 tests, zero failures/skips), plus local Release/signing. Physical network curves, workday text, DeepSeek/GLM balances and WeChat QR passed. Open-Meteo current/24-hour/seven-day weather passed; QWeather source/current conditions, AQI category, station pressure and both forecast tabs also passed. The user returned to the normal overview, retaining QWeather and automatic location; USB/Wi-Fi/BLE remain healthy. No location, credentials, balances or specific weather values were recorded; firmware was unchanged. Historical pending/failure checkpoints remain below.
+
 ## 已定位与修正
 
 - 网络：Mac 只有瞬时上传／下载，没有 `sampleSession`、`sampleSequence` 和 `samples`。实际 `.234` 的 `render_system` 只有收到样本数组才调用 `render_chart`。新增单调时钟的 250 ms 采样、64 条有界历史、一秒不可变发布和末四样本均值；桥接重启更换会话，长采样间隔保留序号缺口，不重放虚构样本。TAB5 仍通过已有完整快照收到历史，本轮没有新增快速 metrics 传输。CPU／内存单独每两秒采样。
@@ -108,3 +114,13 @@ Sources: [Open-Meteo air quality](https://open-meteo.com/en/docs/air-quality-api
 最终程序 `06dd164` 的 [CI 39400345443](https://github.com/yaoyouzhong/AI-bot/actions/runs/39400345443) 及完整附件核验通过：190 项测试，0 失败／跳过。Mac 本机 Release 与临时签名候选包通过，XCTest 仍不可用。新候选路径 `artifacts/mac-tab5-20261020/06dd164/AIBotBridge.app`，尚未启动：尝试正常退出旧 `efb9620` 时，应用退出菜单禁用；工具仅看到 TAB5 主窗，截图不可用，Escape／取消快捷键未解除。已请用户处理尚未结束的设置／提示并正常退出，未同时启动第二个桥接。新增空气质量／气压与和风实机验收仍待完成。
 
 Final code `06dd164` passed CI 39400345443 and complete artifacts: 190 tests, zero failures/skips. Local Release and signed bundle passed; local XCTest remains unavailable. The new candidate is built but not launched: normal exit of old `efb9620` was disabled, the UI tool exposed only its main TAB5 window with no screenshot, and cancel shortcuts did not resolve it. The user was asked to dismiss any outstanding settings/alert and exit normally. No second bridge was launched. Actual AQI/pressure and QWeather device acceptance are still pending.
+
+
+用户确认已正常退出旧候选后，核对旧进程消失，启动 `06dd164`，用户完成钥匙串授权。正常 App 显示 USB 数据已确认、Wi-Fi 认证请求、BLE 已认证／USB 优先待命。新临时签名候选的原自动定位权限再次为关闭，在先前明确授权范围内恢复后，通过正常设置保存触发刷新，显示“天气：Open-Meteo 已更新 · 24 小时 / 7 天”。已请求实体确认 AQI 等级及气压；尚未切换和风。
+
+After the user exited the old app, its process was confirmed gone and `06dd164` was launched. The user handled Keychain authorization; normal UI confirmed USB data, authenticated Wi-Fi and BLE USB-priority standby. The new ad-hoc candidate's previously authorized location toggle was off again; restoring that permission and saving normal settings refreshed Open-Meteo with 24 hours/seven days. Device confirmation of AQI categories/pressure is pending; QWeather has not yet been selected.
+
+
+`06dd164` 正常 App 先完成 Open-Meteo 刷新；实体新增字段反馈“都 OK”。随后只读 UI 发现用户已自行完成和风选择和保存，正常 App 显示“和风天气 已更新 · 24 小时 / 7 天”；没有再次填写或读取其密钥。用户进一步明确确认设备和风来源、温度、空气质量等级和气压正常，并分别确认和风小时及七日页全部正常。和风 v7 `now.pressure` 官方定义为站点气压（hPa），标签准确；Open-Meteo 的 `pressure_msl` 为海平面气压，保留两者区别。用户最后确认返回日常总览，和风及自动定位保留。
+
+The normal candidate first refreshed Open-Meteo and the user reported the new fields working. A subsequent UI read showed the user had selected/saved QWeather, reporting fresh 24-hour/seven-day data; no key was re-entered or read by the agent. The user then explicitly confirmed QWeather source/current conditions/AQI category/pressure, followed by both forecast tabs. QWeather v7 defines now.pressure as station pressure (hPa), while Open-Meteo pressure_msl is mean-sea-level pressure; labels preserve that distinction. The user confirmed returning to the daily overview with QWeather/automatic location retained.

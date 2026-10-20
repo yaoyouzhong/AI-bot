@@ -83,3 +83,14 @@ App Server active/empty flags now maps to existing TAB5 working; approval/input 
 Both program ef773a0 and latest reference-only follow-up 1788914 passed CI. The latter's full artifacts verified 156 tests with zero failures/skips, Release/app/tools, native PNGs and source/package hashes. Actual RPC-client/installed-CLI isolated probing also passed without attaching user desktop data. After user-handled Keychain authorization the new candidate ran normally with automatic USB/BLE recovery; all interaction switches remained off.
 
 The exact running .234 source intentionally falls back to CPU/memory on the home task card when no valid task exists. In that earlier checkpoint the feature was off and the proxy unavailable, so no task was projected; the layout was not changed. The later temporary reader above now provides saved catalog/reply access; a verified shared task owner is still required for desktop runtime and delivery acceptance. No real test task was designated and no send, steer or interrupt was performed. Feature switches and device display preferences are preserved.
+
+
+## 日常只读启用与后续开发 / Daily read-only enablement and follow-up
+
+天气验收完成后，用户明确授权“开启并保留日常只读使用”。已在当前 `06dd164` 正常权限页开启 Codex 只读，界面确认“只读已连接本机 Codex · 29 个近期会话”；发送／追加／中断、桌面输入框、音乐、系统控制、语音开关均保持关闭。正常关闭权限子窗回到 TAB5，三通道与和风正常。此新授权替代较早的“验收后关闭”要求，今后不应自动关闭日常只读。
+
+用户随后明确要求继续开发完整 Codex 操作功能。现有只读链路不能被表述为完整控制；接下来独立验证桌面任务持有者、发送／追加／中断与输入框能力，真实写操作只面向明确指定的测试任务，不更改模型、权限或审批策略。仍不部署服务、不合并 main、不发布、不刷机。
+
+After weather acceptance, the user explicitly authorized persistent daily read-only access. It was enabled in candidate `06dd164`; the normal UI confirmed 29 recent local sessions. Sending/steering/interruption, desktop composer, music, computer-control and voice opt-ins stayed off. The permissions window was closed normally, with all transports and QWeather healthy. This supersedes the earlier temporary-only instruction; daily read-only should not be automatically disabled.
+
+The user then requested full Codex controls. The existing read-only connection is not full control. Further work must establish the actual desktop task owner and verify sending, steering, interruption and composer behavior; live mutations remain limited to an explicitly designated test task. Model, permission and approval policies stay unchanged. No service deployment, main merge, release or flashing.
