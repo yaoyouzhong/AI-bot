@@ -134,9 +134,13 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private func connect(_ peripheral: CBPeripheral, central: CBCentralManager) {
         guard enabled, peer == nil, service.currentPairing?.confirmed == true else { return }
         central.stopScan(); peer = peripheral; peripheral.delegate = self
-        busy = true; deadline = now + 15; central.connect(peripheral)
+        // Numeric comparison requires user approval on macOS and TAB5. The
+        // device allows 30 seconds; do not cancel its dialog after only 15.
+        busy = true; deadline = now + 60
+        service.bleState("正在连接 TAB5；如出现配对提示，请核对并确认两端数字")
+        central.connect(peripheral)
     }
-    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) { if peer === peripheral { peripheral.discoverServices(nil) } }
+    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) { if peer === peripheral { peripheral.discoverServices([MacTab5BLEWire.service]) } }
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         if peer === peripheral { reset("蓝牙连接失败，等待重连") }
     }
