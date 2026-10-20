@@ -47,19 +47,25 @@ final class HTTPStatusServer {
 
     private func accept(_ connection: NWConnection) {
         connection.start(queue: queue)
-        let timeout = DispatchWorkItem { connection.cancel() }
-        queue.asyncAfter(deadline: .now() + 10, execute: timeout)
-        read(connection, buffer: Data(), timeout: timeout)
+        readNext(connection, remaining: 640, expires: ProcessInfo.processInfo.systemUptime + 120)
     }
 
-    private func read(_ connection: NWConnection, buffer: Data, timeout: DispatchWorkItem) {
+    private func readNext(_ connection: NWConnection, remaining: Int, expires: TimeInterval) {
+        let interval = expires - ProcessInfo.processInfo.systemUptime
+        guard remaining > 0, interval > 0 else { connection.cancel(); return }
+        let timeout = DispatchWorkItem { connection.cancel() }
+        queue.asyncAfter(deadline: .now() + min(10, interval), execute: timeout)
+        read(connection, buffer: Data(), timeout: timeout, remaining: remaining, expires: expires)
+    }
+
+    private func read(_ connection: NWConnection, buffer: Data, timeout: DispatchWorkItem, remaining: Int, expires: TimeInterval) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 8_192) { [weak self] data, _, complete, error in
             guard let self else { connection.cancel(); return }
             var next = buffer
             if let data { next.append(data) }
             do {
                 guard let request = try MacHTTPRequest.parse(next) else {
-                    if !complete && error == nil { self.read(connection, buffer: next, timeout: timeout) }
+                    if !complete && error == nil { self.read(connection, buffer: next, timeout: timeout, remaining: remaining, expires: expires) }
                     else { connection.cancel() }
                     return
                 }
@@ -72,8 +78,17 @@ final class HTTPStatusServer {
                     let raw = next, local = loopback
                     self.requests.addOperation { [weak self] in
                         guard let self else { connection.cancel(); return }
-                        let response = self.response(for: request, raw: raw, loopback: local)
-                        self.queue.async { self.pendingRequests -= 1; self.deliver(response, connection: connection) }
+                        // Only successful, individually authenticated voice calls
+                        // persist. The device streams consecutive chunks on one
+                        // socket; closing after Start loses its first audio block.
+                        let close = (request.headers["connection"] ?? "").lowercased().split(separator: ",").contains { $0.trimmingCharacters(in: .whitespaces) == "close" }
+                        let persist = request.target == "/tab5/v1/voice" && request.version == "HTTP/1.1" && !close && remaining > 1 && ProcessInfo.processInfo.systemUptime < expires
+                        let response = self.response(for: request, raw: raw, loopback: local, voiceKeepAlive: persist)
+                        self.queue.async {
+                            self.pendingRequests -= 1
+                            let again: (() -> Void)? = persist && response.starts(with: Data("HTTP/1.1 200 ".utf8)) ? { self.readNext(connection, remaining: remaining - 1, expires: expires) } : nil
+                            self.deliver(response, connection: connection, completion: again)
+                        }
                     }
                 } else { self.deliver(self.response(for: request, raw: next, loopback: loopback), connection: connection) }
             } catch {
@@ -82,18 +97,18 @@ final class HTTPStatusServer {
         }
     }
 
-    private func deliver(_ response: Data, connection: NWConnection) {
+    private func deliver(_ response: Data, connection: NWConnection, completion: (() -> Void)? = nil) {
         let timeout = DispatchWorkItem { connection.cancel() }
         queue.asyncAfter(deadline: .now() + 180, execute: timeout)
-        send(response, offset: 0, connection: connection, timeout: timeout)
+        send(response, offset: 0, connection: connection, timeout: timeout, completion: completion)
     }
 
-    private func send(_ bytes: Data, offset: Int, connection: NWConnection, timeout: DispatchWorkItem) {
-        guard offset < bytes.count else { timeout.cancel(); connection.cancel(); return }
+    private func send(_ bytes: Data, offset: Int, connection: NWConnection, timeout: DispatchWorkItem, completion: (() -> Void)?) {
+        guard offset < bytes.count else { timeout.cancel(); if let completion { completion() } else { connection.cancel() }; return }
         let end = min(offset + 16384, bytes.count)
         connection.send(content: Data(bytes[offset..<end]), completion: .contentProcessed { [weak self] error in
             if error != nil { timeout.cancel(); connection.cancel() }
-            else { self?.send(bytes, offset: end, connection: connection, timeout: timeout) }
+            else { self?.send(bytes, offset: end, connection: connection, timeout: timeout, completion: completion) }
         })
     }
 
@@ -102,7 +117,7 @@ final class HTTPStatusServer {
         return response(for: request, raw: data, loopback: loopback)
     }
 
-    private func response(for request: MacHTTPRequest, raw: Data, loopback: Bool) -> Data {
+    private func response(for request: MacHTTPRequest, raw: Data, loopback: Bool, voiceKeepAlive: Bool = false) -> Data {
         if request.target.hasPrefix("/tab5/") {
             guard request.headers["origin"] == nil else { return http(status: "403 Forbidden", body: Data()) }
             guard let tab5 else { return http(status: "404 Not Found", body: Data()) }
@@ -124,7 +139,7 @@ final class HTTPStatusServer {
                 result = tab5.ota(device: device, nonce: nonce, proof: proof, sha: String(request.target.dropFirst("/tab5/v1/ota/".count)))
             } else { result = (404, Data()) }
             let names = [200: "OK", 400: "Bad Request", 401: "Unauthorized", 404: "Not Found", 500: "Internal Server Error", 503: "Service Unavailable"]
-            return http(status: "\(result.0) \(names[result.0] ?? "Error")", body: result.1, type: "application/octet-stream")
+            return http(status: "\(result.0) \(names[result.0] ?? "Error")", body: result.1, type: "application/octet-stream", keepAlive: voiceKeepAlive && result.0 == 200)
         }
         guard let text = String(data: raw, encoding: .utf8) else { return http(status: "400 Bad Request", body: Data()) }
         return response(for: text, loopback: loopback)
@@ -171,8 +186,8 @@ final class HTTPStatusServer {
         return http(status: "404 Not Found", body: Data())
     }
 
-    private func http(status: String, body: Data, type:String = "application/json") -> Data {
-        var result = Data("HTTP/1.1 \(status)\r\nContent-Type: \(type)\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n".utf8)
+    private func http(status: String, body: Data, type:String = "application/json", keepAlive: Bool = false) -> Data {
+        var result = Data("HTTP/1.1 \(status)\r\nContent-Type: \(type)\r\nContent-Length: \(body.count)\r\nConnection: \(keepAlive ? "keep-alive" : "close")\r\n\r\n".utf8)
         result.append(body)
         return result
     }

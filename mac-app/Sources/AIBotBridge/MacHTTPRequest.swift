@@ -3,6 +3,7 @@ import Foundation
 struct MacHTTPRequest {
     let method: String
     let target: String
+    let version: String
     let headers: [String: String]
     let body: Data
 
@@ -35,7 +36,7 @@ struct MacHTTPRequest {
         let actual = bytes.count - end.upperBound
         if actual < length { return nil }
         guard actual == length else { throw MacTab5Error.invalidPacket }
-        return MacHTTPRequest(method: String(start[0]), target: String(start[1]), headers: headers,
+        return MacHTTPRequest(method: String(start[0]), target: String(start[1]), version: String(start[2]), headers: headers,
                               body: Data(bytes[end.upperBound...]))
     }
 }
