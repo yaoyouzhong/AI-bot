@@ -22,7 +22,7 @@
 
 本机候选与离线证据位于忽略目录 `artifacts/mac-tab5-20261020/`，未安装到 Applications。不得将该目录的本地运行数据加入 Git 或 CI 附件。
 
-当前 HEAD 的 [Mac CI 39353897262](https://github.com/yaoyouzhong/AI-bot/actions/runs/39353897262) 已成功；交接程序基线仍为 `f41a429`。CI 结果不替代本机尚未执行的测试。
+初始 HEAD 的 [Mac CI 39353897262](https://github.com/yaoyouzhong/AI-bot/actions/runs/39353897262) 已成功；交接程序基线仍为 `f41a429`。CI 结果不替代本机尚未执行的测试。
 
 ## USB 与设备
 
@@ -75,21 +75,49 @@ CLI 帮助确认提供 `app-server proxy`，但只读 `initialize` 探测在握�
 
 用户实际首次选择了允许蓝牙，随后关闭再开启。窗口无论开启或关闭都显示“蓝牙已关闭”。因此本轮已发生首次授权，但拒绝/恢复路径没有执行，连接与收发尚未确认。
 
-源码定位到重新启用复用已有 `CBCentralManager`，状态不变时系统不再触发状态回调，导致旧的关闭提示一直保留。现重新启用时显式处理管理器的当前状态，同时忽略关闭后迟到的状态回调，避免反向覆盖“已关闭”或维护暂停提示。扫描、配对认证、USB 优先及传输协议保持不变；已对照 `.234` 固件确认广告的服务 UUID 与 Mac 相符。修复后真机开关与实际连接待复验。
+源码定位到重新启用复用已有 `CBCentralManager`，状态不变时系统不再触发状态回调，导致旧的关闭提示一直保留。现重新启用时显式处理管理器的当前状态，同时忽略关闭后迟到的状态回调，避免反向覆盖“已关闭”或维护暂停提示。扫描、配对认证、USB 优先及传输协议保持不变；已对照 `.234` 固件确认广告的服务 UUID 与 Mac 相符。
+
+用户正常退出旧候选并打开精确的 `ffdf43b` 候选，关闭再开启蓝牙后，状态正确变为“正在寻找已配对 TAB5”，随后反馈“已认证 · USB 优先待命”。重新启用提示、真实 BLE 配对认证和 USB 活跃时待命已通过。曾提出排查 Windows 系统蓝牙连接占用，但用户没有确认是否关闭了 Windows 蓝牙，不能据此归因。
+
+用户确认设备原连接模式为“自动”，随后临时设为“仅蓝牙”并退出实体设置页，断开 Mac USB、保持独立供电。约 20 秒后 Mac 蓝牙行显示“数据已确认”；保持该隔离条件读取并原值保存显示设置，收到“TAB5 已确认保存显示设置。”。因此真实 BLE 状态帧及显示设置读写通过，无 Wi-Fi 路由混入。用户随后在相同隔离条件关闭蓝牙约 5 秒再开启，约 20 秒后自动恢复“数据已确认”，未重新配对，断线重连通过。本轮尚未改变亮度、声音、页面或轮播；测试后需恢复原连接模式。
+
+修复提交 `ffdf43b` 的 [Mac CI 39357782391](https://github.com/yaoyouzhong/AI-bot/actions/runs/39357782391) 与完整附件复核通过：114 项测试、0 失败、0 跳过，Release、候选包、工具、原生夹具、源码 SHA 和包哈希一致。本机 Release 与签名通过，精确候选为 `artifacts/mac-tab5-20261020/ffdf43b/AIBotBridge.app`；本机 XCTest 仍受缺少完整 Xcode 阻塞。
+
+## 本轮修复：睡眠后恢复系统已有的 BLE 连接
+
+在仅蓝牙、USB 断开条件下，用户让 Mac 睡眠约 15 秒并唤醒，等待约 20 秒后仍显示“正在寻找已配对 TAB5”；继续等待后再次确认提示不变。此项记录为未通过。只读 `system_profiler SPBluetoothDataType -json` 检查确认 TAB5 位于系统的 `device_connected` 列表；诊断只输出是否匹配该设备及所在分类，不打印其他设备、蓝牙地址或配对材料。
+
+Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接时不继续广播。现每次发现周期先通过 `retrieveConnectedPeripherals(withServices:)` 查找提供 TAB5 专有服务的系统已连接设备，再调用正常连接、服务发现和设备 ID/随机数/HMAC 认证路径；无匹配结果时沿用广播扫描。该公开 API 的本机 SDK 说明明确要求应用对系统已有连接再发起本地连接。未按设备名称信任连接，未检索其他 HID 设备，也没有协议或固件变更。新的真实睡眠恢复复验与 CI 尚待执行；不能将修复代码本身记为通过。
+
+## 本轮修复：重复钥匙串授权
+
+用户补充：同一轮连续要求输入本机密码 3～4 次，记得弹窗以 AI-bot 名义访问密码，但不能回忆完整文字。因此记录为重复授权现象，具体钥匙串项目尚未确认；不直接归因于 BLE 权限或临时签名。
+
+源码确认旧 LAN 令牌在启动、HTTP 鉴权、USB LAN 配置与镜像窗口中重复调用 `SecItemCopyMatching`；拒绝或读取失败还会被当作不存在并尝试创建/更新令牌。现将该项目的首次读取结果（包括失败）串行缓存在当前进程内，正常后台访问不再重复请求授权。只有明确不存在才创建；拒绝、解码错误和短记录都不会替换已有记录。显式保存成功才更新内存值，失败保留旧值。密钥仍只持久化到原钥匙串项目，不改变 ACL、不读出真实秘密、不写入偏好或诊断。
+
+新增四项回归覆盖多调用方复用、拒绝后不重复授权/不轮换、仅缺失时创建、显式轮换与写入失败保留。TAB5 配对项目本来只在服务启动及用户明确重新配对时访问；它和旧 LAN 项目仍互相独立，临时签名新候选也可能各自需要一次正常授权。因此不能宣称所有系统授权弹窗已消除，待正常候选复验。
+
+本机使用实际缓存源码配合合成存储后端执行独立检查，上述四组行为（含 32 次并发读取）均通过；未访问真实钥匙串。全量 `swift test` 仍因缺少 XCTest 在执行前受阻。缓存仅在当前进程有效，外部直接修改钥匙串需要重启 App 才会重新读取；App 内显式保存会立即更新缓存。
 
 ## 后续项目
 
 - Wi-Fi：保持 TAB5 独立供电、断开 Mac USB 后，用户约 15 秒内观察到“收到已认证请求”；纯 Wi-Fi 的显示设置读取和原值保存也收到明确成功回执，插回 USB 后自动恢复且画面正常。未改变原网络配置；尚未精确测量八秒阈值。USB 配网、发现、地址恢复和固定模式待验收。
-- BLE：首次选择允许已实际执行；发现并修复关闭后重启用的状态提示遗漏，待修复候选真机复验。拒绝/恢复、连接传输、重连、睡眠唤醒及 USB 优先仍待验收。
+- BLE：首次选择允许、重新启用提示、实际认证、USB 活跃时待命，以及仅蓝牙下状态帧和显示设置读取/原值保存通过，关闭再启用后自动重连也通过；拒绝/恢复和睡眠唤醒仍待验收。原连接模式为“自动”，隔离测试结束后恢复。
 - 显示与资源：USB/Wi-Fi 原值读取与保存回执已通过；实际效果、重启保持、封面/桌宠/图库、分页与方向待验收。真实名画 ZIP `2026.10.14.1`（SHA `a774f3717f83b685c8d9b9c1dc4f8ecd22b0a95a3abb80f882eb21726b29fc39`）已由本机加载器在隔离目录完整校验 366 件作品、826 张图；未替换正常 App 图库，未向设备下发。
-- 系统控制与音乐：真实音量/静音、常用入口、锁屏、自动化权限和播放控制待验收。
+- 系统控制与音乐：CoreAudio 只读预检已取得真实可用音量/静音状态，未修改输出或播放；正常 App 的控制回执、常用入口、锁屏、自动化权限和播放控制待验收。
 - Codex：本机版本与 CLI 布局已核对，默认本机代理不可达；精确任务、公开回复、草稿、送达状态和快捷控制台受此阻塞。未对真实任务发送、追加或中断。
 - 照片与语音：真实采集、校验、预览、中文本地识别、停止/取消/断流与手动确认待验收。
 - 固件工具：已核对公开 `.234` 源码 ZIP SHA `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890` 和升级 ZIP SHA `900612d0338c2350a3eda19a991536ce28475cce9667a4752613fccde211d509`；App 选包/说明预览待验收。OTA、首刷和恢复保持未执行。
 
 ## English
 
-For the first Bluetooth prompt, the user actually chose Allow, then disabled and re-enabled the feature. The row continued to say Bluetooth was off. Reusing a central manager does not produce a new state callback when its state is unchanged; re-enabling now explicitly processes the current state, and late state callbacks after disable are ignored. This does not change scanning, pairing, USB priority or wire formats. The `.234` advertised service UUID matches the Mac. First authorization occurred; denial/recovery and actual BLE connection/transfer remain unverified, and the toggle fix requires a physical retest.
+The user reported three to four consecutive local-password prompts in one session, with AI-bot requesting access to a password, but could not recall the exact item or wording. Source review found repeated legacy LAN-token Keychain reads across startup, HTTP authentication, USB provisioning and the mirror window. A denied read also previously looked like a missing record and could trigger a replacement attempt. One serialized process-local cache now retains the initial read result, including failures, so background consumers do not re-prompt. Only a missing item is created; denial, invalid encoding and short stored credentials do not replace existing records. Explicit successful saves update memory; failed writes retain the previous value. Persistence remains in the existing Keychain item, with no ACL change or secret diagnostics. Four regressions cover these flows; an independent local check using the actual cache source and synthetic storage passed all four groups, including 32 concurrent reads, without accessing Keychain. Full local XCTest is still blocked before execution. External edits to the Keychain item require restarting the process; explicit in-app saves update the cache immediately. The separate TAB5 pairing item and authorization for a newly signed candidate can still require normal access approval; eliminating every system prompt has not been claimed or physically verified.
+
+Under Bluetooth-only isolation with USB disconnected, sleeping the Mac for about 15 seconds and waking it left the app searching after the requested wait and a later confirmation. Read-only system profiling still classified TAB5 as connected; no addresses or pairing data were printed. The Mac previously relied solely on advertisements, while the firmware stops advertising during a live connection. Discovery now first retrieves system-connected peripherals implementing the dedicated TAB5 service and uses the existing local connect, service discovery and device-ID/nonce/HMAC authentication path. It falls back to scanning when none are found. No name-based trust, unrelated HID retrieval, protocol change or firmware change is introduced. The sleep recovery fix still requires CI and a real physical retest.
+
+For the first Bluetooth prompt, the user actually chose Allow, then disabled and re-enabled the feature. The row continued to say Bluetooth was off. Reusing a central manager does not produce a new state callback when its state is unchanged; re-enabling now explicitly processes the current state, and late state callbacks after disable are ignored. This does not change scanning, pairing, USB priority or wire formats. The `.234` advertised service UUID matches the Mac. The linked `ffdf43b` CI and full artifacts passed verification with 114 tests and zero failures/skips; local Release/signature checks passed, while local XCTest remains unavailable. After opening the exact `ffdf43b` candidate and toggling Bluetooth, the user observed searching followed by authenticated USB-priority standby. The toggle repair, actual BLE authentication and standby passed. Denial/recovery and sleep/wake remain pending. Windows Bluetooth contention was suggested for diagnosis, but no user confirmation establishes whether Windows Bluetooth was disabled or caused the initial delay.
+
+The device's original connection mode was Auto. The user temporarily selected Bluetooth only, left its settings page, disconnected Mac USB and retained independent power. The Mac then reported acknowledged BLE data; display settings readback and saving unchanged values also received the matching success receipt under the same isolated conditions. Actual BLE status/settings transfer passed without Wi-Fi routing. Disabling Bluetooth for about five seconds and re-enabling it restored acknowledged data without re-pairing, passing reconnection under the same isolation. Brightness, sound, pages and cycling were unchanged; the original connection mode must be restored after the remaining isolation checks.
 
 Two additional repairs follow the first firmware-package CI: operation receipts now stay in a fixed footer outside the scrolling setup form, verified by minimum-size native fixture rendering; Codex CLI discovery now handles the actual nested ChatGPT desktop layout and renamed/moved registered applications while preserving explicit overrides and legacy fallbacks. The interaction window now displays live Codex connection status. On this host, CLI `0.163.0-alpha.10.2` exposes the proxy command but its default socket is missing (`ENOENT`), initialization exits before a handshake and the desktop child uses stdio. Codex conversation acceptance is therefore blocked even after executable discovery succeeds. No alternate daemon was deployed, no task methods were called and no model/approval configuration changed. Release/app/signature/native rendering and the linked `f3f9dd6` CI passed; full downloaded artifacts verified 114 tests with zero failures/skips and matching source/package hashes. The user normally quit the initial candidate, opened the exact committed `f3f9dd6` app and confirmed USB recovery without re-pairing. The process, listener and serial owner were independently verified. The user repeated an unchanged-settings save in the new candidate and confirmed the success receipt was directly visible in the fixed footer without scrolling; physical revalidation passed.
 

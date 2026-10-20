@@ -93,7 +93,15 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         if busy && now > deadline { reset("蓝牙操作超时，等待重连"); return }
         guard central?.state == .poweredOn, let pair = service.currentPairing, pair.confirmed else { return }
         if peer == nil {
-            if now >= nextScan { central?.scanForPeripherals(withServices: [MacTab5BLEWire.service]); nextScan = now + 8 }
+            if now >= nextScan, let central {
+                nextScan = now + 8
+                // macOS can retain the device's HID connection across sleep.
+                // Connected TAB5s stop advertising, so scanning alone cannot
+                // recover our GATT session. Identity is still authenticated below.
+                if let connected = central.retrieveConnectedPeripherals(withServices: [MacTab5BLEWire.service]).first {
+                    connect(connected, central: central)
+                } else { central.scanForPeripherals(withServices: [MacTab5BLEWire.service]) }
+            }
             return
         }
         guard nonce != nil, !busy else { return }
@@ -121,6 +129,9 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         }
     }
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
+        connect(peripheral, central: central)
+    }
+    private func connect(_ peripheral: CBPeripheral, central: CBCentralManager) {
         guard enabled, peer == nil, service.currentPairing?.confirmed == true else { return }
         central.stopScan(); peer = peripheral; peripheral.delegate = self
         busy = true; deadline = now + 15; central.connect(peripheral)

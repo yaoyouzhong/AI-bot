@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let storedPort = UserDefaults.standard.integer(forKey: "status_port")
         port = UInt16((1...65_535).contains(storedPort) ? storedPort : 8765)
         do { _ = try PairingTokenStore.loadOrCreate() }
-        catch { show("配对令牌创建失败", "无法使用 Keychain 保存设备配对令牌。") }
+        catch { show("无法访问设备配对令牌", "请检查钥匙串授权后重新启动。读取失败不会替换现有令牌，也不会反复请求密码。") }
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
         let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: { [dataStore] in dataStore.snapshot().music }))
         self.tab5 = tab5
