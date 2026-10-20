@@ -39,9 +39,17 @@
 | USB 拔插 | **通过，人工反馈**：断开约 12 秒后重新连接，未点击重新配对，USB 自动恢复“数据已确认” |
 | 桥接正常退出与重启恢复 | **通过，人工反馈**：从初始候选切换 `f3f9dd6`，未重新配对，自动恢复 USB“数据已确认” |
 
-显示设置的真机读取已通过。首次保持值不变保存时，设备仍处于本机设置页，收到“TAB5 正在编辑本机设置，请退出设备设置页后重试。”，记录为设备忙碌拒绝，未记为保存成功。用户退出设备设置页后，重新读取并原值保存，收到“TAB5 已确认保存显示设置。”，确认匹配成功回执；未改变用户配置。亮度、声音实际效果和重启保持仍待分别验收。
+显示设置的真机读取已通过。首次保持值不变保存时，设备仍处于本机设置页，收到“TAB5 正在编辑本机设置，请退出设备设置页后重试。”，记录为设备忙碌拒绝，未记为保存成功。用户退出设备设置页后，重新读取并原值保存，收到“TAB5 已确认保存显示设置。”，确认匹配成功回执；未改变用户配置。亮度、声音及重启保持的后续实机结果见下方；其他显示设置仍逐项验收。
 
 不将真实设备配对材料、网络配置或原始串口流写入记录。ESP8266 未连接或执行硬件验收，不宣称通过。
+
+## 显示设置与设备声音实机验收
+
+在 `791d898` 正常候选中，先读取设备实际设置，并仅将恢复基线保存在忽略的本机证据目录，不提交用户完整配置。
+
+- **亮度效果、正常开关机持久化及恢复通过，人工反馈**：只降低亮度，收到匹配保存回执，实体屏幕明显变暗。用户通过正常电源操作关机再开机后，USB 自动恢复“数据已确认”，画面正常；重新读取确认临时亮度值仍被保留。随后恢复原亮度并收到保存成功，用户确认屏幕亮度恢复。未进入下载模式、未写入固件。
+- **设备声音开启试听通过，人工反馈**：仅降低 TAB5 设备提示音量，保持非静音，收到保存回执；在实体“设置 → 屏幕声音”点试听，用户明确听到提示音。此项不涉及 Mac 系统输出音量，也没有将“听到”推断为音量精确比例正确。
+- **设备静音设置与试听禁用通过，人工反馈**：Mac 勾选静音保存成功后，用户看到实体试听按钮变灰。公开 `.234` 设备端 `sound_refresh` 在静音或音量为零时禁用试听，与观察一致；不将禁用按钮写成已执行的无声试听。随后恢复原设备音量并取消静音，用户确认保存成功。固定页、轮播、屏保与其他资源仍待验收。
 
 ## 本轮修复：正式固件包的许可证目录
 
@@ -115,13 +123,15 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 
 - Wi-Fi：保持 TAB5 独立供电、断开 Mac USB 后，用户约 15 秒内观察到“收到已认证请求”；纯 Wi-Fi 的显示设置读取和原值保存也收到明确成功回执，插回 USB 后自动恢复且画面正常。未改变原网络配置；尚未精确测量八秒阈值。USB 配网、发现、地址恢复和固定模式待验收。
 - BLE：首次选择允许、重新启用提示、实际认证、USB 活跃时待命，以及仅蓝牙下状态帧和显示设置读取/原值保存通过，关闭再启用后自动重连也通过；`791d898` 的睡眠唤醒复验也通过。撤销授权后的拒绝提示与恢复也通过。首次权限弹窗直接选择拒绝仍未执行；隔离结束已恢复原先“自动选择”模式。
-- 显示与资源：USB/Wi-Fi 原值读取与保存回执已通过；实际效果、重启保持、封面/桌宠/图库、分页与方向待验收。真实名画 ZIP `2026.10.14.1`（SHA `a774f3717f83b685c8d9b9c1dc4f8ecd22b0a95a3abb80f882eb21726b29fc39`）已由本机加载器在隔离目录完整校验 366 件作品、826 张图；未替换正常 App 图库，未向设备下发。
+- 显示与资源：USB/Wi-Fi 原值读取与保存回执已通过；降低亮度、正常开关机后读回和恢复原亮度通过；设备非静音试听及静音后禁用试听通过，原设备音量和非静音已恢复并收到保存成功。固定页、轮播、屏保、封面/桌宠/图库、分页与方向待验收。真实名画 ZIP `2026.10.14.1`（SHA `a774f3717f83b685c8d9b9c1dc4f8ecd22b0a95a3abb80f882eb21726b29fc39`）已由本机加载器在隔离目录完整校验 366 件作品、826 张图；未替换正常 App 图库，未向设备下发。
 - 系统控制与音乐：CoreAudio 只读预检已取得真实可用音量/静音状态，未修改输出或播放；正常 App 的控制回执、常用入口、锁屏、自动化权限和播放控制待验收。
 - Codex：本机版本与 CLI 布局已核对，默认本机代理不可达；精确任务、公开回复、草稿、送达状态和快捷控制台受此阻塞。未对真实任务发送、追加或中断。
 - 照片与语音：真实采集、校验、预览、中文本地识别、停止/取消/断流与手动确认待验收。
 - 固件工具：已核对公开 `.234` 源码 ZIP SHA `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890` 和升级 ZIP SHA `900612d0338c2350a3eda19a991536ce28475cce9667a4752613fccde211d509`；App 选包/说明预览待验收。OTA、首刷和恢复保持未执行。
 
 ## English
+
+On the normal `791d898` candidate, reducing only TAB5 brightness produced a matching save receipt and a visibly dimmer screen. After a normal power-off/on, USB recovered acknowledged data and the picture was normal; fresh settings readback retained the temporary brightness. Restoring the original brightness was acknowledged and visibly confirmed, passing effect, persistence and restoration without firmware writes. Lowering only device notification volume while unmuted was acknowledged and the physical preview tone was heard. Muting was then saved and the user observed a disabled preview button, matching the published `.234` UI logic. This verifies the muted control state, not a performed silent preview or exact volume ratio. The user subsequently acknowledged successful restoration of the original device volume and unmuted state. The private restoration baseline stays only in ignored local evidence. Mac system audio, fixed pages, cycling, screensaver and resources remain separate checks.
 
 The user revoked Bluetooth permission in System Settings and observed the app reporting denied permission with recovery guidance. Restoring that permission returned to authenticated USB-priority standby. Revocation handling and recovery passed; rejecting the original first-use prompt remains untested because the user originally chose Allow.
 
@@ -145,6 +155,6 @@ Acceptance resumed on the test branch from clean HEAD `bf16f1f`, matching the re
 
 The host reports Apple Silicon, macOS 27.2 (`26B5112a`) and Swift 6.2.3. Local tests are **blocked before execution**: the selected Command Line Tools lack both the XCTest module and xctest, and no Xcode installation was found. Release, pinned bundled-tool hashes, ad-hoc signing, strict signature verification, offline tool-help checks and eight native fixture PNGs passed. The existing SerialBridge Sendable capture warning remains recorded. Native UI automation timed out for both the candidate and Finder. The user subsequently launched the initial candidate normally and confirmed its menu bar; its process, listener and HTTP 401 responses for both unauthenticated status routes were independently checked. The user also confirmed explicit USB pairing and the window's acknowledged-data status. Detailed screen data, remaining windows and permissions are tracked separately; the normal quit and restart result is recorded above.
 
-USB descriptor and a read-only 460800-baud v1 ping confirmed a TAB5 running `0.2.234-ui`, with RPC v1/binary and packed/delta capabilities. The single UI sample had age 13 ms and zero flush errors; it does not establish boot health. The user confirmed automatic USB recovery after a 12-second cable disconnect without re-pairing. Display settings readback passed; saving unchanged settings was first correctly rejected while the device settings page was open, then acknowledged after leaving that page. Actual brightness/audio effects and restart persistence remain pending. No ESP8266 was tested.
+USB descriptor and a read-only 460800-baud v1 ping confirmed a TAB5 running `0.2.234-ui`, with RPC v1/binary and packed/delta capabilities. The single UI sample had age 13 ms and zero flush errors; it does not establish boot health. The user confirmed automatic USB recovery after a 12-second cable disconnect without re-pairing. Display settings readback passed; saving unchanged settings was first correctly rejected while the device settings page was open, then acknowledged after leaving that page. The later brightness/persistence and device-audio results are recorded above; remaining display settings are tracked separately. No ESP8266 was tested.
 
 An actual official `.234` upgrade archive exposed a loader defect: seven dependency-license paths contain nine components, exceeding the previous eight-component ASCII limit. Bounded support now allows 16 components and at most 720 bytes while retaining all component, traversal, duplicate, symlink and size checks. Entries are still streamed by exact name, never extracted to archive-provided paths. Synthetic upgrade/first-install ZIP regressions cover the published layout and reject unsafe paths. The repaired loader successfully validated the real upgrade image and its bound sidecar version, application/ELF SHA and structured notes. The real first-install ZIP also passed its manifest, layout, erased-gap, segment-hash and exact-application checks. These offline checks created no bridge service and accessed no hardware. Updated Release/app/signature checks passed; the committed candidate embeds source SHA `3cf5fa8`. Its linked Mac CI and downloaded full artifacts passed verification: 112 tests, zero failures/skips, executable/app/source hashes, licenses, tools and eight fixture PNGs. Local XCTest remains blocked. Startup and first pairing used the initial `bf16f1f` candidate; recovery on the repaired candidate has since passed, while normal-app firmware preview and all firmware writes remain untested. Evidence stays in the ignored local artifact directory; no credentials, private network configuration or raw runtime streams belong in Git.
