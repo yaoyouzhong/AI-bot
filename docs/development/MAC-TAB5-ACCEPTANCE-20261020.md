@@ -102,6 +102,12 @@
 
 该候选的三十秒观察首先得到“仍有回退或明显跳秒”，进一步询问后用户明确为“只向前跳秒，没有往回走”。因此本次观察未再报告回退，但向前跳秒仍未通过，不能写成整体计时通过。继续对照设备将整秒基值与收包后的整秒增量相加的逻辑，发现 USB 原来在 ACK 完成后再等两秒，传输／回调耗时会累积到发送相位。修复为按原截止时刻推进发送计划；控制变更另起相位，过长阻塞后跳过错过的时隙，避免补发突发。新增两项回归覆盖多轮 ACK／回调延迟不累积、控制及长阻塞。合成相位模型可出现短时间相邻秒变化，固定相位消除该模型现象；它不是真机计时证据，实机复验仍待继续。
 
+固定节奏程序提交 `3c82bcce4df49af2b3e1c64445664500eabf7a43` 的 [Mac CI 39368358000](https://github.com/yaoyouzhong/AI-bot/actions/runs/39368358000) 与完整附件核验通过：136 项测试，0 失败、0 跳过，Release／App／工具、8 张原生 PNG、源码与包哈希一致。实际编译对象的独立节奏检查也通过二十轮不同 ACK 耗时、控制另起相位及长阻塞不突发；没有访问设备。本机 Release、候选与签名通过，XCTest 仍缺少模块、未执行。
+
+助手通过正常退出切换到精确 `3c82bcc` 候选，用户完成系统授权并确认打开 TAB5 窗口；唯一精确进程和两个状态路由的未认证 401 已自动核对。该轮桥接窗口的界面工具选取连续超时，重建工具连接也未恢复，不能擅自写入 USB／BLE 状态文字已复核。只读进程调用栈包含正常 AppKit 事件循环、音乐轮询与 USB 工作，未证明持续卡死，也没有读取钥匙串内容。音乐 App 的自动操作仍可用，测试曲目已重新播放。
+
+实体四十五秒观察后，用户反馈“不跳秒了，但是时间前进的不均匀”。因此跳秒现象改善，但音乐均匀计时仍未通过。随后实体点击一次暂停，用户反馈约一秒内显示暂停；Mac 音乐窗口也确认曲目已暂停、按钮变为播放。这是人工估计的响应时间，不是仪器测量。对应 `.234` 固件音乐计时的整数截断／每包重设相位逻辑、合成回放证据及后续修正要求，见[音乐计时固件后续项](MAC-TAB5-MUSIC-TIMING-FOLLOWUP.md)；未修改或写入固件。音乐页、音乐开关和临时曲目仍处于测试状态，收尾恢复尚未完成。
+
 ## 本轮修复：正式固件包的许可证目录
 
 使用当前 Mac 代码的固件加载器读取 SHA 已核对的官方 `.234` 升级 ZIP，实际复现“ZIP 含重复或不安全的文件名”。官方包的七个许可证路径有九段，例如 `licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE`；原 `safePath` 最多接受八段，导致合法升级包与同类首刷包无法进入预览。
@@ -181,6 +187,10 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 - 固件工具：已核对公开 `.234` 源码 ZIP SHA `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890` 和升级 ZIP SHA `900612d0338c2350a3eda19a991536ce28475cce9667a4752613fccde211d509`；App 选包/说明预览待验收。OTA、首刷和恢复保持未执行。
 
 ## English
+
+Fixed-cadence program commit `3c82bcce4df49af2b3e1c64445664500eabf7a43` passed [Mac CI 39368358000](https://github.com/yaoyouzhong/AI-bot/actions/runs/39368358000) and full artifact verification: 136 tests, zero failures/skips, Release/app/tools, eight native PNGs and matching source/package hashes. An actual-object synthetic cadence check passed twenty varying ACKs, control rephasing and blocked-write burst suppression without device access. Local Release/bundle/signature passed; local XCTest remains unavailable. The previous candidate was normally quit before exact `3c82bcc` launch. The user handled system authorization and confirmed opening TAB5; the unique process and both unauthenticated HTTP 401 routes were verified. Bridge-window selection repeatedly timed out, including after reconnecting the UI tool, so USB/BLE row text is not independently reconfirmed for this run. Read-only stack symbols showed AppKit event processing, music polling and USB work; no persistent freeze was established and no Keychain contents were inspected. Music UI automation remained available and restarted the fixture.
+
+After the forty-five-second observation, the user reported no skipped seconds but uneven progress. This is an improvement, not full timeline acceptance. A subsequent single physical pause reportedly took about one second; normal Music UI independently confirmed paused state and a Play button. The duration is a user estimate, not an instrumented measurement. See the [firmware timing follow-up](MAC-TAB5-MUSIC-TIMING-FOLLOWUP.md) for the running `.234` renderer's integer truncation/per-packet phase reset, synthetic replay evidence and required lifecycle checks. No firmware was changed or written. Temporary music page, opt-in and library cleanup remain unfinished.
 
 Normal candidate `754fd02` passed local bundle/signature/tool checks and was automatically launched after normal quit of the previous app; the user handled its expected system authorization. USB, authenticated Wi-Fi, BLE standby, the unique exact process and both unauthenticated HTTP 401 checks recovered. Its [Mac CI 39367861614](https://github.com/yaoyouzhong/AI-bot/actions/runs/39367861614) and complete downloaded artifacts verified 134 tests with zero failures/skips, Release/app/tools, eight native PNGs and source/package hashes. The initial thirty-second report selected backwards-or-skipped seconds; clarification specifically reported forward skips with no backwards movement. No rewind was reported in this observation, but forward stepping remains unpassed. Firmware adds a whole-second base to whole seconds since receipt. The old USB cadence waited two seconds after each ACK, accumulating transport/callback time into phase drift. The follow-up keeps original deadlines, restarts phase for control changes and skips missed slots after a blocked write instead of bursting. Two regressions cover repeated ACK/callback delays, control and blocked writes. A synthetic phase model can produce rapid adjacent second changes with ACK-based drift and avoids them with fixed phase; this is not hardware timing evidence and physical revalidation is pending.
 
