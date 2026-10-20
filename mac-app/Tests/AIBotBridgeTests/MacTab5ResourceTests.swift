@@ -13,15 +13,30 @@ final class MacTab5ResourceTests: XCTestCase {
         let raw = Data((0..<(112 * 112 * 2)).map { UInt8($0 % 251) })
         let pet = MacPetAnimation(width: 112, height: 112, delays: [100], frames: [raw])
         store.update(pets: [pet, nil], cover: nil)
-        let expected = try MacTab5Asset.rgb565(slot: 0, width: 112, height: 112, delays: [100], raw: raw)
-        var result = Data()
-        while result.count < expected.bytes.count {
+        let fallback = try XCTUnwrap(MacByteSprout.animation)
+        let expected = [
+            try MacTab5Asset.rgb565(slot: 0, width: 112, height: 112, delays: [100], raw: raw),
+            try MacTab5Asset.rgb565(slot: 1, width: fallback.width, height: fallback.height,
+                                   delays: fallback.delays, raw: fallback.frames.reduce(into: Data()) { $0.append($1) })
+        ]
+        var results = [Data(), Data()], acknowledged = ["-", "-", "-"]
+        // Both slots now have assets. Reassemble by slot, with bounded iteration,
+        // and acknowledge each independently while the other keeps transferring.
+        for _ in 0..<100 where store.hasPending {
             let frame = store.projection(), part = try XCTUnwrap(frame["resource"] as? [String: Any])
-            XCTAssertEqual(part["offset"] as? Int, result.count)
-            result.append(try XCTUnwrap(Data(base64Encoded: part["bytes"] as! String)))
+            let slot = try XCTUnwrap(part["slot"] as? Int)
+            guard (0..<2).contains(slot) else { return XCTFail("Unexpected resource slot") }
+            XCTAssertEqual(part["id"] as? String, expected[slot].id)
+            XCTAssertEqual(part["offset"] as? Int, results[slot].count)
+            results[slot].append(try XCTUnwrap(Data(base64Encoded: part["bytes"] as! String)))
+            if results[slot].count == expected[slot].bytes.count {
+                acknowledged[slot] = expected[slot].id
+                store.acknowledge(acknowledged.joined(separator: ","))
+                store.acknowledge("../../file,-,-") // Invalid acknowledgements cannot undo the valid one.
+            }
         }
-        XCTAssertEqual(result, expected.bytes)
-        store.acknowledge("\(expected.id),-,-")
+        XCTAssertEqual(results[0], expected[0].bytes); XCTAssertEqual(results[1], expected[1].bytes)
+        XCTAssertFalse(store.hasPending)
         XCTAssertNil(store.projection()["resource"])
         store.acknowledge("../../file,-,-"); XCTAssertNil(store.projection()["resource"])
     }

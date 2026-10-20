@@ -49,7 +49,7 @@ final class MacDefaultPetTests: XCTestCase {
         let broken = MacPetAnimation(width: 2, height: 2, delays: [120], frames: [Data()])
         assets.updatePets([broken, nil])
         XCTAssertEqual((assets.projection()["assetIds"] as? [Any])?[0] as? String, updated[0] as? String)
-        // A valid APET can still exceed TAB5's pet-slot dimensions.
+        // Out-of-range dimensions must also retain the prior selection.
         let oversized = MacPetAnimation(width: 121, height: 1, delays: [120], frames: [Data(repeating: 0, count: 242)])
         assets.updatePets([oversized, nil])
         XCTAssertEqual((assets.projection()["assetIds"] as? [Any])?[0] as? String, updated[0] as? String)
