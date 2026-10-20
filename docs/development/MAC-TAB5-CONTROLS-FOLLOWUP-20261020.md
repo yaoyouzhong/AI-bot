@@ -55,3 +55,13 @@ While UI access is blocked by the locked Mac, the Mac producer now supplies the 
 实际编译对象已生成原生预览并执行资源确认模拟。首次预览发现重复翻转导致倒置，已修正并加入天线、眼睛、脚步坐标断言以及两帧差异回归；两帧最终预览已逐张核对为正向、脚步不同；原生资源回执模拟通过。完整 CI 待验证。新增测试覆盖空配置默认同步、不落地选择文件、用户选择优先和缺失／损坏读取保留。以上均不等于设备桌宠实际显示与动画验收。
 
 Windows already sends the project's geometric BYTE SPROUT fallback when no user animation is selected. Mac drew it only in its local preview and omitted device assets. The shared original Mac drawing now produces two in-memory 112×112 frames with 240 ms delays through the existing RLE565/CRC transport. User artwork takes priority and last-good assets survive unavailable selections; no private files or external artwork are imported or bundled. Native preview caught and corrected a duplicate row inversion, with pixel/orientation, frame, acknowledgement and selection regressions added. Both final decoded RGB565 previews were inspected upright with different footsteps; native resource acknowledgement passed. Full CI and physical animation acceptance remain pending.
+
+### 诊断／桌宠自动验证结果与待恢复现场
+
+`c9bc5e2` 首轮 CI 中，新诊断／桌宠测试通过，但旧资源重组用例仍假设只有一个槽位，错误拼接了默认桌宠和自选桌宠的交替分块。`c8a254fcfed916efaac0c977b6c2fae635275383` 将该用例改为按槽位独立重组、逐个确认，并核验无效回执不撤销有效确认；未通过删掉断言或停用默认资源回避失败。
+
+[Mac CI 39445293598](https://github.com/yaoyouzhong/AI-bot/actions/runs/39445293598) 通过，完整附件下载核验通过：**209 项测试，0 失败、0 跳过**，Release／签名 App／随包工具／8 张原生界面图／源码 SHA 与包哈希一致。本机 `swift test` 仍因缺少 XCTest 无法执行；本机 Release、App 构建和签名通过，候选为 `artifacts/mac-tab5-20261020/c8a254f/AIBotBridge.app`，尚未启动。原生 CPU／VM 新鲜度检查和最终 RGB565 两帧预览／回执模拟通过，均不替代实体验收。
+
+现场仍为 `29f1654` 日历候选；日历实体反馈与用户手动解锁尚待回复。新候选包含已实现的 Codex 桌面发送／中断连接、日历、诊断子集和默认桌宠。解锁后先核对当前日历、原有只读开关与和风自动定位；再切换通过 CI 的新候选，依次验收桌宠和诊断，随后在用户明确指定的测试任务上验收 Codex 操作／直达，以及单独的一键锁屏。追加接口限制与未采集的诊断项仍按上文列为缺口。未合并 main、未部署服务、未发布、未刷机。
+
+CI 39445293598 for `c8a254fcfed916efaac0c977b6c2fae635275383` and the downloaded full artifacts passed: **209 tests, zero failures/skips**, matching source/package hashes, Release, signed app, tools and eight native UI fixtures. The first run exposed an old single-slot reassembly assumption; the test now reconstructs and acknowledges both pet slots independently. Local XCTest remains unavailable; local Release/bundle/signing and native observation/decoded-preview checks passed. Candidate `artifacts/mac-tab5-20261020/c8a254f/AIBotBridge.app` is not launched. The running calendar candidate remains `29f1654`; physical calendar feedback and manual unlock remain pending. No task mutation, lock acceptance, deployment, release or flashing is claimed. Resume preserved settings, physical pet/diagnostic checks and specifically designated-task controls only after the user unlocks.
