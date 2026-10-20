@@ -72,6 +72,9 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
                     self.timer = timer; timer.resume()
                 }
                 self.nextScan = 0
+                // Re-enabling reuses the manager, whose unchanged state does
+                // not trigger another delegate callback. Refresh it explicitly.
+                if let central = self.central { self.centralManagerDidUpdateState(central) }
             } else { self.central?.stopScan(); self.reset("蓝牙已关闭"); self.timer?.cancel(); self.timer = nil }
         }
     }
@@ -108,6 +111,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         }
     }
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        guard enabled else { return }
         switch central.state {
         case .poweredOn: nextScan = 0; service.bleState("正在寻找已配对 TAB5")
         case .unauthorized: reset("蓝牙权限被拒绝，请在系统设置中允许 AI-bot")
