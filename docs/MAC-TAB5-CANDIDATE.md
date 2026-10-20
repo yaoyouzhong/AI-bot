@@ -56,6 +56,8 @@ CI 附件包括 xUnit、日志、工具链、源码 SHA、含 LICENSE/第三方�
 
 2026-10-20 本机检查、实际固件包问题与待验收项目见 [现场验收记录](development/MAC-TAB5-ACCEPTANCE-20261020.md)。该记录区分工具链受阻、离线验证和正常 App／硬件结果。
 
+本机 `0.163.0-alpha.10.2` CLI 的实际随包布局已适配，但默认 `app-server proxy` socket 当前不存在，Codex 会话验收受阻。找到 CLI 或打开桌面应用不构成连接成功；“交互与权限”显示实际连接状态。本轮不另行部署 daemon。
+
 ---
 
 # English
@@ -79,3 +81,5 @@ Use **First install and backup/restore** for the 16 MiB ESP32-P4. Connect USB-C,
 CI performs native tests, Release, an ad-hoc signed app, non-device tool-help checks and fixture-only AppKit PNG rendering. It does not connect to a real conversation, device or Keychain, or request permissions. Artifacts include source SHA, reports, licenses and SHA-256 checksums; the app is not notarized. Hardware/permission/audio/display/OTA acceptance remains separate, following the ordered checklist above and the linked development record.
 
 The [2026-10-20 local acceptance record](development/MAC-TAB5-ACCEPTANCE-20261020.md) distinguishes the local toolchain blocker, actual package-loader repairs, offline checks and pending normal-app/hardware acceptance.
+
+The installed `0.163.0-alpha.10.2` CLI bundle layout is now supported, but its default App Server proxy socket is absent on the test Mac. Codex conversation acceptance is blocked; finding the executable or opening the desktop app is insufficient. The interaction window shows connection status. No alternate daemon is deployed in this session.

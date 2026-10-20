@@ -11,6 +11,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let desktop = NSButton(checkboxWithTitle: "允许快捷控制台打开并核对 Codex 桌面输入框", target: nil, action: nil)
     private let launchers = NSPopUpButton()
     private let result = NSTextField(wrappingLabelWithString: "")
+    private let codexState = NSTextField(wrappingLabelWithString: "")
+    private var timer: Timer?
     private var body: NSStackView?, documentView: NSView?
     init(service: MacTab5Service) {
         self.service = service
@@ -31,6 +33,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend); stack.addArrangedSubview(send)
         label("连接已运行的 Codex 本地 App Server，不修改登录、模型或审批策略。后台统计始终只读文件元数据；启用此项后才读取公开回复。草稿与送达记录在本机加密保存，发送结果未知时请在电脑核查，不会自动重发。")
         let cli = NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)); stack.addArrangedSubview(cli)
+        stack.addArrangedSubview(codexState); codexState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        codexState.font = .systemFont(ofSize: 12); codexState.textColor = .secondaryLabelColor
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop); stack.addArrangedSubview(desktop)
         label("快捷控制台另需辅助功能权限。必须读到与目标任务完全一致的桌面地址和主输入框；版本未提供这些信息时保留文字并返回未确认，不按窗口标题猜测。普通会话的回复、草稿和发送使用上面的本地 App Server。")
         label("语音输入", size: 15)
@@ -47,10 +51,18 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(result); result.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true; result.textColor = .secondaryLabelColor
         reload()
         resizeDocument()
+        refreshCodexState()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refreshCodexState() }
     }
+    deinit { timer?.invalidate() }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     func windowDidResize(_ notification: Notification) { resizeDocument() }
     private func resizeDocument() { window?.contentView?.layoutSubtreeIfNeeded(); if let documentView, let body { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(window?.contentView?.bounds.height ?? 560, body.fittingSize.height + 48))) } }
+    private func refreshCodexState() {
+        let text = "Codex：" + service.codex.summary
+        guard codexState.stringValue != text else { return }
+        codexState.stringValue = text; resizeDocument()
+    }
     func open() { reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }
     @objc private func toggleMusic() { UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey) }

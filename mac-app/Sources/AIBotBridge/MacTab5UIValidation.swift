@@ -17,6 +17,13 @@ enum MacTab5UIValidation {
         let windows: [(String, NSWindowController)] = [("connection", MacTab5Window(service: service, usb: usb)), ("features", MacTab5FeaturesWindow(service: service)), ("resources", MacTab5ToolsWindow(service: service, usb: usb)), ("first-install", MacTab5InstallWindow())]
         for (name, controller) in windows {
             guard let window = controller.window, let content = window.contentView else { throw MacTab5Error.unavailable }
+            if name == "connection" {
+                guard let receipt = content.subviews.compactMap({ $0 as? NSTextField }).first(where: { $0.identifier?.rawValue == "tab5-operation-result" }) else { throw MacTab5Error.unavailable }
+                receipt.stringValue = "TAB5 已确认保存显示设置。"
+                window.setFrame(NSRect(origin: window.frame.origin, size: window.minSize), display: false)
+                content.layoutSubtreeIfNeeded()
+                guard receipt.enclosingScrollView == nil, content.bounds.contains(receipt.convert(receipt.bounds, to: content)) else { throw MacTab5Error.invalidPacket }
+            }
             window.appearance = NSAppearance(named: .aqua); window.displayIfNeeded(); content.layoutSubtreeIfNeeded()
             try render(content, to: output.appendingPathComponent(name + ".png"))
             if let scroll = content.subviews.compactMap({ $0 as? NSScrollView }).first, let document = scroll.documentView { try render(document, to: output.appendingPathComponent(name + "-full.png")) }

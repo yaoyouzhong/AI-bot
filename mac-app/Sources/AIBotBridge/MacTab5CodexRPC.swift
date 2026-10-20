@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 enum MacTab5CodexFailure: Error { case unavailable, rejected, timeout, protocolError }
@@ -18,8 +19,19 @@ final class MacTab5CodexRPC {
     private let executable: () -> String?
     init(executable: @escaping () -> String? = MacTab5CodexRPC.locate) { self.executable = executable }
     static func locate() -> String? {
-        let saved = UserDefaults.standard.string(forKey: pathKey)
-        return ([saved].compactMap { $0 } + ["/Applications/Codex.app/Contents/Resources/codex", "/opt/homebrew/bin/codex", "/usr/local/bin/codex"]).first { $0.hasPrefix("/") && !$0.contains("\0") && FileManager.default.isExecutableFile(atPath: $0) }
+        var applications = NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex").compactMap(\.bundleURL)
+        if let registered = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.openai.codex") { applications.append(registered) }
+        applications += [URL(fileURLWithPath: "/Applications/Codex.app"), URL(fileURLWithPath: "/Applications/ChatGPT.app")]
+        return locate(saved: UserDefaults.standard.string(forKey: pathKey), applications: applications,
+                      isExecutable: FileManager.default.isExecutableFile(atPath:))
+    }
+    static func locate(saved: String?, applications: [URL], isExecutable: (String) -> Bool) -> String? {
+        let bundled = applications.flatMap { app in
+            ["Contents/Resources/codex", "Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"].map { app.appendingPathComponent($0).path }
+        }
+        return ([saved].compactMap { $0 } + bundled + ["/opt/homebrew/bin/codex", "/usr/local/bin/codex"]).first {
+            $0.hasPrefix("/") && !$0.contains("\0") && isExecutable($0)
+        }
     }
     func call(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
         calls.lock(); defer { calls.unlock() }

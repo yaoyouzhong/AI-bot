@@ -2,6 +2,23 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5CodexRPCTests: XCTestCase {
+    func testCLIResolutionSupportsCurrentDesktopBundleAndRenamedInstallations() {
+        for name in ["ChatGPT.app", "Renamed Codex.app"] {
+            let app = URL(fileURLWithPath: "/Applications/" + name)
+            let tool = app.appendingPathComponent("Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex").path
+            XCTAssertEqual(MacTab5CodexRPC.locate(saved: nil, applications: [app], isExecutable: { $0 == tool }), tool)
+            XCTAssertEqual(MacTab5CodexRPC.locate(saved: "/missing/codex", applications: [app], isExecutable: { $0 == tool }), tool)
+            XCTAssertEqual(MacTab5CodexRPC.locate(saved: "/custom/codex", applications: [app], isExecutable: { $0 == tool || $0 == "/custom/codex" }), "/custom/codex")
+        }
+    }
+    func testCLIResolutionRetainsLegacyAndTerminalFallbacksAndRejectsInvalidPaths() {
+        let app = URL(fileURLWithPath: "/Applications/Codex.app"), old = app.appendingPathComponent("Contents/Resources/codex").path
+        XCTAssertEqual(MacTab5CodexRPC.locate(saved: nil, applications: [app], isExecutable: { $0 == old }), old)
+        XCTAssertEqual(MacTab5CodexRPC.locate(saved: nil, applications: [], isExecutable: { $0 == "/opt/homebrew/bin/codex" }), "/opt/homebrew/bin/codex")
+        XCTAssertNil(MacTab5CodexRPC.locate(saved: "relative/codex", applications: [], isExecutable: { $0 == "relative/codex" }))
+        XCTAssertNil(MacTab5CodexRPC.locate(saved: "/invalid\0/codex", applications: [], isExecutable: { $0.contains("\0") }))
+    }
+
     func testLocalProxyHandshakeNotificationsAndOneInitialization() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true); defer { try? FileManager.default.removeItem(at: root) }

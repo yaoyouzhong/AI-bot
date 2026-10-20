@@ -68,7 +68,7 @@ final class MacTab5Codex {
             projection["projects"] = projects; projection["overviewTask"] = catalog.first
             note = "已连接本机 Codex · \(catalog.count) 个近期会话"; stateLock.unlock()
             if !viewedTask.isEmpty, catalog.contains(where: { $0["id"] as? String == viewedTask }) { _ = try page(task: viewedTask, root: [:], device: viewedDevice) }
-        } catch { stateLock.lock(); note = "Codex 未连接；请启动桌面应用并检查 CLI 路径。保留最近数据。"; projection["control"] = NSNull(); stateLock.unlock() }
+        } catch { stateLock.lock(); note = "Codex 未连接；请检查 CLI 与桌面 App Server 的本机代理是否可用。保留最近数据。"; projection["control"] = NSNull(); stateLock.unlock() }
     }
     private func loadJournal() throws -> [String: Any] {
         if let journal { return journal }

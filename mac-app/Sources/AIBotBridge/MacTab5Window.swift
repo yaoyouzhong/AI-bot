@@ -28,13 +28,26 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 14
         stack.translatesAutoresizingMaskIntoConstraints = false
         let content = window.contentView!
-        let scroll = NSScrollView(frame: content.bounds); scroll.autoresizingMask = [.width, .height]
+        let scroll = NSScrollView(frame: content.bounds); scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.hasVerticalScroller = true; scroll.drawsBackground = false
         let document = MacTab5DocumentView(frame: NSRect(x: 0, y: 0, width: content.bounds.width, height: 820))
         stackView = stack; documentView = document
         document.autoresizingMask = [.width]; scroll.documentView = document
         content.addSubview(scroll); document.addSubview(stack)
+        // Receipts must remain visible after the settings sheet closes, even
+        // when the setup form is scrolled or the window is at minimum height.
+        result.identifier = NSUserInterfaceItemIdentifier("tab5-operation-result")
+        result.textColor = .secondaryLabelColor; result.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(result)
         NSLayoutConstraint.activate([
+            scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: content.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: result.topAnchor, constant: -12),
+            result.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 24),
+            result.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24),
+            result.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
+            result.heightAnchor.constraint(greaterThanOrEqualToConstant: 18),
             stack.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 24),
             stack.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -24),
             stack.topAnchor.constraint(equalTo: document.topAnchor, constant: 24),
@@ -76,8 +89,6 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(action("首次安装与备份恢复…", #selector(openInstall)))
         stack.addArrangedSubview(action("使用与验收说明…", #selector(openGuide)))
         stack.addArrangedSubview(note("亮度、声音、页面和轮播设置以 TAB5 实际值为准；保存需要设备确认。"))
-        result.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(result); result.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         refreshPorts(); refreshStatus()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refreshStatus() }
     }
@@ -108,8 +119,10 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         result.stringValue = message
     }
     private func refreshStatus() {
-        connection.stringValue = service.connectionSummary; window?.contentView?.layoutSubtreeIfNeeded()
-        if let documentView, let stackView { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(window?.contentView?.bounds.height ?? 700, stackView.fittingSize.height + 48))) }
+        connection.stringValue = service.connectionSummary
+        result.preferredMaxLayoutWidth = max(1, (window?.contentView?.bounds.width ?? 610) - 48)
+        window?.contentView?.layoutSubtreeIfNeeded()
+        if let documentView, let stackView { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(documentView.enclosingScrollView?.contentView.bounds.height ?? 700, stackView.fittingSize.height + 48))) }
     }
     func windowDidResize(_ notification: Notification) { refreshStatus() }
     @objc private func openGuide() { if let url = Bundle.main.url(forResource: "MAC-TAB5-CANDIDATE", withExtension: "md") { _ = NSWorkspace.shared.open(url) } }
