@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var wakeUntil = Date.distantPast
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        configureApplicationMenu()
         statusItem.button?.title = "AI-bot"
         statusItem.button?.target=self
         statusItem.button?.action=#selector(statusClicked)
@@ -131,6 +132,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if tab5Window?.busy == true { tab5Window?.open(); return .terminateCancel }
         if tab5Window?.toolsBusy == true || tab5?.configurationBusy == true { tab5Window?.open(); return .terminateCancel }
         return .terminateNow
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openTab5()
+        return false
+    }
+
+    private func configureApplicationMenu() {
+        let menu = NSMenu()
+        let applicationItem = NSMenuItem()
+        let applicationMenu = NSMenu()
+        applicationMenu.addItem(item("退出 AI-bot Bridge", #selector(quit), key: "q"))
+        applicationItem.submenu = applicationMenu
+        menu.addItem(applicationItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "窗口")
+        windowMenu.addItem(NSMenuItem(title: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        windowMenu.addItem(item("TAB5…", #selector(openTab5)))
+        windowItem.submenu = windowMenu
+        menu.addItem(windowItem)
+        NSApp.mainMenu = menu
+        NSApp.windowsMenu = windowMenu
     }
 
     @objc private func openFlasher() {
