@@ -15,13 +15,13 @@ final class MacTab5Speech {
             AVCaptureDevice.requestAccess(for: .audio) { allowed in DispatchQueue.main.async { completion(allowed) } }
         }
     }
-    private func start(_ source: String, callback: @escaping (String, Bool, Bool) -> Void) throws {
+    private func start(_ source: String, callback: @escaping (String, Bool, MacTab5SpeechFailure?) -> Void) throws {
         lock.lock(); defer { lock.unlock() }; cancel()
         guard SFSpeechRecognizer.authorizationStatus() == .authorized, let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")), recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else { throw MacTab5Error.unavailable }
         let request = SFSpeechAudioBufferRecognitionRequest(); request.requiresOnDeviceRecognition = true; request.shouldReportPartialResults = true; request.taskHint = .dictation
         self.recognizer = recognizer; self.request = request
         let callbacks = OperationQueue(); callbacks.maxConcurrentOperationCount = 1; recognizer.queue = callbacks
-        recognition = recognizer.recognitionTask(with: request) { result, error in callback(result?.bestTranscription.formattedString ?? "", result?.isFinal == true, error != nil) }
+        recognition = recognizer.recognitionTask(with: request) { result, error in callback(result?.bestTranscription.formattedString ?? "", result?.isFinal == true, error.map(MacTab5SpeechFailure.init)) }
         if source == "pc" {
             guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { cancel(); throw MacTab5Error.unavailable }
             let engine = AVAudioEngine(), input = engine.inputNode, format = input.outputFormat(forBus: 0)

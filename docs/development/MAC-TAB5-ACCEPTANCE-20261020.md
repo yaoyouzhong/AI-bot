@@ -4,6 +4,24 @@
 
 本轮只进行本地候选运行、测试、联调与修复；不合并或推送 main、不安装常驻服务、不部署、不发布、不写入 TAB5 固件。真实发送、追加或中断 Codex 任务仍须指定测试任务。TAB5 展示设置保持原值。
 
+## 当前检查点
+
+当前已验程序为 `3db70a3`，具体修复、CI 与操作证据见下文。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
+
+| 交接阶段 | 当前结论与剩余项 |
+| --- | --- |
+| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 136 项通过；本机 XCTest 工具链仍受阻 |
+| 2 USB | 配对、数据、设置读写、拔插与桥接重启恢复通过 |
+| 3 Wi-Fi | 纯 Wi-Fi 认证与设置读写、USB 返回通过；配网、地址恢复、固定模式和八秒阈值精测待验 |
+| 4 BLE | 实际认证／数据／设置、开关重连、睡眠恢复、USB 优先、系统撤权恢复通过；首次直接拒绝与精确延时确认待验 |
+| 5 展示与资源 | 亮度持久化、设备声音、固定页／轮播／屏保、图库导入／失败保留／分页／方向通过；日常数据逐项、桌宠及音乐均匀计时仍未完成 |
+| 6 系统与音乐 | Apple Music 标题／封面／单次控制、系统音量／静音／取消静音、文件夹入口通过；Spotify、程序入口、锁屏／辅助功能拒绝恢复待验 |
+| 7 Codex | 已安装 CLI 已定位；公开代理默认 socket 缺失、握手前退出。实际任务链路受阻，未执行发送／追加／中断 |
+| 8 照片与语音 | 正常 App 语音权限通过，用户报告能识别但有提前连接中断，尚未通过稳定性；照片与任务附件尚未实机通过 |
+| 9 固件工具 | 官方包离线检查、正常 App 版本／SHA／说明预览、当前镜像只读 USB 启动核验通过；实际 OTA／首刷／恢复均未执行 |
+
+临时音乐页／开关／曲目、系统音量／静音和文件夹入口均已收尾。语音开关已暂停并恢复关闭；实体未保存的日程编辑留待修复复验后退出，不将整体九阶段写成完成。
+
 ## 环境与基础检查
 
 | 检查 | 实际结果 |
@@ -116,9 +134,33 @@
 
 ## 本轮修复：重新打开与窗口快捷键
 
-窗口置前可恢复界面工具，但关闭子窗口后工具再次无法选取桥接，`Command-W` 也没有关闭窗口。源码中的 accessory App 没有重新打开处理或主菜单。补充正常的 App reopen 委托：用户在访达再次打开已运行的 App 时显示 TAB5 主窗口；补充标准窗口菜单、`Command-W` 关闭和 `Command-Q` 退出。关闭仍由窗口既有忙碌保护决定，退出仍经过现有 App 委托保护；没有自动批准权限、外部控制接口或部署变更。正常 App 的重新打开／键盘回归待执行；不把此修正预先写成界面工具超时已全部解决。
+窗口置前可恢复界面工具，但关闭子窗口后工具再次无法选取桥接，`Command-W` 也没有关闭窗口。源码中的 accessory App 没有重新打开处理或主菜单。补充正常的 App reopen 委托：再次打开已运行的 App 时显示 TAB5 主窗口；补充标准窗口菜单、`Command-W` 关闭和 `Command-Q` 退出。关闭仍由窗口既有忙碌保护决定，退出仍经过现有 App 委托保护；没有自动批准权限、外部控制接口或部署变更。
 
 本机 Release 编译通过，既有 SerialBridge Sendable 警告未变；本机 `swift test` 仍因缺少 XCTest 模块在测试执行前受阻。此前文档提交 `61e86ac` 的 [Mac CI 39374024338](https://github.com/yaoyouzhong/AI-bot/actions/runs/39374024338) 和完整附件核验通过 136 项测试、0 失败／跳过，Release／App／工具、源码和包哈希一致；窗口修复的 CI 与正常 App 检查另行记录。
+
+程序提交 `3db70a3dece89c39acd71743007b8213ae366600` 的 [Mac CI 39374705006](https://github.com/yaoyouzhong/AI-bot/actions/runs/39374705006) 和完整附件核验通过：136 项测试，0 失败／跳过，Release／App／工具、8 张原生 PNG、源码与包哈希一致。本机正常候选构建／严格签名检查通过；用户处理匹配的钥匙串授权后，助手自动打开 TAB5，核对实际三通道状态与未认证 401。`Command-W` 关闭交互子窗口并回到主窗口通过；标准窗口菜单包含关闭与 TAB5 入口；`Command-Q` 退出后旧 PID 消失。随后自动启动同一候选，首次选取因尚无窗口超时，再次打开已运行 App 即自动显示 TAB5；无需用户手动打开窗口，USB 随后自动恢复数据确认。保留菜单栏 App 首次启动不主动弹窗的行为，不能据此宣称所有工具超时均已消除。
+
+## Mac 系统音量与静音实机验收
+
+在正常 `3db70a3` 中自动启用电脑控制，音乐仍关闭。使用实际产品的 CoreAudio 只读路径取得操作前音量／静音恢复基线，不通过测试后端发送控制。用户在实体“应用 → 控制”拖动后反馈 17%；Mac CoreAudio 读回与正常系统声效面板均为 17%。实体分别点击一次静音、取消静音后，用户确认按钮切换，CoreAudio 分别读回 true／false，原音量保持。因此真实 TAB5 → Mac 的音量、静音及取消静音控制通过；没有用模拟请求代替实体触摸。
+
+助手随后通过正常系统设置恢复操作前音量，CoreAudio 再次确认音量和非静音均已恢复；正常退出临时打开的系统设置，关闭电脑控制开关并核对其他开关保持关闭。重新读取设备显示设置与阶段恢复值一致，只取消表单，不再保存。此项与 TAB5 自身提示声音、锁屏／辅助功能、常用入口、Spotify 分别记录。
+
+**常用文件夹入口通过**：原入口列表为空，助手在正常 App 临时添加本轮新建的空目录 `TAB5-LaunchTest` 并启用电脑控制。用户在实体控制页点一次该入口后，访达从原候选目录窗口切为该测试目录，显示零个项目；未直接在 Mac 打开该目录来替代设备操作。随后关闭测试访达窗口、从正常 App 移除唯一临时入口并关闭电脑控制，确认列表再次为空，最后移除助手创建的空目录。应用程序入口、锁屏／辅助功能和权限拒绝恢复仍单独待验，不以文件夹打开代替。
+
+## 语音授权与提前中断排查
+
+正常 `3db70a3` 中由助手触发语音授权，用户完成系统确认，窗口与人工反馈均为“语音权限已授权；开始时仍会检查本地语言模型是否可用。”。电脑、音乐和 Codex 开关保持关闭。日程名称使用设备已有的独立语音 owner，不需要启用或发送 Codex 任务；测试只进入未保存的名称编辑。
+
+用户报告能识别，但多次在尚未来得及说话时自动结束，提示连接中断，因此稳定性未通过，未取得准确最终文字，不写成完整识别验收。对照实际 `.234` 源码，`voice_remote.c` 在请求没有可接受回复时进入连接中断／恢复；Mac 识别器回调错误则使用另一条“识别中断”提示，不能将两者混为静音结束。
+
+助手先在正常 App 关闭语音、正常退出桥接，确认无进程／串口所有者后，以 460800 只发送一次 `tab5_ping`，读取并仅输出白名单数字／阶段码：最近语音请求 2 ms、seq 24，USB RPC 历史计数 83、最近阶段 1、状态 0／零回复字节。计数覆盖此前运行，不足以对应每次失败或锁定竞争／重置的根因。未记录原始串口流、音频、识别文字或配对材料，未重置／写入设备。随后正常恢复同一候选，等待 USB 数据确认后才启用语音。
+
+一次三秒静默、手动停止的定点检查得到“识别中断，文字可能不完整，请检查后重新录入”；用户明确它在点击停止后才出现，此轮没有复现提前结束。两个 Mac 窗口采样均显示 USB 数据确认，不代表覆盖所有瞬时变化。原实现丢弃 NSError 的领域／编号，将所有识别错误合为同一提示；[Apple 错误说明](https://developer.apple.com/documentation/speech/sfspeechrecognitiontask/error) 将无语音、资源、授权和服务故障分开列出。
+
+修复保留受控错误分类：只有用户明确停止、没有部分文字且得到无语音结果时，进入不能插入的空预览；提前结束、连接超时或未确认的部分文字仍失败。资源／权限／识别器忙碌／本地服务连接与未知数字错误码分别提示，不显示原始错误描述。交互窗口新增收音／本地识别／待检查／错误状态，不显示转录、任务或设备标识，便于助手直接核对。协议字段、强制本地识别及停止／取消界限保持。
+
+新增五项回归覆盖空录音停止、提前无语音、部分文字不确认、按领域分类、连接超时不伪装为手动停止，以及窗口摘要不泄露转录／错误原文。本机 Release 通过，XCTest 仍缺少模块、未执行；新正常 App／CI 复验另记。当前语音开关已恢复关闭；原始连接中断未被此错误提示修复宣称解决。
 
 ## 本轮修复：正式固件包的许可证目录
 
@@ -200,6 +242,8 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 
 ## English
 
+Current verified program is `3db70a3`; older pending statements retain their historical context. USB and actual BLE settings/reconnection/sleep recovery passed, as did pure-Wi-Fi settings and USB return. Provisioning/address recovery/fixed modes/exact fallback timing remain pending. Display controls/persistence, gallery import/failure retention/pagination/orientation passed; individual daily data, pets and even music timing remain unfinished. Apple Music metadata/artwork/control, system volume/mute/unmute and folder launch passed; Spotify, application launch and lock/Accessibility denial/recovery remain pending. Codex proxy initialization is blocked before handshake, and no real task send/append/interrupt was executed. Voice permissions passed, but premature connection interruption keeps capture stability unaccepted; photo/task attachments remain unaccepted. Normal-app firmware preview and read-only current-image USB boot verification passed; no firmware write occurred. Temporary music/media, system audio and folder-launcher cleanup completed; voice was disabled again, and the unsaved device agenda editor awaits retest/exit. The full nine-stage acceptance is not complete.
+
 Fixed-cadence program commit `3c82bcce4df49af2b3e1c64445664500eabf7a43` passed [Mac CI 39368358000](https://github.com/yaoyouzhong/AI-bot/actions/runs/39368358000) and full artifact verification: 136 tests, zero failures/skips, Release/app/tools, eight native PNGs and matching source/package hashes. An actual-object synthetic cadence check passed twenty varying ACKs, control rephasing and blocked-write burst suppression without device access. Local Release/bundle/signature passed; local XCTest remains unavailable. The previous candidate was normally quit before exact `3c82bcc` launch. The user handled system authorization and confirmed opening TAB5; the unique process and both unauthenticated HTTP 401 routes were verified. Bridge-window selection repeatedly timed out, including after reconnecting the UI tool, so USB/BLE row text is not independently reconfirmed for this run. Read-only stack symbols showed AppKit event processing, music polling and USB work; no persistent freeze was established and no Keychain contents were inspected. Music UI automation remained available and restarted the fixture.
 
 After the forty-five-second observation, the user reported no skipped seconds but uneven progress. This is an improvement, not full timeline acceptance. Subsequent single physical pause and play each reportedly took under one second; normal Music UI independently confirmed both real states and opposite action buttons. These durations are user estimates, not instrumented measurements. See the [firmware timing follow-up](MAC-TAB5-MUSIC-TIMING-FOLLOWUP.md) for the running `.234` renderer's integer truncation/per-packet phase reset, synthetic replay evidence and required lifecycle checks. No firmware was changed or written.
@@ -208,9 +252,19 @@ Bringing TAB5 to the foreground restored UI-tool selection, allowing acknowledge
 
 In the same normal `3c82bcc` app, selecting the official `.234` upgrade ZIP showed version `0.2.234-ui`, the exact application SHA above, structured actual sidecar notes and an explicit not-started state. Only Verify Boot was invoked; it reported USB verification of exact ELF, VALID partition and three live UI samples. This checks the already running image, not an OTA/write performed in this session or a new physical screen/touch observation. Stop Providing Firmware then returned to no selected firmware with the stop receipt. No upgrade-start, reset or flash-write action was invoked.
 
-Foregrounding restored bridge selection, but closing a child window again left it unselectable and Command-W did not close the window. The accessory app lacked a reopen delegate and main menu. Normal Finder reopen now opens TAB5; a standard Window menu adds Command-W and Command-Q follows the existing quit path. Existing window-busy and application termination guards remain. No automatic permission approval, external control interface or deployment was added. Normal-app reopen/keyboard revalidation is pending; this does not predeclare every UI-tool timeout fixed.
+Foregrounding restored bridge selection, but closing a child window again left it unselectable and Command-W did not close the window. The accessory app lacked a reopen delegate and main menu. Reopening the running app now opens TAB5; a standard Window menu adds Command-W and Command-Q follows the existing quit path. Existing window-busy and application termination guards remain. No automatic permission approval, external control interface or deployment was added.
 
 Local Release passed with the unchanged SerialBridge Sendable warning; local XCTest remained blocked before execution. Earlier documentation commit `61e86ac` passed [Mac CI 39374024338](https://github.com/yaoyouzhong/AI-bot/actions/runs/39374024338), and complete artifacts verified 136 tests with zero failures/skips, Release/app/tools and matching source/package hashes. The window change's CI and normal-app checks are tracked separately.
+
+Program `3db70a3dece89c39acd71743007b8213ae366600` passed [Mac CI 39374705006](https://github.com/yaoyouzhong/AI-bot/actions/runs/39374705006); complete artifacts verified 136 tests, zero failures/skips, Release/app/tools, eight native PNGs and matching source/package hashes. The normal local candidate passed bundle/strict-signature checks. After the user handled expected Keychain authorization, automated window selection confirmed actual transport status and unauthenticated 401. Command-W closed the feature child and returned to TAB5; the Window menu exposed Close and TAB5. Command-Q exited with the old PID absent. Automated relaunch initially timed out with no window; reopening that running app then showed TAB5 without manual window assistance, and USB automatically recovered. Initial menu-only launch remains intentional, so not every UI-tool timeout is claimed eliminated.
+
+With computer control temporarily enabled and music off, a read-only production CoreAudio path captured the fresh restoration baseline. The user dragged physical TAB5 volume to 17%; CoreAudio and normal Sound settings both read 17%. Single physical mute/unmute clicks changed the device buttons and CoreAudio to true/false with volume retained. Real TAB5-to-Mac volume/mute/unmute passed without synthetic control requests. Normal Sound settings then restored the original volume, independently confirmed with the unmuted baseline. Temporary System Settings was quit and computer opt-in restored off. Fresh device display settings matched this phase's restored values; the form was cancelled without another save. Device speaker audio, lock/Accessibility, launchers and Spotify remain separate checks.
+
+Folder launcher passed separately. Starting with an empty launcher list, normal app selection temporarily added the newly created empty `TAB5-LaunchTest` directory and enabled computer control. After one physical device click, Finder switched from the old candidate folder to that exact empty test directory; the assistant did not open it directly on the Mac to substitute for device input. The temporary Finder window was closed, the entry removed through the app and computer control disabled; the empty list was verified and the assistant-created empty directory removed. Application launchers, lock/Accessibility and permission denial/recovery remain separate pending checks.
+
+Normal `3db70a3` voice authorization passed via the user's system confirmation and matching app receipt, with computer/music/Codex off. An unsaved agenda-name editor uses the existing independent voice owner. The user could recognize speech but reported ending before speaking with a connection-interruption message; accurate final text was not supplied, so full recognition/stability is not accepted. Published `.234` firmware distinguishes missing/unacceptable transport replies from the Mac recognizer-error message. After disabling voice and normally quitting, the assistant verified exclusive serial ownership and sent only a 460800-baud ping. Whitelisted diagnostics retained 2 ms/seq 24 for the recent voice request and historical USB RPC count 83, stage 1/status 0/zero reply bytes. Historical counters do not correlate every failure or prove contention/reset. No raw stream, audio, transcript or pairing material was saved; no reset/write occurred. The same app was restarted and USB confirmation awaited before another voice check.
+
+A single silent three-second take reported the generic recognition error only after the user pressed Stop; premature completion was not reproduced in that check. Both UI samples showed acknowledged USB, without claiming continuous coverage. The old backend discarded NSError classification. The repair distinguishes manual empty no-speech review from premature/timeout/partial failures, and reports controlled resource/permission/busy/service/unknown-code errors without raw error descriptions. A live Mac status summarizes capture, local recognition, review and errors without transcripts or identities. Existing wire fields and local-only recognition remain. Five regressions cover these behaviors and summary privacy. Local Release passed; XCTest remains unavailable and CI/normal-app checks follow separately. Voice was disabled again. The original transport interruption is not claimed fixed by this error-reporting repair.
 
 Normal candidate `754fd02` passed local bundle/signature/tool checks and was automatically launched after normal quit of the previous app; the user handled its expected system authorization. USB, authenticated Wi-Fi, BLE standby, the unique exact process and both unauthenticated HTTP 401 checks recovered. Its [Mac CI 39367861614](https://github.com/yaoyouzhong/AI-bot/actions/runs/39367861614) and complete downloaded artifacts verified 134 tests with zero failures/skips, Release/app/tools, eight native PNGs and source/package hashes. The initial thirty-second report selected backwards-or-skipped seconds; clarification specifically reported forward skips with no backwards movement. No rewind was reported in this observation, but forward stepping remains unpassed. Firmware adds a whole-second base to whole seconds since receipt. The old USB cadence waited two seconds after each ACK, accumulating transport/callback time into phase drift. The follow-up keeps original deadlines, restarts phase for control changes and skips missed slots after a blocked write instead of bursting. Two regressions cover repeated ACK/callback delays, control and blocked writes. A synthetic phase model can produce rapid adjacent second changes with ACK-based drift and avoids them with fixed phase; this is not hardware timing evidence and physical revalidation is pending.
 

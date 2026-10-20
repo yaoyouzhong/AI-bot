@@ -12,6 +12,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let launchers = NSPopUpButton()
     private let result = NSTextField(wrappingLabelWithString: "")
     private let codexState = NSTextField(wrappingLabelWithString: "")
+    private let voiceState = NSTextField(wrappingLabelWithString: "")
     private var timer: Timer?
     private var body: NSStackView?, documentView: NSView?
     init(service: MacTab5Service) {
@@ -39,6 +40,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         label("快捷控制台另需辅助功能权限。必须读到与目标任务完全一致的桌面地址和主输入框；版本未提供这些信息时保留文字并返回未确认，不按窗口标题猜测。普通会话的回复、草稿和发送使用上面的本地 App Server。")
         label("语音输入", size: 15)
         voice.state = service.voice.isEnabled ? .on : .off; voice.target = self; voice.action = #selector(toggleVoice); stack.addArrangedSubview(voice)
+        stack.addArrangedSubview(voiceState); voiceState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        voiceState.font = .systemFont(ofSize: 12); voiceState.textColor = .secondaryLabelColor
         label("支持 TAB5 收音或 Mac 默认麦克风（可在系统设置选择 USB 麦克风）。仅在系统支持该语言的本地识别时启动；不自动上传音频。识别文字先预览，确认后才能发送或填入事项／日期。首次启用会请求系统权限。")
         label("常用入口（最多四个）", size: 15)
         stack.addArrangedSubview(launchers)
@@ -60,8 +63,9 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private func resizeDocument() { window?.contentView?.layoutSubtreeIfNeeded(); if let documentView, let body { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(window?.contentView?.bounds.height ?? 560, body.fittingSize.height + 48))) } }
     private func refreshCodexState() {
         let text = "Codex：" + service.codex.summary
-        guard codexState.stringValue != text else { return }
-        codexState.stringValue = text; resizeDocument()
+        let speech = "语音：" + service.voice.summary
+        guard codexState.stringValue != text || voiceState.stringValue != speech else { return }
+        codexState.stringValue = text; voiceState.stringValue = speech; resizeDocument()
     }
     func open() { reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }

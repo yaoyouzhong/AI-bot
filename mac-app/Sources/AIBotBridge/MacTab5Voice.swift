@@ -1,7 +1,36 @@
 import Foundation
 
+enum MacTab5SpeechFailure: Equatable {
+    case noSpeech, assetsMissing, permission, unavailable, recognizerBusy, serviceInterrupted(Int), other(Int)
+
+    init(_ error: Error) {
+        let error = error as NSError
+        switch (error.domain, error.code) {
+        case ("kAFAssistantErrorDomain", 1110): self = .noSpeech
+        case ("kLSRErrorDomain", 102): self = .assetsMissing
+        case ("kLSRErrorDomain", 201), ("kAFAssistantErrorDomain", 1700): self = .permission
+        case ("kLSRErrorDomain", 300): self = .unavailable
+        case ("kAFAssistantErrorDomain", 1100): self = .recognizerBusy
+        case ("kAFAssistantErrorDomain", 1101), ("kAFAssistantErrorDomain", 1107): self = .serviceInterrupted(error.code)
+        default: self = .other(error.code)
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .noSpeech: return "没有识别到文字，请准备好后重录。"
+        case .assetsMissing: return "中文本地识别资源未安装，请在 Mac 检查语音资源后重试。"
+        case .permission: return "语音识别未获允许或听写已关闭，请在 Mac 检查权限。"
+        case .unavailable: return "本地识别器未能启动，请稍后重新录入。"
+        case .recognizerBusy: return "上一段本地识别仍在结束，请稍后重新录入。"
+        case .serviceInterrupted(let code): return "Mac 本地识别服务连接中断（\(code)），请检查后重新录入。"
+        case .other(let code): return "本地识别中断（错误码 \(code)），文字可能不完整，请重新录入。"
+        }
+    }
+}
+
 struct MacTab5SpeechBackend {
-    var start: (String, @escaping (String, Bool, Bool) -> Void) throws -> Void
+    var start: (String, @escaping (String, Bool, MacTab5SpeechFailure?) -> Void) throws -> Void
     var feed: ([Int16]) throws -> Void
     var finish: () -> Void
     var cancel: () -> Void
@@ -17,6 +46,7 @@ final class MacTab5Voice {
     private var sequence = 0, samples = 0, level = 0
     private var hashes: [Int: String] = [:]
     private var isFinal = false
+    private var stoppedByUser = false
     private var timer: DispatchSourceTimer?
     init(enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, backend: MacTab5SpeechBackend? = nil) {
         self.enabled = enabled; self.clock = clock; self.backend = backend ?? MacTab5Speech().backend()
@@ -24,6 +54,18 @@ final class MacTab5Voice {
         timer.setEventHandler { [weak self] in guard let self else { return }; self.lock.lock(); self.tick(); self.lock.unlock() }; self.timer = timer; timer.resume()
     }
     var isEnabled: Bool { enabled() }
+    var summary: String {
+        lock.lock(); defer { lock.unlock() }
+        guard enabled() else { return "尚未启用" }
+        switch state {
+        case "recording": return source == "tab5" ? "正在收音 · TAB5 麦克风" : "正在收音 · Mac 默认麦克风"
+        case "recognizing": return "收音已停止，正在本地识别"
+        case "review": return text.isEmpty ? "没有识别到文字，请重新录入" : "识别已结束，请在 TAB5 检查文字"
+        case "cancelled": return "已取消收音"
+        case "error": return message
+        default: return "已启用，等待 TAB5 发起收音"
+        }
+    }
     deinit { timer?.cancel(); backend.cancel() }
     func stop() { lock.lock(); defer { lock.unlock() }; backend.cancel(); state = "cancelled"; text = ""; id = "" }
     private func tick() {
@@ -46,7 +88,7 @@ final class MacTab5Voice {
             guard let task = MacTab5Codex.id(root["taskId"]), let session = root["session"] as? String else { return .error(400, "invalid_voice_owner") }
             if ["recording", "recognizing"].contains(state) { return .error(409, "voice_busy") }
             backend.cancel(); id = UUID().uuidString.lowercased(); self.device = device; self.task = task; self.session = session
-            source = root["source"] as? String == "tab5" ? "tab5" : "pc"; state = "recording"; text = ""; message = "请开始说话"; isFinal = false
+            source = root["source"] as? String == "tab5" ? "tab5" : "pc"; state = "recording"; text = ""; message = "请开始说话"; isFinal = false; stoppedByUser = false
             sequence = 0; samples = 0; level = 0; hashes.removeAll(); started = clock(); seen = started
             do { try beginBackend(); return snapshot() }
             catch { state = "error"; message = "本地语音不可用，请在 Mac 授权语音识别和麦克风，并确认该语言支持离线识别。"; backend.cancel(); return snapshot() }
@@ -56,7 +98,7 @@ final class MacTab5Voice {
         if op == "poll" { return snapshot() }
         if op == "cancel" { backend.cancel(); text = ""; state = "cancelled"; message = "已取消"; isFinal = false; return snapshot() }
         if op == "stop" {
-            if state == "recording" { state = "recognizing"; stopped = clock(); message = "正在完成本地识别"; backend.finish() }
+            if state == "recording" { state = "recognizing"; stoppedByUser = true; stopped = clock(); message = "正在完成本地识别"; backend.finish() }
             return snapshot()
         }
         if op == "tab5", state == "recording", source == "pc", samples == 0, text.isEmpty {
@@ -82,7 +124,13 @@ final class MacTab5Voice {
             guard self.id == owner, ["recording", "recognizing"].contains(self.state) else { return }
             if !result.isEmpty { self.text = Self.bounded(result, maximum: 2000) }
             if result.utf8.count > 2000 { self.state = "error"; self.message = "识别文字超过长度限制，请分段录入"; self.backend.cancel(); return }
-            if error { self.state = "error"; self.message = "识别中断，文字可能不完整，请检查后重新录入"; self.backend.cancel() }
+            if let error {
+                // No speech after an explicit stop is an empty review, not a
+                // broken connection. Never promote an unconfirmed partial.
+                let emptyStop = error == .noSpeech && self.stoppedByUser && self.state == "recognizing" && self.text.isEmpty
+                self.state = emptyStop ? "review" : "error"; self.isFinal = emptyStop
+                self.message = error.message; self.backend.cancel()
+            }
             else if done {
                 let wasRecording = self.state == "recording"
                 self.isFinal = true; self.state = "review"; self.message = self.text.isEmpty ? "没有识别到文字，请重录" : "请检查文字，确认后再发送"
