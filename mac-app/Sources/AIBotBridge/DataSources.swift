@@ -9,6 +9,7 @@ struct MacDataExtras {
     let music: MusicSnapshot?
     let musicCover: Data?
     var quotaTrend: MacQuotaTrend? = nil
+    var domesticQuotas: DomesticQuotaSnapshot? = nil
 
     static let empty = MacDataExtras(weather: nil, stocks: nil, systemMetrics: nil,
                                      quotas: nil, music: MusicSnapshot.empty(), musicCover: nil)
@@ -19,6 +20,7 @@ struct MacDataPreferences {
     let latitude: Double?
     let longitude: Double?
     let symbols: [String]
+    var automaticLocation = false
 
     static func load(_ defaults: UserDefaults = .standard) -> MacDataPreferences {
         let city = defaults.string(forKey: "weather_city")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -28,7 +30,8 @@ struct MacDataPreferences {
             ? nil : defaults.double(forKey: "weather_longitude")
         let configured = defaults.stringArray(forKey: "stock_symbols") ?? ["sh000001"]
         return MacDataPreferences(city: city, latitude: latitude, longitude: longitude,
-                                  symbols: configured.compactMap { MacDataService.normalizeStock($0) })
+                                  symbols: configured.compactMap { MacDataService.normalizeStock($0) },
+                                  automaticLocation: defaults.bool(forKey: "weather_automatic_location"))
     }
 
     func save(_ defaults: UserDefaults = .standard) {
@@ -38,6 +41,7 @@ struct MacDataPreferences {
         if let longitude { defaults.set(longitude, forKey: "weather_longitude") }
         else { defaults.removeObject(forKey: "weather_longitude") }
         defaults.set(symbols, forKey: "stock_symbols")
+        defaults.set(automaticLocation, forKey: "weather_automatic_location")
     }
 }
 
@@ -46,9 +50,18 @@ final class MacDataStore {
     private let defaults: UserDefaults
     private let quotaHistory: MacQuotaHistory?
     private var weather: WeatherSnapshot?
+    private var weatherNote = "天气：尚未刷新"
+    var weatherDiagnostic: String { lock.lock(); defer { lock.unlock() }; return weatherNote }
+    func weatherDiagnostic(_ note: String) { lock.lock(); weatherNote = note; lock.unlock() }
     private var stocks: StockSnapshot?
     private var systemMetrics: SystemMetricsSnapshot?
+    var systemDiagnostic: String {
+        lock.lock(); defer { lock.unlock() }
+        guard let count = systemMetrics?.samples?.count, let sequence = systemMetrics?.sampleSequence else { return "网络曲线：等待采样" }
+        return "网络曲线：\(count) 个样本 · 序号 \(sequence)"
+    }
     private var quotas: QuotaSnapshot?
+    private var domesticQuotas: DomesticQuotaSnapshot?
     private var music: MusicSnapshot = .empty()
     private var musicSampled = false
     private var musicCover: Data?
@@ -77,13 +90,44 @@ final class MacDataStore {
            let value = try? decoder.decode(QuotaSnapshot.self, from: data) {
             quotas = QuotaSnapshot(claude: Self.stale(value.claude), codex: Self.stale(value.codex))
         }
+        if let data = defaults.data(forKey: "domestic_quota_cache"),
+           let value = try? decoder.decode(DomesticQuotaSnapshot.self, from: data) {
+            domesticQuotas = value
+            domesticQuotas?.deepSeek = value.deepSeek.map(Self.staleDomestic)
+            domesticQuotas?.zhipu = value.zhipu.map(Self.staleDomestic)
+        }
     }
 
     func snapshot() -> MacDataExtras {
         lock.lock()
         defer { lock.unlock() }
         return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics,
-                             quotas: quotas, music: music, musicCover: musicCover, quotaTrend: quotaHistory?.snapshot())
+                             quotas: quotas, music: music, musicCover: musicCover, quotaTrend: quotaHistory?.snapshot(),
+                             domesticQuotas: domesticQuotas)
+    }
+    func updateDomestic(_ value: DomesticProviderQuotaSnapshot) {
+        lock.lock(); defer { lock.unlock() }
+        var current = domesticQuotas ?? DomesticQuotaSnapshot(alibaba: nil, kimi: nil, miniMax: nil, deepSeek: nil)
+        if value.provider == "deepseek" { current.deepSeek = value }
+        else if value.provider == "zhipu" { current.zhipu = value }
+        else { return }
+        domesticQuotas = current
+        if let data = Self.encode(current) { defaults.set(data, forKey: "domestic_quota_cache") }
+    }
+    func markDomesticStale(_ provider: String) {
+        lock.lock(); defer { lock.unlock() }
+        guard var current = domesticQuotas else { return }
+        if provider == "deepseek" { current.deepSeek = current.deepSeek.map(Self.staleDomestic) }
+        if provider == "zhipu" { current.zhipu = current.zhipu.map(Self.staleDomestic) }
+        domesticQuotas = current
+    }
+    func clearDeepSeekForNewAccount() {
+        lock.lock(); defer { lock.unlock() }
+        domesticQuotas?.deepSeek = nil
+        if let current = domesticQuotas, let data = Self.encode(current) { defaults.set(data, forKey: "domestic_quota_cache") }
+    }
+    private static func staleDomestic(_ value: DomesticProviderQuotaSnapshot) -> DomesticProviderQuotaSnapshot {
+        var value = value; value.stale = true; return value
     }
 
     func update(weather value: WeatherSnapshot) {
@@ -207,6 +251,7 @@ actor MacDataService {
     private let session: URLSession
     private var lastWeatherAttempt = Date.distantPast
     private var lastStockAttempt = Date.distantPast
+    private var refreshingWeather = false
 
     init(store: MacDataStore) {
         self.store = store
@@ -229,9 +274,15 @@ actor MacDataService {
     }
 
     private func refreshWeather() async {
+        guard !refreshingWeather else { return }
+        refreshingWeather = true
+        defer { refreshingWeather = false }
         do {
             let preferences = MacDataPreferences.load()
-            guard let location = try await resolveLocation(preferences) else { return }
+            store.weatherDiagnostic(preferences.automaticLocation ? "天气：正在获取大致位置…" : "天气：正在查询…")
+            guard let location = try await resolveLocation(preferences) else {
+                store.weatherDiagnostic("天气：请选择自动定位或填写城市。"); return
+            }
             let coordinate = String(format: "latitude=%.6f&longitude=%.6f", locale: Locale(identifier: "en_US_POSIX"),
                                     location.latitude, location.longitude)
             let forecast = URL(string: "https://api.open-meteo.com/v1/forecast?\(coordinate)&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto")!
@@ -240,14 +291,18 @@ actor MacDataService {
             guard (forecastResponse as? HTTPURLResponse)?.statusCode == 200 else {
                 throw DataError.invalidResponse
             }
-            let (airData, airResponse) = try await session.data(from: air)
-            guard (airResponse as? HTTPURLResponse)?.statusCode == 200 else {
-                throw DataError.invalidResponse
+            var airData: Data?
+            if let (data, response) = try? await session.data(from: air),
+               (response as? HTTPURLResponse)?.statusCode == 200 {
+                airData = data
             }
             let value = try Self.parseWeather(forecast: forecastData, air: airData, city: location.label)
             store.update(weather: value)
+            store.weatherDiagnostic("天气：已更新" + (value.airQualityIndex == nil ? "，空气质量暂不可用" : ""))
         } catch {
             store.markWeatherStale()
+            store.weatherDiagnostic((error as? MacWeatherLocation.Failure)?.errorDescription ??
+                                    "天气：查询失败，已保留上次成功数据。")
         }
     }
 
@@ -274,6 +329,10 @@ actor MacDataService {
 
     private func resolveLocation(_ preferences: MacDataPreferences) async throws
         -> (latitude: Double, longitude: Double, label: String)? {
+        if preferences.automaticLocation {
+            let coordinate = try await MacWeatherLocation.shared.locate()
+            return (coordinate.0, coordinate.1, "当前位置")
+        }
         if let latitude = preferences.latitude, let longitude = preferences.longitude,
            (-90...90).contains(latitude), (-180...180).contains(longitude) {
             return (latitude, longitude, preferences.city.isEmpty ? "当前位置" : preferences.city)
@@ -291,17 +350,17 @@ actor MacDataService {
         return (result.latitude, result.longitude, result.name)
     }
 
-    static func parseWeather(forecast: Data, air: Data, city: String, now: Date = Date()) throws
+    static func parseWeather(forecast: Data, air: Data?, city: String, now: Date = Date()) throws
         -> WeatherSnapshot {
         let weather = try JSONDecoder().decode(ForecastResponse.self, from: forecast)
-        let quality = try JSONDecoder().decode(AirResponse.self, from: air)
+        let quality = air.flatMap { try? JSONDecoder().decode(AirResponse.self, from: $0) }
         guard let high = weather.daily.temperatureMax.first,
               let low = weather.daily.temperatureMin.first else { throw DataError.invalidResponse }
         return WeatherSnapshot(city: city, condition: condition(weather.current.code),
                                temperature: weather.current.temperature, high: high, low: low,
                                humidity: Int(weather.current.humidity.rounded()), weatherCode: weather.current.code,
-                               pm25: quality.current?.pm25,
-                               airQualityIndex: quality.current.map { Int($0.aqi.rounded()) },
+                               pm25: quality?.current?.pm25,
+                               airQualityIndex: quality?.current.map { Int($0.aqi.rounded()) },
                                source: "Open-Meteo", updatedAt: now, stale: false)
     }
 

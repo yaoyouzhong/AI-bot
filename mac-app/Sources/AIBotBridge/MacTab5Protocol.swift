@@ -92,7 +92,6 @@ enum MacTab5Protocol {
         var data = try object(encoder.encode(snapshot))
         // ESP8266 display preferences and unavailable capabilities are not TAB5 settings.
         data.removeValue(forKey: "displayPolicy")
-        data.removeValue(forKey: "domesticQuotas")
         data["epochMilliseconds"] = Int64(snapshot.capturedAt.timeIntervalSince1970 * 1000)
         data["pcInput"] = ["session": session, "sequence": sequence]
         data["connectionHealth"] = ["displayCommand": command.map { $0 as Any } ?? NSNull()]
@@ -112,13 +111,7 @@ enum MacTab5Protocol {
             music["hasArtwork"] = hasArtwork
             data["music"] = music; data["musicPlaying"] = track.playing
         }
-        let zone = TimeZone(secondsFromGMT: snapshot.utcOffsetSeconds) ?? .gmt
-        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
-        let date = Date(timeIntervalSince1970: TimeInterval(snapshot.epochUtc))
-        let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
-        data["calendar"] = ["date": String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0),
-                            "weekday": "星期" + ["日", "一", "二", "三", "四", "五", "六"][(parts.weekday ?? 1) - 1],
-                            "lunar": LunarDate.format(epoch: snapshot.epochUtc, utcOffset: snapshot.utcOffsetSeconds)]
+        data["calendar"] = MacTab5Calendar.snapshot(epoch: snapshot.epochUtc, offset: snapshot.utcOffsetSeconds)
         data["quotaDetails"] = quotaDetails(snapshot)
         for (key, value) in additions { data[key] = value }
         let frame = try json(["version": 1, "type": "tab5_status", "deviceId": device,
@@ -128,7 +121,7 @@ enum MacTab5Protocol {
     }
 
     private static func quotaDetails(_ snapshot: MacStatusSnapshot) -> [[String: Any]] {
-        [("claude", "Claude", snapshot.quotas?.claude, snapshot.claude.tokensToday),
+        var details = [("claude", "Claude", snapshot.quotas?.claude, snapshot.claude.tokensToday),
          ("codex", "Codex", snapshot.quotas?.codex, snapshot.codex.tokensToday)].map { id, name, quota, tokens in
             var value: [String: Any] = ["id": id, "name": name, "stale": quota?.stale ?? false, "tokensToday": tokens]
             value["plan"] = quota?.plan
@@ -151,5 +144,23 @@ enum MacTab5Protocol {
             } ?? []
             return value
         }
+        // TAB5 selects these rows by their established index, not only by id.
+        for (id, name, quota) in [("alibaba", "百炼", snapshot.domesticQuotas?.alibaba),
+                                  ("kimi", "Kimi", snapshot.domesticQuotas?.kimi),
+                                  ("minimax", "MiniMax", snapshot.domesticQuotas?.miniMax),
+                                  ("deepseek", "DeepSeek", snapshot.domesticQuotas?.deepSeek),
+                                  ("zhipu", "智谱", snapshot.domesticQuotas?.zhipu),
+                                  ("stepfun", "阶跃", snapshot.domesticQuotas?.stepFun),
+                                  ("baidu", "百度", snapshot.domesticQuotas?.baidu),
+                                  ("xiaomi", "小米", snapshot.domesticQuotas?.xiaomi),
+                                  ("volcengine", "火山方舟", nil)] {
+            var value: [String: Any] = ["id": id, "name": name, "stale": quota?.stale ?? true,
+                                       "primaryReset": "--", "weeklyReset": "--", "planReset": "--"]
+            value["billingMode"] = id == "deepseek" || quota?.balance != nil ? "payg" : "subscription"
+            value["balance"] = quota?.balance; value["cost"] = quota?.usedCost
+            value["currency"] = quota?.currency; value["plan"] = quota?.plan
+            details.append(value)
+        }
+        return details
     }
 }

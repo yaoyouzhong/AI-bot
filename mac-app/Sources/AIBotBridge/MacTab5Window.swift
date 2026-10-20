@@ -6,6 +6,10 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private let canBegin: () -> Bool
     private let changeBluetooth: (Bool) -> Void
     private let install: () -> Void
+    private let configureWeather: () -> Void
+    private let configureQuotas: () -> Void
+    private let dataStatus: () -> String
+    private let dataNote = NSTextField(wrappingLabelWithString: "")
     private let bluetooth = NSButton(checkboxWithTitle: "启用 TAB5 蓝牙连接", target: nil, action: nil)
     private let connection = NSTextField(wrappingLabelWithString: "")
     private let result = NSTextField(wrappingLabelWithString: "")
@@ -19,8 +23,9 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     private var stackView: NSStackView?, documentView: NSView?
     private(set) var busy = false
 
-    init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }, changeBluetooth: @escaping (Bool) -> Void = { _ in }, install: @escaping () -> Void = {}) {
+    init(service: MacTab5Service, usb: MacTab5USB, canBegin: @escaping () -> Bool = { true }, changeBluetooth: @escaping (Bool) -> Void = { _ in }, install: @escaping () -> Void = {}, configureWeather: @escaping () -> Void = {}, configureQuotas: @escaping () -> Void = {}, dataStatus: @escaping () -> String = { "" }) {
         self.service = service; self.usb = usb; self.canBegin = canBegin; self.changeBluetooth = changeBluetooth; self.install = install
+        self.configureWeather = configureWeather; self.configureQuotas = configureQuotas; self.dataStatus = dataStatus
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 610, height: 700),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         super.init(window: window)
@@ -86,6 +91,10 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(action("读取并修改显示设置…", #selector(editDisplay)))
         stack.addArrangedSubview(action("资源与固件…", #selector(openTools)))
         stack.addArrangedSubview(action("交互与权限…", #selector(openFeatures)))
+        stack.addArrangedSubview(action("天气和股票设置…", #selector(openWeather)))
+        stack.addArrangedSubview(action("国产模型额度…", #selector(openQuotas)))
+        stack.addArrangedSubview(dataNote)
+        dataNote.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         stack.addArrangedSubview(action("首次安装与备份恢复…", #selector(openInstall)))
         stack.addArrangedSubview(action("使用与验收说明…", #selector(openGuide)))
         stack.addArrangedSubview(note("亮度、声音、页面和轮播设置以 TAB5 实际值为准；保存需要设备确认。"))
@@ -94,6 +103,8 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     }
     deinit { timer?.invalidate() }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    @objc private func openWeather() { configureWeather() }
+    @objc private func openQuotas() { configureQuotas() }
     func open() { refreshStatus(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         if busy { result.stringValue = "正在等待设备确认，请完成后再关闭。" }
@@ -120,6 +131,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate {
     }
     private func refreshStatus() {
         connection.stringValue = service.connectionSummary
+        dataNote.stringValue = dataStatus()
         result.preferredMaxLayoutWidth = max(1, (window?.contentView?.bounds.width ?? 610) - 48)
         window?.contentView?.layoutSubtreeIfNeeded()
         if let documentView, let stackView { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(documentView.enclosingScrollView?.contentView.bounds.height ?? 700, stackView.fittingSize.height + 48))) }

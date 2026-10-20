@@ -46,6 +46,14 @@ struct SystemMetricsSnapshot: Codable, Equatable {
     let uploadBytesPerSecond: Int64
     let downloadBytesPerSecond: Int64
     let updatedAt: Date
+    var sampleSession: String? = nil
+    var sampleSequence: Int64? = nil
+    var samples: [MacNetworkSample]? = nil
+}
+
+struct MacNetworkSample: Codable, Equatable {
+    let upload: Int64
+    let download: Int64
 }
 
 struct ProviderQuotaSnapshot: Codable, Equatable {
@@ -80,7 +88,7 @@ struct DomesticProviderQuotaSnapshot: Codable, Equatable {
     let usedCost: Double?
     let currency: String?
     let updatedAt: Date
-    let stale: Bool
+    var stale: Bool
     var planPercent: Double? = nil
     var planResetsAt: Date? = nil
 }
@@ -89,7 +97,7 @@ struct DomesticQuotaSnapshot: Codable, Equatable {
     let alibaba: DomesticProviderQuotaSnapshot?
     let kimi: DomesticProviderQuotaSnapshot?
     let miniMax: DomesticProviderQuotaSnapshot?
-    let deepSeek: DomesticProviderQuotaSnapshot?
+    var deepSeek: DomesticProviderQuotaSnapshot?
     var zhipu: DomesticProviderQuotaSnapshot? = nil
     var stepFun: DomesticProviderQuotaSnapshot? = nil
     var baidu: DomesticProviderQuotaSnapshot? = nil
@@ -197,6 +205,7 @@ final class SessionActivityReader {
         )
         snapshot.followApp=follow.update(snapshot,milliseconds:Int64(ProcessInfo.processInfo.systemUptime*1000))
         snapshot.quotaTrend = extras.quotaTrend
+        snapshot.domesticQuotas = extras.domesticQuotas
         return snapshot
     }
 

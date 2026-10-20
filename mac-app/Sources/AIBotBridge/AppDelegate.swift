@@ -7,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let dataStore = MacDataStore(quotaHistory: MacQuotaHistory())
     private lazy var dataService = MacDataService(store: dataStore)
     private lazy var quotaService = MacQuotaService(store: dataStore)
+    private lazy var domesticQuotaService = MacDomesticQuotaService(store: dataStore)
+    private var domesticQuotaWindow: MacDomesticQuotaWindow?
     private lazy var musicService = MacMusicService(store: dataStore)
     private let localizedTextResources = MacLocalizedTextResources()
     private let systemMetrics = MacSystemMetricsService()
@@ -102,12 +104,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateTitle() }
         Task { await self.dataService.refreshDue(force: true) }
         Task { await self.quotaService.refresh() }
+        Task { await self.domesticQuotaService.refresh() }
         dataTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { await self.dataService.refreshDue() }
         }
         quotaTimer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
             guard let self else { return }
+            Task { await self.domesticQuotaService.refresh() }
             Task { await self.quotaService.refresh() }
         }
     }
@@ -293,7 +297,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openTab5() {
         guard let service = tab5, let usb = tab5USB else { return }
         if tab5Window == nil {
-            tab5Window = MacTab5Window(service: service, usb: usb, canBegin: { [weak self] in self?.deviceOperationBusy == false }, changeBluetooth: { [weak self] enabled in self?.tab5BLE?.setEnabled(enabled) }, install: { [weak self] in self?.openTab5Installer() })
+            tab5Window = MacTab5Window(service: service, usb: usb, canBegin: { [weak self] in self?.deviceOperationBusy == false }, changeBluetooth: { [weak self] enabled in self?.tab5BLE?.setEnabled(enabled) }, install: { [weak self] in self?.openTab5Installer() },
+                configureWeather: { [weak self] in self?.configureDataSources() },
+                configureQuotas: { [weak self] in self?.openDomesticQuotas() },
+                dataStatus: { [weak self] in
+                    guard let self else { return "" }
+                    return self.dataStore.weatherDiagnostic + "\n" + self.dataStore.systemDiagnostic
+                })
         }
         tab5Window?.open()
     }
@@ -556,6 +566,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func configureDataSources() {
         let preferences = MacDataPreferences.load()
+        let automatic = NSButton(checkboxWithTitle: "根据电脑位置自动查询天气（Open-Meteo）", target: nil, action: nil)
+        automatic.state = preferences.automaticLocation ? .on : .off
         let city = NSTextField(string: preferences.city)
         let latitude = NSTextField(string: preferences.latitude.map { String($0) } ?? "")
         let longitude = NSTextField(string: preferences.longitude.map { String($0) } ?? "")
@@ -564,6 +576,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
+        stack.addArrangedSubview(automatic)
         for (label, field) in [("天气城市", city), ("纬度（可空）", latitude),
                                ("经度（可空）", longitude), ("股票代码（逗号分隔，最多 20 个）", stocks)] {
             let title = NSTextField(labelWithString: label)
@@ -571,11 +584,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             stack.addArrangedSubview(title)
             stack.addArrangedSubview(field)
         }
-        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 220)
+        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 250)
 
         let alert = NSAlert()
         alert.messageText = "天气和股票设置"
-        alert.informativeText = "经纬度必须同时填写或同时留空；设置仅保存在 UserDefaults。"
+        alert.informativeText = "自动定位仅将大致位置发送给 Open-Meteo 查询天气，不保存精确位置。未启用时使用下方城市；经纬度须同时填写或同时留空。"
         alert.accessoryView = stack
         alert.addButton(withTitle: "保存")
         alert.addButton(withTitle: "取消")
@@ -601,9 +614,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !result.contains(symbol) { result.append(symbol) }
         }
         MacDataPreferences(city: city.stringValue.trimmingCharacters(in: .whitespacesAndNewlines),
-                           latitude: lat, longitude: lon, symbols: uniqueSymbols).save()
+                           latitude: lat, longitude: lon, symbols: uniqueSymbols,
+                           automaticLocation: automatic.state == .on).save()
         Task { await self.dataService.refreshDue(force: true) }
         show("已保存", "天气和股票将立即刷新；网络失败时保留最近一次成功数据。")
+    }
+    @objc private func openDomesticQuotas() {
+        if domesticQuotaWindow == nil { domesticQuotaWindow = MacDomesticQuotaWindow(service: domesticQuotaService, store: dataStore) }
+        domesticQuotaWindow?.open()
     }
 
     @objc private func setPairingToken() {
