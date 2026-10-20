@@ -36,6 +36,32 @@ enum MacTab5TestData {
 }
 
 final class MacTab5FirmwareGalleryTests: XCTestCase {
+    func testUpgradeZIPWithPublishedDependencyLicenseLayoutLoadsBoundNotes() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let bytes = MacTab5TestData.firmware(), expected = try MacTab5FirmwareImage(bytes: bytes)
+        let license = "licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE"
+        let licenseURL = root.appendingPathComponent(license)
+        try FileManager.default.createDirectory(at: licenseURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("Synthetic license fixture".utf8).write(to: licenseURL)
+        try bytes.write(to: root.appendingPathComponent("aibot_tab5.bin"))
+        let notes = "## 修复\n- 合成测试说明"
+        try MacTab5Protocol.json(["version": expected.version, "sha256": expected.sha256, "notes": notes]).write(to: root.appendingPathComponent("aibot_tab5.bin.notes.json"))
+        let zip = root.appendingPathComponent("upgrade.zip")
+        _ = try MacTab5LocalProcess.run("/usr/bin/zip", ["-q", zip.path, "aibot_tab5.bin", "aibot_tab5.bin.notes.json", license], directory: root)
+        let image = try MacTab5FirmwareImage.load(zip)
+        XCTAssertEqual(image.bytes, bytes); XCTAssertEqual(image.sha256, expected.sha256); XCTAssertEqual(image.notes, notes)
+    }
+
+    func testNestedArchivePathsRemainBoundedAndRejectTraversalAndPatterns() {
+        XCTAssertTrue(MacTab5Archive.safePath("licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE"))
+        XCTAssertTrue(MacTab5Archive.safePath(Array(repeating: "dir", count: 15).joined(separator: "/") + "/LICENSE"))
+        for path in ["../LICENSE", "/LICENSE", "licenses//LICENSE", "licenses/./LICENSE", "licenses/../LICENSE", "licenses\\LICENSE", "licenses/*.txt", "licenses/[ab].txt", "-LICENSE", Array(repeating: "dir", count: 16).joined(separator: "/") + "/LICENSE", String(repeating: "a", count: 721)] {
+            XCTAssertFalse(MacTab5Archive.safePath(path), path)
+        }
+    }
+
     func testFirmwareChecksChipProjectSegmentsDigestAndBoundNotes() throws {
         let bytes = MacTab5TestData.firmware()
         let image = try MacTab5FirmwareImage(bytes: bytes)

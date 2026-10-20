@@ -54,6 +54,8 @@ CI 附件包括 xUnit、日志、工具链、源码 SHA、含 LICENSE/第三方�
 
 具体提交与 CI 证据见 [开发记录](development/MAC-TAB5-PORTING.md)。
 
+2026-10-20 本机检查、实际固件包问题与待验收项目见 [现场验收记录](development/MAC-TAB5-ACCEPTANCE-20261020.md)。该记录区分工具链受阻、离线验证和正常 App／硬件结果。
+
 ---
 
 # English
@@ -75,3 +77,5 @@ Photos use authenticated Wi-Fi or USB/BLE chunks, complete SHA/decode/dimension 
 Use **First install and backup/restore** for the 16 MiB ESP32-P4. Connect USB-C, hold RESET for about two seconds until the internal green LED flashes rapidly, then release and select the download port. Accept only a complete first-install ZIP, validate the reviewed layout/chip/revision/security/hashes, read and verify the entire current Flash, recheck hardware identity, then write once and verify. Existing AI-bot installations are directed to upgrade after preserving their backup. Reboot manually, pair the application port and select the same first-install ZIP in the firmware tools to verify its exact application boot. Restore accepts only a verified `.bin.json` belonging to the same hardware MAC and backs up the current Flash first. Keep private backups securely; Windows/Mac metadata are interoperable.
 
 CI performs native tests, Release, an ad-hoc signed app, non-device tool-help checks and fixture-only AppKit PNG rendering. It does not connect to a real conversation, device or Keychain, or request permissions. Artifacts include source SHA, reports, licenses and SHA-256 checksums; the app is not notarized. Hardware/permission/audio/display/OTA acceptance remains separate, following the ordered checklist above and the linked development record.
+
+The [2026-10-20 local acceptance record](development/MAC-TAB5-ACCEPTANCE-20261020.md) distinguishes the local toolchain blocker, actual package-loader repairs, offline checks and pending normal-app/hardware acceptance.

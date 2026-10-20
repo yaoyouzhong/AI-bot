@@ -42,7 +42,10 @@ final class MacTab5InstallTests: XCTestCase {
     func testFirstInstallZIPCanAlsoSelectExactApplicationForBootVerification() throws {
         let root = try directory(), value = try package(), image = root.appendingPathComponent("factory.bin"), manifest = root.appendingPathComponent("manifest.json"), zip = root.appendingPathComponent("fixture.zip")
         try value.image.write(to: image); try JSONEncoder().encode(value.manifest).write(to: manifest)
-        _ = try MacTab5LocalProcess.run("/usr/bin/zip", ["-q", "-j", zip.path, image.path, manifest.path], timeout: 60)
+        let license = "licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE", licenseURL = root.appendingPathComponent(license)
+        try FileManager.default.createDirectory(at: licenseURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("Synthetic license fixture".utf8).write(to: licenseURL)
+        _ = try MacTab5LocalProcess.run("/usr/bin/zip", ["-q", zip.path, "factory.bin", "manifest.json", license], timeout: 60, directory: root)
         let selected = try MacTab5FirmwareImage.load(zip)
         XCTAssertEqual(selected.version, value.manifest.version); XCTAssertEqual(selected.sha256, value.manifest.segments[3].sha256)
     }

@@ -53,7 +53,9 @@ struct MacTab5Archive {
     static func safePath(_ name: String) -> Bool {
         let value = name.hasSuffix("/") ? String(name.dropLast()) : name
         let parts = value.split(separator: "/", omittingEmptySubsequences: false)
-        return parts.count <= 8 && parts.allSatisfy { safeName(String($0)) }
+        // Published firmware ZIPs include dependency licenses nine components
+        // deep. Keep bounded paths while validating every component as before.
+        return value.utf8.count <= 720 && parts.count <= 16 && parts.allSatisfy { safeName(String($0)) }
     }
     static func safeUnicodePath(_ name: String) -> Bool {
         let value = name.hasSuffix("/") ? String(name.dropLast()) : name
