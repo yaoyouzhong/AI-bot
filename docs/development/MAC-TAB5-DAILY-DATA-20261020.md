@@ -15,7 +15,7 @@
 
 新增回归涵盖网络发布／同一均值／有界历史／采样断档，日历调休／假期／跨年未知，空气质量失败与粗粒度坐标，余额真实字段／重复币种／非法值／缓存及固定数组位置，智谱接口来源约束。自动测试不等于定位、授权、真实余额和实体曲线验收。`2ce7c7d` 的 [Mac CI 39391053508](https://github.com/yaoyouzhong/AI-bot/actions/runs/39391053508) 及完整下载附件核验通过：180 项测试、0 失败／跳过、Release、候选包、随包工具、8 张原生界面 PNG 和哈希检查。用户在实体 TAB5 确认网络上传／下载曲线持续更新、首页农历下方工作日文字均正常。正常候选的音乐和 Codex 已通过结果继续保留。
 
-用户明确允许自动定位天气后保存开关；第一次定位失败。系统设置显示 AI-bot 的定位权限关闭，按该次授权开启并重试，正常候选显示“天气：已更新”。实体天气尚待反馈；没有记录位置、温度或账户金额。
+用户明确允许自动定位天气后保存开关；第一次定位失败。系统设置显示 AI-bot 的定位权限关闭，按该次授权开启并重试，正常候选显示“天气：已更新”。用户确认实体当前天气已显示，但 24 小时／7 天预报仍为空；没有记录位置、温度或账户金额。
 
 用户另报告智谱微信扫码没有二维码。官方登录页引用的 [微信 WxLogin 脚本](https://res.wx.qq.com/connect/zh_CN/htmledition/js/wxLogin.js) 创建 `open.weixin.qq.com/connect/qrconnect` 内嵌框架，旧导航策略只允许 bigmodel.cn，因此拦截了二维码。修正仅为子框架放行该 HTTPS 地址及初始 about:blank，拒绝主框架转往微信、其他微信路径、非标准端口和伪造域名；余额捕获仍只接受智谱主框架的精确财务接口。新增导航回归；新候选及扫码实机验证待执行，不能据代码修正写为通过。
 
@@ -43,8 +43,29 @@ Domestic balances preserve the established eleven provider positions (DeepSeek 5
 
 Regressions cover network publication/mean/bounds/gaps, calendar boundaries, optional air-quality failure, coarse coordinates, official balance fields/schema failures, cache preservation/provider positions and finance endpoint restrictions. Commit `2ce7c7d` passed Mac CI 39391053508 and complete downloaded artifact verification: 180 tests, zero failures/skips, Release, bundle/tools, eight native PNGs and hashes. The user confirmed live network curves and the home workday line on the actual TAB5. Earlier music and Codex acceptance stays valid.
 
-The user explicitly authorized automatic-location weather. The initial request failed while the app’s system location permission was off. After enabling that permission within the authorized scope and retrying, the normal candidate reported weather updated. Device weather feedback and actual domestic balances remain pending; no location, weather values or account amounts were recorded.
+The user explicitly authorized automatic-location weather. The initial request failed while the app’s system location permission was off. After enabling that permission within the authorized scope and retrying, the normal candidate reported weather updated. The user confirmed current weather on the device but found hourly/daily forecast tabs empty; actual domestic balances remain pending; no location, weather values or account amounts were recorded.
 
 The user reported a blank WeChat QR login. The official WxLogin script embeds open.weixin.qq.com/connect/qrconnect, which the old BigModel-only navigation policy blocked. The fix permits only that HTTPS subframe and its initial about:blank, rejecting main-frame WeChat navigation, other paths, nonstandard ports and lookalike domains. Finance capture remains restricted to the exact BigModel main-frame endpoint. A navigation regression was added; candidate and QR-device acceptance are still pending.
 
 Local Release, candidate app and strict signing verification passed. Local XCTest remains unavailable; full tests run on Mac CI. An isolated harness linked to the actual Debug objects verified native network counter sampling: sequence advanced from 4 to 24 with 24 retained samples. Only counts/sequences were recorded, not traffic contents, interface addresses or rate values. This does not replace physical chart acceptance.
+
+
+## 预报与和风后续 / Forecast and QWeather follow-up
+
+用户确认当前天气后发现两个预报页为空，并要求测试和风天气。原因是原 Mac 仅请求 `forecast_days=1` 和当前／最高／最低温，没有小时或每日数组。对照实际 `.234` 的 `ui_weather.h` 及 Windows 已有字段后，Mac 独立补齐既有 `hourly`（最多 24）和 `daily`（最多 7）、城市时区、降雨未知值及日出／日落信息；不修改协议版本或设备代码。缓存重载、查询失败和部分预报失败均保留已取得的序列并标记缓存，不制造零值。
+
+天气设置新增 Open-Meteo／和风选项。和风按 Windows 当前使用的官方 v7 城市接口查询 now／24h／7d；自动位置以两位小数发送，手动城市通过和风 GeoAPI 解析。API Host 只允许控制台分配的单层 `*.qweatherapi.com` 域名；API Key 按 Host 分开保存在钥匙串，以请求头发送，拒绝重定向。没有导入 Windows 密钥或执行真实和风请求；需要用户在正常 App 中授权并填写。当前和风路径未接入空气质量、JWT 或新版 v1 接口；官方已提示 v7 将弃用，后续须跟进，不能将该兼容实现表述为完整供应商功能。
+
+新增预报测试覆盖城市时区（含非整小时偏移）、24／7 上限、缺失及越界降雨概率、日期与日出校验、部分失败、缓存重载、实际 TAB5 快照字段及请求目标／密钥头。`a2078fd` 二维码补丁 CI 39392319817 已通过 181 项测试；天气后续候选与实机结果尚待核验。
+
+The user confirmed current weather but reported empty 24-hour/seven-day tabs and requested QWeather testing. The old Mac request fetched only one day's extrema/current conditions. The independent Mac projection now supplies the existing hourly/daily arrays (24/7 maximum), city timezone, nullable precipitation and solar fields, following the actual `.234` consumer and established Windows schema. Cache reload and failures retain known series as cached, without fabricated zero values. Firmware and protocol versions are unchanged.
+
+Weather settings add Open-Meteo/QWeather selection. QWeather uses the same official v7 now/24h/7d family currently used by Windows, rounded automatic coordinates or provider GeoAPI city lookup. Keys are stored per API Host in Keychain and sent only in request headers to validated single-label `*.qweatherapi.com` hosts; redirects are denied. No Windows credential import or actual QWeather request has occurred. Air quality, JWT and the newer v1 API are not part of this implementation; the provider's announced v7 deprecation remains a follow-up. Explicit normal-app authorization and user-entered credentials are required for real acceptance.
+
+New regressions cover timezone offsets, series bounds, null/invalid precipitation, dates/solar data, partial failure, cache reload, actual TAB5 wire fields and credential destination/header restrictions. QR fix `a2078fd` passed CI 39392319817 with 181 tests; forecast candidate and hardware acceptance remain pending.
+
+接口依据 / API references:
+
+- [和风认证 / Authentication](https://dev.qweather.com/en/docs/configuration/authentication/)
+- [和风 v7 小时预报 / Hourly forecast](https://dev.qweather.com/en/docs/api/weather/weather-hourly-forecast-webapi-v7/)
+- [和风 v7 每日预报 / Daily forecast](https://dev.qweather.com/en/docs/api/weather/weather-daily-forecast-webapi-v7/)

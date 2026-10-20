@@ -15,12 +15,14 @@ struct MacDataExtras {
                                      quotas: nil, music: MusicSnapshot.empty(), musicCover: nil)
 }
 
-struct MacDataPreferences {
+struct MacDataPreferences: Equatable {
     let city: String
     let latitude: Double?
     let longitude: Double?
     let symbols: [String]
     var automaticLocation = false
+    var weatherProvider = "open-meteo"
+    var qweatherHost = ""
 
     static func load(_ defaults: UserDefaults = .standard) -> MacDataPreferences {
         let city = defaults.string(forKey: "weather_city")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -31,7 +33,9 @@ struct MacDataPreferences {
         let configured = defaults.stringArray(forKey: "stock_symbols") ?? ["sh000001"]
         return MacDataPreferences(city: city, latitude: latitude, longitude: longitude,
                                   symbols: configured.compactMap { MacDataService.normalizeStock($0) },
-                                  automaticLocation: defaults.bool(forKey: "weather_automatic_location"))
+                                  automaticLocation: defaults.bool(forKey: "weather_automatic_location"),
+                                  weatherProvider: defaults.string(forKey: "weather_provider") == "qweather" ? "qweather" : "open-meteo",
+                                  qweatherHost: defaults.string(forKey: "qweather_api_host") ?? "")
     }
 
     func save(_ defaults: UserDefaults = .standard) {
@@ -42,6 +46,8 @@ struct MacDataPreferences {
         else { defaults.removeObject(forKey: "weather_longitude") }
         defaults.set(symbols, forKey: "stock_symbols")
         defaults.set(automaticLocation, forKey: "weather_automatic_location")
+        defaults.set(weatherProvider, forKey: "weather_provider")
+        defaults.set(qweatherHost, forKey: "qweather_api_host")
     }
 }
 
@@ -76,11 +82,8 @@ final class MacDataStore {
         self.quotaHistory = quotaHistory
         if let data = defaults.data(forKey: "weather_cache"),
            let value = try? decoder.decode(WeatherSnapshot.self, from: data) {
-            weather = WeatherSnapshot(city: value.city, condition: value.condition,
-                                      temperature: value.temperature, high: value.high, low: value.low,
-                                      humidity: value.humidity, weatherCode: value.weatherCode,
-                                      pm25: value.pm25, airQualityIndex: value.airQualityIndex,
-                                      source: value.source, updatedAt: value.updatedAt, stale: true)
+            weather = value
+            weather?.stale = true
         }
         if let data = defaults.data(forKey: "stock_cache"),
            let value = try? decoder.decode(StockSnapshot.self, from: data) {
@@ -132,6 +135,16 @@ final class MacDataStore {
 
     func update(weather value: WeatherSnapshot) {
         lock.lock()
+        var value = value
+        if let old = weather, old.city == value.city, old.source == value.source,
+           old.utcOffsetSeconds == value.utcOffsetSeconds {
+            if value.hourly?.isEmpty != false, old.hourly?.isEmpty == false {
+                value.hourly = old.hourly; value.hourlyStale = true
+            }
+            if value.daily?.isEmpty != false, old.daily?.isEmpty == false {
+                value.daily = old.daily; value.dailyStale = true
+            }
+        }
         weather = value
         lock.unlock()
         if let data = Self.encode(value) { defaults.set(data, forKey: "weather_cache") }
@@ -147,11 +160,8 @@ final class MacDataStore {
     func markWeatherStale() {
         lock.lock()
         if let value = weather {
-            weather = WeatherSnapshot(city: value.city, condition: value.condition,
-                                      temperature: value.temperature, high: value.high, low: value.low,
-                                      humidity: value.humidity, weatherCode: value.weatherCode,
-                                      pm25: value.pm25, airQualityIndex: value.airQualityIndex,
-                                      source: value.source, updatedAt: value.updatedAt, stale: true)
+            weather = value
+            weather?.stale = true
         }
         lock.unlock()
     }
@@ -252,6 +262,7 @@ actor MacDataService {
     private var lastWeatherAttempt = Date.distantPast
     private var lastStockAttempt = Date.distantPast
     private var refreshingWeather = false
+    private let qweather = MacQWeatherService()
 
     init(store: MacDataStore) {
         self.store = store
@@ -276,16 +287,37 @@ actor MacDataService {
     private func refreshWeather() async {
         guard !refreshingWeather else { return }
         refreshingWeather = true
-        defer { refreshingWeather = false }
+        let preferences = MacDataPreferences.load()
+        defer {
+            refreshingWeather = false
+            if MacDataPreferences.load() != preferences { Task { await self.refreshDue(force: true) } }
+        }
         do {
-            let preferences = MacDataPreferences.load()
             store.weatherDiagnostic(preferences.automaticLocation ? "天气：正在获取大致位置…" : "天气：正在查询…")
+            if preferences.weatherProvider == "qweather" {
+                let key = try MacWeatherCredentialStore.shared.read(host: preferences.qweatherHost)
+                let location: (Double, Double, String)
+                if preferences.automaticLocation {
+                    let grid = try await MacWeatherLocation.shared.locate()
+                    location = (grid.0, grid.1, "当前位置")
+                } else if let lat = preferences.latitude, let lon = preferences.longitude {
+                    location = (lat, lon, preferences.city.isEmpty ? "当前位置" : preferences.city)
+                } else {
+                    location = try await qweather.resolveCity(preferences.city, host: preferences.qweatherHost, key: key)
+                }
+                let value = try await qweather.fetch(host: preferences.qweatherHost, key: key,
+                    latitude: location.0, longitude: location.1, label: location.2)
+                guard MacDataPreferences.load() == preferences else { return }
+                store.update(weather: value)
+                store.weatherDiagnostic(Self.forecastNote(store.snapshot().weather!))
+                return
+            }
             guard let location = try await resolveLocation(preferences) else {
                 store.weatherDiagnostic("天气：请选择自动定位或填写城市。"); return
             }
             let coordinate = String(format: "latitude=%.6f&longitude=%.6f", locale: Locale(identifier: "en_US_POSIX"),
                                     location.latitude, location.longitude)
-            let forecast = URL(string: "https://api.open-meteo.com/v1/forecast?\(coordinate)&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto")!
+            let forecast = URL(string: "https://api.open-meteo.com/v1/forecast?\(coordinate)&current=temperature_2m,relative_humidity_2m,weather_code&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration&forecast_days=7&timezone=auto")!
             let air = URL(string: "https://air-quality-api.open-meteo.com/v1/air-quality?\(coordinate)&current=us_aqi,pm2_5")!
             let (forecastData, forecastResponse) = try await session.data(from: forecast)
             guard (forecastResponse as? HTTPURLResponse)?.statusCode == 200 else {
@@ -297,13 +329,21 @@ actor MacDataService {
                 airData = data
             }
             let value = try Self.parseWeather(forecast: forecastData, air: airData, city: location.label)
+            guard MacDataPreferences.load() == preferences else { return }
             store.update(weather: value)
-            store.weatherDiagnostic("天气：已更新" + (value.airQualityIndex == nil ? "，空气质量暂不可用" : ""))
+            store.weatherDiagnostic(Self.forecastNote(store.snapshot().weather!))
         } catch {
+            guard MacDataPreferences.load() == preferences else { return }
             store.markWeatherStale()
             store.weatherDiagnostic((error as? MacWeatherLocation.Failure)?.errorDescription ??
+                                    (error as? MacQWeatherService.Failure)?.errorDescription ??
                                     "天气：查询失败，已保留上次成功数据。")
         }
+    }
+
+    private static func forecastNote(_ value: WeatherSnapshot) -> String {
+        "天气：已更新 · \(value.hourly?.count ?? 0) 小时 / \(value.daily?.count ?? 0) 天" +
+        ((value.hourlyStale == true || value.dailyStale == true) ? " · 部分预报为缓存" : "")
     }
 
     private func refreshStocks() async {
@@ -356,12 +396,14 @@ actor MacDataService {
         let quality = air.flatMap { try? JSONDecoder().decode(AirResponse.self, from: $0) }
         guard let high = weather.daily.temperatureMax.first,
               let low = weather.daily.temperatureMin.first else { throw DataError.invalidResponse }
-        return WeatherSnapshot(city: city, condition: condition(weather.current.code),
+        var value = WeatherSnapshot(city: city, condition: condition(weather.current.code),
                                temperature: weather.current.temperature, high: high, low: low,
                                humidity: Int(weather.current.humidity.rounded()), weatherCode: weather.current.code,
                                pm25: quality?.current?.pm25,
                                airQualityIndex: quality?.current.map { Int($0.aqi.rounded()) },
-                               source: "Open-Meteo", updatedAt: now, stale: false)
+                               source: "open-meteo", updatedAt: now, stale: false)
+        try MacWeatherForecast.addMeteo(forecast, to: &value, now: now)
+        return value
     }
 
     static func parseStocks(_ text: String, order: [String]) -> [StockQuote] {
@@ -398,7 +440,7 @@ actor MacDataService {
         return market + value.dropFirst(2).uppercased()
     }
 
-    private static func condition(_ code: Int) -> String {
+    static func condition(_ code: Int) -> String {
         switch code {
         case 0: return "晴"
         case 1, 2: return "多云"

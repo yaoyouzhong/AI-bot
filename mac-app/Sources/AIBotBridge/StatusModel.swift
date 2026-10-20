@@ -22,7 +22,31 @@ struct WeatherSnapshot: Codable, Equatable {
     let airQualityIndex: Int?
     let source: String
     let updatedAt: Date
-    let stale: Bool
+    var stale: Bool
+    var utcOffsetSeconds: Int? = nil
+    var hourly: [MacWeatherHour]? = nil
+    var daily: [MacWeatherDay]? = nil
+    var hourlyStale: Bool? = nil
+    var dailyStale: Bool? = nil
+}
+
+struct MacWeatherHour: Codable, Equatable {
+    let time: String
+    let condition: String
+    let temperature: Double?
+    let rainProbability: Double?
+}
+
+struct MacWeatherDay: Codable, Equatable {
+    let date: String
+    let condition: String
+    let low: Double?
+    let high: Double?
+    let rainProbability: Double?
+    let precipitationMm: Double?
+    let sunrise: String?
+    let sunset: String?
+    let daylightSeconds: Double?
 }
 
 struct StockQuote: Codable, Equatable {

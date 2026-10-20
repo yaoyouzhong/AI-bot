@@ -566,8 +566,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func configureDataSources() {
         let preferences = MacDataPreferences.load()
-        let automatic = NSButton(checkboxWithTitle: "根据电脑位置自动查询天气（Open-Meteo）", target: nil, action: nil)
+        let automatic = NSButton(checkboxWithTitle: "根据电脑位置自动查询天气", target: nil, action: nil)
         automatic.state = preferences.automaticLocation ? .on : .off
+        let provider = NSPopUpButton()
+        provider.addItems(withTitles: ["Open-Meteo", "和风天气"])
+        provider.selectItem(at: preferences.weatherProvider == "qweather" ? 1 : 0)
+        let weatherHost = NSTextField(string: preferences.qweatherHost)
+        weatherHost.placeholderString = "控制台分配的 xxx.qweatherapi.com"
+        let weatherKey = NSSecureTextField(); weatherKey.placeholderString = "API Key（留空保留该 Host 已保存的密钥）"
         let city = NSTextField(string: preferences.city)
         let latitude = NSTextField(string: preferences.latitude.map { String($0) } ?? "")
         let longitude = NSTextField(string: preferences.longitude.map { String($0) } ?? "")
@@ -577,18 +583,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stack.alignment = .leading
         stack.spacing = 8
         stack.addArrangedSubview(automatic)
-        for (label, field) in [("天气城市", city), ("纬度（可空）", latitude),
+        stack.addArrangedSubview(provider)
+        for (label, field) in [("和风 API Host（仅和风使用）", weatherHost), ("和风 API Key（仅保存到钥匙串）", weatherKey), ("天气城市", city), ("纬度（可空）", latitude),
                                ("经度（可空）", longitude), ("股票代码（逗号分隔，最多 20 个）", stocks)] {
             let title = NSTextField(labelWithString: label)
             field.frame.size.width = 420
             stack.addArrangedSubview(title)
             stack.addArrangedSubview(field)
         }
-        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 250)
+        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 420)
 
         let alert = NSAlert()
         alert.messageText = "天气和股票设置"
-        alert.informativeText = "自动定位仅将大致位置发送给 Open-Meteo 查询天气，不保存精确位置。未启用时使用下方城市；经纬度须同时填写或同时留空。"
+        alert.informativeText = "自动定位将大致位置发送给所选天气服务，不保存精确位置。和风使用你填写的 API Host 和 API Key（请求可能计入该账户用量）；Open-Meteo 不需要密钥。未启用定位时使用城市或成对经纬度。"
         alert.accessoryView = stack
         alert.addButton(withTitle: "保存")
         alert.addButton(withTitle: "取消")
@@ -613,9 +620,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let uniqueSymbols = normalized.reduce(into: [String]()) { result, symbol in
             if !result.contains(symbol) { result.append(symbol) }
         }
+        let selectedProvider = provider.indexOfSelectedItem == 1 ? "qweather" : "open-meteo"
+        let host = weatherHost.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if selectedProvider == "qweather" {
+            guard MacQWeatherService.validHost(host) else {
+                show("未保存", "API Host 必须是控制台分配的 xxx.qweatherapi.com，不含协议、端口或路径。")
+                return
+            }
+            do {
+                if !weatherKey.stringValue.isEmpty { try MacWeatherCredentialStore.shared.save(weatherKey.stringValue, host: host) }
+                _ = try MacWeatherCredentialStore.shared.read(host: host)
+            } catch {
+                show("未保存", (error as? MacQWeatherService.Failure)?.errorDescription ?? "和风密钥保存失败。")
+                return
+            }
+        }
+        weatherKey.stringValue = ""
         MacDataPreferences(city: city.stringValue.trimmingCharacters(in: .whitespacesAndNewlines),
                            latitude: lat, longitude: lon, symbols: uniqueSymbols,
-                           automaticLocation: automatic.state == .on).save()
+                           automaticLocation: automatic.state == .on, weatherProvider: selectedProvider, qweatherHost: host).save()
         Task { await self.dataService.refreshDue(force: true) }
         show("已保存", "天气和股票将立即刷新；网络失败时保留最近一次成功数据。")
     }
