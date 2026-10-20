@@ -46,11 +46,11 @@ final class MacTab5Computer {
     let launchers: MacTab5Launchers
     private let backend: MacTab5ComputerBackend
     private var receipts: [String: (String, MacTab5RPCResult, TimeInterval)] = [:]
-    init(defaults: UserDefaults = .standard, backend: MacTab5ComputerBackend? = nil, music: @escaping () -> MusicSnapshot? = { nil }) {
+    init(defaults: UserDefaults = .standard, backend: MacTab5ComputerBackend? = nil, music: @escaping () -> MusicSnapshot? = { nil }, musicUpdated: @escaping (MusicSnapshot) -> Void = { _ in }) {
         enabled = { defaults.bool(forKey: Self.enabledKey) }
         musicEnabled = { defaults.bool(forKey: MacMusicService.enabledKey) }
         launchers = MacTab5Launchers(defaults: defaults)
-        self.backend = backend ?? MacTab5ComputerBackend(read: { try MacTab5ComputerPlatform.read(music: music()) }, perform: { try MacTab5ComputerPlatform.perform($0, request: $1, launcher: $2, music: music()) })
+        self.backend = backend ?? MacTab5ComputerBackend(read: { try MacTab5ComputerPlatform.read(music: music()) }, perform: { try MacTab5ComputerPlatform.perform($0, request: $1, launcher: $2, music: music(), musicUpdated: musicUpdated) })
     }
     var isEnabled: Bool { enabled() }
     var hasCapabilities: Bool { enabled() || musicEnabled() }
@@ -152,7 +152,7 @@ enum MacTab5ComputerPlatform {
         if UserDefaults.standard.bool(forKey: MacMusicService.enabledKey), let track = music, !track.title.isEmpty { state["mediaAvailable"] = true; state["canPlayPause"] = true; state["canPrevious"] = true; state["canNext"] = true; state["playing"] = track.playing }
         return state
     }
-    static func perform(_ op: String, request: [String: Any], launcher: MacTab5Launcher?, music: MusicSnapshot?) throws -> Bool {
+    static func perform(_ op: String, request: [String: Any], launcher: MacTab5Launcher?, music: MusicSnapshot?, musicUpdated: (MusicSnapshot) -> Void = { _ in }) throws -> Bool {
         if op == "volume" || op == "mute" {
             guard let device = output(), volume(device) != nil else { return false }
             if op == "volume", let level = MacTab5Protocol.integer(request["volume"]) {
@@ -179,7 +179,10 @@ enum MacTab5ComputerPlatform {
                   let verb = ["play-pause": "playpause", "previous": "previous track", "next": "next track"][action] else { return false }
             guard main({ script("with timeout of 2 seconds\n tell application id \"\(provider.bundleIdentifier)\" to \(verb)\nend timeout") }) else { return false }
             for attempt in 0..<5 {
-                if let actual = main({ MacMusicService.read(provider) }), action == "play-pause" ? actual.playing != before.playing : actual.title != before.title || actual.artist != before.artist { return true }
+                if let actual = main({ MacMusicService.read(provider) }), action == "play-pause" ? actual.playing != before.playing : actual.title != before.title || actual.artist != before.artist {
+                    musicUpdated(actual)
+                    return true
+                }
                 if attempt < 4 { Thread.sleep(forTimeInterval: 0.12) }
             }
             return false

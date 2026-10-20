@@ -21,7 +21,7 @@ enum MacMusicProvider {
                 tell application id "com.apple.Music"
                     if player state is stopped then return {"", "", "", "false", "0", "0"}
                     set currentTrack to current track
-                    return {name of currentTrack as text, artist of currentTrack as text, album of currentTrack as text, ((player state is playing) as text), (((player position) as integer) as text), (((duration of currentTrack) as integer) as text)}
+                    return {name of currentTrack as text, artist of currentTrack as text, album of currentTrack as text, ((player state is playing) as text), ((player position) as text), ((duration of currentTrack) as text)}
                 end tell
             end timeout
             """
@@ -31,7 +31,7 @@ enum MacMusicProvider {
                 tell application id "com.spotify.client"
                     if player state is stopped then return {"", "", "", "false", "0", "0"}
                     set currentTrack to current track
-                    return {name of currentTrack as text, artist of currentTrack as text, album of currentTrack as text, ((player state is playing) as text), (((player position) as integer) as text), (((duration of currentTrack) div 1000) as text)}
+                    return {name of currentTrack as text, artist of currentTrack as text, album of currentTrack as text, ((player state is playing) as text), ((player position) as text), (((duration of currentTrack) / 1000) as text)}
                 end tell
             end timeout
             """
@@ -74,6 +74,7 @@ actor MacMusicService {
     private let session: URLSession
     private var emptySamples = 0
     private var resourceKey = ""
+    private var refreshing = false
     private static let maximumArtworkBytes = 10 * 1_024 * 1_024
 
     init(store: MacDataStore) {
@@ -98,6 +99,9 @@ actor MacMusicService {
             store.update(music: .empty())
             return
         }
+        guard !refreshing else { return }
+        refreshing = true
+        defer { refreshing = false }
 
         var selected: (MacMusicProvider, MusicSnapshot)?
         var readFailed = false
@@ -148,6 +152,8 @@ actor MacMusicService {
             store.update(music: snapshot)
             return
         }
+        // Publish playback before a potentially slow artwork request finishes.
+        store.update(music: snapshot)
         let encoded = await readArtwork(from: provider)
         let cover = encoded.flatMap(Self.renderArtwork)
             ?? Data()

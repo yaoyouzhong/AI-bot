@@ -86,7 +86,8 @@ enum MacTab5Protocol {
     static func isBoolean(_ value: Any?) -> Bool { value.map { CFGetTypeID($0 as CFTypeRef) == CFBooleanGetTypeID() } ?? false }
 
     static func snapshot(_ snapshot: MacStatusSnapshot, device: String, session: String, sequence: Int64,
-                         command: [String: Any]?, additions: [String: Any] = [:], hasArtwork: Bool = false) throws -> Data {
+                         command: [String: Any]?, additions: [String: Any] = [:], hasArtwork: Bool = false,
+                         music: MusicSnapshot? = nil, now: Date = Date()) throws -> Data {
         let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
         var data = try object(encoder.encode(snapshot))
         // ESP8266 display preferences and unavailable capabilities are not TAB5 settings.
@@ -103,7 +104,14 @@ enum MacTab5Protocol {
         if var stocks = data["stocks"] as? [String: Any], let quotes = stocks["quotes"] as? [[String: Any]] {
             stocks["quotes"] = Array(quotes.prefix(20)); data["stocks"] = stocks
         }
-        if var music = data["music"] as? [String: Any] { music["hasArtwork"] = hasArtwork; data["music"] = music }
+        if let track = music ?? snapshot.music {
+            var music = try object(encoder.encode(track))
+            let timeline = track.timeline(at: now)
+            music["elapsedSeconds"] = timeline.elapsed
+            music["timelineAvailable"] = timeline.available
+            music["hasArtwork"] = hasArtwork
+            data["music"] = music; data["musicPlaying"] = track.playing
+        }
         let zone = TimeZone(secondsFromGMT: snapshot.utcOffsetSeconds) ?? .gmt
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
         let date = Date(timeIntervalSince1970: TimeInterval(snapshot.epochUtc))

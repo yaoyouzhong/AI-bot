@@ -88,6 +88,16 @@
 
 随后通过活动监视器对精确匹配的旧候选选择“退出”，未选择强制退出；确认旧桥接进程消失后，用 Computer Use 启动精确 `c51a1bb` 候选。该方式按 [Apple 说明](https://support.apple.com/en-ie/guide/activity-monitor/actmntr1002/10.14/mac/15.0) 走正常退出流程。新进程存在，但系统安全授权尚未完成、状态监听尚未启动，不能记为新候选启动或通道恢复通过。Computer Use 明确禁止访问 SecurityAgent，已要求用户仅在 Mac 上处理匹配的钥匙串提示并打开一次 TAB5 窗口；没有读取、输入或记录密码。常规窗口操作将在此后继续由助手完成。只读进程采样进一步确认主线程仍在 `SecItemCopyMatching` 等待系统钥匙串服务；只检查调用栈，不读取钥匙串内容。测试曲目已自然播放结束一次，未打开循环播放。
 
+## 本轮修复：音乐进度回退与控制延迟
+
+用户完成 `c51a1bb` 系统授权并打开 TAB5 窗口后，自动读取确认 USB 数据、Wi-Fi 认证请求和蓝牙 USB 优先待命均恢复；唯一桥接进程路径正确，未认证的两个状态路由均返回 401。音乐开关保持开启，电脑控制关闭。原创测试曲目自动重新播放后，用户确认实体曲名与蓝橙封面正常；实体各点击一次暂停、播放，用户反馈状态切换，Mac 正常音乐窗口也分别显示已暂停／播放中与相反动作按钮。因此封面显示和单次控制效果通过。
+
+用户随后明确报告控制延迟、进度跳秒及往回跳，音乐计时验收记为未通过，不能由前述控制效果覆盖。源码确认原音乐轮询与总状态发布均为两秒，轮询异步启动但总状态立即发布旧缓存；USB 还会重复发送该缓存，且 Apple Events 将进度取整。公开 `.234` 的界面在每次收到状态后，以该进度重新开始本地计时，故重复旧采样会造成回退。控制后实际播放器读回原来仅用于判断成功，没有立即回填状态。
+
+修复保留小数进度，独立每半秒轮询（同一轮未完成时不重入），取包时使用最新音乐采样，并按采样时间投影到实际发送时刻。仅最近三秒的有效时钟允许推进，过期／未来采样沿用既有 `timelineAvailable=false` 隐藏未知进度，保留最近成功曲目与封面。暂停不推进，真实回退跳转仍按播放器值生效。确认的控制读回立即更新音乐缓存；USB 对曲目、播放状态和真实跳转优先发送，普通进度保留原状态传输频率。旧轮询和延迟封面不能覆盖较新控制读回，也不能将旧曲封面挂到新曲。没有新消息类型、协议版本或设备固件变更。
+
+新增七项回归覆盖重复帧的设备计时契约、暂停／真实跳转、过期／未来采样、小数及曲末边界、USB 优先条件、迟到元数据／封面，以及音乐绕过旧总状态缓存。使用实际编译对象的独立检查在修复前复现重复位置，在修复后确认重复发送按采样年龄前进且不修改原缓存；没有访问设备或发送 Apple Events。本机 Release 通过，全量 XCTest 仍因缺少模块未执行。新候选的正常 App 播放／暂停、计时与延迟实机复验待继续；此时仍运行 `c51a1bb`。
+
 ## 本轮修复：正式固件包的许可证目录
 
 使用当前 Mac 代码的固件加载器读取 SHA 已核对的官方 `.234` 升级 ZIP，实际复现“ZIP 含重复或不安全的文件名”。官方包的七个许可证路径有九段，例如 `licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE`；原 `safePath` 最多接受八段，导致合法升级包与同类首刷包无法进入预览。
@@ -167,6 +177,10 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 - 固件工具：已核对公开 `.234` 源码 ZIP SHA `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890` 和升级 ZIP SHA `900612d0338c2350a3eda19a991536ce28475cce9667a4752613fccde211d509`；App 选包/说明预览待验收。OTA、首刷和恢复保持未执行。
 
 ## English
+
+After the user authorized normal candidate `c51a1bb` and opened TAB5, UI automation confirmed acknowledged USB data, authenticated Wi-Fi activity and authenticated USB-priority BLE standby. Only the expected candidate process was present; both unauthenticated status routes returned 401. With music enabled and computer control disabled, the user confirmed the physical test title/artwork, then clicked pause and play once each. Normal Music UI independently showed paused/playing state and the corresponding opposite action. Physical cover display and single control effects passed. The user subsequently reported latency, skipped seconds and backwards progress; timeline acceptance remains failed, separate from those effects.
+
+The old two-second music poll was launched asynchronously while general status immediately published its older cache. USB could retransmit that cache, and player positions were rounded to integers. Published `.234` UI resets its local playback anchor on every status, so old positions cause rewinds. Confirmed player control readback was also discarded. The repair keeps fractional positions, polls independently every half-second without overlapping refreshes, samples current music at frame creation and projects only a recent sample to send time. Samples older than three seconds or from the future use existing `timelineAvailable=false` while retaining metadata/artwork. Pause stays fixed and genuine seeks are honored. Confirmed control readback immediately updates the cache; USB prioritizes track/state/seek changes without raising ordinary full-status frequency. Late polls/artwork cannot undo newer control observations or attach an old cover to a new song. No new message, wire version or firmware change is introduced. Seven regressions cover the actual device-clock contract, pause/seek, stale/future samples, fractions/end bounds, USB urgency, late results and current music overriding the general cache. An actual-object synthetic check reproduced cached-position reset before the repair and passed afterward without accessing a device or Apple Events. Local Release passed; XCTest remains unavailable. A new normal-App timing/latency/play-pause retest is pending; `c51a1bb` is still running at this checkpoint.
 
 After the user asked for less manual routine work, Computer Use was retried and could operate Music, bridge windows and Activity Monitor. Normal Music File Import added only the original test M4A; its ten-minute library entry, blue/orange artwork, pause control and advancing elapsed-time text were observed automatically. Some slider accessibility identifiers remained stale, so they were not used alone as playback truth. This local track needs no subscription and no other user media was read. Library cleanup remains pending. On normal `5024001`, the assistant read fresh device settings, temporarily selected Music and observed the matching save receipt. Physical title/artwork and touch control remain unconfirmed. This fresh display-mode read differed from the earlier manual baseline; its restoration value stays ignored and later cleanup must preserve current settings.
 

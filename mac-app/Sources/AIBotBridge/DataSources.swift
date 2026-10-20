@@ -48,6 +48,7 @@ final class MacDataStore {
     private var systemMetrics: SystemMetricsSnapshot?
     private var quotas: QuotaSnapshot?
     private var music: MusicSnapshot = .empty()
+    private var musicSampled = false
     private var musicCover: Data?
     private let decoder: JSONDecoder = {
         let value = JSONDecoder()
@@ -122,18 +123,28 @@ final class MacDataStore {
 
     func update(music value: MusicSnapshot) {
         lock.lock()
-        if value.title.isEmpty {musicCover=nil}
+        defer { lock.unlock() }
+        guard !musicSampled || value.updatedAt >= music.updatedAt else { return }
+        musicSampled = true
+        if value.title.isEmpty || value.title != music.title || value.artist != music.artist || value.album != music.album { musicCover = nil }
         var next=value;next.hasArtwork = !value.title.isEmpty && musicCover?.isEmpty == false
         music = next
-        lock.unlock()
     }
 
     func update(music value: MusicSnapshot, cover: Data) {
         lock.lock()
-        var next=value;next.hasArtwork = !value.title.isEmpty && !cover.isEmpty
+        defer { lock.unlock() }
+        // Artwork may finish after a newer poll or a confirmed control readback.
+        // Retain that playback sample, and never attach an old track's cover.
+        if musicSampled, value.updatedAt < music.updatedAt {
+            guard music.title == value.title, music.artist == value.artist,
+                  music.album == value.album else { return }
+        }
+        var next = musicSampled && value.updatedAt < music.updatedAt ? music : value
+        musicSampled = true
+        next.hasArtwork = !next.title.isEmpty && !cover.isEmpty
         music = next
         musicCover = cover
-        lock.unlock()
     }
 
     func mergeQuotas(claude: ProviderQuotaSnapshot?, codex: ProviderQuotaSnapshot?) {

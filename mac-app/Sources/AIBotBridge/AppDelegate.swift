@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dataTimer: Timer?
     private var quotaTimer: Timer?
     private var metricsTimer: Timer?
+    private var musicTimer: Timer?
     private var serial: SerialBridge?
     private var tab5: MacTab5Service?
     private var tab5USB: MacTab5USB?
@@ -44,7 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do { _ = try PairingTokenStore.loadOrCreate() }
         catch { show("无法访问设备配对令牌", "请检查钥匙串授权后重新启动。读取失败不会替换现有令牌，也不会反复请求密码。") }
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
-        let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: { [dataStore] in dataStore.snapshot().music }))
+        let music = { [dataStore] in dataStore.snapshot().music }
+        let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), music: music)
         self.tab5 = tab5
         tab5.codex.start()
         tab5.publish(reader.capture(extras: dataStore.snapshot()))
@@ -89,6 +91,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.serial?.sendMetrics(metrics)
         }
         updateTitle()
+        Task { await self.musicService.refreshIfEnabled() }
+        musicTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.musicService.refreshIfEnabled() }
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateTitle() }
         Task { await self.dataService.refreshDue(force: true) }
         Task { await self.quotaService.refresh() }
@@ -107,6 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dataTimer?.invalidate()
         quotaTimer?.invalidate()
         metricsTimer?.invalidate()
+        musicTimer?.invalidate()
         serial?.stop()
         tab5USB?.stopAndWait()
         tab5Discovery?.stop()
@@ -231,7 +239,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateTitle() {
-        Task { await self.musicService.refreshIfEnabled() }
         let snapshot = reader.capture(extras: dataStore.snapshot())
         tab5?.assets.update(pets: [MacPetCache.shared.selection("claude"), MacPetCache.shared.selection("codex")], cover: dataStore.snapshot().musicCover)
         tab5?.publish(snapshot)

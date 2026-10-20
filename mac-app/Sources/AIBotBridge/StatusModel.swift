@@ -104,6 +104,25 @@ struct MusicSnapshot: Codable, Equatable {
     let durationSeconds: Double
     let updatedAt: Date
 
+    // The device advances between status frames. Anchor every outgoing clock
+    // to its actual sample, never to the age of the surrounding status cache.
+    func timeline(at now: Date) -> (elapsed: Double, available: Bool) {
+        let age = now.timeIntervalSince(updatedAt)
+        guard age >= 0, age <= 3 else { return (elapsedSeconds, false) }
+        let elapsed = elapsedSeconds + (playing ? age : 0)
+        return (durationSeconds > 0 ? min(durationSeconds, elapsed) : elapsed, true)
+    }
+
+    static func changedUrgently(from previous: MusicSnapshot?, to current: MusicSnapshot?) -> Bool {
+        guard let previous, let current else { return (previous == nil) != (current == nil) }
+        guard previous.title == current.title, previous.artist == current.artist,
+              previous.album == current.album, previous.playing == current.playing,
+              previous.durationSeconds == current.durationSeconds else { return true }
+        let expected = previous.elapsedSeconds + (previous.playing ? max(0, current.updatedAt.timeIntervalSince(previous.updatedAt)) : 0)
+        let bounded = previous.durationSeconds > 0 ? min(previous.durationSeconds, expected) : expected
+        return abs(current.elapsedSeconds - bounded) > 2
+    }
+
     static func empty(at date: Date = Date()) -> MusicSnapshot {
         MusicSnapshot(title: "", artist: "", album: "", playing: false,
                       elapsedSeconds: 0, durationSeconds: 0, updatedAt: date)

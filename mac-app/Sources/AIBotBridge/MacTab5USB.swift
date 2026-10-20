@@ -11,6 +11,7 @@ final class MacTab5USB {
     private var nextProbe: TimeInterval = 0
     private var probeIndex = 0
     private var lastStatus: TimeInterval = -.infinity
+    private var lastMusic: MusicSnapshot?
     private var rpcSupported = false
     private var completed: UInt32 = 0
 
@@ -32,7 +33,7 @@ final class MacTab5USB {
         queue.sync { timer?.cancel(); timer = nil; close("USB 已停止") }
     }
     private func close(_ note: String) {
-        wire = nil; rpcSupported = false; completed = 0; lastStatus = -.infinity
+        wire = nil; rpcSupported = false; completed = 0; lastStatus = -.infinity; lastMusic = nil
         service.usbState(note)
     }
 
@@ -112,7 +113,8 @@ final class MacTab5USB {
                 wire = candidate; rpcSupported = hello.rpc; lastStatus = -.infinity
             }
             guard let wire else { return }
-            if ProcessInfo.processInfo.systemUptime - lastStatus >= 2 {
+            let music = service.currentMusic
+            if ProcessInfo.processInfo.systemUptime - lastStatus >= 2 || MusicSnapshot.changedUrgently(from: lastMusic, to: music) {
                 if let (host, port) = service.lanConfiguration {
                     try wire.send(["version": 1, "type": "tab5_host", "host": host, "port": Int(port)])
                 }
@@ -124,6 +126,7 @@ final class MacTab5USB {
                 service.usbState("数据已确认", confirmed: true)
                 service.observeUSBInfo(ack)
                 lastStatus = ProcessInfo.processInfo.systemUptime
+                lastMusic = music
             }
             if rpcSupported { try pump(wire, device: pair.deviceId) }
             if !service.configurationBusy, let chunk = service.assets.projection()["resource"] as? [String: Any] {

@@ -7,6 +7,7 @@ final class MacTab5Service {
     private let loadPairing: () throws -> MacTab5Pairing?
     private let savePairing: (MacTab5Pairing) throws -> Void
     private let host: () -> String?
+    private let latestMusic: () -> MusicSnapshot?
     let port: UInt16
     let session = MacTab5Protocol.identifier()
     private var pairing: MacTab5Pairing?
@@ -36,15 +37,17 @@ final class MacTab5Service {
     private var displayCompletion: DisplayCompletion?
 
     init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(), computer: MacTab5Computer = MacTab5Computer(), codex: MacTab5Codex = MacTab5Codex(), voice: MacTab5Voice = MacTab5Voice(),
+         music: @escaping () -> MusicSnapshot? = { nil },
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }) {
-        self.port = port; self.host = host; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
+        self.port = port; self.host = host; self.latestMusic = music; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
         desktop = MacTab5Desktop(codex: codex)
         do { pairing = try load(); try pairing?.validate() }
         catch { pairingReadable = false; usbNote = "无法读取配对记录，请检查钥匙串权限" }
     }
 
     var currentPairing: MacTab5Pairing? { lock.lock(); defer { lock.unlock() }; return pairing }
+    var currentMusic: MusicSnapshot? { latestMusic() }
     func setMaintenance(_ value: Bool) -> Bool {
         lock.lock()
         if value && (activeOperations > 0 || displayCompletion != nil || firmwareControl.busy) { lock.unlock(); return false }
@@ -168,7 +171,7 @@ final class MacTab5Service {
         if codex.isEnabled { additions["imageBinary"] = 1 }
         for count in [16, 8, 4, 1] {
             additions["codexTasks"] = codex.snapshot(taskLimit: count)
-            do { return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover) }
+            do { return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover, music: latestMusic()) }
             catch MacTab5Error.invalidPacket { if count == 1 { throw MacTab5Error.invalidPacket } }
         }
         throw MacTab5Error.invalidPacket
