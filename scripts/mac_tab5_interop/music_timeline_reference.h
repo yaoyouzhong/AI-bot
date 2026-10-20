@@ -42,10 +42,15 @@ static inline aibot_music_position aibot_music_value(aibot_music_clock *clock,
     }
     int64_t position=(int64_t)llround(seconds*1000),length=(int64_t)llround(duration*1000);
     if(length>0&&position>length)position=length;
-    if(!available||!fresh) {clock->valid=false;return (aibot_music_position){position,false};}
     bool same_source=clock->seen&&clock->session==session;
     bool duplicate=same_source&&sequence>0&&sequence<=clock->sequence;
-    if(!duplicate||!clock->valid) {
+    if(!available||!fresh) {
+        clock->valid=false;
+        if(!duplicate) {clock->session=session;clock->sequence=sequence;clock->seen=true;}
+        return (aibot_music_position){position,false};
+    }
+    if(duplicate&&!clock->valid)return (aibot_music_position){position,false};
+    if(!duplicate) {
         bool continuous=clock->valid&&same_source&&clock->track==track&&clock->playing&&playing&&received>=clock->received;
         int64_t expected=continuous?aibot_music_project(clock,received):position;
         int64_t error=position-expected;

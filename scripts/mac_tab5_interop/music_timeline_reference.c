@@ -19,8 +19,10 @@ static void lifecycle(void) {
     assert(aibot_music_value(&clock,1,11,7,0,10,true,true,true,12000,12500).milliseconds==500); /* new track */
     assert(aibot_music_value(&clock,2,11,1,0,10,true,true,true,13000,13500).milliseconds==500); /* new bridge */
     assert(!aibot_music_value(&clock,2,11,2,1,10,true,false,true,14000,14500).available);
+    assert(!aibot_music_value(&clock,2,11,1,0,10,true,true,true,14500,14500).available); /* old data cannot restore an unknown clock */
     assert(aibot_music_value(&clock,2,11,3,2,10,true,true,true,15000,15500).milliseconds==2500);
     assert(!aibot_music_value(&clock,2,11,4,3,10,true,true,false,16000,20000).available); /* lost connection */
+    assert(!aibot_music_value(&clock,2,11,4,3,10,true,true,true,20000,20500).available); /* fresh duplicate does not establish recovery */
     assert(aibot_music_value(&clock,2,11,5,8,10,true,true,true,21000,22000).milliseconds==9000);
     assert(aibot_music_value(&clock,2,11,5,8,10,true,true,true,21000,26000).milliseconds==10000); /* end cap */
     assert(!aibot_music_value(&clock,2,11,6,NAN,10,true,true,true,27000,27000).available);
