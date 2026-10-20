@@ -120,4 +120,50 @@ final class MacTab5VoiceTests: XCTestCase {
         XCTAssertTrue(voice.summary.contains("请在 TAB5 检查"))
         enabled = false; XCTAssertEqual(voice.summary, "尚未启用")
     }
+
+    func testInFlightAudioPreservesRecognizerFinalAndError() {
+        for failure: MacTab5SpeechFailure? in [nil, .serviceInterrupted(1107)] {
+            let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend()), id = start(voice)
+            var audio = request("audio", id); audio["seq"] = 0; audio["pcm"] = Data(repeating: 0, count: 640).base64EncodedString()
+            XCTAssertEqual(voice.handle(audio, device: "A").status, 200)
+            backend.callback?("识别文字", failure == nil, failure)
+            audio["seq"] = 1
+            let result = voice.handle(audio, device: "A")
+            XCTAssertEqual(result.status, 200)
+            XCTAssertEqual(result.body["state"] as? String, failure == nil ? "review" : "error")
+            XCTAssertEqual(result.body["canInsert"] as? Bool, failure == nil)
+            XCTAssertEqual(result.body["text"] as? String, "识别文字")
+            if failure != nil { XCTAssertTrue((result.body["message"] as? String)?.contains("1107") == true) }
+            XCTAssertEqual(backend.feeds, 1)
+        }
+    }
+
+    func testInFlightAudioAfterStopOrCancelDoesNotResumeCapture() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend()), id = start(voice)
+        var audio = request("audio", id); audio["seq"] = 0; audio["pcm"] = Data(repeating: 0, count: 640).base64EncodedString()
+        _ = voice.handle(request("stop", id), device: "A")
+        let stopped = voice.handle(audio, device: "A")
+        XCTAssertEqual(stopped.status, 200); XCTAssertEqual(stopped.body["state"] as? String, "recognizing")
+        backend.callback?("尚未确认", false, nil)
+        _ = voice.handle(request("cancel", id), device: "A")
+        let cancelled = voice.handle(audio, device: "A")
+        XCTAssertEqual(cancelled.status, 200); XCTAssertEqual(cancelled.body["state"] as? String, "cancelled")
+        XCTAssertEqual(cancelled.body["text"] as? String, ""); XCTAssertEqual(cancelled.body["canInsert"] as? Bool, false)
+        XCTAssertEqual(backend.feeds, 0); XCTAssertEqual(backend.finishes, 1)
+    }
+
+    func testTerminalAudioStillRequiresConsentAndExactOwner() {
+        let backend = Backend(); var enabled = true
+        let voice = MacTab5Voice(enabled: { enabled }, backend: backend.backend()), id = start(voice)
+        backend.callback?("最终文字", true, nil)
+        var audio = request("audio", id); audio["seq"] = 0; audio["pcm"] = Data(repeating: 0, count: 640).base64EncodedString()
+        XCTAssertEqual(voice.handle(audio, device: "B").status, 409)
+        var wrong = audio; wrong["session"] = "other"
+        XCTAssertEqual(voice.handle(wrong, device: "A").status, 409)
+        _ = start(voice)
+        XCTAssertEqual(voice.handle(audio, device: "A").status, 409)
+        enabled = false
+        XCTAssertEqual(voice.handle(audio, device: "A").status, 403)
+        XCTAssertEqual(backend.feeds, 0)
+    }
 }

@@ -101,6 +101,9 @@ final class MacTab5Voice {
             if state == "recording" { state = "recognizing"; stoppedByUser = true; stopped = clock(); message = "正在完成本地识别"; backend.finish() }
             return snapshot()
         }
+        // Recognition can finish between audio requests. Return its state to
+        // the same owner so queued audio cannot turn it into transport recovery.
+        if op == "audio", state != "recording" { return snapshot() }
         if op == "tab5", state == "recording", source == "pc", samples == 0, text.isEmpty {
             backend.cancel(); source = "tab5"
             do { try beginBackend(); return snapshot() } catch { state = "error"; message = "TAB5 收音初始化失败"; return snapshot() }
