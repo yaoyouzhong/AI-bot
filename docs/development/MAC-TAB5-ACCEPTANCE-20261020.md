@@ -6,17 +6,17 @@
 
 ## 当前检查点
 
-当前已上机程序为 `604ac8c`。[Mac CI 39384001820](https://github.com/yaoyouzhong/AI-bot/actions/runs/39384001820) 与完整下载附件已核验：163 项测试、0 失败／跳过，音乐 ASan/UBSan、Release、候选包／工具、8 张原生 PNG、源码及包哈希通过。不部署服务的临时 Codex 只读连接已在正常 App 和 TAB5 验证任务与公开回复；阅读位置刷新修正继续单独跟踪。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
+当前运行程序为 `a3bd642`，[Mac CI 39385101526](https://github.com/yaoyouzhong/AI-bot/actions/runs/39385101526) 与完整下载附件已核验：164 项测试、0 失败／跳过，音乐 ASan/UBSan、Release、候选包／工具、8 张原生 PNG、源码及包哈希通过。前一程序 `604ac8c` 与当前候选已在正常 App 和 TAB5 验证不部署服务的临时 Codex 只读连接、首页任务与公开回复；当前候选的历史轮次／页码持续保持也已实机复验通过。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
 
 | 交接阶段 | 当前结论与剩余项 |
 | --- | --- |
-| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 163 项通过；本机 XCTest 工具链仍受阻 |
+| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 164 项通过；本机 XCTest 工具链仍受阻 |
 | 2 USB | 配对、数据、设置读写、拔插与桥接重启恢复通过 |
 | 3 Wi-Fi | 纯 Wi-Fi 认证与设置读写、USB 返回通过；配网、地址恢复、固定模式和八秒阈值精测待验 |
 | 4 BLE | 实际认证／数据／设置、开关重连、睡眠恢复、USB 优先、系统撤权恢复通过；首次直接拒绝与精确延时确认待验 |
 | 5 展示与资源 | 亮度持久化、设备声音、固定页／轮播／屏保、图库导入／失败保留／分页／方向通过；日常数据逐项、桌宠及音乐均匀计时仍未完成 |
 | 6 系统与音乐 | Apple Music 标题／封面／单次控制、系统音量／静音／取消静音、文件夹入口通过；Spotify、程序入口、锁屏／辅助功能拒绝恢复待验 |
-| 7 Codex | 公开 socket 缺失与 proxy 传输假设已查清；不部署服务的标准 stdio 只读连接、实体首页任务和公开回复通过；阅读位置刷新修正另验。实时状态／发送／追加／中断仍不可用 |
+| 7 Codex | 公开 socket 缺失与 proxy 传输假设已查清；不部署服务的标准 stdio 只读连接、实体首页任务、公开回复和阅读位置保持通过。实时状态／发送／追加／中断仍不可用 |
 | 8 照片与语音 | 语音授权、空录音停止提示通过；HTTP 长连接修复后纯 Wi-Fi 单次成功识别，收到 7.4 秒音频；静默提示短停顿复验通过；USB 单次录音及取消保留原名称通过；BLE 语音／长期稳定性、逐字准确率、照片／任务附件待验 |
 | 9 固件工具 | 官方包离线检查、正常 App 版本／SHA／说明预览、当前镜像只读 USB 启动核验通过；实际 OTA／首刷／恢复均未执行 |
 
@@ -26,7 +26,9 @@
 
 `604ac8c` 正常候选已自动启动，用户处理钥匙串，并明确允许临时只读验收、完成后关闭。助手自动启用后，交互窗口显示“只读已连接本机 Codex · 29 个近期会话”；一个桥接自有 CLI 子进程与单一 8765／USB 串口所有者匹配。USB、Wi-Fi、BLE 均恢复。实体 TAB5 首页任务卡已显示 Codex，AI-bot 项目任务公开回复正常显示；历史／分页操作反馈正常显示，但没有独立确认持续停留所选位置。发送、追加、中断、resume、桌面输入框及其他交互开关均保持关闭。随后关闭 Codex 只读，正常界面恢复“尚未启用”。未修改设备展示设置或固件。
 
-自动合成检查发现四秒刷新会重置阅读轮次／页码；补充修正保留成功显示的位置、失败导航不覆盖选择，明确回到最新后继续跟随新轮次。该回归及后续候选结果继续记录，详见[Codex 链路后续](MAC-TAB5-CODEX-LINK-20261020.md)。以下旧记录保留其当时上下文。
+自动合成检查发现四秒刷新会重置阅读轮次／页码；补充修正保留成功显示的位置、失败导航不覆盖选择，明确回到最新后继续跟随新轮次。本机 Debug 合成复验与 Release／签名候选通过；本机 XCTest 仍缺模块未执行。补充修正 `a3bd642` 的 Mac CI 及完整包核验为 164 项、0 失败／跳过，新增回归实际执行通过。新候选实际位置保持已复验通过，详见[Codex 链路后续](MAC-TAB5-CODEX-LINK-20261020.md)。以下旧记录保留其当时上下文。
+
+`a3bd642` 正常候选启动后，USB 数据、Wi-Fi 认证请求、BLE 认证及 USB 优先待命均自动恢复；只读启用时只有一个桥接自有 CLI 子进程，8765 与 `/dev/cu.usbmodem101` 均由同一桥接独占。用户对“公开回复显示、上一轮／第二页停留至少十二秒且不跳回”明确检查反馈“都是正常的”，因此当前候选公开回复与历史阅读位置保持实机通过。助手随后关闭只读，确认界面“尚未启用”、自有 CLI 退出、全部交互开关关闭、入口为空，主窗口三通道仍正常。用户返回原日常总览页；未保存测试内容或修改展示设置、连接模式、图库、声音及固件。关闭只读后首页回退电脑状态为预期。
 
 ## 音乐计时与 Codex 后续
 
@@ -317,7 +319,11 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 
 ## English
 
-The latest physically checked program is `604ac8c`, with [CI 39384001820](https://github.com/yaoyouzhong/AI-bot/actions/runs/39384001820) and full artifacts verifying 163 tests, zero failures/skips, Release/app/tools, eight PNGs, music sanitizers and source/package hashes. With explicit temporary read-only consent, the assistant enabled the normal app's owned stdio reader, which listed 29 recent conversations. The user confirmed a Codex home card and public replies on TAB5. Older-turn/page display was also reported normal, without separately confirming sustained selection retention. USB/Wi-Fi/BLE and exclusive process/listener/serial ownership were checked. The feature was then disabled, all other interaction switches stayed off, and no task mutation, desktop input, display-setting change or firmware write occurred. A synthetic timer-refresh selection reset was reproduced and repaired; its regression and next candidate validation are tracked separately. Older paragraphs below preserve historical context rather than overriding these results.
+The latest physically checked program is `a3bd642`, with [CI 39385101526](https://github.com/yaoyouzhong/AI-bot/actions/runs/39385101526) and full artifacts verifying 164 tests, zero failures/skips, Release/app/tools, eight PNGs, music sanitizers and source/package hashes. Local Release/app/fixture checks passed; local XCTest remained unavailable.
+
+With explicit temporary read-only consent, the normal owned-stdio reader listed 29 recent conversations. On `604ac8c` the user confirmed a Codex home card and public replies. A synthetic check then reproduced the timer resetting historical turns/pages. The repair preserves successful selections, rejects invalid navigation without replacing them and follows new turns after an explicit latest read. Its regression passed CI; on normal `a3bd642`, the user also confirmed public reply display and remaining on an older turn/page two for the requested twelve-second observation without resetting. USB/Wi-Fi/BLE and exclusive process/listener/serial ownership were checked.
+
+The assistant disabled the reader, confirmed its child exited, every interaction switch off, the launcher list empty and the listener/serial owner healthy, and returned the Mac window to TAB5. The user returned the device to its original daily overview. No task mutation, desktop input, test-content save, display-setting change or firmware write occurred. The home card falling back to computer status while the feature is off is expected. Older paragraphs below preserve historical context rather than overriding these results.
 
 The running app is now `ef773a0`; `1788914` only tightens the offline music reference. [CI 39381792622](https://github.com/yaoyouzhong/AI-bot/actions/runs/39381792622) and complete downloaded artifacts verified 156 tests, zero failures/skips, music ASan/UBSan, Release/app/tools, eight native PNGs and source/package hashes. The running program's own CI also passed and its small reports verified the same 156 tests including four new regressions. Local XCTest remains blocked before execution.
 
