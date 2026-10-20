@@ -98,7 +98,7 @@ final class MusicTimelineTests: XCTestCase {
     func testServiceUsesCurrentMusicWithoutWaitingForGeneralStatusPublication() throws {
         let pair = MacTab5Pairing(deviceId: "001122334455", usbPath: "/dev/cu.usbmodem-fixture", key: Data(0..<32), confirmed: true)
         var latest = track()
-        let service = MacTab5Service(port: 8765, music: { latest }, load: { pair }, save: { _ in })
+        let service = MacTab5Service(port: 8765, music: { (latest, nil) }, load: { pair }, save: { _ in })
         service.publish(status(track()))
         latest = track(11, playing: false, age: 1)
         let root = try MacTab5Protocol.object(service.frame())
@@ -106,5 +106,24 @@ final class MusicTimelineTests: XCTestCase {
         XCTAssertEqual(data["musicPlaying"] as? Bool, false)
         XCTAssertEqual((data["music"] as? [String: Any])?["playing"] as? Bool, false)
         XCTAssertEqual((data["music"] as? [String: Any])?["elapsedSeconds"] as? Double, 11)
+    }
+
+    func testFastMusicFramesBindArtworkToTheSameCurrentSample() throws {
+        let pair = MacTab5Pairing(deviceId: "001122334455", usbPath: "/dev/cu.usbmodem-fixture", key: Data(0..<32), confirmed: true)
+        var latest = track(), cover: Data? = Data(repeating: 1, count: 112 * 112 * 2)
+        let service = MacTab5Service(port: 8765, music: { (latest, cover) }, load: { pair }, save: { _ in })
+        service.publish(status(track()))
+        func frame() throws -> [String: Any] { try XCTUnwrap(MacTab5Protocol.object(service.frame())["data"] as? [String: Any]) }
+        let first = try frame()
+        XCTAssertEqual((first["music"] as? [String: Any])?["hasArtwork"] as? Bool, true)
+        latest = track(0, age: 1, title: "Next track"); cover = nil
+        let pending = try frame()
+        XCTAssertEqual((pending["music"] as? [String: Any])?["title"] as? String, "Next track")
+        XCTAssertEqual((pending["music"] as? [String: Any])?["hasArtwork"] as? Bool, false)
+        XCTAssertTrue((pending["assetIds"] as? [Any])?[2] is NSNull)
+        cover = Data(repeating: 2, count: 112 * 112 * 2)
+        let ready = try frame()
+        XCTAssertEqual((ready["music"] as? [String: Any])?["hasArtwork"] as? Bool, true)
+        XCTAssertNotEqual((ready["assetIds"] as? [Any])?[2] as? String, (first["assetIds"] as? [Any])?[2] as? String)
     }
 }

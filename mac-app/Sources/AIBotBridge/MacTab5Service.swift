@@ -7,7 +7,7 @@ final class MacTab5Service {
     private let loadPairing: () throws -> MacTab5Pairing?
     private let savePairing: (MacTab5Pairing) throws -> Void
     private let host: () -> String?
-    private let latestMusic: () -> MusicSnapshot?
+    private let latestMusic: () -> (snapshot: MusicSnapshot?, cover: Data?)?
     let port: UInt16
     let session = MacTab5Protocol.identifier()
     private var pairing: MacTab5Pairing?
@@ -37,7 +37,7 @@ final class MacTab5Service {
     private var displayCompletion: DisplayCompletion?
 
     init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(), computer: MacTab5Computer = MacTab5Computer(), codex: MacTab5Codex = MacTab5Codex(), voice: MacTab5Voice = MacTab5Voice(),
-         music: @escaping () -> MusicSnapshot? = { nil },
+         music: @escaping () -> (snapshot: MusicSnapshot?, cover: Data?)? = { nil },
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }) {
         self.port = port; self.host = host; self.latestMusic = music; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
@@ -47,7 +47,7 @@ final class MacTab5Service {
     }
 
     var currentPairing: MacTab5Pairing? { lock.lock(); defer { lock.unlock() }; return pairing }
-    var currentMusic: MusicSnapshot? { latestMusic() }
+    var currentMusic: MusicSnapshot? { latestMusic()?.snapshot }
     func setMaintenance(_ value: Bool) -> Bool {
         lock.lock()
         if value && (activeOperations > 0 || displayCompletion != nil || firmwareControl.busy) { lock.unlock(); return false }
@@ -157,6 +157,8 @@ final class MacTab5Service {
         guard !stopped, !maintenance else { throw MacTab5Error.unavailable }
         guard let pair = pairing, pair.confirmed, let snapshot else { throw MacTab5Error.pairingRequired }
         sequence += 1
+        let media = latestMusic()
+        if let media { assets.updateCover(media.cover) }
         var additions = assets.projection()
         additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
         let offer = firmwareControl.projection()
@@ -171,7 +173,7 @@ final class MacTab5Service {
         if codex.isEnabled { additions["imageBinary"] = 1 }
         for count in [16, 8, 4, 1] {
             additions["codexTasks"] = codex.snapshot(taskLimit: count)
-            do { return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover, music: latestMusic()) }
+            do { return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover, music: media?.snapshot) }
             catch MacTab5Error.invalidPacket { if count == 1 { throw MacTab5Error.invalidPacket } }
         }
         throw MacTab5Error.invalidPacket

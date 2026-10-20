@@ -46,7 +46,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         catch { show("无法访问设备配对令牌", "请检查钥匙串授权后重新启动。读取失败不会替换现有令牌，也不会反复请求密码。") }
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
         let music = { [dataStore] in dataStore.snapshot().music }
-        let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), music: music)
+        let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), music: { [dataStore] in
+            let media = dataStore.snapshot(); return (media.music, media.musicCover)
+        })
         self.tab5 = tab5
         tab5.codex.start()
         tab5.publish(reader.capture(extras: dataStore.snapshot()))
@@ -240,7 +242,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateTitle() {
         let snapshot = reader.capture(extras: dataStore.snapshot())
-        tab5?.assets.update(pets: [MacPetCache.shared.selection("claude"), MacPetCache.shared.selection("codex")], cover: dataStore.snapshot().musicCover)
+        tab5?.assets.updatePets([MacPetCache.shared.selection("claude"), MacPetCache.shared.selection("codex")])
         tab5?.publish(snapshot)
         statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
         updateAutomaticScreenSaver(snapshot)

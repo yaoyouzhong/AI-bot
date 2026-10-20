@@ -40,14 +40,28 @@ final class MacTab5Assets {
     private var offsets = [0, 0, 0]
     func update(pets: [MacPetAnimation?], cover: Data?) {
         lock.lock(); defer { lock.unlock() }
-        for index in 0..<3 {
-            let pet = index < pets.count && index < 2 ? pets[index] : nil
-            let source = index < 2 ? pet.flatMap { try? $0.encode() } : cover
+        updatePetsLocked(pets); updateCoverLocked(cover)
+    }
+    func updatePets(_ pets: [MacPetAnimation?]) {
+        lock.lock(); defer { lock.unlock() }; updatePetsLocked(pets)
+    }
+    private func updatePetsLocked(_ pets: [MacPetAnimation?]) {
+        for index in 0..<2 {
+            let pet = index < pets.count ? pets[index] : nil
+            let source = pet.flatMap { try? $0.encode() }
             guard source != sources[index] else { continue }; sources[index] = source; offsets[index] = 0
             if let pet { assets[index] = try? .rgb565(slot: index, width: pet.width, height: pet.height, delays: pet.delays, raw: pet.frames.reduce(into: Data()) { $0.append($1) }) }
-            else if index == 2, let cover, cover.count == 112 * 112 * 2 { assets[index] = try? .rgb565(slot: 2, width: 112, height: 112, delays: [1000], raw: cover) }
             else { assets[index] = nil }
         }
+    }
+    func updateCover(_ cover: Data?) {
+        lock.lock(); defer { lock.unlock() }; updateCoverLocked(cover)
+    }
+    private func updateCoverLocked(_ cover: Data?) {
+        guard cover != sources[2] else { return }
+        sources[2] = cover; offsets[2] = 0
+        if let cover, cover.count == 112 * 112 * 2 { assets[2] = try? .rgb565(slot: 2, width: 112, height: 112, delays: [1000], raw: cover) }
+        else { assets[2] = nil }
     }
     static func validIDs(_ text: String) -> Bool {
         let ids = text.split(separator: ",", omittingEmptySubsequences: false)
