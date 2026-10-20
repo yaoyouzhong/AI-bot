@@ -6,7 +6,7 @@ final class MacTab5Codex {
     typealias Call = (String, [String: Any]) throws -> [String: Any]
     private let gate = NSLock(), stateLock = NSLock()
     private let queue = DispatchQueue(label: "AI-bot.tab5-codex")
-    private let call: Call, enabled: () -> Bool, sendEnabled: () -> Bool
+    private let call: Call, enabled: () -> Bool, sendEnabled: () -> Bool, mutable: () -> Bool
     private let clock: () -> TimeInterval
     private var catalogUpdated: TimeInterval = -.infinity
     let store: MacTab5PrivateStore
@@ -21,12 +21,13 @@ final class MacTab5Codex {
     private var note = "尚未启用"
     private let rpc: MacTab5CodexRPC?
 
-    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, call: Call? = nil) {
+    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, call: Call? = nil) {
         self.store = store; photos = MacTab5Photos(store: store); self.enabled = enabled; self.sendEnabled = sendEnabled; self.clock = clock
-        if let call { self.call = call; rpc = nil }
-        else { let rpc = MacTab5CodexRPC(); self.rpc = rpc; self.call = rpc.call }
+        if let call { self.call = call; rpc = nil; mutable = canMutate }
+        else { let rpc = MacTab5CodexRPC(); self.rpc = rpc; self.call = rpc.call; mutable = { rpc.canMutate } }
     }
     var isEnabled: Bool { enabled() }
+    var canMutate: Bool { enabled() && mutable() }
     var summary: String { stateLock.lock(); defer { stateLock.unlock() }; return note }
     func snapshot(taskLimit: Int = 16) -> [String: Any]? {
         guard enabled() else { return nil }
@@ -64,7 +65,7 @@ final class MacTab5Codex {
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Codex 会话"
-                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": root["updatedAt"] as? Int64 ?? 0, "state": Self.taskState(root["status"] as? [String: Any] ?? [:])]
+                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": root["updatedAt"] as? Int64 ?? 0, "state": mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"]
             }
             catalogUpdated = clock()
             stateLock.lock()
@@ -72,7 +73,7 @@ final class MacTab5Codex {
             var projects: [[String: Any]] = []; var seen = Set<String>()
             for task in catalog { let id = task["projectId"] as! String; if seen.insert(id).inserted { projects.append(["id": id, "name": task["folder"]!]) } }
             projection["projects"] = projects; projection["overviewTask"] = Self.overview(catalog)
-            note = "已连接本机 Codex · \(catalog.count) 个近期会话"; stateLock.unlock()
+            note = mutable() ? "已连接本机 Codex · \(catalog.count) 个近期会话" : "只读已连接本机 Codex · \(catalog.count) 个近期会话；实时状态待确认，发送不可用。临时进程随桥接关闭。"; stateLock.unlock()
             if !viewedTask.isEmpty, catalog.contains(where: { $0["id"] as? String == viewedTask }) { _ = try page(task: viewedTask, root: [:], device: viewedDevice) }
         } catch { stateLock.lock(); note = Self.connectionFailure(error); projection["control"] = NSNull(); stateLock.unlock() }
     }
@@ -99,12 +100,14 @@ final class MacTab5Codex {
         switch error as? MacTab5CodexFailure {
         case .cliUnavailable: reason = "未找到可执行的 Codex CLI，请选择已安装的 CLI。"
         case .proxyUnavailable: reason = "本机 App Server 代理在初始化前退出；桌面 App 已打开也不代表控制 socket 可用。"
+        case .readOnlyUnavailable: reason = "临时只读连接在初始化前退出。"
+        case .readOnlyConnection: reason = "当前连接只允许读取任务与公开回复。"
         case .timeout: reason = "本机 App Server 响应超时。"
         case .rejected: reason = "本机 App Server 拒绝请求，请检查版本兼容性。"
         case .protocolError: reason = "本机 App Server 返回了不兼容的数据。"
         default: reason = "本机 App Server 连接中断。"
         }
-        return "Codex 未连接；" + reason + "保留最近数据，不自动部署或启动服务。"
+        return "Codex 未连接；" + reason + "保留最近数据，不安装后台服务。"
     }
     private func loadJournal() throws -> [String: Any] {
         if let journal { return journal }
@@ -123,6 +126,7 @@ final class MacTab5Codex {
               catalog.contains(where: { $0["id"] as? String == task }) else { return .error(404, "task_not_in_recent_catalog") }
         do {
             if op == "read" { viewedTask = task; viewedDevice = device; return try page(task: task, root: root, device: device) }
+            if ["send", "steer", "interrupt"].contains(op), !mutable() { return .error(403, "codex_read_only_connection") }
             guard let id = Self.id(root["requestId"]) else { return .error(400, "invalid_request") }
             if op == "read-ack" {
                 guard let turn = Self.id(root["turnId"]), let receipt = readReceipts[id], receipt.0 == device, receipt.1 == task, receipt.2 == turn,
@@ -189,23 +193,49 @@ final class MacTab5Codex {
         } catch { return .error(503, "codex_or_private_storage_unavailable") }
     }
     private func receiptResult(_ root: [String: Any]) -> MacTab5RPCResult { .init(root["status"] as? Int ?? 504, root["body"] as? [String: Any] ?? ["error": "delivery_unknown"]) }
-    private func readThread(_ task: String) throws -> [String: Any] {
-        let result = try call("thread/read", ["threadId": task, "includeTurns": true])
-        guard let thread = result["thread"] as? [String: Any], Self.id(thread["id"]) == task else { throw MacTab5CodexFailure.protocolError }; return thread
+    private func readThread(_ task: String, selected: String = "", offset: Int = 0) throws -> [String: Any] {
+        let readOnly = !mutable()
+        let result = try call("thread/read", ["threadId": task, "includeTurns": !readOnly])
+        guard var thread = result["thread"] as? [String: Any], Self.id(thread["id"]) == task else { throw MacTab5CodexFailure.protocolError }
+        guard readOnly else { return thread }
+        var turns: [[String: Any]] = [], cursor: String?, seen = Set<String>(), needsOlder = false
+        for _ in 0..<8 {
+            var params: [String: Any] = ["threadId": task, "limit": 32, "sortDirection": "desc", "itemsView": "summary"]
+            if let cursor { params["cursor"] = cursor }
+            let page = try call("thread/turns/list", params)
+            guard let entries = page["data"] as? [[String: Any]], entries.count <= 32 else { throw MacTab5CodexFailure.protocolError }
+            for entry in entries {
+                guard let id = Self.id(entry["id"]), !turns.contains(where: { $0["id"] as? String == id }) else { continue }
+                // Do not retain reasoning, user messages or tool output between
+                // pages. Only public assistant text enters the device projection.
+                let items = (entry["items"] as? [[String: Any]] ?? []).filter { $0["type"] as? String == "agentMessage" }
+                turns.append(["id": id, "status": entry["status"] ?? "unknown", "startedAt": entry["startedAt"] ?? 0, "items": items])
+            }
+            cursor = page["nextCursor"] as? String
+            let index = turns.firstIndex { $0["id"] as? String == selected }
+            needsOlder = !selected.isEmpty && (index == nil || (offset < 0 && index == turns.count - 1))
+            guard needsOlder, let next = cursor else { break }
+            guard next.utf8.count <= 4096, seen.insert(next).inserted else { throw MacTab5CodexFailure.protocolError }
+        }
+        thread["turns"] = Array(turns.reversed())
+        thread["hasOlderTurns"] = cursor != nil
+        thread["historyLimited"] = needsOlder && cursor != nil
+        return thread
     }
-    private static func threadIdle(_ thread: [String: Any]) -> Bool { let type = (thread["status"] as? [String: Any])?["type"] as? String; return type == "idle" || type == "notLoaded" }
+    private static func threadIdle(_ thread: [String: Any]) -> Bool { (thread["status"] as? [String: Any])?["type"] as? String == "idle" }
     private func updateReadState() {
         stateLock.lock(); projection["repliesReady"] = ready; projection["repliesRead"] = read
         projection["repliesUnread"] = ready.filter { read[$0.key] != $0.value }; stateLock.unlock()
     }
     private func page(task: String, root: [String: Any], device: String) throws -> MacTab5RPCResult {
-        let thread = try readThread(task), turns = thread["turns"] as? [[String: Any]] ?? []
         let selected = root["turnId"] as? String ?? "", offset = Int(MacTab5Protocol.integer(root["turnOffset"]) ?? 0)
         guard (-1...1).contains(offset), selected.isEmpty || Self.id(selected) != nil else { return .error(400, "invalid_turn") }
+        let thread = try readThread(task, selected: selected, offset: offset), turns = thread["turns"] as? [[String: Any]] ?? []
         var index = turns.count - 1
-        if !selected.isEmpty { guard let found = turns.firstIndex(where: { $0["id"] as? String == selected }) else { return .error(404, "turn_not_found") }; index = found + offset }
-        guard turns.indices.contains(index), let turnID = Self.id(turns[index]["id"]) else { return .error(404, "reply_unavailable") }
-        let turn = turns[index], state = turn["status"] as? String ?? "unknown"
+        if !selected.isEmpty { guard let found = turns.firstIndex(where: { $0["id"] as? String == selected }) else { return .error(thread["historyLimited"] as? Bool == true ? 413 : 404, "turn_not_in_available_history") }; index = found + offset }
+        guard turns.indices.contains(index), let turnID = Self.id(turns[index]["id"]) else { return .error(thread["historyLimited"] as? Bool == true ? 413 : 404, "reply_unavailable") }
+        let turn = turns[index], recordedState = turn["status"] as? String ?? "unknown"
+        let state = !mutable() && recordedState == "inProgress" ? "unknown" : recordedState
         // Public assistant messages only: no reasoning, tool output or raw rollouts.
         let items = turn["items"] as? [[String: Any]] ?? []
         let text = items.filter { $0["type"] as? String == "agentMessage" }.compactMap { $0["text"] as? String }.joined(separator: "\n\n")
@@ -219,12 +249,12 @@ final class MacTab5Codex {
             readReceipts = readReceipts.filter { $0.value.3 > now }
             if readReceipts.count < 80 { receipt = UUID().uuidString.lowercased(); readReceipts[receipt] = (device, task, turnID, now + 300) }
         }
-        let view: [String: Any] = ["taskId": task, "turnId": turnID, "page": page, "pageCount": pages.count, "hasText": !text.isEmpty, "readReceipt": receipt, "history": history, "hasPrevious": index > 0, "hasNext": index + 1 < turns.count, "previousTurnId": index > 0 ? turns[index - 1]["id"] as? String ?? "" : "", "nextTurnId": index + 1 < turns.count ? turns[index + 1]["id"] as? String ?? "" : "", "state": state, "startedAt": turn["startedAt"] as? Int64 ?? 0]
-        let current = turns.last ?? [:], running = current["status"] as? String == "inProgress"
+        let view: [String: Any] = ["taskId": task, "turnId": turnID, "page": page, "pageCount": pages.count, "hasText": !text.isEmpty, "readReceipt": receipt, "history": history, "hasPrevious": index > 0 || thread["hasOlderTurns"] as? Bool == true, "hasNext": index + 1 < turns.count, "previousTurnId": index > 0 ? turns[index - 1]["id"] as? String ?? "" : "", "nextTurnId": index + 1 < turns.count ? turns[index + 1]["id"] as? String ?? "" : "", "state": state, "startedAt": turn["startedAt"] as? Int64 ?? 0]
+        let current = turns.last ?? [:], canControl = mutable(), running = canControl && current["status"] as? String == "inProgress"
         let flags = (thread["status"] as? [String: Any])?["activeFlags"] as? [String] ?? []
         stateLock.lock(); projection["replyView"] = view; projection["responses"] = [task: pages[page]]
         projection["receipts"] = [task: state == "completed" ? "已完成" : state == "inProgress" ? "运行中" : state == "interrupted" ? "已中断" : state == "failed" ? "失败" : "状态未知"]
-        projection["control"] = ["taskId": task, "turnId": current["id"] as? String ?? "", "running": running, "canSend": sendEnabled() && !running && Self.threadIdle(thread), "canSteer": sendEnabled() && running && flags.isEmpty, "canInterrupt": sendEnabled() && running, "waiting": !flags.isEmpty]
+        projection["control"] = ["taskId": task, "turnId": current["id"] as? String ?? "", "running": running, "canSend": canControl && sendEnabled() && !running && Self.threadIdle(thread), "canSteer": canControl && sendEnabled() && running && flags.isEmpty, "canInterrupt": canControl && sendEnabled() && running, "waiting": canControl && !flags.isEmpty]
         stateLock.unlock(); updateReadState()
         return .init(200, ["rpcReplyVersion": 1, "status": "loaded", "taskId": task, "turnId": turnID, "replyView": view, "text": pages[page]])
     }

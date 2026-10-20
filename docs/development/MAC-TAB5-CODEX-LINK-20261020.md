@@ -2,6 +2,22 @@
 
 本轮沿用测试分支与交接边界：自动测试、最小修复，不合并 main、不部署、不发布、不刷机。真实发送／追加／中断仍只针对用户明确指定的测试任务；本轮没有指定，未执行这些操作。
 
+## 公开 socket 根因与不部署服务的修正
+
+下面保留较早的受阻记录；本节是后续查清的根因与新路径。
+
+1. 本机桌面主 App Server 的实际启动参数没有 `--listen unix://`，使用默认 stdio。只读核对随包启动逻辑：本地 daemon 路径受显式环境开关、主机类型和 `daemon version` 成功探测等条件控制；失败就启动 stdio，桌面不会因此创建 daemon/socket。当前默认 socket 的错误是 ENOENT，不是 EACCES，未发现本机 TCP 监听。这是当前启动方式的结果，不是“桌面窗口没打开”。未修改桌面启动配置或这些环境开关。
+2. 实际 `.163` CLI 的 `app-server proxy` 是原始字节转发，Unix 端点采用 WebSocket 握手。空临时 CODEX_HOME 中的对照实验确认：stdio 初始化成功且不生成控制 socket；显式短路径 Unix 监听会生成 socket，直接 JSONL 无法握手，经 proxy 转发的 HTTP Upgrade 返回 **101**。旧客户端将 proxy 当作 JSONL 适配器，是另一处独立不兼容。所有临时进程／目录均已清理；未执行 daemon bootstrap/start、安装服务或接入用户内部桌面 IPC。[公开传输说明](https://learn.chatgpt.com/docs/app-server)
+3. 正常桥接现在只在 Codex 只读功能启用后，通过已安装 CLI 启动 `app-server --listen stdio://` 子进程，关闭功能／退出桥接时结束。无常驻服务、无新增监听端口，不修改登录、配置、模型或审批策略。生产 RPC 仅允许 `thread/list`、`thread/read`、`thread/turns/list`、`thread/items/list`，其他方法在写管道／启动进程前即被拒绝。
+4. 临时进程不是桌面任务持有者，所有任务实时状态保持 unknown；保存记录里的 inProgress 也不当作已证实运行中。发送、追加、中断、resume 及快捷控制台提交在界面、业务层和 RPC 层受限。即使有其他可信连接，notLoaded 也不能当 idle 自动恢复后发送。设备绑定的本机加密草稿仍可使用，不触发 Codex 任务操作。
+5. 只读回复改为元数据读取加 `thread/turns/list` 的 summary 分页，每页最多 32 轮、单次最多 8 页，且检测重复 cursor；只保留 agentMessage，公开正文仍受 1 MiB 上限约束。更深历史不能无界加载。没有使用 deprecated 的整段历史回复来读取当前长会话。
+
+本机 Release 与测试源解析通过；XCTest 仍因工具链缺模块而在执行前受阻。实际 Debug 客户端＋已安装 CLI 的空临时目录检查通过：标准 stdio、唯一子进程复用、非只读方法拒绝与退出清理。另做实际本机只读集成：投影 16 个近期任务槽位，精确匹配当前仓库项目，读取公开回复 HTTP/RPC 结果 200、正文 679 字节、保存状态 completed，全部发送控制为 false。没有输出或保留标题、UUID、正文、路径、推理、工具输出或认证信息。它不等于正常候选／TAB5 的实机验收；后者须在本轮 CI 通过后执行。
+
+新增七项回归覆盖进程生命周期、方法白名单、拒绝不重试、读失败不重放、只读公开回复／草稿／控制、分页边界、notLoaded 禁止自动恢复及桌面提交不改输入框（部分项目合并在同一测试）。完整结果以后续 CI 及正常候选记录为准。
+
+Windows 当前走 `codex-ipc` 命名管道与持有任务的桌面进程交流，不依赖这个公开 socket。其源码明确标注为依赖版本的未公开桌面 IPC；这解释了两端现象不同，不能把 Windows 的成功当作本 Mac 公开接口已连通。
+
 ## 当前阻塞与只读证据
 
 本机已安装 CLI `0.163.0-alpha.10.2`。其公开 `app-server proxy --help` 提供 `--sock`，但默认控制 socket 不存在；只读 `app-server daemon version` 也返回同一 `ENOENT`。当前桌面子进程使用 stdio。实际桥接 RPC 对象复核代理在初始化前退出，没有任务请求到达服务端。没有连接内部桌面 IPC、读原始 rollouts、修改用户配置，或启动／部署 daemon。
@@ -24,9 +40,15 @@
 
 ## 剩余条件
 
-需要已有桌面服务提供可附接的公开 App Server 端点，才能继续真实任务列表、精确选择、公开回复、草稿与送达验收。当前不通过另建 daemon、部署服务或改用内部 IPC 绕过该条件。真实任务发送仍需要用户指定任务；所有发送、桌面输入框及语音开关保持关闭。
+任务列表、保存的公开回复与本机加密草稿已具备不部署服务的只读路径，正常候选与 TAB5 复验见后续记录。桌面实时状态、发送、追加、中断与送达仍需要经验证的共享任务持有者连接，以及用户指定的真实测试任务；单独部署 daemon 并不证明桌面也使用它。当前不部署服务、不接内部 IPC；所有发送、桌面输入框及语音开关保持关闭。
 
 ## English
+
+The subsequent investigation found two independent causes. The actual desktop child uses default stdio; the bundled startup selects an existing local daemon only under explicit opt-in and a successful daemon-version probe, otherwise starting stdio without creating a socket. No startup setting was changed. An empty-home transport comparison additionally proved that this CLI proxy relays raw WebSocket bytes: a short-path Unix listener existed, bare JSONL did not initialize, and HTTP Upgrade through the proxy returned 101. All diagnostic processes/directories were removed; no daemon was deployed. The old JSONL-over-proxy assumption was incompatible even with a socket.
+
+The repaired production reader directly starts an app-owned `app-server --listen stdio://` child only while the feature is enabled, ending it on opt-out/exit. It installs no service, adds no listener and overrides no auth/model/approval configuration. RPC permits only the four documented read methods; mutations are rejected before process startup or writes. Desktop runtime is unknown, stored in-progress turns are not treated as live, and send/steer/interrupt/resume/desktop submit are unavailable. Unloaded threads also cannot be mistaken for idle by another backend. Local encrypted drafts remain separate from task operations. Stored public replies use summary pagination (32 turns/page, 8 pages/request, repeated-cursor rejection), public agent messages only and the existing 1 MiB reply bound.
+
+Local Release/source parsing and actual-object installed-CLI empty-home lifecycle/denial checks passed; local XCTest is still unavailable. An actual local read-only integration projected 16 recent-task slots, matched the repository project and retrieved a completed 679-byte public reply with status 200 and every send control false. No title/UUID/body/path/reasoning/tool/authentication data was output or retained. Seven new regressions cover the lifecycle, denial/retry, public pagination, drafts/controls, unloaded-state and desktop-submit boundaries. Full CI and subsequent normal-app/TAB5 acceptance are recorded separately. Windows currently uses version-dependent private desktop named-pipe IPC, so its working behavior does not validate the Mac public proxy path. The earlier blocked records below remain historical.
 
 The installed `0.163.0-alpha.10.2` public proxy still exits before initialization because its default control socket is absent; read-only daemon version probing confirms ENOENT. The desktop child uses stdio. No daemon, internal IPC, raw rollout access, user configuration change or real-task mutation was used. A short-lived CLI process under an empty temporary CODEX_HOME passed initialization/empty list and rejected a missing synthetic thread, then exited and was removed. This isolated probe is not attachment to the user's desktop service.
 

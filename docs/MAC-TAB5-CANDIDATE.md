@@ -31,8 +31,8 @@
 | --- | --- |
 | 音量/静音/锁屏/常用入口 | 读取 CoreAudio 实际结果；最多四个本机程序或文件夹。设备不能传入任意路径或命令。锁屏需要辅助功能；锁定/屏幕状态未知时保持未知，不提供 Mac 一键解锁。 |
 | Apple Music / Spotify | 音乐开关独立授权播放控制，无需开启音量／锁屏等电脑控制。首次触发自动化授权。控制与已显示歌曲绑定，只发送一次，随后读取状态；未知结果不重复跳曲。 |
-| Codex 回复和草稿 | 先运行本机 Codex 桌面应用。桥接通过本机 CLI `app-server proxy` 连接现有服务；可在高级入口选择已安装的 CLI。只投影近期会话标题、项目名与公开助手回复，不导出推理、工具输出、原始日志或完整本机路径。后台活动统计继续只读文件元数据。 |
-| Codex 发送 | 第二个独立开关。TAB5 明确点击后才发送/追加/中断；保持已有模型、权限和审批策略。草稿及送达记录由 Keychain 密钥加密，先记录再发送。超时保留草稿和“不确定”回执，不自动重发，先到电脑检查。审批/用户问题在电脑处理，不自动批准。 |
+| Codex 回复和草稿 | 通过已安装 CLI 的标准 stdio 临时子进程，只读本机近期会话与保存的公开回复，关闭功能／退出桥接时结束，不安装后台服务。可选择已安装的 CLI。只投影会话标题、项目名与公开助手回复；后台活跃统计继续只读文件元数据。历史分页有界，未知桌面实时状态不猜测。 |
+| Codex 发送 | 当前只读连接不支持发送/追加/中断、resume 或快捷控制台提交，发送开关不能启用。完整控制需要另行验证共享任务持有者连接及用户指定测试任务；不以独立只读进程恢复真实任务。加密草稿保存在本机，审批／用户问题仍在电脑处理。 |
 | 快捷控制台 | 另需辅助功能。只有公共辅助功能地址能证明精确任务 UUID、且主输入框可确认时才写入和读回。Codex 版本没有提供这些信息时安全拒绝；不能把通用标题或“已请求打开”算成已到前台。此版本相关能力必须在目标 Mac 实测。普通 Codex 会话操作不依赖此输入框。 |
 | 照片 | TAB5 摄像头上传后先验证完整 SHA、JPEG/PNG 解码和像素边界，最多三张绑定当前设备/任务。加密保存，只在确认发送时作为该任务附件。USB/BLE 分块与 Wi-Fi 整图均保留幂等校验。 |
 | 语音 | Mac 原生本地识别，支持 TAB5 收音及 Mac 默认麦克风（可在系统设置选择 USB 接收器）。先授权语音识别/麦克风；仅本机支持中文本地识别时启动，不悄悄改为云端识别。不沿用 Windows 豆包输入法或虚拟声卡路径。最长一分钟，断流会停止收音。最终文字先预览，确认后才能发送或填入事项/日期；取消丢弃迟到结果。 |
@@ -60,7 +60,7 @@ CI 附件包括 xUnit、日志、工具链、源码 SHA、含 LICENSE/第三方�
 
 2026-10-20 本机检查、实际固件包问题与待验收项目见 [现场验收记录](development/MAC-TAB5-ACCEPTANCE-20261020.md)。该记录区分工具链受阻、离线验证和正常 App／硬件结果。
 
-本机 `0.163.0-alpha.10.2` CLI 的实际随包布局已适配，但默认 `app-server proxy` socket 当前不存在，Codex 会话验收受阻。找到 CLI 或打开桌面应用不构成连接成功；“交互与权限”显示实际连接状态。本轮不另行部署 daemon。
+本机 `0.163.0-alpha.10.2` 桌面默认 stdio 不创建公开控制 socket，且其 `app-server proxy` 转发原始 WebSocket 字节，不能直接交换 JSONL。当前候选改用标准 stdio 的临时只读子进程；只读连接状态及限制显示在“交互与权限”。正常 App／TAB5 验收以[最新链路记录](development/MAC-TAB5-CODEX-LINK-20261020.md)为准，不部署 daemon。
 
 ---
 
@@ -80,7 +80,7 @@ For an HD full bundle, validate the outer catalog and embedded standard ZIP hash
 
 **Interaction and permissions** independently enables CoreAudio volume/mute, whitelisted local launchers, lock, Music/Spotify, Codex and voice. Unknown Mac lock/display state remains unknown; one-click unlock is unavailable. The music opt-in independently authorizes playback controls without enabling volume, lock or launchers. Music commands bind to the displayed track, execute once and read back actual state. First use requires the relevant macOS Automation/Accessibility permissions.
 
-Codex connects to the existing desktop service through its installed CLI's local `app-server proxy`. Reply/draft access and sending have separate opt-ins. Only public assistant messages are projected; background activity remains metadata-only. Device/task-bound drafts, images and delivery receipts are encrypted using a Keychain key. Reserve delivery before sending, retain uncertain outcomes, never replay an uncertain send, and handle approvals on the computer. Desktop quick-console typing additionally requires Accessibility proof of the exact task URL and main composer; unsupported desktop versions return unconfirmed instead of guessing by title. This version-sensitive path needs physical acceptance.
+Codex uses the installed CLI's standard stdio endpoint in an app-owned temporary read-only child, ending on opt-out/exit with no service installation or listener. It projects recent titles/projects and saved public assistant messages through bounded pagination; background activity remains metadata-only and desktop runtime remains unknown. Device/task-bound drafts and images remain encrypted. The current connection rejects send/steer/interrupt/resume and desktop submission even if a send preference was saved. Full control requires a separately verified shared owner and a designated test task. Desktop composer staging additionally requires Accessibility proof of the exact task URL and main composer; unsupported versions return unconfirmed rather than guessing. Handle approvals on the computer.
 
 Photos use authenticated Wi-Fi or USB/BLE chunks, complete SHA/decode/dimension validation, and at most three attachments bound to the selected task. Native Speech accepts TAB5 audio or the Mac default microphone/USB receiver, only with supported on-device Chinese recognition. There is no silent cloud fallback or Windows IME/virtual-device dependency. Stop on disconnect, cap capture at one minute, review final text and manually confirm sending/insertion. Cancellation ignores late callbacks.
 
@@ -90,4 +90,4 @@ CI performs native tests, Release, an ad-hoc signed app, non-device tool-help ch
 
 The [2026-10-20 local acceptance record](development/MAC-TAB5-ACCEPTANCE-20261020.md) distinguishes the local toolchain blocker, actual package-loader repairs, offline checks and pending normal-app/hardware acceptance.
 
-The installed `0.163.0-alpha.10.2` CLI bundle layout is now supported, but its default App Server proxy socket is absent on the test Mac. Codex conversation acceptance is blocked; finding the executable or opening the desktop app is insufficient. The interaction window shows connection status. No alternate daemon is deployed in this session.
+The installed desktop defaults to stdio without creating a public control socket. Its proxy relays raw WebSocket bytes and cannot directly exchange JSONL. This candidate instead uses standard stdio for temporary read-only access, displaying its status and restrictions in the interaction window. See the linked follow-up for current normal-app/TAB5 acceptance. No daemon is deployed.

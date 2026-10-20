@@ -40,4 +40,15 @@ final class MacTab5DesktopTests: XCTestCase {
         XCTAssertEqual(desktop.handle(["op": "open-recent", "requestId": UUID().uuidString], device: "A").status, 409)
         XCTAssertEqual(desktop.handle(["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "hello"], device: "A").status, 503); XCTAssertEqual(fixture.writes, 0)
     }
+    func testReadOnlyConnectionRejectsDesktopSubmissionBeforeChangingComposer() throws {
+        let fixture = Fixture(); fixture.value = "保留电脑输入"
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let codex = MacTab5Codex(store: .init(root: root, key: { Data(repeating: 4, count: 32) }), enabled: { true }, sendEnabled: { true }, canMutate: { false }, call: fixture.call)
+        codex.refresh()
+        let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: fixture.backend)
+        let response = desktop.handle(["op": "submit-draft", "taskId": fixture.task, "requestId": UUID().uuidString], device: "fixture")
+        XCTAssertEqual(response.status, 403); XCTAssertEqual(fixture.value, "保留电脑输入")
+        XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0); XCTAssertEqual(fixture.opens, 0)
+    }
 }

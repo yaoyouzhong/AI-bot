@@ -1,4 +1,5 @@
 import XCTest
+import Darwin
 @testable import AIBotBridge
 
 final class MacTab5CodexRPCTests: XCTestCase {
@@ -19,7 +20,7 @@ final class MacTab5CodexRPCTests: XCTestCase {
         XCTAssertNil(MacTab5CodexRPC.locate(saved: "/invalid\0/codex", applications: [], isExecutable: { $0.contains("\0") }))
     }
 
-    func testLocalProxyHandshakeNotificationsAndOneInitialization() throws {
+    func testReadOnlyStdioHandshakeNotificationsAndOneInitialization() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true); defer { try? FileManager.default.removeItem(at: root) }
         let tool = root.appendingPathComponent("fixture-codex"), record = root.appendingPathComponent("requests.jsonl")
@@ -44,7 +45,7 @@ final class MacTab5CodexRPCTests: XCTestCase {
         XCTAssertEqual(requests.filter { $0["method"] as? String == "thread/list" }.count, 2)
         XCTAssertTrue(requests.allSatisfy { $0["jsonrpc"] == nil })
     }
-    func testMissingCLIAndProxyExitHaveDistinctSafeFailures() throws {
+    func testMissingCLIAndStdioExitHaveDistinctSafeFailures() throws {
         let missing = MacTab5CodexRPC(executable: { nil })
         XCTAssertThrowsError(try missing.call("thread/list", [:])) { error in
             guard case MacTab5CodexFailure.cliUnavailable = error else { return XCTFail("Expected missing CLI") }
@@ -57,8 +58,88 @@ final class MacTab5CodexRPCTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: tool.path)
         let rpc = MacTab5CodexRPC(executable: { tool.path })
         XCTAssertThrowsError(try rpc.call("thread/list", [:])) { error in
-            guard case MacTab5CodexFailure.proxyUnavailable = error else { return XCTFail("Expected early proxy exit") }
+            guard case MacTab5CodexFailure.readOnlyUnavailable = error else { return XCTFail("Expected early stdio exit") }
         }
         rpc.stop()
+    }
+    private func fixture(_ behavior: String) throws -> (URL, URL) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let tool = root.appendingPathComponent("fixture-codex")
+        let source = """
+        #!/usr/bin/env python3
+        import json,sys,pathlib,os
+        path=pathlib.Path(__file__).with_name('records.jsonl')
+        def record(value):
+            with path.open('a') as f: f.write(json.dumps(value)+'\\n')
+        record({'args':sys.argv[1:],'pid':os.getpid()})
+        \(behavior)
+        for line in sys.stdin:
+            message=json.loads(line)
+            record(message)
+            if 'method' not in message or 'id' not in message: continue
+            if message['method']=='thread/read' and 'lose-read' in sys.argv[0]: sys.exit(1)
+            if message['method']=='thread/read':
+                print(json.dumps({'id':900,'method':'item/commandExecution/requestApproval','params':{}}),flush=True)
+            print(json.dumps({'id':message['id'],'result':{'data':[]}}),flush=True)
+        """
+        try source.write(to: tool, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: tool.path)
+        return (tool, root.appendingPathComponent("records.jsonl"))
+    }
+    private func records(_ path: URL) throws -> [[String: Any]] {
+        try String(contentsOf: path, encoding: .utf8).split(separator: "\n").map { try MacTab5Protocol.object(Data($0.utf8)) }
+    }
+    func testOneReadOnlyChildBlocksAllMutationsAndClosesWithoutService() throws {
+        let (tool, record) = try fixture("")
+        let rpc = MacTab5CodexRPC(executable: { tool.path }); defer { rpc.stop() }
+        XCTAssertFalse(rpc.canMutate)
+        _ = try rpc.call("thread/list", [:]); _ = try rpc.call("thread/read", ["threadId": "fixture"])
+        for method in ["thread/resume", "thread/start", "turn/start", "turn/steer", "turn/interrupt", "command/exec", "config/write", "future/mutate"] {
+            XCTAssertThrowsError(try rpc.call(method, [:])) { error in
+                guard case MacTab5CodexFailure.readOnlyConnection = error else { return XCTFail("Expected read-only denial") }
+            }
+        }
+        _ = try rpc.call("thread/list", [:])
+        XCTAssertFalse(rpc.canMutate)
+        let rows = try records(record), starts = rows.filter { $0["args"] != nil }
+        XCTAssertEqual(starts.count, 1)
+        XCTAssertEqual(starts[0]["args"] as? [String], ["app-server", "--listen", "stdio://"])
+        XCTAssertEqual(rows.filter { $0["method"] as? String == "thread/list" }.count, 2)
+        XCTAssertFalse(rows.contains { ($0["method"] as? String)?.hasPrefix("turn/") == true })
+        let approval = try XCTUnwrap(rows.first { $0["id"] as? Int == 900 })
+        XCTAssertNotNil(approval["error"]); XCTAssertNil(approval["result"])
+        let pid = try XCTUnwrap(starts.last?["pid"] as? Int)
+        rpc.stop()
+        let deadline = Date().addingTimeInterval(3)
+        while kill(pid_t(pid), 0) == 0 && Date() < deadline { Thread.sleep(forTimeInterval: 0.01) }
+        XCTAssertNotEqual(kill(pid_t(pid), 0), 0)
+    }
+    func testMutationCannotStartChildAndRejectedHandshakeDoesNotRetry() throws {
+        let (missing, firstRecord) = try fixture("")
+        let mutation = MacTab5CodexRPC(executable: { missing.path }); defer { mutation.stop() }
+        XCTAssertThrowsError(try mutation.call("turn/start", [:])) { error in
+            guard case MacTab5CodexFailure.readOnlyConnection = error else { return XCTFail("Expected read-only denial") }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstRecord.path))
+        let (rejected, secondRecord) = try fixture("message=json.loads(sys.stdin.readline()); print(json.dumps({'id':message['id'],'error':{'code':-1,'message':'fixture'}}),flush=True); sys.exit(1)")
+        let rpc = MacTab5CodexRPC(executable: { rejected.path }); defer { rpc.stop() }
+        XCTAssertThrowsError(try rpc.call("thread/list", [:])) { error in
+            guard case MacTab5CodexFailure.rejected = error else { return XCTFail("Expected rejection") }
+        }
+        XCTAssertEqual(try records(secondRecord).filter { $0["args"] != nil }.count, 1)
+    }
+    func testReadFailureIsNotAutomaticallyReplayed() throws {
+        let (original, record) = try fixture("")
+        let tool = original.deletingLastPathComponent().appendingPathComponent("lose-read")
+        try FileManager.default.moveItem(at: original, to: tool)
+        let rpc = MacTab5CodexRPC(executable: { tool.path }); defer { rpc.stop() }
+        _ = try rpc.call("thread/list", [:]); XCTAssertFalse(rpc.canMutate)
+        XCTAssertThrowsError(try rpc.call("thread/read", ["threadId": "fixture"]))
+        let rows = try records(record)
+        XCTAssertEqual(rows.filter { $0["args"] != nil }.count, 1)
+        XCTAssertEqual(rows.filter { $0["method"] as? String == "thread/read" }.count, 1)
+        XCTAssertFalse(rpc.canMutate)
     }
 }

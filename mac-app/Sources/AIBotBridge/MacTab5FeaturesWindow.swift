@@ -32,7 +32,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         label("Codex 会话", size: 15)
         codex.state = service.codex.isEnabled ? .on : .off; codex.target = self; codex.action = #selector(toggleCodex); stack.addArrangedSubview(codex)
         send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend); stack.addArrangedSubview(send)
-        label("连接已运行的 Codex 本地 App Server，不修改登录、模型或审批策略。后台统计始终只读文件元数据；启用此项后才读取公开回复。草稿与送达记录在本机加密保存，发送结果未知时请在电脑核查，不会自动重发。")
+        label("通过临时只读连接查看本机 Codex 近期任务与公开回复，关闭功能或退出桥接后结束，不安装后台服务。当前连接不能确认桌面实时状态，也不能发送、追加或中断。登录、模型和审批策略保持原值；草稿在本机加密保存。")
         let cli = NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)); stack.addArrangedSubview(cli)
         stack.addArrangedSubview(codexState); codexState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         codexState.font = .systemFont(ofSize: 12); codexState.textColor = .secondaryLabelColor
@@ -72,7 +72,13 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }
     @objc private func toggleMusic() { UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey) }
     @objc private func toggleCodex() { UserDefaults.standard.set(codex.state == .on, forKey: MacTab5Codex.enabledKey); if codex.state == .off { UserDefaults.standard.set(false, forKey: MacTab5Codex.sendKey); send.state = .off } }
-    @objc private func toggleSend() { if codex.state != .on { send.state = .off }; UserDefaults.standard.set(send.state == .on, forKey: MacTab5Codex.sendKey) }
+    @objc private func toggleSend() {
+        if codex.state != .on || !service.codex.canMutate {
+            send.state = .off
+            result.stringValue = "当前连接只读，发送、追加和中断不可用。"
+        }
+        UserDefaults.standard.set(send.state == .on, forKey: MacTab5Codex.sendKey)
+    }
     @objc private func toggleDesktop() { if codex.state != .on { desktop.state = .off }; UserDefaults.standard.set(desktop.state == .on, forKey: MacTab5Desktop.enabledKey) }
     @objc private func toggleVoice() {
         if voice.state == .off { UserDefaults.standard.set(false, forKey: MacTab5Voice.enabledKey); service.voice.stop(); return }

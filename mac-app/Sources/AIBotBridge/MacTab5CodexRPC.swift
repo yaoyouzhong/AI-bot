@@ -1,10 +1,11 @@
 import AppKit
 import Foundation
 
-enum MacTab5CodexFailure: Error { case cliUnavailable, proxyUnavailable, unavailable, rejected, timeout, protocolError }
+enum MacTab5CodexFailure: Error { case cliUnavailable, proxyUnavailable, readOnlyUnavailable, readOnlyConnection, unavailable, rejected, timeout, protocolError }
 
-// Public Codex stdio protocol over its local desktop control-socket proxy.
-// No independent app-server, login, API key, model or approval-policy override.
+// The installed `app-server proxy` relays raw WebSocket bytes, not JSONL.
+// Use the public stdio endpoint in an app-owned read-only child instead. It
+// cannot claim desktop runtime ownership, install a daemon or override policies.
 final class MacTab5CodexRPC {
     static let pathKey = "tab5_codex_cli_path"
     private let calls = NSLock()
@@ -17,7 +18,9 @@ final class MacTab5CodexRPC {
     private var generation = UUID()
     private var nextID = 0
     private let executable: () -> String?
+    private static let readMethods: Set<String> = ["thread/list", "thread/read", "thread/turns/list", "thread/items/list"]
     init(executable: @escaping () -> String? = MacTab5CodexRPC.locate) { self.executable = executable }
+    var canMutate: Bool { false }
     static func locate() -> String? {
         var applications = NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex").compactMap(\.bundleURL)
         if let registered = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.openai.codex") { applications.append(registered) }
@@ -35,11 +38,12 @@ final class MacTab5CodexRPC {
     }
     func call(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
         calls.lock(); defer { calls.unlock() }
+        guard Self.readMethods.contains(method) else { throw MacTab5CodexFailure.readOnlyConnection }
         do {
             if process?.isRunning != true {
                 try start()
                 do { _ = try request("initialize", ["clientInfo": ["name": "aibot_tab5_mac", "title": "AI-bot TAB5", "version": "1.0"]]) }
-                catch MacTab5CodexFailure.unavailable { throw MacTab5CodexFailure.proxyUnavailable }
+                catch MacTab5CodexFailure.unavailable { throw MacTab5CodexFailure.readOnlyUnavailable }
                 try write(["method": "initialized"])
             }
             return try request(method, params)
@@ -50,7 +54,8 @@ final class MacTab5CodexRPC {
     private func start() throws {
         guard let path = executable() else { throw MacTab5CodexFailure.cliUnavailable }
         let child = Process(), stdin = Pipe(), stdout = Pipe(), stderr = Pipe()
-        child.executableURL = URL(fileURLWithPath: path); child.arguments = ["app-server", "proxy"]
+        child.executableURL = URL(fileURLWithPath: path)
+        child.arguments = ["app-server", "--listen", "stdio://"]
         child.standardInput = stdin; child.standardOutput = stdout; child.standardError = stderr
         condition.lock(); ended = false; answers.removeAll(); generation = UUID(); let owner = generation; condition.unlock()
         do { try child.run() } catch { throw MacTab5CodexFailure.cliUnavailable }

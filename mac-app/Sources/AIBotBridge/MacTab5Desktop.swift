@@ -16,6 +16,7 @@ final class MacTab5Desktop {
         guard enabled(), codex.isEnabled else { return .error(403, "desktop_control_not_enabled") }
         lock.lock(); defer { lock.unlock() }
         guard let id = MacTab5Codex.id(root["requestId"]), let op = root["op"] as? String, ["open-recent", "stage-draft", "clear-draft", "submit-draft"].contains(op) else { return .error(400, "invalid_request") }
+        if op == "submit-draft", !codex.canMutate { return .error(403, "codex_read_only_connection") }
         let tasks = codex.snapshot()?["tasks"] as? [[String: Any]] ?? []
         guard let task = MacTab5Codex.id(root["taskId"] ?? tasks.first?["id"]), let entry = tasks.first(where: { $0["id"] as? String == task }) else { return .error(404, "task_not_in_recent_catalog") }
         guard codex.contains(task) else { return .error(503, "codex_catalog_stale") }
