@@ -166,4 +166,43 @@ final class MacTab5VoiceTests: XCTestCase {
         XCTAssertEqual(voice.handle(audio, device: "A").status, 403)
         XCTAssertEqual(backend.feeds, 0)
     }
+
+    func testCaptureDiagnosticsCountOnlyAcceptedAudioAndRetainPeak() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend()), id = start(voice)
+        var audio = request("audio", id); audio["seq"] = 0
+        audio["pcm"] = Data((0..<3200).flatMap { _ in [UInt8(0xb0), 0x04] }).base64EncodedString()
+        _ = voice.handle(audio, device: "A"); _ = voice.handle(audio, device: "A")
+        XCTAssertTrue(voice.diagnostics.contains("已接收 1 块 · 0.2 秒"))
+        XCTAssertTrue(voice.diagnostics.contains("最近电平 10% · 峰值 10%"))
+        audio["seq"] = 1; audio["pcm"] = Data(repeating: 0, count: 6400).base64EncodedString()
+        _ = voice.handle(audio, device: "A")
+        XCTAssertTrue(voice.diagnostics.contains("已接收 2 块 · 0.4 秒"))
+        XCTAssertTrue(voice.diagnostics.contains("最近电平 0% · 峰值 10%"))
+        XCTAssertEqual(voice.handle(["op": "start", "taskId": task, "session": session, "source": "tab5"], device: "A").status, 409)
+        _ = voice.handle(request("cancel", id), device: "A")
+        _ = start(voice)
+        XCTAssertTrue(voice.diagnostics.contains("已接收 0 块 · 0.0 秒"))
+    }
+
+    func testRequestDiagnosticsUseFixedLabelsAndClearFailuresForNewTake() {
+        let backend = Backend(); var enabled = true
+        let voice = MacTab5Voice(enabled: { enabled }, backend: backend.backend())
+        voice.observeReply(op: "private-request-body", transport: "private-device-id", status: 401)
+        XCTAssertTrue(voice.diagnostics.contains("连接 · 请求 · 401"))
+        XCTAssertFalse(voice.diagnostics.contains("private"))
+        voice.observeReply(op: "start", transport: "Wi-Fi", status: 200)
+        XCTAssertFalse(voice.diagnostics.contains("最近拒绝"))
+        voice.observeReply(op: "audio", transport: "USB", status: 409)
+        voice.observeReply(op: "poll", transport: "USB", status: 200)
+        XCTAssertTrue(voice.diagnostics.contains("最近拒绝：USB · 音频 · 409"))
+        enabled = false; XCTAssertEqual(voice.diagnostics, "")
+    }
+
+    func testVoiceHTTPAuthenticationFailureIsVisibleWithoutSensitiveData() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend())
+        let service = MacTab5Service(port: 0, voice: voice, load: { nil }, save: { _ in })
+        XCTAssertEqual(service.voicePacket(device: "private-device-id", nonce: "private-nonce", proof: "private-proof", packet: Data(), transport: "Wi-Fi").0, 401)
+        XCTAssertTrue(voice.diagnostics.contains("Wi-Fi · 请求 · 401"))
+        XCTAssertFalse(voice.diagnostics.contains("private"))
+    }
 }

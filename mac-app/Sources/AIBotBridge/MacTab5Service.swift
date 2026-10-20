@@ -266,7 +266,10 @@ final class MacTab5Service {
             else if root["kind"] as? String == "gallery" { result = gallery.handle(root, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
             else if root["kind"] as? String == "computer-control" { result = computer.handle(root) }
             else if root["kind"] as? String == "codex" { result = codex.handle(root, device: device) }
-            else if root["kind"] as? String == "voice" { result = voice.handle(root, device: device) }
+            else if root["kind"] as? String == "voice" {
+                result = voice.handle(root, device: device)
+                voice.observeReply(op: root["op"] as? String, transport: transport, status: result.status)
+            }
             else if root["kind"] as? String == "desktop" { result = desktop.handle(root, device: device) }
             else { result = firmwareControl.handle(root, device: device, transport: transport, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
             lock.lock(); activeOperations -= 1; lock.unlock()
@@ -337,6 +340,11 @@ final class MacTab5Service {
     private func currentIdentityMatches(_ pair: MacTab5Pairing) -> Bool { pairing == pair }
 
     func voicePacket(device: String, nonce: String, proof: String, packet: Data, transport: String) -> (Int, Data) {
+        let result = voiceResponse(device: device, nonce: nonce, proof: proof, packet: packet, transport: transport)
+        if result.0 != 200 { voice.observeReply(op: nil, transport: transport, status: result.0) }
+        return result
+    }
+    private func voiceResponse(device: String, nonce: String, proof: String, packet: Data, transport: String) -> (Int, Data) {
         guard let pair = currentPairing, pair.confirmed, pair.deviceId == device, packet.count <= 16028,
               MacTab5Protocol.isHex(nonce, count: 32), MacTab5Protocol.verify(key: pair.key, message: "POST|/tab5/v1/voice|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))", proof: proof),
               var root = try? MacTab5Protocol.object(MacTab5Protocol.decrypt(packet, key: pair.key, challenge: nonce)) else { return (401, Data()) }

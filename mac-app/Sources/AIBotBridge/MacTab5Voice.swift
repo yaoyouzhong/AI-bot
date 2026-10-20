@@ -44,6 +44,8 @@ final class MacTab5Voice {
     private var id = "", device = "", task = "", session = "", source = "tab5", state = "idle", text = "", message = ""
     private var started: TimeInterval = 0, seen: TimeInterval = 0, stopped: TimeInterval = 0
     private var sequence = 0, samples = 0, level = 0
+    private var peak = 0
+    private var lastReply = "", lastFailure = ""
     private var hashes: [Int: String] = [:]
     private var isFinal = false
     private var stoppedByUser = false
@@ -65,6 +67,28 @@ final class MacTab5Voice {
         case "error": return message
         default: return "已启用，等待 TAB5 发起收音"
         }
+    }
+    var diagnostics: String {
+        lock.lock(); defer { lock.unlock() }
+        guard enabled() else { return "" }
+        var details: [String] = []
+        if !id.isEmpty, source == "tab5" {
+            details.append(String(format: "TAB5 音频：已接收 %d 块 · %.1f 秒 · 最近电平 %d%% · 峰值 %d%%", sequence, Double(samples) / 16000, level, peak))
+        }
+        if !lastReply.isEmpty { details.append("最近请求：" + lastReply) }
+        if !lastFailure.isEmpty { details.append("最近拒绝：" + lastFailure) }
+        return details.joined(separator: "\n")
+    }
+    func observeReply(op: String?, transport: String, status: Int) {
+        lock.lock(); defer { lock.unlock() }
+        let channel = ["USB", "Wi-Fi", "BLE"].contains(transport) ? transport : "连接"
+        let operation = ["start": "开始", "audio": "音频", "poll": "查询", "stop": "停止", "cancel": "取消", "tab5": "切换收音"][op ?? ""] ?? "请求"
+        // Only fixed labels and bounded status numbers reach the UI, never
+        // request bodies, identifiers, authentication material or transcripts.
+        let reply = "\(channel) · \(operation) · \((100...599).contains(status) ? status : 0)"
+        lastReply = reply
+        if op == "start", status == 200 { lastFailure = "" }
+        if status != 200 { lastFailure = reply }
     }
     deinit { timer?.cancel(); backend.cancel() }
     func stop() { lock.lock(); defer { lock.unlock() }; backend.cancel(); state = "cancelled"; text = ""; id = "" }
@@ -89,7 +113,7 @@ final class MacTab5Voice {
             if ["recording", "recognizing"].contains(state) { return .error(409, "voice_busy") }
             backend.cancel(); id = UUID().uuidString.lowercased(); self.device = device; self.task = task; self.session = session
             source = root["source"] as? String == "tab5" ? "tab5" : "pc"; state = "recording"; text = ""; message = "请开始说话"; isFinal = false; stoppedByUser = false
-            sequence = 0; samples = 0; level = 0; hashes.removeAll(); started = clock(); seen = started
+            sequence = 0; samples = 0; level = 0; peak = 0; hashes.removeAll(); started = clock(); seen = started
             do { try beginBackend(); return snapshot() }
             catch { state = "error"; message = "本地语音不可用，请在 Mac 授权语音识别和麦克风，并确认该语言支持离线识别。"; backend.cancel(); return snapshot() }
         }
@@ -117,7 +141,7 @@ final class MacTab5Voice {
             let pcm = try MacTab5VoiceAudio.decode(bytes, codec: root["codec"] as? String ?? "pcm")
             guard samples + pcm.count <= 60 * 16000 else { return .error(413, "voice_duration_exceeded") }
             try backend.feed(pcm); samples += pcm.count; sequence += 1; hashes[seq] = hash
-            level = min(100, Int((pcm.map { abs(Int($0)) }.max() ?? 0) * 100 / 12000)); return snapshot()
+            level = min(100, Int((pcm.map { abs(Int($0)) }.max() ?? 0) * 100 / 12000)); peak = max(peak, level); return snapshot()
         } catch { state = "error"; message = "音频无效，本段已停止"; backend.cancel(); return .error(400, "invalid_voice_audio") }
     }
     private func beginBackend() throws {

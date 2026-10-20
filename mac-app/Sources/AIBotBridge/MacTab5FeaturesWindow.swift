@@ -63,7 +63,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private func resizeDocument() { window?.contentView?.layoutSubtreeIfNeeded(); if let documentView, let body { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(window?.contentView?.bounds.height ?? 560, body.fittingSize.height + 48))) } }
     private func refreshCodexState() {
         let text = "Codex：" + service.codex.summary
-        let speech = "语音：" + service.voice.summary
+        let details = service.voice.diagnostics
+        let speech = "语音：" + service.voice.summary + (details.isEmpty ? "" : "\n" + details)
         guard codexState.stringValue != text || voiceState.stringValue != speech else { return }
         codexState.stringValue = text; voiceState.stringValue = speech; resizeDocument()
     }
