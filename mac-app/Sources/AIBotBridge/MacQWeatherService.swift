@@ -83,8 +83,22 @@ actor MacQWeatherService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         return request
     }
+    nonisolated static func airRequest(host: String, key: String, latitude: Double, longitude: Double) throws -> URLRequest {
+        guard latitude.isFinite, longitude.isFinite, (-90...90).contains(latitude), (-180...180).contains(longitude) else {
+            throw Failure.configuration
+        }
+        var request = try request(host: host, key: key, path: "/v7/weather/now", location: "")
+        var c = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
+        c.path = String(format: "/airquality/v1/current/%.2f/%.2f", locale: Locale(identifier: "en_US_POSIX"), latitude, longitude)
+        c.queryItems = [URLQueryItem(name: "lang", value: "zh")]
+        request.url = c.url!
+        return request
+    }
     private func get(host: String, key: String, path: String, location: String) async throws -> Data {
         let request = try Self.request(host: host, key: key, path: path, location: location)
+        return try await get(request)
+    }
+    private func get(_ request: URLRequest) async throws -> Data {
         let (data, response) = try await session.data(for: request)
         guard let status = (response as? HTTPURLResponse)?.statusCode else { throw Failure.response }
         guard status == 200 else { throw Failure.http(status) }
@@ -108,6 +122,9 @@ actor MacQWeatherService {
         async let current = get(host: host, key: key, path: "/v7/weather/now", location: location)
         async let daily = get(host: host, key: key, path: "/v7/weather/7d", location: location)
         async let hourly = try? get(host: host, key: key, path: "/v7/weather/24h", location: location)
-        return try await MacWeatherForecast.qweather(current: current, daily: daily, hourly: hourly, city: label)
+        async let air = try? get(Self.airRequest(host: host, key: key, latitude: latitude, longitude: longitude))
+        var value = try await MacWeatherForecast.qweather(current: current, daily: daily, hourly: hourly, city: label)
+        MacWeatherForecast.addQAir(await air, to: &value)
+        return value
     }
 }

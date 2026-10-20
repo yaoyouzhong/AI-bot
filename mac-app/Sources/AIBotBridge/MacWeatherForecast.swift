@@ -32,6 +32,9 @@ enum MacWeatherForecast {
     }
     static func addMeteo(_ data: Data, to value: inout WeatherSnapshot, now: Date) throws {
         let root = try root(data)
+        let current = root["current"] as? [String: Any] ?? [:]
+        value.pressureHpa = number(current["pressure_msl"], range: 1...1200)
+        value.pressureKind = value.pressureHpa == nil ? nil : "sea_level"
         let offset = number(root["utc_offset_seconds"], range: -43200...50400).map(Int.init)
         value.utcOffsetSeconds = offset
         // Without an explicit city timezone, do not guess which hours are future.
@@ -72,6 +75,43 @@ enum MacWeatherForecast {
         guard r["code"] as? String == "200" else { throw MacQWeatherService.Failure.response }
         return r
     }
+    // Open-Meteo supplies the US EPA scale, not the Chinese AQI scale.
+    static func usAirLabel(_ index: Int) -> String {
+        switch index {
+        case ...50: return "优"
+        case ...100: return "良"
+        case ...150: return "敏感人群不健康"
+        case ...200: return "不健康"
+        case ...300: return "非常不健康"
+        default: return "危险"
+        }
+    }
+    static func addMeteoAir(_ data: Data?, to value: inout WeatherSnapshot) {
+        guard let data, let r = try? root(data), let c = r["current"] as? [String: Any] else { return }
+        if let aqi = number(c["us_aqi"], range: 0...10000) {
+            value.airQualityIndex = Int(aqi.rounded())
+            value.airQualityLabel = usAirLabel(value.airQualityIndex!)
+            value.airQualityStandard = "us-epa"
+        }
+        value.pm25 = number(c["pm2_5"], range: 0...100000)
+    }
+    static func addQAir(_ data: Data?, to value: inout WeatherSnapshot) {
+        guard let data, let r = try? root(data) else { return }
+        // The existing device field uses integer AQI. Never round fractional QAQI into that scale.
+        let indexes = r["indexes"] as? [[String: Any]] ?? []
+        if let item = indexes.first(where: { $0["code"] as? String == "us-epa" }),
+           let aqi = number(item["aqi"], range: 0...10000) {
+            value.airQualityIndex = Int(aqi.rounded())
+            value.airQualityStandard = "us-epa"
+            value.airQualityLabel = usAirLabel(value.airQualityIndex!)
+        }
+        let pollutants = r["pollutants"] as? [[String: Any]] ?? []
+        if let pm = pollutants.first(where: { $0["code"] as? String == "pm2p5" }),
+           let concentration = pm["concentration"] as? [String: Any],
+           ["μg/m3", "µg/m3", "μg/m³", "µg/m³"].contains(concentration["unit"] as? String ?? "") {
+            value.pm25 = number(concentration["value"], range: 0...100000)
+        }
+    }
     static func qweather(current: Data, daily: Data, hourly: Data?, city: String, now: Date = Date()) throws -> WeatherSnapshot {
         let currentRoot = try qRoot(current), dailyRoot = try qRoot(daily)
         guard let c = currentRoot["now"] as? [String: Any], let temp = number(c["temp"], range: -100...100),
@@ -98,6 +138,8 @@ enum MacWeatherForecast {
             high: high, low: low, humidity: Int(humidity), weatherCode: qCode(c["icon"] as? String),
             pm25: nil, airQualityIndex: nil, source: "qweather", updatedAt: now, stale: false,
             utcOffsetSeconds: offset, daily: days, dailyStale: false)
+        value.pressureHpa = number(c["pressure"], range: 1...1200)
+        value.pressureKind = value.pressureHpa == nil ? nil : "station"
         seen.removeAll()
         if let hourly, let h = try? qRoot(hourly), let rows = h["hourly"] as? [[String: Any]] {
             value.hourly = rows.compactMap { row -> MacWeatherHour? in

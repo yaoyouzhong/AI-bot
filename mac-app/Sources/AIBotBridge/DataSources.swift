@@ -144,6 +144,16 @@ final class MacDataStore {
             if value.daily?.isEmpty != false, old.daily?.isEmpty == false {
                 value.daily = old.daily; value.dailyStale = true
             }
+            if value.airQualityIndex == nil, old.airQualityIndex != nil {
+                value.airQualityIndex = old.airQualityIndex
+                value.airQualityLabel = old.airQualityLabel
+                value.airQualityStandard = old.airQualityStandard
+                value.stale = true
+            }
+            if value.pm25 == nil, old.pm25 != nil { value.pm25 = old.pm25; value.stale = true }
+            if value.pressureHpa == nil, old.pressureHpa != nil {
+                value.pressureHpa = old.pressureHpa; value.pressureKind = old.pressureKind; value.stale = true
+            }
         }
         weather = value
         lock.unlock()
@@ -317,7 +327,7 @@ actor MacDataService {
             }
             let coordinate = String(format: "latitude=%.6f&longitude=%.6f", locale: Locale(identifier: "en_US_POSIX"),
                                     location.latitude, location.longitude)
-            let forecast = URL(string: "https://api.open-meteo.com/v1/forecast?\(coordinate)&current=temperature_2m,relative_humidity_2m,weather_code&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration&forecast_days=7&timezone=auto")!
+            let forecast = URL(string: "https://api.open-meteo.com/v1/forecast?\(coordinate)&current=temperature_2m,relative_humidity_2m,weather_code,pressure_msl&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration&forecast_days=7&timezone=auto")!
             let air = URL(string: "https://air-quality-api.open-meteo.com/v1/air-quality?\(coordinate)&current=us_aqi,pm2_5")!
             let (forecastData, forecastResponse) = try await session.data(from: forecast)
             guard (forecastResponse as? HTTPURLResponse)?.statusCode == 200 else {
@@ -343,7 +353,7 @@ actor MacDataService {
 
     private static func forecastNote(_ value: WeatherSnapshot) -> String {
         "天气：\(value.source == "qweather" ? "和风天气" : "Open-Meteo") 已更新 · \(value.hourly?.count ?? 0) 小时 / \(value.daily?.count ?? 0) 天" +
-        ((value.hourlyStale == true || value.dailyStale == true) ? " · 部分预报为缓存" : "")
+        ((value.stale || value.hourlyStale == true || value.dailyStale == true) ? " · 部分数据为缓存" : "")
     }
 
     private func refreshStocks() async {
@@ -393,15 +403,14 @@ actor MacDataService {
     static func parseWeather(forecast: Data, air: Data?, city: String, now: Date = Date()) throws
         -> WeatherSnapshot {
         let weather = try JSONDecoder().decode(ForecastResponse.self, from: forecast)
-        let quality = air.flatMap { try? JSONDecoder().decode(AirResponse.self, from: $0) }
         guard let high = weather.daily.temperatureMax.first,
               let low = weather.daily.temperatureMin.first else { throw DataError.invalidResponse }
         var value = WeatherSnapshot(city: city, condition: condition(weather.current.code),
                                temperature: weather.current.temperature, high: high, low: low,
                                humidity: Int(weather.current.humidity.rounded()), weatherCode: weather.current.code,
-                               pm25: quality?.current?.pm25,
-                               airQualityIndex: quality?.current.map { Int($0.aqi.rounded()) },
+                               pm25: nil, airQualityIndex: nil,
                                source: "open-meteo", updatedAt: now, stale: false)
+        MacWeatherForecast.addMeteoAir(air, to: &value)
         try MacWeatherForecast.addMeteo(forecast, to: &value, now: now)
         return value
     }
@@ -472,14 +481,6 @@ actor MacDataService {
             enum CodingKeys: String, CodingKey {
                 case temperatureMax = "temperature_2m_max", temperatureMin = "temperature_2m_min"
             }
-        }
-    }
-    private struct AirResponse: Decodable {
-        let current: Current?
-        struct Current: Decodable {
-            let aqi: Double
-            let pm25: Double
-            enum CodingKeys: String, CodingKey { case aqi = "us_aqi", pm25 = "pm2_5" }
         }
     }
     private struct GeocodingResponse: Decodable {

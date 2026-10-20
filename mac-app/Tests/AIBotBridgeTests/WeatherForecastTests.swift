@@ -13,7 +13,7 @@ final class WeatherForecastTests: XCTestCase {
         let days = (0..<7).map { day.string(from: now.addingTimeInterval(Double($0) * 86400)) }
         return try JSONSerialization.data(withJSONObject: [
             "utc_offset_seconds": offset,
-            "current": ["temperature_2m": 20, "relative_humidity_2m": 50, "weather_code": 2],
+            "current": ["temperature_2m": 20, "relative_humidity_2m": 50, "weather_code": 2, "pressure_msl": 1013.2],
             "hourly": ["time": hours, "temperature_2m": Array(repeating: 18, count: 168),
                        "precipitation_probability": [0, NSNull(), 101, 20], "weather_code": [0, 2]],
             "daily": ["time": days, "temperature_2m_max": Array(repeating: 25, count: 7),
@@ -26,6 +26,7 @@ final class WeatherForecastTests: XCTestCase {
         let w = try MacDataService.parseWeather(forecast: meteo(), air: nil, city: "Synthetic", now: now)
         XCTAssertEqual(w.hourly?.count, 24); XCTAssertEqual(w.daily?.count, 7)
         XCTAssertEqual(w.utcOffsetSeconds, 20700)
+        XCTAssertEqual(w.pressureHpa, 1013.2); XCTAssertEqual(w.pressureKind, "sea_level")
         XCTAssertNil(w.hourly?[0].rainProbability); XCTAssertNil(w.hourly?[1].rainProbability)
         XCTAssertEqual(w.hourly?[2].rainProbability, 20)
         XCTAssertEqual(w.daily?[0].sunrise, "06:00"); XCTAssertEqual(w.daily?[0].sunset, "18:00")
@@ -39,11 +40,12 @@ final class WeatherForecastTests: XCTestCase {
     func testQWeatherCurrentDailyHourlyAndPartialFailure() throws {
         let day = MacWeatherForecast.formatter("yyyy-MM-dd", offset: 28800).string(from: now)
         let time = MacWeatherForecast.formatter("yyyy-MM-dd'T'HH:mmXXXXX", offset: 28800).string(from: now)
-        let c = try JSONSerialization.data(withJSONObject: ["code": "200", "now": ["obsTime": time, "temp": "21", "humidity": "60", "text": "晴", "icon": "100"]])
+        let c = try JSONSerialization.data(withJSONObject: ["code": "200", "now": ["obsTime": time, "temp": "21", "humidity": "60", "text": "晴", "icon": "100", "pressure": "980"]])
         let d = try JSONSerialization.data(withJSONObject: ["code": "200", "daily": [["fxDate": day, "textDay": "晴", "tempMin": "10", "tempMax": "25", "sunrise": "06:00", "sunset": "18:00", "precip": "0"]]])
         let h = try JSONSerialization.data(withJSONObject: ["code": "200", "hourly": [["fxTime": time, "temp": "22", "text": "晴", "pop": "40"]]])
         let w = try MacWeatherForecast.qweather(current: c, daily: d, hourly: h, city: "Synthetic", now: now)
         XCTAssertEqual(w.source, "qweather"); XCTAssertEqual(w.weatherCode, 0)
+        XCTAssertEqual(w.pressureHpa, 980); XCTAssertEqual(w.pressureKind, "station")
         XCTAssertEqual(w.utcOffsetSeconds, 28800); XCTAssertEqual(w.hourly?.first?.rainProbability, 40)
         XCTAssertEqual(w.daily?.first?.precipitationMm, 0); XCTAssertNil(w.daily?.first?.rainProbability)
         let partial = try MacWeatherForecast.qweather(current: c, daily: d, hourly: Data("error".utf8), city: "Synthetic", now: now)
@@ -71,6 +73,76 @@ final class WeatherForecastTests: XCTestCase {
         XCTAssertEqual((wire["hourly"] as? [Any])?.count, 24)
         XCTAssertEqual((wire["daily"] as? [Any])?.count, 7)
         XCTAssertLessThan(packet.count, MacTab5Protocol.maximumFrame)
+        XCTAssertEqual(wire["pressureHpa"] as? Double, 1013.2)
+        XCTAssertEqual(wire["pressureKind"] as? String, "sea_level")
+    }
+
+    func testAirQualityScaleBoundariesAndMissingPressure() throws {
+        for (aqi, label) in [(0, "优"), (50, "优"), (51, "良"), (100, "良"),
+                             (101, "敏感人群不健康"), (150, "敏感人群不健康"),
+                             (151, "不健康"), (200, "不健康"), (201, "非常不健康"),
+                             (300, "非常不健康"), (301, "危险"), (600, "危险")] {
+            let air = Data("{\"current\":{\"us_aqi\":\(aqi),\"pm2_5\":null}}".utf8)
+            let w = try MacDataService.parseWeather(forecast: meteo(), air: air, city: "Synthetic", now: now)
+            XCTAssertEqual(w.airQualityIndex, aqi); XCTAssertEqual(w.airQualityLabel, label)
+            XCTAssertEqual(w.airQualityStandard, "us-epa"); XCTAssertNil(w.pm25)
+        }
+        var fixture = try JSONSerialization.jsonObject(with: meteo()) as! [String: Any]
+        var current = fixture["current"] as! [String: Any]
+        for invalid in [NSNull(), -1, 0, 1201, true, "bad"] as [Any] {
+            current["pressure_msl"] = invalid; fixture["current"] = current
+            let w = try MacDataService.parseWeather(forecast: JSONSerialization.data(withJSONObject: fixture),
+                air: Data(#"{"current":{"us_aqi":-1,"pm2_5":12}}"#.utf8), city: "Synthetic", now: now)
+            XCTAssertNil(w.pressureHpa); XCTAssertNil(w.pressureKind)
+            XCTAssertNil(w.airQualityIndex); XCTAssertNil(w.airQualityLabel)
+            XCTAssertEqual(w.pm25, 12)
+        }
+    }
+
+    func testQAirUsesEPAScaleAndRestrictedCoordinateRequest() throws {
+        var w = try MacDataService.parseWeather(forecast: meteo(), air: nil, city: "Synthetic", now: now)
+        MacWeatherForecast.addQAir(Data(#"{"indexes":[{"code":"qaqi","aqi":0.9,"category":"Excellent"},{"code":"us-epa","aqi":46,"category":"Good"}],"pollutants":[{"code":"pm2p5","concentration":{"value":11,"unit":"μg/m3"}}]}"#.utf8), to: &w)
+        XCTAssertEqual(w.airQualityIndex, 46); XCTAssertEqual(w.airQualityLabel, "优")
+        XCTAssertEqual(w.airQualityStandard, "us-epa"); XCTAssertEqual(w.pm25, 11)
+        var unknown = try MacDataService.parseWeather(forecast: meteo(), air: nil, city: "Synthetic", now: now)
+        MacWeatherForecast.addQAir(Data(#"{"indexes":[{"code":"qaqi","aqi":0.9}],"pollutants":[{"code":"pm2p5","concentration":{"value":11,"unit":"mg/m3"}}]}"#.utf8), to: &unknown)
+        XCTAssertNil(unknown.airQualityIndex); XCTAssertNil(unknown.pm25)
+        let r = try MacQWeatherService.airRequest(host: "test.re.qweatherapi.com", key: "synthetic-key", latitude: 12.346, longitude: -67.891)
+        XCTAssertEqual(r.url?.path, "/airquality/v1/current/12.35/-67.89")
+        XCTAssertEqual(r.url?.query, "lang=zh")
+        XCTAssertFalse(r.url!.absoluteString.contains("synthetic-key"))
+        XCTAssertEqual(r.value(forHTTPHeaderField: "X-QW-Api-Key"), "synthetic-key")
+        XCTAssertThrowsError(try MacQWeatherService.airRequest(host: "evil.example", key: "fixture", latitude: 0, longitude: 0))
+        XCTAssertThrowsError(try MacQWeatherService.airRequest(host: "test.qweatherapi.com", key: "fixture", latitude: .nan, longitude: 0))
+    }
+
+    func testWeatherFactsSurvivePartialFailureAndReachDevice() throws {
+        let name = "weather-facts-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let store = MacDataStore(defaults: defaults)
+        let weather = try MacDataService.parseWeather(forecast: meteo(),
+            air: Data(#"{"current":{"us_aqi":68,"pm2_5":12.5}}"#.utf8), city: "Synthetic", now: now)
+        store.update(weather: weather)
+        var partial = try MacDataService.parseWeather(forecast: meteo(), air: nil, city: "Synthetic", now: now)
+        partial.pressureHpa = nil; partial.pressureKind = nil
+        store.update(weather: partial)
+        let cached = try XCTUnwrap(MacDataStore(defaults: defaults).snapshot().weather)
+        XCTAssertEqual(cached.airQualityIndex, 68); XCTAssertEqual(cached.airQualityLabel, "良")
+        XCTAssertEqual(cached.pressureHpa, 1013.2); XCTAssertEqual(cached.pm25, 12.5)
+        XCTAssertTrue(cached.stale)
+        let reader = SessionActivityReader(metadata: MacActivitySampler(scan: { _ in MacActivityTotals() }))
+        let packet = try MacTab5Protocol.snapshot(reader.capture(extras: store.snapshot()), device: "001122334455", session: "fixture", sequence: 1, command: nil)
+        let root = try MacTab5Protocol.object(packet)["data"] as! [String: Any]
+        let wire = root["weather"] as! [String: Any]
+        XCTAssertEqual(wire["airQualityLabel"] as? String, "良")
+        XCTAssertEqual(wire["airQualityStandard"] as? String, "us-epa")
+        XCTAssertEqual(wire["airQualityIndex"] as? Int, 68)
+        partial = WeatherSnapshot(city: "Elsewhere", condition: "晴", temperature: 20, high: 25, low: 10,
+            humidity: 50, weatherCode: 0, pm25: nil, airQualityIndex: nil, source: "qweather", updatedAt: now, stale: false)
+        store.update(weather: partial)
+        XCTAssertNil(store.snapshot().weather?.airQualityIndex)
+        XCTAssertNil(store.snapshot().weather?.pressureHpa)
     }
     func testQWeatherRequestsRestrictDestinationAndKeepKeyOutOfURL() throws {
         let key = "synthetic-test-key"

@@ -83,3 +83,18 @@ A normal `efb9620` refresh reported a query failure and retained its cache. An i
 和风首次配置未切换成功：正常设置窗口的来源仍为 Open-Meteo；新增 Host 校验错误地只接受单级子域名，误拒绝控制台分配的区域多级域名。修正为逐段 DNS 校验后严格限定 `qweatherapi.com` 后缀，仍拒绝伪造后缀、空标签、userinfo、协议／端口／路径。设置仅在选择和风时展示凭据字段，切换来源保留未提交输入；状态提示增加实际来源名称。补充真实格式（合成域名）与 UI 切换回归；不保存用户 Host、密钥或金额到此记录。该补充候选仍待构建／CI／实机。
 
 The first QWeather configuration did not switch the selected provider from Open-Meteo. The new host validator incorrectly accepted only single-label subdomains, rejecting a legitimate regional multi-label host. It now validates each DNS label and strictly requires the qweatherapi.com suffix, still rejecting lookalike suffixes, empty labels, userinfo, schemes, ports and paths. Credential fields appear only when QWeather is selected and preserve unsubmitted edits across source changes; status includes the actual source. Synthetic regional-host and UI-switch regressions were added. No user host, key or balance is recorded. This follow-up awaits build/CI/hardware checks.
+
+
+## 空气质量与气压后续 / Air quality and pressure follow-up
+
+用户已确认 Open-Meteo 的 24 小时预报（小时／温度／曲线）及未来 7 天（日期／天气／高低温）均正常。另报告 AQI 只有数字没有等级、大气压强为空；对照公开 `.234` 固件 `ui.c` 消费字段，确认 Mac 缺少 `airQualityLabel`／`airQualityStandard`／`pressureHpa`／`pressureKind`，无需修改或刷写固件。
+
+Mac 补齐 Open-Meteo `pressure_msl`（海平面气压）及和风 now.pressure（站点气压），使用既有 hPa 字段。AQI 明确使用 US EPA 标准与对应中文等级，不能将其冒称中国 AQI。和风增加可选的官方 v1 当前空气质量请求，选择响应的 `us-epa` 指数并验证 PM2.5 单位；不会将小数 QAQI 四舍五入为另一标准。空气质量失败不丢弃成功的天气；同城市／来源／时区下缺失的已知空气质量和气压保留为缓存并标记 stale，来源切换不混用旧值。无效／缺失气压仍未知，不估算。
+
+和风 Host/UI 补丁 `afa1f0d` 的 [CI 39399002879](https://github.com/yaoyouzhong/AI-bot/actions/runs/39399002879) 与完整附件核验通过：186 项测试，0 失败／跳过。为避免连续两次更换候选及钥匙串授权，未单独运行此包，将与本次字段修复一并上机。实际和风成功查询及新增字段显示仍待验收。
+
+The user confirmed both Open-Meteo forecast tabs on the physical TAB5. Missing AQI categories and pressure are Mac producer omissions against existing `.234` fields, requiring no firmware change. The Mac now requests sea-level pressure from Open-Meteo and reads station pressure from QWeather, supplies the explicit US EPA scale/category, and optionally fetches QWeather v1 current air quality. Fractional QAQI is never relabeled or rounded into US AQI; PM2.5 units are checked. Partial failures retain compatible known facts as stale; provider changes do not inherit old facts, and missing pressure is not estimated.
+
+Host/UI fix `afa1f0d` passed CI 39399002879 and complete artifact checks: 186 tests, zero failures/skips. Its standalone bundle was not launched, to combine this follow-up into one candidate and avoid another redundant Keychain authorization. Actual QWeather responses and the new device fields remain pending.
+
+Sources: [Open-Meteo air quality](https://open-meteo.com/en/docs/air-quality-api), [Open-Meteo weather](https://open-meteo.com/en/docs), [QWeather current air](https://dev.qweather.com/en/docs/api/air-quality/air-current/), [QWeather current weather](https://dev.qweather.com/en/docs/api/weather/weather-now-webapi-v7/).

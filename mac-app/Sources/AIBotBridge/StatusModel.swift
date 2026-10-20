@@ -18,8 +18,8 @@ struct WeatherSnapshot: Codable, Equatable {
     let low: Double
     let humidity: Int
     let weatherCode: Int
-    let pm25: Double?
-    let airQualityIndex: Int?
+    var pm25: Double?
+    var airQualityIndex: Int?
     let source: String
     let updatedAt: Date
     var stale: Bool
@@ -28,6 +28,10 @@ struct WeatherSnapshot: Codable, Equatable {
     var daily: [MacWeatherDay]? = nil
     var hourlyStale: Bool? = nil
     var dailyStale: Bool? = nil
+    var airQualityLabel: String? = nil
+    var airQualityStandard: String? = nil
+    var pressureHpa: Double? = nil
+    var pressureKind: String? = nil
 }
 
 struct MacWeatherHour: Codable, Equatable {
