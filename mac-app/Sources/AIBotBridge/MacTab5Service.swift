@@ -14,6 +14,8 @@ final class MacTab5Service {
     private var pairingReadable = true
     private var snapshot: MacStatusSnapshot?
     private var sequence: Int64 = 0
+    private var musicFrames = 0, unavailableMusicFrames = 0
+    private var maximumMusicAge: TimeInterval = 0
     private var lanReady = false
     private var stopped = false
     private var maintenance = false
@@ -48,6 +50,13 @@ final class MacTab5Service {
 
     var currentPairing: MacTab5Pairing? { lock.lock(); defer { lock.unlock() }; return pairing }
     var currentMusic: MusicSnapshot? { latestMusic()?.snapshot }
+    var musicDiagnostics: String {
+        lock.lock(); defer { lock.unlock() }
+        guard let sample = latestMusic()?.snapshot, !sample.title.isEmpty else { return "音乐：无活动曲目" }
+        let age = Date().timeIntervalSince(sample.updatedAt)
+        return String(format: "音乐采样：%.2f 秒前 · 生成 %d 帧 · 进度不可用 %d 帧 · 最大样本年龄 %.2f 秒",
+                      max(0, age), musicFrames, unavailableMusicFrames, maximumMusicAge)
+    }
     func setMaintenance(_ value: Bool) -> Bool {
         lock.lock()
         if value && (activeOperations > 0 || displayCompletion != nil || firmwareControl.busy) { lock.unlock(); return false }
@@ -158,6 +167,7 @@ final class MacTab5Service {
         guard let pair = pairing, pair.confirmed, let snapshot else { throw MacTab5Error.pairingRequired }
         sequence += 1
         let media = latestMusic()
+        let now = Date()
         if let media { assets.updateCover(media.cover) }
         var additions = assets.projection()
         additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
@@ -173,7 +183,15 @@ final class MacTab5Service {
         if codex.isEnabled { additions["imageBinary"] = 1 }
         for count in [16, 8, 4, 1] {
             additions["codexTasks"] = codex.snapshot(taskLimit: count)
-            do { return try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover, music: media?.snapshot) }
+            do {
+                let frame = try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover, music: media?.snapshot, now: now)
+                if let track = media?.snapshot ?? snapshot.music, !track.title.isEmpty {
+                    musicFrames += 1
+                    if !track.timeline(at: now).available { unavailableMusicFrames += 1 }
+                    maximumMusicAge = max(maximumMusicAge, now.timeIntervalSince(track.updatedAt))
+                }
+                return frame
+            }
             catch MacTab5Error.invalidPacket { if count == 1 { throw MacTab5Error.invalidPacket } }
         }
         throw MacTab5Error.invalidPacket

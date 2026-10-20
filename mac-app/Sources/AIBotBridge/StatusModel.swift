@@ -1,8 +1,8 @@
 import Foundation
 
 struct ToolState: Codable, Equatable {
-    let state: String
-    let ageSeconds: Int64?
+    var state: String
+    var ageSeconds: Int64?
     var needsInput: Bool = false
     var completionActive: Bool = false
     var completionSequence: Int64 = 0
@@ -154,10 +154,11 @@ struct MacStatusSnapshot: Codable {
 
 final class SessionActivityReader {
     let signals = MacActivitySignals()
-    private let metadata = MacActivityMetadata()
+    private let metadata: MacActivitySampler
     private let lock = NSLock()
     private var selectedMode: String?
     private let follow=MacAutoFollowTracker()
+    init(metadata: MacActivitySampler = MacActivitySampler()) { self.metadata = metadata }
     func select(_ mode: String) { lock.lock(); selectedMode=mode; lock.unlock() }
     private let fileManager = FileManager.default
     private let encoder: JSONEncoder = {

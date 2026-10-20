@@ -10,6 +10,16 @@
 
 The user reports smooth playback timing on Windows with the same TAB5. The synthetic replay below demonstrates sensitivity to some input timing, not proof that the observed Mac problem requires firmware changes. The independent review patch remains unapplied and is not an acceptance prerequisite. Windows uses a 500 ms USB interval and can republish current music every 500 ms; Mac sampled at 500 ms but sent USB status every two seconds. The Mac candidate now selects 500 ms for a valid timeline, retaining two seconds for absent/stale music, stable send phase, urgent controls and no catch-up bursts. Tests cover those transitions and delays. Physical smoothness and causation remain unconfirmed; acceptance will use the current firmware without flashing.
 
+### 半秒候选的实机结果与主线程阻塞
+
+`d93c318` 的 CI／完整包核验通过 171 项测试，但用户观察到当前播放时间间歇消失再出现；进一步明确总时长保持不变，消失的是当前时间。因此该候选的音乐计时未通过，不能将发送频率修正等同于问题解决。
+
+对正常候选做五秒只读进程采样（只检查调用栈，不读取会话文本）时，主线程 1989/2533 个栈样本位于 `AppDelegate.updateTitle → SessionActivityReader.capture → MacActivityMetadata.capture`，其中包含活动日志过滤／解析；音乐线程 1987 个样本停在 `MacMusicService.execute → DispatchQueue.main.sync` 等待主线程。音乐的三秒有效期规则会把没有新采样的当前时间标为不可用，总时长则继续保留。这提供了 Mac 采样阻塞的具体证据，仍需修复后重新观察。
+
+后续改为独立后台单队列执行活动采样，界面／串口／HTTP 快照只读取最近完成的结果，采样进行中合并重复请求；尚无结果和长时间过期显示未知。已采样年龄随时钟推进，保留本机 token 统计口径和现有 hook 事件覆盖。音乐三秒有效期不延长，未知时不伪造进度。交互窗口提供仅含采样年龄、构建帧计数和不可用计数的诊断，便于自动确认是否仍过期，不记录曲名、原始响应或会话内容。
+
+In the normal `d93c318` app the user reported intermittent disappearance of elapsed time while duration remained visible, so the 171-test candidate did not pass music timing acceptance. A five-second, stack-only process sample placed 1989/2533 main-thread samples in activity scanning via `updateTitle`; 1987 music-worker samples waited on the main queue for Apple Events. Delayed samples exceed the existing three-second timeline validity bound while duration remains cached. The follow-up moves activity scanning to one background queue with coalesced requests and nonblocking snapshots; first/long-stale activity is unknown. Cached ages advance, local token accounting and hooks remain intact. It preserves the three-second music freshness limit and adds metadata-free age/frame-availability diagnostics. Physical revalidation is still required.
+
 本项来自 2026-10-20 Mac 联调，不代表已修改或刷入固件。本轮授权修改范围为 Mac 桥接，实际 OTA、首刷、恢复 Flash 均需另行明确授权。
 
 ## 现场与已完成的 Mac 修复

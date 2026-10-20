@@ -6,11 +6,15 @@
 
 ## 当前检查点
 
-当前运行程序为 `a3bd642`，[Mac CI 39385101526](https://github.com/yaoyouzhong/AI-bot/actions/runs/39385101526) 与完整下载附件已核验：164 项测试、0 失败／跳过，音乐 ASan/UBSan、Release、候选包／工具、8 张原生 PNG、源码及包哈希通过。前一程序 `604ac8c` 与当前候选已在正常 App 和 TAB5 验证不部署服务的临时 Codex 只读连接、首页任务与公开回复；当前候选的历史轮次／页码持续保持也已实机复验通过。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
+当前运行程序为 `d93c318`，[Mac CI 39387247309](https://github.com/yaoyouzhong/AI-bot/actions/runs/39387247309) 与完整下载附件已核验：171 项测试、0 失败／跳过，音乐 ASan/UBSan、Release、候选包／工具、8 张原生 PNG、源码及包哈希通过。用户处理钥匙串后新候选 USB 数据确认、Wi-Fi 认证请求与 BLE USB 优先待命均自动恢复。`604ac8c`／`a3bd642` 的 Codex 只读与阅读位置保持验收结论仍保留，不因额度或音乐修复重新开启会话访问。
+
+本轮补齐 Mac 原来遗漏的七日额度历史、逐张重置卡到期信息和实际窗口长度；真实接口预检返回可用周额度及完整重置卡日期，用户已确认实体卡片信息正常。首个历史样本尚不能计算增量，七日图显示未知；已自动观察到相隔 120 秒的两次真实采样，用户对“今天显示 0、前六天仍为 --”反馈正常，该显示路径通过。过去未采集的日期保持未知，不反推或填造历史。
+
+音乐重新按 Windows 发送路径排查：有有效时间轴时，Mac USB 从 2 秒改为 500 ms，保留相位及阻塞保护；不修改或刷写固件。新候选已临时开启音乐、导入并播放原本地测试曲目，其他交互开关仍关闭。用户发现当前播放时间间歇消失、总时长不变，故音乐计时未通过。只读进程采样证实主线程活动扫描阻塞音乐 Apple Events，正在修复并复验，详见[音乐调查](MAC-TAB5-MUSIC-TIMING-FOLLOWUP.md)。下表与旧段落保留先前已完成结果，不能将此前清理记录套用于正在进行的新一轮音乐测试。
 
 | 交接阶段 | 当前结论与剩余项 |
 | --- | --- |
-| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 164 项通过；本机 XCTest 工具链仍受阻 |
+| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 171 项通过；本机 XCTest 工具链仍受阻 |
 | 2 USB | 配对、数据、设置读写、拔插与桥接重启恢复通过 |
 | 3 Wi-Fi | 纯 Wi-Fi 认证与设置读写、USB 返回通过；配网、地址恢复、固定模式和八秒阈值精测待验 |
 | 4 BLE | 实际认证／数据／设置、开关重连、睡眠恢复、USB 优先、系统撤权恢复通过；首次直接拒绝与精确延时确认待验 |
@@ -318,6 +322,10 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 - 固件工具：正常 App 选包／真实说明预览及当前镜像只读启动核验已通过；OTA、首刷、恢复 Flash 未执行，仍需单独明确授权。当前不改写设备。
 
 ## English
+
+The quota/music candidate `d93c318` passed [CI 39387247309](https://github.com/yaoyouzhong/AI-bot/actions/runs/39387247309) and full artifact verification: 171 tests, zero failures/skips, Release/app/tools/PNGs/sanitizers and hashes. The user authorized Keychain startup; USB, Wi-Fi and Bluetooth standby recovered normally. Physical reset-credit expiry details passed. After two actual quota samples 120 seconds apart, the user also confirmed today's zero and unknown earlier days. Historical data is not invented.
+
+Only the music opt-in was temporarily enabled and the original local fixture imported/played. The 500 ms USB candidate has not passed music acceptance: elapsed time intermittently disappears while total duration remains. Stack sampling identified main-thread activity scanning blocking music Apple Events; a background-sampling repair is being validated. Firmware and other opt-ins remain unchanged, and this new music test has not yet been cleaned up. The following paragraphs retain earlier checkpoints.
 
 The latest physically checked program is `a3bd642`, with [CI 39385101526](https://github.com/yaoyouzhong/AI-bot/actions/runs/39385101526) and full artifacts verifying 164 tests, zero failures/skips, Release/app/tools, eight PNGs, music sanitizers and source/package hashes. Local Release/app/fixture checks passed; local XCTest remained unavailable.
 

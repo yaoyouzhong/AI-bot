@@ -12,6 +12,60 @@ struct MacDomesticActivity: Codable {
     var needsInput: Bool
     var tokensToday: Int64
 }
+
+// Disk enumeration/parsing can take seconds for an active large session.
+// Never make UI, Apple Events or transport snapshots wait for that scan.
+final class MacActivitySampler {
+    private let lock = NSLock()
+    private let queue: DispatchQueue
+    private let scan: (Date) -> MacActivityTotals
+    private var latest = MacActivityTotals(codex: ToolState(state: "unknown", ageSeconds: nil),
+                                           claude: ToolState(state: "unknown", ageSeconds: nil))
+    private var sampledAt: Date?
+    private var nextScan = Date.distantPast
+    private var scanning = false
+
+    init(queue: DispatchQueue = DispatchQueue(label: "AI-bot.activity-sampling", qos: .utility),
+         scan: ((Date) -> MacActivityTotals)? = nil) {
+        self.queue = queue
+        let metadata = MacActivityMetadata()
+        self.scan = scan ?? { metadata.capture(now: $0) }
+    }
+
+    func capture(now: Date) -> MacActivityTotals {
+        lock.lock()
+        var value = latest
+        if let sampledAt {
+            let elapsed = max(0, Int64(now.timeIntervalSince(sampledAt)))
+            if let age = value.codex.ageSeconds {
+                value.codex.ageSeconds = age + elapsed
+                if age + elapsed > 900 { value.codex.state = "offline" }
+            }
+            if let age = value.claude.ageSeconds {
+                value.claude.ageSeconds = age + elapsed
+                value.claude.state = SessionActivityReader.classify(ageSeconds: age + elapsed)
+            }
+            // An unfinished scan is not evidence that an old task is still active.
+            if elapsed > 30 {
+                value.codex.state = "unknown"; value.claude.state = "unknown"
+                value.domestic?.state = "unknown"
+            }
+        }
+        let shouldScan = !scanning && now >= nextScan
+        if shouldScan { scanning = true; nextScan = now.addingTimeInterval(5) }
+        lock.unlock()
+        if shouldScan {
+            queue.async { [self] in
+                let result = scan(now)
+                lock.lock()
+                latest = result; sampledAt = now; scanning = false
+                lock.unlock()
+            }
+        }
+        return value
+    }
+}
+
 final class MacActivitySignals {
     private let lock = NSLock()
     private var states: [String: (String, Date)] = [:]
