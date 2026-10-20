@@ -12,13 +12,21 @@
 4. 临时进程不是桌面任务持有者，所有任务实时状态保持 unknown；保存记录里的 inProgress 也不当作已证实运行中。发送、追加、中断、resume 及快捷控制台提交在界面、业务层和 RPC 层受限。即使有其他可信连接，notLoaded 也不能当 idle 自动恢复后发送。设备绑定的本机加密草稿仍可使用，不触发 Codex 任务操作。
 5. 只读回复改为元数据读取加 `thread/turns/list` 的 summary 分页，每页最多 32 轮、单次最多 8 页，且检测重复 cursor；只保留 agentMessage，公开正文仍受 1 MiB 上限约束。更深历史不能无界加载。没有使用 deprecated 的整段历史回复来读取当前长会话。
 
-本机 Release 与测试源解析通过；XCTest 仍因工具链缺模块而在执行前受阻。实际 Debug 客户端＋已安装 CLI 的空临时目录检查通过：标准 stdio、唯一子进程复用、非只读方法拒绝与退出清理。另做实际本机只读集成：投影 16 个近期任务槽位，精确匹配当前仓库项目，读取公开回复 HTTP/RPC 结果 200、正文 679 字节、保存状态 completed，全部发送控制为 false。没有输出或保留标题、UUID、正文、路径、推理、工具输出或认证信息。它不等于正常候选／TAB5 的实机验收；后者须在本轮 CI 通过后执行。
+本机 Release 与测试源解析通过；XCTest 仍因工具链缺模块而在执行前受阻。实际 Debug 客户端＋已安装 CLI 的空临时目录检查通过：标准 stdio、唯一子进程复用、非只读方法拒绝与退出清理。另做实际本机只读集成：投影 16 个近期任务槽位，精确匹配当前仓库项目，读取公开回复的业务 RPC 结果 200、正文 679 字节、保存状态 completed，全部发送控制为 false。诊断未输出或持久化标题、UUID、正文、路径、推理、工具输出或认证信息。它不等于正常候选／TAB5 的实机验收；后者须在本轮 CI 通过后执行。
 
 新增七项回归覆盖进程生命周期、方法白名单、拒绝不重试、读失败不重放、只读公开回复／草稿／控制、分页边界、notLoaded 禁止自动恢复及桌面提交不改输入框（部分项目合并在同一测试）。完整结果以后续 CI 及正常候选记录为准。
 
 Windows 当前走 `codex-ipc` 命名管道与持有任务的桌面进程交流，不依赖这个公开 socket。其源码明确标注为依赖版本的未公开桌面 IPC；这解释了两端现象不同，不能把 Windows 的成功当作本 Mac 公开接口已连通。
 
-## 当前阻塞与只读证据
+## 正常候选与 TAB5 只读验收
+
+程序 `604ac8c9dc1bb5abfb560e4179811c8def611c16` 的 [Mac CI 39384001820](https://github.com/yaoyouzhong/AI-bot/actions/runs/39384001820) 与完整附件核验通过：163 项测试，0 失败／跳过，Release、签名候选、工具、8 张原生 PNG、音乐 ASan/UBSan 及源码／包哈希均通过。本机 Release、正常包签名和随包工具检查通过；本机 XCTest 仍缺模块，未执行。
+
+用户处理正常候选的钥匙串提示，并明确授权本轮临时只读访问、完成后关闭。助手自动开启 Codex 只读后，正常 App 显示 **29 个近期会话**；唯一桥接及其自有 CLI 子进程、8765 监听和 USB 串口所有者已核对。USB 数据确认、Wi-Fi 认证请求、蓝牙已认证且 USB 优先待命。用户确认实体首页显示 Codex 任务，进入 AI-bot 项目任务后公开回复正常显示；上一轮／分页观察也回复正常显示，但没有单独明确长时间保留位置的结果。因此任务投影和公开回复的实际链路通过，不能据此宣称所有历史阅读行为通过。未向设备投影或在诊断中保留推理／工具输出，也没有发送、追加、中断、恢复任务或操作桌面输入框。只读开关随后由助手关闭，界面恢复“尚未启用”。
+
+同轮合成检查明确复现：选中历史回复第二页后，四秒定时刷新会跳到最新回复第一页。修正只在成功读取后保存任务／轮次／页位置，后台刷新保留该位置；明确回到最新回复后继续跟随新轮次；失败导航不覆盖已显示的选择。新增回归同时覆盖这三种行为；更新了快捷控制台提示中与只读限制不一致的一句文案。修正后实际 Debug 对象的同一合成复现保持第二页，本机 Release 通过；本机 XCTest 仍因缺模块未执行，完整回归与新候选实机结果另随后续记录。
+
+## 较早的受阻记录与只读证据
 
 本机已安装 CLI `0.163.0-alpha.10.2`。其公开 `app-server proxy --help` 提供 `--sock`，但默认控制 socket 不存在；只读 `app-server daemon version` 也返回同一 `ENOENT`。当前桌面子进程使用 stdio。实际桥接 RPC 对象复核代理在初始化前退出，没有任务请求到达服务端。没有连接内部桌面 IPC、读原始 rollouts、修改用户配置，或启动／部署 daemon。
 
@@ -44,11 +52,15 @@ Windows 当前走 `codex-ipc` 命名管道与持有任务的桌面进程交流�
 
 ## English
 
+Normal candidate `604ac8c9dc1bb5abfb560e4179811c8def611c16` passed [CI 39384001820](https://github.com/yaoyouzhong/AI-bot/actions/runs/39384001820) and complete artifact verification: 163 tests, zero failures/skips, Release/app/tools, eight native PNGs, music sanitizers and source/package hashes. Local Release/signature/tool checks passed; local XCTest did not execute. After user-handled Keychain authorization and explicit temporary read-only consent, the assistant enabled the feature. The normal app showed 29 recent conversations with one owned CLI child and the expected exclusive listener/serial ownership; USB/Wi-Fi/BLE recovered. The user confirmed a Codex home task and public replies on the physical TAB5. Their older-turn/page response confirmed display, without separately confirming sustained position retention. The assistant then disabled the feature; send/steer/interrupt/resume/desktop input stayed unavailable throughout.
+
+A synthetic check reproduced history page two resetting to the latest turn/page zero on timer refresh. The subsequent repair preserves only successfully displayed selections, continues following new turns after an explicit latest read and leaves selections intact after failed navigation. One regression covers all three behaviors; an inconsistent console sentence now states the read-only restriction. The same actual-Debug-object reproduction now retained page two and local Release passed; local XCTest still did not execute. Full regression and next-candidate hardware results are recorded subsequently.
+
 The subsequent investigation found two independent causes. The actual desktop child uses default stdio; the bundled startup selects an existing local daemon only under explicit opt-in and a successful daemon-version probe, otherwise starting stdio without creating a socket. No startup setting was changed. An empty-home transport comparison additionally proved that this CLI proxy relays raw WebSocket bytes: a short-path Unix listener existed, bare JSONL did not initialize, and HTTP Upgrade through the proxy returned 101. All diagnostic processes/directories were removed; no daemon was deployed. The old JSONL-over-proxy assumption was incompatible even with a socket.
 
 The repaired production reader directly starts an app-owned `app-server --listen stdio://` child only while the feature is enabled, ending it on opt-out/exit. It installs no service, adds no listener and overrides no auth/model/approval configuration. RPC permits only the four documented read methods; mutations are rejected before process startup or writes. Desktop runtime is unknown, stored in-progress turns are not treated as live, and send/steer/interrupt/resume/desktop submit are unavailable. Unloaded threads also cannot be mistaken for idle by another backend. Local encrypted drafts remain separate from task operations. Stored public replies use summary pagination (32 turns/page, 8 pages/request, repeated-cursor rejection), public agent messages only and the existing 1 MiB reply bound.
 
-Local Release/source parsing and actual-object installed-CLI empty-home lifecycle/denial checks passed; local XCTest is still unavailable. An actual local read-only integration projected 16 recent-task slots, matched the repository project and retrieved a completed 679-byte public reply with status 200 and every send control false. No title/UUID/body/path/reasoning/tool/authentication data was output or retained. Seven new regressions cover the lifecycle, denial/retry, public pagination, drafts/controls, unloaded-state and desktop-submit boundaries. Full CI and subsequent normal-app/TAB5 acceptance are recorded separately. Windows currently uses version-dependent private desktop named-pipe IPC, so its working behavior does not validate the Mac public proxy path. The earlier blocked records below remain historical.
+Local Release/source parsing and actual-object installed-CLI empty-home lifecycle/denial checks passed; local XCTest is still unavailable. An actual local read-only integration projected 16 recent-task slots, matched the repository project and retrieved a completed 679-byte public reply with status 200 and every send control false. The diagnostics output or persisted no title/UUID/body/path/reasoning/tool/authentication data. Seven new regressions cover the lifecycle, denial/retry, public pagination, drafts/controls, unloaded-state and desktop-submit boundaries. Full CI and subsequent normal-app/TAB5 acceptance are recorded separately. Windows currently uses version-dependent private desktop named-pipe IPC, so its working behavior does not validate the Mac public proxy path. The earlier blocked records below remain historical.
 
 The installed `0.163.0-alpha.10.2` public proxy still exits before initialization because its default control socket is absent; read-only daemon version probing confirms ENOENT. The desktop child uses stdio. No daemon, internal IPC, raw rollout access, user configuration change or real-task mutation was used. A short-lived CLI process under an empty temporary CODEX_HOME passed initialization/empty list and rejected a missing synthetic thread, then exited and was removed. This isolated probe is not attachment to the user's desktop service.
 
@@ -56,4 +68,4 @@ App Server active/empty flags now maps to existing TAB5 working; approval/input 
 
 Both program ef773a0 and latest reference-only follow-up 1788914 passed CI. The latter's full artifacts verified 156 tests with zero failures/skips, Release/app/tools, native PNGs and source/package hashes. Actual RPC-client/installed-CLI isolated probing also passed without attaching user desktop data. After user-handled Keychain authorization the new candidate ran normally with automatic USB/BLE recovery; all interaction switches remained off.
 
-The exact running .234 source intentionally falls back to CPU/memory on the home task card when no valid task exists. The feature is currently off and the proxy unavailable, so no task is projected; the layout was not changed. A public attachable desktop endpoint is still required for real catalog/reply/draft/delivery acceptance. No real test task was designated and no send, steer or interrupt was performed. Feature switches and device display preferences are preserved.
+The exact running .234 source intentionally falls back to CPU/memory on the home task card when no valid task exists. In that earlier checkpoint the feature was off and the proxy unavailable, so no task was projected; the layout was not changed. The later temporary reader above now provides saved catalog/reply access; a verified shared task owner is still required for desktop runtime and delivery acceptance. No real test task was designated and no send, steer or interrupt was performed. Feature switches and device display preferences are preserved.

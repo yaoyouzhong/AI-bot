@@ -15,6 +15,7 @@ final class MacTab5Codex {
     private var catalog: [[String: Any]] = []
     private var projection: [String: Any] = [:]
     private var viewedTask = "", viewedDevice = ""
+    private var viewedPage: [String: Any] = [:]
     private var ready: [String: String] = [:], read: [String: String] = [:]
     private var readReceipts: [String: (String, String, String, TimeInterval)] = [:]
     private var journal: [String: Any]?
@@ -74,7 +75,7 @@ final class MacTab5Codex {
             for task in catalog { let id = task["projectId"] as! String; if seen.insert(id).inserted { projects.append(["id": id, "name": task["folder"]!]) } }
             projection["projects"] = projects; projection["overviewTask"] = Self.overview(catalog)
             note = mutable() ? "已连接本机 Codex · \(catalog.count) 个近期会话" : "只读已连接本机 Codex · \(catalog.count) 个近期会话；实时状态待确认，发送不可用。临时进程随桥接关闭。"; stateLock.unlock()
-            if !viewedTask.isEmpty, catalog.contains(where: { $0["id"] as? String == viewedTask }) { _ = try page(task: viewedTask, root: [:], device: viewedDevice) }
+            if !viewedTask.isEmpty, catalog.contains(where: { $0["id"] as? String == viewedTask }) { _ = try page(task: viewedTask, root: viewedPage, device: viewedDevice) }
         } catch { stateLock.lock(); note = Self.connectionFailure(error); projection["control"] = NSNull(); stateLock.unlock() }
     }
     // App Server status names differ from the existing TAB5 v1 task states.
@@ -125,7 +126,7 @@ final class MacTab5Codex {
         guard let task = Self.id(root["taskId"]), let op = root["op"] as? String,
               catalog.contains(where: { $0["id"] as? String == task }) else { return .error(404, "task_not_in_recent_catalog") }
         do {
-            if op == "read" { viewedTask = task; viewedDevice = device; return try page(task: task, root: root, device: device) }
+            if op == "read" { return try page(task: task, root: root, device: device) }
             if ["send", "steer", "interrupt"].contains(op), !mutable() { return .error(403, "codex_read_only_connection") }
             guard let id = Self.id(root["requestId"]) else { return .error(400, "invalid_request") }
             if op == "read-ack" {
@@ -256,6 +257,8 @@ final class MacTab5Codex {
         projection["receipts"] = [task: state == "completed" ? "已完成" : state == "inProgress" ? "运行中" : state == "interrupted" ? "已中断" : state == "failed" ? "失败" : "状态未知"]
         projection["control"] = ["taskId": task, "turnId": current["id"] as? String ?? "", "running": running, "canSend": canControl && sendEnabled() && !running && Self.threadIdle(thread), "canSteer": canControl && sendEnabled() && running && flags.isEmpty, "canInterrupt": canControl && sendEnabled() && running, "waiting": canControl && !flags.isEmpty]
         stateLock.unlock(); updateReadState()
+        viewedTask = task; viewedDevice = device
+        viewedPage = !selected.isEmpty || page > 0 ? ["turnId": turnID, "page": page] : [:]
         return .init(200, ["rpcReplyVersion": 1, "status": "loaded", "taskId": task, "turnId": turnID, "replyView": view, "text": pages[page]])
     }
     static func pages(_ text: String) -> [String] {

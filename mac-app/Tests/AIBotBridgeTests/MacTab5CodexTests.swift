@@ -178,4 +178,31 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual(codex.handle(["op": "send", "taskId": api.task, "requestId": UUID().uuidString, "message": "do not resume"], device: "fixture").status, 409)
         XCTAssertFalse(api.calls.contains { ["thread/resume", "turn/start"].contains($0.0) })
     }
+    func testReaderKeepsHistoryAndPageAcrossRefreshButLatestCanFollowNewTurns() throws {
+        let task = UUID().uuidString.lowercased(), older = UUID().uuidString.lowercased(), latest = UUID().uuidString.lowercased(), next = UUID().uuidString.lowercased()
+        var newTurn = false
+        func turn(_ id: String, _ text: String) -> [String: Any] { ["id": id, "status": "completed", "items": [["type": "agentMessage", "text": text]]] }
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, _ in
+            if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
+            if method == "thread/read" { return ["thread": ["id": task, "status": ["type": "notLoaded"]]] }
+            var turns = [turn(latest, "Latest public reply"), turn(older, String(repeating: "Older public reply. ", count: 250))]
+            if newTurn { turns.insert(turn(next, "New public reply"), at: 0) }
+            return ["data": turns, "nextCursor": NSNull()]
+        })
+        codex.refresh()
+        XCTAssertEqual(codex.handle(["op": "read", "taskId": task, "turnId": older, "page": 1], device: "fixture").status, 200)
+        newTurn = true; codex.refresh()
+        let pinned = try XCTUnwrap(codex.snapshot()?["replyView"] as? [String: Any])
+        XCTAssertEqual(pinned["turnId"] as? String, older); XCTAssertEqual(pinned["page"] as? Int, 1)
+        XCTAssertEqual(pinned["history"] as? Bool, true)
+        // A rejected navigation must not replace the successfully displayed selection.
+        XCTAssertEqual(codex.handle(["op": "read", "taskId": task, "page": 99], device: "fixture").status, 400)
+        codex.refresh()
+        XCTAssertEqual((codex.snapshot()?["replyView"] as? [String: Any])?["turnId"] as? String, older)
+        newTurn = false
+        XCTAssertEqual(codex.handle(["op": "read", "taskId": task], device: "fixture").status, 200)
+        newTurn = true; codex.refresh()
+        let followed = try XCTUnwrap(codex.snapshot()?["replyView"] as? [String: Any])
+        XCTAssertEqual(followed["turnId"] as? String, next); XCTAssertEqual(followed["page"] as? Int, 0)
+    }
 }
