@@ -98,6 +98,10 @@
 
 新增八项回归覆盖重复帧的设备计时契约、暂停／真实跳转、过期／未来采样、小数及曲末边界、USB 优先条件、迟到元数据／封面，音乐绕过旧总状态缓存，以及曲名与封面同步取自同一最新采样。使用实际编译对象的独立检查在修复前复现重复位置，在修复后确认重复发送按采样年龄前进且不修改原缓存；没有访问设备或发送 Apple Events。本机 Release 通过，全量 XCTest 仍因缺少模块未执行。新候选的正常 App 播放／暂停、计时与延迟实机复验待继续；此时仍运行 `c51a1bb`。
 
+`754fd02` 正常候选已自动构建、签名、正常退出旧候选并启动，用户完成匹配系统授权；自动检查再次确认 USB、Wi-Fi 认证与 BLE 待命恢复、唯一精确进程和两个未认证状态路由 401。其 [Mac CI 39367861614](https://github.com/yaoyouzhong/AI-bot/actions/runs/39367861614) 与完整下载附件核验通过：134 项测试，0 失败、0 跳过，Release／App／工具、8 张原生 PNG 和源码／包哈希一致。
+
+该候选的三十秒观察首先得到“仍有回退或明显跳秒”，进一步询问后用户明确为“只向前跳秒，没有往回走”。因此本次观察未再报告回退，但向前跳秒仍未通过，不能写成整体计时通过。继续对照设备将整秒基值与收包后的整秒增量相加的逻辑，发现 USB 原来在 ACK 完成后再等两秒，传输／回调耗时会累积到发送相位。修复为按原截止时刻推进发送计划；控制变更另起相位，过长阻塞后跳过错过的时隙，避免补发突发。新增两项回归覆盖多轮 ACK／回调延迟不累积、控制及长阻塞。合成相位模型可出现短时间相邻秒变化，固定相位消除该模型现象；它不是真机计时证据，实机复验仍待继续。
+
 ## 本轮修复：正式固件包的许可证目录
 
 使用当前 Mac 代码的固件加载器读取 SHA 已核对的官方 `.234` 升级 ZIP，实际复现“ZIP 含重复或不安全的文件名”。官方包的七个许可证路径有九段，例如 `licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE`；原 `safePath` 最多接受八段，导致合法升级包与同类首刷包无法进入预览。
@@ -177,6 +181,8 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 - 固件工具：已核对公开 `.234` 源码 ZIP SHA `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890` 和升级 ZIP SHA `900612d0338c2350a3eda19a991536ce28475cce9667a4752613fccde211d509`；App 选包/说明预览待验收。OTA、首刷和恢复保持未执行。
 
 ## English
+
+Normal candidate `754fd02` passed local bundle/signature/tool checks and was automatically launched after normal quit of the previous app; the user handled its expected system authorization. USB, authenticated Wi-Fi, BLE standby, the unique exact process and both unauthenticated HTTP 401 checks recovered. Its [Mac CI 39367861614](https://github.com/yaoyouzhong/AI-bot/actions/runs/39367861614) and complete downloaded artifacts verified 134 tests with zero failures/skips, Release/app/tools, eight native PNGs and source/package hashes. The initial thirty-second report selected backwards-or-skipped seconds; clarification specifically reported forward skips with no backwards movement. No rewind was reported in this observation, but forward stepping remains unpassed. Firmware adds a whole-second base to whole seconds since receipt. The old USB cadence waited two seconds after each ACK, accumulating transport/callback time into phase drift. The follow-up keeps original deadlines, restarts phase for control changes and skips missed slots after a blocked write instead of bursting. Two regressions cover repeated ACK/callback delays, control and blocked writes. A synthetic phase model can produce rapid adjacent second changes with ACK-based drift and avoids them with fixed phase; this is not hardware timing evidence and physical revalidation is pending.
 
 After the user authorized normal candidate `c51a1bb` and opened TAB5, UI automation confirmed acknowledged USB data, authenticated Wi-Fi activity and authenticated USB-priority BLE standby. Only the expected candidate process was present; both unauthenticated status routes returned 401. With music enabled and computer control disabled, the user confirmed the physical test title/artwork, then clicked pause and play once each. Normal Music UI independently showed paused/playing state and the corresponding opposite action. Physical cover display and single control effects passed. The user subsequently reported latency, skipped seconds and backwards progress; timeline acceptance remains failed, separate from those effects.
 

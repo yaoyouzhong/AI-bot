@@ -1,6 +1,18 @@
 import Darwin
 import Foundation
 
+struct MacTab5StatusCadence {
+    private var next: TimeInterval = 0
+    func isDue(_ now: TimeInterval) -> Bool { now >= next }
+    mutating func acknowledge(started: TimeInterval, finished: TimeInterval, urgent: Bool) {
+        // Keep the original send phase; adding two seconds to every ACK makes
+        // the device's whole-second interpolation repeatedly change phase.
+        let deadline = next == 0 || urgent || started - next >= 2 ? started + 2 : next + 2
+        // A blocked transport must not send a burst to catch up missed slots.
+        next = deadline > finished ? deadline : finished + 2
+    }
+}
+
 // Compatibility CDC mailbox, intentionally limited to phase-one small RPCs.
 // All port I/O and user operations execute on this single queue.
 final class MacTab5USB {
@@ -10,7 +22,7 @@ final class MacTab5USB {
     private var wire: MacTab5SerialWire?
     private var nextProbe: TimeInterval = 0
     private var probeIndex = 0
-    private var lastStatus: TimeInterval = -.infinity
+    private var statusCadence = MacTab5StatusCadence()
     private var lastMusic: MusicSnapshot?
     private var rpcSupported = false
     private var completed: UInt32 = 0
@@ -33,7 +45,7 @@ final class MacTab5USB {
         queue.sync { timer?.cancel(); timer = nil; close("USB 已停止") }
     }
     private func close(_ note: String) {
-        wire = nil; rpcSupported = false; completed = 0; lastStatus = -.infinity; lastMusic = nil
+        wire = nil; rpcSupported = false; completed = 0; statusCadence = .init(); lastMusic = nil
         service.usbState(note)
     }
 
@@ -55,7 +67,7 @@ final class MacTab5USB {
                 guard reply["deviceId"] as? String == record.deviceId else { throw MacTab5Error.identity }
                 try self.service.confirmPairing(record)
                 self.wire = wire; self.rpcSupported = hello.rpc
-                self.lastStatus = -.infinity
+                self.statusCadence = .init()
                 completion(.success(Void()))
             } catch { self.close("USB 配对未确认"); completion(.failure(error)) }
         }
@@ -110,11 +122,13 @@ final class MacTab5USB {
                 let candidate = try MacTab5SerialWire(path: path)
                 let hello = try candidate.identity()
                 guard hello.device == pair.deviceId else { throw MacTab5Error.identity }
-                wire = candidate; rpcSupported = hello.rpc; lastStatus = -.infinity
+                wire = candidate; rpcSupported = hello.rpc; statusCadence = .init()
             }
             guard let wire else { return }
             let music = service.currentMusic
-            if ProcessInfo.processInfo.systemUptime - lastStatus >= 2 || MusicSnapshot.changedUrgently(from: lastMusic, to: music) {
+            let started = ProcessInfo.processInfo.systemUptime
+            let urgent = MusicSnapshot.changedUrgently(from: lastMusic, to: music)
+            if statusCadence.isDue(started) || urgent {
                 if let (host, port) = service.lanConfiguration {
                     try wire.send(["version": 1, "type": "tab5_host", "host": host, "port": Int(port)])
                 }
@@ -125,7 +139,7 @@ final class MacTab5USB {
                       MacTab5Protocol.integer(ack["sequence"]) == MacTab5Protocol.integer(root["sequence"]) else { throw MacTab5Error.invalidPacket }
                 service.usbState("数据已确认", confirmed: true)
                 service.observeUSBInfo(ack)
-                lastStatus = ProcessInfo.processInfo.systemUptime
+                statusCadence.acknowledge(started: started, finished: ProcessInfo.processInfo.systemUptime, urgent: urgent)
                 lastMusic = music
             }
             if rpcSupported { try pump(wire, device: pair.deviceId) }

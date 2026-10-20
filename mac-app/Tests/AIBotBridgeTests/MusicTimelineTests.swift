@@ -126,4 +126,24 @@ final class MusicTimelineTests: XCTestCase {
         XCTAssertEqual((ready["music"] as? [String: Any])?["hasArtwork"] as? Bool, true)
         XCTAssertNotEqual((ready["assetIds"] as? [Any])?[2] as? String, (first["assetIds"] as? [Any])?[2] as? String)
     }
+
+    func testUSBStatusPhaseDoesNotAccumulateACKOrCallbackDelay() {
+        var cadence = MacTab5StatusCadence()
+        cadence.acknowledge(started: 100, finished: 100.08, urgent: false)
+        for index in 1...20 {
+            let slot = 100 + Double(index) * 2
+            XCTAssertFalse(cadence.isDue(slot - 0.001))
+            XCTAssertTrue(cadence.isDue(slot))
+            cadence.acknowledge(started: slot + 0.01, finished: slot + 0.08 + Double(index % 3) * 0.03, urgent: false)
+        }
+    }
+
+    func testUSBControlStartsANewPhaseAndBlockedWritesDoNotBurst() {
+        var cadence = MacTab5StatusCadence()
+        cadence.acknowledge(started: 100, finished: 100.08, urgent: false)
+        cadence.acknowledge(started: 100.5, finished: 100.6, urgent: true)
+        XCTAssertFalse(cadence.isDue(102.49)); XCTAssertTrue(cadence.isDue(102.5))
+        cadence.acknowledge(started: 102.5, finished: 106, urgent: false)
+        XCTAssertFalse(cadence.isDue(107.99)); XCTAssertTrue(cadence.isDue(108))
+    }
 }
