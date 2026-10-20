@@ -12,6 +12,18 @@
 
 上述完整控制、直达、锁屏、桌宠和诊断仍未完成新一轮实机验收，不因既往只读、音量或音乐通过而标为通过。
 
+## 桌面连接实现与实际限制
+
+新增独立 Swift 桌面 IPC 连接层：仅连接用户目录现有 socket，检查目录／socket 所有权和权限，通过内核对端 UID／PID 与运行中的 Codex bundle 身份核对；不创建 socket，不部署服务。协议帧有长度、数量及单调时钟期限限制。握手、任务持有者与版本 11 状态必须匹配，短连接退出前退订。桌面快照只抽取状态和当前轮次，公开历史仍走只读 App Server；不将原始桌面快照、思考或工具输出传给设备。
+
+发送与中断经过第二开关、近期目录、当前状态和持久回执校验；生产路径不再通过独立子进程 `thread/resume`。发送继承现有任务设置并携带固定请求身份，中断绑定 `expectedTurnId`。写入后的不确定错误保持未知，不自动重发。只读方式核对实际桌面回执发现 `method` 位于外层，模拟夹具已按真实层级校正。实际 Swift 对象连接当前桌面，读取真实 active/inProgress 状态成功；只读模型设置请求也返回精确持有者回执。两者均没有调用模型或改变任务。
+
+**追加尚不能开放：** 当前桌面 `thread-follower-steer-turn` v1 不接收调用者指定的预期轮次，内部选择运行中的轮次。单次预检查无法消除切换轮次的竞争，因此本实现拒绝该操作且设备 `canSteer=false`。不能将支持发送／中断误称为完整操作已通过。今后须有支持原子预期轮次校验的入口，才可开放追加；本轮未部署共享服务或修改 Codex 安装。
+
+回归覆盖精确持有者、版本不兼容、订阅退出、策略继承、等待审批时精确中断、旧追加接口拒绝、未知回执不重发、原始内容隔离和桥接第二开关。本机 XCTest 仍无法加载，完整 CI 另行记录。直达输入框的真实身份核对、用户指定任务的真实写入和一键锁屏仍待验收。
+
+The native Swift transport connects only to the existing owner-checked Unix socket, verifies kernel peer UID/PID against the running Codex app, and bounds frames, messages and deadlines. It subscribes to an exact owner/version and closes cleanly; public history remains on the read-only App Server. Production start/interrupt use the desktop owner with policy inheritance, explicit opt-in and durable uncertain receipts. Native read-only probes verified actual runtime state and acknowledgement structure without changing a task. Installed steer v1 lacks a caller-bound expected turn, so it fails closed and is advertised unavailable; full controls are not claimed complete. Tests cover routing, incompatibility, privacy, opt-in and delivery uncertainty; actual designated-task mutations, composer identity and lock acceptance remain pending.
+
 ## English
 
 The user requested full Codex controls, direct navigation, lock acceptance and missing pet/diagnostic/calendar data. Preserve daily read-only authorization and all no-merge/deploy/release/flash boundaries. Real task mutations require the user's specifically designated test task; never approve its permission requests automatically.

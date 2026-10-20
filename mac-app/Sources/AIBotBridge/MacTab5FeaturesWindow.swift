@@ -6,7 +6,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let computer = NSButton(checkboxWithTitle: "允许 TAB5 调节音量、静音、锁屏和打开常用入口", target: nil, action: nil)
     private let music = NSButton(checkboxWithTitle: "允许读取并控制 Apple Music／Spotify", target: nil, action: nil)
     private let codex = NSButton(checkboxWithTitle: "允许 TAB5 查看 Codex 会话与公开回复、同步加密草稿", target: nil, action: nil)
-    private let send = NSButton(checkboxWithTitle: "允许在 TAB5 明确点击后发送、追加或中断 Codex 任务", target: nil, action: nil)
+    private let send = NSButton(checkboxWithTitle: "允许在 TAB5 明确点击后发送或中断 Codex 任务", target: nil, action: nil)
     private let voice = NSButton(checkboxWithTitle: "允许 TAB5 使用 Mac 本地语音识别", target: nil, action: nil)
     private let desktop = NSButton(checkboxWithTitle: "允许快捷控制台打开并核对 Codex 桌面输入框", target: nil, action: nil)
     private let launchers = NSPopUpButton()
@@ -35,12 +35,12 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         label("Codex 会话", size: 15)
         codex.state = service.codex.isEnabled ? .on : .off; codex.target = self; codex.action = #selector(toggleCodex); stack.addArrangedSubview(codex)
         send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend); stack.addArrangedSubview(send)
-        label("通过临时只读连接查看本机 Codex 近期任务与公开回复，关闭功能或退出桥接后结束，不安装后台服务。当前连接不能确认桌面实时状态，也不能发送、追加或中断。登录、模型和审批策略保持原值；草稿在本机加密保存。")
+        label("查看本机 Codex 近期任务与公开回复；桌面连接可用时核对实时状态。另行启用操作后，可对已加载的精确任务发送或中断，沿用该任务的模型和审批设置。当前桌面版本的追加接口不能绑定指定轮次，因此暂不开放追加。草稿在本机加密保存，关闭功能或退出桥接后结束连接。")
         let cli = NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)); stack.addArrangedSubview(cli)
         stack.addArrangedSubview(codexState); codexState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         codexState.font = .systemFont(ofSize: 12); codexState.textColor = .secondaryLabelColor
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop); stack.addArrangedSubview(desktop)
-        label("快捷控制台另需辅助功能权限。必须读到与目标任务完全一致的桌面地址和主输入框；版本未提供这些信息时保留文字并返回未确认，不按窗口标题猜测。当前只读连接可查看公开回复和同步本机加密草稿，发送不可用。")
+        label("快捷控制台另需辅助功能权限，须确认目标任务的桌面地址和主输入框。无法确认时保留文字并提示未确认。提交草稿还需要上方操作权限和可用的桌面任务连接。")
         label("语音输入", size: 15)
         voice.state = service.voice.isEnabled ? .on : .off; voice.target = self; voice.action = #selector(toggleVoice); stack.addArrangedSubview(voice)
         stack.addArrangedSubview(voiceState); voiceState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
