@@ -6,21 +6,21 @@
 
 ## 当前检查点
 
-当前已验程序为 `7ad1c24`，具体修复、CI 与操作证据见下文。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
+当前已验程序为 `4e0b253`，具体修复、CI 与操作证据见下文。较早段落中的“待验”描述保留其当时上下文，不覆盖后续明确结果。
 
 | 交接阶段 | 当前结论与剩余项 |
 | --- | --- |
-| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 150 项通过；本机 XCTest 工具链仍受阻 |
+| 1 本机基础 | Release、候选签名、正常运行／窗口／退出与 CI 152 项通过；本机 XCTest 工具链仍受阻 |
 | 2 USB | 配对、数据、设置读写、拔插与桥接重启恢复通过 |
 | 3 Wi-Fi | 纯 Wi-Fi 认证与设置读写、USB 返回通过；配网、地址恢复、固定模式和八秒阈值精测待验 |
 | 4 BLE | 实际认证／数据／设置、开关重连、睡眠恢复、USB 优先、系统撤权恢复通过；首次直接拒绝与精确延时确认待验 |
 | 5 展示与资源 | 亮度持久化、设备声音、固定页／轮播／屏保、图库导入／失败保留／分页／方向通过；日常数据逐项、桌宠及音乐均匀计时仍未完成 |
 | 6 系统与音乐 | Apple Music 标题／封面／单次控制、系统音量／静音／取消静音、文件夹入口通过；Spotify、程序入口、锁屏／辅助功能拒绝恢复待验 |
 | 7 Codex | 已安装 CLI 已定位；公开代理默认 socket 缺失、握手前退出。实际任务链路受阻，未执行发送／追加／中断 |
-| 8 照片与语音 | 语音授权、空录音停止提示通过；HTTP 长连接修复后纯 Wi-Fi 单次成功识别，收到 7.4 秒音频；静默提示去抖、USB／BLE 稳定性、准确最终文字及取消仍待复验，照片／任务附件未通过 |
+| 8 照片与语音 | 语音授权、空录音停止提示通过；HTTP 长连接修复后纯 Wi-Fi 单次成功识别，收到 7.4 秒音频；静默提示短停顿复验通过；USB 单次录音及取消保留原名称通过；BLE 语音／长期稳定性、逐字准确率、照片／任务附件待验 |
 | 9 固件工具 | 官方包离线检查、正常 App 版本／SHA／说明预览、当前镜像只读 USB 启动核验通过；实际 OTA／首刷／恢复均未执行 |
 
-临时音乐页／开关／曲目、系统音量／静音和文件夹入口均已收尾。语音开关已暂停并恢复关闭；用户曾退出未保存日程；最新录音复验重新进入未保存编辑，尚未保存测试内容。当前为隔离语音问题暂时断开 USB、关闭桥接蓝牙，不将整体九阶段写成完成。
+临时音乐页／开关／曲目、系统音量／静音和文件夹入口均已收尾。语音测试开关已关闭，用户退出未保存测试日程返回日常页面；USB 已接回自动确认，蓝牙已恢复认证及 USB 优先待命。最终只读设置与阶段基线一致，表单取消未保存。不将整体九阶段写成完成。
 
 ## 环境与基础检查
 
@@ -204,6 +204,22 @@ Mac 仅对 HTTP/1.1、成功且逐次鉴权的语音 POST 保持顺序连接；�
 
 用户同时反馈收音中频繁“检测不到语音”，影响使用。原静默标志在总收音一秒后，只要当前约 200 ms 块的峰值取整为零就立即触发，正常短停顿也会切换提示。修复按去重后接受的 PCM 时长累计连续低电平，满三秒才设置既有 `silent` 标志；一有信号立即清除，新录音归零，轮询与重复块不推进计时。提示不自动停止录音，音频和本地识别策略保持。新增两项回归覆盖连续静默／短停顿／信号恢复／新会话，以及重复与轮询不累计。实际对象合成 PCM 检查、本机 Release 和测试语法检查通过；本机 XCTest 仍在执行前受阻。下一候选 CI 与实机结果另记。
 
+### `4e0b253` 静默提示实机复验
+
+程序 `4e0b253fa768f413e19db6610d30f3ba3b715b88` 的 [Mac CI 39378763038](https://github.com/yaoyouzhong/AI-bot/actions/runs/39378763038) 与完整附件核验通过：152 项测试，0 失败／跳过，Release／候选／工具、8 张原生 PNG 与源码／包哈希一致。本机 Release、严格签名及随包工具通过，XCTest 仍因本机工具链在执行前受阻。旧候选正常退出，新候选精确路径启动；用户完成匹配钥匙串授权后，助手自动接管窗口，正常应用两个未认证状态路由均为 401，其他控制开关保持关闭。
+
+在仍为纯 Wi-Fi 的条件下，用户清空本轮未保存测试名，录入短句并停顿约一秒后继续，对识别和不再频繁静默提示的检查回复“这一次 OK 了”。Mac 实际状态为 **46 块／9.2 秒**、最近电平 2%／峰值 100%、最终待检查和 Wi-Fi 查询 200，无拒绝记录。因此短停顿提示去抖实机通过；准确逐字全文没有单独提供，不宣称准确率测试完成。随后语音暂停，用户接回 USB，助手确认自动恢复“数据已确认”；BLE 暂关，USB 语音正在单独复验，不以 Wi-Fi 的成功代替。
+
+### 同候选 USB 语音与连接恢复
+
+保持 `4e0b253`，助手自动启用语音后，用户只试录一次短句并反馈“是 OK 的”。Mac 窗口独立确认实际通道为 **USB**，收到 **25 块／5.0 秒**、最近电平 2%／峰值 100%，进入最终待检查，查询 200、无拒绝。因此 USB 单次完整收音与识别通过；此前的历史失败仍保留记录，不宣称覆盖所有长期竞争条件。随后恢复本轮进入前启用的桥接蓝牙，正常窗口确认 USB 数据已确认、Wi-Fi 已认证、蓝牙已认证且 USB 优先待命。设备连接模式／展示设置未改变，当前仅测试取消本段录音保留原名称。
+
+### 语音取消与本阶段收尾
+
+蓝牙已恢复 USB 待命的同一候选中，用户再开始一段、说话后点击麦克风旁垃圾桶取消，对取消提示和原名称不变的检查回复“正常的”。Mac 独立显示 **USB 取消 200**、已取消收音，收到 13 块／2.6 秒，没有把本段写入名称。因此真实取消与原名称保留通过，不仅是合成后端结果。
+
+助手关闭语音，正常窗口确认电脑、音乐、Codex 读取／发送、桌面输入框及语音开关均关闭，常用入口仍为空。用户退出未保存测试日程回到原日常页面，没有创建或保存测试事项。USB 数据已确认，Wi-Fi 已认证，桥接蓝牙已恢复原启用状态并认证、USB 优先待命，端口列表已刷新为原设备。最终再次读回实际显示设置：亮度 79、设备音量 70、非静音、自动页面、轮播关闭、间隔 15 秒、屏保 5 分钟、原顺序与前五页选择均一致；只点取消，未再次保存。CoreAudio 只读核对 Mac 为音量 25／未静音，与阶段基线一致。未改变配网、连接模式、图库、屏保类型或固件。本轮临时打开的活动监视器已正常退出；系统设置和 Music 均未运行，只有精确 `4e0b253` 候选仍临时运行。
+
 ## 本轮修复：正式固件包的许可证目录
 
 使用当前 Mac 代码的固件加载器读取 SHA 已核对的官方 `.234` 升级 ZIP，实际复现“ZIP 含重复或不安全的文件名”。官方包的七个许可证路径有九段，例如 `licenses/idf/bt/host/nimble/nimble/ext/tinycrypt/LICENSE`；原 `safePath` 最多接受八段，导致合法升级包与同类首刷包无法进入预览。
@@ -274,17 +290,19 @@ Mac 原来只扫描广播以发现设备，而 `.234` 固件在已有 BLE 连接
 
 ## 后续项目
 
-- Wi-Fi：保持 TAB5 独立供电、断开 Mac USB 后，用户约 15 秒内观察到“收到已认证请求”；纯 Wi-Fi 的显示设置读取和原值保存也收到明确成功回执，插回 USB 后自动恢复且画面正常。未改变原网络配置；尚未精确测量八秒阈值。USB 配网、发现、地址恢复和固定模式待验收。
-- BLE：首次选择允许、重新启用提示、实际认证、USB 活跃时待命，以及仅蓝牙下状态帧和显示设置读取/原值保存通过，关闭再启用后自动重连也通过；`791d898` 的睡眠唤醒复验也通过。撤销授权后的拒绝提示与恢复也通过。首次权限弹窗直接选择拒绝仍未执行；隔离结束已恢复原先“自动选择”模式。
-- 显示与资源：USB/Wi-Fi 原值读取与保存回执已通过；降低亮度、正常开关机后读回和恢复原亮度通过；设备非静音试听及静音后禁用试听通过，原设备音量和非静音已恢复并收到保存成功。固定页切换、轮播与屏保进入/触摸退出已有人工实测，精确轮播间隔未测量；原显示设置均收到恢复保存成功。真实名画 ZIP `2026.10.14.1`（SHA `a774f3717f83b685c8d9b9c1dc4f8ecd22b0a95a3abb80f882eb21726b29fc39`）的隔离校验与正常 App 完整导入均通过。临时 CC0 多页子集的实体图片、前后翻页、横竖屏及错误包不替换旧资源也通过；完整官方图库及原屏保类型、自动旋转均已恢复，用户退出设置页回到总览。封面、桌宠与高清完整包仍单独验收。
-- 系统控制与音乐：CoreAudio 只读预检已取得真实可用音量/静音状态，未修改输出或播放；正常 App 的控制回执、常用入口、锁屏、自动化权限和播放控制待验收。
-- Codex：本机版本与 CLI 布局已核对，默认本机代理不可达；精确任务、公开回复、草稿、送达状态和快捷控制台受此阻塞。未对真实任务发送、追加或中断。
-- 照片与语音：真实采集、校验、预览、中文本地识别、停止/取消/断流与手动确认待验收。
-- 固件工具：已核对公开 `.234` 源码 ZIP SHA `c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890` 和升级 ZIP SHA `900612d0338c2350a3eda19a991536ce28475cce9667a4752613fccde211d509`；App 选包/说明预览待验收。OTA、首刷和恢复保持未执行。
+以下是尚未完成或超出当前写入授权的项目，不以 CI、预检或其他通道的成功代替：
+
+- Wi-Fi：USB 配网、地址恢复、固定模式及八秒回退阈值的精确测量；本轮保留原网络配置。
+- BLE：首次权限弹窗直接拒绝、首次数字配对精确延时确认，以及 BLE 语音；撤权／恢复、状态／设置、睡眠唤醒和 USB 优先已经通过。
+- 展示与资源：日常数据逐项对照、桌宠；音乐均匀计时仍按[固件后续项](MAC-TAB5-MUSIC-TIMING-FOLLOWUP.md)处理。高清完整图库原作浏览器不属于当前 Mac 候选能力，当前仅 standard 子集。
+- 系统与音乐：Spotify、应用程序入口、锁屏／辅助功能权限拒绝后的恢复；音量／静音、Apple Music 单次控制和文件夹入口已通过。
+- Codex：当前已安装 CLI 的默认本地公开代理在握手前退出；任务列表／精确任务／公开回复／草稿／送达／快捷控制台未完成。尚无明确指定的真实测试任务，未发送、追加或中断任何任务。
+- 照片与语音：照片／任务附件、本机默认麦克风、BLE 语音、长时间及真实断流恢复、逐字准确率；TAB5 麦克风的 USB／Wi-Fi 短录音、短停顿提示和真实取消已通过，不能外推为全部稳定性验收。
+- 固件工具：正常 App 选包／真实说明预览及当前镜像只读启动核验已通过；OTA、首刷、恢复 Flash 未执行，仍需单独明确授权。当前不改写设备。
 
 ## English
 
-Current verified program is `7ad1c24`; older pending statements retain their historical context. USB and actual BLE settings/reconnection/sleep recovery passed, as did pure-Wi-Fi settings and USB return. Provisioning/address recovery/fixed modes/exact fallback timing remain pending. Display controls/persistence, gallery import/failure retention/pagination/orientation passed; individual daily data, pets and even music timing remain unfinished. Apple Music metadata/artwork/control, system volume/mute/unmute and folder launch passed; Spotify, application launch and lock/Accessibility denial/recovery remain pending. Codex proxy initialization is blocked before handshake, and no real task send/append/interrupt was executed. Voice permissions and one 7.4-second Wi-Fi take passed after the HTTP persistence repair; no-sound hint debouncing, exact final text, USB/BLE and sustained capture stability remain pending, as do photo/task attachments. Normal-app firmware preview and read-only current-image USB boot verification passed; no firmware write occurred. Temporary music/media, system audio and folder-launcher cleanup completed; voice was disabled again; the user previously left the unsaved editor, then reopened it for the latest retest without saving. USB is temporarily disconnected and bridge BLE disabled for voice isolation. The full nine-stage acceptance is not complete.
+Current verified program is `4e0b253`; older pending statements retain their historical context. USB and actual BLE settings/reconnection/sleep recovery passed, as did pure-Wi-Fi settings and USB return. Provisioning/address recovery/fixed modes/exact fallback timing remain pending. Display controls/persistence, gallery import/failure retention/pagination/orientation passed; individual daily data, pets and even music timing remain unfinished. Apple Music metadata/artwork/control, system volume/mute/unmute and folder launch passed; Spotify, application launch and lock/Accessibility denial/recovery remain pending. Codex proxy initialization is blocked before handshake, and no real task send/append/interrupt was executed. Voice permissions and one 7.4-second Wi-Fi take passed after the HTTP persistence repair; short-pause no-sound hint acceptance also passed; one USB take and cancellation preserving the original name also passed. BLE voice, sustained capture stability, transcript accuracy and photo/task attachments remain pending. Normal-app firmware preview and read-only current-image USB boot verification passed; no firmware write occurred. Temporary music/media, system audio and folder-launcher cleanup completed; voice is disabled again and the user left the unsaved test agenda without saving. USB is acknowledged, BLE restored to authenticated USB-priority standby, and final read-only display settings matched the phase baseline; the form was cancelled without saving. The full nine-stage acceptance is not complete.
 
 Fixed-cadence program commit `3c82bcce4df49af2b3e1c64445664500eabf7a43` passed [Mac CI 39368358000](https://github.com/yaoyouzhong/AI-bot/actions/runs/39368358000) and full artifact verification: 136 tests, zero failures/skips, Release/app/tools, eight native PNGs and matching source/package hashes. An actual-object synthetic cadence check passed twenty varying ACKs, control rephasing and blocked-write burst suppression without device access. Local Release/bundle/signature passed; local XCTest remains unavailable. The previous candidate was normally quit before exact `3c82bcc` launch. The user handled system authorization and confirmed opening TAB5; the unique process and both unauthenticated HTTP 401 routes were verified. Bridge-window selection repeatedly timed out, including after reconnecting the UI tool, so USB/BLE row text is not independently reconfirmed for this run. Read-only stack symbols showed AppKit event processing, music polling and USB work; no persistent freeze was established and no Keychain contents were inspected. Music UI automation remained available and restarted the fixture.
 
@@ -323,6 +341,14 @@ The device streams start/audio/stop through one HTTP client, but Mac previously 
 Program `7ad1c240e27ca82e9b633f2aacf82596f32ada6a` passed [Mac CI 39378349053](https://github.com/yaoyouzhong/AI-bot/actions/runs/39378349053) and full artifact verification: 150 tests, zero failures/skips including live TCP regressions, Release/app/tools, eight PNGs and matching hashes. Local Release/bundle/signature/tool checks passed while local XCTest remains unavailable. The previous candidate was normally quit, exact new path launched, expected Keychain permission handled by the user, and automated selection reconfirmed Wi-Fi-only transport, other opt-ins off and both unauthenticated 401 routes. The user reported successful recognition; the normal Mac window independently showed 37 blocks/7.4 seconds, recent level 4%/peak 100%, final review and Wi-Fi Poll 200 with no rejection recorded. This is one actual successful capture/recognition after the earlier zero-audio failure. Exact final text was not supplied, so accuracy, long-term or USB stability is not claimed passed. No agenda was saved.
 
 The user still found repeated no-speech hints disruptive. Previously, after one second of audio, any current approximately 200 ms block with rounded-zero peak immediately set silent, including normal pauses. The repair requires three continuous quiet seconds of accepted, deduplicated PCM; any signal clears it, new takes reset it, and polls/duplicate chunks do not advance it. Existing silent wire semantics, capture and local recognition stay intact; the hint does not stop recording. Two regressions cover silence/pauses/signal/new take and duplicates/polls. Actual-object synthetic PCM checks, local Release and test-source parsing passed; local XCTest remains blocked before execution. New CI and physical results follow separately.
+
+Program `4e0b253fa768f413e19db6610d30f3ba3b715b88` passed [Mac CI 39378763038](https://github.com/yaoyouzhong/AI-bot/actions/runs/39378763038) and full artifact verification: 152 tests, zero failures/skips, Release/app/tools, eight PNGs and matching hashes. Local Release/signature/tool checks passed; local XCTest remains unavailable. Normal old-app quit, exact new-path launch, expected user Keychain authorization, automated selection, both unauthenticated 401 routes and other opt-ins off were verified. In pure Wi-Fi, the user cleared the unsaved test name and spoke with an approximately one-second pause, then confirmed this take and the no-repeated-hint check were OK. Mac independently showed 46 blocks/9.2 seconds, recent level 2%/peak 100%, final review and Wi-Fi Poll 200 with no rejection. Short-pause hint acceptance passed; exact final transcript/accuracy was not independently supplied. Voice was paused before USB reconnection, which automatically recovered acknowledged data. BLE remains temporarily off while USB voice is checked separately.
+
+On the same `4e0b253` candidate, one physical USB take was reported OK. Mac independently confirmed USB as the actual channel, 25 blocks/5.0 seconds, recent level 2%/peak 100%, final review and Poll 200 with no rejection. One complete USB capture/recognition passed without erasing historical failures or claiming all sustained-contention conditions covered. Bridge BLE was restored to its original enabled state; the normal window reconfirmed acknowledged USB, authenticated Wi-Fi and authenticated USB-priority BLE standby. Device connection/display preferences remain unchanged. Cancellation preserving the existing unsaved name is under check.
+
+With BLE restored to USB standby, the user started another take and used the microphone-adjacent trash icon to cancel, confirming normal cancellation and unchanged original name. Mac independently showed USB Cancel 200, cancelled capture and 13 blocks/2.6 seconds. Physical cancellation/name retention passed. Voice was disabled again; all computer/music/Codex read/send/desktop/voice opt-ins were confirmed off with the launcher list empty. The user left the unsaved test agenda for the original daily page without saving or creating an item. USB/Wi-Fi authentication and the original enabled BLE USB-priority standby were restored, and the port list refreshed. Final actual settings matched brightness 79, device volume 70/unmuted, Auto page, cycling off, 15-second interval, five-minute saver and original page order/first-five selection; only Cancel was clicked. Read-only CoreAudio confirmed the unchanged Mac 25/unmuted baseline. Network profiles, connection mode, gallery, saver type and firmware were unchanged. Temporary Activity Monitor was normally quit; System Settings and Music were not running, and only the exact 4e0b253 candidate remains temporarily running.
+
+Remaining acceptance includes network provisioning/address/fixed-mode/exact fallback timing; initial BLE denial/delayed pairing confirmation; daily-data comparisons/pets; Spotify/application launch/lock and Accessibility denial recovery; photo/task attachments, default Mac microphone, BLE voice, longer capture/interruption recovery and transcript accuracy. Even music timing needs the separate firmware follow-up. The installed Codex public proxy still exits before handshake and no exact real test task has been specified, so no task was sent, appended or interrupted. The HD original-art browser is outside this candidate; only the standard subset is supported. Actual firmware OTA/first flash/restoration remains outside current write authorization; read-only preview/boot verification already passed.
 
 Normal candidate `754fd02` passed local bundle/signature/tool checks and was automatically launched after normal quit of the previous app; the user handled its expected system authorization. USB, authenticated Wi-Fi, BLE standby, the unique exact process and both unauthenticated HTTP 401 checks recovered. Its [Mac CI 39367861614](https://github.com/yaoyouzhong/AI-bot/actions/runs/39367861614) and complete downloaded artifacts verified 134 tests with zero failures/skips, Release/app/tools, eight native PNGs and source/package hashes. The initial thirty-second report selected backwards-or-skipped seconds; clarification specifically reported forward skips with no backwards movement. No rewind was reported in this observation, but forward stepping remains unpassed. Firmware adds a whole-second base to whole seconds since receipt. The old USB cadence waited two seconds after each ACK, accumulating transport/callback time into phase drift. The follow-up keeps original deadlines, restarts phase for control changes and skips missed slots after a blocked write instead of bursting. Two regressions cover repeated ACK/callback delays, control and blocked writes. A synthetic phase model can produce rapid adjacent second changes with ACK-based drift and avoids them with fixed phase; this is not hardware timing evidence and physical revalidation is pending.
 
