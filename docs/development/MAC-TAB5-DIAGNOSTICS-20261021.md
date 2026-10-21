@@ -139,3 +139,16 @@ English: the 1e68fda hardware arrow still failed after a Keychain prompt; the ap
 候选位于 `artifacts/mac-tab5-20261021/5f3c819/AIBotBridge.app`，尚未启动；当前 1e68fda 保持运行，已请求用户在其上验证普通锁屏／解锁状态显示，等待反馈，避免在测试中途退出。新签名首次迁移、跨构建权限保持和 local 路由实体直达均未宣称通过。不合并 main、不部署、不发布、不修改或刷写固件。
 
 English: program 5f3c819 passed CI 39550403341 with 241 tests and zero failures/skips, followed by complete downloaded-artifact verification. The local XCTest attempt still fails because the module is unavailable; local Release, fixed-certificate bundle, tool and native-UI checks passed. Two different fixture binaries and the actual app, all signed with the real bridge bundle ID, have identical certificate-bound designated requirements and valid signatures. The new candidate is prepared but not launched. Running 1e68fda remains undisturbed while awaiting a requested physical lock/unlock-display check. First signer migration, permission retention across builds, and physical direct-navigation acceptance remain pending. No main merge, deployment, release or firmware change/flash occurred.
+
+
+用户在正常运行的 1e68fda 上完成实体锁屏／解锁复验，明确反馈两个状态“都 OK”：TAB5 发起锁屏后显示已锁定，Mac 本机解锁后恢复未锁定。普通锁定状态显示实机验收通过；不表示一键解锁已支持。已关闭本轮临时电脑控制开关，保留日常采集和只读；正常退出旧候选，准备启动固定签名 5f3c819 继续直达验收。
+
+English: the user physically confirmed both lock-state transitions in normally running 1e68fda: locked after the TAB5 action, then unlocked after local Mac authentication. Ordinary lock-state display passes hardware acceptance; one-click unlock remains unsupported. Temporary computer control was disabled, daily collection/read-only preserved, and the old candidate quit normally before the fixed-signature candidate transition.
+
+固定签名 5f3c819 已按精确路径启动，首次签名迁移仍由用户完成钥匙串授权。正常 App 自动恢复 USB 数据确认、蓝牙 USB 优先待命、30 个 Codex 会话及音乐采集；电脑控制／发送／语音关闭，桌面直达临时开启。系统设置移除旧临时签名条目并加入精确新路径后，当前 App 辅助功能预检变为“等待设备发起直达”；本次无需 tccutil 或额外系统密码操作。已请求一次实体箭头，尚待结果。
+
+English: exact fixed-signature candidate 5f3c819 launched; the user handled the initial signer-transition Keychain prompts. USB acknowledgment, BLE standby, 30 read-only chats and music collection recovered. Computer control, sending and voice remain off; temporary desktop navigation remains on. Replacing the old Accessibility entry with the exact new path made the running app pass preflight, without tccutil or another system-password action. A single device arrow check is pending.
+
+5f3c819 实体直达仍未通过：首次使用固定签名的独立回执密钥时用户再次处理密码提示，随后仍未确认前台；正常 App 诊断显示主区域和链接存在，但未匹配目标任务。静态核对当前桌面的交互会话行发现 `aria-current=page` 在外层 group，导航链接是其子节点，原检查遗漏该结构。新增有边界的当前行检查：最多 64 个节点、6 层、共用导航截止时间，不读取文字，拒绝嵌入页面／输入框／弹窗／嵌套当前节点；必须完成遍历且所有链接均指向同一精确任务才确认。新增回归覆盖未选中、空链接、遍历不完整、其他会话、外部地址与启动提示，等待新 CI 和实体结果。
+
+English: 5f3c819 direct navigation still failed after the first fixed-signer access to the separate receipt key. The normal app found the main area and links but no matching current target. Static inspection showed that current-page state belongs to an outer interactive row group rather than its child link. A bounded current-row check now requires complete traversal and every link to identify the same exact task, rejecting embedded pages, editors, dialogs and nested current nodes without reading text. It shares the navigation deadline and caps traversal at 64 nodes/six levels. Regression coverage includes unselected, empty, incomplete, different-task, external and startup-hint cases; CI and hardware results remain pending.

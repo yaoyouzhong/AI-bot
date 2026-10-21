@@ -77,6 +77,22 @@ final class MacTab5DesktopTests: XCTestCase {
         XCTAssertTrue(MacTab5DesktopAX.currentTaskLink(role: "AXLink", current: "page", address: "app://-/local/" + task, task: task, resourceRoot: nil))
         XCTAssertFalse(MacTab5DesktopAX.currentTaskLink(role: "AXLink", current: nil, address: "app://-/local/" + task, task: task, resourceRoot: nil))
     }
+    func testCurrentSidebarRowRequiresCompleteUnambiguousExactTaskLinks() {
+        let task = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
+        let address = "app://-/local/" + task
+        func matches(_ links: [String], role: String = "AXGroup", current: String? = "page", complete: Bool = true) -> Bool {
+            MacTab5DesktopAX.currentTaskRow(role: role, current: current, addresses: links, complete: complete, task: task, resourceRoot: nil)
+        }
+        XCTAssertTrue(matches([address]))
+        XCTAssertTrue(matches([address, address]))
+        XCTAssertFalse(matches([address], current: nil))
+        XCTAssertFalse(matches([address], role: "AXWebArea"))
+        XCTAssertFalse(matches([address], complete: false))
+        XCTAssertFalse(matches([]))
+        XCTAssertFalse(matches([address, "app://-/local/" + other]))
+        XCTAssertFalse(matches([address, "https://external.example/local/" + task]))
+        XCTAssertFalse(matches(["app://-/index.html?initialRoute=/local/" + task]))
+    }
     private final class Fixture {
         let task = UUID().uuidString.lowercased(), turn = UUID().uuidString.lowercased()
         var value = "", writes = 0, opens = 0, sends = 0, foreground = true

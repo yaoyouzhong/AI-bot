@@ -151,6 +151,32 @@ enum MacTab5DesktopAX {
     static func currentTaskLink(role: String, current: String?, address: String?, task: String, resourceRoot: URL?) -> Bool {
         role == "AXLink" && current == "page" && address.map { identifies($0, task: task, resourceRoot: resourceRoot) } == true
     }
+    static func currentTaskRow(role: String, current: String?, addresses: [String], complete: Bool,
+                               task: String, resourceRoot: URL?) -> Bool {
+        // Codex's interactive sidebar row puts aria-current on its group,
+        // with the navigation link inside. Every link must identify the same
+        // exact task; a selected section containing other tasks is not proof.
+        role == "AXGroup" && current == "page" && complete && !addresses.isEmpty &&
+            addresses.allSatisfy { identifies($0, task: task, resourceRoot: resourceRoot) }
+    }
+    private static func currentRow(_ row: AXUIElement, task: String, resources: URL?, deadline: TimeInterval) -> Bool {
+        var pending = (value(row, "AXChildren") as? [AXUIElement] ?? []).map { ($0, 1) }
+        var addresses: [String] = [], visited = 0
+        while !pending.isEmpty {
+            guard visited < 64, ProcessInfo.processInfo.systemUptime < deadline else { return false }
+            let (node, depth) = pending.removeLast(); visited += 1
+            guard depth <= 6 else { return false }
+            let role = value(node, "AXRole") as? String ?? ""
+            guard !["AXWebArea", "AXTextArea", "AXTextField", "AXDialog", "AXSheet"].contains(role),
+                  value(node, "AXARIACurrent") as? String != "page" else { return false }
+            if role == "AXLink" {
+                guard let url = address(node) else { return false }
+                addresses.append(url)
+            }
+            pending.append(contentsOf: (value(node, "AXChildren") as? [AXUIElement] ?? []).map { ($0, depth + 1) })
+        }
+        return currentTaskRow(role: "AXGroup", current: "page", addresses: addresses, complete: true, task: task, resourceRoot: resources)
+    }
     private static func address(_ node: AXUIElement, _ attribute: String = "AXURL") -> String? {
         let raw = value(node, attribute)
         return (raw as? URL)?.absoluteString ?? (raw as? String)
@@ -193,6 +219,8 @@ enum MacTab5DesktopAX {
                                address: address(node), task: task, resourceRoot: resources) {
                 return true
             }
+            if shell && role == "AXGroup", value(node, "AXARIACurrent") as? String == "page",
+               currentRow(node, task: task, resources: resources, deadline: deadline) { return true }
             if shell && role == "AXLink", address(node) != nil { foundTaskAddress = true }
             // Do not inspect editor text, browser contents, dialogs or other
             // windows. Only the foreground window's navigation is considered.
