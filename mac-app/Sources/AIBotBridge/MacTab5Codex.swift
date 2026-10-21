@@ -64,7 +64,10 @@ final class MacTab5Codex {
         guard enabled() else { rpc?.stop(); desktop?.reset(); stateLock.lock(); projection = [:]; note = "尚未启用"; stateLock.unlock(); return }
         guard gate.try() else { return }; defer { gate.unlock() }
         do {
-            let result = try call("thread/list", ["limit": 40, "archived": false, "sortKey": "updated_at", "sortDirection": "desc"])
+            // The API's omitted-source default excludes desktop-created appServer
+            // threads. Request user-facing sources explicitly, across providers.
+            let result = try call("thread/list", ["limit": 40, "archived": false, "sortKey": "updated_at", "sortDirection": "desc",
+                                                  "sourceKinds": ["cli", "vscode", "appServer"], "modelProviders": [String]()])
             guard let threads = result["data"] as? [[String: Any]] else { throw MacTab5CodexFailure.protocolError }
             catalog = threads.compactMap { root -> [String: Any]? in
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }

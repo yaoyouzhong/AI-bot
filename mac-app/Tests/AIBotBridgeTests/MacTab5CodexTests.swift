@@ -31,6 +31,26 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertFalse(String(decoding: try MacTab5Protocol.json(codex.snapshot()!), as: UTF8.self).contains("/private/"))
         XCTAssertEqual(codex.handle(["taskId": api.task, "op": "send", "message": "hello", "requestId": UUID().uuidString], device: "device").status, 403)
     }
+    func testDesktopCreatedTasksAreRequestedAlongsideInteractiveHistory() throws {
+        let desktop = UUID().uuidString.lowercased(), existing = UUID().uuidString.lowercased()
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
+            XCTAssertEqual(method, "thread/list")
+            let sources = params["sourceKinds"] as? [String] ?? []
+            XCTAssertEqual(Set(sources), Set(["cli", "vscode", "appServer"]))
+            XCTAssertEqual(params["modelProviders"] as? [String], [])
+            XCTAssertEqual(params["archived"] as? Bool, false)
+            var entries: [[String: Any]] = [["id": existing, "cwd": "/synthetic/AI-bot", "name": "Existing task", "updatedAt": 1]]
+            if sources.contains("appServer") {
+                entries.insert(["id": desktop, "cwd": "/synthetic/acceptance", "name": "Desktop acceptance", "updatedAt": 2], at: 0)
+            }
+            return ["data": entries]
+        })
+        codex.refresh()
+        let projection = try XCTUnwrap(codex.snapshot())
+        let tasks = try XCTUnwrap(projection["tasks"] as? [[String: Any]])
+        XCTAssertEqual(Set(tasks.compactMap { $0["id"] as? String }), Set([desktop, existing]))
+        XCTAssertEqual((projection["projects"] as? [Any])?.count, 2)
+    }
     func testExactlyOnceReceiptSurvivesRestartAndRejectsChangedPayload() throws {
         let api = API(), storage = try store()
         let codex = MacTab5Codex(store: storage, enabled: { true }, sendEnabled: { true }, call: api.call); codex.refresh()

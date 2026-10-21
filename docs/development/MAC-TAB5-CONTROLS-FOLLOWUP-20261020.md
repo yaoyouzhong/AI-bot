@@ -65,3 +65,25 @@ Windows already sends the project's geometric BYTE SPROUT fallback when no user 
 现场仍为 `29f1654` 日历候选；日历实体反馈与用户手动解锁尚待回复。新候选包含已实现的 Codex 桌面发送／中断连接、日历、诊断子集和默认桌宠。解锁后先核对当前日历、原有只读开关与和风自动定位；再切换通过 CI 的新候选，依次验收桌宠和诊断，随后在用户明确指定的测试任务上验收 Codex 操作／直达，以及单独的一键锁屏。追加接口限制与未采集的诊断项仍按上文列为缺口。未合并 main、未部署服务、未发布、未刷机。
 
 CI 39445293598 for `c8a254fcfed916efaac0c977b6c2fae635275383` and the downloaded full artifacts passed: **209 tests, zero failures/skips**, matching source/package hashes, Release, signed app, tools and eight native UI fixtures. The first run exposed an old single-slot reassembly assumption; the test now reconstructs and acknowledges both pet slots independently. Local XCTest remains unavailable; local Release/bundle/signing and native observation/decoded-preview checks passed. Candidate `artifacts/mac-tab5-20261020/c8a254f/AIBotBridge.app` is not launched. The running calendar candidate remains `29f1654`; physical calendar feedback and manual unlock remain pending. No task mutation, lock acceptance, deployment, release or flashing is claimed. Resume preserved settings, physical pet/diagnostic checks and specifically designated-task controls only after the user unlocks.
+
+## 2026-10-21 接续验收
+
+用户手动解锁后，旧候选已不在运行，启动通过 CI 的 `c8a254f`。用户报告该构建仍需连续 4 次钥匙串密码授权；代码中 LAN、TAB5 配对、私有草稿、DeepSeek 和按 Host 保存的和风凭据是独立钥匙串项目，临时签名随构建改变，但没有足够证据将每个弹窗精确对应到某项。不能把重复授权问题写成已解决；没有读取密码、调整 ACL 或允许所有应用访问。
+
+- 自动确认 USB 数据已确认、Wi-Fi 收到已认证请求、日常 Codex 只读保持开启。音乐／语音／电脑控制初始均关闭。蓝牙持续寻找，系统侧设备未连接，本次恢复尚未通过。
+- **日历通过：** 用户确认 2026 年 10 月 1–7 日“休”、10 日“班”及选中日期不再待更新均正常。
+- **桌宠部分通过：** 用户已看到图案，但与 Windows 原来的两只不一致。当前为 Mac 原创默认动画，本机无 Windows 自选 APET；Windows 优先选择用户缓存／迁入动画。仅通过资源显示，外观一致性和原选择迁移待处理，不能用默认图案代替验收。
+- **诊断不完整：** 用户确认 CPU／内存／上下载速率正常，诊断 VPN、PAC、CPU 等待、磁盘响应仍待确认／无数据，与当前未采集的实现一致。只读检查确认本机 IOBlockStorageDriver 提供 I/O 次数与累计时间字段，尚未实现或验证其单位与增量延迟，不能据此填入数值。
+- 系统定位总开关开、AI-bot Bridge 开关关；恢复此前用户明确授权的同范围定位访问后，按原值保存触发刷新，Mac 显示“和风天气 已更新 · 24 小时 / 7 天”。未改变来源、密钥或城市。
+
+用户明确授权新建“TAB5 操作验收”任务和临时启用发送／中断、桌面输入框，结束后关闭。任务已新建并回复就绪；这只是工具创建任务成功，**不算桥接发送通过**。两个临时开关曾正常开启；发现任务列表问题后已关闭，日常只读保持开启。真实桥接发送／中断／直达和一键锁屏均未执行。
+
+### 会话来源筛选问题
+
+用户反馈 AI-bot 分组只显示当前会话，另有 Workspace／Work。自动只读检查证实本机接口与桌面项目清单中的 AI-bot 均只有该一条，其余本机会话分属其他目录，远端任务不属于该本机接口。包含 16 个任务、缓存天气、64 个网络样本、日历和诊断的实际对象帧约 16.2 KiB，未触发 32 KiB 裁剪；不将项目筛选误判为数据帧容量故障。
+
+同时复现一个实际遗漏：默认 `thread/list` 返回 29 条，未包含刚创建的验收任务；显式包含 `appServer` 来源后返回 30 条且包含该任务。本机已生成的官方协议 schema 说明 omitted/empty sourceKinds 默认仅交互来源；现明确请求 `cli/vscode/appServer`，并以空 modelProviders 请求当前用户各供应商历史。仍排除归档／子代理来源，仍只读取公开历史，未创建服务、修改模型或审批策略。新增回归覆盖来源、供应商筛选、旧历史保留与项目分组；构建与新候选实机结果另行记录。
+
+On October 21 the user unlocked the Mac; the prior app was no longer running. Candidate c8a254f started after four reported Keychain prompts, which remain unresolved across temporary signatures/items. USB/Wi-Fi and daily read-only Codex recovered. Physical October holiday/workday labels passed. Pets now appear but differ from the user's Windows selections, so appearance parity remains pending. CPU/memory/network metrics work; VPN/PAC/queue/disk diagnostics remain unimplemented. Restoring the previously authorized location switch and refreshing unchanged settings recovered QWeather current/hourly/daily data. Bluetooth remains searching.
+
+The user authorized a separate temporary acceptance chat and two temporary control switches; the chat returned ready. This is not bridge-send acceptance. Both switches were closed again while investigating the catalog, preserving daily read-only access. Live bridge mutations/direct navigation/lock are not yet tested. Read-only comparison found one local AI-bot-group chat, other cwd groups and remote chats outside the local interface. A 16-task status frame fits the byte budget. A separate real omission was reproduced: thread/list's default source filter excluded the desktop-created appServer chat. Explicit cli/vscode/appServer sources restore it, with all-provider history and existing opt-in/privacy controls retained. Regression and candidate verification follow separately.
