@@ -26,6 +26,8 @@
 
 用户随后澄清：直达顶部左右箭头会切换 Mac 会话，但 TAB5 标题／内容不更新，因此无法按原步骤直接选中测试会话。只读核对 `.234` 的 `ui_quick_console.h` 和 `desktop_remote.c`：箭头发起 open-recent，只有 status=200、foreground=true 且 taskId 匹配才提交新的选择；失败保留旧选择。当前 App 实际诊断为辅助功能权限未生效；系统条目“在访达中显示”仍指向 9415cee，而非运行中的 bdd84cd。已关闭临时桌面开关，不再要求重复点击。Mac 修复在打开前执行无弹窗权限预检，失败直接返回原有 409，不先导航；补充回归保证零打开／写入／发送、授权后的重复旧请求不重试、新请求才执行。此修复防止已知权限缺失造成的两端位置差异，不把主输入框兼容或实体直达标为通过，固件未修改。
 
+前置权限检查程序 `a6fadc52250fc207a377e8221637981a5d2365ed` 通过 [Mac CI 39540421901](https://github.com/yaoyouzhong/AI-bot/actions/runs/39540421901)，完整附件核验确认 228 项测试、0 失败／跳过、Release、App、许可、内外层 SHA、工具和八张原生 PNG；本机 Release／签名包／离线工具／原生渲染也通过，XCTest 仍缺失。依据用户此前明确授权，仅再次重置桥接 bundle ID 的辅助功能记录；系统设置加入精确 a6fadc5 路径后开关为 on，“在访达中显示”确认 a6fadc5。正常退出 bdd84cd 前暂时关闭只读子进程；a6fadc5 已启动，目前等待用户钥匙串授权。下一步恢复日常只读，使用新候选的前置检查核验实际辅助功能，再决定是否需要一次设备诊断；当前尚无新候选的正常 App／实体直达成功证据。
+
 ## English
 
 Only the Mac bridge, tests and docs change. No main merge, deployment, publication or flashing. Firmware camera/layout issues remain deferred.
@@ -43,3 +45,5 @@ After user Keychain approval, normal-app checks confirmed acknowledged USB, auth
 The subsequent device report confirms PAC displays disabled, matching the host and passing that state check; no graph result was supplied. The previously authorized temporary desktop-composer switch was restored for one open-only diagnostic on the designated acceptance chat, with sending still disabled. Awaiting that device click; close the temporary desktop switch after the diagnostic.
 
 The user clarified that top arrows navigate the Mac but leave the device title/content unchanged. Read-only consumer inspection confirms selection commits only after a matching successful foreground receipt. The live diagnostic reports missing Accessibility permission; System Settings' Reveal in Finder still targets 9415cee, not running bdd84cd. Temporary desktop control was closed again. The bridge repair checks permission before navigation, preserving the existing 409 response, with regression coverage for zero side effects, no replay after permission recovery, and execution only for a fresh request. This prevents known permission failures from first moving the Mac; composer compatibility and physical direct navigation remain unaccepted. Firmware is unchanged.
+
+Program a6fadc5 passed the linked CI and full artifact verification with 228 tests and zero failures/skips; local Release, signed bundle, offline tools and native rendering also passed. Under the prior explicit scoped-reset authorization, only the bridge Accessibility record was reset. System Settings added the exact new path, showed it enabled, and Reveal in Finder confirmed a6fadc5. The old app was normally quit after temporarily stopping read-only Codex; the new app awaits user Keychain authorization. Restore daily read-only and verify actual Accessibility via the new preflight before another device diagnostic. Normal-app/physical direct-navigation success is not yet established.
