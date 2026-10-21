@@ -19,6 +19,8 @@
 
 Codex 直达与 Windows 对齐：精确确认可使用页面地址、可信主页面的完整唯一标题，或有当前页面标记的会话行唯一名称。未命名长会话加载后会采用 60 UTF-16 单元的缩略显示；此名称必须在完整目录中重新检查碰撞，不靠目标标题前缀或近期／项目子集猜测唯一性，不读取剪贴板。对原名或缩略名明确重复的已加载会话，纯打开操作沿用 Windows 的应用前台回执：请求仍绑定所选 ID，但界面明确说明没有精确读回页面身份。该回执不能授权输入框读取、填入、清空或发送；目录读取失败、外部页面和普通窗口标题不作为精确确认。会话按更新时间从近到远排序，同名显示时间，未知时间排后，不替代任务 ID。
 
+接口未返回显式名称的会话，按同一任务 ID 读取本机桌面目录的预览标题，避免统一显示“Codex 会话”；显式名称优先，目录读取失败保留本进程最近成功的名称。此读取只补齐已加载任务的显示文字，不增加任务、读取会话正文或提供导航身份确认。
+
 **资源与固件**中导入现有 AI-bot 图库 ZIP；保留来源、许可、导读和全部图片 SHA。标准/高清包按类别导入，旧图库保留备份。设备显示专用 1280×720 JPEG，支持多页与横竖屏。电脑桌宠选择和当前音乐封面自动转为设备资源，收到资源确认后停止发送。
 
 高清完整包校验外层索引和内置 `standard.zip` 的 SHA，再验证并导入 TAB5 适配图库；不解压或加载电脑端高清原作。本候选不含 Mac 高清原作浏览器，也不把未读取的高清原作称为已核验。
@@ -85,6 +87,8 @@ The login-Keychain prompt for AI-bot Bridge and service `io.github.yaoyouzhong.A
 Certificate-signed candidates bundle `AIBotKeychainHelper`, an on-demand child handling only this bridge's existing pairing/provider/private-store accounts through inherited anonymous pipes. It exits after one request, with no service or listener. Parent path, bundle ID and matching leaf certificate are verified, as is the helper signature; failures never switch to another access path. Its signed bytes are retained in a private build cache keyed by source, toolchain, architecture and certificate, keeping its Keychain CDHash stable across ordinary bridge updates. First migration or helper changes can still require per-item approval on the Mac; see the development record for actual cross-build acceptance. Credentials remain persisted only in Keychain, without exporting, consolidating or changing existing item permissions.
 
 Codex exact navigation confirmation uses an accessible route, trusted primary document's unique full title, or the current thread row's unique accessible name. Loaded unnamed chats can use a 60-UTF-16-unit compact label; that label is independently collision-checked against the complete catalog, never accepted by a target-only prefix or project/recent subset. Explicitly duplicated full or compact names use Windows' app-foreground open-only acknowledgment: the request stays bound to the chosen task ID, while the app states that exact page identity was not read back. This cannot authorize reading, staging, clearing or submitting a composer. Database failures, external pages and generic window titles cannot prove exact identity. The clipboard is not accessed. Tasks are sorted newest first, duplicate display names include their update time, and unknown times sort last; timestamps never replace task IDs.
+
+When the API omits an explicit chat name, its exact task ID selects the local desktop catalog's preview title instead of a generic chat label. Explicit names take precedence; metadata failures retain the last successful names for the process. This only supplements display labels of already loaded tasks, without adding tasks, reading conversation bodies or establishing navigation identity.
 
 For an HD full bundle, validate the outer catalog and embedded standard ZIP hash, then validate/import only its complete TAB5 subset. Desktop HD originals are not extracted or advertised as verified; this candidate does not include a Mac HD-original browser.
 

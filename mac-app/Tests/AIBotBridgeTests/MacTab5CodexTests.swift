@@ -2,6 +2,25 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5CodexTests: XCTestCase {
+    func testUnnamedChatsUseDesktopPreviewAndRetainItDuringMetadataFailure() throws {
+        let unnamed = UUID().uuidString.lowercased(), named = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
+        var explicit = "", names: [String: String]? = [unnamed: "[OpenClaw conversation info]", named: "must not override", other: "must not export"]
+        var lookups = 0
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, catalogNames: { requested in
+            lookups += 1; XCTAssertEqual(requested, [unnamed]); return names
+        }, call: { _, _ in
+            ["data": [["id": unnamed, "cwd": "/fixture", "name": explicit, "updatedAt": 2],
+                      ["id": named, "cwd": "/fixture", "name": "explicit name", "updatedAt": 1]]]
+        })
+        func title() -> String? { (codex.snapshot()?["tasks"] as? [[String: Any]])?.first?["title"] as? String }
+        codex.refresh(); XCTAssertEqual(title(), "[OpenClaw conversation info]")
+        let tasks = try XCTUnwrap(codex.snapshot()?["tasks"] as? [[String: Any]])
+        XCTAssertEqual(tasks.last?["title"] as? String, "explicit name")
+        XCTAssertEqual(tasks.count, 2)
+        names = nil; codex.refresh(); XCTAssertEqual(title(), "[OpenClaw conversation info]")
+        explicit = "renamed chat"; codex.refresh(); XCTAssertEqual(title(), explicit); XCTAssertEqual(lookups, 2)
+        explicit = "  "; names = [:]; codex.refresh(); XCTAssertEqual(title(), "Codex 会话")
+    }
     func testCatalogMergesPagesNewestFirstAndDisambiguatesDuplicateDisplayNames() throws {
         let ids = (0..<5).map { _ in UUID().uuidString.lowercased() }
         let entries: [[String: Any]] = [

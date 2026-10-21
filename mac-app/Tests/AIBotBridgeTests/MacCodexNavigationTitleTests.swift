@@ -4,6 +4,20 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacCodexNavigationTitleTests: XCTestCase {
+    func testDisplayNamesAllowDuplicatesButStayBoundToRequestedLocalIds() throws {
+        let (home, db) = try fixture(), a = UUID().uuidString.lowercased(), b = UUID().uuidString.lowercased()
+        let remote = UUID().uuidString.lowercased(), missing = UUID().uuidString.lowercased()
+        insert(db, a, "shared preview title"); insert(db, b, "shared preview title")
+        insert(db, remote, "remote title", host: "remote"); insert(db, missing, "removed", missing: 1)
+        XCTAssertEqual(MacCodexCatalogNames.read([a, b, remote, missing], home: home), [a: "shared preview title", b: "shared preview title"])
+        XCTAssertNil(MacCodexNavigationTitle.read(a, home: home)) // display is not identity proof
+        let invalid = UUID().uuidString.lowercased(); insert(db, invalid, "part\0rest")
+        XCTAssertNil(MacCodexCatalogNames.read([a, invalid], home: home)) // no partial publication
+        XCTAssertNil(MacCodexCatalogNames.read(["not-an-id"], home: home))
+        let absent = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        XCTAssertNil(MacCodexCatalogNames.read([a], home: absent))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: absent.path))
+    }
     func testLoadedChatCompactLabelMustBeUniqueAcrossTheWholeCatalog() throws {
         let (home, db) = try fixture(), task = UUID().uuidString.lowercased()
         let prefix = String(repeating: "a", count: 59), full = prefix + String(repeating: "b", count: 20) + "…"

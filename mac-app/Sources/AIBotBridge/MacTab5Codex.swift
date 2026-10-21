@@ -4,10 +4,13 @@ final class MacTab5Codex {
     static let enabledKey = "tab5_codex_replies_enabled"
     static let sendKey = "tab5_codex_send_enabled"
     typealias Call = (String, [String: Any]) throws -> [String: Any]
+    typealias CatalogNames = (Set<String>) -> [String: String]?
     private let gate = NSLock(), stateLock = NSLock()
     private let queue = DispatchQueue(label: "AI-bot.tab5-codex")
     private let call: Call, enabled: () -> Bool, sendEnabled: () -> Bool, mutable: () -> Bool
     private let clock: () -> TimeInterval
+    private let lookupNames: CatalogNames
+    private var cachedNames: [String: String] = [:]
     private var catalogUpdated: TimeInterval = -.infinity
     let store: MacTab5PrivateStore
     let photos: MacTab5Photos
@@ -23,8 +26,9 @@ final class MacTab5Codex {
     private let rpc: MacTab5CodexRPC?
     private let desktop: MacCodexDesktopIPC?
 
-    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, call: Call? = nil) {
+    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil) {
         self.store = store; photos = MacTab5Photos(store: store); self.enabled = enabled; self.sendEnabled = sendEnabled; self.clock = clock
+        lookupNames = catalogNames ?? (call == nil ? { MacCodexCatalogNames.read($0) } : { _ in nil })
         if let call { self.call = call; rpc = nil; self.desktop = desktop; mutable = canMutate }
         else {
             let rpc = MacTab5CodexRPC(), desktop = desktop ?? MacCodexDesktopIPC()
@@ -112,10 +116,19 @@ final class MacTab5Codex {
                 guard next.utf8.count <= 4096, seenCursors.insert(next).inserted else { throw MacTab5CodexFailure.protocolError }
                 cursor = next
             }
+            let unnamed = Set(threads.compactMap { root -> String? in
+                let name = (root["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return name.isEmpty ? Self.id(root["id"]) : nil
+            })
+            cachedNames = cachedNames.filter { unnamed.contains($0.key) }
+            if !unnamed.isEmpty, let names = lookupNames(unnamed) {
+                cachedNames = names.filter { unnamed.contains($0.key) && $0.value.utf8.count <= 8192 &&
+                    !$0.value.contains("\0") && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            }
             catalog = threads.compactMap { root -> [String: Any]? in
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
-                let title = (root["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Codex 会话"
+                let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? "Codex 会话"
                 let time = MacTab5Protocol.integer(root["updatedAt"]) ?? 0
                 let updated = (0...253_402_300_799).contains(time) ? time : 0
                 return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": updated, "state": rpc == nil && mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"]
