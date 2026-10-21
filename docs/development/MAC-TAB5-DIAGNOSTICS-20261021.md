@@ -34,6 +34,8 @@
 
 用户随后要求采集默认开启、减少反复授权。新增正常启动的默认偏好注册，保留显式关闭和既有手动天气；音乐采集与控制拆分并迁移旧组合许可，其他控制不默认开启。私有草稿／回执密钥的成功与失败均在进程内串行缓存，避免每次操作重新询问同一钥匙串项目。构建支持已有稳定签名身份，本机只读检查为 0 个可用签名身份，仍不能保证换临时签名后免除系统授权。待自动验证，不声称此变更已上机。
 
+采集偏好／钥匙串修复最终候选 `3c9b90d84f3c7aca5146c8c1b5ea3a6951544c51` 通过 [Mac CI 39542234325](https://github.com/yaoyouzhong/AI-bot/actions/runs/39542234325)：234 项测试、0 失败／跳过，下载完整附件并核验 arm64 Release、App、许可、源码／内外层 SHA、工具及八张原生界面图。本机 Release、临时签名包、工具检查及界面渲染通过；本机 XCTest 仍缺失。首次 CI 39542034211 因新增并发测试异常处理写法不兼容而编译失败，已改为在非抛出 worker 内捕获异常；失败候选未运行。旧 a6fadc5 已正常退出，未关闭日常只读；新候选已按精确路径启动，当前等待用户处理系统钥匙串。正常 App 的偏好保持、音乐采集与控制拆分及重复提示改善仍待授权后验收，不能把自动测试当作实机通过。
+
 ## English
 
 Only the Mac bridge, tests and docs change. No main merge, deployment, publication or flashing. Firmware camera/layout issues remain deferred.
@@ -59,3 +61,5 @@ After user Keychain approval for a6fadc5, the normal app restored daily read-onl
 The physical arrow request navigated the Mac but retained the device selection. The exact bridge diagnostic was missing both composer identity and the exact chat address, after Accessibility preflight passed. Temporary desktop control was disabled; daily read-only remains enabled with 30 chats. Navigation acceptance or matching titles are not treated as proof.
 
 The user then requested default collection and fewer authorization prompts. Normal startup now registers collection defaults while preserving explicit opt-outs and manual weather configuration. Playback collection and control are separate, retaining an existing combined grant on upgrade. Other actions do not default on. The private draft/receipt key now serializes and caches both success and denial for the process lifetime. The bundle script supports an existing stable signing identity; this host reports zero valid signing identities, so changed ad-hoc builds may still need OS approval. Automated validation is pending; no physical acceptance of these changes is claimed.
+
+Final collection/key-cache candidate 3c9b90d passed [CI 39542234325](https://github.com/yaoyouzhong/AI-bot/actions/runs/39542234325) with 234 tests and zero failures/skips. The complete artifact was downloaded and verified for source/inner/outer hashes, arm64 Release/app, licenses, tools and eight native images. Local Release, ad-hoc bundle, tool checks and UI rendering passed; local XCTest remains unavailable. Initial CI 39542034211 failed to compile a throwing XCTest expression inside a nonthrowing concurrent worker; explicit worker-local error handling repaired it, and that failed candidate was never run. The old app quit normally without turning off daily read-only. The exact new candidate is running, awaiting user Keychain handling. Normal-app preference retention, separate music collection/control and reduced repeated prompts remain pending; automated results are not physical acceptance.
