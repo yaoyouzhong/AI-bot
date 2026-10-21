@@ -2,6 +2,43 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5DesktopTests: XCTestCase {
+    func testNavigationDoesNotUnlockPrivateStoreAndMutationsStillFailClosed() throws {
+        let fixture = Fixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        var denyKey = false, keyReads = 0
+        let store = MacTab5PrivateStore(root: root, key: {
+            keyReads += 1
+            if denyKey { throw MacTab5Error.keychain }
+            return Data(repeating: 4, count: 32)
+        })
+        // Include an existing encrypted receipt file: opening must neither read
+        // that file's key nor overwrite it, even across bridge object restarts.
+        try store.write("desktop-receipts", MacTab5Protocol.json(["existing": "preserve"]))
+        denyKey = true; keyReads = 0
+        let codex = MacTab5Codex(store: store, enabled: { true }, sendEnabled: { true }, call: fixture.call)
+        codex.refresh()
+        var backend = fixture.backend
+        backend.navigation = { $0 == fixture.task }
+        let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
+        let request: [String: Any] = ["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString]
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 200)
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 200)
+        XCTAssertEqual(desktop.handle(request, device: "B").status, 409)
+        XCTAssertEqual(fixture.opens, 1); XCTAssertEqual(keyReads, 0)
+        let restarted = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
+        XCTAssertEqual(restarted.handle(request, device: "A").status, 200)
+        XCTAssertEqual(fixture.opens, 2); XCTAssertEqual(keyReads, 0)
+        var conflict = request; conflict["op"] = "stage-draft"; conflict["text"] = "test"
+        XCTAssertEqual(desktop.handle(conflict, device: "A").status, 409)
+        XCTAssertEqual(keyReads, 0)
+        conflict["requestId"] = UUID().uuidString
+        XCTAssertEqual(desktop.handle(conflict, device: "A").status, 504)
+        XCTAssertEqual(keyReads, 1); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+        denyKey = false
+        let preserved = try store.read("desktop-receipts").map(MacTab5Protocol.object)
+        XCTAssertEqual(preserved?["existing"] as? String, "preserve")
+    }
     func testMissingComposerAndRouteAreReportedSeparatelyWithoutRelaxingIdentity() {
         XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "", routeConfirmed: false), .identifierAndRoute)
         XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "", routeConfirmed: true), .identifier)

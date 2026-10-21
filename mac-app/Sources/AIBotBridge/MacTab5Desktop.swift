@@ -22,6 +22,7 @@ enum MacTab5DesktopCheck: String {
     case route = "未取得匹配目标任务的公开页面地址"
     case navigationShell = "未取得 Codex 主页面的可访问导航区域"
     case navigationAddress = "Codex 主页面未提供可验证的会话地址"
+    case navigationSelectionWithoutAddress = "已找到当前会话按钮，但尚无可验证的目标会话地址"
     case navigationLimit = "Codex 导航检查达到边界，尚未确认目标会话"
     case value = "未取得可用的输入框文字"
     case open = "系统未接受打开会话请求"
@@ -35,6 +36,10 @@ final class MacTab5Desktop {
     private let enabled: () -> Bool, backend: MacTab5DesktopBackend
     private let statusLock = NSLock()
     private var status: MacTab5DesktopCheck = .waiting
+    // Opening a page is safe to repeat after an app restart. Keep its bounded
+    // deduplication receipts in memory, without unlocking the private draft key.
+    // Editing and submission still persist encrypted receipts before acting.
+    private var navigationReceipts: [String: Any] = [:]
     var summary: String {
         guard enabled() else { return "尚未启用" }
         if let failure = backend.preflight() { return failure.rawValue }
@@ -51,13 +56,18 @@ final class MacTab5Desktop {
         guard let task = MacTab5Codex.id(root["taskId"] ?? tasks.first?["id"]), let entry = tasks.first(where: { $0["id"] as? String == task }) else { return .error(404, "task_not_in_recent_catalog") }
         guard codex.contains(task) else { return .error(503, "codex_catalog_stale") }
         do {
-            var records = try codex.store.read("desktop-receipts").map(MacTab5Protocol.object) ?? [:]
             let binding = device + "|" + task, text = root["text"] as? String ?? "", draftID = root["draftRequestId"] as? String ?? ""
             let fingerprint = MacTab5Protocol.sha256(try MacTab5Protocol.json(["binding": binding, "op": op, "text": text, "draft": draftID]))
+            if let record = navigationReceipts[id] as? [String: Any] { return record["fingerprint"] as? String == fingerprint ? .init(record["status"] as? Int ?? 504, record["body"] as? [String: Any] ?? [:]) : .error(409, "request_id_conflict") }
+            var records = op == "open-recent" ? navigationReceipts : try codex.store.read("desktop-receipts").map(MacTab5Protocol.object) ?? [:]
             if let record = records[id] as? [String: Any] { return record["fingerprint"] as? String == fingerprint ? .init(record["status"] as? Int ?? 504, record["body"] as? [String: Any] ?? [:]) : .error(409, "request_id_conflict") }
+            func saveRecords() throws {
+                if op == "open-recent" { navigationReceipts = records }
+                else { try codex.store.write("desktop-receipts", MacTab5Protocol.json(records)) }
+            }
             guard records.count < 2048, text.utf8.count <= 2000 else { return .error(429, "desktop_receipt_capacity") }
             var record: [String: Any] = ["binding": binding, "fingerprint": fingerprint, "status": 504, "body": ["error": "desktop_result_unknown"], "createdAt": Date().timeIntervalSince1970]
-            records[id] = record; try codex.store.write("desktop-receipts", MacTab5Protocol.json(records))
+            records[id] = record; try saveRecords()
             var result: MacTab5RPCResult
             var body = entry; body.removeValue(forKey: "id"); body["taskId"] = task; body["requestId"] = id
             if op == "open-recent" {
@@ -114,7 +124,7 @@ final class MacTab5Desktop {
                 } else { result = .error(409, "composer_changed") }
             }
             record["status"] = result.status; record["body"] = result.body; records[id] = record
-            try codex.store.write("desktop-receipts", MacTab5Protocol.json(records)); return result
+            try saveRecords(); return result
         } catch { return .error(504, "desktop_result_unknown") }
     }
 }
@@ -153,8 +163,8 @@ enum MacTab5DesktopAX {
     }
     static func currentTaskRow(role: String, current: String?, addresses: [String], complete: Bool,
                                task: String, resourceRoot: URL?) -> Bool {
-        // Codex's interactive sidebar row puts aria-current on its group,
-        // with the navigation link inside. Every link must identify the same
+        // Some sidebar variants put aria-current on a group with links inside.
+        // Button-only rows do not qualify. Every link must identify the same
         // exact task; a selected section containing other tasks is not proof.
         role == "AXGroup" && current == "page" && complete && !addresses.isEmpty &&
             addresses.allSatisfy { identifies($0, task: task, resourceRoot: resourceRoot) }
@@ -202,7 +212,7 @@ enum MacTab5DesktopAX {
         // The window document may identify the exact page without editor focus.
         if let document = address(window, "AXDocument"), identifies(document, task: task, resourceRoot: resources) { return true }
         var pending: [(AXUIElement, Bool)] = [(window, false)], visited = 0
-        var foundShell = false, foundTaskAddress = false
+        var foundShell = false, foundTaskAddress = false, foundCurrentButton = false
         let deadline = ProcessInfo.processInfo.systemUptime + 0.25
         while let (node, inheritedShell) = pending.popLast(), visited < 1200, ProcessInfo.processInfo.systemUptime < deadline {
             visited += 1
@@ -222,6 +232,7 @@ enum MacTab5DesktopAX {
             if shell && role == "AXGroup", value(node, "AXARIACurrent") as? String == "page",
                currentRow(node, task: task, resources: resources, deadline: deadline) { return true }
             if shell && role == "AXLink", address(node) != nil { foundTaskAddress = true }
+            if shell && role == "AXButton", value(node, "AXARIACurrent") as? String == "page" { foundCurrentButton = true }
             // Do not inspect editor text, browser contents, dialogs or other
             // windows. Only the foreground window's navigation is considered.
             if ["AXTextArea", "AXTextField", "AXDialog", "AXSheet"].contains(role) { continue }
@@ -229,6 +240,7 @@ enum MacTab5DesktopAX {
         }
         if !pending.isEmpty { note(.navigationLimit) }
         else if !foundShell { note(.navigationShell) }
+        else if foundCurrentButton { note(.navigationSelectionWithoutAddress) }
         else { note(foundTaskAddress ? .route : .navigationAddress) }
         return false
     }
