@@ -36,6 +36,12 @@
 
 采集偏好／钥匙串修复最终候选 `3c9b90d84f3c7aca5146c8c1b5ea3a6951544c51` 通过 [Mac CI 39542234325](https://github.com/yaoyouzhong/AI-bot/actions/runs/39542234325)：234 项测试、0 失败／跳过，下载完整附件并核验 arm64 Release、App、许可、源码／内外层 SHA、工具及八张原生界面图。本机 Release、临时签名包、工具检查及界面渲染通过；本机 XCTest 仍缺失。首次 CI 39542034211 因新增并发测试异常处理写法不兼容而编译失败，已改为在非抛出 worker 内捕获异常；失败候选未运行。旧 a6fadc5 已正常退出，未关闭日常只读；新候选已按精确路径启动，当前等待用户处理系统钥匙串。正常 App 的偏好保持、音乐采集与控制拆分及重复提示改善仍待授权后验收，不能把自动测试当作实机通过。
 
+### 3c9b90d 正常启动与同版本重启复验
+
+用户完成钥匙串授权后，USB 数据已确认、Wi-Fi 已认证、蓝牙 USB 优先待命；Codex 日常只读未重新勾选即连接 30 个会话。音乐沿用先前验收关闭值，因此按用户新的持续采集要求仅开启音乐采集，独立音乐控制仍关闭，窗口正确显示“无活动曲目”。系统定位中的桥接项因换包为关闭，恢复此前已授权的自动定位范围，并保持和风 Host／密钥／城市等原值刷新，成功取得当前、24 小时与 7 天预报。
+
+随后未关闭任何采集开关，正常退出并重启同一个 3c9b90d。进程退出与新进程启动均已核实；本次未观察到 SecurityAgent 密码阻塞，也未要求用户再次操作。正常 App 核实音乐采集开启、音乐控制关闭、Codex 只读开启且 30 会话自动恢复；USB／Wi-Fi／蓝牙、和风当前及预报自动恢复。电脑控制、任务发送、桌面输入框与语音输入仍关闭。此结果只证明同版本设置保持及本次正常重启；未以之承诺更换临时签名免授权，也未声称真实草稿操作或本轮音乐播放重新验收。Codex 直达身份／地址兼容、CPU 等价队列计数仍未解决。
+
 ## English
 
 Only the Mac bridge, tests and docs change. No main merge, deployment, publication or flashing. Firmware camera/layout issues remain deferred.
@@ -63,3 +69,9 @@ The physical arrow request navigated the Mac but retained the device selection. 
 The user then requested default collection and fewer authorization prompts. Normal startup now registers collection defaults while preserving explicit opt-outs and manual weather configuration. Playback collection and control are separate, retaining an existing combined grant on upgrade. Other actions do not default on. The private draft/receipt key now serializes and caches both success and denial for the process lifetime. The bundle script supports an existing stable signing identity; this host reports zero valid signing identities, so changed ad-hoc builds may still need OS approval. Automated validation is pending; no physical acceptance of these changes is claimed.
 
 Final collection/key-cache candidate 3c9b90d passed [CI 39542234325](https://github.com/yaoyouzhong/AI-bot/actions/runs/39542234325) with 234 tests and zero failures/skips. The complete artifact was downloaded and verified for source/inner/outer hashes, arm64 Release/app, licenses, tools and eight native images. Local Release, ad-hoc bundle, tool checks and UI rendering passed; local XCTest remains unavailable. Initial CI 39542034211 failed to compile a throwing XCTest expression inside a nonthrowing concurrent worker; explicit worker-local error handling repaired it, and that failed candidate was never run. The old app quit normally without turning off daily read-only. The exact new candidate is running, awaiting user Keychain handling. Normal-app preference retention, separate music collection/control and reduced repeated prompts remain pending; automated results are not physical acceptance.
+
+### 3c9b90d normal app and same-build restart
+
+After user Keychain handling, USB was acknowledged, Wi-Fi authenticated and BLE in USB-priority standby. Daily read-only Codex reconnected to 30 chats without re-enabling its switch. Music retained the previous test opt-out, so collection alone was enabled under the new daily-collection instruction, leaving separate playback control off; no active track was reported. The candidate’s Location switch was off after the build change. Restoring the previously authorized scope and refreshing unchanged QWeather configuration recovered current, hourly and daily forecasts.
+
+The same candidate then quit normally with all collection preferences preserved and restarted. Process exit/start was checked; no SecurityAgent password blockage was observed and no further user action was requested. The normal UI confirmed music collection on/control off, read-only Codex on with 30 chats, restored USB/Wi-Fi/BLE and automatically refreshed current/24-hour/7-day QWeather. Computer control, task mutations, desktop composer and voice input remain off. This verifies the observed same-build restart and preference persistence, not exemption from changed ad-hoc-build approval, a new live draft acceptance or a new playback acceptance. Desktop identity/address compatibility and the equivalent CPU queue metric remain unresolved.
