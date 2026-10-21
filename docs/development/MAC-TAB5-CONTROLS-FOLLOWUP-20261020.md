@@ -149,3 +149,23 @@ Disk response sampling uses the existing pressure.diskLatencyMs field. The publi
 锁屏首次实体按钮灰色，未触发操作；正常重启同一候选后重新验收，结果待记。电脑控制临时开关开启、桌面输入框开关关闭、日常只读恢复开启。和风天气当前／24 小时／7 天已再次确认刷新成功。
 
 Direct navigation remained unconfirmed after Accessibility was enabled and after a manual composer-focus comparison. The bridge now exposes only a bounded local reason enum, never actual titles, text, AX trees or URLs. Existing 409/no-typing protections remain. File-page identity previously hardcoded Codex.app; it now requires the verified foreground bundle's actual Resources directory plus exact task route, rejecting sibling/traversal/remote-host paths. Tests cover identity and no repeated effect on uncertain replay. This does not establish that the installed app publishes a usable accessibility route. Lock was initially disabled on the device; the same candidate was normally restarted for a separate permission-refresh check, still pending. Computer control is temporarily on, desktop input off, daily read-only restored; QWeather current/hourly/daily refresh succeeded.
+
+### 9415cee 验证与辅助功能授权错绑定位
+
+`9415cee0b625b6cef0bfe537eb78114ad5f179e5` 的 [Mac CI 39534484773](https://github.com/yaoyouzhong/AI-bot/actions/runs/39534484773) 与完整附件核验通过：219 项测试、0 失败／跳过，Release、签名 App、随包工具、原生界面和源码／包哈希均一致。本机 Release、App 构建及严格签名检查通过，新增直达状态的完整原生设置页预览已检查，无重叠或裁切。候选为 `artifacts/mac-tab5-20261021/9415cee/AIBotBridge.app`。
+
+05f09b9 重启后锁屏仍灰色，添加该准确路径也未解决。系统权限条目的“在访达中显示”实际打开 `06dd164`，证实原授权指向旧候选；同名添加没有替换。系统移除按钮禁用，未强制修改隐私数据库。用户另行明确授权用系统 `tccutil` 仅重置桥接辅助功能，已执行 `tccutil reset Accessibility io.github.yaoyouzhong.aibot.bridge`，工具确认成功；没有重置其他权限或其他应用。
+
+正常退出旧桥接、启动 9415cee 并由用户完成同类钥匙串授权后，通过系统“添加”选入新候选。授权开关为开，随后“在访达中显示”已核实打开 `9415cee`，与实际运行候选一致。USB／Wi-Fi／BLE 已自动恢复；日常只读与临时电脑控制恢复开启，发送／输入框／语音／音乐关闭。新授权下的真实锁屏与直达、磁盘显示仍待分别记录。上述旧路径是本次已验证的权限错绑，不将其泛化成所有钥匙串或定位问题的已证实根因。
+
+CI 39534484773 and full artifact verification passed for 9415cee with 219 tests and no failures/skips, matching Release/app/tools/UI/source/hashes. Local Release/bundle/signing passed; the full native settings preview with the new direct-navigation status was inspected without clipping or overlap. Lock remained disabled after restarting 05f09b9 and adding its exact path. The system entry's Reveal in Finder opened 06dd164, proving it still referenced an older candidate. With the remove button disabled, the user explicitly authorized a bundle-scoped Accessibility reset via tccutil; it succeeded without resetting other apps/services. Following normal replacement, user Keychain authorization and adding 9415cee in System Settings, Reveal in Finder now resolves to the running 9415cee and its switch is on. USB/Wi-Fi/BLE recovered, daily read-only and temporary computer control are on, other temporary switches off. Real lock/direct/disk acceptance remains separately pending. This confirmed path mismatch is not claimed to explain every Keychain/location prompt.
+
+### 9415cee 锁屏实机结果与剩余边界
+
+用户确认锁屏按钮已经可用，点击后 Mac 实际锁屏；**锁屏操作实体通过**。用户同时反馈 TAB5 没有显示“已锁屏”，也不能解锁。代码核对确认 Mac 的 `locked`／`displayState` 当前返回未知，`oneClickUnlock=false`，所以不将这两项记为通过。交接文档已将 Mac 一键解锁排除在当前能力范围外，解锁仍由用户在 Mac 完成；没有保存密码、输入解锁凭据或修改系统认证策略。结束锁屏验收后，临时电脑控制开关关闭，日常 Codex 只读保留，桌面输入框开关仅为指定验收任务再次临时开启。
+
+本机公开 SDK 的 `CGSession.h` 只声明用户／控制台／登录完成属性，没有锁屏属性；登录完成、控制台归属、屏幕休眠均不能冒充锁定状态。Apple DTS 在[公开接口讨论](https://developer.apple.com/forums/thread/850327)中区分受保护数据可用性与屏幕锁定，并指出常见锁定通知属于实现细节。按本项目只使用公开框架的规则，尚未找到足以实现准确锁屏状态的受支持信号，保留未知，不通过未公开字典键或命令成功回执制造“已锁屏”。这属于桥接能力缺口，不修改固件。
+
+The user confirmed the enabled device lock button actually locked the Mac: physical lock acceptance passed. The device still cannot display a confirmed locked state or unlock; the Mac implementation deliberately returns unknown lock/display state and oneClickUnlock=false. Those capabilities are not accepted. Mac one-click unlock is outside the handoff's current scope; authentication remains on the Mac, with no password capture or authentication-policy changes. Temporary computer control was closed after this test, daily Codex read-only retained, and desktop verification temporarily re-enabled only for the designated acceptance chat.
+
+The public SDK's CGSession properties describe user, console and login completion, not graphical lock state. Those properties and display sleep cannot substitute for lock evidence. Apple DTS distinguishes protected-data availability from graphical locking and describes common lock notifications as implementation details. No sufficiently documented signal has been established under this project's public-framework-only rule, so lock state remains unknown; neither undocumented keys nor successful command dispatch are used to claim a locked state. This is a bridge limitation, with firmware unchanged.
