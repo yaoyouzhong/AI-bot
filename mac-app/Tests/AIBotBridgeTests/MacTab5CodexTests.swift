@@ -2,6 +2,29 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5CodexTests: XCTestCase {
+    func testCatalogMergesPagesNewestFirstAndDisambiguatesDuplicateDisplayNames() throws {
+        let ids = (0..<5).map { _ in UUID().uuidString.lowercased() }
+        let entries: [[String: Any]] = [
+            ["id": ids[0], "cwd": "/fixture", "name": "same title", "updatedAt": Int64(100)],
+            ["id": ids[1], "cwd": "/fixture", "name": "same title", "updatedAt": Int64(500)],
+            ["id": ids[2], "cwd": "/fixture", "name": "unique", "updatedAt": Int64(300)],
+            ["id": ids[3], "cwd": "/fixture", "name": "same title", "updatedAt": true],
+            ["id": ids[4], "cwd": "/fixture", "name": "equal time", "updatedAt": Int64(300)]]
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, call: { method, params in
+            XCTAssertEqual(method, "thread/list")
+            if params["cursor"] == nil { return ["data": Array(entries.prefix(2)), "nextCursor": "older"] }
+            return ["data": Array(entries.dropFirst(2))]
+        })
+        codex.refresh()
+        let tasks = try XCTUnwrap(codex.snapshot()?["tasks"] as? [[String: Any]])
+        XCTAssertEqual(tasks.compactMap { $0["id"] as? String }, [ids[1], ids[2], ids[4], ids[0], ids[3]])
+        XCTAssertEqual(tasks[1]["title"] as? String, "unique")
+        XCTAssertEqual(tasks[4]["title"] as? String, "时间未知 · same title")
+        XCTAssertNotEqual(tasks[0]["title"] as? String, tasks[3]["title"] as? String)
+        XCTAssertTrue((tasks[0]["title"] as? String)?.hasSuffix(" · same title") == true)
+        XCTAssertEqual(tasks[0]["updatedAt"] as? Int64, 500)
+        XCTAssertEqual(tasks[4]["updatedAt"] as? Int64, 0)
+    }
     private final class API {
         let task = UUID().uuidString.lowercased(), turn = UUID().uuidString.lowercased()
         var calls: [(String, [String: Any])] = [], failSend = false, running = false

@@ -116,7 +116,24 @@ final class MacTab5Codex {
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Codex 会话"
-                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": root["updatedAt"] as? Int64 ?? 0, "state": rpc == nil && mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"]
+                let time = MacTab5Protocol.integer(root["updatedAt"]) ?? 0
+                let updated = (0...253_402_300_799).contains(time) ? time : 0
+                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": updated, "state": rpc == nil && mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"]
+            }
+            // Enforce global newest-first order after merging all cursor pages,
+            // rather than relying on each provider/page's order. Preserve ties.
+            catalog = catalog.enumerated().sorted {
+                let a = $0.element["updatedAt"] as? Int64 ?? 0, b = $1.element["updatedAt"] as? Int64 ?? 0
+                return a == b ? $0.offset < $1.offset : a > b
+            }.map(\.element)
+            let names = Dictionary(grouping: catalog, by: { $0["title"] as? String ?? "" }).mapValues(\.count)
+            let dates = DateFormatter(); dates.locale = Locale(identifier: "en_US_POSIX")
+            dates.calendar = Calendar(identifier: .gregorian); dates.dateFormat = "yy-MM-dd HH:mm"
+            for index in catalog.indices {
+                guard let name = catalog[index]["title"] as? String, (names[name] ?? 0) > 1 else { continue }
+                let time = catalog[index]["updatedAt"] as? Int64 ?? 0
+                let prefix = (time > 0 ? dates.string(from: Date(timeIntervalSince1970: Double(time))) : "时间未知") + " · "
+                catalog[index]["title"] = prefix + String(name.prefix(max(0, 80 - prefix.count)))
             }
             if let desktop {
                 // Bound optional owner probes; never open windows during polling.

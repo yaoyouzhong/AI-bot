@@ -44,7 +44,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(codexState); codexState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         codexState.font = .systemFont(ofSize: 12); codexState.textColor = .secondaryLabelColor
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop); stack.addArrangedSubview(desktop)
-        label("快捷控制台另需辅助功能权限；打开会话时核对精确地址或目录中唯一的完整标题，输入框操作另行检查。无法确认时保留文字并提示未确认。提交草稿还需要上方操作权限和可用的桌面任务连接。")
+        label("快捷控制台另需辅助功能权限；打开会话时核对精确地址或唯一完整标题。同名会话只确认已唤起 Codex，输入框操作另行严格检查。无法确认输入框时保留文字。提交草稿还需要上方操作权限和可用的桌面任务连接。")
         stack.addArrangedSubview(desktopState); desktopState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         desktopState.font = .systemFont(ofSize: 12); desktopState.textColor = .secondaryLabelColor
         label("语音输入", size: 15)

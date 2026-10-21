@@ -8,6 +8,8 @@ struct MacTab5DesktopBackend {
     var diagnostic: () -> MacTab5DesktopCheck = { .route }
     var preflight: () -> MacTab5DesktopCheck? = { nil }
     var navigation: ((String) -> Bool)? = nil
+    var evidence: () -> String = { "" }
+    var openOnly: ((String) -> Bool)? = nil
 }
 
 enum MacTab5DesktopCheck: String {
@@ -29,6 +31,7 @@ enum MacTab5DesktopCheck: String {
     case open = "系统未接受打开会话请求"
     case confirmed = "已确认目标任务和主输入框"
     case navigationConfirmed = "已确认目标会话；输入框操作将另行校验"
+    case navigationOpened = "已请求打开指定会话，Codex 已在前台；同名会话未作精确确认，输入框操作另行检查"
 }
 
 final class MacTab5Desktop {
@@ -44,7 +47,9 @@ final class MacTab5Desktop {
     var summary: String {
         guard enabled() else { return "尚未启用" }
         if let failure = backend.preflight() { return failure.rawValue }
-        statusLock.lock(); defer { statusLock.unlock() }; return status.rawValue
+        statusLock.lock(); let current = status; statusLock.unlock()
+        let detail = current == .waiting ? "" : backend.evidence()
+        return current.rawValue + (detail.isEmpty ? "" : "（" + detail + "）")
     }
     private func updateStatus(_ value: MacTab5DesktopCheck) { statusLock.lock(); status = value; statusLock.unlock() }
     init(codex: MacTab5Codex, enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, backend: MacTab5DesktopBackend = MacTab5DesktopAX.backend) { self.codex = codex; self.enabled = enabled; self.backend = backend }
@@ -86,10 +91,15 @@ final class MacTab5Desktop {
                         if let navigation = backend.navigation { return navigation(task) }
                         current = backend.read(task); return current != nil
                     }
+                    let until = ProcessInfo.processInfo.systemUptime + 3
                     var navigated = opened && confirmed()
-                    for _ in 0..<6 where opened && !navigated { Thread.sleep(forTimeInterval: 0.15); navigated = confirmed() }
-                    if navigated {
-                        updateStatus(current == nil ? .navigationConfirmed : .confirmed)
+                    var activated = opened && !navigated && backend.openOnly?(task) == true
+                    for _ in 0..<6 where opened && !navigated && !activated && ProcessInfo.processInfo.systemUptime < until {
+                        Thread.sleep(forTimeInterval: 0.15); navigated = confirmed()
+                        activated = !navigated && backend.openOnly?(task) == true
+                    }
+                    if navigated || activated {
+                        updateStatus(activated ? .navigationOpened : current == nil ? .navigationConfirmed : .confirmed)
                         body["foreground"] = true
                         if let current { body["draftEmpty"] = current.isEmpty }
                         result = .init(200, body)
@@ -133,9 +143,24 @@ final class MacTab5Desktop {
 enum MacTab5DesktopAX {
     private static let diagnosticLock = NSLock()
     private static var lastCheck: MacTab5DesktopCheck = .waiting
+    private static var lastEvidence = ""
     private static func note(_ check: MacTab5DesktopCheck) { diagnosticLock.lock(); lastCheck = check; diagnosticLock.unlock() }
     private static func diagnostic() -> MacTab5DesktopCheck { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastCheck }
-    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: write, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }, navigation: navigation) }
+    private static func evidence() -> String { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastEvidence }
+    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: write, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }, navigation: navigation, evidence: evidence, openOnly: openOnly) }
+    private static func openOnly(_ task: String) -> Bool {
+        // Windows allows an app-foreground acknowledgment for open-only when
+        // titles are ambiguous. Do not call this proof of the exact document,
+        // and never reuse it for reading, changing or submitting a composer.
+        guard MacCodexNavigationTitle.identity(task) == .duplicate, AXIsProcessTrusted(),
+              let app = MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication }),
+              app.bundleIdentifier == "com.openai.codex" else { return false }
+        let root = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(root, 0.1)
+        guard let window = value(root, "AXFocusedWindow"), CFGetTypeID(window) == AXUIElementGetTypeID() else { return false }
+        let element = unsafeBitCast(window, to: AXUIElement.self)
+        return (value(element, "AXSheets") as? [AXUIElement] ?? []).isEmpty
+    }
     private static func value(_ element: AXUIElement, _ key: String) -> CFTypeRef? { var value: CFTypeRef?; return AXUIElementCopyAttributeValue(element, key as CFString, &value) == .success ? value : nil }
     static func identifies(_ url: String, task: String, resourceRoot: URL? = nil) -> Bool {
         guard let parsed = URLComponents(string: url), ["codex", "http", "https", "file", "app"].contains(parsed.scheme ?? "") else { return false }
@@ -202,6 +227,12 @@ enum MacTab5DesktopAX {
         return URL(fileURLWithPath: url.path).standardizedFileURL.path.hasPrefix(resourceRoot.standardizedFileURL.path + "/")
     }
     private static func navigation(_ task: String) -> Bool {
+        let started = ProcessInfo.processInfo.systemUptime
+        var visited = 0, shells = 0, selected = 0, named = 0, rowMatched = false, titleMatched = false, unique = false
+        defer {
+            let detail = "节点 \(visited)；主区域 \(shells)；唯一标题 \(unique ? "有" : "无")；页面匹配 \(titleMatched ? "是" : "否")；当前行 \(selected)／名称 \(named)；行匹配 \(rowMatched ? "是" : "否")；\(Int((ProcessInfo.processInfo.systemUptime-started)*1000)) ms"
+            diagnosticLock.lock(); lastEvidence = detail; diagnosticLock.unlock()
+        }
         guard AXIsProcessTrusted() else { note(.permission); return false }
         guard let app = MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication }), app.bundleIdentifier == "com.openai.codex" else { note(.frontmost); return false }
         let root = AXUIElementCreateApplication(app.processIdentifier)
@@ -210,13 +241,15 @@ enum MacTab5DesktopAX {
         let window = unsafeBitCast(raw, to: AXUIElement.self)
         let resources = app.bundleURL?.appendingPathComponent("Contents/Resources")
         let uniqueTitle = MacCodexNavigationTitle.read(task)
+        unique = uniqueTitle != nil
         guard (value(window, "AXSheets") as? [AXUIElement] ?? []).isEmpty else { note(.route); return false }
         // The window document may identify the exact page without editor focus.
         if let document = address(window, "AXDocument"), identifies(document, task: task, resourceRoot: resources) { return true }
-        var pending: [(AXUIElement, Bool)] = [(window, false)], visited = 0
+        var pending = MacNavigationQueue((window, false))
         var foundShell = false, foundTaskAddress = false, foundCurrentButton = false, checkedTitle = false
-        let deadline = ProcessInfo.processInfo.systemUptime + 0.25
-        while let (node, inheritedShell) = pending.popLast(), visited < 1200, ProcessInfo.processInfo.systemUptime < deadline {
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.5
+        while pending.hasPending, visited < 1200, ProcessInfo.processInfo.systemUptime < deadline,
+              let (node, inheritedShell) = pending.next() {
             visited += 1
             let role = value(node, "AXRole") as? String ?? ""
             var shell = inheritedShell
@@ -225,6 +258,7 @@ enum MacTab5DesktopAX {
                 shell = trustedShell(address(node), resourceRoot: resources)
                 if !shell { continue }
                 foundShell = true
+                shells += 1
                 if let page = address(node), identifies(page, task: task, resourceRoot: resources) { return true }
                 if !inheritedShell {
                     checkedTitle = uniqueTitle != nil
@@ -234,7 +268,26 @@ enum MacTab5DesktopAX {
                        MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication?.processIdentifier }) == app.processIdentifier,
                        let focused = value(root, "AXFocusedWindow"), CFEqual(focused, window),
                        value(node, "AXTitle") as? String == uniqueTitle {
-                        return true
+                        titleMatched = true; return true
+                    }
+                }
+            }
+            if shell && role == "AXButton", value(node, "AXARIACurrent") as? String == "page" {
+                foundCurrentButton = true
+                let classes = value(node, "AXDOMClassList") as? [String] ?? []
+                if classes.contains("data-[app-action-sidebar-thread-selected=true]:bg-primary-ghost-hover") {
+                    selected += 1
+                    let title = value(node, "AXTitle") as? String, label = value(node, "AXDescription") as? String
+                    if [title, label].compactMap({ $0 }).contains(where: { !$0.isEmpty }) { named += 1 }
+                    if MacCodexNavigationTitle.matchesSelectedRow(role: role, trusted: shell, current: "page", classes: classes,
+                        title: title, label: label, uniqueTitle: uniqueTitle),
+                       MacCodexNavigationTitle.read(task) == uniqueTitle,
+                       value(node, "AXARIACurrent") as? String == "page",
+                       MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication?.processIdentifier }) == app.processIdentifier,
+                       let focused = value(root, "AXFocusedWindow"), CFEqual(focused, window),
+                       MacCodexNavigationTitle.matchesSelectedRow(role: role, trusted: shell, current: "page", classes: classes,
+                        title: value(node, "AXTitle") as? String, label: value(node, "AXDescription") as? String, uniqueTitle: uniqueTitle) {
+                        rowMatched = true; return true
                     }
                 }
             }
@@ -245,13 +298,12 @@ enum MacTab5DesktopAX {
             if shell && role == "AXGroup", value(node, "AXARIACurrent") as? String == "page",
                currentRow(node, task: task, resources: resources, deadline: deadline) { return true }
             if shell && role == "AXLink", address(node) != nil { foundTaskAddress = true }
-            if shell && role == "AXButton", value(node, "AXARIACurrent") as? String == "page" { foundCurrentButton = true }
             // Do not inspect editor text, browser contents, dialogs or other
             // windows. Only the foreground window's navigation is considered.
-            if ["AXTextArea", "AXTextField", "AXDialog", "AXSheet"].contains(role) { continue }
-            pending.append(contentsOf: (value(node, "AXChildren") as? [AXUIElement] ?? []).reversed().map { ($0, shell) })
+            if ["AXTextArea", "AXTextField", "AXDialog", "AXSheet", "AXStaticText", "AXImage"].contains(role) { continue }
+            pending.append(contentsOf: (value(node, "AXChildren") as? [AXUIElement] ?? []).map { ($0, shell) })
         }
-        if !pending.isEmpty { note(.navigationLimit) }
+        if pending.hasPending { note(.navigationLimit) }
         else if !foundShell { note(.navigationShell) }
         else if checkedTitle { note(.navigationTitleMismatch) }
         else if foundCurrentButton { note(.navigationSelectionWithoutAddress) }

@@ -2,6 +2,26 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5DesktopTests: XCTestCase {
+    func testAmbiguousTitleOpenAcknowledgmentNeverAuthorizesComposerOrFalseEmptyDraft() throws {
+        let fixture = Fixture(), codex = try model(fixture)
+        var backend = fixture.backend, reads = 0, activations = 0
+        backend.navigation = { _ in false }
+        backend.openOnly = { id in activations += 1; return id == fixture.task }
+        backend.read = { _ in reads += 1; return nil }
+        let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
+        let request: [String: Any] = ["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString]
+        let result = desktop.handle(request, device: "A")
+        XCTAssertEqual(result.status, 200); XCTAssertEqual(result.body["foreground"] as? Bool, true)
+        XCTAssertEqual(result.body["taskId"] as? String, fixture.task); XCTAssertNil(result.body["draftEmpty"])
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.navigationOpened.rawValue)
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 200)
+        XCTAssertEqual(fixture.opens, 1); XCTAssertEqual(activations, 1); XCTAssertEqual(reads, 0)
+        XCTAssertEqual(desktop.handle(["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "test"], device: "A").status, 503)
+        XCTAssertEqual(activations, 1); XCTAssertEqual(reads, 1); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+        fixture.foreground = false
+        let failed = desktop.handle(["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString], device: "A")
+        XCTAssertEqual(failed.status, 409); XCTAssertEqual(activations, 1)
+    }
     func testNavigationDoesNotUnlockPrivateStoreAndMutationsStillFailClosed() throws {
         let fixture = Fixture()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
