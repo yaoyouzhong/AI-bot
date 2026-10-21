@@ -4,7 +4,8 @@ import UniformTypeIdentifiers
 final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let service: MacTab5Service
     private let computer = NSButton(checkboxWithTitle: "允许 TAB5 调节音量、静音、锁屏和打开常用入口", target: nil, action: nil)
-    private let music = NSButton(checkboxWithTitle: "允许读取并控制 Apple Music／Spotify", target: nil, action: nil)
+    private let music = NSButton(checkboxWithTitle: "采集 Apple Music／Spotify 播放信息", target: nil, action: nil)
+    private let musicControl = NSButton(checkboxWithTitle: "允许 TAB5 控制音乐播放、暂停和切歌", target: nil, action: nil)
     private let codex = NSButton(checkboxWithTitle: "允许 TAB5 查看 Codex 会话与公开回复、同步加密草稿", target: nil, action: nil)
     private let send = NSButton(checkboxWithTitle: "允许在 TAB5 明确点击后发送或中断 Codex 任务", target: nil, action: nil)
     private let voice = NSButton(checkboxWithTitle: "允许 TAB5 使用 Mac 本地语音识别", target: nil, action: nil)
@@ -28,8 +29,10 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 24), stack.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -24), stack.topAnchor.constraint(equalTo: document.topAnchor, constant: 24)])
         func label(_ text: String, size: CGFloat = 13) { let label = NSTextField(wrappingLabelWithString: text); label.font = .systemFont(ofSize: size); stack.addArrangedSubview(label); label.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
         label("交互与权限", size: 23)
+        label("采集默认开启，关闭后会记住你的选择。账号数据使用已保存的授权；系统权限首次使用时确认。操作功能单独开启，设置在重启后保留。")
         computer.state = service.computer.isEnabled ? .on : .off; computer.target = self; computer.action = #selector(toggleComputer); stack.addArrangedSubview(computer)
         music.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off; music.target = self; music.action = #selector(toggleMusic); stack.addArrangedSubview(music)
+        musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off; musicControl.target = self; musicControl.action = #selector(toggleMusicControl); stack.addArrangedSubview(musicControl)
         label("音乐首次使用会请求自动化权限。控制只发送一次，并读取实际播放状态；切换曲目未确认时不会自动重复跳曲。锁屏需要辅助功能权限。Mac 锁定状态未知时保持未知，不提供一键解锁。")
         stack.addArrangedSubview(musicState); musicState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         musicState.font = .systemFont(ofSize: 12); musicState.textColor = .secondaryLabelColor
@@ -78,7 +81,14 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     }
     func open() { reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }
-    @objc private func toggleMusic() { UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey) }
+    @objc private func toggleMusic() {
+        UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey)
+        musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off
+    }
+    @objc private func toggleMusicControl() {
+        if music.state != .on { musicControl.state = .off; result.stringValue = "请先开启音乐采集。" }
+        UserDefaults.standard.set(musicControl.state == .on, forKey: MacMusicService.controlKey)
+    }
     @objc private func toggleCodex() { UserDefaults.standard.set(codex.state == .on, forKey: MacTab5Codex.enabledKey); if codex.state == .off { UserDefaults.standard.set(false, forKey: MacTab5Codex.sendKey); send.state = .off } }
     @objc private func toggleSend() {
         if codex.state != .on || !service.codex.canMutate {

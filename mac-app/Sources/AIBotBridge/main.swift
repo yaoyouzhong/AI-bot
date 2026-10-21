@@ -10,6 +10,7 @@ if Array(CommandLine.arguments.dropFirst()) == ["--self-test-flash-tool"] {
     catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 }
 
+MacFeaturePreferences.register()
 let application = NSApplication.shared
 let delegate = AppDelegate()
 application.delegate = delegate

@@ -7,11 +7,11 @@
 1. 从 Mac 菜单栏打开 **TAB5**。已安装 AI-bot 固件的设备先通过 USB 数据线连接，刷新端口并明确选择目标设备，再配对。配对结果不确定时保留同一把钥匙，不替换其他设备身份。首次连接允许本地网络访问。
 2. 同一窗口通过 USB 写入 Wi-Fi。电脑和设备位于同一局域网，桥接运行时可自动发现；发现受网络限制时，重新通过 USB 保存电脑地址。Wi-Fi 密码仅发往设备，不写入偏好或诊断。USB 数据失效八秒后由设备回退无线；设备固定连接模式仍保留。
 3. **显示设置**先读取设备实际值，再编辑亮度、声音、固定页、轮播页面/顺序、间隔和屏保等待。只有匹配回执确认才显示保存成功；未确认时重新读取。不因测试或 TAB5 升级恢复 ESP8266 的默认轮播。
-4. 蓝牙默认关闭，勾选后才创建 CoreBluetooth 管理器并请求权限。仅连接已通过 USB 配对的设备。通过系统设置管理本地网络、蓝牙、自动化、辅助功能、语音识别和麦克风权限。
+4. 蓝牙首次安装默认开启，系统首次使用时请求权限；已保存的关闭选择仍会保留。仅连接已通过 USB 配对的设备。通过系统设置管理本地网络、蓝牙、自动化、辅助功能、语音识别和麦克风权限。
 
 首次系统蓝牙配对显示数字时，核对 Mac 与实体 TAB5 的数字一致，并在两端确认。固件同时提供 HID 键盘服务，macOS 可能打开“键盘设置助理”；可以退出该助理，TAB5 状态与设置传输无需配置键盘布局。不要将“重新配对／清除旧配对”当作普通数字确认。
 
-以 AI-bot Bridge 名义访问 `io.github.yaoyouzhong.AI-bot` 的“登录”钥匙串弹窗，与蓝牙配对是两种授权。“允许”仅针对此次访问；“始终允许”记住该候选对相应项目的许可，详见 [Apple 说明](https://support.apple.com/zh-cn/guide/keychain-access/kyca1243/mac)。本地临时签名候选更换构建后可能再次询问；不需要开启所有 App 的访问权限。
+以 AI-bot Bridge 名义访问 `io.github.yaoyouzhong.AI-bot` 的“登录”钥匙串弹窗，与蓝牙配对是两种授权。“允许”仅针对此次访问；“始终允许”记住该候选对相应项目的许可，详见 [Apple 说明](https://support.apple.com/zh-cn/guide/keychain-access/kyca1243/mac)。草稿／回执密钥每个进程只读取一次，拒绝结果也缓存，后续操作不会反复请求同一密钥。构建脚本可通过 `AIBOT_MAC_SIGN_IDENTITY` 使用已有签名身份；本机没有该身份时仍为临时签名，更换构建后可能再次询问；不需要开启所有 App 的访问权限。
 
 ## 资源与固件
 
@@ -27,12 +27,12 @@
 
 系统诊断新增 App 内网络探测，每 30 秒沿系统网络路径检查 ChatGPT／资源服务的 HTTP 响应与耗时，不携带账户凭据、不调用模型。PAC 未启用时明确显示“未配置 PAC”；启用时比较系统解析与实际请求的代理／直连类型，不据此判断 VPN 隧道或具体节点。网络样本超过 75 秒失效，最多保留十轮曲线。CPU 等待仍不支持等价队列计数，不用平均负载或线程总数代填。
 
-**交互与权限**提供独立开关，默认关闭：
+**交互与权限**记住已保存的开关，不在重启时重置。首次安装默认开启音乐采集、Codex 只读和蓝牙；天气未配置城市／坐标时默认自动定位。系统指标、账户额度、行情、日历和桌宠沿用已有自动采集；需要账号的来源复用已保存授权，未配置账号不产生虚构数据。电脑控制、音乐控制、任务发送、桌面输入框和语音输入单独启用，首次系统权限仍由用户确认：
 
 | 功能 | 使用与边界 |
 | --- | --- |
 | 音量/静音/锁屏/常用入口 | 读取 CoreAudio 实际结果；最多四个本机程序或文件夹。设备不能传入任意路径或命令。锁屏需要辅助功能；9415cee 已在正确授权后通过实体锁屏。锁定/屏幕状态当前未采集，保持未知，不提供 Mac 一键解锁。 |
-| Apple Music / Spotify | 音乐开关独立授权播放控制，无需开启音量／锁屏等电脑控制。首次触发自动化授权。控制与已显示歌曲绑定，只发送一次，随后读取状态；未知结果不重复跳曲。 |
+| Apple Music / Spotify | 采集和播放控制分开。新安装默认只采集；升级保留原来已开启的组合音乐权限，后续可单独关闭控制。无需开启音量／锁屏等电脑控制。首次触发自动化授权。控制与已显示歌曲绑定，只发送一次，随后读取状态；未知结果不重复跳曲。 |
 | Codex 回复和草稿 | 通过已安装 CLI 的标准 stdio 临时子进程，只读本机近期会话与保存的公开回复，关闭功能／退出桥接时结束，不安装后台服务。可选择已安装的 CLI。只投影会话标题、项目名与公开助手回复；后台活跃统计继续只读文件元数据。历史分页有界，未知桌面实时状态不猜测。目录最多读取 512 条本机未归档会话；设备帧优先携带最近 64 条，并在 32 KiB 限额内逐级收缩。每组超过 8 条时显示编号分组页，最多 24 个分组页；不代表无限历史或跨电脑同步。 |
 | Codex 发送 | 只读历史连接不执行写入；另行启用操作后，经已验证的现有 Codex 桌面任务持有者连接发送／中断。保留原任务模型和审批设置，不在独立进程恢复真实任务。当前桌面追加接口不能绑定指定轮次，追加保持不可用。指定任务的实体发送／停止及停止后的空回复提示已通过实体复验。加密草稿保存在本机，审批／用户问题仍在电脑处理。 |
 | 快捷控制台 | 另需辅助功能。只有公共辅助功能地址能证明精确任务 UUID、且主输入框可确认时才写入和读回。Codex 版本没有提供这些信息时安全拒绝；不能把通用标题或“已请求打开”算成已到前台。此版本相关能力必须在目标 Mac 实测。普通 Codex 会话操作不依赖此输入框。 |
@@ -70,11 +70,11 @@ CI 附件包括 xUnit、日志、工具链、源码 SHA、含 LICENSE/第三方�
 
 This unpublished Apple Silicon/macOS 13+ candidate lives on `codex/mac-tab5-phase1-ci`. It does not replace public downloads. Physical acceptance is scheduled for daytime on 2026-10-20. No deployment, installation, hardware write, main merge, tag or Release is performed in this work. Intel support remains unverified.
 
-Open **TAB5** from the menu bar. USB-pair the explicitly selected AI-bot device, then provision Wi-Fi over USB. Local discovery requires the same LAN; Bluetooth is separately opt-in. Read actual display settings before editing and require the matching device receipt before reporting success. Preserve TAB5 display preferences during upgrades and validation.
+Open **TAB5** from the menu bar. USB-pair the explicitly selected AI-bot device, then provision Wi-Fi over USB. Local discovery requires the same LAN; Bluetooth defaults on for fresh installs and retains any saved opt-out; first use still requests system permission. Read actual display settings before editing and require the matching device receipt before reporting success. Preserve TAB5 display preferences during upgrades and validation.
 
 For a system Bluetooth numeric-comparison prompt, compare the Mac and physical TAB5 displays and confirm both ends. The firmware also exposes a HID keyboard service, so macOS may open Keyboard Setup Assistant. You can quit the assistant; TAB5 status/settings transfer requires no keyboard-layout setup. A request to re-pair or delete an old bond is a separate operation.
 
-The login-Keychain prompt for AI-bot Bridge and service `io.github.yaoyouzhong.AI-bot` is separate from Bluetooth pairing. Allow grants one-time access; Always Allow remembers access for that candidate and item, as described by [Apple](https://support.apple.com/guide/keychain-access/kyca1243/mac). A newly built ad-hoc candidate may need renewed authorization. Do not enable access for all applications.
+The login-Keychain prompt for AI-bot Bridge and service `io.github.yaoyouzhong.AI-bot` is separate from Bluetooth pairing. Allow grants one-time access; Always Allow remembers access for that candidate and item, as described by [Apple](https://support.apple.com/guide/keychain-access/kyca1243/mac). A newly built ad-hoc candidate may need renewed authorization. The private draft/receipt encryption key is loaded once per process, including caching denial, so later actions do not repeatedly request the same key. The bundle script accepts an existing signing identity through `AIBOT_MAC_SIGN_IDENTITY`; without one it remains ad-hoc and cannot promise persistent OS grants across changed builds. Do not enable access for all applications.
 
 **Resources and firmware** imports standard/HD gallery ZIPs with provenance, licensing, guides, image decoding and complete hashes. Device pet/music resources stop after acknowledged transfer. Select a BIN plus matching notes or an upgrade ZIP, review it and explicitly start. Boot verification requires the exact version/ELF, VALID partition and three advancing live UI samples; transferred bytes alone are insufficient.
 
@@ -83,6 +83,8 @@ For an HD full bundle, validate the outer catalog and embedded standard ZIP hash
 **Interaction and permissions** independently enables CoreAudio volume/mute, whitelisted local launchers, lock, Music/Spotify, Codex and voice. Physical lock passed on 9415cee after Accessibility was granted to the correct candidate. Mac lock/display state is not collected and remains unknown; one-click unlock is unavailable. The music opt-in independently authorizes playback controls without enabling volume, lock or launchers. Music commands bind to the displayed track, execute once and read back actual state. First use requires the relevant macOS Automation/Accessibility permissions.
 
 System diagnostics now probe ChatGPT/resource HTTP response and latency along the system network path every 30 seconds inside the app, without account credentials or model calls. Absent PAC is explicitly not configured; configured PAC compares resolved and observed proxy/direct types, without inferring a VPN tunnel or exact node. Network samples expire after 75 seconds and retain at most ten actual rounds. An equivalent public CPU waiting-queue counter remains unavailable; load average and total threads are not substituted.
+
+Collection preferences persist across restarts and explicit opt-outs are preserved. Fresh installs enable playback collection, read-only Codex and Bluetooth; weather defaults to automatic location only when no manual city/coordinates are configured. Existing automatic metrics, quotas, stocks, calendar and pets remain automatic. Account sources reuse stored authorization. Music control is separate from collection; upgrading retains an existing combined music grant. Computer control, task sending, desktop composer access and voice input remain separate opt-ins. First-use OS authorization still applies.
 
 Codex uses the installed CLI's standard stdio endpoint in an app-owned temporary read-only child, ending on opt-out/exit with no service installation or listener. It projects recent titles/projects and saved public assistant messages through bounded pagination; background activity remains metadata-only and unavailable desktop runtime remains unknown. The catalog reads at most 512 unarchived local chats; device frames prefer 64 recent chats and shrink to fit 32 KiB. Folders larger than eight chats use numbered picker pages, with at most 24 entries. This is bounded local history, not unlimited or cross-computer synchronization. Device/task-bound drafts and images remain encrypted. The read-only child never mutates tasks. A separate opt-in routes send/interrupt through the verified existing desktop owner, preserving the task model and approval settings without independent resume. Installed steer cannot bind an expected turn and remains disabled. Physical send/stop on the designated task and the subsequent empty-reply display repair passed acceptance. Desktop composer staging additionally requires Accessibility proof of the exact task URL and main composer; unsupported versions return unconfirmed rather than guessing. Handle approvals on the computer.
 

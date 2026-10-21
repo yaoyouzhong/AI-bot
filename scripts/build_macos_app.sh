@@ -22,7 +22,11 @@ if ! git -C "$repo_root" diff --quiet -- mac-app; then
 fi
 python3 "$repo_root/scripts/bundle_flash_tool.py" macos "$contents/Resources/flash-tools"
 plutil -lint "$contents/Info.plist"
-codesign --force --sign - --options runtime \
+sign_identity="${AIBOT_MAC_SIGN_IDENTITY:--}"
+if [[ "$sign_identity" == "-" ]]; then
+    echo "Ad-hoc candidate: changed builds may require fresh macOS authorization." >&2
+fi
+codesign --force --sign "$sign_identity" --options runtime \
     --entitlements "$package_root/AIBotBridge.entitlements" "$app_root"
 codesign --verify --deep --strict --verbose=2 "$app_root"
 

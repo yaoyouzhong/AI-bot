@@ -28,6 +28,12 @@
 
 前置权限检查程序 `a6fadc52250fc207a377e8221637981a5d2365ed` 通过 [Mac CI 39540421901](https://github.com/yaoyouzhong/AI-bot/actions/runs/39540421901)，完整附件核验确认 228 项测试、0 失败／跳过、Release、App、许可、内外层 SHA、工具和八张原生 PNG；本机 Release／签名包／离线工具／原生渲染也通过，XCTest 仍缺失。依据用户此前明确授权，仅再次重置桥接 bundle ID 的辅助功能记录；系统设置加入精确 a6fadc5 路径后开关为 on，“在访达中显示”确认 a6fadc5。正常退出 bdd84cd 前暂时关闭只读子进程；a6fadc5 已启动，目前等待用户钥匙串授权。下一步恢复日常只读，使用新候选的前置检查核验实际辅助功能，再决定是否需要一次设备诊断；当前尚无新候选的正常 App／实体直达成功证据。
 
+用户完成 a6fadc5 钥匙串授权后，正常 App 恢复日常只读并确认连接本机 Codex 桌面、30 个近期会话。临时恢复已授权的直达验收开关，发送、电脑控制、音乐和语音仍关闭；实时前置检查显示“等待设备发起直达”，不再报辅助功能未生效。已请求在实体直达顶部仅切换一次左右箭头，不要求先选中测试任务，不输入或发送，等待两端切换结果及桥接诊断；尚不能据此认定输入框兼容或直达成功。
+
+本次实体箭头操作后，用户确认 Mac 切换成功但 TAB5 保留旧选择；桥接精确诊断为“未取得主输入框标识及精确会话地址”。权限前置检查已通过，当前阻碍是桌面输入框与地址的兼容性，不能把系统接受导航或仅标题相同当作成功。已关闭临时直达，保留 30 个会话的日常只读。
+
+用户随后要求采集默认开启、减少反复授权。新增正常启动的默认偏好注册，保留显式关闭和既有手动天气；音乐采集与控制拆分并迁移旧组合许可，其他控制不默认开启。私有草稿／回执密钥的成功与失败均在进程内串行缓存，避免每次操作重新询问同一钥匙串项目。构建支持已有稳定签名身份，本机只读检查为 0 个可用签名身份，仍不能保证换临时签名后免除系统授权。待自动验证，不声称此变更已上机。
+
 ## English
 
 Only the Mac bridge, tests and docs change. No main merge, deployment, publication or flashing. Firmware camera/layout issues remain deferred.
@@ -47,3 +53,9 @@ The subsequent device report confirms PAC displays disabled, matching the host a
 The user clarified that top arrows navigate the Mac but leave the device title/content unchanged. Read-only consumer inspection confirms selection commits only after a matching successful foreground receipt. The live diagnostic reports missing Accessibility permission; System Settings' Reveal in Finder still targets 9415cee, not running bdd84cd. Temporary desktop control was closed again. The bridge repair checks permission before navigation, preserving the existing 409 response, with regression coverage for zero side effects, no replay after permission recovery, and execution only for a fresh request. This prevents known permission failures from first moving the Mac; composer compatibility and physical direct navigation remain unaccepted. Firmware is unchanged.
 
 Program a6fadc5 passed the linked CI and full artifact verification with 228 tests and zero failures/skips; local Release, signed bundle, offline tools and native rendering also passed. Under the prior explicit scoped-reset authorization, only the bridge Accessibility record was reset. System Settings added the exact new path, showed it enabled, and Reveal in Finder confirmed a6fadc5. The old app was normally quit after temporarily stopping read-only Codex; the new app awaits user Keychain authorization. Restore daily read-only and verify actual Accessibility via the new preflight before another device diagnostic. Normal-app/physical direct-navigation success is not yet established.
+
+After user Keychain approval for a6fadc5, the normal app restored daily read-only access and connected to the local Codex desktop with 30 recent chats. The previously authorized temporary direct-control test switch was restored; sending, computer control, music and voice remain off. Live preflight now reports waiting for a device request rather than missing Accessibility. One arrow-only device navigation was requested, without requiring prior test-chat selection or entering/sending text. Device behavior and the resulting diagnostic remain pending; composer compatibility and successful direct navigation are not inferred.
+
+The physical arrow request navigated the Mac but retained the device selection. The exact bridge diagnostic was missing both composer identity and the exact chat address, after Accessibility preflight passed. Temporary desktop control was disabled; daily read-only remains enabled with 30 chats. Navigation acceptance or matching titles are not treated as proof.
+
+The user then requested default collection and fewer authorization prompts. Normal startup now registers collection defaults while preserving explicit opt-outs and manual weather configuration. Playback collection and control are separate, retaining an existing combined grant on upgrade. Other actions do not default on. The private draft/receipt key now serializes and caches both success and denial for the process lifetime. The bundle script supports an existing stable signing identity; this host reports zero valid signing identities, so changed ad-hoc builds may still need OS approval. Automated validation is pending; no physical acceptance of these changes is claimed.

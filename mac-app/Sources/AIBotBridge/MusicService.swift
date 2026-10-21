@@ -68,6 +68,7 @@ enum MacMusicProvider {
 
 actor MacMusicService {
     static let enabledKey = "music_automation_enabled"
+    static let controlKey = "music_control_enabled"
 
     private let store: MacDataStore
     private let defaults: UserDefaults

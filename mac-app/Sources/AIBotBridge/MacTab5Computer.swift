@@ -48,7 +48,7 @@ final class MacTab5Computer {
     private var receipts: [String: (String, MacTab5RPCResult, TimeInterval)] = [:]
     init(defaults: UserDefaults = .standard, backend: MacTab5ComputerBackend? = nil, music: @escaping () -> MusicSnapshot? = { nil }, musicUpdated: @escaping (MusicSnapshot) -> Void = { _ in }) {
         enabled = { defaults.bool(forKey: Self.enabledKey) }
-        musicEnabled = { defaults.bool(forKey: MacMusicService.enabledKey) }
+        musicEnabled = { MacFeaturePreferences.musicControlEnabled(defaults) }
         launchers = MacTab5Launchers(defaults: defaults)
         self.backend = backend ?? MacTab5ComputerBackend(read: { try MacTab5ComputerPlatform.read(music: music()) }, perform: { try MacTab5ComputerPlatform.perform($0, request: $1, launcher: $2, music: music(), musicUpdated: musicUpdated) })
     }
@@ -140,7 +140,7 @@ enum MacTab5ComputerPlatform {
         return (Int((sum / Float32(channels.count) * 100).rounded()), muted != 0)
     }
     private static func player(_ expected: MusicSnapshot?) -> (MacMusicProvider, MusicSnapshot)? {
-        guard UserDefaults.standard.bool(forKey: MacMusicService.enabledKey), let expected, !expected.title.isEmpty else { return nil }
+        guard MacFeaturePreferences.musicControlEnabled(), let expected, !expected.title.isEmpty else { return nil }
         let matches: [(MacMusicProvider, MusicSnapshot)] = [MacMusicProvider.appleMusic, .spotify].compactMap { provider in
             guard MacMusicService.isRunning(provider), let actual = MacMusicService.read(provider), actual.title == expected.title, actual.artist == expected.artist else { return nil }; return (provider, actual)
         }
@@ -149,7 +149,7 @@ enum MacTab5ComputerPlatform {
     static func read(music: MusicSnapshot?) throws -> [String: Any] {
         var state: [String: Any] = ["volumeAvailable": false, "canLock": AXIsProcessTrusted(), "locked": NSNull(), "displayState": NSNull(), "mediaAvailable": false]
         if let device = output(), let (volume, muted) = volume(device) { state["volumeAvailable"] = true; state["volume"] = volume; state["muted"] = muted }
-        if UserDefaults.standard.bool(forKey: MacMusicService.enabledKey), let track = music, !track.title.isEmpty { state["mediaAvailable"] = true; state["canPlayPause"] = true; state["canPrevious"] = true; state["canNext"] = true; state["playing"] = track.playing }
+        if MacFeaturePreferences.musicControlEnabled(), let track = music, !track.title.isEmpty { state["mediaAvailable"] = true; state["canPlayPause"] = true; state["canPrevious"] = true; state["canNext"] = true; state["playing"] = track.playing }
         return state
     }
     static func perform(_ op: String, request: [String: Any], launcher: MacTab5Launcher?, music: MusicSnapshot?, musicUpdated: (MusicSnapshot) -> Void = { _ in }) throws -> Bool {
