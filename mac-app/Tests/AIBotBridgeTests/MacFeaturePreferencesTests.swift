@@ -57,7 +57,10 @@ final class MacPrivateKeyCacheTests: XCTestCase {
         var reads = 0
         let secret = Data(repeating: 7, count: 32)
         let cache = MacPrivateKeyCache { reads += 1; return secret }
-        DispatchQueue.concurrentPerform(iterations: 32) { _ in XCTAssertEqual(try cache.read(), secret) }
+        DispatchQueue.concurrentPerform(iterations: 32) { _ in
+            do { let value = try cache.read(); XCTAssertEqual(value, secret) }
+            catch { XCTFail("Cached key read failed: \(error)") }
+        }
         XCTAssertEqual(reads, 1)
     }
     func testDeniedKeyIsNotRetriedByEveryReceipt() {
