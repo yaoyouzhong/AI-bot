@@ -60,7 +60,6 @@ actor MacDomesticQuotaService {
     private var revision = 0
     private var note = "DeepSeek：尚未授权"
     private static let account = "deepseek-api-key-v1"
-    private static let service = "io.github.yaoyouzhong.AI-bot"
     init(store: MacDataStore) {
         self.store = store
         let configuration = URLSessionConfiguration.ephemeral
@@ -73,15 +72,7 @@ actor MacDomesticQuotaService {
         guard (8...512).contains(value.utf8.count), value.utf8.allSatisfy({ (33...126).contains($0) }) else {
             throw MacDomesticQuotaParser.Failure.invalid
         }
-        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service, kSecAttrAccount as String: Self.account]
-        let bytes = Data(value.utf8)
-        var status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: bytes] as CFDictionary)
-        if status == errSecItemNotFound {
-            var item = query; item[kSecValueData as String] = bytes
-            status = SecItemAdd(item as CFDictionary, nil)
-        }
-        guard status == errSecSuccess else { throw PairingTokenStore.KeychainError.status(status) }
+        try MacKeychainAccess.save(Self.account, Data(value.utf8))
         let fingerprint = MacTab5Protocol.sha256(Data(value.utf8))
         if UserDefaults.standard.string(forKey: "deepseek_quota_key_hash") != fingerprint {
             store.clearDeepSeekForNewAccount()
@@ -100,12 +91,7 @@ actor MacDomesticQuotaService {
         }
         if !loadedKey {
             loadedKey = true
-            let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: Self.service, kSecAttrAccount as String: Self.account,
-                kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
-            var result: CFTypeRef?
-            let status = SecItemCopyMatching(query as CFDictionary, &result)
-            if status == errSecSuccess, let data = result as? Data { key = String(data: data, encoding: .utf8) }
+            if let data = try? MacKeychainAccess.read(Self.account) { key = String(data: data, encoding: .utf8) }
         }
         guard let key else { note = "DeepSeek：无法读取授权，请重新保存 API Key"; return }
         note = "DeepSeek：正在查询…"

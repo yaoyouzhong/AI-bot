@@ -36,6 +36,8 @@ if ! git -C "$repo_root" diff --quiet -- mac-app; then
     printf '%s\n' 'working-tree-changes=yes' >> "$contents/Resources/SOURCE_SHA.txt"
 fi
 python3 "$repo_root/scripts/bundle_flash_tool.py" macos "$contents/Resources/flash-tools"
+mkdir -p "$contents/Helpers"
+bash "$repo_root/scripts/build_macos_keychain_helper.sh" "$contents/Helpers/AIBotKeychainHelper" "$sign_identity"
 plutil -lint "$contents/Info.plist"
 if [[ "$sign_identity" == "-" ]]; then
     echo "Ad-hoc candidate: changed builds may require fresh macOS authorization." >&2

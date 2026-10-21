@@ -40,7 +40,6 @@ final class MacPairingTokenCache {
 }
 
 enum PairingTokenStore {
-    private static let service = "io.github.yaoyouzhong.AI-bot"
     private static let account = "pairing-token"
     private static let cache = MacPairingTokenCache(load: readKeychain, persist: saveKeychain, generate: generateToken)
 
@@ -49,38 +48,13 @@ enum PairingTokenStore {
     static func loadOrCreate() throws -> String { try cache.loadOrCreate() }
 
     private static func readKeychain() throws -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess else { throw KeychainError.status(status) }
-        guard let data = result as? Data, let token = String(data: data, encoding: .utf8) else { throw KeychainError.status(errSecDecode) }
+        guard let data = try MacKeychainAccess.read(account) else { return nil }
+        guard let token = String(data: data, encoding: .utf8) else { throw KeychainError.status(errSecDecode) }
         return token
     }
 
     private static func saveKeychain(_ token: String) throws {
-        let data = Data(token.utf8)
-        let key: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account
-        ]
-        let attributes: [String: Any] = [kSecValueData as String: data]
-        let status = SecItemUpdate(key as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound {
-            var item = key
-            item[kSecValueData as String] = data
-            let added = SecItemAdd(item as CFDictionary, nil)
-            guard added == errSecSuccess else { throw KeychainError.status(added) }
-        } else if status != errSecSuccess {
-            throw KeychainError.status(status)
-        }
+        try MacKeychainAccess.save(account, Data(token.utf8))
     }
 
     private static func generateToken() throws -> String {

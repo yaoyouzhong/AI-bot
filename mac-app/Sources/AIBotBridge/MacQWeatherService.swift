@@ -5,11 +5,6 @@ final class MacWeatherCredentialStore {
     static let shared = MacWeatherCredentialStore()
     private let lock = NSLock()
     private var cached: [String: String] = [:]
-    private func query(_ host: String) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "io.github.yaoyouzhong.AI-bot",
-         kSecAttrAccount as String: "qweather-api-key-v1:" + host]
-    }
     func save(_ raw: String, host: String) throws {
         guard MacQWeatherService.validHost(host) else { throw MacQWeatherService.Failure.configuration }
         let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -17,22 +12,15 @@ final class MacWeatherCredentialStore {
             throw MacQWeatherService.Failure.configuration
         }
         lock.lock(); defer { lock.unlock() }
-        let q = query(host), data = Data(key.utf8)
-        var status = SecItemUpdate(q as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if status == errSecItemNotFound {
-            var item = q; item[kSecValueData as String] = data; status = SecItemAdd(item as CFDictionary, nil)
-        }
-        guard status == errSecSuccess else { throw MacQWeatherService.Failure.credential }
+        try MacKeychainAccess.save("qweather-api-key-v1:" + host, Data(key.utf8))
         cached[host] = key
     }
     func read(host: String) throws -> String {
         guard MacQWeatherService.validHost(host) else { throw MacQWeatherService.Failure.configuration }
         lock.lock(); defer { lock.unlock() }
         if let key = cached[host] { return key }
-        var q = query(host); q[kSecReturnData as String] = true; q[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data, let key = String(data: data, encoding: .utf8), !key.isEmpty else {
+        guard let data = try MacKeychainAccess.read("qweather-api-key-v1:" + host),
+              let key = String(data: data, encoding: .utf8), !key.isEmpty else {
             throw MacQWeatherService.Failure.credential
         }
         cached[host] = key; return key

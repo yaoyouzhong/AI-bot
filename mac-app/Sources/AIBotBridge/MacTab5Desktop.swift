@@ -19,7 +19,8 @@ enum MacTab5DesktopCheck: String {
     case identifier = "主输入框标识尚不兼容"
     case identifierAndRoute = "未取得主输入框标识及精确会话地址"
     case structure = "输入框内容结构尚不兼容"
-    case route = "未取得匹配目标任务的公开页面地址"
+    case route = "未确认目标会话的地址或唯一完整标题"
+    case navigationTitleMismatch = "前台主页面完整标题尚未匹配目标会话"
     case navigationShell = "未取得 Codex 主页面的可访问导航区域"
     case navigationAddress = "Codex 主页面未提供可验证的会话地址"
     case navigationSelectionWithoutAddress = "已找到当前会话按钮，但尚无可验证的目标会话地址"
@@ -208,11 +209,12 @@ enum MacTab5DesktopAX {
         guard let raw = value(root, "AXFocusedWindow"), CFGetTypeID(raw) == AXUIElementGetTypeID() else { note(.focus); return false }
         let window = unsafeBitCast(raw, to: AXUIElement.self)
         let resources = app.bundleURL?.appendingPathComponent("Contents/Resources")
+        let uniqueTitle = MacCodexNavigationTitle.read(task)
         guard (value(window, "AXSheets") as? [AXUIElement] ?? []).isEmpty else { note(.route); return false }
         // The window document may identify the exact page without editor focus.
         if let document = address(window, "AXDocument"), identifies(document, task: task, resourceRoot: resources) { return true }
         var pending: [(AXUIElement, Bool)] = [(window, false)], visited = 0
-        var foundShell = false, foundTaskAddress = false, foundCurrentButton = false
+        var foundShell = false, foundTaskAddress = false, foundCurrentButton = false, checkedTitle = false
         let deadline = ProcessInfo.processInfo.systemUptime + 0.25
         while let (node, inheritedShell) = pending.popLast(), visited < 1200, ProcessInfo.processInfo.systemUptime < deadline {
             visited += 1
@@ -224,6 +226,17 @@ enum MacTab5DesktopAX {
                 if !shell { continue }
                 foundShell = true
                 if let page = address(node), identifies(page, task: task, resourceRoot: resources) { return true }
+                if !inheritedShell {
+                    checkedTitle = uniqueTitle != nil
+                    if MacCodexNavigationTitle.matches(role: role, trustedPrimary: true,
+                        pageTitle: value(node, "AXTitle") as? String, uniqueTitle: uniqueTitle),
+                       MacCodexNavigationTitle.read(task) == uniqueTitle,
+                       MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication?.processIdentifier }) == app.processIdentifier,
+                       let focused = value(root, "AXFocusedWindow"), CFEqual(focused, window),
+                       value(node, "AXTitle") as? String == uniqueTitle {
+                        return true
+                    }
+                }
             }
             if shell && role == "AXLink" && currentTaskLink(role: role, current: value(node, "AXARIACurrent") as? String,
                                address: address(node), task: task, resourceRoot: resources) {
@@ -240,6 +253,7 @@ enum MacTab5DesktopAX {
         }
         if !pending.isEmpty { note(.navigationLimit) }
         else if !foundShell { note(.navigationShell) }
+        else if checkedTitle { note(.navigationTitleMismatch) }
         else if foundCurrentButton { note(.navigationSelectionWithoutAddress) }
         else { note(foundTaskAddress ? .route : .navigationAddress) }
         return false

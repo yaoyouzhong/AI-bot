@@ -4,9 +4,12 @@ import PackageDescription
 let package = Package(
     name: "AIBotBridge",
     platforms: [.macOS(.v13)],
-    products: [.executable(name: "AIBotBridge", targets: ["AIBotBridge"])],
+    products: [.executable(name: "AIBotBridge", targets: ["AIBotBridge"]),
+               .executable(name: "AIBotKeychainHelper", targets: ["AIBotKeychainHelper"])],
     targets: [
-        .executableTarget(name: "AIBotBridge"),
-        .testTarget(name: "AIBotBridgeTests", dependencies: ["AIBotBridge"], resources: [.copy("Fixtures")])
+        .target(name: "MacKeychainSupport"),
+        .executableTarget(name: "AIBotKeychainHelper", dependencies: ["MacKeychainSupport"]),
+        .executableTarget(name: "AIBotBridge", dependencies: ["MacKeychainSupport"]),
+        .testTarget(name: "AIBotBridgeTests", dependencies: ["AIBotBridge", "MacKeychainSupport"], resources: [.copy("Fixtures")])
     ]
 )

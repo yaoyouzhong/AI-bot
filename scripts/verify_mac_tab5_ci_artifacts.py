@@ -77,6 +77,7 @@ def main():
                     digest, file = line.split("  ", 1)
                     require(hashlib.sha256(member(archive, file)).hexdigest() == digest, "Inner binary checksum mismatch")
             if prefix:
+                macho(member(archive, "AIBotBridge.app/Contents/Helpers/AIBotKeychainHelper"))
                 require(member(archive, prefix + "MAC-TAB5-CANDIDATE.md"), "Offline candidate guide missing")
                 info = plistlib.loads(member(archive, "AIBotBridge.app/Contents/Info.plist"))
                 require(info["LSMinimumSystemVersion"] == "13.0", "Wrong deployment target")

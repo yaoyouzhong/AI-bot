@@ -15,6 +15,10 @@
 
 ## 资源与固件
 
+固定证书候选新增包内 `AIBotKeychainHelper`：只经继承的匿名管道处理本桥接既有的配对／供应商／私有存储项目，请求完成即退出，不安装服务或监听端口。工具校验实际父程序的路径、bundle ID 和同一叶证书，主程序也验证工具签名；失败不改用其他访问路径。工具的已签名字节按源码、工具链、架构和证书保留在本机构建缓存，因此普通桥接更新不再改变钥匙串访问进程的 CDHash。首次改用工具或工具本身更新仍可能按项目询问，应由用户在本机处理；跨构建实测结果以联调记录为准。凭据仍只持久保存在钥匙串，未导出、合并或修改旧项目权限。
+
+Codex 直达与 Windows 对齐：优先核对精确页面地址，也允许用完整本机会话目录中唯一的原始标题核对前台主页面。标题不截断、不按项目／近期列表判断唯一性，不读取剪贴板。重复标题、目录读取不完整、外部页面和普通窗口标题不用于确认。输入框读写仍有独立检查，导航成功不代表可以发送。
+
 **资源与固件**中导入现有 AI-bot 图库 ZIP；保留来源、许可、导读和全部图片 SHA。标准/高清包按类别导入，旧图库保留备份。设备显示专用 1280×720 JPEG，支持多页与横竖屏。电脑桌宠选择和当前音乐封面自动转为设备资源，收到资源确认后停止发送。
 
 高清完整包校验外层索引和内置 `standard.zip` 的 SHA，再验证并导入 TAB5 适配图库；不解压或加载电脑端高清原作。本候选不含 Mac 高清原作浏览器，也不把未读取的高清原作称为已核验。
@@ -77,6 +81,10 @@ For a system Bluetooth numeric-comparison prompt, compare the Mac and physical T
 The login-Keychain prompt for AI-bot Bridge and service `io.github.yaoyouzhong.AI-bot` is separate from Bluetooth pairing. Allow grants one-time access; Always Allow remembers access for that candidate and item, as described by [Apple](https://support.apple.com/guide/keychain-access/kyca1243/mac). A newly built ad-hoc candidate may need renewed authorization. The private draft/receipt encryption key is loaded once per process, including caching denial, so later actions do not repeatedly request the same key. The bundle script uses `AIBOT_MAC_SIGN_IDENTITY` first, then a 40-digit certificate fingerprint in `~/Library/Application Support/AI-bot/local-code-signing-identity.txt`. This machine-local file is excluded from source and packages. A configured identity fails closed on signing errors; it never silently falls back to ad-hoc. Without either setting, signing remains ad-hoc. A fixed signer preserves the designated requirement, and this host retained Accessibility and Location grants across changed builds. However, its self-signed apps remain identified by per-build `cdhash` Keychain partitions, so changed builds still prompt; fixed local signing does not guarantee password-free upgrades. First access to another item or a new permission can also require approval. Do not enable access for all applications.
 
 **Resources and firmware** imports standard/HD gallery ZIPs with provenance, licensing, guides, image decoding and complete hashes. Device pet/music resources stop after acknowledged transfer. Select a BIN plus matching notes or an upgrade ZIP, review it and explicitly start. Boot verification requires the exact version/ELF, VALID partition and three advancing live UI samples; transferred bytes alone are insufficient.
+
+Certificate-signed candidates bundle `AIBotKeychainHelper`, an on-demand child handling only this bridge's existing pairing/provider/private-store accounts through inherited anonymous pipes. It exits after one request, with no service or listener. Parent path, bundle ID and matching leaf certificate are verified, as is the helper signature; failures never switch to another access path. Its signed bytes are retained in a private build cache keyed by source, toolchain, architecture and certificate, keeping its Keychain CDHash stable across ordinary bridge updates. First migration or helper changes can still require per-item approval on the Mac; see the development record for actual cross-build acceptance. Credentials remain persisted only in Keychain, without exporting, consolidating or changing existing item permissions.
+
+Codex navigation follows Windows: an exact accessible route or the foreground primary document's full title, proven unique across the complete local catalog, can confirm opening. Titles are neither truncated nor checked for uniqueness only within a project/recent subset. Duplicate titles, incomplete catalog reads, external pages and generic window titles cannot confirm navigation. The clipboard is not accessed. Composer access remains independently checked; navigation success does not authorize sending.
 
 For an HD full bundle, validate the outer catalog and embedded standard ZIP hash, then validate/import only its complete TAB5 subset. Desktop HD originals are not extracted or advertised as verified; this candidate does not include a Mac HD-original browser.
 

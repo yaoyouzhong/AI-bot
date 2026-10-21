@@ -1,6 +1,7 @@
 import Foundation
 import CryptoKit
 import Security
+import MacKeychainSupport
 
 // Serialize concurrent first reads and retain both success and denial for the
 // process lifetime. A denied read never generates a replacement encryption key.
@@ -45,18 +46,15 @@ final class MacTab5PrivateStore {
         try cachedKey.read()
     }
     private static func loadKeychainKey() throws -> Data {
-        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "io.github.yaoyouzhong.AI-bot", kSecAttrAccount as String: "tab5-private-v1"]
-        var read = query; read[kSecReturnData as String] = true; read[kSecMatchLimit as String] = kSecMatchLimitOne
-        var value: CFTypeRef?
-        let status = SecItemCopyMatching(read as CFDictionary, &value)
-        if status == errSecSuccess, let bytes = value as? Data, bytes.count == 32 { return bytes }
-        guard status == errSecItemNotFound else { throw MacTab5Error.keychain }
+        if let bytes = try MacKeychainAccess.read("tab5-private-v1") {
+            guard bytes.count == 32 else { throw MacTab5Error.keychain }
+            return bytes
+        }
         var bytes = Data(count: 32)
         let random = bytes.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, $0.count, $0.baseAddress!) }
         guard random == errSecSuccess else { throw MacTab5Error.keychain }
-        var item = query; item[kSecValueData as String] = bytes; item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let added = SecItemAdd(item as CFDictionary, nil)
-        if added == errSecDuplicateItem { return try loadKeychainKey() }
-        guard added == errSecSuccess else { throw MacTab5Error.keychain }; return bytes
+        do { try MacKeychainAccess.save("tab5-private-v1", bytes, addOnly: true) }
+        catch BridgeKeychain.Failure.status(errSecDuplicateItem) { return try loadKeychainKey() }
+        return bytes
     }
 }
