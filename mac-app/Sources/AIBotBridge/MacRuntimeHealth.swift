@@ -11,7 +11,7 @@ final class MacRuntimeHealth {
     private var cached: [String: Any]?
 
     func snapshot(metrics: SystemMetricsSnapshot?, now: Date, logicalProcessors: Int,
-                  codexEnabled: Bool, desktopObserved: Bool) -> [String: Any]? {
+                  codexEnabled: Bool, desktopObserved: Bool, network: MacNetworkDiagnosticSample? = nil) -> [String: Any]? {
         guard let metrics, let stamp = metrics.pressureObservedAt,
               stamp.timeIntervalSince1970 > 0, stamp <= now.addingTimeInterval(1) else { return nil }
         guard now.timeIntervalSince(stamp) < 8 else {
@@ -51,11 +51,16 @@ final class MacRuntimeHealth {
         }
         if fresh { observedAt = stamp }
         if !warned.subtracting(initialWarnings).isEmpty { sequence += 1 }
-        for (key, label, detail) in [
-            ("queue", "处理器队列", "尚无与设备队列字段口径一致的 Mac 实测计数；不使用平均负载代替。"),
-            ("vpn", "出口响应", "尚未配置独立出口探测；本机联网不代表目标服务可达。"),
-            ("pac", "PAC 路由", "尚未验证当前代理对目标服务的实际路由。")
-        ] { check(key, label, "unknown", "尚未采集", detail) }
+        check("queue", "处理器队列", "unknown", "此平台暂不支持队列计数",
+              "Mac 公开调度接口未提供与 Windows 等价的等待队列长度；平均负载、CPU 占用率和线程总数均不代填。")
+        let networkFresh = network.map { $0.observedAt <= now && now.timeIntervalSince($0.observedAt) < 75 } ?? false
+        if let network, networkFresh {
+            checks.append(contentsOf: network.checks)
+        } else {
+            for (key, label) in [("vpn", "VPN / 代理"), ("pac", "PAC 路由")] {
+                check(key, label, "unknown", network == nil ? "等待网络探测" : "网络样本已过期", "后台探测完成后更新；不使用旧响应冒充当前连接。")
+            }
+        }
         var pressure: [String: Any] = logicalProcessors > 0 ? ["logicalProcessors": logicalProcessors] : [:]
         if let disk = metrics.diskObservation, disk.milliseconds.isFinite, disk.milliseconds >= 0,
            disk.observedAt <= now, now.timeIntervalSince(disk.observedAt) < 8 {
@@ -78,7 +83,7 @@ final class MacRuntimeHealth {
             "session": session, "sequence": sequence, "epochUtc": Int64(stamp.timeIntervalSince1970),
             "updatedAt": ISO8601DateFormatter().string(from: stamp), "checks": checks, "alerts": alerts,
             "pressure": pressure,
-            "latencyHistory": [Any]()
+            "latencyHistory": networkFresh ? (network?.history ?? []) : []
         ]
         cached = value; return value
     }

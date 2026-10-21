@@ -15,6 +15,7 @@ enum MacTab5DesktopCheck: String {
     case focus = "未取得前台输入焦点"
     case role = "当前焦点不在主输入框"
     case identifier = "主输入框标识尚不兼容"
+    case identifierAndRoute = "未取得主输入框标识及精确会话地址"
     case structure = "输入框内容结构尚不兼容"
     case route = "未取得匹配目标任务的公开页面地址"
     case value = "未取得可用的输入框文字"
@@ -112,6 +113,12 @@ enum MacTab5DesktopAX {
         let parts = path.split(separator: "/").map(String.init)
         return parts.indices.contains(parts.count - 2) && parts[parts.count - 2] == "threads" && parts.last?.lowercased() == task.lowercased()
     }
+    static func identityCheck(identifier: String, routeConfirmed: Bool) -> MacTab5DesktopCheck {
+        let identifier = identifier.lowercased()
+        let identified = identifier == "prompt-textarea" || identifier.contains("composer")
+        if !identified { return routeConfirmed ? .identifier : .identifierAndRoute }
+        return routeConfirmed ? .confirmed : .route
+    }
     private static func composer(_ task: String) -> AXUIElement? {
         func reject(_ check: MacTab5DesktopCheck) -> AXUIElement? { note(check); return nil }
         guard AXIsProcessTrusted() else { return reject(.permission) }
@@ -121,7 +128,6 @@ enum MacTab5DesktopAX {
         let editor = unsafeBitCast(focused, to: AXUIElement.self)
         guard value(editor, "AXRole") as? String == "AXTextArea" else { return reject(.role) }
         let identifier = (value(editor, "AXIdentifier") as? String ?? "").lowercased()
-        guard identifier == "prompt-textarea" || identifier.contains("composer") else { return reject(.identifier) }
         var pending = (value(editor, "AXChildren") as? [AXUIElement]) ?? [], visited = 0
         while let child = pending.popLast() {
             visited += 1; guard visited <= 80, ["AXStaticText", "AXGroup"].contains(value(child, "AXRole") as? String ?? "") else { return reject(.structure) }
@@ -129,13 +135,18 @@ enum MacTab5DesktopAX {
         }
         // Require a public accessibility URL carrying the exact task UUID.
         // Matching a generic window title is insufficient and never types text.
-        var node = editor
+        var node = editor, routeConfirmed = false
         for _ in 0..<20 {
-            if let url = value(node, "AXURL") as? URL,
-               identifies(url.absoluteString, task: task, resourceRoot: app.bundleURL?.appendingPathComponent("Contents/Resources")) { note(.confirmed); return editor }
+            let address = value(node, "AXURL")
+            let url = (address as? URL)?.absoluteString ?? (address as? String)
+            if let url, identifies(url, task: task, resourceRoot: app.bundleURL?.appendingPathComponent("Contents/Resources")) { routeConfirmed = true; break }
             guard let parent = value(node, "AXParent"), CFGetTypeID(parent) == AXUIElementGetTypeID() else { break }; node = unsafeBitCast(parent, to: AXUIElement.self)
         }
-        return reject(.route)
+        // Inspect both identity signals before rejecting, without reading text.
+        // Missing editor identity never authorizes a generic focused text area.
+        let check = identityCheck(identifier: identifier, routeConfirmed: routeConfirmed)
+        guard check == .confirmed else { return reject(check) }
+        note(.confirmed); return editor
     }
     private static func read(_ task: String) -> String? {
         guard let editor = composer(task) else { return nil }

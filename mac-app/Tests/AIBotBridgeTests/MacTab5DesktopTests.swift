@@ -2,6 +2,13 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5DesktopTests: XCTestCase {
+    func testMissingComposerAndRouteAreReportedSeparatelyWithoutRelaxingIdentity() {
+        XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "", routeConfirmed: false), .identifierAndRoute)
+        XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "", routeConfirmed: true), .identifier)
+        XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "prompt-textarea", routeConfirmed: false), .route)
+        XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "prompt-textarea", routeConfirmed: true), .confirmed)
+        XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "search", routeConfirmed: true), .identifier)
+    }
     private final class Fixture {
         let task = UUID().uuidString.lowercased(), turn = UUID().uuidString.lowercased()
         var value = "", writes = 0, opens = 0, sends = 0, foreground = true

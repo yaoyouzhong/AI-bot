@@ -36,14 +36,17 @@ final class MacTab5Service {
     let desktop: MacTab5Desktop
     let firmwareControl = MacTab5Firmware()
     private let runtimeHealth = MacRuntimeHealth()
+    private let networkDiagnostics: () -> MacNetworkDiagnosticSample?
     private var activeOperations = 0
     private var displayCompletion: DisplayCompletion?
 
     init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(), computer: MacTab5Computer = MacTab5Computer(), codex: MacTab5Codex = MacTab5Codex(), voice: MacTab5Voice = MacTab5Voice(),
+         networkDiagnostics: @escaping () -> MacNetworkDiagnosticSample? = { nil },
          music: @escaping () -> (snapshot: MusicSnapshot?, cover: Data?)? = { nil },
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }) {
         self.port = port; self.host = host; self.latestMusic = music; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
+        self.networkDiagnostics = networkDiagnostics
         desktop = MacTab5Desktop(codex: codex)
         do { pairing = try load(); try pairing?.validate() }
         catch { pairingReadable = false; usbNote = "无法读取配对记录，请检查钥匙串权限" }
@@ -173,7 +176,7 @@ final class MacTab5Service {
         var additions = assets.projection()
         additions["runtimeHealth"] = runtimeHealth.snapshot(metrics: snapshot.systemMetrics, now: now,
             logicalProcessors: ProcessInfo.processInfo.activeProcessorCount, codexEnabled: codex.isEnabled,
-            desktopObserved: codex.canMutate)
+            desktopObserved: codex.canMutate, network: networkDiagnostics())
         additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
         let offer = firmwareControl.projection()
         additions["ota"] = offer.offer.map { $0 as Any } ?? NSNull()

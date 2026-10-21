@@ -25,6 +25,8 @@
 
 ## 电脑、音乐、Codex、照片和语音
 
+系统诊断新增 App 内网络探测，每 30 秒沿系统网络路径检查 ChatGPT／资源服务的 HTTP 响应与耗时，不携带账户凭据、不调用模型。PAC 未启用时明确显示“未配置 PAC”；启用时比较系统解析与实际请求的代理／直连类型，不据此判断 VPN 隧道或具体节点。网络样本超过 75 秒失效，最多保留十轮曲线。CPU 等待仍不支持等价队列计数，不用平均负载或线程总数代填。
+
 **交互与权限**提供独立开关，默认关闭：
 
 | 功能 | 使用与边界 |
@@ -79,6 +81,8 @@ The login-Keychain prompt for AI-bot Bridge and service `io.github.yaoyouzhong.A
 For an HD full bundle, validate the outer catalog and embedded standard ZIP hash, then validate/import only its complete TAB5 subset. Desktop HD originals are not extracted or advertised as verified; this candidate does not include a Mac HD-original browser.
 
 **Interaction and permissions** independently enables CoreAudio volume/mute, whitelisted local launchers, lock, Music/Spotify, Codex and voice. Physical lock passed on 9415cee after Accessibility was granted to the correct candidate. Mac lock/display state is not collected and remains unknown; one-click unlock is unavailable. The music opt-in independently authorizes playback controls without enabling volume, lock or launchers. Music commands bind to the displayed track, execute once and read back actual state. First use requires the relevant macOS Automation/Accessibility permissions.
+
+System diagnostics now probe ChatGPT/resource HTTP response and latency along the system network path every 30 seconds inside the app, without account credentials or model calls. Absent PAC is explicitly not configured; configured PAC compares resolved and observed proxy/direct types, without inferring a VPN tunnel or exact node. Network samples expire after 75 seconds and retain at most ten actual rounds. An equivalent public CPU waiting-queue counter remains unavailable; load average and total threads are not substituted.
 
 Codex uses the installed CLI's standard stdio endpoint in an app-owned temporary read-only child, ending on opt-out/exit with no service installation or listener. It projects recent titles/projects and saved public assistant messages through bounded pagination; background activity remains metadata-only and unavailable desktop runtime remains unknown. The catalog reads at most 512 unarchived local chats; device frames prefer 64 recent chats and shrink to fit 32 KiB. Folders larger than eight chats use numbered picker pages, with at most 24 entries. This is bounded local history, not unlimited or cross-computer synchronization. Device/task-bound drafts and images remain encrypted. The read-only child never mutates tasks. A separate opt-in routes send/interrupt through the verified existing desktop owner, preserving the task model and approval settings without independent resume. Installed steer cannot bind an expected turn and remains disabled. Physical send/stop on the designated task and the subsequent empty-reply display repair passed acceptance. Desktop composer staging additionally requires Accessibility proof of the exact task URL and main composer; unsupported versions return unconfirmed rather than guessing. Handle approvals on the computer.
 

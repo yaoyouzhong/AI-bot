@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var musicService = MacMusicService(store: dataStore)
     private let localizedTextResources = MacLocalizedTextResources()
     private let systemMetrics = MacSystemMetricsService()
+    private let networkDiagnostics = MacNetworkDiagnostics()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var server: HTTPStatusServer?
     private var timer: Timer?
@@ -63,11 +64,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         catch { show("无法访问设备配对令牌", "请检查钥匙串授权后重新启动。读取失败不会替换现有令牌，也不会反复请求密码。") }
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
         let music = { [dataStore] in dataStore.snapshot().music }
-        let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), music: { [dataStore] in
+        let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), networkDiagnostics: { [networkDiagnostics] in networkDiagnostics.snapshot() }, music: { [dataStore] in
             let media = dataStore.snapshot(); return (media.music, media.musicCover)
         })
         self.tab5 = tab5
         tab5.codex.start()
+        networkDiagnostics.start()
         tab5.publish(reader.capture(extras: dataStore.snapshot()))
         server = HTTPStatusServer(port: port, token: PairingTokenStore.read, resources: { [weak self] in self?.resourceSnapshot() ?? [] }, event: { [weak self] agent, event, message in
             self?.reader.signals.record(agent:agent,event:event,message:message) ?? false
@@ -135,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dataTimer?.invalidate()
         quotaTimer?.invalidate()
         metricsTimer?.invalidate()
+        networkDiagnostics.stop()
         musicTimer?.invalidate()
         serial?.stop()
         tab5USB?.stopAndWait()
@@ -316,7 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 configureQuotas: { [weak self] in self?.openDomesticQuotas() },
                 dataStatus: { [weak self] in
                     guard let self else { return "" }
-                    return self.dataStore.weatherDiagnostic + "\n" + self.dataStore.systemDiagnostic
+                    return self.dataStore.weatherDiagnostic + "\n" + self.dataStore.systemDiagnostic + "\n" + self.networkDiagnostics.summary
                 })
         }
         tab5Window?.open()
