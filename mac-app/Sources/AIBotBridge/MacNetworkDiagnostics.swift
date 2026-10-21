@@ -126,11 +126,14 @@ final class MacNetworkDiagnostics {
         }
         return result.isEmpty ? nil : result
     }
-    private static func routes(for target: URL, configuration: [String: Any]?) -> Set<Bool>? {
+    static func routes(for target: URL, configuration: [String: Any]?) -> Set<Bool>? {
         guard let configuration else { return nil }
         let proxies = CFNetworkCopyProxiesForURL(target as CFURL, configuration as CFDictionary).takeRetainedValue() as? [[String: Any]] ?? []
         if let types = types(proxies) { return types }
-        guard proxies.count == 1, let first = proxies.first,
+        // CFNetwork appends a direct fallback after the primary PAC entry.
+        // Resolve the script itself; its failure must not become a successful
+        // PAC result merely because the outer fallback permits direct access.
+        guard let first = proxies.first, proxies.count == 1 || types(Array(proxies.dropFirst())) != nil,
               first[kCFProxyTypeKey as String] as? String == kCFProxyTypeAutoConfigurationURL as String,
               let url = first[kCFProxyAutoConfigurationURLKey as String] as? URL,
               ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }

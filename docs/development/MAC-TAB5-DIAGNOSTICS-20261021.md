@@ -12,6 +12,8 @@
 
 自动验证：本机 XCTest 仍在执行前报缺少模块；Release 和完整 Mac CI 分开记录，不以静态检查代替测试。新候选 CI、完整附件核验和正常 App／TAB5 验收待补充。
 
+实际 PAC 回环夹具进一步发现：CFNetwork 返回主脚本加备用 DIRECT，原单条限制误拒绝正常配置。修复后，直接编译当前生产源文件，对回环 HTTP 临时脚本的 DIRECT、PROXY、PROXY+DIRECT 和无效脚本四项均通过；无效脚本仍拒绝，不以备用直连冒充成功。相同测试加入 XCTest，测试不改系统代理、不开外部代理连接、不写 PAC 配置。SDK 兼容修复通过重载处理旧 SDK 的 Unmanaged 与新 SDK 的托管 CFRunLoopSource。真实网络连续两轮返回有效样本，停止后清除当前样本；首次 CI 的编译失败已明确记录，未启动该失败候选。
+
 ## English
 
 Only the Mac bridge, tests and docs change. No main merge, deployment, publication or flashing. Firmware camera/layout issues remain deferred.
@@ -19,3 +21,5 @@ Only the Mac bridge, tests and docs change. No main merge, deployment, publicati
 App-owned probes use public CFNetwork resolution and URLSession transaction metrics, with bounded unauthenticated HEAD requests, no stored body/cookies/credentials or redirects, and no proxy changes. Network timestamps expire independently after 75 seconds; ten actual rounds are retained, and failures preserve separately dated last-success evidence. Stable sorted-JSON configuration fingerprints repaired a locally observed discarded-sample issue. Native probing then returned HTTP 405/404 at approximately 993 ms, with PAC unconfigured. Responses establish HTTP reachability, not successful model service. Proxy/direct type matching does not identify nodes or VPN tunnels.
 
 The Windows CPU queue counter has no established public Mac equivalent and stays absent. Desktop navigation remains unaccepted: the installed editor lacks the expected fixed identity. Diagnostics now distinguish absent identity from absent exact thread address, accept URL/string address representations, and still reject generic text areas or window-title matching. App Server task APIs do not prove desktop composer identity. Local XCTest remains unavailable; CI and physical results must be recorded separately.
+
+Actual loopback PAC fixtures exposed normal CFNetwork output containing a primary script plus fallback DIRECT. The repair resolves the primary script, rejecting errors rather than accepting fallback as proof. Current production source compiled independently and passed DIRECT, PROXY, combined and malformed-script cases; the same regression is included in XCTest without changing system proxy settings. SDK ownership overloads handle both managed and Unmanaged run-loop sources. Two real network rounds produced samples and stop cleared the current sample. The first CI compile failure was recorded; that failed candidate was not launched.

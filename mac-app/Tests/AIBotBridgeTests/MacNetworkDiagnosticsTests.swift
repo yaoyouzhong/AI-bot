@@ -1,7 +1,36 @@
 import XCTest
+import CFNetwork
+import Network
 @testable import AIBotBridge
 
 final class MacNetworkDiagnosticsTests: XCTestCase {
+    func testActualPACResolutionWithSystemFallbackAndMalformedScript() throws {
+        let params = NWParameters.tcp
+        params.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: .any)
+        let listener = try NWListener(using: params, on: .any)
+        let ready = DispatchSemaphore(value: 0)
+        listener.stateUpdateHandler = { if case .ready = $0 { ready.signal() } }
+        listener.newConnectionHandler = { connection in
+            connection.start(queue: .global())
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { data, _, _, _ in
+                let request = String(decoding: data ?? Data(), as: UTF8.self)
+                let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? ""
+                let routes = ["/direct": "DIRECT", "/proxy": "PROXY 127.0.0.1:9876", "/fallback": "PROXY 127.0.0.1:9876; DIRECT"]
+                let script = routes[path].map { "function FindProxyForURL(url, host) { return \"\($0)\"; }" } ?? "invalid javascript("
+                let bytes = Data("HTTP/1.1 200 OK\r\nContent-Type: application/x-ns-proxy-autoconfig\r\nContent-Length: \(script.utf8.count)\r\nConnection: close\r\n\r\n\(script)".utf8)
+                connection.send(content: bytes, completion: .contentProcessed { _ in connection.cancel() })
+            }
+        }
+        listener.start(queue: .global()); defer { listener.cancel() }
+        XCTAssertEqual(ready.wait(timeout: .now() + 3), .success)
+        let port = try XCTUnwrap(listener.port)
+        let target = URL(string: "https://chatgpt.com/backend-api/wham/usage")!
+        for (name, expected) in [("direct", Set([false])), ("proxy", Set([true])), ("fallback", Set([true, false])), ("invalid", nil)] {
+            let config: [String: Any] = [kCFNetworkProxiesProxyAutoConfigEnable as String: 1,
+                kCFNetworkProxiesProxyAutoConfigURLString as String: "http://127.0.0.1:\(port.rawValue)/\(name)"]
+            XCTAssertEqual(MacNetworkDiagnostics.routes(for: target, configuration: config), expected, name)
+        }
+    }
     func testProxyIdentityIsStableAcrossDictionaryOrderAndDetectsChanges() {
         let a: [String: Any] = ["HTTPEnable": 1, "HTTPPort": 8080, "__SCOPED__": ["en0": ["ExceptionsList": ["localhost"]]]]
         let b: [String: Any] = ["__SCOPED__": ["en0": ["ExceptionsList": ["localhost"]]], "HTTPPort": 8080, "HTTPEnable": 1]
