@@ -136,11 +136,11 @@ final class MacNetworkDiagnostics {
               ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }
         let result = PACResult()
         var context = CFStreamClientContext(version: 0, info: Unmanaged.passUnretained(result).toOpaque(), retain: nil, release: nil, copyDescription: nil)
-        let source = CFNetworkExecuteProxyAutoConfigurationURL(url as CFURL, target as CFURL, { context, list, error in
+        let source = ownedSource(CFNetworkExecuteProxyAutoConfigurationURL(url as CFURL, target as CFURL, { context, list, error in
             let result = Unmanaged<PACResult>.fromOpaque(context).takeUnretainedValue()
             if error == nil, let proxies = list as? [[String: Any]] { result.routes = MacNetworkDiagnostics.types(proxies) }
             result.done = true
-        }, &context)
+        }, &context))
         let loop = CFRunLoopGetCurrent()
         CFRunLoopAddSource(loop, source, .defaultMode)
         defer { CFRunLoopSourceInvalidate(source); CFRunLoopRemoveSource(loop, source, .defaultMode) }
@@ -148,6 +148,9 @@ final class MacNetworkDiagnostics {
         while !result.done && ProcessInfo.processInfo.systemUptime < deadline { CFRunLoopRunInMode(.defaultMode, 0.1, true) }
         return result.done ? result.routes : nil
     }
+    // CFNetwork's ownership annotation differs between the supported SDKs.
+    private static func ownedSource(_ source: CFRunLoopSource) -> CFRunLoopSource { source }
+    private static func ownedSource(_ source: Unmanaged<CFRunLoopSource>) -> CFRunLoopSource { source.takeRetainedValue() }
 
     private final class HeaderProbe: NSObject, URLSessionDataDelegate {
         private let finished = DispatchSemaphore(value: 0)
