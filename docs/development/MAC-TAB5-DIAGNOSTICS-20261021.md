@@ -12,6 +12,8 @@
 
 自动验证：本机 XCTest 仍在执行前报缺少模块；Release 和完整 Mac CI 分开记录，不以静态检查代替测试。新候选 CI、完整附件核验和正常 App／TAB5 验收待补充。
 
+最终程序 `bdd84cdc884c752c108c75b495d84ec09a89fdc4` 通过 [Mac CI 39538612677](https://github.com/yaoyouzhong/AI-bot/actions/runs/39538612677)：227 项测试、0 失败、0 跳过；完整附件下载后通过源码／内外层 SHA、arm64 可执行文件、App、许可、工具及八张原生界面 PNG 核验。本机 Release、临时签名包、离线工具检查和原生界面渲染也通过。正常退出旧 9415cee 前暂时关闭 Codex 只读以结束子进程，新 bdd84cd 已按精确路径启动，目前等待用户处理系统钥匙串授权。授权后必须恢复此前已获持续授权的日常只读；其余临时操作开关仍关闭。新候选正常 App／实体 TAB5 尚未验收，直达和 CPU 等待不得标为已修复。
+
 实际 PAC 回环夹具进一步发现：CFNetwork 返回主脚本加备用 DIRECT，原单条限制误拒绝正常配置。修复后，直接编译当前生产源文件，对回环 HTTP 临时脚本的 DIRECT、PROXY、PROXY+DIRECT 和无效脚本四项均通过；无效脚本仍拒绝，不以备用直连冒充成功。相同测试加入 XCTest，测试不改系统代理、不开外部代理连接、不写 PAC 配置。SDK 兼容修复通过重载处理旧 SDK 的 Unmanaged 与新 SDK 的托管 CFRunLoopSource。真实网络连续两轮返回有效样本，停止后清除当前样本；首次 CI 的编译失败已明确记录，未启动该失败候选。
 
 ## English
@@ -23,3 +25,5 @@ App-owned probes use public CFNetwork resolution and URLSession transaction metr
 The Windows CPU queue counter has no established public Mac equivalent and stays absent. Desktop navigation remains unaccepted: the installed editor lacks the expected fixed identity. Diagnostics now distinguish absent identity from absent exact thread address, accept URL/string address representations, and still reject generic text areas or window-title matching. App Server task APIs do not prove desktop composer identity. Local XCTest remains unavailable; CI and physical results must be recorded separately.
 
 Actual loopback PAC fixtures exposed normal CFNetwork output containing a primary script plus fallback DIRECT. The repair resolves the primary script, rejecting errors rather than accepting fallback as proof. Current production source compiled independently and passed DIRECT, PROXY, combined and malformed-script cases; the same regression is included in XCTest without changing system proxy settings. SDK ownership overloads handle both managed and Unmanaged run-loop sources. Two real network rounds produced samples and stop cleared the current sample. The first CI compile failure was recorded; that failed candidate was not launched.
+
+Final program bdd84cd passed linked CI with 227 tests, zero failures/skips, and complete downloaded-artifact verification. Local Release, signed bundle, offline tools and native fixture rendering passed. The old app was normally quit after temporarily stopping read-only Codex; the exact new app path is running, awaiting user Keychain authorization. Restore the previously authorized daily read-only feature afterward; other temporary controls stay off. Normal-app and physical acceptance are pending, and neither desktop direct control nor CPU queue availability is claimed fixed.
