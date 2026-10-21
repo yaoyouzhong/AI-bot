@@ -56,7 +56,8 @@ enum MacCodexNavigationTitle {
         // aria-label, even when the visible title is formatted/truncated.
         let names = [title, label].compactMap { $0 }.filter { !$0.isEmpty }
         return role == "AXButton" && trusted && current == "page" && uniqueTitle != nil &&
-            classes.contains("sidebar-item") &&
+            // The desktop uses this thread-row marker in default/table layouts
+            // too; sidebar-item is only a visual variant, not thread identity.
             classes.contains("data-[app-action-sidebar-thread-selected=true]:bg-primary-ghost-hover") &&
             !names.isEmpty && names.allSatisfy { $0 == uniqueTitle }
     }

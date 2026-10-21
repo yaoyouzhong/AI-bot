@@ -2,6 +2,21 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5DesktopTests: XCTestCase {
+    func testDelayedNavigationUsesTheDeadlineWithoutReopeningOrReadingAnEditor() throws {
+        let fixture = Fixture(), codex = try model(fixture)
+        var backend = fixture.backend, checks = 0, reads = 0
+        backend.navigation = { id in checks += 1; return checks >= 9 && id == fixture.task }
+        backend.read = { _ in reads += 1; return nil }
+        let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
+        let request: [String: Any] = ["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString]
+        let result = desktop.handle(request, device: "A")
+        XCTAssertEqual(result.status, 200); XCTAssertEqual(result.body["foreground"] as? Bool, true)
+        XCTAssertEqual(result.body["taskId"] as? String, fixture.task); XCTAssertNil(result.body["draftEmpty"])
+        XCTAssertEqual(checks, 9); XCTAssertEqual(reads, 0); XCTAssertEqual(fixture.opens, 1)
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 200)
+        XCTAssertEqual(checks, 9); XCTAssertEqual(fixture.opens, 1)
+        XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+    }
     func testAmbiguousTitleOpenAcknowledgmentNeverAuthorizesComposerOrFalseEmptyDraft() throws {
         let fixture = Fixture(), codex = try model(fixture)
         var backend = fixture.backend, reads = 0, activations = 0

@@ -94,8 +94,13 @@ final class MacTab5Desktop {
                     let until = ProcessInfo.processInfo.systemUptime + 3
                     var navigated = opened && confirmed()
                     var activated = opened && !navigated && backend.openOnly?(task) == true
-                    for _ in 0..<6 where opened && !navigated && !activated && ProcessInfo.processInfo.systemUptime < until {
-                        Thread.sleep(forTimeInterval: 0.15); navigated = confirmed()
+                    // Use the actual deadline. Six polls ended after roughly a
+                    // second on fast AX calls, before asynchronous navigation
+                    // finished, even though the advertised budget is 3 seconds.
+                    for _ in 0..<20 where opened && !navigated && !activated && ProcessInfo.processInfo.systemUptime < until {
+                        Thread.sleep(forTimeInterval: min(0.15, max(0, until - ProcessInfo.processInfo.systemUptime)))
+                        guard ProcessInfo.processInfo.systemUptime < until else { break }
+                        navigated = confirmed()
                         activated = !navigated && backend.openOnly?(task) == true
                     }
                     if navigated || activated {
@@ -229,8 +234,9 @@ enum MacTab5DesktopAX {
     private static func navigation(_ task: String) -> Bool {
         let started = ProcessInfo.processInfo.systemUptime
         var visited = 0, shells = 0, selected = 0, named = 0, rowMatched = false, titleMatched = false, unique = false
+        var rowEvidence = ""
         defer {
-            let detail = "节点 \(visited)；主区域 \(shells)；唯一标题 \(unique ? "有" : "无")；页面匹配 \(titleMatched ? "是" : "否")；当前行 \(selected)／名称 \(named)；行匹配 \(rowMatched ? "是" : "否")；\(Int((ProcessInfo.processInfo.systemUptime-started)*1000)) ms"
+            let detail = "节点 \(visited)；主区域 \(shells)；唯一标题 \(unique ? "有" : "无")；页面匹配 \(titleMatched ? "是" : "否")；当前行 \(selected)／名称 \(named)；行匹配 \(rowMatched ? "是" : "否")\(rowEvidence)；\(Int((ProcessInfo.processInfo.systemUptime-started)*1000)) ms"
             diagnosticLock.lock(); lastEvidence = detail; diagnosticLock.unlock()
         }
         guard AXIsProcessTrusted() else { note(.permission); return false }
@@ -279,6 +285,9 @@ enum MacTab5DesktopAX {
                     selected += 1
                     let title = value(node, "AXTitle") as? String, label = value(node, "AXDescription") as? String
                     if [title, label].compactMap({ $0 }).contains(where: { !$0.isEmpty }) { named += 1 }
+                    // Counts and equality only: never expose titles, task IDs,
+                    // addresses or reply/editor contents in diagnostics.
+                    rowEvidence = "；名称长度 \(uniqueTitle?.utf8.count ?? 0)/\(title?.utf8.count ?? 0)/\(label?.utf8.count ?? 0)；名称匹配 \(uniqueTitle != nil && title == uniqueTitle ? "是" : "否")/\(uniqueTitle != nil && label == uniqueTitle ? "是" : "否")；侧栏样式 \(classes.contains("sidebar-item") ? "有" : "无")"
                     if MacCodexNavigationTitle.matchesSelectedRow(role: role, trusted: shell, current: "page", classes: classes,
                         title: title, label: label, uniqueTitle: uniqueTitle),
                        MacCodexNavigationTitle.read(task) == uniqueTitle,

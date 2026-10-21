@@ -78,6 +78,8 @@ final class MacCodexNavigationTitleTests: XCTestCase {
         }
         XCTAssertTrue(matches())
         XCTAssertTrue(matches(title: "", label: "full name"))
+        // The same current thread row can use default/table visual variants.
+        XCTAssertTrue(matches(rowClasses: [classes[1], "rounded-[var(--radius-token-row)]"]))
         XCTAssertFalse(matches(current: nil)); XCTAssertFalse(matches(current: "true"))
         XCTAssertFalse(matches(role: "AXGroup")); XCTAssertFalse(matches(trusted: false))
         XCTAssertFalse(matches(rowClasses: ["sidebar-item"])) // project rows do not qualify
