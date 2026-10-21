@@ -75,3 +75,27 @@ Final collection/key-cache candidate 3c9b90d passed [CI 39542234325](https://git
 After user Keychain handling, USB was acknowledged, Wi-Fi authenticated and BLE in USB-priority standby. Daily read-only Codex reconnected to 30 chats without re-enabling its switch. Music retained the previous test opt-out, so collection alone was enabled under the new daily-collection instruction, leaving separate playback control off; no active track was reported. The candidate’s Location switch was off after the build change. Restoring the previously authorized scope and refreshing unchanged QWeather configuration recovered current, hourly and daily forecasts.
 
 The same candidate then quit normally with all collection preferences preserved and restarted. Process exit/start was checked; no SecurityAgent password blockage was observed and no further user action was requested. The normal UI confirmed music collection on/control off, read-only Codex on with 30 chats, restored USB/Wi-Fi/BLE and automatically refreshed current/24-hour/7-day QWeather. Computer control, task mutations, desktop composer and voice input remain off. This verifies the observed same-build restart and preference persistence, not exemption from changed ad-hoc-build approval, a new live draft acceptance or a new playback acceptance. Desktop identity/address compatibility and the equivalent CPU queue metric remain unresolved.
+
+
+## 锁屏显示与直达导航分离修复（待真机）
+
+用户要求优先处理锁屏状态显示和 Codex 直达左右切换不同步；后续解锁需支持字母、数字和符号密码，本轮不采集密码、不启用解锁。
+
+Mac 普通电脑状态改为使用本进程观察到的系统锁屏／解锁通知显示 `locked`，不再始终写死未知。启动未观察到事件、用户会话切换和睡眠／唤醒后仍为未知；不把发出锁屏快捷键当成已锁定。使用公开 Foundation／AppKit 框架订阅兼容性通知；通知名不是正式公开的锁定状态 API，也不是可认证的凭据输入依据。单独的 `lock-screen` 准备查询仍返回未知，`oneClickUnlock` 仍为 false，避免显示观测误授权现有设备 HID。系统事件顺序和实体显示尚待实际锁屏／解锁验证。
+
+Codex `open-recent` 的导航确认不再必须读取主输入框。仅在 Codex 为前台且前台窗口文档携带精确会话地址，或其可信 App 资源 WebArea 内有 `AXARIACurrent=page` 的精确会话链接时返回成功；匹配标题、未选中的历史链接、外部嵌入网页和系统接受 deep link 均不算成功。不读取输入框时不回传 `draftEmpty=true`。填写、清空和发送保持原有主输入框与精确任务检查。已读取 `.234` 对端确认缺少 `draftEmpty` 不会阻止已确认导航更新标题／项目／索引，也不会宣称输入框为空；不修改固件。
+
+新增测试覆盖导航不读取／不授权编辑器、导航失败不能借用可读编辑器确认、精确当前链接与可信来源、锁屏显示状态失效和不能开放凭据准备。本机 XCTest 仍缺少模块；Release 已编译通过，首次并行编辑导致的构建输入变更错误已重跑排除。完整 CI 与新候选实体结果待补充。
+
+### English
+
+The current priority is lock-state display and synchronized Codex previous/next navigation. Future unlock must accept letters, digits and symbols; no credential is collected and unlock stays disabled.
+
+Ordinary computer status now displays observed lock/unlock events instead of always returning unknown. Startup without observations, session changes and sleep/wake invalidate the observation. These compatibility notification names are consumed through public Foundation/AppKit APIs but are not a documented lock-state API or an authenticated credential-entry gate. The separate device `lock-screen` preparation query stays unknown and `oneClickUnlock` stays false. Actual OS event ordering and hardware display remain unverified.
+
+Navigation confirmation is separated from composer access. Success requires a foreground Codex window with an exact thread document URL or a current-page link carrying that exact thread ID inside the trusted app resource WebArea. Titles, unselected links, embedded external pages and accepted deep links alone do not qualify. No `draftEmpty=true` is asserted without reading a composer; editing/submission retain their prior independent identity checks. The archived `.234` consumer was checked for compatibility; firmware is unchanged. New tests cover these boundaries and display-only lock observations. Local XCTest is unavailable; Release compilation passed after rerunning an initial build whose source changed during compilation. Full CI and live acceptance are pending.
+
+
+继续只读检查本机已安装 Codex 的入口定义，确认打包主 renderer 使用 `app://-`，文件浏览来源另为 `app://fs`。原 Mac 精确地址检查没有允许前者，构成可复现的解析兼容缺口。新增仅该主来源的校验，支持前台 WebArea 的精确实时路径和当前链接；`app://fs`、其他 host、带用户信息／端口的伪装地址、不同任务以及仅 query 中的 `initialRoute` 启动提示均不用于确认。实现独立编写，未复制供应商代码；应用文件只读取，不修改。
+
+Further read-only inspection of the installed desktop entry definition established that its packaged main renderer uses `app://-`, while file browsing uses the separate `app://fs` origin. The former was missing from the bridge's exact-route parser. The compatibility fix accepts only that main origin and exact live route/current link, rejecting the file origin, other hosts, credentials/ports, different tasks and startup-only `initialRoute` hints. Implementation is independent; no vendor source was copied or installed app modified.

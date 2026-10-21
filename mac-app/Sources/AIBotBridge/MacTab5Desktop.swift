@@ -7,6 +7,7 @@ struct MacTab5DesktopBackend {
     var write: (String, String, String) -> Bool
     var diagnostic: () -> MacTab5DesktopCheck = { .route }
     var preflight: () -> MacTab5DesktopCheck? = { nil }
+    var navigation: ((String) -> Bool)? = nil
 }
 
 enum MacTab5DesktopCheck: String {
@@ -22,6 +23,7 @@ enum MacTab5DesktopCheck: String {
     case value = "未取得可用的输入框文字"
     case open = "系统未接受打开会话请求"
     case confirmed = "已确认目标任务和主输入框"
+    case navigationConfirmed = "已确认目标会话；输入框操作将另行校验"
 }
 
 final class MacTab5Desktop {
@@ -62,10 +64,22 @@ final class MacTab5Desktop {
                     updateStatus(failure); result = .error(409, "desktop_foreground_unconfirmed")
                 } else {
                     let opened = backend.open(task)
-                    var current = opened ? backend.read(task) : nil
-                    for _ in 0..<6 where opened && current == nil { Thread.sleep(forTimeInterval: 0.15); current = backend.read(task) }
-                    if let current { updateStatus(.confirmed); body["foreground"] = true; body["draftEmpty"] = current.isEmpty; result = .init(200, body) }
-                    else { updateStatus(opened ? backend.diagnostic() : .open); result = .error(409, "desktop_foreground_unconfirmed") }
+                    // Navigation does not read or authorize the composer. Current
+                    // desktop editors may omit its identity while the selected
+                    // navigation link still exposes the exact foreground task.
+                    var current: String?
+                    func confirmed() -> Bool {
+                        if let navigation = backend.navigation { return navigation(task) }
+                        current = backend.read(task); return current != nil
+                    }
+                    var navigated = opened && confirmed()
+                    for _ in 0..<6 where opened && !navigated { Thread.sleep(forTimeInterval: 0.15); navigated = confirmed() }
+                    if navigated {
+                        updateStatus(current == nil ? .navigationConfirmed : .confirmed)
+                        body["foreground"] = true
+                        if let current { body["draftEmpty"] = current.isEmpty }
+                        result = .init(200, body)
+                    } else { updateStatus(opened ? backend.diagnostic() : .open); result = .error(409, "desktop_foreground_unconfirmed") }
                 }
             } else if op == "stage-draft" {
                 if let current = backend.read(task), !text.isEmpty {
@@ -107,10 +121,11 @@ enum MacTab5DesktopAX {
     private static var lastCheck: MacTab5DesktopCheck = .waiting
     private static func note(_ check: MacTab5DesktopCheck) { diagnosticLock.lock(); lastCheck = check; diagnosticLock.unlock() }
     private static func diagnostic() -> MacTab5DesktopCheck { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastCheck }
-    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: write, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }) }
+    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: write, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }, navigation: navigation) }
     private static func value(_ element: AXUIElement, _ key: String) -> CFTypeRef? { var value: CFTypeRef?; return AXUIElementCopyAttributeValue(element, key as CFString, &value) == .success ? value : nil }
     static func identifies(_ url: String, task: String, resourceRoot: URL? = nil) -> Bool {
-        guard let parsed = URLComponents(string: url), ["codex", "http", "https", "file"].contains(parsed.scheme ?? "") else { return false }
+        guard let parsed = URLComponents(string: url), ["codex", "http", "https", "file", "app"].contains(parsed.scheme ?? "") else { return false }
+        if parsed.scheme == "app" { guard parsed.host == "-", parsed.user == nil, parsed.password == nil, parsed.port == nil else { return false } }
         if parsed.scheme == "codex" { guard parsed.host == "threads" else { return false } }
         if parsed.scheme == "http" || parsed.scheme == "https" { guard ["localhost", "127.0.0.1", "::1"].contains(parsed.host ?? "") else { return false } }
         if parsed.scheme == "file" {
@@ -120,6 +135,58 @@ enum MacTab5DesktopAX {
         let path = (parsed.host == "threads" ? "/threads" : "") + parsed.path + (parsed.fragment.map { "/" + $0 } ?? "")
         let parts = path.split(separator: "/").map(String.init)
         return parts.indices.contains(parts.count - 2) && parts[parts.count - 2] == "threads" && parts.last?.lowercased() == task.lowercased()
+    }
+    // Only an explicitly current link identifies the selected task. A matching
+    // unselected sidebar/history link or title must never confirm navigation.
+    static func currentTaskLink(role: String, current: String?, address: String?, task: String, resourceRoot: URL?) -> Bool {
+        role == "AXLink" && current == "page" && address.map { identifies($0, task: task, resourceRoot: resourceRoot) } == true
+    }
+    private static func address(_ node: AXUIElement, _ attribute: String = "AXURL") -> String? {
+        let raw = value(node, attribute)
+        return (raw as? URL)?.absoluteString ?? (raw as? String)
+    }
+    static func trustedShell(_ address: String?, resourceRoot: URL?) -> Bool {
+        guard let address, let url = URLComponents(string: address) else { return false }
+        // Installed Codex serves its packaged main renderer from app://-.
+        // app://fs is a separate file/browser origin and must not qualify.
+        if url.scheme == "app" { return url.host == "-" && url.user == nil && url.password == nil && url.port == nil }
+        guard let resourceRoot, resourceRoot.isFileURL,
+              url.scheme == "file", url.host == nil || url.host == "" || url.host == "localhost" else { return false }
+        return URL(fileURLWithPath: url.path).standardizedFileURL.path.hasPrefix(resourceRoot.standardizedFileURL.path + "/")
+    }
+    private static func navigation(_ task: String) -> Bool {
+        guard AXIsProcessTrusted() else { note(.permission); return false }
+        guard let app = MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication }), app.bundleIdentifier == "com.openai.codex" else { note(.frontmost); return false }
+        let root = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(root, 0.1)
+        guard let raw = value(root, "AXFocusedWindow"), CFGetTypeID(raw) == AXUIElementGetTypeID() else { note(.focus); return false }
+        let window = unsafeBitCast(raw, to: AXUIElement.self)
+        let resources = app.bundleURL?.appendingPathComponent("Contents/Resources")
+        guard (value(window, "AXSheets") as? [AXUIElement] ?? []).isEmpty else { note(.route); return false }
+        // The window document may identify the exact page without editor focus.
+        if let document = address(window, "AXDocument"), identifies(document, task: task, resourceRoot: resources) { return true }
+        var pending: [(AXUIElement, Bool)] = [(window, false)], visited = 0
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.25
+        while let (node, inheritedShell) = pending.popLast(), visited < 1200, ProcessInfo.processInfo.systemUptime < deadline {
+            visited += 1
+            let role = value(node, "AXRole") as? String ?? ""
+            var shell = inheritedShell
+            if role == "AXWebArea" {
+                // An embedded browser must not impersonate the app's sidebar.
+                shell = trustedShell(address(node), resourceRoot: resources)
+                if !shell { continue }
+                if let page = address(node), identifies(page, task: task, resourceRoot: resources) { return true }
+            }
+            if shell && role == "AXLink" && currentTaskLink(role: role, current: value(node, "AXARIACurrent") as? String,
+                               address: address(node), task: task, resourceRoot: resources) {
+                return true
+            }
+            // Do not inspect editor text, browser contents, dialogs or other
+            // windows. Only the foreground window's navigation is considered.
+            if ["AXTextArea", "AXTextField", "AXDialog", "AXSheet"].contains(role) { continue }
+            pending.append(contentsOf: (value(node, "AXChildren") as? [AXUIElement] ?? []).reversed().map { ($0, shell) })
+        }
+        note(.route); return false
     }
     static func identityCheck(identifier: String, routeConfirmed: Bool) -> MacTab5DesktopCheck {
         let identifier = identifier.lowercased()

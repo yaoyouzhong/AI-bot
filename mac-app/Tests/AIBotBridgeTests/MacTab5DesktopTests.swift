@@ -9,6 +9,59 @@ final class MacTab5DesktopTests: XCTestCase {
         XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "prompt-textarea", routeConfirmed: true), .confirmed)
         XCTAssertEqual(MacTab5DesktopAX.identityCheck(identifier: "search", routeConfirmed: true), .identifier)
     }
+    func testNavigationRequiresCurrentExactLinkAndTrustedAppShell() {
+        let task = UUID().uuidString.lowercased()
+        let root = URL(fileURLWithPath: "/Applications/ChatGPT.app/Contents/Resources")
+        let address = "file:///Applications/ChatGPT.app/Contents/Resources/webview/index.html#/threads/" + task
+        XCTAssertTrue(MacTab5DesktopAX.currentTaskLink(role: "AXLink", current: "page", address: address, task: task, resourceRoot: root))
+        for current in [nil, "false", "true", "step"] {
+            XCTAssertFalse(MacTab5DesktopAX.currentTaskLink(role: "AXLink", current: current, address: address, task: task, resourceRoot: root))
+        }
+        XCTAssertFalse(MacTab5DesktopAX.currentTaskLink(role: "AXButton", current: "page", address: address, task: task, resourceRoot: root))
+        XCTAssertFalse(MacTab5DesktopAX.currentTaskLink(role: "AXLink", current: "page", address: address, task: UUID().uuidString, resourceRoot: root))
+        XCTAssertTrue(MacTab5DesktopAX.trustedShell(address, resourceRoot: root))
+        for untrusted in ["https://example.com/threads/" + task, "file:///tmp/threads/" + task,
+                          "file:///Applications/ChatGPT.app/Contents/Resources/../private/index.html", "codex://threads/" + task] {
+            XCTAssertFalse(MacTab5DesktopAX.trustedShell(untrusted, resourceRoot: root))
+        }
+    }
+    func testNavigationCanConfirmWithoutReadingOrAuthorizingAnEditor() throws {
+        let fixture = Fixture()
+        var backend = fixture.backend, reads = 0
+        backend.navigation = { $0 == fixture.task }
+        backend.read = { _ in reads += 1; return nil }
+        let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: backend)
+        let request: [String: Any] = ["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString]
+        let result = desktop.handle(request, device: "A")
+        XCTAssertEqual(result.status, 200); XCTAssertEqual(result.body["foreground"] as? Bool, true)
+        XCTAssertEqual(result.body["taskId"] as? String, fixture.task)
+        XCTAssertNil(result.body["draftEmpty"]); XCTAssertEqual(reads, 0)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.navigationConfirmed.rawValue)
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 200); XCTAssertEqual(fixture.opens, 1)
+        let staged = desktop.handle(["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "test"], device: "A")
+        XCTAssertEqual(staged.status, 503); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+    }
+    func testNavigationFailureCannotFallBackToAnUnrelatedEditor() throws {
+        let fixture = Fixture()
+        var backend = fixture.backend
+        backend.navigation = { _ in false }
+        let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: backend)
+        let result = desktop.handle(["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString], device: "A")
+        XCTAssertEqual(result.status, 409); XCTAssertNil(result.body["foreground"])
+        XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+    }
+    func testPackagedDesktopOriginAndExactLiveRoute() {
+        let task = UUID().uuidString.lowercased()
+        XCTAssertTrue(MacTab5DesktopAX.identifies("app://-/threads/" + task, task: task))
+        XCTAssertTrue(MacTab5DesktopAX.trustedShell("app://-/index.html", resourceRoot: nil))
+        // initialRoute is only the startup hint, never evidence of current selection.
+        XCTAssertFalse(MacTab5DesktopAX.identifies("app://-/index.html?initialRoute=/threads/" + task, task: task))
+        for origin in ["app://fs", "app://other", "app://user@-", "app://-:80"] {
+            XCTAssertFalse(MacTab5DesktopAX.identifies(origin + "/threads/" + task, task: task))
+            XCTAssertFalse(MacTab5DesktopAX.trustedShell(origin + "/index.html", resourceRoot: nil))
+        }
+        XCTAssertFalse(MacTab5DesktopAX.identifies("app://-/threads/" + task + "/settings", task: task))
+    }
     private final class Fixture {
         let task = UUID().uuidString.lowercased(), turn = UUID().uuidString.lowercased()
         var value = "", writes = 0, opens = 0, sends = 0, foreground = true

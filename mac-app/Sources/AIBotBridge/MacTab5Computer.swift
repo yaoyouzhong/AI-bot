@@ -82,6 +82,8 @@ final class MacTab5Computer {
         lock.lock(); defer { lock.unlock() }
         do {
             if op == "status" { return .init(200, try state()) }
+            // The separate lock-screen probe can authorize device HID input.
+            // Display-only OS notifications are intentionally not used here.
             if op == "lock-screen" { return .init(200, ["locked": NSNull(), "lockScreenCover": NSNull(), "displayState": NSNull()]) }
             guard let suppliedID = root["requestId"] as? String, let uuid = UUID(uuidString: suppliedID) else { return .error(400, "invalid_request_id") }
             let id = uuid.uuidString.lowercased()
@@ -148,6 +150,7 @@ enum MacTab5ComputerPlatform {
     }
     static func read(music: MusicSnapshot?) throws -> [String: Any] {
         var state: [String: Any] = ["volumeAvailable": false, "canLock": AXIsProcessTrusted(), "locked": NSNull(), "displayState": NSNull(), "mediaAvailable": false]
+        if let locked = MacScreenLockObservation.shared.displayedValue { state["locked"] = locked }
         if let device = output(), let (volume, muted) = volume(device) { state["volumeAvailable"] = true; state["volume"] = volume; state["muted"] = muted }
         if MacFeaturePreferences.musicControlEnabled(), let track = music, !track.title.isEmpty { state["mediaAvailable"] = true; state["canPlayPause"] = true; state["canPrevious"] = true; state["canNext"] = true; state["playing"] = track.playing }
         return state

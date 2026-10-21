@@ -12,6 +12,7 @@ if Array(CommandLine.arguments.dropFirst()) == ["--self-test-flash-tool"] {
 
 MacFeaturePreferences.register()
 let application = NSApplication.shared
+MacScreenLockObservation.shared.start()
 let delegate = AppDelegate()
 application.delegate = delegate
 application.setActivationPolicy(.accessory)
