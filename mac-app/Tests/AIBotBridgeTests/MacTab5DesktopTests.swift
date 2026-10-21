@@ -62,6 +62,21 @@ final class MacTab5DesktopTests: XCTestCase {
         }
         XCTAssertFalse(MacTab5DesktopAX.identifies("app://-/threads/" + task + "/settings", task: task))
     }
+    func testCurrentLocalDesktopRouteRequiresExactTaskAndTrustedOrigin() {
+        let task = UUID().uuidString.lowercased()
+        for route in ["app://-/local/", "app://-/index.html#/local/"] {
+            XCTAssertTrue(MacTab5DesktopAX.identifies(route + task, task: task))
+            XCTAssertFalse(MacTab5DesktopAX.identifies(route + UUID().uuidString, task: task))
+            XCTAssertFalse(MacTab5DesktopAX.identifies(route + task + "/settings", task: task))
+        }
+        for route in ["app://fs/local/", "app://user@-/local/", "app://-:80/local/", "app://other/local/",
+                      "codex://local/", "https://external.example/local/", "app://-/remote/",
+                      "app://-/nested/local/", "app://-/index.html?initialRoute=/local/"] {
+            XCTAssertFalse(MacTab5DesktopAX.identifies(route + task, task: task))
+        }
+        XCTAssertTrue(MacTab5DesktopAX.currentTaskLink(role: "AXLink", current: "page", address: "app://-/local/" + task, task: task, resourceRoot: nil))
+        XCTAssertFalse(MacTab5DesktopAX.currentTaskLink(role: "AXLink", current: nil, address: "app://-/local/" + task, task: task, resourceRoot: nil))
+    }
     private final class Fixture {
         let task = UUID().uuidString.lowercased(), turn = UUID().uuidString.lowercased()
         var value = "", writes = 0, opens = 0, sends = 0, foreground = true

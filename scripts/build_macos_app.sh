@@ -3,6 +3,21 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 package_root="$repo_root/mac-app"
+# A local certificate fingerprint is not a credential. Keep this machine's
+# choice outside the checkout so CI and other developers remain independent.
+identity_file="$HOME/Library/Application Support/AI-bot/local-code-signing-identity.txt"
+if [[ -n "${AIBOT_MAC_SIGN_IDENTITY:-}" ]]; then
+    sign_identity="$AIBOT_MAC_SIGN_IDENTITY"
+elif [[ -f "$identity_file" ]]; then
+    sign_identity="$(cat "$identity_file")"
+    if [[ ! "$sign_identity" =~ ^[[:xdigit:]]{40}$ ]]; then
+        echo "Invalid local signing fingerprint: $identity_file" >&2
+        exit 1
+    fi
+else
+    sign_identity="-"
+fi
+# Never silently fall back to ad-hoc signing after a fixed identity is selected.
 app_root="${1:-$repo_root/artifacts/AIBotBridge.app}"
 if [[ -e "$app_root" ]]; then
     echo "Use a new app output path: $app_root" >&2
@@ -22,7 +37,6 @@ if ! git -C "$repo_root" diff --quiet -- mac-app; then
 fi
 python3 "$repo_root/scripts/bundle_flash_tool.py" macos "$contents/Resources/flash-tools"
 plutil -lint "$contents/Info.plist"
-sign_identity="${AIBOT_MAC_SIGN_IDENTITY:--}"
 if [[ "$sign_identity" == "-" ]]; then
     echo "Ad-hoc candidate: changed builds may require fresh macOS authorization." >&2
 fi

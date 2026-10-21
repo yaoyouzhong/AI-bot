@@ -20,6 +20,9 @@ enum MacTab5DesktopCheck: String {
     case identifierAndRoute = "未取得主输入框标识及精确会话地址"
     case structure = "输入框内容结构尚不兼容"
     case route = "未取得匹配目标任务的公开页面地址"
+    case navigationShell = "未取得 Codex 主页面的可访问导航区域"
+    case navigationAddress = "Codex 主页面未提供可验证的会话地址"
+    case navigationLimit = "Codex 导航检查达到边界，尚未确认目标会话"
     case value = "未取得可用的输入框文字"
     case open = "系统未接受打开会话请求"
     case confirmed = "已确认目标任务和主输入框"
@@ -132,6 +135,13 @@ enum MacTab5DesktopAX {
             guard let resourceRoot, resourceRoot.isFileURL, parsed.host == nil || parsed.host == "" || parsed.host == "localhost",
                   URL(fileURLWithPath: parsed.path).standardizedFileURL.path.hasPrefix(resourceRoot.standardizedFileURL.path + "/") else { return false }
         }
+        // Current packaged Codex uses /local/:conversationId internally;
+        // codex://threads/:id is its external deep link, not the live route.
+        if parsed.scheme == "app" || parsed.scheme == "file" {
+            let route = parsed.fragment ?? parsed.path
+            let segments = route.split(separator: "/").map(String.init)
+            if segments.count == 2, segments[0] == "local", segments[1].lowercased() == task.lowercased() { return true }
+        }
         let path = (parsed.host == "threads" ? "/threads" : "") + parsed.path + (parsed.fragment.map { "/" + $0 } ?? "")
         let parts = path.split(separator: "/").map(String.init)
         return parts.indices.contains(parts.count - 2) && parts[parts.count - 2] == "threads" && parts.last?.lowercased() == task.lowercased()
@@ -166,6 +176,7 @@ enum MacTab5DesktopAX {
         // The window document may identify the exact page without editor focus.
         if let document = address(window, "AXDocument"), identifies(document, task: task, resourceRoot: resources) { return true }
         var pending: [(AXUIElement, Bool)] = [(window, false)], visited = 0
+        var foundShell = false, foundTaskAddress = false
         let deadline = ProcessInfo.processInfo.systemUptime + 0.25
         while let (node, inheritedShell) = pending.popLast(), visited < 1200, ProcessInfo.processInfo.systemUptime < deadline {
             visited += 1
@@ -175,18 +186,23 @@ enum MacTab5DesktopAX {
                 // An embedded browser must not impersonate the app's sidebar.
                 shell = trustedShell(address(node), resourceRoot: resources)
                 if !shell { continue }
+                foundShell = true
                 if let page = address(node), identifies(page, task: task, resourceRoot: resources) { return true }
             }
             if shell && role == "AXLink" && currentTaskLink(role: role, current: value(node, "AXARIACurrent") as? String,
                                address: address(node), task: task, resourceRoot: resources) {
                 return true
             }
+            if shell && role == "AXLink", address(node) != nil { foundTaskAddress = true }
             // Do not inspect editor text, browser contents, dialogs or other
             // windows. Only the foreground window's navigation is considered.
             if ["AXTextArea", "AXTextField", "AXDialog", "AXSheet"].contains(role) { continue }
             pending.append(contentsOf: (value(node, "AXChildren") as? [AXUIElement] ?? []).reversed().map { ($0, shell) })
         }
-        note(.route); return false
+        if !pending.isEmpty { note(.navigationLimit) }
+        else if !foundShell { note(.navigationShell) }
+        else { note(foundTaskAddress ? .route : .navigationAddress) }
+        return false
     }
     static func identityCheck(identifier: String, routeConfirmed: Bool) -> MacTab5DesktopCheck {
         let identifier = identifier.lowercased()

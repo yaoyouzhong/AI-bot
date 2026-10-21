@@ -110,3 +110,23 @@ Further read-only inspection of the installed desktop entry definition establish
 当前停点是用户手动解锁。解锁后再正常退出旧候选、启动精确 1e68fda；必要系统密码授权仍由本人处理。之后临时恢复此前已授权的电脑控制与直达测试开关，先验证设备普通锁定显示，再验证一次直达左右切换；不要把 CI、系统探针或 deep link 接受当作实体通过。日常只读、音乐采集、和风自动定位和展示设置继续保留。
 
 English: candidate `1e68fdadf9ec6311e0537ee0a0882ce1dc7ab1f1` passed CI 39548667116 with 240 tests and zero failures/skips. Full downloaded artifacts passed source/hash, arm64 executable/app, license, tool and native-render verification. Local Release, ad-hoc packaging, offline tool and UI fixture checks passed; local XCTest remains unavailable. The new app is prepared but the running 3c9b90d has not been replaced. A user-triggered lock produced the actual screen-lock notification and explicit true session/registry lock observations without reading window contents or credentials. The machine remains locked; no unlock or candidate hardware acceptance is recorded. A separate production-observer probe started after locking correctly begins unknown until an event. Resume normal app replacement and the already authorized narrow hardware checks after the user unlocks. No deployment, release, main merge or firmware change/flash occurred.
+
+
+### 1e68fda 正常 App 续验
+
+用户回复已解锁后，使用生产 `MacScreenLockObservation` 类编译的临时观察进程实际记录 unlocked → locked → unlocked，说明本机事件顺序下状态可往返更新。该探针已停止；仍不等于 TAB5 显示已通过。
+
+已正常退出运行中的 3c9b90d，核对旧进程退出后通过精确 App 路径启动 1e68fda。用户完成系统钥匙串授权，正常 App 确认 USB 数据已确认、Wi-Fi 已认证、蓝牙 USB 优先待命、音乐采集开启及 Codex 日常只读 30 会话。临时恢复此前已授权的电脑控制、直达开关；任务发送和语音保持关闭。定位条目因换包为关闭，按已有持续自动定位授权恢复。辅助功能原条目仍失效，本次通过系统设置直接移除并重新添加精确 1e68fda 路径，开关为 on；当前进程前置检查已变为“等待设备发起直达”，无需 tccutil 或新系统密码操作。已请求实体直达顶部箭头只切换一次，等待标题／项目／序号及诊断；尚无实体直达通过结论。
+
+English: after the user unlocked, a temporary process compiled with the production observation class recorded unlocked → locked → unlocked and was stopped. The old app exited normally; exact candidate 1e68fda launched, the user completed Keychain authorization, and USB/Wi-Fi/BLE, music collection and 30-thread daily read-only Codex recovered. Previously authorized temporary computer/desktop controls were restored with task sending and voice still off. Existing automatic-location access was restored. System Settings removed/re-added the exact candidate to Accessibility; the running process now passes permission preflight without another reset command. One hardware arrow-switch check is pending; no device-display/navigation acceptance is claimed yet.
+
+
+### 固定本机签名与直达页面路由续查
+
+1e68fda 实体箭头仍失败：用户报告先有密码授权，然后“未确认 Codex 前台”；正常 App 诊断为“未取得匹配目标任务的公开页面地址”。权限前置检查通过，不把本次当成直达通过。启动四次提示及首次直达额外提示分别涉及独立钥匙串项目与延迟读取的草稿／回执密钥；现有进程缓存不能解决换临时签名后的身份变化。
+
+用户明确授权创建并固定使用 `AI-bot Local Development` 本机代码签名身份。通过钥匙串访问证书助理创建 RSA 2048、SHA-256、仅代码签名用途、365 天自签名证书，私钥留在登录钥匙串；未导出私钥、未添加网络或全局信任。用户完成 codesign 的首次系统授权后，两个内容不同的临时二进制均签名校验通过且 designated requirement 完全相同，绑定证书指纹和桥接 bundle ID。构建脚本自动读取仓库外的本机指纹选择；环境变量仍可显式覆盖，无配置的 CI 仍使用临时签名，固定身份失败不会回退。普通 App 首次身份迁移和跨构建权限保持尚待实测。
+
+只读检查已安装 Codex 的路由定义发现本机会话实际使用 `/local/:conversationId`；外部 deep link 才使用 `codex://threads/:id`。桥接新增可信打包来源内精确 local 路由匹配，拒绝其他来源、remote、错误任务、额外路径与 initialRoute 启动参数；不放宽主输入框确认。导航失败新增无主区域、无可验证地址、遍历到界等不含正文／地址的诊断，避免再次盲试。固件未修改。自动测试与新候选结果待续。
+
+English: the 1e68fda hardware arrow still failed after a Keychain prompt; the app reported no matching exact page address despite permission preflight passing. Separate Keychain items plus the lazily accessed private draft/receipt key explain additional prompts; process caching does not stabilize ad-hoc build identity. With explicit user approval, Certificate Assistant created a local 2048-bit RSA/SHA-256 code-signing-only identity, valid for 365 days. Its private key remains in the login Keychain, with no key export or global/network trust changes. After user approval for codesign, two different temporary binaries verified successfully with identical certificate-bound designated requirements. Build selection now persists outside the repository, retains an explicit environment override, and never silently falls back from a configured signer. First migration and cross-build OS grants remain unverified. Static installed-app inspection also established `/local/:conversationId` as the internal local route; exact trusted-origin parsing and bounded non-content failure diagnostics were added without loosening composer checks or modifying firmware. Further automatic and physical validation is pending.
