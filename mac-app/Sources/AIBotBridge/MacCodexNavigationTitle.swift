@@ -6,11 +6,23 @@ import SQLite3
 // Never use device-truncated titles, a recent/project subset or generic chrome.
 enum MacCodexNavigationTitle {
     enum Identity: Equatable { case unavailable, unique(String), duplicate }
-    static func read(_ task: String, home: URL? = nil) -> String? {
-        if case .unique(let title) = identity(task, home: home) { return title }
+    static func read(_ task: String, home: URL? = nil, compact: Bool = false) -> String? {
+        if case .unique(let title) = identity(task, home: home, compact: compact) { return title }
         return nil
     }
-    static func identity(_ task: String, home: URL? = nil) -> Identity {
+    // Loaded unnamed chats use a shorter accessible label than the desktop
+    // catalog. Treat that label as another complete identity only after checking
+    // collisions across the entire catalog, never by a target-only prefix match.
+    static func compactTitle(_ title: String) -> String? {
+        let words = title.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
+        let plain = words.joined(separator: " ")
+        let units = Array(plain.utf16)
+        guard units.count > 60 else { return plain.isEmpty ? nil : plain }
+        let head = Array(units.prefix(59))
+        guard let last = head.last, !(0xD800...0xDBFF).contains(last) else { return nil }
+        return String(decoding: head, as: UTF16.self).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+    }
+    static func identity(_ task: String, home: URL? = nil, compact: Bool = false) -> Identity {
         guard MacTab5Codex.id(task) == task else { return .unavailable }
         let root = home ?? ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath: $0) } ??
             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
@@ -35,16 +47,38 @@ enum MacCodexNavigationTitle {
         FROM local_thread_catalog AS target
         WHERE target.host_id='local' AND target.thread_id=?1 AND COALESCE(target.missing_candidate,0)=0
         """
-        guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK, let statement else { return .unavailable }
-        let bound = task.withCString { sqlite3_bind_text(statement, 1, $0, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self)) }
-        guard bound == SQLITE_OK, sqlite3_step(statement) == SQLITE_ROW,
-              sqlite3_column_bytes(statement, 0) <= 8192, let value = sqlite3_column_text(statement, 0) else { return .unavailable }
-        let bytes = Data(bytes: value, count: Int(sqlite3_column_bytes(statement, 0)))
+        guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK, let target = statement else { return .unavailable }
+        let bound = task.withCString { sqlite3_bind_text(target, 1, $0, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self)) }
+        guard bound == SQLITE_OK, sqlite3_step(target) == SQLITE_ROW,
+              sqlite3_column_bytes(target, 0) <= 8192, let value = sqlite3_column_text(target, 0) else { return .unavailable }
+        let bytes = Data(bytes: value, count: Int(sqlite3_column_bytes(target, 0)))
         guard !bytes.contains(0), let title = String(data: bytes, encoding: .utf8) else { return .unavailable }
-        let count = sqlite3_column_int64(statement, 1)
-        guard sqlite3_step(statement) == SQLITE_DONE,
+        var count = sqlite3_column_int64(target, 1)
+        guard sqlite3_step(target) == SQLITE_DONE,
               !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !["codex", "chatgpt", "openai codex"].contains(title.lowercased()), count > 0 else { return .unavailable }
+              !["codex", "chatgpt", "openai codex"].contains(title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()), count > 0 else { return .unavailable }
+        if compact {
+            guard let name = compactTitle(title), !["codex", "chatgpt", "openai codex"].contains(name.lowercased()) else { return .unavailable }
+            sqlite3_finalize(target); statement = nil
+            let all = "SELECT display_title FROM local_thread_catalog WHERE COALESCE(missing_candidate,0)=0 AND display_title IS NOT NULL"
+            guard sqlite3_prepare_v2(database, all, -1, &statement, nil) == SQLITE_OK, let catalog = statement else { return .unavailable }
+            count = 0
+            var step = sqlite3_step(catalog)
+            while step == SQLITE_ROW {
+                guard ProcessInfo.processInfo.systemUptime < deadline.pointee,
+                      sqlite3_column_bytes(catalog, 0) <= 8192,
+                      let raw = sqlite3_column_text(catalog, 0) else { return .unavailable }
+                let data = Data(bytes: raw, count: Int(sqlite3_column_bytes(catalog, 0)))
+                guard !data.contains(0), let other = String(data: data, encoding: .utf8) else { return .unavailable }
+                // Unsupported surrogate-boundary truncations cannot establish
+                // that another row has a different accessible name.
+                guard let label = compactTitle(other) else { return .unavailable }
+                if label == name { count += 1 }
+                step = sqlite3_step(catalog)
+            }
+            guard step == SQLITE_DONE, count > 0 else { return .unavailable }
+            return count == 1 ? .unique(name) : .duplicate
+        }
         return count == 1 ? .unique(title) : .duplicate
     }
     static func matches(role: String, trustedPrimary: Bool, pageTitle: String?, uniqueTitle: String?) -> Bool {

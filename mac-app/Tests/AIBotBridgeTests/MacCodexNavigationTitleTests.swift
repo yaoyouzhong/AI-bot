@@ -4,6 +4,28 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacCodexNavigationTitleTests: XCTestCase {
+    func testLoadedChatCompactLabelMustBeUniqueAcrossTheWholeCatalog() throws {
+        let (home, db) = try fixture(), task = UUID().uuidString.lowercased()
+        let prefix = String(repeating: "a", count: 59), full = prefix + String(repeating: "b", count: 20) + "…"
+        insert(db, task, full)
+        XCTAssertEqual(MacCodexNavigationTitle.read(task, home: home), full)
+        XCTAssertEqual(MacCodexNavigationTitle.read(task, home: home, compact: true), prefix + "…")
+        let generic = UUID().uuidString.lowercased(); insert(db, generic, " OpenAI  Codex ")
+        XCTAssertEqual(MacCodexNavigationTitle.identity(generic, home: home, compact: true), .unavailable)
+        for index in 0..<520 { insert(db, UUID().uuidString.lowercased(), "other \(index)") }
+        // Different full names collide after the desktop's loaded-chat elision.
+        insert(db, UUID().uuidString.lowercased(), prefix + "different ending", host: "remote")
+        XCTAssertEqual(MacCodexNavigationTitle.read(task, home: home), full)
+        XCTAssertNil(MacCodexNavigationTitle.read(task, home: home, compact: true))
+        XCTAssertEqual(MacCodexNavigationTitle.identity(task, home: home, compact: true), .duplicate)
+    }
+    func testCompactLabelUsesUtf16BoundaryWithoutSplittingSurrogates() {
+        XCTAssertEqual(MacCodexNavigationTitle.compactTitle("  short\nname  "), "short name")
+        XCTAssertEqual(MacCodexNavigationTitle.compactTitle(String(repeating: "中", count: 61)), String(repeating: "中", count: 59) + "…")
+        let valid = String(repeating: "a", count: 57) + "😀" + "tail"
+        XCTAssertEqual(MacCodexNavigationTitle.compactTitle(valid), String(repeating: "a", count: 57) + "😀…")
+        XCTAssertNil(MacCodexNavigationTitle.compactTitle(String(repeating: "a", count: 58) + "😀tail"))
+    }
     private func fixture() throws -> (URL, OpaquePointer) {
         let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: home.appendingPathComponent("sqlite"), withIntermediateDirectories: true)
@@ -52,7 +74,7 @@ final class MacCodexNavigationTitleTests: XCTestCase {
         XCTAssertEqual(MacCodexNavigationTitle.identity(UUID().uuidString.lowercased(), home: missingHome), .unavailable)
         XCTAssertFalse(FileManager.default.fileExists(atPath: missingHome.path))
         let (home, db) = try fixture()
-        for title in ["", "  ", "Codex", "ChatGPT", "part\0rest", String(repeating: "x", count: 8200)] {
+        for title in ["", "  ", "Codex", "ChatGPT", "  Codex  ", "part\0rest", String(repeating: "x", count: 8200)] {
             let task = UUID().uuidString.lowercased(); insert(db, task, title)
             XCTAssertNil(MacCodexNavigationTitle.read(task, home: home))
         }

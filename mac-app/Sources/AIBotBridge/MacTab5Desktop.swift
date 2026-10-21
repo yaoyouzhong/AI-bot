@@ -31,7 +31,7 @@ enum MacTab5DesktopCheck: String {
     case open = "系统未接受打开会话请求"
     case confirmed = "已确认目标任务和主输入框"
     case navigationConfirmed = "已确认目标会话；输入框操作将另行校验"
-    case navigationOpened = "已请求打开指定会话，Codex 已在前台；同名会话未作精确确认，输入框操作另行检查"
+    case navigationOpened = "已请求打开指定会话，Codex 已在前台；显示名称重复，未精确读回目标，输入框操作另行检查"
 }
 
 final class MacTab5Desktop {
@@ -157,7 +157,9 @@ enum MacTab5DesktopAX {
         // Windows allows an app-foreground acknowledgment for open-only when
         // titles are ambiguous. Do not call this proof of the exact document,
         // and never reuse it for reading, changing or submitting a composer.
-        guard MacCodexNavigationTitle.identity(task) == .duplicate, AXIsProcessTrusted(),
+        let ambiguous = MacCodexNavigationTitle.identity(task) == .duplicate ||
+            MacCodexNavigationTitle.identity(task, compact: true) == .duplicate
+        guard ambiguous, AXIsProcessTrusted(),
               let app = MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication }),
               app.bundleIdentifier == "com.openai.codex" else { return false }
         let root = AXUIElementCreateApplication(app.processIdentifier)
@@ -247,7 +249,11 @@ enum MacTab5DesktopAX {
         let window = unsafeBitCast(raw, to: AXUIElement.self)
         let resources = app.bundleURL?.appendingPathComponent("Contents/Resources")
         let uniqueTitle = MacCodexNavigationTitle.read(task)
-        unique = uniqueTitle != nil
+        let compactTitle = MacCodexNavigationTitle.read(task, compact: true)
+        let identities: [(name: String, compact: Bool)] = [(uniqueTitle, false), (compactTitle, true)].compactMap { name, compact in
+            name.map { (name: $0, compact: compact) }
+        }
+        unique = !identities.isEmpty
         guard (value(window, "AXSheets") as? [AXUIElement] ?? []).isEmpty else { note(.route); return false }
         // The window document may identify the exact page without editor focus.
         if let document = address(window, "AXDocument"), identifies(document, task: task, resourceRoot: resources) { return true }
@@ -267,13 +273,13 @@ enum MacTab5DesktopAX {
                 shells += 1
                 if let page = address(node), identifies(page, task: task, resourceRoot: resources) { return true }
                 if !inheritedShell {
-                    checkedTitle = uniqueTitle != nil
-                    if MacCodexNavigationTitle.matches(role: role, trustedPrimary: true,
-                        pageTitle: value(node, "AXTitle") as? String, uniqueTitle: uniqueTitle),
-                       MacCodexNavigationTitle.read(task) == uniqueTitle,
+                    checkedTitle = !identities.isEmpty
+                    if let identity = identities.first(where: { MacCodexNavigationTitle.matches(role: role, trustedPrimary: true,
+                        pageTitle: value(node, "AXTitle") as? String, uniqueTitle: $0.name) }),
+                       MacCodexNavigationTitle.read(task, compact: identity.compact) == identity.name,
                        MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication?.processIdentifier }) == app.processIdentifier,
                        let focused = value(root, "AXFocusedWindow"), CFEqual(focused, window),
-                       value(node, "AXTitle") as? String == uniqueTitle {
+                       value(node, "AXTitle") as? String == identity.name {
                         titleMatched = true; return true
                     }
                 }
@@ -287,15 +293,15 @@ enum MacTab5DesktopAX {
                     if [title, label].compactMap({ $0 }).contains(where: { !$0.isEmpty }) { named += 1 }
                     // Counts and equality only: never expose titles, task IDs,
                     // addresses or reply/editor contents in diagnostics.
-                    rowEvidence = "；名称长度 \(uniqueTitle?.utf8.count ?? 0)/\(title?.utf8.count ?? 0)/\(label?.utf8.count ?? 0)；名称匹配 \(uniqueTitle != nil && title == uniqueTitle ? "是" : "否")/\(uniqueTitle != nil && label == uniqueTitle ? "是" : "否")；侧栏样式 \(classes.contains("sidebar-item") ? "有" : "无")"
-                    if MacCodexNavigationTitle.matchesSelectedRow(role: role, trusted: shell, current: "page", classes: classes,
-                        title: title, label: label, uniqueTitle: uniqueTitle),
-                       MacCodexNavigationTitle.read(task) == uniqueTitle,
+                    rowEvidence = "；名称长度 \(uniqueTitle?.utf8.count ?? 0)/\(title?.utf8.count ?? 0)/\(label?.utf8.count ?? 0)；名称匹配 \(uniqueTitle != nil && title == uniqueTitle ? "是" : "否")/\(uniqueTitle != nil && label == uniqueTitle ? "是" : "否")；短名称唯一 \(compactTitle != nil ? "是" : "否")；侧栏样式 \(classes.contains("sidebar-item") ? "有" : "无")"
+                    if let identity = identities.first(where: { MacCodexNavigationTitle.matchesSelectedRow(role: role, trusted: shell, current: "page", classes: classes,
+                        title: title, label: label, uniqueTitle: $0.name) }),
+                       MacCodexNavigationTitle.read(task, compact: identity.compact) == identity.name,
                        value(node, "AXARIACurrent") as? String == "page",
                        MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication?.processIdentifier }) == app.processIdentifier,
                        let focused = value(root, "AXFocusedWindow"), CFEqual(focused, window),
                        MacCodexNavigationTitle.matchesSelectedRow(role: role, trusted: shell, current: "page", classes: classes,
-                        title: value(node, "AXTitle") as? String, label: value(node, "AXDescription") as? String, uniqueTitle: uniqueTitle) {
+                        title: value(node, "AXTitle") as? String, label: value(node, "AXDescription") as? String, uniqueTitle: identity.name) {
                         rowMatched = true; return true
                     }
                 }
