@@ -2,6 +2,53 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5CodexTests: XCTestCase {
+    func testRecencyOrderAndDeviceTimestampDoNotPromoteRecordOnlyUpdates() throws {
+        let ids = (0..<4).map { _ in UUID().uuidString.lowercased() }
+        // Desktop order is 1,2,3,4; record updates would produce 1,4,2,3.
+        let entries: [[String: Any]] = [
+            ["id": ids[0], "cwd": "/fixture", "name": "one", "updatedAt": 400, "recencyAt": 400],
+            ["id": ids[3], "cwd": "/fixture", "name": "four", "updatedAt": 350, "recencyAt": 100],
+            ["id": ids[1], "cwd": "/fixture", "name": "two", "updatedAt": 300, "recencyAt": 300],
+            ["id": ids[2], "cwd": "/fixture", "name": "three", "updatedAt": 200, "recencyAt": 200]]
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, call: { _, params in
+            XCTAssertEqual(params["sortKey"] as? String, "recency_at")
+            if params["cursor"] == nil { return ["data": Array(entries.prefix(2)), "nextCursor": "older"] }
+            return ["data": Array(entries.dropFirst(2))]
+        })
+        codex.refresh()
+        let tasks = try XCTUnwrap(codex.snapshot()?["tasks"] as? [[String: Any]])
+        XCTAssertEqual(tasks.compactMap { $0["id"] as? String }, ids)
+        XCTAssertEqual(tasks.compactMap { $0["updatedAt"] as? Int64 }, [400, 300, 200, 100])
+        // Existing firmware re-sorts by this wire value, independent of array order.
+        XCTAssertEqual(tasks.sorted { ($0["updatedAt"] as! Int64) > ($1["updatedAt"] as! Int64) }.compactMap { $0["id"] as? String }, ids)
+    }
+    func testRejectedRecencySortFallsBackOnceWithoutLosingActivityTime() throws {
+        let task = UUID().uuidString.lowercased(); var keys: [String] = []
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, call: { _, params in
+            let key = params["sortKey"] as? String ?? ""; keys.append(key)
+            if key == "recency_at" { throw MacTab5CodexFailure.rejected }
+            return ["data": [["id": task, "cwd": "/fixture", "name": "old server", "updatedAt": 900, "recencyAt": 100]]]
+        })
+        codex.refresh(); codex.refresh()
+        XCTAssertEqual(keys, ["recency_at", "updated_at", "updated_at"])
+        XCTAssertEqual((codex.snapshot()?["tasks"] as? [[String: Any]])?.first?["updatedAt"] as? Int64, 100)
+    }
+    func testInvalidRecencyFallsBackAndTimeoutPreservesOrderWithoutRetry() throws {
+        let ids = (0..<5).map { _ in UUID().uuidString.lowercased() }
+        let invalid: [Any] = [true, -1, Int64(253_402_300_800), NSNull(), 0]
+        var timeout = false, attempts = 0
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, call: { _, _ in
+            attempts += 1; if timeout { throw MacTab5CodexFailure.timeout }
+            return ["data": ids.enumerated().map { index, id in
+                ["id": id, "cwd": "/fixture", "name": "entry \(index)", "updatedAt": 100 - index, "recencyAt": invalid[index]] as [String: Any]
+            }]
+        })
+        codex.refresh()
+        let before = try XCTUnwrap(codex.snapshot()?["tasks"] as? [[String: Any]])
+        XCTAssertEqual(before.compactMap { $0["updatedAt"] as? Int64 }, [100, 99, 98, 97, 0])
+        timeout = true; codex.refresh(); XCTAssertEqual(attempts, 2)
+        XCTAssertEqual((codex.snapshot()?["tasks"] as? [[String: Any]])?.compactMap { $0["id"] as? String }, ids)
+    }
     func testUnnamedChatsUseDesktopPreviewAndRetainItDuringMetadataFailure() throws {
         let unnamed = UUID().uuidString.lowercased(), named = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
         var explicit = "", names: [String: String]? = [unnamed: "[OpenClaw conversation info]", named: "must not override", other: "must not export"]

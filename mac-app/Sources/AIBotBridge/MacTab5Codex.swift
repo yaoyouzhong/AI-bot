@@ -11,6 +11,7 @@ final class MacTab5Codex {
     private let clock: () -> TimeInterval
     private let lookupNames: CatalogNames
     private var cachedNames: [String: String] = [:]
+    private var listSortKey = "recency_at"
     private var catalogUpdated: TimeInterval = -.infinity
     let store: MacTab5PrivateStore
     let photos: MacTab5Photos
@@ -104,10 +105,17 @@ final class MacTab5Codex {
             // threads. Request user-facing sources explicitly, across providers.
             var threads: [[String: Any]] = [], cursor: String?, seenCursors = Set<String>(), seenTasks = Set<String>()
             for _ in 0..<8 {
-                var params: [String: Any] = ["limit": 64, "archived": false, "sortKey": "updated_at", "sortDirection": "desc",
+                var params: [String: Any] = ["limit": 64, "archived": false, "sortKey": listSortKey, "sortDirection": "desc",
                                             "sourceKinds": ["cli", "vscode", "appServer"], "modelProviders": [String]()]
                 if let cursor { params["cursor"] = cursor }
-                let result = try call("thread/list", params)
+                let result: [String: Any]
+                do { result = try call("thread/list", params) }
+                catch MacTab5CodexFailure.rejected where cursor == nil && listSortKey == "recency_at" {
+                    // Older read-only servers can reject the newer sort key.
+                    // Fall back once for this bridge instance, never on timeout.
+                    listSortKey = "updated_at"; params["sortKey"] = listSortKey
+                    result = try call("thread/list", params)
+                }
                 guard let entries = result["data"] as? [[String: Any]], entries.count <= 64 else { throw MacTab5CodexFailure.protocolError }
                 for entry in entries {
                     if let id = Self.id(entry["id"]), seenTasks.insert(id).inserted { threads.append(entry) }
@@ -129,8 +137,11 @@ final class MacTab5Codex {
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? "Codex 会话"
-                let time = MacTab5Protocol.integer(root["updatedAt"]) ?? 0
-                let updated = (0...253_402_300_799).contains(time) ? time : 0
+                // Match the desktop's recent-activity order. The device sorts
+                // its quick-console rows again by the existing updatedAt field,
+                // so carry the same effective recency there, not record mtime.
+                let updated = [root["recencyAt"], root["updatedAt"]].compactMap(MacTab5Protocol.integer)
+                    .first(where: { (0...253_402_300_799).contains($0) }) ?? 0
                 return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": updated, "state": rpc == nil && mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"]
             }
             // Enforce global newest-first order after merging all cursor pages,
