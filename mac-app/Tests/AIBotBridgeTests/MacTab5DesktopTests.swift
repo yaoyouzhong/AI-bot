@@ -56,6 +56,23 @@ final class MacTab5DesktopTests: XCTestCase {
         XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
         XCTAssertEqual(fixture.opens, 1); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
     }
+    func testMissingPermissionDoesNotNavigateAndOldReceiptDoesNotRetryAfterGrant() throws {
+        let fixture = Fixture()
+        var allowed = false, backend = fixture.backend
+        backend.preflight = { allowed ? nil : .permission }
+        let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: backend)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.permission.rawValue)
+        var request: [String: Any] = ["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString]
+        let rejected = desktop.handle(request, device: "A")
+        XCTAssertEqual(rejected.status, 409); XCTAssertNil(rejected.body["foreground"])
+        XCTAssertEqual(fixture.opens, 0); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+        allowed = true
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
+        XCTAssertEqual(fixture.opens, 0)
+        request["requestId"] = UUID().uuidString
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 200)
+        XCTAssertEqual(fixture.opens, 1); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+    }
     func testStageAndSubmitExactlyOnceWithChangedComposerProtection() throws {
         let fixture = Fixture(), codex = try model(fixture), desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: fixture.backend)
         let stageID = UUID().uuidString, stage: [String: Any] = ["op": "stage-draft", "taskId": fixture.task, "requestId": stageID, "text": "确认执行"]

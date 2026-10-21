@@ -22,6 +22,10 @@
 
 新候选自动定位初次超时，保留上次天气。系统定位服务中桥接条目实际为关闭；恢复此前已授权的自动定位范围，并保持原和风／自动定位配置不变触发刷新后，窗口确认“和风天气 已更新 · 24 小时 / 7 天”。未变更密钥、城市、设备展示设置或 Wi-Fi 配置。窗口 Wi-Fi 名称框出现用户输入的未提交文字，未点击保存到设备，并已提醒在聊天回复验收结果。
 
+随后用户补充实体 PAC 显示“未开启”，与系统未配置状态一致，实体 PAC 状态验收通过。网络曲线尚未明确反馈，不推定通过。为获取新版直达诊断，临时恢复此前授权的桌面输入框开关，发送开关仍关闭；只允许指定“TAB5 操作验收”点击打开一次，不录音、不输入、不发送。正在等待这次设备点击，结束后关闭临时桌面开关。
+
+用户随后澄清：直达顶部左右箭头会切换 Mac 会话，但 TAB5 标题／内容不更新，因此无法按原步骤直接选中测试会话。只读核对 `.234` 的 `ui_quick_console.h` 和 `desktop_remote.c`：箭头发起 open-recent，只有 status=200、foreground=true 且 taskId 匹配才提交新的选择；失败保留旧选择。当前 App 实际诊断为辅助功能权限未生效；系统条目“在访达中显示”仍指向 9415cee，而非运行中的 bdd84cd。已关闭临时桌面开关，不再要求重复点击。Mac 修复在打开前执行无弹窗权限预检，失败直接返回原有 409，不先导航；补充回归保证零打开／写入／发送、授权后的重复旧请求不重试、新请求才执行。此修复防止已知权限缺失造成的两端位置差异，不把主输入框兼容或实体直达标为通过，固件未修改。
+
 ## English
 
 Only the Mac bridge, tests and docs change. No main merge, deployment, publication or flashing. Firmware camera/layout issues remain deferred.
@@ -35,3 +39,7 @@ Actual loopback PAC fixtures exposed normal CFNetwork output containing a primar
 Final program bdd84cd passed linked CI with 227 tests, zero failures/skips, and complete downloaded-artifact verification. Local Release, signed bundle, offline tools and native fixture rendering passed. The old app was normally quit after temporarily stopping read-only Codex; the exact new app path is running, awaiting user Keychain authorization. Restore the previously authorized daily read-only feature afterward; other temporary controls stay off. Normal-app and physical acceptance are pending, and neither desktop direct control nor CPU queue availability is claimed fixed.
 
 After user Keychain approval, normal-app checks confirmed acknowledged USB, authenticated Wi-Fi, USB-priority BLE standby and restored daily read-only Codex with 30 chats; other temporary controls remain off. Both unauthenticated status routes return 401. Live network latency repeatedly updated around 957–1092 ms with PAC unconfigured. The user physically confirmed VPN latency values; CPU remains unavailable as documented. Device PAC wording/graph and desktop direct control are not accepted yet. Location was disabled for the candidate in System Settings; restoring the previously authorized scope and refreshing unchanged QWeather settings recovered current/24-hour/7-day weather. No credentials, device settings or Wi-Fi configuration were changed; unsent user text in the Wi-Fi name field was not provisioned.
+
+The subsequent device report confirms PAC displays disabled, matching the host and passing that state check; no graph result was supplied. The previously authorized temporary desktop-composer switch was restored for one open-only diagnostic on the designated acceptance chat, with sending still disabled. Awaiting that device click; close the temporary desktop switch after the diagnostic.
+
+The user clarified that top arrows navigate the Mac but leave the device title/content unchanged. Read-only consumer inspection confirms selection commits only after a matching successful foreground receipt. The live diagnostic reports missing Accessibility permission; System Settings' Reveal in Finder still targets 9415cee, not running bdd84cd. Temporary desktop control was closed again. The bridge repair checks permission before navigation, preserving the existing 409 response, with regression coverage for zero side effects, no replay after permission recovery, and execution only for a fresh request. This prevents known permission failures from first moving the Mac; composer compatibility and physical direct navigation remain unaccepted. Firmware is unchanged.

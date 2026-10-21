@@ -6,6 +6,7 @@ struct MacTab5DesktopBackend {
     var read: (String) -> String?
     var write: (String, String, String) -> Bool
     var diagnostic: () -> MacTab5DesktopCheck = { .route }
+    var preflight: () -> MacTab5DesktopCheck? = { nil }
 }
 
 enum MacTab5DesktopCheck: String {
@@ -31,6 +32,7 @@ final class MacTab5Desktop {
     private var status: MacTab5DesktopCheck = .waiting
     var summary: String {
         guard enabled() else { return "尚未启用" }
+        if let failure = backend.preflight() { return failure.rawValue }
         statusLock.lock(); defer { statusLock.unlock() }; return status.rawValue
     }
     private func updateStatus(_ value: MacTab5DesktopCheck) { statusLock.lock(); status = value; statusLock.unlock() }
@@ -54,11 +56,17 @@ final class MacTab5Desktop {
             var result: MacTab5RPCResult
             var body = entry; body.removeValue(forKey: "id"); body["taskId"] = task; body["requestId"] = id
             if op == "open-recent" {
-                let opened = backend.open(task)
-                var current = opened ? backend.read(task) : nil
-                for _ in 0..<6 where opened && current == nil { Thread.sleep(forTimeInterval: 0.15); current = backend.read(task) }
-                if let current { updateStatus(.confirmed); body["foreground"] = true; body["draftEmpty"] = current.isEmpty; result = .init(200, body) }
-                else { updateStatus(opened ? backend.diagnostic() : .open); result = .error(409, "desktop_foreground_unconfirmed") }
+                if let failure = backend.preflight() {
+                    // Do not navigate the Mac when confirmation is known to be
+                    // impossible: the device keeps its previous selection on 409.
+                    updateStatus(failure); result = .error(409, "desktop_foreground_unconfirmed")
+                } else {
+                    let opened = backend.open(task)
+                    var current = opened ? backend.read(task) : nil
+                    for _ in 0..<6 where opened && current == nil { Thread.sleep(forTimeInterval: 0.15); current = backend.read(task) }
+                    if let current { updateStatus(.confirmed); body["foreground"] = true; body["draftEmpty"] = current.isEmpty; result = .init(200, body) }
+                    else { updateStatus(opened ? backend.diagnostic() : .open); result = .error(409, "desktop_foreground_unconfirmed") }
+                }
             } else if op == "stage-draft" {
                 if let current = backend.read(task), !text.isEmpty {
                     let combined = current.isEmpty ? text : current + "\n" + text
@@ -99,7 +107,7 @@ enum MacTab5DesktopAX {
     private static var lastCheck: MacTab5DesktopCheck = .waiting
     private static func note(_ check: MacTab5DesktopCheck) { diagnosticLock.lock(); lastCheck = check; diagnosticLock.unlock() }
     private static func diagnostic() -> MacTab5DesktopCheck { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastCheck }
-    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: write, diagnostic: diagnostic) }
+    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: write, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }) }
     private static func value(_ element: AXUIElement, _ key: String) -> CFTypeRef? { var value: CFTypeRef?; return AXUIElementCopyAttributeValue(element, key as CFString, &value) == .success ? value : nil }
     static func identifies(_ url: String, task: String, resourceRoot: URL? = nil) -> Bool {
         guard let parsed = URLComponents(string: url), ["codex", "http", "https", "file"].contains(parsed.scheme ?? "") else { return false }
