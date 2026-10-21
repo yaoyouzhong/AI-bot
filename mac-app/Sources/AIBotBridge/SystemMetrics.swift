@@ -20,6 +20,8 @@ final class MacSystemMetricsService {
     private var cpuAt = -Double.infinity
     private var cpuPercent = 0.0, memoryPercent = 0.0
     private var pressureObservedAt: Date?
+    private let disk = MacDiskMetrics()
+    private var diskObservation: MacDiskObservation?
     private var history = MacNetworkHistory()
     private var snapshot: SystemMetricsSnapshot?
 
@@ -28,6 +30,7 @@ final class MacSystemMetricsService {
             if previousCpu != nil { pressureObservedAt = now }
             cpuPercent = previousCpu.map { Self.cpuPercent(previous: $0, current: cpu) } ?? 0
             memoryPercent = memory; previousCpu = cpu; cpuAt = uptime
+            diskObservation = disk.capture(now: now, uptime: uptime)
         }
         guard let network = Self.readNetworkTotals() else { return snapshot }
         defer { previousNetwork = network; previousNetworkAt = uptime }
@@ -41,7 +44,7 @@ final class MacSystemMetricsService {
             snapshot = SystemMetricsSnapshot(cpuPercent: cpuPercent, memoryPercent: memoryPercent,
                 uploadBytesPerSecond: publication.mean.upload, downloadBytesPerSecond: publication.mean.download,
                 updatedAt: now, sampleSession: history.session, sampleSequence: publication.sequence,
-                samples: publication.samples, pressureObservedAt: pressureObservedAt)
+                samples: publication.samples, pressureObservedAt: pressureObservedAt, diskObservation: diskObservation)
         }
         return snapshot
     }

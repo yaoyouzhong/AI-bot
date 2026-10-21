@@ -79,6 +79,7 @@ struct SystemMetricsSnapshot: Codable, Equatable {
     var samples: [MacNetworkSample]? = nil
     // Internal freshness: network publication must not renew old CPU/VM data.
     var pressureObservedAt: Date? = nil
+    var diskObservation: MacDiskObservation? = nil
     private enum CodingKeys: String, CodingKey {
         case cpuPercent, memoryPercent, uploadBytesPerSecond, downloadBytesPerSecond, updatedAt
         case sampleSession, sampleSequence, samples

@@ -53,10 +53,19 @@ final class MacRuntimeHealth {
         if !warned.subtracting(initialWarnings).isEmpty { sequence += 1 }
         for (key, label, detail) in [
             ("queue", "处理器队列", "尚无与设备队列字段口径一致的 Mac 实测计数；不使用平均负载代替。"),
-            ("disk", "磁盘延迟", "尚未采集 Mac 物理磁盘 I/O 延迟。"),
             ("vpn", "出口响应", "尚未配置独立出口探测；本机联网不代表目标服务可达。"),
             ("pac", "PAC 路由", "尚未验证当前代理对目标服务的实际路由。")
         ] { check(key, label, "unknown", "尚未采集", detail) }
+        var pressure: [String: Any] = logicalProcessors > 0 ? ["logicalProcessors": logicalProcessors] : [:]
+        if let disk = metrics.diskObservation, disk.milliseconds.isFinite, disk.milliseconds >= 0,
+           disk.observedAt <= now, now.timeIntervalSince(disk.observedAt) < 8 {
+            pressure["diskLatencyMs"] = disk.milliseconds
+            check("disk", "磁盘响应", disk.milliseconds >= 50 ? "observing" : "ok",
+                  disk.milliseconds >= 50 ? "响应偏慢，正在观察" : "已采集磁盘响应",
+                  "依据近期已完成磁盘 I/O 的平均耗时；不代表应用端到端等待，未采集待处理队列。")
+        } else {
+            check("disk", "磁盘响应", "unknown", "暂无近期 I/O 样本", "等待相邻有效计数；空闲、计数重置或读取失败时不以零替代。")
+        }
         check("bridge", "桥接采样", "ok", "采样与发布正常", "CPU 和内存已有近期采样，当前设备状态帧正在发布；不代表界面无阻塞。")
         check("codex", "Codex", codexEnabled ? "observing" : "disabled",
               codexEnabled ? "模型出口未检测" : "未启用",
@@ -68,7 +77,7 @@ final class MacRuntimeHealth {
         let value: [String: Any] = [
             "session": session, "sequence": sequence, "epochUtc": Int64(stamp.timeIntervalSince1970),
             "updatedAt": ISO8601DateFormatter().string(from: stamp), "checks": checks, "alerts": alerts,
-            "pressure": logicalProcessors > 0 ? ["logicalProcessors": logicalProcessors] : [:],
+            "pressure": pressure,
             "latencyHistory": [Any]()
         ]
         cached = value; return value

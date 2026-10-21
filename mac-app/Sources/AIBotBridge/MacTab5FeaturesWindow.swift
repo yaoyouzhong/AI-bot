@@ -14,6 +14,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let codexState = NSTextField(wrappingLabelWithString: "")
     private let voiceState = NSTextField(wrappingLabelWithString: "")
     private let musicState = NSTextField(wrappingLabelWithString: "")
+    private let desktopState = NSTextField(wrappingLabelWithString: "")
     private var timer: Timer?
     private var body: NSStackView?, documentView: NSView?
     init(service: MacTab5Service) {
@@ -41,6 +42,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         codexState.font = .systemFont(ofSize: 12); codexState.textColor = .secondaryLabelColor
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop); stack.addArrangedSubview(desktop)
         label("快捷控制台另需辅助功能权限，须确认目标任务的桌面地址和主输入框。无法确认时保留文字并提示未确认。提交草稿还需要上方操作权限和可用的桌面任务连接。")
+        stack.addArrangedSubview(desktopState); desktopState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        desktopState.font = .systemFont(ofSize: 12); desktopState.textColor = .secondaryLabelColor
         label("语音输入", size: 15)
         voice.state = service.voice.isEnabled ? .on : .off; voice.target = self; voice.action = #selector(toggleVoice); stack.addArrangedSubview(voice)
         stack.addArrangedSubview(voiceState); voiceState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -69,8 +72,9 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         let details = service.voice.diagnostics
         let speech = "语音：" + service.voice.summary + (details.isEmpty ? "" : "\n" + details)
         let playback = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? service.musicDiagnostics : "音乐：尚未启用"
-        guard codexState.stringValue != text || voiceState.stringValue != speech || musicState.stringValue != playback else { return }
-        codexState.stringValue = text; voiceState.stringValue = speech; musicState.stringValue = playback; resizeDocument()
+        let direct = "直达：" + service.desktop.summary
+        guard codexState.stringValue != text || voiceState.stringValue != speech || musicState.stringValue != playback || desktopState.stringValue != direct else { return }
+        codexState.stringValue = text; voiceState.stringValue = speech; musicState.stringValue = playback; desktopState.stringValue = direct; resizeDocument()
     }
     func open() { reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }

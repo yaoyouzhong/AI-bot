@@ -5,12 +5,34 @@ struct MacTab5DesktopBackend {
     var open: (String) -> Bool
     var read: (String) -> String?
     var write: (String, String, String) -> Bool
+    var diagnostic: () -> MacTab5DesktopCheck = { .route }
+}
+
+enum MacTab5DesktopCheck: String {
+    case waiting = "等待设备发起直达"
+    case permission = "辅助功能权限未生效，请检查当前候选的系统授权"
+    case frontmost = "前台应用不是 Codex"
+    case focus = "未取得前台输入焦点"
+    case role = "当前焦点不在主输入框"
+    case identifier = "主输入框标识尚不兼容"
+    case structure = "输入框内容结构尚不兼容"
+    case route = "未取得匹配目标任务的公开页面地址"
+    case value = "未取得可用的输入框文字"
+    case open = "系统未接受打开会话请求"
+    case confirmed = "已确认目标任务和主输入框"
 }
 
 final class MacTab5Desktop {
     static let enabledKey = "tab5_codex_desktop_enabled"
     private let lock = NSLock(), codex: MacTab5Codex
     private let enabled: () -> Bool, backend: MacTab5DesktopBackend
+    private let statusLock = NSLock()
+    private var status: MacTab5DesktopCheck = .waiting
+    var summary: String {
+        guard enabled() else { return "尚未启用" }
+        statusLock.lock(); defer { statusLock.unlock() }; return status.rawValue
+    }
+    private func updateStatus(_ value: MacTab5DesktopCheck) { statusLock.lock(); status = value; statusLock.unlock() }
     init(codex: MacTab5Codex, enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, backend: MacTab5DesktopBackend = MacTab5DesktopAX.backend) { self.codex = codex; self.enabled = enabled; self.backend = backend }
     func handle(_ root: [String: Any], device: String) -> MacTab5RPCResult {
         guard enabled(), codex.isEnabled else { return .error(403, "desktop_control_not_enabled") }
@@ -34,8 +56,8 @@ final class MacTab5Desktop {
                 let opened = backend.open(task)
                 var current = opened ? backend.read(task) : nil
                 for _ in 0..<6 where opened && current == nil { Thread.sleep(forTimeInterval: 0.15); current = backend.read(task) }
-                if let current { body["foreground"] = true; body["draftEmpty"] = current.isEmpty; result = .init(200, body) }
-                else { result = .error(409, "desktop_foreground_unconfirmed") }
+                if let current { updateStatus(.confirmed); body["foreground"] = true; body["draftEmpty"] = current.isEmpty; result = .init(200, body) }
+                else { updateStatus(opened ? backend.diagnostic() : .open); result = .error(409, "desktop_foreground_unconfirmed") }
             } else if op == "stage-draft" {
                 if let current = backend.read(task), !text.isEmpty {
                     let combined = current.isEmpty ? text : current + "\n" + text
@@ -72,39 +94,53 @@ final class MacTab5Desktop {
 }
 
 enum MacTab5DesktopAX {
-    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: write) }
+    private static let diagnosticLock = NSLock()
+    private static var lastCheck: MacTab5DesktopCheck = .waiting
+    private static func note(_ check: MacTab5DesktopCheck) { diagnosticLock.lock(); lastCheck = check; diagnosticLock.unlock() }
+    private static func diagnostic() -> MacTab5DesktopCheck { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastCheck }
+    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: write, diagnostic: diagnostic) }
     private static func value(_ element: AXUIElement, _ key: String) -> CFTypeRef? { var value: CFTypeRef?; return AXUIElementCopyAttributeValue(element, key as CFString, &value) == .success ? value : nil }
-    static func identifies(_ url: String, task: String) -> Bool {
+    static func identifies(_ url: String, task: String, resourceRoot: URL? = nil) -> Bool {
         guard let parsed = URLComponents(string: url), ["codex", "http", "https", "file"].contains(parsed.scheme ?? "") else { return false }
+        if parsed.scheme == "codex" { guard parsed.host == "threads" else { return false } }
         if parsed.scheme == "http" || parsed.scheme == "https" { guard ["localhost", "127.0.0.1", "::1"].contains(parsed.host ?? "") else { return false } }
-        if parsed.scheme == "file" { guard parsed.path.hasPrefix("/Applications/Codex.app/Contents/Resources/") else { return false } }
+        if parsed.scheme == "file" {
+            guard let resourceRoot, resourceRoot.isFileURL, parsed.host == nil || parsed.host == "" || parsed.host == "localhost",
+                  URL(fileURLWithPath: parsed.path).standardizedFileURL.path.hasPrefix(resourceRoot.standardizedFileURL.path + "/") else { return false }
+        }
         let path = (parsed.host == "threads" ? "/threads" : "") + parsed.path + (parsed.fragment.map { "/" + $0 } ?? "")
         let parts = path.split(separator: "/").map(String.init)
         return parts.indices.contains(parts.count - 2) && parts[parts.count - 2] == "threads" && parts.last?.lowercased() == task.lowercased()
     }
     private static func composer(_ task: String) -> AXUIElement? {
-        guard AXIsProcessTrusted(), let app = MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication }), app.bundleIdentifier == "com.openai.codex" else { return nil }
+        func reject(_ check: MacTab5DesktopCheck) -> AXUIElement? { note(check); return nil }
+        guard AXIsProcessTrusted() else { return reject(.permission) }
+        guard let app = MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication }), app.bundleIdentifier == "com.openai.codex" else { return reject(.frontmost) }
         let root = AXUIElementCreateApplication(app.processIdentifier); AXUIElementSetMessagingTimeout(root, 0.15)
-        guard let focused = value(root, "AXFocusedUIElement"), CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        guard let focused = value(root, "AXFocusedUIElement"), CFGetTypeID(focused) == AXUIElementGetTypeID() else { return reject(.focus) }
         let editor = unsafeBitCast(focused, to: AXUIElement.self)
-        guard value(editor, "AXRole") as? String == "AXTextArea" else { return nil }
+        guard value(editor, "AXRole") as? String == "AXTextArea" else { return reject(.role) }
         let identifier = (value(editor, "AXIdentifier") as? String ?? "").lowercased()
-        guard identifier == "prompt-textarea" || identifier.contains("composer") else { return nil }
+        guard identifier == "prompt-textarea" || identifier.contains("composer") else { return reject(.identifier) }
         var pending = (value(editor, "AXChildren") as? [AXUIElement]) ?? [], visited = 0
         while let child = pending.popLast() {
-            visited += 1; guard visited <= 80, ["AXStaticText", "AXGroup"].contains(value(child, "AXRole") as? String ?? "") else { return nil }
+            visited += 1; guard visited <= 80, ["AXStaticText", "AXGroup"].contains(value(child, "AXRole") as? String ?? "") else { return reject(.structure) }
             pending.append(contentsOf: value(child, "AXChildren") as? [AXUIElement] ?? [])
         }
         // Require a public accessibility URL carrying the exact task UUID.
         // Matching a generic window title is insufficient and never types text.
         var node = editor
         for _ in 0..<20 {
-            if let url = value(node, "AXURL") as? URL, identifies(url.absoluteString, task: task) { return editor }
+            if let url = value(node, "AXURL") as? URL,
+               identifies(url.absoluteString, task: task, resourceRoot: app.bundleURL?.appendingPathComponent("Contents/Resources")) { note(.confirmed); return editor }
             guard let parent = value(node, "AXParent"), CFGetTypeID(parent) == AXUIElementGetTypeID() else { break }; node = unsafeBitCast(parent, to: AXUIElement.self)
         }
-        return nil
+        return reject(.route)
     }
-    private static func read(_ task: String) -> String? { guard let editor = composer(task), let text = value(editor, "AXValue") as? String, text.utf8.count <= 2000 else { return nil }; return text }
+    private static func read(_ task: String) -> String? {
+        guard let editor = composer(task) else { return nil }
+        guard let text = value(editor, "AXValue") as? String, text.utf8.count <= 2000 else { note(.value); return nil }; return text
+    }
     private static func write(_ task: String, _ expected: String, _ next: String) -> Bool {
         guard let editor = composer(task), value(editor, "AXValue") as? String == expected, next.utf8.count <= 2000 else { return false }
         var settable = DarwinBoolean(false)

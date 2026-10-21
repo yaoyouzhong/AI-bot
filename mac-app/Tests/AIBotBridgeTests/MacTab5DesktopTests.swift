@@ -23,6 +23,31 @@ final class MacTab5DesktopTests: XCTestCase {
         XCTAssertFalse(MacTab5DesktopAX.identifies("https://untrusted.example/threads/" + id, task: id))
         XCTAssertFalse(MacTab5DesktopAX.identifies("codex://threads/" + id + "-other", task: id))
         XCTAssertFalse(MacTab5DesktopAX.identifies("codex://threads/" + UUID().uuidString, task: id))
+        XCTAssertFalse(MacTab5DesktopAX.identifies("codex://untrusted/threads/" + id, task: id))
+    }
+    func testFileRouteUsesActualVerifiedAppResourceRoot() {
+        let id = UUID().uuidString.lowercased(), root = URL(fileURLWithPath: "/Applications/ChatGPT.app/Contents/Resources")
+        let route = "file:///Applications/ChatGPT.app/Contents/Resources/app/index.html#/threads/" + id
+        XCTAssertFalse(MacTab5DesktopAX.identifies(route, task: id))
+        XCTAssertTrue(MacTab5DesktopAX.identifies(route, task: id, resourceRoot: root))
+        XCTAssertFalse(MacTab5DesktopAX.identifies(route, task: UUID().uuidString, resourceRoot: root))
+        XCTAssertFalse(MacTab5DesktopAX.identifies(route, task: id, resourceRoot: URL(fileURLWithPath: "/Applications/Codex.app/Contents/Resources")))
+        for route in ["file:///Applications/ChatGPT.app/Contents/Resources-Other/index.html#/threads/",
+                      "file:///Applications/ChatGPT.app/Contents/Resources/../private/index.html#/threads/",
+                      "file://untrusted/Applications/ChatGPT.app/Contents/Resources/app/index.html#/threads/"] {
+            XCTAssertFalse(MacTab5DesktopAX.identifies(route + id, task: id, resourceRoot: root))
+        }
+    }
+    func testUnconfirmedOpenReportsBoundedReasonWithoutAcceptingComposer() throws {
+        let fixture = Fixture()
+        var backend = fixture.backend
+        backend.read = { _ in nil }; backend.diagnostic = { .identifier }
+        let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: backend)
+        let request: [String: Any] = ["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString]
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.identifier.rawValue)
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
+        XCTAssertEqual(fixture.opens, 1); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
     }
     func testStageAndSubmitExactlyOnceWithChangedComposerProtection() throws {
         let fixture = Fixture(), codex = try model(fixture), desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: fixture.backend)
