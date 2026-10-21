@@ -99,3 +99,14 @@ Navigation confirmation is separated from composer access. Success requires a fo
 继续只读检查本机已安装 Codex 的入口定义，确认打包主 renderer 使用 `app://-`，文件浏览来源另为 `app://fs`。原 Mac 精确地址检查没有允许前者，构成可复现的解析兼容缺口。新增仅该主来源的校验，支持前台 WebArea 的精确实时路径和当前链接；`app://fs`、其他 host、带用户信息／端口的伪装地址、不同任务以及仅 query 中的 `initialRoute` 启动提示均不用于确认。实现独立编写，未复制供应商代码；应用文件只读取，不修改。
 
 Further read-only inspection of the installed desktop entry definition established that its packaged main renderer uses `app://-`, while file browsing uses the separate `app://fs` origin. The former was missing from the bridge's exact-route parser. The compatibility fix accepts only that main origin and exact live route/current link, rejecting the file origin, other hosts, credentials/ports, different tasks and startup-only `initialRoute` hints. Implementation is independent; no vendor source was copied or installed app modified.
+
+
+### 1e68fda 自动验证与真实锁屏观测
+
+候选程序 `1e68fdadf9ec6311e0537ee0a0882ce1dc7ab1f1` 已推送测试分支，通过 [Mac CI 39548667116](https://github.com/yaoyouzhong/AI-bot/actions/runs/39548667116)：240 项测试、0 失败、0 跳过。完整附件下载后经 `verify_mac_tab5_ci_artifacts.py` 核验源码 SHA、arm64 Release、App、许可、工具及原生界面附件。本机 Release、临时签名包、离线工具检查及原生界面渲染通过。本机 XCTest 仍因缺少模块未执行，不计为测试通过。
+
+新 App 准备于 `artifacts/mac-tab5-20261021/1e68fda/AIBotBridge.app`，尚未替换运行中的 3c9b90d。按一次手动锁屏／解锁请求启动的只读探针实际捕获 `com.apple.screenIsLocked`；同时 CoreGraphics 当前会话与 IORegistry 当前用户记录均出现明确 `CGSSessionScreenIsLocked=true`，当前用户仍在 console，前台类别为 loginwindow。未读取窗口内容、截图或密码。后续只读确认仍为锁定；尚无解锁反馈和候选实体显示证据。生产观察类的独立临时只读进程在锁屏期间启动，其初始值按设计保持 unknown，等待实际事件；启动在锁屏之后不能冒称已收到先前通知。
+
+当前停点是用户手动解锁。解锁后再正常退出旧候选、启动精确 1e68fda；必要系统密码授权仍由本人处理。之后临时恢复此前已授权的电脑控制与直达测试开关，先验证设备普通锁定显示，再验证一次直达左右切换；不要把 CI、系统探针或 deep link 接受当作实体通过。日常只读、音乐采集、和风自动定位和展示设置继续保留。
+
+English: candidate `1e68fdadf9ec6311e0537ee0a0882ce1dc7ab1f1` passed CI 39548667116 with 240 tests and zero failures/skips. Full downloaded artifacts passed source/hash, arm64 executable/app, license, tool and native-render verification. Local Release, ad-hoc packaging, offline tool and UI fixture checks passed; local XCTest remains unavailable. The new app is prepared but the running 3c9b90d has not been replaced. A user-triggered lock produced the actual screen-lock notification and explicit true session/registry lock observations without reading window contents or credentials. The machine remains locked; no unlock or candidate hardware acceptance is recorded. A separate production-observer probe started after locking correctly begins unknown until an event. Resume normal app replacement and the already authorized narrow hardware checks after the user unlocks. No deployment, release, main merge or firmware change/flash occurred.
