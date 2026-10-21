@@ -185,7 +185,7 @@ final class MacTab5Service {
         additions["connectionHealth"] = health
         additions["codexTasks"] = codex.snapshot()
         if codex.isEnabled { additions["imageBinary"] = 1 }
-        for count in [16, 8, 4, 1] {
+        for count in [64, 48, 32, 16, 8, 4, 1] {
             additions["codexTasks"] = codex.snapshot(taskLimit: count)
             do {
                 let frame = try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover, music: media?.snapshot, now: now)

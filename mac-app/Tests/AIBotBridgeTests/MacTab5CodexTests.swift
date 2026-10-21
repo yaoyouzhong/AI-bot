@@ -51,6 +51,45 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual(Set(tasks.compactMap { $0["id"] as? String }), Set([desktop, existing]))
         XCTAssertEqual((projection["projects"] as? [Any])?.count, 2)
     }
+    func testEmptyTurnRendersStatusWithoutInventingReplyOrReadReceipt() throws {
+        let api = API()
+        for (state, status, placeholder) in [
+            ("interrupted", "已中断", "任务已停止，本轮尚无公开文字。"),
+            ("completed", "已完成", "本轮尚无公开文字。"),
+            ("failed", "失败", "本轮尚无公开文字。"),
+            ("inProgress", "运行中", "Codex 正在处理，等待新的动态…")
+        ] {
+            var publicText = ""
+            let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
+                if method == "thread/read" {
+                    return ["thread": ["id": api.task, "status": ["type": state == "inProgress" ? "active" : "idle"],
+                                       "turns": [["id": api.turn, "status": state, "items": [
+                                        ["type": "agentMessage", "text": publicText],
+                                        ["type": "reasoning", "text": "PRIVATE_THINKING"]]]]]]
+                }
+                return try api.call(method, params)
+            })
+            codex.refresh()
+            let result = codex.handle(["taskId": api.task, "op": "read"], device: "device")
+            XCTAssertEqual(result.status, 200)
+            // TAB5's inline reply takes receipt/text directly from this body.
+            XCTAssertEqual(result.body["receipt"] as? String, status)
+            XCTAssertEqual(result.body["text"] as? String, placeholder)
+            let view = try XCTUnwrap(result.body["replyView"] as? [String: Any])
+            XCTAssertEqual(view["hasText"] as? Bool, false)
+            XCTAssertEqual(view["readReceipt"] as? String, "")
+            XCTAssertEqual(view["pageCount"] as? Int, 1)
+            let snapshot = try XCTUnwrap(codex.snapshot())
+            XCTAssertEqual((snapshot["responses"] as? [String: String])?[api.task], placeholder)
+            XCTAssertEqual((snapshot["receipts"] as? [String: String])?[api.task], status)
+            XCTAssertNil((snapshot["repliesReady"] as? [String: String])?[api.task])
+            XCTAssertNil((snapshot["repliesUnread"] as? [String: String])?[api.task])
+            publicText = "稍后保存的公开回复"
+            let updated = codex.handle(["taskId": api.task, "op": "read"], device: "device")
+            XCTAssertEqual(updated.body["text"] as? String, publicText)
+            XCTAssertEqual((updated.body["replyView"] as? [String: Any])?["hasText"] as? Bool, true)
+        }
+    }
     func testExactlyOnceReceiptSurvivesRestartAndRejectsChangedPayload() throws {
         let api = API(), storage = try store()
         let codex = MacTab5Codex(store: storage, enabled: { true }, sendEnabled: { true }, call: api.call); codex.refresh()
@@ -62,6 +101,57 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual(api.calls.filter { $0.0 == "turn/start" }.count, 1)
         let sent = api.calls.first { $0.0 == "turn/start" }!.1
         XCTAssertNil(sent["model"]); XCTAssertNil(sent["approvalPolicy"]); XCTAssertNil(sent["sandboxPolicy"])
+    }
+    func testCatalogCursorAndEightRowProjectPagesExposeOlderTasks() throws {
+        let entries: [[String: Any]] = (0..<30).map { index in
+            ["id": UUID().uuidString.lowercased(), "cwd": index < 18 ? "/synthetic/workspace" : "/synthetic/Work",
+             "name": "History \(index)", "updatedAt": 100 - index, "status": ["type": "idle"]]
+        }
+        var failSecondPage = false, cursors: [String] = []
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
+            XCTAssertEqual(method, "thread/list")
+            let cursor = params["cursor"] as? String ?? ""; cursors.append(cursor)
+            if cursor.isEmpty { return ["data": Array(entries.prefix(15)), "nextCursor": "second"] }
+            XCTAssertEqual(cursor, "second")
+            if failSecondPage { throw MacTab5CodexFailure.timeout }
+            // A boundary duplicate must not consume another visible row.
+            return ["data": Array(entries.dropFirst(14)), "nextCursor": NSNull()]
+        })
+        codex.refresh()
+        XCTAssertEqual(cursors, ["", "second"])
+        let snapshot = try XCTUnwrap(codex.snapshot())
+        let tasks = try XCTUnwrap(snapshot["tasks"] as? [[String: Any]])
+        let projects = try XCTUnwrap(snapshot["projects"] as? [[String: Any]])
+        var visible = Set<String>()
+        for project in projects {
+            let id = try XCTUnwrap(project["id"] as? String); XCTAssertEqual(id.count, 16)
+            let rows = tasks.filter { $0["projectId"] as? String == id }
+            XCTAssertLessThanOrEqual(rows.count, 8)
+            visible.formUnion(rows.prefix(8).compactMap { $0["id"] as? String })
+        }
+        XCTAssertEqual(visible, Set(entries.compactMap { $0["id"] as? String }))
+        XCTAssertEqual(Set(projects.compactMap { $0["name"] as? String }),
+                       Set(["workspace · 1/3", "workspace · 2/3", "workspace · 3/3", "Work · 1/2", "Work · 2/2"]))
+        failSecondPage = true; codex.refresh()
+        XCTAssertEqual((codex.snapshot()?["tasks"] as? [[String: Any]])?.count, 30)
+        XCTAssertTrue(codex.snapshot()?["control"] is NSNull)
+    }
+    func testProjectPickerLimitRetainsViewedAndWorkingTasks() throws {
+        let api = API(), working = UUID().uuidString.lowercased()
+        let entries: [[String: Any]] = (0..<40).map { index in
+            ["id": index == 39 ? working : index == 38 ? api.task : UUID().uuidString.lowercased(),
+             "cwd": "/synthetic/project\(index)", "name": "Task \(index)", "updatedAt": 100 - index,
+             "status": index == 39 ? ["type": "active", "activeFlags": [String]()] : ["type": "idle"]]
+        }
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
+            method == "thread/list" ? ["data": entries] : try api.call(method, params)
+        })
+        codex.refresh(); XCTAssertEqual(codex.handle(["op": "read", "taskId": api.task], device: "fixture").status, 200)
+        let snapshot = try XCTUnwrap(codex.snapshot())
+        XCTAssertEqual((snapshot["projects"] as? [Any])?.count, 24)
+        let tasks = try XCTUnwrap(snapshot["tasks"] as? [[String: Any]])
+        XCTAssertTrue(tasks.contains { $0["id"] as? String == working })
+        XCTAssertTrue(tasks.contains { $0["id"] as? String == api.task })
     }
     func testTimeoutNeverResendsAndDraftRemains() throws {
         let api = API(); api.failSend = true

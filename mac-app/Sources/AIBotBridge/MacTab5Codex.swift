@@ -34,7 +34,7 @@ final class MacTab5Codex {
     var isEnabled: Bool { enabled() }
     var canMutate: Bool { enabled() && mutable() }
     var summary: String { stateLock.lock(); defer { stateLock.unlock() }; return note }
-    func snapshot(taskLimit: Int = 16) -> [String: Any]? {
+    func snapshot(taskLimit: Int = 64) -> [String: Any]? {
         guard enabled() else { return nil }
         stateLock.lock(); defer { stateLock.unlock() }
         var value = projection
@@ -47,9 +47,41 @@ final class MacTab5Codex {
                let index = selected.indices.reversed().first(where: { !pinned.contains(selected[$0]["id"] as? String ?? "") }) { selected[index] = task }
             pinned.insert(id)
         }
-        let ids = Set(selected.compactMap { $0["id"] as? String }), projects = Set(selected.compactMap { $0["projectId"] as? String })
+        // Existing TAB5 firmware exposes eight task rows per picker entry.
+        // Split larger folders into explicit pages instead of silently hiding
+        // their ninth and older tasks. Task IDs and operation bindings stay intact.
+        var projects: [[String: Any]] = [], counts: [String: Int] = [:], positions: [String: Int] = [:]
+        for task in selected { if let id = task["projectId"] as? String { counts[id, default: 0] += 1 } }
+        var included = Set<String>()
+        selected = selected.compactMap { original in
+            guard let id = original["projectId"] as? String else { return nil }
+            let page = positions[id, default: 0] / 8; positions[id, default: 0] += 1
+            let total = ((counts[id] ?? 1) + 7) / 8
+            let pageID = page == 0 ? id : String(MacTab5Protocol.sha256(Data("\(id):page:\(page)".utf8)).prefix(16))
+            if !included.contains(pageID) {
+                included.insert(pageID)
+                let name = original["folder"] as? String ?? "Codex"
+                projects.append(["id": pageID, "name": total > 1 ? "\(name) · \(page + 1)/\(total)" : name])
+            }
+            var task = original; task["projectId"] = pageID; return task
+        }
+        if projects.count > 24 {
+            let pinnedProjects = Set(selected.filter { pinned.contains($0["id"] as? String ?? "") }.compactMap { $0["projectId"] as? String })
+            var retained = Array(projects.prefix(24))
+            for project in projects where pinnedProjects.contains(project["id"] as? String ?? "") {
+                let id = project["id"] as? String ?? ""
+                if !retained.contains(where: { $0["id"] as? String == id }),
+                   let index = retained.indices.reversed().first(where: { !pinnedProjects.contains(retained[$0]["id"] as? String ?? "") }) {
+                    retained[index] = project
+                }
+            }
+            projects = retained
+            let allowed = Set(projects.compactMap { $0["id"] as? String })
+            selected = selected.filter { allowed.contains($0["projectId"] as? String ?? "") }
+        }
+        let ids = Set(selected.compactMap { $0["id"] as? String })
         value["tasks"] = selected; value["overviewTask"] = Self.overview(selected)
-        value["projects"] = (projection["projects"] as? [[String: Any]] ?? []).filter { projects.contains($0["id"] as? String ?? "") }
+        value["projects"] = projects
         for key in ["repliesReady", "repliesRead", "repliesUnread", "receipts", "responses"] { if let map = projection[key] as? [String: Any] { value[key] = map.filter { ids.contains($0.key) } } }
         return value
     }
@@ -66,9 +98,20 @@ final class MacTab5Codex {
         do {
             // The API's omitted-source default excludes desktop-created appServer
             // threads. Request user-facing sources explicitly, across providers.
-            let result = try call("thread/list", ["limit": 40, "archived": false, "sortKey": "updated_at", "sortDirection": "desc",
-                                                  "sourceKinds": ["cli", "vscode", "appServer"], "modelProviders": [String]()])
-            guard let threads = result["data"] as? [[String: Any]] else { throw MacTab5CodexFailure.protocolError }
+            var threads: [[String: Any]] = [], cursor: String?, seenCursors = Set<String>(), seenTasks = Set<String>()
+            for _ in 0..<8 {
+                var params: [String: Any] = ["limit": 64, "archived": false, "sortKey": "updated_at", "sortDirection": "desc",
+                                            "sourceKinds": ["cli", "vscode", "appServer"], "modelProviders": [String]()]
+                if let cursor { params["cursor"] = cursor }
+                let result = try call("thread/list", params)
+                guard let entries = result["data"] as? [[String: Any]], entries.count <= 64 else { throw MacTab5CodexFailure.protocolError }
+                for entry in entries {
+                    if let id = Self.id(entry["id"]), seenTasks.insert(id).inserted { threads.append(entry) }
+                }
+                guard let next = result["nextCursor"] as? String, !next.isEmpty else { break }
+                guard next.utf8.count <= 4096, seenCursors.insert(next).inserted else { throw MacTab5CodexFailure.protocolError }
+                cursor = next
+            }
             catalog = threads.compactMap { root -> [String: Any]? in
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
@@ -270,7 +313,12 @@ final class MacTab5Codex {
         let items = turn["items"] as? [[String: Any]] ?? []
         let text = items.filter { $0["type"] as? String == "agentMessage" }.compactMap { $0["text"] as? String }.joined(separator: "\n\n")
         guard text.utf8.count <= 1024 * 1024 else { return .error(413, "reply_too_large") }
-        let pages = Self.pages(text), requested = Int(MacTab5Protocol.integer(root["page"]) ?? 0)
+        // The existing device treats an empty response as still loading. Keep
+        // presentation text separate from hasText/read receipts so a status
+        // placeholder never becomes an assistant reply or unread notification.
+        let displayText = text.isEmpty ? (state == "inProgress" ? "Codex 正在处理，等待新的动态…" :
+            state == "interrupted" ? "任务已停止，本轮尚无公开文字。" : "本轮尚无公开文字。") : text
+        let pages = Self.pages(displayText), requested = Int(MacTab5Protocol.integer(root["page"]) ?? 0)
         guard requested >= -1, requested < pages.count else { return .error(400, "invalid_page") }
         let page = max(0, requested), history = index != turns.count - 1
         var receipt = ""
@@ -285,8 +333,9 @@ final class MacTab5Codex {
         let canControl = mutable() && (desktop == nil || live != nil)
         let running = canControl && (live?.running ?? (current["status"] as? String == "inProgress"))
         let flags = (controlThread["status"] as? [String: Any])?["activeFlags"] as? [String] ?? []
+        let statusText = state == "completed" ? "已完成" : state == "inProgress" ? "运行中" : state == "interrupted" ? "已中断" : state == "failed" ? "失败" : "状态未知"
         stateLock.lock(); projection["replyView"] = view; projection["responses"] = [task: pages[page]]
-        projection["receipts"] = [task: state == "completed" ? "已完成" : state == "inProgress" ? "运行中" : state == "interrupted" ? "已中断" : state == "failed" ? "失败" : "状态未知"]
+        projection["receipts"] = [task: statusText]
         projection["control"] = ["taskId": task, "turnId": current["id"] as? String ?? "", "running": running,
                                  "canSend": canControl && sendEnabled() && (live?.canSend ?? (!running && Self.threadIdle(controlThread))),
                                  "canSteer": canControl && sendEnabled() && running && flags.isEmpty && (desktop == nil || MacCodexDesktopIPC.supportsExpectedTurnSteer),
@@ -294,7 +343,7 @@ final class MacTab5Codex {
         stateLock.unlock(); updateReadState()
         viewedTask = task; viewedDevice = device
         viewedPage = !selected.isEmpty || page > 0 ? ["turnId": turnID, "page": page] : [:]
-        return .init(200, ["rpcReplyVersion": 1, "status": "loaded", "taskId": task, "turnId": turnID, "replyView": view, "text": pages[page]])
+        return .init(200, ["rpcReplyVersion": 1, "status": "loaded", "taskId": task, "turnId": turnID, "replyView": view, "text": pages[page], "receipt": statusText])
     }
     static func pages(_ text: String) -> [String] {
         var result = [String](), current = ""
