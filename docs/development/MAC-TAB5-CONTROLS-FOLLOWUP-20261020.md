@@ -169,3 +169,27 @@ CI 39534484773 and full artifact verification passed for 9415cee with 219 tests 
 The user confirmed the enabled device lock button actually locked the Mac: physical lock acceptance passed. The device still cannot display a confirmed locked state or unlock; the Mac implementation deliberately returns unknown lock/display state and oneClickUnlock=false. Those capabilities are not accepted. Mac one-click unlock is outside the handoff's current scope; authentication remains on the Mac, with no password capture or authentication-policy changes. Temporary computer control was closed after this test, daily Codex read-only retained, and desktop verification temporarily re-enabled only for the designated acceptance chat.
 
 The public SDK's CGSession properties describe user, console and login completion, not graphical lock state. Those properties and display sleep cannot substitute for lock evidence. Apple DTS distinguishes protected-data availability from graphical locking and describes common lock notifications as implementation details. No sufficiently documented signal has been established under this project's public-framework-only rule, so lock state remains unknown; neither undocumented keys nor successful command dispatch are used to claim a locked state. This is a bridge limitation, with firmware unchanged.
+
+### 直达列表短暂不可见与位置反馈
+
+用户最初报告验收会话及 AI-bot 会话不可见，随后在未重启或改动桥接设置的情况下又看到了会话，并明确异常位置在 TAB5 实体的直达／任务列表左下方。Mac 界面持续显示 30 个近期会话、USB 数据已确认和已认证无线连接；独立生产只读目录探针取得 30 条、7 个分组页，包含指定验收任务及 AI-bot 的一条本机会话，固定系统样本结合当前缓存生成的完整帧约 19.3 KiB。该探针不等于捕获了异常当时的实际发送帧，尚不能断言暂时不可见的根因。当前直达诊断仍是等待设备发起，没有把找到列表计为直达通过。位置反馈留待后续界面复核，按用户范围不修改固件。
+
+The user initially could not find the acceptance or AI-bot chat, then found it again without a bridge restart/settings change and clarified that the unusual lower-left location was on the physical TAB5 task/direct-navigation UI. The Mac continued showing 30 chats and healthy transports. A production read-only probe returned 30 chats across seven picker pages, including the designated test chat and the one local AI-bot chat; the complete frame with fixed system samples and current cached data was about 19.3 KiB. This did not capture the actual transmitted frame at the time of the disappearance, so the cause remains unproven. Direct verification still awaited a device request; finding the chat is not direct-navigation acceptance. The layout observation is recorded without firmware changes.
+
+### 9415cee 直达失败定位与磁盘实体通过
+
+用户在正确辅助功能授权下再次点击指定验收任务的 Codex 按钮，设备仍显示“未确认 Codex 前台”。桥接有限枚举诊断为“主输入框标识尚不兼容”：权限、前台 bundle 和 AXTextArea 焦点检查已通过，失败在预期的 prompt-textarea／composer 标识匹配，尚未执行后续精确路由与文字校验。只读检查安装包的静态编辑器定义发现使用富文本 textbox，不能据此认定实际 AX 树具备桥接所需身份属性。没有读取 Codex 实时 AX 树、绕过界面工具限制、放宽精确任务校验或尝试写入。当前直达依然未通过，临时桌面输入框开关已关闭，日常只读保持开启。
+
+用户补充验收任务与 AI-bot 项目的单条会话均位于 TAB5 左侧列表偏下，上方大片空白。只读对照消费者确认其先按 projectId 筛选，再从 visible_tasks[0] 紧凑填入行；Mac 没有传坐标或空白行，因此未发现可通过桥接排序修复的依据。设备布局／滚动状态根因仍待后续专门复核，按用户指示不修改固件，不将数据存在当成布局通过。
+
+用户确认诊断页磁盘响应显示 0 毫秒，CPU 等待仍无数据。独立生产采样再次取得约 0.362、0.065、0.267 ms；参考消费者 health_number 使用 %.0f 显示，亚毫秒样本取整为 0，与用户观察一致。**磁盘数据采集及实体显示通过**，但当前整数显示不保留小数；未改固件或将数值人为抬到 1 ms。CPU 等待、VPN、PAC 仍未采集，不能据此宣称诊断全部通过。
+
+With the correct Accessibility grant, the user retried direct navigation and still received an unconfirmed result. The bounded bridge diagnostic identifies the composer identifier check: permission, foreground bundle and AXTextArea focus passed, but the expected identifier did not. Exact route/text verification has not yet run. Static installed-editor inspection is not evidence that its live accessibility tree exposes the required identity. No live Codex AX probing, UI-tool bypass, relaxed task matching or typing occurred. Direct navigation remains unaccepted; the temporary composer opt-in was closed while daily read-only remains on.
+
+Both single-chat groups appear low in the physical device list with blank space above. The consumer filters by projectId before densely filling rows from index zero; the Mac supplies neither coordinates nor empty spacer rows. There is no established bridge ordering repair for this observation. Device layout/scroll-state cause remains pending and firmware is unchanged.
+
+Physical disk response now shows 0 ms. Fresh native readings were approximately 0.362/0.065/0.267 ms and the existing consumer formats integer milliseconds, explaining the observed rounding. Disk collection and physical display passed, with fractional display precision still absent. No fake minimum was introduced. CPU queue, VPN and PAC remain unmeasured.
+
+9415cee 的系统定位开关起初为关，恢复既有同范围授权后两次原值刷新仍提示暂时无法定位，旧天气缓存保留。暂时关闭 Codex 只读以正常退出，再启动同一候选，没有出现可见的 SecurityAgent 进程；USB／Wi-Fi／BLE 自动恢复，Mac 明确显示“和风天气 已更新 · 24 小时 / 7 天”。同一候选正常重启解决了此次恢复，不将其泛化为定位失败根因。日常只读随后恢复，全部临时电脑／音乐／发送／桌面输入框／语音开关保持关闭。
+
+The candidate's location permission was initially off. Restoring the existing scope followed by two unchanged-setting refreshes still left location unavailable, retaining old weather. After temporarily disabling the read-only child for normal exit and restarting the same candidate, no visible SecurityAgent process appeared; all transports recovered and the UI confirmed fresh QWeather current/hourly/daily data. This restart resolved the observed recovery but does not establish a universal location-failure cause. Daily read-only was re-enabled; temporary computer/music/send/composer/voice switches remain off.
