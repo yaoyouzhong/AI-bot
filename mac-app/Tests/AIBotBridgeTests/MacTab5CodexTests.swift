@@ -138,10 +138,11 @@ final class MacTab5CodexTests: XCTestCase {
     }
     func testProjectPickerLimitRetainsViewedAndWorkingTasks() throws {
         let api = API(), working = UUID().uuidString.lowercased()
-        let entries: [[String: Any]] = (0..<40).map { index in
-            ["id": index == 39 ? working : index == 38 ? api.task : UUID().uuidString.lowercased(),
+        let entries: [[String: Any]] = (0..<40).map { index -> [String: Any] in
+            let status: [String: Any] = index == 39 ? ["type": "active", "activeFlags": [String]()] : ["type": "idle"]
+            return ["id": index == 39 ? working : index == 38 ? api.task : UUID().uuidString.lowercased(),
              "cwd": "/synthetic/project\(index)", "name": "Task \(index)", "updatedAt": 100 - index,
-             "status": index == 39 ? ["type": "active", "activeFlags": [String]()] : ["type": "idle"]]
+             "status": status]
         }
         let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
             method == "thread/list" ? ["data": entries] : try api.call(method, params)
