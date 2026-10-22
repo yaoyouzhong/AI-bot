@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Widen the default device center and adapt its action grid between three and two columns, preserving device names and shortening descriptions. Recompute stale scroll extents after resizing so the connection/upgrade entry remains fully reachable. Windows UI only; firmware and device settings are unchanged.
+
 ## 0.6.9 - 2026-10-17
 
 ### TAB5 computer control
