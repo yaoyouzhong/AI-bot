@@ -75,7 +75,16 @@ internal static class Tab5RemoteOtaSelfTest
             using var cancel=new CancellationTokenSource();pending=service.StartOtaAsync(cancel.Token);frame=Command();cancel.Cancel();
             try{await pending;throw new Exception("Cancellation lost");}catch(OperationCanceledException){}
             if(service.RemoteOtaPending||service.Busy||(await Ack(frame,"ready")).GetProperty("status").GetInt32()!=409)throw new Exception("Cancelled intent remained armed");
-            Console.WriteLine("TAB5_REMOTE_OTA_OK actual encrypted HTTP/RPC; legacy gate; immediate publication; paired commit then started; wrong hash/request/auth, duplicate/cancel/draft failure rejected; no physical flash claim");
+            string failedNonce=Guid.NewGuid().ToString("N");
+            if((await service.RpcAsync(pair.DeviceId,failedNonce,new string('0',64),new byte[28],CancellationToken.None,transport:"USB")).Status!=401||
+                service.CanStartOta||!service.OtaStartHint.Contains("固件尚未传输"))throw new Exception("Unauthenticated USB left firmware installation enabled");
+            frame=Command();string verifiedNonce=Guid.NewGuid().ToString("N");
+            var harmless=JsonSerializer.SerializeToUtf8Bytes(new{kind="host-binding-probe",session=frame.GetProperty("session").GetString(),issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()});
+            var verifiedPacket=Tab5Protocol.Encrypt(key,verifiedNonce,harmless);
+            string verifiedProof=Tab5Protocol.Proof(key,$"POST|/tab5/v1/rpc|{pair.DeviceId}|{verifiedNonce}|{Convert.ToHexString(SHA256.HashData(verifiedPacket)).ToLowerInvariant()}");
+            await service.RpcAsync(pair.DeviceId,verifiedNonce,verifiedProof,verifiedPacket,CancellationToken.None,transport:"USB");
+            if(!service.CanStartOta)throw new Exception("Authenticated USB could not recover after a pairing failure");
+            Console.WriteLine("TAB5_REMOTE_OTA_OK actual encrypted HTTP/RPC; legacy gate; immediate publication; paired commit then started; wrong hash/request/auth, duplicate/cancel/draft failure rejected; USB authentication failure blocks start with no-transfer reason and recovers after valid authentication; no physical flash claim");
         }finally{stop.Cancel();await serving;}
     }
 }

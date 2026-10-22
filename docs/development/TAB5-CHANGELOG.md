@@ -2,6 +2,159 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.252-ui - 2026-10-22 (local candidate, not installed)
+
+### Photos and gallery screensavers
+
+- Fit attachment previews proportionally to available space in all four orientations. Use the full portrait pixel budget and reuse removed-photo cache entries before evicting retained attachments.
+- Split image cache synchronization into 16 KiB spans with yields and avoid clearing the entire JPEG output allocation. Preserve quality and panel timing; physical blue-flash improvement remains unverified.
+- Integrate the painting/calligraphy portrait fix: borrow two idle reserved camera frames, return every loan before camera startup, and exclude the captured photograph. See [integration evidence](TAB5-FOLLOWUP-252.md).
+
+## 0.2.251-ui - 2026-10-22 (installed; add/delete passed; blue flashes persist)
+
+### Photo display and quota history
+
+- Temporarily prioritize LCD memory reads during still-image preparation and restore the previous arbitration settings on completion/failure. Preserve resolution, quality, panel clocks and three attachments. Blue-flash improvement requires hardware confirmation.
+- Mark quota bars containing verified cross-day carry-over with `*`; Windows computes reset segments and excludes partial dates from complete-day averages.
+- Numeric wireless diagnostics include the priority lease readback. See [candidate evidence](TAB5-FOLLOWUP-251.md).
+- The user confirmed attachment add/delete works, but adding still flashes blue and the attachment viewer is too small. Boot verification and zero underrun counters are not display acceptance.
+
+## 0.2.250-ui - 2026-10-22 (installed; agenda passed; photos still flash blue)
+
+### Photos, diagnostics and agenda
+
+- Drain display copies before photo encoding and prevent concurrent UI copies until the encoder is released. Preserve the captured frame and three-photo editing; physical flicker acceptance remains pending.
+- With the new Windows bridge, request Wi-Fi/BLE runtime diagnostics over existing authenticated channels, with source, time and stale markers. The Mac counterpart is unchanged.
+- Insert a bounded UTF-8 prefix of oversized agenda speech while retaining existing text. Align ordinary feedback with the name field and separate recording actions; require explicit Save.
+- Build and local validation evidence is in the [candidate record](TAB5-CAMERA-WIRELESS-250.md); this does not imply installation or physical acceptance.
+
+## 0.2.249-ui - 2026-10-22 (installed, captured photo still flashes)
+
+### Photo encoding
+
+- Fix an eightfold oversized JPEG input cache sync caused by treating bit depth as bytes; synchronize within the caller buffer and reject invalid geometry/capacity before DMA.
+- Preserve photo quality, three attachments, camera orientation, add-photo flow and binding settings without upgrading the SDK. The actual old driver fragment reproduces the defect; 39 input-range and 14 DMA allocation checks pass. Physical flicker causality remains unconfirmed; see [candidate evidence](TAB5-CAMERA-249.md).
+- Exact ELF and ota_0 VALID boot verification passed. The user confirms flashes persist while the captured photo remains visible, so physical display acceptance failed.
+
+## 0.2.248-ui - 2026-10-22 (installed, two flashes remain when adding photos)
+
+### Add photo
+
+- Keep the captured image through encoding and upload, then return directly to the composer on success without a transient full-screen attachment page. Failures retain the photo and manual retry; never repeat uploads automatically.
+- Reuse the image and controls without another full-frame allocation; retain three-photo edits, orientation, bindings and settings. Four-way pending-ack/error/retry checks and nine native camera tests pass; see [candidate evidence](TAB5-CAMERA-248.md). The user reports two flashes remain, so physical display acceptance failed.
+- Authorized image installed and verified against the exact ELF, ota_1 VALID and three live healthy samples; no duplicate installation issued.
+
+## 0.2.247-ui - 2026-10-22 (installed, entire screen still flashes when adding)
+
+### Add-photo transition
+
+- Keep the captured image during encoding and restore normal page geometry before revealing attachments. Block duplicate actions and rotation during processing; retain error retry.
+- No extra full-frame storage; retain three-photo editing, orientation and bindings. Ordering regression, four-pose checks, nine native camera targets and full UI pass; see [candidate evidence](TAB5-CAMERA-247.md).
+- User completed installation; exact live boot verification passed for ota_0 VALID. Physical display acceptance failed: the entire screen still flashes when adding.
+
+## 0.2.246-ui - 2026-10-22 (installed, repeated capture/removal passed; flicker when adding)
+
+### Four-way camera and first open
+
+- Place the shutter opposite the lens in all four holds, with the caption below the circle and matching touch coordinates. Correct both portrait viewfinder directions and save normalized portrait/landscape photos using the existing three frames.
+- Wait up to four seconds for transient cold-start memory pressure to recover; keep cancellation responsive and retain the original safety thresholds and explicit failure path.
+- Firmware build, nine camera targets, four-way UI/pixel checks and full UI regressions passed locally. Reboot-first-open, physical orientation and three-photo hardware acceptance remain pending. See [candidate evidence](TAB5-CAMERA-246.md).
+- User completed the authorized upgrade through the normal bridge UI. Scoped live boot verification passed for the exact image, healthy UI samples and VALID OTA state; no duplicate installation was issued.
+- Subsequent user feedback confirms repeated capture/removal works; the remaining reported issue is corruption/flicker when tapping Add Photo in both orientations. First-open and individual direction substeps were not separately reported, so acceptance is not broadened.
+
+## 0.2.245-ui - 2026-10-22 (installed, camera direction acceptance failed)
+
+### Camera direction and controls
+
+- Correct the extra half-turn on the viewfinder and captured review when using inverted landscape or holding the device vertically. Keep the sensor-to-panel mapping fixed while control snapshots follow the UI and touch direction.
+- Apply live direction changes after releasing display ownership; preserve capture, gesture handling and the reserved three frames. Match fallback/review pixel boundaries using small edge strips. Native direction, touch and memory regressions pass; real orientation and camera acceptance remain pending.
+- Boot was verified, but hardware feedback rejects direction acceptance: both portrait holds remain upside down and the inverted-landscape shutter stays on the wrong side. The user also reports first-open 1/12 after reboot followed by a successful second open. These remain open for .246 verification; local fixtures did not prove physical orientation.
+
+## 0.2.244-ui - 2026-10-22 (installed, three-photo memory test passed; direction issue open)
+
+### Camera reopening
+
+- Apply the cold initialization memory headroom check only before registering the sensor/video/ISP pipeline. A previously initialized camera uses its reserved frames and checks actual driver allocation results, avoiding false stage 1 / ENOMEM errors after successful photo uploads.
+- Preserve first-initialization protection, driver failure cleanup, three full-resolution frames, JPEG quality and existing attachments. Eight native camera targets pass, including 128 captures/reopens at the observed internal heap values. The user confirmed real three-photo deletion/re-add, repeated reopen and gallery-return tests passed; upside-down viewfinder/control behavior is tracked separately.
+- User-authorized installation and exact startup verification passed over paired Wi-Fi: matching ELF, ota_1 VALID and three healthy live UI reports. Cached .243 USB health is excluded from .244 acceptance.
+
+## 0.2.243-ui - 2026-10-22 (installed, host/Direct tests passed; camera regression failed)
+
+### Computer selection and names
+
+- Group current-computer, Wi-Fi and service status clearly. Show a monitor/state icon for connecting, authenticated connection, offline and blocked switching; a saved selection alone cannot show success. Keep the selected target when unavailable, and follow authenticated USB takeover.
+- Edit Chinese/English computer aliases on TAB5. Retain aliases through USB reconnection, preserve the original trusted-host/key/bond records, and restore the machine name by saving an empty alias. Save failure retains the old name and editor text.
+
+### Wireless Codex Direct recovery
+
+- Use the desktop-confirmed conversation without waiting for a delayed wireless catalog or the hidden task editor's background synchronization. Prevent old catalogs from clearing that target and pause new hidden read/draft jobs during the visit; retain in-flight results, local drafts, authentication and pending-send protection.
+- Native ownership/persistence tests and a four-switch delayed-catalog/synchronization UI fixture pass locally. The exact candidate was installed with user authorization; startup verification confirmed the matching ELF, ota_0 VALID and fresh UI heartbeats. The user confirmed real connection/alias and Mac/Wi-Fi Direct tests passed. Three-photo regression reported camera stage 1 / ENOMEM 12, tracked separately from the earlier stage 6 frame-allocation failure.
+
+## 0.2.242-ui - 2026-10-22 (installed, three-photo hardware test passed)
+
+### Three-photo attachment lifecycle
+
+- Reserve all three full-resolution camera frames at startup and retain them between sessions. Avoid allocating large frames among retained attachment thumbnails after reopening; preserve three-frame preview and JPEG quality.
+- Cover three acknowledged uploads, middle/last/first deletion and re-addition, repeated camera reopening, a full draft rejecting a fourth attachment, and removal of all three. Preserve remaining photos and draft text. Local codec/network interfaces are simulated. The user confirmed the real three-photo deletion/re-add, repeated reopening and gallery-return run passed on the exact .242 image; boot verification confirmed ota_1 VALID.
+
+## 0.2.241-ui - 2026-10-22 (installed, repeated-use acceptance failed)
+
+### Repeated camera use
+
+- Use the retained still as one of three preview frames, based on the pre-cleanup allocation failure captured on .240. Reduce simultaneous full-size frames from four to three while preserving resolution and JPEG quality.
+- Stop capture before transferring the photographed frame to attachment encoding and freeing the other two. Three photos initially succeeded, but deleting one and reopening reproduced 6/12. A pre-cleanup trace found the second frame needed 1,843,200 bytes while the largest block was 1,835,008; .242 avoids repeated large allocations.
+
+## 0.2.240-ui - 2026-10-22 (installed, repeated-use acceptance failed)
+
+### Camera cache reclamation
+
+- Detach and recycle hidden decoded artwork on the UI thread before opening the camera, then reclaim pending decode results after gallery workers stop. Share this handoff across application, composer and retake entries.
+- Preserve drafts and photo attachments, and reload the same artwork/page when returning to the gallery. Keep resolution, quality and .238 computer channel ownership unchanged. Two photo attachments succeeded, but closing and reopening still reproduced 6/12; .241 addresses the measured contiguous-memory failure.
+
+## 0.2.239-ui - 2026-10-22 (local diagnostic candidate, never flashed)
+
+### Camera buffer diagnostics
+
+- Record failed frame allocation parameters, free bytes and the largest contiguous block before pool cleanup to investigate camera 6/12. A fix is not yet confirmed. Preserve the .238 computer binding and channel logic.
+
+## 0.2.238-ui - 2026-10-22 (local candidate)
+
+### Bluetooth upgrade compatibility
+
+- Send the standard Service Changed indication after startup so bonded computers can refresh an older GATT layout without deleting pairings. This candidate investigates the upgrade/cache failure; Bluetooth hardware acceptance is pending.
+
+## 0.2.237-ui - 2026-10-22 (local candidate)
+
+### One selected computer
+
+- Keep USB, Wi-Fi and BLE assigned to the selected trusted computer. An authenticated USB connection from an already bound computer may take over; an unbound USB computer or another computer's wireless reconnect cannot change the target. Unplugging retains the selected computer.
+- Authenticate BLE ownership before enabling control, remember peer identities separately, and filter connections to the selected computer without deleting pairings.
+- Allow the selected computer's Wi-Fi unlock when an unrelated physical connection is present. Preserve the existing display preferences. Hardware acceptance is pending.
+
+## 0.2.236-ui - 2026-10-21 (local candidate)
+
+### Trusted computers
+
+- Retain up to eight independent trusted computers after explicit first USB enrollment. Authenticated USB selects one owner; unplugging retains its wireless target. Other Windows/Mac bridges wait. Select a saved target in network diagnostics and see it on computer control.
+- Bind takeover to a one-use device challenge and existing key; cancel/drain old input and invalidate old state/RPC/HID generations. Preserve pairing, credentials and BLE bonds; refuse another owner during an upgrade.
+
+### Validation boundary
+
+- Includes .235 camera and Windows password fixes. Windows, firmware and native regressions passed locally; Mac build and real device acceptance remain pending. The last Windows read-only preflight found no COM9; no firmware was written. See [integration record](TAB5-MULTI-HOST-20261021.md).
+
+## 0.2.235-ui - 2026-10-21 (local candidate)
+
+### Camera memory and Windows credentials
+
+- Drain cancelled gallery workers, close their idle HTTP connection and reclaim detached spare decode storage before camera allocations. Preserve full resolution, three frame buffers, JPEG quality and existing attachments. A bounded, cancellable wait keeps the UI responsive.
+- Extend paired Windows PIN/password input to 1–64 printable ASCII characters, preserving case and edge spaces. USB/BLE use per-character Shift and host Caps Lock state; Wi-Fi accepts printable keysyms. Existing encryption, one-shot submission, wiping and lock-state confirmation remain.
+- Always open the manual keypad in numeric mode; switch to lowercase, uppercase or symbols as needed. Retain masking, space, backspace and clear. Remove the keyboard-layout remark from device and Windows settings. Login-method detection/switching and macOS changes are outside this candidate.
+
+### Local validation
+
+- ESP-IDF 5.4.2 build and image/checksum verification passed. Windows Release build, isolated credentials/RFB/encrypted-RPC tests, native UI and camera/photo/gallery regressions passed; actual notes are bound to the candidate image.
+- This candidate has not been installed or flashed. `--status-once` was stopped by the existing profile-redirection guard. Real camera operation and USB/BLE/Wi-Fi Windows unlock acceptance remain pending.
+
 ## 0.2.234-ui - 2026-10-19
 
 ### BLE verification and display continuity

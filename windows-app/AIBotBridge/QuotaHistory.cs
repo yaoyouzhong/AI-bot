@@ -5,7 +5,7 @@ namespace AIBotBridge;
 internal sealed record QuotaObservation(DateTimeOffset At, string? Plan, double? Weekly,
     DateTimeOffset? WeeklyReset, double? FiveHour, DateTimeOffset? FiveHourReset, string? AccountFingerprint = null);
 internal sealed record QuotaDay(DateOnly Day, double? Growth, int Samples, bool Partial, int Resets,
-    int UncertainResets = 0, int Gaps = 0);
+    int UncertainResets = 0, int Gaps = 0, double CarryOver = 0);
 
 // Display-only observations: no credentials, response bodies or conversation data.
 internal sealed class QuotaHistory
@@ -71,22 +71,28 @@ internal sealed class QuotaHistory
             var start = new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), zone.GetUtcOffset(day.ToDateTime(TimeOnly.MinValue)));
             var end = start.AddDays(1);
             var indexes = Enumerable.Range(0, rows.Count).Where(i => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(rows[i].At, zone).DateTime) == day).ToArray();
-            double total = 0; int comparable = 0, resets = 0, uncertainResets = 0, gaps = 0;
-            // Attribute each short observed increment to the date of its later sample.
-            // This also gives midnight a deterministic owner without splitting rounded percentages.
+            double total = 0, carryOver = 0; int comparable = 0, resets = 0, uncertainResets = 0, gaps = 0;
+            // Carry the previous valid cumulative reading into the next observed
+            // date. Long cross-midnight intervals are explicitly marked, never
+            // silently discarded or presented as exact calendar-day consumption.
             var intervals = Enumerable.Range(0, rows.Count).Where(i => rows[i].At >= start && rows[i].At < end).ToArray();
             bool partial = indexes.Length == 0 || day >= today || !BoundaryCovered(rows, start) || !BoundaryCovered(rows, end);
             foreach (int i in intervals)
             {
                 if (i == 0) continue;
-                var previous = rows[i - 1]; var current = rows[i];
+                var current = rows[i];
+                int baseline = i - 1;
+                while (baseline > 0 && rows[baseline].Weekly is null &&
+                    !string.IsNullOrEmpty(current.AccountFingerprint) &&
+                    rows[baseline].AccountFingerprint == current.AccountFingerprint && rows[baseline].Plan == current.Plan)
+                    baseline--;
+                var previous = rows[baseline];
+                bool sameIdentity = !string.IsNullOrEmpty(previous.AccountFingerprint) && previous.AccountFingerprint == current.AccountFingerprint;
                 if (string.IsNullOrEmpty(previous.AccountFingerprint) || previous.AccountFingerprint != current.AccountFingerprint) partial = true;
                 if (previous.AccountFingerprint is not null && current.AccountFingerprint is not null && previous.AccountFingerprint != current.AccountFingerprint)
                 { gaps++; continue; }
-                // User policy: normal short polling intervals spanning midnight belong to
-                // the later sample's day. Never pull multi-day downtime into today's total.
-                if (previous.At < start && (current.At - previous.At > TimeSpan.FromMinutes(5) ||
-                    string.IsNullOrEmpty(previous.AccountFingerprint)) && !VerifiedFlatInterval(previous,current))
+                bool carried = previous.At < start && current.At - previous.At > TimeSpan.FromMinutes(5);
+                if (previous.At < start && !sameIdentity)
                 { partial = true; continue; }
                 if (previous.Weekly is not double before || current.Weekly is not double after || previous.Plan != current.Plan)
                 { gaps++; partial = true; continue; }
@@ -101,10 +107,8 @@ internal sealed class QuotaHistory
                 if (current.At - previous.At > TimeSpan.FromMinutes(5))
                 {
                     gaps++;
-                    // A same-day, same-account cumulative difference remains observable
-                    // after a pause. Sampling continuity is not daily-total completeness:
-                    // only unresolvable intervals make the daily amount partial.
-                    if (string.IsNullOrEmpty(previous.AccountFingerprint) || (!sameWindow || after < before) && !reset)
+                    // A verified cumulative difference survives a collection pause.
+                    if (!sameIdentity || (!sameWindow || after < before) && !reset)
                     { partial = true; continue; }
                 }
                 if (reset)
@@ -112,15 +116,18 @@ internal sealed class QuotaHistory
                     // A new window starts at zero: include its first observation even
                     // when polling missed zero. Never fill the old segment up to 100.
                     resets++; total += after; comparable++;
+                    if (current.At - previous.At > TimeSpan.FromMinutes(5)) partial = true;
+                    if (carried) carryOver += after;
                 }
                 else if (sameWindow && after >= before || before == 0 && after == 0 &&
                     !string.IsNullOrEmpty(previous.AccountFingerprint))
-                { total += after - before; comparable++; }
+                { total += after - before; comparable++; if (carried) carryOver += after - before; }
                 else { uncertainResets++; partial = true; }
                 // A drop without reset-window evidence may be a correction. Start a
                 // baseline without inventing consumption or inferring resets from credits.
             }
-            result.Add(new(day, comparable == 0 ? null : Math.Round(total, 2), indexes.Length, partial, resets, uncertainResets, gaps));
+            result.Add(new(day, comparable == 0 ? null : Math.Round(total, 2), indexes.Length, partial || carryOver > 0,
+                resets, uncertainResets, gaps, Math.Round(carryOver, 2)));
         }
         return result.ToArray();
     }

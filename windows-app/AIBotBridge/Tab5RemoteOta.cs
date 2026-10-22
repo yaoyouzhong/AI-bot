@@ -13,11 +13,11 @@ internal sealed partial class Tab5Service
     internal bool RemoteOtaPending {get{lock(_remoteOtaLock)return _remoteOta is not null;}}
     internal static bool SupportsRemoteOta(string value)=>value.EndsWith("-ui",StringComparison.Ordinal)&&
         Version.TryParse(value[..^3],out var version)&&version>=new Version(0,2,190);
-    internal bool CanStartOta=>HasOta&&!Busy&&!RemoteOtaPending&&DeviceView.Online&&
+    internal bool CanStartOta=>!_usbAuthenticationRejected&&HasOta&&!Busy&&!RemoteOtaPending&&DeviceView.Online&&
         SupportsRemoteOta(_firmware.LastVersion(_store.Current?.DeviceId))&&
         _firmware.LastVersion(_store.Current?.DeviceId)!=Volatile.Read(ref _ota)?.Version;
     internal string RemoteOtaStatus=>_remoteOtaStatus;
-    internal string OtaStartHint=>HasOta&&!SupportsRemoteOta(_firmware.LastVersion(_store.Current?.DeviceId))?
+    internal string OtaStartHint=>_usbAuthenticationRejected?"USB 已连接，但当前电脑未通过设备配对认证；请先验证配对，固件尚未传输。":HasOta&&!SupportsRemoteOta(_firmware.LastVersion(_store.Current?.DeviceId))?
         "此设备需先在 Tab5 完成一次升级，之后可从电脑开始升级。":"";
     internal async Task StartOtaAsync(CancellationToken token)
     {

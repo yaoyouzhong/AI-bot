@@ -64,10 +64,11 @@ internal sealed partial class Tab5Service
         if(packet.Length is <28 or >Tab5RpcBinary.RequestMaximum)return RejectRpc("packet length rejected");
         var key=Convert.FromBase64String(pair.Key);
         var digest=Convert.ToHexString(SHA256.HashData(packet)).ToLowerInvariant();
-        if(!Tab5Protocol.Verify(key,$"POST|/tab5/v1/rpc|{id}|{nonce}|{digest}",proof))return RejectRpc("HMAC rejected");
+        if(!Tab5Protocol.Verify(key,$"POST|/tab5/v1/rpc|{id}|{nonce}|{digest}",proof)){if(transport=="USB")_usbAuthenticationRejected=true;return RejectRpc("HMAC rejected");}
         byte[] clear;
-        try{clear=Tab5Protocol.Decrypt(key,nonce,packet,Tab5RpcBinary.RequestMaximum);}catch(CryptographicException){return RejectRpc("AES-GCM rejected");}
+        try{clear=Tab5Protocol.Decrypt(key,nonce,packet,Tab5RpcBinary.RequestMaximum);}catch(CryptographicException){if(transport=="USB")_usbAuthenticationRejected=true;return RejectRpc("AES-GCM rejected");}
         _rpcAuthDiagnostic="verified";
+        if(transport=="USB")_usbAuthenticationRejected=false;
         lock(_lifecycle){if(_stopping)return(503,null);_rpcRequests++;}
         try {
             (int Status,object Body) result;bool binaryReply=false,bulkReply=false,galleryReply=false,streamReply=false;
@@ -110,6 +111,7 @@ internal sealed partial class Tab5Service
                     _galleryDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} request={Interlocked.Increment(ref _galleryRequests)}; transport={transport}; category={Text(root,"category")}; op={Text(root,"op")}; orientation={Text(root,"orientation")}; status={result.Status}; body="+
                         JsonSerializer.Serialize(result.Body is Tab5RpcDataBody data?data.Metadata:result.Body,JsonDefaults.Options);
                 }
+                else if(Text(root,"kind")=="runtime-diagnostics")result=ReceiveRuntimeDiagnostics(root,id,transport);
                 else if(Text(root,"kind")=="boot-verify")result=ReceiveBootProbe(root,id,transport);
                 else if(Text(root,"kind")=="ota-control")result=ReceiveRemoteOta(root);
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);

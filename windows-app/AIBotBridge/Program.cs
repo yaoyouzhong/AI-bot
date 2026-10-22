@@ -8,6 +8,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-tab5-host-binding"){AppPaths.BeginPublicSelfTest();Tab5HostBindingSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tightvnc-component"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();try{TightVncSelfTest.Run(Path.GetFullPath(args[1]));}catch(Exception ex){Console.Error.WriteLine("TIGHTVNC_COMPONENT_SELF_TEST_FAILED: "+ex);Environment.ExitCode=1;}return;}
         if(args.Length==2&&args[0]=="--test-tightvnc-sandbox"){AppPaths.BeginPublicSelfTest();Environment.ExitCode=0;TightVncSelfTest.SandboxAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--diagnose-tightvnc-sandbox"){AppPaths.BeginPublicSelfTest();TightVncSelfTest.DiagnoseSandboxAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
@@ -17,6 +18,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--check-wifi-keyboard"){AppProfileGuard.EnsureDesktopProfile();TightVncSelfTest.CheckDesktopAsync().GetAwaiter().GetResult();return;}
 
         if(args.Length==4&&args[0]=="--tightvnc-worker"){Environment.ExitCode=TightVncElevation.WorkerAsync(args[1],args[2],args[3]).GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-runtime-diagnostics"){AppPaths.BeginPublicSelfTest();Tab5Service.RuntimeDiagnosticsSelfTestAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-wireless-boot"){Tab5Service.WirelessBootSelfTestAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--tightvnc-inspect"){Console.WriteLine(JsonSerializer.Serialize(TightVncMachine.Inspect(TightVncPackage.Sid)));return;}
         if(args.Length==1&&args[0]=="--tightvnc-uninstall-prompt"){AppProfileGuard.EnsureDesktopProfile();ApplicationConfiguration.Initialize();Environment.ExitCode=TightVncMaintenance.UninstallPrompt();return;}
@@ -101,7 +103,7 @@ internal static class Program
         if(args.Length==3&&args[0]=="--test-tab5-usb-binary"){Tab5UsbReadHardwareTest.RunAsync(args[1],args[2]).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-user-preferences"){UserPreferencesSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-device-recovery"){DeviceRecoverySelfTest.RunAsync().GetAwaiter().GetResult();return;}
-        if(args.Length==2&&args[0]=="--self-test-tab5-integrated-transfer"){Tab5IntegratedTransferSelfTest.Run(args[1]);return;}
+        if(args.Length==2&&args[0]=="--self-test-tab5-integrated-transfer"){AppPaths.BeginPublicSelfTest();Tab5IntegratedTransferSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-remote-ota"){Tab5RemoteOtaSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-display-settings"){Tab5DisplaySettingsSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-upgrade"){UpgradeSelfTest.Run();return;}
@@ -534,6 +536,29 @@ internal static class Program
             return;
         }
 
+        if(args.Length==2&&args[0]=="--self-test-unlock-setup"){AppPaths.BeginPublicSelfTest();ComputerUnlockSetupSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--complete-unlock-setup") {
+            var state=new ComputerUnlockSetup().EnsureAsync(message=>Console.WriteLine(message),CancellationToken.None).GetAwaiter().GetResult();
+            Environment.ExitCode=state.Ready?0:1;
+            if(!state.Ready)MessageBox.Show(state.Message+"\n请在一键解锁页面点击保存重试。","解锁配置未完成",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+            return;
+        }
+        if(args.Length==2&&args[0]=="--configure-login-helper"&&args[1] is "install" or "uninstall") {
+            Environment.ExitCode=WindowsLoginMethod.ConfigureAsync(args[1]=="install").GetAwaiter().GetResult()?0:1;return;
+        }
+        if(args.Length==2&&args[0]=="--set-login-method"&&args[1] is "manual" or "pin" or "password") {
+            var pair=new Tab5PairingStore().Current;var store=new Tab5PinStore();
+            if(WindowsSessionLock.Read()!=false||pair is null||!store.Has(pair)||(args[1]!="manual"&&!WindowsLoginMethod.Installed)){Environment.ExitCode=1;return;}
+            byte[] before=store.Read(pair)!;byte[] after=[];
+            try {
+                store.SetMethod(pair,args[1]=="pin"?AIBot.LoginMethod.LoginMethodKind.Pin:args[1]=="password"?AIBot.LoginMethod.LoginMethodKind.Password:AIBot.LoginMethod.LoginMethodKind.Manual);
+                after=store.Read(pair)??[];
+                if(!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(before,after))throw new IOException("Credential preservation check failed");
+                Console.WriteLine("LOGIN_METHOD_SAVED_CREDENTIAL_PRESERVED");
+            }finally{System.Security.Cryptography.CryptographicOperations.ZeroMemory(before);System.Security.Cryptography.CryptographicOperations.ZeroMemory(after);}
+            return;
+        }
+        if(args.Length==1&&args[0]=="--check-login-helper"){Console.WriteLine(WindowsLoginMethod.Installed?"LOGIN_HELPER_INSTALLED":"LOGIN_HELPER_UNAVAILABLE");Environment.ExitCode=WindowsLoginMethod.Installed?0:1;return;}
         if (args.Contains("--status-once", StringComparer.OrdinalIgnoreCase))
         {
             // A desktop launcher may provide redirected output without a console.

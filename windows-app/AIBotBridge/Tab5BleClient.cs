@@ -41,7 +41,9 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
     internal async Task RunAsync(CancellationToken token)
     {
         var discovery=new Tab5BleDiscovery();
+        long ownerStandbyUntil=0;
         while(!token.IsCancellationRequested) {
+            if(Environment.TickCount64<ownerStandbyUntil){await Task.Delay(1000,token);continue;}
             if(store.Current is not { } pairing) {await Task.Delay(2000,token);continue;}
             string stage="检查蓝牙适配器";
             try {
@@ -77,16 +79,30 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                     using var timeout=CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(12));
                     using var session=await GattSession.FromDeviceIdAsync(device.BluetoothDeviceId).AsTask(timeout.Token);
                     session.MaintainConnection=true;
-                    stage="发现 GATT 服务";
-                    var services=await device.GetGattServicesAsync(BluetoothCacheMode.Uncached).AsTask(timeout.Token);
+                    stage="发现 TAB5 服务";
+                    var services=await device.GetGattServicesForUuidAsync(Tab5Protocol.Service,BluetoothCacheMode.Uncached).AsTask(timeout.Token);
                     stage="读取设备服务";
                     if(services.Status!=GattCommunicationStatus.Success) continue;
                     try {
                         foreach(var service in services.Services.Where(s=>s.Uuid==Tab5Protocol.Service)) {
+                            bool proveOwner=false;
+                            stage="发现电脑归属特征";
+                            var ownership=await service.GetCharacteristicsForUuidAsync(Tab5Protocol.HostBinding,BluetoothCacheMode.Uncached).AsTask(timeout.Token);
+                            if(ownership.Status==GattCommunicationStatus.Success&&ownership.Characteristics.Count==1) {
+                                stage="读取电脑归属";
+                                using var owner=await ReadInfoAsync(ownership.Characteristics[0],timeout.Token);
+                                proveOwner=owner.RootElement.TryGetProperty("bleProofRequired",out var proofRequired)&&proofRequired.TryGetInt32(out int proofVersion)&&proofVersion==1;
+                                if(!owner.RootElement.TryGetProperty("hostId",out var ownerId)||ownerId.GetString()!=Tab5HostBinding.Id(pairing)) {
+                                    status("待命 · 设备当前由其他电脑控制");ownerStandbyUntil=Environment.TickCount64+20000;session.MaintainConnection=false;continue;
+                                }
+                            }
+                            stage="发现设备身份特征";
                             var infos=await service.GetCharacteristicsForUuidAsync(Tab5Protocol.Info,BluetoothCacheMode.Uncached).AsTask(timeout.Token);
+                            stage="发现设备输入特征";
                             var inputs=await service.GetCharacteristicsForUuidAsync(Tab5Protocol.Input,BluetoothCacheMode.Uncached).AsTask(timeout.Token);
                             if(infos.Status!=GattCommunicationStatus.Success || inputs.Status!=GattCommunicationStatus.Success || infos.Characteristics.Count!=1 || inputs.Characteristics.Count!=1) continue;
                             var info=infos.Characteristics[0];var input=inputs.Characteristics[0];
+                            stage="读取设备身份";
                             using var first=await ReadInfoAsync(info,timeout.Token);
                             stage="验证设备";
                             if(!Authenticate(first.RootElement,pairing,out var nonce)) {
@@ -98,6 +114,10 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                             }
                             _keyboardDiagnostic=_unlockFailureDiagnostic="";ReadKeyboardDiagnostics(first.RootElement);
                             int statusMaximum=ReadAssets(first.RootElement,pairing,nonce);
+                            if(proveOwner) {
+                                stage="确认蓝牙连接所属电脑";
+                                await ConfirmOwnerAsync(input,info,pairing,nonce,capture(statusMaximum)??throw new IOException("BLE ownership status unavailable"),statusMaximum,(int)session.MaxPduSize,timeout.Token);
+                            }
                             int telemetry=first.RootElement.TryGetProperty("telemetryVersion",out var tv)&&tv.TryGetInt32(out int version)&&version is >=1 and <=3?version:0;
                             int credits=first.RootElement.TryGetProperty("mailboxWindow",out var wc)&&wc.TryGetInt32(out int offered)?Math.Clamp(offered,1,8):4;
                             int rpcCredits=first.RootElement.TryGetProperty("rpcMailboxWindow",out var rw)&&rw.TryGetInt32(out int rpcOffered)?Math.Clamp(rpcOffered,1,8):credits; // Larger grants failed hardware acceptance; retain the proven eight-packet bound.
@@ -107,6 +127,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                             bulkWriteSupported?.Invoke(rpcWriteCredits);
                             using var transferGate=new SemaphoreSlim(1,1);
                             Tab5BleVoice? voice=null;
+                            stage="发现语音特征";
                             var voices=await service.GetCharacteristicsForUuidAsync(new Guid("7af50004-7f23-4a91-bc65-667a19320101"),BluetoothCacheMode.Uncached).AsTask(timeout.Token);
                             using var voiceMailbox=voiceHandler is not null&&voices.Status==GattCommunicationStatus.Success&&voices.Characteristics.Count==1
                                 ?await Tab5BleGattMailbox.CreateAsync(voices.Characteristics[0],(int)session.MaxPduSize,timeout.Token,transferGate,credits):null;
@@ -116,6 +137,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                     (int)session.MaxPduSize,responseChunk:window.ResponseChunk,transportMode:window.Mode);
                             }
                             Tab5BleVoice? rpc=null;
+                            stage="发现 RPC 特征";
                             var endpoints=await service.GetCharacteristicsForUuidAsync(new Guid("7af50005-7f23-4a91-bc65-667a19320101"),BluetoothCacheMode.Uncached).AsTask(timeout.Token);
                             using var rpcMailbox=rpcHandler is not null&&endpoints.Status==GattCommunicationStatus.Success&&endpoints.Characteristics.Count==1
                                 ?await Tab5BleGattMailbox.CreateAsync(endpoints.Characteristics[0],(int)session.MaxPduSize,timeout.Token,transferGate,rpcCredits,rpcNotifyCredits,queueBulkResponses:true,bulkWriteCredits:rpcWriteCredits,nativeLimit:nativeLimit,bulkWriteLimit:bulkWriteLimit,queueComparisonActive:queueComparisonActive,responseReplay:responseReplay):null;
@@ -253,6 +275,25 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
             }
             await Task.Delay(discovery.RetryDelay(store.Current?.DeviceId),token);
         }
+    }
+    private static async Task ConfirmOwnerAsync(GattCharacteristic input,GattCharacteristic info,Tab5Pairing pairing,string nonce,byte[] clear,int maximum,int mtu,CancellationToken token) {
+        using var snapshot=JsonDocument.Parse(clear);long sequence=snapshot.RootElement.GetProperty("sequence").GetInt64();
+        // A short proof also works at MTU 23 without publishing display data.
+        clear=JsonSerializer.SerializeToUtf8Bytes(new{version=1,type="tab5_ble_owner",deviceId=pairing.DeviceId,hostId=Tab5HostBinding.Id(pairing),sequence});
+        byte[] packet=Tab5Protocol.WithLength(Tab5Protocol.Encrypt(Convert.FromBase64String(pairing.Key),nonce,clear,maximum));
+        int chunk=Math.Clamp(mtu-3,20,488),offset=0;
+        bool fast=input.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse);
+        await Tab5BleTransfer.SendAsync(packet,chunk,fast,async (part,ct)=> {
+            bool response=Tab5BleTransfer.RequiresResponse(offset,part.Length,packet.Length,chunk,fast);
+            var writer=new DataWriter();writer.WriteBytes(part.ToArray());
+            var result=await input.WriteValueAsync(writer.DetachBuffer(),response?GattWriteOption.WriteWithResponse:GattWriteOption.WriteWithoutResponse).AsTask(ct);
+            if(result!=GattCommunicationStatus.Success)throw new IOException("BLE ownership status rejected");
+            offset+=part.Length;
+        },async ct=> {
+            using var reply=await ReadInfoAsync(info,ct);
+            if(!Authenticate(reply.RootElement,pairing,out var next)||next!=nonce)throw new IOException("BLE ownership acknowledgement rejected");
+            return reply.RootElement.GetProperty("ack").GetInt64()==sequence;
+        },token,maximum:maximum);
     }
     private static string FailureLink(BluetoothLEDevice device,GattSession session) {
         try {return $"connection={device.ConnectionStatus}; session={session.SessionStatus}; mtu={session.MaxPduSize}; "+Tab5BleConnectionPreference.ReadLink(device);}

@@ -1,0 +1,1037 @@
+--- a/firmware/main/device.c
++++ b/firmware/main/device.c
+@@ -32,6 +32,7 @@
+ static bool save(void) {
+     return nvs_set_blob(settings,"config",&config,sizeof(config)) == ESP_OK && nvs_commit(settings) == ESP_OK;
+ }
++#include "host_binding_runtime.inc"
+ static void *json_alloc(size_t size) {
+     // Three status snapshots and the LVGL copy contain many small JSON nodes.
+     // They never run in an ISR and must not consume the camera/USB DMA heap.
+@@ -83,8 +84,14 @@
+     if(config.mode < -1 || config.mode>2) config.mode=-1;
+     if(config.brightness<10 || config.brightness>100) config.brightness=75;
+     device_links.mode=config.mode;
+-}
+-device_config device_get_config(void) {xSemaphoreTake(device_mutex,portMAX_DELAY);device_config copy=config;xSemaphoreGive(device_mutex);return copy;}
++    host_init();
++}
++device_config device_get_config(void) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);device_config copy=config;
++    copy.paired=trusted_hosts_readable&&trusted_hosts.count>0;
++    if(copy.paired){trusted_host *h=&trusted_hosts.entries[trusted_hosts.selected];memcpy(copy.key,h->key,32);strcpy(copy.host,h->address);copy.port=h->port;}
++    xSemaphoreGive(device_mutex);return copy;
++}
+ device_sound device_get_sound(void) {xSemaphoreTake(device_mutex,portMAX_DELAY);device_sound copy=sound;xSemaphoreGive(device_mutex);return copy;}
+ int device_sound_volume(void) {device_sound s=device_get_sound();return s.muted?0:s.volume;}
+ bool device_set_sound(int volume,bool muted) {
+@@ -101,7 +108,9 @@
+ // Authenticated discovery updates RAM only; repeated DHCP changes don't wear NVS.
+ void device_discovered_host(const char *host,int port) {
+     if(!private_host(host)||strlen(host)>=sizeof(config.host)||port<=0||port>65535)return;
+-    xSemaphoreTake(device_mutex,portMAX_DELAY);strcpy(config.host,host);config.port=port;xSemaphoreGive(device_mutex);
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    if(trusted_hosts_readable&&trusted_hosts.count){trusted_host *h=&trusted_hosts.entries[trusted_hosts.selected];strcpy(h->address,host);h->port=port;}
++    xSemaphoreGive(device_mutex);
+ }
+ int device_wifi_names(char names[WIFI_PROFILE_LIMIT][33]) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);int count=networks.count;
+@@ -176,24 +185,27 @@
+ }
+ #include "telemetry_delta.h"
+ #include "device_receive_reason.h"
+-static bool receive_frame(const char *json,link_kind link,uint64_t *sequence,bool allow_packed,device_reject_reason *reason) {
++static bool receive_frame(const char *json,link_kind link,uint64_t *sequence,bool allow_packed,device_reject_reason *reason,unsigned host_generation) {
+     *reason=DEVICE_REJECT_ENVELOPE;
+     if(!json||strlen(json)>TAB5_MAX_FRAME-28)return false;
+     if(link<LINK_USB||link>LINK_BLE)return false;
+     cJSON *root=cJSON_Parse(json);if(!root){*reason=DEVICE_REJECT_JSON;return false;}
+     bool ok=false; const char *type=str(root,"type"),*id=str(root,"deviceId"),*session=str(root,"session");
++    // USB plaintext belongs only to the bridge that proved its key on this
++    // exact CDC generation. Radio traffic is decrypted with the selected key.
++    if(link==LINK_USB&&!device_host_usb_owned()){cJSON_Delete(root);return false;}
+     cJSON *version=cJSON_GetObjectItemCaseSensitive(root,"version"),*seq=cJSON_GetObjectItemCaseSensitive(root,"sequence"),*data=cJSON_GetObjectItemCaseSensitive(root,"data");
+     if(allow_packed&&type&&!strcmp(type,"tab5_packed")) {
+         char *clear=device_unpack_json(root,TAB5_MAX_FRAME-28);
+         *reason=DEVICE_REJECT_PACKED;
+-        if(clear)ok=receive_frame(clear,link,sequence,false,reason);
++        if(clear)ok=receive_frame(clear,link,sequence,false,reason,host_generation);
+         free(clear);
+         cJSON_Delete(root);return ok;
+     }
+     if(type&&!strcmp(type,"tab5_metrics")&&id&&session&&cJSON_IsNumber(version)&&version->valueint==1&&
+        cJSON_IsNumber(seq)&&seq->valuedouble>0&&seq->valuedouble<=9007199254740991.0) {
+         cJSON *metrics=cJSON_GetObjectItemCaseSensitive(root,"systemMetrics");
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);
++        xSemaphoreTake(device_mutex,portMAX_DELAY);if(host_generation!=device_host_epoch()){xSemaphoreGive(device_mutex);cJSON_Delete(root);*reason=DEVICE_REJECT_IDENTITY;return false;}
+         if(config.paired&&!strcmp(config.id,id)&&device_snapshots[link]&&!strcmp(device_links.session[link],session)&&
+            cJSON_IsObject(metrics)&&cJSON_IsNumber(cJSON_GetObjectItemCaseSensitive(metrics,"sampleSequence"))) {
+             uint64_t incoming=(uint64_t)seq->valuedouble;
+@@ -210,7 +222,7 @@
+        cJSON_IsNumber(seq)&&seq->valuedouble>0&&seq->valuedouble<=9007199254740991.0&&seq->valuedouble==(uint64_t)seq->valuedouble) {
+         cJSON *resources=cJSON_GetObjectItemCaseSensitive(root,"resources");
+         int count=cJSON_GetArraySize(resources);
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);
++        xSemaphoreTake(device_mutex,portMAX_DELAY);if(host_generation!=device_host_epoch()){xSemaphoreGive(device_mutex);cJSON_Delete(root);*reason=DEVICE_REJECT_IDENTITY;return false;}
+         if(config.paired&&!strcmp(config.id,id)&&device_snapshots[link]&&!strcmp(device_links.session[link],session)&&
+            cJSON_IsArray(resources)&&count>0&&count<=8) {
+             ok=true;
+@@ -225,7 +237,7 @@
+         if(id&&session&&cJSON_IsNumber(version)&&version->valuedouble==1&&cJSON_IsNumber(seq)&&
+            seq->valuedouble>0&&seq->valuedouble<=9007199254740991.0&&seq->valuedouble==(uint64_t)seq->valuedouble&&
+            cJSON_IsNumber(base)&&base->valuedouble>0&&base->valuedouble<seq->valuedouble&&base->valuedouble==(uint64_t)base->valuedouble) {
+-            xSemaphoreTake(device_mutex,portMAX_DELAY);
++            xSemaphoreTake(device_mutex,portMAX_DELAY);if(host_generation!=device_host_epoch()){xSemaphoreGive(device_mutex);cJSON_Delete(root);*reason=DEVICE_REJECT_IDENTITY;return false;}
+             if(config.paired&&!strcmp(config.id,id)&&device_snapshots[link]&&!strcmp(device_links.session[link],session)&&device_links.received_ms[link]>=0) {
+                 if(device_links.sequence[link]==(uint64_t)seq->valuedouble){ok=true;if(sequence)*sequence=(uint64_t)seq->valuedouble;}
+                 else if(device_links.sequence[link]==(uint64_t)base->valuedouble) {
+@@ -244,7 +256,11 @@
+         cJSON_Delete(root);return ok;
+     }
+     if(type&&strcmp(type,"tab5_status")==0&&id&&cJSON_IsNumber(version)&&version->valueint==1&&cJSON_IsNumber(seq)&&seq->valuedouble>0&&seq->valuedouble<=9007199254740991.0&&cJSON_IsObject(data)&&cJSON_IsObject(cJSON_GetObjectItemCaseSensitive(data,"codex"))&&cJSON_IsObject(cJSON_GetObjectItemCaseSensitive(data,"claude"))) {
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);
++        xSemaphoreTake(device_mutex,portMAX_DELAY);if(host_generation!=device_host_epoch()){xSemaphoreGive(device_mutex);cJSON_Delete(root);*reason=DEVICE_REJECT_IDENTITY;return false;}
++        const char *host_id=str(cJSON_GetObjectItemCaseSensitive(data,"connectionHealth"),"hostId");
++        bool bound=trusted_hosts_readable&&trusted_hosts.count&&
++            (!host_id||!strcmp(host_id,trusted_hosts.entries[trusted_hosts.selected].id));
++        if(!bound){xSemaphoreGive(device_mutex);cJSON_Delete(root);return false;}
+         bool same_session=session&&!strcmp(device_links.session[link],session);
+         *reason=!config.paired||strcmp(config.id,id)?DEVICE_REJECT_IDENTITY:DEVICE_REJECT_SEQUENCE;
+         if(config.paired&&strcmp(config.id,id)==0&&link_state_receive(&device_links,link,session,(uint64_t)seq->valuedouble,esp_timer_get_time()/1000)) {
+@@ -262,15 +278,17 @@
+         xSemaphoreGive(device_mutex);
+     }
+     cJSON_Delete(root);
++    if(ok&&link==LINK_USB)device_host_usb_touch();
+     if(ok)ota_update_consider(json);
+     return ok;
+ }
+ bool device_receive_checked(const char *json,link_kind link,uint64_t *sequence,device_reject_reason *reason) {
+-    device_reject_reason result;bool ok=receive_frame(json,link,sequence,true,&result);
++    device_reject_reason result;bool ok=receive_frame(json,link,sequence,true,&result,device_host_epoch());
+     if(reason)*reason=ok?DEVICE_REJECT_NONE:result;
+     return ok;
+ }
+ bool device_receive(const char *json,link_kind link,uint64_t *sequence) {return device_receive_checked(json,link,sequence,NULL);}
++bool device_receive_for_host(const char *json,link_kind link,uint64_t *sequence,unsigned host_generation){device_reject_reason reason;return receive_frame(json,link,sequence,true,&reason,host_generation); }
+ // Configuration is accepted only by the USB task, never over radio.
+ bool device_command(cJSON *root,const char **reply) {
+     const char *type=str(root,"type");if(!type)return false;
+@@ -290,7 +308,17 @@
+     if(strcmp(type,"tab5_pair")==0&&id&&strcmp(id,config.id)==0) {
+         const char *key=str(root,"key");uint8_t decoded[33];size_t n=0;
+         if(key&&mbedtls_base64_decode(decoded,sizeof(decoded),&n,(const uint8_t*)key,strlen(key))==0&&n==32) {
+-            memcpy(config.key,decoded,32);config.paired=true;*reply="tab5_paired";ok=true;
++            trusted_host incoming={0};host_key_id(decoded,incoming.id);memcpy(incoming.key,decoded,32);
++            const char *claimed=str(root,"hostId"),*name=str(root,"name");
++            if((!claimed||!strcmp(claimed,incoming.id))&&(!name||trusted_host_name_valid(name))&&trusted_hosts_readable) {
++                snprintf(incoming.name,sizeof(incoming.name),"%s",name?name:"已配对电脑");
++                const char *address=str(root,"host");cJSON *port=cJSON_GetObjectItemCaseSensitive(root,"port");
++                if(address&&private_host(address)&&strlen(address)<16&&cJSON_IsNumber(port)&&port->valuedouble==port->valueint&&port->valueint>0&&port->valueint<=65535){strcpy(incoming.address,address);incoming.port=port->valueint;}
++                trusted_host_store next=trusted_hosts;
++                ok=trusted_hosts_put(&next,&incoming)&&host_save(&next);
++                if(ok){trusted_hosts=next;if(!config.paired)memcpy(config.key,decoded,32);config.paired=true;*reply="tab5_paired";}
++            }
++            memset(decoded,0,sizeof(decoded));
+         }
+     } else if(strcmp(type,"tab5_wifi")==0&&config.paired&&id&&strcmp(id,config.id)==0) {
+         const char *ssid=str(root,"ssid"),*password=str(root,"password");
+@@ -301,15 +329,11 @@
+     } else if(strcmp(type,"tab5_wifi_label")==0&&config.paired&&id&&strcmp(id,config.id)==0) {
+         if(wifi_profiles_set_label(&networks,str(root,"ssid"),str(root,"label"))){*reply="tab5_wifi_label_saved";ok=true;wifi_changed=true;}
+     }
+-    if((strcmp(type,"tab5_host")==0&&config.paired)||(strcmp(type,"tab5_pair")==0&&ok)) {
+-        const char *host=str(root,"host");cJSON *port=cJSON_GetObjectItemCaseSensitive(root,"port");
+-        if(private_host(host)&&strlen(host)<sizeof(config.host)&&cJSON_IsNumber(port)&&port->valueint>0&&port->valueint<=65535) {
+-            if(strcmp(host,config.host)||config.port!=port->valueint) {strcpy(config.host,host);config.port=port->valueint;ok=true;}
+-        }
+-    }
++    // Unbound legacy tab5_host cannot redirect a selected computer.
+     if(ok&&wifi_changed&&nvs_set_blob(settings,"wifi_profiles3",&networks,sizeof(networks))!=ESP_OK)ok=false;
+     if(ok&&!save())ok=false;
+     if(!ok){config=previous;networks=previous_networks;}
++    host_recover_legacy_pairing();
+     xSemaphoreGive(device_mutex);
+     return ok;
+ }
+--- a/firmware/main/device.h
++++ b/firmware/main/device.h
+@@ -2,6 +2,7 @@
+ #include "link_state.h"
+ #include "cJSON.h"
+ #include "device_receive_reason.h"
++#include "trusted_hosts.h"
+ #include "freertos/FreeRTOS.h"
+ #include "freertos/semphr.h"
+ #define TAB5_MAX_FRAME 65536
+@@ -13,8 +14,18 @@
+ extern cJSON *device_metrics[3];
+ extern uint64_t device_metrics_sequence[3];
+ void device_init(void);
++unsigned device_host_epoch(void);
++bool device_host_changing(void);
++bool device_host_usb_owned(void);
++void device_host_usb_touch(void);
++int device_host_names(char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],int *selected);
++void device_host_identity(char id[33],char name[TRUSTED_HOST_NAME]);
++bool device_host_select(int index);
++void device_host_challenge(char nonce[33]);
++cJSON *device_host_claim(cJSON *root);
+ device_config device_get_config(void);
+ bool device_receive(const char *json, link_kind link, uint64_t *sequence);
++bool device_receive_for_host(const char *json,link_kind link,uint64_t *sequence,unsigned host_generation);
+ bool device_receive_checked(const char *json,link_kind link,uint64_t *sequence,device_reject_reason *reason);
+ char *device_unpack_json(cJSON *root,unsigned maximum);
+ bool device_command(cJSON *root, const char **reply);
+--- /dev/null
++++ b/firmware/main/trusted_hosts.h
+@@ -0,0 +1,45 @@
++#pragma once
++#include <stdbool.h>
++#include <stdint.h>
++#include <string.h>
++#define TRUSTED_HOST_LIMIT 8
++#define TRUSTED_HOST_NAME 64
++typedef struct { char id[33],name[TRUSTED_HOST_NAME]; uint8_t key[32]; char address[16]; int32_t port; } trusted_host;
++typedef struct { uint32_t version,count,selected; trusted_host entries[TRUSTED_HOST_LIMIT]; } trusted_host_store;
++static inline bool trusted_host_public_command(const char *type) {
++    return type&&(!strcmp(type,"tab5_ping")||!strcmp(type,"tab5_pair")||!strcmp(type,"tab5_host_claim")||
++        !strcmp(type,"tab5_ota_status")||!strcmp(type,"tab5_orientation_status")||!strcmp(type,"tab5_crash_status")||
++        !strcmp(type,"tab5_hid_status")||!strcmp(type,"tab5_wifi_list"));
++}
++static inline bool trusted_host_id_valid(const char *id) {
++    if(!id||strlen(id)!=32)return false;
++    for(unsigned i=0;i<32;i++)if(!((id[i]>='0'&&id[i]<='9')||(id[i]>='a'&&id[i]<='f')))return false;
++    return true;
++}
++static inline bool trusted_host_name_valid(const char *name) {
++    if(!name||!name[0]||strlen(name)>=TRUSTED_HOST_NAME)return false;
++    for(const unsigned char *p=(const unsigned char *)name;*p;p++)if(*p<32||*p==127||*p=='|')return false;
++    return true;
++}
++static inline int trusted_host_index(const trusted_host_store *s,const char *id) {
++    if(!trusted_host_id_valid(id))return -1;
++    for(unsigned i=0;i<s->count;i++)if(!strcmp(s->entries[i].id,id))return (int)i;
++    return -1;
++}
++static inline bool trusted_hosts_valid(const trusted_host_store *s) {
++    if(!s||s->version!=1||s->count>TRUSTED_HOST_LIMIT||(s->count?s->selected>=s->count:s->selected!=0))return false;
++    for(unsigned i=0;i<s->count;i++) {
++        const trusted_host *h=&s->entries[i];
++        if(!memchr(h->id,0,sizeof(h->id))||!memchr(h->name,0,sizeof(h->name))||!trusted_host_id_valid(h->id)||!trusted_host_name_valid(h->name)||
++           !memchr(h->address,0,sizeof(h->address))||h->port<0||h->port>65535)return false;
++        for(unsigned j=0;j<i;j++)if(!strcmp(s->entries[j].id,h->id))return false;
++    }
++    return true;
++}
++// No eviction: enrolling another computer must never erase an existing trust.
++static inline bool trusted_hosts_put(trusted_host_store *s,const trusted_host *h) {
++    if(!trusted_hosts_valid(s)||!trusted_host_id_valid(h->id)||!trusted_host_name_valid(h->name))return false;
++    int at=trusted_host_index(s,h->id);
++    if(at<0){if(s->count==TRUSTED_HOST_LIMIT)return false;at=(int)s->count++;}
++    s->entries[at]=*h;return true;
++}
+--- /dev/null
++++ b/firmware/main/host_binding_runtime.inc
+@@ -0,0 +1,137 @@
++// Included by device.c. Existing config ABI/key is retained for rollback;
++// this separately committed blob is authoritative after the first migration.
++#include "trusted_hosts.h"
++#include "rpc_link.h"
++#include <stdatomic.h>
++static trusted_host_store trusted_hosts={.version=1};
++static bool trusted_hosts_readable=true;
++static atomic_uint host_epoch=1;
++static atomic_bool host_switching;
++static atomic_flag host_transition=ATOMIC_FLAG_INIT;
++static char usb_host_nonce[33];
++static unsigned usb_host_nonce_epoch,usb_host_owner_epoch;
++static int usb_host_owner=-1;
++static int64_t usb_host_seen=-1;
++extern unsigned usb_keyboard_epoch(void);
++extern void usb_keyboard_cancel(void);
++extern void ble_keyboard_cancel(void);
++extern void ble_host_changed(void);
++extern void unlock_remote_cancel(void);
++static void host_key_id(const uint8_t key[32],char id[33]) {
++    uint8_t digest[32];static const char domain[]="AIBOT_TAB5_HOST_V1";
++    if(mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),key,32,(const uint8_t *)domain,sizeof(domain)-1,digest)){id[0]=0;return;}
++    for(unsigned i=0;i<16;i++)snprintf(id+i*2,3,"%02x",digest[i]);
++    memset(digest,0,sizeof(digest));
++}
++static bool host_save(const trusted_host_store *next) {
++    return trusted_hosts_valid(next)&&nvs_set_blob(settings,"trusted_hosts1",next,sizeof(*next))==ESP_OK&&nvs_commit(settings)==ESP_OK;
++}
++static void host_recover_legacy_pairing(void) {
++    // A power loss can commit the new store before the legacy config. The
++    // committed trust is authoritative; initialize only an absent legacy pair.
++    if(trusted_hosts_readable&&trusted_hosts.count&&!config.paired){trusted_host *first=&trusted_hosts.entries[0];memcpy(config.key,first->key,32);strcpy(config.host,first->address);config.port=first->port;config.paired=true;}
++}
++static void host_init(void) {
++    trusted_host_store saved;size_t size=sizeof(saved);
++    esp_err_t r=nvs_get_blob(settings,"trusted_hosts1",&saved,&size);
++    if(r==ESP_OK&&size==sizeof(saved)&&trusted_hosts_valid(&saved))trusted_hosts=saved;
++    else if(r==ESP_ERR_NVS_NOT_FOUND) {
++        if(config.paired) {
++            trusted_host old={0};host_key_id(config.key,old.id);strcpy(old.name,"已配对电脑");
++            if(!trusted_host_id_valid(old.id)){trusted_hosts_readable=false;return;}
++            memcpy(old.key,config.key,32);strcpy(old.address,config.host);old.port=config.port;
++            trusted_hosts_put(&trusted_hosts,&old);
++        }
++        trusted_hosts_readable=host_save(&trusted_hosts);
++    } else trusted_hosts_readable=false;
++    host_recover_legacy_pairing();
++}
++static bool host_usb_owned_locked(void) {
++    int64_t now=esp_timer_get_time()/1000;
++    return trusted_hosts_readable&&usb_host_owner>=0&&(unsigned)usb_host_owner==trusted_hosts.selected&&
++        usb_host_owner_epoch==usb_keyboard_epoch()&&tab5_usb_connected()&&usb_host_seen>=0&&now>=usb_host_seen&&now-usb_host_seen<8000;
++}
++bool device_host_usb_owned(void) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);bool ok=!atomic_load(&host_switching)&&host_usb_owned_locked();xSemaphoreGive(device_mutex);return ok;
++}
++unsigned device_host_epoch(void){return atomic_load(&host_epoch);}
++bool device_host_changing(void){return atomic_load(&host_switching);}
++void device_host_usb_touch(void) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    if(usb_host_owner>=0&&(unsigned)usb_host_owner==trusted_hosts.selected&&usb_host_owner_epoch==usb_keyboard_epoch()&&tab5_usb_connected())usb_host_seen=esp_timer_get_time()/1000;
++    xSemaphoreGive(device_mutex);
++}
++static void host_invalidate_locked(void) {
++    atomic_fetch_add(&host_epoch,1);usb_host_owner=-1;usb_host_seen=-1;
++    int mode=device_links.mode;link_state_init(&device_links);device_links.mode=mode;
++    for(int i=0;i<3;i++){cJSON_Delete(device_snapshots[i]);device_snapshots[i]=NULL;cJSON_Delete(device_metrics[i]);device_metrics[i]=NULL;device_metrics_sequence[i]=0;}
++}
++static void host_quiesce_io(void) {
++    // Block new input, then drain each keyboard's admission/queueing mutex
++    // before publishing a different owner. Never hold device_mutex here.
++    unlock_remote_cancel();usb_keyboard_cancel();ble_keyboard_cancel();
++}
++static void host_invalidate_io(void) {
++    rpc_link_reset(LINK_USB);rpc_link_reset(LINK_BLE);ble_host_changed();
++}
++int device_host_names(char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],int *selected) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);int count=trusted_hosts_readable?(int)trusted_hosts.count:0;
++    for(int i=0;i<count;i++)strcpy(names[i],trusted_hosts.entries[i].name);
++    if(selected)*selected=count?(int)trusted_hosts.selected:-1;
++    xSemaphoreGive(device_mutex);return count;
++}
++void device_host_identity(char id[33],char name[TRUSTED_HOST_NAME]) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);id[0]=name[0]=0;
++    if(trusted_hosts_readable&&trusted_hosts.count){strcpy(id,trusted_hosts.entries[trusted_hosts.selected].id);strcpy(name,trusted_hosts.entries[trusted_hosts.selected].name);}
++    xSemaphoreGive(device_mutex);
++}
++bool device_host_select(int index) {
++    if(atomic_flag_test_and_set(&host_transition))return false;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    bool ok=trusted_hosts_readable&&index>=0&&(unsigned)index<trusted_hosts.count;
++    bool changed=ok&&(unsigned)index!=trusted_hosts.selected;
++    if(changed&&(host_usb_owned_locked()||ota_update_busy()))ok=false;
++    if(ok&&changed){atomic_store(&host_switching,true);xSemaphoreGive(device_mutex);host_quiesce_io();xSemaphoreTake(device_mutex,portMAX_DELAY);
++        trusted_host_store next=trusted_hosts;next.selected=index;ok=!host_usb_owned_locked()&&host_save(&next);if(ok){trusted_hosts=next;host_invalidate_locked();}}
++    xSemaphoreGive(device_mutex);if(ok&&changed)host_invalidate_io();atomic_store(&host_switching,false);atomic_flag_clear(&host_transition);return ok;
++}
++void device_host_challenge(char nonce[33]) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);unsigned epoch=usb_keyboard_epoch();
++    if(!usb_host_nonce[0]||epoch!=usb_host_nonce_epoch){device_nonce(usb_host_nonce);usb_host_nonce_epoch=epoch;}
++    strcpy(nonce,usb_host_nonce);xSemaphoreGive(device_mutex);
++}
++// One USB challenge, one immutable endpoint/name, one key-bound identity.
++cJSON *device_host_claim(cJSON *root) {
++    if(!tab5_usb_connected())return NULL;
++    const char *id=str(root,"hostId"),*nonce=str(root,"nonce"),*proof=str(root,"proof"),*name=str(root,"name"),*address=str(root,"host");
++    const char *device=str(root,"deviceId");cJSON *port=cJSON_GetObjectItemCaseSensitive(root,"port");
++    cJSON *version=cJSON_GetObjectItemCaseSensitive(root,"version");
++    if(!device||strcmp(device,config.id)||!cJSON_IsNumber(version)||version->valuedouble!=1||!trusted_host_id_valid(id)||!nonce||strlen(nonce)!=32||!proof||strlen(proof)!=64||!trusted_host_name_valid(name)||
++       !address||(*address&&!private_host(address))||strlen(address)>15||!cJSON_IsNumber(port)||port->valuedouble!=port->valueint||port->valueint<0||port->valueint>65535)return NULL;
++    if(atomic_flag_test_and_set(&host_transition))return NULL;
++    char message[256],expected[65];uint8_t digest[32]={0};bool changed=false,ok=false;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);int at=trusted_hosts_readable?trusted_host_index(&trusted_hosts,id):-1;
++    if(at>=0&&tab5_usb_connected()&&usb_host_nonce_epoch==usb_keyboard_epoch()&&!strcmp(nonce,usb_host_nonce)) {
++        snprintf(message,sizeof(message),"TAB5_HOST_V1|%s|%s|%s|%s|%d|%s",config.id,id,nonce,address,port->valueint,name);
++        int signed_ok=mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),trusted_hosts.entries[at].key,32,(uint8_t *)message,strlen(message),digest);
++        for(int i=0;i<32;i++)snprintf(expected+i*2,3,"%02x",digest[i]);
++        unsigned diff=0;for(int i=0;i<64;i++)diff|=(unsigned char)expected[i]^(unsigned char)proof[i];
++        if(!diff&&!signed_ok) {
++            if((unsigned)at!=trusted_hosts.selected&&ota_update_busy()) {
++                xSemaphoreGive(device_mutex);atomic_flag_clear(&host_transition);
++                cJSON *busy=cJSON_CreateObject();cJSON_AddStringToObject(busy,"type","tab5_host_claimed");cJSON_AddStringToObject(busy,"error","device_busy");return busy;
++            }
++            if((unsigned)at!=trusted_hosts.selected){atomic_store(&host_switching,true);xSemaphoreGive(device_mutex);host_quiesce_io();xSemaphoreTake(device_mutex,portMAX_DELAY);}
++            trusted_host_store next=trusted_hosts;next.selected=at;trusted_host *h=&next.entries[at];strcpy(h->name,name);strcpy(h->address,address);h->port=port->valueint;
++            ok=tab5_usb_connected()&&usb_host_nonce_epoch==usb_keyboard_epoch()&&!strcmp(nonce,usb_host_nonce)&&
++                (!memcmp(&next,&trusted_hosts,sizeof(next))||host_save(&next));
++            if(ok){changed=(unsigned)at!=trusted_hosts.selected;trusted_hosts=next;if(changed)host_invalidate_locked();usb_host_owner=at;usb_host_owner_epoch=usb_keyboard_epoch();usb_host_seen=esp_timer_get_time()/1000;}
++        }
++    }
++    if(ok){snprintf(message,sizeof(message),"TAB5_HOST_ACK_V1|%s|%s|%s",config.id,id,nonce);
++        ok=mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),trusted_hosts.entries[at].key,32,(uint8_t *)message,strlen(message),digest)==0;
++        for(int i=0;i<32;i++){snprintf(expected+i*2,3,"%02x",digest[i]);}device_nonce(usb_host_nonce);}
++    xSemaphoreGive(device_mutex);if(changed)host_invalidate_io();atomic_store(&host_switching,false);atomic_flag_clear(&host_transition);
++    if(!ok)return NULL;
++    cJSON *reply=cJSON_CreateObject();cJSON_AddNumberToObject(reply,"version",1);cJSON_AddStringToObject(reply,"type","tab5_host_claimed");cJSON_AddStringToObject(reply,"deviceId",device);cJSON_AddStringToObject(reply,"hostId",id);cJSON_AddStringToObject(reply,"proof",expected);return reply;
++}
+--- a/firmware/main/usb_link.c
++++ b/firmware/main/usb_link.c
+@@ -237,6 +237,10 @@
+     if(extra>0&&(size_t)extra<sizeof(failure_diagnostic)&&(size_t)(n-2+extra)<sizeof(out)) {
+         memcpy(out+n-2,failure_diagnostic,(size_t)extra+1);n=n-2+extra;
+     }
++    char nonce[33],host_id[33],host_name[TRUSTED_HOST_NAME],binding[200];
++    device_host_challenge(nonce);device_host_identity(host_id,host_name);
++    extra=snprintf(binding,sizeof(binding),",\"hostBindingVersion\":1,\"hostNonce\":\"%s\",\"currentHostId\":\"%s\",\"usbHostAuthenticated\":%s}\n",nonce,host_id,device_host_usb_owned()?"true":"false");
++    if(extra>0&&(size_t)extra<sizeof(binding)&&(size_t)(n-2+extra)<sizeof(out)){memcpy(out+n-2,binding,(size_t)extra+1);n=n-2+extra;}
+     usb_write(out,n);
+ }
+ // CDC task context only: TinyUSB callbacks must not acquire application locks.
+@@ -306,7 +310,16 @@
+                 line[used]=0;
+                 if(!overflow&&used>7&&!strncmp(line,"@AIBOT ",7)) {
+                     cJSON *root=cJSON_Parse(line+7);cJSON *type=cJSON_GetObjectItemCaseSensitive(root,"type");
++                    if(cJSON_IsString(type)&&!trusted_host_public_command(type->valuestring)&&!device_host_usb_owned()) {
++                        static const char required[]="@AIBOT {\"version\":1,\"type\":\"tab5_host_required\"}\n";
++                        usb_write(required,sizeof(required)-1);cJSON_Delete(root);used=0;continue;
++                    }
+                     if(cJSON_IsString(type)&&!strcmp(type->valuestring,"tab5_ping")) write_reply("tab5_hello",0);
++                    else if(cJSON_IsString(type)&&!strcmp(type->valuestring,"tab5_host_claim")) {
++                        cJSON *response=device_host_claim(root);
++                        if(!response){response=cJSON_CreateObject();cJSON_AddStringToObject(response,"type","tab5_host_claimed");cJSON_AddStringToObject(response,"error","host_not_trusted");}
++                        char *wire=cJSON_PrintUnformatted(response);if(wire){usb_write("@AIBOT ",7);usb_write(wire,strlen(wire));usb_write("\n",1);free(wire);}cJSON_Delete(response);
++                    }
+                     else if(cJSON_IsString(type)&&!strcmp(type->valuestring,"tab5_rpc")) usb_rpc(root);
+                     else if(cJSON_IsString(type)&&!strcmp(type->valuestring,"tab5_rpc_binary")) usb_binary_start(&binary,root);
+                     else if(cJSON_IsString(type)&&!strcmp(type->valuestring,"tab5_benchmark")) {
+--- a/firmware/main/usb_keyboard.inc
++++ b/firmware/main/usb_keyboard.inc
+@@ -6,20 +6,22 @@
+ static ble_keyboard_flow uk_flow;
+ static atomic_uchar uk_leds;
+ static unsigned uk_epoch,uk_authenticated_epoch;
++static unsigned uk_host_epoch;
++static unsigned uk_connection(void){return atomic_load(&cdc_epoch)^(device_host_epoch()*2654435761u);}
+ static int64_t uk_authenticated_at,uk_deadline,uk_last_digit;
+ static bool uk_wake,uk_display,uk_sending,uk_probe;
+ static char uk_request[37],uk_last_wake[37];
+ bool usb_keyboard_selected(void){int mode=device_get_config().mode;return mode==LINK_USB||(mode==-1&&tab5_usb_connected());}
+ static bool uk_ready(void) {
+     int64_t now=esp_timer_get_time()/1000;
+-    return !uk_probe&&tud_mounted()&&!tud_suspended()&&tab5_usb_connected()&&uk_authenticated_at>0&&
++    return uk_host_epoch==device_host_epoch()&&device_host_usb_owned()&&!uk_probe&&tud_mounted()&&!tud_suspended()&&tab5_usb_connected()&&uk_authenticated_at>0&&
+         uk_authenticated_epoch==atomic_load(&cdc_epoch)&&now>=uk_authenticated_at&&now-uk_authenticated_at<8000;
+ }
+ unsigned usb_keyboard_epoch(void){return atomic_load(&cdc_epoch);}
+-void usb_keyboard_authenticated(unsigned epoch) {
++void usb_keyboard_authenticated(unsigned epoch,unsigned host_generation) {
+     if(!uk_mutex)return;
+     xSemaphoreTake(uk_mutex,portMAX_DELAY);
+-    if(epoch==atomic_load(&cdc_epoch)){uk_authenticated_epoch=epoch;uk_authenticated_at=esp_timer_get_time()/1000;}
++    if(epoch==atomic_load(&cdc_epoch)&&host_generation==device_host_epoch()&&!device_host_changing()){uk_authenticated_epoch=epoch;uk_host_epoch=host_generation;uk_authenticated_at=esp_timer_get_time()/1000;}
+     xSemaphoreGive(uk_mutex);
+ }
+ void usb_keyboard_get(ble_keyboard_state *out) {
+@@ -27,7 +29,7 @@
+     int mode=device_get_config().mode;if(mode!= -1&&mode!=LINK_USB)return;
+     xSemaphoreTake(uk_mutex,portMAX_DELAY);bool ready=uk_ready();
+     *out=(ble_keyboard_state){.connected=tud_mounted()&&tab5_usb_connected(),.secure=ready,.subscribed=tud_mounted(),
+-        .bridge_verified=ready,.ready=ready,.busy=uk_flow.busy||uk_sending,.finished=uk_flow.finished,.failed=uk_flow.failed,.connection=atomic_load(&cdc_epoch)};
++        .bridge_verified=ready,.ready=ready,.busy=uk_flow.busy||uk_sending,.finished=uk_flow.finished,.failed=uk_flow.failed,.connection=uk_connection()};
+     xSemaphoreGive(uk_mutex);
+ }
+ static unsigned usb_keyboard_diagnostic(void){
+@@ -42,7 +44,7 @@
+     bool locked=false;int64_t updated=0;int display=-1;
+     if(!uk_mutex||!id||strlen(id)!=36||!computer_remote_lock_state(&locked,&updated)||!locked||!computer_remote_display_state(id,&display)||display<1)return false;
+     xSemaphoreTake(uk_mutex,portMAX_DELAY);
+-    bool ok=ble_keyboard_flow_start(&uk_flow,pin,n,!uk_sending&&connection==atomic_load(&cdc_epoch)&&uk_ready());
++    bool ok=ble_keyboard_flow_start(&uk_flow,pin,n,!uk_sending&&connection==uk_connection()&&uk_ready());
+     if(ok){strcpy(uk_request,id);uk_wake=uk_display=false;uk_deadline=esp_timer_get_time()/1000+10000;uk_last_digit=0;}
+     xSemaphoreGive(uk_mutex);return ok;
+ }
+@@ -52,7 +54,7 @@
+     if(display){if(!computer_remote_display_state(id,&screen)||screen!=0)return false;}
+     else if(!computer_remote_cover_state(id,&cover)||!cover)return false;
+     xSemaphoreTake(uk_mutex,portMAX_DELAY);
+-    bool ready=!uk_sending&&connection==atomic_load(&cdc_epoch)&&uk_ready()&&strcmp(id,uk_last_wake);
++    bool ready=!uk_sending&&connection==uk_connection()&&uk_ready()&&strcmp(id,uk_last_wake);
+     bool ok=display?ble_keyboard_flow_display_wake(&uk_flow,ready):ble_keyboard_flow_wake(&uk_flow,ready);
+     if(ok){strcpy(uk_request,id);strcpy(uk_last_wake,id);uk_wake=true;uk_display=display;uk_deadline=esp_timer_get_time()/1000+1000;}
+     xSemaphoreGive(uk_mutex);return ok;
+--- a/firmware/main/ble_link.c
++++ b/firmware/main/ble_link.c
+@@ -37,6 +37,10 @@
+ static size_t used;
+ static int64_t last_write;
+ #include "ble_performance.inc"
++void ble_host_changed(void) {
++    // Disconnect the previous central, retaining all OS keyboard bonds.
++    if(ble_available&&ble_connected&&perf_connection!=BLE_HS_CONN_HANDLE_NONE)ble_gap_terminate(perf_connection,0x13);
++}
+ typedef struct {uint16_t conn,attr;} mailbox_notify_target;
+ // A complete notification plus packet/header headroom fits one MSYS_2 block.
+ // Reserve 32 RPC + 8 voice + 8 spare blocks; do not borrow the small packet pool.
+@@ -63,6 +67,13 @@
+ static const ble_uuid128_t service_id=BLE_UUID128_INIT(0x01,0x01,0x32,0x19,0x7a,0x66,0x65,0xbc,0x91,0x4a,0x23,0x7f,0x01,0x00,0xf5,0x7a);
+ static const ble_uuid128_t info_id=BLE_UUID128_INIT(0x01,0x01,0x32,0x19,0x7a,0x66,0x65,0xbc,0x91,0x4a,0x23,0x7f,0x02,0x00,0xf5,0x7a);
+ static const ble_uuid128_t input_id=BLE_UUID128_INIT(0x01,0x01,0x32,0x19,0x7a,0x66,0x65,0xbc,0x91,0x4a,0x23,0x7f,0x03,0x00,0xf5,0x7a);
++static const ble_uuid128_t host_id=BLE_UUID128_INIT(0x01,0x01,0x32,0x19,0x7a,0x66,0x65,0xbc,0x91,0x4a,0x23,0x7f,0x07,0x00,0xf5,0x7a);
++static int host_info_access(uint16_t conn,uint16_t attr,struct ble_gatt_access_ctxt *ctx,void *arg) {
++    (void)conn;(void)attr;(void)arg;if(ctx->op!=BLE_GATT_ACCESS_OP_READ_CHR)return BLE_ATT_ERR_UNLIKELY;
++    char id[33],name[TRUSTED_HOST_NAME],json[80];device_host_identity(id,name);
++    int n=snprintf(json,sizeof(json),"{\"version\":1,\"hostId\":\"%s\"}",id);
++    return n>0&&os_mbuf_append(ctx->om,json,n)==0?0:BLE_ATT_ERR_INSUFFICIENT_RES;
++}
+ static const ble_uuid128_t voice_id=BLE_UUID128_INIT(0x01,0x01,0x32,0x19,0x7a,0x66,0x65,0xbc,0x91,0x4a,0x23,0x7f,0x04,0x00,0xf5,0x7a);
+ static const ble_uuid128_t rpc_id=BLE_UUID128_INIT(0x01,0x01,0x32,0x19,0x7a,0x66,0x65,0xbc,0x91,0x4a,0x23,0x7f,0x05,0x00,0xf5,0x7a);
+ static size_t rpc_packet_read(uint8_t *data,size_t size,void *ctx){(void)ctx;return rpc_link_read(LINK_BLE,data,size);}
+@@ -168,10 +179,10 @@
+         uint32_t size=(uint32_t)packet[0]|((uint32_t)packet[1]<<8)|((uint32_t)packet[2]<<16)|((uint32_t)packet[3]<<24);
+         if(size<28||size>TAB5_MAX_FRAME||used>size+4){used=0;return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;}
+         if(used==size+4) {
+-            char *clear=device_decrypt(packet+4,size,challenge);used=0;
++            unsigned owner=device_host_epoch();char *clear=device_decrypt(packet+4,size,challenge);used=0;
+             if(!clear)return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
+-            uint64_t sequence=0;bool ok=device_receive(clear,LINK_BLE,&sequence);free(clear);
+-            if(ok){acknowledged=sequence;keyboard_authenticated();}
++            uint64_t sequence=0;bool ok=device_receive_for_host(clear,LINK_BLE,&sequence,owner);free(clear);
++            if(ok){acknowledged=sequence;keyboard_authenticated(owner);}
+             else return BLE_ATT_ERR_UNLIKELY;
+         }
+     }
+@@ -181,6 +192,7 @@
+     {.type=BLE_GATT_SVC_TYPE_PRIMARY,.uuid=&service_id.u,.characteristics=(struct ble_gatt_chr_def[]){
+         {.uuid=&info_id.u,.access_cb=telemetry_info_access,.flags=BLE_GATT_CHR_F_READ},
+         {.uuid=&input_id.u,.access_cb=telemetry_input_access,.flags=BLE_GATT_CHR_F_WRITE|BLE_GATT_CHR_F_WRITE_NO_RSP},
++        {.uuid=&host_id.u,.access_cb=host_info_access,.flags=BLE_GATT_CHR_F_READ},
+         {.uuid=&voice_id.u,.access_cb=voice_access,.flags=BLE_GATT_CHR_F_READ|BLE_GATT_CHR_F_WRITE|BLE_GATT_CHR_F_WRITE_NO_RSP|BLE_GATT_CHR_F_NOTIFY},
+         {.uuid=&rpc_id.u,.access_cb=rpc_access,.flags=BLE_GATT_CHR_F_READ|BLE_GATT_CHR_F_WRITE|BLE_GATT_CHR_F_WRITE_NO_RSP|BLE_GATT_CHR_F_NOTIFY},{0}}},{0}};
+ static void advertise(void);
+--- a/firmware/main/ble_keyboard.inc
++++ b/firmware/main/ble_keyboard.inc
+@@ -20,6 +20,8 @@
+ static int keyboard_pair_answer=-1;
+ static uint32_t keyboard_comparison;
+ static unsigned keyboard_connection;
++static unsigned keyboard_host_epoch;
++static unsigned keyboard_host_connection(void){return keyboard_connection^(device_host_epoch()*2654435761u);}
+ static int64_t keyboard_pair_deadline,keyboard_send_deadline,keyboard_bridge_at,keyboard_last_digit_at;
+ static const uint8_t keyboard_map[]={
+     0x05,0x01,0x09,0x06,0xa1,0x01,0x85,0x01,
+@@ -30,7 +32,7 @@
+     0x95,0x06,0x75,0x08,0x15,0x00,0x25,0x65,0x05,0x07,0x19,0x00,0x29,0x65,0x81,0x00,0xc0
+ };
+ static bool keyboard_ready_locked(void) {
+-    return keyboard_conn!=BLE_HS_CONN_HANDLE_NONE&&keyboard_secure&&keyboard_bridge_verified&&esp_timer_get_time()/1000-keyboard_bridge_at<8000&&!keyboard_suspended&&
++    return !device_host_changing()&&keyboard_host_epoch==device_host_epoch()&&keyboard_conn!=BLE_HS_CONN_HANDLE_NONE&&keyboard_secure&&keyboard_bridge_verified&&esp_timer_get_time()/1000-keyboard_bridge_at<8000&&!keyboard_suspended&&
+         (keyboard_protocol?keyboard_report_subscribed:keyboard_boot_subscribed)&&!keyboard_pair_pending;
+ }
+ void ble_keyboard_get(ble_keyboard_state *out) {
+@@ -39,7 +41,7 @@
+     *out=(ble_keyboard_state){.connected=keyboard_conn!=BLE_HS_CONN_HANDLE_NONE,.secure=keyboard_secure,
+         .subscribed=keyboard_protocol?keyboard_report_subscribed:keyboard_boot_subscribed,.bridge_verified=keyboard_bridge_verified&&esp_timer_get_time()/1000-keyboard_bridge_at<8000,
+         .ready=keyboard_ready_locked(),.busy=keyboard_flow.busy||keyboard_sending,.finished=keyboard_flow.finished,.failed=keyboard_flow.failed,
+-        .pairing=keyboard_pair_pending&&keyboard_pair_answer<0,.repair_pairing=keyboard_pair_repair,.comparison=keyboard_comparison,.connection=keyboard_connection};
++        .pairing=keyboard_pair_pending&&keyboard_pair_answer<0,.repair_pairing=keyboard_pair_repair,.comparison=keyboard_comparison,.connection=keyboard_host_connection()};
+     xSemaphoreGive(keyboard_mutex);
+ }
+ 
+@@ -78,7 +80,7 @@
+     if(!keyboard_mutex||!id||strlen(id)!=36||!computer_remote_lock_state(&locked,&updated)||!locked||
+        !computer_remote_display_state(id,&display)||display<1)return false;
+     xSemaphoreTake(keyboard_mutex,portMAX_DELAY);
+-    bool ok=ble_keyboard_flow_start(&keyboard_flow,pin,n,!keyboard_sending&&connection==keyboard_connection&&keyboard_ready_locked());
++    bool ok=ble_keyboard_flow_start(&keyboard_flow,pin,n,!keyboard_sending&&connection==keyboard_host_connection()&&keyboard_ready_locked());
+     if(ok){strcpy(keyboard_pin_request,id);keyboard_waking=keyboard_display_waking=false;keyboard_send_deadline=esp_timer_get_time()/1000+10000;keyboard_last_digit_at=0;}
+     xSemaphoreGive(keyboard_mutex);return ok;
+ }
+@@ -87,7 +89,7 @@
+     if(!keyboard_mutex||!id||strlen(id)!=36||!computer_remote_lock_state(&locked,&updated)||!locked||
+         !computer_remote_cover_state(id,&cover)||!cover)return false;
+     xSemaphoreTake(keyboard_mutex,portMAX_DELAY);
+-    bool ok=ble_keyboard_flow_wake(&keyboard_flow,!keyboard_sending&&strcmp(id,keyboard_wake_request)&&connection==keyboard_connection&&keyboard_ready_locked());
++    bool ok=ble_keyboard_flow_wake(&keyboard_flow,!keyboard_sending&&strcmp(id,keyboard_wake_request)&&connection==keyboard_host_connection()&&keyboard_ready_locked());
+     if(ok){strcpy(keyboard_wake_request,id);keyboard_waking=true;keyboard_display_waking=false;keyboard_send_deadline=esp_timer_get_time()/1000+500;}
+     xSemaphoreGive(keyboard_mutex);return ok;
+ }
+@@ -96,7 +98,7 @@
+     if(!keyboard_mutex||!id||strlen(id)!=36||!computer_remote_lock_state(&locked,&updated)||!locked||
+         !computer_remote_display_state(id,&display)||display!=0)return false;
+     xSemaphoreTake(keyboard_mutex,portMAX_DELAY);
+-    bool ok=ble_keyboard_flow_display_wake(&keyboard_flow,!keyboard_sending&&strcmp(id,keyboard_wake_request)&&connection==keyboard_connection&&keyboard_ready_locked());
++    bool ok=ble_keyboard_flow_display_wake(&keyboard_flow,!keyboard_sending&&strcmp(id,keyboard_wake_request)&&connection==keyboard_host_connection()&&keyboard_ready_locked());
+     if(ok){strcpy(keyboard_wake_request,id);keyboard_waking=keyboard_display_waking=true;keyboard_send_deadline=esp_timer_get_time()/1000+500;}
+     xSemaphoreGive(keyboard_mutex);return ok;
+ }
+@@ -108,8 +110,8 @@
+     if(!keyboard_mutex)return;
+     xSemaphoreTake(keyboard_mutex,portMAX_DELAY);if(keyboard_pair_pending)keyboard_pair_answer=accept?1:0;xSemaphoreGive(keyboard_mutex);
+ }
+-static void keyboard_authenticated(void) {
+-    xSemaphoreTake(keyboard_mutex,portMAX_DELAY);keyboard_bridge_verified=true;keyboard_bridge_at=esp_timer_get_time()/1000;xSemaphoreGive(keyboard_mutex);
++static void keyboard_authenticated(unsigned host_generation) {
++    xSemaphoreTake(keyboard_mutex,portMAX_DELAY);keyboard_host_epoch=host_generation;keyboard_bridge_verified=host_generation==device_host_epoch()&&!device_host_changing();keyboard_bridge_at=esp_timer_get_time()/1000;xSemaphoreGive(keyboard_mutex);
+ }
+ static int keyboard_access(uint16_t conn,uint16_t attr,struct ble_gatt_access_ctxt *ctx,void *arg) {
+     (void)conn;(void)attr;uintptr_t which=(uintptr_t)arg;
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -304,7 +304,9 @@
+     const uint8_t *upload,size_t upload_size,uint8_t *download,size_t capacity,size_t *received,rpc_gallery_progress progress,void *progress_context) {
+     if(received)*received=0;
+     if((upload&&(!upload_size||upload_size>RPC_BULK_DATA||cJSON_HasObjectItem(request,"data")))||(download&&!received)){*status=0;return NULL;}
++    unsigned host_generation=device_host_epoch();
+     *status=0;device_config cfg=device_get_config();if(!cfg.paired)return NULL;
++    if(link==LINK_USB&&!device_host_usb_owned())return NULL;
+     if(link!=LINK_USB&&link!=LINK_BLE&&!(link==LINK_WIFI&&http&&wifi_connected))return NULL;
+     const char *kind=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"kind"));
+     // RAM benchmark owns these counters; normal user traffic is excluded.
+@@ -313,7 +315,7 @@
+     if(profile)profile_memory(profile);
+     if(!rpc_lock||(link==LINK_USB&&!tab5_usb_connected()))return NULL;
+     extern unsigned usb_keyboard_epoch(void);
+-    extern void usb_keyboard_authenticated(unsigned epoch);
++    extern void usb_keyboard_authenticated(unsigned epoch,unsigned host_generation);
+     unsigned usb_epoch=link==LINK_USB?usb_keyboard_epoch():0;
+     xSemaphoreTake(rpc_lock,portMAX_DELAY);uint32_t generation=box(link)?box(link)->generation:0;xSemaphoreGive(rpc_lock);
+     // Use the paired bridge's latest clock/session, including during a long
+@@ -391,6 +393,7 @@
+         xSemaphoreTake(rpc_lock,portMAX_DELAY);bool same=box(link)->generation==generation;xSemaphoreGive(rpc_lock);
+         if(!same){cJSON_Delete(result);result=NULL;*status=-1005;if(received)*received=0;rpc_failure(link,5,*status,reply_size);}
+     }
++    if(result&&host_generation!=device_host_epoch()){cJSON_Delete(result);result=NULL;*status=-1005;}
+     if(!result&&received)*received=0;
+     if(result&&*status==200&&link!=LINK_WIFI) {
+         xSemaphoreTake(rpc_lock,portMAX_DELAY);rpc_mailbox *m=box(link);
+@@ -400,7 +403,7 @@
+         xSemaphoreGive(rpc_lock);
+         // Plain CDC telemetry is not proof of the paired bridge. Only a
+         // decrypted, nonce-bound reply can enable HID on this USB generation.
+-        if(confirmed&&link==LINK_USB)usb_keyboard_authenticated(usb_epoch);
++        if(confirmed&&link==LINK_USB){device_host_usb_touch();usb_keyboard_authenticated(usb_epoch,host_generation);}
+     }
+     if(profile){profile_memory(profile);profile->decode_us+=esp_timer_get_time()-decode_start;profile->calls++;}
+     cJSON_Delete(root);return result;
+--- a/firmware/main/wifi_link.c
++++ b/firmware/main/wifi_link.c
+@@ -98,6 +98,7 @@
+     close(sock);
+ }
+ static void poll_status(device_config *cfg) {
++    unsigned owner=device_host_epoch();
+     if(!cfg->paired||!cfg->host[0]||cfg->port<=0)return;
+     char url[100],nonce[33],proof[65],message[100],ids[27],asset_proof[65],diag[256],camera_diag[128];device_nonce(nonce);
+     snprintf(message,sizeof(message),"GET|%s|%s",cfg->id,nonce);device_proof(message,proof);
+@@ -145,7 +146,7 @@
+             uint8_t *bytes=heap_caps_malloc((size_t)size,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);int used=0;
+             if(bytes) {
+                 while(used<size) {int n=esp_http_client_read(client,(char*)bytes+used,size-used);if(n<=0)break;used+=n;}
+-                if(used==size) {char *clear=device_decrypt(bytes,size,nonce);if(clear){if(device_receive(clear,LINK_WIFI,NULL)) {
++                if(used==size) {char *clear=device_decrypt(bytes,size,nonce);if(clear){if(device_receive_for_host(clear,LINK_WIFI,NULL,owner)) {
+                     xSemaphoreTake(device_mutex,portMAX_DELAY);last_valid_status=esp_timer_get_time()/1000;xSemaphoreGive(device_mutex);
+                     atomic_fetch_add(&status_valid,1);
+                 }free(clear);}}
+--- a/firmware/main/unlock_remote.c
++++ b/firmware/main/unlock_remote.c
+@@ -21,7 +21,7 @@
+     xSemaphoreGive(device_mutex);return fresh;
+ }
+ unsigned unlock_remote_connection(void){
+-    unsigned hash=2166136261u;xSemaphoreTake(device_mutex,portMAX_DELAY);
++    unsigned hash=2166136261u^device_host_epoch();xSemaphoreTake(device_mutex,portMAX_DELAY);
+     const char *session=device_links.session[LINK_WIFI];
+     for(size_t i=0;session[i];i++)hash=(hash^(unsigned char)session[i])*16777619u;
+     xSemaphoreGive(device_mutex);return hash;
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -50,6 +50,7 @@
+ #include "ota_remote.h"
+ #endif
+ #include "ui_prefs.h"
++#include "trusted_hosts.h"
+ #include "ui_orientation.h"
+ static ui_orientation_filter screen_orientation={.candidate=3};
+ static int screen_orientation_mode;
+@@ -151,7 +152,13 @@
+ void voice_remote_get(voice_remote_state *out) { *out=preview_voice; }
+ static bool preview_submit_enabled;
+ static wifi_profile_store preview_networks={.version=WIFI_PROFILE_VERSION,.count=2,.entries={{.ssid="家庭网络"},{.ssid="办公室"}}};
+-static bool preview_forget_ok=true;
++static bool preview_forget_ok=true,preview_usb_connected;
++static int preview_host_selected;
++int device_host_names(char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],int *selected){strcpy(names[0],"Windows 笔记本");strcpy(names[1],"MacBook");*selected=preview_host_selected;return 2;}
++void device_host_identity(char id[33],char name[TRUSTED_HOST_NAME]){strcpy(id,preview_host_selected?"22222222222222222222222222222222":"11111111111111111111111111111111");strcpy(name,preview_host_selected?"MacBook":"Windows 笔记本");}
++bool device_host_usb_owned(void){return preview_usb_connected;}
++bool device_host_select(int index){if(index<0||index>1||(preview_usb_connected&&index!=preview_host_selected))return false;preview_host_selected=index;return true;}
++
+ int device_wifi_names(char names[WIFI_PROFILE_LIMIT][33]) {for(unsigned i=0;i<preview_networks.count;i++)strcpy(names[i],preview_networks.entries[i].ssid);return preview_networks.count;}
+ int device_wifi_count(void){return preview_networks.count;}
+ void device_wifi_label(const char *ssid,char label[WIFI_LABEL_SIZE]){int at=wifi_profiles_index(&preview_networks,ssid);snprintf(label,WIFI_LABEL_SIZE,"%s",at<0?"":preview_networks.entries[at].label);}
+@@ -327,6 +334,7 @@
+ static lv_obj_t *codex_reply_button,*codex_reply_overlay,*codex_reply_text,*codex_reply_status,*codex_reply_scroll;
+ static lv_obj_t *codex_reply_document;
+ static lv_obj_t *network_window,*network_details,*network_picker,*network_feedback,*network_retry;
++static lv_obj_t *host_picker,*host_current;
+ static lv_obj_t *network_connect,*network_forget,*network_confirm,*network_confirm_text,*network_confirm_yes,*network_confirm_no;
+ static char network_options[WIFI_PROFILE_LIMIT][33],network_forget_ssid[33];
+ static int network_option_count;
+@@ -339,7 +347,7 @@
+ static lv_obj_t *link_buttons[3],*link_symbols[3];
+ static int link_visual_state[3]={-1,-1,-1};
+ #ifdef TAB5_UI_PREVIEW
+-static bool preview_usb_connected,ble_connected;
++static bool ble_connected;
+ static bool rpc_link_ready(void){return wifi_connected||ble_connected||preview_usb_connected;}
+ static link_kind rpc_link_select(void){return preview_usb_connected?LINK_USB:LINK_NONE;}
+ static bool preview_read_recent;
+@@ -2491,6 +2499,11 @@
+     if(!active)ui_text(banner,current_page==7&&clock_style_error?"表盘保存失败，请点击重试":"");
+ }
+ static void network_refresh(void) {
++    char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],host_options[TRUSTED_HOST_LIMIT*(TRUSTED_HOST_NAME+1)]={0};int host_selected=-1;
++    int host_count=device_host_names(names,&host_selected);
++    for(int i=0;i<host_count;i++){if(i)strcat(host_options,"\n");strcat(host_options,names[i]);}
++    lv_dropdown_set_options(host_picker,host_count?host_options:"请先通过 USB 配对电脑");
++    if(host_selected>=0)lv_dropdown_set_selected(host_picker,host_selected);
+     char options[WIFI_PROFILE_LIMIT*(WIFI_LABEL_SIZE+37)]={0};network_option_count=device_wifi_names(network_options);
+     device_config cfg=device_get_config();int selected=0;
+     for(int i=0;i<network_option_count;i++) {
+@@ -2525,6 +2538,13 @@
+ }
+ static void network_action(lv_event_t *e) {
+     int action=(int)(intptr_t)lv_event_get_user_data(e);
++    if(action==7) {
++        if(codex_voice_waiting||codex_waiting||codex_send_queued||photo_flow||ota_update_busy()){ui_text(network_feedback,"请先结束正在进行的操作，再切换电脑");return;}
++        bool ok=device_host_select(lv_dropdown_get_selected(host_picker));
++        ui_text(network_feedback,ok?"已切换电脑，正在连接":device_host_usb_owned()?"USB 电脑正在控制，请先断开 USB":"切换未保存，请重新选择");
++        if(ok){network_refresh();}
++        return;
++    }
+     if(action==2){visible(network_confirm,false);visible(network_window,false);return;}
+     if(action==5){visible(network_confirm,false);network_forget_ssid[0]=0;return;}
+     if(action==0) {
+@@ -2865,6 +2885,8 @@
+         cJSON *voice_enabled=item(item(shown,"connectionHealth"),"voiceEnabled");
+         const char *voice=!fresh?"等待电脑状态":cJSON_IsTrue(voice_enabled)?"已启用":cJSON_IsFalse(voice_enabled)?"请在电脑启用":"状态待确认";
+         ui_text_fmt(network_details,"%s\n\n设备配对  %s\nCodex  %s\n语音  %s",network,cfg.paired?"已完成":"未配对",codex,voice);
++        char host_id[33],host_name[TRUSTED_HOST_NAME];device_host_identity(host_id,host_name);
++        ui_text_fmt(host_current,"当前电脑：%s%s",host_name[0]?host_name:"尚未配对",device_host_usb_owned()?"（USB 接管）":"");
+         if(now>=network_retry_until)lv_obj_remove_state(network_retry,LV_STATE_DISABLED);
+     }
+     if(changed && active!=LINK_NONE) pc_input_update(shown);
+@@ -4007,7 +4029,7 @@
+     lv_obj_set_style_text_align(ota_note,LV_TEXT_ALIGN_CENTER,0);
+     lv_display_add_event_cb(display,ota_completion_drawn,LV_EVENT_REFR_READY,NULL);
+     visible(ota_layer,false);
+-    network_window=card(screen,30,100,1220,512);
++    network_window=card(screen,30,70,1220,600);
+     label(network_window,"网络与连接诊断",0,0,600,false);
+     button(network_window,"返回",1030,0,150,network_action,2);
+     network_details=label(network_window,"正在检查…",0,66,690,false);
+@@ -4017,7 +4039,10 @@
+     network_connect=button(network_window,"连接所选网络",740,206,440,network_action,3);
+     network_retry=button(network_window,"重新连接 / 检查",740,286,440,network_action,1);
+     network_forget=button(network_window,"删除所选网络",740,356,440,network_action,4);
+-    network_feedback=muted(network_window,"",0,416,1180);
++    host_current=muted(network_window,"当前电脑：尚未配对",0,404,1180);
++    host_picker=dropdown(network_window,"请先通过 USB 配对电脑",0,450,690,0,NULL,0);
++    button(network_window,"切换所选电脑",740,450,440,network_action,7);
++    network_feedback=muted(network_window,"",0,526,1180);
+     network_confirm=card(network_window,728,64,456,344);
+     network_confirm_text=label(network_confirm,"",0,0,420,false);
+     network_confirm_no=button(network_confirm,"取消",0,264,196,network_action,5);
+--- a/firmware/main/ui_computer.h
++++ b/firmware/main/ui_computer.h
+@@ -26,6 +26,7 @@
+ #endif
+ static lv_obj_t *computer_status,*computer_slider,*computer_volume,*computer_volume_icon,*computer_volume_slash,*computer_mute,*computer_lock,*computer_launch[4],*computer_launch_hint;
+ static lv_obj_t *music_controls,*music_control_buttons[3],*music_control_hint;
++static lv_obj_t *computer_host;
+ static computer_remote_state *computer_view;
+ static lv_obj_t *computer_launch_icon[4],*computer_launch_symbol[4];
+ static lv_image_dsc_t computer_launch_images[4];
+@@ -75,6 +76,7 @@
+     if(code==LV_EVENT_PRESS_LOST)computer_adjusting=false;
+ }
+ static void computer_refresh(void) {
++    if(computer_host){char id[33],name[TRUSTED_HOST_NAME];device_host_identity(id,name);ui_text_fmt(computer_host,"当前电脑：%s",name[0]?name:"尚未配对");}
+     wifi_submission_test_poll(item(shown,"connectionHealth"));
+     unlock_refresh();
+     if(!computer_status||!computer_view||!computer_launch_pixels)return;
+@@ -160,7 +162,8 @@
+     computer_view=codex_alloc(sizeof(*computer_view));
+     computer_launch_pixels=codex_alloc(4*sizeof(*computer_launch_pixels));
+     if(!computer_view||!computer_launch_pixels){muted(parent,"内存不足，请重启设备后重试",0,0,1220);return;}
+-    computer_status=muted(parent,"连接电脑后即可使用",0,0,1220);
++    computer_status=muted(parent,"连接电脑后即可使用",0,0,690);lv_label_set_long_mode(computer_status,LV_LABEL_LONG_DOT);
++    computer_host=muted(parent,"当前电脑：尚未配对",720,0,500);lv_label_set_long_mode(computer_host,LV_LABEL_LONG_DOT);lv_obj_set_style_text_align(computer_host,LV_TEXT_ALIGN_RIGHT,0);
+     lv_obj_t *audio=card(parent,0,48,934,200);lv_obj_set_style_pad_all(audio,0,0);
+     label(audio,"电脑音量",28,26,300,false);
+     // Match the visible left edge: the heading's first glyph has 3 px of bearing.
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -1,5 +1,9 @@
+ cmake_minimum_required(VERSION 3.20)
+ project(tab5_preview C)
++add_executable(trusted-hosts-test trusted_hosts_test.c "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/link_state.c" "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON/cJSON.c")
++target_include_directories(trusted-hosts-test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON")
++target_compile_options(trusted-hosts-test PRIVATE /UNDEBUG /utf-8)
++target_link_libraries(trusted-hosts-test PRIVATE bcrypt)
+ file(READ "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/gallery_remote.c" CAMERA_GALLERY_TEXT)
+ string(FIND "${CAMERA_GALLERY_TEXT}" "bool gallery_camera_prepare(void)" CAMERA_GALLERY_START)
+ string(FIND "${CAMERA_GALLERY_TEXT}" "static bool foreground_busy(void)" CAMERA_GALLERY_END)
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2857,6 +2857,20 @@
+     cJSON *health=cJSON_AddObjectToObject(shown,"connectionHealth");cJSON_AddBoolToObject(health,"voiceEnabled",false);
+     tick(NULL);capture("network-diagnostics");
+     assert(!lv_obj_has_flag(network_window,LV_OBJ_FLAG_HIDDEN));
++    assert(lv_dropdown_get_option_count(host_picker)==2);
++    lv_obj_t *switch_host=NULL;
++    for(unsigned i=0;i<lv_obj_get_child_count(network_window);i++) {
++        lv_obj_t *candidate=lv_obj_get_child(network_window,i),*caption=lv_obj_get_child(candidate,0);
++        if(caption&&lv_obj_check_type(caption,&lv_label_class)&&!strcmp(lv_label_get_text(caption),"切换所选电脑")){switch_host=candidate;break;}
++    }
++    assert(switch_host);bool original_usb=preview_usb_connected;
++    preview_usb_connected=false;lv_dropdown_set_selected(host_picker,1);lv_obj_send_event(switch_host,LV_EVENT_CLICKED,NULL);
++    assert(preview_host_selected==1);tick(NULL);capture("network-host-mac");
++    assert(strstr(lv_label_get_text(host_current),"MacBook"));
++    preview_usb_connected=true;lv_dropdown_set_selected(host_picker,0);lv_obj_send_event(switch_host,LV_EVENT_CLICKED,NULL);
++    assert(preview_host_selected==1&&strstr(lv_label_get_text(network_feedback),"断开 USB"));
++    capture("network-host-usb-owned");preview_host_selected=0;preview_usb_connected=original_usb;network_refresh();
++    puts("HOST_SELECTION_UI_OK wireless_selection_USB_owner_blocks_other_target_no_silent_switch");
+     assert(wifi_profiles_set_label(&preview_networks,"办公室","单位访客网"));network_refresh();
+     assert(strstr(lv_dropdown_get_options(network_picker),"单位访客网 · 办公室"));
+     wifi_profile_store saved_profiles=preview_networks;
+--- /dev/null
++++ b/tests/ui-preview/trusted_hosts_test.c
+@@ -0,0 +1,92 @@
++// Exercise the production host store/claim/selection implementation. Only NVS,
++// RTOS and physical I/O are fakes; Windows BCrypt supplies real HMAC-SHA256.
++#include <assert.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdatomic.h>
++#include <windows.h>
++#include <bcrypt.h>
++#include "cJSON.h"
++#include "../../firmware/main/trusted_hosts.h"
++#include "../../firmware/main/link_state.h"
++#define portMAX_DELAY 0
++#define ESP_OK 0
++#define ESP_ERR_NVS_NOT_FOUND 1
++#define MBEDTLS_MD_SHA256 1
++typedef int esp_err_t;
++static int device_mutex,settings;
++static link_state device_links;
++static cJSON *device_snapshots[3],*device_metrics[3];
++static uint64_t device_metrics_sequence[3];
++static struct {char id[13];uint8_t key[32];bool paired;char host[16];int port;} config;
++static trusted_host_store persisted;
++static int storage_result=ESP_ERR_NVS_NOT_FOUND,commits,cancelled,ble_dropped;
++static bool save_failed,plugged=true;
++static bool upgrading;
++static bool ota_update_busy(void){return upgrading;}
++static unsigned usb_epoch=1,nonce_counter;
++static int64_t milliseconds=1000;
++static void xSemaphoreTake(int lock,int wait){(void)lock;(void)wait;}
++static void xSemaphoreGive(int lock){(void)lock;}
++static int64_t esp_timer_get_time(void){return milliseconds*1000;}
++unsigned usb_keyboard_epoch(void){return usb_epoch;}
++static bool tab5_usb_connected(void){return plugged;}
++void usb_keyboard_cancel(void){cancelled++;}
++void ble_keyboard_cancel(void){cancelled++;}
++void unlock_remote_cancel(void){cancelled++;}
++void ble_host_changed(void){ble_dropped++;}
++void rpc_link_reset(link_kind link){assert(link==LINK_USB||link==LINK_BLE);}
++static int nvs_get_blob(int handle,const char *key,void *out,size_t *size){(void)handle;assert(!strcmp(key,"trusted_hosts1"));if(storage_result==ESP_OK){assert(*size==sizeof(persisted));memcpy(out,&persisted,*size);}return storage_result;}
++static int nvs_set_blob(int handle,const char *key,const void *value,size_t size){(void)handle;assert(!strcmp(key,"trusted_hosts1")&&size==sizeof(persisted));if(save_failed)return 2;memcpy(&persisted,value,size);storage_result=ESP_OK;return 0;}
++static int nvs_commit(int handle){(void)handle;commits++;return 0;}
++static const char *str(cJSON *root,const char *key){return cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root,key));}
++static bool private_host(const char *value){unsigned a,b,c,d;char tail;return value&&sscanf(value,"%u.%u.%u.%u%c",&a,&b,&c,&d,&tail)==4&&b<256&&c<256&&d<256&&(a==10||(a==192&&b==168)||(a==172&&b>=16&&b<=31));}
++static void device_nonce(char out[33]){snprintf(out,33,"%032x",++nonce_counter);}
++static const void *mbedtls_md_info_from_type(int type){assert(type==MBEDTLS_MD_SHA256);return (void *)1;}
++static int mbedtls_md_hmac(const void *info,const uint8_t *key,size_t key_size,const uint8_t *input,size_t count,uint8_t out[32]) {
++    (void)info;BCRYPT_ALG_HANDLE alg;BCRYPT_HASH_HANDLE hash;
++    assert(BCryptOpenAlgorithmProvider(&alg,BCRYPT_SHA256_ALGORITHM,NULL,BCRYPT_ALG_HANDLE_HMAC_FLAG)==0);
++    assert(BCryptCreateHash(alg,&hash,NULL,0,(PUCHAR)key,(ULONG)key_size,0)==0);
++    assert(BCryptHashData(hash,(PUCHAR)input,(ULONG)count,0)==0);
++    assert(BCryptFinishHash(hash,out,32,0)==0);BCryptDestroyHash(hash);BCryptCloseAlgorithmProvider(alg,0);return 0;
++}
++#include "../../firmware/main/host_binding_runtime.inc"
++static cJSON *claim_for(int index,const char *nonce,const char *address) {
++    trusted_host *host=&trusted_hosts.entries[index];char message[256],proof[65];uint8_t digest[32];
++    snprintf(message,sizeof(message),"TAB5_HOST_V1|%s|%s|%s|%s|18765|%s",config.id,host->id,nonce,address,host->name);
++    mbedtls_md_hmac(NULL,host->key,32,(uint8_t *)message,strlen(message),digest);
++    for(int i=0;i<32;i++)snprintf(proof+i*2,3,"%02x",digest[i]);
++    cJSON *root=cJSON_CreateObject();cJSON_AddNumberToObject(root,"version",1);cJSON_AddStringToObject(root,"deviceId",config.id);cJSON_AddStringToObject(root,"hostId",host->id);cJSON_AddStringToObject(root,"name",host->name);cJSON_AddStringToObject(root,"nonce",nonce);cJSON_AddStringToObject(root,"host",address);cJSON_AddNumberToObject(root,"port",18765);cJSON_AddStringToObject(root,"proof",proof);return root;
++}
++int main(void) {
++    assert(trusted_host_public_command("tab5_pair")&&trusted_host_public_command("tab5_ping")&&trusted_host_public_command("tab5_ota_status"));
++    assert(!trusted_host_public_command("tab5_wifi")&&!trusted_host_public_command("tab5_wifi_forget")&&!trusted_host_public_command("tab5_hid_toggle")&&!trusted_host_public_command("tab5_benchmark")&&!trusted_host_public_command("tab5_status")&&!trusted_host_public_command("tab5_rpc"));
++    strcpy(config.id,"e8f60ae2ec56");memset(config.key,0x11,32);config.paired=true;strcpy(config.host,"192.168.1.20");config.port=18765;link_state_init(&device_links);
++    host_init();assert(trusted_hosts_readable&&trusted_hosts.count==1&&commits==1);
++    char win_id[33];host_key_id(config.key,win_id);assert(!strcmp(win_id,trusted_hosts.entries[0].id));
++    trusted_host mac={0};memset(mac.key,0x22,32);host_key_id(mac.key,mac.id);strcpy(mac.name,"MacBook");strcpy(mac.address,"192.168.1.21");mac.port=18765;
++    assert(trusted_hosts_put(&trusted_hosts,&mac)&&host_save(&trusted_hosts));assert(trusted_hosts.count==2&&trusted_hosts.selected==0);
++    assert(!memcmp(config.key,trusted_hosts.entries[0].key,32));
++    char nonce[33];device_host_challenge(nonce);cJSON *root=claim_for(1,nonce,mac.address);
++    cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(root,"host"),"192.168.1.99");assert(!device_host_claim(root));cJSON_Delete(root);
++    root=claim_for(1,nonce,mac.address);cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(root,"hostId"),"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");assert(!device_host_claim(root));cJSON_Delete(root);
++    root=claim_for(1,nonce,mac.address);device_snapshots[0]=cJSON_CreateObject();device_metrics[0]=cJSON_CreateObject();device_links.received_ms[0]=1000;
++    unsigned generation=device_host_epoch();cJSON *reply=device_host_claim(root);assert(reply);cJSON_Delete(reply);
++    assert(trusted_hosts.selected==1&&device_host_epoch()!=generation&&device_host_usb_owned());
++    assert(!device_snapshots[0]&&!device_metrics[0]&&device_links.received_ms[0]<0&&cancelled==3&&ble_dropped==1);
++    assert(!device_host_claim(root));cJSON_Delete(root);assert(!device_host_select(0));
++    plugged=false;usb_epoch++;assert(!device_host_usb_owned());assert(device_host_select(0));assert(trusted_hosts.selected==0);
++    plugged=true;device_host_challenge(nonce);root=claim_for(0,nonce,"192.168.1.20");usb_epoch++;assert(!device_host_claim(root));cJSON_Delete(root);
++    device_host_challenge(nonce);root=claim_for(1,nonce,mac.address);upgrading=true;reply=device_host_claim(root);assert(reply&&trusted_hosts.selected==0&&!strcmp(str(reply,"error"),"device_busy"));cJSON_Delete(reply);cJSON_Delete(root);assert(!device_host_select(1));upgrading=false;
++    device_host_challenge(nonce);root=claim_for(0,nonce,"192.168.1.20");reply=device_host_claim(root);assert(reply);cJSON_Delete(reply);cJSON_Delete(root);
++    milliseconds+=8001;assert(!device_host_usb_owned());assert(device_host_select(1));
++    plugged=false;assert(device_host_select(0));plugged=true;device_host_challenge(nonce);root=claim_for(1,nonce,mac.address);save_failed=true;assert(!device_host_claim(root));assert(trusted_hosts.selected==0);save_failed=false;cJSON_Delete(root);
++    for(unsigned i=2;i<TRUSTED_HOST_LIMIT;i++){trusted_host h={0};memset(h.key,(int)i+1,32);host_key_id(h.key,h.id);strcpy(h.name,"Trusted computer");assert(trusted_hosts_put(&trusted_hosts,&h));}
++    trusted_host extra={0};memset(extra.key,99,32);host_key_id(extra.key,extra.id);strcpy(extra.name,"Extra");trusted_host_store before=trusted_hosts;assert(!trusted_hosts_put(&trusted_hosts,&extra));assert(!memcmp(&before,&trusted_hosts,sizeof(before)));
++    persisted=trusted_hosts;config.paired=false;memset(config.key,0,32);storage_result=ESP_OK;host_init();assert(config.paired&&!memcmp(config.key,trusted_hosts.entries[0].key,32)); // interrupted legacy mirror
++    persisted.version=99;trusted_hosts_readable=true;host_init();assert(!trusted_hosts_readable); // no stale legacy resurrection
++    assert(!trusted_host_name_valid("bad|name")&&!trusted_host_name_valid("bad\nname"));
++    printf("TRUSTED_HOSTS_TEST_OK migration; independent_keys; signed_endpoint; USB_epoch_and_nonce; no_replay; owner_switch_cancels_input; USB_priority; NVS_failure; no_eviction; corrupt_store_closed; identity=%s\n",win_id);
++    return 0;
++}
+--- a/tests/ui-preview/ble_keyboard_backend_test.c
++++ b/tests/ui-preview/ble_keyboard_backend_test.c
+@@ -82,16 +82,20 @@
+ static struct {int sm_io_cap,sm_bonding,sm_mitm,sm_sc,sm_our_key_dist,sm_their_key_dist;} ble_hs_cfg;
+ static unsigned reports;static uint8_t usages[160],modifiers[160];static bool fail_send,cancel_during_send;
+ static int ble_gatts_notify_custom(uint16_t c,uint16_t a,struct os_mbuf *m){(void)c;(void)a;assert(reports<160);modifiers[reports]=m->data[0];usages[reports++]=m->data[2];free(m);if(cancel_during_send)ble_keyboard_cancel();return fail_send?1:0;}
++static unsigned test_host_epoch;
++static unsigned device_host_epoch(void){return test_host_epoch;}
++static bool device_host_changing(void){return false;}
+ #include "../../firmware/main/ble_keyboard.inc"
+ void ble_store_config_init(void){}
+ bool computer_remote_lock_state(bool *locked,int64_t *updated){*locked=lock_value;*updated=lock_updated;return lock_fresh;}
+ static void event(int type){struct ble_gap_event e={.type=type};e.connect.conn_handle=1;keyboard_gap_event(&e);}
+ static void tick(void){clock_ms+=40;lock_updated=clock_ms;keyboard_tick(NULL);}
+-static void ready(void){event(BLE_GAP_EVENT_CONNECT);security=(struct ble_gap_conn_desc){.sec_state={true,true,true}};event(BLE_GAP_EVENT_ENC_CHANGE);keyboard_authenticated();keyboard_report=11;keyboard_boot=12;struct ble_gap_event e={.type=BLE_GAP_EVENT_SUBSCRIBE,.subscribe={11,true}};keyboard_gap_event(&e);lock_value=lock_fresh=true;lock_updated=cover_at=clock_ms;display_value=1;display_complete=true;}
++static void ready(void){event(BLE_GAP_EVENT_CONNECT);security=(struct ble_gap_conn_desc){.sec_state={true,true,true}};event(BLE_GAP_EVENT_ENC_CHANGE);keyboard_authenticated(test_host_epoch);keyboard_report=11;keyboard_boot=12;struct ble_gap_event e={.type=BLE_GAP_EVENT_SUBSCRIBE,.subscribe={11,true}};keyboard_gap_event(&e);lock_value=lock_fresh=true;lock_updated=cover_at=clock_ms;display_value=1;display_complete=true;}
+ int main(void){
+  assert(keyboard_init());assert(ble_hs_cfg.sm_mitm&&ble_hs_cfg.sm_bonding&&ble_hs_cfg.sm_sc);
+  assert((keyboard_services[0].characteristics[4].flags&BLE_GATT_CHR_F_READ_AUTHEN)!=0);
+  ready();ble_keyboard_state s;ble_keyboard_get(&s);assert(s.ready);
++ test_host_epoch=1;keyboard_authenticated(0);ble_keyboard_get(&s);assert(!s.ready);keyboard_authenticated(1);ble_keyboard_get(&s);assert(s.ready);test_host_epoch=0;ready();ble_keyboard_get(&s);
+  for(unsigned caps=0;caps<2;caps++) {
+   ready();ble_keyboard_get(&s);reports=0;cover_value=false;cover_at=clock_ms;
+   struct os_mbuf led={.n=1};led.data[0]=caps?2:0;
+@@ -108,7 +112,7 @@
+  cover_value=true;cover_complete=false;assert(!ble_keyboard_wake(cover_id,s.connection));cover_complete=true;
+  lock_value=false;assert(!ble_keyboard_wake(cover_id,s.connection));lock_value=true;
+  lock_fresh=false;assert(!ble_keyboard_wake(cover_id,s.connection));lock_fresh=true;
+- keyboard_bridge_verified=false;assert(!ble_keyboard_wake(cover_id,s.connection));keyboard_authenticated();
++ keyboard_bridge_verified=false;assert(!ble_keyboard_wake(cover_id,s.connection));keyboard_authenticated(test_host_epoch);
+  keyboard_secure=false;assert(!ble_keyboard_wake(cover_id,s.connection));keyboard_secure=true;
+  cover_at=clock_ms-1500;assert(!ble_keyboard_wake(cover_id,s.connection));cover_at=clock_ms;
+  assert(!ble_keyboard_wake(cover_id,s.connection+1));
+@@ -153,7 +157,7 @@
+  ready();ble_keyboard_get(&s);reports=0;
+  lock_value=false;assert(!ble_keyboard_start("4826",4,s.connection,cover_id));lock_value=true;
+  lock_fresh=false;assert(!ble_keyboard_start("4826",4,s.connection,cover_id));lock_fresh=true;
+- keyboard_bridge_verified=false;assert(!ble_keyboard_start("4826",4,s.connection,cover_id));keyboard_authenticated();
++ keyboard_bridge_verified=false;assert(!ble_keyboard_start("4826",4,s.connection,cover_id));keyboard_authenticated(test_host_epoch);
+  security.sec_state.authenticated=false;event(BLE_GAP_EVENT_ENC_CHANGE);assert(!ble_keyboard_start("4826",4,s.connection,cover_id));security.sec_state.authenticated=true;event(BLE_GAP_EVENT_ENC_CHANGE);
+  assert(!ble_keyboard_start("4826",4,s.connection+1,cover_id));assert(ble_keyboard_start("4826",4,s.connection,cover_id));assert(!ble_keyboard_start("4826",4,s.connection,cover_id));
+  for(int i=0;i<10;i++)tick();ble_keyboard_get(&s);assert(s.finished&&!s.failed&&!s.busy&&reports==10);assert(usages[8]==0x28&&usages[9]==0);
+--- a/tests/ui-preview/telemetry_receive_test.c
++++ b/tests/ui-preview/telemetry_receive_test.c
+@@ -9,6 +9,7 @@
+ #include <wincrypt.h>
+ #include "cJSON.h"
+ #include "link_state.h"
++#include "trusted_hosts.h"
+ #define TAB5_MAX_FRAME 65536
+ #define MALLOC_CAP_SPIRAM 0
+ #define MALLOC_CAP_8BIT 0
+@@ -39,6 +40,11 @@
+ static cJSON *device_snapshots[3],*device_metrics[3];
+ static uint64_t device_metrics_sequence[3];
+ static unsigned offers;
++static trusted_host_store trusted_hosts={.version=1,.count=1};
++static bool trusted_hosts_readable=true,usb_owner_verified=true;
++static unsigned device_host_epoch(void){return 1;}
++static bool device_host_usb_owned(void){return usb_owner_verified;}
++static void device_host_usb_touch(void){}
+ static int64_t clock_ms=1000;
+ static int64_t esp_timer_get_time(void){return clock_ms*1000;}
+ static bool assets_receive(cJSON *value){(void)value;return true;}
+@@ -68,6 +74,14 @@
+     assert(argc==2||argc==3);link_state_init(&device_links);
+     char *full=read_file(argv[1],"full.json"),*packed=read_file(argv[1],"packed.json"),*one=read_file(argv[1],"metrics1.json"),*two=read_file(argv[1],"metrics2.json");
+     device_reject_reason reason;
++    cJSON *owner_frame=cJSON_Parse(full);const char *owner_id=str(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(owner_frame,"data"),"connectionHealth"),"hostId");
++    if(owner_id){assert(strlen(owner_id)==32);strcpy(trusted_hosts.entries[0].id,owner_id);}cJSON_Delete(owner_frame);
++    usb_owner_verified=false;assert(!device_receive_checked(full,LINK_USB,NULL,&reason));usb_owner_verified=true;
++    assert(!device_receive_for_host(full,LINK_WIFI,NULL,0));
++    owner_frame=cJSON_Parse(full);cJSON *owner_data=cJSON_GetObjectItemCaseSensitive(owner_frame,"data"),*owner_health=cJSON_GetObjectItemCaseSensitive(owner_data,"connectionHealth");
++    if(!owner_health)owner_health=cJSON_AddObjectToObject(owner_data,"connectionHealth");
++    cJSON_DeleteItemFromObjectCaseSensitive(owner_health,"hostId");cJSON_AddStringToObject(owner_health,"hostId","ffffffffffffffffffffffffffffffff");
++    char *foreign=cJSON_PrintUnformatted(owner_frame);trusted_hosts.count=2;assert(!device_receive_checked(foreign,LINK_WIFI,NULL,&reason));trusted_hosts.count=1;free(foreign);cJSON_Delete(owner_frame);
+     fail_workspace=true;assert(!device_receive_checked(packed,LINK_USB,NULL,&reason)&&reason==DEVICE_REJECT_PACKED&&!workspace);fail_workspace=false;
+     assert(device_receive_checked(full,LINK_USB,NULL,&reason)&&reason==DEVICE_REJECT_NONE);
+     // This recovery case established USB state. Isolate the following
+--- a/docs/PROTOCOL.md
++++ b/docs/PROTOCOL.md
+@@ -529,3 +529,57 @@
+ LED compensation and key releases. Wi-Fi types printable ASCII keysyms through the local
+ Windows adapter. Existing authenticated, one-shot, wipe-on-exit and no-replay rules apply.
+ Windows must already have the matching sign-in method selected. macOS is unchanged.
++
++## TAB5 trusted computers / TAB5 可信电脑（本地候选）
++
++设备可保存最多 8 台可信电脑，每台首次通过 USB 明确配对，使用其原有独立密钥。
++`trusted_hosts1` 是独立版本化 NVS blob；保留原 config ABI 与密钥供回退，迁入已有配对，
++容量满时不淘汰记录，当前记录损坏时不从旧记录复活。电脑端 DPAPI / Keychain 记录和
++密码绑定保持不变。当前电脑的选择持久保存；断开 USB 后继续使用该电脑的无线通道，
++不会因其他电脑广播而自动改选。网络诊断可选择可信电脑；控制页显示当前电脑。
++
++`hostId = hex(HMAC-SHA256(pairKey, UTF8("AIBOT_TAB5_HOST_V1"))[0:16])`，固定 32 位小写十六进制。
++电脑名称为 1–63 UTF-8 字节，不允许控制字符或 `|`；密钥不出现在公开列表和诊断。
++USB hello / ACK 增加 `hostBindingVersion:1`, `hostNonce`, `currentHostId`,
++`usbHostAuthenticated`。新桥接发送 `tab5_host_claim`，字段为 `version:1,deviceId,hostId,
++nonce,host,port,name,proof`。`host` 是私有 IPv4 或空字符串，`port` 是 0–65535 整数。
++签名消息为 `TAB5_HOST_V1|deviceId|hostId|nonce|host|port|name` 的 UTF-8，HMAC-SHA256 使用
++该电脑独立密钥，输出 64 位小写十六进制。nonce 由设备产生，绑定本次 CDC 代次，成功后消耗。
++`tab5_host_claimed` 回执包含 `deviceId,hostId,proof`，签名消息为
++`TAB5_HOST_ACK_V1|deviceId|hostId|nonce`。未受信任/错误签名/旧 nonce 均不接管。
++
++认证成功的 USB 电脑优先接管；仅串口连通不构成认证。8 秒内的有效状态/认证 RPC 续期，
++其他电脑不能覆盖其无线目标。正在刷写时，另一台电脑的接管返回 `device_busy`。
++切换先阻止新按键并取消、排空旧输入，再更换代次、清空旧状态/RPC，并断开旧 BLE 中央设备；
++系统蓝牙 bond 保留。USB HID、BLE HID 和无线解锁均绑定电脑代次，旧回调不能给新电脑授权。
++除首次配对、接管握手和只读诊断外，USB 配置、快捷键、资源、状态和 RPC 均须已认证。
++旧式无签名 `tab5_host` 不能改写其他电脑的地址。
++
++Wi-Fi 仅使用当前电脑的密钥/地址发现与鉴权。BLE 的只读特征
++`7af50007-7f23-4a91-bc65-667a19320101` 返回 `{version:1,hostId}`；非当前电脑断开待命，
++桥接延后重连，不发送状态或执行 RPC。此公开字段只用于待命判断，不能代替原有密钥鉴权。
++状态可附加 `connectionHealth.hostBindingVersion=1,hostId,hostName`；有 hostId 时必须匹配。
++旧无线桥接可在设备明确选中其已保存密钥时继续使用原加密协议；接收与 HID 授权还必须匹配
++解密开始时的电脑代次，防止切换竞态。新固件的 USB 自动接管需要对应桥接升级。
++
++Trust up to eight computers independently after explicit first USB enrollment. Preserve the old config
++ABI, each existing pairing key, DPAPI/Keychain data, and credential bindings. A separate versioned NVS
++store migrates the current pairing; full/corrupt stores never silently evict or resurrect records.
++Persist one selected computer. Authenticated USB takes ownership; unplugging retains its wireless
++target, and other computers cannot win by advertising. A live USB owner blocks another target;
++an ongoing firmware write returns `device_busy` to a different claimant.
++
++Derive the 32-lowercase-hex host ID from the first 16 HMAC-SHA256 bytes using the existing pairing key
++and domain `AIBOT_TAB5_HOST_V1`. The one-use device nonce is scoped to the CDC generation. Authenticate
++the exact UTF-8 claim and ACK strings specified above, including endpoint and name. A raw serial
++connection, owner hint or unsigned legacy endpoint update never authorizes control. Status/RPC
++heartbeats renew the eight-second USB lease. Names are 1–63 UTF-8 bytes without controls or `|`.
++
++Before publishing another owner, block keyboard admission and drain/cancel input, invalidate status
++and RPC generations, and disconnect the previous BLE central while retaining OS bonds. Bind state
++commit, decrypted replies, and HID authorization to the original owner generation. The optional BLE
++owner characteristic above lets unselected Windows/Mac bridges disconnect and wait; cryptographic
++authentication remains mandatory. Optional authenticated state adds `hostBindingVersion,hostId,
++hostName` under connectionHealth. Legacy wireless peers remain usable only with the selected key;
++USB takeover requires the updated bridge. Protocol version 1, encryption, nonce/ACK/replay rules,
++transport selection and unrelated device display preferences remain unchanged.

@@ -22,6 +22,7 @@ internal static class Tab5Protocol
     internal static readonly Guid Service = new("7af50001-7f23-4a91-bc65-667a19320101");
     internal static readonly Guid Info = new("7af50002-7f23-4a91-bc65-667a19320101");
     internal static readonly Guid Input = new("7af50003-7f23-4a91-bc65-667a19320101");
+    internal static readonly Guid HostBinding = new("7af50007-7f23-4a91-bc65-667a19320101");
     internal static bool ValidId(string? id) => id is not null && Regex.IsMatch(id, "^[0-9a-f]{12}$");
     internal static bool ValidNonce(string? value) => value is not null && Regex.IsMatch(value, "^[0-9a-f]{32}$");
     internal static string Proof(byte[] key, string message) => Convert.ToHexString(

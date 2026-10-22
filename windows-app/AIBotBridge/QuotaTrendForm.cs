@@ -121,6 +121,7 @@ internal sealed class QuotaTrendForm : Form
             _table.Columns[1].ToolTipText = "单位：周额度百分点。例如已用比例从 68% 增至 70%，记录用量为 2。";
             foreach (var day in daily) _table.Rows.Add(day.Day.ToString("MM-dd"), day.Growth?.ToString("0.##") ?? "--", day.Samples,
                 string.Join("；", new[] {
+                    day.CarryOver > 0 ? $"含跨日补记 {day.CarryOver:0.##} 个百分点" : null,
                     day.Resets > 0 ? $"额度重置 {day.Resets} 次，分段累计" : null,
                     day.UncertainResets > 0 ? $"{day.UncertainResets} 处额度变化无法核实，未计入" : null,
                     day.Gaps > 0 ? (day.Partial ? "存在采样间隔或无效记录" : "采样间隔已由累计值补算") : null,
@@ -146,7 +147,7 @@ internal sealed class QuotaTrendForm : Form
             if (scroll >= 0) _table.FirstDisplayedScrollingRowIndex = Math.Min(scroll, _table.Rows.Count - 1);
         }
         _note.Text = _history.Error ?? (_metric.SelectedIndex == 0
-            ? "单位：周额度百分点 · 按北京时间统计 · -- 表示无可比较采样\n仅累计可核实的增量；缺失时段不估算，不完整日期不计入全天日均。"
+            ? "单位：周额度百分点 · 按北京时间统计 · -- 表示无可比较采样\n接续上次有效记录，重置分段累计；跨日补记归入恢复采集日，不计入完整日均。"
             : "每小时最后一个已用比例快照，非每日消耗。");
     }
     protected override void Dispose(bool disposing) { if (disposing) _timer.Dispose(); base.Dispose(disposing); }

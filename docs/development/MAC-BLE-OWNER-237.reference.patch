@@ -1,0 +1,116 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
+@@ -16,6 +16,13 @@
+         return id == MacTab5HostBinding.id(pair)
+     }
+ 
++    static func ownershipProof(_ pair: MacTab5Pairing, sequence: Int64) throws -> Data {
++        guard (1...9_007_199_254_740_991).contains(sequence) else { throw MacTab5Error.invalidPacket }
++        return try MacTab5Protocol.json(["version": 1, "type": "tab5_ble_owner",
++                                        "deviceId": pair.deviceId, "hostId": MacTab5HostBinding.id(pair),
++                                        "sequence": sequence])
++    }
++
+     static func authenticate(_ bytes: Data, pair: MacTab5Pairing, nonce: String? = nil) throws -> (String, Int64, [String: Any]) {
+         guard bytes.count <= 2048 else { throw MacTab5Error.invalidPacket }
+         let root = try MacTab5Protocol.object(bytes)
+@@ -51,6 +58,7 @@
+     private var enabled = false
+     private var nonce: String?
+     private var authenticatedDevice: String?
++    private var ownerProofRequired = false
+     private var deadline: TimeInterval = 0
+     private var nextScan: TimeInterval = 0
+     private var lastFrame: TimeInterval = -.infinity
+@@ -88,7 +96,7 @@
+     private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
+     private func reset(_ message: String) {
+         readCompletion = nil; writeCompletion = nil; reading = nil; writing = nil; packets = []; awaitingWrite = false
+-        busy = false; nonce = nil; authenticatedDevice = nil; characteristics = [:]; completed = [:]
++        busy = false; nonce = nil; authenticatedDevice = nil; ownerProofRequired = false; characteristics = [:]; completed = [:]
+         if let peer { central?.cancelPeripheralConnection(peer) }
+         peer = nil; lastFrame = -.infinity; nextScan = now + 3
+         service.bleState(message)
+@@ -151,9 +159,12 @@
+             read(ownership) { [weak self] result in
+                 guard let self else { return }
+                 do {
+-                    guard try MacTab5BLEWire.isSelectedHost(result.get(), pair: pair) else {
++                    let bytes = try result.get()
++                    guard try MacTab5BLEWire.isSelectedHost(bytes, pair: pair) else {
+                         self.reset("待命 · 设备当前由其他电脑控制"); self.nextScan = self.now + 20; return
+                     }
++                    let hint = try MacTab5Protocol.object(bytes)
++                    self.ownerProofRequired = MacTab5Protocol.integer(hint["bleProofRequired"]) == 1
+                     self.authenticatePeer(info, pair: pair)
+                 } catch { self.reset("电脑归属读取失败，等待重连") }
+             }
+@@ -165,10 +176,48 @@
+             do {
+                 let (nonce, _, root) = try MacTab5BLEWire.authenticate(result.get(), pair: pair)
+                 self.nonce = nonce; self.authenticatedDevice = pair.deviceId; self.service.observeBLEInfo(root, nonce: nonce)
+-                self.busy = false; self.service.bleState("设备已认证，等待数据确认")
++                if self.ownerProofRequired { self.sendOwnerProof(pair, nonce: nonce) }
++                else { self.busy = false; self.service.bleState("设备已认证，等待数据确认") }
+             } catch { self.reset("蓝牙配对认证失败，请通过 USB 重新核对配对") }
+         }
+     }
++    // This proof precedes USB standby and never marks display state as delivered.
++    // Keep the existing serial queue and shared sequence allocator.
++    private func sendOwnerProof(_ pair: MacTab5Pairing, nonce: String) {
++        guard let peer, let input = characteristics[MacTab5BLEWire.input] else { reset("蓝牙归属服务不可用"); return }
++        do {
++            let snapshot = try MacTab5Protocol.object(service.frame())
++            guard let sequence = MacTab5Protocol.integer(snapshot["sequence"]) else { throw MacTab5Error.invalidPacket }
++            let clear = try MacTab5BLEWire.ownershipProof(pair, sequence: sequence)
++            let packet = try MacTab5Protocol.encrypt(clear, key: pair.key, challenge: nonce)
++            busy = true; deadline = now + 15
++            write(try MacTab5BLEWire.fragments(packet, maximum: writeMaximum(peer), lengthPrefix: true), to: input) { [weak self] result in
++                guard let self else { return }
++                do { try result.get(); self.confirmOwner(pair, nonce: nonce, sequence: sequence, attempts: 0) }
++                catch { self.reset("蓝牙归属证明未确认，等待重连") }
++            }
++        } catch { reset("蓝牙归属证明不可用") }
++    }
++    private func confirmOwner(_ pair: MacTab5Pairing, nonce: String, sequence: Int64, attempts: Int) {
++        guard enabled, self.nonce == nonce, authenticatedDevice == pair.deviceId,
++              let current = service.currentPairing, MacTab5HostBinding.id(current) == MacTab5HostBinding.id(pair) else { return }
++        guard let info = characteristics[MacTab5BLEWire.info] else { reset("蓝牙服务已断开"); return }
++        read(info) { [weak self] result in
++            guard let self else { return }
++            do {
++                let (_, ack, _) = try MacTab5BLEWire.authenticate(result.get(), pair: pair, nonce: nonce)
++                if ack != sequence {
++                    guard attempts < 15 else { throw MacTab5Error.unconfirmed }
++                    self.queue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
++                        self?.confirmOwner(pair, nonce: nonce, sequence: sequence, attempts: attempts + 1)
++                    }; return
++                }
++                self.busy = false
++                self.service.bleState("电脑归属已确认")
++            } catch { self.reset("蓝牙归属确认失败，等待重连") }
++        }
++    }
++
+     private func read(_ characteristic: CBCharacteristic, completion: @escaping (Result<Data, Error>) -> Void) {
+         reading = characteristic.uuid; readCompletion = completion; peer?.readValue(for: characteristic)
+     }
+--- a/mac-app/Tests/AIBotBridgeTests/MacTab5HostBindingTests.swift
++++ b/mac-app/Tests/AIBotBridgeTests/MacTab5HostBindingTests.swift
+@@ -26,4 +26,16 @@
+         XCTAssertFalse(try MacTab5BLEWire.isSelectedHost(owner, pair: foreign))
+         XCTAssertThrowsError(try MacTab5HostBinding.confirm(["error": "device_busy"], pair: pair, nonce: nonce))
+     }
++    func testShortOwnershipProofHasOnlyBoundFieldsAndSafeSequence() throws {
++        let pair = MacTab5Pairing(deviceId: "e8f60ae2ec56", usbPath: "/dev/cu.test", key: Data(repeating: 0x11, count: 32), confirmed: true)
++        let root = try MacTab5Protocol.object(MacTab5BLEWire.ownershipProof(pair, sequence: 42))
++        XCTAssertEqual(Set(root.keys), Set(["version", "type", "deviceId", "hostId", "sequence"]))
++        XCTAssertEqual(root["type"] as? String, "tab5_ble_owner")
++        XCTAssertEqual(root["deviceId"] as? String, pair.deviceId)
++        XCTAssertEqual(root["hostId"] as? String, MacTab5HostBinding.id(pair))
++        XCTAssertEqual(MacTab5Protocol.integer(root["sequence"]), 42)
++        XCTAssertThrowsError(try MacTab5BLEWire.ownershipProof(pair, sequence: 0))
++        XCTAssertThrowsError(try MacTab5BLEWire.ownershipProof(pair, sequence: 9_007_199_254_740_992))
++        _ = try MacTab5BLEWire.ownershipProof(pair, sequence: 9_007_199_254_740_991)
++    }
+ }

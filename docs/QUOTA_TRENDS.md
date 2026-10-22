@@ -7,9 +7,9 @@ Windows 正常启动时会检查 Codex MSIX 私有缓存中的既有 `.apet` 导
 
 - 驻留桥接启动即采集，随后每分钟采集一次，不依赖当前显示页面。额度响应成功后立即保存；独立的重置卡请求超时、失败或格式异常不会丢掉有效额度记录。
 - 统计日为北京时间 00:00（含）到次日 00:00（不含）。单位为周额度百分点，不是 Token 或账单费用。按用户确认的口径，跨零点且不超过五分钟的正常采样增量计入后一次采样的日期，不拆分、不重复计数。
-- 默认展示“每日已记录用量（周额度）”：累加同账户、同套餐及可比较窗口内的有效增量。不完整日期仍显示已记录用量；没有可比采样显示 `--`，没有记录显示“未采集”，今天显示“统计中”。同一天内超过五分钟的间隔，如果账户和重置窗口可核实，仍保留非负累计差值，同时标记断档；跨天长断档不归入恢复采集当天。未知账户身份的历史不作为完整日。
+- 默认展示“每日已记录用量（周额度）”：累加同账户、同套餐及可比较窗口内的有效增量。不完整日期仍显示已记录用量；没有可比采样显示 `--`，没有记录显示“未采集”，今天显示“统计中”。同一天内超过五分钟的间隔，如果账户和重置窗口可核实，仍保留非负累计差值，同时标记断档；跨天长断档接续前一次有效记录，将可核实的差值补记到恢复采集当天，并标明“含跨日补记”；不据此推定消耗实际发生在哪一天。没有记录的日期仍保持未知。未知账户身份的历史不作为完整日。
 - 日均只包含所选范围内的完整统计日，分母明确显示。不显示顶部今日增长或“如何计算”按钮。启用前日期不绘入图表，中间缺失日仍保留为未知。
-- 到期重置分段累计内部可观察增量，不加上未使用的剩余额度。由于缺少重置前最后消耗，这种日期暂不作为完整日。无法核实的回落或周期变化显示“额度变化无法核实，未计入”，另起基线，不断言用户手动重置；未来重置时间一分钟以内的舍入抖动允许视为同一窗口，但用量下降仍不累加。重置次数减少可能是过期，不能据此确认消耗。旧记录不回填。
+- 到期重置分段累计内部可观察增量，不加上未使用的剩余额度。由于缺少重置前最后消耗，这种日期暂不作为完整日。无法核实的回落或周期变化显示“额度变化无法核实，未计入”，另起基线，不断言用户手动重置；未来重置时间一分钟以内的舍入抖动允许视为同一窗口，但用量下降仍不累加。重置次数减少可能是过期，不能据此确认消耗。不伪造缺失采样；保留原始历史，按同一算法重新计算摘要。
 - 完整日允许正常轮询覆盖零点，不要求请求恰好命中 00:00:00；跨零点增量采用上述归属约定。接口返回比例有自身精度，日统计是观测增量，不是供应商每日账单。桥接未运行、电脑休眠或网络/授权故障期间无法凭空恢复历史。
 - 五小时额度独立展示每小时最后一次使用率快照，不连线、不与周额度相加。趋势图与数据明细分栏切换；点击柱/点会切换并定位对应明细。重复打开复用同一个窗口。
 - 历史保存在 `%APPDATA%\AI-bot\codex-quota-history.json`，保留 90 天，最多 140000 条（容纳每分钟采样）。保存采样时间、套餐、使用率、重置时间及请求账号标识的 SHA-256 指纹；无原始账号标识、Key、Token、Cookie 或会话内容。旧记录缺少账号指纹时保留为不完整，不推断其身份。
@@ -36,7 +36,12 @@ Polling runs every minute, independently of the selected page. Valid usage is sa
 before requesting optional credit metadata. Under the user's attribution convention,
 short intervals across midnight belong to the later sample's Beijing date. Exact
 midnight samples are unnecessary. Same-day, verified account/window differences
-survive gaps, flagged as partial; long cross-day gaps are never assigned to one day.
+survive gaps. Long cross-day gaps carry a verified difference into the resumed
+collection date, labelled as carry-over and excluded from complete-day averages.
+This attribution does not claim the actual calendar date of consumption; missing
+dates remain unknown. Null weekly observations can be skipped only within a
+verified account/plan. Scheduled or evidenced manual resets split the increments;
+no unobserved pre-reset consumption is invented.
 These are observed percentage-point increments at the API's precision, not daily
 billing records. Five-hour observations remain hourly-last snapshots. History retains a
 SHA-256 account fingerprint, never raw identifiers or credentials; older records

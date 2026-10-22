@@ -844,3 +844,117 @@ Optional USB wifiHttpDiag contains nine numeric fields: version=1, status attemp
 Optional wifiPathDiag contains 17 numeric fields: version=1, IPv4 netmask, gateway IPv4, AP channel, RSSI, STA MAC as uint48, BSSID as uint48, station-is-default boolean, probe count, gateway TCP/80 errno, host TCP/configured-port errno, transport ESP error, TLS code, TLS flags, Wi-Fi power-save mode, AP query result, netif MAC as uint48. IPv4 values are host-order uint32. Zero probe errno means connect succeeded. On failed bridge HTTP connects only, the Wi-Fi worker samples at most once per 30 seconds, using nonblocking sockets with one-second connect waits; USB only copies the snapshot. Probes close their sockets, send no HTTP request, skip OTA, and do not change network settings.
 
 中文：桥接连接失败时对网关与电脑做有界 TCP 对照，并记录掩码、网关、信号和底层错误；不修改网络、密码或配对。诊断新增不等于连通问题已修复。
+
+## Extended unlock credentials / 扩展解锁凭据（本地候选）
+
+Windows 桥接通过 `connectionHealth.unlockCredentialVersion=2` 通告扩展凭据支持。
+USB/BLE 固件仅在收到该能力后，在既有 `kind="unlock-pin", op="read"` 请求中加入
+`credentialVersion: 2`；未通告的旧桥接沿用原请求字段。配对、HMAC、AES-GCM、session、
+issuedAt、requestId 一次性消费与内层加密保持不变，不在 JSON、回执或日志中写入凭据。
+
+版本 2 接受 **1–64 字节可打印 ASCII（0x20–0x7e）**：大小写英文字母、数字、空格与英文符号。
+首尾空格原样保留；拒绝空字符串、控制字符、DEL 和非 ASCII，不进行替换或截断。
+没有声明版本 2 的旧固件只可取得原有 4–64 位纯数字凭据；其他值返回
+`409 credential_upgrade_required`。数字凭据原有 DPAPI 文件及独立启用开关保持兼容，
+不迁移或重新保存用户凭据。
+
+TAB5 手动输入每次默认数字键盘，可依次切换小写、大写、符号并回到数字。
+确认按钮从一字符起可用，显示内容仅为遮罩；取消、超时、发送完成或失败均按原流程清除。
+USB/BLE 按英文美式键盘映射输出 HID usage 和 Left Shift，并依据主机 Caps Lock LED
+调整字母的 Shift；每次按下后独立松开。Wi-Fi 由 Windows 本地 RFB 服务输入原始 ASCII
+keysym，只允许可打印字符与一次 Enter；不自动重试或换通道。登录方式仍须与 Windows
+当前选中的 PIN/密码框一致，不自动切换登录方式。
+
+The Windows bridge advertises `connectionHealth.unlockCredentialVersion=2`. New firmware
+adds `credentialVersion: 2` to the existing authenticated `unlock-pin/read` request only
+when advertised; older bridges keep the original request. Version 2 accepts 1–64 printable
+ASCII bytes, preserves case and edge spaces, and rejects empty/control/non-ASCII input.
+Legacy firmware receives only its original 4–64 numeric credentials; incompatible requests
+return `409 credential_upgrade_required`. Existing DPAPI records remain compatible.
+
+The manual keypad always opens in numeric mode and can switch through lowercase, uppercase
+and symbols. USB/BLE use the host English US layout with per-character Shift, host Caps Lock
+LED compensation and key releases. Wi-Fi types printable ASCII keysyms through the local
+Windows adapter. Existing authenticated, one-shot, wipe-on-exit and no-replay rules apply.
+Windows must already have the matching sign-in method selected. macOS is unchanged.
+
+## TAB5 trusted computers / TAB5 可信电脑（本地候选）
+
+设备可保存最多 8 台可信电脑，每台首次通过 USB 明确配对，使用其原有独立密钥。
+`trusted_hosts1` 是独立版本化 NVS blob；保留原 config ABI 与密钥供回退，迁入已有配对，
+容量满时不淘汰记录，当前记录损坏时不从旧记录复活。电脑端 DPAPI / Keychain 记录和
+密码绑定保持不变。当前电脑的选择持久保存；断开 USB 后继续使用该电脑的无线通道，
+不会因其他电脑广播而自动改选。网络诊断可选择可信电脑；控制页显示当前电脑。
+
+`hostId = hex(HMAC-SHA256(pairKey, UTF8("AIBOT_TAB5_HOST_V1"))[0:16])`，固定 32 位小写十六进制。
+电脑名称为 1–63 UTF-8 字节，不允许控制字符或 `|`；密钥不出现在公开列表和诊断。
+USB hello / ACK 增加 `hostBindingVersion:1`, `hostNonce`, `currentHostId`,
+`usbHostAuthenticated`。新桥接发送 `tab5_host_claim`，字段为 `version:1,deviceId,hostId,
+nonce,host,port,name,proof`。`host` 是私有 IPv4 或空字符串，`port` 是 0–65535 整数。
+签名消息为 `TAB5_HOST_V1|deviceId|hostId|nonce|host|port|name` 的 UTF-8，HMAC-SHA256 使用
+该电脑独立密钥，输出 64 位小写十六进制。nonce 由设备产生，绑定本次 CDC 代次，成功后消耗。
+`tab5_host_claimed` 回执包含 `deviceId,hostId,proof`，签名消息为
+`TAB5_HOST_ACK_V1|deviceId|hostId|nonce`。未受信任/错误签名/旧 nonce 均不接管。
+
+认证成功的 USB 电脑优先接管；仅串口连通不构成认证。8 秒内的有效状态/认证 RPC 续期，
+其他电脑不能覆盖其无线目标。正在刷写时，另一台电脑的接管返回 `device_busy`。
+切换先阻止新按键并取消、排空旧输入，再更换代次、清空旧状态/RPC，并断开旧 BLE 中央设备；
+系统蓝牙 bond 保留。USB HID、BLE HID 和无线解锁均绑定电脑代次，旧回调不能给新电脑授权。
+除首次配对、接管握手和只读诊断外，USB 配置、快捷键、资源、状态和 RPC 均须已认证。
+旧式无签名 `tab5_host` 不能改写其他电脑的地址。
+
+Wi-Fi 仅使用当前电脑的密钥/地址发现与鉴权。BLE 的只读特征
+`7af50007-7f23-4a91-bc65-667a19320101` 返回 `{version:1,hostId,bleProofRequired:1}`；非当前电脑断开待命，
+桥接延后重连，不发送状态或执行 RPC。此公开字段只用于待命判断，不能代替原有密钥鉴权。
+状态可附加 `connectionHealth.hostBindingVersion=1,hostId,hostName`；有 hostId 时必须匹配。
+旧无线桥接可在设备明确选中其已保存密钥时继续使用原加密协议；接收与 HID 授权还必须匹配
+解密开始时的电脑代次，防止切换竞态。新固件的 USB 自动接管需要对应桥接升级。
+
+0.2.237-ui 将蓝牙物理连接与有效电脑通道分开：同一连接必须提交当前所选电脑密钥加密的归属证明或有效状态帧，才开放 RPC/语音并成为有效 BLE 通道。Windows 在进入 USB 待命前先完成短归属证明及签名 ACK 确认；旧固件未声明 bleProofRequired 时保持原流程。仅发现、系统 bond 或读取公开 hostId 不能给连接授权。未验证连接在 20 秒后断开，已识别的其他电脑身份立即拒绝。
+
+短证明只有五个字段：`{version:1,type:"tab5_ble_owner",deviceId,hostId,sequence}`。`sequence` 为 1–9007199254740991 的整数，使用桥接共享序列分配器，`deviceId` 与 `hostId` 必须精确匹配当前目标。通过现有连接 nonce 的 AES-GCM 和长度前缀/分片协议传输；确认仍为 info 特征的 `nonce|ack` HMAC，ack 必须等于本次 sequence。证明不发布显示状态、不刷新 USB 租约；迟到连接或电脑代次变化均不得恢复授权。桥接先证明再进入 USB 待命，避免低 MTU 下发送完整状态超过首次认证时限。
+
+`host_ble_v1` 单独保存可信电脑 hostId 与稳定蓝牙身份地址的映射，不改 trusted_hosts1 或 config ABI，不输出地址或密钥。映射只能由同一连接上的有效当前电脑状态帧建立，旧电脑代次、保存失败或损坏记录均不放行；地址尚未解析的 RPA 不持久化。已知目标使用控制器连接白名单，换电脑时断开旧连接并更新名单；系统 bond 保留。选定电脑的 Wi-Fi 与 BLE 可同时可用；无权归属当前电脑的物理连接不能阻挡其 Wi-Fi 解锁，USB 输入就绪时仍优先 USB。任何通道不可用都不会改选其他电脑，USB 插入未绑定电脑不改变当前目标；已绑定 USB 的签名接管仍是自动切换信号。
+
+Trust up to eight computers independently after explicit first USB enrollment. Preserve the old config
+ABI, each existing pairing key, DPAPI/Keychain data, and credential bindings. A separate versioned NVS
+store migrates the current pairing; full/corrupt stores never silently evict or resurrect records.
+Persist one selected computer. Authenticated USB takes ownership; unplugging retains its wireless
+target, and other computers cannot win by advertising. A live USB owner blocks another target;
+an ongoing firmware write returns `device_busy` to a different claimant.
+
+Derive the 32-lowercase-hex host ID from the first 16 HMAC-SHA256 bytes using the existing pairing key
+and domain `AIBOT_TAB5_HOST_V1`. The one-use device nonce is scoped to the CDC generation. Authenticate
+the exact UTF-8 claim and ACK strings specified above, including endpoint and name. A raw serial
+connection, owner hint or unsigned legacy endpoint update never authorizes control. Status/RPC
+heartbeats renew the eight-second USB lease. Names are 1–63 UTF-8 bytes without controls or `|`.
+
+Before publishing another owner, block keyboard admission and drain/cancel input, invalidate status
+and RPC generations, and disconnect the previous BLE central while retaining OS bonds. Bind state
+commit, decrypted replies, and HID authorization to the original owner generation. The optional BLE
+owner characteristic above lets unselected Windows/Mac bridges disconnect and wait; cryptographic
+authentication remains mandatory. Optional authenticated state adds `hostBindingVersion,hostId,
+hostName` under connectionHealth. Legacy wireless peers remain usable only with the selected key;
+USB takeover requires the updated bridge. Protocol version 1, encryption, nonce/ACK/replay rules,
+transport selection and unrelated device display preferences remain unchanged.
+
+In 0.2.237-ui, BLE ownership requires an encrypted ownership proof or accepted status from the selected computer on the same connection before RPC/voice access. `bleProofRequired:1` requests proof and a signed ACK before USB standby. The short proof has exactly five fields: `{version:1,type:"tab5_ble_owner",deviceId,hostId,sequence}`. Match both IDs and allocate an integral sequence in 1–9007199254740991 from the shared bridge sequence source. Use existing connection-nonce AES-GCM, length-prefix/fragments, and the signed info `nonce|ack` acknowledgement. Do not publish display state or renew USB ownership from this proof. Unproven connections expire after 20 seconds; known foreign identities are rejected. A separate `host_ble_v1` store maps host IDs to stable peer identities without changing existing trust/config blobs or exposing keys/addresses. Learn only from the authenticated connection, reject stale generations and persistence failures, and do not persist unresolved RPAs. Filter known connections to the selected peer while retaining OS bonds. Selected-host Wi-Fi may coexist with BLE; unrelated physical connections cannot block Wi-Fi unlock. Never switch computers because a transport is unavailable. Only an explicitly selected target or an authenticated, already-trusted USB takeover changes ownership; an unbound USB computer does not.
+
+## TAB5 runtime diagnostics v1 (.250)
+
+`connectionHealth.runtimeDiagnosticCommand` is optional and sent only to the currently selected paired device: `{version:1,requestId:<32 lowercase hex>,transport:"Wi-Fi"|"BLE",expiresAt:<epoch milliseconds>}`. The command lasts 10 seconds; the device requires a status received less than 6 seconds ago, a valid pcInput session, matching active transport, integral expiry and no more than 15 seconds future allowance. A started request is consumed once. No USB ownership or host selection is changed.
+
+The device replies through the existing authenticated `/tab5/v1/rpc` or BLE RPC with `{kind:"runtime-diagnostics",requestId,session,issuedAt,snapshot}`. All existing paired-device HMAC, AES-GCM, session, time and nonce-replay checks precede dispatch. The snapshot contains `diagnosticVersion:1,deviceId,hostId,firmware,uptimeMs,sampleAgeMs,uiAgeMs,flushCount,flushErrors,lcdUnderruns`, plus numeric memory/health fields and existing bounded diagnostic strings (`displayDiag,cameraDiag,photoDiag,photoUploadDiag,...`). No photo/audio/conversation payloads or credentials. The bridge validates a pending matching device/host/request/channel/expiry, bounds the snapshot to 8192 characters and each diagnostic string to 1024. Retry age is preserved, duplicate completion is rejected, and failures keep the previous sample visibly stale. The Windows loopback-only `/diagnostics/tab5` entry coalesces refresh requests and retains its browser-origin restriction. Old hosts omit the command; old firmware is reported as USB-only for detailed diagnostics. Mac adoption uses this same contract; no Mac implementation change is included here.
+
+中文：.250 新增按需无线运行诊断，复用已绑定当前电脑的加密状态与 RPC，不新增公开诊断端口，也不依赖固件升级。请求和回复必须匹配设备、电脑、会话、通道及限时请求 ID；切换电脑后中止旧代次发送。采样仅包含现有运行数字与诊断串。Windows 统一显示 USB/Wi-Fi/BLE 来源、接收时间和数据年龄，10 秒后标记过期，读取失败保留旧样本。旧 Mac 桥接需要按本节实现请求与接收，不能仅靠刷入固件获得该入口。
+
+
+## Quota carry-over and diagnostic transport fallback (.251 candidate)
+
+`quotaTrend.days[]` adds optional nonnegative `carryOver` (weekly quota percentage points, default zero). It is the portion of `used` recovered from a verified account/window interval crossing a Beijing midnight with a sampling gap over five minutes. It belongs to the resumed collection date under the requested attribution rule, is counted once, and marks the day partial. No-sample dates stay unknown. Confirmed resets start a new segment at the first observed usage; do not fill the preceding window to 100. Missing/changed identity, plan or unverified reset windows must not be bridged. Older hosts omit this field; older firmware may ignore it. No stored history schema or Mac source change is required.
+
+中文：每天接续前一次有效周额度读数；超过五分钟的跨日差额标为“含跨日补记”，归入恢复采集当天，不进入完整日均。重置按可验证窗口分段，只计已观察增量。TAB5 在相应数字后显示 `*`，标题解释含义；旧桥接缺省为零。
+
+The Windows loopback diagnostic request permits at most two eight-second probes. If the first live wireless path times out, it tries the other currently live path to the SAME paired device and host with a fresh request ID and expiry. A standby Wi-Fi poll must not permanently hide a device forced to BLE. Reject late replies to superseded challenges. Only this loopback endpoint has a 20-second HTTP response budget; existing binding, session, replay and privacy rules remain unchanged.
+
+`displayDiag` may append `;bw,1,active,leases,releases,appliedPriority,appliedReadQos`. These are numeric lease/readback counters for the temporary LCD memory-read priority during photo preparation, not a pass/fail proof of visible flicker. Unknown suffixes may be ignored.

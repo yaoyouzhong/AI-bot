@@ -15,6 +15,8 @@
     <LocalArt Condition="'$(LocalArt)' == ''">false</LocalArt>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../AIBotLoginHelper/AIBotLoginHelper.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;OutputPath;OutDir;PublishDir;PublishSingleFile" />
+    <Compile Include="../AIBotLoginHelper/HelperContract.cs" Link="LoginMethodHelperContract.cs" />
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
     <EmbeddedResource Include="Assets\app-icon.ico" />
     <EmbeddedResource Include="Assets\flash-icon.ico" />
@@ -37,5 +39,14 @@
     <ItemGroup>
       <Reference Remove="@(Reference)" Condition="'%(Reference.Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
     </ItemGroup>
+  </Target>
+  <Target Name="CopyLoginHelper" AfterTargets="Build">
+    <ItemGroup>
+      <LoginHelperFiles Include="../AIBotLoginHelper/bin/$(Configuration)/net8.0-windows/AIBotLoginHelper.exe;../AIBotLoginHelper/bin/$(Configuration)/net8.0-windows/AIBotLoginHelper.dll;../AIBotLoginHelper/bin/$(Configuration)/net8.0-windows/AIBotLoginHelper.deps.json;../AIBotLoginHelper/bin/$(Configuration)/net8.0-windows/AIBotLoginHelper.runtimeconfig.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LoginHelperFiles)" DestinationFolder="$(TargetDir)LoginHelper" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="PublishLoginHelper" AfterTargets="Publish" DependsOnTargets="CopyLoginHelper">
+    <Copy SourceFiles="@(LoginHelperFiles)" DestinationFolder="$(PublishDir)LoginHelper" SkipUnchangedFiles="true" />
   </Target>
 </Project>
