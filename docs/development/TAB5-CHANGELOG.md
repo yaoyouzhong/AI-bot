@@ -2,6 +2,11 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.262-ui
+
+- Reduce photo-window display interruption by skipping diagnostic heap walks; retain allocation admission, photo contents and OTA behavior.
+- Archive the complete .259-.262 source overlay in [tab5-262-source](tab5-262-source/README.md), including required fixture sources. The user previously confirmed successful photo addition without flashing. This commit does not rerun tests, build or flash.
+
 ## 0.2.257-ui - 2026-10-23 (local candidate; not installed)
 
 ### OTA recovery
