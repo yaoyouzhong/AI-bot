@@ -124,6 +124,7 @@ internal sealed class QuotaTrendForm : Form
                     day.CarryOver > 0 ? $"含跨日补记 {day.CarryOver:0.##} 个百分点" : null,
                     day.Resets > 0 ? $"额度重置 {day.Resets} 次，分段累计" : null,
                     day.UncertainResets > 0 ? $"{day.UncertainResets} 处额度变化无法核实，未计入" : null,
+                    day.WindowChanges > 0 ? $"{day.WindowChanges} 处重置日期变化，已保留观测增量，原因待核实" : null,
                     day.Gaps > 0 ? (day.Partial ? "存在采样间隔或无效记录" : "采样间隔已由累计值补算") : null,
                     day.Samples == 0 ? "未采集" : day.Day == today ? "统计中；仅已记录时段" : day.Partial ? "仅已记录时段，非全天总量" : "完整统计日"
                 }.Where(x => x is not null)));

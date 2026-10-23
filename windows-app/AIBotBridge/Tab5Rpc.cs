@@ -160,6 +160,7 @@ internal sealed partial class Tab5Service
     private static string Text(JsonElement root,string key)=>root.TryGetProperty(key,out var v)&&v.ValueKind==JsonValueKind.String?v.GetString()!:"";
     private (int Status,object Body) RpcOta(JsonElement root,string transport,bool binaryReply,bool bulkReply)
     {
+        lock(_lifecycle) {
         var offer=Volatile.Read(ref _ota);
         if(offer is null||Text(root,"sha256")!=offer.Sha256||Text(root,"offerId")!=offer.OfferId)return(404,new{error="offer_changed"});
         if(!root.TryGetProperty("offset",out var o)||!o.TryGetInt32(out int offset)||!root.TryGetProperty("count",out var c)||!c.TryGetInt32(out int count)||
@@ -170,6 +171,9 @@ internal sealed partial class Tab5Service
         if(probe&&transport!="BLE")return(400,new{error="probe_requires_ble"});
         long now=Environment.TickCount64;
         if(!probe) {
+            if(_otaDelivery is not {} delivery||delivery.StopRequested||!ReferenceEquals(offer,delivery.Image))return(404,new{error="offer_changed"});
+            BeginOtaDelivery(delivery);delivery.Committed=delivery.DataStarted=true;
+            if(offset+count==offer.Image.Length)delivery.FinalReleased=true;
             if(now>=Interlocked.Read(ref _rpcOtaUntil)){
                 Interlocked.Exchange(ref _usbRpcGateWaitMs,0);Interlocked.Exchange(ref _usbRpcGateWaitPeakMs,0);
             }
@@ -177,7 +181,8 @@ internal sealed partial class Tab5Service
             _otaTransferDiagnostic=$"{transport}；已提供：{offset+count}/{offer.Image.Length}；等待设备校验";
         }
         return(200,binaryReply?Tab5OtaCompression.Range(offer.Image.AsMemory(offset,count),offset,
-            (transport=="BLE"||transport=="USB")&&bulkReply&&Text(root,"acceptEncoding")=="zlib"):new{offset,data=Convert.ToBase64String(offer.Image,offset,count)});
+            bulkReply&&Text(root,"acceptEncoding")=="zlib"):new{offset,data=Convert.ToBase64String(offer.Image,offset,count)});
+        }
     }
     private (int Status,object Body) RpcImage(JsonElement root,string device,ReadOnlyMemory<byte> raw)
     {

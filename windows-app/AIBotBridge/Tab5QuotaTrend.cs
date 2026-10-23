@@ -21,6 +21,8 @@ internal static class Tab5QuotaTrend
             storageError=QuotaHistory.Shared.Error,
             daily=QuotaHistory.Daily(rows,today,7,QuotaHistory.StatisticsZone),
             coverage=CoverageFor(rows,today,7),
+            resetCreditHistory=rows.SelectMany(x => (x.ResetCredits ?? []).Select(e => new {redeemedAt=e.RedeemedAt,firstObservedAt=x.At,source="provider"})).ToArray(),
+            resetCreditHistoryStatus=QuotaHistory.Shared.ResetCreditHistoryStatus,
             transmitted=Snapshot()
         };
     }

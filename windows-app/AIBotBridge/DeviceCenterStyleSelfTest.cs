@@ -87,6 +87,23 @@ internal static class DeviceCenterStyleSelfTest
                 ((TextBox)f.Controls.Find("benchmark-result",true).Single()).Text=detail?Tab5Service.FormatBenchmark(sample):Tab5Service.FormatBenchmarkOverview(sample);
                 if(detail)Descendants(f).OfType<LinkLabel>().Single().Text="收起详细数据";
             }));
+            foreach(string phase in new[]{"transferring","stopping","stopped","finalizing"}) {
+                string fixture=phase;
+                pages.Add(("ota-stop-"+fixture,()=> {
+                    var peer=new Tab5Service(pairingStore);peer.UsbDevices=()=>[];
+                    peer.Publish(new StatusSnapshot(1,"12:00",DateTimeOffset.UtcNow.ToUnixTimeSeconds(),0,DateTimeOffset.UtcNow,new("idle",null),new("idle",null)));
+                    peer.ObserveFirmware(pairing.DeviceId,"0.2.254-ui");string n=Guid.NewGuid().ToString("N");
+                    peer.Respond(pairing.DeviceId,n,Tab5Protocol.Proof(Convert.FromBase64String(pairing.Key),$"GET|{pairing.DeviceId}|{n}"));
+                    peer.OfferOta(new Tab5OtaPackage(new byte[65536],new string('a',64),"0.2.255-ui",Guid.NewGuid().ToString("N"),"## 升级控制\n- 支持传输中安全停止\n- 保留现有配对和设置"));
+                    Tab5Service.OtaStopSelfTest.StagePreview(peer,fixture);
+                    var form=new Tab5ConnectionForm(peer,loadNetworks:false,showUpgrade:true);form.Disposed+=(_,_)=>peer.Dispose();return form;
+                },f=> {
+                    var button=(Button)f.Controls.Find("ota-stop",true).Single();
+                    if(button.Enabled!=(fixture=="transferring")||button.Text!=(fixture=="stopping"?"正在停止…":"停止升级"))throw new Exception("Upgrade stop action contradicts phase");
+                    var actions=button.Parent!.Controls.OfType<Button>().ToArray();
+                    if(actions.Single(b=>b.Text=="开始升级").Enabled||actions.Single(b=>b.Text=="选择固件…").Enabled!=(fixture=="stopped"))throw new Exception("Start/select enabled during transfer, verification or pending stop");
+                }));
+            }
             foreach(string component in new[]{"bridge","tab5","esp8266"})pages.Add(("release-notes-"+component,()=>new UpdateNotesForm(new Dictionary<string,ComponentUpdate>(),devices,component),null));
             if(only is not null){var selected=only.Split(',').ToHashSet(StringComparer.Ordinal);pages.RemoveAll(p=>!selected.Contains(p.Name));if(pages.Count!=selected.Count)throw new ArgumentException("Unknown page filter");}
             var issues=new HashSet<string>();var captures=new List<object>();

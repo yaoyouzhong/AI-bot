@@ -8,6 +8,18 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--quota-history-from-file") {
+            AppPaths.BeginPublicSelfTest();
+            var path=Path.GetFullPath(args[1]);
+            if(Path.GetFileName(path)!="codex-quota-history.json"||!File.Exists(path))throw new ArgumentException("Select an existing codex-quota-history.json copy.");
+            var history=new QuotaHistory(Path.GetDirectoryName(path));
+            if(history.Error is not null)throw new InvalidDataException(history.Error);
+            var rows=history.Read();
+            var today=DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,QuotaHistory.StatisticsZone).DateTime);
+            Console.WriteLine(JsonSerializer.Serialize(new {samples=rows.Length,lastSample=rows.LastOrDefault()?.At,
+                days=QuotaHistory.Daily(rows,today,7,QuotaHistory.StatisticsZone)},JsonDefaults.Options));
+            return;
+        }
         if(args.Length==1&&args[0]=="--self-test-tab5-host-binding"){AppPaths.BeginPublicSelfTest();Tab5HostBindingSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tightvnc-component"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();try{TightVncSelfTest.Run(Path.GetFullPath(args[1]));}catch(Exception ex){Console.Error.WriteLine("TIGHTVNC_COMPONENT_SELF_TEST_FAILED: "+ex);Environment.ExitCode=1;}return;}
         if(args.Length==2&&args[0]=="--test-tightvnc-sandbox"){AppPaths.BeginPublicSelfTest();Environment.ExitCode=0;TightVncSelfTest.SandboxAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}
@@ -520,6 +532,7 @@ internal static class Program
 
         if (args.Contains("--self-test-data", StringComparer.OrdinalIgnoreCase))
         {
+            AppPaths.BeginPublicSelfTest();
             Console.OutputEncoding = Encoding.UTF8;
             DataSourceSelfTest.Run();
             return;

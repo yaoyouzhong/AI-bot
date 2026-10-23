@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased · Windows sign-in method
 
+- Windows source candidate adds safe stop during TAB5 upgrade preparation/transfer. Last-range release disables stop; a fresh same-host idle report confirms stopped transfers. Existing firmware cleanup and pairing are retained. Not installed; hardware cancellation is pending.
+
+- TAB5 .254 local candidate replaces camera hardware JPEG with bounded scanline software encoding, retaining full resolution, quality 85, YUV420 and three-photo editing. The quota heading drops the carry-over explanation and the daily values lose their asterisks, without changing calculations. .253 is installed: both BLE attempts passed, while blue flashes persist; .254 is now installed with exact boot verification, but the user still reports blue flashes and a slow failed first BLE upload; its retry and Wi-Fi succeed. Windows and Mac binaries are unchanged in this follow-up.
+
+- New local candidate: preserve observed positive quota differences across changed future reset dates, label uncertain/cross-day attribution, and collect explicit banked-reset history read-only. Scheduled and observed early resets keep prior increments and start a new segment; zero-usage deadline drift is not another reset. Replay of the untouched actual history yields October 21 = 30 points, including 26 carried across a gap, and one observed October 23 01:10 reset. Automatic-reset origin is not established by sampling alone. Installed; resident totals match the replay. Live history reports complete with no normalized redemptions, which does not establish absence of card use; raw event kinds remain unverified. Mac is unchanged.
+
+- TAB5 .253 candidate removes the two redundant photo hints, transfers completed preview ownership to the attachment cache, and shortens JPEG DMA bursts. It also permits bounded credential-mailbox admission without replay. Installed; both user BLE attempts passed and blue flashes still fail.
+
 - Installed candidate: daily quota totals continue the previous valid reading across midnight, segment verified resets, and label long-gap carry-over separately. Actual October 21 still reports 4 points and remains under investigation. Runtime diagnostics retry the other live wireless path to the same bound device after an initial timeout; forced-BLE hardware acceptance is pending.
 
 - Add on-demand Wi-Fi/BLE runtime diagnostics for TAB5 .250 using the bound computer's encrypted channels, retaining stale samples with explicit age. Add daily quota sample bounds to diagnose partial history separately from complete totals. Installed; live Wi-Fi diagnostics passed with USB unplugged. BLE-only fallback is a follow-up; Mac is unchanged.

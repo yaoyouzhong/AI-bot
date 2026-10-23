@@ -2,7 +2,51 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
-## 0.2.252-ui - 2026-10-22 (local candidate, not installed)
+## 0.2.257-ui - 2026-10-23 (local candidate; not installed)
+
+### OTA recovery
+
+- Recover transient USB/Wi-Fi/BLE download interruptions in the same installer without re-erasing completed blocks. Wi-Fi streams resume through authenticated ranges when the selected Windows bridge advertises support.
+- Bound retry time/count, preserve Stop and selected-computer ownership, and retain complete-image/boot validation. No persistent power-loss/reboot resume is claimed; Mac source is unchanged.
+- Native task/range fault injection, real Windows HTTP/RPC and compression checks passed. Physical interruption acceptance is pending. Photo blue flashing remains unresolved.
+- See [implementation and acceptance](TAB5-OTA-RESUME-257.md).
+
+## 0.2.256-ui - 2026-10-23 (installed; blue flashes remain)
+
+### Photo still-display hold
+
+- Keep the current scanout while encoding/uploading, using a dedicated renderer pause instead of live-camera framebuffer selection. Release accumulated invalidations without forcing a full-screen redraw.
+- Preserve DMA completion ownership, touch/business timers, four orientations, three attachments and .255 BLE fixes. The actual port/real LVGL tests, 21 related native tests and full UI regressions passed; physical blue-flash acceptance remains pending.
+- See [candidate evidence](TAB5-FOLLOWUP-256.md).
+
+## 0.2.255-ui - 2026-10-23 (installed; blue flashes remain)
+
+- Fix P4 Hosted ATT TX resource errors causing a device restart; move CPU-only HCI staging out of internal DMA memory and free failed copies correctly.
+### Photo frame hold, BLE recovery and Windows upgrade stop
+
+- Hold the already rendered full-screen photo through encoding/upload without another full-frame allocation or copy; restore scanout before the composer or retained-photo retry page. Preserve quality, orientation and three attachments. The exact .255 was installed; the user still observes blue flashes.
+- With authenticated `data.imageChunkRetry=1`, BLE photo chunks use a 15-second deadline and one recovery opportunity per image: wait at most 20 seconds for the same host/session/mode, then retry the immutable range with a fresh nonce. Missing capability, explicit errors and non-photo actions do not retry; numeric diagnostics retain the first failure.
+- Companion Windows stopping withdraws an upgrade before its final range and confirms through a new post-stop challenge or exact authenticated USB status sequence; guard delayed ready commits and rejected requests. Mac is unchanged.
+- Builds, 17 current native tests, full LVGL and targeted Windows regressions pass. status-once was blocked by the profile-data guard (exit 2); exact .255 boot and first BLE photo acceptance passed; blue flashing failed and active OTA stop/crash regression remains pending. See [candidate evidence](TAB5-FOLLOWUP-255.md).
+
+## 0.2.254-ui - 2026-10-23 (installed; blue flashes persist)
+
+### Photo encoding and quota heading
+
+- Encode camera RGB565 photographs in software one row at a time, retaining full resolution, quality 85 and YUV420. Remove photo hardware-encoder DMA/cache maintenance and the long display lock; retain the captured frame, three attachments and failure retries. The exact .254 boot is verified; user testing still reports blue flashes.
+- Restore the concise weekly-quota trend heading without the carry-over explanation and remove the asterisks beside daily values; preserve all carry-over data and partial-history semantics.
+- .254 is installed with exact ELF, ota_1 and VALID state verified. Blue flashes persist; the first BLE upload waited and failed, its retry succeeded, and Wi-Fi is fast. Both .253 BLE unlock attempts remain accepted. Windows and Mac are unchanged by this firmware payload.
+
+## 0.2.253-ui - 2026-10-23 (installed; BLE accepted; blue flashes persist)
+
+### Photos and credential admission
+
+- Move the completed preview into the attachment cache instead of allocating/copying another full preview; pace preview generation every four rows and use 16-byte JPEG DMA bursts. Preserve quality, three-photo editing and accepted screensaver orientation. Blue-flash improvement still requires device acceptance.
+- Remove the requested photo receipt/viewer notes. Preserve the current proportional viewer layout.
+- Wait up to one second for credential mailbox admission before sending one USB/BLE request, within the original deadline and host generation. No credential or HID replay. Both user BLE attempts passed after installation; blue flashes still fail.
+- The Windows quota candidate is independent of this firmware: banked-reset history, observed early-reset segments and uncertain cross-day growth are documented in the companion report.
+
+## 0.2.252-ui - 2026-10-22 (installed; camera/gallery accepted; blue flashes persist)
 
 ### Photos and gallery screensavers
 

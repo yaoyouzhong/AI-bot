@@ -78,6 +78,7 @@ internal sealed partial class Tab5Service
             var existing=Volatile.Read(ref _runtimeSample);
             if(existing is null||existing.DeviceId!=probe.DeviceId||existing.Tick<probe.Started)
                 RecordRuntimeHealth(snapshot,probe.Transport);
+            ObserveOtaStopped(snapshot,CaptureOtaStopProbe(probe.Id,probe.Started));
             _runtimeDiagnosticResult="";
         }catch(TimeoutException){_runtimeDiagnosticResult="无线读取超时，未取得新采样；上次数据保留";}
         catch(Exception ex) when(ex is IOException or InvalidOperationException or JsonException){_runtimeDiagnosticResult="无线采样未通过校验，保留上次数据";}

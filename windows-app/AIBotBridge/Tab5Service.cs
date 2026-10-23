@@ -42,13 +42,16 @@ internal sealed partial class Tab5Service : IDisposable
     internal async Task TransferOtaAsync(Stream stream,byte[] image,string id,string capability,CancellationToken token,string encoding="") {
         bool fast=Tab5OtaFlow.Fast(capability);long started=Environment.TickCount64;
         bool compressed=fast&&encoding==Tab5OtaCompression.StreamEncoding;
-        OtaTransferActive(true);
+        var delivery=StartOtaStream(image,id);
+        using var transferStop=CancellationTokenSource.CreateLinkedTokenSource(token,_lifetime.Token,delivery.Stop.Token);
+        token=transferStop.Token;
         try {
             token.ThrowIfCancellationRequested();
             byte[] payload=compressed?Tab5OtaCompression.Stream(image):image;
             await Tab5OtaFlow.WriteAsync(stream,payload,fast,token,sent=>
-                _otaTransferDiagnostic=$"{(compressed?"Wi-Fi 分块压缩":fast?"TCP流控":"旧版兼容")}；镜像：{image.Length}；实际传输：{sent}/{payload.Length}；耗时毫秒：{Environment.TickCount64-started}；等待设备校验",compressed);
-        }catch { _otaTransferDiagnostic=$"传输中断；耗时毫秒：{Environment.TickCount64-started}";throw; }
+                _otaTransferDiagnostic=$"{(compressed?"Wi-Fi 分块压缩":fast?"TCP流控":"旧版兼容")}；镜像：{image.Length}；实际传输：{sent}/{payload.Length}；耗时毫秒：{Environment.TickCount64-started}；等待设备校验",compressed,
+                end=>BeforeOtaStreamWrite(delivery,end,payload.Length));
+        }catch { if(!delivery.StopRequested)_otaTransferDiagnostic=$"传输中断；耗时毫秒：{Environment.TickCount64-started}";throw; }
         finally {OtaTransferActive(false);}
     }
     internal void OtaTransferActive(bool active) {
@@ -59,7 +62,12 @@ internal sealed partial class Tab5Service : IDisposable
     internal string OtaNotes=>Volatile.Read(ref _ota)?.Notes??"";
     internal bool HasOta=>Volatile.Read(ref _ota) is not null;
     internal void OfferOta(string path)=>OfferOta(Tab5OtaPackage.Load(path));
-    internal void OfferOta(Tab5OtaPackage image) {lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备忙，请稍后提供固件。");if(Volatile.Read(ref _ota)?.Sha256!=image.Sha256)_otaTransferDiagnostic="尚无升级传输";Volatile.Write(ref _ota,image);_remoteOtaStatus="";}}
+    internal void OfferOta(Tab5OtaPackage image) {lock(_lifecycle){
+        if(_stopping||Busy||OtaStopPending)throw new InvalidOperationException(OtaStopPending?"正在等待设备结束升级，确认后才能重新选择固件。":"设备忙，请稍后提供固件。");
+        if(_otaDelivery is {StopRequested:true} previous&&image.OfferId==previous.Image.OfferId)image=image with {OfferId=Guid.NewGuid().ToString("N")};
+        _otaDelivery?.Stop.Dispose();_otaDelivery=new(image);_otaTransferDiagnostic="尚无升级传输";
+        Volatile.Write(ref _ota,image);_remoteOtaStatus="";
+    }}
     internal void CancelOta(){lock(_lifecycle){if(Busy||RemoteOtaPending)throw new InvalidOperationException("设备正在处理操作，暂时不能停止提供固件。");Volatile.Write(ref _ota,null);}}
     private ITab5VoiceEndpoint? _voice;
     private readonly Dictionary<string,long> _voiceNonces=[];
@@ -617,13 +625,15 @@ internal sealed partial class Tab5Service : IDisposable
                         if(CurrentFrameForMaximum(_usbStatusMaximum) is { } frame) {
                             bool refreshHost=Tab5HostBinding.NeedsFullStatus(_usbHostBinding,Environment.TickCount64,_usbHostFullStatusAt);
                             byte[] wire=_usbState.Wire(frame,_usbPacked,_usbDelta&&!refreshHost,_usbStatusMaximum);
+                            using var sent=JsonDocument.Parse(frame);
+                            long statusSequence=sent.RootElement.GetProperty("sequence").GetInt64();
+                            var stopProbe=CaptureOtaStopProbe(statusSequence.ToString(System.Globalization.CultureInfo.InvariantCulture),Environment.TickCount64,statusSequence);
                             var result=await Tab5UsbStatus.SendAsync(frame,wire,
                                 bytes=>Tab5UsbShortPacket.Line(port,Tab5Protocol.Prefix+Encoding.UTF8.GetString(bytes)),
                                 ()=>ReadReplyAsync(port,"tab5_ack",token),next=>{
                                     if(next=="status_recovery_write")Interlocked.Increment(ref _usbStatusRecoveryAttempts);
                                     Stage(next);
                                 });
-                            using var sent=JsonDocument.Parse(frame);
                             using var ack=result.Ack;
                             if(ack.RootElement.GetProperty("deviceId").GetString()!=pairing.DeviceId ||
                                 ack.RootElement.GetProperty("sequence").GetInt64()!=sent.RootElement.GetProperty("sequence").GetInt64()) throw new IOException("TAB5 数据确认不匹配。");
@@ -660,6 +670,7 @@ internal sealed partial class Tab5Service : IDisposable
                             _wifiReportedConnected=ack.RootElement.TryGetProperty("wifiConnected",out var wifiValue)&&wifiValue.ValueKind==JsonValueKind.True;
                             Interlocked.Exchange(ref _wifiReportAt,Environment.TickCount64);
                             RecordRuntimeHealth(ack.RootElement,"USB",frame.Length,hasResource);
+                            ObserveOtaStopped(ack.RootElement,stopProbe,usb:true);
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
                             // Bound each USB burst to preserve regular status heartbeats.
                             if(!BackgroundTransferPaused&&ack.RootElement.TryGetProperty("assetsReady",out var readyValue)&&readyValue.TryGetInt32(out var ready)) {

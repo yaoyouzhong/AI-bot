@@ -84,6 +84,7 @@ internal static class Tab5RemoteOtaSelfTest
             string verifiedProof=Tab5Protocol.Proof(key,$"POST|/tab5/v1/rpc|{pair.DeviceId}|{verifiedNonce}|{Convert.ToHexString(SHA256.HashData(verifiedPacket)).ToLowerInvariant()}");
             await service.RpcAsync(pair.DeviceId,verifiedNonce,verifiedProof,verifiedPacket,CancellationToken.None,transport:"USB");
             if(!service.CanStartOta)throw new Exception("Authenticated USB could not recover after a pairing failure");
+            await Tab5Service.OtaStopSelfTest.RunAsync();
             Console.WriteLine("TAB5_REMOTE_OTA_OK actual encrypted HTTP/RPC; legacy gate; immediate publication; paired commit then started; wrong hash/request/auth, duplicate/cancel/draft failure rejected; USB authentication failure blocks start with no-transfer reason and recovers after valid authentication; no physical flash claim");
         }finally{stop.Cancel();await serving;}
     }

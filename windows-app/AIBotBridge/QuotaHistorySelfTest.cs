@@ -150,6 +150,42 @@ internal static class QuotaHistorySelfTest
         Require(carriedDays[1].Growth==30&&carriedDays[1].CarryOver==26&&carriedDays[1].Partial&&carriedDays[2].Growth==0,
             "Observed Oct21 boundaries must yield 30 with 26 carried once.");
         Require(QuotaHistory.AverageRecorded(carriedDays,new(2026,10,22)).Days==0,"Carry-over entered exact-day average.");
+        var shiftedBounds=observedBounds.Select((x,i)=>x with {
+            WeeklyReset=i==0 ? coverageStart.AddDays(4).AddHours(4).AddMinutes(54) : coverageStart.AddDays(6).AddHours(14).AddMinutes(32)
+        }).ToArray();
+        var shiftedCarry=QuotaHistory.Daily(shiftedBounds,new(2026,10,22),3,QuotaHistory.StatisticsZone)[1];
+        Require(shiftedCarry.Growth==30&&shiftedCarry.CarryOver==26&&shiftedCarry.Partial&&shiftedCarry.Resets==0&&
+            shiftedCarry.WindowChanges==1&&shiftedCarry.UncertainResets==0,
+            "Unexplained future deadline change lost the observed 35-to-61 delta or invented a reset.");
+        var officialAt=coverageStart.AddDays(2).AddHours(1).AddMinutes(10);
+        var officialRows=new List<QuotaObservation> {
+            new(officialAt.AddMinutes(-2),"PRO",51,officialAt.AddDays(6),null,null,"same-account"),
+            new(officialAt.AddMinutes(-1),"PRO",55,officialAt.AddDays(6),null,null,"same-account")};
+        officialRows.AddRange(Enumerable.Range(0,121).Select(i=>new QuotaObservation(officialAt.AddMinutes(i),"PRO",0,
+            officialAt.AddDays(7).AddMinutes(i),null,null,"same-account")));
+        officialRows.Add(officialRows[^1] with{At=officialAt.AddMinutes(121),Weekly=3});
+        var officialDay=QuotaHistory.Daily(officialRows,new(2026,10,23),1,QuotaHistory.StatisticsZone)[0];
+        Require(officialDay.Growth==7&&officialDay.Resets==1&&officialDay.UncertainResets==0&&officialDay.WindowChanges==0,
+            "Observed unscheduled reset erased prior growth, counted restored balance as usage, or counted idle zero-window drift as more resets.");
+        var redemption=new QuotaResetEvidence(new string('A',64),coverageStart.AddHours(10));
+        var creditedBounds=shiftedBounds.Select((x,i)=>i==2?x with{ResetCredits=[redemption]}:x).ToArray();
+        var creditedDay=QuotaHistory.Daily(creditedBounds,new(2026,10,22),3,QuotaHistory.StatisticsZone)[1];
+        Require(creditedDay.Growth==65&&creditedDay.CarryOver==61&&creditedDay.Resets==1&&creditedDay.WindowChanges==0&&creditedDay.Partial,
+            "Provider redemption evidence did not split an unobserved reset followed by higher usage.");
+        foreach(var unrelated in new[]{
+            creditedBounds.Select((x,i)=>i==2?x with{ResetCredits=[redemption with{RedeemedAt=coverageStart.AddDays(-2)}]}:x).ToArray(),
+            creditedBounds.Append(creditedBounds[2] with{At=coverageStart.AddDays(1).AddHours(1),AccountFingerprint="another",ResetCredits=[redemption]}).Select((x,i)=>i==2?x with{ResetCredits=null}:x).ToArray()})
+            Require(QuotaHistory.Daily(unrelated,new(2026,10,22),3,QuotaHistory.StatisticsZone)[1].Growth==30,
+                "Old or another account's credit evidence fabricated a reset.");
+        foreach(var variant in new[]{
+            shiftedBounds.Select((x,i)=>i==0?x with{AccountFingerprint=null}:x).ToArray(),
+            shiftedBounds.Select((x,i)=>i==0?x with{AccountFingerprint="other"}:x).ToArray(),
+            shiftedBounds.Select((x,i)=>i==0?x with{Plan="PLUS"}:x).ToArray(),
+            shiftedBounds.Select((x,i)=>i==0?x with{WeeklyReset=null}:x).ToArray()}) {
+            var guarded=QuotaHistory.Daily(variant,new(2026,10,22),3,QuotaHistory.StatisticsZone)[1];
+            Require(guarded.Growth==4&&guarded.CarryOver==0&&guarded.WindowChanges==0&&guarded.Partial,
+                "Unverified identity, plan or window borrowed a cross-day positive difference.");
+        }
         var unknownAccount=observedBounds.Select((x,i)=>i==1?x with {AccountFingerprint=null}:x).ToArray();
         var unknownAccountDay=QuotaHistory.Daily(unknownAccount,new(2026,10,22),3,QuotaHistory.StatisticsZone)[1];
         Require(unknownAccountDay.Growth is null&&unknownAccountDay.CarryOver==0&&unknownAccountDay.Partial,
@@ -191,6 +227,7 @@ internal static class QuotaHistorySelfTest
             using var preview = new Bitmap(form.Width, form.Height); form.DrawToBitmap(preview, new Rectangle(Point.Empty, preview.Size));
             preview.Save(Path.Combine(folder, $"trend-{size.Width}-{metric}-{details}.png")); form.Hide();
         }
+        CollectionAsync().GetAwaiter().GetResult();
         Console.WriteLine("QUOTA_HISTORY_SELF_TEST_OK baseline/growth/reset/gap/midnight/stale/duplicate/plan/restart/corrupt/UI; synthetic only");
     }
 
@@ -200,7 +237,7 @@ internal static class QuotaHistorySelfTest
         var directory = Path.Combine(Path.GetTempPath(), "aibot-collection-test-" + Guid.NewGuid().ToString("N"));
         try
         {
-            foreach (var failure in new[] { "timeout", "network", "json", "http" })
+            foreach (var failure in new[] { "timeout", "network", "json", "http", "array", "null", "types" })
             {
                 var history = new QuotaHistory(Path.Combine(directory, failure));
                 Task<string?> Send(string endpoint, CancellationToken ct)
@@ -212,6 +249,9 @@ internal static class QuotaHistorySelfTest
                         "timeout" => Task.FromException<string?>(new TaskCanceledException()),
                         "network" => Task.FromException<string?>(new HttpRequestException()),
                         "json" => Task.FromResult<string?>("broken json"),
+                        "array" => Task.FromResult<string?>("[]"),
+                        "null" => Task.FromResult<string?>("null"),
+                        "types" => Task.FromResult<string?>("{\"available_count\":\"invalid\",\"credits\":null}"),
                         _ => Task.FromResult<string?>(null)
                     };
                 }
@@ -219,7 +259,51 @@ internal static class QuotaHistorySelfTest
                 if (result?.WeeklyPercent != 42 || result.Stale || new QuotaHistory(Path.Combine(directory,failure)).Read().Length != 1)
                     throw new InvalidOperationException("Optional credit failure lost valid usage: " + failure);
             }
-            Console.WriteLine("QUOTA_COLLECTION_SELF_TEST_OK optional credit timeout/network/malformed/non-success preserve usage immediately");
+            const string creditJson="""
+                {"events":[
+                {"id":"used-private-id","kind":"redeemed","occurred_at":"2026-09-10T10:00:00Z"},
+                {"id":"used-private-id","kind":"redeemed","occurred_at":"2026-09-10T10:00:00Z"},
+                {"id":"not-use","kind":"granted","occurred_at":"2026-09-10T10:01:00Z"},
+                {"id":"expiry-is-not-use","kind":"expired","occurred_at":"2026-09-10T10:01:00Z"},
+                {"id":"no-time","kind":"redeemed"},
+                {"id":"wrong-kind","kind":"unknown","occurred_at":"2026-09-10T10:00:00Z"}
+                ],"next_cursor":"next /?"}
+                """;
+            var evidenceHistory=new QuotaHistory(Path.Combine(directory,"evidence"));
+            var calls=new List<string>();
+            Task<string?> CreditSend(string endpoint,CancellationToken _) {
+                calls.Add(endpoint);
+                return endpoint switch {
+                    "usage"=>Task.FromResult<string?>(usage),
+                    "rate-limit-reset-credits"=>Task.FromException<string?>(new HttpRequestException()),
+                    "rate-limit-reset-credits/history"=>Task.FromResult<string?>(creditJson),
+                    "rate-limit-reset-credits/history?cursor=next%20%2F%3F"=>Task.FromException<string?>(new TaskCanceledException()),
+                    _=>throw new InvalidOperationException("Unexpected optional endpoint")};
+            }
+            await QuotaService.CollectCodexAsync(CreditSend,"PRO","synthetic-account",evidenceHistory,CancellationToken.None);
+            var first=evidenceHistory.Read().Single();
+            if(first.ResetCredits?.Length!=1||first.ResetCredits[0].RedeemedAt!=DateTimeOffset.Parse("2026-09-10T10:00:00Z"))
+                throw new InvalidOperationException("Provider redemption evidence was not retained once.");
+            var detailed=QuotaService.ParseCodex(usage) with{UpdatedAt=first.At.AddMinutes(1),ResetCreditRedemptions=QuotaService.ParseCodexResetHistory(creditJson).Events};
+            evidenceHistory.Record(detailed,"synthetic-account");evidenceHistory.RecordResetEvidence(detailed,"synthetic-account");
+            evidenceHistory.RecordResetEvidence(detailed,"wrong-account");
+            var persisted=new QuotaHistory(Path.Combine(directory,"evidence")).Read();
+            var saved=File.ReadAllText(Path.Combine(directory,"evidence","codex-quota-history.json"));
+            using var historyStatus=System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(evidenceHistory.ResetCreditHistoryStatus));
+            if(persisted.Sum(x=>x.ResetCredits?.Length??0)!=1||saved.Contains("used-private-id")||
+                System.Text.Json.JsonSerializer.Serialize(detailed).Contains("IdHash")||calls.Count!=4||
+                historyStatus.RootElement.GetProperty("complete").GetBoolean()||
+                historyStatus.RootElement.GetProperty("error").GetString()!="timeout_or_cancelled")
+                throw new InvalidOperationException("Repeated credit polling duplicated events or exposed opaque identifiers.");
+            var emptyHistory=new QuotaHistory(Path.Combine(directory,"empty-history"));
+            await QuotaService.CollectCodexAsync((endpoint,_)=>Task.FromResult<string?>(endpoint=="usage"?usage:
+                endpoint.EndsWith("/history",StringComparison.Ordinal)?"{\"events\":[],\"next_cursor\":null}":null),
+                "PRO","synthetic-account",emptyHistory,CancellationToken.None);
+            using var emptyStatus=System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(emptyHistory.ResetCreditHistoryStatus));
+            if(!emptyStatus.RootElement.GetProperty("complete").GetBoolean()||
+                emptyStatus.RootElement.GetProperty("error").ValueKind!=System.Text.Json.JsonValueKind.Null||emptyHistory.Read().Single().Weekly!=42)
+                throw new InvalidOperationException("A successfully fetched empty history was confused with unavailable history.");
+            Console.WriteLine("QUOTA_COLLECTION_SELF_TEST_OK usage survives optional credit/history failures; provider redemption pages persisted once; grants/expiry/unknown excluded; encoded cursor; restart/privacy");
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory,true); }
     }
