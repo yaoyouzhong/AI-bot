@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import zipfile
+from artifact_names import name as artifact_name
 
 ROOT = Path(__file__).resolve().parents[1]
 LICENSES = {
@@ -174,6 +175,7 @@ def package(source, output, version, guides_path=None, category=None):
             raise ValueError("Source records do not match artwork identities")
     selected = {w["id"]: w for w in selection}
     origins = {w["id"]: w for w in provenance}
+    guide_rows = {w['workId']: w for w in guides['works']}
     listed = read("files.json")
     files = listed["files"]
     image_names = []
@@ -186,6 +188,12 @@ def package(source, output, version, guides_path=None, category=None):
                 raise ValueError(f"Missing {name}: {work['id']}")
         if not item.get("imageSource") or not origin.get("originalSha256"):
             raise ValueError("Missing reproduction provenance")
+        if work['category']=='calligraphy' and category in (None,'calligraphy'):
+            guide=guide_rows[work['workId']]
+            if (origin.get('displayLayout')!='calligraphy-information-panel'
+                    or any(not guide.get(key) or origin.get('displayMetadata',{}).get(key)!=guide[key]
+                           for key in ('title','author','period','museum'))):
+                raise ValueError('Calligraphy captions are missing/stale or covered by the device footer; rebuild landscape pages: '+work['id'])
         if item["source"] != work["source"] or item["license"] != work["license"] or origin["license"] != work["license"]:
             raise ValueError("Conflicting source/license records")
         if not work["frames"] or len(work["frames"]) != len(work["portraitFrames"]):
@@ -246,7 +254,7 @@ def package(source, output, version, guides_path=None, category=None):
             raise ValueError("Guide file exceeds importer limit")
         hashes = {n: digest(data) for n, data in metadata.items()} | {n: files[n] for n in names}
         manifest = {"schemaVersion": 2, "version": version, "category": pack_category, "works": len(works), "frames": len(names), "files": hashes}
-        target = output / f"AI-bot-Daily{english}-{version}.zip"
+        target = output / artifact_name(pack_category, version)
         with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
             archive.writestr("PACK.json", encode(manifest))
             for name, data in metadata.items():

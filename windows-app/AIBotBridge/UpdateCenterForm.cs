@@ -121,16 +121,16 @@ internal sealed class UpdateCenterForm : Form
         cancel.Click+=(_,_)=>_operation?.Cancel();
         download.Click+=async(_,_)=>{
             var target=Selected();var release=Release(target);if(target is null||release is null||UpdateService.PreparationBlocked(target,release) is not null)return;
-            _operation=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);_busy=true;check.Enabled=false;cancel.Enabled=true;cancel.Visible=true;progress.Value=0;progress.Visible=true;Buttons();state.Text="正在下载并校验 "+target.Name+" 的更新…";
+            bool handedOff=false;_operation=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);_busy=true;check.Enabled=false;cancel.Enabled=true;cancel.Visible=true;progress.Value=0;progress.Visible=true;Buttons();state.Text="正在下载并校验 "+target.Name+" 的更新…";
             try {
                 var prepared=await service.DownloadAsync(release,Application.ProductVersion.Split('+')[0],new Progress<int>(value=>{if(!IsDisposed)progress.Value=Math.Clamp(value,0,100);}),_operation.Token);
                 _operation.Token.ThrowIfCancellationRequested();
                 var current=capture().SingleOrDefault(d=>d.Id==target.Id);
                 if(!UpdateService.SameTarget(target,current,release))throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
                 cancel.Enabled=false;state.Text=target.Component=="tab5"?"校验通过，正在准备设备升级；仍需在 TAB5 上确认安装。":"校验通过，正在打开安装工具…";
-                await install(current,prepared);
+                handedOff=true;await install(current,prepared);
                 if(!IsDisposed)state.Text=target.Component=="tab5"?"已交给 TAB5 升级工具。请在设备上确认安装，并在升级工具中核验启动。":"已交给安装工具。完成后重新检查运行版本。";
-            }catch(OperationCanceledException){if(!IsDisposed)state.Text="操作已取消，未安装或刷写。";}
+            }catch(OperationCanceledException){if(!IsDisposed)state.Text=handedOff?"操作已取消，已校验的下载文件保留。":"下载已取消；已下载部分会保留，下次可继续。未安装或刷写。";}
             catch(Exception ex){if(!IsDisposed)state.Text="更新未继续："+ex.Message;}
             finally{_operation?.Dispose();_operation=null;_busy=false;if(!IsDisposed){cancel.Enabled=false;cancel.Visible=false;check.Enabled=true;progress.Visible=false;RefreshRows();}}
         };

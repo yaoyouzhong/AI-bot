@@ -22,6 +22,14 @@ internal static class Tab5Calendar
     private static Tab5HolidayYear? Year(int year)=>Tab5HolidayStore.ApplyNextYear(Tab5HolidayStore.Get(year)??(year==2026?
         new(2026,Holidays2026.Select(h=>new Tab5HolidayRange(h.Start,h.End,h.Name)).ToArray(),Workdays2026.Keys.Order().ToArray(),[]):null));
     private static int[]? TermYear(int year)=>Tab5SolarTerms.Get(year)??TermDates.GetValueOrDefault(year);
+    internal static Tab5HolidayYear? HolidayYear(int year)=>Year(year);
+    internal static bool? IsWorkday(DateTime date) {
+        var schedule=Year(date.Year);if(schedule is null)return null;
+        int md=date.Month*100+date.Day;
+        if(schedule.Workdays.Contains(md))return true;
+        if(schedule.Holidays.Any(h=>md>=h.Start&&md<=h.End))return false;
+        return date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+    }
 
     internal static string SolarTerm(DateTime date)
     {

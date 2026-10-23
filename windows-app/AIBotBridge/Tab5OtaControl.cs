@@ -33,9 +33,10 @@ internal static class Tab5OtaControl
                     var current=service()??throw new InvalidOperationException("没有已启用的 TAB5。");
                     string op=request.RootElement.GetProperty("op").GetString()??"";
                     if(op=="info")response=new{ok=true,body=current.OtaControlInfo};
-                    else if(op=="start") {
+                    else if(op is "start" or "verify") {
                         string id=request.RootElement.GetProperty("deviceId").GetString()??"",sha=request.RootElement.GetProperty("sha256").GetString()??"";
-                        await current.StartScopedOtaAsync(id,sha,deadline.Token);response=new{ok=true,status=current.RemoteOtaStatus};
+                        await current.StartScopedOtaAsync(id,sha,deadline.Token,verify:op=="verify");
+                        response=new{ok=true,status=op=="verify"?current.UpgradeBootSummary:current.RemoteOtaStatus};
                     }else throw new InvalidOperationException("不支持的本机命令。");
                 }catch(Exception ex) when(ex is IOException or InvalidOperationException or JsonException or KeyNotFoundException) {response=new{ok=false,error=ex.Message};}
                 await WriteAsync(pipe,response,deadline.Token);
@@ -57,12 +58,12 @@ internal sealed partial class Tab5Service
         get {var image=Volatile.Read(ref _ota);return new{deviceId=PairedId,installedVersion=_firmware.LastVersion(PairedId),
             offeredVersion=image?.Version,sha256=image?.Sha256,elfSha256=image?.ElfSha256,canStart=CanStartOta,status=OtaSummary,hint=OtaStartHint};}
     }
-    internal Task StartScopedOtaAsync(string id,string sha,CancellationToken token) {
+    internal Task StartScopedOtaAsync(string id,string sha,CancellationToken token,bool verify=false) {
         lock(_lifecycle) {
             var image=Volatile.Read(ref _ota);
             if(!Tab5Protocol.ValidId(id)||id!=PairedId||image is null||sha!=image.Sha256)
-                throw new InvalidOperationException("设备或固件校验值不一致，升级未发起。");
-            return StartOtaAsync(token);
+                throw new InvalidOperationException("设备或固件校验值不一致，操作未发起。");
+            return verify?VerifyUpgradeAsync(token):StartOtaAsync(token);
         }
     }
 }

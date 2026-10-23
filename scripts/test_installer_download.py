@@ -51,7 +51,7 @@ def run(compiler: Path):
                        f'/DDesktopSha256={hashlib.sha256(PAYLOAD).hexdigest()}',
                        str(ROOT / 'windows-app/installer/setup.iss')]
             subprocess.run(command, check=True, timeout=90)
-            setup = work / 'AIBotBridge-0.0.0-setup-win-x64.exe'
+            setup = work / 'AI-bot-bridge-v0.0.0-windows-x64-setup.exe'
             for mode, expected in [('good', 'DOWNLOAD_OK'), ('corrupt', 'DOWNLOAD_BLOCKED'),
                                    ('missing', 'DOWNLOAD_BLOCKED')]:
                 state['mode'] = mode

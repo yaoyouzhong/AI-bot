@@ -35,7 +35,7 @@ internal sealed class Tab5DisplaySettingsForm : Form
         footer.SizeChanged+=(_,_)=>_status.MaximumSize=new(Math.Max(100,footer.ClientSize.Width-footer.Padding.Horizontal-8),0);
         _read.Click+=async(_,_)=>await ExchangeAsync(false);_save.Click+=async(_,_)=>await ExchangeAsync(true);
         _cycle.CheckedChanged+=(_,_)=>{if(_cycle.Checked)_mode.SelectedIndex=0;};_mode.SelectedIndexChanged+=(_,_)=>{if(_mode.SelectedIndex>0)_cycle.Checked=false;};
-        SettingsWindow.AddTitle(root,"显示设置");Shown+=async(_,_)=>await ExchangeAsync(false);FormClosing+=(_,_)=>_stop.Cancel();SettingsWindow.FitScreen(this);_save.Enabled=false;
+        SettingsWindow.AddTitle(root,"显示设置");Shown+=async(_,_)=>await ExchangeAsync(false);FormClosing+=(_,e)=>{if(_busy){e.Cancel=true;_status.Text="正在等待设备确认，请完成后再关闭。";}};FormClosed+=(_,_)=>_stop.Cancel();SettingsWindow.FitScreen(this);_save.Enabled=false;
     }
     private async Task ExchangeAsync(bool save) {
         if(_busy)return;
@@ -52,6 +52,7 @@ internal sealed class Tab5DisplaySettingsForm : Form
     private void LoadSettings(Tab5DisplaySettings value) {
         value.Validate();_loaded=value;_brightness.Value=value.Brightness;_volume.Value=value.Volume;_muted.Checked=value.Muted;_mode.SelectedIndex=value.Selected+1;_cycle.Checked=value.Cycle;_interval.SelectedItem=value.Interval;_saver.SelectedItem=value.SaverMinutes;_alerts.Checked=value.Alerts;
         _pages.Items.Clear();foreach(int index in value.Order)_pages.Items.Add(new ListViewItem(Tab5DisplaySettings.Pages[index]){Tag=index,Checked=value.Enabled[index]==1});
+        UnsavedChanges.MarkSaved(this);
     }
     protected override void Dispose(bool disposing){if(disposing&&!_disposed){_disposed=true;_stop.Cancel();_stop.Dispose();}base.Dispose(disposing);}
 }

@@ -29,7 +29,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.19041
 OutputDir={#OutputDirPath}
-OutputBaseFilename=AIBotBridge-{#AppVersion}-setup-win-x64
+OutputBaseFilename=AI-bot-bridge-v{#AppVersion}-windows-x64-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -110,6 +110,9 @@ FinishedLabel=AI-bot 已安装。启动后请在右下角托盘查找图标：�
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; Flags: checkedonce
+
+[UninstallRun]
+Filename: "{app}\AIBotBridge.exe"; Parameters: "--tightvnc-uninstall-prompt"; Flags: runhidden; RunOnceId: "TightVNC-component-removal"
 
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

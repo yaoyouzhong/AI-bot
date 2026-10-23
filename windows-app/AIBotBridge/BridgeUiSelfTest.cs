@@ -47,7 +47,7 @@ internal static class BridgeUiSelfTest
         {
             string[] sources=["天气","股票","Codex 额度","Claude 额度","通义千问 额度","Kimi 额度","MiniMax 额度","DeepSeek 额度","智谱 额度","阶跃星辰 额度","百度 额度","小米 额度"];
             var health=new ConnectionObservation(DateTimeOffset.Now,null,"",0,0);
-            BridgeDeviceStatus[] devices=[new("M5Stack TAB5","在线","Wi-Fi","0.2.150-ui",Enabled:true,Health:health),new("ESP8266 小屏","在线","USB","0.5.0",Enabled:true,Health:health)];
+            BridgeDeviceStatus[] devices=[new("M5Stack TAB5","在线","Wi-Fi","0.2.150-ui",Enabled:true,Health:health,Advice:ConnectionAdvice.For(true,new(false,"离线","","",Wifi:"已联网 · 桥接未通"))),new("ESP8266 小屏","在线","USB","0.5.0",Enabled:true,Health:health,Advice:ConnectionAdvice.For(true,new(false,"离线","","",Wifi:"已联网 · 桥接未通")))];
             foreach(float scale in new[]{1f,1.5f,2f})foreach(int count in new[]{0,2,8}){
                 var view=new BridgeStatusView(Enumerable.Range(0,count).Select(i=>devices[i%2] with{Name=i<2?devices[i].Name:$"演示设备 {i+1}"}).ToArray(),sources.Select(s=>new BridgeDataStatus(s,"数据可用","10-08 14:23:21")).ToArray(),count,null);
                 using var form=new BridgeStatusForm(()=>view);Show(form);if(scale!=1)form.Scale(new SizeF(scale,scale));form.RefreshStatus();Application.DoEvents();

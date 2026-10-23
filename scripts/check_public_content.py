@@ -17,6 +17,13 @@ RULES = {
 }
 # Individually reviewed documentation captures. Path AND bytes must match the record.
 REVIEWED_DOC_NAMES = frozenset({
+    'tab5-wifi-unlock-candidate.png',
+    'tab5-agenda.png',
+    'tab5-agenda-editor.png',
+    'tab5-agenda-reminder.png',
+    'tab5-agenda-empty.png',
+    'tab5-classic-day.png',
+    'tab5-classic-night.png',
     'bridge-monitor.png',
     'tab5-runtime-health.png',
     'tab5-settings-info.png',
@@ -66,6 +73,8 @@ REVIEWED_DOC_NAMES = frozenset({
     'tab5-calligraphy-portrait.png',
     'update-center.png',
     'gallery-packs.png',
+    'gallery-browser.png',
+    'gallery-fullscreen.png',
     'device-center.png',
     'device-center-esp8266.png',
     'device-center-accounts.png',
@@ -114,6 +123,13 @@ DOC_ASSET_HASHES = json.loads((ROOT / "licenses/materials.json").read_text(encod
 
 
 REVIEWED_PRODUCT_MEDIA = frozenset({
+    "docs/assets/hardware/esp8266-product-composite.png",
+    "docs/assets/hardware/tab5-product-composite.png",
+    "docs/assets/hardware/tab5-side-official.png",
+    "docs/assets/hardware/tab5-side-gpio-official.png",
+    "docs/assets/hardware/tab5-side-logo-official.png",
+    "docs/assets/hardware/tab5-side-antenna-official.png",
+    "docs/assets/hardware/tab5-back-official.png",
     "docs/assets/product-intro/AI-bot-product-intro.mp4",
     "docs/assets/product-intro/AI-bot-cover.png",
     "docs/assets/product-intro/AI-bot-cover-4x3.png",

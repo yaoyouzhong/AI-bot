@@ -24,13 +24,15 @@ internal static class GalleryUpdateCatalog
             var assets=release.GetProperty("assets").EnumerateArray().ToArray();
             foreach(var asset in assets) {
                 string name=asset.GetProperty("name").GetString()??"";
-                var match=Regex.Match(name,@"^AI-bot-Daily(Painting|Calligraphy)-Curated-(.+)\.zip$",RegexOptions.CultureInvariant);
+                bool canonical=name.StartsWith("AI-bot-gallery-",StringComparison.Ordinal);
+                var match=Regex.Match(name,canonical?@"^AI-bot-gallery-(painting|calligraphy)-standard-(.+)\.zip$":@"^AI-bot-Daily(Painting|Calligraphy)-Curated-(.+)\.zip$",RegexOptions.CultureInvariant);
                 if(!match.Success||!TryNumber(match.Groups[2].Value,out var number))continue;
-                string category=match.Groups[1].Value=="Painting"?"painting":"calligraphy",version=match.Groups[2].Value;
-                if(result.TryGetValue(category,out var old)&&old.Number>=number)continue;
+                string category=match.Groups[1].Value.ToLowerInvariant(),version=match.Groups[2].Value;
+                var package=ComponentUpdateCatalog.ReadAsset(tag,asset);
+                if(result.TryGetValue(category,out var old)&&(old.Number>number||old.Number==number&&(!canonical||package is null||old.Package?.Name.StartsWith("AI-bot-gallery-",StringComparison.Ordinal)==true)))continue;
                 var checksum=assets.Where(a=>a.GetProperty("name").GetString()==name+".sha256"||a.GetProperty("name").GetString()=="SHA256SUMS.txt")
                     .OrderBy(a=>a.GetProperty("name").GetString()==name+".sha256"?0:1).Select(a=>ComponentUpdateCatalog.ReadAsset(tag,a)).FirstOrDefault(a=>a is not null);
-                result[category]=new(category,version,number,ComponentUpdateCatalog.ReadAsset(tag,asset),checksum);
+                result[category]=new(category,version,number,package,checksum);
             }
         }
         return result;

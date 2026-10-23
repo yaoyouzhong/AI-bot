@@ -5,18 +5,19 @@ internal sealed class Tab5ConnectionForm : Form
     private readonly CancellationTokenSource _stop=new();
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=1000};
     private bool _resourcesDisposed;
+    internal void ShowUpgrade(){if(Controls.Find("connection-tabs",true).FirstOrDefault() is TabControl tabs)tabs.SelectedIndex=2;}
     internal Tab5ConnectionForm(Tab5Service service,bool loadNetworks=true,bool showUpgrade=false)
     {
         SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         Font=SettingsWindow.BodyFont();Text="TAB5 连接与升级";
-        ClientSize=new Size(640,530);MinimumSize=new Size(560,440);StartPosition=FormStartPosition.CenterScreen;
+        ClientSize=new Size(640,530);MinimumSize=new Size(560,520);StartPosition=FormStartPosition.CenterScreen;
         BackColor=Color.White;
         var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(24),ColumnCount=1,RowCount=3};
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));layout.RowStyles.Add(new RowStyle(SizeType.Percent,100));layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));Controls.Add(layout);
         var state=new Label{AutoSize=true,Dock=DockStyle.Fill,Text=service.ConnectionSummary,Padding=new Padding(12),BackColor=Color.White,Margin=new Padding(0,0,0,12)};
         layout.Controls.Add(state,0,0);
-        var tabs=new TabControl{Dock=DockStyle.Fill,Padding=new Point(12,6),Margin=Padding.Empty};layout.Controls.Add(tabs,0,1);
+        var tabs=new TabControl{Name="connection-tabs",Dock=DockStyle.Fill,Padding=new Point(12,6),Margin=Padding.Empty};layout.Controls.Add(tabs,0,1);
         Panel Page(string title) {
             var tab=new TabPage(title){BackColor=Color.White,Padding=new Padding(4)};tabs.TabPages.Add(tab);
             Panel panel=title is "固件升级" or "传输测速"?new ContentPage{Dock=DockStyle.Fill,Padding=new Padding(10)}:
@@ -86,20 +87,18 @@ internal sealed class Tab5ConnectionForm : Form
             for(int i=0;i<ports.Items.Count;i++)if(ports.Items[i] is FlashUsbDevice device&&device.Port==selected)ports.SelectedIndex=i;
         }
         refresh.Click+=(_,_)=>RefreshPorts();
-        var otaStatus=new Label{AutoSize=true,MaximumSize=new Size(570,0),Text=service.OtaSummary,Margin=new Padding(0,0,0,10)};upgrade.Controls.Add(otaStatus);
+        var otaStatus=new Tab5UpgradeStatusView();upgrade.Controls.Add(otaStatus);
         var offerOta=new Button{Text="选择固件…"};var cancelOta=new Button{Text="停止提供"};var startOta=new Button{Text="开始升级"};upgrade.Controls.Add(Buttons(startOta,offerOta,cancelOta));StyleCompactButton(startOta,true);
         var bootRow=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,8,0,8)};
         bootRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));bootRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         var bootState=new Label{AutoSize=true,Anchor=AnchorStyles.Left,ForeColor=SettingsWindow.Muted,Margin=new Padding(0,4,8,4)};
         var verifyOta=new Button{Text="核验启动",Anchor=AnchorStyles.Right,Margin=Padding.Empty};StyleCompactButton(verifyOta);bootRow.Controls.Add(bootState,0,0);bootRow.Controls.Add(verifyOta,1,0);upgrade.Controls.Add(bootRow);
-        bool verifying=false;
+        bool verifying=false,otaResult=false;
         var releaseNotes=new Tab5ReleaseNotes{Dock=DockStyle.Fill};upgrade.Controls.Add(releaseNotes);
-        verifyOta.Click+=async(_,_)=>{verifying=true;verifyOta.Enabled=false;bootState.Text="正在核验启动…";try{await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed)result.Text="启动核验通过。";}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed)result.Text=ex.Message;}finally{verifying=false;if(!IsDisposed)UpdateOffer();}};
+        verifyOta.Click+=async(_,_)=>{verifying=true;verifyOta.Enabled=false;bootState.Text="正在核验启动…";try{await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed){result.Text="";otaResult=false;}}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed){result.Text=ex.Message;otaResult=true;}}finally{verifying=false;if(!IsDisposed)UpdateOffer();}};
         void UpdateOffer() {
-            var status=string.Join("\n",new[]{service.OtaSummary,service.RemoteOtaStatus,service.OtaStartHint}.Where(x=>x.Length>0));
-            if(service.RemoteOtaStatus.Length>0&&service.OtaTransferSummary!="尚无升级传输")status+="\n"+service.OtaTransferSummary;
-            status=status.Trim();
-            if(otaStatus.Text!=status)otaStatus.Text=status;
+            var presentation=service.UpgradeStatusText;otaStatus.SetStatus(presentation);
+            if(otaResult&&presentation.State is "设备已运行" or "已核验"){result.Text="";otaResult=false;}
             startOta.Enabled=service.CanStartOta;offerOta.Enabled=!service.Busy;
             if(!verifying)bootState.Text=service.UpgradeBootSummary;
             verifyOta.Enabled=!verifying&&service.CanVerifyUpgrade;
@@ -113,7 +112,7 @@ internal sealed class Tab5ConnectionForm : Form
         tabs.SelectedIndexChanged+=(_,_)=>UpdateConnection();UpdateConnection();
         UpdateOffer();
         startOta.Click+=async(_,_)=> {
-            startOta.Enabled=false;
+            startOta.Enabled=false;otaResult=true;
             try {await service.StartOtaAsync(_stop.Token);if(!IsDisposed)result.Text=service.RemoteOtaStatus;}
             catch(OperationCanceledException){}
             catch(Exception ex) when(ex is IOException or InvalidOperationException){if(!IsDisposed)result.Text=ex.Message;}
@@ -133,6 +132,11 @@ internal sealed class Tab5ConnectionForm : Form
         audio.Controls.Add(Heading("语音输入"));audio.Controls.Add(Note("识别后在 TAB5 检查，再手动发送。"));
         var voice=new Button{Text="语音设置…"};audio.Controls.Add(Buttons(voice));voice.Click+=(_,_)=>service.ShowVoiceSettings(this);
         bool busy=false,loading=false;
+        FormClosing+=(_,e)=>{
+            if(busy||verifying||service.Busy||benchmarkCancel is not null) {
+                e.Cancel=true;result.Text="设备正在处理操作，请先完成升级／录音，或停止测速后再关闭。";
+            }
+        };
         Tab5Service.SavedWifiNetwork? Selected()=>saved.SelectedItems.Count==1?saved.SelectedItems[0].Tag as Tab5Service.SavedWifiNetwork:null;
         void FillSelection() {
             var selected=Selected();forget.Enabled=!busy&&selected is not null;

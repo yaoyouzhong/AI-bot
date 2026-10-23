@@ -17,6 +17,12 @@ internal static class SettingsLayoutSelfTest
     {
         if(!AppPaths.IsPublicSelfTest)AppPaths.BeginPublicSelfTest();
         directory=Path.GetFullPath(directory); Directory.CreateDirectory(directory);
+        if(Environment.GetEnvironmentVariable("AIBOT_BIRTHDAY_LAYOUT_ONLY")=="1") {
+            using(var form=new BirthdaySettingsForm(preview:true)) {
+                Capture(form,directory,"birthdays");form.Size=form.MinimumSize;Capture(form,directory,"birthdays-narrow");
+            }
+            BirthdaySettingsForm.SelfTest();Console.WriteLine("BIRTHDAY_LAYOUT_OK normal/minimum window; native preview; add/edit/cancel preserve stored data");return;
+        }
         if(Environment.GetEnvironmentVariable("AIBOT_TAB5_LAYOUT_ONLY")=="1") {
             using var tab5Service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"unused-pairing.dat")));
             if(Environment.GetEnvironmentVariable("AIBOT_TAB5_LAYOUT_OTA") is {Length:>0} otaFixture)tab5Service.OfferOta(otaFixture);
@@ -26,6 +32,15 @@ internal static class SettingsLayoutSelfTest
             if(rows.Length!=2||rows[0].Label!="单位"||!rows[0].Connected)throw new Exception("Saved network parser failed");
             bool mismatch=false;try{Tab5Service.ParseWifiList(wifiReply.RootElement,"other-device");}catch(IOException){mismatch=true;}
             if(!mismatch)throw new Exception("Wrong device Wi-Fi list accepted");
+            for(int count=6;count<=11;count++) {
+                using var capacityReply=System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(new{version=1,deviceId="test-device",
+                    networks=Enumerable.Range(0,count).Select(i=>new{ssid="synthetic-"+i,label="网络 "+i,connected=false,selected=false})}));
+                bool rejected=false;
+                try{if(Tab5Service.ParseWifiList(capacityReply.RootElement,"test-device").Length!=count)throw new Exception("Saved network count lost");}
+                catch(IOException){rejected=true;}
+                if(rejected!=(count>10))throw new Exception("Ten-network capacity validation failed");
+            }
+            Console.WriteLine("TAB5_WIFI_CAPACITY_10_OK six_through_ten_accepted_eleventh_rejected");
             var savedWifi=Descendants(tab5Form).OfType<ListView>().Single();
             foreach(var row in rows)savedWifi.Items.Add(new ListViewItem(new[]{row.Ssid,row.Label,row.Connected?"已连接":""}){Tag=row});
             var tabControl=Descendants(tab5Form).OfType<TabControl>().Single();

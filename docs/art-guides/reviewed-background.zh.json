@@ -1,0 +1,2821 @@
+{
+  "schemaVersion": 1,
+  "checkedOn": "2026-10-12",
+  "policy": "背景按百科二手资料或馆方资料标注；不把一般生平自动计作逐件权威赏析。",
+  "works": {
+    "colbase-tnm-TB-75": {
+      "text": "欧阳询（557—641）历仕隋唐，曾参与编纂《艺文类聚》。《九成宫醴泉铭》原碑立于632年，魏征撰文、欧阳询书；原碑纪年不等于本件拓印年代。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "sourceIds": [
+        "round3_background_ouyangxun_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_ouyangxun_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E6%AC%A7%E9%98%B3%E8%AF%A2&oldid=91791622",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "欧阳询",
+          "oldid": 91791622,
+          "revisionTimestamp": "2026-03-07T03:11:34Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+          "snapshot": "sources/round3-background-ouyangxun-wikipedia-evidence.json",
+          "evidenceSha256": "cb6a3580910745edcdb42208ddae73ecaf0b11054c4fe974bbdc0ba83b5c526d",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+          "pageNumber": null
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "欧阳询",
+        "lifespan": "557—641"
+      },
+      "relationToWork": "作者职涯及原碑背景；不转移原碑年代为拓本年代。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_ouyangxun_wiki",
+          "anchor": "557年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_ouyangxun_wiki",
+          "anchor": "武德]]七年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_ouyangxun_wiki",
+          "anchor": "弘文馆",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_ouyangxun_wiki",
+          "anchor": "九成宫醴泉铭",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "新唐书·列传第一百二十三·儒学上",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "张怀瓘书论",
+          "details": "湖南美术出版社，1997，页177，ISBN9787535609533",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "fullBackgroundText": "欧阳询（557—641），字信本，潭州临湘人，历仕隋唐，曾任太子率更令、弘文馆学士。武德七年，他参与编纂《艺文类聚》一百卷，兼有经史学养与书法声名。《九成宫醴泉铭》原碑立于632年，魏征撰文，欧阳询书写；这一纪年属于唐碑，不能用来断定眼前拓本的制作年代。",
+      "readerText": "欧阳询（557—641）历仕隋唐，曾参与编纂《艺文类聚》。《九成宫醴泉铭》原碑立于632年，魏征撰文、欧阳询书；原碑纪年不等于本件拓印年代。"
+    },
+    "colbase-tnm-TB-111": {
+      "text": "颜真卿（709—785），字清臣，734年中进士，曾任御史及平原太守。其书学早年取法褚遂良，后来向张旭学习；这段职涯与书学经历提供作者背景。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "sourceIds": [
+        "round3_background_yanzhenqing_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_yanzhenqing_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E9%A2%9C%E7%9C%9F%E5%8D%BF&oldid=93046269",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "颜真卿",
+          "oldid": 93046269,
+          "revisionTimestamp": "2026-06-13T01:11:21Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+          "snapshot": "sources/round3-background-yanzhenqing-wikipedia-evidence.json",
+          "evidenceSha256": "bfb0e147ba68c707345cb05bfc77ae41eba2feaa3a4d8096a119c66853d894e7",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+          "pageNumber": null
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "颜真卿",
+        "lifespan": "709—785"
+      },
+      "relationToWork": "选取官职与书学经历；不据百科推断与郭氏的具体交往或创作动机。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "709年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "734年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "颜真卿出生在家學",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "颜鲁公集行状",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "旧唐书·卷一百三十二",
+          "details": "条目引颜真卿传及唐德宗评语",
+          "url": "https://ctext.org/wiki.pl?if=gb&chapter=917157&remap=gb",
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "东坡题跋",
+          "details": "条目颜体段引苏轼评价",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "fullBackgroundText": "颜真卿（709—785），字清臣，唐代官员与书家。734年中进士，曾任殿中侍御史、侍御史和武部员外郎，后因受到杨国忠排斥而出任平原太守。他的书学并非孤立发展：早年取法褚遂良，后来向张旭学习。本件《郭氏家庙碑》的阅读，可先放在其经史、书法与仕宦生涯的背景中。",
+      "readerText": "颜真卿（709—785），字清臣，734年中进士，曾任御史及平原太守。其书学早年取法褚遂良，后来向张旭学习；这段职涯与书学经历提供作者背景。"
+    },
+    "colbase-tnm-TB-495": {
+      "text": "颜真卿在安史之乱时任平原太守，曾联络各地起兵抗击叛军。后历任蒲州、抚州、湖州等地官职，封鲁郡公。这是作者经历，不说明本件拓本的年代与流传。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "sourceIds": [
+        "round3_background_yanzhenqing_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_yanzhenqing_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E9%A2%9C%E7%9C%9F%E5%8D%BF&oldid=93046269",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "颜真卿",
+          "oldid": 93046269,
+          "revisionTimestamp": "2026-06-13T01:11:21Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+          "snapshot": "sources/round3-background-yanzhenqing-wikipedia-evidence.json",
+          "evidenceSha256": "bfb0e147ba68c707345cb05bfc77ae41eba2feaa3a4d8096a119c66853d894e7",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+          "pageNumber": null
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "颜真卿",
+        "lifespan": "709—785"
+      },
+      "relationToWork": "选取安史之乱与地方官经历；碑名与作者关系沿用现库身份，不由百科新增。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "709年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "天宝十四載",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "大曆|大歷",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "颜鲁公集行状",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "旧唐书·卷一百三十二",
+          "details": "条目引颜真卿传及唐德宗评语",
+          "url": "https://ctext.org/wiki.pl?if=gb&chapter=917157&remap=gb",
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "东坡题跋",
+          "details": "条目颜体段引苏轼评价",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "fullBackgroundText": "颜真卿（709—785）在安史之乱爆发时任平原太守，曾联络各地起兵抗击叛军。此后历任蒲州、抚州、湖州等地官职，又任刑部、吏部尚书，封鲁郡公，世称颜鲁公。《臧怀恪神道碑》属于其传世碑刻，这段官员生涯提供作者的时代背景；百科生平并不能说明本件拓印的年代和流传。",
+      "readerText": "颜真卿在安史之乱时任平原太守，曾联络各地起兵抗击叛军。后历任蒲州、抚州、湖州等地官职，封鲁郡公。这是作者经历，不说明本件拓本的年代与流传。"
+    },
+    "colbase-tnm-TB-1635": {
+      "text": "颜真卿长期参与政务，曾任刑部、吏部尚书及礼仪使。《争座位帖》的阅读可联系其官员身份与礼序关切；生平概述不用于判断本件拓印年代或补写缺字。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "sourceIds": [
+        "round3_background_yanzhenqing_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_yanzhenqing_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E9%A2%9C%E7%9C%9F%E5%8D%BF&oldid=93046269",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "颜真卿",
+          "oldid": 93046269,
+          "revisionTimestamp": "2026-06-13T01:11:21Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+          "snapshot": "sources/round3-background-yanzhenqing-wikipedia-evidence.json",
+          "evidenceSha256": "bfb0e147ba68c707345cb05bfc77ae41eba2feaa3a4d8096a119c66853d894e7",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+          "pageNumber": null
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "颜真卿",
+        "lifespan": "709—785"
+      },
+      "relationToWork": "取政务及礼仪职涯，作品具体受信人、日期仍以本件已存参考材料为准，不另作判断。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "709年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "734年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "礼仪使",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "爭座位帖",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "颜鲁公集行状",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "旧唐书·卷一百三十二",
+          "details": "条目引颜真卿传及唐德宗评语",
+          "url": "https://ctext.org/wiki.pl?if=gb&chapter=917157&remap=gb",
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "东坡题跋",
+          "details": "条目颜体段引苏轼评价",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "fullBackgroundText": "颜真卿（709—785）既是书家，也长期参与唐代政务，曾任御史、地方刺史及刑部、吏部尚书。唐代宗去世后，他又任礼仪使，涉及朝廷礼制事务。百科把《争座位帖》列入其行草作品，可联系这种官员身份理解文字中的礼序关切；其生平记录不用于推断本件拓本的制作年代或补写缺字。",
+      "readerText": "颜真卿长期参与政务，曾任刑部、吏部尚书及礼仪使。《争座位帖》的阅读可联系其官员身份与礼序关切；生平概述不用于判断本件拓印年代或补写缺字。"
+    },
+    "colbase-tnm-TB-366": {
+      "text": "颜真卿出身琅琊颜氏，父颜惟贞曾任太子文学、薛王友。他少年丧父，由母亲殷氏抚养成人；家族有文字学与书法传统，可作为阅读家庙碑的家学背景。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "sourceIds": [
+        "round3_background_yanzhenqing_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_yanzhenqing_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E9%A2%9C%E7%9C%9F%E5%8D%BF&oldid=93046269",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "颜真卿",
+          "oldid": 93046269,
+          "revisionTimestamp": "2026-06-13T01:11:21Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+          "snapshot": "sources/round3-background-yanzhenqing-wikipedia-evidence.json",
+          "evidenceSha256": "bfb0e147ba68c707345cb05bfc77ae41eba2feaa3a4d8096a119c66853d894e7",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+          "pageNumber": null
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "颜真卿",
+        "lifespan": "709—785"
+      },
+      "relationToWork": "选取家世与家学；不得据概述补碑字。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "709年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "颜真卿少年丧父",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "颜真卿出生在家學",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "颜惟贞",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yanzhenqing_wiki",
+          "anchor": "颜氏家庙碑",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "颜鲁公集行状",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "旧唐书·卷一百三十二",
+          "details": "条目引颜真卿传及唐德宗评语",
+          "url": "https://ctext.org/wiki.pl?if=gb&chapter=917157&remap=gb",
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "东坡题跋",
+          "details": "条目颜体段引苏轼评价",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "fullBackgroundText": "颜真卿（709—785）出身琅琊颜氏，父亲颜惟贞曾任太子文学、薛王友。颜真卿少年丧父，由母亲殷氏抚养成人；其家族历代有文字学与书法传统。他早年取法褚遂良，后学张旭。《颜氏家庙碑》记录先世，阅读时可联系这一家学背景；祖先事迹须依碑文与史料核对，不能由百科概述补齐残损文字。",
+      "readerText": "颜真卿出身琅琊颜氏，父颜惟贞曾任太子文学、薛王友。他少年丧父，由母亲殷氏抚养成人；家族有文字学与书法传统，可作为阅读家庙碑的家学背景。"
+    },
+    "colbase-tnm-TB-350": {
+      "text": "虞世南（558—638）曾任弘文馆学士、秘书监，封永兴县公，年轻时向智永学书。孔庙碑原作与唐初重建孔庙有关；本件重刻拓本的年代须另行辨明。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "sourceIds": [
+        "round3_background_yushinan_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_yushinan_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E8%99%9E%E4%B8%96%E5%8D%97&oldid=93719094",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "虞世南",
+          "oldid": 93719094,
+          "revisionTimestamp": "2026-07-31T16:04:42Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+          "snapshot": "sources/round3-background-yushinan-wikipedia-evidence.json",
+          "evidenceSha256": "af36df4c5332c7d91d1b654e1a21d869e8dbcb3b5515f9a24fc9ab88790c1099",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+          "pageNumber": null
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "虞世南",
+        "lifespan": "558—638"
+      },
+      "relationToWork": "仅原碑与作者背景；不沿用百科中未经独立核实的陕西本、城武本具体版本判断。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_yushinan_wiki",
+          "anchor": "558年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yushinan_wiki",
+          "anchor": "沉靜寡欲",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yushinan_wiki",
+          "anchor": "年轻时学书",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yushinan_wiki",
+          "anchor": "孔子庙堂碑",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "旧唐书·卷72",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "百科全书的故事",
+          "details": "金常政，北京图书馆出版社，2005，页20，ISBN7501326231",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "书断·卷中",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "fullBackgroundText": "虞世南（558—638），字伯施，越州余姚人，曾在隋朝任秘书郎，入唐后任弘文馆学士、秘书监，封永兴县公，故又称虞永兴。他年轻时向智永学书，并编有《北堂书钞》一百六十卷。《孔子庙堂碑》原作与唐初重建孔庙有关；眼前是重刻系统的拓本，不能把原碑故事当作本件纸墨与年代的证明。",
+      "readerText": "虞世南（558—638）曾任弘文馆学士、秘书监，封永兴县公，年轻时向智永学书。孔庙碑原作与唐初重建孔庙有关；本件重刻拓本的年代须另行辨明。"
+    },
+    "colbase-tnm-TB-187": {
+      "text": "欧阳通是欧阳询之子，字通师，父子并称大小欧阳；他曾任中书舍人，691年遇害。道因碑原碑立于663年，李俨撰文、欧阳通书；此年并非本件拓印年代。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "sourceIds": [
+        "round3_background_ouyangtong_wiki",
+        "round3_background_daoyin_official"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_ouyangtong_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E6%AC%A7%E9%98%B3%E9%80%9A&oldid=94398505",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "欧阳通",
+          "oldid": 94398505,
+          "revisionTimestamp": "2026-09-17T00:02:48Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+          "snapshot": "sources/round3-background-ouyangtong-wikipedia-evidence.json",
+          "evidenceSha256": "d6c20a8d90588ad38fdac17421404a8db8316ac6a4f00401c892ac4156247c63",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+          "pageNumber": null
+        },
+        {
+          "id": "round3_background_daoyin_official",
+          "url": "https://www.dpm.org.cn/collection/impres/234138.html",
+          "publisher": "故宫博物院",
+          "accessed": "2026-10-12",
+          "method": "official_museum_html_excerpt_review",
+          "snapshot": "sources/round3-background-daoyin-official-evidence.json",
+          "evidenceSha256": "b780d1fc978a8215f5c94cf609c42ea3099ba7ca86cd2326f51d9a9350f568c5",
+          "scope": "original_monument_background",
+          "locator": "唐龙朔三年（663年）",
+          "pageNumber": null
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "欧阳通",
+        "lifespan": "约625—691（百科通行纪年；馆方生年未定）"
+      },
+      "relationToWork": "原碑663年由故宫官网交叉核对；不复制故宫所藏明拓本的纸墨、损字与尺寸。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_ouyangtong_wiki",
+          "anchor": "625年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_ouyangtong_wiki",
+          "anchor": "歐陽詢]]第四子",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_ouyangtong_wiki",
+          "anchor": "龙朔|龍朔",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_ouyangtong_wiki",
+          "anchor": "舊唐書",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "旧唐书·列传第二十",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "道因法师碑",
+          "url": "https://www.dpm.org.cn/collection/impres/234138.html",
+          "publisher": "故宫博物院",
+          "verification": "official_web_page_read_and_archived",
+          "scope": "Original monument facts only; DPM rubbing is a different object."
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "fullBackgroundText": "欧阳通是欧阳询之子，字通师，潭州临湘人，父子因书法并称大小欧阳。他历任中书舍人、殿中监等职，在武周时期遭来俊臣构陷，691年被杀，后来恢复官爵。《道因法师碑》原碑立于663年，李俨撰文、欧阳通书写。百科背景有助辨识父子及时代关系，但原碑纪年不等于本件拓本的制作时间。",
+      "readerText": "欧阳通是欧阳询之子，字通师，父子并称大小欧阳；他曾任中书舍人，691年遇害。道因碑原碑立于663年，李俨撰文、欧阳通书；此年并非本件拓印年代。"
+    },
+    "colbase-tnm-TB-1365": {
+      "text": "褚遂良（596—658），字登善，世称褚河南，曾任中书令并受唐太宗遗诏辅政。《文皇哀册》传为其书，作者归属保留传称，不据生平判断现存刻帖真伪。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "sourceIds": [
+        "round3_background_chusuiliang_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_chusuiliang_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E8%A4%9A%E9%81%82%E8%89%AF&oldid=92980269",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "褚遂良",
+          "oldid": 92980269,
+          "revisionTimestamp": "2026-06-07T11:43:00Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+          "snapshot": "sources/round3-background-chusuiliang-wikipedia-evidence.json",
+          "evidenceSha256": "2215cf19395884b381a12b71e5d8543ab40f8ba5e54788501f249d901358e93b",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+          "pageNumber": null
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "褚遂良",
+        "lifespan": "596—658"
+      },
+      "relationToWork": "条目有来源不足、原创研究提示；只取有史籍线索的职涯，哀册作者保持传称。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_chusuiliang_wiki",
+          "anchor": "596年||658年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_chusuiliang_wiki",
+          "anchor": "貞觀 (唐朝)|贞观]]十三年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_chusuiliang_wiki",
+          "anchor": "贞观二十三年",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_chusuiliang_wiki",
+          "anchor": "《文皇哀冊》",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "贞观政要·文史",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "新唐书·列传第三十 长孙褚韩来李上官",
+          "details": "条目所引版本",
+          "url": "https://ctext.org/wiki.pl?if=en&chapter=175954&remap=gb",
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "fullBackgroundText": "褚遂良（596—658），字登善，钱塘人，封河南郡公，世称褚河南。他曾兼知起居注，后任中书令，649年与长孙无忌同受唐太宗遗诏辅政；后来因反对立武氏为后而遭贬。《文皇哀册》传为其书，题名所涉的是帝王丧葬中的祭文传统。这里保留传称，不据作者生平判断现存刻帖是否出于亲笔。",
+      "readerText": "褚遂良（596—658），字登善，世称褚河南，曾任中书令并受唐太宗遗诏辅政。《文皇哀册》传为其书，作者归属保留传称，不据生平判断现存刻帖真伪。"
+    },
+    "paris-420009508": {
+      "text": "康有为（1858—1927）于1895年中进士，1898年变法受挫后流亡海外。书学上承接阮元、包世臣的碑学思路，重视汉代与北魏碑刻。",
+      "scope": "museum_work_background_reference",
+      "sourceIds": [
+        "round3_background_kang_museum"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_kang_museum",
+          "url": "https://www.cernuschi.paris.fr/fr/collections/collections-chinoises/chine-moderne/kang-youwei-la-falaise-rouge",
+          "publisher": "巴黎赛努奇博物馆（Musée Cernuschi）",
+          "accessed": "2026-10-12",
+          "method": "frozen_primary_museum_page_background_excerpt_review",
+          "snapshot": "sources/round3-background-kang-museum-evidence.json",
+          "evidenceSha256": "95c26cf67ce9a8428e4b849ec4e7c43bd1bf0e52d1ee6ad456d42462b3ee1da5",
+          "scope": "museum_work_background_reference",
+          "locator": "Quoted career/study paragraph anchors and extracted-text offsets.",
+          "pageNumber": null,
+          "originalSnapshot": "sources/round3-authority-kang.html",
+          "originalSha256": "a0a6bd4d9598952c37247f406949b1db1e4e3f496bb279febb997db39b223072"
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "康有为",
+        "lifespan": "1858—1927"
+      },
+      "relationToWork": "同件馆方页面中的作者职涯与学书事实；不增加本件权威赏析计数。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_kang_museum",
+          "anchor": "Kang Youwei est originaire",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_kang_museum",
+          "anchor": "Dans le domaine de la calligraphie",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "清史稿·卷473·康有为传",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "六朝书道论",
+          "details": "康南海著，中村不折、井土灵山译，东京二松堂书店，1914；广艺舟双楫日译本",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "supplementaryWikipediaSource": {
+        "id": "round3_background_kangyouwei_wiki",
+        "url": "https://zh.wikipedia.org/w/index.php?title=%E5%BA%B7%E6%9C%89%E4%B8%BA&oldid=94739570",
+        "publisher": "维基百科（百科二手参考）",
+        "title": "康有为",
+        "oldid": 94739570,
+        "revisionTimestamp": "2026-10-03T21:35:48Z",
+        "accessed": "2026-10-12",
+        "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+        "snapshot": "sources/round3-background-kangyouwei-wikipedia-evidence.json",
+        "evidenceSha256": "1c8ef1b9a115ddc817e70d64962b571219bb7428d4161528cf665115ca581176",
+        "scope": "secondary_encyclopedic_background_reference",
+        "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+        "pageNumber": null
+      },
+      "bibliographyNote": "书目来自固定百科版本，除明示已读官网外未直接阅读；主要背景依据为同件馆方页面。",
+      "fullBackgroundText": "康有为（1858—1927）出身广东南海，1895年中进士，是晚清改革思想的重要人物。1898年变法受挫后，他流亡海外，旅行中比较中西绘画，也提出艺术改革主张。在书学上，他承接阮元、包世臣的碑学思路，重视汉代与北魏碑刻。这些职涯与学书经历提供作者背景，不说明本轴的具体创作动机。",
+      "readerText": "康有为（1858—1927）于1895年中进士，1898年变法受挫后流亡海外。书学上承接阮元、包世臣的碑学思路，重视汉代与北魏碑刻。"
+    },
+    "paris-420009950": {
+      "text": "张弼（1425—1487），字汝弼，号东海，1466年中进士，后出守江西南安。其书学先取法明初宋广、陈璧，随后转向唐代怀素。",
+      "scope": "museum_work_background_reference",
+      "sourceIds": [
+        "round3_background_zhang_museum"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_zhang_museum",
+          "url": "https://www.cernuschi.paris.fr/en/node/1156",
+          "publisher": "巴黎赛努奇博物馆（Musée Cernuschi）",
+          "accessed": "2026-10-12",
+          "method": "frozen_primary_museum_page_background_excerpt_review",
+          "snapshot": "sources/round3-background-zhang-museum-evidence.json",
+          "evidenceSha256": "2fc5035a99ad0876aa1fd2027375a9f4b26d32519e5310a1e874e964afac3ce6",
+          "scope": "museum_work_background_reference",
+          "locator": "Quoted career/study paragraph anchors and extracted-text offsets.",
+          "pageNumber": null,
+          "originalSnapshot": "sources/round3-authority-zhang.html",
+          "originalSha256": "1d223ad67f6d806a0737b55293b45af31daae3afc2b0e53be3c6e34936601dea"
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "張弼 (成化丙戌進士)",
+        "lifespan": "1425—1487"
+      },
+      "relationToWork": "同件馆方页面中的作者职涯与学书事实；不增加本件权威赏析计数。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_zhang_museum",
+          "anchor": "Zhang Bi, a man of letters",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_zhang_museum",
+          "anchor": "His style, forged",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "明史·卷286",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "国朝献征录·卷八十七·江西南安府知府张公弼墓铭",
+          "details": "谢铎",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "东海集·序",
+          "details": "",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "supplementaryWikipediaSource": {
+        "id": "round3_background_zhangbi_wiki",
+        "url": "https://zh.wikipedia.org/w/index.php?title=%E5%BC%B5%E5%BC%BC+%28%E6%88%90%E5%8C%96%E4%B8%99%E6%88%8C%E9%80%B2%E5%A3%AB%29&oldid=86644110",
+        "publisher": "维基百科（百科二手参考）",
+        "title": "張弼 (成化丙戌進士)",
+        "oldid": 86644110,
+        "revisionTimestamp": "2025-03-31T17:29:59Z",
+        "accessed": "2026-10-12",
+        "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+        "snapshot": "sources/round3-background-zhangbi-wikipedia-evidence.json",
+        "evidenceSha256": "2ba07788b3d9f3f7d2e781ab2606b3c2bbb44e47bcb5bf3020c59ad97a4c8ce4",
+        "scope": "secondary_encyclopedic_background_reference",
+        "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+        "pageNumber": null
+      },
+      "bibliographyNote": "书目来自固定百科版本，除明示已读官网外未直接阅读；主要背景依据为同件馆方页面。",
+      "fullBackgroundText": "张弼（1425—1487），字汝弼，号东海，松江华亭人，1466年中进士。馆方介绍，他在京任官后出守江西南安，晚年退居故乡，兼以诗文与书法著名。其学书曾取法明初宋广、陈璧，随后转向唐代怀素。认识这种书学转变，可帮助理解明代狂草的发展背景；不能据此给本轴另定具体创作年月。",
+      "readerText": "张弼（1425—1487），字汝弼，号东海，1466年中进士，后出守江西南安。其书学先取法明初宋广、陈璧，随后转向唐代怀素。"
+    },
+    "paris-420013279": {
+      "text": "姚华（1876—1930）于1904年中进士，后来赴日留学并从事教育。他自幼研究《说文解字》，学莫友芝篆书，继而以铜器、钱币及碑志上的古文字为范本。",
+      "scope": "museum_work_background_reference",
+      "sourceIds": [
+        "round3_background_yao_museum"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_yao_museum",
+          "url": "https://www.cernuschi.paris.fr/en/node/1395",
+          "publisher": "巴黎赛努奇博物馆（Musée Cernuschi）",
+          "accessed": "2026-10-12",
+          "method": "frozen_primary_museum_page_background_excerpt_review",
+          "snapshot": "sources/round3-background-yao-museum-evidence.json",
+          "evidenceSha256": "b51cd907d2a00f06cc12bab80ec8576885f005c809becfd9f471d16a4f30e5b5",
+          "scope": "museum_work_background_reference",
+          "locator": "Quoted career/study paragraph anchors and extracted-text offsets.",
+          "pageNumber": null,
+          "originalSnapshot": "sources/round3-authority-yao.html",
+          "originalSha256": "55b4efb03ffd01a8ec27204b9b17f52e5cc78ca5a557707b3d3ae4a87a3073e5"
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "姚華",
+        "lifespan": "1876—1930"
+      },
+      "relationToWork": "同件馆方页面中的作者职涯与学书事实；不增加本件权威赏析计数。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_yao_museum",
+          "anchor": "Yao Hua was born",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_yao_museum",
+          "anchor": "His interest since childhood",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "民国之精华",
+          "details": "页159，人物记录",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "姚华：旧京都的一代通人",
+          "details": "苏华，《书屋》1998年第3期",
+          "url": "https://web.archive.org/web/20070718060947/http://www.housebook.com.cn/199803/17.htm",
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "supplementaryWikipediaSource": {
+        "id": "round3_background_yaohua_wiki",
+        "url": "https://zh.wikipedia.org/w/index.php?title=%E5%A7%9A%E8%8F%AF&oldid=94100295",
+        "publisher": "维基百科（百科二手参考）",
+        "title": "姚華",
+        "oldid": 94100295,
+        "revisionTimestamp": "2026-08-30T03:20:38Z",
+        "accessed": "2026-10-12",
+        "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+        "snapshot": "sources/round3-background-yaohua-wikipedia-evidence.json",
+        "evidenceSha256": "e2253c61954140e0a007a63864b49e727bf1e0a96309770cf002435722aeed87",
+        "scope": "secondary_encyclopedic_background_reference",
+        "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+        "pageNumber": null
+      },
+      "bibliographyNote": "书目来自固定百科版本，除明示已读官网外未直接阅读；主要背景依据为同件馆方页面。",
+      "fullBackgroundText": "姚华（1876—1930）出生于贵州贵阳，1904年中进士，随后赴日本留学；清朝结束后，他主要从事教育，在北京教授文学与书法。他自幼关注《说文解字》，从贵州书家莫友芝的篆书入手，继而研究铜器、钱币、陶片及碑志上的古文字。这些经历说明其篆书背后的文字学兴趣，不用于补出本件未收录的另一联。",
+      "readerText": "姚华（1876—1930）于1904年中进士，后来赴日留学并从事教育。他自幼研究《说文解字》，学莫友芝篆书，继而以铜器、钱币及碑志上的古文字为范本。"
+    },
+    "paris-420013341": {
+      "text": "文徵明（1470—1559）长期居苏州，曾在翰林院任职。绘画受沈周影响，书法从李应祯学习；本扇诗属于赠答沈周的诗组，可联系其师友交往阅读。",
+      "scope": "museum_work_background_reference",
+      "sourceIds": [
+        "round3_background_wen_museum"
+      ],
+      "sources": [
+        {
+          "id": "round3_background_wen_museum",
+          "url": "https://www.cernuschi.paris.fr/en/node/1243",
+          "publisher": "巴黎赛努奇博物馆（Musée Cernuschi）",
+          "accessed": "2026-10-12",
+          "method": "frozen_primary_museum_page_background_excerpt_review",
+          "snapshot": "sources/round3-background-wen-museum-evidence.json",
+          "evidenceSha256": "94e6ed10d75cc54ce44b1e987fc40a0316472bd7f2adbf022a22fe530d00f52d",
+          "scope": "museum_work_background_reference",
+          "locator": "Quoted career/study paragraph anchors and extracted-text offsets.",
+          "pageNumber": null,
+          "originalSnapshot": "sources/round3-authority-wen.html",
+          "originalSha256": "c605c1d3f34bfd2a190e5d00327eef062871d558fa43c88989a4baceb46feec3"
+        }
+      ],
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "authorIdentity": {
+        "name": "文徵明",
+        "lifespan": "1470—1559"
+      },
+      "relationToWork": "同件馆方页面中的作者职涯与学书事实；不增加本件权威赏析计数。",
+      "assertions": [
+        {
+          "sourceId": "round3_background_wen_museum",
+          "anchor": "Wen Zhengming is a major figure",
+          "field": "text"
+        },
+        {
+          "sourceId": "round3_background_wen_museum",
+          "anchor": "The influence of Shen Zhou",
+          "field": "text"
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "文征明年谱",
+          "details": "周道振，中华书局，2020，ISBN9787101147339",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "先君行略",
+          "details": "文嘉",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "雅债萦身的文徵明形象",
+          "details": "刘宇珍，《故宫文物月刊》2014年第374期，页12–24",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "雅债：文徵明的社交性艺术",
+          "details": "Craig Clunas著，刘宇珍等译，北京三联，2012",
+          "url": null,
+          "verification": "bibliographic_reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "背景参考与作品赏析、释文和本件年代判断分开；不更改正文、hold或馆藏元数据。",
+      "supplementaryWikipediaSource": {
+        "id": "round3_background_wenzhengming_wiki",
+        "url": "https://zh.wikipedia.org/w/index.php?title=%E6%96%87%E5%BE%B5%E6%98%8E&oldid=92316230",
+        "publisher": "维基百科（百科二手参考）",
+        "title": "文徵明",
+        "oldid": 92316230,
+        "revisionTimestamp": "2026-04-17T19:43:16Z",
+        "accessed": "2026-10-12",
+        "method": "official_mediawiki_api_fixed_revision_excerpt_review",
+        "snapshot": "sources/round3-background-wenzhengming-wikipedia-evidence.json",
+        "evidenceSha256": "93675703b855050ad67fd77d47d5309b977b5e24412c9f95738a26c1e2382ce0",
+        "scope": "secondary_encyclopedic_background_reference",
+        "locator": "Exact wikitext offsets and anchors in archived evidence JSON.",
+        "pageNumber": null
+      },
+      "bibliographyNote": "书目来自固定百科版本，除明示已读官网外未直接阅读；主要背景依据为同件馆方页面。",
+      "fullBackgroundText": "文徵明（1470—1559）长期生活在苏州，是吴门书画的重要人物。他曾于1523至1526年在北京翰林院任职，归乡后继续从事诗文书画，晚年创作尤其勤勉。绘画上受沈周影响，书法则从李应祯学习，并兼习多种书体。这把扇面所录诗属于赠答沈周的诗组，可放在其师友交往的背景中阅读。",
+      "readerText": "文徵明（1470—1559）长期居苏州，曾在翰林院任职。绘画受沈周影响，书法从李应祯学习；本扇诗属于赠答沈周的诗组，可联系其师友交往阅读。"
+    },
+    "calligraphy-01": {
+      "text": "王羲之是东晋书家，字逸少，因曾任右军将军而称王右军。其书学传统与卫夫人相关；《快雪时晴帖》传世本为传唐摹本。",
+      "readerText": "王羲之是东晋书家，字逸少，因曾任右军将军而称王右军。其书学传统与卫夫人相关；现库《快雪时晴帖》继续按传唐摹本介绍。",
+      "fullBackgroundText": "王羲之是东晋书家，字逸少，琅琊临沂人，曾任右军将军，后世称王右军。张彦远《法书要录》记载卫夫人传授王羲之笔法，这是历史书学的传授记录。传世王书多经临摹与刻帖保存；现库《快雪时晴帖》沿用馆方传唐摹本身份，不由百科另判真迹或退隐时的创作动机。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_wangxizhi_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_wangxizhi_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E7%8E%8B%E7%BE%B2%E4%B9%8B&oldid=94272531",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "王羲之",
+          "language": "zh",
+          "oldid": 94272531,
+          "revisionTimestamp": "2026-09-10T03:37:10Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-wangxizhi-wikipedia-evidence.json",
+          "evidenceSha256": "c669dd09914df141b9bd2b3d17c81032a7edac0c7d744673061a6000778e951d",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "王羲之",
+        "encyclopediaArticleTitle": "王羲之",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_wangxizhi_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "人稱",
+          "startOffset": 391,
+          "endOffset": 423,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-7",
+            "footnote-definition-8",
+            "footnote-definition-14",
+            "footnote-definition-23"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_wangxizhi_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "其[[書法]]師承",
+          "startOffset": 563,
+          "endOffset": 726,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-7",
+            "footnote-definition-8",
+            "footnote-definition-14",
+            "footnote-definition-23"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_wangxizhi_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "王羲之的書法真跡皆已失傳",
+          "startOffset": 798,
+          "endOffset": 903,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-7",
+            "footnote-definition-8",
+            "footnote-definition-14",
+            "footnote-definition-23"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "法书要录·传授笔法人名",
+          "details": "张彦远；条目师承脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "晋书·王羲之传",
+          "details": "条目辞官段脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "王羲之传世墨宝",
+          "details": "启明主编，长城出版社，ISBN7-80017-609-6/J.435",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "官职称谓与史籍记述的书学传授；不采用百科所断快雪帖晚年写作时间。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "edf043393c42ba5326c565fbe9935d7d501a6c8a31c53a5843eaef72f787f100",
+        "baselineOverviewUtf8Bytes": 327,
+        "readerUtf8Bytes": 171,
+        "fullBackgroundUtf8Bytes": 357,
+        "overviewWithLabelAndReaderUtf8Bytes": 515,
+        "conservative32ByteLabelTotal": 530,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      },
+      "coordinatorReaderEdit": "去除资料库操作措辞；摹本身份已有本件馆方说明支持，未改变事实。"
+    },
+    "calligraphy-03": {
+      "text": "王羲之生活于东晋，交游涉及书家、名士与道教人物；史籍记他后来辞官。传世尺牍多靠摹写和刻帖保存。",
+      "readerText": "王羲之生活于东晋，交游涉及书家、名士与道教人物；史籍记他后来辞官。传世尺牍多靠摹写和刻帖保存，本件仍沿用现库摹本身份。",
+      "fullBackgroundText": "王羲之生活于东晋，其交游兼有名士与道教人物，曾与许迈往来。条目依据《晋书·王羲之传》记述其辞官经历，又将《远宦帖》列为《十七帖》中的书信。这样的交游和法帖传播背景可供阅读尺牍时参考，不能用来推断这封信的具体写作年月；本件沿用现库摹本身份。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_wangxizhi_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_wangxizhi_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E7%8E%8B%E7%BE%B2%E4%B9%8B&oldid=94272531",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "王羲之",
+          "language": "zh",
+          "oldid": 94272531,
+          "revisionTimestamp": "2026-09-10T03:37:10Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-wangxizhi-wikipedia-evidence.json",
+          "evidenceSha256": "c669dd09914df141b9bd2b3d17c81032a7edac0c7d744673061a6000778e951d",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "王羲之",
+        "encyclopediaArticleTitle": "王羲之",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_wangxizhi_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "===辭官退隱===",
+          "startOffset": 2720,
+          "endOffset": 2730,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-7",
+            "footnote-definition-8",
+            "footnote-definition-14",
+            "footnote-definition-23"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_wangxizhi_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "远宦帖",
+          "startOffset": 4092,
+          "endOffset": 4144,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-7",
+            "footnote-definition-8",
+            "footnote-definition-14",
+            "footnote-definition-23"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "法书要录·传授笔法人名",
+          "details": "张彦远；条目师承脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "晋书·王羲之传",
+          "details": "条目辞官段脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "王羲之传世墨宝",
+          "details": "启明主编，长城出版社，ISBN7-80017-609-6/J.435",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "交游、辞官与尺牍传播；不照抄条目对官场因果、药石伤身或帖文意译的未经核实解释。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "b8013a9c7ef6b7a44bb4774b16cbe560ab3c1d4bed8bba74a5debac2ebebda34",
+        "baselineOverviewUtf8Bytes": 347,
+        "readerUtf8Bytes": 177,
+        "fullBackgroundUtf8Bytes": 356,
+        "overviewWithLabelAndReaderUtf8Bytes": 541,
+        "conservative32ByteLabelTotal": 556,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      },
+      "coordinatorReaderEdit": "去除资料库操作措辞；摹本身份已有本件馆方说明支持，未改变事实。"
+    },
+    "calligraphy-07": {
+      "text": "米芾（1051—1107），字元章，初名黻，曾任书画学博士、礼部员外郎，因而又称米南宫。他兼事收藏、鉴定及书画著述。",
+      "readerText": "米芾（1051—1107），字元章，初名黻，曾任书画学博士、礼部员外郎，因而又称米南宫。他兼事收藏、鉴定及书画著述。",
+      "fullBackgroundText": "米芾（1051—1107），字元章，初名黻，曾迁居襄阳，后来定居润州。他任书画学博士、礼部员外郎，世称米南宫，兼为收藏家与鉴定家。条目列有《书史》《画史》《砚史》等著述，其艺术活动不仅包括落笔创作，也涉及古代作品的搜集、辨识和评论；本帖的具体创作经过仍以馆方介绍为准。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_mifu_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_mifu_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E7%B1%B3%E8%8A%BE&oldid=94766448",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "米芾",
+          "language": "zh",
+          "oldid": 94766448,
+          "revisionTimestamp": "2026-10-05T05:51:23Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-mifu-wikipedia-evidence.json",
+          "evidenceSha256": "32831d9c01794de6d71e1a1001f1e944076c19852fc546f5e7c5846d22490a19",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "米芾",
+        "encyclopediaArticleTitle": "米芾",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_mifu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "米{{zy",
+          "startOffset": 32,
+          "endOffset": 218,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_mifu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "祖籍",
+          "startOffset": 330,
+          "endOffset": 510,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_mifu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "召为书画学",
+          "startOffset": 512,
+          "endOffset": 555,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_mifu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "== 著書 ==",
+          "startOffset": 3297,
+          "endOffset": 3305,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "米襄阳外记",
+          "details": "范明泰；条目艺术追求脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "米芾米友仁",
+          "details": "孙祖白；条目习书脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "故南宫舍人米公墓志",
+          "details": "蔡肇；条目卒年、家世脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "身份、官职和书画著述；不采用宗教/族属推论、拜石故事或收藏讹诈传说。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "2f2109520a8d10f61e8fc2bf7ae808cc8e5f1728e37073361314ccbacd3eb28b",
+        "baselineOverviewUtf8Bytes": 359,
+        "readerUtf8Bytes": 158,
+        "fullBackgroundUtf8Bytes": 386,
+        "overviewWithLabelAndReaderUtf8Bytes": 534,
+        "conservative32ByteLabelTotal": 549,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1458": {
+      "text": "米芾重视古书画的收藏、观摩与评论。范明泰《米襄阳外记》所录习书言论，记他曾数次写同一首诗，仍只认可其中少数字，显示他对书写的反复斟酌。",
+      "readerText": "米芾重视古书画的收藏、观摩与评论。范明泰《米襄阳外记》所录习书言论，记他曾数次写同一首诗，仍只认可其中少数字，显示他对书写的反复斟酌。",
+      "fullBackgroundText": "米芾热衷收藏和观摩古代书画，也留下评论著述。范明泰《米襄阳外记》保存的言论记述他三四次书写《海岱诗》，仍只认为其中少数字满意；其子米友仁也记父亲勤于写字。这里只取条目具名文献中的习书记录，作为阅读尺牍的作者背景，不以这些记述推论本卷三帖的具体笔法或写作缘由。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_mifu_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_mifu_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E7%B1%B3%E8%8A%BE&oldid=94766448",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "米芾",
+          "language": "zh",
+          "oldid": 94766448,
+          "revisionTimestamp": "2026-10-05T05:51:23Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-mifu-wikipedia-evidence.json",
+          "evidenceSha256": "32831d9c01794de6d71e1a1001f1e944076c19852fc546f5e7c5846d22490a19",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "米芾",
+        "encyclopediaArticleTitle": "米芾",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_mifu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "米芾工於書法",
+          "startOffset": 1601,
+          "endOffset": 1816,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_mifu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "米芾熱衷收集",
+          "startOffset": 1201,
+          "endOffset": 1465,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "米襄阳外记",
+          "details": "范明泰；条目艺术追求脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "米芾米友仁",
+          "details": "孙祖白；条目习书脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "故南宫舍人米公墓志",
+          "details": "蔡肇；条目卒年、家世脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "古书画鉴赏与反复习书；不重复蜀素帖的官职简介，不把习书言论说成本件创作记录。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "5ad1c8e92a955bcceb8425861e9c2e9f850d969b864ba058a32341dacfe0ac5c",
+        "baselineOverviewUtf8Bytes": 185,
+        "readerUtf8Bytes": 201,
+        "fullBackgroundUtf8Bytes": 387,
+        "overviewWithLabelAndReaderUtf8Bytes": 403,
+        "conservative32ByteLabelTotal": 418,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1461": {
+      "text": "赵孟頫（1254—1322），字子昂，号松雪道人，出身宋宗室，后来仕元，官至翰林学士承旨。他主张遵从古法、重视用笔，并勤于临摹古人。",
+      "readerText": "赵孟頫（1254—1322），字子昂，号松雪道人，出身宋宗室，后来仕元，官至翰林学士承旨。他主张遵从古法、重视用笔，并勤于临摹古人。",
+      "fullBackgroundText": "赵孟頫（1254—1322），字子昂，号松雪道人，吴兴人，出身宋宗室，1286年经推荐出仕元朝，官至翰林学士承旨。百科书法段引用萧启庆研究，概述其遵从古法、重视用笔及临摹古人的主张。这里提供元代书家的身份与书学背景，不以一般主张替代《三门记》的同件研究，也不改通行正文与逐字精校的各自状态。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_zhaomengfu_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_zhaomengfu_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E8%B6%99%E5%AD%9F%E9%A0%AB&oldid=92675012",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "趙孟頫",
+          "language": "zh",
+          "oldid": 92675012,
+          "revisionTimestamp": "2026-05-16T06:47:12Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-zhaomengfu-wikipedia-evidence.json",
+          "evidenceSha256": "c99dc79799979b6c52c8203b2c447b0128e0b7f800d2a219e3a3e4713211d59a",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "赵孟頫",
+        "encyclopediaArticleTitle": "趙孟頫",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_zhaomengfu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "1254年",
+          "startOffset": 256,
+          "endOffset": 307,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-4",
+            "footnote-definition-5",
+            "footnote-definition-11"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_zhaomengfu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "至元 (元世祖)|至元",
+          "startOffset": 1183,
+          "endOffset": 1330,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-4",
+            "footnote-definition-5",
+            "footnote-definition-11"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_zhaomengfu_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "== 书法 ==",
+          "startOffset": 2968,
+          "endOffset": 2976,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-4",
+            "footnote-definition-5",
+            "footnote-definition-11"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "元代的族群文化与科举",
+          "details": "萧启庆，联经，2008，条目书法段所引页45",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "鹊华秋色——赵孟頫的生平与画艺",
+          "details": "李铸晋，北京三联，2008，条目书目",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "仕宦与临古主张；一般书学背景，既不更改annualReadinessHold，也不更改objectTranscriptionCollationHold。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "59f409b5ba820a7603304f88191c15d5796fcf740b7751707c8f4038365570da",
+        "baselineOverviewUtf8Bytes": 182,
+        "readerUtf8Bytes": 182,
+        "fullBackgroundUtf8Bytes": 411,
+        "overviewWithLabelAndReaderUtf8Bytes": 381,
+        "conservative32ByteLabelTotal": 396,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "met-48957": {
+      "text": "董其昌（1555—1636），字玄宰，号思白，松江人。1589年中进士，入翰林院，后来任南京礼部尚书；著有《容台集》和《画禅室随笔》。",
+      "readerText": "董其昌（1555—1636），字玄宰，号思白，松江人。1589年中进士，入翰林院，后来任南京礼部尚书；著有《容台集》和《画禅室随笔》。",
+      "fullBackgroundText": "董其昌（1555—1636），字玄宰，号思白，松江人，1589年中进士并入翰林院，官至南京礼部尚书。《万历十七年己丑科进士履历》是条目职涯段所引史料；其著作包括《容台集》《容台别集》《画禅室随笔》。这些身份与著述可供阅读陶渊明文本时参考，不由科举或任官经历推断本扇书写时的心理。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_dongqichang_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_dongqichang_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E8%91%A3%E5%85%B6%E6%98%8C&oldid=93862764",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "董其昌",
+          "language": "zh",
+          "oldid": 93862764,
+          "revisionTimestamp": "2026-08-12T09:01:11Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-dongqichang-wikipedia-evidence.json",
+          "evidenceSha256": "89635b6679dd3ab7c997d4e1a81e00d2f7149df06c406baa474d482c620d620c",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "董其昌",
+        "encyclopediaArticleTitle": "董其昌",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": false,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_dongqichang_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "1555年",
+          "startOffset": 337,
+          "endOffset": 377,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_dongqichang_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "萬曆]]十七年",
+          "startOffset": 1126,
+          "endOffset": 1456,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_dongqichang_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==著作==",
+          "startOffset": 1995,
+          "endOffset": 2001,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "万历十七年己丑科进士履历",
+          "details": "条目1589中进士及职涯脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "董其昌系年",
+          "details": "任道斌；条目书目",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "画禅室随笔",
+          "details": "条目著作清单；未自行据此断本件风格",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "官职与著述；不从离职经历推演某次创作动机。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "cf90a56e24724f03f7896fa488ed1bbab79b771f997116a3a66d39d2f3a81130",
+        "baselineOverviewUtf8Bytes": 279,
+        "readerUtf8Bytes": 177,
+        "fullBackgroundUtf8Bytes": 393,
+        "overviewWithLabelAndReaderUtf8Bytes": 473,
+        "conservative32ByteLabelTotal": 488,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1578": {
+      "text": "董其昌书法先学颜真卿，继而取法虞世南，又临钟繇、王羲之等古人。他长期兼事书画与评论，这种临古经历可作为阅读其临帖的作者背景。",
+      "readerText": "董其昌书法先学颜真卿，继而取法虞世南，又临钟繇、王羲之等古人。他长期兼事书画与评论，这种临古经历可作为阅读其临帖的作者背景。",
+      "fullBackgroundText": "董其昌的书学由颜真卿《多宝塔帖》入手，随后取法虞世南，继而上溯魏晋，临摹钟繇、王羲之，并兼学李邕、柳公权。条目同时列有《画禅室随笔》等书画评论著述。这种多方临古的经历可作为阅读其临怀素作品的作者背景，不以一般师法谱系代替本件临写范围或与原帖字形差异的校勘。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_dongqichang_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_dongqichang_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E8%91%A3%E5%85%B6%E6%98%8C&oldid=93862764",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "董其昌",
+          "language": "zh",
+          "oldid": 93862764,
+          "revisionTimestamp": "2026-08-12T09:01:11Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-dongqichang-wikipedia-evidence.json",
+          "evidenceSha256": "89635b6679dd3ab7c997d4e1a81e00d2f7149df06c406baa474d482c620d620c",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "董其昌",
+        "encyclopediaArticleTitle": "董其昌",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": false,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_dongqichang_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==書畫==",
+          "startOffset": 2027,
+          "endOffset": 2033,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_dongqichang_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==著作==",
+          "startOffset": 1995,
+          "endOffset": 2001,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "万历十七年己丑科进士履历",
+          "details": "条目1589中进士及职涯脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "董其昌系年",
+          "details": "任道斌；条目书目",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "画禅室随笔",
+          "details": "条目著作清单；未自行据此断本件风格",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "学书谱系；段落书目关联，师法清单无独立逐项史料核验，保留百科参考级别。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "70fb591ddf8bb77acfdda5f0f0a9a701e382368e8dbc35d4dc004b1b0cef2d8d",
+        "baselineOverviewUtf8Bytes": 182,
+        "readerUtf8Bytes": 186,
+        "fullBackgroundUtf8Bytes": 384,
+        "overviewWithLabelAndReaderUtf8Bytes": 385,
+        "conservative32ByteLabelTotal": 400,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "calligraphy-met-49029": {
+      "text": "王铎是明末清初书家，生于河南孟津，世称王孟津。1622年中进士，曾任翰林院官职；兼作诗文，留下《拟山园诗集》等著述。",
+      "readerText": "王铎是明末清初书家，生于河南孟津，世称王孟津。1622年中进士，曾任翰林院官职；兼作诗文，留下《拟山园诗集》等著述。",
+      "fullBackgroundText": "王铎是明末清初书家，生于河南孟津，世称王孟津，1622年中进士并改翰林院庶吉士，后来历任明清官职。百科引进士履历说明其职涯，另列《拟山园诗集》与《拟山园选集》。这里只提供诗文创作和官员身份的背景，不将易代经历自动解释为1641年《清凉山枕江亭诗》的情绪，也不新判其生年。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_wangduo_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_wangduo_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E7%8E%8B%E9%90%B8+%28%E5%A4%A9%E5%95%93%E9%80%B2%E5%A3%AB%29&oldid=92681609",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "王鐸 (天啓進士)",
+          "language": "zh",
+          "oldid": 92681609,
+          "revisionTimestamp": "2026-05-16T16:56:04Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-wangduo-wikipedia-evidence.json",
+          "evidenceSha256": "5af7826ddf8e7445b9d5f2017a7ef286789e83978b1e978d83426161295c7026",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "王铎",
+        "encyclopediaArticleTitle": "王鐸 (天啓進士)",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_wangduo_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "世稱",
+          "startOffset": 749,
+          "endOffset": 858,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-4"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_wangduo_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "王鐸幼时",
+          "startOffset": 867,
+          "endOffset": 1099,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-4"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_wangduo_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "拟山园诗集",
+          "startOffset": 2165,
+          "endOffset": 2271,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-4"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "天启二年壬戌科进士同年序齿录",
+          "details": "条目1622中进士脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "天启二年壬戌科进士三代履历",
+          "details": "条目明清职涯脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "无声诗史",
+          "details": "姜绍书，条目书画诗成就正文中具名引述",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "王铎年谱",
+          "details": "张升，2007，条目家族段脚注；不用于移植某件创作经历",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "科举职涯与诗文著述；字/号在百科信息框和正文不一致，展示不采用字癡仙号觉斯的排列；精确生年不写入reader。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "e2e94387e7460ef0919a4fe8414593a3ed03ec1565fdacd9d5f64f9f25c0b2ed",
+        "baselineOverviewUtf8Bytes": 273,
+        "readerUtf8Bytes": 166,
+        "fullBackgroundUtf8Bytes": 389,
+        "overviewWithLabelAndReaderUtf8Bytes": 456,
+        "conservative32ByteLabelTotal": 471,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1723": {
+      "text": "王铎长期临习古帖。姜绍书《无声诗史》记他的行草取法王羲之、王献之，正书学习钟繇，同时能表达自己的理解；这是一条历史书学记述。",
+      "readerText": "王铎长期临习古帖。姜绍书《无声诗史》记他的行草取法王羲之、王献之，正书学习钟繇，同时能表达自己的理解；这是一条历史书学记述。",
+      "fullBackgroundText": "王铎重视古帖的学习。百科引姜绍书《无声诗史》，记其行草宗法王羲之与王献之、正书出钟繇，同时能自出胸臆，又列《琅华馆帖》《拟山园法帖》等传本。这里只转述具名史料中的师法关系，作为观看临王羲之帖的背景；不据此给本件每个笔画作价值判断，也不采用无明确脚注的固定每日临帖习惯为事实。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_wangduo_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_wangduo_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E7%8E%8B%E9%90%B8+%28%E5%A4%A9%E5%95%93%E9%80%B2%E5%A3%AB%29&oldid=92681609",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "王鐸 (天啓進士)",
+          "language": "zh",
+          "oldid": 92681609,
+          "revisionTimestamp": "2026-05-16T16:56:04Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-wangduo-wikipedia-evidence.json",
+          "evidenceSha256": "5af7826ddf8e7445b9d5f2017a7ef286789e83978b1e978d83426161295c7026",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "王铎",
+        "encyclopediaArticleTitle": "王鐸 (天啓進士)",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": false,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_wangduo_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "姜紹書",
+          "startOffset": 1894,
+          "endOffset": 2224,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-4"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "天启二年壬戌科进士同年序齿录",
+          "details": "条目1622中进士脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "天启二年壬戌科进士三代履历",
+          "details": "条目明清职涯脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "无声诗史",
+          "details": "姜绍书，条目书画诗成就正文中具名引述",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "王铎年谱",
+          "details": "张升，2007，条目家族段脚注；不用于移植某件创作经历",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "具名历史记述的钟王师法；不把笼统取法关系说成此轴现场创作记录。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "c1797a22b1b27c9a9ebe59f16991c0e9a869b557fd9f5b46887e4cb52f8009ca",
+        "baselineOverviewUtf8Bytes": 82,
+        "readerUtf8Bytes": 186,
+        "fullBackgroundUtf8Bytes": 411,
+        "overviewWithLabelAndReaderUtf8Bytes": 285,
+        "conservative32ByteLabelTotal": 300,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1265": {
+      "text": "傅山（1607—1684），字青主，山西阳曲人，是明末清初学者，以明遗民自居，曾出家为道士。其诗文结集为《霜红龛集》，研究涉及学术、交游与书法。",
+      "readerText": "傅山（1607—1684），字青主，山西阳曲人，是明末清初学者，以明遗民自居，曾出家为道士。其诗文结集为《霜红龛集》，研究涉及学术、交游与书法。",
+      "fullBackgroundText": "傅山（1607—1684），字青主，山西阳曲人，是明末清初学者，以明遗民自居，曾出家为道士，号朱衣道人。其诗文见《霜红龛集》，近代研究包括白谦慎《傅山的世界》及《傅山的交往和应酬》。这些学术与交游背景可辅助认识临书者，不由遗民身份推断本件临书的政治寓意；本件作者仍是傅山，不是所临原帖的王羲之。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_fushan_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_fushan_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E5%82%85%E5%B1%B1&oldid=92923706",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "傅山",
+          "language": "zh",
+          "oldid": 92923706,
+          "revisionTimestamp": "2026-06-02T12:23:22Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-fushan-wikipedia-evidence.json",
+          "evidenceSha256": "192a399f9d8f1fb8c83177b4ec2d81a43f3ab92e259dc82fbdf79942407f02c2",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "傅山",
+        "encyclopediaArticleTitle": "傅山",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": false,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_fushan_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "1607年",
+          "startOffset": 45,
+          "endOffset": 331,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_fushan_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "以明",
+          "startOffset": 255,
+          "endOffset": 331,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_fushan_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "拜[[寿阳县",
+          "startOffset": 983,
+          "endOffset": 1177,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_fushan_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==著作==",
+          "startOffset": 2506,
+          "endOffset": 2512,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_fushan_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==研究書目==",
+          "startOffset": 2927,
+          "endOffset": 2935,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "阳曲傅青主先生事略",
+          "details": "全祖望；条目行状脚注与研究书目",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "傅山的世界：十七世纪中国书法的嬗变",
+          "details": "白谦慎，北京三联，2006，ISBN9787108023346",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "傅山的交往和应酬",
+          "details": "白谦慎，上海书画，2003，ISBN9787806726792",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "学者及遗民身份；不使用医学诊疗、武侠影视情节或未经逐项考证的四宁四毋释义。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "d1c15bcc0843ea7598bc45f93ced0d34f392f6dcaf0f277cafcebd671694dd8c",
+        "baselineOverviewUtf8Bytes": 245,
+        "readerUtf8Bytes": 200,
+        "fullBackgroundUtf8Bytes": 425,
+        "overviewWithLabelAndReaderUtf8Bytes": 462,
+        "conservative32ByteLabelTotal": 477,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "met-49146": {
+      "text": "八大山人通称朱耷，出身明宗室，南昌人。明亡后出家，法名传綮，后来还俗；名号有专门研究，这里沿用馆录称谓，不另裁定本名。",
+      "readerText": "八大山人通称朱耷，出身明宗室，南昌人。明亡后出家，法名传綮，后来还俗；名号有专门研究，这里沿用馆录称谓，不另裁定本名。",
+      "fullBackgroundText": "八大山人通称朱耷，出身明宗室，南昌人；明亡后出家，法名传綮，后来还俗。百科列姚亚平关于宗室家世及真实姓名的研究，又引张潮《虞初新志》记名号变化。这里沿用现库和馆录的常用称谓，不将通称当成已无争议的本名，也不把宗室身世直接推演为临李治尺牍的创作原因。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_badashanren_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_badashanren_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E5%85%AB%E5%A4%A7%E5%B1%B1%E4%BA%BA&oldid=94273471",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "八大山人",
+          "language": "zh",
+          "oldid": 94273471,
+          "revisionTimestamp": "2026-09-10T04:44:31Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-badashanren-wikipedia-evidence.json",
+          "evidenceSha256": "6904b517f519427994c60cf02fb7533427bcd909b65c269a92d07a3c56ad7208",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "八大山人",
+        "encyclopediaArticleTitle": "八大山人",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_badashanren_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "八大山人",
+          "startOffset": 65,
+          "endOffset": 92,
+          "footnoteDefinitionIds": [
+            "footnote-definition-4",
+            "footnote-definition-5",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_badashanren_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "== 名号考证 ==",
+          "startOffset": 1482,
+          "endOffset": 1492,
+          "footnoteDefinitionIds": [
+            "footnote-definition-4",
+            "footnote-definition-5",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "八大山人真名为“朱耷”吗：宗室家世对八大山人的影响",
+          "details": "姚亚平，《文化艺术研究》2021年第5期，85–115页；姓名研究有专门讨论，不简单定为本名",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "虞初新志·卷11",
+          "details": "张潮；条目出家/还俗及名号脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "宗室身份和名号变迁；本名研究尚需看原论文本批不裁定。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "051aec22132af61e84c083bcf9bbd747f92b7bb3d2534567cfde853c4dee6ae7",
+        "baselineOverviewUtf8Bytes": 257,
+        "readerUtf8Bytes": 177,
+        "fullBackgroundUtf8Bytes": 372,
+        "overviewWithLabelAndReaderUtf8Bytes": 451,
+        "conservative32ByteLabelTotal": 466,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1648": {
+      "text": "八大山人晚年在南昌从事诗书画，以售画维持生活，约六十岁后使用八大山人署名。张潮《虞初新志》保存了其出家、还俗及名号变化的历史记述。",
+      "readerText": "八大山人晚年在南昌从事诗书画，以售画维持生活，约六十岁后使用八大山人署名。张潮《虞初新志》保存了其出家、还俗及名号变化的历史记述。",
+      "fullBackgroundText": "八大山人晚年回到南昌，从事诗书画活动并以售画维持生活，约六十岁后使用八大山人署名。条目以张潮《虞初新志》等材料叙述其由出家到还俗的经历。这样的名号与生活背景有助辨识作品署款，但不能单凭八大山人署名就确定此轴年代，亦不将传记中的悲愤情绪当作每件作品的创作动机。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_badashanren_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_badashanren_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E5%85%AB%E5%A4%A7%E5%B1%B1%E4%BA%BA&oldid=94273471",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "八大山人",
+          "language": "zh",
+          "oldid": 94273471,
+          "revisionTimestamp": "2026-09-10T04:44:31Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-badashanren-wikipedia-evidence.json",
+          "evidenceSha256": "6904b517f519427994c60cf02fb7533427bcd909b65c269a92d07a3c56ad7208",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "八大山人",
+        "encyclopediaArticleTitle": "八大山人",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_badashanren_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "=== 还俗与晚年 ===",
+          "startOffset": 2921,
+          "endOffset": 2934,
+          "footnoteDefinitionIds": [
+            "footnote-definition-4",
+            "footnote-definition-5",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_badashanren_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "== 名号考证 ==",
+          "startOffset": 1482,
+          "endOffset": 1492,
+          "footnoteDefinitionIds": [
+            "footnote-definition-4",
+            "footnote-definition-5",
+            "footnote-definition-6",
+            "footnote-definition-7"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "八大山人真名为“朱耷”吗：宗室家世对八大山人的影响",
+          "details": "姚亚平，《文化艺术研究》2021年第5期，85–115页；姓名研究有专门讨论，不简单定为本名",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "虞初新志·卷11",
+          "details": "张潮；条目出家/还俗及名号脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "晚年活动及署名；年代、情绪与本件关系不得外推。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "5f164848f7c8f6a21804dee894365b4584850241ddb0d7708b571261d0f3e5fa",
+        "baselineOverviewUtf8Bytes": 164,
+        "readerUtf8Bytes": 195,
+        "fullBackgroundUtf8Bytes": 387,
+        "overviewWithLabelAndReaderUtf8Bytes": 376,
+        "conservative32ByteLabelTotal": 391,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1615": {
+      "text": "金农（1687—1763），号冬心，仁和人，长期寓居扬州。他曾受业于何焯，与丁敬交游；1736年获荐博学鸿词科，入京后未应试而返，终身未仕。",
+      "readerText": "金农（1687—1763），号冬心，仁和人，长期寓居扬州。他曾受业于何焯，与丁敬交游；1736年获荐博学鸿词科，入京后未应试而返，终身未仕。",
+      "fullBackgroundText": "金农（1687—1763），号冬心，浙江仁和人，长期寓居扬州，既写诗文，也鉴赏金石书画。少年受业于何焯，与丁敬交游，1736年获荐博学鸿词科，入京后未应试而返，终身未仕。条目引王昶《蒲褐山房诗话》和罗聘《冬心先生续集》跋等资料；这里给出文学与交游背景，不用一般传记判定九老图记轴的艺术价值。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_jinnong_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_jinnong_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E9%87%91%E5%86%9C&oldid=88657069",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "金农",
+          "language": "zh",
+          "oldid": 88657069,
+          "revisionTimestamp": "2025-08-09T15:11:40Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-jinnong-wikipedia-evidence.json",
+          "evidenceSha256": "60ebbb2b60b93651ee2e6c798fdbd26503cdca84a3e75af0fdf8fecd1d7cb98a",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "金农",
+        "encyclopediaArticleTitle": "金农",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_jinnong_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "1687年",
+          "startOffset": 191,
+          "endOffset": 212,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_jinnong_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "康熙二十六年",
+          "startOffset": 1003,
+          "endOffset": 1192,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_jinnong_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "少年受业",
+          "startOffset": 1003,
+          "endOffset": 1192,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_jinnong_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "博学鸿词科",
+          "startOffset": 1112,
+          "endOffset": 1192,
+          "footnoteDefinitionIds": [
+            "footnote-definition-2",
+            "footnote-definition-3"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "蒲褐山房诗话",
+          "details": "王昶，条目交游脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "冬心先生续集·跋",
+          "details": "罗聘，条目1763卒年脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "文学、经学及交游经历；不把百科漆书概述套给现件楷书。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "1fdddcca44294d867e88bccfa33c31b94fa9e0e9595694f1ab9e8afc5a7f4d43",
+        "baselineOverviewUtf8Bytes": 173,
+        "readerUtf8Bytes": 186,
+        "fullBackgroundUtf8Bytes": 411,
+        "overviewWithLabelAndReaderUtf8Bytes": 376,
+        "conservative32ByteLabelTotal": 391,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1199": {
+      "text": "郑燮字克柔，号板桥，兴化人，1736年中进士，曾任山东范县、潍县知县。离任后寓居扬州、售画为生，著有诗词、家书及题画文字。",
+      "readerText": "郑燮字克柔，号板桥，兴化人，1736年中进士，曾任山东范县、潍县知县。离任后寓居扬州、售画为生，著有诗词、家书及题画文字。",
+      "fullBackgroundText": "郑燮字克柔，号板桥，江苏兴化人，1736年中进士，曾任山东范县及潍县知县，离任后寓居扬州，售画为生。条目列《板桥诗钞》《板桥词钞》《板桥家书》《板桥题画》等著述，并引地方志与《郑板桥集》。这里只提供文人及地方官的生涯背景；不把救灾传奇或后世诗书画三绝的称誉移作本件笔法结论。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_zhengxie_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_zhengxie_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E9%83%91%E6%9D%BF%E6%A1%A5&oldid=94008759",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "郑板桥",
+          "language": "zh",
+          "oldid": 94008759,
+          "revisionTimestamp": "2026-08-23T08:14:57Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-zhengxie-wikipedia-evidence.json",
+          "evidenceSha256": "6cb118b7426286e014c757468388d536fb1253de268a80f7b60244a5cfaefbcb",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "郑燮",
+        "encyclopediaArticleTitle": "郑板桥",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_zhengxie_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "乾隆]]元年",
+          "startOffset": 1104,
+          "endOffset": 1434,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-3"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_zhengxie_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==著作==",
+          "startOffset": 1685,
+          "endOffset": 1691,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-3"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_zhengxie_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==书画成就==",
+          "startOffset": 1769,
+          "endOffset": 1777,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2",
+            "footnote-definition-3"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "板桥题画·竹",
+          "details": "条目绘画理论行内脚注；不直接判本件笔法",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "郑板桥集",
+          "details": "上海古籍出版社，条目列页176",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "兴化县志·卷八",
+          "details": "条目参考资料书目",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "扬州府志·卷四十八",
+          "details": "条目参考资料书目",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "地方官职与诗文著述；乾隆三十年农历卒日与公历1766年关系不在本批裁定，不新增精确卒年。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "c75e5c1226990ffbfc3894d15b09a4581a989e829f303e87e5a4a80d960c38db",
+        "baselineOverviewUtf8Bytes": 165,
+        "readerUtf8Bytes": 175,
+        "fullBackgroundUtf8Bytes": 403,
+        "overviewWithLabelAndReaderUtf8Bytes": 357,
+        "conservative32ByteLabelTotal": 372,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1589": {
+      "text": "吴昌硕（1844—1927），原名俊卿，兼事诗书画印，早年重视古文字与书法，后来主持西泠印社。其印学与书学并行，是理解其艺术生涯的一条背景。",
+      "readerText": "吴昌硕（1844—1927），原名俊卿，兼事诗书画印，早年重视古文字与书法，后来主持西泠印社。其印学与书学并行，是理解其艺术生涯的一条背景。",
+      "fullBackgroundText": "吴昌硕（1844—1927），原名俊卿，是晚清至民国的书画、篆刻家。英文百科带脚注的生平概述记他早年着重诗歌与书法，并对古文字有浓厚兴趣，后来主持西泠印社。这段印学与书学并行的经历可作为认识篆书作者的背景，不采用条目中互相冲突的任官、学画和印社任职年月，也不推演本件四字轴的创作动机。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_wuchangshuo_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_wuchangshuo_wiki",
+          "url": "https://en.wikipedia.org/w/index.php?title=Wu+Changshuo&oldid=1355415987",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "Wu Changshuo",
+          "language": "en",
+          "oldid": 1355415987,
+          "revisionTimestamp": "2026-05-21T18:36:27Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-wuchangshuo-wikipedia-evidence.json",
+          "evidenceSha256": "b6865b289af2d70b4bee160e1262d01caa43fb691e35920afd7aaf1bfaf28782",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "吴昌硕",
+        "encyclopediaArticleTitle": "Wu Changshuo",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_wuchangshuo_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "'''Wu Changshuo'''",
+          "startOffset": 187,
+          "endOffset": 517,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_wuchangshuo_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "Initially, he devoted",
+          "startOffset": 943,
+          "endOffset": 1273,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1",
+            "footnote-definition-2"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "Wu Changshuo",
+          "details": "Encyclopædia Britannica，英文百科脚注1",
+          "url": "http://global.britannica.com/EBchecked/topic/764304/Wu-Changshuo",
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "Wu Changshuo",
+          "details": "arts.cultural-china.com，英文百科脚注2，原网页失效、档案链接可查",
+          "url": "https://web.archive.org/web/20120525041728/http://arts.cultural-china.com/en/77Arts4048.html",
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "Chinese Paintings in the Ashmolean Museum Oxford",
+          "details": "条目Sources列页162，ISBN1-85444-132-9",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "使用英文百科限定概述；不写中英条目错误或不一致的任官地点、任社长时间、学画起始年龄。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "b99b80b3011e31fd86e020f2909f12d078f5eba620c3f5950e81dc2bcbee61b4",
+        "baselineOverviewUtf8Bytes": 171,
+        "readerUtf8Bytes": 194,
+        "fullBackgroundUtf8Bytes": 410,
+        "overviewWithLabelAndReaderUtf8Bytes": 382,
+        "conservative32ByteLabelTotal": 397,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1310": {
+      "text": "伊秉绶（1754—1815），号墨卿，福建宁化人。其行楷曾向刘墉学习，后来取法颜真卿，并注意李东阳行书的字形分布，兼有帖学与隶书实践。",
+      "readerText": "伊秉绶（1754—1815），号墨卿，福建宁化人。其行楷曾向刘墉学习，后来取法颜真卿，并注意李东阳行书的字形分布，兼有帖学与隶书实践。",
+      "fullBackgroundText": "伊秉绶（1754—1815），号墨卿，福建宁化人。条目依据朱建华、郭奕华《书艺珍品赏析·伊秉绶》，概述其向刘墉学习行楷，后来取法颜真卿，并融会李东阳行书的分布体势。这里把具名研究的师法经历作为临三帖扇面的作者背景，不将这一一般谱系等同于本扇三段的逐字对应或艺术价值判断。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_yibingshou_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_yibingshou_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E4%BC%8A%E7%A7%89%E7%BB%B6&oldid=94044077",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "伊秉绶",
+          "language": "zh",
+          "oldid": 94044077,
+          "revisionTimestamp": "2026-08-25T17:43:46Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-yibingshou-wikipedia-evidence.json",
+          "evidenceSha256": "bac039b298bbf4053033ded85576b93bdd962c30b045887ee2e152d9436499c0",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "伊秉绶",
+        "encyclopediaArticleTitle": "伊秉绶",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_yibingshou_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "1754年",
+          "startOffset": 187,
+          "endOffset": 208,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_yibingshou_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==著作==",
+          "startOffset": 808,
+          "endOffset": 814,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "书艺珍品赏析·伊秉绶",
+          "details": "朱建华、郭奕华，石头出版社，2005；条目学书段脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "东洲草堂诗抄",
+          "details": "何绍基，条目学书段具名引述",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "睹棋山庄词话",
+          "details": "谢章铤，条目学书段具名引述",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "取具名现代研究的师法关系；不抄评价性笔法词。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "455a7d908977ef5c3a374f2234797b6b2ab1c9bff6a387b4e2e089a2b67e1033",
+        "baselineOverviewUtf8Bytes": 179,
+        "readerUtf8Bytes": 185,
+        "fullBackgroundUtf8Bytes": 388,
+        "overviewWithLabelAndReaderUtf8Bytes": 381,
+        "conservative32ByteLabelTotal": 396,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "colbase-tnm-TB-1580": {
+      "text": "伊秉绶于1789年中进士，历任刑部官职、惠州与扬州知府。除书法外也作诗，与法式善、王芑孙等交游，著有《留春草堂诗钞》。",
+      "readerText": "伊秉绶于1789年中进士，历任刑部官职、惠州与扬州知府。除书法外也作诗，与法式善、王芑孙等交游，著有《留春草堂诗钞》。",
+      "fullBackgroundText": "伊秉绶于1789年中进士，历任刑部主事、员外郎、郎中，后来出任惠州及扬州知府。他兼作诗文，与法式善、王芑孙等交游，著有《留春草堂诗钞》。条目所列书目和具名文献可查其官员、诗人及书家的多重身份；此处以职涯和交游补充隶书额的作者背景，不从官职或诗名推断题额的具体用途、赠与对象或创作原因。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_yibingshou_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_yibingshou_wiki",
+          "url": "https://zh.wikipedia.org/w/index.php?title=%E4%BC%8A%E7%A7%89%E7%BB%B6&oldid=94044077",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "伊秉绶",
+          "language": "zh",
+          "oldid": 94044077,
+          "revisionTimestamp": "2026-08-25T17:43:46Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-yibingshou-wikipedia-evidence.json",
+          "evidenceSha256": "bac039b298bbf4053033ded85576b93bdd962c30b045887ee2e152d9436499c0",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "伊秉绶",
+        "encyclopediaArticleTitle": "伊秉绶",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_yibingshou_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "1789年",
+          "startOffset": 516,
+          "endOffset": 729,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_yibingshou_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "史称伊秉绶",
+          "startOffset": 731,
+          "endOffset": 806,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        },
+        {
+          "sourceId": "round4_background_yibingshou_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "==著作==",
+          "startOffset": 808,
+          "endOffset": 814,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "书艺珍品赏析·伊秉绶",
+          "details": "朱建华、郭奕华，石头出版社，2005；条目学书段脚注",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "东洲草堂诗抄",
+          "details": "何绍基，条目学书段具名引述",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "睹棋山庄词话",
+          "details": "谢章铤，条目学书段具名引述",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "官职、诗作与交游，区别于同作者临三帖扇面的学书背景。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "bbc9f7fc81680f59e9e45e20860e65c24ba97b38d7a4d96aaaf9e4785d019222",
+        "baselineOverviewUtf8Bytes": 178,
+        "readerUtf8Bytes": 169,
+        "fullBackgroundUtf8Bytes": 418,
+        "overviewWithLabelAndReaderUtf8Bytes": 364,
+        "conservative32ByteLabelTotal": 379,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    },
+    "met-55495": {
+      "text": "赵之谦（1829—1884），绍兴人，兼事书画、篆刻与学术。早年字益甫、号冷君，后来改字撝叔、号悲盦；其篆刻为后来的吴昌硕、齐白石所重视。",
+      "readerText": "赵之谦（1829—1884），绍兴人，兼事书画、篆刻与学术。早年字益甫、号冷君，后来改字撝叔、号悲盦；其篆刻为后来的吴昌硕、齐白石所重视。",
+      "fullBackgroundText": "赵之谦（1829—1884），浙江绍兴人，是晚清书画家、篆刻家与学者，早年字益甫、号冷君，后来改字撝叔、号悲盦。英文百科身份段引用大学网站，参考书目列《清代名人传略》等资料，其篆刻对吴昌硕、齐白石等后辈有影响。这里补充字号与艺术领域的关系，不由科举失意或家族灾难推演1867年对联的创作原因。",
+      "scope": "secondary_encyclopedic_background_reference",
+      "checkedOn": "2026-10-12",
+      "changeType": "new_background_reference",
+      "sourceIds": [
+        "round4_background_zhaozhiqian_wiki"
+      ],
+      "sources": [
+        {
+          "id": "round4_background_zhaozhiqian_wiki",
+          "url": "https://en.wikipedia.org/w/index.php?title=Zhao+Zhiqian&oldid=1301837319",
+          "publisher": "维基百科（百科二手参考）",
+          "title": "Zhao Zhiqian",
+          "language": "en",
+          "oldid": 1301837319,
+          "revisionTimestamp": "2025-07-22T00:37:14Z",
+          "accessed": "2026-10-12",
+          "method": "official_mediawiki_api_fixed_revision_evidence_review",
+          "snapshot": "sources/round4-background-zhaozhiqian-wikipedia-evidence.json",
+          "evidenceSha256": "bdb4900ee7401c18be2ebedbbfdc156a6c873eb3734561bea89c735e62c0155a",
+          "scope": "secondary_encyclopedic_background_reference",
+          "locator": "Archived wikitext anchor offsets; selectedFootnoteDefinitions and selectedBibliographyEntries.",
+          "pageNumber": null
+        }
+      ],
+      "authorIdentity": {
+        "name": "赵之谦",
+        "encyclopediaArticleTitle": "Zhao Zhiqian",
+        "sameNameVerified": true
+      },
+      "inCuratedAnnual": true,
+      "countsAsWorkSpecificAuthoritativeAnalysis": false,
+      "assertions": [
+        {
+          "sourceId": "round4_background_zhaozhiqian_wiki",
+          "field": "readerText_and_fullBackgroundText",
+          "anchor": "'''Zhao Zhiqian'''",
+          "startOffset": 799,
+          "endOffset": 1129,
+          "footnoteDefinitionIds": [
+            "footnote-definition-1"
+          ],
+          "footnoteSupportLimit": "Selected article references and named bibliographic context are retained; not every biographical sentence has its own inline footnote, and originals were not independently read."
+        }
+      ],
+      "bibliography": [
+        {
+          "title": "Couplet of Eight Characters - 2 of 2 - Zhao Zhiqian",
+          "details": "缅因大学法明顿分校网站，英文百科身份段脚注",
+          "url": "https://web.archive.org/web/20100612141735/http://hua.umf.maine.edu/China/SMcalligraphy/pages/10119w.html",
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "Eminent Chinese of the Ching Period: Chao Chih-ch’ien",
+          "details": "英文百科References使用cite ECCP模板列及",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        },
+        {
+          "title": "江西通志",
+          "details": "1881年刊，英文百科Biography/References列及",
+          "url": null,
+          "verification": "reference_listed_in_fixed_wikipedia_revision_not_independently_read"
+        }
+      ],
+      "limits": "身份、字号和篆刻传承；不转移百科收藏毁损叙述为本件流传记录。",
+      "integrationContract": {
+        "targetField": "background",
+        "displayLabel": "百科参考",
+        "preserveOldOverview": true,
+        "baselineOverviewSha256": "753dfd3fd20278a90f9b03e9c9ea74b977676511940f842fbd39246969ecf0a3",
+        "baselineOverviewUtf8Bytes": 267,
+        "readerUtf8Bytes": 191,
+        "fullBackgroundUtf8Bytes": 414,
+        "overviewWithLabelAndReaderUtf8Bytes": 475,
+        "conservative32ByteLabelTotal": 490,
+        "bodyAndHoldFields": "No update; frozen round4 baseline remains authoritative."
+      }
+    }
+  }
+}

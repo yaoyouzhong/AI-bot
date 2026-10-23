@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "v*.*.*"
-      - "bridge-v*.*.*"
       - "esp8266-v*.*.*"
       - "tab5-v*.*.*"
 
@@ -70,7 +69,6 @@ jobs:
         run: |
           release_title="$RELEASE_TAG"
           case "$RELEASE_TAG" in
-            bridge-v*) release_title="AI-bot v${RELEASE_TAG#bridge-v}" ;;
             v*) release_title="AI-bot $RELEASE_TAG" ;;
           esac
           gh release create "$RELEASE_TAG" public-assets/* --verify-tag --draft --latest=false --title "$release_title" --notes-file release-notes.md

@@ -18,6 +18,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private volatile string? _configuredLanHost;
     private volatile int _configuredLanPort;
     private SerialPort? _activePort;
+    private readonly Action<string>? _writeOverride;
     private LanPairing? _pairing;
     private string? _preferredPort;
     internal string? ExpectedUsbIdentity {get;set;}
@@ -100,10 +101,11 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         }
     }
 
-    internal SerialPublisher(LanPairing? pairing, string? preferredPort = null)
+    internal SerialPublisher(LanPairing? pairing, string? preferredPort = null, Action<string>? writeOverride = null)
     {
         _pairing = pairing;
         _preferredPort = NormalizePort(preferredPort);
+        _writeOverride = writeOverride;
         _displayCommands = new DisplayCommandQueue(_portSync, mode =>
         {
             if (TrySend(new { version = 1, type = "display", mode })) DisplayModeWritten?.Invoke(mode);
@@ -130,7 +132,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             {
                 // A resource transfer may hold the port for seconds. Sample after
                 // acquiring it so this frame cannot replace newer heartbeat data.
-                if (_activePort?.IsOpen != true || IsPaused || !UsbDataEnabled) continue;
+                if ((_activePort?.IsOpen != true && _writeOverride is null) || IsPaused || !UsbDataEnabled) continue;
                 var metrics = capture();
                 if (metrics is null || metrics.UpdatedAt == sentAt) continue;
                 if (TrySend(new { version = 1, type = "metrics", data = metrics })) sentAt = metrics.UpdatedAt;
@@ -329,13 +331,14 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     {
         lock (_portSync)
         {
-            if (_activePort?.IsOpen != true || IsPaused) return false;
+            if ((_activePort?.IsOpen != true && _writeOverride is null) || IsPaused) return false;
             try
             {
-                _activePort.WriteLine(Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options));
+                string line = Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options);
+                if (_writeOverride is {} write) write(line); else _activePort!.WriteLine(line);
                 return true;
             }
-            catch (Exception ex) when (ex is IOException or InvalidOperationException or TimeoutException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
             {
                 return false;
             }

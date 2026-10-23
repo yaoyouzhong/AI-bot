@@ -17,13 +17,21 @@ internal sealed class Tab5BleVoice(
     internal string Progress {get;private set;}="idle";
     internal string Timing {get;private set;}="pending";
     internal Tab5BleRpcTiming? LastTiming {get;private set;}
-    private int _bulkActive;
+    private int _bulkActive,_interactiveActive;
+    private long _interactiveCompletedAt;
     private long _bulkCompletedAt;
     private long Now=>clock?.Invoke()??Environment.TickCount64;
     internal bool BulkActive=>Volatile.Read(ref _bulkActive)!=0;
     internal bool BulkPriorityActive(long now) {
         long completed=Interlocked.Read(ref _bulkCompletedAt);
         return BulkActive||completed>0&&now>=completed&&now-completed<1000;
+    }
+    // Short control/credential replies need the same ATT protection as bulk.
+    // Only a new completed request renews the 500ms gap, never idle/duplicate polls.
+    internal bool InteractivePriorityActive(long now) {
+        long completed=Interlocked.Read(ref _interactiveCompletedAt);
+        return Volatile.Read(ref _interactiveActive)!=0||BulkPriorityActive(now)||
+            completed>0&&now>=completed&&now-completed<500;
     }
     internal async Task<bool> PumpAsync(CancellationToken token)
     {
@@ -41,6 +49,7 @@ internal sealed class Tab5BleVoice(
         if(total<124||total>maximumRequest)throw new IOException("BLE voice length invalid");
         var request=new byte[total];int offset=0;
         Volatile.Write(ref _bulkActive,total>12288||bulkPriority?.Invoke()==true?1:0);
+        Volatile.Write(ref _interactiveActive,1);
         bool succeeded=false;
         try {
         while(true) {
@@ -80,6 +89,9 @@ internal sealed class Tab5BleVoice(
         } finally {
             // Keep only successfully completed bulk traffic prioritized across
             // short inter-chunk gaps. Small/duplicate/idle polls never renew it.
+            if(succeeded)Interlocked.Exchange(ref _interactiveCompletedAt,Now);
+            else Interlocked.Exchange(ref _interactiveCompletedAt,0);
+            Volatile.Write(ref _interactiveActive,0);
             if(succeeded&&BulkActive)Interlocked.Exchange(ref _bulkCompletedAt,Now);
             else if(!succeeded)Interlocked.Exchange(ref _bulkCompletedAt,0);
             Volatile.Write(ref _bulkActive,0);

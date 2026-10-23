@@ -218,3 +218,33 @@ See [the expansion report](docs/art-guides/EXPANSION-2026-10-08.md), [CMA Open A
 The second local batch adds 370 calligraphy works from official museum services: ColBase / Tokyo National Museum 98 (CC BY 4.0, attribution and layout modification credit), Metropolitan Museum of Art 55 (CC0), Princeton University Art Museum 1 (Public domain; image courtesy credit), Cleveland Museum of Art 3 (CC0), and Minneapolis Institute of Art 213 (Public domain). Per-image official URLs, component identities and SHA-256 fingerprints are retained in selection.json and provenance.json. Complete sets count once; originals are resized and laid out, without generated repairs or recoloring.
 
 第二批新增书法370件，五家馆方来源及各自许可如上。逐图保留来源、组件身份及原图校验值；对联、三联幅、四屏、十二屏、整册均只算一件。拓本、摹本和传称限定不删改，图像仅缩放与排版，不进行生成式修补或改色。馆方现代介绍另以中文改写，不以图片开放许可代替文章许可。
+
+### Desktop connection icons / 电脑连接图标
+USB (U+F287), Wi-Fi (U+F1EB), Bluetooth (U+F293) reuse the exact Font Awesome outlines from TAB5's LVGL FontAwesome5-Solid+Brands+Regular.woff. Copyright Font Awesome; font-derived outlines under SIL OFL 1.1. Reproducible extraction: scripts/extract_tab5_transport_icons.py; source SHA-256 is recorded in Tab5TransportGlyphs.cs. License and attribution: licenses/font-awesome/. Shape geometry is unchanged, scaled and tinted at runtime. Source: https://github.com/lvgl/lvgl/tree/master/scripts/built_in_font .
+
+## Hardware introduction composites / 硬件介绍合成图
+
+The TAB5 composite is based on M5Stack official product photography, with the native AI-bot quota screen inserted. M5Stack retains rights to the photograph and its derivative portions; the project MIT license does not cover these portions. The ESP8266 composite uses an SD2 enclosure reference from GetIoT; the reference photo is not redistributed. Reference photographs, hardware designs and pre-existing UI artwork retain their respective rights. Both images are labeled composites with demo data, not hardware photographs or vendor endorsements. Sources and modification records: [HARDWARE-IMAGES](docs/HARDWARE-IMAGES.md).
+
+TAB5 合成图使用 M5Stack 官方产品实图与本项目额度界面；官方图片及衍生部分不纳入项目 MIT 许可。小屏使用 SD2 外形参考，未再分发参考原照片。两图均标明合成展示，来源、修改与生成记录见上述文档。
+
+`docs/assets/hardware/tab5-side-official.png` is cropped from M5Stack's official `C145_10.webp` photograph, with no redrawing or sharpening. Copyright remains with M5Stack; this photo is excluded from the project's MIT license. / TAB5 侧面图取自 M5Stack 官方实图，仅裁去留白，未重绘或锐化，不纳入本项目 MIT 许可。来源及裁剪坐标见上述配图记录。
+
+The additional GPIO, M5 logo, antenna and back photographs (`tab5-side-gpio-official.png`, `tab5-side-logo-official.png`, `tab5-side-antenna-official.png`, `tab5-back-official.png`) are whitespace-only crops of official `C145_11.webp`, `C145_12.webp`, `C145_13.webp` and `C145_09.webp`. M5Stack retains copyright; these photographs are excluded from the project MIT license. Source URLs, exact crop rectangles and file hashes are recorded in [HARDWARE-IMAGES](docs/HARDWARE-IMAGES.md) and `licenses/materials.json`. / 新增三侧面与背面实图同属 M5Stack 官方照片，仅去除留白，不重绘、不锐化，不纳入项目 MIT 许可。
+
+## Optional TightVNC Server / 可选 Wi-Fi 解锁组件
+
+Windows packages include the unmodified official TightVNC 2.8.90 x64 MSI as a
+separate, optional GPL v2 component, copyright GlavSoft LLC and the contributors
+identified in its source. AI-bot communicates with its local service through RFB;
+no TightVNC source is incorporated into the bridge. The MSI, full corresponding
+official source archive, GPL text and origin/hash record are shipped together in
+`components/tightvnc/`. Server installation requires a separate user action and
+Windows administrator authorization. Viewer is not installed. Source and license:
+https://www.tightvnc.com/download/ and https://www.tightvnc.com/licensing.php .
+Pinned filenames, SHA-256 values and provenance: `licenses/tightvnc/ORIGIN.md`
+in the repository, copied to `components/tightvnc/ORIGIN.md` in Windows packages.
+
+Windows 包随附独立、可选的官方 TightVNC 2.8.90 x64 MSI（未修改，GPL v2），
+并在同目录附完整对应源码、GPL 许可及来源校验记录。用户主动点击安装并授权后，
+仅安装 Server 服务。AI-bot 通过本机 RFB 通信，不将 TightVNC 源码并入桥接。

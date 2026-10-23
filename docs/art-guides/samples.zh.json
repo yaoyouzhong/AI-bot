@@ -1,0 +1,847 @@
+{
+  "schemaVersion": 1,
+  "language": "zh-CN",
+  "edition": "pilot-2026-10-08",
+  "status": "preview_only",
+  "editorialPolicy": "简介据馆方资料中文改写；欣赏提示仅采用有逐件权威来源和证据的审定材料，无依据时留空；释文仅采用核实原文。",
+  "works": [
+    {
+      "id": "painting-01",
+      "period": "1906年，布面油画",
+      "brief": "莫奈把天空藏进水面的倒影中，让睡莲与云影交织；不妨沿两簇花之间的水路慢慢看。",
+      "overview": "这幅《睡莲》作于1906年，属于莫奈1903至1908年间创作的一组池塘绘画。灵感来自他在法国吉维尼营建的水园。画家逐渐放下传统风景画中陆地、天空与水面的分层，把注意力集中在水面本身。左下与右上的睡莲形成呼应，树木和云的倒影融入其间。馆方的技术研究还发现，莫奈在作画过程中曾多次调整画面。",
+      "looking": "芝加哥艺术博物馆指出，莫奈不再按陆地、天空、水面分区，而把视线收拢到水面。左下与右上的睡莲围出水上通道，树木与云的倒影进入同一水面；花簇、空隙和倒影共同呈现他的空间实验。",
+      "workId": "https://www.artic.edu/artworks/16568",
+      "title": "睡莲",
+      "author": "克洛德·莫奈",
+      "category": "painting",
+      "museum": "芝加哥艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.artic.edu/artworks/16568",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/16568",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "7853cade3ae935a8f4a5f7fe32860e0d0b9dcb6a8705fa5e22002ac4e4959be6",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        },
+        {
+          "id": "museum_looking",
+          "url": "https://www.artic.edu/artworks/16568",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/16568",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "7853cade3ae935a8f4a5f7fe32860e0d0b9dcb6a8705fa5e22002ac4e4959be6",
+          "scope": "work_specific_authoritative_analysis",
+          "snapshot": "sources/authoritative-looking-7853cade3ae935a8.json",
+          "checkedOn": "2026-10-11",
+          "retrievedOn": "2026-10-08"
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "work_specific_authoritative_analysis"
+      },
+      "coverage": "museum_description",
+      "lookingBasis": {
+        "scope": "work_specific_authoritative_analysis",
+        "sourceIds": [
+          "museum_looking"
+        ],
+        "checkedOn": "2026-10-11"
+      }
+    },
+    {
+      "id": "painting-02",
+      "period": "1889年，布面油画",
+      "brief": "鲜明色彩与倾斜线条让卧室显得活跃，但梵高想表达的是休息与安宁；这是他画的第二个版本。",
+      "overview": "画中是梵高在法国阿尔勒“黄房子”的卧室。他曾三次描绘这一场景，芝加哥馆藏为1889年9月绘制的第二版。床、椅子与墙上的画像，把生活空间压缩成一组醒目的形与色。强烈的色彩、厚重笔触和向深处汇聚的线条，可能让观者感到紧张；馆方根据画家的书信指出，梵高希望这幅画传达的却是平静与休息。",
+      "looking": "芝加哥艺术博物馆指出，鲜明色彩、厚重而断续的笔触、急剧退向深处的线条，可能使画面显得紧张。但梵高本人把它理解为宁静、可休息的图像。画面产生的活跃感与作者希望表达的安歇，构成理解这间卧室的一组张力。",
+      "workId": "https://www.artic.edu/artworks/28560",
+      "title": "卧室",
+      "author": "文森特·梵高",
+      "category": "painting",
+      "museum": "芝加哥艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.artic.edu/artworks/28560",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/28560",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "68cad51e58687f3095139046f252e9077114d473d2684b7329bf84f1b77a1a95",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        },
+        {
+          "id": "museum_looking",
+          "url": "https://www.artic.edu/artworks/28560",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/28560",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "68cad51e58687f3095139046f252e9077114d473d2684b7329bf84f1b77a1a95",
+          "scope": "work_specific_authoritative_analysis",
+          "snapshot": "sources/authoritative-looking-68cad51e58687f30.json",
+          "checkedOn": "2026-10-11",
+          "retrievedOn": "2026-10-08"
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "work_specific_authoritative_analysis"
+      },
+      "coverage": "museum_description",
+      "lookingBasis": {
+        "scope": "work_specific_authoritative_analysis",
+        "sourceIds": [
+          "museum_looking"
+        ],
+        "checkedOn": "2026-10-11"
+      }
+    },
+    {
+      "id": "painting-03",
+      "period": "1884至1886年；画框边缘绘于1888至1889年，布面油画",
+      "brief": "远看是塞纳河畔安静的星期日，近看却是细密色点；修拉让这些颜色在观看中汇合。",
+      "overview": "修拉描绘巴黎人在大碗岛公园散步、休息、钓鱼与泛舟的场景。作品从1884年开始，经过多次草图准备和反复调整。画家把互相呼应的颜色拆成细小点画，让观者在一定距离之外形成整体印象。人物轮廓经过严密安排，馆方将其构图目标与古希腊浮雕的秩序感联系起来：现代生活的片刻，被组织成庄重而稳定的群像。",
+      "looking": "",
+      "workId": "https://www.artic.edu/artworks/27992",
+      "title": "大碗岛的星期日下午",
+      "author": "乔治·修拉",
+      "category": "painting",
+      "museum": "芝加哥艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.artic.edu/artworks/27992",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/27992",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "b2518f701d4963bc5ec3f5d1a6e1cdb823d20698c75be18f8014eb9fc7237c25",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "painting-05",
+      "period": "1881年，布面油画",
+      "brief": "《两姐妹》中的模特其实没有姐妹关系；清晰的人物与轻柔的河景，让这一刻显得亲密自然。",
+      "overview": "雷诺阿在塞纳河畔沙图的富尔奈斯餐馆露台画下两位年轻模特。尽管题名为《两姐妹》，馆方指出她们并无亲缘关系。人物面部采用相对细致、受控制的笔触，栏杆外的河流、船只与树木则处理得轻柔松动。红帽、花饰和篮中的彩色毛线彼此呼应，使人物与环境连成一体。这幅画曾在1882年的印象派展览中展出。",
+      "looking": "",
+      "workId": "https://www.artic.edu/artworks/14655",
+      "title": "两姐妹",
+      "author": "皮埃尔-奥古斯特·雷诺阿",
+      "category": "painting",
+      "museum": "芝加哥艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.artic.edu/artworks/14655",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/14655",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "8f84337ec1ab037e0ac8f399f3b403d882ff1b7e6b9efe920415fc1d503d5477",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "painting-06",
+      "period": "1877年，布面油画",
+      "brief": "雨没有被逐滴画出，却藏在伞与湿润街石的反光里；近处行人仿佛就要走进我们的空间。",
+      "overview": "卡耶博特描绘的是他住处附近的巴黎街口。作品关注现代城市生活，处理方式却比许多印象派画作更精细。馆方认为，画面边缘对人物的截取可能受到摄影的启发；近处两位行人迎面而来，远处人物则被仔细安排以形成街道的繁忙感。画家没有依靠清晰的雨滴交代天气，而是借助雨伞与湿润石路上的微弱反光，让观者感受到雨天。",
+      "looking": "",
+      "workId": "https://www.artic.edu/artworks/20684",
+      "title": "巴黎街道·雨天",
+      "author": "古斯塔夫·卡耶博特",
+      "category": "painting",
+      "museum": "芝加哥艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.artic.edu/artworks/20684",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/20684",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "1003b4ca918151832ff4d4519ca1f8caa82c3fb69c2aede243841cab0d599937",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "painting-07",
+      "period": "约1893年，布面油画",
+      "brief": "倾斜的篮子、错开的桌沿与将落未落的苹果，构成塞尚精心组织的不稳定感。",
+      "overview": "塞尚把普通的苹果、酒瓶、桌布与饼干组织成复杂的静物。初看像是一张摆满食物的桌子，细看却会发现桌沿并不完全对齐，瓶子有所倾斜，苹果与饼干似乎停在即将滑落的位置。馆方强调，画家在厚重塑形的笔触与轻快的边缘线条之间不断转换。这些空间上的变化，使熟悉的日常物品成为观看与构图实验的一部分。",
+      "looking": "芝加哥艺术博物馆把错位的桌面、倾斜的瓶子、滚落般的苹果和几乎失衡的饼干叠放，视为现实关系的变动。水果与桌布的浓厚笔触，对照桌沿、布边近似速写的笔痕，共同构成馆方所说的受控混乱。",
+      "workId": "https://www.artic.edu/artworks/111436",
+      "title": "一篮苹果",
+      "author": "保罗·塞尚",
+      "category": "painting",
+      "museum": "芝加哥艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.artic.edu/artworks/111436",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/111436",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "d73dff4c049ed144c08101f2b2b5aa4256acdbd16e3bc592d89c9014ade503f2",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        },
+        {
+          "id": "museum_looking",
+          "url": "https://www.artic.edu/artworks/111436",
+          "dataUrl": "https://api.artic.edu/api/v1/artworks/111436",
+          "publisher": "芝加哥艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "d73dff4c049ed144c08101f2b2b5aa4256acdbd16e3bc592d89c9014ade503f2",
+          "scope": "work_specific_authoritative_analysis",
+          "snapshot": "sources/authoritative-looking-d73dff4c049ed144.json",
+          "checkedOn": "2026-10-11",
+          "retrievedOn": "2026-10-08"
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "work_specific_authoritative_analysis"
+      },
+      "coverage": "museum_description",
+      "lookingBasis": {
+        "scope": "work_specific_authoritative_analysis",
+        "sourceIds": [
+          "museum_looking"
+        ],
+        "checkedOn": "2026-10-11"
+      }
+    },
+    {
+      "id": "cma-1954.582",
+      "period": "15世纪末，明代",
+      "brief": "杜堇画林逋月下赏梅，诗意落在缓慢的步履与枝石之间；先找人物，再看四周的留白。",
+      "overview": "画中人物是隐居杭州西湖的北宋诗人林逋。馆方将月下赏梅的场景，与他著名的咏梅诗意联系起来。作品带有杜堇的署名，是画家较少见的传世签名作品之一。梅枝与山石并非以单一笔法描绘：点、短线与浓淡变化互相配合，使景物富有活力。人物的闲步与周围景物相互映照，把诗人的生活理想转成可以观看的场景。",
+      "looking": "",
+      "workId": "cma:1954.582",
+      "title": "陪月閒行圖",
+      "author": "杜堇",
+      "category": "painting",
+      "museum": "克利夫兰艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.clevelandart.org/art/1954.582",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/1954.582",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "8cc4416cd952bd5a39634658ff6a52a40f8885a553b7f233cb091479a2bb35a6",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "cma-1953.246",
+      "period": "14世纪，元代",
+      "brief": "竹枝随风轻弯，枝叶却仍有骨力；雪窗的墨竹把植物的姿态与文人、禅门的品格联想相连。",
+      "overview": "《风竹图》由僧人普明、号雪窗所绘，馆方年代为14世纪。竹子在文人画和禅宗语境中，常被联系到抵御外界诱惑、不轻易屈服的品格。此作并不画猛烈风暴，而是表现微风中轻轻弯曲的竹枝。馆方介绍，普明的绘画也受到日本与韩国观者重视。欣赏时可以把这一文化背景与眼前的枝叶姿态相对照，不把象征意义当作唯一读法。",
+      "looking": "",
+      "notes": "馆方作者活动年代字段与介绍中的寺院任职年份不一致；样本不采用这些生平细节。",
+      "workId": "cma:1953.246",
+      "title": "風竹圖",
+      "author": "普明（雪窗）",
+      "category": "painting",
+      "museum": "克利夫兰艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.clevelandart.org/art/1953.246",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/1953.246",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "dc77113e940a4b96e3aa4f6eae82056430886e2afe333961cd85e34b1977f6db",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "cma-1968.213",
+      "period": "约1547至1567年，明代",
+      "brief": "高处俯看的巫峡中，云涛与峭壁包围小船；谢时臣以强劲笔墨拉开山水的尺度。",
+      "overview": "馆方认为，这幅山水可能作于谢时臣1547年旅行归来之后，创作时间约在1547至1567年。画面从较高视点深入巫峡，山势与翻滚水流共同构成壮阔景象，小船置身其中，显出航行的险势。馆方特别指出其尺度、构图与有力笔墨的独特性。这里呈现的是画家对山川的组织与感受；不宜把画面当作可以逐一定位的地理写实图。",
+      "looking": "",
+      "workId": "cma:1968.213",
+      "title": "巫峽雲濤圖",
+      "author": "謝時臣",
+      "category": "painting",
+      "museum": "克利夫兰艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.clevelandart.org/art/1968.213",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/1968.213",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "7caf2474e538aa405bcec3db7c5bd464734233191b5f55780d56639c5779fc2a",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "cma-1974.26",
+      "period": "14世纪，元代",
+      "brief": "月亮与染色背景交代夜色，墨梅在其中展开；王冕让花枝成为画面与诗意的共同主角。",
+      "overview": "王冕的《月下梅花图》以墨梅为主体。馆方指出，背景的染色与月亮说明这是夜间场景，并将此作放在成熟的墨梅传统中介绍。王冕选择以卖梅画为生，传世作品数量不多。此画也保留了画家的题诗和署名，诗与画共同塑造夜色中的梅花意象。阅读题诗有助于扩展联想，但观看时仍可以先从枝干、花朵与背景的实际关系出发。",
+      "looking": "",
+      "workId": "cma:1974.26",
+      "title": "月下梅花圖",
+      "author": "王冕",
+      "category": "painting",
+      "museum": "克利夫兰艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.clevelandart.org/art/1974.26",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/1974.26",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "442a33fb6ba6beaae80775724d605f21e79a73e440a309c44fbce00f2c8e465b",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "calligraphy-04",
+      "period": "东晋，纸本行书",
+      "brief": "五行短札保存了王珣的书写节奏；《伯远帖》的珍贵，也在于它让我们接近晋人的实际用笔。",
+      "overview": "《伯远帖》是王珣写的一封信，纸本行书，正文五行四十七字。它是珍贵的晋代法书，笔势流畅而自具面目。乾隆将它与《快雪时晴帖》《中秋帖》并列珍藏，形成“三希堂”的收藏故事。卷上的收藏印、引首和后世题跋，记录了这封短札历经收藏与品评的过程。1951年，《伯远帖》与《中秋帖》从香港购回，入藏故宫博物院。",
+      "looking": "",
+      "transcription": {
+        "status": "source_verified",
+        "label": "正文释文",
+        "text": "珣頓首頓首，伯遠勝業情期群從之寶。自以羸患，志在優遊。始獲此出意不剋申。分別如昨永爲疇古。遠隔嶺嶠，不相瞻臨。",
+        "explanation": "信中谈及伯远，也表达自身病弱、相隔遥远而难以相见的情形。这里只提供大意，不将古文中的省略逐字补成确定叙事。",
+        "note": "据故宫馆藏页；仅统一标点，保留原字。",
+        "sourceId": "museum"
+      },
+      "workId": "https://www.dpm.org.cn/collection/handwriting/228199.html",
+      "title": "伯远帖",
+      "author": "王珣",
+      "category": "calligraphy",
+      "museum": "故宫博物院（北京）",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.dpm.org.cn/collection/handwriting/228199.html",
+          "dataUrl": "https://www.dpm.org.cn/collection/handwriting/228199.html",
+          "publisher": "故宫博物院（北京）",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "e1e5ffee00f4bd5dfbd7d353a68f8e314e13caeb8cd59bd4df1f23908ddb9fca",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "calligraphy-05",
+      "period": "传王献之书；现存本多被认为是宋人临本，纸本行草",
+      "brief": "连绵圆转的线条贯穿三行；《中秋帖》传为王献之书，现存本的年代与归属仍须保留限定。",
+      "overview": "《中秋帖》正文三行二十二字，无署款，是乾隆珍藏的“三希”之一。这件作品传为王献之书，与《十二月割帖》有关。根据纸张与用笔等证据，故宫介绍现存本多被认为是宋人临本，常有米芾临写的判断。短短三行以圆润、连绵的线条贯通，呈现丰厚而流动的书写节奏。历代收藏、题跋与临写，也让这件短札成为“二王”书风传承中的重要作品。",
+      "looking": "故宫博物院将此帖用笔概括为丰润圆熟、线条连贯与行气贯通。馆方据竹料纸和柔软无心笔等特征，认为它不具备东晋原迹的条件，并说明当代鉴定研究大多视为米芾临本；圆熟连贯的笔势应连同这层临本身份理解。",
+      "transcription": {
+        "status": "source_verified",
+        "label": "正文释文",
+        "text": "中秋不復不得相還爲即甚省如何然勝人何慶等大軍。",
+        "explanation": "这是一段残存文字，语义不易完整连贯。可以结合字形与连笔，观看短札中的书写节奏。",
+        "note": "据故宫馆藏页，正文无署款；不补录原帖已缺的文字。",
+        "sourceId": "museum"
+      },
+      "workId": "https://www.dpm.org.cn/collection/handwriting/228204.html",
+      "title": "中秋帖",
+      "author": "王献之（传）",
+      "category": "calligraphy",
+      "museum": "故宫博物院（北京）",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.dpm.org.cn/collection/handwriting/228204.html",
+          "dataUrl": "https://www.dpm.org.cn/collection/handwriting/228204.html",
+          "publisher": "故宫博物院（北京）",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "3674fee28cca1a159bd2a44b5486d5db536c6f432b61fe4a3af236f7c3d85a4c",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        },
+        {
+          "id": "museum_looking",
+          "url": "https://www.dpm.org.cn/collection/handwriting/228204.html",
+          "dataUrl": "https://www.dpm.org.cn/collection/handwriting/228204.html",
+          "publisher": "故宫博物院（北京）",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "3674fee28cca1a159bd2a44b5486d5db536c6f432b61fe4a3af236f7c3d85a4c",
+          "scope": "work_specific_authoritative_analysis",
+          "snapshot": "sources/authoritative-looking-3674fee28cca1a15.json",
+          "checkedOn": "2026-10-11",
+          "retrievedOn": "2026-10-08"
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "work_specific_authoritative_analysis"
+      },
+      "coverage": "museum_description",
+      "lookingBasis": {
+        "scope": "work_specific_authoritative_analysis",
+        "sourceIds": [
+          "museum_looking"
+        ],
+        "checkedOn": "2026-10-11"
+      }
+    },
+    {
+      "id": "calligraphy-met-39919",
+      "period": "约1095年，北宋，纸本草书手卷",
+      "brief": "米芾不求每个字端正齐一，而以大小、倾斜和连贯笔势传递情绪；长卷宜从右向左慢慢读。",
+      "overview": "《吴江舟中诗》是米芾的草书手卷，约作于1095年。大都会的介绍强调，他以悬臂、由肘部带动的方式书写，将笔势的力量与变化放在规则字形之前。字的倾斜、压缩与变形，也是表达情绪的方式。全卷长度约五米半，字群随着书写逐渐展开；远看可以把握行气的起伏，近看则能感受笔锋转动与墨色变化，长卷的观看因而也带着时间的节奏。",
+      "looking": "",
+      "transcription": {
+        "status": "not_available",
+        "note": "本轮馆方页面未提供可核对的完整中文释文，暂不录入。"
+      },
+      "workId": "https://www.metmuseum.org/art/collection/search/39919",
+      "title": "吴江舟中诗",
+      "author": "米芾",
+      "category": "calligraphy",
+      "museum": "大都会艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.metmuseum.org/art/collection/search/39919",
+          "dataUrl": "https://www.metmuseum.org/art/collection/search/39919",
+          "publisher": "大都会艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "web_tool",
+          "evidenceSha256": "4ae04c229466d2cde4fbc7d0911916b81754edfb8d279d98bee803bb33b56154",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "cma-1961.421.2",
+      "period": "1256年，南宋，草书",
+      "brief": "“行到水穷处，坐看云起时”从诗句变成笔墨；宋理宗的书写曾与马麟的画共同组成扇面。",
+      "overview": "这件1256年的书法摘录王维诗句“行到水穷处，坐看云起时”。它与马麟的绘画曾同裱为一柄扇，体现皇帝与宫廷画家之间以诗意相呼应的创作。相配画作中，一位人物在水边大石旁休憩，视线越过留白伸向远山。诗、书与画共同组织出静观的意境；在书法中，十个字的转折、连笔与间距，又为同样的诗意提供了一种由线条展开的阅读方式。",
+      "looking": "",
+      "transcription": {
+        "status": "source_verified",
+        "label": "诗句释文",
+        "text": "行到水窮處，坐看雲起時。",
+        "explanation": "走到流水尽头，坐下来观看云起。这里可先理解为诗中的行动与静观，不必固定成单一人生寓意。",
+        "note": "据馆方 API 的 inscriptions 字段，仅摘正文诗句，不含题赠和印文。",
+        "sourceId": "museum"
+      },
+      "workId": "cma:1961.421.2",
+      "title": "草书王维诗",
+      "author": "宋理宗",
+      "category": "calligraphy",
+      "museum": "克利夫兰艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.clevelandart.org/art/1961.421.2",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/1961.421.2",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "004fde485b58c62a31ef2018c3b648c8f32c28e68939a018c21aaf97454f65d1",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "cma-2003.353",
+      "period": "约1660至1709年，行草书",
+      "brief": "一个大“初”字先抓住视线，圆转笔势随后展开；悦山道宗的书写体现黄檗禅门的雄放气息。",
+      "overview": "悦山道宗从福建赴日本，曾在黄檗宗的万福寺任职，并成为第七代住持。馆方认为，这件行草书体现黄檗僧人偏好大胆、圆转线条的书风。正文以较大的“初”字开篇，随后书写龙吟虎啸的句子。字与字的联结来自快速运笔，而不仅是形式上的装饰。欣赏时可以结合禅门背景，也可以单独观察笔势如何在纸上展开。",
+      "looking": "克利夫兰艺术博物馆指出，悦山的圆转字形使笔画与文字能在迅速运笔中相互连接。开篇放大的“初”字是观照正文的起点；馆方也把圆转、强健的笔势与黄檗宗书法联系起来，大字与后文的关系具有禅宗阅读背景。",
+      "transcription": {
+        "status": "source_verified",
+        "label": "正文释文",
+        "text": "初\n龍吟初夜後，虎嘯五更前。",
+        "explanation": "“初”字独立开篇；后面两句写初夜之后的龙吟、五更之前的虎啸。暮夜与黎明相对，龙吟与虎啸相应，可以结合大字和连贯笔势感受这组意象。",
+        "note": "据馆方 API；正文、落款与印文分开。",
+        "sourceId": "museum"
+      },
+      "workId": "cma:2003.353",
+      "title": "行草书",
+      "author": "悦山道宗",
+      "category": "calligraphy",
+      "museum": "克利夫兰艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.clevelandart.org/art/2003.353",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/2003.353",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "2703ee40ba71dedf18d9ab5b96832e51ef55e498846c7ac1aed7d094e6c61bfa",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        },
+        {
+          "id": "museum_looking",
+          "url": "https://www.clevelandart.org/art/2003.353",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/2003.353",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "2703ee40ba71dedf18d9ab5b96832e51ef55e498846c7ac1aed7d094e6c61bfa",
+          "scope": "work_specific_authoritative_analysis",
+          "snapshot": "sources/authoritative-looking-2703ee40ba71dedf.json",
+          "checkedOn": "2026-10-11",
+          "retrievedOn": "2026-10-08"
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "work_specific_authoritative_analysis"
+      },
+      "coverage": "museum_description",
+      "lookingBasis": {
+        "scope": "work_specific_authoritative_analysis",
+        "sourceIds": [
+          "museum_looking"
+        ],
+        "checkedOn": "2026-10-11"
+      }
+    },
+    {
+      "id": "cma-2023.162",
+      "period": "1911年以后，近代，对联",
+      "brief": "梁启超借古代碑刻的方整与力度写成对联；先比较两幅的行列和转折，再细读其中的宋词。",
+      "overview": "这副梁启超对联以两条竖幅组成，作于1911年以后，两幅分别摘取古人的诗词。馆方将其书写风格与古代碑刻联系起来：方折、坚实的线条，以及较少的粗细变化，赋予字形鲜明的力度。这种取法传统碑刻的方式，也与近代改革者重新认识古代文化的努力相联系。两条竖幅彼此配合，既可以细看单字的骨力，也可以从整体感受对联的秩序。",
+      "looking": "",
+      "notes": "书体描述有差异；馆方上联释文出现不连贯字词，需要另查高清原图与可靠著录后再录入。",
+      "transcription": {
+        "status": "withheld_pending_review",
+        "note": "馆方释文存在疑点，暂缓收录；不自动纠字或补写。"
+      },
+      "workId": "cma:2023.162",
+      "title": "行书对联",
+      "author": "梁启超",
+      "category": "calligraphy",
+      "museum": "克利夫兰艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.clevelandart.org/art/2023.162",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/2023.162",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "baee64ab69cf957f0db30f5cf2d018d4e471dc5b8dfd55fb5ff40ca66147ede7",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "cma-1998.169",
+      "period": "约1525年，明代，行楷书",
+      "brief": "文徵明以大字写谢恩诗，浓墨与稳健布置相互支撑；这种大尺幅书法在他的作品中并不常见。",
+      "overview": "约作于1525年的《御赐绣帛诗》，表达文徵明对嘉靖皇帝赏赐绣帛的感谢。诗意从金水桥旁谢恩、五彩绣帛上的双龙，写到恭敬参与典礼和对皇帝的祝颂。作品为行楷书，字大而墨色深，布局整饬，同时保持运笔的活力。文徵明以精雅书风著称，这样的大尺幅作品较为少见；醒目的黑色字形与稳健章法，让谢恩之作显得庄重而有精神。",
+      "looking": "",
+      "transcription": {
+        "status": "not_available",
+        "note": "本轮馆方资料为英文译文，未核对完整中文原文；不以回译代替释文。"
+      },
+      "workId": "cma:1998.169",
+      "title": "御赐绣帛诗",
+      "author": "文徵明",
+      "category": "calligraphy",
+      "museum": "克利夫兰艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.clevelandart.org/art/1998.169",
+          "dataUrl": "https://openaccess-api.clevelandart.org/api/artworks/1998.169",
+          "publisher": "克利夫兰艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "direct_http",
+          "evidenceSha256": "53e79df78c1ce8ec1b711bbc8f3c34068d966734c3c7a94c7bbe67cccaa9efb1",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "met-48954",
+      "period": "1632年以后，明代，纸本草书轴",
+      "brief": "董其昌写王维送别诗，湿润与干涩的线条相间；观看时可以跟随笔锋转动，而不只辨认字形。",
+      "overview": "这件董其昌草书轴录王维的送别诗，作于1632年以后。诗中从山间送别、日暮掩门，写到春草年年返青与对友人归来的期盼。董其昌从古代书家取法，重在吸收精神而非复制外形；不断转动笔锋，使线条在湿润与干涩之间变化。大都会将这种流动而优雅的书风，与部分晚明书家较为粗劲的风格作比较。诗中的余情，也可伴随细看笔势的过程慢慢体会。",
+      "looking": "",
+      "transcription": {
+        "status": "not_available",
+        "note": "馆方页面提供诗的英文译文；本轮尚未逐字核对画面中的中文正文，暂不录入释文。"
+      },
+      "workId": "met:48954",
+      "title": "王维诗",
+      "author": "董其昌",
+      "category": "calligraphy",
+      "museum": "大都会艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.metmuseum.org/art/collection/search/48954",
+          "dataUrl": "https://www.metmuseum.org/art/collection/search/48954",
+          "publisher": "大都会艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "web_tool",
+          "evidenceSha256": "4ae04c229466d2cde4fbc7d0911916b81754edfb8d279d98bee803bb33b56154",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "met-45746",
+      "period": "约1498年，明代，金笺行书扇面",
+      "brief": "久旱逢雨的喜悦写入扇面；吴宽以丰厚笔画与偏扁字形，接续他所取法的苏轼书风。",
+      "overview": "吴宽的《喜雨诗》约作于1498年，原为金笺折扇，后装成册页。馆方介绍，他在久旱后遇雨，恰好校读到白居易的《喜雨》，便依其韵作诗表达欣喜。吴宽取法北宋书家，丰厚而有变化的笔画与偏扁字形，尤其与苏轼的书风有关。作品让日常天气、阅读经验和书写相遇，也显示扇面形制如何参与文字布局。",
+      "looking": "",
+      "transcription": {
+        "status": "not_available",
+        "note": "本轮已核对创作背景，尚无逐字核实的完整中文释文。"
+      },
+      "workId": "met:45746",
+      "title": "喜雨诗",
+      "author": "吴宽",
+      "category": "calligraphy",
+      "museum": "大都会艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://www.metmuseum.org/art/collection/search/45746",
+          "dataUrl": "https://www.metmuseum.org/art/collection/search/45746",
+          "publisher": "大都会艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "web_tool",
+          "evidenceSha256": "4ae04c229466d2cde4fbc7d0911916b81754edfb8d279d98bee803bb33b56154",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      },
+      "coverage": "museum_description"
+    },
+    {
+      "id": "princeton-23232",
+      "period": "清代，纸本书法轴；具体年份未详",
+      "brief": "长幅中的文字随行次展开，疏密与重心彼此呼应；看郑燮这件书法，可以先读线条，再读文字。",
+      "overview": "这件清代纸本书法轴出自郑燮，现藏普林斯顿大学艺术博物馆，登记号为y1947-202。书心为修长竖幅，留有作者署名；1947年，由1893届校友DuBois Schanck Morris捐赠入馆。由整体转向局部，可以看到相邻字之间的大小与间距关系。长幅既容纳文字，也让连续的书写动作形成观看的次序，适合从全幅章法与单字结构两个层面来欣赏。",
+      "looking": "",
+      "coverage": "metadata_only",
+      "transcription": {
+        "status": "not_available",
+        "note": "馆藏页未给出可核对的完整释文；本轮不补写。"
+      },
+      "workId": "princeton:y1947-202",
+      "title": "书法轴",
+      "author": "郑燮",
+      "category": "calligraphy",
+      "museum": "普林斯顿大学艺术博物馆",
+      "sources": [
+        {
+          "id": "museum",
+          "url": "https://artmuseum.princeton.edu/art/collections/objects/23232",
+          "dataUrl": "https://artmuseum.princeton.edu/art/collections/objects/23232",
+          "publisher": "普林斯顿大学艺术博物馆",
+          "accessed": "2026-10-08",
+          "method": "web_tool",
+          "evidenceSha256": "4ae04c229466d2cde4fbc7d0911916b81754edfb8d279d98bee803bb33b56154",
+          "scope": [
+            "period",
+            "overview",
+            "brief"
+          ]
+        }
+      ],
+      "contentKinds": {
+        "overview": "source_based_paraphrase",
+        "brief": "source_based_editorial_summary",
+        "looking": "not_available"
+      }
+    }
+  ]
+}

@@ -89,6 +89,7 @@ internal sealed class SettingsForm : Form
 
         var save = new Button { Text = "保存", Name="save", AutoSize = true };
         var cancel = new Button { Text = "取消", AutoSize = true, DialogResult = DialogResult.Cancel };
+        cancel.Click+=(_,_)=>Close();
         save.Click += (_, _) => SaveAndClose();
         var buttons = new FlowLayoutPanel { AutoSize = true, WrapContents = false };
         buttons.Controls.Add(save);

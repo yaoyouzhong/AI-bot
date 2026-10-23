@@ -2,11 +2,84 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.10 - 2026-10-19
+
+### Computer unlock
+
+- Add offline TightVNC Server installation, automatic configuration/import and ownership-checked removal to Wi-Fi unlock. No manually entered component password is required. Compatible existing installations retain their settings, password and ownership.
+- Align both unlock settings windows, with Save at the lower right and window × / Esc for closing. Cancellation, disconnect and failure never replay a PIN automatically; the latest eight diagnostic entries retain transport, phase, result and split timing.
+- Pair with TAB5 0.2.234-ui for faster USB/Bluetooth preparation. Give short RPC handling/responses bounded priority over ordinary telemetry while retaining authorization deadlines and cancellation. Display the actual unlock transport.
+- Verify exact firmware, running partition and fresh UI heartbeats over paired Wi-Fi/Bluetooth. Wi-Fi and exact .234 isolated BLE three-sample acceptance have separate hardware records.
+
+### Delivery and validation
+
+- Recover the TAB5 control page after a volume drag expires or is interrupted, without replaying a volume command. Synchronize a reply actually displayed on TAB5 back to Codex desktop read state through identity/turn-bound receipts; prefetching never marks it read.
+
+- Preserve the published 0.6.9 update entry points, independent windows and unsaved-change protection. Do not rebuild unchanged Mac or ESP8266 components.
+- Retry atomic history/credential replacement for a bounded interval when a file is temporarily held. Persistent failures preserve the original and report an error. Installation, hardware regression and validation boundaries are tracked in the [closeout record](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).
+
 ## Unreleased
 
-- Prefix runtime alerts with `系统监控：` and show an amber warning or red error icon. Preserve concise titles, recovery clearing and task-banner priority. Native previews and source checks are separate from bridge deployment and TAB5 flashing.
+- Add a macOS TAB5 USB/Wi-Fi, daily-display and acknowledged display-settings candidate, isolated from ESP8266 settings. Independent protocol/reference checks passed on Windows; 55 Swift tests and Release compilation passed in Mac CI. Preserve command failures through log pipelines and collect the XCTest XML using an absolute path. Native UI and hardware acceptance remain pending. No deployment or release; see the [phase-one record](docs/development/MAC-TAB5-PHASE1-20261019.md).
 
-- Display bridge and legacy bundle release titles as `AI-bot vX.Y.Z`; retain component tags and download URLs. Reconcile current bilingual release instructions and links with the published download index.
+## 0.6.9 - 2026-10-17
+
+### TAB5 computer control
+
+- Add PC master volume, mute, workstation lock and up to four locally configured application/folder launchers with names and system icons. Muting displays an enlarged slashed-speaker icon.
+- Report the actual Windows session lock state and keep controls steady during polling. Playback controls live on the Music page and recheck the displayed song against the current system media session before acting.
+- Reuse paired encrypted RPC, opaque locally configured launcher IDs, duplicate receipts and bounded failure handling. Devices cannot supply paths or commands.
+
+### Network management and diagnostics
+
+- Read up to ten saved Wi-Fi networks on TAB5 216/217 while retaining older firmware support and network labels.
+- Show device HTTP and gateway/PC path diagnostics without changing networks, pairing or firewall settings. The observed connectivity incident recovered after reconnecting the PC Wi-Fi; no permanent fix for an unidentified NIC/AP fault is claimed.
+
+### Delivery scope
+
+- Publish Windows 0.6.9 and TAB5 0.2.217-ui. Mac stays on 0.6.7, ESP8266 on 0.5.3, and existing artwork packs retain their versions. Full computer control requires this Windows bridge.
+- Existing physical acceptance covers volume, mute, launcher icons/opening, lock/unlock state, steady controls and Wi-Fi volume control with USB unplugged. Package and installation results are tracked separately in the [release record](docs/RELEASE-0.6.9.md).
+
+## 0.6.8 - 2026-10-16
+
+### Connection and diagnostics
+
+- Identify failed screen, TAB5, LAN and data-collection services with actionable advice, preserving existing alarm timing, deduplication and recovery rules.
+- Explain disabled, disconnected, connecting, Wi-Fi bridge-unreachable and failed-service states in Service Status, reusing per-device reconnect.
+
+### Window behavior
+
+- Ordinary settings and viewers keep Device Center usable, reuse a window for the same device/function and retain the original device target.
+- Preserve save/cancel completion for modeless windows. Closing Device Center closes owned panels while unsaved edits and active device operations can veto closing. Keep explicit deletion, reset and installation confirmations.
+
+### Update downloads
+
+- Resume Windows installer and device firmware downloads after cancellation, network interruption or app restart; reuse fully verified packages. Bind caches to component, version, filename, size and SHA-256.
+- Validate ranges and full-file checksums; safely restart when servers ignore Range. Corrupt content never reaches installation or flashing, and device/version/compatibility checks remain enforced.
+
+
+
+- Standardize bridge release titles as `AI-bot v<version>` and future artifact names; preserve firmware versions without `v`, published download URLs and legacy update aliases.
+- Recover from serial access-denied and driver errors during ESP8266 metrics writes so an unplugged small display does not terminate the worker and trigger a global bridge alarm on TAB5.
+
+## 0.6.7 - 2026-10-16
+
+### Agenda and devices
+
+- Add to-dos, advance reminders, recurrence and name dictation with TAB5 0.2.205-ui. Preserve local edits, durable offline deletion receipts, reconnection sync and concurrent-edit copies. Keep up to 16 items; only inserting into a full list may replace its oldest-ended expired one-off. Editing and expiry alone never delete items.
+- Negotiate TAB5 status capacity by authenticated device version, with a 64 KiB ceiling and 48 KiB normal target while retaining 32 KiB peers, degradation and recovery. Serial cleanup tolerates genuine disconnection errors without hiding unrelated invariant failures.
+- Use “管理 ▾” in Device center. Distinguish offline Wi-Fi, associated Wi-Fi without bridge traffic, healthy bridge traffic and unavailable device reports consistently across the device and connection pages. Preserve USB priority, device identities, pairing and display preferences.
+
+### Collections and notifications
+
+- Desktop artwork browsing adds separate image/reader areas, Pinyin filtering, keyboard and cyclic navigation, full screen, zoom and bounded HD decoding. Each optional complete HD collection contains 366 works and its matching device previews, guides, reviewed text and sources. Failed or cancelled imports preserve installed data. Desktop HD originals are not transferred to TAB5.
+- Reuse unchanged JPEGs and complete guides during synchronization, retaining segmented full-text checks and recovery. Standard calligraphy 2026.10.15.1 corrects landscape titles, authors and periods; retain the existing standard painting edition.
+- Keep concise severity-colored runtime alerts and the existing recovery-clearing rules. Online TAB5 handles completion notifications, with a desktop fallback sound when no fresh TAB5 traffic exists. The browser music-artwork extension is not integrated.
+
+### Validation boundaries
+
+- Record Windows builds, isolated public self-tests, imports and layouts separately from real installation acceptance. macOS keeps its platform-specific scope and must build/test on macOS.
+- TAB5 205 reminder layout has native-preview and build evidence, not an installed-205 hardware claim. Preserve user-confirmed four-orientation 201 display tests and 204 expiry retention/offline deletion. Full-capacity eviction, whole-image BLE OTA and long-running stability retain separate hardware boundaries.
 
 ## 0.6.6 - 2026-10-14
 

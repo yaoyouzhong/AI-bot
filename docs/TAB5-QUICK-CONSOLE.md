@@ -35,6 +35,10 @@ The paired bridge and .121 are installed and exact-image boot verification passe
 
 ## 历史实现记录 / Implementation history
 
+2026-10-17 本地修复：`open-recent` 在 Windows 当前桌面不可交互时返回 409 / `desktop_not_interactive`，不启动会话、不读取草稿、不发送 Alt。包括锁屏、安全桌面及会话断开；这是桌面可交互性判断，不是对锁屏原因的精确诊断。TAB5 提示“电脑桌面不可操作，请解锁后再点 Codex”；定位失败不再显示“重试录音”，通过原 Codex 主按钮重新定位。失败回执继续去重，解锁后需要新点击，旧请求不会自动执行。新固件兼容旧桥接的通用 409 回执，旧固件仍会显示原通用提示。代码验证与真实锁屏验收分开，本次尚未部署。
+
+2026-10-17 local fix: `open-recent` returns 409 / `desktop_not_interactive` when the Windows desktop does not receive input, before navigation, draft observation or Alt injection. This includes lock screens, secure desktops and disconnected sessions without claiming an exact lock diagnosis. TAB5 asks the user to unlock and click Codex again; failed navigation hides the recording retry control. Blocked requests retain their receipts, requiring a new click after unlock. Older peers retain generic 409 compatibility. Local checks do not establish real lock/unlock acceptance; not deployed.
+
 语音缓冲修复：Windows 桥接在接收当前会话的 `audio` 分块前检查播放余量，200 毫秒音频块只在待播放量不超过 200 毫秒时写入。等待使用异步 20 毫秒步进，界面、取消和识别线程仍可推进；连续 1500 毫秒无余量则明确失败，不丢块、不扩大缓冲、不将截断结果自动填入。取消、焦点变化及旧会话请求仍按原身份校验。`audioWaitMs` / `audioWaitPeakMs` 及 `playbackBufferedMs` / `playbackPeakMs` 用于区分播放积压和识别收尾，不记录声音或正文。现有 .120 可直接使用桥接修复；.121 另含停止进度反馈、自动模式 USB 优先及 Wi-Fi/USB 16 kHz ADPCM。NAudio 内部复现和六秒积压完整性回归通过，真机延时改善尚待确认。
 
 The bridge admits current-session audio packets only while playback backlog is at most 200 ms, keeping 200 ms packets within a 400 ms queue. Asynchronous 20 ms waits preserve UI/IME/cancel progress; no room for 1500 ms fails explicitly without dropping audio, increasing the buffer or auto-staging a truncated take. Existing session identity and cancellation checks remain. Queue/wait diagnostics contain timing only. The fix works with .120; .121 separately adds stop progress feedback. Real NAudio burst and integrity tests pass; hardware latency improvement is unverified.

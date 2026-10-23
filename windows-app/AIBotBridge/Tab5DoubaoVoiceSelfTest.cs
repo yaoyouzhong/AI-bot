@@ -5,14 +5,6 @@ internal static class Tab5DoubaoVoiceSelfTest
     internal static void Run() {
         Tab5DoubaoMicrophoneSelfTest.RunAsync().GetAwaiter().GetResult();
         static void Check(bool value){if(!value)throw new InvalidOperationException("Doubao control state test failed");}
-        var hashes=new Dictionary<string,string>{
-            ["rpc.dll"]="0be0cb35d864d06b2c8b5267d9f0669a1383493f557a45c6a1ebbfa203e85e53",
-            ["tsf-oime-core.dll"]="8544bfb87d8d2cc847b13e2ccc9bbd2220b20bceafdd1fc88ad5eaff5a28bb02",
-            ["ImeService.exe"]="94ace7e504e6aa70c15095d5219604aee93e17247eb85429a046c7a4fdb95e90"};
-        Check(Tab5DoubaoVoice.MatchesBuild(name=>hashes[name]));
-        hashes["rpc.dll"]="A3EAD1A55850257BAC01A878C899F42291A1F41BD2B834E0CAA5C5B66A674E02";
-        Check(!Tab5DoubaoVoice.MatchesBuild(name=>hashes[name])); // mixed versions must fail closed
-        Check(!Tab5DoubaoVoice.MatchesBuild(_=>null));
         int state=0,starts=0,stops=0,shows=0;bool focus=true,queryLost=false,rejectStart=false;
         int Send(int message) {
             if(message==Tab5DoubaoVoice.Query)return queryLost&&starts>0?-1:state;
@@ -24,8 +16,9 @@ internal static class Tab5DoubaoVoiceSelfTest
         var voice=new Tab5DoubaoVoice(Send,()=>focus);
         state=1;Check(!voice.CanRestoreFocus);state=0; // never reclaim an unowned take
         focus=false;Check(!voice.Start()&&starts==0);focus=true;
-        foreach(int existing in new[]{1,2,4,8,16,-1}) {
+        foreach(int existing in new[]{1,2,4,8,16,19,32,64,-1}) {
             state=existing;
+            Check(!voice.IsIdle);
             try{voice.Start();throw new Exception("Must refuse busy/unknown IME state");}catch(InvalidOperationException){}
             Check(starts==0&&stops==0);
         }

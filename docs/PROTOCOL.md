@@ -16,9 +16,11 @@ The Windows bridge validates the exact numeric shape. Older bridge versions and 
 
 中文：USB 健康回复可附带 `wifiDiag`，依次记录版本、初始化、联网、设置返回值、连接返回值、断开原因、连接请求次数、扫描返回值、扫描次数、匹配热点数、最强信号、信道、配置读回返回值、网络名是否匹配、固定信道、是否锁定热点。扫描只在未联网且确实报“未找到热点”时执行，每30秒最多一次。数字读回不触发扫描、不更改已保存网络；未采样返回值及热点数为-1，成功返回值为0。各字段不是同一事务快照。诊断不含网络名称、密码或硬件地址，旧接收端兼容。
 
-TAB5 0.2.188-ui optionally reports `wirelessBootDiag` as `1,resetReason,powerCycled,hostedInitResult`. It describes startup only: board power is prepared before SDK transport initialization; software reset prepares the C6 rail before Wi-Fi/BLE tasks exist. Zero init result is API success, not proof of association. Ordinary runtime AP failures do not power-cycle a live radio. Older bridges ignore this optional numeric field.
+TAB5 203 optionally adds `wifiRecoveryDiag` with eight numeric fields:
+`schema,connectionPhase,timeoutPhase,timeoutCount,stationRestarts,stopRc,startRc,restartPending`.
+Phase 1 is association, 2 is DHCP; timeout phase 3 identifies manual reconnect and 4 prolonged successful scans with no matching AP. Association and DHCP deadlines are 30 and 60 seconds. The Wi-Fi worker restarts only the station driver on a stall, with a 120-second automatic cooldown; failed stop/start calls retry after 10/2 seconds. A healthy connection is protected, BLE isolation finishes before recovery and credentials are not rewritten. Manual reconnect uses the same driver restart. The companion bridge validates all eight fields; older peers ignore this optional field. No device reboot or C6 power cycle is added.
 
-中文：TAB5 0.2.188-ui 可附带 `wirelessBootDiag`，格式为 `1,重启原因,启动时是否重置电源,Hosted初始化返回值`。先准备板级电源，再启动 SDK 通信；软件重启的电源准备发生在 Wi-Fi／蓝牙任务创建之前。返回值 0 只表示 API 成功，不等于已连接热点。运行中的普通关联失败不切断模组电源，旧桥接兼容忽略该字段。
+中文：203 新增可选数字字段 `wifiRecoveryDiag`，记录版本、连接阶段、超时阶段、超时次数、站点重启次数、停止／启动返回值及待启动状态。连接与 DHCP 分别等待 30／60 秒；长期扫描找不到热点也可触发恢复，自动重启间隔至少 120 秒。停止／启动失败分别间隔 10／2 秒重试。手动重新连接采用同一站点重启路径，健康连接保持运行，BLE 临时隔离先结束，不重写密码、不重启设备或给 C6 断电。旧桥接可忽略此字段。
 
 ## ESP8266 fixed USB identity (local 0.5.3)
 
@@ -338,7 +340,9 @@ Paired TAB5 clients can POST `/tab5/v1/voice`. AES-256-GCM request and response 
 
 Replies expose source dji/tab5, state, message and bounded UTF-8 draft text in the encrypted response only. DJI capture is preferred; absent/unavailable capture falls back to TAB5. VB-CABLE routes either source into the separately configured Doubao input method. Capture stops after 4 seconds without requests or 60 seconds total. No automatic task submission. Runtime is disabled until configured; this is source/simulation validation, not real audio, Doubao or TAB5 hardware acceptance. Existing ESP8266 endpoints and settings are unchanged.
 
-TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/selected，最多 5 项，不返回密码；`tab5_wifi_forget` 按配对 deviceId 和真实 SSID 删除，返回 tab5_wifi_forgotten 或 tab5_wifi_rejected。仅 USB 接收。
+2026-10-15 local candidate: existing `op=tab5` also supports direct shared DJI input. The host stops its owned DJI segment and waits for idle/stable committed text before borrowing the built-in channel, preserving voiceId, owner and draft; final explicit stop returns both segments. During handoff the existing recording state remains with ready=false. No new field/version is needed. 普通大疆直连不切换豆包音源；手动 `tab5` 请求先结束并保留大疆文字，再临时借用／归还内置麦克风通道，保持原会话及完整草稿。此候选尚未部署，真实切换验收另记。
+
+TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/selected，最多 10 项（216 起；旧固件为 5 项），不返回密码；`tab5_wifi_forget` 按配对 deviceId 和真实 SSID 删除，返回 tab5_wifi_forgotten 或 tab5_wifi_rejected。仅 USB 接收。
 # TAB5 日历详情增补（0.2.26）
 
 `calendar` 保留现有今日/明日字段，新增可选 `detail`：`terms[{year,dates}]`（24 节气的 MMDD）、`holidayYear`、`holidays[{start,end,name}]`（MMDD 范围）、`workdays[]`（补班 MMDD）、`birthdays[{name,month,day,lunar,leap,remind}]`。生日最多 32 项，提醒 0–30 天；只走已有鉴权 TAB5 状态通道，不改变 ESP8266 字段。
@@ -358,7 +362,13 @@ TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/sele
 
 TAB5 USB 心跳中的可选 `codexNotice` 是界面线程从实际 LVGL 右上角控件读回的打包诊断值：低 8 位为队列未读数，8–15 位为数字标签（10 表示 `9+`），第 16 位为控件可见状态。桥接在设备诊断中显示此值，缺少字段时显示 `--`；该值只用于验收，不参与已读状态同步。
 
-设备收到确认后，仅清除 taskId 与 turnId 同时匹配的提醒，并立即重算右上角未读数、回复按钮和概览状态；旧轮次确认不能清除新轮次。确认独立于缩减的任务目录，避免传输裁剪留下旧数字。缺失字段不清除，旧客户端忽略字段。设备阅读仍按有效正文显示确认，当前为电脑已读到 TAB5 的同步，不写回 Codex 数据。
+设备收到确认后，仅清除 taskId 与 turnId 同时匹配的提醒，并立即重算右上角未读数、回复按钮和概览状态；旧轮次确认不能清除新轮次。确认独立于缩减的任务目录，避免传输裁剪留下旧数字。缺失字段不清除，旧客户端忽略字段。设备阅读仍按有效正文显示确认。旧固件仅支持电脑到设备的同步；以下可选回执增加设备到电脑的同步。
+
+Windows 0.6.10 / TAB5 0.2.230-ui 本地候选：加密读取的 `replyView.readReceipt` 是可选 UUID，只为当前最新且已结束、含有效公开文字的回复生成，绑定配对设备、taskId、turnId、Codex 账户和本地主机，五分钟内有效。历史预取和读取响应本身不修改桌面已读状态。设备在匹配正文实际显示于打开的回复页后，才通过现有鉴权 RPC 发送 `kind:codex, op:read-ack, taskId, turnId, requestId:readReceipt, message:""`；会话、时间和 nonce 校验保持不变。无回执的旧桥接无需发送。
+
+桥接再次核对最新轮次、结束状态和账户，再通过桌面 `thread-read-state-changed` v3 IPC 广播发送 `hasUnreadTurn:false` 及桌面验证的 identity/executionHostKey 上下文，不直接改写 Codex 状态文件，不打开会话或发送消息。只有读回相同账户/主机的已读状态后才返回 200；旧回执、账号或更新轮次冲突返回 409，桌面未确认返回 503。设备仅对幂等已读回执有界重试，不重放消息或按键。该桌面 IPC 属于版本化内部协议，升级不兼容时保留未确认结果。
+
+English: the local Windows 0.6.10 / TAB5 .230 candidate adds an optional, five-minute `replyView.readReceipt` bound to device, task, latest terminal turn and Codex identity/host. Loading or prefetching never writes read state. After matching public content is rendered in the open reply view, the device sends authenticated `codex/read-ack` with its task/turn and receipt in `requestId`. The bridge rechecks identity and the latest terminal turn, broadcasts the version-3 desktop read-state contract, and confirms the desktop-owned persisted state before returning 200. Conflicts return 409; unavailable confirmation returns 503. No direct state-file writes, foreground navigation, new message or keyboard input occurs. Only this idempotent receipt may retry; unknown IPC compatibility fails closed.
 
 ## TAB5 OTA 接收端流控能力（0.2.29）
 
@@ -443,6 +453,8 @@ No wire-format change. The client owns two 48 KiB receive blocks, each matching 
 0.2.101-ui 新增显式 `desktop.clear-draft`：UUID `requestId` 与明确 `taskId`，仅 TAB5 工具栏长按触发。电脑前台会话和主输入框必须与目标一致，不导航或发送回车；清空写入一次并回读确认，成功回执 `cleared=true`、`attempted=true/false`。实际尝试或确认已空后，原同会话的发送记录失效；相同请求 ID 复用回执，不重复清空后续新草稿。协议版本仍为 1，仅 Windows 支持。Candidate .101 adds explicit `desktop.clear-draft`, triggered by long press with a request UUID and explicit task ID. The current foreground target must match; it never navigates or sends Enter. A single write is verified by readback; confirmed empty inputs need no write. Attempted or confirmed clearing invalidates the old send tickets. Replayed requests return their receipt without clearing a subsequent draft. Protocol version remains 1; Windows only.
 
 新增已认证 `kind=desktop` 的 `open-recent` / `stage-draft` 操作，以及语音回执 `canInsert` 字段。参数、去重窗口和失败语义见 [快捷控制协议](TAB5-QUICK-CONSOLE.md)。`stage-draft` 仅预填电脑草稿，不调用任务发送接口。USB、Wi-Fi、BLE 复用现有加密 RPC，ESP8266 协议不变；当前仅 Windows 桥接支持，macOS 不新增此能力。
+
+`open-recent` 在 Windows 桌面不可交互时返回 409，`error=desktop_not_interactive`、`foreground=false`；拒绝发生在启动或唤起前。该回执沿用请求 ID 去重，解锁后通过新点击重试。此错误值兼容现有通用 409 处理，不改变协议版本。When the Windows desktop cannot receive input, `open-recent` returns 409 with `error=desktop_not_interactive` and `foreground=false` before navigation. Replay preserves the rejection; retry requires a new click after unlock. Existing clients retain generic 409 handling without a protocol-version change.
 
 0.2.100 配套桥接的语音回执增加可选 `sourceName`，来自实际选中并成功打开的 Windows 录音端点全称。自动回退时改为 `TAB5 内置麦克风`；`source` 仍为 `dji` / `tab5`，路由不变。旧端可忽略新增字段；没有名称时新固件保留原状态文案，不猜测型号。Codex 直达状态栏展示全称，过长时横向滚动。
 
@@ -578,6 +590,10 @@ Terminal result: `complete;BLE,down,1,<rawBytes>,<ms>,0,<calls>,<encodeMs>,<exch
 Auto selection follows USB > Wi-Fi > BLE; fixed modes do not switch channels. Wi-Fi/USB audio requests now use the existing `codec=ima-adpcm` (16 kHz mono) decoder; BLE retains `ima-adpcm8k`. Independent blocks contain LE16 sample count, LE16 predictor, index, reserved byte, then low nibble first. At 3200 samples the block is 1606 bytes before Base64 instead of 6400 raw PCM bytes. This is lossy coding, not byte-exact PCM. Sequence validation, 60-second limit, stop/tail draining and no automatic audio retry remain unchanged. Paired bridge required; hardware continuity/recognition quality pending.
 # TAB5 daily gallery RPC extension
 
+Optional incremental guide reuse (2026-10-15 candidate): a `manifest` request with `includeGuide:true,guideVersion:3` may add `guideRevision` (the authenticated category content digest) and `guideWorkId` (the complete guide already held for that work/date). Only an exact current digest/work match returns `guideUnchanged:true,workId,guide:null`. All other requests receive the complete guide as before. The device must validate its cached date, revision, work identity and complete original-text pages before sending hints, reject a reference with an unexpected work/version, and retain independent text ownership. Older bridges ignore the hints; older devices never send them. JPEG hashes, range authentication and protocol version 1 remain unchanged.
+
+中文：同一作品后续分页／横竖屏可携带 `guideRevision`、`guideWorkId` 请求复用已校验导读；只有当前内容版本及作品身份同时相同，才允许 `guideUnchanged:true` 省略重复正文。版本、作品或日期不匹配时获取完整导读；旧桥接／旧设备保持完整正文路径，不省略原文校验。
+
 Authenticated `/tab5/v1/rpc` requests may use `kind: "gallery"`. Existing pairing, encrypted envelope, session, timestamp and replay validation apply unchanged. This is a device-initiated pull extension; it does not change the existing three asset slots or ESP8266 frames. Unsupported bridges return an error and the device retains its cached image.
 
 - Common fields: `category` (`painting` / `calligraphy`), local `date` (`YYYY-MM-DD`), zero-based `frame`.
@@ -654,48 +670,11 @@ The paired USB `tab5_benchmark` control accepts `gallery_start`, `gallery_status
 
 Results are `state;gallery,transport,completed,receivedBytes,totalMs,receiveMs,writeMs,overlapCount,error`. `totalMs` includes sample preparation, inter-sample scheduling, validation and durable commit from first sample start; receive and write times overlap and must not be added. Only `complete` with eight samples is a successful run. A 180-second device deadline and explicit cancellation bound the task; partial/failure results are not throughput acceptance.
 
-测速需要已启用 TF 卡及已安装图库。样本使用 `/aibot/cache/gallery-speed/` 下的独立存储根，复用正式图库目录格式；原图库图片、导读、断点和进度均不修改。每次重新接收样本，不把缓存命中算作传输。测试记录固定为 8 个键、每键两槽，连同临时分段最多约 24 MiB，并由后续测试复用。桥接“TAB5 连接 → 传输测速”选择“图库写卡”，再点“开始测速”；默认显示实际字节、端到端时间和速度，详细数据保留接收/写卡阶段与重叠次数。“通信传输”只测通信，两类结果不可混算；汇总速率仅使用成功样本的有效字节与耗时，失败样本另行提示。失败、中止、代码回归和模拟文件写入均不算真机速度验收。
+测速需要已启用 TF 卡及已安装图库。样本使用 `/aibot/cache/gallery-speed/` 下的独立存储根，复用正式图库目录格式；原图库图片、导读、断点和进度均不修改。每次重新接收样本，不把缓存命中算作传输。测试记录固定为 8 个键、每键两槽，连同临时分段最多约 24 MiB，并由后续测试复用。桥接“TAB5 连接 → 测速 → 图库同步测速”显示实际字节、端到端时间、接收/写卡阶段与重叠次数。失败、中止、代码回归和模拟文件写入均不算真机速度验收。
 
 TAB5 0.2.184-ui optionally appends `;gallery_io,readBytes,writeBytes,readMs,writeMs,syncMs,syncCalls,bulkBytes,edgeBytes;gallery_rpc,encodeMs,exchangeMs,decodeMs,streamBackpressureMs,calls`. Counters reset at the first isolated sample and snapshot only between completed samples. Card times include production reads/verification, writes and durable fsync; bulk/edge count both reads and writes. Exchange includes transport and bridge response wait; Wi-Fi streaming excludes measured decrypt and writer-backpressure callbacks. Stream backpressure is zero on non-streaming USB. Stages overlap and cannot be summed as wall time. Older nine-field results remain valid.
 
 0.2.184-ui 可追加上述读写和 RPC 分段统计：首个独立样本开始时清零，每个样本结束后快照。读卡包含校验读取，落盘统计保留正式 fsync；批量与边缘字节包含读和写。传输等待包含桥接响应耗时，Wi-Fi 流式统计排除已记录的解密与写卡背压，非流式 USB 的流式背压为零。各阶段可能重叠，不能相加代替总时间；旧九字段结果仍兼容。
-
-TAB5 0.2.186-ui adds optional `;gallery_rx,networkReadMs,consumerWaitMs,receiveAheadCalls,receivePeakBytes`. The HTTP receiver reads up to 16 KiB into a bounded 64 KiB PSRAM ring while the original authenticated consumer and card writer continue. Allocation/task failure falls back to synchronous reads. Cancellation joins the receiver before closing its HTTP handle or freeing storage; the existing eight-second socket timeout bounds a stalled read. Only authenticated blocks enter durable checkpoints. Counters are captured between completed samples; network read and consumer wait overlap other stages and are not additive wall times. `receiveAheadCalls` counts exchanges using the parallel receiver. Zero means this path was not used, not an absent network delay.
-
-0.2.186-ui 可追加网络读取、消费者等待、并行接收请求数及缓冲峰值。接收任务以最多 16 KiB 批量读取到 64 KiB PSRAM 环形缓冲，与原有校验及写卡流程并行；内存或任务创建失败时回退到同步读取。取消时先等待接收任务结束，再关闭 HTTP 或释放缓冲，阻塞读取仍受原有八秒超时约束。只有校验通过的块才能保存为断点。各项耗时可重叠，不能相加；并行请求数为零表示没有使用该路径，不能据此判定网络没有等待。
-
-USB gallery replies also optionally append `;usb_rx,receivedBytes,readSpans,maxSpanBytes,readMs,copyMs,notifications,notifyPeakUs,packetCountMax,ghwcfg2,gahbcfg,rxFifoWords`. They reset on `gallery_start`; byte/span/copy counters cover binary reply bodies, and notifications cover the active binary receive interval. Read timing covers the FIFO read that supplied each span, so a read supplying multiple bodies can be counted more than once. Notification latency is the interval from the latest observed notification to its next drained span, not every packet's bus latency. P4 OTG-FS registers are read-only diagnostic snapshots; packet count is sampled after FIFO drain and may miss transient peaks. These counters do not prove physical USB throughput limits or a speed improvement. The original gallery result and legacy clients remain compatible; no USB wire payload, endpoint, baud rate or transport preference changes.
-
-USB 图库回复还可追加收包字节、读取段数、最大段、FIFO 读取／复制耗时、通知数、最近通知到读取的最长间隔及硬件快照。开始测速时清零，字节统计只含二进制回复正文；同一次 FIFO 读取若供给多个正文，读取耗时可能重复计数。通知间隔不是每个 USB 包的总线延迟，读取后的硬件计数也可能错过瞬时峰值。寄存器仅只读采样；这些数据用于定位接收等待，不能单独证明硬件速度上限或优化收益。原测速结果及旧客户端保持兼容，USB 数据格式、端点、串口速率和连接偏好不变。
-
-TAB5 0.2.187-ui advertises `usbRxBatch: 4096` on USB status/hello replies. A supporting bridge may request `rxBatch: 4096` on a nonempty `tab5_rpc_binary` body; absent/zero retains the legacy single-MPS receive path. Other values are rejected. Only this body's OUT reception uses batches up to 4 KiB, within the existing allocated CDC buffers and FS packet count. Whole-image authentication, byte count and replay boundaries do not change. Binary completion, timeout and disconnect reset batching. The matching bridge ends each 64-byte-aligned write with one newline outside its declared binary body or JSON line; unaligned writes need no padding. Empty lines are ignored by both old and new parsers. On serial open it sends a separate one-byte newline before discovery. DMA ownership is recorded before hardware submission; a pending bulk completion from a closed DTR generation is discarded before parser wakeup, then the current generation is rearmed at one MPS. Ordinary legacy single-MPS completions are not discarded by this batch fence.
-
-0.2.187-ui 通过 USB 回复声明 `usbRxBatch: 4096`。新版桥接仅在非空二进制正文请求中指定 `rxBatch: 4096`；缺省或零继续使用旧单包接收，其他值拒绝。该正文以最多 4 KiB 批量接收，保留原有缓冲、鉴权、字节计数和防重放边界，正文结束、超时或断线恢复普通接收。桥接在每次恰好为 64 字节倍数的写入末尾追加一个正文／JSON 行之外的换行，避免依赖 Windows 串口驱动发送 ZLP；非整包无需追加。新旧解析器均忽略空行。串口打开时另发一个单字节换行，再进行身份查询；设备在硬件提交前记录 DMA 代际，丢弃关闭前尚未完成的批量接收，避免旧前缀进入新连接。旧单包路径保留。
-
-TAB5 0.2.189-ui may append `;ortho,1,calls,pixels,totalUs,peakUs` and `;reader,1,opens,prepareUs,layoutUs,firstRefreshUs` to the optional opaque `displayDiag` string, after every existing field and previous crash record. Orthogonal counters cover only the eligible RGB565/ARGB8888 right-angle software path; totals are unsigned rolling observations, not a consistent trace. Reader values describe the latest successful open: prepare includes motion completion, work lookup and deep-copying the already resident guide; layout includes updating labels and the reader geometry; first-refresh is elapsed from the click callback to `LV_EVENT_REFR_READY`. Zero first-refresh can mean a render is still pending. Closing before refresh cancels the pending observation. No artwork text, device identity or credentials are logged. Neither timings nor conformance tests replace physical interaction acceptance.
-
-0.2.189-ui 可在不透明诊断字符串 `displayDiag` 的全部旧字段和上次崩溃记录之后追加两个独立版本段：右角 RGB565／ARGB8888 路径的调用数、像素数、总耗时／峰值，以及作品详情最近一次成功打开的准备、排版和首帧完成耗时。准备阶段包含结束转场、核对当前作品及深拷贝内存中的资料；首帧从点击回调开始，到刷新完成事件为止，尚未刷新时可为零，提前关闭会取消待记录值。累计值可能无符号回绕，不作为完整时序。字段不含作品文字、身份或凭据；旧客户端继续忽略扩展，不改变控制命令、图库格式、缓存或鉴权。
-
-TAB5 0.2.189-ui may advertise `rpcUsbWait:20` when its process-lifetime readiness semaphore and USB mailbox buffers are available. A supporting bridge requests `waitMs:20` only on an empty `tab5_rpc_binary` read (`count:0`). Missing/zero retains immediate legacy reads; other values, nonnumeric values, and nonzero waits on body writes are rejected. The device waits until an unconsumed request is published, the connection generation changes, or a 20 ms deadline expires (rounded to FreeRTOS ticks); it neither holds the mailbox mutex while waiting nor allocates a semaphore per poll. Existing binary reply identity, byte count, status and encryption are unchanged. The bridge omits its post-empty-poll timer only after this capability is negotiated and resets it on disconnect. Low-memory devices advertise zero and retain the original path. BLE behavior is unchanged.
-
-0.2.189-ui 仅在固定请求就绪信号量及 USB 邮箱缓冲可用时声明 `rpcUsbWait:20`。新版桥接只在空正文读取时请求 `waitMs:20`，旧值缺省／零继续立即读取；拒绝其他值及带正文的非零等待。新请求发布或连接代际变化立即唤醒，超时按 FreeRTOS 时钟节拍限制；不持有邮箱锁等待，也不逐次分配信号量。保留二进制标识、长度、状态、鉴权及 BLE 行为。桥接只对协商成功的连接取消空轮询后的定时等待，断开清零；低内存回退保持旧路径。
-
-Gallery HTTP connection reuse is local resource management, with no new wire contract. A single idle client is moved into exclusive worker ownership and returned only after authenticated, complete, successfully persisted background-library responses. Handles are never shared concurrently. Endpoint, 60 s lifetime and 200-request budget checks precede reuse; the desktop's current limits are 75 s/400 requests per connection. Every RPC still sets fresh device/nonce/proof headers. Cancellation, partial data, invalid authentication/hash, storage failure or an occupied idle slot cleans up the borrowed client. Older servers requesting `Connection: close` remain supported by ESP-IDF reconnection. Image, guide, catalog, resume and cache formats do not change.
-
-图库连接复用只管理本地资源，不新增网络命令。一个空闲客户端移交给独占的后台任务，只有鉴权、正文、文件校验及保存成功才可归还；不会并发共享句柄。复用前检查地址、60 秒寿命和 200 次请求预算，保留每次新鲜请求头及服务器关闭后的 SDK 重连。取消、部分正文、鉴权／哈希错误、保存失败或空闲槽已有句柄时清理当前资源。图库、导读、目录、续传及缓存格式不变。
-
-
-### TAB5 0.2.190-ui desktop upgrade request / 电脑发起升级
-
-Windows 0.6.6 may publish `connectionHealth.otaCommand` only after an explicit desktop start action. It contains `version:1`, lowercase 32-character `requestId`/`offerId`, a 64-character `sha256`, and integral `expiresAt` in UTC milliseconds (30 s). The offer bytes are immutable. Pending intent forces full authenticated status publications and prevents replacing/withdrawing the image or a second start. Firmware 0.2.190-ui+ retains the same encrypted status, session/sequence checks and authenticated RPC transport; no unauthenticated network start endpoint is added.
-
-LVGL processes only a fresh (<6 s) accepted frame, compares the selected offer, and runs the shared manual save/busy guards. It reports `kind:ota-control`, `stage:ready|rejected`, and the exact request/offer/hash with the existing RPC session/time/HMAC/AES-GCM/replay checks. The desktop returns `commit:true` only while that intent and image remain current and unexpired. LVGL rechecks freshness, scope and active work, then atomically copies only the authorized offer into the existing OTA task. It reports `started|rejected`; errors include `device_busy`, `draft_pending`, `draft_save_failed`, `offer_changed`, `no_link`, `start_failed`. Duplicate intent/result frames do not reinstall. Lost/late confirmation does not authorize another image or an automatic retry. A timeout means unconfirmed, not proven failure; preserve power and inspect boot/transfer state before retrying. After accepted commit the desktop retains a bounded lifecycle lease, while actual transfer traffic keeps the existing OTA guards. Version observation, start receipt and USB VALID/ELF verification remain distinct.
-
-`connectionHealth.otaCommand` 仅由电脑上明确的“开始升级”动作创建，绑定不可变镜像、请求编号、offerId、SHA-256 和 30 秒截止时间。设备使用已配对的加密状态及 RPC 通道；界面线程先复用草稿保存／忙碌检查，再向电脑请求提交确认，提交前后均核对当前请求，启动时在锁内原子核对并复制指定镜像。回传准备、开始或具体拒绝原因；重复／过期／撤回／不匹配请求不启动安装。未收到回执属于未确认，不自动重发新请求；启动回执、版本回报和精确镜像启动核验分别判断。USB／Wi-Fi／BLE 沿用设备的通道选择，已有图库和配对不修改。旧设备需先通过原手动入口安装一次支持本协议的固件。
-
-Windows also exposes a byte-mode named pipe with .NET `PipeOptions.CurrentUserOnly`, scoped by the Windows user's SID and matching elevation level. See [Microsoft PipeOptions](https://learn.microsoft.com/dotnet/api/system.io.pipes.pipeoptions). It accepts only `info` and `start`, with a 4-byte little-endian length and at most 4096 bytes of JSON, bounded read/response time and no operation retry. `--tab5-ota-info` reads non-secret offer/device metadata. `--tab5-start-ota <deviceId> <sha256>` starts only the already selected image on the matching paired device through the same lifecycle/receipt path. It operates through the running bridge and never overrides AppProfileGuard, loads a separate user profile, changes credentials, or flashes ROM. The interface does not expose pairing keys. This Windows feature does not imply Mac TAB5 support.
-
-本机命令仅当前 Windows 用户可连接，必须核对正在运行的桥接内已选择的设备和固件校验值；不另开资料目录、不绕过保护、不修改凭据，不提供首刷或任意文件刷写接口。该入口没有增加开放的 HTTP 升级接口。
 
 ## TAB5 runtime monitoring (optional, version 1)
 
@@ -712,3 +691,156 @@ Alerts expose full `advice` and optional `shortAdvice` for compact views. Receiv
 See [runtime monitoring](RUNTIME-MONITOR.md) for defaults, diagnostics, validation and the unflashed-preview boundary.
 
 Additional optional checks `codex` and `bridge` report actual authenticated/model-connection observations and independent bridge/UI/collector health. The `pressure` object can add `commitPercent`, `committedMemoryMb`, and `commitLimitMb`; missing values remain unknown. Optional alert/check `handledExternally` only suppresses duplicate Windows notifications already handled by the independent guard; devices continue presenting the alert normally. Guarded presentation removes stale counters and latency history even when the HTTP publisher remains alive. No new device command or model request is introduced.
+
+### BLE bulk response replay (local optimization candidate)
+
+A paired TAB5 can advertise optional numeric `rpcReplay=1` in its existing GATT identity. Missing, malformed or unknown values disable replay. A supporting Windows bridge serializes native write submissions and confirms the end of each negotiated response window (at most 64 fragments). An ATT `0x0E` rejection allows one replay of that same window using individually acknowledged writes; other errors and cancellation terminate it. The sender retains the original request ID, total length and encrypted bytes, and holds the shared GATT gate through recovery.
+
+Only the BLE receiver accepts replay, and only when the request ID and total length match the active response, the repeated fragment lies entirely inside the accepted prefix, and every byte matches. New data must still start at the exact receive cursor. Gaps, altered duplicates, overlapping new bytes and stale requests are rejected. Completion, authentication and decryption still require the whole response. USB retains its strict duplicate rejection. Old bridges keep their existing wire format; old devices use confirmed bulk writes without replay.
+
+BLE 通道可通过现有身份信息的可选整数 `rpcReplay=1` 协商窗口重传。正常传输按窗口确认，接收状态拒绝时仅将当前窗口逐片确认补传一次。设备只接受同一请求、同一总长度、已接收范围内逐字节相同的重复分片；缺口、变更内容、交叠的新数据和过期请求仍被拒绝。完整响应的认证和解密检查保持有效。USB 保持严格拒绝重复分片，未协商能力的旧设备不使用重传。此段描述本地候选，实机速度和稳定性需另外验收。
+
+## TAB5 Agenda v1 (local candidate)
+
+`data.agenda` is optional: `{version:1, revision:<32 lowercase hex>, count:0..16}`. Definitions are fetched through authenticated `kind:"agenda", op:"sync"` on the existing RPC envelope; no ESP8266 field or command changes. USB, Wi-Fi and BLE share the existing session, timestamp, nonce, HMAC and AES-GCM checks. Unknown operations return 400; unavailable agenda storage returns 503 and must not clear the device cache.
+
+The request may carry up to 32 actions (a completed occurrence and a later snooze per item): `{id,edit,occurrence,op:"complete"|"snooze",until}`. The response is `{version:1,revision,items:[...],conflicts:[id,...]}`. An item has `{id,edit,title,due,end,repeat,lead,done,snoozeOccurrence,snoozeUntil}`. IDs and editions are 32 lowercase hex digits; titles contain at most 32 characters/96 UTF-8 bytes. `due` is the start and `end` is the end of the base occurrence. New dated definitions require `due < end <= due + 86400`. `due=0,end=0` means an undated to-do (occurrence sentinel 1); it does not expire automatically. Legacy preview definitions with no end expire at due. `done` and complete actions remain for protocol compatibility; current UIs only snooze or dismiss. `repeat` is 0=once, 1=daily, 2=Monday-Friday, 3=weekly on the original weekday; `lead` is 0..60 minutes.
+
+All schedule/occurrence timestamps are **local civil seconds**, represented by treating the host's local date/time as UTC for arithmetic. They are not UTC instants. The authenticated clock's separate `utcOffsetSeconds` remains unchanged. An unset RTC must not trigger alarms. The host and device use identical rules for early reminders across midnight, snoozes across midnight and advancing repeated items. A newer definition receives a new `edit`; stale edition actions are rejected as conflicts. Completion is monotonic and idempotent, and cannot erase a newer snooze. An occurrence expires at `occurrence + end - due` (at occurrence for a missing end); repeats advance automatically, including across midnight. Expiry is derived from time without Flash writes. Alerting is suppressed after expiry; snooze must be strictly before expiry. Successful snoozes are persisted before acknowledgement. A new revision never means empty data unless a complete, valid response explicitly contains an empty list.
+
+中文：日程使用独立可选摘要和原有加密 RPC，最多 16 项。事项按电脑本地时间计时，设备先校准 RTC；开始与结束时间独立，提前提醒相对开始时间；到结束时间自动结束，重复日程转到下一次，过期提醒不补响。界面无手工完成；延后不得越过结束时间，先保存再同步。重复请求幂等，旧编辑版本不覆盖电脑改期。损坏或未确认响应保留原缓存，详情与验收边界见 [日程待办说明](AGENDA.md)。
+
+Agenda sync additionally accepts at most 16 `edits:[{baseEdit,item}]`. The device generates a new 32-hex edition and persists definitions before acknowledging local saves; baseEdit remains the last confirmed host edition across repeated offline edits. An empty baseEdit creates a new item. A matching baseEdit replaces its definition; an already identical edition is an idempotent retry. Concurrent edits/deletion preserve a copy with `id=item.edit`, returning `forks:[{id,newId}]`; retries reuse that copy. Capacity or copy collisions return 409 and keep pending device data. Responses advertise `editSupport:1`; the device refuses to replace a pending-definition cache with an older bridge response lacking this flag. Same-edition alert deduplication survives normal and forked acknowledgements. Definitions and snoozes share the authenticated transport; no credentials enter item data.
+
+设备端新增／编辑先本地持久化，离线可用。同步使用 baseEdit 做并发核对；冲突保留两份，满额或旧桥接保留本机修改，不静默覆盖。列表仅显示开始时间，编辑页可设结束时间。名称语音使用现有 voice 协议的独立 owner UUID `a1b07a65-0000-4000-8000-00000000a5ed` 及 `source:tab5`；只回填本地名称草稿，不创建／发送 Codex 任务。
+## TAB5 status capacity 64 KiB / TAB5 状态容量扩展
+
+Agenda 200 adds `repeat:4` for Chinese official workdays; existing codes 0..3 retain their meanings (including Monday-Friday). `lead` is minutes, including 1 and 3, never a dropdown index. Updated devices send `workdaySupport:1`; responses include that capability and `workdayYears:[{year,holidays:[{start,end,name}],workdays:[104,214]}]`, with integer month/day values and published annual data. A client without the capability receives 409 `agenda_workdays_requires_update_keep_local` when stored or submitted items require repeat 4; no definitions are dropped. Devices retain up to three annual bitsets in `agenda_days_v1`, independently from unchanged `agenda_v3`. Invalid/incomplete updates or failed writes preserve the last-good cache. Unknown future years display calendar pending and pause alarms rather than guessing weekdays.
+
+日程 200 新增 repeat=4，按中国官方节假日和补班计算，原 0..3 编号不变。新设备声明 workdaySupport=1，桥接返回已公布 workdayYears；旧客户端遇到工作日事项返回 409 并保留本机数据。lead 为实际分钟数，包含 1 和 3。年度缓存独立持久保存，未知年份暂停提醒，成功同步后自动恢复。
+
+Agenda 202 accepts a complete six-range year when holiday names cover all seven categories (for example a combined National Day/Mid-Autumn break). Annual calendar refresh and item acknowledgement are independent: a failed calendar update preserves the prior calendar and reports its own warning while a valid, matching item snapshot can clear pending edits. Invalid/missing item acknowledgements still retain local edits and retry. Existing item fields remain unchanged. The local-first snapshot described below adds durable deletion metadata.
+
+日程 202 支持名称覆盖七类节日的六区间完整年度安排，例如国庆与中秋合并。年度日历刷新与事项回执独立处理：日历失败保留原缓存并单独提示，有效且匹配的事项回执仍可确认同步；无效或缺失的事项回执继续保留本机修改并重试。既有事项字段不变；本地优先快照增加下述持久删除记录。
+
+TAB5 `0.2.198-ui` expands the encrypted status ceiling to **65,536 bytes**, including the 12-byte nonce and 16-byte GCM tag. Plain status and decompressed JSON must therefore fit **65,508 bytes**. New bridges aim for **49,152 bytes including encryption** (49,124 plain bytes), leaving 16 KiB of headroom. The BLE status length prefix is uint32 little-endian; individual ATT fragments and RPC mailbox lengths retain their existing bounds.
+
+Capacity negotiation reuses existing identities: a matching validated USB hello/ACK with firmware `0.2.198-ui` or later, or the existing HMAC `FIRMWARE|<nonce>|<version>` for Wi-Fi and BLE. Missing, unknown, unsigned or older firmware stays at 32 KiB. Do not add fields to the existing near-512-byte BLE Info value. Firmware version alone from an unauthenticated Wi-Fi/BLE header cannot enable expansion. The bridge retains a bounded legacy status view, including decompressed JSON; compression does not make an oversized expanded state compatible with an old receiver. Old bridges can keep sending 32 KiB packets to new firmware.
+
+The firmware aligns CDC lines, BLE reassembly, Wi-Fi replies, GCM, decompression and delta validation. Larger payload buffers use PSRAM; delta trees remain bounded at 8,192 nodes, 65,536 retained string bytes and depth 16. RPC/voice retain independent limits; the existing 65,535-byte RPC mailbox ceiling is not the status-packet ceiling.
+
+Publication budgets task maps with the task catalog. Excess payload automatically falls back to valid current ordering/clock fields and available sections while preserving cached values and original sample times. It retries normal publication every cycle and restores full content automatically. Cached upgrade/display commands are not replayed. Test vectors and physical-device acceptance must be reported separately.
+
+中文：新固件状态加密帧上限为 64 KiB，明文及解压后 JSON 最多 65,508 字节；桥接日常目标为含加密开销 48 KiB。USB 使用身份匹配的固件回报，Wi-Fi／BLE 复用现有固件版本 HMAC，确认配套版本后启用；旧版、未知或鉴权缺失维持 32 KiB。保留旧容量的解压后状态视图，避免仅凭压缩后变小就向旧设备发送大状态。接收／解密／解压／增量边界同步更新，大缓冲使用 PSRAM；RPC、语音沿用独立限制。超限自动降级并持续重试，缓存保留原采样时间，恢复不要求重启。此协议说明不表示固件已刷入或 64 KiB 三通道已完成真机验收。
+
+
+### Agenda 202 local-first deletion / 本地优先删除
+
+TAB5 acknowledges create, edit, snooze and delete only after its local NVS commit. Connectivity does not gate local management or calibrated offline reminders. The companion Windows UI remains an auxiliary editor and synchronized copy; no Windows agenda notification is added. A pending sync is shown as “已保存，待同步电脑”, separately from a failed local write.
+
+`op:"sync"` additionally accepts at most 16 `deletions:[{id,edit,baseEdit}]`; IDs/editions use the existing format, and `baseEdit` may be empty. An item cannot appear in both deletions and edits/actions in the same envelope. Supporting bridges respond with `deleteSupport:1,deleted:[{id,edit}]`. Deletions are staged before definitions and committed together with them. Already absent editions are acknowledged without rewriting; lost receipts can be retried with a fresh authenticated nonce. Both the original edition and a matching `id=edit` conflict copy from a lost earlier edit receipt are removed. A concurrent desktop definition is retained under `id=desktop.edit` and reported through `forks`; capacity/copy collisions return 409 without committing the staged snapshot.
+
+The device requires all exact deletion receipts, the capability, a valid full item snapshot and absence of deleted editions before clearing its queue. Unknown bridges, malformed/lost receipts and failed writes preserve the active local list and queued deletions. A local delete frees its active slot immediately; up to 16 deletions can wait for sync. A full deletion queue rejects the next deletion with a reconnect instruction while preserving its record. Queue entries are never evicted by age.
+
+Active items plus deletion metadata are stored as one 5,872-byte versioned envelope in the existing `agenda_v3` key (original item document: 4,272 bytes), so a power failure cannot persist only half of a delete. Old exact-size documents are accepted without changing their items; the first successful write upgrades the envelope atomically. Corrupt/unknown snapshots stop loading and preserve their bytes. The previous 201 reader cannot read this new envelope: downgrade requires restoring the pre-upgrade NVS backup or a verified synchronized copy, rather than treating an old firmware boot as data-compatible. Partition layout, pairing and Windows `agenda.json` schema are unchanged.
+
+中文：TAB5 的增删改、延后和离线提醒以本机为准，保存完成不再等待电脑确认。删除后立即从本机列表移除，同时原子保存待同步删除记录；重启后继续补同步，旧桥接或缺少精确回执时不会让旧记录重新出现。两端并发修改保留电脑修改副本并提示。待同步删除最多 16 条，满额时明确提示连接电脑后重试，不丢弃旧队列。升级沿用原 NVS 键，旧记录首次成功写入时原子升级存储封套；不修改分区和电脑 JSON 格式。201 不支持新封套，降级需恢复升级前 NVS 备份或经核验的同步副本。
+
+### Agenda 204 bounded retention / 满额新增时整理
+
+204 sends and requires `retentionSupport:2` on agenda sync. Ended one-offs remain in the document: reads, clock ticks, reboot and edits do not delete them. An insertion requiring space beyond 16 selects the oldest-ended one-off (legacy missing end uses due; ties use ordinal ID). Repeat rules, future and undated items are excluded. No victim returns a capacity error with the original data intact.
+
+Device eviction and insertion share one atomic compact NVS transaction, including the existing `{id,edit,baseEdit}` deletion receipt. The 16-receipt bound remains: reconnect is required when full, rather than dropping unacknowledged removals. Sync applies deletions before edits, preserves incoming editions and concurrent conflict copies, and reclaims only the excess count from pre-existing expired host entries. Expired incoming edits still require precise acknowledgement; lost responses cannot cause additional eviction. 204 rejects snapshots from older bridges without the retention capability. The compact `agenda_v3` encoding introduced by 203 remains unchanged (maximum 3,574 bytes), with no new history archive.
+
+中文：过期先保留，仅满 16 条且新增时清理最早结束的一条；不足 16 条、编辑及重启不清理。新建与清理原子保存，离线删除回执补同步，待同步队列满时提示连接电脑，失败保留原记录。“全部”可查看已结束事项。电脑批量合并保护本批离线编辑及冲突副本，只清理补足容量所需的旧过期记录；两端声明 retentionSupport=2，204 不采纳旧桥接响应。沿用 203 紧凑存储，不增加持久历史备份。
+
+## TAB5 BLE keyboard unlock candidate / 蓝牙键盘解锁候选
+
+`0.2.217-ble-unlock` adds the standard HID service `0x1812` and Device Information `0x180A` beside the existing private GATT service. Report ID 1 carries an 8-byte keyboard input report and LED output; report and boot keyboard modes are supported. Advertising keeps the existing private UUID and adds HID UUID and keyboard appearance within the 31-byte limit. No existing JSON/RPC fields or protocol version change.
+
+HID input is permitted only on an encrypted, MITM-authenticated, bonded connection with notifications enabled, recent authenticated bridge data on that same BLE connection, and fresh locked-state evidence. PIN is never an RPC payload or a persisted value. Pairing needs explicit on-device numeric comparison; repeated pairing needs separate consent before removing that peer's old bond. A submitted sequence is one-shot and cleared on use/cancel/error. Enter waits for fresh post-digit locked state; success requires observed unlocked state, not a successful notification call.
+
+候选仅增加标准蓝牙键盘服务，保留现有桥接、语音和数据协议。复用应用控制页的锁屏按钮，每次由用户输入数字 PIN，不保存、不经 HTTP/RPC 发送、不自动重试。蓝牙绑定密钥与 Windows PIN 分开处理。当前为刷机前候选，编译、模拟和界面预览均不代表真机解锁已通过。验收计划见 `docs/development/TAB5-BLE-UNLOCK-20261017.md`。
+
+
+## Conservative BLE lock-screen preparation / 保守蓝牙锁屏封面准备
+
+The separate conservative BLE cover-preparation candidate adds read-only `kind=computer-control, op=lock-screen` on the existing authenticated RPC envelope. Response: `{version:1, locked:true|false|null, lockScreenCover:true|null}`; null may be omitted. `true` requires a locked current session and a stable foreground CoreWindow owned by the Windows SystemApps LockApp image. Denied, unknown, another window and transitional states never confirm a PIN field/provider/focus. Older bridges return an unsupported-operation error; devices continue with manual PIN-page preparation and send no Space.
+
+Only an explicit opening of the existing BLE unlock modal requests this sample. The reply is bound to that modal's request ID and expires 1,500 ms after request dispatch on the device's monotonic clock, including round-trip time. With fresh positive cover evidence and the existing secure BLE/HID/bridge/lock/connection-generation gates, TAB5 may enqueue exactly one Space press/release, never Enter or PIN as preparation. Key-down rechecks the same evidence; key-up remains best effort. No background poll, reconnect, cancellation, timeout or late reply initiates/retries preparation. This is a best-effort observation across asynchronous Windows/radio transitions, not atomic PIN-focus verification. Full hardware acceptance remains separate.
+
+中文：保守蓝牙候选仅增加一次只读封面检查，不安装组件、不操作安全桌面、不读取 PIN。复用原解锁按钮与面板，只有明确的封面证据才发送一次蓝牙空格；过期、失败、旧桥接及未知状态均不发，也不宣称 PIN 框或焦点已确认。每次 PIN 仍由用户输入，不保存。此准备步骤不用于 Wi-Fi 键盘路径；候选说明见 `docs/development/TAB5-BLE-COVER-20261018.md`。
+
+## Optional Wi-Fi keyboard candidate / 可选 Wi-Fi 键盘候选
+
+`connectionHealth.wifiKeyboardVersion=1` means the current user configured the optional local adapter; it is not an unlock or service health acknowledgement. Firmware selects it only at opening the existing unlock panel with fresh Wi-Fi and USB/BLE absent. The choice stays fixed during the transaction.
+
+`kind=wifi-keyboard` uses the existing paired-device encrypted RPC envelope and adds `op=begin|submit|step|finish|cancel`. `begin(confirmPinPage=true)` returns a one-use `offer`, AES-256 key and 15-second deadline. `submit(offer,sealed)` stages 4–64 numeric bytes encrypted as nonce[12]+tag[16]+ciphertext, with ASCII offer ID as AAD. No clear PIN field is accepted. `step(offer,next)` advances exactly one sequential numeric key press/release and renews a 2-second lease; replay or wrong sequence stops the transaction. `finish` requires all digits consumed and rechecks console lock state before one Enter. Cancellation and expiry wipe staged bytes and close the local connection. No operation is automatically retried or forwarded to USB/BLE. Only fresh unlocked computer state confirms success.
+
+本候选复用现有锁屏按钮和加密通信，Windows 普通权限桥接仅对接经过身份检查的本机厂商服务；不启动旧的临时 SYSTEM 辅助程序，不更改登录认证方式。可选服务独立授权安装；PIN 不保存，独立组件访问密码用当前用户 DPAPI 保存。协议与验收说明见 `TAB5-WIRELESS-UNLOCK-20261018.md`（公共桥接目录在 `docs/development/`）。
+
+
+## BLE display-wake preparation candidate / 蓝牙熄屏唤醒准备候选
+
+The undeployed `0.2.219-ble-wake` candidate extends the existing authenticated read-only `computer-control / lock-screen` reply with optional `displayState:0|1|2|null` (Off, On, Dim, unknown). The ordinary interactive bridge tracks `GUID_SESSION_DISPLAY_STATUS` notifications in memory; registration failure, startup without a notification and suspend invalidate the state. Missing fields from older bridges are unknown; the new firmware does not fall back to unchecked PIN input. Existing firmware ignores the optional field. Protocol version and authentication envelopes stay unchanged; the probe never accepts or carries a PIN.
+
+Opening the existing BLE unlock panel and explicitly confirming submission each start a bounded preparation (8 seconds). Fresh Off evidence, bound to the current request and secure connection, permits one modifier-only Left Shift press/release (`report[0]=0x02`, all character slots zero). TAB5 then reads the state again; On alone does not establish the page. Only a fresh positive LockApp cover observation permits one Space press/release, followed by another read. Waiting may repeat read-only queries, but never repeats either wake key. Key-down has a 500 ms dispatch deadline and rechecks evidence; request age is at most 1,500 ms including RPC time. Key-up remains best effort when evidence changes or cancellation races a send.
+
+The user-confirmed PIN stays only in the device's volatile buffer while preparation is pending, and starts exactly once after fresh On/Dim evidence. The backend rechecks that same request before the first digit. Cancel, close, expiry, link/session change, unknown state or failure clears pending PIN and stops the action; there is no automatic PIN replay. A lit page with unknown cover is not positive PIN-field/focus evidence: the existing user prompt to confirm the PIN page remains. Display events and radio processing are asynchronous; this is not atomic secure-desktop focus verification or a sleep/resume guarantee.
+
+中文：候选新增独立的屏幕电源状态，先以无字符的 Shift 唤醒，再重新检测是否为壁纸页，仅明确壁纸时发一次空格。面板打开后再次熄屏也由提交前检查覆盖，准备失败清空并停止，不自动重发 PIN。复用原按钮，不保存 PIN、不改变系统电源策略、不安装新组件，也不接入未安装的 Wi-Fi 解锁组件。完整记录见 `docs/development/TAB5-BLE-SCREEN-WAKE-20261018.md`；此候选尚未刷入，真机结果单独验收。
+
+## BLE early-screen-off observation candidate / 蓝牙早期熄屏观察候选
+
+The firmware-only `0.2.220-ui` candidate reuses the deployed `.219` bridge and the same authenticated read-only reply. Its explicit open/submit preparation budget is 12 seconds. An initial On/Dim sample, before a completed wake, is observed for approximately 6 seconds to accommodate delayed screen-off notifications; a fresh Off sample can trigger the existing modifier-only wake sooner. Unknown/expired reads and transient HID readiness may only cause bounded read-only retries. Peer disconnection, loss of security, connection-generation change, positive unlocked state, expiry, or uncertainty in an accepted key transaction stops preparation. At the user's request, a completed Shift transaction, including release, is followed by at least 1,500 ms settling and a NEW read. Only another fresh Off response may authorize one extra modifier-only Shift: two at most per explicit preparation. On/Dim skips the extra Shift; unknown state cannot authorize a key, and a failed/uncertain first transaction cannot be retried. Space is still accepted at most once, PIN is never automatically replayed, and rejected pre-admission attempts need new evidence. Freshness, dispatch deadlines, backend authentication, wire fields and protocol version are unchanged.
+
+中文：`.219` 已部署，但刚黑屏约5秒的一次点击仍未通过用户验收；“请确认电脑已显示PIN登录页”不证明已发Shift。新候选让打开时未就绪的面板也进入准备，初始亮屏最多观察约6秒、准备最多12秒。按用户追加要求，第一次Shift事务完成后等待1.5秒，再重新查询；只有仍明确熄屏才最多补发一次，绝不连续盲发或发送第三次。空格仍最多一次，PIN不自动重发；未知状态只查询，失败/不确定的按键事务停止。原本已亮PIN页的打开与确认也可能各增加约6秒等待；通知延迟不受该取值保证，未知封面仍不表示已确认PIN焦点。未刷入、不安装Wi-Fi解锁组件，精确修订候选与验证见 `docs/development/TAB5-BLE-PREPARATION-20261018.md`。
+
+
+## BLE simple unlock feedback and fast confirmation candidate / 蓝牙解锁简化反馈与快速提交候选
+
+The local `0.2.221-ui` candidate adds optional `displayState:0|1|2|null` to ordinary authenticated `computer-control / status` replies, using the existing Windows session-display notification reader. The firmware caches it for UI feedback for less than 4,000 ms from request dispatch, including RPC latency. Missing, invalid or expired values are unknown. This does not add a poll, protocol version, RPC operation, service, driver, or Wi-Fi unlock adapter. Older firmware ignores it. This UI cache can disable local editing but cannot authorize HID: the separate `lock-screen` request ID, 1,500 ms evidence age, 500 ms dispatch deadline and all existing secure-peer/locked-state gates still apply.
+
+When connection, lock state and preparation are ready, the panel only asks for the current Windows PIN and says it is not saved. Processing uses one brief wait message; failure asks the user to close and reopen the panel. Display-state diagnostics are not shown in the normal flow. A transient HID/status freshness gap clears local PIN and disables editing; recovery on the same secure peer can restore local editing. Disconnect, security loss, connection-generation change or a positive unlocked state revokes preparation. Confirmation always starts a NEW request.
+
+Opening retains the `.220` bounded early-screen-off observation (about 6 seconds within a 12-second preparation). Confirmation removes the repeated fixed 6-second observation: a fresh positive reply can immediately proceed, while unknown/missing evidence stops and clears the confirmed action. A fresh Off or cover reply can extend the confirmation budget once for the existing wake preparation. Shift remains at most twice with at least 1,500 ms settling and a fresh Off read between attempts; Space remains at most once. There is no automatic PIN replay. Windows notifications may lag physical screen transitions; fresh RPC data is not atomic secure-desktop PIN-focus proof. The user-requested tradeoff is quicker submission and explicit close/reopen after failure, not a guaranteed physical-state oracle.
+
+中文：正常仅显示“请输入 Windows PIN（不保存）”；处理中一句“请稍候”，异常才提示关闭面板重试。常规状态的可选 displayState 仅用于界面反馈和本地编辑门控，4秒内过期，不扩大按键授权；提交仍用新的请求绑定证据，去掉重复的固定6秒等待。短暂未就绪恢复可重新输入，PIN在未就绪、取消、失败等路径清除，断连／安全丢失／连接代次改变必须重新打开。打开面板的早期熄屏观察和有限Shift／Space保持。系统通知可能滞后，不宣称精确确认PIN焦点。候选未部署、未刷入，不安装Wi-Fi组件；审查与本地证据见 `docs/development/TAB5-BLE-SIMPLE-UNLOCK-20261018.md`，不能以构建或模拟代替新版本真机验收。
+
+### TAB5 USB / BLE one-click unlock local candidate (0.2.224-ui)
+
+本地未部署候选新增可选 `computer-control/status` 字段 `oneClickUnlock:bool`。旧桥接缺少字段按 false 处理，旧固件忽略新字段。只在一键解锁开关打开且当前配对设备有可用的 PC 加密 PIN 记录时为 true，不包含 PIN、长度或账户信息。关闭开关保留记录，但新的 USB/BLE unlock-pin 请求不能取得 PIN（返回 404）。
+
+新增 `kind=unlock-pin, op=read, requestId=<UUID-D>`，仅在 USB/BLE 的既有鉴权 RPC 内可用；Wi-Fi 返回 400。沿用 session、issuedAt、nonce、AES-GCM 和请求 proof 校验。成功 body 为 `{version:1,requestId,packet:<base64>}`。`packet` 格式为 12 字节 IV + 16 字节 GCM tag + 4–64 字节数字 PIN 密文；AES-256-GCM 密钥为设备配对密钥，AAD 为 requestId 去掉连字符后的 32 字节 ASCII。请求 ID 为一次性，重复返回 409；未配置返回 404，无法解密记录返回 503，屏幕未就绪返回 409。设备单次取用，6 秒超时和取消后迟到回复都不能产生输入。协议版本仍为 1。
+
+USB hello/ACK 增加可选 `usbHidState:uint32` 状态位，仅包含连接、同代次认证、就绪、忙、失败和解锁 UI 阶段。不包含 PIN、按键、输入长度。共享诊断位 10 为一键模式，22 为 USB 输入，31 为一键请求失败。USB 就绪证明来自加密 RPC 回复，不能由普通 CDC 状态 JSON 获得。
+
+English: the undeployed local candidate adds optional `oneClickUnlock` to computer status and USB/BLE-only authenticated `unlock-pin/read`. Its encrypted response packet uses the pairing key and the 32 ASCII characters of the hyphen-free request UUID as GCM AAD; no plaintext PIN enters JSON or diagnostics. Duplicate request IDs, stale/cancelled responses and Wi-Fi retrieval are rejected. `usbHidState` is optional, credential-free readiness/UI telemetry. Existing peers may omit or ignore these fields. See `development/TAB5-USB-ONECLICK-20261018.md` for boundaries and acceptance.
+
+The independent PC enable switch must be on as well as a valid pairing-bound PIN being configured. Saving a PIN alone does not enable one-click unlock; turning the switch off retains the PIN and rejects new credential grants on both USB and BLE. No firmware or protocol-version change is needed for this switch revision.
+
+### TAB5 Wi-Fi one-click unlock candidate (0.2.227-ui)
+
+本地未部署候选新增可选 `connectionHealth.wifiUnlockVersion=1`；只有电脑 Wi-Fi 解锁独立开关已开、当前配对 PIN 可用时通告，否则为 0。旧对端可以忽略。保持协议 version=1 及原配对 AES-GCM、HMAC、nonce、session、issuedAt 和二进制包检查。
+
+新增 `kind=wifi-unlock`，仅 Wi-Fi。`begin {requestId:<UUID-D>}` 返回 `{ok,offer:<32hex>,next:0,stage:"preparing",unlocked:false}`；`poll {requestId,offer,next}` 消耗确切 next，返回新的 next 与 `preparing/sending/confirming`。`cancel {requestId,offer}` 撤销。Windows 实际未锁定且数字发送完整后才返回 `{ok:true,unlocked:true,stage:"unlocked"}`。响应不含 PIN、加密 PIN、密钥、账户或窗口文本，网络不能指定键值。
+
+requestId 按配对身份与桥接会话单次消费；保留 120 秒，容量 256，满时拒绝。offer 绑定相同身份/会话/配对记录。40 秒总预算、2500ms 活动租约、250ms 清理周期、2000ms I/O 超时。重复 next、过期、取消或错误停止且不重发；已接受的在途单个输入无法保证撤回。已有 `unlock-pin/read` 仍仅 USB/BLE，Wi-Fi 拒绝。
+
+English: optional `wifiUnlockVersion=1` advertises explicitly enabled Wi-Fi one-click unlock with a usable pairing-bound saved PIN. Wi-Fi-only authenticated `wifi-unlock/begin,poll,cancel` carries UUID/offer/sequence and status only, never a PIN or key. Each poll consumes its sequence before side effects, with bounded preparation, a 40s total budget and 2.5s lease. The PC uses its local saved PIN through an authenticated loopback vendor service; actual session unlock is required for success. USB/BLE PIN export policy is unchanged. This is an undeployed candidate; see `development/TAB5-WIFI-ONECLICK-20261018.md` for implementation and acceptance limits.
+
+### TAB5 unlock history candidate (0.2.228-ui, local)
+
+`computer-control` / `status` optionally carries `unlockHistory`: `1;` followed by 1–8 semicolon-separated rows, each exactly nine 8-digit hexadecimal uint32 words (maximum 585 characters). The authenticated, session-bound RPC envelope and replay validation remain mandatory. Other computer-control operations reject this field. This is numeric troubleshooting data only; it never authorizes input. Fields, flags and acknowledgement semantics are documented in [the candidate record](development/TAB5-WIFI-ONECLICK-20261018.md). Candidate firmware requires its matching bridge decoder. PIN, keycodes, account data and text are excluded.
+
+TAB5 0.2.228-ui 本地候选在 `computer-control/status` 中可携带严格定长、最多 8 条的 `unlockHistory` 诊断，复用原有鉴权与会话/重放校验；字段与确认规则见上述候选记录。诊断不参与解锁授权，不包含凭据、按键或文本。
+
+TAB5 216 expands saved Wi-Fi profiles to ten. NVS wifi_profiles3 stores version 3 with ten slots; migration reads fixed five-slot v1/v2 blobs without changing the pairing/config ABI or removing the old keys. SSIDs, passwords, labels, preferred selection and an authoritative empty list are preserved. A full list rejects an eleventh distinct SSID while allowing updates to existing entries.
+
+Optional USB wifiHttpDiag contains nine numeric fields: version=1, status attempt count, ESP open error, socket errno, HTTP status, authenticated valid-status count, destination IPv4 as host-order uint32, destination port, local IPv4 as host-order uint32. It contains no credentials or authentication headers; old clients ignore it.
+
+## TAB5 217 connection path diagnostics / 连接路径诊断
+
+Optional wifiPathDiag contains 17 numeric fields: version=1, IPv4 netmask, gateway IPv4, AP channel, RSSI, STA MAC as uint48, BSSID as uint48, station-is-default boolean, probe count, gateway TCP/80 errno, host TCP/configured-port errno, transport ESP error, TLS code, TLS flags, Wi-Fi power-save mode, AP query result, netif MAC as uint48. IPv4 values are host-order uint32. Zero probe errno means connect succeeded. On failed bridge HTTP connects only, the Wi-Fi worker samples at most once per 30 seconds, using nonblocking sockets with one-second connect waits; USB only copies the snapshot. Probes close their sockets, send no HTTP request, skip OTA, and do not change network settings.
+
+中文：桥接连接失败时对网关与电脑做有界 TCP 对照，并记录掩码、网关、信号和底层错误；不修改网络、密码或配对。诊断新增不等于连通问题已修复。

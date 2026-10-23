@@ -26,10 +26,13 @@ internal static class ComponentUpdateCatalog
             if (release.GetProperty("draft").GetBoolean() || release.GetProperty("prerelease").GetBoolean()) continue;
             string tag = release.GetProperty("tag_name").GetString() ?? "";
             string notes = release.TryGetProperty("body", out var body) ? body.GetString() ?? "暂无更新说明。" : "暂无更新说明。";
-            foreach (var (component, prefix, assetPrefix, assetSuffix) in new[] {
-                ("bridge", "bridge-v", "AIBotBridge-", "-setup-win-x64.exe"),
-                ("esp8266", "esp8266-v", "AI-bot-", "-firmware-materials.zip"),
-                ("tab5", "tab5-v", "TAB5-upgrade-", ".zip") })
+            foreach (var (component, prefix, assetPrefix, assetSuffix, canonical) in new[] {
+                ("bridge", "bridge-v", "AI-bot-bridge-v", "-windows-x64-setup.exe", true),
+                ("esp8266", "esp8266-v", "AI-bot-esp8266-", "-firmware.zip", true),
+                ("tab5", "tab5-v", "AI-bot-tab5-", "-upgrade.zip", true),
+                ("bridge", "bridge-v", "AIBotBridge-", "-setup-win-x64.exe", false),
+                ("esp8266", "esp8266-v", "AI-bot-", "-firmware-materials.zip", false),
+                ("tab5", "tab5-v", "TAB5-upgrade-", ".zip", false) })
             {
                 bool ownTag = tag.StartsWith(prefix, StringComparison.Ordinal);
                 bool legacy = tag.StartsWith('v') && TryNumber(tag[1..], false, out _);
@@ -43,13 +46,15 @@ internal static class ComponentUpdateCatalog
                     if (!TryNumber(version, component == "tab5", out var number)) continue;
                     // Legacy bundle assets carry their own versions. A component tag must match its package.
                     if (ownTag && tag[prefix.Length..] != version) continue;
-                    if (!result.TryGetValue(component, out var previous) || number > previous.Number)
+                    var package=ReadAsset(tag,asset);
+                    if (!result.TryGetValue(component, out var previous) || number > previous.Number ||
+                        number == previous.Number && canonical && package is not null && previous.Package?.Name.StartsWith(assetPrefix,StringComparison.Ordinal)!=true)
                     {
                         UpdateAsset? Asset(JsonElement item)=>ReadAsset(tag,item);
                         var checksum=release.GetProperty("assets").EnumerateArray()
                             .Where(a=>a.GetProperty("name").GetString()==name+".sha256"||a.GetProperty("name").GetString()=="SHA256SUMS.txt")
                             .OrderBy(a=>a.GetProperty("name").GetString()==name+".sha256"?0:1).Select(Asset).FirstOrDefault(a=>a is not null);
-                        result[component] = new(component, version, number, notes,Asset(asset),checksum);
+                        result[component] = new(component, version, number, notes,package,checksum);
                     }
                 }
             }

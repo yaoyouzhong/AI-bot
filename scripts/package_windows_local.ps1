@@ -17,6 +17,11 @@ try {
     $line = @($result | Where-Object { $_ -like 'LOCAL_RELEASE_CHECK_OK evidence=*' })[-1]
     if ($line -notmatch '^LOCAL_RELEASE_CHECK_OK evidence=(.+) firmware=(True|False)$') { throw 'Verified source path missing' }
     $sourceRoot = $Matches[1]
+    function ArtifactName([string]$key,[string]$componentVersion) {
+        $name = & python (Join-Path $sourceRoot 'scripts\artifact_names.py') $key $componentVersion
+        if ($LASTEXITCODE -ne 0) { throw 'Artifact naming failed' }
+        return $name
+    }
     $stage = Join-Path $sourceRoot 'artifacts\windows-package'
     dotnet publish (Join-Path $sourceRoot 'windows-app\AIBotBridge\AIBotBridge.csproj') -c Release -r win-x64 --self-contained false -o $stage
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }
@@ -30,13 +35,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Windows file manifest failed' }
     $version = (Get-Content (Join-Path $sourceRoot 'VERSION') -Raw).Trim()
     $firmwareVersion = (Get-Content (Join-Path $sourceRoot 'firmware\VERSION') -Raw).Trim()
-    $zip = Join-Path $sourceRoot "AIBotBridge-$version-local-candidate-win-x64.zip"
+    $zip = Join-Path $sourceRoot (ArtifactName 'windows-zip' $version)
     # Python ZIP operations support long dependency-notice paths on Windows.
     # Compress-Archive in Windows PowerShell 5.1 fails after publish succeeds.
     python -c "import pathlib,sys,zipfile; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; root=filesystem_path(pathlib.Path(sys.argv[2])); archive=zipfile.ZipFile(filesystem_path(pathlib.Path(sys.argv[3])), 'x', zipfile.ZIP_DEFLATED); [archive.write(p, p.relative_to(root).as_posix()) for p in sorted(root.rglob('*')) if p.is_file()]; archive.close()" $PSScriptRoot $stage $zip
     if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP creation failed' }
     ((Get-FileHash -LiteralPath $zip).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($zip)) | Set-Content -LiteralPath ($zip + '.sha256') -Encoding ascii
-    $extracted = Join-Path $sourceRoot 'artifacts\unpacked-check'
+    # The bundled Python tool still needs a CreateProcess-compatible path.
+    # A deep managed worktree plus public self-test profile can exceed MAX_PATH.
+    # Exercise the same final archive from a short, unique extraction directory.
+    $extracted = Join-Path ([IO.Path]::GetTempPath()) ('aibu-' + [Guid]::NewGuid().ToString('N').Substring(0,12))
     python -c "import pathlib,sys,zipfile; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; archive=zipfile.ZipFile(filesystem_path(pathlib.Path(sys.argv[2]))); archive.extractall(filesystem_path(pathlib.Path(sys.argv[3]))); archive.close()" $PSScriptRoot $zip $extracted
     if ($LASTEXITCODE -ne 0) { throw 'Windows ZIP extraction failed' }
     python -c "import hashlib,pathlib,sys; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import filesystem_path; root=filesystem_path(pathlib.Path(sys.argv[2])); entries=[line.split('  ',1) for line in (root/'FILES.sha256').read_text(encoding='ascii').splitlines()]; assert all(hashlib.sha256((root/name).read_bytes()).hexdigest()==expected for expected,name in entries), 'Extracted archive mismatch'; print('WINDOWS_ARCHIVE_BYTES_OK',len(entries))" $PSScriptRoot $extracted
@@ -48,22 +56,23 @@ try {
         dotnet .\AIBotBridge.dll --self-test-flash-tool
         if ($LASTEXITCODE -ne 0) { throw 'Offline bundled flashing tool failed' }
     } finally { Pop-Location }
-    python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') source --stage (Join-Path $sourceRoot "AI-bot-$version-source.zip")
+    Write-Output "UNPACKED_CHECK_EVIDENCE=$extracted"
+    python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') source --stage (Join-Path $sourceRoot (ArtifactName 'bridge-source' $version))
     if ($LASTEXITCODE -ne 0) { throw 'Source archive failed validation' }
     if ($Firmware) {
-        python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') firmware --stage (Join-Path $sourceRoot "AI-bot-$firmwareVersion-firmware-materials")
+        python (Join-Path $sourceRoot 'scripts\collect_distribution_materials.py') firmware --stage (Join-Path $sourceRoot ([IO.Path]::GetFileNameWithoutExtension((ArtifactName 'esp8266' $firmwareVersion))))
         if ($LASTEXITCODE -ne 0) { throw 'Firmware materials failed validation' }
     }
     if ($OutputDirectory) {
         New-Item -ItemType Directory -Path $OutputDirectory | Out-Null
         $deliverables = @($zip, ($zip + '.sha256'),
-            (Join-Path $sourceRoot "AIBotBridge-$version-setup-win-x64.exe"),
-            (Join-Path $sourceRoot "AIBotBridge-$version-setup-win-x64.exe.sha256"),
-            (Join-Path $sourceRoot "AI-bot-$version-source.zip"),
-            (Join-Path $sourceRoot "AI-bot-$version-source.zip.sha256"))
+            (Join-Path $sourceRoot (ArtifactName 'windows' $version)),
+            (Join-Path $sourceRoot ((ArtifactName 'windows' $version)+'.sha256')),
+            (Join-Path $sourceRoot (ArtifactName 'bridge-source' $version)),
+            (Join-Path $sourceRoot ((ArtifactName 'bridge-source' $version)+'.sha256')))
         if ($Firmware) {
-            $deliverables += (Join-Path $sourceRoot "AI-bot-$firmwareVersion-firmware-materials.zip")
-            $deliverables += (Join-Path $sourceRoot "AI-bot-$firmwareVersion-firmware-materials.zip.sha256")
+            $deliverables += (Join-Path $sourceRoot (ArtifactName 'esp8266' $firmwareVersion))
+            $deliverables += (Join-Path $sourceRoot ((ArtifactName 'esp8266' $firmwareVersion)+'.sha256'))
         }
         foreach ($file in $deliverables) { Copy-Item -LiteralPath $file -Destination $OutputDirectory }
     }

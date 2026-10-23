@@ -19,7 +19,7 @@ lipo "$stage/AIBotBridge.app/Contents/MacOS/AIBotBridge" -verify_arch arm64
 cp LICENSE THIRD_PARTY_NOTICES.md "$stage/"
 cp docs/MAC_PACKAGE.md "$stage/README.md"
 version="$(tr -d '\r\n' < VERSION)"
-archive="$output/AIBotBridge-$version-local-candidate-macos-arm64.zip"
+archive="$output/$(python3 scripts/artifact_names.py macos "$version")"
 (cd "$stage" && find . -type f ! -name FILES.sha256 -exec shasum -a 256 {} \; > FILES.sha256)
 ditto -c -k "$stage" "$archive"
 unpacked="$(mktemp -d "$repo_root/artifacts/mac-unpacked.XXXXXX")"

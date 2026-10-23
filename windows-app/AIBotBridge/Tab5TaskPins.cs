@@ -30,6 +30,6 @@ internal sealed class Tab5TaskPinsForm : Form
         layout.Controls.Add(new Label{Text=Tab5TaskPins.Error??(tasks.Count==0?"暂无可选任务":""),AutoSize=true,Dock=DockStyle.Fill,Visible=Tab5TaskPins.Error is not null||tasks.Count==0},0,0);
         var list=new CheckedListBox{Dock=DockStyle.Fill,CheckOnClick=true,HorizontalScrollbar=true,IntegralHeight=false};foreach(var task in tasks)list.Items.Add($"{task.Folder} · {task.Title}",pins.Contains(task.Id));layout.Controls.Add(list,0,1);
         var save=new Button{Text="保存",AutoSize=true,Anchor=AnchorStyles.Right};layout.Controls.Add(save,0,2);
-        save.Click+=(_,_)=>{try{var visible=tasks.Select(t=>t.Id).ToHashSet();var selected=pins.Where(id=>!visible.Contains(id)).Concat(list.CheckedIndices.Cast<int>().Select(i=>tasks[i].Id)).ToArray();Tab5TaskPins.Save(selected);DialogResult=DialogResult.OK;}catch(Exception ex){MessageBox.Show(this,ex.Message,"未能保存");}};SettingsWindow.StyleButton(save,true);SettingsWindow.AddTitle(layout,"常用任务");SettingsWindow.FitScreen(this);
+        save.Click+=(_,_)=>{try{var visible=tasks.Select(t=>t.Id).ToHashSet();var selected=pins.Where(id=>!visible.Contains(id)).Concat(list.CheckedIndices.Cast<int>().Select(i=>tasks[i].Id)).ToArray();Tab5TaskPins.Save(selected);DialogResult=DialogResult.OK;Close();}catch(Exception ex){MessageBox.Show(this,ex.Message,"未能保存");}};SettingsWindow.StyleButton(save,true);SettingsWindow.AddTitle(layout,"常用任务");SettingsWindow.FitScreen(this);
     }
 }

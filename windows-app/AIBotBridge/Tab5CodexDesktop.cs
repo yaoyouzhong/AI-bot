@@ -7,8 +7,28 @@ namespace AIBotBridge;
 
 // Desktop IPC is versioned but not a public API. Fail closed on an incompatible
 // owner; never start an independent CLI agent for a desktop conversation.
-internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<string, bool>? openThread = null)
+internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<string, bool>? openThread = null,
+    Func<Tab5CodexReadState.Identity?>? readIdentity=null,Func<Tab5CodexReadState.Snapshot?>? readState=null)
 {
+    private readonly Func<Tab5CodexReadState.Identity?> _readIdentity=readIdentity??Tab5CodexReadState.ReadIdentity;
+    private readonly Func<Tab5CodexReadState.Snapshot?> _readState=readState??Tab5CodexReadState.ReadLocal;
+    internal Tab5CodexReadState.Identity? ReadIdentity()=>_readIdentity();
+    internal async Task<bool> MarkReadAsync(string taskId,Tab5CodexReadState.Identity identity,CancellationToken token) {
+        if(!Guid.TryParse(taskId,out _)||_readIdentity()?.Scope!=identity.Scope)return false;
+        await using var connection=new Connection(pipeName);
+        await connection.InitializeAsync(token);
+        if(_readIdentity()?.Scope!=identity.Scope)return false;
+        await connection.ReadStateChangedAsync(taskId,identity.Context,token);
+        // Broadcast delivery alone is not confirmation. The desktop owns the
+        // persisted state and its account/host validation; never edit its file.
+        for(int i=0;i<15;i++) {
+            await Task.Delay(100,token);
+            if(_readIdentity()?.Scope!=identity.Scope)return false;
+            var state=_readState();
+            if(state?.Scope==identity.Scope&&!state.Unread.Contains(taskId))return true;
+        }
+        return false;
+    }
     private readonly Func<string,bool> _openThread=openThread??(pipeName=="codex-ipc"?OpenThread:_=>false);
     private readonly SemaphoreSlim _loadGate=new(1,1);
     private readonly Dictionary<string,long> _loadAttempts=new();
@@ -175,10 +195,19 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
         internal string Owner {get;private set;}="";
         internal async Task OpenAsync(string taskId,CancellationToken token,Func<string,CancellationToken,Task>? load=null)
         {
+            await InitializeAsync(token);
+            await FindOwnerAsync(taskId,token,load);
+        }
+        internal async Task InitializeAsync(CancellationToken token) {
             await _pipe.ConnectAsync(1500,token);
             var init=await RequestAsync("initialize",0,new {clientType="tab5-bridge"},token);
             CheckResponse(init);_client=Text(Child(init,"result"),"clientId");
             if(!Guid.TryParse(_client,out _))throw new IOException("Missing IPC identity");
+        }
+        internal Task ReadStateChangedAsync(string taskId,object context,CancellationToken token)=>
+            WriteAsync(new {type="broadcast",sourceClientId=_client,version=3,method="thread-read-state-changed",
+                @params=new {hostId="local",conversationId=taskId,hasUnreadTurn=false,context}},token);
+        private async Task FindOwnerAsync(string taskId,CancellationToken token,Func<string,CancellationToken,Task>? load) {
             var owner=await RequestAsync("thread-owner-discovery",1,new {hostId="local",conversationId=taskId},token);
             if(Text(owner,"resultType")!="success"&&Text(owner,"error")=="no-client-found"&&load is not null) {
                 await load(taskId,token);

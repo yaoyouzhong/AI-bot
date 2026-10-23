@@ -112,27 +112,48 @@ internal sealed class UpdateService : IDisposable
         }
         if(total>0&&received!=total||expected>0&&received!=expected)throw new IOException("下载未完成，请重试。");
     }
+    private sealed record PackageDownloadIdentity(int Schema,string Component,string Version,string Name,long Size,string Sha256);
     internal async Task<PreparedUpdate> DownloadAsync(ComponentUpdate update,string bridgeVersion,IProgress<int>? progress,CancellationToken token) {
+        token.ThrowIfCancellationRequested();
         var asset=update.Package??throw new InvalidDataException("缺少下载文件。");
         var checks=update.Checksums??throw new InvalidDataException("缺少校验文件。");
+        if(Path.GetFileName(asset.Name)!=asset.Name||asset.Size<=0||asset.Size>256L*1024*1024)
+            throw new InvalidDataException("下载文件名或大小无效。");
         string expected=ReadChecksum(Encoding.UTF8.GetString(await ReadAsync(checks.Url,256*1024,token)),asset.Name);
-        string root=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AI-bot","updates");
-        string directory=Path.Combine(root,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
-        try {
-            if(Path.GetFileName(asset.Name)!=asset.Name)throw new InvalidDataException("下载文件名无效。");
-            string file=Path.Combine(directory,asset.Name),partial=file+".part";
-            await using(var output=new FileStream(partial,FileMode.CreateNew,FileAccess.Write,FileShare.None,65536,true))
-                await TransferAsync(asset.Url,output,256*1024*1024,asset.Size,progress,token);
-            token.ThrowIfCancellationRequested();
-            if(!FirmwareFlasher.MatchesHash(partial,expected))throw new InvalidDataException("文件校验失败，未提供给设备。");
-            File.Move(partial,file);
-            var prepared=await Task.Run(()=>ValidatePackage(update,file,expected,bridgeVersion),token);
-            token.ThrowIfCancellationRequested();return prepared;
-        }catch{
-            // This fresh, owned directory contains only files created by this call.
-            if(Directory.Exists(directory))Directory.Delete(directory,true);
-            throw;
+        var identity=new PackageDownloadIdentity(1,update.Component,update.Version,asset.Name,asset.Size,expected);
+        string metadata=JsonSerializer.Serialize(identity,JsonDefaults.Options);
+        string key=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(metadata))).ToLowerInvariant();
+        string directory=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AI-bot","updates","package-downloads",key);
+        Directory.CreateDirectory(directory);
+        // Cross-instance exclusive ownership protects metadata, partial writes and package validation.
+        using var lease=new FileStream(Path.Combine(directory,"download.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None);
+        string record=Path.Combine(directory,"DOWNLOAD.json"),file=Path.Combine(directory,asset.Name),partial=file+".part";
+        if(File.Exists(record)) {
+            if(JsonSerializer.Deserialize<PackageDownloadIdentity>(File.ReadAllText(record),JsonDefaults.Options)!=identity)
+                throw new InvalidDataException("断点记录与当前更新包不一致，未混用下载内容。");
+        } else {
+            File.WriteAllText(record+".tmp",metadata);File.Move(record+".tmp",record);
         }
+        if(File.Exists(file)) {
+            if(new FileInfo(file).Length==asset.Size&&await Task.Run(()=>FirmwareFlasher.MatchesHash(file,expected),token)) {
+                var cached=await Task.Run(()=>ValidatePackage(update,file,expected,bridgeVersion),token);
+                token.ThrowIfCancellationRequested();progress?.Report(100);return cached;
+            }
+            File.Delete(file);
+        }
+        await using(var output=new FileStream(partial,FileMode.OpenOrCreate,FileAccess.Write,FileShare.None,65536,true)) {
+            if(output.Length>asset.Size)output.SetLength(0);
+            progress?.Report((int)(output.Length*100/asset.Size));
+            await TransferResumableAsync(asset,output,progress,token);
+        }
+        token.ThrowIfCancellationRequested();
+        if(!await Task.Run(()=>FirmwareFlasher.MatchesHash(partial,expected),token)) {
+            File.Delete(partial);throw new InvalidDataException("更新包校验失败，已清除损坏的断点，请重新下载。");
+        }
+        // Validate firmware identity, minimum bridge and protocol on every attempt, including cached files.
+        var prepared=await Task.Run(()=>ValidatePackage(update,partial,expected,bridgeVersion),token);
+        token.ThrowIfCancellationRequested();File.Move(partial,file);
+        return prepared with {File=file};
     }
     internal async Task<PreparedGalleryUpdate> DownloadGalleryAsync(GalleryUpdate update,IProgress<int>? progress,CancellationToken token) {
         token.ThrowIfCancellationRequested();
@@ -158,7 +179,7 @@ internal sealed class UpdateService : IDisposable
         await using(var output=new FileStream(partial,FileMode.OpenOrCreate,FileAccess.Write,FileShare.None,65536,true)) {
             if(output.Length>asset.Size)output.SetLength(0);
             progress?.Report((int)(output.Length*100/asset.Size));
-            await TransferGalleryAsync(asset,output,progress,token);
+            await TransferResumableAsync(asset,output,progress,token);
         }
         token.ThrowIfCancellationRequested();
         if(!await Task.Run(()=>FirmwareFlasher.MatchesHash(partial,expected),token)) {
@@ -177,7 +198,7 @@ internal sealed class UpdateService : IDisposable
         foreach(string path in new[]{file,file+".part",Path.Combine(directory,"DOWNLOAD.json"),Path.Combine(directory,"DOWNLOAD.json.tmp")})File.Delete(path);
         Directory.Delete(directory);
     }
-    private async Task TransferGalleryAsync(UpdateAsset asset,Stream target,IProgress<int>? progress,CancellationToken token) {
+    private async Task TransferResumableAsync(UpdateAsset asset,Stream target,IProgress<int>? progress,CancellationToken token) {
         if(asset.Size<=4*1024*1024&&target.Length==0){await TransferAsync(asset.Url,target,2L*1024*1024*1024,asset.Size,progress,token);return;}
         const int chunk=2*1024*1024;byte[] buffer=new byte[65536];long offset=target.Length;
         while(offset<asset.Size) {
@@ -187,21 +208,24 @@ internal sealed class UpdateService : IDisposable
                 try {
                     using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromMinutes(2));
                     using var response=await OpenAsync(asset.Url,deadline.Token,offset,end);
-                    bool full=response.StatusCode==System.Net.HttpStatusCode.OK&&offset==0;
+                    bool full=response.StatusCode==System.Net.HttpStatusCode.OK;
                     var range=response.Content.Headers.ContentRange;
                     if(!full&&(response.StatusCode!=System.Net.HttpStatusCode.PartialContent||range is null||range.Unit!="bytes"||range.From!=offset||range.To!=end||range.Length!=asset.Size))
-                        throw new InvalidDataException("图库分段响应与发布文件不一致。");
-                    if(full)deadline.CancelAfter(TimeSpan.FromMinutes(10));
+                        throw new InvalidDataException("下载分段响应与发布文件不一致。");
+                    if(full) {
+                        // A server may ignore Range. Restart safely instead of appending a full file to a partial.
+                        deadline.CancelAfter(TimeSpan.FromMinutes(10));target.SetLength(0);target.Position=0;offset=0;
+                    }
                     long length=full?asset.Size:end-offset+1,received=0;
-                    if(response.Content.Headers.ContentLength is {} size&&size!=length)throw new InvalidDataException("图库分段大小异常。");
+                    if(response.Content.Headers.ContentLength is {} size&&size!=length)throw new InvalidDataException("下载分段大小异常。");
                     using var input=await response.Content.ReadAsStreamAsync(deadline.Token);
                     while(true) {
                         int count=await input.ReadAsync(buffer,deadline.Token);if(count==0)break;received+=count;
-                        if(received>length)throw new InvalidDataException("图库分段内容超限。");
+                        if(received>length)throw new InvalidDataException("下载分段内容超限。");
                         await target.WriteAsync(buffer.AsMemory(0,count),deadline.Token);
                         progress?.Report((int)((offset+received)*100/asset.Size));
                     }
-                    if(received!=length)throw new IOException("图库分段下载未完成。");
+                    if(received!=length)throw new IOException("分段下载未完成。");
                     offset+=received;break;
                 }catch(Exception ex) when(attempt<2&&!token.IsCancellationRequested&&ex is HttpRequestException or IOException or OperationCanceledException) {
                     await Task.Delay(500*(attempt+1),token);

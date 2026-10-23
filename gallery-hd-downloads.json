@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "version": "2026.10.16",
+  "tag": "tab5-v0.2.205-ui",
+  "collections": {
+    "painting": {
+      "file": "AI-bot-Gallery-HD-Painting-2026.10.16.zip",
+      "size": 1992399321,
+      "parts": 15,
+      "sha256": "ad436d154821abbd9b3203e6ad73f0c25cb2463a50bc9d039f6a7c8e28698749"
+    },
+    "calligraphy": {
+      "file": "AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip",
+      "size": 3102016661,
+      "parts": 24,
+      "sha256": "02efde0d682aa56495707697d5c0bc53e79a2655dfdd47cc9520f6a058f88064"
+    }
+  }
+}

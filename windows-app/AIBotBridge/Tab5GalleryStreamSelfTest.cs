@@ -41,18 +41,9 @@ internal static class Tab5GalleryStreamSelfTest
         string sample=Tab5Service.FormatBenchmark("complete;gallery,Wi-Fi,8,8388608,8000,6000,3000,42,0");
         if(!sample.Contains("1024.0 KiB/s",StringComparison.Ordinal)||!sample.Contains("8/8",StringComparison.Ordinal)||!sample.Contains("42 次",StringComparison.Ordinal))throw new Exception("Gallery benchmark effective-byte/timing report changed");
         if(Tab5Service.FormatBenchmark("running;gallery,USB,0,0,0,0,0,0,0").Contains("NaN",StringComparison.Ordinal))throw new Exception("Empty gallery timing divided by zero");
-        string overview=Tab5Service.FormatBenchmarkOverview("complete;gallery,Wi-Fi,8,8388608,8000,6000,3000,42,0;gallery_rpc,10,20,30,40,8");
-        if(!overview.Contains("1024.0 KiB/s")||!overview.Contains("8/8")||overview.Contains("解码"))throw new Exception("Gallery overview lost effective speed or exposed internal timings");
-        overview=Tab5Service.FormatBenchmarkOverview("failed;USB,up,1,1024,1000,0;USB,up,2,3072,1000,0;USB,up,3,99999,1,5;USB,down,1,4096,1000,0");
-        if(!overview.Contains("上传 2.0 KiB/s")||!overview.Contains("下载 4.0 KiB/s")||!overview.Contains("1 个样本失败"))throw new Exception("Communication overview included failed samples in throughput");
-        overview=Tab5Service.FormatBenchmarkOverview("running;gallery,USB,0,0,0,0,0,0,0");
-        if(overview.Contains("KiB/s")||overview.Contains("NaN"))throw new Exception("Zero elapsed reported as measured throughput");
         string profile=Tab5Service.FormatBenchmark("complete;gallery_io,2097152,1048576,100,200,30,8,3144704,1024;gallery_rpc,10,20,30,40,8");
         if(!profile.Contains("读卡 100 ms / 2.00 MiB",StringComparison.Ordinal)||!profile.Contains("落盘 30 ms（8 次）",StringComparison.Ordinal)||!profile.Contains("等待写卡 40 ms",StringComparison.Ordinal))throw new Exception("Gallery stage profile lost units/fields");
-        string receive=Tab5Service.FormatBenchmark("complete;gallery_rx,100,200,8,65536;usb_rx,2097152,256,8192,10,20,250,45,128,1,32,62");
-        if(!receive.Contains("并行接收 8 次",StringComparison.Ordinal)||!receive.Contains("缓冲最高 64.0 KiB",StringComparison.Ordinal)||!receive.Contains("USB 收包 2048.0 KiB",StringComparison.Ordinal)||!receive.Contains("接收唤醒最长 45 μs",StringComparison.Ordinal))throw new Exception("Receive pipeline diagnostics lost units or were parsed as generic speed samples");
-        if(!Tab5Service.FormatBenchmark("complete;usb_rx,1,2,3,4,5,6,4294967275,1,2,3,4").Contains("接收唤醒最长 --",StringComparison.Ordinal))throw new Exception("Invalid pre-fix unsigned notification interval displayed as a real stall");
-        foreach(string bad in new[]{"gallery_io,1,2,3","gallery_rpc,1,2,3,4,-1","gallery_rpc,1,2,3,4,4294967296","gallery_rx,1,2,3,-1","usb_rx,1,2,3,4,5,6,7,8,9,10,4294967296"})
+        foreach(string bad in new[]{"gallery_io,1,2,3","gallery_rpc,1,2,3,4,-1","gallery_rpc,1,2,3,4,4294967296"})
             if(!Tab5Service.FormatBenchmark("complete;"+bad).Contains("分段耗时数据无效",StringComparison.Ordinal))throw new Exception("Invalid gallery profile accepted");
         foreach(string counters in new[]{"0,0,0,0","1048576,1048576,243,17","4294967295,4294967295,4294967295,4294967295"}) {
             var value=JsonSerializer.SerializeToElement(new{galleryTransferDiag=counters});

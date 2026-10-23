@@ -2,7 +2,7 @@
 
 本次修复 TAB5 拔掉 USB 后的图库同步，并改善首次蓝牙下载与重复查看。电脑端升级到 0.6.1，TAB5 升级到 0.2.149-ui；ESP8266 仍为 0.5.0。已安装的名画、书法包继续使用，无需重新下载。
 
-正式发布：[桥接 0.6.1](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.1) · [TAB5 .149](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui)。主分支三平台 CI、桥接候选打包及 TAB5 标签检查通过；公开附件与 SHA-256 清单已复核。
+正式发布：[桥接 0.6.1](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.1) · [TAB5 .149](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui)。主分支三平台 CI、桥接候选打包及 TAB5 标签检查通过；公开附件与 SHA-256 清单已复核。
 
 ## 改动
 
@@ -22,7 +22,7 @@
 
 ## English
 
-Published: [bridge 0.6.1](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.1) and [TAB5 .149](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui). Three-platform main CI, bridge packaging and TAB5 tag validation passed; public assets and checksum files were verified.
+Published: [bridge 0.6.1](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.1) and [TAB5 .149](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.149-ui). Three-platform main CI, bridge packaging and TAB5 tag validation passed; public assets and checksum files were verified.
 
 Bridge 0.6.1 and TAB5 0.2.149-ui repair wireless gallery synchronization and improve cold BLE downloads and cached revisits. ESP8266 remains 0.5.0; installed optional artwork collections remain compatible and need no replacement.
 

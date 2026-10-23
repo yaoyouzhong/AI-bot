@@ -1,13 +1,13 @@
 namespace AIBotBridge;
 
-internal sealed record BridgeDeviceStatus(string Name,string Status,string Transport,string Firmware,string Id="",bool Enabled=false,ConnectionObservation? Health=null,bool HostWriteOnly=false);
+internal sealed record BridgeDeviceStatus(string Name,string Status,string Transport,string Firmware,string Id="",bool Enabled=false,ConnectionObservation? Health=null,bool HostWriteOnly=false,string Advice="");
 internal sealed record BridgeDataStatus(string Name,string Status,string Updated);
 internal sealed record BridgeStatusView(BridgeDeviceStatus[] Devices,BridgeDataStatus[] Data,int Enabled,string? Error)
 {
     internal static BridgeStatusView Capture(DeviceRegistry registry,Func<RegisteredDevice,DeviceView> view,
         StatusSnapshot snapshot,DeviceDataDemand demand,string? error,Func<RegisteredDevice,ConnectionObservation>? health=null)
     {
-        var devices=registry.Devices.Select(d=>{var v=view(d);return new BridgeDeviceStatus(d.Name,d.Enabled?v.Status:"已停用",v.Transport??"—",v.Firmware,d.Id,d.Enabled,health?.Invoke(d),d.Kind==HardwareKind.Esp8266&&v.Transport=="USB");}).ToArray();
+        var devices=registry.Devices.Select(d=>{var v=view(d);return new BridgeDeviceStatus(d.Name,d.Enabled?v.Status:"已停用",v.Transport??"—",v.Firmware,d.Id,d.Enabled,health?.Invoke(d),d.Kind==HardwareKind.Esp8266&&v.Transport=="USB",ConnectionAdvice.For(d.Enabled,v));}).ToArray();
         var data=new List<BridgeDataStatus>();
         void Add(string name,string source,DateTimeOffset? at,bool stale,bool selected=true)=>data.Add(new(name,
             !demand.Sources.Contains(source)||!selected?"未启用":at is null?"暂无数据":stale?"旧缓存":"数据可用",at?.ToLocalTime().ToString("MM-dd HH:mm:ss")??"—"));
@@ -110,6 +110,7 @@ internal sealed class BridgeStatusForm : Form
         var row=Selected();_reconnect.Enabled=canReconnect&&!_busy&&row?.Enabled==true;
         _health.Text=row?.Health is {} h?$"{(row.HostWriteOnly?"最近发送":"最近通信")} {h.LastCommunication?.ToString("HH:mm:ss")??"—"} · 本次恢复 {h.Recoveries} · 重连 {h.ManualRestarts}"+
             (h.LastDisconnected is {} at?$"\n中断 {at:MM-dd HH:mm:ss} · {h.Reason}":""):"";
+        if(!string.IsNullOrWhiteSpace(row?.Advice))_health.Text+=( _health.Text.Length>0?"\n":"")+row.Advice;
         _health.Visible=_health.Text.Length>0;
     }
     private static Label Title(string text)=>new(){Text=text,AutoSize=true,Margin=new Padding(0,12,0,6)};

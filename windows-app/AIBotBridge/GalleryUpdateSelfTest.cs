@@ -21,8 +21,8 @@ internal static class GalleryUpdateSelfTest
         files["PACK.json"]=JsonSerializer.SerializeToUtf8Bytes(new GalleryPackManifest(2,version,category,1,2,hashes),JsonDefaults.Options);
         return UpdateSelfTest.Zip(files);
     }
-    internal static object Release(string category,string version,byte[] package,bool draft=false,bool prerelease=false,string? url=null,bool curated=true,bool checks=true,string tag="gallery-annual") {
-        string name=$"AI-bot-Daily{(category=="painting"?"Painting":"Calligraphy")}-{(curated?"Curated-":"")}{version}.zip";
+    internal static object Release(string category,string version,byte[] package,bool draft=false,bool prerelease=false,string? url=null,bool curated=true,bool checks=true,string tag="gallery-annual",bool canonical=false) {
+        string name=canonical?$"AI-bot-gallery-{category}-standard-{version}.zip":$"AI-bot-Daily{(category=="painting"?"Painting":"Calligraphy")}-{(curated?"Curated-":"")}{version}.zip";
         var assets=new List<object>{new{name,browser_download_url=url??$"https://github.com/yaoyouzhong/AI-bot/releases/download/{tag}/{name}",size=package.LongLength}};
         if(checks)assets.Add(new{name="SHA256SUMS.txt",browser_download_url=$"https://github.com/yaoyouzhong/AI-bot/releases/download/{tag}/SHA256SUMS.txt",size=0L});
         return new{tag_name=tag,draft,prerelease,assets,body="精选集"};
@@ -34,6 +34,8 @@ internal static class GalleryUpdateSelfTest
             Release("painting","2099.01.01",painting,draft:true),Release("painting","2099.01.02",painting,prerelease:true),
             Release("painting","2099.01.03",painting,curated:false),Release("painting","2026.02.30",painting),Release("calligraphy","2026.10.09",calligraphy));
         Check(releases["painting"].Version=="2026.10.09.1"&&releases["calligraphy"].Version=="2026.10.09","Independent curated editions, dates, revisions or formal-release filter failed");
+        var mixed=Read(Release("painting","2026.10.09",painting),Release("painting","2026.10.09",painting,canonical:true),Release("calligraphy","2026.10.09",calligraphy,canonical:true));
+        Check(mixed["painting"].Package?.Name=="AI-bot-gallery-painting-standard-2026.10.09.zip"&&mixed["calligraphy"].Package?.Name=="AI-bot-gallery-calligraphy-standard-2026.10.09.zip","Canonical collection names must work alongside legacy editions");
         var latest=releases["calligraphy"];
         var old=new GalleryPackManifest(1,"2026.10.07","calligraphy",411,3000,new());
         Check(GalleryUpdateCatalog.Blocked(old,latest) is null&&GalleryUpdateCatalog.Blocked(null,latest) is null,"New gallery install blocked");
@@ -43,15 +45,15 @@ internal static class GalleryUpdateSelfTest
             Check(GalleryUpdateCatalog.Blocked(null,Read(Release("painting","2026.10.09",painting,url:url))["painting"]) is not null,"Unsafe gallery download offered");
         Check(GalleryUpdateCatalog.Blocked(null,Read(Release("painting","2026.10.09",painting,checks:false))["painting"]) is not null,"Gallery without checksum offered");
         Check(GalleryUpdateCatalog.Blocked(null,latest with{Package=latest.Package! with{Size=447081384}}) is null,"Current calligraphy size rejected");
-        string json=JsonSerializer.Serialize(new[]{Release("painting","2026.10.09",painting),Release("calligraphy","2026.10.09",calligraphy)});
+        string json=JsonSerializer.Serialize(new[]{Release("painting","2026.10.09",painting,canonical:true),Release("calligraphy","2026.10.09",calligraphy)});
         bool corrupt=false,fail=false,redirect=false;
         var handler=new UpdateSelfTest.Handler();
         handler.Reply=(request,token)=> {
             if(fail)return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
             string path=request.RequestUri!.AbsolutePath;
             if(redirect&&path.EndsWith(".zip"))return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Redirect){Headers={Location=new Uri("https://example.org/pack.zip")}});
-            byte[] data=path.EndsWith("SHA256SUMS.txt")?Encoding.UTF8.GetBytes(string.Join("\n",new[]{("Painting",painting),("Calligraphy",calligraphy)}.Select(p=>Convert.ToHexString(SHA256.HashData(p.Item2))+"  AI-bot-Daily"+p.Item1+"-Curated-2026.10.09.zip"))):
-                path.EndsWith(".zip")?(path.Contains("Painting")?painting:calligraphy):Encoding.UTF8.GetBytes(json);
+            byte[] data=path.EndsWith("SHA256SUMS.txt")?Encoding.UTF8.GetBytes(string.Join("\n",new[]{("AI-bot-gallery-painting-standard-2026.10.09.zip",painting),("AI-bot-DailyCalligraphy-Curated-2026.10.09.zip",calligraphy)}.Select(p=>Convert.ToHexString(SHA256.HashData(p.Item2))+"  "+p.Item1))):
+                path.EndsWith(".zip")?(path.Contains("painting",StringComparison.OrdinalIgnoreCase)?painting:calligraphy):Encoding.UTF8.GetBytes(json);
             if(corrupt&&path.EndsWith(".zip"))data=data.Select((b,i)=>i==0?(byte)(b^1):b).ToArray();
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new ByteArrayContent(data)});
         };

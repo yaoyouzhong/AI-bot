@@ -29,9 +29,12 @@ class ComponentVersionTests(unittest.TestCase):
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text(f"## {expected[name]} - 2026-10-03\n\n- Fixture.\n")
             self.assertEqual(expected, versions(root))
-            for component, tag in (("bridge", "bridge-v2.0.0"), ("esp8266", "esp8266-v0.5.0"), ("tab5", "tab5-v0.2.89-ui")):
+            for component, tag in (("bridge", "v2.0.0"), ("esp8266", "esp8266-v0.5.0"), ("tab5", "tab5-v0.2.89-ui")):
                 self.assertEqual((component, expected[component]), release_target(tag, root))
-            self.assertEqual(("bundle", "2.0.0"), release_target("v2.0.0", root))
+            self.assertEqual(("bridge", "2.0.0"), release_target("bridge-v2.0.0", root))
+            self.assertEqual(("bundle", "0.5.0"), release_target("v0.5.0", root))
+            self.assertEqual(("bridge", "0.5.1"), release_target("v0.5.1", root))
+            self.assertEqual(("bridge", "0.6.10"), release_target("v0.6.10", root))
             for tag in ("tab5-vbroken", "unknown-v2.0.0", "esp8266-v../0.5.0"):
                 with self.assertRaises(ValueError):
                     release_target(tag, root)
@@ -41,7 +44,7 @@ class ComponentVersionTests(unittest.TestCase):
             plist = root / "mac-app/Info.plist"
             plist.parent.mkdir()
             plist.write_text("<plist><dict><key>CFBundleShortVersionString</key><string>2.0.0</string></dict></plist>")
-            with patch.object(check_version, "ROOT", root), patch.object(sys, "argv", ["check_version", "--tag", "bridge-v2.0.0"]):
+            with patch.object(check_version, "ROOT", root), patch.object(sys, "argv", ["check_version", "--tag", "v2.0.0"]):
                 self.assertEqual(0, check_version.main())
             with patch.object(check_version, "ROOT", root), patch.object(sys, "argv", ["check_version", "--tag", "esp8266-v2.0.0"]):
                 with self.assertRaises(SystemExit):
@@ -68,7 +71,7 @@ class ComponentPayloadTests(unittest.TestCase):
             (directory / (name+".sha256")).write_text(f"{hashlib.sha256(data).hexdigest()}  {name}\n")
 
     def test_bridge_only_and_esp_only_need_no_other_component_packages(self):
-        for component, names, count in (("bridge", self.bridge_names, 3), ("esp8266", self.esp_names, 2)):
+        for component, names, count in (("bridge", self.bridge_names, 4), ("esp8266", self.esp_names, 3)):
             with self.subTest(component=component), tempfile.TemporaryDirectory() as temp:
                 directory = Path(temp) / "audit"
                 directory.mkdir()
@@ -78,6 +81,25 @@ class ComponentPayloadTests(unittest.TestCase):
                 user_payload(directory, output, component)
                 self.assertEqual(count, len(list(output.iterdir())))
                 self.assertFalse(any("source.zip" in p.name or p.suffix == ".sha256" for p in output.iterdir()))
+                for line in (output / "SHA256SUMS.txt").read_text().splitlines():
+                    expected, filename = line.split("  ", 1)
+                    self.assertEqual(expected, hashlib.sha256((output / filename).read_bytes()).hexdigest())
+
+    def test_canonical_packages_preserve_old_client_update_aliases(self):
+        from artifact_names import COMPONENT_KEYS, name, names
+        for component in ("bridge", "esp8266"):
+            with self.subTest(component=component), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp) / "audit"
+                directory.mkdir()
+                version = self.current[component]
+                self.seed(directory, [name(key, version) for key in COMPONENT_KEYS[component]])
+                prepare(directory, version, "a"*40, component=component, versions=self.current)
+                output = Path(temp) / "public"
+                user_payload(directory, output, component)
+                key = "windows" if component == "bridge" else "esp8266"
+                canonical, legacy = names(key, version)[:2]
+                self.assertEqual((output / canonical).read_bytes(), (output / legacy).read_bytes())
+                self.assertFalse(any("local-candidate" in path.name for path in output.iterdir()))
 
     def test_legacy_bundle_uses_independent_firmware_name(self):
         with tempfile.TemporaryDirectory() as temp:

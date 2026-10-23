@@ -3,11 +3,12 @@ using System.Text.Json;
 
 namespace AIBotBridge;
 
-// Read-only adapter for the desktop's account/host scoped thread read state.
+// Desktop account/host scoped read state. Writes go through desktop IPC only.
 // The desktop stores task IDs, so acknowledgements must bind to a stable turn.
 internal sealed class Tab5CodexReadState
 {
     internal sealed record Snapshot(string Scope,HashSet<string> Unread);
+    internal sealed record Identity(string Scope,object Context);
     private sealed record Observed(string Turn,long Since);
     private readonly Dictionary<string,Observed> _turns=new();
     private string _scope="";
@@ -53,9 +54,32 @@ internal sealed class Tab5CodexReadState
         if(stream.Length>16*1024*1024)throw new IOException("Codex state too large");
         using var reader=new StreamReader(stream);return reader.ReadToEnd();
     }
+    internal static Identity? ReadIdentity() {
+        try {
+            if(Environment.GetEnvironmentVariable("CODEX_APP_SERVER_FORCE_CLI")!="1"&&
+               !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CODEX_APP_SERVER_WS_URL")))return null;
+            return ParseIdentity(ReadSmall(Path.Combine(Tab5CodexCatalog.HomePath,"auth.json")));
+        }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException or FormatException or InvalidOperationException) { return null; }
+    }
     internal static Snapshot? Parse(string authJson,string stateJson)
     {
-        using var auth=JsonDocument.Parse(authJson);using var global=JsonDocument.Parse(stateJson);
+        var principal=ParseIdentity(authJson);if(principal is null)return null;
+        int separator=principal.Scope.IndexOf(':');
+        string identity=principal.Scope[..separator],host=principal.Scope[(separator+1)..];
+        using var global=JsonDocument.Parse(stateJson);
+        var state=Tab5CodexDesktop.Child(global.RootElement,"electron-thread-read-state-v1");
+        if(Tab5CodexDesktop.Child(state,"version").ValueKind!=JsonValueKind.Number||state.GetProperty("version").GetInt32()!=1)return null;
+        var bucket=Tab5CodexDesktop.Child(Tab5CodexDesktop.Child(Tab5CodexDesktop.Child(state,"unreadByIdentity"),identity),host);
+        if(bucket.ValueKind!=JsonValueKind.Array)return null;
+        var unread=new HashSet<string>();
+        foreach(var id in bucket.EnumerateArray()) {
+            if(id.ValueKind!=JsonValueKind.String||!Guid.TryParse(id.GetString(),out var parsed))return null;
+            unread.Add(parsed.ToString());
+        }
+        return new(principal.Scope,unread);
+    }
+    internal static Identity? ParseIdentity(string authJson) {
+        using var auth=JsonDocument.Parse(authJson);
         var tokens=Tab5CodexDesktop.Child(auth.RootElement,"tokens");
         string token=Tab5CodexDesktop.Text(tokens,"access_token");var parts=token.Split('.');
         if(parts.Length!=3)return null;
@@ -72,15 +96,6 @@ internal sealed class Tab5CodexReadState
         // Standard local desktop host. A websocket host has a different key
         // and is deliberately unavailable rather than reading another bucket.
         string host="local:"+Hash(new object?[]{"local","local",null});
-        var state=Tab5CodexDesktop.Child(global.RootElement,"electron-thread-read-state-v1");
-        if(Tab5CodexDesktop.Child(state,"version").ValueKind!=JsonValueKind.Number||state.GetProperty("version").GetInt32()!=1)return null;
-        var bucket=Tab5CodexDesktop.Child(Tab5CodexDesktop.Child(Tab5CodexDesktop.Child(state,"unreadByIdentity"),identity),host);
-        if(bucket.ValueKind!=JsonValueKind.Array)return null;
-        var unread=new HashSet<string>();
-        foreach(var id in bucket.EnumerateArray()) {
-            if(id.ValueKind!=JsonValueKind.String||!Guid.TryParse(id.GetString(),out var parsed))return null;
-            unread.Add(parsed.ToString());
-        }
-        return new(identity+":"+host,unread);
+        return new(identity+":"+host,new {identity=new {kind="chatgpt",accountId=account,userId=user},executionHostKey=host});
     }
 }

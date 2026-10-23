@@ -9,6 +9,11 @@ internal static class DeviceCenterSelfTest
     private static void Check(bool ok,string message){if(!ok)throw new InvalidOperationException(message);}
     internal static void Run(string directory) {
         AppPaths.BeginPublicSelfTest();Directory.CreateDirectory(directory);DeviceRegistrySelfTest.Run();
+        Check(Tab5Service.DescribeWifi(20000,19999,19999,false)=="已联网 · 桥接正常","Fresh authenticated Wi-Fi traffic must take precedence over an older disconnected report");
+        Check(Tab5Service.DescribeWifi(20000,12000,19999,true)=="已联网 · 桥接未通","Expired bridge traffic must preserve a fresh Wi-Fi association");
+        Check(Tab5Service.DescribeWifi(20000,0,19999,false)=="未联网","A fresh disconnected report must distinguish a missing Wi-Fi association");
+        Check(Tab5Service.DescribeWifi(20000,0,12000,true)=="等待设备回报","An expired association report must not assert the device remains connected");
+        Check(Tab5Service.DescribeWifi(20000,0,0,false)=="等待设备回报","No device report must remain unknown");
         const string usb=@"USB\VID_1A86&PID_7523\REGISTERED";
         var ports=new[]{new FlashUsbDevice("COM12",usb,"known"),new FlashUsbDevice("COM9",@"USB\VID_1A86&PID_7523\OTHER","other")};
         Check(SerialPublisher.BoundPorts(usb,ports,()=>["COM9"]).SequenceEqual(["COM12"]),"Bound USB did not follow COM renumbering");
@@ -46,7 +51,7 @@ internal static class DeviceCenterSelfTest
                 foreach(var d in devices){
                     var group=(ToolStripMenuItem)menu.Items["device:"+d.Id]!;
                     Check(group.Enabled==d.Enabled&&group.Text?.StartsWith(d.Name)==true,"Device name or disabled state lost");
-                    string[] expected=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["voice","birthday-settings","data","tab5"];
+                    string[] expected=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["gallery-browser","voice","birthday-settings","data","tab5"];
                     Check(group.DropDownItems.Cast<ToolStripItem>().Select(i=>i.Name).SequenceEqual(expected),"Device shortcuts or order changed");
                     foreach(var entry in group.DropDownItems.OfType<ToolStripMenuItem>()){
                         Check(entry.DropDownItems.Count==0,"Tray menu exceeds two levels");
@@ -92,7 +97,8 @@ internal static class DeviceCenterSelfTest
                 foreach(var d in devices){
                     form.SelectDevice(d.Id);Check(((RegisteredDevice)Descendants(form).OfType<ListBox>().Single().SelectedItem!).Id==d.Id,"Direct device navigation selected wrong target");
                     var cards=Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().OrderBy(b=>b.PointToScreen(Point.Empty).Y).ThenBy(b=>b.PointToScreen(Point.Empty).X).Select(b=>b.Text).ToArray();
-                    Check(cards.SequenceEqual(d.Kind==HardwareKind.Tab5?new[]{"显示设置","语音设置","日历生日","常用任务","数据设置","连接升级"}:new[]{"显示设置","外观设置","数据设置","连接设置"}),"Device action order or duplicate entry regressed");
+                    Check(cards.SequenceEqual(d.Kind==HardwareKind.Tab5?new[]{"显示设置","语音设置","日历生日","日程待办","屏保图库","常用任务","数据设置","连接升级"}:new[]{"显示设置","外观设置","数据设置","连接设置"}),"Device action order or duplicate entry regressed");
+                    if(d.Kind==HardwareKind.Tab5){var browse=Descendants(form).OfType<Button>().Single(b=>b.Text=="屏保图库");Check(browse.Enabled==d.Enabled,"Gallery availability should follow device enable state, not connection");if(d.Enabled){browse.PerformClick();Check(target==d.Id&&action=="gallery-browser","Gallery card did not route directly to browser");}}
                     var button=Descendants(form).OfType<Button>().Single(b=>b.Text==(d.Kind==HardwareKind.Tab5?"语音设置":"连接设置"));
                     Check(button.Enabled==d.Enabled,"Disabled device action enabled");
                     if(d.Enabled){button.PerformClick();Check(target==d.Id&&action==(d.Kind==HardwareKind.Tab5?"voice":"legacy-settings"),"Device center action targeted wrong device");}

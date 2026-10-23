@@ -3,10 +3,11 @@
 This performs layout, resampling and JPEG encoding only. It never repaints artwork.
 Requires Pillow. Source files and provenance are supplied by a reviewed selection.json.
 """
-import argparse, hashlib, json, math
+import argparse, hashlib, json, math, re
 from functools import lru_cache
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+from art_information_panel import draw_information_panel
 
 # Reviewed museum handscroll TIFFs can be very wide. This bound admits the
 # complete official image rather than substituting a cropped web photograph.
@@ -16,11 +17,11 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('selection',type=Path);parser.add_argument('--font',type=Path,required=True);parser.add_argument('--output',type=Path,required=True);parser.add_argument('--source-root',type=Path)
     parser.add_argument('--portrait',action='store_true',help='Add upright artwork layout, encoded as a rotated native-size frame')
     parser.add_argument('--painting-info',action='store_true',help='Landscape painting metadata beside the complete artwork, matching calligraphy')
-    parser.add_argument('--guides',type=Path,help='Reviewed metadata joined by exact workId for the painting information panel')
+    parser.add_argument('--guides',type=Path,help='Reviewed metadata joined by exact workId for artwork information panels')
     args=parser.parse_args();items=json.loads(args.selection.read_text(encoding='utf-8'));args.output.mkdir(parents=True,exist_ok=True)
     guides={}
-    if args.painting_info:
-        if not args.guides:raise ValueError('Painting information layout requires reviewed guides')
+    if args.painting_info and not args.guides:raise ValueError('Painting information layout requires reviewed guides')
+    if args.guides:
         rows=json.loads(args.guides.read_text(encoding='utf-8'))['works']
         guides={row['workId']:row for row in rows}
         if len(guides)!=len(rows):raise ValueError('Duplicate guide identity')
@@ -31,27 +32,6 @@ def main():
         while size>17 and draw.textlength(text,font=font(size))>width:size-=1
         while draw.textlength(text,font=font(size))>width:text=text[:-2]+'…'
         return text,font(size)
-    def panel_text(draw,text,width,size,minimum,height):
-        # Keep complete names readable rather than shortening them with dots.
-        for current in range(size,minimum-1,-1):
-            lines=[];line=''
-            for char in text:
-                if char=='\n':lines.append(line);line='';continue
-                if line and draw.textlength(line+char,font=font(current))>width:
-                    space=line.rfind(' ')
-                    # Keep Latin words together while still allowing unspaced
-                    # Chinese names and single long words to wrap safely.
-                    if space>0 and line[-1].isascii() and line[-1].isalnum() and char.isascii() and char.isalnum():
-                        lines.append(line[:space].rstrip());line=line[space+1:]
-                    else:
-                        lines.append(line.rstrip());line=''
-                if not line and char==' ':continue
-                line+=char
-            lines.append(line)
-            value='\n'.join(lines)
-            bounds=draw.multiline_textbbox((0,0),value,font=font(current),spacing=8)
-            if bounds[3]-bounds[1]<=height:return value,font(current),bounds[3]-bounds[1]
-        raise ValueError('Painting metadata exceeds the readable panel: '+text)
     catalog=[];audit=[]
     identities=set()
     for work in items:
@@ -68,7 +48,7 @@ def main():
         # to the original photograph. Keep original source bytes unchanged.
         if rotation==180:image=image.transpose(Image.Transpose.ROTATE_180)
         calligraphy=work['category']=='calligraphy'
-        guide=guides.get(identity[1]) if args.painting_info and not calligraphy else None
+        guide=guides.get(identity[1]) if (calligraphy or args.painting_info) else None
         if args.painting_info and not calligraphy and (not guide or any(not guide.get(k) for k in ('title','author','period','museum'))):
             raise ValueError('Incomplete reviewed painting metadata: '+work['id'])
         if min(image.size)<600:raise ValueError(f"Insufficient detail: {work['id']} {image.size}")
@@ -136,13 +116,23 @@ def main():
                     pair.paste(panel,(x,0));x+=panel.width+gap
                 label='上下联' if len(panels)==2 else f'第{start+1}–{start+len(group)}屏 / 共{len(panels)}屏'
                 views.extend(source_views(pair,label))
+        corrections=work.get('displayFrameCorrections')
+        if corrections:
+            kept=corrections['keptOriginalIndices'];excluded=corrections['excludedEmptyDetailIndices']
+            if (not corrections.get('completeOverviewPreserved') or not kept or kept[0]!=0
+                    or kept!=sorted(set(kept)) or set(kept)&set(excluded)
+                    or set(kept)|set(excluded)!=set(range(len(views)))):
+                raise ValueError('Invalid reviewed display-frame selection: '+work['id'])
+            views=[views[index] for index in kept]
+            views=[(art,re.sub(r'局部 \d+/\d+$',f'局部 {index}/{len(views)-1}',detail))
+                   for index,(art,detail) in enumerate(views)]
         if len(views)>64:raise ValueError('Too many frames')
         frames=[]
         for page,(art,detail) in enumerate(views):
             bg='#e7e0d1' if calligraphy else '#111516';ink='#332e27' if calligraphy else '#edf0e9';muted='#776e60' if calligraphy else '#929a96'
             frame=Image.new('RGB',(720,1280) if args.portrait else (1280,720),bg);draw=ImageDraw.Draw(frame)
             portrait=calligraphy and art.width<art.height*1.15
-            painting_panel=bool(guide) and not args.portrait
+            painting_panel=(calligraphy or bool(guide)) and not args.portrait
             box=(16,14,688,1124) if args.portrait else (500,42,730,578) if portrait or painting_panel else (64,34,1152,584)
             x,y,w,h=box;rendered=ImageOps.contain(art,(w,h),Image.Resampling.LANCZOS)
             frame.paste(rendered,(x+(w-rendered.width)//2,y+(h-rendered.height)//2))
@@ -152,25 +142,7 @@ def main():
                 draw.text((24,1152),title,font=title_font,fill=ink)
                 draw.text((24,1186),author,font=author_font,fill=muted)
             elif painting_panel:
-                title,title_font,title_height=panel_text(draw,guide['title'],350,40,24,220)
-                author,author_font,author_height=panel_text(draw,guide['author'],350,23,18,112)
-                period,period_font,period_height=panel_text(draw,guide['period'],350,20,18,84)
-                total=title_height+author_height+period_height+68
-                top=max(90,(622-total)//2)
-                draw.rectangle((102,top,128,top+3),fill='#21854a')
-                y=top+34
-                for text,typeface,height,color in ((title,title_font,title_height,ink),(author,author_font,author_height,muted),(period,period_font,period_height,muted)):
-                    bounds=draw.multiline_textbbox((0,0),text,font=typeface,spacing=8)
-                    draw.multiline_text((100,y-bounds[1]),text,font=typeface,fill=color,spacing=8)
-                    y+=height+17
-                if y-17>622:raise ValueError('Painting information collides with device footer')
-            elif portrait:
-                draw.rectangle((102,183,128,186),fill='#964b39')
-                title,title_font=fit(draw,work['title'],350,40)
-                author,author_font=fit(draw,work['author'],350,23)
-                draw.text((100,216),title,font=title_font,fill=ink)
-                draw.text((104,283),author,font=author_font,fill=muted)
-                draw.text((104,321),work.get('period',''),font=font(20),fill=muted)
+                draw_information_panel(draw,guide or {k:work.get(k,'') for k in ('title','author','period')},font,ink,muted,'#964b39' if calligraphy else '#21854a')
             else:
                 title,title_font=fit(draw,work['title'],720,27)
                 title_width=draw.textlength(title,font=title_font)
@@ -198,7 +170,7 @@ def main():
         catalog.append({k:work[k] for k in ['id','category','title','author','source','license']}|{'workId':identity[1],'frames':frames})
         audit.append({k:work[k] for k in ['id','source','license']}|{'originalSize':original_size,'displaySourceSize':image.size,'crop':work.get('crop'),'imageSource':work.get('imageSource',work['source']),'originalSha256':hashlib.sha256(source.read_bytes()).hexdigest(),'frames':len(frames)})
         if guide and not args.portrait:
-            audit[-1]['displayLayout']='painting-information-panel'
+            audit[-1]['displayLayout']=('calligraphy' if calligraphy else 'painting')+'-information-panel'
             audit[-1]['displayMetadata']={k:guide[k] for k in ('title','author','period','museum')}
         if work.get('museum'):
             catalog[-1]['museum']=work['museum']

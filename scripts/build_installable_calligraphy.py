@@ -19,6 +19,8 @@ def by_id(items):
  return result
 def stage(manifest_path,materials_path,assets,output,new_gallery=None,corrections=None,existing_only=False):
  manifest=read(manifest_path);locked=manifest['works'];materials=by_id(read(materials_path)['works'])
+ period_path=ROOT/'docs/art-guides/reviewed-periods.zh.json'
+ periods=read(period_path) if period_path.exists() else {}
  if len(locked)!=366 or len({w['id'] for w in locked})!=366 or len({w['workId'] for w in locked})!=366:
   raise ValueError('The reviewed annual selection requires 366 independent works')
  if [w['annualDay'] for w in locked]!=list(range(1,367)):raise ValueError('Locked annual sequence changed')
@@ -33,6 +35,10 @@ def stage(manifest_path,materials_path,assets,output,new_gallery=None,correction
  catalog=[];selection=[];origins=[];guides=[];files={};copied=0;corrected_pages=[]
  for row in locked:
   k=row['id'];g=copy.deepcopy(materials[k]);override=next((item for item in sets if k in item[1]),None)
+  if k in periods:
+   reviewed=periods[k]
+   if reviewed['workId']!=g['workId'] or sha(ROOT/reviewed['snapshot'])!=reviewed['snapshotSha256']:raise ValueError('Reviewed period source changed: '+k)
+   g.update(period=reviewed['period'],periodBasis=reviewed)
   if override:folder,c,s,p,hashes=override;work=copy.deepcopy(c[k]);source=copy.deepcopy(s[k]);origin=copy.deepcopy(p[k])
   elif k in asset_catalog:folder=assets;work=copy.deepcopy(asset_catalog[k]);source=copy.deepcopy(asset_sources[k]);origin=copy.deepcopy(asset_origins[k]);hashes=asset_files
   elif existing_only:continue

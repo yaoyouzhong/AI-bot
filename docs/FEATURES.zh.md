@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-本次发布电脑端 **0.6.6**、TAB5 **0.2.194-ui** 和名画布局包 **2026.10.14.1**；ESP8266 沿用正式 **0.5.2**，书法沿用 **2026.10.09**，两类各 **366 件**。新增运行监控、电脑浏览作品与独立 TF 存储，修复断连闪屏、离线预览和连续 BLE 传输，重启先显示总览。截图为原生隔离演示，设备验收与剩余边界见[版本说明](RELEASE-0.6.6.md)，未变化素材保留[原捕获说明](SCREENSHOTS.md)。[返回首页](../README.md) · [安装指南](INSTALL.zh.md) · [更新说明](UPDATES.md)
+当前 Windows **0.6.8**、Mac **0.6.7**、TAB5 **0.2.210-ui**、ESP8266 **0.5.3**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.8.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -40,6 +40,12 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 | 看月历与生日 | 点击总览日期或顶部生日提醒；电脑端管理 **日历生日** |
 | 调节屏幕、声音、轮播或升级 | 右上角 **设置**；五个设置分区见下方完整图集 |
 
+### 日程待办与提醒
+
+**应用 → 日程**使用下移的“今日／全部”分段筛选，左侧显示列表、右侧突出所选事项的时间与详情；无事项时居中显示“暂无事项”和“新建”。新建、编辑并设置开始时间、持续时长、重复和提前提醒。到点显示提醒框，可选择“知道了”或在时长允许时延后 10 分钟；到期事项保留。设备本地持久化，离线修改或删除重连后与电脑同步。最多 16 项，只有满额新增才清理最早结束的过期单次事项；保存失败保留原记录与输入。电脑端入口为设备中心的“日程待办”。点击名称旁麦克风时需要电脑语音服务；离线可用键盘输入。
+
+<table><tr><td width="50%"><img src="assets/screens/tab5-agenda-editor.png" alt="TAB5 新建日程，时间、重复和提前提醒"></td><td width="50%"><img src="assets/screens/tab5-agenda-reminder.png" alt="TAB5 居中日程提醒框"></td></tr></table>
+
 ### 重点一：直接操作 Codex，阅读任务与回复
 
 从右下角 **Codex 直达**选择最近五个会话之一，语音输入进入目标会话草稿，检查后显式发送。支持继续语音、取消、失败恢复和长按清空。**Codex 页面**用于选择项目与任务、查看回复和历史；电脑端“常用任务”配置优先显示的任务。[操作说明](TAB5-QUICK-CONSOLE.md)
@@ -69,7 +75,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-annual.png" alt="全年点阵：每天一颗点与年度进度"></td><td width="50%"><img src="assets/screens/tab5-floral.png" alt="十二月历：当月花卉、农历与节气"></td></tr></table>
 
-在 TAB5 **设置 → 屏幕与声音**选择并预览。九种屏保为经典、年度点阵、暗夜、暖灰、十二月历、自动昼夜、每日名画、每日书法和日期倒计时。十二月历预览可切月，自动屏保跟随实际月份；自动昼夜按设备本地 07:00–19:00 使用日间配色，其余为夜间配色。
+在 TAB5 **设置 → 屏幕声音**选择并预览。屏保选项包括经典时钟、年度点阵、年度点阵暖灰、十二月历、每日名画、每日书法和日期倒计时。经典时钟和年度点阵按设备本地 07:00–19:00 使用日间配色，其余为夜间配色；不再单列暗夜与自动昼夜。经典时钟秒数变化时时分位置稳定，每分钟保留轻微移位。十二月历预览可切月，自动屏保跟随实际月份。
 
 <details>
 <summary>展开点阵暗夜与暖灰配色</summary>
@@ -84,7 +90,7 @@ Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台�
 
 <p><img src="assets/screens/tab5-painting-portrait.png" height="400" alt="每日名画竖屏：林良作品与馆藏署名"> <img src="assets/screens/tab5-calligraphy-portrait.png" height="400" alt="每日书法竖屏：王羲之快雪时晴帖（传唐摹本）与馆藏署名"></p>
 
-本次精选作品集含 **366 件名画、366 件书法**，分别提供可选下载包，分页和方向不重复计作作品。图片同步需要电脑及 AI-bot 运行；断线保留最近成功图片。本次名画布局包为 2026.10.14.1，书法沿用 2026.10.09 正式精选集。[图库安装与许可](GALLERY-PACKS.md)
+本次精选作品集含 **366 件名画、366 件书法**，分别提供可选下载包，分页和方向不重复计作作品。图片同步需要电脑及 AI-bot 运行；断线保留最近成功图片。标准名画为 2026.10.14.1，标准书法为 2026.10.15.1；两套高清完整包已含对应标准图和资料。[图库安装与许可](GALLERY-PACKS.md)
 
 <details>
 <summary>展开名画与书法的横屏排版</summary>
@@ -167,11 +173,11 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-settings-connection.png" alt="设备设置：连接与网络"></td><td width="50%"><img src="assets/screens/tab5-settings-screen.png" alt="设备设置：屏幕与声音"></td></tr></table>
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，已提供 .176 升级包（演示）"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-firmware.png" alt="设备设置：固件升级，已提供 .210 升级包（演示）"></td></tr></table>
 
 ![设备信息（演示元数据）](assets/screens/tab5-settings-info.png)
 
-固件升级图使用本版真实说明 sidecar；图中较旧的“当前版本”为离线夹具，示例展示向 .176 升级，不代表实机版本或跨全部历史分区兼容。
+固件升级图使用本版真实说明 sidecar；图中较旧的“当前版本”为离线夹具，示例展示向 .210 升级，不代表实机版本或跨全部历史分区兼容。
 
 电脑端“我的设备”选 TAB5，可打开 **显示设置、语音设置、日历生日、常用任务、数据设置、连接升级**；托盘分组提供常用快捷入口。[安装与连接步骤](INSTALL.zh.md#tab5-first)
 
@@ -299,12 +305,25 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 从 **设备中心 → 桥接设置 → 软件固件**打开“软件与固件更新”，查看各组件版本、说明和适用包。自动检查只提醒，不自动安装。首次安装硬件走“我的设备 → 添加”的对应首刷流程；后续升级按已安装设备办理。[完整安装指南](INSTALL.zh.md) · [更新步骤](UPDATES.md)
 
-图库在更新窗口的“屏保图库”中导入 ZIP，软件升级保留图库。**桥接设置 → 配置迁移**提供备份、预览与选择恢复；配置、配对资料和设备原固件备份留在本地，不作为公开素材发布。
+设备管理右上角使用 **管理 ▾** 展开操作。Wi-Fi 按“未联网”“已联网 · 桥接未通”“已联网 · 桥接正常”和“等待设备回报”区分；已连路由器但 Wi-Fi 桥接通道未通时显示黄色，不等于 USB 通道不可用。首页与连接页采用同一判断。
+
+图库在更新窗口的“屏保图库”中导入 ZIP，软件升级保留图库。“浏览作品”支持往期查找、标题／作者／拼音搜索、键盘循环翻页、高清缩放与独立阅读；[高清完整包](GALLERY-HD.md)无需预装标准版。左侧列表切换作品，图片下方翻页；全屏支持滚轮缩放和拖动，右键或 Ctrl+0 还原。目录和安装说明在“更多”菜单。**桥接设置 → 配置迁移**提供备份、预览与选择恢复；配置、配对资料和设备原固件备份留在本地，不作为公开素材发布。
 
 <details>
 <summary>展开软件与固件更新窗口</summary>
 
 ![统一更新：分别查看电脑端和两类固件的版本及说明](assets/screens/update-center.png)
+
+</details>
+
+<details>
+<summary>展开年度图库与电脑浏览界面</summary>
+
+![年度图库：主要操作排成一行](assets/screens/gallery-packs.png)
+
+![浏览作品：紧凑翻页、阅读资料与全屏](assets/screens/gallery-browser.png)
+
+![全屏放大：滚轮缩放与拖动](assets/screens/gallery-fullscreen.png)
 
 </details>
 
@@ -322,23 +341,35 @@ Runtime monitoring reports connection and computer-health causes and advice. Com
 
 <a id="validation"></a>
 
+<table><tr><td width="50%"><img src="assets/screens/tab5-agenda.png" alt="210 日程分段筛选、列表与独立详情"></td><td width="50%"><img src="assets/screens/tab5-agenda-empty.png" alt="210 日程空状态与居中新建"></td></tr></table>
+
+<table><tr><td width="50%"><img src="assets/screens/tab5-classic-day.png" alt="经典时钟白天配色"></td><td width="50%"><img src="assets/screens/tab5-classic-night.png" alt="经典时钟夜间配色"></td></tr></table>
+
 ## 5. 平台与验证范围
 
 | 平台 | 当前范围 | 验证说明 |
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
-| ESP8266 0.5.2 | 原正式小屏页面、时钟、桌宠、USB / Wi-Fi | 本轮沿用公开包；源码中的 0.5.3 固定身份候选不在本次发布。 |
-| TAB5 0.2.194-ui | 触控、时钟、计时、艺术四方向、最新字库、完整长文与独立存储设置 | 本地回归与最终包检查、真实启动与存储分别记录，见本版发布明细；不追加 Apple Music 或长期运行的验收结论。 |
+| ESP8266 0.5.3 | 小屏页面、时钟、桌宠、USB / Wi-Fi 与固定设备身份 | 真实 USB 换口与未配置 LAN 恢复已验证，具体记录见本版发布说明。 |
+| TAB5 0.2.210-ui | 触控、时钟、艺术图库、日程提醒、离线事项同步与存储设置 | 210 原生回归、最终包与本地真机验收通过：日程、内部内存、USB 写入和插电重启电量；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；未实现本文 Windows TAB5、统一更新及艺术导入入口。Intel Mac 未验证。 |
 
-[发布明细](RELEASE-0.6.6.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
+[发布明细](RELEASE-0.6.8.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.6, ESP8266 0.5.2 and TAB5 0.2.194-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.8, Mac download 0.6.7, ESP8266 0.5.3 and TAB5 0.2.210-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
-**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage & Cache. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
+**TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Only art screensavers rotate; normal system pages remain landscape. Art collections are optional downloads.
 
 **ESP8266:** AI activity, quotas, reset times/cards and configurable cycling are the primary use. Expand the galleries for other providers, weather, stocks, metrics, music, pets and the clock screensaver. Control pages and settings from the computer; TAB5 touch operations, Codex Direct and art collections do not apply to the small display.
 
 Device Center groups My Devices, Account Data and Bridge Settings. Components update independently through the Windows unified update window. Screenshots are native renders with isolated synthetic data, not hardware photos or additional acceptance evidence. macOS has its own menu-bar/ESP8266 implementation, without the Windows TAB5, unified-update or artwork-import flows. See the linked installation, provenance and hardware records for exact boundaries.
+
+The collection manager keeps primary actions on one row, with directory/help in More. Select works in the left list; compact image paging, reading and fullscreen remain below the image. Right-click or Ctrl+0 restores the image; wheel zoom and drag also work fullscreen.
+
+Agenda/reminders in TAB5 210 support local persistence, offline edits/deletions and reconnect sync, with explicit save, repeat and advance reminders. Complete optional HD editions include device previews and guides; desktop browsing prefers verified HD originals with bounded decoding. The refined agenda, internal memory, USB writing and connected-USB reboot battery display passed local 210 hardware acceptance; native screenshots remain isolated fixtures. Offline name entry uses the keyboard; dictation requires the computer voice service.
+
+## 本地候选：电脑一键解锁
+
+TAB5 可经 USB、蓝牙或 Wi-Fi 解锁；Windows 端保存 PIN，TightVNC 密码自动生成或从兼容安装自动接入，页面不要求填写。组件安装／卸载需管理员确认，已有外部安装保留原配置。最终验收与支持边界见 [本轮收尾](development/RELEASE-0610-229-CLOSEOUT-20261019.md)。

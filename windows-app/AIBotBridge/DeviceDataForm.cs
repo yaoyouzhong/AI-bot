@@ -65,13 +65,13 @@ internal sealed class DeviceDataForm : Form
         }
         sources["quotas"].CheckedChanged+=(_,_)=>UpdateQuotaOptions();UpdateQuotaOptions();
         var footer=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,Margin=new Padding(0,12,0,0),Name="data-actions"};
-        var cancel=DeviceCenterForm.Button("取消",()=>DialogResult=DialogResult.Cancel);cancel.Name="cancel-data";
+        var cancel=DeviceCenterForm.Button("取消",()=>{DialogResult=DialogResult.Cancel;Close();});cancel.Name="cancel-data";
         var save=DeviceCenterForm.Button("保存",()=>{
             try {
                 var current=store.Snapshot.Devices.Single(d=>d.Id==id);
                 store.Update(current with {Sources=DeviceRegistryStore.SourceIds.Where(key=>sources[key].Checked).ToArray(),
                     Providers=DeviceRegistryStore.ProviderIds.Where(key=>providers[key].Checked).ToArray()});
-                DialogResult=DialogResult.OK;
+                DialogResult=DialogResult.OK;Close();
             }catch(Exception ex){MessageBox.Show(this,ex.Message,"数据设置未保存");}
         },true);save.Name="save-data";
         footer.Controls.Add(cancel);footer.Controls.Add(save);root.Controls.Add(footer,0,1);Controls.Add(root);

@@ -1,0 +1,322 @@
+{
+  "colbase-tnm-TB-1199": {
+    "workId": "colbase:tnm:TB-1199",
+    "period": "清，1764年",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1199?locale=ja",
+    "sourcePeriod": "清時代・乾隆29年(1764)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1199-ja.json",
+    "snapshotSha256": "eee81f59a34d787a2e850858e3c4a796bf32ca03eb3b248e88240a691b72507e",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1284": {
+    "workId": "colbase:tnm:TB-1284",
+    "period": "清，17—18世纪",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1284?locale=ja",
+    "sourcePeriod": "清時代・17～18世紀",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1284-ja.json",
+    "snapshotSha256": "429dc86d75f020ac4810989e2e16b7189b0b837ebf3efd0e25239ffb3143ced0",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1508": {
+    "workId": "colbase:tnm:TB-1508",
+    "period": "清，1795年",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1508?locale=ja",
+    "sourcePeriod": "清時代・乾隆60年(1795)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1508-ja.json",
+    "snapshotSha256": "aced4a28d968c1fbfd60bd13de552eb04f75ca2db4aba0a01c6d9502a57e661d",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-495": {
+    "workId": "colbase:tnm:TB-495",
+    "period": "唐（原碑；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-495?locale=ja",
+    "sourcePeriod": "唐時代・広徳3年(763)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-495-ja.json",
+    "snapshotSha256": "d3ff8624df7e934bf0d157a85878a2b8babc995d3da7ba24f439c153469879d5",
+    "checkedOn": "2026-10-15",
+    "review": "Official era/year pair is inconsistent (広徳3年(763)); withhold precise year pending museum clarification, retain dynasty only"
+  },
+  "colbase-tnm-TB-1413": {
+    "workId": "colbase:tnm:TB-1413",
+    "period": "清，18世纪",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1413?locale=ja",
+    "sourcePeriod": "清時代・18世紀",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1413-ja.json",
+    "snapshotSha256": "14a9562fc44b9333b57a48e0fd1c003203d5a1802530b387d5bb0ee46cd8ce42",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-360": {
+    "workId": "colbase:tnm:TB-360",
+    "period": "唐，723年（原碑；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-360?locale=ja",
+    "sourcePeriod": "唐時代・開元11年(723）",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-360-ja.json",
+    "snapshotSha256": "a089038c3c87c2c45c9f8f21abbdf81e79bec376e7681354be071ea4ba6110d8",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1619": {
+    "workId": "colbase:tnm:TB-1619",
+    "period": "清，18—19世纪",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1619?locale=ja",
+    "sourcePeriod": "清時代・18～19世紀",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1619-ja.json",
+    "snapshotSha256": "03f1f50e50ee6f042c786dd816c0f3051dbdc1cf03eab74866c27db29061d538",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-56": {
+    "workId": "colbase:tnm:TB-56",
+    "period": "明，1610年",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-56?locale=ja",
+    "sourcePeriod": "明時代・万暦38年(1610)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-56-ja.json",
+    "snapshotSha256": "293e9fb2f4b5db43f1f55adc91f18e1e8854c9a27f53391e27199a412c83ece2",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1460": {
+    "workId": "colbase:tnm:TB-1460",
+    "period": "元，1317年",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1460?locale=ja",
+    "sourcePeriod": "元時代・延祐4年(1317)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1460-ja.json",
+    "snapshotSha256": "fdb0eedbba43e32fa282f5e42a94d3f6db4c0cc770ee5a8d5b1d853f69c01e59",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-108": {
+    "workId": "colbase:tnm:TB-108",
+    "period": "唐，740年（原碑；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-108?locale=ja",
+    "sourcePeriod": "唐時代・開元28年(740)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-108-ja.json",
+    "snapshotSha256": "96f287479d557e98bdfa4c73e41510bb3b4cfec971999124a1de6534727e6bce",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1419": {
+    "workId": "colbase:tnm:TB-1419",
+    "period": "民国，1913年",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1419?locale=ja",
+    "sourcePeriod": "中華民国2年(1913)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1419-ja.json",
+    "snapshotSha256": "60beed2105d643cf4b7838880e51c30daeb9b0c77b1e51c924797a7d1816f211",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-872": {
+    "workId": "colbase:tnm:TB-872",
+    "period": "清，17世纪",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-872?locale=ja",
+    "sourcePeriod": "清時代・17世紀",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-872-ja.json",
+    "snapshotSha256": "d15ed946867d34caae28214a26a063aa24cd568f6a8263018a50cb651c216582",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1730": {
+    "workId": "colbase:tnm:TB-1730",
+    "period": "清，1787年",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1730?locale=ja",
+    "sourcePeriod": "清時代・乾隆52年(1787)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1730-ja.json",
+    "snapshotSha256": "c789fb132d644fcfce876f7d2f028304ced200ae6b09f5c2c6b32c82b657010a",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-111": {
+    "workId": "colbase:tnm:TB-111",
+    "period": "唐，764年（原碑；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-111?locale=ja",
+    "sourcePeriod": "唐時代・広徳2年(764)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-111-ja.json",
+    "snapshotSha256": "3457de1fa58e88f16842c1f01a60894e7e51b4023703ff5df2bf1c21ec2d92d0",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-75": {
+    "workId": "colbase:tnm:TB-75",
+    "period": "唐，632年（原碑；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-75?locale=ja",
+    "sourcePeriod": "唐時代・貞観6年(632)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-75-ja.json",
+    "snapshotSha256": "05823728e8debca86ae782a615904111635a9dc88146750f3257bf725f7c50b7",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1650": {
+    "workId": "colbase:tnm:TB-1650",
+    "period": "民国时期，20世纪",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1650?locale=ja",
+    "sourcePeriod": "中華民国時代・20世紀",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1650-ja.json",
+    "snapshotSha256": "86b2d49c20cb37a1821607338f6ff25dda1cdf69c50b6a3888dc3ff7e69b3f4e",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-873": {
+    "workId": "colbase:tnm:TB-873",
+    "period": "清，17—18世纪",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-873?locale=ja",
+    "sourcePeriod": "清時代・17～18世紀",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-873-ja.json",
+    "snapshotSha256": "29aebc95d7225d3b3121957b18e17dedfdb775af57836e5d9c1f8c57d339fe55",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-223": {
+    "workId": "colbase:tnm:TB-223",
+    "period": "东汉，约52年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-223?locale=ja",
+    "sourcePeriod": "後漢・建武28年(52)頃",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-223-ja.json",
+    "snapshotSha256": "1cb607b5075b945917921a5649fe63f1b7a3c00037158b03d1e052f473bdd03b",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-366": {
+    "workId": "colbase:tnm:TB-366",
+    "period": "唐，780年（原碑；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-366?locale=ja",
+    "sourcePeriod": "唐時代・建中元年(780)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-366-ja.json",
+    "snapshotSha256": "3007cf3cc2dd0a9fec6001c6fd863b4c9a9bfd614e1a2e0288da520078dfefc0",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1240": {
+    "workId": "colbase:tnm:TB-1240",
+    "period": "明，17世纪",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1240?locale=ja",
+    "sourcePeriod": "明時代・17世紀",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1240-ja.json",
+    "snapshotSha256": "9ef46ff1135d44c46444ef0ba705edb47cc62815088dcd318ccee2fcc538c695",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-711": {
+    "workId": "colbase:tnm:TB-711",
+    "period": "唐，758年（原碑；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-711?locale=ja",
+    "sourcePeriod": "唐時代・乾元元年(758)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-711-ja.json",
+    "snapshotSha256": "6a83b45f037cad69554527e5407e9c6ac71c00866ea5fefeb5c07be5e93ef66a",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-1647": {
+    "workId": "colbase:tnm:TB-1647",
+    "period": "明，1622年",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1647?locale=ja",
+    "sourcePeriod": "明時代・天啓2年(1622)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-1647-ja.json",
+    "snapshotSha256": "9ffbeaac7c92afa98f65418f49c6052f214ab21f349fb360ebd552b13969354d",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-890": {
+    "workId": "colbase:tnm:TB-890",
+    "period": "唐，757年（原碑；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-890?locale=ja",
+    "sourcePeriod": "唐時代・至徳2年(757)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-890-ja.json",
+    "snapshotSha256": "ad54c9466dd0894a23b90c0196c40774f5196602bf2d2c8dc7f22db205a5aa5f",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-666": {
+    "workId": "colbase:tnm:TB-666",
+    "period": "北魏，496年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-666?locale=ja",
+    "sourcePeriod": "北魏時代・太和20年(496)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-666-ja.json",
+    "snapshotSha256": "6f89b59d26dd36ec8d98084355dd307510a9b3417b95df730719f3a81575dd9a",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-665": {
+    "workId": "colbase:tnm:TB-665",
+    "period": "北魏，495年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-665?locale=ja",
+    "sourcePeriod": "北魏時代・太和19年(495)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-665-ja.json",
+    "snapshotSha256": "193a0b3802b17fe133975052ca7ce91d8746d0d068f793612ef9bd7bd0172c25",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-674": {
+    "workId": "colbase:tnm:TB-674",
+    "period": "北魏，502年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-674?locale=ja",
+    "sourcePeriod": "北魏時代・景明3年(502)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-674-ja.json",
+    "snapshotSha256": "d82d77bdd6d25a42d3fc8fdb95d97707ce01b5a55b2ce89b707c122ae26b41c7",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-673": {
+    "workId": "colbase:tnm:TB-673",
+    "period": "北魏，502年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-673?locale=ja",
+    "sourcePeriod": "北魏時代・景明3年(502)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-673-ja.json",
+    "snapshotSha256": "2dfc0bc9347c80e403e58b6ca82da811ea11f546798cf04ed0bff0acc5915c87",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-671": {
+    "workId": "colbase:tnm:TB-671",
+    "period": "北魏，501年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-671?locale=ja",
+    "sourcePeriod": "北魏時代・景明2年(501)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-671-ja.json",
+    "snapshotSha256": "893597065ca6110c484f4f03dfe4b96341523a4c4da75cdd2642bacd9b533523",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-667": {
+    "workId": "colbase:tnm:TB-667",
+    "period": "北魏，498年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-667?locale=ja",
+    "sourcePeriod": "北魏時代・太和22年(498)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-667-ja.json",
+    "snapshotSha256": "0efff572aaace8cae22e42431fdd4f5580dbd450d4332dac9314c3631a2d9285",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-672": {
+    "workId": "colbase:tnm:TB-672",
+    "period": "北魏，502年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-672?locale=ja",
+    "sourcePeriod": "北魏時代・景明3年(502)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-672-ja.json",
+    "snapshotSha256": "eb795a045ba749e9a4bcaddf31a436d364ac02ab1e749839ffc7f6b00b117084",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "colbase-tnm-TB-670": {
+    "workId": "colbase:tnm:TB-670",
+    "period": "北魏，500—503年（原刻；拓制年代未详）",
+    "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-670?locale=ja",
+    "sourcePeriod": "北魏時代・景明年間(500～503)",
+    "snapshot": "artifacts/development/calligraphy-caption-periods-20261015/TB-670-ja.json",
+    "snapshotSha256": "91a51f83bc6e6a24ffe9253866702cfbd9db04498037214fa6919fb401acf252",
+    "checkedOn": "2026-10-15",
+    "review": "official_period_translated; rubbing date refers to original inscription, impression date unrecorded"
+  },
+  "met-829410": {
+    "workId": "met:829410",
+    "period": "江户至明治时期",
+    "source": "https://www.metmuseum.org/art/collection/search/829410",
+    "sourcePeriod": "Edo (1615–1868)–Meiji (1868–1912) period",
+    "snapshot": "artifacts/development/art-guides-full/sources/met-829410.json",
+    "snapshotSha256": "eefd69e3e09d9dc14725e329a58f86449702dd6fedd6ac91d29bff2366ed1fc4",
+    "checkedOn": "2026-10-15",
+    "review": "official period translated; no exact creation year supplied"
+  }
+}

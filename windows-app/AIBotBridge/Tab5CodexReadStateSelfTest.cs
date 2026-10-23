@@ -36,6 +36,11 @@ internal static class Tab5CodexReadStateSelfTest
         string State(string id,string h,int version=1)=>JsonSerializer.Serialize(new Dictionary<string,object>{["electron-thread-read-state-v1"]=new{
             version,unreadByIdentity=new Dictionary<string,object>{{id,new Dictionary<string,object>{{h,new[]{task}}}}}}});
         string auth=Auth(DateTimeOffset.UtcNow.ToUnixTimeSeconds()+3600);
+        var context=JsonSerializer.SerializeToElement(Tab5CodexReadState.ParseIdentity(auth)!.Context);
+        Check(context.GetProperty("identity").GetProperty("kind").GetString()=="chatgpt"&&
+            context.GetProperty("identity").GetProperty("accountId").GetString()=="account"&&
+            context.GetProperty("identity").GetProperty("userId").GetString()=="user"&&
+            context.GetProperty("executionHostKey").GetString()==host,"desktop v3 read context");
         Check(Tab5CodexReadState.Parse(auth,State(identity,host))?.Unread.SetEquals([task])==true,"current account local host");
         Check(Tab5CodexReadState.Parse(auth,State("other-account",host)) is null,"other account rejected");
         Check(Tab5CodexReadState.Parse(auth,State(identity,"local:other-host")) is null,"other host rejected");

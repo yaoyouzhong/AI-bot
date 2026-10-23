@@ -6,6 +6,15 @@ internal sealed record NotificationOptions(bool Completion=true,bool Attention=t
 }
 internal sealed record NotificationEntry(DateTimeOffset At,string Kind,string Title,string Outcome);
 internal sealed record NotificationDecision(bool Show,bool Sound);
+internal sealed partial class Tab5Service
+{
+    // Delivery follows fresh authenticated traffic, not a configured device entry.
+    // Device mute remains an intentional silence, rather than waking PC audio.
+    internal bool CompletionNoticeAvailable {
+        get {long now=Environment.TickCount64;bool Fresh(long at)=>at>0&&now-at<8000;
+            return Fresh(Interlocked.Read(ref _usbAckAt))||Fresh(Interlocked.Read(ref _wifiRequestAt))||Fresh(Interlocked.Read(ref _bleAckAt));}
+    }
+}
 internal sealed class BridgeNotifications
 {
     private NotificationOptions? _options;
@@ -27,19 +36,20 @@ internal sealed class BridgeNotifications
         _pendingBalloon=null;
     }
     internal void IgnoreUntrackedBalloon()=>_pendingBalloon=null;
-    internal NotificationDecision Evaluate(string kind,string key,string title,DateTimeOffset at) {
+    internal NotificationDecision Evaluate(string kind,string key,string title,DateTimeOffset at,bool completionOnDevice=false) {
         if(kind is not ("completion" or "attention" or "quota" or "health"))throw new ArgumentException("Unknown notification kind");
         var options=Options;
         foreach(var old in _seen.Where(p=>at-p.Value>TimeSpan.FromHours(24)).Select(p=>p.Key).ToArray())_seen.Remove(old);
         string identity=kind+":"+key;if(_seen.ContainsKey(identity))return new(false,false);
         if(_seen.Count>=512)_seen.Remove(_seen.MinBy(p=>p.Value).Key);_seen[identity]=at;
         bool enabled=kind switch{"completion"=>options.Completion,"attention"=>options.Attention,"health"=>options.Health,_=>options.Quota};
-        string outcome=!enabled?"已关闭":options.IsQuiet(at.LocalDateTime)?"勿扰时段":
+        string outcome=kind=="completion"&&completionOnDevice?"由 TAB5 提醒":!enabled?"已关闭":options.IsQuiet(at.LocalDateTime)?"勿扰时段":
             _lastShown.TryGetValue(kind,out var previous)&&at-previous<TimeSpan.FromSeconds(kind=="quota"?300:10)?"合并频繁提醒":"已请求通知";
-        bool show=outcome=="已请求通知";if(show)_lastShown[kind]=at;
+        bool deliver=outcome=="已请求通知",show=deliver&&kind!="completion";if(deliver)_lastShown[kind]=at;
+        if(deliver&&kind=="completion")outcome=options.Sound?"已请求备用音":"提醒音已关闭";
         var entry=new NotificationEntry(at,kind,title,outcome);_history.Add(entry);if(show)_pendingBalloon=entry;
         if(_history.Count>100)_history.RemoveAt(0);
-        return new(show,show&&options.Sound&&kind is "completion" or "health");
+        return new(show,deliver&&options.Sound&&kind is "completion" or "health");
     }
 }
 internal sealed class NotificationSettingsForm : Form
@@ -51,7 +61,7 @@ internal sealed class NotificationSettingsForm : Form
         var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=5};for(int i=0;i<5;i++)root.RowStyles.Add(new(i==3?SizeType.Percent:SizeType.AutoSize,i==3?100:0));root.ColumnStyles.Add(new(SizeType.Percent,100));Controls.Add(root);
         var value=notifications.Options;var checks=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};
         CheckBox Box(string text,bool selected){var box=new CheckBox{Text=text,Checked=selected,AutoSize=true};checks.Controls.Add(box);return box;}
-        var completion=Box("Codex 完成",value.Completion);var attention=Box("等待操作",value.Attention);var quota=Box("额度异常",value.Quota);var health=Box("运行异常",value.Health);var sound=Box("提醒音",value.Sound);root.Controls.Add(checks,0,0);
+        var completion=Box("完成备用音",value.Completion);var attention=Box("等待操作",value.Attention);var quota=Box("额度异常",value.Quota);var health=Box("运行异常",value.Health);var sound=Box("提醒音",value.Sound);root.Controls.Add(checks,0,0);
         var quiet=new CheckBox{Text="勿扰时段",Checked=value.Quiet,AutoSize=true};
         DateTimePicker Time(int minute)=>new(){Format=DateTimePickerFormat.Custom,CustomFormat="HH:mm",ShowUpDown=true,Value=DateTime.Today.AddMinutes(minute),Width=90};
         var start=Time(value.QuietStart);var end=Time(value.QuietEnd);var separator=new Label{Text="—",AutoSize=true};var hours=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};hours.Controls.AddRange([quiet,start,separator,end]);root.Controls.Add(hours,0,1);

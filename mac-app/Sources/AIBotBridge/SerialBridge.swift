@@ -197,6 +197,8 @@ final class SerialBridge {
     }
 
     private func run(path: String) {
+        guard MacSerialPortLease.acquire(path) else { return }
+        defer { MacSerialPortLease.release(path) }
         let descriptor = Darwin.open(path, O_RDWR | O_NOCTTY | O_NONBLOCK)
         guard descriptor >= 0 else { return }
         defer {

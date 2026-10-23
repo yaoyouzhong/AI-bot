@@ -48,11 +48,12 @@ internal static class UpdateSelfTest
         var ready=await service.DownloadAsync(release,"0.5.1",null,default);ready.VerifyUnchanged();
         Check(ready.Tab5 is null&&File.ReadAllBytes(ready.File).SequenceEqual(zip),"Download changed package");
         string root=Path.GetDirectoryName(Path.GetDirectoryName(ready.File))!;
-        int before=Directory.GetDirectories(root).Length;corrupt=true;
+        int before=Directory.GetDirectories(root).Length;File.Delete(ready.File);corrupt=true;
         await Reject(async()=>await service.DownloadAsync(release,"0.5.1",null,default));
-        Check(Directory.GetDirectories(root).Length==before,"Corrupt partial package retained");corrupt=false;
+        Check(Directory.GetDirectories(root).Length==before,"Corrupt download changed cache directory count");corrupt=false;
         using(var stop=new CancellationTokenSource()){stop.Cancel();await Reject(async()=>await service.DownloadAsync(release,"0.5.1",null,stop.Token));}
         fail=true;await Reject(()=>service.CheckAsync(default));Check(service.Available["esp8266"]==release&&service.Error is not null,"Failure replaced last good catalog");fail=false;
+        ready=await service.DownloadAsync(release,"0.5.1",null,default);
         File.AppendAllText(ready.File,"changed");await Reject(()=>{ready.VerifyUnchanged();return Task.CompletedTask;});
         await Reject(()=>{UpdateService.ReadChecksum(hash+"  "+name+"\n"+hash+"  "+name,name);return Task.CompletedTask;});
         using(var unsafeDoc=JsonDocument.Parse(JsonSerializer.Serialize(new[]{Release("esp8266","0.6.0",name,zip,"https://example.org/firmware.zip")})))

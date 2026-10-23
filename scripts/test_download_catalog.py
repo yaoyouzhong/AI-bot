@@ -36,19 +36,47 @@ class DownloadCatalogTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Incomplete paired release"):
             catalog.validate(data)
 
+    def test_gallery_content_editions_preserve_package_identity(self):
+        before = copy.deepcopy(self.data)
+        for language in ("zh", "en"):
+            rows = catalog.table(self.data, language).splitlines()
+            for key in ("painting", "calligraphy"):
+                item = self.data["downloads"][key]
+                index = next(i for i, row in enumerate(rows) if catalog.asset_url(item) in row)
+                self.assertIn("| 2026.1 |", rows[index])
+                self.assertIn("| 2026.1 |", rows[index + 1])
+                self.assertIn(item["file"], rows[index])
+            self.assertNotIn("| 2026.10.16 |", "\n".join(rows))
+        self.assertEqual(before, self.data)
+        self.assertEqual(catalog.gallery_edition("painting", "2026.10.18"), "2026.10.18")
+        self.assertEqual(catalog.gallery_edition("windows", "0.6.8"), "0.6.8")
+
     def test_stable_discovery_ignores_drafts_prereleases_and_wrong_tags(self):
         releases = self.releases()
         for flags in ({"draft": True}, {"prerelease": True}, {"tag_name": "esp8266-v99.0.0"}):
-            invalid = {"tag_name": "bridge-v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,
+            invalid = {"tag_name": "v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,
                        "assets": [{"name": "AIBotBridge-99.0.0-setup-win-x64.exe", "size": 10, "digest": "sha256:" + "a"*64}], **flags}
             releases.append(invalid)
         self.assertEqual(catalog.discover(releases), self.data)
 
-    def test_newer_incomplete_bridge_is_not_silently_hidden(self):
-        releases = self.releases() + [{"tag_name": "bridge-v99.0.0", "published_at": "2020-01-01", "draft": False, "prerelease": False,
+    def test_windows_only_release_preserves_current_mac_download(self):
+        releases = self.releases() + [{"tag_name": "v99.0.0", "published_at": "2020-01-01", "draft": False, "prerelease": False,
             "assets": [{"name": "AIBotBridge-99.0.0-setup-win-x64.exe", "size": 10, "digest": "sha256:"+"a"*64}, {"name": "SHA256SUMS.txt"}]}]
-        with self.assertRaisesRegex(ValueError, "Incomplete paired release"):
-            catalog.discover(releases)
+        result = catalog.discover(releases)
+        self.assertEqual(result["downloads"]["windows"]["version"], "99.0.0")
+        self.assertEqual(result["downloads"]["macos"], self.data["downloads"]["macos"])
+        for language in ("zh", "en"):
+            rendered = catalog.table(result, language, tag="v99.0.0")
+            self.assertIn(catalog.asset_url(self.data["downloads"]["macos"]), rendered)
+            self.assertNotIn("macos-arm64.zip", "\n".join(row for row in rendered.splitlines() if "v99.0.0" in row))
+            self.assertEqual(rendered.count("本次发布" if language == "zh" else "this release"), 1)
+
+    def test_mac_only_release_preserves_current_windows_download(self):
+        releases = self.releases() + [{"tag_name": "v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,
+            "assets": [{"name": "AI-bot-bridge-v99.0.0-macos-arm64.zip", "size": 10, "digest": "sha256:"+"b"*64}, {"name": "SHA256SUMS.txt"}]}]
+        result = catalog.discover(releases)
+        self.assertEqual(result["downloads"]["macos"]["version"], "99.0.0")
+        self.assertEqual(result["downloads"]["windows"], self.data["downloads"]["windows"])
 
     def test_gallery_revision_is_discovered_and_preserves_other_components(self):
         version = self.next_gallery_version()
@@ -73,7 +101,7 @@ class DownloadCatalogTests(unittest.TestCase):
         for key in ("painting", "calligraphy"):
             entry = expected["downloads"][key]
             entry.update(version=version, tag=release["tag_name"],
-                         file=catalog.SPECS[key][1].format(version="Curated-" + version))
+                         file=catalog.artifact_names(key, version)[1])
             release["assets"].append({"name": entry["file"], "size": entry["size"],
                                       "digest": "sha256:" + entry["sha256"]})
         self.assertEqual(catalog.discover(self.releases() + [release]), expected)
@@ -90,7 +118,7 @@ class DownloadCatalogTests(unittest.TestCase):
                 catalog.verify_online(self.data)
 
     def test_component_release_changes_only_its_own_downloads(self):
-        for tag, changed in (("bridge-v99.0.0", {"windows", "macos"}), ("esp8266-v99.0.0", {"esp8266"}),
+        for tag, changed in (("v99.0.0", {"windows", "macos"}), ("esp8266-v99.0.0", {"esp8266"}),
                              ("tab5-v99.0.0-ui", {"tab5-first", "tab5-upgrade"})):
             rendered = catalog.table(self.data, tag=tag)
             for key, item in self.data["downloads"].items():
@@ -99,11 +127,37 @@ class DownloadCatalogTests(unittest.TestCase):
                 else:
                     self.assertNotIn(catalog.asset_url(item), rendered)
             self.assertEqual(rendered.count("本次发布"), len(changed))
-            self.assertEqual(rendered.count("[SHA-256]"), 7)
+            self.assertEqual(rendered.count("[SHA-256]"), 9)
         self.assertEqual(self.data, catalog.load())
+
+    def test_download_labels_use_matching_action_and_size_for_standard_and_hd(self):
+        hd = catalog.load_hd()
+        for language in ("zh", "en"):
+            rows = catalog.table(self.data, language).splitlines()
+            for key, collection in hd["collections"].items():
+                standard = next(i for i, row in enumerate(rows) if catalog.asset_url(self.data["downloads"][key]) in row)
+                row = rows[standard + 1]
+                self.assertIn(catalog.HD_GUIDE + "#download", row)
+                self.assertIn(catalog.HD_GUIDE + "#" + key, row)
+                action = "下载" if language == "zh" else "Download"
+                self.assertIn(f"[{action} · {collection['size'] / 1073741824:.2f} GiB]({catalog.HD_GUIDE}#download)", row)
+                self.assertNotIn(".part", row)
+                # Complete archives are merged locally, not single published ZIP assets.
+                self.assertNotIn(catalog.asset_url(hd, collection["file"]), row)
+            for item in self.data["downloads"].values():
+                self.assertIn(f"[{action} · {item['size'] / 1048576:.0f} MiB]({catalog.asset_url(item)})", "\n".join(rows))
 
     def test_readmes_and_centers_match_index(self):
         catalog.sync(self.data, check=True)
+
+    def test_canonical_names_win_over_compatibility_aliases_at_same_version(self):
+        releases = self.releases()
+        expected = copy.deepcopy(self.data)
+        for key, entry in expected["downloads"].items():
+            entry["file"] = catalog.artifact_names(key, entry["version"])[0]
+            release = next(r for r in releases if r["tag_name"] == entry["tag"])
+            release["assets"].append({"name": entry["file"], "size": entry["size"], "digest": "sha256:" + entry["sha256"]})
+        self.assertEqual(catalog.discover(releases), expected)
 
     def test_published_release_keeps_verified_sizes_without_reusing_draft_sizes(self):
         for key in ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade"):
@@ -112,9 +166,9 @@ class DownloadCatalogTests(unittest.TestCase):
                 rendered = catalog.table(self.data, language, tag=item["tag"])
                 row = next(line for line in rendered.splitlines() if catalog.asset_url(item) in line)
                 self.assertIn(f"{item['size'] / 1048576:.0f} MiB", row)
-        draft = catalog.table(self.data, tag="bridge-v99.0.0")
+        draft = catalog.table(self.data, tag="v99.0.0")
         for line in draft.splitlines():
-            if "bridge-v99.0.0" in line:
+            if "v99.0.0" in line:
                 self.assertNotIn("MiB", line)
 
 
