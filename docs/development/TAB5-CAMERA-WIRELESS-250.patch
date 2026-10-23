@@ -1,0 +1,688 @@
+--- a/firmware/components/esp_lvgl_port/include/esp_lvgl_port_disp.h
++++ b/firmware/components/esp_lvgl_port/include/esp_lvgl_port_disp.h
+@@ -138,6 +138,12 @@
+ esp_err_t lvgl_port_remove_disp(lv_display_t *disp);
+ 
+ #if LVGL_VERSION_MAJOR >= 9
++/** Caller holds the LVGL lock. Drain the last asynchronous normal DMA copy;
++ * keep that lock until shared DMA2D work finishes. Scanout keeps displaying the
++ * existing framebuffer. Timeout preserves pending ownership and never clears it.
++ */
++bool lvgl_port_display_wait_idle(lv_display_t *disp, uint32_t timeout_ms);
++
+ /**
+  * Take exclusive ownership of two native RGB565 DPI framebuffers. Caller holds
+  * the LVGL lock. This display's refresh timer is paused and ordinary flushes
+--- a/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
++++ b/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
+@@ -609,6 +609,27 @@
+     ESP_LOGE(TAG, "Camera framebuffer handoff failed (%s); display writes remain suppressed",
+              result == ESP_OK ? "refresh timeout" : esp_err_to_name(result));
+     return false;
++}
++
++bool lvgl_port_display_wait_idle(lv_display_t* disp, uint32_t timeout_ms)
++{
++    if (!disp) return false;
++    lvgl_port_display_ctx_t* ctx = lv_display_get_driver_data(disp);
++    if (!ctx || ctx->disp_type != LVGL_PORT_DISP_TYPE_DSI || !ctx->trans_sem) return false;
++    portENTER_CRITICAL(&ctx->direct_lock);
++    bool normal = ctx->direct.mode == TAB5_DIRECT_NORMAL;
++    bool pending = ctx->direct.normal_dma != TAB5_DIRECT_DMA_NONE;
++    portEXIT_CRITICAL(&ctx->direct_lock);
++    if (!normal) return false;
++    if (pending) {
++        if (xSemaphoreTake(ctx->trans_sem, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) return false;
++        portENTER_CRITICAL(&ctx->direct_lock);
++        bool consumed = tab5_direct_normal_consume(&ctx->direct);
++        portEXIT_CRITICAL(&ctx->direct_lock);
++        if (!consumed) return false;
++        lv_disp_flush_ready(disp);
++    }
++    return true;
+ }
+ 
+ bool lvgl_port_camera_begin(lv_display_t* disp)
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -26,6 +26,7 @@
+ endif()
+ list(APPEND tab5_sources "art_orientation.c")
+ list(APPEND tab5_sources "display_diagnostics.c")
++list(APPEND tab5_sources "runtime_diagnostics.c")
+ list(APPEND tab5_sources "usb_bulk_receive.c")
+ list(APPEND tab5_sources "draw_diagnostics.c" "camera_compositor.c" "camera_viewport.c")
+ list(APPEND tab5_sources "draw_fast.c")
+--- a/firmware/main/photo_attachment.c
++++ b/firmware/main/photo_attachment.c
+@@ -6,6 +6,7 @@
+ #include "esp_heap_caps.h"
+ #include "gallery_remote.h"
+ #include "freertos/idf_additions.h"
++#include "esp_lvgl_port.h"
+ #include <dirent.h>
+ #include <stdatomic.h>
+ #include <stdio.h>
+@@ -48,6 +49,7 @@
+     for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++)preview[(y+y0)*PHOTO_PREVIEW_W+x+x0]=pixels[(y*height/h)*stride+x*width/w];
+ }
+ static bool prepare_camera(void) {
++    bool display_locked=false;
+     size_t output_capacity=0;
+     const jpeg_encode_memory_alloc_cfg_t out_cfg={.buffer_direction=JPEG_ENC_ALLOC_OUTPUT_BUFFER};
+     jpeg_encoder_handle_t codec=NULL;const jpeg_encode_engine_cfg_t engine={.timeout_ms=3000};
+@@ -60,6 +62,12 @@
+     // through synchronous encoding instead of allocating another 1,843,200 bytes.
+     const uint8_t *pixels=camera_preview_acquire();
+     if(!pixels)goto finished;
++    // JPEG and DPI copies share the DMA2D pool. Keep the completed photo on the
++    // panel while encoding; first drain any final LVGL copy, then prevent new
++    // draw/PPA/copy work until the encoder is deleted. Scanout stays running.
++    reason="显示仍在刷新，可稍后重试";result=ESP_ERR_TIMEOUT;
++    display_locked=lvgl_port_lock(1000);
++    if(!display_locked||!lvgl_port_display_wait_idle(lv_display_get_default(),300))goto finished;
+     unsigned width,height;camera_preview_dimensions(&width,&height);
+     cfg.width=width;cfg.height=height;
+     make_preview((const uint16_t *)pixels,width,height,width);
+@@ -84,6 +92,7 @@
+     // immutable still frame so a retry does not require another photograph.
+     codec_mark(result==ESP_OK?7:step,result);
+     if(codec)jpeg_del_encoder_engine(codec);
++    if(display_locked)lvgl_port_unlock();
+     camera_preview_release(pixels);
+     if(result!=ESP_OK) {
+         free(data);data=NULL;data_size=0;
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -295,7 +295,7 @@
+ }
+ static unsigned rpc_exchange_timeout(const char *kind,bool ota_probe) {
+     if(ota_probe)return 5000;
+-    if(kind&&!strcmp(kind,"boot-verify"))return 2000;
++    if(kind&&(!strcmp(kind,"boot-verify")||!strcmp(kind,"runtime-diagnostics")))return 2000;
+     if(kind&&!strcmp(kind,"gallery"))return 8000;
+     if(kind&&(!strcmp(kind,"ota")||!strcmp(kind,"ota_probe")))return 10000;
+     return 75000;
+--- /dev/null
++++ b/firmware/main/runtime_diagnostics.c
+@@ -0,0 +1,118 @@
++#include "runtime_diagnostics.h"
++#include "device.h"
++#include "assets.h"
++#include "camera_preview.h"
++#include "photo_attachment.h"
++#include "display_diagnostics.h"
++#include "codex_remote.h"
++#include "ota_update.h"
++#include "art_orientation.h"
++#include "gallery_remote.h"
++#include "wifi_status.h"
++#include "wifi_probe.h"
++#include "wireless_boot.h"
++#include "rpc_link.h"
++#include "esp_heap_caps.h"
++#include "esp_app_desc.h"
++#include "esp_system.h"
++#include "esp_timer.h"
++#include "esp_http_client.h"
++#include <stdatomic.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++extern volatile unsigned tab5_display_rotate_us,tab5_display_rotate_peak_us,tab5_display_flush_count,tab5_display_flush_errors;
++extern volatile unsigned tab5_codex_notice_state,tab5_pc_wakes,tab5_backlight_changes,tab5_lcd_underruns;
++extern volatile int tab5_ui_page,tab5_saver_active,tab5_backlight_percent;
++extern volatile int tab5_ui_data_age_ms,tab5_ui_task_selected,tab5_ui_session_ready,tab5_ui_voice_check,tab5_ui_voice_age_ms;
++extern volatile int tab5_voice_http_stage,tab5_voice_http_status,tab5_voice_request_ms,tab5_voice_last_seq;
++extern unsigned tab5_ui_age_ms(void);
++
++cJSON *runtime_diagnostics_snapshot(void) {
++    cJSON *out=cJSON_CreateObject();if(!out)return NULL;
++    device_config cfg=device_get_config();char host[33],name[TRUSTED_HOST_NAME];device_host_identity(host,name);
++    int64_t now=esp_timer_get_time()/1000;
++    cJSON_AddNumberToObject(out,"diagnosticVersion",1);
++    cJSON_AddStringToObject(out,"deviceId",cfg.id);cJSON_AddStringToObject(out,"hostId",host);
++    cJSON_AddStringToObject(out,"firmware",esp_app_get_description()->version);
++    cJSON_AddNumberToObject(out,"uptimeMs",now);cJSON_AddNumberToObject(out,"sampleAgeMs",0);cJSON_AddNumberToObject(out,"resetReason",esp_reset_reason());
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    cJSON_AddBoolToObject(out,"wifiConnected",wifi_connected);cJSON_AddBoolToObject(out,"bleConnected",ble_connected);
++    cJSON_AddNumberToObject(out,"bleConnectCount",ble_connect_count);cJSON_AddNumberToObject(out,"bleDisconnectReason",ble_disconnect_reason);
++    cJSON_AddNumberToObject(out,"assetsReady",assets_ready());cJSON_AddNumberToObject(out,"assetsCached",assets_cached());
++    cJSON *ages=cJSON_AddArrayToObject(out,"ageMs");
++    if(ages)for(int i=0;i<3;i++)cJSON_AddItemToArray(ages,cJSON_CreateNumber(device_links.received_ms[i]<0?-1:now-device_links.received_ms[i]));
++    xSemaphoreGive(device_mutex);
++#define number(key,value) cJSON_AddNumberToObject(out,key,value)
++    number("uiPage",tab5_ui_page);number("saverActive",tab5_saver_active);number("pcWakeCount",tab5_pc_wakes);
++    number("uiAgeMs",tab5_ui_age_ms());number("uiDataAgeMs",tab5_ui_data_age_ms);
++    number("taskSelected",tab5_ui_task_selected);number("inputSessionReady",tab5_ui_session_ready);number("codexNotice",tab5_codex_notice_state);
++    number("voiceCheck",tab5_ui_voice_check);number("voiceAgeMs",tab5_ui_voice_age_ms);
++    number("voiceStage",tab5_voice_http_stage);number("voiceHttp",tab5_voice_http_status);number("voiceRequestMs",tab5_voice_request_ms);number("voiceSeq",tab5_voice_last_seq);
++    number("backlightChanges",tab5_backlight_changes);number("backlightPercent",tab5_backlight_percent);
++    number("lcdUnderruns",tab5_lcd_underruns);number("flushCount",tab5_display_flush_count);number("flushErrors",tab5_display_flush_errors);
++    number("rotateUs",tab5_display_rotate_us);number("rotatePeakUs",tab5_display_rotate_peak_us);
++    number("internalFree",heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));
++    number("internalLargest",heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));
++    number("psramFree",heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
++#undef number
++    // One reusable buffer bounds stack usage. Exporters are shared with USB.
++    char value[1024];
++#define diagnostic(key,formatter) do{value[0]=0;formatter(value,sizeof(value));cJSON_AddStringToObject(out,key,value);}while(0)
++    diagnostic("cameraDiag",camera_preview_diagnostics);diagnostic("displayDiag",display_diagnostics_format);
++    diagnostic("photoDiag",photo_diagnostics);diagnostic("photoUploadDiag",codex_remote_upload_diagnostics);
++    diagnostic("cameraLogHex",camera_preview_driver_error_hex);diagnostic("otaDiag",ota_update_diagnostics);
++    diagnostic("artOrientation",art_orientation_diagnostics);diagnostic("rpcDiag",rpc_failure_diagnostics);
++    diagnostic("wifiDiag",tab5_wifi_numeric_diagnostics);diagnostic("wifiRecoveryDiag",tab5_wifi_recovery_diagnostics);
++    diagnostic("wifiHttpDiag",tab5_wifi_http_diagnostics);diagnostic("wifiPathDiag",tab5_wifi_path_diagnostics);
++    diagnostic("wirelessBootDiag",tab5_wireless_boot_diagnostics);diagnostic("wifiIsolation",wifi_probe_diagnostics);
++#if TAB5_LOCAL_ART
++    diagnostic("galleryDiag",gallery_diagnostics);diagnostic("galleryTransferDiag",gallery_transfer_diagnostics);
++#endif
++#undef diagnostic
++    return out;
++}
++
++typedef struct {char id[33],session[33];link_kind link;unsigned epoch;} runtime_job;
++static atomic_bool sending;
++static void runtime_send(void *argument) {
++    runtime_job *job=argument;cJSON *report=NULL,*snapshot=NULL,*reply=NULL;char nonce[33];int status=0;
++    if(job->epoch!=device_host_epoch()||device_host_changing())goto done;
++    report=cJSON_CreateObject();snapshot=runtime_diagnostics_snapshot();
++    if(!report||!snapshot)goto done;
++    cJSON_AddStringToObject(report,"kind","runtime-diagnostics");cJSON_AddStringToObject(report,"requestId",job->id);
++    cJSON_AddStringToObject(report,"session",job->session);cJSON_AddItemToObject(report,"snapshot",snapshot);snapshot=NULL;
++    if(job->epoch!=device_host_epoch()||device_host_changing())goto done;
++    if(job->link==LINK_BLE) {
++        int64_t began=esp_timer_get_time()/1000;
++        for(unsigned attempt=0;attempt<12;attempt++) {
++            if(job->epoch!=device_host_epoch()||device_host_changing()||esp_timer_get_time()/1000-began>=5000)break;
++            int64_t sample_age=esp_timer_get_time()/1000-began;
++            cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(report,"snapshot"),"sampleAgeMs"),sample_age);
++            reply=rpc_call(job->link,report,&status,nonce);
++            if(reply&&status==200)break;
++            cJSON_Delete(reply);reply=NULL;
++            if(status!=0&&status!=503)break;
++            vTaskDelay(pdMS_TO_TICKS(200));
++        }
++    }
++    else {
++        device_config cfg=device_get_config();char url[112];
++        snprintf(url,sizeof(url),"http://%s:%d/tab5/v1/rpc",cfg.host,cfg.port);
++        esp_http_client_config_t options={.url=url,.timeout_ms=6000,.disable_auto_redirect=true};
++        esp_http_client_handle_t client=esp_http_client_init(&options);
++        if(client){if(job->epoch==device_host_epoch())reply=rpc_http_call(client,report,&status,nonce);esp_http_client_cleanup(client);}
++    }
++done:
++    cJSON_Delete(snapshot);cJSON_Delete(report);cJSON_Delete(reply);free(job);atomic_store(&sending,false);vTaskDelete(NULL);
++}
++bool runtime_diagnostics_report(const char *id,const char *session,link_kind link) {
++    if(!id||strlen(id)!=32||!session||strlen(session)!=32||(link!=LINK_WIFI&&link!=LINK_BLE)||device_host_changing())return false;
++    bool expected=false;if(!atomic_compare_exchange_strong(&sending,&expected,true))return false;
++    runtime_job *job=malloc(sizeof(*job));if(!job){atomic_store(&sending,false);return false;}
++    snprintf(job->id,sizeof(job->id),"%s",id);snprintf(job->session,sizeof(job->session),"%s",session);
++    job->link=link;job->epoch=device_host_epoch();
++    if(xTaskCreate(runtime_send,"runtime_diag",8192,job,2,NULL)!=pdPASS){free(job);atomic_store(&sending,false);return false;}
++    return true;
++}
+--- /dev/null
++++ b/firmware/main/runtime_diagnostics.h
+@@ -0,0 +1,7 @@
++#pragma once
++#include "cJSON.h"
++#include "link_state.h"
++#include <stdbool.h>
++// Numeric runtime state only: never photo/audio/text, keys or Wi-Fi credentials.
++cJSON *runtime_diagnostics_snapshot(void);
++bool runtime_diagnostics_report(const char *request,const char *session,link_kind link);
+--- /dev/null
++++ b/firmware/main/runtime_diagnostics.inc
+@@ -0,0 +1,17 @@
++// Same bound and freshness checks as the authenticated boot probe. A distinct
++// command avoids coupling ordinary diagnostics to an OTA offer or verification.
++static char runtime_diagnostics_last[33];
++static void runtime_diagnostics_tick(cJSON *frame,link_kind link,int64_t now,int64_t received) {
++    cJSON *command=item(item(frame,"connectionHealth"),"runtimeDiagnosticCommand");
++    cJSON *clock=item(frame,"epochMilliseconds"),*expires=item(command,"expiresAt"),*version=item(command,"version");
++    const char *id=cJSON_GetStringValue(item(command,"requestId"));
++    const char *session=cJSON_GetStringValue(item(item(frame,"pcInput"),"session"));
++    const char *transport=cJSON_GetStringValue(item(command,"transport"));
++    if((link!=LINK_WIFI&&link!=LINK_BLE)||!transport||strcmp(transport,link==LINK_WIFI?"Wi-Fi":"BLE")||
++        now<received||now-received>=6000||!remote_ota_hex(id,32)||!remote_ota_hex(session,32)||
++        !cJSON_IsNumber(version)||version->valuedouble!=1||!cJSON_IsNumber(clock)||clock->valuedouble<=0||
++        !cJSON_IsNumber(expires)||expires->valuedouble<=0||expires->valuedouble>9007199254740991.0||
++        expires->valuedouble!=(int64_t)expires->valuedouble||expires->valuedouble<clock->valuedouble+now-received||
++        expires->valuedouble>clock->valuedouble+15000||!strcmp(id,runtime_diagnostics_last))return;
++    if(runtime_diagnostics_report(id,session,link))snprintf(runtime_diagnostics_last,sizeof(runtime_diagnostics_last),"%s",id);
++}
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -48,6 +48,7 @@
+ #endif
+ #ifndef TAB5_UI_PREVIEW
+ #include "ota_remote.h"
++#include "runtime_diagnostics.h"
+ #endif
+ #include "ui_prefs.h"
+ #include "trusted_hosts.h"
+@@ -2771,6 +2772,7 @@
+ static void ota_action(lv_event_t *e){(void)e;(void)ota_begin(NULL,NULL);}
+ #include "ota_remote.inc"
+ #include "boot_verify.inc"
++#include "runtime_diagnostics.inc"
+ static void flash_action(lv_event_t *e) {
+     int action=(int)(intptr_t)lv_event_get_user_data(e);
+     if(action==0){flash_feedback_pinned=false;visible(flash_layer,true);lv_obj_move_foreground(flash_layer);return;}
+@@ -2819,6 +2821,7 @@
+ static void tick_work(lv_timer_t *timer) {
+     ota_remote_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     boot_verify_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
++    runtime_diagnostics_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     tf_storage_refresh();
+     static int64_t reading_saved_at;
+     int64_t reading_now=esp_timer_get_time();
+--- a/firmware/main/ui_agenda_editor.h
++++ b/firmware/main/ui_agenda_editor.h
+@@ -36,16 +36,25 @@
+ }
+ static void agenda_editor_set_date(unsigned row,int64_t value){agenda_editor_values[row]=value;agenda_editor_time_render();}
+ static int64_t agenda_editor_date(unsigned row){return agenda_editor_values[row];}
++static void agenda_editor_feedback_layout(void) {
++    bool keyboard=!lv_obj_has_flag(agenda_editor_keyboard,LV_OBJ_FLAG_HIDDEN);
++    // Idle messages belong to the name field, not to an invisible cancel icon.
++    // Keep that left edge while recording; actions use their own row/column.
++    lv_obj_set_pos(agenda_editor_feedback,0,0);
++    lv_obj_set_size(agenda_editor_feedback,keyboard?(agenda_voice_waiting?864:1152):600,70);
++    lv_obj_set_pos(agenda_editor_voice_meter,0,keyboard?68:76);
++    lv_obj_set_width(agenda_editor_voice_meter,keyboard?864:600);
++    lv_obj_set_pos(agenda_editor_voice_cancel,keyboard?880:0,keyboard?0:96);
++    lv_obj_set_pos(agenda_editor_voice_switch,keyboard?960:88,keyboard?0:96);
++    lv_obj_set_size(agenda_editor_voice_switch,keyboard?192:260,keyboard?72:56);
++}
+ static void agenda_editor_keyboard_hide(lv_event_t *event) {
+     (void)event;tab5_ime_show_for(agenda_editor_ime,false);visible(agenda_editor_keyboard,false);visible(agenda_editor_rule,true);visible(agenda_editor_divider,true);
+     visible(agenda_editor_times,agenda_editor_has_time);visible(agenda_editor_untimed,!agenda_editor_has_time);
+     lv_obj_set_pos(agenda_editor_name,64,198);lv_obj_set_size(agenda_editor_name,496,116);lv_obj_set_style_pad_ver(agenda_editor_name,38,0);lv_obj_set_y(agenda_editor_name_caption,150);
+     lv_obj_set_pos(agenda_editor_voice_button,592,220);
+-    lv_obj_set_pos(agenda_editor_voice_panel,64,350);lv_obj_set_size(agenda_editor_voice_panel,600,160);
+-    lv_obj_set_pos(agenda_editor_voice_cancel,0,0);
+-    lv_obj_set_pos(agenda_editor_voice_switch,88,100);lv_obj_set_size(agenda_editor_voice_switch,260,56);
+-    lv_obj_set_pos(agenda_editor_feedback,88,0);lv_obj_set_size(agenda_editor_feedback,512,70);
+-    lv_obj_set_pos(agenda_editor_voice_meter,88,80);lv_obj_set_size(agenda_editor_voice_meter,512,6);ui_text(lv_obj_get_child(agenda_editor_back,0),"返回");
++    lv_obj_set_pos(agenda_editor_voice_panel,64,338);lv_obj_set_size(agenda_editor_voice_panel,600,176);
++    agenda_editor_feedback_layout();ui_text(lv_obj_get_child(agenda_editor_back,0),"返回");
+ }
+ static void agenda_editor_keyboard_show(lv_event_t *event) {
+     (void)event;if(agenda_voice_waiting)return;visible(agenda_editor_rule,false);visible(agenda_editor_divider,false);
+@@ -53,11 +62,8 @@
+     lv_obj_set_pos(agenda_editor_name,64,142);lv_obj_set_size(agenda_editor_name,1056,96);lv_obj_set_style_pad_ver(agenda_editor_name,28,0);lv_obj_set_y(agenda_editor_name_caption,102);
+     lv_obj_set_pos(agenda_editor_voice_button,1144,154);
+     lv_obj_set_pos(agenda_editor_voice_panel,64,260);lv_obj_set_size(agenda_editor_voice_panel,1152,72);
+-    lv_obj_set_pos(agenda_editor_voice_cancel,0,0);
+-    lv_obj_set_pos(agenda_editor_voice_switch,960,0);lv_obj_set_size(agenda_editor_voice_switch,192,72);
+-    lv_obj_set_pos(agenda_editor_feedback,88,0);lv_obj_set_size(agenda_editor_feedback,848,64);
+-    lv_obj_set_pos(agenda_editor_voice_meter,88,68);lv_obj_set_size(agenda_editor_voice_meter,848,4);
+     visible(agenda_editor_keyboard,true);lv_keyboard_set_textarea(agenda_editor_keyboard,agenda_editor_name);tab5_ime_show_for(agenda_editor_ime,true);ui_text(lv_obj_get_child(agenda_editor_back,0),"完成输入");
++    agenda_editor_feedback_layout();
+ }
+ static void agenda_editor_duration(lv_event_t *event){unsigned n=(unsigned)(uintptr_t)lv_event_get_user_data(event);if(n<3)agenda_editor_set_date(1,agenda_editor_values[0]+agenda_durations[n]);}
+ static void agenda_editor_close(lv_event_t *event) {
+--- a/firmware/main/ui_agenda_voice.h
++++ b/firmware/main/ui_agenda_voice.h
+@@ -24,6 +24,7 @@
+     const char *base=lv_textarea_get_text(agenda_editor_name);if(strlen(base)>96)return;
+     if(!voice_remote_start_tab5(AGENDA_VOICE_OWNER,session,(int64_t)num(shown,"epochMilliseconds")+age)){ui_text(agenda_editor_feedback,"语音未启动，请检查连接和电脑语音设置");return;}
+     voice_remote_get(voice);agenda_voice_generation=voice->generation;agenda_voice_waiting=true;agenda_voice_cancelled=false;agenda_voice_started=0;agenda_voice_switching=false;
++    agenda_editor_feedback_layout();
+     strcpy(agenda_voice_base,base);agenda_voice_cursor=lv_textarea_get_cursor_pos(agenda_editor_name);agenda_voice_byte=lv_text_encoded_get_byte_id(base,agenda_voice_cursor);
+     // Keep the input layout and stop target stationary throughout the take.
+     agenda_voice_lock_keys(agenda_editor_keyboard,true);agenda_voice_lock_keys(agenda_editor_ime,true);lv_obj_add_state(agenda_editor_name,LV_STATE_DISABLED);lv_obj_add_state(agenda_editor_save_button,LV_STATE_DISABLED);tint(lv_obj_get_child(agenda_editor_save_button,0),MUTED);visible(agenda_editor_voice_cancel,true);lv_obj_add_state(agenda_editor_voice_button,LV_STATE_DISABLED);ui_bg_color(agenda_editor_voice_button,lv_color_hex(0x534C39),0);tint(agenda_editor_feedback,AMBER);ui_text(agenda_editor_feedback,"正在准备，请稍候…");
+@@ -52,13 +53,19 @@
+     }
+     tint(agenda_editor_feedback,owner&&!strcmp(voice->phase,"error")?AMBER:MUTED);
+     agenda_voice_waiting=false;visible(agenda_editor_voice_cancel,false);agenda_voice_lock_keys(agenda_editor_keyboard,false);agenda_voice_lock_keys(agenda_editor_ime,false);lv_obj_remove_state(agenda_editor_voice_button,LV_STATE_DISABLED);lv_obj_remove_state(agenda_editor_name,LV_STATE_DISABLED);lv_obj_remove_state(agenda_editor_save_button,LV_STATE_DISABLED);tint(lv_obj_get_child(agenda_editor_save_button,0),0x173642);
++    agenda_editor_feedback_layout();
+     if(owner&&!agenda_voice_cancelled&&!strcmp(voice->phase,"review")&&voice->can_insert&&voice->text[0]) {
+-        size_t base=strlen(agenda_voice_base),extra=strlen(voice->text);
+-        if(base+extra<=96&&lv_text_get_encoded_length(agenda_voice_base)+lv_text_get_encoded_length(voice->text)<=32) {
+-            char joined[97];memcpy(joined,agenda_voice_base,agenda_voice_byte);memcpy(joined+agenda_voice_byte,voice->text,extra);memcpy(joined+agenda_voice_byte+extra,agenda_voice_base+agenda_voice_byte,base-agenda_voice_byte+1);
+-            lv_textarea_set_text(agenda_editor_name,joined);lv_textarea_set_cursor_pos(agenda_editor_name,agenda_voice_cursor+lv_text_get_encoded_length(voice->text));ui_text(agenda_editor_feedback,"已填入名称，请检查后保存");return;
+-        }
+-        ui_text(agenda_editor_feedback,"语音内容超过 32 个字，原名称已保留，请缩短重录");return;
++        size_t base=strlen(agenda_voice_base);
++        unsigned base_chars=lv_text_get_encoded_length(agenda_voice_base),spoken=lv_text_get_encoded_length(voice->text);
++        unsigned inserted=base_chars<32?LV_MIN(spoken,32-base_chars):0;
++        size_t extra=lv_text_encoded_get_byte_id(voice->text,inserted);
++        // Keep the existing prefix/suffix and cut only the new speech at a complete
++        // UTF-8 character. The persisted title also has a 96-byte storage bound.
++        while(inserted&&base+extra>96)extra=lv_text_encoded_get_byte_id(voice->text,--inserted);
++        if(!inserted){ui_text(agenda_editor_feedback,"名称已满，请删减后再录音");return;}
++        char joined[97];memcpy(joined,agenda_voice_base,agenda_voice_byte);memcpy(joined+agenda_voice_byte,voice->text,extra);memcpy(joined+agenda_voice_byte+extra,agenda_voice_base+agenda_voice_byte,base-agenda_voice_byte+1);
++        lv_textarea_set_text(agenda_editor_name,joined);lv_textarea_set_cursor_pos(agenda_editor_name,agenda_voice_cursor+inserted);
++        ui_text(agenda_editor_feedback,inserted==spoken?"已填入名称，请检查后保存":base_chars+inserted==32?"已保留 32 字，请检查后保存":"已截断并填入，请检查后保存");return;
+     }
+     ui_text(agenda_editor_feedback,agenda_voice_cancelled||!strcmp(voice->phase,"cancelled")?"已取消，原名称已保留":owner&&voice->message[0]?voice->message:"语音会话已变化，原名称已保留");
+ }
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -1,5 +1,25 @@
+ cmake_minimum_required(VERSION 3.20)
+ project(tab5_preview C)
++set(RUNTIME_SOURCE "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/runtime_diagnostics.c")
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${RUNTIME_SOURCE}")
++file(READ "${RUNTIME_SOURCE}" RUNTIME_TEXT)
++string(FIND "${RUNTIME_TEXT}" "extern volatile unsigned tab5_display_rotate_us" RUNTIME_START)
++string(SUBSTRING "${RUNTIME_TEXT}" ${RUNTIME_START} -1 RUNTIME_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/runtime_diagnostics_under_test.inc" "${RUNTIME_BODY}")
++add_executable(runtime-diagnostics-test runtime_diagnostics_test.c "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON/cJSON.c")
++target_include_directories(runtime-diagnostics-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON")
++target_compile_options(runtime-diagnostics-test PRIVATE /UNDEBUG)
++set(DISPLAY_IDLE_SOURCE "${CMAKE_CURRENT_LIST_DIR}/../../firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c")
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${DISPLAY_IDLE_SOURCE}")
++file(READ "${DISPLAY_IDLE_SOURCE}" DISPLAY_IDLE_TEXT)
++string(FIND "${DISPLAY_IDLE_TEXT}" "bool lvgl_port_display_wait_idle(" DISPLAY_IDLE_START)
++string(FIND "${DISPLAY_IDLE_TEXT}" "bool lvgl_port_camera_begin(" DISPLAY_IDLE_END)
++math(EXPR DISPLAY_IDLE_LENGTH "${DISPLAY_IDLE_END}-${DISPLAY_IDLE_START}")
++string(SUBSTRING "${DISPLAY_IDLE_TEXT}" ${DISPLAY_IDLE_START} ${DISPLAY_IDLE_LENGTH} DISPLAY_IDLE_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/display_idle_under_test.inc" "${DISPLAY_IDLE_BODY}")
++add_executable(display-idle-test display_idle_test.c)
++target_include_directories(display-idle-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++target_compile_options(display-idle-test PRIVATE /UNDEBUG)
+ add_executable(ble-owner-test ble_owner_test.c)
+ target_compile_options(ble-owner-test PRIVATE /UNDEBUG)
+ add_executable(ble-owner-proof-test ble_owner_proof_test.c "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON/cJSON.c")
+--- a/tests/ui-preview/agenda_ui_test.h
++++ b/tests/ui-preview/agenda_ui_test.h
+@@ -79,6 +79,8 @@
+     assert(lv_obj_get_x(agenda_editor_times)==748&&lv_obj_get_y(agenda_editor_times)==136&&lv_obj_get_width(agenda_editor_times)==468&&lv_obj_get_height(agenda_editor_times)==484);
+     assert(lv_obj_get_x(agenda_editor_voice_button)>lv_obj_get_x(agenda_editor_name)+lv_obj_get_width(agenda_editor_name));
+     assert(lv_obj_get_y(agenda_editor_voice_button)==lv_obj_get_y(agenda_editor_name)+(lv_obj_get_height(agenda_editor_name)-72)/2);
++    lv_area_t feedback_area,name_feedback_area;lv_obj_get_coords(agenda_editor_feedback,&feedback_area);lv_obj_get_coords(agenda_editor_name,&name_feedback_area);
++    assert(feedback_area.x1==name_feedback_area.x1&&feedback_area.y1>name_feedback_area.y2);
+     assert(agenda_editor_has_time);
+     assert(lv_obj_get_y(agenda_editor_durations[0])==lv_obj_get_y(agenda_editor_endpoints[1]));
+     assert(lv_obj_get_style_text_font(agenda_editor_clocks[0],0)==&tab5_digits_72&&agenda_editor_clocks[1]==NULL);
+@@ -137,6 +139,7 @@
+     preview_voice.ready=true;preview_voice.level=62;strcpy(preview_voice.source,"dji");strcpy(preview_voice.source_name,"麦克风 (Wireless Mic Rx)");strcpy(preview_voice.phase,"recording");agenda_editor_voice_tick();capture("agenda-editor-voice-recording");agenda_test_fonts(agenda_editor);
+     assert(lv_obj_has_flag(agenda_editor_mic_glyph,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(agenda_editor_stop_glyph,LV_OBJ_FLAG_HIDDEN));
+     assert(!lv_obj_has_flag(agenda_editor_voice_meter,LV_OBJ_FLAG_HIDDEN)&&lv_bar_get_value(agenda_editor_voice_meter)==62&&strstr(lv_label_get_text(agenda_editor_feedback),"Wireless Mic Rx"));
++    lv_obj_get_coords(agenda_editor_feedback,&feedback_area);lv_obj_get_coords(agenda_editor_name,&name_feedback_area);assert(feedback_area.x1==name_feedback_area.x1);
+     lv_area_t recording_area;lv_obj_get_coords(agenda_editor_voice_button,&recording_area);assert(!memcmp(&voice_area,&recording_area,sizeof(voice_area))&&!lv_obj_has_flag(agenda_editor_keyboard,LV_OBJ_FLAG_HIDDEN));
+     assert(lv_obj_has_state(agenda_editor_keyboard,LV_STATE_DISABLED)&&lv_obj_has_state(lv_obj_get_child(agenda_editor_ime,2),LV_STATE_DISABLED));
+     agenda_test_tap(agenda_touch,agenda_editor_keyboard);assert(!lv_textarea_get_text(agenda_editor_name)[0]);
+@@ -159,7 +162,26 @@
+     lv_obj_send_event(agenda_editor_voice_button,LV_EVENT_CLICKED,NULL);preview_voice.busy=false;strcpy(preview_voice.phase,"error");strcpy(preview_voice.message,"连接中断");agenda_editor_voice_tick();assert(!strcmp(lv_textarea_get_text(agenda_editor_name),"语音会议"));
+     // A result from another owner must never replace the agenda name.
+     lv_obj_send_event(agenda_editor_voice_button,LV_EVENT_CLICKED,NULL);preview_voice.busy=false;strcpy(preview_voice.task_id,"00000000-0000-4000-8000-000000000000");strcpy(preview_voice.phase,"review");strcpy(preview_voice.text,"其他会话");preview_voice.can_insert=true;agenda_editor_voice_tick();assert(!strcmp(lv_textarea_get_text(agenda_editor_name),"语音会议"));
+-    lv_obj_send_event(agenda_editor_voice_button,LV_EVENT_CLICKED,NULL);preview_voice.busy=false;strcpy(preview_voice.phase,"review");memset(preview_voice.text,'x',100);preview_voice.text[100]=0;preview_voice.can_insert=true;agenda_editor_voice_tick();assert(!strcmp(lv_textarea_get_text(agenda_editor_name),"语音会议")&&strstr(lv_label_get_text(agenda_editor_feedback),"超过"));
++    // Real completion path: return a usable prefix instead of throwing away speech.
++    for(unsigned test=0;test<5;test++) {
++        const char *base=test==2?"已有名称":test==4?"12345678901234567890123456789012":"";
++        const char *unit=test==3?"\xF0\x9F\x98\x80":test==2?"x":"会";
++        unsigned count=test==0?32:40;
++        lv_textarea_set_text(agenda_editor_name,base);lv_textarea_set_cursor_pos(agenda_editor_name,test==2?2:LV_TEXTAREA_CURSOR_LAST);
++        lv_obj_send_event(agenda_editor_voice_button,LV_EVENT_CLICKED,NULL);assert(agenda_voice_waiting);
++        preview_voice.busy=false;strcpy(preview_voice.phase,"review");preview_voice.text[0]=0;
++        for(unsigned n=0;n<count;n++)strcat(preview_voice.text,unit);
++        preview_voice.can_insert=true;agenda_editor_voice_tick();assert(!agenda_voice_waiting);
++        const char *result=lv_textarea_get_text(agenda_editor_name);unsigned kept=test==3?24:test==4?0:test==2?28:32;
++        char expected[97]="";if(test==2)strcpy(expected,"已有");if(test==4)strcpy(expected,base);
++        for(unsigned n=0;n<kept;n++)strcat(expected,unit);if(test==2)strcat(expected,"名称");
++        assert(!strcmp(result,expected)&&strlen(result)<=96&&lv_text_get_encoded_length(result)<=32);
++        assert(!lv_obj_has_state(agenda_editor_save_button,LV_STATE_DISABLED)&&!lv_obj_has_state(agenda_editor_name,LV_STATE_DISABLED));
++        assert(test==4?strstr(lv_label_get_text(agenda_editor_feedback),"已满")!=NULL:test==0?strstr(lv_label_get_text(agenda_editor_feedback),"已填入")!=NULL:strstr(lv_label_get_text(agenda_editor_feedback),test==3?"已截断":"已保留 32 字")!=NULL);
++        agenda_editor_voice_tick();assert(!strcmp(lv_textarea_get_text(agenda_editor_name),expected));
++        if(test==1){capture("agenda-editor-voice-truncated");agenda_test_fonts(agenda_editor);}
++    }
++    printf("AGENDA_VOICE_TRUNCATION_OK exact32/over32/cursor-suffix/utf8-byte-limit/full-title; no auto-save\n");
+     last_received=esp_timer_get_time()/1000-7000;lv_obj_send_event(agenda_editor_voice_button,LV_EVENT_CLICKED,NULL);assert(!agenda_voice_waiting&&strstr(lv_label_get_text(agenda_editor_feedback),"连接电脑"));
+     agenda_editor_close(NULL);assert(!agenda_editor_open());preview_voice_start_enabled=false;
+     assert(preview_submit_count==submissions&&!strcmp(lv_textarea_get_text(codex_input),"保留 Codex 草稿"));
+--- /dev/null
++++ b/tests/ui-preview/display_idle_test.c
+@@ -0,0 +1,31 @@
++#undef NDEBUG
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include "../../firmware/components/esp_lvgl_port/include/tab5_display_direct_state.h"
++#define portENTER_CRITICAL(p) ((void)(p))
++#define portEXIT_CRITICAL(p) ((void)(p))
++#define pdMS_TO_TICKS(t) (t)
++#define pdTRUE 1
++#define LVGL_PORT_DISP_TYPE_DSI 1
++typedef struct{int disp_type,direct_lock;void *trans_sem;tab5_display_direct_state_t direct;}lvgl_port_display_ctx_t;
++typedef struct{lvgl_port_display_ctx_t *ctx;}lv_display_t;
++static bool timeout,wrong_completion;static unsigned ready,waits;
++static void *lv_display_get_driver_data(lv_display_t *d){return d->ctx;}
++static int xSemaphoreTake(void *sem,unsigned ms){assert(ms==300);waits++;if(timeout)return 0;if(!wrong_completion)tab5_direct_color_done(sem);return 1;}
++static void lv_disp_flush_ready(lv_display_t *d){assert(d);ready++;}
++#include "display_idle_under_test.inc"
++int main(void){
++    lvgl_port_display_ctx_t ctx={.disp_type=1};ctx.trans_sem=&ctx.direct;lv_display_t d={&ctx};
++    assert(lvgl_port_display_wait_idle(&d,300)&&!ready&&!waits);
++    assert(tab5_direct_normal_submit(&ctx.direct));timeout=true;
++    assert(!lvgl_port_display_wait_idle(&d,300)&&ctx.direct.normal_dma!=TAB5_DIRECT_DMA_NONE&&!ready);
++    timeout=false;wrong_completion=true;assert(!lvgl_port_display_wait_idle(&d,300)&&!ready);
++    wrong_completion=false;assert(lvgl_port_display_wait_idle(&d,300)&&ready==1&&ctx.direct.normal_dma==TAB5_DIRECT_DMA_NONE);
++    assert(lvgl_port_display_wait_idle(&d,300)&&ready==1);
++    ctx.direct.mode=TAB5_DIRECT_CAMERA;assert(!lvgl_port_display_wait_idle(&d,300));
++    ctx.direct.mode=TAB5_DIRECT_FAULT;assert(!lvgl_port_display_wait_idle(&d,300));
++    assert(!lvgl_port_display_wait_idle(NULL,300));
++    puts("DISPLAY_IDLE_OK actual drain; idle/in-flight/timeout/late completion/camera/fault; no framebuffer selection or clearing");return 0;
++}
+--- a/tests/ui-preview/photo_encode_test.c
++++ b/tests/ui-preview/photo_encode_test.c
+@@ -23,6 +23,11 @@
+ static char error[96];
+ static int fault,allocations,deletes,encodes,previews,last_step,last_code,attempts;
+ static bool leased;
++static bool display_locked;
++static bool lvgl_port_lock(unsigned timeout){assert(timeout==1000&&!display_locked);if(fault==11)return false;display_locked=true;return true;}
++static void *lv_display_get_default(void){return (void*)1;}
++static bool lvgl_port_display_wait_idle(void *d,unsigned timeout){assert(d&&timeout==300&&display_locked);return fault!=12;}
++static void lvgl_port_unlock(void){assert(display_locked);display_locked=false;}
+ static unsigned photo_width=1280,photo_height=720;
+ static void camera_preview_dimensions(unsigned *w,unsigned *h){*w=photo_width;*h=photo_height;}
+ static uint8_t still[1280*720*2];
+@@ -49,13 +54,13 @@
+ }
+ static esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t codec,const jpeg_encode_cfg_t *cfg,const uint8_t *p,
+     unsigned n,uint8_t *out,size_t capacity,uint32_t *written) {
+-    assert(codec&&p==still&&leased&&out&&n==1280*720*2&&capacity==allocated_capacity);
++    assert(codec&&p==still&&leased&&display_locked&&out&&n==1280*720*2&&capacity==allocated_capacity);
+     assert(cfg->width==photo_width&&cfg->height==photo_height&&cfg->src_type==JPEG_ENCODE_IN_FORMAT_RGB565&&cfg->image_quality==85);
+     encodes++;*written=fault==6?0:fault==8?capacity+1:123456;
+     memset(out,0x5a,*written>capacity?capacity:*written);
+     return fault==5?ESP_ERR_TIMEOUT:fault==10?ESP_ERR_INVALID_STATE:ESP_OK;
+ }
+-static void jpeg_del_encoder_engine(jpeg_encoder_handle_t codec) {assert(codec);deletes++;}
++static void jpeg_del_encoder_engine(jpeg_encoder_handle_t codec) {assert(codec&&display_locked);deletes++;}
+ #define free tracked_free
+ #include "photo_encode_under_test.inc"
+ #undef free
+@@ -63,7 +68,7 @@
+ {
+     fault=failure;deletes=encodes=previews=attempts=0;atomic_store(&phase,1);
+     assert(!data&&!allocations&&!leased);
+-    bool ok=prepare_camera();assert(ok==(failure==0||failure==9));assert(!leased);
++    bool ok=prepare_camera();assert(ok==(failure==0||failure==9));assert(!leased&&!display_locked);
+     assert(last_step==step&&last_code==code);
+     if(ok){assert(data&&data_size==123456&&allocations==1);for(size_t i=0;i<data_size;i++)assert(data[i]==0x5a);tracked_free(data);data=NULL;}
+     else {assert(!data&&data_size==0&&allocations==0&&atomic_load(&phase)==3);assert(strstr(error,"重拍")==NULL);}
+@@ -73,6 +78,7 @@
+ int main(void)
+ {
+     run_case(2,2,ESP_ERR_INVALID_STATE);
++    run_case(11,2,ESP_ERR_TIMEOUT);run_case(12,2,ESP_ERR_TIMEOUT);
+     run_case(3,3,ESP_ERR_NO_MEM);run_case(4,4,ESP_ERR_NO_MEM);
+     run_case(5,5,ESP_ERR_TIMEOUT);run_case(6,6,ESP_ERR_INVALID_SIZE);
+     run_case(8,6,ESP_ERR_INVALID_SIZE);run_case(0,7,ESP_OK);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -4,6 +4,7 @@
+ // The native renderer has no authenticated report transport. Exercise real
+ // reporting in the separate boot worker/RPC tests; never synthesize success.
+ static bool boot_verify_report(const char *id,const char *session,link_kind link){(void)id;(void)session;(void)link;return false;}
++static bool runtime_diagnostics_report(const char *id,const char *session,link_kind link){(void)id;(void)session;(void)link;return false;}
+ #include "../../firmware/main/ui.c"
+ #include "../../firmware/main/art_orientation_filter.h"
+ #include <assert.h>
+@@ -1632,6 +1633,43 @@
+     preview_photo_prepares=prepares-6;camera_preview_stop();
+     puts("PHOTO_ADD_TRANSITION_OK four poses; retained still; no premature page/rotation; duplicate controls blocked; encoder retry; normal geometry before reveal; no upload or send");
+ }
++static uint16_t *photo_stable_pixels;
++static lv_area_t photo_control_areas[3];
++static unsigned photo_delta_flushes,photo_delta_pixels,photo_outside_changes;
++static void photo_delta_flush(lv_display_t *display,const lv_area_t *area,uint8_t *pixels) {
++    unsigned width=lv_display_get_horizontal_resolution(display),height=lv_display_get_vertical_resolution(display);
++    assert(area->x1>=0&&area->y1>=0&&area->x2<(int)width&&area->y2<(int)height);
++    unsigned stride=lv_area_get_width(area);photo_delta_flushes++;photo_delta_pixels+=lv_area_get_size(area);
++    for(int y=area->y1;y<=area->y2;y++)for(int x=area->x1;x<=area->x2;x++) {
++        uint16_t color=((uint16_t *)pixels)[(y-area->y1)*stride+x-area->x1];
++        bool control=false;
++        for(unsigned i=0;i<3;i++){lv_area_t *a=&photo_control_areas[i];control|=x>=a->x1&&x<=a->x2&&y>=a->y1&&y<=a->y2;}
++        if(!control&&color!=photo_stable_pixels[y*width+x])photo_outside_changes++;
++    }
++    lv_display_flush_ready(display);
++}
++static void photo_delta_begin(void) {
++    lv_display_t *display=lv_display_get_default();lv_refr_now(display);
++    photo_stable_pixels=malloc(sizeof(preview_buffer));assert(photo_stable_pixels);
++    memcpy(photo_stable_pixels,preview_buffer,sizeof(preview_buffer));
++    lv_obj_t *controls[]={camera_close,camera_retry,camera_use};
++    for(unsigned i=0;i<3;i++){lv_obj_get_coords(controls[i],&photo_control_areas[i]);lv_area_increase(&photo_control_areas[i],4,4);}
++    lv_display_set_flush_cb(display,photo_delta_flush);
++    lv_display_set_buffers(display,preview_buffer,NULL,TAB5_DRAW_BUFFER_PIXELS*2,LV_DISPLAY_RENDER_MODE_PARTIAL);
++    lv_refr_now(display);photo_delta_flushes=photo_delta_pixels=photo_outside_changes=0;
++}
++static void photo_delta_check(int pose,const char *stage) {
++    lv_refr_now(NULL);
++    printf("PHOTO_PARTIAL_STAGE pose=%d stage=%s flushes=%u pixels=%u changed_photo_pixels=%u\n",pose,stage,photo_delta_flushes,photo_delta_pixels,photo_outside_changes);
++    assert(photo_outside_changes==0);
++    photo_delta_flushes=photo_delta_pixels=photo_outside_changes=0;
++}
++static void photo_delta_end(void) {
++    free(photo_stable_pixels);photo_stable_pixels=NULL;
++    lv_display_t *display=lv_display_get_default();
++    lv_display_set_flush_cb(display,preview_flush);
++    lv_display_set_buffers(display,preview_buffer,NULL,sizeof(preview_buffer),LV_DISPLAY_RENDER_MODE_FULL);
++}
+ static void check_photo_upload_transition(void) {
+     // A completed codec is not a completed attachment. Keep the still visible
+     // while the host acknowledges it, then reveal the composer only once.
+@@ -1650,8 +1688,11 @@
+         lv_canvas_set_buffer(camera_canvas,pixels,camera_pose_width(poses[i]),camera_pose_height(poses[i]),LV_COLOR_FORMAT_RGB565);
+         assert(camera_orientation_apply(poses[i]));camera_tick();
+         lv_display_rotation_t rotation=lv_display_get_rotation(NULL);
++        photo_delta_begin();
+         lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);
++        photo_delta_check(poses[i],"encode");
+         preview_photo_state=2;preview_result_code=-1;photo_tick();uploads++;
++        photo_delta_check(poses[i],"upload");
+         assert(photo_step==3&&preview_photo_uploads==uploads);
+         for(int n=0;n<4;n++) {
+             photo_tick();camera_tick();clock_tick(NULL);
+@@ -1659,6 +1700,7 @@
+             assert(lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN)&&lv_display_get_rotation(NULL)==rotation);
+             assert(preview_photo_uploads==uploads);
+         }
++        photo_delta_check(poses[i],"pending");photo_delta_end();
+         if(i==2)capture("photo-upload-keeps-portrait");
+         if(i==1) {
+             preview_result_code=500;preview_result_text="添加失败，照片已保留";photo_tick();
+--- /dev/null
++++ b/tests/ui-preview/runtime_diagnostics_test.c
+@@ -0,0 +1,91 @@
++#undef NDEBUG
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdatomic.h>
++#include "cJSON.h"
++#include "../../firmware/main/link_state.h"
++#define TRUSTED_HOST_NAME 64
++#define TAB5_LOCAL_ART 1
++#define MALLOC_CAP_INTERNAL 1
++#define MALLOC_CAP_8BIT 2
++#define MALLOC_CAP_SPIRAM 4
++#define portMAX_DELAY 0
++#define pdPASS 1
++#define pdMS_TO_TICKS(ms) (ms)
++typedef struct{char id[16],host[16];int port;}device_config;
++static device_config device_get_config(void){return(device_config){"001122aabbcc","192.0.2.1",18765};}
++static unsigned epoch=1,calls,busy_calls,created;static bool changing,fail_task,fail_http;
++static unsigned device_host_epoch(void){return epoch;}
++static bool device_host_changing(void){return changing;}
++static void device_host_identity(char *id,char *name){strcpy(id,"11111111111111111111111111111111");strcpy(name,"fixture");}
++static int64_t now=123456;
++static int64_t esp_timer_get_time(void){return now*1000+789;}
++static void vTaskDelay(unsigned ms){now+=ms;}
++static int esp_reset_reason(void){return 3;}
++static size_t heap_caps_get_free_size(unsigned caps){return caps*1000;}
++static size_t heap_caps_get_largest_free_block(unsigned caps){return caps*100;}
++typedef struct{char version[32];}app_desc;
++static const app_desc *esp_app_get_description(void){static app_desc d={"0.2.250-ui"};return &d;}
++static void *device_mutex;static bool wifi_connected=true,ble_connected;
++static unsigned ble_connect_count=4,ble_disconnect_reason=0;
++static struct{int64_t received_ms[3];}device_links={{-1,123400,123300}};
++static void xSemaphoreTake(void *p,unsigned t){(void)p;(void)t;}
++static void xSemaphoreGive(void *p){(void)p;}
++static unsigned assets_ready(void){return 7;}static unsigned assets_cached(void){return 3;}
++volatile unsigned tab5_display_rotate_us,tab5_display_rotate_peak_us,tab5_display_flush_count=42,tab5_display_flush_errors;
++volatile unsigned tab5_codex_notice_state,tab5_pc_wakes,tab5_backlight_changes,tab5_lcd_underruns;
++volatile int tab5_ui_page=8,tab5_saver_active,tab5_backlight_percent=70;
++volatile int tab5_ui_data_age_ms,tab5_ui_task_selected,tab5_ui_session_ready,tab5_ui_voice_check,tab5_ui_voice_age_ms;
++volatile int tab5_voice_http_stage,tab5_voice_http_status,tab5_voice_request_ms,tab5_voice_last_seq;
++unsigned tab5_ui_age_ms(void){return 9;}
++#define formatter(name) static void name(char *s,unsigned n){snprintf(s,n,"1,2,3");}
++formatter(camera_preview_diagnostics) formatter(display_diagnostics_format) formatter(photo_diagnostics)
++formatter(codex_remote_upload_diagnostics) formatter(camera_preview_driver_error_hex) formatter(ota_update_diagnostics)
++formatter(art_orientation_diagnostics) formatter(rpc_failure_diagnostics) formatter(tab5_wifi_numeric_diagnostics)
++formatter(tab5_wifi_recovery_diagnostics) formatter(tab5_wifi_http_diagnostics) formatter(tab5_wifi_path_diagnostics)
++formatter(tab5_wireless_boot_diagnostics) formatter(wifi_probe_diagnostics) formatter(gallery_diagnostics) formatter(gallery_transfer_diagnostics)
++static void (*worker)(void *);static void *argument;
++static int xTaskCreate(void (*fn)(void*),const char *name,unsigned stack,void *arg,unsigned priority,void *handle){
++    (void)name;(void)priority;(void)handle;assert(stack==8192);if(fail_task)return 0;assert(!argument);worker=fn;argument=arg;created++;return pdPASS;
++}
++static void vTaskDelete(void *p){assert(!p);}
++typedef void *esp_http_client_handle_t;
++typedef struct{const char *url;int timeout_ms;bool disable_auto_redirect;}esp_http_client_config_t;
++static void *esp_http_client_init(const esp_http_client_config_t *cfg){assert(cfg->disable_auto_redirect&&strstr(cfg->url,"192.0.2.1"));return fail_http?NULL:(void*)1;}
++static void esp_http_client_cleanup(void *p){assert(p);}
++static cJSON *respond(cJSON *request,int *status){
++    calls++;assert(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"kind")),"runtime-diagnostics"));
++    cJSON *s=cJSON_GetObjectItemCaseSensitive(request,"snapshot");assert(s);
++    assert(cJSON_GetObjectItemCaseSensitive(s,"uptimeMs")->valuedouble==(double)123456);
++    char *wire=cJSON_PrintUnformatted(s);assert(wire&&strlen(wire)<8192&&!strstr(wire,"fixture")&&!strstr(wire,"192.0.2.1"));free(wire);
++    if(busy_calls){busy_calls--;*status=0;return NULL;}*status=200;return cJSON_CreateObject();
++}
++static cJSON *rpc_call(link_kind link,cJSON *r,int *s,char *n){assert(link==LINK_BLE);(void)n;return respond(r,s);}
++static cJSON *rpc_http_call(void *http,cJSON *r,int *s,char *n){assert(http);(void)n;return respond(r,s);}
++#include "runtime_diagnostics_under_test.inc"
++static void finish(void){void *job=argument;argument=NULL;worker(job);assert(!atomic_load(&sending));}
++static cJSON *item(cJSON *o,const char *key){return cJSON_GetObjectItemCaseSensitive(o,key);}
++static bool remote_ota_hex(const char *s,unsigned n){if(!s||strlen(s)!=n)return false;for(unsigned i=0;i<n;i++)if(!strchr("0123456789abcdef",s[i]))return false;return true;}
++#include "../../firmware/main/runtime_diagnostics.inc"
++int main(void){
++    const char *id="22222222222222222222222222222222",*session="33333333333333333333333333333333";
++    assert(runtime_diagnostics_report(id,session,LINK_WIFI));assert(!runtime_diagnostics_report(id,session,LINK_WIFI));finish();assert(calls==1);
++    busy_calls=2;assert(runtime_diagnostics_report(id,session,LINK_BLE));finish();assert(calls==4);now=123456;
++    assert(runtime_diagnostics_report(id,session,LINK_BLE));epoch++;finish();assert(calls==4);
++    changing=true;assert(!runtime_diagnostics_report(id,session,LINK_BLE));changing=false;
++    fail_task=true;assert(!runtime_diagnostics_report(id,session,LINK_WIFI)&&!atomic_load(&sending));fail_task=false;
++    fail_http=true;assert(runtime_diagnostics_report(id,session,LINK_WIFI));finish();assert(calls==4);fail_http=false;
++    cJSON *frame=cJSON_Parse("{\"epochMilliseconds\":1700000000000,\"pcInput\":{\"session\":\"33333333333333333333333333333333\"},\"connectionHealth\":{\"runtimeDiagnosticCommand\":{\"version\":1,\"requestId\":\"22222222222222222222222222222222\",\"transport\":\"Wi-Fi\",\"expiresAt\":1700000010000}}}");assert(frame);
++    unsigned before=created;
++    runtime_diagnostics_tick(frame,LINK_USB,1000,1000);runtime_diagnostics_tick(frame,LINK_BLE,1000,1000);
++    runtime_diagnostics_tick(frame,LINK_WIFI,10000,1000);runtime_diagnostics_tick(frame,LINK_WIFI,999,1000);assert(created==before);
++    cJSON *command=item(item(frame,"connectionHealth"),"runtimeDiagnosticCommand");
++    cJSON_SetNumberValue(item(command,"expiresAt"),1700000000000.5);runtime_diagnostics_tick(frame,LINK_WIFI,1000,1000);assert(created==before);
++    cJSON_SetNumberValue(item(command,"expiresAt"),1700000010000);runtime_diagnostics_tick(frame,LINK_WIFI,1000,1000);assert(created==before+1);finish();
++    runtime_diagnostics_tick(frame,LINK_WIFI,1000,1000);assert(created==before+1);cJSON_Delete(frame);
++    puts("RUNTIME_FIRMWARE_OK actual snapshot/worker/tick; Wi-Fi/BLE, bounded contention retry, integer uptime, host switch, failure cleanup, stale/channel/expiry/duplicate rejection");return 0;
++}

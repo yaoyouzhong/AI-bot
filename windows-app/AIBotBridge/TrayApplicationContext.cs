@@ -164,7 +164,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _flashActions.Enqueue(() => { RestartCycle(); done.TrySetResult(); });
                 return done.Task.WaitAsync(token);
             }, _shutdown.Token));
-        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo, () => _tab5?.DiagnosticSummary ?? _tab5Error ?? "TAB5 未启用",_runtime.AcceptBrowserArtworkAsync,()=>_tab5?.CrashDiagnostic??"[]",()=>_runtime.MusicDiagnostic);
+        var server = new LocalStatusServer(httpPort, _serial.ReadDeviceInfo, () => _tab5?.DiagnosticSummary ?? _tab5Error ?? "TAB5 未启用",_runtime.AcceptBrowserArtworkAsync,()=>_tab5?.CrashDiagnostic??"[]",()=>_runtime.MusicDiagnostic,tab5LiveInfo: token=>_tab5?.RefreshDiagnosticSummaryAsync(token)??Task.FromResult(_tab5Error??"TAB5 未启用"));
         _ = Task.Run(() => server.RunAsync(_runtime.Capture, _shutdown.Token));
         try{_services.ApplyAsync(_devices.Snapshot).GetAwaiter().GetResult();UpdateDemandAsync().GetAwaiter().GetResult();}
         catch(Exception ex){_tab5Error=ex.Message;}

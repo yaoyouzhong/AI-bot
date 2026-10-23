@@ -1,0 +1,172 @@
+--- a/scripts/apply-jpeg-dma-memory.py
++++ b/scripts/apply-jpeg-dma-memory.py
+@@ -1,8 +1,10 @@
+-"""Allow pinned IDF 5.4.2 JPEG descriptors to use the reserved DMA heap.
++"""Fix pinned IDF 5.4.2 JPEG descriptor allocation and input cache range.
+ 
+ esp_psram_extram_reserve_dma_pool deliberately omits MALLOC_CAP_DEFAULT.
+ Descriptor storage must also cover the whole cache range synced by the driver.
+-Keep general codec allocations, image buffers and cache synchronization intact.
++Keep general codec allocations and image buffers intact. Match the upstream
++release/v5.4 correction: synchronize the caller's byte count, not bit depth.
++https://github.com/espressif/esp-idf/blob/release/v5.4/components/esp_driver_jpeg/jpeg_encode.c
+ """
+ from pathlib import Path
+ import sys
+@@ -12,6 +14,23 @@
+ MARKER = '    // TAB5: DMA reserve excludes DEFAULT; allocate the entire synced cache line.\n'
+ DECODE_OLD = 'heap_caps_aligned_calloc(alignment, 1, dma_desc_mem_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | JPEG_MEM_ALLOC_CAPS)'
+ DECODE_MARKER = '    // TAB5: decoder descriptors may use the reserved DMA heap (no DEFAULT).\n'
++CACHE_OLD = 'ret = esp_cache_msync((void*)raw_buffer, encoder_engine->header_info->origin_v * encoder_engine->header_info->origin_h * encoder_engine->bytes_per_pixel, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);'
++CACHE_NEW = 'ret = esp_cache_msync((void*)raw_buffer, inbuf_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);'
++INPUT_ANCHOR = '    s_jpeg_enc_select_sample_mode(encoder_engine);\n'
++INPUT_GUARD = '''    // TAB5: bytes_per_pixel is bit depth. Validate before any TX DMA setup.
++    uint64_t input_pixels = (uint64_t)encode_cfg->width * encode_cfg->height;
++    ESP_GOTO_ON_FALSE(input_pixels > 0 && encoder_engine->bytes_per_pixel > 0 &&
++                      input_pixels <= ((uint64_t)inbuf_size * 8) / encoder_engine->bytes_per_pixel &&
++                      (input_pixels * encoder_engine->bytes_per_pixel) % 8 == 0,
++                      ESP_ERR_INVALID_ARG, err2, TAG, "invalid JPEG input geometry or buffer size");
++'''
++
++def patch_input_range(source: str) -> str:
++    if source.count(CACHE_NEW) == 1 and CACHE_OLD not in source and source.count(INPUT_GUARD) == 1:
++        return source
++    if source.count(CACHE_OLD) != 1 or CACHE_NEW in source or INPUT_GUARD in source or source.count(INPUT_ANCHOR) != 1:
++        raise RuntimeError('Unknown JPEG encoder input cache range; inspect SDK before patching')
++    return source.replace(INPUT_ANCHOR, INPUT_ANCHOR + INPUT_GUARD).replace(CACHE_OLD, CACHE_NEW)
+ 
+ def patch(source: str) -> str:
+     if source.count(NEW) == 2 and OLD not in source and source.count(MARKER) == 1:
+@@ -36,7 +55,7 @@
+ def patch_sdk(root: Path) -> None:
+     # Validate both pinned sources before modifying either one.
+     updates = []
+-    for name, transform in [('jpeg_encode.c', patch), ('jpeg_decode.c', patch_decoder)]:
++    for name, transform in [('jpeg_encode.c', lambda text: patch_input_range(patch(text))), ('jpeg_decode.c', patch_decoder)]:
+         file = root / 'components/esp_driver_jpeg' / name
+         source = file.read_text(encoding='utf-8')
+         updates.append((file, source, transform(source)))
+@@ -46,4 +65,4 @@
+ 
+ if __name__ == '__main__':
+     patch_sdk(Path(sys.argv[1]))
+-    print('TAB5 JPEG encoder/decoder DMA reserve and descriptor size patches ready')
++    print('TAB5 JPEG DMA reserve, descriptor size and bounded input cache patches ready')
+--- a/scripts/preview-ui.ps1
++++ b/scripts/preview-ui.ps1
+@@ -17,6 +17,8 @@
+ try {
+ & "$root/.tools/idf-tools/python_env/idf5.4_py3.12_env/Scripts/python.exe" "$PSScriptRoot/apply-camera-dma-memory.py" "$root/.tools/esp-idf"
+ if ($LASTEXITCODE) {throw 'CSI DMA memory patch failed'}
++& "$root/.tools/idf-tools/python_env/idf5.4_py3.12_env/Scripts/python.exe" "$PSScriptRoot/apply-jpeg-dma-memory.py" "$root/.tools/esp-idf"
++if ($LASTEXITCODE) {throw 'JPEG DMA/cache patch failed'}
+ & "$root/.tools/idf-tools/python_env/idf5.4_py3.12_env/Scripts/python.exe" "$PSScriptRoot/apply-lvgl-render-cache.py" "$root/firmware"
+ if ($LASTEXITCODE) {throw 'LVGL cache hooks patch failed'}
+ $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -419,6 +419,26 @@
+ add_executable(jpeg-dma-memory-test jpeg_dma_memory_test.c)
+ target_include_directories(jpeg-dma-memory-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ 
++# Execute the actual pinned driver's input validation and cache synchronization.
++# The heap/cache/DMA boundary is mocked; geometry and sync lengths are not.
++string(FIND "${JPEG_TEXT}" "    s_jpeg_enc_select_sample_mode(encoder_engine);" JPEG_INPUT_START)
++string(FIND "${JPEG_TEXT}" "    jpeg_ll_set_picture_height(" JPEG_INPUT_END)
++string(LENGTH "    s_jpeg_enc_select_sample_mode(encoder_engine);" JPEG_INPUT_PREFIX)
++math(EXPR JPEG_INPUT_START "${JPEG_INPUT_START} + ${JPEG_INPUT_PREFIX}")
++math(EXPR JPEG_INPUT_LENGTH "${JPEG_INPUT_END} - ${JPEG_INPUT_START}")
++if(JPEG_INPUT_START LESS JPEG_INPUT_PREFIX OR JPEG_INPUT_LENGTH LESS 1)
++    message(FATAL_ERROR "JPEG input validation markers missing")
++endif()
++string(SUBSTRING "${JPEG_TEXT}" ${JPEG_INPUT_START} ${JPEG_INPUT_LENGTH} JPEG_INPUT_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/jpeg_input_range_under_test.inc" "${JPEG_INPUT_BODY}")
++string(REGEX MATCH "ret = esp_cache_msync\\(\\(void\\*\\)raw_buffer,[^;]+;" JPEG_INPUT_SYNC "${JPEG_TEXT}")
++if(NOT JPEG_INPUT_SYNC)
++    message(FATAL_ERROR "JPEG input cache sync missing")
++endif()
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/jpeg_input_sync_under_test.inc" "${JPEG_INPUT_SYNC}\n")
++add_executable(jpeg-cache-range-test jpeg_cache_range_test.c)
++target_include_directories(jpeg-cache-range-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++
+ # Exercise the actual streaming allocation and IDF cache-alignment calculation.
+ set(SDIO_SOURCE "${ROOT}/firmware/managed_components/espressif__esp_hosted/host/drivers/transport/sdio/sdio_drv.c")
+ set(DMA_UTILS "${ROOT}/.tools/esp-idf/components/esp_hw_support/dma/esp_dma_utils.c")
+--- /dev/null
++++ b/tests/ui-preview/jpeg_cache_range_test.c
+@@ -0,0 +1,75 @@
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++
++typedef int esp_err_t;
++enum {ESP_OK=0,ESP_ERR_INVALID_ARG=258};
++enum {ESP_CACHE_MSYNC_FLAG_DIR_C2M=1,ESP_CACHE_MSYNC_FLAG_UNALIGNED=2};
++#define ESP_GOTO_ON_FALSE(c,r,label,...) do{if(!(c)){ret=(r);goto label;}}while(0)
++typedef struct {uint32_t width,height;} jpeg_encode_cfg_t;
++typedef struct {uint32_t origin_h,origin_v;} header_t;
++typedef struct {header_t *header_info;uint32_t bytes_per_pixel;} encoder_t;
++static void *allocation;
++static size_t capacity,sync_size;
++static unsigned sync_count,dma_count;
++static bool outside_input;
++static esp_err_t esp_cache_msync(void *address,size_t size,int flags) {
++    assert(address==allocation);
++    assert(flags==(ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_UNALIGNED));
++    sync_count++;sync_size=size;outside_input=size>capacity;
++    return ESP_OK;
++}
++static esp_err_t process(uint32_t width,uint32_t height,uint32_t bit_depth,uint32_t inbuf_size) {
++    jpeg_encode_cfg_t config={width,height};const jpeg_encode_cfg_t *encode_cfg=&config;
++    header_t header={width,height};encoder_t encoder={&header,bit_depth};encoder_t *encoder_engine=&encoder;
++    void *raw_buffer=allocation;esp_err_t ret=ESP_OK;
++    #include "jpeg_input_range_under_test.inc"
++    // Hardware TX descriptor programming follows input validation in the SDK.
++    dma_count++;
++    #include "jpeg_input_sync_under_test.inc"
++err2:
++    return ret;
++}
++static void reset(uint32_t size) {
++    capacity=size;sync_size=0;sync_count=0;dma_count=0;outside_input=false;
++}
++int main(void) {
++    // Mock only the cache boundary: no photo data or enormous allocation needed.
++    allocation=malloc(1);assert(allocation);
++    reset(1280u*720u*2u);
++    esp_err_t result=process(1280,720,16,(uint32_t)capacity);
++    if(result!=ESP_OK||outside_input||sync_size!=capacity) {
++        fprintf(stderr,"JPEG_CACHE_RANGE_FAIL: RGB565 allocation=%zu sync=%zu excess=%zu\n",capacity,sync_size,sync_size>capacity?sync_size-capacity:0);
++        free(allocation);return 1;
++    }
++    unsigned cases=0;
++    // Both photo orientations, all four pinned encoder formats, and caller padding.
++    const uint32_t depths[]={16,24,8,16};
++    for(unsigned d=0;d<4;d++)for(unsigned portrait=0;portrait<2;portrait++)for(unsigned pad=0;pad<2;pad++) {
++        uint32_t w=portrait?720:1280,h=portrait?1280:720;
++        uint32_t required=w*h*depths[d]/8;
++        reset(required+pad*128);
++        assert(process(w,h,depths[d],(uint32_t)capacity)==ESP_OK);
++        assert(sync_count==1&&dma_count==1&&!outside_input&&sync_size==capacity);
++        reset(required-1);
++        assert(process(w,h,depths[d],(uint32_t)capacity)==ESP_ERR_INVALID_ARG);
++        assert(sync_count==0&&dma_count==0);
++        cases+=2;
++    }
++    const uint32_t invalid[][4]={{0,720,16,1843200},{1280,0,16,1843200},
++        {1280,720,0,1843200},{1280,720,16,0},{65536,65536,16,UINT32_MAX},
++        {UINT32_MAX,UINT32_MAX,24,UINT32_MAX},{1,1,12,2}};
++    for(unsigned i=0;i<sizeof(invalid)/sizeof(invalid[0]);i++) {
++        reset(invalid[i][3]);
++        assert(process(invalid[i][0],invalid[i][1],invalid[i][2],invalid[i][3])==ESP_ERR_INVALID_ARG);
++        assert(sync_count==0&&dma_count==0);cases++;
++    }
++    free(allocation);
++    printf("JPEG_CACHE_RANGE_PASS: %u cases; actual SDK input sync stays within caller buffer; short/invalid/overflow inputs rejected before DMA\n",cases);
++    return 0;
++}

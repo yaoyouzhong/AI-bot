@@ -105,13 +105,14 @@ SetupFileCorrupt=安装文件损坏，请重新下载安装包。
 ConfirmUninstall=确定卸载 %1 吗？用户设置和微软运行组件会保留。
 UninstallStatusLabel=正在卸载 AI-bot…
 UninstalledAll=%1 已卸载，用户设置和公共运行组件已保留。
-WelcomeLabel2=安装程序将检查并补齐 AI-bot 所需的运行环境，再安装应用。%n%n已有的 .NET 8 桌面运行时和 WebView2 会自动跳过。缺少组件时需要联网下载；安装 .NET 时 Windows 可能请求管理员许可。%n%n升级前请从右下角托盘正常退出 AI-bot。用户设置、账号数据和设备固件不会被清除。
+WelcomeLabel2=安装程序将补齐运行环境，并默认安装和配置 USB、蓝牙及 Wi-Fi 解锁所需组件，无需分别选择。Windows 可能请求管理员许可。%n%n已有的 .NET 8 桌面运行时和 WebView2 会自动跳过。缺少运行环境时需要联网下载。%n%n升级前请从右下角托盘正常退出 AI-bot。用户设置、账号数据和设备固件不会被清除。
 FinishedLabel=AI-bot 已安装。启动后请在右下角托盘查找图标：左键打开镜像，右键打开菜单。
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; Flags: checkedonce
 
 [UninstallRun]
+Filename: "{app}\AIBotBridge.exe"; Parameters: "--configure-login-helper uninstall"; Flags: runhidden; RunOnceId: "Login-method-helper-removal"
 Filename: "{app}\AIBotBridge.exe"; Parameters: "--tightvnc-uninstall-prompt"; Flags: runhidden; RunOnceId: "TightVNC-component-removal"
 
 [Files]
@@ -134,6 +135,7 @@ var
   DependencyPage: TOutputMsgWizardPage;
   DownloadPage: TDownloadWizardPage;
   RuntimeRestartRequired: Boolean;
+  UnlockSetupComplete: Boolean;
 
 function IsDesktop8Version(Value: String): Boolean;
 begin
@@ -225,6 +227,22 @@ end;
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = DependencyPage.ID then DependencyPage.MsgLabel.Caption := DependencyStatus;
+  if (CurPageID = wpFinished) and not UnlockSetupComplete then begin
+    WizardForm.FinishedHeadingLabel.Caption := 'AI-bot 已安装，解锁配置尚未完成';
+    WizardForm.FinishedLabel.Caption := '请启动 AI-bot，在一键解锁页面点击保存完成配置。USB／蓝牙和 Wi-Fi 全部检查通过后才会显示设置完成。';
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var Code: Integer;
+begin
+  if CurStep = ssPostInstall then begin
+    WizardForm.StatusLabel.Caption := '正在默认配置电脑解锁，请完成 Windows 管理员确认…';
+    UnlockSetupComplete := ExecAsOriginalUser(ExpandConstant('{app}\AIBotBridge.exe'),
+      '--complete-unlock-setup', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
+    UnlockSetupComplete := UnlockSetupComplete and (Code = 0);
+    if not UnlockSetupComplete then Log('Computer unlock setup incomplete; do not report all transports ready.');
+  end;
 end;
 
 function InitializeSetup: Boolean;

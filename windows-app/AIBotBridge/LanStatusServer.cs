@@ -188,7 +188,7 @@ internal sealed class LanStatusServer
             var galleryProfile=rpc?service?.ActiveGalleryHostProfile:null;
             long profileStart=Tab5GalleryHostProfile.Now;
             var reply=service is null?(Status:401,Packet:(byte[]?)null):rpc?
-                await service.RpcAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,allowOta:false,transport:"Wi-Fi"):
+                await service.RpcAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,allowOta:true,transport:"Wi-Fi"):
                 await service.VoiceAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken);
             long handled=Environment.TickCount64;
             long profileHandled=Tab5GalleryHostProfile.Now;

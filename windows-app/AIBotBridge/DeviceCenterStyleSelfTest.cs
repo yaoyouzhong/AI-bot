@@ -15,7 +15,7 @@ internal static class DeviceCenterStyleSelfTest
 
         async Task CaptureAll() {
             var store=new DeviceRegistryStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"style-fixtures","devices.json"));store.Migrate(null,false,false);
-            var tab=DeviceRegistryStore.Create(HardwareKind.Tab5,"书桌 TAB5","001122334455");var esp=DeviceRegistryStore.Create(HardwareKind.Esp8266,"桌面小屏",null);store.Add(tab);store.Add(esp);
+            var tab=DeviceRegistryStore.Create(HardwareKind.Tab5,"M5Stack TAB5","001122334455");var esp=DeviceRegistryStore.Create(HardwareKind.Esp8266,"ESP8266 小屏",null);store.Add(tab);store.Add(esp);
             using var tab5=new Tab5Service();tab5.UsbDevices=()=>[];
             using var voice=new Tab5VoiceHost(new Tab5VoiceSettings());
             var weather=new MigratedWeather.WeatherMonitor();
@@ -26,6 +26,7 @@ internal static class DeviceCenterStyleSelfTest
             UpdateDevice[] devices=[new("bridge","电脑端 AI-bot","0.6.3","运行中",true,"bridge","安装程序"),new("tab5","M5Stack TAB5","0.2.156-ui","在线",true,"upgrade-tab5","在设备上确认")];
             var pages=new List<(string Name,Func<Form> Create,Action<Form>? Prepare)> {
                 ("devices",Center,f=>((DeviceCenterForm)f).ShowPage("devices")),
+                ("devices-work-area",Center,f=>((DeviceCenterForm)f).ShowPage("devices")),
                 ("tab-wifi-bridge-pending",()=>CenterWith(new(true,"在线","USB","0.2.204-ui",Usb:"已连接",Wifi:"已联网 · 桥接未通",Bluetooth:"已连接")),null),
                 ("tab-wifi-bridge-ready",()=>CenterWith(new(true,"在线","Wi-Fi","0.2.204-ui",Usb:"未连接",Wifi:"已联网 · 桥接正常",Bluetooth:"未连接")),null),
                 ("tab-wifi-offline",()=>CenterWith(new(true,"在线","USB","0.2.204-ui",Usb:"已连接",Wifi:"未联网",Bluetooth:"已连接")),null),
@@ -86,6 +87,23 @@ internal static class DeviceCenterStyleSelfTest
                 ((TextBox)f.Controls.Find("benchmark-result",true).Single()).Text=detail?Tab5Service.FormatBenchmark(sample):Tab5Service.FormatBenchmarkOverview(sample);
                 if(detail)Descendants(f).OfType<LinkLabel>().Single().Text="收起详细数据";
             }));
+            foreach(string phase in new[]{"transferring","stopping","stopped","finalizing"}) {
+                string fixture=phase;
+                pages.Add(("ota-stop-"+fixture,()=> {
+                    var peer=new Tab5Service(pairingStore);peer.UsbDevices=()=>[];
+                    peer.Publish(new StatusSnapshot(1,"12:00",DateTimeOffset.UtcNow.ToUnixTimeSeconds(),0,DateTimeOffset.UtcNow,new("idle",null),new("idle",null)));
+                    peer.ObserveFirmware(pairing.DeviceId,"0.2.254-ui");string n=Guid.NewGuid().ToString("N");
+                    peer.Respond(pairing.DeviceId,n,Tab5Protocol.Proof(Convert.FromBase64String(pairing.Key),$"GET|{pairing.DeviceId}|{n}"));
+                    peer.OfferOta(new Tab5OtaPackage(new byte[65536],new string('a',64),"0.2.255-ui",Guid.NewGuid().ToString("N"),"## 升级控制\n- 支持传输中安全停止\n- 保留现有配对和设置"));
+                    Tab5Service.OtaStopSelfTest.StagePreview(peer,fixture);
+                    var form=new Tab5ConnectionForm(peer,loadNetworks:false,showUpgrade:true);form.Disposed+=(_,_)=>peer.Dispose();return form;
+                },f=> {
+                    var button=(Button)f.Controls.Find("ota-stop",true).Single();
+                    if(button.Enabled!=(fixture=="transferring")||button.Text!=(fixture=="stopping"?"正在停止…":"停止升级"))throw new Exception("Upgrade stop action contradicts phase");
+                    var actions=button.Parent!.Controls.OfType<Button>().ToArray();
+                    if(actions.Single(b=>b.Text=="开始升级").Enabled||actions.Single(b=>b.Text=="选择固件…").Enabled!=(fixture=="stopped"))throw new Exception("Start/select enabled during transfer, verification or pending stop");
+                }));
+            }
             foreach(string component in new[]{"bridge","tab5","esp8266"})pages.Add(("release-notes-"+component,()=>new UpdateNotesForm(new Dictionary<string,ComponentUpdate>(),devices,component),null));
             if(only is not null){var selected=only.Split(',').ToHashSet(StringComparer.Ordinal);pages.RemoveAll(p=>!selected.Contains(p.Name));if(pages.Count!=selected.Count)throw new ArgumentException("Unknown page filter");}
             var issues=new HashSet<string>();var captures=new List<object>();
@@ -96,7 +114,30 @@ internal static class DeviceCenterStyleSelfTest
                     for(int update=0;update<8;update++){status.SetStatus(new("未选择固件","","选择固件后可查看版本和更新内容。","",""));form.PerformLayout();status.SetStatus(expected);form.PerformLayout();}
                 }
                 if(minimum)form.Size=form.MinimumSize;if(scale!=1)form.Scale(new SizeF(scale,scale));form.PerformLayout();await Task.Delay(30);Application.DoEvents();
+                if(page.Name=="devices-work-area") {
+                    var area=Screen.PrimaryScreen!.WorkingArea;var limit=new Size(Math.Min(area.Width-32,1248),Math.Min(area.Height-32,648));
+                    form.MinimumSize=new(Math.Min(form.MinimumSize.Width,limit.Width),Math.Min(form.MinimumSize.Height,limit.Height));
+                    form.Size=new(Math.Min(form.Width,limit.Width),Math.Min(form.Height,limit.Height));
+                    form.PerformLayout();await Task.Delay(30);Application.DoEvents();
+                }
                 string name=$"{page.Name}-{scale:0.0#}-{(minimum?"minimum":"normal")}";
+                if(page.Name is "devices" or "devices-work-area") {
+                    var grid=Descendants(form).OfType<TableLayoutPanel>().Single(c=>c.Name=="device-actions"&&c.Visible);
+                    var cards=grid.Controls.OfType<DeviceActionButton>().OrderBy(c=>grid.GetRow(c)).ThenBy(c=>grid.GetColumn(c)).ToArray();
+                    Check(cards.Select(c=>c.Text).SequenceEqual(new[]{"显示设置","语音设置","日历生日","日程待办","电脑控制","屏保图库","常用任务","数据设置","连接升级"}),"Device action missing or reordered: "+name);
+                    var viewport=(FlowLayoutPanel)grid.Parent!;
+                    File.WriteAllText(Path.Combine(directory,name+"-bounds.json"),JsonSerializer.Serialize(new {dpi=form.DeviceDpi,font=form.Font.Height,workArea=Screen.PrimaryScreen!.WorkingArea,viewport=viewport.Bounds,client=viewport.ClientRectangle,display=viewport.DisplayRectangle,scroll=viewport.AutoScrollPosition,children=viewport.Controls.Cast<Control>().Select(c=>new{type=c.GetType().Name,c.Text,c.Bounds,c.MinimumSize,c.MaximumSize,c.Visible})},new JsonSerializerOptions{WriteIndented=true}));
+                    Check(!viewport.HorizontalScroll.Visible,"Horizontal scrolling required: "+name);
+                    foreach(var card in cards)Check(card.Width>=card.PreferredCardWidth,"Card description clipped: "+name+" "+card.Text);
+                    if(!minimum&&page.Name=="devices") {
+                        var visible=viewport.RectangleToScreen(viewport.ClientRectangle);
+                        Check(cards.All(c=>visible.Contains(c.RectangleToScreen(c.ClientRectangle))),"Default viewport hides device actions: "+name);
+                    }
+                    viewport.AutoScrollPosition=new Point(0,viewport.VerticalScroll.Maximum);await Task.Delay(20);Application.DoEvents();
+                    Check(viewport.RectangleToScreen(viewport.ClientRectangle).Contains(cards[^1].RectangleToScreen(cards[^1].ClientRectangle)),"Connection/upgrade cannot be reached: "+name);
+                    if(minimum){using var scrolled=new Bitmap(form.Width,form.Height);form.DrawToBitmap(scrolled,new(Point.Empty,form.Size));scrolled.Save(Path.Combine(directory,name+"-scrolled.png"));}
+                    viewport.AutoScrollPosition=Point.Empty;await Task.Delay(20);Application.DoEvents();
+                }
                 Check(form.BackColor==Color.White,"Non-white window: "+page.Name);
                 if(page.Name=="esp-connection") {
                     var saver=form.Controls.Find("esp-screensaver-minutes",true).Single();

@@ -1,0 +1,468 @@
+--- a/firmware/components/esp_lvgl_port/include/esp_lvgl_port_disp.h
++++ b/firmware/components/esp_lvgl_port/include/esp_lvgl_port_disp.h
+@@ -144,6 +144,19 @@
+  */
+ bool lvgl_port_display_wait_idle(lv_display_t *disp, uint32_t timeout_ms);
+ 
++/** Caller holds the LVGL lock in an input/timer turn, outside draw/flush.
++ * Drain any ordinary DMA and pause rendering while retaining the current
++ * scanout. No framebuffer selection, pixel copy, allocation or cache sync.
++ * Failure acquires nothing and leaves the previous owner/DMA state intact.
++ */
++bool lvgl_port_display_freeze(lv_display_t *disp, uint32_t timeout_ms);
++
++/** Caller holds the LVGL lock. Resume pending invalidations without selecting
++ * a framebuffer or forcing a whole-screen redraw. Update the destination UI
++ * in this same turn. A different display owner is never released by this API.
++ */
++bool lvgl_port_display_unfreeze(lv_display_t *disp);
++
+ /**
+  * Take exclusive ownership of two native RGB565 DPI framebuffers. Caller holds
+  * the LVGL lock. This display's refresh timer is paused and ordinary flushes
+--- a/firmware/components/esp_lvgl_port/include/tab5_display_direct_state.h
++++ b/firmware/components/esp_lvgl_port/include/tab5_display_direct_state.h
+@@ -11,6 +11,7 @@
+     TAB5_DIRECT_CAMERA,
+     TAB5_DIRECT_SWITCHING,
+     TAB5_DIRECT_FAULT,
++    TAB5_DIRECT_FROZEN,
+ } tab5_direct_mode_t;
+ 
+ typedef enum {
+@@ -66,7 +67,8 @@
+ 
+ static inline bool tab5_direct_prepare(tab5_display_direct_state_t *s, unsigned index)
+ {
+-    if (s->mode == TAB5_DIRECT_NORMAL || index > 1) return false;
++    if ((s->mode != TAB5_DIRECT_CAMERA && s->mode != TAB5_DIRECT_SWITCHING &&
++         s->mode != TAB5_DIRECT_FAULT) || index > 1) return false;
+     s->mode = TAB5_DIRECT_SWITCHING;
+     s->submitted = index;
+     s->armed = false;
+@@ -110,3 +112,21 @@
+     s->mode = TAB5_DIRECT_NORMAL;
+     return true;
+ }
++
++
++// An immutable still does not need a new scanout buffer or a cache writeback.
++// Only enter after the ordinary DMA token has been consumed. Live-camera
++// operations cannot borrow a buffer until the still owner has released it.
++static inline bool tab5_direct_freeze(tab5_display_direct_state_t *s)
++{
++    if (s->mode != TAB5_DIRECT_NORMAL || s->normal_dma != TAB5_DIRECT_DMA_NONE) return false;
++    s->mode = TAB5_DIRECT_FROZEN;
++    return true;
++}
++
++static inline bool tab5_direct_unfreeze(tab5_display_direct_state_t *s)
++{
++    if (s->mode != TAB5_DIRECT_FROZEN || s->normal_dma != TAB5_DIRECT_DMA_NONE) return false;
++    s->mode = TAB5_DIRECT_NORMAL;
++    return true;
++}
+--- a/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
++++ b/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
+@@ -611,6 +611,43 @@
+     return false;
+ }
+ 
++// An unchanged review image only needs its renderer paused. In particular,
++// do not route through camera_begin/end: both select fb0 via draw_bitmap,
++// which performs a full-frame cache writeback even when no pixel changed.
++bool lvgl_port_display_freeze(lv_display_t* disp, uint32_t timeout_ms)
++{
++    if (!disp) return false;
++    lvgl_port_display_ctx_t* ctx = lv_display_get_driver_data(disp);
++    if (!ctx || ctx->disp_type != LVGL_PORT_DISP_TYPE_DSI ||
++        ctx->flags.direct_mode || ctx->flags.full_refresh) return false;
++    if (!lvgl_port_display_wait_idle(disp, timeout_ms)) return false;
++    portENTER_CRITICAL(&ctx->direct_lock);
++    bool acquired = tab5_direct_freeze(&ctx->direct);
++    portEXIT_CRITICAL(&ctx->direct_lock);
++    if (!acquired) return false;
++    lv_timer_t *refresh_timer = lv_display_get_refr_timer(disp);
++    if (refresh_timer) lv_timer_pause(refresh_timer);
++    return true;
++}
++
++bool lvgl_port_display_unfreeze(lv_display_t* disp)
++{
++    if (!disp) return false;
++    lvgl_port_display_ctx_t* ctx = lv_display_get_driver_data(disp);
++    if (!ctx || ctx->disp_type != LVGL_PORT_DISP_TYPE_DSI) return false;
++    portENTER_CRITICAL(&ctx->direct_lock);
++    bool normal = ctx->direct.mode == TAB5_DIRECT_NORMAL;
++    bool released = tab5_direct_unfreeze(&ctx->direct);
++    portEXIT_CRITICAL(&ctx->direct_lock);
++    if (normal) return true;
++    if (!released) return false;
++    // Invalidation areas accumulated during the hold remain pending. The
++    // caller's destination changes join them before the next LVGL timer turn.
++    lv_timer_t *refresh_timer = lv_display_get_refr_timer(disp);
++    if (refresh_timer) lv_timer_resume(refresh_timer);
++    return true;
++}
++
+ bool lvgl_port_display_wait_idle(lv_display_t* disp, uint32_t timeout_ms)
+ {
+     if (!disp) return false;
+@@ -800,6 +837,8 @@
+     return (need_yield == pdTRUE);
+ }
+ #else
++bool lvgl_port_display_freeze(lv_display_t* disp, uint32_t timeout_ms) { return false; }
++bool lvgl_port_display_unfreeze(lv_display_t* disp) { return false; }
+ bool lvgl_port_camera_begin(lv_display_t* disp) { return false; }
+ uint16_t* lvgl_port_camera_back_buffer(lv_display_t* disp) { return NULL; }
+ bool lvgl_port_camera_present(lv_display_t* disp, uint32_t timeout_ms) { return false; }
+--- a/firmware/main/camera_viewport.c
++++ b/firmware/main/camera_viewport.c
+@@ -123,19 +123,14 @@
+     if(still_display)return -1;
+     lv_display_t *candidate=lv_obj_get_display(canvas);
+     if(!candidate)return 0;
+-    // Ordinary rendering always uses canonical fb0 after the live viewport
+-    // releases it. The caller waited for its completed review refresh. The
+-    // port drains any pending copy, pauses refresh, and fences this same fb0;
+-    // it does not compose or copy the photograph into another allocation.
+-    if(!lvgl_port_camera_begin(candidate)) {
+-        if(lvgl_port_camera_end(candidate,250))return 0;
+-        still_display=candidate;atomic_store(&direct_mode,2);return -1;
+-    }
++    // Keep the current scanout unchanged; only drain and pause ordinary
++    // rendering. Failure acquires nothing, so it needs no camera-end cleanup.
++    if(!lvgl_port_display_freeze(candidate,250))return 0;
+     still_display=candidate;atomic_store(&direct_mode,3);return 1;
+ }
+ bool camera_viewport_still_end(void) {
+     if(!still_display)return true;
+-    bool ok=lvgl_port_camera_end(still_display,250);
++    bool ok=lvgl_port_display_unfreeze(still_display);
+     if(ok)still_display=NULL;
+     atomic_store(&direct_mode,ok?0:2);return ok;
+ }
+--- a/firmware/main/camera_viewport.h
++++ b/firmware/main/camera_viewport.h
+@@ -13,9 +13,9 @@
+ bool camera_viewport_end(void);
+ // Freeze the already completed review frame while encoding/uploading. Call on
+ // an LVGL input/timer turn before starting work, never in draw/flush callbacks.
+-// The port drains any earlier normal DMA before fencing the existing frame.
+-// No image copy/allocation occurs: the display port fences its existing fb0.
+-// 1: held, 0: unavailable and safely restored, -1: handoff fault (end required).
++// Drain earlier normal DMA, then pause rendering without selecting a panel
++// framebuffer or performing full-frame cache sync, copying or allocation.
++// 1: held, 0: unavailable with no acquisition, -1: already held (end required).
+ int camera_viewport_still_begin(lv_obj_t *canvas);
+ // Release and update the destination UI in the same LVGL turn. Failure retains the
+ // display owner and suppresses ordinary writes; call again to retry recovery.
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -944,3 +944,16 @@
+     target_compile_definitions(hosted-hci-tx-test-${P4} PRIVATE CONFIG_IDF_TARGET_ESP32P4=${P4})
+     target_include_directories(hosted-hci-tx-test-${P4} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ endforeach()
++
++# Execute the no-copy still hold against the real LVGL refresh/input timers.
++string(FIND "${DISPLAY_IDLE_TEXT}" "bool lvgl_port_display_freeze(" FREEZE_START)
++string(FIND "${DISPLAY_IDLE_TEXT}" "bool lvgl_port_display_wait_idle(" FREEZE_END)
++if(FREEZE_START LESS 0 OR FREEZE_END LESS FREEZE_START)
++    message(FATAL_ERROR "Still display hold source markers missing")
++endif()
++math(EXPR FREEZE_LENGTH "${FREEZE_END}-${FREEZE_START}")
++string(SUBSTRING "${DISPLAY_IDLE_TEXT}" ${FREEZE_START} ${FREEZE_LENGTH} FREEZE_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/display_freeze_under_test.inc" "${FREEZE_BODY}")
++add_executable(display-freeze-test display_freeze_test.c)
++target_include_directories(display-freeze-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++target_link_libraries(display-freeze-test PRIVATE lvgl)
+--- a/tests/ui-preview/camera_viewport_test.c
++++ b/tests/ui-preview/camera_viewport_test.c
+@@ -27,10 +27,10 @@
+ typedef struct { void *raw; uint8_t *ptr; size_t size; } allocation;
+ static allocation allocations[8];
+ static unsigned allocation_calls, fail_allocation, live_allocations;
+-static unsigned begin_calls, back_calls, present_calls, end_calls, delays;
++static unsigned begin_calls, back_calls, present_calls, end_calls, delays, freeze_calls, unfreeze_calls;
+ static unsigned check_count;
+ static bool begin_ok=true, back_ok=true, present_ok=true, end_ok=true, port_active;
+-static bool ordinary_refresh_paused;
++static bool ordinary_refresh_paused, freeze_ok=true, unfreeze_ok=true;
+ static uint16_t *framebuffers[2], *source_pixels, *render_pixels, *expected;
+ static unsigned front_index;
+ static lv_display_t *fixture_display;
+@@ -82,6 +82,17 @@
+     assert(d==fixture_display && timeout==250);end_calls++;
+     if(end_ok){port_active=false;ordinary_refresh_paused=false;}
+     return end_ok;
++}
++
++static bool lvgl_port_display_freeze(lv_display_t *d,unsigned timeout) {
++    assert(d==fixture_display && timeout==250);freeze_calls++;
++    if(!freeze_ok)return false;
++    assert(!port_active);port_active=true;ordinary_refresh_paused=true;return true;
++}
++static bool lvgl_port_display_unfreeze(lv_display_t *d) {
++    assert(d==fixture_display);unfreeze_calls++;
++    if(unfreeze_ok){port_active=false;ordinary_refresh_paused=false;}
++    return unfreeze_ok;
+ }
+ 
+ #define free tracked_free
+@@ -163,7 +174,8 @@
+     assert(!live_allocations && !port_active && !ordinary_refresh_paused);
+     assert(!camera_viewport_still_active());
+     allocation_calls=fail_allocation=begin_calls=back_calls=present_calls=end_calls=delays=0;
+-    begin_ok=back_ok=present_ok=end_ok=true;
++    begin_ok=back_ok=present_ok=end_ok=freeze_ok=unfreeze_ok=true;
++    freeze_calls=unfreeze_calls=0;
+     front_index=0;memset(framebuffers[0],0x5a,BYTES);memset(framebuffers[1],0xa5,BYTES);
+ }
+ static void diagnostics(unsigned count,unsigned mode) {
+@@ -256,60 +268,50 @@
+     check_count++;
+ }
+ static void still_sessions(void) {
+-    // A completed review is already in canonical panel fb0. Holding it must
+-    // not allocate sprites, request a back buffer, compose, or present pixels.
+     reset_facade();assert(camera_viewport_still_begin(NULL)==0);
+     memcpy(framebuffers[0],expected,BYTES);
+     assert(camera_viewport_still_begin(fixture_canvas)==1);
+     assert(camera_viewport_still_active() && ordinary_refresh_paused && port_active);
+-    assert(begin_calls==1 && !end_calls && !allocation_calls && !live_allocations);
+-    assert(!back_calls && !present_calls && !delays);
++    assert(freeze_calls==1 && !unfreeze_calls && !begin_calls && !end_calls && !allocation_calls);
++    assert(!back_calls && !present_calls && !delays && !live_allocations);
+     assert(!memcmp(framebuffers[0],expected,BYTES));
+-    assert(camera_viewport_still_begin(fixture_canvas)==-1 && begin_calls==1);
+-    assert(camera_viewport_begin(fixture_canvas)==-1 && begin_calls==1);
++    assert(camera_viewport_still_begin(fixture_canvas)==-1 && freeze_calls==1);
++    assert(camera_viewport_begin(fixture_canvas)==-1 && !begin_calls);
+     assert(!camera_viewport_frame(source_pixels,NULL,NULL));
+     assert(camera_viewport_end() && !end_calls && camera_viewport_still_active());
+     unsigned n,c,p,m;camera_viewport_diagnostics(&n,&c,&p,&m);assert(m==3);
+     assert(camera_viewport_still_end());
+     assert(!ordinary_refresh_paused && !port_active && !camera_viewport_still_active());
+     assert(!memcmp(framebuffers[0],expected,BYTES));
+-    assert(camera_viewport_still_end() && end_calls==1);check_count++;
+-
+-    // Begin can fail after the display port acquired scanout. A successful
+-    // cleanup resumes ordinary refresh; a failed cleanup keeps explicit owner.
+-    reset_facade();begin_ok=false;
++    assert(camera_viewport_still_end() && unfreeze_calls==1 && !end_calls);check_count++;
++
++    // A failed freeze never acquires scanout and must not call camera_end to
++    // "recover": that would select/cache-sync the very frame being preserved.
++    reset_facade();freeze_ok=false;
+     assert(camera_viewport_still_begin(fixture_canvas)==0);
+-    assert(begin_calls==1 && end_calls==1 && !port_active && !ordinary_refresh_paused);
+-    assert(!camera_viewport_still_active() && !allocation_calls);check_count++;
+-
+-    reset_facade();begin_ok=end_ok=false;
+-    assert(camera_viewport_still_begin(fixture_canvas)==-1);
+-    assert(camera_viewport_still_active() && port_active && ordinary_refresh_paused);
+-    assert(begin_calls==1 && end_calls==1 && !allocation_calls);
+-    assert(camera_viewport_begin(fixture_canvas)==-1 && begin_calls==1);
++    assert(freeze_calls==1 && !unfreeze_calls && !begin_calls && !end_calls);
++    assert(!port_active && !ordinary_refresh_paused && !camera_viewport_still_active());
++    assert(!allocation_calls);freeze_ok=true;
++    assert(camera_viewport_still_begin(fixture_canvas)==1);
++    assert(camera_viewport_still_end() && !begin_calls && !end_calls);check_count++;
++
++    // Wrong-owner release cannot expose frames to a new live session.
++    reset_facade();assert(camera_viewport_still_begin(fixture_canvas)==1);unfreeze_ok=false;
+     assert(!camera_viewport_still_end() && camera_viewport_still_active());
+-    end_ok=true;assert(camera_viewport_still_end());
+-    assert(!camera_viewport_still_active() && !ordinary_refresh_paused && !port_active);check_count++;
+-
+-    // End failure must not report a released frame or allow a live session to
+-    // overwrite either panel buffer. Recovery remains possible without reboot.
+-    reset_facade();assert(camera_viewport_still_begin(fixture_canvas)==1);end_ok=false;
+-    assert(!camera_viewport_still_end() && camera_viewport_still_active());
+-    assert(camera_viewport_begin(fixture_canvas)==-1 && begin_calls==1);
++    assert(camera_viewport_begin(fixture_canvas)==-1 && !begin_calls);
+     assert(ordinary_refresh_paused && !allocation_calls);
+-    end_ok=true;assert(camera_viewport_still_end());assert(!ordinary_refresh_paused);check_count++;
+-
+-    // A still request during a live frame must neither acquire nor release that
+-    // live owner's display. Still holds do not depend on shutter/close sprites.
++    unfreeze_ok=true;assert(camera_viewport_still_end());assert(!ordinary_refresh_paused);check_count++;
++
++    // A still request cannot acquire or release the live camera's display.
+     reset_facade();assert(camera_viewport_begin(fixture_canvas)==1);
+-    assert(camera_viewport_still_begin(fixture_canvas)==0 && begin_calls==1);
++    assert(camera_viewport_still_begin(fixture_canvas)==0 && begin_calls==1 && !freeze_calls);
+     assert(!camera_viewport_still_active());
+-    assert(camera_viewport_still_end() && !end_calls && port_active);
++    assert(camera_viewport_still_end() && !end_calls && !unfreeze_calls && port_active);
+     assert(camera_viewport_end() && end_calls==1);check_count++;
+ 
+     reset_facade();camera_viewport_set_controls(NULL,NULL);
+     assert(camera_viewport_still_begin(fixture_canvas)==1 && !allocation_calls);
+-    assert(camera_viewport_still_end());
++    assert(camera_viewport_still_end() && !begin_calls && !end_calls);
+     camera_viewport_set_controls(fixture_shutter,fixture_close);check_count++;
+ }
+ int main(void) {
+--- a/tests/ui-preview/display_direct_state_test.c
++++ b/tests/ui-preview/display_direct_state_test.c
+@@ -137,8 +137,37 @@
+     }
+ }
+ 
++static void static_freeze_ownership(void)
++{
++    tab5_display_direct_state_t s={0};
++    assert(tab5_direct_normal_submit(&s));
++    assert(!tab5_direct_freeze(&s));
++    assert(tab5_direct_color_done(&s));
++    assert(!tab5_direct_freeze(&s));
++    assert(tab5_direct_normal_consume(&s));
++    for(unsigned i=0;i<10000;i++) {
++        unsigned before=s.refresh_sequence;
++        assert(tab5_direct_freeze(&s));
++        assert(s.mode==TAB5_DIRECT_FROZEN);
++        assert(!tab5_direct_freeze(&s) && !tab5_direct_enter(&s));
++        assert(!tab5_direct_prepare(&s,0) && !tab5_direct_prepare(&s,1));
++        assert(tab5_direct_back(&s)<0 && !tab5_direct_normal_submit(&s));
++        assert(!tab5_direct_color_done(&s) && !tab5_direct_leave(&s));
++        refresh(&s);refresh(&s);
++        assert(!tab5_direct_complete(&s) && s.refresh_sequence==before+2);
++        assert(tab5_direct_unfreeze(&s) && s.mode==TAB5_DIRECT_NORMAL);
++        assert(!tab5_direct_unfreeze(&s));
++    }
++    const tab5_direct_mode_t others[]={TAB5_DIRECT_CAMERA,TAB5_DIRECT_SWITCHING,TAB5_DIRECT_FAULT};
++    for(unsigned i=0;i<3;i++){
++        s.mode=others[i];assert(!tab5_direct_freeze(&s) && !tab5_direct_unfreeze(&s));
++        assert(s.mode==others[i]);
++    }
++}
++
+ int main(void)
+ {
++    static_freeze_ownership();
+     ordinary_dma_ownership();
+     selection_interleavings();
+     timeout_and_recovery();
+--- /dev/null
++++ b/tests/ui-preview/display_freeze_test.c
+@@ -0,0 +1,98 @@
++// Actual production pause/resume and invalidation gate against real LVGL.
++// The only facades are RTOS completion and task wake. A still hold must not
++// invoke any LCD selection/cache operation, or require a new frame allocation.
++#undef NDEBUG
++#include "lvgl.h"
++#include "../../firmware/components/esp_lvgl_port/include/tab5_display_direct_state.h"
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++typedef struct {
++    int disp_type,direct_lock;
++    void *trans_sem;
++    tab5_display_direct_state_t direct;
++    struct {unsigned direct_mode:1;unsigned full_refresh:1;} flags;
++    lv_display_t *disp_drv;
++} lvgl_port_display_ctx_t;
++#define LVGL_PORT_DISP_TYPE_DSI 1
++#define portENTER_CRITICAL(p) ((void)(p))
++#define portEXIT_CRITICAL(p) ((void)(p))
++#define pdMS_TO_TICKS(t) (t)
++#define pdTRUE 1
++#define LVGL_PORT_EVENT_DISPLAY 1
++static bool timeout,wrong_completion;
++static unsigned waits,flushes,touches,business_ticks,wakes,forbidden;
++static int xSemaphoreTake(void *sem,unsigned ms){
++    assert(ms==250);waits++;if(timeout)return 0;
++    if(!wrong_completion)tab5_direct_color_done(sem);return 1;
++}
++static void lvgl_port_task_wake(int event,void *arg){assert(event==LVGL_PORT_EVENT_DISPLAY&&!arg);wakes++;}
++#define esp_lcd_panel_draw_bitmap(...) (++forbidden, 0)
++#define esp_cache_msync(...) (++forbidden, 0)
++#define esp_lcd_dpi_panel_get_frame_buffer(...) (++forbidden, 0)
++#include "display_idle_under_test.inc"
++#include "display_freeze_under_test.inc"
++#include "display_invalidate_under_test.inc"
++static void flush(lv_display_t *d,const lv_area_t *a,uint8_t *p){assert(a&&p);flushes++;lv_display_flush_ready(d);}
++static void touch(lv_indev_t *i,lv_indev_data_t *v){(void)i;touches++;v->state=LV_INDEV_STATE_RELEASED;v->point.x=3;v->point.y=3;}
++static void business(lv_timer_t *timer){
++    business_ticks++;
++    lv_display_t *d=lv_timer_get_user_data(timer);
++    lv_obj_set_style_bg_color(lv_display_get_screen_active(d),lv_color_hex(0x102030+business_ticks),0);
++}
++static void ticks(unsigned n){for(unsigned i=0;i<n;i++){lv_tick_inc(10);lv_timer_handler();}}
++int main(void){
++    lv_init();lv_display_t *d=lv_display_create(64,48);assert(d);
++    static uint8_t pixels[64*8*2],saved[sizeof(pixels)];
++    lv_display_set_color_format(d,LV_COLOR_FORMAT_RGB565);
++    lv_display_set_buffers(d,pixels,NULL,sizeof(pixels),LV_DISPLAY_RENDER_MODE_PARTIAL);
++    lv_display_set_flush_cb(d,flush);
++    lvgl_port_display_ctx_t ctx={.disp_type=1,.disp_drv=d};
++    ctx.trans_sem=&ctx.direct;lv_display_set_driver_data(d,&ctx);
++    lv_display_add_event_cb(d,lvgl_port_display_invalidate_callback,LV_EVENT_INVALIDATE_AREA,&ctx);
++    lv_display_add_event_cb(d,lvgl_port_display_invalidate_callback,LV_EVENT_REFR_REQUEST,&ctx);
++    lv_indev_t *input=lv_indev_create();lv_indev_set_type(input,LV_INDEV_TYPE_POINTER);
++    lv_indev_set_display(input,d);lv_indev_set_read_cb(input,touch);
++    lv_timer_t *timer=lv_timer_create(business,10,d);
++    for(unsigned pose=0;pose<4;pose++){
++        lv_display_set_rotation(d,(lv_display_rotation_t)pose);
++        ticks(8);assert(flushes);
++        assert(lvgl_port_display_freeze(d,250));
++        assert(ctx.direct.mode==TAB5_DIRECT_FROZEN&&lv_timer_get_paused(lv_display_get_refr_timer(d)));
++        unsigned old_flushes=flushes,old_touches=touches,old_business=business_ticks;
++        memcpy(saved,pixels,sizeof(pixels));
++        for(unsigned step=0;step<20;step++){
++            lv_display_send_event(d,LV_EVENT_REFR_REQUEST,NULL);
++            assert(lv_timer_get_paused(lv_display_get_refr_timer(d)));ticks(1);
++        }
++        assert(flushes==old_flushes&&!memcmp(saved,pixels,sizeof(pixels)));
++        assert(touches>old_touches&&business_ticks>old_business&&!forbidden);
++        assert(!lvgl_port_display_freeze(d,250));
++        assert(!tab5_direct_prepare(&ctx.direct,0)&&!tab5_direct_enter(&ctx.direct));
++        assert(lvgl_port_display_unfreeze(d));ticks(8);
++        assert(flushes>old_flushes&&ctx.direct.mode==TAB5_DIRECT_NORMAL&&!forbidden);
++        assert(lvgl_port_display_unfreeze(d)); // idempotent, no new work
++    }
++    assert(tab5_direct_normal_submit(&ctx.direct));
++    timeout=true;assert(!lvgl_port_display_freeze(d,250));
++    assert(ctx.direct.mode==TAB5_DIRECT_NORMAL&&ctx.direct.normal_dma==TAB5_DIRECT_DMA_WAITING);
++    timeout=false;wrong_completion=true;
++    assert(!lvgl_port_display_freeze(d,250)&&ctx.direct.normal_dma==TAB5_DIRECT_DMA_WAITING);
++    wrong_completion=false;assert(lvgl_port_display_freeze(d,250));
++    assert(ctx.direct.normal_dma==TAB5_DIRECT_DMA_NONE&&waits==3);
++    assert(lvgl_port_display_unfreeze(d));
++    const tab5_direct_mode_t others[]={TAB5_DIRECT_CAMERA,TAB5_DIRECT_SWITCHING,TAB5_DIRECT_FAULT};
++    for(unsigned i=0;i<3;i++){
++        ctx.direct.mode=others[i];
++        assert(!lvgl_port_display_freeze(d,250)&&!lvgl_port_display_unfreeze(d));
++        assert(ctx.direct.mode==others[i]);
++    }
++    ctx.direct.mode=TAB5_DIRECT_NORMAL;ctx.flags.direct_mode=1;
++    assert(!lvgl_port_display_freeze(d,250));ctx.flags.direct_mode=0;ctx.flags.full_refresh=1;
++    assert(!lvgl_port_display_freeze(d,250));ctx.flags.full_refresh=0;
++    assert(!lvgl_port_display_freeze(NULL,250)&&!lvgl_port_display_unfreeze(NULL)&&!forbidden);
++    lv_timer_delete(timer);lv_indev_delete(input);lv_display_delete(d);lv_deinit();
++    puts("DISPLAY_FREEZE_OK actual_port real_LVGL four_rotations no_LCD_or_cache_calls immutable_buffer touch_timers_continue pending_redraw_resumes DMA_timeout_late_completion_wrong_owner");
++}
+--- a/tests/ui-preview/display_refresh_gate_test.c
++++ b/tests/ui-preview/display_refresh_gate_test.c
+@@ -96,7 +96,7 @@
+     lv_indev_set_read_cb(input, read_touch);
+     lv_timer_t *business = lv_timer_create(business_tick, 10, display);
+     const tab5_direct_mode_t modes[] = {
+-        TAB5_DIRECT_CAMERA, TAB5_DIRECT_SWITCHING, TAB5_DIRECT_FAULT,
++        TAB5_DIRECT_CAMERA, TAB5_DIRECT_SWITCHING, TAB5_DIRECT_FAULT, TAB5_DIRECT_FROZEN,
+     };
+     for (unsigned i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
+         ctx.direct.mode = modes[i];
+@@ -135,7 +135,7 @@
+     lv_timer_delete(business);
+     lv_indev_delete(input);
+     lv_display_delete(display);
+-    printf("DISPLAY_REFRESH_GATE_PASS: normal resume, 3 gated states, touch=%u business=%u, restored flush\n",
++    printf("DISPLAY_REFRESH_GATE_PASS: normal resume, camera/switching/fault/frozen gating, touch=%u business=%u, restored flush\n",
+            touch_reads, business_ticks);
+     return 0;
+ }

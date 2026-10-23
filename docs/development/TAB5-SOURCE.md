@@ -1,3 +1,9 @@
+# 当前开发基线 / Current development baseline: 0.2.264-ui
+
+开发分支已归档 [.264 增量源码与配置](tab5-264-source/README.md)，按其说明在 .262 覆盖包后应用。实机 Wi-Fi 安装与精确镜像启动核验通过；OTA 速度问题留待后续处理，详见[验收记录](TAB5-OTA-264-ACCEPTANCE.md)。以下 .234 链接仍是既有正式发布的源码记录。
+
+The development baseline is .264; apply its overlay after .262. Exact Wi-Fi installation and boot verification passed. OTA performance remains a deferred issue. The .234 archive below remains the existing published source record.
+
 # 当前 TAB5 .234 对应源码 / Current corresponding source
 
 [下载 .234 源码包](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/AI-bot-tab5-0.2.234-ui-source.zip)。包内 SOURCE-MANIFEST.json 登记实际应用 SHA-256、223 项主目录输入及全部 962 项源码／验证文件，附 SDK 基线、重建步骤和许可。不宣称已独立逐位重建相同二进制。首刷与升级包使用同一应用字节，首刷私有区域保持擦除。实机 ELF／VALID／三实时样本与电量观察见 [验收](TAB5-BLE-UPTIME-20261019.md)。

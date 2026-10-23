@@ -22,6 +22,7 @@ internal static class Tab5Protocol
     internal static readonly Guid Service = new("7af50001-7f23-4a91-bc65-667a19320101");
     internal static readonly Guid Info = new("7af50002-7f23-4a91-bc65-667a19320101");
     internal static readonly Guid Input = new("7af50003-7f23-4a91-bc65-667a19320101");
+    internal static readonly Guid HostBinding = new("7af50007-7f23-4a91-bc65-667a19320101");
     internal static bool ValidId(string? id) => id is not null && Regex.IsMatch(id, "^[0-9a-f]{12}$");
     internal static bool ValidNonce(string? value) => value is not null && Regex.IsMatch(value, "^[0-9a-f]{32}$");
     internal static string Proof(byte[] key, string message) => Convert.ToHexString(
@@ -58,7 +59,7 @@ internal static class Tab5Protocol
     internal static byte[] Snapshot(StatusSnapshot snapshot, string id, string session, long sequence, object? resource=null, string?[]? assetIds=null, object? codexTasks=null, object? ota=null, object? connectionHealth=null) =>
         JsonSerializer.SerializeToUtf8Bytes(new {
             version=1, type="tab5_status", deviceId=id, session, sequence,
-            data=new { imageBinary=1,rpcBinary=1,rpcBulk=1,rpcOtaZlib=1,snapshot.Time,snapshot.EpochUtc,epochMilliseconds=snapshot.CapturedAt.ToUnixTimeMilliseconds(),snapshot.UtcOffsetSeconds,snapshot.CapturedAt,
+            data=new { imageBinary=1,imageChunkRetry=1,rpcBinary=1,rpcBulk=1,rpcOtaZlib=1,rpcOtaResume=1,snapshot.Time,snapshot.EpochUtc,epochMilliseconds=snapshot.CapturedAt.ToUnixTimeMilliseconds(),snapshot.UtcOffsetSeconds,snapshot.CapturedAt,
                 snapshot.Codex,snapshot.Claude,
                 pcInput=new {session,sequence,lastInputTickMs=SystemIdleTime.LastInputTickMilliseconds()},
                 quotas=snapshot.Quotas is null?null:new {claude=SummaryQuota(snapshot.Quotas.Claude),codex=SummaryQuota(snapshot.Quotas.Codex,true)},

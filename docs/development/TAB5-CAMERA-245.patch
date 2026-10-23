@@ -1,0 +1,548 @@
+--- a/firmware/main/camera_preview.c
++++ b/firmware/main/camera_preview.c
+@@ -44,6 +44,12 @@
+ static uint8_t *quarantined_frames[CAMERA_BUFFERS];
+ static bool release_failed;
+ static lv_obj_t *preview_canvas;
++static bool (*apply_orientation)(int direction);
++static atomic_int requested_direction;
++void camera_preview_set_orientation_handler(bool (*apply)(int)) {apply_orientation=apply;}
++void camera_preview_request_orientation(int direction) {
++    if(direction==0||direction==2)atomic_store(&requested_direction,direction);
++}
+ static char failure_text[144];
+ static atomic_int diagnostic_stage, diagnostic_error;
+ static atomic_uint frames;
+@@ -161,6 +167,7 @@
+     bool streaming=false, captured=false, direct=false, buffers_requested=false;
+     uint8_t *mapped[CAMERA_BUFFERS]={0};
+     int displayed=-1;
++    int applied_direction=-1;
+     size_t stride=PREVIEW_WIDTH*2;
+     int step=1, error=ENOMEM;
+     const char *reason="相机内存不足，请稍后重试";
+@@ -236,6 +243,8 @@
+     if(ioctl(fd,VIDIOC_STREAMON,&kind)!=0){error=errno;goto failed;}
+     streaming=true;
+     bsp_display_lock(0);
++    int direction=atomic_load(&requested_direction);
++    if(apply_orientation&&apply_orientation(direction))applied_direction=direction;
+     int viewport=camera_viewport_begin(preview_canvas);
+     direct=viewport!=0;
+     bsp_display_unlock();
+@@ -258,6 +267,22 @@
+            buffer.bytesused<stride*PREVIEW_HEIGHT){error=EINVAL;goto failed;}
+         last_frame=esp_timer_get_time();
+         if(!atomic_load(&keep_running))break;
++        direction=atomic_load(&requested_direction);
++        if(apply_orientation&&direction!=applied_direction) {
++            // CSI still owns its queued frames. Release scanout before changing
++            // display/touch coordinates, then rebuild only the small overlays.
++            // A pending shutter request remains pending through this fence.
++            bsp_display_lock(0);
++            bool released=!direct||camera_viewport_end();
++            if(released) {
++                direct=false;
++                if(apply_orientation(direction))applied_direction=direction;
++                viewport=camera_viewport_begin(preview_canvas);
++                direct=viewport!=0;
++            }
++            bsp_display_unlock();
++            if(!released||viewport<0){error=EIO;reason="相机显示同步失败，请重新打开";goto failed;}
++        }
+         bool take=atomic_exchange(&capture_requested,false);
+         // DQBUF transfers ownership to us. Keep this frame out of the driver
+         // queue until it has been replaced under the same mutex used to draw.
+--- a/firmware/main/camera_preview.h
++++ b/firmware/main/camera_preview.h
+@@ -14,6 +14,11 @@
+ 
+ // Call on the LVGL thread/under its mutex; hides the old still before reuse.
+ bool camera_preview_start(lv_obj_t *canvas);
++// Register on the UI thread before starting a worker. The handler runs under
++// the LVGL mutex only after direct scanout has been released; false defers a
++// change (for example while a touch gesture is pressed).
++void camera_preview_set_orientation_handler(bool (*apply)(int direction));
++void camera_preview_request_orientation(int direction);
+ bool camera_preview_capture(void);
+ void camera_preview_stop(void);
+ camera_preview_state camera_preview_get_state(void);
+--- a/firmware/main/camera_viewport.c
++++ b/firmware/main/camera_viewport.c
+@@ -23,7 +23,7 @@
+ }
+ // Keep the actual widget artwork, including text and anti-aliased circles.
+ // Snapshots are taken once, before the worker starts composing any frames.
+-static bool snapshot_control(lv_obj_t *obj,camera_overlay *out) {
++static bool snapshot_control(lv_obj_t *obj,camera_overlay *out,bool inverted) {
+     if(!obj)return false;
+     bool hidden=lv_obj_has_flag(obj,LV_OBJ_FLAG_HIDDEN);
+     lv_state_t restore=lv_obj_get_state(obj);
+@@ -51,9 +51,13 @@
+             if(ok) {
+                 for(int y=y1;y<=y2;y++) {
+                     const uint32_t *row=(const uint32_t *)(snap.data+(y-a.y1)*snap.header.stride);
+-                    for(int x=x1;x<=x2;x++)rotated[(x2-x)*rw+(y-y1)]=row[x-a.x1];
++                    for(int x=x1;x<=x2;x++) {
++                        size_t index=inverted?(size_t)(x-x1)*rw+(y2-y):(size_t)(x2-x)*rw+(y-y1);
++                        rotated[index]=row[x-a.x1];
++                    }
+                 }
+-                *out=(camera_overlay){.pixels=rotated,.width=rw,.height=rh,.stride=rw*4,.x=y1,.y=1279-x2};
++                *out=(camera_overlay){.pixels=rotated,.width=rw,.height=rh,.stride=rw*4,
++                    .x=inverted?719-y2:y1,.y=inverted?x1:1279-x2};
+             }
+         }
+     }
+@@ -63,10 +67,12 @@
+     if(display)return -1;
+     atomic_store(&present_count,0);atomic_store(&compose_time,0);atomic_store(&present_time,0);
+     atomic_store(&direct_mode,0);
+-    // The optimized compositor targets normal landscape. Inverted landscape
+-    // uses LVGL's canvas path, which rotates pixels and touch together.
+-    if(canvas&&lv_display_get_rotation(lv_obj_get_display(canvas))!=LV_DISPLAY_ROTATION_90)return 0;
+-    if(!canvas||!snapshot_control(controls[0],&overlays[0])||!snapshot_control(controls[1],&overlays[1])) {
++    lv_display_rotation_t rotation=canvas?lv_display_get_rotation(lv_obj_get_display(canvas)):LV_DISPLAY_ROTATION_0;
++    if(rotation!=LV_DISPLAY_ROTATION_90&&rotation!=LV_DISPLAY_ROTATION_270)return 0;
++    // Sensor-to-panel pixels stay fixed. Only UI overlays follow the current
++    // display/touch rotation; rotating the image with them turns the view upside down.
++    bool inverted=rotation==LV_DISPLAY_ROTATION_270;
++    if(!snapshot_control(controls[0],&overlays[0],inverted)||!snapshot_control(controls[1],&overlays[1],inverted)) {
+         free_overlays();return false;
+     }
+     lv_display_t *candidate=lv_obj_get_display(canvas);
+--- a/firmware/main/camera_viewport.h
++++ b/firmware/main/camera_viewport.h
+@@ -4,7 +4,8 @@
+ #include <stdint.h>
+ 
+ // Registration and begin/end run under the LVGL mutex. One camera task owns
+-// frame() until end(); controls are immutable cached snapshots for that session.
++// frame() until end(); controls are immutable until end(), and must be rebuilt
++// after a display/touch direction change before the next begin().
+ void camera_viewport_set_controls(lv_obj_t *shutter, lv_obj_t *close);
+ // 1: acquired, 0: safe LVGL fallback, -1: display fault (end still required).
+ int camera_viewport_begin(lv_obj_t *canvas);
+--- /dev/null
++++ b/firmware/main/camera_canvas.h
+@@ -0,0 +1,70 @@
++#pragma once
++#include "lvgl.h"
++#include "camera_frame.h"
++
++typedef struct {
++    lv_obj_t *row_view,*column_view;
++    lv_image_dsc_t row,column;
++    uint16_t row_pixels[CAMERA_VIEW_WIDTH],column_pixels[CAMERA_VIEW_HEIGHT*2];
++} camera_canvas_edges;
++
++static inline void camera_canvas_edge_event(lv_event_t *event) {
++    camera_canvas_edges *edges=lv_event_get_user_data(event);
++    if(lv_event_get_code(event)==LV_EVENT_DELETE) {
++        lv_obj_delete(edges->row_view);lv_obj_delete(edges->column_view);
++        lv_obj_set_user_data(lv_event_get_current_target(event),NULL);lv_free(edges);return;
++    }
++    lv_obj_t *canvas=lv_event_get_current_target(event);
++    if(lv_image_get_rotation(canvas)!=1800)return;
++    lv_draw_buf_t *image=lv_canvas_get_draw_buf(canvas);
++    if(!image||!image->data)return;
++    const uint16_t *pixels=(const uint16_t *)image->data;
++    for(unsigned x=0;x<CAMERA_VIEW_WIDTH;x++)edges->row_pixels[x]=pixels[CAMERA_VIEW_WIDTH-1-x];
++    for(unsigned y=0;y<CAMERA_VIEW_HEIGHT;y++)edges->column_pixels[y*2]=
++        pixels[(CAMERA_VIEW_HEIGHT-1-y)*(image->header.stride/2)];
++    lv_image_cache_drop(&edges->row);lv_image_cache_drop(&edges->column);
++}
++
++static inline void camera_canvas_extent(lv_event_t *event) {
++    // LVGL's even-sized half-turn reaches one pixel past the original bounds.
++    // Preserve that edge instead of clipping the review's last row/column.
++    int32_t *size=lv_event_get_param(event);
++    if(lv_image_get_rotation(lv_event_get_current_target(event))==1800&&*size<1)*size=1;
++}
++static inline void camera_canvas_init(lv_obj_t *canvas) {
++    lv_image_set_pivot(canvas,CAMERA_VIEW_WIDTH/2,CAMERA_VIEW_HEIGHT/2);
++    lv_obj_add_event_cb(canvas,camera_canvas_extent,LV_EVENT_REFR_EXT_DRAW_SIZE,NULL);
++    // LVGL's continuous half-turn bounds omit the final discrete pixel row and
++    // column. Retain only those two strips (5,440 bytes), never another frame.
++    camera_canvas_edges *edges=lv_malloc_zeroed(sizeof(*edges));LV_ASSERT_MALLOC(edges);
++    if(!edges)return;
++    edges->row=(lv_image_dsc_t){.header={.magic=LV_IMAGE_HEADER_MAGIC,.cf=LV_COLOR_FORMAT_RGB565,
++        .w=CAMERA_VIEW_WIDTH,.h=1,.stride=CAMERA_VIEW_WIDTH*2},
++        .data_size=sizeof(edges->row_pixels),.data=(const uint8_t *)edges->row_pixels};
++    edges->column=(lv_image_dsc_t){.header={.magic=LV_IMAGE_HEADER_MAGIC,.cf=LV_COLOR_FORMAT_RGB565,
++        .w=1,.h=CAMERA_VIEW_HEIGHT,.stride=4},
++        .data_size=sizeof(edges->column_pixels),.data=(const uint8_t *)edges->column_pixels};
++    edges->row_view=lv_image_create(canvas);lv_image_set_src(edges->row_view,&edges->row);
++    lv_obj_set_pos(edges->row_view,1,CAMERA_VIEW_HEIGHT);
++    edges->column_view=lv_image_create(canvas);lv_image_set_src(edges->column_view,&edges->column);
++    lv_obj_set_pos(edges->column_view,CAMERA_VIEW_WIDTH,1);
++    lv_obj_add_flag(canvas,LV_OBJ_FLAG_OVERFLOW_VISIBLE);
++    lv_obj_add_flag(edges->row_view,LV_OBJ_FLAG_HIDDEN);lv_obj_add_flag(edges->column_view,LV_OBJ_FLAG_HIDDEN);
++    lv_obj_set_user_data(canvas,edges);
++    lv_obj_add_event_cb(canvas,camera_canvas_edge_event,LV_EVENT_DRAW_MAIN,edges);
++    lv_obj_add_event_cb(canvas,camera_canvas_edge_event,LV_EVENT_DELETE,edges);
++}
++static inline void camera_canvas_direction(lv_obj_t *canvas,bool inverted) {
++    lv_image_set_rotation(canvas,inverted?1800:0);
++    // The integer center is (640,360); translate its (1,1) half-turn origin
++    // back to (0,0) so fallback/review matches the direct compositor exactly.
++    lv_obj_set_pos(canvas,inverted?-1:0,inverted?-1:0);
++    camera_canvas_edges *edges=lv_obj_get_user_data(canvas);
++    if(edges) {
++        lv_obj_t *views[]={edges->row_view,edges->column_view};
++        for(unsigned i=0;i<2;i++)if(lv_obj_has_flag(views[i],LV_OBJ_FLAG_HIDDEN)==inverted) {
++            if(inverted)lv_obj_remove_flag(views[i],LV_OBJ_FLAG_HIDDEN);
++            else lv_obj_add_flag(views[i],LV_OBJ_FLAG_HIDDEN);
++        }
++    }
++}
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -217,16 +217,22 @@
+ static unsigned preview_camera_starts;
+ static unsigned preview_camera_cache_bytes;
+ static void (*preview_camera_start_observer)(void);
++static bool preview_camera_busy;
++static bool (*preview_camera_orientation_handler)(int);
++static int preview_camera_direction;
++void camera_preview_set_orientation_handler(bool (*apply)(int)){preview_camera_orientation_handler=apply;}
++void camera_preview_request_orientation(int direction){preview_camera_direction=direction;}
+ bool camera_preview_start(lv_obj_t *canvas) { lv_obj_add_flag(canvas,LV_OBJ_FLAG_HIDDEN);if(preview_camera_start_observer)preview_camera_start_observer();preview_camera_cache_bytes=tab5_cache_bytes+tab5_native_cache_bytes;preview_camera_starts++;preview_camera_state=CAMERA_PREVIEW_STARTING; return true; }
+ bool camera_preview_capture(void) { if(preview_camera_state!=CAMERA_PREVIEW_LIVE)return false;preview_camera_state=CAMERA_PREVIEW_CAPTURING;return true; }
+ void camera_preview_stop(void) { preview_camera_state=CAMERA_PREVIEW_OFF; }
+ camera_preview_state camera_preview_get_state(void) { return preview_camera_state; }
+-bool camera_preview_busy(void){return false;}
++bool camera_preview_busy(void){return preview_camera_busy;}
+ const char *camera_preview_error(void){return "相机初始化失败，请重启设备后重试 (3/257)";}
+ #endif
+ 
+ #include "lvgl.h"
+ #include "src/core/lv_obj_event_private.h"
++#include "camera_canvas.h"
+ #include "src/misc/lv_area_private.h"
+ #include "tab5_ime.h"
+ #include <stdio.h>
+@@ -683,6 +689,14 @@
+     }
+     lv_obj_invalidate(lv_screen_active());lv_obj_invalidate(lv_layer_top());lv_obj_invalidate(lv_layer_sys());
+ }
++static bool camera_orientation_apply(int direction) {
++    if(gesture_active()||ota_update_busy()||flash_benchmark_busy())return false;
++    screen_orientation_apply(direction);
++    // In LVGL fallback/review, cancel the UI's extra half turn on the image.
++    // The direct compositor uses the fixed sensor-to-panel mapping itself.
++    camera_canvas_direction(camera_canvas,direction==2);
++    return true;
++}
+ static void screen_orientation_changed(lv_event_t *e) {
+     int mode=lv_dropdown_get_selected(lv_event_get_target(e))?(screen_orientation.direction==2?2:1):0;
+     if(!ui_orientation_save(mode)) {
+@@ -2313,6 +2327,7 @@
+         voice_remote_state *voice=&ui_voice_work->camera;voice_remote_get(voice);
+         if(voice->busy){ui_text(codex_voice_hint,"录音结束后即可拍照");return;}
+         camera_release_caches();
++        camera_preview_request_orientation(screen_orientation.direction);
+         lv_obj_remove_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
+         lv_obj_move_foreground(camera_layer);
+         if(!camera_preview_start(camera_canvas))ui_text(camera_hint,"摄像头暂不可用，请稍后重试");
+@@ -2325,6 +2340,7 @@
+     else if(action==2) {
+         if(photo_for_codex)ui_text(codex_receipt,"正在打开摄像头…");
+         camera_release_caches();
++        camera_preview_request_orientation(screen_orientation.direction);
+         if(!camera_preview_start(camera_canvas)) {
+             ui_text(camera_hint,"摄像头尚未关闭，请稍后重试");
+             if(photo_for_codex)ui_text(codex_receipt,"摄像头尚未关闭，请稍后重试");
+@@ -2385,11 +2401,17 @@
+ 
+ static void clock_tick(lv_timer_t *timer) {
+     int64_t now=esp_timer_get_time()/1000;
+-    // Do not change coordinates mid-gesture or while the camera owns scanout.
+-    bool rotation_busy=gesture_active()||ota_update_busy()||flash_benchmark_busy()||
+-        camera_preview_busy()||(camera_layer&&!lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN));
++    // Sample during camera use, but let its worker release scanout before
++    // applying display/touch coordinates. Never flip mid-gesture.
++    bool rotation_busy=gesture_active()||ota_update_busy()||flash_benchmark_busy();
+     int direction=ui_orientation_sample(&screen_orientation,art_orientation_get(),now,rotation_busy,screen_orientation_mode);
+-    if(!rotation_busy)screen_orientation_apply(saver&&saver_is_gallery()?0:direction);
++    bool camera_visible=camera_layer&&!lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
++    if(!rotation_busy&&camera_visible) {
++        camera_preview_request_orientation(direction);
++        camera_preview_state state=camera_preview_get_state();
++        if(state==CAMERA_PREVIEW_CAPTURED||(!camera_preview_busy()&&state==CAMERA_PREVIEW_OFF))
++            camera_orientation_apply(direction);
++    } else if(!rotation_busy&&!camera_preview_busy())screen_orientation_apply(saver&&saver_is_gallery()?0:direction);
+     atomic_store(&ui_heartbeat_ms,(unsigned)now);
+     (void)timer;
+     // Device indicators must work before the first bridge snapshot arrives.
+@@ -4230,6 +4252,7 @@
+     lv_obj_remove_flag(camera_layer,LV_OBJ_FLAG_SCROLLABLE);
+     camera_canvas=lv_canvas_create(camera_layer);
+     lv_obj_set_pos(camera_canvas,0,0);lv_obj_set_size(camera_canvas,CAMERA_VIEW_WIDTH,CAMERA_VIEW_HEIGHT);
++    camera_canvas_init(camera_canvas);
+     lv_obj_add_event_cb(camera_canvas,camera_cover_check,LV_EVENT_COVER_CHECK,NULL);
+     camera_hint=label(camera_layer,"摄像头启动中",24,20,1020,false);
+     lv_obj_set_width(camera_hint,LV_SIZE_CONTENT);lv_obj_set_style_max_width(camera_hint,1020,0);
+@@ -4278,6 +4301,7 @@
+ #ifndef TAB5_UI_PREVIEW
+     camera_viewport_set_controls(camera_take,camera_close);
+ #endif
++    camera_preview_set_orientation_handler(camera_orientation_apply);
+     photo_ui_create(screen,task_right);
+     codex_restore_draft();
+     date_editor_create(screen);
+--- a/tests/ui-preview/camera_ownership_test.c
++++ b/tests/ui-preview/camera_ownership_test.c
+@@ -55,7 +55,7 @@
+ typedef struct {unsigned timeout_ms;struct v4l2_buffer buffer;} esp_video_dqbuf_timeout_t;
+ typedef struct {struct {bool init_sccb;void *i2c_handle;unsigned freq;} sccb_config;int reset_pin,pwdn_pin;} esp_video_init_csi_config_t;
+ typedef struct {esp_video_init_csi_config_t *csi;void *dvp,*jpeg;} esp_video_init_config_t;
+-enum {NORMAL,STOP,FAIL_DQ,FAIL_QBUF,FAIL_MAP,BAD_STRIDE,FAIL_START,FAIL_REQBUFS,LOW_MEMORY,FAIL_PRESENT,FAIL_RESTORE,FAIL_ALLOC_1,FAIL_ALLOC_2,FAIL_STREAM_ON,FAIL_STOP_STREAM,FAIL_RELEASE};
++enum {NORMAL,STOP,FAIL_DQ,FAIL_QBUF,FAIL_MAP,BAD_STRIDE,FAIL_START,FAIL_REQBUFS,LOW_MEMORY,FAIL_PRESENT,FAIL_RESTORE,FAIL_ALLOC_1,FAIL_ALLOC_2,FAIL_STREAM_ON,ROTATE,FAIL_ROTATE_RELEASE,FAIL_STOP_STREAM,FAIL_RELEASE};
+ static bool use_direct,direct_active;
+ static const uint16_t *presented_source;
+ static unsigned direct_presented;
+@@ -71,6 +71,16 @@
+ static bool queued[3],streaming_mock,locked;
+ static unsigned delivered,returned,unmapped,closed,frame_copies,last_pixel;
+ static int64_t mock_time;
++static unsigned rotation_calls,rotation_changes;
++static int last_direction;
++static bool rotation_deferred,rotation_release_failed;
++static bool mock_apply_direction(int direction) {
++    assert(locked&&!direct_active);
++    rotation_calls++;
++    if(scenario==ROTATE&&direction==2&&!rotation_deferred){rotation_deferred=true;return false;}
++    if(direction!=last_direction)rotation_changes++;
++    last_direction=direction;return true;
++}
+ static const size_t frame_bytes=1280*720*2;
+ static uint8_t *canvas_pixels(void) {
+     lv_draw_buf_t *b=lv_canvas_get_draw_buf(canvas);return b?b->data:NULL;
+@@ -144,6 +154,10 @@
+ static void vTaskDelay(unsigned ticks) {
+     (void)ticks;
+     if(!streaming_mock)return;
++    if(scenario==ROTATE||scenario==FAIL_ROTATE_RELEASE) {
++        if(delivered==3)camera_preview_request_orientation(2);
++        if(delivered==6)camera_preview_request_orientation(0);
++    }
+     if(scenario==STOP&&delivered==4)camera_preview_stop();
+     else if(delivered==8){assert(camera_preview_capture());assert(!camera_preview_capture());}
+ }
+@@ -237,7 +251,9 @@
+     presented_source=source;direct_presented++;return true;
+ }
+ static bool camera_viewport_end(void) {
+-    assert(locked&&direct_active&&!canvas_uses_driver());direct_active=false;return scenario!=FAIL_RESTORE;
++    assert(locked&&direct_active&&!canvas_uses_driver());
++    if(scenario==FAIL_ROTATE_RELEASE&&delivered==4&&!rotation_release_failed){rotation_release_failed=true;return false;}
++    direct_active=false;return scenario!=FAIL_RESTORE;
+ }
+ static void camera_viewport_diagnostics(unsigned *a,unsigned *b,unsigned *c,unsigned *d) {
+     *a=direct_presented;*b=*c=0;*d=direct_active;
+@@ -291,7 +307,7 @@
+     for(unsigned pipeline=0;pipeline<2;pipeline++) {
+     use_direct=pipeline!=0;
+     for(int mode=NORMAL;mode<=FAIL_RELEASE;mode++) {
+-        if(!use_direct&&(mode==FAIL_PRESENT||mode==FAIL_RESTORE))continue;
++        if(!use_direct&&(mode==FAIL_PRESENT||mode==FAIL_RESTORE||mode==FAIL_ROTATE_RELEASE))continue;
+ #ifdef CAMERA_POOL_FIXED
+         if(mode==FAIL_ALLOC_1||mode==FAIL_ALLOC_2)continue; // Tested at startup.
+ #endif
+@@ -303,18 +319,22 @@
+             // A failed cold attempt must not enter the partially undoable init.
+             if(mode==LOW_MEMORY)video_initialized=false;
+             unsigned initializations=video_init_calls;
++            rotation_calls=rotation_changes=0;last_direction=0;rotation_deferred=rotation_release_failed=false;
++            camera_preview_set_orientation_handler(mode==ROTATE||mode==FAIL_ROTATE_RELEASE?mock_apply_direction:NULL);
++            camera_preview_request_orientation(0);
+             direct_active=false;presented_source=NULL;
+             canvas=lv_canvas_create(lv_screen_active());scheduled_task=NULL;
+             if(mode==FAIL_START){assert(!camera_preview_start(canvas)&&!camera_preview_busy());lv_obj_delete(canvas);continue;}
+             assert(camera_preview_start(canvas)&&scheduled_task);assert(!camera_preview_start(canvas));
+             scheduled_task(NULL);assert(!camera_preview_busy());
+-            if(mode==NORMAL) {
++            if(mode==NORMAL||mode==ROTATE) {
+                 if(camera_preview_get_state()!=CAMERA_PREVIEW_CAPTURED) {
+                     fprintf(stderr,"CAMERA_FRAME_BUDGET_FAILURE: three-frame limit; attempts=%u live=%u stage=%d error=%d\n",
+                         frame_allocations,frame_live,atomic_load(&diagnostic_stage),atomic_load(&diagnostic_error));
+                     fflush(stderr);
+                 }
+                 assert(camera_preview_get_state()==CAMERA_PREVIEW_CAPTURED&&delivered==9);
++                if(mode==ROTATE)assert(rotation_calls==4&&rotation_changes==2&&last_direction==0&&rotation_deferred);
+                 if(run>0)assert(video_init_calls==initializations);
+                 assert(frame_copies==0&&unmapped==0&&closed==1&&frame_live==retained_frames&&frame_peak==3);
+ #ifdef CAMERA_POOL_FIXED
+@@ -336,9 +356,11 @@
+                     atomic_load(&diagnostic_error)==ENOMEM&&video_init_calls==initializations);
+                 if(mode==FAIL_REQBUFS||mode==FAIL_STREAM_ON)assert(atomic_load(&diagnostic_error)==ENOMEM&&
+                     atomic_load(&diagnostic_stage)==(mode==FAIL_REQBUFS?6:7)&&closed==1);
++                if(mode==FAIL_ROTATE_RELEASE)assert(rotation_release_failed&&last_direction==0&&
++                    rotation_calls==1&&closed==1&&atomic_load(&diagnostic_error)==EIO);
+                 assert(frame_copies==0);
+             }
+-            if(mode!=NORMAL)assert(!camera_preview_acquire()&&!camera_preview_busy());
++            if(mode!=NORMAL&&mode!=ROTATE)assert(!camera_preview_acquire()&&!camera_preview_busy());
+             lv_obj_delete(canvas);canvas=NULL;assert(!locked);
+ #ifdef CAMERA_FRAME_CAPS
+             if(mode==FAIL_STOP_STREAM||mode==FAIL_RELEASE) {
+@@ -367,6 +389,6 @@
+     frame_free(still_pixels);
+ #endif
+     assert(!frame_live);
+-    puts("CAMERA_OWNERSHIP_OK: cold-init low-memory protection; 128 captures/reopens with observed 48383/23552 internal heap and fragmented PSRAM, zero new full frames; immutable JPEG lease and teardown faults safe");
++    puts("CAMERA_OWNERSHIP_OK: 128 low-memory captures/reopens; two live flips preserve capture and frame ownership, gesture deferral, no coordinate change after failed display release; immutable JPEG lease and teardown faults safe");
+     return 0;
+ }
+--- a/tests/ui-preview/camera_viewport_test.c
++++ b/tests/ui-preview/camera_viewport_test.c
+@@ -5,12 +5,16 @@
+ #include "src/core/lv_obj_private.h"
+ #include "src/core/lv_obj_draw_private.h"
+ #include "camera_compositor.h"
++#include "camera_canvas.h"
+ #include <assert.h>
+ #include <stdatomic.h>
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#ifdef _WIN32
++#include <windows.h>
++#endif
+ 
+ #define SW 1280u
+ #define SH 720u
+@@ -139,7 +143,7 @@
+     }
+     lv_obj_invalidate(lv_screen_active());lv_refr_now(fixture_display);
+     lv_draw_sw_rotate(render_pixels,expected,SW,SH,SW*2,DW*2,
+-                      LV_DISPLAY_ROTATION_90,LV_COLOR_FORMAT_RGB565);
++                      lv_display_get_rotation(fixture_display),LV_COLOR_FORMAT_RGB565);
+     for(unsigned i=0;i<2;i++) {lv_obj_delete(images[i]);lv_draw_buf_destroy(snapshots[i]);}
+     lv_obj_add_flag(fixture_shutter,LV_OBJ_FLAG_HIDDEN);
+     lv_obj_add_state(fixture_shutter,LV_STATE_DISABLED|LV_STATE_PRESSED);
+@@ -169,6 +173,18 @@
+     states_restored();diagnostics(0,1);
+     assert(camera_viewport_begin(fixture_canvas)==-1);
+     assert(camera_viewport_frame(source_pixels,NULL,NULL));
++    if(memcmp(framebuffers[front_index],expected,BYTES)) {
++        unsigned differing=0,outside=0,first=0;
++        for(unsigned i=0;i<SW*SH;i++)if(framebuffers[front_index][i]!=expected[i]) {
++            if(!differing)first=i;differing++;
++            unsigned x=i%DW,y=i/DW;bool widget=false;
++            for(unsigned j=0;j<2;j++)widget|=x>=(unsigned)overlays[j].x&&x<(unsigned)overlays[j].x+overlays[j].width&&
++                y>=(unsigned)overlays[j].y&&y<(unsigned)overlays[j].y+overlays[j].height;
++            outside+=!widget;
++        }
++        fprintf(stderr,"VIEWPORT_DIRECTION_MISMATCH rotation=%d pixels=%u outside=%u first=%u,%u actual=%04x expected=%04x\n",
++            lv_display_get_rotation(fixture_display),differing,outside,first%DW,first/DW,framebuffers[front_index][first],expected[first]);
++    }
+     assert(!memcmp(framebuffers[front_index],expected,BYTES));
+     assert(front_index==1 && present_calls==1 && delays>0);diagnostics(1,1);
+     assert(camera_viewport_frame(source_pixels,NULL,NULL));
+@@ -236,25 +252,30 @@
+     check_count++;
+ }
+ int main(void) {
++#ifdef _WIN32
++    SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
++    _set_error_mode(_OUT_TO_STDERR);_set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
++#endif
+     lv_init();source_pixels=malloc(BYTES);render_pixels=malloc(BYTES);expected=malloc(BYTES);
+     framebuffers[0]=malloc(BYTES);framebuffers[1]=malloc(BYTES);
+     assert(source_pixels && render_pixels && expected && framebuffers[0] && framebuffers[1]);
+     for(unsigned y=0;y<SH;y++)for(unsigned x=0;x<SW;x++)
+         source_pixels[(size_t)y*SW+x]=(uint16_t)(((x+y*7)&31)<<11|((x*3+y)&63)<<5|((x*13+y*3)&31));
+-    // Match the board's physical portrait panel plus normal landscape rotation.
+-    // The viewport deliberately falls back to LVGL for inverted landscape.
++    // Match the board's portrait panel. Image-to-panel mapping stays fixed;
++    // only controls follow the normal/inverted landscape UI and touch rotation.
+     fixture_display=lv_display_create(DW,DH);assert(fixture_display);
+     lv_display_set_rotation(fixture_display,LV_DISPLAY_ROTATION_90);
+     lv_display_set_color_format(fixture_display,LV_COLOR_FORMAT_RGB565);
+     lv_display_set_buffers(fixture_display,render_pixels,NULL,BYTES,LV_DISPLAY_RENDER_MODE_FULL);
+     lv_display_set_flush_cb(fixture_display,flush);
+-    fixtures();oracle();
+-    reset_facade();lv_display_set_rotation(fixture_display,LV_DISPLAY_ROTATION_270);
+-    assert(camera_viewport_begin(fixture_canvas)==0&&!live_allocations&&!begin_calls);
+-    lv_display_set_rotation(fixture_display,LV_DISPLAY_ROTATION_90);
+-    successful_session();allocation_failures();cancellation_sessions();port_failures();
+-    // Retake reopens after every failure, rebuilding snapshots without leaks.
+-    for(unsigned i=0;i<3;i++)successful_session();
++    fixtures();camera_canvas_init(fixture_canvas);
++    for(unsigned inverted=0;inverted<2;inverted++) {
++        lv_display_set_rotation(fixture_display,inverted?LV_DISPLAY_ROTATION_270:LV_DISPLAY_ROTATION_90);
++        camera_canvas_direction(fixture_canvas,inverted!=0);
++        oracle();successful_session();allocation_failures();cancellation_sessions();port_failures();
++        // Retake reopens after every failure, rebuilding snapshots without leaks.
++        for(unsigned i=0;i<3;i++)successful_session();
++    }
+     assert(!live_allocations);lv_display_delete(fixture_display);lv_deinit();
+     free(framebuffers[0]);free(framebuffers[1]);free(expected);free(render_pixels);free(source_pixels);
+     printf("CAMERA_VIEWPORT_PASS: %u sessions; actual snapshots, exact frame pixels, state restoration, allocation and port failures, cancellation, repeat open/close\n",check_count);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1650,11 +1650,52 @@
+         assert(lv_display_get_rotation(NULL)==LV_DISPLAY_ROTATION_180&&screen_orientation_mode==2);
+         lv_dropdown_set_selected(orientation_selector,0);lv_obj_send_event(orientation_selector,LV_EVENT_VALUE_CHANGED,NULL);
+         assert(screen_orientation_mode==0&&preview_saved_orientation==0);
++        uint16_t *direction_pixels=malloc(1280*720*2);assert(direction_pixels);
++        for(int y=0;y<720;y++)for(int x=0;x<1280;x++)
++            direction_pixels[y*1280+x]=(y<120&&x>500&&x<780)?0xf800:(x<640?0x0560:0x001f);
++        lv_canvas_set_buffer(camera_canvas,direction_pixels,1280,720,LV_COLOR_FORMAT_RGB565);
+         lv_obj_remove_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
++        preview_camera_state=CAMERA_PREVIEW_LIVE;preview_camera_busy=true;camera_tick();
+         for(int i=0;i<=10;i++) {
+             preview_now_us+=50000;preview_art_orientation=(art_orientation_state){.ready=true,.x=16384,.sampled_ms=preview_now_us/1000};clock_tick(NULL);
+-            assert(screen_orientation.direction==2);
++            assert(lv_display_get_rotation(NULL)==LV_DISPLAY_ROTATION_180);
+         }
++        assert(screen_orientation.direction==0&&preview_camera_direction==0&&preview_camera_orientation_handler);
++        // Only the worker's released-scanout callback may update live coordinates.
++        assert(preview_camera_orientation_handler(0));
++        assert(lv_display_get_rotation(NULL)==LV_DISPLAY_ROTATION_0&&lv_image_get_rotation(camera_canvas)==0);
++        capture("camera-direction-normal");
++        for(int i=0;i<=10;i++) {
++            preview_now_us+=50000;preview_art_orientation=(art_orientation_state){.ready=true,.x=-16384,.sampled_ms=preview_now_us/1000};clock_tick(NULL);
++        }
++        assert(screen_orientation.direction==2&&preview_camera_direction==2&&lv_display_get_rotation(NULL)==LV_DISPLAY_ROTATION_0);
++        assert(preview_camera_orientation_handler(2));
++        assert(lv_display_get_rotation(NULL)==LV_DISPLAY_ROTATION_180&&lv_image_get_rotation(camera_canvas)==1800);
++        capture("camera-direction-inverted");
++        lv_indev_t *camera_direction_touch=lv_indev_create();lv_indev_set_type(camera_direction_touch,LV_INDEV_TYPE_POINTER);
++        lv_indev_set_display(camera_direction_touch,lv_display_get_default());lv_indev_set_read_cb(camera_direction_touch,camera_touch_read);
++        camera_touch_point=(lv_point_t){1279-94,719-360};
++        camera_touch_state=LV_INDEV_STATE_PRESSED;lv_indev_read(camera_direction_touch);
++        assert(preview_camera_state==CAMERA_PREVIEW_CAPTURING);
++        assert(!preview_camera_orientation_handler(0)&&lv_display_get_rotation(NULL)==LV_DISPLAY_ROTATION_180);
++        camera_touch_state=LV_INDEV_STATE_RELEASED;lv_indev_read(camera_direction_touch);lv_indev_delete(camera_direction_touch);
++        preview_camera_state=CAMERA_PREVIEW_LIVE;camera_tick();
++        for(int portrait=-1;portrait<=1;portrait+=2)for(int i=0;i<=10;i++) {
++            preview_now_us+=50000;preview_art_orientation=(art_orientation_state){.ready=true,.y=portrait*16384,.sampled_ms=preview_now_us/1000};clock_tick(NULL);
++            assert(screen_orientation.direction==2&&preview_camera_direction==2);
++        }
++        // Review can flip without a worker; never change the captured pixels.
++        preview_camera_state=CAMERA_PREVIEW_CAPTURED;
++        for(int i=0;i<=10;i++) {
++            preview_now_us+=50000;preview_art_orientation=(art_orientation_state){.ready=true,.x=16384,.sampled_ms=preview_now_us/1000};clock_tick(NULL);
++        }
++        camera_tick();assert(lv_display_get_rotation(NULL)==LV_DISPLAY_ROTATION_0&&lv_image_get_rotation(camera_canvas)==0);
++        assert(lv_canvas_get_draw_buf(camera_canvas)->data==(uint8_t *)direction_pixels);
++        capture("camera-direction-review");
++        for(int y=0;y<720;y++)for(int x=0;x<1280;x++)assert(direction_pixels[y*1280+x]==
++            ((y<120&&x>500&&x<780)?0xf800:(x<640?0x0560:0x001f)));
++        lv_image_set_src(camera_canvas,NULL);free(direction_pixels);
++        preview_camera_busy=false;preview_camera_state=CAMERA_PREVIEW_OFF;
+         lv_obj_add_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
+         for(int i=0;i<=10;i++) {
+             preview_now_us+=50000;
+@@ -1665,6 +1706,7 @@
+         saver_style=UI_SAVER_COUNTDOWN;date_settings_refresh();lv_obj_update_layout(settings_scroll);
+         assert(lv_obj_get_y(screen_sound_group)>=lv_obj_get_y(date_settings_row)+lv_obj_get_height(date_settings_row));
+         capture("orientation-countdown-settings");
++        puts("CAMERA_DIRECTION_UI_OK live flips deferred to released-scanout callback; inverted shutter touch works; pressed gesture blocks flip; both portrait poses retain image mapping; captured pixels unchanged");
+         puts("ORIENTATION_UI_OK actual settings, flip, lock, failed save rollback, gallery entry/exit, unlock, countdown spacing");return 0;
+     }
+     assert(current_page==0&&startup_home.holding&&!startup_home.frame_seen);

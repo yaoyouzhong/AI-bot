@@ -1,0 +1,84 @@
+{
+  "version": "0.2.264-ui",
+  "base": "Apply after tab5-262-source on the previously reconstructed .257 project; preserve relative paths",
+  "applicationSha256": "0c9f5d7ae3228652d29c69bd75a2937134582a8ad87da981215ff3f992022561",
+  "elfSha256": "2f23aa91cea2957c7ff0b2d85b217859f2adf221d30b7a5bd895c4e816643585",
+  "scope": "Incremental .263/.264 OTA elapsed-time diagnostics and retained RTC snapshot. Keeps .262 photo fix; no .265/.266 I/O hooks or runtime-stat configuration.",
+  "files": [
+    {
+      "path": "firmware/main/CMakeLists.txt",
+      "sha256": "4d68458852ea735e8770392bd2bdd22453712001dd120c68dc5fed60651f58f1",
+      "bytes": 5557
+    },
+    {
+      "path": "firmware/main/crash_record.c",
+      "sha256": "0b59552916e10bd355858fcce9a5e43242ea75bbe25fad86f7c8e934dbf551cb",
+      "bytes": 14357
+    },
+    {
+      "path": "firmware/main/crash_record.h",
+      "sha256": "e715abafcee8a7266272e77b3d03efdc9ca259a0a2d8d467ba15f6b9db810ea0",
+      "bytes": 1827
+    },
+    {
+      "path": "firmware/main/ota_update.c",
+      "sha256": "ddb5ecb4a5f00384b54dba363cfb40d95327e07c8bac84d5b864333198fb34af",
+      "bytes": 36715
+    },
+    {
+      "path": "firmware/main/usb_link.c",
+      "sha256": "2dda345155b65a2eb2ad8e2e7fafdfacf1cf906312f56fdeb5bec02e816402b4",
+      "bytes": 34882
+    },
+    {
+      "path": "tests/ui-preview/CMakeLists.txt",
+      "sha256": "454c7acce943ec8c5102ba184f861261566e94e4c1ee4f06cb38ce8bbe6ac440",
+      "bytes": 76776
+    },
+    {
+      "path": "tests/ui-preview/ota_update_test.c",
+      "sha256": "b3884b4d9f8c4676cb730fdf70bb9b593f06b271539ec1c1ec594318f3c39e8b",
+      "bytes": 32384
+    },
+    {
+      "path": "firmware/main/ota_performance.c",
+      "sha256": "6c6e56d16daf55d865fa51da551fe14e6b85105373d5e0cdf32d979f0bc736d4",
+      "bytes": 4392
+    },
+    {
+      "path": "firmware/main/ota_performance.h",
+      "sha256": "2e0620dfbdd5d2211dddb4e850fe60c31f76be3d580cec14bb532a59da46da6b",
+      "bytes": 3427
+    },
+    {
+      "path": "firmware/main/ota_performance_trace.c",
+      "sha256": "53d4683a3f61ecea682e65d3075ef9f2d0a99268cad58dbab0b20d00bdd29779",
+      "bytes": 2751
+    },
+    {
+      "path": "tests/ota_performance_test.c",
+      "sha256": "e2536da8bdc2fbbb0f5947f30366a5de20fa95861d6843dbdeba96bc31449b7f",
+      "bytes": 8427
+    },
+    {
+      "path": "tests/ota_performance_trace_test.c",
+      "sha256": "7d45a5e60a3fd3da5ff7956baa60746cc7814efd7dc4c87f22be4396651c2f6f",
+      "bytes": 7347
+    },
+    {
+      "path": "tests/ui-preview/ota_usb_diagnostic_test.c",
+      "sha256": "a3dcc9f6f5a80702741a6c5e1dae7c19dd907560adc5483210c67b00a274f2b9",
+      "bytes": 3773
+    },
+    {
+      "path": "firmware/sdkconfig",
+      "sha256": "ee9abd2fabb90d59c2f2e9f4432dcbf80e2ae782d546fef37a704ed6d3522b37",
+      "bytes": 108016
+    },
+    {
+      "path": "firmware/sdkconfig.defaults",
+      "sha256": "5ab3fba64ca3e77c6ca428a754779f9408bd5aa656591ccb43a38284926388a2",
+      "bytes": 3672
+    }
+  ]
+}

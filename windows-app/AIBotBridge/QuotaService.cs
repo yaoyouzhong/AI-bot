@@ -114,6 +114,7 @@ internal sealed class QuotaService
         {
             using var creditsDocument = JsonDocument.Parse(creditsJson);
             var credits = creditsDocument.RootElement;
+            if (credits.ValueKind != JsonValueKind.Object) throw new JsonException("Invalid reset credit metadata.");
             available = Integer(credits, "available_count") ?? available;
             if (credits.TryGetProperty("credits", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
@@ -198,12 +199,49 @@ internal sealed class QuotaService
         try
         {
             var credits = await send("rate-limit-reset-credits", cancellationToken);
-            return credits is null ? parsed : ParseCodex(usage, credits, plan) with { UpdatedAt = parsed.UpdatedAt };
+            if (credits is not null) parsed = ParseCodex(usage, credits, plan) with { UpdatedAt = parsed.UpdatedAt };
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            return parsed;
+            // Credits and history are independent optional sources.
         }
+        var cursors = new HashSet<string>(); string? cursor = null;
+        using var historyBudget=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        historyBudget.CancelAfter(TimeSpan.FromSeconds(4));
+        bool historyComplete=false;string? historyError="page_limit";
+        try
+        {
+            for (int page=0;page<4;page++)
+            {
+                var json = await send("rate-limit-reset-credits/history" + (cursor is null ? "" : "?cursor="+Uri.EscapeDataString(cursor)), historyBudget.Token);
+                if (json is null) {historyError="unavailable";break;}
+                var (events,next) = ParseCodexResetHistory(json);
+                history.RecordResetEvidence(parsed with {ResetCreditRedemptions=events},fingerprint);
+                if (string.IsNullOrEmpty(next)) {historyComplete=true;historyError=null;break;}
+                if (!cursors.Add(next)) {historyError="repeated_cursor";break;}
+                cursor=next;
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        { historyError=ex is JsonException?"invalid_response":ex is TaskCanceledException?"timeout_or_cancelled":"network"; }
+        history.ResetHistoryChecked(historyComplete,historyError);
+        return parsed;
+    }
+
+    // Read-only contract used by the installed Codex desktop history page:
+    // GET /wham/rate-limit-reset-credits/history; events[{id,kind,occurred_at}], next_cursor.
+    internal static (QuotaResetEvidence[] Events,string? Next) ParseCodexResetHistory(string json)
+    {
+        using var document=JsonDocument.Parse(json);var root=document.RootElement;
+        if (root.ValueKind!=JsonValueKind.Object || !root.TryGetProperty("events",out var rows) || rows.ValueKind!=JsonValueKind.Array || rows.GetArrayLength()>512)
+            throw new JsonException("Invalid reset history page.");
+        var events=new List<QuotaResetEvidence>();
+        foreach(var row in rows.EnumerateArray())
+            if (String(row,"kind")=="redeemed" && String(row,"id") is {Length:>0 and <=256} id &&
+                Date(row,"occurred_at") is {} at && at>DateTimeOffset.UnixEpoch)
+                events.Add(new(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(id))),at));
+        var next=String(root,"next_cursor");if(next?.Length>1024)throw new JsonException("Invalid reset history cursor.");
+        return (events.DistinctBy(x=>x.IdHash).ToArray(),next);
     }
 
     private static async Task<string?> SendCodexAsync(
@@ -309,7 +347,7 @@ internal sealed class QuotaService
 
     private static int? Integer(JsonElement parent, string name) =>
         parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(name, out var value) &&
-        value.TryGetInt32(out var number) ? number : null;
+        value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) ? number : null;
 
     private static DateTimeOffset? Date(JsonElement parent, string name) =>
         DateTimeOffset.TryParse(String(parent, name), out var value) ? value : null;
