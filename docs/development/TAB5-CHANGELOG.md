@@ -2,6 +2,12 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.264-ui - 2026-10-24
+
+- Add bounded OTA elapsed-time diagnostics and a retained RTC snapshot; preserve the accepted .262 photo fix and existing Stop/ownership checks.
+- Archive the [.264 source overlay](tab5-264-source/README.md), including configuration and tests. Exact .264 Wi-Fi installation and VALID boot were verified; installation took 61.327 seconds and remains slow. The user accepted deferring this performance issue on 2026-10-24.
+- See [hardware evidence and limits](TAB5-OTA-264-ACCEPTANCE.md). This development synchronization creates no release and excludes .265/.266 diagnostic candidates.
+
 ## 0.2.262-ui
 
 - Reduce photo-window display interruption by skipping diagnostic heap walks; retain allocation admission, photo contents and OTA behavior.
