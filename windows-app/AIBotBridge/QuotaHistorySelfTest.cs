@@ -211,7 +211,9 @@ internal static class QuotaHistorySelfTest
         Require(Tab5QuotaTrend.CoverageFor([],new(2026,10,22),1)[0].FirstSample is null&&
             !System.Text.Json.JsonSerializer.Serialize(coverage).Contains("private-account"),"Missing coverage or private identity exposed.");
         var ui = new QuotaHistory(Path.Combine(folder,"ui"));
-        var today = new DateTimeOffset(DateTime.Today.AddHours(10));
+        // Match the form's statistics day even when the runner uses UTC or another local zone.
+        var statisticsNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, QuotaHistory.StatisticsZone);
+        var today = new DateTimeOffset(statisticsNow.Date.AddHours(10), statisticsNow.Offset);
         for (int d = 6; d >= 0; d--) { ui.Record(Q(today.AddDays(-d), 20, today.AddDays(7))); ui.Record(Q(today.AddDays(-d).AddMinutes(2), 22 + d, today.AddDays(7))); }
         using var form = new QuotaTrendForm(ui);
         form.Show(); Application.DoEvents();
