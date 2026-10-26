@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased Mac model account parity - 2026-10-26
 
+- Render each stock-name atlas row independently to prevent cross-row rasterization differences on macOS 14 while retaining the accepted font, color, size and alignment. Update paginated-history fixtures, isolate test registration defaults and bound asynchronous menu checks for CI.
+
 - Keep DeepSeek API total balance (already including gifts) and console spending independently stored, timestamped and labeled. In separate-source mode devices receive API balance only; unverified web spending is never merged. Pure-console mode can display its own balance and spending together. Sum same-currency recharge and bonus wallets with decimal arithmetic, without double-counting an authoritative total.
 - Read console spending from `total_costs`; same-console balance-only updates retain the original spending timestamp for at most 24 hours. Source/credential/currency transitions prevent old API data being relabeled as web data. Failed reads retain the last successful source-specific data.
 - Match Windows stock-name rendering parameters: 21-pixel regular type, 20-pixel rows, right alignment, gray text and end ellipsis for long names. Remove extra vertical padding; stock codes already share the firmware's 16-pixel Font2. The local ESP8266 0.5.6 candidate preserves reset-credit digit strokes and aligns columns inside a smaller badge.

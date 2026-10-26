@@ -4,7 +4,12 @@ import XCTest
 final class MacFeaturePreferencesTests: XCTestCase {
     private func preferences() -> (UserDefaults, String) {
         let name = "AI-bot-preferences-" + UUID().uuidString
-        return (UserDefaults(suiteName: name)!, name)
+        let defaults = UserDefaults(suiteName: name)!
+        // NSRegistrationDomain is shared even by distinct named suites.
+        let registration = defaults.volatileDomain(forName: UserDefaults.registrationDomain)
+        defaults.setVolatileDomain([:], forName: UserDefaults.registrationDomain)
+        addTeardownBlock { defaults.setVolatileDomain(registration, forName: UserDefaults.registrationDomain) }
+        return (defaults, name)
     }
     func testFreshCollectionDefaultsNeverEnableActions() {
         let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }

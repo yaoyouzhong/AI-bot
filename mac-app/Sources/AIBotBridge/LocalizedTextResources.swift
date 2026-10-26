@@ -110,6 +110,19 @@ enum MacRgb565Renderer {
     static func renderFittedLines(width: Int, height: Int, lines: [String], fontPixels: CGFloat,
                                   rowHeight: Int, alignment: NSTextAlignment = .left,
                                   weight: NSFont.Weight = .bold, color: NSColor = .white, padding: CGFloat = 1, truncate: Bool = false) -> Data? {
+        // Compose independent rows so CoreText's edge antialiasing and bitmap
+        // coordinate precision cannot leak between quotes on older macOS.
+        if width > 2, rowHeight > 2, height > rowHeight {
+            var atlas = Data(count: width * height * 2)
+            let stride = width * rowHeight * 2
+            for (index, text) in lines.enumerated() where (index + 1) * rowHeight <= height {
+                guard let row = renderFittedLines(width: width, height: rowHeight, lines: [text],
+                    fontPixels: fontPixels, rowHeight: rowHeight, alignment: alignment,
+                    weight: weight, color: color, padding: padding, truncate: truncate) else { return nil }
+                atlas.replaceSubrange(index * stride..<(index + 1) * stride, with: row)
+            }
+            return atlas
+        }
         guard width > 2, height > 2, rowHeight > 2,
               let bitmap = NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:width,pixelsHigh:height,
                 bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,
