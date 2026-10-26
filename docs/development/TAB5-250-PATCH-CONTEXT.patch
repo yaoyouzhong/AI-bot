@@ -1,0 +1,12 @@
+--- a/firmware/main/ui_dashboard.h
++++ b/firmware/main/ui_dashboard.h
+@@ -491,7 +491,8 @@
+         visible(trend_bars[i],known&&used>0);lv_obj_set_pos(trend_bars[i],i*99+32,92-height);
+         lv_obj_set_height(trend_bars[i],height>0?height:1);
+         ui_bg_color(trend_bars[i],lv_color_hex(yes(d,"partial")?AMBER:BLUE),0);
+-        char v[24];integer_value(d,"used",v,sizeof(v),"");ui_text(trend_values[i],v);
++        char v[24];integer_value(d,"used",v,sizeof(v),"");
++        ui_text(trend_values[i],v);
+         ui_text(trend_dates[i],text(d,"label"));
+     }
+     visible(trend_note,!codex);

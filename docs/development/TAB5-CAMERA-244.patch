@@ -1,0 +1,115 @@
+--- a/firmware/main/camera_preview.c
++++ b/firmware/main/camera_preview.c
+@@ -174,14 +174,18 @@
+         step=12;error=EBUSY;reason="图库仍在结束，请稍后重试";goto failed;
+     }
+     mark(step,0);
+-    // Small JSON snapshots live in PSRAM; leave headroom for CSI/ISP/USB drivers.
+-    if(heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<49152||
+-       heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<16384)goto failed;
+     // Startup owns the three full-size allocations. Never try to recreate them
+     // among attachment thumbnails or short-lived worker stacks during reopen.
+     if(!frame_pool[CAMERA_BUFFERS-1])goto failed;
+     if(!video_initialized) {
+         if(video_init_failed){step=3;error=EIO;reason="相机初始化失败，请重启设备后重试";goto failed;}
++        // Cold registration retains sensor/video/ISP resources for this boot.
++        // Do not charge that headroom again on every reopen: a healthy existing
++        // pipeline can have less free memory precisely because it owns them.
++        // Reopens use the reserved frames; actual REQBUFS/STREAMON allocation
++        // failures still follow their checked driver cleanup/error paths below.
++        if(heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<49152||
++           heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<16384)goto failed;
+         step=2;mark(step,0);reason="摄像头时钟启动失败";
+         error=bsp_cam_osc_init();if(error!=ESP_OK)goto failed;
+         vTaskDelay(pdMS_TO_TICKS(10));
+--- a/tests/ui-preview/camera_ownership_test.c
++++ b/tests/ui-preview/camera_ownership_test.c
+@@ -55,7 +55,7 @@
+ typedef struct {unsigned timeout_ms;struct v4l2_buffer buffer;} esp_video_dqbuf_timeout_t;
+ typedef struct {struct {bool init_sccb;void *i2c_handle;unsigned freq;} sccb_config;int reset_pin,pwdn_pin;} esp_video_init_csi_config_t;
+ typedef struct {esp_video_init_csi_config_t *csi;void *dvp,*jpeg;} esp_video_init_config_t;
+-enum {NORMAL,STOP,FAIL_DQ,FAIL_QBUF,FAIL_MAP,BAD_STRIDE,FAIL_START,FAIL_REQBUFS,LOW_MEMORY,FAIL_PRESENT,FAIL_RESTORE,FAIL_ALLOC_1,FAIL_ALLOC_2,FAIL_STOP_STREAM,FAIL_RELEASE};
++enum {NORMAL,STOP,FAIL_DQ,FAIL_QBUF,FAIL_MAP,BAD_STRIDE,FAIL_START,FAIL_REQBUFS,LOW_MEMORY,FAIL_PRESENT,FAIL_RESTORE,FAIL_ALLOC_1,FAIL_ALLOC_2,FAIL_STREAM_ON,FAIL_STOP_STREAM,FAIL_RELEASE};
+ static bool use_direct,direct_active;
+ static const uint16_t *presented_source;
+ static unsigned direct_presented;
+@@ -84,8 +84,16 @@
+     if(lv_obj_has_flag(canvas,LV_OBJ_FLAG_HIDDEN))return;
+     for(unsigned i=0;i<3;i++)if(buffers[i]&&canvas_pixels()==buffers[i])assert(!queued[i]);
+ }
+-static unsigned heap_caps_get_free_size(int caps){(void)caps;return scenario==LOW_MEMORY?8192:131072;}
+-static unsigned heap_caps_get_largest_free_block(int caps){return heap_caps_get_free_size(caps);}
++static unsigned heap_caps_get_free_size(int caps){
++    if(scenario==LOW_MEMORY)return 8192;
++    // .243 after successful encode/upload: 48,383 free internal bytes. The
++    // registered video/sensor/ISP pipeline already owns its persistent memory.
++    return fragment_heap&&caps==(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)?48383:131072;
++}
++static unsigned heap_caps_get_largest_free_block(int caps){
++    if(scenario==LOW_MEMORY)return 8192;
++    return fragment_heap&&caps==(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)?23552:131072;
++}
+ static void *frame_allocate(size_t size) {
+     assert(size==frame_bytes);
+     frame_allocations++;
+@@ -120,7 +128,8 @@
+ }
+ static int bsp_cam_osc_init(void){return ESP_OK;}
+ static void *bsp_i2c_get_handle(void){return NULL;}
+-static int esp_video_init(const esp_video_init_config_t *c){assert(c->csi);return ESP_OK;}
++static unsigned video_init_calls;
++static int esp_video_init(const esp_video_init_config_t *c){assert(c->csi);video_init_calls++;return ESP_OK;}
+ static int64_t esp_timer_get_time(void){return ++mock_time;}
+ static void bsp_display_lock(int timeout){(void)timeout;assert(!locked);verify_display_is_owned();locked=true;}
+ static void bsp_display_unlock(void){assert(locked);
+@@ -174,7 +183,9 @@
+         assert(lv_obj_has_flag(canvas,LV_OBJ_FLAG_HIDDEN)||canvas_pixels()!=buffers[i]);
+         if(scenario==FAIL_QBUF&&delivered==4){errno=EIO;return -1;}
+         queued[i]=true;returned++;return 0;}
+-    case VIDIOC_STREAMON:streaming_mock=true;return 0;
++    case VIDIOC_STREAMON:
++        if(scenario==FAIL_STREAM_ON){errno=ENOMEM;return -1;}
++        streaming_mock=true;return 0;
+     case VIDIOC_STREAMOFF:
+         if(scenario==FAIL_STOP_STREAM){errno=EIO;return -1;}
+         streaming_mock=false;for(unsigned i=0;i<3;i++)queued[i]=false;return 0;
+@@ -287,7 +298,11 @@
+         // Reopen 64 times per display path; retain only one frame between runs.
+         for(unsigned run=0;run<(mode==NORMAL?64u:1u);run++) {
+             scenario=mode;frame_allocations=0;delivered=returned=unmapped=closed=frame_copies=last_pixel=direct_presented=0;
+-            fragment_heap=mode==NORMAL&&run>0;
++            fragment_heap=(mode==NORMAL&&run>0)||(mode!=NORMAL&&video_initialized);
++            // Cold initialization still needs its original safety headroom.
++            // A failed cold attempt must not enter the partially undoable init.
++            if(mode==LOW_MEMORY)video_initialized=false;
++            unsigned initializations=video_init_calls;
+             direct_active=false;presented_source=NULL;
+             canvas=lv_canvas_create(lv_screen_active());scheduled_task=NULL;
+             if(mode==FAIL_START){assert(!camera_preview_start(canvas)&&!camera_preview_busy());lv_obj_delete(canvas);continue;}
+@@ -300,6 +315,7 @@
+                     fflush(stderr);
+                 }
+                 assert(camera_preview_get_state()==CAMERA_PREVIEW_CAPTURED&&delivered==9);
++                if(run>0)assert(video_init_calls==initializations);
+                 assert(frame_copies==0&&unmapped==0&&closed==1&&frame_live==retained_frames&&frame_peak==3);
+ #ifdef CAMERA_POOL_FIXED
+                 assert(!frame_allocations); // No new full frame, even with attachments pinning holes.
+@@ -316,6 +332,10 @@
+                 assert(camera_preview_get_state()==CAMERA_PREVIEW_OFF&&delivered==4&&frame_copies==0);
+             } else {
+                 assert(camera_preview_get_state()==CAMERA_PREVIEW_ERROR);
++                if(mode==LOW_MEMORY)assert(atomic_load(&diagnostic_stage)==1&&
++                    atomic_load(&diagnostic_error)==ENOMEM&&video_init_calls==initializations);
++                if(mode==FAIL_REQBUFS||mode==FAIL_STREAM_ON)assert(atomic_load(&diagnostic_error)==ENOMEM&&
++                    atomic_load(&diagnostic_stage)==(mode==FAIL_REQBUFS?6:7)&&closed==1);
+                 assert(frame_copies==0);
+             }
+             if(mode!=NORMAL)assert(!camera_preview_acquire()&&!camera_preview_busy());
+@@ -347,6 +367,6 @@
+     frame_free(still_pixels);
+ #endif
+     assert(!frame_live);
+-    puts("CAMERA_OWNERSHIP_OK: startup partial failure/retry; 128 captures/reopens with observed fragmented heap, zero new full frames; immutable JPEG lease and teardown faults safe");
++    puts("CAMERA_OWNERSHIP_OK: cold-init low-memory protection; 128 captures/reopens with observed 48383/23552 internal heap and fragmented PSRAM, zero new full frames; immutable JPEG lease and teardown faults safe");
+     return 0;
+ }

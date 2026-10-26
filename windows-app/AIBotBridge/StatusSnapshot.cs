@@ -68,6 +68,8 @@ internal sealed record ProviderQuotaSnapshot(
 {
     public long? PrimaryWindowSeconds { get; init; }
     public long? WeeklyWindowSeconds { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<QuotaResetEvidence> ResetCreditRedemptions { get; init; } = [];
 }
 
 internal sealed record QuotaSnapshot(

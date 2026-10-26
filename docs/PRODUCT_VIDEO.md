@@ -4,7 +4,7 @@ Windows **0.6.10** / TAB5 **0.2.234-ui**，116 秒中文片，1920×1080、30 fp
 
 https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 
-[下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4) · [可复现工程](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-video-source-20261019-0610-234.zip) · [媒体摘要](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/VIDEO-SHA256SUMS.txt) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) / [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png)
+[下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4) · [可复现工程](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/AI-bot-product-video-source-20261019-0610-234.zip) · [媒体摘要](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/VIDEO-SHA256SUMS.txt) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) / [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png)
 
 MP4 SHA-256: `dac2d70ef3d132d2bc4042c56c9010094ec5f3631ce649096ba30c0b333f838b`
 

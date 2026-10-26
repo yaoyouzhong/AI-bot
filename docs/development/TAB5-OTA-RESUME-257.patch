@@ -1,0 +1,582 @@
+--- /dev/null
++++ b/firmware/main/ota_resume.h
+@@ -0,0 +1,31 @@
++#pragma once
++#include <stdbool.h>
++#include <stdint.h>
++
++// One boot/one immutable offer only. The writer and its SHA state stay alive;
++// no partition is erased again, and failed reads never advance the checkpoint.
++typedef struct {
++    unsigned retries, consecutive;
++    int64_t started_ms, gap_ms;
++    bool in_gap;
++} ota_resume;
++static bool ota_resume_transient(int result) {
++    return result==-2 || result==-1005 || result==-408 || result==-429 ||
++        result==-500 || result==-502 || result==-503 || result==-504;
++}
++static bool ota_resume_retry(ota_resume *s,int result,int64_t now,unsigned *delay_ms) {
++    if(!s || !delay_ms || !ota_resume_transient(result) || now<s->started_ms ||
++       now-s->started_ms>=15*60*1000 || s->retries>=32)return false;
++    if(!s->in_gap){s->gap_ms=now;s->in_gap=true;s->consecutive=0;}
++    if(now<s->gap_ms || now-s->gap_ms>=90000 || s->consecutive>=8)return false;
++    *delay_ms=250u << (s->consecutive<4?s->consecutive:4);
++    s->consecutive++;s->retries++;return true;
++}
++static void ota_resume_progress(ota_resume *s){s->in_gap=false;s->consecutive=0;}
++
++// Waiting for a physically absent link does not spend all request attempts
++// before Windows can finish rediscovery, but the same time budgets still apply.
++static bool ota_resume_wait_budget(const ota_resume *s,int64_t now) {
++    return s&&s->in_gap&&now>=s->gap_ms&&now>=s->started_ms&&
++        now-s->gap_ms<90000&&now-s->started_ms<15*60*1000;
++}
+--- a/firmware/main/ota_update.c
++++ b/firmware/main/ota_update.c
+@@ -24,6 +24,7 @@
+ #include <strings.h>
+ #include "miniz.h"
+ #include "ota_stream.h"
++#include "ota_resume.h"
+ 
+ typedef struct { char sha[65], version[32], offer_id[33], notes[1025]; int size; } ota_offer;
+ // The single OTA worker always has internal staging, even below the dynamic
+@@ -31,6 +32,9 @@
+ // Static DRAM avoids taking more heap or growing the flash worker's stack.
+ DRAM_ATTR static uint8_t flash_fallback[4096];
+ static atomic_bool busy;
++static atomic_bool offer_withdrawn;
++static char active_sha[65];
++static double pending_offer_epoch,active_offer_epoch;
+ static atomic_bool completed, completion_presented;
+ static atomic_bool preparation_presented, preparing;
+ static atomic_bool verifying;
+@@ -144,6 +148,10 @@
+     atomic_bool stop;bool started;
+     esp_http_client_handle_t client;link_kind transport;const ota_offer *offer;
+     int encoding;int64_t wire_remaining;
++    unsigned host_epoch;int mode;
++    bool http_lost,http_ranges,http_resume_supported;
++    esp_http_client_handle_t range_client;
++    ota_resume recovery;
+     int64_t read_us,free_wait_us;
+ } ota_reader;
+ static esp_err_t ota_http_event(esp_http_client_event_t *event) {
+@@ -154,9 +162,10 @@
+ }
+ static int ota_http_read(void *context,uint8_t *out,int count) {
+     ota_reader *reader=context;
+-    if(atomic_load(&reader->stop))return -1;
++    if(atomic_load(&reader->stop)||atomic_load(&offer_withdrawn))return -1;
+     int n=esp_http_client_read(reader->client,(char*)out,count);
+     if(n>0&&n<=count)atomic_fetch_add(&transfer_bytes,n);
++    if(n<=0)reader->http_lost=true;
+     return n;
+ }
+ static bool ota_queue(QueueHandle_t queue,void *value,bool send,ota_reader *reader) {
+@@ -164,6 +173,41 @@
+         if((send?xQueueSend(queue,value,pdMS_TO_TICKS(20)):xQueueReceive(queue,value,pdMS_TO_TICKS(20)))==pdTRUE)return true;
+     }
+     return false;
++}
++static bool ota_reader_owned(ota_reader *r) {
++    return !atomic_load(&r->stop)&&!atomic_load(&offer_withdrawn)&&
++        r->host_epoch==device_host_epoch()&&!device_host_changing()&&
++        device_get_config().paired&&device_get_config().mode==r->mode;
++}
++static bool ota_reader_retry(ota_reader *r,int result,int offset) {
++    unsigned delay;
++    if(!ota_reader_owned(r)||!ota_resume_retry(&r->recovery,result,esp_timer_get_time()/1000,&delay))return false;
++    char status[96];snprintf(status,sizeof(status),"连接中断，等待重连 · 已接收 %d KB · 重试 %u",
++        (offset+1023)/1024,r->recovery.retries);report(status);
++    printf("TAB5_OTA_RESUME link=%d offset=%d retry=%u error=%d\n",
++        r->transport,offset,r->recovery.retries,result);
++    for(unsigned elapsed=0;elapsed<delay;elapsed+=50) {
++        if(!ota_reader_owned(r))return false;
++        vTaskDelay(pdMS_TO_TICKS(50));
++    }
++    while(ota_reader_owned(r)&&!rpc_ota_link_connected(r->transport)) {
++        if(!ota_resume_wait_budget(&r->recovery,esp_timer_get_time()/1000))return false;
++        vTaskDelay(pdMS_TO_TICKS(100));
++    }
++    return ota_reader_owned(r)&&ota_resume_wait_budget(&r->recovery,esp_timer_get_time()/1000)&&
++        rpc_ota_link_connected(r->transport);
++}
++static int ota_reader_range(ota_reader *r,int offset,uint8_t *out,int count) {
++    if(r->transport!=LINK_WIFI)return rpc_ota_read(r->transport,r->offer->sha,r->offer->offer_id,offset,out,count);
++    if(!r->range_client) {
++        device_config cfg=device_get_config();char url[160];
++        snprintf(url,sizeof(url),"http://%s:%d/tab5/v1/rpc",cfg.host,cfg.port);
++        esp_http_client_config_t options={.url=url,.timeout_ms=10000,.disable_auto_redirect=true,.buffer_size=4096};
++        r->range_client=esp_http_client_init(&options);
++        if(!r->range_client)return -1;
++    }
++    int got=rpc_ota_http_read(r->range_client,r->offer->sha,r->offer->offer_id,offset,out,count);
++    esp_http_client_close(r->range_client);return got;
+ }
+ static void ota_receive(void *arg) {
+     ota_reader *reader=arg;int offset=0;
+@@ -175,14 +219,28 @@
+         int want=reader->offer->size-offset;if(want>OTA_BLOCK_BYTES)want=OTA_BLOCK_BYTES;
+         int filled=0,failure=-1;int64_t began=esp_timer_get_time();
+         while(filled<want&&!atomic_load(&reader->stop)) {
+-            int got=reader->transport==LINK_WIFI?(reader->encoding==1?
++            if(!ota_reader_owned(reader)){failure=-409;break;}
++            bool stream=reader->transport==LINK_WIFI&&!reader->http_ranges;
++            int got=stream?(reader->encoding==1?
+                 ota_stream_block(ota_http_read,reader,reader->data[slot],want,offset,&reader->wire_remaining):
+                 ota_http_read(reader,reader->data[slot]+filled,want-filled)):
+-                rpc_ota_read(reader->transport,reader->offer->sha,reader->offer->offer_id,offset+filled,reader->data[slot]+filled,want-filled);
++                ota_reader_range(reader,offset+filled,reader->data[slot]+filled,want-filled);
+             if(reader->transport!=LINK_WIFI)atomic_store(&transfer_bytes,(int)rpc_ota_received_bytes(reader->transport));
+-            if(reader->encoding==1&&offset+want==reader->offer->size&&reader->wire_remaining!=0)got=-1;
+-            if(got<=0||got>want-filled){failure=got<0?got:-1;break;}
+-            filled+=got;
++            if(stream&&reader->encoding==1&&offset+want==reader->offer->size&&reader->wire_remaining!=0)got=-1;
++            if(!ota_reader_owned(reader)){failure=-409;break;}
++            if(got<=0||got>want-filled) {
++                int result=got<0?got:-1;
++                if(stream&&!(reader->http_lost&&reader->http_resume_supported))result=-1;
++                if(stream&&reader->http_lost&&reader->http_resume_supported) {
++                    // A partial compressed block is not a checkpoint. Discard
++                    // only this slot's incomplete data and re-read that block.
++                    esp_http_client_close(reader->client);
++                    reader->http_ranges=true;filled=0;result=-2;
++                }
++                if(ota_reader_retry(reader,result,offset+filled))continue;
++                failure=result;break;
++            }
++            filled+=got;ota_resume_progress(&reader->recovery);
+             atomic_store(&download_bytes,offset+filled);
+             char progress[96];snprintf(progress,sizeof(progress),"已接收镜像 %d / %d KB",(offset+filled+1023)/1024,(reader->offer->size+1023)/1024);
+             report(progress);
+@@ -226,6 +284,7 @@
+ static void ota_reader_free(ota_reader *r) {
+     if(!r)return;
+     ota_reader_join(r);
++    if(r->range_client){esp_http_client_close(r->range_client);esp_http_client_cleanup(r->range_client);}
+     for(int i=0;i<r->slots;i++)free(r->data[i]);
+     vQueueDelete(r->free_blocks);vQueueDelete(r->ready_blocks);vSemaphoreDelete(r->done);free(r);
+ }
+@@ -261,6 +320,12 @@
+     // Reception stays in PSRAM; flash writes always use internal staging.
+     reader=ota_reader_create(offer->size);
+     if(!reader){snprintf(failure,sizeof(failure),"升级缓冲不足，请稍后重试");goto finish;}
++    reader->host_epoch=device_host_epoch();reader->mode=cfg.mode;
++    reader->recovery.started_ms=esp_timer_get_time()/1000;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    cJSON *resume_cap=cJSON_GetObjectItemCaseSensitive(device_snapshots[LINK_WIFI],"rpcOtaResume");
++    reader->http_resume_supported=cJSON_IsNumber(resume_cap)&&resume_cap->valuedouble==1;
++    xSemaphoreGive(device_mutex);
+     // IDF 5.4's SPI1 driver copies external RAM input through a 32-byte stack
+     // buffer, acquiring/releasing the flash bus for every piece. An internal
+     // staging block uses the driver's normal 8 KiB writes instead. Fragmented
+@@ -289,15 +354,22 @@
+     esp_http_client_set_header(client,"X-AIBot-Proof",proof);
+     esp_http_client_set_header(client,"X-AIBot-OTA-Flow","tcp-v2");
+     esp_http_client_set_header(client,"X-AIBot-OTA-Encoding","aibot-zlib-blocks-v1");
+-    if(esp_http_client_open(client,0)!=ESP_OK)goto finish;
++    if(esp_http_client_open(client,0)!=ESP_OK) {
++        if(!reader->http_resume_supported)goto finish;
++        esp_http_client_close(client);reader->http_ranges=true;
++    }else {
+     opened=true;
+     int64_t length=esp_http_client_fetch_headers(client);
+     int64_t wire_max=offer->size+(int64_t)((offer->size+49151)/49152)*16;
+-    if(esp_http_client_get_status_code(client)!=200||reader->encoding<0||
++    int code=esp_http_client_get_status_code(client);
++    if(reader->http_resume_supported&&(length<0||code==0||code==408||code==429||code>=500)) {
++        esp_http_client_close(client);reader->http_ranges=true;opened=false;
++    }else if(code!=200||reader->encoding<0||
+         (reader->encoding==0?length!=offer->size:length<17||length>wire_max)) {
+         snprintf(failure,sizeof(failure),"电脑未提供匹配的固件，请重新选择");goto finish;
+     }
+     reader->wire_remaining=length;
++    }
+     }
+     // Authenticate/read a complete first block before touching the backup.
+     // This also establishes the bridge's OTA lease before any long erase.
+@@ -353,6 +425,7 @@
+             ready_wait_us+=esp_timer_get_time()-ready_started;
+             if(!have_block){error=ESP_FAIL;break;}
+         }
++        if(!ota_reader_owned(reader)){error=ESP_FAIL;break;}
+         if(block.count<=0||block.offset!=received){error=block.count<0?block.count:ESP_FAIL;break;}
+         chunk=reader->data[block.slot];int filled=block.count;
+         mbedtls_sha256_update(&sha,chunk,filled);
+@@ -387,7 +460,7 @@
+         report("正在校验固件");
+     }
+     uint8_t digest[32];mbedtls_sha256_finish(&sha,digest);mbedtls_sha256_free(&sha);
+-    if(received!=offer->size){snprintf(failure,sizeof(failure),"固件下载中断，原版本保持可用");goto finish;}
++    if(received!=offer->size||atomic_load(&offer_withdrawn)||reader->host_epoch!=device_host_epoch()||device_host_changing()||device_get_config().mode!=reader->mode){snprintf(failure,sizeof(failure),"固件下载中断，原版本保持可用");goto finish;}
+     char actual[65];for(int i=0;i<32;i++)sprintf(actual+i*2,"%02x",digest[i]);
+     if(strcmp(actual,offer->sha)){snprintf(failure,sizeof(failure),"固件校验失败，原版本保持可用");goto finish;}
+     verify_started=esp_timer_get_time();
+@@ -457,7 +530,15 @@
+     if(!root)return;
+     cJSON *data=cJSON_GetObjectItemCaseSensitive(root,"data");
+     cJSON *ota=cJSON_GetObjectItemCaseSensitive(data,"ota");
++    cJSON *clock=cJSON_GetObjectItemCaseSensitive(data,"epochMilliseconds");
++    double frame_epoch=cJSON_IsNumber(clock)?clock->valuedouble:0;
+     if(!cJSON_IsObject(ota)) {
++        if(atomic_load(&busy)) {
++            xSemaphoreTake(device_mutex,portMAX_DELAY);
++            bool withdrawn=frame_epoch>active_offer_epoch&&active_offer_epoch>0;
++            xSemaphoreGive(device_mutex);
++            if(withdrawn)atomic_store(&offer_withdrawn,true);
++        }
+         if(!atomic_load(&busy)) {
+             xSemaphoreTake(device_mutex,portMAX_DELAY);
+             if(pending_offer.size)snprintf(message,sizeof(message),"电脑已停止提供固件");
+@@ -475,7 +556,15 @@
+         !cJSON_IsString(version)||!version->valuestring||
+         strlen(version->valuestring)==0||strlen(version->valuestring)>=32||
+         !cJSON_IsString(offer_id)||!valid_hex(offer_id->valuestring,32)) {cJSON_Delete(root);return;}
+-    if(atomic_load(&busy)){cJSON_Delete(root);return;}
++    if(atomic_load(&busy)) {
++        xSemaphoreTake(device_mutex,portMAX_DELAY);
++        bool same=!strcmp(last_offer,offer_id->valuestring)&&!strcmp(active_sha,sha->valuestring);
++        bool changed=!same&&frame_epoch>active_offer_epoch&&active_offer_epoch>0;
++        if(same&&frame_epoch>active_offer_epoch)active_offer_epoch=frame_epoch;
++        xSemaphoreGive(device_mutex);
++        if(changed)atomic_store(&offer_withdrawn,true);
++        cJSON_Delete(root);return;
++    }
+     xSemaphoreTake(device_mutex,portMAX_DELAY);
+     // Offers survive on the PC after the device reboots into the new image.
+     // Suppress the installed version before enabling the upgrade button.
+@@ -486,6 +575,7 @@
+         xSemaphoreGive(device_mutex);cJSON_Delete(root);return;
+     }
+     bool seen=!strcmp(last_offer,offer_id->valuestring);
++    if(!seen&&frame_epoch>pending_offer_epoch)pending_offer_epoch=frame_epoch;
+     if(!seen) {
+         snprintf(pending_offer.sha,sizeof(pending_offer.sha),"%s",sha->valuestring);
+         snprintf(pending_offer.version,sizeof(pending_offer.version),"%s",version->valuestring);
+@@ -504,6 +594,7 @@
+     if(atomic_exchange(&busy,true))return false;
+     if(transport_benchmark_busy()||flash_benchmark_busy()){atomic_store(&busy,false);return false;}
+     gallery_cache_reclaim();
++    atomic_store(&offer_withdrawn,false);
+     atomic_store(&completed,false);atomic_store(&completion_presented,false);
+     atomic_store(&preparation_presented,false);atomic_store(&preparing,false);
+     atomic_store(&verifying,false);atomic_store(&verify_started_ms,0);
+@@ -515,7 +606,7 @@
+     ota_offer *offer=calloc(1,sizeof(*offer));
+     xSemaphoreTake(device_mutex,portMAX_DELAY);
+     bool available=pending_offer.size>0&&((!offer_id&&!sha)||(offer_id&&sha&&!strcmp(pending_offer.offer_id,offer_id)&&!strcmp(pending_offer.sha,sha)));
+-    if(offer&&available){*offer=pending_offer;pending_offer.size=0;snprintf(last_offer,sizeof(last_offer),"%s",offer->offer_id);snprintf(target_version,sizeof(target_version),"%s",offer->version);}
++    if(offer&&available){*offer=pending_offer;pending_offer.size=0;snprintf(last_offer,sizeof(last_offer),"%s",offer->offer_id);snprintf(target_version,sizeof(target_version),"%s",offer->version);snprintf(active_sha,sizeof(active_sha),"%s",offer->sha);active_offer_epoch=pending_offer_epoch;}
+     xSemaphoreGive(device_mutex);
+     if(!offer||!available){free(offer);atomic_store(&busy,false);return false;}
+     atomic_store(&image_bytes,offer->size);
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -447,12 +447,12 @@
+     cJSON_DeleteItemFromObjectCaseSensitive(request,"streamReply");return result;
+ }
+ static unsigned ota_payload_bytes[3];
+-void rpc_ota_reset_bytes(link_kind link) {if(link==LINK_USB||link==LINK_BLE)ota_payload_bytes[link]=0;}
+-unsigned rpc_ota_received_bytes(link_kind link) {return link==LINK_USB||link==LINK_BLE?ota_payload_bytes[link]:0;}
+-static int rpc_ota_range(link_kind link,const char *sha,const char *offer,int offset,uint8_t *out,int count,bool probe) {
+-    static int maximum[3]={16384,0,8192};
++void rpc_ota_reset_bytes(link_kind link) {if(link>=LINK_USB&&link<=LINK_BLE)ota_payload_bytes[link]=0;}
++unsigned rpc_ota_received_bytes(link_kind link) {return link>=LINK_USB&&link<=LINK_BLE?ota_payload_bytes[link]:0;}
++static int rpc_ota_range(link_kind link,void *http,const char *sha,const char *offer,int offset,uint8_t *out,int count,bool probe) {
++    static int maximum[3]={16384,8192,8192};
+     static bool rejected_bulk[3];
+-    if(link!=LINK_USB&&link!=LINK_BLE)return -1;
++    if(link!=LINK_USB&&link!=LINK_BLE&&!(link==LINK_WIFI&&http))return -1;
+     int limit=!rejected_bulk[link]&&rpc_data_limit(link)>8192?(int)RPC_BULK_DATA:maximum[link];
+     if(count>limit)count=limit;
+     cJSON *request=cJSON_CreateObject();cJSON_AddStringToObject(request,"kind",probe?"ota_probe":"ota");
+@@ -469,10 +469,10 @@
+     int status=0;size_t size=0;char nonce[33];cJSON *reply=NULL;
+     // Only this immutable image range can be repeated. A new nonce is used
+     // each time; commands, draft submission and voice RPCs are never retried.
+-    for(unsigned attempt=0;attempt<3;attempt++) {
+-        reply=rpc_data_call(link,NULL,request,&status,nonce,NULL,0,packed?packed:out,count,&size);
++    for(unsigned attempt=0;attempt<(probe?3u:1u);attempt++) {
++        reply=rpc_data_call(link,http,request,&status,nonce,NULL,0,packed?packed:out,count,&size);
+         if(!probe&&size<=(size_t)count)ota_payload_bytes[link]+=(unsigned)size;
+-        if(status||attempt==2||(link==LINK_USB&&!tab5_usb_connected())||(link==LINK_BLE&&!ble_connected))break;
++        if(status||!probe||attempt==2||(link==LINK_USB&&!tab5_usb_connected())||(link==LINK_BLE&&!ble_connected))break;
+         printf("TAB5_OTA_RANGE_RETRY link=%d offset=%d count=%d attempt=%u\n",link,offset,count,attempt+1);
+         cJSON_Delete(reply);reply=NULL;vTaskDelay(pdMS_TO_TICKS(100*(attempt+1)));
+     }
+@@ -480,7 +480,7 @@
+     cJSON *error=cJSON_GetObjectItemCaseSensitive(reply,"error");
+     if(count>8192&&status==400&&cJSON_IsString(error)&&!strcmp(error->valuestring,"invalid_range")) {
+         // An older paired bridge still accepts the original bounded range.
+-        maximum[link]=8192;rejected_bulk[link]=true;cJSON_Delete(reply);free(packed);return rpc_ota_range(link,sha,offer,offset,out,8192,probe);
++        maximum[link]=8192;rejected_bulk[link]=true;cJSON_Delete(reply);free(packed);return rpc_ota_range(link,http,sha,offer,offset,out,8192,probe);
+     }
+     bool ok=status==200&&ota_range_decode(reply,packed?packed:out,size,out,count,offset,compressed);
+     free(packed);
+@@ -488,10 +488,13 @@
+     cJSON_Delete(reply);return ok?count:status==0?-2:status==200?-3:status<0?status:-status;
+ }
+ int rpc_ota_read(link_kind link,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
+-    return rpc_ota_range(link,sha,offer,offset,out,count,false);
++    return rpc_ota_range(link,NULL,sha,offer,offset,out,count,false);
++}
++int rpc_ota_http_read(void *http,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
++    return rpc_ota_range(LINK_WIFI,http,sha,offer,offset,out,count,false);
+ }
+ int rpc_ota_probe_read(const char *sha,const char *offer,int offset,uint8_t *out,int count) {
+-    return rpc_ota_range(LINK_BLE,sha,offer,offset,out,count,true);
++    return rpc_ota_range(LINK_BLE,NULL,sha,offer,offset,out,count,true);
+ }
+ 
+ size_t rpc_data_limit(link_kind link) {
+@@ -502,3 +505,9 @@
+     bool bulk=cJSON_IsNumber(cap)&&cap->valuedouble==1&&cJSON_IsNumber(binary)&&binary->valuedouble==1;
+     xSemaphoreGive(device_mutex);return bulk?RPC_BULK_DATA:8192;
+ }
++
++bool rpc_ota_link_connected(link_kind link) {
++    if(link==LINK_USB)return tab5_usb_connected()&&device_host_usb_owned();
++    if(link==LINK_BLE)return ble_connected&&ble_host_authorized()&&!device_host_changing();
++    return link==LINK_WIFI&&wifi_connected;
++}
+--- a/firmware/main/rpc_link.h
++++ b/firmware/main/rpc_link.h
+@@ -19,6 +19,8 @@
+ // Foreground state, explicit transport preference and per-request binding remain.
+ link_kind rpc_library_link_select(void);
+ link_kind rpc_ota_link_select(void);
++// Availability hint only; every actual range still authenticates independently.
++bool rpc_ota_link_connected(link_kind link);
+ // Auto mode prefers bulk bandwidth; explicit single-channel modes are binding.
+ link_kind rpc_image_link_select(const char *session);
+ bool rpc_link_ready(void);
+@@ -34,6 +36,9 @@
+ cJSON *rpc_gallery_stream_call(void *http,cJSON *request,int *status,char nonce[33],
+     uint8_t *download,size_t capacity,size_t *received,rpc_gallery_progress progress,void *context);
+ int rpc_ota_read(link_kind link,const char *sha,const char *offer,int offset,uint8_t *out,int count);
++// Same authenticated immutable range over Wi-Fi RPC, used only when the
++// selected bridge advertises rpcOtaResume=1 after a stream interruption.
++int rpc_ota_http_read(void *http,const char *sha,const char *offer,int offset,uint8_t *out,int count);
+ void rpc_ota_reset_bytes(link_kind link);
+ unsigned rpc_ota_received_bytes(link_kind link);
+ int rpc_ota_probe_read(const char *sha,const char *offer,int offset,uint8_t *out,int count);
+--- a/tests/ui-preview/ota_range_test.c
++++ b/tests/ui-preview/ota_range_test.c
+@@ -6,6 +6,7 @@
+ #include <string.h>
+ #include <stdlib.h>
+ #include <stdint.h>
++#include <windows.h>
+ #include "cJSON.h"
+ #include "link_state.h"
+ #define RPC_BULK_DATA 49152
+@@ -20,7 +21,7 @@
+ static const uint8_t compressed_zeros[]={120,156,237,193,49,1,0,0,0,194,160,245,79,109,12,31,160,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,224,111,192,0,0,1};
+ static cJSON *rpc_data_call(link_kind link,void *http,cJSON *request,int *status,char nonce[33],
+     const uint8_t *upload,size_t upload_size,uint8_t *out,size_t count,size_t *size) {
+-    assert(link==(scenario>=7?compressed_link:LINK_USB)&&!http&&!upload&&!upload_size&&out);
++    assert(link==(scenario>=7?compressed_link:LINK_USB)&&((link==LINK_WIFI)==(http!=NULL))&&!upload&&!upload_size&&out);
+     assert(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(request,"kind")),preflight?"ota_probe":"ota"));
+     assert(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(request,"sha256")),"immutable-sha"));
+     assert(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(request,"offerId")),"same-offer"));
+@@ -50,28 +51,29 @@
+ #define xSemaphoreGive(a) ((void)0)
+ static cJSON *device_snapshots[3];
+ #include "ota_range_under_test.inc"
+-int main(void) {
++int main(void) { SetErrorMode(SEM_NOGPFAULTERRORBOX|SEM_FAILCRITICALERRORS);_set_error_mode(_OUT_TO_STDERR);_set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
+     uint8_t bytes[49152];
+     for(scenario=0;scenario<=5;scenario++) {
+         calls=delays=0;expected_count=49152;connected=scenario!=5;
+         int got=rpc_ota_read(LINK_USB,"immutable-sha","same-offer",196608,bytes,49152);
+-        if(scenario==0||scenario==1){assert(got==49152);for(unsigned i=0;i<sizeof(bytes);i++)assert(bytes[i]==0x6c);}
+-        if(scenario==1||scenario==2)assert(calls==3&&delays==2);
+-        if(scenario==2||scenario==5)assert(got==-2);
++        if(scenario==0){assert(got==49152);for(unsigned i=0;i<sizeof(bytes);i++)assert(bytes[i]==0x6c);}
++        if(scenario==1||scenario==2)assert(calls==1&&!delays);
++        if(scenario==1||scenario==2||scenario==5)assert(got==-2);
+         if(scenario==3)assert(got==-401&&calls==1&&!delays);
+         if(scenario==4)assert(got==-3&&calls==1&&!delays);
+         if(scenario==5)assert(calls==1&&!delays);
+         if(scenario==6)assert(got==8192&&calls==2&&!delays);
+     }
+     connected=true;
++    device_snapshots[LINK_WIFI]=cJSON_CreateObject();cJSON_AddNumberToObject(device_snapshots[LINK_WIFI],"rpcOtaZlib",1);
+     device_snapshots[LINK_BLE]=cJSON_Parse("{\"rpcOtaZlib\":1}");
+     device_snapshots[LINK_USB]=cJSON_Parse("{\"rpcOtaZlib\":1}");
+-    for(int route=0;route<2;route++) {
+-    compressed_link=route?LINK_BLE:LINK_USB;
++    for(int route=0;route<3;route++) {
++    compressed_link=(link_kind)route;
+     for(scenario=7;scenario<=11;scenario++) {
+         calls=delays=0;expected_count=49152;
+         rpc_ota_reset_bytes(compressed_link);
+-        int got=rpc_ota_read(compressed_link,"immutable-sha","same-offer",196608,bytes,49152);
++        int got=compressed_link==LINK_WIFI?rpc_ota_http_read((void*)1,"immutable-sha","same-offer",196608,bytes,49152):rpc_ota_read(compressed_link,"immutable-sha","same-offer",196608,bytes,49152);
+         assert(calls==1&&!delays&&!workspace);
+         assert(rpc_ota_received_bytes(compressed_link)==(scenario==11?49152:sizeof(compressed_zeros)+(scenario==10)));
+         if(scenario==7||scenario==11) {assert(got==49152);for(unsigned i=0;i<sizeof(bytes);i++)assert(bytes[i]==(scenario==7?0:0x6c));}
+@@ -91,6 +93,7 @@
+         assert(rpc_ota_read(compressed_link,"immutable-sha","same-offer",196608,bytes,49152)==local_error&&calls==1&&!delays);
+     }
+     }
++    cJSON_Delete(device_snapshots[LINK_WIFI]);
+     cJSON_Delete(device_snapshots[LINK_BLE]);
+     cJSON_Delete(device_snapshots[LINK_USB]);
+     puts("OTA_LOCAL_FAILURE_OK decrypt, allocation, envelope and reconnect errors remain negative; zero data advancement and no retries");
+--- a/tests/ui-preview/ota_update_test.c
++++ b/tests/ui-preview/ota_update_test.c
+@@ -59,8 +59,18 @@
+ #define vTaskDelay(n) simulated_delay(n)
+ #define vTaskDelete(p) return
+ #define vTaskDeleteWithCaps(p) return
+-typedef struct {char id[13],host[16];bool paired;int port;} device_config;
+-static device_config device_get_config(void){return (device_config){.id="001122334455",.host="192.168.1.2",.paired=true,.port=18765};}
++typedef struct {char id[13],host[16];bool paired;int port,mode;} device_config;
++static atomic_uint host_epoch=1;
++static unsigned device_host_epoch(void){return host_epoch;}
++static bool device_host_changing(void){return false;}
++static cJSON *device_snapshots[3];
++static atomic_int recovery_fault,recovery_failures,range_calls,first_resume_offset=-1;
++static bool recovery_injected;
++static atomic_bool recovery_event_claimed,radio_ready=true;
++static atomic_uint reconnect_due;
++static bool rpc_ota_link_connected(link_kind link){assert(link==test_link);return radio_ready;}
++enum {RECOVER_ONCE=1,RECOVER_EXHAUST,RECOVER_REJECT,RECOVER_STOP,RECOVER_OWNER,RECOVER_GENERATION,RECOVER_CORRUPT,RECOVER_OPEN,RECOVER_WAIT};
++static device_config device_get_config(void){return (device_config){.id="001122334455",.host="192.168.1.2",.paired=true,.port=18765,.mode=-1};}
+ static void device_nonce(char out[33]){memset(out,'1',32);out[32]=0;}
+ static void device_proof(const char *in,char out[65]){(void)in;memset(out,'0',64);out[64]=0;}
+ typedef struct {unsigned address,size;} esp_partition_t;
+@@ -133,7 +143,7 @@
+ static void esp_http_client_set_header(void *c,const char *k,const char *v){
+     (void)c;if(!strcmp(k,"X-AIBot-OTA-Flow"))assert(!strcmp(v,"tcp-v2"));
+ }
+-static int esp_http_client_open(void *c,int n){(void)c;(void)n;return fault==OPEN_FAIL?-1:ESP_OK;}
++static int esp_http_client_open(void *c,int n){(void)c;(void)n;return fault==OPEN_FAIL||(recovery_fault==RECOVER_OPEN&&!range_calls)?-1:ESP_OK;}
+ static int64_t esp_http_client_fetch_headers(void *c){
+     (void)c;if(!compressed_http)return transfer_size;
+     esp_http_client_event_t e={HTTP_EVENT_ON_HEADER,http_options.user_data,"x-aibot-ota-encoding","aibot-zlib-blocks-v1"};
+@@ -142,6 +152,10 @@
+ static int esp_http_client_get_status_code(void *c){(void)c;return 200;}
+ static int esp_http_client_read(void *c,char *out,int n){
+     (void)c;check_download_feedback();
++    if(recovery_fault&&test_link==LINK_WIFI&&!recovery_injected&&
++       (compressed_http?http_at>=block_ends[0]+16:read_at>=65536)) {
++        recovery_injected=true;if(recovery_fault==RECOVER_WAIT){radio_ready=false;reconnect_due=elapsed_ms+30000;}return 0;
++    }
+     if(fault==SHORT_READ&&(compressed_http?http_at>=http_size/2:read_at>=transfer_size/2))return 0;if(n>137)n=137;
+     if(compressed_http){
+         if(fault==SHORT_READ&&n>http_size/2-http_at)n=http_size/2-http_at;
+@@ -154,9 +168,30 @@
+ static unsigned rpc_ota_received_bytes(link_kind link){(void)link;return (unsigned)read_at;}
+ static int rpc_ota_read(link_kind link,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
+     assert(link==test_link&&strlen(sha)==64&&strlen(offer)==32&&offset==read_at);
++    if(recovery_fault&&offset>=49152) {
++        range_calls++;
++        if(first_resume_offset<0)first_resume_offset=offset;
++        if(!recovery_injected||recovery_fault==RECOVER_EXHAUST||recovery_fault==RECOVER_STOP||recovery_fault==RECOVER_OWNER||
++           recovery_fault==RECOVER_REJECT||recovery_fault==RECOVER_CORRUPT) {
++            recovery_injected=true;recovery_failures++;
++            if(recovery_fault==RECOVER_WAIT){radio_ready=false;reconnect_due=elapsed_ms+30000;}
++            return recovery_fault==RECOVER_REJECT?-401:recovery_fault==RECOVER_CORRUPT?-3:recovery_fault==RECOVER_GENERATION?-1005:-2;
++        }
++    }
+     if(fault==OPEN_FAIL)return -1;
+     if(count>8192)count=8192;
+     return esp_http_client_read(NULL,(char *)out,count);
++}
++static int rpc_ota_http_read(void *http,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
++    assert(http&&test_link==LINK_WIFI&&strlen(sha)==64&&strlen(offer)==32);
++    if(first_resume_offset<0)first_resume_offset=offset;
++    range_calls++;
++    if(recovery_fault==RECOVER_EXHAUST||recovery_fault==RECOVER_STOP||recovery_fault==RECOVER_OWNER){recovery_failures++;return -2;}
++    if(recovery_fault==RECOVER_REJECT){recovery_failures++;return -401;}
++    if(recovery_fault==RECOVER_CORRUPT){recovery_failures++;return -3;}
++    // The incomplete stream block is deliberately overwritten at its boundary.
++    memset(out,0,count);if(!offset)out[0]=1;read_at=offset+count;
++    check_download_feedback();return count;
+ }
+ static void esp_http_client_close(void *c){(void)c;}
+ static void esp_http_client_cleanup(void *c){(void)c;}
+@@ -184,6 +219,7 @@
+ #include "ota_zlib_host.h"
+ #define strcasecmp _stricmp
+ #include "../../firmware/main/ota_stream.h"
++#include "../../firmware/main/ota_resume.h"
+ #include "../../firmware/main/gallery_remote.h"
+ bool ota_update_request_checked(const char *,const char *);
+ #define DRAM_ATTR
+@@ -233,6 +269,18 @@
+ }
+ static void simulated_delay(unsigned ms) {
+     elapsed_ms+=ms;yields++;
++    if(!radio_ready&&reconnect_due&&elapsed_ms>=reconnect_due)radio_ready=true;
++    if((recovery_fault==RECOVER_STOP||recovery_fault==RECOVER_OWNER)&&range_calls>0&&strstr(message,"等待重连")&&!atomic_exchange(&recovery_event_claimed,true)) {
++        if(recovery_fault==RECOVER_OWNER)host_epoch++;
++        else {
++            // An older cross-channel withdrawal must not cancel the new offer.
++            ota_update_consider("{\"data\":{\"epochMilliseconds\":0}}");
++            assert(!atomic_load(&offer_withdrawn));
++            ota_update_consider("{\"data\":{\"epochMilliseconds\":3}}");
++            assert(atomic_load(&offer_withdrawn));
++        }
++        recovery_fault=0;
++    }
+     if(atomic_load(&download_bytes)==transfer_size)SetEvent(receive_complete);
+     Sleep(0);
+     int percent=ota_update_progress();assert(percent>=0&&percent<=100);
+@@ -247,7 +295,13 @@
+         ota_update_completion_presented();completion_ack_at=elapsed_ms;
+     }
+ }
+-int main(void) {
++int main(void) { SetErrorMode(SEM_NOGPFAULTERRORBOX|SEM_FAILCRITICALERRORS);_set_error_mode(_OUT_TO_STDERR);_set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
++    ota_resume limits={.started_ms=10,.gap_ms=20,.in_gap=true};
++    assert(ota_resume_wait_budget(&limits,30020));
++    assert(!ota_resume_wait_budget(&limits,90020));
++    assert(!ota_resume_wait_budget(&limits,9));
++    limits.started_ms=0;limits.gap_ms=899999;
++    assert(!ota_resume_wait_budget(&limits,900000));
+     prefetch_ready=CreateEvent(NULL,TRUE,FALSE,NULL);receive_complete=CreateEvent(NULL,TRUE,FALSE,NULL);assert(prefetch_ready&&receive_complete);
+     char offer[512];
+     int sizes[]={1024,6464048};
+@@ -314,7 +368,36 @@
+     assert(!strcmp(message,"已是最新版本")&&!ota_update_request());
+     ota_update_offer_details(version,sizeof(version),notes,sizeof(notes));assert(!version[0]&&!notes[0]);
+     strcpy(running_description.version,"previous");ota_update_consider(offer);assert(ota_update_available());
+-    assert(overlap_cases==4);free(http_payload);CloseHandle(prefetch_ready);CloseHandle(receive_complete);
++    assert(overlap_cases==4);
+     if(external_write_bytes){fprintf(stderr,"OTA_INTERNAL_WRITE_REGRESSION externalBytes=%llu\n",external_write_bytes);return 42;}
++    strcpy(running_description.version,"previous");
++    for(int route=0;route<4;route++)for(int test=RECOVER_ONCE;test<=RECOVER_WAIT;test++) {
++        if(test==RECOVER_OPEN&&route!=LINK_WIFI&&route!=3)continue;
++        test_link=route==3?LINK_WIFI:(link_kind)route;compressed_http=route==3;
++        transfer_size=196625;fault=FLASH_BUFFER_FAIL;recovery_fault=test;
++        recovery_failures=range_calls=0;first_resume_offset=-1;recovery_injected=false;atomic_store(&recovery_event_claimed,false);host_epoch=1;radio_ready=true;reconnect_due=0;
++        read_at=write_calls=write_at=aborts=boot_changes=restarts=yields=0;
++        elapsed_ms=preparation_ack_at=completion_ack_at=backlight_off_at=0;
++        allocations=0;internal_buffer=NULL;internal_capacity=0;erased=false;
++        last_offer[0]=0;pending_offer.size=0;pending_offer_epoch=0;atomic_store(&busy,false);worker=NULL;
++        ResetEvent(prefetch_ready);ResetEvent(receive_complete);
++        prepare_http_payload();
++        device_snapshots[LINK_WIFI]=cJSON_Parse("{\"rpcOtaResume\":1}");
++        snprintf(offer,sizeof(offer),"{\"data\":{\"epochMilliseconds\":1,\"ota\":{\"sha256\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"size\":%d,\"version\":\"test\",\"offerId\":\"11111111111111111111111111111111\"}}}",transfer_size);
++        ota_update_consider(offer);assert(ota_update_request());worker(worker_arg);
++        bool success=test==RECOVER_ONCE||test==RECOVER_GENERATION||test==RECOVER_OPEN||test==RECOVER_WAIT;
++        if(success)assert(restarts==1&&boot_changes==1&&write_at==transfer_size&&ota_update_progress()==100);
++        else assert(!restarts&&!boot_changes&&write_at<transfer_size&&!ota_update_busy());
++        assert(range_calls>0&&first_resume_offset==(test==RECOVER_OPEN?0:49152));
++        if(test==RECOVER_WAIT)assert(elapsed_ms>=30000&&radio_ready);
++        if(test==RECOVER_EXHAUST)assert(recovery_failures==(test_link==LINK_WIFI?8:9));
++        if(test==RECOVER_REJECT||test==RECOVER_CORRUPT)assert(recovery_failures==1);
++        if(test==RECOVER_STOP)assert(atomic_load(&offer_withdrawn));
++        if(test==RECOVER_STOP||test==RECOVER_OWNER)assert(range_calls==1&&recovery_failures==1);
++        cJSON_Delete(device_snapshots[LINK_WIFI]);device_snapshots[LINK_WIFI]=NULL;
++        recovery_fault=0;
++    }
++    free(http_payload);CloseHandle(prefetch_ready);CloseHandle(receive_complete);
++    puts("OTA_RECOVERY_TASK_OK USB_WIFI_BLE resumed offset; raw/zlib stream fallback; disconnect, generation, exhaustion, stop, stale withdrawal, owner change, malformed range and authorization rejection");
+     puts("OTA_TASK_OK USB_WIFI_BLE_fault_matrix authenticated_prefetch_before_erase rendered_preparation_required bounded_PSRAM_pool_internal_staging_even_at_38KB_or_allocation_failure receive_complete_before_write_not_99 verification_elapsed_feedback completion_and_failure_paths");return 0;
+ }

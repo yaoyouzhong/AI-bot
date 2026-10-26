@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using AIBot.LoginMethod;
 namespace AIBotBridge;
 
 internal static class Tab5PinSelfTest
@@ -33,9 +34,25 @@ internal static class Tab5PinSelfTest
         Check(store.Has(pair)&&store.Read(pair)!.AsSpan().SequenceEqual(pin),"save/read failed");
         Check(!store.Has(pair with{DeviceId="aabbcc001122"})&&!store.Has(pair with{Key=Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))}),"foreign/repaired device read PIN");
         store.Save(pair,"654321"u8);Check(store.Read(pair)!.AsSpan().SequenceEqual("654321"u8),"modify failed");
-        bool rejected=false;try{store.Save(pair,"12a4"u8);}catch(ArgumentException){rejected=true;}Check(rejected,"invalid PIN accepted");
+        bool rejected=false;try{store.Save(pair,"12\t4"u8);}catch(ArgumentException){rejected=true;}Check(rejected,"control character accepted");
+        foreach(var invalid in new[]{Array.Empty<byte>(),new byte[65],"中文密码"u8.ToArray(),"abc\u007f"u8.ToArray()})Check(!Tab5PinStore.Valid(invalid),"unsupported credential accepted");
+        foreach(string single in new[]{"0","a","A","!"," "}){store.Save(pair,Encoding.ASCII.GetBytes(single));Check(store.Read(pair)!.AsSpan().SequenceEqual(Encoding.ASCII.GetBytes(single)),"single character encrypted round trip");}
+        byte[] mixed=" Aa0!@#$_+{}[]:;\"'\\|<>?,./~` "u8.ToArray();
+        store.Save(pair,mixed);Check(store.Read(pair)!.AsSpan().SequenceEqual(mixed),"case, symbols or edge spaces changed during encrypted round trip");
+        Check(!Encoding.UTF8.GetString(File.ReadAllBytes(path)).Contains(Encoding.ASCII.GetString(mixed)),"mixed plaintext persisted");
         var screen=new ComputerLockScreenState(Locked:true,LockScreenCover:null,DisplayState:1);
         var broker=new Tab5PinBroker(store,()=>screen);
+        using(var legacy=JsonDocument.Parse(JsonSerializer.Serialize(new{kind="unlock-pin",op="read",requestId=Guid.NewGuid().ToString("D")})))
+            Check(broker.Handle(legacy.RootElement,pair,"USB").Status==409,"old numeric firmware received unsupported text");
+        foreach(string transport in new[]{"USB","BLE"})using(var extended=JsonDocument.Parse(JsonSerializer.Serialize(new{kind="unlock-pin",op="read",requestId=Guid.NewGuid().ToString("D"),credentialVersion=2}))) {
+            var result=broker.Handle(extended.RootElement,pair,transport);Check(result.Status==200,"extended credential denied");
+            var body=JsonSerializer.SerializeToElement(result.Body);string id=body.GetProperty("requestId").GetString()!;
+            byte[] clear=Tab5Protocol.Decrypt(Convert.FromBase64String(pair.Key),id.Replace("-",""),Convert.FromBase64String(body.GetProperty("packet").GetString()!),128);
+            Check(clear.AsSpan().SequenceEqual(mixed),"encrypted credential changed");CryptographicOperations.ZeroMemory(clear);
+        }
+        using(var malformed=JsonDocument.Parse(JsonSerializer.Serialize(new{kind="unlock-pin",op="read",requestId=Guid.NewGuid().ToString("D"),credentialVersion="2"})))
+            Check(broker.Handle(malformed.RootElement,pair,"USB").Status==400,"malformed capability accepted");
+        store.Save(pair,"654321"u8);CryptographicOperations.ZeroMemory(mixed);
         JsonDocument Request(string? id=null)=>JsonDocument.Parse(JsonSerializer.Serialize(new{kind="unlock-pin",op="read",requestId=id??Guid.NewGuid().ToString("D")}));
         store.SetEnabled(pair,false);
         foreach(var transport in new[]{"USB","BLE"}){using var request=Request();Check(broker.Handle(request.RootElement,pair,transport).Status==404,"disabled switch released PIN");}
@@ -58,8 +75,9 @@ internal static class Tab5PinSelfTest
         using(var request=Request())Check(broker.Handle(request.RootElement,pair,"USB").Status==404,"deleted PIN granted");
         store.Save(pair,pin);var corrupt=File.ReadAllBytes(path);corrupt[^1]^=1;File.WriteAllBytes(path,corrupt);Check(!store.Has(pair),"corrupt record enabled");store.Delete();
         Rpc(directory,store).GetAwaiter().GetResult();
+        Methods(directory,pair);
         foreach(float scale in new[]{1f,1.5f,2f}){
-            using var form=new Tab5PinForm(store,()=>pair,()=>true);
+            using var form=new Tab5PinForm(store,()=>pair,()=>true,ComputerUnlockSetupSelfTest.Ready(Path.Combine(directory,"setup-"+scale)));
             // Layout/font simulation; does not change the user's Windows DPI.
             var fonts=Desc(form).Prepend(form).Select(c=>(control:c,font:c.Font)).ToArray();
             form.Scale(new SizeF(scale,scale));foreach(var item in fonts)item.control.Font=new Font(item.font.FontFamily,item.font.Size*scale,item.font.Style);
@@ -67,6 +85,7 @@ internal static class Tab5PinSelfTest
             var controls=Desc(form).ToArray();var input=(TextBox)controls.Single(c=>c.Name=="saved-pin");var repeat=(TextBox)controls.Single(c=>c.Name=="repeat-pin");
             Check(input.UseSystemPasswordChar&&repeat.UseSystemPasswordChar,"unmasked credential field");
             var toggle=(CheckBox)controls.Single(c=>c.Name=="enable-oneclick");Check(!toggle.Checked,"UI default enabled");
+            ((ComboBox)controls.Single(c=>c.Name=="login-method")).SelectedIndex=1;
             toggle.Checked=true;Check(store.Enabled(pair)&&!store.IsEnabled(pair),"UI switch without PIN active");
             var eye=(Button)controls.Single(c=>c.Name=="saved-pin-eye");var repeatEye=(Button)controls.Single(c=>c.Name=="repeat-pin-eye");
             void Event(Control c,string method,object argument)=>c.GetType().GetMethod(method,BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(c,[argument]);
@@ -84,10 +103,14 @@ internal static class Tab5PinSelfTest
             input.Text=repeat.Text="123456";Event(eye,"OnMouseDown",down);((Button)controls.Single(c=>c.Name=="save-pin")).PerformClick();Check(store.Has(pair)&&input.Text.Length==0&&repeat.Text.Length==0&&input.UseSystemPasswordChar,"UI save failed");Check(store.IsEnabled(pair),"UI switch plus PIN not enabled");
             toggle.Checked=false;Check(store.Has(pair)&&!store.IsEnabled(pair),"UI off deleted PIN or remained enabled");toggle.Checked=true;Check(store.IsEnabled(pair),"UI reenable failed");
             input.Text=repeat.Text="654321";((Button)controls.Single(c=>c.Name=="save-pin")).PerformClick();Check(store.Read(pair)!.AsSpan().SequenceEqual("654321"u8),"UI modify failed");
+            input.Text=repeat.Text=" TestAa9!@#[]{} ";((Button)controls.Single(c=>c.Name=="save-pin")).PerformClick();Check(store.Read(pair)!.AsSpan().SequenceEqual(" TestAa9!@#[]{} "u8),"UI changed case, symbols or spaces");
+            input.Text=repeat.Text="中文密码";((Button)controls.Single(c=>c.Name=="save-pin")).PerformClick();Check(store.Read(pair)!.AsSpan().SequenceEqual(" TestAa9!@#[]{} "u8)&&input.Text.Length==0,"UI replaced unsupported Unicode with ASCII question marks");
+            foreach(string single in new[]{"0","a","A","!"," "}){input.Text=repeat.Text=single;((Button)controls.Single(c=>c.Name=="save-pin")).PerformClick();Check(store.Read(pair)!.AsSpan().SequenceEqual(Encoding.ASCII.GetBytes(single))&&input.Text.Length==0&&repeat.Text.Length==0,"UI rejected or trimmed single character");}
             // FitScreen intentionally caps scaled dialogs to the monitor. The
             // production body scrolls, and feedback may have scrolled it down.
             // Verify each control is reachable, then retain strict clipping checks.
-            foreach(var name in new[]{"saved-pin","repeat-pin","saved-pin-eye","repeat-pin-eye","save-pin","delete-pin","enable-oneclick","wifi-unlock-settings"}){
+            Check(!controls.Any(c=>c.Name is "wifi-unlock-settings" or "login-helper" or "unlock-channel-status")&&controls.Single(c=>c.Name=="pin-status").Text=="已就绪","single-page settings retained separate setup or duplicate readiness");
+            foreach(var name in new[]{"saved-pin","repeat-pin","saved-pin-eye","repeat-pin-eye","save-pin","delete-pin","enable-oneclick","login-method"}){
                 var c=controls.Single(c=>c.Name==name);
                 for(Control? ancestor=c.Parent;ancestor!=null;ancestor=ancestor.Parent)
                     if(ancestor is ScrollableControl{AutoScroll:true} viewport)viewport.ScrollControlIntoView(c);
@@ -106,6 +129,42 @@ internal static class Tab5PinSelfTest
         store.Delete();CryptographicOperations.ZeroMemory(pin);
         Console.WriteLine($"TAB5_PIN_SELF_TEST_OK checks={_checks}; synthetic credentials only; no device input");
     }
+    private static void Methods(string directory,Tab5Pairing pair)
+    {
+        string path=Path.Combine(directory,"method-record.dat");var store=new Tab5PinStore(path);store.Delete();
+        store.Save(pair,"1234"u8);store.SetEnabled(pair,true);
+        Check(store.Method(pair)==LoginMethodKind.Manual,"numeric credential inferred as PIN");
+        store.SetMethod(pair,LoginMethodKind.Password);store.SetEnabled(pair,false);store.SetEnabled(pair,true);
+        Check(store.Method(pair)==LoginMethodKind.Password&&store.Read(pair,true)!.AsSpan().SequenceEqual("1234"u8),"method change or toggle changed credential");
+        foreach(byte version in new byte[]{1,2}) {
+            int offset=version==1?33:34;byte[] clear=new byte[offset+4];clear[0]=version;
+            SHA256.HashData(Encoding.UTF8.GetBytes(pair.DeviceId+"|"+pair.Key)).CopyTo(clear,1);
+            if(version==2)clear[33]=1;"1234"u8.CopyTo(clear.AsSpan(offset));
+            File.WriteAllBytes(path,ProtectedData.Protect(clear,Encoding.UTF8.GetBytes("AI-bot TAB5 unlock PIN v1"),DataProtectionScope.CurrentUser));CryptographicOperations.ZeroMemory(clear);
+            Check(store.Method(pair)==LoginMethodKind.Manual&&store.Read(pair)!.AsSpan().SequenceEqual("1234"u8),"legacy method or credential changed");
+            store.SetMethod(pair,LoginMethodKind.Pin);Check(store.Method(pair)==LoginMethodKind.Pin&&store.Read(pair)!.AsSpan().SequenceEqual("1234"u8),"legacy upgrade lost credential");
+        }
+        store.SetMethod(pair,LoginMethodKind.Password);store.SetEnabled(pair,true);
+        var state=new ComputerLockScreenState(Locked:true,DisplayState:1);bool ready=false;LoginMethodKind called=LoginMethodKind.Manual;
+        var broker=new Tab5PinBroker(store,()=>state,prepare:method=>{called=method;return ready;});
+        JsonDocument Request()=>JsonDocument.Parse(JsonSerializer.Serialize(new{kind="unlock-pin",op="read",credentialVersion=2,requestId=Guid.NewGuid().ToString("D")}));
+        using(var request=Request()){
+            var result=broker.Handle(request.RootElement,pair,"USB");
+            Check(result.Status==409&&!JsonSerializer.Serialize(result.Body).Contains("packet")&&called==LoginMethodKind.Password,"unverified or inferred method released credential");
+            ready=true;Check(broker.Handle(request.RootElement,pair,"USB").Status==409,"uncertain method request replayed");
+        }
+        using(var request=Request())Check(broker.Handle(request.RootElement,pair,"BLE").Status==200,"confirmed method denied");
+        var changing=new Tab5PinBroker(store,()=>state,prepare:method=>{state=new(Locked:false,DisplayState:1);return true;});
+        using(var request=Request())Check(changing.Handle(request.RootElement,pair,"USB").Status==409,"session changed after selection released credential");
+        store.SetMethod(pair,LoginMethodKind.Manual);
+        using(var form=new Tab5PinForm(store,()=>pair,()=>true,ComputerUnlockSetupSelfTest.Ready(Path.Combine(directory,"method-setup")))) {
+            form.Show();Application.DoEvents();var controls=Desc(form).ToArray();var method=(ComboBox)controls.Single(c=>c.Name=="login-method");
+            method.SelectedIndex=(int)LoginMethodKind.Password;((Button)controls.Single(c=>c.Name=="save-pin")).PerformClick();
+            Check(store.Method(pair)==LoginMethodKind.Password&&store.Read(pair)!.AsSpan().SequenceEqual("1234"u8),"UI method-only save lost credential");
+            form.Close();
+        }
+        store.Delete();
+    }
     private static async Task Rpc(string directory,Tab5PinStore store)
     {
         var pairing=new Tab5PairingStore(Path.Combine(directory,"pair.dat"));var pair=pairing.Pair("001122aabbcc",@"USB\PIN-RPC-TEST");byte[] key=Convert.FromBase64String(pair.Key);store.Save(pair,"123456"u8);store.SetEnabled(pair,true);
@@ -114,8 +173,9 @@ internal static class Tab5PinSelfTest
         typeof(Tab5Service).GetField("_pinBroker",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(service,new Tab5PinBroker(store,()=>new(Locked:true,DisplayState:1)));
         service.Publish(new StatusSnapshot(1,"12:00",1000,28800,DateTimeOffset.UtcNow,new("idle",0),new("idle",0)));
         using var frame=JsonDocument.Parse(service.CurrentFrame!);string session=frame.RootElement.GetProperty("session").GetString()!;
-        async Task<int> Call(bool proofOk=true,bool stale=false,bool oldSession=false,string transport="USB",string? requestId=null,bool binary=true,string kind="unlock-pin"){
+        async Task<int> Call(bool proofOk=true,bool stale=false,bool oldSession=false,string transport="USB",string? requestId=null,bool binary=true,string kind="unlock-pin",bool extended=false){
             string nonce=Guid.NewGuid().ToString("N");byte[] json=JsonSerializer.SerializeToUtf8Bytes(new{kind,op=kind=="host-unlock"?"begin":"read",requestId=requestId??Guid.NewGuid().ToString("D"),session=oldSession?"old":session,issuedAt=DateTimeOffset.UtcNow.AddSeconds(stale?-121:0).ToUnixTimeMilliseconds(),binaryReply=binary});
+            if(extended){var value=System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();value["credentialVersion"]=2;json=JsonSerializer.SerializeToUtf8Bytes(value);}
             byte[] packet=Tab5Protocol.Encrypt(key,nonce,binary?Tab5RpcBinary.Encode(json):json);
             string proof=proofOk?Tab5Protocol.Proof(key,$"POST|/tab5/v1/rpc|{pair.DeviceId}|{nonce}|{Convert.ToHexString(SHA256.HashData(packet)).ToLowerInvariant()}"):new string('0',64);
             var reply=await service.RpcAsync(pair.DeviceId,nonce,proof,packet,CancellationToken.None,transport:transport);
@@ -126,10 +186,15 @@ internal static class Tab5PinSelfTest
                 Check(status==409&&unsupported.GetProperty("error").GetString()=="host_unlock_unsupported"&&!unsupported.GetProperty("unlocked").GetBoolean()&&!unsupported.TryGetProperty("packet",out _),"host intent must not return a PIN");
                 return status;
             }
-            if(status==200){var envelope=body.RootElement.GetProperty("body");string aad=envelope.GetProperty("requestId").GetString()!.Replace("-","");var clearPin=Tab5Protocol.Decrypt(key,aad,Convert.FromBase64String(envelope.GetProperty("packet").GetString()!),128);Check(clearPin.AsSpan().SequenceEqual("123456"u8),"RPC envelope PIN mismatch");CryptographicOperations.ZeroMemory(clearPin);}
+            if(status==200){var envelope=body.RootElement.GetProperty("body");string aad=envelope.GetProperty("requestId").GetString()!.Replace("-","");var clearPin=Tab5Protocol.Decrypt(key,aad,Convert.FromBase64String(envelope.GetProperty("packet").GetString()!),128);byte[] expected=store.Read(pair)!;Check(clearPin.AsSpan().SequenceEqual(expected),"RPC envelope credential mismatch");CryptographicOperations.ZeroMemory(clearPin);CryptographicOperations.ZeroMemory(expected);}
             return status;
         }
         Check(await Call(proofOk:false)==401&&await Call(stale:true)==400&&await Call(oldSession:true)==400,"RPC authentication bypass");
+        foreach(string value in new[]{"0","a","A","!"," "," A9![]{}\\\" "}){
+            store.Save(pair,Encoding.ASCII.GetBytes(value));Check(await Call()==409,"legacy firmware received incompatible credential");
+            foreach(string transport in new[]{"USB","BLE"})foreach(bool binary in new[]{false,true})Check(await Call(transport:transport,binary:binary,extended:true)==200,"single/mixed credential authenticated RPC failed");
+        }
+        store.Save(pair,"123456"u8);
         Check(await Call(transport:"Wi-Fi")==400,"Wi-Fi route enabled");
         Check(await Call(kind:"host-unlock")==409&&await Call(transport:"BLE",kind:"host-unlock")==409&&await Call(transport:"Wi-Fi",kind:"host-unlock")==409,"unsupported host intent route");
         string id=Guid.NewGuid().ToString("D");Check(await Call(requestId:id)==200&&await Call(transport:"BLE",requestId:id)==409,"cross-transport replay");

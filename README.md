@@ -57,7 +57,7 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 
-<sub>116 秒中文产品介绍，可在本页直接播放。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4)</sub>
+<sub>116 秒中文产品介绍，可在本页直接播放。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4)</sub>
 
 ## 能做什么
 
@@ -122,8 +122,8 @@ https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 <!-- downloads:start -->
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
-| Windows 桥接 · Windows 10/11 x64 | 0.6.10 | [下载 · 27 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/AI-bot-bridge-v0.6.10-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.10/SHA256SUMS.txt) |
-| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.7 | [下载 · 14 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/AIBotBridge-0.6.7-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.7/SHA256SUMS.txt) |
+| Windows 桥接 · Windows 10/11 x64 | 0.6.10 | [下载 · 27 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/AI-bot-bridge-v0.6.10-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/SHA256SUMS.txt) |
+| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.7 | [下载 · 14 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.7/AIBotBridge-0.6.7-local-candidate-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.7/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.3 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/AI-bot-0.5.3-firmware-materials.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.3/SHA256SUMS.txt) |
 | TAB5 · 出厂系统首次安装 | 0.2.234-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/AI-bot-tab5-0.2.234-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.234-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/AI-bot-tab5-0.2.234-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.234-ui/SHA256SUMS.txt) |

@@ -1,4 +1,4 @@
-"""Independent component versions; legacy vX.Y.Z tags identify bridge-led bundles."""
+"""Desktop vX.Y.Z tags and independent firmware versions; retain historical routing."""
 from pathlib import Path
 import json
 import re
@@ -25,14 +25,20 @@ def versions(root=ROOT):
 
 
 def release_target(tag, root=ROOT):
+    # Releases through 0.5.0 were multi-component bundles. Later v tags are desktop-only.
+    if tag.startswith("v") and SEMVER.fullmatch(tag[1:]):
+        version = tag[1:]
+        if tuple(map(int, version.split("-", 1)[0].split("."))) <= (0, 5, 0):
+            return "bundle", version
+    # Read archived aliases, but generate/publish only the manifest's canonical prefix.
+    if tag.startswith("bridge-v") and SEMVER.fullmatch(tag[len("bridge-v"):]):
+        return "bridge", tag[len("bridge-v"):]
     for name, record in components(root).items():
         if tag.startswith(record["tagPrefix"]):
             version = tag[len(record["tagPrefix"]):]
             if SEMVER.fullmatch(version):
                 return name, version
             raise ValueError(f"Invalid component release tag: {tag!r}")
-    if tag.startswith("v") and SEMVER.fullmatch(tag[1:]):
-        return "bundle", tag[1:]
     raise ValueError(f"Unknown release tag: {tag!r}")
 
 

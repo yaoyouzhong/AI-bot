@@ -3,14 +3,14 @@
   "downloads": {
     "windows": {
       "version": "0.6.10",
-      "tag": "bridge-v0.6.10",
+      "tag": "v0.6.10",
       "file": "AI-bot-bridge-v0.6.10-windows-x64-setup.exe",
       "size": 28777651,
       "sha256": "de8842efa6bea81b97a8083b533ef312473d827d9422f563b7e3de01ee3042fa"
     },
     "macos": {
       "version": "0.6.7",
-      "tag": "bridge-v0.6.7",
+      "tag": "v0.6.7",
       "file": "AIBotBridge-0.6.7-local-candidate-macos-arm64.zip",
       "size": 14258838,
       "sha256": "71045822a93f71c9a19a5b0788c9deaec4f7c95d256dd14f8d7f9d4fde2703b0"

@@ -5,7 +5,7 @@
 ## 发布身份
 
 - 发布提交：`68382bf73b1273062d74a03d1e51778609ab0887`；带注释标签 `bridge-v0.6.8`、`tab5-v0.2.210-ui` 指向同一提交。
-- [Windows 正式版](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.8)为 Latest；[TAB5 正式版](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.210-ui)为独立稳定版。
+- [Windows 正式版](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.8)为 Latest；[TAB5 正式版](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.210-ui)为独立稳定版。
 - [发布 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/39004611973)和[桥接候选流水线](https://github.com/yaoyouzhong/AI-bot/actions/runs/39004611921)通过。流水线自动生成的 Mac 候选没有发布，Windows 草稿换为本机已验收字节后公开。
 - 文档与媒体提交：`5c4df47e567037e02f891dcea6f73c492e4be573`；[对应 CI](https://github.com/yaoyouzhong/AI-bot/actions/runs/39005488912)通过。
 

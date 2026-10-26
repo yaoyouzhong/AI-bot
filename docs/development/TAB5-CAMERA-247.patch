@@ -1,0 +1,178 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -471,7 +471,7 @@
+ static lv_obj_t *codex_voice_button,*codex_voice_switch,*codex_voice_cancel,*codex_voice_meter,*codex_camera_button;
+ static lv_obj_t *camera_layer,*camera_canvas,*camera_hint,*camera_take,*camera_retry,*camera_use,*camera_close;
+ static int camera_pose;
+-static bool photo_flow,photo_for_codex;
++static bool photo_flow,photo_for_codex,photo_camera_processing;
+ static bool photo_open_pending;
+ static char photo_open_task[37];
+ static void codex_images_refresh(void);
+@@ -2337,6 +2337,7 @@
+ #endif
+ }
+ static void camera_action(lv_event_t *e) {
++    if(photo_camera_processing)return;
+     int action=(int)(intptr_t)lv_event_get_user_data(e);
+     if(action==0||action==-2) {
+         voice_remote_state *voice=&ui_voice_work->camera;voice_remote_get(voice);
+@@ -2370,6 +2371,7 @@
+ }
+ static void camera_tick(void) {
+     if(!camera_layer||lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN))return;
++    if(photo_camera_processing)return;
+     lv_display_trigger_activity(NULL);
+     camera_preview_state current=camera_preview_get_state();
+     if(photo_for_codex&&current==CAMERA_PREVIEW_ERROR)
+@@ -2419,7 +2421,7 @@
+     int64_t now=esp_timer_get_time()/1000;
+     // Sample during camera use, but let its worker release scanout before
+     // applying display/touch coordinates. Never flip mid-gesture.
+-    bool rotation_busy=gesture_active()||ota_update_busy()||flash_benchmark_busy();
++    bool rotation_busy=photo_camera_processing||gesture_active()||ota_update_busy()||flash_benchmark_busy();
+     int direction=ui_orientation_sample(&screen_orientation,art_orientation_get(),now,rotation_busy,screen_orientation_mode);
+     bool camera_visible=camera_layer&&!lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
+     if(!rotation_busy&&camera_visible) {
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -8,6 +8,24 @@
+ static int photo_step; // 1 prepare, 2 preview, 3 uploading, 4 list
+ static bool photo_from_camera;
+ 
++static void photo_camera_busy(bool busy) {
++    photo_camera_processing=busy;
++    lv_obj_t *controls[]={camera_close,camera_retry,camera_use};
++    for(unsigned i=0;i<3;i++) {
++        if(busy)lv_obj_add_state(controls[i],LV_STATE_DISABLED);
++        else lv_obj_remove_state(controls[i],LV_STATE_DISABLED);
++    }
++    ui_text(lv_obj_get_child(camera_use,0),busy?"处理中…":"添加照片");
++}
++static void photo_camera_return(void) {
++    // Finish encoding before the full-page redraw. Restore the normal page's
++    // geometry in this same LVGL turn, never expose it at portrait dimensions.
++    photo_camera_busy(false);
++    screen_orientation_apply(screen_orientation.direction);
++    visible(camera_layer,false);visible(photo_window,true);
++    lv_obj_move_foreground(photo_window);
++}
++
+ static void codex_images_refresh(void) {
+     if(!composer_photos[0])return;
+     codex_draft *d=codex_draft_for(codex_selected,false);bool any=d&&d->images[0][0];
+@@ -19,6 +37,7 @@
+     if(codex_keyboard&&lv_obj_has_flag(codex_keyboard,LV_OBJ_FLAG_HIDDEN))lv_obj_set_height(codex_input,any?170:250);
+ }
+ static void photo_finish(void) {
++    photo_camera_busy(false);
+     lv_obj_add_flag(photo_window,LV_OBJ_FLAG_HIDDEN);lv_obj_add_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
+     photo_flow=photo_for_codex=false;photo_step=0;photo_discard();codex_images_refresh();
+     codex_sync_next=esp_timer_get_time()/1000+1200;codex_read_next=codex_sync_next;
+@@ -67,9 +86,11 @@
+     if(action==4&&photo_visible_listing&&photo_visible_listing->more)photo_load_directory(photo_directory,photo_visible_listing->page+1);
+ }
+ static void photo_camera_use(void) {
+-    if(!photo_for_codex||!photo_prepare_camera())return;
++    if(photo_camera_processing||!photo_for_codex||!photo_prepare_camera())return;
+     photo_step=1;photo_from_camera=true;photo_id[0]=0;
+-    lv_obj_add_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);lv_obj_remove_flag(photo_window,LV_OBJ_FLAG_HIDDEN);lv_obj_move_foreground(photo_window);
++    photo_camera_busy(true);
++    // A retry stays on its error page; do not rotate back into the camera
++    // while the new encoding task is already running.
+     visible(photo_files,false);visible(photo_up,false);visible(photo_prev,false);visible(photo_next,false);visible(photo_view,false);visible(photo_confirm,false);
+     ui_text(photo_title,"添加照片");ui_text(photo_note,"正在处理照片…");
+ }
+@@ -142,6 +163,10 @@
+         ui_text_fmt(photo_note,value->error[0]?"%s":"%s · 第 %d 页",value->error[0]?value->error:photo_directory,value->page+1);
+     }else if(photo_step==1) {
+         if(photo_state()==1)return;
++        if(photo_camera_processing) {
++            if((photo_state()!=2&&photo_state()!=3)||gesture_active())return;
++            photo_camera_return();
++        }
+         if(photo_state()==3){
+             ui_text(photo_note,photo_error());photo_step=2;
+             if(photo_from_camera){
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1584,6 +1584,54 @@
+     }
+     assert(clicked&&!photo_flow&&lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN));
+ }
++static void check_photo_add_transition(void) {
++    uint16_t *pixels=malloc(1280*720*2);assert(pixels);
++    preview_photo_fixture=true;
++    unsigned uploads=preview_photo_uploads,starts=preview_camera_starts;
++    int prepares=preview_photo_prepares;
++    const int poses[]={0,2,1,-1};
++    for(unsigned i=0;i<4;i++) {
++        int pose=poses[i];unsigned w=camera_pose_width(pose),h=camera_pose_height(pose);
++        for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++)pixels[y*w+x]=(uint16_t)((x<w/2?0x4000:0x0010)|(y<h/2?0x0600:0));
++        photo_flow=photo_for_codex=true;preview_camera_state=CAMERA_PREVIEW_CAPTURED;
++        visible(camera_layer,true);lv_obj_move_foreground(camera_layer);
++        lv_canvas_set_buffer(camera_canvas,pixels,w,h,LV_COLOR_FORMAT_RGB565);
++        assert(camera_orientation_apply(pose));camera_tick();
++        lv_display_rotation_t rotation=lv_display_get_rotation(NULL);
++        const uint8_t *before=lv_canvas_get_draw_buf(camera_canvas)->data;
++        lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);prepares++;
++        assert(photo_camera_processing&&photo_step==1&&preview_photo_prepares==prepares);
++        for(int n=0;n<3;n++) {
++            camera_tick();photo_tick();clock_tick(NULL);
++            lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);
++            lv_obj_send_event(camera_retry,LV_EVENT_CLICKED,NULL);
++            lv_obj_send_event(camera_close,LV_EVENT_CLICKED,NULL);
++            assert(photo_camera_processing&&preview_photo_prepares==prepares&&preview_camera_starts==starts);
++            assert(lv_display_get_rotation(NULL)==rotation);
++            assert(lv_canvas_get_draw_buf(camera_canvas)->data==before);
++            assert(!lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
++            assert(lv_obj_has_state(camera_use,LV_STATE_DISABLED)&&lv_obj_has_state(camera_retry,LV_STATE_DISABLED));
++        }
++        char name[64];snprintf(name,sizeof(name),"photo-processing-pose-%d",pose);capture(name);
++        // Both success and error restore the ordinary page before it is shown.
++        last_received=-100000;preview_photo_state=i%2?3:2;photo_tick();
++        assert(!photo_camera_processing&&photo_step==2);
++        assert(lv_display_get_horizontal_resolution(NULL)==1280&&lv_display_get_vertical_resolution(NULL)==720);
++        assert(lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
++        assert(preview_photo_uploads==uploads);
++        if(i%2) {
++            lv_obj_send_event(photo_confirm,LV_EVENT_CLICKED,NULL);prepares++;
++            assert(photo_camera_processing&&preview_photo_prepares==prepares);
++            assert(lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
++            preview_photo_state=2;photo_tick();assert(!photo_camera_processing&&photo_step==2);
++        }
++        if(i==3)capture("photo-processing-return");
++        photo_finish();assert(!photo_camera_processing&&!photo_flow);
++    }
++    lv_image_set_src(camera_canvas,NULL);free(pixels);preview_photo_fixture=false;
++    preview_photo_prepares=prepares-6;camera_preview_stop();
++    puts("PHOTO_ADD_TRANSITION_OK four poses; retained still; no premature page/rotation; duplicate controls blocked; encoder retry; normal geometry before reveal; no upload or send");
++}
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -1603,6 +1651,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_PHOTO_TRANSITION_ONLY")){check_photo_add_transition();return 0;}
+     if(getenv("TAB5_ORIENTATION_ONLY")) {
+         page(9);settings_select(1);lv_obj_update_layout(settings_scroll);
+         assert(lv_dropdown_get_selected(orientation_selector)==0);
+@@ -4442,6 +4491,7 @@
+     // Encoder failure offers a retry of the retained still, not a new capture.
+     lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);
+     assert(preview_photo_prepares==1&&photo_step==1);
++    assert(!lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
+     preview_photo_state=3;photo_tick();
+     assert(!lv_obj_has_flag(photo_confirm,LV_OBJ_FLAG_HIDDEN));
+     assert(!strcmp(lv_label_get_text(lv_obj_get_child(photo_confirm,0)),"重试"));
+@@ -4449,7 +4499,7 @@
+     assert(preview_photo_prepares==2&&photo_step==1&&preview_photo_state==1);
+     assert(preview_camera_state==CAMERA_PREVIEW_CAPTURED);
+     assert(preview_submit_count==sends_before_camera);
+-    preview_photo_state=0;photo_flow=false;visible(photo_window,false);
++    preview_photo_state=0;photo_finish();
+     lv_indev_delete(touch);free(camera_frame);
+     camera_preview_stop();visible(camera_layer,false);photo_for_codex=photo_flow=false;
+ 

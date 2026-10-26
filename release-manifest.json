@@ -3,7 +3,7 @@
   "components": {
     "bridge": {
       "versionFile": "VERSION",
-      "tagPrefix": "bridge-v",
+      "tagPrefix": "v",
       "changelogs": ["CHANGELOG.md", "CHANGELOG.zh.md"]
     },
     "esp8266": {

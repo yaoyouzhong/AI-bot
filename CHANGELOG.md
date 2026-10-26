@@ -23,6 +23,25 @@ All notable changes to this project will be documented in this file.
 
 - Complete the five-stage Mac candidate scope: shared USB/Wi-Fi/BLE authentication and receipts, daily display/settings, covers/pets/gallery, exact-image OTA/boot checks, computer/music controls, opt-in Codex replies/encrypted drafts/one-time delivery, bound photos, local Speech capture/review, and verified 16 MiB P4 first install/backup/restore.
 - Add module Mac tests/Release, ad-hoc candidate-app/tool checks, fixture-only native UI rendering, checksums and an offline bilingual guide. Fix native XCTest report collection, Swift compatibility, Keychain-helper visibility and Codex pipe buffering from actual CI failures. Hardware, Automation/playback, Accessibility composer compatibility and on-device speech availability await physical acceptance. No merge to main, deployment, tag or publication. See the [candidate guide](docs/MAC-TAB5-CANDIDATE.md) and [evidence](docs/development/MAC-TAB5-PORTING.md).
+## Unreleased · Windows sign-in method
+
+- Windows source candidate adds safe stop during TAB5 upgrade preparation/transfer. Last-range release disables stop; a fresh same-host idle report confirms stopped transfers. Existing firmware cleanup and pairing are retained. Not installed; hardware cancellation is pending.
+
+- TAB5 .254 local candidate replaces camera hardware JPEG with bounded scanline software encoding, retaining full resolution, quality 85, YUV420 and three-photo editing. The quota heading drops the carry-over explanation and the daily values lose their asterisks, without changing calculations. .253 is installed: both BLE attempts passed, while blue flashes persist; .254 is now installed with exact boot verification, but the user still reports blue flashes and a slow failed first BLE upload; its retry and Wi-Fi succeed. Windows and Mac binaries are unchanged in this follow-up.
+
+- New local candidate: preserve observed positive quota differences across changed future reset dates, label uncertain/cross-day attribution, and collect explicit banked-reset history read-only. Scheduled and observed early resets keep prior increments and start a new segment; zero-usage deadline drift is not another reset. Replay of the untouched actual history yields October 21 = 30 points, including 26 carried across a gap, and one observed October 23 01:10 reset. Automatic-reset origin is not established by sampling alone. Installed; resident totals match the replay. Live history reports complete with no normalized redemptions, which does not establish absence of card use; raw event kinds remain unverified. Mac is unchanged.
+
+- TAB5 .253 candidate removes the two redundant photo hints, transfers completed preview ownership to the attachment cache, and shortens JPEG DMA bursts. It also permits bounded credential-mailbox admission without replay. Installed; both user BLE attempts passed and blue flashes still fail.
+
+- Installed candidate: daily quota totals continue the previous valid reading across midnight, segment verified resets, and label long-gap carry-over separately. Actual October 21 still reports 4 points and remains under investigation. Runtime diagnostics retry the other live wireless path to the same bound device after an initial timeout; forced-BLE hardware acceptance is pending.
+
+- Add on-demand Wi-Fi/BLE runtime diagnostics for TAB5 .250 using the bound computer's encrypted channels, retaining stale samples with explicit age. Add daily quota sample bounds to diagnose partial history separately from complete totals. Installed; live Wi-Fi diagnostics passed with USB unplugged. BLE-only fallback is a follow-up; Mac is unchanged.
+
+- Query the TAB5 GATT service directly and report separate discovery/ownership/identity stages. A firmware candidate follows the .237 trial to notify existing bonds of service-layout changes; Bluetooth hardware acceptance is pending.
+
+- TAB5 0.2.237-ui candidate: pin USB, Wi-Fi and BLE to one selected trusted computer. Only authenticated USB from an already trusted computer may take over automatically; unavailable links and other computers' wireless reconnects never change the target. Verify and filter BLE peer ownership, preserve pairings, and keep unrelated physical links from blocking the selected computer's Wi-Fi unlock. Windows proves its BLE ownership before USB standby. Hardware acceptance is pending.
+
+- Store an explicit PIN/password type for one-click unlock and invoke a protected, on-demand Windows helper to select the matching input page. Stop without replay when the method, focus, session or request freshness cannot be confirmed. Install prerequisites by default and save/check USB/Bluetooth and Wi-Fi from one page. Preserve legacy credentials; macOS and firmware are unchanged. Five real method switches and USB unlocking from both the wallpaper and fingerprint page passed. Transport acceptance is recorded in the development report.
 
 ## 0.6.10 - 2026-10-19
 
@@ -43,6 +62,12 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 - Add a macOS TAB5 USB/Wi-Fi, daily-display and acknowledged display-settings candidate, isolated from ESP8266 settings. Independent protocol/reference checks passed on Windows; 55 Swift tests and Release compilation passed in Mac CI. Preserve command failures through log pipelines and collect the XCTest XML using an absolute path. Native UI and hardware acceptance remain pending. No deployment or release; see the [phase-one record](docs/development/MAC-TAB5-PHASE1-20261019.md).
+- Widen the default device center and adapt its action grid between three and two columns, preserving device names and shortening descriptions. Recompute stale scroll extents after resizing so the connection/upgrade entry remains fully reachable. Windows UI only; firmware and device settings are unchanged.
+
+### TAB5 local candidate
+
+- Add authenticated selection among independently trusted Windows/Mac computers with TAB5 .236. Preserve existing pairing and credential bindings, and stop stale input during takeover.
+- Extend Windows unlock credentials to 1–64 printable ASCII characters and retain the default numeric keypad. Pair with .235/.236 camera memory handoff fixes. Local validation passed; Mac build and hardware acceptance remain pending. See [integration record](docs/development/TAB5-MULTI-HOST-20261021.md).
 
 ## 0.6.9 - 2026-10-17
 

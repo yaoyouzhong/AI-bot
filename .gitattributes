@@ -19,3 +19,7 @@ licenses/** -text -whitespace
 
 # Preserve archived patch bytes, including required blank context-line prefixes.
 docs/proposals/*.patch -text -whitespace
+# Archived source patches retain exact hashes and required context-line spaces.
+docs/development/*.patch -text -whitespace
+# Archived CRLF source is hash-verified; do not rewrite its whitespace.
+docs/development/tab5-262-source/** -whitespace

@@ -897,6 +897,39 @@ Optional wifiPathDiag contains 17 numeric fields: version=1, IPv4 netmask, gatew
 
 中文：桥接连接失败时对网关与电脑做有界 TCP 对照，并记录掩码、网关、信号和底层错误；不修改网络、密码或配对。诊断新增不等于连通问题已修复。
 
+## Extended unlock credentials / 扩展解锁凭据（本地候选）
+
+Windows 桥接通过 `connectionHealth.unlockCredentialVersion=2` 通告扩展凭据支持。
+USB/BLE 固件仅在收到该能力后，在既有 `kind="unlock-pin", op="read"` 请求中加入
+`credentialVersion: 2`；未通告的旧桥接沿用原请求字段。配对、HMAC、AES-GCM、session、
+issuedAt、requestId 一次性消费与内层加密保持不变，不在 JSON、回执或日志中写入凭据。
+
+版本 2 接受 **1–64 字节可打印 ASCII（0x20–0x7e）**：大小写英文字母、数字、空格与英文符号。
+首尾空格原样保留；拒绝空字符串、控制字符、DEL 和非 ASCII，不进行替换或截断。
+没有声明版本 2 的旧固件只可取得原有 4–64 位纯数字凭据；其他值返回
+`409 credential_upgrade_required`。数字凭据原有 DPAPI 文件及独立启用开关保持兼容，
+不迁移或重新保存用户凭据。
+
+TAB5 手动输入每次默认数字键盘，可依次切换小写、大写、符号并回到数字。
+确认按钮从一字符起可用，显示内容仅为遮罩；取消、超时、发送完成或失败均按原流程清除。
+USB/BLE 按英文美式键盘映射输出 HID usage 和 Left Shift，并依据主机 Caps Lock LED
+调整字母的 Shift；每次按下后独立松开。Wi-Fi 由 Windows 本地 RFB 服务输入原始 ASCII
+keysym，只允许可打印字符与一次 Enter；不自动重试或换通道。登录方式仍须与 Windows
+当前选中的 PIN/密码框一致，不自动切换登录方式。
+
+The Windows bridge advertises `connectionHealth.unlockCredentialVersion=2`. New firmware
+adds `credentialVersion: 2` to the existing authenticated `unlock-pin/read` request only
+when advertised; older bridges keep the original request. Version 2 accepts 1–64 printable
+ASCII bytes, preserves case and edge spaces, and rejects empty/control/non-ASCII input.
+Legacy firmware receives only its original 4–64 numeric credentials; incompatible requests
+return `409 credential_upgrade_required`. Existing DPAPI records remain compatible.
+
+The manual keypad always opens in numeric mode and can switch through lowercase, uppercase
+and symbols. USB/BLE use the host English US layout with per-character Shift, host Caps Lock
+LED compensation and key releases. Wi-Fi types printable ASCII keysyms through the local
+Windows adapter. Existing authenticated, one-shot, wipe-on-exit and no-replay rules apply.
+Windows must already have the matching sign-in method selected. macOS is unchanged.
+
 ## TAB5 trusted computers / TAB5 可信电脑（本地候选）
 
 设备可保存最多 8 台可信电脑，每台首次通过 USB 明确配对，使用其原有独立密钥。
@@ -1218,3 +1251,64 @@ R25 caps OTA/boot command advertisement to45s/15s relative to its actual status-
 设备 .278 在 USB／BLE 邮箱发布电脑控制请求前最多等待 1 秒准入；只等待未发布阶段，不重复指令，不扩大原响应截止。电脑状态读取或显式操作已保留前台时，预览暂停下一段尚未发布的工作，并在相同 stream／request／归属及原期限内恢复。已发布分片的不确定回执不重放，录音／相机／升级优先级不变。无线 HTTP 和既有 version=1、screen-preview v2 线格式不变。
 
 TAB5 .278 bounds pre-publication computer-control mailbox admission to1s on USB/BLE. Preview yields unpublished work while computer control is busy, then resumes with the same owner and request deadline. It neither replays uncertain published requests nor extends authorization; foreground voice/camera/update priorities and existing wire formats remain unchanged.
+## TAB5 runtime diagnostics v1 (.250)
+
+`connectionHealth.runtimeDiagnosticCommand` is optional and sent only to the currently selected paired device: `{version:1,requestId:<32 lowercase hex>,transport:"Wi-Fi"|"BLE",expiresAt:<epoch milliseconds>}`. The command lasts 10 seconds; the device requires a status received less than 6 seconds ago, a valid pcInput session, matching active transport, integral expiry and no more than 15 seconds future allowance. A started request is consumed once. No USB ownership or host selection is changed.
+
+The device replies through the existing authenticated `/tab5/v1/rpc` or BLE RPC with `{kind:"runtime-diagnostics",requestId,session,issuedAt,snapshot}`. All existing paired-device HMAC, AES-GCM, session, time and nonce-replay checks precede dispatch. The snapshot contains `diagnosticVersion:1,deviceId,hostId,firmware,uptimeMs,sampleAgeMs,uiAgeMs,flushCount,flushErrors,lcdUnderruns`, plus numeric memory/health fields and existing bounded diagnostic strings (`displayDiag,cameraDiag,photoDiag,photoUploadDiag,...`). No photo/audio/conversation payloads or credentials. The bridge validates a pending matching device/host/request/channel/expiry, bounds the snapshot to 8192 characters and each diagnostic string to 1024. Retry age is preserved, duplicate completion is rejected, and failures keep the previous sample visibly stale. The Windows loopback-only `/diagnostics/tab5` entry coalesces refresh requests and retains its browser-origin restriction. Old hosts omit the command; old firmware is reported as USB-only for detailed diagnostics. Mac adoption uses this same contract; no Mac implementation change is included here.
+
+中文：.250 新增按需无线运行诊断，复用已绑定当前电脑的加密状态与 RPC，不新增公开诊断端口，也不依赖固件升级。请求和回复必须匹配设备、电脑、会话、通道及限时请求 ID；切换电脑后中止旧代次发送。采样仅包含现有运行数字与诊断串。Windows 统一显示 USB/Wi-Fi/BLE 来源、接收时间和数据年龄，10 秒后标记过期，读取失败保留旧样本。旧 Mac 桥接需要按本节实现请求与接收，不能仅靠刷入固件获得该入口。
+
+
+## Quota carry-over and diagnostic transport fallback (.251 candidate)
+
+`quotaTrend.days[]` adds optional nonnegative `carryOver` (weekly quota percentage points, default zero). It is the portion of `used` recovered from a verified account/window interval crossing a Beijing midnight with a sampling gap over five minutes. It belongs to the resumed collection date under the requested attribution rule, is counted once, and marks the day partial. No-sample dates stay unknown. Confirmed resets start a new segment at the first observed usage; do not fill the preceding window to 100. Missing/changed identity, plan or unverified reset windows must not be bridged. Older hosts omit this field; older firmware may ignore it. No stored history schema or Mac source change is required.
+
+中文：每天接续前一次有效周额度读数；超过五分钟的跨日差额标为“含跨日补记”，归入恢复采集当天，不进入完整日均。重置按可验证窗口分段，只计已观察增量。TAB5 .251–.253 在相应数字后显示 `*`；.254 起去掉数字旁星号及标题的跨日补记括号说明，但保留协议中的 carryOver 记录和累计口径。旧桥接缺省为零。
+
+The Windows loopback diagnostic request permits at most two eight-second probes. If the first live wireless path times out, it tries the other currently live path to the SAME paired device and host with a fresh request ID and expiry. A standby Wi-Fi poll must not permanently hide a device forced to BLE. Reject late replies to superseded challenges. Only this loopback endpoint has a 20-second HTTP response budget; existing binding, session, replay and privacy rules remain unchanged.
+
+`displayDiag` may append `;bw,1,active,leases,releases,appliedPriority,appliedReadQos`. These are numeric lease/readback counters for the temporary LCD memory-read priority during photo preparation, not a pass/fail proof of visible flicker. Unknown suffixes may be ignored.
+
+## Windows quota evidence / TAB5 .253 candidate
+
+The wire `quotaTrend` contract remains unchanged. Windows-only local daily diagnostics add `windowChanges`; a known same-account/plan, nondecreasing interval with two still-future changed deadlines retains the observed difference as a partial lower bound. Existing `carryOver` still denotes long cross-day attribution. A deadline change alone never establishes a reset or a card use. Local `resetCreditHistoryStatus{checkedAt,complete,error}` distinguishes successfully fetched empty history from unavailable/partial history; it says nothing about automatic-reset coverage.
+
+Windows optionally reads `GET /wham/rate-limit-reset-credits/history` (`events[{id,kind,occurred_at}],next_cursor`) using existing account authentication. Read at most four pages in four seconds; only `kind=redeemed` is evidence of card use. Persist a hashed event ID and actual event time once under the matching account's successful observation, never a raw ID. The loopback quota diagnostic adds `resetCreditHistory[{redeemedAt,firstObservedAt,source:"provider"}]`. Events can resolve a hidden changed-window reset across a gap; missing/expired/granted credits do not. Official automatic/paid resets are absent from this history; observed resets with no source event stay unattributed. Existing records load without event metadata. Mac and device wire fields remain compatible; Mac acquisition logic is not changed.
+
+TAB5 credential RPC waits at most 1000 ms for an occupied USB/BLE mailbox before publishing its single request. This consumes the original exchange deadline, checks host/mailbox generations, disconnect and host switching, and never retries a nonce, credential reply or HID input. Other RPC admission remains immediate. Existing authorization/session and six-second credential deadlines are unchanged.
+
+中文：额度累计保留已知同账户/套餐在未来重置日期变化时的非负观测差额，单独标记待核实与跨日补记；明确兑换事件可核对断档内的卡片重置。官方自动重置只能按有效账户采样中的回落与周期变化分段，不能推断触发方。蓝牙/USB 取凭据仅在首次发布前限时等待被普通请求占用的信箱，沿用原总时限和电脑代次，不自动重发。
+
+
+## Windows bridge OTA withdrawal during delivery (local candidate)
+
+No new wire fields: existing authenticated OTA GET/range requests remain unchanged. Windows withdraws the exact offer and closes incomplete raw/compressed HTTP streams; later USB/BLE ranges receive `offer_changed`. Firmware retains the current boot partition through existing incomplete-download cleanup. A lifecycle lock excludes cancellation once the final range is released. Uncommitted intents can stop locally; late ready returns `request_expired`. Completed/rejected requests cannot be committed again. Mac and existing firmware remain compatible.
+
+A committed transfer is stopped only after a new confirmation request started strictly after cancellation. Wireless must complete its unique authenticated runtime challenge; cached samples and pre-stop probes are insufficient. USB uses the exact post-stop status sequence plus matching `currentHostId` and `usbHostAuthenticated:true`. Both require the same bound device, original firmware and `otaDiag` busy=0. For ready commits without any actual data delivery, confirmation must start after the original command expiry plus a 6000 ms freshness grace; pre-install idle is not an abort acknowledgement. Disconnect/timeout never implies success or rearms the offer.
+
+`otaDiag` retains four numbers: `prepareElapsedMs,bufferSlots,lcdUnderrunDelta,busy`, with busy 0 or 1. These are observations, not permission to cancel after the final byte. Generic health reports alone cannot confirm stopping.
+
+中文：不增加线协议字段。桥接撤回 offer，终止未完成 HTTP 流，后续 USB/BLE 分段返回原有 `offer_changed`；固件清理备用分区并保留当前启动分区。最后段交出后拒绝取消。未 commit 的意图可本地撤销，已结束或 rejected 请求不可被晚到 ready 重提。
+
+停止确认只能来自停止之后开始的唯一新请求：无线完成鉴权诊断挑战；USB 匹配新 status 精确 sequence、`currentHostId` 与 `usbHostAuthenticated:true`；缓存、旧 probe、普通 ACK 均不能确认。还需原设备/host/固件及 `otaDiag` busy=0。ready 已 commit 但无数据时等原命令到期并额外留 6000ms，避免误认尚未开始的空闲。断连/超时不能伪报成功或重新提供固件。`otaDiag` 四项为准备耗时毫秒、接收槽数、显示欠载增量、busy。仅修改 Windows，Mac 与旧固件兼容。
+
+## TAB5 BLE photo recovery and diagnostics (.255 local candidate)
+
+Authenticated v1 status adds optional top-level `data.imageChunkRetry:1`. Only exact numeric 1 from the selected host's authenticated BLE snapshot advertises idempotent `image-chunk` handling, including duplicate prefixes and the final saved-image result. This is not an authentication substitute. Missing/other values disable automatic recovery; old peers may omit/ignore it. The Windows candidate advertises it; Mac source is unchanged.
+
+Only BLE `image-chunk` uses a 15000 ms exchange deadline. A transport failure without a valid reply (local status 0) may use at most one recovery opportunity per complete image, waiting up to 20000 ms for the same host generation, bridge session and connection mode. The recovered request sends exactly the same SHA-256/offset/bytes with a fresh nonce, retaining AES-GCM/HMAC/session/time/replay checks; never replay the nonce or encrypted packet. Host/session/mode changes, unrecovered security loss, explicit authentication/validation responses and exhausted budget end the upload. No automatic computer/transport switch or retries for Codex commands, credential/HID input, USB or Wi-Fi are added. The 15000 ms value is a chunk deadline, not a total-photo latency guarantee.
+
+`photoUploadDiag` retains `channel,imageBytes,elapsedMs,status` for the latest upload and optionally appends `;f,failureCount,firstOffset,firstStatus,firstFailureMs,firstPhase;r,retryCount`. f/r counters are cumulative since firmware startup; first* retains the first recorded failure instead of being overwritten by later successes. firstPhase 1 means host/session/mode changed, 2 a failed chunk RPC, and 4 an invalid acknowledged offset. firstFailureMs is measured from that failed upload's chunk-loop start, not wall-clock time. There are no image bytes, filenames, conversation contents, credentials or host addresses. Receivers tolerate the old four-field prefix without suffixes.
+
+`cameraDiag` retains 15 comma-separated values: `stage,error,internalFree,internalLargest,frames,previousStage,previousError,prepareMs,lockWaitMs,lockHoldMs,captureMs,presented,composeUs,presentUs,mode`. Mode adds 3 for static full-screen still hold; existing 0=ordinary rendering, 1=live direct viewport and 2=restore/fence fault remain. Ownership telemetry does not prove absence of visible flashing.
+
+中文：可选 `data.imageChunkRetry=1` 仅从当前绑定电脑已鉴权 BLE 状态读取，缺失/其他值不恢复；不扩大鉴权、不改变协议版本。BLE 照片分块 15 秒超时，一张最多一次恢复机会，最多等 20 秒后用新 nonce 重发相同 SHA/offset/字节。身份/session/模式改变、明确错误或预算用尽即结束，不自动改连电脑/通道、不重发消息/凭据/HID，USB/Wi-Fi 保持原路径。诊断 f/r 自启动累计，first* 保留首次失败；15 秒不是整张总时限。相机 mode=3 表示静态整屏 hold，其他字段和编号兼容。所有字段不含照片/凭据，蓝闪和首次 BLE 上传的真机验收待安装。
+
+## Same-boot OTA recovery (.257 local candidate)
+
+Optional authenticated data.rpcOtaResume=1 enables Wi-Fi kind=ota range RPC after an interrupted raw/compressed HTTP stream. The existing /tab5/v1/rpc authentication, selected-host identity, session/time, fresh nonce, HMAC/AES-GCM, offerId/sha256, exact offset/count and binary/zlib envelope are unchanged. Only the exact advertised capability enables the new Wi-Fi fallback. USB/BLE continue the same immutable range protocol. Each retry uses a new request/nonce; no command, credential or ciphertext replay is added.
+
+Within the same installer and boot, completed blocks, the flash handle and running image hash remain. Discard only an incomplete compressed block. Per-gap attempts are capped at eight with 250–4000 ms backoff; no new retry starts after 90 seconds in a gap, 15 minutes for the installer or 32 total retries. In-flight calls retain their existing bounded deadlines. Invalid/authentication/corrupt responses, a selected-host/mode change or a newer authenticated offer withdrawal stop recovery. Older cross-channel status publications cannot withdraw a newer offer. Full hash/image/project/version validation still precedes boot-partition selection.
+
+中文：三通道在同一次开机、同一升级内保留已完成块，断线后从失败块继续。Wi-Fi 先用高速压缩流，IO 中断后按能力声明转为同一电脑/同一 Wi-Fi 的鉴权分段；不跨电脑、不跨所选通道。主动停止仍撤回 offer，设备确认空闲前不重开，末段交出后仍不能停止。断电、重启、更换镜像或恢复预算耗尽后重新开始，不声明持久化续传。Mac 未改；旧 Mac 未声明能力时仍用原 HTTP 路径，不能把 Windows 的 Wi-Fi 恢复验收写成 Mac 已支持。

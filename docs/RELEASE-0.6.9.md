@@ -2,7 +2,7 @@
 
 2026-10-17 正式发布 Windows **0.6.9** 与 TAB5 **0.2.217-ui**。Mac 保留 **0.6.7**，ESP8266 保留 **0.5.3**，现有标准／高清图库保持原版。
 
-[Windows 发布](https://github.com/yaoyouzhong/AI-bot/releases/tag/bridge-v0.6.9) · [TAB5 发布](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.217-ui) · [完整下载](../DOWNLOADS.md) · [安装指南](INSTALL.zh.md) · [本次收尾](development/RELEASE-069-217-CLOSEOUT-20261017.md)
+[Windows 发布](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.9) · [TAB5 发布](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.217-ui) · [完整下载](../DOWNLOADS.md) · [安装指南](INSTALL.zh.md) · [本次收尾](development/RELEASE-069-217-CLOSEOUT-20261017.md)
 
 ## 本轮变化
 

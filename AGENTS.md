@@ -21,7 +21,7 @@
 - 网络和供应商请求失败时保留最近一次成功的可显示数据，不能用空结果覆盖缓存。
 - `tokens_today` 只描述本机可见日志；供应商账户额度必须来自供应商接口或明确的本地授权状态，二者不得混算。
 - 桥接版本源为根目录 `VERSION`；ESP8266 使用 `firmware/VERSION`，TAB5 待发布镜像版本登记在 `versions/TAB5`。三者独立编号，不因另一组件更新而重编号或要求一起刷机。`release-manifest.json` 登记各自标签与更新日志，详见 `docs/COMPONENT-VERSIONS.md`。
-- 组件正式发布使用带注释的 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui` 标签；历史 `vX.Y.Z` 标签保留。自动发布衔接先应用并验证已授权的工作流更新。
+- 组件正式发布使用带注释的 `vX.Y.Z`（电脑端）、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui` 标签；0.5.0 及更早的 `vX.Y.Z` 保留组合版语义，旧 `bridge-vX.Y.Z` 仅作历史兼容别名。自动发布衔接先应用并验证已授权的工作流更新。
 - README、CHANGELOG 的中英文内容必须同步。
 
 ## Required validation

@@ -44,7 +44,7 @@ internal sealed class DeviceCenterForm : Form
         for(int i=0;i<3;i++){_transport.ColumnStyles.Add(new(SizeType.Absolute));var label=_transportLabels[i];label.Name="transport-"+i;label.AutoSize=false;label.AutoEllipsis=true;label.UseMnemonic=false;label.TextAlign=ContentAlignment.MiddleLeft;label.Dock=DockStyle.Fill;label.Margin=new Padding(0,0,12,0);label.FontChanged+=(_,_)=>FitTransports();_transport.Controls.Add(label,i,1);var title=_transportTitles[i];title.Text=new[]{"USB","Wi-Fi","蓝牙"}[i];title.AutoSize=false;title.Dock=DockStyle.Fill;title.ForeColor=SettingsWindow.Muted;title.Margin=new Padding(0,0,12,4);_transport.Controls.Add(title,i,0);}
         _transport.RowStyles.Add(new(SizeType.Absolute,0));_transport.RowStyles.Add(new(SizeType.Percent,100));_transport.SizeChanged+=(_,_)=>FitTransports();
         Text="AI-bot · 设备中心";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        ClientSize=new(840,680);MinimumSize=new(820,500);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;Padding=new Padding(12);
+        ClientSize=new(1180,660);MinimumSize=new(820,500);StartPosition=FormStartPosition.CenterScreen;BackColor=Color.White;Padding=new Padding(12);
         var devicesPage=Page("我的设备","devices");Page("账号数据","accounts").Controls.Add(_accounts);Page("桥接设置","bridge-settings").Controls.Add(_bridge);
         var body=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Margin=Padding.Empty};
         body.ColumnStyles.Add(new(SizeType.Percent,100));body.RowStyles.Add(new(SizeType.Percent,100));body.RowStyles.Add(new(SizeType.AutoSize));
@@ -75,7 +75,8 @@ internal sealed class DeviceCenterForm : Form
         if(_list.Items.Count==0||_list.ClientSize.Width<40)return;
         using var graphics=_list.CreateGraphics();
         int preferred=_list.Items.Cast<RegisteredDevice>().Max(d=>TextRenderer.MeasureText(graphics,d.Name,_list.Font).Width)+64;
-        int width=Math.Clamp(preferred,220,Math.Max(220,_deviceLayout.ClientSize.Width*35/100));if(_deviceLayout.ColumnStyles.Count>0&&_deviceLayout.ColumnStyles[0].Width!=width)_deviceLayout.ColumnStyles[0].Width=width;
+        int minimum=_list.Font.Height*8,maximum=Math.Max(minimum,Math.Min(_list.Font.Height*10,_deviceLayout.ClientSize.Width*28/100));
+        int width=Math.Clamp(preferred,minimum,maximum);if(_deviceLayout.ColumnStyles.Count>0&&_deviceLayout.ColumnStyles[0].Width!=width)_deviceLayout.ColumnStyles[0].Width=width;
         int height=_list.Items.Cast<RegisteredDevice>().Max(d=>TextRenderer.MeasureText(graphics,d.Name,_list.Font,new Size(_list.ClientSize.Width-16,int.MaxValue),TextFormatFlags.WordBreak).Height)+24;
         if(_list.ItemHeight!=height)_list.ItemHeight=height;
     }
@@ -206,23 +207,50 @@ internal sealed class DeviceCenterForm : Form
     private static string Description(string action)=>action switch {
         "agenda"=>"管理事项与提醒",
         "gallery-browser"=>"浏览名画与书法",
-        "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"配置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "computer-control"=>"设置常用软件与文件夹", "data"=>"选择需要的数据",
+        "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"设置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "computer-control"=>"常用软件与文件夹", "data"=>"选择需要的数据",
         "legacy-settings"=>"设置连接与屏保", "cycle"=>"设置亮度与轮播", "mirror"=>"查看显示内容预览",
         "flash"=>"选择固件并升级", "pet-gallery"=>"浏览桌宠素材", "appearance"=>"选择动画与桌宠", _=>""
     };
     private static void Clear(Control panel){foreach(Control c in panel.Controls.Cast<Control>().ToArray())c.Dispose();panel.Controls.Clear();}
-    private static FlowLayoutPanel Column(){var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(4),Margin=Padding.Empty,BackColor=Color.White};SettingsWindow.FitFlow(panel);return panel;}
+    private static FlowLayoutPanel Column(){
+        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(4),Margin=Padding.Empty,BackColor=Color.White};
+        SettingsWindow.FitFlow(panel);
+        // FitFlow constrains each child after the viewport changes. Recompute
+        // FlowLayout's cached scroll extent from those final child bounds.
+        panel.SizeChanged+=(_,_)=>{if(panel.IsHandleCreated&&!panel.IsDisposed)panel.BeginInvoke((Action)(()=>{if(!panel.IsDisposed)panel.PerformLayout();}));};
+        return panel;
+    }
     private void Heading(Control parent,string text,float size=14)=>parent.Controls.Add(new Label{Text=text,AutoSize=true,Font=new Font(Font.FontFamily,size,FontStyle.Bold),Margin=new Padding(0,4,0,10)});
     private static void Note(Control parent,string text)=>parent.Controls.Add(new Label{Text=text,AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,0,0,12)});
     private static TableLayoutPanel ActionGrid(Control parent) {
-        var grid=new TableLayoutPanel{AutoSize=true,ColumnCount=2,Margin=new Padding(0,4,0,0)};
-        grid.ColumnStyles.Add(new(SizeType.Percent,50));grid.ColumnStyles.Add(new(SizeType.Percent,50));parent.Controls.Add(grid);return grid;
+        var grid=new TableLayoutPanel{Name="device-actions",AutoSize=true,ColumnCount=2,Margin=new Padding(0,4,0,0)};
+        bool arranging=false;
+        void Arrange() {
+            if(arranging||grid.IsDisposed||grid.Controls.Count==0)return;
+            arranging=true;grid.SuspendLayout();
+            try {
+                var cards=grid.Controls.Cast<DeviceActionButton>().ToArray();
+                int gap=Math.Max(6,grid.Font.Height/3);
+                int minimum=cards.Max(c=>c.PreferredCardWidth)+gap;
+                int columns=cards.Length>=6&&grid.ClientSize.Width>=minimum*3?3:2;
+                grid.ColumnCount=columns;grid.RowCount=(cards.Length+columns-1)/columns;
+                grid.ColumnStyles.Clear();grid.RowStyles.Clear();
+                for(int i=0;i<columns;i++)grid.ColumnStyles.Add(new(SizeType.Percent,100f/columns));
+                for(int i=0;i<grid.RowCount;i++)grid.RowStyles.Add(new(SizeType.AutoSize));
+                for(int i=0;i<cards.Length;i++) {
+                    cards[i].Margin=new Padding(i%columns==0?0:gap/2,0,i%columns==columns-1?0:gap-gap/2,gap);
+                    cards[i].Height=cards[i].PreferredCardHeight;
+                    grid.SetCellPosition(cards[i],new(i%columns,i/columns));
+                }
+            }finally{grid.ResumeLayout(true);arranging=false;}
+        }
+        grid.SizeChanged+=(_,_)=>Arrange();grid.FontChanged+=(_,_)=>Arrange();grid.ControlAdded+=(_,_)=>Arrange();
+        parent.Controls.Add(grid);return grid;
     }
     private static Button Card(TableLayoutPanel grid,string title,string description,Action action) {
         int index=grid.Controls.Count;
-        if(index%2==0){grid.RowCount++;grid.RowStyles.Add(new(SizeType.AutoSize));}
-        var card=new DeviceActionButton(title,description){Dock=DockStyle.Fill,Margin=new Padding(index%2==0?0:5,0,index%2==0?5:0,10)};
-        card.Click+=(_,_)=>action();grid.Controls.Add(card,index%2,index/2);return card;
+        var card=new DeviceActionButton(title,description){Dock=DockStyle.Fill,TabIndex=index};
+        card.Click+=(_,_)=>action();grid.Controls.Add(card);return card;
     }
     internal static FlowLayoutPanel Row()=>new(){AutoSize=true,WrapContents=true,Margin=new Padding(0,4,0,8)};
     internal static Button Button(string text,Action click,bool primary=false) {var b=new Button{Text=text,AutoSize=true};SettingsWindow.StyleButton(b,primary);b.Click+=(_,_)=>click();return b;}

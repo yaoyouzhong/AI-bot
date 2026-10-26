@@ -262,3 +262,16 @@ Windows 包随附独立、可选的官方 TightVNC 2.8.90 x64 MSI（未修改，
 The separately distributed product-video source contains adapted scaffold and audio mixing/effect code from https://github.com/op7418/guizang-product-video-skill under AGPL-3.0; its LICENSE and NOTICE remain in that archive. Inter and Noto Sans SC retain OFL notices. Original project music, mascot and native fixture captures retain their own provenance. Mi Fu, Hongxian Poems, Tokyo National Museum / ColBase TB-1459 (https://colbase.nich.go.jp/collection_items/tnm/TB-1459?locale=zh), is CC BY 4.0, scaled/cropped inside native UI. This does not imply museum endorsement. No commercial song/album artwork or runtime-extracted launcher icons are redistributed. Details and hashes: [PRODUCT_VIDEO](docs/PRODUCT_VIDEO.md), [SCREENSHOTS](docs/SCREENSHOTS.md), licenses/materials.json.
 
 独立视频工程保留上述 AGPL／OFL 与作品署名条款，不将第三方素材自动归入项目 MIT；控制画面仅使用通用类型字形。
+
+
+## TAB5 camera software JPEG / 相机软件编码
+
+The TAB5 .254 source patch includes unchanged `jpge.cpp` and `jpge.h` from
+Espressif `esp32-camera` commit `f37e65608f709bd94846dee01d947f02ae07c0b0`:
+https://github.com/espressif/esp32-camera/tree/f37e65608f709bd94846dee01d947f02ae07c0b0/conversions
+The original Rich Geldreich public-domain notices and upstream Apache-2.0 root
+license are retained in the component. Fixed URLs and SHA-256 are recorded in
+`firmware/components/tab5_jpeg/vendor/SOURCE.json` within the source patch.
+
+TAB5 .254 源码补丁仅引入上述固定官方来源的两个编码文件，保留原作者声明、上游许可及哈希；
+本地有界输出与逐行 RGB565 转换封装独立维护，没有迁入其他项目的相机驱动或历史。
