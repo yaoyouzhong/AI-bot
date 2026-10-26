@@ -6,6 +6,6 @@ final class Tab5USBResourceBurstTests: XCTestCase {
         XCTAssertEqual(try MacTab5USBResourceBurstValidation.run(), 7)
     }
     func testPackedUSBStatusNegotiationAndBoundedRecovery() throws {
-        XCTAssertEqual(try MacTab5USBStatusValidation.run(), 25)
+        XCTAssertEqual(try MacTab5USBStatusValidation.run(), 38)
     }
 }

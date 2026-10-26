@@ -8,6 +8,14 @@ enum MacDeviceCenterMenuValidation {
             guard condition() else { throw MacTab5LocalError.invalid("Tray menu check failed: " + name) }
             checked += 1
         }
+        // CI runners may not service the main queue within a single 20 ms slice.
+        // Wait for the expected callback, retaining a bounded failure deadline.
+        func waitForCallback(_ completed: () -> Bool) {
+            let deadline = Date().addingTimeInterval(1)
+            while !completed() && Date() < deadline {
+                RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.01)))
+            }
+        }
         let tab = MacRegisteredDevice(kind: "tab5", name: "书桌平板")
         let screen = MacRegisteredDevice(kind: "esp8266", name: "办公室小屏")
         var disabled = tab; disabled.enabled = false
@@ -41,7 +49,7 @@ enum MacDeviceCenterMenuValidation {
                         received = nil
                         group.submenu!.performActionForItem(at: index)
                         try check("dispatch after tracking", received == nil)
-                        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+                        waitForCallback { received != nil }
                         try check("shortcut routes to original device", received?.0 == device.id && received?.1 == entry.identifier?.rawValue)
                     }
                 }
@@ -49,7 +57,7 @@ enum MacDeviceCenterMenuValidation {
             for key in ["devices", "exit"] {
                 common = nil
                 menu.performActionForItem(at: menu.items.firstIndex { $0.identifier?.rawValue == key }!)
-                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+                waitForCallback { common != nil }
                 try check("common command routing", common == key)
             }
             if preview {
@@ -62,7 +70,7 @@ enum MacDeviceCenterMenuValidation {
                         try check("selector device name", choices.items[index].title == device.name)
                         choices.performActionForItem(at:index)
                     } else { menu.performActionForItem(at:menu.items.firstIndex(of:entry)!) }
-                    RunLoop.current.run(until:Date().addingTimeInterval(0.02))
+                    waitForCallback { received != nil }
                     try check("preview targets selected hardware",received?.0 == device.id && received?.1 == "mirror")
                 }
             }

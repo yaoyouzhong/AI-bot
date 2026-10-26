@@ -3,6 +3,6 @@ import XCTest
 
 final class Tab5USBLeaseTests: XCTestCase {
     func testIdleDeltaStreamKeepsInspectedReceiverOwnershipWithoutRPC() throws {
-        XCTAssertEqual(try MacTab5USBLeaseValidation.run(), 8)
+        XCTAssertEqual(try MacTab5USBLeaseValidation.run(), 11)
     }
 }

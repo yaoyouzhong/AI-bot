@@ -3,6 +3,6 @@ import XCTest
 
 final class USBOperationWaitTests: XCTestCase {
     func testSlowHostOperationRetainsLeaseAndStopsWithoutReplay() throws {
-        XCTAssertEqual(try MacTab5USBOperationWaitValidation.run(), 16)
+        XCTAssertEqual(try MacTab5USBOperationWaitValidation.run(), 20)
     }
 }

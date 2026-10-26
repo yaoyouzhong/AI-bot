@@ -100,10 +100,31 @@ final class MacTab5CodexTests: XCTestCase {
             calls.append((method, params))
             if method == "thread/list" { return ["data": [["id": task, "cwd": "/private/projects/sample", "name": "测试会话", "updatedAt": 42, "status": ["type": "idle"]]]] }
             if method == "thread/read" { return ["thread": ["id": task, "status": ["type": runtimeOverride ?? (running ? "active" : "idle")], "turns": [["id": turn, "status": running ? "inProgress" : "completed", "items": [["type": "agentMessage", "text": text], ["type": "reasoning", "text": "PRIVATE_THINKING"], ["type": "commandExecution", "aggregatedOutput": "PRIVATE_TOOL"]]]]]] }
-            if method == "thread/turns/list" { return ["data": [["id": turn, "status": running ? "inProgress" : "completed", "items": [["type": "agentMessage", "text": text], ["type": "reasoning", "text": "PRIVATE_THINKING"], ["type": "commandExecution", "aggregatedOutput": "PRIVATE_TOOL"]]]], "nextCursor": NSNull()] }
+            if method == "thread/turns/list" || method == "thread/items/list" {
+                return MacTab5CodexTests.historyPage(method, params, turns: [["id": turn,
+                    "status": running ? "inProgress" : "completed", "items": [
+                        ["type": "agentMessage", "text": text], ["type": "reasoning", "text": "PRIVATE_THINKING"],
+                        ["type": "commandExecution", "aggregatedOutput": "PRIVATE_TOOL"]]]])
+            }
             if method == "turn/start" || method == "turn/steer" { if failSend { throw MacTab5CodexFailure.timeout }; return ["turn": ["id": turn]] }
             return [:]
         }
+    }
+    // Mirror the public directory/item-page contract, including turn binding.
+    private static func historyPage(_ method: String, _ params: [String: Any], turns: [[String: Any]]) -> [String: Any] {
+        if method == "thread/turns/list" {
+            XCTAssertEqual(params["limit"] as? Int, 32)
+            XCTAssertEqual(params["itemsView"] as? String, "notLoaded")
+            XCTAssertEqual(params["sortDirection"] as? String, "desc")
+            return ["data": turns.map { ["id": $0["id"]!, "status": $0["status"]!] }, "nextCursor": NSNull()]
+        }
+        XCTAssertEqual(method, "thread/items/list")
+        XCTAssertEqual(params["limit"] as? Int, 16)
+        XCTAssertEqual(params["sortDirection"] as? String, "asc")
+        let selected = turns.first { $0["id"] as? String == params["turnId"] as? String }
+        XCTAssertNotNil(selected)
+        let items = selected?["items"] as? [[String: Any]] ?? []
+        return ["data": items.map { ["turnId": params["turnId"]!, "item": $0] }, "nextCursor": NSNull()]
     }
     private func store() throws -> MacTab5PrivateStore {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -344,7 +365,7 @@ final class MacTab5CodexTests: XCTestCase {
             let response = codex.handle(["op": op, "taskId": api.task, "requestId": UUID().uuidString, "message": "fixture", "expectedTurn": api.turn], device: "fixture")
             XCTAssertEqual(response.status, 403); XCTAssertEqual(response.body["error"] as? String, "codex_read_only_connection")
         }
-        XCTAssertTrue(api.calls.allSatisfy { ["thread/list", "thread/read", "thread/turns/list"].contains($0.0) })
+        XCTAssertTrue(api.calls.allSatisfy { ["thread/list", "thread/read", "thread/turns/list", "thread/items/list"].contains($0.0) })
         XCTAssertEqual(codex.handle(["op": "draft-save", "taskId": api.task, "requestId": UUID().uuidString, "message": "本机草稿"], device: "fixture").status, 200)
         XCTAssertEqual(codex.handle(["op": "draft-load", "taskId": api.task, "requestId": UUID().uuidString], device: "fixture").status, 200)
         XCTAssertEqual((codex.snapshot()?["draftView"] as? [String: Any])?["text"] as? String, "本机草稿")
@@ -357,9 +378,14 @@ final class MacTab5CodexTests: XCTestCase {
             calls.append((method, params))
             if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
             if method == "thread/read" { XCTAssertEqual(params["includeTurns"] as? Bool, false); return ["thread": ["id": task, "status": ["type": "notLoaded"]]] }
-            XCTAssertEqual(method, "thread/turns/list"); XCTAssertEqual(params["limit"] as? Int, 32); XCTAssertEqual(params["itemsView"] as? String, "full")
-            if params["cursor"] as? String == "older" { return ["data": [turn(0)], "nextCursor": NSNull()] }
-            return ["data": [turn(2), turn(1)], "nextCursor": "older"]
+            if method == "thread/items/list" {
+                return Self.historyPage(method, params, turns: (0..<3).map(turn))
+            }
+            if params["cursor"] as? String == "older" {
+                return Self.historyPage(method, params, turns: [turn(0)])
+            }
+            var page = Self.historyPage(method, params, turns: [turn(2), turn(1)])
+            page["nextCursor"] = "older"; return page
         })
         codex.refresh()
         let latest = codex.handle(["op": "read", "taskId": task], device: "fixture")
@@ -385,9 +411,9 @@ final class MacTab5CodexTests: XCTestCase {
         let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, params in
             if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
             if method == "thread/read" { return ["thread": ["id": task, "status": ["type": "notLoaded"]]] }
-            let items = params["itemsView"] as? String == "full" ? [progress, final,
-                ["type": "reasoning", "text": "PRIVATE"], ["type": "agentMessage", "phase": "analysis", "text": "PRIVATE"]] : [final]
-            return ["data": [["id": turn, "status": "completed", "items": items]]]
+            return Self.historyPage(method, params, turns: [["id": turn, "status": "completed", "items": [
+                progress, final, ["type": "reasoning", "text": "PRIVATE"],
+                ["type": "agentMessage", "phase": "analysis", "text": "PRIVATE"]]]])
         })
         codex.refresh()
         let reply = codex.handle(["op": "read", "taskId": task], device: "fixture")
@@ -398,12 +424,12 @@ final class MacTab5CodexTests: XCTestCase {
     func testFollowLastPageContinuesAcrossGrowthAndNewTurnsWithoutMovingPinnedPages() throws {
         let task = UUID().uuidString.lowercased(), first = UUID().uuidString.lowercased(), next = UUID().uuidString.lowercased()
         var text = String(repeating: "初", count: 1500), newer = false
-        let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, _ in
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, params in
             if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
             if method == "thread/read" { return ["thread": ["id": task, "status": ["type": "notLoaded"]]] }
             var turns: [[String: Any]] = [["id": first, "status": "completed", "items": [["type": "agentMessage", "text": text]]]]
             if newer { turns.insert(["id": next, "status": "completed", "items": [["type": "agentMessage", "text": "下一轮进展"]]], at: 0) }
-            return ["data": turns]
+            return Self.historyPage(method, params, turns: turns)
         })
         codex.refresh()
         let initial = codex.handle(["op": "read", "taskId": task, "page": -1], device: "fixture")
@@ -422,12 +448,12 @@ final class MacTab5CodexTests: XCTestCase {
         let task = UUID().uuidString.lowercased(), older = UUID().uuidString.lowercased(), latest = UUID().uuidString.lowercased(), next = UUID().uuidString.lowercased()
         var newTurn = false
         func turn(_ id: String, _ text: String) -> [String: Any] { ["id": id, "status": "completed", "items": [["type": "agentMessage", "text": text]]] }
-        let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, _ in
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, params in
             if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
             if method == "thread/read" { return ["thread": ["id": task, "status": ["type": "notLoaded"]]] }
             var turns = [turn(latest, "Latest public reply"), turn(older, String(repeating: "Older public reply. ", count: 250))]
             if newTurn { turns.insert(turn(next, "New public reply"), at: 0) }
-            return ["data": turns, "nextCursor": NSNull()]
+            return Self.historyPage(method, params, turns: turns)
         })
         codex.refresh()
         XCTAssertEqual(codex.handle(["op": "read", "taskId": task, "turnId": older, "page": 1], device: "fixture").status, 200)
