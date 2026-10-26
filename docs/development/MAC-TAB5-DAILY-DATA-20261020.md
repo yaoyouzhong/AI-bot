@@ -138,3 +138,42 @@ After the user exited the old app, its process was confirmed gone and `06dd164` 
 `06dd164` 正常 App 先完成 Open-Meteo 刷新；实体新增字段反馈“都 OK”。随后只读 UI 发现用户已自行完成和风选择和保存，正常 App 显示“和风天气 已更新 · 24 小时 / 7 天”；没有再次填写或读取其密钥。用户进一步明确确认设备和风来源、温度、空气质量等级和气压正常，并分别确认和风小时及七日页全部正常。和风 v7 `now.pressure` 官方定义为站点气压（hPa），标签准确；Open-Meteo 的 `pressure_msl` 为海平面气压，保留两者区别。用户最后确认返回日常总览，和风及自动定位保留。
 
 The normal candidate first refreshed Open-Meteo and the user reported the new fields working. A subsequent UI read showed the user had selected/saved QWeather, reporting fresh 24-hour/seven-day data; no key was re-entered or read by the agent. The user then explicitly confirmed QWeather source/current conditions/AQI category/pressure, followed by both forecast tabs. QWeather v7 defines now.pressure as station pressure (hPa), while Open-Meteo pressure_msl is mean-sea-level pressure; labels preserve that distinction. The user confirmed returning to the daily overview with QWeather/automatic location retained.
+
+## 自动定位显示具体地名 / Named automatic weather location
+
+用户要求天气首页将“当前位置”改为具体位置。Mac 两个供应商的自动定位分支此前固定写该文字，设备已经按既有 `weather.city` 显示名称，不需要固件或协议改动。现在共用 namedLocation：从既有两位小数大致网格通过系统反向地理编码取得城市／区县（不用街道或门牌），中文优先；同网格名称内存缓存六小时，五秒查询超时取消。同网格解析失败保留已知名称；新网格失败使用原通用文字，继续查询天气，不将旧城市套在新位置。手动城市与供应商选择不变，不记录实际地名或坐标。使用兼容 macOS 13 的 [CLGeocoder 公共接口](https://developer.apple.com/documentation/corelocation/clgeocoder)。
+
+新增名称清理／去重／区域回退，以及缓存命中、过期失败保留和换位置失败不沿用旧名的注入测试，不请求真实定位／地名服务。Release 通过，联合桌面／地名 27 个测试体的独立断言适配器执行通过，完整 XCTest 与实体地名验收另记。
+
+The user requests a concrete location name on the weather home page. Both Mac automatic-location provider branches previously hardcoded the generic label; the device already renders weather.city. The shared namedLocation uses the existing two-decimal approximate grid and public system reverse geocoding for city/district names, preferring Chinese and excluding street/house names. A same-grid name is cached in memory for six hours with a five-second lookup cancellation. Failure preserves a known same-grid name, but never applies an old name to a new grid; weather fetching continues with the generic label when no name is available. Manual settings/provider choice and wire/firmware are unchanged, and actual names/coordinates are not logged. Synthetic tests cover formatting, cache hits, expired-name retention and failure after movement without calling real location/geocoding. Release and 27 combined desktop/place test bodies pass via the independent adapter; full XCTest and physical label acceptance are separate.
+
+最终候选准备于 `artifacts/mac-tab5-20261021/codex-submit-place-final/AIBotBridge.app`，额外同步了天气设置中“系统地名服务和所选天气服务”的实际用途说明。Release 与严格签名通过，27 个联合测试体的独立执行通过；本机完整 XCTest 仍缺模块。尚未启动：检查旧候选时发现用户打开天气／股票设置的模态编辑窗口，为保留可能未保存输入，已请用户自行保存或取消后告知，未操作其中字段或丢弃设置。天气具体地名和新的发送分支诊断都尚无该候选实体结果；旧 readback 候选仍运行，七项开关沿用开启，草稿未改动，固件不变。
+
+The final candidate is prepared at codex-submit-place-final, including an accurate settings notice for system place-name and weather services. Release/strict signing and 27 independent combined test bodies pass; full local XCTest remains unavailable. It has not launched: the old app has the user's modal weather/stock editor open, so the user is asked to save/cancel their edits first. No fields were changed or edits discarded. Neither concrete place-name display nor new submission-guard diagnostics has physical results on this candidate; the previous readback app remains active with seven opt-ins and drafts preserved, without firmware changes.
+
+用户确认已自行关闭设置窗口后，旧 readback 候选已正常退出，精确 `codex-submit-place-final` 已启动。首次 CUA 选取超时，第二次成功；正常 App 显示 USB 数据已确认、已认证 Wi-Fi 请求、和风当前／24 小时／7 天天气已更新，以及 31 个已连接桌面会话和操作启用。七项日常开关逐一读回开启。没有更改城市／供应商／股票字段或设备展示设置，没有刷机。已请求只观察天气首页的地名是否正确，尚待实际反馈；不记录具体地名。快捷发送根因和修复仍待新的分支诊断。
+
+After the user closed their settings editor, the old readback app exited normally and the exact codex-submit-place-final bundle started. Initial CUA selection timed out, then succeeded. Its normal UI confirms USB data, authenticated Wi-Fi, updated QWeather current/24-hour/seven-day data, 31 connected chats and enabled operations, with all seven opt-ins verified on. City/provider/stock/display settings and firmware were not changed. A physical weather-label check is requested without collecting the actual place name; feedback remains pending. Quick submission still awaits the new guard diagnostic and a proven repair.
+
+用户回复“已显示正确地名”，天气首页城市／区县名称显示本轮实机验收通过；保留既有和风与自动定位，未采集具体地名。此结论不扩大为换城市、地名服务故障或另一供应商的分别实机验收。
+
+The user confirms the displayed place name is correct, accepting the weather-home city/district label on this physical run. Existing QWeather/automatic location is retained and the actual name is not collected. Movement, name-service failures and the other provider are not independently hardware-tested by this result.
+
+
+## 2026-10-21 行情验收接续 / Stock-display follow-up
+
+按用户继续非固件验收的指示，先检查现有行情配置，原值关闭设置窗口，未保存或修改天气／自选。仅结构化读取股票缓存得到 7 项配置、7 项报价，A 股 3／港股 2／美股 2，全部存在，最后成功缓存小于一分钟。名称、价格与涨跌幅均非空，但一条美股的代码为空；未记录实际自选名单、报价或账户信息。
+
+源码复现：Mac 使用供应商第二字段按点号取首段，使点号开头的指数代码变空，也会截断美股类别后缀。对照 Windows 现有 DisplayCode 和 TAB5 的 symbol 分栏／code 标签消费端，Mac 改为从已规范化 symbol 去除两位市场前缀得到显示代码，保留指数前导点、类别后缀及数字前导零；不修改行情来源、自选顺序、价格、协议或固件。新增三项回归覆盖指数／类别、供应商附加后缀／空代码、A／港股前导零与顺序。生产源码断言适配器联合 98 个测试体通过；本机 XCTest 仍缺模块未执行，Release 与候选／实体反馈分别记录。已请求用户检查当前 TAB5 三栏名称／价格／涨跌幅和现有自选，结果尚待反馈。
+
+Continuing non-firmware acceptance, the existing settings were inspected and cancelled without saving. Transcript-free stock-cache structure showed seven configured/returned quotes (three mainland, two Hong Kong, two US) and a successful cache less than one minute old. Names/prices/changes were present, but one US display code was empty. No watchlist, prices or account information was recorded. The Mac parser split the provider code at its first dot, erasing a leading-dot index and truncating share-class suffixes. After checking Windows DisplayCode and the device's symbol grouping/code label consumer, Mac now derives display codes by removing the normalized symbol's two-letter market prefix. Index dots, share classes and numeric leading zeros remain intact. Provider, watchlist/order, prices, protocol and firmware are unchanged. Three regressions cover these cases; 98 assertion-adapter test bodies against production sources passed. Local XCTest remains unavailable; Release/candidate/physical acceptance are tracked separately. A current three-market device display check is pending.
+
+
+股票代码候选 `artifacts/mac-tab5-20261021/stock-codes/AIBotBridge.app` Release、打包与严格签名通过；无凭据 helper 身份检查和离线工具自检通过，helper 字节与前一正常候选相同。正常退出旧候选并由界面启动新候选，USB 数据／认证 Wi-Fi、31 个会话和七项已启用开关均恢复。新候选实际缓存再检为 7 项齐全、字段不完整数从 1 变为 0、全部显示代码与规范化自选标识匹配、最后成功小于一分钟。未输出报价或实际名单。TAB5 三栏实际显示及指数代码的目视结果仍待用户反馈，不把缓存或自动检查写成实机通过；未改固件、展示或网络配置。
+
+The stock-codes candidate passed Release, packaging/strict signature, credential-free helper identity and offline-tool checks, with unchanged helper bytes. After normal UI replacement, acknowledged USB/authenticated Wi-Fi, 31 chats and all seven opt-ins recovered. Actual refreshed cache again contained all seven quotes; incomplete rows dropped from one to zero, every display code matched its normalized selected identity and the last success was under one minute old. No prices/watchlist were output. Physical three-market rendering and the index code remain awaiting feedback; cache/automated results are not device acceptance. Firmware/display/network configuration are unchanged.
+
+
+用户随后确认 TAB5 行情三栏都正常，回应项目包含 A／港／美三栏、现有自选及名称／价格／涨跌幅，行情三栏显示实机通过。指数代码修正后的实际缓存已全量校验完整，但用户没有单独逐字反馈指数代码，因此不另写成逐代码比对通过。
+
+The user subsequently confirmed all three market columns normal in response to the check covering selected quotes and names/prices/changes. Three-market display passes physical acceptance. Refreshed code completeness is independently verified in cache; no separate verbatim index-code comparison was supplied.

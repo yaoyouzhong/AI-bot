@@ -1,0 +1,42 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1998,6 +1998,19 @@
+     bool desktop=codex_voice_start_desktop;codex_voice_pending_clear(NULL);codex_voice_request(0);
+     if(desktop){if(codex_voice_waiting)quick_voice_started();else quick_voice_pending_result(lv_label_get_text(codex_voice_hint));}
+ }
++static void codex_voice_set_text(const char *value,int cursor) {
++    if(strcmp(lv_textarea_get_text(codex_input),value)) {
++        // This programmatic insertion is already bounded to 2000 UTF-8 bytes.
++        // A nonzero LVGL character limit rebuilds text one character at a time,
++        // emitting a draft edit for every prefix. Apply one complete result and
++        // restore the manual-input limit before the next input event can run.
++        uint32_t limit=lv_textarea_get_max_length(codex_input);
++        lv_textarea_set_max_length(codex_input,0);
++        lv_textarea_set_text(codex_input,value);
++        lv_textarea_set_max_length(codex_input,limit);
++    }
++    lv_textarea_set_cursor_pos(codex_input,cursor);
++}
+ static void codex_voice_tick(void) {
+     voice_remote_state *voice=&ui_voice_work->codex_tick;voice_remote_get(voice);
+     if(!codex_voice_waiting)return;
+@@ -2034,8 +2047,7 @@
+     if(voice->busy)lv_obj_remove_state(codex_voice_cancel,LV_STATE_DISABLED);
+     else lv_obj_add_state(codex_voice_cancel,LV_STATE_DISABLED);
+     if(!strcmp(voice->phase,"cancelled")) {
+-        lv_textarea_set_text(codex_input,codex_voice_base);
+-        lv_textarea_set_cursor_pos(codex_input,codex_voice_cursor);
++        codex_voice_set_text(codex_voice_base,codex_voice_cursor);
+     }
+     else if(voice->text[0]) {
+         size_t base=strlen(codex_voice_base),extra=strlen(voice->text);
+@@ -2045,8 +2057,7 @@
+             memcpy(joined,codex_voice_base,codex_voice_insert_byte);
+             memcpy(joined+codex_voice_insert_byte,voice->text,extra);
+             memcpy(joined+codex_voice_insert_byte+extra,codex_voice_base+codex_voice_insert_byte,base-codex_voice_insert_byte+1);
+-            lv_textarea_set_text(codex_input,joined);
+-            lv_textarea_set_cursor_pos(codex_input,codex_voice_cursor+lv_text_get_encoded_length(voice->text));
++            codex_voice_set_text(joined,codex_voice_cursor+lv_text_get_encoded_length(voice->text));
+         } else ui_text(codex_voice_hint,"内容过长，请在电脑草稿中整理后发送");
+     }
+     if(!voice->busy) {

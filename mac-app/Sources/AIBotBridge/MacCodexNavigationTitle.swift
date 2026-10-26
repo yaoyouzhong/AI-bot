@@ -2,7 +2,8 @@ import Foundation
 import SQLite3
 
 // Match the Windows navigation boundary: an exact, full, globally unique local
-// catalog title can identify the primary foreground document for opening only.
+// catalog title can identify the primary foreground document. Composer access
+// additionally verifies the focused main-editor structure in that document.
 // Never use device-truncated titles, a recent/project subset or generic chrome.
 enum MacCodexNavigationTitle {
     enum Identity: Equatable { case unavailable, unique(String), duplicate }

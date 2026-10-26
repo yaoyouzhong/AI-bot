@@ -9,3 +9,4 @@
 - Run `swift test --package-path mac-app` and `swift build -c release --package-path mac-app` on macOS. Windows static review is not build evidence.
 - Music or Apple Events changes must also run `bash scripts/build_macos_app.sh`, launch the generated app bundle, and verify the Automation prompt plus play/pause behavior.
 - No vendor logos, legacy screenshots, sprites, generated binaries, `.build/`, runtime caches, or signing credentials may be committed.
+- 调试时默认让桥接在后台运行，避免设置、连接和诊断窗口遮挡 Codex。优先使用已有日志、隔离检查及不抢焦点的诊断；只有必须交互时才打开相应窗口，完成后立即关闭，不同时堆叠多个窗口。关闭后不要为了核验关闭结果再次激活桥接而重新打开设备中心。密码及权限确认仍由用户在本机完成。

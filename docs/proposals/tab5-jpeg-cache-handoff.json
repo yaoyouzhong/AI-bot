@@ -1,0 +1,32 @@
+{
+  "scope": "Retire allocator-written output cache before JPEG DMA in music resources and local JPG previews; existing gallery path already does this",
+  "files": [
+    {
+      "path": "firmware/main/assets.c",
+      "beforeSHA256LF": "951d6c527228e487d3e68d9180dcd360112a5959dd296f45a65d86303c8516d4",
+      "sha256LF": "b18ca503cba133847fe7f5af4edf6ce2985b5cd1f6cd5d45addc93dde2eaa105"
+    },
+    {
+      "path": "firmware/main/photo_attachment.c",
+      "beforeSHA256LF": "2e72cee216c76bb09aa4ea351bc3853fe36cf996165afbab6c76829325310e14",
+      "sha256LF": "5d7db284c5428802203440b019df27a86d94fa9ba67335a5c93ed4b0c686202f"
+    }
+  ],
+  "patchSha256": "152b24f63037f03ab454de41768998c9e93d398ff0efd33e5c51d48c36506277",
+  "origin": "independently applies the existing project gallery cache handoff pattern; public ESP-IDF commit446e2fc confirms the same missing pre-DMA cache invalidation bug",
+  "reference": "https://github.com/espressif/esp-idf/commit/446e2fc",
+  "sdkChanged": false,
+  "protocolChanged": false,
+  "nativeModelCases": 8,
+  "oldNegativeControlExit": 11,
+  "targetObjects": [
+    "assets.c",
+    "photo_attachment.c"
+  ],
+  "firmwareGenerated": true,
+  "physicalFixAccepted": false,
+  "publicRelease": false,
+  "firmwareVersion": "0.2.268-ui",
+  "firmwareSHA256": "d4d021daba4319019a661a6056f2bc81c40e9f91da2f2988b410f1b11139aa10",
+  "rleComparisonPhysicallyAccepted": true
+}

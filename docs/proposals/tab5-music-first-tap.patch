@@ -1,0 +1,208 @@
+--- a/firmware/main/ui_computer.h
++++ b/firmware/main/ui_computer.h
+@@ -37,6 +37,7 @@
+ typedef struct {
+     bool active,unlock;link_kind link;int mode;unsigned host,connection,generation;
+     int64_t until,lock_updated;char session[40];
++    int media;bool playing;uint64_t music;
+ } computer_click_intent;
+ static computer_click_intent computer_pending_click;
+ // Bind a delayed explicit tap to the same selected peer, session and connection.
+@@ -62,6 +63,24 @@
+ static bool computer_connected(void){return rpc_link_ready()&&esp_timer_get_time()/1000-last_received<8000;}
+ static bool computer_ready(void){return computer_view&&computer_supported()&&computer_connected()&&computer_view->ready&&esp_timer_get_time()/1000-computer_view->updated<6500;}
+ static bool computer_usable(void){return computer_ready()&&!computer_view->busy;}
++static const char *computer_media_target(int action) {
++    return action==20?"previous":action==21?"play-pause":action==22?"next":NULL;
++}
++static bool computer_media_allowed(int action) {
++    return computer_view->media_available&&(action==20?computer_view->can_previous:
++        action==21?computer_view->can_play_pause:action==22&&computer_view->can_next);
++}
++// A local UI fingerprint cancels a waiting tap when displayed track metadata changes.
++// This is not an authentication or protocol identity.
++static uint64_t computer_music_key(void) {
++    uint64_t key=UINT64_C(14695981039346656037);cJSON *music=item(shown,"music");
++    const char *fields[]={"title","artist","album"};
++    for(unsigned i=0;i<3;i++) {
++        const unsigned char *p=(const unsigned char *)text(music,fields[i]);
++        do{key^=*p;key*=UINT64_C(1099511628211);}while(*p++);
++    }
++    return key;
++}
+ static void computer_enable(lv_obj_t *object,bool enabled){if(enabled)lv_obj_remove_state(object,LV_STATE_DISABLED);else lv_obj_add_state(object,LV_STATE_DISABLED);}
+ static void computer_action(const char *op,int value,const char *target) {
+     if(!computer_usable())return;
+@@ -81,12 +100,19 @@
+ static void computer_pending_refresh(int64_t now) {
+     if(!computer_pending_click.active)return;
+     computer_click_intent current={0},pending=computer_pending_click;
+-    bool same=current_page==14&&now<pending.until&&computer_connected()&&computer_click_binding(&current)&&
++    bool same=current_page==(pending.media?5:14)&&now>=pending.until-3000&&now<pending.until&&computer_connected()&&computer_click_binding(&current)&&
+         current.host==pending.host&&current.link==pending.link&&current.mode==pending.mode&&
+         current.connection==pending.connection&&!strcmp(current.session,pending.session);
+     if(!same){computer_pending_click.active=false;computer_notice("连接或页面已变化，操作未发送");return;}
+     if(computer_view->busy)return;
+     computer_pending_click.active=false; // Consume before any effect; never retry.
++    if(pending.media) {
++        if(!computer_ready()||computer_view->generation==pending.generation||!computer_media_allowed(pending.media)||
++           computer_view->playing!=pending.playing||computer_music_key()!=pending.music) {
++            computer_notice("播放状态已变化，操作未发送");return;
++        }
++        computer_action("media",0,computer_media_target(pending.media));return;
++    }
+     if(!computer_ready()||!computer_view->lock_known||computer_view->locked!=pending.unlock||
+        computer_view->generation==pending.generation||computer_view->lock_updated<=pending.lock_updated){
+         computer_notice("电脑状态未确认或已变化，操作未发送");return;
+@@ -96,6 +122,19 @@
+ static void computer_click(lv_event_t *event) {
+     if(!computer_view)return;
+     int action=(int)(intptr_t)lv_event_get_user_data(event);
++    if(action>=20&&action<=22) {
++        if(current_page!=5)return;
++        computer_remote_get(computer_view);
++        if(!computer_ready()||!computer_media_allowed(action)||computer_pending_click.active)return;
++        if(!computer_view->busy){computer_action("media",0,computer_media_target(action));return;}
++        computer_click_intent pending={0};
++        if(computer_view->reading&&computer_click_binding(&pending)) {
++            pending.active=true;pending.media=action;pending.playing=computer_view->playing;
++            pending.music=computer_music_key();pending.generation=computer_view->generation;
++            pending.until=esp_timer_get_time()/1000+3000;computer_pending_click=pending;
++        }else computer_notice("操作正在进行，请稍候");
++        return;
++    }
+     if(action==0&&computer_view->volume_available)computer_action("mute",!computer_view->muted,NULL);
+     else if(action==1) {
+         // The last UI frame may have started a read after copying its snapshot.
+@@ -110,9 +149,6 @@
+         }else computer_notice("操作正在进行，请稍候");
+     }
+     else if(action>=10&&action<10+computer_view->count)computer_action("launch",0,computer_view->launchers[action-10].id);
+-    else if(action==20&&computer_view->can_previous)computer_action("media",0,"previous");
+-    else if(action==21&&computer_view->can_play_pause)computer_action("media",0,"play-pause");
+-    else if(action==22&&computer_view->can_next)computer_action("media",0,"next");
+ }
+ static void computer_volume_display(int value) {
+     char text[20];
+@@ -154,7 +190,7 @@
+     ui_bg_color(lv_obj_get_child(computer_lock,2),lv_color_hex(lock_color),0);
+     ui_text(lv_obj_get_child(computer_mute,0),computer_view->muted?"取消静音":"静音");
+     const char *status=!computer_connected()?"连接电脑后即可使用":!computer_supported()?"请更新 Windows 桥接以使用电脑控制":computer_view->ready&&!usable?"正在读取电脑状态…":!computer_view->ready&&computer_view->busy?"正在读取电脑状态…":computer_view->message[0]?computer_view->message:computer_view->ready?"电脑已连接":"正在读取电脑状态…";
+-    if(computer_pending_click.active)status=computer_pending_click.unlock?"正在读取状态，随后解锁…":"正在读取状态，随后锁屏…";
++    if(computer_pending_click.active&&!computer_pending_click.media)status=computer_pending_click.unlock?"正在读取状态，随后解锁…":"正在读取状态，随后锁屏…";
+     else if(computer_view->busy&&!computer_view->reading)status="操作正在进行，请稍候";
+     else if(now<computer_message_until&&computer_action_notice[0])status=computer_action_notice;
+     char lock_status[224];
+@@ -183,9 +219,14 @@
+     if(music_controls) {
+         bool track=music_has_track();visible(music_controls,track);visible(music_control_hint,track);
+         const bool capabilities[]={computer_view->can_previous,computer_view->can_play_pause,computer_view->can_next};
+-        for(int i=0;i<3;i++)computer_enable(music_control_buttons[i],usable&&computer_view->media_available&&capabilities[i]);
++        for(int i=0;i<3;i++)computer_enable(music_control_buttons[i],usable&&computer_view->media_available&&capabilities[i]&&
++            (!computer_view->busy||computer_view->reading)&&!computer_pending_click.active);
+         ui_text(lv_obj_get_child(music_control_buttons[1],0),computer_view->playing?LV_SYMBOL_PAUSE:LV_SYMBOL_PLAY);
+-        ui_text(music_control_hint,!computer_connected()?"连接电脑后可控制播放":!computer_supported()?"更新 Windows 桥接以控制播放":!computer_view->ready?"正在读取播放状态":!computer_view->media_available?"当前播放器不支持控制":"");
++        const char *hint=!computer_connected()?"连接电脑后可控制播放":!computer_supported()?"更新 Windows 桥接以控制播放":!computer_view->ready?"正在读取播放状态":!computer_view->media_available?"当前播放器不支持控制":"";
++        if(computer_pending_click.active&&computer_pending_click.media)hint="正在读取播放状态，随后执行…";
++        else if(computer_view->busy&&!computer_view->reading)hint="正在处理播放操作…";
++        else if(now<computer_message_until&&computer_action_notice[0])hint=computer_action_notice;
++        ui_text(music_control_hint,hint);
+         int x=lv_obj_get_x(music),width=lv_obj_get_width(music);
+         if(computer_music_layout_width!=width||computer_music_layout_x!=x) {
+             computer_music_layout_width=width;computer_music_layout_x=x;
+--- a/tests/ui-preview/computer_click_queue_test.h
++++ b/tests/ui-preview/computer_click_queue_test.h
+@@ -65,6 +65,7 @@
+         before=preview_status_reads;lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);computer_refresh();
+         assert(preview_status_reads>before);cases++;
+     }
++    #include "computer_media_click_test.h"
+     #undef CLICK_SETUP
+     #undef CLICK_COMPLETE
+     #undef CLICK_EFFECTS
+--- /dev/null
++++ b/tests/ui-preview/computer_media_click_test.h
+@@ -0,0 +1,83 @@
++{
++    // A real LVGL tap overlaps an ordinary read; no command may be lost or replayed.
++    computer_pending_click=(computer_click_intent){0};computer_action_notice[0]=0;
++    preview_rpc_selection=LINK_USB;preview_usb_connected=preview_usb_available=true;
++    wifi_connected=true;last_received=preview_now_us/1000;device_links.mode=LINK_USB;
++    strcpy(device_links.session[LINK_USB],"media-click-fixture");preview_keyboard=(ble_keyboard_state){.connection=7};
++    preview_computer=(computer_remote_state){.ready=true,.media_available=true,.can_play_pause=true,
++        .can_previous=true,.can_next=true,.playing=true,.busy=true,.reading=true,
++        .updated=last_received,.generation=10};
++    page(5);computer_refresh();unsigned media_before=preview_computer_commands;
++    assert(!lv_obj_has_state(music_control_buttons[1],LV_STATE_DISABLED));
++    lv_obj_send_event(music_control_buttons[1],LV_EVENT_CLICKED,NULL);
++    assert(preview_computer_commands==media_before);
++    preview_now_us+=300000;last_received=preview_now_us/1000;
++    preview_computer.busy=preview_computer.reading=false;preview_computer.updated=last_received;preview_computer.generation++;
++    computer_refresh();
++    if(getenv("TAB5_EXPECT_MEDIA_DROP")) {
++        assert(preview_computer_commands==media_before);
++        puts("MEDIA_CLICK_BASELINE_DROP_REPRODUCED no command after overlapping read completes");return 0;
++    }
++    assert(preview_computer_commands==media_before+1);
++    assert(!strcmp(preview_computer_op,"media")&&!strcmp(preview_computer_target,"play-pause"));
++    unsigned media_cases=1;
++    #define MEDIA_SETUP(route) do { \
++        CLICK_SETUP(route,false); \
++        preview_computer.media_available=preview_computer.can_play_pause=preview_computer.can_previous=preview_computer.can_next=true; \
++        preview_computer.playing=true;computer_poll_at=last_received; \
++        cJSON_ReplaceItemInObject(item(shown,"music"),"title",cJSON_CreateString("Synthetic track")); \
++        cJSON_ReplaceItemInObject(item(shown,"music"),"artist",cJSON_CreateString("Synthetic artist")); \
++        cJSON_ReplaceItemInObject(item(shown,"music"),"album",cJSON_CreateString("Synthetic album")); \
++        page(5);computer_refresh(); \
++    }while(0)
++    const char *targets[]={"previous","play-pause","next"};
++    for(int route=0;route<3;route++)for(int action=0;action<3;action++)for(int stale=0;stale<2;stale++) {
++        MEDIA_SETUP((link_kind)route);unsigned before=preview_computer_commands,reads=preview_status_reads;
++        if(stale)computer_view->busy=computer_view->reading=false;
++        assert(!lv_obj_has_state(music_control_buttons[action],LV_STATE_DISABLED));
++        lv_obj_send_event(music_control_buttons[action],LV_EVENT_CLICKED,NULL);
++        lv_obj_send_event(music_control_buttons[(action+1)%3],LV_EVENT_CLICKED,NULL);
++        computer_refresh();assert(preview_computer_commands==before&&preview_status_reads==reads);
++        assert(strstr(lv_label_get_text(music_control_hint),"随后"));
++        CLICK_COMPLETE();computer_refresh();
++        assert(preview_computer_commands==before+1&&!strcmp(preview_computer_op,"media"));
++        assert(!strcmp(preview_computer_target,targets[action]));
++        for(int tick=0;tick<3;tick++)computer_refresh();
++        assert(preview_computer_commands==before+1);media_cases++;
++    }
++    const char *media_failures[]={"page","timeout","clock-back","host","session","mode","link","connection",
++        "read-failed","no-generation","capability","playing-changed","title-changed","artist-changed","album-changed","disconnected","not-fresh"};
++    for(int route=0;route<3;route++)for(int action=0;action<3;action++)for(unsigned f=0;f<sizeof(media_failures)/sizeof(*media_failures);f++) {
++        MEDIA_SETUP((link_kind)route);unsigned before=preview_computer_commands;
++        lv_obj_send_event(music_control_buttons[action],LV_EVENT_CLICKED,NULL);CLICK_COMPLETE();const char *failure=media_failures[f];
++        if(!strcmp(failure,"page"))page(11);
++        if(!strcmp(failure,"timeout"))preview_now_us+=3000000;
++        if(!strcmp(failure,"clock-back"))preview_now_us-=4000000;
++        if(!strcmp(failure,"host"))preview_computer_host_epoch++;
++        if(!strcmp(failure,"session"))strcpy(device_links.session[route],"other-session");
++        if(!strcmp(failure,"mode"))device_links.mode=-1;
++        if(!strcmp(failure,"link"))preview_rpc_selection=route==LINK_USB?LINK_BLE:LINK_USB;
++        if(!strcmp(failure,"connection")){if(route==LINK_WIFI)preview_wifi_connection++;else preview_keyboard.connection++;}
++        if(!strcmp(failure,"read-failed"))preview_computer.ready=false;
++        if(!strcmp(failure,"no-generation"))preview_computer.generation=10;
++        if(!strcmp(failure,"capability"))preview_computer.media_available=false;
++        if(!strcmp(failure,"playing-changed"))preview_computer.playing=false;
++        if(!strcmp(failure,"title-changed"))cJSON_ReplaceItemInObject(item(shown,"music"),"title",cJSON_CreateString("Other track"));
++        if(!strcmp(failure,"artist-changed"))cJSON_ReplaceItemInObject(item(shown,"music"),"artist",cJSON_CreateString("Other artist"));
++        if(!strcmp(failure,"album-changed"))cJSON_ReplaceItemInObject(item(shown,"music"),"album",cJSON_CreateString("Other album"));
++        if(!strcmp(failure,"disconnected")){preview_rpc_selection=LINK_NONE;preview_usb_connected=wifi_connected=ble_connected=false;}
++        if(!strcmp(failure,"not-fresh"))preview_computer.updated-=7000;
++        computer_refresh();if(preview_computer_commands!=before)fprintf(stderr,"MEDIA_CANCEL_FAILURE route=%d action=%d guard=%s\n",route,action,failure);assert(preview_computer_commands==before);
++        computer_refresh();assert(preview_computer_commands==before);media_cases++;
++    }
++    for(int route=0;route<3;route++)for(int action=0;action<3;action++) {
++        MEDIA_SETUP((link_kind)route);preview_computer.reading=false;computer_refresh();
++        unsigned before=preview_computer_commands;lv_obj_send_event(music_control_buttons[action],LV_EVENT_CLICKED,NULL);
++        CLICK_COMPLETE();computer_refresh();assert(preview_computer_commands==before);media_cases++;
++        MEDIA_SETUP((link_kind)route);CLICK_COMPLETE();computer_poll_at=last_received;computer_refresh();
++        before=preview_computer_commands;lv_obj_send_event(music_control_buttons[action],LV_EVENT_CLICKED,NULL);
++        computer_refresh();assert(preview_computer_commands==before+1&&!strcmp(preview_computer_target,targets[action]));media_cases++;
++    }
++    #undef MEDIA_SETUP
++    printf("MEDIA_CLICK_QUEUE_OK %u cases; USB/Wi-Fi/BLE; first tap, stale view, duplicate suppression, no poll starvation, bound/page/deadline/track/play-state cancellation, immediate action, no replay\n",media_cases);
++}

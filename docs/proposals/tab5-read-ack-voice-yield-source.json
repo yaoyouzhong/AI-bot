@@ -1,0 +1,22 @@
+{
+  "base": "installed270; independent follow-up with no wire changes",
+  "candidate": "artifacts/development/tab5-voice-stop-20261025/candidate",
+  "productFiles": [
+    {
+      "path": "firmware/main/codex_read_ack.c",
+      "beforeNormalizedSHA256": "8287246dde3cfabb865169b71fde8ec013a566d71bdb403ef535c97b5f674434",
+      "afterNormalizedSHA256": "db81f7625e360c8ed458f4e24dce3d3054caa6675e48254f8a93c5de58b2f887"
+    }
+  ],
+  "imageGenerated": true,
+  "physicalAcceptance": false,
+  "nativeValidation": "READ_ACK_VOICE_OK actual worker waits without mailbox/nonce while voice busy, preserves receipt, bounded90s expiry plus one250ms wait releases worker without RPC",
+  "targetCompileExit": 0,
+  "targetStackBytes": {
+    "send_ack": 528,
+    "read_ack_voice_idle": 2784
+  },
+  "policy": "background idempotent read receipt waits outside mailbox while device voice busy;90s bound plus one250ms sleep; original identities/session and four retries retained",
+  "integratedCandidate": "0.2.271-ui",
+  "integratedImageSHA256": "b685f7e4e650c41dab6529c74b934db00781105e51802a6ed6847a590b0a2a48"
+}

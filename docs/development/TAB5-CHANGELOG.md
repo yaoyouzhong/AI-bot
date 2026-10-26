@@ -2,6 +2,89 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.279-ui - 2026-10-26
+
+- HD preview first borrows a detached gallery spare or an idle camera frame, reusing existing full RGB565 storage before general-heap fallback instead of requiring another1843200-byte contiguous allocation.
+- Release/reclaim follows existing gallery ownership; visible artwork, retained photographs and active CSI frames are excluded, while foreground priority and original deadlines remain intact.
+- Clean and invalidate CPU-written USERPTR frames before their initial camera queue submission. Cache-sync failures unwind before STREAMON and permit a subsequent reopen.
+
+## 0.2.278-ui - 2026-10-26
+
+- Allow up to one second of pre-publication admission for computer control on USB/BLE RPC mailboxes, without replaying uncertain operations or extending response deadlines.
+- Pause unpublished preview chunks during computer status reads or explicit controls, then resume within the original ownership and preview deadline. Voice, camera and update priorities remain in place.
+- Correct the USB/BLE status location hint to name the Network Connection page, matching the actual navigation hierarchy.
+
+## 0.2.277-ui - 2026-10-26
+
+- Reduce full-resolution sampling and SHA scheduling delays for real-device preview while preserving HD, complete verification and foreground voice/camera/OTA priority.
+- Preview hashing keeps internal1KiB DMA staging and yields after at most16KiB or about1ms; photo uploads and ordinary RPC retain their pacing.
+- The companion viewer may shorten next-frame waits; preview v2, partitions, pairing and display settings stay unchanged.
+
+## 0.2.276-ui - 2026-10-26
+
+### Fixed
+- Reserve HD capture scratch before slow admission and reuse it during preview, avoiding repeated large allocations while pages change. Release after five idle seconds.
+- Foreground voice, camera and OTA reclaim idle scratch without stealing an active worker buffer.
+- Preserve pairing, network, sound and display preferences. Sustained HD and foreground interaction need separate physical acceptance.
+
+## 0.2.275-ui - 2026-10-26
+
+### Fixed
+- Retry only unpublished preview admission while task reads share the mailbox, within the original owner and deadline. Preserve voice/photo/OTA priority and never replay an uncertain published request.
+- Preserve pairing, network, sound, display settings and existing HD recovery. Physical page-switch and reopen acceptance is recorded separately.
+
+## 0.2.274-ui - 2026-10-25
+
+- Fix the screen_preview stack underflow captured on273: move voice state into the worker PSRAM job, use a16KiB stack and expose numeric remaining-stack/allocation-phase observations.
+- Retain273 admission,30-second expiry, complete-frame checks, photo feedback and diagnostic layout without changing partitions or user settings.
+- Local candidate; physical and automated acceptance are recorded separately. Not a public release.
+
+## 0.2.273-ui - 2026-10-25
+
+- Avoid periodic diagnostic heap walks; yield in the wireless worker and bound HTTP body-read duration. Sustained blue-flash recovery still requires physical verification.
+- Reclaim unpublished preview cache, grow JPEG output only as needed and repeat the existing authenticated begin during encoding without extending the 30-second request bound.
+- Combine photo adding/completion feedback and the accepted grouped connection-diagnostic layout.
+- Preserve pairing, networks, drafts, photos and display preferences. Local candidate, not a public release.
+
+## 0.2.272-ui - 2026-10-25
+
+- Apply a changed recording transcript in one edit instead of rebuilding the text area character by character every100ms, avoiding repeated draft updates and layout work.
+- Preserve UTF-8 insertion anchors, existing drafts, cancellation recovery and the manual input length limit. Actual LVGL regressions pass; single-tap stop still requires physical acceptance of this candidate.
+- Local candidate, not a public release. Existing pairing, network and display settings are retained; device-preview optimization remains deferred at the user's request.
+
+## 0.2.271-ui - 2026-10-25
+
+- Improve the task-page round recording target and press response; prevent late replies from overriding stop/cancel intent.
+- Defer background read receipts during capture while retaining identity, session and latest-turn validation.
+- Send an essential USB acknowledgement when optional diagnostics exceed capacity, preserving sequence/authentication/capabilities and existing line limits.
+- Pause optional preview cache preheating and reclaim rebuildable hidden-page/compressed-image caches to reduce HD preview memory pressure.
+- Native/parser/target compilation checks do not replace physical recording and HD-preview acceptance; not yet installed or publicly released.
+
+## 0.2.270-ui - 2026-10-25
+
+- Keep one cancellable recording-start intent during background reads, show stop intent immediately and bound voice mailbox admission before publishing any request.
+- Negotiate HD JPEG landscape/portrait previews and unchanged-frame receipts while retaining the legacy preview protocol and read-only display sampling. Mac and Windows adapters are updated together.
+- Local candidate; recording reliability, HD previews and remaining physical acceptance still require verification.
+
+## 0.2.269-ui - 2026-10-24
+
+### Camera and interaction
+
+- Open the local camera during ordinary background conversation reads/draft saves, immediately report the three-photo limit, and retain attachments plus initial-draft restoration. Consume an existing request result before uploading a photo.
+- Renew USB ownership on valid delta states to prevent false expiry. Retain at most one explicit media tap during a status read, bound to its device/host/session/track, executing or cancelling within three seconds without replaying side effects.
+
+### Preview, layout and reminders
+
+- Fix the invalid cache-flag combination that leaks a global mutex during screen preview. Keep the official SDK and use valid aligned-framebuffer synchronization.
+- Focus connection diagnostics on Wi-Fi and host-bridge communication; remove unrelated local pairing/activity/voice-toggle indicators, correct the entry description and compact the controls.
+- Add an original dedicated 0.68 s agenda dual-note cue. The user accepts the second WAV version; retain user volume/mute, the voice worker/capture priority and existing countdown/other sounds.
+
+### Local candidate validation
+
+- This unified local candidate inherits accepted .268 behavior; build, installation and physical results are recorded separately and do not constitute public release. Generated configuration matches .268. Six patches apply sequentially and match 13 files, with focused native/UI and target-object checks passed.
+- The user defers photo sending until camera startup is fixed. Test the new camera first, then attachments/mirroring; digital WAV review does not prove speaker sound. Keep the existing long-duration connection observation and unavailable ESP8266-hardware boundaries.
+- See the [current acceptance checkpoint](MAC-CURRENT-ACCEPTANCE-20261024.md). Preserve pairing/network/display/data; installation still needs this candidate's explicit authorization.
+
 ## 0.2.234-ui - 2026-10-19
 
 ### BLE verification and display continuity

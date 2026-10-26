@@ -15,6 +15,8 @@ struct MacNetworkDiagnosticSample {
     let observedAt: Date
     let checks: [[String: Any]]
     let history: [[String: Any]]
+    var throughputMbps: Double? = nil
+    var throughputAt: Date? = nil
 }
 
 /// App-owned, bounded, unauthenticated header probes. No cookies, account token,
@@ -29,54 +31,68 @@ final class MacNetworkDiagnostics {
     private var identity = ""
     private var lastSuccess: (Double, Date)?
     private var generation = 0
+    private var nextSpeed = Date.distantPast
+    private var speed: (Double,Date)?
 
     func start() {
         lock.lock(); defer { lock.unlock() }
         guard timer == nil else { return }
+        let options = MacRuntimePreferences.current
+        guard options.enabled && options.network else { return }
         generation += 1; let current = generation
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now(), repeating: 30)
+        timer.schedule(deadline: .now(), repeating: .seconds(options.interval))
         timer.setEventHandler { [weak self] in self?.refresh(generation: current) }
         self.timer = timer; timer.resume()
     }
     func stop() {
-        lock.lock(); generation += 1; timer?.cancel(); timer = nil; latest = nil; lock.unlock()
+        lock.lock(); generation += 1; timer?.cancel(); timer = nil; latest = nil; speed = nil; lock.unlock()
     }
     deinit { timer?.cancel() }
     func snapshot() -> MacNetworkDiagnosticSample? { lock.lock(); defer { lock.unlock() }; return latest }
 
     var summary: String {
-        guard let value = snapshot(), value.observedAt <= Date(), Date().timeIntervalSince(value.observedAt) < 75 else { return "网络诊断：等待新采样" }
-        return value.checks.map { check in
+        let options = MacRuntimePreferences.current
+        guard options.enabled && options.network else { return "网络诊断：已关闭" }
+        guard let value = snapshot(), value.observedAt <= Date(), Date().timeIntervalSince(value.observedAt) < Double(options.interval + 45) else { return "网络诊断：等待新采样" }
+        let checks = value.checks.map { check in
             let label = check["label"] as? String ?? "网络"
             let text = check["summary"] as? String ?? "待确认"
             let latency = (check["latencyMs"] as? Double).map { String(format: " · %.0f ms", $0) } ?? ""
             return "\(label)：\(text)\(latency)"
         }.joined(separator: "\n")
+        let speed = value.throughputMbps.flatMap { mbps in value.throughputAt.map { "\n小流量吞吐：\(String(format:"%.2f",mbps)) Mbps · \(DateFormatter.localizedString(from:$0,dateStyle:.none,timeStyle:.medium))" } } ?? ""
+        return checks + speed
     }
 
     private func refresh(generation expected: Int) {
+        let options = MacRuntimePreferences.current
+        guard options.enabled && options.network else { return }
         let config = CFNetworkCopySystemProxySettings()?.takeRetainedValue() as? [String: Any]
         let before = Self.identity(config)
         let pac = config.map { Self.autoConfigured($0) }
         let routes = Self.targets.map { Self.routes(for: $0, configuration: config) }
         let results = Self.targets.map { HeaderProbe.run($0) }
+        lock.lock(); let measure = generation == expected && options.throughput && Date() >= nextSpeed
+        if measure { nextSpeed = Date().addingTimeInterval(300) }; lock.unlock()
+        let throughput = measure ? HeaderProbe.speed() : nil
         let after = Self.identity(CFNetworkCopySystemProxySettings()?.takeRetainedValue() as? [String: Any])
         lock.lock(); defer { lock.unlock() }
         guard generation == expected else { return }
-        guard before == after else { latest = nil; history = []; lastSuccess = nil; identity = after; return }
-        if identity != before { history = []; lastSuccess = nil; identity = before }
+        guard before == after else { latest = nil; history = []; lastSuccess = nil; speed = nil; identity = after; return }
+        if identity != before { history = []; lastSuccess = nil; speed = nil; identity = before }
         let now = Date(), healthy = results.allSatisfy { $0.responded && !$0.restricted }
+        if let throughput { speed = (throughput,now) }
         let latency = Self.latency(results)
         if healthy, let latency { lastSuccess = (latency, now) }
         history.append(["epochUtc": Int64(now.timeIntervalSince1970), "milliseconds": latency as Any? ?? NSNull(), "reachable": results.allSatisfy(\.responded)])
         if history.count > 10 { history.removeFirst(history.count - 10) }
         latest = MacNetworkDiagnosticSample(observedAt: now,
-            checks: Self.checks(results: results, pac: pac, routes: routes, now: now, lastSuccess: lastSuccess), history: history)
+            checks: Self.checks(results: results, pac: pac, routes: routes, now: now, lastSuccess: lastSuccess,slowMilliseconds:options.slow,expectProxy:options.expectProxy), history: history,throughputMbps:speed?.0,throughputAt:speed?.1)
     }
 
     static func checks(results: [MacNetworkProbeResult], pac: Bool?, routes: [Set<Bool>?], now: Date,
-                       lastSuccess: (Double, Date)? = nil) -> [[String: Any]] {
+                       lastSuccess: (Double, Date)? = nil, slowMilliseconds: Int = 2500, expectProxy: Bool = false) -> [[String: Any]] {
         guard results.count == 2, routes.count == 2 else { return [] }
         func route(_ value: Bool?) -> String { value.map { $0 ? "代理连接" : "无显式代理连接" } ?? "连接类型未知" }
         let names = ["ChatGPT", "资源服务"]
@@ -85,13 +101,17 @@ final class MacNetworkDiagnostics {
         }.joined(separator: "；")
         let failed = results.contains { !$0.responded }, restricted = results.contains( where: { $0.restricted })
         let latency = Self.latency(results)
-        let slow = (latency ?? 0) >= 2500
+        let slow = (latency ?? 0) >= Double(slowMilliseconds)
         var vpn: [String: Any] = ["key": "vpn", "label": "VPN / 代理", "state": failed ? "error" : restricted ? "unknown" : slow ? "observing" : "ok",
             "summary": failed ? "目标连接失败" : restricted ? "目标限制访问" : slow ? "响应偏慢，正在观察" : "出口响应正常",
             "detail": details + "。仅检测 HTTP 到达，不携带登录信息或验证模型请求；连接类型不判断 VPN 隧道是否启用。",
             "advice": failed ? "检查网络和系统代理；HTTP 拒绝与网络断开分别处理。" : "",
             "epochUtc": Int64(now.timeIntervalSince1970), "route": "系统网络路径"]
         if let latency { vpn["latencyMs"] = latency }
+        if expectProxy && results.contains(where: { $0.responded && $0.proxy == false }) && !failed {
+            vpn["state"] = "warning"; vpn["summary"] = "关键域名未走显式代理"
+            vpn["advice"] = "检查代理规则；若使用直连或 TUN，请关闭预期代理选项。"
+        }
         if let lastSuccess { vpn["lastSuccessfulLatencyMs"] = lastSuccess.0; vpn["lastSuccessfulAt"] = ISO8601DateFormatter().string(from: lastSuccess.1) }
         let resolved = routes.allSatisfy { $0?.isEmpty == false }
         let observed = results.allSatisfy { $0.responded && $0.proxy != nil }
@@ -160,6 +180,19 @@ final class MacNetworkDiagnostics {
         private var status: Int?, milliseconds: Double?, proxy: Bool?
         private var failure = "连接失败"
         private let started = ProcessInfo.processInfo.systemUptime
+        private var collect = false, byteCount = 0
+        static func speed() -> Double? {
+            let delegate = HeaderProbe(); delegate.collect = true
+            let config = URLSessionConfiguration.ephemeral
+            config.httpCookieStorage = nil; config.httpShouldSetCookies = false; config.urlCredentialStorage = nil; config.urlCache = nil
+            config.timeoutIntervalForRequest = 6; config.timeoutIntervalForResource = 8
+            let session = URLSession(configuration:config,delegate:delegate,delegateQueue:nil)
+            var request = URLRequest(url:URL(string:"https://speed.cloudflare.com/__down?bytes=131072")!); request.cachePolicy = .reloadIgnoringLocalCacheData
+            session.dataTask(with:request).resume()
+            let completed = delegate.finished.wait(timeout:.now()+9) == .success; session.invalidateAndCancel()
+            guard completed, delegate.status == 200, delegate.byteCount == 131072 else { return nil }
+            return Double(delegate.byteCount) * 8 / max(0.001,ProcessInfo.processInfo.systemUptime-delegate.started) / 1_000_000
+        }
         static func run(_ url: URL) -> MacNetworkProbeResult {
             let delegate = HeaderProbe(), config = URLSessionConfiguration.ephemeral
             config.httpCookieStorage = nil; config.httpShouldSetCookies = false; config.urlCredentialStorage = nil
@@ -177,7 +210,11 @@ final class MacNetworkDiagnostics {
         func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
             status = (response as? HTTPURLResponse)?.statusCode
             milliseconds = (ProcessInfo.processInfo.systemUptime - started) * 1000
-            completionHandler(.cancel) // Headers suffice; never retain a response body.
+            completionHandler(collect && status == 200 && response.expectedContentLength <= 131072 ? .allow:.cancel)
+        }
+        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+            byteCount += data.count
+            if byteCount > 131072 { dataTask.cancel() } // Count only; never retain the bytes.
         }
         func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
         func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {

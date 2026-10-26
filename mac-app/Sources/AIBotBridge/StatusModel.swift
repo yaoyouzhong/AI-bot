@@ -32,6 +32,7 @@ struct WeatherSnapshot: Codable, Equatable {
     var airQualityStandard: String? = nil
     var pressureHpa: Double? = nil
     var pressureKind: String? = nil
+    var animation: String? = nil
 }
 
 struct MacWeatherHour: Codable, Equatable {
@@ -111,7 +112,7 @@ struct QuotaSnapshot: Codable, Equatable {
     let codex: ProviderQuotaSnapshot?
 }
 
-// Optional display contract; macOS does not acquire vendor quotas yet.
+// Account observations from official read-only endpoints or authorized consoles.
 struct DomesticProviderQuotaSnapshot: Codable, Equatable {
     let provider: String
     let plan: String?
@@ -120,23 +121,31 @@ struct DomesticProviderQuotaSnapshot: Codable, Equatable {
     let weeklyPercent: Double?
     let weeklyResetsAt: Date?
     let balance: Double?
-    let usedCost: Double?
+    var usedCost: Double?
     let currency: String?
     let updatedAt: Date
     var stale: Bool
     var planPercent: Double? = nil
     var planResetsAt: Date? = nil
+    var primaryWindowSeconds: Int64? = nil
+    var weeklyWindowSeconds: Int64? = nil
+    var planWindowSeconds: Int64? = nil
+    var planExpiresAt: Date? = nil
 }
 
 struct DomesticQuotaSnapshot: Codable, Equatable {
-    let alibaba: DomesticProviderQuotaSnapshot?
-    let kimi: DomesticProviderQuotaSnapshot?
-    let miniMax: DomesticProviderQuotaSnapshot?
+    var alibaba: DomesticProviderQuotaSnapshot?
+    var kimi: DomesticProviderQuotaSnapshot?
+    var miniMax: DomesticProviderQuotaSnapshot?
     var deepSeek: DomesticProviderQuotaSnapshot?
     var zhipu: DomesticProviderQuotaSnapshot? = nil
     var stepFun: DomesticProviderQuotaSnapshot? = nil
     var baidu: DomesticProviderQuotaSnapshot? = nil
     var xiaomi: DomesticProviderQuotaSnapshot? = nil
+    subscript(_ provider: String) -> DomesticProviderQuotaSnapshot? {
+        get { switch provider { case "qwen", "alibaba": return alibaba; case "kimi": return kimi; case "minimax": return miniMax; case "deepseek": return deepSeek; case "zhipu": return zhipu; case "stepfun": return stepFun; case "baidu": return baidu; case "xiaomi": return xiaomi; default: return nil } }
+        set { switch provider { case "qwen", "alibaba": alibaba = newValue; case "kimi": kimi = newValue; case "minimax": miniMax = newValue; case "deepseek": deepSeek = newValue; case "zhipu": zhipu = newValue; case "stepfun": stepFun = newValue; case "baidu": baidu = newValue; case "xiaomi": xiaomi = newValue; default: break } }
+    }
 }
 
 struct MusicSnapshot: Codable, Equatable {
@@ -227,7 +236,7 @@ final class SessionActivityReader {
             epochUtc: Int64(now.timeIntervalSince1970),
             utcOffsetSeconds: TimeZone.current.secondsFromGMT(for: now),
             capturedAt: now,
-            codex: signals.apply("codex", raw: activity.codex, now: now),
+            codex: MacDisplayPolicy.displayCodexState(signals.apply("codex", raw: activity.codex, now: now), epoch:Int64(now.timeIntervalSince1970)),
             claude: claude,
             musicPlaying: extras.music?.playing ?? false,
             weather: extras.weather,

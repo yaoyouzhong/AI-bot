@@ -51,4 +51,4 @@ try {
     $null=$assembly.GetType('AIBotBridge.Tab5OtaPackage').GetMethod('Load',[Reflection.BindingFlags]'Public,NonPublic,Static').Invoke($null,$argsForLoad)
     Write-Output ('TAB5_FIRMWARE_READY version='+$version+' image='+(Join-Path $latest 'aibot_tab5.bin'))
     Write-Output ('ARCHIVE='+$archive)
-} finally {$guard.Dispose();Remove-Item -LiteralPath $lockPath}
+} finally {$guard.Dispose();Remove-Item -LiteralPath $lockPath -Force}

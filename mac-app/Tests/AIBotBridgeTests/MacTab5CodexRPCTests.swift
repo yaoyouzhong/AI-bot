@@ -3,6 +3,55 @@ import Darwin
 @testable import AIBotBridge
 
 final class MacTab5CodexRPCTests: XCTestCase {
+    func testFragmentedLinesKeepUTF8EscapesEmptyLinesAndPartialSuffix() throws {
+        let first = try MacTab5Protocol.json(["id": 7, "result": ["text": "合成文字\n\"quoted\"\r🙂"]])
+        let second = try MacTab5Protocol.json(["method": "fixture/notification", "params": [:]])
+        var lines = MacTab5CodexRPC.Lines(), actual: [Data] = []
+        for byte in first { actual += try lines.append(Data([byte])) }
+        XCTAssertTrue(actual.isEmpty)
+        var joined = Data([10, 10]); joined.append(second); joined.append(10); joined.append(first.prefix(9))
+        actual += try lines.append(joined)
+        XCTAssertEqual(actual, [first, Data(), second])
+        var tail = Data(first.dropFirst(9)); tail.append(10)
+        XCTAssertEqual(try lines.append(tail), [first])
+        XCTAssertTrue(try lines.append(Data()).isEmpty)
+    }
+    func testStdioBufferLimitStillRejectsOverflowAndAcceptsExactBoundary() throws {
+        let limit = 8 * 1024 * 1024
+        var full = MacTab5CodexRPC.Lines()
+        XCTAssertTrue(try full.append(Data(repeating: 120, count: limit)).isEmpty)
+        XCTAssertThrowsError(try full.append(Data([10]))) { error in
+            guard case MacTab5CodexFailure.protocolError = error else { return XCTFail("Expected bounded input") }
+        }
+        var boundary = MacTab5CodexRPC.Lines(), bytes = Data(repeating: 120, count: limit - 1); bytes.append(10)
+        let complete = try boundary.append(bytes)
+        XCTAssertEqual(complete.count, 1); XCTAssertEqual(complete.first?.count, limit - 1)
+        XCTAssertEqual(try boundary.append(Data([121, 10])), [Data([121])])
+    }
+    func testLargeFragmentedStdioReplyIsCompleteAndChildStaysReadOnly() throws {
+        let (tool, record) = try fixture("""
+        for line in sys.stdin:
+            message=json.loads(line)
+            record(message)
+            if 'id' not in message: continue
+            result={'data':[]} if message['method']=='initialize' else {'text':'x'*(4*1024*1024)+'合成文字🙂'}
+            payload=(json.dumps({'id':message['id'],'result':result},ensure_ascii=False)+'\\n').encode()
+            for offset in range(0,len(payload),4093):
+                sys.stdout.buffer.write(payload[offset:offset+4093]); sys.stdout.buffer.flush()
+        sys.exit(0)
+        """)
+        let rpc = MacTab5CodexRPC(executable: { tool.path }); defer { rpc.stop() }
+        let reply = try rpc.call("thread/turns/list", ["threadId": "fixture"])
+        let text = try XCTUnwrap(reply["text"] as? String)
+        XCTAssertEqual(text, String(repeating: "x", count: 4 * 1024 * 1024) + "合成文字🙂")
+        XCTAssertFalse(rpc.canMutate)
+        XCTAssertThrowsError(try rpc.call("turn/start", [:]))
+        _ = try rpc.call("thread/list", [:])
+        let rows = try records(record)
+        XCTAssertEqual(rows.filter { $0["args"] != nil }.count, 1)
+        XCTAssertEqual(rows.filter { $0["method"] as? String == "thread/turns/list" }.count, 1)
+        XCTAssertFalse(rows.contains { $0["method"] as? String == "turn/start" })
+    }
     func testCLIResolutionSupportsCurrentDesktopBundleAndRenamedInstallations() {
         for name in ["ChatGPT.app", "Renamed Codex.app"] {
             let app = URL(fileURLWithPath: "/Applications/" + name)

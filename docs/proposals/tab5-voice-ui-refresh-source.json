@@ -1,0 +1,24 @@
+{
+  "base": "installed0.2.271-ui",
+  "candidate": "artifacts/development/tab5-voice-ui-refresh-20261025/candidate",
+  "productFiles": [
+    {
+      "path": "firmware/main/ui.c",
+      "beforeNormalizedSHA256": "a1ee97894b2ba602bae9b10ee04aff067f9d02a5f4f281d50829dda7dfdac9f3",
+      "afterNormalizedSHA256": "a87be2cd5ba5b9750dcb9d55462291c3cb7455e5f50deb4abdaa91a78533b2b5"
+    }
+  ],
+  "wireProtocolChanged": false,
+  "imageGenerated": true,
+  "physicalAcceptance": "two consecutive272/R15 recording rounds passed single-tap fast stop and full single-paragraph text without interruption",
+  "evidence": "artifacts/development/tab5-voice-ui-refresh-20261025",
+  "reproduction": "Actual LVGL271 code:167 characters cause168 edit events; ten unchanged polls cause1680. Fixed:one event for changed result, zero for unchanged polls. No physical timing inferred from native CPU time.",
+  "nativeEvidence": "UTF8 cursor and draft anchoring, cancellation, long results and restored manual2000-character limit;25 pointer hits, no double release/restart; queued-start regression all pass.",
+  "limits": "Observed two-take scenario passes; no claim of unique root cause or exhaustive long-term/transport reliability.",
+  "integratedCandidate": "0.2.272-ui",
+  "integratedImageSHA256": "61594461f23146080268d2e3fc3a772281afedb56efb6f996e368e518d587533",
+  "fullP4BuildPassed": true,
+  "flashAuthorized": true,
+  "flashed": true,
+  "bootVerified": true
+}

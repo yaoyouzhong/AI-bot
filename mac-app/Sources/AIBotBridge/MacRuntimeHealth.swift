@@ -3,6 +3,8 @@ import Foundation
 /// Existing TAB5 runtimeHealth fields, backed by actual Mac observations.
 /// A frame's publication time is deliberately not a new measurement.
 final class MacRuntimeHealth {
+    private let lock = NSLock()
+    private var lastOptions: MacRuntimeOptions?
     private let session = UUID().uuidString.lowercased()
     private var sequence: Int64 = 0
     private var observedAt: Date?
@@ -12,6 +14,10 @@ final class MacRuntimeHealth {
 
     func snapshot(metrics: SystemMetricsSnapshot?, now: Date, logicalProcessors: Int,
                   codexEnabled: Bool, desktopObserved: Bool, network: MacNetworkDiagnosticSample? = nil) -> [String: Any]? {
+        lock.lock(); defer { lock.unlock() }
+        let options = MacRuntimePreferences.current
+        if lastOptions != options { highSince.removeAll(); lowSince.removeAll(); warned.removeAll(); cached = nil; observedAt = nil; lastOptions = options }
+        guard options.enabled else { return nil }
         guard let metrics, let stamp = metrics.pressureObservedAt,
               stamp.timeIntervalSince1970 > 0, stamp <= now.addingTimeInterval(1) else { return nil }
         guard now.timeIntervalSince(stamp) < 8 else {
@@ -28,8 +34,8 @@ final class MacRuntimeHealth {
             checks.append(["key": key, "label": label, "state": state, "summary": summary,
                            "detail": detail, "advice": "", "epochUtc": Int64(stamp.timeIntervalSince1970)])
         }
-        for (key, label, value, threshold) in [("cpu", "CPU", metrics.cpuPercent, 90.0),
-                                              ("memory", "内存", metrics.memoryPercent, 92.0)] {
+        for (key, label, value, threshold) in [("cpu", "CPU", metrics.cpuPercent, Double(options.cpu)),
+                                              ("memory", "内存", metrics.memoryPercent, Double(options.memory))] {
             guard value.isFinite, (0...100).contains(value) else {
                 highSince[key] = nil; lowSince[key] = nil; warned.remove(key)
                 check(key, label, "unknown", "采样不可用", "未取得有效的本机计数。"); continue
@@ -38,7 +44,7 @@ final class MacRuntimeHealth {
                 if value >= threshold {
                     lowSince[key] = nil
                     if highSince[key] == nil { highSince[key] = stamp }
-                    if stamp.timeIntervalSince(highSince[key]!) >= 30 { warned.insert(key) }
+                    if stamp.timeIntervalSince(highSince[key]!) >= Double(options.sustained) { warned.insert(key) }
                 } else {
                     highSince[key] = nil
                     if lowSince[key] == nil { lowSince[key] = stamp }
@@ -53,12 +59,12 @@ final class MacRuntimeHealth {
         if !warned.subtracting(initialWarnings).isEmpty { sequence += 1 }
         check("queue", "处理器队列", "unknown", "此平台暂不支持队列计数",
               "Mac 公开调度接口未提供与 Windows 等价的等待队列长度；平均负载、CPU 占用率和线程总数均不代填。")
-        let networkFresh = network.map { $0.observedAt <= now && now.timeIntervalSince($0.observedAt) < 75 } ?? false
+        let networkFresh = options.network && (network.map { $0.observedAt <= now && now.timeIntervalSince($0.observedAt) < Double(options.interval + 45) } ?? false)
         if let network, networkFresh {
             checks.append(contentsOf: network.checks)
         } else {
             for (key, label) in [("vpn", "VPN / 代理"), ("pac", "PAC 路由")] {
-                check(key, label, "unknown", network == nil ? "等待网络探测" : "网络样本已过期", "后台探测完成后更新；不使用旧响应冒充当前连接。")
+                check(key, label, options.network ? "unknown":"disabled", !options.network ? "检测已关闭" : network == nil ? "等待网络探测" : "网络样本已过期", "后台探测完成后更新；不使用旧响应冒充当前连接。")
             }
         }
         var pressure: [String: Any] = logicalProcessors > 0 ? ["logicalProcessors": logicalProcessors] : [:]
@@ -79,12 +85,15 @@ final class MacRuntimeHealth {
             ["key": key, "state": "warning", "title": key == "cpu" ? "CPU 持续繁忙" : "内存持续占用偏高",
              "advice": "在 Mac 活动监视器查看占用情况。", "shortAdvice": "查看活动监视器"]
         }
-        let value: [String: Any] = [
+        var value: [String: Any] = [
             "session": session, "sequence": sequence, "epochUtc": Int64(stamp.timeIntervalSince1970),
             "updatedAt": ISO8601DateFormatter().string(from: stamp), "checks": checks, "alerts": alerts,
             "pressure": pressure,
             "latencyHistory": networkFresh ? (network?.history ?? []) : []
         ]
+        if networkFresh, let mbps = network?.throughputMbps, let date = network?.throughputAt {
+            value["throughputMbps"] = mbps; value["throughputAt"] = ISO8601DateFormatter().string(from:date)
+        }
         cached = value; return value
     }
 }

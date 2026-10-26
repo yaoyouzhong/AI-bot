@@ -4,7 +4,7 @@ import Foundation
 
 enum MacTab5Error: LocalizedError, Equatable {
     case invalidPacket, invalidSettings, unavailable, busy, staleRevision, unconfirmed, deviceBusy, saveFailed
-    case identity, pairingRequired, keychain, serial, timeout, unsupported, invalidWiFi
+    case identity, pairingRequired, keychain, serial, timeout, unsupported, invalidWiFi, hostNotTrusted
 
     var errorDescription: String? {
         switch self {
@@ -23,6 +23,7 @@ enum MacTab5Error: LocalizedError, Equatable {
         case .timeout: return "未收到 TAB5 确认，请检查数据线和设备固件。"
         case .unsupported: return "当前设备或桥接不支持此操作。"
         case .invalidWiFi: return "Wi-Fi 名称应为 1–32 字节，密码最多 63 字节，不能包含空字符。"
+        case .hostNotTrusted: return "此 Mac 尚未通过设备认证，请明确通过 USB 配对；已有可信电脑会保留。"
         }
     }
 }
@@ -159,6 +160,15 @@ enum MacTab5Protocol {
             value["billingMode"] = id == "deepseek" || quota?.balance != nil ? "payg" : "subscription"
             value["balance"] = quota?.balance; value["cost"] = quota?.usedCost
             value["currency"] = quota?.currency; value["plan"] = quota?.plan
+            value["primary"] = quota?.primaryPercent; value["weekly"] = quota?.weeklyPercent; value["planPercent"] = quota?.planPercent
+            value["primaryResetEpoch"] = quota?.primaryResetsAt.map { Int64($0.timeIntervalSince1970) }
+            value["weeklyResetEpoch"] = quota?.weeklyResetsAt.map { Int64($0.timeIntervalSince1970) }
+            value["planResetEpoch"] = quota?.planResetsAt.map { Int64($0.timeIntervalSince1970) }
+            value["primaryWindowSeconds"] = quota?.primaryWindowSeconds; value["weeklyWindowSeconds"] = quota?.weeklyWindowSeconds; value["planWindowSeconds"] = quota?.planWindowSeconds
+            let formatter = DateFormatter(); formatter.dateFormat = "MM-dd HH:mm"; formatter.timeZone = TimeZone(secondsFromGMT:snapshot.utcOffsetSeconds)
+            value["primaryReset"] = quota?.primaryResetsAt.map { formatter.string(from:$0) } ?? "--"
+            value["weeklyReset"] = quota?.weeklyResetsAt.map { formatter.string(from:$0) } ?? "--"
+            value["planReset"] = quota?.planResetsAt.map { formatter.string(from:$0) } ?? "--"
             details.append(value)
         }
         return details

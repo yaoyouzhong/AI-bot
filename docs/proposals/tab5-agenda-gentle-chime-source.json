@@ -1,0 +1,50 @@
+{
+  "base": "installed268 plus five source-only follow-ups",
+  "candidate": "artifacts/development/tab5-camera-ready-followup-20261024/candidate",
+  "files": [
+    {
+      "path": "firmware/main/agenda_chime.h",
+      "beforeNormalizedSHA256": null,
+      "afterNormalizedSHA256": "fcbaac48a0854a3e5a66093b07bfeb7f4a0e034fb3e4ed47e0c1261cb311f094"
+    },
+    {
+      "path": "firmware/main/voice_remote.c",
+      "beforeNormalizedSHA256": "a33860ad03c93827cd0d1ae73c576506d5b492f11b369fbade6530be0638bda0",
+      "afterNormalizedSHA256": "9136df097244e0ffeb33f4355c2e496020a855690c583c13ceb2a37e67947a91"
+    },
+    {
+      "path": "firmware/main/voice_remote.h",
+      "beforeNormalizedSHA256": "e0fdb939fb7871d133b05bfa52980b756bbffa666050360a4a78e746bcbba3e3",
+      "afterNormalizedSHA256": "add156e356f172c4568fd8579b6e9471308edf44e30a766c33c207835298a070"
+    },
+    {
+      "path": "firmware/main/ui.c",
+      "beforeNormalizedSHA256": "89c3be59a6c73dd5a6550bad6361765df8364672e50de277351e8905b68155a9",
+      "afterNormalizedSHA256": "ad8deacd1e2e3230d4c9840ef386fa003faf5c0f2bf6abccc24747c70adc00ab"
+    },
+    {
+      "path": "firmware/main/ui_agenda.h",
+      "beforeNormalizedSHA256": "0b0e41a93ba47475dffda05b9051014e59f2d30c354e421c885961bd7cfbc37b",
+      "afterNormalizedSHA256": "77f582c45306f0480d70b2b7a1e2e97866cd688d469f836e959117fc26a3ba29"
+    },
+    {
+      "path": "tests/ui-preview/agenda_ui_test.h",
+      "beforeNormalizedSHA256": "616965fe220823a733cdc8d1a62d798ffbd3b217dc45ecd35461e158f02c1c31",
+      "afterNormalizedSHA256": "5d1b37998bad144dcbb1ebd6b5176657c88cab776544145bf2db75f1091dc877"
+    }
+  ],
+  "sound": "original synthesized240ms D5,80ms gap,320ms G5,40ms silence; smooth attack/release with quiet second partial",
+  "cueSeconds": 0.68,
+  "wavSecondsIncludingCodecSilence": 0.8,
+  "wavSHA256": "665b9079a8482dc83a0b113fa3e8b2706fc0d85fa0bd40bea325231890a35c2a",
+  "userReview": "first gentle version requested clearer; second version explicitly accepted",
+  "retained": "user volume/mute, single voice worker, capture priority, existing reply/countdown/health PCM paths",
+  "native": "UBSan executes old/new actual output functions with synthetic HAL/notice assets; unchanged-mode byte comparison, stereo/headroom/gaps, mute/memory/open failures, queued capture, all40 write failures/lifecycle pass",
+  "uiRegression": "agenda dedicated notification route and existing agenda/countdown workflows pass",
+  "targetObjectCompilation": [
+    "voice_remote.c",
+    "ui.c"
+  ],
+  "imageGenerated": false,
+  "physicalAudioAcceptance": "pending future combined firmware on TAB5 speaker"
+}

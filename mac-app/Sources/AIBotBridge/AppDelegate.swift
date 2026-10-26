@@ -16,10 +16,20 @@ final class MacWeatherSourceFields: NSObject {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let reader = SessionActivityReader()
+    private let devices = MacDeviceRegistry.shared
+    private var stocksWindow: MacStocksWindow?
+    private var quotaHistoryWindow: MacQuotaHistoryWindow?
+    private var runtimeWindow: MacRuntimeWindow?
+    private var informationWindows: [String: MacInformationWindow] = [:]
+    private let notifications = MacNotifications(), runtimeHealth = MacRuntimeHealth()
+    private var notificationWindow: MacNotificationWindow?, configurationWindow: MacConfigurationWindow?, updatesWindow: MacUpdateWindow?
+    private var appearanceWindow: NSWindowController?
+    private var espDisplayWindow: MacESPDisplayWindow?
+    private var bridgeStatusWindow: MacBridgeStatusWindow?
     private let dataStore = MacDataStore(quotaHistory: MacQuotaHistory())
-    private lazy var dataService = MacDataService(store: dataStore)
+    private lazy var dataService = MacDataService(store: dataStore, demanded: { MacDeviceRegistry.shared.demanded($0) })
     private lazy var quotaService = MacQuotaService(store: dataStore)
     private lazy var domesticQuotaService = MacDomesticQuotaService(store: dataStore)
     private var domesticQuotaWindow: MacDomesticQuotaWindow?
@@ -35,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var metricsTimer: Timer?
     private var musicTimer: Timer?
     private var serial: SerialBridge?
+    private var espDiscovery: MacESPDiscovery?
     private var tab5: MacTab5Service?
     private var tab5USB: MacTab5USB?
     private var tab5Discovery: MacTab5Discovery?
@@ -48,6 +59,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var flashSerialStopped = false
     private var gallery: MacPetGalleryWindow?
     private var mirror: MacMirrorWindow?
+    private var tab5Preview: MacTab5ScreenPreviewWindow?
+    private var tab5PreviewDeviceID: String?
+    private var windowPreviewDevices: [MacRegisteredDevice]?
     private var lastAttention = false
     private var lastCompletion: Int64 = 0
     private var wakeUntil = Date.distantPast
@@ -55,6 +69,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureApplicationMenu()
         statusItem.button?.title = "AI-bot"
+        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let image = NSImage(contentsOf: url) {
+            image.size = NSSize(width: 18, height: 18)
+            statusItem.button?.image = image
+            statusItem.button?.title = ""
+            statusItem.button?.imagePosition = .imageOnly
+        }
+        statusItem.button?.toolTip = "AI-bot Bridge"
         statusItem.button?.target=self
         statusItem.button?.action=#selector(statusClicked)
         statusItem.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
@@ -65,17 +87,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
         let music = { [dataStore] in dataStore.snapshot().music }
         let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), networkDiagnostics: { [networkDiagnostics] in networkDiagnostics.snapshot() }, music: { [dataStore] in
-            let media = dataStore.snapshot(); return (media.music, media.musicCover)
-        })
+            let media = dataStore.snapshot(); return (media.music, media.musicTab5Cover ?? media.musicCover)
+        }, enabled: { MacDeviceRegistry.shared.enabled("tab5") }, sourceEnabled: { MacDeviceRegistry.shared.source($0, kind: "tab5") })
         self.tab5 = tab5
+        DispatchQueue.global(qos:.utility).async { tab5.unlock.load() }
+        do { try devices.migrate(tab5: tab5.currentPairing?.deviceId) }
+        catch { show("设备配置未载入", "原文件已保留，设备连接暂停。" + error.localizedDescription) }
         tab5.codex.start()
         networkDiagnostics.start()
-        tab5.publish(reader.capture(extras: dataStore.snapshot()))
+        tab5.publish(devices.filter(reader.capture(extras: dataStore.snapshot()), kind: "tab5"))
         server = HTTPStatusServer(port: port, token: PairingTokenStore.read, resources: { [weak self] in self?.resourceSnapshot() ?? [] }, event: { [weak self] agent, event, message in
             self?.reader.signals.record(agent:agent,event:event,message:message) ?? false
-        }, acknowledge: { [weak self] in self?.reader.signals.acknowledge() }, tab5: tab5) { [weak self] in
+        }, acknowledge: { [weak self] in self?.reader.signals.acknowledge() }, tab5: tab5, espEnabled: { MacDeviceRegistry.shared.enabled("esp8266") && MacDeviceRegistry.shared.device("esp8266")?.connection != "usb" }) { [weak self] in
             guard let self else { return Data("{\"version\":1}".utf8) }
-            return self.reader.json(extras: self.dataStore.snapshot())
+            let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+            return (try? encoder.encode(self.devices.filter(self.reader.capture(extras: self.dataStore.snapshot()), kind: "esp8266"))) ?? Data()
         }
         do {
             try server?.start()
@@ -86,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let canProvisionLan = server != nil
         serial = SerialBridge(status: { [weak self] in
             guard let self else { return SessionActivityReader().capture() }
-            return self.reader.capture(extras: self.dataStore.snapshot())
+            return self.devices.filter(self.reader.capture(extras: self.dataStore.snapshot()), kind: "esp8266")
         }, lanConfiguration: { [weak self] in
             guard let self, canProvisionLan, let host = LocalNetworkIdentity.privateIPv4(),
                   let token = PairingTokenStore.read(), token.utf8.count >= 32 else { return nil }
@@ -94,35 +120,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }, resources: { [weak self] in
             guard let self else { return [] }
             return self.resourceSnapshot()
-        })
+        }, enabled: { MacDeviceRegistry.shared.enabled("esp8266") && MacDeviceRegistry.shared.device("esp8266")?.connection != "wifi" })
         serial?.start()
         tab5USB = MacTab5USB(service: tab5)
         tab5USB?.start()
         tab5BLE = MacTab5BLE(service: tab5)
         tab5BLE?.setEnabled(UserDefaults.standard.bool(forKey: MacTab5BLE.enabledKey))
-        tab5Discovery = MacTab5Discovery(service: tab5)
+        let espDiscovery = MacESPDiscovery(token:PairingTokenStore.read,
+            enabled:{ MacDeviceRegistry.shared.enabled("esp8266") && MacDeviceRegistry.shared.device("esp8266")?.connection != "usb" },
+            port:{ [weak self] in self?.server?.boundPort })
+        self.espDiscovery = espDiscovery
+        tab5Discovery = MacTab5Discovery(service:tab5,esp:espDiscovery)
         do { try tab5Discovery?.start() }
         catch {
             tab5.setDiscoveryState("未启动；可通过 USB 写入电脑地址")
             show("TAB5 自动发现未启动", "USB 连接仍可使用；Wi-Fi 请先通过 USB 写入电脑地址。")
         }
         metricsTimer=Timer.scheduledTimer(withTimeInterval:0.25,repeats:true){[weak self] _ in
-            guard let self,let metrics=self.systemMetrics.capture() else{return}
+            guard let self,self.devices.demanded("system"),let metrics=self.systemMetrics.capture() else{return}
             self.dataStore.update(systemMetrics:metrics)
-            self.serial?.sendMetrics(metrics)
+            if self.devices.source("system", kind: "esp8266") { self.serial?.sendMetrics(metrics) }
         }
+        prepareUpdateWindow(); updatesWindow?.startAutomaticChecks()
         updateTitle()
         Task { await self.musicService.refreshIfEnabled() }
         musicTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self else { return }
+            guard let self, self.devices.demanded("music") else { return }
             Task { await self.musicService.refreshIfEnabled() }
         }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateTitle() }
         Task { await self.dataService.refreshDue(force: true) }
         Task { await self.quotaService.refresh() }
         Task { await self.domesticQuotaService.refresh() }
+        prepareDomesticQuotas(); domesticQuotaWindow?.startBackgroundRefresh()
+        MacCalendarStore.shared.schedule()
         dataTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             guard let self else { return }
+            MacCalendarStore.shared.schedule()
             Task { await self.dataService.refreshDue() }
         }
         quotaTimer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
@@ -136,6 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         timer?.invalidate()
         dataTimer?.invalidate()
         quotaTimer?.invalidate()
+        domesticQuotaWindow?.stop()
         metricsTimer?.invalidate()
         networkDiagnostics.stop()
         musicTimer?.invalidate()
@@ -148,6 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if updatesWindow?.busy == true { updatesWindow?.open(); return .terminateCancel }
         if flasher?.busy == true { flasher?.open(); return .terminateCancel }
         if tab5Installer?.busy == true { tab5Installer?.open(); return .terminateCancel }
         if tab5Window?.busy == true { tab5Window?.open(); return .terminateCancel }
@@ -168,14 +204,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applicationItem.submenu = applicationMenu
         menu.addItem(applicationItem)
 
+        let editItem = NSMenuItem()
+        let editMenu = NSMenu(title: "编辑")
+        for (title, action, key) in [("剪切", #selector(NSText.cut(_:)), "x"), ("复制", #selector(NSText.copy(_:)), "c"), ("粘贴", #selector(NSText.paste(_:)), "v"), ("全选", #selector(NSText.selectAll(_:)), "a")] {
+            editMenu.addItem(NSMenuItem(title: title, action: action, keyEquivalent: key))
+        }
+        editItem.submenu = editMenu; menu.addItem(editItem)
+
         let windowItem = NSMenuItem()
         let windowMenu = NSMenu(title: "窗口")
+        windowMenu.identifier = .init("bridge-window-menu")
+        windowMenu.delegate = self
         windowMenu.addItem(NSMenuItem(title: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
-        windowMenu.addItem(item("TAB5…", #selector(openTab5)))
+        windowMenu.addItem(item("设备中心…", #selector(openTab5)))
         windowItem.submenu = windowMenu
         menu.addItem(windowItem)
         NSApp.mainMenu = menu
         NSApp.windowsMenu = windowMenu
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu.identifier?.rawValue == "bridge-window-menu" else { return }
+        let registered = (try? devices.file.read()) ?? []
+        guard windowPreviewDevices != registered else { return }
+        windowPreviewDevices = registered
+        if let old = menu.items.first(where: { $0.identifier?.rawValue == "mirror" }) { menu.removeItem(old) }
+        // Reuse the tray's live device selection and guarded actions so keyboard
+        // and accessibility users can open the same preview from a standard menu.
+        let current = buildMenu()
+        guard let preview = current.items.first(where: { $0.identifier?.rawValue == "mirror" }) else { return }
+        current.removeItem(preview)
+        let index = menu.items.firstIndex(where: { $0.action == #selector(openTab5) }).map { $0 + 1 } ?? menu.items.count
+        menu.insertItem(preview, at: index)
     }
 
     @objc private func openFlasher() {
@@ -220,57 +280,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func buildMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.addItem(item("查看本机状态", #selector(showStatus)))
-        menu.addItem(item("设备镜像", #selector(openMirror)))
-        menu.addItem(item("TAB5…", #selector(openTab5)))
-        menu.addItem(item("确认 Codex 完成提醒", #selector(acknowledgeCompletion)))
-        let displayItem = NSMenuItem(title: "显示页面", action: nil, keyEquivalent: "")
-        let displayMenu = NSMenu()
-        for (title, value) in [
-            ("智能跟随", "auto"), ("Claude", "claude"), ("Codex", "codex"), ("Claude + Codex 额度", "dual"), ("天气", "weather"),
-            ("股票", "stocks"), ("账户额度", "quotas"), ("国产额度", "domestic"),
-            ("系统监控", "system"), ("音乐", "music"), ("桌宠", "pet"), ("屏保", "screensaver")
-        ] {
-            let mode = item(title, #selector(selectDisplayMode))
-            mode.representedObject = value
-            displayMenu.addItem(mode)
-        }
-        displayItem.submenu = displayMenu
-        menu.addItem(displayItem)
-        menu.addItem(item("轮播页面设置…", #selector(configureCycle)))
-
-        let brightnessItem = NSMenuItem(title: "屏幕亮度", action: nil, keyEquivalent: "")
-        let brightnessMenu = NSMenu()
-        for level in [25, 50, 75, 100] {
-            let choice = item("\(level)%", #selector(selectBrightness))
-            choice.representedObject = level
-            brightnessMenu.addItem(choice)
-        }
-        brightnessItem.submenu = brightnessMenu
-        menu.addItem(brightnessItem)
-        menu.addItem(item("查看设备信息…", #selector(showDeviceInfo)))
-        menu.addItem(item("小屏刷机…", #selector(openFlasher)))
-        menu.addItem(item("自动屏保设置…", #selector(configureScreenSaver)))
-        menu.addItem(item("重新下发 Wi-Fi 回退配置", #selector(reprovisionLan)))
-        menu.addItem(item("重置设备 Wi-Fi…", #selector(resetDeviceWiFi)))
-        menu.addItem(item("测试 Wi-Fi 回退（保持 USB 供电）…", #selector(testWiFiFallback)))
-        menu.addItem(item("导入外部桌宠…", #selector(importPet)))
-        menu.addItem(item("更换桌宠动画（图库）…", #selector(openGallery)))
-        menu.addItem(item("从本机旧版导入默认桌宠…", #selector(importDefaultPets)))
-        menu.addItem(item("从本机旧版导入页面图标…", #selector(importPageLogos)))
-        for role in ["claude","codex"] {
-            let choice=item("恢复 \(role.capitalized) 默认桌宠",#selector(restorePet));choice.representedObject=role;menu.addItem(choice)
-        }
-        let musicAutomation = item("读取音乐状态（需自动化权限）", #selector(toggleMusicAutomation))
-        musicAutomation.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off
-        menu.addItem(musicAutomation)
-        menu.addItem(item("天气和股票设置…", #selector(configureDataSources)))
-        menu.addItem(item("设置配对令牌…", #selector(setPairingToken)))
-        menu.addItem(item("复制 LAN 服务地址", #selector(copyAddress)))
-        menu.addItem(.separator())
-        menu.addItem(item("退出", #selector(quit), key: "q"))
-        return menu
+        MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
+            guard let self, let current = self.devices.device(device.kind), current.id == device.id, current.enabled else { return }
+            if action == "mirror" {
+                if device.kind == "esp8266" { self.openMirror() }
+                else if let service = self.tab5 {
+                    if self.tab5Preview == nil || self.tab5PreviewDeviceID != device.id {
+                        self.tab5Preview?.close(); self.tab5PreviewDeviceID = device.id
+                        self.tab5Preview = MacTab5ScreenPreviewWindow(service:service,name:current.name,valid:{ [weak self] in
+                            self?.devices.device("tab5").map { $0.id == device.id && $0.enabled } == true
+                        })
+                    }
+                    self.tab5Preview?.updateName(current.name); self.tab5Preview?.open()
+                }
+                return
+            }
+            self.openTab5()
+            self.tab5Window?.openDeviceShortcut(kind: device.kind, action: action)
+        }, common: { [weak self] action in
+            if action == "devices" { self?.openTab5() }
+            else if action == "exit" { self?.quit() }
+        })
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
@@ -281,20 +311,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func resourceSnapshot() -> [MacResourcePayload] {
         let extras = dataStore.snapshot()
-        return localizedTextResources.capture(weather: extras.weather, stocks: extras.stocks,
-            music: extras.music, musicCover: extras.musicCover) + MacPetCache.shared.resources()
+        return localizedTextResources.capture(weather: devices.source("weather",kind:"esp8266") ? extras.weather:nil, stocks: devices.source("stocks",kind:"esp8266") ? extras.stocks:nil,
+            music: devices.source("music",kind:"esp8266") ? extras.music:nil, musicCover: devices.source("music",kind:"esp8266") ? extras.musicCover:nil) + MacPetCache.shared.resources()
     }
 
     private func updateTitle() {
         let snapshot = reader.capture(extras: dataStore.snapshot())
         tab5?.assets.updatePets([MacPetCache.shared.selection("claude"), MacPetCache.shared.selection("codex")])
-        tab5?.publish(snapshot)
-        statusItem.button?.title = "C:\(short(snapshot.codex.state)) A:\(short(snapshot.claude.state))"
+        tab5?.publish(devices.filter(snapshot, kind: "tab5"))
+        statusItem.button?.toolTip = "AI-bot Bridge\nCodex：\(statusLabel(snapshot.codex.state))\nClaude：\(statusLabel(snapshot.claude.state))"
         updateAutomaticScreenSaver(snapshot)
+        let health = runtimeHealth.snapshot(metrics:snapshot.systemMetrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:tab5?.codex.isEnabled ?? false,desktopObserved:tab5?.codex.canMutate ?? false,network:networkDiagnostics.snapshot())
+        let keys = (health?["alerts"] as? [[String:Any]] ?? []).compactMap { $0["key"] as? String }
+        notifications.observe(snapshot,deviceOnline:tab5?.usbActive == true || tab5?.bootTransport != nil,healthKeys:keys)
     }
 
-    private func short(_ state: String) -> String {
-        state == "working" ? "W" : state == "idle" ? "I" : "-"
+    private func statusLabel(_ state: String) -> String {
+        state == "working" ? "工作中" : state == "idle" ? "空闲" : "离线"
     }
 
     @objc private func selectDisplayMode(_ sender: NSMenuItem) {
@@ -316,15 +349,112 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if tab5Window == nil {
             tab5Window = MacTab5Window(service: service, usb: usb, canBegin: { [weak self] in self?.deviceOperationBusy == false }, changeBluetooth: { [weak self] enabled in self?.tab5BLE?.setEnabled(enabled) }, install: { [weak self] in self?.openTab5Installer() },
                 configureWeather: { [weak self] in self?.configureDataSources() },
+                configureStocks: { [weak self] in self?.configureStocks() },
                 configureQuotas: { [weak self] in self?.openDomesticQuotas() },
                 dataStatus: { [weak self] in
                     guard let self else { return "" }
                     return self.dataStore.weatherDiagnostic + "\n" + self.dataStore.systemDiagnostic + "\n" + self.networkDiagnostics.summary
+                }, bridgeAction: { [weak self] action in self?.performBridgeAction(action) },
+                smallScreenStatus: { [weak self] in
+                    guard let self else { return "USB：未连接" }
+                    return "USB：\(self.serial?.portName ?? "未连接")\n\(self.serial?.connectionDetail ?? "等待扫描")\n设备地址：\(self.serial?.deviceHost ?? "未发现")"
+                }, registry: devices, smallScreenOnline:{ [weak self] in
+                    guard let self else { return false }
+                    return self.serial?.portName != nil || self.server?.lastESPRequest.map { Date().timeIntervalSince($0) < 8 } == true
                 })
         }
         tab5Window?.open()
     }
-    @objc private func statusClicked(){guard let button=statusItem.button else{return};if NSApp.currentEvent?.type == .rightMouseUp {buildMenu().popUp(positioning:nil,at:NSPoint(x:0,y:button.bounds.minY),in:button)}else{openMirror()}}
+    private func performBridgeAction(_ action: MacBridgeAction) {
+        switch action {
+        case .status: showStatus()
+        case .cycle: configureCycle()
+        case .screenSaver: configureScreenSaver()
+        case .mirror: openMirror()
+        case .petGallery: openGallery()
+        case .deviceInfo: showDeviceInfo()
+        case .flash: openFlasher()
+        case .reprovisionLAN: reprovisionLan()
+        case .pairingToken: setPairingToken()
+        case .copyAddress: copyAddress()
+        case .appearance: openAppearance()
+        case .espConnection: openESPConnection()
+        case .espFallback: testWiFiFallback()
+        case .espReset: resetDeviceWiFi()
+        case .espData, .tab5Data:
+            do { _ = try devices.edit(action == .espData ? "esp8266":"tab5",dataOnly:true); updateTitle() } catch { show("无法保存数据设置",error.localizedDescription) }
+        case .quotaHistory:
+            if quotaHistoryWindow == nil { quotaHistoryWindow = MacQuotaHistoryWindow(store:dataStore) }; quotaHistoryWindow?.open()
+        case .configuration:
+            configurationWindow = MacConfigurationWindow { [weak self] in guard let self else { return }; self.reader.select(MacDisplayPolicy.load().selectedMode); self.updateTitle(); Task { await self.dataService.refreshDue(force:true) } }; configurationWindow?.open()
+        case .notifications:
+            notificationWindow = MacNotificationWindow(service:notifications); notificationWindow?.open()
+        case .runtime: openRuntime()
+        case .about: openAbout()
+        case .updates:
+            prepareUpdateWindow(); updatesWindow?.open()
+        }
+    }
+    private func prepareUpdateWindow() {
+        if updatesWindow == nil { updatesWindow = MacUpdateWindow(tab5:tab5,upgradeTools:{ [weak self] in self?.openTab5(); self?.tab5Window?.showUpgradeTools() },espTools:{ [weak self] in self?.openFlasher() }) }
+    }
+    private func openRuntime() {
+        let window = MacRuntimeWindow(capture:{ [weak self] in
+            guard let self else { return "" }; let sample = self.dataStore.snapshot()
+            var lines = [MacRuntimePreferences.current.enabled ? "监控已启用":"监控已停用",self.networkDiagnostics.summary,self.dataStore.systemDiagnostic]
+            if let health = self.runtimeHealth.snapshot(metrics:sample.systemMetrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:self.tab5?.codex.isEnabled ?? false,desktopObserved:self.tab5?.codex.canMutate ?? false,network:self.networkDiagnostics.snapshot()), let checks = health["checks"] as? [[String:Any]] {
+                lines += checks.map { "\($0["label"] as? String ?? "")：\($0["summary"] as? String ?? "")\n\($0["detail"] as? String ?? "")" }
+            }
+            lines.append(self.tab5?.connectionSummary ?? "TAB5 尚未启动"); return lines.joined(separator:"\n\n")
+        },reload:{ [weak self] in self?.networkDiagnostics.stop(); self?.networkDiagnostics.start() },
+        overviewCapture:{ [weak self] in
+            guard let self else { return (nil,nil) }; let metrics = self.dataStore.snapshot().systemMetrics
+            return (metrics,self.runtimeHealth.snapshot(metrics:metrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:self.tab5?.codex.isEnabled ?? false,desktopObserved:self.tab5?.codex.canMutate ?? false,network:self.networkDiagnostics.snapshot()))
+        },deviceCapture:{ [weak self] in
+            [self?.server?.statusDiagnosticSummary,self?.tab5?.usbDiagnosticSummary,self?.tab5?.screenPreview.diagnostic,self?.tab5?.computer.mediaDiagnostic,self?.dataStore.musicArtworkDiagnostic,self?.tab5?.assets.coverDiagnostic,self?.tab5?.deviceDiagnosticSummary].compactMap { $0 }.joined(separator:"\n\n")
+        },
+        deviceImage:{ [weak self] in
+            guard let media = self?.dataStore.snapshot() else { return nil }
+            return media.musicTab5Cover.flatMap(NSImage.init(data:)) ?? media.musicCover.flatMap { MacPetAnimation.image($0,width:112,height:112) }
+        },
+        deviceImageCaption:{ [weak self] in
+            guard let track = self?.dataStore.snapshot().music, !track.title.isEmpty else { return "Mac 当前采样封面：没有活动曲目" }
+            return "Mac 当前采样（仅内存显示）\n\(track.title)\n\(track.artist) · \(track.album)"
+        },
+        deviceRefresh:{ [weak self] done in guard let tab5 = self?.tab5 else { done(); return }; tab5.refreshDeviceDiagnostics(completion:done) }); runtimeWindow = window; window.open()
+    }
+    private func openAbout() {
+        let version = Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "本地开发版"
+        let window = MacInformationWindow("关于应用",width:540,height:460,actions:[MacSettingsButton("项目主页") { NSWorkspace.shared.open(URL(string:"https://github.com/yaoyouzhong/AI-bot")!) },MacSettingsButton("使用说明") { if let url = Bundle.main.url(forResource:"MAC-TAB5-CANDIDATE",withExtension:"md") { NSWorkspace.shared.open(url) } },MacSettingsButton("许可文件") { if let url = Bundle.main.url(forResource:"LICENSE",withExtension:nil) { NSWorkspace.shared.open(url) } }],capture:{ "AI-bot macOS 桥接程序\n版本：\(version)\n作者：yaoyouzhong & Codex\n系统：\(ProcessInfo.processInfo.operatingSystemVersionString)\n\n独立实现的 AI 状态桌面时钟桥接。支持 ESP8266 和 M5Stack TAB5，桥接与固件独立编号。\n\n此构建包含本机桌面权限与 Keychain 凭据保护。功能随平台能力开放，Windows PIN 解锁及处理器队列计数不适用于 macOS。" }); informationWindows["about"] = window; window.open()
+    }
+    private func openESPConnection() {
+        let window = MacInformationWindow("连接设置",subtitle:"ESP8266 使用 USB 优先、Wi-Fi 回退。仅 USB／仅 Wi-Fi 可在设备管理中设置。",live:true,actions:[MacSettingsButton("连接方式…") { [weak self] in do { _ = try self?.devices.edit("esp8266") } catch { self?.show("连接设置",error.localizedDescription) } },MacSettingsButton("屏保等待…") { [weak self] in self?.configureScreenSaver() },MacSettingsButton("复制 LAN 地址") { [weak self] in self?.copyAddress() },MacSettingsButton("配对令牌…") { [weak self] in self?.setPairingToken() },MacSettingsButton("下发 LAN") { [weak self] in self?.reprovisionLan() },MacSettingsButton("回退测试") { [weak self] in self?.testWiFiFallback() },MacSettingsButton("自动发现测试") { [weak self] in self?.testESPDiscovery() },MacSettingsButton("重置网络…") { [weak self] in self?.resetDeviceWiFi() }],capture:{ [weak self] in guard let self else { return "" }; return "USB：\(self.serial?.portName ?? "未连接")\n\(self.serial?.connectionDetail ?? "等待扫描")\n设备地址：\(self.serial?.deviceHost ?? "未发现")\nLAN 端口：\(self.port)\n\n\(self.networkDiagnostics.summary)" }); informationWindows["esp-connection"] = window; window.open()
+    }
+    private func openAppearance() {
+        let page = MacBridgeSettingsPage(), status = MacBridgeSettingsStyle.note("")
+        let window = MacBridgeSettingsStyle.window("外观设置",height:650); appearanceWindow = NSWindowController(window:window)
+        page.heading("外观设置",subtitle:"ESP8266 天气动画和桌宠；修改天气动画后随下一次状态发送。")
+        let animation = MacSettingsControls.popup(["机器人","房屋","植物","桌宠","关闭"]), ids = ["robot","house","plant","pet","off"]
+        animation.selectItem(at:ids.firstIndex(of:UserDefaults.standard.string(forKey:"weather_animation") ?? "robot") ?? 0); page.field("天气动画",animation)
+        animation.target = self; animation.action = #selector(changeWeatherAnimation(_:))
+        status.stringValue = "天气动画自动保存，设备连接后更新。"
+        for owner in ["claude","codex"] {
+            page.section(owner == "claude" ? "Claude 动画":"Codex 动画")
+            page.add(MacBridgeSettingsStyle.row([MacSettingsButton("导入动画…") {
+                let panel = NSOpenPanel(); panel.allowedContentTypes = [.png,.jpeg,.bmp,.gif]; guard panel.runModal() == .OK,let url = panel.url else { return }
+                do { let asset = try MacPetAssetImporter.loadAnimation(url); try MacPetCache.shared.select(owner,data:asset.data); status.stringValue = "已保存，连接设备后自动同步。" } catch { status.stringValue = error.localizedDescription }
+            },MacSettingsButton("恢复默认") { do { try MacPetCache.shared.restore(owner); status.stringValue = "已恢复默认动画。" } catch { status.stringValue = error.localizedDescription } }]))
+        }
+        page.section("预览与屏保"); page.add(MacBridgeSettingsStyle.row([MacSettingsButton("桌宠图库…") { [weak self] in self?.openGallery() },MacSettingsButton("预览…") { [weak self] in self?.openMirror() },MacSettingsButton("自动屏保…") { [weak self] in self?.configureScreenSaver() }]))
+        page.section("资源导入"); page.add(MacBridgeSettingsStyle.row([MacSettingsButton("导入外部桌宠…") { [weak self] in self?.importPet() },MacSettingsButton("导入本机旧版桌宠…") { [weak self] in self?.importDefaultPets() },MacSettingsButton("导入本机旧版图标…") { [weak self] in self?.importPageLogos() }]))
+        window.contentView = MacBridgeSettingsShell(body:page,status:status); appearanceWindow.map(MacSettingsControls.open)
+    }
+    @objc private func changeWeatherAnimation(_ sender:NSPopUpButton) {
+        let ids = ["robot","house","plant","pet","off"]
+        guard ids.indices.contains(sender.indexOfSelectedItem) else { return }
+        UserDefaults.standard.set(ids[sender.indexOfSelectedItem],forKey:"weather_animation"); updateTitle()
+    }
+    @objc private func statusClicked(){guard let button=statusItem.button else{return};if NSApp.currentEvent?.type == .rightMouseUp {buildMenu().popUp(positioning:nil,at:NSPoint(x:0,y:button.bounds.minY),in:button)}else{openTab5()}}
     @objc private func openMirror() {
         guard let button=statusItem.button else{return}
         if mirror == nil { mirror=MacMirrorWindow(anchor:button,capture:{[weak self] in self?.reader.capture(extras:self?.dataStore.snapshot() ?? .empty) ?? SessionActivityReader().capture()},resources:{[weak self] in self?.resourceSnapshot() ?? []},select:{[weak self] mode in self?.selectMode(mode)},brightness:{[weak self] level in self?.serial?.sendBrightness(level) ?? false}) }
@@ -351,19 +481,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         catch {show("无法恢复","请先从本机旧版导入默认桌宠。\n"+error.localizedDescription)}
     }
     @objc private func configureCycle() {
-        let policy=MacDisplayPolicy.load(),stack=NSStackView();stack.orientation = .vertical;stack.alignment = .leading
-        let enabled=NSButton(checkboxWithTitle:"启用循环展示",target:nil,action:nil);enabled.state=policy.cycleEnabled ? .on:.off;stack.addArrangedSubview(enabled)
-        let interval=NSPopUpButton();interval.addItems(withTitles:["10 秒","15 秒","30 秒","60 秒"]);interval.selectItem(at:[10,15,30,60].firstIndex(of:policy.intervalSeconds) ?? 1);stack.addArrangedSubview(interval)
-        var choices:[NSButton]=[]
-        for mode in MacDisplayPolicy.modes {let button=NSButton(checkboxWithTitle:mode,target:nil,action:nil);button.state=policy.pages.contains(mode) ? .on:.off;choices.append(button);stack.addArrangedSubview(button)}
-        stack.frame=NSRect(x:0,y:0,width:280,height:300)
-        let alert=NSAlert();alert.messageText="轮播设置";alert.informativeText="按所选页面循环；等待输入和完成提醒优先。手动选页将停止轮播。";alert.accessoryView=stack;alert.addButton(withTitle:"保存");alert.addButton(withTitle:"取消")
-        guard alert.runModal() == .alertFirstButtonReturn else{return}
-        let pages=choices.filter{$0.state == .on}.map{$0.title};guard !pages.isEmpty else{show("未保存","至少选择一个页面。");return}
-        UserDefaults.standard.set(enabled.state == .on,forKey:"display_cycle_enabled");UserDefaults.standard.set([10,15,30,60][interval.indexOfSelectedItem],forKey:"display_cycle_interval_seconds");UserDefaults.standard.set(pages,forKey:"display_cycle_pages")
-        UserDefaults.standard.set("auto",forKey:"display_mode")
-        MacDisplayPolicy.cycleAnchor=Int64(Date().timeIntervalSince1970)
-        screenSaverState.select("auto");reader.select("auto");_ = serial?.sendDisplayMode("auto")
+        espDisplayWindow = MacESPDisplayWindow(policy:MacDisplayPolicy.load(),apply:{ [weak self] policy in
+            UserDefaults.standard.set(policy.selectedMode,forKey:"display_mode"); UserDefaults.standard.set(policy.cycleEnabled,forKey:"display_cycle_enabled")
+            UserDefaults.standard.set(policy.intervalSeconds,forKey:"display_cycle_interval_seconds"); UserDefaults.standard.set(policy.pages,forKey:"display_cycle_pages")
+            if policy.cycleEnabled { self?.reader.signals.acknowledge() }
+            MacDisplayPolicy.cycleAnchor = Int64(Date().timeIntervalSince1970)
+            self?.screenSaverState.select(policy.selectedMode); self?.reader.select(policy.selectedMode); _ = self?.serial?.sendDisplayMode(policy.selectedMode)
+        },brightness:{ [weak self] in self?.serial?.sendBrightness($0) ?? false },read:{ [weak self] done in
+            guard let self, !self.deviceOperationBusy, self.serial?.portName != nil else { done(.failure(MacTab5LocalError.invalid("USB 未连接，亮度尚未读取。"))); return }
+            self.deviceOperationBusy = true
+            Task { @MainActor in defer { self.deviceOperationBusy = false }; do { done(.success(try await self.deviceAdminService().fetchInfo().brightness)) } catch { done(.failure(error)) } }
+        }); espDisplayWindow?.open()
     }
 
     @objc private func selectBrightness(_ sender: NSMenuItem) {
@@ -454,6 +582,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                            token: PairingTokenStore.read, serial: serial)
     }
 
+    private func testESPDiscovery() {
+        guard !deviceOperationBusy, let serial, let espDiscovery else { return }
+        deviceOperationBusy = true
+        let service = deviceAdminService()
+        Task { @MainActor [weak self] in
+            defer { self?.deviceOperationBusy = false }
+            do { let message = try await MacESPDiscoveryDeviceTest.run(serial:serial,service:service,discovery:espDiscovery); self?.show("自动发现测试通过",message) }
+            catch { self?.show("自动发现测试未通过", "已恢复常规 USB 发送并尝试重新下发原 LAN 配置。\n" + error.localizedDescription) }
+        }
+    }
+
     @objc private func testWiFiFallback() {
         guard !deviceOperationBusy, let serial else { return }
         let alert = NSAlert()
@@ -487,21 +626,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func configureScreenSaver() {
-        let choices = [0, 1, 5, 10, 15, 30, 60]
-        let current = Self.screenSaverMinutes()
-        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 220, height: 26))
-        popup.addItems(withTitles: choices.map { $0 == 0 ? "关闭" : "\($0) 分钟" })
-        popup.selectItem(at: choices.firstIndex(of: current) ?? 0)
-        let alert = NSAlert()
-        alert.messageText = "自动屏保"
-        alert.informativeText = "达到空闲时间后进入设备屏保；检测到本机输入后恢复先前页面。"
-        alert.accessoryView = popup
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "取消")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let index = popup.indexOfSelectedItem
-        guard choices.indices.contains(index) else { return }
-        UserDefaults.standard.set(choices[index], forKey: "screensaver_timeout_minutes")
+        let minutes = NSTextField(string:String(Self.screenSaverMinutes()))
+        let form = MacBridgeSettingsForm("ESP8266 自动屏保", subtitle:"达到空闲时间后进入屏保；检测到输入后恢复先前页面。",height:380)
+        form.page.field("等待分钟（0–1440，0 为关闭）",minutes)
+        guard form.run(validating:{ Int(minutes.stringValue).map { (0...1440).contains($0) } == true ? nil:"请输入 0–1440 分钟。" }) else { return }
+        UserDefaults.standard.set(Int(minutes.stringValue)!,forKey:"screensaver_timeout_minutes")
     }
 
     @objc private func importPet() {
@@ -558,127 +687,86 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static func screenSaverMinutes(_ defaults: UserDefaults = .standard) -> Int {
         let value = defaults.integer(forKey: "screensaver_timeout_minutes")
-        return [0, 1, 5, 10, 15, 30, 60].contains(value) ? value : 0
+        return (0...1440).contains(value) ? value : 0
     }
 
     @objc private func showStatus() {
-        let snapshot = reader.capture(extras: dataStore.snapshot())
-        let weather = snapshot.weather.map { "\($0.city) \(Int($0.temperature.rounded()))°" } ?? "未配置"
-        let system = snapshot.systemMetrics.map {
-            "CPU \(Int($0.cpuPercent.rounded()))% / MEM \(Int($0.memoryPercent.rounded()))%"
-        } ?? "等待采样"
-        let quotaCount = [snapshot.quotas?.claude, snapshot.quotas?.codex].compactMap { $0 }.count
-        let music: String
-        if !UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) {
-            music = "关闭"
-        } else if let title = snapshot.music?.title, !title.isEmpty {
-            music = title
-        } else {
-            music = "无活动会话"
+        bridgeStatusWindow = MacBridgeStatusWindow(capture:{ [weak self] in self?.bridgeStatus() ?? .init(devices:[],data:[],listener:"服务已停止") },reconnect:{ [weak self] kind,done in
+            guard let self, !self.deviceOperationBusy, self.flasher?.busy != true, self.tab5Installer?.busy != true, self.tab5Window?.busy != true, self.tab5Window?.toolsBusy != true, self.tab5?.configurationBusy != true else { done(.failure(MacTab5Error.busy)); return }
+            self.deviceOperationBusy = true
+            DispatchQueue.global(qos:.userInitiated).async {
+                if kind == "tab5" { self.tab5USB?.stopAndWait() } else { self.serial?.stopAndWait() }
+                DispatchQueue.main.async {
+                    defer { self.deviceOperationBusy = false }
+                    do {
+                        guard let server = self.server else { throw MacTab5LocalError.invalid("LAN 服务未初始化。") }; server.stop(); try server.start()
+                        if kind == "tab5" { self.tab5USB?.start(); self.tab5BLE?.setEnabled(false); self.tab5BLE?.setEnabled(UserDefaults.standard.bool(forKey:MacTab5BLE.enabledKey)) } else { self.serial?.start() }
+                        done(.success(()))
+                    } catch { if kind == "tab5" { self.tab5USB?.start() } else { self.serial?.start() }; done(.failure(error)) }
+                }
+            }
+        }); bridgeStatusWindow?.open()
+    }
+    private func bridgeStatus() -> MacBridgeStatusView {
+        let snapshot = dataStore.snapshot(), registered = (try? devices.file.read()) ?? []
+        let rows = registered.map { device -> MacBridgeStatusView.Device in
+            if device.kind == "tab5" {
+                let state = tab5?.connectionStatus, transport = tab5?.usbActive == true ? "USB" : tab5?.bootTransport ?? "—"
+                return .init(kind:device.kind,name:device.name,enabled:device.enabled,state:!device.enabled ? "已停用" : transport == "—" ? "未连接":"在线",transport:transport,firmware:state?.firmware ?? "未知",detail:tab5?.connectionSummary ?? "TAB5 服务未启动")
+            }
+            let wifi = server?.lastESPRequest.map { Date().timeIntervalSince($0) < 8 } ?? false
+            let usb = serial?.portName != nil, transport = usb ? "USB" : wifi ? "Wi-Fi":"—"
+            return .init(kind:device.kind,name:device.name,enabled:device.enabled,state:!device.enabled ? "已停用" : transport == "—" ? "未连接":usb ? "USB 已连接":"收到认证请求",transport:transport,firmware:"待设备读取",detail:"USB：\(serial?.portName ?? "未连接")\nWi-Fi：\(wifi ? "最近 8 秒收到认证状态请求":"等待设备请求")\n重新连接会重启所选 USB / 蓝牙及共用 LAN 监听，保留配对与配置。")
         }
-        let usb = serial?.portName ?? "未连接"
-        let device = serial?.deviceHost ?? "未发现"
-        show("AI-bot 状态", "Codex: \(snapshot.codex.state)\nClaude: \(snapshot.claude.state)\n天气: \(weather)\n股票: \(snapshot.stocks?.quotes.count ?? 0)\n额度: \(quotaCount)/2\n音乐: \(music)\n系统: \(system)\nUSB: \(usb)\n设备 IP: \(device)\nLAN 端口: \(port)")
+        var data:[[String]] = []
+        func add(_ label:String,_ source:String,_ date:Date?,_ stale:Bool,provider:String? = nil) {
+            let enabled = registered.contains { $0.enabled && $0.sources.contains(source) && (provider == nil || $0.providers.contains(provider!)) }
+            data.append([label,!enabled ? "未启用":date == nil ? "暂无数据":stale ? "旧缓存":"数据可用",date.map { DateFormatter.localizedString(from:$0,dateStyle:.short,timeStyle:.medium) } ?? "—"])
+        }
+        add("天气","weather",snapshot.weather?.updatedAt,snapshot.weather?.stale ?? true); add("股票","stocks",snapshot.stocks?.updatedAt,snapshot.stocks?.stale ?? true)
+        add("Codex 额度","quotas",snapshot.quotas?.codex?.updatedAt,snapshot.quotas?.codex?.stale ?? true); add("Claude 额度","quotas",snapshot.quotas?.claude?.updatedAt,snapshot.quotas?.claude?.stale ?? true)
+        for (id,name) in MacDeviceRegistry.providers { let value = snapshot.domesticQuotas?[id]; add(name+" 额度","quotas",value?.updatedAt,value?.stale ?? true,provider:id) }
+        add("音乐","music",snapshot.music?.updatedAt,snapshot.music.map { Date().timeIntervalSince($0.updatedAt) > 3 } ?? true)
+        add("系统状态","system",snapshot.systemMetrics?.updatedAt,snapshot.systemMetrics.map { Date().timeIntervalSince($0.updatedAt) > 8 } ?? true)
+        return .init(devices:rows,data:data,listener:server?.boundPort.map { "LAN 已监听：\($0)" } ?? "LAN 未就绪")
     }
 
-    @objc private func configureDataSources() {
-        let preferences = MacDataPreferences.load()
-        let automatic = NSButton(checkboxWithTitle: "根据电脑位置自动查询天气", target: nil, action: nil)
-        automatic.state = preferences.automaticLocation ? .on : .off
-        let provider = NSPopUpButton()
-        provider.addItems(withTitles: ["Open-Meteo", "和风天气"])
-        provider.selectItem(at: preferences.weatherProvider == "qweather" ? 1 : 0)
-        let weatherHost = NSTextField(string: preferences.qweatherHost)
-        weatherHost.placeholderString = "控制台分配的 xxx.qweatherapi.com"
-        let weatherKey = NSSecureTextField(); weatherKey.placeholderString = "API Key（留空保留该 Host 已保存的密钥）"
-        let city = NSTextField(string: preferences.city)
-        let latitude = NSTextField(string: preferences.latitude.map { String($0) } ?? "")
-        let longitude = NSTextField(string: preferences.longitude.map { String($0) } ?? "")
-        let stocks = NSTextField(string: preferences.symbols.joined(separator: ","))
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 8
-        stack.addArrangedSubview(automatic)
-        stack.addArrangedSubview(NSTextField(labelWithString: "天气来源"))
-        stack.addArrangedSubview(provider)
-        var credentialViews: [NSView] = []
-        for (label, field) in [("和风 API Host（仅和风使用）", weatherHost), ("和风 API Key（仅保存到钥匙串）", weatherKey), ("天气城市", city), ("纬度（可空）", latitude),
-                               ("经度（可空）", longitude), ("股票代码（逗号分隔，最多 20 个）", stocks)] {
-            let title = NSTextField(labelWithString: label)
-            field.frame.size.width = 420
-            stack.addArrangedSubview(title)
-            stack.addArrangedSubview(field)
-            if field === weatherHost || field === weatherKey { credentialViews += [title, field] }
-        }
-        let sourceFields = MacWeatherSourceFields(provider: provider, fields: credentialViews)
-        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 450)
-
-        let alert = NSAlert()
-        alert.messageText = "天气和股票设置"
-        alert.informativeText = "自动定位将大致位置发送给所选天气服务，不保存精确位置。和风使用你填写的 API Host 和 API Key（请求可能计入该账户用量）；Open-Meteo 不需要密钥。未启用定位时使用城市或成对经纬度。"
-        alert.accessoryView = stack
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "取消")
-        guard withExtendedLifetime(sourceFields, { alert.runModal() }) == .alertFirstButtonReturn else { return }
-
-        let latitudeText = latitude.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let longitudeText = longitude.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lat = Double(latitudeText)
-        let lon = Double(longitudeText)
-        guard (latitudeText.isEmpty && longitudeText.isEmpty) ||
-              (lat != nil && lon != nil && (-90...90).contains(lat!) && (-180...180).contains(lon!)) else {
-            show("未保存", "经纬度必须同时留空，或填写有效数字：纬度 -90~90、经度 -180~180。")
-            return
-        }
-        let rawSymbols = stocks.stringValue.replacingOccurrences(of: "，", with: ",")
-            .split(separator: ",", omittingEmptySubsequences: true).map(String.init)
-        let normalized = rawSymbols.compactMap(MacDataService.normalizeStock)
-        guard rawSymbols.count <= 20 && normalized.count == rawSymbols.count else {
-            show("未保存", "股票代码最多 20 个，仅支持 sh、sz、bj、hk、us 市场前缀。")
-            return
-        }
-        let uniqueSymbols = normalized.reduce(into: [String]()) { result, symbol in
-            if !result.contains(symbol) { result.append(symbol) }
-        }
-        let selectedProvider = provider.indexOfSelectedItem == 1 ? "qweather" : "open-meteo"
-        let host = weatherHost.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if selectedProvider == "qweather" {
-            guard MacQWeatherService.validHost(host) else {
-                show("未保存", "API Host 必须是控制台分配的 xxx.qweatherapi.com，不含协议、端口或路径。")
-                return
-            }
+    @objc private func configureDataSources() { editDataSources(selectedTab: 0) }
+    @objc private func configureStocks() {
+        stocksWindow = MacStocksWindow(quotes:dataStore.snapshot().stocks?.quotes ?? []) { [weak self] in guard let self else { return }; Task { await self.dataService.refreshDue(force: true) } }
+        stocksWindow?.open()
+    }
+    private func editDataSources(selectedTab: Int) {
+        let editor = MacDataSettingsForm(MacDataPreferences.load(), selectedTab: selectedTab, standalone: true, preview:{ [dataService] preferences,key in try await dataService.previewWeather(preferences,draftKey:key) })
+        var preferences: MacDataPreferences?
+        guard editor.form.run(validating: {
             do {
-                if !weatherKey.stringValue.isEmpty { try MacWeatherCredentialStore.shared.save(weatherKey.stringValue, host: host) }
-                _ = try MacWeatherCredentialStore.shared.read(host: host)
-            } catch {
-                show("未保存", (error as? MacQWeatherService.Failure)?.errorDescription ?? "和风密钥保存失败。")
-                return
-            }
-        }
-        weatherKey.stringValue = ""
-        MacDataPreferences(city: city.stringValue.trimmingCharacters(in: .whitespacesAndNewlines),
-                           latitude: lat, longitude: lon, symbols: uniqueSymbols,
-                           automaticLocation: automatic.state == .on, weatherProvider: selectedProvider, qweatherHost: host).save()
+                let value = try editor.preferences()
+                if value.weatherProvider == "qweather" {
+                    if !editor.weatherKey.stringValue.isEmpty { try MacWeatherCredentialStore.shared.save(editor.weatherKey.stringValue,host:value.qweatherHost) }
+                    _ = try MacWeatherCredentialStore.shared.read(host:value.qweatherHost)
+                }
+                editor.weatherKey.stringValue = ""; preferences = value; return nil
+            } catch { return error.localizedDescription }
+        }), let preferences else { return }
+        preferences.save()
         Task { await self.dataService.refreshDue(force: true) }
-        show("已保存", "天气和股票将立即刷新；网络失败时保留最近一次成功数据。")
+        show("已保存", "天气将立即刷新；网络失败时保留最近一次成功数据。")
+    }
+    private func prepareDomesticQuotas() {
+        if domesticQuotaWindow == nil { domesticQuotaWindow = MacDomesticQuotaWindow(service: domesticQuotaService, store: dataStore, refreshLocal:{ [weak self] in guard let self else { return }; Task { await self.quotaService.refresh() } }) }
     }
     @objc private func openDomesticQuotas() {
-        if domesticQuotaWindow == nil { domesticQuotaWindow = MacDomesticQuotaWindow(service: domesticQuotaService, store: dataStore) }
+        prepareDomesticQuotas()
         domesticQuotaWindow?.open()
     }
 
     @objc private func setPairingToken() {
-        let alert = NSAlert()
-        alert.messageText = "设置设备配对令牌"
-        alert.informativeText = "令牌至少 32 个字符，仅保存到当前用户 Keychain。"
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "取消")
-        let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
-        alert.accessoryView = field
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let form = MacBridgeSettingsForm("小屏配对令牌", subtitle: "令牌至少 32 个字符，仅保存到当前用户钥匙串。保存后通过 USB 下发 LAN 配置。", height: 380)
+        let field = NSSecureTextField(); field.placeholderString = "输入新的配对令牌"
+        form.page.field("设备配对令牌", field)
+        guard form.run(validating: { field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).utf8.count >= 32 ? nil : "令牌必须至少 32 个字符。" }) else { return }
         let token = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard token.utf8.count >= 32 else { show("未保存", "令牌必须至少 32 个字符。"); return }
         do {
             try PairingTokenStore.save(token)
             let provisioned = serial?.provisionLan() == true

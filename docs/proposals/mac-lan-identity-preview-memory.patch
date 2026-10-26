@@ -1,0 +1,239 @@
+--- a/mac-app/Sources/AIBotBridge/NetworkIdentity.swift
++++ b/mac-app/Sources/AIBotBridge/NetworkIdentity.swift
+@@ -1,12 +1,32 @@
+ import Foundation
++import Darwin
+ 
+ enum LocalNetworkIdentity {
++    struct Address {
++        let interface: String, value: String, flags: UInt32
++    }
++    static func select(_ addresses: [Address]) -> String? {
++        let eligible = addresses.filter {
++            $0.flags & UInt32(IFF_UP | IFF_RUNNING) == UInt32(IFF_UP | IFF_RUNNING) &&
++            $0.flags & UInt32(IFF_LOOPBACK | IFF_POINTOPOINT) == 0 && PrivateIPv4Address.isValid($0.value)
++        }
++        // Prefer an active Ethernet/Wi-Fi interface to local VM bridges. No
++        // hostname, reverse-DNS or network request belongs on the USB queue.
++        return (eligible.first { $0.interface.hasPrefix("en") } ?? eligible.first)?.value
++    }
+     static func privateIPv4() -> String? {
+-        Host.current().addresses.first { value in
+-            let parts = value.split(separator: ".").compactMap { Int($0) }
+-            guard parts.count == 4 else { return false }
+-            return parts[0] == 10 || parts[0] == 192 && parts[1] == 168 ||
+-                parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31
++        var first: UnsafeMutablePointer<ifaddrs>?
++        guard getifaddrs(&first) == 0 else { return nil }
++        defer { freeifaddrs(first) }
++        var result: [Address] = [], cursor = first
++        while let node = cursor {
++            let entry = node.pointee; cursor = entry.ifa_next
++            guard let address = entry.ifa_addr, address.pointee.sa_family == UInt8(AF_INET) else { continue }
++            var ip = UnsafeRawPointer(address).assumingMemoryBound(to:sockaddr_in.self).pointee.sin_addr
++            var buffer = [CChar](repeating:0,count:Int(INET_ADDRSTRLEN))
++            guard inet_ntop(AF_INET,&ip,&buffer,socklen_t(INET_ADDRSTRLEN)) != nil else { continue }
++            result.append(.init(interface:String(cString:entry.ifa_name),value:String(cString:buffer),flags:entry.ifa_flags))
+         }
++        return select(result)
+     }
+ }
+--- a/mac-app/Sources/AIBotBridge/MacTab5Service.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Service.swift
+@@ -178,8 +178,12 @@
+         deviceDiagnostics.refresh(context:{ [weak self] in self?.deviceDiagnosticContext },completion:completion)
+     }
+     var lanConfiguration: (String, UInt16)? {
+-        lock.lock(); defer { lock.unlock() }
+-        guard lanReady, let address = host(), PrivateIPv4Address.isValid(address) else { return nil }
++        lock.lock(); let ready = lanReady && !stopped; lock.unlock()
++        guard ready, let address = host(), PrivateIPv4Address.isValid(address) else { return nil }
++        // Enumeration must never hold the shared transport/state lock. Recheck
++        // availability afterward so a stopped listener cannot publish an endpoint.
++        lock.lock(); defer { lock.unlock() }
++        guard lanReady, !stopped else { return nil }
+         return (address, port)
+     }
+     func setLANReady(_ ready: Bool) { lock.lock(); lanReady = ready && !stopped; if !lanReady { lastWiFi = -.infinity }; lock.unlock() }
+--- a/mac-app/Sources/AIBotBridge/MacTab5ScreenPreview.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5ScreenPreview.swift
+@@ -26,6 +26,7 @@
+     private var context: Context?, stream = "", lease: TimeInterval = 0, next: TimeInterval = 0
+     private var request: Request?, frame: Frame?, note = ""
+     private var frameSHA = ""
++    private var memoryLevel = 0
+     private var issued = 0, publications = 0, timedOut = 0, incoming = 0, begins = 0, chunks = 0, frames = 0, rejected = 0
+     private var ttlFromSnapshot: Int64 = 0, ttlOverBound = 0
+     private var lastReplyStatus = 0, lastOperation = "none"
+@@ -50,7 +51,7 @@
+     @discardableResult func start(_ current: Context?) -> String {
+         lock.lock(); defer { lock.unlock() }
+         context = current; stream = MacTab5Protocol.identifier(); lease = clock() + 5
+-        request = nil; frame = nil; frameSHA = ""; next = 0; note = current?.allowsCapture == true ? "正在连接设备，等待首帧…" : "当前固件暂不支持设备预览。"
++        request = nil; frame = nil; frameSHA = ""; memoryLevel = 0; next = 0; note = current?.allowsCapture == true ? "正在连接设备，等待首帧…" : "当前固件暂不支持设备预览。"
+         issued = 0; publications = 0; timedOut = 0; incoming = 0; begins = 0; chunks = 0; frames = 0; rejected = 0
+         ttlFromSnapshot = 0; ttlOverBound = 0; lastReplyStatus = 0; lastOperation = "none"
+         return stream
+@@ -83,10 +84,11 @@
+         context = current
+         if request == nil, clock() >= next {
+             let transport = current.transports.contains("USB") ? "USB" : current.transports.contains("Wi-Fi") ? "Wi-Fi" : "BLE"
+-            let hd = current.highDefinition && transport != "BLE"
++            let hd = current.highDefinition && transport != "BLE" && memoryLevel == 0
++            let small = transport == "BLE" || memoryLevel >= 2
+             request = Request(id:MacTab5Protocol.identifier(), transport:transport, started:clock(), expires:epoch()+30_000,
+                               encoding:hd ? "jpeg":"rgb565-rle1", version:current.highDefinition ? 2:1,
+-                              width:hd ? 1280:transport == "BLE" ? 320:640, height:hd ? 720:transport == "BLE" ? 180:360)
++                              width:hd ? 1280:small ? 320:640, height:hd ? 720:small ? 180:360)
+             issued += 1
+         }
+     }
+@@ -161,13 +163,17 @@
+                   root["encoding"] as? String == p.encoding, root["sha256"] as? String == frameSHA,
+                   MacTab5Protocol.integer(root["width"]) == Int64(p.width), MacTab5Protocol.integer(root["height"]) == Int64(p.height) else { return .error(409,"preview_changed") }
+             frame = Frame(width:old.width,height:old.height,pixels:old.pixels,received:clock())
+-            request = nil; next = clock()+2; note = "实时镜像 · \(p.width) × \(p.height) · \(transport)"
++            request = nil; next = clock()+2; note = frameNote(width:p.width,height:p.height,transport:transport)
+             return .init(200,["accepted":true,"complete":true])
+         case "error":
+             guard bytes.isEmpty, let value = root["error"] as? String,
+                   ["busy","memory","capture","encoding","connection"].contains(value) else { return .error(400,"preview_error") }
+             note = ["busy":"设备忙，稍后继续。","memory":"设备内存不足，暂时无法预览。","capture":"暂未取得完整画面。","encoding":"画面编码失败。","connection":"画面连接已中断。"][value]!
+-            request = nil; next = clock() + 2
++            if value == "memory", p.version == 2, p.width > 320 {
++                memoryLevel = p.encoding == "jpeg" ? 1:2
++                note = memoryLevel == 1 ? "内存受限，正在切换标准画质…":"内存受限，正在切换小图预览…"
++            }
++            request = nil; next = clock() + (value == "memory" ? 1:2)
+             return .init(200,["accepted":true])
+         case "frame":
+             guard root["encoding"] as? String == p.encoding, MacTab5Protocol.integer(root["width"]) == Int64(p.width),
+@@ -192,7 +198,7 @@
+                     request = nil; next = clock()+1; note = "画面校验失败，等待下一帧。"; return .error(400,"preview_corrupt")
+                 }
+                 frame = Frame(width:p.width,height:p.height,pixels:pixels,received:clock()); frameSHA = p.sha
+-                request = nil; next = clock()+0.5; note = "实时镜像 · \(p.width) × \(p.height) · \(transport)"
++                request = nil; next = clock()+0.5; note = frameNote(width:p.width,height:p.height,transport:transport)
+                 return .init(200,["accepted":true,"nextOffset":p.size,"complete":true])
+             }
+             request = p
+@@ -200,6 +206,10 @@
+             return .init(200,["accepted":true,"nextOffset":p.bytes.count,"complete":false])
+         default: return .error(400,"preview_operation")
+         }
++    }
++    private func frameNote(width:Int,height:Int,transport:String) -> String {
++        let quality = memoryLevel == 1 ? " · 标准画质":memoryLevel >= 2 ? " · 小图预览":""
++        return "实时镜像 · \(width) × \(height) · \(transport)"+quality
+     }
+     static func decodeFrame(_ data: Data, width: Int, height: Int, encoding: String) -> Data? {
+         if encoding == "rgb565-rle1" { return decode(data,width:width,height:height) }
+--- a/mac-app/Sources/AIBotBridge/MacTab5ScreenPreviewValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5ScreenPreviewValidation.swift
+@@ -113,6 +113,25 @@
+         try c.check("old worker cannot resume new frame",late.status == 409)
+         return c.count
+     }
++    private static func memoryFallback() throws -> Int {
++        var c=Checks(),now=10.0
++        let model=MacTab5ScreenPreview(clock:{now},epoch:{1_000_000})
++        let context=MacTab5ScreenPreview.Context(device:"fixture",host:"host",transports:["USB"],highDefinition:true)
++        let token=model.start(context);model.renew(token,context:context)
++        var command=model.command!
++        try c.check("new firmware first requests HD",command["encoding"] as? String == "jpeg")
++        func fail(_ id:String)->Int {model.receive(["op":"error","error":"memory","streamId":token,"requestId":id],bytes:Data(),context:context,device:"fixture",transport:"USB").status}
++        try c.check("HD memory rejection accepted",fail(command["requestId"] as! String)==200)
++        now+=1.1;model.renew(token,context:context);command=model.command!
++        try c.check("memory pressure falls back on existing270 wire",command["version"] as? Int == 2 && command["encoding"] as? String == "rgb565-rle1" && command["width"] as? Int == 640)
++        try c.check("fallback quality explicitly shown",model.snapshot(token).1.contains("标准画质"))
++        try c.check("second memory rejection accepted",fail(command["requestId"] as! String)==200)
++        now+=1.1;model.renew(token,context:context);command=model.command!
++        try c.check("bounded minimum preview instead of repeated HD allocation",command["width"] as? Int == 320 && command["height"] as? Int == 180)
++        model.stop(token)
++        try c.check("closed fallback cannot publish",model.command == nil)
++        return c.count
++    }
+     private static func observations() throws -> Int {
+         var c = Checks()
+         let model = MacTab5ScreenPreview(clock:{10},epoch:{1_000_000})
+@@ -150,7 +169,7 @@
+             context:context,device:context.device,transport:"USB").status == 409)
+         return c.count
+     }
+-    static func run() throws -> Int { try codec()+reception()+lifecycle()+observations()+firmwareGate()+progressTimeout() }
++    static func run() throws -> Int { try codec()+reception()+lifecycle()+observations()+firmwareGate()+progressTimeout()+memoryFallback() }
+ 
+     static func render(_ output: URL) throws {
+         _ = NSApplication.shared
+--- a/mac-app/Sources/AIBotBridge/MacParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacParityValidation.swift
+@@ -173,6 +173,7 @@
+         checked += try MacSolarTermSourceValidation.run(root: root.appendingPathComponent("solar-source"))
+         checked += try MacVoiceSchedulingValidation.run(root: root.appendingPathComponent("voice-scheduling"))
+         checked += try MacPreviewHDValidation.run()
++        checked += try MacLANIdentityValidation.run(root:root.appendingPathComponent("lan-identity"))
+         print("MAC_PARITY_SELF_TEST_OK \(checked) checks; isolated storage, no credentials/network/hardware")
+     }
+ }
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacLANIdentityValidation.swift
+@@ -0,0 +1,59 @@
++import Foundation
++import Darwin
++
++enum MacLANIdentityValidation {
++    private final class ResultBox {
++        let lock = NSLock()
++        private var missing = false
++        func set(_ value: Bool) { lock.lock(); missing = value; lock.unlock() }
++        var value: Bool { lock.lock(); defer { lock.unlock() }; return missing }
++    }
++    static func run(root: URL) throws -> Int {
++        var checks = 0
++        func check(_ name: String, _ ok: @autoclosure () -> Bool) throws {
++            guard ok() else { throw MacTab5LocalError.invalid("LAN identity: "+name) }; checks += 1
++        }
++        let up = UInt32(IFF_UP | IFF_RUNNING)
++        func address(_ name:String,_ value:String,_ flags:UInt32? = nil) -> LocalNetworkIdentity.Address {
++            .init(interface:name,value:value,flags:flags ?? up)
++        }
++        for invalid in ["127.0.0.1","169.254.1.2","198.18.1.2","8.8.8.8","::1","192.168.1.256","10..1.2","10.1.1.2.invalid"] {
++            try check("non-LAN address excluded",LocalNetworkIdentity.select([address("en0",invalid)]) == nil)
++        }
++        for flags in [UInt32(0),UInt32(IFF_UP),up | UInt32(IFF_LOOPBACK),up | UInt32(IFF_POINTOPOINT)] {
++            try check("inactive/loopback/tunnel excluded",LocalNetworkIdentity.select([address("utun1","10.1.2.3",flags)]) == nil)
++        }
++        try check("physical LAN preferred to VM bridge",LocalNetworkIdentity.select([address("bridge100","192.168.64.1"),address("en0","192.168.5.2")]) == "192.168.5.2")
++        try check("private172 interface supported",LocalNetworkIdentity.select([address("en7","172.16.1.2")]) == "172.16.1.2")
++        try check("private10 interface supported",LocalNetworkIdentity.select([address("en0","10.1.2.3")]) == "10.1.2.3")
++        try check("local sharing bridge remains available",LocalNetworkIdentity.select([address("bridge100","192.168.64.1")]) == "192.168.64.1")
++        // Exercise the actual numeric interface enumerator without depending on
++        // this machine's addresses or saving any network configuration.
++        for _ in 0..<20 { let value = LocalNetworkIdentity.privateIPv4(); try check("numeric enumeration returns private address or nil",value == nil || PrivateIPv4Address.isValid(value!)) }
++        let entered = DispatchSemaphore(value:0), release = DispatchSemaphore(value:0), finished = DispatchSemaphore(value:0)
++        let heartbeat = DispatchSemaphore(value:0), revoked = DispatchSemaphore(value:0), result = ResultBox()
++        let pair = MacTab5Pairing(deviceId:"001122334455",usbPath:"/dev/cu.fixture",key:Data(repeating:9,count:32),confirmed:true)
++        let codex = MacTab5Codex(store:.init(root:root,key:{pair.key}),enabled:{false},call:{_,_ in [:]})
++        let computer = MacTab5Computer(defaults:UserDefaults(suiteName:"lan-identity-"+UUID().uuidString)!,backend:.init(read:{[:]},perform:{_,_,_ in false}))
++        let voice = MacTab5Voice(enabled:{false},backend:.init(start:{_,_ in},feed:{_ in},finish:{},cancel:{}))
++        let service = MacTab5Service(port:8765,host:{entered.signal();release.wait();return "192.168.5.2"},gallery:.init(directory:root),
++            computer:computer,codex:codex,voice:voice,birthdays:.init(directory:root),agenda:.init(directory:root),load:{pair},save:{_ in})
++        defer { service.stop() }
++        service.setLANReady(true)
++        DispatchQueue.global().async { result.set(service.lanConfiguration == nil); finished.signal() }
++        let began = entered.wait(timeout:.now()+1) == .success
++        DispatchQueue.global().async { service.usbState("fixture",confirmed:true); heartbeat.signal() }
++        let progressed = heartbeat.wait(timeout:.now()+0.2) == .success
++        DispatchQueue.global().async { service.setLANReady(false); revoked.signal() }
++        let stopped = revoked.wait(timeout:.now()+0.2) == .success
++        release.signal()
++        let completed = finished.wait(timeout:.now()+1) == .success
++        // Release a deliberately stalled lookup before asserting; old code must
++        // fail deterministically, without leaving blocked validation workers.
++        try check("fixture entered host lookup",began)
++        try check("USB heartbeat progresses while address lookup stalls",progressed)
++        try check("LAN revocation progresses while address lookup stalls",stopped)
++        try check("lookup completes without publishing revoked endpoint",completed && result.value)
++        return checks
++    }
++}

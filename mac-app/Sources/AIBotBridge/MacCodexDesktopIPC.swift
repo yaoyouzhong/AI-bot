@@ -21,12 +21,14 @@ final class MacCodexDesktopIPC {
         let turn: String
         let status: String
         let cwd: String
+        let publicItems: [[String: Any]]
+        let startedAt: Int64
         var canSend: Bool { runtime == "idle" && !waiting && ["completed", "failed", "interrupted"].contains(status) }
         var running: Bool { runtime == "active" && status == "inProgress" }
         var taskState: String { waiting ? "waiting" : running ? "working" : canSend ? "idle" : "unknown" }
         var thread: [String: Any] {
             ["id": task, "status": ["type": runtime, "activeFlags": waiting ? ["waitingOnUserInput"] : []],
-             "turns": [["id": turn, "status": status]]]
+             "turns": [["id": turn, "status": status, "startedAt": startedAt, "items": publicItems]]]
         }
     }
     struct Command {
@@ -43,17 +45,18 @@ final class MacCodexDesktopIPC {
     private let connect: Connect
     private let lock = NSLock()
     private var verifiedAt: TimeInterval = -.infinity
-    init(connect: @escaping Connect = { try Socket() }) { self.connect = connect }
+    private let clock: () -> TimeInterval
+    init(clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, connect: @escaping Connect = { try Socket() }) { self.clock = clock; self.connect = connect }
     var available: Bool {
         lock.lock(); defer { lock.unlock() }
-        return ProcessInfo.processInfo.systemUptime - verifiedAt < 15
+        return clock() - verifiedAt < 15
     }
     func reset() { lock.lock(); verifiedAt = -.infinity; lock.unlock() }
     func read(_ task: String) throws -> State {
         let session = try Session(wire: connect(), task: task)
         defer { session.close() }
         let state = try session.snapshot()
-        lock.lock(); verifiedAt = ProcessInfo.processInfo.systemUptime; lock.unlock()
+        lock.lock(); verifiedAt = clock(); lock.unlock()
         return state
     }
     func execute(task: String, operation: String, expected: String, request: String,
@@ -122,7 +125,14 @@ final class MacCodexDesktopIPC {
         guard turns.values.filter({
             MacTab5Protocol.integer($0["turnStartedAtMs"]) == MacTab5Protocol.integer(last["turnStartedAtMs"])
         }).count == 1 else { throw MacCodexDesktopError.incompatible }
-        return State(task: task, runtime: runtime, waiting: !requests.isEmpty, turn: turn, status: status, cwd: cwd)
+        // Retain only published assistant text from the owner snapshot. Never
+        // carry requests, reasoning, user input or tool payloads into history.
+        let items = MacTab5Codex.publicItems(last["items"], requirePhase: true)
+        guard items.reduce(0, { $0 + (($1["text"] as? String)?.utf8.count ?? 0) }) <= 1024 * 1024 else {
+            throw MacCodexDesktopError.incompatible
+        }
+        return State(task: task, runtime: runtime, waiting: !requests.isEmpty, turn: turn, status: status, cwd: cwd,
+                     publicItems: items, startedAt: (MacTab5Protocol.integer(last["turnStartedAtMs"]) ?? 0) / 1000)
     }
 
     static func command(state: State, operation: String, expected: String, request: String,

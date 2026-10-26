@@ -357,7 +357,7 @@ final class MacTab5CodexTests: XCTestCase {
             calls.append((method, params))
             if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
             if method == "thread/read" { XCTAssertEqual(params["includeTurns"] as? Bool, false); return ["thread": ["id": task, "status": ["type": "notLoaded"]]] }
-            XCTAssertEqual(method, "thread/turns/list"); XCTAssertEqual(params["limit"] as? Int, 32); XCTAssertEqual(params["itemsView"] as? String, "summary")
+            XCTAssertEqual(method, "thread/turns/list"); XCTAssertEqual(params["limit"] as? Int, 32); XCTAssertEqual(params["itemsView"] as? String, "full")
             if params["cursor"] as? String == "older" { return ["data": [turn(0)], "nextCursor": NSNull()] }
             return ["data": [turn(2), turn(1)], "nextCursor": "older"]
         })
@@ -377,6 +377,46 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual((codex.snapshot()?["control"] as? [String: Any])?["canSend"] as? Bool, false)
         XCTAssertEqual(codex.handle(["op": "send", "taskId": api.task, "requestId": UUID().uuidString, "message": "do not resume"], device: "fixture").status, 409)
         XCTAssertFalse(api.calls.contains { ["thread/resume", "turn/start"].contains($0.0) })
+    }
+    func testFullHistoryRetainsEarlierProgressAndOnlyPublicFields() throws {
+        let task = UUID().uuidString.lowercased(), turn = UUID().uuidString.lowercased()
+        let progress: [String: Any] = ["id": "progress", "type": "agentMessage", "phase": "commentary", "text": "先检查入口", "privateExtra": "PRIVATE"]
+        let final: [String: Any] = ["id": "final", "type": "agentMessage", "phase": "final_answer", "text": "检查完成"]
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, params in
+            if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
+            if method == "thread/read" { return ["thread": ["id": task, "status": ["type": "notLoaded"]]] }
+            let items = params["itemsView"] as? String == "full" ? [progress, final,
+                ["type": "reasoning", "text": "PRIVATE"], ["type": "agentMessage", "phase": "analysis", "text": "PRIVATE"]] : [final]
+            return ["data": [["id": turn, "status": "completed", "items": items]]]
+        })
+        codex.refresh()
+        let reply = codex.handle(["op": "read", "taskId": task], device: "fixture")
+        XCTAssertEqual(reply.body["text"] as? String, "先检查入口\n\n检查完成")
+        XCTAssertFalse(String(decoding: try MacTab5Protocol.json(codex.snapshot()!), as: UTF8.self).contains("PRIVATE"))
+        XCTAssertNil(MacTab5Codex.publicItems([progress]).first?["privateExtra"])
+    }
+    func testFollowLastPageContinuesAcrossGrowthAndNewTurnsWithoutMovingPinnedPages() throws {
+        let task = UUID().uuidString.lowercased(), first = UUID().uuidString.lowercased(), next = UUID().uuidString.lowercased()
+        var text = String(repeating: "初", count: 1500), newer = false
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, _ in
+            if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
+            if method == "thread/read" { return ["thread": ["id": task, "status": ["type": "notLoaded"]]] }
+            var turns: [[String: Any]] = [["id": first, "status": "completed", "items": [["type": "agentMessage", "text": text]]]]
+            if newer { turns.insert(["id": next, "status": "completed", "items": [["type": "agentMessage", "text": "下一轮进展"]]], at: 0) }
+            return ["data": turns]
+        })
+        codex.refresh()
+        let initial = codex.handle(["op": "read", "taskId": task, "page": -1], device: "fixture")
+        XCTAssertEqual((initial.body["replyView"] as? [String: Any])?["page"] as? Int, 1)
+        text += String(repeating: "新", count: 1500); codex.refresh()
+        XCTAssertEqual((codex.snapshot()?["replyView"] as? [String: Any])?["page"] as? Int, 2)
+        XCTAssertEqual((codex.snapshot()?["responses"] as? [String: String])?[task], MacTab5Codex.pages(text).last)
+        newer = true; codex.refresh()
+        XCTAssertEqual((codex.snapshot()?["replyView"] as? [String: Any])?["turnId"] as? String, next)
+        XCTAssertEqual(codex.handle(["op": "read", "taskId": task, "turnId": first, "page": 1], device: "fixture").status, 200)
+        text += String(repeating: "尾", count: 1500); codex.refresh()
+        XCTAssertEqual((codex.snapshot()?["replyView"] as? [String: Any])?["turnId"] as? String, first)
+        XCTAssertEqual((codex.snapshot()?["replyView"] as? [String: Any])?["page"] as? Int, 1)
     }
     func testReaderKeepsHistoryAndPageAcrossRefreshButLatestCanFollowNewTurns() throws {
         let task = UUID().uuidString.lowercased(), older = UUID().uuidString.lowercased(), latest = UUID().uuidString.lowercased(), next = UUID().uuidString.lowercased()

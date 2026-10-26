@@ -1,0 +1,60 @@
+{
+  "base": "0.2.272-ui plus pending tab5-photo-add-feedback patch",
+  "candidate": "artifacts/development/tab5-network-diagnostic-layout-20261025/candidate",
+  "changedFiles": [
+    {
+      "path": "firmware/main/ui.c",
+      "beforeNormalizedSHA256": "a87be2cd5ba5b9750dcb9d55462291c3cb7455e5f50deb4abdaa91a78533b2b5",
+      "afterNormalizedSHA256": "18a2d8433becc35ca2818b66c6b66caa09626f6842abd88700adc0ccf2738cc0"
+    },
+    {
+      "path": "firmware/main/wifi_link.c",
+      "beforeNormalizedSHA256": "c126b333b3c3d9cf553fcb26fa0f76eb34e3ca0a105f6d854657c90f324cc364",
+      "afterNormalizedSHA256": "85ce45ec1071b221ed628588e3164eed968dc26969ee5b040570de2626b97949"
+    },
+    {
+      "path": "firmware/main/wifi_status.h",
+      "beforeNormalizedSHA256": "ee6eaf724fab4a7c774e9f9805dadb036680a9b7dc91687d542f14e5dab7b11e",
+      "afterNormalizedSHA256": "702e8dc8943ec4c90a1464a793a44a415d703ab84ce947be2fa58976f1c424e2"
+    },
+    {
+      "path": "tests/ui-preview/CMakeLists.txt",
+      "beforeNormalizedSHA256": "b71467262bbeaab8fd4baad32bcccd91beff4445a76cb97fd9ad2bffe46000e7",
+      "afterNormalizedSHA256": "60b4a4802506b45229b421456d28c58e21d60ab14a5d15660367c88f5814e467"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "beforeNormalizedSHA256": "b0af6671bb6ca1bcb5f50a6b75722c798979ae3d6af91292c9880d455f0b4f2c",
+      "afterNormalizedSHA256": "5342f9419a34b0331ce36fabd7f23d35408427d4485e57a1033684cad551d0e9"
+    },
+    {
+      "path": "tests/ui-preview/wifi_host_status_test.c",
+      "beforeNormalizedSHA256": "acfd54ce69bb050fae14412c673e807102353d75bfb11da20e95c617ab32882f",
+      "afterNormalizedSHA256": "2f33dedc9aa1b9f9515672076834d6957c5a68c5b7f866bbeef10f53ca65ee3b"
+    }
+  ],
+  "productFiles": 3,
+  "scope": "Two diagnostic cards for Wi-Fi and computer bridge; prominent state, bounded long names, IP and bottom-right reconnect; read-only structured Wi-Fi display snapshot replaces parsing display text.",
+  "protocolChanged": false,
+  "networkBehaviorChanged": false,
+  "checks": {
+    "realLVGLWorkflow": true,
+    "productionStatusUBSan": true,
+    "p4Objects": [
+      "ui.c",
+      "wifi_link.c"
+    ],
+    "visualStatesInspected": [
+      "normal",
+      "bridge-unreachable",
+      "long-network-name"
+    ]
+  },
+  "firmwareGenerated": false,
+  "flashed": false,
+  "physicalAcceptance": false,
+  "userLayoutReview": "accepted",
+  "evidence": "artifacts/development/tab5-network-diagnostic-layout-20261025",
+  "patchDryRun": true,
+  "userLayoutFeedback": "这版布局可以"
+}

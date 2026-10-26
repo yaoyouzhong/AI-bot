@@ -1,0 +1,46 @@
+--- a/firmware/main/ui_calendar.h
++++ b/firmware/main/ui_calendar.h
+@@ -99,6 +99,8 @@
+     int kind;const char *holiday=calendar_holiday(y,m*100+d,&kind),*term=calendar_term(y,m*100+d),*festival=calendar_festival(calendar_selected);
+     const char *schedule=kind==1?"假期休息":kind==2?"调休补班":calendar_selected%7>=5?"周末":"工作日";
+     if(!calendar_schedule(y))schedule="放假安排待更新";
++    // Makeup status is already in schedule; retain any distinct festival.
++    if(kind==2)holiday="";
+     char day_note[256];snprintf(day_note,sizeof(day_note),"%s%s%s%s%s",holiday[0]?holiday:festival,(holiday[0]||festival[0])?" · ":"",schedule,term[0]?"\n节气 · ":"",term);
+     cJSON *b=NULL;unsigned n=0;cJSON_ArrayForEach(b,item(calendar_detail(),"birthdays"))if(calendar_birthday_on(b,calendar_selected)&&n++<2) {
+         size_t at=strlen(day_note);snprintf(day_note+at,sizeof(day_note)-at,"\n%s的生日",text(b,"name"));
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1985,6 +1985,32 @@
+     }
+     if(getenv("TAB5_HOST_UNLOCK_ONLY")) {
+         #include "host_unlock_ui_test.h"
++    }
++    if(getenv("TAB5_CALENDAR_LABEL_ONLY")) {
++        calendar_set_today(2026,10,24);lv_obj_send_event(home_calendar_action,LV_EVENT_CLICKED,NULL);
++        calendar_year=2026;calendar_month=10;calendar_selected=cal_serial(2026,10,10);calendar_render();
++        const char *note=lv_label_get_text(calendar_day_note);
++        printf("CALENDAR_MAKEUP_LABEL %s\n",note);capture("calendar-makeup-october");
++        if(getenv("TAB5_CALENDAR_BEFORE"))return 0;
++        assert(!strcmp(note,"调休补班"));
++        int slot=-1;for(int i=0;i<42;i++)if(calendar_cell_dates[i]==calendar_selected)slot=i;
++        assert(slot>=0&&!strcmp(lv_label_get_text(calendar_marks[slot]),"班"));
++        calendar_selected=cal_serial(2026,10,1);calendar_render();
++        assert(strstr(lv_label_get_text(calendar_day_note),"国庆节 · 假期休息")&&strstr(lv_label_get_text(calendar_day_note),"朋友的生日"));capture("calendar-national-holiday");
++        calendar_selected=cal_serial(2026,10,11);calendar_render();
++        assert(!strcmp(lv_label_get_text(calendar_day_note),"周末"));
++        calendar_selected=cal_serial(2026,10,12);calendar_render();
++        assert(!strcmp(lv_label_get_text(calendar_day_note),"工作日"));
++        calendar_selected=cal_serial(2026,10,8);calendar_render();
++        assert(!strcmp(lv_label_get_text(calendar_day_note),"工作日\n节气 · 寒露"));capture("calendar-solar-term");
++        calendar_year=2027;calendar_month=1;calendar_selected=cal_serial(2027,1,5);
++        cJSON_AddItemToArray(item(calendar_detail(),"terms"),cJSON_Parse("{\"year\":2027,\"dates\":[105,120,204,219,306,321,405,420,506,521,606,621,707,723,808,823,908,923,1008,1023,1107,1122,1207,1222]}"));
++        calendar_render();assert(!strcmp(lv_label_get_text(calendar_day_note),"放假安排待更新\n节气 · 小寒"));capture("calendar-next-year");
++        // Synthetic overlap verifies a distinct festival remains when its day is a makeup workday.
++        cJSON_AddItemToObject(calendar_detail(),"holidayYears",cJSON_Parse("[{\"year\":2027,\"holidays\":[],\"workdays\":[101]}]"));
++        calendar_selected=cal_serial(2027,1,1);calendar_render();
++        assert(!strcmp(lv_label_get_text(calendar_day_note),"元旦 · 调休补班"));
++        puts("CALENDAR_LABEL_OK makeup_marker_holiday_birthday_weekend_workday_solar_unknown_year_festival");return 0;
+     }
+     check_clock_faces();check_clock_solar();
+     if(getenv("TAB5_CLOCK_ONLY"))return 0;

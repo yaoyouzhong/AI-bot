@@ -1,0 +1,32 @@
+{
+  "base": "R11 source",
+  "productFiles": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USB.swift",
+      "beforeSHA256": "04ac90c6fe302cd9cdc320e318dbee522e76ce3fb8cca2685831043b0ed36add",
+      "afterSHA256": "e68fd1c23e329f10a67f7d5c3878bc925b82c499e19fe5f6e59337e9935b9f73"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacParityValidation.swift",
+      "beforeSHA256": "b8f31e19d1d1fb84f5bd576f08d16d3941f7b9cf36e044fe4803fc5b3271496e",
+      "afterSHA256": "7b200c4ef947a8718f53c05eb7f57ed038a0cd68a1e82caa3d64e8dd3b651ab7"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USBVoicePriority.swift",
+      "beforeSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "afterSHA256": "a0ad48e606318b53100a14b191c498391170b34100c4c3ad92d30fbd0999eebe"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USBVoicePriorityValidation.swift",
+      "beforeSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "afterSHA256": "9a7d29b4bb99d49596fd9e9e7022e2c04fb9be255c0408eb4107da4e5b4a33bb"
+    }
+  ],
+  "wireProtocolChanged": false,
+  "firmwareUnchanged": "installed270",
+  "policy": "live voice claim/RPC before ordinary status; status/ownership still serviced; both inline and standalone optional image chunks deferred during a take; fresh start rechecked; idle order retained; no auth/transport replay",
+  "physicalAcceptance": "USB two-take retest requested; no pass claimed",
+  "deployed": true,
+  "debugAndReleaseChecks": 1478,
+  "bundle": "artifacts/mac-usb-voice-priority-r12-complete-20261025/AIBotBridge.app"
+}

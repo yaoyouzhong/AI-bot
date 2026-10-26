@@ -8,23 +8,22 @@ final class MacTab5InstallWindow: NSWindowController, NSWindowDelegate {
     private(set) var busy = false
     init(begin: @escaping () -> Bool = { false }, suspend: @escaping () -> Void = {}, finish: @escaping (Bool) -> Void = { _ in }) {
         self.begin = begin; self.suspend = suspend; self.finish = finish
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 550), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        super.init(window: window); window.title = "TAB5 · 首次安装与备份恢复"; window.delegate = self; window.center()
-        let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 14; stack.translatesAutoresizingMaskIntoConstraints = false
-        let content = window.contentView!; content.addSubview(stack)
-        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 24), stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24), stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 24), stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -24)])
-        func label(_ text: String, _ size: CGFloat = 13) { let label = NSTextField(wrappingLabelWithString: text); label.font = .systemFont(ofSize: size); stack.addArrangedSubview(label); label.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
-        func button(_ title: String, _ selector: Selector) { let button = NSButton(title: title, target: self, action: selector); actions.append(button); stack.addArrangedSubview(button) }
-        label("首次安装与备份恢复", 23)
-        label("仅用于 16 MiB ESP32-P4 TAB5。连接 USB-C 数据线，长按 RESET 约 2 秒，内部绿灯快速闪烁后松开，再刷新并选择下载端口。已安装 AI-bot 的设备请使用“资源与固件”中的升级流程。")
-        stack.addArrangedSubview(ports); ports.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        button("刷新 USB 端口", #selector(refresh))
+        let window = MacBridgeSettingsStyle.window("首次安装与备份恢复")
+        super.init(window: window); window.delegate = self
+        let page = MacBridgeSettingsPage()
+        window.contentView = MacBridgeSettingsShell(body: page, status: status)
+        func button(_ title: String, _ selector: Selector) { let button = NSButton(title: title, target: self, action: selector); actions.append(button); page.add(button) }
+        page.heading("首次安装与备份恢复", subtitle: "仅用于 16 MiB ESP32-P4 TAB5。已有 AI-bot 固件请使用“连接升级”中的“固件升级”页。")
+        page.section("下载端口")
+        page.add(MacBridgeSettingsStyle.note("连接 USB-C 数据线，长按 RESET 约 2 秒，内部绿灯快速闪烁后松开，再刷新并选择下载端口。"))
+        page.field("目标 TAB5 端口", ports); button("刷新 USB 端口", #selector(refresh))
+        page.section("首次安装")
         button("选择首刷 ZIP，备份并安装…", #selector(install))
+        page.section("备份与恢复")
         button("只备份原机完整 Flash…", #selector(backup))
         button("选择本机备份记录并恢复…", #selector(restore))
         button("打开备份文件夹", #selector(openBackups))
-        label("每次写入前均保留并校验完整备份。备份可能包含 Wi-Fi 等私有设置，请妥善保存。恢复仅允许原设备硬件身份；写入失败不自动重试。完成 Flash 校验后仍需手动重启并验证屏幕与连接。")
-        stack.addArrangedSubview(status); status.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true; status.textColor = .secondaryLabelColor
+        page.add(MacBridgeSettingsStyle.note("每次写入前均保留并校验完整备份。备份可能包含 Wi-Fi 等私有设置，请妥善保存。恢复仅允许原设备硬件身份；写入失败不自动重试。完成 Flash 校验后仍需手动重启并验证屏幕与连接。"))
         refresh()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

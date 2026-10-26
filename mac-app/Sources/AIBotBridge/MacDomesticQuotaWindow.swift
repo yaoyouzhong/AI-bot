@@ -1,145 +1,248 @@
 import AppKit
-import WebKit
 
-final class MacDomesticQuotaWindow: NSWindowController, WKScriptMessageHandler, WKNavigationDelegate, NSWindowDelegate {
-    private let service: MacDomesticQuotaService
-    private let store: MacDataStore
-    private let key = NSSecureTextField()
-    private let status = NSTextField(wrappingLabelWithString: "")
-    private var browser: WKWebView?
-    private var browserWindow: NSWindow?
-    private var timer: Timer?
-    private var zhipuNote = "智谱：请打开官方财务页授权读取"
+final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
+    private let service: MacDomesticQuotaService, store: MacDataStore
+    private let defaults: UserDefaults, loadPages: Bool, refreshLocal: () -> Void
+    private let zoom = NSPopUpButton()
+    private let zoomPercentages = [60,75,90,100,125]
+    private var apiSettingsButton: NSButton?
+    private let source = NSPopUpButton(), key = NSSecureTextField(), secret = NSSecureTextField()
+    private let package = NSTextField(), port = NSTextField(string:"5494")
+    private let heading = MacBridgeSettingsStyle.label("",size:22,weight:.semibold)
+    private let product = MacBridgeSettingsStyle.note(""), account = MacBridgeSettingsStyle.label("")
+    private let webAccount = MacBridgeSettingsStyle.note("")
+    private let local = MacBridgeSettingsStyle.note("")
+    private let status = MacBridgeSettingsStyle.note("")
+    private let webHost = NSView(), credentialPage = MacBridgeSettingsPage()
+    private var credentialRows: [NSView] = []
+    private var buttons: [String:NSButton] = [:], notes: [String:String] = [:]
+    private var sessions: [String:MacDomesticBrowser] = [:]
+    private var timer: Timer?, selected = "qwen", settingsVisible = false
+    private var drafts: [String:MacDomesticCredential] = [:]
+    private var apiNote = ""
+    private var selectionGeneration = 0
 
-    init(service: MacDomesticQuotaService, store: MacDataStore) {
-        self.service = service; self.store = store
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 330),
-                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        super.init(window: window)
-        window.title = "TAB5 · 国产模型额度"; window.center()
-        let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 14
-        stack.frame = NSRect(x: 24, y: 20, width: 532, height: 285)
-        let description = NSTextField(wrappingLabelWithString: "DeepSeek 仅查询官方余额接口，API Key 保存到本机钥匙串。智谱通过官方财务页读取可用余额；登录信息只留在本次网页会话，桥接不读取密码或 Cookie。余额会显示到已配对 TAB5。")
-        description.widthAnchor.constraint(equalToConstant: 532).isActive = true
-        key.placeholderString = "DeepSeek API Key（不回显已保存的值）"
-        key.widthAnchor.constraint(equalToConstant: 532).isActive = true
-        stack.addArrangedSubview(description); stack.addArrangedSubview(key)
-        stack.addArrangedSubview(NSButton(title: "保存 DeepSeek 授权并查询", target: self, action: #selector(saveDeepSeek)))
-        stack.addArrangedSubview(NSButton(title: "打开智谱官方财务页…", target: self, action: #selector(openZhipu)))
-        stack.addArrangedSubview(NSButton(title: "刷新已授权额度", target: self, action: #selector(refresh)))
-        status.widthAnchor.constraint(equalToConstant: 532).isActive = true
-        stack.addArrangedSubview(status); window.contentView?.addSubview(stack)
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refreshStatus() }
-        refreshStatus()
+    init(service: MacDomesticQuotaService, store: MacDataStore, refreshLocal: @escaping () -> Void = {},
+         defaults: UserDefaults = .standard, loadPages: Bool = true) {
+        self.service = service; self.store = store; self.refreshLocal = refreshLocal
+        self.defaults = defaults; self.loadPages = loadPages
+        super.init(window:MacBridgeSettingsStyle.window("模型账号",width:1160,height:800,minimumHeight:620))
+        window?.contentMinSize = NSSize(width:940,height:620); window?.delegate = self
+        let navigation = MacBridgeSettingsPage(); navigation.heading("模型厂商")
+        navigation.add(local)
+        for item in MacModelAccountCatalog.all {
+            let button = MacSettingsButton(item.name) { [weak self] in self?.selectProvider(item.id,userAction:true) }
+            button.identifier = .init("model-provider-"+item.id); button.toolTip = item.product
+            button.setButtonType(.pushOnPushOff); button.bezelStyle = .rounded
+            navigation.add(button); button.widthAnchor.constraint(equalTo:navigation.stack.widthAnchor).isActive = true
+            buttons[item.id] = button
+        }
+        navigation.add(MacBridgeSettingsStyle.note("Claude／Codex 沿用本机官方客户端授权。国产模型按各自官方来源获取数据。"))
+        let right = NSStackView(); right.orientation = .vertical; right.alignment = .leading; right.spacing = 10
+        let container = NSView(); right.translatesAutoresizingMaskIntoConstraints = false; container.addSubview(right)
+        NSLayoutConstraint.activate([right.leadingAnchor.constraint(equalTo:container.leadingAnchor,constant:16),right.trailingAnchor.constraint(equalTo:container.trailingAnchor,constant:-16),right.topAnchor.constraint(equalTo:container.topAnchor,constant:20),right.bottomAnchor.constraint(equalTo:container.bottomAnchor,constant:-16)])
+        func row(_ view: NSView) { right.addArrangedSubview(view); view.widthAnchor.constraint(equalTo:right.widthAnchor).isActive = true }
+        row(heading); row(product); row(account); row(webAccount)
+        source.target = self; source.action = #selector(sourceChanged)
+        row(MacBridgeSettingsStyle.row([MacBridgeSettingsStyle.label("额度来源"),source]))
+        zoom.addItems(withTitles:zoomPercentages.map { "网页 \($0)%" }); zoom.identifier = .init("model-web-zoom")
+        zoom.target = self; zoom.action = #selector(zoomChanged); zoom.toolTip = "缩小网页可显示被遮挡的弹窗关闭按钮。"
+        let apiSettings = MacSettingsButton("接口设置") { [weak self] in guard let self else { return }; self.settingsVisible.toggle(); self.updateCredentialVisibility() }
+        apiSettingsButton = apiSettings
+        row(MacBridgeSettingsStyle.row([
+            MacSettingsButton("刷新额度") { [weak self] in self?.refreshQuota() },
+            MacSettingsButton("刷新网页") { [weak self] in self?.session()?.reload() },
+            apiSettings,
+            MacSettingsButton("在浏览器打开") { [weak self] in guard let self, let item = MacModelAccountCatalog.provider(self.selected) else { return }; self.notes[self.selected] = NSWorkspace.shared.open(item.url) ? "已在默认浏览器打开官方控制台。":"未能打开默认浏览器。"; self.refreshStatus() }, zoom
+        ]))
+        key.placeholderString = "API Key、Access Key 或本地服务令牌"
+        secret.placeholderString = "Secret Key"; package.placeholderString = "千帆模型资源包 ID"
+        credentialPage.field("凭据（保存在钥匙串）",key); credentialPage.field("Secret Key",secret)
+        credentialPage.field("资源包 ID",package); credentialPage.field("Kimi 本地端口",port)
+        credentialRows = Array(credentialPage.stack.arrangedSubviews)
+        credentialPage.add(MacSettingsButton("保存并测试") { [weak self] in self?.saveCredential() })
+        credentialPage.heightAnchor.constraint(equalToConstant:210).isActive = true; row(credentialPage)
+        row(webHost); webHost.heightAnchor.constraint(greaterThanOrEqualToConstant:160).isActive = true
+        status.identifier = .init("settings-footer"); row(status)
+        row(MacBridgeSettingsStyle.note("登录状态由系统网页存储管理，到期需重新登录。关闭窗口后已授权额度继续后台刷新；桥接不导出 Cookie，API 凭据保存在钥匙串。"))
+        window?.contentView = MacSettingsControls.columns(navigation,container,leftWidth:232)
+        if let saved = defaults.string(forKey:"model_account_selected"), MacModelAccountCatalog.provider(saved) != nil { selected = saved }
+        selectProvider(selected,userAction:false)
+        if loadPages { timer = Timer.scheduledTimer(withTimeInterval:2,repeats:true) { [weak self] _ in self?.tick() } }
     }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    deinit { timer?.invalidate() }
-    func open() { showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
-    private func refreshStatus() {
+    required init?(coder:NSCoder) { fatalError() }
+    deinit { stop() }
+    func stop() { timer?.invalidate(); timer = nil; sessions.values.forEach { $0.stop() }; sessions.removeAll() }
+    func open() { showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true); activateSelected(); refreshStatus() }
+    func windowWillClose(_ notification: Notification) { rememberDraft() } // Keep authorized sessions refreshing in memory.
+    var selectedProviderID: String { selected }
+    var providerCount: Int { buttons.count }
+    private var mode: String {
+        let modes = MacDomesticSources.modes(selected)
+        return modes.indices.contains(source.indexOfSelectedItem) ? modes[source.indexOfSelectedItem].0:""
+    }
+    private func rememberDraft() {
+        guard !key.stringValue.isEmpty || !secret.stringValue.isEmpty || !package.stringValue.isEmpty else { return }
+        drafts[selected] = .init(mode:mode,key:key.stringValue,secret:secret.stringValue,package:package.stringValue,port:Int(port.stringValue) ?? 5494)
+    }
+    func selectProvider(_ id: String, userAction: Bool) {
+        guard let item = MacModelAccountCatalog.provider(id) else { return }
+        rememberDraft(); selected = id; selectionGeneration += 1; apiNote = ""
+        heading.stringValue = item.name; product.stringValue = item.product
+        for (key,button) in buttons { button.state = key == id ? .on:.off }
+        let modes = MacDomesticSources.modes(id); source.removeAllItems(); source.addItems(withTitles:modes.isEmpty ? ["仅官方网页（额度尚未接入）"]:modes.map(\.1)); source.isEnabled = !modes.isEmpty
+        let saved = drafts[id]?.mode ?? defaults.string(forKey:"domestic_source_"+id)
+        if let index = modes.firstIndex(where: { $0.0 == saved }) { source.selectItem(at:index) }
+        else if !(id == "deepseek" && defaults.bool(forKey:"deepseek_quota_enabled")), item.supportsWebQuota, let index = modes.firstIndex(where: { $0.0 == "console" }) { source.selectItem(at:index) }
+        key.stringValue = drafts[id]?.key ?? ""; secret.stringValue = drafts[id]?.secret ?? ""
+        package.stringValue = drafts[id]?.package ?? ""; port.stringValue = String(drafts[id]?.port ?? 5494)
+        let percent = defaults.integer(forKey:"model_account_zoom_"+id)
+        zoom.selectItem(at:zoomPercentages.firstIndex(of:percent) ?? 3)
+        updateCredentialVisibility(); refreshStatus()
+        webHost.subviews.forEach { $0.removeFromSuperview() }
+        if let view = sessions[id]?.webView { embed(view) }
+        if userAction, loadPages { defaults.set(id,forKey:"model_account_selected"); activateSelected() }
+    }
+    private func embed(_ view: NSView) {
+        webHost.subviews.forEach { $0.removeFromSuperview() }; view.translatesAutoresizingMaskIntoConstraints = false; webHost.addSubview(view)
+        NSLayoutConstraint.activate([view.leadingAnchor.constraint(equalTo:webHost.leadingAnchor),view.trailingAnchor.constraint(equalTo:webHost.trailingAnchor),view.topAnchor.constraint(equalTo:webHost.topAnchor),view.bottomAnchor.constraint(equalTo:webHost.bottomAnchor)])
+    }
+    private func session(_ id: String? = nil) -> MacDomesticBrowser? {
+        guard loadPages else { return nil }; let id = id ?? selected
+        if let value = sessions[id] { return value }
+        guard MacModelAccountCatalog.provider(id) != nil else { return nil }
+        let session = MacDomesticBrowser(provider:id,store:store,captureEnabled:{ [weak self] in
+            let mode = self?.defaults.string(forKey:"domestic_source_"+id)
+            return mode == "console" || (id == "deepseek" && mode == "separate")
+        },separateDeepSeek:{ [weak self] in self?.defaults.string(forKey:"domestic_source_deepseek") == "separate" },note:{ [weak self] value in self?.notes[id] = value; self?.refreshStatus() })
+        let percent = defaults.integer(forKey:"model_account_zoom_"+id)
+        session.webView.pageZoom = Double(zoomPercentages.contains(percent) ? percent:100)/100
+        sessions[id] = session; return session
+    }
+    private func activateSelected() {
+        guard let session = session() else { return }; embed(session.webView)
+        let id = selected
+        if mode == "console" {
+            Task { [weak self] in
+                guard let self else { return }; await service.useConsole(id)
+                await MainActor.run { session.loadIfNeeded() }
+            }
+        } else { session.loadIfNeeded() }
+    }
+    @objc private func zoomChanged() {
+        guard zoomPercentages.indices.contains(zoom.indexOfSelectedItem) else { return }
+        let percent = zoomPercentages[zoom.indexOfSelectedItem]
+        defaults.set(percent,forKey:"model_account_zoom_"+selected)
+        sessions[selected]?.webView.pageZoom = Double(percent)/100
+    }
+    @objc private func sourceChanged() {
+        updateCredentialVisibility()
+        if selected == "deepseek", mode == "separate" {
+            Task { [weak self] in
+                guard let self else { return }
+                let enabled = await service.useSeparateDeepSeek()
+                if !enabled { await service.useConsole("deepseek") }
+                await MainActor.run {
+                    if !enabled, self.selected == "deepseek" {
+                        self.source.selectItem(at:MacDomesticSources.modes("deepseek").firstIndex(where:{$0.0 == "console"})!)
+                        self.notes["deepseek"] = "尚未配置 API Key，使用网页合计余额和消费金额。"
+                    }
+                    self.settingsVisible = false; self.updateCredentialVisibility()
+                    if let browser = self.session("deepseek") { if self.selected == "deepseek" { self.embed(browser.webView) }; browser.reload() }
+                    self.refreshStatus()
+                }
+                if enabled { await service.refresh() }
+            }
+        }
+        else if mode == "console" { activateSelected() }
+        else { settingsVisible = true; updateCredentialVisibility(); notes[selected] = "填写并保存接口配置后生效；现有成功数据会保留。"; refreshStatus() }
+    }
+    private func updateCredentialVisibility() {
+        apiSettingsButton?.isEnabled = !mode.isEmpty && mode != "console"
+        credentialPage.isHidden = !settingsVisible || mode.isEmpty || mode == "console"
+        let minimum: CGFloat = credentialPage.isHidden ? 620 : 800
+        window?.contentMinSize.height = minimum
+        if let window, let content = window.contentView, content.frame.height < minimum {
+            window.setContentSize(NSSize(width:content.frame.width,height:minimum))
+        }
+        let visible = [true,["qwen","baidu"].contains(selected),mode == "package",mode == "local"]
+        for (row,show) in zip(credentialRows,visible) { row.isHidden = !show }
+    }
+    private func saveCredential() {
+        let id = selected
+        let value = MacDomesticCredential(mode:mode,key:key.stringValue.trimmingCharacters(in:.whitespacesAndNewlines),secret:secret.stringValue.trimmingCharacters(in:.whitespacesAndNewlines),package:package.stringValue.trimmingCharacters(in:.whitespacesAndNewlines),port:Int(port.stringValue) ?? 0)
+        do { try value.validate(provider:id) } catch { notes[id] = error.localizedDescription; refreshStatus(); return }
         Task { [weak self] in
             guard let self else { return }
-            let note = await service.diagnostic()
-            await MainActor.run { self.status.stringValue = note + "\n" + self.zhipuNote }
+            do {
+                try await service.saveCredential(value,provider:id)
+                await MainActor.run { self.drafts[id] = nil; if self.selected == id { self.key.stringValue = ""; self.secret.stringValue = "" }; self.notes[id] = "凭据已保存在钥匙串，正在查询…"; self.refreshStatus() }
+                await service.refresh()
+            } catch { await MainActor.run { self.notes[id] = "凭据未保存，请检查钥匙串授权；原配置未替换。"; self.refreshStatus() } }
         }
     }
-    @objc private func saveDeepSeek() {
-        let value = key.stringValue; key.stringValue = ""
-        Task {
-            do { try await service.saveKey(value); await service.refresh() }
-            catch { await MainActor.run { self.status.stringValue = "未保存：请检查 API Key 或钥匙串授权。" } }
+    private func refreshQuota() {
+        refreshLocal()
+        if selected == "deepseek", mode == "separate" {
+            session()?.reload(); Task { await service.refresh() }; refreshStatus(); return
+        }
+        if mode == "console", let browser = session() {
+            let id = selected
+            Task { await service.useConsole(id); await MainActor.run { browser.reload() } }
+        }
+        else { Task { await service.refresh() } }
+        refreshStatus()
+    }
+    func startBackgroundRefresh() {
+        guard loadPages else { return }
+        for item in MacModelAccountCatalog.all where item.supportsWebQuota {
+            let mode = defaults.string(forKey:"domestic_source_"+item.id)
+            if mode == "console" || (item.id == "deepseek" && mode == "separate") { session(item.id)?.loadIfNeeded() }
         }
     }
-    @objc private func refresh() {
-        Task { await service.refresh() }
-        browser?.reload()
-    }
-    nonisolated static func financeEndpoint(_ value: String) -> Bool {
-        guard let url = URL(string: value) else { return false }
-        return url.scheme == "https" && url.host == "bigmodel.cn" && (url.port == nil || url.port == 443)
-            && url.path == "/api/biz/account/query-customer-account-report"
-    }
-    nonisolated static func navigationAllowed(_ url: URL, isMainFrame: Bool) -> Bool {
-        // WxLogin creates an empty iframe before navigating it to qrconnect.
-        // Keep this exception inside subframes; finance capture stays main-frame only.
-        if !isMainFrame && url.absoluteString == "about:blank" { return true }
-        guard url.scheme == "https", url.port == nil || url.port == 443,
-              url.user == nil, url.password == nil, let host = url.host else { return false }
-        if host == "bigmodel.cn" || host.hasSuffix(".bigmodel.cn") { return true }
-        return !isMainFrame && host == "open.weixin.qq.com" && url.path == "/connect/qrconnect"
-    }
-    @objc private func openZhipu() {
-        if let browserWindow { browserWindow.makeKeyAndOrderFront(nil); browser?.reload(); return }
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = .nonPersistent()
-        let controller = WKUserContentController()
-        // Observe only the finance response already requested by the official
-        // page. Do not inspect DOM balances, storage, request headers or cookies.
-        let script = """
-        (() => {
-          const allowed = value => { try {
-            const u = new URL(value, location.href);
-            return u.origin === 'https://bigmodel.cn' && u.pathname === '/api/biz/account/query-customer-account-report';
-          } catch { return false; } };
-          const emit = (url, text) => {
-            if (allowed(url) && typeof text === 'string' && text.length <= 65536)
-              window.webkit.messageHandlers.balance.postMessage({url, text});
-          };
-          const originalFetch = window.fetch;
-          window.fetch = async function(...args) {
-            const response = await originalFetch.apply(this, args);
-            if (response.ok && allowed(response.url))
-              response.clone().text().then(text => emit(response.url, text)).catch(() => {});
-            return response;
-          };
-          const send = XMLHttpRequest.prototype.send;
-          XMLHttpRequest.prototype.send = function(...args) {
-            this.addEventListener('load', () => {
-              if (this.status === 200 && allowed(this.responseURL)) {
-                try { emit(this.responseURL, this.responseType === 'json' ? JSON.stringify(this.response) : this.responseText); } catch {}
-              }
-            }, {once:true});
-            return send.apply(this, args);
-          };
-        })();
-        """
-        controller.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        controller.add(self, name: "balance"); config.userContentController = controller
-        let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 1050, height: 740), configuration: config)
-        web.navigationDelegate = self
-        let window = NSWindow(contentRect: web.bounds, styleMask: [.titled, .closable, .resizable],
-                              backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false; window.delegate = self; window.title = "智谱官方财务页 · 仅同步余额"
-        window.contentView = web; window.center()
-        browser = web; browserWindow = window
-        web.load(URLRequest(url: URL(string: "https://bigmodel.cn/finance-center/finance/overview")!))
-        window.makeKeyAndOrderFront(nil)
-    }
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        let origin = message.frameInfo.securityOrigin
-        guard message.frameInfo.isMainFrame, origin.protocol == "https", origin.host == "bigmodel.cn",
-              let body = message.body as? [String: Any], let url = body["url"] as? String,
-              Self.financeEndpoint(url), let text = body["text"] as? String, text.utf8.count <= 65_536 else { return }
-        do {
-            store.updateDomestic(try MacDomesticQuotaParser.zhipu(Data(text.utf8)))
-            zhipuNote = "智谱：官方可用余额已更新（关闭财务页后保留最后结果）"
-        } catch {
-            store.markDomesticStale("zhipu"); zhipuNote = "智谱：官方数据暂不可用，保留已有余额"
+    private func tick() {
+        for (id,session) in sessions { session.tick(interactive:window?.isVisible == true && selected == id) }
+        let id = selected, generation = selectionGeneration
+        Task { [weak self] in
+            guard let self else { return }; let diagnostic = await service.diagnostic(provider:id)
+            await MainActor.run { guard self.selectionGeneration == generation else { return }; self.apiNote = diagnostic; self.refreshStatus() }
         }
+        refreshStatus()
     }
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = navigationAction.request.url,
-              Self.navigationAllowed(url, isMainFrame: navigationAction.targetFrame?.isMainFrame ?? true) else {
-            decisionHandler(.cancel); return
+    private func refreshStatus() {
+        let snapshot = store.snapshot()
+        let separate = selected == "deepseek" && defaults.string(forKey:"domestic_source_deepseek") == "separate"
+        webAccount.isHidden = !separate
+        if separate {
+            var text = "网页登录消费：等待官方数据"
+            if let web = store.deepSeekWebSnapshot(), let used = web.usedCost {
+                let date = DateFormatter(); date.dateFormat = "MM-dd HH:mm:ss"
+                text = String(format:"网页登录消费：%@ %.2f",web.currency ?? "",used) + " · 网页最近成功：" + date.string(from:web.updatedAt) + (web.stale ? " · 旧缓存":"")
+            }
+            webAccount.stringValue = text + "\n两项来源独立，未核实同一账号；设备仅显示 API 总余额。"
         }
-        decisionHandler(.allow)
+        local.stringValue = "Codex：\(snapshot.quotas?.codex?.plan ?? "等待本机授权")\nClaude：\(snapshot.quotas?.claude?.plan ?? "等待本机授权")"
+        if let value = snapshot.domesticQuotas?[selected == "qwen" ? "alibaba":selected] {
+            var values = [separate ? "API 来源":value.plan ?? "官方账户数据"]
+            if let balance = value.balance { values.append(String(format:separate ? "总余额（含赠送） %@ %.2f":"余额 %@ %.2f",value.currency ?? "",balance)) }
+            if let used = value.usedCost {
+                var text = String(format:"已用 %@ %.2f",value.currency ?? "",used)
+                if selected == "deepseek", let updated = store.deepSeekUsageDate() {
+                    let date = DateFormatter(); date.dateFormat = "MM-dd HH:mm"
+                    text += "（网页 " + date.string(from:updated) + "）"
+                }
+                values.append(text)
+            } else if selected == "deepseek" && !separate { values.append("已用金额：等待官方控制台数据") }
+            if let used = value.primaryPercent { values.append(String(format:"短窗口已用 %.1f%%",used)) }
+            if let used = value.weeklyPercent { values.append(String(format:"周窗口已用 %.1f%%",used)) }
+            if let used = value.planPercent { values.append(String(format:"订阅／资源包已用 %.1f%%",used)) }
+            let date = DateFormatter(); date.dateFormat = "MM-dd HH:mm:ss"
+            values.append("最近成功："+date.string(from:value.updatedAt)+(value.stale ? " · 旧缓存":""))
+            account.stringValue = values.joined(separator:" · ")
+        } else { account.stringValue = MacModelAccountCatalog.provider(selected)?.supportsQuota == true ? "尚无成功账户数据":"此厂商目前提供官方网页入口，尚未接入额度读取。" }
+        status.stringValue = [notes[selected],mode == "console" ? nil:apiNote].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator:"\n")
+        if status.stringValue.isEmpty { status.stringValue = mode == "console" ? "请在右侧完成官方登录；成功后将自动读取并后台刷新。":"选择厂商，配置接口或登录官方控制台。" }
     }
-    func windowWillClose(_ notification: Notification) {
-        guard notification.object as? NSWindow === browserWindow else { return }
-        browser?.stopLoading()
-        browser?.configuration.userContentController.removeScriptMessageHandler(forName: "balance")
-        browser = nil; browserWindow = nil
-        store.markDomesticStale("zhipu")
-        zhipuNote = "智谱：财务页已关闭，显示上次读取结果；再次打开可刷新"
-    }
+    nonisolated static func financeEndpoint(_ value: String) -> Bool { URL(string:value).map { MacDomesticBrowser.endpoint(provider:"zhipu",url:$0) } ?? false }
+    nonisolated static func navigationAllowed(_ url: URL, isMainFrame: Bool) -> Bool { MacModelAccountCatalog.navigationAllowed(url,provider:"zhipu",mainFrame:isMainFrame) }
 }

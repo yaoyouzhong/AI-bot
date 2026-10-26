@@ -2,6 +2,203 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5DesktopTests: XCTestCase {
+    func testEmptyComposerDecorationIsNotDraftTextInAnyLanguage() throws {
+        for hint in ["和 Codex 一起工作", "Work with Codex"] {
+            let nodes: [MacTab5DesktopAX.ComposerTextNode] = [
+                .init(classes: ["placeholder"], children: [.init(text: hint)])
+            ]
+            let fixture = Fixture(); fixture.value = hint + "\n"
+            var backend = fixture.backend
+            backend.read = { _ in MacTab5DesktopAX.composerText(fixture.value, classes: ["ProseMirror"], children: fixture.writes == 0 ? nodes : [.init(text: fixture.value)]) }
+            let read = backend.read
+            backend.write = { _, expected, next in
+                guard read(fixture.task) == expected else { return nil }
+                fixture.value = next; fixture.writes += 1; return fixture.value
+            }
+            let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: backend)
+            let request: [String: Any] = ["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "new recording"]
+            let result = desktop.handle(request, device: "A")
+            XCTAssertEqual(result.status, 200); XCTAssertEqual(result.body["appended"] as? Bool, false)
+            XCTAssertEqual(fixture.value, "new recording"); XCTAssertEqual(fixture.writes, 1); XCTAssertEqual(fixture.sends, 0)
+            XCTAssertEqual(desktop.handle(request, device: "A").status, 200); XCTAssertEqual(fixture.writes, 1)
+        }
+    }
+    func testPlaceholderWordsAuthoredByUserRemainRealDraftText() {
+        let text = "和 Codex 一起工作"
+        XCTAssertEqual(MacTab5DesktopAX.composerText(text, classes: ["ProseMirror"], children: [.init(text: text)]), text)
+        XCTAssertEqual(MacTab5DesktopAX.composerText(text, classes: [], children: [.init(classes: ["placeholder"], text: text)]), text)
+        XCTAssertEqual(MacTab5DesktopAX.composerText("\n" + text + "\n", classes: ["ProseMirror"], children: []), "\n" + text + "\n")
+    }
+    func testStaleMixedOrUnmatchedPlaceholderDecorationCannotEraseDraft() {
+        typealias Node = MacTab5DesktopAX.ComposerTextNode
+        let hint = Node(classes: ["placeholder"], children: [.init(text: "hint")])
+        for nodes in [[hint, .init(text: "actual draft")], [hint, hint], [Node(classes: ["placeholder"])]] {
+            XCTAssertNil(MacTab5DesktopAX.composerText("hint", classes: ["ProseMirror"], children: nodes))
+        }
+        XCTAssertNil(MacTab5DesktopAX.composerText("actual draft", classes: ["ProseMirror"], children: [hint]))
+        XCTAssertNil(MacTab5DesktopAX.composerText("\nhint", classes: ["ProseMirror"], children: [hint]))
+        XCTAssertEqual(MacTab5DesktopAX.composerText("\n\n", classes: ["ProseMirror"], children: [hint]), "\n\n")
+        XCTAssertNil(MacTab5DesktopAX.composerText(String(repeating: "x", count: 2001), classes: [], children: []))
+    }
+    func testSubmissionReportsTheBlockingGuardWithoutEditingOrSending() throws {
+        let fixture = Fixture(), codex = try model(fixture)
+        var backend = fixture.backend, readable = true
+        backend.read = { _ in readable ? fixture.value : nil }; backend.diagnostic = { .role }
+        let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
+        let stageID = UUID().uuidString.lowercased()
+        XCTAssertEqual(desktop.handle(["op": "stage-draft", "taskId": fixture.task, "requestId": stageID, "text": "preview"], device: "A").status, 200)
+        func submit(_ reason: MacTab5DesktopCheck, draftID: String? = nil, device: String = "A") {
+            XCTAssertEqual(desktop.handle(["op": "submit-draft", "taskId": fixture.task, "requestId": UUID().uuidString,
+                "draftRequestId": draftID ?? stageID], device: device).status, 409)
+            XCTAssertEqual(desktop.summary, reason.rawValue)
+            XCTAssertEqual(fixture.writes, 1); XCTAssertEqual(fixture.sends, 0)
+        }
+        submit(.submitReceipt, draftID: UUID().uuidString)
+        submit(.submitReceipt, device: "B")
+        fixture.value = "preview\n"; submit(.submitParagraph)
+        fixture.value = "preview "; submit(.changed)
+        fixture.value = "preview"; readable = false; submit(.role); readable = true
+        var records = try MacTab5Protocol.object(codex.store.read("desktop-receipts")!), stage = records[stageID] as! [String: Any]
+        stage["createdAt"] = Date().timeIntervalSince1970 - 901; records[stageID] = stage
+        try codex.store.write("desktop-receipts", MacTab5Protocol.json(records)); submit(.submitExpired)
+        stage["createdAt"] = Date().timeIntervalSince1970; stage["stage"] = false; records[stageID] = stage
+        try codex.store.write("desktop-receipts", MacTab5Protocol.json(records)); submit(.submitUsed)
+        stage["stage"] = true; records[stageID] = stage
+        try codex.store.write("desktop-receipts", MacTab5Protocol.json(records))
+        XCTAssertEqual(desktop.handle(["op": "submit-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "draftRequestId": stageID], device: "A").status, 200)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.submitted.rawValue)
+        XCTAssertEqual(fixture.writes, 2); XCTAssertEqual(fixture.sends, 1)
+    }
+    func testWhitespaceOnlyComposerDoesNotPrependEmptyLinesOrClaimAppend() throws {
+        for initial in ["", "\n", "\n\n", "\r\n", " \t\n"] {
+            let fixture = Fixture(); fixture.value = initial
+            let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: fixture.backend)
+            let request: [String: Any] = ["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "测试输入"]
+            let result = desktop.handle(request, device: "A")
+            XCTAssertEqual(result.status, 200); XCTAssertEqual(result.body["appended"] as? Bool, false)
+            XCTAssertEqual(fixture.value, "测试输入"); XCTAssertEqual(fixture.writes, 1); XCTAssertEqual(fixture.sends, 0)
+            XCTAssertEqual(desktop.handle(request, device: "A").status, 200)
+            XCTAssertEqual(fixture.writes, 1)
+        }
+        let fixture = Fixture(); fixture.value = "\noriginal \n"
+        let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: fixture.backend)
+        let result = desktop.handle(["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "second"], device: "A")
+        XCTAssertEqual(result.status, 200); XCTAssertEqual(result.body["appended"] as? Bool, true)
+        XCTAssertEqual(fixture.value, "\noriginal \n\nsecond")
+    }
+    func testReadbackWaitsForExactBodyAndReturnsRawParagraphEndings() {
+        var values: [String?] = ["old", nil, "测试输入\r\n"], reads = 0, waits = 0
+        let observed = MacTab5DesktopAX.confirmWrite("测试输入", read: { reads += 1; return values.removeFirst() }, wait: { waits += 1 })
+        XCTAssertEqual(observed, "测试输入\r\n"); XCTAssertEqual(reads, 3); XCTAssertEqual(waits, 2)
+        XCTAssertEqual(MacTab5DesktopAX.confirmWrite("", read: { "\n\n" }, wait: {}), "\n\n")
+        XCTAssertEqual(MacTab5DesktopAX.confirmWrite("first\nsecond\n", read: { "first\nsecond\r\n" }, wait: {}), "first\nsecond\r\n")
+    }
+    func testReadbackNeverIgnoresBodyLeadingLinesSpacesOrPermanentUnavailability() {
+        for value in [nil, "other", "\n测试输入", "测试\n输入", "测试输入 ", "测试输入\n ", String(repeating: "x", count: 2001)] as [String?] {
+            var reads = 0, waits = 0
+            XCTAssertNil(MacTab5DesktopAX.confirmWrite("测试输入", read: { reads += 1; return value }, wait: { waits += 1 }))
+            XCTAssertEqual(reads, 12); XCTAssertEqual(waits, 11)
+        }
+    }
+    func testSubmissionUsesVerifiedRawSnapshotAndStillRejectsLaterChanges() throws {
+        let fixture = Fixture(), codex = try model(fixture)
+        var backend = fixture.backend
+        backend.write = { _, before, after in
+            guard fixture.value == before else { return nil }
+            fixture.value = after + "\n"; fixture.writes += 1
+            return MacTab5DesktopAX.confirmWrite(after, read: { fixture.value }, wait: {})
+        }
+        let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
+        let stageID = UUID().uuidString
+        XCTAssertEqual(desktop.handle(["op": "stage-draft", "taskId": fixture.task, "requestId": stageID, "text": "测试输入"], device: "A").status, 200)
+        XCTAssertEqual(fixture.value, "测试输入\n"); XCTAssertEqual(fixture.writes, 1); XCTAssertEqual(fixture.sends, 0)
+        fixture.value += " "
+        let submit: [String: Any] = ["op": "submit-draft", "taskId": fixture.task, "draftRequestId": stageID, "requestId": UUID().uuidString]
+        XCTAssertEqual(desktop.handle(submit, device: "A").status, 409)
+        XCTAssertEqual(fixture.writes, 1); XCTAssertEqual(fixture.sends, 0)
+        fixture.value = "测试输入\n"
+        var fresh = submit; fresh["requestId"] = UUID().uuidString
+        XCTAssertEqual(desktop.handle(fresh, device: "A").status, 200)
+        XCTAssertEqual(fixture.writes, 2); XCTAssertEqual(fixture.sends, 1)
+        XCTAssertEqual(desktop.handle(fresh, device: "A").status, 200)
+        XCTAssertEqual(fixture.writes, 2); XCTAssertEqual(fixture.sends, 1)
+    }
+    func testWriteFailureAndRecoveryPublishCurrentStatusWithoutRetrying() throws {
+        let fixture = Fixture(), codex = try model(fixture)
+        var backend = fixture.backend, deny = true, attempts = 0
+        backend.diagnostic = { .readOnly }
+        backend.write = { task, before, after in
+            attempts += 1
+            return deny ? nil : fixture.backend.write(task, before, after)
+        }
+        let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
+        var request: [String: Any] = ["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "preview"]
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.readOnly.rawValue)
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
+        XCTAssertEqual(attempts, 1); XCTAssertEqual(fixture.value, ""); XCTAssertEqual(fixture.sends, 0)
+        deny = false; request["requestId"] = UUID().uuidString
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 200)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.confirmed.rawValue)
+        XCTAssertEqual(attempts, 2); XCTAssertEqual(fixture.value, "preview"); XCTAssertEqual(fixture.sends, 0)
+        fixture.value = String(repeating: "x", count: 2000); request["requestId"] = UUID().uuidString
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.tooLong.rawValue)
+        XCTAssertEqual(attempts, 2); XCTAssertEqual(fixture.value.utf8.count, 2000); XCTAssertEqual(fixture.sends, 0)
+    }
+    func testStructuredMainComposerRequiresItsOwnTrustedDocumentAndUniqueFullTitle() {
+        let task = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
+        typealias Container = MacTab5DesktopAX.ComposerContainer
+        let body = Container(role: "AXGroup", classes: ["relative", "_ComposerLayoutBody_5est5_2"])
+        let page = Container(role: "AXWebArea", address: "app://-/index.html", title: "Acceptance chat")
+        func check(_ containers: [Container], classes: [String] = ["ProseMirror", "ProseMirror-focused"], title: String? = "Acceptance chat") -> MacTab5DesktopCheck {
+            MacTab5DesktopAX.structuredComposerCheck(classes: classes, containers: containers, task: task, uniqueFullTitle: title, resources: nil)
+        }
+        XCTAssertEqual(check([body, page]), .confirmed)
+        // Exact task routes work without a unique name; a conflicting route
+        // rejects even when the accessible document still has the old title.
+        XCTAssertEqual(check([body, Container(role: "AXWebArea", address: "app://-/local/" + task)], title: nil), .confirmed)
+        XCTAssertEqual(check([body, Container(role: "AXWebArea", address: "app://-/local/" + other, title: "Acceptance chat")]), .route)
+        XCTAssertEqual(check([body, page], title: nil), .route) // Duplicate/unavailable full catalog name.
+        XCTAssertEqual(check([body, page], title: "Acceptance…"), .route)
+        XCTAssertEqual(check([body, Container(role: "AXWebArea", address: "app://-/index.html", title: "Other chat")]), .route)
+        for address in ["https://example.com", "app://fs/index.html", "file:///tmp/index.html"] {
+            XCTAssertEqual(check([body, Container(role: "AXWebArea", address: address, title: "Acceptance chat")]), .route)
+        }
+        for classes in [[], ["ProseMirror-trailingBreak"], ["NotProseMirror"], ["composer"]] {
+            XCTAssertEqual(check([body, page], classes: classes), .identifier)
+        }
+        // A question reply, annotation editor or nested browser cannot become
+        // the main composer by borrowing an outer document/body's identity.
+        for containers in [[page], [page, body], [body],
+                           [Container(role: "AXGroup", classes: ["@container/request-card"]), body, page],
+                           [Container(role: "AXDialog"), body, page], [Container(role: "AXSheet"), body, page],
+                           [body, page, page], [Container(role: "AXTextArea"), body, page],
+                           [Container(role: "AXGroup", classes: ["prefix_ComposerLayoutBody_fake"]), page]] {
+            XCTAssertEqual(check(containers), .structure)
+        }
+    }
+    func testFailedStagingReplacesNavigationStatusWithoutRetryOrTextMutation() throws {
+        let fixture = Fixture(), codex = try model(fixture)
+        var backend = fixture.backend, reads = 0, reason = MacTab5DesktopCheck.identifierAndRoute
+        backend.navigation = { $0 == fixture.task }
+        backend.read = { _ in reads += 1; return nil }
+        backend.diagnostic = { reason }
+        backend.evidence = { "navigation-only evidence" }
+        let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
+        XCTAssertEqual(desktop.handle(["op": "open-recent", "taskId": fixture.task, "requestId": UUID().uuidString], device: "A").status, 200)
+        XCTAssertTrue(desktop.summary.contains("navigation-only evidence"))
+        let request: [String: Any] = ["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "recognized preview"]
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 503)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.identifierAndRoute.rawValue)
+        XCTAssertEqual(desktop.handle(request, device: "A").status, 503)
+        XCTAssertEqual(reads, 1); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+        reason = .route
+        var fresh = request; fresh["requestId"] = UUID().uuidString
+        XCTAssertEqual(desktop.handle(fresh, device: "A").status, 503)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.route.rawValue)
+        XCTAssertEqual(reads, 2); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
+    }
     func testDelayedNavigationUsesTheDeadlineWithoutReopeningOrReadingAnEditor() throws {
         let fixture = Fixture(), codex = try model(fixture)
         var backend = fixture.backend, checks = 0, reads = 0
@@ -173,7 +370,7 @@ final class MacTab5DesktopTests: XCTestCase {
             if method == "thread/read" { return ["thread": ["id": task, "status": ["type": "idle"], "turns": []]] }
             if method == "turn/start" { sends += 1; return ["turn": ["id": turn]] }; return [:]
         }
-        var backend: MacTab5DesktopBackend { .init(open: { _ in self.opens += 1; return self.foreground }, read: { _ in self.foreground ? self.value : nil }, write: { _, expected, next in guard self.foreground, self.value == expected else { return false }; self.value = next; self.writes += 1; return true }) }
+        var backend: MacTab5DesktopBackend { .init(open: { _ in self.opens += 1; return self.foreground }, read: { _ in self.foreground ? self.value : nil }, write: { _, expected, next in guard self.foreground, self.value == expected else { return nil }; self.value = next; self.writes += 1; return next }) }
     }
     private func model(_ fixture: Fixture) throws -> MacTab5Codex {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString); addTeardownBlock { try? FileManager.default.removeItem(at: root) }

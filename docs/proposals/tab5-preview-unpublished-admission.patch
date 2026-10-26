@@ -1,0 +1,84 @@
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -159,7 +159,7 @@
+     return link_state_image(&links,now,session,wifi_connected,ready[0]&&tab5_usb_connected(),ready[1]&&ble_connected&&ble_host_authorized());
+ }
+ bool rpc_read_link_ready(void){return rpc_read_link_select()!=LINK_NONE;}
+-static uint8_t *exchange(link_kind link,const char *nonce,const char *proof,const uint8_t *data,size_t size,size_t *reply_size,uint32_t generation,unsigned timeout_ms,unsigned admission_ms,unsigned host_generation) {
++static uint8_t *exchange(link_kind link,const char *nonce,const char *proof,const uint8_t *data,size_t size,size_t *reply_size,uint32_t generation,unsigned timeout_ms,unsigned admission_ms,unsigned host_generation,int *status) {
+     *reply_size=0;rpc_mailbox *m=box(link);
+     if(!rpc_lock||!m||!m->out||!m->in||size+96>RPC_REQUEST_MAX)return NULL;
+     int64_t began=esp_timer_get_time()/1000,deadline=began+timeout_ms;
+@@ -175,7 +175,7 @@
+         if(!current||now>=deadline){xSemaphoreGive(rpc_lock);return NULL;}
+         if(!m->active)break;
+         xSemaphoreGive(rpc_lock);
+-        if(now-began>=admission_ms)return NULL;
++        if(now-began>=admission_ms){*status=RPC_STATUS_UNPUBLISHED_BUSY;return NULL;}
+         vTaskDelay(pdMS_TO_TICKS(10));
+     }
+     // Own each wakeup until detachment; reconnect cannot steal it. IDF's
+@@ -421,7 +421,7 @@
+     // separately from general commands so connection recovery can run promptly.
+     unsigned timeout_ms=link==LINK_BLE&&kind&&!strcmp(kind,"image-chunk")?15000:rpc_exchange_timeout(kind,ota_probe);
+     if(photo_upload){photo_tx_phase(PHOTO_TX_EXCHANGE);photo_display_probe_mark(PHOTO_DISPLAY_PROBE_NETWORK);}
+-    size_t reply_size=0;uint8_t *reply=http?http_exchange(http,&cfg,nonce,proof,packet,n+28,&reply_size,status):exchange(link,nonce,proof,packet,n+28,&reply_size,generation,timeout_ms,admission_ms,host_generation);
++    size_t reply_size=0;uint8_t *reply=http?http_exchange(http,&cfg,nonce,proof,packet,n+28,&reply_size,status):exchange(link,nonce,proof,packet,n+28,&reply_size,generation,timeout_ms,admission_ms,host_generation,status);
+     int64_t decode_start=esp_timer_get_time();
+     if(profile){profile->exchange_us+=decode_start-exchange_start;profile->wire_rx+=reply_size;profile_memory(profile);}
+     free(packet);
+--- a/firmware/main/rpc_link.h
++++ b/firmware/main/rpc_link.h
+@@ -7,6 +7,9 @@
+ #include "gallery_profile.h"
+ // Bounded, authenticated application RPC over CDC or GATT. A request stays on
+ // its selected transport; uncertain sends are never retried on another link.
++// Local admission result only: no nonce or request bytes were published.
++// Callers may retry this result while their original owner/deadline still hold.
++#define RPC_STATUS_UNPUBLISHED_BUSY (-1011)
+ void rpc_link_init(void);
+ void rpc_link_reset(link_kind link);
+ size_t rpc_link_read(link_kind link,uint8_t *out,size_t capacity);
+--- a/firmware/main/screen_preview.c
++++ b/firmware/main/screen_preview.c
+@@ -53,7 +53,18 @@
+ }
+ static cJSON *call(preview_job *job,void *http,cJSON *request,const uint8_t *bytes,size_t size,int *status) {
+     char nonce[33];if(!request||!current(job)){*status=0;return NULL;}
+-    return rpc_data_call(job->link,http,request,status,nonce,bytes,size,NULL,0,NULL);
++    cJSON *reply;
++    do {
++        reply=rpc_data_call(job->link,http,request,status,nonce,bytes,size,NULL,0,NULL);
++        if(*status!=RPC_STATUS_UNPUBLISHED_BUSY||!current(job))break;
++        // A task read may own the mailbox after begin. Only unpublished
++        // admission may retry; never replay an uncertain chunk or extend the
++        // original request deadline. Foreground voice/photos/OTA still win.
++        voice_remote_get(&job->voice);
++        if(ota_update_busy()||job->voice.busy||photo_state()==1){job->cancelled=true;break;}
++        vTaskDelay(pdMS_TO_TICKS(20));
++    }while(current(job));
++    return reply;
+ }
+ // Repeating the existing idempotent begin keeps an authorized request alive
+ // while encoding; no pixel data, extension or unbounded lease is introduced.
+--- a/tests/ui-preview/rpc_admission_test.c
++++ b/tests/ui-preview/rpc_admission_test.c
+@@ -47,15 +47,16 @@
+ static SemaphoreHandle_t xSemaphoreCreateBinary(void){created++;semaphore *s=malloc(sizeof(*s));assert(s);s->kind=3;return s;}
+ static void vSemaphoreDelete(SemaphoreHandle_t s){deleted++;free(s);}
+ static void *heap_caps_malloc(size_t n,int caps){assert(caps==3);return malloc(n);}
++#define RPC_STATUS_UNPUBLISHED_BUSY (-1011)
+ #include "rpc_admission_under_test.inc"
+ static void run(link_kind link,unsigned timeout,unsigned admission,unsigned drain_after,unsigned mutation,bool answer,bool expected){
+     memset(boxes,0,sizeof(boxes));memset(rpc_done,0,sizeof(rpc_done));
+     now=1000;host=7;usb=ble_connected=true;changing=locked=false;created=deleted=sends=wait_budget=0;
+     drain=drain_after?now+drain_after:0;change=mutation;respond=answer;current_link=link;
+     rpc_mailbox *m=box(link);m->out=out;m->in=in;m->generation=2;m->active=41;m->serial=41;
+-    uint8_t payload[4]={1,2,3,4};size_t length=99;
++    uint8_t payload[4]={1,2,3,4};size_t length=99;int status=0;
+     uint8_t *reply=exchange(link,"01234567890123456789012345678901",
+-        "0123456789012345678901234567890123456789012345678901234567890123",payload,4,&length,2,timeout,admission,7);
++        "0123456789012345678901234567890123456789012345678901234567890123",payload,4,&length,2,timeout,admission,7,&status);
+     assert((reply!=NULL)==expected&&!locked&&created==deleted&&!completion(link));
+     if(expected){assert(length==4&&reply[0]==0xA3&&m->serial==42&&sends==1&&wait_budget==timeout-drain_after);}
+     else {assert(!length);if(!answer&&drain_after&&!mutation){assert(m->serial==42&&sends==1&&now==1000+timeout);}else assert(!created&&!sends&&m->serial==41);}

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased Mac model account parity - 2026-10-26
+
+- Keep DeepSeek API total balance (already including gifts) and console spending independently stored, timestamped and labeled. In separate-source mode devices receive API balance only; unverified web spending is never merged. Pure-console mode can display its own balance and spending together. Sum same-currency recharge and bonus wallets with decimal arithmetic, without double-counting an authoritative total.
+- Read console spending from `total_costs`; same-console balance-only updates retain the original spending timestamp for at most 24 hours. Source/credential/currency transitions prevent old API data being relabeled as web data. Failed reads retain the last successful source-specific data.
+- Match Windows stock-name rendering parameters: 21-pixel regular type, 20-pixel rows, right alignment, gray text and end ellipsis for long names. Remove extra vertical padding; stock codes already share the firmware's 16-pixel Font2. The local ESP8266 0.5.6 candidate preserves reset-credit digit strokes and aligns columns inside a smaller badge.
+- Replace model account dialogs with one window containing the 14 Windows provider entries, an embedded official login page and quota-source settings. Retain API/local-service sources and add DeepSeek official web balance parsing.
+- Let system WebKit storage manage web sessions; selected console sources retry in the background after the window closes and after bridge restart. Expired login, rate limiting and network failures preserve the last successful data with freshness shown. Never export cookies or combine account balances with local token counts.
+- Fit ESP8266 weather place names to actual glyph bounds and enlarge Chinese stock names within existing row heights. A separate local ESP8266 0.5.4 candidate fixes Codex reset-credit borders and pet-animation exclusion. TAB5 firmware is unchanged.
+- Follow-up feedback: match Windows’ colored air-quality badge and separate condition text, and add per-provider web zoom for oversized official dialogs. The local ESP8266 0.5.5 candidate reduces reset-credit text from 16 to 14 pixels at the user’s request.
+
+## Unreleased Mac ESP8266 discovery - 2026-10-26
+
+- Add authenticated ESP8266 LAN rediscovery using the existing Windows/device protocol and retained Keychain pairing. Share the TAB5 UDP listener, select the current matching subnet, and bind the reply source to the advertised address only when HTTP is ready. Preserve USB-first routing, pairing and display settings. Native policy/loopback checks are recorded separately from controlled stale-port ESP8266 rediscovery, Wi-Fi fallback and USB recovery hardware evidence; actual DHCP changes remain untested. No new firmware or public release.
+
+- Match Windows’ 12-second completion display timeout so ESP cycling can resume. Correct imported pet and localized-text bitmap row orientation, including stock names in the 20-row atlas. Import the project’s six-frame Codex mascot at the user’s request; visual and text hardware acceptance remain separate.
+- Fix the API quota providers’ console button opening no page and losing its feedback: open DeepSeek, StepFun and Baidu Qianfan official sites in the default browser while preserving quota sources and credentials.
+
 ## Unreleased Mac TAB5 candidate - 2026-10-20
 
 - Complete the five-stage Mac candidate scope: shared USB/Wi-Fi/BLE authentication and receipts, daily display/settings, covers/pets/gallery, exact-image OTA/boot checks, computer/music controls, opt-in Codex replies/encrypted drafts/one-time delivery, bound photos, local Speech capture/review, and verified 16 MiB P4 first install/backup/restore.

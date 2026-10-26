@@ -8,6 +8,8 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var pending: CheckedContinuation<(Double, Double), Error>?
     private var timeout: Task<Void, Never>?
+    private let reverseLookup: (Double, Double) async -> String?
+    private var place: (latitude: Double, longitude: Double, name: String, updatedAt: Date)?
     enum Failure: LocalizedError {
         case denied, unavailable, busy
         var errorDescription: String? {
@@ -18,10 +20,49 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
             }
         }
     }
-    override init() {
+    init(reverseLookup: ((Double, Double) async -> String?)? = nil) {
+        self.reverseLookup = reverseLookup ?? Self.reverseGeocode
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyKilometer
+    }
+    func namedLocation() async throws -> (Double, Double, String) {
+        let grid = try await locate()
+        return (grid.0, grid.1, await placeName(latitude: grid.0, longitude: grid.1))
+    }
+    func placeName(latitude: Double, longitude: Double, now: Date = Date()) async -> String {
+        let sameGrid = place?.latitude == latitude && place?.longitude == longitude
+        if sameGrid, let place, (0..<21_600).contains(now.timeIntervalSince(place.updatedAt)) { return place.name }
+        if let name = await reverseLookup(latitude, longitude), !name.isEmpty {
+            place = (latitude, longitude, name, now); return name
+        }
+        // A naming failure must neither erase a known name for this grid nor
+        // label a different location with the previous city's name.
+        return sameGrid ? place?.name ?? "当前位置" : "当前位置"
+    }
+    private static func reverseGeocode(latitude: Double, longitude: Double) async -> String? {
+        let geocoder = CLGeocoder()
+        let deadline = Task {
+            do { try await Task.sleep(nanoseconds: 5_000_000_000) } catch { return }
+            geocoder.cancelGeocode()
+        }
+        defer { deadline.cancel() }
+        guard let mark = try? await geocoder.reverseGeocodeLocation(
+            CLLocation(latitude: latitude, longitude: longitude), preferredLocale: Locale(identifier: "zh_CN")).first else { return nil }
+        return placeLabel(city: mark.locality ?? mark.subAdministrativeArea, district: mark.subLocality, region: mark.administrativeArea)
+    }
+    nonisolated static func placeLabel(city: String?, district: String?, region: String?) -> String? {
+        func clean(_ value: String?) -> String? {
+            guard let value, !value.contains("\0") else { return nil }
+            let result = value.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+            return result.isEmpty || result.utf8.count > 160 ? nil : result
+        }
+        let city = clean(city) ?? clean(region), district = clean(district)
+        guard let city else { return district }
+        guard let district, district != city else { return city }
+        if district.hasPrefix(city) { return district }
+        if city.hasSuffix(district) { return city }
+        return city + " · " + district
     }
     func locate() async throws -> (Double, Double) {
         guard pending == nil else { throw Failure.busy }

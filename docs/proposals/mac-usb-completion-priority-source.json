@@ -1,0 +1,31 @@
+{
+  "base": "R13 complete, currently running and physically failed",
+  "productFiles": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USBOperationWait.swift",
+      "beforeNormalizedSHA256": "9ab01ee98270266fd55cec4f2b0ea0b5b7ee9335ce7330cc65bdb8aecb6ab84e",
+      "afterNormalizedSHA256": "31b5095580de454f8a112ae07dc2e91c2bf20be57b282c215bec7a6942f72de3"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USBOperationWaitValidation.swift",
+      "beforeNormalizedSHA256": "01797b5b7947a797da2f67883fe144dfb0440062312887a78401aef443e5577c",
+      "afterNormalizedSHA256": "87d32217d514c8b2479b9e26546234f670a521353a69661ae63d0a3cb9fe31c4"
+    }
+  ],
+  "wireProtocolChanged": false,
+  "deployed": true,
+  "physicalAcceptance": false,
+  "debugChecks": 1505,
+  "releaseBuild": "passed",
+  "reproduction": "Original production waiter throws heartbeat timeout although RPC result already ready. New waiter delivers ready result before due maintenance. Pending operations retain original two-second ownership maintenance and all cancellation/deadline bounds.",
+  "evidence": "artifacts/development/mac-usb-completion-20261025",
+  "limits": "Isolated scheduler regression; not proof that all R13 physical interruptions share this cause.",
+  "XCTest": "unavailable: no such module XCTest",
+  "generationAuthorization": "Unified271 generation and candidate-specific installation explicitly authorized and completed",
+  "releaseChecks": 1505,
+  "signatureVerified": true,
+  "helperByteIdentical": true,
+  "bundle": "artifacts/mac-usb-completion-r14-complete-20261025/AIBotBridge.app",
+  "validationHistory": "One unbundled CLI parity run failed the existing20ms tray routing assertion; both signed preliminary/final bundles subsequently pass1505 without source changes. Original failure log retained.",
+  "physicalFailureEvidence": "Matched271/R14 fails both with preview and in pure recording. Pure: recognition58ms, terminal response19600ms later, eight-second no-peer-request end reason; repeated ~12KiB status/heartbeat timeouts read no bytes. R15 follow-up and content-free diagnostics deployed; no final physical fix claimed."
+}

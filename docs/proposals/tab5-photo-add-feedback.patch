@@ -1,0 +1,218 @@
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -7,11 +7,15 @@
+ static unsigned photo_cache_next;
+ static char photo_task[37],photo_id[37],photo_directory[512]="/sdcard";
+ static photo_listing *photo_visible_listing;
+-static int photo_step; // 1 prepare, 2 preview, 3 uploading, 4 list, 5 wait for still scanout
++static int photo_step; // 1 prepare, 2 preview, 3 uploading, 4 list, 5 show feedback before holding scanout
+ static bool photo_from_camera;
+ static bool photo_camera_retry_prepare;
+ static bool photo_camera_encode_pending;
+-static int photo_camera_hold_result;
++static bool photo_camera_feedback_drawn;
++static void photo_camera_feedback_ready(lv_event_t *e) {
++    (void)e;
++    if(photo_camera_processing&&photo_step==5)photo_camera_feedback_drawn=true;
++}
+ static void photo_camera_begin(bool encode);
+ static void photo_tick(void);
+ static const char *photo_camera_start_error;
+@@ -134,17 +138,18 @@
+     photo_step=5;photo_from_camera=true;photo_camera_start_error=NULL;photo_camera_encode_pending=encode;
+     if(encode)photo_id[0]=0;
+     photo_display_probe_mark(PHOTO_DISPLAY_PROBE_CLICK);
+-    photo_camera_hold_result=camera_viewport_still_begin(camera_canvas);
++    photo_camera_feedback_drawn=false;
+     photo_camera_busy(true);
++    ui_text(camera_hint,"正在添加照片…");visible(camera_hint,true);
+     // A retry stays on its error page; do not rotate back into the camera
+     // while the new encoding task is already running.
+     visible(photo_files,false);visible(photo_up,false);visible(photo_prev,false);visible(photo_next,false);
+     if(encode)visible(photo_view,false);
+     visible(photo_confirm,!encode);
+-    ui_text(photo_title,"添加照片");ui_text(photo_note,"正在处理照片…");
+-    // Still inside the click's LVGL turn: fence pending DMA and take scanout
+-    // before any of the changed controls can trigger an ordinary partial draw.
+-    photo_tick();
++    ui_text(photo_title,"添加照片");ui_text(photo_note,"正在添加照片…");
++    // Let the ordinary renderer present this feedback first. Encoding/upload
++    // starts on a later UI turn, after refresh completion and the DMA fence.
++    // The refresh callback only marks readiness; never freeze inside drawing.
+ }
+ static void photo_camera_use(void){photo_camera_begin(true);}
+ static void photo_open(lv_event_t *e) {
+@@ -211,8 +216,9 @@
+     lv_display_trigger_activity(NULL);
+     if(photo_camera_processing&&photo_step==2&&!photo_camera_return(true))return;
+     if(photo_step==5) {
++        if(!photo_camera_feedback_drawn)return;
+         if(!photo_camera_start_error) {
+-                int held=photo_camera_hold_result;
++                int held=camera_viewport_still_begin(camera_canvas);
+                 if(held==1) {
+                     if(!photo_camera_encode_pending) {
+                         photo_step=2;photo_upload();
+@@ -293,10 +299,11 @@
+         if(retained){free(photo_cache[cache].pixels);photo_cache[cache].pixels=retained;photo_cache[cache].width=width;photo_cache[cache].height=height;snprintf(photo_cache[cache].id,37,"%s",photo_id);}
+         d->dirty=d->loaded=true;d->revision++;codex_local_dirty=true;codex_checkpoint_write();photo_finish();
+         codex_feedback_pinned=true;codex_submit_accepted=false;
+-        ui_text(codex_receipt,status);
++        ui_text_fmt(codex_receipt,"已添加 %d/3 张，发送后对方才会收到",slot+1);
+     }
+ }
+ static UI_INIT_SMALL void photo_ui_create(lv_obj_t *screen,lv_obj_t *composer) {
++    lv_display_add_event_cb(lv_obj_get_display(screen),photo_camera_feedback_ready,LV_EVENT_REFR_READY,NULL);
+     lv_obj_t *trigger=button(composer,"",450,332,56,photo_open,0);lv_obj_set_size(trigger,56,56);lv_obj_clean(trigger);lv_obj_set_style_pad_all(trigger,0,0);
+     codex_camera_button=trigger;
+     lv_obj_t *body=shape(trigger,11,19,34,24,INK,5);ui_bg_opa(body,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(body,2,0);ui_border_color(body,lv_color_hex(INK),0);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1588,6 +1588,15 @@
+     }
+     assert(clicked&&!photo_flow&&lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN));
+ }
++static void photo_feedback_present(void) {
++    assert(photo_camera_processing&&photo_step==5&&!photo_camera_feedback_drawn);
++    int prepares=preview_photo_prepares;unsigned uploads=preview_photo_uploads;
++    photo_tick(); // Work must not start before an actual LVGL refresh completes.
++    assert(photo_step==5&&preview_photo_prepares==prepares&&preview_photo_uploads==uploads);
++    lv_refr_now(lv_display_get_default());
++    assert(photo_camera_feedback_drawn);
++    photo_tick();
++}
+ static void check_photo_add_transition(void) {
+     uint16_t *pixels=malloc(1280*720*2);assert(pixels);
+     preview_photo_fixture=true;
+@@ -1603,7 +1612,7 @@
+         assert(camera_orientation_apply(pose));camera_tick();
+         lv_display_rotation_t rotation=lv_display_get_rotation(NULL);
+         const uint8_t *before=lv_canvas_get_draw_buf(camera_canvas)->data;
+-        lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);prepares++;
++        lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);photo_feedback_present();prepares++;
+         assert(photo_camera_processing&&photo_step==1&&preview_photo_prepares==prepares);
+         for(int n=0;n<3;n++) {
+             camera_tick();photo_tick();clock_tick(NULL);
+@@ -1624,7 +1633,7 @@
+         assert(lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
+         assert(preview_photo_uploads==uploads);
+         if(i%2) {
+-            lv_obj_send_event(photo_confirm,LV_EVENT_CLICKED,NULL);prepares++;
++            lv_obj_send_event(photo_confirm,LV_EVENT_CLICKED,NULL);photo_feedback_present();prepares++;
+             assert(photo_camera_processing&&preview_photo_prepares==prepares);
+             assert(lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
+             preview_photo_state=2;photo_tick();assert(!photo_camera_processing&&photo_step==2);
+@@ -1637,7 +1646,7 @@
+     puts("PHOTO_ADD_TRANSITION_OK four poses; retained still; no premature page/rotation; duplicate controls blocked; encoder retry; normal geometry before reveal; no upload or send");
+ }
+ static uint16_t *photo_stable_pixels;
+-static lv_area_t photo_control_areas[3];
++static lv_area_t photo_control_areas[4];
+ static unsigned photo_delta_flushes,photo_delta_pixels,photo_outside_changes;
+ static void photo_delta_flush(lv_display_t *display,const lv_area_t *area,uint8_t *pixels) {
+     unsigned width=lv_display_get_horizontal_resolution(display),height=lv_display_get_vertical_resolution(display);
+@@ -1646,7 +1655,7 @@
+     for(int y=area->y1;y<=area->y2;y++)for(int x=area->x1;x<=area->x2;x++) {
+         uint16_t color=((uint16_t *)pixels)[(y-area->y1)*stride+x-area->x1];
+         bool control=false;
+-        for(unsigned i=0;i<3;i++){lv_area_t *a=&photo_control_areas[i];control|=x>=a->x1&&x<=a->x2&&y>=a->y1&&y<=a->y2;}
++        for(unsigned i=0;i<4;i++){lv_area_t *a=&photo_control_areas[i];control|=x>=a->x1&&x<=a->x2&&y>=a->y1&&y<=a->y2;}
+         if(!control&&color!=photo_stable_pixels[y*width+x])photo_outside_changes++;
+     }
+     lv_display_flush_ready(display);
+@@ -1655,8 +1664,10 @@
+     lv_display_t *display=lv_display_get_default();lv_refr_now(display);
+     photo_stable_pixels=malloc(sizeof(preview_buffer));assert(photo_stable_pixels);
+     memcpy(photo_stable_pixels,preview_buffer,sizeof(preview_buffer));
+-    lv_obj_t *controls[]={camera_close,camera_retry,camera_use};
+-    for(unsigned i=0;i<3;i++){lv_obj_get_coords(controls[i],&photo_control_areas[i]);lv_area_increase(&photo_control_areas[i],4,4);}
++    lv_obj_t *controls[]={camera_close,camera_retry,camera_use,camera_hint};
++    // Reserve exactly the feedback badge area before it becomes visible.
++    ui_text(camera_hint,"正在添加照片…");lv_obj_update_layout(camera_layer);
++    for(unsigned i=0;i<4;i++){lv_obj_get_coords(controls[i],&photo_control_areas[i]);lv_area_increase(&photo_control_areas[i],4,4);}
+     lv_display_set_flush_cb(display,photo_delta_flush);
+     lv_display_set_buffers(display,preview_buffer,NULL,TAB5_DRAW_BUFFER_PIXELS*2,LV_DISPLAY_RENDER_MODE_PARTIAL);
+     lv_refr_now(display);photo_delta_flushes=photo_delta_pixels=photo_outside_changes=0;
+@@ -1692,7 +1703,7 @@
+         assert(camera_orientation_apply(poses[i]));camera_tick();
+         lv_display_rotation_t rotation=lv_display_get_rotation(NULL);
+         photo_delta_begin();
+-        lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);
++        lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);photo_feedback_present();
+         photo_delta_check(poses[i],"encode");
+         preview_photo_state=2;preview_result_code=-1;photo_tick();uploads++;
+         photo_delta_check(poses[i],"upload");
+@@ -1710,15 +1721,35 @@
+             assert(!photo_camera_processing&&photo_step==2&&!lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
+             assert(preview_photo_state==2&&lv_display_get_horizontal_resolution(NULL)==1280);
+             photo_tick();assert(preview_photo_uploads==uploads); // no automatic retry
+-            lv_obj_send_event(photo_confirm,LV_EVENT_CLICKED,NULL);uploads++;
++            lv_obj_send_event(photo_confirm,LV_EVENT_CLICKED,NULL);photo_feedback_present();uploads++;
+             assert(preview_photo_uploads==uploads&&photo_step==3);
+         }
+         preview_result_code=200;preview_result_text="照片已添加";photo_tick();
+         assert(!photo_flow&&!photo_camera_processing&&lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
+         assert(lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&lv_display_get_horizontal_resolution(NULL)==1280);
+         assert(d->images[0][0]&&d->thumbnails[0]&&preview_submit_count==submits);
++        assert(!strcmp(lv_label_get_text(codex_receipt),"已添加 1/3 张，发送后对方才会收到"));
++        if(i==0){page(8);capture("photo-added-success");}
+         lv_obj_send_event(composer_remove[0],LV_EVENT_CLICKED,NULL);assert(!d->images[0][0]);
+     }
++    // Complete three distinct attachments without sending; count and full-limit
++    // feedback must follow the confirmed draft, not merely a completed encoder.
++    for(int slot=0;slot<3;slot++) {
++        photo_flow=photo_for_codex=true;preview_camera_state=CAMERA_PREVIEW_CAPTURED;
++        visible(camera_layer,true);lv_obj_move_foreground(camera_layer);
++        lv_canvas_set_buffer(camera_canvas,pixels,1280,720,LV_COLOR_FORMAT_RGB565);
++        assert(camera_orientation_apply(0));camera_tick();last_received=esp_timer_get_time()/1000;
++        photo_id[0]=0;photo_camera_use();photo_feedback_present();
++        preview_photo_state=2;preview_result_code=-1;photo_tick();
++        assert(photo_step==3&&!d->images[slot][0]);
++        preview_result_code=200;preview_result_text="照片已添加";photo_tick();
++        char expected[128];snprintf(expected,sizeof(expected),"已添加 %d/3 张，发送后对方才会收到",slot+1);
++        assert(!photo_flow&&d->images[slot][0]&&!strcmp(lv_label_get_text(codex_receipt),expected));
++    }
++    unsigned starts=preview_camera_starts;photo_open(NULL);
++    assert(!photo_flow&&preview_camera_starts==starts&&strstr(lv_label_get_text(codex_receipt),"最多添加 3 张"));
++    assert(preview_submit_count==submits);
++    for(int slot=2;slot>=0;slot--)lv_obj_send_event(composer_remove[slot],LV_EVENT_CLICKED,NULL);
+     lv_image_set_src(camera_canvas,NULL);free(pixels);preview_photo_fixture=false;camera_preview_stop();
+     puts("PHOTO_UPLOAD_TRANSITION_OK four poses; stable still through pending ack; one successful page return; failure retains photo; explicit retry only; no conversation send");
+ }
+@@ -4711,13 +4742,13 @@
+     assert(lv_canvas_get_draw_buf(camera_canvas)->header.w==CAMERA_VIEW_WIDTH);
+     assert(preview_submit_count==sends_before_camera);
+     // Encoder failure offers a retry of the retained still, not a new capture.
+-    lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);
++    lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);photo_feedback_present();
+     assert(preview_photo_prepares==1&&photo_step==1);
+     assert(!lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
+     preview_photo_state=3;photo_tick();
+     assert(!lv_obj_has_flag(photo_confirm,LV_OBJ_FLAG_HIDDEN));
+     assert(!strcmp(lv_label_get_text(lv_obj_get_child(photo_confirm,0)),"重试"));
+-    lv_obj_send_event(photo_confirm,LV_EVENT_CLICKED,NULL);
++    lv_obj_send_event(photo_confirm,LV_EVENT_CLICKED,NULL);photo_feedback_present();
+     assert(preview_photo_prepares==2&&photo_step==1&&preview_photo_state==1);
+     assert(preview_camera_state==CAMERA_PREVIEW_CAPTURED);
+     assert(preview_submit_count==sends_before_camera);
+@@ -4742,7 +4773,7 @@
+                 codex_waiting=codex_voice_waiting=codex_reading=codex_syncing=codex_load_waiting=codex_send_queued=false;
+                 last_received=esp_timer_get_time()/1000;
+                 photo_open(NULL);assert(photo_flow&&photo_for_codex);
+-                preview_camera_state=CAMERA_PREVIEW_CAPTURED;photo_camera_use();assert(photo_step==1);
++                preview_camera_state=CAMERA_PREVIEW_CAPTURED;photo_camera_use();photo_feedback_present();assert(photo_step==1);
+                 preview_photo_width=slot==1?360:640;preview_photo_height=slot==1?640:360;
+                 for(unsigned n=0;n<PHOTO_PREVIEW_W*PHOTO_PREVIEW_H;n++)preview_photo_pixels[n]=(uint16_t)(0x2100+uploads);
+                 preview_photo_state=2;preview_result_code=-1;
+--- a/tests/ui-preview/ui_preview_stubs.h
++++ b/tests/ui-preview/ui_preview_stubs.h
+@@ -7,7 +7,8 @@
+ #include "lvgl.h"
+ // The desktop preview uses ordinary LVGL rendering, without the board's
+ // scanout hold. Return the production API's supported fallback result.
+-static int camera_viewport_still_begin(lv_obj_t *canvas){(void)canvas;return 0;}
++// Native UI fixtures model a successful display fence; actual DMA remains a hardware check.
++static int camera_viewport_still_begin(lv_obj_t *canvas){(void)canvas;return 1;}
+ static bool camera_viewport_still_end(void){return true;}
+ // ui.c maps the portrait hardware to this landscape preview exactly once.
+ // FULL render buffers need a new stride when changing between aspect ratios;

@@ -1,0 +1,1125 @@
+--- a/mac-app/Sources/AIBotBridge/MusicService.swift
++++ b/mac-app/Sources/AIBotBridge/MusicService.swift
+@@ -41,24 +41,49 @@
+     var artworkScriptSources: [String] {
+         switch self {
+         case .appleMusic:
+-            return ["raw data", "data"].map { property in
++            let current = ["data", "raw data"].map { property in
+                 """
+                 with timeout of 2 seconds
+                     tell application id "com.apple.Music"
+                         if player state is stopped then return missing value
+                         set currentTrack to current track
+-                        if (count of artworks of currentTrack) is 0 then return missing value
+-                        return \(property) of artwork 1 of currentTrack
++                        set artworkCount to count of artworks of currentTrack
++                        if artworkCount is 0 then return {0, missing value, name of currentTrack as text, artist of currentTrack as text, album of currentTrack as text}
++                        return {artworkCount, \(property) of artwork 1 of currentTrack, name of currentTrack as text, artist of currentTrack as text, album of currentTrack as text}
+                     end tell
+                 end timeout
+                 """
+             }
++            let library = ["data", "raw data"].map { property in
++                """
++                with timeout of 2 seconds
++                    tell application id "com.apple.Music"
++                        if player state is stopped then return missing value
++                        set trackID to database ID of current track
++                        set matches to {}
++                        try
++                            set matches to every track of current playlist whose database ID is trackID
++                        end try
++                        if (count of matches) is 0 then
++                            set matches to every track of library playlist 1 whose database ID is trackID
++                        end if
++                        if (count of matches) is not 1 then return {0, missing value}
++                        set libraryTrack to item 1 of matches
++                        set artworkCount to count of artworks of libraryTrack
++                        if artworkCount is 0 then return {0, missing value, name of libraryTrack as text, artist of libraryTrack as text, album of libraryTrack as text}
++                        return {artworkCount, \(property) of artwork 1 of libraryTrack, name of libraryTrack as text, artist of libraryTrack as text, album of libraryTrack as text}
++                    end tell
++                end timeout
++                """
++            }
++            return current + library
+         case .spotify:
+             return ["""
+                 with timeout of 2 seconds
+                     tell application id "com.spotify.client"
+                         if player state is stopped then return ""
+-                        return artwork url of current track as text
++                        set currentTrack to current track
++                        return {artwork url of currentTrack as text, name of currentTrack as text, artist of currentTrack as text, album of currentTrack as text}
+                     end tell
+                 end timeout
+                 """]
+@@ -76,6 +101,14 @@
+     private var emptySamples = 0
+     private var resourceKey = ""
+     private var refreshing = false
++    private var artworkAttemptKey = ""
++    private var artworkAttemptAt: TimeInterval = -.infinity
++    private var observedKey = ""
++    private var observedAt: TimeInterval = -.infinity
++    private var catalogRequests: [TimeInterval] = []
++    private var catalogNote = ""
++    private var catalogAttemptKey = ""
++    private var catalogAttemptAt: TimeInterval = -.infinity
+     private static let maximumArtworkBytes = 10 * 1_024 * 1_024
+ 
+     init(store: MacDataStore) {
+@@ -84,6 +117,8 @@
+         let configuration = URLSessionConfiguration.ephemeral
+         configuration.timeoutIntervalForRequest = 5
+         configuration.timeoutIntervalForResource = 8
++        configuration.httpShouldSetCookies = false
++        configuration.httpCookieStorage = nil
+         session = URLSession(configuration: configuration)
+     }
+ 
+@@ -96,14 +131,11 @@
+                  read: (MacMusicProvider) -> MusicSnapshot?) async {
+         guard enabled else {
+             emptySamples = 0
+-            resourceKey=""
++            resourceKey=""; observedKey=""; artworkAttemptKey=""
++            store.musicArtworkDiagnostic("音乐封面：采集已关闭")
+             store.update(music: .empty())
+             return
+         }
+-        guard !refreshing else { return }
+-        refreshing = true
+-        defer { refreshing = false }
+-
+         var selected: (MacMusicProvider, MusicSnapshot)?
+         var readFailed = false
+         for provider in [MacMusicProvider.appleMusic, .spotify] {
+@@ -117,6 +149,16 @@
+         }
+         if let (provider, snapshot) = selected {
+             emptySamples = 0
++            // Artwork requests can suspend for seconds. Keep sampling playback
++            // and clearing a previous track's picture while one is in flight.
++            store.update(music:snapshot)
++            let key = Self.artworkKey(snapshot,from:provider)
++            if key != observedKey {
++                observedKey = key; observedAt = ProcessInfo.processInfo.systemUptime
++            }
++            guard !refreshing else { return }
++            refreshing = true
++            defer { refreshing = false }
+             await apply(snapshot, from: provider)
+             return
+         }
+@@ -125,7 +167,7 @@
+         // Require consecutive confirmed empty polls before clearing the cache.
+         if readFailed { emptySamples = 0; return }
+         emptySamples += 1
+-        if emptySamples >= 3 { resourceKey="";store.update(music: .empty()) }
++        if emptySamples >= 3 { resourceKey="";observedKey="";store.update(music: .empty()) }
+     }
+ 
+     static func parse(values: [String], now: Date = Date()) -> MusicSnapshot? {
+@@ -148,18 +190,25 @@
+     }
+ 
+     private func apply(_ snapshot: MusicSnapshot, from provider: MacMusicProvider) async {
+-        let key = provider.bundleIdentifier + "\n" + snapshot.title + "\n" + snapshot.artist
+-        guard key != resourceKey || store.snapshot().music?.hasArtwork != true else {
+-            store.update(music: snapshot)
++        let key = Self.artworkKey(snapshot, from: provider)
++        let now = ProcessInfo.processInfo.systemUptime
++        guard now - observedAt >= 2 else { return }
++        let hasCover = key == resourceKey && store.snapshot().music?.hasArtwork == true
++        guard key != artworkAttemptKey || now - artworkAttemptAt >= (hasCover ? 30 : 5) else { return }
++        artworkAttemptKey = key
++        artworkAttemptAt = now
++        guard let cover = await readArtwork(from: provider, expected: snapshot) else { return }
++        // A URL request or Apple Event may finish after playback has moved on.
++        guard key == observedKey, let actual = Self.read(provider), Self.artworkKey(actual, from: provider) == key else {
++            store.musicArtworkDiagnostic("音乐封面：曲目已切换，已丢弃过期结果")
+             return
+         }
+-        // Publish playback before a potentially slow artwork request finishes.
+-        store.update(music: snapshot)
+-        let encoded = await readArtwork(from: provider)
+-        let cover = encoded.flatMap(Self.renderArtwork)
+-            ?? Data()
+         resourceKey = key
+-        store.update(music: snapshot, cover: cover)
++        store.update(music: actual, cover: cover.small, tab5Cover: cover.tab5)
++    }
++
++    static func artworkKey(_ snapshot: MusicSnapshot, from provider: MacMusicProvider) -> String {
++        [provider.bundleIdentifier, snapshot.title, snapshot.artist, snapshot.album].joined(separator: "\n")
+     }
+ 
+     private static func normalized(_ value: String) -> String {
+@@ -174,18 +223,24 @@
+         return parse(values: values)
+     }
+ 
+-    private func readArtwork(from provider: MacMusicProvider) async -> Data? {
++    private func readArtwork(from provider: MacMusicProvider, expected: MusicSnapshot) async -> MacMusicArtwork? {
+         switch provider {
+         case .appleMusic:
+-            for source in provider.artworkScriptSources {
+-                guard let result = Self.execute(source) else { continue }
+-                let data = result.data
+-                if !data.isEmpty, data.count <= Self.maximumArtworkBytes { return data }
+-            }
+-            return nil
++            let result = Self.readAppleArtwork(expected: expected, execute: Self.execute)
++            if !result.verified { store.musicArtworkDiagnostic("音乐封面：正在向 Apple 目录核对当前曲目") }
++            if !result.verified, let cover = await readCatalogArtwork(expected) {
++                store.musicArtworkDiagnostic("音乐封面：" + catalogNote + " · 歌名／歌手／专辑／时长已精确核对")
++                return cover
++            }
++            store.musicArtworkDiagnostic(result.diagnostic + (result.verified ? "" : "; " + catalogNote))
++            // Streaming current-track artwork can be stale even when its title
++            // has changed. Never publish that unverified picture as a new cover.
++            return result.verified ? result.encoded.flatMap(MacMusicArtwork.init) : nil
+         case .spotify:
+             guard let source = provider.artworkScriptSources.first,
+-                  let value = Self.execute(source)?.stringValue,
++                  let result = Self.execute(source), result.numberOfItems == 4,
++                  Self.artworkIdentityMatches(expected, values: (2...4).map { result.atIndex($0)?.stringValue ?? "" }),
++                  let value = result.atIndex(1)?.stringValue,
+                   let url = URL(string: value), Self.allowedSpotifyArtworkURL(url) else { return nil }
+             do {
+                 var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData,
+@@ -195,14 +250,118 @@
+                 guard (response as? HTTPURLResponse)?.statusCode == 200,
+                       response.url.map(Self.allowedSpotifyArtworkURL) == true,
+                       !data.isEmpty, data.count <= Self.maximumArtworkBytes else { return nil }
+-                return data
++                let cover = MacMusicArtwork(data)
++                store.musicArtworkDiagnostic(cover == nil ? "音乐封面：Spotify · 图片无法解码" : "音乐封面：Spotify · 已解码")
++                return cover
+             } catch {
+                 return nil
+             }
+         }
+     }
+ 
++    private func readCatalogArtwork(_ track: MusicSnapshot) async -> MacMusicArtwork? {
++        let now = ProcessInfo.processInfo.systemUptime
++        let key = Self.artworkKey(track,from:.appleMusic)
++        guard key != catalogAttemptKey || now-catalogAttemptAt >= 60 else { return nil }
++        catalogAttemptKey = key; catalogAttemptAt = now
++        var notes = [String]()
++        defer { catalogNote = notes.joined(separator: "; ") }
++        for country in ["hk", "us"] {
++            let now = ProcessInfo.processInfo.systemUptime
++            catalogRequests.removeAll { now - $0 >= 60 }
++            guard catalogRequests.count < 18,
++                  let request = MacMusicCatalogArtwork.request(track, country: country) else { notes.append("Apple 目录：请求限制或曲目信息不完整"); break }
++            catalogRequests.append(now)
++            do {
++                let (metadata, response) = try await session.data(for: request)
++                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
++                guard status == 200,
++                      response.url?.scheme == "https", response.url?.host == "itunes.apple.com",
++                      response.url?.path == "/search",
++                      let url = MacMusicCatalogArtwork.match(metadata, track: track) else { notes.append("Apple 目录 \(country)：HTTP \(status)，无唯一精确匹配"); continue }
++                if let artwork = await downloadCatalogArtwork(url) { notes = ["Apple 目录"]; return artwork }
++                notes.append("Apple 目录 \(country)：封面不可用")
++            } catch { notes.append("Apple 目录 \(country)：请求失败 \((error as NSError).code)"); continue }
++        }
++        if let artwork = await readWebArtwork(track) { notes = ["Apple Music 公开页面"]; return artwork }
++        notes.append("Apple Music 公开页面：未能精确核对")
++        return nil
++    }
++
++    private func readWebArtwork(_ track: MusicSnapshot) async -> MacMusicArtwork? {
++        var country = Locale.current.region?.identifier.lowercased() ?? "us"
++        // A regional redirect may point at the home page. Retry the public search
++        // in that storefront once, never treat home-page recommendations as art.
++        for _ in 0..<2 {
++            guard let request = MacMusicWebArtwork.request(track,country:country),
++                  let (search,response) = try? await session.data(for:request),
++                  (response as? HTTPURLResponse)?.statusCode == 200, let final = response.url,
++                  let actualCountry = MacMusicWebArtwork.country(final) else { return nil }
++            if final.path != "/\(country)/search" {
++                guard actualCountry != country else { return nil }
++                country = actualCountry
++                continue
++            }
++            guard let albumURL = MacMusicWebArtwork.albumURL(search,track:track),
++                  let (page,albumResponse) = try? await session.data(for:MacMusicWebArtwork.pageRequest(albumURL)),
++                  (albumResponse as? HTTPURLResponse)?.statusCode == 200,
++                  let finalAlbum = albumResponse.url, MacMusicWebArtwork.sameAlbum(finalAlbum,albumURL),
++                  let imageURL = MacMusicWebArtwork.match(page,track:track,albumURL:albumURL) else { return nil }
++            return await downloadCatalogArtwork(imageURL)
++        }
++        return nil
++    }
++
++    private func downloadCatalogArtwork(_ url: URL) async -> MacMusicArtwork? {
++        for imageURL in MacMusicCatalogArtwork.imageURLs(url) {
++            guard let (image,response) = try? await session.data(for:URLRequest(url:imageURL,cachePolicy:.reloadIgnoringLocalCacheData,timeoutInterval:5)),
++                  (response as? HTTPURLResponse)?.statusCode == 200,
++                  response.url.map(MacMusicCatalogArtwork.allowedURL) == true,
++                  let artwork = MacMusicArtwork(image) else { continue }
++            return artwork
++        }
++        return nil
++    }
++
++    static func readAppleArtwork(expected: MusicSnapshot, execute: (String) -> NSAppleEventDescriptor?) -> (cover: Data?, diagnostic: String, verified: Bool, encoded: Data?) {
++        var attempts = [String]()
++        var selected: Data?
++        var encoded: Data?
++        var verified = false
++        for (index, source) in MacMusicProvider.appleMusic.artworkScriptSources.enumerated() {
++            let name = ["picture", "raw", "lookup-picture", "lookup-raw"][index]
++            guard let result = execute(source) else { attempts.append(name + "=读取失败"); continue }
++            guard result.numberOfItems == 5,
++                  artworkIdentityMatches(expected, values: (3...5).map { result.atIndex($0)?.stringValue ?? "" }) else {
++                attempts.append(name + "=曲目不匹配或无封面")
++                continue
++            }
++            let artworkCount = result.atIndex(1)?.int32Value
++            let descriptor = result.atIndex(2) ?? result
++            let data = descriptor.data, cover = renderArtwork(data)
++            // Scalar diagnostics stay in memory; never include track names or artwork bytes.
++            attempts.append("\(name)=\(artworkCount.map { "count:\($0)/" } ?? "")\(String(format: "%08x", descriptor.descriptorType))/\(data.count)B/\(cover == nil ? "非有效图片" : "已解码")")
++            if let cover {
++                if let selected { attempts.append(selected == cover ? "候选图一致" : "候选图不一致") }
++                if selected == nil || !verified && index >= 2 { selected = cover; encoded = data; verified = index >= 2 }
++            }
++        }
++        return (selected, "音乐封面：Apple Music · " + attempts.joined(separator: "; "), verified, encoded)
++    }
++
++    static func artworkIdentityMatches(_ expected: MusicSnapshot, values: [String]) -> Bool {
++        values.count == 3 && !expected.title.isEmpty &&
++            values.map(normalized) == [expected.title, expected.artist, expected.album]
++    }
++
+     static func renderArtwork(_ encoded: Data) -> Data? {
++        guard let image = artworkImage(encoded,maximum:112) else { return nil }
++        // ImageIO applies EXIF orientation; RGB565 assets use a top-left origin.
++        // Other renderer callers retain their existing coordinate convention.
++        return MacRgb565Renderer.renderImage(image, width:112, height:112, topDown:true)
++    }
++
++    static func artworkImage(_ encoded: Data, maximum: Int) -> CGImage? {
+         guard !encoded.isEmpty, encoded.count <= maximumArtworkBytes,
+               let source = CGImageSourceCreateWithData(encoded as CFData, nil),
+               CGImageSourceGetCount(source) > 0,
+@@ -210,8 +369,12 @@
+               let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+               let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
+               (1...4_096).contains(width), (1...4_096).contains(height),
+-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+-        return MacRgb565Renderer.renderImage(image, width: 112, height: 112)
++              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
++                kCGImageSourceCreateThumbnailFromImageAlways: true,
++                kCGImageSourceCreateThumbnailWithTransform: true,
++                kCGImageSourceThumbnailMaxPixelSize: maximum
++              ] as CFDictionary) else { return nil }
++        return image
+     }
+ 
+     static func allowedSpotifyArtworkURL(_ url: URL) -> Bool {
+@@ -229,4 +392,43 @@
+         let result = script.executeAndReturnError(&error)
+         return error == nil ? result : nil
+     }
++
++    /// Exercise the real sampling path while artwork is busy; no player/network.
++    static func validateSampling() async throws -> Int {
++        let suite = "AI-bot-music-sampling-fixture-" + UUID().uuidString
++        let defaults = UserDefaults(suiteName:suite)!
++        defer { defaults.removePersistentDomain(forName:suite) }
++        let store = MacDataStore(defaults:defaults)
++        return try await MacMusicService(store:store).validateSampling(store:store)
++    }
++
++    private func validateSampling(store: MacDataStore) async throws -> Int {
++        var checked = 0
++        func check(_ label: String, _ condition: Bool) throws {
++            guard condition else { throw MacTab5LocalError.invalid("Music sampling check failed: " + label) }
++            checked += 1
++        }
++        refreshing = true
++        let old = MusicSnapshot(title:"Old fixture",artist:"Fixture",album:"Album",playing:true,elapsedSeconds:1,durationSeconds:100,updatedAt:Date(timeIntervalSince1970:1))
++        store.update(music:old,cover:Data([1,2]))
++        observedKey = Self.artworkKey(old,from:.appleMusic)
++        let next = MusicSnapshot(title:"Next fixture",artist:"Fixture",album:"Album",playing:true,elapsedSeconds:20,durationSeconds:100,updatedAt:Date(timeIntervalSince1970:2))
++        await refresh(enabled:true,isRunning:{ _ in true },read:{ _ in next })
++        try check("new track sampled during artwork wait",store.snapshot().music?.title == next.title)
++        try check("old cover cleared during artwork wait",store.snapshot().musicCover == nil)
++        try check("in-flight identity invalidated",observedKey == Self.artworkKey(next,from:.appleMusic))
++        let paused = MusicSnapshot(title:next.title,artist:next.artist,album:next.album,playing:false,elapsedSeconds:21.75,durationSeconds:100,updatedAt:Date(timeIntervalSince1970:3))
++        await refresh(enabled:true,isRunning:{ _ in true },read:{ _ in paused })
++        try check("pause sampled during artwork wait",store.snapshot().music?.playing == false)
++        try check("fractional progress sampled during artwork wait",store.snapshot().music?.elapsedSeconds == 21.75)
++        await refresh(enabled:true,isRunning:{ _ in true },read:{ _ in nil })
++        try check("read failure retains latest sample",store.snapshot().music?.title == paused.title)
++        for _ in 0..<2 { await refresh(enabled:true,isRunning:{ _ in false },read:{ _ in nil }) }
++        try check("two empty polls retain latest sample",store.snapshot().music?.title == paused.title)
++        await refresh(enabled:true,isRunning:{ _ in false },read:{ _ in nil })
++        try check("confirmed stop clears sample while artwork busy",store.snapshot().music?.title.isEmpty == true && observedKey.isEmpty)
++        await refresh(enabled:false,isRunning:{ _ in true },read:{ _ in next })
++        try check("disabled sampler rejects pending identity",store.snapshot().music?.title.isEmpty == true && observedKey.isEmpty)
++        return checked
++    }
+ }
+--- a/mac-app/Sources/AIBotBridge/PetAssetImporter.swift
++++ b/mac-app/Sources/AIBotBridge/PetAssetImporter.swift
+@@ -114,7 +114,8 @@
+ }
+ 
+ extension MacRgb565Renderer {
+-    static func renderImage(_ image: CGImage, width: Int, height: Int) -> Data? {
++    static func renderImage(_ image: CGImage, width: Int, height: Int,
++                            topDown: Bool = false) -> Data? {
+         guard width > 0, height > 0 else { return nil }
+         let bytesPerRow = width * 4
+         var rgba = [UInt8](repeating: 0, count: bytesPerRow * height)
+@@ -140,7 +141,7 @@
+ 
+             var result = Data(capacity: width * height * 2)
+             for outputY in 0..<height {
+-                let sourceY = height - 1 - outputY
++                let sourceY = topDown ? outputY : height - 1 - outputY
+                 for x in 0..<width {
+                     let offset = sourceY * bytesPerRow + x * 4
+                     let value = rgb565(red: pixels[offset], green: pixels[offset + 1],
+--- a/mac-app/Sources/AIBotBridge/DataSources.swift
++++ b/mac-app/Sources/AIBotBridge/DataSources.swift
+@@ -8,6 +8,7 @@
+     let quotas: QuotaSnapshot?
+     let music: MusicSnapshot?
+     let musicCover: Data?
++    var musicTab5Cover: Data? = nil
+     var quotaTrend: MacQuotaTrend? = nil
+     var domesticQuotas: DomesticQuotaSnapshot? = nil
+ 
+@@ -71,6 +72,10 @@
+     private var music: MusicSnapshot = .empty()
+     private var musicSampled = false
+     private var musicCover: Data?
++    private var musicTab5Cover: Data?
++    private var musicArtworkNote = "音乐封面：等待采集"
++    var musicArtworkDiagnostic: String { lock.lock(); defer { lock.unlock() }; return musicArtworkNote }
++    func musicArtworkDiagnostic(_ note: String) { lock.lock(); musicArtworkNote = note; lock.unlock() }
+     private let decoder: JSONDecoder = {
+         let value = JSONDecoder()
+         value.dateDecodingStrategy = .iso8601
+@@ -104,7 +109,7 @@
+         lock.lock()
+         defer { lock.unlock() }
+         return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics,
+-                             quotas: quotas, music: music, musicCover: musicCover, quotaTrend: quotaHistory?.snapshot(),
++                             quotas: quotas, music: music, musicCover: musicCover, musicTab5Cover: musicTab5Cover, quotaTrend: quotaHistory?.snapshot(),
+                              domesticQuotas: domesticQuotas)
+     }
+     func history(days: Int) -> MacQuotaTrend? { lock.lock(); defer { lock.unlock() }; return quotaHistory?.history(days: days) }
+@@ -195,12 +200,12 @@
+         defer { lock.unlock() }
+         guard !musicSampled || value.updatedAt >= music.updatedAt else { return }
+         musicSampled = true
+-        if value.title.isEmpty || value.title != music.title || value.artist != music.artist || value.album != music.album { musicCover = nil }
++        if value.title.isEmpty || value.title != music.title || value.artist != music.artist || value.album != music.album { musicCover = nil; musicTab5Cover = nil }
+         var next=value;next.hasArtwork = !value.title.isEmpty && musicCover?.isEmpty == false
+         music = next
+     }
+ 
+-    func update(music value: MusicSnapshot, cover: Data) {
++    func update(music value: MusicSnapshot, cover: Data, tab5Cover: Data? = nil) {
+         lock.lock()
+         defer { lock.unlock() }
+         // Artwork may finish after a newer poll or a confirmed control readback.
+@@ -209,11 +214,13 @@
+             guard music.title == value.title, music.artist == value.artist,
+                   music.album == value.album else { return }
+         }
++        let sameTrack = music.title == value.title && music.artist == value.artist && music.album == value.album
+         var next = musicSampled && value.updatedAt < music.updatedAt ? music : value
+         musicSampled = true
+         next.hasArtwork = !next.title.isEmpty && !cover.isEmpty
+         music = next
+         musicCover = cover
++        musicTab5Cover = tab5Cover ?? (sameTrack ? musicTab5Cover : nil)
+     }
+ 
+     func mergeQuotas(claude: ProviderQuotaSnapshot?, codex: ProviderQuotaSnapshot?) {
+--- a/mac-app/Sources/AIBotBridge/MacParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacParityValidation.swift
+@@ -163,6 +163,7 @@
+         checked += try MacARDValidation.run()
+         checked += try MacDeviceCenterMenuValidation.run()
+         checked += try MacTab5ScreenPreviewValidation.run()
++        checked += try MacMusicArtworkValidation.run()
+         checked += try MacSolarTermSourceValidation.run(root: root.appendingPathComponent("solar-source"))
+         print("MAC_PARITY_SELF_TEST_OK \(checked) checks; isolated storage, no credentials/network/hardware")
+     }
+--- a/mac-app/Sources/AIBotBridge/AppDelegate.swift
++++ b/mac-app/Sources/AIBotBridge/AppDelegate.swift
+@@ -85,7 +85,7 @@
+         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
+         let music = { [dataStore] in dataStore.snapshot().music }
+         let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), networkDiagnostics: { [networkDiagnostics] in networkDiagnostics.snapshot() }, music: { [dataStore] in
+-            let media = dataStore.snapshot(); return (media.music, media.musicCover)
++            let media = dataStore.snapshot(); return (media.music, media.musicTab5Cover ?? media.musicCover)
+         }, enabled: { MacDeviceRegistry.shared.enabled("tab5") }, sourceEnabled: { MacDeviceRegistry.shared.source($0, kind: "tab5") })
+         self.tab5 = tab5
+         DispatchQueue.global(qos:.utility).async { tab5.unlock.load() }
+@@ -386,7 +386,15 @@
+             guard let self else { return (nil,nil) }; let metrics = self.dataStore.snapshot().systemMetrics
+             return (metrics,self.runtimeHealth.snapshot(metrics:metrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:self.tab5?.codex.isEnabled ?? false,desktopObserved:self.tab5?.codex.canMutate ?? false,network:self.networkDiagnostics.snapshot()))
+         },deviceCapture:{ [weak self] in
+-            [self?.server?.statusDiagnosticSummary,self?.tab5?.deviceDiagnosticSummary].compactMap { $0 }.joined(separator:"\n\n")
++            [self?.server?.statusDiagnosticSummary,self?.dataStore.musicArtworkDiagnostic,self?.tab5?.assets.coverDiagnostic,self?.tab5?.deviceDiagnosticSummary].compactMap { $0 }.joined(separator:"\n\n")
++        },
++        deviceImage:{ [weak self] in
++            guard let media = self?.dataStore.snapshot() else { return nil }
++            return media.musicTab5Cover.flatMap(NSImage.init(data:)) ?? media.musicCover.flatMap { MacPetAnimation.image($0,width:112,height:112) }
++        },
++        deviceImageCaption:{ [weak self] in
++            guard let track = self?.dataStore.snapshot().music, !track.title.isEmpty else { return "Mac 当前采样封面：没有活动曲目" }
++            return "Mac 当前采样（仅内存显示）\n\(track.title)\n\(track.artist) · \(track.album)"
+         },
+         deviceRefresh:{ [weak self] done in guard let tab5 = self?.tab5 else { done(); return }; tab5.refreshDeviceDiagnostics(completion:done) }); runtimeWindow = window; window.open()
+     }
+--- a/mac-app/Sources/AIBotBridge/MacRuntimeWindow.swift
++++ b/mac-app/Sources/AIBotBridge/MacRuntimeWindow.swift
+@@ -17,7 +17,7 @@
+     private var overview: MacRuntimeOverview?, detailWindow: MacInformationWindow?
+     private var readingDevice = false
+     init(file: MacProfileFile<MacRuntimeOptions> = MacRuntimePreferences.file, capture: @escaping () -> String, reload: @escaping () -> Void,
+-         overviewCapture: @escaping () -> (SystemMetricsSnapshot?,[String:Any]?) = { (nil,nil) }, deviceCapture: @escaping () -> String = { "尚无设备诊断采样。" }, deviceRefresh: @escaping (@escaping () -> Void) -> Void = { $0() }) {
++         overviewCapture: @escaping () -> (SystemMetricsSnapshot?,[String:Any]?) = { (nil,nil) }, deviceCapture: @escaping () -> String = { "尚无设备诊断采样。" }, deviceImage: @escaping () -> NSImage? = { nil }, deviceImageCaption: @escaping () -> String = { "Mac 当前采样封面（仅显示内存中的图像）" }, deviceRefresh: @escaping (@escaping () -> Void) -> Void = { $0() }) {
+         self.capture = capture; super.init(window:MacBridgeSettingsStyle.window("运行监控",width:800,height:650))
+         let overview = MacBridgeSettingsPage(), settings = MacBridgeSettingsPage()
+         overview.heading("运行监控",subtitle:"依据本机实际采样；无数据的指标保持未知。")
+@@ -50,7 +50,11 @@
+             } }
+             deviceReadout.stringValue = deviceCapture(); self.status.stringValue = "正在读取设备诊断…"
+         }
+-        device.add(refresh); device.add(deviceReadout)
++        let artwork = NSImageView(); artwork.imageScaling = .scaleProportionallyUpOrDown
++        artwork.widthAnchor.constraint(equalToConstant:150).isActive = true; artwork.heightAnchor.constraint(equalToConstant:150).isActive = true
++        artwork.image = deviceImage()
++        let caption = MacBridgeSettingsStyle.note(deviceImageCaption())
++        device.add(refresh); device.add(caption); device.add(artwork); device.add(deviceReadout)
+         let tabs = MacBridgeSettingsTabs([("监控状态",overview),("检测设置",settings),("设备诊断",device)])
+         window?.contentView = MacBridgeSettingsShell(body:tabs,status:status,actions:[MacSettingsButton("刷新") { [weak self] in self?.refresh() },MacSettingsButton("保存设置") { [weak self] in
+             guard let self else { return }; self.window?.makeFirstResponder(nil)
+@@ -59,7 +63,7 @@
+             let value = MacRuntimeOptions(enabled:enabled.state == .on,network:network.state == .on,expectProxy:proxy.state == .on,throughput:speed.state == .on,interval:values[0],slow:values[1],cpu:values[2],memory:values[3],sustained:values[4])
+             do { try file.write(value); reload(); self.status.stringValue = "已保存，重新检测中。"; self.refresh() } catch { self.status.stringValue = error.localizedDescription }
+         }])
+-        self.refresh(); timer = Timer.scheduledTimer(withTimeInterval:2,repeats:true) { [weak self] _ in if self?.window?.isVisible == true { self?.refresh(); deviceReadout.stringValue = deviceCapture() } }
++        self.refresh(); timer = Timer.scheduledTimer(withTimeInterval:2,repeats:true) { [weak self] _ in if self?.window?.isVisible == true { self?.refresh(); deviceReadout.stringValue = deviceCapture(); artwork.image = deviceImage(); caption.stringValue = deviceImageCaption() } }
+     }
+     deinit { timer?.invalidate() }
+     required init?(coder:NSCoder) { fatalError() }
+--- a/mac-app/Sources/AIBotBridge/MacTab5Assets.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Assets.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import ImageIO
+ 
+ struct MacTab5Asset {
+     let slot: Int
+@@ -7,6 +8,7 @@
+     let delays: [Int]
+     let bytes: Data
+     let id: String
++    var encoding = "rle565"
+     var frames: Int { delays.count }
+     static func rgb565(slot: Int, width: Int, height: Int, delays: [Int], raw: Data) throws -> Self {
+         guard (0...2).contains(slot), (1...336).contains(width), (1...336).contains(height),
+@@ -24,9 +26,29 @@
+         return Self(slot: slot, width: width, height: height, delays: delays, bytes: packed,
+                     id: String(format: "%08x", MacBinaryResourceProtocol.crc32(Array(packed))))
+     }
++    static func jpeg(_ bytes: Data) throws -> Self {
++        guard !bytes.isEmpty, bytes.count <= 524288,
++              let source = CGImageSourceCreateWithData(bytes as CFData,nil),
++              CGImageSourceGetType(source) as String? == "public.jpeg",
++              CGImageSourceGetCount(source) == 1,
++              let properties = CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [CFString:Any],
++              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
++              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
++              (1...560).contains(width), (1...336).contains(height),
++              ((properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1) == 1 else { throw MacTab5Error.invalidPacket }
++        return Self(slot:2,width:width,height:height,delays:[1000],bytes:bytes,
++                    id:String(format:"%08x",MacBinaryResourceProtocol.crc32(Array(bytes))),encoding:"jpeg")
++    }
++    static func supportsJPEG(_ version: String?) -> Bool {
++        guard let version, let text = version.split(separator:"-").first else { return false }
++        let components = text.split(separator:".",omittingEmptySubsequences:false)
++        let parts = components.compactMap { Int($0) }
++        guard components.count == 3, parts.count == 3, parts.allSatisfy({ $0 >= 0 }) else { return false }
++        return (parts[0],parts[1],parts[2]) >= (0,2,80)
++    }
+     func chunk(_ offset: Int) -> [String: Any] {
+         ["slot": slot, "id": id, "width": width, "height": height, "frames": frames, "delays": delays,
+-         "encoding": "rle565", "total": bytes.count, "offset": offset,
++         "encoding": encoding, "total": bytes.count, "offset": offset,
+          "bytes": Data(bytes[offset..<min(offset + 1024, bytes.count)]).base64EncodedString()]
+     }
+ }
+@@ -56,13 +78,18 @@
+             sources[index] = source; offsets[index] = 0; assets[index] = asset
+         }
+     }
+-    func updateCover(_ cover: Data?) {
+-        lock.lock(); defer { lock.unlock() }; updateCoverLocked(cover)
++    func updateCover(_ cover: Data?, jpegSupported: Bool = true) {
++        let selected: Data?
++        if !jpegSupported, let cover, (try? MacTab5Asset.jpeg(cover)) != nil {
++            selected = MacMusicService.renderArtwork(cover)
++        } else { selected = cover }
++        lock.lock(); defer { lock.unlock() }; updateCoverLocked(selected)
+     }
+     private func updateCoverLocked(_ cover: Data?) {
+         guard cover != sources[2] else { return }
+         sources[2] = cover; offsets[2] = 0
+-        if let cover, cover.count == 112 * 112 * 2 { assets[2] = try? .rgb565(slot: 2, width: 112, height: 112, delays: [1000], raw: cover) }
++        if let cover, let jpeg = try? MacTab5Asset.jpeg(cover) { assets[2] = jpeg }
++        else if let cover, cover.count == 112 * 112 * 2 { assets[2] = try? .rgb565(slot: 2, width: 112, height: 112, delays: [1000], raw: cover) }
+         else { assets[2] = nil }
+     }
+     static func validIDs(_ text: String) -> Bool {
+@@ -88,6 +115,11 @@
+         return result
+     }
+     var hasCover: Bool { lock.lock(); defer { lock.unlock() }; return assets[2] != nil }
++    var coverDiagnostic: String {
++        lock.lock(); defer { lock.unlock() }
++        let format = assets[2].map { "\($0.width)×\($0.height) \($0.encoding) · " } ?? ""
++        return "封面资源：\(format)目标 \(assets[2]?.id ?? "-") · 设备确认 \(acknowledged[2]) · 分块位置 \(offsets[2])/\(assets[2]?.bytes.count ?? 0)B"
++    }
+     var hasPending: Bool {
+         lock.lock(); defer { lock.unlock() }
+         return assets.enumerated().contains { index, asset in asset != nil && acknowledged[index] != asset?.id }
+--- a/mac-app/Sources/AIBotBridge/MacTab5Service.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Service.swift
+@@ -268,7 +268,7 @@
+         _ = try nextSequenceLocked()
+         let media = sourceEnabled("music") ? latestMusic() : nil
+         let now = Date()
+-        if let media { assets.updateCover(media.cover) }
++        if let media { assets.updateCover(media.cover, jpegSupported: MacTab5Asset.supportsJPEG(firmware)) }
+         var additions = assets.projection(includeResource: includeResources && benchmarkMode == 0)
+         var calendar = MacTab5Calendar.snapshot(epoch: snapshot.epochUtc, offset: snapshot.utcOffsetSeconds)
+         var calendarDetail = calendar["detail"] as? [String: Any] ?? [:]
+--- a/mac-app/Sources/AIBotBridge/MacTab5FeaturesWindow.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5FeaturesWindow.swift
+@@ -54,6 +54,7 @@
+         musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off; musicControl.target = self; musicControl.action = #selector(toggleMusicControl)
+         musicPage.add(music); musicPage.add(musicControl)
+         musicPage.add(MacBridgeSettingsStyle.note("支持 Apple Music 和 Spotify。控制只发送一次，并读取实际播放状态；切换曲目未确认时不会自动重复跳曲。"))
++        musicPage.add(MacBridgeSettingsStyle.note("封面无法确认时会向 Apple 公开目录查询当前歌曲、歌手和专辑；不使用账户信息。TAB5 使用高清封面，小屏保持原尺寸。"))
+         musicPage.section("播放状态"); musicPage.add(musicState)
+ 
+         codexPage.heading("Codex 会话", subtitle: "查看本机近期任务和公开回复，同步加密草稿。发送与中断需要另行启用。")
+--- a/mac-app/Sources/AIBotBridge/main.swift
++++ b/mac-app/Sources/AIBotBridge/main.swift
+@@ -1,4 +1,12 @@
+ import AppKit
++
++if Array(CommandLine.arguments.dropFirst()) == ["--self-test-music-sampling"] {
++    Task {
++        do { let count = try await MacMusicService.validateSampling(); print("MAC_MUSIC_SAMPLING_OK \(count) checks; isolated storage, no player/network"); exit(0) }
++        catch { fputs("\(error.localizedDescription)\n",stderr); exit(1) }
++    }
++    RunLoop.main.run()
++}
+ 
+ if Array(CommandLine.arguments.dropFirst()) == ["--check-mac-screen-sharing"] {
+     do { try MacARDConnection.probe(); exit(0) }
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacMusicArtwork.swift
+@@ -0,0 +1,31 @@
++import Foundation
++import ImageIO
++
++/// Keep the small-screen RGB565 resource separate from TAB5's JPEG resource.
++struct MacMusicArtwork {
++    let small: Data
++    let tab5: Data?
++
++    init?(_ encoded: Data) {
++        guard let small = MacMusicService.renderArtwork(encoded) else { return nil }
++        self.small = small
++        self.tab5 = Self.renderTab5(encoded)
++    }
++
++    static func renderTab5(_ encoded: Data) -> Data? {
++        guard let image = MacMusicService.artworkImage(encoded, maximum:560) else { return nil }
++        let scale = min(1, min(560 / Double(image.width), 336 / Double(image.height)))
++        let width = max(1, Int((Double(image.width) * scale).rounded(.down)))
++        let height = max(1, Int((Double(image.height) * scale).rounded(.down)))
++        guard let context = CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:width*4,
++                                      space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
++        context.interpolationQuality = .high
++        context.draw(image,in:CGRect(x:0,y:0,width:width,height:height))
++        guard let rendered = context.makeImage() else { return nil }
++        let output = NSMutableData()
++        guard let destination = CGImageDestinationCreateWithData(output,"public.jpeg" as CFString,1,nil) else { return nil }
++        CGImageDestinationAddImage(destination,rendered,[kCGImageDestinationLossyCompressionQuality:0.88] as CFDictionary)
++        guard CGImageDestinationFinalize(destination), output.length <= 524288 else { return nil }
++        return output as Data
++    }
++}
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacMusicArtworkValidation.swift
+@@ -0,0 +1,136 @@
++import AppKit
++import Foundation
++import ImageIO
++
++/// Synthetic pixels only: no player, network, real artwork or persistent state.
++enum MacMusicArtworkValidation {
++    static func run() throws -> Int {
++        var checked = 0
++        func check(_ label: String, _ condition: @autoclosure () -> Bool) throws {
++            guard condition() else { throw MacTab5LocalError.invalid("Music artwork check failed: " + label) }
++            checked += 1
++        }
++        let colors: [[UInt8]] = [[255,0,0,255], [0,255,0,255], [0,0,255,255], [255,255,0,255]]
++        let pixels = (0..<16).flatMap { y in (0..<16).flatMap { x in colors[(y < 8 ? 0 : 2) + (x < 8 ? 0 : 1)] } }
++        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
++              let image = CGImage(width:16,height:16,bitsPerComponent:8,bitsPerPixel:32,bytesPerRow:64,
++                space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGBitmapInfo(rawValue:CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue),
++                provider:provider,decode:nil,shouldInterpolate:false,intent:.defaultIntent) else { throw MacTab5LocalError.invalid("Synthetic artwork image") }
++        func encoded(_ orientation: Int, image: CGImage = image) throws -> Data {
++            let bytes = NSMutableData()
++            guard let destination = CGImageDestinationCreateWithData(bytes,"public.tiff" as CFString,1,nil) else { throw MacTab5LocalError.invalid("Synthetic artwork destination") }
++            CGImageDestinationAddImage(destination,image,[kCGImagePropertyOrientation:orientation] as CFDictionary)
++            guard CGImageDestinationFinalize(destination) else { throw MacTab5LocalError.invalid("Synthetic artwork encoding") }
++            return bytes as Data
++        }
++        func word(_ data: Data, _ x: Int, _ y: Int) -> UInt16 {
++            let offset = (y * 112 + x) * 2
++            return UInt16(data[offset]) | UInt16(data[offset + 1]) << 8
++        }
++        let r: UInt16 = 0xf800, g: UInt16 = 0x07e0, b: UInt16 = 0x001f, y: UInt16 = 0xffe0
++        let expected = [[r,g,b,y],[g,r,y,b],[y,b,g,r],[b,y,r,g],[r,b,g,y],[b,r,y,g],[y,g,b,r],[g,y,r,b]]
++        for orientation in 1...8 {
++            guard let cover = MacMusicService.renderArtwork(try encoded(orientation)) else { throw MacTab5LocalError.invalid("Orientation decode") }
++            try check("RGB565 size",cover.count == 112 * 112 * 2)
++            let corners = [word(cover,8,8),word(cover,103,8),word(cover,8,103),word(cover,103,103)]
++            try check("EXIF orientation \(orientation)",corners == expected[orientation - 1])
++        }
++        func resized(_ width: Int, _ height: Int) throws -> CGImage {
++            guard let context = CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:width*4,
++                space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.noneSkipLast.rawValue) else { throw MacTab5LocalError.invalid("HD fixture context") }
++            context.interpolationQuality = .none
++            context.draw(image,in:CGRect(x:0,y:0,width:width,height:height))
++            return context.makeImage()!
++        }
++        let highImage = try resized(672,672)
++        var hd = Data()
++        for orientation in 1...8 {
++            guard let artwork = MacMusicArtwork(try encoded(orientation,image:highImage)), let jpeg = artwork.tab5,
++                  let asset = try? MacTab5Asset.jpeg(jpeg), let decoded = MacMusicService.renderArtwork(jpeg) else { throw MacTab5LocalError.invalid("HD artwork fixture") }
++            hd = jpeg
++            try check("HD fits square cover",asset.width == 336 && asset.height == 336)
++            try check("HD encoding stays JPEG",asset.encoding == "jpeg" && jpeg.count <= 524288)
++            let actual = [word(decoded,8,8),word(decoded,103,8),word(decoded,8,103),word(decoded,103,103)]
++            let close = zip(actual,expected[orientation-1]).allSatisfy { pair in
++                let a = Int(pair.0), b = Int(pair.1)
++                let red = abs((a >> 11)-(b >> 11)) <= 2
++                let green = abs(((a >> 5)&63)-((b >> 5)&63)) <= 2
++                let blue = abs((a&31)-(b&31)) <= 2
++                return red && green && blue
++            }
++            try check("HD EXIF orientation \(orientation)",close)
++            try check("small screen keeps 112 RGB565",artwork.small.count == 112*112*2)
++        }
++        for (width,height,targetWidth,targetHeight) in [(1200,600,560,280),(600,1200,168,336),(16,16,16,16)] {
++            guard let jpeg = MacMusicArtwork.renderTab5(try encoded(1,image:resized(width,height))),
++                  let asset = try? MacTab5Asset.jpeg(jpeg) else { throw MacTab5LocalError.invalid("HD aspect fixture") }
++            try check("HD aspect and no upscaling",asset.width == targetWidth && asset.height == targetHeight)
++        }
++        let hdAssets = MacTab5Assets()
++        hdAssets.updateCover(hd)
++        let chunk = hdAssets.projection()["resource"] as! [String:Any]
++        try check("HD resource chunk advertises JPEG",chunk["encoding"] as? String == "jpeg" && chunk["width"] as? Int == 336 && chunk["height"] as? Int == 336)
++        try check("HD resource CRC covers encoded bytes",chunk["id"] as? String == String(format:"%08x",MacBinaryResourceProtocol.crc32(Array(hd))))
++        try check("HD chunk remains bounded",Data(base64Encoded:chunk["bytes"] as! String)!.count <= 1024)
++        hdAssets.updateCover(hd,jpegSupported:false)
++        let legacyChunk = hdAssets.projection()["resource"] as! [String:Any]
++        try check("older firmware retains legacy cover",legacyChunk["encoding"] as? String == "rle565" && legacyChunk["width"] as? Int == 112)
++        try check("JPEG firmware capability",MacTab5Asset.supportsJPEG("0.2.267-ui") && MacTab5Asset.supportsJPEG("0.2.80-ui") && !MacTab5Asset.supportsJPEG("0.2.79-ui") && !MacTab5Asset.supportsJPEG("") && !MacTab5Asset.supportsJPEG("unknown"))
++        let track = MusicSnapshot(title:"Synthetic",artist:"Fixture",album:"Album A",playing:true,elapsedSeconds:0,durationSeconds:1,updatedAt:Date(timeIntervalSince1970:0))
++        func reply(_ descriptor: NSAppleEventDescriptor, title: String = "Synthetic", artist: String = "Fixture", album: String = "Album A") -> NSAppleEventDescriptor {
++            let list = NSAppleEventDescriptor.list()
++            list.insert(NSAppleEventDescriptor(int32:1),at:1); list.insert(descriptor,at:2)
++            for (index,value) in [title,artist,album].enumerated() { list.insert(NSAppleEventDescriptor(string:value),at:index+3) }
++            return list
++        }
++        let valid = try encoded(1)
++        let picture = NSAppleEventDescriptor(descriptorType:FourCharCode(0x54494646),data:valid)!
++        let missing = NSAppleEventDescriptor(descriptorType:FourCharCode(0x74797065),data:Data([0x6d,0x73,0x6e,0x67]))!
++        var calls = 0
++        let fallback = MacMusicService.readAppleArtwork(expected:track) { _ in calls += 1; return reply(calls == 1 ? missing : picture) }
++        try check("missing-value bytes do not block picture fallback",calls == 4 && fallback.cover != nil)
++        calls = 0
++        let failedRaw = MacMusicService.readAppleArtwork(expected:track) { _ in calls += 1; return calls == 1 ? nil : reply(picture) }
++        try check("script failure permits picture fallback",calls == 4 && failedRaw.cover != nil)
++        calls = 0
++        let raw = MacMusicService.readAppleArtwork(expected:track) { _ in calls += 1; return reply(picture) }
++        try check("current and library candidates are compared",calls == 4 && raw.cover != nil)
++        try check("invalid data has no cover",MacMusicService.renderArtwork(Data([1,2,3,4])) == nil)
++        try check("missing descriptor has no cover",MacMusicService.readAppleArtwork(expected:track) { _ in missing }.cover == nil)
++        try check("empty data rejected",MacMusicService.renderArtwork(Data()) == nil)
++        try check("oversized data rejected",MacMusicService.renderArtwork(Data(repeating:0,count:10*1024*1024+1)) == nil)
++        calls = 0
++        let mismatch = MacMusicService.readAppleArtwork(expected:track) { _ in calls += 1; return reply(picture,artist:"Previous artist") }
++        try check("previous artist cover rejected",calls == 4 && mismatch.cover == nil)
++        try check("same title on other album rejected",!MacMusicService.artworkIdentityMatches(track,values:[track.title,track.artist,"Album B"]))
++        try check("different title rejected",!MacMusicService.artworkIdentityMatches(track,values:["Other",track.artist,track.album]))
++        let suite = "AI-bot-artwork-fixture-" + UUID().uuidString
++        let defaults = UserDefaults(suiteName:suite)!
++        defer { defaults.removePersistentDomain(forName:suite) }
++        let store = MacDataStore(defaults:defaults)
++        let oldCover = Data(repeating:1,count:112*112*2)
++        store.update(music:track,cover:oldCover,tab5Cover:hd)
++        try check("HD stored independently of small cover",store.snapshot().musicCover == oldCover && store.snapshot().musicTab5Cover == hd)
++        let next = MusicSnapshot(title:"Next synthetic",artist:"Next artist",album:"Next album",playing:true,elapsedSeconds:0,durationSeconds:1,updatedAt:Date(timeIntervalSince1970:1))
++        store.update(music:next)
++        try check("track change clears old cover immediately",store.snapshot().musicCover == nil && store.snapshot().musicTab5Cover == nil && store.snapshot().music?.hasArtwork == false)
++        store.update(music:track,cover:oldCover,tab5Cover:hd)
++        try check("late previous track cover cannot return",store.snapshot().music?.title == next.title && store.snapshot().musicCover == nil && store.snapshot().musicTab5Cover == nil)
++        let assets = MacTab5Assets()
++        assets.updateCover(oldCover)
++        let oldID = (assets.projection(includeResource:false)["assetIds"] as! [Any])[2] as! String
++        assets.updateCover(nil)
++        try check("pending track removes resource ID",(assets.projection(includeResource:false)["assetIds"] as! [Any])[2] is NSNull)
++        assets.updateCover(Data(repeating:2,count:112*112*2))
++        try check("new cover has distinct resource identity",(assets.projection(includeResource:false)["assetIds"] as! [Any])[2] as? String != oldID)
++        let other = MusicSnapshot(title:track.title,artist:track.artist,album:"Album B",playing:true,elapsedSeconds:0,durationSeconds:1,updatedAt:track.updatedAt)
++        try check("album participates in artwork identity",MacMusicService.artworkKey(track,from:.appleMusic) != MacMusicService.artworkKey(other,from:.appleMusic))
++        try check("providers have separate artwork identity",MacMusicService.artworkKey(track,from:.appleMusic) != MacMusicService.artworkKey(track,from:.spotify))
++        let legacy = MacRgb565Renderer.renderImage(image,width:16,height:16)!
++        let topDown = MacRgb565Renderer.renderImage(image,width:16,height:16,topDown:true)!
++        try check("existing pet renderer convention preserved",legacy[0] == 0x1f && legacy[1] == 0 && topDown[0] == 0 && topDown[1] == 0xf8)
++        checked += try MacMusicCatalogArtworkValidation.run()
++        checked += try MacMusicWebArtworkValidation.run()
++        return checked
++    }
++}
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacMusicCatalogArtwork.swift
+@@ -0,0 +1,60 @@
++import Foundation
++
++/// Public Apple catalog metadata; no account, cookies or persistent media cache.
++enum MacMusicCatalogArtwork {
++    static func normalized(_ value: String) -> String {
++        let simplified = value.applyingTransform(StringTransform("Traditional-Simplified"), reverse: false) ?? value
++        return simplified.precomposedStringWithCompatibilityMapping
++            .folding(options:[.caseInsensitive,.diacriticInsensitive,.widthInsensitive],locale:Locale(identifier:"en_US_POSIX"))
++            .components(separatedBy:.whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator:" ")
++    }
++    static func titleKey(_ value: String) -> String {
++        // Mainland and Traditional Chinese storefronts can localize the same
++        // title with either pronoun. Artist/album and edition checks stay strict.
++        normalized(value).replacingOccurrences(of:"妳",with:"你")
++    }
++    static func request(_ track: MusicSnapshot, country: String) -> URLRequest? {
++        guard !track.title.isEmpty, !track.artist.isEmpty, !track.album.isEmpty,
++              ["hk","us"].contains(country) else { return nil }
++        var url = URLComponents(string:"https://itunes.apple.com/search")!
++        url.queryItems = [URLQueryItem(name:"term",value:[track.title,track.artist,track.album].joined(separator:" ")),
++                         URLQueryItem(name:"entity",value:"song"),URLQueryItem(name:"limit",value:"25"),URLQueryItem(name:"country",value:country)]
++        var request = URLRequest(url:url.url!,cachePolicy:.reloadIgnoringLocalCacheData,timeoutInterval:5)
++        request.setValue("AI-bot/0.1",forHTTPHeaderField:"User-Agent")
++        return request
++    }
++    static func allowedURL(_ url: URL) -> Bool {
++        guard url.scheme?.lowercased() == "https", url.user == nil, url.password == nil,
++              url.port == nil || url.port == 443, let host = url.host?.lowercased() else { return false }
++        return host.hasSuffix(".mzstatic.com") || host.hasSuffix(".itunes.apple.com")
++    }
++    static func imageURLs(_ original: URL) -> [URL] {
++        guard allowedURL(original) else { return [] }
++        let name = original.lastPathComponent
++        guard name.range(of:"^[0-9]{1,4}x[0-9]{1,4}bb\\.(jpg|jpeg|png)$",options:.regularExpression) != nil,
++              var components = URLComponents(url:original,resolvingAgainstBaseURL:false) else { return [original] }
++        components.path = String(components.path.dropLast(name.count)) + "600x600bb." + original.pathExtension
++        guard let larger = components.url, larger != original else { return [original] }
++        return [larger,original]
++    }
++    static func match(_ data: Data, track: MusicSnapshot) -> URL? {
++        guard data.count <= 524_288, !track.title.isEmpty, !track.artist.isEmpty, !track.album.isEmpty,
++              let object = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
++              let results = object["results"] as? [[String:Any]], results.count <= 50 else { return nil }
++        var urls = Set<URL>()
++        for result in results {
++            guard result["kind"] as? String == "song",
++                  let title = result["trackName"] as? String, let artist = result["artistName"] as? String,
++                  let album = result["collectionName"] as? String,
++                  titleKey(title) == titleKey(track.title), normalized(artist) == normalized(track.artist),
++                  normalized(album) == normalized(track.album),
++                  let duration = result["trackTimeMillis"] as? NSNumber,
++                  duration.doubleValue.isFinite, duration.doubleValue > 0,
++                  track.durationSeconds > 0, abs(duration.doubleValue / 1000 - track.durationSeconds) <= 2,
++                  let text = result["artworkUrl100"] as? String, let url = URL(string:text), allowedURL(url) else { continue }
++            urls.insert(url)
++        }
++        // Different editions may share names. Ambiguous artwork is never guessed.
++        return urls.count == 1 ? urls.first : nil
++    }
++}
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacMusicCatalogArtworkValidation.swift
+@@ -0,0 +1,58 @@
++import Foundation
++
++enum MacMusicCatalogArtworkValidation {
++    static func run() throws -> Int {
++        var checked = 0
++        func check(_ name: String, _ condition: @autoclosure () throws -> Bool) throws {
++            guard try condition() else { throw MacTab5LocalError.invalid("Music catalog check failed: " + name) }
++            checked += 1
++        }
++        let track = MusicSnapshot(title:"Synthetic song",artist:"Synthetic artist",album:"Synthetic album",playing:true,elapsedSeconds:0,durationSeconds:100,updatedAt:Date(timeIntervalSince1970:0))
++        let url = "https://is1-ssl.mzstatic.com/image/thumb/synthetic/100x100bb.jpg"
++        let result: [String:Any] = ["kind":"song","trackName":track.title,"artistName":track.artist,"collectionName":track.album,"trackTimeMillis":100000,"artworkUrl100":url]
++        func bytes(_ rows: [[String:Any]]) throws -> Data { try JSONSerialization.data(withJSONObject:["results":rows]) }
++        func matches(_ rows: [[String:Any]]) throws -> Bool { MacMusicCatalogArtwork.match(try bytes(rows),track:track) != nil }
++        try check("all fields match",try matches([result]))
++        let imageURLs = MacMusicCatalogArtwork.imageURLs(URL(string:url)!)
++        try check("larger Apple source requested first",imageURLs.first?.lastPathComponent == "600x600bb.jpg" && imageURLs.last?.absoluteString == url)
++        try check("untrusted source never upgraded",MacMusicCatalogArtwork.imageURLs(URL(string:"https://example.test/100x100bb.jpg")!).isEmpty)
++        let unknown = URL(string:"https://is1-ssl.mzstatic.com/image/cover.jpg")!
++        try check("unknown size path preserved",MacMusicCatalogArtwork.imageURLs(unknown) == [unknown])
++        for field in ["trackName","artistName","collectionName"] {
++            var wrong = result; wrong[field] = "Other version"
++            try check("reject different " + field,try !matches([wrong]))
++        }
++        var duration = result; duration["trackTimeMillis"] = 110000
++        try check("reject different recording duration",try !matches([duration]))
++        duration["trackTimeMillis"] = 102000
++        try check("allow two-second rounding",try matches([duration]))
++        var other = result; other["artworkUrl100"] = "https://is2-ssl.mzstatic.com/image/thumb/other/100x100bb.jpg"
++        try check("ambiguous editions rejected",try !matches([result,other]))
++        try check("identical artwork duplicates accepted",try matches([result,result]))
++        for text in ["http://is1-ssl.mzstatic.com/a.jpg","https://mzstatic.com.evil.test/a.jpg","https://is1-ssl.mzstatic.com@evil.test/a.jpg","https://user:password@is1-ssl.mzstatic.com/a.jpg","https://is1-ssl.mzstatic.com:8443/a.jpg"] {
++            var wrong = result; wrong["artworkUrl100"] = text
++            try check("untrusted artwork URL rejected",try !matches([wrong]))
++        }
++        let regional = MusicSnapshot(title:"给你",artist:track.artist,album:track.album,playing:true,elapsedSeconds:0,durationSeconds:100,updatedAt:track.updatedAt)
++        var regionalRow = result; regionalRow["trackName"] = "給妳"
++        try check("regional pronoun title accepted",MacMusicCatalogArtwork.match(try bytes([regionalRow]),track:regional) != nil)
++        var wrongArtist = regionalRow; wrongArtist["artistName"] = "Other artist"
++        try check("regional title still requires artist",MacMusicCatalogArtwork.match(try bytes([wrongArtist]),track:regional) == nil)
++        var wrongAlbum = regionalRow; wrongAlbum["collectionName"] = "Other edition"
++        try check("regional title still requires album",MacMusicCatalogArtwork.match(try bytes([wrongAlbum]),track:regional) == nil)
++        var wrongDuration = regionalRow; wrongDuration["trackTimeMillis"] = 110000
++        try check("regional title still requires recording duration",MacMusicCatalogArtwork.match(try bytes([wrongDuration]),track:regional) == nil)
++        var ambiguous = regionalRow; ambiguous["artworkUrl100"] = "https://is2-ssl.mzstatic.com/image/other/100x100bb.jpg"
++        try check("regional title ambiguous images rejected",MacMusicCatalogArtwork.match(try bytes([regionalRow,ambiguous]),track:regional) == nil)
++        try check("pronoun compatibility limited to titles",MacMusicCatalogArtwork.normalized("給妳") != MacMusicCatalogArtwork.normalized("给你"))
++        try check("traditional simplified equivalent",MacMusicCatalogArtwork.normalized("盧冠廷 陪著你走") == MacMusicCatalogArtwork.normalized("卢冠廷 陪着你走"))
++        try check("width and case folded",MacMusicCatalogArtwork.normalized(" ＡＢＣ  Mix ") == "abc mix")
++        try check("edition qualifiers retained",MacMusicCatalogArtwork.normalized("Album (Live)") != MacMusicCatalogArtwork.normalized("Album"))
++        try check("HK request supported",MacMusicCatalogArtwork.request(track,country:"hk")?.url?.host == "itunes.apple.com")
++        try check("unknown storefront rejected",MacMusicCatalogArtwork.request(track,country:"invalid") == nil)
++        try check("malformed metadata rejected",MacMusicCatalogArtwork.match(Data([0,1,2]),track:track) == nil)
++        try check("oversized metadata rejected",MacMusicCatalogArtwork.match(Data(repeating:0,count:524289),track:track) == nil)
++        try check("no exact match remains unknown",try !matches([]))
++        return checked
++    }
++}
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacMusicWebArtwork.swift
+@@ -0,0 +1,114 @@
++import Foundation
++
++/// Reads metadata embedded in public Music pages. No page scripts, account or cookies.
++enum MacMusicWebArtwork {
++    static func country(_ url: URL) -> String? {
++        guard url.scheme == "https", url.host == "music.apple.com", url.user == nil,
++              url.password == nil, url.port == nil || url.port == 443,
++              let value = url.path.split(separator:"/").first.map(String.init),
++              value.utf8.count == 2, value.utf8.allSatisfy({ (97...122).contains($0) }) else { return nil }
++        return value
++    }
++
++    static func request(_ track: MusicSnapshot, country: String) -> URLRequest? {
++        guard !track.title.isEmpty, !track.artist.isEmpty, !track.album.isEmpty,
++              let base = URL(string:"https://music.apple.com/\(country)/search"),
++              self.country(base) == country else { return nil }
++        var url = URLComponents(url:base,resolvingAgainstBaseURL:false)!
++        url.queryItems = [URLQueryItem(name:"term",value:track.title + " " + track.artist)]
++        return pageRequest(url.url!)
++    }
++
++    static func pageRequest(_ url: URL) -> URLRequest {
++        var request = URLRequest(url:url,cachePolicy:.reloadIgnoringLocalCacheData,timeoutInterval:5)
++        request.setValue("AI-bot/0.1",forHTTPHeaderField:"User-Agent")
++        return request
++    }
++
++    private static func albumID(_ url: URL) -> String? {
++        guard country(url) != nil, url.query == nil, url.fragment == nil else { return nil }
++        let parts = url.path.split(separator:"/")
++        guard (3...4).contains(parts.count), parts[1] == "album", let id = parts.last,
++              (8...12).contains(id.utf8.count), id.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
++        return String(id)
++    }
++
++    static func sameAlbum(_ lhs: URL, _ rhs: URL) -> Bool {
++        guard let id = albumID(lhs) else { return false }
++        return id == albumID(rhs) && country(lhs) == country(rhs)
++    }
++
++    private static func scripts(_ data: Data, marker: String) -> [Any] {
++        guard data.count <= 2_097_152, let html = String(data:data,encoding:.utf8),
++              let expression = try? NSRegularExpression(pattern:"(?is)<script\\b([^>]*)>(.*?)</script>") else { return [] }
++        let source = html as NSString
++        var values = [Any]()
++        for match in expression.matches(in:html,range:NSRange(location:0,length:source.length)).prefix(64) {
++            let attributes = source.substring(with:match.range(at:1)).lowercased()
++            guard attributes.contains(marker), match.range(at:2).length <= 1_048_576,
++                  let bytes = source.substring(with:match.range(at:2)).data(using:.utf8),
++                  let value = try? JSONSerialization.jsonObject(with:bytes) else { continue }
++            values.append(value)
++        }
++        return values
++    }
++
++    static func albumURL(_ data: Data, track: MusicSnapshot) -> URL? {
++        var urls = Set<URL>(), budget = 20_000
++        func visit(_ value: Any, depth: Int) {
++            guard depth < 32, budget > 0 else { return }
++            budget -= 1
++            if let row = value as? [String:Any] {
++                if let descriptor = row["contentDescriptor"] as? [String:Any], descriptor["kind"] as? String == "album",
++                   let titles = row["titleLinks"] as? [[String:Any]], titles.count == 1,
++                   let title = titles[0]["title"] as? String,
++                   MacMusicCatalogArtwork.normalized(title) == MacMusicCatalogArtwork.normalized(track.album),
++                   let artists = row["subtitleLinks"] as? [[String:Any]], artists.count == 1,
++                   let artist = artists[0]["title"] as? String,
++                   MacMusicCatalogArtwork.normalized(artist) == MacMusicCatalogArtwork.normalized(track.artist),
++                   let text = descriptor["url"] as? String, let url = URL(string:text), albumID(url) != nil { urls.insert(url) }
++                for child in row.values { visit(child,depth:depth+1) }
++            } else if let rows = value as? [Any] {
++                for child in rows { visit(child,depth:depth+1) }
++            }
++        }
++        for value in scripts(data,marker:"serialized-server-data") { visit(value,depth:0) }
++        return budget > 0 && urls.count == 1 ? urls.first : nil
++    }
++
++    static func match(_ data: Data, track: MusicSnapshot, albumURL: URL) -> URL? {
++        guard !track.title.isEmpty, !track.artist.isEmpty, !track.album.isEmpty,
++              track.durationSeconds > 0, track.durationSeconds.isFinite else { return nil }
++        var urls = Set<URL>()
++        for case let album as [String:Any] in scripts(data,marker:"application/ld+json") {
++            guard album["@type"] as? String == "MusicAlbum", let title = album["name"] as? String,
++                  MacMusicCatalogArtwork.normalized(title) == MacMusicCatalogArtwork.normalized(track.album),
++                  let artists = album["byArtist"] as? [[String:Any]], artists.count == 1,
++                  let artist = artists[0]["name"] as? String,
++                  MacMusicCatalogArtwork.normalized(artist) == MacMusicCatalogArtwork.normalized(track.artist),
++                  let text = album["url"] as? String, let canonical = URL(string:text), sameAlbum(canonical,albumURL),
++                  let tracks = album["tracks"] as? [[String:Any]], tracks.count <= 250,
++                  let image = album["image"] as? String, let imageURL = URL(string:image),
++                  MacMusicCatalogArtwork.allowedURL(imageURL) else { continue }
++            for item in tracks {
++                guard item["@type"] as? String == "MusicRecording", let name = item["name"] as? String,
++                      MacMusicCatalogArtwork.titleKey(name) == MacMusicCatalogArtwork.titleKey(track.title),
++                      let duration = item["duration"] as? String, let seconds = seconds(duration),
++                      abs(seconds - track.durationSeconds) <= 2 else { continue }
++                urls.insert(imageURL)
++            }
++        }
++        return urls.count == 1 ? urls.first : nil
++    }
++
++    private static func seconds(_ duration: String) -> Double? {
++        guard let expression = try? NSRegularExpression(pattern:"^PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+(?:\\.\\d+)?)S)?$"),
++              let match = expression.firstMatch(in:duration,range:NSRange(duration.startIndex...,in:duration)) else { return nil }
++        let source = duration as NSString
++        var total = 0.0
++        for (index, factor) in [(1,3600.0),(2,60.0),(3,1.0)] where match.range(at:index).location != NSNotFound {
++            total += (Double(source.substring(with:match.range(at:index))) ?? 0) * factor
++        }
++        return total.isFinite && total > 0 ? total : nil
++    }
++}
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacMusicWebArtworkValidation.swift
+@@ -0,0 +1,54 @@
++import Foundation
++
++enum MacMusicWebArtworkValidation {
++    static func run() throws -> Int {
++        var checked = 0
++        func check(_ label: String, _ condition: @autoclosure () throws -> Bool) throws {
++            guard try condition() else { throw MacTab5LocalError.invalid("Music public page check failed: " + label) }
++            checked += 1
++        }
++        let track = MusicSnapshot(title:"Synthetic song",artist:"Synthetic artist",album:"Synthetic album",playing:false,elapsedSeconds:0,durationSeconds:198,updatedAt:Date(timeIntervalSince1970:0))
++        let albumURL = URL(string:"https://music.apple.com/us/album/synthetic/123456789")!
++        let image = "https://is1-ssl.mzstatic.com/image/thumb/synthetic/1200x630bb.jpg"
++        let row: [String:Any] = ["contentDescriptor":["kind":"album","url":albumURL.absoluteString],"titleLinks":[["title":track.album]],"subtitleLinks":[["title":track.artist]]]
++        let song: [String:Any] = ["@type":"MusicRecording","name":track.title,"duration":"PT3M18S"]
++        let album: [String:Any] = ["@type":"MusicAlbum","name":track.album,"byArtist":[["name":track.artist]],"tracks":[song],"url":albumURL.absoluteString,"image":image]
++        func page(_ value: Any, search: Bool = false) throws -> Data {
++            let json = String(data:try JSONSerialization.data(withJSONObject:value),encoding:.utf8)!
++            return Data(("<script " + (search ? "id=\"serialized-server-data\" type=\"application/json\"" : "type=\"application/ld+json\"") + ">" + json + "</script>").utf8)
++        }
++        func search(_ rows: [[String:Any]]) throws -> URL? { MacMusicWebArtwork.albumURL(try page(["data":[["sections":[["items":rows]]]]],search:true),track:track) }
++        func match(_ value: [String:Any]) throws -> URL? { MacMusicWebArtwork.match(try page(value),track:track,albumURL:albumURL) }
++        try check("public search album selected",try search([row]) == albumURL)
++        try check("duplicate album cards accepted",try search([row,row]) == albumURL)
++        var other = row; other["contentDescriptor"] = ["kind":"album","url":"https://music.apple.com/us/album/other/987654321"]
++        try check("ambiguous editions rejected",try search([row,other]) == nil)
++        for field in ["titleLinks","subtitleLinks"] {
++            var wrong = row; wrong[field] = [["title":"Other edition"]]
++            try check("strict search " + field,try search([wrong]) == nil)
++        }
++        try check("structured album and recording match",try match(album)?.absoluteString == image)
++        try check("landscape social image uses square source",MacMusicCatalogArtwork.imageURLs(URL(string:image)!).first?.lastPathComponent == "600x600bb.jpg")
++        for field in ["name","byArtist","image","url"] {
++            var wrong = album
++            wrong[field] = field == "byArtist" ? [["name":"Other artist"]] : "https://example.test/other"
++            try check("strict album " + field,try match(wrong) == nil)
++        }
++        for duration in ["PT3M28S","PT","3:18","PT0S","PTNaNS"] {
++            var wrong = album, item = song; item["duration"] = duration; wrong["tracks"] = [item]
++            try check("wrong or malformed duration rejected",try match(wrong) == nil)
++        }
++        var live = album, item = song; item["name"] = track.title + " (Live)"; live["tracks"] = [item]
++        try check("live recording rejected",try match(live) == nil)
++        var multi = album; multi["byArtist"] = [["name":track.artist],["name":"Other artist"]]
++        try check("ambiguous artist rejected",try match(multi) == nil)
++        try check("home page is not an album",!MacMusicWebArtwork.sameAlbum(URL(string:"https://music.apple.com/us/new")!,albumURL))
++        try check("regional album IDs cannot cross storefronts",!MacMusicWebArtwork.sameAlbum(URL(string:"https://music.apple.com/cn/album/synthetic/123456789")!,albumURL))
++        try check("public request contains no authorization",MacMusicWebArtwork.request(track,country:"cn")?.value(forHTTPHeaderField:"Authorization") == nil)
++        try check("malformed country rejected",MacMusicWebArtwork.request(track,country:"us/../../evil") == nil)
++        try check("untrusted page rejected",MacMusicWebArtwork.country(URL(string:"https://music.apple.com.evil.test/us/search")!) == nil)
++        try check("malformed document rejected",MacMusicWebArtwork.match(Data([0,1]),track:track,albumURL:albumURL) == nil)
++        try check("oversized document rejected",MacMusicWebArtwork.albumURL(Data(repeating:32,count:2_097_153),track:track) == nil)
++        return checked
++    }
++}
+--- /dev/null
++++ b/mac-app/Tests/AIBotBridgeTests/MacMusicArtworkTests.swift
+@@ -0,0 +1,13 @@
++import XCTest
++@testable import AIBotBridge
++
++final class MacMusicArtworkTests: XCTestCase {
++    func testSyntheticArtworkDirectionsAndFallback() throws {
++        XCTAssertGreaterThan(try MacMusicArtworkValidation.run(), 20)
++    }
++
++    func testSamplingContinuesWhileArtworkIsPending() async throws {
++        let count = try await MacMusicService.validateSampling()
++        XCTAssertEqual(count, 9)
++    }
++}

@@ -19,6 +19,7 @@ public enum BridgeKeychain {
         public func validate() throws {
             guard BridgeKeychain.allowed(account),
                   (["read", "probe"].contains(operation) && value == nil) ||
+                  (operation == "remove" && account == "tab5-mac-unlock-v1" && value == nil) ||
                   (["save", "add"].contains(operation) && value.map { !$0.isEmpty && $0.count <= 65_536 } == true)
             else { throw Failure.invalid }
         }
@@ -29,7 +30,8 @@ public enum BridgeKeychain {
         public init(status: OSStatus, value: Data? = nil) { self.status = status; self.value = value }
     }
     public static func allowed(_ account: String) -> Bool {
-        if ["pairing-token", "tab5-pairing-v1", "tab5-private-v1", "deepseek-api-key-v1"].contains(account) { return true }
+        if ["qwen", "kimi", "minimax", "deepseek", "zhipu", "stepfun", "baidu", "xiaomi"].contains(where: { account == "domestic-provider-v1-" + $0 }) { return true }
+        if ["pairing-token", "tab5-pairing-v1", "tab5-private-v1", "deepseek-api-key-v1", "tab5-mac-unlock-v1"].contains(account) { return true }
         let prefix = "qweather-api-key-v1:"
         guard account.hasPrefix(prefix) else { return false }
         let host = String(account.dropFirst(prefix.count))
@@ -42,6 +44,10 @@ public enum BridgeKeychain {
         if request.operation == "probe" { return Response(status: errSecSuccess) }
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                    kSecAttrService as String: service, kSecAttrAccount as String: request.account]
+        if request.operation == "remove" {
+            let result = SecItemDelete(query as CFDictionary)
+            return Response(status:result == errSecItemNotFound ? errSecSuccess:result)
+        }
         if request.operation == "read" {
             var read = query; read[kSecReturnData as String] = true; read[kSecMatchLimit as String] = kSecMatchLimitOne
             var result: CFTypeRef?

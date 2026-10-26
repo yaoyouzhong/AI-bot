@@ -1,0 +1,339 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5SpeechTranscript.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5SpeechTranscript.swift
+@@ -13,6 +13,7 @@
+     private var pending = ""
+ 
+     mutating func update(_ text: String, start: TimeInterval?, end: TimeInterval?) -> String {
++        let text = Self.paragraph([text])
+         guard !text.isEmpty else { return value }
+         guard let start, let end, start.isFinite, end.isFinite, start >= 0, end >= start, end > 0 else {
+             // The local recognizer also reports placeholder 0/0 positions for
+@@ -35,7 +36,7 @@
+     }
+     var value: String {
+         let stable = parts.map(\.text)
+-        guard !pending.isEmpty else { return stable.joined(separator: "\n") }
++        guard !pending.isEmpty else { return Self.paragraph(stable) }
+         guard let last = stable.last else { return pending }
+         // These comparisons reconcile display copies only. Actual utterance
+         // identity/order is determined by audio positions, including repetition.
+@@ -45,9 +46,25 @@
+             remaining = remaining[range.upperBound...]; return true
+         }
+         if covers { return pending }
+-        if last.hasPrefix(pending) { return stable.joined(separator: "\n") }
+-        if pending.hasPrefix(last) { return (stable.dropLast() + [pending]).joined(separator: "\n") }
+-        return (stable + [pending]).joined(separator: "\n")
++        if last.hasPrefix(pending) { return Self.paragraph(stable) }
++        if pending.hasPrefix(last) { return Self.paragraph(stable.dropLast() + [pending]) }
++        return Self.paragraph(stable + [pending])
++    }
++    // Pauses identify audio ranges, not paragraphs. This touches recognized
++    // text only; the device still inserts it into the user's unchanged draft.
++    private static func paragraph(_ utterances: [String]) -> String {
++        var result = ""
++        func word(_ byte: UInt8) -> Bool {
++            (48...57).contains(byte) || (65...90).contains(byte) || (97...122).contains(byte)
++        }
++        for line in utterances.flatMap({ $0.components(separatedBy: .newlines) }) {
++            let part = line.trimmingCharacters(in: .whitespaces)
++            guard !part.isEmpty else { continue }
++            if let last = result.utf8.last, let first = part.utf8.first,
++               word(first), word(last) || ".!?:;".utf8.contains(last) { result += " " }
++            result += part
++        }
++        return result
+     }
+     var utteranceCount: Int { parts.count }
+ }
+--- a/mac-app/Sources/AIBotBridge/MacTab5USB.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USB.swift
+@@ -7,8 +7,10 @@
+ 
+ private struct MacTab5USBReadTimeout: Error {
+     let written:Int,received:Int,lines:Int,malformed:Int,other:Int,buffered:Int
++    let expected:String,writeMs:Int,readMs:Int,zeroReads:Int,wouldBlockReads:Int
+     var summary:String {
+-        "超时；写\(written)/读\(received)B，行\(lines)，坏JSON\(malformed)，其他\(other)，残留\(buffered)B"
++        let target = ["tab5_ack":"状态", "tab5_rpc":"RPC", "tab5_hello":"身份", "tab5_ota_diagnostic":"启动", "tab5_host_claimed":"认证"][expected] ?? "管理"
++        return "超时；等\(target)，写\(written)/读\(received)B，写\(writeMs)/读\(readMs)ms，空读\(zeroReads)/暂不可读\(wouldBlockReads)，行\(lines)，坏JSON\(malformed)，其他\(other)，残留\(buffered)B"
+     }
+ }
+ struct MacTab5USBAuthenticationRequired: Error {
+@@ -21,6 +23,19 @@
+     static func supportsPacked(_ hello: [String:Any], device: String, field: String = "usbPacked") -> Bool {
+         hello["type"] as? String == "tab5_hello" && MacTab5Protocol.integer(hello["version"]) == 1 &&
+             hello["deviceId"] as? String == device && MacTab5Protocol.integer(hello[field]) == 1
++    }
++    static func deltaRenewsOwnership(_ hello: [String:Any], device: String) -> Bool {
++        guard supportsPacked(hello,device:device,field:"usbDelta"),
++              let firmware = hello["firmware"] as? String,
++              firmware.hasPrefix("0.2."), firmware.hasSuffix("-ui") else { return false }
++        let patch = String(firmware.dropFirst(4).dropLast(3))
++        // The inspected269 receiver renews ownership on a valid status delta.
++        // Older/unknown receivers still need their full-state refreshes.
++        return Int(patch).map { $0 >= 269 && String($0) == patch } == true
++    }
++    static func wire(_ frame:Data, baseline:inout MacTab5BLEDelta, packed:Bool,
++                     delta:Bool, ownershipRefresh:Bool, deltaRenewsOwnership:Bool) throws -> Data {
++        try baseline.wire(frame,packed:packed,supported:delta && (!ownershipRefresh || deltaRenewsOwnership))
+     }
+     static func exchange(full: Data, wire: Data, write: (Data) throws -> Void,
+                          read: () throws -> [String:Any]) throws -> [String:Any] {
+@@ -102,8 +117,8 @@
+     private var fullStarted: TimeInterval?
+     func isDue(_ now: TimeInterval) -> Bool {
+         guard let fullStarted else { return true }
+-        // Inspected .268 only renews its 8 s host lease for full status/RPC.
+-        // Use a packed full state every 2 s, without depending on user RPCs.
++        // Refresh within the existing8 s lease, without relying on user RPCs.
++        // The wire selector retains full states for receivers older than269.
+         return now < fullStarted || now - fullStarted >= 2
+     }
+     mutating func acknowledge(started: TimeInterval) { fullStarted = started }
+@@ -265,7 +280,8 @@
+                     let frame = try service.frame(includeResources: !service.voice.needsTransportPriority), root = try MacTab5Protocol.object(frame)
+                     statusBytes = frame.count
+                     let fullRefresh = leaseCadence.isDue(started)
+-                    let encoded = try statusDelta.wire(frame,packed:wire.packedStatus,supported:wire.deltaStatus && !fullRefresh)
++                    let encoded = try MacTab5USBStatus.wire(frame,baseline:&statusDelta,packed:wire.packedStatus,
++                        delta:wire.deltaStatus,ownershipRefresh:fullRefresh,deltaRenewsOwnership:wire.deltaLease)
+                     generationTime = ProcessInfo.processInfo.systemUptime-started
+                     let ack = try MacTab5USBStatus.exchange(full:frame,wire:encoded,write: { bytes in
+                         phase = .statusWrite; wireBytes += bytes.count; try wire.sendJSON(bytes)
+@@ -373,7 +389,8 @@
+     private func operationHeartbeat(_ wire: MacTab5SerialWire, pairing: MacTab5Pairing) throws {
+         let started = ProcessInfo.processInfo.systemUptime
+         let frame = try service.frame(includeResources: false), root = try MacTab5Protocol.object(frame)
+-        let full = try statusDelta.wire(frame, packed: wire.packedStatus, supported: false)
++        let full = try MacTab5USBStatus.wire(frame,baseline:&statusDelta,packed:wire.packedStatus,
++            delta:wire.deltaStatus,ownershipRefresh:true,deltaRenewsOwnership:wire.deltaLease)
+         let ack = try MacTab5USBStatus.exchange(full: frame, wire: full,
+             write: wire.sendJSON, read: { try wire.reply("tab5_ack") })
+         guard ack["deviceId"] as? String == pairing.deviceId,
+@@ -418,9 +435,11 @@
+     private let path: String
+     private var input = Data()
+     private var lastWriteSize = 0
++    private var lastWriteMs = 0
+     private var hostSession = MacTab5USBHostSession()
+     private(set) var packedStatus = false
+     private(set) var deltaStatus = false
++    private(set) var deltaLease = false
+ 
+     init(path: String) throws {
+         guard MacTab5USB.ports().contains(path), MacSerialPortLease.acquire(path) else { throw MacTab5Error.serial }
+@@ -444,6 +463,7 @@
+         try hostSession.observe(hello)
+         packedStatus = MacTab5USBStatus.supportsPacked(hello,device:device)
+         deltaStatus = MacTab5USBStatus.supportsPacked(hello,device:device,field:"usbDelta")
++        deltaLease = MacTab5USBStatus.deltaRenewsOwnership(hello,device:device)
+         return (device, MacTab5Protocol.integer(hello["rpcVersion"]) == 1)
+     }
+     func authenticate(_ pair: MacTab5Pairing, endpoint: (String, UInt16)?) throws {
+@@ -465,7 +485,8 @@
+     }
+     private func write(_ bytes: Data) throws {
+         lastWriteSize=bytes.count
+-        let deadline = ProcessInfo.processInfo.systemUptime + 4
++        let began = ProcessInfo.processInfo.systemUptime, deadline = began + 4
++        defer { lastWriteMs = Int(min(60_000,max(0,ProcessInfo.processInfo.systemUptime-began)*1000)) }
+         try bytes.withUnsafeBytes { buffer in
+             guard let base = buffer.baseAddress else { return }
+             var offset = 0
+@@ -479,8 +500,8 @@
+         }
+     }
+     func reply(_ expected: String) throws -> [String: Any] {
+-        let deadline = ProcessInfo.processInfo.systemUptime + 4
+-        var received=0,lines=0,malformed=0,other=0
++        let began = ProcessInfo.processInfo.systemUptime, deadline = began + 4
++        var received=0,lines=0,malformed=0,other=0,zeroReads=0,wouldBlockReads=0
+         while ProcessInfo.processInfo.systemUptime < deadline {
+             while let newline = input.firstIndex(of: 10) {
+                 let line = Data(input[..<newline]); input.removeSubrange(...newline)
+@@ -499,8 +520,13 @@
+             let count = bytes.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
+             if count > 0 { received += count;input.append(contentsOf: bytes.prefix(count)); guard input.count <= 8192 else { throw MacTab5Error.invalidPacket } }
+             else if count < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR { throw MacTab5Error.serial }
+-            else { usleep(2_000) }
+-        }
+-        throw MacTab5USBReadTimeout(written:lastWriteSize,received:received,lines:lines,malformed:malformed,other:other,buffered:input.count)
+-    }
+-}
++            else {
++                if count == 0 { zeroReads += 1 }
++                else if errno == EAGAIN || errno == EWOULDBLOCK { wouldBlockReads += 1 }
++                usleep(2_000)
++            }
++        }
++        throw MacTab5USBReadTimeout(written:lastWriteSize,received:received,lines:lines,malformed:malformed,other:other,buffered:input.count,
++            expected:expected,writeMs:lastWriteMs,readMs:Int(min(60_000,max(0,ProcessInfo.processInfo.systemUptime-began)*1000)),zeroReads:zeroReads,wouldBlockReads:wouldBlockReads)
++    }
++}
+--- a/mac-app/Sources/AIBotBridge/MacTab5USBLeaseValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USBLeaseValidation.swift
+@@ -16,26 +16,37 @@
+         try check("reconnect discards old cadence",cadence.isDue(100))
+         // Run the actual wire selector against the inspected receiver's lease
+         // behavior: only a full status renews .268's 8-second USB ownership.
+-        func simulate(refresh:Bool) throws -> (accepted:Int,full:Int) {
++        func simulate(refresh:Bool,firmware:String = "0.2.268-ui",receiverDelta:Bool = false) throws -> (accepted:Int,full:Int,wireBytes:Int) {
+             var delta = MacTab5BLEDelta(), schedule = MacTab5USBLeaseCadence()
+-            var touched = 0.0, fullCount = 0
++            var touched = 0.0, fullCount = 0, wireBytes = 0
++            let deltaLease = MacTab5USBStatus.deltaRenewsOwnership(["version":1,"type":"tab5_hello",
++                "deviceId":"001122334455","usbDelta":1,"firmware":firmware],device:"001122334455")
+             for index in 0..<240 {
+                 let now = Double(index)*0.5
+-                if now-touched >= 8 { return (index,fullCount) }
++                if now-touched >= 8 { return (index,fullCount,wireBytes) }
+                 let frame = try MacTab5Protocol.json(["version":1,"type":"tab5_status","deviceId":"001122334455",
+                     "session":String(repeating:"a",count:32),"sequence":index+1,
+                     "data":["codex":[:],"claude":[:],"padding":String(repeating:"x",count:24000),"position":index]])
+                 let fullDue = refresh && schedule.isDue(now)
+-                let wire = try delta.wire(frame,packed:false,supported:!fullDue)
+-                if try MacTab5Protocol.object(wire)["type"] as? String == "tab5_status" { touched=now; fullCount += 1 }
++                let wire = try MacTab5USBStatus.wire(frame,baseline:&delta,packed:false,delta:true,
++                    ownershipRefresh:fullDue,deltaRenewsOwnership:deltaLease)
++                wireBytes += wire.count
++                let type = try MacTab5Protocol.object(wire)["type"] as? String
++                if type == "tab5_status" { touched=now; fullCount += 1 }
++                else if receiverDelta && type == "tab5_delta" { touched=now }
+                 delta.acknowledge(frame,sequence:Int64(index+1))
+                 if fullDue { schedule.acknowledge(started:now) }
+             }
+-            return (240,fullCount)
++            return (240,fullCount,wireBytes)
+         }
+         let old = try simulate(refresh:false), compatible = try simulate(refresh:true)
+         try check("previous delta-only path expires at eight seconds",old.accepted == 16 && old.full == 1)
+         try check("two minutes idle needs no RPC to retain ownership",compatible.accepted == 240 && compatible.full == 60)
++        let modern = try simulate(refresh:true,firmware:"0.2.271-ui",receiverDelta:true)
++        try check("modern receiver stays owned with initial full plus deltas",modern.accepted == 240 && modern.full == 1)
++        try check("modern lease avoids repeated catalog retransmission",modern.wireBytes < compatible.wireBytes/10)
++        let unknown = try simulate(refresh:true,firmware:"0.2.269-unknown",receiverDelta:true)
++        try check("unknown firmware keeps conservative two-second full path",unknown.accepted == 240 && unknown.full == 60)
+         cadence = .init()
+         _ = cadence.isDue(100) // A send attempt without a validated ACK.
+         try check("failed publication cannot advance cadence",cadence.isDue(101))
+--- a/mac-app/Sources/AIBotBridge/MacTab5USBStatusValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USBStatusValidation.swift
+@@ -54,6 +54,17 @@
+         var deltaHello = hello; deltaHello["usbDelta"] = 1
+         try check("explicit USB delta capability",MacTab5USBStatus.supportsPacked(deltaHello,device:device,field:"usbDelta"))
+         try check("packing alone never implies delta",!MacTab5USBStatus.supportsPacked(hello,device:device,field:"usbDelta"))
++        var ownershipHello = deltaHello; ownershipHello["firmware"] = "0.2.269-ui"
++        try check("inspected269 status deltas renew ownership",MacTab5USBStatus.deltaRenewsOwnership(ownershipHello,device:device))
++        ownershipHello["firmware"] = "0.2.271-ui"
++        try check("installed271 uses the inspected delta lease",MacTab5USBStatus.deltaRenewsOwnership(ownershipHello,device:device))
++        try check("lease capability remains device-bound",!MacTab5USBStatus.deltaRenewsOwnership(ownershipHello,device:"aabbccddeeff"))
++        for version in ["0.2.268-ui", "0.3.0-ui", "0.2.269", "0.2.269-ui-extra", "0.2.+269-ui", "0.2.0269-ui", "0.2.269.1-ui", "0.2.99999999999999999999999-ui", ""] {
++            ownershipHello["firmware"] = version
++            try check("legacy or unknown firmware keeps full lease refresh",!MacTab5USBStatus.deltaRenewsOwnership(ownershipHello,device:device))
++        }
++        ownershipHello["firmware"] = "0.2.271-ui"; ownershipHello["usbDelta"] = false
++        try check("firmware alone cannot imply delta support",!MacTab5USBStatus.deltaRenewsOwnership(ownershipHello,device:device))
+         var nextRoot = try MacTab5Protocol.object(full); nextRoot["sequence"] = 8
+         let next = try MacTab5Protocol.json(nextRoot)
+         var channel = MacTab5BLEDelta()
+--- a/mac-app/Tests/AIBotBridgeTests/MacTab5SpeechTranscriptTests.swift
++++ b/mac-app/Tests/AIBotBridgeTests/MacTab5SpeechTranscriptTests.swift
+@@ -5,9 +5,9 @@
+     func testPauseKeepsEarlierUtteranceWhileSecondHypothesisChanges() {
+         var text = MacTab5SpeechTranscript()
+         XCTAssertEqual(text.update("第一段", start: 0.4, end: 2.2), "第一段")
+-        XCTAssertEqual(text.update("第二", start: 5.3, end: 5.8), "第一段\n第二")
+-        XCTAssertEqual(text.update("第二段", start: 5.3, end: 6.5), "第一段\n第二段")
+-        XCTAssertEqual(text.update("", start: nil, end: nil), "第一段\n第二段")
++        XCTAssertEqual(text.update("第二", start: 5.3, end: 5.8), "第一段第二")
++        XCTAssertEqual(text.update("第二段", start: 5.3, end: 6.5), "第一段第二段")
++        XCTAssertEqual(text.update("", start: nil, end: nil), "第一段第二段")
+     }
+     func testCorrectionsReplaceTheSameAudioInsteadOfAppendingWords() {
+         var text = MacTab5SpeechTranscript()
+@@ -20,26 +20,26 @@
+         _ = text.update("第一段", start: 0.5, end: 2)
+         _ = text.update("第二段", start: 5, end: 7)
+         XCTAssertEqual(text.update("第一段，第二段已修正", start: 0.5, end: 7.2), "第一段，第二段已修正")
+-        XCTAssertEqual(text.update("第三段", start: 10, end: 12), "第一段，第二段已修正\n第三段")
++        XCTAssertEqual(text.update("第三段", start: 10, end: 12), "第一段，第二段已修正第三段")
+     }
+     func testRepeatedWordsAtDifferentAudioPositionsRemainRepeated() {
+         var text = MacTab5SpeechTranscript()
+         _ = text.update("测试", start: 1, end: 2)
+-        XCTAssertEqual(text.update("测试", start: 5, end: 6), "测试\n测试")
++        XCTAssertEqual(text.update("测试", start: 5, end: 6), "测试测试")
+     }
+     func testAdjacentUtteranceCorrectionCannotRemovePreviousPart() {
+         var text = MacTab5SpeechTranscript()
+         _ = text.update("第一段", start: 0, end: 2)
+         _ = text.update("第二", start: 2.01, end: 3)
+-        XCTAssertEqual(text.update("第二段", start: 2.02, end: 3.5), "第一段\n第二段")
++        XCTAssertEqual(text.update("第二段", start: 2.02, end: 3.5), "第一段第二段")
+     }
+     func testTimingUnavailableKeepsProvisionalTextSeparateFromTimedUtterances() {
+         var text = MacTab5SpeechTranscript()
+         _ = text.update("无时间", start: nil, end: nil)
+         XCTAssertEqual(text.update("无时间的修正", start: nil, end: nil), "无时间的修正")
+         _ = text.update("有时间", start: 1, end: 2)
+-        XCTAssertEqual(text.update("临时文字", start: .nan, end: 2), "有时间\n临时文字")
+-        XCTAssertEqual(text.update("临时文字修正", start: 3, end: 2), "有时间\n临时文字修正")
++        XCTAssertEqual(text.update("临时文字", start: .nan, end: 2), "有时间临时文字")
++        XCTAssertEqual(text.update("临时文字修正", start: 3, end: 2), "有时间临时文字修正")
+         XCTAssertEqual(text.utteranceCount, 1)
+     }
+     func testZeroTimingPartialsCannotProduceSecondFirstSecondOrder() {
+@@ -47,10 +47,10 @@
+         _ = text.update("这是第一段", start: 0, end: 0)
+         _ = text.update("这是第一段测试", start: 0, end: 0)
+         XCTAssertEqual(text.update("这是第一段测试", start: 0.5, end: 3), "这是第一段测试")
+-        XCTAssertEqual(text.update("这是第二段", start: 0, end: 0), "这是第一段测试\n这是第二段")
+-        XCTAssertEqual(text.update("这是第二段测试", start: 0, end: 0), "这是第一段测试\n这是第二段测试")
+-        XCTAssertEqual(text.update("这是第二段测试", start: 7, end: 10), "这是第一段测试\n这是第二段测试")
+-        XCTAssertEqual(text.update("这是第二段测试", start: 7, end: 10), "这是第一段测试\n这是第二段测试")
++        XCTAssertEqual(text.update("这是第二段", start: 0, end: 0), "这是第一段测试这是第二段")
++        XCTAssertEqual(text.update("这是第二段测试", start: 0, end: 0), "这是第一段测试这是第二段测试")
++        XCTAssertEqual(text.update("这是第二段测试", start: 7, end: 10), "这是第一段测试这是第二段测试")
++        XCTAssertEqual(text.update("这是第二段测试", start: 7, end: 10), "这是第一段测试这是第二段测试")
+         XCTAssertEqual(text.utteranceCount, 2)
+     }
+     func testUntimedCopiesAndCumulativeRecoveryDoNotDuplicateStableText() {
+@@ -67,7 +67,7 @@
+         var text = MacTab5SpeechTranscript()
+         _ = text.update("测试", start: 1, end: 2)
+         _ = text.update("测试", start: 0, end: 0)
+-        XCTAssertEqual(text.update("测试", start: 5, end: 6), "测试\n测试")
++        XCTAssertEqual(text.update("测试", start: 5, end: 6), "测试测试")
+     }
+     func testResetStartsAnIndependentRecording() {
+         var text = MacTab5SpeechTranscript()
+@@ -75,4 +75,28 @@
+         text = MacTab5SpeechTranscript()
+         XCTAssertEqual(text.update("下一轮", start: 0.5, end: 2), "下一轮")
+     }
++    func testRecognizedLineSeparatorsStayInOneParagraph() {
++        var text = MacTab5SpeechTranscript()
++        XCTAssertEqual(text.update("第一句\r\n第二句\u{2028}第三句\n\n", start: 0.5, end: 4), "第一句第二句第三句")
++        XCTAssertEqual(text.update("第四句", start: 7, end: 8), "第一句第二句第三句第四句")
++    }
++    func testEnglishPauseKeepsWordBoundariesWithoutLineBreaks() {
++        var text = MacTab5SpeechTranscript()
++        _ = text.update("hello", start: 0.5, end: 1)
++        XCTAssertEqual(text.update("world", start: 4, end: 5), "hello world")
++        XCTAssertEqual(text.update("world again", start: 4, end: 6), "hello world again")
++    }
++    func testEnglishSentenceBoundaryIsOneParagraph() {
++        var text = MacTab5SpeechTranscript()
++        _ = text.update("hello.", start: 0.5, end: 1)
++        XCTAssertEqual(text.update("world.", start: 4, end: 5), "hello. world.")
++    }
++    func testNormalizedProvisionalAndCumulativeCopiesDoNotDuplicate() {
++        var text = MacTab5SpeechTranscript()
++        XCTAssertEqual(text.update("第一句\n第二句", start: 0.5, end: 3), "第一句第二句")
++        XCTAssertEqual(text.update("第一句第二句", start: 0, end: 0), "第一句第二句")
++        XCTAssertEqual(text.update("第三句", start: 6, end: 7), "第一句第二句第三句")
++        XCTAssertEqual(text.update("\r\n \t ", start: 0, end: 0), "第一句第二句第三句")
++    }
++
+ }

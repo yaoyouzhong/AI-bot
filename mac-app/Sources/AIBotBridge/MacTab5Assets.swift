@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 
 struct MacTab5Asset {
     let slot: Int
@@ -7,6 +8,7 @@ struct MacTab5Asset {
     let delays: [Int]
     let bytes: Data
     let id: String
+    var encoding = "rle565"
     var frames: Int { delays.count }
     static func rgb565(slot: Int, width: Int, height: Int, delays: [Int], raw: Data) throws -> Self {
         guard (0...2).contains(slot), (1...336).contains(width), (1...336).contains(height),
@@ -24,9 +26,29 @@ struct MacTab5Asset {
         return Self(slot: slot, width: width, height: height, delays: delays, bytes: packed,
                     id: String(format: "%08x", MacBinaryResourceProtocol.crc32(Array(packed))))
     }
+    static func jpeg(_ bytes: Data) throws -> Self {
+        guard !bytes.isEmpty, bytes.count <= 524288,
+              let source = CGImageSourceCreateWithData(bytes as CFData,nil),
+              CGImageSourceGetType(source) as String? == "public.jpeg",
+              CGImageSourceGetCount(source) == 1,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [CFString:Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
+              (1...560).contains(width), (1...336).contains(height),
+              ((properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1) == 1 else { throw MacTab5Error.invalidPacket }
+        return Self(slot:2,width:width,height:height,delays:[1000],bytes:bytes,
+                    id:String(format:"%08x",MacBinaryResourceProtocol.crc32(Array(bytes))),encoding:"jpeg")
+    }
+    static func supportsJPEG(_ version: String?) -> Bool {
+        guard let version, let text = version.split(separator:"-").first else { return false }
+        let components = text.split(separator:".",omittingEmptySubsequences:false)
+        let parts = components.compactMap { Int($0) }
+        guard components.count == 3, parts.count == 3, parts.allSatisfy({ $0 >= 0 }) else { return false }
+        return (parts[0],parts[1],parts[2]) >= (0,2,80)
+    }
     func chunk(_ offset: Int) -> [String: Any] {
         ["slot": slot, "id": id, "width": width, "height": height, "frames": frames, "delays": delays,
-         "encoding": "rle565", "total": bytes.count, "offset": offset,
+         "encoding": encoding, "total": bytes.count, "offset": offset,
          "bytes": Data(bytes[offset..<min(offset + 1024, bytes.count)]).base64EncodedString()]
     }
 }
@@ -38,6 +60,11 @@ final class MacTab5Assets {
     private var acknowledged = ["-", "-", "-"]
     private var slot = 0
     private var offsets = [0, 0, 0]
+    private var coverReadyAt: TimeInterval = 0, coverFirstChosenAt: TimeInterval = 0, coverConfirmedAt: TimeInterval = 0
+    private var coverUSBChunks = 0, coverUSBBytes = 0
+    private var coverUSBMilliseconds = 0.0, coverUSBPeakMilliseconds = 0.0
+    private var coverUSBSteps = 0, coverUSBMaxBurst = 0, coverStatusBytes = 0, coverWireBytes = 0
+    private var coverStatusMilliseconds = 0.0, coverGenerationMilliseconds = 0.0, coverRPCMilliseconds = 0.0
     func update(pets: [MacPetAnimation?], cover: Data?) {
         lock.lock(); defer { lock.unlock() }
         updatePetsLocked(pets); updateCoverLocked(cover)
@@ -56,13 +83,22 @@ final class MacTab5Assets {
             sources[index] = source; offsets[index] = 0; assets[index] = asset
         }
     }
-    func updateCover(_ cover: Data?) {
-        lock.lock(); defer { lock.unlock() }; updateCoverLocked(cover)
+    func updateCover(_ cover: Data?, jpegSupported: Bool = true) {
+        let selected: Data?
+        if !jpegSupported, let cover, (try? MacTab5Asset.jpeg(cover)) != nil {
+            selected = MacMusicService.renderArtwork(cover)
+        } else { selected = cover }
+        lock.lock(); defer { lock.unlock() }; updateCoverLocked(selected)
     }
     private func updateCoverLocked(_ cover: Data?) {
         guard cover != sources[2] else { return }
         sources[2] = cover; offsets[2] = 0
-        if let cover, cover.count == 112 * 112 * 2 { assets[2] = try? .rgb565(slot: 2, width: 112, height: 112, delays: [1000], raw: cover) }
+        coverReadyAt = ProcessInfo.processInfo.systemUptime; coverFirstChosenAt = 0; coverConfirmedAt = 0
+        coverUSBChunks = 0; coverUSBBytes = 0; coverUSBMilliseconds = 0; coverUSBPeakMilliseconds = 0
+        coverUSBSteps = 0; coverUSBMaxBurst = 0; coverStatusBytes = 0; coverWireBytes = 0
+        coverStatusMilliseconds = 0; coverGenerationMilliseconds = 0; coverRPCMilliseconds = 0
+        if let cover, let jpeg = try? MacTab5Asset.jpeg(cover) { assets[2] = jpeg }
+        else if let cover, cover.count == 112 * 112 * 2 { assets[2] = try? .rgb565(slot: 2, width: 112, height: 112, delays: [1000], raw: cover) }
         else { assets[2] = nil }
     }
     static func validIDs(_ text: String) -> Bool {
@@ -71,20 +107,53 @@ final class MacTab5Assets {
     }
     func acknowledge(_ ids: String) {
         guard Self.validIDs(ids) else { return }
-        lock.lock(); acknowledged = ids.components(separatedBy: ","); lock.unlock()
+        lock.lock(); defer { lock.unlock() }
+        acknowledged = ids.components(separatedBy: ",")
+        if coverConfirmedAt == 0, let cover = assets[2], acknowledged[2] == cover.id {
+            coverConfirmedAt = ProcessInfo.processInfo.systemUptime
+        }
     }
-    func projection() -> [String: Any] {
+    func projection(includeResource: Bool = true) -> [String: Any] {
         lock.lock(); defer { lock.unlock() }
         var result: [String: Any] = ["assetIds": assets.map { $0.map { $0.id as Any } ?? NSNull() }]
+        // BLE sends images separately, so status/voice traffic never advances
+        // or consumes an image chunk merely by publishing current asset IDs.
+        guard includeResource else { return result }
         for _ in 0..<3 {
             slot = (slot + 1) % 3
             guard let asset = assets[slot], acknowledged[slot] != asset.id else { continue }
+            if slot == 2, coverFirstChosenAt == 0 { coverFirstChosenAt = ProcessInfo.processInfo.systemUptime }
             if offsets[slot] >= asset.bytes.count { offsets[slot] = 0 }
             result["resource"] = asset.chunk(offsets[slot]); offsets[slot] += 1024; break
         }
         return result
     }
     var hasCover: Bool { lock.lock(); defer { lock.unlock() }; return assets[2] != nil }
+    func recordUSBStep(started:TimeInterval,status:TimeInterval,rpc:TimeInterval,generation:TimeInterval,rawBytes:Int,wireBytes:Int,chunks:Int) {
+        lock.lock(); defer { lock.unlock() }
+        guard assets[2] != nil, coverConfirmedAt == 0 || coverConfirmedAt >= started else { return }
+        coverUSBSteps += 1; coverUSBMaxBurst = max(coverUSBMaxBurst,chunks)
+        coverStatusBytes += rawBytes; coverWireBytes += wireBytes
+        coverStatusMilliseconds += status*1000; coverGenerationMilliseconds += generation*1000; coverRPCMilliseconds += rpc*1000
+    }
+    func recordUSBChunk(_ chunk: [String:Any], elapsed: TimeInterval) {
+        lock.lock(); defer { lock.unlock() }
+        guard chunk["slot"] as? Int == 2, chunk["id"] as? String == assets[2]?.id,
+              let offset = chunk["offset"] as? Int, let total = chunk["total"] as? Int,
+              offset >= 0, offset < total, elapsed.isFinite, elapsed >= 0 else { return }
+        coverUSBChunks += 1; coverUSBBytes += min(1024,total-offset)
+        coverUSBMilliseconds += elapsed*1000; coverUSBPeakMilliseconds = max(coverUSBPeakMilliseconds,elapsed*1000)
+    }
+    var coverDiagnostic: String {
+        lock.lock(); defer { lock.unlock() }
+        let format = assets[2].map { "\($0.width)×\($0.height) \($0.encoding) · " } ?? ""
+        let total = coverConfirmedAt > 0 ? String(format:"%.0f ms",(coverConfirmedAt-coverReadyAt)*1000) : "等待确认"
+        let first = coverFirstChosenAt > 0 ? String(format:"%.0f ms",(coverFirstChosenAt-coverReadyAt)*1000) : "未选择"
+        let timing = String(format:" · 就绪至确认 %@ · 首片 %@ · USB %d 片/%dB · 收发累计 %.0f ms/峰值 %.0f ms",total,first,coverUSBChunks,coverUSBBytes,coverUSBMilliseconds,coverUSBPeakMilliseconds)
+        let work = String(format:" · USB周期 %d/最大批 %d · 状态 %.0f ms（生成/认证 %.0f）/%d→%dB · 邮箱 %.0f ms",coverUSBSteps,coverUSBMaxBurst,coverStatusMilliseconds,coverGenerationMilliseconds,coverStatusBytes,coverWireBytes,coverRPCMilliseconds)
+        let pets = (0..<2).map { i in "\(i == 0 ? "Claude":"Codex") 桌宠：目标 \(assets[i]?.id ?? "-") · 设备确认 \(acknowledged[i]) · \(assets[i]?.width ?? 0)×\(assets[i]?.height ?? 0) · \(assets[i]?.frames ?? 0) 帧" }.joined(separator:"\n")
+        return "封面资源：\(format)目标 \(assets[2]?.id ?? "-") · 设备确认 \(acknowledged[2]) · 分块位置 \(offsets[2])/\(assets[2]?.bytes.count ?? 0)B" + timing + work + "\n" + pets
+    }
     var hasPending: Bool {
         lock.lock(); defer { lock.unlock() }
         return assets.enumerated().contains { index, asset in asset != nil && acknowledged[index] != asset?.id }

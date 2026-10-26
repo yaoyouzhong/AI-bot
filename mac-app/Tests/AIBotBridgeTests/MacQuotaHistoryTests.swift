@@ -37,7 +37,8 @@ final class MacQuotaHistoryTests: XCTestCase {
     }
     func testMidnightOwnershipAndLongGapAreExplicit() {
         XCTAssertEqual(day([row(-60, 20), row(60, 22)]).used, 2)
-        XCTAssertNil(day([row(-3600, 20), row(60, 22)]).used)
+        XCTAssertEqual(day([row(-3600, 20), row(60, 22)]).used, 2)
+        XCTAssertEqual(day([row(-3600, 20), row(60, 22)]).carryOver, 2)
         XCTAssertEqual(day([row(-3600, 20), row(60, 20)]).used, 0)
         XCTAssertEqual(day([row(10, 20), row(900, 25)]).used, 5)
         let complete = MacQuotaHistory.build([row(-60, 20), row(60, 22), row(86340, 22), row(86460, 22)],

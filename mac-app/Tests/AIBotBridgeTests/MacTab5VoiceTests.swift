@@ -2,6 +2,95 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5VoiceTests: XCTestCase {
+    func testBLEStopCanReturnFastFinalWithoutAnotherPollAndReleasesOwnerLock() {
+        for failure: MacTab5SpeechFailure? in [nil, .noSpeech, .serviceInterrupted(1107)] {
+            var callback: ((String, Bool, MacTab5SpeechFailure?) -> Void)?
+            var finishes = 0
+            let backend = MacTab5SpeechBackend(start: { _, next in callback = next }, feed: { _ in }, finish: {
+                finishes += 1; let done = callback
+                DispatchQueue.global().async { done?(failure == .noSpeech ? "" : "final fixture", failure == nil, failure) }
+            }, cancel: {})
+            let voice = MacTab5Voice(enabled: { true }, backend: backend), id = start(voice)
+            let result = voice.handle(request("stop", id), device: "A", waitForFinal: true)
+            XCTAssertEqual(result.status, 200)
+            XCTAssertEqual(result.body["state"] as? String, failure == .serviceInterrupted(1107) ? "error" : "review")
+            XCTAssertEqual(result.body["canInsert"] as? Bool, failure == nil)
+            _ = voice.handle(request("stop", id), device: "A", waitForFinal: true)
+            XCTAssertEqual(finishes, 1)
+        }
+    }
+    func testBLEStopGraceIsBoundedAndNeverPromotesPartialText() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend()), id = start(voice)
+        backend.callback?("partial fixture", false, nil)
+        let began = ProcessInfo.processInfo.systemUptime
+        let result = voice.handle(request("stop", id), device: "A", waitForFinal: true)
+        XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - began, 1.5)
+        XCTAssertEqual(result.body["state"] as? String, "recognizing")
+        XCTAssertEqual(result.body["text"] as? String, "partial fixture")
+        XCTAssertEqual(result.body["canInsert"] as? Bool, false)
+        backend.callback?("complete fixture", true, nil)
+        let later = voice.handle(request("poll", id), device: "A")
+        XCTAssertEqual(later.body["text"] as? String, "complete fixture")
+        XCTAssertEqual(later.body["canInsert"] as? Bool, true)
+        XCTAssertEqual(backend.finishes, 1)
+    }
+    func testStopReplyCannotExposeReplacementTakeAfterCancellation() {
+        var callback: ((String, Bool, MacTab5SpeechFailure?) -> Void)?, onFinish: (() -> Void)?
+        let backend = MacTab5SpeechBackend(start: { _, next in callback = next }, feed: { _ in }, finish: { onFinish?() }, cancel: {})
+        let voice = MacTab5Voice(enabled: { true }, backend: backend), first = start(voice)
+        let oldCallback = callback; var replacement = ""
+        onFinish = {
+            _ = voice.handle(self.request("cancel", first), device: "A")
+            replacement = self.start(voice)
+            oldCallback?("cancelled old fixture", true, nil)
+        }
+        let stale = voice.handle(request("stop", first), device: "A", waitForFinal: true)
+        XCTAssertEqual(stale.status, 409); XCTAssertNil(stale.body["text"])
+        let current = voice.handle(request("poll", replacement), device: "A")
+        XCTAssertEqual(current.body["state"] as? String, "recording")
+        XCTAssertEqual(current.body["text"] as? String, "")
+    }
+    func testStopGraceRechecksConsentAndRejectsWrongOwnerBeforeFinishing() {
+        var enabled = true, onFinish: (() -> Void)?
+        let backend = MacTab5SpeechBackend(start: { _, _ in }, feed: { _ in }, finish: { onFinish?() }, cancel: {})
+        let voice = MacTab5Voice(enabled: { enabled }, backend: backend), id = start(voice)
+        var finishes = 0
+        onFinish = { finishes += 1; enabled = false }
+        XCTAssertEqual(voice.handle(request("stop", id), device: "B", waitForFinal: true).status, 409)
+        XCTAssertEqual(finishes, 0)
+        let disabled = voice.handle(request("stop", id), device: "A", waitForFinal: true)
+        XCTAssertEqual(disabled.status, 403); XCTAssertNil(disabled.body["text"])
+        XCTAssertEqual(finishes, 1)
+    }
+    func testLocalStageTimingSeparatesRecognitionFromReviewResponseAndHidesText() {
+        var now = 10.0, callback: ((String, Bool, MacTab5SpeechFailure?) -> Void)?
+        let backend = MacTab5SpeechBackend(start: { _, next in callback = next; now += 0.15 }, feed: { _ in }, finish: {}, cancel: {})
+        let voice = MacTab5Voice(enabled: { true }, clock: { now }, backend: backend), id = start(voice)
+        now = 12; callback?("synthetic private words", false, nil)
+        now = 13; _ = voice.handle(request("stop", id), device: "A")
+        now = 13.75; callback?("synthetic private words", true, nil)
+        now = 14.25; _ = voice.handle(request("poll", id), device: "A")
+        XCTAssertTrue(voice.diagnostics.contains("本地启动 150 ms"))
+        XCTAssertTrue(voice.diagnostics.contains("首段结果（含说话等待） 2000 ms"))
+        XCTAssertTrue(voice.diagnostics.contains("停止至最终识别 750 ms"))
+        XCTAssertTrue(voice.diagnostics.contains("最终结果至响应生成 500 ms"))
+        now = 16; _ = voice.handle(request("poll", id), device: "A")
+        XCTAssertTrue(voice.diagnostics.contains("最终结果至响应生成 500 ms"))
+        XCTAssertFalse(voice.diagnostics.contains("synthetic private words"))
+    }
+    func testStageTimingsResetPerTakeAndIgnoreCancelledCallbacks() {
+        var now = 10.0, callbacks: [(String, Bool, MacTab5SpeechFailure?) -> Void] = []
+        let backend = MacTab5SpeechBackend(start: { _, next in callbacks.append(next) }, feed: { _ in }, finish: {}, cancel: {})
+        let voice = MacTab5Voice(enabled: { true }, clock: { now }, backend: backend), first = start(voice)
+        now = 11; callbacks[0]("first", false, nil)
+        _ = voice.handle(request("cancel", first), device: "A")
+        now = 20; _ = start(voice)
+        now = 21; callbacks[0]("cancelled old take", true, nil)
+        XCTAssertFalse(voice.diagnostics.contains("首段结果")); XCTAssertFalse(voice.diagnostics.contains("停止至最终识别"))
+        now = 22; callbacks[1]("new take", false, nil)
+        XCTAssertTrue(voice.diagnostics.contains("首段结果（含说话等待） 2000 ms"))
+        XCTAssertFalse(voice.diagnostics.contains("cancelled old take"))
+    }
     private final class Backend {
         var callback: ((String, Bool, MacTab5SpeechFailure?) -> Void)?, feeds = 0, finishes = 0, cancels = 0
         func backend() -> MacTab5SpeechBackend { .init(start: { _, callback in self.callback = callback }, feed: { _ in self.feeds += 1 }, finish: { self.finishes += 1 }, cancel: { self.cancels += 1 }) }
@@ -42,6 +131,45 @@ final class MacTab5VoiceTests: XCTestCase {
         XCTAssertEqual(voice.handle(request("poll", id), device: "A").body["state"] as? String, "recognizing"); XCTAssertEqual(backend.finishes, 1)
         now = 25; let result = voice.handle(request("poll", id), device: "A")
         XCTAssertEqual(result.body["state"] as? String, "error"); XCTAssertEqual(result.body["text"] as? String, "部分文字"); XCTAssertEqual(result.body["canInsert"] as? Bool, false)
+    }
+    func testMicrophoneSwitchRejectsCancelledBackendCallbacksForTheSameVoiceID() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend())
+        let first = voice.handle(["op": "start", "taskId": task, "session": session], device: "A")
+        let id = first.body["voiceId"] as! String, cancelled = backend.callback
+        XCTAssertEqual(voice.handle(request("tab5", id), device: "A").status, 200)
+        cancelled?("旧麦克风文字", true, .serviceInterrupted(1101))
+        let recording = voice.handle(request("poll", id), device: "A")
+        XCTAssertEqual(recording.body["state"] as? String, "recording")
+        XCTAssertEqual(recording.body["text"] as? String, "")
+        backend.callback?("新麦克风文字", false, nil)
+        XCTAssertEqual(voice.handle(request("poll", id), device: "A").body["text"] as? String, "新麦克风文字")
+    }
+    func testNormalMicrophonePollingSurvivesPausesButRealDisconnectStops() {
+        let backend = Backend(); var now: TimeInterval = 0
+        let voice = MacTab5Voice(enabled: { true }, clock: { now }, backend: backend.backend())
+        let id = voice.handle(["op": "start", "taskId": task, "session": session], device: "A").body["voiceId"] as! String
+        for second in 1...20 {
+            now = TimeInterval(second)
+            XCTAssertEqual(voice.handle(request("poll", id), device: "A").body["state"] as? String, "recording")
+        }
+        XCTAssertEqual(backend.finishes, 0)
+        now = 29; _ = voice.handle(request("poll", id), device: "A")
+        XCTAssertEqual(backend.finishes, 1)
+        XCTAssertTrue(voice.diagnostics.contains("设备连接超过八秒"))
+    }
+    func testSpeechFailureRetainsPreviewAndDiagnosticAcrossLaterSuccessfulTake() {
+        let backend = Backend(), voice = MacTab5Voice(enabled: { true }, backend: backend.backend()), id = start(voice)
+        backend.callback?("第一段\n第二段", false, .serviceInterrupted(1107))
+        let result = voice.handle(request("poll", id), device: "A")
+        XCTAssertEqual(result.body["text"] as? String, "第一段\n第二段")
+        XCTAssertEqual(result.body["canInsert"] as? Bool, false)
+        XCTAssertTrue(voice.diagnostics.contains("1107"))
+        XCTAssertFalse(voice.diagnostics.contains("第一段"))
+        _ = start(voice); backend.callback?("成功", true, nil)
+        XCTAssertTrue(voice.diagnostics.contains("此前语音"))
+        XCTAssertFalse(voice.diagnostics.contains("最近识别异常"))
+        XCTAssertTrue(voice.diagnostics.contains("1107"))
+        XCTAssertFalse(voice.diagnostics.contains("第一段"))
     }
     func testIMAIndependentBlocksAndEightKHzUpsampling() throws {
         let bytes = Data([4, 0, 0, 0, 0, 0, 0x77, 0x07])

@@ -185,13 +185,17 @@ After a successful USB handshake, the bridge sends a `lan_config` frame containi
 
 When USB status has been absent for eight seconds, the device may request `GET /status` from that exact address and must send the token in the `X-AIBot-Token` header. The LAN listener binds only to the selected private adapter address. Missing or incorrect tokens receive `401`; the loopback development endpoint remains independently available at `127.0.0.1`.
 
-### Windows LAN rediscovery after both IP addresses change
+### Paired LAN rediscovery after both IP addresses change
 
 After one USB pairing, the device and the Windows bridge retain the same pairing token. If USB and LAN status are both stale, the device broadcasts a small discovery datagram to UDP port `18766` on its current IPv4 subnet every five seconds. The request is ASCII `AIBOT_DISCOVER_V1|<16 lowercase hex nonce>|<64 lowercase hex HMAC-SHA256>`, where the HMAC key is the UTF-8 pairing token and the signed bytes are the prefix through the nonce. The token itself is never included in a discovery datagram.
 
 The Windows bridge checks the HMAC, selects an active private adapter whose subnet contains the datagram source, and starts the authenticated LAN listener on that adapter before replying from that adapter's IP. The ASCII response is `AIBOT_BRIDGE_V1|<same nonce>|<IPv4 host>|<decimal port>|<64 lowercase hex HMAC-SHA256>`. Its HMAC covers every field before the final separator. The device accepts only a response with the outstanding nonce, a valid HMAC, and a sender IP equal to the advertised host. It requests authenticated `/status` from the candidate before replacing its saved bridge address. Failed probes leave the previous pairing intact. USB `lan_config` remains authoritative and cancels any pending LAN candidate.
 
-Discovery is local subnet broadcast; it does not cross routed VLANs or an access point that filters client broadcasts. The bridge can still serve the last paired address while discovery is pending. macOS bridges retain the existing USB-provisioned fallback but do not yet answer this Windows discovery protocol.
+Discovery is local subnet broadcast; it does not cross routed VLANs or an access point that filters client broadcasts. The bridge can still serve the last paired address while discovery is pending.
+
+The local Mac candidate now answers the same ESP8266 protocol through its existing shared TAB5/ESP UDP listener on 18766. It reads, never generates or replaces, the existing Keychain token; validates the exact request prefix, lowercase nonce/HMAC and 160-byte bound; and selects a currently active, non-tunnel private IPv4 interface on the sender’s subnet. The response UDP socket is explicitly bound to the advertised address. Mac's existing shared HTTP listener is wildcard-bound and follows address changes without restarting TAB5 connections; discovery advertises only its ready port. Disabled/USB-only ESP, missing token, unavailable HTTP service or no matching subnet receives no reply. The device still verifies the nonce, HMAC and source address, and commits the candidate only after authenticated status succeeds. No firmware, Windows wire-format, pairing or display-setting change is required. Address changes have synthetic policy coverage plus real loopback UDP/HTTP validation; ESP8266 hardware acceptance remains pending.
+
+中文：Mac 本地候选已补齐小屏认证自动发现，与 TAB5 共用 18766 监听。只使用原钥匙串密钥，按设备来源网段选择有效本机地址，从该地址回复；HTTP 未就绪、仅 USB、停用或认证失败时不应答。设备成功取得认证状态后才保存新地址，失败保留旧配对。本轮不改固件及 Windows 协议，真实小屏改 IP 后恢复仍待硬件验收。
 
 ```json
 {"version":1,"type":"lan_config","data":{"host":"192.168.1.20","port":8765,"token":"runtime-secret"}}
@@ -310,6 +314,10 @@ With explicit cycling disabled, playing music precedes working domestic activity
 `music.hasArtwork` is an optional boolean: false suppresses cached cover display, true permits the validated cover resource, and absence retains old-bridge compatibility. Missing/null music clears device playback state and prevents stale cached title/artwork from being displayed. New bridges do not send a fabricated black cover for missing artwork. Windows tolerates two empty media samples, clearing on the third, and retries late artwork on subsequent refreshes. No cache deletion or Wi-Fi reset is required.
 
 TAB5 .078 accepts optional `music.artworkWidth` / `artworkHeight`, the original artwork dimensions supplied to the bridge. Valid dimensions (1..32768) with aspect ratio above 1.25 select a wider landscape presentation; missing/invalid dimensions retain the square layout. The resource remains a 336×336 RGB565 aspect-fit canvas, so these fields describe source aspect ratio rather than resource dimensions. Windows strips them from legacy ESP8266 USB frames; older TAB5 firmware ignores them. No protocol-version or resource-format change is required.
+TAB5 .080+ also accepts the existing slot-2 resource with `encoding:"jpeg"`, one frame, `width`1..560, `height`1..336 and encoded `total`<=524288 bytes. The resource ID is the eight-digit CRC32 of the encoded JPEG; chunk payloads remain<=1024 bytes. Decoded dimensions must match the envelope. Windows and Mac select JPEG only for supporting observed firmware and keep the ESP8266 resource separate; Mac falls back to112×112 RGB565 for old/unknown TAB5 firmware. This documents the existing JPEG contract rather than adding a new wire version.
+
+TAB5 .080起既有封面资源槽2支持 JPEG：单帧，宽1..560、高1..336，编码后最多524288字节，资源ID为JPEG编码字节的8位CRC32，单块载荷仍最多1024字节；解码尺寸须与声明相符。Windows／Mac 按实际固件能力选择，小屏资源独立，Mac 对旧／未知 TAB5 固件回退112×112 RGB565。不新增协议版本。
+
 # 系统监控增量样本（兼容扩展）
 
 `systemMetrics` / `metrics.data` 可含 `sampleSession`（进程会话标识）、`sampleSequence`（单调递增计数）和 `samples`（最近最多 12 个 `{upload,download}` 原始 250ms 样本）。顶层上传/下载数值是最近 4 样本平均值，用于数字显示；CPU/内存最多每秒重算。
@@ -394,6 +402,10 @@ Requests contain nonce ASCII32 + HMAC ASCII64 + AES-256-GCM packet, at most 1228
 TAB5 metrics and full snapshots retain 64 raw 250 ms history samples, allowing delayed radio delivery to backfill approximately 16 seconds. On compression-safe receivers, `tab5_packed` may contain `tab5_metrics` as well as full state, with the same non-nesting, exact-size and session requirements. Bridge 0.6.3 publishes an immutable network snapshot once per second: headers use a trailing four-sample mean, and history and sample sequence remain held between publications. CPU/memory retain their separate two-second sampling interval. TAB5 0.2.156-ui and ESP8266 0.5.2 use the same trailing mean for numbers and the current curve endpoint, consuming each incoming batch immediately without a playback reserve; duplicate sequences do not advance the curve. Raw sampling continues at 250 ms and protocol fields remain unchanged. TAB5 history missing beyond the retained window stays a gap; displayed numbers use the current available contiguous window, without averaging across that gap. / 桥接每秒发布一份完整网络快照，上传／下载数字与曲线末端共用最近四个原始采样的 1 秒均值；两次发布之间数字、历史和序号保持，设备按新序号整批同步显示。内部原始采样仍为 250 毫秒，CPU／内存仍每 2 秒采集一次，协议字段不变。
 
 Safety revision in 0.2.42: 0.2.40/0.2.41 used a ROM convenience inflater whose ~11 KiB stack workspace exceeded the receiver task stacks. The bridge must send those versions plain full snapshots, while metrics packets remain supported. Packed Wi-Fi responses require authenticated firmware version >=0.2.42; packed BLE responses require `telemetryVersion:2`. BLE capability 1 supports metrics but receives plain full state. The new receiver allocates its inflater workspace on the heap and requires DONE, exact output size and full compressed-input consumption.
+
+Mac 本地候选补用已定义的 BLE `tab5_packed` 完整状态格式：当前配对确认、设备／nonce／ACK 证明、已知 `telemetryVersion` 2 或 3 及同 nonce 的固件版本证明均有效，且版本为 `0.2.42-ui` 或更高的 `0.2.x-ui` 时才启用。使用标准 zlib，只有包含 base64 与元数据的整个封装更小时才替代原文；明文展开仍不超过 Mac 既有 32740 字节上限。缺少能力、旧版本和未知版本保留原格式。资源、归属证明和 RPC 不套用此封装；加密、分片、序号及原整帧签名 ACK 不变。没有新协议字段或固件要求，实际耗时另记实机结果。
+
+The local Mac candidate now uses the existing BLE tab5_packed full-state format only for confirmed pairing, matching device/nonce/ACK proof, known telemetryVersion 2 or 3 and a valid firmware proof under the same nonce for 0.2.42-ui or later 0.2.x-ui. Standard zlib is used only when the complete base64/metadata envelope is smaller. Expanded plaintext retains Mac's existing 32740-byte limit. Missing capabilities and old/unknown versions retain the original format. Resources, ownership proofs and RPC are not wrapped; encryption, fragments, sequence and signed whole-frame ACK remain unchanged. There are no new wire fields or firmware requirements; physical timing is recorded separately.
 
 0.2.41 upgrade policy: authenticated BLE RPC rejects `kind:ota` with encrypted status 409 / `firmware_requires_usb_or_wifi`; all other BLE operations remain available. OTA offers can still arrive over BLE. The device selects a fresh authenticated Wi-Fi link first, then a ready USB RPC link, independently of daily mode, and retains that transport for the entire installation. This is a preference among available links, not an automatic mid-download retry. A fresh Wi-Fi snapshot and an associated network are required; association alone is insufficient. Legacy 0.2.39/0.2.40 devices need manual Wi-Fi selection to bypass their USB-first routing.
 
@@ -837,6 +849,40 @@ English: optional `wifiUnlockVersion=1` advertises explicitly enabled Wi-Fi one-
 
 ### TAB5 unlock history candidate (0.2.228-ui, local)
 
+Mac implementation note (2026-10-23, unpublished): the saved Mac unlock candidate reuses the existing Wi-Fi-only `wifi-unlock` contract and `wifiUnlockVersion=1`, with no new fields or protocol-version change. A separate local enable switch and verified current-user/pairing-bound Keychain record are required. Passwords never enter device requests or replies; USB/BLE `unlock-pin` is not implemented for Mac and `oneClickUnlock` stays false. Enrollment verifies the account locally. The r66 Mac candidate binds the signed local login secure field and its window, writes once, then resolves and presses a unique explicit/default login button in that same window. Button discovery follows writing because the button was only observed with a nonempty field. Unsupported submission stops after that single write without replay or fallback; a field-level AXConfirm and screen-sharing session are not used. Unknown focus permits bounded display-wake preparation only, followed by independent loginwindow verification. Only two seconds of continuously confirmed current-console desktop return may report `unlocked=true`. Lease, sequence, cancellation and no-retry rules remain. See [Mac integration candidate](development/MAC-UNLOCK-DOUBAO-INTEGRATION-20261023.md).
+
+#### Mac USB／蓝牙本机解锁候选 / Mac USB/BLE host-side unlock candidate (2026-10-24)
+
+此扩展已完成固件构建及隔离软件检查；2026-10-24 的 `.267`＋ble-priority Mac 普通锁屏 USB／蓝牙首点、提示及 USB 拔线切蓝牙验收通过，Wi-Fi 回归通过，未覆盖整机睡眠或 Computer Use 外层交接。新增可选 `connectionHealth.hostUnlockVersion=1`，仅在独立 USB／蓝牙开关已开、当前账户及配对绑定的本机密码可用时通告；否则省略。`wifiUnlockVersion` 仍由原 Wi-Fi 开关决定，`oneClickUnlock=false` 不变，不能把此能力当作 Windows `unlock-pin` 授权。旧固件忽略新字段，不能据此视为已支持 Mac USB／蓝牙解锁。
+
+- 已认证 USB／BLE RPC 使用 `kind="host-unlock"`，操作为 `begin`、`poll`、`cancel`。复用原 UUID `requestId`、32 位十六进制 `offer`、严格递增 `next`、`session` 与 `issuedAt` 结构；密码及按键内容均不经过设备。`host-unlock` 走 Wi-Fi 返回 `409 host_unlock_requires_usb_ble`，`wifi-unlock` 走 USB／BLE 仍返回 `409 unlock_requires_wifi`。
+- 同一请求从开始到结束固定当前配对、会话与实际 USB／BLE 通道；固件另外绑定选定电脑 epoch、物理连接代数及设备连接模式。取消、超时、断连、重新连接、切换电脑或停用时结束，不改走 Wi-Fi、不重发 begin、不回退到 HID。即使请求 ID、offer 相同，也不能跨通道 poll 或 cancel。
+- Mac 三个通道共用一个本机执行器及请求去重表，防止并发或跨通道重放。每次最多一次输入／提交，仍需本机确认桌面恢复。40 秒总时限、2.5 秒轮询租约保留；固件 `host-unlock` 的单次 RPC 上限为 2 秒。USB／BLE 断连只撤销匹配通道的本次请求，不撤销正在进行的 Wi-Fi 请求。
+- USB／BLE `begin` 先完成权限、配对、会话、去重及连接代数检查，保留请求并返回 `preparing`，再在可取消的工作线程核对锁屏焦点，避免界面查询阻塞两秒回包窗口。核验前后均检查租约与取消，明确未锁屏时不执行输入；实际密码输入仍须独立确认可信登录控件。已有 Wi-Fi 前置核验次序保持。
+- `.266` 本地修正：host-unlock 在同一两秒 RPC 总预算内，最多等待一秒让在途请求释放邮箱，等待发生在发布 nonce／请求字节之前；超时、主机变化或连接代数变化停止，不重发。只有本机 host-unlock busy 时暂停普通电脑状态轮询，终态后恢复以获取独立状态；既有 Wi-Fi／Windows 路由与预算不变。
+- Mac USB／蓝牙开关默认关闭；已有 Keychain 密码可复用，启用它不更改 Wi-Fi 开关。Windows 不通告此能力，收到此 kind 明确返回 `409 host_unlock_unsupported`，不读取或返回 PIN，原 USB／BLE PIN/HID 和 Wi-Fi 流程保持。
+- Mac 本机输入等待补记：可信 AX 目标的直接替换使用 150 ms 新鲜焦点稳定观察，仍要求至少三秒实际物理键鼠静止；接入验证／临时屏幕共享保留完整三秒输入源稳定。Wi-Fi 仍连续两秒确认桌面；USB／蓝牙 feedback 候选使用至少 0.5 秒及三次不同单调时刻的独立桌面核验，未知重新计时、回锁或取消停止。单次输入、租约及设备额外的新鲜电脑状态确认保持。阶段耗时只留在 Mac 内存诊断，不加入设备协议。
+- Mac 后续本地候选：普通前台／桥接本进程菜单栏的系统 AX 桌面焦点只作显示状态证据。冷启动无解锁观察时，还需完整且没有可见已验证 loginwindow 的窗口样本、当前控制台和明确无外层保护；锁定观察优先，采样不完整不报告未锁屏。密码输入／后端成功核验保留原 `lockedState()` 规则，不使用上述显示辅助证据。已结束的 USB／BLE 请求可保留最多 2.5 秒终态读取窗口（仍限总计 40 秒），输入期间租约及 Wi-Fi 行为不变。现有 `unlockHistory` 只作最多八条有界数字诊断，不授权输入或判定成功。蓝牙真实控制回包后的一秒内优先后续控制，空／重复读不续期；四秒后台心跳机会和语音规则保留，协议字段不变。
+
+English: a later local Mac candidate uses matching regular/own-accessory AX desktop focus for display only. Cold start additionally requires complete absence of visible verified loginwindow windows, the current console and explicit protection absence. Locks veto; incomplete samples cannot report unlocked. Credential and backend-success checks retain the original `lockedState()` path. Completed USB/BLE requests may retain a terminal receipt for up to 2.5 seconds within the original 40-second total budget; active input and Wi-Fi leases are unchanged. Existing `unlockHistory` is bounded numeric diagnostics only. Real completed BLE control requests receive a one-second continuation priority without renewal from empty/duplicate reads; four-second background fairness and voice rules remain. No wire fields change.
+
+- Mac 熄屏准备补记：保护状态未知时只允许有界显示器活动声明，唤醒后必须重新明确确认无外层保护，才进入原可信登录控件及单次输入流程。已知保护直接拒绝；取消、超时及失败释放临时声明，不退出 Computer Use 或修改全局设置。
+- 此扩展保留 Computer Use 外层保护阻止输入的规则，也不解决整机睡眠时桥接不可运行的问题；不修改系统全局设置。实现、固件补丁与验收边界见 [USB／蓝牙候选记录](development/MAC-USB-BLE-UNLOCK-20261024.md)。
+
+English: this TAB5 candidate adds optional `connectionHealth.hostUnlockVersion=1` only for an explicitly enabled, usable current-user/pairing-bound Mac USB/BLE unlock configuration. The Wi-Fi capability and legacy `oneClickUnlock=false` remain independent. Authenticated USB/BLE `host-unlock/begin,poll,cancel` carries intent and progress only, using the existing UUID/offer/sequence/session/time envelope. The attempt is pinned to the same host, session, physical connection and selected transport; uncertainty cancels without HID, HTTP fallback or retry. All three Mac transports share one executor and replay journal, while USB/BLE disconnect only cancels its matching attempt. The 40-second budget and 2.5-second lease remain; the new firmware RPC has a two-second bound. Windows explicitly rejects this optional kind without returning a PIN and retains its existing routes. Old firmware cannot use the new feature. Computer Use protection, full-system sleep limitations and all global settings remain unchanged. Full firmware compilation and isolated software checks pass. Ordinary-lock first taps/results on USB/BLE, unplug-to-BLE handoff and Wi-Fi regression pass with the 2026-10-24 `.267`/ble-priority pairing; full sleep and Computer Use protection handoff remain outside that acceptance.
+
+USB/BLE begin acknowledges the reserved, permission/session/pairing/replay/connection-checked attempt before asynchronous focus inspection. The cancellable worker checks the lease before and after that inspection, rejects an explicitly unlocked session and retains independent trusted-login-control checks before secret input. This avoids holding the two-second mailbox reply for UI inspection. The accepted Wi-Fi preflight order is unchanged. The local `.266` correction allows up to one second of mailbox admission inside the unchanged two-second total budget, before publishing any request bytes, and suppresses ordinary status polling only while host unlock is busy. Polling resumes at termination for independent state confirmation; no request is replayed. A dark display may leave protection evidence unknown: the Mac-only follow-up permits bounded display activity, then requires a fresh explicit absence of protection before any keyboard event or secret input. Known protection still rejects immediately; cancellation/timeouts release the temporary assertion. It does not dismiss Computer Use or alter global settings. The direct AX path uses 150 ms of fresh focus stability while retaining three seconds of physical-input quiet; enrollment/RFB preparation retains the full source-stability interval. Wi-Fi retains two-second stable-desktop confirmation. The USB/BLE feedback candidate requires at least 0.5 seconds plus three distinct-time independent desktop observations; unknown evidence restarts stability and relock/cancellation reject success. Stage timing is local metadata only, with no new wire fields.
+
+Mac 实现补记（2026-10-23，未发布）：复用上述纯 Wi-Fi 请求与能力字段，不改字段或协议版本。独立开关及已验证、绑定当前账户／配对的钥匙串记录齐备才通告能力；密码不进入设备请求或回包。Mac 不实现 USB／BLE 密码导出，`oneClickUnlock=false`。接入时本机验证账户。r66 候选先核验 Apple 登录安全字段及所属窗口，仅写入一次，再定位并按下同一窗口的默认或唯一明确标注的登录按钮；实测仅在非空框观察到该按钮，因此不在写入前要求按钮已出现。提交不受支持则在单次写入后停止，不重填、不换路径，不使用字段 AXConfirm 或屏幕共享会话。未知焦点只允许有界唤醒显示器，必须重新核验登录窗口后才允许输入。连续两秒确认当前控制台回到桌面才可返回成功；租约、序号、取消及不重试规则保留。真实设备验收见候选记录。
+
+The temporary r65 read-only probe has been removed in r66. No raw control snapshots are persisted or exported; protocol fields remain unchanged. Two r66 prepared-field unlocks succeeded; no-field, black-screen and Computer Use scenarios failed. r67 adds one public process-targeted nonprinting Tab before revalidating the secure field. Positive lock observations survive session invalidation; an optional undocumented boolean session hint may veto unlocked status but never authorize input or confirm success. Insufficient evidence returns the existing null lock state. No wire fields change. Physical acceptance remains pending.
+
+r66 已移除 r65 临时只读采集路径，不持久化或导出原始控件快照，网络字段不变；r66 已准备密码页的两次解锁成功，无密码页、黑屏及 Computer Use 场景失败。r67 用公开进程定向接口发送一次非打印 Tab 后重验安全字段；会话失效不再清除锁定观察，可选未文档化布尔会话标记仅否决未锁定结论，不授权输入或证明成功。证据不足返回既有 null 状态；网络字段不变，实测待完成。
+
+Local r70 supersedes the r68 probe/r69 raise preparation: after independent signed-loginwindow focus, current-user console and existing-event-permission checks, it posts one password-free unmodified Tab pair to the public system input stream, never replaying it. This differs from r67 process-targeted posting. Held modifiers/Tab reject preparation; cancellation/change/timeout after key-down still releases. Fresh secure-field/window validation precedes the retained single write/button submission. Event delivery cannot prove readiness or unlock. Existing null/boolean lock-state rules, network fields, authentication and no-retry semantics remain; no global settings change.
+
+本地 r70 取代 r68 采集／r69 置前准备：仅在独立核验签名登录焦点、当前账户控制台与已有事件权限后，向公开系统输入队列投递一次无密码、无修饰的 Tab 按下／释放，不重发；与 r67 进程定向投递不同。按住修饰键／Tab 则拒绝，按下后即使取消／变化／超时也释放。重新核验安全字段和窗口后才走单次写入／按钮提交，事件投递不证明就绪或成功。既有状态 null／布尔、网络字段、认证及不重试规则不变，不改全局设置。
+
 `computer-control` / `status` optionally carries `unlockHistory`: `1;` followed by 1–8 semicolon-separated rows, each exactly nine 8-digit hexadecimal uint32 words (maximum 585 characters). The authenticated, session-bound RPC envelope and replay validation remain mandatory. Other computer-control operations reject this field. This is numeric troubleshooting data only; it never authorizes input. Fields, flags and acknowledgement semantics are documented in [the candidate record](development/TAB5-WIFI-ONECLICK-20261018.md). Candidate firmware requires its matching bridge decoder. PIN, keycodes, account data and text are excluded.
 
 TAB5 0.2.228-ui 本地候选在 `computer-control/status` 中可携带严格定长、最多 8 条的 `unlockHistory` 诊断，复用原有鉴权与会话/重放校验；字段与确认规则见上述候选记录。诊断不参与解锁授权，不包含凭据、按键或文本。
@@ -850,3 +896,325 @@ Optional USB wifiHttpDiag contains nine numeric fields: version=1, status attemp
 Optional wifiPathDiag contains 17 numeric fields: version=1, IPv4 netmask, gateway IPv4, AP channel, RSSI, STA MAC as uint48, BSSID as uint48, station-is-default boolean, probe count, gateway TCP/80 errno, host TCP/configured-port errno, transport ESP error, TLS code, TLS flags, Wi-Fi power-save mode, AP query result, netif MAC as uint48. IPv4 values are host-order uint32. Zero probe errno means connect succeeded. On failed bridge HTTP connects only, the Wi-Fi worker samples at most once per 30 seconds, using nonblocking sockets with one-second connect waits; USB only copies the snapshot. Probes close their sockets, send no HTTP request, skip OTA, and do not change network settings.
 
 中文：桥接连接失败时对网关与电脑做有界 TCP 对照，并记录掩码、网关、信号和底层错误；不修改网络、密码或配对。诊断新增不等于连通问题已修复。
+
+## TAB5 trusted computers / TAB5 可信电脑（本地候选）
+
+设备可保存最多 8 台可信电脑，每台首次通过 USB 明确配对，使用其原有独立密钥。
+`trusted_hosts1` 是独立版本化 NVS blob；保留原 config ABI 与密钥供回退，迁入已有配对，
+容量满时不淘汰记录，当前记录损坏时不从旧记录复活。电脑端 DPAPI / Keychain 记录和
+密码绑定保持不变。当前电脑的选择持久保存；断开 USB 后继续使用该电脑的无线通道，
+不会因其他电脑广播而自动改选。网络诊断可选择可信电脑；控制页显示当前电脑。
+
+`hostId = hex(HMAC-SHA256(pairKey, UTF8("AIBOT_TAB5_HOST_V1"))[0:16])`，固定 32 位小写十六进制。
+电脑名称为 1–63 UTF-8 字节，不允许控制字符或 `|`；密钥不出现在公开列表和诊断。
+USB hello / ACK 增加 `hostBindingVersion:1`, `hostNonce`, `currentHostId`,
+`usbHostAuthenticated`。新桥接发送 `tab5_host_claim`，字段为 `version:1,deviceId,hostId,
+nonce,host,port,name,proof`。`host` 是私有 IPv4 或空字符串，`port` 是 0–65535 整数。
+签名消息为 `TAB5_HOST_V1|deviceId|hostId|nonce|host|port|name` 的 UTF-8，HMAC-SHA256 使用
+该电脑独立密钥，输出 64 位小写十六进制。nonce 由设备产生，绑定本次 CDC 代次，成功后消耗。
+`tab5_host_claimed` 回执包含 `deviceId,hostId,proof`，签名消息为
+`TAB5_HOST_ACK_V1|deviceId|hostId|nonce`。未受信任/错误签名/旧 nonce 均不接管。
+
+认证成功的 USB 电脑优先接管；仅串口连通不构成认证。8 秒内的有效状态/认证 RPC 续期，
+其他电脑不能覆盖其无线目标。正在刷写时，另一台电脑的接管返回 `device_busy`。
+切换先阻止新按键并取消、排空旧输入，再更换代次、清空旧状态/RPC，并断开旧 BLE 中央设备；
+系统蓝牙 bond 保留。USB HID、BLE HID 和无线解锁均绑定电脑代次，旧回调不能给新电脑授权。
+除首次配对、接管握手和只读诊断外，USB 配置、快捷键、资源、状态和 RPC 均须已认证。
+旧式无签名 `tab5_host` 不能改写其他电脑的地址。
+
+Wi-Fi 仅使用当前电脑的密钥/地址发现与鉴权。BLE 的只读特征
+`7af50007-7f23-4a91-bc65-667a19320101` 返回 `{version:1,hostId,bleProofRequired:1}`；非当前电脑断开待命，
+桥接延后重连，不发送状态或执行 RPC。此公开字段只用于待命判断，不能代替原有密钥鉴权。
+状态可附加 `connectionHealth.hostBindingVersion=1,hostId,hostName`；有 hostId 时必须匹配。
+旧无线桥接可在设备明确选中其已保存密钥时继续使用原加密协议；接收与 HID 授权还必须匹配
+解密开始时的电脑代次，防止切换竞态。新固件的 USB 自动接管需要对应桥接升级。
+
+0.2.237-ui 将蓝牙物理连接与有效电脑通道分开：同一连接必须提交当前所选电脑密钥加密的归属证明或有效状态帧，才开放 RPC/语音并成为有效 BLE 通道。Windows 在进入 USB 待命前先完成短归属证明及签名 ACK 确认；旧固件未声明 bleProofRequired 时保持原流程。仅发现、系统 bond 或读取公开 hostId 不能给连接授权。未验证连接在 20 秒后断开，已识别的其他电脑身份立即拒绝。
+
+短证明只有五个字段：`{version:1,type:"tab5_ble_owner",deviceId,hostId,sequence}`。`sequence` 为 1–9007199254740991 的整数，使用桥接共享序列分配器，`deviceId` 与 `hostId` 必须精确匹配当前目标。通过现有连接 nonce 的 AES-GCM 和长度前缀/分片协议传输；确认仍为 info 特征的 `nonce|ack` HMAC，ack 必须等于本次 sequence。证明不发布显示状态、不刷新 USB 租约；迟到连接或电脑代次变化均不得恢复授权。桥接先证明再进入 USB 待命，避免低 MTU 下发送完整状态超过首次认证时限。
+
+`host_ble_v1` 单独保存可信电脑 hostId 与稳定蓝牙身份地址的映射，不改 trusted_hosts1 或 config ABI，不输出地址或密钥。映射只能由同一连接上的有效当前电脑状态帧建立，旧电脑代次、保存失败或损坏记录均不放行；地址尚未解析的 RPA 不持久化。已知目标使用控制器连接白名单，换电脑时断开旧连接并更新名单；系统 bond 保留。选定电脑的 Wi-Fi 与 BLE 可同时可用；无权归属当前电脑的物理连接不能阻挡其 Wi-Fi 解锁，USB 输入就绪时仍优先 USB。任何通道不可用都不会改选其他电脑，USB 插入未绑定电脑不改变当前目标；已绑定 USB 的签名接管仍是自动切换信号。
+
+Trust up to eight computers independently after explicit first USB enrollment. Preserve the old config
+ABI, each existing pairing key, DPAPI/Keychain data, and credential bindings. A separate versioned NVS
+store migrates the current pairing; full/corrupt stores never silently evict or resurrect records.
+Persist one selected computer. Authenticated USB takes ownership; unplugging retains its wireless
+target, and other computers cannot win by advertising. A live USB owner blocks another target;
+an ongoing firmware write returns `device_busy` to a different claimant.
+
+Derive the 32-lowercase-hex host ID from the first 16 HMAC-SHA256 bytes using the existing pairing key
+and domain `AIBOT_TAB5_HOST_V1`. The one-use device nonce is scoped to the CDC generation. Authenticate
+the exact UTF-8 claim and ACK strings specified above, including endpoint and name. A raw serial
+connection, owner hint or unsigned legacy endpoint update never authorizes control. Status/RPC
+heartbeats renew the eight-second USB lease. Names are 1–63 UTF-8 bytes without controls or `|`.
+
+Before publishing another owner, block keyboard admission and drain/cancel input, invalidate status
+and RPC generations, and disconnect the previous BLE central while retaining OS bonds. Bind state
+commit, decrypted replies, and HID authorization to the original owner generation. The optional BLE
+owner characteristic above lets unselected Windows/Mac bridges disconnect and wait; cryptographic
+authentication remains mandatory. Optional authenticated state adds `hostBindingVersion,hostId,
+hostName` under connectionHealth. Legacy wireless peers remain usable only with the selected key;
+USB takeover requires the updated bridge. Protocol version 1, encryption, nonce/ACK/replay rules,
+transport selection and unrelated device display preferences remain unchanged.
+
+In 0.2.237-ui, BLE ownership requires an encrypted ownership proof or accepted status from the selected computer on the same connection before RPC/voice access. `bleProofRequired:1` requests proof and a signed ACK before USB standby. The short proof has exactly five fields: `{version:1,type:"tab5_ble_owner",deviceId,hostId,sequence}`. Match both IDs and allocate an integral sequence in 1–9007199254740991 from the shared bridge sequence source. Use existing connection-nonce AES-GCM, length-prefix/fragments, and the signed info `nonce|ack` acknowledgement. Do not publish display state or renew USB ownership from this proof. Unproven connections expire after 20 seconds; known foreign identities are rejected. A separate `host_ble_v1` store maps host IDs to stable peer identities without changing existing trust/config blobs or exposing keys/addresses. Learn only from the authenticated connection, reject stale generations and persistence failures, and do not persist unresolved RPAs. Filter known connections to the selected peer while retaining OS bonds. Selected-host Wi-Fi may coexist with BLE; unrelated physical connections cannot block Wi-Fi unlock. Never switch computers because a transport is unavailable. Only an explicitly selected target or an authenticated, already-trusted USB takeover changes ownership; an unbound USB computer does not.
+
+
+### Mac BLE voice window candidate / Mac 蓝牙语音窗口候选
+
+Mac 本地候选接入已有语音特征的 type=3 通知授权。仅在当前配对身份认证成功、`mailboxWindow` 为 1..8 整数、Notify 属性存在且订阅成功时启用；缺失能力或订阅失败保持原逐片读取。每窗最多八片／每片最多 488 字节，保留请求 ID、连续偏移、恒定总长、12 KiB 语音上限、原 HMAC／AES-GCM 与去重；通知四秒、语音请求十二秒内完成，错误或不确定结果不重发。先收到通知不等于授权写入已确认，两者均满足才处理下一窗或完整请求。RPC 接收不变。
+
+后台状态／资源发送只在已确认且非最后的分片边界检查语音邮箱，约一秒未检查时发起一次只读，不推进邮箱游标或在半帧中执行语音。设备现有半帧五秒限制使完整语音交换不能任意插入状态帧；状态仍须完整签名 ACK。近期成功语音请求获得短间隔邮箱优先；控制邮箱约每秒探测一次，语音、空邮箱或控制查询结束后在这一短租期内继续调度，空／重复请求不续租。每个后台帧确认后先检查语音邮箱，避免排入另一资源帧。最多将原状态发送触发从完成后两秒延后到四秒，资源等待近期语音空闲。这是 Mac 本地实现变化，不新增字段、不更改固件或扩大权限；候选实机延迟仍待验。
+
+The local Mac candidate uses the existing voice characteristic's type-3 notification grant only after current pairing authentication, an integer mailboxWindow of 1..8, Notify support and successful subscription. Missing capability or failed subscription retains legacy reads. Each window is bounded to eight packets of at most 488 bytes, retaining exact IDs/offsets/totals, the 12 KiB voice limit, HMAC/AES-GCM and deduplication. Notification windows expire after four seconds and voice requests after twelve; uncertain outcomes are not replayed. Early notifications cannot advance handling before the grant write is acknowledged. RPC receiving is unchanged.
+
+Background status/resource writes probe the voice mailbox only at acknowledged nonfinal fragment boundaries when about one second has elapsed, without advancing its cursor or executing a voice exchange mid-frame. The existing five-second partial-frame limit prohibits arbitrarily inserting a whole exchange; signed whole-frame ACK remains required. Recent successful voice traffic briefly prioritizes voice, probing control about once per second. Voice, idle and control completions continue scheduling within that short lease; idle/duplicate polls do not renew it. Each background ACK first probes voice rather than immediately queueing another resource frame. The normal status trigger is deferred from two to at most four seconds after completion, while resources wait for recent voice inactivity. These are local Mac implementation changes without new fields, firmware changes or wider permissions; physical candidate latency remains pending.
+
+
+### Mac BLE existing state-delta candidate / Mac 蓝牙既有状态增量候选
+
+Mac 本地候选补用既有 `tab5_delta`，不新增 wire 字段或设备要求。仅在当前配对／nonce／ACK 及固件版本证明通过、`telemetryVersion=3` 且版本为已检查维护者接收器的 `0.2.234-ui` 或更高 `0.2.x-ui` 时启用。每条 BLE 连接独立保存一份已获精确签名序号 ACK 的完整逻辑状态；发送尝试、资源 ACK、Wi-Fi 或 USB 状态均不推进该基线。断线／归属或配对重置丢弃基线，首次仍发完整状态。设备／会话变化、非递增序号、OTA 或显示命令待处理／清除过渡、字段或树界限不满足时仍用既有完整状态路径。更新数组整体替换，null 是普通值，删除显式使用 `remove=true`；路径深度最多 16、键非空且 UTF-8 不超过 128 字节、最多 256 项，树保留原 8192 节点／65536 字符串字节界限。布尔值与数字严格区分。增量也使用既有 `tab5_packed` 压缩：先比较原始／压缩增量，再与压缩完整帧比较，选择整个封装更小者。展开后的增量仍受 32740 字节上限约束；仅已验证 telemetry-v3 和基线的调用方显式允许压缩增量，嵌套压缩与其他消息不启用。超限或无收益回退；加密、总帧上限、分片、ACK 验证、发布调度和失败不重放保持不变。此为现有协议的 Mac 实现，不更改 Windows 或固件；合成测试不代表蓝牙延迟实机通过。
+
+The local Mac candidate adopts existing tab5_delta without new wire fields or receiver requirements. It requires the current authenticated pairing/nonce/ACK, firmware proof, telemetryVersion 3 and the inspected maintainer receiver version 0.2.234-ui or later 0.2.x-ui. Each live BLE connection retains one complete logical state only after its exact signed sequence ACK. Sending attempts, resource ACKs and Wi-Fi/USB states never advance that baseline. Disconnect, ownership/pairing reset discard it, so initial delivery remains full. Identity/session changes, non-increasing sequence, pending/cleared OTA or display commands, and invalid tree/path limits retain full-state delivery. Arrays replace atomically, null is a value and removal is explicit; paths have at most sixteen nonempty keys of at most 128 UTF-8 bytes, changes at most 256 operations, and trees retain the 8192-node/65536-string-byte limits. Booleans and numbers remain distinct. Deltas also use existing tab5_packed compression: choose between raw/packed delta and the packed full state by complete envelope size. Expanded deltas retain the 32740-byte limit; only the authenticated telemetry-v3/baseline path explicitly enables delta packing, never nested packing or unrelated messages. Oversized or non-beneficial deltas fall back. Encryption, frame limits, fragmentation, authenticated ACKs, scheduling and no replay on failure remain unchanged. This implements an existing protocol on Mac without Windows/firmware edits; synthetic tests do not establish physical latency.
+
+### Mac BLE status and image scheduling / Mac 蓝牙状态与图片调度
+
+Mac BLE 状态帧保留最新状态、完整 `assetIds` 与原心跳节奏，但不再夹带可选 `data.resource` 图片分片；仅查询资源标识不会推进轮转位置或分片偏移。图片沿用既有独立 `tab5_resources`，每个空闲发送机会只携带一片（最多 1024 原始字节），而不是连续四片。录音活动期间原资源退让规则因此同时覆盖所有 BLE 图片字节，状态与控制仍按原调度更新；空闲后继续传输，收到原资源证明才标为完成。USB／Wi-Fi 保留原默认行为。未新增字段、改变设备接收或身份／序号 ACK 校验；这是 Mac 发送方调度修正，实际延迟另行实测。
+
+Mac BLE status retains current data, complete assetIds and the existing heartbeat cadence, but omits optional inline data.resource image chunks. Metadata-only projection does not advance slot rotation or byte offsets. Images use the existing standalone tab5_resources format, with one chunk (at most 1024 raw bytes) per idle opportunity instead of four. The existing voice-activity deferral therefore covers all BLE image bytes, while status/control retain their scheduling. Idle transfer resumes normally and completion still requires the existing resource proof. USB/Wi-Fi defaults are unchanged. No new fields, receiver behavior or identity/sequence ACK rules are introduced; this is a Mac producer scheduling correction, with physical latency evaluated separately.
+
+Mac 对已验证 BLE `voice/stop` 的首次本地结束提供最多 200 ms 的最终识别等待；仅收到实际最终回调才在同一停止响应返回 `review`，慢识别仍返回 `recognizing` 并沿用查询，不提升部分文字。等待不持有语音锁，完成、错误、取消会唤醒；回复前重新核对功能许可、录音身份和后端代次，不能返回取消后新录音的正文。USB／Wi-Fi 不增加等待，认证、字段、最后 ATT 确认和设备端停止排空规则不变。
+
+For the first locally handled stop of an authenticated BLE voice request, Mac allows at most 200 ms for a final recognition callback. Only an actual final result can return review in the same stop response; slower recognition retains recognizing and normal polling, without promoting partial text. The wait releases the voice lock and is signaled by completion, error or cancellation. Consent, capture identity and backend generation are checked again before replying, preventing a replacement take from leaking into a cancelled request. USB/Wi-Fi add no wait; authentication, response fields, final ATT confirmation and device audio-draining rules remain unchanged.
+
+
+Mac 通知订阅在当前 BLE 连接首个完整状态的精确签名 ACK 之后执行；info 读取通过并不等于设备已经验证这台电脑。旧设备无单独 owner 证明时，延后订阅用于确保先完成电脑认证；现场仍收到 ATT/8，不能将此顺序视为已解决订阅错误。标准订阅返回 ATT/8 时，只读发现并读取该语音特征的唯一 CCCD；仅合法整数值 1 允许在同一已认证连接上再次调用一次标准 setNotifyValue(true)。关闭、未知、格式异常、其他错误、二次失败均保留逐片读取。读回值本身绝不授权通知窗口，仍必须收到无错误且 isNotifying 的系统回调；不直接写 CCCD、不清理 bond、不重放语音／用户操作。连接重置清除确认和本次核对状态，不绕过 owner／pairing／nonce 校验，不改变设备协议。
+
+Mac subscribes to voice notifications only after the current BLE connection's first full state has its exact signed ACK. Verifying info alone does not establish that the device has authenticated this computer. This ordering establishes computer authentication first on legacy peers without separate owner proof; physical ATT/8 persists, so ordering alone is not a verified subscription fix. An ATT/8 subscription failure triggers read-only discovery/read of the voice characteristic’s unique CCCD. Only exact integer 1 permits one further standard setNotifyValue(true) call on the same authenticated connection. Disabled/unknown/malformed readback, other errors or a second failure keep legacy reads. Readback itself never admits notification windows: a successful system callback with isNotifying is still required. No direct CCCD write, bond deletion or voice/user-operation replay occurs. Reset clears confirmation/reconciliation state; owner/pairing/nonce checks and the wire protocol remain unchanged.
+
+
+Mac 已确认语音通知订阅时，既有 type-3 窗口授权在特征支持 WriteWithoutResponse 且长度适合时使用 command，并遵守 CoreBluetooth `canSendWriteWithoutResponse`／ready 回调。单窗口只提交一次；本地提交不代表设备接受，只有完整且 id／位置／总长一致的受限通知才能推进认证处理。丢 grant／通知超时不重发；不支持 command 则等待原 ATT 应答。语音回复末片仍需 ATT 确认，owner／AES-GCM／序号／整帧签名 ACK 不变。这与现有 Windows 发送方式一致，不增加设备协议或固件要求。
+
+After confirmed voice subscription, Mac sends the existing type-3 grant as a command when the characteristic supports WriteWithoutResponse and the grant fits, obeying CoreBluetooth flow control/ready callbacks. Each window submits once. Local submission is not acceptance: complete bounded notifications matching id/offset/total must arrive before authenticated processing. Lost grant/notifications time out without replay; unsupported commands retain acknowledged grants. The final voice-response fragment still needs an ATT reply; owner/AES-GCM/sequence/signed whole-frame ACK checks remain unchanged. This matches existing Windows sending behavior without new wire or firmware requirements.
+
+
+### Mac BLE immediate continuation / Mac 蓝牙新请求立即续传
+
+Mac 在新语音请求的最后回复片获得 ATT 成功回调后，立即回到原有调度器，不再额外等待 15 ms；Windows 已采用相同的新请求续传原则。空／重复邮箱和控制查询保留短租期内的 15 ms 退让，空闲不续租；控制与状态的原有公平性规则不变。失败、取消配对、超时仍不推进完成序号或重发。仅调整 Mac 本地调度，不新增字段或改变设备协议。新增有界诊断区分窗口授权提交到首片通知、后续通知片间隔，包含系统回调等待，不声称测得纯空口时延。候选仍需实机验收。
+
+After the final reply fragment of a new voice request receives its successful ATT callback, Mac immediately resumes the existing scheduler instead of adding 15 ms, matching Windows' new-request continuation principle. Empty/duplicate mailboxes and control queries retain their 15 ms active-lease backoff without renewing it; control/status fairness remains unchanged. Failures, pairing changes and timeouts do not advance completion or replay operations. Only local Mac scheduling changes, with no wire/firmware changes. Bounded diagnostics separate grant submission to first notification from later inter-notification gaps, including system callback waits rather than claiming pure over-air latency. Physical acceptance remains pending.
+
+### Mac module support · 2026-10-22 / Mac 模块实现范围
+
+The local Mac candidate now produces the existing birthday detail, agenda summary/RPC and pinned Codex-task fields. Agenda supports edit/delete/retention/workday capability negotiation, preserves conflicting edits and unknown-year calendars, and uses the existing civil-time representation. Eight domestic providers project their observed balance/subscription windows into existing quotaDetails fields; no field is inferred from local token counts. Per-device source filtering applies before publication and disabling a registered device stops its transport activity and discovery replies. This supersedes historical statements that Mac does not produce quotaDetails or implement gallery RPC. No new wire fields, command, protocol version or receiver requirement is introduced.
+
+Mac 本地候选现已生成已有的生日详情、日程摘要／RPC 和 Codex 常用任务字段。日程协商编辑／删除／保留／工作日能力，保留冲突编辑与未知年份状态，沿用本地民用时间表示。八个国产来源的真实余额／订阅窗口投影到已有 quotaDetails；不使用本机 token 数估算。按设备过滤后发布，停用登记设备会停止其传输活动与发现响应。本说明更新早期“Mac 不生成 quotaDetails／不支持图库 RPC”的历史限制；没有新增协议字段、命令、版本或接收端要求。
+
+Runtime monitoring keeps the existing observation timestamps. Mac settings now control enable/network flags, explicit proxy expectation, 15–300-second probe intervals, slow-response/CPU/memory/sustained thresholds and optional bounded 128-KiB sampling every five minutes. Network freshness is the configured interval plus 45 seconds. Settings never change system proxy configuration; queue counters remain unknown. Missing measurements are never zero-filled. Device acceptance remains separate from host compilation and synthetic validation.
+
+运行监控继续使用真实采样时间；Mac 设置控制监控／网络开关、显式代理预期、15–300 秒间隔、慢响应／CPU／内存／持续阈值，以及可选每五分钟最多 128 KiB 测量。网络新鲜度为所选间隔加 45 秒，不改系统代理，处理器队列保持未知，缺失采样不补零。实机验收与编译、合成测试分开记录。
+
+
+### macOS adoption of .250 runtime diagnostics and quota carry-over (2026-10-22)
+
+Mac implements the existing Windows development-branch contract from `79ffe7f`; protocol `version=1` is unchanged. `connectionHealth.runtimeDiagnosticCommand` is optional: `{version:1, requestId:<32 lowercase hex>, transport:"Wi-Fi"|"BLE", expiresAt:<epoch milliseconds>}`. It targets only the current paired host. The bridge uses a ten-second deadline and an eight-second first wait; only the same host's other live wireless link may be retried once, with a new request ID.
+
+The existing authenticated RPC receives `{kind:"runtime-diagnostics", requestId, session, issuedAt, snapshot}`. HMAC/AES-GCM/session/time/nonce validation precedes dispatch. The pending device, host, transport, request and expiry must match. Snapshots are limited to 8192 UTF-8 bytes; `diagnosticVersion=1`, `sampleAgeMs=0..8000`, nonnegative bounded counters, and required `displayDiag`, `cameraDiag`, `photoDiag`, `photoUploadDiag` strings (1..1024 ASCII bytes, letters/digits or `,;-_.:/ `) are validated. Duplicate/late replies cannot replace the last-good sample. USB full status ACKs feed the same display; resource ACKs do not clear it. No credentials or arbitrary payloads are logged. Firmware before `0.2.250-ui` remains USB-only for detailed diagnostics.
+
+Mac quota day projection accepts optional `carryOver` in weekly percentage points, matching Windows. A same-account/same-plan valid cumulative baseline may cross midnight; only observed growth or a verified new-window reading is counted. Positive carry-over marks the day partial and excludes it from the complete-day average. Missing samples remain unknown. Local observation bounds, sample/reset/gap counts are UI details and are not transmitted. No historical readings are rewritten.
+
+Mac 已适配 .250 无线诊断既有协议：只对当前绑定设备发出短期请求，首个通道超时可向同一电脑的另一在线通道重试一次；认证、过期、重复与大小检查后才接收，失败保留旧样本并显示年龄。额度跨日累计补记使用可选 `carryOver`，明确标记部分采样，不推算缺失用量、不改写历史观测。
+
+### macOS connection/gallery desktop parity (2026-10-22)
+
+Mac now consumes the existing USB `tab5_wifi_list`, `tab5_wifi_label`, `tab5_wifi_forget` and `tab5_benchmark` commands. Identity/version and network bounds are validated; authenticated benchmark RPCs validate the existing byte pattern for JSON and negotiated binary/bulk traffic. Gallery benchmarks retain production gallery RPCs while preventing competing OTA/photo/voice operations. No new fields or firmware changes are introduced. Desktop-only fullscreen reading does not change the device date, page, mode or rotation settings.
+
+Mac 已接入既有 USB Wi-Fi 管理与测速指令，校验身份、版本与网络范围；测速数据遵循现有字节模式和二进制协商。图库测速允许生产图库 RPC，阻止并发升级、照片和语音；没有新增协议字段或固件修改。电脑全屏阅读不改变设备日期、页面、模式或轮播设置。
+
+Existing firmware's USB `tab5_benchmark` reply omits `version`. After the existing serial identity and host authentication, Mac accepts that one legacy reply only with the exact device/type, absent version and a bounded string result. An explicit invalid version (including null/string/boolean), a different device/type or a missing/oversized legacy result is rejected. Other management replies still require numeric `version:1`. This is receiver compatibility with the existing Windows/device contract, not a new wire format or an authentication change.
+
+既有固件的 USB `tab5_benchmark` 回包未带 `version`。Mac 保留每次命令前的串口身份与主机认证，仅对设备／类型精确匹配、版本字段确实缺省且结果为有界字符串的这一类旧回包兼容；显式错误版本（含 null／字符串／布尔值）、不同身份／类型、缺失或超长结果仍拒绝。其余管理回包继续要求数值 `version:1`。这是兼容 Windows／设备既有行为，没有新增线上格式或改变鉴权。
+
+During either RAM or gallery benchmarking, Mac keeps ordinary authenticated status frames and benchmark RPCs available. Image chunks are omitted from status and separate resource batches are paused; existing configuration/OTA/photo/voice gates remain. A BLE resource turn encountering the temporary busy gate defers without dropping its authenticated connection. Completion/cancellation releases the gate and normal resource synchronization resumes.
+
+通信／图库测速期间，Mac 保留正常认证状态帧和测速 RPC，状态不夹带图片，独立资源批次暂停；配置／升级／照片／语音的既有互斥保持。BLE 资源轮遇到暂时 busy 仅退让，不丢弃已认证连接；结束／取消后恢复正常资源同步。
+
+Mac BLE standby follows the existing USB acknowledgement's `active` field, as on Windows: only a fresh, authenticated USB connection reporting `active: "USB"` defers BLE state/voice polling. USB control remains usable while the device selects BLE or Wi-Fi. Missing/invalid active information, disconnect, authentication rejection or an expired acknowledgement cannot retain USB display ownership. No wire fields or device settings change.
+
+Mac 蓝牙待命与 Windows 一样遵循既有 USB 回执的 `active` 字段：只有已认证且未过期的 USB 回执明确报告 `USB` 活动通道时，才暂停蓝牙状态／语音轮询。设备选择 BLE 或 Wi-Fi 时仍可保留 USB 管理通道；活动字段缺失／无效、断线、认证拒绝或回执过期均不保留 USB 显示归属。不新增协议字段或修改设备设置。
+
+Mac's general BLE RPC receiver also uses the existing type-3 notification grant after successful subscription. A valid `rpcNotifyWindow` offers 1..32 fragments; absent/invalid offers retain a valid legacy `mailboxWindow` of at most eight. Each bounded window requires exact ID, total and cursor, consumes only its granted fragments, and must finish before the next grant. A four-second local deadline, pairing generation and the original whole encrypted request checks remain; errors stop without operation replay. Rejected/unavailable subscriptions keep cursor-ACK reads. Voice retains its separate existing eight-fragment path and timing.
+
+Mac 通用 BLE RPC 接收在订阅成功后使用既有命令 3 批量通知授权。有效 rpcNotifyWindow 最多 32 片，缺失／无效时仅沿用有效且不超过八片的 mailboxWindow。每个窗口校验精确 ID、总长及游标，只收已授权片数，完整结束后才开下一窗口；四秒本地时限、配对代次和整个加密请求校验保持，异常停止、不重放操作。订阅不支持或失败时保留逐片读／游标确认。语音仍使用独立原八片窗口与现有时序。
+
+The general RPC subscription uses the same bounded recovery as voice: only ATT insufficient-authorization followed by an exact enabled CCCD readback permits one standard CoreBluetooth reconciliation. Readback alone never enables notification grants; a successful subscription callback is mandatory. Other errors, disabled/invalid descriptors and repeated failures retain the legacy path. Local diagnostics expose only bounded capability, subscription and numeric error metadata.
+
+通用 RPC 订阅沿用语音已实现的有界恢复：仅 ATT 授权不足且只读回查 CCCD 精确为启用时，允许一次标准 CoreBluetooth 协调；回查本身不能启用通知授权，仍须成功订阅回调。其他错误、禁用／无效描述符或再次失败均保留旧路径。本机诊断只展示有界能力、订阅状态及数值错误，不含正文或身份。
+
+
+r70 physical follow-up: system-stream Tab did not expose the password page. A visible password field still permits successful unlock, including after display wake. There is no new protocol capability: device BLE HID enumeration does not mean mixed Wi-Fi/BLE preparation is supported. Existing `lockScreenCover`/`displayState` unknown values remain null; no Windows-style wake authorization may be inferred from them. Full-system sleep wake remains unimplemented.
+
+r70 实测补充：系统输入队列 Tab 未能显示密码页；已显示密码框时仍可解锁，包括熄屏唤醒后。未新增协议能力，枚举到设备 BLE HID 不等于已支持 Wi-Fi／BLE 协同准备。`lockScreenCover`／`displayState` 未知仍为 null，不得据此授权 Windows 风格的准备按键；整机睡眠唤醒仍未实现。
+
+
+r71 is a local preparation-only diagnostic, not a new capability or protocol. It retains authenticated Wi-Fi begin/poll/cancel, existing progress stages and terminal failure; no credentials or key commands reach TAB5. A short existing Apple loopback session sends one non-secret Tab and closes before any password-field write; no login submission occurs. There is no BLE/USB preparation or firmware change. Local diagnostic wording distinguishes this intentional incomplete result from a claimed unlock.
+
+r71 仅为本地准备诊断，不新增协议能力。仍使用已认证 Wi-Fi begin／poll／cancel、原进度阶段及终态失败，不向 TAB5 下发凭据或按键命令。已有 Apple 本机短连接只发送一次非秘密 Tab，在任何密码框写入之前断开且不提交登录；不使用 BLE／USB 准备，不改固件。本机诊断明确说明预期未完成，不报解锁成功。
+
+
+### r72 当前范围 / Current scope
+
+r71 本机认证、Tab 发送及断开后观察均完成，但用户确认密码框未出现，准备方案未通过。r72 已移除该诊断和无效的系统 Tab 准备，恢复有既往实测成功记录的 AX 单次填入／按钮提交路径；需先在 Mac 显示空白密码框。仍只使用 Wi-Fi，请求与认证协议不变，设备不接收密码，不改全局系统设置。此恢复不代表自动密码页、整机睡眠唤醒或 Computer Use 状态误报已修复。当前不安排重复实测。
+
+r71 authenticated, sent Tab and completed post-close observation, but the user saw no password field. r72 removes that probe and ineffective system-Tab preparation, restoring the previously successful single AX write/button submission path; a blank password field must first be shown on the Mac. Wi-Fi-only request/authentication semantics are unchanged, credentials stay local and global settings stay untouched. This restoration does not fix automatic page reveal, full-system wake or Computer Use state errors. No repetitive hardware trial is scheduled.
+
+
+### r73 单次字符诊断 / One-use character probe
+
+普通 Wi-Fi 解锁保留 r72 路径。仅本机“下一次仅测试字符触发…”按钮可准备两分钟有效的当前配对诊断；下一次已认证 begin 只发固定公开字符 a，不用密码、不按回车、不删除，用户自行清空。过期时该请求拒绝，不自动改为密码输入；重启不保留。没有新协议字段／设备能力，仍返回原有阶段和未完成结果。该实验检验可打印键与 Tab 的差异，不声称已解决自动密码页、Computer Use 或整机唤醒。没有驱动安装或全局设置改动。
+
+Ordinary Wi-Fi unlock retains r72. Only the local one-use probe button arms a current-pair diagnostic for two minutes. One authenticated begin sends fixed public a without password, Return or deletion; the user clears it. Expired probes reject rather than entering credentials, and arms do not survive restart. No new protocol fields/capabilities; existing progress/incomplete responses remain. This tests printable input versus Tab and does not claim page reveal, Computer Use or full-system wake fixes. No driver installation or global settings change.
+
+
+Mac r74 local implementation note: r73's public-character preparation was physically observed to reveal the password page. Ordinary Wi-Fi unlock now prepares with one fixed public character, then requires same-window login-button readiness (and exact zero-to-one counts when supported) before the retained single full-field password replacement/button submission. Event posting is not acknowledgement. The new local preparation stage maps to existing `preparing`; credentials, sample text and field observations are never added to device messages. The one-use local probe remains separate. No wire/capability/authentication/lease changes, no RFB or global policy changes; complete unlock acceptance remains pending.
+
+Mac r74 本地实现补记：r73 公开字符已实测唤出密码页。普通 Wi-Fi 解锁先发一个固定公开字符，确认同一窗口登录按钮就绪（有计数接口时还要求零到一）后，才整体替换密码字段并提交一次。投递本身不算确认，新本地阶段映射既有 `preparing`；不向设备增加密码、样本文字或字段观察数据。一次性本地诊断入口独立保留；网络字段、能力、鉴权和租约不变，不连接 RFB 或改全局策略。完整解锁仍待实测。
+
+
+r74 acceptance update: one ordinary Wi-Fi request without manual password-page preparation returned to the desktop and remained unlocked for 30 seconds, confirmed by the user and local completion receipt. Actual system-sleep wake, explicit display-off start and Computer Use are not covered by this result. No protocol changes.
+
+r74 验收补记：一次普通 Wi-Fi 请求在无需手动准备密码页的情况下回到桌面，30 秒未回锁，用户与本地完成回执均确认。该结果不覆盖真正整机睡眠、明确黑屏起点或 Computer Use；协议不变。
+
+
+r74 physical acceptance clarification: the user's latest correction confirms successful wake and unlock from display-off as well. The corrected no-wake answer is not a failure. This does not validate actual system-sleep wake or Computer Use behavior; no protocol or system-policy changes.
+
+r74 实测澄清：用户最新更正确认黑屏后唤醒并解锁也成功；被更正的未亮屏回复不作为失败。真正整机睡眠与 Computer Use 尚未验证，不改协议或系统策略。
+
+
+Mac r76 local-state refinement (unpublished): an independently observed active local protection cover may keep ordinary computer-control status locked=true even when the automation session emits an unlocked notification. Incomplete protection evidence cannot report false. This display evidence never authorizes credential entry or a successful unlock result; the Mac local backend stops while protection remains active/unknown. Existing nullable locked, wifi-unlock fields, pairing/lease/sequence rules and unsupported Mac USB/BLE PIN behavior are unchanged. No firmware/Windows schema change. Physical verification remains pending.
+
+Mac r76 本机状态候选（未发布）：独立观察到活跃外层保护时，常规电脑控制可继续返回 locked=true，即使自动化会话已发出未锁通知；保护证据不完整时不返回 false。这类显示证据不授权凭据输入或成功回执，保护存在／未知时本机后端停止。既有可空 locked、Wi-Fi 解锁字段、配对／租约／顺序规则及 Mac 不支持 USB／BLE PIN 的边界不变，无固件／Windows 协议结构变更。实机验证仍待完成。
+
+
+### Mac 旧会话草稿保全 / Mac orphan draft preservation
+
+Mac 本地候选允许已配对并启用 Codex 草稿同步的设备使用现有 `draft-save` 保存目录外的有效 UUID 草稿；场景为切换电脑或旧会话退出近期目录。内容仍按设备／任务绑定加密保存；新目录外草稿在该设备已有 128 条草稿时拒绝新增，已有草稿可继续保存。200 回执仅在实际持久化成功后返回，文本仍限 2000 UTF-8 字节，图片仍核对已有任务／设备所有权，失败保留设备未同步状态。`draft-load`、公开回复、导航、receipt、send/steer/interrupt 的目录和授权规则保持。没有新增字段或操作，也不请求固件绕过 OTA 草稿保护；Windows 的既有未知任务拒绝行为保持。
+
+The local Mac adapter accepts an existing authenticated `draft-save` for a well-formed task UUID outside its current catalog, preserving drafts retained after host/catalog changes. Storage stays encrypted and device/task scoped. New orphan entries stop at 128 existing drafts for that device; existing entries remain writable. Acknowledgement follows durable storage, with the existing 2000-byte text bound and image ownership checks. Loading, reading, navigation, receipts and mutations retain their catalog/authorization rules. This introduces no wire field or command and does not bypass firmware OTA protection. Windows retains its existing unknown-task rejection.
+
+
+### TAB5 设备预览镜像 / TAB5 device preview mirror (source-only, unpublished)
+
+ESP8266 原有预览与协议保持。TAB5 在认证状态的 `connectionHealth.screenPreviewCommand` 接收可选 `{version:1,streamId,requestId,transport,expiresAt,width,height,encoding:"rgb565-rle1"}`。两个 ID 为 32 位小写十六进制，时间为主机 epoch 毫秒；USB／Wi-Fi 请求 640×360，BLE 请求 320×180。命令绑定当前配对设备、电脑、session 和通道，一次仅取一帧，最长 30 秒；查看窗口每秒续租，主机 5 秒未续租即清除命令和画面。关闭、停用、维护或更换设备／电脑后拒绝旧帧。旧固件忽略新可选字段，协议主版本仍为 1。
+
+设备先发送现有认证 RPC `{kind:"screen-preview",op:"begin",streamId,requestId,session,issuedAt}`；主机返回 200 和 `accepted:true` 后才采集。真实 LCD RGB565 缓冲只读缩采样，不改变页面、展示设置或相机所有权，不建立额外全屏缓冲。采样与相机切换串行；DMA 更新期间跳过。原始缩略图、编码、任务栈使用 PSRAM，失败不回退耗用内部大块内存；录音、照片处理和 OTA 优先。每块检查原电脑归属、连接和截止时间。
+
+`op:"frame"` 额外带 `width,height,encoding,size,sha256,offset` 与现有 T5R1/T5R2 原始数据（JSON `data` base64 兼容）。编码最多 524288 字节；主机块上限 4096 字节，BLE 设备发 1024 字节。`rgb565-rle1` 是小端 RGB565 字 PackBits：小端 16 位控制字低 15 位为 1..32767 像素数，高位为 1 时紧跟一个重复像素，为 0 时紧跟指定数量的字面像素。禁止零计数、越界、缺像素及尾随字节。`sha256` 是完整编码的小写 SHA-256。按顺序接收，完全相同的已收前缀可重试；返回 `nextOffset` 及 `complete`。仅在长度、摘要、解码像素总数全部匹配后原子显示；损坏或未完整帧不替换最近成功画面。旧画面明确标记未更新。
+
+`op:"error"` 仅接收固定类别 `busy/memory/capture/encoding/connection`。原有 HMAC、AES-GCM、session、时间、nonce 去重均先于镜像分派；不增加未认证端口。帧只在内存中，不进入照片附件、磁盘缓存或日志。关闭后停止后续请求，已开始的有限采样／网络步骤在下一次回执拒绝时结束，不承诺中途强制停止一次显示内存拷贝。`.267` 未刷写，不支持此扩展；源码和对象编译通过不代表实体镜像通过。
+
+The ESP8266 preview and protocol remain unchanged. The optional authenticated `connectionHealth.screenPreviewCommand` carries the fields above without changing protocol version 1. IDs are 32 lowercase hex characters; expiry is host epoch milliseconds. A visible viewer renews a 5-second lease and requests one frame at a time, with a 30-second request bound. USB/Wi-Fi use 640×360, BLE 320×180. Pairing, host, session, transport, request and lease must match; close, disable, maintenance or identity changes reject old frames.
+
+An authenticated `screen-preview/begin` must receive an active-viewer acknowledgement before read-only sampling from the actual LCD buffer. Sampling serializes with camera buffer selection and skips unstable DMA state. Only reduced pixels, bounded encoding and the worker stack use PSRAM; voice, photos and OTA take priority. Every upload chunk rechecks host ownership, link and deadline. `frame` uses existing binary RPC or base64, an encoded size cap of 524288 bytes, SHA-256, sequential offsets and at most 4096 bytes per chunk (firmware BLE: 1024). The lossless little-endian RGB565 word codec uses a 16-bit control: low 15 bits count 1..32767, high bit repeat-one-word versus literal words. Exact bytes and pixel count are required. Only complete hash-verified decoded frames replace the displayed image; identical received-prefix retries are idempotent. Fixed error categories carry no screen content. Existing authentication and replay checks precede dispatch. Frames remain memory-only, outside attachments, logs and caches. Closing prevents further requests and rejects subsequent chunks; bounded in-flight sampling/network work may finish. Existing `.267` ignores this extension; hardware acceptance awaits a combined firmware image, which has not been generated.
+
+### TAB5 preview extension v2 / 预览扩展第二版
+
+预览子协议`version:2`仅在桥接确认固件为`0.2.270-ui`或后续兼容版本后协商；总协议版本仍为1，旧固件继续使用v1。USB／Wi-Fi请求1280×720的`encoding:"jpeg"`，BLE保留320×180的`rgb565-rle1`。设备在`begin`携带实际`width,height,encoding`；JPEG仅可按当前横竖方向将请求的1280×720转为720×1280。桥接确认该几何后才采集，帧必须精确匹配确认的尺寸和编码。JPEG仍受524288字节、顺序分片、SHA-256和完整帧原子替换限制；解码前核验JPEG头部尺寸，最大921600像素。使用项目既有RGB565逐行软件JPEG编码器，quality85／YUV420；不新建全屏RGB888副本。
+
+设备对最近一次**完整确认**的帧只保留流身份、几何和摘要。采样像素未变时，以`op:"unchanged"`回传`width,height,encoding,sha256`，不带像素；`sha256`必须匹配同一流最近完整帧的编码摘要。桥接仅在已有匹配帧时更新新鲜度，保留同一像素对象；没有旧帧、摘要或尺寸不符均返回409，设备清除摘要并在下一请求传完整帧。未变化时约两秒后再检查，不反复编码和上传。帧和摘要不进入附件、磁盘缓存或诊断日志。
+
+Mac／Windows均在有效查看租约内保留最近完整画面，后台分片不反复切换进度提示或重绘相同像素。高清 JPEG 在首个数据片之前允许15秒无进展；传输开始后USB／Wi-Fi连续5秒、BLE连续10秒无进展时放弃该请求，约1秒后发布新请求，旧请求随后被拒；全请求期限仍不超过30秒。发布到状态快照的`expiresAt`取原期限与该快照epoch加30秒的较小值，避免新请求搭载稍旧快照时被设备上界检查拒绝。关闭或身份／租约失效仍立即撤销后续接收。语音、照片和OTA优先。
+
+Preview subprotocol v2 is negotiated only for firmware270 or a later compatible version; the main protocol stays version1 and older devices retain preview v1. USB/Wi-Fi request JPEG at1280×720, while BLE retains320×180 lossless RLE. A v2 `begin` declares the actual encoding and dimensions; JPEG may transpose the requested panel geometry to720×1280 before sampling. The host validates that geometry before capture. The existing524288-byte, ordered-chunk, complete-SHA and atomic-display bounds remain. JPEG dimensions are validated before raster allocation, with at most921600 pixels. The existing quality85/YUV420 scanline encoder avoids another full RGB888 buffer.
+
+For a fully acknowledged frame, the device retains only stream/geometry/digest metadata. Unchanged pixels produce an authenticated `unchanged` receipt carrying the existing encoded-frame SHA and no pixel bytes. The host requires its matching last frame, refreshes freshness and retains the same pixel object;409 clears the device's digest so the next request sends a complete frame. Unchanged frames are checked about every two seconds. Images and hashes remain outside attachments, disk caches and diagnostic logs. Under an active lease, repeated pixels and background chunk progress do not redraw the image. HD JPEG allows fifteen seconds without progress before its first payload; after payload begins, five seconds without USB/Wi-Fi progress or ten seconds on BLE abandons a request; a fresh request follows after about one second, retaining the30-second total bound. Snapshot publication narrows expiry to the earlier of the original deadline and snapshot epoch plus30seconds. Close/identity/lease invalidation and voice/photo/OTA priority remain enforced.
+
+
+内存受限时，两端桥接在收到当前请求的`memory`错误后，使用现有v2格式依次请求640×360、320×180的`rgb565-rle1`，并明确标注标准画质／小图预览；至少完成3帧且冷却30秒后自动重试高清；再次内存失败将冷却加倍至最多300秒，高清成功重置为30秒。重试时保留上一完整画面，BLE保持小图。错误帧不覆盖已有完整画面，也不改变用户展示设置。旧v1请求不自动改变尺寸。
+
+On a current v2 request's authenticated `memory` error, both hosts retry with existing640×360 then320×180 RLE geometry, explicitly labeling standard/small quality. After at least three successful fallback frames and a 30-second cooldown, USB/Wi-Fi retry HD. Repeated memory failures double the cooldown up to 300 seconds; successful HD resets it to 30. Retain the last complete frame during retry; BLE remains small. Error responses preserve the previous complete frame and user display settings. Legacy v1 requests retain their original geometry.
+
+
+Mac USB在语音传输优先期间，先完成既有电脑归属认证再处理RPC，随后维护正常状态与既有完整状态保活；空闲时保留原状态→RPC顺序。状态包只投影资源元数据，独立资源片也暂停，同一轮RPC开始录音后再次检查优先状态。优先级持续到当前voiceId及nonce对应的终态全部分片获USB确认，旧take／迟到回包不能释放；最后有效设备请求后30秒有界释放，禁用立即清除，原voice.busy语义不改。期间后台Codex read／read-ack返回现有503忙状态；read-ack仍须核验当前设备、task、turn、有效receipt及最新turn。恢复后不前移被暂停的资源偏移。认证或串口失败沿用原中断／重连，不重放请求，不增加协议字段，也不放宽8秒语音请求截止线。后续源码在检查取消和原截止之后，优先交付已准备好的RPC结果，再决定是否等待状态保活；仍在执行的请求保持原2秒保活。
+
+During voice transport priority, Mac USB performs the existing host claim and RPC before ordinary status, retaining status/full-state ownership maintenance; idle ordering stays status then RPC. Inline image bytes and standalone chunks defer, rechecking priority after a start in the same step. Priority lasts through matching current-voice/nonce terminal fragment acknowledgements; old/late replies cannot release a newer take. It expires within30seconds of the last valid peer request or immediately on disable, without changing voice.busy. Background Codex read/read-ack yields existing503 busy responses; receipts still require device/task/turn/valid-receipt/latest-turn validation. Paused resource offsets do not advance. Authentication/serial failures retain disconnect/reconnect without replay, new fields or a longer eight-second voice deadline. The source-only follow-up delivers a ready RPC result before due status maintenance, after cancellation/deadline checks; pending operations retain two-second ownership maintenance.
+
+### USB 回执容量保全 / USB reply capacity preservation (source-only)
+
+USB hello／完整状态ACK沿用原4KiB行界限及字段。当可选诊断计数无法全部容纳，或追加会遗漏主机认证字段时，设备改发精简回执：保留同一type／deviceId／firmware／sequence、RPC与USB能力、通道状态、资产确认、hostBindingVersion／hostNonce／currentHostId／usbHostAuthenticated及HID／解锁失败回执。精简回包不含uptimeMs，Mac沿用已有完整诊断缓存，不把省略当作零值；Windows既有4KiB文本解析器无需扩大界限。接受状态、序号验证、租约、认证及断线处理保持。实际格式化器的边界构造检查与两端解析器隔离测试不代替实体USB验收。
+
+USB hello/full-status acknowledgements retain their existing4KiB line bound and schema. If optional diagnostics do not fit or would omit host-binding fields, an essential reply retains the same type/device/firmware/sequence, RPC/USB capabilities, channel state, asset acknowledgements, binding nonce/identity/authentication and HID/unlock-failure receipts. It omits uptimeMs, so Mac retains its last complete diagnostic sample; omitted counters are not zeros. The existing Windows4KiB text parser needs no larger limit. State acceptance, sequence validation, leases, authentication and disconnect handling stay unchanged. Actual-formatter boundary tests and isolated host-parser checks are not physical USB acceptance.
+
+
+### Mac recording paragraph and USB ownership maintenance / Mac 录音单段与 USB 归属维护
+
+2026-10-25 本地桥接后续：本地识别的停顿分段和识别结果内部行分隔统一拼为单段，保留英文词边界所需空格；音频区间纠正／重复合并规则与设备草稿插入保持不变，用户手工换行不受影响。对当前身份匹配、usbDelta=1且规范版本为0.2.269-ui或更高0.2.x-ui的已检查接收器，Mac的原2秒归属维护允许发送既有状态增量；首次／基线失效仍完整状态，旧版和未知版本仍完整续期。仅精确序号ACK推进基线和维护时刻，拒收回退／重连／8秒归属与语音边界不变，不新增字段或修改Windows／设备协议。本地超时诊断仅保留固定阶段、字节数、有界读写毫秒及空读／EAGAIN次数，不记录串口内容或任意错误字符串。实机结果单独登记。
+
+Local Mac follow-up: recognition pauses and internal line separators produce one paragraph, preserving necessary English word boundaries. Audio-range correction/repetition and insertion into manually edited drafts remain unchanged. Existing two-second USB ownership maintenance may use the existing status delta only for an identity-matched usbDelta=1 receiver with canonical inspected version0.2.269-ui or later0.2.x-ui. Initial/invalid baselines remain full, as do old/unknown receivers. Exact sequence acknowledgements alone advance baselines/maintenance; rejection fallback, reconnects and eight-second ownership/voice limits remain. No wire fields or Windows/receiver protocol change. Local timeout diagnostics contain fixed phases, byte counts, bounded read/write milliseconds and zero-read/EAGAIN counts, without serial contents or arbitrary error text. Physical acceptance is recorded separately.
+
+### Preview encoding progress and diagnostic scheduling / 预览编码进展与诊断调度
+
+.273 的 JPEG 编码期间约每秒重复既有认证 `begin`，不新增操作、字段或会话。相同请求只更新进展时间，不重置接收偏移、不延长原30秒截止；关闭／失效回执终止后续传输。像素输出从128KiB起按需倍增至原512KiB上限。仅在UI渲染间隙回收未发布 staging，手势进行中不回收，已发布可见快照、照片和草稿保持。普通完成帧间隔约1秒，未变帧保持约2秒；桥接不因相同像素或状态文本重复绘制。
+
+周期诊断不再调用整堆最大块扫描：既有相关数值字段使用0表示未采样，不能把0解释为内存耗尽。RPC最小连续块保持既有未知值。一次性的实际分配准入检查保留。无线任务每轮及每个至多2048字节HTTP正文片让出1 tick，正文读取受3秒总期限及电脑归属变化约束；仅完整、认证且归属有效的响应更新缓存。HTTP连接及头部仍使用各自SDK超时，不承诺整个请求总计3秒。
+
+Firmware273 repeats the existing authenticated `begin` about once per second during JPEG encoding, with no new operation, fields or session. An identical request updates progress without resetting offsets or extending its original30-second deadline. Revocation rejects further transfer. Encoded output starts at128KiB and doubles only on actual capacity exhaustion up to the existing512KiB cap. UI-thread reclamation releases unpublished staging between render passes, refusing during gestures and preserving published visible snapshots, photos and drafts. Completed frames are spaced about one second; unchanged frames retain two seconds. Identical pixels/status do not redraw.
+
+Periodic diagnostics no longer traverse the whole heap for its largest block: existing zero values mean not sampled, never exhausted memory; RPC minimum-largest keeps its existing unknown sentinel. Actual one-shot allocation admission remains. The wireless worker yields one tick per iteration and at most2048-byte HTTP body chunk; body reads have a three-second total budget and host-ownership checks. Only complete authenticated valid-owner responses update state. Connect/header SDK timeouts remain separate, so three seconds is not an end-to-end request guarantee.
+
+### Preview stack observation / 预览任务栈观察
+
+.274 在既有 `displayDiag` 字符串末尾增加可选 `;sp,1,busy,finishedJobs,minStackBytes,lastMemoryPhase`，前面的所有字段保持原义。`busy`为0/1；任务结束后累计 `finishedJobs`；`minStackBytes`为本次启动已完成预览任务的最小剩余栈字节数，0表示尚无样本；`lastMemoryPhase`为最近任务的内存失败阶段：0无、1原始像素、2编码输出、3JPEG初始化／内部内存。它只含数值，没有像素、识别文本或身份信息。成功或非内存失败的后续任务会将lastMemoryPhase重置为0；该字段记录最近完成任务，不是保留至重启的故障记录，不能用后续0否定此前内存失败。Mac沿用有界ASCII诊断字符串校验与显示，Windows沿用原字符串显示；旧桥接可忽略新后缀。任务改用16KiB PSRAM栈和PSRAM中的录音状态对象；30秒期限、鉴权、上传和完整帧语义不变。
+
+Firmware274 appends the optional `;sp,1,busy,finishedJobs,minStackBytes,lastMemoryPhase` suffix to existing `displayDiag` without changing earlier fields. Completed workers update their count and minimum remaining stack bytes; zero stack means unsampled. Last memory phase is0 none,1 raw pixels,2 output,3 JPEG initialization/internal allocation. Only numeric observations are added. A later successful or non-memory-failing job resets the phase to0; it describes the latest completed job, not a sticky crash/error record. A post-success0 cannot rule out an earlier memory failure. Mac's bounded ASCII validation/display and Windows' existing raw-string display already accept the suffix; old hosts can ignore it. The worker uses a16KiB PSRAM stack and a PSRAM-owned voice-state object. Authentication,30-second expiry, transfer and complete-frame rules remain unchanged.
+
+
+### Preview unpublished admission / 预览未发布请求准入
+
+.275将CDC/GATT mailbox在发布前遇忙的本地结果区分为`RPC_STATUS_UNPUBLISHED_BUSY`（-1011）。该结果仅由尚未复制请求、分配新active serial的准入分支产生；它不是新线协议字段或主机回执。预览worker仅对此结果在原请求截止、电脑归属及通道仍有效时有界重试，等待期间检查语音／照片／升级优先。已发布请求的超时、断线、归属变化或不确定回执不重放；接收端仍仅接受当前stream/request的完整校验帧。原100ms单次准入、3s单次交换、30s预览请求和既有租约不延长。Mac／Windows接收器和原ESP8266预览无行为变更。
+
+Firmware275 distinguishes locally unpublished CDC/GATT admission contention as`RPC_STATUS_UNPUBLISHED_BUSY`(-1011), set only before request bytes or a new active serial are published. It is not a new wire field or host acknowledgement. The preview worker retries only this result while its original deadline, owner and link hold, with foreground voice/photo/OTA preemption. Published timeouts, disconnects, owner changes and uncertain responses are never replayed. Existing100ms per-attempt admission,3s exchange,30s preview request and viewer lease bounds are unchanged. Mac/Windows receivers and ESP8266 preview remain unchanged.
+
+
+### Lease-scoped capture scratch / 按预览租约复用采样缓冲
+
+.276在慢begin之前预留JPEG的1843200字节RGB565采样缓冲，并在成功、归属和期限有效且前台未抢占的任务之间复用。每次请求仍须在authenticated begin接受后重新完整采样；缓冲复用不等于复用可发布画面。worker期间的所有权由原running原子准入保护，UI只能回收闲置缓冲；任务完成后空闲5秒自动释放，录音／相机／升级入口可主动回收，前台忙时worker不保留。关闭后不再产生新请求；既有有界在途任务结束，闲置scratch按上述期限回收。拒绝或不确定回执不保留scratch、不重放请求。像素仍仅在内存，不进入磁盘、照片附件或诊断。已有JPEG/RLE、SHA、尺寸、30秒期限和主机5秒续租语义不变，两端接收器兼容。
+
+Firmware276 reserves the1843200-byte RGB565 JPEG scratch before slow begin admission and reuses it only after successful replies with valid owner/deadline and no foreground preemption. Every request still requires a newly complete capture after authenticated begin; scratch reuse never authorizes stale pixels. Existing atomic worker admission protects ownership: UI evicts idle scratch only, automatically after5 idle seconds or proactively for voice/camera/OTA. Active workers release on foreground priority. Closing stops new requests; bounded in-flight work and subsequent idle reclamation remain. Rejected/uncertain replies neither retain scratch nor replay. Pixels remain RAM-only, outside disk, attachments and diagnostics. JPEG/RLE/hash/geometry/30-second request/5-second viewer lease semantics are unchanged; both host receivers remain compatible.
+
+
+### Mac preview pacing / Mac 预览调度
+
+Mac本地R22沿用原USB CDC及v2预览格式。当前USB预览产生新requestId时，下轮状态发送可提前，不等普通状态周期；只有实际发送的完整帧获得精确设备／序号ACK，才记为已发布。录音优先时不为预览加急。USB仍单队列，每轮最多连续处理4个RPC／60ms；遇空／已完成邮箱不重放，并让位到期状态、录音、配置、停用及归属变化。
+
+仅在当前USB预览有效、无录音或前台配置占用且最近250ms确有RPC完成时，邮箱检查从100ms缩为10ms；空／重复读取不续期，编码等待、关闭和重连回到100ms。每笔交换仍保留原请求期限、认证和2秒归属维护，串口仍460800。非BLE完整帧完成后的主机间隔为250ms，窗口每250ms检查已完整校验的图像；BLE仍为原1秒间隔，unchanged仍为2秒冷却。相同像素不重建显示图像，关闭仍清除内存画面和租约。此为Mac实现节奏，不新增协议字段或要求Windows采用同一队列；设备尺寸、编码、SHA、截止与前台优先规则不变。
+
+Local Mac R22 preserves CDC and preview v2. A new USB preview request may advance the next status send; only the actual whole frame's exact device/sequence ACK marks its request published. Voice priority suppresses preview urgency. One serial queue drains at most4 RPCs/60ms, yields to status/foreground/ownership changes and never replays empty/completed mailbox IDs. Polling is10ms only within250ms of a real RPC completion for an active USB viewer without foreground voice/configuration; empty reads cannot extend it, while encoding/idle/close/reconnect retain100ms. Existing per-operation deadlines, authentication, two-second ownership maintenance and460800baud remain. Non-BLE completed frames wait250ms, viewer checks250ms, BLE completion waits1s and unchanged cooldown stays2s. Identical pixels reuse the image object; close revokes the lease and image. No new wire fields or Windows scheduling requirement; geometry, codec, SHA and foreground rules stay unchanged.
+
+
+### Responsive capture scheduling / 预览采样调度
+
+.277设备仅对预览原始像素和编码帧的SHA校验使用专用调度入口；SHA算法、完整输入、摘要及1024字节内部DMA安全上下文／暂存缓冲不变。最多处理16KiB，或处理约1ms后（单次1KiB更新结束时检查）让出并核对原期限、电脑归属以及录音／相机／照片／升级优先。取消或校验错误清零摘要并释放内部工作区，不发布部分帧。照片上传和普通RPC的加密／SHA仍保持原来每1KiB让出。全尺寸LCD采样省去比例不变时的逐像素64位除法；旋转／缩采样映射逐点与旧实现相同，不更改显示缓冲写入或相机所有权。
+
+配套Mac R23仅在已确认的兼容.277及以后固件上，将非BLE完整帧／unchanged后等待缩为100ms；窗口100ms检查完整帧，未完成请求不被下一次刷新替换，同像素仍复用显示图像。旧固件保留R22周期，BLE保留原1秒／2秒冷却。原v2帧格式、1280×720、JPEG质量85、512KiB上限、SHA及30秒截止保持。Windows旧接收器兼容共同设备改动，其主机刷新策略可按同一已确认版本门槛单独优化；不是新的线协议版本。
+
+Firmware277 adds preview-only SHA scheduling while retaining the complete SHA input/digest and1024-byte internal DMA-safe work/staging. At most16KiB, or approximately1ms checked after each1KiB update, precedes a yield and original deadline/owner/foreground checks. Cancellation/errors clear the digest and release workspace without publishing partial frames. Photo and ordinary RPC encryption/SHA keep their original1KiB pacing. Full-resolution sampling omits redundant64-bit scale division with bit-identical rotation/downsample mapping and unchanged framebuffer/camera ownership. R23 enables100ms completion/unchanged waits only for confirmed compatible277+ non-BLE capture; its100ms viewer never replaces an in-flight request or redraws identical pixels. Legacy/BLE cooldowns and v2 geometry/quality/limits/SHA/deadlines remain. Windows remains wire-compatible and can independently gate its faster host policy by confirmed firmware.
+
+
+### Mac Wi-Fi packed status parity / Mac Wi-Fi 压缩状态补齐
+
+Mac R24补齐已定义的Wi-Fi `tab5_packed` 状态格式：仅在本次GET已通过设备／nonce／HMAC鉴权，且同nonce下的固件证明有效、规范版本为0.2.42-ui或更新0.2.x-ui时启用。完整含元数据的zlib/base64封装更小才替代原文，再使用原nonce／tag／ciphertext和challenge进行AES-GCM加密；没有证明、旧版本、未知版本及不节省的内容保留原格式。解压大小仍不超过Mac原32740字节，设备精确解压／完整输入／非嵌套及全部帧鉴权规则保持。USB／BLE格式和鉴权不改，Windows既有实现已支持同一Wi-Fi协商格式。现场约26KB回包降至约11KB后有效Wi-Fi回包恢复，用户确认正常；原失败的具体接收／解密／验帧阶段未唯一定位。
+
+Mac R24 now uses the already-defined Wi-Fi packed status only after the current GET's device/nonce/HMAC authentication and a valid same-nonce canonical0.2.42-ui-or-later0.2.x-ui firmware proof. Only a smaller complete zlib/base64 envelope replaces raw state, before unchanged AES-GCM wrapping. Missing/old/unknown/non-beneficial cases remain raw; existing32740-byte expansion and exact, non-nested, complete-input receiver checks remain. Windows already supports this Wi-Fi format. Physical~26KB-to~11KB responses restore valid packet growth and the user confirms recovery, without uniquely proving the old receive/decrypt/frame failure stage.
+
+### Mac upgrade command lifetime / Mac 升级命令时限
+
+Mac R25将`otaCommand`和`bootVerifyCommand`的通告截止分别限制在实际承载状态帧epoch后45秒／15秒内，并且不晚于原请求截止。不能满足该窗口的帧不发布命令；不会通过新状态帧延长原请求、放宽接收器检查或自动重发。实际固件字节已经提供或设备已确认开始后，旧开始请求到期不再覆盖下载／等待启动核验状态。观察到目标版本仅表示版本在线，仍需原精确ELF、VALID分区与三个实时UI样本核验；后续版本采样不覆盖已通过的精确核验。设备拒绝原因只映射固定白名单提示，未知原始错误不进入UI。原120秒Wi-Fi提供租约、90秒RPC提供租约、30秒开始请求和10秒启动核验请求保持；无新协议字段。离线实际模型通过，电脑端开始的实机闭环须在下一次确有固件更新时核对，不为该测试重刷同版本。
+
+R25 caps OTA/boot command advertisement to45s/15s relative to its actual status-frame epoch and the original request deadline; unusable frames omit the command. Status refresh cannot extend the request, relax receiver checks or retry automatically. Real image serving or a started receipt prevents an old start-request expiry from replacing download/verification status. A matching observed version is not exact boot acceptance; the existing ELF/VALID/three-live-UI-sample verification remains and later version observations preserve it. Only fixed known rejection labels enter UI. Original120s Wi-Fi/90s RPC serving leases and30s start/10s boot requests remain. Actual-model offline checks pass; desktop-start physical acceptance awaits the next legitimate update, without reflashing the same version for testing.
+
+### TAB5 computer control admission during preview (278)
+
+设备 .278 在 USB／BLE 邮箱发布电脑控制请求前最多等待 1 秒准入；只等待未发布阶段，不重复指令，不扩大原响应截止。电脑状态读取或显式操作已保留前台时，预览暂停下一段尚未发布的工作，并在相同 stream／request／归属及原期限内恢复。已发布分片的不确定回执不重放，录音／相机／升级优先级不变。无线 HTTP 和既有 version=1、screen-preview v2 线格式不变。
+
+TAB5 .278 bounds pre-publication computer-control mailbox admission to1s on USB/BLE. Preview yields unpublished work while computer control is busy, then resumes with the same owner and request deadline. It neither replays uncertain published requests nor extends authorization; foreground voice/camera/update priorities and existing wire formats remain unchanged.

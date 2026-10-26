@@ -16,3 +16,6 @@ LICENSE text eol=lf
 VERSION text eol=lf
 # Preserve exact upstream license evidence and its recorded hashes.
 licenses/** -text -whitespace
+
+# Preserve archived patch bytes, including required blank context-line prefixes.
+docs/proposals/*.patch -text -whitespace

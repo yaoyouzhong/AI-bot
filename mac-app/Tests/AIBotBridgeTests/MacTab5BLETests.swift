@@ -47,4 +47,30 @@ final class MacTab5BLETests: XCTestCase {
         service.usbState("confirmed", confirmed: true); XCTAssertTrue(service.usbActive)
         service.usbState("disconnected"); XCTAssertFalse(service.usbActive)
     }
+    func testUSBControlDoesNotOverrideDeviceSelectedBLE() {
+        let service = MacTab5Service(port:8765,load:{ self.pair },save:{ _ in })
+        defer { service.stop() }
+        service.usbState("confirmed",confirmed:true)
+        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"BLE"])
+        XCTAssertTrue(service.usbActive); XCTAssertFalse(service.usbOwnsActiveState)
+        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"USB"])
+        XCTAssertTrue(service.usbOwnsActiveState)
+        service.observeUSBInfo(["deviceId":"ffffffffffff","active":"BLE"])
+        XCTAssertTrue(service.usbOwnsActiveState)
+        service.observeUSBInfo(["deviceId":pair.deviceId])
+        XCTAssertFalse(service.usbOwnsActiveState)
+        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"USB"])
+        service.usbState("disconnected")
+        service.usbState("confirmed",confirmed:true)
+        XCTAssertFalse(service.usbOwnsActiveState)
+    }
+    func testUSBOwnershipRequiresFreshDeviceSelection() {
+        XCTAssertTrue(MacTab5USBDisplayOwnership.owns(now:107.999,acknowledgedAt:100,active:"USB"))
+        for (now,ack) in [(108.0,100.0),(100,101),(100,0),(100,-Double.infinity)] {
+            XCTAssertFalse(MacTab5USBDisplayOwnership.owns(now:now,acknowledgedAt:ack,active:"USB"))
+        }
+        for active in ["BLE","Wi-Fi","Offline","unknown",nil] {
+            XCTAssertFalse(MacTab5USBDisplayOwnership.owns(now:100,acknowledgedAt:100,active:active))
+        }
+    }
 }

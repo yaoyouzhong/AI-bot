@@ -1,0 +1,10 @@
+{
+  "source": "artifacts/development/tab5-combined-268-20261024/source",
+  "file": "firmware/main/ui.c",
+  "before": "0aa4224a4ddf97c45a9a7df94481d882fbed84a84db7a957ee81c2b0cd1fc70a",
+  "after": "f618d29eaf0c0f2debda689469cb072aa271fc83c6a62f08a7dd176a8c87ddb3",
+  "scope": "wording only: artwork temporarily unavailable does not imply Music itself has no artwork",
+  "firmwareGenerated": false,
+  "wireChange": false,
+  "physicalDisplayAccepted": false
+}

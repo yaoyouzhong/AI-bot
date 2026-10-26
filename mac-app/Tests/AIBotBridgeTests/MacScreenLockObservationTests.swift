@@ -2,7 +2,7 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacScreenLockObservationTests: XCTestCase {
-    func testStartupAndSessionChangesRemainUnknownUntilObserved() {
+    func testSessionChangesInvalidateUnlockedEvidenceButRetainObservedLock() {
         let observation = MacScreenLockObservation()
         XCTAssertNil(observation.value(onConsole: true))
         observation.receive(.locked, onConsole: true)
@@ -15,7 +15,11 @@ final class MacScreenLockObservationTests: XCTestCase {
         XCTAssertNil(observation.value(onConsole: true))
         observation.receive(.locked, onConsole: true)
         XCTAssertNil(observation.value(onConsole: false))
-        XCTAssertNil(observation.value(onConsole: true))
+        XCTAssertEqual(observation.value(onConsole: true), true)
+        observation.receive(.invalidate, onConsole: false)
+        XCTAssertEqual(observation.value(onConsole: true), true)
+        observation.receive(.unlocked, onConsole: true)
+        XCTAssertEqual(observation.value(onConsole: true), false)
     }
     func testDisplayObservationCannotEnableCredentialPreparation() {
         let suite = "MacScreenLockObservationTests-" + UUID().uuidString

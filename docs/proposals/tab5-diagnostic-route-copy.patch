@@ -1,0 +1,11 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -4349,7 +4349,7 @@
+     lv_obj_set_height(network_diag_name,64);lv_label_set_long_mode(network_diag_name,LV_LABEL_LONG_DOT);
+     lv_obj_set_height(network_diag_host,64);lv_label_set_long_mode(network_diag_host,LV_LABEL_LONG_DOT);
+     muted(diag_wifi,"IP 地址",20,282,120);network_diag_ip=label(diag_wifi,"",148,282,410,false);
+-    muted(diag_bridge,"USB、蓝牙状态见上一页",20,282,538);
++    muted(diag_bridge,"USB、蓝牙状态见“网络连接”",20,282,538);
+     network_retry=button(network_diag_window,"重新连接 Wi-Fi",926,492,254,network_action,1);lv_obj_set_height(network_retry,60);
+     network_diag_feedback=muted(network_diag_window,"",0,492,892);
+     lv_obj_set_height(network_diag_feedback,100);lv_label_set_long_mode(network_diag_feedback,LV_LABEL_LONG_WRAP);

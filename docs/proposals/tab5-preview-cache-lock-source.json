@@ -1,0 +1,17 @@
+{
+  "base": "immutable installed268 source",
+  "candidate": "artifacts/development/tab5-camera-ready-followup-20261024/candidate",
+  "productFiles": [
+    {
+      "path": "firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c",
+      "beforeNormalizedSHA256": "a09a294d2cec6cf4f3d4e0d64ea39c694ac4dc80759ec78646c11f5bb0dfab16",
+      "afterNormalizedSHA256": "a531a9a631abcd13fb887b9c81ffe63a568a705bf3643e9fc9369859786ab9c8"
+    }
+  ],
+  "wireProtocolChanged": false,
+  "SDKChanged": false,
+  "targetDriverCompileExit": 0,
+  "reproduction": "old production preview plus installed SDK function retains global cache mutex; corrected flags pass128 rotations plus camera/alignment/DMA/gate/argument cases",
+  "imageGenerated": false,
+  "hardwareAcceptance": "do not open268 mirror; pending future combined firmware"
+}

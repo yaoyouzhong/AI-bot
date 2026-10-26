@@ -9,10 +9,14 @@ final class SerialBridge {
     private let status: () -> MacStatusSnapshot
     private let lanConfiguration: () -> (host: String, port: UInt16, token: String)?
     private let resources: () -> [MacResourcePayload]
+    private let enabled: () -> Bool
     private var activeDescriptor: Int32 = -1
     private var activePort: String?
     private var activeDeviceHost: String?
     private var stopped = false
+    private var probeState = "等待扫描"
+    var connectionDetail: String { lock.lock(); defer { lock.unlock() }; return probeState }
+    private func noteProbe(_ value: String) { lock.lock(); probeState = value; lock.unlock() }
     private var pauseUntil: UInt64 = 0
     private var paused: Bool { DispatchTime.now().uptimeNanoseconds < pauseUntil }
 
@@ -83,10 +87,11 @@ final class SerialBridge {
 
     init(status: @escaping () -> MacStatusSnapshot,
          lanConfiguration: @escaping () -> (host: String, port: UInt16, token: String)?,
-         resources: @escaping () -> [MacResourcePayload] = { [] }) {
+         resources: @escaping () -> [MacResourcePayload] = { [] }, enabled: @escaping () -> Bool = { true }) {
         self.status = status
         self.lanConfiguration = lanConfiguration
         self.resources = resources
+        self.enabled = enabled
     }
 
     var portName: String? {
@@ -137,7 +142,7 @@ final class SerialBridge {
         // A media upload owns the port; never block the UI sampler behind it.
         guard lock.try() else{return}
         defer{lock.unlock()}
-        guard activeDescriptor>=0,!paused,let frame=Self.metricsFrame(metrics) else{return}
+        guard enabled(),activeDescriptor>=0,!paused,let frame=Self.metricsFrame(metrics) else{return}
         _ = Self.write(frame,to:activeDescriptor)
     }
     static func metricsFrame(_ metrics:SystemMetricsSnapshot)->Data? {
@@ -180,16 +185,22 @@ final class SerialBridge {
     }
 
     @discardableResult
-    func provisionLan() -> Bool {
+    func provisionLan(port override: UInt16? = nil, pauseAfter: Bool = false) -> Bool {
         guard let configuration = lanConfiguration(), configuration.token.utf8.count >= 32,
               PrivateIPv4Address.isValid(configuration.host) else { return false }
-        return send(Self.lanFrame(host: configuration.host, port: configuration.port,
-                                  token: configuration.token))
+        let frame = Self.lanFrame(host: configuration.host, port: override ?? configuration.port, token: configuration.token)
+        guard pauseAfter else { return send(frame) }
+        lock.lock(); defer { lock.unlock() }
+        guard activeDescriptor >= 0, !paused, Self.write(frame,to:activeDescriptor) else { return false }
+        pauseUntil = DispatchTime.now().uptimeNanoseconds + 30_000_000_000
+        return true
     }
 
     private func run() {
         while !isStopped {
-            for path in Self.candidatePorts() where !isStopped {
+            let ports = Self.candidatePorts()
+            if ports.isEmpty { noteProbe("未发现 USB 串口") }
+            for path in ports where !isStopped && enabled() {
                 run(path: path)
             }
             wait(milliseconds: 3_000)
@@ -198,26 +209,28 @@ final class SerialBridge {
 
     private func run(path: String) {
         guard MacSerialPortLease.acquire(path) else { return }
+        noteProbe("正在识别 " + URL(fileURLWithPath:path).lastPathComponent)
         defer { MacSerialPortLease.release(path) }
         let descriptor = Darwin.open(path, O_RDWR | O_NOCTTY | O_NONBLOCK)
-        guard descriptor >= 0 else { return }
+        guard descriptor >= 0 else { noteProbe("串口打开失败（\(errno)）"); return }
         defer {
             clearActive(descriptor)
             Darwin.close(descriptor)
         }
-        guard Self.configure(descriptor) else { return }
+        guard Self.configure(descriptor) else { noteProbe("串口速率设置失败（\(errno)）"); return }
         wait(milliseconds: 1_200)
         guard !isStopped else { return }
         tcflush(descriptor, TCIOFLUSH)
         guard Self.write(Self.controlFrame(type: "ping"), to: descriptor),
               let handshake = Self.waitForPong(
-                from: descriptor, stopped: { [weak self] in self?.isStopped ?? true }) else { return }
+                from: descriptor, stopped: { [weak self] in self?.isStopped ?? true }) else { noteProbe("未收到小屏握手回执"); return }
 
+        noteProbe("USB 握手已确认")
         setActive(descriptor, path: path, deviceHost: handshake.deviceHost)
         _ = provisionLan()
         var sentRevisions: [MacBinaryResourceKind: Int] = [:]
         var nextDeviceProbeAt = Date().addingTimeInterval(handshake.deviceHost == nil ? 5 : 30)
-        while !isStopped {
+        while !isStopped && enabled() {
             if transmissionPaused { wait(milliseconds: 100); continue }
             if Date() >= nextDeviceProbeAt {
                 refreshDeviceHost(descriptor)
@@ -229,8 +242,12 @@ final class SerialBridge {
                     sentRevisions[resource.kind] = resource.revision
                 }
             }
-            guard let frame = Self.statusFrame(status()) else { return }
-            guard send(frame, skipWhenPaused: true) else { return }
+            let snapshot = status()
+            guard let frame = Self.statusFrame(snapshot) else { noteProbe("状态消息超过 USB 长度限制，未发送"); return }
+            let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+            let originalBytes = (try? encoder.encode(StatusEnvelope(version:1,type:"status",data:snapshot)).count).map { $0 + Self.prefix.utf8.count + 1 } ?? 0
+            noteProbe("USB 握手已确认 · 状态 \(originalBytes) → \(frame.count) 字节")
+            guard send(frame, skipWhenPaused: true) else { noteProbe("USB 写入失败，等待重新识别"); return }
             wait(milliseconds: 2_000)
         }
     }
@@ -297,11 +314,10 @@ final class SerialBridge {
     }
 
     static func statusFrame(_ snapshot: MacStatusSnapshot) -> Data? {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let payload = try? encoder.encode(StatusEnvelope(version: 1, type: "status", data: snapshot)) else {
-            return nil
-        }
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        guard let encoded = try? encoder.encode(snapshot),
+              let raw = try? JSONSerialization.jsonObject(with:encoded) as? [String:Any],
+              let payload = try? JSONSerialization.data(withJSONObject:["version":1,"type":"status","data":MacESPStatus.project(raw)],options:[.sortedKeys]) else { return nil }
         return line(payload)
     }
 

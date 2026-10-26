@@ -61,19 +61,30 @@ struct MacTab5Archive {
         let value = name.hasSuffix("/") ? String(name.dropLast()) : name
         let parts = value.split(separator: "/", omittingEmptySubsequences: false)
         return value.utf8.count <= 720 && parts.count <= 8 && parts.allSatisfy { part in
-            !part.isEmpty && part != "." && part != ".." && !part.hasSuffix(".") && !part.hasSuffix(" ") && !part.hasPrefix("-") && part.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) && !"\\:<>\"|?*[]".unicodeScalars.contains($0) }
+            !part.isEmpty && part != "." && part != ".." && !part.hasSuffix(".") && !part.hasSuffix(" ") && !part.hasPrefix("-") && part.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) && !"\\:<>\"|?*".unicodeScalars.contains($0) }
         }
     }
     private func containsFile(_ name: String) -> Bool { !name.hasSuffix("/") && (unicode ? Self.safeUnicodePath(name) : nested ? Self.safePath(name) : Self.safeName(name)) && names.contains(name) }
+    private func reader(_ name:String) -> (String,[String]) {
+        // macOS unzip does not consistently preserve UTF-8 ZIP names. bsdtar
+        // handles them; escape its glob metacharacters to select one exact entry.
+        if unicode {
+            let literal = name.replacingOccurrences(of:"[",with:"\\[").replacingOccurrences(of:"]",with:"\\]")
+            return ("/usr/bin/tar",["-xOf",url.path,"--",literal])
+        }
+        return ("/usr/bin/unzip",["-p",url.path,name])
+    }
     func read(_ name: String, maximum: Int) throws -> Data {
         guard containsFile(name) else { throw MacTab5LocalError.invalid("包内缺少必需文件。") }
         // Stream the exact validated entry; never extract paths or symlinks.
-        return try MacTab5LocalProcess.run("/usr/bin/unzip", ["-p", url.path, name], maximum: maximum, timeout: 60)
+        let command = reader(name)
+        return try MacTab5LocalProcess.run(command.0, command.1, maximum: maximum, timeout: 60)
     }
-    func copy(_ name: String, to destination: URL, maximum: Int, sha256: String) throws {
+    func copy(_ name: String, to destination: URL, maximum: Int, sha256: String, check: () throws -> Void = {}) throws {
         guard containsFile(name), MacTab5Protocol.isHex(sha256, count: 64), !FileManager.default.fileExists(atPath: destination.path) else { throw MacTab5Error.invalidPacket }
         let process = Process(), pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip"); process.arguments = ["-p", url.path, name]
+        let command = reader(name)
+        process.executableURL = URL(fileURLWithPath:command.0); process.arguments = command.1
         process.standardOutput = pipe; process.standardError = FileHandle.nullDevice; process.standardInput = FileHandle.nullDevice
         guard FileManager.default.createFile(atPath: destination.path, contents: nil, attributes: [.posixPermissions: 0o600]) else { throw MacTab5Error.invalidPacket }
         let output = try FileHandle(forWritingTo: destination); defer { try? output.close(); try? pipe.fileHandleForReading.close() }
@@ -82,7 +93,7 @@ struct MacTab5Archive {
         DispatchQueue.global().asyncAfter(deadline: .now() + 300, execute: timeout); defer { timeout.cancel() }
         var count = 0, digest = SHA256()
         do {
-            while true { let bytes = pipe.fileHandleForReading.availableData; if bytes.isEmpty { break }; count += bytes.count; guard count <= maximum else { throw MacTab5Error.invalidPacket }; digest.update(data: bytes); try output.write(contentsOf: bytes) }
+            while true { try check(); let bytes = pipe.fileHandleForReading.availableData; if bytes.isEmpty { break }; count += bytes.count; guard count <= maximum else { throw MacTab5Error.invalidPacket }; digest.update(data: bytes); try output.write(contentsOf: bytes) }
             process.waitUntilExit()
             guard process.terminationStatus == 0, count > 0, digest.finalize().map({ String(format: "%02x", $0) }).joined() == sha256 else { throw MacTab5LocalError.invalid("内置 TAB5 ZIP 的长度、读取结果或 SHA-256 不匹配。") }
         } catch { timeout.perform(); process.waitUntilExit(); throw error }

@@ -3,6 +3,9 @@ import UniformTypeIdentifiers
 
 final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let service: MacTab5Service
+    private var voiceInputs:MacVoiceInputSettings?
+    private let speechProvider = NSPopUpButton()
+    private var doubaoTest:MacTab5SpeechBackend?
     private let computer = NSButton(checkboxWithTitle: "允许 TAB5 调节音量、静音、锁屏和打开常用入口", target: nil, action: nil)
     private let music = NSButton(checkboxWithTitle: "采集 Apple Music／Spotify 播放信息", target: nil, action: nil)
     private let musicControl = NSButton(checkboxWithTitle: "允许 TAB5 控制音乐播放、暂停和切歌", target: nil, action: nil)
@@ -17,50 +20,91 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let musicState = NSTextField(wrappingLabelWithString: "")
     private let desktopState = NSTextField(wrappingLabelWithString: "")
     private var timer: Timer?
-    private var body: NSStackView?, documentView: NSView?
-    init(service: MacTab5Service) {
+    enum Section: Int { case computer, music, codex, voice }
+    private var sections: MacBridgeSettingsTabs!
+    init(service: MacTab5Service, focusSection: Section? = nil) {
         self.service = service
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 650, height: 560), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-        super.init(window: window); window.title = "TAB5 · 交互与权限"; window.minSize = NSSize(width: 620, height: 560); window.delegate = self; window.center()
-        let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 14; stack.translatesAutoresizingMaskIntoConstraints = false
-        let content = window.contentView!, scroll = NSScrollView(frame: window.contentView!.bounds); scroll.autoresizingMask = [.width, .height]; scroll.hasVerticalScroller = true; scroll.drawsBackground = false
-        let document = MacTab5FeaturesDocument(frame: NSRect(x: 0, y: 0, width: content.bounds.width, height: 1600)); document.autoresizingMask = [.width]
-        self.documentView = document; body = stack; scroll.documentView = document; content.addSubview(scroll); document.addSubview(stack)
-        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 24), stack.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -24), stack.topAnchor.constraint(equalTo: document.topAnchor, constant: 24)])
-        func label(_ text: String, size: CGFloat = 13) { let label = NSTextField(wrappingLabelWithString: text); label.font = .systemFont(ofSize: size); stack.addArrangedSubview(label); label.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
-        label("交互与权限", size: 23)
-        label("采集默认开启，关闭后会记住你的选择。账号数据使用已保存的授权；系统权限首次使用时确认。操作功能单独开启，设置在重启后保留。")
-        computer.state = service.computer.isEnabled ? .on : .off; computer.target = self; computer.action = #selector(toggleComputer); stack.addArrangedSubview(computer)
-        music.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off; music.target = self; music.action = #selector(toggleMusic); stack.addArrangedSubview(music)
-        musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off; musicControl.target = self; musicControl.action = #selector(toggleMusicControl); stack.addArrangedSubview(musicControl)
-        label("音乐首次使用会请求自动化权限。控制只发送一次，并读取实际播放状态；切换曲目未确认时不会自动重复跳曲。锁屏需要辅助功能权限。Mac 锁定状态未知时保持未知，不提供一键解锁。")
-        stack.addArrangedSubview(musicState); musicState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        musicState.font = .systemFont(ofSize: 12); musicState.textColor = .secondaryLabelColor
-        label("Codex 会话", size: 15)
-        codex.state = service.codex.isEnabled ? .on : .off; codex.target = self; codex.action = #selector(toggleCodex); stack.addArrangedSubview(codex)
-        send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend); stack.addArrangedSubview(send)
-        label("查看本机 Codex 近期任务与公开回复；桌面连接可用时核对实时状态。另行启用操作后，可对已加载的精确任务发送或中断，沿用该任务的模型和审批设置。当前桌面版本的追加接口不能绑定指定轮次，因此暂不开放追加。草稿在本机加密保存，关闭功能或退出桥接后结束连接。")
-        let cli = NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)); stack.addArrangedSubview(cli)
-        stack.addArrangedSubview(codexState); codexState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        codexState.font = .systemFont(ofSize: 12); codexState.textColor = .secondaryLabelColor
-        desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop); stack.addArrangedSubview(desktop)
-        label("快捷控制台另需辅助功能权限；打开会话时核对精确地址或在完整目录中唯一的名称。桌面缩略名称也要检查重名；无法唯一区分时只确认已唤起 Codex，输入框操作另行严格检查。无法确认输入框时保留文字。提交草稿还需要上方操作权限和可用的桌面任务连接。")
-        stack.addArrangedSubview(desktopState); desktopState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        desktopState.font = .systemFont(ofSize: 12); desktopState.textColor = .secondaryLabelColor
-        label("语音输入", size: 15)
-        voice.state = service.voice.isEnabled ? .on : .off; voice.target = self; voice.action = #selector(toggleVoice); stack.addArrangedSubview(voice)
-        stack.addArrangedSubview(voiceState); voiceState.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        voiceState.font = .systemFont(ofSize: 12); voiceState.textColor = .secondaryLabelColor
-        label("支持 TAB5 收音或 Mac 默认麦克风（可在系统设置选择 USB 麦克风）。仅在系统支持该语言的本地识别时启动；不自动上传音频。识别文字先预览，确认后才能发送或填入事项／日期。首次启用会请求系统权限。")
-        label("常用入口（最多四个）", size: 15)
-        stack.addArrangedSubview(launchers)
-        let add = NSButton(title: "添加本机程序或文件夹…", target: self, action: #selector(addLauncher))
-        let remove = NSButton(title: "移除所选入口", target: self, action: #selector(removeLauncher))
-        let row = NSStackView(views: [add, remove]); row.spacing = 12; stack.addArrangedSubview(row)
-        label("TAB5 仅能打开这里选择的入口；设备请求不能指定文件路径或命令。")
-        let settings = NSButton(title: "打开系统设置", target: self, action: #selector(openSettings)); stack.addArrangedSubview(settings)
-        label("在“隐私与安全性 → 自动化／辅助功能”中管理权限。拒绝权限会显示未完成，授权后可重新发起新操作。")
-        stack.addArrangedSubview(result); result.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true; result.textColor = .secondaryLabelColor
+        let window = MacBridgeSettingsStyle.window("交互与权限", height: 640)
+        super.init(window: window); window.delegate = self
+        let computerPage = MacBridgeSettingsPage(), musicPage = MacBridgeSettingsPage()
+        let codexPage = MacBridgeSettingsPage(), voicePage = MacBridgeSettingsPage()
+        sections = MacBridgeSettingsTabs([("电脑控制", computerPage), ("音乐播放", musicPage), ("Codex 会话", codexPage), ("语音输入", voicePage)])
+        result.stringValue = "开关更改立即生效，重启后保留。"
+        let sectionNames = ["电脑控制", "音乐播放", "Codex 会话", "语音设置"]
+        if let focusSection { window.title = "AI-bot · " + sectionNames[focusSection.rawValue]; sections.select(focusSection.rawValue) }
+        window.contentView = MacBridgeSettingsShell(body: focusSection.map { sections.pages[$0.rawValue] } ?? sections, status: result,
+            actions: [NSButton(title: "打开系统设置…", target: self, action: #selector(openSettings))])
+
+        computerPage.heading("电脑控制", subtitle: "设置 TAB5 可操作的音量、静音、锁屏和常用入口。")
+        computer.title = "允许 TAB5 控制电脑"
+        computer.state = service.computer.isEnabled ? .on : .off; computer.target = self; computer.action = #selector(toggleComputer)
+        computerPage.add(computer)
+        computerPage.add(MacBridgeSettingsStyle.note("锁屏需要辅助功能权限。Mac 锁定状态未知时保持未知，不提供一键解锁。"))
+        computerPage.section("常用入口")
+        computerPage.field("已添加的程序或文件夹（最多四个）", launchers)
+        computerPage.add(MacBridgeSettingsStyle.row([
+            NSButton(title: "添加入口…", target: self, action: #selector(addLauncher)),
+            NSButton(title: "移除所选", target: self, action: #selector(removeLauncher))]))
+        computerPage.add(MacBridgeSettingsStyle.note("TAB5 仅能打开这里选择的入口；设备请求不能指定文件路径或命令。"))
+        computerPage.section("系统权限")
+        computerPage.add(MacBridgeSettingsStyle.note("在系统设置“隐私与安全性 → 自动化／辅助功能”中管理权限。拒绝权限会显示未完成，授权后可重新发起新操作。"))
+
+        musicPage.heading("音乐播放", subtitle: "采集播放信息和控制播放分别授权；首次使用会请求自动化权限。")
+        music.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off; music.target = self; music.action = #selector(toggleMusic)
+        musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off; musicControl.target = self; musicControl.action = #selector(toggleMusicControl)
+        musicPage.add(music); musicPage.add(musicControl)
+        musicPage.add(MacBridgeSettingsStyle.note("支持 Apple Music 和 Spotify。控制只发送一次，并读取实际播放状态；切换曲目未确认时不会自动重复跳曲。"))
+        musicPage.add(MacBridgeSettingsStyle.note("封面无法确认时会向 Apple 公开目录查询当前歌曲、歌手和专辑；不使用账户信息。TAB5 使用高清封面，小屏保持原尺寸。"))
+        musicPage.section("播放状态"); musicPage.add(musicState)
+
+        codexPage.heading("Codex 会话", subtitle: "查看本机近期任务和公开回复，同步加密草稿。发送与中断需要另行启用。")
+        codex.title = "允许 TAB5 查看 Codex 会话与公开回复"
+        send.title = "允许在 TAB5 手动发送或中断 Codex 任务"
+        desktop.title = "启用 Codex 桌面直达与输入框核对"
+        codex.state = service.codex.isEnabled ? .on : .off; codex.target = self; codex.action = #selector(toggleCodex)
+        send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend)
+        codexPage.add(codex); codexPage.add(send)
+        codexPage.add(MacBridgeSettingsStyle.note("操作仅针对已加载的精确任务，沿用该任务的模型和审批设置。当前桌面版本的追加接口不能绑定指定轮次，暂不开放追加。草稿在本机加密保存，关闭功能或退出桥接后结束连接。"))
+        codexPage.add(NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)))
+        codexPage.section("桌面直达")
+        desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
+        codexPage.add(desktop)
+        codexPage.add(MacBridgeSettingsStyle.note("需要辅助功能权限。打开会话时核对精确地址或在完整目录中唯一的名称，缩略名称也检查重名。无法唯一区分时只确认已唤起 Codex；无法确认输入框时保留文字。提交草稿还需要上方操作权限及可用的桌面任务连接。"))
+        codexPage.section("连接与诊断"); codexPage.add(codexState); codexPage.add(desktopState)
+
+        voicePage.heading("语音输入", subtitle: "选择识别方式，将文字交给 TAB5 预览。")
+        speechProvider.addItems(withTitles:["Mac 本地识别","豆包输入法"])
+        speechProvider.selectItem(at:MacSpeechProvider.doubao ? 1:0); speechProvider.target = self; speechProvider.action = #selector(changeSpeechProvider)
+        voicePage.field("识别方式",speechProvider)
+        voice.title = "允许 TAB5 使用所选语音识别方式"
+        voice.state = service.voice.isEnabled ? .on : .off; voice.target = self; voice.action = #selector(toggleVoice)
+        voicePage.add(voice)
+        voicePage.section("麦克风与权限")
+        voiceInputs = MacVoiceInputSettings(page:voicePage)
+        voicePage.section("豆包输入法")
+        voicePage.add(MacBridgeSettingsStyle.note("豆包使用长按 Fn 模式，识别可能需要联网。未指定实体麦克风时优先 DJI，否则使用 Mac 默认麦克风；TAB5 收音通过 VB-CABLE Mac 转送。桥接核验实际收音，停止后等待完整文字并返回 TAB5 预览，不自动发送任务。临时选择豆包麦克风，结束后恢复原选择。"))
+        voicePage.add(MacBridgeSettingsStyle.row([MacSettingsButton("检查豆包") { [weak self] in self?.result.stringValue = MacDoubaoSpeech.readiness() },MacSettingsButton("测试豆包调用") { [weak self] in self?.testDoubao() },MacSettingsButton("豆包官网") { _ = NSWorkspace.shared.open(URL(string:"https://srf.doubao.com/pc")!) }]))
+        voicePage.add(MacSettingsButton("恢复豆包麦克风") { [weak self] in
+            guard let self else { return }
+            guard !self.service.voice.busy,self.doubaoTest == nil else { self.result.stringValue = "请先停止当前语音，再恢复麦克风。"; return }
+            self.result.stringValue = "正在检查并恢复豆包麦克风…"
+            MacDoubaoMicrophone().release { [weak self] outcome in
+                switch outcome {
+                case .success: self?.result.stringValue = "豆包麦克风恢复检查完成；保留你随后手动选择的设备。"
+                case .failure: self?.result.stringValue = MacDoubaoMicrophone.restorationStatus
+                }
+            }
+        })
+        voicePage.section("豆包音频组件")
+        voicePage.add(MacBridgeSettingsStyle.note("仅 TAB5 麦克风转送需要 VB-CABLE Mac；Mac／DJI 实体麦克风可直接使用。音频仅送入指定虚拟设备，不改变系统默认输入／输出。组件安装后可能需要重新启动 Mac；实际效果请用 TAB5 录音验收。"))
+        voicePage.add(MacBridgeSettingsStyle.row([MacSettingsButton("检查音频组件") { [weak self] in
+            do { _ = try MacDoubaoAudio.device(); self?.result.stringValue = "VB-CABLE Mac 签名与音频端点检查通过，尚需实际录音验收。" }
+            catch { self?.result.stringValue = error.localizedDescription }
+        },MacSettingsButton("VB-CABLE 官网") { _ = NSWorkspace.shared.open(URL(string:"https://vb-audio.com/Cable/")!) }]))
+        voicePage.add(MacBridgeSettingsStyle.note("Mac 本地识别支持 TAB5 收音或所选 Mac 麦克风；USB / DJI 麦克风连接后可在上方选择。仅在系统支持该语言的本地识别时启动，不自动上传音频。首次启用会请求语音识别与麦克风权限。"))
+        voicePage.add(MacBridgeSettingsStyle.note("识别文字先预览，确认后才能发送或填入设备支持的事项／日期输入框。最长一分钟，取消后丢弃迟到结果。"))
+        voicePage.section("识别与传输状态"); voicePage.add(voiceState)
+        for label in [codexState, desktopState, musicState, voiceState] { label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor }
         reload()
         resizeDocument()
         refreshCodexState()
@@ -68,18 +112,23 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     }
     deinit { timer?.invalidate() }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    func windowWillClose(_ notification:Notification) { voiceInputs?.cancelTest(); doubaoTest?.cancel(); doubaoTest = nil }
     func windowDidResize(_ notification: Notification) { resizeDocument() }
-    private func resizeDocument() { window?.contentView?.layoutSubtreeIfNeeded(); if let documentView, let body { documentView.setFrameSize(NSSize(width: documentView.frame.width, height: max(window?.contentView?.bounds.height ?? 560, body.fittingSize.height + 48))) } }
+    private func resizeDocument() { window?.contentView?.layoutSubtreeIfNeeded(); sections.pages.forEach { $0.fitDocument() } }
     private func refreshCodexState() {
-        let text = "Codex：" + service.codex.summary
+        let requests = service.interactionDiagnostics.summary
+        let text = "Codex：" + service.codex.summary + (requests.isEmpty ? "" : "\n最近会话请求（仅本机诊断，不含传输耗时）：\n" + requests)
         let details = service.voice.diagnostics
-        let speech = "语音：" + service.voice.summary + (details.isEmpty ? "" : "\n" + details)
+        let transfer = service.bleDiagnostics.summary
+        let speech = "语音：" + service.voice.summary + (details.isEmpty ? "" : "\n" + details) +
+            (MacDoubaoMicrophone.restorationStatus.isEmpty ? "" : "\n" + MacDoubaoMicrophone.restorationStatus) +
+            (transfer.isEmpty ? "" : "\n蓝牙传输（本机计时；提交字节不表示设备已接收）：\n" + transfer)
         let playback = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? service.musicDiagnostics : "音乐：尚未启用"
         let direct = "直达：" + service.desktop.summary
         guard codexState.stringValue != text || voiceState.stringValue != speech || musicState.stringValue != playback || desktopState.stringValue != direct else { return }
         codexState.stringValue = text; voiceState.stringValue = speech; musicState.stringValue = playback; desktopState.stringValue = direct; resizeDocument()
     }
-    func open() { reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
+    func open(section: Section? = nil) { if let section { sections.select(section.rawValue) }; reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }
     @objc private func toggleMusic() {
         UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey)
@@ -100,7 +149,28 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     @objc private func toggleDesktop() { if codex.state != .on { desktop.state = .off }; UserDefaults.standard.set(desktop.state == .on, forKey: MacTab5Desktop.enabledKey) }
     @objc private func toggleVoice() {
         if voice.state == .off { UserDefaults.standard.set(false, forKey: MacTab5Voice.enabledKey); service.voice.stop(); return }
+        if MacSpeechProvider.doubao {
+            let installed = MacDoubaoSpeech.installed(); voice.state = installed ? .on:.off
+            UserDefaults.standard.set(installed,forKey:MacTab5Voice.enabledKey)
+            result.stringValue = installed ? "豆包模式已启用；请先测试调用，并在豆包设置中确认麦克风和按住 Fn 快捷键。":"请先安装并启用豆包输入法。"
+            return
+        }
         MacTab5Speech.authorize { [weak self] allowed in guard let self else { return }; self.voice.state = allowed ? .on : .off; UserDefaults.standard.set(allowed, forKey: MacTab5Voice.enabledKey); self.result.stringValue = allowed ? "语音权限已授权；开始时仍会检查本地语言模型是否可用。" : "权限未完整授权，请到系统设置检查。" }
+    }
+    @objc private func changeSpeechProvider() {
+        guard !service.voice.busy, doubaoTest == nil else { speechProvider.selectItem(at:MacSpeechProvider.doubao ? 1:0); result.stringValue = "请先结束当前收音。"; return }
+        UserDefaults.standard.set(speechProvider.indexOfSelectedItem == 1 ? "doubao":"local",forKey:MacSpeechProvider.key)
+        result.stringValue = MacSpeechProvider.doubao ? "已选择豆包。音频由豆包处理；请先测试调用。":"已选择 Mac 本地识别。"
+    }
+    private func testDoubao() {
+        guard !service.voice.busy, doubaoTest == nil else { result.stringValue = "请先结束当前收音。"; return }
+        voiceInputs?.cancelTest()
+        let backend = MacDoubaoSpeech().backend(); doubaoTest = backend
+        do { try backend.start("pc") { [weak self] text, final, failure in DispatchQueue.main.async {
+            guard let self else { return }
+            self.result.stringValue = failure?.message ?? (final ? "豆包草稿已确认；本次测试未发送文字。":"豆包草稿已收到文字（\(text.utf8.count) 字节）。")
+            if final || failure != nil { self.doubaoTest?.cancel(); self.doubaoTest = nil }
+        } } } catch { doubaoTest = nil; result.stringValue = error.localizedDescription }
     }
     @objc private func chooseCLI() {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
@@ -132,5 +202,3 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         } catch { result.stringValue = error.localizedDescription }
     }
 }
-
-private final class MacTab5FeaturesDocument: NSView { override var isFlipped: Bool { true } }

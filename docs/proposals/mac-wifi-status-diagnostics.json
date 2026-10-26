@@ -1,0 +1,21 @@
+{
+  "scope": "Ephemeral numeric status response timing and local-send diagnostics in deep runtime view",
+  "wireChange": false,
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/HTTPStatusServer.swift",
+      "before": "88ef99b50932a99ed6d571a44a839d1aa02b20f737d95ffa85c4b47befb2b336",
+      "after": "6f5a16b629702484401b515c116cdf574ab61e1fb1df7abd1be6982a37424e6d"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/AppDelegate.swift",
+      "before": "18a2474e2021d3fcdc6509fd037f74500b2abf28619b8262f490515b975c0581",
+      "after": "48a089f247981a944a511dbb529882ede980b8884d93479e232d25dc946accae"
+    }
+  ],
+  "releaseBuildPassed": true,
+  "isolatedChecks": 1158,
+  "slowReaderCases": 9,
+  "fullXCTest": "unavailable: current CLT lacks XCTest",
+  "physicalObservation": "HTTP200 generated in5ms, local stack send succeeds; device valid counter remains1719; transport root not established"
+}

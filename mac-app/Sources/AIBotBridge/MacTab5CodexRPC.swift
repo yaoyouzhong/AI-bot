@@ -8,6 +8,27 @@ enum MacTab5CodexFailure: Error { case cliUnavailable, proxyUnavailable, readOnl
 // cannot claim desktop runtime ownership, install a daemon or override policies.
 final class MacTab5CodexRPC {
     static let pathKey = "tab5_codex_cli_path"
+    struct Lines {
+        private var buffer = Data()
+        private var scanned = 0
+        mutating func append(_ chunk: Data) throws -> [Data] {
+            guard chunk.count <= 8 * 1024 * 1024 - buffer.count else { throw MacTab5CodexFailure.protocolError }
+            buffer.append(chunk)
+            var lines: [Data] = []
+            let consumed = buffer.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> Int in
+                var start = 0
+                // Prior chunks contain no unconsumed newline. Rescanning them
+                // on each pipe read makes large JSON responses quadratic.
+                for index in scanned..<bytes.count where bytes[index] == 10 {
+                    lines.append(Data(bytes[start..<index])); start = index + 1
+                }
+                return start
+            }
+            if consumed > 0 { buffer.removeFirst(consumed) }
+            scanned = buffer.count
+            return lines
+        }
+    }
     private let calls = NSLock()
     private let writes = NSLock()
     private let condition = NSCondition()
@@ -63,14 +84,12 @@ final class MacTab5CodexRPC {
         // Drain diagnostics without retaining or logging paths, prompts or tokens.
         DispatchQueue.global(qos: .utility).async { while !stderr.fileHandleForReading.availableData.isEmpty {} }
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            var buffer = Data()
+            var lines = Lines()
             while true {
                 let chunk = stdout.fileHandleForReading.availableData
                 if chunk.isEmpty { break }
-                buffer.append(chunk)
-                if buffer.count > 8 * 1024 * 1024 { break }
-                while let newline = buffer.firstIndex(of: 10) {
-                    let line = Data(buffer[..<newline]); buffer.removeSubrange(...newline)
+                guard let complete = try? lines.append(chunk) else { break }
+                for line in complete {
                     guard let root = try? MacTab5Protocol.object(line) else { continue }
                     self?.receive(root, owner: owner)
                 }

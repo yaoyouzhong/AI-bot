@@ -18,11 +18,11 @@ final class MacTab5VoiceHTTPTests: XCTestCase {
         }
         deinit { service?.voice.stop(); server?.stop() }
         func connect() throws -> HTTPTestConnection { try HTTPTestConnection(port: XCTUnwrap(server.boundPort)) }
-        func request(_ root: [String: Any], connection: String = "", version: String = "HTTP/1.1", validProof: Bool = true) throws -> (wire: Data, nonce: String) {
+        func request(_ root: [String: Any], path: String = "/tab5/v1/voice", connection: String = "", version: String = "HTTP/1.1", validProof: Bool = true) throws -> (wire: Data, nonce: String) {
             var root = root; root["session"] = service.session; root["issuedAt"] = Int64(Date().timeIntervalSince1970 * 1000)
             let nonce = MacTab5Protocol.identifier(), packet = try MacTab5Protocol.encrypt(MacTab5Protocol.json(root), key: key, challenge: nonce)
-            let proof = validProof ? MacTab5Protocol.proof(key: key, message: "POST|/tab5/v1/voice|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))") : "invalid"
-            var wire = Data("POST /tab5/v1/voice \(version)\r\nHost: fixture\r\nContent-Length: \(packet.count)\r\nX-AIBot-Device: \(device)\r\nX-AIBot-Nonce: \(nonce)\r\nX-AIBot-Proof: \(proof)\r\n\(connection.isEmpty ? "" : "Connection: \(connection)\r\n")\r\n".utf8)
+            let proof = validProof ? MacTab5Protocol.proof(key: key, message: "POST|\(path)|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))") : "invalid"
+            var wire = Data("POST \(path) \(version)\r\nHost: fixture\r\nContent-Length: \(packet.count)\r\nX-AIBot-Device: \(device)\r\nX-AIBot-Nonce: \(nonce)\r\nX-AIBot-Proof: \(proof)\r\n\(connection.isEmpty ? "" : "Connection: \(connection)\r\n")\r\n".utf8)
             wire.append(packet); return (wire, nonce)
         }
         func call(_ root: [String: Any], on connection: HTTPTestConnection) throws -> [String: Any] {
@@ -57,5 +57,34 @@ final class MacTab5VoiceHTTPTests: XCTestCase {
         let fixture = try Fixture(), connection = try fixture.connect()
         let reply = try connection.exchange(Data("GET /status HTTP/1.1\r\nX-AIBot-Token: \(String(repeating: "t", count: 32))\r\n\r\n".utf8))
         XCTAssertTrue(reply.head.hasPrefix("HTTP/1.1 200")); XCTAssertTrue(reply.head.contains("Connection: close")); XCTAssertTrue(connection.isClosed())
+    }
+    func testRPCReusesSocketWithoutReconnectAndRejectsReplay() throws {
+        let fixture = try Fixture(), connection = try fixture.connect()
+        // Unsupported operations have no effects but exercise the exact RPC
+        // authentication, encryption, envelope and persistent-socket path.
+        var previous: (wire: Data, nonce: String)?
+        for _ in 0..<5 {
+            let request = try fixture.request(["kind": "fixture-no-effect"], path: "/tab5/v1/rpc")
+            let reply = try connection.exchange(request.wire)
+            XCTAssertTrue(reply.head.hasPrefix("HTTP/1.1 200"))
+            let envelope = try MacTab5Protocol.object(MacTab5Protocol.decrypt(reply.body, key: fixture.key, challenge: request.nonce))
+            XCTAssertEqual(envelope["status"] as? Int, 404)
+            previous = request
+        }
+        let repeated = try XCTUnwrap(previous), replay = try connection.exchange(repeated.wire)
+        let envelope = try MacTab5Protocol.object(MacTab5Protocol.decrypt(replay.body, key: fixture.key, challenge: repeated.nonce))
+        XCTAssertEqual(envelope["status"] as? Int, 409)
+        let invalid = try fixture.request(["kind": "fixture-no-effect"], path: "/tab5/v1/rpc", validProof: false)
+        let rejected = try connection.exchange(invalid.wire)
+        XCTAssertTrue(rejected.head.hasPrefix("HTTP/1.1 401")); XCTAssertTrue(connection.isClosed())
+    }
+    func testRPCEveryRequestAuthenticatesAndRespectsClose() throws {
+        for (header, version, valid) in [("keep-alive, Close", "HTTP/1.1", true), ("", "HTTP/1.0", true), ("", "HTTP/1.1", false)] {
+            let fixture = try Fixture(), connection = try fixture.connect()
+            let request = try fixture.request(["kind": "fixture-no-effect"], path: "/tab5/v1/rpc", connection: header, version: version, validProof: valid)
+            let reply = try connection.exchange(request.wire)
+            XCTAssertTrue(reply.head.hasPrefix(valid ? "HTTP/1.1 200" : "HTTP/1.1 401"))
+            XCTAssertTrue(reply.head.contains("Connection: close")); XCTAssertTrue(connection.isClosed())
+        }
     }
 }

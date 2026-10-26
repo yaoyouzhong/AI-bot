@@ -1,0 +1,43 @@
+{
+  "base": "immutable installed270",
+  "candidate": "artifacts/development/tab5-preview-memory-20261025/candidate",
+  "productFiles": [
+    {
+      "path": "firmware/main/screen_preview.c",
+      "beforeNormalizedSHA256": "cce2d902db03b46d98435af4560b66e53d431526bec1be041751df99bb502c4c",
+      "afterNormalizedSHA256": "8421fa3ed2aeae3a9ad537c786435180946dd742198f9b973c348e5b8c6b24a6"
+    },
+    {
+      "path": "firmware/main/screen_preview.h",
+      "beforeNormalizedSHA256": "5b1eb53c358e428a8fc7ec379eb5bf474c633e1391390c8929cb431785d1268c",
+      "afterNormalizedSHA256": "62111dfed79c21ea13c24cf54aeba637e668610b5d06dc08f19d5a82c170fac0"
+    },
+    {
+      "path": "firmware/main/screen_preview.inc",
+      "beforeNormalizedSHA256": "47ec22250ea6054f158f7f7659320c63cc066af36d074e60e3d5b6217516c9dc",
+      "afterNormalizedSHA256": "6a542327145140971ae7ec3c313b10c74b3e4098be8be601f297e993bd5da3fd"
+    },
+    {
+      "path": "firmware/main/ui.c",
+      "beforeNormalizedSHA256": "273906ce024116caa3c45c2f942d205b889ea675970ae36309d512752bb37ae1",
+      "afterNormalizedSHA256": "984b7aa02757724f1210925d0702966ce969e23980c380c38f21320da15c6b3b"
+    }
+  ],
+  "wireProtocolChanged": false,
+  "SDKChanged": false,
+  "imageGenerated": true,
+  "targetObjects": [
+    "screen_preview.c",
+    "ui.c"
+  ],
+  "nativeChecks": [
+    "actual worker/unmodified JPEG under UBSan",
+    "fresh authenticated admission and bounded cache pause",
+    "actual trim predicate and JPEG cache ownership"
+  ],
+  "hardwareAcceptance": "pending future unified firmware; current270 memory failure remains open",
+  "cachePauseMilliseconds": 5000,
+  "integratedCandidate": "0.2.271-ui",
+  "integratedImageSHA256": "b685f7e4e650c41dab6529c74b934db00781105e51802a6ed6847a590b0a2a48",
+  "physicalAcceptance": false
+}

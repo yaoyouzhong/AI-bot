@@ -50,6 +50,10 @@ enum MacKeychainAccess {
               BridgeKeychain.certificate(code) != nil else { throw BridgeKeychain.Failure.identity }
         guard try perform(.init(operation: "probe", account: "pairing-token")).status == errSecSuccess else { throw BridgeKeychain.Failure.unavailable }
     }
+    static func remove(_ account:String) throws {
+        let result = try perform(.init(operation:"remove",account:account))
+        guard result.status == errSecSuccess else { throw BridgeKeychain.Failure.status(result.status) }
+    }
     static func save(_ account: String, _ value: Data, addOnly: Bool = false) throws {
         let result = try perform(.init(operation: addOnly ? "add" : "save", account: account, value: value))
         guard result.status == errSecSuccess else { throw BridgeKeychain.Failure.status(result.status) }

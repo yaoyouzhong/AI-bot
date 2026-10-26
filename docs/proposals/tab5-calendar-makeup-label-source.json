@@ -1,0 +1,29 @@
+{
+  "status": "Source patch and native LVGL validation complete. Firmware build stopped at user request before producing an image; no preparation, device write or public release.",
+  "baseVersion": "0.2.267-ui",
+  "baseFirmwareSha256": "60ccffe6c2e1625a36b11ee3ad60eeec72b737b02b11619ad51fd538d08ff0e4",
+  "baseSource": "artifacts/mac-usb-ble-unlock-20261024-main264/candidate",
+  "patchSha256": "a2222054d71c5e20126d00f1ad89ae2c578c5110b3a36064199ccc91d49d43c7",
+  "files": [
+    {
+      "path": "firmware/main/ui_calendar.h",
+      "baseSha256LF": "4ce0eac649e44c0d1d49b3843f359304646374f0b4e63c1bb6a8b030b02eb60c",
+      "candidateSha256LF": "2b54acf0fba63052de6d825be0e7c2267d206aa0076971b74219d5ac15dac295"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "baseSha256LF": "8465684896f55cc513b8d3e8925311ea8b0773a25fbe48e5739c8309460789fc",
+      "candidateSha256LF": "8ed9248e14c7c61d2b8278e23cd17f7345b43525f5ba9da30441c283f5df47e4"
+    }
+  ],
+  "publicSourceReference": "2bd5d69a56fd9a42953e29cfc428940dfb6daa6a + docs/proposals/tab5-mac-host-unlock.patch",
+  "validation": {
+    "nativeUi": "passed",
+    "evidence": "artifacts/development/tab5-calendar-label-20261024",
+    "before": "before/before.log",
+    "after": "after/after.log",
+    "firmwareBuild": "cancelled by user; no image produced",
+    "device": "0.2.267-ui unchanged; duplicate label fix not yet installed"
+  },
+  "workflow": "Finish remaining acceptance and source fixes before generating a combined firmware candidate."
+}

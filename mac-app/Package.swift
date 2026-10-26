@@ -8,8 +8,9 @@ let package = Package(
                .executable(name: "AIBotKeychainHelper", targets: ["AIBotKeychainHelper"])],
     targets: [
         .target(name: "MacKeychainSupport"),
+        .target(name: "MacARDKeyAgreement", linkerSettings: [.linkedFramework("Security")]),
         .executableTarget(name: "AIBotKeychainHelper", dependencies: ["MacKeychainSupport"]),
-        .executableTarget(name: "AIBotBridge", dependencies: ["MacKeychainSupport"]),
+        .executableTarget(name: "AIBotBridge", dependencies: ["MacKeychainSupport", "MacARDKeyAgreement"]),
         .testTarget(name: "AIBotBridgeTests", dependencies: ["AIBotBridge", "MacKeychainSupport"], resources: [.copy("Fixtures")])
     ]
 )

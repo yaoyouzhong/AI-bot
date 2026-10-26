@@ -1,0 +1,55 @@
+{
+  "base": "R14 complete; physical pure recording failed",
+  "productFiles": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5SpeechTranscript.swift",
+      "beforeSHA256": "52bf08801938870f2377fb892f4fcf1b60c9ab6feb6a73e371bb96d0bc0feb8e",
+      "afterSHA256": "5300e95e7d869c50de04339f93ef712b05d5b07b3404aeacd0898b9ed4f7a9f0"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USB.swift",
+      "beforeSHA256": "abef4e0e43839afb84d584ca15528bb83e383eecafa08f5bba2287a50ccfa3a0",
+      "afterSHA256": "5b6bfc0220cc067678b220174bd92b047531225ded04e61eb50cf6d1049c1843"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USBLeaseValidation.swift",
+      "beforeSHA256": "be1f04c324ee85f92e69cdaca19e3ddff9d74b98b8de6ef92af8584b49204e2e",
+      "afterSHA256": "37afbf5197026d215b9332a2c29567e079faaeb7cd20851bb43e6161b36414a5"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USBStatusValidation.swift",
+      "beforeSHA256": "6906e90ef69d3a3082d42cb7e77000bd22b0bf3cda8338fe1b3bf304446714a7",
+      "afterSHA256": "3536cb18f071686f03a7940db2f0be148626c1b746cf69e2fbad899c386014a8"
+    },
+    {
+      "path": "mac-app/Tests/AIBotBridgeTests/MacTab5SpeechTranscriptTests.swift",
+      "beforeSHA256": "9d6ab70bbf9769caf488aea342233e383d5312de3b8f4ff45f21531a6959bfff",
+      "afterSHA256": "758ae161b6075fb07676f4023995502f5d7af30c7784f11df8b371688c77d603"
+    }
+  ],
+  "wireProtocolChanged": false,
+  "firmware": "0.2.272-ui",
+  "deployed": true,
+  "physicalRecordingAcceptance": true,
+  "paragraphAcceptance": true,
+  "debugChecks": 1521,
+  "releaseBuild": "passed",
+  "transcriptNativeAssertions": 35,
+  "transcriptNativeMethods": 14,
+  "serialTraceNativeCases": 4,
+  "XCTest": "unavailable: no such module XCTest",
+  "evidence": "artifacts/development/mac-voice-usb-r15-20261025",
+  "scope": "Recognition-only paragraph joining; existing known269+ USB delta ownership maintenance; bounded content-free serial timeout phase/timing/zero-read/EAGAIN diagnostics. Legacy/unknown firmware retains full two-second refresh. No command retry, microphone timing, eight-second voice cutoff or wire fields changed.",
+  "limits": "Two consecutive272/R15 takes pass; long-term connections/all transport modes not inferred.",
+  "runningPID": 66212,
+  "releaseChecks": 1521,
+  "httpChecks": 16,
+  "musicChecks": 9,
+  "signatureVerified": true,
+  "helperByteIdentical": true,
+  "sourceFilesVerified": 229,
+  "bundle": "artifacts/mac-voice-usb-r15-complete-20261025/AIBotBridge.app",
+  "physicalResult": "User confirms two consecutive272/R15 rounds: single-tap fast stop, complete single-paragraph text, no early end/interruption. Earlier271 stop failures retained in development history.",
+  "singleTapStopAcceptance": true,
+  "consecutiveRecordingRoundsAccepted": 2
+}
