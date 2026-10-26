@@ -32,6 +32,14 @@ generation and ICO conversion record was reviewed in local task
 `01a03295-faf1-7f02-87aa-c3942ca274c7`; the imported ICO hash matches the old
 application's asset. This is not the upstream `happy-mac.png` or any vendor logo.
 
+The macOS bridge reuses this same reviewed robot through
+`scripts/build_macos_app_icon.py`. Matching PNG frames are retained; larger
+macOS icon representations only resize the largest source frame. `AppIcon.icns`
+is generated during packaging and is not a new artwork source.
+
+macOS 桥接通过上述脚本复用同一已核验机器人图标；匹配尺寸沿用原 PNG，
+大尺寸仅缩放原有最大帧。`AppIcon.icns` 在打包时生成，不另行引入图像来源。
+
 The following narrowly scoped source was reviewed against the local legacy checkout at
 `2efab1d0661e24b926c0fef808522d427a0cd5d0`. File/line blame attributes the migrated
 code to 姚有忠; this does not authorize copying the surrounding third-party framework.
@@ -63,6 +71,10 @@ settings framework, RGB565 implementation, and firmware globals were not importe
 
 Third-party libraries are consumed through their normal package managers and retain their own licenses. See `THIRD_PARTY_NOTICES.md`.
 
+Solar-term network updates now read public date facts from the Chinese Academy of Sciences, Purple Mountain Observatory official annual-calendar index. The Swift/C# index parsers, year/month/term validation and cache conversion are independent AI-bot implementations; no source documents, layouts, logos or publisher code are bundled. Mac uses system PDFKit, while Windows consumes unmodified PdfPig 0.1.16 through NuGet with its full original license and embedded component notices retained. See `licenses/pmo-calendar/NOTICE.md`, `licenses/pdfpig/` and `docs/DATA_SOURCES.md`. An initially evaluated NAOJ implementation was withdrawn before packaging or deployment after the user's domestic-source preference; it is not a product dependency or network fallback.
+
+节气联网更新改读中国科学院紫金山天文台官方年度日历的公开日期事实，索引读取、年月／节气校验和缓存转换均由本项目独立编写。不捆绑来源文档、排版、标志或发布方代码。Mac 使用系统 PDFKit；Windows 通过 NuGet 使用未修改的 PdfPig 0.1.16 并保留完整原许可。先前试验的日本源在打包及部署前已撤回，不作为产品依赖或联网回退。
+
 Claude, Codex, OpenAI, Anthropic, and other product names are referenced to describe interoperability. AI-bot is not affiliated with or endorsed by those vendors. Application and firmware packages do not bundle vendor logos. The media-only mascot preview described below carries a separately attributed Codex mark.
 
 The built-in `BYTE SPROUT` pixel pet is drawn from geometric primitives in AI-bot firmware. It does not contain or derive from an imported sprite, screenshot, character, or logo.
@@ -84,7 +96,7 @@ maintainer migrations and the C# weather-animation port. It did not identify an
 additional copied upstream implementation. This is a bounded similarity check,
 not proof of copyright ownership or a complete derivative-work analysis.
 
-The sole bundled application image/icon is the reviewed robot ICO; its SHA-256 is pinned in
+The bundled application artwork is the reviewed robot ICO and its generated macOS ICNS representation; the source ICO SHA-256 is pinned in
 `licenses/materials.json`. The similarly named `TestFixtures/claude_sprite.h` is
 three synthetic red/green/blue pixels, not a legacy sprite; its LF-normalized hash
 is also checked. Runtime importers, backup extraction and comparison tools contain

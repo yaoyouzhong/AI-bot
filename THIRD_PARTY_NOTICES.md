@@ -67,6 +67,14 @@ Device backups are private runtime data, never distribution materials.
 
 The Windows TAB5 voice bridge uses NAudio.Wasapi and NAudio.Core 2.2.1 (MIT), by Mark Heath and contributors. Source: https://github.com/naudio/NAudio. The original MIT notice is retained in `licenses/naudio/license.txt`. VB-CABLE is a separately installed third-party driver and is not bundled or licensed by this repository.
 
+## Solar-term date facts / 节气日期数据
+
+Mac and Windows read public date facts from the Chinese Academy of Sciences, Purple Mountain Observatory annual calendars: https://pmo.cas.cn/xwdt2019/kpdt2019/202203/t20220309_6386774.html. No source PDF, website layout, logo or publisher code is bundled. Attribution and the current publication boundary are recorded in `licenses/pmo-calendar/NOTICE.md`; the source documents retain the publisher's rights.
+
+Windows uses PdfPig 0.1.16 by UglyToad and contributors to extract PDF text. Package: https://www.nuget.org/packages/PdfPig/0.1.16; source: https://github.com/UglyToad/PdfPig. The complete original license, including its PDFBox/FontBox and Adobe component notices, is retained in `licenses/pdfpig/LICENSE` and copied with Windows output. Mac uses system PDFKit and does not depend on PdfPig.
+
+两端独立读取中国科学院紫金山天文台公开节气日期事实，不捆绑来源 PDF、网页布局、标志或发布方代码。Windows 的 PDF 文字读取使用 PdfPig 0.1.16，保留完整 Apache-2.0 与其内嵌组件许可；Mac 使用系统 PDFKit。数据归属、发布范围及依赖原许可见上述记录。
+
 ## Mainland China holiday dataset
 
 TAB5 checks the publicly maintained holiday-cn JSON dataset by NateScarlet (MIT): https://github.com/NateScarlet/holiday-cn. Each accepted year must cite a State Council notice; this is a third-party dataset, not an official government API. The 2026 test fixture comes from that project. Its original license is retained in `licenses/holiday-cn/LICENSE`. Cached schedules survive network failures; unpublished years are never generated from predictions.

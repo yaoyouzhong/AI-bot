@@ -114,18 +114,24 @@ internal static class Tab5PinSelfTest
         typeof(Tab5Service).GetField("_pinBroker",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(service,new Tab5PinBroker(store,()=>new(Locked:true,DisplayState:1)));
         service.Publish(new StatusSnapshot(1,"12:00",1000,28800,DateTimeOffset.UtcNow,new("idle",0),new("idle",0)));
         using var frame=JsonDocument.Parse(service.CurrentFrame!);string session=frame.RootElement.GetProperty("session").GetString()!;
-        async Task<int> Call(bool proofOk=true,bool stale=false,bool oldSession=false,string transport="USB",string? requestId=null,bool binary=true){
-            string nonce=Guid.NewGuid().ToString("N");byte[] json=JsonSerializer.SerializeToUtf8Bytes(new{kind="unlock-pin",op="read",requestId=requestId??Guid.NewGuid().ToString("D"),session=oldSession?"old":session,issuedAt=DateTimeOffset.UtcNow.AddSeconds(stale?-121:0).ToUnixTimeMilliseconds(),binaryReply=binary});
+        async Task<int> Call(bool proofOk=true,bool stale=false,bool oldSession=false,string transport="USB",string? requestId=null,bool binary=true,string kind="unlock-pin"){
+            string nonce=Guid.NewGuid().ToString("N");byte[] json=JsonSerializer.SerializeToUtf8Bytes(new{kind,op=kind=="host-unlock"?"begin":"read",requestId=requestId??Guid.NewGuid().ToString("D"),session=oldSession?"old":session,issuedAt=DateTimeOffset.UtcNow.AddSeconds(stale?-121:0).ToUnixTimeMilliseconds(),binaryReply=binary});
             byte[] packet=Tab5Protocol.Encrypt(key,nonce,binary?Tab5RpcBinary.Encode(json):json);
             string proof=proofOk?Tab5Protocol.Proof(key,$"POST|/tab5/v1/rpc|{pair.DeviceId}|{nonce}|{Convert.ToHexString(SHA256.HashData(packet)).ToLowerInvariant()}"):new string('0',64);
             var reply=await service.RpcAsync(pair.DeviceId,nonce,proof,packet,CancellationToken.None,transport:transport);
             if(reply.Status!=200)return reply.Status;using var body=Tab5RpcBinary.Open(Tab5Protocol.Decrypt(key,nonce,reply.Packet!)).Metadata;
             int status=body.RootElement.GetProperty("status").GetInt32();
+            if(kind=="host-unlock"){
+                var unsupported=body.RootElement.GetProperty("body");
+                Check(status==409&&unsupported.GetProperty("error").GetString()=="host_unlock_unsupported"&&!unsupported.GetProperty("unlocked").GetBoolean()&&!unsupported.TryGetProperty("packet",out _),"host intent must not return a PIN");
+                return status;
+            }
             if(status==200){var envelope=body.RootElement.GetProperty("body");string aad=envelope.GetProperty("requestId").GetString()!.Replace("-","");var clearPin=Tab5Protocol.Decrypt(key,aad,Convert.FromBase64String(envelope.GetProperty("packet").GetString()!),128);Check(clearPin.AsSpan().SequenceEqual("123456"u8),"RPC envelope PIN mismatch");CryptographicOperations.ZeroMemory(clearPin);}
             return status;
         }
         Check(await Call(proofOk:false)==401&&await Call(stale:true)==400&&await Call(oldSession:true)==400,"RPC authentication bypass");
         Check(await Call(transport:"Wi-Fi")==400,"Wi-Fi route enabled");
+        Check(await Call(kind:"host-unlock")==409&&await Call(transport:"BLE",kind:"host-unlock")==409&&await Call(transport:"Wi-Fi",kind:"host-unlock")==409,"unsupported host intent route");
         string id=Guid.NewGuid().ToString("D");Check(await Call(requestId:id)==200&&await Call(transport:"BLE",requestId:id)==409,"cross-transport replay");
         Check(await Call(transport:"BLE")==200&&await Call(binary:false)==200,"authenticated BLE or JSON failed");store.SetEnabled(pair,false);Check(await Call()==404&&await Call(transport:"BLE")==404&&store.Has(pair),"RPC ignored disabled switch");
         store.SetEnabled(pair,true);Check(await Call()==200,"RPC reenable failed");store.Delete();Check(await Call()==404,"RPC deleted credential returned");

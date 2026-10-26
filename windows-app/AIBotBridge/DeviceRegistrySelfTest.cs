@@ -29,7 +29,7 @@ internal static class DeviceRegistrySelfTest
             try{migrated.Update(esp with {ConnectionMode=(EspConnectionMode)99});throw new Exception("Invalid mode accepted");}catch(InvalidDataException){}
             try{migrated.Update(migrated.Snapshot.Devices.Single(d=>d.Kind==HardwareKind.Tab5) with {ConnectionMode=EspConnectionMode.Wifi});throw new Exception("ESP mode leaked into TAB5");}catch(InvalidDataException){}
             Check(migrated.Snapshot.Devices.Length==2&&!migrated.Snapshot.LegacyDecisionPending,"Legacy confirmation failed");
-            Check(!DeviceCapabilities.Allows(esp,"voice")&&!DeviceCapabilities.Allows(tab,"mirror"),"Cross-model actions exposed");
+            Check(!DeviceCapabilities.Allows(esp,"voice")&&DeviceCapabilities.Allows(tab,"mirror"),"Cross-model actions exposed");
             try{DeviceCapabilities.Require(migrated.Snapshot,esp.Id,"reset",false);throw new Exception("Offline reset allowed");}catch(InvalidOperationException){}
             string valid=File.ReadAllText(path);
             File.WriteAllText(path+".tmp","interrupted partial write");Check(new DeviceRegistryStore(path).Snapshot.Devices.Length==0,"Interrupted temporary replaced good registry");

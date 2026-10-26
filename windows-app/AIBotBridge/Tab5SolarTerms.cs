@@ -17,7 +17,7 @@ internal static class Tab5SolarTerms
             bool failed=false;
             try {
                 string folder=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AI-bot","calendar");
-                using var client=new HttpClient {Timeout=TimeSpan.FromSeconds(15),MaxResponseContentBufferSize=131072};
+                using var client=new HttpClient {Timeout=TimeSpan.FromSeconds(15),MaxResponseContentBufferSize=4194304};
                 // Restore all cached years before waiting on any network request.
                 for(int y=year-1;y<=year+3;y++) {
                     string path=Path.Combine(folder,$"terms-{y}.txt");
@@ -27,13 +27,22 @@ internal static class Tab5SolarTerms
                         }
                     }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException){ }
                 }
+                async Task<byte[]> Download(Uri url,int maximum) {
+                    using var response=await client.GetAsync(url);
+                    response.EnsureSuccessStatusCode();
+                    if(response.RequestMessage?.RequestUri is not {} final||!Tab5SolarTermSource.Allowed(final))throw new ArgumentException("日历来源无效");
+                    byte[] bytes=await response.Content.ReadAsByteArrayAsync();
+                    if(bytes.Length>maximum)throw new ArgumentException("日历数据过大");
+                    return bytes;
+                }
+                var documents=Tab5SolarTermSource.Documents(System.Text.Encoding.UTF8.GetString(await Download(Tab5SolarTermSource.Catalog,524288)));
                 for(int y=year-1;y<=year+3;y++) {
                     try {
-                        string table=await client.GetStringAsync($"https://www.hko.gov.hk/tc/gts/time/calendar/text/files/T{y}c.txt");
-                        Save(folder,y,table);
+                        if(documents.TryGetValue(y,out var url))Save(folder,y,Tab5SolarTermSource.Table(await Download(url,4194304),y));
                     }catch(Exception ex) when(ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or ArgumentException){failed=true;}
                 }
-            }finally{lock(Gate){_next=DateTimeOffset.UtcNow.AddHours(failed?1:24);_busy=false;}}
+            }catch(Exception ex) when(ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or ArgumentException){failed=true;}
+            finally{lock(Gate){_next=DateTimeOffset.UtcNow.AddHours(failed?1:24);_busy=false;}}
         });
     }
     internal static int[] Save(string folder,int year,string table) {
