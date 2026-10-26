@@ -7,7 +7,17 @@ struct MacDisplayPolicy: Codable {
     var pages:[String]
     var cycleStartedAt:Int64? = nil
     static var cycleAnchor=Int64(Date().timeIntervalSince1970)
-    static let modes=["claude","codex","dual","weather","stocks","system","music","pet"]
+    static func displayCodexState(_ input: ToolState, epoch: Int64) -> ToolState {
+        var result = input
+        if result.completionActive, epoch >= result.completionAt, epoch - result.completionAt >= 12 { result.completionActive = false }
+        return result
+    }
+    static let pageLabels = [("claude","Claude"),("codex","Codex"),("dual","Claude + Codex 额度"),("domestic_alibaba","阿里云"),("domestic_kimi","Kimi"),("domestic_minimax","MiniMax"),("domestic_deepseek","DeepSeek"),("domestic_zhipu","智谱 GLM"),("domestic_stepfun","阶跃星辰余额"),("domestic_baidu","千帆模型资源包"),("domestic_xiaomi","小米 MiMo"),("system","系统监控"),("music","音乐播放"),("stocks","股票行情"),("weather","天气时钟"),("pet","桌宠")]
+    static let modes = pageLabels.map(\.0)
+    static func restoreCycleDefault(defaults: UserDefaults = .standard) {
+        defaults.set("auto", forKey:"display_mode")
+        defaults.set(true, forKey:"display_cycle_enabled")
+    }
     static func load(selected:String?=nil)->MacDisplayPolicy {
         let defaults=UserDefaults.standard
         let pages=(defaults.stringArray(forKey:"display_cycle_pages") ?? ["codex","claude","weather","stocks"]).filter{modes.contains($0)}
@@ -129,6 +139,14 @@ final class MacMirrorView:NSView {
             text(s.domesticActivity?.activeProvider.uppercased() ?? "LOCAL ACTIVITY",18,30,210,30,20,.cyan)
             text(s.domesticActivity?.state ?? "offline",18,90,210,30,20,.white)
             text("本机 Tokens",18,150,210,22,14,.gray);text(String(s.domesticActivity?.tokensToday ?? 0),18,177,210,32,25,.white)
+        case let page where page.hasPrefix("domestic_"):
+            let provider = String(page.dropFirst("domestic_".count))
+            let q = s.domesticQuotas?[provider]
+            text(Self.providerTitle(provider),18,22,210,30,20,.cyan)
+            guard let q else { text("等待账户数据",18,100,210,30,18,.gray); return }
+            if let balance = q.balance { text(String(format:"%.2f %@",balance,q.currency ?? ""),18,78,210,36,24,.white) }
+            else { text("短周期 \(percent(q.primaryPercent))",18,78,210,26,18,.white); text("周额度 \(percent(q.weeklyPercent))",18,112,210,26,18,.white) }
+            text(q.plan ?? "",18,152,210,25,13,.gray); text(q.stale ? "上次成功数据":"账户额度",18,190,210,24,13,q.stale ? .orange:.gray)
         default:
             let role=s.claude.state=="working" && s.codex.state != "working" ? "claude":"codex"
             text(role.uppercased(),20,20,210,22,15,.cyan);pet(role,centerY:120,animate:s.claude.state=="working" || s.codex.state=="working")
@@ -141,6 +159,7 @@ final class MacMirrorView:NSView {
     }
     private var animationTime:[String:(Date,Int)]=[:]
     private func centered(_ value:String,_ rect:NSRect,_ font:NSFont,_ color:NSColor){let style=NSMutableParagraphStyle();style.alignment = .center;style.lineBreakMode = .byTruncatingTail;(value as NSString).draw(in:rect,withAttributes:[.font:font,.foregroundColor:color,.paragraphStyle:style])}
+    private static func providerTitle(_ id:String) -> String { MacDisplayPolicy.pageLabels.first { $0.0 == "domestic_" + id }?.1 ?? id }
     private func quotaRing(_ percent:Double){var remaining=CGFloat(min(100,max(0,percent)))*9.28;NSColor(calibratedRed:0,green:0.85,blue:0.2,alpha:1).setFill();for index in 0..<4 {let length=min(232,max(0,remaining));let rect:NSRect;switch index {case 0:rect=NSRect(x:4,y:4,width:length,height:10);case 1:rect=NSRect(x:226,y:4,width:10,height:length);case 2:rect=NSRect(x:236-length,y:226,width:length,height:10);default:rect=NSRect(x:4,y:236-length,width:10,height:length)};rect.fill();remaining-=232}}
     private func digit(_ value:Int,_ x:CGFloat,_ y:CGFloat,_ w:CGFloat,_ h:CGFloat,_ color:NSColor) {
         let t=max(2,w/7),half=h/2
@@ -154,16 +173,7 @@ final class MacMirrorView:NSView {
     }
     // Original BYTE SPROUT; importing artwork is optional.
     private func defaultPet(centerY:CGFloat,working:Bool,tick:Int) {
-        let x:CGFloat=91,y=centerY-49
-        let shell:NSColor=working ? .cyan:.darkGray
-        func box(_ dx:CGFloat,_ dy:CGFloat,_ w:CGFloat,_ h:CGFloat,_ color:NSColor){color.setFill();NSRect(x:x+dx,y:y+dy,width:w,height:h).fill()}
-        box(27,0,4,10,shell);box(23,0,12,4,shell)
-        shell.setFill();NSBezierPath(roundedRect:NSRect(x:x+8,y:y+10,width:42,height:35),xRadius:5,yRadius:5).fill()
-        box(14,17,30,19,.black);box(20,23,5,6,working ? .green:.lightGray);box(34,23,5,6,working ? .green:.lightGray)
-        shell.setFill();NSBezierPath(roundedRect:NSRect(x:x+12,y:y+48,width:34,height:42),xRadius:5,yRadius:5).fill()
-        box(20,59,18,5,.black);box(5,54,7,27,shell);box(46,54,7,27,shell)
-        let step=working && (tick/240)%2==1
-        box(step ? 6:15,90,17,8,shell);box(step ? 32:41,90,17,8,shell)
+        MacByteSprout.draw(x: 91, y: centerY - 49, working: working, tick: tick)
     }
     private func quota(_ q:ProviderQuotaSnapshot?,label:String,top:CGFloat){text(label+"  "+(q?.plan ?? ""),20,top,200,23,15,.cyan);text("5H \(percent(q?.primaryPercent))  \(reset(q?.primaryResetsAt))",20,top+28,200,24,14,.white);text("WK \(percent(q?.weeklyPercent))  \(reset(q?.weeklyResetsAt))",20,top+55,200,24,14,.white)}
     private func percent(_ value:Double?)->String {value.map{String(format:"%.0f%%",$0)} ?? "--"}

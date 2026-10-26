@@ -1,0 +1,178 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1114,9 +1114,8 @@
+     }
+ }
+ static void codex_sync_tick(int64_t now) {
+-    if(photo_flow)return;
+     if(codex_voice_waiting||codex_waiting)return;
+-    if(codex_local_dirty&&now-codex_edit_at>=1500&&!codex_checkpoint_write()) {
++    if(!photo_flow&&codex_local_dirty&&now-codex_edit_at>=1500&&!codex_checkpoint_write()) {
+         codex_edit_at=now;ui_text(codex_voice_hint,"本机草稿尚未保存");
+     }
+     if(codex_syncing) {
+@@ -1155,7 +1154,7 @@
+     }
+     // Desktop Quick Console owns a separate composer. Finish any previous
+     // request above, but do not keep launching hidden draft jobs during a visit.
+-    if(quick_visible||photo_open_pending||codex_reading||codex_syncing||codex_send_queued||now<codex_sync_next)return;
++    if(photo_flow||quick_visible||photo_open_pending||codex_reading||codex_syncing||codex_send_queued||now<codex_sync_next)return;
+     codex_draft *d=NULL;
+     if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].dirty&&!codex_drafts[i].request[0]){d=&codex_drafts[i];break;}
+     if(!d) {d=codex_draft_for(codex_selected,true);if(!d||d->loaded||d->request[0])return;}
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -81,6 +81,11 @@
+     codex_sync_next=esp_timer_get_time()/1000+1200;codex_read_next=codex_sync_next;
+ }
+ static void photo_upload(void) {
++    // Finish the preceding mailbox result before starting the upload. The
++    // captured image stays reviewable/cancellable; no request is overwritten.
++    if(codex_reading||codex_syncing||codex_load_waiting) {
++        ui_text(photo_note,"照片已保留，电脑就绪后再点添加");return;
++    }
+     size_t size=0;const uint8_t *data=photo_data(&size);
+     int64_t age=esp_timer_get_time()/1000-last_received;
+     const char *session=text(item(shown,"pcInput"),"session");
+@@ -148,12 +153,15 @@
+     codex_feedback_pinned=true;codex_submit_accepted=false;
+     if(!d){ui_text(codex_receipt,"请先选择会话");return;}
+     if(codex_waiting||codex_voice_waiting||codex_send_queued||d->request[0]){photo_open_pending=false;ui_text(codex_receipt,"请先完成发送或录音，再打开相机");return;}
+-    if(codex_reading||codex_syncing||codex_load_waiting) {
+-        photo_open_pending=true;snprintf(photo_open_task,sizeof(photo_open_task),"%s",codex_selected);
+-        ui_text(codex_receipt,"正在准备相机，请稍候…");return;
+-    }
+     photo_open_pending=false;
+     if(d->images[2][0]){ui_text(codex_receipt,"最多添加 3 张照片");return;}
++    // Opening a local camera does not use the remote mailbox. Only an actual
++    // initial load of this draft may still supply attachments we must retain.
++    if(!d->loaded&&!d->dirty&&!strcmp(codex_sync_task,codex_selected)&&
++       !strcmp(codex_sync_op,"draft-load")&&(codex_syncing||codex_load_waiting)) {
++        photo_open_pending=true;snprintf(photo_open_task,sizeof(photo_open_task),"%s",codex_selected);
++        ui_text(codex_receipt,"正在恢复当前草稿，请稍候…");return;
++    }
+     if(!codex_save_draft())return;
+     ui_text(codex_receipt,"正在打开摄像头…");
+     codex_keyboard_done(NULL);
+@@ -176,7 +184,7 @@
+        photo_flow||codex_waiting||codex_voice_waiting||codex_send_queued||d->request[0]||ota_update_busy()) {
+         photo_open_pending=false;return;
+     }
+-    if(!codex_reading&&!codex_syncing&&!codex_load_waiting)photo_open(NULL);
++    photo_open(NULL);
+ }
+ static void photo_remove(lv_event_t *e) {
+     int index=(int)(intptr_t)lv_event_get_user_data(e);codex_draft *d=codex_draft_for(codex_selected,false);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1877,6 +1877,45 @@
+     lv_indev_delete(touch);puts("NETWORK_LAYOUT_UI_OK aligned_groups_compact_actions_pointer_detail_navigation_original_workflows");
+ }
+ 
++static void check_camera_open_readiness(void) {
++    page(8);
++    snprintf(codex_selected,sizeof(codex_selected),"00000000-0000-4000-8000-000000000111");
++    codex_draft *d=codex_draft_for(codex_selected,true);assert(d);
++    assert(codex_store_text(d,"camera readiness fixture",true));codex_set_text(d->text);
++    for(int i=0;i<3;i++)codex_uuid(d->images[i]);
++    char retained[3][37];memcpy(retained,d->images,sizeof(retained));
++    unsigned starts=preview_camera_starts;int submissions=preview_submit_count;
++    codex_waiting=codex_voice_waiting=codex_send_queued=photo_flow=false;
++    codex_reading=codex_syncing=codex_load_waiting=true;
++    photo_open(NULL);
++    assert(!photo_open_pending&&!photo_flow&&preview_camera_starts==starts);
++    assert(strstr(lv_label_get_text(codex_receipt),"最多添加"));
++    assert(!memcmp(retained,d->images,sizeof(retained))&&!strcmp(d->text,"camera readiness fixture"));
++    d->images[2][0]=0;codex_load_waiting=false;
++    photo_open(NULL);photo_open(NULL);
++    assert(photo_flow&&!photo_open_pending&&preview_camera_starts==starts+1);
++    assert(codex_reading&&codex_syncing); // Do not abandon or replay pending work.
++    assert(!memcmp(retained,d->images,2*37)&&!d->images[2][0]);
++    photo_step=2;photo_upload();
++    assert(photo_step==2&&strstr(lv_label_get_text(photo_note),"照片已保留"));
++    codex_reading=false;preview_result_code=200;
++    strcpy(codex_sync_op,"draft-save");snprintf(codex_sync_task,sizeof(codex_sync_task),"%s",d->id);
++    codex_sync_revision=d->revision;codex_sync_tick(esp_timer_get_time()/1000);
++    assert(photo_flow&&!codex_syncing&&!d->dirty&&d->loaded);
++    assert(!memcmp(retained,d->images,2*37));
++    camera_preview_stop();photo_finish();
++    d->loaded=false;d->dirty=false;strcpy(codex_sync_op,"draft-load");codex_syncing=true;
++    photo_open(NULL);assert(photo_open_pending&&!photo_flow&&preview_camera_starts==starts+1);
++    assert(strstr(lv_label_get_text(codex_receipt),"恢复当前草稿"));
++    page(0);page(8);codex_syncing=false;photo_open_tick();
++    assert(!photo_open_pending&&!photo_flow&&preview_camera_starts==starts+1);
++    d->loaded=true;strcpy(d->request,"00000000-0000-4000-8000-000000000222");
++    photo_open(NULL);assert(!photo_flow&&preview_camera_starts==starts+1);
++    d->request[0]=0;
++    assert(preview_submit_count==submissions&&!memcmp(retained,d->images,2*37));
++    puts("CAMERA_READY_UI_OK full_limit_immediate_local_open_during_read_save_no_duplicate_upload_waits_mailbox_completed_save_drained_draft_retained_restore_gate_navigation_cancel_pending_send_blocked");
++}
++
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -1896,6 +1935,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_CAMERA_READY_ONLY")){check_camera_open_readiness();return 0;}
+     if(getenv("TAB5_PHOTO_TRANSITION_ONLY")){check_photo_add_transition();check_photo_upload_transition();return 0;}
+     if(getenv("TAB5_ORIENTATION_ONLY")) {
+         page(9);settings_select(1);lv_obj_update_layout(settings_scroll);
+@@ -4445,8 +4485,7 @@
+     strcpy(photo_draft->request,"00000000-0000-4000-8000-000000000001");
+     lv_obj_send_event(composer_remove[0],LV_EVENT_CLICKED,NULL);assert(photo_draft->images[1][0]);
+     photo_draft->request[0]=0;
+-    // One camera click waits for an in-flight read/sync, then opens once.
+-    // Background polling must not steal the newly freed request slot.
++    // Local camera opens during background reads; it does not consume the mailbox.
+     page(8);codex_reading=true;codex_syncing=codex_load_waiting=codex_send_queued=false;
+     unsigned camera_starts=preview_camera_starts;int camera_reads=preview_reads;
+     lv_obj_update_layout(lv_screen_active());
+@@ -4454,16 +4493,11 @@
+     assert(tab5_cache_bytes>0);
+     ui_text(codex_voice_hint,"文字已返回，请检查后发送");
+     photo_open(NULL);photo_open(NULL);
+-    assert(photo_open_pending&&!photo_flow&&preview_camera_starts==camera_starts);
++    assert(!photo_open_pending&&photo_flow&&preview_camera_starts==camera_starts+1);
+     assert(!lv_label_get_text(codex_voice_hint)[0]);
+-    render_codex();assert(strstr(lv_label_get_text(codex_receipt),"正在准备相机"));
+-    capture("codex-photo-preparing-feedback");
+-    codex_reading=false;codex_reply_refresh(NULL);
+-    assert(preview_reads==camera_reads);
+-    codex_syncing=true;photo_open_tick();assert(photo_open_pending&&!photo_flow);
+-    codex_syncing=false;codex_load_waiting=true;photo_open_tick();assert(photo_open_pending&&!photo_flow);
+-    codex_load_waiting=false;photo_open_tick();photo_open_tick();
+-    assert(!photo_open_pending&&photo_flow&&preview_camera_starts==camera_starts+1);
++    render_codex();capture("codex-photo-open-during-read");
++    codex_reply_refresh(NULL);assert(preview_reads==camera_reads);
++    codex_reading=false;
+     assert(!preview_camera_cache_bytes&&!tab5_cache_bytes&&!tab5_native_cache_bytes);
+     assert(photo_draft->images[0][0]&&photo_draft->images[1][0]);
+     assert(!strcmp(photo_task,codex_selected));
+@@ -4563,15 +4597,19 @@
+     puts("CAMERA_GALLERY_RETURN_OK expired old window restarts; same work/page requested and displayed after capture");
+ #endif
+     camera_starts+=3;
+-    codex_reading=true;photo_open(NULL);assert(photo_open_pending);
+-    page(0);page(8);codex_reading=false;photo_open_tick();
++    // Only the current unloaded draft needs restoration before opening.
++    photo_draft->loaded=photo_draft->dirty=false;
++    snprintf(codex_sync_op,sizeof(codex_sync_op),"draft-load");
++    snprintf(codex_sync_task,sizeof(codex_sync_task),"%s",codex_selected);
++    codex_syncing=true;photo_open(NULL);assert(photo_open_pending);
++    page(0);page(8);codex_syncing=false;photo_open_tick();
+     assert(!photo_open_pending&&!photo_flow&&preview_camera_starts==camera_starts+1);
+-    codex_reading=true;photo_open(NULL);assert(photo_open_pending);
+-    codex_reading=false;strcpy(photo_draft->request,"00000000-0000-4000-8000-000000000001");
++    codex_syncing=true;photo_open(NULL);assert(photo_open_pending);
++    codex_syncing=false;strcpy(photo_draft->request,"00000000-0000-4000-8000-000000000001");
+     photo_open_tick();assert(!photo_open_pending&&!photo_flow);
+     photo_open(NULL);assert(!photo_open_pending&&!photo_flow);
+-    photo_draft->request[0]=0;
+-    puts("CAMERA_OPEN_QUEUE_OK read_sync_wait_once_navigation_cancel_unconfirmed_send_blocked");
++    photo_draft->request[0]=0;photo_draft->loaded=true;
++    puts("CAMERA_OPEN_QUEUE_OK local_read_does_not_wait_initial_draft_restore_navigation_cancel_unconfirmed_send_blocked");
+     lv_obj_remove_flag(photo_window,LV_OBJ_FLAG_HIDDEN);visible(photo_files,true);visible(photo_view,false);
+     ui_text(photo_title,"存储卡 · JPG");ui_text(photo_note,"/sdcard/DCIM · 第 1 页");
+     button(photo_files,"IMG_20260926_154012.jpg",0,0,1118,photo_choose_file,0);capture("photo-card-picker");visible(photo_window,false);

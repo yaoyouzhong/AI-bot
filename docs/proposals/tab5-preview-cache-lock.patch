@@ -1,0 +1,11 @@
+--- a/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
++++ b/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
+@@ -595,7 +595,7 @@
+     // DMA2D updates panel memory without invalidating CPU pixel cache lines.
+     // M2C invalidation only: never write stale cached pixels back to scanout.
+     if (ok) ok = esp_cache_msync(buffers[front],(size_t)ctx->native_width*ctx->native_height*2,
+-                               ESP_CACHE_MSYNC_FLAG_DIR_M2C | ESP_CACHE_MSYNC_FLAG_UNALIGNED) == ESP_OK;
++                               ESP_CACHE_MSYNC_FLAG_DIR_M2C) == ESP_OK;
+     if (ok) ok = tab5_preview_sample(buffers[front],ctx->native_width,ctx->native_height,
+                                    ctx->current_rotation,out,width,height);
+     xSemaphoreGive(ctx->preview_gate);

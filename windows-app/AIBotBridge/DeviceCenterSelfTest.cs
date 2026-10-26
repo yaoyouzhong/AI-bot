@@ -8,7 +8,7 @@ internal static class DeviceCenterSelfTest
 {
     private static void Check(bool ok,string message){if(!ok)throw new InvalidOperationException(message);}
     internal static void Run(string directory) {
-        AppPaths.BeginPublicSelfTest();Directory.CreateDirectory(directory);DeviceRegistrySelfTest.Run();
+        AppPaths.BeginPublicSelfTest();Directory.CreateDirectory(directory);DeviceRegistrySelfTest.Run();Tab5ScreenPreviewSelfTest.Run();
         Check(Tab5Service.DescribeWifi(20000,19999,19999,false)=="已联网 · 桥接正常","Fresh authenticated Wi-Fi traffic must take precedence over an older disconnected report");
         Check(Tab5Service.DescribeWifi(20000,12000,19999,true)=="已联网 · 桥接未通","Expired bridge traffic must preserve a fresh Wi-Fi association");
         Check(Tab5Service.DescribeWifi(20000,0,19999,false)=="未联网","A fresh disconnected report must distinguish a missing Wi-Fi association");
@@ -42,16 +42,25 @@ internal static class DeviceCenterSelfTest
             string? target=null,action=null;
             using(var menu=DeviceCenterMenu.Build(store.Snapshot,(id,a)=>{target=id;action=a;},a=>action=a)) {
                 var roots=menu.Items.OfType<ToolStripMenuItem>().ToArray();
-                Check(roots.Length==2+devices.Length+(devices.Any(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled)?1:0),"Tray menu contains unexpected entries");
+                Check(roots.Length==2+devices.Length+(devices.Any(d=>d.Enabled)?1:0),"Tray menu contains unexpected entries");
                 menu.Items["devices"]!.PerformClick();Check(action=="devices","Device center entry lost");
                 menu.Items["exit"]!.PerformClick();Check(action=="exit","Exit entry lost");
                 var preview=menu.Items["mirror"];
-                if(devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled) is {} screen){preview!.PerformClick();Check(target==screen.Id&&action=="mirror","Tray preview targeted wrong device");}
-                else Check(preview is null,"Preview shown without an enabled screen");
+                var previews=devices.Where(d=>d.Enabled).OrderBy(d=>d.Kind).ToArray();
+                if(previews.Length>0) {
+                    Check(preview?.Text=="设备预览","Generic device preview entry lost");
+                    var entry=(ToolStripMenuItem)preview!;
+                    Check(entry.DropDownItems.Count==(previews.Length>1?previews.Length:0),"Hardware selector availability wrong");
+                    for(int i=0;i<previews.Length;i++) {
+                        target=null;action=null;
+                        if(previews.Length>1)entry.DropDownItems[i].PerformClick();else entry.PerformClick();
+                        Check(target==previews[i].Id&&action=="mirror","Device preview targeted wrong hardware");
+                    }
+                } else Check(preview is null,"Preview shown without an enabled device");
                 foreach(var d in devices){
                     var group=(ToolStripMenuItem)menu.Items["device:"+d.Id]!;
                     Check(group.Enabled==d.Enabled&&group.Text?.StartsWith(d.Name)==true,"Device name or disabled state lost");
-                    string[] expected=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["gallery-browser","voice","birthday-settings","data","tab5"];
+                    string[] expected=d.Kind==HardwareKind.Esp8266?["cycle","appearance","data","legacy-settings"]:["gallery-browser","voice","birthday-settings","computer-control","data","tab5"];
                     Check(group.DropDownItems.Cast<ToolStripItem>().Select(i=>i.Name).SequenceEqual(expected),"Device shortcuts or order changed");
                     foreach(var entry in group.DropDownItems.OfType<ToolStripMenuItem>()){
                         Check(entry.DropDownItems.Count==0,"Tray menu exceeds two levels");
@@ -63,7 +72,7 @@ internal static class DeviceCenterSelfTest
                 Check(menu.Items["accounts"] is null,"Shared account settings leaked into device shortcuts");
                 menu.Show(new Point(-30000,-30000));Application.DoEvents();
                 using(var shot=new Bitmap(menu.Width,menu.Height)){menu.DrawToBitmap(shot,new Rectangle(Point.Empty,shot.Size));shot.Save(Path.Combine(directory,$"tray-{key}.png"));}
-                if(key=="both")foreach(var group in roots.Where(i=>i.DropDownItems.Count>0)){
+                if(key=="both")foreach(var group in roots.Where(i=>i.Name?.StartsWith("device:")==true&&i.DropDownItems.Count>0)){
                     group.ShowDropDown();Application.DoEvents();
                     using var shot=new Bitmap(menu.Width+group.DropDown.Width,Math.Max(menu.Height,group.Bounds.Top+group.DropDown.Height));
                     menu.DrawToBitmap(shot,new Rectangle(Point.Empty,menu.Size));group.DropDown.DrawToBitmap(shot,new Rectangle(menu.Width,group.Bounds.Top,group.DropDown.Width,group.DropDown.Height));

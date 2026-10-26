@@ -1,0 +1,42 @@
+--- a/firmware/main/assets.c
++++ b/firmware/main/assets.c
+@@ -5,6 +5,7 @@
+ #include "freertos/task.h"
+ #include "mbedtls/base64.h"
+ #include "driver/jpeg_decode.h"
++#include "esp_cache.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -169,7 +170,9 @@
+     uint32_t written=0;bool ok=false;
+     if(input&&output&&in_capacity>=size) {
+         memcpy(input,packed,size);
+-        ok=jpeg_new_decoder_engine(&engine_cfg,&engine)==ESP_OK&&
++        // Retire CPU-written allocator cache lines before DMA owns this buffer.
++        ok=esp_cache_msync(output,out_capacity,ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_INVALIDATE)==ESP_OK&&
++           jpeg_new_decoder_engine(&engine_cfg,&engine)==ESP_OK&&
+            jpeg_decoder_process(engine,&cfg,input,size,output,out_capacity,&written)==ESP_OK&&written>=stride*height*2;
+         if(ok)for(int y=0;y<height;y++)memcpy(pixels+(size_t)y*width*2,output+(size_t)y*stride*2,width*2);
+     }
+--- a/firmware/main/photo_attachment.c
++++ b/firmware/main/photo_attachment.c
+@@ -5,6 +5,7 @@
+ #include "tab5_jpeg.h"
+ #include "sd_storage.h"
+ #include "driver/jpeg_decode.h"
++#include "esp_cache.h"
+ #include "esp_heap_caps.h"
+ #include "gallery_remote.h"
+ #include "freertos/idf_additions.h"
+@@ -120,7 +121,9 @@
+     jpeg_decoder_handle_t codec=NULL;const jpeg_decode_engine_cfg_t engine={.timeout_ms=3000};
+     const jpeg_decode_cfg_t cfg={.output_format=JPEG_DECODE_OUT_FORMAT_RGB565,.rgb_order=JPEG_DEC_RGB_ELEMENT_ORDER_BGR,.conv_std=JPEG_YUV_RGB_CONV_STD_BT601};
+     uint32_t written=0;
+-    bool ok=pixels&&jpeg_new_decoder_engine(&engine,&codec)==ESP_OK&&jpeg_decoder_process(codec,&cfg,data,data_size,pixels,capacity,&written)==ESP_OK;
++    // Match the gallery path: allocator cache lines must not overwrite DMA output.
++    bool ok=pixels&&esp_cache_msync(pixels,capacity,ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_INVALIDATE)==ESP_OK&&
++        jpeg_new_decoder_engine(&engine,&codec)==ESP_OK&&jpeg_decoder_process(codec,&cfg,data,data_size,pixels,capacity,&written)==ESP_OK;
+     if(ok)make_preview((uint16_t *)pixels,info.width,info.height,stride);
+     if(codec)jpeg_del_decoder_engine(codec);
+     free(pixels);

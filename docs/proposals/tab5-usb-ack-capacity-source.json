@@ -1,0 +1,33 @@
+{
+  "base": "installed270; independent follow-up, no schema or line-limit change",
+  "candidate": "artifacts/development/tab5-voice-stop-20261025/candidate",
+  "productFiles": [
+    {
+      "path": "firmware/main/usb_link.c",
+      "beforeNormalizedSHA256": "2dda345155b65a2eb2ad8e2e7fafdfacf1cf906312f56fdeb5bec02e816402b4",
+      "afterNormalizedSHA256": "facc2d6ac2b4c98f885593c524ec2984d2aeaf46ee4bb1e61569469a0c4310ce"
+    }
+  ],
+  "imageGenerated": true,
+  "physicalAcceptance": false,
+  "bufferBytes": 4096,
+  "stackOrStaticBufferGrowth": false,
+  "nativeCases": 2050,
+  "original": {
+    "suppressedReplies": 1149,
+    "missingBinding": 190
+  },
+  "fixed": {
+    "suppressedReplies": 0,
+    "missingBinding": 0,
+    "largestFrameBytes": 4094
+  },
+  "targetCompileExit": 0,
+  "macProductionParserCases": 4,
+  "windowsProductionParserCases": 13,
+  "policy": "If optional counters cannot fit or would omit binding, emit bounded essential reply with same identity/sequence, discovery/RPC/USB capabilities and host nonce/authentication; omit uptimeMs so Mac retains its previous complete diagnostic sample. No retry or lease extension.",
+  "evidence": "artifacts/development/tab5-usb-ack-capacity-20261025",
+  "limits": "Snapshot providers mocked only within their buffer capacities; actual formatter and cJSON under UBSan. Parser tests use synthetic pipes/read callbacks, not hardware. Does not prove current device overflowed on its failed take.",
+  "integratedCandidate": "0.2.271-ui",
+  "integratedImageSHA256": "b685f7e4e650c41dab6529c74b934db00781105e51802a6ed6847a590b0a2a48"
+}

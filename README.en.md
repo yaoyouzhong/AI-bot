@@ -136,6 +136,7 @@ Install the computer bridge, then choose firmware for your device. Artwork colle
 - **Collections**: import ZIPs directly through Windows Software and Firmware Updates → Artwork Collections. App upgrades preserve collections. Requires Windows bridge 0.6.0+ and TAB5 0.2.145-ui+.
 - **Choose an edition**: choose standard or complete HD for each collection. HD includes standard previews and guides, so a separate standard import is unnecessary. Bridge 0.6.7+ displays HD originals; TAB5 uses device previews. Follow the HD size links in the table to download, merge and import. Standard painting is retained.
 - Windows supports ESP8266 and TAB5. Mac currently supports ESP8266; TAB5, unified updates and artwork import instructions apply to Windows. Windows setup is unsigned; Mac is ad-hoc signed and not notarized.
+- The [unpublished Mac TAB5 candidate](docs/MAC-TAB5-CANDIDATE.md) extends to USB/Wi-Fi/Bluetooth, daily display/settings, resources/gallery, OTA, computer/music, Codex, photos, native local speech and first install/backup/restore, with module Mac CI and candidate-app checks. Hardware, permissions and playback acceptance remain pending. It is not included in the downloads above; distinguish candidate capabilities from published versions.
 
 [Installation guide](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [Collection sizes and licenses](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md) · [Earlier releases](https://github.com/yaoyouzhong/AI-bot/releases)
 <!-- downloads:end -->

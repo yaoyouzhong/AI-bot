@@ -1,0 +1,77 @@
+{
+  "status": "Source implementation and individual target objects validated; no firmware image linked, generated, prepared or flashed",
+  "baseVersion": "0.2.267-ui",
+  "baseFirmwareSha256": "60ccffe6c2e1625a36b11ee3ad60eeec72b737b02b11619ad51fd538d08ff0e4",
+  "sourceBase": "artifacts/development/tab5-calendar-label-20261024/candidate/firmware",
+  "prerequisites": [
+    "tab5-camera-memory-headroom.patch",
+    "tab5-calendar-makeup-label.patch"
+  ],
+  "patchSha256": "dc50607034b7065f3a9dbee7edbec5b16a4298057caa60b20efc0d58b9a852a4",
+  "files": [
+    {
+      "path": "firmware/main/CMakeLists.txt",
+      "baseSha256LF": "87480cfd2b0e80b35154cd811ba65d00383e52c22b05c51851dbaf5b808e7591",
+      "sourceSha256LF": "843d69fda0341e0216603fac8631f75420d94f8b03eb2057ab8f9b53d8f81499"
+    },
+    {
+      "path": "firmware/main/ui.c",
+      "baseSha256LF": "50d5c6c97e2dbc75b4e9b585f8acd7b62646278c51b524fcdd0be7ba2607e82a",
+      "sourceSha256LF": "f290eadd6772af755789040965e2bf8704436e67286ec68fb924d3423bb2d2b2"
+    },
+    {
+      "path": "firmware/main/screen_preview.c",
+      "baseSha256LF": null,
+      "sourceSha256LF": "6c91cd261e6db8e96bbd2a4dfbefa9eaf69711a5e61985ec993dc369b4df3c06"
+    },
+    {
+      "path": "firmware/main/screen_preview.h",
+      "baseSha256LF": null,
+      "sourceSha256LF": "eb06796ba6af73b928bc45e684b415a2dc36b05d7a64f2c148678fbb7a95df08"
+    },
+    {
+      "path": "firmware/main/screen_preview.inc",
+      "baseSha256LF": null,
+      "sourceSha256LF": "9ccbca7c3b07f166ae9b15a870f31174d44426046994af82629381f53ec83d3d"
+    },
+    {
+      "path": "firmware/main/screen_preview_codec.h",
+      "baseSha256LF": null,
+      "sourceSha256LF": "324bd6c16d8749d762dd520fbd35d57b891d72614c5f3624ba6caf1a70779e98"
+    },
+    {
+      "path": "firmware/main/photo_transfer_crypto.c",
+      "baseSha256LF": "8fb490b6e8044ab818e603be56125f1f36493cb31cb78d023479ee2f14b0c168",
+      "sourceSha256LF": "4d1eb7bd439d4eee3eddc2390071a45a9d2b3b9256ede943980c1649851b9faa"
+    },
+    {
+      "path": "firmware/main/photo_transfer_crypto.h",
+      "baseSha256LF": "1c205f7f2e6580c6dc60da7fe59ebdd16f62c3c5831763800b0a988e15b3253c",
+      "sourceSha256LF": "69ecb8e82d2ce5c9980f2cca2276848289e547efc7900a3349258b790d6f60ad"
+    },
+    {
+      "path": "firmware/main/rpc_link.c",
+      "baseSha256LF": "f4f6696004868334f69c927902f5bfeaaca30c96cb6d537feb0aa2953d23db0d",
+      "sourceSha256LF": "643f4b7f4fe8b6d5c983e954397383c3b480b3ae7f0930b051c0ba3e7a2c7db3"
+    },
+    {
+      "path": "firmware/components/esp_lvgl_port/include/esp_lvgl_port_disp.h",
+      "baseSha256LF": "2b5ef561b6fc15ec67e46bb65162475b2fd7b93c8347039cb9b54588b7140ea8",
+      "sourceSha256LF": "79ac57e3c8e9d4f7f82595147db0c4ffc22b10afeaa87790d0eeb27d3e145f5b"
+    },
+    {
+      "path": "firmware/components/esp_lvgl_port/include/tab5_screen_preview_pixels.h",
+      "baseSha256LF": null,
+      "sourceSha256LF": "f6c912706b072eef26e7e5758fc0b159f6b0ca722c2a8e4c02ec4b0f018ba0ee"
+    },
+    {
+      "path": "firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c",
+      "baseSha256LF": "d680cabfaaae27531459cb317a62df9e63e065d3afde58581be024a2d5ca86bb",
+      "sourceSha256LF": "a09a294d2cec6cf4f3d4e0d64ea39c694ac4dc80759ec78646c11f5bb0dfab16"
+    }
+  ],
+  "originalEspPreviewUnchanged": true,
+  "firmwareGenerated": false,
+  "physicalAcceptance": "Pending combined mirror firmware; current .267 cannot capture frames",
+  "validationEvidence": "artifacts/development/tab5-screen-preview-20261024"
+}

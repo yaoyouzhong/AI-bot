@@ -14,6 +14,8 @@
     <string>AI-bot Bridge</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.icns</string>
     <key>CFBundleShortVersionString</key>
     <string>0.6.10</string>
     <key>CFBundleVersion</key>
@@ -28,8 +30,18 @@
         <true/>
     </dict>
     <key>NSAppleEventsUsageDescription</key>
-    <string>AI-bot reads the current track from a running music player for display on your device.</string>
+    <string>When enabled, AI-bot reads the current track and controls playback in Music or Spotify for your paired TAB5. Explicit lock requests use System Events.</string>
     <key>NSLocalNetworkUsageDescription</key>
     <string>AI-bot connects to your paired clock and provides authenticated Wi-Fi fallback on your local network.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>AI-bot connects to your USB-paired TAB5 to exchange authenticated display data and device requests over Bluetooth.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>When explicitly enabled, AI-bot transcribes your TAB5 or Mac microphone locally for review before you choose to send or insert the text.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>AI-bot records the Mac default microphone only after you start an authorized TAB5 voice session.</string>
+    <key>NSLocationUsageDescription</key>
+    <string>启用自动定位天气后，AI-bot 使用电脑的大致位置查询所选的 Open-Meteo 或和风天气，并显示到已配对的 TAB5；不保存精确位置。</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>启用自动定位天气后，AI-bot 使用电脑的大致位置查询所选的 Open-Meteo 或和风天气，并显示到已配对的 TAB5；不保存精确位置。</string>
 </dict>
 </plist>

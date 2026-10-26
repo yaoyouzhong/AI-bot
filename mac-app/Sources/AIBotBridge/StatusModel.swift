@@ -1,8 +1,8 @@
 import Foundation
 
 struct ToolState: Codable, Equatable {
-    let state: String
-    let ageSeconds: Int64?
+    var state: String
+    var ageSeconds: Int64?
     var needsInput: Bool = false
     var completionActive: Bool = false
     var completionSequence: Int64 = 0
@@ -18,11 +18,40 @@ struct WeatherSnapshot: Codable, Equatable {
     let low: Double
     let humidity: Int
     let weatherCode: Int
-    let pm25: Double?
-    let airQualityIndex: Int?
+    var pm25: Double?
+    var airQualityIndex: Int?
     let source: String
     let updatedAt: Date
-    let stale: Bool
+    var stale: Bool
+    var utcOffsetSeconds: Int? = nil
+    var hourly: [MacWeatherHour]? = nil
+    var daily: [MacWeatherDay]? = nil
+    var hourlyStale: Bool? = nil
+    var dailyStale: Bool? = nil
+    var airQualityLabel: String? = nil
+    var airQualityStandard: String? = nil
+    var pressureHpa: Double? = nil
+    var pressureKind: String? = nil
+    var animation: String? = nil
+}
+
+struct MacWeatherHour: Codable, Equatable {
+    let time: String
+    let condition: String
+    let temperature: Double?
+    let rainProbability: Double?
+}
+
+struct MacWeatherDay: Codable, Equatable {
+    let date: String
+    let condition: String
+    let low: Double?
+    let high: Double?
+    let rainProbability: Double?
+    let precipitationMm: Double?
+    let sunrise: String?
+    let sunset: String?
+    let daylightSeconds: Double?
 }
 
 struct StockQuote: Codable, Equatable {
@@ -46,6 +75,21 @@ struct SystemMetricsSnapshot: Codable, Equatable {
     let uploadBytesPerSecond: Int64
     let downloadBytesPerSecond: Int64
     let updatedAt: Date
+    var sampleSession: String? = nil
+    var sampleSequence: Int64? = nil
+    var samples: [MacNetworkSample]? = nil
+    // Internal freshness: network publication must not renew old CPU/VM data.
+    var pressureObservedAt: Date? = nil
+    var diskObservation: MacDiskObservation? = nil
+    private enum CodingKeys: String, CodingKey {
+        case cpuPercent, memoryPercent, uploadBytesPerSecond, downloadBytesPerSecond, updatedAt
+        case sampleSession, sampleSequence, samples
+    }
+}
+
+struct MacNetworkSample: Codable, Equatable {
+    let upload: Int64
+    let download: Int64
 }
 
 struct ProviderQuotaSnapshot: Codable, Equatable {
@@ -59,6 +103,8 @@ struct ProviderQuotaSnapshot: Codable, Equatable {
     let resetCreditExpiresAt: [Int64]
     let updatedAt: Date
     let stale: Bool
+    var primaryWindowSeconds: Int64? = nil
+    var weeklyWindowSeconds: Int64? = nil
 }
 
 struct QuotaSnapshot: Codable, Equatable {
@@ -66,7 +112,7 @@ struct QuotaSnapshot: Codable, Equatable {
     let codex: ProviderQuotaSnapshot?
 }
 
-// Optional display contract; macOS does not acquire vendor quotas yet.
+// Account observations from official read-only endpoints or authorized consoles.
 struct DomesticProviderQuotaSnapshot: Codable, Equatable {
     let provider: String
     let plan: String?
@@ -75,23 +121,31 @@ struct DomesticProviderQuotaSnapshot: Codable, Equatable {
     let weeklyPercent: Double?
     let weeklyResetsAt: Date?
     let balance: Double?
-    let usedCost: Double?
+    var usedCost: Double?
     let currency: String?
     let updatedAt: Date
-    let stale: Bool
+    var stale: Bool
     var planPercent: Double? = nil
     var planResetsAt: Date? = nil
+    var primaryWindowSeconds: Int64? = nil
+    var weeklyWindowSeconds: Int64? = nil
+    var planWindowSeconds: Int64? = nil
+    var planExpiresAt: Date? = nil
 }
 
 struct DomesticQuotaSnapshot: Codable, Equatable {
-    let alibaba: DomesticProviderQuotaSnapshot?
-    let kimi: DomesticProviderQuotaSnapshot?
-    let miniMax: DomesticProviderQuotaSnapshot?
-    let deepSeek: DomesticProviderQuotaSnapshot?
+    var alibaba: DomesticProviderQuotaSnapshot?
+    var kimi: DomesticProviderQuotaSnapshot?
+    var miniMax: DomesticProviderQuotaSnapshot?
+    var deepSeek: DomesticProviderQuotaSnapshot?
     var zhipu: DomesticProviderQuotaSnapshot? = nil
     var stepFun: DomesticProviderQuotaSnapshot? = nil
     var baidu: DomesticProviderQuotaSnapshot? = nil
     var xiaomi: DomesticProviderQuotaSnapshot? = nil
+    subscript(_ provider: String) -> DomesticProviderQuotaSnapshot? {
+        get { switch provider { case "qwen", "alibaba": return alibaba; case "kimi": return kimi; case "minimax": return miniMax; case "deepseek": return deepSeek; case "zhipu": return zhipu; case "stepfun": return stepFun; case "baidu": return baidu; case "xiaomi": return xiaomi; default: return nil } }
+        set { switch provider { case "qwen", "alibaba": alibaba = newValue; case "kimi": kimi = newValue; case "minimax": miniMax = newValue; case "deepseek": deepSeek = newValue; case "zhipu": zhipu = newValue; case "stepfun": stepFun = newValue; case "baidu": baidu = newValue; case "xiaomi": xiaomi = newValue; default: break } }
+    }
 }
 
 struct MusicSnapshot: Codable, Equatable {
@@ -103,6 +157,25 @@ struct MusicSnapshot: Codable, Equatable {
     let elapsedSeconds: Double
     let durationSeconds: Double
     let updatedAt: Date
+
+    // The device advances between status frames. Anchor every outgoing clock
+    // to its actual sample, never to the age of the surrounding status cache.
+    func timeline(at now: Date) -> (elapsed: Double, available: Bool) {
+        let age = now.timeIntervalSince(updatedAt)
+        guard age >= 0, age <= 3 else { return (elapsedSeconds, false) }
+        let elapsed = elapsedSeconds + (playing ? age : 0)
+        return (durationSeconds > 0 ? min(durationSeconds, elapsed) : elapsed, true)
+    }
+
+    static func changedUrgently(from previous: MusicSnapshot?, to current: MusicSnapshot?) -> Bool {
+        guard let previous, let current else { return (previous == nil) != (current == nil) }
+        guard previous.title == current.title, previous.artist == current.artist,
+              previous.album == current.album, previous.playing == current.playing,
+              previous.durationSeconds == current.durationSeconds else { return true }
+        let expected = previous.elapsedSeconds + (previous.playing ? max(0, current.updatedAt.timeIntervalSince(previous.updatedAt)) : 0)
+        let bounded = previous.durationSeconds > 0 ? min(previous.durationSeconds, expected) : expected
+        return abs(current.elapsedSeconds - bounded) > 2
+    }
 
     static func empty(at date: Date = Date()) -> MusicSnapshot {
         MusicSnapshot(title: "", artist: "", album: "", playing: false,
@@ -128,14 +201,16 @@ struct MacStatusSnapshot: Codable {
     var domesticActivity: MacDomesticActivity? = nil
     var domesticQuotas: DomesticQuotaSnapshot? = nil
     var followApp: String? = nil
+    var quotaTrend: MacQuotaTrend? = nil
 }
 
 final class SessionActivityReader {
     let signals = MacActivitySignals()
-    private let metadata = MacActivityMetadata()
+    private let metadata: MacActivitySampler
     private let lock = NSLock()
     private var selectedMode: String?
     private let follow=MacAutoFollowTracker()
+    init(metadata: MacActivitySampler = MacActivitySampler()) { self.metadata = metadata }
     func select(_ mode: String) { lock.lock(); selectedMode=mode; lock.unlock() }
     private let fileManager = FileManager.default
     private let encoder: JSONEncoder = {
@@ -161,7 +236,7 @@ final class SessionActivityReader {
             epochUtc: Int64(now.timeIntervalSince1970),
             utcOffsetSeconds: TimeZone.current.secondsFromGMT(for: now),
             capturedAt: now,
-            codex: signals.apply("codex", raw: activity.codex, now: now),
+            codex: MacDisplayPolicy.displayCodexState(signals.apply("codex", raw: activity.codex, now: now), epoch:Int64(now.timeIntervalSince1970)),
             claude: claude,
             musicPlaying: extras.music?.playing ?? false,
             weather: extras.weather,
@@ -173,6 +248,8 @@ final class SessionActivityReader {
             domesticActivity: domestic
         )
         snapshot.followApp=follow.update(snapshot,milliseconds:Int64(ProcessInfo.processInfo.systemUptime*1000))
+        snapshot.quotaTrend = extras.quotaTrend
+        snapshot.domesticQuotas = extras.domesticQuotas
         return snapshot
     }
 

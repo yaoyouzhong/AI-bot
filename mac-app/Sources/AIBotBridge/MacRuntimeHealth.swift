@@ -1,0 +1,99 @@
+import Foundation
+
+/// Existing TAB5 runtimeHealth fields, backed by actual Mac observations.
+/// A frame's publication time is deliberately not a new measurement.
+final class MacRuntimeHealth {
+    private let lock = NSLock()
+    private var lastOptions: MacRuntimeOptions?
+    private let session = UUID().uuidString.lowercased()
+    private var sequence: Int64 = 0
+    private var observedAt: Date?
+    private var highSince: [String: Date] = [:], lowSince: [String: Date] = [:]
+    private var warned = Set<String>()
+    private var cached: [String: Any]?
+
+    func snapshot(metrics: SystemMetricsSnapshot?, now: Date, logicalProcessors: Int,
+                  codexEnabled: Bool, desktopObserved: Bool, network: MacNetworkDiagnosticSample? = nil) -> [String: Any]? {
+        lock.lock(); defer { lock.unlock() }
+        let options = MacRuntimePreferences.current
+        if lastOptions != options { highSince.removeAll(); lowSince.removeAll(); warned.removeAll(); cached = nil; observedAt = nil; lastOptions = options }
+        guard options.enabled else { return nil }
+        guard let metrics, let stamp = metrics.pressureObservedAt,
+              stamp.timeIntervalSince1970 > 0, stamp <= now.addingTimeInterval(1) else { return nil }
+        guard now.timeIntervalSince(stamp) < 8 else {
+            highSince.removeAll(); lowSince.removeAll(); warned.removeAll(); observedAt = nil
+            return cached // Its old epoch makes the device show an interrupted monitor.
+        }
+        let fresh = observedAt != stamp
+        if fresh, let previous = observedAt, stamp.timeIntervalSince(previous) > 5 || stamp < previous {
+            highSince.removeAll(); lowSince.removeAll(); warned.removeAll()
+        }
+        let initialWarnings = warned
+        var checks: [[String: Any]] = []
+        func check(_ key: String, _ label: String, _ state: String, _ summary: String, _ detail: String) {
+            checks.append(["key": key, "label": label, "state": state, "summary": summary,
+                           "detail": detail, "advice": "", "epochUtc": Int64(stamp.timeIntervalSince1970)])
+        }
+        for (key, label, value, threshold) in [("cpu", "CPU", metrics.cpuPercent, Double(options.cpu)),
+                                              ("memory", "内存", metrics.memoryPercent, Double(options.memory))] {
+            guard value.isFinite, (0...100).contains(value) else {
+                highSince[key] = nil; lowSince[key] = nil; warned.remove(key)
+                check(key, label, "unknown", "采样不可用", "未取得有效的本机计数。"); continue
+            }
+            if fresh {
+                if value >= threshold {
+                    lowSince[key] = nil
+                    if highSince[key] == nil { highSince[key] = stamp }
+                    if stamp.timeIntervalSince(highSince[key]!) >= Double(options.sustained) { warned.insert(key) }
+                } else {
+                    highSince[key] = nil
+                    if lowSince[key] == nil { lowSince[key] = stamp }
+                    if stamp.timeIntervalSince(lowSince[key]!) >= 10 { warned.remove(key) }
+                }
+            }
+            let state = warned.contains(key) ? "warning" : value >= threshold ? "observing" : "ok"
+            check(key, label, state, state == "warning" ? "持续占用偏高" : state == "observing" ? "正在观察占用" : "采样正常",
+                  key == "memory" ? "依据 Mac 可用物理页统计占用；不代表提交内存或系统内存压力等级。" : "依据 Mac CPU 累积计数的相邻采样差值。")
+        }
+        if fresh { observedAt = stamp }
+        if !warned.subtracting(initialWarnings).isEmpty { sequence += 1 }
+        check("queue", "处理器队列", "unknown", "此平台暂不支持队列计数",
+              "Mac 公开调度接口未提供与 Windows 等价的等待队列长度；平均负载、CPU 占用率和线程总数均不代填。")
+        let networkFresh = options.network && (network.map { $0.observedAt <= now && now.timeIntervalSince($0.observedAt) < Double(options.interval + 45) } ?? false)
+        if let network, networkFresh {
+            checks.append(contentsOf: network.checks)
+        } else {
+            for (key, label) in [("vpn", "VPN / 代理"), ("pac", "PAC 路由")] {
+                check(key, label, options.network ? "unknown":"disabled", !options.network ? "检测已关闭" : network == nil ? "等待网络探测" : "网络样本已过期", "后台探测完成后更新；不使用旧响应冒充当前连接。")
+            }
+        }
+        var pressure: [String: Any] = logicalProcessors > 0 ? ["logicalProcessors": logicalProcessors] : [:]
+        if let disk = metrics.diskObservation, disk.milliseconds.isFinite, disk.milliseconds >= 0,
+           disk.observedAt <= now, now.timeIntervalSince(disk.observedAt) < 8 {
+            pressure["diskLatencyMs"] = disk.milliseconds
+            check("disk", "磁盘响应", disk.milliseconds >= 50 ? "observing" : "ok",
+                  disk.milliseconds >= 50 ? "响应偏慢，正在观察" : "已采集磁盘响应",
+                  "依据近期已完成磁盘 I/O 的平均耗时；不代表应用端到端等待，未采集待处理队列。")
+        } else {
+            check("disk", "磁盘响应", "unknown", "暂无近期 I/O 样本", "等待相邻有效计数；空闲、计数重置或读取失败时不以零替代。")
+        }
+        check("bridge", "桥接采样", "ok", "采样与发布正常", "CPU 和内存已有近期采样，当前设备状态帧正在发布；不代表界面无阻塞。")
+        check("codex", "Codex", codexEnabled ? "observing" : "disabled",
+              codexEnabled ? "模型出口未检测" : "未启用",
+              desktopObserved ? "本机桌面任务持有者已确认，尚未用模型请求验证服务出口。" : "本地任务读取与模型服务连通性分别判断。")
+        let alerts: [[String: Any]] = ["cpu", "memory"].filter { warned.contains($0) }.map { key in
+            ["key": key, "state": "warning", "title": key == "cpu" ? "CPU 持续繁忙" : "内存持续占用偏高",
+             "advice": "在 Mac 活动监视器查看占用情况。", "shortAdvice": "查看活动监视器"]
+        }
+        var value: [String: Any] = [
+            "session": session, "sequence": sequence, "epochUtc": Int64(stamp.timeIntervalSince1970),
+            "updatedAt": ISO8601DateFormatter().string(from: stamp), "checks": checks, "alerts": alerts,
+            "pressure": pressure,
+            "latencyHistory": networkFresh ? (network?.history ?? []) : []
+        ]
+        if networkFresh, let mbps = network?.throughputMbps, let date = network?.throughputAt {
+            value["throughputMbps"] = mbps; value["throughputAt"] = ISO8601DateFormatter().string(from:date)
+        }
+        cached = value; return value
+    }
+}

@@ -1,0 +1,91 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5Service.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Service.swift
+@@ -386,7 +386,9 @@
+                MacTab5Protocol.verify(key: pair.key, message: "ASSETS|\(nonce)|\(ids)", proof: assetProof) { assets.acknowledge(ids) }
+             if let version = headers["x-tab5-firmware"], version.utf8.count <= 40, let firmwareProof = headers["x-tab5-firmware-proof"],
+                MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: firmwareProof) { firmware = version; firmwareControl.observeVersion(version) }
+-            let packet = try MacTab5Protocol.encrypt(frameLocked(), key: pair.key, challenge: nonce)
++            let full = try frameLocked()
++            let wire = try MacTab5WiFiStatus.wire(full,headers:headers,pair:pair,nonce:nonce)
++            let packet = try MacTab5Protocol.encrypt(wire, key: pair.key, challenge: nonce)
+             lastWiFi = ProcessInfo.processInfo.systemUptime
+             return (200, packet)
+         } catch { return (503, Data()) }
+--- a/mac-app/Sources/AIBotBridge/MacParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacParityValidation.swift
+@@ -167,6 +167,7 @@
+         checked += try MacMusicArtworkValidation.run()
+         checked += try MacTab5USBResourceBurstValidation.run()
+         checked += try MacPreviewUSBPacingValidation.run()
++        checked += try MacTab5WiFiStatusValidation.run()
+         checked += try MacTab5USBStatusValidation.run()
+         checked += try MacTab5USBLeaseValidation.run()
+         checked += try MacHTTPListenerRecoveryValidation.policy()
+--- a/mac-app/Sources/AIBotBridge/MacTab5WiFiStatus.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5WiFiStatus.swift
+@@ -0,0 +1,19 @@
++import Foundation
++
++enum MacTab5WiFiStatus {
++    // Existing packed Wi-Fi protocol. Require proof under this request's
++    // nonce; a previously observed USB/BLE version cannot enable it.
++    static func supports(headers: [String:String], pair: MacTab5Pairing, nonce: String) -> Bool {
++        guard pair.confirmed, MacTab5Protocol.isHex(nonce,count:32),
++              let version = headers["x-tab5-firmware"], version.hasSuffix("-ui"),
++              let proof = headers["x-tab5-firmware-proof"],
++              MacTab5Protocol.verify(key:pair.key,message:"FIRMWARE|\(nonce)|\(version)",proof:proof) else { return false }
++        let parts = version.dropLast(3).split(separator:".",omittingEmptySubsequences:false)
++        guard parts.count == 3, parts[0] == "0", parts[1] == "2", let patch = Int(parts[2]),
++              String(patch) == parts[2], patch >= 42 else { return false }
++        return true
++    }
++    static func wire(_ full: Data, headers: [String:String], pair: MacTab5Pairing, nonce: String) throws -> Data {
++        try MacTab5BLEStatus.wire(full,supported:supports(headers:headers,pair:pair,nonce:nonce))
++    }
++}
+--- a/mac-app/Sources/AIBotBridge/MacTab5WiFiStatusValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5WiFiStatusValidation.swift
+@@ -0,0 +1,43 @@
++import Foundation
++import zlib
++
++enum MacTab5WiFiStatusValidation {
++    static func run() throws -> Int {
++        var count = 0
++        func check(_ name:String,_ ok:Bool) throws {
++            guard ok else { throw MacTab5LocalError.invalid("Wi-Fi packed status: "+name) }; count += 1
++        }
++        let pair = MacTab5Pairing(deviceId:"001122334455",usbPath:"/dev/cu.fixture",key:Data(repeating:7,count:32),confirmed:true)
++        let nonce = String(repeating:"1",count:32)
++        func headers(_ version:String,_ proof:String? = nil) -> [String:String] {
++            ["x-tab5-firmware":version,"x-tab5-firmware-proof":proof ?? MacTab5Protocol.proof(key:pair.key,message:"FIRMWARE|\(nonce)|\(version)")]
++        }
++        for version in ["0.2.42-ui","0.2.276-ui","0.2.277-ui"] {
++            try check("current proven compatible receiver",MacTab5WiFiStatus.supports(headers:headers(version),pair:pair,nonce:nonce))
++        }
++        for version in ["0.2.40-ui","0.2.41-ui","0.2.041-ui","0.2.042-ui","0.3.0-ui","0.2.277.1-ui","unknown"] {
++            try check("old or unknown receiver stays raw",!MacTab5WiFiStatus.supports(headers:headers(version),pair:pair,nonce:nonce))
++        }
++        let good = headers("0.2.276-ui")
++        try check("missing proof cannot use cached firmware",!MacTab5WiFiStatus.supports(headers:["x-tab5-firmware":"0.2.276-ui"],pair:pair,nonce:nonce))
++        try check("invalid proof stays raw",!MacTab5WiFiStatus.supports(headers:headers("0.2.276-ui",String(repeating:"0",count:64)),pair:pair,nonce:nonce))
++        try check("cross-request proof cannot negotiate",!MacTab5WiFiStatus.supports(headers:good,pair:pair,nonce:String(repeating:"2",count:32)))
++        var unconfirmed = pair;unconfirmed.confirmed = false
++        try check("unconfirmed pairing cannot negotiate",!MacTab5WiFiStatus.supports(headers:good,pair:unconfirmed,nonce:nonce))
++        let full = try MacTab5Protocol.json(["type":"tab5_status","version":1,"deviceId":pair.deviceId,"session":String(repeating:"a",count:32),"sequence":13,"data":["codex":[:],"claude":[:],"fixture":String(repeating:"synthetic-only ",count:1800)]])
++        let wire = try MacTab5WiFiStatus.wire(full,headers:good,pair:pair,nonce:nonce), root = try MacTab5Protocol.object(wire)
++        try check("large repetitive state uses existing envelope",root["type"] as? String == "tab5_packed" && wire.count < full.count/2)
++        try check("sequence and expanded bound retained",MacTab5Protocol.integer(root["sequence"]) == 13 && MacTab5Protocol.integer(root["size"]) == Int64(full.count))
++        guard let payload = root["payload"] as? String, let zipped = Data(base64Encoded:payload) else { throw MacTab5Error.invalidPacket }
++        var expanded = Data(count:full.count), size = uLongf(full.count)
++        let result = expanded.withUnsafeMutableBytes { (out:UnsafeMutableRawBufferPointer) in zipped.withUnsafeBytes { (input:UnsafeRawBufferPointer) in
++            uncompress(out.bindMemory(to:UInt8.self).baseAddress,&size,input.bindMemory(to:UInt8.self).baseAddress,uLong(input.count))
++        } }
++        try check("expanded plaintext byte-for-byte identical",result == Z_OK && size == full.count && expanded == full)
++        let encrypted = try MacTab5Protocol.encrypt(wire,key:pair.key,challenge:nonce)
++        try check("authentication still wraps the whole packed frame",try MacTab5Protocol.decrypt(encrypted,key:pair.key,challenge:nonce) == wire)
++        try check("old request remains byte-identical raw",try MacTab5WiFiStatus.wire(full,headers:headers("0.2.41-ui"),pair:pair,nonce:nonce) == full)
++        try check("missing negotiation remains raw",try MacTab5WiFiStatus.wire(full,headers:[:],pair:pair,nonce:nonce) == full)
++        return count
++    }
++}

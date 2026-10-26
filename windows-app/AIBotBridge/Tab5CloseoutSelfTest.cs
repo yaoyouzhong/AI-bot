@@ -3,6 +3,7 @@ namespace AIBotBridge;
 internal static class Tab5CloseoutSelfTest
 {
     internal static void Run(string fixture) {
+        Tab5SolarTermSourceSelfTest.Run();
         static void Check(bool ok,string reason){if(!ok)throw new Exception(reason);}
         string table=File.ReadAllText(fixture);
         var terms=Tab5SolarTerms.Parse(table,2029);

@@ -245,7 +245,7 @@ internal sealed partial class Tab5Service : IDisposable
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealth => new { hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommand,bootVerifyCommand=BootVerifyCommand,runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
+    private object ConnectionHealthFor(StatusSnapshot snapshot) => new { screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommand,bootVerifyCommand=BootVerifyCommand,runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
@@ -258,14 +258,14 @@ internal sealed partial class Tab5Service : IDisposable
         int maximum=Volatile.Read(ref _statusMaximum),budget=Tab5StatusCapacity.Budget(maximum);
         byte[] Build(int cap,byte[]? previous,out int initial,out int taskLimit,out bool degraded,out string[] deferredFields) {
             int target=Tab5StatusCapacity.Budget(cap);taskLimit=80;
-            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
+            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealthFor(snapshot));
             initial=bytes.Length;
             if(bytes.Length>target&&resource is not null)
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealthFor(snapshot));
             foreach(int limit in new[]{64,56,48,40,32,24,16,8,2}) {
                 if(bytes.Length<=target)break;
                 taskLimit=limit;
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),Volatile.Read(ref _ota)?.Offer,ConnectionHealth);
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),Volatile.Read(ref _ota)?.Offer,ConnectionHealthFor(snapshot));
             }
             degraded=bytes.Length>target;deferredFields=[];
             return degraded?Tab5StatusRecovery.Build(bytes,previous,out deferredFields,cap):bytes;
@@ -780,7 +780,7 @@ internal sealed partial class Tab5Service : IDisposable
     }
     public void Dispose() {
         lock(_lifecycle){_stopping=true;_lifetime.Cancel();}
-        _voice?.Dispose();_codexTasks.Dispose();_wifiUnlock?.Dispose();
+        ScreenPreview.Stop();_voice?.Dispose();_codexTasks.Dispose();_wifiUnlock?.Dispose();
         if(_usbGate.Wait(1500))try{CloseUsbPort();}finally{_usbGate.Release();}
     }
 }

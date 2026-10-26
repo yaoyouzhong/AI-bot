@@ -1,0 +1,48 @@
+{
+  "status": "Source and native LVGL checks complete; no firmware image generated or flashed",
+  "baseVersion": "0.2.267-ui",
+  "baseFirmwareSha256": "60ccffe6c2e1625a36b11ee3ad60eeec72b737b02b11619ad51fd538d08ff0e4",
+  "sourceBase": "artifacts/development/tab5-screen-preview-20261024/candidate",
+  "nativeTestBase": "artifacts/development/tab5-calendar-label-20261024/candidate",
+  "prerequisites": [
+    "tab5-camera-memory-headroom.patch",
+    "tab5-calendar-makeup-label.patch",
+    "tab5-screen-preview.patch"
+  ],
+  "patchSha256": "dfe3c328c14672063fb32fb99c85bd7de30b2276b42dde7e24be5b65a809b58a",
+  "lineEndings": "Normalize listed base files to LF before git apply; hashes use UTF-8 LF",
+  "files": [
+    {
+      "path": "firmware/main/ui_agenda.h",
+      "baseSource": "artifacts/development/tab5-screen-preview-20261024/candidate/firmware/main/ui_agenda.h",
+      "baseSha256LF": "03634de1dfa41e08543a87075db4a3deea7ea9e90a0f4ecae6fc49353f44a8bf",
+      "sourceSha256LF": "dcfe9aec0fef80671ac2af6d7fc49d74ec2923fbb02a2281326df5136feee4ad"
+    },
+    {
+      "path": "tests/ui-preview/agenda_ui_test.h",
+      "baseSource": "artifacts/development/tab5-calendar-label-20261024/candidate/tests/ui-preview/agenda_ui_test.h",
+      "baseSha256LF": "40dc8cfe31239fc67bd3a780895fd4bc8f304ff5a33cc0d9c38a7f7585b31b0b",
+      "sourceSha256LF": "251f26012c5351225fac1c14802c6ab630ccbf2a9460a369477242f97c13f9e2"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "baseSource": "artifacts/development/tab5-calendar-label-20261024/candidate/tests/ui-preview/preview.c",
+      "baseSha256LF": "8ed9248e14c7c61d2b8278e23cd17f7345b43525f5ba9da30441c283f5df47e4",
+      "sourceSha256LF": "9cabd1d7bf0177d8e724da6cee9b9726bdd4093494cfda5371bd2f0cd1a2c28a"
+    }
+  ],
+  "productFilesChanged": [
+    "main/ui_agenda.h"
+  ],
+  "firmwareGenerated": false,
+  "physicalAcceptance": "Pending combined firmware; installed .267 remains unchanged",
+  "validation": {
+    "nativeBuild": "passed",
+    "nativeAgendaSuite": "passed",
+    "nativePointerChecks": "modal background blocking, compact dismiss/snooze routing, pending input suppression and failed-save recovery passed",
+    "nativeVisualInspection": "normal, 32-character title, storage failure and near-end states checked",
+    "targetCompile": "ui.c object passed; no full link",
+    "patchCheckAndApply": "passed; normalized applied files equal candidate",
+    "evidence": "artifacts/development/tab5-reminder-ui-20261024"
+  }
+}

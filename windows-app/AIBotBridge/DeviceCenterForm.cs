@@ -208,7 +208,7 @@ internal sealed class DeviceCenterForm : Form
         "agenda"=>"管理事项与提醒",
         "gallery-browser"=>"浏览名画与书法",
         "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"设置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "computer-control"=>"常用软件与文件夹", "data"=>"选择需要的数据",
-        "legacy-settings"=>"设置连接与屏保", "cycle"=>"设置亮度与轮播", "mirror"=>"预览小屏当前画面",
+        "legacy-settings"=>"设置连接与屏保", "cycle"=>"设置亮度与轮播", "mirror"=>"查看显示内容预览",
         "flash"=>"选择固件并升级", "pet-gallery"=>"浏览桌宠素材", "appearance"=>"选择动画与桌宠", _=>""
     };
     private static void Clear(Control panel){foreach(Control c in panel.Controls.Cast<Control>().ToArray())c.Dispose();panel.Controls.Clear();}

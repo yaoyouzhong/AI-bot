@@ -1,0 +1,21 @@
+{
+  "productionReceiver": true,
+  "productionHostLeaseFunctions": true,
+  "fakeClockAndTransportOnly": true,
+  "checks": [
+    {
+      "kind": "old",
+      "exitCode": 0
+    },
+    {
+      "kind": "fixed",
+      "exitCode": 0
+    }
+  ],
+  "wireProtocolUnchanged": true,
+  "imageGenerated": false,
+  "beforeSHA256": "eb0fe85c1ecab6d75bf23abf2d2fd6d2eb77213fe49032a40e7231925dba5f63",
+  "afterSHA256": "a1921daa51bfe45dd0fc22e90a9c9e2ae4cfda4f4080a79d56bbb88d4c2f39b6",
+  "targetObjectCompileExit": 0,
+  "candidate": "artifacts/development/tab5-camera-ready-followup-20261024/candidate"
+}

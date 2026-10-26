@@ -1,0 +1,64 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5ConnectionData.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5ConnectionData.swift
+@@ -16,6 +16,18 @@
+                   let connected = row["connected"] as? Bool, let selected = row["selected"] as? Bool, names.insert(ssid).inserted else { throw MacTab5Error.invalidPacket }
+             try validate(ssid:ssid,label:label); return .init(ssid:ssid,label:label,connected:connected,selected:selected)
+         }
++    }
++}
++
++enum MacTab5USBManagementReply {
++    static func validate(_ response:[String:Any], type:String, device:String) throws {
++        guard response["deviceId"] as? String == device else { throw MacTab5Error.identity }
++        guard response["type"] as? String == type else { throw MacTab5Error.invalidPacket }
++        if MacTab5Protocol.integer(response["version"]) == 1 { return }
++        // Existing firmware omits version only in this management reply. The
++        // serial identity and host proof are still checked before each command.
++        guard type == "tab5_benchmark", response["version"] == nil,
++              let result = response["result"] as? String, result.utf8.count <= 8192 else { throw MacTab5Error.invalidPacket }
+     }
+ }
+ 
+--- a/mac-app/Sources/AIBotBridge/MacTab5USB.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USB.swift
+@@ -144,7 +144,7 @@
+             try wire.authenticate(pair,endpoint:self.service.lanConfiguration)
+             var request = fields; request["type"] = type; request["version"] = 1; request["deviceId"] = pair.deviceId
+             try wire.send(request); let response = try wire.reply(reply)
+-            guard response["deviceId"] as? String == pair.deviceId, MacTab5Protocol.integer(response["version"]) == 1 else { throw MacTab5Error.identity }
++            try MacTab5USBManagementReply.validate(response,type:reply,device:pair.deviceId)
+             completion(.success(response))
+         } catch { self.close("USB 操作未确认，等待重连"); completion(.failure(error)) } }
+     }
+--- a/mac-app/Sources/AIBotBridge/MacGalleryConnectionValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacGalleryConnectionValidation.swift
+@@ -30,6 +30,29 @@
+         try rejects("Wi-Fi duplicate SSID") { _ = try MacSavedWiFi.parse(["version":1,"deviceId":"test","networks":[network,network]],device:"test") }
+         try rejects("Wi-Fi newline label") { try MacSavedWiFi.validate(ssid:"test",label:"bad\nlabel") }
+         try rejects("Wi-Fi UTF8 length") { try MacSavedWiFi.validate(ssid:String(repeating:"网",count:11),label:"") }
++        let legacyBenchmark:[String:Any] = ["type":"tab5_benchmark","deviceId":"test","result":"complete;USB,up,1,262144,1000,0"]
++        func acceptsManagement(_ value:[String:Any],type:String = "tab5_benchmark",device:String = "test") -> Bool {
++            do { try MacTab5USBManagementReply.validate(value,type:type,device:device); return true } catch { return false }
++        }
++        try check("legacy benchmark reply without version",acceptsManagement(legacyBenchmark))
++        var versionedBenchmark = legacyBenchmark; versionedBenchmark["version"] = 1
++        try check("versioned benchmark reply",acceptsManagement(versionedBenchmark))
++        try check("benchmark wrong identity rejected",!acceptsManagement(legacyBenchmark,device:"other"))
++        try check("benchmark wrong type rejected",!acceptsManagement(legacyBenchmark,type:"tab5_wifi_list"))
++        var missingDevice = legacyBenchmark; missingDevice.removeValue(forKey:"deviceId")
++        try check("benchmark missing identity rejected",!acceptsManagement(missingDevice))
++        for invalid in [2,"1",true,NSNull()] as [Any] {
++            var value = legacyBenchmark; value["version"] = invalid
++            try check("explicit invalid benchmark version rejected",!acceptsManagement(value))
++        }
++        var invalidResult = legacyBenchmark; invalidResult["result"] = NSNull()
++        try check("legacy benchmark missing result rejected",!acceptsManagement(invalidResult))
++        invalidResult["result"] = String(repeating:"a",count:8193)
++        try check("legacy benchmark oversized result rejected",!acceptsManagement(invalidResult))
++        var wifiManagement = legacyBenchmark; wifiManagement["type"] = "tab5_wifi_list"
++        try check("other management still requires version",!acceptsManagement(wifiManagement,type:"tab5_wifi_list"))
++        wifiManagement["version"] = 1
++        try check("versioned other management preserved",acceptsManagement(wifiManagement,type:"tab5_wifi_list"))
+         let pattern = MacTab5Benchmark.pattern(offset:8192,count:49152)
+         let request:[String:Any] = ["offset":8192,"count":49152]
+         try check("benchmark pattern",pattern.first == 17 && pattern[1] == 48)

@@ -1,0 +1,10 @@
+{
+  "path": "mac-app/Sources/AIBotBridge/MacProfileWindows.swift",
+  "baseSHA256": "440d3cf3134b4e4afd1dbbfcaaf1947baebb0d9202235b000514baffffabcb2e",
+  "patchedSHA256": "a1be749cb1d32395db879dff3383117b57b36753994cbcf41d7eab512a228605",
+  "scope": "clear stale birthday/agenda status on reopen; reset discarded agenda editor only when reopening a closed window",
+  "sourceApplied": true,
+  "runtimeChanged": true,
+  "validation": "Release and 901 isolated checks passed; required swift test unavailable because CLT lacks XCTest; exact patch applies; native birthday/agenda reopen, draft refresh/continue/discard verified",
+  "evidence": "artifacts/development/mac-profile-reopen-20261024"
+}

@@ -88,8 +88,9 @@ internal sealed partial class Tab5Service
                 }
                 if(!valid)result=(400,new{error="invalid_session_or_time"});
                 else if(replay)result=(409,new{error="already_submitted"});
-                else if(!opened.Data.IsEmpty&&Text(root,"kind") is not ("image-chunk" or "benchmark"))result=(400,new{error="unexpected_binary_data"});
+                else if(!opened.Data.IsEmpty&&Text(root,"kind") is not ("image-chunk" or "benchmark" or "screen-preview"))result=(400,new{error="unexpected_binary_data"});
                 else if(Text(root,"kind") is "ota" or "ota_probe")result=allowOta?RpcOta(root,transport,binaryReply,bulkReply):(409,new{error="firmware_requires_ota_transport"});
+                else if(Text(root,"kind")=="screen-preview")result=ScreenPreview.Receive(root,opened.Data.ToArray(),ScreenPreviewContext,id,transport);
                 else if(Text(root,"kind")=="image-chunk") {
                     result=RpcImage(root,id,opened.Data);
                     lock(_rpcLock) {
@@ -117,6 +118,9 @@ internal sealed partial class Tab5Service
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
                 else if(Text(root,"kind")=="agenda")result=AgendaStore.Shared.Rpc(root);
                 else if(Text(root,"kind")=="wifi-unlock")result=await WifiUnlock.HandleAsync(root,pair,transport,_session,token);
+                // Optional Mac host-side USB/BLE intent protocol. Windows keeps
+                // its existing PIN/HID path and never interprets this as a PIN grant.
+                else if(Text(root,"kind")=="host-unlock")result=(409,new{error="host_unlock_unsupported",unlocked=false});
                 else if(Text(root,"kind")=="unlock-pin") {
                     Tab5PinBroker broker;lock(_rpcLock)broker=_pinBroker??=new(_pinStore);
                     result=broker.Handle(root,pair,transport);

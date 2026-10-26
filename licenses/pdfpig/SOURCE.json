@@ -1,0 +1,8 @@
+{
+  "package": "PdfPig",
+  "version": "0.1.16",
+  "license": "Apache-2.0 with embedded component notices",
+  "source": "https://raw.githubusercontent.com/UglyToad/PdfPig/a7bb35662bbbf405efddad50aedc9bcdcf515afc/LICENSE",
+  "repositoryCommit": "a7bb35662bbbf405efddad50aedc9bcdcf515afc",
+  "sha256": "4c510e162f896ea43b4b1cf1b743641d7c756f1004d0e5eaf0615b28b7ded409"
+}

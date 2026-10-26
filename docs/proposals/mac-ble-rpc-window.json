@@ -1,0 +1,38 @@
+{
+  "scope": "Mac general BLE RPC uses established bounded notification grants after successful subscription",
+  "wireChange": false,
+  "firmwareChange": false,
+  "voicePathUnchanged": true,
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BLE.swift",
+      "before": "61136912c1eab40240a5ac9ae2795a909c103cab4f0f1a1de5ed23d49462ceb7",
+      "after": "743bec6de4dfc1e2eb7766ea82a0ef922532e6594996b303704e73bc2a66f0c9"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift",
+      "before": "4b938432ac83aaed318012c5d41f3a6c1e31728149904df19312376491ae8241",
+      "after": "b700721092f85b2712846b6482094adfc4af8aa34c4fb72d09c39ee71dd188ed"
+    },
+    {
+      "path": "docs/PROTOCOL.md",
+      "before": "3e68fbbdae66715e8a452036e20eaeab25a4f4886b0d2f3638d6fdf3bd7e7824",
+      "after": "a8676daf11d220b549cdada80185f0f1f8bba442a2c6a349fa467c47272aea2a"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BLERPCWindow.swift",
+      "before": null,
+      "after": "7f4d2ca51fcfe7b21cee1bf16d5b6fb06425d27c0e1fc392ef6e63ecb9d8f27a"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BLERPCWindowValidation.swift",
+      "before": null,
+      "after": "0dfd882d65901e5c70b7089d23ae3a43987ce88701bb8183cbf7f86010bf3157"
+    },
+    {
+      "path": "mac-app/Tests/AIBotBridgeTests/MacTab5BLERPCWindowTests.swift",
+      "before": null,
+      "after": "5712e12876dd480639b5487aa01803b699b4788390cda9dc81db0af45ae84dbc"
+    }
+  ]
+}

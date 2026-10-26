@@ -1,0 +1,38 @@
+--- a/firmware/main/wifi_link.c
++++ b/firmware/main/wifi_link.c
+@@ -31,7 +31,7 @@
+ static atomic_int disconnect_reason,http_status;
+ static atomic_uint status_attempts,status_valid,status_host,status_local,status_port;
+ static atomic_int status_open_error,status_socket_error;
+-static atomic_bool reconnect_requested;
++static atomic_bool reconnect_requested,status_pending;
+ static TaskHandle_t wifi_task;
+ void tab5_wifi_wake(void){if(wifi_task)xTaskNotifyGive(wifi_task);}
+ static char local_ip[16];
+@@ -53,7 +53,9 @@
+     const char *state=!cfg.ssid[0]?"请在电脑添加 Wi-Fi":wifi_connected?"已连接":reason==202||reason==15?"认证失败，请检查密码":reason==201?"未找到已保存网络":"正在连接已保存网络";
+     const char *bridge=!cfg.paired?"请先通过 USB 配对":!wifi_connected?"等待 Wi-Fi":
+         received>=0&&esp_timer_get_time()/1000>=received&&esp_timer_get_time()/1000-received<8000?"正常 · 鉴权通过":
+-        http==401||http==403?"配对不匹配，请重新配对":http==0?"暂不可达，正在寻找电脑":"响应异常，正在重试";
++        atomic_load(&status_pending)?"正在等待电脑响应":
++        http==401||http==403?"配对不匹配，请重新配对":http==0?"暂不可达，正在寻找电脑":
++        http==-1?"未收到有效响应，正在重试":"响应异常，正在重试";
+     char label[WIFI_LABEL_SIZE];device_wifi_label(cfg.ssid,label);
+     snprintf(out,size,"Wi-Fi  %s%s%s\n%s\nIP  %s\n电脑桥接  %s",label[0]?label:"",label[0]?" · ":"",cfg.ssid[0]?cfg.ssid:"尚未配置",state,ip[0]?ip:"尚未分配",bridge);
+ }
+@@ -113,6 +115,7 @@
+     snprintf(url,sizeof(url),"http://%.15s:%d/tab5/v1/status",cfg->host,cfg->port);
+     esp_http_client_config_t options={.url=url,.timeout_ms=3000,.disable_auto_redirect=true,.buffer_size=2048};
+     esp_http_client_handle_t client=esp_http_client_init(&options);if(!client)return;
++    atomic_store(&status_pending,true);
+     atomic_store(&http_status,0);
+     esp_http_client_set_header(client,"X-AIBot-Device",cfg->id);
+     esp_http_client_set_header(client,"X-AIBot-Nonce",nonce);
+@@ -162,6 +165,7 @@
+         esp_http_client_close(client);
+     }
+     esp_http_client_cleanup(client);
++    atomic_store(&status_pending,false);
+ }
+ static void task(void *arg) {
+     ESP_ERROR_CHECK(esp_netif_init());ESP_ERROR_CHECK(esp_event_loop_create_default());station_netif=esp_netif_create_default_wifi_sta();

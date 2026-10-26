@@ -1,0 +1,53 @@
+{
+  "base": "R12 complete",
+  "productFiles": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5Voice.swift",
+      "beforeSHA256": "2d212d51c801226ec319faa920e9cc6b76279f37873d93402483fe587b64a5fe",
+      "afterSHA256": "c97e4bb82667850fb31db726e00dd44d32a27d12acf4300a72d1616035a84e68"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5Service.swift",
+      "beforeSHA256": "26fd53e0176077bc05caede37176dd24f3a343c7e02643578c4411db346c14f9",
+      "afterSHA256": "b57d7bd74681ac0acd6b7e1a4e763931e820fe1ff2b69efdccd04ef3a77a4fe7"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5Codex.swift",
+      "beforeSHA256": "3613343093c4e82911105c8e9bbcc26f116d5bc6891e380c0e40aea413c4ae47",
+      "afterSHA256": "fb4609908d36d6a6595bb126fc04fc1b4e6ea784e3135feb27f7153cf006c67a"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USB.swift",
+      "beforeSHA256": "e68fd1c23e329f10a67f7d5c3878bc925b82c499e19fe5f6e59337e9935b9f73",
+      "afterSHA256": "abef4e0e43839afb84d584ca15528bb83e383eecafa08f5bba2287a50ccfa3a0"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacParityValidation.swift",
+      "beforeSHA256": "7b200c4ef947a8718f53c05eb7f57ed038a0cd68a1e82caa3d64e8dd3b651ab7",
+      "afterSHA256": "2210a8865aaf4dfe3ca03bc3e280bf131eaab07dc394e0f64c9e865affc0ec76"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5InteractionDiagnostics.swift",
+      "beforeSHA256": "bf44964b9b59c5abf12d14909125476df147339b349043d2e1f0c018515f8cfd",
+      "afterSHA256": "883ef73d3984c13356ac66890872eafc0dab09fb08708c1f5da74091c16d42b8"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacVoiceTerminalPriorityValidation.swift",
+      "beforeSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "afterSHA256": "2e25986b9ff7889c98ebbc1c78c9f92ec9f397cc40dc5dd686f7365b7bf526f8"
+    }
+  ],
+  "wireProtocolChanged": false,
+  "debugChecks": 1501,
+  "deployed": true,
+  "physicalAcceptance": false,
+  "changes": [
+    "USB transport priority held through same-take terminal fragment ACK, bounded30s after last peer request; eight-second capture deadline unchanged",
+    "actual response state/voice identity required, including late recognizing and old-take responses",
+    "background read/read-ack yields503 during voice priority; read-ack uses try-lock outside voice, retains all existing latest-turn validation",
+    "content-free fixed read-ack label added to local bounded diagnostics"
+  ],
+  "physicalFailureEvidence": "R13 exact PID56132 verified; user reports interrupted capture and recovered text. USB has three reply timeouts after intended11811/11875/12043-byte writes, zero received bytes. Device last voice request5215ms, RPC stage1/no reply. Live stack samples full-state operationHeartbeat send/write/reply, not a proven device-stage root cause. Latest host stop200 final72ms, terminal response generated5524ms later may be recovery. Evidence: artifacts/development/mac-voice-terminal-20261025/R13-LIVE-FAILURE.json",
+  "bundle": "artifacts/mac-voice-terminal-r13-complete-20261025/AIBotBridge.app",
+  "releaseChecks": 1501
+}

@@ -45,6 +45,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private bool _lastMusicPlaying;
     private DateTimeOffset? _temporaryWakeUntil;
     private MirrorForm? _mirror;
+    private Tab5ScreenPreviewForm? _tab5Preview;
     private PetGalleryForm? _petGallery;
     private SettingsForm? _settingsForm;
     private MigratedWeather.WeatherSettingsForm? _weatherSettings;
@@ -104,7 +105,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _icon = new NotifyIcon
         {
             Icon = AppIcon.Load(),
-            Text = _devices.Snapshot.Devices.Any(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled)?"AI-bot｜单击预览小屏，右键管理设备":"AI-bot｜单击打开设备中心",
+            Text = _devices.Snapshot.Devices.Any(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled)?"AI-bot｜单击预览，右键管理设备":"AI-bot｜单击打开设备中心",
             ContextMenuStrip = menu,
             Visible = true
         };
@@ -201,7 +202,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void ShowCommonSettings(bool bridge) {
         ShowDevices(bridge?"bridge-settings":"accounts");
     }
-    private void RebuildMenu() {var old=_icon.ContextMenuStrip;_icon.ContextMenuStrip=DeviceCenterMenu.Build(_devices.Snapshot,HandleDeviceAction,HandleMenuAction);_icon.Text=_devices.Snapshot.Devices.Any(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled)?"AI-bot｜单击预览小屏，右键管理设备":"AI-bot｜单击打开设备中心";old?.Dispose();_center?.Reload();}
+    private void RebuildMenu() {var old=_icon.ContextMenuStrip;_icon.ContextMenuStrip=DeviceCenterMenu.Build(_devices.Snapshot,HandleDeviceAction,HandleMenuAction);_icon.Text=_devices.Snapshot.Devices.Any(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled)?"AI-bot｜单击预览，右键管理设备":"AI-bot｜单击打开设备中心";old?.Dispose();_center?.Reload();}
     private async void AddDevice() {
         if(_changingDevices){MessageBox.Show(SettingsWindow.DialogOwner(_center),"正在更新设备，请稍候再试。","添加设备");return;}
         _changingDevices=true;
@@ -305,6 +306,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
                         _cycleStartedAt=DateTimeOffset.UtcNow.ToUnixTimeSeconds();PublishDisplayPolicy();_serial.SendDisplayMode(policy.SelectedMode);_=UpdateDemandAsync();
                     }),"显示设置"))await ShowPanelAsync(panelKey,form);break;
                 case "mirror":
+                    if(d.Kind==HardwareKind.Tab5) {
+                        if(_tab5 is null)throw new InvalidOperationException("设备未连接到桥接服务。");
+                        if(_tab5Preview is null||_tab5Preview.IsDisposed)_tab5Preview=DeviceWindow(d,new Tab5ScreenPreviewForm(_tab5,()=>_devices.Snapshot.Devices.Any(current=>current.Id==d.Id&&current.Enabled)),"设备预览");
+                        _tab5Preview.Restart();SettingsWindow.Present(_tab5Preview);break;
+                    }
                     if(_mirror is null||_mirror.IsDisposed)_mirror=DeviceWindow(d,new MirrorForm(_runtime.Capture,()=>_selectedMode,Mode,_serial.SendBrightness,()=>Task.Run(_serial.ReadDeviceInfo)),"设备镜像");_mirror.ShowAtTray();break;
                 case "appearance": await ShowAppearanceAsync(d);break;
                 case "pet-gallery":
@@ -643,7 +649,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer.Dispose();
         _exitSignal.Dispose();
         _serial.NotifyHostGoingAway();
-        _mirror?.Close();
+        _mirror?.Close();_tab5Preview?.Close();
         _petGallery?.Close();
         _settingsForm?.Close();
         _weatherSettings?.Close();

@@ -53,6 +53,25 @@ internal static class Tab5RpcSelfTest
                 return JsonDocument.Parse(Tab5RpcBinary.Decode(Tab5Protocol.Decrypt(key,nonce,response.ToArray(),bulk?65535:32768),response:true));
             }
             long Now()=>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            typeof(Tab5Service).GetField("_usbAckAt",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(service,Environment.TickCount64);
+            string previewToken=service.ScreenPreview.Start(service.ScreenPreviewContext);
+            service.ScreenPreview.Renew(previewToken,service.ScreenPreviewContext);
+            using(var previewCommand=JsonDocument.Parse(JsonSerializer.Serialize(service.ScreenPreview.Command))) {
+                string requestId=previewCommand.RootElement.GetProperty("requestId").GetString()!;
+                using var begin=await Call(new{kind="screen-preview",op="begin",streamId=previewToken,requestId,session,issuedAt=Now()});
+                if(begin.RootElement.GetProperty("status").GetInt32()!=200)throw new Exception("Preview authenticated begin rejected");
+                var pixels=new List<byte>();int remaining=640*360;
+                while(remaining>0){int n=Math.Min(remaining,32767),control=n|32768;pixels.AddRange([(byte)control,(byte)(control>>8),0xe0,7]);remaining-=n;}
+                byte[] encoded=pixels.ToArray();
+                var upload=new{kind="screen-preview",op="frame",streamId=previewToken,requestId,width=640,height=360,encoding="rgb565-rle1",size=encoded.Length,
+                    sha256=Convert.ToHexString(SHA256.HashData(encoded)).ToLowerInvariant(),offset=0,data=Convert.ToBase64String(encoded),session,issuedAt=Now()};
+                using var complete=await Call(upload,bulk:true);
+                if(complete.RootElement.GetProperty("status").GetInt32()!=200||service.ScreenPreview.Snapshot(previewToken).Frame?.Pixels.Length!=640*360*2)
+                    throw new Exception("Preview binary dispatcher failed to publish verified pixels");
+                service.ScreenPreview.Stop(previewToken);
+                using var late=await Call(upload,bulk:true);
+                if(late.RootElement.GetProperty("status").GetInt32()!=409)throw new Exception("Preview frame accepted after close");
+            }
             foreach(string category in new[]{"painting","calligraphy"}) {
                 using var missing=await Call(new{kind="gallery",op="manifest",category,date="2026-10-06",frame=0,session,issuedAt=Now()},binary:true);
                 if(missing.RootElement.GetProperty("status").GetInt32()!=404||missing.RootElement.GetProperty("body").GetProperty("error").GetString()!="gallery_pack_missing")throw new Exception("Missing optional gallery was not explained");

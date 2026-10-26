@@ -1,0 +1,31 @@
+{
+  "status": "Mac Release, 914 isolated checks and fixed-signature deployment complete; physical benchmark retest running",
+  "baseBundle": "artifacts/mac-profile-reopen-20261024/AIBotBridge.app",
+  "candidateBundle": "artifacts/mac-benchmark-reply-20261024/AIBotBridge.app",
+  "patchSha256": "da31225ddf44f84d1ab2fc019bd919aead9284fd150f114d3fae3739b91a8173",
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5ConnectionData.swift",
+      "beforeSha256": "39d6a8b7fd470df2a9cc44bc4063d4b5cedc10ad8adfb2f94b1ad81d3b8ff4ff",
+      "afterSha256": "19d6fb697de3d215b59cd62dfabab84d74d4e32555c1669f51f8fbdb9d59ee81"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USB.swift",
+      "beforeSha256": "b0d768bc689e7f8060216ab84f00f0e98b1bbd25c9fda4fd0a931febf5129019",
+      "afterSha256": "90fa01371aaaec42845d453150c1436cd712493b7fb2c7fc6148ec82dc1d5562"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacGalleryConnectionValidation.swift",
+      "beforeSha256": "93b7c053c2c038129d08dcd6271b383fa95f3d12e1e312fbf15402d52cb36ff0",
+      "afterSha256": "32f44fbd4443ebb2fea5521ed7367684729d606e8ed17c5ec67bfa473a78cef0"
+    }
+  ],
+  "legacyPeer": "Existing TAB5 usb_link.c tab5_benchmark reply omits version; Windows reads exact device ID and result without requiring version",
+  "identityAndHostAuthenticationPreserved": true,
+  "invalidExplicitVersionStillRejected": true,
+  "otherManagementRequiresVersion1": true,
+  "firmwareGenerated": false,
+  "deviceFirmware": "0.2.267-ui unchanged",
+  "validation": "Release build, 13 added compatibility/boundary checks within 914 isolated checks, strict signature, unchanged helper/private-pipe probe; XCTest unavailable in installed CLT",
+  "physicalAcceptance": "in progress; first old-bridge attempt failed and is preserved"
+}

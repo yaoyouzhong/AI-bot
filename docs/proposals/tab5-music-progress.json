@@ -1,0 +1,24 @@
+{
+  "source": "artifacts/development/tab5-combined-268-20261024/source",
+  "scope": "add sample and receiver-age fractions before truncating display seconds; no fixed offset, pause/stale/unknown behavior preserved",
+  "files": [
+    {
+      "path": "firmware/main/ui_time.h",
+      "beforeSHA256LF": "076a0275651dda7b47d232f5cb3b8748c29a260e14c4692593004dc7f75691f9",
+      "sha256LF": "1af5c8215b21f287f813126fc8e185604475e7291ddd209126873ad9103d5e32"
+    },
+    {
+      "path": "firmware/main/ui.c",
+      "beforeSHA256LF": "f618d29eaf0c0f2debda689469cb072aa271fc83c6a62f08a7dd176a8c87ddb3",
+      "sha256LF": "88ec4d1b38d8a30cd5c900f19d6b0cf1b85fa81c2f49f1d95db927fad63264f4"
+    }
+  ],
+  "patchSHA256": "8afb0041e0ee5b5ce925b98c0a93bda267edb2e0181eeab22e09b1b8179ef902",
+  "wireChange": false,
+  "firmwareGenerated": false,
+  "physicalAccepted": false,
+  "userReportedCurrentPauseDifference": "about1second, acceptable",
+  "nativeChecks": 16,
+  "targetObjectCompile": "passed on esp32p4 toolchain; not a full image/link",
+  "targetObjectSHA256": "ba0faf125d06293f69d296d49f6f30edf0b2ae5e87a07a78589c04f758929cb2"
+}

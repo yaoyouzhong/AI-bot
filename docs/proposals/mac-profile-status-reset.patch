@@ -1,0 +1,20 @@
+--- a/mac-app/Sources/AIBotBridge/MacProfileWindows.swift
++++ b/mac-app/Sources/AIBotBridge/MacProfileWindows.swift
+@@ -35,7 +35,7 @@
+     }
+     required init?(coder: NSCoder) { fatalError() }
+     func open() { if window?.isVisible != true { reload() }; MacSettingsControls.open(self) }
+-    private func reload() { do { original = try store.file.read(); draft = original; refresh(); beginNew(); draftGuard?.markSaved() } catch { status.stringValue = error.localizedDescription } }
++    private func reload() { do { original = try store.file.read(); draft = original; refresh(); beginNew(); status.stringValue = ""; draftGuard?.markSaved() } catch { status.stringValue = error.localizedDescription } }
+     private func refresh() { list.rows = draft.map { [$0.name, "\($0.lunar ? "农历" : "公历")\($0.leap ? "闰" : "") \($0.month)/\($0.day) · 提前 \($0.remind) 天"] } }
+     private func beginNew() { editing = nil; list.select(-1); name.stringValue = ""; calendar.selectItem(at: 0); month.selectItem(at: 0); day.selectItem(at: 0); remind.selectItem(at: 3); leap.state = .off; calendarChanged(); apply.title = "添加到列表" }
+     private func select(_ index: Int) { guard draft.indices.contains(index) else { return }; editing = index; let v = draft[index]; name.stringValue = v.name; calendar.selectItem(at: v.lunar ? 1 : 0); month.selectItem(at: v.month - 1); day.selectItem(at: v.day - 1); remind.selectItem(at: v.remind); leap.state = v.leap ? .on : .off; calendarChanged(); apply.title = "更新所选" }
+@@ -88,7 +88,7 @@
+     }
+     required init?(coder: NSCoder) { fatalError() }
+     deinit { timer?.invalidate() }
+-    func open() { refresh(); MacSettingsControls.open(self) }
++    func open() { if window?.isVisible != true { beginNew(); status.stringValue = "" }; refresh(); MacSettingsControls.open(self) }
+     @objc private func startChanged() { if end.dateValue <= start.dateValue { end.dateValue = start.dateValue.addingTimeInterval(3600) } }
+     @objc private func updateTimed() { for control in [start, end, repeats, lead] as [NSControl] { control.isEnabled = timed.state == .on } }
+     @objc private func refresh() {
