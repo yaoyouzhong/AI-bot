@@ -2,6 +2,29 @@
 
 ESP8266 versions are independent of the desktop bridge and TAB5.
 
+## 0.5.6 - 2026-10-26
+
+Local candidate; not publicly released.
+
+- Preserve thin digit strokes when reducing Codex reset-credit text to 14 pixels by integrating source-pixel coverage.
+- Align counts and zero-padded MM/DD dates in separate columns; reduce a typical badge to 73 pixels wide with 18-pixel row spacing. Keep animation exclusion synchronized and use the small built-in font if the temporary mask allocation fails.
+- Preserve stock-code Font2 (16 pixels), protocol, filesystem, pairing and cycling settings. No TAB5 change.
+
+## 0.5.5 - 2026-10-26
+
+Local candidate; not publicly released.
+
+- Reduce the Codex reset-credit text from 16px to 14px using the existing font scaler, while preserving the user-accepted badge size and padding. Retain the readable original size if the small temporary glyph buffer cannot be allocated.
+- Preserve protocol, filesystem, pairing, USB/Wi-Fi routing and display settings. No TAB5 change.
+
+## 0.5.4 - 2026-10-26
+
+Local candidate; not publicly released.
+
+- Size the Codex reset-credit badge from measured count/date glyph widths with horizontal and vertical padding; reserve room beside the plan label.
+- Share those bounds with pet-animation exclusion so later frames cannot erase the badge. Preserve protocol version 1, 460800 baud, pairing, filesystem and cycling settings.
+- PlatformIO build and 1,350 actual-font layout boundary checks pass. Hardware deployment and visual acceptance are recorded separately; no tag or public release.
+
 ## 0.5.3 - 2026-10-12
 
 - Report a persistent `device_id` derived from the station MAC in USB hello/pong, USB device information and authenticated Wi-Fi information. It remains available without a Wi-Fi connection and across USB sockets, COM changes and reboots.
