@@ -8,19 +8,28 @@ on:
         type: choice
         options: [bundle, bridge, esp8266]
         default: bundle
+      desktop_platform:
+        description: Desktop platform to package
+        type: choice
+        options: [all, windows, macos]
+        default: all
   workflow_call:
     inputs:
       component:
         type: string
         required: false
         default: bundle
+      desktop_platform:
+        type: string
+        required: false
+        default: all
 
 permissions:
   contents: read
 
 jobs:
   windows:
-    if: inputs.component == 'bundle' || inputs.component == 'bridge'
+    if: inputs.component == 'bundle' || (inputs.component == 'bridge' && inputs.desktop_platform != 'macos')
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -60,7 +69,7 @@ jobs:
           path: artifacts/candidate-esp8266/*
           if-no-files-found: error
   macos:
-    if: inputs.component == 'bundle' || inputs.component == 'bridge'
+    if: inputs.component == 'bundle' || (inputs.component == 'bridge' && inputs.desktop_platform != 'windows')
     runs-on: macos-14
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -73,4 +82,19 @@ jobs:
         with:
           name: candidate-macos-arm64
           path: artifacts/candidate-macos/*
+          if-no-files-found: error
+  macos-source:
+    if: inputs.component == 'bridge' && inputs.desktop_platform == 'macos'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Verify and archive corresponding source
+        run: python scripts/package_desktop_source.py artifacts/candidate-macos-source
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: candidate-macos-source
+          path: artifacts/candidate-macos-source/*
           if-no-files-found: error

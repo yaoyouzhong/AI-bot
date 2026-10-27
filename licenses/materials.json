@@ -153,7 +153,7 @@
     "docs/assets/screens/gallery-browser.png": "547b550acd6857d95927c5c7dc7628d07f2647178fdc4a50537e59411b8716e7",
     "docs/assets/screens/gallery-fullscreen.png": "58cef39ef6b0b9273f459802af3fa214a3ed21bc16594769c40cbb87abf7b24b",
     "docs/assets/screens/bridge-monitor.png": "c991810b74964f8908fe1923df8ece84cc5303755d7408317108dffd0de3134f",
-    "docs/assets/screens/tab5-runtime-health.png": "116da9fca9fe2ca62e1e6b7483dcc9d08c3b136888615cf48dbccacf0467ab07",
+    "docs/assets/screens/tab5-runtime-health.png": "00df469444bd19daa5e583117730affe7f386d8b7326a4b8198912dc7797895e",
     "docs/assets/screens/tab5-transfer-test.png": "23e3a68adbe8c13250099c1b5a6a2d392738628d435e3895bfa712944e92f219",
     "docs/assets/screens/tab5-agenda.png": "32fda5e5c267a7c9490b378eb9fb162e2dfdfee28c0eef065fad4310fd9934a4",
     "docs/assets/screens/tab5-agenda-editor.png": "6cc1ba32c0ff21b25485bb11836c32b50791ab9cf8406612c42dde8df126031f",
@@ -219,7 +219,8 @@
     "docs/assets/screens/tab5-draft-clear-retyped-281.png": "e8b7f197b0b25dbbe72d1f12438d6f5560230553f4fb5391a8a2e0771252932c",
     "docs/assets/screens/tab5-quota-281.png": "4a0b14e09e41293ea382bf7eb0ab20c97a466144c7fe8a4409ead5594d3cbbf4",
     "docs/assets/screens/model-accounts-0611.png": "bf812b1fdd7c8d34e059e1b2f4a627c87809d4b166c0af850c9e244ac8418026",
-    "docs/assets/screens/esp8266-reset-text-057.png": "849e47fd5d5b1c6586fdec508f0c9c88efe2ff9f897a10a7723010e24e1fd9ff"
+    "docs/assets/screens/esp8266-reset-text-057.png": "849e47fd5d5b1c6586fdec508f0c9c88efe2ff9f897a10a7723010e24e1fd9ff",
+    "docs/assets/screens/tab5-runtime-health-detail.png": "cf6b81127f33b5cd73e0c247d443a3c88d72093ab4d31f8c699a4aedef09ba61"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

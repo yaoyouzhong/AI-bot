@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.12 - 2026-10-27
+
+### Windows interface fixes
+- Use a compact action layout on the Device Center account-data page across window sizes and scaling levels.
+- Center the TAB5 preview in the current screen's working area and constrain its size to fit.
+
+### Validation and scope
+- Windows interface and device connectivity were checked; existing settings and pairings are preserved.
+- This release updates Windows only. Mac retains its published 0.6.11 package; firmware updates independently.
+
 ## 0.6.11 - 2026-10-27
 
 ### Features

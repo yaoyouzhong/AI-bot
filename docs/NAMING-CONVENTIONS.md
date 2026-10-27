@@ -12,6 +12,12 @@
 
 Bridge titles use `v`; firmware titles, version values and canonical package filenames omit it. Components advance independently. Preserve the existing TAB5 `-ui` identity. Collections use `YYYY.MM.DD`, with `.1`, `.2` for same-day revisions. Feature descriptions belong in release notes.
 
+## 后续命名简化 / Future naming simplification
+
+后续发布计划去掉电脑端产物文件名中的 `bridge`，保持名称简洁。实施前需同时验证新旧文件名识别、更新服务、校验清单和历史下载链接；现有 0.6.12 继续沿用兼容名称，不改写历史附件。
+
+A future release will simplify desktop asset names by removing `bridge`. Validate both old and new name recognition, update discovery, checksums and historical links before switching. Version 0.6.12 retains the compatible existing names; historical assets remain unchanged.
+
 ## 构建物 / Artifacts
 
 固定顺序为 `AI-bot-组件-版本字段-平台-架构-用途.扩展名`，省略不适用的字段。组件、平台和用途使用小写；只有桥接版本字段使用 `v`。正式构建物使用产品名称与版本，构建阶段由版本及发布状态表达，去掉 `local-candidate`。

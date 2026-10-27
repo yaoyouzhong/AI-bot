@@ -1,4 +1,10 @@
-# 当前发布源码 / Current release source: 0.2.281-ui
+# 待发布源码 / Pending release source: 0.2.282-ui
+
+准备发布的 .282 源码包基于已公开 .281 完整源码，包含本次三处界面与测试修改；其应用身份对应已刷入并经用户确认的镜像。应用 SHA-256：`158425cf823886d4ce33fcf718217cc4408d57a9c09b801bf00176f7e6e6265c`；源码包 SHA-256：`4d2ab52dcbf6d9ce2ccd6febcc22a25b179fd23af03ae0d677f822c5dce50849`。首刷与升级包使用相同应用字节；未宣称独立逐位重建。
+
+The prepared .282 source archive retains the complete .281 baseline and the three changed UI and test files. Its application identity matches the installed and physically confirmed image. First-install and upgrade packages contain identical application bytes; independent bit-identical rebuilding is not claimed.
+
+# 已发布源码 / Published release source: 0.2.281-ui
 
 [完整 .281 源码包](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.281-ui/AI-bot-tab5-0.2.281-ui-source.zip)包含完整 .279 基线、全部 .281 修改、恢复的测试、依赖覆盖文件、SDK/NimBLE 补丁、配置和许可证。7,531 个冻结输入与声明变更、9 个 SDK 修改文件及已刷 BIN/ELF 摘要逐项复核；不是刷机文件，不宣称独立逐位重建。
 
@@ -26,7 +32,7 @@ The linked .234 archive supplies all 962 corresponding-source/validation entries
 
 普通用户按[图文指南](../INSTALL.zh.md)选择首刷或升级包，无需源码。
 
-## 当前版本：0.2.217-ui
+## 历史版本：0.2.217-ui
 
 下载 [TAB5 0.2.217-ui 源码与构建快照](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/AI-bot-tab5-0.2.217-ui-source.zip)，校验同一发布页的 [SHA256SUMS.txt](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.217-ui/SHA256SUMS.txt)。
 
@@ -41,7 +47,7 @@ The linked .234 archive supplies all 962 corresponding-source/validation entries
 
 自有源码 MIT，组件、字体与词库保留原许可。图库支持包含在固件中，艺术图像另行下载；许可和镜像验收分别见[许可范围](../TAB5-LICENSE-SCOPE.md)与[本版验证边界](../RELEASE-0.6.9.md)。
 
-The current developer archive is 0.2.217-ui and matches the source/application identities above. Check the release checksum, then follow the included manifest, README, dependency lock, sdkconfig and SDK patch with ESP-IDF 5.4.2. It is not a flashing package; byte-identical independent reproduction remains unverified. Own code is MIT, third-party terms remain intact, and artwork collections are separate.
+The historical 0.2.217-ui developer archive matches the source/application identities above. Check the release checksum, then follow the included manifest, README, dependency lock, sdkconfig and SDK patch with ESP-IDF 5.4.2. It is not a flashing package; byte-identical independent reproduction remains unverified. Own code is MIT, third-party terms remain intact, and artwork collections are separate.
 
 <details>
 <summary>历史 0.2.89-ui 快照 / Historical snapshot</summary>

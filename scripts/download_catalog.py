@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import urllib.request
 
-from component_versions import release_target
+from component_versions import release_target, desktop_platform, versions
 from artifact_names import TEMPLATES, names as artifact_names, match as match_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -167,6 +167,15 @@ def verify_online(data):
         print(f"OK HD {key}: complete archive size, hash and part count")
 
 
+
+def gallery_display_version(category, package_version, language="zh"):
+    """Show content edition and package identity together when they differ."""
+    edition = gallery_edition(category, package_version)
+    if edition == package_version:
+        return package_version
+    return (f"{edition}（包 {package_version}）" if language == "zh"
+            else f"{edition} (package {package_version})")
+
 def table(data, language="zh", tag=None):
     entries = copy.deepcopy(data["downloads"])
     changed = set()
@@ -177,6 +186,10 @@ def table(data, language="zh", tag=None):
             if kind == component or component == "bundle" and kind in ("bridge", "esp8266"):
                 # A published Windows-only release must not invent a Mac download.
                 if published and entries[key]["tag"] != tag:
+                    continue
+                # Draft notes must not invent a download for an unselected platform.
+                if (not published and component == "bridge" and version == versions(ROOT)["bridge"]
+                        and desktop_platform(ROOT) != "all" and key != desktop_platform(ROOT)):
                     continue
                 target = {"tag": tag, "version": version, "file": template.format(version=version)}
                 if entries[key]["tag"] == tag and entries[key]["version"] == version:
@@ -191,7 +204,7 @@ def table(data, language="zh", tag=None):
     lines = ["| 用途 | 版本 | 下载 | SHA-256 |" if zh else "| Use | Version | Download | SHA-256 |", "| --- | --- | --- | --- |"]
     for key, spec in SPECS.items():
         item = entries[key]
-        version = gallery_edition(key, item["version"]) + ((" · 本次发布" if zh else " · this release") if key in changed else "")
+        version = gallery_display_version(key, item["version"], language) + ((" · 本次发布" if zh else " · this release") if key in changed else "")
         label = "下载" if zh else "Download"
         if "size" in item:
             label += f" · {item['size'] / 1048576:.0f} MiB"
@@ -200,7 +213,7 @@ def table(data, language="zh", tag=None):
             collection = hd["collections"][key]
             title = spec[2].replace("标准版", "高清完整版") if zh else spec[3].replace("standard", "complete HD")
             label = ("下载" if zh else "Download") + f" · {collection['size'] / 1073741824:.2f} GiB"
-            lines.append(f"| {title} | {gallery_edition(key, hd['version'])} | [{label}]({HD_GUIDE}#download) | [SHA-256]({HD_GUIDE}#{key}) |")
+            lines.append(f"| {title} | {gallery_display_version(key, hd['version'], language)} | [{label}]({HD_GUIDE}#download) | [SHA-256]({HD_GUIDE}#{key}) |")
     return "\n".join(lines)
 
 

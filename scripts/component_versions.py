@@ -14,6 +14,13 @@ def components(root=ROOT):
     return manifest["components"]
 
 
+def desktop_platform(root=ROOT):
+    value = components(root)["bridge"].get("desktopPlatform", "all")
+    if value not in ("all", "windows", "macos"):
+        raise ValueError("Unsupported desktop release platform")
+    return value
+
+
 def versions(root=ROOT):
     result = {}
     for name, record in components(root).items():

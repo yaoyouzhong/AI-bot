@@ -335,6 +335,8 @@ Windows 的运行监控显示 VPN／PAC、电脑负载、异常原因和处理�
 
 ![TAB5 运行监控](assets/screens/tab5-runtime-health.png)
 
+![TAB5 检测详情：原因、数据与建议](assets/screens/tab5-runtime-health-detail.png)
+
 主动选择 TF 卡并保存完整图库后，每日书法与名画可离线预览。横屏的作品名、作者和年代显示在图画旁，竖屏保留简化信息。启动首先显示总览，再恢复原有展示设置。[实机边界](development/TAB5-194-ACCEPTANCE-20261014.md)
 
 Runtime monitoring reports connection and computer-health causes and advice. Completed TF galleries remain available offline; artwork captions use side placement in landscape and compact portrait information. Overview appears at startup, followed by the retained display settings. These native screenshots use isolated data.

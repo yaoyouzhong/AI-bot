@@ -1,6 +1,6 @@
 # 书画内容版次 / Artwork content editions
 
-公开下载表使用“年度＋修订号”：**2026.1** 表示这套 2026 年度内容在新编号规则下的第一个版次，后续内容修订为 2026.2、2026.3。书法和名画分别维护；“标准版／高清完整版”继续标明清晰度与容量，不混入版次数字。
+公开下载表同时显示内容版次和具体包版本，与软件中的版本号对应。“年度＋修订号”的内容版次：**2026.1** 表示这套 2026 年度内容在新编号规则下的第一个版次，后续内容修订为 2026.2、2026.3。书法和名画分别维护；“标准版／高清完整版”继续标明清晰度与容量，不混入版次数字。
 
 当前高清完整包内含对应标准版的作品、展示图和资料，因此共用内容版次 2026.1；高清素材作为额外分辨率选项。不要求标准版和高清版 ZIP 的字节、大小或 SHA-256 相同。
 
@@ -15,4 +15,4 @@
 
 ## English
 
-Public download tables use **year.revision**, starting with **2026.1** under this naming scheme. Painting and calligraphy are versioned separately. Standard and complete HD share a content edition when the HD archive includes the corresponding standard works, previews and guides; their archive bytes and hashes remain distinct. Existing package versions, filenames, URLs, checksums and update comparisons are unchanged. Future content revisions require an explicit reviewed mapping; unknown package versions keep their original identifier rather than inheriting an old edition. No re-download or re-import is required for this display-only change.
+Public download tables show both the content edition and exact package version to match the application. Content editions use **year.revision**, starting with **2026.1** under this naming scheme. Painting and calligraphy are versioned separately. Standard and complete HD share a content edition when the HD archive includes the corresponding standard works, previews and guides; their archive bytes and hashes remain distinct. Existing package versions, filenames, URLs, checksums and update comparisons are unchanged. Future content revisions require an explicit reviewed mapping; unknown package versions keep their original identifier rather than inheriting an old edition. No re-download or re-import is required for this display-only change.

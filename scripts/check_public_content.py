@@ -41,6 +41,7 @@ REVIEWED_DOC_NAMES = frozenset({
     'tab5-classic-night.png',
     'bridge-monitor.png',
     'tab5-runtime-health.png',
+    'tab5-runtime-health-detail.png',
     'tab5-settings-info.png',
     'tab5-clock-geometric.png',
     'tab5-clock-star.png',

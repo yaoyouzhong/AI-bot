@@ -2,6 +2,15 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.282-ui - 2026-10-27
+
+### System diagnostics
+- Prevent the system-alert icon from overlapping Performance and Diagnostics tabs; place overall status and guidance first.
+
+### Check details
+- Separate findings, measured data and guidance; add a return-to-diagnostics button and improve long-text layout.
+- The user confirmed the interface on a TAB5 updated with settings preserved; native UI regression and startup verification passed.
+
 ## 0.2.281-ui - 2026-10-27
 
 Release prepared after user hardware acceptance.

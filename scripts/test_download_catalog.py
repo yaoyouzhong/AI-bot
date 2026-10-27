@@ -43,10 +43,11 @@ class DownloadCatalogTests(unittest.TestCase):
             for key in ("painting", "calligraphy"):
                 item = self.data["downloads"][key]
                 index = next(i for i, row in enumerate(rows) if catalog.asset_url(item) in row)
-                self.assertIn("| 2026.1 |", rows[index])
-                self.assertIn("| 2026.1 |", rows[index + 1])
+                self.assertIn("2026.1", rows[index])
+                self.assertIn(item["version"], rows[index])
+                self.assertIn("2026.1", rows[index + 1])
+                self.assertIn("2026.10.16", rows[index + 1])
                 self.assertIn(item["file"], rows[index])
-            self.assertNotIn("| 2026.10.16 |", "\n".join(rows))
         self.assertEqual(before, self.data)
         self.assertEqual(catalog.gallery_edition("painting", "2026.10.18"), "2026.10.18")
         self.assertEqual(catalog.gallery_edition("windows", "0.6.8"), "0.6.8")
@@ -70,6 +71,22 @@ class DownloadCatalogTests(unittest.TestCase):
             self.assertIn(catalog.asset_url(self.data["downloads"]["macos"]), rendered)
             self.assertNotIn("macos-arm64.zip", "\n".join(row for row in rendered.splitlines() if "v99.0.0" in row))
             self.assertEqual(rendered.count("本次发布" if language == "zh" else "this release"), 1)
+
+    def test_gallery_table_exposes_exact_installed_package_versions(self):
+        for language, label in (("zh", "包"), ("en", "package")):
+            table = catalog.table(self.data, language)
+            for version in ("2026.10.14.1", "2026.10.15.1", "2026.10.16"):
+                self.assertIn(f"{label} {version}", table)
+            self.assertEqual(catalog.gallery_display_version("painting", "2099.01.01", language), "2099.01.01")
+
+    def test_desktop_draft_links_only_the_selected_platform(self):
+        version = catalog.versions(catalog.ROOT)["bridge"]
+        for platform, retained in (("windows", "macos"), ("macos", "windows")):
+            with self.subTest(platform=platform), patch.object(catalog, "desktop_platform", return_value=platform):
+                rendered = catalog.table(self.data, tag="v" + version)
+                self.assertIn(catalog.asset_url(self.data["downloads"][retained]), rendered)
+                self.assertIn(catalog.SPECS[platform][1].format(version=version), rendered)
+                self.assertEqual(rendered.count("本次发布"), 1)
 
     def test_mac_only_release_preserves_current_windows_download(self):
         releases = self.releases() + [{"tag_name": "v99.0.0", "published_at": "2027-01-01", "draft": False, "prerelease": False,

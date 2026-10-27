@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       component: ${{ steps.target.outputs.component }}
+      desktop_platform: ${{ steps.target.outputs.desktop_platform }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -29,6 +30,11 @@ jobs:
           python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
           component="$(python -c 'import os, sys; sys.path.insert(0, "scripts"); from component_versions import release_target; print(release_target(os.environ["RELEASE_TAG"])[0])')"
           echo "component=$component" >> "$GITHUB_OUTPUT"
+          platform=all
+          if [ "$component" = bridge ]; then
+            platform="$(python -c 'import sys; sys.path.insert(0, "scripts"); from component_versions import desktop_platform; print(desktop_platform())')"
+          fi
+          echo "desktop_platform=$platform" >> "$GITHUB_OUTPUT"
       - name: TAB5 keeps independent local image validation
         if: steps.target.outputs.component == 'tab5'
         run: echo "TAB5 tag metadata checked. Build and verify its first-install, upgrade and public source materials locally before separately authorized publication."
@@ -38,6 +44,7 @@ jobs:
     uses: ./.github/workflows/candidate.yml
     with:
       component: ${{ needs.validate.outputs.component }}
+      desktop_platform: ${{ needs.validate.outputs.desktop_platform }}
   draft:
     needs: [validate, packages]
     if: needs.validate.outputs.component != 'tab5'
@@ -59,8 +66,9 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
           SOURCE_SHA: ${{ github.sha }}
           TARGET_COMPONENT: ${{ needs.validate.outputs.component }}
+          DESKTOP_PLATFORM: ${{ needs.validate.outputs.desktop_platform }}
         run: |
-          python scripts/prepare_release_assets.py release-assets --component "$TARGET_COMPONENT" --commit "$SOURCE_SHA" --publish-directory public-assets
+          python scripts/prepare_release_assets.py release-assets --component "$TARGET_COMPONENT" --desktop-platform "$DESKTOP_PLATFORM" --commit "$SOURCE_SHA" --publish-directory public-assets
           python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
       - name: Create reviewable draft only
         env:

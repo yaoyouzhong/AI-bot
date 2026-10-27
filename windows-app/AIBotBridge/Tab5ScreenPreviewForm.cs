@@ -18,6 +18,7 @@ internal sealed class Tab5ScreenPreviewForm: Form
         _service=service;_valid=valid;Text="设备预览";ClientSize=new(840,540);MinimumSize=new(640,420);
         Controls.Add(_image);Controls.Add(_status);_timer.Tick+=(_,_)=>RefreshFrame();
         Shown+=(_,_)=>{_timer.Start();RefreshFrame();};
+        SettingsWindow.FitScreen(this);
     }
     internal void Restart(){if(!Visible||WindowState==FormWindowState.Minimized)StopPreview();}
     private void ClearImage(){var old=_image.Image;_image.Image=null;old?.Dispose();_shown=long.MinValue;_shownPixels=null;}

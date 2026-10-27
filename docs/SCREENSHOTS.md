@@ -1,5 +1,7 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-27：更新 TAB5 0.2.282-ui 诊断与检测详情截图，来自该版本原生 LVGL 隔离夹具，数值为演示数据，非硬件照片；设备实际界面另经用户确认。 / Updated .282 diagnostics and details from native isolated LVGL fixtures; the device was separately confirmed by the user.
+
 2026-10-27 项目介绍片封面展示 TAB5（左）和 ESP8266（右）的原生额度界面，使用演示数据；不是硬件照片。封面及影片素材来源见 [视频说明](PRODUCT_VIDEO.md)，封面摘要登记在 `licenses/materials.json`。 / Project-overview covers show native synthetic quota interfaces; TAB5 is on the left and ESP8266 on the right.
 
 2026-10-27：新增 TAB5 .281 长按清空前、清空后、继续输入与四额度卡片原生 LVGL 截图，来源为冻结 .279 加已核对 .281 补丁及测试；新增 Windows 账号来源隔离原生 WinForms 虚构账户截图。时间、金额、项目名均是固定夹具，不是私人账号或实机照片。Mac 功能使用共用 TAB5 画面说明，不把 Windows 账号窗口标成 Mac。精确 SHA-256 见 materials.json。

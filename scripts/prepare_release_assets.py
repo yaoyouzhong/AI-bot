@@ -12,12 +12,18 @@ from artifact_names import COMPONENT_KEYS, UPDATE_ALIASES, name as artifact_name
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def prepare(directory: Path, version: str, commit: str, *, component="bundle", versions=None, tab5_source=None):
+def prepare(directory: Path, version: str, commit: str, *, component="bundle", versions=None, tab5_source=None, desktop_platform="all"):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Expected full source commit SHA")
     current = versions or {"bridge": version, "esp8266": version, "tab5": version}
     bridge, esp, tab = (current[name] for name in ("bridge", "esp8266", "tab5"))
+    if desktop_platform not in ("all", "windows", "macos") or (desktop_platform != "all" and component != "bridge"):
+        raise ValueError("Unsupported platform for component")
     keys = COMPONENT_KEYS["bridge"] + COMPONENT_KEYS["esp8266"] if component == "bundle" else COMPONENT_KEYS[component]
+    if desktop_platform == "windows":
+        keys = tuple(key for key in keys if key != "macos")
+    elif desktop_platform == "macos":
+        keys = ("macos", "bridge-source")
     archives = [resolve(directory, key, current["bridge" if key in COMPONENT_KEYS["bridge"] else "esp8266" if key == "esp8266" else "tab5"]) for key in keys]
     expected = {name + suffix for name in archives for suffix in ("", ".sha256")}
     if {p.name for p in directory.iterdir()} != expected:
@@ -37,7 +43,8 @@ def prepare(directory: Path, version: str, commit: str, *, component="bundle", v
         "version": version, "component": component, "componentVersions": current, "sourceCommit": commit,
         "packageHashes": {name: hashlib.sha256((directory / name).read_bytes()).hexdigest() for name in archives},
         "tab5Source": source_record,
-        "macOS": "arm64; ad-hoc signed; not notarized; interactive acceptance required" if component in ("bridge", "bundle") else "not included",
+        "macOS": "arm64; ad-hoc signed; not notarized; interactive acceptance required" if component in ("bridge", "bundle") and desktop_platform != "windows" else "not included",
+        "desktopPlatform": desktop_platform,
         "status": "candidate; publication requires separate acceptance"
     }, indent=2) + "\n", encoding="utf-8")
     lines = [f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}"
@@ -109,12 +116,13 @@ if __name__ == "__main__":
     parser.add_argument("--component", choices=("bundle", "bridge", "esp8266", "tab5"), default="bundle")
     parser.add_argument("--publish-directory", type=Path)
     parser.add_argument("--tab5-source", type=Path, help="Validated local source snapshot; defaults to the versioned repository archive")
+    parser.add_argument("--desktop-platform", choices=("all", "windows", "macos"), default="all")
     args = parser.parse_args()
     current = declared_versions(ROOT)
     version = current["bridge" if args.component == "bundle" else args.component]
     if args.tab5_source and args.component != "tab5":
         parser.error("--tab5-source requires --component tab5")
-    prepare(args.directory, version, args.commit, component=args.component, versions=current, tab5_source=args.tab5_source)
+    prepare(args.directory, version, args.commit, component=args.component, versions=current, tab5_source=args.tab5_source, desktop_platform=args.desktop_platform)
     if args.publish_directory:
         user_payload(args.directory, args.publish_directory, args.component)
     print("RELEASE_ASSETS_OK")

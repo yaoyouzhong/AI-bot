@@ -1,12 +1,12 @@
 # 运行监控 / Runtime monitor
 
-本功能是本地开发候选：Windows 桥接已在本机更新，真实采样、Windows 通知显示回执、正常退出与重启已经验证；TAB5 页面仍为原生 LVGL 预览，尚未刷机。现有固件、版本和升级包保持原有状态。
+Windows 桥接的真实采样、通知显示回执、正常退出与重启已经验证。TAB5 0.2.282-ui 已刷入并完成系统告警、诊断页、检测详情和返回操作的实机确认；文档截图使用隔离演示数据。
 
 ## 页面与提醒
 
 - TAB5：进入`应用 → 系统`默认显示常看的 CPU / 内存、整机上传／下载速率和流量曲线；「运行监控」入口位于系统页标题旁，与流量图分开。点击该入口或首页短异常提示才进入监控页。左上角箭头依次返回：检测详情 → 运行监控 → 电脑状态 → 来源页面。退出后再次进入系统仍显示电脑状态。
-- 运行监控按两类组织：左侧 VPN 响应数字、最近 10 次趋势、PAC 状态；右侧 CPU / 内存条、CPU 等待队列、磁盘响应。底部专门显示当前异常及简短建议。
-- 点 VPN / 电脑卡片查看相应检测结果；「检测详情」打开当前异常对应的网络或系统分组。详情分为「异常原因」「处理建议」两栏，只保留关键证据与最多三条简短建议；正常、未确认、关闭及断连分别提示，不显示重复状态、HTTP 明细或完整日志。原始诊断继续保留在电脑桥接详情中。本功能不展示 Codex 用量、任务计数或会话详情，原有其他页面保持原功能。
+- 运行监控顶部显示当前状态与「检测详情」入口；左侧显示 VPN 响应、最近 10 次趋势和 PAC 状态，右侧显示 CPU / 内存、等待运行线程与磁盘响应。
+- 点 VPN / 电脑卡片查看相应检测结果；「检测详情」打开当前异常对应的网络或系统分组。详情突出异常原因，并分区显示检测数据和处理建议；正常、未确认、关闭及断连分别提示。原始诊断继续保留在电脑桥接详情中。本功能不展示 Codex 用量、任务计数或会话详情。
 - 首页没有正常状态说明或诊断长文；异常时使用「系统监控：内存紧张」「系统监控：系统繁忙」等短标题，前置原生感叹号警告图标：一般告警为黄色，严重错误为红色。Windows 通知使用相同前缀及对应的系统警告／错误图标，具体外观由 Windows 控制。点击进入运行监控。一次异常只响一次，恢复后自动清除；新的持续异常可再次提醒。任务完成、等待审批等原有短时提示保留优先级。
 - 监控数据过期或桥接断开时显示中断，取消绿色状态与趋势。不能用旧状态表示正常。
 - Windows：`设备中心 → 桥接设置 → 运行监控` 主窗口只显示 VPN / PAC 和电脑负载两组简短状态、数字及异常建议；完整说明在「网络详情」「电脑详情」中查看。检测设置为独立标签页，可配置间隔、阈值、预期代理路径和小流量测速；提醒管理提供运行异常开关、提醒音及勿扰时段。
@@ -17,7 +17,7 @@
 - Codex 实际连接：复用桥接已有的认证用量请求结果以及新模型事件中的固定错误类型，不增加模型请求或额外额度查询。单个来源的连接／超时异常在 5 分钟内达到三次才提醒，登录失效或访问受限连续两次才提醒；两次实际成功确认恢复。认证查询成功不覆盖模型连接失败。用户取消、等待审批、长时间无输出均不按连接故障处理；没有五分钟内的实际结果时显示待确认，不能用 VPN 探测成功证明业务正常。只保留分类、计数和时间，丢弃事件正文、会话标识及凭据。
 - 桥接守护：桥接启动时创建一个同用户、会话内的独立子进程，正常退出时通知其结束；不安装 Windows 服务／计划任务、不自动重启。每两秒检查界面心跳、监控采样时间和服务任务失败。启动及睡眠恢复预留 20 秒；界面超过 15 秒、采样超过 10 秒或服务已失败，再持续 30 秒才提醒。整个桥接异常退出单独提醒。正常退出、停用监控、短暂停顿不会提示异常，提醒开关／勿扰设置继续生效；同一异常不由父子进程重复通知。
 - 内存压力：`GetPerformanceInfo` 读取实际提交量和当前提交上限，比例达到原内存阈值（默认 90%）持续 30 秒后提醒。换页读入 ≥1000 页/秒必须同时满足可用内存 <1024 MB 或提交比例 ≥85%，以及磁盘响应 ≥20 ms，持续 30 秒后提醒；单独文件映射读取不触发换页告警。提交上限可能随分页文件扩展而改变；此比例不等于物理内存占用。
-- 新提醒只进入已有短提示和检测详情。桥接异常退出后无法再向 TAB5 发布新状态，设备端继续按心跳过期显示中断；独立守护在电脑上发提醒。TAB5 新页面仍不刷机。
+- 新提醒只进入已有短提示和检测详情。桥接异常退出后无法再向 TAB5 发布新状态，设备端继续按心跳过期显示中断；独立守护在电脑上发提醒。
 
 ## 采样与判断
 
@@ -68,7 +68,7 @@ A session-scoped same-user child checks UI/collector heartbeats and failed worke
 
 This is a local development candidate. The Windows bridge has been installed locally and verified with 150 seconds of live sampling, a controlled threshold-based alarm, a native Windows notification display receipt, graceful shutdown/restart and restored USB connectivity. Temporary thresholds have been restored and TAB5 remains unflashed. Windows collects scheduler, memory and disk pressure every two seconds and checks the proxy exit and per-target PAC routing every 30 seconds. Sustained system pressure requires 30 seconds; network failures require three consecutive rounds. Two healthy observations clear an alert. A bounded 128 KiB transfer every five minutes measures small-transfer throughput rather than maximum bandwidth.
 
-System opens the frequently viewed computer statistics, upload/download rates and traffic graph by default. Runtime monitoring is a secondary entry beside the System page title and continues detecting anomalies in the background. The top-left arrow returns through diagnostic details, monitor overview, computer statistics and the source page. TAB5 keeps short exception notices on Home and places a graphical overview under `Apps → System → Runtime monitor`: latency history and PAC on the left, CPU/memory bars and scheduler/disk values on the right. The bottom region is dedicated to alerts and advice. The relevant card opens a two-column cause-and-action view, retaining only key evidence and at most three brief suggestions. Healthy, unconfirmed, disabled and interrupted observations remain distinct; full diagnostic text is available on the Windows bridge. Codex usage, task counts and conversation details are excluded from this monitor. Stale data loses its healthy presentation. Windows notification preferences, deduplication and quiet hours apply.
+System opens computer statistics and traffic by default. Runtime monitoring remains accessible beside the System page title. The top-left arrow returns through diagnostic details, monitor overview, computer statistics and the source page. The monitor shows status and a details entry above VPN latency and PAC on the left and CPU, memory, scheduler and disk values on the right. Details highlight the cause, measured data and advice. Full diagnostic text is available on the Windows bridge; stale data loses its healthy presentation. TAB5 0.2.282-ui has been installed and its alert, diagnostics, details and navigation confirmed on the device. Screenshots use isolated demonstration data.
 
 PAC availability, actual Windows per-target selection and explicit exit probes are separate evidence. A working exit with broken PAC suggests restarting the VPN client; slow exits suggest inspecting or changing the node. No automatic proxy changes, node switching, client restarts, credential export or model requests occur. HTTP reachability cannot prove authenticated Codex service health. Native notification delivery is verified; physical acceptance of the new TAB5 pages and audible notification verification remain pending. Network failure branches were controlled tests; the live VPN configuration was not disrupted.
 

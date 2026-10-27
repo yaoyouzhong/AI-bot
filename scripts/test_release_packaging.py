@@ -141,5 +141,58 @@ class PackagingTests(unittest.TestCase):
                 self.assertFalse((directory / 'BUILD.json').exists())
 
 
+    def test_windows_only_keeps_default_complete_set_and_rejects_extra_mac(self):
+        import json
+        from prepare_release_assets import user_payload
+        for include_mac in (False, True):
+            with self.subTest(include_mac=include_mac), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp) / "assets"
+                directory.mkdir()
+                self.seed(directory)
+                for name in ("AI-bot-0.1.0-firmware-materials.zip",):
+                    (directory / name).unlink()
+                    (directory / (name + ".sha256")).unlink()
+                mac = "AIBotBridge-0.1.0-local-candidate-macos-arm64.zip"
+                if not include_mac:
+                    (directory / mac).unlink()
+                    (directory / (mac + ".sha256")).unlink()
+                    with self.assertRaises(ValueError):
+                        prepare(directory, "0.1.0", "a" * 40, component="bridge")
+                    prepare(directory, "0.1.0", "a" * 40, component="bridge", desktop_platform="windows")
+                    self.assertEqual(json.loads((directory / "BUILD.json").read_text())["macOS"], "not included")
+                    public = Path(temp) / "public"
+                    user_payload(directory, public, "bridge")
+                    self.assertTrue((public / "AIBotBridge-0.1.0-setup-win-x64.exe").exists())
+                    self.assertFalse(any("macos" in path.name for path in public.iterdir()))
+                else:
+                    with self.assertRaises(ValueError):
+                        prepare(directory, "0.1.0", "a" * 40, component="bridge", desktop_platform="windows")
+
+    def test_macos_only_requires_mac_and_source_and_rejects_windows(self):
+        import json
+        from prepare_release_assets import user_payload
+        for include_windows in (False, True):
+            with self.subTest(include_windows=include_windows), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp) / "assets"
+                directory.mkdir()
+                self.seed(directory)
+                for name in ("AI-bot-0.1.0-firmware-materials.zip", "AIBotBridge-0.1.0-local-candidate-win-x64.zip"):
+                    (directory / name).unlink()
+                    (directory / (name + ".sha256")).unlink()
+                windows = "AIBotBridge-0.1.0-setup-win-x64.exe"
+                if include_windows:
+                    with self.assertRaises(ValueError):
+                        prepare(directory, "0.1.0", "a" * 40, component="bridge", desktop_platform="macos")
+                else:
+                    (directory / windows).unlink()
+                    (directory / (windows + ".sha256")).unlink()
+                    prepare(directory, "0.1.0", "a" * 40, component="bridge", desktop_platform="macos")
+                    self.assertNotEqual(json.loads((directory / "BUILD.json").read_text())["macOS"], "not included")
+                    public = Path(temp) / "public"
+                    user_payload(directory, public, "bridge")
+                    self.assertTrue((public / "AI-bot-bridge-v0.1.0-macos-arm64.zip").exists())
+                    self.assertFalse(any("windows" in path.name for path in public.iterdir()))
+
+
 if __name__ == "__main__":
     unittest.main()
