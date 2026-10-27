@@ -2,13 +2,13 @@
 
 这段 121 秒项目介绍先对照 TAB5 和 ESP8266 的共有功能，再展示 TAB5 的触控与独有功能。 / This 121-second project overview compares shared TAB5 and ESP8266 features before presenting TAB5-exclusive interactions.
 
-https://github.com/user-attachments/assets/a87201d7-8690-4b9a-8cf0-ba8be53e3df1
+https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
 
-[独立观看 / Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 MP4 / Download MP4](https://github.com/user-attachments/assets/a87201d7-8690-4b9a-8cf0-ba8be53e3df1) · [可复现工程 / Reproducible source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-project-overview-source-20261027-v3.zip) · [16:9 封面](assets/product-intro/AI-bot-cover.png) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) · [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png)
+[独立观看 / Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 MP4 / Download MP4](https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922) · [上一版工程 / Previous version source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-project-overview-source-20261027-v3.zip) · [16:9 封面](assets/product-intro/AI-bot-cover.png) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) · [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png)
 
-源码包 SHA-256 / Source ZIP SHA-256: `65a29568e6eed4abb878cf9f40960b15a604cb6c4d8a5f5d8012db3d7e490dea`
+上一版源码包 SHA-256 / Previous source ZIP SHA-256: `65a29568e6eed4abb878cf9f40960b15a604cb6c4d8a5f5d8012db3d7e490dea`
 
-MP4 SHA-256: `773d68a9f197d033f8895b77d3f648a80e343618a1b382ba152ab2a239be4562`
+MP4 SHA-256: `265d8cb92d4ea121ceec2a68cbb679e6b98e37a707d47ca662ebbf7232d373c3`
 
 | 时间 | 内容 |
 | --- | --- |
@@ -24,4 +24,4 @@ MP4 SHA-256: `773d68a9f197d033f8895b77d3f648a80e343618a1b382ba152ab2a239be4562`
 
 Native UI fixtures contain synthetic data and the opening uses [hardware composites](HARDWARE-IMAGES.md); this is not hardware footage or a Mac desktop recording. Retained ESP8266 imagery does not demonstrate the newer font weight. At the user’s direction, the Claude pet in the comparison is composited from the actual local legacy sprite; it is third-party material with redistribution licensing unverified and is not part of the project MIT grant. Existing art and screen provenance remains applicable. Fonts retain OFL, tool code AGPL-3.0, and music and effects are original synthesis. See the video project's source and third-party notices for details.
 
-完整视频解码通过；公开附件完整下载的 SHA-256 与本地一致，支持 HTTP Range。实际主观试听及浏览器播放需分别核验。
+新版视频完整本地解码通过；配音与上一版一致。实际浏览器播放和公开附件校验需分别核验。
