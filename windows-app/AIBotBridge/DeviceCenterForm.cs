@@ -128,7 +128,7 @@ internal sealed class DeviceCenterForm : Form
     }
     private void RenderShared() {
         Clear(_accounts);Heading(_accounts,"账号数据",17);
-        var accounts=ActionGrid(_accounts);
+        var accounts=ActionGrid(_accounts,compact:true);
         Card(accounts,"模型账号","登录与授权模型账号",()=>_common("authorize"));
         Card(accounts,"天气定位","城市、定位与天气来源",()=>_common("weather-settings"));
         Card(accounts,"自选股票","管理关注的股票",()=>_common("stocks-settings"));
@@ -222,7 +222,7 @@ internal sealed class DeviceCenterForm : Form
     }
     private void Heading(Control parent,string text,float size=14)=>parent.Controls.Add(new Label{Text=text,AutoSize=true,Font=new Font(Font.FontFamily,size,FontStyle.Bold),Margin=new Padding(0,4,0,10)});
     private static void Note(Control parent,string text)=>parent.Controls.Add(new Label{Text=text,AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,0,0,12)});
-    private static TableLayoutPanel ActionGrid(Control parent) {
+    private static TableLayoutPanel ActionGrid(Control parent,bool compact=false) {
         var grid=new TableLayoutPanel{Name="device-actions",AutoSize=true,ColumnCount=2,Margin=new Padding(0,4,0,0)};
         bool arranging=false;
         void Arrange() {
@@ -233,9 +233,12 @@ internal sealed class DeviceCenterForm : Form
                 int gap=Math.Max(6,grid.Font.Height/3);
                 int minimum=cards.Max(c=>c.PreferredCardWidth)+gap;
                 int columns=cards.Length>=6&&grid.ClientSize.Width>=minimum*3?3:2;
-                grid.ColumnCount=columns;grid.RowCount=(cards.Length+columns-1)/columns;
+                grid.ColumnCount=columns+(compact?1:0);grid.RowCount=(cards.Length+columns-1)/columns;
                 grid.ColumnStyles.Clear();grid.RowStyles.Clear();
-                for(int i=0;i<columns;i++)grid.ColumnStyles.Add(new(SizeType.Percent,100f/columns));
+                int compactWidth=Math.Min(grid.ClientSize.Width/columns,minimum+grid.Font.Height*2);
+                for(int i=0;i<columns;i++)grid.ColumnStyles.Add(compact
+                    ?new(SizeType.Absolute,compactWidth):new(SizeType.Percent,100f/columns));
+                if(compact)grid.ColumnStyles.Add(new(SizeType.Percent,100));
                 for(int i=0;i<grid.RowCount;i++)grid.RowStyles.Add(new(SizeType.AutoSize));
                 for(int i=0;i<cards.Length;i++) {
                     cards[i].Margin=new Padding(i%columns==0?0:gap/2,0,i%columns==columns-1?0:gap-gap/2,gap);
