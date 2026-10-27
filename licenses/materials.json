@@ -222,7 +222,8 @@
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",
-    "NAudio.Wasapi/2.2.1": "naudio/license.txt"
+    "NAudio.Wasapi/2.2.1": "naudio/license.txt",
+    "PdfPig/0.1.16": "pdfpig/LICENSE"
   },
   "productVideo20261014": {
     "sourceArchive": "AI-bot-product-video-source-20261014.zip",

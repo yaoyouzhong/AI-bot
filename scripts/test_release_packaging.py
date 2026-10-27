@@ -12,6 +12,16 @@ from test_component_versions import ComponentVersionTests, ComponentPayloadTests
 
 
 class PackagingTests(unittest.TestCase):
+    def test_project_publish_notices_are_registered(self):
+        from collect_distribution_materials import verify_publish_notices, verify_evidence
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp)
+            for name in ("pdfpig/LICENSE", "pdfpig/SOURCE.json", "pmo-calendar/NOTICE.md"):
+                target = stage / "licenses" / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / "licenses" / name, target)
+            verify_publish_notices(stage, verify_evidence())
+
     def test_publish_notices_accept_only_reviewed_project_bytes(self):
         from collect_distribution_materials import verify_publish_notices
         with tempfile.TemporaryDirectory() as temp:
