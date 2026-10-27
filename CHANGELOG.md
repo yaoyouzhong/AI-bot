@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.11 - 2026-10-27
+
+### Features
+- TAB5 now supports macOS on Apple Silicon: USB/Wi-Fi/BLE, device settings, Codex conversations and drafts, speech review, computer controls, preview and firmware management. Permissions and speech sources remain platform-specific.
+- Align Windows/Mac quota sources, DeepSeek wallet totals and provider web zoom.
+
+### Fixes
+- Prevent Windows background quota refresh from stealing voice focus; retain delayed text and warn about early recognizer termination.
+- Restore ESP8266 Wi-Fi fallback with bounded status payloads, retaining USB priority and rendered data.
+- Improve TAB5 previews, voice reply scheduling, bounded history access and exact-image boot checks.
+
+### Validation
+- User hardware acceptance covers long conversations, long voice takes, retained settings and both displays. TAB5 0.2.281-ui and ESP8266 0.5.7 are separately versioned.
+- Mac includes deployed R36 work and documented hardware checks. Apple Silicon packages are ad-hoc signed and not notarized. Recognition remains dependent on the selected speech service; review text before sending.
+
 ## Unreleased ESP8266 reset-credit text - 2026-10-27
 
 - Strengthen the existing 14px reset-credit strokes while preserving badge size, alignment and blank character gaps. Production Font2 raster tests pass; physical appearance awaits installation.
