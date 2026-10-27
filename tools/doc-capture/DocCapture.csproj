@@ -14,6 +14,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
     <Compile Include="../../windows-app/AIBotBridge/**/*.cs" Exclude="../../windows-app/AIBotBridge/**/obj/**;../../windows-app/AIBotBridge/**/bin/**" />
+    <Compile Include="../../windows-app/AIBotLoginHelper/HelperContract.cs" Link="LoginMethodHelperContract.cs" />
     <EmbeddedResource Include="../../windows-app/AIBotBridge/Assets/app-icon.ico" />
     <EmbeddedResource Include="../../CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.bridge" WithCulture="false" />
     <EmbeddedResource Include="../../docs/development/TAB5-CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.tab5" WithCulture="false" />
@@ -21,6 +22,7 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
   </ItemGroup>
   <Target Name="RemoveUnusedWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup><Reference Remove="@(Reference)" Condition="'%(Reference.Filename)' == 'Microsoft.Web.WebView2.Wpf'" /></ItemGroup>

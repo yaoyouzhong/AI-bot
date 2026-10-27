@@ -26,6 +26,9 @@ REVIEWED_DOC_NAMES = frozenset({
 
     'tab5-wifi-unlock-candidate.png',
     'tab5-firmware-notes-234.png',
+    'tab5-firmware-notes-282.png',
+    'tab5-music-controls-282.png',
+    'windows-runtime-monitor-0612.png',
     'tab5-firmware-notes-234-scrolled.png',
     'tab5-music-idle.png',
     'tab5-computer-control.png',

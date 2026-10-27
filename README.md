@@ -64,12 +64,16 @@ https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
 <table>
 <thead><tr><th width="120" nowrap="nowrap">功能</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td nowrap="nowrap"><strong>任务状态</strong></td><td>Claude / Codex 工作、空闲、待输入状态及完成提醒。</td></tr>
-<tr><td nowrap="nowrap"><strong>账户额度</strong></td><td>账户用量、API 余额、重置时间与 Codex 重置卡；电脑端提供额度历史。</td></tr>
-<tr><td nowrap="nowrap"><strong>日常信息</strong></td><td>天气、时钟、股票、电脑负载与媒体播放信息。<br>网易云音乐与 QQ 音乐有专门适配；汽水音乐、Apple Music 等客户端通过 Windows 媒体会话接入。<br>Chrome／Edge 可补充网页播放信息，实际兼容范围见<a href="docs/MEDIA-PLAYERS.md">媒体支持说明</a>。</td></tr>
-<tr><td nowrap="nowrap"><strong>电脑控制</strong></td><td>在 TAB5 调节音量、静音、锁屏或一键解锁，查看锁定状态。<br>点选最多四个带图标的程序或文件夹；Wi-Fi 解锁组件自动安装／接入。</td></tr>
-<tr><td nowrap="nowrap"><strong>显示设置</strong></td><td>固定页、轮播或智能跟随；可选页面、顺序、间隔与桌宠动画。</td></tr>
-<tr><td nowrap="nowrap"><strong>设备管理</strong></td><td>Windows 设备中心配置账号、数据与设备；统一查看更新并下载校验。<a href="docs/UPDATES.md">更新说明</a><br><a href="docs/RUNTIME-MONITOR.md">运行监控</a>提供连接与系统压力的状态、原因和建议。</td></tr>
+<tr><td nowrap="nowrap"><strong>AI 任务状态</strong></td><td>两种屏幕均可查看 Claude / Codex 工作、空闲、待输入状态及完成提醒。</td></tr>
+<tr><td nowrap="nowrap"><strong>模型额度</strong></td><td>查看账户用量、API 余额、重置时间与 Codex 重置卡；电脑端提供额度历史。<br>实际字段取决于厂商接口与账号授权。</td></tr>
+<tr><td nowrap="nowrap"><strong>Codex 会话</strong></td><td>TAB5 可选择会话、阅读回复与长会话分页，编辑文字草稿。<br>支持语音输入、拍照附件和长按清空；检查后由用户确认发送。</td></tr>
+<tr><td nowrap="nowrap"><strong>日程与日历</strong></td><td>TAB5 提供日程待办、重复与到期提醒；查看月历、农历、节气和生日。</td></tr>
+<tr><td nowrap="nowrap"><strong>天气与行情</strong></td><td>两种屏幕展示天气和自选股票；TAB5 还可查看小时及七日天气预报。</td></tr>
+<tr><td nowrap="nowrap"><strong>音乐与电脑状态</strong></td><td>查看播放信息、封面以及电脑 CPU、内存和网络状态。<br>TAB5 音乐页可按播放器能力控制播放；支持范围因 Windows、Mac 和播放器而异。<a href="docs/MEDIA-PLAYERS.md">媒体支持说明</a></td></tr>
+<tr><td nowrap="nowrap"><strong>电脑控制</strong></td><td>TAB5 可调节音量、静音、锁屏、解锁及打开快捷项。<br>Windows 与 Mac 的解锁配置和权限要求不同。<a href="docs/COMPUTER-CONTROL.md">使用说明</a></td></tr>
+<tr><td nowrap="nowrap"><strong>时钟与屏保</strong></td><td>两种屏幕均有时钟；TAB5 提供多种表盘、倒计时、全年点阵及十二月历。<br>可选名画、书法图库支持横竖屏欣赏。</td></tr>
+<tr><td nowrap="nowrap"><strong>桌宠与显示</strong></td><td>按 AI 状态显示桌宠；选择固定页面、轮播或智能跟随，配置页面、顺序与间隔。</td></tr>
+<tr><td nowrap="nowrap"><strong>设备与监控</strong></td><td>管理设备、连接与独立更新：小屏支持 USB / Wi-Fi，TAB5 还支持蓝牙。<br>Windows 运行监控及 TAB5 诊断页提供状态、原因与建议。<a href="docs/RUNTIME-MONITOR.md">运行监控</a></td></tr>
 </tbody>
 </table>
 

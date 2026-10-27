@@ -1,5 +1,15 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-27 图鉴核对：新增 `tab5-music-controls-282.png`、`tab5-firmware-notes-282.png` 与 `windows-runtime-monitor-0612.png`。前两图来自正式 .282 对应源码的 LVGL 隔离预览：音乐使用虚构曲名和无封面状态，显示真实播放控件；升级图使用正式 .282 sidecar，“当前 .21”是固定夹具。运行监控图来自 Windows 0.6.12 Release 程序的 WinForms 隔离自检，PAC 异常及数值均为演示数据，不是本机监控记录。图中不含真实账户、曲目或设备状态；未修改设备、桥接设置或图库。原图保留，新增文件的精确 SHA-256 见 `licenses/materials.json`。
+
+2026-10-28：对照 .282 原生预览刷新网络连接、屏幕声音、内容轮播、日期倒计时设置、十网络与三种电脑控制图。网络名、电脑名称、连接状态、时间与音量为固定演示数据；“已保存到 TAB5”是预览夹具的界面反馈，不表示对实体设备执行了保存。原截图的历史版本仍见 Git 记录。 / Refreshed .282 network, display, rotation, countdown, saved-network and computer-control views from native fixtures. All names, states and the save feedback are synthetic; no hardware settings were changed.
+
+2026-10-28：Codex 任务、活动、分页回复、录音、识别结果和照片草稿截图也已对照 .282 原生预览更新，照片缩略图为测试色块；任务主图只在隔离夹具中清除了测试用语音错误提示，其他界面由原生控件绘制。项目、会话和语音文字均为演示数据。 / Refreshed Codex task, activity, reply pagination and voice fixtures from .282. The task capture clears a simulated error notice for the documentation sample; all other UI is native and data is synthetic.
+
+2026-10-28：托盘菜单与 TAB5 设备中心图使用 Windows 0.6.12 源码的 DocCapture 隔离夹具重新捕获，显示当前“设备预览”入口、电脑控制等操作；名称、版本和在线状态为夹具，不是用户设备配置。 / The tray menu and TAB5 Device Center were captured with the Windows 0.6.12 DocCapture fixture, with synthetic names, version and connection state and the current device-preview entry.
+
+October 27 gallery audit: added isolated native .282 TAB5 music controls and actual .282 release-notes fixtures, plus a Windows 0.6.12 runtime-monitor fixture. Song metadata, missing artwork, PAC fault and readings are synthetic; .21 is a fixture installed-version label. These are not device photos, live monitoring or hardware acceptance. The existing images remain; new file hashes are recorded in `licenses/materials.json`.
+
 2026-10-27：账号数据截图更新为 Windows 0.6.12 候选的紧凑按钮原生隔离界面，使用演示窗口，不含真实账户；图鉴对桥接窗口限制显示尺寸，原图可点击查看。 / Updated the account-data capture from the Windows 0.6.12 compact-button native fixture; documentation images link to their full-size originals.
 
 2026-10-27：更新 TAB5 0.2.282-ui 诊断与检测详情截图，来自该版本原生 LVGL 隔离夹具，数值为演示数据，非硬件照片；设备实际界面另经用户确认。 / Updated .282 diagnostics and details from native isolated LVGL fixtures; the device was separately confirmed by the user.
