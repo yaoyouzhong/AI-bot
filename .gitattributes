@@ -23,3 +23,6 @@ docs/proposals/*.patch -text -whitespace
 docs/development/*.patch -text -whitespace
 # Archived CRLF source is hash-verified; do not rewrite its whitespace.
 docs/development/tab5-262-source/** -whitespace
+
+# Preserve the accepted TAB5 source snapshot and its recorded byte hashes.
+docs/development/tab5-279-source/** -text -whitespace

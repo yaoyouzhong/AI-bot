@@ -1,0 +1,38 @@
+[
+  {
+    "component": "espressif__esp_hosted",
+    "path": "host/drivers/transport/transport_drv.c",
+    "upstreamSHA256": "a864382a1b5c2a585bc2a2dccca61dcd25b0533367ccd62e6e895d202ba9a413",
+    "sha256": "1f5e4c761dd704d8f3f0ab641b1fcd359906b50feccb80b7b7d4152fd1dd7fa2"
+  },
+  {
+    "component": "espressif__esp_hosted",
+    "path": "host/drivers/bt/vhci_drv.c",
+    "upstreamSHA256": "a4279761a193cd0cc85ed25f9907c0c5d69ea92a00b8746b0cf13809b3079fef",
+    "sha256": "2234cd8ba2998202afa27beae123bfc8f23fc70f810b25706fc999ce904994c2"
+  },
+  {
+    "component": "espressif__esp_hosted",
+    "path": "host/drivers/mempool/mempool.c",
+    "upstreamSHA256": "f44d782f74a5f0518343d11dd50fdef127e899844268cb8d26a98f4ea5fe656b",
+    "sha256": "8cccb84bf92b9409ca51380069191a8a8ee3d67e5cc8fc75d5469e75fb75b523"
+  },
+  {
+    "component": "espressif__esp_hosted",
+    "path": "host/drivers/transport/sdio/sdio_drv.c",
+    "upstreamSHA256": "9868f97b7c68e5d8f1a3ac904dc6922b8ba0cc160c28c6a1402cd5c4147a652a",
+    "sha256": "b1ff7f410e884ec8f3b36b963e5a597a41710b1a3e03b6b7c7e9eb38b986813a"
+  },
+  {
+    "component": "lvgl__lvgl",
+    "path": "src/core/lv_refr.c",
+    "upstreamSHA256": "28b3fe522bc627e2905d6dba3944edf4ab5dd6493ca643e430a3acaa7cc19474",
+    "sha256": "034f69d7951c75387f24b608a3d322caa1a3b2b3ec7820929e6aea1990789c64"
+  },
+  {
+    "component": "lvgl__lvgl",
+    "path": "src/core/lv_obj_pos.c",
+    "upstreamSHA256": "e59d8e5ce11413ccfd2d8cc3c374196f47b30615719d33706c75c3714a19541a",
+    "sha256": "950f112364441594d93c757770ed4fc001e232d3f9cd5c7700e6de23520d719c"
+  }
+]

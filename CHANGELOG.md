@@ -21,6 +21,10 @@ All notable changes to this project will be documented in this file.
 - Omit desktop runtime diagnostics and TAB5 forecast details from ESP8266 LAN status, preserving current weather, stock labels and graph samples. The smaller payload restores Wi-Fi fallback on the tested ESP8266; two real fallback/USB recovery checks passed. Add local-only, content-free LAN request counters.
 - The Windows candidate is installed and normal Explorer startup is verified; tool-context startup still triggers profile protection. Build and synthetic regressions pass. The installed CLI does not implement item pagination, but the existing local-history route passes a 25.2MB synthetic rollout check. Fix the stale device-center expectation for the existing Computer Control card. Real DeepSeek login/zoom and source-separated device data were checked; TAB5 history/voice and remaining transport acceptance are pending. No firmware flash or public release. See the [alignment record](docs/development/WINDOWS-MAC-ALIGNMENT-20261026.md).
 
+## Unreleased TAB5 source archive - 2026-10-27
+
+- Archive the complete accepted 0.2.279-ui project, exact configurations, six managed-dependency overrides and SDK/NimBLE patches with licenses and byte hashes. Add a cross-platform archive verifier and CI check; preserve original source bytes and omit firmware images, private state and unmodified downloaded dependencies. No rebuild, flashing or release.
+
 ## Unreleased Mac model account parity - 2026-10-26
 
 - Render each stock-name atlas row independently to prevent cross-row rasterization differences on macOS 14 while retaining the accepted font, color, size and alignment. Update paginated-history fixtures, isolate test registration defaults and bound asynchronous menu checks for CI.

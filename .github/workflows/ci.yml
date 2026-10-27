@@ -22,6 +22,8 @@ jobs:
           python-version: "3.12"
       - name: Verify version metadata
         run: python scripts/check_version.py
+      - name: Verify archived TAB5 source bytes
+        run: python docs/development/tab5-279-source/verify.py
       - name: Check public content boundary
         run: |
           python scripts/check_public_content.py --self-test
