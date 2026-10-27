@@ -1,0 +1,84 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -367,7 +367,6 @@
+ static lv_obj_t *network_window,*network_details,*network_picker,*network_feedback,*network_retry;
+ static lv_obj_t *network_diag_window,*network_diag_feedback,*network_wifi_card,*network_wifi_state,*network_wifi_name;
+ static lv_obj_t *host_picker,*host_current,*host_state,*host_card,*host_monitor,*host_badge,*host_symbol,*host_switch,*host_rename;
+-static lv_obj_t *network_services[3];
+ static lv_obj_t *host_editor,*host_editor_input,*host_editor_hint,*host_editor_keyboard,*host_editor_ime;
+ static char host_display_id[33],host_notice[128],host_editor_id[33];
+ static int host_editor_index;
+@@ -3043,14 +3042,6 @@
+     setup_connections(cfg.paired,connected_links,ready_links,ble_available);
+     }
+     if(network_window&&!lv_obj_has_flag(network_window,LV_OBJ_FLAG_HIDDEN)) {
+-        device_config cfg=device_get_config();
+-        bool fresh=active!=LINK_NONE&&now-last_received>=0&&now-last_received<8000;
+-        const char *state=text(item(shown,"codex"),"state");
+-        const char *codex=!fresh?"等待电脑状态":!strcmp(state,"offline")?"未运行":!strcmp(state,"working")?"正在工作":!strcmp(state,"idle")?"空闲":"状态待确认";
+-        cJSON *voice_enabled=item(item(shown,"connectionHealth"),"voiceEnabled");
+-        const char *voice=!fresh?"等待电脑状态":cJSON_IsTrue(voice_enabled)?"已启用":cJSON_IsFalse(voice_enabled)?"请在电脑启用":"状态待确认";
+-        const char *services[]={cfg.paired?"已完成":"未配对",codex,voice};
+-        for(int i=0;i<3;i++)ui_text(network_services[i],services[i]);
+         network_host_render();
+         if(now>=network_retry_until)lv_obj_remove_state(network_retry,LV_STATE_DISABLED);
+     }
+@@ -4228,7 +4219,7 @@
+     ui_bg_color(network_connect,lv_color_hex(BLUE),0);tint(lv_obj_get_child(network_connect,0),0x173642);
+     network_forget=button(wifi_group,"删除网络",20,266,152,network_action,4);lv_obj_set_height(network_forget,54);
+     button(network_window,"连接诊断",0,450,220,network_action,9);
+-    muted(network_window,"查看通道与电脑服务状态，排查连接问题",244,464,936);
++    muted(network_window,"查看 Wi-Fi 连接与电脑桥接通信状态",244,464,936);
+     network_feedback=muted(network_window,"",0,574,1180);
+     network_confirm=shape(network_window,-UI_CARD_PADDING,-UI_CARD_PADDING,1220,650,0x000000,0);ui_bg_opa(network_confirm,LV_OPA_60,0);lv_obj_add_flag(network_confirm,LV_OBJ_FLAG_CLICKABLE);
+     lv_obj_t *network_confirm_card=card(network_confirm,260,120,700,320);
+@@ -4244,10 +4235,8 @@
+     network_details=label(network_diag_window,"正在检查…",0,116,1180,false);
+     lv_obj_set_height(network_details,156);lv_label_set_long_mode(network_details,LV_LABEL_LONG_WRAP);lv_obj_set_style_text_line_space(network_details,4,0);
+     shape(network_diag_window,0,302,1180,1,TRACK,0);
+-    const char *service_names[]={"设备配对","Codex","语音"};
+-    for(int i=0;i<3;i++){muted(network_diag_window,service_names[i],i*400,326,380);network_services[i]=label(network_diag_window,"待确认",i*400,366,380,false);}
+-    network_retry=button(network_diag_window,"重新连接 Wi-Fi",0,450,254,network_action,1);
+-    network_diag_feedback=muted(network_diag_window,"",0,574,1180);
++    network_retry=button(network_diag_window,"重新连接 Wi-Fi",0,330,254,network_action,1);
++    network_diag_feedback=muted(network_diag_window,"",0,424,1180);
+     visible(network_diag_window,false);
+     host_editor=card(screen,30,70,1220,650);
+     label(host_editor,"修改电脑备注",0,0,650,false);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1763,7 +1763,6 @@
+     lv_indev_set_display(touch,lv_display_get_default());lv_indev_set_read_cb(touch,camera_touch_read);
+     preview_network_click(touch,open_network);
+     link_state_init(&device_links);last_link=LINK_WIFI;last_received=esp_timer_get_time()/1000;device_links.received_ms[LINK_WIFI]=last_received;
+-    cJSON_DeleteItemFromObject(shown,"connectionHealth");cJSON *health=cJSON_AddObjectToObject(shown,"connectionHealth");cJSON_AddBoolToObject(health,"voiceEnabled",false);
+     tick(NULL);capture("network-management");
+     lv_obj_t *aligned[]={host_picker,host_rename,host_switch,network_picker,network_connect,network_forget};
+     lv_area_t first_picker,second_picker,first_action,second_action;
+@@ -1776,6 +1775,16 @@
+     }
+     lv_obj_t *details=preview_network_button(network_window,"连接诊断");assert(details);
+     preview_network_click(touch,details);assert(!lv_obj_has_flag(network_diag_window,LV_OBJ_FLAG_HIDDEN));capture("network-diagnostics");
++    const char *unrelated[]={"设备配对","Codex","语音"};
++    for(unsigned i=0;i<lv_obj_get_child_count(network_diag_window);i++) {
++        lv_obj_t *child=lv_obj_get_child(network_diag_window,i);
++        if(lv_obj_check_type(child,&lv_label_class))for(unsigned j=0;j<3;j++)assert(strcmp(lv_label_get_text(child),unrelated[j]));
++    }
++    lv_area_t wifi_details,reconnect_button,feedback_area,diagnostic_bounds;
++    lv_obj_get_coords(network_details,&wifi_details);lv_obj_get_coords(network_retry,&reconnect_button);
++    lv_obj_get_coords(network_diag_feedback,&feedback_area);lv_obj_get_coords(network_diag_window,&diagnostic_bounds);
++    assert(reconnect_button.y1>wifi_details.y2&&feedback_area.y1>reconnect_button.y2&&feedback_area.y2<diagnostic_bounds.y2);
++    puts("NETWORK_DIAGNOSTIC_SCOPE_OK wifi_and_bridge_only_reconnect_and_feedback_bounds");
+     lv_obj_t *back=preview_network_button(network_diag_window,"返回");assert(back);
+     preview_network_click(touch,back);assert(lv_obj_has_flag(network_diag_window,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(network_window,LV_OBJ_FLAG_HIDDEN));
+     assert(!lv_obj_has_flag(network_window,LV_OBJ_FLAG_HIDDEN));
+@@ -1847,9 +1856,6 @@
+     preview_networks=saved_profiles;network_refresh();
+     puts("NETWORK_CAPACITY_UI_OK ten_options_tenth_selectable_original_profiles_restored");
+     assert(strstr(lv_label_get_text(network_details),"鉴权通过"));
+-    assert(strstr(lv_label_get_text(network_services[2]),"请在电脑启用"));
+-    cJSON_ReplaceItemInObject(health,"voiceEnabled",cJSON_CreateBool(true));tick(NULL);
+-    assert(!strcmp(lv_label_get_text(network_services[2]),"已启用"));
+     // Cancellation, failed persistence, active/last deletion and disabled empty list.
+     lv_dropdown_set_selected(network_picker,1);lv_obj_send_event(network_forget,LV_EVENT_CLICKED,NULL);
+     assert(strstr(lv_label_get_text(network_confirm_text),"办公室")&&strstr(lv_label_get_text(network_confirm_text),"单位访客网"));

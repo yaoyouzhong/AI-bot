@@ -1,6 +1,7 @@
 """Build self-contained HD gallery bundles from verified distribution materials."""
 import argparse,hashlib,json,zipfile,tempfile
 from pathlib import Path
+from artifact_names import name as artifact_name
 
 def digest(p):
  with p.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
@@ -8,7 +9,7 @@ def build(materials,packs,output):
  output.mkdir(parents=True,exist_ok=False);results=[]
  for category in ('painting','calligraphy'):
   source=materials/f'AI-bot-HD-{category.title()}-2026.10.16.zip'
-  target=output/f'AI-bot-Gallery-HD-{category.title()}-2026.10.16.zip'
+  target=output/artifact_name(category+'-hd','2026.10.16')
   folder=packs/category;manifest=json.loads((folder/'PACK.json').read_text(encoding='utf-8-sig'))
   with tempfile.TemporaryDirectory(dir=output) as temp:
    standard=Path(temp)/'standard.zip'

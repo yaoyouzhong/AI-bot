@@ -51,8 +51,10 @@ final class MacFirmwareFlasher {
         guard try process(tool.executable.path, ["version"]).contains("4.9.1") else {
             throw FlashError.failed("刷机工具版本不符。")
         }
-        for command in ["read_flash", "write_flash", "verify_flash"] {
-            _ = try process(tool.executable.path, ["--chip", "esp8266", command, "--help"])
+        for chip in ["esp8266", "esp32p4"] {
+            for command in ["read_flash", "write_flash", "verify_flash", "get_security_info", "read_mac"] where chip == "esp32p4" || command != "get_security_info" {
+                _ = try process(tool.executable.path, ["--chip", chip, command, "--help"])
+            }
         }
         print("MAC_FLASH_BUNDLE_OK pinned subset; offline executable; read/write/verify commands; no device accessed")
     }

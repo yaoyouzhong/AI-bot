@@ -20,14 +20,19 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
 {
     private readonly TextBox _text=new(){Multiline=true,Dock=DockStyle.Fill,MaxLength=10000,Font=new Font("Microsoft YaHei UI",14),ImeMode=ImeMode.On};
     private bool _allowClose;
+    private string _speechPrefix="";
+    private bool _normalizeSpeech;
     private IntPtr _previousWindow;
     private uint _previousProcess;
     private Tab5DoubaoVoice? _doubao;
     private readonly Tab5DoubaoMicrophone _microphone=microphone??new();
     private bool _completionHandled;
+    private Tab5VoiceFocusRecovery? _focusRecovery;
+    private string _focusEvent="none";
+    private int _textUpdates,_textPeak;
     private readonly Label _status=new(){Text="使用豆包识别，回到 TAB5 检查后手动发送。",AutoSize=true,MaximumSize=new Size(420,0),Padding=new Padding(8),Dock=DockStyle.Top};
     internal string TriggerMode=>_doubao is null?"native control not yet checked":"native control (runtime checked)";
-    internal string MicrophoneDiagnostic=>_microphone.Diagnostic;
+    internal string MicrophoneDiagnostic=>_microphone.Diagnostic+$"; focusRecovery={_focusRecovery?.Outcome??"not-started"}; focusAttempts={_focusRecovery?.Attempts??0}; recognizerState={_doubao?.LastState.ToString()??"unknown"}; recognizerStates={_doubao?.StateDiagnostic??""}; textUpdates={_textUpdates}; textPeakChars={_textPeak}; lastFocusEvent={_focusEvent}";
     internal void MaintainMicrophone(bool captureFinished) {
         if(captureFinished&&(_doubao is null||_doubao.CaptureStopped))_microphone.Release();
         else _microphone.RetryRestore();
@@ -36,21 +41,40 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
         SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;Font=SettingsWindow.BodyFont();
         Text="TAB5 语音输入";ClientSize=new Size(440,190);StartPosition=FormStartPosition.Manual;
         FormBorderStyle=FormBorderStyle.FixedToolWindow;ShowInTaskbar=false;Opacity=0;
+        _text.KeyDown+=(_,e)=>{if(!e.Alt&&!e.Control)_normalizeSpeech=false;};
+        _text.TextChanged+=(_,_)=>{_textUpdates++;_textPeak=Math.Max(_textPeak,_text.TextLength);};
         Controls.Add(_text);
         Controls.Add(_status);
         SettingsWindow.FitScreen(this);ResumeLayout(true);
     }
-    string ITab5VoiceEditor.Text=>_text.Text;
+    string ITab5VoiceEditor.Text=>_normalizeSpeech?Tab5SpeechTranscript.Project(_text.Text,_speechPrefix):_text.Text;
     internal string InputLayout=>Tab5InputMethod.CurrentName();
     public bool SafeFocus=>Visible&&GetForegroundWindow()==Handle&&_text.Focused;
+    public bool FocusRecoveryPending=>_focusRecovery?.Pending==true;
+    public bool CanResumeCapture=>_doubao?.CanRestoreFocus==true;
+    public bool? CaptureRunning=>_doubao?.CaptureRunning;
     public bool TryRestoreFocus() {
-        if(IsDisposed||!Visible||_completionHandled||_doubao?.CanRestoreFocus!=true)return false;
+        if(IsDisposed||!Visible||_completionHandled){_focusRecovery?.Finish();return false;}
+        string? before=_focusRecovery?.Outcome;
+        var foreground=GetForegroundWindow();
+        bool restored=_focusRecovery?.TryRestore()==true;
+        if(before!=_focusRecovery?.Outcome)RecordFocusEvent(foreground);
+        return restored;
+    }
+    private void RecordFocusEvent(IntPtr foreground) {
+        GetWindowThreadProcessId(foreground,out uint process);
+        string owner=foreground==IntPtr.Zero?"none":foreground==Handle?"draft":process==Environment.ProcessId?
+            Control.FromHandle(foreground)?.GetType().Name??"bridge-native":"other-process";
+        // Retain the last transition across takes, never window titles or text.
+        _focusEvent=$"{DateTimeOffset.Now:HH:mm:ss}/{_focusRecovery?.Outcome}/foreground={owner}/editFocused={_text.Focused}/ime={_doubao?.LastState}/attempts={_focusRecovery?.Attempts}";
+    }
+    private bool RestoreDraftFocus() {
         // Restore only this owned draft while the same take is still recording.
         // No toggle/restart, shortcut, text mutation or global input-method change.
         Tab5DesktopActivation.Raise(Handle,allowInput:false);
         if(GetForegroundWindow()!=Handle)return false;
         ActiveControl=_text;_text.Select();
-        return SafeFocus&&IsDoubaoLayout()&&_doubao.CanRestoreFocus;
+        return SafeFocus&&IsDoubaoLayout()&&_doubao?.CanRestoreFocus==true;
     }
     internal void Prepare() {
         _completionHandled=false;_status.Text="使用豆包识别，回到 TAB5 检查后手动发送。";
@@ -64,7 +88,7 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
         await _microphone.Recovery.WaitAsync(token);
         // Check BEFORE activating the hidden editor: a focus change can itself
         // end the user's desktop IME recording. Unknown state must fail closed.
-        _doubao??=voiceFactory is null?Tab5DoubaoVoice.TryCreate(()=>SafeFocus&&IsDoubaoLayout()):voiceFactory();
+        _doubao??=voiceFactory is null?Tab5DoubaoVoice.TryCreate(()=>SafeFocus&&IsDoubaoLayout(),()=>_focusRecovery?.CanStopOwnedCapture==true):voiceFactory();
         if(_doubao is null)throw new InvalidOperationException("豆包录音服务暂不可用，请确认豆包正在运行后重试");
         if(!_doubao.IsIdle)throw new InvalidOperationException("豆包正在处理其他语音，请先结束后重试");
         var foreground=GetForegroundWindow();
@@ -116,6 +140,7 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
         if(!Visible||_completionHandled)return;
         if(_doubao is not null&&!_doubao.CaptureStopped)return;
         _completionHandled=true;
+        _focusRecovery?.Finish();
         _microphone.Release();
         if(keepVisible)return;
         var previous=_previousWindow;_previousWindow=IntPtr.Zero;
@@ -129,17 +154,32 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     }
     private void RequestForegroundForVoice()=>Tab5DesktopActivation.Raise(Handle);
     bool ITab5VoiceEditor.Start() {
+        if(_normalizeSpeech)_text.Text=Tab5SpeechTranscript.Project(_text.Text,_speechPrefix);
+        _speechPrefix=_text.Text;_normalizeSpeech=true;
         if(!SafeFocus)throw new InvalidOperationException("语音草稿窗口未获得输入焦点");
         if(!IsDoubaoLayout())throw new InvalidOperationException("请在语音草稿输入框切换到豆包输入法");
         _doubao??=Tab5DoubaoVoice.TryCreate(()=>SafeFocus&&IsDoubaoLayout());
-        if(_doubao is not null)return _doubao.Start();
+        if(_doubao is not null) {
+            bool started=_doubao.Start();
+            if(started) {
+                _focusRecovery=new(()=>SafeFocus,()=>_doubao.CanRestoreFocus,Tab5DesktopActivation.IsInteractive,LastDesktopInput,RestoreDraftFocus);
+                _focusRecovery.Begin();
+            }
+            return started;
+        }
         if(!(physicalToggle?.Invoke(shortcut())??false))throw new InvalidOperationException("此豆包版本尚未支持无线触发，USB 键盘也未连接");
         return true;
     }
     bool ITab5VoiceEditor.Stop()=>_doubao is not null?_doubao.Stop():SafeFocus&&(physicalToggle?.Invoke(shortcut())??false);
     bool ITab5VoiceEditor.CaptureStopped=>_doubao?.CaptureStopped??true;
     bool ITab5VoiceEditor.RecognitionComplete=>_doubao?.CaptureStopped==true;
-    void ITab5VoiceEditor.Clear()=>_text.Clear();
+    void ITab5VoiceEditor.ObserveSafeFocus() {
+        _doubao?.ObserveCapture();
+        bool pending=_focusRecovery?.Pending==true;
+        _focusRecovery?.ObserveSafeFocus();
+        if(pending)RecordFocusEvent(GetForegroundWindow());
+    }
+    void ITab5VoiceEditor.Clear(){_normalizeSpeech=false;_speechPrefix="";_text.Clear();_textUpdates=_textPeak=0;}
     private static bool IsDoubaoLayout() {
         return Tab5InputMethod.IsDoubao(Tab5InputMethod.CurrentName());
     }
@@ -148,6 +188,12 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window,out uint process);
     [DllImport("user32.dll")] [return:MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindow(IntPtr window);
     [DllImport("user32.dll")] [return:MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(IntPtr window);
+    [StructLayout(LayoutKind.Sequential)] private struct LastInputInfo {public uint Size,Time;}
+    [DllImport("user32.dll")] [return:MarshalAs(UnmanagedType.Bool)] private static extern bool GetLastInputInfo(ref LastInputInfo info);
+    private static uint? LastDesktopInput() {
+        var info=new LastInputInfo{Size=(uint)Marshal.SizeOf<LastInputInfo>()};
+        return GetLastInputInfo(ref info)?info.Time:null;
+    }
     protected override void OnFormClosing(FormClosingEventArgs e){if(!_allowClose&&e.CloseReason==CloseReason.UserClosing){e.Cancel=true;Hide();}base.OnFormClosing(e);}
     internal void Shutdown(){
         try {
@@ -187,7 +233,9 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         _session=new(_audio,editor??_draft);
         _timer.Tick+=(_,_)=> {try{
             _session.Tick();
-            _draft.MaintainMicrophone(!_preparing&&_session.Snapshot().State is not ("recording" or "draining"));
+            // Keep the selected input until text delivery finishes as well as
+            // capture. Native idle alone must not reconfigure a pending result.
+            _draft.MaintainMicrophone(!_preparing&&!_session.Active);
             if(!_preparing&&_session.Snapshot().State is "review" or "cancelled")_draft.CompleteReview();
             if(!_preparing&&_session.Snapshot().State=="error") {
                 _draft.RevealFailure(_session.Snapshot().Message);

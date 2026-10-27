@@ -1,0 +1,35 @@
+{
+  "base": "immutable installed268 source, no image modified",
+  "candidate": "artifacts/development/tab5-camera-ready-followup-20261024/candidate",
+  "paths": [
+    {
+      "path": "firmware/main/ui_computer.h",
+      "beforeNormalizedSHA256": "15ea89b1e1a6907321e7c6bd7108a1b182e16f7519676a0ab37efc7f7e3231da",
+      "afterNormalizedSHA256": "21528a327225e31f7db00177b5ff14cfc2e37b94b191a7bbaeff12bae6b585c1"
+    },
+    {
+      "path": "tests/ui-preview/computer_click_queue_test.h",
+      "beforeNormalizedSHA256": "dc36703a75cf962cec7da6fb6abf78f0eaf5d567994e0a21cca999d318346cc3",
+      "afterNormalizedSHA256": "3f697154de7f5cc79dc30e107fc3a6331180bb4cbe5076bb1501d3ef3a957d6f"
+    },
+    {
+      "path": "tests/ui-preview/computer_media_click_test.h",
+      "beforeNormalizedSHA256": null,
+      "afterNormalizedSHA256": "a2632271194a4cdd9ce76348fc8956cee2c7d7f291782a7508e8751ac5c51e26"
+    }
+  ],
+  "baseline": "real LVGL reproduces dropped play-pause tap during status read",
+  "native": "190 media plus90 existing lock/unlock cases pass",
+  "cameraRegression": "CAMERA_READY_UI_OK passes on same combined source",
+  "targetCompile": {
+    "compiler": "riscv32-esp-elf-gcc",
+    "productionSource": "firmware/main/ui.c",
+    "candidateInclude": "ui_computer.h",
+    "exitCode": 0,
+    "imageGenerated": false,
+    "output": "ui.c.o"
+  },
+  "wireProtocolChanged": false,
+  "imageGenerated": false,
+  "hardwareAcceptance": "pending future combined image; current268 music regression passes with new Mac"
+}

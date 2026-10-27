@@ -1,0 +1,86 @@
+--- a/firmware/main/screen_preview.c
++++ b/firmware/main/screen_preview.c
+@@ -5,6 +5,8 @@
+ #include "rpc_link.h"
+ #include "photo_attachment.h"
+ #include "camera_preview.h"
++#include "camera_gallery_buffer.h"
++#include "gallery_remote.h"
+ #include "photo_transfer_crypto.h"
+ #include "voice_remote.h"
+ #include "computer_remote.h"
+@@ -37,12 +39,20 @@
+ // it across frames so foreground rendering cannot fragment the next capture.
+ static uint16_t *spare_pixels;
+ static int64_t spare_until;
++// Gallery and camera already reserve complete, aligned RGB565 frames. Borrow
++// only detached/idle owners; never free a reserved camera frame to the heap.
++static void release_pixels(uint16_t *pixels){gallery_release_buffer((uint8_t *)pixels);}
++static uint16_t *take_hd_pixels(void) {
++    uint8_t *pixels=gallery_take_buffer();
++    if(!pixels)pixels=camera_gallery_buffer_take();
++    return pixels?(uint16_t *)pixels:heap_caps_malloc(1280u*720u*2u,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++}
+ unsigned screen_preview_cache_reclaim(bool force) {
+     bool expected=false;
+     if(!atomic_compare_exchange_strong(&running,&expected,true))return 0;
+     unsigned released=0;
+     if(spare_pixels&&(force||esp_timer_get_time()/1000>=spare_until)) {
+-        free(spare_pixels);spare_pixels=NULL;released=1280u*720u*2u;
++        release_pixels(spare_pixels);spare_pixels=NULL;released=1280u*720u*2u;
+     }
+     atomic_store(&running,false);return released;
+ }
+@@ -111,12 +121,12 @@
+ static bool hash_yield(void *context) {encode_yield(context);return current(context);}
+ static void worker(void *argument) {
+     preview_job *job=argument;uint16_t *pixels=spare_pixels;spare_pixels=NULL;uint8_t *encoded=NULL;
+-    if(!job->jpeg){free(pixels);pixels=NULL;}
++    if(!job->jpeg){release_pixels(pixels);pixels=NULL;}
+     esp_http_client_handle_t http=NULL;cJSON *request=NULL,*reply=NULL;int status=0;unsigned detail=0;const char *error=NULL;
+     if(!current(job))goto done;
+     voice_remote_get(&job->voice);
+     if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy()){error="busy";goto done;}
+-    if(job->jpeg&&!pixels)pixels=heap_caps_malloc((size_t)job->width*job->height*2,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(job->jpeg&&!pixels)pixels=take_hd_pixels();
+     if(job->jpeg&&bsp_display_lock(30)) {
+         if(lv_display_get_horizontal_resolution(lv_display_get_default())<lv_display_get_vertical_resolution(lv_display_get_default())) {
+             job->width=720;job->height=1280;
+@@ -176,7 +186,7 @@
+         } else size=preview_pack(pixels,count,encoded,capacity);
+         break;
+     }
+-    if(!job->jpeg){free(pixels);pixels=NULL;}
++    if(!job->jpeg){release_pixels(pixels);pixels=NULL;}
+     if(!current(job))goto done;
+     if(!size||size>524288){error="encoding";goto done;}
+     uint8_t digest[32];char sha[65];
+@@ -213,7 +223,7 @@
+     if(pixels&&job->jpeg&&!error&&status==200&&current(job)&&!ota_update_busy()&&!job->voice.busy&&photo_state()!=1&&!camera_preview_busy()) {
+         spare_pixels=pixels;pixels=NULL;spare_until=esp_timer_get_time()/1000+5000;
+     }
+-    cJSON_Delete(request);cJSON_Delete(reply);free(pixels);free(encoded);
++    cJSON_Delete(request);cJSON_Delete(reply);release_pixels(pixels);free(encoded);
+     if(http)esp_http_client_cleanup(http);
+     unsigned stack=uxTaskGetStackHighWaterMark(NULL),old=atomic_load(&minimum_stack);
+     if(!old||stack<old)atomic_store(&minimum_stack,stack);
+--- a/firmware/main/camera_preview.c
++++ b/firmware/main/camera_preview.c
+@@ -2,6 +2,7 @@
+ #include "camera_viewport.h"
+ #include "bsp/m5stack_tab5.h"
+ #include "esp_heap_caps.h"
++#include "esp_cache.h"
+ #include "gallery_remote.h"
+ #include "camera_gallery_buffer.h"
+ #include "freertos/idf_additions.h"
+@@ -284,6 +285,9 @@
+         buffer.type=kind;buffer.memory=V4L2_MEMORY_USERPTR;buffer.index=i;
+         if(ioctl(fd,VIDIOC_QUERYBUF,&buffer)!=0){error=errno;goto failed;}
+         if(buffer.length!=PREVIEW_BYTES){error=EINVAL;goto failed;}
++        // An idle frame may have been written by the CPU for preview/rotation.
++        // Finish cache ownership before CSI can receive this USERPTR frame.
++        if(esp_cache_msync(mapped[i],PREVIEW_BYTES,ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_INVALIDATE)!=ESP_OK){error=EIO;goto failed;}
+         buffer.m.userptr=(uintptr_t)mapped[i];
+         if(ioctl(fd,VIDIOC_QBUF,&buffer)!=0){error=errno;goto failed;}
+     }

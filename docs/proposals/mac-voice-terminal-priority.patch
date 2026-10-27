@@ -1,0 +1,276 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5Voice.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Voice.swift
+@@ -42,6 +42,16 @@
+ 
+ final class MacTab5Voice {
+     var busy: Bool { lock.lock(); defer { lock.unlock() }; return ["recording","recognizing"].contains(state) }
++    // Preserve transport scheduling until the device requests its terminal
++    // result. Completion of recognition can precede that final poll.
++    var needsTransportPriority: Bool {
++        lock.lock(); defer { lock.unlock() }
++        guard enabled() else { return false }
++        return ["recording","recognizing"].contains(state) ||
++            (!id.isEmpty && !terminalResponseServed && clock() >= seen && clock()-seen < 30)
++    }
++    private var terminalResponseServed = false
++    private var usbTerminalReply: (nonce:String, voice:String)?
+     static let enabledKey = "tab5_voice_enabled"
+     static let agendaOwner = "a1b07a65-0000-4000-8000-00000000a5ed"
+     private let lock = NSRecursiveLock()
+@@ -114,8 +124,13 @@
+         if !recentSessions.isEmpty { details.append("此前语音（最近三次，不含文字）：\n" + recentSessions.reversed().joined(separator: "\n")) }
+         return details.joined(separator: "\n")
+     }
+-    func observeReply(op: String?, transport: String, status: Int) {
+-        lock.lock(); defer { lock.unlock() }
++    func observeReply(op: String?, transport: String, status: Int, response: [String:Any]? = nil, nonce: String? = nil) {
++        lock.lock(); defer { lock.unlock() }
++        if status == 200, response?["voiceId"] as? String == id,
++           let phase = response?["state"] as? String, ["review","error","cancelled"].contains(phase) {
++            if transport == "USB", let nonce { usbTerminalReply = (nonce,id) }
++            else if transport != "USB" { terminalResponseServed = true }
++        }
+         let channel = ["USB", "Wi-Fi", "BLE"].contains(transport) ? transport : "连接"
+         let operation = ["start": "开始", "audio": "音频", "poll": "查询", "stop": "停止", "cancel": "取消", "tab5": "切换收音"][op ?? ""] ?? "请求"
+         // Only fixed labels and bounded status numbers reach the UI, never
+@@ -129,6 +144,13 @@
+     private func wakeFinalWaiter() { finalWaiter?.signal(); finalWaiter = nil }
+     func stop() { lock.lock(); defer { lock.unlock() }; backend.cancel(); state = "cancelled"; text = ""; id = ""; clearPreparingAudio(); wakeFinalWaiter() }
+     private func clearPreparingAudio() { preparingAudio.removeAll(); preparingSamples = 0 }
++    // Called only after the serial owner receives every response-fragment ACK.
++    // A generated/queued terminal reply does not yet release USB priority.
++    func acknowledgeUSBReply(nonce: String) {
++        lock.lock(); defer { lock.unlock() }
++        guard let pending = usbTerminalReply, pending.nonce == nonce, pending.voice == id else { return }
++        terminalResponseServed = true; usbTerminalReply = nil
++    }
+     private func forwardPreparedAudio() {
+         guard state == "recording", !preparingAudio.isEmpty, backend.ready() else { return }
+         do {
+@@ -191,7 +213,7 @@
+             externalRecognition = usesDoubao()
+             backend.cancel(); id = UUID().uuidString.lowercased(); self.device = device; self.task = task; self.session = session
+             source = root["source"] as? String == "tab5" ? "tab5" : "pc"; state = "recording"; text = ""; message = externalRecognition ? "正在准备豆包与所选麦克风，确认实际收音后开始":"请开始说话"; isFinal = false; stoppedByUser = false
+-            sequence = 0; samples = 0; level = 0; peak = 0; silentSamples = 0; hashes.removeAll(); clearPreparingAudio(); endReason = ""; lastSpeechFailure = ""; started = clock(); seen = started
++            terminalResponseServed = false; usbTerminalReply = nil; sequence = 0; samples = 0; level = 0; peak = 0; silentSamples = 0; hashes.removeAll(); clearPreparingAudio(); endReason = ""; lastSpeechFailure = ""; started = clock(); seen = started
+             do { try beginBackend(); startupTime = clock() - captureRequested; return snapshot() }
+             catch { state = "error"; message = externalRecognition ? (error as? MacTab5LocalError)?.localizedDescription ?? "豆包语音未能启动，请检查输入法和辅助功能权限。" : "本地语音不可用，请在 Mac 授权语音识别和麦克风，并确认该语言支持离线识别。"; backend.cancel(); return snapshot() }
+         }
+--- a/mac-app/Sources/AIBotBridge/MacTab5Service.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Service.swift
+@@ -454,13 +454,19 @@
+                 })
+             }
+             else if root["kind"] as? String == "agenda" { result = agenda.handle(root) }
++            else if root["kind"] as? String == "codex", voice.needsTransportPriority,
++                    ["read","read-ack"].contains(root["op"] as? String ?? "") {
++                // A background read must release the serial mailbox promptly;
++                // the device retries its idempotent read receipt after voice.
++                result = .error(503,"voice_busy")
++            }
+             else if root["kind"] as? String == "codex" { result = codex.handle(root, device: device) }
+             else if root["kind"] as? String == "voice" {
+                 result = voice.handle(root, device: device, waitForFinal: transport == "BLE")
+                 if transport == "BLE", result.status == 200, let operation = MacTab5BLEDiagnostics.VoiceOperation(rawValue: root["op"] as? String ?? "") {
+                     bleDiagnostics.voice(operation, terminal: result.status == 200 && ["review", "cancelled", "error"].contains(result.body["state"] as? String ?? ""))
+                 }
+-                voice.observeReply(op: root["op"] as? String, transport: transport, status: result.status)
++                voice.observeReply(op: root["op"] as? String, transport: transport, status: result.status, response: result.body, nonce: nonce)
+             }
+             else if root["kind"] as? String == "desktop" { result = desktop.handle(root, device: device) }
+             else { result = firmwareControl.handle(root, device: device, transport: transport, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
+--- a/mac-app/Sources/AIBotBridge/MacTab5Codex.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Codex.swift
+@@ -308,7 +308,10 @@
+             liveControl?.select(task, issuedAt: MacTab5Protocol.integer(root["issuedAt"]))
+         }
+         if ["draft-load", "draft-save"].contains(root["op"] as? String ?? "") { return draft(root, device: device) }
+-        gate.lock(); defer { gate.unlock() }
++        if root["op"] as? String == "read-ack" {
++            guard gate.try() else { return .error(503,"codex_catalog_busy") }
++        } else { gate.lock() }
++        defer { gate.unlock() }
+         guard let task = Self.id(root["taskId"]), let op = root["op"] as? String,
+               catalog.contains(where: { $0["id"] as? String == task }) else { return .error(404, "task_not_in_recent_catalog") }
+         var preflightStage = "private_journal_read_unavailable"
+--- a/mac-app/Sources/AIBotBridge/MacTab5USB.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USB.swift
+@@ -253,7 +253,7 @@
+             let music = service.currentMusic
+             let urgent = MusicSnapshot.changedUrgently(from: lastMusic, to: music)
+             chunks = try MacTab5USBVoicePriority.run(rpcSupported: rpcSupported,
+-                voiceBusy: { self.service.voice.busy }, claim: {
++                voiceBusy: { self.service.voice.needsTransportPriority }, claim: {
+                 phase = .hostClaim
+                 try wire.authenticate(pair, endpoint: service.lanConfiguration)
+             }, status: {
+@@ -262,7 +262,7 @@
+                     phase = .hostClaim
+                     try wire.authenticate(pair, endpoint: service.lanConfiguration)
+                     phase = .statusBuild
+-                    let frame = try service.frame(includeResources: !service.voice.busy), root = try MacTab5Protocol.object(frame)
++                    let frame = try service.frame(includeResources: !service.voice.needsTransportPriority), root = try MacTab5Protocol.object(frame)
+                     statusBytes = frame.count
+                     let fullRefresh = leaseCadence.isDue(started)
+                     let encoded = try statusDelta.wire(frame,packed:wire.packedStatus,supported:wire.deltaStatus && !fullRefresh)
+@@ -292,7 +292,7 @@
+             }, resources: {
+                 return try MacTab5USBResourceBurst.run(shouldSend: { _ in
+                     self.service.isEnabled && !self.service.configurationBusy &&
+-                        !self.service.voice.busy &&
++                        !self.service.voice.needsTransportPriority &&
+                         !self.statusCadence.isDue(ProcessInfo.processInfo.systemUptime)
+                 }) {
+                     guard let chunk = self.service.assets.projection()["resource"] as? [String: Any] else { return false }
+@@ -367,6 +367,7 @@
+             _ = try mailbox(wire, device: device, data: fragment)
+         }
+         completed = id
++        service.voice.acknowledgeUSBReply(nonce:nonce)
+     }
+ 
+     private func operationHeartbeat(_ wire: MacTab5SerialWire, pairing: MacTab5Pairing) throws {
+--- a/mac-app/Sources/AIBotBridge/MacParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacParityValidation.swift
+@@ -175,6 +175,7 @@
+         checked += try MacPreviewHDValidation.run()
+         checked += try MacLANIdentityValidation.run(root:root.appendingPathComponent("lan-identity"))
+         checked += try MacTab5USBVoicePriorityValidation.run()
++        checked += try MacVoiceTerminalPriorityValidation.run(root:root.appendingPathComponent("voice-terminal"))
+         print("MAC_PARITY_SELF_TEST_OK \(checked) checks; isolated storage, no credentials/network/hardware")
+     }
+ }
+--- a/mac-app/Sources/AIBotBridge/MacTab5InteractionDiagnostics.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5InteractionDiagnostics.swift
+@@ -18,7 +18,7 @@
+     }
+     func begin(kind: String?, operation: String?, transport: String, queued: TimeInterval? = nil) -> UInt64? {
+         let labels = ["desktop/open-recent": "定位会话", "codex/draft-load": "读取草稿",
+-                      "codex/draft-save": "保存草稿", "codex/read": "读取回复", "codex/send": "发送消息",
++                      "codex/draft-save": "保存草稿", "codex/read": "读取回复", "codex/read-ack": "确认已读", "codex/send": "发送消息",
+                       "desktop/stage-draft": "回填草稿", "voice/start": "开始录音",
+                       "voice/stop": "停止录音", "voice/cancel": "取消录音", "codex/interrupt": "停止任务",
+                       "wifi-unlock/begin": "开始 Wi-Fi 解锁", "wifi-unlock/cancel": "取消 Wi-Fi 解锁",
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacVoiceTerminalPriorityValidation.swift
+@@ -0,0 +1,120 @@
++import Foundation
++
++enum MacVoiceTerminalPriorityValidation {
++    private final class Box {
++        private let lock = NSLock()
++        private var status = 0
++        func set(_ value: Int) { lock.lock(); status = value; lock.unlock() }
++        var value: Int { lock.lock(); defer { lock.unlock() }; return status }
++    }
++    private final class Catalog {
++        let task = UUID().uuidString.lowercased()
++        let entered = DispatchSemaphore(value:0), release = DispatchSemaphore(value:0)
++        private let lock = NSLock()
++        private var blocking = false
++        func block() { lock.lock(); blocking = true; lock.unlock() }
++        func call(_ method: String, _ params: [String:Any]) throws -> [String:Any] {
++            lock.lock(); let wait = blocking; lock.unlock()
++            if method == "thread/list" {
++                if wait { entered.signal(); release.wait() }
++                return ["data":[["id":task,"name":"fixture","cwd":"/fixture","status":["type":"idle"]]]]
++            }
++            return ["thread":["id":task,"status":["type":"idle"],"turns":[Any]()]]
++        }
++    }
++    static func run(root: URL) throws -> Int {
++        var checks = 0
++        func check(_ name: String, _ ok: @autoclosure () throws -> Bool) throws {
++            guard try ok() else { throw MacTab5LocalError.invalid("Voice terminal priority: "+name) }; checks += 1
++        }
++        var now = 100.0, enabled = true
++        var emit: ((String,Bool,MacTab5SpeechFailure?) -> Void)?
++        let voice = MacTab5Voice(enabled:{enabled},clock:{now},backend:.init(start:{_,callback in emit = callback},feed:{_ in},finish:{},cancel:{}))
++        let pair = MacTab5Pairing(deviceId:"001122334455",usbPath:"/dev/cu.fixture",key:Data(repeating:8,count:32),confirmed:true)
++        let defaults = UserDefaults(suiteName:"voice-terminal-"+UUID().uuidString)!
++        let codex = MacTab5Codex(store:.init(root:root,key:{pair.key}),enabled:{true},call:{_,_ in [:]})
++        let computer = MacTab5Computer(defaults:defaults,backend:.init(read:{[:]},perform:{_,_,_ in false}))
++        let service = MacTab5Service(port:8765,host:{nil},gallery:.init(directory:root),computer:computer,codex:codex,voice:voice,
++            birthdays:.init(directory:root),agenda:.init(directory:root),load:{pair},save:{_ in})
++        defer { service.stop() }
++        var lastNonce = ""
++        func rpc(_ value: [String:Any]) throws -> MacTab5RPCResult {
++            var root = value; root["session"] = service.session; root["issuedAt"] = Int64(Date().timeIntervalSince1970*1000)
++            let nonce = MacTab5Protocol.identifier(), packet = try MacTab5Protocol.encrypt(MacTab5Protocol.json(root),key:pair.key,challenge:nonce)
++            lastNonce = nonce
++            let proof = MacTab5Protocol.proof(key:pair.key,message:"POST|/tab5/v1/rpc|\(pair.deviceId)|\(nonce)|\(MacTab5Protocol.sha256(packet))")
++            let response = service.rpc(device:pair.deviceId,nonce:nonce,proof:proof,packet:packet)
++            guard response.0 == 200 else { return .error(response.0,"fixture_transport") }
++            let decoded = try MacTab5Protocol.object(MacTab5Protocol.decrypt(response.1,key:pair.key,challenge:nonce))
++            return .init(Int(MacTab5Protocol.integer(decoded["status"]) ?? 500),decoded["body"] as? [String:Any] ?? [:])
++        }
++        let task = UUID().uuidString.lowercased()
++        func start() throws -> String {
++            let result = try rpc(["kind":"voice","op":"start","taskId":task])
++            guard result.status == 200, let id = result.body["voiceId"] as? String else { throw MacTab5LocalError.invalid("fixture voice start") }
++            return id
++        }
++        try check("idle has no transport reservation",!voice.needsTransportPriority)
++        let id = try start()
++        try check("capture reserves transport",voice.busy && voice.needsTransportPriority)
++        let ack: [String:Any] = ["kind":"codex","op":"read-ack","taskId":task,"requestId":UUID().uuidString.lowercased(),"turnId":UUID().uuidString.lowercased()]
++        try check("authenticated background ACK yields during capture",try rpc(ack).status == 503)
++        let stop = try rpc(["kind":"voice","op":"stop","voiceId":id])
++        try check("stop first waits for recognizer",stop.body["state"] as? String == "recognizing")
++        now += 0.075; emit?("published fixture",true,nil)
++        try check("recognition completes before device final poll",!voice.busy)
++        try check("old busy-only pacing would resume too early",voice.needsTransportPriority)
++        voice.observeReply(op:"stop",transport:"USB",status:200,response:stop.body)
++        try check("late recognizing response cannot release final reservation",voice.needsTransportPriority)
++        try check("background ACK also yields after recognition",try rpc(ack).status == 503)
++        try check("background read also yields before terminal poll",try rpc(["kind":"codex","op":"read","taskId":task]).status == 503)
++        var order: [String] = [], final: MacTab5RPCResult?
++        var priorityBeforeACK = false
++        _ = try MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{voice.needsTransportPriority},claim:{order.append("claim")},status:{order.append("status")},rpc:{
++            order.append("rpc"); final = try rpc(["kind":"voice","op":"poll","voiceId":id])
++            priorityBeforeACK = voice.needsTransportPriority
++            voice.acknowledgeUSBReply(nonce:lastNonce)
++        },resources:{order.append("image");return 1})
++        try check("final result precedes status and resumed images",order == ["claim","rpc","status","image"])
++        try check("terminal reply returns exact retained public text",final?.body["text"] as? String == "published fixture")
++        try check("generated terminal response retains reservation until wire ACK",priorityBeforeACK)
++        try check("served terminal response releases reservation",!voice.needsTransportPriority)
++        let old = final!.body, oldNonce = lastNonce, next = try start()
++        _ = try rpc(["kind":"voice","op":"stop","voiceId":next]); emit?("next fixture",true,nil)
++        voice.observeReply(op:"poll",transport:"USB",status:200,response:old)
++        try check("old take cannot release newer terminal reservation",!voice.busy && voice.needsTransportPriority)
++        _ = try rpc(["kind":"voice","op":"poll","voiceId":next])
++        try check("lost terminal packet keeps priority",voice.needsTransportPriority)
++        voice.acknowledgeUSBReply(nonce:oldNonce)
++        try check("old packet ACK cannot release new take",voice.needsTransportPriority)
++        voice.acknowledgeUSBReply(nonce:String(repeating:"0",count:32))
++        try check("unrelated ACK cannot release terminal result",voice.needsTransportPriority)
++        now += 30.1
++        try check("disconnected terminal wait is bounded",!voice.needsTransportPriority)
++        let cancelled = try start(); enabled = false
++        try check("disabled feature immediately releases transport",!voice.needsTransportPriority)
++        enabled = true
++        let cancel = try rpc(["kind":"voice","op":"cancel","voiceId":cancelled])
++        try check("cancel terminal packet also waits for wire ACK",cancel.body["state"] as? String == "cancelled" && voice.needsTransportPriority)
++        voice.acknowledgeUSBReply(nonce:lastNonce)
++        try check("cancel terminal response releases transport",!voice.needsTransportPriority)
++
++        // Actual Codex gate contention must never occupy the USB mailbox for
++        // an idempotent read receipt. Release the fixture before asserting.
++        let catalog = Catalog(), journal = MacTab5Codex(store:.init(root:root.appendingPathComponent("gate"),key:{pair.key}),enabled:{true},call:catalog.call)
++        journal.refresh(); catalog.block()
++        let refreshDone = DispatchSemaphore(value:0), ackDone = DispatchSemaphore(value:0), result = Box()
++        DispatchQueue.global().async { journal.refresh(); refreshDone.signal() }
++        let entered = catalog.entered.wait(timeout:.now()+1) == .success
++        DispatchQueue.global().async {
++            result.set(journal.handle(["op":"read-ack","taskId":catalog.task,"requestId":UUID().uuidString.lowercased(),"turnId":UUID().uuidString.lowercased()],device:pair.deviceId).status)
++            ackDone.signal()
++        }
++        let quick = ackDone.wait(timeout:.now()+0.2) == .success
++        catalog.release.signal(); let refreshed = refreshDone.wait(timeout:.now()+1) == .success
++        if !quick { _ = ackDone.wait(timeout:.now()+1) }
++        try check("actual catalog refresh owns gate fixture",entered && refreshed)
++        try check("contended read receipt releases mailbox promptly",quick && result.value == 503)
++        return checks
++    }
++}

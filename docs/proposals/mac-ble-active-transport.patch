@@ -1,0 +1,157 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5Service.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Service.swift
+@@ -23,6 +23,7 @@
+     private var maintenance = false
+     private var benchmarkMode = 0
+     private var lastUSB: TimeInterval = -.infinity
++    private var usbReportedActive: String?
+     private var lastWiFi: TimeInterval = -.infinity
+     private var lastBLE: TimeInterval = -.infinity
+     private var bleNote = "尚未启用"
+@@ -84,6 +85,11 @@
+         maintenance = value; lock.unlock(); if value { voice.stop(); deviceDiagnostics.cancel(); screenPreview.stop(); unlock.cancel() }; return true
+     }
+     var usbActive: Bool { lock.lock(); defer { lock.unlock() }; return ProcessInfo.processInfo.systemUptime - lastUSB < 8 }
++    var usbOwnsActiveState: Bool {
++        lock.lock(); defer { lock.unlock() }
++        return !usbAuthenticationRejected && MacTab5USBDisplayOwnership.owns(
++            now: ProcessInfo.processInfo.systemUptime, acknowledgedAt: lastUSB, active: usbReportedActive)
++    }
+     var configurationBusy: Bool { lock.lock(); defer { lock.unlock() }; return benchmarkMode != 0 || displayCompletion != nil || activeOperations > 0 || firmwareControl.busy }
+     var bootTransport: String? {
+         lock.lock(); defer { lock.unlock() }
+@@ -190,6 +196,7 @@
+     func observeUSBInfo(_ root: [String: Any]) {
+         lock.lock(); defer { lock.unlock() }
+         guard root["deviceId"] as? String == pairing?.deviceId else { return }
++        usbReportedActive = (root["active"] as? String).flatMap { ["USB", "Wi-Fi", "BLE", "Offline"].contains($0) ? $0 : nil }
+         if let ids = root["assetIds"] as? String { assets.acknowledge(ids) }
+         if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version; firmwareControl.observeVersion(version) }
+         if let context = diagnosticContextLocked() { deviceDiagnostics.recordUSB(root,context:context) }
+@@ -198,6 +205,7 @@
+     func usbState(_ note: String, confirmed: Bool = false) {
+         lock.lock(); usbNote = note
+         lastUSB = confirmed ? ProcessInfo.processInfo.systemUptime : -.infinity
++        if !confirmed { usbReportedActive = nil }
+         if confirmed { usbAuthenticationRejected = false }
+         lock.unlock()
+         if !confirmed { unlock.cancel(transport:"USB") }
+--- a/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
+@@ -154,8 +154,10 @@
+         }
+         guard nonce != nil, admission.ready, !busy else { return }
+         guard authenticatedDevice == pair.deviceId else { reset("配对已改变，重新认证"); return }
+-        // USB remains preferred. No replay or channel switching of an in-flight RPC.
+-        guard !service.usbActive else { service.bleState("已认证 · USB 优先待命"); return }
++        // Defer only while the device actually selects USB; a management ACK
++        // must not suppress an explicitly selected BLE/Wi-Fi mode.
++        // No replay or channel switching of an in-flight RPC.
++        guard !service.usbOwnsActiveState else { service.bleState("已认证 · USB 优先待命"); return }
+         // Establish the legacy owner path with an acknowledged encrypted state
+         // before attempting subscription. This alone does not resolve ATT/8.
+         if !voiceSubscriptionAttempted, lastFrame.isFinite {
+@@ -462,7 +464,7 @@
+                 self.service.bleState("数据已确认", confirmed: true)
+                 // A slow background frame must not age out the voice lease and
+                 // immediately queue another resource frame ahead of captured audio.
+-                if !self.service.usbActive, let endpoint = self.characteristics[MacTab5BLEWire.voice] {
++                if !self.service.usbOwnsActiveState, let endpoint = self.characteristics[MacTab5BLEWire.voice] {
+                     self.pump(endpoint, pair: pair)
+                 } else { self.busy = false }
+             } catch { self.reset("蓝牙整帧确认失败，等待重连") }
+--- a/mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift
+@@ -137,6 +137,36 @@
+         catch { try check("USB authentication gates upgrade",error.localizedDescription.contains("未通过设备认证")) }
+         service.usbState("数据已确认",confirmed:true)
+         try check("confirmed USB clears authentication failure",service.hostBindingSummary.contains("USB 已确认"))
++        for active in ["BLE", "Wi-Fi", "Offline", "unknown", ""] {
++            service.observeUSBInfo(["deviceId":pair.deviceId,"active":active])
++            try check("USB control preserves selected " + active,service.usbActive && !service.usbOwnsActiveState)
++        }
++        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"USB"])
++        try check("device-selected USB defers BLE",service.usbOwnsActiveState)
++        service.observeUSBInfo(["deviceId":"ffffffffffff","active":"BLE"])
++        try check("wrong device cannot change USB ownership",service.usbOwnsActiveState)
++        service.observeUSBInfo(["deviceId":pair.deviceId])
++        try check("missing active clears prior USB ownership",!service.usbOwnsActiveState && service.usbActive)
++        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"USB"])
++        service.observeUSBInfo(["deviceId":pair.deviceId,"active":true])
++        try check("invalid active clears prior USB ownership",!service.usbOwnsActiveState)
++        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"USB"])
++        service.rejectUSBHost()
++        try check("rejected USB host cannot own display",!service.usbOwnsActiveState)
++        service.usbState("数据已确认",confirmed:true)
++        try check("reauthenticated USB can own display",service.usbOwnsActiveState)
++        service.usbState("断开")
++        try check("USB disconnect releases display ownership",!service.usbActive && !service.usbOwnsActiveState)
++        service.usbState("数据已确认",confirmed:true)
++        try check("reconnect without active info cannot reuse ownership",!service.usbOwnsActiveState)
++        let ownershipCases: [(Double,Double,String?,Bool)] = [
++            (100,100,"USB",true),(107.999,100,"USB",true),(108,100,"USB",false),
++            (100,101,"USB",false),(100,0,"USB",false),(100,-1,"USB",false),
++            (100,-.infinity,"USB",false),(100,100,"BLE",false),(100,100,"Wi-Fi",false),
++            (100,100,"Offline",false),(100,100,nil,false),(100,100,"usb",false)]
++        for (index,value) in ownershipCases.enumerated() {
++            try check("USB ownership freshness boundary \(index)",MacTab5USBDisplayOwnership.owns(now:value.0,acknowledgedAt:value.1,active:value.2) == value.3)
++        }
+         return count
+     }
+ }
+--- a/mac-app/Tests/AIBotBridgeTests/MacTab5BLETests.swift
++++ b/mac-app/Tests/AIBotBridgeTests/MacTab5BLETests.swift
+@@ -47,4 +47,30 @@
+         service.usbState("confirmed", confirmed: true); XCTAssertTrue(service.usbActive)
+         service.usbState("disconnected"); XCTAssertFalse(service.usbActive)
+     }
++    func testUSBControlDoesNotOverrideDeviceSelectedBLE() {
++        let service = MacTab5Service(port:8765,load:{ self.pair },save:{ _ in })
++        defer { service.stop() }
++        service.usbState("confirmed",confirmed:true)
++        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"BLE"])
++        XCTAssertTrue(service.usbActive); XCTAssertFalse(service.usbOwnsActiveState)
++        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"USB"])
++        XCTAssertTrue(service.usbOwnsActiveState)
++        service.observeUSBInfo(["deviceId":"ffffffffffff","active":"BLE"])
++        XCTAssertTrue(service.usbOwnsActiveState)
++        service.observeUSBInfo(["deviceId":pair.deviceId])
++        XCTAssertFalse(service.usbOwnsActiveState)
++        service.observeUSBInfo(["deviceId":pair.deviceId,"active":"USB"])
++        service.usbState("disconnected")
++        service.usbState("confirmed",confirmed:true)
++        XCTAssertFalse(service.usbOwnsActiveState)
++    }
++    func testUSBOwnershipRequiresFreshDeviceSelection() {
++        XCTAssertTrue(MacTab5USBDisplayOwnership.owns(now:107.999,acknowledgedAt:100,active:"USB"))
++        for (now,ack) in [(108.0,100.0),(100,101),(100,0),(100,-Double.infinity)] {
++            XCTAssertFalse(MacTab5USBDisplayOwnership.owns(now:now,acknowledgedAt:ack,active:"USB"))
++        }
++        for active in ["BLE","Wi-Fi","Offline","unknown",nil] {
++            XCTAssertFalse(MacTab5USBDisplayOwnership.owns(now:100,acknowledgedAt:100,active:active))
++        }
++    }
+ }
+--- a/docs/PROTOCOL.md
++++ b/docs/PROTOCOL.md
+@@ -1031,6 +1031,10 @@
+ 
+ 通信／图库测速期间，Mac 保留正常认证状态帧和测速 RPC，状态不夹带图片，独立资源批次暂停；配置／升级／照片／语音的既有互斥保持。BLE 资源轮遇到暂时 busy 仅退让，不丢弃已认证连接；结束／取消后恢复正常资源同步。
+ 
++Mac BLE standby follows the existing USB acknowledgement's `active` field, as on Windows: only a fresh, authenticated USB connection reporting `active: "USB"` defers BLE state/voice polling. USB control remains usable while the device selects BLE or Wi-Fi. Missing/invalid active information, disconnect, authentication rejection or an expired acknowledgement cannot retain USB display ownership. No wire fields or device settings change.
++
++Mac 蓝牙待命与 Windows 一样遵循既有 USB 回执的 `active` 字段：只有已认证且未过期的 USB 回执明确报告 `USB` 活动通道时，才暂停蓝牙状态／语音轮询。设备选择 BLE 或 Wi-Fi 时仍可保留 USB 管理通道；活动字段缺失／无效、断线、认证拒绝或回执过期均不保留 USB 显示归属。不新增协议字段或修改设备设置。
++
+ 
+ r70 physical follow-up: system-stream Tab did not expose the password page. A visible password field still permits successful unlock, including after display wake. There is no new protocol capability: device BLE HID enumeration does not mean mixed Wi-Fi/BLE preparation is supported. Existing `lockScreenCover`/`displayState` unknown values remain null; no Windows-style wake authorization may be inferred from them. Full-system sleep wake remains unimplemented.
+ 
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacTab5USBDisplayOwnership.swift
+@@ -0,0 +1,7 @@
++import Foundation
++
++enum MacTab5USBDisplayOwnership {
++    static func owns(now: TimeInterval, acknowledgedAt: TimeInterval, active: String?) -> Bool {
++        active == "USB" && acknowledgedAt > 0 && now >= acknowledgedAt && now - acknowledgedAt < 8
++    }
++}

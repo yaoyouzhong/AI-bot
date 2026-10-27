@@ -177,40 +177,10 @@ internal sealed class DomesticQuotaService
 
     private static DomesticProviderQuotaSnapshot ParseDeepSeek(JsonElement root)
     {
-        double? balance = null, used = null;
-        string currency = "CNY";
-        Visit(root, value =>
-        {
-            if (value.ValueKind != JsonValueKind.Object) return;
-            if (!balance.HasValue)
-            {
-                var candidate = Number(value, "total_balance") ?? Number(value, "available_balance") ??
-                                Number(value, "balance");
-                if (candidate is >= 0)
-                {
-                    balance = candidate;
-                    currency = Text(value, "currency")?.ToUpperInvariant() is "USD" ? "USD" : "CNY";
-                }
-            }
-        });
-        Visit(root, value =>
-        {
-            if (used.HasValue || value.ValueKind != JsonValueKind.Object ||
-                !Property(value, "total_costs", out var costs) || costs.ValueKind != JsonValueKind.Array) return;
-            foreach (var cost in costs.EnumerateArray())
-            {
-                var amount = Number(cost, "amount");
-                var itemCurrency = Text(cost, "currency");
-                if (amount.HasValue && (itemCurrency is null || itemCurrency.Equals(currency, StringComparison.OrdinalIgnoreCase)))
-                {
-                    used = amount;
-                    break;
-                }
-            }
-        });
-        if (!balance.HasValue) throw new JsonException("DeepSeek balance fields are missing.");
-        return new DomesticProviderQuotaSnapshot("deepseek", "API PAYG", null, null, null, null,
-            balance, used, currency, DateTimeOffset.UtcNow, false);
+        var balance=DeepSeekWallets.Parse(root)??throw new JsonException("DeepSeek balance fields are missing or ambiguous.");
+        var used=MigratedDomestic.DomesticQuotaAuthForm.FindDeepSeekUsedCost(root,balance.Currency);
+        return new DomesticProviderQuotaSnapshot("deepseek", "网页余额", null, null, null, null,
+            balance.Total, used, balance.Currency, DateTimeOffset.UtcNow, false);
     }
 
     private static DomesticProviderQuotaSnapshot Windowed(string provider, string? plan,

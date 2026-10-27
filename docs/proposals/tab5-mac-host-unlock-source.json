@@ -1,0 +1,139 @@
+{
+  "status": "Local .267 + signed Mac ble-priority (635 checks per configuration): final ordinary-lock first taps and matching results user-confirmed on USB/BLE/Wi-Fi plus USB-removal-to-BLE handoff; independent authenticated device/Mac success receipts verified. Earlier incomplete attempts retained; no full-sleep or Computer Use handoff acceptance; no public release.",
+  "referenceCommit": "2bd5d69a56fd9a42953e29cfc428940dfb6daa6a",
+  "referenceVersion": "0.2.264-ui",
+  "reconstruction": "artifacts/mac-usb-ble-unlock-20261024-main264/RECONSTRUCTION.json",
+  "baseArchiveSha256": "c107e5f929e757a6342bea659f84e726a40d5f16b692441865f348fa26290890",
+  "patchSha256": "e0d713da2b005b1e8ef05dc28de677efc036630961e16a9ba1a18a932f61fd41",
+  "files": [
+    {
+      "path": "firmware/main/CMakeLists.txt",
+      "baseSha256LF": "b830e62a5eaaa1afad136c6eba1dc450afc1dd83faea38bae739457b286b5729",
+      "candidateSha256LF": "87480cfd2b0e80b35154cd811ba65d00383e52c22b05c51851dbaf5b808e7591"
+    },
+    {
+      "path": "firmware/main/computer_remote.c",
+      "baseSha256LF": "ded0af087cb889f38dd30ce3e789c13c92fa2f5d9994baec7cbc7b099a15d28a",
+      "candidateSha256LF": "1302fbda2968c8a03c31929d15e0525a342fabc7c06b0580241f1100d54b7e2d"
+    },
+    {
+      "path": "firmware/main/computer_remote.h",
+      "baseSha256LF": "1ee587ef9fac973980a5608a0057d91606b9f9b626e9c3dbf246215721ba9d83",
+      "candidateSha256LF": "5e29a3d1e9ca78db11fb8ebaeba233b53365cc8564f498b5a8d032747e97cc74"
+    },
+    {
+      "path": "firmware/main/host_unlock_remote.c",
+      "baseSha256LF": null,
+      "candidateSha256LF": "44e53e13dc9b6290a2f8393b675d63d0b54e11cbdc99b64da6171be1015110e7"
+    },
+    {
+      "path": "firmware/main/host_unlock_remote.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "ca8f2795cb12779614b0db57fa4292db4bc0c8fb065179ad603b6621f8b3290b"
+    },
+    {
+      "path": "firmware/main/photo_upload_retry.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "a6d4ec229d00c9d44762a47f108b5c0adc16660c72ecae50cafba32f434aea56"
+    },
+    {
+      "path": "firmware/main/rpc_link.c",
+      "baseSha256LF": "8ac75df5c022343c6f3efce2ed7cd5d5d8042bf7f4379a3505c32b749f14ab50",
+      "candidateSha256LF": "f4f6696004868334f69c927902f5bfeaaca30c96cb6d537feb0aa2953d23db0d"
+    },
+    {
+      "path": "firmware/main/ui_computer.h",
+      "baseSha256LF": "d9a72e609f2fac5eb25e3310640502856870386afcadec7d8a170a3a4c5f8540",
+      "candidateSha256LF": "15ea89b1e1a6907321e7c6bd7108a1b182e16f7519676a0ab37efc7f7e3231da"
+    },
+    {
+      "path": "firmware/main/ui_unlock.h",
+      "baseSha256LF": "25d0557dd304dafb0955fc554b3c2b4bea738c1cec6edcc64101583bfd5b94e2",
+      "candidateSha256LF": "0793af870ec39a8d862ac217cf97208be27f8c587bbe383210e7858df555e24b"
+    },
+    {
+      "path": "scripts/build-macos.sh",
+      "baseSha256LF": null,
+      "candidateSha256LF": "a2fb2416f4ba335050cccacad6ca68d4320845252bd1cf1056da3d1da980b788"
+    },
+    {
+      "path": "tests/host-unlock-stubs/ble_keyboard.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "a831f0e1ced529ca95e618abc844a9a7709804acbab2351fb094fff1ddd77ee0"
+    },
+    {
+      "path": "tests/host-unlock-stubs/device.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "aabd747c12ca317fc6e9e4dfa4a3588bf7ca8b24b44378de23560d9e7cdb7ed4"
+    },
+    {
+      "path": "tests/host-unlock-stubs/esp_timer.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "82a7c14acf5d1cdcbea1b23bab880c69562da88013adc34ff5f2ae2115fb08d1"
+    },
+    {
+      "path": "tests/host-unlock-stubs/link_state.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "f60d57c7d3f648afab745f64718b88f160933dc1c57654c87e126043ff94b5c1"
+    },
+    {
+      "path": "tests/host-unlock-stubs/rpc_link.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "10071de4984f09802fb9ade187bd6318af1667c2400ae17171f40d9537b2f79d"
+    },
+    {
+      "path": "tests/host_unlock_remote_test.c",
+      "baseSha256LF": null,
+      "candidateSha256LF": "f3ac4857f50e071c0fb49032b432faea73285711a496966316b882ba1433fe6f"
+    },
+    {
+      "path": "tests/host_unlock_timeout_test.c",
+      "baseSha256LF": null,
+      "candidateSha256LF": "ecb292c6eb188813e1546163cfb9d52aee7d073ced928a5c7ede3c3106480157"
+    },
+    {
+      "path": "tests/ui-preview/CMakeLists.txt",
+      "baseSha256LF": "454c7acce943ec8c5102ba184f861261566e94e4c1ee4f06cb38ce8bbe6ac440",
+      "candidateSha256LF": "b71467262bbeaab8fd4baad32bcccd91beff4445a76cb97fd9ad2bffe46000e7"
+    },
+    {
+      "path": "tests/ui-preview/computer_click_queue_test.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "dc36703a75cf962cec7da6fb6abf78f0eaf5d567994e0a21cca999d318346cc3"
+    },
+    {
+      "path": "tests/ui-preview/computer_control_focused_test.h",
+      "baseSha256LF": "d04b81f7f312b8415667b1d1fe26187819489efa70b0970eeb76a30f43d7fb29",
+      "candidateSha256LF": "cd0fb581ce0fad3b2414bdea7c11a9f51ebab45f0d0457d7f54fcba32458fb17"
+    },
+    {
+      "path": "tests/ui-preview/computer_cover_test.c",
+      "baseSha256LF": "2657a6826b9257fa65ee6903f23f44e7e1be6559866b75a422108830fffe9869",
+      "candidateSha256LF": "ffbc5721553b463c3c343855b242b701f5d218531f612f6de45f1466f69e3b65"
+    },
+    {
+      "path": "tests/ui-preview/host_unlock_ui_test.h",
+      "baseSha256LF": null,
+      "candidateSha256LF": "6f45d991954f8ceb92e229417f266e3abd239a70a7573cf111a87b378dcd6723"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "baseSha256LF": "e6fbf2250df758f74b3988ae9418ada8db6a6a6e7496e1ebfa10ba1f57a52d2c",
+      "candidateSha256LF": "8465684896f55cc513b8d3e8925311ea8b0773a25fbe48e5739c8309460789fc"
+    },
+    {
+      "path": "tests/ui-preview/rpc_admission_test.c",
+      "baseSha256LF": "5e57b7ddae799ec1aa9bea721ef8c610ddd2f59de4e39379d3fe303f47f1d3d2",
+      "candidateSha256LF": "3c47e21de9a2d034ed65aa38189280c31873011663d3fc6513f7bc08c84749e2"
+    },
+    {
+      "path": "tests/ui-preview/ui_preview_stubs.h",
+      "baseSha256LF": "f954bbeb45dc39716cbc21df5c3abe92dd2e0d581d153d17a6392cb38549ffbc",
+      "candidateSha256LF": "beedf6c8ef94fa779d10e69ca04a2bf49f3063c137820ff90960ca4d3a8fc154"
+    }
+  ],
+  "sourceRepair": "artifacts/mac-usb-ble-unlock-20261024-main264/SOURCE-REPAIR.json",
+  "candidateVersion": "0.2.267-ui",
+  "discardedCandidateVersion": "0.2.264-mac1-ui (noncanonical; never deployed)",
+  "initialCandidateVersion": "0.2.265-ui"
+}

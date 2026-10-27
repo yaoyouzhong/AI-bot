@@ -67,6 +67,14 @@ Device backups are private runtime data, never distribution materials.
 
 The Windows TAB5 voice bridge uses NAudio.Wasapi and NAudio.Core 2.2.1 (MIT), by Mark Heath and contributors. Source: https://github.com/naudio/NAudio. The original MIT notice is retained in `licenses/naudio/license.txt`. VB-CABLE is a separately installed third-party driver and is not bundled or licensed by this repository.
 
+## Solar-term date facts / 节气日期数据
+
+Mac and Windows read public date facts from the Chinese Academy of Sciences, Purple Mountain Observatory annual calendars: https://pmo.cas.cn/xwdt2019/kpdt2019/202203/t20220309_6386774.html. No source PDF, website layout, logo or publisher code is bundled. Attribution and the current publication boundary are recorded in `licenses/pmo-calendar/NOTICE.md`; the source documents retain the publisher's rights.
+
+Windows uses PdfPig 0.1.16 by UglyToad and contributors to extract PDF text. Package: https://www.nuget.org/packages/PdfPig/0.1.16; source: https://github.com/UglyToad/PdfPig. The complete original license, including its PDFBox/FontBox and Adobe component notices, is retained in `licenses/pdfpig/LICENSE` and copied with Windows output. Mac uses system PDFKit and does not depend on PdfPig.
+
+两端独立读取中国科学院紫金山天文台公开节气日期事实，不捆绑来源 PDF、网页布局、标志或发布方代码。Windows 的 PDF 文字读取使用 PdfPig 0.1.16，保留完整 Apache-2.0 与其内嵌组件许可；Mac 使用系统 PDFKit。数据归属、发布范围及依赖原许可见上述记录。
+
 ## Mainland China holiday dataset
 
 TAB5 checks the publicly maintained holiday-cn JSON dataset by NateScarlet (MIT): https://github.com/NateScarlet/holiday-cn. Each accepted year must cite a State Council notice; this is a third-party dataset, not an official government API. The 2026 test fixture comes from that project. Its original license is retained in `licenses/holiday-cn/LICENSE`. Cached schedules survive network failures; unpublished years are never generated from predictions.
@@ -248,3 +256,36 @@ in the repository, copied to `components/tightvnc/ORIGIN.md` in Windows packages
 Windows 包随附独立、可选的官方 TightVNC 2.8.90 x64 MSI（未修改，GPL v2），
 并在同目录附完整对应源码、GPL 许可及来源校验记录。用户主动点击安装并授权后，
 仅安装 Server 服务。AI-bot 通过本机 RFB 通信，不将 TightVNC 源码并入桥接。
+
+## Product film 0.6.9 / TAB5 217
+
+The separately distributed product-video source contains adapted scaffold and audio mixing/effect code from https://github.com/op7418/guizang-product-video-skill under AGPL-3.0; its LICENSE and NOTICE remain in that archive. Inter and Noto Sans SC retain OFL notices. Original project music, mascot and native fixture captures retain their own provenance. Mi Fu, Hongxian Poems, Tokyo National Museum / ColBase TB-1459 (https://colbase.nich.go.jp/collection_items/tnm/TB-1459?locale=zh), is CC BY 4.0, scaled/cropped inside native UI. This does not imply museum endorsement. No commercial song/album artwork or runtime-extracted launcher icons are redistributed. Details and hashes: [PRODUCT_VIDEO](docs/PRODUCT_VIDEO.md), [SCREENSHOTS](docs/SCREENSHOTS.md), licenses/materials.json.
+
+独立视频工程保留上述 AGPL／OFL 与作品署名条款，不将第三方素材自动归入项目 MIT；控制画面仅使用通用类型字形。
+
+
+## TAB5 camera software JPEG / 相机软件编码
+
+The TAB5 .254 source patch includes unchanged `jpge.cpp` and `jpge.h` from
+Espressif `esp32-camera` commit `f37e65608f709bd94846dee01d947f02ae07c0b0`:
+https://github.com/espressif/esp32-camera/tree/f37e65608f709bd94846dee01d947f02ae07c0b0/conversions
+The original Rich Geldreich public-domain notices and upstream Apache-2.0 root
+license are retained in the component. Fixed URLs and SHA-256 are recorded in
+`firmware/components/tab5_jpeg/vendor/SOURCE.json` within the source patch.
+
+TAB5 .254 源码补丁仅引入上述固定官方来源的两个编码文件，保留原作者声明、上游许可及哈希；
+本地有界输出与逐行 RGB565 转换封装独立维护，没有迁入其他项目的相机驱动或历史。
+
+
+## TAB5 .279 corresponding-source archive
+
+The full project under `docs/development/tab5-279-source/source/` preserves its
+own `THIRD_PARTY_NOTICES.md`, component licenses, font OFL texts, dictionary
+license and service-mark provenance. The managed dependency overrides include
+matching upstream license/checksum metadata; SDK patches retain ESP-IDF and
+NimBLE licensing. All binary inputs are unchanged from the previously published
+.234 source archive, including the existing Espressif IPA library. This archive
+does not relicense third-party code, fonts, images or trademarks.
+
+TAB5 .279 完整源码保留各组件、字体、词库及服务标识的原始来源与许可。
+依赖修改及 SDK 补丁另附许可记录；未将第三方内容重新许可为项目 MIT。

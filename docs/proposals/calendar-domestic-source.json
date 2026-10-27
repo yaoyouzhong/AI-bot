@@ -1,0 +1,122 @@
+{
+  "status": "domestic-source implementation, native/live and cross-platform parser checks, required builds, signed deployment and actual runtime cache update complete",
+  "catalog": "https://pmo.cas.cn/xwdt2019/kpdt2019/202203/t20220309_6386774.html",
+  "source": "Purple Mountain Observatory, Chinese Academy of Sciences",
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacCalendarStore.swift",
+      "beforeSha256": "0792649a635bfa9fe38dde0a5ff8c049a3d58eb9d97b196e4c2c856b7d8cb5b3",
+      "afterSha256": "7e08444bb01e445e4d668ca90d735134e1093a460e66ae80dd6371bdc200b2c2"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacParityValidation.swift",
+      "beforeSha256": "3d127d90c1fbda7efda1c1cf7bfd104633ce4371491bdfbf439866afaeaa8d53",
+      "afterSha256": "debd3e2e4d4c0a77c21e242d575a67ee8828aa8231ef81bcee0c461c65b3e905"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacSolarTermSource.swift",
+      "beforeSha256": null,
+      "afterSha256": "812f8e7b282660ad3f208667db5ed31b035908ec739f05e386aeb82ff7c2c56a"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacSolarTermSourceValidation.swift",
+      "beforeSha256": null,
+      "afterSha256": "b060bd69d0d6f2f07a2b2e8fc6525cd6f46df7236b9074c1040cd8a3215b4a16"
+    },
+    {
+      "path": "mac-app/Tests/AIBotBridgeTests/MacCalendarStoreTests.swift",
+      "beforeSha256": "5ec281aa92d54a1c311128636a76a34a20d4c0ac67f2074f6d20427ccd75e2df",
+      "afterSha256": "542fa5fd108f07bdc7f5d7729cf74540f782061faab631491c99d346cc63f920"
+    },
+    {
+      "path": "windows-app/AIBotBridge/Tab5SolarTerms.cs",
+      "beforeSha256": "447d13bd1d4dc0ca4e516b3888156867a49962640844e27b1a2f5a36d162d543",
+      "afterSha256": "015e30ed68ee78f0c414acbbe6fd08a125c6f7087ffca8e95096991b2ac4d7d1"
+    },
+    {
+      "path": "windows-app/AIBotBridge/Tab5SolarTermSource.cs",
+      "beforeSha256": null,
+      "afterSha256": "bc2b1d2927af5d43aa10f1294ca2d9a766a936dc2b86ad870586854cbe649fbf"
+    },
+    {
+      "path": "windows-app/AIBotBridge/Tab5SolarTermSourceSelfTest.cs",
+      "beforeSha256": null,
+      "afterSha256": "cf12ad397f9f47e1848f05cade6633f21854151ca099d655bf120c3d59b316eb"
+    },
+    {
+      "path": "windows-app/AIBotBridge/Tab5CloseoutSelfTest.cs",
+      "beforeSha256": "d3b795d5257284e7c1ce63a131a46cbdc5b7cea985486a92064043e0e62d4084",
+      "afterSha256": "6f8fc1052d1a839bc5e3170beb602ff8ac928a290956f8b81aef3a517f19bc4f"
+    },
+    {
+      "path": "windows-app/AIBotBridge/AIBotBridge.csproj",
+      "beforeSha256": "aa1cb182d1df1b7ae23e4d01edc5e8970a9050e4b89f0742b1e7e49d5732e432",
+      "afterSha256": "a4a7cfbec857d030ac9ef5b5aed831f0b5b8eef8625467ce25829217b358cc92"
+    },
+    {
+      "path": "docs/DATA_SOURCES.md",
+      "beforeSha256": "d334c07e4d47aa94dc45efee46ab0c1dfe56fd7c2c740eb6e8c5c76cbd2b0419",
+      "afterSha256": "6c3bb1382bac3869ee3194bfbb0eb52972a1043a78424e770b34e4d8cb93b2ce"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "beforeSha256": "2c11500771f803afd5080577cdf1dbc31e32372cd3fd9b64bd3996be28f9285d",
+      "afterSha256": "2e4c1e12b35e7874324c40075d16b9578a50733f6ff6bfd0a098de67703a13fd"
+    },
+    {
+      "path": "licenses/pmo-calendar/NOTICE.md",
+      "beforeSha256": null,
+      "afterSha256": "3c13d8d0b8103a1486fa32c5ef525e8749210ce612fa30ca9b97f661b0f2f380"
+    },
+    {
+      "path": "licenses/pdfpig/LICENSE",
+      "beforeSha256": null,
+      "afterSha256": "4c510e162f896ea43b4b1cf1b743641d7c756f1004d0e5eaf0615b28b7ded409"
+    },
+    {
+      "path": "licenses/pdfpig/SOURCE.json",
+      "beforeSha256": null,
+      "afterSha256": "7bc26e6e8658e4685767e880c0e7c314fd964360a2168b842d2b761b008c3582"
+    },
+    {
+      "path": "scripts/build_macos_app.sh",
+      "beforeSha256": "9ff8217fa6faca84791053790a00b47f234558b372c2d5ca691e06738fd8576e",
+      "afterSha256": "7f30aef69d0893c0e73af87675e315141b80a44edaa9fc7547aa06d2e4d5a12a"
+    }
+  ],
+  "patchSha256": "92737f787d1b33f21aa871a10e520939f9fffddab0045e36027a97557222717f",
+  "candidateBundle": "artifacts/mac-calendar-source-20261024/AIBotBridge.app",
+  "liveYears": [
+    2025,
+    2026
+  ],
+  "crossPlatformDatesMatched": 48,
+  "macProductionChecks": 24,
+  "futureYears": "not in current official index; retain existing offline dates",
+  "publicDocumentEvidence": [
+    {
+      "file": "pmo-2025.pdf",
+      "sha256": "cee422e63c16dfa447052ebbac0f802b8cb4d7381ea9da04f71ab2195ba4b018",
+      "bytes": 153706
+    },
+    {
+      "file": "pmo-2026.pdf",
+      "sha256": "19509e6b1a2798f9d9a024332a15d1b2734012a50b90e3b452d793bf0314e5d2",
+      "bytes": 158987
+    }
+  ],
+  "downloadedDocumentsBundled": false,
+  "naojDeployed": false,
+  "deviceProtocolChanged": false,
+  "firmwareGenerated": false,
+  "evidence": "artifacts/development/calendar-source-20261024/",
+  "releaseChecks": 946,
+  "swiftTest": "unavailable: installed CLT lacks XCTest",
+  "windowsStatusOnce": "unavailable on macOS: WindowsDesktop runtime missing",
+  "macDeployed": true,
+  "runtimePmoCacheYears": [
+    2025,
+    2026
+  ],
+  "inspectionWindowClosed": true
+}

@@ -1,0 +1,11 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2040,7 +2040,7 @@
+         xSemaphoreGive(device_mutex);
+         ui_text_fmt(image_loading[i], i < 2 ? "桌宠同步中 %d%%" : "封面同步中 %d%%", received);
+         if (i == 2 && !yes(item(shown, "music"), "hasArtwork"))
+-            ui_text(image_loading[i], "当前媒体未提供封面");
++            ui_text(image_loading[i], "暂未获取到封面");
+         if (updated) {
+             lv_image_cache_drop(&descriptors[i]);
+             uint8_t *old = pictures[i].pixels;

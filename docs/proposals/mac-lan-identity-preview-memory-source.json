@@ -1,0 +1,44 @@
+{
+  "base": "R9 source preimages retained privately",
+  "productFiles": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/NetworkIdentity.swift",
+      "beforeSHA256": "b46846ecc3646041d9d2a1fd1fdc7cf24415c3c3b80283b6bb4e2754fc7778db",
+      "afterSHA256": "5db8592babc626c60d7a9299269375daf3b2c1d394351874e9d75794d796aa4c"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5Service.swift",
+      "beforeSHA256": "4e4756dd216b255eb4c22e10f538aec21070c7f5f0057dc41d8bc639f2c8ef61",
+      "afterSHA256": "26fd53e0176077bc05caede37176dd24f3a343c7e02643578c4411db346c14f9"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5ScreenPreview.swift",
+      "beforeSHA256": "be661b8cdf122cee55a4650f27c351c4f1167414d91e9185af50984a09c576e6",
+      "afterSHA256": "dca5c24670b6e4729ed43947434283e292d3af55c90ac48ab72be5d1af0dec83"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5ScreenPreviewValidation.swift",
+      "beforeSHA256": "908e20842dcd049abc1c6eb8790265c2688928b99c05820a78168197eb321d56",
+      "afterSHA256": "fbba2a99f87b49ed1a1a2d54c8a8e7f902d290528fb010212eadfbd6bfd3fa13"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacParityValidation.swift",
+      "beforeSHA256": "f82107a8620d46c3c4dc2b4383b91c636b2468f0fe90be7ef7de2c954c0b51ef",
+      "afterSHA256": "b8f31e19d1d1fb84f5bd576f08d16d3941f7b9cf36e044fe4803fc5b3271496e"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacLANIdentityValidation.swift",
+      "beforeSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "afterSHA256": "dbba89a48531ed9aa9e23457987ab82df139d45da031ef6ac29ef8a47181c2e3"
+    }
+  ],
+  "bundle": "artifacts/mac-lan-voice-r10-20261025/AIBotBridge.app",
+  "debugAndReleaseParityChecks": 1462,
+  "nativeWindowChecks": 27,
+  "httpChecks": 16,
+  "musicChecks": 9,
+  "signedHelperByteIdentical": true,
+  "fullXCTest": "unavailable: no XCTest module in current CLT",
+  "physicalAcceptance": "R10 deployed, recording retest requested; device270 HD memory failure open",
+  "firmwareImageGenerated": false
+}

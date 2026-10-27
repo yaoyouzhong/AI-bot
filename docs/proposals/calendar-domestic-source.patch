@@ -1,0 +1,692 @@
+--- a/mac-app/Sources/AIBotBridge/MacCalendarStore.swift
++++ b/mac-app/Sources/AIBotBridge/MacCalendarStore.swift
+@@ -126,18 +126,31 @@
+             config.timeoutIntervalForRequest = 15; config.timeoutIntervalForResource = 20
+             let session = URLSession(configuration: config)
+             defer { session.invalidateAndCancel() }
++            func download(_ url: URL, maximum: Int, solar: Bool) async throws -> Data? {
++                let (bytes, response) = try await session.bytes(from: url)
++                if !solar, (response as? HTTPURLResponse)?.statusCode == 404 { return nil }
++                guard let http = response as? HTTPURLResponse, http.statusCode == 200,
++                      response.expectedContentLength <= maximum else { throw MacTab5Error.invalidPacket }
++                if solar { guard let final = http.url, MacSolarTermSource.allowed(final) else { throw MacTab5Error.invalidPacket } }
++                var data = Data()
++                for try await byte in bytes { guard data.count < maximum else { throw MacTab5Error.invalidPacket }; data.append(byte) }
++                return data
++            }
+             for solar in [false, true] {
++                var documents: [Int: URL] = [:]
++                if solar {
++                    do {
++                        guard let data = try await download(MacSolarTermSource.catalog, maximum: 524288, solar: true) else { throw MacTab5Error.invalidPacket }
++                        documents = try MacSolarTermSource.documents(data)
++                    }
++                    catch { failed = true; continue }
++                }
+                 for y in (year - 1)...(year + (solar ? 3 : 1)) {
+-                    let address = solar ? "https://www.hko.gov.hk/tc/gts/time/calendar/text/files/T\(y)c.txt" : "https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/\(y).json"
++                    let url = solar ? documents[y] : URL(string: "https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/\(y).json")
++                    guard let url else { continue } // Unpublished annual calendars preserve offline coverage.
+                     do {
+-                        let (bytes, response) = try await session.bytes(from: URL(string: address)!)
+-                        guard let http = response as? HTTPURLResponse else { throw MacTab5Error.invalidPacket }
+-                        if http.statusCode == 404 { continue }
+-                        let maximum = solar ? 131072 : 65536
+-                        guard http.statusCode == 200, response.expectedContentLength <= maximum else { throw MacTab5Error.invalidPacket }
+-                        var data = Data()
+-                        for try await byte in bytes { guard data.count < maximum else { throw MacTab5Error.invalidPacket }; data.append(byte) }
+-                        try accept(data, year: y, solar: solar)
++                        guard let data = try await download(url, maximum: solar ? 4194304 : 65536, solar: solar) else { continue }
++                        try accept(solar ? MacSolarTermSource.table(data, year: y) : data, year: y, solar: solar)
+                     } catch { failed = true }
+                 }
+             }
+--- a/mac-app/Sources/AIBotBridge/MacParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacParityValidation.swift
+@@ -163,6 +163,7 @@
+         checked += try MacARDValidation.run()
+         checked += try MacDeviceCenterMenuValidation.run()
+         checked += try MacTab5ScreenPreviewValidation.run()
++        checked += try MacSolarTermSourceValidation.run(root: root.appendingPathComponent("solar-source"))
+         print("MAC_PARITY_SELF_TEST_OK \(checked) checks; isolated storage, no credentials/network/hardware")
+     }
+ }
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacSolarTermSource.swift
+@@ -0,0 +1,71 @@
++import Foundation
++import PDFKit
++
++// Original reader of public date facts in Purple Mountain Observatory calendars.
++enum MacSolarTermSource {
++    static let catalog = URL(string: "https://pmo.cas.cn/xwdt2019/kpdt2019/202203/t20220309_6386774.html")!
++    static func allowed(_ url: URL) -> Bool {
++        url.scheme == "https" && ["pmo.cas.cn", "www.pmo.cas.cn"].contains(url.host ?? "")
++    }
++    private static func matches(_ pattern: String, _ text: String) throws -> [NSTextCheckingResult] {
++        try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive])
++            .matches(in: text, range: NSRange(text.startIndex..., in: text))
++    }
++    static func documents(_ data: Data) throws -> [Int: URL] {
++        guard data.count <= 524288, let html = String(data: data, encoding: .utf8) else { throw MacTab5Error.invalidPacket }
++        var result: [Int: URL] = [:]
++        for match in try matches("<a\\b[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", html) {
++            let link = (html as NSString).substring(with: match.range(at: 1))
++            let body = (html as NSString).substring(with: match.range(at: 2))
++            let label = body.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression).filter { !$0.isWhitespace }
++            guard let yearMatch = try matches("^《(\\d{4})年日历资料》$", label).first,
++                  let year = Int((label as NSString).substring(with: yearMatch.range(at: 1))) else { continue }
++            guard (1901...2099).contains(year), let url = URL(string: link, relativeTo: catalog)?.absoluteURL,
++                  allowed(url), url.path.lowercased().hasSuffix(".pdf"), result[year] == nil || result[year] == url else { throw MacTab5Error.invalidPacket }
++            result[year] = url
++        }
++        guard !result.isEmpty else { throw MacTab5Error.invalidPacket }
++        return result
++    }
++    static func table(_ data: Data, year: Int) throws -> Data {
++        guard data.count <= 4194304, data.starts(with: Data("%PDF-".utf8)),
++              let document = PDFDocument(data: data), !document.isLocked, (1...16).contains(document.pageCount),
++              let text = document.string, text.count <= 131072 else { throw MacTab5Error.invalidPacket }
++        return try table(text: text, year: year)
++    }
++    static func table(text: String, year: Int) throws -> Data {
++        guard text.count <= 131072, (1901...2099).contains(year) else { throw MacTab5Error.invalidPacket }
++        let compact = text.precomposedStringWithCompatibilityMapping.filter { !$0.isWhitespace }.replacingOccurrences(of: "○", with: "〇").replacingOccurrences(of: "零", with: "〇")
++        let digits = Array("〇一二三四五六七八九")
++        let yearText = String(String(year).compactMap { $0.wholeNumberValue.map { digits[$0] } })
++        guard compact.hasPrefix(yearText + "年日历资料中国科学院紫金山天文台编制") else { throw MacTab5Error.invalidPacket }
++        let headers = try matches("([〇一二三四五六七八九]{4})年([一二三四五六七八九十]{1,3})月[大小平]", compact)
++        let months = ["一","二","三","四","五","六","七","八","九","十","十一","十二"]
++        let names = ["小寒","大寒","立春","雨水","惊蛰","春分","清明","谷雨","立夏","小满","芒种","夏至",
++                     "小暑","大暑","立秋","处暑","白露","秋分","寒露","霜降","立冬","小雪","大雪","冬至"]
++        var dates: [Int] = [], seenMonths = 0
++        let string = compact as NSString
++        for (index, header) in headers.enumerated() where string.substring(with: header.range(at: 1)) == yearText {
++            guard seenMonths < 12, string.substring(with: header.range(at: 2)) == months[seenMonths] else { throw MacTab5Error.invalidPacket }
++            let start = NSMaxRange(header.range), end = index + 1 < headers.count ? headers[index + 1].range.location : string.length
++            let section = string.substring(with: NSRange(location: start, length: end - start))
++            let terms = try matches("【(" + names.joined(separator: "|") + ")】(\\d{1,2})日(\\d{1,2})时(\\d{1,2})分", section)
++            guard terms.count == 2 else { throw MacTab5Error.invalidPacket }
++            for term in terms {
++                let value = section as NSString
++                guard value.substring(with: term.range(at: 1)) == names[dates.count],
++                      let day = Int(value.substring(with: term.range(at: 2))), (1...28).contains(day),
++                      let hour = Int(value.substring(with: term.range(at: 3))), (0...23).contains(hour),
++                      let minute = Int(value.substring(with: term.range(at: 4))), (0...59).contains(minute) else { throw MacTab5Error.invalidPacket }
++                dates.append((seenMonths + 1) * 100 + day)
++            }
++            seenMonths += 1
++        }
++        guard seenMonths == 12, dates.count == 24, dates == dates.sorted(), Set(dates).count == 24 else { throw MacTab5Error.invalidPacket }
++        let cacheNames = ["小寒","大寒","立春","雨水","驚蟄","春分","清明","穀雨","立夏","小滿","芒種","夏至",
++                          "小暑","大暑","立秋","處暑","白露","秋分","寒露","霜降","立冬","小雪","大雪","冬至"]
++        return Data(("# AI-bot solar terms; source=PMO; UTC+8; year=\(year)\n" + zip(cacheNames, dates).map {
++            "\(year)年\($0.1 / 100)月\($0.1 % 100)日 - - \($0.0)"
++        }.joined(separator: "\n")).utf8)
++    }
++}
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacSolarTermSourceValidation.swift
+@@ -0,0 +1,46 @@
++import Foundation
++
++enum MacSolarTermSourceValidation {
++    static func run(root: URL) throws -> Int {
++        var count = 0
++        func check(_ value: Bool) throws { guard value else { throw MacTab5Error.invalidPacket }; count += 1 }
++        func rejects(_ action: () throws -> Void) throws {
++            do { try action() } catch { count += 1; return }; throw MacTab5Error.invalidPacket
++        }
++        let dates = [105,120,204,218,305,320,405,420,505,521,605,621,707,723,807,823,907,923,1008,1023,1107,1122,1207,1222]
++        let months = ["一","二","三","四","五","六","七","八","九","十","十一","十二"]
++        let names = ["小寒","大寒","立春","雨水","惊蛰","春分","清明","谷雨","立夏","小满","芒种","夏至","小暑","大暑","立秋","处暑","白露","秋分","寒露","霜降","立冬","小雪","大雪","冬至"]
++        let text = "二○二六年 日历资料 中国科学院紫金山天文台编制\n" + (0..<12).map { month in
++            "二○二六年\(months[month])月大 " + (0..<2).map { item in
++                let index = month * 2 + item
++                return "【\(names[index])】\(dates[index] % 100)日12时30分"
++            }.joined()
++        }.joined(separator: "\n") + "二○二七年一月大【小寒】5日22时10分【大寒】20日15时30分"
++        let table = try MacSolarTermSource.table(text: text, year: 2026)
++        try check(try MacCalendarStore.parseTerms(table, year: 2026) == dates)
++        try check(String(decoding: table, as: UTF8.self).contains("source=PMO"))
++        let catalog = "<a href=\"./example.pdf\"><span>《2026年日历资料》</span></a>"
++        try check(try MacSolarTermSource.documents(Data(catalog.utf8))[2026]?.host == "pmo.cas.cn")
++        try check(try MacSolarTermSource.documents(Data(catalog.utf8))[2027] == nil)
++        for invalid in [text.replacingOccurrences(of: "二○二六", with: "二○二五"), text.replacingOccurrences(of: "紫金山", with: "其他"),
++                        text.replacingOccurrences(of: "二○二六年一月大", with: ""), text.replacingOccurrences(of: "二○二六年二月大", with: "二○二六年一月大"),
++                        text.replacingOccurrences(of: "【小寒】", with: "【大寒】"), text.replacingOccurrences(of: "【冬至】", with: ""),
++                        text.replacingOccurrences(of: "12时30分", with: "24时30分"), text.replacingOccurrences(of: "12时30分", with: "12时60分"),
++                        text.replacingOccurrences(of: "【雨水】18日", with: "【雨水】30日"), text + text, String(repeating: "x", count: 131073)] {
++            try rejects { _ = try MacSolarTermSource.table(text: invalid, year: 2026) }
++        }
++        try rejects { _ = try MacSolarTermSource.table(text: text, year: 2027) }
++        for invalid in ["<html>unavailable</html>", catalog.replacingOccurrences(of: "./example.pdf", with: "https://untrusted.example/example.pdf"),
++                        catalog.replacingOccurrences(of: "./example.pdf", with: "http://pmo.cas.cn/example.pdf"), catalog + catalog.replacingOccurrences(of: "example.pdf", with: "different.pdf")] {
++            try rejects { _ = try MacSolarTermSource.documents(Data(invalid.utf8)) }
++        }
++        try rejects { _ = try MacSolarTermSource.table(Data("<html>error</html>".utf8), year: 2026) }
++        let store = MacCalendarStore(folder: root)
++        try store.accept(table, year: 2026, solar: true)
++        try rejects { try store.accept(MacSolarTermSource.table(text: "unavailable", year: 2026), year: 2026, solar: true) }
++        try check(try Data(contentsOf: root.appendingPathComponent("terms-2026.txt")) == table)
++        let restored = MacCalendarStore(folder: root); restored.restore(year: 2026)
++        try check(restored.termYear(2026) == dates)
++        return count
++    }
++}
+--- a/mac-app/Tests/AIBotBridgeTests/MacCalendarStoreTests.swift
++++ b/mac-app/Tests/AIBotBridgeTests/MacCalendarStoreTests.swift
+@@ -2,6 +2,11 @@
+ @testable import AIBotBridge
+ 
+ final class MacCalendarStoreTests: XCTestCase {
++    func testDomesticSolarSourceYearMonthValidationAndOfflineCache() throws {
++        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
++        defer { try? FileManager.default.removeItem(at: folder) }
++        XCTAssertEqual(try MacSolarTermSourceValidation.run(root: folder), 24)
++    }
+     private func holidays(_ year: Int = 2027, previousDecember: Bool = false) throws -> Data {
+         // Synthetic complete schema fixture, not a prediction of holiday dates.
+         let ranges = [(101,103,"元旦"),(215,223,"春节"),(404,406,"清明节"),(501,505,"劳动节"),
+--- a/windows-app/AIBotBridge/Tab5SolarTerms.cs
++++ b/windows-app/AIBotBridge/Tab5SolarTerms.cs
+@@ -17,7 +17,7 @@
+             bool failed=false;
+             try {
+                 string folder=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AI-bot","calendar");
+-                using var client=new HttpClient {Timeout=TimeSpan.FromSeconds(15),MaxResponseContentBufferSize=131072};
++                using var client=new HttpClient {Timeout=TimeSpan.FromSeconds(15),MaxResponseContentBufferSize=4194304};
+                 // Restore all cached years before waiting on any network request.
+                 for(int y=year-1;y<=year+3;y++) {
+                     string path=Path.Combine(folder,$"terms-{y}.txt");
+@@ -27,13 +27,22 @@
+                         }
+                     }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException){ }
+                 }
++                async Task<byte[]> Download(Uri url,int maximum) {
++                    using var response=await client.GetAsync(url);
++                    response.EnsureSuccessStatusCode();
++                    if(response.RequestMessage?.RequestUri is not {} final||!Tab5SolarTermSource.Allowed(final))throw new ArgumentException("日历来源无效");
++                    byte[] bytes=await response.Content.ReadAsByteArrayAsync();
++                    if(bytes.Length>maximum)throw new ArgumentException("日历数据过大");
++                    return bytes;
++                }
++                var documents=Tab5SolarTermSource.Documents(System.Text.Encoding.UTF8.GetString(await Download(Tab5SolarTermSource.Catalog,524288)));
+                 for(int y=year-1;y<=year+3;y++) {
+                     try {
+-                        string table=await client.GetStringAsync($"https://www.hko.gov.hk/tc/gts/time/calendar/text/files/T{y}c.txt");
+-                        Save(folder,y,table);
++                        if(documents.TryGetValue(y,out var url))Save(folder,y,Tab5SolarTermSource.Table(await Download(url,4194304),y));
+                     }catch(Exception ex) when(ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or ArgumentException){failed=true;}
+                 }
+-            }finally{lock(Gate){_next=DateTimeOffset.UtcNow.AddHours(failed?1:24);_busy=false;}}
++            }catch(Exception ex) when(ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or ArgumentException){failed=true;}
++            finally{lock(Gate){_next=DateTimeOffset.UtcNow.AddHours(failed?1:24);_busy=false;}}
+         });
+     }
+     internal static int[] Save(string folder,int year,string table) {
+--- /dev/null
++++ b/windows-app/AIBotBridge/Tab5SolarTermSource.cs
+@@ -0,0 +1,69 @@
++using System.Globalization;
++using System.Text;
++using System.Text.RegularExpressions;
++using UglyToad.PdfPig;
++using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
++
++namespace AIBotBridge;
++
++internal static class Tab5SolarTermSource
++{
++    internal static readonly Uri Catalog=new("https://pmo.cas.cn/xwdt2019/kpdt2019/202203/t20220309_6386774.html");
++    internal static bool Allowed(Uri url)=>url.Scheme=="https"&&url.Host is "pmo.cas.cn" or "www.pmo.cas.cn";
++    private static MatchCollection Matches(string pattern,string text)=>Regex.Matches(text,pattern,RegexOptions.Singleline|RegexOptions.IgnoreCase);
++    internal static Dictionary<int,Uri> Documents(string html) {
++        if(html.Length>524288)throw new ArgumentException("日历目录过大");
++        var result=new Dictionary<int,Uri>();
++        foreach(Match entry in Matches("<a\\b[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>",html)) {
++            string label=Regex.Replace(Regex.Replace(entry.Groups[2].Value,"<[^>]*>",""),@"\s+","");
++            var match=Regex.Match(label,@"^《(\d{4})年日历资料》$");
++            if(!match.Success)continue;
++            int year=int.Parse(match.Groups[1].Value,CultureInfo.InvariantCulture);
++            if(year is <1901 or >2099||!Uri.TryCreate(Catalog,entry.Groups[1].Value,out var url)||!Allowed(url)||!url.AbsolutePath.EndsWith(".pdf",StringComparison.OrdinalIgnoreCase)||result.TryGetValue(year,out var prior)&&prior!=url)
++                throw new ArgumentException("日历年份或来源无效");
++            result[year]=url;
++        }
++        if(result.Count==0)throw new ArgumentException("缺少年度日历目录");
++        return result;
++    }
++    internal static string Table(byte[] data,int year) {
++        if(data.Length>4194304||!data.AsSpan().StartsWith("%PDF-"u8))throw new ArgumentException("日历文档无效");
++        try {
++            using var document=PdfDocument.Open(data);
++            if(document.NumberOfPages is <1 or >16)throw new ArgumentException("日历页数无效");
++            var text=new StringBuilder();
++            foreach(var page in document.GetPages()) {
++                text.Append(ContentOrderTextExtractor.GetText(page));
++                if(text.Length>131072)throw new ArgumentException("日历文字过大");
++            }
++            return TableText(text.ToString(),year);
++        }catch(Exception){throw new ArgumentException("无法读取完整年度日历");}
++    }
++    internal static string TableText(string text,int year) {
++        if(text.Length>131072||year is <1901 or >2099)throw new ArgumentException("日历年份或文字大小无效");
++        string compact=Regex.Replace(text.Normalize(NormalizationForm.FormKC),@"\s+","").Replace('○','〇').Replace('零','〇');
++        const string digits="〇一二三四五六七八九";
++        string yearText=string.Concat(year.ToString(CultureInfo.InvariantCulture).Select(c=>digits[c-'0']));
++        if(!compact.StartsWith(yearText+"年日历资料中国科学院紫金山天文台编制",StringComparison.Ordinal))throw new ArgumentException("日历封面年份或来源无效");
++        var headers=Matches(@"([〇一二三四五六七八九]{4})年([一二三四五六七八九十]{1,3})月[大小平]",compact);
++        string[] months=["一","二","三","四","五","六","七","八","九","十","十一","十二"];
++        string[] names=["小寒","大寒","立春","雨水","惊蛰","春分","清明","谷雨","立夏","小满","芒种","夏至","小暑","大暑","立秋","处暑","白露","秋分","寒露","霜降","立冬","小雪","大雪","冬至"];
++        var dates=new List<int>();int seenMonths=0;
++        for(int i=0;i<headers.Count;i++) {
++            var header=headers[i];if(header.Groups[1].Value!=yearText)continue;
++            if(seenMonths>=12||header.Groups[2].Value!=months[seenMonths])throw new ArgumentException("日历月份缺失或重复");
++            int start=header.Index+header.Length,end=i+1<headers.Count?headers[i+1].Index:compact.Length;
++            var terms=Matches("【("+string.Join("|",names)+@")】(\d{1,2})日(\d{1,2})时(\d{1,2})分",compact[start..end]);
++            if(terms.Count!=2)throw new ArgumentException("月份节气不完整");
++            foreach(Match term in terms) {
++                int day=int.Parse(term.Groups[2].Value,CultureInfo.InvariantCulture),hour=int.Parse(term.Groups[3].Value,CultureInfo.InvariantCulture),minute=int.Parse(term.Groups[4].Value,CultureInfo.InvariantCulture);
++                if(term.Groups[1].Value!=names[dates.Count]||day is <1 or >28||hour is <0 or >23||minute is <0 or >59)throw new ArgumentException("节气日期或顺序无效");
++                dates.Add((seenMonths+1)*100+day);
++            }
++            seenMonths++;
++        }
++        if(seenMonths!=12||dates.Count!=24||dates.Distinct().Count()!=24||!dates.SequenceEqual(dates.Order()))throw new ArgumentException("节气年度不完整");
++        string[] cacheNames=["小寒","大寒","立春","雨水","驚蟄","春分","清明","穀雨","立夏","小滿","芒種","夏至","小暑","大暑","立秋","處暑","白露","秋分","寒露","霜降","立冬","小雪","大雪","冬至"];
++        return $"# AI-bot solar terms; source=PMO; UTC+8; year={year}\n"+string.Join("\n",dates.Select((md,i)=>$"{year}年{md/100}月{md%100}日 - - {cacheNames[i]}"));
++    }
++}
+--- /dev/null
++++ b/windows-app/AIBotBridge/Tab5SolarTermSourceSelfTest.cs
+@@ -0,0 +1,30 @@
++namespace AIBotBridge;
++
++internal static class Tab5SolarTermSourceSelfTest
++{
++    internal static void Run() {
++        static void Check(bool value){if(!value)throw new Exception("Domestic solar source check failed");}
++        static void Reject(Action action){try{action();}catch(ArgumentException){return;}throw new Exception("Invalid solar source accepted");}
++        int[] dates=[105,120,204,218,305,320,405,420,505,521,605,621,707,723,807,823,907,923,1008,1023,1107,1122,1207,1222];
++        string[] months=["一","二","三","四","五","六","七","八","九","十","十一","十二"];
++        string[] names=["小寒","大寒","立春","雨水","惊蛰","春分","清明","谷雨","立夏","小满","芒种","夏至","小暑","大暑","立秋","处暑","白露","秋分","寒露","霜降","立冬","小雪","大雪","冬至"];
++        string text="二○二六年 日历资料 中国科学院紫金山天文台编制\n"+string.Join("\n",Enumerable.Range(0,12).Select(m=>"二○二六年"+months[m]+"月大 "+string.Concat(Enumerable.Range(0,2).Select(t=>$"【{names[m*2+t]}】{dates[m*2+t]%100}日12时30分"))))+"二○二七年一月大【小寒】5日22时10分【大寒】20日15时30分";
++        string good=Tab5SolarTermSource.TableText(text,2026);
++        Check(Tab5SolarTerms.Parse(good,2026).SequenceEqual(dates));
++        string catalog="<a href=\"./example.pdf\"><span>《2026年日历资料》</span></a>";
++        Check(Tab5SolarTermSource.Documents(catalog)[2026].Host=="pmo.cas.cn");
++        Check(!Tab5SolarTermSource.Documents(catalog).ContainsKey(2027));
++        foreach(string bad in new[]{text.Replace("二○二六","二○二五"),text.Replace("紫金山","其他"),text.Replace("二○二六年一月大",""),text.Replace("二○二六年二月大","二○二六年一月大"),text.Replace("【小寒】","【大寒】"),text.Replace("【冬至】",""),text.Replace("12时30分","24时30分"),text.Replace("12时30分","12时60分"),text.Replace("【雨水】18日","【雨水】30日"),text+text,new string('x',131073)})Reject(()=>Tab5SolarTermSource.TableText(bad,2026));
++        Reject(()=>Tab5SolarTermSource.TableText(text,2027));
++        foreach(string bad in new[]{"<html>unavailable</html>",catalog.Replace("./example.pdf","https://untrusted.example/example.pdf"),catalog.Replace("./example.pdf","http://pmo.cas.cn/example.pdf"),catalog+catalog.Replace("example.pdf","different.pdf")})Reject(()=>Tab5SolarTermSource.Documents(bad));
++        Reject(()=>Tab5SolarTermSource.Table("<html>error</html>"u8.ToArray(),2026));
++        string folder=Path.Combine(Path.GetTempPath(),"aibot-pmo-test-"+Guid.NewGuid().ToString("N"));
++        try {
++            Tab5SolarTerms.Save(folder,2026,good);
++            Reject(()=>Tab5SolarTerms.Save(folder,2026,Tab5SolarTermSource.TableText("unavailable",2026)));
++            Check(File.ReadAllText(Path.Combine(folder,"terms-2026.txt"))==good);
++            Check(Tab5SolarTerms.Get(2026)!.SequenceEqual(dates));
++        }finally{if(Directory.Exists(folder))Directory.Delete(folder,true);}
++        Console.WriteLine("DOMESTIC_SOLAR_SOURCE_PASS catalog/year/month/24-term validation, future partial year rejected, last good cache");
++    }
++}
+--- a/windows-app/AIBotBridge/Tab5CloseoutSelfTest.cs
++++ b/windows-app/AIBotBridge/Tab5CloseoutSelfTest.cs
+@@ -3,6 +3,7 @@
+ internal static class Tab5CloseoutSelfTest
+ {
+     internal static void Run(string fixture) {
++        Tab5SolarTermSourceSelfTest.Run();
+         static void Check(bool ok,string reason){if(!ok)throw new Exception(reason);}
+         string table=File.ReadAllText(fixture);
+         var terms=Tab5SolarTerms.Parse(table,2029);
+--- a/windows-app/AIBotBridge/AIBotBridge.csproj
++++ b/windows-app/AIBotBridge/AIBotBridge.csproj
+@@ -28,9 +28,12 @@
+     <Content Include="Assets\flash-icon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+     <Content Include="Assets\DailyArt\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(LocalArt)' == 'true'" />
+     <Content Include="TestFixtures\claude_sprite.h" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
++    <Content Include="../../licenses/pdfpig/*" Link="licenses/pdfpig/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
++    <Content Include="../../licenses/pmo-calendar/NOTICE.md" Link="licenses/pmo-calendar/NOTICE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
++    <PackageReference Include="PdfPig" Version="0.1.16" />
+   </ItemGroup>
+ 
+   <Target Name="RemoveUnusedWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
+--- a/docs/DATA_SOURCES.md
++++ b/docs/DATA_SOURCES.md
+@@ -12,11 +12,15 @@
+ 
+ macOS has its own Open-Meteo implementation and stores non-secret preferences and last-successful display data in `UserDefaults`; do not assume it implements every Windows weather field or setting. CI tests/builds do not establish live-location or provider acceptance on a real Mac.
+ 
+-## Calendar on macOS
++## Calendar / 日历
+ 
+-macOS reads solar-term dates from the Hong Kong Observatory annual tables and holiday schedules from the MIT [holiday-cn dataset](https://github.com/NateScarlet/holiday-cn), also used by Windows. The latter cites State Council notices and is not an official government API. Requests contain only the year; no device, account, birthday or agenda data are uploaded. Validated public tables are cached under `~/Library/Application Support/AI-bot/calendar`. Startup restores caches before fetching; successful checks repeat daily and failures retry hourly. Failed or unpublished updates preserve prior data. Unknown holiday years remain pending; lunar festivals do not imply statutory time off.
++Mac and Windows obtain solar-term date facts from the Chinese Academy of Sciences [Purple Mountain Observatory (PMO) official calendar index](https://pmo.cas.cn/xwdt2019/kpdt2019/202203/t20220309_6386774.html). The reader follows only HTTPS annual-calendar PDF links on `pmo.cas.cn` / `www.pmo.cas.cn`, validates the cover year and attribution, all twelve monthly sections and exactly 24 ordered solar terms, then retains only normalized date facts. This replaces Hong Kong Observatory network requests. It is a public-document reader, not an official API. On 2026-10-24 the index lists annual documents through 2026; missing future years are not invented or treated as downloaded. Existing verified 2026–2028 offline dates and last-successful caches remain available. Neither source PDF documents nor website text/layout are bundled. Attribution: `licenses/pmo-calendar/NOTICE.md`. Mac uses system PDFKit; Windows uses PdfPig 0.1.16 with its original Apache-2.0 and component notices retained in `licenses/pdfpig/`.
+ 
+-macOS 节气读取香港天文台年度表，节假日沿用 Windows 使用的 MIT holiday-cn 数据集；后者引用国务院公告，不是政府 API。请求仅包含年份，不上传设备、账户、生日或日程。校验后的公开年表缓存于用户目录，启动先恢复缓存；成功后每天检查，失败一小时后重试。失败或未公布空表不覆盖旧数据，未知年度继续待更新，不由农历节日推断放假安排。
++Mac 与 Windows 节气源改为中国科学院紫金山天文台官方历书索引，停止向香港天文台发起更新请求。只跟随上述官方域名的 HTTPS 年度日历 PDF，核对封面年份、编制机构、十二个月及完整有序的 24 节气，再转换为原缓存格式；这是公开文档读取，不是官方 API。2026-10-24 索引最新列到 2026 年，未列出的后续年份保留原离线数据，不虚记下载成功。原 2026–2028 已核对日期及成功缓存继续可用。不捆绑来源 PDF、网页文字或布局，只使用公开日期事实；归属见对应 NOTICE。Mac 使用系统 PDFKit，Windows 使用 PdfPig 0.1.16 并保留完整原许可及组件声明。
++
++Holiday schedules still use the MIT [holiday-cn dataset](https://github.com/NateScarlet/holiday-cn), which cites State Council notices and is not an official government API. No device, account, birthday or agenda data are uploaded. Mac validated public date tables remain under `~/Library/Application Support/AI-bot/calendar`; Windows keeps its existing local calendar directory. The existing `terms-YEAR.txt` grammar remains readable by older versions. Startup restores caches before fetching; successful checks repeat daily and failures retry hourly. Failed or unpublished updates preserve prior data. Unknown holiday years remain pending; lunar festivals do not imply statutory time off.
++
++放假／调休仍使用引用国务院公告的 MIT holiday-cn 数据集，它不是政府 API。请求不上传设备、账户、生日或日程。Mac 校验后的公开日期缓存于用户目录，Windows 沿用现有日历目录，`terms-YEAR.txt` 保留旧版本读取兼容。启动先恢复缓存；成功后每天检查，失败一小时后重试。失败或未公布空表不覆盖旧数据，未知年度放假安排继续待更新，不由农历节日推断。
+ 
+ ## Stocks
+ 
+--- a/THIRD_PARTY_NOTICES.md
++++ b/THIRD_PARTY_NOTICES.md
+@@ -66,6 +66,14 @@
+ ## TAB5 voice audio library
+ 
+ The Windows TAB5 voice bridge uses NAudio.Wasapi and NAudio.Core 2.2.1 (MIT), by Mark Heath and contributors. Source: https://github.com/naudio/NAudio. The original MIT notice is retained in `licenses/naudio/license.txt`. VB-CABLE is a separately installed third-party driver and is not bundled or licensed by this repository.
++
++## Solar-term date facts / 节气日期数据
++
++Mac and Windows read public date facts from the Chinese Academy of Sciences, Purple Mountain Observatory annual calendars: https://pmo.cas.cn/xwdt2019/kpdt2019/202203/t20220309_6386774.html. No source PDF, website layout, logo or publisher code is bundled. Attribution and the current publication boundary are recorded in `licenses/pmo-calendar/NOTICE.md`; the source documents retain the publisher's rights.
++
++Windows uses PdfPig 0.1.16 by UglyToad and contributors to extract PDF text. Package: https://www.nuget.org/packages/PdfPig/0.1.16; source: https://github.com/UglyToad/PdfPig. The complete original license, including its PDFBox/FontBox and Adobe component notices, is retained in `licenses/pdfpig/LICENSE` and copied with Windows output. Mac uses system PDFKit and does not depend on PdfPig.
++
++两端独立读取中国科学院紫金山天文台公开节气日期事实，不捆绑来源 PDF、网页布局、标志或发布方代码。Windows 的 PDF 文字读取使用 PdfPig 0.1.16，保留完整 Apache-2.0 与其内嵌组件许可；Mac 使用系统 PDFKit。数据归属、发布范围及依赖原许可见上述记录。
+ 
+ ## Mainland China holiday dataset
+ 
+--- /dev/null
++++ b/licenses/pmo-calendar/NOTICE.md
+@@ -0,0 +1,13 @@
++# Calendar date source / 日历日期来源
++
++Source: Purple Mountain Observatory (PMO), Chinese Academy of Sciences.
++
++Official annual-calendar index: https://pmo.cas.cn/xwdt2019/kpdt2019/202203/t20220309_6386774.html
++
++AI-bot independently reads public solar-term date facts from the official annual calendar documents. It validates the target year, publisher, twelve months and 24 named solar terms, then writes its own normalized date cache. Source website content, PDF documents, their layout, images and third-party implementation code are not distributed with AI-bot. The source documents retain their publisher's rights; this attribution does not assert an open-source license for them or endorsement of AI-bot.
++
++The index was checked on 2026-10-24 and lists annual documents through 2026. Later years not present in the index retain existing verified offline data and are not claimed as successfully downloaded from PMO.
++
++来源为中国科学院紫金山天文台官方年度日历资料。本项目独立读取公开节气日期事实，核对年份、编制机构、十二个月与 24 个节气名称后转换为自己的日期缓存。不分发来源网页、PDF 文档及其排版、图片或第三方实现代码；原文档权利归发布方，本说明不将其标为开源许可，也不表示对方为本项目背书。
++
++2026-10-24 核对时官方索引最新列到 2026 年。未列出的后续年份保留原已核对离线数据，不声称已经从该源下载成功。
+--- /dev/null
++++ b/licenses/pdfpig/LICENSE
+@@ -0,0 +1,255 @@
++                                 Apache License
++                           Version 2.0, January 2004
++                        http://www.apache.org/licenses/
++
++   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
++
++   1. Definitions.
++
++      "License" shall mean the terms and conditions for use, reproduction,
++      and distribution as defined by Sections 1 through 9 of this document.
++
++      "Licensor" shall mean the copyright owner or entity authorized by
++      the copyright owner that is granting the License.
++
++      "Legal Entity" shall mean the union of the acting entity and all
++      other entities that control, are controlled by, or are under common
++      control with that entity. For the purposes of this definition,
++      "control" means (i) the power, direct or indirect, to cause the
++      direction or management of such entity, whether by contract or
++      otherwise, or (ii) ownership of fifty percent (50%) or more of the
++      outstanding shares, or (iii) beneficial ownership of such entity.
++
++      "You" (or "Your") shall mean an individual or Legal Entity
++      exercising permissions granted by this License.
++
++      "Source" form shall mean the preferred form for making modifications,
++      including but not limited to software source code, documentation
++      source, and configuration files.
++
++      "Object" form shall mean any form resulting from mechanical
++      transformation or translation of a Source form, including but
++      not limited to compiled object code, generated documentation,
++      and conversions to other media types.
++
++      "Work" shall mean the work of authorship, whether in Source or
++      Object form, made available under the License, as indicated by a
++      copyright notice that is included in or attached to the work
++      (an example is provided in the Appendix below).
++
++      "Derivative Works" shall mean any work, whether in Source or Object
++      form, that is based on (or derived from) the Work and for which the
++      editorial revisions, annotations, elaborations, or other modifications
++      represent, as a whole, an original work of authorship. For the purposes
++      of this License, Derivative Works shall not include works that remain
++      separable from, or merely link (or bind by name) to the interfaces of,
++      the Work and Derivative Works thereof.
++
++      "Contribution" shall mean any work of authorship, including
++      the original version of the Work and any modifications or additions
++      to that Work or Derivative Works thereof, that is intentionally
++      submitted to Licensor for inclusion in the Work by the copyright owner
++      or by an individual or Legal Entity authorized to submit on behalf of
++      the copyright owner. For the purposes of this definition, "submitted"
++      means any form of electronic, verbal, or written communication sent
++      to the Licensor or its representatives, including but not limited to
++      communication on electronic mailing lists, source code control systems,
++      and issue tracking systems that are managed by, or on behalf of, the
++      Licensor for the purpose of discussing and improving the Work, but
++      excluding communication that is conspicuously marked or otherwise
++      designated in writing by the copyright owner as "Not a Contribution."
++
++      "Contributor" shall mean Licensor and any individual or Legal Entity
++      on behalf of whom a Contribution has been received by Licensor and
++      subsequently incorporated within the Work.
++
++   2. Grant of Copyright License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      copyright license to reproduce, prepare Derivative Works of,
++      publicly display, publicly perform, sublicense, and distribute the
++      Work and such Derivative Works in Source or Object form.
++
++   3. Grant of Patent License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      (except as stated in this section) patent license to make, have made,
++      use, offer to sell, sell, import, and otherwise transfer the Work,
++      where such license applies only to those patent claims licensable
++      by such Contributor that are necessarily infringed by their
++      Contribution(s) alone or by combination of their Contribution(s)
++      with the Work to which such Contribution(s) was submitted. If You
++      institute patent litigation against any entity (including a
++      cross-claim or counterclaim in a lawsuit) alleging that the Work
++      or a Contribution incorporated within the Work constitutes direct
++      or contributory patent infringement, then any patent licenses
++      granted to You under this License for that Work shall terminate
++      as of the date such litigation is filed.
++
++   4. Redistribution. You may reproduce and distribute copies of the
++      Work or Derivative Works thereof in any medium, with or without
++      modifications, and in Source or Object form, provided that You
++      meet the following conditions:
++
++      (a) You must give any other recipients of the Work or
++          Derivative Works a copy of this License; and
++
++      (b) You must cause any modified files to carry prominent notices
++          stating that You changed the files; and
++
++      (c) You must retain, in the Source form of any Derivative Works
++          that You distribute, all copyright, patent, trademark, and
++          attribution notices from the Source form of the Work,
++          excluding those notices that do not pertain to any part of
++          the Derivative Works; and
++
++      (d) If the Work includes a "NOTICE" text file as part of its
++          distribution, then any Derivative Works that You distribute must
++          include a readable copy of the attribution notices contained
++          within such NOTICE file, excluding those notices that do not
++          pertain to any part of the Derivative Works, in at least one
++          of the following places: within a NOTICE text file distributed
++          as part of the Derivative Works; within the Source form or
++          documentation, if provided along with the Derivative Works; or,
++          within a display generated by the Derivative Works, if and
++          wherever such third-party notices normally appear. The contents
++          of the NOTICE file are for informational purposes only and
++          do not modify the License. You may add Your own attribution
++          notices within Derivative Works that You distribute, alongside
++          or as an addendum to the NOTICE text from the Work, provided
++          that such additional attribution notices cannot be construed
++          as modifying the License.
++
++      You may add Your own copyright statement to Your modifications and
++      may provide additional or different license terms and conditions
++      for use, reproduction, or distribution of Your modifications, or
++      for any such Derivative Works as a whole, provided Your use,
++      reproduction, and distribution of the Work otherwise complies with
++      the conditions stated in this License.
++
++   5. Submission of Contributions. Unless You explicitly state otherwise,
++      any Contribution intentionally submitted for inclusion in the Work
++      by You to the Licensor shall be under the terms and conditions of
++      this License, without any additional terms or conditions.
++      Notwithstanding the above, nothing herein shall supersede or modify
++      the terms of any separate license agreement you may have executed
++      with Licensor regarding such Contributions.
++
++   6. Trademarks. This License does not grant permission to use the trade
++      names, trademarks, service marks, or product names of the Licensor,
++      except as required for reasonable and customary use in describing the
++      origin of the Work and reproducing the content of the NOTICE file.
++
++   7. Disclaimer of Warranty. Unless required by applicable law or
++      agreed to in writing, Licensor provides the Work (and each
++      Contributor provides its Contributions) on an "AS IS" BASIS,
++      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++      implied, including, without limitation, any warranties or conditions
++      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
++      PARTICULAR PURPOSE. You are solely responsible for determining the
++      appropriateness of using or redistributing the Work and assume any
++      risks associated with Your exercise of permissions under this License.
++
++   8. Limitation of Liability. In no event and under no legal theory,
++      whether in tort (including negligence), contract, or otherwise,
++      unless required by applicable law (such as deliberate and grossly
++      negligent acts) or agreed to in writing, shall any Contributor be
++      liable to You for damages, including any direct, indirect, special,
++      incidental, or consequential damages of any character arising as a
++      result of this License or out of the use or inability to use the
++      Work (including but not limited to damages for loss of goodwill,
++      work stoppage, computer failure or malfunction, or any and all
++      other commercial damages or losses), even if such Contributor
++      has been advised of the possibility of such damages.
++
++   9. Accepting Warranty or Additional Liability. While redistributing
++      the Work or Derivative Works thereof, You may choose to offer,
++      and charge a fee for, acceptance of support, warranty, indemnity,
++      or other liability obligations and/or rights consistent with this
++      License. However, in accepting such obligations, You may act only
++      on Your own behalf and on Your sole responsibility, not on behalf
++      of any other Contributor, and only if You agree to indemnify,
++      defend, and hold each Contributor harmless for any liability
++      incurred by, or claims asserted against, such Contributor by reason
++      of your accepting any such warranty or additional liability.
++
++   END OF TERMS AND CONDITIONS
++   
++EXTERNAL COMPONENTS
++
++PdfPig includes a number of components with separate copyright notices
++and license terms. Your use of these components is subject to the terms and
++conditions of the following licenses.
++
++Contributions made to the original PDFBox and FontBox projects:
++
++   Copyright (c) 2002-2007, www.pdfbox.org
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions are met:
++
++   1. Redistributions of source code must retain the above copyright notice,
++      this list of conditions and the following disclaimer.
++
++   2. Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++
++   3. Neither the name of pdfbox; nor the names of its contributors may be
++      used to endorse or promote products derived from this software without
++      specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
++   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
++   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++   SUCH DAMAGE.
++
++Adobe Font Metrics (AFM) for PDF Core 14 Fonts
++
++   This file and the 14 PostScript(R) AFM files it accompanies may be used,
++   copied, and distributed for any purpose and without charge, with or without
++   modification, provided that all copyright notices are retained; that the
++   AFM files are not distributed without this file; that all modifications
++   to this file or any of the AFM files are prominently noted in the modified
++   file(s); and that this paragraph is not modified. Adobe Systems has no
++   responsibility or obligation to support the use of the AFM files. 
++
++CMaps for PDF Fonts (http://opensource.adobe.com/wiki/display/cmap/Downloads)
++
++   Copyright 1990-2009 Adobe Systems Incorporated.
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++   Redistributions of source code must retain the above copyright notice,
++   this list of conditions and the following disclaimer.
++
++   Redistributions in binary form must reproduce the above copyright notice,
++   this list of conditions and the following disclaimer in the documentation
++   and/or other materials provided with the distribution. 
++
++   Neither the name of Adobe Systems Incorporated nor the names of its
++   contributors may be used to endorse or promote products derived from this
++   software without specific prior written permission. 
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
++   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++   THE POSSIBILITY OF SUCH DAMAGE.
+\ No newline at end of file
+--- /dev/null
++++ b/licenses/pdfpig/SOURCE.json
+@@ -0,0 +1,8 @@
++{
++  "package": "PdfPig",
++  "version": "0.1.16",
++  "license": "Apache-2.0 with embedded component notices",
++  "source": "https://raw.githubusercontent.com/UglyToad/PdfPig/a7bb35662bbbf405efddad50aedc9bcdcf515afc/LICENSE",
++  "repositoryCommit": "a7bb35662bbbf405efddad50aedc9bcdcf515afc",
++  "sha256": "4c510e162f896ea43b4b1cf1b743641d7c756f1004d0e5eaf0615b28b7ded409"
++}
+--- a/scripts/build_macos_app.sh
++++ b/scripts/build_macos_app.sh
+@@ -32,6 +32,8 @@
+ mkdir -p "$contents/Resources"
+ python3 "$repo_root/scripts/build_macos_app_icon.py" "$contents/Resources/AppIcon.icns"
+ install -m 644 "$repo_root/LICENSE" "$repo_root/THIRD_PARTY_NOTICES.md" "$repo_root/docs/MAC-TAB5-CANDIDATE.md" "$contents/Resources/"
++mkdir -p "$contents/Resources/licenses/pmo-calendar"
++install -m 644 "$repo_root/licenses/pmo-calendar/NOTICE.md" "$contents/Resources/licenses/pmo-calendar/NOTICE.md"
+ git -C "$repo_root" rev-parse HEAD > "$contents/Resources/SOURCE_SHA.txt"
+ if ! git -C "$repo_root" diff --quiet -- mac-app; then
+     printf '%s\n' 'working-tree-changes=yes' >> "$contents/Resources/SOURCE_SHA.txt"

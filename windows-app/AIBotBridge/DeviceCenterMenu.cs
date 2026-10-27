@@ -7,8 +7,14 @@ internal static class DeviceCenterMenu
         void Dispatch(Action action){if(!menu.IsHandleCreated){action();return;}menu.Close(ToolStripDropDownCloseReason.ItemClicked);menu.BeginInvoke(()=>{if(!menu.IsDisposed)action();});}
         ToolStripMenuItem Entry(string label,string key,Action action){var item=new ToolStripMenuItem(label){Name=key};item.Click+=(_,_)=>Dispatch(action);return item;}
         menu.Items.Add(Entry("设备中心","devices",()=>common("devices")));
-        var esp=registry.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled);
-        if(esp is not null)menu.Items.Add(Entry("小屏预览","mirror",()=>deviceAction(esp.Id,"mirror")));
+        var previews=registry.Devices.Where(d=>d.Enabled).OrderBy(d=>d.Kind).ToArray();
+        if(previews.Length==1)menu.Items.Add(Entry("设备预览","mirror",()=>deviceAction(previews[0].Id,"mirror")));
+        else if(previews.Length>1) {
+            var preview=new ToolStripMenuItem("设备预览"){Name="mirror"};
+            ((ToolStripDropDownMenu)preview.DropDown).ShowImageMargin=false;
+            foreach(var device in previews)preview.DropDownItems.Add(Entry(device.Name.Replace("&","&&"),"preview:"+device.Id,()=>deviceAction(device.Id,"mirror")));
+            menu.Items.Add(preview);
+        }
         if(registry.Devices.Length>0)menu.Items.Add(new ToolStripSeparator());
         foreach(var device in registry.Devices.OrderBy(d=>d.Kind)) {
             string name=device.Name.Length>24?device.Name[..23]+"…":device.Name;

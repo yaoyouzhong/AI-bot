@@ -1,0 +1,250 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5Firmware.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Firmware.swift
+@@ -78,32 +78,42 @@
+     private var probe: (id: String, device: String, transport: String, expires: Int64, previous: Int64, count: Int)?
+     private var leaseUntil: TimeInterval = 0
+     private var message = "尚未选择固件"
+-    private static var epoch: Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
++    private var matchedVersion = false
++    private let epoch: () -> Int64, tick: () -> TimeInterval
++    init(epoch: @escaping () -> Int64 = {Int64(Date().timeIntervalSince1970*1000)},
++         tick: @escaping () -> TimeInterval = {ProcessInfo.processInfo.systemUptime}) {
++        self.epoch = epoch;self.tick = tick
++    }
+     var summary: String { lock.lock(); defer { lock.unlock() }; return message }
+     var selected: MacTab5FirmwareImage? { lock.lock(); defer { lock.unlock() }; return image }
+-    var busy: Bool { lock.lock(); defer { lock.unlock() }; return ProcessInfo.processInfo.systemUptime < leaseUntil || remote != nil && (remote?.expires ?? 0) > Self.epoch || probe != nil && (probe?.expires ?? 0) > Self.epoch }
++    var busy: Bool { lock.lock(); defer { lock.unlock() }; return tick() < leaseUntil || remote != nil && (remote?.expires ?? 0) > epoch() || probe != nil && (probe?.expires ?? 0) > epoch() }
+     func select(_ value: MacTab5FirmwareImage?) throws {
+         lock.lock(); defer { lock.unlock() }
+-        guard ProcessInfo.processInfo.systemUptime >= leaseUntil, remote == nil || (remote?.expires ?? 0) < Self.epoch,
+-              probe == nil || (probe?.expires ?? 0) < Self.epoch else { throw MacTab5Error.busy }
+-        image = value; remote = nil; probe = nil; message = value.map { "已选择 \($0.version)，尚未开始升级\nSHA-256：\($0.sha256)\n\($0.notes)" } ?? "尚未选择固件"
++        guard tick() >= leaseUntil, remote == nil || (remote?.expires ?? 0) < epoch(),
++              probe == nil || (probe?.expires ?? 0) < epoch() else { throw MacTab5Error.busy }
++        image = value; remote = nil; probe = nil; matchedVersion = false; message = value.map { "已选择 \($0.version)，尚未开始升级\nSHA-256：\($0.sha256)\n\($0.notes)" } ?? "尚未选择固件"
+     }
+     func start(device: String) throws {
+         lock.lock(); defer { lock.unlock() }
+-        guard image != nil, MacTab5Protocol.isHex(device, count: 12), ProcessInfo.processInfo.systemUptime >= leaseUntil,
+-              remote == nil || (remote?.expires ?? 0) < Self.epoch else { throw MacTab5Error.busy }
+-        remote = (MacTab5Protocol.identifier(), device, Self.epoch + 30000, false)
++        guard image != nil, MacTab5Protocol.isHex(device, count: 12), tick() >= leaseUntil,
++              remote == nil || (remote?.expires ?? 0) < epoch() else { throw MacTab5Error.busy }
++        remote = (MacTab5Protocol.identifier(), device, epoch() + 30000, false)
++        matchedVersion = false
+         message = "正在请求 TAB5 保存草稿并开始升级；尚未确认。"
+     }
+     func beginBootCheck(device: String, transport: String) throws {
+         lock.lock(); defer { lock.unlock() }
+-        guard image != nil, ["USB", "Wi-Fi", "BLE"].contains(transport), ProcessInfo.processInfo.systemUptime >= leaseUntil else { throw MacTab5Error.busy }
+-        probe = (MacTab5Protocol.identifier(), device, transport, Self.epoch + 10000, -1, 0)
++        guard image != nil, ["USB", "Wi-Fi", "BLE"].contains(transport), tick() >= leaseUntil else { throw MacTab5Error.busy }
++        probe = (MacTab5Protocol.identifier(), device, transport, epoch() + 10000, -1, 0)
+         message = "正在核验精确固件、运行分区及三个实时界面样本。"
+     }
+     func observeVersion(_ version: String) {
+         lock.lock(); defer { lock.unlock() }
+-        if version == image?.version { leaseUntil = 0; remote = nil }
++        if version == image?.version {
++            let pending = remote != nil || leaseUntil > tick() || !matchedVersion
++            leaseUntil = 0;remote = nil;matchedVersion = true
++            if pending { message = "设备已运行 \(version)，等待启动核验。" }
++        }
+     }
+     func completeUSBCheck(hellos: [[String: Any]], diagnostic: [String: Any], device: String) throws {
+         lock.lock(); defer { lock.unlock() }
+@@ -111,18 +121,31 @@
+         var previous: Int64 = -1
+         do { for hello in hellos { previous = try Self.validateBoot(hello: hello, diagnostic: diagnostic, image: image, device: device, previous: previous) } }
+         catch { probe = nil; message = "USB 启动核验失败，未确认成功。"; throw error }
+-        probe = nil; leaseUntil = 0; remote = nil; message = "USB 启动核验通过：精确 ELF、VALID 分区和三个实时界面样本一致。"
+-    }
+-    func projection() -> (offer: [String: Any]?, health: [String: Any]) {
++        probe = nil; leaseUntil = 0; remote = nil; matchedVersion = true; message = "USB 启动核验通过：精确 ELF、VALID 分区和三个实时界面样本一致。"
++    }
++    private func advertisedExpiry(_ deadline: Int64, frame: Int64?, bound: Int64) -> Int64? {
++        guard deadline > epoch() else { return nil }
++        guard let frame else { return deadline }
++        guard frame > 0, frame <= Int64.max-bound else { return nil }
++        let expires = min(deadline,frame+bound)
++        return expires > epoch() && expires >= frame ? expires:nil
++    }
++    func projection(frameEpochMilliseconds: Int64? = nil) -> (offer: [String: Any]?, health: [String: Any]) {
+         lock.lock(); defer { lock.unlock() }
+         var health: [String: Any] = [:]
+         if let r = remote, let image {
+-            if r.expires < Self.epoch { remote = nil; message = "升级请求未确认，请核对设备后重试；不会自动重发。" }
+-            else if !r.started { health["otaCommand"] = ["version": 1, "requestId": r.id, "offerId": image.offerID, "sha256": image.sha256, "expiresAt": r.expires] }
++            if r.expires < epoch() {
++                remote = nil
++                if !r.started && tick() >= leaseUntil { message = "升级请求未确认，请核对设备后重试；不会自动重发。" }
++            } else if !r.started, let expires = advertisedExpiry(r.expires,frame:frameEpochMilliseconds,bound:45000) {
++                health["otaCommand"] = ["version":1,"requestId":r.id,"offerId":image.offerID,"sha256":image.sha256,"expiresAt":expires]
++            }
+         }
+         if let p = probe {
+-            if p.expires < Self.epoch { probe = nil; message = "启动核验超时，尚未确认成功。" }
+-            else { health["bootVerifyCommand"] = ["version": 1, "requestId": p.id, "transport": p.transport, "expiresAt": p.expires] }
++            if p.expires < epoch() { probe = nil; message = "启动核验超时，尚未确认成功。" }
++            else if let expires = advertisedExpiry(p.expires,frame:frameEpochMilliseconds,bound:15000) {
++                health["bootVerifyCommand"] = ["version":1,"requestId":p.id,"transport":p.transport,"expiresAt":expires]
++            }
+         }
+         return (image?.offer, health)
+     }
+@@ -135,25 +158,32 @@
+             guard root["offerId"] as? String == image.offerID, root["sha256"] as? String == image.sha256,
+                   let offset = MacTab5Protocol.integer(root["offset"]), let count = MacTab5Protocol.integer(root["count"]),
+                   offset >= 0, count > 0, count <= (bulk ? 49152 : transport == "USB" ? 16384 : 8192), offset <= Int64(image.bytes.count) - count else { return .error(400, "invalid_range") }
+-            if root["kind"] as? String != "ota_probe" { leaseUntil = ProcessInfo.processInfo.systemUptime + 90; message = "已向设备提供 \(offset + count)/\(image.bytes.count) 字节，等待设备写入、校验和启动确认。" }
++            if root["kind"] as? String != "ota_probe" {
++                if var r = remote { r.started = true;remote = r }
++                leaseUntil = tick()+90;message = "已向设备提供 \(offset + count)/\(image.bytes.count) 字节，等待设备写入、校验和启动确认。"
++            }
+             return .init(200, ["offset": offset], bytes: Data(image.bytes[Int(offset)..<Int(offset + count)]))
+         case "ota-control":
+             guard var r = remote, r.device == device, root["requestId"] as? String == r.id, root["offerId"] as? String == image.offerID,
+-                  root["sha256"] as? String == image.sha256, r.expires >= Self.epoch else { return .error(409, "request_expired") }
++                  root["sha256"] as? String == image.sha256, r.expires >= epoch() else { return .error(409, "request_expired") }
+             switch root["stage"] as? String {
+-            case "ready": leaseUntil = ProcessInfo.processInfo.systemUptime + 40; message = "设备已确认保存草稿，等待开始。"; return .init(200, ["commit": true])
+-            case "started": r.started = true; remote = r; leaseUntil = ProcessInfo.processInfo.systemUptime + 30; message = "设备已确认开始升级，请保持供电；启动尚未核验。"; return .init(200, ["accepted": true])
+-            case "rejected": remote = nil; leaseUntil = 0; message = "设备拒绝开始升级，请处理设备上的任务或草稿。"; return .init(200, ["accepted": true])
++            case "ready": leaseUntil = tick() + 40; message = "设备已确认保存草稿，等待开始。"; return .init(200, ["commit": true])
++            case "started": r.started = true; remote = r; leaseUntil = tick() + 30; message = "设备已确认开始升级，请保持供电；启动尚未核验。"; return .init(200, ["accepted": true])
++            case "rejected":
++                remote = nil;leaseUntil = 0
++                let reasons = ["device_busy":"设备正忙，请先结束录音、拍照或网络操作。", "draft_pending":"还有待确认或待同步的草稿，请先处理送达与同步状态。", "draft_save_failed":"设备草稿保存失败，升级尚未开始。", "no_link":"设备没有可用的升级通道，请检查连接模式与连接状态。", "offer_changed":"设备上的固件提供已变化，请重新选择候选。", "request_failed":"设备未能启动固件更新，请检查设备提示。"]
++                message = (root["error"] as? String).flatMap { reasons[$0] } ?? "设备拒绝开始升级，请检查设备提示；原固件仍保留。"
++                return .init(200,["accepted":true])
+             default: return .error(400, "invalid_stage")
+             }
+         case "boot-verify":
+-            guard var p = probe, p.device == device, p.transport == transport, p.expires >= Self.epoch,
++            guard var p = probe, p.device == device, p.transport == transport, p.expires >= epoch(),
+                   root["requestId"] as? String == p.id, let hello = root["hello"] as? [String: Any], let diagnostic = root["diagnostic"] as? [String: Any] else { return .error(409, "boot_probe_expired") }
+             do { p.previous = try Self.validateBoot(hello: hello, diagnostic: diagnostic, image: image, device: device, previous: p.previous) }
+             catch { probe = nil; message = "启动核验失败，设备身份、运行镜像或界面状态不符。"; return .error(400, "boot_verification_failed") }
+             p.count += 1
+-            if p.count == 3 { probe = nil; remote = nil; message = "启动核验通过：\(image.version)，精确 ELF、VALID 分区、三个实时样本一致。" }
+-            else { p.id = MacTab5Protocol.identifier(); p.expires = Self.epoch + 10000; probe = p; message = "启动核验：\(p.count)/3 个实时样本通过。" }
++            if p.count == 3 { probe = nil; remote = nil; matchedVersion = true; message = "启动核验通过：\(image.version)，精确 ELF、VALID 分区、三个实时样本一致。" }
++            else { p.id = MacTab5Protocol.identifier(); p.expires = epoch() + 10000; probe = p; message = "启动核验：\(p.count)/3 个实时样本通过。" }
+             return .init(200, ["accepted": true])
+         default: return .error(400, "invalid_operation")
+         }
+@@ -161,7 +191,8 @@
+     func bytes(sha: String) -> Data? {
+         lock.lock(); defer { lock.unlock() }
+         guard let image, image.sha256 == sha else { return nil }
+-        leaseUntil = ProcessInfo.processInfo.systemUptime + 120; message = "正在向 TAB5 提供固件，等待设备写入和启动核验。"; return image.bytes
++        if var r = remote { r.started = true;remote = r }
++        leaseUntil = tick()+120;message = "正在向 TAB5 提供固件，等待设备写入和启动核验。";return image.bytes
+     }
+     static func validateBoot(hello: [String: Any], diagnostic: [String: Any], image: MacTab5FirmwareImage, device: String, previous: Int64) throws -> Int64 {
+         guard hello["type"] as? String == "tab5_hello", MacTab5Protocol.integer(hello["version"]) == 1,
+--- a/mac-app/Sources/AIBotBridge/MacTab5Service.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Service.swift
+@@ -316,7 +316,7 @@
+             logicalProcessors: ProcessInfo.processInfo.activeProcessorCount, codexEnabled: codex.isEnabled,
+             desktopObserved: codex.canMutate, network: networkDiagnostics()) : nil
+         additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
+-        let offer = firmwareControl.projection()
++        let offer = firmwareControl.projection(frameEpochMilliseconds:Int64(snapshot.capturedAt.timeIntervalSince1970*1000))
+         additions["ota"] = offer.offer.map { $0 as Any } ?? NSNull()
+         var health = offer.health
+         health["hostBindingVersion"] = 1; health["hostId"] = MacTab5HostBinding.id(pair)
+--- a/mac-app/Sources/AIBotBridge/MacParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacParityValidation.swift
+@@ -168,6 +168,7 @@
+         checked += try MacTab5USBResourceBurstValidation.run()
+         checked += try MacPreviewUSBPacingValidation.run()
+         checked += try MacTab5WiFiStatusValidation.run()
++        checked += try MacFirmwareCommandValidation.run()
+         checked += try MacTab5USBStatusValidation.run()
+         checked += try MacTab5USBLeaseValidation.run()
+         checked += try MacHTTPListenerRecoveryValidation.policy()
+--- a/mac-app/Sources/AIBotBridge/MacFirmwareCommandValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacFirmwareCommandValidation.swift
+@@ -0,0 +1,80 @@
++import CryptoKit
++import Foundation
++
++enum MacFirmwareCommandValidation {
++    static func run() throws -> Int {
++        var count = 0, now:Int64 = 1_900_000_000_000, tick = 100.0
++        func check(_ name:String,_ ok:Bool) throws {
++            guard ok else { throw MacTab5LocalError.invalid("Firmware command: "+name) };count += 1
++        }
++        // A valid synthetic ESP image, never offered to or flashed on hardware.
++        var bytes = Data(repeating:0,count:1072)
++        bytes[0] = 0xe9;bytes[1] = 1;bytes[12] = 18;bytes[23] = 1
++        func word(_ at:Int,_ value:UInt32) { for i in 0..<4 { bytes[at+i] = UInt8(truncatingIfNeeded:value>>(i*8)) } }
++        word(28,1024);word(32,0xabcd5432)
++        for (i,b) in "0.2.277-ui".utf8.enumerated() { bytes[48+i] = b }
++        for (i,b) in "aibot_tab5".utf8.enumerated() { bytes[80+i] = b }
++        bytes[1071] = bytes[32..<1056].reduce(UInt8(0xef),^)
++        bytes.append(Data(SHA256.hash(data:bytes)))
++        let image = try MacTab5FirmwareImage(bytes:bytes), device = "001122334455"
++        func model() throws -> MacTab5Firmware {
++            let value = MacTab5Firmware(epoch:{now},tick:{tick});try value.select(image);return value
++        }
++        func command(_ value:MacTab5Firmware,_ key:String = "otaCommand",_ frame:Int64? = nil) -> [String:Any]? {
++            value.projection(frameEpochMilliseconds:frame).health[key] as? [String:Any]
++        }
++        var value = try model();try value.start(device:device)
++        let original = command(value)!, deadline = original["expiresAt"] as! Int64
++        try check("fresh frame keeps original30s deadline",command(value,"otaCommand",now)?["expiresAt"] as? Int64 == deadline)
++        let capped = command(value,"otaCommand",now-20_000)!["expiresAt"] as! Int64
++        try check("stale snapshot stays inside receiver45s bound",capped == now+25_000 && capped <= deadline)
++        for bad in [Int64(0),-1,Int64.max,now-45_001,now+40_000] {
++            try check("invalid or unusable frame clock cannot publish",command(value,"otaCommand",bad) == nil)
++        }
++        now += 5000;tick += 5
++        try check("new status does not extend original request",command(value,"otaCommand",now)?["expiresAt"] as? Int64 == deadline)
++        now = deadline+1;tick += 26
++        try check("expired request is withdrawn",command(value) == nil && value.summary.contains("未确认"))
++        try check("projection never creates an automatic retry",command(value) == nil)
++
++        value = try model();try value.start(device:device)
++        var ready = command(value)!;ready["kind"] = "ota-control";ready["stage"] = "ready"
++        try check("ready still requires matching request",value.handle(ready,device:device,transport:"USB",binary:false,bulk:false).body["commit"] as? Bool == true)
++        ready["stage"] = "started"
++        try check("started acknowledgment accepted",value.handle(ready,device:device,transport:"USB",binary:false,bulk:false).status == 200)
++        now += 31_000;tick += 31
++        try check("started command expires without false unconfirmed message",command(value) == nil && value.summary.contains("已确认开始") && !value.summary.contains("请求未确认"))
++
++        value = try model();try value.start(device:device)
++        try check("real authenticated image handler retains existing bytes",value.bytes(sha:image.sha256) == image.bytes)
++        let provided = value.summary;now += 31_000;tick += 31
++        try check("download cannot be overwritten by old command expiry",command(value) == nil && value.summary == provided && value.busy)
++        do { try value.select(image);throw MacTab5LocalError.invalid("Image changed during download") }
++        catch MacTab5Error.busy { count += 1 }
++        value.observeVersion("0.2.276-ui")
++        try check("old version cannot clear active download",value.busy)
++        value.observeVersion(image.version)
++        try check("new version clears stale command without claiming boot verification",!value.busy && value.summary.contains("已运行") && !value.summary.contains("通过"))
++
++        try value.beginBootCheck(device:device,transport:"USB")
++        let boot = command(value,"bootVerifyCommand",now-7000)!
++        try check("boot request stays inside receiver15s bound",boot["expiresAt"] as? Int64 == now+8000)
++        now += 10_001;tick += 10.001
++        try check("boot request deadline never extends",command(value,"bootVerifyCommand",now) == nil && value.summary.contains("超时"))
++        try value.beginBootCheck(device:device,transport:"USB")
++        let hellos:[[String:Any]] = [100,110,120].map { uptime in
++            ["type":"tab5_hello","version":1,"deviceId":device,"firmware":image.version,"uptimeMs":uptime,"uiAgeMs":10,"flushCount":3,"flushErrors":0]
++        }
++        let diagnostic:[String:Any] = ["type":"tab5_ota_diagnostic","firmware":image.version,"elfSha256":image.elfSHA256,"stateError":0,"state":2,"partition":"ota_0","address":0x20000]
++        try value.completeUSBCheck(hellos:hellos,diagnostic:diagnostic,device:device)
++        let verified = value.summary;value.observeVersion(image.version)
++        try check("later version sample preserves exact boot result",verified.contains("核验通过") && value.summary == verified)
++        for error in ["device_busy","draft_pending","draft_save_failed","no_link","offer_changed","unknown-private-content"] {
++            let rejected = try model();try rejected.start(device:device)
++            var root = command(rejected)!;root["kind"] = "ota-control";root["stage"] = "rejected";root["error"] = error
++            try check("bounded rejection receipt accepted",rejected.handle(root,device:device,transport:"USB",binary:false,bulk:false).status == 200 && command(rejected) == nil)
++            try check("raw remote error never appears in UI",!rejected.summary.contains(error))
++        }
++        return count
++    }
++}

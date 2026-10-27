@@ -1,0 +1,6 @@
+#pragma once
+#define MBEDTLS_AES_C
+#define MBEDTLS_GCM_C
+#define MBEDTLS_SHA256_C
+#define MBEDTLS_BLOCK_CIPHER_C
+#define MBEDTLS_AES_ROM_TABLES

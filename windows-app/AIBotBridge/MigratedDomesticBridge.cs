@@ -30,7 +30,7 @@ internal sealed class MigratedDomesticBridge : IDisposable
                 return current with { Stale = _service.RefreshHealth.Failed(current.Provider == "alibaba" ? "qwen" : current.Provider) || current.UpdatedAt < _startedAt || DateTimeOffset.UtcNow - current.UpdatedAt > _staleAfter };
             }
             return new(Pick(parsed.Alibaba, _fallback?.Alibaba), Pick(parsed.Kimi, _fallback?.Kimi),
-                Pick(parsed.MiniMax, _fallback?.MiniMax), Pick(parsed.DeepSeek, _fallback?.DeepSeek),
+                Pick(parsed.MiniMax, _fallback?.MiniMax), Pick(parsed.DeepSeek, null),
                 ZhipuBalance.Normalize(Pick(_service.Snapshot.Zhipu, _fallback?.Zhipu)),
                 Pick(_service.Snapshot.StepFun, null), Pick(_service.Snapshot.Baidu, null),
                 Pick(XiaomiQuota.Snapshot(_service.Snapshot.XiaomiPlanPct, _service.Snapshot.XiaomiFetchedAt,
@@ -101,7 +101,7 @@ internal sealed class MigratedDomesticBridge : IDisposable
             case "minimax": _service.SetMiniMax(value.WeeklyPercent!.Value, value.PrimaryPercent, value.Plan, value.WeeklyResetsAt, value.PrimaryResetsAt, value.PlanExpiresAt,
                 value.PrimaryWindowSeconds,value.WeeklyWindowSeconds); break;
             case "zhipu": _service.SetZhipu(value); break;
-            case "deepseek": _service.SetDeepSeek(value.Balance!.Value, value.Currency, usedCost: value.UsedCost); break;
+            case "deepseek": _service.SetDeepSeekWeb(value.Balance!.Value, value.Currency, null, null, value.UsedCost); break;
         }
     }
     public void Dispose() => _service.DisposeBrowser();

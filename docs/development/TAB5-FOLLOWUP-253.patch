@@ -1,0 +1,392 @@
+--- a/firmware/main/photo_attachment.c
++++ b/firmware/main/photo_attachment.c
+@@ -52,7 +52,7 @@
+     if(!w||!h)return;
+     for(unsigned y=0;y<h;y++) {
+         for(unsigned x=0;x<w;x++)preview[y*w+x]=pixels[(y*height/h)*stride+x*width/w];
+-        if((y&15)==15)vTaskDelay(1);
++        if((y&3)==3)vTaskDelay(1);
+     }
+     preview_width=w;preview_height=h;
+ }
+@@ -202,5 +202,9 @@
+ const char *photo_error(void){return error;}
+ const uint8_t *photo_data(size_t *size){if(photo_state()!=2)return NULL;*size=data_size;return data;}
+ const uint16_t *photo_preview(void){return photo_state()==2?preview:NULL;}
++uint16_t *photo_take_preview(void){
++    if(atomic_load(&working)||atomic_load(&phase)!=2)return NULL;
++    uint16_t *pixels=preview;preview=NULL;return pixels;
++}
+ void photo_preview_dimensions(unsigned *width,unsigned *height){*width=preview_width;*height=preview_height;}
+ void photo_discard(void){if(atomic_load(&working))return;free(data);data=NULL;data_size=0;atomic_store(&phase,0);}
+--- a/firmware/main/photo_attachment.h
++++ b/firmware/main/photo_attachment.h
+@@ -18,5 +18,7 @@
+ void photo_diagnostics(char *out,unsigned size);
+ const uint8_t *photo_data(size_t *size);
+ const uint16_t *photo_preview(void);
++// Move the completed preview to an attachment; the caller becomes its owner.
++uint16_t *photo_take_preview(void);
+ void photo_preview_dimensions(unsigned *width,unsigned *height);
+ void photo_discard(void);
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -154,11 +154,24 @@
+     return link_state_image(&links,now,session,wifi_connected,ready[0]&&tab5_usb_connected(),ready[1]);
+ }
+ bool rpc_read_link_ready(void){return rpc_read_link_select()!=LINK_NONE;}
+-static uint8_t *exchange(link_kind link,const char *nonce,const char *proof,const uint8_t *data,size_t size,size_t *reply_size,uint32_t generation,unsigned timeout_ms) {
++static uint8_t *exchange(link_kind link,const char *nonce,const char *proof,const uint8_t *data,size_t size,size_t *reply_size,uint32_t generation,unsigned timeout_ms,unsigned admission_ms,unsigned host_generation) {
+     *reply_size=0;rpc_mailbox *m=box(link);
+     if(!rpc_lock||!m||!m->out||!m->in||size+96>RPC_REQUEST_MAX)return NULL;
+-    xSemaphoreTake(rpc_lock,portMAX_DELAY);
+-    if(m->active||m->generation!=generation||(link==LINK_USB&&!tab5_usb_connected())){xSemaphoreGive(rpc_lock);return NULL;}
++    int64_t began=esp_timer_get_time()/1000,deadline=began+timeout_ms;
++    // A credential read can briefly follow a status/control RPC on the same
++    // mailbox. Wait only for admission, before publishing any nonce or bytes.
++    // This never retries a credential request or an HID key sequence.
++    for(;;) {
++        xSemaphoreTake(rpc_lock,portMAX_DELAY);
++        int64_t now=esp_timer_get_time()/1000;
++        bool current=m->generation==generation&&host_generation==device_host_epoch()&&!device_host_changing()&&
++            (link!=LINK_USB||tab5_usb_connected());
++        if(!current||now>=deadline){xSemaphoreGive(rpc_lock);return NULL;}
++        if(!m->active)break;
++        xSemaphoreGive(rpc_lock);
++        if(now-began>=admission_ms)return NULL;
++        vTaskDelay(pdMS_TO_TICKS(10));
++    }
+     // Own each wakeup until detachment; reconnect cannot steal it. IDF's
+     // FreeRTOS allocator keeps the object in internal RAM, even when the
+     // calling task uses a PSRAM stack (which cannot host this control object).
+@@ -169,7 +182,7 @@
+     if(!++m->serial)++m->serial;
+     uint32_t serial=m->active=m->serial;xSemaphoreGive(rpc_lock);
+     if(link==LINK_USB&&rpc_ready_usb)xSemaphoreGive(rpc_ready_usb);
+-    uint8_t *reply=NULL;int64_t deadline=esp_timer_get_time()/1000+timeout_ms;
++    uint8_t *reply=NULL;
+     while(esp_timer_get_time()/1000<deadline) {
+         xSemaphoreTake(rpc_lock,portMAX_DELAY);
+         if(m->active!=serial){xSemaphoreGive(rpc_lock);break;}
+@@ -376,7 +389,8 @@
+         gallery_profiles.calls++;
+         free(packet);return result;
+     }
+-    size_t reply_size=0;uint8_t *reply=http?http_exchange(http,&cfg,nonce,proof,packet,n+28,&reply_size,status):exchange(link,nonce,proof,packet,n+28,&reply_size,generation,rpc_exchange_timeout(kind,ota_probe));
++    unsigned admission_ms=kind&&!strcmp(kind,"unlock-pin")?1000:0;
++    size_t reply_size=0;uint8_t *reply=http?http_exchange(http,&cfg,nonce,proof,packet,n+28,&reply_size,status):exchange(link,nonce,proof,packet,n+28,&reply_size,generation,rpc_exchange_timeout(kind,ota_probe),admission_ms,host_generation);
+     int64_t decode_start=esp_timer_get_time();
+     if(profile){profile->exchange_us+=decode_start-exchange_start;profile->wire_rx+=reply_size;profile_memory(profile);}
+     free(packet);
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -212,6 +212,12 @@
+ const char *photo_error(void){return "预览";}
+ const uint8_t *photo_data(size_t *size){*size=preview_photo_fixture?sizeof(preview_photo_jpeg):0;return preview_photo_fixture?preview_photo_jpeg:NULL;}
+ const uint16_t *photo_preview(void){return preview_photo_fixture&&preview_photo_state==2?preview_photo_pixels:NULL;}
++uint16_t *photo_take_preview(void){
++    if(!photo_preview())return NULL;
++    uint16_t *pixels=malloc(sizeof(preview_photo_pixels));
++    if(pixels)memcpy(pixels,preview_photo_pixels,sizeof(preview_photo_pixels));
++    return pixels;
++}
+ void photo_preview_dimensions(unsigned *width,unsigned *height){*width=preview_photo_width;*height=preview_photo_height;}
+ void photo_discard(void){if(preview_photo_fixture)preview_photo_state=0;}
+ static bool tab5_keyboard_present(void) { return false; }
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -175,7 +175,7 @@
+     photo_flow=true;photo_step=2;photo_from_camera=false;
+     photo_set_view(pixels,width,height);photo_view_orientation();
+     visible(photo_files,false);visible(photo_up,false);visible(photo_prev,false);visible(photo_next,false);visible(photo_confirm,false);visible(photo_view,true);
+-    ui_text(photo_title,"照片附件");ui_text(photo_note,"返回后可继续编辑或发送");visible(photo_window,true);lv_obj_move_foreground(photo_window);
++    ui_text(photo_title,"照片附件");ui_text(photo_note,"");visible(photo_window,true);lv_obj_move_foreground(photo_window);
+ }
+ static void photo_tick(void) {
+     if(!photo_flow)return;
+@@ -234,12 +234,14 @@
+             bool retained=false;for(unsigned j=0;j<3;j++)if(!strcmp(photo_cache[i].id,d->images[j]))retained=true;
+             if(!retained||!photo_cache[i].pixels){cache=i;break;}
+         }
+-        if(!photo_cache[cache].pixels)photo_cache[cache].pixels=codex_alloc(PHOTO_PREVIEW_W*PHOTO_PREVIEW_H*2);
+-        photo_cache[cache].id[0]=0;
+-        if(pixels&&photo_cache[cache].pixels){memcpy(photo_cache[cache].pixels,pixels,width*height*2);photo_cache[cache].width=width;photo_cache[cache].height=height;snprintf(photo_cache[cache].id,37,"%s",photo_id);}
++        // The hidden viewer already references this completed preview. Move its
++        // ownership instead of allocating and copying another 460,800 bytes
++        // while the LCD is still scanning the captured photograph.
++        uint16_t *retained=photo_take_preview();
++        if(retained){free(photo_cache[cache].pixels);photo_cache[cache].pixels=retained;photo_cache[cache].width=width;photo_cache[cache].height=height;snprintf(photo_cache[cache].id,37,"%s",photo_id);}
+         d->dirty=d->loaded=true;d->revision++;codex_local_dirty=true;codex_checkpoint_write();photo_finish();
+         codex_feedback_pinned=true;codex_submit_accepted=false;
+-        ui_text_fmt(codex_receipt,"%s，可与文字一起发送",status);
++        ui_text(codex_receipt,status);
+     }
+ }
+ static UI_INIT_SMALL void photo_ui_create(lv_obj_t *screen,lv_obj_t *composer) {
+--- a/scripts/apply-jpeg-dma-memory.py
++++ b/scripts/apply-jpeg-dma-memory.py
+@@ -81,10 +81,25 @@
+         raise RuntimeError('JPEG decoder allocation anchor not found')
+     return source.replace(anchor, DECODE_MARKER + anchor).replace(DECODE_OLD, NEW)
+ 
++def patch_encoder_burst(source: str) -> str:
++    start = source.find('static void jpeg_enc_config_dma_trans_ability(jpeg_encoder_handle_t encoder_engine)\n{')
++    end = source.find('\nstatic bool s_jpeg_enc_transaction_on_job_picked(', start)
++    if start < 0 or end < 0:
++        raise RuntimeError('Unknown JPEG encoder DMA configuration; inspect SDK')
++    body = source[start:end]
++    old = '.data_burst_length = DMA2D_DATA_BURST_LENGTH_128,'
++    new = '.data_burst_length = DMA2D_DATA_BURST_LENGTH_16,'
++    marker = '    // TAB5: short codec bursts leave PSRAM arbitration opportunities for LCD scanout.\n'
++    if body.count(new) == 2 and old not in body and body.count(marker) == 1:
++        return source
++    if body.count(old) != 2 or new in body or marker in body:
++        raise RuntimeError('Unknown JPEG encoder DMA burst settings; inspect SDK')
++    return source[:start] + body.replace('    // set transfer ability\n', marker).replace(old, new) + source[end:]
++
+ def patch_sdk(root: Path) -> None:
+     # Validate both pinned sources before modifying either one.
+     updates = []
+-    for name, transform in [('jpeg_encode.c', lambda text: patch_bounded_sync(patch_input_range(patch(text)))), ('jpeg_decode.c', patch_decoder)]:
++    for name, transform in [('jpeg_encode.c', lambda text: patch_encoder_burst(patch_bounded_sync(patch_input_range(patch(text))))), ('jpeg_decode.c', patch_decoder)]:
+         file = root / 'components/esp_driver_jpeg' / name
+         source = file.read_text(encoding='utf-8')
+         updates.append((file, source, transform(source)))
+@@ -94,4 +109,4 @@
+ 
+ if __name__ == '__main__':
+     patch_sdk(Path(sys.argv[1]))
+-    print('TAB5 JPEG DMA reserve, descriptor size and bounded input cache patches ready')
++    print('TAB5 JPEG DMA reserve, descriptor size, bounded cache and short codec bursts ready')
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -270,6 +270,19 @@
+ target_link_libraries(draw-ppa-test PRIVATE lvgl)
+ add_executable(wifi-profiles-test wifi_profiles_test.c "${ROOT}/firmware/main/wifi_profiles.c")
+ add_executable(rpc-mailbox-test rpc_mailbox_test.c)
++set(RPC_SOURCE "${ROOT}/firmware/main/rpc_link.c")
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${RPC_SOURCE}")
++file(READ "${RPC_SOURCE}" RPC_TEXT)
++string(FIND "${RPC_TEXT}" "static uint8_t *exchange(" RPC_EXCHANGE_START)
++string(FIND "${RPC_TEXT}" "static uint8_t *http_exchange(" RPC_EXCHANGE_END)
++math(EXPR RPC_EXCHANGE_LENGTH "${RPC_EXCHANGE_END}-${RPC_EXCHANGE_START}")
++if(RPC_EXCHANGE_START LESS 0 OR RPC_EXCHANGE_LENGTH LESS 1)
++    message(FATAL_ERROR "RPC exchange markers missing")
++endif()
++string(SUBSTRING "${RPC_TEXT}" ${RPC_EXCHANGE_START} ${RPC_EXCHANGE_LENGTH} RPC_EXCHANGE_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/rpc_admission_under_test.inc" "${RPC_EXCHANGE_BODY}")
++add_executable(rpc-admission-test rpc_admission_test.c)
++target_include_directories(rpc-admission-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ add_executable(gallery-clock-test gallery_clock_test.c)
+ add_executable(ble-advertising-test ble_advertising_test.c)
+ target_compile_options(ble-advertising-test PRIVATE /UNDEBUG)
+@@ -406,6 +419,11 @@
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/photo_preview_under_test.inc" "${PHOTO_PREVIEW_BODY}")
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/photo_output_alloc_under_test.inc" "${PHOTO_ALLOC_BODY}")
+ add_executable(photo-memory-test photo_memory_test.c)
++string(FIND "${PHOTO_TEXT}" "uint16_t *photo_take_preview(" PHOTO_TAKE_START)
++string(FIND "${PHOTO_TEXT}" "void photo_preview_dimensions(" PHOTO_TAKE_END)
++math(EXPR PHOTO_TAKE_LENGTH "${PHOTO_TAKE_END}-${PHOTO_TAKE_START}")
++string(SUBSTRING "${PHOTO_TEXT}" ${PHOTO_TAKE_START} ${PHOTO_TAKE_LENGTH} PHOTO_TAKE_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/photo_take_preview_under_test.inc" "${PHOTO_TAKE_BODY}")
+ target_include_directories(photo-memory-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ set(BANDWIDTH_SOURCE "${ROOT}/firmware/main/display_bandwidth.c")
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${BANDWIDTH_SOURCE}")
+@@ -422,6 +440,19 @@
+ set(PSRAM_SOURCE "${ROOT}/.tools/esp-idf/components/esp_psram/esp_psram.c")
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${JPEG_SOURCE}" "${PSRAM_SOURCE}")
+ file(READ "${JPEG_SOURCE}" JPEG_TEXT)
++string(FIND "${JPEG_TEXT}" "static void jpeg_enc_config_dma_trans_ability(jpeg_encoder_handle_t encoder_engine)\n{" JPEG_BURST_START)
++if(JPEG_BURST_START LESS 0)
++    message(FATAL_ERROR "JPEG burst configuration markers missing")
++endif()
++string(SUBSTRING "${JPEG_TEXT}" ${JPEG_BURST_START} -1 JPEG_BURST_TAIL)
++string(FIND "${JPEG_BURST_TAIL}" "static bool s_jpeg_enc_transaction_on_job_picked(" JPEG_BURST_LENGTH)
++if(JPEG_BURST_LENGTH LESS 1)
++    message(FATAL_ERROR "JPEG burst configuration end marker missing")
++endif()
++string(SUBSTRING "${JPEG_BURST_TAIL}" 0 ${JPEG_BURST_LENGTH} JPEG_BURST_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/jpeg_burst_under_test.inc" "${JPEG_BURST_BODY}")
++add_executable(jpeg-burst-test jpeg_burst_test.c)
++target_include_directories(jpeg-burst-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ string(FIND "${JPEG_TEXT}" "esp_err_t jpeg_new_encoder_engine(" JPEG_START)
+ string(FIND "${JPEG_TEXT}" "esp_err_t jpeg_encoder_process(" JPEG_FINISH)
+ math(EXPR JPEG_LENGTH "${JPEG_FINISH} - ${JPEG_START}")
+--- /dev/null
++++ b/tests/ui-preview/jpeg_burst_test.c
+@@ -0,0 +1,26 @@
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include <assert.h>
++#include <stdbool.h>
++#include <stdio.h>
++enum {DMA2D_DATA_BURST_LENGTH_16=16,DMA2D_MACRO_BLOCK_SIZE_NONE=0,DMA2D_MACRO_BLOCK_SIZE_8_8=1,
++    DMA2D_MACRO_BLOCK_SIZE_8_16=2,DMA2D_MACRO_BLOCK_SIZE_16_16=3,JPEG_DOWN_SAMPLING_YUV444=0,
++    JPEG_DOWN_SAMPLING_YUV422=1,JPEG_DOWN_SAMPLING_YUV420=2,JPEG_DOWN_SAMPLING_GRAY=3};
++typedef struct {int data_burst_length;bool desc_burst_en;int mb_size;} dma2d_transfer_ability_t;
++typedef struct {int sub_sample;} header;
++typedef struct {header *header_info;int dma2d_tx_channel,dma2d_rx_channel;} engine;
++typedef engine *jpeg_encoder_handle_t;
++static unsigned calls;
++static dma2d_transfer_ability_t applied[2];
++static void dma2d_set_transfer_ability(int channel,const dma2d_transfer_ability_t *cfg){assert(channel==1||channel==2);applied[channel-1]=*cfg;calls++;}
++#include "jpeg_burst_under_test.inc"
++int main(void){
++    const int blocks[]={1,2,3,1,0};
++    for(int mode=0;mode<5;mode++){
++        header h={mode};engine e={&h,1,2};calls=0;jpeg_enc_config_dma_trans_ability(&e);
++        assert(calls==2&&applied[0].data_burst_length==16&&applied[1].data_burst_length==16);
++        assert(applied[0].desc_burst_en&&applied[1].desc_burst_en&&applied[0].mb_size==blocks[mode]&&applied[1].mb_size==0);
++    }
++    puts("JPEG_BURST_OK actual driver TX/RX 16 byte bursts; all macroblock modes retained");
++}
+--- a/tests/ui-preview/photo_memory_test.c
++++ b/tests/ui-preview/photo_memory_test.c
+@@ -4,6 +4,7 @@
+ #include <assert.h>
+ #include <stdbool.h>
+ #include <stdint.h>
++#include <stdatomic.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -15,6 +16,8 @@
+ static size_t extent,synced;
+ static uint8_t *owned;
+ static uint16_t *preview;
++static atomic_int phase;
++static atomic_bool working;
+ static unsigned preview_width,preview_height;
+ static void vTaskDelay(unsigned ticks){assert(ticks==1);yields++;}
+ static int esp_cache_get_alignment(int caps,size_t *alignment){assert(caps==1);*alignment=128;return fault==1?1:0;}
+@@ -33,6 +36,7 @@
+ #include "photo_output_alloc_under_test.inc"
+ #undef free
+ #include "photo_preview_under_test.inc"
++#include "photo_take_preview_under_test.inc"
+ int main(void){
+     for(fault=0;fault<4;fault++){
+         yields=calls=0;synced=0;size_t capacity=0;
+@@ -48,10 +52,14 @@
+         for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++)pixels[y*w+x]=(uint16_t)(1+(x/2+y/2)%65534);
+         make_preview(pixels,w,h,w);
+         assert(preview_width==(pose?360:640)&&preview_height==(pose?640:360));
+-        assert(preview_width*preview_height==230400&&yields==preview_height/16);
++        assert(preview_width*preview_height==230400&&yields==preview_height/4);
+         for(unsigned y=0;y<preview_height;y++)for(unsigned x=0;x<preview_width;x++)
+             assert(preview[y*preview_width+x]==pixels[(y*2)*w+x*2]);
+     }
+-    free(pixels);free(preview);
++    atomic_store(&phase,2);atomic_store(&working,true);assert(!photo_take_preview());
++    atomic_store(&working,false);atomic_store(&phase,3);assert(!photo_take_preview());
++    atomic_store(&phase,2);uint16_t *original=preview,*taken=photo_take_preview();
++    assert(taken==original&&!preview&&!photo_take_preview());
++    free(pixels);free(taken);
+     puts("PHOTO_MEMORY_OK aligned non-clearing output; 128 bounded cache spans; failure cleanup; both orientations use full preview budget without letterbox");
+ }
+--- /dev/null
++++ b/tests/ui-preview/rpc_admission_test.c
+@@ -0,0 +1,71 @@
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include "../../firmware/main/rpc_mailbox.inc"
++typedef enum {LINK_USB,LINK_WIFI,LINK_BLE} link_kind;
++typedef struct {int kind;} semaphore;
++typedef semaphore *SemaphoreHandle_t;
++enum {portMAX_DELAY=0x7fffffff,pdTRUE=1,MALLOC_CAP_SPIRAM=1,MALLOC_CAP_8BIT=2};
++#define pdMS_TO_TICKS(ms) (ms)
++static semaphore mutex={1},ready={2};
++static SemaphoreHandle_t rpc_lock=&mutex,rpc_ready_usb=&ready,rpc_done[2];
++static rpc_mailbox boxes[2];
++static uint8_t out[RPC_REQUEST_MAX],in[RPC_RESPONSE_MAX];
++static unsigned now,host,drain,change,sends,wait_budget,created,deleted;
++static bool locked,usb,changing,respond;
++static link_kind current_link;
++static rpc_mailbox *box(link_kind link){return link==LINK_USB?&boxes[0]:link==LINK_BLE?&boxes[1]:NULL;}
++static SemaphoreHandle_t completion(link_kind link){return rpc_done[link==LINK_USB?0:1];}
++static int64_t esp_timer_get_time(void){return (int64_t)now*1000;}
++static unsigned device_host_epoch(void){return host;}
++static bool device_host_changing(void){return changing;}
++static bool tab5_usb_connected(void){return usb;}
++static void vTaskDelay(unsigned ticks){
++    assert(!locked&&ticks>0);now+=ticks;
++    rpc_mailbox *m=box(current_link);
++    if(change==1&&now>=drain)m->generation++;
++    if(change==2&&now>=drain)host++;
++    if(change==3&&now>=drain)usb=false;
++    if(change==4&&now>=drain)changing=true;
++    if(!change&&drain&&now>=drain)m->active=0;
++}
++static int xSemaphoreTake(SemaphoreHandle_t s,unsigned ticks){
++    if(s==rpc_lock){assert(!locked);locked=true;return pdTRUE;}
++    assert(!locked&&s&&s->kind==3);rpc_mailbox *m=box(current_link);
++    sends++;wait_budget=ticks;assert(m->active==m->serial&&m->size==100&&m->out[96]==1);
++    if(!respond){now+=ticks;return 0;}
++    now+=20;m->expected=4;m->complete=true;memset(m->in,0xA3,4);return pdTRUE;
++}
++static void xSemaphoreGive(SemaphoreHandle_t s){if(s==rpc_lock){assert(locked);locked=false;}else assert(s==rpc_ready_usb);}
++static SemaphoreHandle_t xSemaphoreCreateBinary(void){created++;semaphore *s=malloc(sizeof(*s));assert(s);s->kind=3;return s;}
++static void vSemaphoreDelete(SemaphoreHandle_t s){deleted++;free(s);}
++static void *heap_caps_malloc(size_t n,int caps){assert(caps==3);return malloc(n);}
++#include "rpc_admission_under_test.inc"
++static void run(link_kind link,unsigned admission,unsigned drain_after,unsigned mutation,bool answer,bool expected){
++    memset(boxes,0,sizeof(boxes));memset(rpc_done,0,sizeof(rpc_done));
++    now=1000;host=7;usb=true;changing=locked=false;created=deleted=sends=wait_budget=0;
++    drain=drain_after?now+drain_after:0;change=mutation;respond=answer;current_link=link;
++    rpc_mailbox *m=box(link);m->out=out;m->in=in;m->generation=2;m->active=41;m->serial=41;
++    uint8_t payload[4]={1,2,3,4};size_t length=99;
++    uint8_t *reply=exchange(link,"01234567890123456789012345678901",
++        "0123456789012345678901234567890123456789012345678901234567890123",payload,4,&length,2,6000,admission,7);
++    assert((reply!=NULL)==expected&&!locked&&created==deleted&&!completion(link));
++    if(expected){assert(length==4&&reply[0]==0xA3&&m->serial==42&&sends==1&&wait_budget==6000-drain_after);}
++    else {assert(!length);if(!answer&&drain_after&&!mutation){assert(m->serial==42&&sends==1&&now==7000);}else assert(!created&&!sends&&m->serial==41);}
++    free(reply);
++}
++int main(void){
++    run(LINK_BLE,0,40,0,true,false);
++    run(LINK_BLE,1000,40,0,true,true);
++    run(LINK_USB,1000,40,0,true,true);
++    run(LINK_BLE,1000,0,0,true,false);
++    for(unsigned mutation=1;mutation<=4;mutation++)run(mutation==3?LINK_USB:LINK_BLE,1000,40,mutation,true,false);
++    run(LINK_BLE,1000,40,0,false,false);
++    puts("RPC_ADMISSION_OK busy control precedes one credential read; 1s bounded admission; unchanged total deadline; disconnect/host/generation/switch abort; no replay");
++}
+--- a/tests/ui-preview/rpc_exchange_test.c
++++ b/tests/ui-preview/rpc_exchange_test.c
+@@ -38,10 +38,12 @@
+ static bool wifi_connected=true,ble_connected=true;
+ static atomic_bool usb_ready=true;
+ static bool tab5_usb_connected(void){return atomic_load(&usb_ready);}
++static unsigned device_host_epoch(void){return 1;}
++static bool device_host_changing(void){return false;}
+ #include "rpc_exchange_under_test.inc"
+ #include "usb_watch_under_test.inc"
+ typedef struct {link_kind link;uint8_t *reply;size_t size;unsigned timeout;} request;
+-static DWORD WINAPI run_request(void *arg){request *r=arg;char nonce[32],proof[64];uint8_t body[28];memset(nonce,'n',32);memset(proof,'p',64);memset(body,0x35,28);xSemaphoreTake(rpc_lock,portMAX_DELAY);uint32_t generation=box(r->link)->generation;xSemaphoreGive(rpc_lock);r->reply=exchange(r->link,nonce,proof,body,sizeof(body),&r->size,generation,r->timeout);return 0;}
++static DWORD WINAPI run_request(void *arg){request *r=arg;char nonce[32],proof[64];uint8_t body[28];memset(nonce,'n',32);memset(proof,'p',64);memset(body,0x35,28);xSemaphoreTake(rpc_lock,portMAX_DELAY);uint32_t generation=box(r->link)->generation;xSemaphoreGive(rpc_lock);r->reply=exchange(r->link,nonce,proof,body,sizeof(body),&r->size,generation,r->timeout,0,1);return 0;}
+ static HANDLE start(request *r,link_kind link){*r=(request){.link=link,.timeout=75000};HANDLE thread=CreateThread(NULL,0,run_request,r,0,NULL);assert(thread);return thread;}
+ static uint32_t pending(link_kind link){uint8_t p[256];ULONGLONG end=GetTickCount64()+2000;do{size_t n=rpc_link_read(link,p,sizeof(p));if(n>8)return rpc_u32(p);Sleep(1);}while(GetTickCount64()<end);assert(!"request failed to publish");return 0;}
+ static void respond(link_kind link,uint32_t id){uint8_t packet[37]={2};rpc_put32(packet+1,id);rpc_put16(packet+5,0);rpc_put16(packet+7,28);memset(packet+9,0x6c,28);assert(rpc_link_write(link,packet,sizeof(packet)));}
+@@ -100,12 +102,12 @@
+     assert(!usb_link_watch(&was_ready)&&box(LINK_USB)->generation==old_generation+1);
+     assert(link_state_active(&device_links,now)==LINK_WIFI); // State snapshot is invalidated independently of association.
+     size_t reply_size=99;uint8_t body[28]={0};char nonce[32]={0},proof[64]={0};
+-    assert(!exchange(LINK_USB,nonce,proof,body,28,&reply_size,old_generation+1,75000)&&reply_size==0);
++    assert(!exchange(LINK_USB,nonce,proof,body,28,&reply_size,old_generation+1,75000,0,1)&&reply_size==0);
+     atomic_store(&usb_ready,true);assert(usb_link_watch(&was_ready));
+     rpc_link_read(LINK_USB,read_buf,sizeof(read_buf));
+     assert(rpc_link_select()==LINK_BLE); // Polling alone cannot restore authenticated freshness.
+     assert(!link_state_receive(&device_links,LINK_USB,"same-session",9,now));
+-    assert(!exchange(LINK_USB,nonce,proof,body,28,&reply_size,old_generation,75000));
++    assert(!exchange(LINK_USB,nonce,proof,body,28,&reply_size,old_generation,75000,0,1));
+     assert(link_state_receive(&device_links,LINK_USB,"same-session",10,now));
+     assert(rpc_link_select()==LINK_USB&&rpc_read_link_select()==LINK_USB&&rpc_ota_link_select()==LINK_USB);
+     request reconnected;HANDLE reconnected_thread=start(&reconnected,LINK_USB);uint32_t new_id=pending(LINK_USB);assert(new_id!=lost_id);

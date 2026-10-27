@@ -1,5 +1,11 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-27：新增 TAB5 .281 长按清空前、清空后、继续输入与四额度卡片原生 LVGL 截图，来源为冻结 .279 加已核对 .281 补丁及测试；新增 Windows 账号来源隔离原生 WinForms 虚构账户截图。时间、金额、项目名均是固定夹具，不是私人账号或实机照片。Mac 功能使用共用 TAB5 画面说明，不把 Windows 账号窗口标成 Mac。精确 SHA-256 见 materials.json。
+
+October 27: new .281 native LVGL draft-clear and quota fixtures, plus a native Windows account-source fixture. Synthetic data is not hardware photography or private account data. Shared TAB5 views illustrate Mac support without impersonating AppKit windows.
+
+2026-10-17 0.6.9／217：新增电脑控制、静音、锁屏、十网络、Windows 启动配置，刷新应用入口、音乐空闲和实际 217 sidecar。TAB5 来源 `d31a601` 的原生 LVGL；Windows 配置来自最终发布 ZIP 内 DLL 的隔离自检。程序／文件夹画面使用通用类型字形，不打包本机软件提取图标。固定时间、电量、网络名与旧当前版本均是夹具，不冒充真机运行态。逐张 SHA-256 在 materials.json；真实验收另见发布记录。 / New native control, mute, lock, ten-network and final Windows settings fixtures; updated Apps, music idle state and actual 217 notes. Synthetic state is separate from physical acceptance.
+
 2026-10-17：新增首页硬件介绍配图，均为硬件外观与 AI-bot 原生额度页的合成展示，非实机拍摄，使用固定演示数据。来源、修改方式与提示词见 [硬件配图记录](HARDWARE-IMAGES.md)。原生截图保持不变。 / Added two hardware composites using native quota screen references; not hardware photographs. Sources, edits and prompts are recorded separately.
 
 2026-10-17：刷新 Windows 0.6.8 原生设备中心、更新窗口和服务状态，TAB5 210 日程首页／空状态／编辑／提醒、经典时钟昼夜、年度点阵、屏幕声音及实际 210 sidecar。Windows 来源为发布提交 `68382bf`；TAB5 原生来源为已验收独立源码 `dc61c08`，同一批原生回归 PPM 保留像素转 PNG。设备信息和升级页的旧“当前版本”、电量及时间均是固定夹具，不是运行态或真机版本证据；新固件身份见发布包。新 Windows 窗口在读取设置前启用隔离测试目录，无账户、硬件写入、真实麦克风或消息发送。未变化画面保留原来源与许可。新版视频及三种封面见 [PRODUCT_VIDEO](PRODUCT_VIDEO.md)，精确摘要在 `licenses/materials.json`。
@@ -116,7 +122,7 @@ Current art attribution: Lin Liang, *Peacocks and Bamboo*, Cleveland Museum of A
 
 The earlier batch contained 52 regenerated or added screenshots. A subsequent audit found that the tray fixture still used the retired TrayMenu factory; it now calls the production DeviceCenterMenu.Build factory, and the corrected grouped menu was recaptured and visually checked. Exact bytes and paths remain enforced in `licenses/materials.json`. Fonts/themes may affect cross-machine appearance. Historical diagrams are identified as illustrations, and private backups/runtime data are not published. See the separate hardware acceptance and video provenance records.
 
-## 0.6.10 local candidate / 本地候选
+## 0.6.10 Wi-Fi unlock settings / Wi-Fi 解锁设置
 
 [Wi-Fi 解锁原生预览](assets/screens/tab5-wifi-unlock-candidate.png)：隔离合成状态，无真实凭据。此前图片保留各自捕获版本；最终发布媒体另行核验。
 
@@ -129,3 +135,9 @@ The earlier batch contained 52 regenerated or added screenshots. A subsequent au
 上述画面由 .234 实际 sidecar 的原生 LVGL 预览生成，顶部和滚动后的内容均已审阅。“当前 .21”为隔离夹具；目标 .234 及说明来自真实交付元数据，不能视为硬件摄影。原版 c608 的精确 .234／VALID／三实时样本纯 BLE 实机核验另见 [验收](development/TAB5-BLE-UPTIME-20261019.md)。其他界面没有因报告时间修复重画；既有原生素材来源保留。
 
 These are native LVGL previews using the actual .234 sidecar. The current .21 is a synthetic fixture; target .234 and its notes are actual delivery metadata. Both top and scrolled states were visually reviewed. They are isolated captures, with separate linked exact-image/VALID/three-sample BLE hardware acceptance. Unchanged native footage retains its existing provenance.
+
+## ESP8266 0.5.7 重置信息 / Reset text
+
+![原字号的加粗前后对照](assets/screens/esp8266-reset-text-057.png)
+
+来自生产 Font2 / 14px 栅格的隔离对照，保持原字号与间距；不是实机照片。用户已另行确认刷入后字体更清晰。 / Production Font2 raster comparison, same size and spacing; not a device photo. The user separately accepted the installed appearance.

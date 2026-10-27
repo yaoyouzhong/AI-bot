@@ -1,0 +1,1211 @@
+diff --git a/firmware/main/CMakeLists.txt b/firmware/main/CMakeLists.txt
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -10,7 +10,7 @@
+ list(APPEND tab5_sources "tab5_countdown_24.c")
+ list(APPEND tab5_sources "tab5_date_serif_data.c")
+ list(APPEND tab5_sources "voice_recovery.c")
+-list(APPEND tab5_sources "desktop_remote.c" "computer_remote.c" "unlock_remote.c")
++list(APPEND tab5_sources "desktop_remote.c" "computer_remote.c" "unlock_remote.c" "host_unlock_remote.c")
+ list(APPEND tab5_sources "wifi_submission_test.c")
+ list(APPEND tab5_sources "reply_document.c")
+ list(APPEND tab5_sources "codex_read_ack.c")
+diff --git a/firmware/main/computer_remote.c b/firmware/main/computer_remote.c
+--- a/firmware/main/computer_remote.c
++++ b/firmware/main/computer_remote.c
+@@ -101,10 +101,10 @@
+         cover_confirmed=valid&&flag(body,"locked")&&flag(body,"lockScreenCover");
+         cover_display=valid&&flag(body,"locked")?display_value(body):-1;
+         state->display_state=cover_display;state->display_updated=started;
+-        state->busy=false;state->generation++;
++        state->busy=false;state->reading=false;state->generation++;
+         xSemaphoreGive(device_mutex);cJSON_Delete(reply);cJSON_Delete(request);free(job);vTaskDelete(NULL);return;
+     }
+-    state->status=status;state->ready=valid;state->busy=false;state->generation++;
++    state->status=status;state->ready=valid;state->busy=false;state->reading=false;state->generation++;
+     if(valid) {
+         state->display_state=display_value(body);state->display_updated=started;
+         state->one_click_unlock=flag(body,"oneClickUnlock");
+@@ -149,7 +149,7 @@
+     xSemaphoreTake(device_mutex,portMAX_DELAY);
+     if(!state_init()||state->busy){xSemaphoreGive(device_mutex);free(job);return false;}
+     strcpy(job->icon_revision,state->icon_revision);
+-    state->busy=true;state->generation++;xSemaphoreGive(device_mutex);
+-    if(xTaskCreate(run,"computer-control",6144,job,4,NULL)!=pdPASS){xSemaphoreTake(device_mutex,portMAX_DELAY);state->busy=false;state->ready=false;strcpy(state->message,"电脑控制暂时不可用，请重试");state->generation++;xSemaphoreGive(device_mutex);free(job);return false;}
++    state->busy=true;state->reading=!strcmp(operation,"status")||!strcmp(operation,"lock-screen");state->generation++;xSemaphoreGive(device_mutex);
++    if(xTaskCreate(run,"computer-control",6144,job,4,NULL)!=pdPASS){xSemaphoreTake(device_mutex,portMAX_DELAY);state->busy=false;state->reading=false;state->ready=false;strcpy(state->message,"电脑控制暂时不可用，请重试");state->generation++;xSemaphoreGive(device_mutex);free(job);return false;}
+     return true;
+ }
+diff --git a/firmware/main/computer_remote.h b/firmware/main/computer_remote.h
+--- a/firmware/main/computer_remote.h
++++ b/firmware/main/computer_remote.h
+@@ -8,7 +8,7 @@
+ } computer_launcher;
+ typedef struct {
+     bool lock_known,locked,one_click_unlock;
+-    bool busy,ready,volume_available,muted,can_lock,media_available,can_play_pause,can_previous,can_next,playing;
++    bool busy,reading,ready,volume_available,muted,can_lock,media_available,can_play_pause,can_previous,can_next,playing;
+     int volume,status,count,display_state;
+     int64_t updated;
+     int64_t lock_updated;
+diff --git a/firmware/main/host_unlock_remote.c b/firmware/main/host_unlock_remote.c
+--- /dev/null
++++ b/firmware/main/host_unlock_remote.c
+@@ -0,0 +1,130 @@
++#include "host_unlock_remote.h"
++#include "device.h"
++#include "rpc_link.h"
++#include "ble_keyboard.h"
++#include "esp_timer.h"
++#include <stdlib.h>
++#include <string.h>
++#include <stdio.h>
++
++typedef struct {
++    char id[37],session[40];link_kind link;unsigned host,connection;bool cancelled;
++} host_unlock_job;
++static host_unlock_job *host_unlock_active,host_unlock_binding;
++static host_unlock_state host_unlock_result;
++extern unsigned usb_keyboard_epoch(void);
++
++static unsigned host_unlock_connection(link_kind link){
++    if(link==LINK_USB)return usb_keyboard_epoch();
++    ble_keyboard_state state;ble_keyboard_get(&state);return state.connection;
++}
++static bool host_unlock_peer(link_kind link){
++    if(device_host_changing())return false;
++    if(link==LINK_USB)return tab5_usb_connected()&&device_host_usb_owned();
++    return link==LINK_BLE&&ble_connected&&ble_host_authorized();
++}
++// Caller holds device_mutex. Capability is read from the selected transport's
++// authenticated snapshot, never the last visible snapshot of another computer.
++static bool host_unlock_snapshot(link_kind link){
++    int64_t age=esp_timer_get_time()/1000-device_links.received_ms[link];
++    cJSON *health=cJSON_GetObjectItemCaseSensitive(device_snapshots[link],"connectionHealth");
++    cJSON *version=cJSON_GetObjectItemCaseSensitive(health,"hostUnlockVersion");
++    return (device_links.mode==-1||device_links.mode==link)&&device_links.session[link][0]&&
++        age>=0&&age<8000&&cJSON_IsNumber(version)&&version->valuedouble==1;
++}
++link_kind host_unlock_remote_link(void){
++    const link_kind order[]={LINK_USB,LINK_BLE};
++    for(unsigned i=0;i<2;i++){
++        link_kind link=order[i];if(!host_unlock_peer(link))continue;
++        xSemaphoreTake(device_mutex,portMAX_DELAY);bool ready=host_unlock_snapshot(link);
++        bool selected=device_links.mode==-1||device_links.mode==link;xSemaphoreGive(device_mutex);
++        if(ready)return link;
++        // An attached selected USB host does not fall through to a stale BLE
++        // capability. A later explicit click may choose a different connection.
++        if(selected)return LINK_NONE;
++    }
++    return LINK_NONE;
++}
++static bool host_unlock_same(const host_unlock_job *job){
++    if(!host_unlock_peer(job->link)||device_host_epoch()!=job->host||host_unlock_connection(job->link)!=job->connection)return false;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    bool same=host_unlock_snapshot(job->link)&&!strcmp(job->session,device_links.session[job->link]);
++    xSemaphoreGive(device_mutex);return same;
++}
++static bool host_unlock_valid(host_unlock_job *job){
++    if(!host_unlock_same(job))return false;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);bool valid=!job->cancelled;xSemaphoreGive(device_mutex);return valid;
++}
++void host_unlock_remote_get(host_unlock_state *out){
++    xSemaphoreTake(device_mutex,portMAX_DELAY);*out=host_unlock_result;host_unlock_job binding=host_unlock_binding;xSemaphoreGive(device_mutex);
++    out->current=binding.session[0]&&host_unlock_same(&binding);
++}
++void host_unlock_remote_cancel(void){
++    xSemaphoreTake(device_mutex,portMAX_DELAY);if(host_unlock_active)host_unlock_active->cancelled=true;xSemaphoreGive(device_mutex);
++}
++static const char *host_unlock_text(cJSON *root,const char *key){
++    const char *text=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root,key));return text?text:"";
++}
++static bool host_unlock_offer(const char *text){
++    if(strlen(text)!=32)return false;
++    for(size_t i=0;i<32;i++)if(!((text[i]>='0'&&text[i]<='9')||(text[i]>='a'&&text[i]<='f')))return false;
++    return true;
++}
++static cJSON *host_unlock_request(host_unlock_job *job,const char *op,const char *offer,int next){
++    cJSON *root=cJSON_CreateObject();if(!root)return NULL;
++    bool ok=cJSON_AddStringToObject(root,"kind","host-unlock")&&cJSON_AddStringToObject(root,"op",op)&&
++        cJSON_AddStringToObject(root,"requestId",job->id)&&cJSON_AddStringToObject(root,"session",job->session);
++    if(offer[0])ok=ok&&cJSON_AddStringToObject(root,"offer",offer);
++    if(!strcmp(op,"poll"))ok=ok&&cJSON_AddNumberToObject(root,"next",next);
++    if(!ok){cJSON_Delete(root);return NULL;}return root;
++}
++static void host_unlock_run(void *argument){
++    host_unlock_job *job=argument;char offer[33]={0},nonce[33];int error=1,status=0,next=0,stage=0;bool unlocked=false;
++    cJSON *request=NULL,*reply=NULL;int64_t until=esp_timer_get_time()/1000+40000;
++    while(esp_timer_get_time()/1000<until&&host_unlock_valid(job)){
++        request=host_unlock_request(job,offer[0]?"poll":"begin",offer,next);if(!request)break;
++        // Exactly one send per sequence, bounded to 2 seconds by rpc_link.c.
++        reply=rpc_call(job->link,request,&status,nonce);cJSON_Delete(request);request=NULL;
++        if(!host_unlock_valid(job)||esp_timer_get_time()/1000>=until)break;
++        if(status!=200||!cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"ok"))){
++            error=!strcmp(host_unlock_text(reply,"error"),"host_unlock_disabled")?4:2;break;
++        }
++        if(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"unlocked"))){
++            // A begin must first establish an offer. Only a subsequent poll
++            // can confirm the result of this exact request.
++            if(offer[0]&&!strcmp(host_unlock_text(reply,"stage"),"unlocked")){unlocked=true;error=0;}
++            else error=2;
++            break;
++        }
++        const char *received=host_unlock_text(reply,"offer");cJSON *number=cJSON_GetObjectItemCaseSensitive(reply,"next");
++        if(!host_unlock_offer(received)||(offer[0]&&strcmp(received,offer))||!cJSON_IsNumber(number)||
++            number->valuedouble!=(double)next+(offer[0]?1:0)){error=2;break;}
++        memcpy(offer,received,33);next=number->valueint;stage=!strcmp(host_unlock_text(reply,"stage"),"preparing")?0:1;
++        xSemaphoreTake(device_mutex,portMAX_DELAY);host_unlock_result.stage=stage;xSemaphoreGive(device_mutex);
++        cJSON_Delete(reply);reply=NULL;vTaskDelay(pdMS_TO_TICKS(100));
++    }
++    // Cancel is best-effort on the SAME binding even after UI cancellation.
++    // A lost link expires the Mac lease; never send cleanup to a new host.
++    if(offer[0]&&host_unlock_same(job)){
++        request=host_unlock_request(job,"cancel",offer,0);
++        if(request){cJSON *ack=rpc_call(job->link,request,&status,nonce);cJSON_Delete(ack);cJSON_Delete(request);request=NULL;}
++    }
++    cJSON_Delete(request);cJSON_Delete(reply);
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    if(job->cancelled){unlocked=false;error=1;}
++    host_unlock_active=NULL;host_unlock_result=(host_unlock_state){.finished=true,.unlocked=unlocked,.error=error,.stage=stage};
++    xSemaphoreGive(device_mutex);free(job);vTaskDelete(NULL);
++}
++bool host_unlock_remote_start(const char *id,link_kind link){
++    if(!id||strlen(id)!=36||(link!=LINK_USB&&link!=LINK_BLE)||!host_unlock_peer(link))return false;
++    host_unlock_job *job=calloc(1,sizeof(*job));if(!job)return false;
++    snprintf(job->id,sizeof(job->id),"%s",id);job->link=link;job->host=device_host_epoch();job->connection=host_unlock_connection(link);
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    if(host_unlock_active||!host_unlock_snapshot(link)){xSemaphoreGive(device_mutex);free(job);return false;}
++    snprintf(job->session,sizeof(job->session),"%s",device_links.session[link]);
++    host_unlock_binding=*job;host_unlock_active=job;host_unlock_result=(host_unlock_state){.busy=true};xSemaphoreGive(device_mutex);
++    if(xTaskCreate(host_unlock_run,"host-unlock",6144,job,4,NULL)!=pdPASS){
++        xSemaphoreTake(device_mutex,portMAX_DELAY);host_unlock_active=NULL;host_unlock_result=(host_unlock_state){.finished=true,.error=2};xSemaphoreGive(device_mutex);free(job);return false;
++    }
++    return true;
++}
+diff --git a/firmware/main/host_unlock_remote.h b/firmware/main/host_unlock_remote.h
+--- /dev/null
++++ b/firmware/main/host_unlock_remote.h
+@@ -0,0 +1,9 @@
++#pragma once
++#include "link_state.h"
++#include <stdbool.h>
++typedef struct {bool busy,finished,unlocked,current;int error,stage;} host_unlock_state;
++// Mac host-side intent only. No PIN, HID report, HTTP or transport fallback.
++link_kind host_unlock_remote_link(void);
++bool host_unlock_remote_start(const char *request_id,link_kind link);
++void host_unlock_remote_cancel(void);
++void host_unlock_remote_get(host_unlock_state *out);
+diff --git a/firmware/main/photo_upload_retry.h b/firmware/main/photo_upload_retry.h
+--- /dev/null
++++ b/firmware/main/photo_upload_retry.h
+@@ -0,0 +1,35 @@
++// Reconstructed independently from AI-bot main's documented imageChunkRetry
++// contract and photo_upload_chunks_test.c; the archived header was missing.
++#pragma once
++
++#define PHOTO_BLE_RETRIES 1
++#define PHOTO_BLE_RECOVERY_MS 20000
++
++static bool photo_ble_current(unsigned host, int mode, const char *session) {
++    if (!session || !session[0] || device_host_changing() ||
++        host != device_host_epoch() || mode != device_get_config().mode) return false;
++    xSemaphoreTake(device_mutex, portMAX_DELAY);
++    bool same = !strcmp(device_links.session[LINK_BLE], session);
++    xSemaphoreGive(device_mutex);
++    return same && !device_host_changing() && host == device_host_epoch();
++}
++
++static bool photo_ble_retry_supported(void) {
++    xSemaphoreTake(device_mutex, portMAX_DELAY);
++    cJSON *cap = cJSON_GetObjectItemCaseSensitive(device_snapshots[LINK_BLE], "imageChunkRetry");
++    bool supported = cJSON_IsNumber(cap) && cap->valuedouble == 1;
++    xSemaphoreGive(device_mutex);
++    return supported;
++}
++
++static bool photo_ble_wait(unsigned host, int mode, const char *session) {
++    int64_t until = esp_timer_get_time() / 1000 + PHOTO_BLE_RECOVERY_MS;
++    while (photo_ble_current(host, mode, session)) {
++        if (esp_timer_get_time() / 1000 >= until) break;
++        if (ble_connected && ble_host_authorized() &&
++            rpc_image_link_select(session) == LINK_BLE &&
++            photo_ble_current(host, mode, session)) return true;
++        vTaskDelay(pdMS_TO_TICKS(50));
++    }
++    return false;
++}
+diff --git a/firmware/main/rpc_link.c b/firmware/main/rpc_link.c
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -314,8 +314,14 @@
+     bool ok=cJSON_IsNumber(version)&&version->valuedouble==1;
+     xSemaphoreGive(device_mutex);return ok;
+ }
++// Admission waits before publishing a nonce; it never replays a request.
++// Local unlock leases share the mailbox with already-running status reads.
++static unsigned rpc_exchange_admission(const char *kind) {
++    return kind&&(!strcmp(kind,"unlock-pin")||!strcmp(kind,"host-unlock"))?1000:0;
++}
+ static unsigned rpc_exchange_timeout(const char *kind,bool ota_probe) {
+     if(ota_probe)return 5000;
++    if(kind&&!strcmp(kind,"host-unlock"))return 2000;
+     if(kind&&(!strcmp(kind,"boot-verify")||!strcmp(kind,"runtime-diagnostics")))return 2000;
+     if(kind&&!strcmp(kind,"gallery"))return 8000;
+     if(kind&&(!strcmp(kind,"ota")||!strcmp(kind,"ota_probe")))return 10000;
+@@ -405,7 +411,7 @@
+         gallery_profiles.calls++;
+         free(packet);return result;
+     }
+-    unsigned admission_ms=kind&&!strcmp(kind,"unlock-pin")?1000:0;
++    unsigned admission_ms=rpc_exchange_admission(kind);
+     // Photo ranges are immutable and idempotent; bound a stalled BLE chunk
+     // separately from general commands so connection recovery can run promptly.
+     unsigned timeout_ms=link==LINK_BLE&&kind&&!strcmp(kind,"image-chunk")?15000:rpc_exchange_timeout(kind,ota_probe);
+diff --git a/firmware/main/ui_computer.h b/firmware/main/ui_computer.h
+--- a/firmware/main/ui_computer.h
++++ b/firmware/main/ui_computer.h
+@@ -33,6 +33,29 @@
+ static uint8_t (*computer_launch_pixels)[32*32*4];
+ static int64_t computer_poll_at,computer_message_until;
+ static bool computer_adjusting;
++static char computer_action_notice[160];
++typedef struct {
++    bool active,unlock;link_kind link;int mode;unsigned host,connection,generation;
++    int64_t until,lock_updated;char session[40];
++} computer_click_intent;
++static computer_click_intent computer_pending_click;
++// Bind a delayed explicit tap to the same selected peer, session and connection.
++static bool computer_click_binding(computer_click_intent *out) {
++    out->link=rpc_link_select();if(out->link==LINK_NONE)return false;
++    out->host=device_host_epoch();
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    out->mode=device_links.mode;snprintf(out->session,sizeof(out->session),"%s",device_links.session[out->link]);
++    xSemaphoreGive(device_mutex);
++    if(out->link==LINK_WIFI)out->connection=unlock_remote_connection();
++    else {ble_keyboard_state keyboard;if(out->link==LINK_USB)usb_keyboard_get(&keyboard);else ble_keyboard_get(&keyboard);out->connection=keyboard.connection;}
++    return out->session[0]&&out->host==device_host_epoch();
++}
++static void computer_notice(const char *text) {
++    snprintf(computer_action_notice,sizeof(computer_action_notice),"%s",text);
++    computer_message_until=esp_timer_get_time()/1000+3500;
++    if(computer_status)ui_text(computer_status,text);
++}
++
+ static int8_t computer_launch_layout[4]={-1,-1,-1,-1};
+ static int computer_music_layout_width=-1,computer_music_layout_x=-1;
+ static bool computer_supported(void){return num(item(shown,"connectionHealth"),"computerControlVersion")==1;}
+@@ -43,18 +66,49 @@
+ static void computer_action(const char *op,int value,const char *target) {
+     if(!computer_usable())return;
+     char id[37];codex_uuid(id);
+-    if(computer_remote_start(id,op,value,target)){computer_poll_at=esp_timer_get_time()/1000;computer_message_until=computer_poll_at+3500;}
++    if(computer_remote_start(id,op,value,target)){
++        int64_t now=esp_timer_get_time()/1000;bool locking=!strcmp(op,"lock");
++        computer_action_notice[0]=0;computer_poll_at=locking?now-2001:now;computer_message_until=locking?0:now+3500;
++    }
+     else {ui_text(computer_status,"操作未开始，请稍后重试");computer_message_until=esp_timer_get_time()/1000+3500;}
++}
++static void computer_lock_now(void) {
++    if(computer_view->lock_known&&computer_view->locked) {
++        if(host_unlock_remote_link()==LINK_NONE&&unlock_remote_wifi_only()&&num(item(shown,"connectionHealth"),"wifiUnlockVersion")!=1)computer_notice("请先在电脑设置 Wi-Fi 一键解锁");
++        else unlock_open();
++    } else if(computer_view->can_lock&&!computer_view->locked)computer_action("lock",0,NULL);
++}
++static void computer_pending_refresh(int64_t now) {
++    if(!computer_pending_click.active)return;
++    computer_click_intent current={0},pending=computer_pending_click;
++    bool same=current_page==14&&now<pending.until&&computer_connected()&&computer_click_binding(&current)&&
++        current.host==pending.host&&current.link==pending.link&&current.mode==pending.mode&&
++        current.connection==pending.connection&&!strcmp(current.session,pending.session);
++    if(!same){computer_pending_click.active=false;computer_notice("连接或页面已变化，操作未发送");return;}
++    if(computer_view->busy)return;
++    computer_pending_click.active=false; // Consume before any effect; never retry.
++    if(!computer_ready()||!computer_view->lock_known||computer_view->locked!=pending.unlock||
++       computer_view->generation==pending.generation||computer_view->lock_updated<=pending.lock_updated){
++        computer_notice("电脑状态未确认或已变化，操作未发送");return;
++    }
++    computer_action_notice[0]=0;computer_message_until=0;computer_lock_now();
+ }
+ static void computer_click(lv_event_t *event) {
+     if(!computer_view)return;
+     int action=(int)(intptr_t)lv_event_get_user_data(event);
+     if(action==0&&computer_view->volume_available)computer_action("mute",!computer_view->muted,NULL);
+-    else if(action==1&&computer_usable()&&computer_view->lock_known&&computer_view->locked){
+-        if(unlock_remote_wifi_only()&&num(item(shown,"connectionHealth"),"wifiUnlockVersion")!=1){ui_text(computer_status,"请先在电脑设置 Wi-Fi 一键解锁");computer_message_until=esp_timer_get_time()/1000+3500;}
+-        else unlock_open();
+-    }
+-    else if(action==1&&computer_view->can_lock&&!computer_view->locked)computer_action("lock",0,NULL);
++    else if(action==1) {
++        // The last UI frame may have started a read after copying its snapshot.
++        computer_remote_get(computer_view);if(!computer_ready())return;
++        if(computer_pending_click.active||unlock_overlay)return;
++        if(!computer_view->busy){computer_lock_now();return;}
++        computer_click_intent pending={0};
++        if(computer_view->reading&&computer_view->lock_known&&computer_click_binding(&pending)){
++            pending.active=true;pending.unlock=computer_view->locked;pending.generation=computer_view->generation;
++            pending.lock_updated=computer_view->lock_updated;pending.until=esp_timer_get_time()/1000+3000;
++            computer_pending_click=pending;
++        }else computer_notice("操作正在进行，请稍候");
++    }
+     else if(action>=10&&action<10+computer_view->count)computer_action("launch",0,computer_view->launchers[action-10].id);
+     else if(action==20&&computer_view->can_previous)computer_action("media",0,"previous");
+     else if(action==21&&computer_view->can_play_pause)computer_action("media",0,"play-pause");
+@@ -81,6 +135,7 @@
+     unlock_refresh();
+     if(!computer_status||!computer_view||!computer_launch_pixels)return;
+     computer_remote_get(computer_view);int64_t now=esp_timer_get_time()/1000;
++    if(computer_pending_click.active){computer_pending_refresh(now);computer_remote_get(computer_view);}
+     // Disabled controls do not receive LVGL RELEASED. Cancel abandoned drags
+     // without input, including when navigating away from this page.
+     if(computer_adjusting&&(current_page!=14||!gesture_active()))computer_adjusting=false;
+@@ -92,13 +147,16 @@
+     tint(computer_volume_icon,usable&&computer_view->volume_available?BLUE:MUTED);
+     bool locked=computer_view->lock_known&&computer_view->locked;
+     bool can_unlock=locked;
+-    computer_enable(computer_lock,usable&&(can_unlock||(computer_view->can_lock&&!locked)));
++    computer_enable(computer_lock,usable&&(!computer_view->busy||computer_view->reading)&&(can_unlock||(computer_view->can_lock&&!locked)));
+     ui_text(lv_obj_get_child(computer_lock,0),locked?(can_unlock?"解锁":"已锁屏"):"锁屏");
+     uint32_t lock_color=usable&&(computer_view->can_lock||computer_view->locked)?BLUE:MUTED;
+     ui_border_color(lv_obj_get_child(computer_lock,1),lv_color_hex(lock_color),0);
+     ui_bg_color(lv_obj_get_child(computer_lock,2),lv_color_hex(lock_color),0);
+     ui_text(lv_obj_get_child(computer_mute,0),computer_view->muted?"取消静音":"静音");
+     const char *status=!computer_connected()?"连接电脑后即可使用":!computer_supported()?"请更新 Windows 桥接以使用电脑控制":computer_view->ready&&!usable?"正在读取电脑状态…":!computer_view->ready&&computer_view->busy?"正在读取电脑状态…":computer_view->message[0]?computer_view->message:computer_view->ready?"电脑已连接":"正在读取电脑状态…";
++    if(computer_pending_click.active)status=computer_pending_click.unlock?"正在读取状态，随后解锁…":"正在读取状态，随后锁屏…";
++    else if(computer_view->busy&&!computer_view->reading)status="操作正在进行，请稍候";
++    else if(now<computer_message_until&&computer_action_notice[0])status=computer_action_notice;
+     char lock_status[224];
+     if(usable&&computer_view->lock_known){snprintf(lock_status,sizeof(lock_status),"%s · %s",status,computer_view->locked?"已锁屏":"未锁屏");status=lock_status;}
+     ui_text(computer_status,status);
+@@ -140,7 +198,10 @@
+     int poll_interval=confirming_unlock?500:2000;
+     // Status polls never overwrite a held slider or submit a command. Keeping
+     // them running prevents a stale drag from permanently disabling controls.
+-    if((current_page==14||current_page==5||unlock_history_pending())&&computer_connected()&&computer_supported()&&!computer_view->busy&&(confirming_unlock||now>=computer_message_until)&&now-computer_poll_at>=poll_interval) {
++    host_unlock_state local_unlock;host_unlock_remote_get(&local_unlock);
++    // The active host-side unlock renews a short lease on this same mailbox.
++    // Resume status polling after completion for independent desktop confirmation.
++    if(!computer_pending_click.active&&!local_unlock.busy&&(current_page==14||current_page==5||unlock_history_pending())&&computer_connected()&&computer_supported()&&!computer_view->busy&&(confirming_unlock||now>=computer_message_until)&&now-computer_poll_at>=poll_interval) {
+         char id[37];codex_uuid(id);computer_poll_at=now;computer_remote_start(id,"status",0,NULL);
+     }
+ }
+diff --git a/firmware/main/ui_unlock.h b/firmware/main/ui_unlock.h
+--- a/firmware/main/ui_unlock.h
++++ b/firmware/main/ui_unlock.h
+@@ -47,7 +47,18 @@
+ void unlock_remote_cancel(void){if(preview_wifi_unlock.busy)preview_wifi_cancels++;preview_wifi_unlock.busy=false;}
+ bool unlock_remote_start(const char *id,unsigned connection){if(!id||!preview_wifi_only||connection!=preview_wifi_connection||preview_wifi_unlock.busy)return false;preview_wifi_requests++;preview_wifi_unlock=(unlock_remote_state){.busy=true};return true;}
+ #endif
+-static bool unlock_wifi;
++#include "host_unlock_remote.h"
++#ifdef TAB5_UI_PREVIEW
++static link_kind preview_host_link=LINK_NONE;
++static host_unlock_state preview_host_unlock;
++static unsigned preview_host_requests,preview_host_cancels;
++link_kind host_unlock_remote_link(void){return preview_host_link;}
++bool host_unlock_remote_start(const char *id,link_kind link){if(!id||link!=preview_host_link||preview_host_unlock.busy)return false;preview_host_requests++;preview_host_unlock=(host_unlock_state){.busy=true,.current=true};return true;}
++void host_unlock_remote_cancel(void){if(preview_host_unlock.busy)preview_host_cancels++;preview_host_unlock.busy=false;}
++void host_unlock_remote_get(host_unlock_state *out){*out=preview_host_unlock;}
++#endif
++static bool unlock_wifi,unlock_host;
++static link_kind unlock_host_link;
+ static bool unlock_auto,unlock_auto_requested,unlock_auto_consumed,unlock_auto_failed;
+ static lv_obj_t *unlock_overlay,*unlock_mask,*unlock_hint,*unlock_confirm,*unlock_close_button,*unlock_keys[12];
+ static lv_obj_t *unlock_panel,*unlock_title,*unlock_status_face,*unlock_status_symbol,*unlock_spinner;
+@@ -85,14 +96,15 @@
+     bool locked=false,fresh=computer_remote_lock_state(&locked,&updated);
+     ble_keyboard_state s;unlock_keyboard_get(&s);unsigned op=0;int status=0;
+     computer_remote_diagnostic(&op,&status,&rpc_started);
+-    unsigned missing=unlock_wifi?(!unlock_remote_wifi_only()?1u:0u)|(unlock_remote_connection()!=unlock_connection?32u:0u):
++    host_unlock_state host={0};if(unlock_host)host_unlock_remote_get(&host);
++    unsigned missing=unlock_host?(!host.current?1u:0u):unlock_wifi?(!unlock_remote_wifi_only()?1u:0u)|(unlock_remote_connection()!=unlock_connection?32u:0u):
+         (!s.connected?1u:0u)|(!s.secure?2u:0u)|(!s.subscribed?4u:0u)|(!s.bridge_verified?8u:0u)|
+         (!s.ready?16u:0u)|(s.connection!=unlock_connection?32u:0u)|(s.busy?256u:0u);
+     missing|=(!fresh?64u:0u)|(!locked?128u:0u);
+     unlock_remote_state wifi={0};if(unlock_wifi)unlock_remote_get(&wifi);
+-    unsigned phase=unlock_wifi?(wifi.stage?5u:1u):(unsigned)(unlock_preparing&7);
++    unsigned phase=unlock_host?(host.stage?5u:1u):unlock_wifi?(wifi.stage?5u:1u):(unsigned)(unlock_preparing&7);
+     unsigned flags=(unlock_wifi?2u:unlock_using_usb?0u:1u)|(outcome<<2)|((reason&31u)<<4)|
+-        (phase<<9)|(unlock_auto?1u<<12:0u)|(!unlock_wifi&&unlock_sent?1u<<13:0u)|
++        (phase<<9)|(unlock_auto?1u<<12:0u)|(!unlock_wifi&&!unlock_host&&unlock_sent?1u<<13:0u)|
+         (fresh?1u<<14:0u)|(locked?1u<<15:0u)|(missing<<16);
+     unsigned words[UNLOCK_HISTORY_WORDS]={0,flags,(unsigned)now,(unsigned)(now-unlock_started),
+         updated>0&&now>=updated?(unsigned)(now-updated):UINT32_MAX,
+@@ -104,7 +116,7 @@
+ }
+ static void unlock_record_failure(unsigned reason) {
+     unlock_record_history(2,reason);
+-    if(unlock_failure_recorded||unlock_pairing_mode||unlock_wifi)return;
++    if(unlock_failure_recorded||unlock_pairing_mode||unlock_wifi||unlock_host)return;
+     ble_keyboard_state s;unlock_keyboard_get(&s);bool locked=false;int64_t updated=0;
+     bool fresh=computer_remote_lock_state(&locked,&updated);
+     unsigned missing=(!s.connected?1u:0u)|(!s.secure?2u:0u)|(!s.subscribed?4u:0u)|
+@@ -115,7 +127,7 @@
+     unlock_failure_record(packed,(unsigned)(esp_timer_get_time()/1000));unlock_failure_recorded=true;
+ }
+ static void unlock_clear(void){volatile char *p=unlock_pin;for(size_t i=0;i<sizeof(unlock_pin);i++)p[i]=0;unlock_length=0;}
+-static void unlock_close(void){if(unlock_overlay)unlock_record_history(3,0);unlock_success_until=0;oneclick_cancel();atomic_store(&tab5_unlock_diagnostic,0u);if(unlock_pairing_mode)ble_keyboard_pair_confirm(false);if(unlock_wifi)unlock_remote_cancel();else unlock_keyboard_cancel();unlock_clear();unlock_preparing=0;unlock_submit_pending=false;unlock_cover_request[0]=0;if(unlock_overlay)lv_obj_delete(unlock_overlay);unlock_overlay=NULL;}
++static void unlock_close(void){if(unlock_overlay)unlock_record_history(3,0);unlock_success_until=0;oneclick_cancel();atomic_store(&tab5_unlock_diagnostic,0u);if(unlock_pairing_mode)ble_keyboard_pair_confirm(false);if(unlock_host)host_unlock_remote_cancel();else if(unlock_wifi)unlock_remote_cancel();else unlock_keyboard_cancel();unlock_clear();unlock_preparing=0;unlock_submit_pending=false;unlock_cover_request[0]=0;if(unlock_overlay)lv_obj_delete(unlock_overlay);unlock_overlay=NULL;}
+ static void unlock_enable(lv_obj_t *object,bool enabled){if(enabled)lv_obj_remove_state(object,LV_STATE_DISABLED);else lv_obj_add_state(object,LV_STATE_DISABLED);}
+ static void unlock_show_mask(void){char mask[21];size_t n=unlock_length<20?unlock_length:20;memset(mask,'*',n);mask[n]=0;ui_text(unlock_mask,n?mask:"PIN");}
+ static void unlock_spin(bool active){
+@@ -153,7 +165,7 @@
+ }
+ static void unlock_success(int64_t now){
+     unlock_record_history(1,0);
+-    oneclick_cancel();if(unlock_wifi)unlock_remote_cancel();else unlock_keyboard_cancel();unlock_clear();unlock_show_mask();
++    oneclick_cancel();if(unlock_host)host_unlock_remote_cancel();else if(unlock_wifi)unlock_remote_cancel();else unlock_keyboard_cancel();unlock_clear();unlock_show_mask();
+     unlock_preparing=0;unlock_submit_pending=false;unlock_prepared=false;
+     unlock_enable(unlock_confirm,false);for(int i=0;i<12;i++)unlock_enable(unlock_keys[i],false);
+     unlock_status_layout(true);unlock_spin(false);visible(unlock_status_face,true);
+@@ -161,7 +173,7 @@
+     ui_text(unlock_hint,"电脑已解锁");
+     unlock_success_until=now+500; // UI refresh timer; never block the input/display task.
+ }
+-static void unlock_fail(int reason){unlock_record_failure((unsigned)reason);oneclick_cancel();if(unlock_wifi)unlock_remote_cancel();else unlock_keyboard_cancel();unlock_clear();unlock_show_mask();unlock_preparing=0;unlock_submit_pending=false;unlock_prepared=false;unlock_prepare_failed=true;unlock_failure=reason;if(unlock_auto)unlock_auto_failed=true;}
++static void unlock_fail(int reason){unlock_record_failure((unsigned)reason);oneclick_cancel();if(unlock_host)host_unlock_remote_cancel();else if(unlock_wifi)unlock_remote_cancel();else unlock_keyboard_cancel();unlock_clear();unlock_show_mask();unlock_preparing=0;unlock_submit_pending=false;unlock_prepared=false;unlock_prepare_failed=true;unlock_failure=reason;if(unlock_auto)unlock_auto_failed=true;}
+ static void unlock_wait(int64_t now){unlock_preparing=4;unlock_prepare_until=now+200;}
+ static void unlock_observation_reset(void){unlock_ready_samples=0;unlock_ready_since=unlock_ready_at=0;}
+ // Only called once per completed request-bound reply, never by an idle UI tick.
+@@ -204,6 +216,17 @@
+     if(unlock_pairing_mode) {
+         if(!state.pairing){unlock_close();return;}
+         char code[16];snprintf(code,sizeof(code),"%06lu",(unsigned long)state.comparison);ui_text(unlock_mask,state.repair_pairing?"PAIR":code);return;
++    }
++    if(unlock_host){
++        host_unlock_state host;host_unlock_remote_get(&host);
++        bool locked=false;int64_t updated=0;bool fresh=computer_remote_lock_state(&locked,&updated);
++        if(!host.current){host_unlock_remote_cancel();unlock_auto_failed=true;}
++        if(!unlock_auto_failed&&host.finished&&host.unlocked&&fresh&&!locked&&updated>unlock_submitted_at){unlock_success(now);return;}
++        bool failed=unlock_auto_failed||(host.finished&&host.error!=0)||(now-unlock_submitted_at>=40000);
++        if(failed){host_unlock_remote_cancel();unlock_auto_failed=true;unlock_record_failure(!host.current?3:host.error==4?19:20);}
++        unlock_status(failed?(host.error==4?"请在 Mac 开启 USB／蓝牙解锁":"解锁未完成\n请关闭面板后重试"):
++            host.stage==0&&host.busy?"正在准备，请稍候":"正在解锁，请稍候",failed);
++        return;
+     }
+     if(unlock_wifi){
+         unlock_remote_state wifi;unlock_remote_get(&wifi);
+@@ -302,7 +325,7 @@
+     for(int i=0;i<12;i++)unlock_enable(unlock_keys[i],editable);
+     unlock_enable(unlock_text_keys,editable);unlock_enable(unlock_mode_button,editable);
+     if(!ready&&!unlock_preparing){
+-        unlock_clear();unlock_show_mask();if(unlock_wifi)unlock_remote_cancel();else unlock_keyboard_cancel();unlock_submit_pending=false;
++        unlock_clear();unlock_show_mask();if(unlock_host)host_unlock_remote_cancel();else if(unlock_wifi)unlock_remote_cancel();else unlock_keyboard_cancel();unlock_submit_pending=false;
+         // A transient HID/status gap gates every local tap, but must not erase
+         // completed preparation forever on the same secure, locked peer.
+         // Explicit confirmation always obtains NEW display evidence before HID.
+@@ -370,6 +393,12 @@
+ static void unlock_open_mode(bool pairing) {
+     if(unlock_overlay)return;
+-    unlock_keyboard_select(pairing);unlock_wifi=!pairing&&unlock_remote_wifi_only()&&num(item(shown,"connectionHealth"),"wifiUnlockVersion")==1;oneclick_cancel();unlock_auto=unlock_wifi||(!pairing&&computer_remote_oneclick_enabled());unlock_auto_requested=unlock_auto_consumed=unlock_auto_failed=false;
++    unlock_keyboard_select(pairing);
++    bool wifi_ready=!pairing&&unlock_remote_wifi_only()&&num(item(shown,"connectionHealth"),"wifiUnlockVersion")==1;
++    unlock_host_link=pairing?LINK_NONE:host_unlock_remote_link();
++    // Auto mode retains USB > Wi-Fi > BLE; explicit BLE makes wifi_ready false.
++    if(unlock_host_link==LINK_BLE&&wifi_ready)unlock_host_link=LINK_NONE;
++    unlock_host=unlock_host_link!=LINK_NONE;if(unlock_host)unlock_using_usb=unlock_host_link==LINK_USB;
++    unlock_wifi=!unlock_host&&wifi_ready;oneclick_cancel();unlock_auto=unlock_host||unlock_wifi||(!pairing&&computer_remote_oneclick_enabled());unlock_auto_requested=unlock_auto_consumed=unlock_auto_failed=false;
+     unlock_attempt++;unlock_failure_recorded=false;unlock_history_recorded=false;unlock_started=esp_timer_get_time()/1000;unlock_input_at=0;
+     ble_keyboard_state state;unlock_keyboard_get(&state);unlock_connection=unlock_wifi?unlock_remote_connection():state.connection;
+     bool locked=false;int64_t updated=0;
+@@ -377,7 +406,10 @@
+     unlock_clear();unlock_success_until=0;unlock_sent=false;unlock_pairing_mode=pairing;unlock_deadline=esp_timer_get_time()/1000+(pairing?30000:60000);
+     unlock_preparing=0;unlock_woke=false;unlock_cover_request[0]=0;
+     unlock_prepared=false;unlock_prepare_failed=false;unlock_submit_pending=false;
+-    if(unlock_wifi){
++    if(unlock_host){
++        char id[37];codex_uuid(id);unlock_submitted_at=esp_timer_get_time()/1000;unlock_sent=true;
++        if(!host_unlock_remote_start(id,unlock_host_link))unlock_auto_failed=true;
++    }else if(unlock_wifi){
+         char id[37];codex_uuid(id);unlock_submitted_at=esp_timer_get_time()/1000;unlock_sent=true;
+         if(!unlock_remote_start(id,unlock_connection))unlock_auto_failed=true;
+     }else if(!pairing)unlock_prepare(esp_timer_get_time()/1000,true);
+diff --git a/scripts/build-macos.sh b/scripts/build-macos.sh
+--- /dev/null
++++ b/scripts/build-macos.sh
+@@ -0,0 +1,36 @@
++#!/usr/bin/env bash
++# Native counterpart to build.ps1: same pinned patches and task-local resource budget.
++set -euo pipefail
++if [[ $(uname -s) != Darwin ]]; then echo 'This wrapper requires macOS' >&2; exit 1; fi
++if [[ ${1:-} != --resource-scope ]]; then
++    exec /usr/bin/nice -n 10 /usr/sbin/taskpolicy -b /bin/bash "$0" --resource-scope "$@"
++fi
++shift
++if [[ $# != 3 ]]; then echo 'Usage: build-macos.sh <IDF checkout> <IDF tools> <local candidate version>' >&2; exit 1; fi
++export IDF_PATH=$(cd "$1" && pwd -P)
++export IDF_TOOLS_PATH=$(cd "$2" && pwd -P)
++tab5_version=$3
++if [[ ! "$tab5_version" =~ ^0\.2\.(0|[1-9][0-9]*)-ui$ ]]; then
++    echo 'Use canonical 0.2.N-ui: bridge capability checks require a numeric patch version' >&2; exit 1
++fi
++tab5_root=$(cd "$(dirname "$0")/.." && pwd -P)
++if [[ $(git -C "$IDF_PATH" rev-parse HEAD) != f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0 ]]; then
++    echo 'Expected the archived ESP-IDF v5.4.2 revision' >&2; exit 1
++fi
++export CMAKE_BUILD_PARALLEL_LEVEL=2
++# Background scheduling plus two shared compile/link slots is local to this
++# process tree. macOS has no supported per-process physical-core affinity mask.
++source "$IDF_PATH/export.sh" >/dev/null
++for patch in display-diagnostics nvs-blob-safety usb-gpio-routing jpeg-dma-memory camera-dma-memory; do
++    python "$tab5_root/scripts/apply-$patch.py" "$IDF_PATH"
++done
++tab5_args=(-C "$tab5_root/firmware" -B "$tab5_root/firmware/build-macos"
++    -D TAB5_USB_HID=ON -D TAB5_LOCAL_ART=ON -D "TAB5_LOCAL_VERSION=$tab5_version"
++    -D CMAKE_JOB_POOLS=tab5_build=2 -D CMAKE_JOB_POOL_COMPILE=tab5_build -D CMAKE_JOB_POOL_LINK=tab5_build)
++python "$IDF_PATH/tools/idf.py" "${tab5_args[@]}" reconfigure
++for patch in hosted-sdio-memory hosted-rx-memory hosted-tx-memory; do
++    python "$tab5_root/scripts/apply-$patch.py" "$tab5_root/firmware"
++done
++python "$tab5_root/scripts/apply-ble-tx-safety.py" "$IDF_PATH" "$tab5_root/firmware"
++python "$tab5_root/scripts/apply-lvgl-render-cache.py" "$tab5_root/firmware"
++python "$IDF_PATH/tools/idf.py" "${tab5_args[@]}" build
+diff --git a/tests/host-unlock-stubs/ble_keyboard.h b/tests/host-unlock-stubs/ble_keyboard.h
+--- /dev/null
++++ b/tests/host-unlock-stubs/ble_keyboard.h
+@@ -0,0 +1,3 @@
++#pragma once
++typedef struct {unsigned connection;} ble_keyboard_state;
++void ble_keyboard_get(ble_keyboard_state *state);
+diff --git a/tests/host-unlock-stubs/device.h b/tests/host-unlock-stubs/device.h
+--- /dev/null
++++ b/tests/host-unlock-stubs/device.h
+@@ -0,0 +1,21 @@
++#pragma once
++#include "link_state.h"
++#include "cJSON.h"
++#include <stdbool.h>
++extern int device_mutex;
++extern bool ble_connected;
++extern link_state device_links;
++extern cJSON *device_snapshots[3];
++unsigned device_host_epoch(void);
++bool device_host_changing(void);
++bool device_host_usb_owned(void);
++bool tab5_usb_connected(void);
++bool ble_host_authorized(void);
++#define portMAX_DELAY 0
++#define pdPASS 1
++#define pdMS_TO_TICKS(x) (x)
++void xSemaphoreTake(int mutex,int timeout);
++void xSemaphoreGive(int mutex);
++int xTaskCreate(void (*run)(void *),const char *name,int stack,void *arg,int priority,void *handle);
++void vTaskDelay(unsigned ms);
++void vTaskDelete(void *handle);
+diff --git a/tests/host-unlock-stubs/esp_timer.h b/tests/host-unlock-stubs/esp_timer.h
+--- /dev/null
++++ b/tests/host-unlock-stubs/esp_timer.h
+@@ -0,0 +1,3 @@
++#pragma once
++#include <stdint.h>
++int64_t esp_timer_get_time(void);
+diff --git a/tests/host-unlock-stubs/link_state.h b/tests/host-unlock-stubs/link_state.h
+--- /dev/null
++++ b/tests/host-unlock-stubs/link_state.h
+@@ -0,0 +1,4 @@
++#pragma once
++#include <stdint.h>
++typedef enum {LINK_NONE=-1,LINK_USB=0,LINK_WIFI=1,LINK_BLE=2} link_kind;
++typedef struct {int mode;char session[3][40];int64_t received_ms[3];} link_state;
+diff --git a/tests/host-unlock-stubs/rpc_link.h b/tests/host-unlock-stubs/rpc_link.h
+--- /dev/null
++++ b/tests/host-unlock-stubs/rpc_link.h
+@@ -0,0 +1,4 @@
++#pragma once
++#include "link_state.h"
++#include "cJSON.h"
++cJSON *rpc_call(link_kind link,cJSON *request,int *status,char nonce[33]);
+diff --git a/tests/host_unlock_remote_test.c b/tests/host_unlock_remote_test.c
+--- /dev/null
++++ b/tests/host_unlock_remote_test.c
+@@ -0,0 +1,109 @@
++#include "device.h"
++#include "ble_keyboard.h"
++#include "host_unlock_remote.h"
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++
++int device_mutex;
++bool ble_connected;
++link_state device_links;
++cJSON *device_snapshots[3];
++static bool usb,owned,authorized,changing,task_failure;
++static unsigned owner=1,usb_epoch=1,ble_epoch=1,requests,cancels,checks;
++static int64_t now=1000;
++static void (*worker)(void *);static void *argument;
++static link_kind expected_link;
++static int scenario;
++enum {SUCCESS,HOST_CHANGE,USB_CHANGE,BLE_CHANGE,SESSION_CHANGE,MODE_CHANGE,DISABLED,
++      BAD_SEQUENCE,BAD_OFFER,BEGIN_SUCCESS,RPC_FAILURE,CANCELLED,TOTAL_TIMEOUT,STALE};
++#define CHECK(condition) do{assert(condition);checks++;}while(0)
++unsigned device_host_epoch(void){return owner;}
++bool device_host_changing(void){return changing;}
++bool device_host_usb_owned(void){return owned;}
++bool tab5_usb_connected(void){return usb;}
++bool ble_host_authorized(void){return authorized;}
++unsigned usb_keyboard_epoch(void){return usb_epoch;}
++void ble_keyboard_get(ble_keyboard_state *state){state->connection=ble_epoch;}
++void xSemaphoreTake(int mutex,int timeout){(void)mutex;(void)timeout;}
++void xSemaphoreGive(int mutex){(void)mutex;}
++int64_t esp_timer_get_time(void){return now*1000;}
++void vTaskDelete(void *handle){(void)handle;}
++int xTaskCreate(void (*run)(void *),const char *name,int stack,void *arg,int priority,void *handle){
++    (void)name;(void)stack;(void)priority;(void)handle;
++    if(task_failure)return 0;assert(!worker);worker=run;argument=arg;return 1;
++}
++void vTaskDelay(unsigned ms){now+=ms;if(scenario==CANCELLED)host_unlock_remote_cancel();}
++static void capability(link_kind link,bool value){
++    cJSON_Delete(device_snapshots[link]);device_snapshots[link]=cJSON_CreateObject();
++    cJSON *health=cJSON_AddObjectToObject(device_snapshots[link],"connectionHealth");
++    if(value)cJSON_AddNumberToObject(health,"hostUnlockVersion",1);
++}
++cJSON *rpc_call(link_kind link,cJSON *request,int *status,char nonce[33]){
++    (void)nonce;CHECK(link==expected_link&&link!=LINK_WIFI);
++    CHECK(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"kind")),"host-unlock"));
++    CHECK(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"session")),"fixture-session"));
++    for(cJSON *field=request->child;field;field=field->next)
++        CHECK(!strcmp(field->string,"kind")||!strcmp(field->string,"op")||!strcmp(field->string,"requestId")||!strcmp(field->string,"session")||!strcmp(field->string,"offer")||!strcmp(field->string,"next"));
++    const char *op=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"op"));
++    *status=200;
++    if(!strcmp(op,"cancel")){cancels++;return cJSON_Parse("{\"ok\":true,\"cancelled\":true,\"unlocked\":false}");}
++    requests++;
++    if(requests==1){
++        CHECK(!strcmp(op,"begin")&&!cJSON_HasObjectItem(request,"offer"));
++        switch(scenario){
++            case HOST_CHANGE:owner++;break;
++            case USB_CHANGE:usb_epoch++;break;
++            case BLE_CHANGE:ble_epoch++;break;
++            case SESSION_CHANGE:strcpy(device_links.session[link],"restarted");break;
++            case MODE_CHANGE:device_links.mode=LINK_WIFI;break;
++            case DISABLED:capability(link,false);break;
++            case RPC_FAILURE:*status=503;return NULL;
++            case BEGIN_SUCCESS:return cJSON_Parse("{\"ok\":true,\"unlocked\":true,\"stage\":\"unlocked\"}");
++            case TOTAL_TIMEOUT:now+=40000;break;
++            case STALE:now+=8000;break;
++        }
++        return cJSON_Parse("{\"ok\":true,\"offer\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"next\":0,\"stage\":\"preparing\",\"unlocked\":false}");
++    }
++    CHECK(!strcmp(op,"poll")&&cJSON_GetObjectItemCaseSensitive(request,"next")->valueint==0);
++    if(scenario==BAD_SEQUENCE)return cJSON_Parse("{\"ok\":true,\"offer\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"next\":2,\"stage\":\"preparing\"}");
++    if(scenario==BAD_OFFER)return cJSON_Parse("{\"ok\":true,\"offer\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"next\":1,\"stage\":\"preparing\"}");
++    return cJSON_Parse("{\"ok\":true,\"unlocked\":true,\"stage\":\"unlocked\"}");
++}
++static const char *id="00112233-4455-4677-8899-aabbccddeeff";
++static void setup(link_kind link,int test){
++    assert(!worker);usb=link==LINK_USB;ble_connected=link==LINK_BLE;owned=authorized=true;changing=task_failure=false;
++    scenario=test;requests=cancels=0;expected_link=link;now=1000;owner++;usb_epoch++;ble_epoch++;
++    memset(&device_links,0,sizeof(device_links));device_links.mode=-1;
++    for(int i=0;i<3;i++){strcpy(device_links.session[i],"fixture-session");device_links.received_ms[i]=now;capability(i,true);}
++}
++static host_unlock_state run(void){
++    assert(worker);void (*task)(void *)=worker;worker=NULL;task(argument);host_unlock_state state;host_unlock_remote_get(&state);return state;
++}
++int main(void){
++    for(int i=0;i<2;i++){
++        link_kind link=i?LINK_BLE:LINK_USB;setup(link,SUCCESS);
++        CHECK(host_unlock_remote_link()==link);CHECK(!host_unlock_remote_start(id,LINK_WIFI));
++        CHECK(host_unlock_remote_start(id,link));CHECK(!host_unlock_remote_start(id,link));
++        host_unlock_state state=run();CHECK(state.finished&&state.unlocked&&state.current&&state.error==0&&requests==2&&cancels==1);
++        // A changed host after the final response invalidates the UI result.
++        owner++;host_unlock_remote_get(&state);CHECK(!state.current);
++        const int cases[]={HOST_CHANGE,SESSION_CHANGE,MODE_CHANGE,DISABLED,BAD_SEQUENCE,BAD_OFFER,BEGIN_SUCCESS,RPC_FAILURE,CANCELLED,TOTAL_TIMEOUT,STALE};
++        for(unsigned j=0;j<sizeof(cases)/sizeof(cases[0]);j++){
++            setup(link,cases[j]);CHECK(host_unlock_remote_start(id,link));state=run();CHECK(state.finished&&!state.unlocked&&state.error!=0);
++            CHECK(requests==((cases[j]==BAD_SEQUENCE||cases[j]==BAD_OFFER)?2u:1u));
++            CHECK(cancels==((cases[j]==BAD_SEQUENCE||cases[j]==BAD_OFFER||cases[j]==CANCELLED)?1u:0u));
++        }
++        setup(link,i?BLE_CHANGE:USB_CHANGE);CHECK(host_unlock_remote_start(id,link));state=run();CHECK(!state.unlocked&&requests==1&&cancels==0);
++        setup(link,SUCCESS);CHECK(host_unlock_remote_start(id,link));host_unlock_remote_cancel();state=run();CHECK(!state.unlocked&&requests==0&&cancels==0);
++        setup(link,SUCCESS);task_failure=true;CHECK(!host_unlock_remote_start(id,link));task_failure=false;CHECK(host_unlock_remote_start(id,link));state=run();CHECK(state.unlocked);
++        setup(link,SUCCESS);capability(link,false);CHECK(host_unlock_remote_link()==LINK_NONE&&!host_unlock_remote_start(id,link));
++        capability(link,true);device_links.mode=LINK_WIFI;CHECK(host_unlock_remote_link()==LINK_NONE&&!host_unlock_remote_start(id,link));
++        device_links.mode=-1;changing=true;CHECK(host_unlock_remote_link()==LINK_NONE&&!host_unlock_remote_start(id,link));
++    }
++    setup(LINK_USB,SUCCESS);ble_connected=true;CHECK(host_unlock_remote_link()==LINK_USB);
++    capability(LINK_USB,false);CHECK(host_unlock_remote_link()==LINK_NONE);
++    device_links.mode=LINK_BLE;CHECK(host_unlock_remote_link()==LINK_BLE);
++    for(int i=0;i<3;i++)cJSON_Delete(device_snapshots[i]);
++    printf("HOST_UNLOCK_REMOTE_TEST_OK %u assertions; fake RPC only, no credential or hardware\n",checks);
++}
+diff --git a/tests/host_unlock_timeout_test.c b/tests/host_unlock_timeout_test.c
+--- /dev/null
++++ b/tests/host_unlock_timeout_test.c
+@@ -0,0 +1,21 @@
++#include <assert.h>
++#include <stdbool.h>
++#include <stdio.h>
++#include <string.h>
++#include "rpc_timeout_under_test.inc"
++int main(void){
++    assert(rpc_exchange_timeout("host-unlock",false)==2000);
++    assert(rpc_exchange_timeout("unlock-pin",false)==75000);
++    assert(rpc_exchange_timeout("wifi-unlock",false)==75000);
++    assert(rpc_exchange_timeout("computer-control",false)==75000);
++    assert(rpc_exchange_timeout("runtime-diagnostics",false)==2000);
++    assert(rpc_exchange_timeout("ota",false)==10000);
++    assert(rpc_exchange_timeout("gallery",false)==8000);
++    assert(rpc_exchange_timeout(NULL,true)==5000);
++    assert(rpc_exchange_admission("host-unlock")==1000);
++    assert(rpc_exchange_admission("unlock-pin")==1000);
++    assert(rpc_exchange_admission("wifi-unlock")==0);
++    assert(rpc_exchange_admission("computer-control")==0);
++    assert(rpc_exchange_admission(NULL)==0);
++    puts("HOST_UNLOCK_TIMEOUT_TEST_OK 13 assertions");
++}
+diff --git a/tests/ui-preview/CMakeLists.txt b/tests/ui-preview/CMakeLists.txt
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -1012,3 +1012,18 @@
+ target_include_directories(photo-display-probe-test PRIVATE photo-probe-stubs
+     "${ROOT}/firmware/main" "${ROOT}/.tools/esp-idf/components/soc/esp32p4/register")
+ target_compile_options(photo-display-probe-test PRIVATE /UNDEBUG)
++
++# Optional Mac host-side USB/BLE unlock; actual worker with fake transport.
++configure_file("${ROOT}/firmware/main/host_unlock_remote.c" "${CMAKE_CURRENT_BINARY_DIR}/host_unlock_remote_under_test.c" COPYONLY)
++configure_file("${ROOT}/firmware/main/host_unlock_remote.h" "${CMAKE_CURRENT_BINARY_DIR}/host_unlock_remote.h" COPYONLY)
++add_executable(host-unlock-remote-test "${ROOT}/tests/host_unlock_remote_test.c" "${CMAKE_CURRENT_BINARY_DIR}/host_unlock_remote_under_test.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
++target_include_directories(host-unlock-remote-test PRIVATE "${ROOT}/tests/host-unlock-stubs" "${CMAKE_CURRENT_BINARY_DIR}" "${ROOT}/.tools/esp-idf/components/json/cJSON")
++add_executable(host-unlock-timeout-test "${ROOT}/tests/host_unlock_timeout_test.c")
++target_include_directories(host-unlock-timeout-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++if(MSVC)
++ target_compile_options(host-unlock-remote-test PRIVATE /UNDEBUG)
++ target_compile_options(host-unlock-timeout-test PRIVATE /UNDEBUG)
++else()
++ target_compile_options(host-unlock-remote-test PRIVATE -UNDEBUG)
++ target_compile_options(host-unlock-timeout-test PRIVATE -UNDEBUG)
++endif()
+diff --git a/tests/ui-preview/computer_click_queue_test.h b/tests/ui-preview/computer_click_queue_test.h
+--- /dev/null
++++ b/tests/ui-preview/computer_click_queue_test.h
+@@ -0,0 +1,73 @@
++{
++    cJSON *health=item(shown,"connectionHealth");
++    if(!health){health=cJSON_CreateObject();cJSON_AddItemToObject(shown,"connectionHealth",health);}
++    cJSON_AddNumberToObject(health,"computerControlVersion",1);
++    cJSON_AddNumberToObject(health,"hostUnlockVersion",1);
++    cJSON_AddNumberToObject(health,"wifiUnlockVersion",1);
++    unsigned cases=0;
++    #define CLICK_EFFECTS (preview_computer_commands+preview_host_requests+preview_wifi_requests)
++    #define CLICK_SETUP(route,locked_value) do { \
++        if(unlock_overlay)unlock_close();computer_pending_click=(computer_click_intent){0};computer_action_notice[0]=0; \
++        preview_rpc_selection=route;preview_usb_connected=route==LINK_USB;preview_usb_available=route==LINK_USB; \
++        wifi_connected=true;last_received=preview_now_us/1000;device_links.mode=route; \
++        strcpy(device_links.session[route],"click-fixture");preview_keyboard=(ble_keyboard_state){.connection=7}; \
++        preview_host_link=route==LINK_WIFI?LINK_NONE:route;preview_wifi_only=route==LINK_WIFI; \
++        preview_host_unlock=(host_unlock_state){0};preview_wifi_unlock=(unlock_remote_state){0}; \
++        preview_computer=(computer_remote_state){.ready=true,.lock_known=true,.locked=locked_value,.can_lock=true, \
++            .updated=last_received,.lock_updated=last_received,.busy=true,.reading=true,.generation=10}; \
++        page(14);computer_refresh(); \
++    }while(0)
++    #define CLICK_COMPLETE() do { \
++        preview_now_us+=300000;last_received=preview_now_us/1000;preview_computer.busy=preview_computer.reading=false; \
++        preview_computer.generation++;preview_computer.updated=preview_computer.lock_updated=last_received; \
++    }while(0)
++    for(int route=0;route<3;route++)for(int locked=0;locked<2;locked++)for(int stale_view=0;stale_view<2;stale_view++) {
++        CLICK_SETUP((link_kind)route,locked);
++        unsigned before=CLICK_EFFECTS,hid=preview_unlock_submissions,reads=preview_status_reads,commands=preview_computer_commands;
++        if(stale_view)computer_view->busy=computer_view->reading=false;
++        assert(!lv_obj_has_state(computer_lock,LV_STATE_DISABLED));
++        lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);
++        lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);
++        assert(computer_pending_click.active&&CLICK_EFFECTS==before);
++        computer_refresh();assert(strstr(lv_label_get_text(computer_status),"随后"));
++        assert(preview_status_reads==reads); // No new poll can starve the explicit tap.
++        CLICK_COMPLETE();computer_refresh();
++        assert(!computer_pending_click.active&&CLICK_EFFECTS==before+1&&preview_unlock_submissions==hid);
++        for(int tick=0;tick<3;tick++)computer_refresh();
++        assert(CLICK_EFFECTS==before+1);cases++;
++        if(locked)assert(unlock_overlay);else assert(!unlock_overlay&&preview_computer_commands==commands+1);
++    }
++    const char *failures[]={"page","timeout","host","session","mode","link","connection","read-failed","unknown","state-changed","no-new-generation","stale-lock"};
++    for(int route=0;route<3;route++)for(int locked=0;locked<2;locked++)for(unsigned failure=0;failure<sizeof(failures)/sizeof(*failures);failure++) {
++        CLICK_SETUP((link_kind)route,locked);unsigned before=CLICK_EFFECTS;
++        lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);assert(computer_pending_click.active);
++        CLICK_COMPLETE();const char *name=failures[failure];
++        if(!strcmp(name,"page"))page(11);
++        if(!strcmp(name,"timeout"))preview_now_us+=3000000;
++        if(!strcmp(name,"host"))preview_computer_host_epoch++;
++        if(!strcmp(name,"session"))strcpy(device_links.session[route],"changed-session");
++        if(!strcmp(name,"mode"))device_links.mode=-1;
++        if(!strcmp(name,"link"))preview_rpc_selection=route==LINK_USB?LINK_BLE:LINK_USB;
++        if(!strcmp(name,"connection")){if(route==LINK_WIFI)preview_wifi_connection++;else preview_keyboard.connection++;}
++        if(!strcmp(name,"read-failed"))preview_computer.ready=false;
++        if(!strcmp(name,"unknown"))preview_computer.lock_known=false;
++        if(!strcmp(name,"state-changed"))preview_computer.locked=!locked;
++        if(!strcmp(name,"no-new-generation"))preview_computer.generation=10;
++        if(!strcmp(name,"stale-lock"))preview_computer.lock_updated-=7000;
++        computer_refresh();assert(!computer_pending_click.active&&CLICK_EFFECTS==before&&!unlock_overlay);cases++;
++    }
++    for(int route=0;route<3;route++) {
++        CLICK_SETUP((link_kind)route,false);preview_computer.reading=false;computer_refresh();
++        unsigned before=CLICK_EFFECTS;lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);
++        CLICK_COMPLETE();computer_refresh();assert(CLICK_EFFECTS==before&&!computer_pending_click.active);cases++;
++        // A normal lock immediately schedules state refresh, rather than waiting 3.5s.
++        CLICK_SETUP((link_kind)route,false);CLICK_COMPLETE();computer_refresh();
++        before=preview_status_reads;lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);computer_refresh();
++        assert(preview_status_reads>before);cases++;
++    }
++    #undef CLICK_SETUP
++    #undef CLICK_COMPLETE
++    #undef CLICK_EFFECTS
++    printf("COMPUTER_CLICK_QUEUE_OK %u cases; USB/Wi-Fi/BLE lock/unlock first tap; duplicate suppression; read completion; binding/page/deadline/state cancellation; no HID; immediate post-lock status\n",cases);
++    return 0;
++}
+diff --git a/tests/ui-preview/computer_control_focused_test.h b/tests/ui-preview/computer_control_focused_test.h
+--- a/tests/ui-preview/computer_control_focused_test.h
++++ b/tests/ui-preview/computer_control_focused_test.h
+@@ -53,10 +53,10 @@
+     lv_tick_inc(400);lv_timer_handler();computer_refresh();lv_obj_update_layout(lv_screen_active());lv_refr_now(NULL);
+     computer_preview_damage_count=0;
+     lv_display_add_event_cb(lv_display_get_default(),computer_preview_damage,LV_EVENT_INVALIDATE_AREA,NULL);
+-    for(int i=0;i<8;i++){preview_computer.busy=(i%2)!=0;computer_refresh();lv_obj_update_layout(lv_screen_active());}
++    for(int i=0;i<8;i++){preview_computer.busy=preview_computer.reading=(i%2)!=0;computer_refresh();lv_obj_update_layout(lv_screen_active());}
+     assert(computer_preview_damage_count==0); // Read-only polls must not flash enabled/disabled or relayout unchanged rows.
+     lv_display_remove_event_cb_with_user_data(lv_display_get_default(),computer_preview_damage,NULL);
+-    preview_computer.busy=false;computer_refresh();
++    preview_computer.busy=preview_computer.reading=false;computer_refresh();
+     // A status timeout while a pointer owns the slider disables it. LVGL then
+     // omits RELEASED; control polling must recover without a page/device reset.
+     {
+@@ -313,7 +313,7 @@
+     preview_display=1;preview_cover=false;preview_keyboard.busy=false;preview_keyboard.finished=false;
+     unlock_open();PREP_READY();assert(unlock_prepared);
+     wakes=preview_wake_submissions;display_wakes=preview_display_wakes;submitted=preview_unlock_submissions;
+-    const int samples[]={1,0,2,-1};const char *sample_words[]={"请输入 Windows PIN","尚未就绪","请输入 Windows PIN","无法确认"};
++    const int samples[]={1,0,2,-1};const char *sample_words[]={"请输入 PIN 或密码","尚未就绪","请输入 PIN 或密码","无法确认"};
+     const char *sample_captures[]={"computer-unlock-screen-on","computer-unlock-screen-off","computer-unlock-screen-dim","computer-unlock-screen-unknown"};
+     for(int i=0;i<4;i++) {
+         preview_display=samples[i];unlock_refresh();assert(strstr(lv_label_get_text(unlock_hint),sample_words[i]));
+diff --git a/tests/ui-preview/computer_cover_test.c b/tests/ui-preview/computer_cover_test.c
+--- a/tests/ui-preview/computer_cover_test.c
++++ b/tests/ui-preview/computer_cover_test.c
+@@ -45,10 +45,16 @@
+ static cJSON *rpc_http_call(void *http,cJSON *r,int *s,char n[33]){(void)http;(void)n;return reply(r,s);}
+ static int mbedtls_base64_decode(unsigned char *d,size_t cap,size_t *n,const unsigned char *s,size_t len){(void)d;(void)cap;(void)n;(void)s;(void)len;return -1;}
+ static bool fail_task;
++static void check_job_flags(void *argument,bool finished);
+ static int xTaskCreate(void (*fn)(void *),const char *name,unsigned stack,void *arg,unsigned priority,void *handle){
+-    (void)name;(void)stack;(void)priority;(void)handle;if(fail_task)return 0;fn(arg);return pdPASS;
++    (void)name;(void)stack;(void)priority;(void)handle;check_job_flags(arg,false);if(fail_task)return 0;fn(arg);check_job_flags(NULL,true);return pdPASS;
+ }
+ #include "computer_remote_under_test.inc"
++static void check_job_flags(void *argument,bool finished){
++    assert(state);if(finished){assert(!state->busy&&!state->reading);return;}
++    computer_job *job=argument;assert(state->busy);
++    assert(state->reading==(!strcmp(job->operation,"status")||!strcmp(job->operation,"lock-screen")));
++}
+ int main(void){
+     const char *id="11111111-1111-4111-8111-111111111111";
+     bool cover=true;
+@@ -69,7 +75,7 @@
+     response_status=200;response="{\"version\":1,\"locked\":true,\"lockScreenCover\":true}";
+     selected=LINK_WIFI;assert(computer_remote_start(id,"lock-screen",0,NULL));assert(computer_remote_cover_state(id,&cover)&&cover);
+     selected=LINK_NONE;unsigned before=probes;assert(!computer_remote_start(id,"lock-screen",0,NULL)&&probes==before);
+-    selected=LINK_BLE;fail_task=true;assert(!computer_remote_start(id,"lock-screen",0,NULL)&&!state->busy);
++    selected=LINK_BLE;fail_task=true;assert(!computer_remote_start(id,"lock-screen",0,NULL)&&!state->busy&&!state->reading);
+     fail_task=false;selected=LINK_BLE;response_status=200;reply_delay=0;
+     int display=99;
+     assert(!computer_remote_display_state("other",&display)&&display==-1);
+@@ -139,5 +145,17 @@
+         assert(computer_remote_start(id,"status",0,NULL)&&!unlock_history_pending());
+     }
+     puts("UNLOCK_HISTORY_DELIVERY_OK actual_worker_USB_WIFI_BLE_failure_retains_pending_authenticated_status_ack_operation_status_age");
++    expect_history=false;
++    const char *effects[]={"lock","volume","mute","launch","media"};
++    response_status=200;response="{\"ok\":true,\"state\":{\"version\":1,\"locked\":true}}";
++    for(int channel=0;channel<3;channel++)for(unsigned op=0;op<sizeof(effects)/sizeof(*effects);op++){
++        selected=(link_kind)channel;assert(computer_remote_start(id,effects[op],0,NULL));
++        assert(!state->busy&&!state->reading);
++    }
++    for(int i=0;i<2;i++){
++        fail_task=true;assert(!computer_remote_start(id,i?"lock":"status",0,NULL));
++        assert(!state->busy&&!state->reading);fail_task=false;
++    }
++    puts("COMPUTER_BUSY_KIND_OK actual start and every terminal path classify status/lock-screen as read-only; task failure clears busy/read flags");
+     free(state);puts("COMPUTER_COVER_OK actual worker: explicit id, bounded freshness, delayed/unknown/legacy/failure skip, ordinary state retained; no hardware input");return 0;
+ }
+diff --git a/tests/ui-preview/host_unlock_ui_test.h b/tests/ui-preview/host_unlock_ui_test.h
+--- /dev/null
++++ b/tests/ui-preview/host_unlock_ui_test.h
+@@ -0,0 +1,110 @@
++// Exercise the actual LVGL event/refresh path. Transport worker tests are separate.
++{
++    // Capture the real partial display buffer; offscreen snapshots omit cached
++    // background tiles and can falsely suggest corrupted pixels after a modal.
++    camera_partial_pixels=calloc(1,sizeof(preview_buffer));assert(camera_partial_pixels);
++    lv_display_t *host_display=lv_display_get_default();
++    lv_display_set_flush_cb(host_display,camera_partial_flush);
++    lv_display_set_buffers(host_display,preview_buffer,NULL,TAB5_DRAW_BUFFER_PIXELS*2,LV_DISPLAY_RENDER_MODE_PARTIAL);
++    strcpy(preview_host_labels[preview_host_selected],"MacBook Pro");
++    #define HOST_CAPTURE(name) do { \
++        computer_refresh();lv_obj_update_layout(lv_screen_active()); \
++        lv_obj_invalidate(lv_screen_active());lv_refr_now(host_display); \
++        FILE *frame=fopen(name ".ppm","wb");assert(frame);fprintf(frame,"P6\n1280 720\n255\n"); \
++        for(unsigned pixel_index=0;pixel_index<1280*720;pixel_index++){ \
++            uint16_t pixel=camera_partial_pixels[pixel_index]; \
++            uint8_t rgb[]={(uint8_t)(((pixel>>11)&31)*255/31),(uint8_t)(((pixel>>5)&63)*255/63),(uint8_t)((pixel&31)*255/31)}; \
++            assert(fwrite(rgb,1,3,frame)==3); \
++        } \
++        fclose(frame); \
++    }while(0)
++    cJSON *health=item(shown,"connectionHealth");
++    if(!health){health=cJSON_CreateObject();cJSON_AddItemToObject(shown,"connectionHealth",health);}
++    cJSON_AddNumberToObject(health,"computerControlVersion",1);
++    cJSON_AddNumberToObject(health,"wifiUnlockVersion",1);
++    wifi_connected=true;last_received=preview_now_us/1000;
++    unsigned hid=preview_unlock_submissions,grants=preview_oneclick_requests,wifi=preview_wifi_requests;
++    page(14);
++    for(int route=0;route<2;route++) {
++        last_received=preview_now_us/1000;
++        preview_host_link=route?LINK_BLE:LINK_USB;
++        // A permitted USB host must not be blocked by Wi-Fi being disabled.
++        preview_wifi_only=!route;cJSON_SetNumberValue(item(health,"wifiUnlockVersion"),0);
++        preview_computer=(computer_remote_state){.ready=true,.locked=true,.lock_known=true,
++            .updated=preview_now_us/1000,.lock_updated=preview_now_us/1000};
++        // Host RPC must work without HID subscription or keyboard readiness.
++        preview_keyboard=(ble_keyboard_state){0};preview_usb_available=false;
++        preview_host_unlock=(host_unlock_state){0};
++        unsigned requests=preview_host_requests;
++        computer_refresh();lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);
++        assert(unlock_host&&unlock_auto&&!unlock_wifi&&unlock_overlay&&unlock_sent);
++        assert(unlock_using_usb==!route&&preview_host_requests==requests+1);
++        assert(lv_obj_has_flag(unlock_mask,LV_OBJ_FLAG_HIDDEN));
++        assert(lv_obj_has_flag(unlock_text_keys,LV_OBJ_FLAG_HIDDEN));
++        assert(strstr(lv_label_get_text(unlock_hint),route?"蓝牙":"USB"));
++        if(route)HOST_CAPTURE("mac-ble-unlock-pending");else HOST_CAPTURE("mac-usb-unlock-pending");
++        // Repeated clicks and ticks cannot create a second request.
++        lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);unlock_refresh();
++        assert(preview_host_requests==requests+1);
++        // Due status polls must not contend with the local unlock lease.
++        unsigned status_reads=preview_status_reads;
++        for(int tick=0;tick<4;tick++) {
++            preview_now_us+=2000000;last_received=preview_now_us/1000;
++            computer_refresh();assert(preview_status_reads==status_reads);
++        }
++        preview_host_unlock=(host_unlock_state){.finished=true,.unlocked=true,.current=true};
++        // Terminal host reply releases polling for independent desktop proof.
++        computer_refresh();assert(preview_status_reads==status_reads+1);
++        unlock_refresh();assert(!unlock_success_until); // ordinary state still locked
++        preview_computer.locked=false;preview_computer.lock_updated=unlock_submitted_at;unlock_refresh();assert(!unlock_success_until); // stale sample
++        preview_now_us+=1000;last_received=preview_now_us/1000;
++        preview_computer.lock_updated=preview_now_us/1000;unlock_refresh();
++        assert(unlock_success_until&&!strcmp(lv_label_get_text(unlock_hint),"电脑已解锁"));
++        if(route)HOST_CAPTURE("mac-ble-unlock-success");else HOST_CAPTURE("mac-usb-unlock-success");
++        preview_now_us+=501000;unlock_refresh();assert(!unlock_overlay);
++        assert(preview_unlock_submissions==hid&&preview_oneclick_requests==grants&&preview_wifi_requests==wifi);
++
++        // Disconnect after a success reply may not display success for another host.
++        preview_computer.locked=true;preview_computer.lock_updated=preview_now_us/1000;
++        unlock_open();preview_host_unlock=(host_unlock_state){.finished=true,.unlocked=true,.current=false};
++        preview_now_us+=1000;preview_computer.locked=false;preview_computer.lock_updated=preview_now_us/1000;
++        unlock_refresh();assert(unlock_auto_failed&&!unlock_success_until);
++        assert(strstr(lv_label_get_text(unlock_hint),"解锁未完成"));
++        unlock_close();
++
++        // Explicit cancel and lease timeout stop this route without HID/Wi-Fi fallback.
++        preview_host_unlock=(host_unlock_state){0};unlock_open();unsigned cancels=preview_host_cancels;
++        lv_obj_send_event(unlock_close_button,LV_EVENT_CLICKED,NULL);
++        assert(!unlock_overlay&&preview_host_cancels==cancels+1);
++        preview_host_unlock=(host_unlock_state){0};unlock_open();requests=preview_host_requests;
++        preview_now_us+=40000000;unlock_refresh();
++        assert(unlock_auto_failed&&!unlock_success_until&&!preview_host_unlock.busy);
++        unlock_refresh();assert(preview_host_requests==requests);
++        assert(preview_unlock_submissions==hid&&preview_oneclick_requests==grants&&preview_wifi_requests==wifi);
++        unlock_close();
++        preview_host_unlock=(host_unlock_state){0};unlock_open();
++        preview_host_unlock=(host_unlock_state){.finished=true,.error=4,.current=true};unlock_refresh();
++        assert(unlock_auto_failed&&strstr(lv_label_get_text(unlock_hint),"请在 Mac 开启"));
++        if(route)HOST_CAPTURE("mac-ble-unlock-disabled");
++        unlock_close();
++    }
++    preview_host_link=LINK_BLE;preview_wifi_only=true;preview_wifi_unlock=(unlock_remote_state){0};
++    cJSON_SetNumberValue(item(health,"wifiUnlockVersion"),1);
++    preview_computer.locked=true;preview_computer.lock_updated=preview_now_us/1000;
++    unsigned requests=preview_host_requests;unlock_open();
++    assert(unlock_wifi&&!unlock_host&&preview_wifi_requests==wifi+1&&preview_host_requests==requests);
++    unlock_close();preview_wifi_only=false;preview_host_link=LINK_NONE;
++    preview_keyboard=(ble_keyboard_state){.connected=true,.secure=true,.subscribed=true,.bridge_verified=true,.ready=true,.connection=1};
++    preview_computer.locked=true;preview_computer.lock_updated=preview_now_us/1000;unlock_open();
++    assert(!unlock_wifi&&!unlock_host&&!unlock_auto); // Windows manual credential UI retained.
++    assert(!lv_obj_has_flag(unlock_mode_button,LV_OBJ_FLAG_HIDDEN));
++    unlock_close();
++    // Without a local capability, retain the existing Wi-Fi permission guidance.
++    preview_wifi_only=true;cJSON_SetNumberValue(item(health,"wifiUnlockVersion"),0);
++    last_received=preview_now_us/1000;preview_computer.updated=last_received;
++    computer_refresh();lv_obj_send_event(computer_lock,LV_EVENT_CLICKED,NULL);
++    assert(!unlock_overlay&&strstr(lv_label_get_text(computer_status),"Wi-Fi 一键解锁"));
++    #undef HOST_CAPTURE
++    puts("HOST_UNLOCK_UI_OK USB/BLE busy status suppression and terminal resumption, single request, no HID credential, fresh desktop confirmation, cancel, disconnect, deadline, Wi-Fi and Windows routing");
++    return 0;
++}
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1719,6 +1719,27 @@
+     lv_image_set_src(camera_canvas,NULL);free(pixels);preview_photo_fixture=false;camera_preview_stop();
+     puts("PHOTO_UPLOAD_TRANSITION_OK four poses; stable still through pending ack; one successful page return; failure retains photo; explicit retry only; no conversation send");
+ }
++static void capture_actual_release_notes(void) {
++    const char *saved_notes=preview_ota_notes;
++    const char *release_notes_path=getenv("TAB5_RELEASE_NOTES_JSON");
++    if(release_notes_path&&release_notes_path[0]) {
++        FILE *f=fopen(release_notes_path,"rb");assert(f);
++        fseek(f,0,SEEK_END);long size=ftell(f);assert(size>0&&size<=8192);rewind(f);
++        char *raw=calloc(1,size+1);assert(raw);assert(fread(raw,1,size,f)==size);fclose(f);
++        cJSON *release=cJSON_Parse(raw);assert(release);free(raw);
++        cJSON *notes=cJSON_GetObjectItemCaseSensitive(release,"notes"),*version=cJSON_GetObjectItemCaseSensitive(release,"version");
++        assert(cJSON_IsString(notes)&&cJSON_IsString(version)&&strlen(notes->valuestring)<=1024);
++        preview_ota_notes=notes->valuestring;tick(NULL);visible(save_status,false);
++        ui_text_fmt(ota_offer_title,"%s · 有新固件可用",version->valuestring);
++        capture("ota-release-notes-actual");
++        assert(lv_obj_get_width(ota_badge)==26&&lv_obj_get_height(ota_badge)==26);
++        capture("proposal-upgrade-arrow");
++        lv_obj_scroll_to_y(ota_notes_box,999,LV_ANIM_OFF);capture("ota-release-notes-actual-scrolled");
++        preview_ota_notes=saved_notes;tick(NULL);cJSON_Delete(release);
++        puts("OTA_ACTUAL_SIDECAR_PREVIEW_OK");
++    }
++}
++
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -1955,6 +1976,16 @@
+     cJSON_AddItemToObject(shown,"pcInput",cJSON_Parse("{\"session\":\"preview-session\",\"sequence\":1}"));
+     cJSON_AddItemToObject(shown,"codexTasks",cJSON_Parse("{\"projects\":[{\"id\":\"aaaaaaaaaaaaaaaa\",\"name\":\"M5Stack TAB5\"},{\"id\":\"bbbbbbbbbbbbbbbb\",\"name\":\"biaoshu\"}],\"tasks\":[{\"id\":\"01a0cc69-2782-7650-9903-303578a0296e\",\"title\":\"检查 TAB5 设备连接\",\"folder\":\"M5Stack TAB5\",\"projectId\":\"aaaaaaaaaaaaaaaa\"},{\"id\":\"01a0cc69-2782-7650-9903-303578a0296f\",\"title\":\"修复标书资料导入\",\"folder\":\"biaoshu\",\"projectId\":\"bbbbbbbbbbbbbbbb\"}],\"receipts\":{}}"));
+     render(); clock_music(10000,true); images_tick(150);
++    if(getenv("TAB5_RELEASE_NOTES_ONLY")) {
++        page(9);settings_select(3);preview_ota_available=true;tick(NULL);
++        capture_actual_release_notes();return 0;
++    }
++    if(getenv("TAB5_COMPUTER_CLICK_ONLY")) {
++        #include "computer_click_queue_test.h"
++    }
++    if(getenv("TAB5_HOST_UNLOCK_ONLY")) {
++        #include "host_unlock_ui_test.h"
++    }
+     check_clock_faces();check_clock_solar();
+     if(getenv("TAB5_CLOCK_ONLY"))return 0;
+     check_countdowns();
+@@ -3303,23 +3334,7 @@
+     assert(!lv_obj_has_flag(ota_badge,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_state(ota_button,LV_STATE_DISABLED));
+     assert(!strcmp(lv_label_get_text(ota_offer_title),"0.2.30-ui · 有新固件可用"));
+     const char *saved_notes=preview_ota_notes;
+-    const char *release_notes_path=getenv("TAB5_RELEASE_NOTES_JSON");
+-    if(release_notes_path&&release_notes_path[0]) {
+-        FILE *f=fopen(release_notes_path,"rb");assert(f);
+-        fseek(f,0,SEEK_END);long size=ftell(f);assert(size>0&&size<=8192);rewind(f);
+-        char *raw=calloc(1,size+1);assert(raw);assert(fread(raw,1,size,f)==size);fclose(f);
+-        cJSON *release=cJSON_Parse(raw);assert(release);free(raw);
+-        cJSON *notes=cJSON_GetObjectItemCaseSensitive(release,"notes"),*version=cJSON_GetObjectItemCaseSensitive(release,"version");
+-        assert(cJSON_IsString(notes)&&cJSON_IsString(version)&&strlen(notes->valuestring)<=1024);
+-        preview_ota_notes=notes->valuestring;tick(NULL);visible(save_status,false);
+-        ui_text_fmt(ota_offer_title,"%s · 有新固件可用",version->valuestring);
+-        capture("ota-release-notes-actual");
+-        assert(lv_obj_get_width(ota_badge)==26&&lv_obj_get_height(ota_badge)==26);
+-        capture("proposal-upgrade-arrow");
+-        lv_obj_scroll_to_y(ota_notes_box,999,LV_ANIM_OFF);capture("ota-release-notes-actual-scrolled");
+-        preview_ota_notes=saved_notes;tick(NULL);cJSON_Delete(release);
+-        puts("OTA_ACTUAL_SIDECAR_PREVIEW_OK");
+-    }
++    capture_actual_release_notes();
+ 
+     preview_ota_notes="## 滑动优化\n- 优化四个主页面拖动时的画面连续性\n## 升级说明\n- 按分类展示更新内容，精简备注";
+     tick(NULL);capture("ota-update-057-notes");
+diff --git a/tests/ui-preview/rpc_admission_test.c b/tests/ui-preview/rpc_admission_test.c
+--- a/tests/ui-preview/rpc_admission_test.c
++++ b/tests/ui-preview/rpc_admission_test.c
+@@ -18,7 +18,8 @@
+ static rpc_mailbox boxes[2];
+ static uint8_t out[RPC_REQUEST_MAX],in[RPC_RESPONSE_MAX];
+ static unsigned now,host,drain,change,sends,wait_budget,created,deleted;
+-static bool locked,usb,changing,respond;
++static bool locked,usb,changing,respond,ble_connected;
++static bool ble_host_authorized(void){return true;}
+ static link_kind current_link;
+ static rpc_mailbox *box(link_kind link){return link==LINK_USB?&boxes[0]:link==LINK_BLE?&boxes[1]:NULL;}
+ static SemaphoreHandle_t completion(link_kind link){return rpc_done[link==LINK_USB?0:1];}
+@@ -31,7 +32,7 @@
+     rpc_mailbox *m=box(current_link);
+     if(change==1&&now>=drain)m->generation++;
+     if(change==2&&now>=drain)host++;
+-    if(change==3&&now>=drain)usb=false;
++    if(change==3&&now>=drain){if(current_link==LINK_USB)usb=false;else ble_connected=false;}
+     if(change==4&&now>=drain)changing=true;
+     if(!change&&drain&&now>=drain)m->active=0;
+ }
+@@ -47,25 +48,36 @@
+ static void vSemaphoreDelete(SemaphoreHandle_t s){deleted++;free(s);}
+ static void *heap_caps_malloc(size_t n,int caps){assert(caps==3);return malloc(n);}
+ #include "rpc_admission_under_test.inc"
+-static void run(link_kind link,unsigned admission,unsigned drain_after,unsigned mutation,bool answer,bool expected){
++static void run(link_kind link,unsigned timeout,unsigned admission,unsigned drain_after,unsigned mutation,bool answer,bool expected){
+     memset(boxes,0,sizeof(boxes));memset(rpc_done,0,sizeof(rpc_done));
+-    now=1000;host=7;usb=true;changing=locked=false;created=deleted=sends=wait_budget=0;
++    now=1000;host=7;usb=ble_connected=true;changing=locked=false;created=deleted=sends=wait_budget=0;
+     drain=drain_after?now+drain_after:0;change=mutation;respond=answer;current_link=link;
+     rpc_mailbox *m=box(link);m->out=out;m->in=in;m->generation=2;m->active=41;m->serial=41;
+     uint8_t payload[4]={1,2,3,4};size_t length=99;
+     uint8_t *reply=exchange(link,"01234567890123456789012345678901",
+-        "0123456789012345678901234567890123456789012345678901234567890123",payload,4,&length,2,6000,admission,7);
++        "0123456789012345678901234567890123456789012345678901234567890123",payload,4,&length,2,timeout,admission,7);
+     assert((reply!=NULL)==expected&&!locked&&created==deleted&&!completion(link));
+-    if(expected){assert(length==4&&reply[0]==0xA3&&m->serial==42&&sends==1&&wait_budget==6000-drain_after);}
+-    else {assert(!length);if(!answer&&drain_after&&!mutation){assert(m->serial==42&&sends==1&&now==7000);}else assert(!created&&!sends&&m->serial==41);}
++    if(expected){assert(length==4&&reply[0]==0xA3&&m->serial==42&&sends==1&&wait_budget==timeout-drain_after);}
++    else {assert(!length);if(!answer&&drain_after&&!mutation){assert(m->serial==42&&sends==1&&now==1000+timeout);}else assert(!created&&!sends&&m->serial==41);}
+     free(reply);
+ }
+ int main(void){
+-    run(LINK_BLE,0,40,0,true,false);
+-    run(LINK_BLE,1000,40,0,true,true);
+-    run(LINK_USB,1000,40,0,true,true);
+-    run(LINK_BLE,1000,0,0,true,false);
+-    for(unsigned mutation=1;mutation<=4;mutation++)run(mutation==3?LINK_USB:LINK_BLE,1000,40,mutation,true,false);
+-    run(LINK_BLE,1000,40,0,false,false);
+-    puts("RPC_ADMISSION_OK busy control precedes one credential read; 1s bounded admission; unchanged total deadline; disconnect/host/generation/switch abort; no replay");
++    run(LINK_BLE,6000,0,40,0,true,false);
++    run(LINK_BLE,6000,1000,40,0,true,true);
++    run(LINK_USB,6000,1000,40,0,true,true);
++    run(LINK_BLE,6000,1000,0,0,true,false);
++    for(unsigned mutation=1;mutation<=4;mutation++)run(mutation==3?LINK_USB:LINK_BLE,6000,1000,40,mutation,true,false);
++    run(LINK_BLE,6000,1000,40,0,false,false);
++    for(int route=0;route<2;route++) {
++        link_kind link=route?LINK_BLE:LINK_USB;
++        // Reproduce the old immediate collision, then prove bounded admission.
++        run(link,2000,0,40,0,true,false);
++        run(link,2000,1000,40,0,true,true);
++        run(link,2000,1000,990,0,true,true);
++        run(link,2000,1000,0,0,true,false);
++        run(link,2000,1000,40,0,false,false);
++        for(unsigned mutation=1;mutation<=4;mutation++)
++            run(link,2000,1000,40,mutation,true,false);
++    }
++    puts("RPC_ADMISSION_OK USB/BLE host unlock collision reproduced; two-second total budget; busy control precedes one credential read; 1s bounded admission; unchanged total deadline; disconnect/host/generation/switch abort; no replay");
+ }
+diff --git a/tests/ui-preview/ui_preview_stubs.h b/tests/ui-preview/ui_preview_stubs.h
+--- a/tests/ui-preview/ui_preview_stubs.h
++++ b/tests/ui-preview/ui_preview_stubs.h
+@@ -1,8 +1,14 @@
+ #include <assert.h>
+ #pragma once
+ #include <string.h>
++#ifdef _WIN32
+ #define gmtime_r(input,output) gmtime_s(output,input)
++#endif
+ #include "lvgl.h"
++// The desktop preview uses ordinary LVGL rendering, without the board's
++// scanout hold. Return the production API's supported fallback result.
++static int camera_viewport_still_begin(lv_obj_t *canvas){(void)canvas;return 0;}
++static bool camera_viewport_still_end(void){return true;}
+ // ui.c maps the portrait hardware to this landscape preview exactly once.
+ // FULL render buffers need a new stride when changing between aspect ratios;
+ // the production port uses PARTIAL rendering and reshapes every strip.
+@@ -28,6 +34,8 @@
+ typedef struct { char id[13]; bool paired; char host[16],ssid[33],password[64]; int port,mode,brightness; } device_config;
+ typedef struct { int lvgl_port_cfg,buffer_size; bool double_buffer; struct { bool buff_dma,buff_spiram,sw_rotate; } flags; } bsp_display_cfg_t;
+ static link_state device_links;
++static unsigned preview_computer_host_epoch=1;
++static unsigned device_host_epoch(void){return preview_computer_host_epoch;}
+ static cJSON *device_snapshots[3];
+ static cJSON *device_metrics[3];
+ static uint64_t device_metrics_sequence[3];

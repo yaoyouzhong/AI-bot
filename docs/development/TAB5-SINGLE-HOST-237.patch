@@ -1,0 +1,649 @@
+--- a/firmware/main/ble_advertising.inc
++++ b/firmware/main/ble_advertising.inc
+@@ -1,6 +1,7 @@
+ // Called only on the NimBLE host queue; connection callbacks schedule this work.
+ static void advertise_now(void) {
+-    if(ble_connected||!ble_hs_synced()||ble_gap_adv_active())return;
++    if(ble_physical_connected||!ble_hs_synced())return;
++    uint8_t filter=0;if(!ble_owner_advertising(&filter)||ble_gap_adv_active())return;
+     struct ble_hs_adv_fields fields={0};fields.flags=BLE_HS_ADV_F_DISC_GEN|BLE_HS_ADV_F_BREDR_UNSUP;
+     fields.uuids128=(ble_uuid128_t*)&service_id;fields.num_uuids128=1;fields.uuids128_is_complete=1;
+     static const ble_uuid16_t hid=BLE_UUID16_INIT(0x1812);
+@@ -15,6 +16,7 @@
+     }
+     if(!error) {
+         struct ble_gap_adv_params params={0};params.conn_mode=BLE_GAP_CONN_MODE_UND;params.disc_mode=BLE_GAP_DISC_MODE_GEN;
++        params.filter_policy=filter;
+         stage="start";error=ble_gap_adv_start(own_address_type,NULL,BLE_HS_FOREVER,&params,gap_event,NULL);
+     }
+     if(error&&error!=advertising_error)ESP_LOGW("tab5","BLE advertising %s failed: %d; retry scheduled",stage,error);
+--- a/firmware/main/ble_link.c
++++ b/firmware/main/ble_link.c
+@@ -37,9 +37,12 @@
+ static size_t used;
+ static int64_t last_write;
+ #include "ble_performance.inc"
++#include "ble_owner.inc"
+ void ble_host_changed(void) {
+     // Disconnect the previous central, retaining all OS keyboard bonds.
+-    if(ble_available&&ble_connected&&perf_connection!=BLE_HS_CONN_HANDLE_NONE)ble_gap_terminate(perf_connection,0x13);
++    atomic_store(&ble_owner_verified,false);ble_connected=false;
++    uint16_t conn=(uint16_t)atomic_load(&ble_owner_conn);
++    if(ble_available&&conn!=BLE_HS_CONN_HANDLE_NONE)ble_gap_terminate(conn,0x13);
+ }
+ typedef struct {uint16_t conn,attr;} mailbox_notify_target;
+ // A complete notification plus packet/header headroom fits one MSYS_2 block.
+@@ -70,8 +73,8 @@
+ static const ble_uuid128_t host_id=BLE_UUID128_INIT(0x01,0x01,0x32,0x19,0x7a,0x66,0x65,0xbc,0x91,0x4a,0x23,0x7f,0x07,0x00,0xf5,0x7a);
+ static int host_info_access(uint16_t conn,uint16_t attr,struct ble_gatt_access_ctxt *ctx,void *arg) {
+     (void)conn;(void)attr;(void)arg;if(ctx->op!=BLE_GATT_ACCESS_OP_READ_CHR)return BLE_ATT_ERR_UNLIKELY;
+-    char id[33],name[TRUSTED_HOST_NAME],json[80];device_host_identity(id,name);
+-    int n=snprintf(json,sizeof(json),"{\"version\":1,\"hostId\":\"%s\"}",id);
++    char id[33],name[TRUSTED_HOST_NAME],json[112];device_host_identity(id,name);
++    int n=snprintf(json,sizeof(json),"{\"version\":1,\"hostId\":\"%s\",\"bleProofRequired\":1}",id);
+     return n>0&&os_mbuf_append(ctx->om,json,n)==0?0:BLE_ATT_ERR_INSUFFICIENT_RES;
+ }
+ static const ble_uuid128_t voice_id=BLE_UUID128_INIT(0x01,0x01,0x32,0x19,0x7a,0x66,0x65,0xbc,0x91,0x4a,0x23,0x7f,0x04,0x00,0xf5,0x7a);
+@@ -101,7 +104,7 @@
+ }
+ static int rpc_access(uint16_t conn,uint16_t attr,struct ble_gatt_access_ctxt *ctx,void *arg) {
+     (void)conn;(void)attr;(void)arg;uint8_t data[488];
+-    if(!device_get_config().paired)return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
++    if(!device_get_config().paired||!ble_host_authorized()||conn!=atomic_load(&ble_owner_conn))return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
+     if(ctx->op==BLE_GATT_ACCESS_OP_READ_CHR) {
+         size_t n=rpc_link_read(LINK_BLE,data,sizeof(data));
+         return n&&os_mbuf_append(ctx->om,data,n)==0?0:BLE_ATT_ERR_INSUFFICIENT_RES;
+@@ -165,9 +168,10 @@
+ }
+ // Separate callbacks keep the identity JSON buffers off the complete-frame
+ // decrypt/parse/delta call chain, even when compiled with size optimization.
++#include "ble_owner_proof.inc"
+ static int telemetry_input_access(uint16_t conn,uint16_t attr,struct ble_gatt_access_ctxt *ctx,void *arg) {
+     (void)conn;(void)attr;(void)arg;
+-    if(!device_get_config().paired)return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
++    if(!device_get_config().paired||!ble_owner_possible(conn))return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
+     if(ctx->op!=BLE_GATT_ACCESS_OP_WRITE_CHR)return BLE_ATT_ERR_UNLIKELY;
+     int64_t now=esp_timer_get_time()/1000;if(now-last_write>5000)used=0;last_write=now;
+     uint16_t length=OS_MBUF_PKTLEN(ctx->om);
+@@ -181,8 +185,9 @@
+         if(used==size+4) {
+             unsigned owner=device_host_epoch();char *clear=device_decrypt(packet+4,size,challenge);used=0;
+             if(!clear)return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
+-            uint64_t sequence=0;bool ok=device_receive_for_host(clear,LINK_BLE,&sequence,owner);free(clear);
+-            if(ok){acknowledged=sequence;keyboard_authenticated(owner);}
++            uint64_t sequence=0;bool ok=ble_owner_proof(clear,&sequence)||device_receive_for_host(clear,LINK_BLE,&sequence,owner);free(clear);
++            if(ok&&ble_owner_authenticated(conn,owner)){acknowledged=sequence;keyboard_authenticated(owner);}
++            else if(ok){ble_gap_terminate(conn,BLE_ERR_REM_USER_CONN_TERM);return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;}
+             else return BLE_ATT_ERR_UNLIKELY;
+         }
+     }
+@@ -199,10 +204,19 @@
+ static struct ble_npl_callout advertising_callout;
+ static int advertising_error;
+ static int gap_event(struct ble_gap_event *event,void *arg) {
++    if(event->type==BLE_GAP_EVENT_CONNECT){
++        atomic_store(&ble_owner_verified,false);ble_connected=false;
++        ble_physical_connected=event->connect.status==0;
++        atomic_store(&ble_owner_conn,ble_physical_connected?event->connect.conn_handle:BLE_HS_CONN_HANDLE_NONE);
++        ble_owner_connected_at=esp_timer_get_time()/1000;
++        if(ble_physical_connected&&!ble_owner_possible(event->connect.conn_handle)){ble_gap_terminate(event->connect.conn_handle,BLE_ERR_REM_USER_CONN_TERM);return 0;}
++    }
++    if(event->type==BLE_GAP_EVENT_DISCONNECT){atomic_store(&ble_owner_verified,false);atomic_store(&ble_owner_conn,BLE_HS_CONN_HANDLE_NONE);ble_physical_connected=false;ble_connected=false;}
++    if(event->type==BLE_GAP_EVENT_ENC_CHANGE||event->type==BLE_GAP_EVENT_IDENTITY_RESOLVED)ble_owner_tick();
+     int keyboard_result=keyboard_gap_event(event);
+     if(event->type==BLE_GAP_EVENT_REPEAT_PAIRING)return keyboard_result;
+     if(event->type==BLE_GAP_EVENT_CONNECT||event->type==BLE_GAP_EVENT_DISCONNECT){rpc_notify_state.remaining=0;ble_npl_callout_stop(&rpc_notify_callout);voice_reset();rpc_link_reset(LINK_BLE);}
+-    if(event->type==BLE_GAP_EVENT_CONNECT){used=0;acknowledged=0;device_nonce(challenge);ble_connected=event->connect.status==0;if(ble_connected){
++    if(event->type==BLE_GAP_EVENT_CONNECT){used=0;acknowledged=0;device_nonce(challenge);if(ble_physical_connected){
+         ble_connect_count++;
+         perf_connection=event->connect.conn_handle;perf_bulk=false;perf_tx_octets=perf_rx_octets=0;
+         perf_interval_rc=perf_phy_rc=perf_length_rc=0;
+@@ -223,7 +237,7 @@
+ #include "ble_advertising.inc"
+ static void advertising_tick(struct ble_npl_event *event) {
+     (void)event;
+-    ble_performance_idle();
++    ble_owner_tick();ble_performance_idle();
+     advertise_now();
+     // Retry from the host queue after a failed start or a lost completion event.
+     // Never restart an active advertisement or an established connection.
+--- /dev/null
++++ b/firmware/main/ble_owner.inc
+@@ -0,0 +1,39 @@
++#include "host_ble_peers.h"
++static atomic_bool ble_owner_verified;
++static atomic_uint ble_owner_epoch,ble_owner_conn=BLE_HS_CONN_HANDLE_NONE;
++static int64_t ble_owner_connected_at;
++static bool ble_physical_connected;
++bool ble_host_authorized(void) {
++    return atomic_load(&ble_owner_verified)&&atomic_load(&ble_owner_epoch)==device_host_epoch()&&!device_host_changing();
++}
++static bool ble_owner_possible(uint16_t conn) {
++    struct ble_gap_conn_desc peer={0};
++    return ble_gap_conn_find(conn,&peer)==0&&device_host_ble_possible(peer.peer_id_addr.type,peer.peer_id_addr.val);
++}
++static bool ble_owner_authenticated(uint16_t conn,unsigned epoch) {
++    struct ble_gap_conn_desc peer={0};
++    if(conn!=atomic_load(&ble_owner_conn)||ble_gap_conn_find(conn,&peer)!=0||
++       !device_host_ble_bind(epoch,peer.peer_id_addr.type,peer.peer_id_addr.val))return false;
++    atomic_store(&ble_owner_epoch,epoch);atomic_store(&ble_owner_verified,true);ble_connected=true;return true;
++}
++static void ble_owner_tick(void) {
++    uint16_t conn=(uint16_t)atomic_load(&ble_owner_conn);
++    if(!ble_physical_connected||conn==BLE_HS_CONN_HANDLE_NONE)return;
++    if(!ble_owner_possible(conn)||(atomic_load(&ble_owner_verified)&&!ble_host_authorized())||
++       (!atomic_load(&ble_owner_verified)&&esp_timer_get_time()/1000-ble_owner_connected_at>=20000))
++        ble_gap_terminate(conn,BLE_ERR_REM_USER_CONN_TERM);
++    else if(ble_host_authorized()&&!ble_owner_authenticated(conn,device_host_epoch()))
++        ble_gap_terminate(conn,BLE_ERR_REM_USER_CONN_TERM); // Persist a newly resolved identity only after this connection's proof.
++}
++static bool ble_owner_advertising(uint8_t *filter) {
++    static bool configured;static int last_state=-2;static ble_addr_t last;
++    ble_addr_t peer={0};int state=device_host_ble_target(&peer.type,peer.val);
++    if(state<0){if(ble_gap_adv_active())ble_gap_adv_stop();configured=false;return false;}
++    *filter=state==1?BLE_HCI_ADV_FILT_CONN:0;
++    if(!configured||state!=last_state||(state==1&&memcmp(&last,&peer,sizeof(peer)))) {
++        if(ble_gap_adv_active()&&ble_gap_adv_stop()!=0)return false;
++        if(ble_gap_wl_set(state==1?&peer:NULL,state==1?1:0)!=0)return false;
++        last=peer;last_state=state;configured=true;
++    }
++    return true;
++}
+--- /dev/null
++++ b/firmware/main/ble_owner_proof.inc
+@@ -0,0 +1,16 @@
++// Only called after GCM verification with this connection's challenge and the
++// selected computer's key. Never publishes state or renews USB ownership.
++static bool ble_owner_proof(const char *clear,uint64_t *sequence) {
++    cJSON *root=cJSON_Parse(clear);if(!root)return false;
++    char selected[33],name[TRUSTED_HOST_NAME];device_host_identity(selected,name);
++    device_config cfg=device_get_config();
++    cJSON *type=cJSON_GetObjectItemCaseSensitive(root,"type"),*version=cJSON_GetObjectItemCaseSensitive(root,"version"),
++        *device=cJSON_GetObjectItemCaseSensitive(root,"deviceId"),*host=cJSON_GetObjectItemCaseSensitive(root,"hostId"),*seq=cJSON_GetObjectItemCaseSensitive(root,"sequence");
++    bool ok=cJSON_IsObject(root)&&cJSON_GetArraySize(root)==5&&cJSON_IsString(type)&&!strcmp(type->valuestring,"tab5_ble_owner")&&
++        cJSON_IsNumber(version)&&version->valuedouble==1&&cJSON_IsString(device)&&!strcmp(device->valuestring,cfg.id)&&
++        cJSON_IsString(host)&&selected[0]&&!strcmp(host->valuestring,selected)&&cJSON_IsNumber(seq)&&
++        seq->valuedouble>0&&seq->valuedouble<=9007199254740991.0&&seq->valuedouble==(uint64_t)seq->valuedouble;
++    if(ok)*sequence=(uint64_t)seq->valuedouble;
++    cJSON_Delete(root);
++    return ok;
++}
+--- a/firmware/main/ble_voice.inc
++++ b/firmware/main/ble_voice.inc
+@@ -55,7 +55,7 @@
+ }
+ static int voice_access(uint16_t conn,uint16_t attr,struct ble_gatt_access_ctxt *ctx,void *arg) {
+     (void)arg;
+-    if(!device_get_config().paired||!voice_lock)return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
++    if(!device_get_config().paired||!voice_lock||!ble_host_authorized())return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
+     uint8_t bytes[488];
+     if(ctx->op==BLE_GATT_ACCESS_OP_READ_CHR) {
+         size_t n=voice_packet_read(bytes,sizeof(bytes),NULL);
+--- a/firmware/main/device.c
++++ b/firmware/main/device.c
+@@ -105,13 +105,6 @@
+     xSemaphoreGive(device_mutex);return ok;
+ }
+ int device_wifi_count(void) {xSemaphoreTake(device_mutex,portMAX_DELAY);int n=networks.count;xSemaphoreGive(device_mutex);return n;}
+-// Authenticated discovery updates RAM only; repeated DHCP changes don't wear NVS.
+-void device_discovered_host(const char *host,int port) {
+-    if(!private_host(host)||strlen(host)>=sizeof(config.host)||port<=0||port>65535)return;
+-    xSemaphoreTake(device_mutex,portMAX_DELAY);
+-    if(trusted_hosts_readable&&trusted_hosts.count){trusted_host *h=&trusted_hosts.entries[trusted_hosts.selected];strcpy(h->address,host);h->port=port;}
+-    xSemaphoreGive(device_mutex);
+-}
+ int device_wifi_names(char names[WIFI_PROFILE_LIMIT][33]) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);int count=networks.count;
+     for(int i=0;i<count;i++)strcpy(names[i],networks.entries[i].ssid);
+--- a/firmware/main/device.h
++++ b/firmware/main/device.h
+@@ -16,6 +16,10 @@
+ void device_init(void);
+ unsigned device_host_epoch(void);
+ bool device_host_changing(void);
++int device_host_ble_target(uint8_t *type,uint8_t address[6]);
++bool device_host_ble_possible(uint8_t type,const uint8_t address[6]);
++bool device_host_ble_bind(unsigned epoch,uint8_t type,const uint8_t address[6]);
++bool ble_host_authorized(void);
+ bool device_host_usb_owned(void);
+ void device_host_usb_touch(void);
+ int device_host_names(char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],int *selected);
+--- a/firmware/main/host_binding_runtime.inc
++++ b/firmware/main/host_binding_runtime.inc
+@@ -8,6 +8,8 @@
+ static atomic_uint host_epoch=1;
+ static atomic_bool host_switching;
+ static atomic_flag host_transition=ATOMIC_FLAG_INIT;
++unsigned device_host_epoch(void);
++bool device_host_changing(void);
+ static char usb_host_nonce[33];
+ static unsigned usb_host_nonce_epoch,usb_host_owner_epoch;
+ static int usb_host_owner=-1;
+@@ -26,6 +28,7 @@
+ static bool host_save(const trusted_host_store *next) {
+     return trusted_hosts_valid(next)&&nvs_set_blob(settings,"trusted_hosts1",next,sizeof(*next))==ESP_OK&&nvs_commit(settings)==ESP_OK;
+ }
++#include "host_ble_runtime.inc"
+ static void host_recover_legacy_pairing(void) {
+     // A power loss can commit the new store before the legacy config. The
+     // committed trust is authoritative; initialize only an absent legacy pair.
+@@ -45,6 +48,7 @@
+         trusted_hosts_readable=host_save(&trusted_hosts);
+     } else trusted_hosts_readable=false;
+     host_recover_legacy_pairing();
++    host_ble_init();
+ }
+ static bool host_usb_owned_locked(void) {
+     int64_t now=esp_timer_get_time()/1000;
+@@ -56,6 +60,15 @@
+ }
+ unsigned device_host_epoch(void){return atomic_load(&host_epoch);}
+ bool device_host_changing(void){return atomic_load(&host_switching);}
++// A late discovery reply cannot replace the newly selected computer's endpoint.
++void device_discovered_host(const char *host,int port,unsigned epoch) {
++    if(!private_host(host)||strlen(host)>=sizeof(config.host)||port<=0||port>65535)return;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    if(epoch==device_host_epoch()&&!device_host_changing()&&trusted_hosts_readable&&trusted_hosts.count){
++        trusted_host *h=&trusted_hosts.entries[trusted_hosts.selected];strcpy(h->address,host);h->port=port;
++    }
++    xSemaphoreGive(device_mutex);
++}
+ void device_host_usb_touch(void) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);
+     if(usb_host_owner>=0&&(unsigned)usb_host_owner==trusted_hosts.selected&&usb_host_owner_epoch==usb_keyboard_epoch()&&tab5_usb_connected())usb_host_seen=esp_timer_get_time()/1000;
+--- /dev/null
++++ b/firmware/main/host_ble_peers.h
+@@ -0,0 +1,26 @@
++#pragma once
++#include "trusted_hosts.h"
++// Separate from trusted_hosts1: retain its ABI and all existing pairings.
++typedef struct {char id[33];uint8_t type,address[6];} host_ble_peer;
++typedef struct {uint32_t version,count;host_ble_peer entries[TRUSTED_HOST_LIMIT];} host_ble_peers;
++static inline bool host_ble_address_valid(uint8_t type,const uint8_t address[6]) {
++    unsigned any=0,not_ff=0;for(int i=0;i<6;i++){any|=address[i];not_ff|=address[i]^255;}
++    return type<=1&&any&&not_ff;
++}
++static inline bool host_ble_address_stable(uint8_t type,const uint8_t address[6]) {
++    return host_ble_address_valid(type,address)&&(type==0||(address[5]&0xc0)==0xc0);
++}
++static inline bool host_ble_peers_valid(const host_ble_peers *s) {
++    if(s->version!=1||s->count>TRUSTED_HOST_LIMIT)return false;
++    for(unsigned i=0;i<s->count;i++) {
++        const host_ble_peer *p=&s->entries[i];
++        if(!memchr(p->id,0,sizeof(p->id))||!trusted_host_id_valid(p->id)||!host_ble_address_stable(p->type,p->address))return false;
++        for(unsigned j=0;j<i;j++)if(!strcmp(p->id,s->entries[j].id)||
++            (p->type==s->entries[j].type&&!memcmp(p->address,s->entries[j].address,6)))return false;
++    }
++    return true;
++}
++static inline int host_ble_peer_index(const host_ble_peers *s,const char *id) {
++    for(unsigned i=0;i<s->count;i++)if(!strcmp(s->entries[i].id,id))return (int)i;
++    return -1;
++}
+--- /dev/null
++++ b/firmware/main/host_ble_runtime.inc
+@@ -0,0 +1,46 @@
++#include "host_ble_peers.h"
++static host_ble_peers host_peers={.version=1};
++static bool host_peers_readable=true;
++static void host_ble_init(void) {
++    host_ble_peers saved;size_t size=sizeof(saved);
++    int r=nvs_get_blob(settings,"host_ble_v1",&saved,&size);
++    if(r==ESP_OK&&size==sizeof(saved)&&host_ble_peers_valid(&saved))host_peers=saved;
++    else if(r!=ESP_ERR_NVS_NOT_FOUND)host_peers_readable=false;
++}
++// -1 unavailable/corrupt; 0 selected computer not yet learned; 1 known peer.
++int device_host_ble_target(uint8_t *type,uint8_t address[6]) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);int result=-1;
++    if(!device_host_changing()&&host_peers_readable&&trusted_hosts_readable&&trusted_hosts.count) {
++        int at=host_ble_peer_index(&host_peers,trusted_hosts.entries[trusted_hosts.selected].id);result=at<0?0:1;
++        if(at>=0){*type=host_peers.entries[at].type;memcpy(address,host_peers.entries[at].address,6);}
++    }
++    xSemaphoreGive(device_mutex);return result;
++}
++static bool host_ble_possible_locked(uint8_t type,const uint8_t address[6]) {
++    if(device_host_changing()||!host_peers_readable||!trusted_hosts_readable||!trusted_hosts.count||!host_ble_address_valid(type,address))return false;
++    // An unresolved RPA must prove the selected application key; never persist it.
++    if(!host_ble_address_stable(type,address))return true;
++    const char *selected=trusted_hosts.entries[trusted_hosts.selected].id;
++    int at=host_ble_peer_index(&host_peers,selected);
++    if(at>=0)return host_peers.entries[at].type==type&&!memcmp(host_peers.entries[at].address,address,6);
++    for(unsigned i=0;i<host_peers.count;i++)if(host_peers.entries[i].type==type&&!memcmp(host_peers.entries[i].address,address,6))return false;
++    return true;
++}
++bool device_host_ble_possible(uint8_t type,const uint8_t address[6]) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);bool ok=host_ble_possible_locked(type,address);xSemaphoreGive(device_mutex);return ok;
++}
++// Only a valid encrypted frame on this BLE connection may learn a peer.
++bool device_host_ble_bind(unsigned epoch,uint8_t type,const uint8_t address[6]) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);bool ok=epoch==device_host_epoch()&&host_ble_possible_locked(type,address);
++    if(ok&&host_ble_address_stable(type,address)) {
++        const char *id=trusted_hosts.entries[trusted_hosts.selected].id;
++        if(host_ble_peer_index(&host_peers,id)<0) {
++            host_ble_peers next=host_peers;
++            if(next.count>=TRUSTED_HOST_LIMIT)ok=false;
++            else {host_ble_peer *p=&next.entries[next.count++];strcpy(p->id,id);p->type=type;memcpy(p->address,address,6);
++                ok=host_ble_peers_valid(&next)&&nvs_set_blob(settings,"host_ble_v1",&next,sizeof(next))==ESP_OK&&nvs_commit(settings)==ESP_OK;
++                if(ok)host_peers=next;}
++        }
++    }
++    xSemaphoreGive(device_mutex);return ok;
++}
+--- a/firmware/main/unlock_remote.c
++++ b/firmware/main/unlock_remote.c
+@@ -2,6 +2,7 @@
+ #include "device.h"
+ #include "rpc_link.h"
+ #include "computer_remote.h"
++#include "unlock_keyboard.h"
+ #include "esp_http_client.h"
+ #include "esp_timer.h"
+ #include <stdlib.h>
+@@ -14,7 +15,11 @@
+ static unlock_remote_state wifi_unlock_state;
+ static void wifi_unlock_wipe(void *p,size_t n){volatile unsigned char *b=p;while(n--)*b++=0;}
+ bool unlock_remote_wifi_only(void){
+-    if(!wifi_connected||ble_connected||tab5_usb_connected())return false;
++    // Wi-Fi belongs to the selected computer. Unrelated physical connections
++    // must neither receive keys nor block this computer's Wi-Fi input path.
++    if(!wifi_connected||device_host_changing())return false;
++    device_config cfg=device_get_config();if(cfg.mode!=-1&&cfg.mode!=LINK_WIFI)return false;
++    ble_keyboard_state usb={0};usb_keyboard_get(&usb);if(usb.ready)return false;
+     xSemaphoreTake(device_mutex,portMAX_DELAY);
+     int64_t age=esp_timer_get_time()/1000-device_links.received_ms[LINK_WIFI];
+     bool fresh=device_links.session[LINK_WIFI][0]&&age>=0&&age<8000;
+--- a/firmware/main/usb_keyboard.inc
++++ b/firmware/main/usb_keyboard.inc
+@@ -11,7 +11,7 @@
+ static int64_t uk_authenticated_at,uk_deadline,uk_last_digit;
+ static bool uk_wake,uk_display,uk_sending,uk_probe;
+ static char uk_request[37],uk_last_wake[37];
+-bool usb_keyboard_selected(void){int mode=device_get_config().mode;return mode==LINK_USB||(mode==-1&&tab5_usb_connected());}
++bool usb_keyboard_selected(void){int mode=device_get_config().mode;return mode==LINK_USB||(mode==-1&&device_host_usb_owned());}
+ static bool uk_ready(void) {
+     int64_t now=esp_timer_get_time()/1000;
+     return uk_host_epoch==device_host_epoch()&&device_host_usb_owned()&&!uk_probe&&tud_mounted()&&!tud_suspended()&&tab5_usb_connected()&&uk_authenticated_at>0&&
+--- a/firmware/main/wifi_link.c
++++ b/firmware/main/wifi_link.c
+@@ -74,7 +74,8 @@
+     }
+ }
+ static void discover_bridge(void) {
+-    device_config cfg=device_get_config();if(!cfg.paired)return;
++    unsigned owner=device_host_epoch();device_config cfg=device_get_config();
++    if(!cfg.paired||owner!=device_host_epoch()||device_host_changing())return;
+     int sock=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);if(sock<0)return;
+     int yes=1;struct timeval timeout={.tv_sec=0,.tv_usec=300000};
+     setsockopt(sock,SOL_SOCKET,SO_BROADCAST,&yes,sizeof(yes));
+@@ -92,19 +93,21 @@
+            !strcmp(id,cfg.id)&&!strcmp(reply_nonce,nonce)&&strlen(mac)==64&&port>0&&port<65536&&inet_addr(host)==source.sin_addr.s_addr) {
+             char *separator=strrchr(packet,'|');*separator=0;device_proof(packet,proof);
+             unsigned difference=0;for(int i=0;i<64;i++)difference|=(unsigned char)proof[i]^(unsigned char)mac[i];
+-            if(!difference)device_discovered_host(host,(int)port);
++            if(!difference)device_discovered_host(host,(int)port,owner);
+         }
+     }
+     close(sock);
+ }
+-static void poll_status(device_config *cfg) {
++static void poll_status(void) {
+     unsigned owner=device_host_epoch();
++    device_config current=device_get_config();device_config *cfg=&current;
++    if(owner!=device_host_epoch()||device_host_changing())return;
+     if(!cfg->paired||!cfg->host[0]||cfg->port<=0)return;
+     char url[100],nonce[33],proof[65],message[100],ids[27],asset_proof[65],diag[256],camera_diag[128];device_nonce(nonce);
+-    snprintf(message,sizeof(message),"GET|%s|%s",cfg->id,nonce);device_proof(message,proof);
++    snprintf(message,sizeof(message),"GET|%.12s|%s",cfg->id,nonce);device_proof(message,proof);
+     xSemaphoreTake(device_mutex,portMAX_DELAY);assets_ids(ids);xSemaphoreGive(device_mutex);
+     snprintf(message,sizeof(message),"ASSETS|%s|%s",nonce,ids);device_proof(message,asset_proof);
+-    snprintf(url,sizeof(url),"http://%s:%d/tab5/v1/status",cfg->host,cfg->port);
++    snprintf(url,sizeof(url),"http://%.15s:%d/tab5/v1/status",cfg->host,cfg->port);
+     esp_http_client_config_t options={.url=url,.timeout_ms=3000,.disable_auto_redirect=true,.buffer_size=2048};
+     esp_http_client_handle_t client=esp_http_client_init(&options);if(!client)return;
+     atomic_store(&http_status,0);
+@@ -201,7 +204,7 @@
+             }else wifi_retry_connection(&cfg);
+         }
+         if(wifi_connected) {
+-            attempts=0;poll_status(&cfg);
++            attempts=0;poll_status();
+             wifi_path_sample(&cfg);
+             int64_t now=esp_timer_get_time()/1000,received;
+             xSemaphoreTake(device_mutex,portMAX_DELAY);received=last_valid_status;xSemaphoreGive(device_mutex);
+--- a/firmware/main/wifi_status.h
++++ b/firmware/main/wifi_status.h
+@@ -9,4 +9,4 @@
+ void tab5_wifi_path_diagnostics(char *out,size_t size);
+ void tab5_wifi_reconnect(void);
+ void tab5_wifi_wake(void);
+-void device_discovered_host(const char *host,int port);
++void device_discovered_host(const char *host,int port,unsigned host_epoch);
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -1,5 +1,22 @@
+ cmake_minimum_required(VERSION 3.20)
+ project(tab5_preview C)
++add_executable(ble-owner-test ble_owner_test.c)
++target_compile_options(ble-owner-test PRIVATE /UNDEBUG)
++add_executable(ble-owner-proof-test ble_owner_proof_test.c "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON/cJSON.c")
++target_include_directories(ble-owner-proof-test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON")
++target_compile_options(ble-owner-proof-test PRIVATE /UNDEBUG)
++file(READ "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/unlock_remote.c" WIFI_OWNER_SOURCE)
++string(FIND "${WIFI_OWNER_SOURCE}" "bool unlock_remote_wifi_only(void)" WIFI_OWNER_START)
++string(FIND "${WIFI_OWNER_SOURCE}" "unsigned unlock_remote_connection(void)" WIFI_OWNER_END)
++if(WIFI_OWNER_START LESS 0 OR WIFI_OWNER_END LESS WIFI_OWNER_START)
++ message(FATAL_ERROR "Wi-Fi ownership source marker missing")
++endif()
++math(EXPR WIFI_OWNER_LENGTH "${WIFI_OWNER_END}-${WIFI_OWNER_START}")
++string(SUBSTRING "${WIFI_OWNER_SOURCE}" ${WIFI_OWNER_START} ${WIFI_OWNER_LENGTH} WIFI_OWNER_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/wifi_owner_route_under_test.inc" "${WIFI_OWNER_BODY}")
++add_executable(wifi-owner-test wifi_owner_test.c)
++target_include_directories(wifi-owner-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++target_compile_options(wifi-owner-test PRIVATE /UNDEBUG)
+ add_executable(trusted-hosts-test trusted_hosts_test.c "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/link_state.c" "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON/cJSON.c")
+ target_include_directories(trusted-hosts-test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON")
+ target_compile_options(trusted-hosts-test PRIVATE /UNDEBUG /utf-8)
+--- a/tests/ui-preview/ble_advertising_test.c
++++ b/tests/ui-preview/ble_advertising_test.c
+@@ -14,8 +14,10 @@
+ typedef uint16_t ble_uuid16_t;
+ #define BLE_UUID16_INIT(v) (v)
+ struct ble_hs_adv_fields {ble_uuid16_t *uuids16;int num_uuids16,uuids16_is_complete,appearance,appearance_is_present;int flags;ble_uuid128_t *uuids128;int num_uuids128,uuids128_is_complete;uint8_t *name;int name_len,name_is_complete;};
+-struct ble_gap_adv_params {int conn_mode,disc_mode;};
++struct ble_gap_adv_params {int conn_mode,disc_mode,filter_policy;};
+ static bool ble_connected,synced=true,active;
++#define ble_physical_connected ble_connected
++static bool ble_owner_advertising(uint8_t *filter){*filter=0;return true;}
+ static int advertising_error,service_id,own_address_type;
+ static int failure,fields_calls,response_calls,start_calls;
+ static int ble_hs_synced(void){return synced;}
+--- /dev/null
++++ b/tests/ui-preview/ble_owner_proof_test.c
+@@ -0,0 +1,24 @@
++#include <assert.h>
++#include <stdint.h>
++#include <stdbool.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdio.h>
++#include "cJSON.h"
++#define TRUSTED_HOST_NAME 64
++typedef struct {char id[13];} device_config;
++static device_config device_get_config(void){return (device_config){"e8f60ae2ec56"};}
++static void device_host_identity(char id[33],char name[64]){strcpy(id,"11111111111111111111111111111111");strcpy(name,"Selected computer");}
++#include "../../firmware/main/ble_owner_proof.inc"
++int main(void) {
++    const char *valid="{\"version\":1,\"type\":\"tab5_ble_owner\",\"deviceId\":\"e8f60ae2ec56\",\"hostId\":\"11111111111111111111111111111111\",\"sequence\":42}";
++    uint64_t sequence=0;assert(ble_owner_proof(valid,&sequence)&&sequence==42);
++    const char *keys[]={"type","deviceId","hostId"},*values[]={"tab5_status","other-device","22222222222222222222222222222222"};
++    for(int i=0;i<3;i++){cJSON *root=cJSON_Parse(valid);cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(root,keys[i]),values[i]);char *wire=cJSON_PrintUnformatted(root);assert(!ble_owner_proof(wire,&sequence));free(wire);cJSON_Delete(root);}
++    const char *invalid[]={"0","-1","1.5","9007199254740992"};
++    // Keep the exact wire integer: cJSON printing can round a large test double.
++    for(unsigned i=0;i<sizeof(invalid)/sizeof(invalid[0]);i++){char wire[256];snprintf(wire,sizeof(wire),"%.*s%s}",(int)strlen(valid)-3,valid,invalid[i]);assert(!ble_owner_proof(wire,&sequence));}
++    cJSON *root=cJSON_Parse(valid);cJSON_AddStringToObject(root,"hostId","22222222222222222222222222222222");char *wire=cJSON_PrintUnformatted(root);assert(!ble_owner_proof(wire,&sequence));free(wire);cJSON_Delete(root);
++    assert(!ble_owner_proof("[]",&sequence)&&!ble_owner_proof("bad",&sequence));
++    puts("BLE_OWNER_PROOF_TEST_OK selected host/device and integer sequence; wrong host/device/type; duplicates; malformed and unsafe sequence rejected");
++}
+--- /dev/null
++++ b/tests/ui-preview/ble_owner_test.c
+@@ -0,0 +1,46 @@
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <string.h>
++#include <stdatomic.h>
++#include <stdio.h>
++#define BLE_HS_CONN_HANDLE_NONE 65535
++#define BLE_ERR_REM_USER_CONN_TERM 19
++#define BLE_HCI_ADV_FILT_CONN 2
++typedef struct {uint8_t type,val[6];} ble_addr_t;
++struct ble_gap_conn_desc {ble_addr_t peer_id_addr;};
++static unsigned epoch=1;static bool changing,ble_connected,active,wl_failed;
++static int target,terminated,stops,whitelist_count;static int64_t now;
++static ble_addr_t selected={0,{1,2,3,4,5,6}},central,whitelist;
++static unsigned device_host_epoch(void){return epoch;}
++static bool device_host_changing(void){return changing;}
++static int64_t esp_timer_get_time(void){return now*1000;}
++static int device_host_ble_target(uint8_t *type,uint8_t addr[6]){*type=selected.type;memcpy(addr,selected.val,6);return changing?-1:target;}
++static bool device_host_ble_possible(uint8_t type,const uint8_t addr[6]){return target>=0&&!changing&&(target==0||(type==selected.type&&!memcmp(addr,selected.val,6)));}
++static bool device_host_ble_bind(unsigned request_epoch,uint8_t type,const uint8_t addr[6]){return request_epoch==epoch&&device_host_ble_possible(type,addr);}
++static int ble_gap_conn_find(uint16_t conn,struct ble_gap_conn_desc *out){(void)conn;out->peer_id_addr=central;return 0;}
++static int ble_gap_terminate(uint16_t conn,int reason){assert(conn==7&&reason==19);terminated++;return 0;}
++static bool ble_gap_adv_active(void){return active;}
++static int ble_gap_adv_stop(void){stops++;active=false;return 0;}
++static int ble_gap_wl_set(const ble_addr_t *addresses,uint8_t count){if(wl_failed)return 1;whitelist_count=count;if(count)whitelist=*addresses;return 0;}
++#include "../../firmware/main/ble_owner.inc"
++int main(void) {
++    uint8_t filter=99;target=-1;active=true;assert(!ble_owner_advertising(&filter)&&!active);
++    target=0;assert(ble_owner_advertising(&filter)&&filter==0&&whitelist_count==0);
++    target=1;active=true;assert(ble_owner_advertising(&filter)&&filter==2&&whitelist_count==1&&!memcmp(&whitelist,&selected,sizeof(selected))&&!active);
++    central=selected;ble_physical_connected=true;atomic_store(&ble_owner_conn,7);ble_owner_connected_at=0;
++    assert(!ble_host_authorized());now=19999;ble_owner_tick();assert(!terminated);
++    now=20000;ble_owner_tick();assert(terminated==1&&!ble_host_authorized());
++    assert(!ble_owner_authenticated(7,epoch-1));
++    assert(ble_owner_authenticated(7,epoch)&&ble_host_authorized()&&ble_connected);
++    now=90000;ble_owner_tick();assert(terminated==1); // Same owner may remain idle.
++    epoch++;assert(!ble_host_authorized());ble_owner_tick();assert(terminated==2);
++    selected.val[0]=99;assert(!ble_owner_authenticated(7,epoch));
++    active=true;assert(ble_owner_advertising(&filter)&&!active&&whitelist.val[0]==99);
++    central=selected;assert(ble_owner_authenticated(7,epoch));
++    changing=true;assert(!ble_host_authorized()&&!ble_owner_advertising(&filter));changing=false;
++    selected.val[0]=88;wl_failed=true;assert(!ble_owner_advertising(&filter));
++    wl_failed=false;assert(ble_owner_advertising(&filter)&&whitelist.val[0]==88);
++    target=-1;assert(!ble_owner_advertising(&filter));
++    puts("BLE_OWNER_TEST_OK unknown peer gets no authority; authentication deadline; selected peer filter; old epoch closed; no foreign takeover; filter failure closed");
++}
+--- a/tests/ui-preview/ble_voice_test.c
++++ b/tests/ui-preview/ble_voice_test.c
+@@ -27,6 +27,7 @@
+ typedef struct {bool paired;} fake_config;
+ static fake_config device_get_config(void){return (fake_config){true};}
+ static bool ble_connected=true;
++static bool ble_host_authorized(void){return ble_connected;}
+ static int64_t now=1000;
+ static int64_t esp_timer_get_time(void){return now*1000;}
+ static void delay(unsigned ms);
+--- a/tests/ui-preview/trusted_hosts_test.c
++++ b/tests/ui-preview/trusted_hosts_test.c
+@@ -9,6 +9,7 @@
+ #include <bcrypt.h>
+ #include "cJSON.h"
+ #include "../../firmware/main/trusted_hosts.h"
++#include "../../firmware/main/host_ble_peers.h"
+ #include "../../firmware/main/link_state.h"
+ #define portMAX_DELAY 0
+ #define ESP_OK 0
+@@ -21,6 +22,8 @@
+ static uint64_t device_metrics_sequence[3];
+ static struct {char id[13];uint8_t key[32];bool paired;char host[16];int port;} config;
+ static trusted_host_store persisted;
++static host_ble_peers persisted_peers;
++static int peer_storage_result=ESP_ERR_NVS_NOT_FOUND;
+ static int storage_result=ESP_ERR_NVS_NOT_FOUND,commits,cancelled,ble_dropped;
+ static bool save_failed,plugged=true;
+ static bool upgrading;
+@@ -37,8 +40,8 @@
+ void unlock_remote_cancel(void){cancelled++;}
+ void ble_host_changed(void){ble_dropped++;}
+ void rpc_link_reset(link_kind link){assert(link==LINK_USB||link==LINK_BLE);}
+-static int nvs_get_blob(int handle,const char *key,void *out,size_t *size){(void)handle;assert(!strcmp(key,"trusted_hosts1"));if(storage_result==ESP_OK){assert(*size==sizeof(persisted));memcpy(out,&persisted,*size);}return storage_result;}
+-static int nvs_set_blob(int handle,const char *key,const void *value,size_t size){(void)handle;assert(!strcmp(key,"trusted_hosts1")&&size==sizeof(persisted));if(save_failed)return 2;memcpy(&persisted,value,size);storage_result=ESP_OK;return 0;}
++static int nvs_get_blob(int handle,const char *key,void *out,size_t *size){(void)handle;if(!strcmp(key,"host_ble_v1")){if(peer_storage_result==ESP_OK){assert(*size==sizeof(persisted_peers));memcpy(out,&persisted_peers,*size);}return peer_storage_result;}assert(!strcmp(key,"trusted_hosts1"));if(storage_result==ESP_OK){assert(*size==sizeof(persisted));memcpy(out,&persisted,*size);}return storage_result;}
++static int nvs_set_blob(int handle,const char *key,const void *value,size_t size){(void)handle;if(save_failed)return 2;if(!strcmp(key,"host_ble_v1")){assert(size==sizeof(persisted_peers));memcpy(&persisted_peers,value,size);peer_storage_result=ESP_OK;return 0;}assert(!strcmp(key,"trusted_hosts1")&&size==sizeof(persisted));memcpy(&persisted,value,size);storage_result=ESP_OK;return 0;}
+ static int nvs_commit(int handle){(void)handle;commits++;return 0;}
+ static const char *str(cJSON *root,const char *key){return cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root,key));}
+ static bool private_host(const char *value){unsigned a,b,c,d;char tail;return value&&sscanf(value,"%u.%u.%u.%u%c",&a,&b,&c,&d,&tail)==4&&b<256&&c<256&&d<256&&(a==10||(a==192&&b==168)||(a==172&&b>=16&&b<=31));}
+@@ -65,6 +68,12 @@
+     strcpy(config.id,"e8f60ae2ec56");memset(config.key,0x11,32);config.paired=true;strcpy(config.host,"192.168.1.20");config.port=18765;link_state_init(&device_links);
+     host_init();assert(trusted_hosts_readable&&trusted_hosts.count==1&&commits==1);
+     char win_id[33];host_key_id(config.key,win_id);assert(!strcmp(win_id,trusted_hosts.entries[0].id));
++    uint8_t type=99,address[6]={0},win_peer[6]={1,2,3,4,5,6},mac_peer[6]={6,5,4,3,2,1};
++    assert(device_host_ble_target(&type,address)==0);
++    assert(!device_host_ble_bind(device_host_epoch()-1,0,win_peer));
++    assert(device_host_ble_bind(device_host_epoch(),0,win_peer));
++    assert(device_host_ble_target(&type,address)==1&&type==0&&!memcmp(address,win_peer,6));
++    assert(!device_host_ble_possible(0,mac_peer));
+     trusted_host mac={0};memset(mac.key,0x22,32);host_key_id(mac.key,mac.id);strcpy(mac.name,"MacBook");strcpy(mac.address,"192.168.1.21");mac.port=18765;
+     assert(trusted_hosts_put(&trusted_hosts,&mac)&&host_save(&trusted_hosts));assert(trusted_hosts.count==2&&trusted_hosts.selected==0);
+     assert(!memcmp(config.key,trusted_hosts.entries[0].key,32));
+@@ -74,6 +83,10 @@
+     root=claim_for(1,nonce,mac.address);device_snapshots[0]=cJSON_CreateObject();device_metrics[0]=cJSON_CreateObject();device_links.received_ms[0]=1000;
+     unsigned generation=device_host_epoch();cJSON *reply=device_host_claim(root);assert(reply);cJSON_Delete(reply);
+     assert(trusted_hosts.selected==1&&device_host_epoch()!=generation&&device_host_usb_owned());
++    device_discovered_host("192.168.1.99",18765,generation);assert(!strcmp(trusted_hosts.entries[1].address,mac.address));
++    device_discovered_host(mac.address,18765,device_host_epoch());assert(trusted_hosts.selected==1&&!strcmp(trusted_hosts.entries[1].address,mac.address));
++    assert(!device_host_ble_possible(0,win_peer)&&device_host_ble_target(&type,address)==0);
++    assert(device_host_ble_bind(device_host_epoch(),0,mac_peer));
+     assert(!device_snapshots[0]&&!device_metrics[0]&&device_links.received_ms[0]<0&&cancelled==3&&ble_dropped==1);
+     assert(!device_host_claim(root));cJSON_Delete(root);assert(!device_host_select(0));
+     plugged=false;usb_epoch++;assert(!device_host_usb_owned());assert(device_host_select(0));assert(trusted_hosts.selected==0);
+@@ -85,8 +98,13 @@
+     for(unsigned i=2;i<TRUSTED_HOST_LIMIT;i++){trusted_host h={0};memset(h.key,(int)i+1,32);host_key_id(h.key,h.id);strcpy(h.name,"Trusted computer");assert(trusted_hosts_put(&trusted_hosts,&h));}
+     trusted_host extra={0};memset(extra.key,99,32);host_key_id(extra.key,extra.id);strcpy(extra.name,"Extra");trusted_host_store before=trusted_hosts;assert(!trusted_hosts_put(&trusted_hosts,&extra));assert(!memcmp(&before,&trusted_hosts,sizeof(before)));
+     persisted=trusted_hosts;config.paired=false;memset(config.key,0,32);storage_result=ESP_OK;host_init();assert(config.paired&&!memcmp(config.key,trusted_hosts.entries[0].key,32)); // interrupted legacy mirror
++    assert(device_host_ble_target(&type,address)==1&&!memcmp(address,win_peer,6));
++    assert(host_ble_peer_index(&host_peers,trusted_hosts.entries[1].id)>=0);
++    plugged=false;assert(device_host_select(2));uint8_t extra_peer[6]={9,8,7,6,5,4};save_failed=true;
++    assert(!device_host_ble_bind(device_host_epoch(),0,extra_peer)&&device_host_ble_target(&type,address)==0);save_failed=false;
++    host_ble_peers saved_peers=persisted_peers;persisted_peers.version=99;host_ble_init();assert(!host_peers_readable&&device_host_ble_target(&type,address)==-1);persisted_peers=saved_peers;
+     persisted.version=99;trusted_hosts_readable=true;host_init();assert(!trusted_hosts_readable); // no stale legacy resurrection
+     assert(!trusted_host_name_valid("bad|name")&&!trusted_host_name_valid("bad\nname"));
+-    printf("TRUSTED_HOSTS_TEST_OK migration; independent_keys; signed_endpoint; USB_epoch_and_nonce; no_replay; owner_switch_cancels_input; USB_priority; NVS_failure; no_eviction; corrupt_store_closed; identity=%s\n",win_id);
++    printf("TRUSTED_HOSTS_TEST_OK migration; independent_keys; USB_takeover; BLE_peer_isolation; reboot_retention; stale_epoch_rejected; NVS_failure; corrupt_store_closed; identity=%s\n",win_id);
+     return 0;
+ }
+--- /dev/null
++++ b/tests/ui-preview/wifi_owner_test.c
+@@ -0,0 +1,32 @@
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#define LINK_WIFI 1
++#define LINK_USB 0
++#define portMAX_DELAY 0
++typedef struct {int mode;} device_config;
++typedef struct {bool ready;} ble_keyboard_state;
++static bool wifi_connected=true,changing,usb_ready;
++static int mode=-1,device_mutex,selected=1;
++static int64_t now=1000;
++static struct {int64_t received_ms[3];char session[3][40];} device_links;
++static bool device_host_changing(void){return changing;}
++static device_config device_get_config(void){return (device_config){mode};}
++static void usb_keyboard_get(ble_keyboard_state *state){state->ready=usb_ready;}
++static void xSemaphoreTake(int mutex,int wait){(void)mutex;(void)wait;}
++static void xSemaphoreGive(int mutex){(void)mutex;}
++static int64_t esp_timer_get_time(void){return now*1000;}
++#include "wifi_owner_route_under_test.inc"
++int main(void) {
++    device_links.received_ms[LINK_WIFI]=now;device_links.session[LINK_WIFI][0]='A';
++    assert(unlock_remote_wifi_only()&&selected==1); // No physical foreign USB/BLE flag can select another computer.
++    usb_ready=true;assert(!unlock_remote_wifi_only());usb_ready=false;
++    changing=true;assert(!unlock_remote_wifi_only()&&selected==1);changing=false;
++    mode=LINK_USB;assert(!unlock_remote_wifi_only());mode=LINK_WIFI;assert(unlock_remote_wifi_only());mode=-1;
++    now+=8000;assert(!unlock_remote_wifi_only()&&selected==1);
++    device_links.received_ms[LINK_WIFI]=now+1;assert(!unlock_remote_wifi_only());
++    device_links.received_ms[LINK_WIFI]=now;device_links.session[LINK_WIFI][0]=0;assert(!unlock_remote_wifi_only());
++    device_links.session[LINK_WIFI][0]='A';wifi_connected=false;assert(!unlock_remote_wifi_only()&&selected==1);
++    puts("WIFI_OWNER_TEST_OK selected-host Wi-Fi eligible; trusted USB priority; no foreign fallback; switching/stale/future/unauthenticated/offline closed");
++}

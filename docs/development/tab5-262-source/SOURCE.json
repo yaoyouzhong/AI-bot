@@ -1,0 +1,205 @@
+{
+  "version": "0.2.262-ui",
+  "base": "Existing TAB5 .257 reconstructed source; copy this overlay preserving paths",
+  "applicationSha256": "4d5479a1332cdcb02afd68d668f5249a097c1ef116ef744c3fb376ef4ce42fa5",
+  "elfSha256": "67da1b3f260446483e4e5c61a307cfd2ffa32a45c6a1cb6a06315fb136c51902",
+  "scope": "Complete source-file overlay for .259-.262 photo crypto, passive diagnostics, bandwidth lifecycle and diagnostic heap-walk suppression. Pre-.263 OTA files preserve the accepted .262 boundary. No .263/.264 diagnostics.",
+  "testsThisCommit": "Not run, as requested by user",
+  "files": [
+    {
+      "path": "firmware/main/CMakeLists.txt",
+      "sha256": "c3c6d54dcfc86bc9243856f51cfeeb69f0a06e47e436db5dc6594e34b79530f0",
+      "bytes": 5304
+    },
+    {
+      "path": "firmware/main/camera_preview.c",
+      "sha256": "0094747aac8ee9e20e8d46c22923a21da712d89f7b762c7e149a792896c1ce03",
+      "bytes": 23600
+    },
+    {
+      "path": "firmware/main/camera_viewport.c",
+      "sha256": "313f865afaf344e6c28b01140817a91803a15a5b2eda3ada2f683d2093d24bea",
+      "bytes": 7907
+    },
+    {
+      "path": "firmware/main/camera_viewport.h",
+      "sha256": "49b135acaa9708e32d240709837b1afaba339e4f906e64239d620001ae4e7118",
+      "bytes": 1820
+    },
+    {
+      "path": "firmware/main/codex_remote.c",
+      "sha256": "9650b51fc84f26b1dd84972f7ca84f13666c40da3473f78098e31ac6ec984f60",
+      "bytes": 22614
+    },
+    {
+      "path": "firmware/main/crash_record.c",
+      "sha256": "cfe4a3d002e7615107a2009adcacecd0de8aad4737046d7f887e33b115e9ef34",
+      "bytes": 14237
+    },
+    {
+      "path": "firmware/main/crash_record.h",
+      "sha256": "67831898ed4ab63b502a8e725e6cdbc996cddaf3764611806ad734680639e2ef",
+      "bytes": 1106
+    },
+    {
+      "path": "firmware/main/display_bandwidth.c",
+      "sha256": "8880353e133e246f03bfc7aec8fddb41552a18d4037769af8ab03d33ecaeb877",
+      "bytes": 2261
+    },
+    {
+      "path": "firmware/main/display_bandwidth.h",
+      "sha256": "34f14c2d7ddd99fd4af8286fcd7b2145d0cd99379738b8b03724d92f15f8cf9e",
+      "bytes": 293
+    },
+    {
+      "path": "firmware/main/display_diagnostics.c",
+      "sha256": "4db8c49dddcf5969eff4a642d062c6c6c1a0d19b91ce83b67c48d997e0a79504",
+      "bytes": 7106
+    },
+    {
+      "path": "firmware/main/ota_update.c",
+      "sha256": "efcc6f5943738c8da0e29a38fd237e7368974d8dbb15e4167be506b7f2f860b6",
+      "bytes": 34890
+    },
+    {
+      "path": "firmware/main/photo_attachment.c",
+      "sha256": "b2de014a6b2397176123f13ce4f6337965cfcddfb1e18a1736d05d3f8e292dba",
+      "bytes": 11159
+    },
+    {
+      "path": "firmware/main/photo_display_probe.c",
+      "sha256": "1c3c0da409c7bf23cc25386b98c1044ad11ab3da942794a724947461e6cb6230",
+      "bytes": 7609
+    },
+    {
+      "path": "firmware/main/photo_display_probe.h",
+      "sha256": "da40861fe1164449ef6095abf31a9195e6c2a830eb58ad23a508d4a533165e73",
+      "bytes": 1257
+    },
+    {
+      "path": "firmware/main/photo_transfer_crypto.c",
+      "sha256": "8fb490b6e8044ab818e603be56125f1f36493cb31cb78d023479ee2f14b0c168",
+      "bytes": 5599
+    },
+    {
+      "path": "firmware/main/photo_transfer_crypto.h",
+      "sha256": "1c205f7f2e6580c6dc60da7fe59ebdd16f62c3c5831763800b0a988e15b3253c",
+      "bytes": 760
+    },
+    {
+      "path": "firmware/main/rpc_link.c",
+      "sha256": "74b3bf24de24a884716747983d709b0e2ec91c2db643aca24a930357341676ef",
+      "bytes": 35494
+    },
+    {
+      "path": "firmware/main/runtime_diagnostics.c",
+      "sha256": "9cea423f287afc1e2fe03e9c101e859e4146ce47d3db5230a10dbf3660bbdfc6",
+      "bytes": 7777
+    },
+    {
+      "path": "firmware/main/ui_photos.h",
+      "sha256": "35f1cc6270fefd7d07e12156ee99b6fefc927cfb213d8dacd78d32d5adbe83ef",
+      "bytes": 20485
+    },
+    {
+      "path": "firmware/main/usb_link.c",
+      "sha256": "ca6fb1afd69c9463c71f59424f91f7bfa7f14eba48d1318466d4c6a3226d2377",
+      "bytes": 33683
+    },
+    {
+      "path": "firmware/main/wifi_link.c",
+      "sha256": "641892215288269dadd1cb954d101b35fe571cb63bd81039ef7c3ef01495b63a",
+      "bytes": 13804
+    },
+    {
+      "path": "tests/ui-preview/CMakeLists.txt",
+      "sha256": "b0d9dd7f5407f31a292070e4020668451416c3d65291d5aa5c97a151c92fadba",
+      "bytes": 75172
+    },
+    {
+      "path": "tests/ui-preview/camera_ownership_test.c",
+      "sha256": "99e4ee7cf388a46308e7706a39c86f6bc264499fced955afbd50d36412c90c10",
+      "bytes": 26893
+    },
+    {
+      "path": "tests/ui-preview/camera_viewport_test.c",
+      "sha256": "1508c2426700cd759c5e98f7bc5172cf73b35bc93d454673f8a2626da1df8cf1",
+      "bytes": 23254
+    },
+    {
+      "path": "tests/ui-preview/ota_update_test.c",
+      "sha256": "b792dbeee7708167b0030ff86e832c69837f55851ecc7d5df4b8c513f0d75913",
+      "bytes": 29916
+    },
+    {
+      "path": "tests/ui-preview/photo-crypto-stubs/esp_heap_caps.h",
+      "sha256": "31d3a0cb333cf9528eafdf316a304d8342e252c64433b20589c561bccf92897e",
+      "bytes": 178
+    },
+    {
+      "path": "tests/ui-preview/photo-crypto-stubs/esp_timer.h",
+      "sha256": "82a7c14acf5d1cdcbea1b23bab880c69562da88013adc34ff5f2ae2115fb08d1",
+      "bytes": 67
+    },
+    {
+      "path": "tests/ui-preview/photo-crypto-stubs/freertos/FreeRTOS.h",
+      "sha256": "b3adf106d95b8934f690943f2921308b90be5b766c4c8ba250c792de56400201",
+      "bytes": 13
+    },
+    {
+      "path": "tests/ui-preview/photo-crypto-stubs/freertos/task.h",
+      "sha256": "8a60c1b80bde33b2dcdefc7f66ca77255a445083f0ee9afb2455fb50efc8a1b5",
+      "bytes": 46
+    },
+    {
+      "path": "tests/ui-preview/photo-crypto-stubs/photo-crypto-config.h",
+      "sha256": "386d8cf406dd0972fd66d3fdaf686c1a2e291a3475f13a7608e736ec69468bb1",
+      "bytes": 144
+    },
+    {
+      "path": "tests/ui-preview/photo-probe-stubs/esp_attr.h",
+      "sha256": "cf951cc87f3425b4cea0f470b5555c77fea3a3c29d615186d99d1df5a744f96e",
+      "bytes": 49
+    },
+    {
+      "path": "tests/ui-preview/photo-probe-stubs/esp_timer.h",
+      "sha256": "82a7c14acf5d1cdcbea1b23bab880c69562da88013adc34ff5f2ae2115fb08d1",
+      "bytes": 67
+    },
+    {
+      "path": "tests/ui-preview/photo-probe-stubs/freertos/FreeRTOS.h",
+      "sha256": "5d385ff649d1fb8df7beed013f34c2d6783573d14bc74c3bfc3b2fb919b0a7d3",
+      "bytes": 442
+    },
+    {
+      "path": "tests/ui-preview/photo_display_probe_test.c",
+      "sha256": "784f0c259407644158f0634f0669263cfc1219540999b3c440d5d08bdbec5dff",
+      "bytes": 12971
+    },
+    {
+      "path": "tests/ui-preview/photo_encode_test.c",
+      "sha256": "6af4b4d28d862c13e006bf1fe148b481d5747b867cd37e707d7407973158e69b",
+      "bytes": 4855
+    },
+    {
+      "path": "tests/ui-preview/photo_transfer_crypto_test.c",
+      "sha256": "057f7e998e4f67688d3059e44a3c6e4796db5e8e64c447d89adc7d6cb8f601b3",
+      "bytes": 5335
+    },
+    {
+      "path": "tests/ui-preview/photo_upload_chunks_test.c",
+      "sha256": "d977b6fdc775afea6826751688a0bbc3e9648d371d733f460293fc25605adfec",
+      "bytes": 7602
+    },
+    {
+      "path": "tests/ui-preview/runtime_diagnostics_test.c",
+      "sha256": "d345e4e1a8f3f77afd196d3e28b30db7afeb998feaf11a7a57ae6e4cd0c9a777",
+      "bytes": 7891
+    },
+    {
+      "path": "tests/ui-preview/ui_preview_stubs.h",
+      "sha256": "76af1ff4f85714c8091c62e804871de317b754170333cc527ee0791426e63d2a",
+      "bytes": 8497
+    }
+  ]
+}

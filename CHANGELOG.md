@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.11 - 2026-10-27
+
+### Features
+- TAB5 now supports macOS on Apple Silicon: USB/Wi-Fi/BLE, device settings, Codex conversations and drafts, speech review, computer controls, preview and firmware management. Permissions and speech sources remain platform-specific.
+- Align Windows/Mac quota sources, DeepSeek wallet totals and provider web zoom.
+
+### Fixes
+- Prevent Windows background quota refresh from stealing voice focus; retain delayed text and warn about early recognizer termination.
+- Restore ESP8266 Wi-Fi fallback with bounded status payloads, retaining USB priority and rendered data.
+- Improve TAB5 previews, voice reply scheduling, bounded history access and exact-image boot checks.
+
+### Validation
+- User hardware acceptance covers long conversations, long voice takes, retained settings and both displays. TAB5 0.2.281-ui and ESP8266 0.5.7 are separately versioned.
+- Mac includes deployed R36 work and documented hardware checks. Apple Silicon packages are ad-hoc signed and not notarized. Recognition remains dependent on the selected speech service; review text before sending.
+
+### Additional changes and provenance
+- Add explicit Windows PIN/password selection, a protected on-demand sign-in helper, authenticated computer selection and bounded upgrade-stop handling.
+- Preserve observed daily quota increments across reset-date changes and distinguish uncertain gap/cross-day attribution. Add authenticated runtime diagnostics and improve the device-center layout.
+- Mac adds source-isolated model accounts, provider web zoom, small-screen LAN rediscovery and aligned stock/weather rendering. Full .279 source and .281 changes are retained with hashes and licenses.
+- Earlier candidate observations, including then-pending cases, are archived in [development notes](docs/development/RELEASE-0611-STAGE-NOTES.en.md); current scope and limits are in [release details](docs/RELEASE-0.6.11.md).
+
 ## 0.6.10 - 2026-10-19
 
 ### Computer unlock
@@ -17,10 +38,6 @@ All notable changes to this project will be documented in this file.
 
 - Preserve the published 0.6.9 update entry points, independent windows and unsaved-change protection. Do not rebuild unchanged Mac or ESP8266 components.
 - Retry atomic history/credential replacement for a bounded interval when a file is temporarily held. Persistent failures preserve the original and report an error. Installation, hardware regression and validation boundaries are tracked in the [closeout record](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).
-
-## Unreleased
-
-- Add a macOS TAB5 USB/Wi-Fi, daily-display and acknowledged display-settings candidate, isolated from ESP8266 settings. Independent protocol/reference checks passed on Windows; 55 Swift tests and Release compilation passed in Mac CI. Preserve command failures through log pipelines and collect the XCTest XML using an absolute path. Native UI and hardware acceptance remain pending. No deployment or release; see the [phase-one record](docs/development/MAC-TAB5-PHASE1-20261019.md).
 
 ## 0.6.9 - 2026-10-17
 

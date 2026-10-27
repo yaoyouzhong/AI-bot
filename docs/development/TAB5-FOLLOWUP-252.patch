@@ -1,0 +1,827 @@
+--- /dev/null
++++ b/firmware/main/camera_gallery_buffer.h
+@@ -0,0 +1,9 @@
++#pragma once
++#include <stdbool.h>
++#include <stdint.h>
++
++// Borrow at most two idle, aligned camera frames. The retained photograph is
++// excluded; the camera must drain every gallery owner before starting CSI.
++uint8_t *camera_gallery_buffer_take(void);
++bool camera_gallery_buffer_release(uint8_t *pixels);
++bool camera_gallery_buffers_idle(void);
+--- a/firmware/main/camera_preview.c
++++ b/firmware/main/camera_preview.c
+@@ -3,6 +3,7 @@
+ #include "bsp/m5stack_tab5.h"
+ #include "esp_heap_caps.h"
+ #include "gallery_remote.h"
++#include "camera_gallery_buffer.h"
+ #include "freertos/idf_additions.h"
+ #include "esp_video_device.h"
+ #include "esp_video_init.h"
+@@ -59,6 +60,35 @@
+ static _Atomic(TaskHandle_t) camera_log_task;
+ static portMUX_TYPE camera_log_lock=portMUX_INITIALIZER_UNLOCKED;
+ static char driver_error[160];
++static unsigned gallery_loans;
++uint8_t *camera_gallery_buffer_take(void) {
++    uint8_t *pixels=NULL;
++    portENTER_CRITICAL(&camera_log_lock);
++    if(!atomic_load(&active)&&!release_failed) {
++        for(unsigned i=0;i<CAMERA_BUFFERS;i++)
++            if(frame_pool[i]&&frame_pool[i]!=(uint8_t *)still_pixels&&!(gallery_loans&(1u<<i))) {
++                gallery_loans|=1u<<i;pixels=frame_pool[i];break;
++            }
++    }
++    portEXIT_CRITICAL(&camera_log_lock);
++    return pixels;
++}
++bool camera_gallery_buffer_release(uint8_t *pixels) {
++    if(!pixels)return false;
++    bool owned=false;
++    portENTER_CRITICAL(&camera_log_lock);
++    for(unsigned i=0;i<CAMERA_BUFFERS;i++)if(pixels==frame_pool[i]) {
++        gallery_loans&=~(1u<<i);owned=true;break;
++    }
++    portEXIT_CRITICAL(&camera_log_lock);
++    return owned;
++}
++bool camera_gallery_buffers_idle(void) {
++    portENTER_CRITICAL(&camera_log_lock);
++    bool idle=gallery_loans==0;
++    portEXIT_CRITICAL(&camera_log_lock);
++    return idle;
++}
+ bool camera_preview_init_buffers(void) {
+     if(frame_pool[CAMERA_BUFFERS-1])return true;
+     for(unsigned i=0;i<CAMERA_BUFFERS;i++) {
+--- a/firmware/main/gallery_buffer.c
++++ b/firmware/main/gallery_buffer.c
+@@ -1,12 +1,21 @@
+ #include "gallery_remote.h"
+ #include <stdatomic.h>
+ #include <stdlib.h>
++#if defined(ESP_PLATFORM) || defined(TAB5_GALLERY_CAMERA_POOL_TEST)
++#include "camera_gallery_buffer.h"
++#endif
+ 
+ // One spare in addition to the displayed frame. Ownership moves atomically
+ // between the LVGL task and the decoder worker, including failed requests.
+ static _Atomic(uint8_t *) spare_buffer;
++void gallery_release_buffer(uint8_t *pixels) {
++#if defined(ESP_PLATFORM) || defined(TAB5_GALLERY_CAMERA_POOL_TEST)
++    if(camera_gallery_buffer_release(pixels))return;
++#endif
++    free(pixels);
++}
+ void gallery_recycle(uint8_t *pixels) {
+-    if(pixels)free(atomic_exchange(&spare_buffer,pixels));
++    if(pixels)gallery_release_buffer(atomic_exchange(&spare_buffer,pixels));
+ }
+ uint8_t *gallery_take_buffer(void) {
+     return atomic_exchange(&spare_buffer,NULL);
+--- a/firmware/main/gallery_remote.c
++++ b/firmware/main/gallery_remote.c
+@@ -12,6 +12,7 @@
+ #include "ota_update.h"
+ #include "transport_benchmark.h"
+ #include "camera_preview.h"
++#include "camera_gallery_buffer.h"
+ #include "photo_attachment.h"
+ #include "voice_remote.h"
+ #include "esp_http_client.h"
+@@ -280,10 +281,10 @@
+         // hidden. No LVGL object owns it yet, and gallery_update() will not
+         // consume it on the Codex page. Drain this owner as well as the spare.
+         gallery_image pending;
+-        if(gallery_take(&pending))free(pending.pixels);
+-        uint8_t *spare;while((spare=gallery_take_buffer())!=NULL)free(spare);
+-    }
+-    return ready;
++        if(gallery_take(&pending))gallery_release_buffer(pending.pixels);
++        uint8_t *spare;while((spare=gallery_take_buffer())!=NULL)gallery_release_buffer(spare);
++    }
++    return ready&&camera_gallery_buffers_idle();
+ }
+ static bool foreground_busy(void) {
+     voice_remote_state voice;voice_remote_get(&voice);
+@@ -642,6 +643,10 @@
+     if(jpeg_decoder_get_info(jpeg,length,&info)!=ESP_OK||info.width!=1280||info.height!=720||foreground_busy())goto done;
+     // Reuse a detached, non-visible decoder buffer. Keeping two cached frames
+     // and allocating a third could fail despite sufficient total free PSRAM.
++    // Camera startup already reserved three full frames. When CSI is idle,
++    // borrow its two non-photograph frames instead of competing for another
++    // contiguous 1.8 MB allocation in the fragmented general heap.
++    if(!pixels)pixels=camera_gallery_buffer_take();
+     if(pixels)capacity=1280*720*2;
+     else {
+         atomic_fetch_add(&diagnostic_allocations,1);pixels=jpeg_alloc_decoder_mem(1280*720*2,&output,&capacity);
+@@ -654,7 +659,7 @@
+     // The decoder allocator clears PSRAM through the CPU cache. Retire those
+     // dirty lines before DMA owns the output, or later eviction can overwrite
+     // decoded pixels (especially the tail). The driver invalidates after DMA.
+-    if(!pixels){atomic_store(&decode_status[job.category*2+job.portrait],GALLERY_DECODE_NO_MEMORY);goto done;}
++    if(!pixels){record(diagnostic_error,ESP_ERR_NO_MEM);atomic_store(&decode_status[job.category*2+job.portrait],GALLERY_DECODE_NO_MEMORY);goto done;}
+     record(diagnostic_stage,7);
+     esp_err_t decode_error=esp_cache_msync(pixels,capacity,ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_INVALIDATE);record(diagnostic_error,decode_error);if(decode_error!=ESP_OK){atomic_store(&decode_status[job.category*2+job.portrait],decode_error==ESP_ERR_NO_MEM?GALLERY_DECODE_NO_MEMORY:GALLERY_DECODE_FAILED);goto done;}
+     record(diagnostic_stage,8);
+--- a/firmware/main/gallery_remote.h
++++ b/firmware/main/gallery_remote.h
+@@ -18,6 +18,8 @@
+ void gallery_guide_reader_release(gallery_guide *guide);
+ // Only recycle decoder buffers after detaching them from LVGL.
+ void gallery_recycle(uint8_t *pixels);
++// Permanently detach a gallery owner, returning a borrowed camera frame safely.
++void gallery_release_buffer(uint8_t *pixels);
+ uint8_t *gallery_take_buffer(void);
+ bool gallery_request_ready(void);
+ // Apply authenticated pack digests only while workers are idle. Returns the
+--- a/firmware/main/photo_attachment.c
++++ b/firmware/main/photo_attachment.c
+@@ -1,4 +1,7 @@
+ #include "photo_attachment.h"
++#include "photo_geometry.h"
++#include "esp_cache.h"
++#include "esp_private/esp_cache_private.h"
+ #include "camera_preview.h"
+ #include "display_bandwidth.h"
+ #include "sd_storage.h"
+@@ -22,6 +25,7 @@
+ static uint8_t *data;
+ static size_t data_size;
+ static uint16_t *preview;
++static unsigned preview_width,preview_height;
+ static char error[96],job_path[512];
+ static photo_listing *listing;
+ static int job_kind,job_page;
+@@ -42,17 +46,34 @@
+ static bool card_io_error(void){return errno==EIO||errno==ENODEV||errno==ENXIO||errno==ETIMEDOUT;}
+ static void fail(const char *message) {snprintf(error,sizeof(error),"%s",message);atomic_store(&phase,3);}
+ static void make_preview(const uint16_t *pixels,unsigned width,unsigned height,unsigned stride) {
+-    memset(preview,0,PHOTO_PREVIEW_W*PHOTO_PREVIEW_H*2);
+-    unsigned w=PHOTO_PREVIEW_W,h=height*w/width;
+-    if(h>PHOTO_PREVIEW_H){h=PHOTO_PREVIEW_H;w=width*h/height;}
++    unsigned w,h;bool portrait=height>width;
++    photo_fit(width,height,portrait?PHOTO_PREVIEW_H:PHOTO_PREVIEW_W,
++              portrait?PHOTO_PREVIEW_W:PHOTO_PREVIEW_H,&w,&h);
+     if(!w||!h)return;
+-    unsigned x0=(PHOTO_PREVIEW_W-w)/2,y0=(PHOTO_PREVIEW_H-h)/2;
+-    for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++)preview[(y+y0)*PHOTO_PREVIEW_W+x+x0]=pixels[(y*height/h)*stride+x*width/w];
++    for(unsigned y=0;y<h;y++) {
++        for(unsigned x=0;x<w;x++)preview[y*w+x]=pixels[(y*height/h)*stride+x*width/w];
++        if((y&15)==15)vTaskDelay(1);
++    }
++    preview_width=w;preview_height=h;
++}
++static void *photo_output_alloc(size_t requested,size_t *capacity) {
++    size_t alignment=0;
++    if(esp_cache_get_alignment(MALLOC_CAP_SPIRAM,&alignment)!=ESP_OK||!alignment)return NULL;
++    size_t size=(requested+alignment-1)&~(alignment-1);
++    // The JPEG engine writes the output. Avoid clearing up to 2 MiB only to
++    // overwrite it, and discard old cache lines before the first DMA write.
++    uint8_t *out=heap_caps_aligned_alloc(alignment,size,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!out)return NULL;
++    for(size_t offset=0;offset<size;) {
++        size_t part=size-offset;if(part>16384)part=16384;
++        if(esp_cache_msync(out+offset,part,ESP_CACHE_MSYNC_FLAG_DIR_M2C)!=ESP_OK){free(out);return NULL;}
++        offset+=part;if(offset<size)vTaskDelay(1);
++    }
++    *capacity=size;return out;
+ }
+ static bool prepare_camera(void) {
+     bool display_locked=false;
+     size_t output_capacity=0;
+-    const jpeg_encode_memory_alloc_cfg_t out_cfg={.buffer_direction=JPEG_ENC_ALLOC_OUTPUT_BUFFER};
+     jpeg_encoder_handle_t codec=NULL;const jpeg_encode_engine_cfg_t engine={.timeout_ms=3000};
+     jpeg_encode_cfg_t cfg={.width=1280,.height=720,.src_type=JPEG_ENCODE_IN_FORMAT_RGB565,.sub_sample=JPEG_DOWN_SAMPLING_YUV420,.image_quality=85};
+     uint32_t written=0;int step=1;esp_err_t result=ESP_ERR_NO_MEM;
+@@ -74,11 +95,11 @@
+     cfg.width=width;cfg.height=height;
+     make_preview((const uint16_t *)pixels,width,height,width);
+     step=3;codec_mark(step,0);reason="照片输出内存不足，可重试";result=ESP_ERR_NO_MEM;
+-    // JPEG output must use the driver's aligned allocator. Fragmentation must
++    // JPEG output must keep the driver's cache alignment. Fragmentation must
+     // not require a full 2 MiB block for a typical ~74 KiB image. Keep quality
+     // unchanged and let the codec reject an insufficient output, never truncate.
+     for(size_t capacity=PHOTO_MAX_BYTES;capacity>=256*1024;capacity/=2) {
+-        data=jpeg_alloc_encoder_mem(capacity,&out_cfg,&output_capacity);
++        data=photo_output_alloc(capacity,&output_capacity);
+         if(data)break;
+     }
+     if(!data)goto finished;
+@@ -181,4 +202,5 @@
+ const char *photo_error(void){return error;}
+ const uint8_t *photo_data(size_t *size){if(photo_state()!=2)return NULL;*size=data_size;return data;}
+ const uint16_t *photo_preview(void){return photo_state()==2?preview:NULL;}
++void photo_preview_dimensions(unsigned *width,unsigned *height){*width=preview_width;*height=preview_height;}
+ void photo_discard(void){if(atomic_load(&working))return;free(data);data=NULL;data_size=0;atomic_store(&phase,0);}
+--- a/firmware/main/photo_attachment.h
++++ b/firmware/main/photo_attachment.h
+@@ -18,4 +18,5 @@
+ void photo_diagnostics(char *out,unsigned size);
+ const uint8_t *photo_data(size_t *size);
+ const uint16_t *photo_preview(void);
++void photo_preview_dimensions(unsigned *width,unsigned *height);
+ void photo_discard(void);
+--- /dev/null
++++ b/firmware/main/photo_geometry.h
+@@ -0,0 +1,12 @@
++#pragma once
++#include <stdint.h>
++
++// Fit the actual photograph, without a baked-in landscape letterbox. Portrait
++// previews use the same 230400-pixel budget as landscape previews.
++static inline void photo_fit(unsigned width,unsigned height,unsigned max_width,unsigned max_height,
++                             unsigned *out_width,unsigned *out_height) {
++    if(!width||!height||!max_width||!max_height){*out_width=*out_height=0;return;}
++    unsigned w=max_width,h=(uint64_t)height*w/width;
++    if(h>max_height){h=max_height;w=(uint64_t)width*h/height;}
++    *out_width=w?w:1;*out_height=h?h:1;
++}
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -196,6 +196,7 @@
+ static unsigned preview_photo_uploads;
+ static char preview_photo_upload_id[37];
+ static uint16_t preview_photo_pixels[PHOTO_PREVIEW_W*PHOTO_PREVIEW_H];
++static unsigned preview_photo_width=PHOTO_PREVIEW_W,preview_photo_height=PHOTO_PREVIEW_H;
+ static const uint8_t preview_photo_jpeg[8]={0xff,0xd8,1,2,3,4,0xff,0xd9};
+ static bool codex_remote_upload(const char *id,const char *session,int64_t epoch,const char *image_id,const uint8_t *data,size_t size){
+     (void)id;(void)session;(void)epoch;
+@@ -211,6 +212,7 @@
+ const char *photo_error(void){return "预览";}
+ const uint8_t *photo_data(size_t *size){*size=preview_photo_fixture?sizeof(preview_photo_jpeg):0;return preview_photo_fixture?preview_photo_jpeg:NULL;}
+ const uint16_t *photo_preview(void){return preview_photo_fixture&&preview_photo_state==2?preview_photo_pixels:NULL;}
++void photo_preview_dimensions(unsigned *width,unsigned *height){*width=preview_photo_width;*height=preview_photo_height;}
+ void photo_discard(void){if(preview_photo_fixture)preview_photo_state=0;}
+ static bool tab5_keyboard_present(void) { return false; }
+ static bool tab5_keyboard_poll(char out[10], uint8_t *modifier) { (void)out; (void)modifier; return false; }
+@@ -2431,7 +2433,8 @@
+         camera_preview_state state=camera_preview_get_state();
+         if(state==CAMERA_PREVIEW_CAPTURED||(!camera_preview_busy()&&state==CAMERA_PREVIEW_OFF))
+             camera_orientation_apply(pose);
+-    } else if(!rotation_busy&&(!camera_preview_busy()||camera_preview_get_state()==CAMERA_PREVIEW_CAPTURED))screen_orientation_apply(saver&&saver_is_gallery()?0:direction);
++    } else if(!rotation_busy&&photo_flow&&photo_window&&!lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN)&&photo_step!=4)photo_view_orientation();
++    else if(!rotation_busy&&(!camera_preview_busy()||camera_preview_get_state()==CAMERA_PREVIEW_CAPTURED))screen_orientation_apply(saver&&saver_is_gallery()?0:direction);
+     atomic_store(&ui_heartbeat_ms,(unsigned)now);
+     (void)timer;
+     // Device indicators must work before the first bridge snapshot arrives.
+--- a/firmware/main/ui_gallery_saver.h
++++ b/firmware/main/ui_gallery_saver.h
+@@ -244,7 +244,7 @@
+             if(count>2&&oldest>=0)gallery_drop(oldest);
+             gallery_show();
+             if(transitioning){lv_obj_update_layout(gallery_layer);lv_display_enable_invalidation(display,true);lv_obj_invalidate(gallery_controls);}
+-        }else free(incoming.pixels);
++        }else gallery_release_buffer(incoming.pixels);
+     }
+     if(gallery_motion_active){gallery_prefetch_day(gallery_presented.date);return;}
+     if(gallery_pending_page.date[0]){
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -1,12 +1,35 @@
+ // Included after the composer and camera callbacks; all functions run on LVGL.
++#include "photo_geometry.h"
+ static lv_obj_t *photo_window,*photo_title,*photo_note,*photo_files,*photo_view,*photo_confirm,*photo_up,*photo_prev,*photo_next,*photo_close_button;
+ static lv_obj_t *photo_rows[PHOTO_LIST_COUNT],*composer_photos[3],*composer_thumbs[3],*composer_remove[3];
+-static struct {char id[37];uint16_t *pixels;} photo_cache[3];
++static struct {char id[37];uint16_t *pixels;unsigned width,height;} photo_cache[3];
+ static unsigned photo_cache_next;
+ static char photo_task[37],photo_id[37],photo_directory[512]="/sdcard";
+ static photo_listing *photo_visible_listing;
+ static int photo_step; // 1 prepare, 2 preview, 3 uploading, 4 list
+ static bool photo_from_camera;
++static void photo_view_layout(void) {
++    int w=lv_display_get_horizontal_resolution(NULL),h=lv_display_get_vertical_resolution(NULL);
++    lv_obj_set_size(photo_window,w,h);
++    lv_obj_set_width(photo_title,w-236);lv_obj_set_x(photo_close_button,w-208);
++    lv_obj_set_pos(photo_note,0,h-110);lv_obj_set_width(photo_note,w-284);
++    lv_obj_set_pos(photo_confirm,w-264,h-122);
++    lv_obj_set_size(photo_files,w-64,h-210);
++    const lv_draw_buf_t *buf=lv_canvas_get_draw_buf(photo_view);
++    if(!buf||!buf->data||!buf->header.w||!buf->header.h)return;
++    unsigned fw,fh;photo_fit(buf->header.w,buf->header.h,w-64,h-180,&fw,&fh);
++    unsigned sx=fw*256/buf->header.w,sy=fh*256/buf->header.h,scale=sx<sy?sx:sy;
++    lv_image_set_pivot(photo_view,0,0);lv_image_set_scale(photo_view,scale);
++    lv_obj_set_pos(photo_view,(w-64-(int)(buf->header.w*scale/256))/2,
++        64+(h-180-(int)(buf->header.h*scale/256))/2);
++}
++static void photo_view_orientation(void) {
++    display_orientation_apply(camera_current_pose());photo_view_layout();
++}
++static void photo_set_view(const uint16_t *pixels,unsigned width,unsigned height) {
++    lv_canvas_set_buffer(photo_view,(void *)pixels,width,height,LV_COLOR_FORMAT_RGB565);
++    photo_view_layout();
++}
+ 
+ static void photo_camera_busy(bool busy) {
+     photo_camera_processing=busy;
+@@ -24,6 +47,7 @@
+     screen_orientation_apply(screen_orientation.direction);
+     visible(camera_layer,false);visible(photo_window,show_window);
+     if(show_window)lv_obj_move_foreground(photo_window);
++    if(show_window)photo_view_orientation();
+ }
+ 
+ static void codex_images_refresh(void) {
+@@ -41,6 +65,7 @@
+     else photo_camera_busy(false);
+     lv_obj_add_flag(photo_window,LV_OBJ_FLAG_HIDDEN);lv_obj_add_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
+     photo_flow=photo_for_codex=false;photo_step=0;photo_discard();codex_images_refresh();
++    screen_orientation_apply(screen_orientation.direction);
+     codex_sync_next=esp_timer_get_time()/1000+1200;codex_read_next=codex_sync_next;
+ }
+ static void photo_upload(void) {
+@@ -144,10 +169,11 @@
+ static void photo_attached_open(lv_event_t *e) {
+     int index=(int)(intptr_t)lv_event_get_user_data(e);codex_draft *d=codex_draft_for(codex_selected,false);
+     if(!d||!d->images[index][0]||codex_waiting||codex_voice_waiting||photo_flow)return;
+-    const uint16_t *pixels=NULL;for(int i=0;i<3;i++)if(!strcmp(photo_cache[i].id,d->images[index]))pixels=photo_cache[i].pixels;
++    const uint16_t *pixels=NULL;unsigned width=0,height=0;
++    for(int i=0;i<3;i++)if(!strcmp(photo_cache[i].id,d->images[index])){pixels=photo_cache[i].pixels;width=photo_cache[i].width;height=photo_cache[i].height;}
+     if(!pixels){ui_text(codex_receipt,"照片附件已保留，本机预览已释放");return;}
+     photo_flow=true;photo_step=2;photo_from_camera=false;
+-    lv_canvas_set_buffer(photo_view,(void *)pixels,PHOTO_PREVIEW_W,PHOTO_PREVIEW_H,LV_COLOR_FORMAT_RGB565);
++    photo_set_view(pixels,width,height);photo_view_orientation();
+     visible(photo_files,false);visible(photo_up,false);visible(photo_prev,false);visible(photo_next,false);visible(photo_confirm,false);visible(photo_view,true);
+     ui_text(photo_title,"照片附件");ui_text(photo_note,"返回后可继续编辑或发送");visible(photo_window,true);lv_obj_move_foreground(photo_window);
+ }
+@@ -178,7 +204,8 @@
+             return;
+         }
+         if(photo_state()!=2)return;
+-        lv_canvas_set_buffer(photo_view,(void *)photo_preview(),PHOTO_PREVIEW_W,PHOTO_PREVIEW_H,LV_COLOR_FORMAT_RGB565);
++        unsigned width,height;photo_preview_dimensions(&width,&height);
++        photo_set_view(photo_preview(),width,height);
+         ui_text(lv_obj_get_child(photo_confirm,0),"添加附件");
+         visible(photo_view,true);visible(photo_confirm,true);lv_obj_remove_state(photo_confirm,LV_STATE_DISABLED);
+         photo_step=2;ui_text(photo_note,"确认后添加到当前消息");
+@@ -192,11 +219,24 @@
+         codex_draft *d=codex_draft_for(photo_task,true);int slot=0;while(d&&slot<3&&d->images[slot][0])slot++;
+         if(!d||slot==3){if(photo_camera_processing)photo_camera_return(true);photo_step=2;ui_text(photo_note,"附件空间不足，照片已保留");return;}
+         snprintf(d->images[slot],37,"%s",photo_id);d->thumbnails[slot]=codex_alloc(96*54*2);
+-        const uint16_t *pixels=photo_preview();if(d->thumbnails[slot]&&pixels)for(int y=0;y<54;y++)for(int x=0;x<96;x++)d->thumbnails[slot][y*96+x]=pixels[(y*PHOTO_PREVIEW_H/54)*PHOTO_PREVIEW_W+x*PHOTO_PREVIEW_W/96];
++        unsigned width,height;photo_preview_dimensions(&width,&height);
++        const uint16_t *pixels=photo_preview();
++        if(d->thumbnails[slot]&&pixels&&width&&height) {
++            unsigned tw,th;photo_fit(width,height,96,54,&tw,&th);
++            memset(d->thumbnails[slot],0,96*54*2);
++            for(unsigned y=0;y<th;y++)for(unsigned x=0;x<tw;x++)
++                d->thumbnails[slot][(y+(54-th)/2)*96+x+(96-tw)/2]=pixels[(y*height/th)*width+x*width/tw];
++        }
+         unsigned cache=photo_cache_next++%3;
++        // Reuse a removed attachment's entry before evicting a photograph
++        // that is still present in this three-photo draft.
++        for(unsigned i=0;i<3;i++) {
++            bool retained=false;for(unsigned j=0;j<3;j++)if(!strcmp(photo_cache[i].id,d->images[j]))retained=true;
++            if(!retained||!photo_cache[i].pixels){cache=i;break;}
++        }
+         if(!photo_cache[cache].pixels)photo_cache[cache].pixels=codex_alloc(PHOTO_PREVIEW_W*PHOTO_PREVIEW_H*2);
+         photo_cache[cache].id[0]=0;
+-        if(pixels&&photo_cache[cache].pixels){memcpy(photo_cache[cache].pixels,pixels,PHOTO_PREVIEW_W*PHOTO_PREVIEW_H*2);snprintf(photo_cache[cache].id,37,"%s",photo_id);}
++        if(pixels&&photo_cache[cache].pixels){memcpy(photo_cache[cache].pixels,pixels,width*height*2);photo_cache[cache].width=width;photo_cache[cache].height=height;snprintf(photo_cache[cache].id,37,"%s",photo_id);}
+         d->dirty=d->loaded=true;d->revision++;codex_local_dirty=true;codex_checkpoint_write();photo_finish();
+         codex_feedback_pinned=true;codex_submit_accepted=false;
+         ui_text_fmt(codex_receipt,"%s，可与文字一起发送",status);
+--- a/scripts/apply-jpeg-dma-memory.py
++++ b/scripts/apply-jpeg-dma-memory.py
+@@ -16,6 +16,22 @@
+ DECODE_MARKER = '    // TAB5: decoder descriptors may use the reserved DMA heap (no DEFAULT).\n'
+ CACHE_OLD = 'ret = esp_cache_msync((void*)raw_buffer, encoder_engine->header_info->origin_v * encoder_engine->header_info->origin_h * encoder_engine->bytes_per_pixel, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);'
+ CACHE_NEW = 'ret = esp_cache_msync((void*)raw_buffer, inbuf_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);'
++CACHE_BOUNDED = CACHE_NEW.replace('esp_cache_msync(', 'tab5_jpeg_sync_image(')
++SYNC_HELPER = '''// TAB5: bound image cache critical sections so LCD frame interrupts can run.
++static esp_err_t tab5_jpeg_sync_image(void *buffer, size_t size, int flags)
++{
++    for (size_t offset = 0; offset < size;) {
++        size_t part = size - offset;
++        if (part > 16384) part = 16384;
++        esp_err_t result = esp_cache_msync((uint8_t *)buffer + offset, part, flags);
++        if (result != ESP_OK) return result;
++        offset += part;
++        if (offset < size) vTaskDelay(1);
++    }
++    return ESP_OK;
++}
++
++'''
+ INPUT_ANCHOR = '    s_jpeg_enc_select_sample_mode(encoder_engine);\n'
+ INPUT_GUARD = '''    // TAB5: bytes_per_pixel is bit depth. Validate before any TX DMA setup.
+     uint64_t input_pixels = (uint64_t)encode_cfg->width * encode_cfg->height;
+@@ -26,11 +42,24 @@
+ '''
+ 
+ def patch_input_range(source: str) -> str:
++    if source.count(CACHE_BOUNDED) == 1 and CACHE_OLD not in source and source.count(INPUT_GUARD) == 1:
++        return source
+     if source.count(CACHE_NEW) == 1 and CACHE_OLD not in source and source.count(INPUT_GUARD) == 1:
+         return source
+     if source.count(CACHE_OLD) != 1 or CACHE_NEW in source or INPUT_GUARD in source or source.count(INPUT_ANCHOR) != 1:
+         raise RuntimeError('Unknown JPEG encoder input cache range; inspect SDK before patching')
+     return source.replace(INPUT_ANCHOR, INPUT_ANCHOR + INPUT_GUARD).replace(CACHE_OLD, CACHE_NEW)
++
++def patch_bounded_sync(source: str) -> str:
++    output = 'esp_cache_msync((void*)(bit_stream + encoder_engine->header_info->header_len), _compressed_size, ESP_CACHE_MSYNC_FLAG_DIR_M2C)'
++    bounded_output = output.replace('esp_cache_msync(', 'tab5_jpeg_sync_image(')
++    if source.count(SYNC_HELPER) == 1 and source.count(CACHE_BOUNDED) == 1 and source.count(bounded_output) == 1:
++        return source
++    anchor = 'static const char *TAG = "jpeg.encoder";\n\n'
++    if source.count(anchor) != 1 or source.count(CACHE_NEW) != 1 or source.count(output) != 1:
++        raise RuntimeError('Unknown JPEG image synchronization; inspect SDK')
++    source = source.replace('#include "freertos/queue.h"', '#include "freertos/queue.h"\n#include "freertos/task.h"')
++    return source.replace(anchor, anchor + SYNC_HELPER).replace(CACHE_NEW, CACHE_BOUNDED).replace(output, bounded_output)
+ 
+ def patch(source: str) -> str:
+     if source.count(NEW) == 2 and OLD not in source and source.count(MARKER) == 1:
+@@ -55,7 +84,7 @@
+ def patch_sdk(root: Path) -> None:
+     # Validate both pinned sources before modifying either one.
+     updates = []
+-    for name, transform in [('jpeg_encode.c', lambda text: patch_input_range(patch(text))), ('jpeg_decode.c', patch_decoder)]:
++    for name, transform in [('jpeg_encode.c', lambda text: patch_bounded_sync(patch_input_range(patch(text)))), ('jpeg_decode.c', patch_decoder)]:
+         file = root / 'components/esp_driver_jpeg' / name
+         source = file.read_text(encoding='utf-8')
+         updates.append((file, source, transform(source)))
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -145,7 +145,7 @@
+ set(GALLERY_SOURCE "${ROOT}/firmware/main/gallery_remote.c")
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${GALLERY_SOURCE}")
+ file(READ "${GALLERY_SOURCE}" GALLERY_TEXT)
+-string(FIND "${GALLERY_TEXT}" "    if(pixels)capacity=1280*720*2;" GALLERY_START)
++string(FIND "${GALLERY_TEXT}" "    if(!pixels)pixels=camera_gallery_buffer_take();" GALLERY_START)
+ string(FIND "${GALLERY_TEXT}" "    result=job;" GALLERY_END)
+ math(EXPR GALLERY_LENGTH "${GALLERY_END} - ${GALLERY_START}")
+ if(GALLERY_START LESS 0 OR GALLERY_LENGTH LESS 1)
+@@ -397,6 +397,16 @@
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/photo_encode_under_test.inc" "${PHOTO_BODY}")
+ add_executable(photo-encode-test photo_encode_test.c)
+ target_include_directories(photo-encode-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++string(FIND "${PHOTO_TEXT}" "static void make_preview(" PHOTO_PREVIEW_START)
++string(FIND "${PHOTO_TEXT}" "static void *photo_output_alloc(" PHOTO_ALLOC_START)
++math(EXPR PHOTO_PREVIEW_LENGTH "${PHOTO_ALLOC_START}-${PHOTO_PREVIEW_START}")
++math(EXPR PHOTO_ALLOC_LENGTH "${PHOTO_START}-${PHOTO_ALLOC_START}")
++string(SUBSTRING "${PHOTO_TEXT}" ${PHOTO_PREVIEW_START} ${PHOTO_PREVIEW_LENGTH} PHOTO_PREVIEW_BODY)
++string(SUBSTRING "${PHOTO_TEXT}" ${PHOTO_ALLOC_START} ${PHOTO_ALLOC_LENGTH} PHOTO_ALLOC_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/photo_preview_under_test.inc" "${PHOTO_PREVIEW_BODY}")
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/photo_output_alloc_under_test.inc" "${PHOTO_ALLOC_BODY}")
++add_executable(photo-memory-test photo_memory_test.c)
++target_include_directories(photo-memory-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ set(BANDWIDTH_SOURCE "${ROOT}/firmware/main/display_bandwidth.c")
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${BANDWIDTH_SOURCE}")
+ file(READ "${BANDWIDTH_SOURCE}" BANDWIDTH_TEXT)
+@@ -462,7 +472,12 @@
+ endif()
+ string(SUBSTRING "${JPEG_TEXT}" ${JPEG_INPUT_START} ${JPEG_INPUT_LENGTH} JPEG_INPUT_BODY)
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/jpeg_input_range_under_test.inc" "${JPEG_INPUT_BODY}")
+-string(REGEX MATCH "ret = esp_cache_msync\\(\\(void\\*\\)raw_buffer,[^;]+;" JPEG_INPUT_SYNC "${JPEG_TEXT}")
++string(FIND "${JPEG_TEXT}" "static esp_err_t tab5_jpeg_sync_image(" JPEG_SYNC_START)
++string(FIND "${JPEG_TEXT}" "static esp_err_t s_jpeg_set_header_info(" JPEG_SYNC_END)
++math(EXPR JPEG_SYNC_LENGTH "${JPEG_SYNC_END}-${JPEG_SYNC_START}")
++string(SUBSTRING "${JPEG_TEXT}" ${JPEG_SYNC_START} ${JPEG_SYNC_LENGTH} JPEG_SYNC_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/jpeg_image_sync_under_test.inc" "${JPEG_SYNC_BODY}")
++string(REGEX MATCH "ret = tab5_jpeg_sync_image\\(\\(void\\*\\)raw_buffer,[^;]+;" JPEG_INPUT_SYNC "${JPEG_TEXT}")
+ if(NOT JPEG_INPUT_SYNC)
+     message(FATAL_ERROR "JPEG input cache sync missing")
+ endif()
+--- a/tests/ui-preview/camera_memory_handoff_test.c
++++ b/tests/ui-preview/camera_memory_handoff_test.c
+@@ -24,6 +24,9 @@
+ static void gallery_jpeg_clear(int *cache){assert(cache==&jpeg_cache&&held);cleared++;}
+ static uint8_t *gallery_take_buffer(void){uint8_t *p=spare;spare=NULL;return p;}
+ static void tracked_free(void *p){assert(p&&!held);released++;free(p);}
++static void gallery_release_buffer(uint8_t *p){tracked_free(p);}
++static bool pool_idle=true;
++static bool camera_gallery_buffers_idle(void){return pool_idle;}
+ static int64_t esp_timer_get_time(void){return now_us;}
+ static void vTaskDelay(unsigned ms){
+     assert(!held);now_us+=ms*1000;delays++;
+@@ -50,5 +53,7 @@
+     assert(!camera_wait_for_gallery()&&now_us==4000000&&delays==200&&released==2&&result.pixels==owned);
+     keep_running=false;delays=0;assert(!camera_wait_for_gallery()&&!delays&&!held);
+     working=false;keep_running=true;assert(camera_wait_for_gallery()&&released==3&&!result.pixels);
++    pool_idle=false;assert(!gallery_camera_prepare());
++    pool_idle=true;assert(gallery_camera_prepare());
+     puts("CAMERA_MEMORY_HANDOFF_OK: worker drain, pending decoded result and spare reclamation, idle HTTP outside mutex, timeout, cancellation and reopen");
+ }
+--- a/tests/ui-preview/camera_ownership_test.c
++++ b/tests/ui-preview/camera_ownership_test.c
+@@ -282,6 +282,8 @@
+ #include "camera_preview_under_test.inc"
+ #undef free
+ #undef camera_frame_view
++#define TAB5_GALLERY_CAMERA_POOL_TEST
++#include "../../firmware/main/gallery_buffer.c"
+ 
+ static bool apply_capture_pose(int pose){assert(locked&&!direct_active);return pose==capture_pose_test;}
+ int main(void) {
+@@ -311,6 +313,30 @@
+     }
+     startup_fail_call=0;frame_allocations=0;
+     assert(camera_preview_init_buffers()&&frame_live==3);
++    uint8_t *gallery_a=camera_gallery_buffer_take(),*gallery_b=camera_gallery_buffer_take();
++    assert(gallery_a&&gallery_b&&gallery_a!=gallery_b&&!camera_gallery_buffer_take());
++    assert(gallery_a!=(uint8_t *)still_pixels&&gallery_b!=(uint8_t *)still_pixels);
++    assert(!camera_gallery_buffers_idle());
++    memset(gallery_a,0xA5,1280*720*2);memset(gallery_b,0x5A,1280*720*2);
++    assert(camera_gallery_buffer_release(gallery_a)&&camera_gallery_buffer_release(gallery_b));
++    assert(camera_gallery_buffers_idle()&&!camera_gallery_buffer_release((uint8_t *)1));
++    atomic_store(&active,true);assert(!camera_gallery_buffer_take());atomic_store(&active,false);
++    release_failed=true;assert(!camera_gallery_buffer_take());release_failed=false;
++    puts("CAMERA_GALLERY_POOL_OK two idle aligned frames, photograph excluded, active/quarantined denial, return fence");
++    memset(still_pixels,0xCC,1280*720*2);
++    for(unsigned pass=0;pass<64;pass++) {
++        uint8_t *a=camera_gallery_buffer_take(),*b=camera_gallery_buffer_take();
++        assert(a&&b&&a!=b);
++        memset(a,0xA5,1280*720*2);memset(b,0x5A,1280*720*2);
++        gallery_recycle(a);gallery_recycle(b);
++        assert(!camera_gallery_buffers_idle());
++        uint8_t *returned=camera_gallery_buffer_take();assert(returned==a);
++        assert(camera_gallery_buffer_release(returned));
++        gallery_release_buffer(gallery_take_buffer());
++        assert(camera_gallery_buffers_idle()&&frame_live==3);
++        for(unsigned byte=0;byte<1280*720*2;byte++)assert(((uint8_t *)still_pixels)[byte]==0xCC);
++    }
++    puts("CAMERA_GALLERY_HANDOFF_OK 64 real pool/spare recycle cycles; photograph intact, exactly three original frames");
+     unsigned allocations=frame_allocations;
+     assert(camera_preview_init_buffers()&&frame_allocations==allocations);
+     const unsigned retained_frames=3;
+--- a/tests/ui-preview/gallery_dma_test.c
++++ b/tests/ui-preview/gallery_dma_test.c
+@@ -4,6 +4,9 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdatomic.h>
++#ifdef _WIN32
++#include <windows.h>
++#endif
+ typedef int esp_err_t;
+ static atomic_int diagnostic_stage,diagnostic_error;
+ static atomic_uint diagnostic_allocations;
+@@ -18,6 +21,8 @@
+ typedef struct {int output_format,rgb_order,conv_std;} jpeg_decode_cfg_t;
+ static bool dirty,omit_sync,fail_alloc,fail_sync,fail_decode,short_write;
+ static unsigned decodes;
++static uint8_t *borrowed_frame;
++static uint8_t *camera_gallery_buffer_take(void){uint8_t *p=borrowed_frame;borrowed_frame=NULL;return p;}
+ static void *jpeg_alloc_decoder_mem(size_t bytes,const void *config,size_t *capacity) {
+     (void)config;*capacity=bytes;dirty=true;return fail_alloc?NULL:calloc(1,bytes);
+ }
+@@ -46,7 +51,11 @@
+     // A foreground request clears its own outcome before entering this body.
+     atomic_store(&decode_status[job.category*2+job.portrait],GALLERY_DECODE_OK);
+ #define record(counter,value) atomic_store(&(counter),(value))
++#ifdef TAB5_GALLERY_BASELINE
++#include "gallery_decode_baseline.inc"
++#else
+ #include "gallery_decode_under_test.inc"
++#endif
+ #undef record
+     return pixels;
+ done:
+@@ -54,6 +63,10 @@
+ }
+ static uint8_t *decode(void){return decode_with_spare(NULL);}
+ int main(void) {
++#ifdef _WIN32
++    SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
++    _set_error_mode(_OUT_TO_STDERR);_set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
++#endif
+     omit_sync=true;uint8_t *pixels=decode();assert(pixels);
+     assert(pixels[0]==0xA5&&pixels[1280*720*2-1]==0);free(pixels);
+     omit_sync=false;
+@@ -62,6 +75,17 @@
+         for(size_t i=0;i<1280*720*2;i++)assert(pixels[i]==0xA5);
+         free(pixels);
+     }
++    // Negative control: .250 cannot decode a second layout when the general
++    // heap has no contiguous full frame. A reserved loan must complete without
++    // relaxing that allocation failure or changing any output pixels.
++    fail_alloc=true;
++    borrowed_frame=calloc(1,1280*720*2);assert(borrowed_frame);
++    uint8_t *loan=borrowed_frame;unsigned allocations=atomic_load(&diagnostic_allocations);
++    pixels=decode();assert(pixels==loan&&!borrowed_frame);
++    assert(atomic_load(&diagnostic_allocations)==allocations);
++    for(size_t i=0;i<1280*720*2;i++)assert(pixels[i]==0xA5);
++    free(pixels);fail_alloc=false;
++    puts("GALLERY_RESERVED_FRAME_OK fragmented-heap decode uses reserved frame; all 921600 pixels intact");
+     unsigned before=decodes;
+     fail_alloc=true;assert(!decode());fail_alloc=false;
+     assert(atomic_load(&decode_status[0])==GALLERY_DECODE_NO_MEMORY);
+--- a/tests/ui-preview/gallery_worker_test.c
++++ b/tests/ui-preview/gallery_worker_test.c
+@@ -53,6 +53,8 @@
+ static bool ota_update_busy(void){return false;}
+ static bool transport_benchmark_busy(void){return false;}
+ static bool camera_preview_busy(void){return false;}
++static uint8_t *camera_gallery_buffer_take(void){return NULL;}
++static bool camera_gallery_buffers_idle(void){return true;}
+ static int photo_state(void){return 0;}
+ static int rpc_read_link_select(void){return link;}
+ static int rpc_library_link_select(void){return link;}
+--- a/tests/ui-preview/jpeg_cache_range_test.c
++++ b/tests/ui-preview/jpeg_cache_range_test.c
+@@ -9,21 +9,26 @@
+ 
+ typedef int esp_err_t;
+ enum {ESP_OK=0,ESP_ERR_INVALID_ARG=258};
+-enum {ESP_CACHE_MSYNC_FLAG_DIR_C2M=1,ESP_CACHE_MSYNC_FLAG_UNALIGNED=2};
++enum {ESP_CACHE_MSYNC_FLAG_DIR_C2M=1,ESP_CACHE_MSYNC_FLAG_UNALIGNED=2,ESP_CACHE_MSYNC_FLAG_DIR_M2C=4};
+ #define ESP_GOTO_ON_FALSE(c,r,label,...) do{if(!(c)){ret=(r);goto label;}}while(0)
+ typedef struct {uint32_t width,height;} jpeg_encode_cfg_t;
+ typedef struct {uint32_t origin_h,origin_v;} header_t;
+ typedef struct {header_t *header_info;uint32_t bytes_per_pixel;} encoder_t;
+ static void *allocation;
+ static size_t capacity,sync_size;
+-static unsigned sync_count,dma_count;
++static unsigned sync_count,dma_count,yields,fail_call;
++static int expected_flags;
+ static bool outside_input;
+ static esp_err_t esp_cache_msync(void *address,size_t size,int flags) {
+-    assert(address==allocation);
+-    assert(flags==(ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_UNALIGNED));
+-    sync_count++;sync_size=size;outside_input=size>capacity;
++    assert(address==(uint8_t *)allocation+sync_size);
++    assert(flags==expected_flags);
++    assert(size<=16384);sync_count++;
++    if(sync_count==fail_call)return 511;
++    sync_size+=size;outside_input=sync_size>capacity;
+     return ESP_OK;
+ }
++static void vTaskDelay(unsigned ticks){assert(ticks==1);yields++;}
++#include "jpeg_image_sync_under_test.inc"
+ static esp_err_t process(uint32_t width,uint32_t height,uint32_t bit_depth,uint32_t inbuf_size) {
+     jpeg_encode_cfg_t config={width,height};const jpeg_encode_cfg_t *encode_cfg=&config;
+     header_t header={width,height};encoder_t encoder={&header,bit_depth};encoder_t *encoder_engine=&encoder;
+@@ -36,11 +41,12 @@
+     return ret;
+ }
+ static void reset(uint32_t size) {
+-    capacity=size;sync_size=0;sync_count=0;dma_count=0;outside_input=false;
++    capacity=size;sync_size=0;sync_count=0;dma_count=0;yields=0;outside_input=false;fail_call=0;
++    expected_flags=ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_UNALIGNED;
+ }
+ int main(void) {
+     // Mock only the cache boundary: no photo data or enormous allocation needed.
+-    allocation=malloc(1);assert(allocation);
++    allocation=malloc(4*1024*1024);assert(allocation);
+     reset(1280u*720u*2u);
+     esp_err_t result=process(1280,720,16,(uint32_t)capacity);
+     if(result!=ESP_OK||outside_input||sync_size!=capacity) {
+@@ -55,7 +61,7 @@
+         uint32_t required=w*h*depths[d]/8;
+         reset(required+pad*128);
+         assert(process(w,h,depths[d],(uint32_t)capacity)==ESP_OK);
+-        assert(sync_count==1&&dma_count==1&&!outside_input&&sync_size==capacity);
++        assert(sync_count==(capacity+16383)/16384&&yields+1==sync_count&&dma_count==1&&!outside_input&&sync_size==capacity);
+         reset(required-1);
+         assert(process(w,h,depths[d],(uint32_t)capacity)==ESP_ERR_INVALID_ARG);
+         assert(sync_count==0&&dma_count==0);
+@@ -69,7 +75,21 @@
+         assert(process(invalid[i][0],invalid[i][1],invalid[i][2],invalid[i][3])==ESP_ERR_INVALID_ARG);
+         assert(sync_count==0&&dma_count==0);cases++;
+     }
++    // Both cache directions preserve flags and byte boundaries, including
++    // short tails and the exact failing chunk. No later range may be touched.
++    const uint32_t sizes[]={0,128,16384,16512,2*1024*1024};
++    for(unsigned direction=0;direction<2;direction++)for(unsigned i=0;i<5;i++){
++        reset(sizes[i]);expected_flags=direction?ESP_CACHE_MSYNC_FLAG_DIR_M2C:3;
++        assert(tab5_jpeg_sync_image(allocation,capacity,expected_flags)==ESP_OK);
++        assert(sync_size==capacity&&!outside_input&&sync_count==(capacity+16383)/16384);
++        assert(yields==(sync_count?sync_count-1:0));cases++;
++    }
++    for(unsigned direction=0;direction<2;direction++){
++        reset(2*1024*1024);expected_flags=direction?ESP_CACHE_MSYNC_FLAG_DIR_M2C:3;fail_call=2;
++        assert(tab5_jpeg_sync_image(allocation,capacity,expected_flags)==511);
++        assert(sync_count==2&&sync_size==16384&&yields==1);cases++;
++    }
+     free(allocation);
+-    printf("JPEG_CACHE_RANGE_PASS: %u cases; actual SDK input sync stays within caller buffer; short/invalid/overflow inputs rejected before DMA\n",cases);
++    printf("JPEG_CACHE_RANGE_PASS: %u cases; actual SDK input bounds and bidirectional 16 KiB sync; failures stop immediately\n",cases);
+     return 0;
+ }
+--- a/tests/ui-preview/photo_encode_test.c
++++ b/tests/ui-preview/photo_encode_test.c
+@@ -38,8 +38,8 @@
+ #define MALLOC_CAP_SPIRAM 1
+ #define MALLOC_CAP_8BIT 2
+ static void codec_mark(int stage,int code) {last_step=stage;last_code=code;}
+-static void *jpeg_alloc_encoder_mem(size_t n,const jpeg_encode_memory_alloc_cfg_t *cfg,size_t *capacity) {
+-    assert(cfg->buffer_direction==JPEG_ENC_ALLOC_OUTPUT_BUFFER&&leased&&bandwidth_held);
++static void *photo_output_alloc(size_t n,size_t *capacity) {
++    assert(leased&&bandwidth_held);
+     assert(n>=256*1024&&n<=PHOTO_MAX_BYTES);attempts++;
+     if(fault==3||n>allocation_limit)return NULL;
+     *capacity=n;allocated_capacity=n;allocations++;return malloc(n);
+--- /dev/null
++++ b/tests/ui-preview/photo_memory_test.c
+@@ -0,0 +1,57 @@
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <malloc.h>
++#include "../../firmware/main/photo_geometry.h"
++#include "../../firmware/main/photo_attachment.h"
++enum {ESP_OK=0,MALLOC_CAP_SPIRAM=1,MALLOC_CAP_8BIT=2,ESP_CACHE_MSYNC_FLAG_DIR_M2C=4};
++static unsigned yields,calls,fault;
++static size_t extent,synced;
++static uint8_t *owned;
++static uint16_t *preview;
++static unsigned preview_width,preview_height;
++static void vTaskDelay(unsigned ticks){assert(ticks==1);yields++;}
++static int esp_cache_get_alignment(int caps,size_t *alignment){assert(caps==1);*alignment=128;return fault==1?1:0;}
++static void *heap_caps_aligned_alloc(size_t alignment,size_t bytes,int caps){
++    assert(alignment==128&&caps==3&&!owned&&!(bytes%128));
++    if(fault==2)return NULL;
++    extent=bytes;owned=_aligned_malloc(bytes,alignment);assert(owned);memset(owned,0xA5,bytes);return owned;
++}
++static int esp_cache_msync(void *p,size_t bytes,int flags){
++    assert(p==owned+synced&&bytes<=16384&&!(bytes%128)&&flags==4);calls++;
++    if(fault==3&&calls==2)return 1;
++    synced+=bytes;assert(synced<=extent);return 0;
++}
++static void release(void *p){assert(p==owned);_aligned_free(p);owned=NULL;}
++#define free release
++#include "photo_output_alloc_under_test.inc"
++#undef free
++#include "photo_preview_under_test.inc"
++int main(void){
++    for(fault=0;fault<4;fault++){
++        yields=calls=0;synced=0;size_t capacity=0;
++        uint8_t *p=photo_output_alloc(PHOTO_MAX_BYTES,&capacity);
++        if(fault){assert(!p&&!owned&&!capacity);continue;}
++        assert(capacity==PHOTO_MAX_BYTES&&synced==capacity&&calls==128&&yields==127);
++        for(size_t i=0;i<capacity;i++)assert(p[i]==0xA5);release(p);
++    }
++    preview=malloc(PHOTO_PREVIEW_W*PHOTO_PREVIEW_H*2);assert(preview);
++    uint16_t *pixels=malloc(1280*720*2);assert(pixels);
++    for(unsigned pose=0;pose<2;pose++){
++        unsigned w=pose?720:1280,h=pose?1280:720;yields=0;
++        for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++)pixels[y*w+x]=(uint16_t)(1+(x/2+y/2)%65534);
++        make_preview(pixels,w,h,w);
++        assert(preview_width==(pose?360:640)&&preview_height==(pose?640:360));
++        assert(preview_width*preview_height==230400&&yields==preview_height/16);
++        for(unsigned y=0;y<preview_height;y++)for(unsigned x=0;x<preview_width;x++)
++            assert(preview[y*preview_width+x]==pixels[(y*2)*w+x*2]);
++    }
++    free(pixels);free(preview);
++    puts("PHOTO_MEMORY_OK aligned non-clearing output; 128 bounded cache spans; failure cleanup; both orientations use full preview budget without letterbox");
++}
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -4615,6 +4615,7 @@
+                 last_received=esp_timer_get_time()/1000;
+                 photo_open(NULL);assert(photo_flow&&photo_for_codex);
+                 preview_camera_state=CAMERA_PREVIEW_CAPTURED;photo_camera_use();assert(photo_step==1);
++                preview_photo_width=slot==1?360:640;preview_photo_height=slot==1?640:360;
+                 for(unsigned n=0;n<PHOTO_PREVIEW_W*PHOTO_PREVIEW_H;n++)preview_photo_pixels[n]=(uint16_t)(0x2100+uploads);
+                 preview_photo_state=2;preview_result_code=-1;
+                 photo_tick();uploads++;assert(photo_step==3&&preview_photo_uploads==uploads);
+@@ -4623,13 +4624,31 @@
+                 photo_tick();assert(photo_step==3&&preview_photo_uploads==uploads);
+                 preview_result_code=200;preview_result_text="照片已添加";
+                 photo_tick();assert(!photo_flow&&!strcmp(d->images[slot],added)&&d->thumbnails[slot]);
+-                assert(d->thumbnails[slot][0]==preview_photo_pixels[0]);
++                assert(d->thumbnails[slot][27*96+48]==preview_photo_pixels[0]);
+                 assert(!strcmp(lv_textarea_get_text(codex_input),saved_text)&&preview_submit_count==submitted);
+             }
+             unsigned starts=preview_camera_starts;
+             char full[3][37];memcpy(full,d->images,sizeof(full));
+             photo_open(NULL);assert(!photo_flow&&preview_camera_starts==starts&&!memcmp(full,d->images,sizeof(full)));
+             if(round==0)capture("codex-three-photo-lifecycle-full");
++            // Reopen all retained attachments, including after middle/last/first
++            // removal. Four physical poses use the whole available image area.
++            for(unsigned slot=0;slot<3;slot++)for(unsigned p=0;p<(round==0?4:1);p++) {
++                static const int poses[]={0,2,1,-1};
++                preview_art_orientation=(art_orientation_state){.ready=true,.orientation=poses[p],.sampled_ms=preview_now_us/1000};
++                camera_pose=poses[p];lv_obj_send_event(composer_photos[slot],LV_EVENT_CLICKED,NULL);
++                assert(photo_flow&&!lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
++                lv_obj_update_layout(lv_screen_active());
++                const lv_draw_buf_t *buf=lv_canvas_get_draw_buf(photo_view);assert(buf&&buf->data);
++                unsigned scale=lv_image_get_scale_x(photo_view),sw=buf->header.w*scale/256,sh=buf->header.h*scale/256;
++                int dw=lv_display_get_horizontal_resolution(NULL),dh=lv_display_get_vertical_resolution(NULL);
++                assert(sw<=(unsigned)(dw-64)&&sh<=(unsigned)(dh-180));
++                assert(sw+4>=(unsigned)(dw-64)||sh+4>=(unsigned)(dh-180));
++                if(buf->header.w>buf->header.h)assert(scale>256); // Old fixed-size landscape preview must fail this.
++                if(round==0&&slot<2){char name[96];snprintf(name,sizeof(name),"photo-attached-%s-pose%d",slot?"portrait":"landscape",poses[p]);capture(name);}
++                lv_obj_send_event(photo_close_button,LV_EVENT_CLICKED,NULL);assert(!photo_flow);
++            }
++            camera_pose=0;preview_art_orientation=(art_orientation_state){.ready=true,.orientation=0,.sampled_ms=preview_now_us/1000};
+             if(round==3)break;
+             static const unsigned remove_at[3]={1,2,0};
+             unsigned remove=remove_at[round];uint16_t *thumbnails[3];
+@@ -4653,6 +4672,7 @@
+         photo_open(NULL);assert(photo_flow);photo_fixture_close_camera();
+         memcpy(d->images,saved_images,sizeof(saved_images));memcpy(d->thumbnails,saved_thumbnails,sizeof(saved_thumbnails));
+         preview_photo_fixture=false;preview_photo_state=0;preview_result_code=0;preview_result_text="";
++        preview_photo_width=640;preview_photo_height=360;
+         codex_images_refresh();
+         puts("PHOTO_THREE_LIFECYCLE_OK six uploads with pending ack, four full drafts, fourth blocked, middle/last/first removal/readd, nine reopens, remove-all/reopen, text and unrelated attachments retained, no turn sent");
+     }

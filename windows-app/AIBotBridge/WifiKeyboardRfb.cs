@@ -69,7 +69,7 @@ internal sealed class WifiKeyboardRfb(Stream stream, IDisposable? owner = null) 
 
     internal async Task PressAsync(uint key, CancellationToken token)
     {
-        if (key is not (>= 0x30 and <= 0x39) and not 0xff0d) throw new IOException("keyboard_key_rejected");
+        if (key is not (>= 0x20 and <= 0x7e) and not 0xff0d) throw new IOException("keyboard_key_rejected");
         await KeyAsync(key,token);
     }
     // Only the bounded preparation state machine can request these two keys.

@@ -1,0 +1,37 @@
+{
+  "scope": "Mac BLE respects device-selected transport while USB control remains connected",
+  "wireChange": false,
+  "firmwareChange": false,
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5Service.swift",
+      "before": "369261d2aebb06d309f64d5cb31c6cbf201b30e50f493aa439b48b0ff20efcb4",
+      "after": "f8ea5b65e0a1c834b2be9fdf892f6a84cccf1a901f6ffb186affef931f0f281a"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BLE.swift",
+      "before": "4c2ec79d8fa53ef3f520414c214d079bef5b936e56e0dc8e6e0e81f0c5342076",
+      "after": "61136912c1eab40240a5ac9ae2795a909c103cab4f0f1a1de5ed23d49462ceb7"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift",
+      "before": "d54a668e7e9c90df8cbbb882b2b3053be2c8eb6807fad4fd6bc7b20f7f5b3fca",
+      "after": "4b938432ac83aaed318012c5d41f3a6c1e31728149904df19312376491ae8241"
+    },
+    {
+      "path": "mac-app/Tests/AIBotBridgeTests/MacTab5BLETests.swift",
+      "before": "3ece44f6d35aca16380fb67bf8dc4a4c4c49467d71c2985cc9ba3274def6c542",
+      "after": "a859043c3adf34c94ca3874f61319d9fadd67963c23dfd3f5f228c16bd4d0701"
+    },
+    {
+      "path": "docs/PROTOCOL.md",
+      "before": "1400e5518ead461ffa62ed3661312db995e264756979159490f99c8a2b9197de",
+      "after": "3e68fbbdae66715e8a452036e20eaeab25a4f4886b0d2f3638d6fdf3bd7e7824"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5USBDisplayOwnership.swift",
+      "before": null,
+      "after": "a5e0eca0be870a2cdf2aaaf9f6d2f267fd45126422964ab3f0f022ea2b8cc4c9"
+    }
+  ]
+}

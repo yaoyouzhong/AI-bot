@@ -1,0 +1,41 @@
+{
+  "base": "installed0.2.272-ui",
+  "candidate": "artifacts/development/tab5-photo-add-feedback-20261025/candidate",
+  "changedFiles": [
+    {
+      "path": "firmware/main/ui_photos.h",
+      "beforeSHA256": "15600f053f6846c38dcf574cd3c363157b75eaf6e346563f5e6efe56d940237b",
+      "afterSHA256": "7fd4821e1c37c13c08b8daaa6850223b54d93111d1023404e707db7a1dc8a897"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "beforeSHA256": "82eaf9ed69c5ce9409f9f100fb07495214d02bbda76e3bfa848af92663e501b5",
+      "afterSHA256": "b0af6671bb6ca1bcb5f50a6b75722c798979ae3d6af91292c9880d455f0b4f2c"
+    },
+    {
+      "path": "tests/ui-preview/ui_preview_stubs.h",
+      "beforeSHA256": "beedf6c8ef94fa779d10e69ca04a2bf49f3063c137820ff90960ca4d3a8fc154",
+      "afterSHA256": "b54a744d29d6daa844802f0a40e815c514df9fd7ed5b2d948520ece2c18b9ee1"
+    }
+  ],
+  "productFileCount": 1,
+  "wireProtocolChanged": false,
+  "imageGenerated": false,
+  "flashed": false,
+  "physicalAcceptance": "pending next unified firmware; current device remains272/R15",
+  "request": "Show feedback during photo addition and after success, as explicitly selected by user.",
+  "behavior": [
+    "Render 正在添加照片… and disabled add button before scanout freeze/encoding/upload; no fixed delay and no work in refresh callback.",
+    "Only a successful remote result plus committed attachment updates 已添加 N/3 张，发送后对方才会收到.",
+    "Existing retained-photo error/retry and immediate three-photo limit remain."
+  ],
+  "nativeValidation": "Real LVGL transition/partial-draw checks in all four orientations, refresh-before-work gate, duplicate blocking, explicit retry,1/3–3/3 success, fourth-photo guard and camera readiness passed. Native viewport freeze is a model; physical DMA/touch remains unverified.",
+  "targetValidation": "ESP32-P4 ui.c object using exact installed272 compiler flags passed; no linked firmware image. Existing unused-variable/function warnings retained.",
+  "visualInspection": [
+    "preview/photo-processing-pose-0.png",
+    "preview/photo-processing-pose-1.png",
+    "preview/photo-added-success.png"
+  ],
+  "evidence": "artifacts/development/tab5-photo-add-feedback-20261025",
+  "patchDryRun": true
+}

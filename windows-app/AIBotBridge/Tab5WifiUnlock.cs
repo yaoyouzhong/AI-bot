@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
+using AIBot.LoginMethod;
 
 namespace AIBotBridge;
 
@@ -14,6 +15,7 @@ internal sealed class Tab5WifiUnlock : IDisposable
     private readonly Func<ComputerLockScreenState> screen;
     private readonly Func<bool> enabled, console;
     private readonly Func<long> now;
+    private readonly Func<LoginMethodKind,bool> prepare;
     private readonly SemaphoreSlim gate=new(1);
     private readonly System.Threading.Timer timer;
     private readonly Dictionary<string,long> used=[];
@@ -27,9 +29,10 @@ internal sealed class Tab5WifiUnlock : IDisposable
     private string diagnostic="尚无请求";
     internal string Diagnostic=>Volatile.Read(ref diagnostic);
     internal Tab5WifiUnlock(Tab5PinStore store,Func<CancellationToken,Task<WifiKeyboardRfb>>? connect=null,
-        Func<ComputerLockScreenState>? screen=null,Func<bool>? enabled=null,Func<bool>? console=null,Func<long>? clock=null)
+        Func<ComputerLockScreenState>? screen=null,Func<bool>? enabled=null,Func<bool>? console=null,Func<long>? clock=null,Func<LoginMethodKind,bool>? prepare=null)
     {
         this.store=store;this.connect=connect??WifiKeyboardRfb.ConnectAsync;
+        this.prepare=prepare??WindowsLoginMethod.Prepare;
         this.screen=screen??WindowsLockScreen.Read;this.enabled=enabled??(()=>WifiKeyboardSettings.Configured);
         this.console=console??(()=>{using var process=Process.GetCurrentProcess();return process.SessionId==WTSGetActiveConsoleSessionId();});now=clock??(()=>Environment.TickCount64);
         timer=new(_=>{if(gate.Wait(0))try{Expire();}finally{gate.Release();}},null,250,250);
@@ -82,7 +85,7 @@ internal sealed class Tab5WifiUnlock : IDisposable
             if(!console()||!enabled()||!store.Enabled(pair))return Stop("session_changed");
             var state=screen();
             if(state.Locked==false){
-                bool completed=phase>0&&cursor==length&&length>=4;
+                bool completed=phase>0&&cursor==length&&length>=1;
                 if(completed)Volatile.Write(ref diagnostic,$"unlocked; totalMs={now()-startedAt}; preparingMs={sendingAt-startedAt}; inputAndConfirmationMs={now()-sendingAt}");
                 Clear();return completed?(200,new{ok=true,unlocked=true,stage="unlocked"}):Error("session_changed");
             }
@@ -106,8 +109,10 @@ internal sealed class Tab5WifiUnlock : IDisposable
                 // unconditional six-second pause. Unknown/off/cover resets it.
                 if(readySince==0)readySince=now();
                 if(now()-readySince<500)return Progress("preparing");
-                // The detector does not prove keyboard focus or the login method.
-                // Users must keep their normal numeric PIN method selected.
+                var method=store.Method(pair);
+                if(method!=LoginMethodKind.Manual&&(!prepare(method)||!console()||screen().Locked!=true))return Stop("screen_not_ready");
+                token.ThrowIfCancellationRequested();
+                if(!enabled()||!store.Enabled(pair))return Stop("session_changed");
                 pin=store.Read(pair,requireEnabled:true)??[];
                 if(!Tab5PinStore.Valid(pin))return Stop("pin_not_configured");
                 length=pin.Length;phase=1;sendingAt=now();return Progress("sending");

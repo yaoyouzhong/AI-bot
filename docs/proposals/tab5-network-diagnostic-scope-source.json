@@ -1,0 +1,32 @@
+{
+  "base": "frozen268 plus camera readiness, USB delta lease, media tap and preview cache follow-ups",
+  "candidate": "artifacts/development/tab5-camera-ready-followup-20261024/candidate",
+  "files": [
+    {
+      "path": "firmware/main/ui.c",
+      "beforeNormalizedSHA256": "91fb38dd84722e2a6990685229187717eff9bc9ff863baaed91a6cc2d52b3f06",
+      "afterNormalizedSHA256": "89c3be59a6c73dd5a6550bad6361765df8364672e50de277351e8905b68155a9"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "beforeNormalizedSHA256": "30fa15754ac67a8be45053c09a36b679373139dc4d6adcfe069f6a03a5967045",
+      "afterNormalizedSHA256": "959c8f52cad09aaa5df94027f638a7c717fb6bc7bf9fd6813a36de8511adb548"
+    }
+  ],
+  "scope": "remove local pairing/activity/voice-toggle row from Wi-Fi diagnostics; correct entry description; compact retry and feedback positions",
+  "wireProtocolChanged": false,
+  "nativeWorkflowMarkers": [
+    "NETWORK_DIAGNOSTIC_SCOPE_OK",
+    "NETWORK_LAYOUT_UI_OK",
+    "HOST_SELECTION_UI_OK",
+    "NETWORK_CAPACITY_UI_OK",
+    "NETWORK_FORGET_UI_OK"
+  ],
+  "visualReview": [
+    "network-management.png",
+    "network-diagnostics.png"
+  ],
+  "targetUIObjectCompileExit": 0,
+  "imageGenerated": false,
+  "hardwareAcceptance": "pending future combined firmware; installed268 retains old layout"
+}

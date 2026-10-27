@@ -1,0 +1,295 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
+@@ -7,6 +7,14 @@
+     static let input = CBUUID(string: "7af50003-7f23-4a91-bc65-667a19320101")
+     static let voice = CBUUID(string: "7af50004-7f23-4a91-bc65-667a19320101")
+     static let rpc = CBUUID(string: "7af50005-7f23-4a91-bc65-667a19320101")
++    static let hostBinding = CBUUID(string: "7af50007-7f23-4a91-bc65-667a19320101")
++    static func isSelectedHost(_ bytes: Data, pair: MacTab5Pairing) throws -> Bool {
++        guard bytes.count <= 128 else { throw MacTab5Error.invalidPacket }
++        let root = try MacTab5Protocol.object(bytes)
++        guard MacTab5Protocol.integer(root["version"]) == 1, let id = root["hostId"] as? String,
++              id.isEmpty || MacTab5Protocol.isHex(id, count: 32) else { throw MacTab5Error.invalidPacket }
++        return id == MacTab5HostBinding.id(pair)
++    }
+ 
+     static func authenticate(_ bytes: Data, pair: MacTab5Pairing, nonce: String? = nil) throws -> (String, Int64, [String: Any]) {
+         guard bytes.count <= 2048 else { throw MacTab5Error.invalidPacket }
+@@ -139,6 +147,19 @@
+         for characteristic in target.characteristics ?? [] { characteristics[characteristic.uuid] = characteristic }
+         guard let info = characteristics[MacTab5BLEWire.info], characteristics[MacTab5BLEWire.input] != nil,
+               let pair = service.currentPairing else { reset("蓝牙服务不完整"); return }
++        if let ownership = characteristics[MacTab5BLEWire.hostBinding] {
++            read(ownership) { [weak self] result in
++                guard let self else { return }
++                do {
++                    guard try MacTab5BLEWire.isSelectedHost(result.get(), pair: pair) else {
++                        self.reset("待命 · 设备当前由其他电脑控制"); self.nextScan = self.now + 20; return
++                    }
++                    self.authenticatePeer(info, pair: pair)
++                } catch { self.reset("电脑归属读取失败，等待重连") }
++            }
++        } else { authenticatePeer(info, pair: pair) }
++    }
++    private func authenticatePeer(_ info: CBCharacteristic, pair: MacTab5Pairing) {
+         read(info) { [weak self] result in
+             guard let self else { return }
+             do {
+--- a/mac-app/Sources/AIBotBridge/MacTab5Protocol.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Protocol.swift
+@@ -4,7 +4,7 @@
+ 
+ enum MacTab5Error: LocalizedError, Equatable {
+     case invalidPacket, invalidSettings, unavailable, busy, staleRevision, unconfirmed, deviceBusy, saveFailed
+-    case identity, pairingRequired, keychain, serial, timeout, unsupported, invalidWiFi
++    case identity, pairingRequired, keychain, serial, timeout, unsupported, invalidWiFi, hostNotTrusted
+ 
+     var errorDescription: String? {
+         switch self {
+@@ -23,6 +23,7 @@
+         case .timeout: return "未收到 TAB5 确认，请检查数据线和设备固件。"
+         case .unsupported: return "当前设备或桥接不支持此操作。"
+         case .invalidWiFi: return "Wi-Fi 名称应为 1–32 字节，密码最多 63 字节，不能包含空字符。"
++        case .hostNotTrusted: return "此 Mac 尚未通过设备认证，请通过 USB 配对一次；已有可信电脑会保留。"
+         }
+     }
+ }
+--- a/mac-app/Sources/AIBotBridge/MacTab5Service.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Service.swift
+@@ -159,6 +159,8 @@
+         let offer = firmwareControl.projection()
+         additions["ota"] = offer.offer.map { $0 as Any } ?? NSNull()
+         var health = offer.health
++        health["hostBindingVersion"] = 1; health["hostId"] = MacTab5HostBinding.id(pair)
++        health["hostName"] = MacTab5HostBinding.name(ProcessInfo.processInfo.hostName)
+         health["displayCommand"] = display.command.map { $0 as Any } ?? NSNull()
+         health["galleryPacks"] = gallery.revisions(); health["gallerySyncVersion"] = 1
+         if computer.isEnabled { health["computerControlVersion"] = 1 }
+--- a/mac-app/Sources/AIBotBridge/MacTab5USB.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USB.swift
+@@ -13,6 +13,9 @@
+     private var lastStatus: TimeInterval = -.infinity
+     private var rpcSupported = false
+     private var completed: UInt32 = 0
++    private var hostBinding = false
++    private var hostNonce = ""
++    private var claimedEndpoint: String?
+ 
+     init(service: MacTab5Service) { self.service = service }
+     static func ports() -> [String] {
+@@ -33,6 +36,7 @@
+     }
+     private func close(_ note: String) {
+         wire = nil; rpcSupported = false; completed = 0; lastStatus = -.infinity
++        hostBinding = false; hostNonce = ""; claimedEndpoint = nil
+         service.usbState(note)
+     }
+ 
+@@ -47,13 +51,15 @@
+                 let hello = try wire.identity()
+                 let record = try self.service.preparePairing(device: hello.device, path: path)
+                 var command: [String: Any] = ["version": 1, "type": "tab5_pair", "deviceId": record.deviceId,
+-                                               "key": record.key.base64EncodedString()]
++                                               "key": record.key.base64EncodedString(), "hostId": MacTab5HostBinding.id(record),
++                                               "name": MacTab5HostBinding.name(ProcessInfo.processInfo.hostName)]
+                 if let (host, port) = self.service.lanConfiguration { command["host"] = host; command["port"] = Int(port) }
+                 try wire.send(command)
+                 let reply = try wire.reply("tab5_paired")
+                 guard reply["deviceId"] as? String == record.deviceId else { throw MacTab5Error.identity }
+                 try self.service.confirmPairing(record)
+                 self.wire = wire; self.rpcSupported = hello.rpc
++                self.hostBinding = hello.binding; self.hostNonce = hello.nonce; self.claimedEndpoint = nil
+                 self.lastStatus = -.infinity
+                 completion(.success(Void()))
+             } catch { self.close("USB 配对未确认"); completion(.failure(error)) }
+@@ -71,6 +77,14 @@
+                 guard let wire = self.wire else { throw MacTab5Error.unavailable }
+                 let hello = try wire.identity()
+                 guard hello.device == pair.deviceId else { throw MacTab5Error.identity }
++                if hello.binding {
++                    let binding = self.service.lanConfiguration
++                    let address = binding?.0 ?? "", port = binding?.1 ?? 0
++                    try wire.send(MacTab5HostBinding.claim(pair, nonce: hello.nonce, address: address, port: port,
++                                                         name: MacTab5HostBinding.name(ProcessInfo.processInfo.hostName)))
++                    try MacTab5HostBinding.confirm(wire.reply("tab5_host_claimed"), pair: pair, nonce: hello.nonce)
++                    self.hostBinding = true; self.hostNonce = hello.nonce; self.claimedEndpoint = "\(address):\(port)"
++                }
+                 try wire.send(["version": 1, "type": "tab5_wifi", "deviceId": pair.deviceId, "ssid": ssid, "password": password])
+                 let ack = try wire.reply("tab5_wifi_saved")
+                 guard ack["deviceId"] as? String == pair.deviceId else { throw MacTab5Error.identity }
+@@ -110,10 +124,22 @@
+                 let hello = try candidate.identity()
+                 guard hello.device == pair.deviceId else { throw MacTab5Error.identity }
+                 wire = candidate; rpcSupported = hello.rpc; lastStatus = -.infinity
++                hostBinding = hello.binding; hostNonce = hello.nonce; claimedEndpoint = nil
+             }
+             guard let wire else { return }
+             if ProcessInfo.processInfo.systemUptime - lastStatus >= 2 {
+-                if let (host, port) = service.lanConfiguration {
++                let binding = service.lanConfiguration
++                if hostBinding {
++                    let address = binding?.0 ?? "", port = binding?.1 ?? 0
++                    let endpoint = "\(address):\(port)"
++                    if claimedEndpoint != endpoint {
++                        if claimedEndpoint != nil { hostNonce = try wire.identity().nonce }
++                        try wire.send(MacTab5HostBinding.claim(pair, nonce: hostNonce, address: address, port: port,
++                                                             name: MacTab5HostBinding.name(ProcessInfo.processInfo.hostName)))
++                        try MacTab5HostBinding.confirm(wire.reply("tab5_host_claimed"), pair: pair, nonce: hostNonce)
++                        claimedEndpoint = endpoint
++                    }
++                } else if let (host, port) = binding {
+                     try wire.send(["version": 1, "type": "tab5_host", "host": host, "port": Int(port)])
+                 }
+                 let frame = try service.frame(), root = try MacTab5Protocol.object(frame)
+@@ -132,7 +158,7 @@
+                 guard ack["deviceId"] as? String == pair.deviceId else { throw MacTab5Error.identity }
+                 service.observeUSBInfo(ack)
+             }
+-        } catch { close("USB 未确认，等待重连") }
++        } catch { close(error as? MacTab5Error == .hostNotTrusted ? "此 Mac 未被信任，请通过 USB 配对一次" : "USB 未确认，等待重连") }
+     }
+ 
+     private func mailbox(_ wire: MacTab5SerialWire, device: String, data: Data? = nil) throws -> Data {
+@@ -220,12 +246,13 @@
+         usleep(250_000); tcflush(fd, TCIOFLUSH)
+     }
+     deinit { Darwin.close(descriptor); MacSerialPortLease.release(path) }
+-    func identity() throws -> (device: String, rpc: Bool) {
++    func identity() throws -> (device: String, rpc: Bool, binding: Bool, nonce: String) {
+         try send(["version": 1, "type": "tab5_ping"])
+         let hello = try reply("tab5_hello")
+         guard MacTab5Protocol.integer(hello["version"]) == 1, let device = hello["deviceId"] as? String,
+               MacTab5Protocol.isHex(device, count: 12) else { throw MacTab5Error.identity }
+-        return (device, MacTab5Protocol.integer(hello["rpcVersion"]) == 1)
++        return (device, MacTab5Protocol.integer(hello["rpcVersion"]) == 1,
++                MacTab5Protocol.integer(hello["hostBindingVersion"]) == 1, hello["hostNonce"] as? String ?? "")
+     }
+     func send(_ value: [String: Any]) throws { try write(MacTab5Protocol.line(value)) }
+     func sendJSON(_ json: Data) throws {
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacTab5HostBinding.swift
+@@ -0,0 +1,32 @@
++import Foundation
++
++// The Keychain pairing key remains unchanged, including during migration.
++enum MacTab5HostBinding {
++    static func id(_ pair: MacTab5Pairing) -> String {
++        String(MacTab5Protocol.proof(key: pair.key, message: "AIBOT_TAB5_HOST_V1").prefix(32))
++    }
++    static func name(_ input: String) -> String {
++        var value = ""
++        for scalar in input.unicodeScalars {
++            let next = scalar.value < 32 || scalar.value == 127 || scalar.value == 124 ? " " : String(scalar)
++            if value.utf8.count + next.utf8.count > 63 { break }
++            value += next
++        }
++        return value.isEmpty ? "Mac" : value
++    }
++    static func claim(_ pair: MacTab5Pairing, nonce: String, address: String, port: UInt16, name: String) throws -> [String: Any] {
++        guard MacTab5Protocol.isHex(nonce, count: 32), (1...63).contains(name.utf8.count),
++              !name.unicodeScalars.contains(where: { $0.value < 32 || $0.value == 127 || $0.value == 124 }) else { throw MacTab5Error.invalidPacket }
++        let host = id(pair)
++        let message = "TAB5_HOST_V1|\(pair.deviceId)|\(host)|\(nonce)|\(address)|\(port)|\(name)"
++        return ["version": 1, "type": "tab5_host_claim", "deviceId": pair.deviceId, "hostId": host,
++                "nonce": nonce, "host": address, "port": Int(port), "name": name,
++                "proof": MacTab5Protocol.proof(key: pair.key, message: message)]
++    }
++    static func confirm(_ reply: [String: Any], pair: MacTab5Pairing, nonce: String) throws {
++        if reply["error"] as? String == "device_busy" { throw MacTab5Error.busy }
++        guard reply["deviceId"] as? String == pair.deviceId, reply["hostId"] as? String == id(pair),
++              let proof = reply["proof"] as? String,
++              MacTab5Protocol.verify(key: pair.key, message: "TAB5_HOST_ACK_V1|\(pair.deviceId)|\(id(pair))|\(nonce)", proof: proof) else { throw MacTab5Error.hostNotTrusted }
++    }
++}
+--- /dev/null
++++ b/mac-app/Tests/AIBotBridgeTests/MacTab5HostBindingTests.swift
+@@ -0,0 +1,29 @@
++import Foundation
++import XCTest
++@testable import AIBotBridge
++
++final class MacTab5HostBindingTests: XCTestCase {
++    func testClaimsAreBoundToExistingKeyDeviceNonceAndEndpoint() throws {
++        let pair = MacTab5Pairing(deviceId: "e8f60ae2ec56", usbPath: "/dev/cu.test", key: Data(repeating: 0x11, count: 32), confirmed: true)
++        let nonce = "0123456789abcdef0123456789abcdef"
++        let id = MacTab5HostBinding.id(pair)
++        XCTAssertEqual(id, "246dd3f8363795589894eb1dc61b2e34")
++        let claim = try MacTab5HostBinding.claim(pair, nonce: nonce, address: "192.168.1.20", port: 18765, name: "Windows")
++        XCTAssertEqual(claim["hostId"] as? String, id)
++        XCTAssertEqual(claim["proof"] as? String, MacTab5Protocol.proof(key: pair.key, message: "TAB5_HOST_V1|\(pair.deviceId)|\(id)|\(nonce)|192.168.1.20|18765|Windows"))
++        let reply: [String: Any] = ["deviceId": pair.deviceId, "hostId": id,
++                                   "proof": MacTab5Protocol.proof(key: pair.key, message: "TAB5_HOST_ACK_V1|\(pair.deviceId)|\(id)|\(nonce)")]
++        try MacTab5HostBinding.confirm(reply, pair: pair, nonce: nonce)
++        XCTAssertThrowsError(try MacTab5HostBinding.confirm(reply, pair: pair, nonce: String(repeating: "a", count: 32)))
++        var foreign = pair
++        foreign = MacTab5Pairing(deviceId: pair.deviceId, usbPath: pair.usbPath, key: Data(repeating: 0x22, count: 32), confirmed: true)
++        XCTAssertThrowsError(try MacTab5HostBinding.confirm(reply, pair: foreign, nonce: nonce))
++        XCTAssertThrowsError(try MacTab5HostBinding.claim(pair, nonce: nonce, address: "", port: 0, name: "bad|name"))
++        XCTAssertLessThanOrEqual(MacTab5HostBinding.name(String(repeating: "电脑😀", count: 30)).utf8.count, 63)
++        XCTAssertEqual(pair.key, Data(repeating: 0x11, count: 32))
++        let owner = try MacTab5Protocol.json(["version": 1, "hostId": id])
++        XCTAssertTrue(try MacTab5BLEWire.isSelectedHost(owner, pair: pair))
++        XCTAssertFalse(try MacTab5BLEWire.isSelectedHost(owner, pair: foreign))
++        XCTAssertThrowsError(try MacTab5HostBinding.confirm(["error": "device_busy"], pair: pair, nonce: nonce))
++    }
++}
+--- a/docs/PROTOCOL.md
++++ b/docs/PROTOCOL.md
+@@ -844,3 +844,57 @@
+ Optional wifiPathDiag contains 17 numeric fields: version=1, IPv4 netmask, gateway IPv4, AP channel, RSSI, STA MAC as uint48, BSSID as uint48, station-is-default boolean, probe count, gateway TCP/80 errno, host TCP/configured-port errno, transport ESP error, TLS code, TLS flags, Wi-Fi power-save mode, AP query result, netif MAC as uint48. IPv4 values are host-order uint32. Zero probe errno means connect succeeded. On failed bridge HTTP connects only, the Wi-Fi worker samples at most once per 30 seconds, using nonblocking sockets with one-second connect waits; USB only copies the snapshot. Probes close their sockets, send no HTTP request, skip OTA, and do not change network settings.
+ 
+ 中文：桥接连接失败时对网关与电脑做有界 TCP 对照，并记录掩码、网关、信号和底层错误；不修改网络、密码或配对。诊断新增不等于连通问题已修复。
++
++## TAB5 trusted computers / TAB5 可信电脑（本地候选）
++
++设备可保存最多 8 台可信电脑，每台首次通过 USB 明确配对，使用其原有独立密钥。
++`trusted_hosts1` 是独立版本化 NVS blob；保留原 config ABI 与密钥供回退，迁入已有配对，
++容量满时不淘汰记录，当前记录损坏时不从旧记录复活。电脑端 DPAPI / Keychain 记录和
++密码绑定保持不变。当前电脑的选择持久保存；断开 USB 后继续使用该电脑的无线通道，
++不会因其他电脑广播而自动改选。网络诊断可选择可信电脑；控制页显示当前电脑。
++
++`hostId = hex(HMAC-SHA256(pairKey, UTF8("AIBOT_TAB5_HOST_V1"))[0:16])`，固定 32 位小写十六进制。
++电脑名称为 1–63 UTF-8 字节，不允许控制字符或 `|`；密钥不出现在公开列表和诊断。
++USB hello / ACK 增加 `hostBindingVersion:1`, `hostNonce`, `currentHostId`,
++`usbHostAuthenticated`。新桥接发送 `tab5_host_claim`，字段为 `version:1,deviceId,hostId,
++nonce,host,port,name,proof`。`host` 是私有 IPv4 或空字符串，`port` 是 0–65535 整数。
++签名消息为 `TAB5_HOST_V1|deviceId|hostId|nonce|host|port|name` 的 UTF-8，HMAC-SHA256 使用
++该电脑独立密钥，输出 64 位小写十六进制。nonce 由设备产生，绑定本次 CDC 代次，成功后消耗。
++`tab5_host_claimed` 回执包含 `deviceId,hostId,proof`，签名消息为
++`TAB5_HOST_ACK_V1|deviceId|hostId|nonce`。未受信任/错误签名/旧 nonce 均不接管。
++
++认证成功的 USB 电脑优先接管；仅串口连通不构成认证。8 秒内的有效状态/认证 RPC 续期，
++其他电脑不能覆盖其无线目标。正在刷写时，另一台电脑的接管返回 `device_busy`。
++切换先阻止新按键并取消、排空旧输入，再更换代次、清空旧状态/RPC，并断开旧 BLE 中央设备；
++系统蓝牙 bond 保留。USB HID、BLE HID 和无线解锁均绑定电脑代次，旧回调不能给新电脑授权。
++除首次配对、接管握手和只读诊断外，USB 配置、快捷键、资源、状态和 RPC 均须已认证。
++旧式无签名 `tab5_host` 不能改写其他电脑的地址。
++
++Wi-Fi 仅使用当前电脑的密钥/地址发现与鉴权。BLE 的只读特征
++`7af50007-7f23-4a91-bc65-667a19320101` 返回 `{version:1,hostId}`；非当前电脑断开待命，
++桥接延后重连，不发送状态或执行 RPC。此公开字段只用于待命判断，不能代替原有密钥鉴权。
++状态可附加 `connectionHealth.hostBindingVersion=1,hostId,hostName`；有 hostId 时必须匹配。
++旧无线桥接可在设备明确选中其已保存密钥时继续使用原加密协议；接收与 HID 授权还必须匹配
++解密开始时的电脑代次，防止切换竞态。新固件的 USB 自动接管需要对应桥接升级。
++
++Trust up to eight computers independently after explicit first USB enrollment. Preserve the old config
++ABI, each existing pairing key, DPAPI/Keychain data, and credential bindings. A separate versioned NVS
++store migrates the current pairing; full/corrupt stores never silently evict or resurrect records.
++Persist one selected computer. Authenticated USB takes ownership; unplugging retains its wireless
++target, and other computers cannot win by advertising. A live USB owner blocks another target;
++an ongoing firmware write returns `device_busy` to a different claimant.
++
++Derive the 32-lowercase-hex host ID from the first 16 HMAC-SHA256 bytes using the existing pairing key
++and domain `AIBOT_TAB5_HOST_V1`. The one-use device nonce is scoped to the CDC generation. Authenticate
++the exact UTF-8 claim and ACK strings specified above, including endpoint and name. A raw serial
++connection, owner hint or unsigned legacy endpoint update never authorizes control. Status/RPC
++heartbeats renew the eight-second USB lease. Names are 1–63 UTF-8 bytes without controls or `|`.
++
++Before publishing another owner, block keyboard admission and drain/cancel input, invalidate status
++and RPC generations, and disconnect the previous BLE central while retaining OS bonds. Bind state
++commit, decrypted replies, and HID authorization to the original owner generation. The optional BLE
++owner characteristic above lets unselected Windows/Mac bridges disconnect and wait; cryptographic
++authentication remains mandatory. Optional authenticated state adds `hostBindingVersion,hostId,
++hostName` under connectionHealth. Legacy wireless peers remain usable only with the selected key;
++USB takeover requires the updated bridge. Protocol version 1, encryption, nonce/ACK/replay rules,
++transport selection and unrelated device display preferences remain unchanged.

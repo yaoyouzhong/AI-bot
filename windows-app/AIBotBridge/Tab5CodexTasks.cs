@@ -362,14 +362,18 @@ internal sealed class Tab5CodexTasks : IDisposable
             JsonElement last=default,thread=default;
             if(activity is null) {
             await _connect(token);
-            var read=await _call("thread/read",new {threadId=taskId,includeTurns=true},token);
-            if(!TryChild(read,"result",out var result)||!TryChild(result,"thread",out thread)||
-                !TryChild(thread,"turns",out var turns)||turns.ValueKind!=JsonValueKind.Array)
+            var read=await _call("thread/read",new {threadId=taskId,includeTurns=false},token);
+            if(!TryChild(read,"result",out var result)||!TryChild(result,"thread",out thread))
                 return (503,new {error="reply_unavailable"});
-            last=turns.GetArrayLength()>0?turns[turns.GetArrayLength()-1]:default;
             if(TryChild(thread,"path",out var historyPath)&&historyPath.ValueKind==JsonValueKind.String) {
                 _historyPaths[taskId]=historyPath.GetString()!;
                 activity=_activity.Read(historyPath.GetString()!,Tab5CodexCatalog.HomePath,page);
+            }
+            if(activity is null) {
+                read=await Tab5CodexPublicHistory.PopulateAsync(read,taskId,true,_call.Invoke,token);
+                thread=read.GetProperty("result").GetProperty("thread");
+                var turns=thread.GetProperty("turns");
+                last=turns.GetArrayLength()>0?turns[turns.GetArrayLength()-1]:default;
             }
             }
             var response=FinalResponse(last);
@@ -450,15 +454,16 @@ internal sealed class Tab5CodexTasks : IDisposable
         {
             await _connect(token);
             stage="read";SetSubmitDiagnostic("stage=read");
-            var read = await _call("thread/read", new { threadId = taskId, includeTurns = true }, token);
+            var read = await Tab5CodexPublicHistory.ReadAsync(taskId,false,_call.Invoke,token);
             if (!TryChild(read,"result",out var current) || !TryChild(current,"thread",out var currentThread) || !CanContinue(currentThread))
                 return Rejected(409,"task_busy_or_state_unknown");
             if(TryChild(currentThread,"path",out var currentPath)&&currentPath.ValueKind==JsonValueKind.String&&
                _activity.Read(currentPath.GetString()!,Tab5CodexCatalog.HomePath)?.State=="inProgress")
                 return Rejected(409,"task_busy_or_state_unknown");
             stage="resume";SetSubmitDiagnostic("stage=resume");
-            var resumed = await _call("thread/resume", new { threadId = taskId }, token);
+            var resumed = await _call("thread/resume", new { threadId = taskId, excludeTurns=true }, token);
             if (TryChild(resumed,"error", out _)) return Rejected(503,"task_resume_failed");
+            resumed=await Tab5CodexPublicHistory.PopulateAsync(resumed,taskId,false,_call.Invoke,token);
             if (!TryChild(resumed,"result",out current)||!TryChild(current,"thread",out currentThread)||!CanContinue(currentThread))
                 return Rejected(409,"task_busy_or_state_unknown");
             token.ThrowIfCancellationRequested();
@@ -709,6 +714,7 @@ internal sealed class Tab5CodexTasks : IDisposable
     private async Task EnsureServerAsync(CancellationToken token)
     {
         if (_server is { HasExited: false } && _input is not null) return;
+        if(_server is {HasExited:false})_server.Kill();
         _server?.Dispose();
         _pending.Clear();
         var start = new ProcessStartInfo("codex")
@@ -729,7 +735,7 @@ internal sealed class Tab5CodexTasks : IDisposable
         _input = _server.StandardInput;
         _ = ReadOutputAsync(_server.StandardOutput, _input);
         _ = DrainErrorAsync(_server.StandardError);
-        var init = await CallAsync("initialize", new { clientInfo = new { name = "tab5-bridge", version = "0.1" }, capabilities = new { } }, token);
+        var init = await CallAsync("initialize", new { clientInfo = new { name = "tab5-bridge", version = "0.1" }, capabilities = new { experimentalApi=true } }, token);
         if (init.TryGetProperty("error", out _)) throw new IOException("Codex initialization failed");
         await SendAsync(new { method = "initialized" });
     }
@@ -755,7 +761,7 @@ internal sealed class Tab5CodexTasks : IDisposable
 
     private static async Task DrainErrorAsync(StreamReader reader)
     {
-        try { while (await reader.ReadLineAsync() is not null) { } }
+        try { var lines=new Tab5BoundedLines(reader,65536);while (await lines.ReadAsync() is not null) { } }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException) { }
     }
 
@@ -784,7 +790,8 @@ internal sealed class Tab5CodexTasks : IDisposable
     {
         try
         {
-            while (await output.ReadLineAsync() is { } line)
+            var lines=new Tab5BoundedLines(output);
+            while (await lines.ReadAsync(_lifetime.Token) is { } line)
             {
                 var root = ParseOutputLine(line);
                 if(root.ValueKind!=JsonValueKind.Object)continue;
@@ -820,8 +827,9 @@ internal sealed class Tab5CodexTasks : IDisposable
                 }
             }
         }
-        catch (Exception ex) when (ex is IOException or JsonException or ObjectDisposedException) { }
+        catch (Exception ex) when (ex is IOException or JsonException or ObjectDisposedException or OperationCanceledException) { }
         finally {
+            if(ReferenceEquals(_input,input))_input=null;
             // A retired reader must never cancel calls on its replacement server.
             foreach(var pending in _pending.Values.Where(p=>ReferenceEquals(p.Writer,input)))
                 pending.Completion.TrySetException(new IOException("Codex app-server disconnected"));

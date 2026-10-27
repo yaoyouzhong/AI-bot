@@ -12,6 +12,7 @@ final class MacFirmwareFlashWindow: NSWindowController, NSWindowDelegate {
     private let progress = NSProgressIndicator()
     private let log = NSTextView()
     private let details = NSStackView()
+    private let page = MacBridgeSettingsPage()
     private var moreButton: NSButton!
     private var startButton: NSButton!
     private var backupButton: NSButton!
@@ -29,46 +30,32 @@ final class MacFirmwareFlashWindow: NSWindowController, NSWindowDelegate {
     init(bridgePort: String? = nil, begin: @escaping () -> Bool, suspend: @escaping () -> Void, finish: @escaping (Bool) -> Void) {
         selection = MacFlashDeviceSelection(bridgePort: bridgePort)
         self.begin = begin; self.suspend = suspend; self.finish = finish
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 300), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        super.init(window: window)
-        window.title = "AI-bot · 小屏刷机"; window.minSize = NSSize(width: 580, height: 300); window.delegate = self
-        let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 14
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        window.contentView!.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: window.contentView!.bottomAnchor, constant: -24)
-        ])
-        let title = NSTextField(labelWithString: "小屏刷机"); title.font = .boldSystemFont(ofSize: 23)
-        let flashIcon = NSImageView(image: NSImage(systemSymbolName: "square.and.arrow.down.fill", accessibilityDescription: "刷机")!)
-        flashIcon.contentTintColor = .systemTeal
-        flashIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 26, weight: .medium)
-        let heading = NSStackView(views: [flashIcon, title]); heading.spacing = 12
-        stack.addArrangedSubview(heading)
+        let window = MacBridgeSettingsStyle.window("ESP8266 固件升级", height: 560)
+        super.init(window: window); window.delegate = self
+        startButton = button("开始刷机", #selector(start)); backupButton = button("只备份设备", #selector(backup))
+        window.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [startButton, backupButton])
+        let stack = page.stack
+        page.heading("ESP8266 固件升级", subtitle: "连接小屏 USB 数据线，选择固件后开始刷写；写入前自动保留备份。")
+        page.section("设备与固件")
         refreshButton = button("刷新", #selector(locateAgain))
         let deviceRow = NSStackView(views: [NSTextField(labelWithString: "设备"), deviceLabel, NSView(), refreshButton])
-        deviceRow.spacing = 16; deviceRow.alignment = .centerY
+        deviceRow.spacing = 12; deviceRow.alignment = .centerY
         deviceRow.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
-        deviceRow.wantsLayer = true; deviceRow.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
-        deviceRow.layer?.cornerRadius = 8
         stack.addArrangedSubview(deviceRow)
         deviceRow.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         browseButton = button("浏览…", #selector(browse))
         file.lineBreakMode = .byTruncatingMiddle; file.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        file.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        browseButton.setContentHuggingPriority(.required, for: .horizontal)
         let files = NSStackView(views: [NSTextField(labelWithString: "固件"), file, browseButton]); files.distribution = .fill
+        files.spacing = 12; files.alignment = .centerY
         stack.addArrangedSubview(files); files.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        startButton = button("开始刷机", #selector(start)); backupButton = button("只备份设备", #selector(backup))
-        startButton.bezelColor = .controlAccentColor
-        stack.addArrangedSubview(startButton)
-        stack.addArrangedSubview(status); status.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         progress.style = .bar; progress.isIndeterminate = false; progress.maxValue = 100; progress.isHidden = true
         stack.addArrangedSubview(progress); progress.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         moreButton = button("更多 ▾", #selector(toggleDetails)); moreButton.isBordered = false; stack.addArrangedSubview(moreButton)
-        details.orientation = .vertical; details.alignment = .leading; details.spacing = 10; details.isHidden = true
+        details.orientation = .vertical; details.alignment = .leading; details.spacing = 16; details.isHidden = true
         details.addArrangedSubview(deviceDetails)
-        details.addArrangedSubview(NSStackView(views: [backupButton, button("查看备份", #selector(openBackups))]))
+        details.addArrangedSubview(button("查看备份", #selector(openBackups)))
         let scroll = NSScrollView(); scroll.hasVerticalScroller = true; scroll.borderType = .bezelBorder
         log.isEditable = false; log.font = .monospacedSystemFont(ofSize: 11, weight: .regular); log.autoresizingMask = [.width]
         scroll.documentView = log; details.addArrangedSubview(scroll); stack.addArrangedSubview(details)
@@ -103,7 +90,7 @@ final class MacFirmwareFlashWindow: NSWindowController, NSWindowDelegate {
     }
     @objc private func toggleDetails() {
         details.isHidden.toggle(); moreButton.title = details.isHidden ? "更多 ▾" : "收起 ▴"
-        window?.setContentSize(NSSize(width: 620, height: details.isHidden ? 300 : 540))
+        window?.contentView?.layoutSubtreeIfNeeded(); page.fitDocument()
     }
     @objc private func updateButtons() {
         refreshButton.isEnabled = !busy; browseButton.isEnabled = !busy

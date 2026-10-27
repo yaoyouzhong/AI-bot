@@ -88,7 +88,7 @@ internal sealed class Tab5ConnectionForm : Form
         }
         refresh.Click+=(_,_)=>RefreshPorts();
         var otaStatus=new Tab5UpgradeStatusView();upgrade.Controls.Add(otaStatus);
-        var offerOta=new Button{Text="选择固件…"};var cancelOta=new Button{Text="停止提供"};var startOta=new Button{Text="开始升级"};upgrade.Controls.Add(Buttons(startOta,offerOta,cancelOta));StyleCompactButton(startOta,true);
+        var offerOta=new Button{Text="选择固件…"};var cancelOta=new Button{Name="ota-stop",Text="取消选择"};var startOta=new Button{Text="开始升级"};upgrade.Controls.Add(Buttons(startOta,offerOta,cancelOta));StyleCompactButton(startOta,true);
         var bootRow=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,8,0,8)};
         bootRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));bootRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         var bootState=new Label{AutoSize=true,Anchor=AnchorStyles.Left,ForeColor=SettingsWindow.Muted,Margin=new Padding(0,4,8,4)};
@@ -98,11 +98,14 @@ internal sealed class Tab5ConnectionForm : Form
         verifyOta.Click+=async(_,_)=>{verifying=true;verifyOta.Enabled=false;bootState.Text="正在核验启动…";try{await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed){result.Text="";otaResult=false;}}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed){result.Text=ex.Message;otaResult=true;}}finally{verifying=false;if(!IsDisposed)UpdateOffer();}};
         void UpdateOffer() {
             var presentation=service.UpgradeStatusText;otaStatus.SetStatus(presentation);
-            if(otaResult&&presentation.State is "设备已运行" or "已核验"){result.Text="";otaResult=false;}
-            startOta.Enabled=service.CanStartOta;offerOta.Enabled=!service.Busy;
+            if(otaResult&&presentation.State is "设备已运行" or "已核验" or "正在停止" or "已停止"){result.Text="";otaResult=false;}
+            startOta.Enabled=service.CanStartOta;offerOta.Enabled=service.CanSelectOta;
             if(!verifying)bootState.Text=service.UpgradeBootSummary;
             verifyOta.Enabled=!verifying&&service.CanVerifyUpgrade;
-            releaseNotes.Visible=service.HasOta;cancelOta.Enabled=service.HasOta&&!service.Busy;releaseNotes.SetNotes(service.OtaNotes);
+            bootRow.Visible=service.HasOta;
+            releaseNotes.Visible=service.HasOta;
+            cancelOta.Text=presentation.State=="正在停止"?"正在停止…":service.OtaStarted?"停止升级":"取消选择";
+            cancelOta.Enabled=service.CanStopOta||(!service.OtaStarted&&service.HasOta&&!service.Busy);releaseNotes.SetNotes(service.OtaNotes);
         }
         void UpdateConnection() {
             var view=service.DeviceView;
@@ -128,7 +131,7 @@ internal sealed class Tab5ConnectionForm : Form
             }
             catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException){result.Text=ex.Message;}
         };
-        cancelOta.Click+=(_,_)=>{try{service.CancelOta();UpdateOffer();result.Text="";}catch(InvalidOperationException ex){result.Text=ex.Message;}};
+        cancelOta.Click+=(_,_)=>{try{if(service.OtaStarted)service.StopOta();else service.CancelOta();result.Text="";otaResult=false;UpdateOffer();}catch(InvalidOperationException ex){result.Text=ex.Message;}};
         audio.Controls.Add(Heading("语音输入"));audio.Controls.Add(Note("识别后在 TAB5 检查，再手动发送。"));
         var voice=new Button{Text="语音设置…"};audio.Controls.Add(Buttons(voice));voice.Click+=(_,_)=>service.ShowVoiceSettings(this);
         bool busy=false,loading=false;

@@ -1,0 +1,277 @@
+--- a/scripts/build.ps1
++++ b/scripts/build.ps1
+@@ -39,6 +39,8 @@
+ if ($LASTEXITCODE) { throw 'SDIO receive packet memory patch failed' }
+ python "$PSScriptRoot/apply-hosted-tx-memory.py" "$idfProjectRoot/firmware"
+ if ($LASTEXITCODE) { throw 'SDIO packet pool memory patch failed' }
++python "$PSScriptRoot/apply-ble-tx-safety.py" "$env:IDF_PATH" "$idfProjectRoot/firmware"
++if ($LASTEXITCODE) { throw 'Hosted BLE transmit safety patch failed' }
+ python "$PSScriptRoot/apply-lvgl-render-cache.py" "$idfProjectRoot/firmware"
+ if ($LASTEXITCODE) { throw 'LVGL cache hooks patch failed' }
+ Push-Location "$idfProjectRoot\firmware"
+--- a/scripts/preview-ui.ps1
++++ b/scripts/preview-ui.ps1
+@@ -17,6 +17,8 @@
+ try {
+ & "$root/.tools/idf-tools/python_env/idf5.4_py3.12_env/Scripts/python.exe" "$PSScriptRoot/apply-camera-dma-memory.py" "$root/.tools/esp-idf"
+ if ($LASTEXITCODE) {throw 'CSI DMA memory patch failed'}
++& "$root/.tools/idf-tools/python_env/idf5.4_py3.12_env/Scripts/python.exe" "$PSScriptRoot/apply-ble-tx-safety.py" "$root/.tools/esp-idf" "$root/firmware"
++if ($LASTEXITCODE) {throw 'Hosted BLE transmit safety patch failed'}
+ & "$root/.tools/idf-tools/python_env/idf5.4_py3.12_env/Scripts/python.exe" "$PSScriptRoot/apply-jpeg-dma-memory.py" "$root/.tools/esp-idf"
+ if ($LASTEXITCODE) {throw 'JPEG DMA/cache patch failed'}
+ & "$root/.tools/idf-tools/python_env/idf5.4_py3.12_env/Scripts/python.exe" "$PSScriptRoot/apply-lvgl-render-cache.py" "$root/firmware"
+--- /dev/null
++++ b/scripts/apply-ble-tx-safety.py
+@@ -0,0 +1,73 @@
++"""P4 Hosted CPU staging and ATT resource-failure ownership, pinned sources."""
++from pathlib import Path
++import sys
++
++HELPER = '''// TAB5_HOSTED_HCI_STAGING
++static void *tab5_hci_staging_alloc(size_t size) {
++#if CONFIG_IDF_TARGET_ESP32P4 && CONFIG_SPIRAM && CONFIG_ESP_HOSTED_SDIO_HOST_INTERFACE
++    // NO_ZEROCOPY is CPU-copied into SDIO's own DMA pool later.
++    return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
++#else
++    return MEM_ALLOC(size);
++#endif
++}
++// TAB5_HOSTED_HCI_STAGING_END
++
++'''
++ATT_OLD = '''    rc = ble_l2cap_tx(conn, chan, txom);
++    assert(rc == 0);
++    return rc;'''
++ATT_NEW = '''    rc = ble_l2cap_tx(conn, chan, txom);
++#if CONFIG_IDF_TARGET_ESP32P4 && CONFIG_ESP_HOSTED_ENABLED
++    // TAB5_ATT_TX_FAILURE: L2CAP consumes txom on every outcome. Resource or
++    // Hosted transport failure is an error for the caller, not an invariant.
++    // Undo the busy flag set for this failed request, not another request.
++    if (rc != 0) {
++        if (tab5_att_request) conn->client_att_busy = false;
++        BLE_HS_LOG(ERROR, "ATT TX failed; rc=%d\\n", rc);
++    }
++#else
++    assert(rc == 0);
++#endif
++    return rc;'''
++
++def patch_att(text):
++    if '// TAB5_ATT_TX_FAILURE' in text:
++        if text.count(ATT_NEW) != 1 or text.count('bool tab5_att_request = ble_att_is_request_op(txom->om_data[0]);') != 1:
++            raise RuntimeError('Unknown patched ATT transmit layout')
++        return text
++    request = '    if (ble_att_is_request_op(txom->om_data[0])) {'
++    if text.count(ATT_OLD) != 1 or text.count(request) != 1:
++        raise RuntimeError('Unknown pinned NimBLE ATT transmit layout')
++    return text.replace(request, '    bool tab5_att_request = ble_att_is_request_op(txom->om_data[0]);\n    if (tab5_att_request) {', 1).replace(ATT_OLD, ATT_NEW, 1)
++
++def patch_hosted(text):
++    if '// TAB5_HOSTED_HCI_STAGING' in text:
++        if HELPER not in text or text.count('data = tab5_hci_staging_alloc(') != 2 or 'free(data); // TAB5_HCI_FLATTEN_FAILURE' not in text:
++            raise RuntimeError('Unknown patched Hosted HCI staging layout')
++        return text
++    anchor = '#define BLE_HCI_CMD_HDR_LEN                 (3)\n'
++    flatten_error = '\t\tESP_LOGE(TAG, "Tx: Error copying HCI_H4_ACL data %d", res);\n'
++    if text.count(anchor) != 1 or text.count('data = MEM_ALLOC(') != 2 or text.count(flatten_error) != 1:
++        raise RuntimeError('Unknown pinned Hosted HCI layout')
++    text = text.replace('#include "os_wrapper.h"', '#include "os_wrapper.h"\n#include "esp_heap_caps.h"', 1)
++    text = text.replace(anchor, anchor + HELPER, 1).replace('data = MEM_ALLOC(', 'data = tab5_hci_staging_alloc(')
++    # esp_hosted_tx consumes data even when rejecting it. Flatten fails before it.
++    return text.replace(flatten_error, flatten_error + '\t\tfree(data); // TAB5_HCI_FLATTEN_FAILURE\n', 1)
++
++def apply(idf, project):
++    updates = []
++    for path, transform in [
++        (idf / 'components/bt/host/nimble/nimble/nimble/host/src/ble_att_cmd.c', patch_att),
++        (project / 'managed_components/espressif__esp_hosted/host/drivers/bt/vhci_drv.c', patch_hosted),
++    ]:
++        before = path.read_text('utf-8')
++        updates.append((path, before, transform(before)))
++    # Validate all pinned layouts before touching either dependency.
++    for path, before, after in updates:
++        if before != after:
++            path.write_text(after, 'utf-8', newline='\n')
++
++if __name__ == '__main__':
++    apply(Path(sys.argv[1]), Path(sys.argv[2]))
++    print('TAB5_BLE_TX_SAFETY_OK P4_Hosted_CPU_staging ATT_error_ownership')
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -908,3 +908,39 @@
+ target_compile_options(photo-software-jpeg-test PRIVATE /UNDEBUG)
+ set_source_files_properties("${ROOT}/firmware/components/tab5_jpeg/vendor/jpge.cpp"
+     PROPERTIES COMPILE_DEFINITIONS TAB5_JPGE_TEST_ALLOCATOR=1)
++
++
++# Execute the pinned, patched ATT/HCI functions, not copies of their logic.
++set(ATT_TX_SOURCE "${ROOT}/.tools/esp-idf/components/bt/host/nimble/nimble/nimble/host/src/ble_att_cmd.c")
++set(HCI_TX_SOURCE "${ROOT}/firmware/managed_components/espressif__esp_hosted/host/drivers/bt/vhci_drv.c")
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ATT_TX_SOURCE}" "${HCI_TX_SOURCE}")
++file(READ "${ATT_TX_SOURCE}" ATT_TX_TEXT)
++string(FIND "${ATT_TX_TEXT}" "int\nble_att_tx_with_conn(" ATT_TX_START)
++string(FIND "${ATT_TX_TEXT}" "int\nble_att_tx(" ATT_TX_END)
++if(ATT_TX_START LESS 0 OR ATT_TX_END LESS ATT_TX_START)
++    message(FATAL_ERROR "Pinned ATT TX markers changed")
++endif()
++math(EXPR ATT_TX_LENGTH "${ATT_TX_END}-${ATT_TX_START}")
++string(SUBSTRING "${ATT_TX_TEXT}" ${ATT_TX_START} ${ATT_TX_LENGTH} ATT_TX_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ble_att_tx_under_test.inc" "${ATT_TX_BODY}")
++add_executable(ble-att-tx-failure-test ble_att_tx_failure_test.c)
++target_include_directories(ble-att-tx-failure-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++file(READ "${HCI_TX_SOURCE}" HCI_TX_TEXT)
++string(FIND "${HCI_TX_TEXT}" "// TAB5_HOSTED_HCI_STAGING\n" HCI_HELPER_START)
++string(FIND "${HCI_TX_TEXT}" "// TAB5_HOSTED_HCI_STAGING_END" HCI_HELPER_END)
++string(FIND "${HCI_TX_TEXT}" "int ble_transport_to_ll_acl_impl(" HCI_TX_START)
++string(FIND "${HCI_TX_TEXT}" "#endif // H_BT_HOST_ESP_NIMBLE" HCI_TX_END)
++if(HCI_HELPER_START LESS 0 OR HCI_HELPER_END LESS HCI_HELPER_START OR HCI_TX_START LESS 0 OR HCI_TX_END LESS HCI_TX_START)
++    message(FATAL_ERROR "Pinned Hosted HCI TX markers changed")
++endif()
++math(EXPR HCI_HELPER_LENGTH "${HCI_HELPER_END}-${HCI_HELPER_START}")
++math(EXPR HCI_TX_LENGTH "${HCI_TX_END}-${HCI_TX_START}")
++string(SUBSTRING "${HCI_TX_TEXT}" ${HCI_HELPER_START} ${HCI_HELPER_LENGTH} HCI_TX_HELPER)
++string(SUBSTRING "${HCI_TX_TEXT}" ${HCI_TX_START} ${HCI_TX_LENGTH} HCI_TX_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hosted_hci_helper_under_test.inc" "${HCI_TX_HELPER}")
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hosted_hci_tx_under_test.inc" "${HCI_TX_BODY}")
++foreach(P4 0 1)
++    add_executable(hosted-hci-tx-test-${P4} hosted_hci_tx_test.c)
++    target_compile_definitions(hosted-hci-tx-test-${P4} PRIVATE CONFIG_IDF_TARGET_ESP32P4=${P4})
++    target_include_directories(hosted-hci-tx-test-${P4} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++endforeach()
+--- /dev/null
++++ b/tests/ui-preview/ble_att_tx_failure_test.c
+@@ -0,0 +1,56 @@
++// Run the pinned production ATT transmitter, including mbuf ownership.
++#undef NDEBUG
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#define CONFIG_IDF_TARGET_ESP32P4 1
++#define CONFIG_ESP_HOSTED_ENABLED 1
++struct os_mbuf;
++struct os_mbuf_pkthdr {struct os_mbuf_pkthdr *next; struct os_mbuf *owner;};
++struct os_mbuf {unsigned om_len; uint8_t data[8]; uint8_t *om_data; struct os_mbuf_pkthdr hdr;};
++struct queue {struct os_mbuf_pkthdr *first, *last;};
++struct ble_hs_conn {bool client_att_busy; struct queue att_tx_q;};
++struct ble_l2cap_chan {int mtu;};
++#define STAILQ_FIRST(q) ((q)->first)
++#define STAILQ_REMOVE_HEAD(q, field) do { (q)->first=(q)->first->next; if(!(q)->first)(q)->last=NULL; } while(0)
++#define STAILQ_INSERT_TAIL(q, h, field) do { (h)->next=NULL; if((q)->last)(q)->last->next=(h); else(q)->first=(h); (q)->last=(h); } while(0)
++#define OS_MBUF_PKTHDR_TO_MBUF(h) ((h)->owner)
++#define OS_MBUF_PKTHDR(m) (&(m)->hdr)
++#define BLE_HS_DBG_ASSERT_EVAL(x) assert(x)
++#define BLE_EATT_LOG_DEBUG(...) ((void)0)
++static int logged, sent, freed, tx_rc, stats;
++#define BLE_HS_LOG(level, ...) (++logged)
++static bool ble_att_is_request_op(int op){return op==0x0a;}
++static void ble_att_inc_tx_stat(int op){(void)op;stats++;}
++static void ble_att_truncate_to_mtu(struct ble_l2cap_chan *c,struct os_mbuf *m){assert(c->mtu==517&&m->om_len==1);}
++static int ble_l2cap_tx(struct ble_hs_conn *c,struct ble_l2cap_chan *ch,struct os_mbuf *m){
++    (void)c;(void)ch;sent++;free(m);freed++;return tx_rc;
++}
++#include "ble_att_tx_under_test.inc"
++static struct os_mbuf *packet(int op){
++    struct os_mbuf *m=calloc(1,sizeof(*m));assert(m);m->om_len=1;m->om_data=m->data;m->data[0]=(uint8_t)op;m->hdr.owner=m;return m;
++}
++int main(void){
++#ifdef _WIN32
++    _set_error_mode(_OUT_TO_STDERR);
++    _set_abort_behavior(0, _CALL_REPORTFAULT);
++#endif
++    struct ble_hs_conn conn={0};struct ble_l2cap_chan chan={517};
++    assert(ble_att_tx_with_conn(&conn,&chan,packet(0x0a))==0&&conn.client_att_busy&&sent==1);
++    // Busy requests queue without transferring ownership to L2CAP yet.
++    assert(ble_att_tx_with_conn(&conn,&chan,packet(0x0a))==0&&sent==1&&conn.att_tx_q.first);
++    assert(ble_att_tx_with_conn(&conn,&chan,NULL)==0&&sent==1);
++    conn.client_att_busy=false;tx_rc=6;
++    assert(ble_att_tx_with_conn(&conn,&chan,NULL)==6&&!conn.client_att_busy&&!conn.att_tx_q.first);
++    assert(sent==2&&freed==2&&logged==1);
++    tx_rc=0;assert(ble_att_tx_with_conn(&conn,&chan,packet(0x0a))==0&&conn.client_att_busy&&sent==3);
++    // Notification/response failure must not clear another outstanding request.
++    tx_rc=-1;assert(ble_att_tx_with_conn(&conn,&chan,packet(0x1b))==-1&&conn.client_att_busy);
++    tx_rc=3;assert(ble_att_tx_with_conn(&conn,&chan,packet(0x0b))==3&&conn.client_att_busy);
++    assert(sent==5&&freed==5&&stats==5&&logged==3);
++    conn.client_att_busy=false;
++    assert(ble_att_tx_with_conn(&conn,&chan,NULL)==0&&sent==5);
++    puts("BLE_ATT_TX_FAILURE_OK exact_rc queued_request_recovery response_notify_preserve_busy consumed_once");
++}
+--- /dev/null
++++ b/tests/ui-preview/hosted_hci_tx_test.c
+@@ -0,0 +1,75 @@
++// Execute actual Hosted staging and both HCI functions with failure injection.
++#undef NDEBUG
++#include <assert.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#define CONFIG_SPIRAM 1
++#define CONFIG_ESP_HOSTED_SDIO_HOST_INTERFACE 1
++#define MALLOC_CAP_SPIRAM 1
++#define MALLOC_CAP_8BIT 2
++#define H_BT_ENABLE_LL_INIT 0
++#define ESP_OK 0
++#define ESP_FAIL -1
++#define HCI_H4_ACL 2
++#define HCI_H4_CMD 1
++#define ESP_HCI_IF 3
++#define H_BUFF_NO_ZEROCOPY 0
++#define ESP_LOGE(...) ((void)0)
++static int alloc_fail, flatten_fail, transport_rc, transport_calls, psram_allocs, internal_allocs, allocated, freed, mbuf_freed, cmd_freed;
++static void *owned;
++static uint8_t expected[600];static unsigned expected_size;
++static void *allocate(size_t size){if(alloc_fail)return NULL;assert(!owned);owned=malloc(size);assert(owned);allocated++;return owned;}
++static void release(void *p){assert(p&&p==owned);free(p);owned=NULL;freed++;}
++static void *heap_caps_malloc(size_t size,int caps){assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));psram_allocs++;return allocate(size);}
++static void *internal_alloc(size_t size){internal_allocs++;return allocate(size);}
++#define MEM_ALLOC(x) internal_alloc(x)
++#define H_DEFLT_FREE_FUNC release
++struct os_mbuf {unsigned size;uint8_t data[600];};
++#define OS_MBUF_PKTLEN(m) ((m)->size)
++static void os_mbuf_free_chain(struct os_mbuf *m){assert(m);free(m);mbuf_freed++;}
++static int ble_hs_mbuf_to_flat(struct os_mbuf *m,void *out,unsigned size,void *unused){
++    (void)unused;assert(size==m->size);if(flatten_fail)return 7;memcpy(out,m->data,size);return 0;
++}
++static int esp_hosted_tx(unsigned iface,unsigned index,uint8_t *data,int size,int zcopy,void (*free_fn)(void*)){
++    assert(iface==ESP_HCI_IF&&index==0&&zcopy==H_BUFF_NO_ZEROCOPY);
++    assert(size==(int)expected_size&&!memcmp(data,expected,size));transport_calls++;
++    free_fn(data);return transport_rc;
++}
++static void ble_transport_free(void *p){free(p);cmd_freed++;}
++#include "hosted_hci_helper_under_test.inc"
++// Only a pre-submission flatten failure calls free(data) in this source.
++#define free(p) release(p)
++#include "hosted_hci_tx_under_test.inc"
++#undef free
++static struct os_mbuf *acl(unsigned size){
++    struct os_mbuf *m=calloc(1,sizeof(*m));assert(m&&size<600);m->size=size;expected[0]=HCI_H4_ACL;expected_size=size+1;
++    for(unsigned i=0;i<size;i++)m->data[i]=expected[i+1]=(uint8_t)(i*29);return m;
++}
++static void *command(unsigned payload){
++    uint8_t *p=calloc(1,payload+3);assert(p&&payload<256);p[0]=0x01;p[1]=0x20;p[2]=(uint8_t)payload;
++    for(unsigned i=0;i<payload;i++)p[i+3]=(uint8_t)(i+7);
++    expected[0]=HCI_H4_CMD;expected_size=payload+4;memcpy(expected+1,p,payload+3);return p;
++}
++int main(void){
++    assert(ble_transport_to_ll_acl_impl(acl(516))==ESP_OK&&transport_calls==1&&mbuf_freed==1);
++    assert(ble_transport_to_ll_cmd_impl(command(255))==ESP_OK&&transport_calls==2&&cmd_freed==1);
++    alloc_fail=1;
++    assert(ble_transport_to_ll_acl_impl(acl(64))==ESP_FAIL&&mbuf_freed==2&&transport_calls==2);
++    assert(ble_transport_to_ll_cmd_impl(command(0))==ESP_FAIL&&cmd_freed==2&&transport_calls==2);
++    alloc_fail=0;flatten_fail=1;
++    assert(ble_transport_to_ll_acl_impl(acl(64))==ESP_FAIL&&mbuf_freed==3&&transport_calls==2&&allocated==freed);
++    flatten_fail=0;transport_rc=ESP_FAIL;
++    assert(ble_transport_to_ll_acl_impl(acl(64))==ESP_FAIL&&mbuf_freed==4&&transport_calls==3&&allocated==freed);
++    assert(ble_transport_to_ll_cmd_impl(command(1))==ESP_FAIL&&cmd_freed==3&&transport_calls==4&&allocated==freed);
++    transport_rc=0;
++    for(unsigned i=0;i<512;i++)assert(ble_transport_to_ll_acl_impl(acl(516))==ESP_OK);
++    assert(allocated==freed&&!owned);
++#if CONFIG_IDF_TARGET_ESP32P4
++    assert(psram_allocs==519&&internal_allocs==0);
++#else
++    assert(psram_allocs==0&&internal_allocs==519);
++#endif
++    puts("HOSTED_HCI_TX_OK CPU_only_staging exact_max_packet allocation_flatten_transport_failures ownership_512_cycles");
++}

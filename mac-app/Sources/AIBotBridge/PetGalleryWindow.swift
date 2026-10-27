@@ -66,20 +66,33 @@ final class MacPetGalleryWindow: NSWindowController, NSTableViewDataSource, NSTa
     private let selectPage:(String)->Void
     init(selectPage:@escaping(String)->Void) {
         self.selectPage=selectPage
-        let window=NSWindow(contentRect:NSRect(x:0,y:0,width:500,height:620),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
-        super.init(window:window);window.title="更换桌宠动画（petdex）";window.minSize=NSSize(width:450,height:540);window.delegate=self
-        let stack=NSStackView();stack.orientation = .vertical;stack.spacing=10;stack.edgeInsets=NSEdgeInsets(top:14,left:14,bottom:14,right:14);stack.translatesAutoresizingMaskIntoConstraints=false
-        window.contentView!.addSubview(stack);NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo:window.contentView!.leadingAnchor),stack.trailingAnchor.constraint(equalTo:window.contentView!.trailingAnchor),stack.topAnchor.constraint(equalTo:window.contentView!.topAnchor),stack.bottomAnchor.constraint(equalTo:window.contentView!.bottomAnchor)])
-        search.placeholderString="搜索桌宠名称…";search.delegate=self;stack.addArrangedSubview(search)
-        table.addTableColumn(NSTableColumn(identifier:NSUserInterfaceItemIdentifier("pet")));table.headerView=nil;table.dataSource=self;table.delegate=self
-        let scroll=NSScrollView();scroll.documentView=table;scroll.hasVerticalScroller=true;stack.addArrangedSubview(scroll)
-        preview.imageScaling = .scaleNone;preview.wantsLayer=true;preview.layer?.backgroundColor=NSColor.black.cgColor;stack.addArrangedSubview(preview);preview.heightAnchor.constraint(equalToConstant:140).isActive=true
-        roleSelector.addItems(withTitles:["Claude","Codex"]);motion.addItems(withTitles:MacGalleryMotion.all.map(\.label));motion.selectItem(at:7)
-        roleSelector.target=self;roleSelector.action=#selector(selectionChanged);motion.target=self;motion.action=#selector(selectionChanged);apply.target=self;apply.action=#selector(save);apply.isEnabled=false
-        stack.addArrangedSubview(NSStackView(views:[roleSelector,motion,apply]));stack.addArrangedSubview(status)
-        stack.addArrangedSubview(NSTextField(wrappingLabelWithString:"素材只保存在本机，不随公开包分发；同步与设备验收是不同状态。"))
-        for view in [search,scroll,preview,status] {view.widthAnchor.constraint(equalTo:stack.widthAnchor,constant:-28).isActive=true}
-        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant:160).isActive=true
+        let window = MacBridgeSettingsStyle.window("桌宠图库", width: 800, height: 660, minimumHeight: 500)
+        super.init(window: window); window.delegate = self
+        let page = MacBridgeSettingsPage()
+        window.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [apply])
+        page.heading("桌宠图库", subtitle: "搜索 petdex 素材，预览动画后应用到 Claude 或 Codex。")
+        search.placeholderString = "搜索桌宠名称…"; search.delegate = self; page.add(search)
+        table.addTableColumn(NSTableColumn(identifier: NSUserInterfaceItemIdentifier("pet")))
+        table.headerView = nil; table.dataSource = self; table.delegate = self; table.rowHeight = 28
+        table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        let scroll = NSScrollView(); scroll.documentView = table; scroll.hasVerticalScroller = true; scroll.borderType = .bezelBorder
+        let editor = NSStackView(); editor.orientation = .vertical; editor.alignment = .leading; editor.spacing = 16
+        editor.addArrangedSubview(MacBridgeSettingsStyle.label("动画预览", size: 15, weight: .semibold))
+        preview.imageScaling = .scaleNone; preview.wantsLayer = true; preview.layer?.backgroundColor = NSColor.black.cgColor
+        editor.addArrangedSubview(preview); preview.heightAnchor.constraint(equalToConstant: 180).isActive = true
+        preview.widthAnchor.constraint(equalTo: editor.widthAnchor).isActive = true
+        roleSelector.addItems(withTitles: ["Claude", "Codex"]); motion.addItems(withTitles: MacGalleryMotion.all.map(\.label)); motion.selectItem(at: 7)
+        roleSelector.target = self; roleSelector.action = #selector(selectionChanged)
+        motion.target = self; motion.action = #selector(selectionChanged)
+        for (title, control) in [("应用对象", roleSelector), ("动画动作", motion)] {
+            editor.addArrangedSubview(MacBridgeSettingsStyle.label(title)); editor.addArrangedSubview(control)
+            control.widthAnchor.constraint(equalTo: editor.widthAnchor).isActive = true
+        }
+        let columns = NSStackView(views: [scroll, editor]); columns.spacing = 24; columns.distribution = .fillEqually; columns.alignment = .top
+        scroll.heightAnchor.constraint(equalTo: editor.heightAnchor).isActive = true; page.add(columns)
+        apply.target = self; apply.action = #selector(save); apply.isEnabled = false
+        page.add(MacBridgeSettingsStyle.note("素材只保存在本机，不随公开包分发；同步与设备验收是不同状态。"))
+
     }
     required init?(coder:NSCoder) {fatalError("init(coder:) unsupported")}
     func open() {

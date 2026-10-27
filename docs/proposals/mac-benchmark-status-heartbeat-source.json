@@ -1,0 +1,36 @@
+{
+  "status": "Release, 922 isolated checks, strict-signature deployment complete; physical RAM benchmark running",
+  "baseBundle": "artifacts/mac-benchmark-reply-20261024/AIBotBridge.app",
+  "candidateBundle": "artifacts/mac-benchmark-status-20261024/AIBotBridge.app",
+  "patchSha256": "f1b5a458741b23dbe95b643aad4e2086341b54a27b7a136dafc7824d3e8bec2b",
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5Service.swift",
+      "beforeSha256": "0f2f6fbe68484e4a2c9f15cebe1fff1d3d1f8b1c4efb183323bcb8086b84a108",
+      "afterSha256": "369261d2aebb06d309f64d5cb31c6cbf201b30e50f493aa439b48b0ff20efcb4"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift",
+      "beforeSha256": "fc7ac227d5eeb8aeecc3be8f475f270e352a376e189386ae294c765dae93e616",
+      "afterSha256": "d54a668e7e9c90df8cbbb882b2b3053be2c8eb6807fad4fd6bc7b20f7f5b3fca"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BLE.swift",
+      "beforeSha256": "b2eb695b760f5adca0599b9409544073f9db2e995418f5c5e3a169468be38b5b",
+      "afterSha256": "4c2ec79d8fa53ef3f520414c214d079bef5b936e56e0dc8e6e0e81f0c5342076"
+    }
+  ],
+  "prerequisite": "mac-benchmark-reply-compat.patch",
+  "behavior": "Keep normal authenticated status heartbeat and benchmark RPC transport live; omit image resources from status and reject separate image resource batches during both benchmark modes; retain OTA/photo/voice/configuration gates",
+  "firmwareGenerated": false,
+  "deviceFirmware": "0.2.267-ui unchanged",
+  "physicalAcceptance": "running on installed .267",
+  "bleResourceTurnDefersWithoutDisconnect": true,
+  "validation": {
+    "release": true,
+    "isolatedChecks": 922,
+    "swiftTest": "unavailable: CLT lacks XCTest",
+    "helperUnchanged": true,
+    "signatureStrict": true
+  }
+}

@@ -5,6 +5,7 @@ internal static class PublicSelfTest
     internal static void Run()
     {
         if (!AppPaths.IsPublicSelfTest) throw new InvalidOperationException("Fresh profile required.");
+        MigratedDomestic.DomesticQuotaAuthForm.BackgroundFocusSelfTest();
         // No refresh workers, serial connection, production HTTP port or browser login.
         using (var runtime = new BridgeRuntime(startRefresh: false))
         {

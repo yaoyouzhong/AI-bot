@@ -1,0 +1,213 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -181,7 +181,17 @@
+ void device_wifi_label(const char *ssid,char label[WIFI_LABEL_SIZE]){int at=wifi_profiles_index(&preview_networks,ssid);snprintf(label,WIFI_LABEL_SIZE,"%s",at<0?"":preview_networks.entries[at].label);}
+ bool device_wifi_select(int index,bool persist){if(index<0||index>=(int)preview_networks.count)return false;if(persist)preview_networks.preferred=index;strcpy(preview_config.ssid,preview_networks.entries[index].ssid);return true;}
+ bool device_wifi_forget(const char *ssid){if(!preview_forget_ok||!wifi_profiles_forget(&preview_networks,ssid))return false;wifi_profiles_sync_active(&preview_networks,preview_config.ssid,preview_config.password);return true;}
+-void tab5_wifi_diagnostics(char *out,size_t size){int64_t now=esp_timer_get_time()/1000,received=device_links.received_ms[LINK_WIFI];snprintf(out,size,"Wi-Fi  家庭网络\n已连接\nIP  192.168.1.20\n电脑桥接  %s",received>=0&&now>=received&&now-received<8000?"正常 · 鉴权通过":"正在连接所选电脑");}
++static int preview_wifi_diagnostic_case;
++void tab5_wifi_status_read(tab5_wifi_status *out) {
++    int64_t now=esp_timer_get_time()/1000,received=device_links.received_ms[LINK_WIFI];
++    out->connected=preview_wifi_diagnostic_case!=1&&preview_wifi_diagnostic_case!=2;
++    out->authenticated=out->connected&&received>=0&&now>=received&&now-received<8000&&!preview_wifi_diagnostic_case;
++    snprintf(out->network,sizeof(out->network),"%s",preview_wifi_diagnostic_case==1?"尚未配置":preview_wifi_diagnostic_case==5?"工作室与家庭的无线网络备注 · Long-WiFi-Network-0123456789ABCDEF":"家庭网络");
++    snprintf(out->address,sizeof(out->address),"%s",out->connected?"192.168.1.20":"尚未分配");
++    out->state=preview_wifi_diagnostic_case==1?"请在电脑添加 Wi-Fi":preview_wifi_diagnostic_case==2?"认证失败，请检查密码":"已连接";
++    out->bridge=!out->connected?"等待 Wi-Fi":out->authenticated?"正常 · 鉴权通过":preview_wifi_diagnostic_case==3?"正在等待电脑响应":preview_wifi_diagnostic_case==4?"暂不可达，正在寻找电脑":"正在连接所选电脑";
++}
++void tab5_wifi_diagnostics(char *out,size_t size){tab5_wifi_status status;tab5_wifi_status_read(&status);snprintf(out,size,"Wi-Fi  %s\n%s\nIP  %s\n电脑桥接  %s",status.network,status.state,status.address,status.bridge);}
+ void tab5_wifi_reconnect(void){}
+ static int preview_submit_count,preview_result_code;
+ static const char *preview_result_text="";
+@@ -376,6 +386,7 @@
+ static lv_obj_t *codex_reply_document;
+ static lv_obj_t *network_window,*network_details,*network_picker,*network_feedback,*network_retry;
+ static lv_obj_t *network_diag_window,*network_diag_feedback,*network_wifi_card,*network_wifi_state,*network_wifi_name;
++static lv_obj_t *network_diag_state,*network_diag_name,*network_diag_ip,*network_diag_host;
+ static lv_obj_t *host_picker,*host_current,*host_state,*host_card,*host_monitor,*host_badge,*host_symbol,*host_switch,*host_rename;
+ static lv_obj_t *host_editor,*host_editor_input,*host_editor_hint,*host_editor_keyboard,*host_editor_ime;
+ static char host_display_id[33],host_notice[128],host_editor_id[33];
+@@ -2703,7 +2714,11 @@
+ static void network_host_render(void) {
+     char id[33],name[TRUSTED_HOST_NAME];link_kind link;
+     device_host_status(id,name,&link);int64_t now=esp_timer_get_time()/1000;
+-    char network[320];tab5_wifi_diagnostics(network,sizeof(network));ui_text(network_details,network);
++    tab5_wifi_status diagnostic;tab5_wifi_status_read(&diagnostic);
++    ui_text(network_details,diagnostic.bridge);tint(network_details,diagnostic.authenticated?GREEN:AMBER);
++    ui_text(network_diag_state,diagnostic.state);tint(network_diag_state,diagnostic.connected?GREEN:AMBER);
++    ui_text(network_diag_name,diagnostic.network);ui_text(network_diag_ip,diagnostic.address);
++    ui_text(network_diag_host,name[0]?name:"尚未绑定电脑");
+     device_config cfg=device_get_config();char ssid[33];snprintf(ssid,sizeof(ssid),"%s",cfg.ssid);
+     for(char *p=ssid;*p;p++)if(*p=='\n'||*p=='\r')*p=' ';
+     ui_text(network_wifi_state,wifi_connected?"Wi-Fi 已连接":ssid[0]?"正在连接 Wi-Fi":"尚未配置 Wi-Fi");
+@@ -2782,7 +2797,7 @@
+         network_host_render();
+         return;
+     }
+-    if(action==9){ui_text(network_diag_feedback,"此页的电脑桥接状态对应 Wi-Fi 通信；当前电脑连接见上一页。");visible(network_confirm,false);network_forget_ssid[0]=0;visible(network_diag_window,true);lv_obj_move_foreground(network_diag_window);network_host_render();return;}
++    if(action==9){ui_text(network_diag_feedback,"");visible(network_confirm,false);network_forget_ssid[0]=0;visible(network_diag_window,true);lv_obj_move_foreground(network_diag_window);network_host_render();return;}
+     if(action==10){visible(network_diag_window,false);return;}
+     if(action==2){visible(network_confirm,false);visible(network_diag_window,false);visible(network_window,false);return;}
+     if(action==5){visible(network_confirm,false);network_forget_ssid[0]=0;return;}
+@@ -4313,12 +4328,28 @@
+     network_diag_window=card(screen,30,70,1220,650);
+     label(network_diag_window,"连接诊断",0,0,600,false);
+     button(network_diag_window,"返回",1030,0,150,network_action,10);
+-    muted(network_diag_window,"Wi-Fi 连接详情",0,76,1180);
+-    network_details=label(network_diag_window,"正在检查…",0,116,1180,false);
+-    lv_obj_set_height(network_details,156);lv_label_set_long_mode(network_details,LV_LABEL_LONG_WRAP);lv_obj_set_style_text_line_space(network_details,4,0);
+-    shape(network_diag_window,0,302,1180,1,TRACK,0);
+-    network_retry=button(network_diag_window,"重新连接 Wi-Fi",0,330,254,network_action,1);
+-    network_diag_feedback=muted(network_diag_window,"",0,424,1180);
++    muted(network_diag_window,"仅检查 Wi-Fi 连接与电脑桥接通信",0,52,980);
++    lv_obj_t *diag_wifi=shape(network_diag_window,0,104,578,340,0x303B40,12);
++    lv_obj_t *diag_bridge=shape(network_diag_window,602,104,578,340,0x303B40,12);
++    label(diag_wifi,"Wi-Fi 网络",20,18,538,false);
++    label(diag_bridge,"电脑桥接",20,18,538,false);
++    network_diag_state=label(diag_wifi,"正在检查…",20,68,538,false);
++    network_details=label(diag_bridge,"正在检查…",20,68,538,false);
++    lv_obj_t *diagnostic_status[]={network_diag_state,network_details};
++    for(unsigned i=0;i<2;i++) {
++        ui_text_font(diagnostic_status[i],&tab5_font_30,0);lv_obj_set_height(diagnostic_status[i],80);
++        lv_label_set_long_mode(diagnostic_status[i],LV_LABEL_LONG_WRAP);
++    }
++    shape(diag_wifi,20,162,538,1,TRACK,0);shape(diag_bridge,20,162,538,1,TRACK,0);
++    network_diag_name=label(diag_wifi,"",20,184,538,false);
++    network_diag_host=label(diag_bridge,"",20,184,538,false);
++    lv_obj_set_height(network_diag_name,64);lv_label_set_long_mode(network_diag_name,LV_LABEL_LONG_DOT);
++    lv_obj_set_height(network_diag_host,64);lv_label_set_long_mode(network_diag_host,LV_LABEL_LONG_DOT);
++    muted(diag_wifi,"IP 地址",20,282,120);network_diag_ip=label(diag_wifi,"",148,282,410,false);
++    muted(diag_bridge,"USB、蓝牙状态见上一页",20,282,538);
++    network_retry=button(network_diag_window,"重新连接 Wi-Fi",926,492,254,network_action,1);lv_obj_set_height(network_retry,60);
++    network_diag_feedback=muted(network_diag_window,"",0,492,892);
++    lv_obj_set_height(network_diag_feedback,100);lv_label_set_long_mode(network_diag_feedback,LV_LABEL_LONG_WRAP);
+     visible(network_diag_window,false);
+     host_editor=card(screen,30,70,1220,650);
+     label(host_editor,"修改电脑备注",0,0,650,false);
+--- a/firmware/main/wifi_link.c
++++ b/firmware/main/wifi_link.c
+@@ -44,20 +44,30 @@
+         atomic_load(&status_valid),atomic_load(&status_host),atomic_load(&status_port),atomic_load(&status_local));
+ }
+ void tab5_wifi_reconnect(void){atomic_store(&reconnect_requested,true);}
+-void tab5_wifi_diagnostics(char *out,size_t size) {
++void tab5_wifi_status_read(tab5_wifi_status *out) {
+     device_config cfg=device_get_config();char ip[16];int64_t received;
+     // Host selection invalidates these authenticated timestamps immediately;
+     // the previous host's HTTP success must not label the new target ready.
+     xSemaphoreTake(device_mutex,portMAX_DELAY);strcpy(ip,local_ip);received=device_links.received_ms[LINK_WIFI];xSemaphoreGive(device_mutex);
+     int reason=atomic_load(&disconnect_reason),http=atomic_load(&http_status);
+-    const char *state=!cfg.ssid[0]?"请在电脑添加 Wi-Fi":wifi_connected?"已连接":reason==202||reason==15?"认证失败，请检查密码":reason==201?"未找到已保存网络":"正在连接已保存网络";
+-    const char *bridge=!cfg.paired?"请先通过 USB 配对":!wifi_connected?"等待 Wi-Fi":
+-        received>=0&&esp_timer_get_time()/1000>=received&&esp_timer_get_time()/1000-received<8000?"正常 · 鉴权通过":
++    bool connected=wifi_connected;int64_t now=esp_timer_get_time()/1000;
++    out->connected=cfg.ssid[0]&&connected;
++    out->authenticated=cfg.paired&&connected&&received>=0&&now>=received&&now-received<8000;
++    const char *state=!cfg.ssid[0]?"请在电脑添加 Wi-Fi":connected?"已连接":reason==202||reason==15?"认证失败，请检查密码":reason==201?"未找到已保存网络":"正在连接已保存网络";
++    const char *bridge=!cfg.paired?"请先通过 USB 配对":!connected?"等待 Wi-Fi":
++        out->authenticated?"正常 · 鉴权通过":
+         atomic_load(&status_pending)?"正在等待电脑响应":
+         http==401||http==403?"配对不匹配，请重新配对":http==0?"暂不可达，正在寻找电脑":
+         http==-1?"未收到有效响应，正在重试":"响应异常，正在重试";
+     char label[WIFI_LABEL_SIZE];device_wifi_label(cfg.ssid,label);
+-    snprintf(out,size,"Wi-Fi  %s%s%s\n%s\nIP  %s\n电脑桥接  %s",label[0]?label:"",label[0]?" · ":"",cfg.ssid[0]?cfg.ssid:"尚未配置",state,ip[0]?ip:"尚未分配",bridge);
++    snprintf(out->network,sizeof(out->network),"%s%s%s",label,label[0]?" · ":"",cfg.ssid[0]?cfg.ssid:"尚未配置");
++    for(char *p=out->network;*p;p++)if(*p=='\n'||*p=='\r')*p=' ';
++    snprintf(out->address,sizeof(out->address),"%s",ip[0]?ip:"尚未分配");
++    out->state=state;out->bridge=bridge;
++}
++void tab5_wifi_diagnostics(char *out,size_t size) {
++    tab5_wifi_status status;tab5_wifi_status_read(&status);
++    snprintf(out,size,"Wi-Fi  %s\n%s\nIP  %s\n电脑桥接  %s",status.network,status.state,status.address,status.bridge);
+ }
+ static void event(void *arg,esp_event_base_t base,int32_t id,void *data) {
+     if(base==WIFI_EVENT&&id==WIFI_EVENT_STA_CONNECTED) {
+--- a/firmware/main/wifi_status.h
++++ b/firmware/main/wifi_status.h
+@@ -2,6 +2,13 @@
+ #include <stddef.h>
+ #include <stdbool.h>
+ extern volatile bool tab5_wifi_initialized;
++// Display-only snapshot: no credentials, transport commands or wire changes.
++typedef struct {
++    char network[104],address[16];
++    const char *state,*bridge;
++    bool connected,authenticated;
++} tab5_wifi_status;
++void tab5_wifi_status_read(tab5_wifi_status *out);
+ void tab5_wifi_diagnostics(char *out,size_t size);
+ void tab5_wifi_numeric_diagnostics(char *out,size_t size);
+ void tab5_wifi_recovery_diagnostics(char *out,size_t size);
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -42,7 +42,7 @@
+ target_compile_options(trusted-hosts-test PRIVATE /UNDEBUG /utf-8)
+ target_link_libraries(trusted-hosts-test PRIVATE bcrypt)
+ file(READ "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/wifi_link.c" WIFI_STATUS_SOURCE)
+-string(FIND "${WIFI_STATUS_SOURCE}" "void tab5_wifi_diagnostics(" WIFI_STATUS_START)
++string(FIND "${WIFI_STATUS_SOURCE}" "void tab5_wifi_status_read(" WIFI_STATUS_START)
+ string(FIND "${WIFI_STATUS_SOURCE}" "static void event(" WIFI_STATUS_END)
+ math(EXPR WIFI_STATUS_LENGTH "${WIFI_STATUS_END}-${WIFI_STATUS_START}")
+ string(SUBSTRING "${WIFI_STATUS_SOURCE}" ${WIFI_STATUS_START} ${WIFI_STATUS_LENGTH} WIFI_STATUS_BODY)
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1816,7 +1816,21 @@
+     lv_area_t wifi_details,reconnect_button,feedback_area,diagnostic_bounds;
+     lv_obj_get_coords(network_details,&wifi_details);lv_obj_get_coords(network_retry,&reconnect_button);
+     lv_obj_get_coords(network_diag_feedback,&feedback_area);lv_obj_get_coords(network_diag_window,&diagnostic_bounds);
+-    assert(reconnect_button.y1>wifi_details.y2&&feedback_area.y1>reconnect_button.y2&&feedback_area.y2<diagnostic_bounds.y2);
++    assert(reconnect_button.y1>wifi_details.y2&&feedback_area.x2<reconnect_button.x1&&feedback_area.y2<diagnostic_bounds.y2);
++    lv_obj_t *diagnostic_fields[]={network_diag_state,network_details,network_diag_name,network_diag_host,network_diag_ip};
++    for(unsigned i=0;i<sizeof(diagnostic_fields)/sizeof(diagnostic_fields[0]);i++) {
++        lv_area_t field,parent;lv_obj_get_coords(diagnostic_fields[i],&field);lv_obj_get_coords(lv_obj_get_parent(diagnostic_fields[i]),&parent);
++        assert(field.x1>=parent.x1&&field.y1>=parent.y1&&field.x2<=parent.x2&&field.y2<=parent.y2);
++    }
++    for(int state=1;state<=5;state++) {
++        preview_wifi_diagnostic_case=state;network_host_render();
++        char shot[64];snprintf(shot,sizeof(shot),"network-diagnostics-state-%d",state);capture(shot);
++        assert(!strstr(lv_label_get_text(network_details),"鉴权通过"));
++        lv_point_t measured;
++        lv_text_get_size(&measured,lv_label_get_text(network_details),&tab5_font_30,0,0,538,LV_TEXT_FLAG_NONE);
++        assert(measured.y<=80);
++    }
++    preview_wifi_diagnostic_case=0;network_host_render();
+     puts("NETWORK_DIAGNOSTIC_SCOPE_OK wifi_and_bridge_only_reconnect_and_feedback_bounds");
+     lv_obj_t *back=preview_network_button(network_diag_window,"返回");assert(back);
+     preview_network_click(touch,back);assert(lv_obj_has_flag(network_diag_window,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(network_window,LV_OBJ_FLAG_HIDDEN));
+--- a/tests/ui-preview/wifi_host_status_test.c
++++ b/tests/ui-preview/wifi_host_status_test.c
+@@ -4,6 +4,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include "../../firmware/main/link_state.h"
++#include "../../firmware/main/wifi_status.h"
+ #define WIFI_LABEL_SIZE 49
+ #define portMAX_DELAY 0
+ #define xSemaphoreTake(a,b) ((void)0)
+@@ -16,6 +17,7 @@
+ static link_state device_links;
+ static bool wifi_connected=true;
+ static atomic_int disconnect_reason,http_status=200;
++static atomic_bool status_pending;
+ static int64_t now_ms=20000,last_valid_status=19900;
+ static int64_t esp_timer_get_time(void){return now_ms*1000;}
+ #include "wifi_host_status_under_test.inc"
+@@ -28,5 +30,18 @@
+     device_links.received_ms[LINK_WIFI]=now_ms+1;tab5_wifi_diagnostics(text,sizeof(text));assert(!strstr(text,"鉴权通过"));
+     config.paired=false;tab5_wifi_diagnostics(text,sizeof(text));assert(strstr(text,"请先通过 USB 配对"));config.paired=true;
+     wifi_connected=false;tab5_wifi_diagnostics(text,sizeof(text));assert(strstr(text,"等待 Wi-Fi"));
++    tab5_wifi_status status;tab5_wifi_status_read(&status);assert(!status.connected&&!status.authenticated);
++    wifi_connected=true;device_links.received_ms[LINK_WIFI]=now_ms;tab5_wifi_status_read(&status);assert(status.connected&&status.authenticated);
++    assert(!strcmp(status.address,"192.168.1.20")&&!strcmp(status.network,"家庭网络 · Home"));
++    now_ms+=8000;atomic_store(&status_pending,true);tab5_wifi_status_read(&status);
++    assert(status.connected&&!status.authenticated&&strstr(status.bridge,"正在等待电脑响应"));
++    atomic_store(&status_pending,false);atomic_store(&http_status,401);tab5_wifi_status_read(&status);assert(strstr(status.bridge,"配对不匹配"));
++    atomic_store(&http_status,-1);tab5_wifi_status_read(&status);assert(strstr(status.bridge,"未收到有效响应"));
++    atomic_store(&http_status,0);tab5_wifi_status_read(&status);assert(strstr(status.bridge,"暂不可达"));
++    atomic_store(&http_status,503);tab5_wifi_status_read(&status);assert(strstr(status.bridge,"响应异常"));
++    wifi_connected=false;atomic_store(&disconnect_reason,202);tab5_wifi_status_read(&status);assert(strstr(status.state,"认证失败"));
++    atomic_store(&disconnect_reason,201);tab5_wifi_status_read(&status);assert(strstr(status.state,"未找到"));
++    strcpy(config.ssid,"line1\nline2\rline3");tab5_wifi_status_read(&status);assert(!strchr(status.network,'\n')&&!strchr(status.network,'\r'));
++    config.ssid[0]=0;tab5_wifi_status_read(&status);assert(!status.connected&&strstr(status.state,"添加 Wi-Fi"));
+     puts("WIFI_HOST_STATUS_OK old-host HTTP cannot confirm new selection; current authenticated heartbeat, invalidation, expiry/future, unpaired and offline states");return 0;
+ }

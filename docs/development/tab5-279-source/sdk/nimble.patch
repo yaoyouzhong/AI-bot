@@ -1,0 +1,32 @@
+diff --git a/nimble/host/src/ble_att_cmd.c b/nimble/host/src/ble_att_cmd.c
+index 36f7c9a..a0b9c09 100644
+--- a/nimble/host/src/ble_att_cmd.c
++++ b/nimble/host/src/ble_att_cmd.c
+@@ -75,7 +75,8 @@ ble_att_tx_with_conn(struct ble_hs_conn *conn, struct ble_l2cap_chan *chan, stru
+ 
+     BLE_HS_DBG_ASSERT_EVAL(txom->om_len >= 1);
+ 
+-    if (ble_att_is_request_op(txom->om_data[0])) {
++    bool tab5_att_request = ble_att_is_request_op(txom->om_data[0]);
++    if (tab5_att_request) {
+         if (conn->client_att_busy) {
+             BLE_EATT_LOG_DEBUG("ATT Queue %p, client busy %d\n", txom, conn->client_att_busy);
+             STAILQ_INSERT_TAIL(&conn->att_tx_q, OS_MBUF_PKTHDR(txom), omp_next);
+@@ -88,7 +89,17 @@ ble_att_tx_with_conn(struct ble_hs_conn *conn, struct ble_l2cap_chan *chan, stru
+ 
+     ble_att_truncate_to_mtu(chan, txom);
+     rc = ble_l2cap_tx(conn, chan, txom);
++#if CONFIG_IDF_TARGET_ESP32P4 && CONFIG_ESP_HOSTED_ENABLED
++    // TAB5_ATT_TX_FAILURE: L2CAP consumes txom on every outcome. Resource or
++    // Hosted transport failure is an error for the caller, not an invariant.
++    // Undo the busy flag set for this failed request, not another request.
++    if (rc != 0) {
++        if (tab5_att_request) conn->client_att_busy = false;
++        BLE_HS_LOG(ERROR, "ATT TX failed; rc=%d\n", rc);
++    }
++#else
+     assert(rc == 0);
++#endif
+     return rc;
+ }
+ 

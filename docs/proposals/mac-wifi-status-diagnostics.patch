@@ -1,0 +1,87 @@
+--- a/mac-app/Sources/AIBotBridge/HTTPStatusServer.swift
++++ b/mac-app/Sources/AIBotBridge/HTTPStatusServer.swift
+@@ -17,6 +17,13 @@
+     private var listening = false
+     private let observationLock = NSLock()
+     private var lastESP: Date?
++    private let statusDiagnosticLock = NSLock()
++    private var statusRequests = 0, statusResponses = 0, statusSends = 0, statusSendErrors = 0
++    private var statusCode = 0, statusBytes = 0, statusResponseMS = 0, statusMaximumMS = 0, statusSendMS = 0, statusSendError: Int32 = 0
++    var statusDiagnosticSummary: String {
++        statusDiagnosticLock.lock(); defer { statusDiagnosticLock.unlock() }
++        return "Mac Wi-Fi 状态回包：请求 \(statusRequests)，响应 \(statusResponses)，发送完成 \(statusSends)，发送失败 \(statusSendErrors)\nHTTP \(statusCode)，响应字节 \(statusBytes)，生成 \(statusResponseMS) ms，最大生成 \(statusMaximumMS) ms，发送 \(statusSendMS) ms，错误码 \(statusSendError)\n发送完成只表示本机网络栈已接收，不等于设备已收到。"
++    }
+     var lastESPRequest: Date? { observationLock.lock(); defer { observationLock.unlock() }; return lastESP }
+ 
+     init(port: UInt16, token: @escaping () -> String?, resources: @escaping () -> [MacResourcePayload] = { [] }, event: @escaping (String,String,String)->Bool = {_,_,_ in false}, acknowledge: @escaping ()->Void = {}, tab5: MacTab5Service? = nil, espEnabled: @escaping () -> Bool = { true }, snapshot: @escaping () -> Data) {
+@@ -97,25 +104,47 @@
+                             self.deliver(response, connection: connection, completion: again)
+                         }
+                     }
+-                } else { self.deliver(self.response(for: request, raw: next, loopback: loopback), connection: connection) }
++                } else {
++                    let observe = request.method == "GET" && request.target == "/tab5/v1/status"
++                    let start = ProcessInfo.processInfo.systemUptime
++                    if observe { self.statusDiagnosticLock.lock(); self.statusRequests += 1; self.statusDiagnosticLock.unlock() }
++                    let response = self.response(for: request, raw: next, loopback: loopback)
++                    let generated = ProcessInfo.processInfo.systemUptime
++                    if observe {
++                        let code = Int(String(data:response.prefix(12),encoding:.utf8)?.split(separator:" ").last ?? "") ?? 0
++                        self.statusDiagnosticLock.lock()
++                        self.statusResponses += 1; self.statusCode = code; self.statusBytes = response.count
++                        self.statusResponseMS = Int(max(0,generated-start)*1000); self.statusMaximumMS = max(self.statusMaximumMS,self.statusResponseMS)
++                        self.statusDiagnosticLock.unlock()
++                    }
++                    self.deliver(response, connection: connection, observation: observe ? { [weak self] error in
++                        guard let self else { return }; self.statusDiagnosticLock.lock(); defer { self.statusDiagnosticLock.unlock() }
++                        if error == 0 { self.statusSends += 1 } else { self.statusSendErrors += 1 }
++                        self.statusSendError = error; self.statusSendMS = Int(max(0,ProcessInfo.processInfo.systemUptime-generated)*1000)
++                    } : nil)
++                }
+             } catch {
+                 connection.send(content: self.http(status: "400 Bad Request", body: Data()), completion: .contentProcessed { _ in connection.cancel() })
+             }
+         }
+     }
+ 
+-    private func deliver(_ response: Data, connection: NWConnection, completion: (() -> Void)? = nil) {
+-        let timeout = DispatchWorkItem { connection.cancel() }
++    private func deliver(_ response: Data, connection: NWConnection, completion: (() -> Void)? = nil, observation: ((Int32) -> Void)? = nil) {
++        // All callbacks run on the connection's listener queue. Keep this
++        // ephemeral observation numeric and complete it at most once.
++        var observed = false
++        let finish: (Int32) -> Void = { code in if !observed { observed = true; observation?(code) } }
++        let timeout = DispatchWorkItem { finish(-1); connection.cancel() }
+         queue.asyncAfter(deadline: .now() + 180, execute: timeout)
+-        send(response, offset: 0, connection: connection, timeout: timeout, completion: completion)
+-    }
+-
+-    private func send(_ bytes: Data, offset: Int, connection: NWConnection, timeout: DispatchWorkItem, completion: (() -> Void)?) {
+-        guard offset < bytes.count else { timeout.cancel(); if let completion { completion() } else { connection.cancel() }; return }
++        send(response, offset: 0, connection: connection, timeout: timeout, completion: completion, observation:finish)
++    }
++
++    private func send(_ bytes: Data, offset: Int, connection: NWConnection, timeout: DispatchWorkItem, completion: (() -> Void)?, observation: @escaping (Int32) -> Void) {
++        guard offset < bytes.count else { timeout.cancel(); observation(0); if let completion { completion() } else { connection.cancel() }; return }
+         let end = min(offset + 16384, bytes.count)
+         connection.send(content: Data(bytes[offset..<end]), completion: .contentProcessed { [weak self] error in
+-            if error != nil { timeout.cancel(); connection.cancel() }
+-            else { self?.send(bytes, offset: end, connection: connection, timeout: timeout, completion: completion) }
++            if let error { timeout.cancel(); observation(Int32(truncatingIfNeeded:(error as NSError).code)); connection.cancel() }
++            else { self?.send(bytes, offset: end, connection: connection, timeout: timeout, completion: completion, observation:observation) }
+         })
+     }
+ 
+--- a/mac-app/Sources/AIBotBridge/AppDelegate.swift
++++ b/mac-app/Sources/AIBotBridge/AppDelegate.swift
+@@ -385,7 +385,9 @@
+         overviewCapture:{ [weak self] in
+             guard let self else { return (nil,nil) }; let metrics = self.dataStore.snapshot().systemMetrics
+             return (metrics,self.runtimeHealth.snapshot(metrics:metrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:self.tab5?.codex.isEnabled ?? false,desktopObserved:self.tab5?.codex.canMutate ?? false,network:self.networkDiagnostics.snapshot()))
+-        },deviceCapture:{ [weak self] in self?.tab5?.deviceDiagnosticSummary ?? "TAB5 尚未启动" },
++        },deviceCapture:{ [weak self] in
++            [self?.server?.statusDiagnosticSummary,self?.tab5?.deviceDiagnosticSummary].compactMap { $0 }.joined(separator:"\n\n")
++        },
+         deviceRefresh:{ [weak self] done in guard let tab5 = self?.tab5 else { done(); return }; tab5.refreshDeviceDiagnostics(completion:done) }); runtimeWindow = window; window.open()
+     }
+     private func openAbout() {

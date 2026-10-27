@@ -1,0 +1,5 @@
+# Existing factory layout: use application-only flashing at 0x10000.
+nvs,data,nvs,0x9000,0x6000
+phy_init,data,phy,0xf000,0x1000
+factory,app,factory,0x10000,0x800000
+assets,data,0x40,0xb00000,0x200000

@@ -1,0 +1,710 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -154,17 +154,22 @@
+ static wifi_profile_store preview_networks={.version=WIFI_PROFILE_VERSION,.count=2,.entries={{.ssid="家庭网络"},{.ssid="办公室"}}};
+ static bool preview_forget_ok=true,preview_usb_connected;
+ static int preview_host_selected;
+-int device_host_names(char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],int *selected){strcpy(names[0],"Windows 笔记本");strcpy(names[1],"MacBook");*selected=preview_host_selected;return 2;}
+-void device_host_identity(char id[33],char name[TRUSTED_HOST_NAME]){strcpy(id,preview_host_selected?"22222222222222222222222222222222":"11111111111111111111111111111111");strcpy(name,preview_host_selected?"MacBook":"Windows 笔记本");}
++static char preview_host_labels[2][TRUSTED_HOST_NAME]={"Windows 笔记本","MacBook"};
++static bool preview_host_save_ok=true;
++int device_host_names(char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],int *selected){memcpy(names,preview_host_labels,sizeof(preview_host_labels));*selected=preview_host_selected;return 2;}
++bool device_host_label(int index,char id[33],char name[TRUSTED_HOST_NAME]){if(index<0||index>1)return false;strcpy(id,index?"22222222222222222222222222222222":"11111111111111111111111111111111");strcpy(name,preview_host_labels[index]);return true;}
++void device_host_identity(char id[33],char name[TRUSTED_HOST_NAME]){device_host_label(preview_host_selected,id,name);}
++void device_host_status(char id[33],char name[TRUSTED_HOST_NAME],link_kind *link){device_host_identity(id,name);*link=link_state_active(&device_links,esp_timer_get_time()/1000);}
++bool device_host_rename(const char *id,const char *name){int index=!strcmp(id,"11111111111111111111111111111111")?0:!strcmp(id,"22222222222222222222222222222222")?1:-1;if(index<0||!preview_host_save_ok||(*name&&!trusted_host_name_valid(name)))return false;snprintf(preview_host_labels[index],TRUSTED_HOST_NAME,"%s",*name?name:index?"MacBook":"Windows 笔记本");return true;}
+ bool device_host_usb_owned(void){return preview_usb_connected;}
+-bool device_host_select(int index){if(index<0||index>1||(preview_usb_connected&&index!=preview_host_selected))return false;preview_host_selected=index;return true;}
++bool device_host_select(int index){if(index<0||index>1||(preview_usb_connected&&index!=preview_host_selected))return false;if(index!=preview_host_selected){int mode=device_links.mode;link_state_init(&device_links);device_links.mode=mode;}preview_host_selected=index;return true;}
+ 
+ int device_wifi_names(char names[WIFI_PROFILE_LIMIT][33]) {for(unsigned i=0;i<preview_networks.count;i++)strcpy(names[i],preview_networks.entries[i].ssid);return preview_networks.count;}
+ int device_wifi_count(void){return preview_networks.count;}
+ void device_wifi_label(const char *ssid,char label[WIFI_LABEL_SIZE]){int at=wifi_profiles_index(&preview_networks,ssid);snprintf(label,WIFI_LABEL_SIZE,"%s",at<0?"":preview_networks.entries[at].label);}
+ bool device_wifi_select(int index,bool persist){if(index<0||index>=(int)preview_networks.count)return false;if(persist)preview_networks.preferred=index;strcpy(preview_config.ssid,preview_networks.entries[index].ssid);return true;}
+ bool device_wifi_forget(const char *ssid){if(!preview_forget_ok||!wifi_profiles_forget(&preview_networks,ssid))return false;wifi_profiles_sync_active(&preview_networks,preview_config.ssid,preview_config.password);return true;}
+-void tab5_wifi_diagnostics(char *out,size_t size){snprintf(out,size,"Wi-Fi  家庭网络\n已连接\nIP  192.168.1.20\n电脑桥接  正常 · 鉴权通过");}
++void tab5_wifi_diagnostics(char *out,size_t size){int64_t now=esp_timer_get_time()/1000,received=device_links.received_ms[LINK_WIFI];snprintf(out,size,"Wi-Fi  家庭网络\n已连接\nIP  192.168.1.20\n电脑桥接  %s",received>=0&&now>=received&&now-received<8000?"正常 · 鉴权通过":"正在连接所选电脑");}
+ void tab5_wifi_reconnect(void){}
+ static int preview_submit_count,preview_result_code;
+ static const char *preview_result_text="";
+@@ -344,7 +349,13 @@
+ static lv_obj_t *codex_reply_button,*codex_reply_overlay,*codex_reply_text,*codex_reply_status,*codex_reply_scroll;
+ static lv_obj_t *codex_reply_document;
+ static lv_obj_t *network_window,*network_details,*network_picker,*network_feedback,*network_retry;
+-static lv_obj_t *host_picker,*host_current;
++static lv_obj_t *host_picker,*host_current,*host_state,*host_card,*host_monitor,*host_badge,*host_symbol,*host_switch,*host_rename;
++static lv_obj_t *network_services[3];
++static lv_obj_t *host_editor,*host_editor_input,*host_editor_hint,*host_editor_keyboard,*host_editor_ime;
++static char host_display_id[33],host_notice[128],host_editor_id[33];
++static int host_editor_index;
++static int64_t host_connect_started;
++static void host_editor_close(void);
+ static lv_obj_t *network_connect,*network_forget,*network_confirm,*network_confirm_text,*network_confirm_yes,*network_confirm_no;
+ static char network_options[WIFI_PROFILE_LIMIT][33],network_forget_ssid[33];
+ static int network_option_count;
+@@ -691,6 +702,7 @@
+     if(index==9&&current_page!=9)settings_return=current_page;
+     if(current_page==8&&index!=8)codex_bookmark_save();
+     if(network_window&&index!=9)lv_obj_add_flag(network_window,LV_OBJ_FLAG_HIDDEN);
++    if(index!=9)host_editor_close();
+     if(index!=8&&codex_keyboard)codex_keyboard_done(NULL);
+     changing_page = true;
+     int primary=-1;
+@@ -1099,7 +1111,9 @@
+             codex_load_waiting=false;
+         }else if(now<codex_sync_next)return;else codex_load_waiting=false;
+     }
+-    if(photo_open_pending||codex_reading||codex_syncing||codex_send_queued||now<codex_sync_next)return;
++    // Desktop Quick Console owns a separate composer. Finish any previous
++    // request above, but do not keep launching hidden draft jobs during a visit.
++    if(quick_visible||photo_open_pending||codex_reading||codex_syncing||codex_send_queued||now<codex_sync_next)return;
+     codex_draft *d=NULL;
+     if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].dirty&&!codex_drafts[i].request[0]){d=&codex_drafts[i];break;}
+     if(!d) {d=codex_draft_for(codex_selected,true);if(!d||d->loaded||d->request[0])return;}
+@@ -1275,6 +1289,9 @@
+ }
+ static void render_codex(void) {
+     render_home_task();
++    // Wireless telemetry can still list the previous desktop selection. The
++    // confirmed Quick Console target must not be cleared by that older catalog.
++    if(quick_visible)return;
+     const char *cache_session=text(item(shown,"pcInput"),"session");
+     if(strcmp(cache_session,"--")&&strcmp(codex_cache_session,cache_session)) {
+         for(int i=0;i<CODEX_CACHE_PAGES;i++){cJSON_Delete(codex_reply_cache[i].value);codex_reply_cache[i]=(codex_cached_page){0};}
+@@ -1831,7 +1848,9 @@
+     int action=(int)(intptr_t)lv_event_get_user_data(e);
+     if(codex_voice_waiting){voice_remote_command(action?action:1);return;}
+     if(photo_flow||camera_preview_busy()||photo_state()==1){ui_text(codex_voice_hint,"照片处理完成后即可录音");return;}
+-    if(action||codex_waiting||codex_reading||codex_syncing||codex_send_queued||lv_obj_has_state(codex_input,LV_STATE_DISABLED))return;
++    if(action||codex_waiting||codex_send_queued||(!quick_visible&&(codex_reading||codex_syncing||lv_obj_has_state(codex_input,LV_STATE_DISABLED))))return;
++    codex_draft *voice_draft=codex_draft_for(codex_selected,false);
++    if(quick_visible&&voice_draft&&voice_draft->request[0]){ui_text(codex_voice_hint,"此会话有待确认消息，请先返回任务页查询");return;}
+     if(!quick_visible){tab5_ime_finish();if(tab5_ime_pending()[0])return;}
+     int64_t age=esp_timer_get_time()/1000-last_received;
+     const char *session=text(item(shown,"pcInput"),"session");
+@@ -2530,6 +2549,8 @@
+     for(int i=0;i<host_count;i++){if(i)strcat(host_options,"\n");strcat(host_options,names[i]);}
+     lv_dropdown_set_options(host_picker,host_count?host_options:"请先通过 USB 配对电脑");
+     if(host_selected>=0)lv_dropdown_set_selected(host_picker,host_selected);
++    if(host_count){lv_obj_remove_state(host_switch,LV_STATE_DISABLED);lv_obj_remove_state(host_rename,LV_STATE_DISABLED);}
++    else {lv_obj_add_state(host_switch,LV_STATE_DISABLED);lv_obj_add_state(host_rename,LV_STATE_DISABLED);}
+     char options[WIFI_PROFILE_LIMIT*(WIFI_LABEL_SIZE+37)]={0};network_option_count=device_wifi_names(network_options);
+     device_config cfg=device_get_config();int selected=0;
+     for(int i=0;i<network_option_count;i++) {
+@@ -2548,6 +2569,57 @@
+         else lv_obj_add_state(controls[i],LV_STATE_DISABLED);
+     }
+ }
++static void network_host_render(void) {
++    char id[33],name[TRUSTED_HOST_NAME];link_kind link;
++    device_host_status(id,name,&link);int64_t now=esp_timer_get_time()/1000;
++    char network[320];tab5_wifi_diagnostics(network,sizeof(network));ui_text(network_details,network);
++    if(strcmp(id,host_display_id)) {
++        strcpy(host_display_id,id);host_notice[0]=0;host_connect_started=now;
++        network_refresh();
++    }
++    bool connected=link!=LINK_NONE;
++    bool waiting=id[0]&&!connected&&now>=host_connect_started&&now-host_connect_started<12000;
++    const char *symbol=host_notice[0]?LV_SYMBOL_WARNING:connected?LV_SYMBOL_OK:waiting?LV_SYMBOL_REFRESH:LV_SYMBOL_CLOSE;
++    uint32_t color=host_notice[0]?AMBER:connected?GREEN:waiting?AMBER:MUTED;
++    ui_text(host_current,name[0]?name:"尚未绑定电脑");
++    if(host_notice[0])ui_text(host_state,host_notice);
++    else if(connected)ui_text_fmt(host_state,"已连接 · %s%s",link==LINK_USB?"USB":link==LINK_WIFI?"Wi-Fi":"蓝牙",device_host_usb_owned()?" 接管":"");
++    else ui_text(host_state,!id[0]?"请先通过 USB 配对":waiting?"正在连接…":"未连接 · 请确认电脑桥接已运行");
++    ui_text(host_symbol,symbol);lv_obj_center(host_symbol);
++    tint(host_state,color);tint(host_symbol,UI_BACKGROUND);
++    ui_border_color(host_monitor,lv_color_hex(color),0);ui_bg_color(host_badge,lv_color_hex(color),0);
++    ui_bg_color(host_card,lv_color_hex(connected&&!host_notice[0]?0x294137:waiting||host_notice[0]?0x403B30:0x303B40),0);
++}
++static void host_editor_close(void) {
++    if(!host_editor)return;
++    tab5_ime_reset_for(host_editor_ime);tab5_ime_show_for(host_editor_ime,false);
++    visible(host_editor,false);
++}
++static void host_editor_action(lv_event_t *e) {
++    if((int)(intptr_t)lv_event_get_user_data(e)==0){host_editor_close();return;}
++    tab5_ime_finish_for(host_editor_ime);
++    const char *name=lv_textarea_get_text(host_editor_input);
++    if(tab5_ime_pending_for(host_editor_ime)[0]||strlen(name)>=TRUSTED_HOST_NAME) {
++        ui_text(host_editor_hint,"名称过长，请缩短后保存");tint(host_editor_hint,AMBER);return;
++    }
++    if(!device_host_rename(host_editor_id,name)) {
++        ui_text(host_editor_hint,"未保存，请检查名称后重试");tint(host_editor_hint,AMBER);return;
++    }
++    int index=host_editor_index;host_editor_close();network_refresh();lv_dropdown_set_selected(host_picker,index);
++    network_host_render();ui_text(network_feedback,"电脑备注已保存");
++}
++static void host_editor_ready(lv_event_t *e) {
++    if(lv_event_get_code(e)==LV_EVENT_CANCEL){host_editor_close();return;}
++    host_editor_action(e);
++}
++static void host_editor_open(void) {
++    char name[TRUSTED_HOST_NAME];host_editor_index=lv_dropdown_get_selected(host_picker);
++    if(!device_host_label(host_editor_index,host_editor_id,name))return;
++    tab5_ime_reset_for(host_editor_ime);lv_textarea_set_text(host_editor_input,name);
++    ui_text(host_editor_hint,"留空保存可恢复电脑原名");tint(host_editor_hint,MUTED);
++    visible(host_editor,true);lv_obj_move_foreground(host_editor);
++    lv_keyboard_set_textarea(host_editor_keyboard,host_editor_input);tab5_ime_show_for(host_editor_ime,true);
++}
+ bool tab5_ui_wifi_forget(const char *ssid) {
+ #ifndef TAB5_UI_PREVIEW
+     if(!bsp_display_lock(100))return false;
+@@ -2564,11 +2636,13 @@
+ }
+ static void network_action(lv_event_t *e) {
+     int action=(int)(intptr_t)lv_event_get_user_data(e);
++    if(action==8){host_editor_open();return;}
+     if(action==7) {
+-        if(codex_voice_waiting||codex_waiting||codex_send_queued||photo_flow||ota_update_busy()){ui_text(network_feedback,"请先结束正在进行的操作，再切换电脑");return;}
++        if(codex_voice_waiting||codex_waiting||codex_send_queued||photo_flow||camera_preview_busy()||ota_update_busy()){snprintf(host_notice,sizeof(host_notice),"请先结束正在进行的操作");network_host_render();return;}
+         bool ok=device_host_select(lv_dropdown_get_selected(host_picker));
+-        ui_text(network_feedback,ok?"已切换电脑，正在连接":device_host_usb_owned()?"USB 电脑正在控制，请先断开 USB":"切换未保存，请重新选择");
+-        if(ok){network_refresh();}
++        if(ok){host_notice[0]=0;host_connect_started=esp_timer_get_time()/1000;network_refresh();}
++        else snprintf(host_notice,sizeof(host_notice),"%s",device_host_usb_owned()?"请先断开当前电脑的 USB 再切换":"切换未保存，请重试");
++        network_host_render();
+         return;
+     }
+     if(action==2){visible(network_confirm,false);visible(network_window,false);return;}
+@@ -2576,6 +2650,7 @@
+     if(action==0) {
+         network_refresh();visible(network_confirm,false);network_forget_ssid[0]=0;
+         visible(network_window,true);lv_obj_move_foreground(network_window);
++        network_host_render();
+         ui_text(network_feedback,"最多记住 10 个网络；在电脑“TAB5 连接”中添加。");return;
+     }
+     if(codex_voice_waiting||codex_waiting||codex_send_queued||photo_flow||ota_update_busy()) {
+@@ -2826,7 +2901,7 @@
+     if(interacting&&!lv_obj_has_flag(tabs,LV_OBJ_FLAG_HIDDEN))return;
+     codex_read_finish(now);
+     codex_navigation_timeout(now);
+-    if(codex_nav_queued&&!codex_reading&&now>=codex_read_next)codex_reply_refresh(NULL);
++    if(!quick_visible&&codex_nav_queued&&!codex_reading&&now>=codex_read_next)codex_reply_refresh(NULL);
+     codex_sync_tick(now);
+     photo_open_tick();
+     if(codex_send_queued&&!codex_reading&&!codex_syncing&&!codex_load_waiting) {
+@@ -2903,16 +2978,15 @@
+     setup_connections(cfg.paired,connected_links,ready_links,ble_available);
+     }
+     if(network_window&&!lv_obj_has_flag(network_window,LV_OBJ_FLAG_HIDDEN)) {
+-        char network[320];tab5_wifi_diagnostics(network,sizeof(network));
+         device_config cfg=device_get_config();
+-        bool fresh=now-last_received>=0&&now-last_received<8000;
++        bool fresh=active!=LINK_NONE&&now-last_received>=0&&now-last_received<8000;
+         const char *state=text(item(shown,"codex"),"state");
+         const char *codex=!fresh?"等待电脑状态":!strcmp(state,"offline")?"未运行":!strcmp(state,"working")?"正在工作":!strcmp(state,"idle")?"空闲":"状态待确认";
+         cJSON *voice_enabled=item(item(shown,"connectionHealth"),"voiceEnabled");
+         const char *voice=!fresh?"等待电脑状态":cJSON_IsTrue(voice_enabled)?"已启用":cJSON_IsFalse(voice_enabled)?"请在电脑启用":"状态待确认";
+-        ui_text_fmt(network_details,"%s\n\n设备配对  %s\nCodex  %s\n语音  %s",network,cfg.paired?"已完成":"未配对",codex,voice);
+-        char host_id[33],host_name[TRUSTED_HOST_NAME];device_host_identity(host_id,host_name);
+-        ui_text_fmt(host_current,"当前电脑：%s%s",host_name[0]?host_name:"尚未配对",device_host_usb_owned()?"（USB 接管）":"");
++        const char *services[]={cfg.paired?"已完成":"未配对",codex,voice};
++        for(int i=0;i<3;i++)ui_text(network_services[i],services[i]);
++        network_host_render();
+         if(now>=network_retry_until)lv_obj_remove_state(network_retry,LV_STATE_DISABLED);
+     }
+     if(changed && active!=LINK_NONE) pc_input_update(shown);
+@@ -2923,7 +2997,7 @@
+     }
+     // Connection loss is not inactivity. Both online and offline use the
+     // user's timeout; disabling the saver also disables it while disconnected.
+-    if (!saver && !quick_visible && !timer_open() && !date_editor_open() && !agenda_editor_open() && !agenda_delete_open() && !clock_picker_is_open() && saver_timed_out(idle)) {
++    if (!saver && !quick_visible && !timer_open() && !date_editor_open() && !agenda_editor_open() && !agenda_delete_open() && !clock_picker_is_open() && (!host_editor||lv_obj_has_flag(host_editor,LV_OBJ_FLAG_HIDDEN)) && saver_timed_out(idle)) {
+         saver_enter(offline_since >= 0);
+         return;
+     }
+@@ -4058,16 +4132,30 @@
+     network_window=card(screen,30,70,1220,600);
+     label(network_window,"网络与连接诊断",0,0,600,false);
+     button(network_window,"返回",1030,0,150,network_action,2);
+-    network_details=label(network_window,"正在检查…",0,66,690,false);
+-    lv_obj_set_style_text_line_space(network_details,12,0);
++    host_card=shape(network_window,0,66,690,112,0x303B40,12);
++    muted(host_card,"当前控制电脑",86,0,580);
++    host_current=label(host_card,"尚未绑定电脑",86,31,580,false);ui_text_font(host_current,&tab5_font_30,0);
++    lv_obj_set_height(host_current,39);lv_label_set_long_mode(host_current,LV_LABEL_LONG_DOT);
++    host_state=label(host_card,"正在检查…",86,74,590,false);lv_obj_set_height(host_state,31);lv_label_set_long_mode(host_state,LV_LABEL_LONG_DOT);
++    host_monitor=shape(host_card,18,27,48,34,0x303B40,5);ui_bg_opa(host_monitor,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(host_monitor,2,0);
++    shape(host_card,39,61,6,10,MUTED,1);shape(host_card,29,70,26,2,MUTED,1);
++    host_badge=shape(host_card,42,53,30,30,MUTED,LV_RADIUS_CIRCLE);
++    host_symbol=label(host_badge,LV_SYMBOL_CLOSE,0,0,26,false);ui_text_font(host_symbol,&lv_font_montserrat_24,0);lv_obj_set_style_text_align(host_symbol,LV_TEXT_ALIGN_CENTER,0);lv_obj_center(host_symbol);
++    network_details=label(network_window,"正在检查…",0,192,690,false);
++    lv_obj_set_height(network_details,155);lv_label_set_long_mode(network_details,LV_LABEL_LONG_DOT);
++    lv_obj_set_style_text_line_space(network_details,0,0);
++    shape(network_window,0,350,690,1,TRACK,0);
++    const char *service_names[]={"设备配对","Codex","语音"};
++    for(int i=0;i<3;i++){muted(network_window,service_names[i],i*230,360,218);network_services[i]=label(network_window,"待确认",i*230,394,218,false);}
+     muted(network_window,"已保存的 Wi-Fi",740,86,440);
+     network_picker=dropdown(network_window,"正在读取",740,130,440,0,NULL,0);
+     network_connect=button(network_window,"连接所选网络",740,206,440,network_action,3);
+     network_retry=button(network_window,"重新连接 / 检查",740,286,440,network_action,1);
+     network_forget=button(network_window,"删除所选网络",740,356,440,network_action,4);
+-    host_current=muted(network_window,"当前电脑：尚未配对",0,404,1180);
+-    host_picker=dropdown(network_window,"请先通过 USB 配对电脑",0,450,690,0,NULL,0);
+-    button(network_window,"切换所选电脑",740,450,440,network_action,7);
++    host_picker=dropdown(network_window,"请先通过 USB 配对电脑",0,450,500,0,NULL,0);
++    host_rename=button(network_window,"修改备注",520,450,170,network_action,8);
++    host_switch=button(network_window,"切换所选电脑",740,450,440,network_action,7);
++    ui_bg_color(host_switch,lv_color_hex(BLUE),0);tint(lv_obj_get_child(host_switch,0),0x173642);
+     network_feedback=muted(network_window,"",0,526,1180);
+     network_confirm=card(network_window,728,64,456,344);
+     network_confirm_text=label(network_confirm,"",0,0,420,false);
+@@ -4075,6 +4163,28 @@
+     network_confirm_yes=button(network_confirm,"确认删除",220,264,200,network_action,6);
+     visible(network_confirm,false);
+     visible(network_window,false);
++    host_editor=card(screen,30,70,1220,600);
++    label(host_editor,"修改电脑备注",0,0,650,false);
++    lv_obj_t *host_save=button(host_editor,"保存",900,0,126,host_editor_action,1);
++    ui_bg_color(host_save,lv_color_hex(BLUE),0);tint(lv_obj_get_child(host_save,0),0x173642);
++    button(host_editor,"取消",1050,0,130,host_editor_action,0);
++    host_editor_input=lv_textarea_create(host_editor);lv_obj_set_pos(host_editor_input,0,68);lv_obj_set_size(host_editor_input,1180,70);
++    lv_textarea_set_one_line(host_editor_input,true);lv_textarea_set_max_length(host_editor_input,63);
++    ui_text_font(host_editor_input,&tab5_font_30,0);ui_bg_color(host_editor_input,lv_color_hex(0x354247),0);ui_text_color(host_editor_input,lv_color_hex(INK),0);
++    host_editor_hint=muted(host_editor,"留空保存可恢复电脑原名",0,148,1180);
++    host_editor_keyboard=lv_keyboard_create(host_editor);lv_obj_set_align(host_editor_keyboard,LV_ALIGN_TOP_LEFT);lv_obj_set_pos(host_editor_keyboard,0,270);lv_obj_set_size(host_editor_keyboard,1180,286);
++    ui_bg_color(host_editor_keyboard,lv_color_hex(UI_BACKGROUND),0);lv_obj_set_style_border_width(host_editor_keyboard,0,0);
++    lv_obj_set_style_pad_all(host_editor_keyboard,8,0);lv_obj_set_style_pad_row(host_editor_keyboard,8,0);lv_obj_set_style_pad_column(host_editor_keyboard,8,0);
++    ui_bg_color(host_editor_keyboard,lv_color_hex(0x354247),LV_PART_ITEMS);ui_text_color(host_editor_keyboard,lv_color_hex(INK),LV_PART_ITEMS);
++    lv_obj_set_style_radius(host_editor_keyboard,8,LV_PART_ITEMS);lv_obj_set_style_border_width(host_editor_keyboard,0,LV_PART_ITEMS);
++    ui_bg_color(host_editor_keyboard,lv_color_hex(0x40525A),LV_PART_ITEMS|LV_STATE_CHECKED);ui_text_color(host_editor_keyboard,lv_color_hex(INK),LV_PART_ITEMS|LV_STATE_CHECKED);
++    ui_bg_color(host_editor_keyboard,lv_color_hex(BLUE),LV_PART_ITEMS|LV_STATE_PRESSED);ui_text_color(host_editor_keyboard,lv_color_hex(0x173642),LV_PART_ITEMS|LV_STATE_PRESSED);
++    lv_obj_add_event_cb(host_editor_keyboard,host_editor_ready,LV_EVENT_READY,(void *)(intptr_t)1);
++    lv_obj_add_event_cb(host_editor_keyboard,host_editor_ready,LV_EVENT_CANCEL,NULL);
++    host_editor_ime=tab5_ime_create(host_editor,host_editor_keyboard,host_editor_input,&tab5_font_24);
++    lv_obj_set_y(host_editor_ime,214);lv_obj_set_width(host_editor_ime,1180);lv_obj_set_width(lv_obj_get_child(host_editor_ime,2),914);
++    ui_bg_opa(lv_obj_get_child(host_editor_ime,2),LV_OPA_TRANSP,LV_PART_ITEMS|LV_STATE_DISABLED);
++    visible(host_editor,false);
+     flash_layer=card(screen,0,0,1280,720);
+     lv_obj_t *flash_title=label(flash_layer,"存储测速 · 小样本对比",60,42,850,false);
+     ui_text_font(flash_title,&tab5_font_30,0);
+--- a/firmware/main/device.h
++++ b/firmware/main/device.h
+@@ -24,6 +24,9 @@
+ void device_host_usb_touch(void);
+ int device_host_names(char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],int *selected);
+ void device_host_identity(char id[33],char name[TRUSTED_HOST_NAME]);
++void device_host_status(char id[33],char name[TRUSTED_HOST_NAME],link_kind *link);
++bool device_host_label(int index,char id[33],char name[TRUSTED_HOST_NAME]);
++bool device_host_rename(const char *id,const char *name);
+ bool device_host_select(int index);
+ void device_host_challenge(char nonce[33]);
+ cJSON *device_host_claim(cJSON *root);
+--- a/firmware/main/host_binding_runtime.inc
++++ b/firmware/main/host_binding_runtime.inc
+@@ -1,10 +1,26 @@
+ // Included by device.c. Existing config ABI/key is retained for rollback;
+ // this separately committed blob is authoritative after the first migration.
+ #include "trusted_hosts.h"
++#include "host_labels.h"
+ #include "rpc_link.h"
+ #include <stdatomic.h>
+ static trusted_host_store trusted_hosts={.version=1};
+ static bool trusted_hosts_readable=true;
++static host_label_store host_labels={.version=1};
++static bool host_labels_readable=true;
++static void host_labels_init(void) {
++    host_label_store saved;size_t size=sizeof(saved);
++    esp_err_t result=nvs_get_blob(settings,"host_labels1",&saved,&size);
++    host_labels=(host_label_store){.version=1};
++    host_labels_readable=result==ESP_ERR_NVS_NOT_FOUND||
++        (result==ESP_OK&&size==sizeof(saved)&&host_labels_valid(&saved));
++    if(result==ESP_OK&&host_labels_readable)host_labels=saved;
++}
++static const char *host_name_locked(unsigned index) {
++    const trusted_host *host=&trusted_hosts.entries[index];
++    int at=host_labels_readable?host_label_index(&host_labels,host->id):-1;
++    return at>=0?host_labels.entries[at].name:host->name;
++}
+ static atomic_uint host_epoch=1;
+ static atomic_bool host_switching;
+ static atomic_flag host_transition=ATOMIC_FLAG_INIT;
+@@ -48,6 +64,7 @@
+         trusted_hosts_readable=host_save(&trusted_hosts);
+     } else trusted_hosts_readable=false;
+     host_recover_legacy_pairing();
++    host_labels_init();
+     host_ble_init();
+ }
+ static bool host_usb_owned_locked(void) {
+@@ -89,14 +106,46 @@
+ }
+ int device_host_names(char names[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME],int *selected) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);int count=trusted_hosts_readable?(int)trusted_hosts.count:0;
+-    for(int i=0;i<count;i++)strcpy(names[i],trusted_hosts.entries[i].name);
++    for(int i=0;i<count;i++)strcpy(names[i],host_name_locked(i));
+     if(selected)*selected=count?(int)trusted_hosts.selected:-1;
+     xSemaphoreGive(device_mutex);return count;
+ }
+-void device_host_identity(char id[33],char name[TRUSTED_HOST_NAME]) {
++void device_host_status(char id[33],char name[TRUSTED_HOST_NAME],link_kind *link) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);id[0]=name[0]=0;
+-    if(trusted_hosts_readable&&trusted_hosts.count){strcpy(id,trusted_hosts.entries[trusted_hosts.selected].id);strcpy(name,trusted_hosts.entries[trusted_hosts.selected].name);}
++    if(trusted_hosts_readable&&trusted_hosts.count){strcpy(id,trusted_hosts.entries[trusted_hosts.selected].id);strcpy(name,host_name_locked(trusted_hosts.selected));}
++    if(link)*link=id[0]&&!device_host_changing()?link_state_active(&device_links,esp_timer_get_time()/1000):LINK_NONE;
+     xSemaphoreGive(device_mutex);
++}
++void device_host_identity(char id[33],char name[TRUSTED_HOST_NAME]) {device_host_status(id,name,NULL);}
++bool device_host_label(int index,char id[33],char name[TRUSTED_HOST_NAME]) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);id[0]=name[0]=0;
++    bool ok=trusted_hosts_readable&&index>=0&&(unsigned)index<trusted_hosts.count;
++    if(ok){strcpy(id,trusted_hosts.entries[index].id);strcpy(name,host_name_locked(index));}
++    xSemaphoreGive(device_mutex);return ok;
++}
++bool device_host_rename(const char *id,const char *name) {
++    if(!trusted_host_id_valid(id)||!name||strlen(name)>=TRUSTED_HOST_NAME)return false;
++    char clean[TRUSTED_HOST_NAME];while(*name==' ')name++;
++    strcpy(clean,name);size_t length=strlen(clean);while(length&&clean[length-1]==' ')clean[--length]=0;
++    if(clean[0]&&!trusted_host_name_valid(clean))return false;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    bool ok=trusted_hosts_readable&&host_labels_readable&&trusted_host_index(&trusted_hosts,id)>=0&&!ota_update_busy();
++    if(ok) {
++        host_label_store next=host_labels;int at=host_label_index(&next,id);
++        if(!clean[0]) {
++            if(at<0){xSemaphoreGive(device_mutex);return true;}
++            memmove(&next.entries[at],&next.entries[at+1],(next.count-at-1)*sizeof(next.entries[0]));
++            memset(&next.entries[--next.count],0,sizeof(next.entries[0]));
++        }else {
++            if(at<0){if(next.count==TRUSTED_HOST_LIMIT){xSemaphoreGive(device_mutex);return false;}at=(int)next.count++;}
++            strcpy(next.entries[at].id,id);strcpy(next.entries[at].name,clean);
++        }
++        if(memcmp(&next,&host_labels,sizeof(next))) {
++            ok=host_labels_valid(&next)&&nvs_set_blob(settings,"host_labels1",&next,sizeof(next))==ESP_OK&&nvs_commit(settings)==ESP_OK;
++            if(ok)host_labels=next;
++        }
++    }
++    xSemaphoreGive(device_mutex);return ok;
+ }
+ bool device_host_select(int index) {
+     if(atomic_flag_test_and_set(&host_transition))return false;
+--- /dev/null
++++ b/firmware/main/host_labels.h
+@@ -0,0 +1,18 @@
++#pragma once
++#include "trusted_hosts.h"
++typedef struct {char id[33],name[TRUSTED_HOST_NAME];} host_label;
++typedef struct {uint32_t version,count;host_label entries[TRUSTED_HOST_LIMIT];} host_label_store;
++static inline int host_label_index(const host_label_store *s,const char *id) {
++    for(unsigned i=0;i<s->count;i++)if(!strcmp(s->entries[i].id,id))return (int)i;
++    return -1;
++}
++static inline bool host_labels_valid(const host_label_store *s) {
++    if(s->version!=1||s->count>TRUSTED_HOST_LIMIT)return false;
++    for(unsigned i=0;i<s->count;i++) {
++        const host_label *h=&s->entries[i];
++        if(!memchr(h->id,0,sizeof(h->id))||!memchr(h->name,0,sizeof(h->name))||
++           !trusted_host_id_valid(h->id)||!trusted_host_name_valid(h->name))return false;
++        for(unsigned j=0;j<i;j++)if(!strcmp(s->entries[j].id,h->id))return false;
++    }
++    return true;
++}
+--- a/firmware/main/wifi_link.c
++++ b/firmware/main/wifi_link.c
+@@ -45,11 +45,13 @@
+ void tab5_wifi_reconnect(void){atomic_store(&reconnect_requested,true);}
+ void tab5_wifi_diagnostics(char *out,size_t size) {
+     device_config cfg=device_get_config();char ip[16];int64_t received;
+-    xSemaphoreTake(device_mutex,portMAX_DELAY);strcpy(ip,local_ip);received=last_valid_status;xSemaphoreGive(device_mutex);
++    // Host selection invalidates these authenticated timestamps immediately;
++    // the previous host's HTTP success must not label the new target ready.
++    xSemaphoreTake(device_mutex,portMAX_DELAY);strcpy(ip,local_ip);received=device_links.received_ms[LINK_WIFI];xSemaphoreGive(device_mutex);
+     int reason=atomic_load(&disconnect_reason),http=atomic_load(&http_status);
+     const char *state=!cfg.ssid[0]?"请在电脑添加 Wi-Fi":wifi_connected?"已连接":reason==202||reason==15?"认证失败，请检查密码":reason==201?"未找到已保存网络":"正在连接已保存网络";
+     const char *bridge=!cfg.paired?"请先通过 USB 配对":!wifi_connected?"等待 Wi-Fi":
+-        received&&esp_timer_get_time()/1000-received<8000?"正常 · 鉴权通过":
++        received>=0&&esp_timer_get_time()/1000>=received&&esp_timer_get_time()/1000-received<8000?"正常 · 鉴权通过":
+         http==401||http==403?"配对不匹配，请重新配对":http==0?"暂不可达，正在寻找电脑":"响应异常，正在重试";
+     char label[WIFI_LABEL_SIZE];device_wifi_label(cfg.ssid,label);
+     snprintf(out,size,"Wi-Fi  %s%s%s\n%s\nIP  %s\n电脑桥接  %s",label[0]?label:"",label[0]?" · ":"",cfg.ssid[0]?cfg.ssid:"尚未配置",state,ip[0]?ip:"尚未分配",bridge);
+--- a/firmware/main/ui_quick_console.h
++++ b/firmware/main/ui_quick_console.h
+@@ -77,12 +77,11 @@
+     if(!quick_count)return false;
+     quick_task *task=&quick_tasks[quick_index];
+     if(!strcmp(codex_selected,task->id))return true;
+-    if(!codex_save_draft())return false;
+     snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",task->project);
+-    codex_restore_project=false;render_codex();
+-    for(int i=0;i<8;i++)if(!strcmp(codex_task_ids[i],task->id)) {
+-        lv_obj_send_event(codex_task_rows[i],LV_EVENT_CLICKED,NULL);break;
+-    }
++    codex_restore_project=codex_default_pending=false;
++    // open-recent already authenticated this exact target. Do not wait for a
++    // slower Wi-Fi/BLE catalog to create a hidden sidebar row for it first.
++    codex_select_task(task->id);
+     return !strcmp(codex_selected,task->id);
+ }
+ static void quick_feedback_refresh(void) {
+@@ -202,8 +201,7 @@
+         ui_text(quick_status,"正在向语音回填的会话发送回车…");quick_refresh();return;
+     }
+     if(strcmp(quick_opened,quick_tasks[quick_index].id)){ui_text(quick_status,"请先点击 Codex，确认目标会话");return;}
+-    if(!quick_bind()){ui_text(quick_status,"正在同步会话，请稍后再按语音键");return;}
+-    if(codex_reading||codex_syncing||codex_load_waiting){ui_text(quick_status,"正在同步会话，请稍后再按语音键");return;}
++    if(!quick_bind()){quick_failed=true;ui_text(quick_status,"本机草稿未保存，请先返回任务页处理");quick_refresh();return;}
+     codex_voice_action(e);
+     if(!codex_voice_waiting){quick_failed=true;ui_text(quick_status,lv_label_get_text(codex_voice_hint));quick_refresh();return;}
+     voice_remote_state *voice=&ui_voice_work->quick_start;voice_remote_get(voice);quick_generation=voice->generation;
+--- a/firmware/main/tab5_ime.c
++++ b/firmware/main/tab5_ime.c
+@@ -183,3 +183,4 @@
+ void tab5_ime_show_for(lv_obj_t *panel,bool visible){if(panel)show(lv_obj_get_user_data(panel),visible);}
+ void tab5_ime_finish_for(lv_obj_t *panel){if(panel)finish(lv_obj_get_user_data(panel));}
+ const char *tab5_ime_pending_for(lv_obj_t *panel){ime_state *ime=panel?lv_obj_get_user_data(panel):NULL;return ime?ime->raw:"";}
++void tab5_ime_reset_for(lv_obj_t *panel){ime_state *ime=panel?lv_obj_get_user_data(panel):NULL;if(ime){ime->raw[0]=0;ime->page=0;refresh(ime);}}
+--- a/firmware/main/tab5_ime.h
++++ b/firmware/main/tab5_ime.h
+@@ -17,3 +17,4 @@
+ void tab5_ime_show_for(lv_obj_t *panel,bool show);
+ void tab5_ime_finish_for(lv_obj_t *panel);
+ const char *tab5_ime_pending_for(lv_obj_t *panel);
++void tab5_ime_reset_for(lv_obj_t *panel); /* Discard only this editor's uncommitted spelling. */
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2871,6 +2871,7 @@
+         if(title&&lv_obj_check_type(title,&lv_label_class)&&!strcmp(lv_label_get_text(title),"打开诊断")){open_network=candidate;break;}
+     }
+     assert(open_network);lv_obj_send_event(open_network,LV_EVENT_CLICKED,NULL);
++    link_state_init(&device_links);last_link=LINK_WIFI;last_received=esp_timer_get_time()/1000;device_links.received_ms[LINK_WIFI]=last_received;
+     cJSON *health=cJSON_AddObjectToObject(shown,"connectionHealth");cJSON_AddBoolToObject(health,"voiceEnabled",false);
+     tick(NULL);capture("network-diagnostics");
+     assert(!lv_obj_has_flag(network_window,LV_OBJ_FLAG_HIDDEN));
+@@ -2880,14 +2881,62 @@
+         lv_obj_t *candidate=lv_obj_get_child(network_window,i),*caption=lv_obj_get_child(candidate,0);
+         if(caption&&lv_obj_check_type(caption,&lv_label_class)&&!strcmp(lv_label_get_text(caption),"切换所选电脑")){switch_host=candidate;break;}
+     }
+-    assert(switch_host);bool original_usb=preview_usb_connected;
++    assert(switch_host);bool original_usb=preview_usb_connected;link_state original_host_links=device_links;int64_t original_host_time=preview_now_us;
+     preview_usb_connected=false;lv_dropdown_set_selected(host_picker,1);lv_obj_send_event(switch_host,LV_EVENT_CLICKED,NULL);
+-    assert(preview_host_selected==1);tick(NULL);capture("network-host-mac");
++    assert(preview_host_selected==1);capture("network-host-connecting");
+     assert(strstr(lv_label_get_text(host_current),"MacBook"));
++    assert(strstr(lv_label_get_text(host_state),"正在连接")&&!strcmp(lv_label_get_text(host_symbol),LV_SYMBOL_REFRESH));
++    assert(!strstr(lv_label_get_text(network_details),"鉴权通过"));
++    // Wi-Fi association and the previous computer's shown snapshot cannot claim success.
++    preview_now_us+=13000000;network_host_render();
++    assert(preview_host_selected==1&&strstr(lv_label_get_text(host_state),"未连接")&&!strcmp(lv_label_get_text(host_symbol),LV_SYMBOL_CLOSE));
++    capture("network-host-offline");
++    device_links.mode=-1;device_links.received_ms[LINK_WIFI]=esp_timer_get_time()/1000;network_host_render();
++    assert(strstr(lv_label_get_text(host_state),"已连接 · Wi-Fi")&&!strcmp(lv_label_get_text(host_symbol),LV_SYMBOL_OK));
++    capture("network-host-mac");
++    // A separate editor supports Chinese without borrowing the Codex composer.
++    char draft_before_name[2001];snprintf(draft_before_name,sizeof(draft_before_name),"%s",lv_textarea_get_text(codex_input));
++    lv_obj_send_event(host_rename,LV_EVENT_CLICKED,NULL);assert(!lv_obj_has_flag(host_editor,LV_OBJ_FLAG_HIDDEN));
++    lv_textarea_set_text(host_editor_input,"");
++    const char *spelling="nihao";for(const char *p=spelling;*p;p++){char key[2]={*p,0};assert(press_text(host_editor_keyboard,key));}
++    assert(!strcmp(tab5_ime_pending_for(host_editor_ime),"nihao")&&!tab5_ime_pending()[0]);
++    assert(press_text(lv_obj_get_child(host_editor_ime,2),"你好"));assert(!strcmp(lv_textarea_get_text(host_editor_input),"你好"));
++    lv_textarea_set_text(host_editor_input,"工作 MacBook");capture("network-host-rename");
++    lv_area_t editor_keys,editor_bounds;lv_obj_get_coords(host_editor_keyboard,&editor_keys);lv_obj_get_coords(host_editor,&editor_bounds);
++    assert(editor_keys.y1>=editor_bounds.y1&&editor_keys.y2<editor_bounds.y2&&editor_keys.x2<editor_bounds.x2);
++    lv_obj_send_event(host_editor_keyboard,LV_EVENT_READY,NULL);
++    assert(lv_obj_has_flag(host_editor,LV_OBJ_FLAG_HIDDEN)&&!strcmp(lv_label_get_text(host_current),"工作 MacBook"));
++    assert(strstr(lv_dropdown_get_options(host_picker),"工作 MacBook"));
++    assert(!strcmp(draft_before_name,lv_textarea_get_text(codex_input))&&!tab5_ime_pending()[0]);
++    lv_obj_send_event(host_rename,LV_EVENT_CLICKED,NULL);assert(press_text(host_editor_keyboard,"n"));
++    assert(tab5_ime_pending_for(host_editor_ime)[0]);lv_obj_send_event(host_editor_keyboard,LV_EVENT_CANCEL,NULL);
++    assert(!tab5_ime_pending_for(host_editor_ime)[0]&&!strcmp(preview_host_labels[1],"工作 MacBook"));
++    lv_obj_send_event(host_rename,LV_EVENT_CLICKED,NULL);lv_textarea_set_text(host_editor_input,"新备注");preview_host_save_ok=false;
++    lv_obj_send_event(host_editor_keyboard,LV_EVENT_READY,NULL);
++    assert(!lv_obj_has_flag(host_editor,LV_OBJ_FLAG_HIDDEN)&&!strcmp(lv_textarea_get_text(host_editor_input),"新备注")&&!strcmp(preview_host_labels[1],"工作 MacBook"));
++    capture("network-host-rename-failed");preview_host_save_ok=true;
++    lv_obj_send_event(host_editor_keyboard,LV_EVENT_READY,NULL);assert(!strcmp(preview_host_labels[1],"新备注"));
++    lv_obj_send_event(host_rename,LV_EVENT_CLICKED,NULL);lv_textarea_set_text(host_editor_input,"");lv_obj_send_event(host_editor_keyboard,LV_EVENT_READY,NULL);
++    assert(!strcmp(preview_host_labels[1],"MacBook"));
++    // Editing a different trusted computer cannot select it.
++    lv_dropdown_set_selected(host_picker,0);lv_obj_send_event(host_rename,LV_EVENT_CLICKED,NULL);
++    lv_textarea_set_text(host_editor_input,"公司 Windows");lv_obj_send_event(host_editor_keyboard,LV_EVENT_READY,NULL);
++    assert(preview_host_selected==1&&!strcmp(preview_host_labels[0],"公司 Windows"));
++    assert(!strcmp(lv_label_get_text(host_current),"MacBook"));
+     preview_usb_connected=true;lv_dropdown_set_selected(host_picker,0);lv_obj_send_event(switch_host,LV_EVENT_CLICKED,NULL);
+-    assert(preview_host_selected==1&&strstr(lv_label_get_text(network_feedback),"断开 USB"));
+-    capture("network-host-usb-owned");preview_host_selected=0;preview_usb_connected=original_usb;network_refresh();
+-    puts("HOST_SELECTION_UI_OK wireless_selection_USB_owner_blocks_other_target_no_silent_switch");
++    assert(preview_host_selected==1&&strstr(lv_label_get_text(host_state),"USB")&&!strcmp(lv_label_get_text(host_symbol),LV_SYMBOL_WARNING));
++    capture("network-host-usb-owned");
++    photo_flow=true;lv_obj_send_event(switch_host,LV_EVENT_CLICKED,NULL);assert(strstr(lv_label_get_text(host_state),"请先结束"));photo_flow=false;
++    // Authenticated USB takeover follows the actual owner and refreshes the picker.
++    preview_host_selected=0;device_links.received_ms[LINK_USB]=esp_timer_get_time()/1000;network_host_render();
++    assert(strstr(lv_label_get_text(host_state),"USB 接管")&&!strcmp(lv_label_get_text(host_current),"公司 Windows"));
++    assert(lv_dropdown_get_selected(host_picker)==0&&!strcmp(lv_label_get_text(host_symbol),LV_SYMBOL_OK));capture("network-host-usb-takeover");
++    memset(preview_host_labels[0],'W',63);preview_host_labels[0][63]=0;network_host_render();capture("network-host-long-name");
++    assert(lv_obj_get_height(host_current)==39&&lv_label_get_long_mode(host_current)==LV_LABEL_LONG_DOT);
++    strcpy(preview_host_labels[0],"Windows 笔记本");strcpy(preview_host_labels[1],"MacBook");
++    preview_host_selected=0;preview_usb_connected=original_usb;device_links=original_host_links;preview_now_us=original_host_time;
++    host_display_id[0]=0;network_refresh();network_host_render();
++    puts("HOST_SELECTION_UI_OK immediate named waiting, stale/wireless association cannot confirm, offline retains target, authenticated success, USB block/takeover, Chinese aliases, editor cancel/failure and Codex isolation, long-name bounds");
+     assert(wifi_profiles_set_label(&preview_networks,"办公室","单位访客网"));network_refresh();
+     assert(strstr(lv_dropdown_get_options(network_picker),"单位访客网 · 办公室"));
+     wifi_profile_store saved_profiles=preview_networks;
+@@ -2898,9 +2947,9 @@
+     preview_networks=saved_profiles;network_refresh();
+     puts("NETWORK_CAPACITY_UI_OK ten_options_tenth_selectable_original_profiles_restored");
+     assert(strstr(lv_label_get_text(network_details),"鉴权通过"));
+-    assert(strstr(lv_label_get_text(network_details),"请在电脑启用"));
++    assert(strstr(lv_label_get_text(network_services[2]),"请在电脑启用"));
+     cJSON_ReplaceItemInObject(health,"voiceEnabled",cJSON_CreateBool(true));tick(NULL);
+-    assert(strstr(lv_label_get_text(network_details),"语音  已启用"));
++    assert(!strcmp(lv_label_get_text(network_services[2]),"已启用"));
+     // Cancellation, failed persistence, active/last deletion and disabled empty list.
+     lv_dropdown_set_selected(network_picker,1);lv_obj_send_event(network_forget,LV_EVENT_CLICKED,NULL);
+     assert(strstr(lv_label_get_text(network_confirm_text),"办公室")&&strstr(lv_label_get_text(network_confirm_text),"单位访客网"));capture("network-forget-confirm");
+@@ -4602,6 +4651,43 @@
+     assert(!quick_clearing&&preview_desktop_clears==0);
+     capture("quick-console-empty-clear-hidden");
+     puts("QUICK_DESKTOP_SELECTION_UI_OK explicit_target_open, arrows_dispatch_desktop, busy_no_duplicate, boundaries, stable_order, failed_or_wrong_target_blocks_voice, new_visit_refreshes_latest");
++    // Mac/Wi-Fi symptom: desktop navigation is confirmed before the slower
++    // task catalog/draft requests catch up. Voice belongs to that confirmed
++    // desktop target, not a hidden sidebar row or background draft worker.
++    {
++        cJSON *quick_remote=item(shown,"codexTasks");
++        cJSON *old_catalog=cJSON_DetachItemFromObjectCaseSensitive(quick_remote,"tasks");
++        cJSON_AddArrayToObject(quick_remote,"tasks");
++        bool old_usb=preview_usb_connected,old_wifi=wifi_connected;
++        preview_usb_connected=false;wifi_connected=true;
++        int stages=preview_desktop_stages,submits=preview_desktop_submits;
++        preview_result_code=-1;codex_reading=codex_syncing=codex_load_waiting=true;
++        for(int round=0;round<4;round++) {
++            lv_obj_send_event(round%2?quick_previous:quick_next,LV_EVENT_CLICKED,NULL);
++            confirm_quick_open(round%2?0:1);
++            render_codex();assert(!strcmp(codex_selected,quick_opened));
++            lv_obj_add_state(codex_input,LV_STATE_DISABLED);
++            last_received=esp_timer_get_time()/1000;
++            lv_obj_send_event(quick_voice_button,LV_EVENT_CLICKED,NULL);
++            assert(quick_recording&&codex_voice_waiting&&!strcmp(preview_voice.task_id,quick_opened));
++            assert(codex_reading&&codex_syncing&&codex_load_waiting); // no forged completion/cancellation
++            lv_obj_send_event(quick_cancel_button,LV_EVENT_CLICKED,NULL);
++            preview_voice.busy=false;strcpy(preview_voice.phase,"cancelled");codex_voice_tick();quick_tick();
++            assert(!quick_recording&&!codex_voice_waiting&&!quick_filling&&!quick_sending);
++        }
++        codex_reading=codex_syncing=codex_load_waiting=false;lv_obj_remove_state(codex_input,LV_STATE_DISABLED);
++        codex_draft *pending=codex_draft_for(codex_selected,true);char pending_before[37];strcpy(pending_before,pending->request);
++        strcpy(pending->request,"30000000-0000-4000-8000-000000000001");
++        lv_obj_send_event(quick_voice_button,LV_EVENT_CLICKED,NULL);
++        assert(!quick_recording&&strstr(lv_label_get_text(quick_status),"待确认消息"));strcpy(pending->request,pending_before);
++        int syncs=preview_sync_count;bool loaded_before=pending->loaded;pending->loaded=false;codex_sync_next=0;
++        codex_sync_tick(esp_timer_get_time()/1000);assert(preview_sync_count==syncs&&!codex_syncing);pending->loaded=loaded_before;
++        assert(preview_desktop_stages==stages&&preview_desktop_submits==submits);
++        cJSON_DeleteItemFromObjectCaseSensitive(quick_remote,"tasks");cJSON_AddItemToObject(quick_remote,"tasks",old_catalog);
++        preview_usb_connected=old_usb;wifi_connected=old_wifi;preview_result_code=0;
++        quick_failed=false;quick_reset_idle();capture("quick-console-wireless-selection-recovered");
++        puts("QUICK_WIRELESS_SYNC_OK four back-and-forth foreground confirmations with missing catalog, pending reads/draft sync and disabled hidden input; correct-target voice/cancel succeeds; pending sends remain guarded; no automatic stage/submit or forged worker completion");
++    }
+     lv_obj_send_event(quick_next,LV_EVENT_CLICKED,NULL);confirm_quick_open(1);
+     int voiced_index=quick_index;
+     codex_syncing=codex_load_waiting=false;
+--- a/tests/ui-preview/trusted_hosts_test.c
++++ b/tests/ui-preview/trusted_hosts_test.c
+@@ -9,6 +9,7 @@
+ #include <bcrypt.h>
+ #include "cJSON.h"
+ #include "../../firmware/main/trusted_hosts.h"
++#include "../../firmware/main/host_labels.h"
+ #include "../../firmware/main/host_ble_peers.h"
+ #include "../../firmware/main/link_state.h"
+ #define portMAX_DELAY 0
+@@ -23,6 +24,8 @@
+ static struct {char id[13];uint8_t key[32];bool paired;char host[16];int port;} config;
+ static trusted_host_store persisted;
+ static host_ble_peers persisted_peers;
++static host_label_store persisted_labels;
++static int label_storage_result=ESP_ERR_NVS_NOT_FOUND;
+ static int peer_storage_result=ESP_ERR_NVS_NOT_FOUND;
+ static int storage_result=ESP_ERR_NVS_NOT_FOUND,commits,cancelled,ble_dropped;
+ static bool save_failed,plugged=true;
+@@ -40,8 +43,8 @@
+ void unlock_remote_cancel(void){cancelled++;}
+ void ble_host_changed(void){ble_dropped++;}
+ void rpc_link_reset(link_kind link){assert(link==LINK_USB||link==LINK_BLE);}
+-static int nvs_get_blob(int handle,const char *key,void *out,size_t *size){(void)handle;if(!strcmp(key,"host_ble_v1")){if(peer_storage_result==ESP_OK){assert(*size==sizeof(persisted_peers));memcpy(out,&persisted_peers,*size);}return peer_storage_result;}assert(!strcmp(key,"trusted_hosts1"));if(storage_result==ESP_OK){assert(*size==sizeof(persisted));memcpy(out,&persisted,*size);}return storage_result;}
+-static int nvs_set_blob(int handle,const char *key,const void *value,size_t size){(void)handle;if(save_failed)return 2;if(!strcmp(key,"host_ble_v1")){assert(size==sizeof(persisted_peers));memcpy(&persisted_peers,value,size);peer_storage_result=ESP_OK;return 0;}assert(!strcmp(key,"trusted_hosts1")&&size==sizeof(persisted));memcpy(&persisted,value,size);storage_result=ESP_OK;return 0;}
++static int nvs_get_blob(int handle,const char *key,void *out,size_t *size){(void)handle;if(!strcmp(key,"host_labels1")){if(label_storage_result==ESP_OK){assert(*size==sizeof(persisted_labels));memcpy(out,&persisted_labels,*size);}return label_storage_result;}if(!strcmp(key,"host_ble_v1")){if(peer_storage_result==ESP_OK){assert(*size==sizeof(persisted_peers));memcpy(out,&persisted_peers,*size);}return peer_storage_result;}assert(!strcmp(key,"trusted_hosts1"));if(storage_result==ESP_OK){assert(*size==sizeof(persisted));memcpy(out,&persisted,*size);}return storage_result;}
++static int nvs_set_blob(int handle,const char *key,const void *value,size_t size){(void)handle;if(save_failed)return 2;if(!strcmp(key,"host_labels1")){assert(size==sizeof(persisted_labels));memcpy(&persisted_labels,value,size);label_storage_result=ESP_OK;return 0;}if(!strcmp(key,"host_ble_v1")){assert(size==sizeof(persisted_peers));memcpy(&persisted_peers,value,size);peer_storage_result=ESP_OK;return 0;}assert(!strcmp(key,"trusted_hosts1")&&size==sizeof(persisted));memcpy(&persisted,value,size);storage_result=ESP_OK;return 0;}
+ static int nvs_commit(int handle){(void)handle;commits++;return 0;}
+ static const char *str(cJSON *root,const char *key){return cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root,key));}
+ static bool private_host(const char *value){unsigned a,b,c,d;char tail;return value&&sscanf(value,"%u.%u.%u.%u%c",&a,&b,&c,&d,&tail)==4&&b<256&&c<256&&d<256&&(a==10||(a==192&&b==168)||(a==172&&b>=16&&b<=31));}
+@@ -103,6 +106,31 @@
+     plugged=false;assert(device_host_select(2));uint8_t extra_peer[6]={9,8,7,6,5,4};save_failed=true;
+     assert(!device_host_ble_bind(device_host_epoch(),0,extra_peer)&&device_host_ble_target(&type,address)==0);save_failed=false;
+     host_ble_peers saved_peers=persisted_peers;persisted_peers.version=99;host_ble_init();assert(!host_peers_readable&&device_host_ble_target(&type,address)==-1);persisted_peers=saved_peers;
++    // Aliases never change trust, keys, selected host, generations or USB proofs.
++    before=trusted_hosts;generation=device_host_epoch();host_ble_peers peers_before=host_peers;
++    assert(device_host_rename(win_id,"  办公室电脑  "));
++    assert(!memcmp(&before,&trusted_hosts,sizeof(before))&&device_host_epoch()==generation&&!memcmp(&peers_before,&host_peers,sizeof(peers_before)));
++    char label_id[33],label_name[TRUSTED_HOST_NAME],labels[TRUSTED_HOST_LIMIT][TRUSTED_HOST_NAME];int selected;
++    assert(device_host_label(0,label_id,label_name)&&!strcmp(label_id,win_id)&&!strcmp(label_name,"办公室电脑"));
++    device_host_names(labels,&selected);assert(!strcmp(labels[0],label_name)&&selected==(int)trusted_hosts.selected);
++    assert(!device_host_rename("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","Unknown"));
++    assert(!device_host_rename(win_id,"bad\nname")&&!device_host_rename(win_id,"bad|name"));
++    char long_name[65];memset(long_name,'x',64);long_name[64]=0;assert(!device_host_rename(win_id,long_name));
++    save_failed=true;assert(!device_host_rename(win_id,"Not saved"));save_failed=false;
++    device_host_label(0,label_id,label_name);assert(!strcmp(label_name,"办公室电脑"));
++    // Normal USB claims update the original machine name, not the user's alias.
++    strcpy(trusted_hosts.entries[0].name,"Windows Laptop");assert(host_save(&trusted_hosts));
++    plugged=true;device_host_challenge(nonce);root=claim_for(0,nonce,"192.168.1.20");reply=device_host_claim(root);assert(reply);cJSON_Delete(reply);cJSON_Delete(root);
++    device_host_identity(label_id,label_name);assert(!strcmp(label_name,"办公室电脑")&&device_host_usb_owned());
++    host_init();device_host_identity(label_id,label_name);assert(!strcmp(label_name,"办公室电脑"));
++    assert(device_host_rename(win_id,""));device_host_identity(label_id,label_name);assert(!strcmp(label_name,"Windows Laptop"));
++    for(unsigned i=0;i<TRUSTED_HOST_LIMIT;i++){char alias[32];snprintf(alias,sizeof(alias),"Computer %u",i+1);assert(device_host_rename(trusted_hosts.entries[i].id,alias));}
++    assert(host_labels.count==TRUSTED_HOST_LIMIT&&host_labels_valid(&host_labels));
++    host_label_store labels_before=persisted_labels;persisted_labels.version=99;host_labels_init();
++    assert(!host_labels_readable&&!device_host_rename(win_id,"Do not overwrite corrupt labels"));
++    device_host_identity(label_id,label_name);assert(!strcmp(label_name,"Windows Laptop")&&trusted_hosts_readable);
++    persisted_labels=labels_before;host_labels_init();assert(host_labels_readable);
++    puts("HOST_LABELS_OK Chinese aliases, trim, rename unselected host, independent trust/keys/bonds, USB claim and reboot retention, restore original, failure retention, capacity and corruption isolation");
+     persisted.version=99;trusted_hosts_readable=true;host_init();assert(!trusted_hosts_readable); // no stale legacy resurrection
+     assert(!trusted_host_name_valid("bad|name")&&!trusted_host_name_valid("bad\nname"));
+     printf("TRUSTED_HOSTS_TEST_OK migration; independent_keys; USB_takeover; BLE_peer_isolation; reboot_retention; stale_epoch_rejected; NVS_failure; corrupt_store_closed; identity=%s\n",win_id);
+--- /dev/null
++++ b/tests/ui-preview/wifi_host_status_test.c
+@@ -0,0 +1,32 @@
++#include <assert.h>
++#include <stdatomic.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++#include "../../firmware/main/link_state.h"
++#define WIFI_LABEL_SIZE 49
++#define portMAX_DELAY 0
++#define xSemaphoreTake(a,b) ((void)0)
++#define xSemaphoreGive(a) ((void)0)
++typedef struct {bool paired;char ssid[33];} device_config;
++static device_config config={true,"Home"};
++static device_config device_get_config(void){return config;}
++static void device_wifi_label(const char *ssid,char *label){(void)ssid;strcpy(label,"家庭网络");}
++static char local_ip[16]="192.168.1.20";
++static link_state device_links;
++static bool wifi_connected=true;
++static atomic_int disconnect_reason,http_status=200;
++static int64_t now_ms=20000,last_valid_status=19900;
++static int64_t esp_timer_get_time(void){return now_ms*1000;}
++#include "wifi_host_status_under_test.inc"
++int main(void) {
++    char text[320];link_state_init(&device_links);
++    tab5_wifi_diagnostics(text,sizeof(text));assert(!strstr(text,"鉴权通过")); // previous host HTTP still fresh
++    device_links.received_ms[LINK_WIFI]=now_ms-100;tab5_wifi_diagnostics(text,sizeof(text));assert(strstr(text,"鉴权通过"));
++    link_state_init(&device_links);tab5_wifi_diagnostics(text,sizeof(text));assert(!strstr(text,"鉴权通过"));
++    device_links.received_ms[LINK_WIFI]=now_ms-8000;tab5_wifi_diagnostics(text,sizeof(text));assert(!strstr(text,"鉴权通过"));
++    device_links.received_ms[LINK_WIFI]=now_ms+1;tab5_wifi_diagnostics(text,sizeof(text));assert(!strstr(text,"鉴权通过"));
++    config.paired=false;tab5_wifi_diagnostics(text,sizeof(text));assert(strstr(text,"请先通过 USB 配对"));config.paired=true;
++    wifi_connected=false;tab5_wifi_diagnostics(text,sizeof(text));assert(strstr(text,"等待 Wi-Fi"));
++    puts("WIFI_HOST_STATUS_OK old-host HTTP cannot confirm new selection; current authenticated heartbeat, invalidation, expiry/future, unpaired and offline states");return 0;
++}
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -21,6 +21,15 @@
+ target_include_directories(trusted-hosts-test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON")
+ target_compile_options(trusted-hosts-test PRIVATE /UNDEBUG /utf-8)
+ target_link_libraries(trusted-hosts-test PRIVATE bcrypt)
++file(READ "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/wifi_link.c" WIFI_STATUS_SOURCE)
++string(FIND "${WIFI_STATUS_SOURCE}" "void tab5_wifi_diagnostics(" WIFI_STATUS_START)
++string(FIND "${WIFI_STATUS_SOURCE}" "static void event(" WIFI_STATUS_END)
++math(EXPR WIFI_STATUS_LENGTH "${WIFI_STATUS_END}-${WIFI_STATUS_START}")
++string(SUBSTRING "${WIFI_STATUS_SOURCE}" ${WIFI_STATUS_START} ${WIFI_STATUS_LENGTH} WIFI_STATUS_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/wifi_host_status_under_test.inc" "${WIFI_STATUS_BODY}")
++add_executable(wifi-host-status-test wifi_host_status_test.c "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/link_state.c")
++target_include_directories(wifi-host-status-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++target_compile_options(wifi-host-status-test PRIVATE /UNDEBUG /utf-8)
+ file(READ "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/gallery_remote.c" CAMERA_GALLERY_TEXT)
+ string(FIND "${CAMERA_GALLERY_TEXT}" "bool gallery_camera_prepare(void)" CAMERA_GALLERY_START)
+ string(FIND "${CAMERA_GALLERY_TEXT}" "static bool foreground_busy(void)" CAMERA_GALLERY_END)

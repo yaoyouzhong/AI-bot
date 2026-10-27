@@ -1,0 +1,396 @@
+--- a/firmware/components/esp_video/src/esp_video_buffer.c
++++ b/firmware/components/esp_video/src/esp_video_buffer.c
+@@ -33,7 +33,9 @@
+     size   = sizeof(struct esp_video_buffer) + sizeof(struct esp_video_buffer_element) * info->count;
+     buffer = heap_caps_calloc(1, size, info->caps);
+     if (!buffer) {
+-        ESP_LOGE(TAG, "Failed to malloc for video buffer");
++        ESP_LOGE(TAG, "metadata size=%u caps=%x free=%u largest=%u", (unsigned)size, (unsigned)info->caps,
++                 (unsigned)heap_caps_get_free_size(info->caps & ~MALLOC_CAP_CACHE_ALIGNED),
++                 (unsigned)heap_caps_get_largest_free_block(info->caps & ~MALLOC_CAP_CACHE_ALIGNED));
+         return NULL;
+     }
+ 
+@@ -47,6 +49,14 @@
+                 element->video_buffer = buffer;
+                 ELEMENT_SET_FREE(element);
+             } else {
++                // Record the failed request BEFORE earlier frames are freed.
++                // CACHE_ALIGNED changes alignment, not the heap's capabilities;
++                // querying free space with that pseudo capability returns zero.
++                ESP_LOGE(TAG, "frame=%d/%u size=%u align=%u caps=%x free=%u largest=%u", i + 1,
++                         (unsigned)info->count, (unsigned)info->size, (unsigned)info->align_size,
++                         (unsigned)info->caps,
++                         (unsigned)heap_caps_get_free_size(info->caps & ~MALLOC_CAP_CACHE_ALIGNED),
++                         (unsigned)heap_caps_get_largest_free_block(info->caps & ~MALLOC_CAP_CACHE_ALIGNED));
+                 goto exit_0;
+             }
+         } else {
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -202,7 +202,8 @@
+ static camera_preview_state preview_camera_state=CAMERA_PREVIEW_ERROR;
+ static unsigned preview_camera_starts;
+ static unsigned preview_camera_cache_bytes;
+-bool camera_preview_start(lv_obj_t *canvas) { (void)canvas; preview_camera_cache_bytes=tab5_cache_bytes+tab5_native_cache_bytes;preview_camera_starts++;preview_camera_state=CAMERA_PREVIEW_STARTING; return true; }
++static void (*preview_camera_start_observer)(void);
++bool camera_preview_start(lv_obj_t *canvas) { (void)canvas; if(preview_camera_start_observer)preview_camera_start_observer();preview_camera_cache_bytes=tab5_cache_bytes+tab5_native_cache_bytes;preview_camera_starts++;preview_camera_state=CAMERA_PREVIEW_STARTING; return true; }
+ bool camera_preview_capture(void) { if(preview_camera_state!=CAMERA_PREVIEW_LIVE)return false;preview_camera_state=CAMERA_PREVIEW_CAPTURING;return true; }
+ void camera_preview_stop(void) { preview_camera_state=CAMERA_PREVIEW_OFF; }
+ camera_preview_state camera_preview_get_state(void) { return preview_camera_state; }
+@@ -2262,12 +2263,28 @@
+     if(covered->x1>=area.x1&&covered->y1>=area.y1&&covered->x2<=area.x2&&covered->y2<=area.y2)
+         info->res=LV_COVER_RES_COVER; // The public setter only permits less coverage.
+ }
++static void camera_release_caches(void) {
++    tab5_draw_cache_drop();
++#if TAB5_LOCAL_ART
++    // Hidden artwork remains owned by the UI after leaving the saver. Detach
++    // its LVGL source on this thread before recycling any decoded pixels;
++    // the camera worker drains the spare and pending result after workers stop.
++    gallery_motion_finish();
++    if(!gallery_pending_page.date[0]&&gallery_presented.pixels) {
++        gallery_pending_page=gallery_presented;gallery_pending_page.pixels=NULL;
++    }
++    gallery_camera_reload=gallery_pending_page.date[0]!=0;
++    visible(gallery_view,false);lv_image_set_src(gallery_view,NULL);
++    gallery_presented=(gallery_image){0};
++    for(int i=0;i<4;i++)gallery_drop(i);
++#endif
++}
+ static void camera_action(lv_event_t *e) {
+     int action=(int)(intptr_t)lv_event_get_user_data(e);
+     if(action==0||action==-2) {
+         voice_remote_state *voice=&ui_voice_work->camera;voice_remote_get(voice);
+         if(voice->busy){ui_text(codex_voice_hint,"录音结束后即可拍照");return;}
+-        tab5_draw_cache_drop();
++        camera_release_caches();
+         lv_obj_remove_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
+         lv_obj_move_foreground(camera_layer);
+         if(!camera_preview_start(camera_canvas))ui_text(camera_hint,"摄像头暂不可用，请稍后重试");
+@@ -2279,7 +2296,7 @@
+     }
+     else if(action==2) {
+         if(photo_for_codex)ui_text(codex_receipt,"正在打开摄像头…");
+-        tab5_draw_cache_drop();
++        camera_release_caches();
+         if(!camera_preview_start(camera_canvas)) {
+             ui_text(camera_hint,"摄像头尚未关闭，请稍后重试");
+             if(photo_for_codex)ui_text(codex_receipt,"摄像头尚未关闭，请稍后重试");
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -89,9 +89,8 @@
+     ui_text(codex_receipt,"正在打开摄像头…");
+     codex_keyboard_done(NULL);
+     snprintf(photo_task,sizeof(photo_task),"%s",codex_selected);photo_flow=photo_for_codex=true;photo_id[0]=0;
+-    // Match the application camera entry: hidden page snapshots can occupy
+-    // several MiB needed for the three CSI buffers. Keep photo attachments.
+-    tab5_draw_cache_drop();
++    // Match the application camera/retake entry; retain draft attachments.
++    camera_release_caches();
+     lv_obj_remove_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);lv_obj_move_foreground(camera_layer);
+     if(!camera_preview_start(camera_canvas)) {
+         ui_text(camera_hint,"摄像头暂不可用，请稍后重试");
+--- a/firmware/main/ui_gallery_saver.h
++++ b/firmware/main/ui_gallery_saver.h
+@@ -87,6 +87,7 @@
+ static bool gallery_portrait(void){return gallery_orientation==1||gallery_orientation==-1;}
+ static gallery_image gallery_pending_page;
+ static int64_t gallery_pending_until;
++static bool gallery_camera_reload;
+ static int gallery_slot(int category){return category*2+gallery_portrait();}
+ static void gallery_label_direction(lv_obj_t *label,int x,int y,bool inverted) {
+     int angle=inverted?1800:0,px=inverted?1279-x:x,py=inverted?719-y:y;
+@@ -203,6 +204,10 @@
+     if(gallery_details_open){gallery_prefetch_day(gallery_reading->date);return;}
+     if(lv_obj_has_flag(gallery_view,LV_OBJ_FLAG_HIDDEN))gallery_hint_update(category);
+     int64_t now=esp_timer_get_time()/1000;gallery_image incoming;
++    // Camera reclaim keeps only the requested work/page metadata. Start its
++    // normal retry window when the gallery becomes visible again, not while
++    // the user may spend minutes taking photos.
++    if(gallery_camera_reload){gallery_camera_reload=false;gallery_pending_until=now+60000;}
+     // A started request used to reserve its slot for 60 seconds even when it
+     // had already failed. Retry completed failures with bounded backoff while
+     // preserving the visible bitmap; never launch concurrent downloads.
+--- a/firmware/main/gallery_remote.c
++++ b/firmware/main/gallery_remote.c
+@@ -275,7 +275,14 @@
+     xSemaphoreGive(device_mutex);
+     // SDK cleanup can block; never hold the shared device/UI mutex here.
+     if(idle.client)esp_http_client_cleanup(idle.client);
+-    if(ready){uint8_t *spare;while((spare=gallery_take_buffer())!=NULL)free(spare);}
++    if(ready) {
++        // A completed decoder may have published a result after the saver was
++        // hidden. No LVGL object owns it yet, and gallery_update() will not
++        // consume it on the Codex page. Drain this owner as well as the spare.
++        gallery_image pending;
++        if(gallery_take(&pending))free(pending.pixels);
++        uint8_t *spare;while((spare=gallery_take_buffer())!=NULL)free(spare);
++    }
+     return ready;
+ }
+ static bool foreground_busy(void) {
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -26,7 +26,9 @@
+ string(FIND "${CAMERA_GALLERY_TEXT}" "static bool foreground_busy(void)" CAMERA_GALLERY_END)
+ math(EXPR CAMERA_GALLERY_LENGTH "${CAMERA_GALLERY_END}-${CAMERA_GALLERY_START}")
+ string(SUBSTRING "${CAMERA_GALLERY_TEXT}" ${CAMERA_GALLERY_START} ${CAMERA_GALLERY_LENGTH} CAMERA_GALLERY_BODY)
+-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/gallery_camera_prepare_under_test.inc" "${CAMERA_GALLERY_BODY}")
++string(FIND "${CAMERA_GALLERY_TEXT}" "bool gallery_take(gallery_image *out)" CAMERA_TAKE_START)
++string(SUBSTRING "${CAMERA_GALLERY_TEXT}" ${CAMERA_TAKE_START} -1 CAMERA_TAKE_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/gallery_camera_prepare_under_test.inc" "${CAMERA_TAKE_BODY}\n${CAMERA_GALLERY_BODY}")
+ file(READ "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/camera_preview.c" CAMERA_WAIT_TEXT)
+ string(FIND "${CAMERA_WAIT_TEXT}" "static bool camera_wait_for_gallery(void)" CAMERA_WAIT_START)
+ string(FIND "${CAMERA_WAIT_TEXT}" "static void camera_task(void *arg)" CAMERA_WAIT_END)
+@@ -652,6 +654,23 @@
+ target_include_directories(camera-driver-cleanup-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ target_compile_options(camera-driver-cleanup-test PRIVATE /UNDEBUG)
+ 
++# Test allocation failure and recovery using the vendored video allocator.
++set(VIDEO_BUFFER_SOURCE "${ROOT}/firmware/components/esp_video/src/esp_video_buffer.c")
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${VIDEO_BUFFER_SOURCE}")
++file(READ "${VIDEO_BUFFER_SOURCE}" VIDEO_BUFFER_TEXT)
++string(FIND "${VIDEO_BUFFER_TEXT}" "struct esp_video_buffer *esp_video_buffer_create(" VIDEO_ALLOC_START)
++string(FIND "${VIDEO_BUFFER_TEXT}" "struct esp_video_buffer *esp_video_buffer_clone(" VIDEO_CLONE_START)
++math(EXPR VIDEO_ALLOC_LENGTH "${VIDEO_CLONE_START}-${VIDEO_ALLOC_START}")
++string(SUBSTRING "${VIDEO_BUFFER_TEXT}" ${VIDEO_ALLOC_START} ${VIDEO_ALLOC_LENGTH} VIDEO_ALLOC)
++string(FIND "${VIDEO_BUFFER_TEXT}" "esp_err_t esp_video_buffer_destroy(" VIDEO_FREE_START)
++string(FIND "${VIDEO_BUFFER_TEXT}" "struct esp_video_buffer_element *IRAM_ATTR esp_video_buffer_get_element_by_buffer(" VIDEO_FREE_END)
++math(EXPR VIDEO_FREE_LENGTH "${VIDEO_FREE_END}-${VIDEO_FREE_START}")
++string(SUBSTRING "${VIDEO_BUFFER_TEXT}" ${VIDEO_FREE_START} ${VIDEO_FREE_LENGTH} VIDEO_FREE)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/camera_buffer_alloc_under_test.inc" "${VIDEO_ALLOC}\n${VIDEO_FREE}")
++add_executable(camera-buffer-alloc-test camera_buffer_alloc_test.c)
++target_include_directories(camera-buffer-alloc-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++target_compile_options(camera-buffer-alloc-test PRIVATE /UNDEBUG)
++
+ file(READ "${ROOT}/firmware/main/codex_remote.c" PHOTO_RPC_SOURCE)
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ROOT}/firmware/main/codex_remote.c")
+ string(FIND "${PHOTO_RPC_SOURCE}" "static cJSON *rpc_job(" PHOTO_RPC_START)
+--- /dev/null
++++ b/tests/ui-preview/camera_buffer_alloc_test.c
+@@ -0,0 +1,98 @@
++// Fault injection at each actual allocator step; diagnostics must precede unwind.
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <stdarg.h>
++#include <string.h>
++#define MALLOC_CAP_8BIT 4
++#define MALLOC_CAP_SPIRAM 1024
++#define MALLOC_CAP_CACHE_ALIGNED (1u << 19)
++#define V4L2_MEMORY_MMAP 1
++#define V4L2_MEMORY_USERPTR 2
++#define ESP_OK 0
++#define ELEMENT_SET_FREE(e) ((e)->free = true)
++typedef int esp_err_t;
++struct esp_video_buffer_info { uint32_t count,size,align_size,caps,memory_type; };
++struct esp_video_buffer;
++struct esp_video_buffer_element {
++    bool free; void *node; struct esp_video_buffer *video_buffer;
++    uint32_t index; uint8_t *buffer; uint32_t valid_size;
++};
++struct esp_video_buffer {
++    struct esp_video_buffer_info info; struct esp_video_buffer_element element[0];
++};
++static unsigned call_index,fail_at,live_blocks,live_bytes,logged_bytes,query_count;
++static char diagnostic[180];
++static const unsigned capacity=12u*1024*1024;
++static void *allocate(size_t bytes,bool clear) {
++    if (++call_index==fail_at)return NULL;
++    size_t *block=clear?calloc(1,sizeof(size_t)+bytes):malloc(sizeof(size_t)+bytes);
++    assert(block);*block=bytes;live_blocks++;live_bytes+=(unsigned)bytes;
++    return block+1;
++}
++static void *heap_caps_calloc(size_t n,size_t size,unsigned caps) {
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED));
++    return allocate(n*size,true);
++}
++static void *heap_caps_aligned_alloc(size_t alignment,size_t size,unsigned caps) {
++    assert(alignment==64&&size==1280*720*2);
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED));
++    return allocate(size,false);
++}
++static void heap_caps_free(void *p) {
++    if(!p)return;
++    size_t *block=(size_t *)p-1;
++    assert(live_blocks&&live_bytes>=*block);
++    live_blocks--;live_bytes-=(unsigned)*block;free(block);
++}
++static size_t heap_caps_get_free_size(unsigned caps) {
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
++    query_count++;return capacity-live_bytes;
++}
++static size_t heap_caps_get_largest_free_block(unsigned caps) {
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
++    query_count++;return (capacity-live_bytes)/2;
++}
++static void record_error(const char *format,...) {
++    va_list args;va_start(args,format);
++    vsnprintf(diagnostic,sizeof(diagnostic),format,args);va_end(args);
++    logged_bytes=live_bytes;
++}
++#define ESP_LOGE(tag,...) record_error(__VA_ARGS__)
++#include "camera_buffer_alloc_under_test.inc"
++static void reset(unsigned failure) {
++    assert(!live_blocks&&!live_bytes);
++    fail_at=failure;call_index=query_count=logged_bytes=0;diagnostic[0]=0;
++}
++int main(void) {
++    const struct esp_video_buffer_info info={3,1280*720*2,64,
++        MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED,V4L2_MEMORY_MMAP};
++    for(unsigned failure=1;failure<=4;failure++) {
++        reset(failure);
++        assert(!esp_video_buffer_create(&info));
++        assert(!live_blocks&&!live_bytes&&query_count==2);
++        if(failure==1)assert(strstr(diagnostic,"metadata size="));
++        else {
++            char expected[32];snprintf(expected,sizeof(expected),"frame=%u/3 ",failure-1);
++            assert(strstr(diagnostic,expected));
++            assert(strstr(diagnostic,"size=1843200 align=64"));
++            assert(logged_bytes==(sizeof(struct esp_video_buffer)+3*sizeof(struct esp_video_buffer_element))+(failure-2)*info.size);
++        }
++        // A failed partial pool must not prevent the next full-resolution retry.
++        reset(0);
++        struct esp_video_buffer *buffer=esp_video_buffer_create(&info);
++        assert(buffer&&live_blocks==4&&!diagnostic[0]);
++        for(unsigned i=0;i<3;i++)assert(buffer->element[i].index==i&&buffer->element[i].free&&
++            buffer->element[i].video_buffer==buffer&&buffer->element[i].buffer);
++        assert(esp_video_buffer_destroy(buffer)==ESP_OK);
++    }
++    reset(0);
++    struct esp_video_buffer_info external=info;external.memory_type=V4L2_MEMORY_USERPTR;
++    struct esp_video_buffer *buffer=esp_video_buffer_create(&external);
++    assert(buffer&&live_blocks==1);
++    for(unsigned i=0;i<3;i++)buffer->element[i].buffer=(void *)(uintptr_t)(i+1);
++    assert(esp_video_buffer_destroy(buffer)==ESP_OK&&!live_blocks&&!live_bytes);
++    puts("CAMERA_BUFFER_ALLOC_OK: metadata/three frame failures captured before cleanup; retry and USERPTR ownership preserved");
++}
+--- a/tests/ui-preview/camera_memory_handoff_test.c
++++ b/tests/ui-preview/camera_memory_handoff_test.c
+@@ -16,6 +16,8 @@
+ static int64_t now_us;
+ static bool complete_worker;
+ static uint8_t *spare;
++typedef struct {uint8_t *pixels;} gallery_image;
++static gallery_image result;
+ static void xSemaphoreTake(int m,int wait){(void)m;(void)wait;assert(!held);held=true;}
+ static void xSemaphoreGive(int m){(void)m;assert(held);held=false;}
+ static void esp_http_client_cleanup(void *client){assert(client&&!held);closed++;}
+@@ -25,23 +27,28 @@
+ static int64_t esp_timer_get_time(void){return now_us;}
+ static void vTaskDelay(unsigned ms){
+     assert(!held);now_us+=ms*1000;delays++;
+-    if(complete_worker&&delays==3){working=false;prefetching=false;spare=malloc(32);}
++    if(complete_worker&&delays==3){working=false;prefetching=false;spare=malloc(32);result.pixels=malloc(32);}
+ }
+ #define free tracked_free
+ #include "gallery_camera_prepare_under_test.inc"
+ #undef free
+ #include "camera_wait_for_gallery_under_test.inc"
+ int main(void) {
++#ifdef _WIN32
++    _set_error_mode(_OUT_TO_STDERR);
++    _set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
++#endif
+     // Camera must wait for the active owners to unwind before using their RAM.
+     working=true;prefetching=true;keep_running=true;complete_worker=true;
+     library_http_idle=(gallery_http_lease){.client=(void*)1};
+-    assert(camera_wait_for_gallery());assert(delays==3&&closed==1&&released==1&&cancel_prefetch&&!spare&&!held);
+-    assert(gallery_camera_prepare()&&closed==1&&released==1); // No duplicate close/free.
++    assert(camera_wait_for_gallery());assert(delays==3&&closed==1&&released==2&&cancel_prefetch&&!spare&&!result.pixels&&!held);
++    assert(gallery_camera_prepare()&&closed==1&&released==2); // No duplicate close/free.
+     // A stuck network worker gets a bounded busy outcome, never a false memory
+     // success or a forced free of buffers still owned by that worker.
+     complete_worker=false;working=true;prefetching=false;delays=0;now_us=0;
+-    assert(!camera_wait_for_gallery()&&now_us==4000000&&delays==200&&released==1);
++    result.pixels=malloc(32);uint8_t *owned=result.pixels;
++    assert(!camera_wait_for_gallery()&&now_us==4000000&&delays==200&&released==2&&result.pixels==owned);
+     keep_running=false;delays=0;assert(!camera_wait_for_gallery()&&!delays&&!held);
+-    working=false;keep_running=true;assert(camera_wait_for_gallery());
+-    puts("CAMERA_MEMORY_HANDOFF_OK: active worker drain, idle HTTP release outside mutex, spare buffer reclamation, bounded timeout, cancellation and reopen");
++    working=false;keep_running=true;assert(camera_wait_for_gallery()&&released==3&&!result.pixels);
++    puts("CAMERA_MEMORY_HANDOFF_OK: worker drain, pending decoded result and spare reclamation, idle HTTP outside mutex, timeout, cancellation and reopen");
+ }
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -7,6 +7,13 @@
+ #include "../../firmware/main/ui.c"
+ #include "../../firmware/main/art_orientation_filter.h"
+ #include <assert.h>
++#if TAB5_LOCAL_ART
++static void camera_gallery_released_probe(void) {
++    assert(lv_obj_has_flag(gallery_view,LV_OBJ_FLAG_HIDDEN)&&!lv_image_get_src(gallery_view));
++    assert(!gallery_presented.pixels);
++    for(int i=0;i<4;i++)assert(!gallery_cache[i].pixels&&!gallery_descriptor[i].data);
++}
++#endif
+ LV_FONT_DECLARE(calendar_compare_regular_24);
+ LV_FONT_DECLARE(calendar_compare_running_26);
+ #include "src/core/lv_obj_event_private.h"
+@@ -4178,15 +4185,62 @@
+     assert(preview_submit_count==feedback_submit_count);
+     camera_starts++;
+     puts("PHOTO_RETRY_FEEDBACK_OK previous_success_replaced_error_retained_no_send");
+-    // Rebuild background UI between photos: reopening must drop it again.
++    // Rebuild page snapshots AND decoded artwork between photos. Hidden RGB
++    // images must detach before camera allocation, while draft images survive.
++#if TAB5_LOCAL_ART
++    gallery_pending_page=(gallery_image){0};
++    gallery_image leftover_gallery;
++    if(gallery_take(&leftover_gallery))gallery_recycle(leftover_gallery.pixels);
++#endif
+     for(int repeat=0;repeat<3;repeat++) {
+         lv_obj_update_layout(lv_screen_active());
+         for(int i=0;i<24;i++)tab5_draw_cache_step(pages[8]);
++#if TAB5_LOCAL_ART
++        for(int i=0;i<2;i++) {
++            gallery_drop(i);
++            uint8_t *pixels=calloc(1,1280*720*2);assert(pixels);
++            gallery_cache[i]=(gallery_image){.pixels=pixels,.category=0,.frame=1,.frames=3,.portrait=i==1};
++            strcpy(gallery_cache[i].date,"2026-10-22");
++            gallery_descriptor[i]=(lv_image_dsc_t){.header={.magic=LV_IMAGE_HEADER_MAGIC,
++                .cf=LV_COLOR_FORMAT_RGB565,.w=1280,.h=720,.stride=2560},
++                .data_size=1280*720*2,.data=pixels};
++        }
++        lv_image_set_src(gallery_view,&gallery_descriptor[0]);visible(gallery_view,true);
++        gallery_presented=gallery_cache[0];
++        preview_camera_start_observer=camera_gallery_released_probe;
++#endif
+         assert(tab5_cache_bytes>0);photo_open(NULL);
++        preview_camera_start_observer=NULL;
+         assert(photo_flow&&!preview_camera_cache_bytes&&!tab5_cache_bytes&&!tab5_native_cache_bytes);
++#if TAB5_LOCAL_ART
++        assert(gallery_camera_reload&&!gallery_pending_page.pixels&&gallery_pending_page.frame==1&&
++            !strcmp(gallery_pending_page.date,"2026-10-22"));
++        uint8_t *spare=gallery_take_buffer();assert(spare);free(spare);
++#endif
+         assert(photo_draft->images[0][0]&&photo_draft->images[1][0]);
+         camera_preview_stop();visible(camera_layer,false);photo_finish();
+     }
++#if TAB5_LOCAL_ART
++    int saved_gallery_style=saver_style,saved_gallery_orientation=gallery_orientation;
++    art_orientation_state saved_camera_art=preview_art_orientation;
++    bool saved_gallery_download=preview_gallery_download;
++    saver_style=6;gallery_orientation=0;gallery_return_hold=false;
++    preview_art_orientation.ready=true;preview_art_orientation.orientation=0;
++    preview_gallery_ready=true;preview_gallery_download=true;preview_gallery_allocations=0;
++    gallery_pending_until=0; // The camera may outlive the former retry window.
++    struct tm camera_gallery_day={.tm_year=126,.tm_mon=9,.tm_mday=22};
++    gallery_update(&camera_gallery_day);
++    assert(!gallery_camera_reload&&gallery_pending_until>esp_timer_get_time()/1000&&
++        preview_gallery_requested_frame==1&&preview_gallery_result.pixels);
++    gallery_update(&camera_gallery_day);
++    assert(gallery_cache[0].pixels&&gallery_cache[0].frame==1&&!gallery_pending_page.date[0]&&
++        !lv_obj_has_flag(gallery_view,LV_OBJ_FLAG_HIDDEN));
++    saver_style=saved_gallery_style;gallery_orientation=saved_gallery_orientation;
++    preview_art_orientation=saved_camera_art;
++    preview_gallery_download=saved_gallery_download;
++    puts("CAMERA_GALLERY_RECLAIM_OK three real LVGL cycles; two decoded frames detached before camera start; attachments retained");
++    puts("CAMERA_GALLERY_RETURN_OK expired old window restarts; same work/page requested and displayed after capture");
++#endif
+     camera_starts+=3;
+     codex_reading=true;photo_open(NULL);assert(photo_open_pending);
+     page(0);page(8);codex_reading=false;photo_open_tick();

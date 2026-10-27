@@ -1,0 +1,129 @@
+--- a/firmware/main/ui_agenda.h
++++ b/firmware/main/ui_agenda.h
+@@ -6,7 +6,7 @@
+ static lv_obj_t *agenda_rows[AGENDA_LIMIT],*agenda_row_titles[AGENDA_LIMIT],*agenda_row_times[AGENDA_LIMIT];
+ static lv_obj_t *agenda_row_dates[AGENDA_LIMIT],*agenda_markers[AGENDA_LIMIT],*agenda_filters[2];
+ static lv_obj_t *agenda_list,*agenda_empty,*agenda_title,*agenda_when,*agenda_repeat,*agenda_status,*agenda_snooze,*agenda_popup_snooze;
+-static lv_obj_t *agenda_popup,*agenda_popup_title,*agenda_popup_status;
++static lv_obj_t *agenda_popup,*agenda_popup_title,*agenda_popup_status,*agenda_popup_time,*agenda_popup_dismiss;
+ static lv_obj_t *agenda_new,*agenda_edit_button,*agenda_delete_button,*agenda_detail_surface,*agenda_filter_track;
+ static lv_obj_t *agenda_delete_layer,*agenda_delete_title,*agenda_delete_status,*agenda_delete_yes,*agenda_delete_no;
+ static char agenda_delete_id[33],agenda_delete_edit[33];
+@@ -24,15 +24,21 @@
+ static bool agenda_editor_open(void);
+ static bool agenda_delete_open(void){return agenda_delete_layer&&!lv_obj_has_flag(agenda_delete_layer,LV_OBJ_FLAG_HIDDEN);}
+ static void agenda_editor_voice_tick(void);
++static void agenda_popup_busy(bool busy) {
++    lv_obj_t *buttons[]={agenda_popup_snooze,agenda_popup_dismiss};
++    for(unsigned n=0;n<2;n++)if(buttons[n]) {
++        if(busy)lv_obj_add_state(buttons[n],LV_STATE_DISABLED);else lv_obj_remove_state(buttons[n],LV_STATE_DISABLED);
++    }
++}
+ static void agenda_operation_result(void) {
+     if(!agenda_pending_request||agenda_ui.completed_request!=agenda_pending_request)return;
+-    if(agenda_pending_alarm){if(agenda_ui.last_success)visible(agenda_popup,false);else ui_text(agenda_popup_status,agenda_ui.message);}
++    if(agenda_pending_alarm){if(agenda_ui.last_success)visible(agenda_popup,false);else {ui_text(agenda_popup_status,agenda_ui.message);tint(agenda_popup_status,RED);}}
+     if(agenda_pending_editor){agenda_editor_result();agenda_pending_editor=false;}
+     if(agenda_pending_delete){
+         if(agenda_ui.last_success)visible(agenda_delete_layer,false);else ui_text(agenda_delete_status,agenda_ui.message);
+         lv_obj_remove_state(agenda_delete_yes,LV_STATE_DISABLED);lv_obj_remove_state(agenda_delete_no,LV_STATE_DISABLED);agenda_pending_delete=false;
+     }
+-    agenda_pending_request=0;agenda_pending_alarm=false;
++    agenda_pending_request=0;agenda_pending_alarm=false;agenda_popup_busy(false);
+ }
+ static int64_t agenda_civil_now(void) {
+     struct tm t;if(!gallery_clock_local(esp_timer_get_time()/1000,&t))return 0;
+@@ -136,6 +142,7 @@
+     const agenda_item *item=agenda_selected_item(agenda_alarm_id);if(!item||now+600>=agenda_ends_at(item,agenda_alarm_occurrence))return;
+     agenda_pending_request=agenda_action(agenda_alarm_id,agenda_alarm_edit,agenda_alarm_occurrence,false,now+600);
+     agenda_pending_alarm=agenda_pending_request!=0;ui_text(agenda_popup_status,agenda_pending_request?"正在保存…":"操作未保存，请稍后重试");
++    tint(agenda_popup_status,agenda_pending_request?MUTED:RED);agenda_popup_busy(agenda_pending_alarm);
+ }
+ static void agenda_create(lv_obj_t *parent,lv_obj_t *screen) {
+     (void)screen;
+@@ -159,11 +166,18 @@
+     agenda_empty=muted(parent,"",0,180,1220);ui_text_font(agenda_empty,&tab5_font_30,0);lv_obj_set_style_text_align(agenda_empty,LV_TEXT_ALIGN_CENTER,0);
+     agenda_status=muted(parent,"",0,484,1220);lv_label_set_long_mode(agenda_status,LV_LABEL_LONG_DOT);
+     agenda_snooze=button(parent,"10 分钟后再提醒",816,358,376,agenda_perform,1);
+-    agenda_popup=shape(screen,320,210,640,300,SURFACE,UI_CARD_RADIUS);lv_obj_set_style_border_width(agenda_popup,2,0);ui_border_color(agenda_popup,lv_color_hex(BLUE),0);
+-    label(agenda_popup,"日程提醒",28,24,584,false);agenda_popup_title=label(agenda_popup,"",28,76,584,true);ui_text_font(agenda_popup_title,&tab5_font_30,0);
+-    lv_obj_set_height(agenda_popup_title,76);lv_label_set_long_mode(agenda_popup_title,LV_LABEL_LONG_WRAP);
+-    agenda_popup_status=muted(agenda_popup,"",28,164,584);
+-    agenda_popup_snooze=button(agenda_popup,"10 分钟后再提醒",28,224,284,agenda_alarm_action,1);button(agenda_popup,"知道了",468,224,144,agenda_alarm_action,2);
++    agenda_popup=shape(screen,0,0,1280,720,0x000000,0);ui_bg_opa(agenda_popup,LV_OPA_60,0);lv_obj_add_flag(agenda_popup,LV_OBJ_FLAG_CLICKABLE);
++    lv_obj_t *reminder=shape(agenda_popup,240,180,800,360,SURFACE,UI_CARD_RADIUS);
++    lv_obj_set_style_border_width(reminder,1,0);ui_border_color(reminder,lv_color_hex(TRACK),0);
++    shape(reminder,40,30,4,24,BLUE,2);lv_obj_t *heading=label(reminder,"日程提醒",58,26,400,false);tint(heading,BLUE);
++    agenda_popup_time=muted(reminder,"",580,26,180);lv_obj_set_style_text_align(agenda_popup_time,LV_TEXT_ALIGN_RIGHT,0);
++    agenda_popup_title=label(reminder,"",40,80,720,false);ui_text_font(agenda_popup_title,&tab5_font_30,0);
++    lv_obj_set_height(agenda_popup_title,84);lv_obj_set_style_text_line_space(agenda_popup_title,4,0);lv_label_set_long_mode(agenda_popup_title,LV_LABEL_LONG_WRAP);
++    agenda_popup_status=muted(reminder,"",40,180,720);lv_obj_set_height(agenda_popup_status,60);lv_label_set_long_mode(agenda_popup_status,LV_LABEL_LONG_WRAP);
++    shape(reminder,40,248,720,1,TRACK,0);
++    agenda_popup_snooze=button(reminder,"10 分钟后再提醒",296,264,280,agenda_alarm_action,1);lv_obj_set_height(agenda_popup_snooze,64);
++    agenda_popup_dismiss=button(reminder,"知道了",592,264,168,agenda_alarm_action,2);lv_obj_set_height(agenda_popup_dismiss,64);
++    ui_bg_color(agenda_popup_dismiss,lv_color_hex(BLUE),0);tint(lv_obj_get_child(agenda_popup_dismiss,0),0x173642);
+     visible(agenda_popup,false);
+     agenda_delete_layer=shape(screen,0,0,1280,720,0x000000,0);ui_bg_opa(agenda_delete_layer,LV_OPA_50,0);lv_obj_add_flag(agenda_delete_layer,LV_OBJ_FLAG_CLICKABLE);
+     lv_obj_t *confirmation=shape(agenda_delete_layer,220,210,840,300,SURFACE,UI_CARD_RADIUS);
+@@ -187,7 +201,10 @@
+     if(!agenda_alert(now,title,id,&occurrence))return;
+     agenda_get(&agenda_ui);const agenda_item *i=agenda_selected_item(id);if(!i||!civil||civil>=agenda_ends_at(i,occurrence))return;
+     strcpy(agenda_alarm_id,id);strcpy(agenda_alarm_edit,i->edit);agenda_alarm_occurrence=occurrence;
+-    ui_text(agenda_popup_title,title);bool can_snooze=civil+600<agenda_ends_at(i,occurrence);visible(agenda_popup_snooze,can_snooze);ui_text(agenda_popup_status,can_snooze?"":"即将结束，不再延后提醒");saver_leave();lv_display_trigger_activity(NULL);visible(agenda_popup,true);lv_obj_move_foreground(agenda_popup);voice_remote_notify_timer();
++    ui_text(agenda_popup_title,title);int seconds=(int)(occurrence%86400);
++    ui_text_fmt(agenda_popup_time,"%02d:%02d 开始",seconds/3600,seconds/60%60);
++    bool can_snooze=civil+600<agenda_ends_at(i,occurrence);visible(agenda_popup_snooze,can_snooze);agenda_popup_busy(false);
++    ui_text(agenda_popup_status,can_snooze?"选择稍后提醒，或关闭本次提醒":"即将结束，不再延后提醒");tint(agenda_popup_status,can_snooze?MUTED:AMBER);saver_leave();lv_display_trigger_activity(NULL);visible(agenda_popup,true);lv_obj_move_foreground(agenda_popup);voice_remote_notify_timer();
+ }
+ #include "ui_agenda_editor.h"
+ #if defined(__GNUC__) && !defined(__clang__)
+--- a/tests/ui-preview/agenda_ui_test.h
++++ b/tests/ui-preview/agenda_ui_test.h
+@@ -56,15 +56,33 @@
+     // Save failures keep the popup visible until a matching successful operation result.
+     preview_agenda_notice=true;agenda_ui_next=0;agenda_tick(esp_timer_get_time()/1000+1000);assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN));capture("agenda-reminder");
+     ui_text(agenda_popup_title,"客户会议客户会议客户会议客户会议客户会议客户会议客户会议客户会议");capture("agenda-reminder-long-title");agenda_test_fonts(agenda_popup);
++    lv_text_get_size(&title_size,lv_label_get_text(agenda_popup_title),lv_obj_get_style_text_font(agenda_popup_title,0),lv_obj_get_style_text_letter_space(agenda_popup_title,0),lv_obj_get_style_text_line_space(agenda_popup_title,0),lv_obj_get_content_width(agenda_popup_title),LV_TEXT_FLAG_NONE);
++    lv_area_t popup_title_area,popup_status_area,popup_button_area;
++    lv_obj_get_coords(agenda_popup_title,&popup_title_area);lv_obj_get_coords(agenda_popup_status,&popup_status_area);lv_obj_get_coords(agenda_popup_snooze,&popup_button_area);
++    assert(title_size.y<=lv_obj_get_content_height(agenda_popup_title)&&popup_title_area.y2<popup_status_area.y1&&popup_status_area.y2<popup_button_area.y1);
++    assert(lv_obj_get_height(agenda_popup_snooze)>=64&&lv_obj_get_height(agenda_popup_dismiss)>=64);
++    assert(lv_obj_get_width(agenda_popup_snooze)>lv_obj_get_width(agenda_popup_dismiss)&&strstr(lv_label_get_text(agenda_popup_time),"15:00"));
++    lv_indev_t *popup_touch=lv_indev_create();lv_indev_set_type(popup_touch,LV_INDEV_TYPE_POINTER);lv_indev_set_display(popup_touch,lv_display_get_default());lv_indev_set_read_cb(popup_touch,camera_touch_read);
++    unsigned popup_requests=preview_agenda.completed_request;
++    agenda_test_tap(popup_touch,agenda_new);assert(!agenda_editor_open()&&!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN)&&preview_agenda.completed_request==popup_requests);
++    agenda_test_tap(popup_touch,agenda_popup_dismiss);assert(lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN)&&preview_agenda.completed_request==popup_requests);
++    preview_agenda_notice=true;agenda_ui_next=0;agenda_tick(esp_timer_get_time()/1000+1500);
++    assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN));
+     ui_text(agenda_popup_title,preview_agenda.document.items[0].title);
+-    preview_agenda_save_fail=true;lv_obj_send_event(agenda_popup_snooze,LV_EVENT_CLICKED,NULL);agenda_ui_next=0;agenda_tick(esp_timer_get_time()/1000+2000);
+-    assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN)&&strstr(lv_label_get_text(agenda_popup_status),"保存失败"));capture("agenda-reminder-save-failed");
+-    preview_agenda_save_fail=false;lv_obj_send_event(agenda_popup_snooze,LV_EVENT_CLICKED,NULL);assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN));
++    preview_agenda_save_fail=true;agenda_test_tap(popup_touch,agenda_popup_snooze);
++    assert(lv_obj_has_state(agenda_popup_snooze,LV_STATE_DISABLED)&&lv_obj_has_state(agenda_popup_dismiss,LV_STATE_DISABLED));
++    popup_requests=preview_agenda.completed_request;agenda_test_tap(popup_touch,agenda_popup_snooze);agenda_test_tap(popup_touch,agenda_popup_dismiss);
++    assert(preview_agenda.completed_request==popup_requests&&!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN));
++    agenda_ui_next=0;agenda_tick(esp_timer_get_time()/1000+2000);
++    assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN)&&strstr(lv_label_get_text(agenda_popup_status),"保存失败")&&!lv_obj_has_state(agenda_popup_snooze,LV_STATE_DISABLED)&&!lv_obj_has_state(agenda_popup_dismiss,LV_STATE_DISABLED));capture("agenda-reminder-save-failed");agenda_test_fonts(agenda_popup);
++    preview_agenda_save_fail=false;agenda_test_tap(popup_touch,agenda_popup_snooze);assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN));
+     agenda_ui_next=0;agenda_tick(esp_timer_get_time()/1000+3000);assert(lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN));
++    lv_indev_delete(popup_touch);
++    puts("AGENDA_REMINDER_UI_OK long title fits, modal blocks background, pointer dismiss/snooze, pending prevents duplicate input, save failure recovers");
+     preview_gallery_clock_time.tm_hour=15;preview_gallery_clock_time.tm_min=20;agenda_render();assert(strstr(lv_label_get_text(agenda_repeat),"进行中"));capture("agenda-running");
+     preview_gallery_clock_time.tm_min=55;agenda_render();assert(lv_obj_has_flag(agenda_snooze,LV_OBJ_FLAG_HIDDEN));
+     preview_agenda_notice=true;agenda_ui_next=0;agenda_tick(esp_timer_get_time()/1000+4000);
+-    assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(agenda_popup_snooze,LV_OBJ_FLAG_HIDDEN));capture("agenda-near-end");
++    assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(agenda_popup_snooze,LV_OBJ_FLAG_HIDDEN));capture("agenda-near-end");agenda_test_fonts(agenda_popup);
+     preview_gallery_clock_time.tm_hour=16;preview_gallery_clock_time.tm_min=0;agenda_ui_next=0;agenda_tick(esp_timer_get_time()/1000+5000);
+     assert(lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN)&&!strcmp(agenda_selected,preview_agenda.document.items[0].id)&&!strcmp(lv_label_get_text(agenda_repeat),"已结束"));capture("agenda-ended");
+     assert(sizeof(agenda_filters)/sizeof(agenda_filters[0])==2);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -5,6 +5,7 @@
+ // reporting in the separate boot worker/RPC tests; never synthesize success.
+ static bool boot_verify_report(const char *id,const char *session,link_kind link){(void)id;(void)session;(void)link;return false;}
+ static bool runtime_diagnostics_report(const char *id,const char *session,link_kind link){(void)id;(void)session;(void)link;return false;}
++static bool screen_preview_request(const char *stream,const char *request,const char *session,link_kind link,int width,int height,int64_t deadline){(void)stream;(void)request;(void)session;(void)link;(void)width;(void)height;(void)deadline;return false;}
+ #include "../../firmware/main/ui.c"
+ #include "../../firmware/main/art_orientation_filter.h"
+ #include <assert.h>

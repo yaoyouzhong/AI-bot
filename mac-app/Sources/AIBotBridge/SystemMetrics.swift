@@ -16,27 +16,37 @@ struct MacNetworkTotals: Equatable {
 final class MacSystemMetricsService {
     private var previousCpu: MacCpuTicks?
     private var previousNetwork: MacNetworkTotals?
-    private var previousNetworkAt: Date?
+    private var previousNetworkAt: TimeInterval?
+    private var cpuAt = -Double.infinity
+    private var cpuPercent = 0.0, memoryPercent = 0.0
+    private var pressureObservedAt: Date?
+    private let disk = MacDiskMetrics()
+    private var diskObservation: MacDiskObservation?
+    private var history = MacNetworkHistory()
+    private var snapshot: SystemMetricsSnapshot?
 
-    func capture(now: Date = Date()) -> SystemMetricsSnapshot? {
-        guard let cpu = Self.readCpu(), let memory = Self.readMemoryPercent() else { return nil }
-        let cpuPercent = previousCpu.map { Self.cpuPercent(previous: $0, current: cpu) } ?? 0
-        previousCpu = cpu
-
-        var upload: Int64 = 0
-        var download: Int64 = 0
-        if let network = Self.readNetworkTotals() {
-            if let previousNetwork, let previousNetworkAt {
-                let elapsed = now.timeIntervalSince(previousNetworkAt)
-                upload = Self.rate(previous: previousNetwork.uploaded, current: network.uploaded, elapsed: elapsed)
-                download = Self.rate(previous: previousNetwork.downloaded, current: network.downloaded, elapsed: elapsed)
-            }
-            previousNetwork = network
-            previousNetworkAt = now
+    func capture(now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> SystemMetricsSnapshot? {
+        if uptime - cpuAt >= 2, let cpu = Self.readCpu(), let memory = Self.readMemoryPercent() {
+            if previousCpu != nil { pressureObservedAt = now }
+            cpuPercent = previousCpu.map { Self.cpuPercent(previous: $0, current: cpu) } ?? 0
+            memoryPercent = memory; previousCpu = cpu; cpuAt = uptime
+            diskObservation = disk.capture(now: now, uptime: uptime)
         }
-        return SystemMetricsSnapshot(cpuPercent: cpuPercent, memoryPercent: memory,
-                                     uploadBytesPerSecond: upload, downloadBytesPerSecond: download,
-                                     updatedAt: now)
+        guard let network = Self.readNetworkTotals() else { return snapshot }
+        defer { previousNetwork = network; previousNetworkAt = uptime }
+        guard let previousNetwork, let previousNetworkAt else { return snapshot }
+        let elapsed = uptime - previousNetworkAt
+        guard elapsed > 0 else { return snapshot }
+        let sample = MacNetworkSample(
+            upload: Self.rate(previous: previousNetwork.uploaded, current: network.uploaded, elapsed: elapsed),
+            download: Self.rate(previous: previousNetwork.downloaded, current: network.downloaded, elapsed: elapsed))
+        if let publication = history.record(sample, at: uptime, elapsed: elapsed) {
+            snapshot = SystemMetricsSnapshot(cpuPercent: cpuPercent, memoryPercent: memoryPercent,
+                uploadBytesPerSecond: publication.mean.upload, downloadBytesPerSecond: publication.mean.download,
+                updatedAt: now, sampleSession: history.session, sampleSequence: publication.sequence,
+                samples: publication.samples, pressureObservedAt: pressureObservedAt, diskObservation: diskObservation)
+        }
+        return snapshot
     }
 
     static func cpuPercent(previous: MacCpuTicks, current: MacCpuTicks) -> Double {
@@ -49,8 +59,9 @@ final class MacSystemMetricsService {
     }
 
     static func rate(previous: UInt64, current: UInt64, elapsed: TimeInterval) -> Int64 {
-        guard current >= previous, elapsed > 0 else { return 0 }
-        return Int64(Double(current - previous) / elapsed)
+        guard current >= previous, elapsed.isFinite, elapsed > 0 else { return 0 }
+        let value = Double(current - previous) / elapsed
+        return value >= Double(Int64.max) ? Int64.max : Int64(value)
     }
 
     private static func readCpu() -> MacCpuTicks? {
@@ -107,5 +118,43 @@ final class MacSystemMetricsService {
             pointer = interface.ifa_next
         }
         return MacNetworkTotals(uploaded: uploaded, downloaded: downloaded)
+    }
+}
+
+// Existing TAB5 contract: 250 ms raw samples, one immutable publication per
+// second, trailing four-sample mean and at most 64 samples for radio backfill.
+struct MacNetworkHistory {
+    struct Publication {
+        let sequence: Int64
+        let samples: [MacNetworkSample]
+        let mean: MacNetworkSample
+    }
+    let session = UUID().uuidString
+    private var sequence: Int64 = 0
+    private var samples: [MacNetworkSample] = []
+    private var nextPublication: TimeInterval?
+
+    mutating func record(_ sample: MacNetworkSample, at tick: TimeInterval, elapsed: TimeInterval) -> Publication? {
+        guard tick.isFinite, elapsed.isFinite, elapsed > 0 else { return nil }
+        // A suspended sampler cannot manufacture missed quarter-second values.
+        if elapsed > 0.75 {
+            sequence += Int64(min(1_000_000, floor(elapsed / 0.25) - 1))
+            samples.removeAll(keepingCapacity: true)
+        }
+        sequence += 1
+        samples.append(sample)
+        if samples.count > 64 { samples.removeFirst(samples.count - 64) }
+        if nextPublication == nil { nextPublication = tick + 0.75 }
+        guard let next = nextPublication, tick >= next else { return nil }
+        nextPublication = next + floor(tick - next) + 1
+        let recent = samples.suffix(4)
+        // Divide before summation to avoid overflowing large cumulative counters.
+        func mean(_ values: [Int64]) -> Int64 {
+            let n = Int64(values.count)
+            return values.reduce(0) { $0 + $1 / n } + values.reduce(0) { $0 + $1 % n } / n
+        }
+        return Publication(sequence: sequence, samples: samples,
+                           mean: MacNetworkSample(upload: mean(recent.map(\.upload)),
+                                                  download: mean(recent.map(\.download))))
     }
 }

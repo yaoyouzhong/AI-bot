@@ -11,10 +11,12 @@
     <AssemblyName>AIBotBridge</AssemblyName>
     <RootNamespace>AIBotBridge</RootNamespace>
     <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
-    <Version>0.6.10</Version>
+    <Version>0.6.11</Version>
     <LocalArt Condition="'$(LocalArt)' == ''">false</LocalArt>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../AIBotLoginHelper/AIBotLoginHelper.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;OutputPath;OutDir;PublishDir;PublishSingleFile" />
+    <Compile Include="../AIBotLoginHelper/HelperContract.cs" Link="LoginMethodHelperContract.cs" />
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
     <EmbeddedResource Include="Assets\app-icon.ico" />
     <EmbeddedResource Include="Assets\flash-icon.ico" />
@@ -28,14 +30,26 @@
     <Content Include="Assets\flash-icon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Assets\DailyArt\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(LocalArt)' == 'true'" />
     <Content Include="TestFixtures\claude_sprite.h" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../licenses/pdfpig/*" Link="licenses/pdfpig/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../licenses/pmo-calendar/NOTICE.md" Link="licenses/pmo-calendar/NOTICE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
   </ItemGroup>
 
   <Target Name="RemoveUnusedWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup>
       <Reference Remove="@(Reference)" Condition="'%(Reference.Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
     </ItemGroup>
+  </Target>
+  <Target Name="CopyLoginHelper" AfterTargets="Build">
+    <ItemGroup>
+      <LoginHelperFiles Include="../AIBotLoginHelper/bin/$(Configuration)/net8.0-windows/AIBotLoginHelper.exe;../AIBotLoginHelper/bin/$(Configuration)/net8.0-windows/AIBotLoginHelper.dll;../AIBotLoginHelper/bin/$(Configuration)/net8.0-windows/AIBotLoginHelper.deps.json;../AIBotLoginHelper/bin/$(Configuration)/net8.0-windows/AIBotLoginHelper.runtimeconfig.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LoginHelperFiles)" DestinationFolder="$(TargetDir)LoginHelper" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="PublishLoginHelper" AfterTargets="Publish" DependsOnTargets="CopyLoginHelper">
+    <Copy SourceFiles="@(LoginHelperFiles)" DestinationFolder="$(PublishDir)LoginHelper" SkipUnchangedFiles="true" />
   </Target>
 </Project>

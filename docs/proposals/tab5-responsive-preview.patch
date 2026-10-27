@@ -1,0 +1,180 @@
+--- a/firmware/main/photo_transfer_crypto.c
++++ b/firmware/main/photo_transfer_crypto.c
+@@ -79,7 +79,7 @@
+     return result;
+ }
+ typedef struct {mbedtls_sha256_context ctx;uint8_t input[PHOTO_TX_CRYPTO_CHUNK],hash[32];} photo_sha_work;
+-static int sha_chunks(const uint8_t *input,size_t size,uint8_t hash[32],bool tracked) {
++static int sha_chunks(const uint8_t *input,size_t size,uint8_t hash[32],bool tracked,bool (*progress)(void *),void *context) {
+     if((!input&&size)||!hash)return MBEDTLS_ERR_SHA256_BAD_INPUT_DATA;
+     if(tracked)photo_display_probe_mark(PHOTO_DISPLAY_PROBE_HASH);
+     if(tracked){photo_tx_phase(PHOTO_TX_HASH);}
+@@ -87,10 +87,21 @@
+     photo_sha_work *work=heap_caps_calloc(1,sizeof(*work),MALLOC_CAP_INTERNAL|MALLOC_CAP_DMA|MALLOC_CAP_8BIT);
+     if(!work){memset(hash,0,32);return MBEDTLS_ERR_SHA256_BAD_INPUT_DATA;}
+     mbedtls_sha256_init(&work->ctx);int result=mbedtls_sha256_starts(&work->ctx,0);
++    size_t quantum=0;int64_t quantum_at=esp_timer_get_time();
+     for(size_t at=0;!result&&at<size;) {
+         size_t count=size-at;if(count>PHOTO_TX_CRYPTO_CHUNK)count=PHOTO_TX_CRYPTO_CHUNK;
+         memcpy(work->input,input+at,count);result=mbedtls_sha256_update(&work->ctx,work->input,count);
+-        at+=count;if(!result){if(tracked)atomic_fetch_add(&crypto_chunks,1);if(at<size)pause_chunk();}
++        at+=count;quantum+=count;
++        if(!result) {
++            if(tracked)atomic_fetch_add(&crypto_chunks,1);
++            if(at<size) {
++                if(!progress)pause_chunk();
++                else if(quantum>=16384||esp_timer_get_time()-quantum_at>=1000) {
++                    if(!progress(context)){result=MBEDTLS_ERR_SHA256_BAD_INPUT_DATA;break;}
++                    quantum=0;quantum_at=esp_timer_get_time();
++                }
++            }
++        }
+     }
+     if(!result)result=mbedtls_sha256_finish(&work->ctx,work->hash);
+     if(!result)memcpy(hash,work->hash,32);else memset(hash,0,32);
+@@ -105,5 +116,8 @@
+ int rpc_payload_encrypt(const uint8_t key[32],const uint8_t iv[12],const uint8_t aad[32],const uint8_t *input,size_t size,uint8_t *output,uint8_t tag[16]) {
+     return encrypt_chunks(key,iv,aad,input,size,output,tag,false);
+ }
+-int photo_tx_sha256(const uint8_t *input,size_t size,uint8_t hash[32]) { return sha_chunks(input,size,hash,true); }
+-int rpc_payload_sha256(const uint8_t *input,size_t size,uint8_t hash[32]) { return sha_chunks(input,size,hash,false); }
++int photo_tx_sha256(const uint8_t *input,size_t size,uint8_t hash[32]) { return sha_chunks(input,size,hash,true,NULL,NULL); }
++int rpc_payload_sha256(const uint8_t *input,size_t size,uint8_t hash[32]) { return sha_chunks(input,size,hash,false,NULL,NULL); }
++int preview_payload_sha256(const uint8_t *input,size_t size,uint8_t hash[32],bool (*progress)(void *),void *context) {
++    return sha_chunks(input,size,hash,false,progress,context);
++}
+--- a/firmware/main/photo_transfer_crypto.h
++++ b/firmware/main/photo_transfer_crypto.h
+@@ -1,6 +1,7 @@
+ #pragma once
+ #include <stddef.h>
+ #include <stdint.h>
++#include <stdbool.h>
+ 
+ // Photo uploads only. Other RPC, OTA and command packets retain their paths.
+ enum { PHOTO_TX_IDLE, PHOTO_TX_COPY, PHOTO_TX_PACK, PHOTO_TX_CRYPT,
+@@ -18,3 +19,8 @@
+ // Same bounded PSRAM-safe crypto without changing photo diagnostics.
+ int rpc_payload_encrypt(const uint8_t key[32],const uint8_t iv[12],const uint8_t aad[32],const uint8_t *input,size_t size,uint8_t *output,uint8_t tag[16]);
+ int rpc_payload_sha256(const uint8_t *input,size_t size,uint8_t hash[32]);
++
++// Preview-only scheduling: the same full SHA and internal1KiB DMA staging.
++// Yield/check foreground work after at most16KiB or1ms, without changing
++// photo uploads or authenticated RPC packet scheduling.
++int preview_payload_sha256(const uint8_t *input,size_t size,uint8_t hash[32],bool (*progress)(void *),void *context);
+--- a/firmware/main/screen_preview.c
++++ b/firmware/main/screen_preview.c
+@@ -102,6 +102,7 @@
+     if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy()){job->cancelled=true;return;}
+     if(esp_timer_get_time()/1000-job->progress_ms>=1000)announce(job);
+ }
++static bool hash_yield(void *context) {encode_yield(context);return current(context);}
+ static void worker(void *argument) {
+     preview_job *job=argument;uint16_t *pixels=spare_pixels;spare_pixels=NULL;uint8_t *encoded=NULL;
+     if(!job->jpeg){free(pixels);pixels=NULL;}
+@@ -140,7 +141,7 @@
+     if(!captured){error="capture";goto done;}
+     if(!current(job))goto done;
+     uint8_t pixel_hash[32];
+-    if(rpc_payload_sha256((const uint8_t *)pixels,count*2,pixel_hash)){error="encoding";goto done;}
++    if(preview_payload_sha256((const uint8_t *)pixels,count*2,pixel_hash,hash_yield,job)){error="encoding";goto done;}
+     if(job->extended&&!strcmp(previous_stream,job->stream)&&previous_width==job->width&&previous_height==job->height&&
+        !memcmp(pixel_hash,previous_pixels,sizeof(pixel_hash))) {
+         request=message(job,"unchanged");
+@@ -173,7 +174,7 @@
+     if(!current(job))goto done;
+     if(!size||size>524288){error="encoding";goto done;}
+     uint8_t digest[32];char sha[65];
+-    if(rpc_payload_sha256(encoded,size,digest)){error="encoding";goto done;}
++    if(preview_payload_sha256(encoded,size,digest,hash_yield,job)){error="encoding";goto done;}
+     for(unsigned i=0;i<32;i++)snprintf(sha+i*2,3,"%02x",digest[i]);
+     for(size_t offset=0;offset<size&&current(job);) {
+         voice_remote_get(&job->voice);if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy())break;
+--- a/firmware/components/esp_lvgl_port/include/tab5_screen_preview_pixels.h
++++ b/firmware/components/esp_lvgl_port/include/tab5_screen_preview_pixels.h
+@@ -11,14 +11,16 @@
+     int sw=(rotation&1)?nh:nw,sh=(rotation&1)?nw:nh;
+     if(width>sw||height>sh)return false;
+     for(int ty=0;ty<height;ty+=16)for(int tx=0;tx<width;tx+=16)
+-        for(int y=ty;y<height&&y<ty+16;y++)for(int x=tx;x<width&&x<tx+16;x++) {
+-            int sx=(int)(((int64_t)x*2+1)*sw/(width*2));
+-            int sy=(int)(((int64_t)y*2+1)*sh/(height*2));
++        for(int y=ty;y<height&&y<ty+16;y++) {
++          int sy=height==sh?y:(int)(((int64_t)y*2+1)*sh/(height*2));
++          for(int x=tx;x<width&&x<tx+16;x++) {
++            int sx=width==sw?x:(int)(((int64_t)x*2+1)*sw/(width*2));
+             int nx=sx,ny=sy;
+             if(rotation==1){nx=sy;ny=nh-1-sx;}
+             else if(rotation==2){nx=nw-1-sx;ny=nh-1-sy;}
+             else if(rotation==3){nx=nw-1-sy;ny=sx;}
+             out[(size_t)y*width+x]=source[(size_t)ny*nw+nx];
++          }
+         }
+     return true;
+ }
+--- a/tests/ui-preview/photo_transfer_crypto_test.c
++++ b/tests/ui-preview/photo_transfer_crypto_test.c
+@@ -13,7 +13,7 @@
+ void photo_display_probe_mark(unsigned stage){assert(stage==PHOTO_DISPLAY_PROBE_CRYPT||stage==PHOTO_DISPLAY_PROBE_HASH);}
+ #include "esp_heap_caps.h"
+ static void *allocation;static size_t allocation_size,peak;
+-static unsigned ticks,calls,inject,fail_alloc;static int64_t now;
++static unsigned ticks,calls,inject,fail_alloc,update_us,preview_callbacks,preview_cancel,last_callback_calls;static int64_t now,last_callback_time;
+ void *heap_caps_calloc(size_t count,size_t size,unsigned caps){
+     assert(caps==(MALLOC_CAP_INTERNAL|MALLOC_CAP_DMA|MALLOC_CAP_8BIT));assert(!allocation);
+     if(fail_alloc)return NULL;
+@@ -32,7 +32,7 @@
+ static int hash_update(mbedtls_sha256_context *ctx,const uint8_t *in,size_t n){
+     assert(internal(ctx,sizeof(*ctx))&&internal(in,n)&&n<=PHOTO_TX_CRYPTO_CHUNK);
+     if(++calls==inject)return -777;
+-    return mbedtls_sha256_update(ctx,in,n);
++    now+=update_us;return mbedtls_sha256_update(ctx,in,n);
+ }
+ static int crypt_finish(mbedtls_gcm_context *ctx,uint8_t *out,size_t cap,size_t *written,uint8_t *tag,size_t n){
+     assert(internal(ctx,sizeof(*ctx))&&internal(out,cap)&&internal(tag,n));
+@@ -49,6 +49,13 @@
+ #undef mbedtls_sha256_update
+ #undef mbedtls_gcm_finish
+ static void zeros(const uint8_t *p,size_t n){for(size_t i=0;i<n;i++)assert(p[i]==0);}
++static bool preview_progress(void *context){
++    assert(context==&preview_callbacks);preview_callbacks++;
++    assert(calls-last_callback_calls<=16);
++    if(update_us)assert(now-last_callback_time<=1000+update_us);
++    last_callback_calls=calls;vTaskDelay(1);last_callback_time=now;
++    return !preview_cancel||preview_callbacks<preview_cancel;
++}
+ int main(void){
+     uint8_t key[32],iv[12],aad[32],expected_tag[16],tag[16],digest[32],expected_digest[32];
+     for(unsigned i=0;i<32;i++){key[i]=(uint8_t)(i*7);aad[i]=(uint8_t)(i*3+1);if(i<12)iv[i]=(uint8_t)(i*11);}
+@@ -67,6 +74,12 @@
+             assert(!mbedtls_gcm_auth_decrypt(&ctx,n,iv,12,aad,32,tag,16,output,restored)&&!memcmp(restored,input,n));
+             if(n>PHOTO_TX_CRYPTO_CHUNK)assert(ticks>0);
+             assert(!photo_tx_sha256(input,n,digest)&&!memcmp(digest,expected_digest,32));assert(!allocation);cases++;
++            calls=ticks=preview_callbacks=last_callback_calls=0;now=last_callback_time=0;
++            assert(!preview_payload_sha256(input,n,digest,preview_progress,&preview_callbacks));
++            assert(!memcmp(digest,expected_digest,32)&&ticks==(n?(n-1)/16384:0)&&!allocation);cases++;
++            calls=ticks=0;
++            assert(!rpc_payload_sha256(input,n,digest)&&!memcmp(digest,expected_digest,32));
++            assert(ticks==(n?(n-1)/1024:0)&&!allocation);cases++;
+         }
+         mbedtls_gcm_free(&ctx);free(restored);free(expected);free(output);free(input);
+     }
+@@ -81,5 +94,18 @@
+     for(unsigned fault=1;fault<=5;fault++){calls=0;inject=fault;assert(photo_tx_sha256(input,sizeof(input),digest)==-777);zeros(digest,32);assert(!allocation);}
+     inject=0;calls=0;assert(!photo_tx_encrypt(key,iv,aad,input,sizeof(input),output,tag));
+     photo_tx_finish(200);char diagnostic[160];photo_tx_diagnostics(diagnostic,sizeof(diagnostic));assert(strstr(diagnostic,",1024,200"));
++    uint8_t *large=malloc(1280u*720u*2u);assert(large);memset(large,0x73,1280u*720u*2u);
++    calls=ticks=preview_callbacks=last_callback_calls=0;now=last_callback_time=0;
++    assert(!preview_payload_sha256(large,1280u*720u*2u,digest,preview_progress,&preview_callbacks));
++    assert(ticks==112&&calls==1800);cases++;
++    printf("PREVIEW_HASH_SCHEDULE: fullHD=1843200 bytes, internalChunk=1024, pauses=%u (legacy1799)\n",ticks);
++    calls=ticks=preview_callbacks=last_callback_calls=0;now=last_callback_time=0;update_us=400;
++    assert(!preview_payload_sha256(large,65537,digest,preview_progress,&preview_callbacks));
++    assert(preview_callbacks>4&&ticks==preview_callbacks);cases++;update_us=0;
++    calls=ticks=preview_callbacks=last_callback_calls=0;now=last_callback_time=0;preview_cancel=3;
++    assert(preview_payload_sha256(large,65537,digest,preview_progress,&preview_callbacks));
++    assert(preview_callbacks==3&&calls==48&&!allocation);zeros(digest,32);cases++;preview_cancel=0;
++    for(unsigned fault=1;fault<=5;fault++){calls=0;inject=fault;assert(preview_payload_sha256(large,65537,digest,preview_progress,&preview_callbacks)==-777);zeros(digest,32);assert(!allocation);cases++;}
++    inject=0;free(large);
+     assert(peak<4096);printf("PHOTO_TRANSFER_CRYPTO_PASS: %u real mbedTLS GCM/SHA equality cases, internal-buffer bounds, errors/retry/zeroization; peak=%zu\n",cases,peak);return 0;
+ }

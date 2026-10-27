@@ -53,7 +53,7 @@ enum MacPetAssetImporter {
         guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             throw MacPetAssetError.decodeFailed
         }
-        guard let data = MacRgb565Renderer.renderImage(image, width: 112, height: 112),
+        guard let data = MacRgb565Renderer.renderImage(image, width: 112, height: 112, topDown: true),
               data.count == 112 * 112 * 2 else { throw MacPetAssetError.renderFailed }
         return MacPetAsset(data: data, licenseURL: license)
     }
@@ -82,7 +82,7 @@ enum MacPetAssetImporter {
             delays.append(UInt16(min(60000, max(20, duration))))
             guard let image = CGImageSourceCreateImageAtIndex(source, start, nil),
                   validDimensions(width: image.width, height: image.height),
-                  let frame = MacRgb565Renderer.renderImage(image, width: 112, height: 112) else { throw MacPetAssetError.decodeFailed }
+                  let frame = MacRgb565Renderer.renderImage(image, width: 112, height: 112, topDown: true) else { throw MacPetAssetError.decodeFailed }
             frames.append(frame)
         }
         // APET v1 remains supported by the firmware alongside original-size v2.
@@ -114,7 +114,8 @@ enum MacPetAssetImporter {
 }
 
 extension MacRgb565Renderer {
-    static func renderImage(_ image: CGImage, width: Int, height: Int) -> Data? {
+    static func renderImage(_ image: CGImage, width: Int, height: Int,
+                            topDown: Bool = false) -> Data? {
         guard width > 0, height > 0 else { return nil }
         let bytesPerRow = width * 4
         var rgba = [UInt8](repeating: 0, count: bytesPerRow * height)
@@ -140,7 +141,7 @@ extension MacRgb565Renderer {
 
             var result = Data(capacity: width * height * 2)
             for outputY in 0..<height {
-                let sourceY = height - 1 - outputY
+                let sourceY = topDown ? outputY : height - 1 - outputY
                 for x in 0..<width {
                     let offset = sourceY * bytesPerRow + x * 4
                     let value = rgb565(red: pixels[offset], green: pixels[offset + 1],

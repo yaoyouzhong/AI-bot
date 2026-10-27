@@ -4,7 +4,7 @@ import Foundation
 
 enum MacTab5Error: LocalizedError, Equatable {
     case invalidPacket, invalidSettings, unavailable, busy, staleRevision, unconfirmed, deviceBusy, saveFailed
-    case identity, pairingRequired, keychain, serial, timeout, unsupported, invalidWiFi
+    case identity, pairingRequired, keychain, serial, timeout, unsupported, invalidWiFi, hostNotTrusted
 
     var errorDescription: String? {
         switch self {
@@ -23,6 +23,7 @@ enum MacTab5Error: LocalizedError, Equatable {
         case .timeout: return "未收到 TAB5 确认，请检查数据线和设备固件。"
         case .unsupported: return "当前设备或桥接不支持此操作。"
         case .invalidWiFi: return "Wi-Fi 名称应为 1–32 字节，密码最多 63 字节，不能包含空字符。"
+        case .hostNotTrusted: return "此 Mac 尚未通过设备认证，请明确通过 USB 配对；已有可信电脑会保留。"
         }
     }
 }
@@ -30,7 +31,7 @@ enum MacTab5Error: LocalizedError, Equatable {
 enum MacTab5Protocol {
     static let prefix = "@AIBOT "
     static let maximumFrame = 32_768
-    static let maximumRPC = 12_288
+    static let maximumRPC = MacTab5Binary.maximumRequest
 
     static func isHex(_ value: String, count: Int) -> Bool {
         value.utf8.count == count && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
@@ -48,8 +49,8 @@ enum MacTab5Protocol {
         return zip(expected.utf8, proof.utf8).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
     }
 
-    static func encrypt(_ clear: Data, key: Data, challenge: String, nonce: Data? = nil) throws -> Data {
-        guard key.count == 32, isHex(challenge, count: 32), clear.count <= maximumFrame - 28 else { throw MacTab5Error.invalidPacket }
+    static func encrypt(_ clear: Data, key: Data, challenge: String, nonce: Data? = nil, maximum: Int = maximumFrame) throws -> Data {
+        guard (28...3 * 1024 * 1024).contains(maximum), key.count == 32, isHex(challenge, count: 32), clear.count <= maximum - 28 else { throw MacTab5Error.invalidPacket }
         let iv = try nonce.map { try AES.GCM.Nonce(data: $0) } ?? AES.GCM.Nonce()
         guard iv.withUnsafeBytes({ $0.count }) == 12 else { throw MacTab5Error.invalidPacket }
         let sealed = try AES.GCM.seal(clear, using: SymmetricKey(data: key), nonce: iv, authenticating: Data(challenge.utf8))
@@ -59,8 +60,8 @@ enum MacTab5Protocol {
         return packet
     }
 
-    static func decrypt(_ packet: Data, key: Data, challenge: String) throws -> Data {
-        guard key.count == 32, isHex(challenge, count: 32), (28...maximumRPC).contains(packet.count) else { throw MacTab5Error.invalidPacket }
+    static func decrypt(_ packet: Data, key: Data, challenge: String, maximum: Int = MacTab5Binary.maximumMailbox) throws -> Data {
+        guard key.count == 32, isHex(challenge, count: 32), (28...maximum).contains(packet.count) else { throw MacTab5Error.invalidPacket }
         let bytes = [UInt8](packet)
         let sealed = try AES.GCM.SealedBox(nonce: AES.GCM.Nonce(data: bytes[0..<12]),
                                          ciphertext: bytes[28...], tag: bytes[12..<28])
@@ -83,14 +84,15 @@ enum MacTab5Protocol {
               n.doubleValue == Double(n.int64Value) else { return nil }
         return n.int64Value
     }
+    static func isBoolean(_ value: Any?) -> Bool { value.map { CFGetTypeID($0 as CFTypeRef) == CFBooleanGetTypeID() } ?? false }
 
     static func snapshot(_ snapshot: MacStatusSnapshot, device: String, session: String, sequence: Int64,
-                         command: [String: Any]?) throws -> Data {
+                         command: [String: Any]?, additions: [String: Any] = [:], hasArtwork: Bool = false,
+                         music: MusicSnapshot? = nil, now: Date = Date()) throws -> Data {
         let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
         var data = try object(encoder.encode(snapshot))
         // ESP8266 display preferences and unavailable capabilities are not TAB5 settings.
         data.removeValue(forKey: "displayPolicy")
-        data.removeValue(forKey: "domesticQuotas")
         data["epochMilliseconds"] = Int64(snapshot.capturedAt.timeIntervalSince1970 * 1000)
         data["pcInput"] = ["session": session, "sequence": sequence]
         data["connectionHealth"] = ["displayCommand": command.map { $0 as Any } ?? NSNull()]
@@ -102,15 +104,17 @@ enum MacTab5Protocol {
         if var stocks = data["stocks"] as? [String: Any], let quotes = stocks["quotes"] as? [[String: Any]] {
             stocks["quotes"] = Array(quotes.prefix(20)); data["stocks"] = stocks
         }
-        if var music = data["music"] as? [String: Any] { music["hasArtwork"] = false; data["music"] = music }
-        let zone = TimeZone(secondsFromGMT: snapshot.utcOffsetSeconds) ?? .gmt
-        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
-        let date = Date(timeIntervalSince1970: TimeInterval(snapshot.epochUtc))
-        let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
-        data["calendar"] = ["date": String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0),
-                            "weekday": "星期" + ["日", "一", "二", "三", "四", "五", "六"][(parts.weekday ?? 1) - 1],
-                            "lunar": LunarDate.format(epoch: snapshot.epochUtc, utcOffset: snapshot.utcOffsetSeconds)]
+        if let track = music ?? snapshot.music {
+            var music = try object(encoder.encode(track))
+            let timeline = track.timeline(at: now)
+            music["elapsedSeconds"] = timeline.elapsed
+            music["timelineAvailable"] = timeline.available
+            music["hasArtwork"] = hasArtwork
+            data["music"] = music; data["musicPlaying"] = track.playing
+        }
+        data["calendar"] = MacTab5Calendar.snapshot(epoch: snapshot.epochUtc, offset: snapshot.utcOffsetSeconds)
         data["quotaDetails"] = quotaDetails(snapshot)
+        for (key, value) in additions { data[key] = value }
         let frame = try json(["version": 1, "type": "tab5_status", "deviceId": device,
                               "session": session, "sequence": sequence, "data": data])
         guard frame.count <= maximumFrame - 28 else { throw MacTab5Error.invalidPacket }
@@ -118,7 +122,7 @@ enum MacTab5Protocol {
     }
 
     private static func quotaDetails(_ snapshot: MacStatusSnapshot) -> [[String: Any]] {
-        [("claude", "Claude", snapshot.quotas?.claude, snapshot.claude.tokensToday),
+        var details = [("claude", "Claude", snapshot.quotas?.claude, snapshot.claude.tokensToday),
          ("codex", "Codex", snapshot.quotas?.codex, snapshot.codex.tokensToday)].map { id, name, quota, tokens in
             var value: [String: Any] = ["id": id, "name": name, "stale": quota?.stale ?? false, "tokensToday": tokens]
             value["plan"] = quota?.plan
@@ -127,13 +131,46 @@ enum MacTab5Protocol {
             value["weekly"] = quota?.weeklyPercent
             value["primaryResetEpoch"] = hasPrimary ? quota?.primaryResetsAt.map { Int64($0.timeIntervalSince1970) } : nil
             value["weeklyResetEpoch"] = quota?.weeklyResetsAt.map { Int64($0.timeIntervalSince1970) }
+            value["primaryWindowSeconds"] = hasPrimary ? quota?.primaryWindowSeconds : nil
+            value["weeklyWindowSeconds"] = quota?.weeklyWindowSeconds
             let formatter = DateFormatter(); formatter.dateFormat = "MM-dd HH:mm"
             formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: snapshot.utcOffsetSeconds)
             value["primaryReset"] = hasPrimary ? quota?.primaryResetsAt.map { formatter.string(from: $0) } ?? "--" : "--"
             value["weeklyReset"] = quota?.weeklyResetsAt.map { formatter.string(from: $0) } ?? "--"
             value["planReset"] = "--"
             value["credits"] = quota?.resetCreditsAvailable
+            formatter.dateFormat = "yyyy-MM-dd HH:mm"
+            value["creditExpiries"] = quota?.resetCreditExpiresAt.sorted().map {
+                formatter.string(from: Date(timeIntervalSince1970: Double($0)))
+            } ?? []
             return value
         }
+        // TAB5 selects these rows by their established index, not only by id.
+        for (id, name, quota) in [("alibaba", "百炼", snapshot.domesticQuotas?.alibaba),
+                                  ("kimi", "Kimi", snapshot.domesticQuotas?.kimi),
+                                  ("minimax", "MiniMax", snapshot.domesticQuotas?.miniMax),
+                                  ("deepseek", "DeepSeek", snapshot.domesticQuotas?.deepSeek),
+                                  ("zhipu", "智谱", snapshot.domesticQuotas?.zhipu),
+                                  ("stepfun", "阶跃", snapshot.domesticQuotas?.stepFun),
+                                  ("baidu", "百度", snapshot.domesticQuotas?.baidu),
+                                  ("xiaomi", "小米", snapshot.domesticQuotas?.xiaomi),
+                                  ("volcengine", "火山方舟", nil)] {
+            var value: [String: Any] = ["id": id, "name": name, "stale": quota?.stale ?? true,
+                                       "primaryReset": "--", "weeklyReset": "--", "planReset": "--"]
+            value["billingMode"] = id == "deepseek" || quota?.balance != nil ? "payg" : "subscription"
+            value["balance"] = quota?.balance; value["cost"] = quota?.usedCost
+            value["currency"] = quota?.currency; value["plan"] = quota?.plan
+            value["primary"] = quota?.primaryPercent; value["weekly"] = quota?.weeklyPercent; value["planPercent"] = quota?.planPercent
+            value["primaryResetEpoch"] = quota?.primaryResetsAt.map { Int64($0.timeIntervalSince1970) }
+            value["weeklyResetEpoch"] = quota?.weeklyResetsAt.map { Int64($0.timeIntervalSince1970) }
+            value["planResetEpoch"] = quota?.planResetsAt.map { Int64($0.timeIntervalSince1970) }
+            value["primaryWindowSeconds"] = quota?.primaryWindowSeconds; value["weeklyWindowSeconds"] = quota?.weeklyWindowSeconds; value["planWindowSeconds"] = quota?.planWindowSeconds
+            let formatter = DateFormatter(); formatter.dateFormat = "MM-dd HH:mm"; formatter.timeZone = TimeZone(secondsFromGMT:snapshot.utcOffsetSeconds)
+            value["primaryReset"] = quota?.primaryResetsAt.map { formatter.string(from:$0) } ?? "--"
+            value["weeklyReset"] = quota?.weeklyResetsAt.map { formatter.string(from:$0) } ?? "--"
+            value["planReset"] = quota?.planResetsAt.map { formatter.string(from:$0) } ?? "--"
+            details.append(value)
+        }
+        return details
     }
 }

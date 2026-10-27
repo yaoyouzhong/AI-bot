@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/espressif/esp32-camera",
+  "commit": "f37e65608f709bd94846dee01d947f02ae07c0b0",
+  "files": {
+    "jpge.cpp": {
+      "url": "https://raw.githubusercontent.com/espressif/esp32-camera/f37e65608f709bd94846dee01d947f02ae07c0b0/conversions/jpge.cpp",
+      "sha256": "7f0db9452325e66931a6f95dec9a91e0a3d34c6ddbc4d3cddd67eff2f3eff29c"
+    },
+    "jpge.h": {
+      "url": "https://raw.githubusercontent.com/espressif/esp32-camera/f37e65608f709bd94846dee01d947f02ae07c0b0/conversions/private_include/jpge.h",
+      "sha256": "faa5f2b820586f8e1ed10ade58ac8aa343406a84815da4622a6f0e7c631b8e1b"
+    },
+    "LICENSE": {
+      "url": "https://raw.githubusercontent.com/espressif/esp32-camera/f37e65608f709bd94846dee01d947f02ae07c0b0/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  }
+}

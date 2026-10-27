@@ -1,0 +1,49 @@
+{
+  "status": "Release, 922 isolated checks, 7 production helper checks, fixed signature, normal deployment and physical USB stop/full-run retest passed",
+  "baseBundle": "artifacts/mac-benchmark-status-20261024/AIBotBridge.app",
+  "candidateBundle": "artifacts/mac-benchmark-stop-20261024/AIBotBridge.app",
+  "prerequisites": [
+    "mac-benchmark-reply-compat.patch",
+    "mac-benchmark-status-heartbeat.patch"
+  ],
+  "patchSha256": "e2c31f1e03effa84cd9801c9f5e1deff55262173809d5706db0b1e7c573a9729",
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5ToolsWindow.swift",
+      "beforeSha256": "2b7a8d99fb50843df5f10779f7fbdb0eeae2a09a3ae51b35c3ac032d60fd494d",
+      "afterSha256": "91a28ce5eb1341f2775308292e3d27151b884342955e5e124b62c384acffb0ab"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BenchmarkStop.swift",
+      "beforeSha256": null,
+      "afterSha256": "0ca92a2a403fd686eceec86b329ab2a439677cf6d0a81904c3292c37196989db"
+    },
+    {
+      "path": "mac-app/Tests/AIBotBridgeTests/MacTab5BenchmarkStopTests.swift",
+      "beforeSha256": null,
+      "afterSha256": "3b919a77d00d052ae025c4d0789dad0269ec9bd0a605a9c6a356fe64566f47dc"
+    }
+  ],
+  "behavior": "Send one cancellation; poll only status for a terminal device result before reporting stopped/releasing the gate. Cleanup survives caller cancellation and uses a monotonic 15-second observation budget plus bounded in-flight USB calls. Timeout/malformed/unconfirmed results remain explicit failures. Preserve actual completed result if cancellation is too late.",
+  "productionHelperChecks": 7,
+  "probeEvidence": "artifacts/development/mac-benchmark-stop-20261024/probe.log",
+  "fullXCTest": "unavailable in installed CLT; not claimed passed",
+  "firmwareGenerated": false,
+  "physicalAcceptance": "actual device stop confirmed in both UI areas; subsequent complete USB run passed, six 256 KiB samples with zero errors; no Wi-Fi/BLE benchmark claim",
+  "deployment": {
+    "singleInstance": true,
+    "pid": 94913,
+    "nativeUsbDataConfirmed": true,
+    "authenticatedWifi": true,
+    "bleUsbPriorityStandby": true
+  },
+  "physicalEvidence": "artifacts/development/mac-transport-live-acceptance-20261024/PROGRESS.json",
+  "restoredConnection": {
+    "firmware": "0.2.267-ui",
+    "usbDataConfirmed": true,
+    "wifiAuthenticated": true,
+    "bleUsbPriorityStandby": true,
+    "inspectionWindowsClosed": true,
+    "backgroundBridgeRetained": true
+  }
+}

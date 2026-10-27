@@ -1,0 +1,76 @@
+--- a/firmware/main/ui_agenda.h
++++ b/firmware/main/ui_agenda.h
+@@ -35,7 +35,7 @@
+     if(agenda_pending_alarm){if(agenda_ui.last_success)visible(agenda_popup,false);else {ui_text(agenda_popup_status,agenda_ui.message);tint(agenda_popup_status,RED);}}
+     if(agenda_pending_editor){agenda_editor_result();agenda_pending_editor=false;}
+     if(agenda_pending_delete){
+-        if(agenda_ui.last_success)visible(agenda_delete_layer,false);else ui_text(agenda_delete_status,agenda_ui.message);
++        if(agenda_ui.last_success)visible(agenda_delete_layer,false);else {ui_text(agenda_delete_status,agenda_ui.message);tint(agenda_delete_status,RED);}
+         lv_obj_remove_state(agenda_delete_yes,LV_STATE_DISABLED);lv_obj_remove_state(agenda_delete_no,LV_STATE_DISABLED);agenda_pending_delete=false;
+     }
+     agenda_pending_request=0;agenda_pending_alarm=false;agenda_popup_busy(false);
+@@ -119,13 +119,13 @@
+ }
+ static void agenda_delete_show(lv_event_t *event) {
+     (void)event;if(agenda_pending_request)return;const agenda_item *item=agenda_selected_item(agenda_selected);if(!item)return;
+-    strcpy(agenda_delete_id,item->id);strcpy(agenda_delete_edit,item->edit);ui_text(agenda_delete_title,item->title);ui_text(agenda_delete_status,"先从 TAB5 删除，连接后自动同步电脑");
++    strcpy(agenda_delete_id,item->id);strcpy(agenda_delete_edit,item->edit);ui_text(agenda_delete_title,item->title);ui_text(agenda_delete_status,"删除后会同步到电脑，离线时将在重连后同步");tint(agenda_delete_status,MUTED);
+     visible(agenda_delete_layer,true);lv_obj_move_foreground(agenda_delete_layer);
+ }
+ static void agenda_delete_cancel(lv_event_t *event){(void)event;if(!agenda_pending_delete)visible(agenda_delete_layer,false);}
+ static void agenda_delete_confirm(lv_event_t *event) {
+     (void)event;if(agenda_pending_request)return;agenda_pending_request=agenda_remove(agenda_delete_id,agenda_delete_edit);agenda_pending_delete=agenda_pending_request!=0;
+-    ui_text(agenda_delete_status,agenda_pending_delete?"正在保存删除…":"删除未发起，原事项仍保留");
++    ui_text(agenda_delete_status,agenda_pending_delete?"正在保存删除…":"删除未发起，原事项仍保留");tint(agenda_delete_status,agenda_pending_delete?MUTED:RED);
+     if(agenda_pending_delete){lv_obj_add_state(agenda_delete_yes,LV_STATE_DISABLED);lv_obj_add_state(agenda_delete_no,LV_STATE_DISABLED);}
+ }
+ static void agenda_filter(lv_event_t *event){intptr_t index=(intptr_t)lv_event_get_user_data(event);agenda_today=index==0;lv_obj_scroll_to_y(agenda_list,0,LV_ANIM_OFF);agenda_render();}
+@@ -179,11 +179,16 @@
+     agenda_popup_dismiss=button(reminder,"知道了",592,264,168,agenda_alarm_action,2);lv_obj_set_height(agenda_popup_dismiss,64);
+     ui_bg_color(agenda_popup_dismiss,lv_color_hex(BLUE),0);tint(lv_obj_get_child(agenda_popup_dismiss,0),0x173642);
+     visible(agenda_popup,false);
+-    agenda_delete_layer=shape(screen,0,0,1280,720,0x000000,0);ui_bg_opa(agenda_delete_layer,LV_OPA_50,0);lv_obj_add_flag(agenda_delete_layer,LV_OBJ_FLAG_CLICKABLE);
+-    lv_obj_t *confirmation=shape(agenda_delete_layer,220,210,840,300,SURFACE,UI_CARD_RADIUS);
+-    label(confirmation,"删除事项",28,24,780,false);agenda_delete_title=label(confirmation,"",28,82,780,true);ui_text_font(agenda_delete_title,&tab5_font_30,0);lv_obj_set_height(agenda_delete_title,44);lv_label_set_long_mode(agenda_delete_title,LV_LABEL_LONG_DOT);
+-    agenda_delete_status=muted(confirmation,"",28,146,780);
+-    agenda_delete_no=button(confirmation,"取消",28,220,384,agenda_delete_cancel,0);agenda_delete_yes=button(confirmation,"删除",430,220,382,agenda_delete_confirm,0);ui_bg_color(agenda_delete_yes,lv_color_hex(RED),0);tint(lv_obj_get_child(agenda_delete_yes,0),0x34242A);
++    agenda_delete_layer=shape(screen,0,0,1280,720,0x000000,0);ui_bg_opa(agenda_delete_layer,LV_OPA_60,0);lv_obj_add_flag(agenda_delete_layer,LV_OBJ_FLAG_CLICKABLE);
++    lv_obj_t *confirmation=shape(agenda_delete_layer,240,180,800,360,SURFACE,UI_CARD_RADIUS);
++    lv_obj_set_style_border_width(confirmation,1,0);ui_border_color(confirmation,lv_color_hex(TRACK),0);
++    shape(confirmation,40,30,4,24,RED,2);lv_obj_t *delete_heading=label(confirmation,"删除事项",58,26,660,false);tint(delete_heading,RED);
++    agenda_delete_title=label(confirmation,"",40,80,720,false);ui_text_font(agenda_delete_title,&tab5_font_30,0);
++    lv_obj_set_height(agenda_delete_title,84);lv_obj_set_style_text_line_space(agenda_delete_title,4,0);lv_label_set_long_mode(agenda_delete_title,LV_LABEL_LONG_WRAP);
++    agenda_delete_status=muted(confirmation,"",40,180,720);lv_obj_set_height(agenda_delete_status,60);lv_label_set_long_mode(agenda_delete_status,LV_LABEL_LONG_WRAP);
++    shape(confirmation,40,248,720,1,TRACK,0);
++    agenda_delete_no=button(confirmation,"取消",408,264,168,agenda_delete_cancel,0);lv_obj_set_height(agenda_delete_no,64);
++    agenda_delete_yes=button(confirmation,"删除",592,264,168,agenda_delete_confirm,0);lv_obj_set_height(agenda_delete_yes,64);ui_bg_color(agenda_delete_yes,lv_color_hex(RED),0);tint(lv_obj_get_child(agenda_delete_yes,0),0x34242A);
+     visible(agenda_delete_layer,false);agenda_render();
+ }
+ static void agenda_tick(int64_t now) {
+--- a/tests/ui-preview/agenda_ui_test.h
++++ b/tests/ui-preview/agenda_ui_test.h
+@@ -210,9 +210,21 @@
+     lv_textarea_set_text(agenda_editor_name,"自动清理规则");agenda_editor_set_date(0,agenda_civil_now()+3600);agenda_editor_set_date(1,agenda_civil_now()+7200);
+     lv_obj_send_event(agenda_editor_save_button,LV_EVENT_CLICKED,NULL);agenda_render();assert(!agenda_editor_open()&&!strcmp(lv_label_get_text(agenda_title),"自动清理规则"));capture("agenda-future-saved");
+     agenda_item *past=&preview_agenda.document.items[preview_agenda.document.count-1];past->dirty=4;char removed_id[33];strcpy(removed_id,past->id);unsigned retained_count=preview_agenda.document.count;
+-    lv_obj_send_event(agenda_delete_button,LV_EVENT_CLICKED,NULL);assert(agenda_delete_open());agenda_test_fonts(agenda_delete_layer);capture("agenda-delete-confirmation");lv_obj_send_event(agenda_delete_no,LV_EVENT_CLICKED,NULL);assert(!agenda_delete_open()&&preview_agenda.document.count==retained_count);
+-    lv_obj_send_event(agenda_delete_button,LV_EVENT_CLICKED,NULL);preview_agenda_save_fail=true;lv_obj_send_event(agenda_delete_yes,LV_EVENT_CLICKED,NULL);agenda_render();assert(agenda_delete_open()&&preview_agenda.document.count==retained_count&&strstr(lv_label_get_text(agenda_delete_status),"仍保留"));capture("agenda-delete-unconfirmed");
+-    preview_agenda_save_fail=false;lv_obj_send_event(agenda_delete_yes,LV_EVENT_CLICKED,NULL);agenda_render();assert(!agenda_delete_open()&&preview_agenda.document.count==retained_count-1&&!agenda_selected_item(removed_id));capture("agenda-delete-complete");puts("AGENDA_DELETE_UI_OK explicit confirmation and cancellation; failed local write preserves record; unsynced item deletes locally");
++    lv_indev_t *delete_touch=lv_indev_create();lv_indev_set_type(delete_touch,LV_INDEV_TYPE_POINTER);lv_indev_set_display(delete_touch,lv_display_get_default());lv_indev_set_read_cb(delete_touch,camera_touch_read);
++    agenda_test_tap(delete_touch,agenda_delete_button);assert(agenda_delete_open());agenda_test_fonts(agenda_delete_layer);capture("agenda-delete-confirmation");
++    agenda_test_tap(delete_touch,agenda_new);assert(agenda_delete_open()&&!agenda_editor_open()&&preview_agenda.document.count==retained_count);
++    ui_text(agenda_delete_title,"客户会议客户会议客户会议客户会议客户会议客户会议客户会议客户会议");capture("agenda-delete-long-title");agenda_test_fonts(agenda_delete_layer);
++    lv_text_get_size(&title_size,lv_label_get_text(agenda_delete_title),lv_obj_get_style_text_font(agenda_delete_title,0),lv_obj_get_style_text_letter_space(agenda_delete_title,0),lv_obj_get_style_text_line_space(agenda_delete_title,0),lv_obj_get_content_width(agenda_delete_title),LV_TEXT_FLAG_NONE);
++    lv_obj_get_coords(agenda_delete_title,&popup_title_area);lv_obj_get_coords(agenda_delete_status,&popup_status_area);lv_obj_get_coords(agenda_delete_yes,&popup_button_area);
++    assert(title_size.y<=lv_obj_get_content_height(agenda_delete_title)&&popup_title_area.y2<popup_status_area.y1&&popup_status_area.y2<popup_button_area.y1);
++    assert(lv_obj_get_height(agenda_delete_no)>=64&&lv_obj_get_height(agenda_delete_yes)>=64&&lv_obj_get_width(agenda_delete_no)==lv_obj_get_width(agenda_delete_yes));
++    agenda_test_tap(delete_touch,agenda_delete_no);assert(!agenda_delete_open()&&preview_agenda.document.count==retained_count);
++    agenda_test_tap(delete_touch,agenda_delete_button);preview_agenda_save_fail=true;agenda_test_tap(delete_touch,agenda_delete_yes);
++    assert(lv_obj_has_state(agenda_delete_no,LV_STATE_DISABLED)&&lv_obj_has_state(agenda_delete_yes,LV_STATE_DISABLED));
++    unsigned delete_request=preview_agenda.completed_request;agenda_test_tap(delete_touch,agenda_delete_no);agenda_test_tap(delete_touch,agenda_delete_yes);
++    assert(agenda_delete_open()&&preview_agenda.completed_request==delete_request);
++    agenda_render();assert(agenda_delete_open()&&preview_agenda.document.count==retained_count&&strstr(lv_label_get_text(agenda_delete_status),"仍保留")&&!lv_obj_has_state(agenda_delete_no,LV_STATE_DISABLED)&&!lv_obj_has_state(agenda_delete_yes,LV_STATE_DISABLED));capture("agenda-delete-unconfirmed");agenda_test_fonts(agenda_delete_layer);
++    preview_agenda_save_fail=false;agenda_test_tap(delete_touch,agenda_delete_yes);agenda_render();assert(!agenda_delete_open()&&preview_agenda.document.count==retained_count-1&&!agenda_selected_item(removed_id));capture("agenda-delete-complete");lv_indev_delete(delete_touch);puts("AGENDA_DELETE_UI_OK pointer confirmation/cancellation, modal background block, long-title fit, pending duplicate-input guard, failed local write preserves record and recovers; unsynced item deletes locally");
+     lv_obj_send_event(agenda_filters[1],LV_EVENT_CLICKED,NULL);assert(!agenda_today);puts("AGENDA_RETENTION_UI_OK today hides ended entries, all retains and labels ended entries, past new input preserved and future entry selectable");
+     strcpy(preview_agenda.message,"本机操作已保存，连接后自动同步");preview_agenda.pending=true;agenda_render();agenda_test_fonts(pages[13]);capture("agenda-sync-retrying");
+     assert(strstr(lv_label_get_text(agenda_status),"待同步"));

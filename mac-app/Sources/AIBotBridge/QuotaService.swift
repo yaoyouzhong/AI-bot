@@ -1,4 +1,6 @@
 import Foundation
+import CryptoKit
+import CoreFoundation
 
 actor MacQuotaService {
     private let store: MacDataStore
@@ -34,7 +36,8 @@ actor MacQuotaService {
             resetCreditsAvailable: nil,
             resetCreditExpiresAt: [],
             updatedAt: now,
-            stale: false)
+            stale: false, primaryWindowSeconds: primary == nil ? nil : 18_000,
+            weeklyWindowSeconds: weekly == nil ? nil : 604_800)
     }
 
     static func parseCodex(_ usage: Data, credits: Data? = nil, credentialPlan: String? = nil,
@@ -45,21 +48,23 @@ actor MacQuotaService {
         var primaryReset: Date?
         var weeklyPercent: Double?
         var weeklyReset: Date?
+        var primaryWindow: Int64?, weeklyWindow: Int64?
         for key in ["primary_window", "secondary_window"] {
             guard let window = dictionary(rateLimit[key]) else { continue }
             if (number(window["limit_window_seconds"]) ?? 0) >= 172_800 {
                 weeklyPercent = number(window["used_percent"])
                 weeklyReset = unixDate(window["reset_at"])
+                weeklyWindow = windowSeconds(window["limit_window_seconds"])
             } else {
                 primaryPercent = number(window["used_percent"])
                 primaryReset = unixDate(window["reset_at"])
+                primaryWindow = windowSeconds(window["limit_window_seconds"])
             }
         }
 
         var available = integer(dictionary(root["rate_limit_reset_credits"])?["available_count"])
         var expirations: [Int64] = []
-        if let credits {
-            let creditRoot = try object(credits)
+        if let credits, let creditRoot = try? object(credits) {
             available = integer(creditRoot["available_count"]) ?? available
             for row in creditRoot["credits"] as? [[String: Any]] ?? []
                 where text(row["status"])?.lowercased() == "available" {
@@ -79,7 +84,7 @@ actor MacQuotaService {
             resetCreditsAvailable: available,
             resetCreditExpiresAt: expirations,
             updatedAt: now,
-            stale: false)
+            stale: false, primaryWindowSeconds: primaryWindow, weeklyWindowSeconds: weeklyWindow)
     }
 
     private func fetchClaude() async -> ProviderQuotaSnapshot? {
@@ -100,12 +105,21 @@ actor MacQuotaService {
 
     private func fetchCodex() async -> ProviderQuotaSnapshot? {
         guard let credential = Self.readCodexCredential() else { return nil }
+        return await collectCodex(credentialPlan: credential.plan, accountID: credential.accountID) { address in
+            try await self.sendCodex(address, credential: credential)
+        }
+    }
+
+    // Keep valid usage even when the independent optional reset-credit request fails.
+    func collectCodex(credentialPlan: String?, accountID: String?,
+                      send: (String) async throws -> Data?) async -> ProviderQuotaSnapshot? {
         do {
-            guard let usage = try await sendCodex(
-                "https://chatgpt.com/backend-api/wham/usage", credential: credential) else { return nil }
-            let credits = try await sendCodex(
-                "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits", credential: credential)
-            return try Self.parseCodex(usage, credits: credits, credentialPlan: credential.plan)
+            guard let usage = try await send("https://chatgpt.com/backend-api/wham/usage") else { return nil }
+            let parsed = try Self.parseCodex(usage, credentialPlan: credentialPlan)
+            let fingerprint = accountID.flatMap { $0.isEmpty ? nil : SHA256.hash(data: Data($0.utf8)).map { String(format: "%02x", $0) }.joined() }
+            store.recordCodexQuota(parsed, account: fingerprint)
+            let credits = try? await send("https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")
+            return try Self.parseCodex(usage, credits: credits, credentialPlan: credentialPlan, now: parsed.updatedAt)
         } catch {
             return nil
         }
@@ -179,14 +193,21 @@ actor MacQuotaService {
     private static func text(_ value: Any?) -> String? { value as? String }
 
     private static func number(_ value: Any?) -> Double? {
-        if let number = value as? NSNumber { return number.doubleValue }
-        if let text = value as? String { return Double(text) }
-        return nil
+        let result: Double?
+        if let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() { result = number.doubleValue }
+        else if let text = value as? String { result = Double(text) }
+        else { result = nil }
+        return result.flatMap { $0.isFinite ? $0 : nil }
     }
 
     private static func integer(_ value: Any?) -> Int? {
         guard let number = number(value) else { return nil }
-        return Int(number)
+        return Int(exactly: number)
+    }
+
+    private static func windowSeconds(_ value: Any?) -> Int64? {
+        guard let number = number(value), number > 0, number <= 2_147_483_647 else { return nil }
+        return Int64(exactly: number)
     }
 
     private static func date(_ value: Any?) -> Date? {

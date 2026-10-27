@@ -8,7 +8,7 @@ internal static class Tab5StatusRecovery
     // Reserve space for clocks, connection health and stale flags even when
     // an earlier valid frame was already close to the transport ceiling.
     internal const int Budget=Tab5Protocol.MaximumFrame-28-512;
-    private static readonly string[] LiveFields=["time","epochUtc","epochMilliseconds","utcOffsetSeconds","capturedAt","pcInput","codex","claude"];
+    private static readonly string[] LiveFields=["time","epochUtc","epochMilliseconds","utcOffsetSeconds","capturedAt","pcInput","codex","claude","imageChunkRetry"];
     internal static byte[] Build(byte[] incoming,byte[]? previous,out string[] deferred,int maximum=Tab5Protocol.MaximumFrame)
     {
         var current=JsonNode.Parse(incoming)!.AsObject();

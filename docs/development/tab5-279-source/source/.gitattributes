@@ -1,0 +1,2 @@
+# Preserve complete upstream font-license evidence byte for byte.
+firmware/main/*OFL.txt -text -whitespace

@@ -1,0 +1,146 @@
+--- /dev/null
++++ b/firmware/main/agenda_chime.h
+@@ -0,0 +1,20 @@
++#pragma once
++#include <stdint.h>
++#include <math.h>
++
++// Original two-note agenda cue: 240 ms D5, 80 ms gap, 320 ms G5,
++// then 40 ms silence. Output is 16 kHz signed PCM, before user volume.
++#define AGENDA_CHIME_BLOCKS 34
++static inline int16_t agenda_chime_sample(unsigned index) {
++    unsigned start, length;float frequency;
++    if(index<3840){start=0;length=3840;frequency=587.33f;}
++    else if(index>=5120&&index<10240){start=5120;length=5120;frequency=783.99f;}
++    else return 0;
++    unsigned position=index-start;float envelope;
++    if(position<320){float t=(float)position/320;envelope=t*t*(3-2*t);}
++    else {float tail=(float)(length-1-position)/(length-1-320);envelope=tail*tail*(3-2*tail);}
++    float phase=6.2831853f*frequency*position/16000;
++    // A quiet second partial adds warmth; retain headroom without changing
++    // codec volume, mute, capture ownership or other notification sounds.
++    return (int16_t)(8333.0f*envelope*(sinf(phase)+0.08f*sinf(2*phase)));
++}
+--- a/firmware/main/voice_remote.c
++++ b/firmware/main/voice_remote.c
+@@ -1,4 +1,5 @@
+ #include "voice_remote.h"
++#include "agenda_chime.h"
+ #include "voice_control.h"
+ #include "voice_recovery.h"
+ #include "rpc_link.h"
+@@ -46,6 +47,7 @@
+ static atomic_uint health_requested;
+ static atomic_uint preview_requested;
+ static atomic_uint timer_requested;
++static atomic_uint agenda_requested;
+ extern const uint8_t reply_notice_start[] asm("_binary_reply_notice_pcm_start");
+ extern const uint8_t reply_notice_end[] asm("_binary_reply_notice_pcm_end");
+ extern const uint8_t health_notice_start[] asm("_binary_health_notice_pcm_start");
+@@ -66,7 +68,10 @@
+ void voice_remote_notify_timer(void) {
+     unsigned now=(unsigned)(esp_timer_get_time()/1000);atomic_store(&timer_requested,now?now:1u);
+ }
+-static void reply_chime(bool spoken,bool health) {
++void voice_remote_notify_agenda(void) {
++    unsigned now=(unsigned)(esp_timer_get_time()/1000);atomic_store(&agenda_requested,now?now:1u);
++}
++static void reply_chime(bool spoken,bool health,bool agenda) {
+     // The existing voice worker owns both playback and capture sessions. Never
+     // open/change the shared I2S clock from the UI thread or during recording.
+     int volume=device_sound_volume();if(!volume)return;
+@@ -103,7 +108,7 @@
+         esp_codec_dev_close(notification_speaker);return;
+     }
+     // Two soft notes with attack/release ramps and silence between/after them.
+-    for(int block=0;result==ESP_CODEC_DEV_OK&&!health&&block<24;block++) {
++    for(int block=0;result==ESP_CODEC_DEV_OK&&!health&&block<(agenda?AGENDA_CHIME_BLOCKS:24);block++) {
+         if(uxQueueMessagesWaiting(voice_jobs)>0||!device_sound_volume())break;
+         int note=block<9?0:block>=12&&block<22?1:-1;
+         int start=note==0?0:12,end=note==0?9:22;
+@@ -112,7 +117,8 @@
+             // Keep headroom below full scale; the previous 2800 peak was
+             // already -21 dB before the user's codec-volume attenuation.
+             float frequency=note==0?660.0f:880.0f;
+-            int16_t sample=(int16_t)(9000*envelope*sinf(6.2831853f*frequency*(block*320+i)/16000));
++            int16_t sample=agenda?agenda_chime_sample((unsigned)(block*320+i)):
++                (int16_t)(9000*envelope*sinf(6.2831853f*frequency*(block*320+i)/16000));
+             pcm[i*2]=sample;pcm[i*2+1]=sample;
+         }
+         result=esp_codec_dev_write(notification_speaker,pcm,sizeof(pcm));
+@@ -143,7 +149,7 @@
+     // the amplifier is off so the next session does not inherit our soft mute.
+     if(mute_known)esp_codec_dev_set_out_mute(notification_speaker,previous_mute);
+     esp_codec_dev_close(notification_speaker);
+-    printf("TAB5_%s_CHIME result=%d\n",health?"HEALTH":"REPLY",result);
++    printf("TAB5_%s_CHIME result=%d\n",health?"HEALTH":agenda?"AGENDA":"REPLY",result);
+ }
+ 
+ // Prepare TX before opening RX, with the same 64 bits/frame as the four-channel
+@@ -472,12 +478,14 @@
+         else {
+             unsigned requested=atomic_exchange(&notification_requested,0);
+             unsigned preview=atomic_exchange(&preview_requested,0);
+-            if(requested&&(unsigned)(esp_timer_get_time()/1000)-requested<30000)reply_chime(true,false);
+-            else if(preview&&(unsigned)(esp_timer_get_time()/1000)-preview<2000)reply_chime(false,false);
++            if(requested&&(unsigned)(esp_timer_get_time()/1000)-requested<30000)reply_chime(true,false,false);
++            else if(preview&&(unsigned)(esp_timer_get_time()/1000)-preview<2000)reply_chime(false,false,false);
+             unsigned health=atomic_exchange(&health_requested,0);
+-            if(health&&(unsigned)(esp_timer_get_time()/1000)-health<30000)reply_chime(false,true);
++            if(health&&(unsigned)(esp_timer_get_time()/1000)-health<30000)reply_chime(false,true,false);
+             unsigned timer=atomic_exchange(&timer_requested,0);
+-            if(timer&&(unsigned)(esp_timer_get_time()/1000)-timer<30000)reply_chime(false,false);
++            if(timer&&(unsigned)(esp_timer_get_time()/1000)-timer<30000)reply_chime(false,false,false);
++            unsigned agenda=atomic_exchange(&agenda_requested,0);
++            if(agenda&&(unsigned)(esp_timer_get_time()/1000)-agenda<30000)reply_chime(false,false,true);
+         }
+     }
+ }
+--- a/firmware/main/voice_remote.h
++++ b/firmware/main/voice_remote.h
+@@ -19,6 +19,7 @@
+ void voice_remote_notify_reply(void); /* Short local chime, deferred while capturing. */
+ void voice_remote_notify_health(void); /* Distinct double alert, without reply speech. */
+ void voice_remote_notify_timer(void); /* Non-spoken chime, respecting mute and capture. */
++void voice_remote_notify_agenda(void); /* Agenda-only cue; same worker, mute and capture priority. */
+ bool voice_remote_preview_sound(void); /* Worker-owned playback; refuses while recording or muted. */
+ int voice_remote_queue_depth(void);
+ int voice_remote_mic_error(void);
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -135,9 +135,11 @@
+ static unsigned preview_chimes;
+ static unsigned preview_health_chimes;
+ static unsigned preview_timer_chimes;
++static unsigned preview_agenda_chimes;
+ void voice_remote_notify_reply(void) {preview_chimes++;}
+ void voice_remote_notify_health(void) {preview_health_chimes++;}
+ void voice_remote_notify_timer(void) {preview_timer_chimes++;}
++void voice_remote_notify_agenda(void) {preview_agenda_chimes++;}
+ bool voice_remote_preview_sound(void) {return !preview_voice.busy&&device_sound_volume()>0;}
+ static bool preview_voice_start_enabled;
+ bool voice_remote_start(const char *id,const char *session,int64_t epoch) {
+--- a/firmware/main/ui_agenda.h
++++ b/firmware/main/ui_agenda.h
+@@ -209,7 +209,7 @@
+     ui_text(agenda_popup_title,title);int seconds=(int)(occurrence%86400);
+     ui_text_fmt(agenda_popup_time,"%02d:%02d 开始",seconds/3600,seconds/60%60);
+     bool can_snooze=civil+600<agenda_ends_at(i,occurrence);visible(agenda_popup_snooze,can_snooze);agenda_popup_busy(false);
+-    ui_text(agenda_popup_status,can_snooze?"选择稍后提醒，或关闭本次提醒":"即将结束，不再延后提醒");tint(agenda_popup_status,can_snooze?MUTED:AMBER);saver_leave();lv_display_trigger_activity(NULL);visible(agenda_popup,true);lv_obj_move_foreground(agenda_popup);voice_remote_notify_timer();
++    ui_text(agenda_popup_status,can_snooze?"选择稍后提醒，或关闭本次提醒":"即将结束，不再延后提醒");tint(agenda_popup_status,can_snooze?MUTED:AMBER);saver_leave();lv_display_trigger_activity(NULL);visible(agenda_popup,true);lv_obj_move_foreground(agenda_popup);voice_remote_notify_agenda();
+ }
+ #include "ui_agenda_editor.h"
+ #if defined(__GNUC__) && !defined(__clang__)
+--- a/tests/ui-preview/agenda_ui_test.h
++++ b/tests/ui-preview/agenda_ui_test.h
+@@ -54,7 +54,10 @@
+     assert(!lv_obj_has_flag(agenda_snooze,LV_OBJ_FLAG_HIDDEN));lv_obj_send_event(agenda_snooze,LV_EVENT_CLICKED,NULL);
+     assert(preview_agenda.document.items[0].snooze_until==agenda_civil_now()+600);agenda_render();capture("agenda-snoozed");
+     // Save failures keep the popup visible until a matching successful operation result.
++    unsigned agenda_sound_before=preview_agenda_chimes,timer_sound_before=preview_timer_chimes;
+     preview_agenda_notice=true;agenda_ui_next=0;agenda_tick(esp_timer_get_time()/1000+1000);assert(!lv_obj_has_flag(agenda_popup,LV_OBJ_FLAG_HIDDEN));capture("agenda-reminder");
++    assert(preview_agenda_chimes==agenda_sound_before+1&&preview_timer_chimes==timer_sound_before);
++    puts("AGENDA_CHIME_ROUTE_OK agenda cue does not use countdown notification");
+     ui_text(agenda_popup_title,"客户会议客户会议客户会议客户会议客户会议客户会议客户会议客户会议");capture("agenda-reminder-long-title");agenda_test_fonts(agenda_popup);
+     lv_text_get_size(&title_size,lv_label_get_text(agenda_popup_title),lv_obj_get_style_text_font(agenda_popup_title,0),lv_obj_get_style_text_letter_space(agenda_popup_title,0),lv_obj_get_style_text_line_space(agenda_popup_title,0),lv_obj_get_content_width(agenda_popup_title),LV_TEXT_FLAG_NONE);
+     lv_area_t popup_title_area,popup_status_area,popup_button_area;

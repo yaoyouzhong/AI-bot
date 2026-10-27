@@ -1,0 +1,351 @@
+--- a/firmware/main/camera_preview.c
++++ b/firmware/main/camera_preview.c
+@@ -30,13 +30,17 @@
+ // two buffers would stall while the displayed frame is retained by LVGL.
+ #define CAMERA_BUFFERS 3
+ #define CAMERA_FRAME_CAPS (MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED)
++#define CAMERA_POOL_FIXED 1
+ 
+ static atomic_bool active, keep_running, capture_requested;
+ static atomic_int state;
+ static bool video_initialized, video_init_failed;
+ static uint16_t *still_pixels;
+-// Only a failed driver teardown retains all three frames. Do not return memory
+-// to the allocator while CSI may still own it; require reboot before reopening.
++// Reserve all three frames at startup, before UI/attachment/worker allocations
++// can split their contiguous storage. They are never lent to the general heap
++// between sessions; small retained thumbnails must not strand a frame-sized hole.
++static uint8_t *frame_pool[CAMERA_BUFFERS];
++// A teardown fault prevents reuse of this pool until the next real reboot.
+ static uint8_t *quarantined_frames[CAMERA_BUFFERS];
+ static bool release_failed;
+ static lv_obj_t *preview_canvas;
+@@ -47,6 +51,21 @@
+ static _Atomic(TaskHandle_t) camera_log_task;
+ static portMUX_TYPE camera_log_lock=portMUX_INITIALIZER_UNLOCKED;
+ static char driver_error[160];
++bool camera_preview_init_buffers(void) {
++    if(frame_pool[CAMERA_BUFFERS-1])return true;
++    for(unsigned i=0;i<CAMERA_BUFFERS;i++) {
++        frame_pool[i]=heap_caps_aligned_alloc(64,PREVIEW_BYTES,CAMERA_FRAME_CAPS);
++        if(!frame_pool[i]) {
++            ESP_LOGE("camera_pool","startup frame=%u/%u size=%u free=%u largest=%u",i+1,CAMERA_BUFFERS,
++                (unsigned)PREVIEW_BYTES,(unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT),
++                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
++            for(unsigned j=0;j<i;j++){free(frame_pool[j]);frame_pool[j]=NULL;}
++            return false;
++        }
++    }
++    still_pixels=(uint16_t *)frame_pool[0];
++    return true;
++}
+ // Retain the FIRST driver error from this camera worker; later unwind errors
+ // otherwise hide whether CSI, DMA, ISP, or the sensor failed. Other task logs,
+ // messages, photos and credentials are never copied into this diagnostic.
+@@ -158,13 +177,9 @@
+     // Small JSON snapshots live in PSRAM; leave headroom for CSI/ISP/USB drivers.
+     if(heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<49152||
+        heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<16384)goto failed;
+-    // The retained still becomes one of the next session's three USERPTR
+-    // frames. Four simultaneous full-size allocations fragmented PSRAM after
+-    // attaching photos: the observed third MMAP frame failed with 7.6 MiB free
+-    // but only a 1.22 MiB contiguous block. Keep three frames, without a fourth
+-    // full-size copy. Match the pinned CSI driver's cache-aligned allocation.
+-    if(!still_pixels)still_pixels=heap_caps_aligned_alloc(64,VIEW_BYTES,CAMERA_FRAME_CAPS);
+-    if(!still_pixels)goto failed;
++    // Startup owns the three full-size allocations. Never try to recreate them
++    // among attachment thumbnails or short-lived worker stacks during reopen.
++    if(!frame_pool[CAMERA_BUFFERS-1])goto failed;
+     if(!video_initialized) {
+         if(video_init_failed){step=3;error=EIO;reason="相机初始化失败，请重启设备后重试";goto failed;}
+         step=2;mark(step,0);reason="摄像头时钟启动失败";
+@@ -201,16 +216,7 @@
+     struct v4l2_requestbuffers req={0};
+     req.count=CAMERA_BUFFERS;req.type=kind;req.memory=V4L2_MEMORY_USERPTR;
+     step=6;mark(step,0);reason="相机缓冲区不足，请重新打开";
+-    mapped[0]=(uint8_t *)still_pixels;
+-    for(unsigned i=1;i<CAMERA_BUFFERS;i++) {
+-        mapped[i]=heap_caps_aligned_alloc(64,PREVIEW_BYTES,CAMERA_FRAME_CAPS);
+-        if(!mapped[i]) {
+-            ESP_LOGE("camera_frames","frame=%u/%u size=%u free=%u largest=%u",i+1,CAMERA_BUFFERS,
+-                (unsigned)PREVIEW_BYTES,(unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT),
+-                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
+-            error=ENOMEM;goto failed;
+-        }
+-    }
++    memcpy(mapped,frame_pool,sizeof(mapped));
+     buffers_requested=true;
+     if(ioctl(fd,VIDIOC_REQBUFS,&req)!=0){error=errno;goto failed;}
+     if(req.count<CAMERA_BUFFERS){error=ENOMEM;goto failed;}
+@@ -318,7 +324,7 @@
+         }
+     }
+     // ISP retains an open reference. Explicitly release its stopped metadata
+-    // pool, then return the two non-displayed USERPTR frames to the allocator.
++    // pool. Our three USERPTR frames remain reserved for the next session.
+     if(buffers_requested&&!release_failed) {
+         struct v4l2_requestbuffers release={.count=0,.type=kind,.memory=V4L2_MEMORY_USERPTR};
+         if(ioctl(fd,VIDIOC_REQBUFS,&release)!=0) {
+@@ -335,7 +341,6 @@
+         bsp_display_lock(0);lv_obj_add_flag(preview_canvas,LV_OBJ_FLAG_HIDDEN);bsp_display_unlock();
+     }else {
+         if(fd>=0)close(fd);
+-        for(unsigned i=0;i<CAMERA_BUFFERS;i++)if(mapped[i]&&mapped[i]!=(uint8_t *)still_pixels)free(mapped[i]);
+     }
+     if(captured) {
+         unsigned elapsed=(unsigned)(esp_timer_get_time()/1000)-atomic_load(&capture_started_ms);
+--- a/firmware/main/camera_preview.h
++++ b/firmware/main/camera_preview.h
+@@ -23,5 +23,8 @@
+ bool camera_preview_busy(void);
+ const char *camera_preview_error(void);
+ void camera_preview_init_diagnostics(void);
++// Startup only, before assets/UI/attachments. Reserve three aligned full frames
++// for this boot; failed partial allocation unwinds without affecting other apps.
++bool camera_preview_init_buffers(void);
+ void camera_preview_diagnostics(char *out, unsigned size);
+ void camera_preview_driver_error_hex(char *out,unsigned size);
+--- a/firmware/main/main.c
++++ b/firmware/main/main.c
+@@ -39,7 +39,9 @@
+     ESP_ERROR_CHECK(tab5_wireless_boot_prepare());
+     // Keep radio DMA/tasks ahead of large USB/audio/UI allocations, as in the
+     // original constructor, while making the board-power ordering explicit.
+-    sd_storage_init();rpc_link_init();camera_preview_init_diagnostics();assets_init();usb_start();
++    sd_storage_init();rpc_link_init();camera_preview_init_diagnostics();
++    if(!camera_preview_init_buffers())printf("TAB5_CAMERA_INIT unavailable\n");
++    assets_init();usb_start();
+     if(!voice_remote_init())printf("TAB5_VOICE_INIT unavailable\n");
+     sd_storage_start();
+     battery_status_start();
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -186,7 +186,16 @@
+     preview_sync_count++;return preview_submit_enabled;
+ }
+ static bool codex_remote_with_images(const char *op,const char *id,const char *message,const char *session,int64_t epoch,const char *request,const char *turn,const char images[3][37]){(void)images;return codex_remote_request(op,id,message,session,epoch,request,turn);}
+-static bool codex_remote_upload(const char *id,const char *session,int64_t epoch,const char *image_id,const uint8_t *data,size_t size){(void)id;(void)session;(void)epoch;(void)image_id;(void)data;(void)size;return false;}
++static bool preview_photo_fixture;
++static unsigned preview_photo_uploads;
++static char preview_photo_upload_id[37];
++static uint16_t preview_photo_pixels[PHOTO_PREVIEW_W*PHOTO_PREVIEW_H];
++static const uint8_t preview_photo_jpeg[8]={0xff,0xd8,1,2,3,4,0xff,0xd9};
++static bool codex_remote_upload(const char *id,const char *session,int64_t epoch,const char *image_id,const uint8_t *data,size_t size){
++    (void)id;(void)session;(void)epoch;
++    if(!preview_photo_fixture||data!=preview_photo_jpeg||size!=sizeof(preview_photo_jpeg))return false;
++    snprintf(preview_photo_upload_id,sizeof(preview_photo_upload_id),"%s",image_id);preview_photo_uploads++;return true;
++}
+ static int preview_photo_state,preview_photo_prepares;
+ bool photo_prepare_camera(void){preview_photo_prepares++;preview_photo_state=1;return true;}
+ bool photo_prepare_file(const char *path){(void)path;return false;}
+@@ -194,16 +203,16 @@
+ const photo_listing *photo_get_listing(void){return NULL;}
+ int photo_state(void){return preview_photo_state;}
+ const char *photo_error(void){return "预览";}
+-const uint8_t *photo_data(size_t *size){*size=0;return NULL;}
+-const uint16_t *photo_preview(void){return NULL;}
+-void photo_discard(void){}
++const uint8_t *photo_data(size_t *size){*size=preview_photo_fixture?sizeof(preview_photo_jpeg):0;return preview_photo_fixture?preview_photo_jpeg:NULL;}
++const uint16_t *photo_preview(void){return preview_photo_fixture&&preview_photo_state==2?preview_photo_pixels:NULL;}
++void photo_discard(void){if(preview_photo_fixture)preview_photo_state=0;}
+ static bool tab5_keyboard_present(void) { return false; }
+ static bool tab5_keyboard_poll(char out[10], uint8_t *modifier) { (void)out; (void)modifier; return false; }
+ static camera_preview_state preview_camera_state=CAMERA_PREVIEW_ERROR;
+ static unsigned preview_camera_starts;
+ static unsigned preview_camera_cache_bytes;
+ static void (*preview_camera_start_observer)(void);
+-bool camera_preview_start(lv_obj_t *canvas) { (void)canvas; if(preview_camera_start_observer)preview_camera_start_observer();preview_camera_cache_bytes=tab5_cache_bytes+tab5_native_cache_bytes;preview_camera_starts++;preview_camera_state=CAMERA_PREVIEW_STARTING; return true; }
++bool camera_preview_start(lv_obj_t *canvas) { lv_obj_add_flag(canvas,LV_OBJ_FLAG_HIDDEN);if(preview_camera_start_observer)preview_camera_start_observer();preview_camera_cache_bytes=tab5_cache_bytes+tab5_native_cache_bytes;preview_camera_starts++;preview_camera_state=CAMERA_PREVIEW_STARTING; return true; }
+ bool camera_preview_capture(void) { if(preview_camera_state!=CAMERA_PREVIEW_LIVE)return false;preview_camera_state=CAMERA_PREVIEW_CAPTURING;return true; }
+ void camera_preview_stop(void) { preview_camera_state=CAMERA_PREVIEW_OFF; }
+ camera_preview_state camera_preview_get_state(void) { return preview_camera_state; }
+--- a/tests/ui-preview/camera_ownership_test.c
++++ b/tests/ui-preview/camera_ownership_test.c
+@@ -61,6 +61,8 @@
+ static unsigned direct_presented;
+ static int scenario;
+ static unsigned pool_memory,frame_live,frame_peak,frame_allocations;
++static unsigned startup_fail_call;
++static bool fragment_heap;
+ static void *frame_storage[4];
+ static void frame_free(void *p);
+ static lv_obj_t *canvas;
+@@ -87,10 +89,12 @@
+ static void *frame_allocate(size_t size) {
+     assert(size==frame_bytes);
+     frame_allocations++;
+-    if(frame_live==3 || (scenario==FAIL_ALLOC_1&&frame_allocations==1) ||
++    // Actual .241 failure: 11,640,296 free bytes but largest block 1,835,008.
++    // Attachment add/remove leaves small owners between the freed frame holes.
++    if((fragment_heap&&size>1835008)||frame_live==3 ||
++       (startup_fail_call&&frame_allocations==startup_fail_call) || (scenario==FAIL_ALLOC_1&&frame_allocations==1) ||
+        (scenario==FAIL_ALLOC_2&&frame_allocations==2))return NULL;
+ #ifdef _WIN32
+-    SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
+     void *p=_aligned_malloc(size,128);
+ #else
+     void *p=aligned_alloc(128,size);
+@@ -241,6 +245,7 @@
+ 
+ int main(void) {
+ #ifdef _WIN32
++    SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
+     _set_error_mode(_OUT_TO_STDERR);_set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
+ #endif
+     camera_preview_init_diagnostics();camera_log_task=mock_task;
+@@ -257,14 +262,32 @@
+     char bounded[4]={'X','X','X','Z'};camera_preview_driver_error_hex(bounded,3);assert(bounded[2]==0&&bounded[3]=='Z');
+     camera_log_task=NULL;
+     puts("CAMERA_LOG_OK first_driver_error_task_isolation_forwarding_bounded_hex");
++#ifdef CAMERA_POOL_FIXED
++    for(unsigned fault=1;fault<=3;fault++) {
++        startup_fail_call=fault;frame_allocations=0;
++        assert(!camera_preview_init_buffers()&&!frame_live);
++        for(unsigned i=0;i<3;i++)assert(!frame_pool[i]);
++    }
++    startup_fail_call=0;frame_allocations=0;
++    assert(camera_preview_init_buffers()&&frame_live==3);
++    unsigned allocations=frame_allocations;
++    assert(camera_preview_init_buffers()&&frame_allocations==allocations);
++    const unsigned retained_frames=3;
++#else
++    const unsigned retained_frames=1;
++#endif
+     lv_init();lv_display_create(1280,720);
+     for(unsigned pipeline=0;pipeline<2;pipeline++) {
+     use_direct=pipeline!=0;
+     for(int mode=NORMAL;mode<=FAIL_RELEASE;mode++) {
+         if(!use_direct&&(mode==FAIL_PRESENT||mode==FAIL_RESTORE))continue;
++#ifdef CAMERA_POOL_FIXED
++        if(mode==FAIL_ALLOC_1||mode==FAIL_ALLOC_2)continue; // Tested at startup.
++#endif
+         // Reopen 64 times per display path; retain only one frame between runs.
+         for(unsigned run=0;run<(mode==NORMAL?64u:1u);run++) {
+             scenario=mode;frame_allocations=0;delivered=returned=unmapped=closed=frame_copies=last_pixel=direct_presented=0;
++            fragment_heap=mode==NORMAL&&run>0;
+             direct_active=false;presented_source=NULL;
+             canvas=lv_canvas_create(lv_screen_active());scheduled_task=NULL;
+             if(mode==FAIL_START){assert(!camera_preview_start(canvas)&&!camera_preview_busy());lv_obj_delete(canvas);continue;}
+@@ -277,7 +300,10 @@
+                     fflush(stderr);
+                 }
+                 assert(camera_preview_get_state()==CAMERA_PREVIEW_CAPTURED&&delivered==9);
+-                assert(frame_copies==0&&unmapped==0&&closed==1&&frame_live==1&&frame_peak==3);
++                assert(frame_copies==0&&unmapped==0&&closed==1&&frame_live==retained_frames&&frame_peak==3);
++#ifdef CAMERA_POOL_FIXED
++                assert(!frame_allocations); // No new full frame, even with attachments pinning holes.
++#endif
+                 const uint8_t *copy=camera_preview_acquire();assert(copy&&camera_preview_busy());
+                 assert(!camera_preview_acquire()&&!camera_preview_start(canvas));
+                 // The displayed USERPTR frame survives pool release; preview
+@@ -305,13 +331,22 @@
+                 streaming_mock=false;
+                 for(unsigned i=0;i<3;i++){frame_free(quarantined_frames[i]);quarantined_frames[i]=NULL;buffers[i]=NULL;queued[i]=false;}
+                 still_pixels=NULL;release_failed=false;
++#ifdef CAMERA_POOL_FIXED
++                memset(frame_pool,0,sizeof(frame_pool));fragment_heap=false;
++                assert(camera_preview_init_buffers()&&frame_live==3);
++#endif
+             }else
+ #endif
+-                assert(!streaming_mock&&frame_live==(still_pixels?1u:0u));
++                assert(!streaming_mock&&frame_live==retained_frames);
+         }
+     }
+     }
+-    frame_free(still_pixels);assert(!frame_live);
+-    puts("CAMERA_OWNERSHIP_OK: 128 captures/reopens with only three full frames; zero capture copies; immutable JPEG lease; allocation, queue and teardown faults safe");
++#ifdef CAMERA_POOL_FIXED
++    for(unsigned i=0;i<3;i++)frame_free(frame_pool[i]);
++#else
++    frame_free(still_pixels);
++#endif
++    assert(!frame_live);
++    puts("CAMERA_OWNERSHIP_OK: startup partial failure/retry; 128 captures/reopens with observed fragmented heap, zero new full frames; immutable JPEG lease and teardown faults safe");
+     return 0;
+ }
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1579,6 +1579,16 @@
+ #include "agenda_ui_test.h"
+ static unsigned computer_preview_damage_count;
+ static void computer_preview_damage(lv_event_t *event){(void)event;computer_preview_damage_count++;}
++static void photo_fixture_close_camera(void) {
++    bool clicked=false;
++    for(unsigned i=0;i<lv_obj_get_child_count(camera_layer);i++) {
++        lv_obj_t *b=lv_obj_get_child(camera_layer,i),*caption=lv_obj_get_child(b,0);
++        if(caption&&lv_obj_check_type(caption,&lv_label_class)&&!strcmp(lv_label_get_text(caption),"关闭")) {
++            lv_obj_send_event(b,LV_EVENT_CLICKED,NULL);clicked=true;break;
++        }
++    }
++    assert(clicked&&!photo_flow&&lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN));
++}
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -4348,6 +4358,65 @@
+     lv_indev_delete(touch);free(camera_frame);
+     camera_preview_stop();visible(camera_layer,false);photo_for_codex=photo_flow=false;
+ 
++    // Real three-attachment UI lifecycle with a simulated codec/network only.
++    // Fill, reject a fourth, remove middle/last/first, reopen, and add back.
++    // No turn is submitted and unrelated pre-existing fixture attachments survive.
++    {
++        codex_draft *d=codex_draft_for(codex_selected,false);assert(d==photo_draft);
++        char saved_images[3][37];uint16_t *saved_thumbnails[3];
++        memcpy(saved_images,d->images,sizeof(saved_images));memcpy(saved_thumbnails,d->thumbnails,sizeof(saved_thumbnails));
++        memset(d->images,0,sizeof(d->images));memset(d->thumbnails,0,sizeof(d->thumbnails));
++        codex_images_refresh();
++        int submitted=preview_submit_count;unsigned uploads=preview_photo_uploads;
++        char saved_text[2001];snprintf(saved_text,sizeof(saved_text),"%s",lv_textarea_get_text(codex_input));
++        preview_photo_fixture=true;
++        for(unsigned round=0;round<4;round++) {
++            for(unsigned slot=0;slot<3;slot++)if(!d->images[slot][0]) {
++                codex_waiting=codex_voice_waiting=codex_reading=codex_syncing=codex_load_waiting=codex_send_queued=false;
++                last_received=esp_timer_get_time()/1000;
++                photo_open(NULL);assert(photo_flow&&photo_for_codex);
++                preview_camera_state=CAMERA_PREVIEW_CAPTURED;photo_camera_use();assert(photo_step==1);
++                for(unsigned n=0;n<PHOTO_PREVIEW_W*PHOTO_PREVIEW_H;n++)preview_photo_pixels[n]=(uint16_t)(0x2100+uploads);
++                preview_photo_state=2;preview_result_code=-1;
++                photo_tick();uploads++;assert(photo_step==3&&preview_photo_uploads==uploads);
++                char added[37];snprintf(added,sizeof(added),"%s",preview_photo_upload_id);
++                photo_tick();assert(photo_step==3&&preview_photo_uploads==uploads);
++                preview_result_code=200;preview_result_text="照片已添加";
++                photo_tick();assert(!photo_flow&&!strcmp(d->images[slot],added)&&d->thumbnails[slot]);
++                assert(d->thumbnails[slot][0]==preview_photo_pixels[0]);
++                assert(!strcmp(lv_textarea_get_text(codex_input),saved_text)&&preview_submit_count==submitted);
++            }
++            unsigned starts=preview_camera_starts;
++            char full[3][37];memcpy(full,d->images,sizeof(full));
++            photo_open(NULL);assert(!photo_flow&&preview_camera_starts==starts&&!memcmp(full,d->images,sizeof(full)));
++            if(round==0)capture("codex-three-photo-lifecycle-full");
++            if(round==3)break;
++            static const unsigned remove_at[3]={1,2,0};
++            unsigned remove=remove_at[round];uint16_t *thumbnails[3];
++            memcpy(thumbnails,d->thumbnails,sizeof(thumbnails));
++            lv_obj_send_event(composer_remove[remove],LV_EVENT_CLICKED,NULL);
++            for(unsigned i=0,j=0;i<3;i++)if(i!=remove) {
++                assert(!strcmp(d->images[j],full[i])&&d->thumbnails[j]==thumbnails[i]);j++;
++            }
++            assert(!d->images[2][0]&&!d->thumbnails[2]);
++            char remaining[3][37];memcpy(remaining,d->images,sizeof(remaining));
++            for(unsigned repeat=0;repeat<3;repeat++) {
++                codex_waiting=codex_voice_waiting=codex_reading=codex_syncing=codex_load_waiting=codex_send_queued=false;
++                photo_open(NULL);assert(photo_flow);
++                photo_fixture_close_camera();
++                assert(!memcmp(remaining,d->images,sizeof(remaining)));
++            }
++        }
++        assert(preview_photo_uploads==uploads&&preview_submit_count==submitted);
++        for(unsigned i=0;i<3;i++)lv_obj_send_event(composer_remove[0],LV_EVENT_CLICKED,NULL);
++        assert(!d->images[0][0]&&!d->images[1][0]&&!d->images[2][0]);
++        photo_open(NULL);assert(photo_flow);photo_fixture_close_camera();
++        memcpy(d->images,saved_images,sizeof(saved_images));memcpy(d->thumbnails,saved_thumbnails,sizeof(saved_thumbnails));
++        preview_photo_fixture=false;preview_photo_state=0;preview_result_code=0;preview_result_text="";
++        codex_images_refresh();
++        puts("PHOTO_THREE_LIFECYCLE_OK six uploads with pending ack, four full drafts, fourth blocked, middle/last/first removal/readd, nine reopens, remove-all/reopen, text and unrelated attachments retained, no turn sent");
++    }
++
+     // Real LVGL events: recent selection is stable during an utterance, and
+     // only explicit stop + complete recognition stages a draft; no path submits a turn.
+     cJSON_Delete(shown);

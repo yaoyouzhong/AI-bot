@@ -81,13 +81,27 @@ def package_at(folders, relative):
     raise ValueError(f"Dependency package unavailable: {relative}")
 
 
+def verify_publish_notices(stage: Path, evidence):
+    """Allow only byte-verified notices copied by the project during publish."""
+    directory = stage / "licenses"
+    if not directory.exists():
+        return
+    for path in directory.rglob("*"):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(directory).as_posix()
+        allowed = relative.startswith("pdfpig/") or relative == "pmo-calendar/NOTICE.md"
+        expected = evidence["files"].get(relative)
+        if not allowed or not expected or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise ValueError("Unexpected or changed pre-published notice: " + relative)
+
+
 def collect_windows(stage: Path):
     stage = filesystem_path(stage)
     evidence = verify_evidence()
     from bundle_flash_tool import bundle
     bundle("windows", stage / "flash-tools")
-    if (stage / "licenses").exists():
-        raise ValueError("Use a fresh Windows publish directory")
+    verify_publish_notices(stage, evidence)
     assets = json.loads((ROOT / "windows-app/AIBotBridge/obj/project.assets.json").read_text(encoding="utf-8-sig"))
     records = []
     for name, library in assets["libraries"].items():

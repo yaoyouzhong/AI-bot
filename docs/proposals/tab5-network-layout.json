@@ -1,0 +1,18 @@
+{
+  "base": "final camera/calendar/mirror/reminder/delete source; follows those five pending patches",
+  "scope": "TAB5 computer/Wi-Fi management layout, separate diagnostic sheet, updated function copy and consistent deletion confirmation",
+  "protocolChanged": false,
+  "deviceSettingsChanged": false,
+  "files": [
+    {
+      "path": "firmware/main/ui.c",
+      "beforeSha256LF": "f290eadd6772af755789040965e2bf8704436e67286ec68fb924d3423bb2d2b2",
+      "afterSha256LF": "0aa4224a4ddf97c45a9a7df94481d882fbed84a84db7a957ee81c2b0cd1fc70a"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "beforeSha256LF": "9cabd1d7bf0177d8e724da6cee9b9726bdd4093494cfda5371bd2f0cd1a2c28a",
+      "afterSha256LF": "3003a67820c34166a42a2af651a2585a8825e945af81347b3e652f327060a628"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5ToolsWindow.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5ToolsWindow.swift
+@@ -111,7 +111,7 @@
+         guard service.usbActive else { result.stringValue = "请连接已配对 TAB5 的 USB。"; return }
+         guard begin("正在测速…") else { return }; let gallery = benchmarkMode.indexOfSelectedItem == 0
+         benchmarkMode.isEnabled = false; stopButton.isEnabled = true
+-        benchmarkTask = Task { @MainActor [weak self] in guard let self else { return }; var started = false
++        benchmarkTask = Task { @MainActor [weak self] in guard let self else { return }; var started = false, cancelled = false
+             do {
+                 try self.service.beginBenchmark(gallery:gallery)
+                 if gallery { let reply = try await self.benchmarkCommand("gallery_status"); guard reply["gallerySpeed"] as? Bool == true else { throw MacTab5LocalError.invalid("图库写卡测速需要 TAB5 0.2.182-ui 或更新固件。") } }
+@@ -127,8 +127,17 @@
+                     reply = try await self.benchmarkStatus(gallery ? "gallery_status":"status")
+                 }
+                 self.result.stringValue = "测速结束。"
+-            } catch { self.result.stringValue = error is CancellationError ? "测速已停止。":error.localizedDescription }
+-            if started { do { _ = try await self.benchmarkCommand(gallery ? "gallery_cancel":"cancel") } catch { self.result.stringValue += " 停止请求未确认，设备将在测速时限内结束。" } }
++            } catch { cancelled = error is CancellationError; self.result.stringValue = cancelled ? "正在停止测速…":error.localizedDescription }
++            if started {
++                do {
++                    // Cleanup must keep running after the user's task is cancelled.
++                    let final = try await Task { @MainActor in
++                        try await MacTab5BenchmarkStop.run(gallery:gallery,request:{ try await self.benchmarkCommand($0) })
++                    }.value
++                    self.benchmarkValue = final; self.renderBenchmark()
++                    if cancelled { self.result.stringValue = final.hasPrefix("cancelled") ? "测速已停止。":"测速已结束。" }
++                } catch { self.result.stringValue = cancelled ? "停止请求未确认，设备将在测速时限内结束。":self.result.stringValue + " 停止请求未确认，设备将在测速时限内结束。" }
++            }
+             self.service.endBenchmark(); self.busy = false; self.actions.forEach { $0.isEnabled = true }; self.saved.table.isEnabled = true; self.benchmarkMode.isEnabled = true; self.stopButton.isEnabled = false; self.benchmarkTask = nil
+         }
+     }
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacTab5BenchmarkStop.swift
+@@ -0,0 +1,17 @@
++import Foundation
++
++@MainActor enum MacTab5BenchmarkStop {
++    static func run(gallery:Bool, request:(String) async throws -> [String:Any],
++                    now:() -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
++                    wait:() async throws -> Void = { try await Task.sleep(nanoseconds:250_000_000) }) async throws -> String {
++        var reply = try await request(gallery ? "gallery_cancel":"cancel")
++        let deadline = now() + 15
++        while true {
++            guard let value = reply["result"] as? String, value.utf8.count <= 8192 else { throw MacTab5Error.invalidPacket }
++            if !value.hasPrefix("running;") { return value }
++            guard now() < deadline else { throw MacTab5Error.timeout }
++            try await wait()
++            reply = try await request(gallery ? "gallery_status":"status")
++        }
++    }
++}
+--- /dev/null
++++ b/mac-app/Tests/AIBotBridgeTests/MacTab5BenchmarkStopTests.swift
+@@ -0,0 +1,29 @@
++import XCTest
++@testable import AIBotBridge
++
++final class MacTab5BenchmarkStopTests: XCTestCase {
++    @MainActor func testStopOnceAndPollUntilDeviceAcknowledges() async throws {
++        var actions:[String] = [], tick = 0.0
++        let result = try await MacTab5BenchmarkStop.run(gallery:false,request:{ action in
++            actions.append(action)
++            return ["result":actions.count < 3 ? "running;USB,up,1,8192/262144":"cancelled;USB,up,1,8192,100,0"]
++        },now:{ tick },wait:{ tick += 1 })
++        XCTAssertEqual(actions,["cancel","status","status"])
++        XCTAssertTrue(result.hasPrefix("cancelled;"))
++    }
++    @MainActor func testGalleryAndCompletedResultsKeepTheirActualState() async throws {
++        var actions:[String] = []
++        let result = try await MacTab5BenchmarkStop.run(gallery:true,request:{ action in
++            actions.append(action); return ["result":actions.count == 1 ? "running;starting":"complete;gallery,USB,8,100,100,0,0,0,0"]
++        },wait:{})
++        XCTAssertEqual(actions,["gallery_cancel","gallery_status"])
++        XCTAssertTrue(result.hasPrefix("complete;"))
++    }
++    @MainActor func testRunningResultCannotBeReportedAsStoppedAfterDeadline() async throws {
++        var tick = 0.0
++        do {
++            _ = try await MacTab5BenchmarkStop.run(gallery:false,request:{ _ in ["result":"running;starting"] },now:{ tick },wait:{ tick += 8 })
++            XCTFail("Unconfirmed running device was accepted")
++        } catch { XCTAssertEqual(error as? MacTab5Error,.timeout) }
++    }
++}

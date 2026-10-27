@@ -1,0 +1,43 @@
+--- a/firmware/main/usb_link.c
++++ b/firmware/main/usb_link.c
+@@ -242,7 +242,7 @@
+     gallery_transfer_diagnostics(transfer_diag,sizeof(transfer_diag));
+ #endif
+     int n=snprintf(out,sizeof(out),"@AIBOT {\"version\":1,\"rpcVersion\":1,\"rpcUsbChunk\":16384,\"rpcUsbBinary\":1,\"rpcUsbBinaryChunk\":65526,\"usbRxBatch\":4096,\"telemetryVersion\":1,\"usbPacked\":1,\"usbDelta\":1,\"type\":\"%s\",\"deviceId\":\"%s\",\"firmware\":\"%s\",\"sequence\":%llu,\"active\":\"%s\",\"wifiConnected\":%s,\"bleReady\":%s,\"ageMs\":[%lld,%lld,%lld],\"bleConnected\":%s,\"bleConnectCount\":%u,\"bleDisconnectReason\":%d,\"assetsReady\":%u,\"assetsCached\":%u,\"assetIds\":\"%s\",\"uiPage\":%d,\"uptimeMs\":%lld,\"resetReason\":%d,\"saverActive\":%d,\"pcWakeCount\":%u,\"uiAgeMs\":%u,\"uiDataAgeMs\":%d,\"taskSelected\":%d,\"inputSessionReady\":%d,\"codexNotice\":%u,\"voiceCheck\":%d,\"voiceAgeMs\":%d,\"voiceStage\":%d,\"voiceHttp\":%d,\"voiceRequestMs\":%d,\"voiceSeq\":%d,\"backlightChanges\":%u,\"backlightPercent\":%d,\"lcdUnderruns\":%u,\"rotateUs\":%u,\"rotatePeakUs\":%u,\"flushCount\":%u,\"flushErrors\":%u,\"cameraDiag\":\"%s\",\"displayDiag\":\"%s\",\"photoDiag\":\"%s\",\"cameraLogHex\":\"%s\",\"photoUploadDiag\":\"%s\",\"otaDiag\":\"%s\",\"artOrientation\":\"%s\",\"galleryDiag\":\"%s\",\"wifiIsolation\":\"%s\"}\n",type,cfg.id,esp_app_get_description()->version,(unsigned long long)seq,link_name(active),wifi_connected?"true":"false",ble_available?"true":"false",ages[0],ages[1],ages[2],ble_connected?"true":"false",ble_connect_count,ble_disconnect_reason,ready,cached,asset_ids,tab5_ui_page,now,esp_reset_reason(),tab5_saver_active,tab5_pc_wakes,tab5_ui_age_ms(),tab5_ui_data_age_ms,tab5_ui_task_selected,tab5_ui_session_ready,tab5_codex_notice_state,tab5_ui_voice_check,tab5_ui_voice_age_ms,tab5_voice_http_stage,tab5_voice_http_status,tab5_voice_request_ms,tab5_voice_last_seq,tab5_backlight_changes,tab5_backlight_percent,tab5_lcd_underruns,tab5_display_rotate_us,tab5_display_rotate_peak_us,tab5_display_flush_count,tab5_display_flush_errors,camera_diag,display_diag,photo_diag,camera_log,upload_diag,ota_diag,orientation_diag,gallery_diag,wifi_isolation);
+-    if(n<0||(size_t)n>=sizeof(out))return;
++    if(n<0||(size_t)n>=sizeof(out))goto essential;
+     char rpc_diag[160];rpc_failure_diagnostics(rpc_diag,sizeof(rpc_diag));
+     char wifi_diag[192];tab5_wifi_numeric_diagnostics(wifi_diag,sizeof(wifi_diag));
+     char wifi_recovery[96];tab5_wifi_recovery_diagnostics(wifi_recovery,sizeof(wifi_recovery));
+@@ -252,7 +252,7 @@
+     unsigned unlock_failed=0,unlock_failed_at=0;unlock_failure_snapshot(&unlock_failed,&unlock_failed_at);
+     int extra=snprintf(out+n-2,sizeof(out)-(size_t)n+2,",\"usbHidState\":%u,\"rpcUsbWait\":%u,\"rpcDiag\":\"%s\",\"wifiDiag\":\"%s\",\"wifiRecoveryDiag\":\"%s\",\"wifiHttpDiag\":\"%s\",\"wifiPathDiag\":\"%s\",\"wirelessBootDiag\":\"%s\",\"galleryTransferDiag\":\"%s\",\"usbDiag\":\"%u,%u,%u,%u,%u,%u\"}\n",usb_keyboard_diagnostic(),rpc_usb_wait_supported()?20u:0u,rpc_diag,wifi_diag,wifi_recovery,wifi_http,wifi_path,boot_diag,transfer_diag,
+         atomic_load(&cdc_epoch),atomic_load(&cdc_rx_bytes),atomic_load(&cdc_json_lines),atomic_load(&cdc_overflows),atomic_load(&cdc_binary_expired),atomic_load(&cdc_tx_incomplete));
+-    if(extra<0||(size_t)extra>=sizeof(out)-(size_t)n+2)return;
++    if(extra<0||(size_t)extra>=sizeof(out)-(size_t)n+2)goto essential;
+     n=n-2+extra;
+     char failure_diagnostic[80];
+     extra=snprintf(failure_diagnostic,sizeof(failure_diagnostic),",\"f\":\"%08X\",\"unlockFailureUptimeMs\":%u}\n",unlock_failed,unlock_failed_at);
+@@ -263,10 +263,21 @@
+     device_host_challenge(nonce);device_host_identity(host_id,host_name);
+     extra=snprintf(binding,sizeof(binding),",\"hostBindingVersion\":1,\"hostNonce\":\"%s\",\"currentHostId\":\"%s\",\"usbHostAuthenticated\":%s}\n",nonce,host_id,device_host_usb_owned()?"true":"false");
+     if(extra>0&&(size_t)extra<sizeof(binding)&&(size_t)(n-2+extra)<sizeof(out)){memcpy(out+n-2,binding,(size_t)extra+1);n=n-2+extra;}
++    else goto essential;
+     static char ota_performance[OTA_PERFORMANCE_SUFFIX_CAPACITY];
+     ota_trace_performance_format(ota_performance,sizeof(ota_performance));
+     n=(int)append_ota_performance(out,sizeof(out),(size_t)n,ota_performance);
+-    usb_write(out,n);
++    usb_write(out,n);return;
++essential:
++    // Optional counters can fill the legacy 4 KiB line. Still acknowledge the
++    // accepted sequence and preserve discovery/authentication capabilities.
++    // Omit uptime so hosts retain their last complete diagnostic sample.
++    device_host_challenge(nonce);device_host_identity(host_id,host_name);
++    unlock_failure_snapshot(&unlock_failed,&unlock_failed_at);
++    n=snprintf(out,sizeof(out),"@AIBOT {\"version\":1,\"rpcVersion\":1,\"rpcUsbChunk\":16384,\"rpcUsbBinary\":1,\"rpcUsbBinaryChunk\":65526,\"usbRxBatch\":4096,\"telemetryVersion\":1,\"usbPacked\":1,\"usbDelta\":1,\"rpcUsbWait\":%u,\"usbHidState\":%u,\"f\":\"%08X\",\"unlockFailureUptimeMs\":%u,\"type\":\"%s\",\"deviceId\":\"%s\",\"firmware\":\"%s\",\"sequence\":%llu,\"active\":\"%s\",\"wifiConnected\":%s,\"bleReady\":%s,\"ageMs\":[%lld,%lld,%lld],\"bleConnected\":%s,\"assetsReady\":%u,\"assetsCached\":%u,\"assetIds\":\"%s\",\"hostBindingVersion\":1,\"hostNonce\":\"%s\",\"currentHostId\":\"%s\",\"usbHostAuthenticated\":%s}\n",
++        rpc_usb_wait_supported()?20u:0u,usb_keyboard_diagnostic(),unlock_failed,unlock_failed_at,type,cfg.id,esp_app_get_description()->version,(unsigned long long)seq,link_name(active),
++        wifi_connected?"true":"false",ble_available?"true":"false",ages[0],ages[1],ages[2],ble_connected?"true":"false",ready,cached,asset_ids,nonce,host_id,device_host_usb_owned()?"true":"false");
++    if(n>0&&(size_t)n<sizeof(out))usb_write(out,n);
+ }
+ // CDC task context only: TinyUSB callbacks must not acquire application locks.
+ static bool usb_link_watch(bool *was_ready) {

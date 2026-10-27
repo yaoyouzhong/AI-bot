@@ -14,6 +14,8 @@ internal static class Tab5VoiceSelfTest
         internal bool Dji=true,Running,Empty=true,FailStop,Direct;internal string Source="";internal int Bytes,Starts;
         internal BufferedWaveProvider? Buffer;
         internal bool Room=true;
+        internal bool FocusPaused;
+        public void PauseForFocus(bool paused)=>FocusPaused=paused;
         public bool CanAcceptAudio=>Room&&(Buffer is null||Tab5VoiceAudio.HasPlaybackRoom(Buffer));
         public string Start(bool force){Running=true;Starts++;return Source=Dji&&!force?"dji":"tab5";}
         public bool DjiHealthy=>Dji;
@@ -36,6 +38,9 @@ internal static class Tab5VoiceSelfTest
         internal Action? OnStart,OnStop;
         internal bool RestoreAllowed;
         internal int Restores;
+        public bool FocusRecoveryPending {get;set;}
+        public bool CanResumeCapture {get;set;}=true;
+        public bool? CaptureRunning {get;set;}
         public bool TryRestoreFocus(){Restores++;if(RestoreAllowed)SafeFocus=true;return SafeFocus;}
         public bool CaptureStopped {get;set;}=true;
         public bool RecognitionComplete {get;set;}
@@ -212,11 +217,15 @@ internal static class Tab5VoiceSelfTest
         Console.WriteLine("TAB5_VOICE_FOCUS_RECOVERY_OK same_take_audio_text_tail preserved; no restart; synthetic only");
     }
     internal static async Task RunAsync() {
+        Tab5SpeechTranscript.SelfTest();
+        Tab5VoiceFocusRecoverySelfTest.Run();
         CheckFocusRecovery();
+        await CheckTransientFocusAsync();
         await CheckAudioBackpressureAsync();
         Tab5DoubaoVoiceSelfTest.Run();
         RunAgendaOwner();CheckDirectDji();await CheckSharedSourceSwitchAsync();
         CheckQuietCompletion();
+        CheckRecognizerEarlyEnd();
         CheckStoppedAudio();
         CheckReconnectRecovery();
         Check(Tab5AudioMeter.Level(new byte[8],16)==0,"zero PCM has no level");
@@ -430,6 +439,31 @@ internal static class Tab5VoiceSelfTest
         voice.Handle(Json(new{op="cancel",voiceId=next.VoiceId}));now+=300001;voice.Tick();
         Check(voice.Snapshot().State=="idle"&&voice.Snapshot().Text=="","expired result is bounded and cleared");
     }
+    private static void CheckRecognizerEarlyEnd() {
+        foreach(bool draining in new[]{false,true}) {
+            long now=1000;var audio=new Audio{Dji=false,CapturedSound=true};
+            var editor=new Editor{CaptureRunning=true,CaptureStopped=false,RecognitionComplete=false};
+            using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+            var start=voice.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString(),source="tab5"}));
+            object Pcm(int seq)=>new{op="audio",voiceId=start.VoiceId,seq,pcm=Convert.ToBase64String(new byte[6400])};
+            voice.Handle(Json(Pcm(0)));Check(voice.Snapshot().Ready,"confirmed recognizer and audio are ready");
+            if(draining)voice.Handle(Json(new{op="stop",voiceId=start.VoiceId}));
+            editor.CaptureRunning=false;now+=250;
+            var reply=voice.Handle(Json(Pcm(1)));
+            Check(reply.State=="recognizing"&&!reply.Ready&&!audio.Running&&audio.Bytes==6400&&editor.Starts==1,
+                "EARLY_IME_STOP: stop admitting PCM immediately without restarting a native recognizer");
+            editor.Text="提前提交的部分文字";editor.CaptureStopped=editor.RecognitionComplete=true;
+            now+=1500;voice.Tick();now+=800;voice.Tick();reply=voice.Snapshot();
+            Check(reply.State=="review"&&!reply.CanInsert&&reply.Message.Contains("提前结束")&&reply.Text==editor.Text,
+                "early completion preserves partial text with a visible incomplete warning");
+            voice.Handle(Json(Pcm(1)));Check(audio.Bytes==6400&&editor.Stops==1,"late PCM cannot overwrite or restart early completion");
+        }
+        long time=1000;var unknownAudio=new Audio{Dji=false};var unknownEditor=new Editor{CaptureRunning=null};
+        using var unknown=new Tab5VoiceSession(unknownAudio,unknownEditor,()=>time);
+        unknown.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString(),source="tab5"}));time+=250;unknown.Tick();
+        Check(unknown.Snapshot().State=="recording","unknown native state is not a confirmed early stop");
+        Console.WriteLine("TAB5_VOICE_EARLY_IME_END_OK recording/draining, late PCM rejected, partial text retained, no restart or false complete, unknown not stopped; synthetic only");
+    }
     private static void CheckQuietCompletion() {
         static byte[] Pcm(Func<int,double> sample) {
             var bytes=new byte[6400];
@@ -485,7 +519,11 @@ internal static class Tab5VoiceSelfTest
         Check(voice.Active,"keyboard acknowledgement cannot prove final empty recognition");
         editor.RecognitionComplete=true;voice.Tick();now+=799;voice.Tick();
         Check(voice.Active,"native idle retains a final TSF delivery guard");
-        now++;voice.Tick();Check(voice.Snapshot() is {State:"cancelled",Message:"未识别到文字，已结束"},"confirmed native empty result finishes despite ambient sound");
+        now++;voice.Tick();Check(voice.Snapshot().State=="recognizing","NO_TEXT_IDLE_REGRESSION: native idle is not proof of final empty text when sound was received");
+        now+=1500;editor.Text="延迟返回的完整末句";voice.Tick();now+=800;voice.Tick();
+        Check(voice.Snapshot() is {State:"review",Text:"延迟返回的完整末句"},"late text after native idle retains the owned draft until delivered");
+        StartAndStop();now+=1200;voice.Tick();now+=6800;voice.Tick();
+        Check(voice.Snapshot() is {State:"error",CanInsert:false},"sound without text is a diagnostic failure, never silent cancellation");
         StartAndStop();now+=400;voice.Tick();editor.RecognitionComplete=false;now+=800;voice.Tick();
         Check(voice.Active,"busy recognizer resets idle proof");
         editor.RecognitionComplete=true;voice.Tick();now+=600;editor.Text="最后返回的文字";voice.Tick();now+=800;voice.Tick();
@@ -535,6 +573,42 @@ internal static class Tab5VoiceSelfTest
         catch(OperationCanceledException){tokenCancelled=true;}
         Check(tokenCancelled&&audio.Bytes==before,"cancelled request does not feed audio");
         Console.WriteLine("TAB5_AUDIO_BACKPRESSURE_OK real_NAudio_overflow_reproduced 6s_burst_exact_192000_bytes peak_400ms cancel_focus_stall_bounds");
+    }
+    private static async Task CheckTransientFocusAsync() {
+        long now=1000;var audio=new Audio{Dji=false};var editor=new Editor{CaptureStopped=false};
+        using var voice=new Tab5VoiceSession(audio,editor,()=>now);
+        var start=voice.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString(),source="tab5"}));
+        editor.Text="保留前半句";editor.SafeFocus=false;editor.FocusRecoveryPending=true;
+        voice.Tick();
+        Check(audio.Running&&audio.FocusPaused&&voice.Snapshot().State=="recording"&&!voice.Snapshot().Ready&&editor.Stops==0,
+            "transient focus loss pauses playback without ending the owned take");
+        byte[] pcm=[1,0,2,0];int waits=0;
+        var continued=await voice.HandleAsync(Json(new{op="audio",voiceId=start.VoiceId,seq=0,pcm=Convert.ToBase64String(pcm)}),default,_=>{
+            Check(audio.FocusPaused&&audio.Bytes==0,"pending PCM is not acknowledged/played during focus recovery");
+            waits++;now+=100;
+            if(waits==3){editor.SafeFocus=true;editor.FocusRecoveryPending=false;}
+            return Task.CompletedTask;
+        });
+        Check(waits==3&&continued.VoiceId==start.VoiceId&&continued.Text=="保留前半句"&&continued.Ready&&audio.Bytes==4&&!audio.FocusPaused&&editor.Starts==1&&editor.Stops==0,
+            "recovery yields the UI thread then delivers the exact pending block once without restarting or clearing text");
+        voice.Handle(Json(new{op="stop",voiceId=start.VoiceId}));
+        editor.SafeFocus=false;editor.FocusRecoveryPending=true;voice.Tick();now+=100;
+        Check(voice.Snapshot().State=="draining"&&audio.FocusPaused&&editor.Stops==0,"transient loss also preserves buffered tail during stop");
+        editor.SafeFocus=true;editor.FocusRecoveryPending=false;voice.Tick();now+=200;voice.Tick();
+        Check(editor.Stops==1&&!audio.Running,"stop completes once after the recovered tail drains");
+        editor.Text+="和最后一句";editor.CaptureStopped=editor.RecognitionComplete=true;voice.Tick();now+=1200;voice.Tick();
+        Check(voice.Snapshot() is {State:"review",CanInsert:true,Text:"保留前半句和最后一句"},"recovered explicit stop retains the complete transcript");
+        start=voice.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString(),source="tab5"}));
+        editor.SafeFocus=false;editor.FocusRecoveryPending=true;voice.Tick();
+        voice.Handle(Json(new{op="cancel",voiceId=start.VoiceId}));int restores=editor.Restores;voice.Tick();
+        Check(voice.Snapshot().State=="cancelled"&&!audio.Running&&restores==editor.Restores,"cancel during recovery stops audio and cannot reclaim focus later");
+        editor.SafeFocus=true;editor.FocusRecoveryPending=false;
+        voice.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString(),source="tab5"}));editor.Text="仅有前半句";
+        editor.SafeFocus=false;editor.FocusRecoveryPending=true;voice.Tick();
+        editor.SafeFocus=true;editor.CanResumeCapture=false;voice.Tick();
+        Check(!audio.Running&&voice.Snapshot().State=="recognizing"&&!voice.Snapshot().CanInsert&&voice.Snapshot().Text=="仅有前半句",
+            "focus alone cannot resume an IME that stopped itself; partial text is preserved without auto-insertion");
+        Console.WriteLine("TAB5_VOICE_TRANSIENT_FOCUS_OK same take and text; paused playback; pending PCM once; drain tail; cancel; synthetic only");
     }
     private static void CheckStoppedAudio() {
         long now=1000;var audio=new Audio{Dji=false};var editor=new Editor();

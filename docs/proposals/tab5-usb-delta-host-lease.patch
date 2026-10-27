@@ -1,0 +1,12 @@
+--- a/firmware/main/device.c
++++ b/firmware/main/device.c
+@@ -246,6 +246,9 @@
+             }
+             xSemaphoreGive(device_mutex);
+         }
++        // Valid USB state deltas renew the same host lease as full status.
++        // Resource/metrics packets deliberately retain their existing behavior.
++        if(ok&&link==LINK_USB)device_host_usb_touch();
+         cJSON_Delete(root);return ok;
+     }
+     if(type&&strcmp(type,"tab5_status")==0&&id&&cJSON_IsNumber(version)&&version->valueint==1&&cJSON_IsNumber(seq)&&seq->valuedouble>0&&seq->valuedouble<=9007199254740991.0&&cJSON_IsObject(data)&&cJSON_IsObject(cJSON_GetObjectItemCaseSensitive(data,"codex"))&&cJSON_IsObject(cJSON_GetObjectItemCaseSensitive(data,"claude"))) {

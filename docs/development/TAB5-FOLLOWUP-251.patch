@@ -1,0 +1,262 @@
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -25,7 +25,7 @@
+  list(APPEND tab5_sources "gallery_remote.c" "gallery_buffer.c" "gallery_jpeg_cache.c" "gallery_store.c")
+ endif()
+ list(APPEND tab5_sources "art_orientation.c")
+-list(APPEND tab5_sources "display_diagnostics.c")
++list(APPEND tab5_sources "display_diagnostics.c" "display_bandwidth.c")
+ list(APPEND tab5_sources "runtime_diagnostics.c")
+ list(APPEND tab5_sources "usb_bulk_receive.c")
+ list(APPEND tab5_sources "draw_diagnostics.c" "camera_compositor.c" "camera_viewport.c")
+--- /dev/null
++++ b/firmware/main/display_bandwidth.c
+@@ -0,0 +1,48 @@
++#include "display_bandwidth.h"
++#include "soc/icm_sys_struct.h"
++#include "hal/dw_gdma_ll.h"
++#include "freertos/FreeRTOS.h"
++#include <stdbool.h>
++#include <stdio.h>
++
++// The pinned DPI driver reads PSRAM through DW-GDMA memory master 1.
++// Its channel priority only arbitrates inside DW-GDMA, not against JPEG's
++// DMA2D or CPU/cache traffic at the system interconnect.
++_Static_assert(DW_GDMA_LL_MASTER_PORT_MEMORY == 1, "Recheck LCD memory master");
++static portMUX_TYPE bandwidth_lock=portMUX_INITIALIZER_UNLOCKED;
++static bool active;
++static unsigned saved_priority,saved_read_qos,leases,releases,applied_priority,applied_read_qos;
++
++void display_bandwidth_photo_begin(void) {
++    portENTER_CRITICAL(&bandwidth_lock);
++    if(!active) {
++        saved_priority=AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority;
++        saved_read_qos=AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos;
++        // Give the deadline-bound scanout precedence while the still is
++        // resized, allocated and encoded. Leave every other master untouched.
++        AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority=15;
++        AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos=15;
++        applied_priority=AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority;
++        applied_read_qos=AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos;
++        active=true;leases++;
++    }
++    portEXIT_CRITICAL(&bandwidth_lock);
++}
++
++void display_bandwidth_photo_end(void) {
++    portENTER_CRITICAL(&bandwidth_lock);
++    if(active) {
++        AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority=saved_priority;
++        AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos=saved_read_qos;
++        active=false;releases++;
++    }
++    portEXIT_CRITICAL(&bandwidth_lock);
++}
++
++void display_bandwidth_format(char *out,unsigned size) {
++    unsigned a,l,r,p,q;
++    portENTER_CRITICAL(&bandwidth_lock);
++    a=active;l=leases;r=releases;p=applied_priority;q=applied_read_qos;
++    portEXIT_CRITICAL(&bandwidth_lock);
++    snprintf(out,size,"bw,1,%u,%u,%u,%u,%u",a,l,r,p,q);
++}
+--- /dev/null
++++ b/firmware/main/display_bandwidth.h
+@@ -0,0 +1,6 @@
++#pragma once
++
++// Single photo worker owns this bounded lease, including error cleanup.
++void display_bandwidth_photo_begin(void);
++void display_bandwidth_photo_end(void);
++void display_bandwidth_format(char *out, unsigned size);
+--- a/firmware/main/display_diagnostics.c
++++ b/firmware/main/display_diagnostics.c
+@@ -1,4 +1,5 @@
+ #include "display_diagnostics.h"
++#include "display_bandwidth.h"
+ #include "draw_orthogonal.h"
+ #include "crash_record.h"
+ #include "esp_attr.h"
+@@ -113,4 +114,6 @@
+     used=(unsigned)strlen(out);
+     if(used<size)snprintf(out+used,size-used,";reader,1,%u,%u,%u,%u",tab5_gallery_reader_clicks,
+         tab5_gallery_reader_guide_us,tab5_gallery_reader_layout_us,tab5_gallery_reader_paint_us);
++    used=(unsigned)strlen(out);
++    if(used+1<size){out[used++]=';';display_bandwidth_format(out+used,size-used);}
+ }
+--- a/firmware/main/photo_attachment.c
++++ b/firmware/main/photo_attachment.c
+@@ -1,5 +1,6 @@
+ #include "photo_attachment.h"
+ #include "camera_preview.h"
++#include "display_bandwidth.h"
+ #include "sd_storage.h"
+ #include "driver/jpeg_encode.h"
+ #include "driver/jpeg_decode.h"
+@@ -68,6 +69,7 @@
+     reason="显示仍在刷新，可稍后重试";result=ESP_ERR_TIMEOUT;
+     display_locked=lvgl_port_lock(1000);
+     if(!display_locked||!lvgl_port_display_wait_idle(lv_display_get_default(),300))goto finished;
++    display_bandwidth_photo_begin();
+     unsigned width,height;camera_preview_dimensions(&width,&height);
+     cfg.width=width;cfg.height=height;
+     make_preview((const uint16_t *)pixels,width,height,width);
+@@ -95,6 +97,7 @@
+     if(display_locked)lvgl_port_unlock();
+     camera_preview_release(pixels);
+     if(result!=ESP_OK) {
++        display_bandwidth_photo_end();
+         free(data);data=NULL;data_size=0;
+         snprintf(error,sizeof(error),"%s (%d/%d)",reason,step,result);
+         atomic_store(&phase,3);return false;
+@@ -103,6 +106,7 @@
+     // JPEG bytes, not an aligned 2 MiB capacity. A failed shrink keeps the JPEG.
+     uint8_t *compact=heap_caps_realloc(data,written,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+     if(compact)data=compact;
++    display_bandwidth_photo_end();
+     data_size=written;return true;
+ }
+ static bool prepare_file(void) {
+--- a/firmware/main/ui_dashboard.h
++++ b/firmware/main/ui_dashboard.h
+@@ -482,7 +482,8 @@
+     }
+     cJSON *trend=item(shown,"quotaTrend"),*days=item(trend,"days");
+     bool codex=selected_quota==1;visible(trend_plot,codex);
+-    ui_text(trend_title,codex?"近7日 · 周额度使用（百分比）":"每日用量");
++    bool carried=false;for(int i=0;i<7;i++)if(num(cJSON_GetArrayItem(days,i),"carryOver")>0)carried=true;
++    ui_text(trend_title,codex?(carried?"近7日 · 周额度使用（*含跨日补记）":"近7日 · 周额度使用（百分比）"):"每日用量");
+     double top=1;
+     for(int i=0;i<7;i++){cJSON *d=cJSON_GetArrayItem(days,i);if(num(d,"used")>top)top=num(d,"used");}
+     for(int i=0;i<7;i++) {
+@@ -492,7 +493,7 @@
+         lv_obj_set_height(trend_bars[i],height>0?height:1);
+         ui_bg_color(trend_bars[i],lv_color_hex(yes(d,"partial")?AMBER:BLUE),0);
+         char v[24];integer_value(d,"used",v,sizeof(v),"");
+-        ui_text(trend_values[i],v);
++        ui_text_fmt(trend_values[i],"%s%s",v,known&&num(d,"carryOver")>0?"*":"");
+         ui_text(trend_dates[i],text(d,"label"));
+     }
+     visible(trend_note,!codex);
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -397,6 +397,17 @@
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/photo_encode_under_test.inc" "${PHOTO_BODY}")
+ add_executable(photo-encode-test photo_encode_test.c)
+ target_include_directories(photo-encode-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++set(BANDWIDTH_SOURCE "${ROOT}/firmware/main/display_bandwidth.c")
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${BANDWIDTH_SOURCE}")
++file(READ "${BANDWIDTH_SOURCE}" BANDWIDTH_TEXT)
++string(FIND "${BANDWIDTH_TEXT}" "_Static_assert(" BANDWIDTH_START)
++if(BANDWIDTH_START LESS 0)
++ message(FATAL_ERROR "Display bandwidth lease source marker missing")
++endif()
++string(SUBSTRING "${BANDWIDTH_TEXT}" ${BANDWIDTH_START} -1 BANDWIDTH_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/display_bandwidth_under_test.inc" "${BANDWIDTH_BODY}")
++add_executable(display-bandwidth-test display_bandwidth_test.c)
++target_include_directories(display-bandwidth-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${ROOT}/.tools/esp-idf/components/soc/esp32p4/register")
+ set(JPEG_SOURCE "${ROOT}/.tools/esp-idf/components/esp_driver_jpeg/jpeg_encode.c")
+ set(PSRAM_SOURCE "${ROOT}/.tools/esp-idf/components/esp_psram/esp_psram.c")
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${JPEG_SOURCE}" "${PSRAM_SOURCE}")
+--- /dev/null
++++ b/tests/ui-preview/display_bandwidth_test.c
+@@ -0,0 +1,35 @@
++#undef NDEBUG
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++// Compile production lease against real pinned register definitions.
++#include "soc/icm_sys_struct.h"
++#define DW_GDMA_LL_MASTER_PORT_MEMORY 1
++typedef int portMUX_TYPE;
++#define portMUX_INITIALIZER_UNLOCKED 0
++static bool locked;
++#define portENTER_CRITICAL(p) do{assert(!locked);locked=true;(void)(p);}while(0)
++#define portEXIT_CRITICAL(p) do{assert(locked);locked=false;(void)(p);}while(0)
++axi_icm_dev_t AXI_ICM;
++#include "display_bandwidth_under_test.inc"
++int main(void) {
++    AXI_ICM.mst_arb_priority_reg0.val=0x87654321;
++    AXI_ICM.mst_arqos_reg0.val=0x12345678;
++    AXI_ICM.mst_awqos_reg0.val=0xabcdef01;
++    for(unsigned n=0;n<128;n++) {
++        display_bandwidth_photo_end();
++        display_bandwidth_photo_begin();display_bandwidth_photo_begin();
++        assert(AXI_ICM.mst_arb_priority_reg0.val==0x876f4321);
++        assert(AXI_ICM.mst_arqos_reg0.val==0x123f5678);
++        assert(AXI_ICM.mst_awqos_reg0.val==0xabcdef01);
++        display_bandwidth_photo_end();display_bandwidth_photo_end();
++        assert(AXI_ICM.mst_arb_priority_reg0.val==0x87654321);
++        assert(AXI_ICM.mst_arqos_reg0.val==0x12345678);
++    }
++    char text[80];display_bandwidth_format(text,sizeof text);
++    assert(!strcmp(text,"bw,1,0,128,128,15,15"));
++    assert(!locked);
++    puts("DISPLAY_BANDWIDTH_OK actual registers; 128 leases; restore nonzero prior values; other masters and writes unchanged");
++}
+--- a/tests/ui-preview/photo_encode_test.c
++++ b/tests/ui-preview/photo_encode_test.c
+@@ -24,6 +24,9 @@
+ static int fault,allocations,deletes,encodes,previews,last_step,last_code,attempts;
+ static bool leased;
+ static bool display_locked;
++static bool bandwidth_held;
++static void display_bandwidth_photo_begin(void){assert(display_locked&&!bandwidth_held);bandwidth_held=true;}
++static void display_bandwidth_photo_end(void){bandwidth_held=false;}
+ static bool lvgl_port_lock(unsigned timeout){assert(timeout==1000&&!display_locked);if(fault==11)return false;display_locked=true;return true;}
+ static void *lv_display_get_default(void){return (void*)1;}
+ static bool lvgl_port_display_wait_idle(void *d,unsigned timeout){assert(d&&timeout==300&&display_locked);return fault!=12;}
+@@ -36,7 +39,7 @@
+ #define MALLOC_CAP_8BIT 2
+ static void codec_mark(int stage,int code) {last_step=stage;last_code=code;}
+ static void *jpeg_alloc_encoder_mem(size_t n,const jpeg_encode_memory_alloc_cfg_t *cfg,size_t *capacity) {
+-    assert(cfg->buffer_direction==JPEG_ENC_ALLOC_OUTPUT_BUFFER&&leased);
++    assert(cfg->buffer_direction==JPEG_ENC_ALLOC_OUTPUT_BUFFER&&leased&&bandwidth_held);
+     assert(n>=256*1024&&n<=PHOTO_MAX_BYTES);attempts++;
+     if(fault==3||n>allocation_limit)return NULL;
+     *capacity=n;allocated_capacity=n;allocations++;return malloc(n);
+@@ -45,7 +48,7 @@
+ static const uint8_t *camera_preview_acquire(void) {assert(!leased);if(fault==2)return NULL;leased=true;return still;}
+ static void camera_preview_release(const uint8_t *p) {if(p){assert(p==still&&leased);leased=false;}}
+ static void *heap_caps_realloc(void *p,size_t n,int caps) {
+-    assert(!leased&&deletes==1&&n==123456&&caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
++    assert(!leased&&bandwidth_held&&deletes==1&&n==123456&&caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
+     if(fault==9)return NULL;return realloc(p,n);
+ }
+ static void make_preview(const uint16_t *p,unsigned w,unsigned h,unsigned stride) {assert(p&&w==photo_width&&h==photo_height&&stride==photo_width);previews++;}
+@@ -54,7 +57,7 @@
+ }
+ static esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t codec,const jpeg_encode_cfg_t *cfg,const uint8_t *p,
+     unsigned n,uint8_t *out,size_t capacity,uint32_t *written) {
+-    assert(codec&&p==still&&leased&&display_locked&&out&&n==1280*720*2&&capacity==allocated_capacity);
++    assert(codec&&p==still&&leased&&display_locked&&bandwidth_held&&out&&n==1280*720*2&&capacity==allocated_capacity);
+     assert(cfg->width==photo_width&&cfg->height==photo_height&&cfg->src_type==JPEG_ENCODE_IN_FORMAT_RGB565&&cfg->image_quality==85);
+     encodes++;*written=fault==6?0:fault==8?capacity+1:123456;
+     memset(out,0x5a,*written>capacity?capacity:*written);
+@@ -68,7 +71,7 @@
+ {
+     fault=failure;deletes=encodes=previews=attempts=0;atomic_store(&phase,1);
+     assert(!data&&!allocations&&!leased);
+-    bool ok=prepare_camera();assert(ok==(failure==0||failure==9));assert(!leased&&!display_locked);
++    bool ok=prepare_camera();assert(ok==(failure==0||failure==9));assert(!leased&&!display_locked&&!bandwidth_held);
+     assert(last_step==step&&last_code==code);
+     if(ok){assert(data&&data_size==123456&&allocations==1);for(size_t i=0;i<data_size;i++)assert(data[i]==0x5a);tracked_free(data);data=NULL;}
+     else {assert(!data&&data_size==0&&allocations==0&&atomic_load(&phase)==3);assert(strstr(error,"重拍")==NULL);}
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2199,6 +2199,13 @@
+     assert(lv_obj_get_x(codex_voice_button)>500&&lv_obj_get_x(codex_voice_button)<lv_obj_get_x(codex_send_button));
+     assert(!strcmp(lv_label_get_text(trend_values[0]),"--"));
+     assert(!strcmp(lv_label_get_text(trend_values[3]),"0"));
++    cJSON *carry_day=cJSON_GetArrayItem(item(item(shown,"quotaTrend"),"days"),4);
++    cJSON_AddNumberToObject(carry_day,"carryOver",6);render_quota();
++    assert(!strcmp(lv_label_get_text(trend_values[4]),"18*"));
++    assert(strstr(lv_label_get_text(trend_title),"*含跨日补记"));
++    page(1);capture("quota-carry-over");page(0);
++    cJSON_DeleteItemFromObject(carry_day,"carryOver");render_quota();
++    assert(!strcmp(lv_label_get_text(trend_values[4]),"18"));
+     // Even an older bridge carrying a cached five-hour value cannot show it for PRO.
+     cJSON_AddNumberToObject(codex,"primary",42);render_quota();
+     assert(lv_obj_has_flag(quota_rows[0],LV_OBJ_FLAG_HIDDEN));

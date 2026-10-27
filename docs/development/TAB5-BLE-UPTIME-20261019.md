@@ -1,5 +1,10 @@
 # 纯 BLE 启动报告的整数毫秒修复
 
+当前发布结果：用户已明确授权提交和公开发布；Windows 0.6.10 与 TAB5 .234 的带注释标签、正式附件及服务器摘要均已确认，下载中心同步更新。已验收 Windows 安装器和 c608 原字节保留，后续 CI 仅修复滚动可达性测试，远端全平台 CI 已通过；旧失败和未测系统分支保留。媒体 417 文件独立重建一致，主观试听未验，公开播放器交互由单独记录说明。后文早期“未授权”“待完成”均为保留的阶段记录。
+
+Published outcome: explicit user authorization covered scoped commits, normal pushes, annotated component tags and public release. Formal asset sets and server digests match; downloads are current. Accepted Windows bytes remain unchanged. A test-only scroll-reachability repair passed remote CI; old failures and untested system branches remain recorded. The 417-file media project independently reproduces identical HTML. Subjective listening and separately tracked public-player interaction retain their stated limits. Earlier pending/unapproved states below are historical.
+
+
 已取得真实失败字段、修复并通过 .234 纯 BLE 实机核验。用户批准精确镜像后完成 OTA，原版 Windows 0.6.10 / c608 在 USB 未连接、Wi-Fi 等待设备回报且蓝牙数据已确认的隔离条件下，只发出一次只读核验；9.34 秒后确认精确 ELF、`ota_1 VALID` 和三份实时样本，隔离违规为空。没有替换或重启 Windows、输入按键或重复已通过的功能。完成后已立即通知恢复电脑 WLAN，用户已确认恢复。尚未公开发布。
 
 ## 实际证据

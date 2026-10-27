@@ -1,0 +1,39 @@
+{
+  "status": "Source, native LVGL and target ui.c object validation complete; no firmware image generated or flashed",
+  "baseVersion": "0.2.267-ui",
+  "baseFirmwareSha256": "60ccffe6c2e1625a36b11ee3ad60eeec72b737b02b11619ad51fd538d08ff0e4",
+  "sourceBase": "artifacts/development/tab5-reminder-ui-20261024/candidate",
+  "prerequisites": [
+    "tab5-camera-memory-headroom.patch",
+    "tab5-calendar-makeup-label.patch",
+    "tab5-screen-preview.patch",
+    "tab5-reminder-popup-ui.patch"
+  ],
+  "patchSha256": "99fc884328024011020d595e9f6cdc86eb71b99eb49e567025bdf42adb03eb32",
+  "lineEndings": "Normalize listed base files to LF before git apply; hashes use UTF-8 LF",
+  "files": [
+    {
+      "path": "firmware/main/ui_agenda.h",
+      "baseSha256LF": "dcfe9aec0fef80671ac2af6d7fc49d74ec2923fbb02a2281326df5136feee4ad",
+      "sourceSha256LF": "0b0e41a93ba47475dffda05b9051014e59f2d30c354e421c885961bd7cfbc37b"
+    },
+    {
+      "path": "tests/ui-preview/agenda_ui_test.h",
+      "baseSha256LF": "251f26012c5351225fac1c14802c6ab630ccbf2a9460a369477242f97c13f9e2",
+      "sourceSha256LF": "616965fe220823a733cdc8d1a62d798ffbd3b217dc45ecd35461e158f02c1c31"
+    }
+  ],
+  "onlyProductChange": [
+    "main/ui_agenda.h"
+  ],
+  "firmwareGenerated": false,
+  "validation": {
+    "nativeAgendaSuite": "passed",
+    "actualPointerTests": "cancel, confirm, modal background blocking, pending duplicate suppression and failed-save recovery passed",
+    "visuals": "normal, 32-character title and deletion-storage failure inspected",
+    "targetObjectCompile": "ui.c passed; no full link",
+    "patchCheckAndApply": "passed; exact normalized comparison",
+    "evidence": "artifacts/development/tab5-delete-ui-20261024"
+  },
+  "physicalAcceptance": "Pending combined firmware; current device .267 unchanged"
+}

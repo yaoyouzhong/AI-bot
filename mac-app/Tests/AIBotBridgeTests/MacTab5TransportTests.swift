@@ -12,12 +12,13 @@ final class MacTab5TransportTests: XCTestCase {
     }
 
     func testAmbiguousOversizedAndPipelinedHTTPIsRejected() {
-        for headers in ["Content-Length: -1", "Content-Length: invalid", "Content-Length: 16385",
+        for headers in ["Content-Length: -1", "Content-Length: invalid", "Content-Length: 65440",
                         "Content-Length: 0\r\ncontent-length: 0", "Transfer-Encoding: chunked",
                         "Content-Length: 0\r\nTransfer-Encoding: chunked", " Content-Length: 0", "Bad\tName: value"] {
             XCTAssertThrowsError(try MacHTTPRequest.parse(Data("POST /tab5/v1/rpc HTTP/1.1\r\n\(headers)\r\n\r\n".utf8)))
         }
         XCTAssertThrowsError(try MacHTTPRequest.parse(Data(repeating: 65, count: 8193)))
+        XCTAssertThrowsError(try MacHTTPRequest.parse(Data("POST /event HTTP/1.1\r\nContent-Length: 16385\r\n\r\n".utf8)))
         XCTAssertThrowsError(try MacHTTPRequest.parse(Data("GET /status HTTP/1.1\r\n\r\nGET /status HTTP/1.1\r\n\r\n".utf8)))
         XCTAssertThrowsError(try MacHTTPRequest.parse(Data("GET  /status HTTP/1.1\r\n\r\n".utf8)))
     }

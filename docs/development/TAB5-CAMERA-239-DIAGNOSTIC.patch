@@ -1,0 +1,155 @@
+--- a/firmware/components/esp_video/src/esp_video_buffer.c
++++ b/firmware/components/esp_video/src/esp_video_buffer.c
+@@ -33,7 +33,9 @@
+     size   = sizeof(struct esp_video_buffer) + sizeof(struct esp_video_buffer_element) * info->count;
+     buffer = heap_caps_calloc(1, size, info->caps);
+     if (!buffer) {
+-        ESP_LOGE(TAG, "Failed to malloc for video buffer");
++        ESP_LOGE(TAG, "metadata size=%u caps=%x free=%u largest=%u", (unsigned)size, (unsigned)info->caps,
++                 (unsigned)heap_caps_get_free_size(info->caps & ~MALLOC_CAP_CACHE_ALIGNED),
++                 (unsigned)heap_caps_get_largest_free_block(info->caps & ~MALLOC_CAP_CACHE_ALIGNED));
+         return NULL;
+     }
+ 
+@@ -47,6 +49,14 @@
+                 element->video_buffer = buffer;
+                 ELEMENT_SET_FREE(element);
+             } else {
++                // Record the failed request BEFORE earlier frames are freed.
++                // CACHE_ALIGNED changes alignment, not the heap's capabilities;
++                // querying free space with that pseudo capability returns zero.
++                ESP_LOGE(TAG, "frame=%d/%u size=%u align=%u caps=%x free=%u largest=%u", i + 1,
++                         (unsigned)info->count, (unsigned)info->size, (unsigned)info->align_size,
++                         (unsigned)info->caps,
++                         (unsigned)heap_caps_get_free_size(info->caps & ~MALLOC_CAP_CACHE_ALIGNED),
++                         (unsigned)heap_caps_get_largest_free_block(info->caps & ~MALLOC_CAP_CACHE_ALIGNED));
+                 goto exit_0;
+             }
+         } else {
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -652,6 +652,23 @@
+ target_include_directories(camera-driver-cleanup-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ target_compile_options(camera-driver-cleanup-test PRIVATE /UNDEBUG)
+ 
++# Test allocation failure and recovery using the vendored video allocator.
++set(VIDEO_BUFFER_SOURCE "${ROOT}/firmware/components/esp_video/src/esp_video_buffer.c")
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${VIDEO_BUFFER_SOURCE}")
++file(READ "${VIDEO_BUFFER_SOURCE}" VIDEO_BUFFER_TEXT)
++string(FIND "${VIDEO_BUFFER_TEXT}" "struct esp_video_buffer *esp_video_buffer_create(" VIDEO_ALLOC_START)
++string(FIND "${VIDEO_BUFFER_TEXT}" "struct esp_video_buffer *esp_video_buffer_clone(" VIDEO_CLONE_START)
++math(EXPR VIDEO_ALLOC_LENGTH "${VIDEO_CLONE_START}-${VIDEO_ALLOC_START}")
++string(SUBSTRING "${VIDEO_BUFFER_TEXT}" ${VIDEO_ALLOC_START} ${VIDEO_ALLOC_LENGTH} VIDEO_ALLOC)
++string(FIND "${VIDEO_BUFFER_TEXT}" "esp_err_t esp_video_buffer_destroy(" VIDEO_FREE_START)
++string(FIND "${VIDEO_BUFFER_TEXT}" "struct esp_video_buffer_element *IRAM_ATTR esp_video_buffer_get_element_by_buffer(" VIDEO_FREE_END)
++math(EXPR VIDEO_FREE_LENGTH "${VIDEO_FREE_END}-${VIDEO_FREE_START}")
++string(SUBSTRING "${VIDEO_BUFFER_TEXT}" ${VIDEO_FREE_START} ${VIDEO_FREE_LENGTH} VIDEO_FREE)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/camera_buffer_alloc_under_test.inc" "${VIDEO_ALLOC}\n${VIDEO_FREE}")
++add_executable(camera-buffer-alloc-test camera_buffer_alloc_test.c)
++target_include_directories(camera-buffer-alloc-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++target_compile_options(camera-buffer-alloc-test PRIVATE /UNDEBUG)
++
+ file(READ "${ROOT}/firmware/main/codex_remote.c" PHOTO_RPC_SOURCE)
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ROOT}/firmware/main/codex_remote.c")
+ string(FIND "${PHOTO_RPC_SOURCE}" "static cJSON *rpc_job(" PHOTO_RPC_START)
+--- /dev/null
++++ b/tests/ui-preview/camera_buffer_alloc_test.c
+@@ -0,0 +1,98 @@
++// Fault injection at each actual allocator step; diagnostics must precede unwind.
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <stdarg.h>
++#include <string.h>
++#define MALLOC_CAP_8BIT 4
++#define MALLOC_CAP_SPIRAM 1024
++#define MALLOC_CAP_CACHE_ALIGNED (1u << 19)
++#define V4L2_MEMORY_MMAP 1
++#define V4L2_MEMORY_USERPTR 2
++#define ESP_OK 0
++#define ELEMENT_SET_FREE(e) ((e)->free = true)
++typedef int esp_err_t;
++struct esp_video_buffer_info { uint32_t count,size,align_size,caps,memory_type; };
++struct esp_video_buffer;
++struct esp_video_buffer_element {
++    bool free; void *node; struct esp_video_buffer *video_buffer;
++    uint32_t index; uint8_t *buffer; uint32_t valid_size;
++};
++struct esp_video_buffer {
++    struct esp_video_buffer_info info; struct esp_video_buffer_element element[0];
++};
++static unsigned call_index,fail_at,live_blocks,live_bytes,logged_bytes,query_count;
++static char diagnostic[180];
++static const unsigned capacity=12u*1024*1024;
++static void *allocate(size_t bytes,bool clear) {
++    if (++call_index==fail_at)return NULL;
++    size_t *block=clear?calloc(1,sizeof(size_t)+bytes):malloc(sizeof(size_t)+bytes);
++    assert(block);*block=bytes;live_blocks++;live_bytes+=(unsigned)bytes;
++    return block+1;
++}
++static void *heap_caps_calloc(size_t n,size_t size,unsigned caps) {
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED));
++    return allocate(n*size,true);
++}
++static void *heap_caps_aligned_alloc(size_t alignment,size_t size,unsigned caps) {
++    assert(alignment==64&&size==1280*720*2);
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED));
++    return allocate(size,false);
++}
++static void heap_caps_free(void *p) {
++    if(!p)return;
++    size_t *block=(size_t *)p-1;
++    assert(live_blocks&&live_bytes>=*block);
++    live_blocks--;live_bytes-=(unsigned)*block;free(block);
++}
++static size_t heap_caps_get_free_size(unsigned caps) {
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
++    query_count++;return capacity-live_bytes;
++}
++static size_t heap_caps_get_largest_free_block(unsigned caps) {
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
++    query_count++;return (capacity-live_bytes)/2;
++}
++static void record_error(const char *format,...) {
++    va_list args;va_start(args,format);
++    vsnprintf(diagnostic,sizeof(diagnostic),format,args);va_end(args);
++    logged_bytes=live_bytes;
++}
++#define ESP_LOGE(tag,...) record_error(__VA_ARGS__)
++#include "camera_buffer_alloc_under_test.inc"
++static void reset(unsigned failure) {
++    assert(!live_blocks&&!live_bytes);
++    fail_at=failure;call_index=query_count=logged_bytes=0;diagnostic[0]=0;
++}
++int main(void) {
++    const struct esp_video_buffer_info info={3,1280*720*2,64,
++        MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED,V4L2_MEMORY_MMAP};
++    for(unsigned failure=1;failure<=4;failure++) {
++        reset(failure);
++        assert(!esp_video_buffer_create(&info));
++        assert(!live_blocks&&!live_bytes&&query_count==2);
++        if(failure==1)assert(strstr(diagnostic,"metadata size="));
++        else {
++            char expected[32];snprintf(expected,sizeof(expected),"frame=%u/3 ",failure-1);
++            assert(strstr(diagnostic,expected));
++            assert(strstr(diagnostic,"size=1843200 align=64"));
++            assert(logged_bytes==(sizeof(struct esp_video_buffer)+3*sizeof(struct esp_video_buffer_element))+(failure-2)*info.size);
++        }
++        // A failed partial pool must not prevent the next full-resolution retry.
++        reset(0);
++        struct esp_video_buffer *buffer=esp_video_buffer_create(&info);
++        assert(buffer&&live_blocks==4&&!diagnostic[0]);
++        for(unsigned i=0;i<3;i++)assert(buffer->element[i].index==i&&buffer->element[i].free&&
++            buffer->element[i].video_buffer==buffer&&buffer->element[i].buffer);
++        assert(esp_video_buffer_destroy(buffer)==ESP_OK);
++    }
++    reset(0);
++    struct esp_video_buffer_info external=info;external.memory_type=V4L2_MEMORY_USERPTR;
++    struct esp_video_buffer *buffer=esp_video_buffer_create(&external);
++    assert(buffer&&live_blocks==1);
++    for(unsigned i=0;i<3;i++)buffer->element[i].buffer=(void *)(uintptr_t)(i+1);
++    assert(esp_video_buffer_destroy(buffer)==ESP_OK&&!live_blocks&&!live_bytes);
++    puts("CAMERA_BUFFER_ALLOC_OK: metadata/three frame failures captured before cleanup; retry and USERPTR ownership preserved");
++}

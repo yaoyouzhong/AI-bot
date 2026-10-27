@@ -1,0 +1,197 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5USB.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USB.swift
+@@ -251,54 +251,62 @@
+             }
+             guard let wire else { return }
+             let music = service.currentMusic
+-            let started = ProcessInfo.processInfo.systemUptime
+             let urgent = MusicSnapshot.changedUrgently(from: lastMusic, to: music)
+-            if statusCadence.isDue(started) || urgent {
++            chunks = try MacTab5USBVoicePriority.run(rpcSupported: rpcSupported,
++                voiceBusy: { self.service.voice.busy }, claim: {
+                 phase = .hostClaim
+                 try wire.authenticate(pair, endpoint: service.lanConfiguration)
+-                phase = .statusBuild
+-                let frame = try service.frame(), root = try MacTab5Protocol.object(frame)
+-                statusBytes = frame.count
+-                let fullRefresh = leaseCadence.isDue(started)
+-                let encoded = try statusDelta.wire(frame,packed:wire.packedStatus,supported:wire.deltaStatus && !fullRefresh)
+-                generationTime = ProcessInfo.processInfo.systemUptime-started
+-                let ack = try MacTab5USBStatus.exchange(full:frame,wire:encoded,write: { bytes in
+-                    phase = .statusWrite; wireBytes += bytes.count; try wire.sendJSON(bytes)
+-                },read: {
+-                    phase = .statusReply; return try wire.reply("tab5_ack")
+-                })
+-                statusTime = ProcessInfo.processInfo.systemUptime-started
+-                guard ack["deviceId"] as? String == pair.deviceId,
+-                      let sequence = MacTab5Protocol.integer(root["sequence"]),
+-                      MacTab5Protocol.integer(ack["sequence"]) == sequence else { throw MacTab5Error.invalidPacket }
+-                statusDelta.acknowledge(frame,sequence:sequence)
+-                if fullRefresh { leaseCadence.acknowledge(started:started) }
+-                service.usbState("数据已确认", confirmed: true)
+-                service.observeUSBInfo(ack)
+-                statusCadence.acknowledge(started: started, finished: ProcessInfo.processInfo.systemUptime,
+-                                         urgent: urgent, interval: MacTab5StatusCadence.interval(for: music, at: Date()))
+-                lastMusic = music
+-            }
+-            phase = .rpc
+-            let rpcStarted = ProcessInfo.processInfo.systemUptime
+-            if rpcSupported { try pump(wire, device: pair.deviceId) }
+-            rpcTime = ProcessInfo.processInfo.systemUptime-rpcStarted
+-            chunks = try MacTab5USBResourceBurst.run(shouldSend: { sent in
+-                self.service.isEnabled && !self.service.configurationBusy &&
+-                    (sent == 0 || !self.service.voice.busy) &&
+-                    !self.statusCadence.isDue(ProcessInfo.processInfo.systemUptime)
+-            }) {
+-                guard let chunk = self.service.assets.projection()["resource"] as? [String: Any] else { return false }
+-                let chunkStarted = ProcessInfo.processInfo.systemUptime
+-                phase = .resourceWrite
+-                try wire.send(["version": 1, "type": "tab5_resource", "deviceId": pair.deviceId, "resource": chunk])
+-                phase = .resourceReply
+-                let ack = try wire.reply("tab5_resource_ack")
+-                guard ack["deviceId"] as? String == pair.deviceId else { throw MacTab5Error.identity }
+-                service.observeUSBInfo(ack)
+-                service.assets.recordUSBChunk(chunk,elapsed:ProcessInfo.processInfo.systemUptime-chunkStarted)
+-                return true
+-            }
++            }, status: {
++                let started = ProcessInfo.processInfo.systemUptime
++                if statusCadence.isDue(started) || urgent {
++                    phase = .hostClaim
++                    try wire.authenticate(pair, endpoint: service.lanConfiguration)
++                    phase = .statusBuild
++                    let frame = try service.frame(includeResources: !service.voice.busy), root = try MacTab5Protocol.object(frame)
++                    statusBytes = frame.count
++                    let fullRefresh = leaseCadence.isDue(started)
++                    let encoded = try statusDelta.wire(frame,packed:wire.packedStatus,supported:wire.deltaStatus && !fullRefresh)
++                    generationTime = ProcessInfo.processInfo.systemUptime-started
++                    let ack = try MacTab5USBStatus.exchange(full:frame,wire:encoded,write: { bytes in
++                        phase = .statusWrite; wireBytes += bytes.count; try wire.sendJSON(bytes)
++                    },read: {
++                        phase = .statusReply; return try wire.reply("tab5_ack")
++                    })
++                    statusTime = ProcessInfo.processInfo.systemUptime-started
++                    guard ack["deviceId"] as? String == pair.deviceId,
++                          let sequence = MacTab5Protocol.integer(root["sequence"]),
++                          MacTab5Protocol.integer(ack["sequence"]) == sequence else { throw MacTab5Error.invalidPacket }
++                    statusDelta.acknowledge(frame,sequence:sequence)
++                    if fullRefresh { leaseCadence.acknowledge(started:started) }
++                    service.usbState("数据已确认", confirmed: true)
++                    service.observeUSBInfo(ack)
++                    statusCadence.acknowledge(started: started, finished: ProcessInfo.processInfo.systemUptime,
++                                             urgent: urgent, interval: MacTab5StatusCadence.interval(for: music, at: Date()))
++                    lastMusic = music
++                }
++            }, rpc: {
++                phase = .rpc
++                let rpcStarted = ProcessInfo.processInfo.systemUptime
++                if rpcSupported { try pump(wire, device: pair.deviceId) }
++                rpcTime += ProcessInfo.processInfo.systemUptime-rpcStarted
++            }, resources: {
++                return try MacTab5USBResourceBurst.run(shouldSend: { _ in
++                    self.service.isEnabled && !self.service.configurationBusy &&
++                        !self.service.voice.busy &&
++                        !self.statusCadence.isDue(ProcessInfo.processInfo.systemUptime)
++                }) {
++                    guard let chunk = self.service.assets.projection()["resource"] as? [String: Any] else { return false }
++                    let chunkStarted = ProcessInfo.processInfo.systemUptime
++                    phase = .resourceWrite
++                    try wire.send(["version": 1, "type": "tab5_resource", "deviceId": pair.deviceId, "resource": chunk])
++                    phase = .resourceReply
++                    let ack = try wire.reply("tab5_resource_ack")
++                    guard ack["deviceId"] as? String == pair.deviceId else { throw MacTab5Error.identity }
++                    service.observeUSBInfo(ack)
++                    service.assets.recordUSBChunk(chunk,elapsed:ProcessInfo.processInfo.systemUptime-chunkStarted)
++                    return true
++                }
++            })
+         } catch {
+             if error as? MacTab5Error == .hostNotTrusted { service.rejectUSBHost() }
+             close(phase.failure(error))
+--- a/mac-app/Sources/AIBotBridge/MacParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacParityValidation.swift
+@@ -174,6 +174,7 @@
+         checked += try MacVoiceSchedulingValidation.run(root: root.appendingPathComponent("voice-scheduling"))
+         checked += try MacPreviewHDValidation.run()
+         checked += try MacLANIdentityValidation.run(root:root.appendingPathComponent("lan-identity"))
++        checked += try MacTab5USBVoicePriorityValidation.run()
+         print("MAC_PARITY_SELF_TEST_OK \(checked) checks; isolated storage, no credentials/network/hardware")
+     }
+ }
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacTab5USBVoicePriority.swift
+@@ -0,0 +1,16 @@
++import Foundation
++
++enum MacTab5USBVoicePriority {
++    // The serial descriptor stays on its owner queue. A live take pumps its
++    // control request first; the existing status/ownership heartbeat still runs.
++    // Recheck after RPC: a start may have begun recording in this same step.
++    static func run(rpcSupported: Bool, voiceBusy: () -> Bool,
++                    claim: () throws -> Void, status: () throws -> Void, rpc: () throws -> Void,
++                    resources: () throws -> Int) rethrows -> Int {
++        let voiceFirst = rpcSupported && voiceBusy()
++        if voiceFirst { try claim(); try rpc() }
++        try status()
++        if rpcSupported && !voiceFirst { try rpc() }
++        return voiceBusy() ? 0 : try resources()
++    }
++}
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacTab5USBVoicePriorityValidation.swift
+@@ -0,0 +1,55 @@
++import Foundation
++
++enum MacTab5USBVoicePriorityValidation {
++    static func run() throws -> Int {
++        var checks = 0
++        func check(_ name: String, _ ok: Bool) throws {
++            guard ok else { throw MacTab5LocalError.invalid("USB voice priority: "+name) }; checks += 1
++        }
++        var order: [String] = [], busy = true, now = 0.0, served = -1.0
++        func status() { order.append("status"); now += 3.8 }
++        func rpc() { order.append("rpc"); served = now }
++        func resources() -> Int { order.append("resource"); now += 3.8; return 1 }
++        var chunks = MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{busy},claim:{},status:status,rpc:rpc,resources:resources)
++        try check("live voice ahead of slow status",order == ["rpc","status"] && served == 0)
++        try check("no first optional image chunk during voice",chunks == 0)
++        try check("ownership/status still serviced",now == 3.8)
++
++        order = []; busy = false; now = 0
++        chunks = MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{busy},claim:{},status:status,rpc:{rpc();busy = true},resources:resources)
++        try check("new start rechecked before images",order == ["status","rpc"] && chunks == 0)
++        order = []; busy = true
++        chunks = MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{busy},claim:{},status:status,rpc:{rpc();busy = false},resources:resources)
++        try check("completed take resumes existing image path",order == ["rpc","status","resource"] && chunks == 1)
++        order = []; busy = false
++        chunks = MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{busy},claim:{},status:status,rpc:rpc,resources:resources)
++        try check("idle ordering unchanged",order == ["status","rpc","resource"] && chunks == 1)
++        order = []; busy = true
++        _ = MacTab5USBVoicePriority.run(rpcSupported:false,voiceBusy:{busy},claim:{},status:status,rpc:rpc,resources:resources)
++        try check("legacy peer never receives unsupported RPC",order == ["status"])
++
++        enum Failure: Error { case transport }
++        order = []
++        do {
++            _ = try MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{true},claim:{},status:status,rpc:{order.append("rpc");throw Failure.transport},resources:resources)
++            try check("RPC failure propagated",false)
++        } catch Failure.transport { checks += 1 }
++        try check("failed voice request never replayed",order == ["rpc"])
++        order = []
++        do {
++            _ = try MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{true},claim:{},status:{order.append("status");throw Failure.transport},rpc:rpc,resources:resources)
++            try check("status failure propagated",false)
++        } catch Failure.transport { checks += 1 }
++        try check("status failure retains one RPC and no image",order == ["rpc","status"])
++        order = []
++        _ = MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{true},claim:{order.append("claim")},status:status,rpc:rpc,resources:resources)
++        try check("cold USB ownership claim precedes prioritized RPC",order == ["claim","rpc","status"])
++        order = []
++        do {
++            _ = try MacTab5USBVoicePriority.run(rpcSupported:true,voiceBusy:{true},claim:{order.append("claim");throw Failure.transport},status:status,rpc:rpc,resources:resources)
++            try check("failed ownership claim propagated",false)
++        } catch Failure.transport { checks += 1 }
++        try check("unclaimed peer cannot receive prioritized RPC",order == ["claim"])
++        return checks
++    }
++}

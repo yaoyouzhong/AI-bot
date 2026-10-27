@@ -1,0 +1,352 @@
+--- a/firmware/main/screen_preview.c
++++ b/firmware/main/screen_preview.c
+@@ -4,6 +4,7 @@
+ #include "device.h"
+ #include "rpc_link.h"
+ #include "photo_attachment.h"
++#include "camera_preview.h"
+ #include "photo_transfer_crypto.h"
+ #include "voice_remote.h"
+ #include "ota_update.h"
+@@ -31,13 +32,26 @@
+     voice_remote_state voice; // Worker-owned PSRAM; never nest two transcript buffers on its stack.
+ } preview_job;
+ static atomic_bool running;
++// One lease-scoped scratch buffer. Reserve before a slow begin RPC and reuse
++// it across frames so foreground rendering cannot fragment the next capture.
++static uint16_t *spare_pixels;
++static int64_t spare_until;
++unsigned screen_preview_cache_reclaim(bool force) {
++    bool expected=false;
++    if(!atomic_compare_exchange_strong(&running,&expected,true))return 0;
++    unsigned released=0;
++    if(spare_pixels&&(force||esp_timer_get_time()/1000>=spare_until)) {
++        free(spare_pixels);spare_pixels=NULL;released=1280u*720u*2u;
++    }
++    atomic_store(&running,false);return released;
++}
+ static atomic_uint minimum_stack,finished_jobs,last_error;
+ void screen_preview_diagnostics(char *out,unsigned size) {
+     snprintf(out,size,"sp,1,%u,%u,%u,%u",atomic_load(&running),atomic_load(&finished_jobs),
+         atomic_load(&minimum_stack),atomic_load(&last_error));
+ }
+ bool screen_preview_busy(void){return atomic_load(&running);}
+-// Metadata only, owned by the serialized worker. No screen pixels are retained.
++// Frame identity only. Scratch pixels remain private, lease bounded and never published without a fresh full capture.
+ static char previous_stream[33],previous_sha[65];
+ static uint8_t previous_pixels[32];
+ static int previous_width,previous_height;
+@@ -61,7 +75,7 @@
+         // admission may retry; never replay an uncertain chunk or extend the
+         // original request deadline. Foreground voice/photos/OTA still win.
+         voice_remote_get(&job->voice);
+-        if(ota_update_busy()||job->voice.busy||photo_state()==1){job->cancelled=true;break;}
++        if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy()){job->cancelled=true;break;}
+         vTaskDelay(pdMS_TO_TICKS(20));
+     }while(current(job));
+     return reply;
+@@ -85,13 +99,17 @@
+     preview_job *job=context;vTaskDelay(1);
+     if(!current(job))return;
+     voice_remote_get(&job->voice);
+-    if(ota_update_busy()||job->voice.busy||photo_state()==1){job->cancelled=true;return;}
++    if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy()){job->cancelled=true;return;}
+     if(esp_timer_get_time()/1000-job->progress_ms>=1000)announce(job);
+ }
+ static void worker(void *argument) {
+-    preview_job *job=argument;uint16_t *pixels=NULL;uint8_t *encoded=NULL;
++    preview_job *job=argument;uint16_t *pixels=spare_pixels;spare_pixels=NULL;uint8_t *encoded=NULL;
++    if(!job->jpeg){free(pixels);pixels=NULL;}
+     esp_http_client_handle_t http=NULL;cJSON *request=NULL,*reply=NULL;int status=0;unsigned detail=0;const char *error=NULL;
+     if(!current(job))goto done;
++    voice_remote_get(&job->voice);
++    if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy()){error="busy";goto done;}
++    if(job->jpeg&&!pixels)pixels=heap_caps_malloc((size_t)job->width*job->height*2,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+     if(job->jpeg&&bsp_display_lock(30)) {
+         if(lv_display_get_horizontal_resolution(lv_display_get_default())<lv_display_get_vertical_resolution(lv_display_get_default())) {
+             job->width=720;job->height=1280;
+@@ -106,9 +124,9 @@
+     job->http=http;
+     if(!announce(job)||!current(job))goto done;
+     voice_remote_get(&job->voice);
+-    if(ota_update_busy()||job->voice.busy||photo_state()==1){error="busy";goto done;}
++    if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy()){error="busy";goto done;}
+     size_t count=(size_t)job->width*job->height,capacity=job->jpeg?131072:count*2+(count/32767+1)*2+16;
+-    pixels=heap_caps_malloc(count*2,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!job->jpeg)pixels=heap_caps_malloc(count*2,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+     if(!pixels){error="memory";detail=1;goto done;}
+     bool captured=false;
+     for(unsigned attempt=0;attempt<8&&current(job);attempt++) {
+@@ -151,14 +169,14 @@
+         } else size=preview_pack(pixels,count,encoded,capacity);
+         break;
+     }
+-    free(pixels);pixels=NULL;
++    if(!job->jpeg){free(pixels);pixels=NULL;}
+     if(!current(job))goto done;
+     if(!size||size>524288){error="encoding";goto done;}
+     uint8_t digest[32];char sha[65];
+     if(rpc_payload_sha256(encoded,size,digest)){error="encoding";goto done;}
+     for(unsigned i=0;i<32;i++)snprintf(sha+i*2,3,"%02x",digest[i]);
+     for(size_t offset=0;offset<size&&current(job);) {
+-        voice_remote_get(&job->voice);if(ota_update_busy()||job->voice.busy||photo_state()==1)break;
++        voice_remote_get(&job->voice);if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy())break;
+         size_t n=size-offset;if(n>4096)n=4096;
+         if(job->link==LINK_BLE&&n>1024)n=1024;
+         size_t limit=rpc_data_limit(job->link);if(n>limit)n=limit;if(!n)break;
+@@ -184,6 +202,10 @@
+         if(request)cJSON_AddStringToObject(request,"error",error);
+         reply=call(job,http,request,NULL,0,&status);
+     }
++    voice_remote_get(&job->voice);
++    if(pixels&&job->jpeg&&!error&&status==200&&current(job)&&!ota_update_busy()&&!job->voice.busy&&photo_state()!=1&&!camera_preview_busy()) {
++        spare_pixels=pixels;pixels=NULL;spare_until=esp_timer_get_time()/1000+5000;
++    }
+     cJSON_Delete(request);cJSON_Delete(reply);free(pixels);free(encoded);
+     if(http)esp_http_client_cleanup(http);
+     unsigned stack=uxTaskGetStackHighWaterMark(NULL),old=atomic_load(&minimum_stack);
+--- a/firmware/main/screen_preview.h
++++ b/firmware/main/screen_preview.h
+@@ -10,3 +10,7 @@
+ 
+ // Numeric worker completion/stack/allocation observations; no pixels or text.
+ void screen_preview_diagnostics(char *out,unsigned size);
++
++// Reclaim only idle scratch; an active worker retains ownership.
++// force is used for foreground voice/camera/OTA; otherwise expire after5s idle.
++unsigned screen_preview_cache_reclaim(bool force);
+--- a/firmware/main/screen_preview.inc
++++ b/firmware/main/screen_preview.inc
+@@ -4,6 +4,7 @@
+     return screen_preview_busy()||now<screen_preview_until;
+ }
+ static void screen_preview_tick(cJSON *frame,link_kind link,int64_t now,int64_t received) {
++    screen_preview_cache_reclaim(false);
+     cJSON *command=item(item(frame,"connectionHealth"),"screenPreviewCommand");
+     cJSON *clock=item(frame,"epochMilliseconds"),*expires=item(command,"expiresAt"),*version=item(command,"version");
+     cJSON *width=item(command,"width"),*height=item(command,"height");
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1955,6 +1955,7 @@
+     device_config cfg=device_get_config();
+     if(!cfg.paired||(!usb_ready&&!ble_voice_ready()&&(!cfg.host[0]||cfg.port<=0))){tab5_ui_voice_check=6;ui_text(codex_voice_hint,"电脑语音服务地址未就绪");return;}
+     tab5_draw_cache_drop();
++    screen_preview_cache_reclaim(true);
+     if(!voice_remote_start(codex_selected,session,(int64_t)num(shown,"epochMilliseconds")+age)) {
+         tab5_ui_voice_check=7;
+ #ifndef TAB5_UI_PREVIEW
+@@ -2418,6 +2419,7 @@
+         info->res=LV_COVER_RES_COVER; // The public setter only permits less coverage.
+ }
+ static void camera_release_caches(void) {
++    screen_preview_cache_reclaim(true);
+     tab5_draw_cache_drop();
+ #if TAB5_LOCAL_ART
+     // Hidden artwork remains owned by the UI after leaving the saver. Detach
+@@ -2863,6 +2865,7 @@
+ static const char *ota_begin(const char *offer,const char *sha) {
+     const char *error=ota_prepare();if(error)return error;
+     tab5_draw_cache_drop();
++    screen_preview_cache_reclaim(true);
+     if(ota_update_request_checked(offer,sha)) {
+         ota_completion_render_pending=ota_completion_rendered=false;
+         ui_text(ota_title,"正在更新 TAB5");tint(ota_title,INK);
+--- a/firmware/main/ui_agenda_voice.h
++++ b/firmware/main/ui_agenda_voice.h
+@@ -22,6 +22,7 @@
+     int64_t age=esp_timer_get_time()/1000-last_received;const char *session=text(item(shown,"pcInput"),"session");
+     if(age<0||age>6000||!session[0]||!strcmp(session,"--")){ui_text(agenda_editor_feedback,"语音识别需连接电脑；离线可使用键盘输入");return;}
+     const char *base=lv_textarea_get_text(agenda_editor_name);if(strlen(base)>96)return;
++    screen_preview_cache_reclaim(true);
+     if(!voice_remote_start_tab5(AGENDA_VOICE_OWNER,session,(int64_t)num(shown,"epochMilliseconds")+age)){ui_text(agenda_editor_feedback,"语音未启动，请检查连接和电脑语音设置");return;}
+     voice_remote_get(voice);agenda_voice_generation=voice->generation;agenda_voice_waiting=true;agenda_voice_cancelled=false;agenda_voice_started=0;agenda_voice_switching=false;
+     agenda_editor_feedback_layout();
+--- a/firmware/main/ui_date_voice.h
++++ b/firmware/main/ui_date_voice.h
+@@ -1,71 +1,72 @@
+-// The voice service treats taskId as an opaque owner; this owner never sends a Codex task.
+-#define DATE_VOICE_OWNER "a1b07a65-0000-4000-8000-00000000da7e"
+-static char date_voice_base[97];
+-static unsigned date_voice_generation,date_voice_byte;
+-static int date_voice_cursor;
+-static int64_t date_voice_started;
+-static bool date_voice_switching;
+-static void date_voice_lock_keys(lv_obj_t *obj,bool locked) {
+-    if(locked)lv_obj_add_state(obj,LV_STATE_DISABLED);else lv_obj_remove_state(obj,LV_STATE_DISABLED);
+-    for(uint32_t n=0;n<lv_obj_get_child_count(obj);n++)date_voice_lock_keys(lv_obj_get_child(obj,n),locked);
+-}
+-static void date_editor_voice_tick(void);
+-static void date_editor_voice_action(lv_event_t *event) {
+-    int action=(int)(intptr_t)lv_event_get_user_data(event);
+-    if(date_voice_waiting){
+-        voice_remote_state *active=&ui_voice_work->date_active;voice_remote_get(active);
+-        if(active->generation!=date_voice_generation||strcmp(active->task_id,DATE_VOICE_OWNER)){date_editor_voice_tick();return;}
+-        if(action==2)date_voice_cancelled=true;
+-        if(action==3){if(date_voice_switching)return;date_voice_switching=true;visible(date_editor_voice_switch,false);}
+-        voice_remote_command(action?action:1);return;
+-    }
+-    if(action)return;
+-    voice_remote_state *voice=&ui_voice_work->date_action;voice_remote_get(voice);if(voice->busy){ui_text(date_feedback,"语音正在使用，请稍后重试");return;}
+-    tab5_ime_finish_for(date_ime);if(tab5_ime_pending_for(date_ime)[0]){ui_text(date_feedback,"请先完成名称输入");return;}
+-    int64_t age=esp_timer_get_time()/1000-last_received;const char *session=text(item(shown,"pcInput"),"session");
+-    if(age<0||age>6000||!session[0]||!strcmp(session,"--")){ui_text(date_feedback,"语音识别需连接电脑；离线可使用键盘输入");return;}
+-    const char *base=lv_textarea_get_text(date_title_input);if(strlen(base)>96){ui_text(date_feedback,"请先缩短当前名称，再继续录音");return;}
+-    if(!voice_remote_start_tab5(DATE_VOICE_OWNER,session,(int64_t)num(shown,"epochMilliseconds")+age)){ui_text(date_feedback,"语音未启动，请检查连接和电脑语音设置");return;}
+-    voice_remote_get(voice);date_voice_generation=voice->generation;date_voice_waiting=true;date_voice_cancelled=false;date_voice_started=0;date_voice_switching=false;
+-    strcpy(date_voice_base,base);date_voice_cursor=lv_textarea_get_cursor_pos(date_title_input);date_voice_byte=lv_text_encoded_get_byte_id(base,date_voice_cursor);
+-    date_keyboard_hide(NULL);
+-    // Keep the input layout and stop target stationary throughout the take.
+-    date_voice_lock_keys(date_keyboard,true);date_voice_lock_keys(date_ime,true);lv_obj_add_state(date_title_input,LV_STATE_DISABLED);lv_obj_add_state(date_editor_save_button,LV_STATE_DISABLED);tint(lv_obj_get_child(date_editor_save_button,0),MUTED);visible(date_editor_voice_cancel,true);lv_obj_add_state(date_editor_voice_button,LV_STATE_DISABLED);ui_bg_color(date_editor_voice_button,lv_color_hex(0x534C39),0);tint(date_feedback,AMBER);ui_text(date_feedback,"正在准备，请稍候…");
+-}
+-static void date_editor_voice_tick(void) {
+-    if(!date_voice_waiting)return;
+-    voice_remote_state *voice=&ui_voice_work->date_tick;voice_remote_get(voice);
+-    bool owner=voice->generation==date_voice_generation&&!strcmp(voice->task_id,DATE_VOICE_OWNER);
+-    if(!owner||!voice->busy||!strcmp(voice->source,"tab5"))date_voice_switching=false;
+-    bool recording=owner&&voice->busy&&voice->ready&&!strcmp(voice->phase,"recording")&&!date_voice_switching;
+-    visible(date_editor_voice_switch,recording&&!strcmp(voice->source,"dji"));
+-    visible(date_editor_mic_glyph,!recording);visible(date_editor_stop_glyph,recording);visible(date_editor_voice_meter,recording);lv_bar_set_value(date_editor_voice_meter,voice->level,LV_ANIM_OFF);
+-    ui_bg_color(date_editor_voice_button,lv_color_hex(recording?0x365D48:voice->busy&&owner?0x534C39:0x354247),0);
+-    if(voice->busy&&owner) {
+-        if(recording) {
+-            if(!date_voice_started)date_voice_started=esp_timer_get_time()/1000;
+-            int seconds=(int)((esp_timer_get_time()/1000-date_voice_started)/1000);
+-            const char *source=voice->source_name[0]?voice->source_name:!strcmp(voice->source,"dji")?"大疆":"TAB5 内置麦克风";
+-            ui_text_fmt(date_feedback,voice->silent?"未检测到声音  %02d:%02d\n%s":"可以说话了  %02d:%02d\n%s",seconds/60,seconds%60,source);
+-        } else if(date_voice_switching)ui_text(date_feedback,"正在切换 TAB5 内置麦克风…");
+-        else if(!strcmp(voice->phase,"draining"))ui_text(date_feedback,"正在结束收音…");
+-        else if(!strcmp(voice->phase,"recognizing"))ui_text(date_feedback,"正在识别，请稍候…");
+-        else ui_text(date_feedback,voice->message[0]?voice->message:"正在准备，请稍候…");
+-        tint(date_feedback,recording&&!voice->silent?GREEN:AMBER);
+-        if(recording)lv_obj_remove_state(date_editor_voice_button,LV_STATE_DISABLED);else lv_obj_add_state(date_editor_voice_button,LV_STATE_DISABLED);return;
+-    }
+-    tint(date_feedback,owner&&!strcmp(voice->phase,"error")?AMBER:MUTED);
+-    date_voice_waiting=false;visible(date_editor_voice_cancel,false);date_voice_lock_keys(date_keyboard,false);date_voice_lock_keys(date_ime,false);lv_obj_remove_state(date_editor_voice_button,LV_STATE_DISABLED);lv_obj_remove_state(date_title_input,LV_STATE_DISABLED);lv_obj_remove_state(date_editor_save_button,LV_STATE_DISABLED);tint(lv_obj_get_child(date_editor_save_button,0),0x173642);
+-    if(owner&&!date_voice_cancelled&&!strcmp(voice->phase,"review")&&voice->can_insert&&voice->text[0]) {
+-        size_t base=strlen(date_voice_base),extra=strlen(voice->text);
+-        // Keep the entire recognized draft for editing; only persisted titles are limited to 10 characters.
+-        char *joined=ui_voice_work->date_joined;
+-        memcpy(joined,date_voice_base,date_voice_byte);memcpy(joined+date_voice_byte,voice->text,extra);memcpy(joined+date_voice_byte+extra,date_voice_base+date_voice_byte,base-date_voice_byte+1);
+-        lv_textarea_set_text(date_title_input,joined);lv_textarea_set_cursor_pos(date_title_input,date_voice_cursor+lv_text_get_encoded_length(voice->text));
+-        date_title_changed(NULL);
+-        if(lv_text_get_encoded_length(joined)<=10)ui_text(date_feedback,"已填入名称，请检查后保存");
+-        return;
+-    }
+-    ui_text(date_feedback,date_voice_cancelled||!strcmp(voice->phase,"cancelled")?"已取消，原名称已保留":owner&&voice->message[0]?voice->message:"语音会话已变化，原名称已保留");
+-    date_title_changed(NULL);
+-}
++// The voice service treats taskId as an opaque owner; this owner never sends a Codex task.
++#define DATE_VOICE_OWNER "a1b07a65-0000-4000-8000-00000000da7e"
++static char date_voice_base[97];
++static unsigned date_voice_generation,date_voice_byte;
++static int date_voice_cursor;
++static int64_t date_voice_started;
++static bool date_voice_switching;
++static void date_voice_lock_keys(lv_obj_t *obj,bool locked) {
++    if(locked)lv_obj_add_state(obj,LV_STATE_DISABLED);else lv_obj_remove_state(obj,LV_STATE_DISABLED);
++    for(uint32_t n=0;n<lv_obj_get_child_count(obj);n++)date_voice_lock_keys(lv_obj_get_child(obj,n),locked);
++}
++static void date_editor_voice_tick(void);
++static void date_editor_voice_action(lv_event_t *event) {
++    int action=(int)(intptr_t)lv_event_get_user_data(event);
++    if(date_voice_waiting){
++        voice_remote_state *active=&ui_voice_work->date_active;voice_remote_get(active);
++        if(active->generation!=date_voice_generation||strcmp(active->task_id,DATE_VOICE_OWNER)){date_editor_voice_tick();return;}
++        if(action==2)date_voice_cancelled=true;
++        if(action==3){if(date_voice_switching)return;date_voice_switching=true;visible(date_editor_voice_switch,false);}
++        voice_remote_command(action?action:1);return;
++    }
++    if(action)return;
++    voice_remote_state *voice=&ui_voice_work->date_action;voice_remote_get(voice);if(voice->busy){ui_text(date_feedback,"语音正在使用，请稍后重试");return;}
++    tab5_ime_finish_for(date_ime);if(tab5_ime_pending_for(date_ime)[0]){ui_text(date_feedback,"请先完成名称输入");return;}
++    int64_t age=esp_timer_get_time()/1000-last_received;const char *session=text(item(shown,"pcInput"),"session");
++    if(age<0||age>6000||!session[0]||!strcmp(session,"--")){ui_text(date_feedback,"语音识别需连接电脑；离线可使用键盘输入");return;}
++    const char *base=lv_textarea_get_text(date_title_input);if(strlen(base)>96){ui_text(date_feedback,"请先缩短当前名称，再继续录音");return;}
++    screen_preview_cache_reclaim(true);
++    if(!voice_remote_start_tab5(DATE_VOICE_OWNER,session,(int64_t)num(shown,"epochMilliseconds")+age)){ui_text(date_feedback,"语音未启动，请检查连接和电脑语音设置");return;}
++    voice_remote_get(voice);date_voice_generation=voice->generation;date_voice_waiting=true;date_voice_cancelled=false;date_voice_started=0;date_voice_switching=false;
++    strcpy(date_voice_base,base);date_voice_cursor=lv_textarea_get_cursor_pos(date_title_input);date_voice_byte=lv_text_encoded_get_byte_id(base,date_voice_cursor);
++    date_keyboard_hide(NULL);
++    // Keep the input layout and stop target stationary throughout the take.
++    date_voice_lock_keys(date_keyboard,true);date_voice_lock_keys(date_ime,true);lv_obj_add_state(date_title_input,LV_STATE_DISABLED);lv_obj_add_state(date_editor_save_button,LV_STATE_DISABLED);tint(lv_obj_get_child(date_editor_save_button,0),MUTED);visible(date_editor_voice_cancel,true);lv_obj_add_state(date_editor_voice_button,LV_STATE_DISABLED);ui_bg_color(date_editor_voice_button,lv_color_hex(0x534C39),0);tint(date_feedback,AMBER);ui_text(date_feedback,"正在准备，请稍候…");
++}
++static void date_editor_voice_tick(void) {
++    if(!date_voice_waiting)return;
++    voice_remote_state *voice=&ui_voice_work->date_tick;voice_remote_get(voice);
++    bool owner=voice->generation==date_voice_generation&&!strcmp(voice->task_id,DATE_VOICE_OWNER);
++    if(!owner||!voice->busy||!strcmp(voice->source,"tab5"))date_voice_switching=false;
++    bool recording=owner&&voice->busy&&voice->ready&&!strcmp(voice->phase,"recording")&&!date_voice_switching;
++    visible(date_editor_voice_switch,recording&&!strcmp(voice->source,"dji"));
++    visible(date_editor_mic_glyph,!recording);visible(date_editor_stop_glyph,recording);visible(date_editor_voice_meter,recording);lv_bar_set_value(date_editor_voice_meter,voice->level,LV_ANIM_OFF);
++    ui_bg_color(date_editor_voice_button,lv_color_hex(recording?0x365D48:voice->busy&&owner?0x534C39:0x354247),0);
++    if(voice->busy&&owner) {
++        if(recording) {
++            if(!date_voice_started)date_voice_started=esp_timer_get_time()/1000;
++            int seconds=(int)((esp_timer_get_time()/1000-date_voice_started)/1000);
++            const char *source=voice->source_name[0]?voice->source_name:!strcmp(voice->source,"dji")?"大疆":"TAB5 内置麦克风";
++            ui_text_fmt(date_feedback,voice->silent?"未检测到声音  %02d:%02d\n%s":"可以说话了  %02d:%02d\n%s",seconds/60,seconds%60,source);
++        } else if(date_voice_switching)ui_text(date_feedback,"正在切换 TAB5 内置麦克风…");
++        else if(!strcmp(voice->phase,"draining"))ui_text(date_feedback,"正在结束收音…");
++        else if(!strcmp(voice->phase,"recognizing"))ui_text(date_feedback,"正在识别，请稍候…");
++        else ui_text(date_feedback,voice->message[0]?voice->message:"正在准备，请稍候…");
++        tint(date_feedback,recording&&!voice->silent?GREEN:AMBER);
++        if(recording)lv_obj_remove_state(date_editor_voice_button,LV_STATE_DISABLED);else lv_obj_add_state(date_editor_voice_button,LV_STATE_DISABLED);return;
++    }
++    tint(date_feedback,owner&&!strcmp(voice->phase,"error")?AMBER:MUTED);
++    date_voice_waiting=false;visible(date_editor_voice_cancel,false);date_voice_lock_keys(date_keyboard,false);date_voice_lock_keys(date_ime,false);lv_obj_remove_state(date_editor_voice_button,LV_STATE_DISABLED);lv_obj_remove_state(date_title_input,LV_STATE_DISABLED);lv_obj_remove_state(date_editor_save_button,LV_STATE_DISABLED);tint(lv_obj_get_child(date_editor_save_button,0),0x173642);
++    if(owner&&!date_voice_cancelled&&!strcmp(voice->phase,"review")&&voice->can_insert&&voice->text[0]) {
++        size_t base=strlen(date_voice_base),extra=strlen(voice->text);
++        // Keep the entire recognized draft for editing; only persisted titles are limited to 10 characters.
++        char *joined=ui_voice_work->date_joined;
++        memcpy(joined,date_voice_base,date_voice_byte);memcpy(joined+date_voice_byte,voice->text,extra);memcpy(joined+date_voice_byte+extra,date_voice_base+date_voice_byte,base-date_voice_byte+1);
++        lv_textarea_set_text(date_title_input,joined);lv_textarea_set_cursor_pos(date_title_input,date_voice_cursor+lv_text_get_encoded_length(voice->text));
++        date_title_changed(NULL);
++        if(lv_text_get_encoded_length(joined)<=10)ui_text(date_feedback,"已填入名称，请检查后保存");
++        return;
++    }
++    ui_text(date_feedback,date_voice_cancelled||!strcmp(voice->phase,"cancelled")?"已取消，原名称已保留":owner&&voice->message[0]?voice->message:"语音会话已变化，原名称已保留");
++    date_title_changed(NULL);
++}
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -8,6 +8,8 @@
+ static bool screen_preview_request(const char *stream,const char *request,const char *session,link_kind link,int width,int height,int version,const char *encoding,int64_t deadline){(void)version;(void)encoding;(void)stream;(void)request;(void)session;(void)link;(void)width;(void)height;(void)deadline;return false;}
+ void gallery_cache_reclaim(void){}
+ static bool screen_preview_busy(void){return false;}
++static unsigned preview_scratch_reclaims;
++static unsigned screen_preview_cache_reclaim(bool force){if(force)preview_scratch_reclaims++;return 0;}
+ #include "../../firmware/main/ui.c"
+ #include "../../firmware/main/art_orientation_filter.h"
+ #include <assert.h>
+@@ -2000,8 +2002,8 @@
+     lv_init(); ui_start();
+     if(getenv("TAB5_VOICE_REFRESH_ONLY")){check_voice_refresh();return 0;}
+     if(getenv("TAB5_VOICE_STOP_TOUCH_ONLY")){check_voice_stop_touch();return 0;}
+-    if(getenv("TAB5_VOICE_START_ONLY")){check_voice_start_pending();return 0;}
+-    if(getenv("TAB5_CAMERA_READY_ONLY")){check_camera_open_readiness();return 0;}
++    if(getenv("TAB5_VOICE_START_ONLY")){unsigned before=preview_scratch_reclaims;check_voice_start_pending();assert(preview_scratch_reclaims>before);puts("PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK");return 0;}
++    if(getenv("TAB5_CAMERA_READY_ONLY")){unsigned before=preview_scratch_reclaims;check_camera_open_readiness();assert(preview_scratch_reclaims>before);puts("PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK");return 0;}
+     if(getenv("TAB5_PHOTO_TRANSITION_ONLY")){check_photo_add_transition();check_photo_upload_transition();return 0;}
+     if(getenv("TAB5_ORIENTATION_ONLY")) {
+         page(9);settings_select(1);lv_obj_update_layout(settings_scroll);
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -329,6 +329,10 @@
+     if(kind&&(!strcmp(kind,"ota")||!strcmp(kind,"ota_probe")))return 10000;
+     return 75000;
+ }
++// Size optimization is limited to RPC envelope construction/dispatch.
++// Crypto, transport and display/codec hot loops keep their existing flags.
++#pragma GCC push_options
++#pragma GCC optimize ("Os")
+ static cJSON *rpc_call_impl(link_kind link,cJSON *request,int *status,char nonce[33],esp_http_client_handle_t http,
+     const uint8_t *upload,size_t upload_size,uint8_t *download,size_t capacity,size_t *received,rpc_gallery_progress progress,void *progress_context) {
+     if(received)*received=0;
+@@ -453,6 +457,7 @@
+     if(profile){profile_memory(profile);profile->decode_us+=esp_timer_get_time()-decode_start;profile->calls++;}
+     cJSON_Delete(root);return result;
+ }
++#pragma GCC pop_options
+ cJSON *rpc_call(link_kind link,cJSON *request,int *status,char nonce[33]) {return rpc_call_impl(link,request,status,nonce,NULL,NULL,0,NULL,0,NULL,NULL,NULL);}
+ cJSON *rpc_http_call(void *client,cJSON *request,int *status,char nonce[33]) {return rpc_call_impl(LINK_WIFI,request,status,nonce,client,NULL,0,NULL,0,NULL,NULL,NULL);}
+ #include "rpc_bulk_radio.inc"

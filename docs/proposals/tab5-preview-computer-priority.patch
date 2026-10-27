@@ -1,0 +1,86 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -4349,7 +4349,7 @@
+     lv_obj_set_height(network_diag_name,64);lv_label_set_long_mode(network_diag_name,LV_LABEL_LONG_DOT);
+     lv_obj_set_height(network_diag_host,64);lv_label_set_long_mode(network_diag_host,LV_LABEL_LONG_DOT);
+     muted(diag_wifi,"IP 地址",20,282,120);network_diag_ip=label(diag_wifi,"",148,282,410,false);
+-    muted(diag_bridge,"USB、蓝牙状态见上一页",20,282,538);
++    muted(diag_bridge,"USB、蓝牙状态见“网络连接”",20,282,538);
+     network_retry=button(network_diag_window,"重新连接 Wi-Fi",926,492,254,network_action,1);lv_obj_set_height(network_retry,60);
+     network_diag_feedback=muted(network_diag_window,"",0,492,892);
+     lv_obj_set_height(network_diag_feedback,100);lv_label_set_long_mode(network_diag_feedback,LV_LABEL_LONG_WRAP);
+--- a/firmware/main/computer_remote.c
++++ b/firmware/main/computer_remote.c
+@@ -25,6 +25,7 @@
+ static bool flag(cJSON *o,const char *key){return cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(o,key));}
+ static const char *string(cJSON *o,const char *key){cJSON *v=cJSON_GetObjectItemCaseSensitive(o,key);return cJSON_IsString(v)?v->valuestring:"";}
+ void computer_remote_get(computer_remote_state *out){xSemaphoreTake(device_mutex,portMAX_DELAY);if(state_init())*out=*state;else memset(out,0,sizeof(*out));xSemaphoreGive(device_mutex);}
++bool computer_remote_busy(void){xSemaphoreTake(device_mutex,portMAX_DELAY);bool busy=state&&state->busy;xSemaphoreGive(device_mutex);return busy;}
+ bool computer_remote_oneclick_enabled(void){xSemaphoreTake(device_mutex,portMAX_DELAY);bool enabled=state&&state->ready&&state->one_click_unlock;xSemaphoreGive(device_mutex);return enabled;}
+ bool computer_remote_lock_state(bool *locked,int64_t *updated) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);int64_t now=esp_timer_get_time()/1000;
+--- a/firmware/main/computer_remote.h
++++ b/firmware/main/computer_remote.h
+@@ -19,6 +19,8 @@
+     char icon_revision[65];
+     char message[160];
+ } computer_remote_state;
++// Lightweight foreground reservation; no state allocation or transcript copies.
++bool computer_remote_busy(void);
+ bool computer_remote_oneclick_enabled(void);
+ void computer_remote_diagnostic(unsigned *operation,int *status,int64_t *started);
+ void computer_remote_get(computer_remote_state *out);
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -318,6 +318,7 @@
+ static unsigned rpc_exchange_admission(const char *kind) {
+     if(kind&&!strcmp(kind,"voice"))return 2000;
+     if(kind&&!strcmp(kind,"screen-preview"))return 100;
++    if(kind&&!strcmp(kind,"computer-control"))return 1000;
+     return kind&&(!strcmp(kind,"unlock-pin")||!strcmp(kind,"host-unlock"))?1000:0;
+ }
+ static unsigned rpc_exchange_timeout(const char *kind,bool ota_probe) {
+--- a/firmware/main/screen_preview.c
++++ b/firmware/main/screen_preview.c
+@@ -7,6 +7,7 @@
+ #include "camera_preview.h"
+ #include "photo_transfer_crypto.h"
+ #include "voice_remote.h"
++#include "computer_remote.h"
+ #include "ota_update.h"
+ #include "esp_lvgl_port.h"
+ #include "esp_lvgl_port_disp.h"
+@@ -67,18 +68,23 @@
+ }
+ static cJSON *call(preview_job *job,void *http,cJSON *request,const uint8_t *bytes,size_t size,int *status) {
+     char nonce[33];if(!request||!current(job)){*status=0;return NULL;}
+-    cJSON *reply;
+-    do {
+-        reply=rpc_data_call(job->link,http,request,status,nonce,bytes,size,NULL,0,NULL);
+-        if(*status!=RPC_STATUS_UNPUBLISHED_BUSY||!current(job))break;
+-        // A task read may own the mailbox after begin. Only unpublished
+-        // admission may retry; never replay an uncertain chunk or extend the
+-        // original request deadline. Foreground voice/photos/OTA still win.
++    for(;;) {
++        if(!current(job)){*status=0;return NULL;}
++        // A status read or explicit control reserves the foreground before its
++        // task reaches the mailbox. Pause only unpublished preview work; let an
++        // already-published chunk finish, then resume under the same deadline.
++        if(!computer_remote_busy()) {
++            cJSON *reply=rpc_data_call(job->link,http,request,status,nonce,bytes,size,NULL,0,NULL);
++            if(*status!=RPC_STATUS_UNPUBLISHED_BUSY)return reply;
++            // No bytes were published. An uncertain chunk is never replayed.
++            cJSON_Delete(reply);
++        }
+         voice_remote_get(&job->voice);
+-        if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy()){job->cancelled=true;break;}
++        if(ota_update_busy()||job->voice.busy||photo_state()==1||camera_preview_busy()){
++            job->cancelled=true;*status=0;return NULL;
++        }
+         vTaskDelay(pdMS_TO_TICKS(20));
+-    }while(current(job));
+-    return reply;
++    }
+ }
+ // Repeating the existing idempotent begin keeps an authorized request alive
+ // while encoding; no pixel data, extension or unbounded lease is introduced.

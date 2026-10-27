@@ -1,5 +1,8 @@
 # 高清素材一键导入 — 2026-10-16
 
+> 历史开发阶段记录：当前 0.6.7 已支持高清完整包（含标准图和资料），以[正式下载与安装](../GALLERY-HD.md)为准。Historical implementation stage; the released complete importer supersedes material-only limitations below.
+
+
 ## 实现
 - 图库管理独立显示“基础图库”和“高清素材”状态。“安装基础图库…”与“高清画质（可选）→添加高清素材…”分区，避免两个导入入口混淆。
 - 接受 hd-materials-20261016-delivery 的现有两份 ZIP，无需手动解压或修改路径。

@@ -1,0 +1,44 @@
+--- a/firmware/main/ui_time.h
++++ b/firmware/main/ui_time.h
+@@ -1,6 +1,8 @@
+ #pragma once
+ #include <stdint.h>
+ #include <stdbool.h>
++#include <math.h>
++#include <limits.h>
+ 
+ typedef struct { int64_t epoch_ms, monotonic_ms, received_ms; bool initialized; } ui_time_state;
+ static int64_t ui_time_value(ui_time_state *s, int64_t sample_ms, int64_t received_ms, int64_t now_ms) {
+@@ -16,3 +18,12 @@
+     }
+     return current;
+ }
++
++// Keep the fractional position until after receiver-side elapsed time is added.
++static int ui_music_position(double sample, int duration, bool advance, int64_t age_ms) {
++    double position=isfinite(sample)?sample:0;
++    if(advance && age_ms>0 && (duration>0 || position>0))position+=(double)age_ms/1000.0;
++    if(position<=0)return 0;
++    if(duration>0 && position>duration)position=duration;
++    return position>=INT_MAX?INT_MAX:(int)position;
++}
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2231,14 +2231,10 @@
+     music_empty_refresh();
+     if(!music_has_track())return;
+     cJSON *m = item(shown, "music");
+-    int duration = (int)num(m, "durationSeconds"), pos = (int)num(m, "elapsedSeconds");
++    int duration = (int)num(m, "durationSeconds");
+     bool timeline_available=!cJSON_IsFalse(item(m,"timelineAvailable"));
+-    if (timeline_available && fresh && yes(m, "playing") && (duration > 0 || pos > 0))
+-        pos += (int)((now - last_received) / 1000);
+-    if (pos < 0)
+-        pos = 0;
+-    if (duration > 0 && pos > duration)
+-        pos = duration;
++    int pos=ui_music_position(num(m,"elapsedSeconds"),duration,
++                              timeline_available && fresh && yes(m,"playing"),now-last_received);
+     const char *title=text(m,"title"),*alias=strchr(title,'\n');
+     // Keep the original title and its localized alias on distinct rows.
+     if(alias)ui_text_fmt(music,"%.*s",(int)(alias-title),title);

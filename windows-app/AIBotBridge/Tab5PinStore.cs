@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using AIBot.LoginMethod;
 
 namespace AIBotBridge;
 
@@ -11,50 +12,62 @@ internal sealed class Tab5PinStore(string? path=null)
     private static readonly byte[] Entropy=Encoding.UTF8.GetBytes("AI-bot TAB5 unlock PIN v1");
     internal bool Exists {get{lock(Gate)return File.Exists(_path)||File.Exists(_path+".tmp");}}
     private static byte[] Binding(Tab5Pairing pair)=>SHA256.HashData(Encoding.UTF8.GetBytes(pair.DeviceId+"|"+pair.Key));
-    internal static bool Valid(ReadOnlySpan<byte> pin){if(pin.Length is <4 or >64)return false;foreach(byte value in pin)if(value<'0'||value>'9')return false;return true;}
+    internal static bool Valid(ReadOnlySpan<byte> pin){if(pin.Length is <1 or >64)return false;foreach(byte value in pin)if(value<0x20||value>0x7e)return false;return true;}
     internal bool Has(Tab5Pairing? pair)=>Available(pair,false);
     internal bool IsEnabled(Tab5Pairing? pair)=>Available(pair,true);
     private bool Available(Tab5Pairing? pair,bool enabledOnly){if(pair is null)return false;try{var pin=Read(pair,enabledOnly);try{return pin is not null;}finally{if(pin is not null)CryptographicOperations.ZeroMemory(pin);}}catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or CryptographicException){return false;}}
-    internal bool Enabled(Tab5Pairing? pair){if(pair is null)return false;try{lock(Gate){var record=Record(pair);try{return record is {Length:>=34}&&record[0]==2&&record[33]==1;}finally{if(record is not null)CryptographicOperations.ZeroMemory(record);}}}catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or CryptographicException){return false;}}
-    internal void Save(Tab5Pairing pair,ReadOnlySpan<byte> pin)
+    internal bool Enabled(Tab5Pairing? pair){if(pair is null)return false;try{lock(Gate){var record=Record(pair);try{return record is {Length:>=34}&&record[0]>=2&&record[33]==1;}finally{if(record is not null)CryptographicOperations.ZeroMemory(record);}}}catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or CryptographicException){return false;}}
+    internal LoginMethodKind Method(Tab5Pairing? pair)
     {
-        if(!Valid(pin))throw new ArgumentException("请输入 4–64 位数字 PIN。");
-        lock(Gate)Write(pair,pin,Enabled(pair));
+        if(pair is null)return LoginMethodKind.Manual;
+        lock(Gate){var record=Record(pair);try{return record is {Length:>=35}&&record[0]==3?(LoginMethodKind)record[34]:LoginMethodKind.Manual;}
+            finally{if(record is not null)CryptographicOperations.ZeroMemory(record);}}
+    }
+    internal void Save(Tab5Pairing pair,ReadOnlySpan<byte> pin,LoginMethodKind? method=null)
+    {
+        if(!Valid(pin))throw new ArgumentException("请输入 1–64 位 PIN 或密码，支持英文字母、数字、空格和英文符号。");
+        lock(Gate)Write(pair,pin,Enabled(pair),method??Method(pair));
     }
     internal void SetEnabled(Tab5Pairing pair,bool enabled)
     {
-        lock(Gate){var pin=Read(pair);try{Write(pair,pin??[],enabled);}finally{if(pin is not null)CryptographicOperations.ZeroMemory(pin);}}
+        lock(Gate){var pin=Read(pair);try{Write(pair,pin??[],enabled,Method(pair));}finally{if(pin is not null)CryptographicOperations.ZeroMemory(pin);}}
     }
-    private void Write(Tab5Pairing pair,ReadOnlySpan<byte> pin,bool enabled)
+    internal void SetMethod(Tab5Pairing pair,LoginMethodKind method)
     {
-        byte[] clear=new byte[34+pin.Length];clear[0]=2;Binding(pair).CopyTo(clear,1);clear[33]=enabled?(byte)1:(byte)0;pin.CopyTo(clear.AsSpan(34));
+        lock(Gate){var pin=Read(pair);try{Write(pair,pin??[],Enabled(pair),method);}finally{if(pin is not null)CryptographicOperations.ZeroMemory(pin);}}
+    }
+    private void Write(Tab5Pairing pair,ReadOnlySpan<byte> pin,bool enabled,LoginMethodKind method)
+    {
+        if(method is <LoginMethodKind.Manual or >LoginMethodKind.Password)throw new ArgumentException("登录方式无效。");
+        byte[] clear=new byte[35+pin.Length];clear[0]=3;Binding(pair).CopyTo(clear,1);clear[33]=enabled?(byte)1:(byte)0;clear[34]=(byte)method;pin.CopyTo(clear.AsSpan(35));
         try{Directory.CreateDirectory(Path.GetDirectoryName(_path)!);byte[] encrypted=ProtectedData.Protect(clear,Entropy,DataProtectionScope.CurrentUser);
             File.WriteAllBytes(_path+".tmp",encrypted);AtomicFileReplacement.Move(_path+".tmp",_path);}
         finally{CryptographicOperations.ZeroMemory(clear);}
     }
     // v1 candidate records retain their PIN but default to disabled. v2 stores
     // the independent enable flag and optional PIN in one atomic DPAPI record.
+    // v3 also stores an explicit method; old records remain Manual, never guessed.
     private byte[]? Record(Tab5Pairing pair)
     {
         if(!File.Exists(_path))return null;
         if(new FileInfo(_path).Length>4096)throw new CryptographicException("Invalid PIN record");
         byte[] clear=ProtectedData.Unprotect(File.ReadAllBytes(_path),Entropy,DataProtectionScope.CurrentUser);
-        int offset=clear.Length>0&&clear[0]==1?33:34;
-        if(clear.Length>=offset&&(clear[0]==1||clear[0]==2)&&CryptographicOperations.FixedTimeEquals(clear.AsSpan(1,32),Binding(pair))&&
-           (clear[0]!=2||clear[33]<=1)&&(clear.Length==offset||Valid(clear.AsSpan(offset))))return clear;
+        int offset=clear.Length>0&&clear[0]==1?33:clear.Length>0&&clear[0]==3?35:34;
+        if(clear.Length>=offset&&(clear[0] is 1 or 2 or 3)&&CryptographicOperations.FixedTimeEquals(clear.AsSpan(1,32),Binding(pair))&&
+           (clear[0]==1||clear[33]<=1)&&(clear[0]!=3||clear[34]<=2)&&(clear.Length==offset||Valid(clear.AsSpan(offset))))return clear;
         CryptographicOperations.ZeroMemory(clear);return null;
     }
     internal byte[]? Read(Tab5Pairing pair,bool requireEnabled=false)
     {
         lock(Gate){var clear=Record(pair);if(clear is null)return null;
-            try{if(requireEnabled&&(clear[0]!=2||clear[33]!=1))return null;int offset=clear[0]==1?33:34;return Valid(clear.AsSpan(offset))?clear.AsSpan(offset).ToArray():null;}
+            try{if(requireEnabled&&(clear[0]<2||clear[33]!=1))return null;int offset=clear[0]==1?33:clear[0]==3?35:34;return Valid(clear.AsSpan(offset))?clear.AsSpan(offset).ToArray():null;}
             finally{CryptographicOperations.ZeroMemory(clear);}
         }
     }
     internal void Delete(){lock(Gate){File.Delete(_path);File.Delete(_path+".tmp");}}
 }
 
-internal sealed class Tab5PinBroker(Tab5PinStore store,Func<ComputerLockScreenState>? screen=null,TimeProvider? clock=null)
+internal sealed class Tab5PinBroker(Tab5PinStore store,Func<ComputerLockScreenState>? screen=null,TimeProvider? clock=null,Func<LoginMethodKind,bool>? prepare=null)
 {
     private readonly object _gate=new();
     private readonly Dictionary<string,DateTimeOffset> _used=[];
@@ -62,9 +75,11 @@ internal sealed class Tab5PinBroker(Tab5PinStore store,Func<ComputerLockScreenSt
     {
         string Text(string name)=>root.TryGetProperty(name,out var v)&&v.ValueKind==System.Text.Json.JsonValueKind.String?v.GetString()!:"";
         string id=Text("requestId");
-        string[] allowed=["kind","op","requestId","session","issuedAt","binaryReply","bulkReply"];
+        string[] allowed=["kind","op","requestId","session","issuedAt","binaryReply","bulkReply","credentialVersion"];
         if(transport is not ("USB" or "BLE")||Text("op")!="read"||!Guid.TryParseExact(id,"D",out _)||
             root.EnumerateObject().Any(x=>!allowed.Contains(x.Name))||root.EnumerateObject().GroupBy(x=>x.Name).Any(g=>g.Count()!=1))return(400,new{error="invalid_pin_request"});
+        bool extended=root.TryGetProperty("credentialVersion",out var version);
+        if(extended&&(version.ValueKind!=System.Text.Json.JsonValueKind.Number||!version.TryGetInt32(out int v)||v!=2))return(400,new{error="invalid_pin_request"});
         lock(_gate){
             var now=(clock??TimeProvider.System).GetUtcNow();
             foreach(var expired in _used.Where(x=>now-x.Value>TimeSpan.FromMinutes(2)).Select(x=>x.Key).ToArray())_used.Remove(expired);
@@ -76,6 +91,9 @@ internal sealed class Tab5PinBroker(Tab5PinStore store,Func<ComputerLockScreenSt
             byte[]? pin=null;byte[] key=Convert.FromBase64String(pair.Key);
             try{
                 pin=store.Read(pair,requireEnabled:true);if(pin is null)return(404,new{error="pin_not_configured"});
+                LoginMethodKind method=store.Method(pair);
+                if(method!=LoginMethodKind.Manual&&(!(prepare??WindowsLoginMethod.Prepare)(method)||(screen??WindowsLockScreen.Read)().Locked!=true))return(409,new{error="screen_not_ready"});
+                if((pin.Length<4||pin.Any(value=>value<'0'||value>'9'))&&!extended)return(409,new{error="credential_upgrade_required"});
                 // Inner encryption keeps the PIN out of JSON objects, RPC receipts and diagnostics.
                 byte[] packet=Tab5Protocol.Encrypt(key,id.Replace("-",""),pin,128);
                 return(200,new{version=1,requestId=id,packet=Convert.ToBase64String(packet)});

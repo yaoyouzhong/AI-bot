@@ -1,0 +1,26 @@
+{
+  "base": "combined268 SOURCE-V5; immutable installed image/source unchanged",
+  "paths": [
+    {
+      "path": "firmware/main/ui.c",
+      "beforeNormalizedSHA256": "88ec4d1b38d8a30cd5c900f19d6b0cf1b85fa81c2f49f1d95db927fad63264f4",
+      "afterNormalizedSHA256": "91fb38dd84722e2a6990685229187717eff9bc9ff863baaed91a6cc2d52b3f06"
+    },
+    {
+      "path": "firmware/main/ui_photos.h",
+      "beforeNormalizedSHA256": "35f1cc6270fefd7d07e12156ee99b6fefc927cfb213d8dacd78d32d5adbe83ef",
+      "afterNormalizedSHA256": "15600f053f6846c38dcf574cd3c363157b75eaf6e346563f5e6efe56d940237b"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "beforeNormalizedSHA256": "3003a67820c34166a42a2af651a2585a8825e945af81347b3e652f327060a628",
+      "afterNormalizedSHA256": "30fa15754ac67a8be45053c09a36b679373139dc4d6adcfe069f6a03a5967045"
+    }
+  ],
+  "candidate": "artifacts/development/tab5-camera-ready-followup-20261024/candidate",
+  "imageGenerated": false,
+  "focusedNativeUI": "CAMERA_READY_UI_OK",
+  "targetUIObjectCompileExit": 0,
+  "broaderPhotoTransition": "pre-existing native stub camera_viewport_still_begin always returns0; both original268 and follow-up fail same encoder-transition assertion; not counted as pass",
+  "hardwareAcceptance": "pending combined future firmware; do not flash/generate now"
+}

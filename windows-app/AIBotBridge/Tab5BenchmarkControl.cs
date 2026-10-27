@@ -116,6 +116,7 @@ internal sealed partial class Tab5Service
                 if(device is null)throw new IOException("请连接已升级 TAB5 的 USB，USB 用于读取测速结果。");
                 port=GetOrOpenUsbPort(device.Port);
                 if(await ReadIdentityAsync(port,token)!=pair.DeviceId)throw new IOException("测速设备不匹配");
+                await ClaimUsbHostAsync(port,pair,token);
             }
             Send(port,new{version=1,type="tab5_benchmark",deviceId=pair.DeviceId,action});
             using var reply=await ReadReplyAsync(port,"tab5_benchmark",token);

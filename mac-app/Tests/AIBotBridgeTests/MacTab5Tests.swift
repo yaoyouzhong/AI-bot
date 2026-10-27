@@ -26,9 +26,9 @@ final class MacTab5Tests: XCTestCase {
                                  weather: nil, stocks: nil, systemMetrics: nil, quotas: nil, music: nil,
                                  displayPolicy: MacDisplayPolicy(selectedMode: "weather", cycleEnabled: false, intervalSeconds: 30, pages: ["weather"]))
     }
-    private func service() -> MacTab5Service {
+    private func service(computer: MacTab5Computer = MacTab5Computer()) -> MacTab5Service {
         let pair = MacTab5Pairing(deviceId: device, usbPath: "/dev/cu.usbmodem-fixture", key: key, confirmed: true)
-        let service = MacTab5Service(port: 8765, host: { "192.168.1.20" }, load: { pair }, save: { _ in })
+        let service = MacTab5Service(port: 8765, host: { "192.168.1.20" }, computer: computer, load: { pair }, save: { _ in })
         service.publish(snapshot()); service.usbState("fixture", confirmed: true); return service
     }
     private func send(_ root: [String: Any], to service: MacTab5Service, nonce: String = MacTab5Protocol.identifier()) throws -> (Int, [String: Any]) {
@@ -83,19 +83,49 @@ final class MacTab5Tests: XCTestCase {
         XCTAssertEqual((data["calendar"] as? [String: Any])?["lunar"] as? String, LunarDate.format(epoch: 1800000000, utcOffset: 28800))
     }
 
+    func testMusicOnlyPermissionAdvertisesTheSharedControlTransport() throws {
+        let suite = "AI-bot-music-capability-test-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: MacMusicService.enabledKey)
+        let control = MacTab5Computer(defaults: defaults, backend: .init(read: { [:] }, perform: { _, _, _ in false }))
+        let service = service(computer: control)
+        func health() throws -> [String: Any] {
+            let root = try MacTab5Protocol.object(service.frame())
+            return try XCTUnwrap((root["data"] as? [String: Any])?["connectionHealth"] as? [String: Any])
+        }
+        XCTAssertFalse(control.isEnabled)
+        XCTAssertEqual(try health()["computerControlVersion"] as? Int, 1)
+        defaults.set(false, forKey: MacMusicService.enabledKey)
+        XCTAssertNil(try health()["computerControlVersion"])
+    }
+
     func testQuotaProjectionUsesActualTAB5KeysAndCodexPlanBoundary() throws {
         var source = snapshot()
         let q = ProviderQuotaSnapshot(provider: "codex", plan: "pro", primaryPercent: 30, primaryResetsAt: Date(),
                                       weeklyPercent: 80, weeklyResetsAt: Date(), resetCreditsAvailable: 2,
-                                      resetCreditExpiresAt: [], updatedAt: Date(), stale: true)
+                                      resetCreditExpiresAt: [1800000000, 1800000000], updatedAt: Date(), stale: true,
+                                      primaryWindowSeconds: 18000, weeklyWindowSeconds: 604800)
         source = MacStatusSnapshot(version: source.version, time: source.time, epochUtc: source.epochUtc, utcOffsetSeconds: source.utcOffsetSeconds,
                                    capturedAt: source.capturedAt, codex: source.codex, claude: source.claude, musicPlaying: nil,
                                    weather: nil, stocks: nil, systemMetrics: nil, quotas: QuotaSnapshot(claude: nil, codex: q), music: nil)
+        source.quotaTrend = MacQuotaHistory.build([], now: source.capturedAt)
         let root = try MacTab5Protocol.object(MacTab5Protocol.snapshot(source, device: device, session: "1", sequence: 1, command: nil))
         let details = (root["data"] as! [String: Any])["quotaDetails"] as! [[String: Any]]
         XCTAssertNil(details[1]["primary"]); XCTAssertEqual(details[1]["weekly"] as? Int, 80)
         XCTAssertEqual(details[1]["credits"] as? Int, 2); XCTAssertEqual(details[1]["stale"] as? Bool, true)
         XCTAssertNil(details[1]["primaryPercent"])
+        XCTAssertNil(details[1]["primaryWindowSeconds"])
+        XCTAssertEqual(details[1]["weeklyWindowSeconds"] as? Int, 604800)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: source.utcOffsetSeconds)
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        let expiry = formatter.string(from: Date(timeIntervalSince1970: 1800000000))
+        XCTAssertEqual(details[1]["creditExpiries"] as? [String], [expiry, expiry])
+        let trend = (root["data"] as! [String: Any])["quotaTrend"] as! [String: Any]
+        XCTAssertEqual(trend["unit"] as? String, "weekly_percentage_points")
+        XCTAssertEqual((trend["days"] as? [Any])?.count, 7)
     }
 
     func testDailyPayloadPreservesSourcesAndStaleFlags() throws {

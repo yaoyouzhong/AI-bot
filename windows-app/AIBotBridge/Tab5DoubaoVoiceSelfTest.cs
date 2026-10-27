@@ -3,6 +3,8 @@ namespace AIBotBridge;
 internal static class Tab5DoubaoVoiceSelfTest
 {
     internal static void Run() {
+        CheckIdleAfterFocusLoss();
+        CheckOwnedStopAfterFocusLoss();
         Tab5DoubaoMicrophoneSelfTest.RunAsync().GetAwaiter().GetResult();
         static void Check(bool value){if(!value)throw new InvalidOperationException("Doubao control state test failed");}
         int state=0,starts=0,stops=0,shows=0;bool focus=true,queryLost=false,rejectStart=false;
@@ -42,5 +44,40 @@ internal static class Tab5DoubaoVoiceSelfTest
         Check(voice.CaptureStopped&&stops==2); // external stop observed without toggling or stealing focus
         state=1;focus=false;Check(!voice.Stop()&&stops==2); // no ownership: never stop somebody else's capture
         Console.WriteLine("TAB5_DOUBAO_CONTROL_OK focus, occupied/unknown state, explicit start/stop, duplicate stop and uncertain-start cleanup; synthetic only");
+    }
+    private static void CheckIdleAfterFocusLoss() {
+        int state=0,stops=0;bool focus=true;
+        int Send(int command) {
+            if(command==Tab5DoubaoVoice.Query)return state;
+            if(command==Tab5DoubaoVoice.StartCapture){state=1;return 0;}
+            if(command==Tab5DoubaoVoice.ShowCapture)return 0;
+            if(command==Tab5DoubaoVoice.StopCapture){stops++;state=0;return 0;}
+            throw new InvalidOperationException("Unexpected command");
+        }
+        var voice=new Tab5DoubaoVoice(Send,()=>focus);voice.Start();
+        // A focus transition may make the IME stop itself before our timer runs.
+        focus=false;state=0;
+        if(!voice.Stop()||!voice.CaptureStopped||stops!=0)
+            throw new InvalidOperationException("DOUBAO_IDLE_FOCUS_REGRESSION: acknowledged idle must complete without focus or another stop command");
+    }
+    private static void CheckOwnedStopAfterFocusLoss() {
+        foreach(bool unchanged in new[]{true,false}) {
+            int state=0,stops=0;bool focus=true;
+            int Send(int command) {
+                if(command==Tab5DoubaoVoice.Query)return state;
+                if(command==Tab5DoubaoVoice.StartCapture){state=1;return 0;}
+                if(command==Tab5DoubaoVoice.ShowCapture)return 0;
+                if(command==Tab5DoubaoVoice.StopCapture){stops++;state=2;return 0;}
+                throw new InvalidOperationException("Unexpected command");
+            }
+            var voice=new Tab5DoubaoVoice(Send,()=>focus,()=>unchanged);
+            if(voice.Stop()||stops!=0)throw new InvalidOperationException("Unowned capture was stopped");
+            voice.Start();focus=false;
+            if(voice.Stop()!=unchanged||stops!=(unchanged?1:0))throw new InvalidOperationException("Owned stop did not respect desktop input boundary");
+            if(unchanged) {
+                if(voice.Stop()||stops!=1||voice.CaptureStopped)throw new InvalidOperationException("Duplicate stop or premature completion");
+                state=0;if(!voice.CaptureStopped)throw new InvalidOperationException("Final idle not observed");
+            }
+        }
     }
 }

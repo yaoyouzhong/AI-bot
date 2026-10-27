@@ -64,10 +64,11 @@ internal sealed partial class Tab5Service
         if(packet.Length is <28 or >Tab5RpcBinary.RequestMaximum)return RejectRpc("packet length rejected");
         var key=Convert.FromBase64String(pair.Key);
         var digest=Convert.ToHexString(SHA256.HashData(packet)).ToLowerInvariant();
-        if(!Tab5Protocol.Verify(key,$"POST|/tab5/v1/rpc|{id}|{nonce}|{digest}",proof))return RejectRpc("HMAC rejected");
+        if(!Tab5Protocol.Verify(key,$"POST|/tab5/v1/rpc|{id}|{nonce}|{digest}",proof)){if(transport=="USB")_usbAuthenticationRejected=true;return RejectRpc("HMAC rejected");}
         byte[] clear;
-        try{clear=Tab5Protocol.Decrypt(key,nonce,packet,Tab5RpcBinary.RequestMaximum);}catch(CryptographicException){return RejectRpc("AES-GCM rejected");}
+        try{clear=Tab5Protocol.Decrypt(key,nonce,packet,Tab5RpcBinary.RequestMaximum);}catch(CryptographicException){if(transport=="USB")_usbAuthenticationRejected=true;return RejectRpc("AES-GCM rejected");}
         _rpcAuthDiagnostic="verified";
+        if(transport=="USB")_usbAuthenticationRejected=false;
         lock(_lifecycle){if(_stopping)return(503,null);_rpcRequests++;}
         try {
             (int Status,object Body) result;bool binaryReply=false,bulkReply=false,galleryReply=false,streamReply=false;
@@ -87,8 +88,9 @@ internal sealed partial class Tab5Service
                 }
                 if(!valid)result=(400,new{error="invalid_session_or_time"});
                 else if(replay)result=(409,new{error="already_submitted"});
-                else if(!opened.Data.IsEmpty&&Text(root,"kind") is not ("image-chunk" or "benchmark"))result=(400,new{error="unexpected_binary_data"});
+                else if(!opened.Data.IsEmpty&&Text(root,"kind") is not ("image-chunk" or "benchmark" or "screen-preview"))result=(400,new{error="unexpected_binary_data"});
                 else if(Text(root,"kind") is "ota" or "ota_probe")result=allowOta?RpcOta(root,transport,binaryReply,bulkReply):(409,new{error="firmware_requires_ota_transport"});
+                else if(Text(root,"kind")=="screen-preview")result=ScreenPreview.Receive(root,opened.Data.ToArray(),ScreenPreviewContext,id,transport);
                 else if(Text(root,"kind")=="image-chunk") {
                     result=RpcImage(root,id,opened.Data);
                     lock(_rpcLock) {
@@ -110,11 +112,15 @@ internal sealed partial class Tab5Service
                     _galleryDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss} request={Interlocked.Increment(ref _galleryRequests)}; transport={transport}; category={Text(root,"category")}; op={Text(root,"op")}; orientation={Text(root,"orientation")}; status={result.Status}; body="+
                         JsonSerializer.Serialize(result.Body is Tab5RpcDataBody data?data.Metadata:result.Body,JsonDefaults.Options);
                 }
+                else if(Text(root,"kind")=="runtime-diagnostics")result=ReceiveRuntimeDiagnostics(root,id,transport);
                 else if(Text(root,"kind")=="boot-verify")result=ReceiveBootProbe(root,id,transport);
                 else if(Text(root,"kind")=="ota-control")result=ReceiveRemoteOta(root);
                 else if(Text(root,"kind")=="display-settings")result=ReceiveDisplaySettings(root);
                 else if(Text(root,"kind")=="agenda")result=AgendaStore.Shared.Rpc(root);
                 else if(Text(root,"kind")=="wifi-unlock")result=await WifiUnlock.HandleAsync(root,pair,transport,_session,token);
+                // Optional Mac host-side USB/BLE intent protocol. Windows keeps
+                // its existing PIN/HID path and never interprets this as a PIN grant.
+                else if(Text(root,"kind")=="host-unlock")result=(409,new{error="host_unlock_unsupported",unlocked=false});
                 else if(Text(root,"kind")=="unlock-pin") {
                     Tab5PinBroker broker;lock(_rpcLock)broker=_pinBroker??=new(_pinStore);
                     result=broker.Handle(root,pair,transport);
@@ -158,6 +164,7 @@ internal sealed partial class Tab5Service
     private static string Text(JsonElement root,string key)=>root.TryGetProperty(key,out var v)&&v.ValueKind==JsonValueKind.String?v.GetString()!:"";
     private (int Status,object Body) RpcOta(JsonElement root,string transport,bool binaryReply,bool bulkReply)
     {
+        lock(_lifecycle) {
         var offer=Volatile.Read(ref _ota);
         if(offer is null||Text(root,"sha256")!=offer.Sha256||Text(root,"offerId")!=offer.OfferId)return(404,new{error="offer_changed"});
         if(!root.TryGetProperty("offset",out var o)||!o.TryGetInt32(out int offset)||!root.TryGetProperty("count",out var c)||!c.TryGetInt32(out int count)||
@@ -168,6 +175,9 @@ internal sealed partial class Tab5Service
         if(probe&&transport!="BLE")return(400,new{error="probe_requires_ble"});
         long now=Environment.TickCount64;
         if(!probe) {
+            if(_otaDelivery is not {} delivery||delivery.StopRequested||!ReferenceEquals(offer,delivery.Image))return(404,new{error="offer_changed"});
+            BeginOtaDelivery(delivery);delivery.Committed=delivery.DataStarted=true;
+            if(offset+count==offer.Image.Length)delivery.FinalReleased=true;
             if(now>=Interlocked.Read(ref _rpcOtaUntil)){
                 Interlocked.Exchange(ref _usbRpcGateWaitMs,0);Interlocked.Exchange(ref _usbRpcGateWaitPeakMs,0);
             }
@@ -175,7 +185,8 @@ internal sealed partial class Tab5Service
             _otaTransferDiagnostic=$"{transport}；已提供：{offset+count}/{offer.Image.Length}；等待设备校验";
         }
         return(200,binaryReply?Tab5OtaCompression.Range(offer.Image.AsMemory(offset,count),offset,
-            (transport=="BLE"||transport=="USB")&&bulkReply&&Text(root,"acceptEncoding")=="zlib"):new{offset,data=Convert.ToBase64String(offer.Image,offset,count)});
+            bulkReply&&Text(root,"acceptEncoding")=="zlib"):new{offset,data=Convert.ToBase64String(offer.Image,offset,count)});
+        }
     }
     private (int Status,object Body) RpcImage(JsonElement root,string device,ReadOnlyMemory<byte> raw)
     {

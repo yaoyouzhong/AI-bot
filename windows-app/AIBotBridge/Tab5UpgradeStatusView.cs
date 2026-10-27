@@ -37,9 +37,16 @@ internal sealed partial class Tab5Service
 {
     internal Tab5UpgradeStatusText UpgradeStatusText {
         get {
+            lock(_lifecycle) {
+            if(_otaDelivery is {StopRequested:true} stopped)return new(stopped.Image.Version,stopped.Confirmed?"已停止":"正在停止",OtaStopHint,"","");
             var image=Volatile.Read(ref _ota);var view=DeviceView;
-            return Tab5UpgradeStatusText.Create(image?.Version,view.Online,view.Online&&view.Firmware==image?.Version,
+            var value=Tab5UpgradeStatusText.Create(image?.Version,view.Online,view.Online&&view.Firmware==image?.Version,
                 UpgradeBootSummary=="启动核验通过",Volatile.Read(ref _otaTransfers)>0,OtaSummary,RemoteOtaStatus,OtaStartHint,OtaTransferSummary);
+            if(_otaDelivery is {Started:true,FinalReleased:true}&&view.Firmware!=image?.Version)
+                value=value with {State="等待校验",Hint="固件已传完，正在等待设备校验和重启，不能停止；请保持供电。"};
+            else if(CanStopOta)value=value with {State=RemoteOtaPending?"准备升级":"正在传输",Hint="可点“停止升级”取消本次传输。"};
+            return value;
+            }
         }
     }
 }

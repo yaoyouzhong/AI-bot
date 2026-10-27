@@ -1,0 +1,486 @@
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -26,7 +26,7 @@
+ endif()
+ list(APPEND tab5_sources "art_orientation.c")
+ list(APPEND tab5_sources "display_diagnostics.c" "display_bandwidth.c")
+-list(APPEND tab5_sources "runtime_diagnostics.c")
++list(APPEND tab5_sources "runtime_diagnostics.c" "screen_preview.c")
+ list(APPEND tab5_sources "usb_bulk_receive.c")
+ list(APPEND tab5_sources "draw_diagnostics.c" "camera_compositor.c" "camera_viewport.c")
+ list(APPEND tab5_sources "draw_fast.c")
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -49,6 +49,7 @@
+ #ifndef TAB5_UI_PREVIEW
+ #include "ota_remote.h"
+ #include "runtime_diagnostics.h"
++#include "screen_preview.h"
+ #endif
+ #include "ui_prefs.h"
+ #include "trusted_hosts.h"
+@@ -2783,6 +2784,7 @@
+ #include "ota_remote.inc"
+ #include "boot_verify.inc"
+ #include "runtime_diagnostics.inc"
++#include "screen_preview.inc"
+ static void flash_action(lv_event_t *e) {
+     int action=(int)(intptr_t)lv_event_get_user_data(e);
+     if(action==0){flash_feedback_pinned=false;visible(flash_layer,true);lv_obj_move_foreground(flash_layer);return;}
+@@ -2832,6 +2834,7 @@
+     ota_remote_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     boot_verify_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     runtime_diagnostics_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
++    screen_preview_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     tf_storage_refresh();
+     static int64_t reading_saved_at;
+     int64_t reading_now=esp_timer_get_time();
+--- /dev/null
++++ b/firmware/main/screen_preview.c
+@@ -0,0 +1,119 @@
++#include "screen_preview.h"
++#include "screen_preview_codec.h"
++#include "device.h"
++#include "rpc_link.h"
++#include "photo_attachment.h"
++#include "photo_transfer_crypto.h"
++#include "voice_remote.h"
++#include "ota_update.h"
++#include "esp_lvgl_port.h"
++#include "esp_lvgl_port_disp.h"
++#include "bsp/esp-bsp.h"
++#include "esp_heap_caps.h"
++#include "esp_http_client.h"
++#include "esp_timer.h"
++#include "freertos/idf_additions.h"
++#include <stdatomic.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++typedef struct {
++    char stream[33],request[33],session[33];
++    unsigned host_epoch;
++    link_kind link;
++    int width,height;
++    int64_t deadline;
++} preview_job;
++static atomic_bool running;
++static bool current(const preview_job *job) {
++    return job->host_epoch==device_host_epoch()&&!device_host_changing()&&
++        esp_timer_get_time()/1000<job->deadline&&rpc_ota_link_connected(job->link);
++}
++static cJSON *message(const preview_job *job,const char *op) {
++    cJSON *out=cJSON_CreateObject();if(!out)return NULL;
++    cJSON_AddStringToObject(out,"kind","screen-preview");cJSON_AddStringToObject(out,"op",op);
++    cJSON_AddStringToObject(out,"streamId",job->stream);cJSON_AddStringToObject(out,"requestId",job->request);
++    cJSON_AddStringToObject(out,"session",job->session);return out;
++}
++static cJSON *call(preview_job *job,void *http,cJSON *request,const uint8_t *bytes,size_t size,int *status) {
++    char nonce[33];if(!request||!current(job)){*status=0;return NULL;}
++    return rpc_data_call(job->link,http,request,status,nonce,bytes,size,NULL,0,NULL);
++}
++static void worker(void *argument) {
++    preview_job *job=argument;uint16_t *pixels=NULL;uint8_t *encoded=NULL;
++    esp_http_client_handle_t http=NULL;cJSON *request=NULL,*reply=NULL;int status=0;const char *error=NULL;
++    if(!current(job))goto done;
++    if(job->link==LINK_WIFI) {
++        device_config cfg=device_get_config();char url[112];snprintf(url,sizeof(url),"http://%s:%d/tab5/v1/rpc",cfg.host,cfg.port);
++        esp_http_client_config_t options={.url=url,.timeout_ms=3000,.disable_auto_redirect=true,.keep_alive_enable=true};
++        http=esp_http_client_init(&options);if(!http)goto done;
++    }
++    request=message(job,"begin");reply=call(job,http,request,NULL,0,&status);
++    bool authorized=status==200&&cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"accepted"));
++    cJSON_Delete(request);request=NULL;cJSON_Delete(reply);reply=NULL;
++    if(!authorized||!current(job))goto done;
++    voice_remote_state voice;voice_remote_get(&voice);
++    if(ota_update_busy()||voice.busy||photo_state()==1){error="busy";goto done;}
++    size_t count=(size_t)job->width*job->height,capacity=count*2+(count/32767+1)*2+16;
++    pixels=heap_caps_malloc(count*2,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    encoded=heap_caps_malloc(capacity,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!pixels||!encoded){error="memory";goto done;}
++    bool captured=false;
++    for(unsigned attempt=0;attempt<8&&current(job);attempt++) {
++        if(bsp_display_lock(30)) {
++            captured=lvgl_port_screen_preview(lv_display_get_default(),pixels,job->width,job->height);
++            bsp_display_unlock();
++        }
++        if(captured)break;
++        vTaskDelay(pdMS_TO_TICKS(20));
++    }
++    if(!captured){error="capture";goto done;}
++    if(!current(job))goto done;
++    size_t size=preview_pack(pixels,count,encoded,capacity);free(pixels);pixels=NULL;
++    if(!size||size>524288){error="encoding";goto done;}
++    uint8_t digest[32];char sha[65];
++    if(rpc_payload_sha256(encoded,size,digest)){error="encoding";goto done;}
++    for(unsigned i=0;i<32;i++)snprintf(sha+i*2,3,"%02x",digest[i]);
++    for(size_t offset=0;offset<size&&current(job);) {
++        voice_remote_get(&voice);if(ota_update_busy()||voice.busy||photo_state()==1)break;
++        size_t n=size-offset;if(n>4096)n=4096;
++        if(job->link==LINK_BLE&&n>1024)n=1024;
++        size_t limit=rpc_data_limit(job->link);if(n>limit)n=limit;if(!n)break;
++        request=message(job,"frame");if(!request)break;
++        cJSON_AddNumberToObject(request,"width",job->width);cJSON_AddNumberToObject(request,"height",job->height);
++        cJSON_AddStringToObject(request,"encoding","rgb565-rle1");cJSON_AddNumberToObject(request,"size",size);
++        cJSON_AddStringToObject(request,"sha256",sha);cJSON_AddNumberToObject(request,"offset",offset);
++        reply=call(job,http,request,encoded+offset,n,&status);
++        cJSON *next=cJSON_GetObjectItemCaseSensitive(reply,"nextOffset");
++        bool accepted=status==200&&cJSON_IsNumber(next)&&next->valuedouble==(double)(offset+n);
++        cJSON_Delete(request);request=NULL;cJSON_Delete(reply);reply=NULL;
++        if(!accepted)break;
++        offset+=n;vTaskDelay(1);
++    }
++done:
++    if(error&&current(job)) {
++        cJSON_Delete(request);cJSON_Delete(reply);request=message(job,"error");
++        if(request)cJSON_AddStringToObject(request,"error",error);
++        reply=call(job,http,request,NULL,0,&status);
++    }
++    cJSON_Delete(request);cJSON_Delete(reply);free(pixels);free(encoded);
++    if(http)esp_http_client_cleanup(http);
++    free(job);atomic_store(&running,false);vTaskDeleteWithCaps(NULL);
++}
++bool screen_preview_request(const char *stream,const char *request,const char *session,
++                            link_kind link,int width,int height,int64_t deadline_ms) {
++    if(!stream||strlen(stream)!=32||!request||strlen(request)!=32||!session||strlen(session)!=32||
++       (link!=LINK_USB&&link!=LINK_WIFI&&link!=LINK_BLE)||
++       !((width==640&&height==360)||(width==320&&height==180))||device_host_changing())return false;
++    bool expected=false;if(!atomic_compare_exchange_strong(&running,&expected,true))return false;
++    preview_job *job=heap_caps_calloc(1,sizeof(*job),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!job){atomic_store(&running,false);return false;}
++    snprintf(job->stream,sizeof(job->stream),"%s",stream);snprintf(job->request,sizeof(job->request),"%s",request);
++    snprintf(job->session,sizeof(job->session),"%s",session);job->link=link;job->host_epoch=device_host_epoch();
++    job->width=width;job->height=height;job->deadline=deadline_ms;
++    if(xTaskCreateWithCaps(worker,"screen_preview",8192,job,1,NULL,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS) {
++        free(job);atomic_store(&running,false);return false;
++    }
++    return true;
++}
+--- /dev/null
++++ b/firmware/main/screen_preview.h
+@@ -0,0 +1,6 @@
++#pragma once
++#include "link_state.h"
++#include <stdbool.h>
++#include <stdint.h>
++bool screen_preview_request(const char *stream,const char *request,const char *session,
++                            link_kind link,int width,int height,int64_t deadline_ms);
+--- /dev/null
++++ b/firmware/main/screen_preview.inc
+@@ -0,0 +1,22 @@
++static char screen_preview_last[33];
++static void screen_preview_tick(cJSON *frame,link_kind link,int64_t now,int64_t received) {
++    cJSON *command=item(item(frame,"connectionHealth"),"screenPreviewCommand");
++    cJSON *clock=item(frame,"epochMilliseconds"),*expires=item(command,"expiresAt"),*version=item(command,"version");
++    cJSON *width=item(command,"width"),*height=item(command,"height");
++    const char *id=cJSON_GetStringValue(item(command,"requestId")),*stream=cJSON_GetStringValue(item(command,"streamId"));
++    const char *session=cJSON_GetStringValue(item(item(frame,"pcInput"),"session"));
++    const char *transport=cJSON_GetStringValue(item(command,"transport")),*encoding=cJSON_GetStringValue(item(command,"encoding"));
++    if((link!=LINK_USB&&link!=LINK_WIFI&&link!=LINK_BLE)||!transport||
++       strcmp(transport,link==LINK_USB?"USB":link==LINK_WIFI?"Wi-Fi":"BLE")||
++       now<received||now-received>=6000||!remote_ota_hex(id,32)||!remote_ota_hex(stream,32)||!remote_ota_hex(session,32)||
++       !encoding||strcmp(encoding,"rgb565-rle1")||!cJSON_IsNumber(version)||version->valuedouble!=1||
++       !cJSON_IsNumber(width)||!cJSON_IsNumber(height)||
++       !((width->valuedouble==640&&height->valuedouble==360)||(width->valuedouble==320&&height->valuedouble==180))||
++       !cJSON_IsNumber(clock)||clock->valuedouble<=0||!cJSON_IsNumber(expires)||expires->valuedouble<=0||
++       expires->valuedouble>9007199254740991.0||expires->valuedouble!=(int64_t)expires->valuedouble||
++       expires->valuedouble<clock->valuedouble+now-received||expires->valuedouble>clock->valuedouble+30000||
++       !strcmp(id,screen_preview_last))return;
++    int64_t deadline=now+(int64_t)(expires->valuedouble-clock->valuedouble)-(now-received);
++    if(screen_preview_request(stream,id,session,link,width->valueint,height->valueint,deadline))
++        snprintf(screen_preview_last,sizeof(screen_preview_last),"%s",id);
++}
+--- /dev/null
++++ b/firmware/main/screen_preview_codec.h
+@@ -0,0 +1,33 @@
++#pragma once
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++
++/* RGB565 little endian, lossless word PackBits. A 16-bit control has a count
++ * in bits 0..14 (1..32767); bit 15 selects a repeated word, otherwise literal
++ * words follow. No zero counts, trailing data or implicit pixels are allowed. */
++static inline void preview_word(uint8_t *out,uint16_t value){out[0]=(uint8_t)value;out[1]=(uint8_t)(value>>8);}
++static inline size_t preview_pack(const uint16_t *pixels,size_t count,uint8_t *out,size_t capacity) {
++    if(!pixels||!out||!count)return 0;
++    size_t pos=0,at=0;
++    while(at<count) {
++        size_t run=1;
++        while(at+run<count&&run<32767&&pixels[at+run]==pixels[at])run++;
++        if(run>=3) {
++            if(capacity-pos<4)return 0;
++            preview_word(out+pos,(uint16_t)(0x8000|run));preview_word(out+pos+2,pixels[at]);pos+=4;at+=run;
++        } else {
++            size_t start=at;at+=run;
++            while(at<count&&at-start<32767) {
++                run=1;while(at+run<count&&run<3&&pixels[at+run]==pixels[at])run++;
++                if(run>=3)break;
++                size_t room=32767-(at-start);at+=run<room?run:room;
++            }
++            size_t n=at-start;
++            if(n>(capacity-pos)/2||capacity-pos<2+n*2)return 0;
++            preview_word(out+pos,(uint16_t)n);pos+=2;
++            for(size_t i=start;i<at;i++){preview_word(out+pos,pixels[i]);pos+=2;}
++        }
++    }
++    return pos;
++}
+--- a/firmware/main/photo_transfer_crypto.c
++++ b/firmware/main/photo_transfer_crypto.c
+@@ -8,6 +8,7 @@
+ #include "mbedtls/sha256.h"
+ #include "mbedtls/platform_util.h"
+ #include <stdatomic.h>
++#include <stdbool.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -46,11 +47,12 @@
+     uint8_t output[PHOTO_TX_CRYPTO_CHUNK+16];
+     uint8_t iv[12],aad[32],tag[16];
+ } photo_gcm_work;
+-int photo_tx_encrypt(const uint8_t key[32],const uint8_t iv[12],const uint8_t aad[32],
+-                     const uint8_t *input,size_t size,uint8_t *output,uint8_t tag[16]) {
++static int encrypt_chunks(const uint8_t key[32],const uint8_t iv[12],const uint8_t aad[32],
++                     const uint8_t *input,size_t size,uint8_t *output,uint8_t tag[16],bool tracked) {
+     if(!key||!iv||!aad||(!input&&size)||(!output&&size)||!tag)return MBEDTLS_ERR_GCM_BAD_INPUT;
+-    photo_display_probe_mark(PHOTO_DISPLAY_PROBE_CRYPT);
+-    photo_tx_phase(PHOTO_TX_CRYPT);int64_t started=esp_timer_get_time();
++    if(tracked)photo_display_probe_mark(PHOTO_DISPLAY_PROBE_CRYPT);
++    if(tracked){photo_tx_phase(PHOTO_TX_CRYPT);}
++    int64_t started=esp_timer_get_time();
+     // Both buffers AND the context are internal, even when the worker stack
+     // lives in PSRAM. Never hand a JPEG/packet PSRAM range to AES DMA.
+     photo_gcm_work *work=heap_caps_calloc(1,sizeof(*work),MALLOC_CAP_INTERNAL|MALLOC_CAP_DMA|MALLOC_CAP_8BIT);
+@@ -65,7 +67,7 @@
+         memcpy(work->input,input+at,count);size_t produced=0;
+         result=mbedtls_gcm_update(&work->ctx,work->input,count,work->output,sizeof(work->output),&produced);
+         if(!result&&(produced>count||produced>size-written))result=MBEDTLS_ERR_GCM_BAD_INPUT;
+-        if(!result){memcpy(output+written,work->output,produced);written+=produced;at+=count;atomic_fetch_add(&crypto_chunks,1);if(at<size)pause_chunk();}
++        if(!result){memcpy(output+written,work->output,produced);written+=produced;at+=count;if(tracked)atomic_fetch_add(&crypto_chunks,1);if(at<size)pause_chunk();}
+     }
+     size_t produced=0;
+     if(!result)result=mbedtls_gcm_finish(&work->ctx,work->output,sizeof(work->output),&produced,work->tag,16);
+@@ -73,23 +75,35 @@
+     if(!result){if(produced)memcpy(output+written,work->output,produced);memcpy(tag,work->tag,16);}
+     else {memset(tag,0,16);erase_output(output,size);}
+     mbedtls_gcm_free(&work->ctx);mbedtls_platform_zeroize(work,sizeof(*work));free(work);
+-    atomic_fetch_add(&encrypt_ms,(unsigned)((esp_timer_get_time()-started)/1000));return result;
++    if(tracked){atomic_fetch_add(&encrypt_ms,(unsigned)((esp_timer_get_time()-started)/1000));}
++    return result;
+ }
+ typedef struct {mbedtls_sha256_context ctx;uint8_t input[PHOTO_TX_CRYPTO_CHUNK],hash[32];} photo_sha_work;
+-int photo_tx_sha256(const uint8_t *input,size_t size,uint8_t hash[32]) {
++static int sha_chunks(const uint8_t *input,size_t size,uint8_t hash[32],bool tracked) {
+     if((!input&&size)||!hash)return MBEDTLS_ERR_SHA256_BAD_INPUT_DATA;
+-    photo_display_probe_mark(PHOTO_DISPLAY_PROBE_HASH);
+-    photo_tx_phase(PHOTO_TX_HASH);int64_t started=esp_timer_get_time();
++    if(tracked)photo_display_probe_mark(PHOTO_DISPLAY_PROBE_HASH);
++    if(tracked){photo_tx_phase(PHOTO_TX_HASH);}
++    int64_t started=esp_timer_get_time();
+     photo_sha_work *work=heap_caps_calloc(1,sizeof(*work),MALLOC_CAP_INTERNAL|MALLOC_CAP_DMA|MALLOC_CAP_8BIT);
+     if(!work){memset(hash,0,32);return MBEDTLS_ERR_SHA256_BAD_INPUT_DATA;}
+     mbedtls_sha256_init(&work->ctx);int result=mbedtls_sha256_starts(&work->ctx,0);
+     for(size_t at=0;!result&&at<size;) {
+         size_t count=size-at;if(count>PHOTO_TX_CRYPTO_CHUNK)count=PHOTO_TX_CRYPTO_CHUNK;
+         memcpy(work->input,input+at,count);result=mbedtls_sha256_update(&work->ctx,work->input,count);
+-        at+=count;if(!result){atomic_fetch_add(&crypto_chunks,1);if(at<size)pause_chunk();}
++        at+=count;if(!result){if(tracked)atomic_fetch_add(&crypto_chunks,1);if(at<size)pause_chunk();}
+     }
+     if(!result)result=mbedtls_sha256_finish(&work->ctx,work->hash);
+     if(!result)memcpy(hash,work->hash,32);else memset(hash,0,32);
+     mbedtls_sha256_free(&work->ctx);mbedtls_platform_zeroize(work,sizeof(*work));free(work);
+-    atomic_fetch_add(&hash_ms,(unsigned)((esp_timer_get_time()-started)/1000));return result;
++    if(tracked){atomic_fetch_add(&hash_ms,(unsigned)((esp_timer_get_time()-started)/1000));}
++    return result;
+ }
++
++int photo_tx_encrypt(const uint8_t key[32],const uint8_t iv[12],const uint8_t aad[32],const uint8_t *input,size_t size,uint8_t *output,uint8_t tag[16]) {
++    return encrypt_chunks(key,iv,aad,input,size,output,tag,true);
++}
++int rpc_payload_encrypt(const uint8_t key[32],const uint8_t iv[12],const uint8_t aad[32],const uint8_t *input,size_t size,uint8_t *output,uint8_t tag[16]) {
++    return encrypt_chunks(key,iv,aad,input,size,output,tag,false);
++}
++int photo_tx_sha256(const uint8_t *input,size_t size,uint8_t hash[32]) { return sha_chunks(input,size,hash,true); }
++int rpc_payload_sha256(const uint8_t *input,size_t size,uint8_t hash[32]) { return sha_chunks(input,size,hash,false); }
+--- a/firmware/main/photo_transfer_crypto.h
++++ b/firmware/main/photo_transfer_crypto.h
+@@ -14,3 +14,7 @@
+                      const uint8_t *input,size_t size,uint8_t *output,uint8_t tag[16]);
+ int photo_tx_sha256(const uint8_t *input,size_t size,uint8_t hash[32]);
+ void photo_tx_copy(uint8_t *output,const uint8_t *input,size_t size);
++
++// Same bounded PSRAM-safe crypto without changing photo diagnostics.
++int rpc_payload_encrypt(const uint8_t key[32],const uint8_t iv[12],const uint8_t aad[32],const uint8_t *input,size_t size,uint8_t *output,uint8_t tag[16]);
++int rpc_payload_sha256(const uint8_t *input,size_t size,uint8_t hash[32]);
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -317,9 +317,11 @@
+ // Admission waits before publishing a nonce; it never replays a request.
+ // Local unlock leases share the mailbox with already-running status reads.
+ static unsigned rpc_exchange_admission(const char *kind) {
++    if(kind&&!strcmp(kind,"screen-preview"))return 100;
+     return kind&&(!strcmp(kind,"unlock-pin")||!strcmp(kind,"host-unlock"))?1000:0;
+ }
+ static unsigned rpc_exchange_timeout(const char *kind,bool ota_probe) {
++    if(kind&&!strcmp(kind,"screen-preview"))return 3000;
+     if(ota_probe)return 5000;
+     if(kind&&!strcmp(kind,"host-unlock"))return 2000;
+     if(kind&&(!strcmp(kind,"boot-verify")||!strcmp(kind,"runtime-diagnostics")))return 2000;
+@@ -390,6 +392,9 @@
+     if(photo_upload) {
+         err=photo_tx_encrypt(cfg.key,packet,(uint8_t *)nonce,(uint8_t *)clear,n,packet+28,packet+12);
+         if(!err)err=photo_tx_sha256(packet,n+28,hash);
++    }else if(kind&&!strcmp(kind,"screen-preview")) {
++        err=rpc_payload_encrypt(cfg.key,packet,(uint8_t *)nonce,(uint8_t *)clear,n,packet+28,packet+12);
++        if(!err)err=rpc_payload_sha256(packet,n+28,hash);
+     }else {
+         mbedtls_gcm_context ctx;mbedtls_gcm_init(&ctx);
+         err=mbedtls_gcm_setkey(&ctx,MBEDTLS_CIPHER_ID_AES,cfg.key,256);
+--- a/firmware/components/esp_lvgl_port/include/esp_lvgl_port_disp.h
++++ b/firmware/components/esp_lvgl_port/include/esp_lvgl_port_disp.h
+@@ -164,6 +164,9 @@
+  * Begin waits at most 300 ms for each ownership handoff. A failed framebuffer
+  * handoff leaves the display suppressed; call camera_end to recover it.
+  */
++/* Read-only sampled snapshot. Caller holds LVGL lock; false means busy. */
++bool lvgl_port_screen_preview(lv_display_t *disp,uint16_t *out,int width,int height);
++
+ bool lvgl_port_camera_begin(lv_display_t *disp);
+ 
+ /** Writable native-orientation buffer, or NULL after a failure / while switching.
+--- /dev/null
++++ b/firmware/components/esp_lvgl_port/include/tab5_screen_preview_pixels.h
+@@ -0,0 +1,24 @@
++#pragma once
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++
++/* Sample the real panel buffer, undoing the same software rotation as its
++ * renderer. No panel write, graphics replay or second full-screen buffer. */
++static inline bool tab5_preview_sample(const uint16_t *source,int nw,int nh,unsigned rotation,
++                                      uint16_t *out,int width,int height) {
++    if(!source||!out||nw<=0||nh<=0||rotation>3||width<=0||height<=0)return false;
++    int sw=(rotation&1)?nh:nw,sh=(rotation&1)?nw:nh;
++    if(width>sw||height>sh)return false;
++    for(int ty=0;ty<height;ty+=16)for(int tx=0;tx<width;tx+=16)
++        for(int y=ty;y<height&&y<ty+16;y++)for(int x=tx;x<width&&x<tx+16;x++) {
++            int sx=(int)(((int64_t)x*2+1)*sw/(width*2));
++            int sy=(int)(((int64_t)y*2+1)*sh/(height*2));
++            int nx=sx,ny=sy;
++            if(rotation==1){nx=sy;ny=nh-1-sx;}
++            else if(rotation==2){nx=nw-1-sx;ny=nh-1-sy;}
++            else if(rotation==3){nx=nw-1-sy;ny=sx;}
++            out[(size_t)y*width+x]=source[(size_t)ny*nw+nx];
++        }
++    return true;
++}
+--- a/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
++++ b/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
+@@ -11,6 +11,8 @@
+ #include "esp_timer.h"
+ #include "esp_attr.h"
+ #include "tab5_rotate_rgb565.h"
++#include "tab5_screen_preview_pixels.h"
++#include "esp_cache.h"
+ #include "tab5_display_direct_state.h"
+ #include "esp_err.h"
+ #include "esp_check.h"
+@@ -76,6 +78,7 @@
+     tab5_display_direct_state_t direct;
+     uint16_t *camera_fbs[2];
+     uint32_t native_width, native_height;
++    SemaphoreHandle_t preview_gate;
+     int64_t yield_at_us, render_start_us;
+     unsigned frame_flush_us, frame_rotate_us, frame_pixels;
+     unsigned frame_wait_us,frame_yield_us,frame_parts,frame_copy_start,frame_native_start;
+@@ -311,6 +314,7 @@
+     lv_disp_remove(disp);
+     lvgl_port_unlock();
+ 
++    if (disp_ctx->preview_gate) vSemaphoreDelete(disp_ctx->preview_gate);
+     if (disp_ctx->draw_buffs[0]) {
+         free(disp_ctx->draw_buffs[0]);
+     }
+@@ -394,6 +398,7 @@
+     ESP_GOTO_ON_FALSE(disp_ctx, ESP_ERR_NO_MEM, err, TAG, "Not enough memory for display context allocation!");
+     memset(disp_ctx, 0, sizeof(lvgl_port_display_ctx_t));
+     disp_ctx->direct_lock = (portMUX_TYPE)portMUX_INITIALIZER_UNLOCKED;
++    disp_ctx->preview_gate = xSemaphoreCreateMutex();
+     disp_ctx->native_width = disp_cfg->hres;
+     disp_ctx->native_height = disp_cfg->vres;
+     disp_ctx->io_handle         = disp_cfg->io_handle;
+@@ -539,6 +544,7 @@
+             free(disp_ctx->oled_buffer);
+         }
+         if (disp_ctx) {
++            if (disp_ctx->preview_gate) vSemaphoreDelete(disp_ctx->preview_gate);
+             free(disp_ctx);
+         }
+         if (trans_sem) {
+@@ -572,13 +578,40 @@
+     return need_yield == pdTRUE;
+ }
+ 
++bool lvgl_port_screen_preview(lv_display_t *disp,uint16_t *out,int width,int height) {
++    if (!disp || !out || width < 1 || height < 1 || width > 640 || height > 360) return false;
++    lvgl_port_display_ctx_t *ctx = lv_display_get_driver_data(disp);
++    if (!ctx || !ctx->preview_gate || ctx->disp_type != LVGL_PORT_DISP_TYPE_DSI ||
++        ctx->flags.swap_bytes || lv_display_get_color_format(disp) != LV_COLOR_FORMAT_RGB565 ||
++        xSemaphoreTake(ctx->preview_gate, 0) != pdTRUE) return false;
++    portENTER_CRITICAL(&ctx->direct_lock);
++    bool stable = (ctx->direct.mode == TAB5_DIRECT_NORMAL || ctx->direct.mode == TAB5_DIRECT_FROZEN ||
++                   ctx->direct.mode == TAB5_DIRECT_CAMERA) && ctx->direct.normal_dma != TAB5_DIRECT_DMA_WAITING;
++    unsigned front = ctx->direct.mode == TAB5_DIRECT_CAMERA ? ctx->direct.front : 0;
++    portEXIT_CRITICAL(&ctx->direct_lock);
++    uint16_t *buffers[2] = {0};
++    bool ok = stable && front < 2 && esp_lcd_dpi_panel_get_frame_buffer(ctx->panel_handle,2,
++                (void **)&buffers[0],(void **)&buffers[1]) == ESP_OK && buffers[front];
++    // DMA2D updates panel memory without invalidating CPU pixel cache lines.
++    // M2C invalidation only: never write stale cached pixels back to scanout.
++    if (ok) ok = esp_cache_msync(buffers[front],(size_t)ctx->native_width*ctx->native_height*2,
++                               ESP_CACHE_MSYNC_FLAG_DIR_M2C | ESP_CACHE_MSYNC_FLAG_UNALIGNED) == ESP_OK;
++    if (ok) ok = tab5_preview_sample(buffers[front],ctx->native_width,ctx->native_height,
++                                   ctx->current_rotation,out,width,height);
++    xSemaphoreGive(ctx->preview_gate);
++    return ok;
++}
++
+ static bool lvgl_port_camera_select(lvgl_port_display_ctx_t* ctx, unsigned index, uint32_t timeout_ms)
+ {
+-    int64_t deadline = esp_timer_get_time() + (int64_t)timeout_ms * 1000;
++    int64_t began = esp_timer_get_time();
++    if (ctx->preview_gate && xSemaphoreTake(ctx->preview_gate, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) return false;
++    bool selected = false;
++    int64_t deadline = began + (int64_t)timeout_ms * 1000;
+     portENTER_CRITICAL(&ctx->direct_lock);
+     bool prepared = tab5_direct_prepare(&ctx->direct, index);
+     portEXIT_CRITICAL(&ctx->direct_lock);
+-    if (!prepared) return false;
++    if (!prepared) goto preview_done;
+     xSemaphoreTake(ctx->camera_refresh_sem, 0);
+ 
+     // IDF 5.4.2 recognizes a panel-owned framebuffer and only writes back cache
+@@ -595,7 +628,7 @@
+             portENTER_CRITICAL(&ctx->direct_lock);
+             bool complete = tab5_direct_complete(&ctx->direct);
+             portEXIT_CRITICAL(&ctx->direct_lock);
+-            if (complete) return true;
++            if (complete) { selected = true; goto preview_done; }
+             int64_t remaining = deadline - esp_timer_get_time();
+             if (remaining <= 0) break;
+             TickType_t ticks = pdMS_TO_TICKS((uint32_t)((remaining + 999) / 1000));
+@@ -608,7 +641,9 @@
+     tab5_display_flush_errors++;
+     ESP_LOGE(TAG, "Camera framebuffer handoff failed (%s); display writes remain suppressed",
+              result == ESP_OK ? "refresh timeout" : esp_err_to_name(result));
+-    return false;
++preview_done:
++    if (ctx->preview_gate) xSemaphoreGive(ctx->preview_gate);
++    return selected;
+ }
+ 
+ // An unchanged review image only needs its renderer paused. In particular,

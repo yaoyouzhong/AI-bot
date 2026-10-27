@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using AIBot.LoginMethod;
 namespace AIBotBridge;
 
 internal static class WifiUnlockSelfTest
@@ -28,8 +29,9 @@ internal static class WifiUnlockSelfTest
         internal long Time=100;internal bool Enabled=true,Console=true;internal ComputerLockScreenState Screen=new(Locked:true,DisplayState:1);
         internal readonly Tab5PinStore Store;internal readonly Tab5Pairing Pair;internal readonly Tab5WifiUnlock Unlock;
         internal Wire? Active;internal int Connections;internal string Id="",Offer="";internal int Next;
+        internal bool MethodReady=true;internal LoginMethodKind PreparedMethod=LoginMethodKind.Manual;
         internal Flow(string folder,byte[]? pin=null){Directory.CreateDirectory(folder);Store=new(Path.Combine(folder,"synthetic-pin.dat"));Pair=new("001122aabbcc",@"USB\SYNTHETIC",Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));Store.Save(Pair,pin??"4826"u8.ToArray());Store.SetEnabled(Pair,true);
-            Unlock=new(Store,_=>{Connections++;Active=new();return Task.FromResult(new WifiKeyboardRfb(Active));},()=>Screen,()=>Enabled,()=>Console,()=>Time);}
+            Unlock=new(Store,_=>{Connections++;Active=new();return Task.FromResult(new WifiKeyboardRfb(Active));},()=>Screen,()=>Enabled,()=>Console,()=>Time,method=>{PreparedMethod=method;return MethodReady;});}
         internal async Task<JsonElement> Call(object value,string transport="Wi-Fi",string session="session-a",Tab5Pairing? pair=null){using var doc=JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(value));return JsonSerializer.SerializeToElement((await Unlock.HandleAsync(doc.RootElement,pair??Pair,transport,session,CancellationToken.None)).Body);}
         internal async Task<JsonElement> Begin(){Id=Guid.NewGuid().ToString("D");var result=await Call(new{kind="wifi-unlock",op="begin",requestId=Id});if(result.TryGetProperty("offer",out var offer)){Offer=offer.GetString()!;Next=result.GetProperty("next").GetInt32();}return result;}
         internal async Task<JsonElement> Poll(int advance=100){while(advance>1000){await Poll(1000);advance-=1000;}Time+=advance;var result=await Call(new{op="poll",requestId=Id,offer=Offer,next=Next});if(result.TryGetProperty("next",out var next))Next=next.GetInt32();return result;}
@@ -57,7 +59,11 @@ internal static class WifiUnlockSelfTest
             Check(sent.Length==30&&sent[12]==2&&sent[^1]==1,"RFB shared authenticated handshake");
             Check(Convert.ToHexString(sent.AsSpan(13,16))=="54E0EB568FD156B79321811C316A6EAF","independent DES vector");
             await client.PressAsync('4',CancellationToken.None);Check(wire.Sent.Length==46,"key down/up");
-            bool rejected=false;try{await client.PressAsync('A',CancellationToken.None);}catch(IOException){rejected=true;}Check(rejected,"general keys denied");
+            for(uint c=0x20;c<=0x7e;c++){
+                long offset=wire.Sent.Length;await client.PressAsync(c,CancellationToken.None);byte[] keys=wire.Sent.ToArray();
+                Check(keys.Length==offset+16&&keys[offset+1]==1&&keys[offset+9]==0&&BinaryPrimitives.ReadUInt32BigEndian(keys.AsSpan((int)offset+4))==c&&BinaryPrimitives.ReadUInt32BigEndian(keys.AsSpan((int)offset+12))==c,"printable keysym or key-up changed");
+            }
+            foreach(uint key in new uint[]{0,9,10,27,0x7f,0xe9,0xffe3}){long before=wire.Sent.Length;bool rejected=false;try{await client.PressAsync(key,CancellationToken.None);}catch(IOException){rejected=true;}Check(rejected&&wire.Sent.Length==before,"non-printable or modifier key accepted");}
         }
         var authOnly=new Wire(Hello().AsSpan(0,34).ToArray());using(var client=new WifiKeyboardRfb(authOnly)) {
             await client.HandshakeAsync("vncTest9"u8.ToArray(),CancellationToken.None,initialize:false);
@@ -83,6 +89,29 @@ internal static class WifiUnlockSelfTest
             pinForm.Show();Application.DoEvents();using var pinBitmap=new Bitmap(pinForm.Width,pinForm.Height);pinForm.DrawToBitmap(pinBitmap,new Rectangle(Point.Empty,pinForm.Size));pinBitmap.Save(Path.Combine(directory,scale==1?"pin-settings.png":$"pin-settings-{scale:0.0}.png"));pinForm.Close();
         }
         int sequence=0;Flow New(byte[]? pin=null)=>new(Path.Combine(directory,"case-"+(sequence++)),pin);
+        foreach(string single in new[]{"0","a","A","!"," "})using(var f=New(Encoding.ASCII.GetBytes(single))){
+            await f.Begin();await f.Prepare();await f.Poll();Check(f.Active!.Sent.Length==16&&Buffer(f.Unlock).Length==0,"single character not sent or retained");
+            await f.Poll(400);Check(f.Active.Sent.Length==32,"single character Enter not sent exactly once");
+            f.Screen=f.Screen with{Locked=false};Check((await f.Poll()).GetProperty("unlocked").GetBoolean(),"single character unlock not confirmed");
+        }
+        using(var f=New(" Aa0!@#$_+{}[]:;\"'\\|<>?,./~` "u8.ToArray())){
+            byte[] expected=" Aa0!@#$_+{}[]:;\"'\\|<>?,./~` "u8.ToArray();await f.Begin();await f.Prepare();byte[] retained=Buffer(f.Unlock);
+            foreach(byte c in expected)await f.Poll();
+            byte[] sent=f.Active!.Sent.ToArray();Check(sent.Length==expected.Length*16,"mixed credential key count");
+            for(int i=0;i<expected.Length;i++)Check(BinaryPrimitives.ReadUInt32BigEndian(sent.AsSpan(i*16+4))==expected[i]&&sent[i*16+1]==1&&sent[i*16+9]==0,"mixed credential case, symbols or spaces changed");
+            Check(retained.All(b=>b==0)&&Buffer(f.Unlock).Length==0,"mixed credential buffer retained");await f.Poll(400);Check(f.Active.Sent.Length==sent.Length+16,"mixed credential Enter missing");
+            f.Screen=f.Screen with{Locked=false};Check(Ok(await f.Poll())&&!f.Unlock.Diagnostic.Contains(Encoding.ASCII.GetString(expected)),"mixed credential confirmation or diagnostic leak");
+        }
+        using(var f=New()){
+            f.Store.SetMethod(f.Pair,LoginMethodKind.Password);f.MethodReady=false;
+            await f.Begin();JsonElement result=default;
+            for(int i=0;i<10;i++){result=await f.Poll();if(!Ok(result))break;}
+            Check(!Ok(result)&&f.PreparedMethod==LoginMethodKind.Password&&f.Active!.Sent.Length==0&&Buffer(f.Unlock).Length==0,"unverified Wi-Fi method staged or sent credential");
+        }
+        using(var f=New()){
+            f.Store.SetMethod(f.Pair,LoginMethodKind.Pin);await f.Begin();await f.Prepare();
+            Check(f.PreparedMethod==LoginMethodKind.Pin&&Buffer(f.Unlock).Length==4&&f.Active!.Sent.Length==0,"confirmed Wi-Fi method not staged without premature input");await f.Cancel();
+        }
         using(var f=New()){
             await f.Begin();await f.Poll();await f.Poll(300);
             Check(Buffer(f.Unlock).Length==0&&f.Active!.Sent.Length==0,"short stable interval neither stages PIN nor types");

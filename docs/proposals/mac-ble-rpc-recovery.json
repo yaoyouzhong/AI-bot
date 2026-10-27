@@ -1,0 +1,27 @@
+{
+  "scope": "Mac RPC subscription bounded readback reconciliation and scalar diagnostics",
+  "wireChange": false,
+  "firmwareChange": false,
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BLE.swift",
+      "before": "743bec6de4dfc1e2eb7766ea82a0ef922532e6594996b303704e73bc2a66f0c9",
+      "after": "34b0273f0321c243a6c2873989effa52d3543996b7bda210906b88a7f124b063"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BLEDiagnostics.swift",
+      "before": "8fdd123a9008d3fb657f12a03d71fc4454b7a0c6d9692ad77458b23efa0ce8fc",
+      "after": "1fe2d66d6fa27ae41bd813bd9d334db994e4a71e6de3964efcfa9c8326a386dd"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5BLERPCWindowValidation.swift",
+      "before": "0dfd882d65901e5c70b7089d23ae3a43987ce88701bb8183cbf7f86010bf3157",
+      "after": "d4b36ace779829dadbd37a3501127b402e0a16a027f6dde4159aea6d6d7034da"
+    },
+    {
+      "path": "docs/PROTOCOL.md",
+      "before": "a8676daf11d220b549cdada80185f0f1f8bba442a2c6a349fa467c47272aea2a",
+      "after": "c2ecfe60908d6d3a5636e321b6071864078f852a57834b5ccac84d465e23cbc0"
+    }
+  ]
+}

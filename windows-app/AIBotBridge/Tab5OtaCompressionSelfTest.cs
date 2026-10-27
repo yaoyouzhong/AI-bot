@@ -69,7 +69,7 @@ internal static class Tab5OtaCompressionSelfTest
             }
             var usbCompressed=await Call(0,49152,"zlib","USB");using(usbCompressed.Metadata)
                 if(usbCompressed.Metadata.RootElement.GetProperty("body").GetProperty("encoding").GetString()!="zlib")throw new Exception("Negotiated USB compression missing");
-            foreach(string transport in new[]{"USB","BLE"})for(int offset=0;offset<package.Image.Length;offset+=49152) {
+            foreach(string transport in new[]{"USB","BLE","Wi-Fi"})for(int offset=0;offset<package.Image.Length;offset+=49152) {
                 int count=Math.Min(49152,package.Image.Length-offset);
                 var response=await Call(offset,count,transport:transport);using var metadata=response.Metadata;
                 var body=metadata.RootElement.GetProperty("body");byte[] decoded=response.Data;
@@ -81,14 +81,17 @@ internal static class Tab5OtaCompressionSelfTest
             }
             byte[] wifiStream=Tab5OtaCompression.Stream(package.Image);
             File.WriteAllBytes(Path.Combine(directory,"wifi-stream.bin"),wifiStream);
+            using var httpService=new Tab5Service(store);
             foreach(var negotiation in new[]{("",Tab5OtaCompression.StreamEncoding),("tcp-v1",Tab5OtaCompression.StreamEncoding),("tcp-v2",""),("tcp-v2","unknown"),("tcp-v2",Tab5OtaCompression.StreamEncoding)}) {
                 using var wire=new MemoryStream();byte[] source=package.Image[..1024];
-                await service.TransferOtaAsync(wire,source,pair.DeviceId,negotiation.Item1,CancellationToken.None,negotiation.Item2);
+                httpService.OfferOta(package with {Image=source,OfferId=Guid.NewGuid().ToString("N")});
+                await httpService.TransferOtaAsync(wire,source,pair.DeviceId,negotiation.Item1,CancellationToken.None,negotiation.Item2);
                 byte[] reply=wire.ToArray();string text=System.Text.Encoding.ASCII.GetString(reply);
                 int boundary=text.IndexOf("\r\n\r\n",StringComparison.Ordinal);string headers=text[..boundary];
                 bool compressedHttp=negotiation.Item1=="tcp-v2"&&negotiation.Item2==Tab5OtaCompression.StreamEncoding;
                 byte[] expected=compressedHttp?Tab5OtaCompression.Stream(source):source;
                 if(headers.Contains("X-AIBot-OTA-Encoding:")!=compressedHttp||!headers.Contains($"Content-Length: {expected.Length}")||!reply.AsSpan(boundary+4).SequenceEqual(expected))throw new Exception("HTTP compression negotiation changed raw compatibility");
+                httpService.ObserveFirmware(pair.DeviceId,package.Version);
             }
             foreach(var fault in new[]{(Offset:-1,Count:16,Offer:offer,Allow:true,Status:400),(Offset:0,Count:49153,Offer:offer,Allow:true,Status:400),
                 (Offset:package.Image.Length-1,Count:2,Offer:offer,Allow:true,Status:400),(Offset:0,Count:16,Offer:"stale",Allow:true,Status:404),(Offset:0,Count:16,Offer:offer,Allow:false,Status:409)}) {

@@ -1,0 +1,12 @@
+{
+  "source": "artifacts/development/tab5-network-redesign-20261024/candidate",
+  "file": "firmware/main/wifi_link.c",
+  "before": "641892215288269dadd1cb954d101b35fe571cb63bd81039ef7c3ef01495b63a",
+  "after": "c126b333b3c3d9cf553fcb26fa0f76eb34e3ca0a105f6d854657c90f324cc364",
+  "scope": "distinguish pending status request from completed connection/response failure; no transport/protocol change",
+  "firmwareGenerated": false,
+  "wireChange": false,
+  "nativeStateCasesPassed": true,
+  "targetObjectPassed": true,
+  "physicalDisplayAccepted": false
+}

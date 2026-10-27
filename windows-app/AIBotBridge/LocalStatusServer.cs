@@ -10,15 +10,17 @@ internal sealed class LocalStatusServer
     private readonly TcpListener _listener;
     private readonly Func<UsbDeviceInfo>? _deviceInfo;
     private readonly Func<string>? _tab5Info;
+    private readonly Func<CancellationToken,Task<string>>? _tab5LiveInfo;
     private readonly Func<string,CancellationToken,Task>? _musicArtwork;
     private readonly Func<string>? _tab5Crashes;
     private readonly Func<string>? _musicInfo;
 
-    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null,Func<string,CancellationToken,Task>? musicArtwork=null,Func<string>? tab5Crashes=null,Func<string>? musicInfo=null)
+    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null,Func<string,CancellationToken,Task>? musicArtwork=null,Func<string>? tab5Crashes=null,Func<string>? musicInfo=null,Func<CancellationToken,Task<string>>? tab5LiveInfo=null)
     {
         _listener = new TcpListener(IPAddress.Loopback, port);
         _deviceInfo = deviceInfo;
         _tab5Info = tab5Info;
+        _tab5LiveInfo=tab5LiveInfo;
         _musicArtwork=musicArtwork;
         _tab5Crashes=tab5Crashes;
         _musicInfo=musicInfo;
@@ -109,11 +111,18 @@ internal sealed class LocalStatusServer
                 { diagnostics = JsonSerializer.Serialize(new { error = ex.GetType().Name }); }
             }
             if (activity) diagnostics = JsonSerializer.Serialize(SessionActivityReader.Diagnostics(), JsonDefaults.Options);
-            var tab5 = !browser && _tab5Info is not null && requestLine.StartsWith("GET /diagnostics/tab5 ", StringComparison.Ordinal);
-            if (tab5) diagnostics = JsonSerializer.Serialize(new { summary = _tab5Info!() });
+            var tab5 = !browser && (_tab5Info is not null||_tab5LiveInfo is not null) && requestLine.StartsWith("GET /diagnostics/tab5 ", StringComparison.Ordinal);
+            if (tab5) {
+                // Two bounded wireless probes can be needed when the device
+                // selected BLE while Wi-Fi remains connected in standby.
+                timeout.CancelAfter(TimeSpan.FromSeconds(20));
+                diagnostics = JsonSerializer.Serialize(new { summary = _tab5LiveInfo is null?_tab5Info!():await _tab5LiveInfo(cancellationToken) });
+            }
             var crashes=!browser&&_tab5Crashes is not null&&requestLine.StartsWith("GET /diagnostics/tab5-crashes ",StringComparison.Ordinal);
             if(crashes)diagnostics=_tab5Crashes!();
             var webQuota = !browser && requestLine.StartsWith("GET /diagnostics/web-quota ", StringComparison.Ordinal);
+            var espLan = !browser && requestLine.StartsWith("GET /diagnostics/esp-lan ", StringComparison.Ordinal);
+            if(espLan)diagnostics=JsonSerializer.Serialize(EspLanDiagnostics.Snapshot(),JsonDefaults.Options);
             if (webQuota) diagnostics = JsonSerializer.Serialize(WebQuotaDiagnostics.Snapshot(), JsonDefaults.Options);
             var quotaHistory = !browser && requestLine.StartsWith("GET /diagnostics/quota-history ", StringComparison.Ordinal);
             if (quotaHistory) diagnostics = JsonSerializer.Serialize(Tab5QuotaTrend.Diagnostics(), JsonDefaults.Options);
@@ -126,7 +135,7 @@ internal sealed class LocalStatusServer
                 : accepted ? "{\"ok\":true}" : "{\"error\":\"not_found\"}");
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || tab5 || crashes || quotaHistory || musicInfo ? "200 OK" : "404 Not Found")}\r\n" +
+                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || espLan || tab5 || crashes || quotaHistory || musicInfo ? "200 OK" : "404 Not Found")}\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
                 $"Content-Length: {payload.Length}\r\n" +
                 "Connection: close\r\n\r\n");

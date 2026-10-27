@@ -15,6 +15,7 @@
 #include "LunarText.h"
 #include "WeatherAnimations.h"
 #include "ResetCountdown.h"
+#include "CreditTextRaster.h"
 
 namespace {
 
@@ -834,6 +835,48 @@ bool readPetHeader(File& file, uint8_t& count, uint16_t* delays, uint16_t& width
   return true;
 }
 
+// The badge and animation exclusion share measured bounds so dates stay inside
+// the outline and later pet frames cannot erase the newly widened area.
+struct CreditBadgeBounds { int left, top, width, height, rows, font; };
+void singleCreditBadgeText(int index, String& count, String& date) {
+  const auto& q = codexQuota;
+  const bool detailed = !q.resetExpirations.empty();
+  count = detailed ? "R*1" : "R*" + String(q.resetCredits);
+  date = "";
+  if (detailed) {
+    time_t local = static_cast<time_t>(static_cast<int64_t>(q.resetExpirations[index]) + utcOffsetSeconds);
+    struct tm parts; gmtime_r(&local, &parts);
+    char formatted[6]; snprintf(formatted,sizeof(formatted),"%02d/%02d",parts.tm_mon+1,parts.tm_mday);
+    date = formatted;
+  }
+}
+CreditBadgeBounds singleCreditBadgeBounds() {
+  int rows = codexQuota.resetExpirations.empty() ? (codexQuota.resetCredits > 0 ? 1 : 0) : codexQuota.resetExpirations.size();
+  int widest = 0, font = 2;
+  for (int i = 0; i < rows; ++i) {
+    String count, date; singleCreditBadgeText(i, count, date);
+    widest = max(widest, display.textWidth(count, font) + (date.length() ? 5 + display.textWidth(date, font) : 0));
+  }
+  if (widest > 96) {
+    font = 1; widest = 0;
+    for (int i = 0; i < rows; ++i) {
+      String count, date; singleCreditBadgeText(i, count, date);
+      widest = max(widest, display.textWidth(count, font) + (date.length() ? 5 + display.textWidth(date, font) : 0));
+    }
+  }
+  if (font == 2) {
+    widest = 0;
+    for (int i = 0; i < rows; ++i) {
+      String count, date; singleCreditBadgeText(i,count,date);
+      int countWidth = (display.textWidth(count,2)*7+4)/8;
+      int dateWidth = (display.textWidth(date,2)*7+4)/8;
+      widest = max(widest,countWidth+(date.length() ? 6+dateWidth : 0));
+    }
+  }
+  int width = max(60, widest + 12);
+  return {221 - width, max(15, 27 - (rows - 1) * 9), width, rows * 18 + 4, rows, font};
+}
+
 bool drawPetAnimation(int x, int y, bool force = false, bool animate = true, bool claude = false, bool protectCredits = false) {
   const char* slotPath = claude ? "/claude.apet" : "/codex.apet";
   const char* path = LittleFS.exists(slotPath) ? slotPath : "/pet.apet";
@@ -855,12 +898,11 @@ bool drawPetAnimation(int x, int y, bool force = false, bool animate = true, boo
   if (!force && frame == previousFrame && y == previousY && previousPath == path) return true;
   if (!file.seek(12U + 2U * count + frame * uint32_t(width) * height * 2U, SeekSet)) return false;
   uint16_t row[120];
+  const auto badge = singleCreditBadgeBounds();
   for (int line = 0; line < height; ++line) {
     if (file.read(reinterpret_cast<uint8_t*>(row), width * 2U) != static_cast<int>(width * 2U)) return false;
-    int rows=codexQuota.resetExpirations.empty()?(codexQuota.resetCredits>0?1:0):codexQuota.resetExpirations.size();
-    int badgeTop=max(15,29-(rows-1)*19/2),badgeBottom=badgeTop+rows*19-1;
-    if(protectCredits && rows>0 && y+line>=badgeTop && y+line<badgeBottom) {
-      int left=constrain(153-x,0,(int)width),right=constrain(221-x,0,(int)width);
+    if(protectCredits && badge.rows>0 && y+line>=badge.top && y+line<badge.top+badge.height) {
+      int left=constrain(badge.left-x,0,(int)width),right=constrain(badge.left+badge.width-x,0,(int)width);
       if(left>0)display.pushImage(x,y+line,left,1,row);
       if(right<width)display.pushImage(x+right,y+line,width-right,1,row+right);
     } else display.pushImage(x, y + line, width, 1, row);
@@ -886,19 +928,48 @@ void drawPercentageRing(float pct) {
   if (segment > 0) display.fillRect(4, 236 - segment, 10, segment, TFT_GREEN);
 }
 
+bool drawCreditText(const String& text, int x, int y, int width) {
+  int sourceWidth = display.textWidth(text,2);
+  if (sourceWidth < 1 || sourceWidth > 128 || width < 1 || width > 112) return false;
+  TFT_eSprite mask(&display); mask.setColorDepth(1);
+  if (!mask.createSprite(sourceWidth,16)) return false;
+  mask.fillSprite(TFT_BLACK); mask.setTextColor(TFT_WHITE,TFT_BLACK);
+  mask.setTextDatum(TL_DATUM); mask.setTextWrap(false,false); mask.drawString(text,0,0,2);
+  uint16_t row[112];
+  for (int line = 0; line < 14; ++line) {
+    for (int column = 0; column < width; ++column)
+      row[column] = creditTextPixel(column,line,sourceWidth,16,width,14,TFT_GREEN,
+        [&](int sx, int sy) { return mask.readPixelValue(sx,sy) != 0; });
+    display.pushImage(x,y+line,width,1,row);
+  }
+  mask.deleteSprite(); return true;
+}
+
 void drawSingleCreditBadge() {
-  const auto& q=codexQuota;
-  int details=q.resetExpirations.size(),rows=details>0?details:q.resetCredits>0?1:0;
-  if(rows==0)return;
-  int top=max(15,29-(rows-1)*19/2),height=rows*19-1;
-  display.fillRoundRect(153,top,68,height,5,TFT_BLACK);
-  display.drawRoundRect(153,top,68,height,5,TFT_GREEN);
+  const auto bounds = singleCreditBadgeBounds();
+  if (bounds.rows == 0) return;
+  display.fillRoundRect(bounds.left,bounds.top,bounds.width,bounds.height,5,TFT_BLACK);
+  display.drawRoundRect(bounds.left,bounds.top,bounds.width,bounds.height,5,TFT_GREEN);
   display.setTextDatum(ML_DATUM);display.setTextColor(TFT_GREEN,TFT_BLACK);
-  for(int i=0;i<rows;i++) {
-    String count=details>0?"R*1":"R*"+String(q.resetCredits),date;
-    if(details>0) {time_t local=static_cast<time_t>(static_cast<int64_t>(q.resetExpirations[i])+utcOffsetSeconds);struct tm parts;gmtime_r(&local,&parts);date=String(parts.tm_mon+1)+"/"+String(parts.tm_mday);}
-    int countWidth=display.textWidth(count,2),dateWidth=display.textWidth(date,2),gap=date.length()?3:0,left=187-(countWidth+gap+dateWidth)/2;
-    display.drawString(count,left,top+i*19+9,2);if(date.length())display.drawString(date,left+countWidth+gap,top+i*19+9,2);
+  for (int i = 0; i < bounds.rows; ++i) {
+    String count, date; singleCreditBadgeText(i,count,date);
+    int countWidth = display.textWidth(count,bounds.font), dateWidth = display.textWidth(date,bounds.font);
+    const int middle = bounds.top+i*18+11;
+    // Fixed columns: count on the left, zero-padded date on the right.
+    const int countX = bounds.left+6, dateRight = bounds.left+bounds.width-6;
+    if (bounds.font == 2) {
+      const int scaledCount = (countWidth*7+4)/8, scaledDate = (dateWidth*7+4)/8;
+      bool drawn = drawCreditText(count,countX,middle-7,scaledCount);
+      if (drawn && date.length()) drawn = drawCreditText(date,dateRight-scaledDate,middle-7,scaledDate);
+      if (!drawn) {
+        display.fillRect(bounds.left+5,middle-8,bounds.width-10,16,TFT_BLACK);
+        display.drawString(count,countX,middle,1);
+        if (date.length()) display.drawString(date,dateRight-display.textWidth(date,1),middle,1);
+      }
+    } else {
+      display.drawString(count,countX,middle,bounds.font);
+      if (date.length()) display.drawString(date,dateRight-dateWidth,middle,bounds.font);
+    }
   }
   display.setTextDatum(TL_DATUM);
 }
@@ -942,9 +1013,12 @@ void drawSingleQuota(bool claude) {
   if (q.plan.length()) {
     uint16_t color=q.plan=="PLUS" ? TFT_CYAN : q.plan=="MAX"||q.plan=="MAX 5X"||q.plan=="MAX 20X"||q.plan=="PRO"||q.plan=="PRO LITE" ? TFT_ORANGE :
       q.plan=="TEAM" || q.plan=="BUSINESS" || q.plan=="ENTERPRISE" ? TFT_MAGENTA : TFT_LIGHTGREY;
-    int width=constrain(display.textWidth(q.plan,2)+12,34,!claude && (q.resetCredits>0||q.resetExpirations.size()>0)?88:98);
+    const auto badge = singleCreditBadgeBounds();
+    int available = !claude && badge.rows > 0 ? badge.left-67 : 98;
+    int planFont = display.textWidth(q.plan,2)+12 <= available ? 2 : 1;
+    int width=constrain(display.textWidth(q.plan,planFont)+12,34,available);
     display.drawRoundRect(61,29,width,18,5,color);
-    display.setTextDatum(MC_DATUM);display.setTextColor(color,TFT_BLACK);display.drawString(q.plan,61+width/2,38,2);
+    display.setTextDatum(MC_DATUM);display.setTextColor(color,TFT_BLACK);display.drawString(q.plan,61+width/2,38,planFont);
     display.setTextDatum(TL_DATUM);
   }
   staticPetAvailable = false;

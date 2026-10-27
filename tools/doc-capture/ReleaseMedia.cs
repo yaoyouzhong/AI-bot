@@ -44,7 +44,7 @@ internal static class ReleaseMedia
         }
         // Counts match the published packs. These are UI-only fixture records,
         // not installed image data and not evidence of an import operation.
-        foreach(var (category,works,frames) in new[]{("painting",366,826),("calligraphy",366,1782)}){
+        foreach(var (category,works,frames) in new[]{("painting",366,826),("calligraphy",366,3802)}){
             var directory=Path.Combine(GalleryPack.Root,category);Directory.CreateDirectory(directory);
             string edition=downloads.GetProperty(category).GetProperty("version").GetString()!;
             File.WriteAllText(Path.Combine(directory,"PACK.json"),JsonSerializer.Serialize(new GalleryPackManifest(1,edition,category,works,frames,[]),JsonDefaults.Options));

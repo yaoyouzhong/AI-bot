@@ -1,0 +1,285 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
+@@ -69,6 +69,10 @@
+     private var voiceWindow: MacTab5BLEVoiceWindow?
+     private var voiceWindowCompletion: ((Data) -> Void)?
+     private var voiceGrantPending = false
++    private var rpcCredits = 0, rpcSubscriptionAttempted = false, rpcSubscriptionPending = false, rpcNotifications = false
++    private var rpcWindow: MacTab5BLERPCWindow?
++    private var rpcWindowCompletion: ((Data) -> Void)?
++    private var rpcGrantPending = false
+     private var lastVoiceProbe: TimeInterval = -.infinity
+     private var lastVoiceActivity: TimeInterval = -.infinity
+     private var lastControlProbe: TimeInterval = -.infinity
+@@ -116,6 +120,8 @@
+     private func reset(_ message: String) {
+         service.bleDiagnostics.failCurrent()
+         voiceWindow = nil; voiceWindowCompletion = nil; voiceGrantPending = false
++        rpcWindow = nil; rpcWindowCompletion = nil; rpcGrantPending = false
++        rpcCredits = 0; rpcSubscriptionAttempted = false; rpcSubscriptionPending = false; rpcNotifications = false
+         voiceCredits = 0; voiceSubscriptionAttempted = false; voiceSubscriptionPending = false; voiceNotifications = false
+         voiceDescriptorDiscovery = false; voiceDescriptor = nil
+         voiceSubscriptionRecovery = MacTab5BLENotificationRecovery()
+@@ -138,6 +144,7 @@
+             reset("配对已改变，重新认证"); return
+         }
+         if let voiceWindow, voiceWindow.expired(at: now) { reset("蓝牙语音窗口超时，不重发操作"); return }
++        if let rpcWindow, rpcWindow.expired(at: now) { reset("蓝牙数据窗口超时，不重发操作"); return }
+         if busy && now > deadline { reset("蓝牙操作超时，等待重连"); return }
+         guard central?.state == .poweredOn, let pair = service.currentPairing, pair.confirmed else { return }
+         if peer == nil {
+@@ -166,6 +173,12 @@
+                 available: characteristics[MacTab5BLEWire.voice]?.properties.contains(.notify) == true, subscribed: false)
+             if voiceCredits > 0, let endpoint = characteristics[MacTab5BLEWire.voice], endpoint.properties.contains(.notify) {
+                 busy = true; voiceSubscriptionPending = true; deadline = now + 15; peer?.setNotifyValue(true, for: endpoint); return
++            }
++        }
++        if !rpcSubscriptionAttempted, lastFrame.isFinite {
++            rpcSubscriptionAttempted = true
++            if rpcCredits > 0, let endpoint = characteristics[MacTab5BLEWire.rpc], endpoint.properties.contains(.notify) {
++                busy = true; rpcSubscriptionPending = true; deadline = now + 15; peer?.setNotifyValue(true, for: endpoint); return
+             }
+         }
+         busy = true; deadline = now + 75
+@@ -248,6 +261,7 @@
+                 self.packedStatus = MacTab5BLEStatus.supports(root, pair: pair, nonce: nonce)
+                 self.deltaStatus = MacTab5BLEDelta.supports(root, pair: pair, nonce: nonce)
+                 self.voiceCredits = MacTab5BLEVoiceWindow.credits(root)
++                self.rpcCredits = MacTab5BLERPCWindow.credits(root)
+                 self.nonce = nonce; self.authenticatedDevice = pair.deviceId; self.service.observeBLEInfo(root, nonce: nonce)
+                 try self.admission.authenticated(self.admission.generation, pair: pair, requiresProof: requiresProof)
+                 if requiresProof { self.sendOwnerProof(pair, nonce: nonce) }
+@@ -289,6 +303,13 @@
+         }
+     }
+     func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
++        if peer === peripheral, characteristic === characteristics[MacTab5BLEWire.rpc], rpcSubscriptionPending {
++            rpcSubscriptionPending = false
++            // Only a successful subscription enables grants; rejected peers
++            // retain the original read/cursor-ACK path without replay.
++            rpcNotifications = error == nil && characteristic.isNotifying
++            busy = false; return
++        }
+         guard peer === peripheral, characteristic === characteristics[MacTab5BLEWire.voice], voiceSubscriptionPending else { return }
+         voiceSubscriptionPending = false
+         // A rejected subscription keeps the original read/cursor-ACK transport.
+@@ -342,6 +363,14 @@
+     }
+     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+         guard peer === peripheral else { return }
++        if characteristic === characteristics[MacTab5BLEWire.rpc], rpcWindow != nil {
++            do {
++                if let error { throw error }
++                guard !rpcGrantPending, let data = characteristic.value else { throw MacTab5Error.invalidPacket }
++                try rpcWindow?.accept(data, now: now); service.bleDiagnostics.read(data.count); drainRPCWindow()
++            } catch { reset("蓝牙数据通知无效，不重发操作") }
++            return
++        }
+         if characteristic === characteristics[MacTab5BLEWire.voice], voiceWindow != nil {
+             do {
+                 if let error { throw error }
+@@ -353,6 +382,7 @@
+             return
+         }
+         guard reading === characteristic, let callback = readCompletion else {
++            if rpcNotifications && characteristic === characteristics[MacTab5BLEWire.rpc] { reset("蓝牙数据通知不在授权窗口内") }
+             if voiceNotifications && characteristic === characteristics[MacTab5BLEWire.voice] {
+                 reset("蓝牙语音通知不在授权窗口内")
+             }
+@@ -413,7 +443,7 @@
+     }
+     func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
+         guard peer === peripheral else { return }
+-        if voiceGrantPending { submitVoiceGrant() } else { writeNext() }
++        if voiceGrantPending { submitVoiceGrant() } else if rpcGrantPending { submitRPCGrant() } else { writeNext() }
+     }
+     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+         guard peer === peripheral, writing === characteristic, awaitingWrite else { return }
+@@ -495,6 +525,10 @@
+     private func continueRequest(_ request: Data, id: UInt32, total: Int, endpoint: CBCharacteristic, pair: MacTab5Pairing, diagnostic: UInt64) {
+         do {
+             if request.count < total {
++                if endpoint.uuid == MacTab5BLEWire.rpc && rpcNotifications {
++                    try requestRPCWindow(request, id: id, total: total, endpoint: endpoint, pair: pair, diagnostic: diagnostic)
++                    return
++                }
+                 if endpoint.uuid == MacTab5BLEWire.voice && voiceNotifications {
+                     try requestVoiceWindow(request, id: id, total: total, endpoint: endpoint, pair: pair, diagnostic: diagnostic)
+                     return
+@@ -542,6 +576,42 @@
+             guard let self, self.admission.generation == generation else { return }; self.tick()
+         }
+     }
++    private func requestRPCWindow(_ prefix: Data, id: UInt32, total: Int, endpoint: CBCharacteristic, pair: MacTab5Pairing, diagnostic: UInt64) throws {
++        guard rpcWindow == nil else { throw MacTab5Error.invalidPacket }
++        let window = try MacTab5BLERPCWindow(id:id,total:total,prefix:prefix,credits:rpcCredits,now:now)
++        rpcWindow = window
++        rpcWindowCompletion = { [weak self] bytes in
++            self?.continueRequest(bytes,id:id,total:total,endpoint:endpoint,pair:pair,diagnostic:diagnostic)
++        }
++        if endpoint.properties.contains(.writeWithoutResponse), let peer,
++           peer.maximumWriteValueLength(for:.withoutResponse) >= window.grant.count {
++            rpcGrantPending = true; submitRPCGrant(); return
++        }
++        write([window.grant],to:endpoint) { [weak self] result in
++            guard let self else { return }
++            do { try result.get(); try self.rpcWindow?.markGrantSubmitted(now:self.now); self.drainRPCWindow() }
++            catch { self.reset("蓝牙数据窗口未确认，不重发操作") }
++        }
++    }
++    private func submitRPCGrant() {
++        guard rpcGrantPending, let window = rpcWindow, let peer,
++              let endpoint = characteristics[MacTab5BLEWire.rpc] else { return }
++        guard enabled, admission.ready, admission.accepts(admission.generation,pair:service.currentPairing) else {
++            reset("配对已改变，取消旧传输"); return
++        }
++        guard peer.canSendWriteWithoutResponse else { return }
++        do {
++            try rpcWindow?.markGrantSubmitted(now:now); rpcGrantPending = false
++            service.bleDiagnostics.submit(window.grant.count)
++            peer.writeValue(window.grant,for:endpoint,type:.withoutResponse)
++            service.bleDiagnostics.stage(.reading); drainRPCWindow()
++        } catch { reset("蓝牙数据窗口未确认，不重发操作") }
++    }
++    private func drainRPCWindow() {
++        guard let window = rpcWindow, window.ready else { return }
++        let completion = rpcWindowCompletion; rpcWindow = nil; rpcWindowCompletion = nil
++        completion?(window.bytes)
++    }
+     private func requestVoiceWindow(_ prefix: Data, id: UInt32, total: Int, endpoint: CBCharacteristic, pair: MacTab5Pairing, diagnostic: UInt64) throws {
+         guard voiceWindow == nil else { throw MacTab5Error.invalidPacket }
+         let window = try MacTab5BLEVoiceWindow(id: id, total: total, prefix: prefix, credits: voiceCredits, now: now)
+--- a/mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift
+@@ -167,6 +167,7 @@
+         for (index,value) in ownershipCases.enumerated() {
+             try check("USB ownership freshness boundary \(index)",MacTab5USBDisplayOwnership.owns(now:value.0,acknowledgedAt:value.1,active:value.2) == value.3)
+         }
++        count += try MacTab5BLERPCWindowValidation.run()
+         return count
+     }
+ }
+--- a/docs/PROTOCOL.md
++++ b/docs/PROTOCOL.md
+@@ -1035,6 +1035,10 @@
+ 
+ Mac 蓝牙待命与 Windows 一样遵循既有 USB 回执的 `active` 字段：只有已认证且未过期的 USB 回执明确报告 `USB` 活动通道时，才暂停蓝牙状态／语音轮询。设备选择 BLE 或 Wi-Fi 时仍可保留 USB 管理通道；活动字段缺失／无效、断线、认证拒绝或回执过期均不保留 USB 显示归属。不新增协议字段或修改设备设置。
+ 
++Mac's general BLE RPC receiver also uses the existing type-3 notification grant after successful subscription. A valid `rpcNotifyWindow` offers 1..32 fragments; absent/invalid offers retain a valid legacy `mailboxWindow` of at most eight. Each bounded window requires exact ID, total and cursor, consumes only its granted fragments, and must finish before the next grant. A four-second local deadline, pairing generation and the original whole encrypted request checks remain; errors stop without operation replay. Rejected/unavailable subscriptions keep cursor-ACK reads. Voice retains its separate existing eight-fragment path and timing.
++
++Mac 通用 BLE RPC 接收在订阅成功后使用既有命令 3 批量通知授权。有效 rpcNotifyWindow 最多 32 片，缺失／无效时仅沿用有效且不超过八片的 mailboxWindow。每个窗口校验精确 ID、总长及游标，只收已授权片数，完整结束后才开下一窗口；四秒本地时限、配对代次和整个加密请求校验保持，异常停止、不重放操作。订阅不支持或失败时保留逐片读／游标确认。语音仍使用独立原八片窗口与现有时序。
++
+ 
+ r70 physical follow-up: system-stream Tab did not expose the password page. A visible password field still permits successful unlock, including after display wake. There is no new protocol capability: device BLE HID enumeration does not mean mixed Wi-Fi/BLE preparation is supported. Existing `lockScreenCover`/`displayState` unknown values remain null; no Windows-style wake authorization may be inferred from them. Full-system sleep wake remains unimplemented.
+ 
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLERPCWindow.swift
+@@ -0,0 +1,34 @@
++import Foundation
++
++// Existing type-3 RPC grants. Voice retains its separate eight-packet path.
++struct MacTab5BLERPCWindow {
++    static func credits(_ root: [String: Any]) -> Int {
++        if let value = MacTab5Protocol.integer(root["rpcNotifyWindow"]), (1...32).contains(value) { return Int(value) }
++        return MacTab5BLEVoiceWindow.credits(root)
++    }
++    let id: UInt32, total: Int, began: TimeInterval
++    private(set) var bytes: Data
++    private(set) var remaining: Int
++    private var submitted = false
++    let grant: Data
++
++    init(id: UInt32, total: Int, prefix: Data, credits: Int, now: TimeInterval) throws {
++        guard id != 0, (124...(MacTab5Protocol.maximumRPC + 96)).contains(total),
++              !prefix.isEmpty, prefix.count < total, (1...32).contains(credits), now.isFinite else { throw MacTab5Error.invalidPacket }
++        self.id = id; self.total = total; began = now; bytes = prefix; remaining = credits
++        var command = Data([3]); MacTab5Mailbox.append32(id, to: &command)
++        MacTab5Mailbox.append16(prefix.count, to: &command); command.append(UInt8(credits)); grant = command
++    }
++    func expired(at now: TimeInterval) -> Bool { !now.isFinite || now < began || now - began >= 4 }
++    mutating func accept(_ packet: Data, now: TimeInterval) throws {
++        guard !expired(at: now), remaining > 0, bytes.count < total, (9...488).contains(packet.count)
++        else { throw MacTab5Error.invalidPacket }
++        try MacTab5Mailbox.append(packet, id: id, total: total, to: &bytes)
++        remaining -= 1
++    }
++    mutating func markGrantSubmitted(now: TimeInterval) throws {
++        guard !expired(at: now), !submitted else { throw MacTab5Error.invalidPacket }
++        submitted = true
++    }
++    var ready: Bool { submitted && (remaining == 0 || bytes.count == total) }
++}
+--- /dev/null
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLERPCWindowValidation.swift
+@@ -0,0 +1,60 @@
++import Foundation
++
++enum MacTab5BLERPCWindowValidation {
++    static func run() throws -> Int {
++        var count = 0
++        func check(_ name:String,_ value:@autoclosure () throws -> Bool) throws {
++            guard try value() else { throw MacTab5LocalError.invalid("BLE RPC window: " + name) }; count += 1
++        }
++        func rejects(_ name:String,_ action:() throws -> Void) throws {
++            var rejected = false; do { try action() } catch { rejected = true }; try check(name,rejected)
++        }
++        let key = Data(0..<32), nonce = String(repeating:"a",count:32)
++        let clear = try MacTab5Binary.pack(["kind":"benchmark","offset":0,"count":49152],bytes:MacTab5Benchmark.pattern(offset:0,count:49152),bulk:true,response:false)
++        let request = Data(nonce.utf8) + Data(MacTab5Protocol.proof(key:key,message:nonce).utf8) + (try MacTab5Protocol.encrypt(clear,key:key,challenge:nonce,maximum:MacTab5Protocol.maximumRPC))
++        func part(_ offset:Int,_ size:Int,id:UInt32 = 7,total:Int? = nil) -> Data {
++            var packet = Data(); MacTab5Mailbox.append32(id,to:&packet); MacTab5Mailbox.append16(offset,to:&packet)
++            MacTab5Mailbox.append16(total ?? request.count,to:&packet); packet.append(request[offset..<min(request.count,offset+size)]); return packet
++        }
++        for capacity in [20,244,488] {
++            var prefix = Data(request.prefix(capacity-8))
++            while prefix.count < request.count {
++                var window = try MacTab5BLERPCWindow(id:7,total:request.count,prefix:prefix,credits:32,now:10)
++                try check("grant exact cursor and credit",window.grant.count == 8 && window.grant[0] == 3 && MacTab5Mailbox.u32(window.grant,1) == 7 && Int(MacTab5Mailbox.u16(window.grant,5)) == prefix.count && window.grant[7] == 32)
++                try window.markGrantSubmitted(now:10.01)
++                while !window.ready { try window.accept(part(window.bytes.count,capacity-8),now:10.1) }
++                prefix = window.bytes
++            }
++            let decoded = try MacTab5Protocol.decrypt(Data(prefix.dropFirst(96)),key:key,challenge:nonce)
++            try check("whole encrypted bulk request intact",prefix == request && decoded == clear)
++        }
++        for invalid in [0,33,true,"32",NSNull()] as [Any] {
++            try check("bad capability falls back to bounded legacy offer",MacTab5BLERPCWindow.credits(["rpcNotifyWindow":invalid,"mailboxWindow":8]) == 8)
++        }
++        try check("missing capability unavailable",MacTab5BLERPCWindow.credits([:]) == 0)
++        try check("offered RPC window independent of voice",MacTab5BLERPCWindow.credits(["rpcNotifyWindow":32,"mailboxWindow":8]) == 32 && MacTab5BLEVoiceWindow.credits(["rpcNotifyWindow":32,"mailboxWindow":8]) == 8)
++        let prefix = Data(request.prefix(100))
++        for packet in [part(101,40),part(0,40),part(100,40,id:8),part(100,40,total:request.count-1),Data(repeating:0,count:8),part(100,481)] {
++            var window = try MacTab5BLERPCWindow(id:7,total:request.count,prefix:prefix,credits:32,now:10)
++            try rejects("bad id/cursor/length rejects without advancing") { try window.accept(packet,now:10.1) }
++            try check("bad fragment leaves prefix unchanged",window.bytes == prefix && !window.ready)
++        }
++        var short = try MacTab5BLERPCWindow(id:7,total:request.count,prefix:Data(request.dropLast(20)),credits:32,now:10)
++        try short.accept(part(request.count-20,20),now:10.1)
++        try check("notifications before grant ack cannot dispatch",!short.ready)
++        try short.markGrantSubmitted(now:10.2)
++        try check("partial final window completes exact request",short.ready && short.bytes == request)
++        try rejects("extra packet cannot dispatch twice") { try short.accept(part(request.count-20,20),now:10.3) }
++        try rejects("duplicate submission rejected") { try short.markGrantSubmitted(now:10.3) }
++        for total in [123,65536] { try rejects("total bounds") { _ = try MacTab5BLERPCWindow(id:7,total:total,prefix:prefix,credits:32,now:10) } }
++        for credits in [0,33] { try rejects("grant bounds") { _ = try MacTab5BLERPCWindow(id:7,total:request.count,prefix:prefix,credits:credits,now:10) } }
++        var expired = try MacTab5BLERPCWindow(id:7,total:request.count,prefix:prefix,credits:32,now:10)
++        try rejects("late packet rejected") { try expired.accept(part(100,20),now:14) }
++        try rejects("clock rollback rejected") { try expired.markGrantSubmitted(now:9) }
++        var exhausted = try MacTab5BLERPCWindow(id:7,total:request.count,prefix:prefix,credits:1,now:10)
++        try exhausted.markGrantSubmitted(now:10); try exhausted.accept(part(100,20),now:10.1)
++        try check("full credit window completes only its prefix",exhausted.ready && exhausted.bytes.count == 120)
++        try rejects("ungranted extra fragment rejected") { try exhausted.accept(part(120,20),now:10.2) }
++        return count
++    }
++}
+--- /dev/null
++++ b/mac-app/Tests/AIBotBridgeTests/MacTab5BLERPCWindowTests.swift
+@@ -0,0 +1,8 @@
++import XCTest
++@testable import AIBotBridge
++
++final class MacTab5BLERPCWindowTests: XCTestCase {
++    func testProductionEncryptedBulkWindowValidation() throws {
++        XCTAssertGreaterThan(try MacTab5BLERPCWindowValidation.run(),30)
++    }
++}

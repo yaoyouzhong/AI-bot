@@ -14,6 +14,9 @@ internal sealed class BridgeSettings
         "weather_latitude", "weather_longitude", "weather_provider"
     };
 
+    static BridgeSettings() {
+        foreach(var provider in MigratedDomestic.DomesticProviderCatalog.All)LegacyAllowList.Add("model_web_zoom_"+provider.Id);
+    }
     private readonly Dictionary<string, string> _values;
     private static readonly object FileSync = new();
 

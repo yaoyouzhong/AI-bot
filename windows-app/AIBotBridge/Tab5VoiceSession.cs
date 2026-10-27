@@ -18,6 +18,7 @@ internal interface ITab5VoiceAudio : IDisposable
     void Drain();
     bool Drained { get; }
     bool CanAcceptAudio => true;
+    void PauseForFocus(bool paused) {}
     bool CanSwitchToTab5 => true;
     void ValidateTab5() {}
     string PlaybackDiagnostic => "";
@@ -28,6 +29,11 @@ internal interface ITab5VoiceEditor
     string Text { get; }
     bool SafeFocus { get; }
     bool TryRestoreFocus()=>false;
+    bool FocusRecoveryPending=>false;
+    bool CanResumeCapture=>true;
+    // null means the backend cannot confirm a native state, never "stopped".
+    bool? CaptureRunning=>null;
+    void ObserveSafeFocus() {}
     bool Start();
     bool Stop();
     bool CaptureStopped=>true;
@@ -60,17 +66,31 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
     private bool _explicitStop;
     private bool _switching;
     private long _finalWaitMs;
-    private long _recognizerIdleSince=-1;
+    private long _takeMs;
     private string _endReason="";
     private long _audioWaitMs,_audioWaitPeakMs;
     private int _focusRestores;
+    private bool _focusPaused;
+    private bool _captureEndedEarly;
     private bool HasVoiceFocus() {
-        if(editor.SafeFocus)return true;
-        if(!editor.TryRestoreFocus()||!editor.SafeFocus)return false;
-        _focusRestores++;return true;
+        if(editor.SafeFocus) {
+            if(_focusPaused&&!editor.CanResumeCapture) {
+                End("焦点切换后豆包识别已结束，请检查草稿");return false;
+            }
+            editor.ObserveSafeFocus();
+            if(_focusPaused){audio.PauseForFocus(false);_focusPaused=false;_focusRestores++;}
+            return true;
+        }
+        if(!_focusPaused){audio.PauseForFocus(true);_focusPaused=true;}
+        if(editor.TryRestoreFocus()&&editor.SafeFocus) {
+            audio.PauseForFocus(false);_focusPaused=false;_focusRestores++;return true;
+        }
+        if(editor.FocusRecoveryPending)_message="正在恢复语音输入焦点";
+        else End("语音输入焦点已变化，收音已停止，请检查草稿");
+        return false;
     }
     internal bool Active => _state is "recording" or "draining" or "recognizing";
-    internal string Diagnostic=>$"state={_state}; source={_source}; sound={audio.CapturedSound?.ToString()??"unknown"}; quietEnd={_quietTake}; finalWaitMs={(_state=="recognizing"?Math.Max(0,_clock()-_stopped):_finalWaitMs)}; endReason={_endReason}; audioWaitMs={_audioWaitMs}; audioWaitPeakMs={_audioWaitPeakMs}; focusRestores={_focusRestores}; {audio.PlaybackDiagnostic}";
+    internal string Diagnostic=>$"state={_state}; source={_source}; sound={audio.CapturedSound?.ToString()??"unknown"}; quietEnd={_quietTake}; finalWaitMs={(_state=="recognizing"?Math.Max(0,_clock()-_stopped):_finalWaitMs)}; endReason={_endReason}; audioWaitMs={_audioWaitMs}; audioWaitPeakMs={_audioWaitPeakMs}; focusRestores={_focusRestores}; focusPaused={_focusPaused}; pcmChunks={_nextChunk}; pcmMs={_pcmBytes/32}; takeMs={(_state is "recording" or "draining"?Math.Max(0,_clock()-_started):_takeMs)}; textSeen={_receivedText}; {audio.PlaybackDiagnostic}";
     internal bool NeedsSourcePreparation(JsonElement root)=>!_switching&&_state=="recording"&&_source=="dji"&&!audio.CanSwitchToTab5&&
         root.TryGetProperty("op",out var op)&&op.ValueKind==JsonValueKind.String&&op.GetString()=="tab5"&&
         root.TryGetProperty("voiceId",out var id)&&id.ValueKind==JsonValueKind.String&&id.GetString()==_id;
@@ -86,10 +106,12 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             root.TryGetProperty("voiceId",out var id)&&id.ValueKind==JsonValueKind.String&&id.GetString()==_id&&
             root.TryGetProperty("seq",out var seq)&&seq.TryGetInt32(out int number)&&number==_nextChunk;
         long started=_clock();bool waited=false;
-        while(PendingAudio()&&!audio.CanAcceptAudio) {
+        if(PendingAudio())Tick();
+        while(PendingAudio()&&(_focusPaused||!audio.CanAcceptAudio)) {
             token.ThrowIfCancellationRequested();
             _lastSeen=_clock();Tick();
             if(!PendingAudio())break;
+            if(!_focusPaused&&audio.CanAcceptAudio)break;
             _audioWaitMs=_clock()-started;_audioWaitPeakMs=Math.Max(_audioWaitPeakMs,_audioWaitMs);
             if(_audioWaitMs>=1500) {
                 Fail("电脑音频播放积压，请检查虚拟麦克风后重试");return Snapshot();
@@ -103,7 +125,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         token.ThrowIfCancellationRequested();
         return Handle(root);
     }
-    internal Tab5VoiceReply Snapshot() => new(_id,_task,_source,_state,_message,BoundText(editor.Text),_state=="recording"&&_ready,
+    internal Tab5VoiceReply Snapshot() => new(_id,_task,_source,_state,_message,BoundText(editor.Text),_state=="recording"&&_ready&&!_focusPaused,
         _state=="recording"&&_ready?Math.Clamp(audio.InputLevel,0,100):0,_state=="recording"&&_ready&&_silent,
         _state=="review"&&_explicitStop&&_endReason=="正在等待豆包返回文字"&&editor.RecognitionComplete&&Encoding.UTF8.GetByteCount(editor.Text)<=2000,_sourceName);
     internal static string BoundText(string text) {
@@ -124,8 +146,8 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             _quietTake=false;_receivedText=false;
             _explicitStop=false;
             _stopped=_finalWaitMs=0;
-            _audioWaitMs=_audioWaitPeakMs=0;_focusRestores=0;
-            _recognizerIdleSince=-1;_endReason="";
+            _audioWaitMs=_audioWaitPeakMs=0;_focusRestores=0;_focusPaused=false;
+            _takeMs=0;_endReason="";_captureEndedEarly=false;
             editor.Clear();
             try {
                 long stageStarted=Environment.TickCount64;
@@ -151,6 +173,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
                 // Return the original state/cause without playing it or replacing
                 // the error. The voiceId check above still isolates other takes.
                 if(_state!="recording")break;
+                if(_focusPaused)throw new Tab5VoiceRequestException("语音焦点正在恢复，请稍候");
                 if(_source!="tab5")throw new Tab5VoiceRequestException("当前使用电脑麦克风");
                 if(!root.TryGetProperty("seq",out var seq)||!seq.TryGetInt32(out var number)||number!=_nextChunk)
                     throw new ArgumentException("音频顺序错误，请重新开始");
@@ -207,7 +230,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             if(_source!="tab5"||!editor.Start())throw new InvalidOperationException("内置麦克风未启动，已保留电脑草稿");
             // Preserve voiceId, owner, committed text and total take duration.
             // DJI sent no PCM, so the device still begins with sequence zero.
-            _pcmBytes=0;_quietTake=false;_recognizerIdleSince=-1;
+            _pcmBytes=0;_quietTake=false;
             _waitingSince=_lastSeen=_lastSignal=_clock();_silent=false;
             _message="正在准备 TAB5 收音";
         } catch {
@@ -221,11 +244,12 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
     }
     private void End(string message) {
         _endReason=message;
+        _takeMs=Math.Max(0,_clock()-_started);
         // Always try to end IME capture even if the unplugged audio endpoint fails to close.
         bool stopped=false, audioFailed=false;
         try{audio.Stop();}
         catch(Exception ex) when(Tab5VoiceHost.IsAudioError(ex)){audioFailed=true;}
-        finally{_state="error";stopped=editor.Stop();_stopped=_clock();}
+        finally{_focusPaused=false;_state="error";stopped=editor.Stop();_stopped=_clock();}
         _quietTake=_ready&&!audioFailed&&audio.CapturedSound==false;
         _settlingText=editor.Text;_textChangedAt=_stopped;
         _receivedText|=!string.IsNullOrWhiteSpace(_settlingText);
@@ -239,7 +263,8 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         if(_switching)return;
         if(Active&&!string.IsNullOrWhiteSpace(editor.Text))_receivedText=true;
         if(_state=="draining") {
-            if(!HasVoiceFocus()){End("输入焦点未能恢复，请检查豆包录音状态");return;}
+            if(!HasVoiceFocus()){_drainedSince=-1;return;}
+            if(editor.CaptureRunning==false){CaptureEndedEarly();return;}
             if(audio.Drained) {if(_drainedSince<0)_drainedSince=_clock();}
             else _drainedSince=-1;
             // BufferedBytes excludes samples already submitted to WASAPI. Leave playback
@@ -248,7 +273,8 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             else if(_clock()-_stopped>3000)Fail("最后一段声音未能送完，请检查电脑音频通路后重试");
         }
         if(_state=="recording") {
-            if(!HasVoiceFocus()){End("输入焦点未能恢复，请检查豆包录音状态");return;}
+            if(!HasVoiceFocus())return;
+            if(editor.CaptureRunning==false){CaptureEndedEarly();return;}
             if(_clock()-_lastSeen>4000){BeginDrain("连接已断开，收音已停止，等待取回识别文字");return;}
             if(_clock()-_started>=60000){BeginDrain("已达到 60 秒，等待识别文字");return;}
             if(_source=="dji"&&!audio.DjiHealthy) {
@@ -272,24 +298,26 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             if(text!=_settlingText){_settlingText=text;_textChangedAt=now;}
             bool empty=string.IsNullOrWhiteSpace(text);
             _receivedText|=!empty;
-            if(editor.RecognitionComplete) {if(_recognizerIdleSince<0)_recognizerIdleSince=now;}
-            else _recognizerIdleSince=-1;
-            bool finalEmpty=_recognizerIdleSince>=0&&now-_recognizerIdleSince>=800;
             // Wait for committed text to settle, not a fixed six-second pause.
             // Every revision restarts the quiet period; late/empty results retain
             // the draft window and are never treated as a successful completion.
             if(!empty&&now-_stopped>=1200&&now-_textChangedAt>=800&&editor.CaptureStopped) {
                 _finalWaitMs=now-_stopped;
                 _state="review";
-                _message=Encoding.UTF8.GetByteCount(text)>2000?"文字过长，TAB5 仅显示前段；完整文字请到电脑草稿查看":"文字已返回，请检查后发送";
-            } else if(empty&&!_receivedText&&(_quietTake||finalEmpty)&&now-_stopped>=1200&&editor.CaptureStopped) {
+                _message=_captureEndedEarly?"豆包提前结束收音，已保留文字，请补录未完成部分":
+                    _endReason.Contains("焦点")?"语音因焦点变化中断，已保留文字，请检查是否完整":
+                    Encoding.UTF8.GetByteCount(text)>2000?"文字过长，TAB5 仅显示前段；完整文字请到电脑草稿查看":"文字已返回，请检查后发送";
+            // Native idle only acknowledges capture completion. It cannot prove
+            // that the TSF text result has arrived. Only measured silence may
+            // finish early; received/unknown sound retains the full delivery wait.
+            } else if(empty&&!_receivedText&&_quietTake&&now-_stopped>=1200&&editor.CaptureStopped) {
                 _finalWaitMs=now-_stopped;
                 _state="cancelled";
-                _message=_quietTake?"未检测到语音，已结束":"未识别到文字，已结束";
+                _message="未检测到语音，已结束";
             } else if(now-_stopped>=8000) {
                 _finalWaitMs=now-_stopped;
                 _state="error";
-                _message=empty?"未收到豆包文字，请检查语音快捷键和麦克风选择":"豆包文字仍在变化，请在电脑草稿中确认完整内容";
+                _message=empty?(_captureEndedEarly?"豆包提前结束收音，未收到文字，请检查电脑豆包状态":audio.CapturedSound==true?"已收到声音，但未收到识别文字，请检查电脑豆包状态":"未收到豆包文字，请检查语音快捷键和麦克风选择"):"豆包文字仍在变化，请在电脑草稿中确认完整内容";
             }
         }
         // The device may spend up to 75 s detecting a lost reply, then 120 s
@@ -297,6 +325,10 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         if(!Active&&_id.Length>0&&_clock()-_lastSeen>300000) {
             editor.Clear();_id=_task=_source=_sourceName="";_state="idle";
         }
+    }
+    private void CaptureEndedEarly() {
+        _captureEndedEarly=true;
+        End("豆包已提前结束收音，正在取回已识别文字");
     }
     internal void Fail(string message){if(_state is "recording" or "draining")End(message);_state="error";_message=message;}
     public void Dispose(){

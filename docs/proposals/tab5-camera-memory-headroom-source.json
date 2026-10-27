@@ -1,0 +1,47 @@
+{
+  "status": "Source correction and isolated tests complete; camera hardware acceptance remains FAILED on .267 and pending combined firmware retest.",
+  "baseVersion": "0.2.267-ui",
+  "baseFirmwareSha256": "60ccffe6c2e1625a36b11ee3ad60eeec72b737b02b11619ad51fd538d08ff0e4",
+  "baseSource": "artifacts/mac-usb-ble-unlock-20261024-main264/candidate",
+  "sourceWorkspace": "artifacts/development/tab5-calendar-label-20261024/candidate",
+  "patchSha256": "371237d92ff4482e07a1a6dc098de5f85337a3c1f78d4a648b302a3e8df8e39b",
+  "patchApplication": "Normalize source line endings to LF as for hashes; git apply --check and apply matched all three target files in a disposable copy.",
+  "publicSourceReference": "2bd5d69a56fd9a42953e29cfc428940dfb6daa6a + docs/proposals/tab5-mac-host-unlock.patch",
+  "files": [
+    {
+      "path": "firmware/main/agenda.c",
+      "baseSha256LF": "c7a4b6d23bd18c7c984589b67e80f7d0c211ae542ac2bcd36fd29c4d6ff0cc4a",
+      "candidateSha256LF": "ce7865fd75007eb58c02174a75fdc4bc2f4be12698e498086ab3a20b3e5a0ca8"
+    },
+    {
+      "path": "tests/ui-preview/agenda_runtime_test.c",
+      "baseSha256LF": "49e077cf5a7461f1a2be3a0179047dfcf56baf3ca5e5eccf44aa93b2b96130bb",
+      "candidateSha256LF": "2d2b08b35917a27374c89e9280bd125072ceedcb515ae94a3404f3b7216d2c71"
+    },
+    {
+      "path": "tests/ui-preview/agenda_runtime_stubs.h",
+      "baseSha256LF": "7363c2b2c3e1d462e8d6c14c495f6d11fd191b809f3f593af5d9f81705368026",
+      "candidateSha256LF": "cc5772a14bab536c3949fab2af596bcc3663bebf91d98c33879adc56fa918ded"
+    }
+  ],
+  "validation": {
+    "nativeUBSan": "agenda runtime and compact storage suites passed, including PSRAM allocation/mutex/queue/task failure and repeated startup",
+    "ASan": "did not return after 30 seconds; terminated, not passed",
+    "targetCompile": "only agenda.c compiled with preserved .267 ESP-IDF settings; no relink/image generation",
+    "bssBytesBefore": 16568,
+    "bssBytesAfter": 360,
+    "staticBssReductionBytes": 16208,
+    "textBytesBefore": 10068,
+    "textBytesAfter": 10490,
+    "workerLogic": "body unchanged after stripping memory-> access prefix; camera thresholds/ownership/driver untouched",
+    "patchCheck": "passed",
+    "evidence": "artifacts/development/tab5-camera-memory-20261024"
+  },
+  "limits": [
+    "Post-failure heap snapshot includes diagnostic task/network overhead, not a failure-time heap trace.",
+    "Stage 1/ENOMEM also covers unavailable frame pool or task allocation; no unique failure branch is proven by existing diagnostics.",
+    "Object BSS reduction is not measured runtime heap or physical camera success.",
+    "Full firmware link, partition fit and camera/agenda hardware retest deferred by user until remaining acceptance and source fixes are complete."
+  ],
+  "workflow": "No candidate firmware generation, version increment, prepare script, device write, push, tag or release."
+}

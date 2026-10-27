@@ -1,0 +1,138 @@
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -17,13 +17,13 @@
+     }
+     ui_text(lv_obj_get_child(camera_use,0),busy?"处理中…":"添加照片");
+ }
+-static void photo_camera_return(void) {
+-    // Finish encoding before the full-page redraw. Restore the normal page's
+-    // geometry in this same LVGL turn, never expose it at portrait dimensions.
++static void photo_camera_return(bool show_window) {
++    // Restore page geometry in this same LVGL turn. Successful camera uploads
++    // reveal the composer directly; only retained-photo errors need the dialog.
+     photo_camera_busy(false);
+     screen_orientation_apply(screen_orientation.direction);
+-    visible(camera_layer,false);visible(photo_window,true);
+-    lv_obj_move_foreground(photo_window);
++    visible(camera_layer,false);visible(photo_window,show_window);
++    if(show_window)lv_obj_move_foreground(photo_window);
+ }
+ 
+ static void codex_images_refresh(void) {
+@@ -37,7 +37,8 @@
+     if(codex_keyboard&&lv_obj_has_flag(codex_keyboard,LV_OBJ_FLAG_HIDDEN))lv_obj_set_height(codex_input,any?170:250);
+ }
+ static void photo_finish(void) {
+-    photo_camera_busy(false);
++    if(photo_camera_processing)photo_camera_return(false);
++    else photo_camera_busy(false);
+     lv_obj_add_flag(photo_window,LV_OBJ_FLAG_HIDDEN);lv_obj_add_flag(camera_layer,LV_OBJ_FLAG_HIDDEN);
+     photo_flow=photo_for_codex=false;photo_step=0;photo_discard();codex_images_refresh();
+     codex_sync_next=esp_timer_get_time()/1000+1200;codex_read_next=codex_sync_next;
+@@ -50,6 +51,7 @@
+     if(!photo_id[0])codex_uuid(photo_id);
+     if(!codex_remote_upload(photo_task,session,(int64_t)num(shown,"epochMilliseconds")+age,photo_id,data,size)){ui_text(photo_note,"电脑正在同步，请稍后点添加");return;}
+     photo_step=3;ui_text(photo_note,"正在添加照片…");lv_obj_add_state(photo_confirm,LV_STATE_DISABLED);lv_obj_add_state(photo_close_button,LV_STATE_DISABLED);
++    if(photo_camera_processing)ui_text(lv_obj_get_child(camera_use,0),"添加中…");
+ }
+ static void photo_load_directory(const char *path,int page) {
+     if(!photo_visible_listing)photo_visible_listing=codex_alloc(sizeof(*photo_visible_listing));
+@@ -165,9 +167,9 @@
+         if(photo_state()==1)return;
+         if(photo_camera_processing) {
+             if((photo_state()!=2&&photo_state()!=3)||gesture_active())return;
+-            photo_camera_return();
+         }
+         if(photo_state()==3){
++            if(photo_camera_processing)photo_camera_return(true);
+             ui_text(photo_note,photo_error());photo_step=2;
+             if(photo_from_camera){
+                 ui_text(lv_obj_get_child(photo_confirm,0),"重试");
+@@ -181,12 +183,14 @@
+         visible(photo_view,true);visible(photo_confirm,true);lv_obj_remove_state(photo_confirm,LV_STATE_DISABLED);
+         photo_step=2;ui_text(photo_note,"确认后添加到当前消息");
+         if(photo_from_camera)photo_upload();
++        if(photo_camera_processing&&photo_step!=3)photo_camera_return(true);
+     }else if(photo_step==3) {
+         char status[96];int code=codex_remote_status(photo_task,status,sizeof(status));if(code==-1){if(status[0])ui_text(photo_note,status);return;}
++        if(photo_camera_processing&&gesture_active())return;
+         lv_obj_remove_state(photo_confirm,LV_STATE_DISABLED);lv_obj_remove_state(photo_close_button,LV_STATE_DISABLED);
+-        if(code!=200){photo_step=2;ui_text(photo_note,status);return;}
++        if(code!=200){if(photo_camera_processing)photo_camera_return(true);photo_step=2;ui_text(photo_note,status);return;}
+         codex_draft *d=codex_draft_for(photo_task,true);int slot=0;while(d&&slot<3&&d->images[slot][0])slot++;
+-        if(!d||slot==3){photo_step=2;ui_text(photo_note,"附件空间不足，照片已保留");return;}
++        if(!d||slot==3){if(photo_camera_processing)photo_camera_return(true);photo_step=2;ui_text(photo_note,"附件空间不足，照片已保留");return;}
+         snprintf(d->images[slot],37,"%s",photo_id);d->thumbnails[slot]=codex_alloc(96*54*2);
+         const uint16_t *pixels=photo_preview();if(d->thumbnails[slot]&&pixels)for(int y=0;y<54;y++)for(int x=0;x<96;x++)d->thumbnails[slot][y*96+x]=pixels[(y*PHOTO_PREVIEW_H/54)*PHOTO_PREVIEW_W+x*PHOTO_PREVIEW_W/96];
+         unsigned cache=photo_cache_next++%3;
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1632,6 +1632,51 @@
+     preview_photo_prepares=prepares-6;camera_preview_stop();
+     puts("PHOTO_ADD_TRANSITION_OK four poses; retained still; no premature page/rotation; duplicate controls blocked; encoder retry; normal geometry before reveal; no upload or send");
+ }
++static void check_photo_upload_transition(void) {
++    // A completed codec is not a completed attachment. Keep the still visible
++    // while the host acknowledges it, then reveal the composer only once.
++    preview_photo_fixture=true;last_received=esp_timer_get_time()/1000;
++    shown=cJSON_Parse("{\"pcInput\":{\"session\":\"photo-fixture\"},\"epochMilliseconds\":1700000000000}");assert(shown);
++    snprintf(codex_selected,sizeof(codex_selected),"24800000-0000-4000-8000-000000000001");
++    snprintf(photo_task,sizeof(photo_task),"%s",codex_selected);
++    codex_draft *d=codex_draft_for(codex_selected,true);assert(d);d->loaded=true;
++    unsigned uploads=preview_photo_uploads;int submits=preview_submit_count;
++    uint16_t *pixels=calloc(1280*720,2);assert(pixels);
++    const int poses[]={0,2,1,-1};
++    for(unsigned i=0;i<4;i++) {
++        for(unsigned n=0;n<1280*720;n++)pixels[n]=(uint16_t)(0x0841+(n/1280%8)*0x0100);
++        photo_flow=photo_for_codex=true;preview_camera_state=CAMERA_PREVIEW_CAPTURED;
++        visible(camera_layer,true);lv_obj_move_foreground(camera_layer);
++        lv_canvas_set_buffer(camera_canvas,pixels,camera_pose_width(poses[i]),camera_pose_height(poses[i]),LV_COLOR_FORMAT_RGB565);
++        assert(camera_orientation_apply(poses[i]));camera_tick();
++        lv_display_rotation_t rotation=lv_display_get_rotation(NULL);
++        lv_obj_send_event(camera_use,LV_EVENT_CLICKED,NULL);
++        preview_photo_state=2;preview_result_code=-1;photo_tick();uploads++;
++        assert(photo_step==3&&preview_photo_uploads==uploads);
++        for(int n=0;n<4;n++) {
++            photo_tick();camera_tick();clock_tick(NULL);
++            assert(photo_camera_processing&&!lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN));
++            assert(lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN)&&lv_display_get_rotation(NULL)==rotation);
++            assert(preview_photo_uploads==uploads);
++        }
++        if(i==2)capture("photo-upload-keeps-portrait");
++        if(i==1) {
++            preview_result_code=500;preview_result_text="添加失败，照片已保留";photo_tick();
++            assert(!photo_camera_processing&&photo_step==2&&!lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
++            assert(preview_photo_state==2&&lv_display_get_horizontal_resolution(NULL)==1280);
++            photo_tick();assert(preview_photo_uploads==uploads); // no automatic retry
++            lv_obj_send_event(photo_confirm,LV_EVENT_CLICKED,NULL);uploads++;
++            assert(preview_photo_uploads==uploads&&photo_step==3);
++        }
++        preview_result_code=200;preview_result_text="照片已添加";photo_tick();
++        assert(!photo_flow&&!photo_camera_processing&&lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
++        assert(lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&lv_display_get_horizontal_resolution(NULL)==1280);
++        assert(d->images[0][0]&&d->thumbnails[0]&&preview_submit_count==submits);
++        lv_obj_send_event(composer_remove[0],LV_EVENT_CLICKED,NULL);assert(!d->images[0][0]);
++    }
++    lv_image_set_src(camera_canvas,NULL);free(pixels);preview_photo_fixture=false;camera_preview_stop();
++    puts("PHOTO_UPLOAD_TRANSITION_OK four poses; stable still through pending ack; one successful page return; failure retains photo; explicit retry only; no conversation send");
++}
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -1651,7 +1696,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
+-    if(getenv("TAB5_PHOTO_TRANSITION_ONLY")){check_photo_add_transition();return 0;}
++    if(getenv("TAB5_PHOTO_TRANSITION_ONLY")){check_photo_add_transition();check_photo_upload_transition();return 0;}
+     if(getenv("TAB5_ORIENTATION_ONLY")) {
+         page(9);settings_select(1);lv_obj_update_layout(settings_scroll);
+         assert(lv_dropdown_get_selected(orientation_selector)==0);
+@@ -4524,6 +4569,7 @@
+                 for(unsigned n=0;n<PHOTO_PREVIEW_W*PHOTO_PREVIEW_H;n++)preview_photo_pixels[n]=(uint16_t)(0x2100+uploads);
+                 preview_photo_state=2;preview_result_code=-1;
+                 photo_tick();uploads++;assert(photo_step==3&&preview_photo_uploads==uploads);
++                assert(photo_camera_processing&&!lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(photo_window,LV_OBJ_FLAG_HIDDEN));
+                 char added[37];snprintf(added,sizeof(added),"%s",preview_photo_upload_id);
+                 photo_tick();assert(photo_step==3&&preview_photo_uploads==uploads);
+                 preview_result_code=200;preview_result_text="照片已添加";

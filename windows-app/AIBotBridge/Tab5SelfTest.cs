@@ -274,7 +274,7 @@ internal static class Tab5SelfTest
             Check(service.OtaSummary.Contains("已运行此版本"),"authenticated Wi-Fi receipt removes new-version wording");
             string firstOffer;
             using(var state=JsonDocument.Parse(service.CurrentFrame!)) {
-                Check(state.RootElement.GetProperty("data").GetProperty("ota").GetProperty("sha256").GetString()==otaSha,"OTA offer reaches encrypted device status");
+                Check(state.RootElement.GetProperty("data").GetProperty("imageChunkRetry").GetInt32()==1,"paired bridge declares idempotent photo chunks");
                 firstOffer=state.RootElement.GetProperty("data").GetProperty("ota").GetProperty("offerId").GetString()!;
                 Check(firstOffer.Length==32,"OTA offer has one manual attempt ID");
                 Check(state.RootElement.GetProperty("data").GetProperty("ota").GetProperty("notes").GetString()==releaseNotes,"verified update notes reach device status");
@@ -307,6 +307,10 @@ internal static class Tab5SelfTest
                 Check(otaResponse.StatusCode==HttpStatusCode.OK&&(await otaResponse.Content.ReadAsByteArrayAsync()).SequenceEqual(otaBytes),"authenticated OTA binary HTTP transfer");
                 using var otaRejected=await client.GetAsync($"http://127.0.0.1:{port}/tab5/v1/ota/{otaSha}");
                 Check(otaRejected.StatusCode==HttpStatusCode.Unauthorized,"anonymous OTA download rejected");
+                Check(!service.CanSelectOta&&!service.CanStopOta,"completed HTTP delivery protects device verification");
+                bool finalProtected=false;try{service.OfferOta(otaPath);}catch(InvalidOperationException){finalProtected=true;}
+                Check(finalProtected,"HTTP verification cannot replace the in-flight offer");
+                service.Respond(pair.DeviceId,nonce,requestProof,firmware:"0.2.7-test",firmwareProof:Tab5Protocol.Proof(key,"FIRMWARE|"+nonce+"|0.2.7-test"));
                 service.OfferOta(otaPath);service.Publish(snapshot);
                 using(var state=JsonDocument.Parse(service.CurrentFrame!)) {
                     var next=state.RootElement.GetProperty("data").GetProperty("ota");

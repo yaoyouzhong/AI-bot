@@ -1,0 +1,452 @@
+--- a/firmware/main/camera_preview.c
++++ b/firmware/main/camera_preview.c
+@@ -18,7 +18,6 @@
+ #include <stdint.h>
+ #include <string.h>
+ #include <sys/ioctl.h>
+-#include <sys/mman.h>
+ #include <unistd.h>
+ #include <stdarg.h>
+ 
+@@ -30,11 +29,16 @@
+ // backup disabled the driver keeps capturing into the last unreturned frame;
+ // two buffers would stall while the displayed frame is retained by LVGL.
+ #define CAMERA_BUFFERS 3
++#define CAMERA_FRAME_CAPS (MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED)
+ 
+ static atomic_bool active, keep_running, capture_requested;
+ static atomic_int state;
+ static bool video_initialized, video_init_failed;
+ static uint16_t *still_pixels;
++// Only a failed driver teardown retains all three frames. Do not return memory
++// to the allocator while CSI may still own it; require reboot before reopening.
++static uint8_t *quarantined_frames[CAMERA_BUFFERS];
++static bool release_failed;
+ static lv_obj_t *preview_canvas;
+ static char failure_text[144];
+ static atomic_int diagnostic_stage, diagnostic_error;
+@@ -137,8 +141,6 @@
+     int fd=-1, kind=V4L2_BUF_TYPE_VIDEO_CAPTURE;
+     bool streaming=false, captured=false, direct=false, buffers_requested=false;
+     uint8_t *mapped[CAMERA_BUFFERS]={0};
+-    size_t lengths[CAMERA_BUFFERS]={0};
+-    unsigned mapped_count=0;
+     int displayed=-1;
+     size_t stride=PREVIEW_WIDTH*2;
+     int step=1, error=ENOMEM;
+@@ -156,7 +158,12 @@
+     // Small JSON snapshots live in PSRAM; leave headroom for CSI/ISP/USB drivers.
+     if(heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<49152||
+        heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<16384)goto failed;
+-    if(!still_pixels)still_pixels=heap_caps_malloc(VIEW_BYTES,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    // The retained still becomes one of the next session's three USERPTR
++    // frames. Four simultaneous full-size allocations fragmented PSRAM after
++    // attaching photos: the observed third MMAP frame failed with 7.6 MiB free
++    // but only a 1.22 MiB contiguous block. Keep three frames, without a fourth
++    // full-size copy. Match the pinned CSI driver's cache-aligned allocation.
++    if(!still_pixels)still_pixels=heap_caps_aligned_alloc(64,VIEW_BYTES,CAMERA_FRAME_CAPS);
+     if(!still_pixels)goto failed;
+     if(!video_initialized) {
+         if(video_init_failed){step=3;error=EIO;reason="相机初始化失败，请重启设备后重试";goto failed;}
+@@ -192,20 +199,27 @@
+     // incompatible driver format instead of interpreting padding as pixels.
+     if(stride!=PREVIEW_WIDTH*2){error=EINVAL;goto failed;}
+     struct v4l2_requestbuffers req={0};
+-    req.count=CAMERA_BUFFERS;req.type=kind;req.memory=V4L2_MEMORY_MMAP;
++    req.count=CAMERA_BUFFERS;req.type=kind;req.memory=V4L2_MEMORY_USERPTR;
+     step=6;mark(step,0);reason="相机缓冲区不足，请重新打开";
++    mapped[0]=(uint8_t *)still_pixels;
++    for(unsigned i=1;i<CAMERA_BUFFERS;i++) {
++        mapped[i]=heap_caps_aligned_alloc(64,PREVIEW_BYTES,CAMERA_FRAME_CAPS);
++        if(!mapped[i]) {
++            ESP_LOGE("camera_frames","frame=%u/%u size=%u free=%u largest=%u",i+1,CAMERA_BUFFERS,
++                (unsigned)PREVIEW_BYTES,(unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT),
++                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
++            error=ENOMEM;goto failed;
++        }
++    }
+     buffers_requested=true;
+     if(ioctl(fd,VIDIOC_REQBUFS,&req)!=0){error=errno;goto failed;}
+     if(req.count<CAMERA_BUFFERS){error=ENOMEM;goto failed;}
+     for(unsigned i=0;i<CAMERA_BUFFERS;i++) {
+         struct v4l2_buffer buffer={0};
+-        buffer.type=kind;buffer.memory=V4L2_MEMORY_MMAP;buffer.index=i;
++        buffer.type=kind;buffer.memory=V4L2_MEMORY_USERPTR;buffer.index=i;
+         if(ioctl(fd,VIDIOC_QUERYBUF,&buffer)!=0){error=errno;goto failed;}
+-        lengths[i]=buffer.length;
+-        mapped[i]=mmap(NULL,buffer.length,PROT_READ|PROT_WRITE,MAP_SHARED,fd,buffer.m.offset);
+-        // esp_video's mmap shim reports failure as NULL (not POSIX MAP_FAILED).
+-        if(!mapped[i]){error=ENOMEM;goto failed;}
+-        mapped_count++;
++        if(buffer.length!=PREVIEW_BYTES){error=EINVAL;goto failed;}
++        buffer.m.userptr=(uintptr_t)mapped[i];
+         if(ioctl(fd,VIDIOC_QBUF,&buffer)!=0){error=errno;goto failed;}
+     }
+     step=7;mark(step,0);reason="相机预览启动失败，请重新打开";
+@@ -221,7 +235,7 @@
+         step=8;mark(step,0);reason="未收到相机画面，请重新打开";
+         esp_video_dqbuf_timeout_t request={.timeout_ms=250};
+         struct v4l2_buffer *received=&request.buffer;
+-        received->type=kind;received->memory=V4L2_MEMORY_MMAP;
++        received->type=kind;received->memory=V4L2_MEMORY_USERPTR;
+         if(ioctl(fd,VIDIOC_DQBUF_TIMEOUT,&request)!=0) {
+             error=errno;
+             if(error==ETIMEDOUT&&esp_timer_get_time()-last_frame<3000000)continue;
+@@ -229,8 +243,8 @@
+             goto failed;
+         }
+         struct v4l2_buffer buffer=request.buffer;
+-        buffer.type=kind;buffer.memory=V4L2_MEMORY_MMAP;
+-        if(buffer.index>=CAMERA_BUFFERS||lengths[buffer.index]<stride*PREVIEW_HEIGHT||
++        buffer.type=kind;buffer.memory=V4L2_MEMORY_USERPTR;
++        if(buffer.index>=CAMERA_BUFFERS||
+            buffer.bytesused<stride*PREVIEW_HEIGHT){error=EINVAL;goto failed;}
+         last_frame=esp_timer_get_time();
+         if(!atomic_load(&keep_running))break;
+@@ -258,7 +272,8 @@
+             bsp_display_unlock();
+         }
+         if(previous>=0) {
+-            struct v4l2_buffer released={.type=kind,.memory=V4L2_MEMORY_MMAP,.index=(unsigned)previous};
++            struct v4l2_buffer released={.type=kind,.memory=V4L2_MEMORY_USERPTR,.index=(unsigned)previous,
++                .length=PREVIEW_BYTES,.m.userptr=(uintptr_t)mapped[previous]};
+             if(ioctl(fd,VIDIOC_QBUF,&released)!=0){error=errno;goto failed;}
+         }
+         atomic_fetch_add(&frames,1);
+@@ -278,13 +293,16 @@
+         (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));
+     atomic_store(&state,CAMERA_PREVIEW_ERROR);
+ finish:
+-    // Detach LVGL from MMAP storage before STREAMOFF/close can release it. The
+-    // displayed frame is still exclusively ours, so this one copy is safe
+-    // outside the UI lock even if a render is reading that same frame.
+-    if(displayed>=0) {
+-        int64_t prepare_start=esp_timer_get_time();
+-        camera_frame_view(still_pixels,mapped[displayed],stride);
+-        atomic_store(&prepare_ms,elapsed_ms(prepare_start));
++    // USERPTR storage belongs to this task. Stop DMA before transferring the
++    // last displayed frame to the immutable still owner. No full-frame copy or
++    // extra allocation is needed; JPEG's lease continues to block reopening.
++    if(streaming&&ioctl(fd,VIDIOC_STREAMOFF,&kind)!=0) {
++        release_failed=true;captured=false;mark(11,errno);
++        snprintf(failure_text,sizeof(failure_text),"相机关闭失败，请重启设备 (11/%d)",errno);
++        atomic_store(&state,CAMERA_PREVIEW_ERROR);
++    }
++    if(displayed>=0&&!release_failed) {
++        still_pixels=(uint16_t *)mapped[displayed];
+         bsp_display_lock(0);
+         lv_canvas_set_buffer(preview_canvas,still_pixels,CAMERA_VIEW_WIDTH,CAMERA_VIEW_HEIGHT,LV_COLOR_FORMAT_RGB565);
+         bsp_display_unlock();
+@@ -299,19 +317,26 @@
+             atomic_store(&state,CAMERA_PREVIEW_ERROR);
+         }
+     }
+-    if(streaming)ioctl(fd,VIDIOC_STREAMOFF,&kind);
+-    for(unsigned i=0;i<mapped_count;i++)if(mapped[i])munmap(mapped[i],lengths[i]);
+-    // ISP retains an open reference: close(fd) alone does not free the three
+-    // 1.84 MB frames. Release after scanout detaches and streaming has stopped.
+-    if(buffers_requested) {
+-        struct v4l2_requestbuffers release={.count=0,.type=kind,.memory=V4L2_MEMORY_MMAP};
+-        if(ioctl(fd,VIDIOC_REQBUFS,&release)!=0&&atomic_load(&state)!=CAMERA_PREVIEW_ERROR) {
++    // ISP retains an open reference. Explicitly release its stopped metadata
++    // pool, then return the two non-displayed USERPTR frames to the allocator.
++    if(buffers_requested&&!release_failed) {
++        struct v4l2_requestbuffers release={.count=0,.type=kind,.memory=V4L2_MEMORY_USERPTR};
++        if(ioctl(fd,VIDIOC_REQBUFS,&release)!=0) {
++            release_failed=true;
+             captured=false;mark(11,errno);
+-            snprintf(failure_text,sizeof(failure_text),"相机缓冲区释放失败，请重新打开 (11/%d)",errno);
++            snprintf(failure_text,sizeof(failure_text),"相机缓冲区释放失败，请重启设备 (11/%d)",errno);
+             atomic_store(&state,CAMERA_PREVIEW_ERROR);
+         }
+     }
+-    if(fd>=0)close(fd);
++    if(release_failed) {
++        // Preserve explicit ownership of quarantined allocations and detach
++        // the canvas. Neither retry nor a JPEG lease may reuse active storage.
++        memcpy(quarantined_frames,mapped,sizeof(mapped));
++        bsp_display_lock(0);lv_obj_add_flag(preview_canvas,LV_OBJ_FLAG_HIDDEN);bsp_display_unlock();
++    }else {
++        if(fd>=0)close(fd);
++        for(unsigned i=0;i<CAMERA_BUFFERS;i++)if(mapped[i]&&mapped[i]!=(uint8_t *)still_pixels)free(mapped[i]);
++    }
+     if(captured) {
+         unsigned elapsed=(unsigned)(esp_timer_get_time()/1000)-atomic_load(&capture_started_ms);
+         atomic_store(&capture_ms,elapsed>9999?9999:elapsed);
+@@ -327,6 +352,10 @@
+ 
+ bool camera_preview_start(lv_obj_t *canvas) {
+     if(!canvas||atomic_exchange(&active,true))return false;
++    if(release_failed){atomic_store(&active,false);return false;}
++    // Called on LVGL: hide the previous still before DMA can reuse it. The
++    // first newly dequeued frame will replace the canvas source under its lock.
++    lv_obj_add_flag(canvas,LV_OBJ_FLAG_HIDDEN);
+     gallery_cache_reclaim();
+     portENTER_CRITICAL(&camera_log_lock);driver_error[0]=0;portEXIT_CRITICAL(&camera_log_lock);
+     preview_canvas=canvas;
+--- a/firmware/main/camera_preview.h
++++ b/firmware/main/camera_preview.h
+@@ -12,6 +12,7 @@
+     CAMERA_PREVIEW_CAPTURING
+ } camera_preview_state;
+ 
++// Call on the LVGL thread/under its mutex; hides the old still before reuse.
+ bool camera_preview_start(lv_obj_t *canvas);
+ bool camera_preview_capture(void);
+ void camera_preview_stop(void);
+--- a/tests/ui-preview/camera_ownership_test.c
++++ b/tests/ui-preview/camera_ownership_test.c
+@@ -9,6 +9,10 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#ifdef _WIN32
++#include <malloc.h>
++#include <windows.h>
++#endif
+ 
+ #define RTC_NOINIT_ATTR
+ typedef int (*vprintf_like_t)(const char *,va_list);
+@@ -31,6 +35,7 @@
+ #define MALLOC_CAP_INTERNAL 1
+ #define MALLOC_CAP_8BIT 2
+ #define MALLOC_CAP_SPIRAM 4
++#define MALLOC_CAP_CACHE_ALIGNED 8
+ #define O_RDONLY 0
+ #define PROT_READ 1
+ #define PROT_WRITE 2
+@@ -40,20 +45,24 @@
+ #define ESP_VIDEO_MIPI_CSI_DEVICE_NAME "mock-camera"
+ #define V4L2_BUF_TYPE_VIDEO_CAPTURE 1
+ #define V4L2_MEMORY_MMAP 1
++#define V4L2_MEMORY_USERPTR 2
+ #define V4L2_PIX_FMT_RGB565 565
+ enum {VIDIOC_G_FMT=1,VIDIOC_S_FMT,VIDIOC_REQBUFS,VIDIOC_QUERYBUF,VIDIOC_QBUF,
+       VIDIOC_STREAMON,VIDIOC_STREAMOFF,VIDIOC_DQBUF_TIMEOUT};
+ struct v4l2_format {int type;struct {struct {unsigned width,height,pixelformat,bytesperline;} pix;} fmt;};
+ struct v4l2_requestbuffers {unsigned count;int type,memory;};
+-struct v4l2_buffer {unsigned index,length,bytesused;int type,memory;union {unsigned offset;} m;};
++struct v4l2_buffer {unsigned index,length,bytesused;int type,memory;union {unsigned offset; uintptr_t userptr;} m;};
+ typedef struct {unsigned timeout_ms;struct v4l2_buffer buffer;} esp_video_dqbuf_timeout_t;
+ typedef struct {struct {bool init_sccb;void *i2c_handle;unsigned freq;} sccb_config;int reset_pin,pwdn_pin;} esp_video_init_csi_config_t;
+ typedef struct {esp_video_init_csi_config_t *csi;void *dvp,*jpeg;} esp_video_init_config_t;
+-enum {NORMAL,STOP,FAIL_DQ,FAIL_QBUF,FAIL_MAP,BAD_STRIDE,FAIL_START,FAIL_REQBUFS,LOW_MEMORY,FAIL_PRESENT,FAIL_RESTORE};
++enum {NORMAL,STOP,FAIL_DQ,FAIL_QBUF,FAIL_MAP,BAD_STRIDE,FAIL_START,FAIL_REQBUFS,LOW_MEMORY,FAIL_PRESENT,FAIL_RESTORE,FAIL_ALLOC_1,FAIL_ALLOC_2,FAIL_STOP_STREAM,FAIL_RELEASE};
+ static bool use_direct,direct_active;
+ static const uint16_t *presented_source;
+ static unsigned direct_presented;
+ static int scenario;
++static unsigned pool_memory,frame_live,frame_peak,frame_allocations;
++static void *frame_storage[4];
++static void frame_free(void *p);
+ static lv_obj_t *canvas;
+ static void (*scheduled_task)(void *);
+ static uint8_t *buffers[3];
+@@ -65,27 +74,60 @@
+     lv_draw_buf_t *b=lv_canvas_get_draw_buf(canvas);return b?b->data:NULL;
+ }
+ static bool canvas_uses_driver(void) {
++    if(lv_obj_has_flag(canvas,LV_OBJ_FLAG_HIDDEN))return false;
+     for(unsigned i=0;i<3;i++)if(buffers[i]&&canvas_pixels()==buffers[i])return true;
+     return false;
+ }
+ static void verify_display_is_owned(void) {
++    if(lv_obj_has_flag(canvas,LV_OBJ_FLAG_HIDDEN))return;
+     for(unsigned i=0;i<3;i++)if(buffers[i]&&canvas_pixels()==buffers[i])assert(!queued[i]);
+ }
+ static unsigned heap_caps_get_free_size(int caps){(void)caps;return scenario==LOW_MEMORY?8192:131072;}
+ static unsigned heap_caps_get_largest_free_block(int caps){return heap_caps_get_free_size(caps);}
+-static void *heap_caps_malloc(size_t size,int caps){(void)caps;return malloc(size);}
++static void *frame_allocate(size_t size) {
++    assert(size==frame_bytes);
++    frame_allocations++;
++    if(frame_live==3 || (scenario==FAIL_ALLOC_1&&frame_allocations==1) ||
++       (scenario==FAIL_ALLOC_2&&frame_allocations==2))return NULL;
++#ifdef _WIN32
++    SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
++    void *p=_aligned_malloc(size,128);
++#else
++    void *p=aligned_alloc(128,size);
++#endif
++    assert(p);for(unsigned i=0;i<4;i++)if(!frame_storage[i]){frame_storage[i]=p;break;}
++    frame_live++;if(frame_live>frame_peak)frame_peak=frame_live;return p;
++}
++static void frame_free(void *p) {
++    if(!p)return;
++    assert(!canvas || lv_obj_has_flag(canvas,LV_OBJ_FLAG_HIDDEN) || canvas_pixels()!=p);
++    unsigned i;for(i=0;i<4;i++)if(frame_storage[i]==p)break;assert(i<4&&frame_live);
++    frame_storage[i]=NULL;frame_live--;
++#ifdef _WIN32
++    _aligned_free(p);
++#else
++    free(p);
++#endif
++}
++static void *heap_caps_malloc(size_t size,int caps){(void)caps;return frame_allocate(size);}
++static void *heap_caps_aligned_alloc(size_t align,size_t size,int caps) {
++    assert(align==64&&caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT|MALLOC_CAP_CACHE_ALIGNED));
++    return frame_allocate(size);
++}
+ static int bsp_cam_osc_init(void){return ESP_OK;}
+ static void *bsp_i2c_get_handle(void){return NULL;}
+ static int esp_video_init(const esp_video_init_config_t *c){assert(c->csi);return ESP_OK;}
+ static int64_t esp_timer_get_time(void){return ++mock_time;}
+ static void bsp_display_lock(int timeout){(void)timeout;assert(!locked);verify_display_is_owned();locked=true;}
+-static void bsp_display_unlock(void){assert(locked);verify_display_is_owned();locked=false;}
++static void bsp_display_unlock(void){assert(locked);
++    if(streaming_mock&&delivered&&!use_direct)lv_obj_remove_flag(canvas,LV_OBJ_FLAG_HIDDEN);
++    verify_display_is_owned();locked=false;}
+ static int xTaskCreatePinnedToCoreWithCaps(void (*task)(void *),const char *name,unsigned stack,void *arg,
+                                          unsigned priority,void *handle,int core,unsigned caps) {
+     (void)name;(void)stack;(void)arg;(void)priority;(void)handle;(void)caps;assert(core==0);
+     if(scenario==FAIL_START)return 0;scheduled_task=task;return pdPASS;
+ }
+-static void vTaskDeleteWithCaps(void *task){(void)task;assert(!locked&&!streaming_mock);}
++static void vTaskDeleteWithCaps(void *task){(void)task;assert(!locked&&(!streaming_mock||scenario==FAIL_STOP_STREAM));}
+ static void vTaskDelay(unsigned ticks) {
+     (void)ticks;
+     if(!streaming_mock)return;
+@@ -101,23 +143,37 @@
+     case VIDIOC_S_FMT:return 0;
+     case VIDIOC_REQBUFS:{struct v4l2_requestbuffers *r=arg;
+         if(r->count==0) {
+-            assert(!streaming_mock&&!canvas_uses_driver()&&!direct_active);
+-            for(unsigned i=0;i<3;i++){free(buffers[i]);buffers[i]=NULL;queued[i]=false;}
++            assert(!streaming_mock&&!direct_active);
++            if(scenario==FAIL_RELEASE){errno=EIO;return -1;}
++            for(unsigned i=0;i<3;i++){
++                if(pool_memory==V4L2_MEMORY_MMAP)frame_free(buffers[i]);
++                buffers[i]=NULL;queued[i]=false;
++            }
+             return 0;
+         }
+-        assert(r->count==3);
+-        for(unsigned i=0;i<3;i++) {
+-            buffers[i]=malloc(frame_bytes);assert(buffers[i]);
+-            if(scenario==FAIL_REQBUFS){errno=ENOMEM;return -1;}
+-        }return 0;}
++        assert(r->count==3);pool_memory=r->memory;
++        if(scenario==FAIL_REQBUFS){errno=ENOMEM;return -1;}
++        if(pool_memory==V4L2_MEMORY_MMAP)for(unsigned i=0;i<3;i++) {
++            buffers[i]=frame_allocate(frame_bytes);
++            if(!buffers[i]){errno=ENOMEM;return -1;}
++        }
++        else assert(pool_memory==V4L2_MEMORY_USERPTR);
++        return 0;}
+     case VIDIOC_QUERYBUF:{struct v4l2_buffer *b=arg;assert(b->index<3);b->length=(unsigned)frame_bytes;b->m.offset=b->index;return 0;}
+     case VIDIOC_QBUF:{struct v4l2_buffer *b=arg;unsigned i=b->index;assert(i<3&&!queued[i]);
+-        // A displayed frame cannot be offered back to DMA, even during retake.
+-        assert(canvas_pixels()!=buffers[i]);
++        if(b->memory==V4L2_MEMORY_USERPTR) {
++            assert(b->length==frame_bytes&&b->m.userptr&&b->m.userptr%64==0);
++            if(buffers[i])assert(buffers[i]==(void *)(uintptr_t)b->m.userptr);
++            buffers[i]=(void *)(uintptr_t)b->m.userptr;
++            if(scenario==FAIL_MAP&&!delivered&&i==1){errno=ENOMEM;return -1;}
++        }
++        assert(lv_obj_has_flag(canvas,LV_OBJ_FLAG_HIDDEN)||canvas_pixels()!=buffers[i]);
+         if(scenario==FAIL_QBUF&&delivered==4){errno=EIO;return -1;}
+         queued[i]=true;returned++;return 0;}
+     case VIDIOC_STREAMON:streaming_mock=true;return 0;
+-    case VIDIOC_STREAMOFF:assert(!canvas_uses_driver());streaming_mock=false;return 0;
++    case VIDIOC_STREAMOFF:
++        if(scenario==FAIL_STOP_STREAM){errno=EIO;return -1;}
++        streaming_mock=false;for(unsigned i=0;i<3;i++)queued[i]=false;return 0;
+     case VIDIOC_DQBUF_TIMEOUT:{
+         assert(streaming_mock&&!locked);verify_display_is_owned();
+         if(scenario==FAIL_DQ&&delivered==4){errno=EIO;return -1;}
+@@ -144,7 +200,7 @@
+     memset(address,0xdd,length);return 0;
+ }
+ static int mock_close(int fd) {
+-    assert(fd==10&&!canvas_uses_driver()&&!streaming_mock);closed++;
++    assert(fd==10&&!streaming_mock);closed++;
+     // The real ISP retains a reference. close must not be relied on to free
+     // its pool: every successful/failing capture must already have released it.
+     for(unsigned i=0;i<3;i++)assert(!buffers[i]);return 0;
+@@ -178,10 +234,15 @@
+ #define close mock_close
+ #define camera_frame_view observe_frame_copy
+ #include "../../firmware/main/gallery_remote.h"
++#define free frame_free
+ #include "camera_preview_under_test.inc"
++#undef free
+ #undef camera_frame_view
+ 
+ int main(void) {
++#ifdef _WIN32
++    _set_error_mode(_OUT_TO_STDERR);_set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
++#endif
+     camera_preview_init_diagnostics();camera_log_task=mock_task;
+     test_log("I (10) csi: starting %d",1);assert(!driver_error[0]);
+     mock_task=(void *)2;test_log("E (11) other: excluded");assert(!driver_error[0]);mock_task=(void *)1;
+@@ -199,38 +260,58 @@
+     lv_init();lv_display_create(1280,720);
+     for(unsigned pipeline=0;pipeline<2;pipeline++) {
+     use_direct=pipeline!=0;
+-    for(int mode=NORMAL;mode<=(use_direct?FAIL_RESTORE:LOW_MEMORY);mode++) {
+-        // Reopen the successful session twice with the same still allocation.
+-        for(unsigned run=0;run<(mode==NORMAL?2u:1u);run++) {
+-            scenario=mode;delivered=returned=unmapped=closed=frame_copies=last_pixel=direct_presented=0;
++    for(int mode=NORMAL;mode<=FAIL_RELEASE;mode++) {
++        if(!use_direct&&(mode==FAIL_PRESENT||mode==FAIL_RESTORE))continue;
++        // Reopen 64 times per display path; retain only one frame between runs.
++        for(unsigned run=0;run<(mode==NORMAL?64u:1u);run++) {
++            scenario=mode;frame_allocations=0;delivered=returned=unmapped=closed=frame_copies=last_pixel=direct_presented=0;
+             direct_active=false;presented_source=NULL;
+             canvas=lv_canvas_create(lv_screen_active());scheduled_task=NULL;
+             if(mode==FAIL_START){assert(!camera_preview_start(canvas)&&!camera_preview_busy());lv_obj_delete(canvas);continue;}
+             assert(camera_preview_start(canvas)&&scheduled_task);assert(!camera_preview_start(canvas));
+             scheduled_task(NULL);assert(!camera_preview_busy());
+             if(mode==NORMAL) {
++                if(camera_preview_get_state()!=CAMERA_PREVIEW_CAPTURED) {
++                    fprintf(stderr,"CAMERA_FRAME_BUDGET_FAILURE: three-frame limit; attempts=%u live=%u stage=%d error=%d\n",
++                        frame_allocations,frame_live,atomic_load(&diagnostic_stage),atomic_load(&diagnostic_error));
++                    fflush(stderr);
++                }
+                 assert(camera_preview_get_state()==CAMERA_PREVIEW_CAPTURED&&delivered==9);
+-                assert(frame_copies==1&&unmapped==3&&closed==1);
++                assert(frame_copies==0&&unmapped==0&&closed==1&&frame_live==1&&frame_peak==3);
+                 const uint8_t *copy=camera_preview_acquire();assert(copy&&camera_preview_busy());
+                 assert(!camera_preview_acquire()&&!camera_preview_start(canvas));
+-                // DMA storage was poisoned and freed; preview and attachment
+-                // must still contain the same captured frame, not freed memory.
++                // The displayed USERPTR frame survives pool release; preview
++                // and attachment must still contain that exact captured frame.
+                 for(size_t i=0;i<frame_bytes;i++)assert(copy[i]==last_pixel&&canvas_pixels()[i]==last_pixel);
+                 camera_preview_stop();assert(camera_preview_busy());
+                 camera_preview_release(copy);assert(!camera_preview_busy());
+                 assert(camera_preview_acquire()==copy);camera_preview_release(copy);
+             } else if(mode==STOP) {
+-                assert(camera_preview_get_state()==CAMERA_PREVIEW_OFF&&delivered==4&&frame_copies==1);
++                assert(camera_preview_get_state()==CAMERA_PREVIEW_OFF&&delivered==4&&frame_copies==0);
+             } else {
+                 assert(camera_preview_get_state()==CAMERA_PREVIEW_ERROR);
+-                assert(frame_copies==((mode==FAIL_DQ||mode==FAIL_QBUF||mode==FAIL_PRESENT||mode==FAIL_RESTORE)?1u:0u));
++                assert(frame_copies==0);
+             }
+             if(mode!=NORMAL)assert(!camera_preview_acquire()&&!camera_preview_busy());
+-            lv_obj_delete(canvas);assert(!locked&&!streaming_mock);
++            lv_obj_delete(canvas);canvas=NULL;assert(!locked);
++#ifdef CAMERA_FRAME_CAPS
++            if(mode==FAIL_STOP_STREAM||mode==FAIL_RELEASE) {
++                assert(release_failed&&frame_live==3&&!closed);
++                for(unsigned i=0;i<3;i++)assert(quarantined_frames[i]);
++                lv_obj_t *retry=lv_canvas_create(lv_screen_active());
++                assert(!camera_preview_start(retry));lv_obj_delete(retry);
++                assert(!camera_preview_acquire()&&!camera_preview_busy());
++                // Simulated hardware reset; production waits for real reboot.
++                streaming_mock=false;
++                for(unsigned i=0;i<3;i++){frame_free(quarantined_frames[i]);quarantined_frames[i]=NULL;buffers[i]=NULL;queued[i]=false;}
++                still_pixels=NULL;release_failed=false;
++            }else
++#endif
++                assert(!streaming_mock&&frame_live==(still_pixels?1u:0u));
+         }
+     }
+     }
+-    free(still_pixels);
+-    puts("CAMERA_OWNERSHIP_OK: no live copies; retain until replacement; still survives unmap; retake, stop and faults safe");
++    frame_free(still_pixels);assert(!frame_live);
++    puts("CAMERA_OWNERSHIP_OK: 128 captures/reopens with only three full frames; zero capture copies; immutable JPEG lease; allocation, queue and teardown faults safe");
+     return 0;
+ }

@@ -1,0 +1,28 @@
+{
+  "base": "installed270 plus separately checked preview-memory follow-up",
+  "candidate": "artifacts/development/tab5-voice-stop-20261025/candidate",
+  "productFiles": [
+    {
+      "path": "firmware/main/ui.c",
+      "beforeNormalizedSHA256": "984b7aa02757724f1210925d0702966ce969e23980c380c38f21320da15c6b3b",
+      "afterNormalizedSHA256": "a1ee97894b2ba602bae9b10ee04aff067f9d02a5f4f281d50829dda7dfdac9f3"
+    },
+    {
+      "path": "firmware/main/voice_remote.c",
+      "beforeNormalizedSHA256": "ed869f78c83d35efcc14aed3f8bc748d8cdcefcb0528fe472da2f1d17fdc4403",
+      "afterNormalizedSHA256": "2cabd90835c5bdcf64abb1aa9e2ec2e878520d9db92d6b7bb5193015c22384cf"
+    }
+  ],
+  "wireProtocolChanged": false,
+  "imageGenerated": true,
+  "physicalAcceptance": false,
+  "nativeEvidence": [
+    "clean original 56px center clicks pass; physical user failure not reproduced as a center tap",
+    "25 real pointer hits across effective72px target; press ends locally, release cannot duplicate/restart",
+    "old response-update stop/cancel interleaving fails; mutex-protected readiness passes",
+    "voice start/camera regressions pass"
+  ],
+  "openIssue": "eight-second valid voice request gap is not attributed to the touch fix; exposing existing device USB timing for diagnosis",
+  "integratedCandidate": "0.2.271-ui",
+  "integratedImageSHA256": "b685f7e4e650c41dab6529c74b934db00781105e51802a6ed6847a590b0a2a48"
+}

@@ -1,0 +1,19 @@
+--- a/firmware/main/ble_link.c
++++ b/firmware/main/ble_link.c
+@@ -246,7 +246,15 @@
+ static void advertise(void) {
+     ble_npl_callout_reset(&advertising_callout,1);
+ }
+-static void sync_host(void) {if(ble_hs_util_ensure_addr(0)==0&&ble_hs_id_infer_auto(0,&own_address_type)==0){ble_available=true;advertise();}}
++static void sync_host(void) {
++    if(ble_hs_util_ensure_addr(0)==0&&ble_hs_id_infer_auto(0,&own_address_type)==0) {
++        // Existing OS bonds may cache the service layout from an older image.
++        // Queue the standard indication before advertising; NimBLE retains it
++        // for subscribed bonded peers until they reconnect and acknowledge it.
++        ble_svc_gatt_changed(1,0xffff);
++        ble_available=true;advertise();
++    }
++}
+ static void host_task(void *arg) {nimble_port_run();nimble_port_freertos_deinit();}
+ void ble_start(void) {
+     if(!packet_init()){ESP_LOGE("tab5","BLE receive buffer allocation failed");return;}

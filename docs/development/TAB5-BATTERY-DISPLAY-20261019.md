@@ -1,5 +1,10 @@
 # TAB5 电量数字连续性
 
+当前发布结果：用户已明确授权提交和公开发布；Windows 0.6.10 与 TAB5 .234 的带注释标签、正式附件及服务器摘要均已确认，下载中心同步更新。已验收 Windows 安装器和 c608 原字节保留，后续 CI 仅修复滚动可达性测试，远端全平台 CI 已通过；旧失败和未测系统分支保留。媒体 417 文件独立重建一致，主观试听未验，公开播放器交互由单独记录说明。后文早期“未授权”“待完成”均为保留的阶段记录。
+
+Published outcome: explicit user authorization covered scoped commits, normal pushes, annotated component tags and public release. Formal asset sets and server digests match; downloads are current. Accepted Windows bytes remain unchanged. A test-only scroll-reachability repair passed remote CI; old failures and untested system branches remain recorded. The 417-file media project independently reproduces identical HTML. Subjective listening and separately tracked public-player interaction retain their stated limits. Earlier pending/unapproved states below are historical.
+
+
 最终新增验收：用户在 .234 本次升级后直接确认“升级重启后，电量很快就显示且插拔后显示也没有问题”。据此记录本次启动和 USB 变化的电量显示验收通过，未额外要求重启或重做旧功能。首次显示时间为用户定性观察，没有精确秒数；不能把它写成所有冷启动的固定时间保证。.234 保留 .233 的电量源码字节，仅另修复报告整数时间；纯 BLE 启动核验也已通过，电脑 WLAN 已恢复。此前 .233 的“没注意看”仍保留为当次未观察。证据为 `hardware-boot-fix-234/battery-display-user-acceptance.json`，BLE 见 [对应记录](TAB5-BLE-UPTIME-20261019.md)。
 
 Final new acceptance: on the .234 OTA reboot the user directly observed quick battery-number appearance and normal display across USB plug/unplug. This accepts the newly reported battery behavior without an additional requested reboot or repetition of old tests. No precise display time was measured and the unchanged cold-calibration limits still apply. .234 preserves the .233 battery-source bytes; its separate isolated BLE boot check also passed, and PC WLAN was restored. The earlier unobserved .233 startup stays unobserved. Public release remains unapproved. The following .233 state is historical.

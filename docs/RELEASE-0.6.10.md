@@ -1,6 +1,6 @@
 # AI-bot 0.6.10 / TAB5 234
 
-本地发布准备；当前下载中心仍指向已公开版本。音量拖动恢复、双向 Codex 已读同步、各通道控制、取消／断线、USB 黑屏唤醒已按记录验收。最后未通过的纯 BLE 启动核验已在 .234 和原版 Windows c608 下通过，用户也确认重启与 USB 插拔后的电量显示正常。已通过项目不重测。安装、真实结果及剩余限制见 [逐项收尾](development/RELEASE-0610-229-CLOSEOUT-20261019.md)。
+Windows 0.6.10 与 TAB5 0.2.234-ui 已正式发布，完整下载中心已更新。音量拖动恢复、双向 Codex 已读同步、各通道控制、取消／断线、USB 黑屏唤醒已按记录验收。最后未通过的纯 BLE 启动核验已在 .234 和原版 Windows c608 下通过，用户也确认重启与 USB 插拔后的电量显示正常。已通过项目不重测。安装、真实结果及剩余限制见 [逐项收尾](development/RELEASE-0610-229-CLOSEOUT-20261019.md)。
 
 ## 电脑一键解锁
 
@@ -28,7 +28,7 @@ TAB5 延续 229 的连续新鲜、一致屏幕样本准备方式；保留熄屏�
 
 ## English
 
-This local preparation targets Windows 0.6.10 and TAB5 .234; public downloads retain published versions until release. Volume-drag recovery, bidirectional Codex read sync, transport control, cancellation/link loss and USB black-screen wake have recorded hardware acceptance. The last failed isolated BLE boot check now passes on .234 with original c608; the user also accepted battery display after reboot and USB changes. Previously passed tests are retained. TAB5 can unlock Windows over its active USB, Bluetooth or Wi-Fi path. PIN storage remains separate and DPAPI protected. Cancellation/disconnect stops the operation without switching transports or replaying a PIN. The latest eight diagnostics retain phase, outcome and split timing.
+Windows 0.6.10 and TAB5 .234 are published and the complete download center is current. Volume-drag recovery, bidirectional Codex read sync, transport control, cancellation/link loss and USB black-screen wake have recorded hardware acceptance. The last failed isolated BLE boot check now passes on .234 with original c608; the user also accepted battery display after reboot and USB changes. Previously passed tests are retained. TAB5 can unlock Windows over its active USB, Bluetooth or Wi-Fi path. PIN storage remains separate and DPAPI protected. Cancellation/disconnect stops the operation without switching transports or replaying a PIN. The latest eight diagnostics retain phase, outcome and split timing.
 
 Wi-Fi settings install TightVNC Server on demand, generate authentication automatically, or import compatible existing local authentication while retaining its password, settings and ownership. No manual component password is required, including first use. Unsupported configurations stop explicitly. The separate unmodified signed MSI, complete corresponding source, GPL and provenance are bundled. Server access is loopback only, without a firewall exception or Web access. Only unchanged AI-bot-owned installations can be removed; app uninstall offers a keep/remove choice while retaining PIN and pairing.
 

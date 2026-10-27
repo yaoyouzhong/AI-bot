@@ -1,0 +1,56 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5USBOperationWait.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USBOperationWait.swift
+@@ -26,10 +26,13 @@
+             guard !cancelled() else { throw MacTab5Error.serial }
+             let now = clock()
+             guard now < deadline else { throw MacTab5Error.timeout }
++            // Deliver a ready reply before a due full-state refresh. Its
++            // receiver-side RPC acknowledgement also renews USB ownership.
++            // A separate status timeout must not discard this ready result.
++            if let value = poll() { return value }
+             // Keep the existing short ownership lease; do not lengthen it to
+             // cover the host request or replay the operation after a failure.
+             if due() { try heartbeat() }
+-            if let value = poll() { return value }
+             pause(min(0.1, deadline - now))
+         }
+     }
+--- a/mac-app/Sources/AIBotBridge/MacTab5USBOperationWaitValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5USBOperationWaitValidation.swift
+@@ -23,6 +23,36 @@
+         try check("multiple two-second full refreshes", beats.count >= 5 && beats.count <= 7)
+         try check("waiting is bounded and does not busy spin", maxPause > 0 && maxPause <= 0.1)
+         try check("refreshes stay well within lease", zip(beats.dropFirst(), beats).allSatisfy { $0-$1 < 2.2 })
++
++        // A completed RPC must reach the device before optional maintenance.
++        // The existing mailbox reply renews USB ownership on the receiver.
++        // A due full-state ACK may stall: it must not discard a result that
++        // is already ready, including a voice stop/final response.
++        now = 2; var unnecessaryBeats = 0
++        let completed: Int = try MacTab5USBOperationWait.run(deadline: 75, clock: { now },
++            poll: { 73 }, pause: { _ in }, cancelled: { false }, due: { true }, heartbeat: {
++                unnecessaryBeats += 1; throw MacTab5Error.timeout
++            })
++        try check("ready result precedes due heartbeat", completed == 73 && unnecessaryBeats == 0)
++
++        now = 0; var readyAtBoundary = false
++        let boundary: Int = try MacTab5USBOperationWait.run(deadline: 75, clock: { now },
++            poll: { readyAtBoundary ? 74 : nil }, pause: { _ in now = 2; readyAtBoundary = true },
++            cancelled: { false }, due: { now >= 2 }, heartbeat: {
++                unnecessaryBeats += 1; throw MacTab5Error.timeout
++            })
++        try check("completion waking at lease cadence avoids unrelated ACK", boundary == 74 && unnecessaryBeats == 0)
++
++        do {
++            let _: Int = try MacTab5USBOperationWait.run(deadline: 75, clock: { 2 },
++                poll: { 75 }, pause: { _ in }, cancelled: { true }, due: { true }, heartbeat: {})
++            try check("completed result still respects cancellation", false)
++        } catch MacTab5Error.serial { count += 1 }
++        do {
++            let _: Int = try MacTab5USBOperationWait.run(deadline: 2, clock: { 2 },
++                poll: { 76 }, pause: { _ in }, cancelled: { false }, due: { true }, heartbeat: {})
++            try check("completed result cannot bypass original deadline", false)
++        } catch MacTab5Error.timeout { count += 1 }
+ 
+         now = 0; var failedBeats = 0
+         do {

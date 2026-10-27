@@ -9,8 +9,11 @@ internal sealed partial class Tab5Service
     private BootProbe? _bootProbe;
     internal static bool SupportsWirelessBoot(string firmware)=>firmware.EndsWith("-ui",StringComparison.Ordinal)&&
         Version.TryParse(firmware[..^3],out var version)&&version>=new Version(0,2,226);
-    private object? BootVerifyCommand {get{lock(_bootVerifyLock)return _bootProbe is {} p?
-        new{version=1,requestId=p.Id,transport=p.Transport,expiresAt=p.Expires}:null;}}
+    private object? BootVerifyCommandForFrame(long frame) { lock(_bootVerifyLock) {
+        if(_bootProbe is not {} p||p.Completion.Task.IsCompleted)return null;
+        var expires=AdvertisedExpiry(p.Expires,frame,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),15000);
+        return expires is null?null:new{version=1,requestId=p.Id,transport=p.Transport,expiresAt=expires.Value};
+    }}
     private string WirelessBootTransport=>WifiBridgeReady(Environment.TickCount64,Interlocked.Read(ref _wifiRequestAt))?"Wi-Fi":
         DeviceView.Bluetooth=="已连接"?"BLE":"";
 

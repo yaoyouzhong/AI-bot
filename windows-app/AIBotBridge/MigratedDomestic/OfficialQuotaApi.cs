@@ -90,6 +90,10 @@ sealed partial class DomesticQuotaService
     }
     internal void ReportWebFailure(string provider, string message, bool explicitlyRequested = false)
     {
+        if(provider=="deepseek") {
+            RefreshHealth.Fail("deepseek-web",message);
+            if(HasOfficialApi(provider))return;
+        }
         if (DomesticProviderCatalog.All.FirstOrDefault(x=>x.Id==provider)?.CaptureSupported!=true || HasOfficialApi(provider)) return;
         var s = Snapshot;
         bool configured = provider switch { "qwen" => s.QwenFetchedAt.HasValue, "kimi" => s.KimiFetchedAt.HasValue,

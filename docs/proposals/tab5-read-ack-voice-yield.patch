@@ -1,0 +1,33 @@
+--- a/firmware/main/codex_read_ack.c
++++ b/firmware/main/codex_read_ack.c
+@@ -1,6 +1,7 @@
+ #include "codex_read_ack.h"
+ #include "device.h"
+ #include "rpc_link.h"
++#include "voice_remote.h"
+ #include "esp_http_client.h"
+ #include "esp_timer.h"
+ #include "esp_heap_caps.h"
+@@ -13,11 +14,22 @@
+ static read_ack recent[8];
+ static unsigned next_slot;
+ static bool busy;
++// Keep the voice snapshot off the RPC/crypto call stack.
++static __attribute__((noinline)) bool read_ack_voice_idle(int64_t deadline) {
++    while(esp_timer_get_time()/1000<deadline) {
++        voice_remote_state voice;voice_remote_get(&voice);
++        if(!voice.busy)return true;
++        // This background receipt owns no mailbox while voice needs it.
++        vTaskDelay(pdMS_TO_TICKS(250));
++    }
++    return false;
++}
+ static void send_ack(void *argument) {
+     read_ack *job=argument;
+     // Only this idempotent read receipt may retry. No message/input command is
+     // sent here, and the bridge rechecks its identity and latest turn each time.
+     for(int attempt=0;attempt<4;attempt++) {
++        if(!read_ack_voice_idle(job->queued+90000))break;
+         int status=0;char nonce[33];cJSON *reply=NULL;
+         cJSON *request=cJSON_CreateObject();link_kind link=rpc_read_link_select();
+         if(request&&link!=LINK_NONE) {

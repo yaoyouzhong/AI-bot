@@ -1,0 +1,580 @@
+--- a/firmware/main/agenda.c
++++ b/firmware/main/agenda.c
+@@ -12,6 +12,7 @@
+ #include "freertos/queue.h"
+ #include "nvs.h"
+ #include "esp_random.h"
++#include "esp_heap_caps.h"
+ #endif
+ #include <stdio.h>
+ #include <string.h>
+@@ -20,19 +21,19 @@
+ typedef struct {char id[33],edit[33];int64_t occurrence,until;bool complete,save,remove;uint32_t request;agenda_item definition;} command;
+ static SemaphoreHandle_t guard;
+ static QueueHandle_t commands;
+-static agenda_state state;
+ static char wanted[33],notice_title[97],notice_id[33];
+ static int64_t notice_occurrence,last_sync;
+ static bool notice_pending;
+-static agenda_document candidate;
+ static agenda_workday_calendar saved_workdays;
+ static uint32_t command_sequence;
+ // One atomic snapshot includes active items and durable deletion receipts.
+ // Reuse the existing key to avoid keeping two large live blobs in 24 KiB NVS.
+ // Read the original exact-size document; upgrade only on a successful commit.
+ typedef struct {uint32_t version;agenda_document document;agenda_deletions deleted;} agenda_local;
+-static agenda_deletions deleted;
+-static agenda_local local_buffer;
++// CPU-only snapshots belong in PSRAM. Keep internal RAM available for camera
++// driver startup; never fall back to internal allocation for these documents.
++typedef struct {agenda_state state;agenda_document candidate;agenda_deletions deleted;agenda_local local_buffer;} agenda_memory;
++static agenda_memory *memory;
+ static bool workday_cache_store(const agenda_workday_calendar *value) {
+     nvs_handle_t h;if(nvs_open("aibot_tab5",NVS_READWRITE,&h)!=ESP_OK)return false;
+     esp_err_t result=nvs_set_blob(h,"agenda_days_v1",value,sizeof(*value));if(result==ESP_OK)result=nvs_commit(h);nvs_close(h);
+@@ -46,19 +47,19 @@
+ }
+ static bool persist_local(const agenda_document *v,const agenda_deletions *removals) {
+     nvs_handle_t h;if(nvs_open("aibot_tab5",NVS_READWRITE,&h)!=ESP_OK)return false;
+-    size_t size=agenda_storage_encode(v,removals,(uint8_t*)&local_buffer,AGENDA_STORAGE_MAX);
+-    esp_err_t result=size?nvs_set_blob(h,"agenda_v3",&local_buffer,size):ESP_ERR_INVALID_ARG;if(result==ESP_OK)result=nvs_commit(h);nvs_close(h);return result==ESP_OK;
+-}
+-static bool persist(const agenda_document *v){return persist_local(v,&deleted);}
+-static void message(const char *text){xSemaphoreTake(guard,portMAX_DELAY);snprintf(state.message,sizeof(state.message),"%s",text);state.generation++;xSemaphoreGive(guard);}
++    size_t size=agenda_storage_encode(v,removals,(uint8_t*)&memory->local_buffer,AGENDA_STORAGE_MAX);
++    esp_err_t result=size?nvs_set_blob(h,"agenda_v3",&memory->local_buffer,size):ESP_ERR_INVALID_ARG;if(result==ESP_OK)result=nvs_commit(h);nvs_close(h);return result==ESP_OK;
++}
++static bool persist(const agenda_document *v){return persist_local(v,&memory->deleted);}
++static void message(const char *text){xSemaphoreTake(guard,portMAX_DELAY);snprintf(memory->state.message,sizeof(memory->state.message),"%s",text);memory->state.generation++;xSemaphoreGive(guard);}
+ static void publish(const agenda_document *v,const char *text) {
+     char description[160];xSemaphoreTake(guard,portMAX_DELAY);snprintf(description,sizeof(description),"%s",text);
+-    state.document=*v;state.ready=true;state.pending=deleted.count!=0;for(unsigned i=0;i<v->count;i++)state.pending|=v->items[i].dirty!=0;
+-    snprintf(state.message,sizeof(state.message),"%s",description);state.generation++;xSemaphoreGive(guard);
++    memory->state.document=*v;memory->state.ready=true;memory->state.pending=memory->deleted.count!=0;for(unsigned i=0;i<v->count;i++)memory->state.pending|=v->items[i].dirty!=0;
++    snprintf(memory->state.message,sizeof(memory->state.message),"%s",description);memory->state.generation++;xSemaphoreGive(guard);
+ }
+ void agenda_get(agenda_state *out) {
+     if(!guard){memset(out,0,sizeof(*out));strcpy(out->message,"日程服务未启动");return;}
+-    xSemaphoreTake(guard,portMAX_DELAY);*out=state;xSemaphoreGive(guard);
++    xSemaphoreTake(guard,portMAX_DELAY);*out=memory->state;xSemaphoreGive(guard);
+ }
+ void agenda_offer(const char *revision) {
+     if(!guard||!revision||strlen(revision)!=32)return;
+@@ -73,7 +74,7 @@
+ }
+ uint32_t agenda_save(const agenda_item *definition,const char *expected_edit) {
+     if(!commands||!definition||!expected_edit||strlen(expected_edit)>32)return 0;
+-    xSemaphoreTake(guard,portMAX_DELAY);bool ready=state.ready;xSemaphoreGive(guard);if(!ready)return 0;
++    xSemaphoreTake(guard,portMAX_DELAY);bool ready=memory->state.ready;xSemaphoreGive(guard);if(!ready)return 0;
+     command c={.save=true,.definition=*definition};snprintf(c.edit,sizeof(c.edit),"%s",expected_edit);
+     xSemaphoreTake(guard,portMAX_DELAY);c.request=++command_sequence;if(!c.request)c.request=++command_sequence;xSemaphoreGive(guard);
+     if(xQueueSend(commands,&c,0)!=pdPASS)return 0;
+@@ -87,7 +88,7 @@
+     message("正在删除事项…");return c.request;
+ }
+ static void action_finish(const command *c,bool success,const char *text) {
+-    xSemaphoreTake(guard,portMAX_DELAY);state.completed_request=c->request;state.last_success=success;snprintf(state.message,sizeof(state.message),"%s",text);state.generation++;xSemaphoreGive(guard);
++    xSemaphoreTake(guard,portMAX_DELAY);memory->state.completed_request=c->request;memory->state.last_success=success;snprintf(memory->state.message,sizeof(memory->state.message),"%s",text);memory->state.generation++;xSemaphoreGive(guard);
+ }
+ bool agenda_alert(int64_t now,char title[97],char id[33],int64_t *occurrence) {
+     (void)now;if(!guard)return false;
+@@ -96,13 +97,13 @@
+     xSemaphoreGive(guard);return result;
+ }
+ static void action_run(const command *c) {
+-    candidate=state.document;
+-    for(unsigned i=0;i<candidate.count;i++) {
+-        agenda_item *item=&candidate.items[i];if(strcmp(c->id,item->id)||strcmp(c->edit,item->edit))continue;
++    memory->candidate=memory->state.document;
++    for(unsigned i=0;i<memory->candidate.count;i++) {
++        agenda_item *item=&memory->candidate.items[i];if(strcmp(c->id,item->id)||strcmp(c->edit,item->edit))continue;
+         if(!c->complete&&c->until>=agenda_ends_at(item,c->occurrence)){action_finish(c,false,"延后提醒不能达到或晚于结束时间");return;}
+         if(!agenda_apply(item,c->occurrence,c->complete,c->until)){action_finish(c,false,"事项已变化，请重新选择");return;}
+-        if(!persist(&candidate)){action_finish(c,false,"保存失败，请检查设备存储后重试");return;}
+-        const char *text=c->complete?"已完成本次，连接后同步电脑":"已保存，10 分钟后提醒";publish(&candidate,text);action_finish(c,true,text);return;
++        if(!persist(&memory->candidate)){action_finish(c,false,"保存失败，请检查设备存储后重试");return;}
++        const char *text=c->complete?"已完成本次，连接后同步电脑":"已保存，10 分钟后提醒";publish(&memory->candidate,text);action_finish(c,true,text);return;
+     }
+     action_finish(c,false,"事项已修改或移除，请重新选择");
+ }
+@@ -112,30 +113,30 @@
+     return (int64_t)(countdown_civil_day(local.tm_year+1900,local.tm_mon+1,local.tm_mday)-countdown_civil_day(1970,1,1))*86400+local.tm_hour*3600+local.tm_min*60+local.tm_sec;
+ }
+ static void save_run(const command *c) {
+-    candidate=state.document;unsigned index=candidate.count;agenda_item value=c->definition;
+-    if(value.id[0])for(unsigned n=0;n<candidate.count;n++)if(!strcmp(value.id,candidate.items[n].id)){index=n;break;}
+-    const agenda_item *old=index<candidate.count?&candidate.items[index]:NULL;
++    memory->candidate=memory->state.document;unsigned index=memory->candidate.count;agenda_item value=c->definition;
++    if(value.id[0])for(unsigned n=0;n<memory->candidate.count;n++)if(!strcmp(value.id,memory->candidate.items[n].id)){index=n;break;}
++    const agenda_item *old=index<memory->candidate.count?&memory->candidate.items[index]:NULL;
+     if((value.id[0]&&!old)||(old&&strcmp(old->edit,c->edit))||(!old&&c->edit[0])){action_finish(c,false,"事项已变化，请重新打开编辑");return;}
+-    agenda_deletions next=deleted;bool reclaimed=false;
+-    if(!old&&candidate.count==AGENDA_LIMIT){
+-        int victim=agenda_oldest_expired(&candidate,current_civil_time());
++    agenda_deletions next=memory->deleted;bool reclaimed=false;
++    if(!old&&memory->candidate.count==AGENDA_LIMIT){
++        int victim=agenda_oldest_expired(&memory->candidate,current_civil_time());
+         if(victim<0){action_finish(c,false,"已满 16 条，没有可清理的过期事项，请先删除");return;}
+         if(next.count==AGENDA_LIMIT){action_finish(c,false,"待同步删除已满，请连接电脑同步后再新增");return;}
+         // Persist eviction and creation in one transaction, with the same
+         // durable receipt used by manual deletion to prevent resurrection.
+-        const agenda_item *removed=&candidate.items[victim];agenda_deletion *receipt=&next.items[next.count++];
++        const agenda_item *removed=&memory->candidate.items[victim];agenda_deletion *receipt=&next.items[next.count++];
+         strcpy(receipt->id,removed->id);strcpy(receipt->edit,removed->edit);strcpy(receipt->base_edit,removed->base_edit);
+         index=(unsigned)victim;reclaimed=true;
+     }
+     if(!old)random_id(value.id);
+     snprintf(value.base_edit,sizeof(value.base_edit),"%s",old?(old->dirty&4?old->base_edit:old->edit):"");random_id(value.edit);
+     value.done=value.snooze_occurrence=value.snooze_until=value.alerted=0;value.dirty=4;
+-    candidate.items[index]=value;if(!old&&!reclaimed)candidate.count++;
+-    if(!agenda_document_valid(&candidate)||(value.due&&!value.end)){action_finish(c,false,"请检查名称及开始、结束时间");return;}
++    memory->candidate.items[index]=value;if(!old&&!reclaimed)memory->candidate.count++;
++    if(!agenda_document_valid(&memory->candidate)||(value.due&&!value.end)){action_finish(c,false,"请检查名称及开始、结束时间");return;}
+     if(!old&&agenda_expired(&value,current_civil_time())){action_finish(c,false,"结束时间已过，请选择未来时间");return;}
+-    if(!persist_local(&candidate,&next)){action_finish(c,false,"保存失败，原事项和输入内容已保留，请重试");return;}
+-    deleted=next;const char *text=reclaimed?"已保存，并清理 1 条最早过期事项":"已保存到本机，连接后同步电脑";
+-    publish(&candidate,text);xSemaphoreTake(guard,portMAX_DELAY);strcpy(state.saved_id,value.id);xSemaphoreGive(guard);action_finish(c,true,text);
++    if(!persist_local(&memory->candidate,&next)){action_finish(c,false,"保存失败，原事项和输入内容已保留，请重试");return;}
++    memory->deleted=next;const char *text=reclaimed?"已保存，并清理 1 条最早过期事项":"已保存到本机，连接后同步电脑";
++    publish(&memory->candidate,text);xSemaphoreTake(guard,portMAX_DELAY);strcpy(memory->state.saved_id,value.id);xSemaphoreGive(guard);action_finish(c,true,text);
+ }
+ static cJSON *agenda_rpc(link_kind link,cJSON *request,int *status,char nonce[33]) {
+     if(link!=LINK_WIFI)return rpc_call(link,request,status,nonce);
+@@ -145,15 +146,15 @@
+     cJSON *reply=rpc_http_call(http,request,status,nonce);esp_http_client_cleanup(http);return reply;
+ }
+ static void remove_run(const command *c) {
+-    unsigned index=state.document.count;for(unsigned n=0;n<state.document.count;n++)if(!strcmp(state.document.items[n].id,c->id)&&!strcmp(state.document.items[n].edit,c->edit)){index=n;break;}
+-    if(index==state.document.count){action_finish(c,false,"事项已变化，请重新选择后删除");return;}
+-    if(deleted.count==AGENDA_LIMIT){action_finish(c,false,"待同步删除已满，请连接电脑同步后重试");return;}
+-    agenda_deletions next=deleted;agenda_deletion *removal=&next.items[next.count++];const agenda_item *item=&state.document.items[index];
++    unsigned index=memory->state.document.count;for(unsigned n=0;n<memory->state.document.count;n++)if(!strcmp(memory->state.document.items[n].id,c->id)&&!strcmp(memory->state.document.items[n].edit,c->edit)){index=n;break;}
++    if(index==memory->state.document.count){action_finish(c,false,"事项已变化，请重新选择后删除");return;}
++    if(memory->deleted.count==AGENDA_LIMIT){action_finish(c,false,"待同步删除已满，请连接电脑同步后重试");return;}
++    agenda_deletions next=memory->deleted;agenda_deletion *removal=&next.items[next.count++];const agenda_item *item=&memory->state.document.items[index];
+     strcpy(removal->id,item->id);strcpy(removal->edit,item->edit);strcpy(removal->base_edit,item->base_edit);
+-    candidate=state.document;memmove(&candidate.items[index],&candidate.items[index+1],(candidate.count-index-1)*sizeof(candidate.items[0]));memset(&candidate.items[--candidate.count],0,sizeof(candidate.items[0]));
+-    if(!persist_local(&candidate,&next)){action_finish(c,false,"删除保存失败，原事项仍保留，请重试");return;}
+-    deleted=next;if(notice_pending&&!strcmp(notice_id,c->id))notice_pending=false;
+-    publish(&candidate,"已从 TAB5 删除，连接后同步电脑");action_finish(c,true,"已从 TAB5 删除，连接后同步电脑");
++    memory->candidate=memory->state.document;memmove(&memory->candidate.items[index],&memory->candidate.items[index+1],(memory->candidate.count-index-1)*sizeof(memory->candidate.items[0]));memset(&memory->candidate.items[--memory->candidate.count],0,sizeof(memory->candidate.items[0]));
++    if(!persist_local(&memory->candidate,&next)){action_finish(c,false,"删除保存失败，原事项仍保留，请重试");return;}
++    memory->deleted=next;if(notice_pending&&!strcmp(notice_id,c->id))notice_pending=false;
++    publish(&memory->candidate,"已从 TAB5 删除，连接后同步电脑");action_finish(c,true,"已从 TAB5 删除，连接后同步电脑");
+ }
+ static void sync_run(link_kind link) {
+     cJSON *request=cJSON_CreateObject(),*actions=cJSON_AddArrayToObject(request,"actions"),*edits=cJSON_AddArrayToObject(request,"edits");
+@@ -161,12 +162,12 @@
+     cJSON_AddNumberToObject(request,"workdaySupport",1);
+     cJSON_AddNumberToObject(request,"retentionSupport",2);
+     cJSON *removals=cJSON_AddArrayToObject(request,"deletions");
+-    for(unsigned n=0;n<deleted.count;n++) {
+-        const agenda_deletion *d=&deleted.items[n];cJSON *o=cJSON_CreateObject();cJSON_AddItemToArray(removals,o);
++    for(unsigned n=0;n<memory->deleted.count;n++) {
++        const agenda_deletion *d=&memory->deleted.items[n];cJSON *o=cJSON_CreateObject();cJSON_AddItemToArray(removals,o);
+         cJSON_AddStringToObject(o,"id",d->id);cJSON_AddStringToObject(o,"edit",d->edit);cJSON_AddStringToObject(o,"baseEdit",d->base_edit);
+     }
+-    for(unsigned n=0;n<state.document.count;n++) {
+-        const agenda_item *i=&state.document.items[n];if(i->dirty&4){cJSON *change=cJSON_CreateObject();cJSON_AddItemToArray(edits,change);cJSON_AddStringToObject(change,"baseEdit",i->base_edit);cJSON_AddItemToObject(change,"item",agenda_item_json(i));}
++    for(unsigned n=0;n<memory->state.document.count;n++) {
++        const agenda_item *i=&memory->state.document.items[n];if(i->dirty&4){cJSON *change=cJSON_CreateObject();cJSON_AddItemToArray(edits,change);cJSON_AddStringToObject(change,"baseEdit",i->base_edit);cJSON_AddItemToObject(change,"item",agenda_item_json(i));}
+         unsigned dirty=i->dirty&3;if(!dirty)continue;
+         if(dirty==2&&i->done>0) {
+             cJSON *completed=cJSON_CreateObject();cJSON_AddItemToArray(actions,completed);cJSON_AddStringToObject(completed,"id",i->id);cJSON_AddStringToObject(completed,"edit",i->edit);
+@@ -175,13 +176,13 @@
+         cJSON *a=cJSON_CreateObject();cJSON_AddItemToArray(actions,a);cJSON_AddStringToObject(a,"id",i->id);cJSON_AddStringToObject(a,"edit",i->edit);
+         cJSON_AddStringToObject(a,"op",dirty==1?"complete":"snooze");cJSON_AddNumberToObject(a,"occurrence",dirty==1?i->done:i->snooze_occurrence);cJSON_AddNumberToObject(a,"until",dirty==2?i->snooze_until:0);
+     }
+-    xSemaphoreTake(guard,portMAX_DELAY);state.busy=true;xSemaphoreGive(guard);
++    xSemaphoreTake(guard,portMAX_DELAY);memory->state.busy=true;xSemaphoreGive(guard);
+     int status=0;char nonce[33];cJSON *reply=agenda_rpc(link,request,&status,nonce);
+     const cJSON *edit_support=cJSON_GetObjectItemCaseSensitive(reply,"editSupport");
+     const cJSON *retention=cJSON_GetObjectItemCaseSensitive(reply,"retentionSupport");
+     if(status==200&&(!cJSON_IsNumber(retention)||retention->valueint!=2)){
+         message("本机事项已保留，请更新电脑桥接后同步");cJSON_Delete(reply);cJSON_Delete(request);
+-        xSemaphoreTake(guard,portMAX_DELAY);state.busy=false;xSemaphoreGive(guard);return;
++        xSemaphoreTake(guard,portMAX_DELAY);memory->state.busy=false;xSemaphoreGive(guard);return;
+     }
+     bool schedule_ok=true;
+     const cJSON *years=cJSON_GetObjectItemCaseSensitive(reply,"workdayYears");
+@@ -192,71 +193,71 @@
+     // Calendar refresh is independent from the acknowledged item snapshot.
+     // A failed annual cache update keeps its last good data; unknown workday
+     // years already pause their own reminders instead of blocking all edits.
+-    bool valid=status==200&&reply&&(!cJSON_GetArraySize(edits)||(cJSON_IsNumber(edit_support)&&edit_support->valueint==1))&&agenda_parse(reply,&candidate);
++    bool valid=status==200&&reply&&(!cJSON_GetArraySize(edits)||(cJSON_IsNumber(edit_support)&&edit_support->valueint==1))&&agenda_parse(reply,&memory->candidate);
+     const cJSON *delete_support=cJSON_GetObjectItemCaseSensitive(reply,"deleteSupport"),*receipts=cJSON_GetObjectItemCaseSensitive(reply,"deleted");
+-    for(unsigned n=0;valid&&n<deleted.count;n++) {
+-        const agenda_deletion *d=&deleted.items[n];bool acknowledged=false;const cJSON *receipt=NULL;
++    for(unsigned n=0;valid&&n<memory->deleted.count;n++) {
++        const agenda_deletion *d=&memory->deleted.items[n];bool acknowledged=false;const cJSON *receipt=NULL;
+         cJSON_ArrayForEach(receipt,receipts) {
+             const cJSON *id=cJSON_GetObjectItemCaseSensitive(receipt,"id"),*edit=cJSON_GetObjectItemCaseSensitive(receipt,"edit");
+             if(cJSON_IsString(id)&&cJSON_IsString(edit)&&!strcmp(id->valuestring,d->id)&&!strcmp(edit->valuestring,d->edit))acknowledged=true;
+         }
+         valid=cJSON_IsNumber(delete_support)&&delete_support->valueint==1&&acknowledged;
+-        for(unsigned j=0;valid&&j<candidate.count;j++)if(!strcmp(candidate.items[j].id,d->id)||(!strcmp(candidate.items[j].id,d->edit)&&!strcmp(candidate.items[j].edit,d->edit)))valid=false;
+-    }
+-    for(unsigned n=0;valid&&n<state.document.count;n++) {
+-        const agenda_item *old=&state.document.items[n];if(!(old->dirty&4))continue;bool acknowledged=false;
+-        for(unsigned j=0;j<candidate.count;j++){const agenda_item *i=&candidate.items[j];acknowledged|=(!strcmp(old->id,i->id)||!strcmp(old->edit,i->id))&&!strcmp(old->edit,i->edit)&&!strcmp(old->title,i->title)&&old->due==i->due&&old->end==i->end&&old->repeat==i->repeat&&old->lead==i->lead;}
++        for(unsigned j=0;valid&&j<memory->candidate.count;j++)if(!strcmp(memory->candidate.items[j].id,d->id)||(!strcmp(memory->candidate.items[j].id,d->edit)&&!strcmp(memory->candidate.items[j].edit,d->edit)))valid=false;
++    }
++    for(unsigned n=0;valid&&n<memory->state.document.count;n++) {
++        const agenda_item *old=&memory->state.document.items[n];if(!(old->dirty&4))continue;bool acknowledged=false;
++        for(unsigned j=0;j<memory->candidate.count;j++){const agenda_item *i=&memory->candidate.items[j];acknowledged|=(!strcmp(old->id,i->id)||!strcmp(old->edit,i->id))&&!strcmp(old->edit,i->edit)&&!strcmp(old->title,i->title)&&old->due==i->due&&old->end==i->end&&old->repeat==i->repeat&&old->lead==i->lead;}
+         valid=acknowledged;
+     }
+     if(valid) {
+         // Only this worker mutates state. Commands arriving during RPC stay in
+         // the queue and will be validated against the newly persisted edition.
+-        for(unsigned n=0;n<candidate.count;n++)for(unsigned j=0;j<state.document.count;j++) {
+-            const agenda_item *old=&state.document.items[j];agenda_item *i=&candidate.items[n];
++        for(unsigned n=0;n<memory->candidate.count;n++)for(unsigned j=0;j<memory->state.document.count;j++) {
++            const agenda_item *old=&memory->state.document.items[j];agenda_item *i=&memory->candidate.items[n];
+             if((!strcmp(old->id,i->id)||((old->dirty&4)&&!strcmp(old->edit,i->id)))&&!strcmp(old->edit,i->edit))i->alerted=old->alerted;
+         }
+-        bool changed=deleted.count||memcmp(&candidate,&state.document,sizeof(candidate))!=0;agenda_deletions empty={0};
+-        if(!changed||persist_local(&candidate,&empty)){deleted=empty;publish(&candidate,cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(reply,"forks"))?"两端均有修改，已保留修改副本":cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(reply,"conflicts"))?"事项已在电脑修改，旧操作未应用":!schedule_ok?"事项已同步，工作日历更新失败，将自动重试":"已同步，可离线提醒");}
++        bool changed=memory->deleted.count||memcmp(&memory->candidate,&memory->state.document,sizeof(memory->candidate))!=0;agenda_deletions empty={0};
++        if(!changed||persist_local(&memory->candidate,&empty)){memory->deleted=empty;publish(&memory->candidate,cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(reply,"forks"))?"两端均有修改，已保留修改副本":cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(reply,"conflicts"))?"事项已在电脑修改，旧操作未应用":!schedule_ok?"事项已同步，工作日历更新失败，将自动重试":"已同步，可离线提醒");}
+         else message("同步未保存，保留原事项；请检查设备存储");
+-    }else message(status==409?"电脑列表已满或有冲突，本机操作已保存":status==400||(deleted.count&&(!cJSON_IsNumber(delete_support)||delete_support->valueint!=1))?"本机操作已保存，请更新电脑桥接后同步":"本机操作已保存，连接后自动同步");
++    }else message(status==409?"电脑列表已满或有冲突，本机操作已保存":status==400||(memory->deleted.count&&(!cJSON_IsNumber(delete_support)||delete_support->valueint!=1))?"本机操作已保存，请更新电脑桥接后同步":"本机操作已保存，连接后自动同步");
+     cJSON_Delete(reply);cJSON_Delete(request);
+-    xSemaphoreTake(guard,portMAX_DELAY);state.busy=false;xSemaphoreGive(guard);
++    xSemaphoreTake(guard,portMAX_DELAY);memory->state.busy=false;xSemaphoreGive(guard);
+ }
+ static void alert_run(void) {
+     struct tm local;int64_t ms=esp_timer_get_time()/1000;if(!gallery_clock_local(ms,&local))return;
+     int64_t now=(int64_t)(countdown_civil_day(local.tm_year+1900,local.tm_mon+1,local.tm_mday)-countdown_civil_day(1970,1,1))*86400+local.tm_hour*3600+local.tm_min*60+local.tm_sec;
+     if(now<=0)return;
+-    for(unsigned n=0;n<state.document.count;n++) {
+-        const agenda_item *i=&state.document.items[n];agenda_view v=agenda_view_at(i,now);
++    for(unsigned n=0;n<memory->state.document.count;n++) {
++        const agenda_item *i=&memory->state.document.items[n];agenda_view v=agenda_view_at(i,now);
+         if(!i->due||v.complete||v.calendar_pending)continue;
+         // A long-running occurrence may overlap the next occurrence's lead reminder.
+         if(i->alerted>=v.alert_at&&i->repeat)v=agenda_view_at(i,agenda_ends_at(i,v.occurrence));
+         if(v.complete||v.calendar_pending||v.alert_at>now||i->alerted>=v.alert_at)continue;
+         xSemaphoreTake(guard,portMAX_DELAY);bool occupied=notice_pending;xSemaphoreGive(guard);if(occupied)return;
+-        candidate=state.document;candidate.items[n].alerted=v.alert_at;
+-        if(!persist(&candidate)){message("提醒状态保存失败，请检查设备存储");return;}
+-        publish(&candidate,state.message);
++        memory->candidate=memory->state.document;memory->candidate.items[n].alerted=v.alert_at;
++        if(!persist(&memory->candidate)){message("提醒状态保存失败，请检查设备存储");return;}
++        publish(&memory->candidate,memory->state.message);
+         xSemaphoreTake(guard,portMAX_DELAY);strcpy(notice_title,i->title);strcpy(notice_id,i->id);notice_occurrence=v.occurrence;notice_pending=true;xSemaphoreGive(guard);return;
+     }
+ }
+ static bool load_document(void) {
+     nvs_handle_t h;bool loaded=false,compact=false;esp_err_t result=nvs_open("aibot_tab5",NVS_READONLY,&h);
+-    memset(&deleted,0,sizeof(deleted));
++    memset(&memory->deleted,0,sizeof(memory->deleted));
+     if(result==ESP_OK){
+-        size_t size=sizeof(local_buffer);result=nvs_get_blob(h,"agenda_v3",&local_buffer,&size);
++        size_t size=sizeof(memory->local_buffer);result=nvs_get_blob(h,"agenda_v3",&memory->local_buffer,&size);
+         if(result==ESP_OK) {
+-            const uint8_t *bytes=(const uint8_t*)&local_buffer;
+-            if(size>=4&&!memcmp(bytes,"AGL",3)){loaded=agenda_storage_decode(bytes,size,&candidate,&deleted);compact=loaded;}
+-            else if(size==sizeof(candidate)){memcpy(&candidate,&local_buffer,size);loaded=agenda_document_valid(&candidate);}
++            const uint8_t *bytes=(const uint8_t*)&memory->local_buffer;
++            if(size>=4&&!memcmp(bytes,"AGL",3)){loaded=agenda_storage_decode(bytes,size,&memory->candidate,&memory->deleted);compact=loaded;}
++            else if(size==sizeof(memory->candidate)){memcpy(&memory->candidate,&memory->local_buffer,size);loaded=agenda_document_valid(&memory->candidate);}
+             else {
+-                loaded=size==sizeof(local_buffer)&&local_buffer.version==1&&agenda_document_valid(&local_buffer.document)&&local_buffer.deleted.count<=AGENDA_LIMIT;
+-                for(unsigned n=0;loaded&&n<local_buffer.deleted.count;n++) {
+-                    const agenda_deletion *d=&local_buffer.deleted.items[n];loaded=d->id[32]==0&&d->edit[32]==0&&d->base_edit[32]==0;
++                loaded=size==sizeof(memory->local_buffer)&&memory->local_buffer.version==1&&agenda_document_valid(&memory->local_buffer.document)&&memory->local_buffer.deleted.count<=AGENDA_LIMIT;
++                for(unsigned n=0;loaded&&n<memory->local_buffer.deleted.count;n++) {
++                    const agenda_deletion *d=&memory->local_buffer.deleted.items[n];loaded=d->id[32]==0&&d->edit[32]==0&&d->base_edit[32]==0;
+                     if(loaded)loaded=strlen(d->id)==32&&strspn(d->id,"0123456789abcdef")==32&&strlen(d->edit)==32&&strspn(d->edit,"0123456789abcdef")==32&&(!d->base_edit[0]||(strlen(d->base_edit)==32&&strspn(d->base_edit,"0123456789abcdef")==32));
+-                    for(unsigned j=0;loaded&&j<n;j++)loaded=strcmp(d->id,local_buffer.deleted.items[j].id)!=0;
+-                    for(unsigned j=0;loaded&&j<local_buffer.document.count;j++)loaded=strcmp(d->id,local_buffer.document.items[j].id)!=0;
++                    for(unsigned j=0;loaded&&j<n;j++)loaded=strcmp(d->id,memory->local_buffer.deleted.items[j].id)!=0;
++                    for(unsigned j=0;loaded&&j<memory->local_buffer.document.count;j++)loaded=strcmp(d->id,memory->local_buffer.document.items[j].id)!=0;
+                 }
+-                if(loaded){candidate=local_buffer.document;deleted=local_buffer.deleted;}
++                if(loaded){memory->candidate=memory->local_buffer.document;memory->deleted=memory->local_buffer.deleted;}
+             }
+         }
+         nvs_close(h);
+@@ -264,11 +265,11 @@
+     if(loaded) {
+         // Reclaim the old fixed-size snapshot at boot, before unrelated settings
+         // need NVS headroom. A failed migration still exposes the intact old data.
+-        bool stored=compact||persist_local(&candidate,&deleted);
+-        publish(&candidate,stored?"已载入，可离线提醒":"已载入，存储整理失败，原数据已保留");
++        bool stored=compact||persist_local(&memory->candidate,&memory->deleted);
++        publish(&memory->candidate,stored?"已载入，可离线提醒":"已载入，存储整理失败，原数据已保留");
+     }
+     else if(result!=ESP_ERR_NVS_NOT_FOUND){message("日程存储无法读取，原数据已保留");return false;}
+-    else {memset(&candidate,0,sizeof(candidate));candidate.version=1;memset(candidate.revision,'0',32);publish(&candidate,"点新建添加事项");}
++    else {memset(&memory->candidate,0,sizeof(memory->candidate));memory->candidate.version=1;memset(memory->candidate.revision,'0',32);publish(&memory->candidate,"点新建添加事项");}
+     return true;
+ }
+ static void worker(void *arg) {
+@@ -276,7 +277,7 @@
+     for(;;) {
+         command c;while(xQueueReceive(commands,&c,0)==pdPASS){if(c.save)save_run(&c);else if(c.remove)remove_run(&c);else action_run(&c);}
+         alert_run();int64_t now=esp_timer_get_time()/1000;link_kind link=rpc_link_select();
+-        xSemaphoreTake(guard,portMAX_DELAY);bool changed=wanted[0]&&strcmp(wanted,state.document.revision);bool pending=state.pending;xSemaphoreGive(guard);
++        xSemaphoreTake(guard,portMAX_DELAY);bool changed=wanted[0]&&strcmp(wanted,memory->state.document.revision);bool pending=memory->state.pending;xSemaphoreGive(guard);
+         if(link!=LINK_NONE&&now-last_sync>=5000&&(changed||pending||now-last_sync>=60000)) {
+             last_sync=now;sync_run(link);
+         }
+@@ -284,7 +285,14 @@
+     }
+ }
+ void agenda_start(void) {
+-    guard=xSemaphoreCreateMutex();commands=xQueueCreate(8,sizeof(command));
+-    if(!guard||!commands)return;
+-    if(xTaskCreate(worker,"agenda",8192,NULL,2,NULL)!=pdPASS)message("日程服务启动失败");
+-}
++    if(guard)return;
++    memory=heap_caps_calloc(1,sizeof(*memory),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!memory)return;
++    SemaphoreHandle_t mutex=xSemaphoreCreateMutex();
++    QueueHandle_t queue=mutex?xQueueCreate(8,sizeof(command)):0;
++    if(!queue){if(mutex)vSemaphoreDelete(mutex);free(memory);memory=NULL;return;}
++    commands=queue;guard=mutex;
++    if(xTaskCreate(worker,"agenda",8192,NULL,2,NULL)!=pdPASS){
++        vQueueDelete(commands);commands=0;message("日程服务启动失败");
++    }
++}
+--- a/tests/ui-preview/agenda_runtime_test.c
++++ b/tests/ui-preview/agenda_runtime_test.c
+@@ -15,111 +15,123 @@
+         char *json=calloc(size+1,1);assert(json&&fread(json,1,size,file)==(size_t)size);fclose(file);
+         fixture=cJSON_Parse(json);free(json);assert(fixture);host_workday_years=cJSON_GetObjectItemCaseSensitive(fixture,"workdayYears");assert(cJSON_IsArray(host_workday_years));
+     }
+-    guard=commands=1;assert(load_document()&&state.ready&&state.document.count==0);
+-    host=state.document;host.count=1;memset(host.revision,'a',32);agenda_item *i=&host.items[0];memset(i->id,'1',32);memset(i->edit,'2',32);strcpy(i->title,"offline schedule");i->due=test_clock;i->end=test_clock+3600;i->repeat=0;
+-    assert(agenda_document_valid(&host));disk=host;disk_present=true;memset(&state,0,sizeof(state));fail_write=true;
+-    assert(load_document()&&!local_size&&state.document.count==1&&!memcmp(&state.document,&host,sizeof(host))&&strstr(state.message,"原数据已保留"));fail_write=false;
+-    sync_run(LINK_USB);assert(state.document.count==1&&disk_present);
++    agenda_state unavailable;agenda_get(&unavailable);assert(!unavailable.ready);
++    fail_allocation=true;agenda_start();assert(!memory&&!guard&&!commands&&!task_calls);fail_allocation=false;
++    fail_mutex=true;agenda_start();assert(!memory&&!guard&&!commands&&!task_calls&&allocation_frees==1);fail_mutex=false;
++    fail_queue=true;agenda_start();assert(!memory&&!guard&&!commands&&!task_calls&&allocation_frees==2&&mutex_deletes==1);fail_queue=false;
++    fail_task=true;agenda_start();assert(memory&&guard&&!commands&&task_calls==1&&queue_deletes==1);
++    agenda_get(&unavailable);assert(!unavailable.ready&&strstr(unavailable.message,"启动失败"));
++    assert(!agenda_save(&(agenda_item){0},"")&&!agenda_remove("11111111111111111111111111111111","22222222222222222222222222222222"));
++    vSemaphoreDelete(guard);guard=0;free(memory);memory=NULL;fail_task=false;
++    agenda_start();assert(memory&&guard&&commands&&task_calls==2);
++    agenda_memory *same=memory;unsigned allocations=allocation_calls;agenda_start();assert(memory==same&&allocation_calls==allocations&&task_calls==2);
++    assert(allocation_caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)&&allocation_bytes==sizeof(*memory));
++    puts("AGENDA_PSRAM_START_OK external-only allocation, safe allocation/mutex/queue/task failures, unavailable reads and repeat-start ownership");
++    assert(load_document()&&memory->state.ready&&memory->state.document.count==0);
++    host=memory->state.document;host.count=1;memset(host.revision,'a',32);agenda_item *i=&host.items[0];memset(i->id,'1',32);memset(i->edit,'2',32);strcpy(i->title,"offline schedule");i->due=test_clock;i->end=test_clock+3600;i->repeat=0;
++    assert(agenda_document_valid(&host));disk=host;disk_present=true;memset(&memory->state,0,sizeof(memory->state));fail_write=true;
++    assert(load_document()&&!local_size&&memory->state.document.count==1&&!memcmp(&memory->state.document,&host,sizeof(host))&&strstr(memory->state.message,"原数据已保留"));fail_write=false;
++    sync_run(LINK_USB);assert(memory->state.document.count==1&&disk_present);
+     // The installed 202 envelope migrates on boot, releasing settings headroom.
+     agenda_local legacy202={.version=1,.document=host};memcpy(local_disk,&legacy202,sizeof(legacy202));local_size=sizeof(legacy202);
+-    memset(&state,0,sizeof(state));assert(load_document()&&state.document.count==1&&local_size<=AGENDA_STORAGE_MAX);
++    memset(&memory->state,0,sizeof(memory->state));assert(load_document()&&memory->state.document.count==1&&local_size<=AGENDA_STORAGE_MAX);
+     // An unset RTC must never manufacture a due alarm.
+     test_time_valid=false;alert_run();assert(!notice_pending);test_time_valid=true;fail_write=true;alert_run();assert(!notice_pending&&disk.items[0].alerted==0);fail_write=false;alert_run();assert(notice_pending&&disk.items[0].alerted==test_clock&&local_size<=AGENDA_STORAGE_MAX);
+     char title[97],id[33];int64_t occurrence;assert(agenda_alert(0,title,id,&occurrence)&&occurrence==test_clock);alert_run();assert(!notice_pending);
+     // Reboot preserves deduplication and a locally committed snooze.
+-    memset(&state,0,sizeof(state));assert(load_document());alert_run();assert(!notice_pending);
+-    command c={.occurrence=test_clock,.until=test_clock+600};strcpy(c.id,i->id);strcpy(c.edit,i->edit);action_run(&c);assert(state.pending&&disk.items[0].snooze_until==test_clock+600);
+-    memset(&state,0,sizeof(state));assert(load_document()&&state.pending);test_clock+=599;alert_run();assert(!notice_pending);test_clock++;alert_run();assert(notice_pending);agenda_alert(0,title,id,&occurrence);
+-    response_status=0;sync_run(LINK_BLE);assert(state.pending);response_status=200;sync_run(LINK_WIFI);assert(!state.pending&&host.items[0].snooze_until==test_clock);
++    memset(&memory->state,0,sizeof(memory->state));assert(load_document());alert_run();assert(!notice_pending);
++    command c={.occurrence=test_clock,.until=test_clock+600};strcpy(c.id,i->id);strcpy(c.edit,i->edit);action_run(&c);assert(memory->state.pending&&disk.items[0].snooze_until==test_clock+600);
++    memset(&memory->state,0,sizeof(memory->state));assert(load_document()&&memory->state.pending);test_clock+=599;alert_run();assert(!notice_pending);test_clock++;alert_run();assert(notice_pending);agenda_alert(0,title,id,&occurrence);
++    response_status=0;sync_run(LINK_BLE);assert(memory->state.pending);response_status=200;sync_run(LINK_WIFI);assert(!memory->state.pending&&host.items[0].snooze_until==test_clock);
+     // Save failure does not announce success, mutate visible data, or clear a queued operation.
+-    c.complete=true;c.request=7;fail_write=true;action_run(&c);assert(state.document.items[0].done==0&&disk.items[0].done==0&&!state.last_success&&state.completed_request==7);fail_write=false;c.request=8;action_run(&c);assert(state.pending&&disk.items[0].done==c.occurrence&&state.last_success&&state.completed_request==8);
+-    fail_write=true;sync_run(LINK_USB);assert(state.pending);fail_write=false;sync_run(LINK_USB);assert(!state.pending&&host.items[0].done==c.occurrence);
++    c.complete=true;c.request=7;fail_write=true;action_run(&c);assert(memory->state.document.items[0].done==0&&disk.items[0].done==0&&!memory->state.last_success&&memory->state.completed_request==7);fail_write=false;c.request=8;action_run(&c);assert(memory->state.pending&&disk.items[0].done==c.occurrence&&memory->state.last_success&&memory->state.completed_request==8);
++    fail_write=true;sync_run(LINK_USB);assert(memory->state.pending);fail_write=false;sync_run(LINK_USB);assert(!memory->state.pending&&host.items[0].done==c.occurrence);
+     // Automatic ending needs no user action, network, or additional flash write.
+     host.items[0].done=0;host.items[0].snooze_occurrence=host.items[0].snooze_until=0;sync_run(LINK_USB);test_clock=host.items[0].end;
+-    agenda_document before_end=disk;fail_write=true;alert_run();assert(!notice_pending&&agenda_view_at(&state.document.items[0],test_clock).complete&&!memcmp(&before_end,&disk,sizeof(disk)));fail_write=false;
++    agenda_document before_end=disk;fail_write=true;alert_run();assert(!notice_pending&&agenda_view_at(&memory->state.document.items[0],test_clock).complete&&!memcmp(&before_end,&disk,sizeof(disk)));fail_write=false;
+     // Snoozing at or beyond end is rejected without mutating state.
+-    c.complete=false;c.until=test_clock+600;c.request=9;action_run(&c);assert(!state.last_success&&state.completed_request==9&&!memcmp(&before_end,&disk,sizeof(disk)));
++    c.complete=false;c.until=test_clock+600;c.request=9;action_run(&c);assert(!memory->state.last_success&&memory->state.completed_request==9&&!memcmp(&before_end,&disk,sizeof(disk)));
+     // Tomorrow's lead may arrive while today's long event is still running.
+     host.items[0].due=test_clock;host.items[0].end=test_clock+86400;host.items[0].repeat=1;host.items[0].lead=10;memset(host.items[0].edit,'3',32);sync_run(LINK_USB);
+     alert_run();assert(agenda_alert(0,title,id,&occurrence)&&occurrence==test_clock);
+     test_clock+=85800;alert_run();assert(agenda_alert(0,title,id,&occurrence)&&occurrence==host.items[0].due+86400);alert_run();assert(!notice_pending);
+     // Device definitions are persisted first and survive unsupported hosts and lost acknowledgements.
+     command edit={.save=true,.request=10};strcpy(edit.definition.title,"device created");edit.definition.due=test_clock+3600;edit.definition.end=test_clock+7200;
+-    save_run(&edit);assert(state.last_success&&state.pending&&disk.count==2&&disk.items[1].dirty==4);char created[33];strcpy(created,state.saved_id);
+-    memset(&state,0,sizeof(state));assert(load_document()&&state.pending&&state.document.count==2);
+-    host_support_edits=false;sync_run(LINK_USB);assert(state.pending&&state.document.count==2&&disk.count==2);
+-    host_support_edits=true;host_omit_device_ack=true;sync_run(LINK_USB);assert(state.pending&&state.document.count==2&&host.count==2);host_omit_device_ack=false;
+-    fail_write=true;sync_run(LINK_USB);assert(state.pending&&host.count==2);fail_write=false;sync_run(LINK_USB);assert(!state.pending&&host.count==2&&disk.count==2);
+-    edit.definition=state.document.items[1];strcpy(edit.edit,edit.definition.edit);char base_edit[33];strcpy(base_edit,edit.edit);strcpy(edit.definition.title,"first local edit");edit.request=11;save_run(&edit);assert(state.last_success&&!strcmp(disk.items[1].base_edit,base_edit));
+-    edit.definition=state.document.items[1];strcpy(edit.edit,edit.definition.edit);strcpy(edit.definition.title,"second local edit");edit.request=12;save_run(&edit);assert(state.last_success&&!strcmp(disk.items[1].base_edit,base_edit)&&!strcmp(disk.items[1].id,created));
+-    before_end=disk;edit.definition.end=edit.definition.due;edit.request=13;save_run(&edit);assert(!state.last_success&&!memcmp(&before_end,&disk,sizeof(disk)));
+-    edit.definition=state.document.items[1];strcpy(edit.edit,edit.definition.edit);strcpy(edit.definition.title,"failed local save");edit.request=14;fail_write=true;save_run(&edit);assert(!state.last_success&&!memcmp(&before_end,&disk,sizeof(disk)));fail_write=false;
++    save_run(&edit);assert(memory->state.last_success&&memory->state.pending&&disk.count==2&&disk.items[1].dirty==4);char created[33];strcpy(created,memory->state.saved_id);
++    memset(&memory->state,0,sizeof(memory->state));assert(load_document()&&memory->state.pending&&memory->state.document.count==2);
++    host_support_edits=false;sync_run(LINK_USB);assert(memory->state.pending&&memory->state.document.count==2&&disk.count==2);
++    host_support_edits=true;host_omit_device_ack=true;sync_run(LINK_USB);assert(memory->state.pending&&memory->state.document.count==2&&host.count==2);host_omit_device_ack=false;
++    fail_write=true;sync_run(LINK_USB);assert(memory->state.pending&&host.count==2);fail_write=false;sync_run(LINK_USB);assert(!memory->state.pending&&host.count==2&&disk.count==2);
++    edit.definition=memory->state.document.items[1];strcpy(edit.edit,edit.definition.edit);char base_edit[33];strcpy(base_edit,edit.edit);strcpy(edit.definition.title,"first local edit");edit.request=11;save_run(&edit);assert(memory->state.last_success&&!strcmp(disk.items[1].base_edit,base_edit));
++    edit.definition=memory->state.document.items[1];strcpy(edit.edit,edit.definition.edit);strcpy(edit.definition.title,"second local edit");edit.request=12;save_run(&edit);assert(memory->state.last_success&&!strcmp(disk.items[1].base_edit,base_edit)&&!strcmp(disk.items[1].id,created));
++    before_end=disk;edit.definition.end=edit.definition.due;edit.request=13;save_run(&edit);assert(!memory->state.last_success&&!memcmp(&before_end,&disk,sizeof(disk)));
++    edit.definition=memory->state.document.items[1];strcpy(edit.edit,edit.definition.edit);strcpy(edit.definition.title,"failed local save");edit.request=14;fail_write=true;save_run(&edit);assert(!memory->state.last_success&&!memcmp(&before_end,&disk,sizeof(disk)));fail_write=false;
+     // A complete year can merge National Day and Mid-Autumn into one range.
+     cJSON *merged=cJSON_CreateArray(),*merged_year=cJSON_CreateObject();cJSON_AddItemToArray(merged,merged_year);cJSON_AddNumberToObject(merged_year,"year",2025);
+     cJSON *merged_off=cJSON_AddArrayToObject(merged_year,"holidays");cJSON_AddArrayToObject(merged_year,"workdays");
+     const int merged_dates[]={101,201,401,501,601,1001};const char *merged_names[]={"元旦","春节","清明节","劳动节","端午节","国庆节、中秋节"};
+     for(unsigned n=0;n<6;n++){cJSON *range=cJSON_CreateObject();cJSON_AddNumberToObject(range,"start",merged_dates[n]);cJSON_AddNumberToObject(range,"end",merged_dates[n]);cJSON_AddStringToObject(range,"name",merged_names[n]);cJSON_AddItemToArray(merged_off,range);}
+-    host_workday_years=merged;sync_run(LINK_USB);assert(!state.pending&&strstr(state.message,"已同步")&&saved_workdays.count==1);
++    host_workday_years=merged;sync_run(LINK_USB);assert(!memory->state.pending&&strstr(memory->state.message,"已同步")&&saved_workdays.count==1);
+     // A bad calendar cannot withhold a valid item acknowledgement or erase the
+     // last good calendar; its own warning must remain distinct from item sync.
+     agenda_workday_calendar good_calendar=calendar_disk;
+-    edit.definition=state.document.items[1];strcpy(edit.edit,edit.definition.edit);strcpy(edit.definition.title,"calendar independent sync");edit.request=15;save_run(&edit);assert(state.pending);
++    edit.definition=memory->state.document.items[1];strcpy(edit.edit,edit.definition.edit);strcpy(edit.definition.title,"calendar independent sync");edit.request=15;save_run(&edit);assert(memory->state.pending);
+     cJSON_DeleteItemFromObjectCaseSensitive(cJSON_GetArrayItem(merged_off,5),"name");
+-    sync_run(LINK_USB);assert(!state.pending&&strstr(state.message,"事项已同步")&&strstr(state.message,"工作日历更新失败")&&!memcmp(&calendar_disk,&good_calendar,sizeof(good_calendar)));
+-    cJSON_AddStringToObject(cJSON_GetArrayItem(merged_off,5),"name",merged_names[5]);sync_run(LINK_USB);assert(!state.pending&&!strstr(state.message,"失败"));
++    sync_run(LINK_USB);assert(!memory->state.pending&&strstr(memory->state.message,"事项已同步")&&strstr(memory->state.message,"工作日历更新失败")&&!memcmp(&calendar_disk,&good_calendar,sizeof(good_calendar)));
++    cJSON_AddStringToObject(cJSON_GetArrayItem(merged_off,5),"name",merged_names[5]);sync_run(LINK_USB);assert(!memory->state.pending&&!strstr(memory->state.message,"失败"));
+     host_workday_years=NULL;cJSON_Delete(merged);
+     puts("AGENDA_CALENDAR_SYNC_OK merged holiday ranges accepted; malformed calendar preserves last-good data without blocking acknowledged items");
+     // Delete commits locally without a host, including an unsynchronized edit.
+-    command deletion={.remove=true,.request=20};strcpy(deletion.id,state.document.items[1].id);strcpy(deletion.edit,state.document.items[1].edit);
+-    agenda_document retained=state.document;test_link=LINK_NONE;remove_run(&deletion);
+-    assert(state.last_success&&state.document.count==1&&disk.count==1&&host.count==2&&state.pending&&deleted.count==1&&!memcmp(&retained.items[0],&state.document.items[0],sizeof(agenda_item)));
+-    memset(&state,0,sizeof(state));memset(&deleted,0,sizeof(deleted));assert(load_document()&&state.document.count==1&&state.pending&&deleted.count==1);
+-    host_support_delete=false;sync_run(LINK_USB);assert(state.document.count==1&&deleted.count==1&&state.pending);host_support_delete=true;
+-    host_wrong_delete_ack=true;sync_run(LINK_USB);assert(host.count==1&&state.document.count==1&&deleted.count==1&&state.pending);host_wrong_delete_ack=false;
++    command deletion={.remove=true,.request=20};strcpy(deletion.id,memory->state.document.items[1].id);strcpy(deletion.edit,memory->state.document.items[1].edit);
++    agenda_document retained=memory->state.document;test_link=LINK_NONE;remove_run(&deletion);
++    assert(memory->state.last_success&&memory->state.document.count==1&&disk.count==1&&host.count==2&&memory->state.pending&&memory->deleted.count==1&&!memcmp(&retained.items[0],&memory->state.document.items[0],sizeof(agenda_item)));
++    memset(&memory->state,0,sizeof(memory->state));memset(&memory->deleted,0,sizeof(memory->deleted));assert(load_document()&&memory->state.document.count==1&&memory->state.pending&&memory->deleted.count==1);
++    host_support_delete=false;sync_run(LINK_USB);assert(memory->state.document.count==1&&memory->deleted.count==1&&memory->state.pending);host_support_delete=true;
++    host_wrong_delete_ack=true;sync_run(LINK_USB);assert(host.count==1&&memory->state.document.count==1&&memory->deleted.count==1&&memory->state.pending);host_wrong_delete_ack=false;
+     // Failed receipt persistence retains the durable tombstone; restart + retry is idempotent.
+-    fail_write=true;sync_run(LINK_WIFI);assert(state.pending&&deleted.count==1);fail_write=false;
+-    memset(&state,0,sizeof(state));memset(&deleted,0,sizeof(deleted));assert(load_document()&&deleted.count==1);sync_run(LINK_BLE);assert(!state.pending&&!deleted.count&&state.document.count==1&&host.count==1);
+-    edit=(command){.save=true,.request=21};strcpy(edit.definition.title,"delete before first sync");edit.definition.due=test_clock+3600;edit.definition.end=test_clock+7200;save_run(&edit);assert(state.pending&&state.document.count==2);
+-    strcpy(deletion.id,state.document.items[1].id);strcpy(deletion.edit,state.document.items[1].edit);retained=disk;fail_write=true;remove_run(&deletion);assert(!state.last_success&&host.count==1&&!memcmp(&retained,&disk,sizeof(disk))&&!deleted.count);fail_write=false;
+-    remove_run(&deletion);assert(state.last_success&&state.document.count==1&&deleted.count==1);sync_run(LINK_USB);assert(!state.pending&&host.count==1&&!deleted.count);
++    fail_write=true;sync_run(LINK_WIFI);assert(memory->state.pending&&memory->deleted.count==1);fail_write=false;
++    memset(&memory->state,0,sizeof(memory->state));memset(&memory->deleted,0,sizeof(memory->deleted));assert(load_document()&&memory->deleted.count==1);sync_run(LINK_BLE);assert(!memory->state.pending&&!memory->deleted.count&&memory->state.document.count==1&&host.count==1);
++    edit=(command){.save=true,.request=21};strcpy(edit.definition.title,"delete before first sync");edit.definition.due=test_clock+3600;edit.definition.end=test_clock+7200;save_run(&edit);assert(memory->state.pending&&memory->state.document.count==2);
++    strcpy(deletion.id,memory->state.document.items[1].id);strcpy(deletion.edit,memory->state.document.items[1].edit);retained=disk;fail_write=true;remove_run(&deletion);assert(!memory->state.last_success&&host.count==1&&!memcmp(&retained,&disk,sizeof(disk))&&!memory->deleted.count);fail_write=false;
++    remove_run(&deletion);assert(memory->state.last_success&&memory->state.document.count==1&&memory->deleted.count==1);sync_run(LINK_USB);assert(!memory->state.pending&&host.count==1&&!memory->deleted.count);
+     // A local edit followed by deletion removes the old host edition too.
+-    edit=(command){.save=true,.request=22};strcpy(edit.definition.title,"edit then delete");edit.definition.due=test_clock+3600;edit.definition.end=test_clock+7200;save_run(&edit);sync_run(LINK_USB);assert(!state.pending&&host.count==2);
+-    edit.definition=state.document.items[1];strcpy(edit.edit,edit.definition.edit);strcpy(edit.definition.title,"offline changed");save_run(&edit);
+-    strcpy(deletion.id,state.document.items[1].id);strcpy(deletion.edit,state.document.items[1].edit);remove_run(&deletion);assert(state.last_success&&deleted.count==1&&host.count==2);sync_run(LINK_USB);assert(!state.pending&&!deleted.count&&host.count==1);
++    edit=(command){.save=true,.request=22};strcpy(edit.definition.title,"edit then delete");edit.definition.due=test_clock+3600;edit.definition.end=test_clock+7200;save_run(&edit);sync_run(LINK_USB);assert(!memory->state.pending&&host.count==2);
++    edit.definition=memory->state.document.items[1];strcpy(edit.edit,edit.definition.edit);strcpy(edit.definition.title,"offline changed");save_run(&edit);
++    strcpy(deletion.id,memory->state.document.items[1].id);strcpy(deletion.edit,memory->state.document.items[1].edit);remove_run(&deletion);assert(memory->state.last_success&&memory->deleted.count==1&&host.count==2);sync_run(LINK_USB);assert(!memory->state.pending&&!memory->deleted.count&&host.count==1);
+     // Queue capacity refuses further deletion safely; active records remain editable.
+-    agenda_deletions real_deleted=deleted;deleted.count=AGENDA_LIMIT;strcpy(deletion.id,state.document.items[0].id);strcpy(deletion.edit,state.document.items[0].edit);retained=state.document;remove_run(&deletion);assert(!state.last_success&&!memcmp(&retained,&state.document,sizeof(retained)));deleted=real_deleted;
++    agenda_deletions real_deleted=memory->deleted;memory->deleted.count=AGENDA_LIMIT;strcpy(deletion.id,memory->state.document.items[0].id);strcpy(deletion.edit,memory->state.document.items[0].edit);retained=memory->state.document;remove_run(&deletion);assert(!memory->state.last_success&&!memcmp(&retained,&memory->state.document,sizeof(retained)));memory->deleted=real_deleted;
+     puts("AGENDA_LOCAL_FIRST_OK offline create/edit/delete, durable tombstones, reboot, old host protection, wrong/lost receipts, failed atomic writes, delete-before-first-sync, edit-then-delete and bounded queue");
+     // Expiration alone never prunes. Only a full-list insertion reclaims one slot.
+-    agenda_document original_document=state.document;int64_t original_time=test_clock;
++    agenda_document original_document=memory->state.document;int64_t original_time=test_clock;
+     agenda_item expiring={0};memset(expiring.id,'8',32);memset(expiring.edit,'9',32);strcpy(expiring.title,"expired retained");expiring.due=test_clock+60;expiring.end=test_clock+120;
+     agenda_item undated={0};memset(undated.id,'a',32);memset(undated.edit,'b',32);strcpy(undated.title,"keep undated");
+-    candidate=state.document;candidate.items[candidate.count++]=expiring;candidate.items[candidate.count++]=undated;assert(persist(&candidate));publish(&candidate,"");host=candidate;
+-    test_clock=expiring.end;alert_run();assert(state.document.count==3&&!notice_pending);
+-    memset(&state,0,sizeof(state));assert(load_document()&&state.document.count==3);sync_run(LINK_USB);assert(state.document.count==3&&!deleted.count);
+-    host_support_retention=false;agenda_document retained_local=state.document;sync_run(LINK_USB);assert(!memcmp(&retained_local,&state.document,sizeof(retained_local))&&strstr(state.message,"更新电脑"));host_support_retention=true;
+-    candidate=state.document;
+-    while(candidate.count<15){unsigned n=candidate.count++;agenda_item *fill=&candidate.items[n];memset(fill,0,sizeof(*fill));snprintf(fill->id,33,"%032x",4096+n);snprintf(fill->edit,33,"%032x",8192+n);strcpy(fill->title,"future item");fill->due=test_clock+3600;fill->end=test_clock+7200;}
+-    assert(persist(&candidate));publish(&candidate,"");host=candidate;
++    memory->candidate=memory->state.document;memory->candidate.items[memory->candidate.count++]=expiring;memory->candidate.items[memory->candidate.count++]=undated;assert(persist(&memory->candidate));publish(&memory->candidate,"");host=memory->candidate;
++    test_clock=expiring.end;alert_run();assert(memory->state.document.count==3&&!notice_pending);
++    memset(&memory->state,0,sizeof(memory->state));assert(load_document()&&memory->state.document.count==3);sync_run(LINK_USB);assert(memory->state.document.count==3&&!memory->deleted.count);
++    host_support_retention=false;agenda_document retained_local=memory->state.document;sync_run(LINK_USB);assert(!memcmp(&retained_local,&memory->state.document,sizeof(retained_local))&&strstr(memory->state.message,"更新电脑"));host_support_retention=true;
++    memory->candidate=memory->state.document;
++    while(memory->candidate.count<15){unsigned n=memory->candidate.count++;agenda_item *fill=&memory->candidate.items[n];memset(fill,0,sizeof(*fill));snprintf(fill->id,33,"%032x",4096+n);snprintf(fill->edit,33,"%032x",8192+n);strcpy(fill->title,"future item");fill->due=test_clock+3600;fill->end=test_clock+7200;}
++    assert(persist(&memory->candidate));publish(&memory->candidate,"");host=memory->candidate;
+     command fresh={.save=true,.request=100};strcpy(fresh.definition.title,"sixteenth item");fresh.definition.due=test_clock+60;fresh.definition.end=test_clock+120;
+-    save_run(&fresh);assert(state.last_success&&state.document.count==16&&!deleted.count&&!strcmp(state.document.items[1].id,expiring.id));sync_run(LINK_USB);assert(!state.pending&&host.count==16);
++    save_run(&fresh);assert(memory->state.last_success&&memory->state.document.count==16&&!memory->deleted.count&&!strcmp(memory->state.document.items[1].id,expiring.id));sync_run(LINK_USB);assert(!memory->state.pending&&host.count==16);
+     // Both are expired now; the earlier ending must be the only eviction.
+     test_clock+=120;fresh.request++;fresh.definition.due=test_clock+3600;fresh.definition.end=test_clock+7200;strcpy(fresh.definition.title,"replace oldest");
+-    retained_local=disk;test_time_valid=false;save_run(&fresh);assert(!state.last_success&&!memcmp(&retained_local,&disk,sizeof(disk)));test_time_valid=true;
+-    fail_write=true;save_run(&fresh);assert(!state.last_success&&!deleted.count&&!memcmp(&retained_local,&disk,sizeof(disk)));fail_write=false;
+-    save_run(&fresh);assert(state.last_success&&state.document.count==16&&deleted.count==1&&!strcmp(deleted.items[0].id,expiring.id)&&state.document.items[0].repeat&&state.document.items[2].due==0);
+-    memset(&state,0,sizeof(state));memset(&deleted,0,sizeof(deleted));assert(load_document()&&state.document.count==16&&deleted.count==1);
+-    host_wrong_delete_ack=true;sync_run(LINK_USB);assert(state.pending&&deleted.count==1);host_wrong_delete_ack=false;
+-    fail_write=true;sync_run(LINK_USB);assert(state.pending&&deleted.count==1);fail_write=false;
+-    sync_run(LINK_USB);assert(!state.pending&&!deleted.count&&host.count==16);for(unsigned n=0;n<host.count;n++)assert(strcmp(host.items[n].id,expiring.id));
++    retained_local=disk;test_time_valid=false;save_run(&fresh);assert(!memory->state.last_success&&!memcmp(&retained_local,&disk,sizeof(disk)));test_time_valid=true;
++    fail_write=true;save_run(&fresh);assert(!memory->state.last_success&&!memory->deleted.count&&!memcmp(&retained_local,&disk,sizeof(disk)));fail_write=false;
++    save_run(&fresh);assert(memory->state.last_success&&memory->state.document.count==16&&memory->deleted.count==1&&!strcmp(memory->deleted.items[0].id,expiring.id)&&memory->state.document.items[0].repeat&&memory->state.document.items[2].due==0);
++    memset(&memory->state,0,sizeof(memory->state));memset(&memory->deleted,0,sizeof(memory->deleted));assert(load_document()&&memory->state.document.count==16&&memory->deleted.count==1);
++    host_wrong_delete_ack=true;sync_run(LINK_USB);assert(memory->state.pending&&memory->deleted.count==1);host_wrong_delete_ack=false;
++    fail_write=true;sync_run(LINK_USB);assert(memory->state.pending&&memory->deleted.count==1);fail_write=false;
++    sync_run(LINK_USB);assert(!memory->state.pending&&!memory->deleted.count&&host.count==16);for(unsigned n=0;n<host.count;n++)assert(strcmp(host.items[n].id,expiring.id));
+     // Updating a retained expired entry is not an insertion and does not reclaim.
+-    command update={.save=true,.request=102,.definition=state.document.items[15]};strcpy(update.edit,update.definition.edit);strcpy(update.definition.title,"edit retained expired");save_run(&update);assert(state.last_success&&state.document.count==16&&!deleted.count);
+-    host_omit_device_ack=true;sync_run(LINK_USB);assert(state.pending);host_omit_device_ack=false;sync_run(LINK_USB);assert(!state.pending);
++    command update={.save=true,.request=102,.definition=memory->state.document.items[15]};strcpy(update.edit,update.definition.edit);strcpy(update.definition.title,"edit retained expired");save_run(&update);assert(memory->state.last_success&&memory->state.document.count==16&&!memory->deleted.count);
++    host_omit_device_ack=true;sync_run(LINK_USB);assert(memory->state.pending);host_omit_device_ack=false;sync_run(LINK_USB);assert(!memory->state.pending);
+     // A full receipt queue refuses replacement, but never loses either document.
+-    deleted.count=AGENDA_LIMIT;for(unsigned n=0;n<deleted.count;n++){snprintf(deleted.items[n].id,33,"%032x",256+n);snprintf(deleted.items[n].edit,33,"%032x",512+n);}
+-    candidate=state.document;assert(persist(&candidate));publish(&candidate,"");retained_local=disk;save_run(&fresh);assert(!state.last_success&&!memcmp(&retained_local,&disk,sizeof(disk))&&deleted.count==AGENDA_LIMIT);
+-    memset(&deleted,0,sizeof(deleted));save_run(&fresh);assert(state.last_success&&state.document.count==16&&deleted.count==1);sync_run(LINK_USB);assert(!state.pending);
+-    retained_local=disk;save_run(&fresh);assert(!state.last_success&&!memcmp(&retained_local,&disk,sizeof(disk))); // no expired one-offs remain
+-    candidate=original_document;assert(persist(&candidate));publish(&candidate,"");test_clock=original_time;
++    memory->deleted.count=AGENDA_LIMIT;for(unsigned n=0;n<memory->deleted.count;n++){snprintf(memory->deleted.items[n].id,33,"%032x",256+n);snprintf(memory->deleted.items[n].edit,33,"%032x",512+n);}
++    memory->candidate=memory->state.document;assert(persist(&memory->candidate));publish(&memory->candidate,"");retained_local=disk;save_run(&fresh);assert(!memory->state.last_success&&!memcmp(&retained_local,&disk,sizeof(disk))&&memory->deleted.count==AGENDA_LIMIT);
++    memset(&memory->deleted,0,sizeof(memory->deleted));save_run(&fresh);assert(memory->state.last_success&&memory->state.document.count==16&&memory->deleted.count==1);sync_run(LINK_USB);assert(!memory->state.pending);
++    retained_local=disk;save_run(&fresh);assert(!memory->state.last_success&&!memcmp(&retained_local,&disk,sizeof(disk))); // no expired one-offs remain
++    memory->candidate=original_document;assert(persist(&memory->candidate));publish(&memory->candidate,"");test_clock=original_time;
+     puts("AGENDA_RETENTION_OK under-limit reboot/sync retention, old-host gate, sixteenth insertion, oldest-only replacement, unset RTC, failed atomic write, durable eviction receipt, lost acknowledgements, expired editing, full receipt queue and no-victim rejection");
+     // A corrupt new snapshot cannot fall back to a valid legacy snapshot.
+     local_disk[0]=99;uint8_t preserved[sizeof(local_disk)];memcpy(preserved,local_disk,sizeof(preserved));assert(!load_document()&&!memcmp(local_disk,preserved,sizeof(preserved)));
+@@ -135,5 +147,5 @@
+     cJSON_DeleteItemFromArray(holidays,6);assert(!agenda_workdays_parse(years,&table)&&agenda_workday_at(makeup)==1);cJSON_Delete(years);
+     puts("AGENDA_WORKDAY_CACHE_OK independent annual NVS cache; offline reboot, makeup Sunday, failed write and partial-year rejection preserve last-good calendar");
+     cJSON_Delete(fixture);
+-    printf("AGENDA_RUNTIME_OK production worker load/save, unset RTC, reboot deduplication, offline snooze, failed sync retry, persistence failures and corrupt-store preservation; legacy=%zu local=%zu bytes\n",sizeof(disk),sizeof(agenda_local));return 0;
++    printf("AGENDA_RUNTIME_OK production worker load/save, unset RTC, reboot deduplication, offline snooze, failed sync retry, persistence failures and corrupt-store preservation; legacy=%zu local=%zu bytes\n",sizeof(disk),sizeof(agenda_local));free(memory);memory=NULL;return 0;
+ }
+--- a/tests/ui-preview/agenda_runtime_stubs.h
++++ b/tests/ui-preview/agenda_runtime_stubs.h
+@@ -4,6 +4,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <time.h>
++#include <stdlib.h>
+ typedef int SemaphoreHandle_t;
+ typedef int QueueHandle_t;
+ typedef int nvs_handle_t;
+@@ -25,13 +26,24 @@
+ #define LINK_BLE 2
+ #define HTTP_METHOD_POST 1
+ #define pdMS_TO_TICKS(x) (x)
++#define MALLOC_CAP_SPIRAM 1
++#define MALLOC_CAP_8BIT 2
++static bool fail_allocation,fail_mutex,fail_queue,fail_task;
++static unsigned allocation_calls,allocation_frees,allocation_caps,task_calls,mutex_deletes,queue_deletes;
++static size_t allocation_bytes;
++static void *tracked_allocation;
++static void *heap_caps_calloc(size_t n,size_t size,unsigned caps){allocation_calls++;allocation_bytes=n*size;allocation_caps=caps;if(fail_allocation)return NULL;assert(!tracked_allocation);tracked_allocation=calloc(n,size);return tracked_allocation;}
++static void agenda_test_free(void *p){if(p&&p==tracked_allocation){allocation_frees++;tracked_allocation=NULL;}free(p);}
++#define free agenda_test_free
++static void vSemaphoreDelete(int h){assert(h);mutex_deletes++;}
++static void vQueueDelete(int h){assert(h);queue_deletes++;}
+ static int xSemaphoreTake(int a,int b){(void)a;(void)b;return 1;}
+ static int xSemaphoreGive(int a){(void)a;return 1;}
+-static int xSemaphoreCreateMutex(void){return 1;}
+-static int xQueueCreate(int a,size_t b){(void)a;(void)b;return 1;}
++static int xSemaphoreCreateMutex(void){return fail_mutex?0:1;}
++static int xQueueCreate(int a,size_t b){(void)a;(void)b;return fail_queue?0:1;}
+ static int xQueueSend(int a,const void *b,int c){(void)a;(void)b;(void)c;return 1;}
+ static int xQueueReceive(int a,void *b,int c){(void)a;(void)b;(void)c;return 0;}
+-static int xTaskCreate(void (*fn)(void*),const char *name,int stack,void *arg,int priority,void *handle){(void)fn;(void)name;(void)stack;(void)arg;(void)priority;(void)handle;return 1;}
++static int xTaskCreate(void (*fn)(void*),const char *name,int stack,void *arg,int priority,void *handle){(void)fn;(void)name;(void)stack;(void)arg;(void)priority;(void)handle;task_calls++;return fail_task?0:1;}
+ static void vTaskDelay(int ms){(void)ms;}
+ static void vTaskDelete(void *task){(void)task;}
+ static int64_t test_clock=1792075800LL;

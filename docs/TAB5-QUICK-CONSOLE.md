@@ -4,6 +4,10 @@
 
 ## 怎么使用
 
+Mac 联调候选的导航回执与 Windows `OpenAsync` 区分“打开”和“输入框操作”：原名或桌面加载后的缩略名无法唯一区分时，显式所选 ID 的深链接已打开且 Codex 在前台，可以返回纯打开成功；它不证明已读回页面 UUID，也不授权草稿读取、回填、清空或发送。缩略名称的碰撞检查覆盖完整目录，不只比较目标前缀。Mac 界面明确显示此边界，目录不可读时不使用该回退。此处说明既有 `open-recent` / `foreground` 语义，不增加固件字段或协议版本；候选实机结果以 Mac 联调记录为准。
+
+The Mac integration candidate distinguishes opening from composer operations, following Windows `OpenAsync`. When full or loaded-chat compact names are explicitly duplicated, opening the selected ID's deeplink with Codex foreground may acknowledge open-only success. Compact-label collision checks cover the complete catalog, not just the target prefix. This does not prove a read-back page UUID or authorize draft observation, staging, clearing or submission. The Mac UI states this boundary, and an unreadable catalog cannot trigger the fallback. This clarifies existing `open-recent` / `foreground` semantics without new firmware fields or protocol versions; hardware acceptance is tracked separately.
+
 1. 保持电脑端 AI-bot 和 Codex 运行，并让 TAB5 与桥接连接；需要语音时先在电脑端“设备中心 → TAB5 → 语音设置”完成配置。
 2. 点击 TAB5 右下角 Codex 直达入口，查看最近五个会话，通过前后切换选择目标并打开。
 3. 点击豆包语音按钮开始录音，完成后停止；识别文字进入所选电脑会话的草稿，不会自动发送。

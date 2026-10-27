@@ -1,0 +1,74 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -154,7 +154,13 @@
+ static unsigned preview_voice_commands;
+ bool voice_remote_start_tab5(const char *id,const char *session,int64_t epoch){return voice_remote_start(id,session,epoch);}
+ static int preview_voice_command;
+-void voice_remote_command(int cmd) {preview_voice_commands++;preview_voice_command=cmd;}
++void voice_remote_command(int cmd) {
++    preview_voice_commands++;preview_voice_command=cmd;
++    if((cmd==1||cmd==2)&&preview_voice.busy) {
++        preview_voice.ready=false;preview_voice.level=0;preview_voice.silent=false;
++        strcpy(preview_voice.phase,"draining");strcpy(preview_voice.message,cmd==2?"正在取消录音…":"正在结束收音…");
++    }
++}
+ void voice_remote_get(voice_remote_state *out) { *out=preview_voice; }
+ static bool preview_submit_enabled;
+ static wifi_profile_store preview_networks={.version=WIFI_PROFILE_VERSION,.count=2,.entries={{.ssid="家庭网络"},{.ssid="办公室"}}};
+@@ -1963,7 +1969,22 @@
+     lv_obj_add_state(codex_project_picker,LV_STATE_DISABLED);
+     lv_obj_add_state(codex_send_button,LV_STATE_DISABLED);codex_keyboard_done(NULL);
+ }
+-static void codex_voice_action(lv_event_t *e) {codex_voice_request((int)(intptr_t)lv_event_get_user_data(e));}
++static bool codex_voice_stopped_on_press;
++static void codex_voice_tick(void);
++static void codex_voice_pressed(lv_event_t *e) {
++    (void)e;codex_voice_stopped_on_press=false;
++    if(!codex_voice_waiting)return;
++    // Ending capture is local and irreversible for this take. Accept the down
++    // event so a small finger movement or a late reply cannot swallow release.
++    codex_voice_stopped_on_press=true;voice_remote_command(1);codex_voice_tick();
++}
++static void codex_voice_action(lv_event_t *e) {
++    lv_indev_t *input=lv_event_get_indev(e);
++    if(lv_event_get_target(e)==codex_voice_button&&codex_voice_stopped_on_press&&input&&lv_indev_get_type(input)==LV_INDEV_TYPE_POINTER) {
++        codex_voice_stopped_on_press=false;return; // Never restart on this release.
++    }
++    codex_voice_request((int)(intptr_t)lv_event_get_user_data(e));
++}
+ static void codex_voice_pending_tick(int64_t now) {
+     if(!codex_voice_start_pending)return;
+     codex_draft *d=codex_draft_for(codex_selected,false);
+@@ -3855,6 +3876,8 @@
+     lv_obj_set_height(codex_voice_button,56);lv_obj_set_style_pad_all(codex_voice_button,0,0);
+     lv_obj_set_style_radius(codex_voice_button,LV_RADIUS_CIRCLE,0);
+     voice_button_glyphs(codex_voice_button,&codex_mic_glyph,&codex_stop_glyph);
++    lv_obj_set_ext_click_area(codex_voice_button,8);
++    lv_obj_add_event_cb(codex_voice_button,codex_voice_pressed,LV_EVENT_PRESSED,NULL);
+     codex_voice_switch=button(task_right,"改用 TAB5",274,332,158,codex_voice_action,3);
+     lv_obj_set_height(codex_voice_switch,56);lv_obj_center(lv_obj_get_child(codex_voice_switch,0));
+     lv_obj_add_state(codex_voice_switch,LV_STATE_DISABLED);
+--- a/firmware/main/voice_remote.c
++++ b/firmware/main/voice_remote.c
+@@ -431,9 +431,11 @@
+         snprintf(voice_id,sizeof(voice_id),"%s",str(reply,"voiceId"));
+         snprintf(source,sizeof(source),"%s",str(reply,"source"));snprintf(phase,sizeof(phase),"%s",str(reply,"state"));
+         if(have_audio)audio_acknowledged=true;
++        xSemaphoreTake(device_mutex,portMAX_DELAY);
++        // Stop/cancel publishes its local intent under this same mutex. Test it
++        // here so an older reply cannot restore recording after that intent.
+         bool ready=voice_capture_ready(!strcmp(phase,"recording"),cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"ready")),
+             !strcmp(source,"tab5"),audio_acknowledged,atomic_load(&mic_stop),atomic_load(&mic_error));
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);
+         state.ready=ready;
+         cJSON *level=cJSON_GetObjectItemCaseSensitive(reply,"level");
+         state.level=ready&&cJSON_IsNumber(level)?(level->valueint<0?0:level->valueint>100?100:level->valueint):0;
+@@ -445,7 +447,7 @@
+         // A late recording response can still carry "ready to speak" after
+         // local capture stopped. Keep the message consistent with our phase.
+         snprintf(state.message,sizeof(state.message),"%s",!strcmp(state.phase,"draining")&&!strcmp(phase,"recording")?
+-            "正在结束收音…":str(reply,"message"));
++            (cmd==2||atomic_load(&command)==2?"正在取消录音…":"正在结束收音…"):str(reply,"message"));
+         snprintf(state.text,sizeof(state.text),"%s",str(reply,"text"));
+         xSemaphoreGive(device_mutex);cJSON_Delete(reply);first=false;
+         if(strcmp(phase,"recording"))atomic_store(&mic_stop,true);

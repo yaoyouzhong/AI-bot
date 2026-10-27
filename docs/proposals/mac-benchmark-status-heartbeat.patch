@@ -1,0 +1,90 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5Service.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5Service.swift
+@@ -246,6 +246,7 @@
+     }
+     func resourceFrame(maximum: Int = 4) throws -> Data {
+         lock.lock(); defer { lock.unlock() }
++        guard benchmarkMode == 0 else { throw MacTab5Error.busy }
+         guard deviceEnabled(), !stopped, !maintenance, let pair = pairing, pair.confirmed else { throw MacTab5Error.pairingRequired }
+         let chunks = assets.batch(maximum)
+         guard !chunks.isEmpty else { throw MacTab5Error.unavailable }
+@@ -254,13 +255,13 @@
+                                          "session": session, "sequence": sequence, "resources": chunks])
+     }
+     private func frameLocked(includeResources: Bool = true) throws -> Data {
+-        guard deviceEnabled(), !stopped, !maintenance, benchmarkMode == 0 else { throw MacTab5Error.unavailable }
++        guard deviceEnabled(), !stopped, !maintenance else { throw MacTab5Error.unavailable }
+         guard let pair = pairing, pair.confirmed, let snapshot else { throw MacTab5Error.pairingRequired }
+         _ = try nextSequenceLocked()
+         let media = sourceEnabled("music") ? latestMusic() : nil
+         let now = Date()
+         if let media { assets.updateCover(media.cover) }
+-        var additions = assets.projection(includeResource: includeResources)
++        var additions = assets.projection(includeResource: includeResources && benchmarkMode == 0)
+         var calendar = MacTab5Calendar.snapshot(epoch: snapshot.epochUtc, offset: snapshot.utcOffsetSeconds)
+         var calendarDetail = calendar["detail"] as? [String: Any] ?? [:]
+         // An unreadable local profile is omitted, never replaced with an empty list.
+--- a/mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacLatestParityValidation.swift
+@@ -94,11 +94,26 @@
+         try check("benchmark encrypted roundtrip",rpc(probe) == 200)
+         probe["data"] = MacTab5Benchmark.pattern(offset:0,count:32).base64EncodedString()
+         try check("benchmark authenticated upload",rpc(probe) == 200)
++        service.publish(.init(version:1,time:"12:00:00",epochUtc:1800000000,utcOffsetSeconds:28800,capturedAt:Date(timeIntervalSince1970:1800000000),codex:.init(state:"idle",ageSeconds:nil),claude:.init(state:"idle",ageSeconds:nil),musicPlaying:false,weather:nil,stocks:nil,systemMetrics:nil,quotas:nil,music:nil))
++        service.assets.updatePets([nil,nil])
++        func frameData() throws -> [String:Any] { try MacTab5Protocol.object(service.frame())["data"] as? [String:Any] ?? [:] }
++        try check("normal status carries pending asset",frameData()["resource"] != nil)
+         try service.beginBenchmark(gallery:false)
+         try check("benchmark blocks configuration",service.configurationBusy)
++        let measuring = try frameData()
++        try check("benchmark keeps normal status heartbeat",measuring["pcInput"] != nil && measuring["calendar"] != nil)
++        try check("benchmark status does not advance image resource",measuring["resource"] == nil)
++        try check("benchmark separate image resource blocked",(try? service.resourceFrame()) == nil)
++        try check("benchmark RPC remains available",rpc(probe) == 200)
+         try check("benchmark blocks OTA",rpc(["kind":"ota","session":service.session,"issuedAt":Int64(Date().timeIntervalSince1970*1000)]) == 409)
+         service.endBenchmark()
+         try check("benchmark gate released",!service.configurationBusy)
++        try check("normal status images resume after benchmark",frameData()["resource"] != nil)
++        try service.beginBenchmark(gallery:true)
++        let writing = try frameData()
++        try check("gallery benchmark keeps heartbeat without images",writing["pcInput"] != nil && writing["resource"] == nil)
++        try check("gallery benchmark separate images blocked",(try? service.resourceFrame()) == nil)
++        service.endBenchmark()
+         let previewToken = service.screenPreview.start(service.screenPreviewContext)
+         service.screenPreview.renew(previewToken,context:service.screenPreviewContext)
+         let previewCommand = service.screenPreview.command!
+--- a/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
+@@ -176,7 +176,7 @@
+         }
+         else if MacTab5BLEControlPacing.active(now:now,lastControl:lastControlActivity,lastFrame:lastFrame),let endpoint = characteristics[MacTab5BLEWire.rpc] { pump(endpoint,pair:pair) }
+         else if now - lastFrame >= 2 { sendStatus(pair) }
+-        else if service.assets.hasPending && resourceTurn && now - lastVoiceActivity >= 1.5 { resourceTurn = false; sendStatus(pair, resources: true) }
++        else if !service.configurationBusy && service.assets.hasPending && resourceTurn && now - lastVoiceActivity >= 1.5 { resourceTurn = false; sendStatus(pair, resources: true) }
+         else {
+             resourceTurn = true
+             let uuid = voiceTurn ? MacTab5BLEWire.voice : MacTab5BLEWire.rpc; voiceTurn.toggle()
+@@ -424,12 +424,12 @@
+     }
+     private func sendStatus(_ pair: MacTab5Pairing, resources: Bool = false) {
+         guard let peer, let input = characteristics[MacTab5BLEWire.input], let nonce else { reset("蓝牙状态不可用"); return }
+-        let diagnostic = service.bleDiagnostics.begin(resources ? .resource : .status)
+         do {
+             // Keep image bytes out of periodic status even when the dedicated
+             // resource turn is deferred for voice. A single idle image chunk
+             // also bounds the work ahead of a newly arriving start request.
+             let clear = try (resources ? service.resourceFrame(maximum: 1) : service.frame(includeResources: false))
++            let diagnostic = service.bleDiagnostics.begin(resources ? .resource : .status)
+             let root = try MacTab5Protocol.object(clear)
+             guard let sequence = MacTab5Protocol.integer(root["sequence"]) else { throw MacTab5Error.invalidPacket }
+             let wire = resources ? clear : try statusDelta.wire(clear, packed: packedStatus, supported: deltaStatus)
+@@ -439,7 +439,8 @@
+                 do { try result.get(); self.confirmFrame(pair, nonce: nonce, sequence: sequence, generation: generation, attempts: 0, resources: resources, full: clear, diagnostic: diagnostic) }
+                 catch { self.reset("蓝牙发送未确认，等待重连") }
+             }
+-        } catch { reset("蓝牙状态帧无效") }
++        } catch MacTab5Error.busy { busy = false }
++        catch { reset("蓝牙状态帧无效") }
+     }
+     private func confirmFrame(_ pair: MacTab5Pairing, nonce: String, sequence: Int64, generation: UInt64, attempts: Int, resources: Bool, full: Data, diagnostic: UInt64) {
+         guard self.nonce == nonce, authenticatedDevice == pair.deviceId, enabled, admission.ready,

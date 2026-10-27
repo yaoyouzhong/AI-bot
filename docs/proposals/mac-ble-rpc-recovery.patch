@@ -1,0 +1,159 @@
+--- a/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLE.swift
+@@ -73,6 +73,9 @@
+     private var rpcWindow: MacTab5BLERPCWindow?
+     private var rpcWindowCompletion: ((Data) -> Void)?
+     private var rpcGrantPending = false
++    private var rpcDescriptorDiscovery = false
++    private var rpcDescriptor: CBDescriptor?
++    private var rpcSubscriptionRecovery = MacTab5BLENotificationRecovery()
+     private var lastVoiceProbe: TimeInterval = -.infinity
+     private var lastVoiceActivity: TimeInterval = -.infinity
+     private var lastControlProbe: TimeInterval = -.infinity
+@@ -122,6 +125,7 @@
+         voiceWindow = nil; voiceWindowCompletion = nil; voiceGrantPending = false
+         rpcWindow = nil; rpcWindowCompletion = nil; rpcGrantPending = false
+         rpcCredits = 0; rpcSubscriptionAttempted = false; rpcSubscriptionPending = false; rpcNotifications = false
++        rpcDescriptorDiscovery = false; rpcDescriptor = nil; rpcSubscriptionRecovery = MacTab5BLENotificationRecovery()
+         voiceCredits = 0; voiceSubscriptionAttempted = false; voiceSubscriptionPending = false; voiceNotifications = false
+         voiceDescriptorDiscovery = false; voiceDescriptor = nil
+         voiceSubscriptionRecovery = MacTab5BLENotificationRecovery()
+@@ -177,6 +181,7 @@
+         }
+         if !rpcSubscriptionAttempted, lastFrame.isFinite {
+             rpcSubscriptionAttempted = true
++            service.bleDiagnostics.rpcLink(credits:rpcCredits,available:characteristics[MacTab5BLEWire.rpc]?.properties.contains(.notify) == true,subscribed:false)
+             if rpcCredits > 0, let endpoint = characteristics[MacTab5BLEWire.rpc], endpoint.properties.contains(.notify) {
+                 busy = true; rpcSubscriptionPending = true; deadline = now + 15; peer?.setNotifyValue(true, for: endpoint); return
+             }
+@@ -308,6 +313,13 @@
+             // Only a successful subscription enables grants; rejected peers
+             // retain the original read/cursor-ACK path without replay.
+             rpcNotifications = error == nil && characteristic.isNotifying
++            let failure = error as NSError?
++            let domain: MacTab5BLEDiagnostics.FailureDomain = failure == nil ? .none : failure?.domain == CBATTErrorDomain ? .att : failure?.domain == CBErrorDomain ? .bluetooth : .other
++            service.bleDiagnostics.rpcLink(credits:rpcCredits,available:characteristic.properties.contains(.notify),subscribed:rpcNotifications,failure:domain,code:failure?.code ?? 0)
++            if rpcSubscriptionRecovery.needsReadback(after:error) {
++                rpcDescriptorDiscovery = true; deadline = now + 15
++                peripheral.discoverDescriptors(for:characteristic); return
++            }
+             busy = false; return
+         }
+         guard peer === peripheral, characteristic === characteristics[MacTab5BLEWire.voice], voiceSubscriptionPending else { return }
+@@ -326,6 +338,14 @@
+         busy = false
+     }
+     func peripheral(_ peripheral: CBPeripheral, didDiscoverDescriptorsFor characteristic: CBCharacteristic, error: Error?) {
++        if peer === peripheral, characteristic === characteristics[MacTab5BLEWire.rpc], rpcDescriptorDiscovery {
++            rpcDescriptorDiscovery = false
++            let descriptors = characteristic.descriptors?.filter { $0.uuid == CBUUID(string:CBUUIDClientCharacteristicConfigurationString) } ?? []
++            guard error == nil, descriptors.count == 1 else {
++                _ = rpcSubscriptionRecovery.shouldReconcile(nil); service.bleDiagnostics.rpcConfiguration(nil); busy = false; return
++            }
++            rpcDescriptor = descriptors[0]; deadline = now + 15; peripheral.readValue(for:descriptors[0]); return
++        }
+         guard peer === peripheral, characteristic === characteristics[MacTab5BLEWire.voice], voiceDescriptorDiscovery else { return }
+         voiceDescriptorDiscovery = false
+         let descriptors = characteristic.descriptors?.filter { $0.uuid == CBUUID(string: CBUUIDClientCharacteristicConfigurationString) } ?? []
+@@ -337,6 +357,15 @@
+         peripheral.readValue(for: descriptors[0])
+     }
+     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor descriptor: CBDescriptor, error: Error?) {
++        if peer === peripheral, descriptor === rpcDescriptor {
++            rpcDescriptor = nil
++            let value = error == nil ? descriptor.value:nil; service.bleDiagnostics.rpcConfiguration(value)
++            if rpcSubscriptionRecovery.shouldReconcile(value), enabled, admission.ready,
++               admission.accepts(admission.generation,pair:service.currentPairing),let endpoint = characteristics[MacTab5BLEWire.rpc] {
++                rpcSubscriptionPending = true; deadline = now + 15; peripheral.setNotifyValue(true,for:endpoint); return
++            }
++            busy = false; return
++        }
+         guard peer === peripheral, descriptor === voiceDescriptor else { return }
+         voiceDescriptor = nil
+         let value = error == nil ? descriptor.value : nil
+--- a/mac-app/Sources/AIBotBridge/MacTab5BLEDiagnostics.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLEDiagnostics.swift
+@@ -46,6 +46,8 @@
+     private var capture: Capture?
+     private var voiceLink: String?
+     private var voiceConfiguration: String?
++    private var rpcLink: String?
++    private var rpcConfiguration: String?
+     init(clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) { self.clock = clock }
+     func voiceLink(credits: Int, available: Bool, subscribed: Bool, failure: FailureDomain = .pending, code: Int = 0) {
+         lock.lock(); defer { lock.unlock() }
+@@ -57,6 +59,17 @@
+         lock.lock(); defer { lock.unlock() }
+         let flags = MacTab5Protocol.integer(value).flatMap { (0...3).contains($0) ? $0 : nil }
+         voiceConfiguration = "订阅失败后只读核对：CCCD \(flags.map(String.init) ?? "未知")（不代表 Mac 已订阅）"
++    }
++    func rpcLink(credits:Int, available:Bool, subscribed:Bool, failure:FailureDomain = .pending, code:Int = 0) {
++        lock.lock(); defer { lock.unlock() }
++        rpcConfiguration = nil
++        let safeCode = (-99999...99999).contains(code) ? code : 0
++        rpcLink = "控制通知协商：额度 \(max(0,min(32,credits))) · 通知能力 \(available ? "有":"无") · 订阅 \(subscribed ? "已确认":"未确认") · 错误 \(failure.rawValue)/\(safeCode)"
++    }
++    func rpcConfiguration(_ value:Any?) {
++        lock.lock(); defer { lock.unlock() }
++        let flags = MacTab5Protocol.integer(value).flatMap { (0...3).contains($0) ? $0:nil }
++        rpcConfiguration = "控制订阅失败后只读核对：CCCD \(flags.map(String.init) ?? "未知")（不代表 Mac 已订阅）"
+     }
+     func begin(_ kind: Kind) -> UInt64 {
+         lock.lock(); defer { lock.unlock() }
+@@ -158,6 +171,8 @@
+         var lines: [String] = []
+         if let voiceLink { lines.append(voiceLink) }
+         if let voiceConfiguration { lines.append(voiceConfiguration) }
++        if let rpcLink { lines.append(rpcLink) }
++        if let rpcConfiguration { lines.append(rpcConfiguration) }
+         if let current { lines.append("\(current.kind.rawValue)：\(current.stage.rawValue) · \(milliseconds(current.began)) ms · \(sizes(current))") }
+         for kind in Kind.allCases {
+             if let result = results[kind] {
+--- a/mac-app/Sources/AIBotBridge/MacTab5BLERPCWindowValidation.swift
++++ b/mac-app/Sources/AIBotBridge/MacTab5BLERPCWindowValidation.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import CoreBluetooth
+ 
+ enum MacTab5BLERPCWindowValidation {
+     static func run() throws -> Int {
+@@ -55,6 +56,26 @@
+         try exhausted.markGrantSubmitted(now:10); try exhausted.accept(part(100,20),now:10.1)
+         try check("full credit window completes only its prefix",exhausted.ready && exhausted.bytes.count == 120)
+         try rejects("ungranted extra fragment rejected") { try exhausted.accept(part(120,20),now:10.2) }
++        let diagnostics = MacTab5BLEDiagnostics(clock:{ 10 })
++        diagnostics.rpcLink(credits:100,available:true,subscribed:false,failure:.att,code:8)
++        try check("RPC negotiation contains only bounded metadata",diagnostics.summary.contains("额度 32") && diagnostics.summary.contains("ATT/8"))
++        diagnostics.rpcConfiguration("sensitive-invalid-value")
++        try check("invalid descriptor values never logged",diagnostics.summary.contains("CCCD 未知") && !diagnostics.summary.contains("sensitive-invalid-value"))
++        diagnostics.rpcLink(credits:32,available:true,subscribed:true,failure:.none)
++        try check("successful RPC reconciliation clears stale readback",diagnostics.summary.contains("订阅 已确认") && !diagnostics.summary.contains("CCCD"))
++        let authorizationError = NSError(domain:CBATTErrorDomain,code:CBATTError.insufficientAuthorization.rawValue)
++        var recovery = MacTab5BLENotificationRecovery()
++        try check("exact ATT authorization error permits readback",recovery.needsReadback(after:authorizationError))
++        try check("exact enabled readback permits one system reconciliation",recovery.shouldReconcile(1))
++        try check("subscription reconciliation cannot loop",!recovery.needsReadback(after:authorizationError) && !recovery.shouldReconcile(1))
++        for value in [0,2,true,"1",NSNull()] as [Any] {
++            var invalid = MacTab5BLENotificationRecovery(); _ = invalid.needsReadback(after:authorizationError)
++            try check("invalid or disabled descriptor never reconciles",!invalid.shouldReconcile(value))
++        }
++        for error in [NSError(domain:CBATTErrorDomain,code:5),NSError(domain:"other",code:8)] {
++            var invalid = MacTab5BLENotificationRecovery()
++            try check("other subscription errors keep legacy fallback",!invalid.needsReadback(after:error) && !invalid.shouldReconcile(1))
++        }
+         return count
+     }
+ }
+--- a/docs/PROTOCOL.md
++++ b/docs/PROTOCOL.md
+@@ -1039,6 +1039,10 @@
+ 
+ Mac 通用 BLE RPC 接收在订阅成功后使用既有命令 3 批量通知授权。有效 rpcNotifyWindow 最多 32 片，缺失／无效时仅沿用有效且不超过八片的 mailboxWindow。每个窗口校验精确 ID、总长及游标，只收已授权片数，完整结束后才开下一窗口；四秒本地时限、配对代次和整个加密请求校验保持，异常停止、不重放操作。订阅不支持或失败时保留逐片读／游标确认。语音仍使用独立原八片窗口与现有时序。
+ 
++The general RPC subscription uses the same bounded recovery as voice: only ATT insufficient-authorization followed by an exact enabled CCCD readback permits one standard CoreBluetooth reconciliation. Readback alone never enables notification grants; a successful subscription callback is mandatory. Other errors, disabled/invalid descriptors and repeated failures retain the legacy path. Local diagnostics expose only bounded capability, subscription and numeric error metadata.
++
++通用 RPC 订阅沿用语音已实现的有界恢复：仅 ATT 授权不足且只读回查 CCCD 精确为启用时，允许一次标准 CoreBluetooth 协调；回查本身不能启用通知授权，仍须成功订阅回调。其他错误、禁用／无效描述符或再次失败均保留旧路径。本机诊断只展示有界能力、订阅状态及数值错误，不含正文或身份。
++
+ 
+ r70 physical follow-up: system-stream Tab did not expose the password page. A visible password field still permits successful unlock, including after display wake. There is no new protocol capability: device BLE HID enumeration does not mean mixed Wi-Fi/BLE preparation is supported. Existing `lockScreenCover`/`displayState` unknown values remain null; no Windows-style wake authorization may be inferred from them. Full-system sleep wake remains unimplemented.
+ 

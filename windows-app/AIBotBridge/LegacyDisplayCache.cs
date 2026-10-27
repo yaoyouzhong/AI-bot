@@ -48,9 +48,9 @@ internal static class LegacyDisplayCache
             var plan = Number(root, prefix + "PlanPct");
             var balance = Number(root, prefix + "Balance");
             if (primary is null && weekly is null && plan is null && balance is null) return null;
-            return new(id, Text(root, prefix + "Membership"), primary, Date(root, prefix + "FiveHourResetAt"), weekly,
+            return new(id, id=="deepseek"?(Text(root,"DeepSeekSource")=="api"?"API 总余额":"网页余额"):Text(root, prefix + "Membership"), primary, Date(root, prefix + "FiveHourResetAt"), weekly,
                 Date(root, prefix + "WeeklyResetAt"), balance,
-                (id=="deepseek" && (Date(root,"DeepSeekUsedCostFetchedAt") is not { } usedAt || DateTimeOffset.UtcNow-usedAt>TimeSpan.FromHours(24)) ? null : Number(root, prefix + "UsedCost")), Text(root, prefix + "Currency"), Date(root, prefix + "FetchedAt") ?? DateTimeOffset.UnixEpoch, true)
+                (id=="deepseek" && (Text(root,"DeepSeekSource")!="web" || Date(root,"DeepSeekUsedCostFetchedAt") is not { } usedAt || DateTimeOffset.UtcNow-usedAt>TimeSpan.FromHours(24)) ? null : Number(root, prefix + "UsedCost")), Text(root, prefix + "Currency"), Date(root, prefix + "FetchedAt") ?? DateTimeOffset.UnixEpoch, true)
                 { PlanPercent=plan, PlanResetsAt=Date(root,prefix+"PlanResetAt"), PlanExpiresAt=Date(root,prefix+"PlanExpiresAt"),
                   PrimaryWindowSeconds=Seconds("PrimaryWindowSeconds",primary.HasValue?18000:null),
                   WeeklyWindowSeconds=Seconds("WeeklyWindowSeconds",weekly.HasValue?604800:null),

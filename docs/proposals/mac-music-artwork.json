@@ -1,0 +1,149 @@
+{
+  "scope": "Mac artwork direction, verified identity/catalog lookup, last-good retention, separate TAB5 HD JPEG and legacy ESP RGB565; reuses existing JPEG wire contract",
+  "files": [
+    {
+      "path": "mac-app/Sources/AIBotBridge/MusicService.swift",
+      "sha256": "5b934172104ba039e0ca8cf099b7aa2462f15701368b5b7ba5a61221496cb1c5"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/PetAssetImporter.swift",
+      "sha256": "68555a448577df25327f88f3ed7b425bfac7ea1ecd52e78aefc2cbebfc770acd"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/DataSources.swift",
+      "sha256": "4c597b78842a361f2b58b3b614d1829d965d81282a8439b7a479164be1447773"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacParityValidation.swift",
+      "sha256": "c1fe08dac886e6424073ef4dda3ec44e05015f2a4ba16b03b6c58f640e77594f"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/AppDelegate.swift",
+      "sha256": "68dd6089b95903e0c48e2ee471fffc8fb2d434c7000d39be34f2976ff06f4200"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacRuntimeWindow.swift",
+      "sha256": "249e3cfb00135600f32f27350a2713167e49f6907e298fbd19b3a15433df9024"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5Assets.swift",
+      "sha256": "96781acc7e3190f108d60ef1a3ac29b71c290b57627db80ea647bbe6affd6088"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5Service.swift",
+      "sha256": "86219f3fb2e0acad024072db99900f1a223115977b802d261e8c39c51e70683e"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacTab5FeaturesWindow.swift",
+      "sha256": "72459e74a71218c5f15412e4e931f09051b6d79c36667fe3472e848e8591a570"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/main.swift",
+      "sha256": "8cd287e5ee30da955656e858197ea8a2c3066ed0dd49b6e8790a43ea6a654863"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacMusicArtwork.swift",
+      "sha256": "31579cf3bf4668bfc4a0e8dd46db2073588d3cb7307d3e1b66fcfa2af72aaa3f"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacMusicArtworkValidation.swift",
+      "sha256": "7062d29fa682c086b8e6fd645f042c148351248c164a532311e8087f62294c3b"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacMusicCatalogArtwork.swift",
+      "sha256": "02d7f7352261baaa9b26aa8948cfa94a9c5ebe5ebe102970e5ac0cb15b6a021c"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacMusicCatalogArtworkValidation.swift",
+      "sha256": "ba602e05ef412e462a264ea095f431a08772a7d7280d8c920cac2f24a2b9441a"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacMusicWebArtwork.swift",
+      "sha256": "a99e3523f525e781ee29c12aec83b6fdd13e6daf6ee393364528740507234878"
+    },
+    {
+      "path": "mac-app/Sources/AIBotBridge/MacMusicWebArtworkValidation.swift",
+      "sha256": "9fd7ffa8bdf25e2fa8ceb553a74bc6318bd1d134d2d8582f2020dbaec337dfa0"
+    },
+    {
+      "path": "mac-app/Tests/AIBotBridgeTests/MacMusicArtworkTests.swift",
+      "sha256": "d200d29ddeede5c763ea126218248ad51f58f29ef47a638367567c037a257e66"
+    }
+  ],
+  "patchSha256": "2d21b6aea200afd1153f0b9cc546db5497dc9eb1039697090b7efcf984216a89",
+  "debugBuildPassed": true,
+  "isolatedChecks": 1287,
+  "artworkChecks": 129,
+  "fullXCTest": "unavailable: CLT lacks XCTest; final attempt exit 1",
+  "releasePackaging": "final signed package passed1287 isolated and9 sampling checks; launch/control pending after firmware install",
+  "currentFirmware": "0.2.268-ui",
+  "firmwareGenerated": true,
+  "physicalArtworkAccepted": {
+    "HD": true,
+    "direction": true,
+    "matchingFixedTrack": true,
+    "allTracksHaveArtwork": false
+  },
+  "liveFinding": "current-track picture/raw can return the same previous artwork with new metadata; current-playlist/library lookup or strict public catalog match required",
+  "sourceHDProbe": "Apple public CDN HTTP 200, decoded 600x600; RAM only",
+  "noArtworkOrTrackMetadataPersisted": true,
+  "catalogCoverage": "not all subscription tracks; no exact match stays unavailable",
+  "newPermissions": false,
+  "releaseExecutableSHA256": "f0225e6e27a8ea7073ade04ddda5ee139ee219db8dc3e1b86be0dd19b7c8afb4",
+  "releaseLaunched": true,
+  "deploymentBlocker": null,
+  "launched": true,
+  "finalReleaseLaunched": true,
+  "activeBundle": "artifacts/mac-music-artwork-final-20261024/AIBotBridge.app",
+  "existingAutomationGrantValidation": "passed: actual Music metadata/artwork and device pause/resume; no new consent prompt observed; initial-consent branch not retested",
+  "bridgePlayPauseValidation": "prior package passed; final bundle pending user",
+  "HDPhysicalValidation": "user confirms clearer image and normal direction; later reiterates both fine except individual missing covers",
+  "deviceCover": {
+    "encoding": "jpeg",
+    "width": 336,
+    "height": 336,
+    "encodedBytes": 70598,
+    "desiredID": "524de723",
+    "acknowledgedID": "524de723"
+  },
+  "musicProgress": "user reports about2s while playing, about1s after pause and says acceptable; fractional-source fix prepared for unified firmware",
+  "regionalTitleFix": "title-only Chinese pronoun compatibility; artist, album, duration and unique-artwork checks retained",
+  "regionalTitlePhysicalValidation": "user confirms formerly missing cover now matches, clear and correctly oriented",
+  "regionalDeviceCover": {
+    "width": 336,
+    "height": 336,
+    "encoding": "jpeg",
+    "bytes": 45893,
+    "desiredID": "cdc46ad9",
+    "acknowledgedID": "cdc46ad9"
+  },
+  "finalRepackageRequired": false,
+  "coverage": "both reported missing cases pass; no universal catalog coverage claim",
+  "samplingChecks": 9,
+  "publicWebFallback": "read-only regional Music search/album documents; no scripts, tokens, account or cookies",
+  "publicWebPhysicalValidation": "user confirms second formerly missing cover appears, matches, clear and upright",
+  "publicWebDeviceCover": {
+    "width": 336,
+    "height": 336,
+    "encoding": "jpeg",
+    "bytes": 50936,
+    "desiredID": "1ec7aaad",
+    "acknowledgedID": "1ec7aaad"
+  },
+  "blackLineCompatibility": "width hypothesis withdrawn; same-dimension RLE comparison removes black lines; device JPEG cache fix prepared",
+  "blackLineDeviceCover": {
+    "width": 336,
+    "height": 335,
+    "encoding": "jpeg",
+    "bytes": 41119,
+    "desiredID": "a633b40d",
+    "acknowledgedID": "a633b40d"
+  },
+  "blackLineRLEAccepted": true,
+  "finalReleaseBundle": "artifacts/mac-music-artwork-final-20261024/AIBotBridge.app",
+  "finalReleaseExecutableSHA256": "0b56a21280e1d744bec085cba69a8abe0313289b2687cf980bab743e994e9db3",
+  "preparedFirmware": "0.2.268-ui",
+  "finalReleaseResignedChecksPassed": true,
+  "jpegAcknowledgedAfterFirmwareFix": true,
+  "finalJPEGPhysicalAcceptance": "pending user"
+}

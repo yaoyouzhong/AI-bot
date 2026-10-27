@@ -158,10 +158,13 @@ internal sealed class LanStatusServer
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
 
             var statusCode = !authenticated ? "401 Unauthorized" : found ? "200 OK" : "404 Not Found";
+            if(found)EspLanDiagnostics.Request(authenticated);
             var body = authenticated && found
-                ? JsonSerializer.Serialize(snapshot(), JsonDefaults.Options)
+                ? DeviceStatusFrame.CreateLan(snapshot()).ToJsonString(JsonDefaults.Options)
                 : authenticated ? "{\"error\":\"not_found\"}" : "{\"error\":\"unauthorized\"}";
-            await WriteResponseAsync(stream, statusCode, body, cancellationToken);
+            bool sent=false;
+            try {await WriteResponseAsync(stream, statusCode, body, cancellationToken);sent=true;}
+            finally {if(authenticated&&found)EspLanDiagnostics.Complete(sent,Encoding.UTF8.GetByteCount(body));}
             if(authenticated&&found) {
                 _legacyFirmware?.Invoke(lines.FirstOrDefault(line=>line.StartsWith("X-AIBot-Firmware:",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim());
                 _legacyActivity?.Invoke();
@@ -188,7 +191,7 @@ internal sealed class LanStatusServer
             var galleryProfile=rpc?service?.ActiveGalleryHostProfile:null;
             long profileStart=Tab5GalleryHostProfile.Now;
             var reply=service is null?(Status:401,Packet:(byte[]?)null):rpc?
-                await service.RpcAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,allowOta:false,transport:"Wi-Fi"):
+                await service.RpcAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken,allowOta:true,transport:"Wi-Fi"):
                 await service.VoiceAsync(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),packet,cancellationToken);
             long handled=Environment.TickCount64;
             long profileHandled=Tab5GalleryHostProfile.Now;
