@@ -135,3 +135,9 @@ The earlier batch contained 52 regenerated or added screenshots. A subsequent au
 上述画面由 .234 实际 sidecar 的原生 LVGL 预览生成，顶部和滚动后的内容均已审阅。“当前 .21”为隔离夹具；目标 .234 及说明来自真实交付元数据，不能视为硬件摄影。原版 c608 的精确 .234／VALID／三实时样本纯 BLE 实机核验另见 [验收](development/TAB5-BLE-UPTIME-20261019.md)。其他界面没有因报告时间修复重画；既有原生素材来源保留。
 
 These are native LVGL previews using the actual .234 sidecar. The current .21 is a synthetic fixture; target .234 and its notes are actual delivery metadata. Both top and scrolled states were visually reviewed. They are isolated captures, with separate linked exact-image/VALID/three-sample BLE hardware acceptance. Unchanged native footage retains its existing provenance.
+
+## ESP8266 0.5.7 重置信息 / Reset text
+
+![原字号的加粗前后对照](assets/screens/esp8266-reset-text-057.png)
+
+来自生产 Font2 / 14px 栅格的隔离对照，保持原字号与间距；不是实机照片。用户已另行确认刷入后字体更清晰。 / Production Font2 raster comparison, same size and spacing; not a device photo. The user separately accepted the installed appearance.

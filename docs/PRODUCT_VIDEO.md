@@ -23,3 +23,5 @@ MP4 SHA-256: `94ec158b1ac95c58bdb34b7062149db7ca06457cb46acc8c5025d659f7611985`
 完整 1,920 帧解码、128 张联系帧、6 处转场、三种封面、字体／图片加载与确定性定位检查通过。配乐与 8 项动作音效为原创合成；沿用工具代码保留 AGPL-3.0，Inter/Noto 字体保留 OFL，完整来源见工程内 SOURCES.md 和许可文件。主观试听未验。本次按 GitHub CLI 发布视频附件与封面入口，不声称已验证浏览器内播放。
 
 The 64-second film covers desktop 0.6.11 and TAB5 .281 with native synthetic fixtures, shared Windows/Mac device UI, voice drafts, hold-to-clear and independent updates. It does not depict a Mac desktop or hardware photography. Retained ESP8266 cover pixels do not demonstrate the new font weight. Full decoding, 128 contact frames, six transitions, three covers and font/image/seek checks passed. The source archive retains provenance, AGPL/OFL notices and original synthesized music/effects. Subjective listening and public browser playback remain unverified; use the MP4 download above.
+
+公开 MP4 已完整下载校验，SHA-256 与上列本地成品一致。源码包独立解压重建的 HTML 摘要一致。 / The complete public MP4 download matches the local SHA-256; the independently extracted source rebuilt identical HTML.

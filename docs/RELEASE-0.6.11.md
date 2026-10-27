@@ -25,3 +25,5 @@ TAB5 输入草稿新增长按清空：短按不清空，保留照片、忙碌保
 ## English
 
 Desktop 0.6.11 supports TAB5 on Windows and Apple Silicon macOS; TAB5 .281 adds hold-to-clear while retaining photos, and ESP8266 .57 strengthens reset-credit text. The release also improves Windows voice focus, delayed text handling, bounded history, previews, quota-source separation and small-screen Wi-Fi fallback. Mac permissions, speech and computer-control paths are platform-specific. Packages are unsigned/ad-hoc signed as documented, not notarized. Existing devices use upgrade packages and retain settings; factory ZIPs are only for first installation. User hardware acceptance, Mac phase records, static BLE frame checks and the unmeasured runtime stack watermark are recorded separately above. Review recognized text before sending.
+
+[正式发布与摘要核验 / Publication and checksum verification](development/RELEASE-0611-CLOSEOUT-20261027.md)

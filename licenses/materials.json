@@ -218,7 +218,8 @@
     "docs/assets/screens/tab5-draft-clear-empty-281.png": "3bf297b595673af3b52e582b10bd497242851e039082bacc3473f784a858ddb1",
     "docs/assets/screens/tab5-draft-clear-retyped-281.png": "e8b7f197b0b25dbbe72d1f12438d6f5560230553f4fb5391a8a2e0771252932c",
     "docs/assets/screens/tab5-quota-281.png": "4a0b14e09e41293ea382bf7eb0ab20c97a466144c7fe8a4409ead5594d3cbbf4",
-    "docs/assets/screens/model-accounts-0611.png": "bf812b1fdd7c8d34e059e1b2f4a627c87809d4b166c0af850c9e244ac8418026"
+    "docs/assets/screens/model-accounts-0611.png": "bf812b1fdd7c8d34e059e1b2f4a627c87809d4b166c0af850c9e244ac8418026",
+    "docs/assets/screens/esp8266-reset-text-057.png": "849e47fd5d5b1c6586fdec508f0c9c88efe2ff9f897a10a7723010e24e1fd9ff"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

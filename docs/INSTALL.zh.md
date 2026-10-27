@@ -184,3 +184,5 @@ Windows and Apple Silicon Mac now support TAB5. Use first-install ZIP only for f
 ![长按清空后：文字清空，照片保留](assets/screens/tab5-draft-clear-empty-281.png)
 
 这些是生产 LVGL 的隔离渲染，非实机照片；Windows 与 Mac 使用同一设备界面。 / Native isolated LVGL fixtures, shared by Windows and Mac; not hardware photos.
+
+小屏 0.5.7 的重置信息加粗对照见[截图说明](SCREENSHOTS.md)。升级保留原轮播页面、顺序和间隔。 / ESP8266 0.5.7 strengthens reset text while retaining existing cycle pages, order and interval; see the screenshot guide.
