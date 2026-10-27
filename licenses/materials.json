@@ -14,7 +14,10 @@
     "qqmusic-clock-reference/LICENSE": "91b7f61e4d71c4a2a2b3357bc2ff217ca54bb5354686c367c45a2c3873ea6a0f",
     "qqmusic-clock-reference/ORIGIN.md": "77276784ca0cba26fa4951ed03952b4fa15999ee94a118eef77b8d0ddb105b38",
     "tightvnc/LICENSE.txt": "189b1af95d661151e054cea10c91b3d754e4de4d3fecfb074c1fb29476f7167b",
-    "tightvnc/ORIGIN.md": "be49a52472aab700600a01a96ac051e4f0d91fd790a7451c64fc41718823d586"
+    "tightvnc/ORIGIN.md": "be49a52472aab700600a01a96ac051e4f0d91fd790a7451c64fc41718823d586",
+    "pdfpig/LICENSE": "4c510e162f896ea43b4b1cf1b743641d7c756f1004d0e5eaf0615b28b7ded409",
+    "pdfpig/SOURCE.json": "7bc26e6e8658e4685767e880c0e7c314fd964360a2168b842d2b761b008c3582",
+    "pmo-calendar/NOTICE.md": "3c13d8d0b8103a1486fa32c5ef525e8749210ce612fa30ca9b97f661b0f2f380"
   },
   "windowsSdk": {
     "version": "10.0.22000.56",
@@ -210,7 +213,12 @@
     "docs/development/tab5-279-source/source/firmware/assets/brands/minimax-source.png": "0aae2ffc825290a09480fc96764af962158fef670a7e8059c25b5413f0354489",
     "docs/development/tab5-279-source/source/firmware/assets/brands/codex.png": "8e82b26c98a10e45798ce48124515720657f7735fb8d0853b3f087eaa8a6b74e",
     "docs/development/tab5-279-source/source/firmware/assets/brands/minimax.png": "d98ca982c84da6c9b1d2f4a3f930c685127cced8621483bdbc0114a4cade6eb7",
-    "docs/development/tab5-279-source/source/firmware/assets/brands/alibaba-verified-20261010.png": "9e20727fd7f2a713560c8b4eed774a9ef3548067962f5deafebe632b6b2bf40d"
+    "docs/development/tab5-279-source/source/firmware/assets/brands/alibaba-verified-20261010.png": "9e20727fd7f2a713560c8b4eed774a9ef3548067962f5deafebe632b6b2bf40d",
+    "docs/assets/screens/tab5-draft-clear-before-281.png": "75ea9a96e551287bf67cdf3e5ccea0d0326f477f435bb922505bfe1bc44c97da",
+    "docs/assets/screens/tab5-draft-clear-empty-281.png": "3bf297b595673af3b52e582b10bd497242851e039082bacc3473f784a858ddb1",
+    "docs/assets/screens/tab5-draft-clear-retyped-281.png": "e8b7f197b0b25dbbe72d1f12438d6f5560230553f4fb5391a8a2e0771252932c",
+    "docs/assets/screens/tab5-quota-281.png": "4a0b14e09e41293ea382bf7eb0ab20c97a466144c7fe8a4409ead5594d3cbbf4",
+    "docs/assets/screens/model-accounts-0611.png": "bf812b1fdd7c8d34e059e1b2f4a627c87809d4b166c0af850c9e244ac8418026"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",
