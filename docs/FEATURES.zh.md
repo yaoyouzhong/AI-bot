@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-当前 Windows **0.6.9**、Mac **0.6.7**、TAB5 **0.2.217-ui**、ESP8266 **0.5.3**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.9.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
+当前 Windows / Mac **0.6.11**、TAB5 **0.2.281-ui**、ESP8266 **0.5.7**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.11.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -376,7 +376,7 @@ Windows 0.6.9 + TAB5 217 provide volume/mute/lock, actual lock state and four lo
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.9, Mac download 0.6.7, ESP8266 0.5.3 and TAB5 0.2.217-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows/Mac 0.6.11, ESP8266 0.5.7 and TAB5 0.2.281-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
 **TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Art screensavers support portrait rotation; normal system pages remain landscape and can automatically flip 180 degrees with touch following. Art collections are optional downloads.
 
@@ -391,3 +391,11 @@ Agenda/reminders in TAB5 210 support local persistence, offline edits/deletions 
 ## 本地候选：电脑一键解锁
 
 TAB5 可经 USB、蓝牙或 Wi-Fi 解锁；Windows 端保存 PIN，TightVNC 密码自动生成或从兼容安装自动接入，页面不要求填写。组件安装／卸载需管理员确认，已有外部安装保留原配置。最终验收与支持边界见 [本轮收尾](development/RELEASE-0610-229-CLOSEOUT-20261019.md)。
+
+## 本轮输入界面 / Current draft editor
+
+![TAB5 .281 长按清空前：原生演示数据](assets/screens/tab5-draft-clear-before-281.png)
+
+![长按清空后：文字清空，照片保留](assets/screens/tab5-draft-clear-empty-281.png)
+
+这些是生产 LVGL 的隔离渲染，非实机照片；Windows 与 Mac 使用同一设备界面。 / Native isolated LVGL fixtures, shared by Windows and Mac; not hardware photos.

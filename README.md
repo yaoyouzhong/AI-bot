@@ -53,11 +53,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 <sub>两图均为硬件外观与 AI-bot 界面的合成展示，使用演示数据，非实机拍摄；不按实物比例排列。<a href="docs/HARDWARE-IMAGES.md">图片来源与说明</a></sub>
 
-新版 116 秒视频展示电脑一键解锁、TightVNC 自动安装／接入与双向已读同步，使用实际 234 更新说明，并保留日程、时钟、额度和艺术浏览。画面来自原生界面的隔离演示数据，非硬件实拍。
+新版 64 秒视频介绍 TAB5 连接 Windows / Mac、会话与语音草稿、长按清空、额度来源和独立更新，使用实际 .281 更新说明。画面来自原生界面的隔离演示数据，非硬件实拍。
 
-https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
+[![AI-bot 0.6.11 / TAB5 .281](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)
 
-<sub>116 秒中文产品介绍，可在本页直接播放。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4)</sub>
+<sub>64 秒新版产品介绍，点击封面打开或下载。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)</sub>
 
 ## 能做什么
 
@@ -159,4 +159,4 @@ https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 
 自有代码（含 TAB5）采用 [MIT 许可](LICENSE)，第三方组件与艺术作品保留原许可。项目独立开发，与提及的 AI 厂商无隶属关系。[反馈问题](https://github.com/yaoyouzhong/AI-bot/issues)时请附平台、版本、硬件与复现步骤，并移除凭据和私人日志。
 
-Windows 0.6.10 / TAB5 0.2.234-ui 增加电脑一键解锁与 TightVNC 自动安装／接入，无需填写组件密码；音量拖动恢复、双向 Codex 已读同步、纯 BLE 启动核验及重启／USB 变化后的电量显示已完成真机验收。安装包、固件和对应源码已正式发布。[准备与验收记录](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md)。
+历史版本 Windows 0.6.10 / TAB5 0.2.234-ui 增加电脑一键解锁与 TightVNC 自动安装／接入，无需填写组件密码；音量拖动恢复、双向 Codex 已读同步、纯 BLE 启动核验及重启／USB 变化后的电量显示已完成真机验收。安装包、固件和对应源码已正式发布。[准备与验收记录](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md)。

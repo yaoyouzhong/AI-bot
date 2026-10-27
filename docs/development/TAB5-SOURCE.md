@@ -1,4 +1,10 @@
-# 当前开发源码 / Current development source: 0.2.279-ui
+# 当前发布源码 / Current release source: 0.2.281-ui
+
+[完整 .281 源码包](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.281-ui/AI-bot-tab5-0.2.281-ui-source.zip)包含完整 .279 基线、全部 .281 修改、恢复的测试、依赖覆盖文件、SDK/NimBLE 补丁、配置和许可证。7,531 个冻结输入与声明变更、9 个 SDK 修改文件及已刷 BIN/ELF 摘要逐项复核；不是刷机文件，不宣称独立逐位重建。
+
+The complete .281 source archive includes the accepted baseline, all changes and restored tests, dependency overrides, SDK patches, configuration and licenses. It matches the installed application identity; independently reproducible binary output is not claimed.
+
+# 历史开发源码 / Previous source: 0.2.279-ui
 
 [完整 .279 项目源码、依赖修改与重建说明](tab5-279-source/README.md)已补齐。归档含 930 个项目文件、6 个已修改依赖文件、SDK/NimBLE 补丁、实际配置和许可；7,531 个冻结输入摘要已核对。无需拼接旧版本覆盖包，不包含生成镜像或本地设备状态；不宣称独立逐位重建。以下 .264 及更早记录保留为历史。
 

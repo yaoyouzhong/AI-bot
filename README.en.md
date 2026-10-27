@@ -53,11 +53,11 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 <sub>Both pictures combine hardware imagery with the AI-bot interface and demo data; they are not hardware photographs or shown to a common physical scale. <a href="docs/HARDWARE-IMAGES.md">Image sources and notes</a></sub>
 
-The updated 116-second Chinese tour adds computer unlock, automatic TightVNC setup/import and bidirectional read synchronization, uses the actual .234 notes and retains agenda, clocks, quotas and artwork browsing. Native interfaces use isolated demo data, not hardware photographs.
+The new 64-second film covers TAB5 on Windows and Apple Silicon Mac, voice drafts, hold-to-clear, account sources and independent updates using the actual .281 notes. Native fixtures contain synthetic data; they are not hardware photographs.
 
-https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
+[![AI-bot 0.6.11 / TAB5 .281](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)
 
-<sub>116-second Chinese tour. Play directly on this page. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
+<sub>64-second Chinese tour. Open or download the MP4. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
 
 ## What it does
 
@@ -157,4 +157,4 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 Own code, including TAB5, is [MIT licensed](LICENSE). Third-party components and artworks retain their original licenses. This independent project has no affiliation with the named AI providers. [Report issues](https://github.com/yaoyouzhong/AI-bot/issues) with your platform, versions, hardware and reproduction steps; remove credentials and private logs.
 
-The Windows 0.6.10 / TAB5 0.2.234-ui release adds computer unlock and automatic TightVNC setup/import without a manually entered component password. Volume-drag recovery, bidirectional Codex read sync, isolated BLE boot verification and battery display after reboot/USB changes have passed hardware acceptance. The installer, firmware and corresponding source are published. [Preparation and acceptance](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).
+The earlier Windows 0.6.10 / TAB5 0.2.234-ui release added computer unlock and automatic TightVNC setup/import without a manually entered component password. Volume-drag recovery, bidirectional Codex read sync, isolated BLE boot verification and battery display after reboot/USB changes have passed hardware acceptance. The installer, firmware and corresponding source are published. [Preparation and acceptance](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).

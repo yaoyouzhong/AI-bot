@@ -80,8 +80,8 @@
     "docs/assets/guides/serial.svg": "e457b5ac4e3e23babb4d4026f500ea8b9a91acd4c278ad19ae75a103085e11f8",
     "docs/assets/guides/flash-result.svg": "29f268002ab65d368d1d7217ccaf71108c51b7ae699a0d8f8fe28e3ad73cecf3",
     "docs/assets/guides/setup.svg": "5d8b26939336e30c876e3f6a5e3909eb5dce72409b5a6b7a7c796051b787ac89",
-    "docs/assets/product-intro/AI-bot-cover.png": "610e989caed175a7702a0a23e40f62452a28deeee29169ecc07ef905a80d0fd5",
-    "docs/assets/product-intro/AI-bot-product-intro.mp4": "dac2d70ef3d132d2bc4042c56c9010094ec5f3631ce649096ba30c0b333f838b",
+    "docs/assets/product-intro/AI-bot-cover.png": "63568df6109ab5cccfcfe07f3312a8b27de6e47c920104ed098fba715fd0e956",
+    "docs/assets/product-intro/AI-bot-product-intro.mp4": "94ec158b1ac95c58bdb34b7062149db7ca06457cb46acc8c5025d659f7611985",
     "docs/assets/screens/firmware-flasher.png": "1d98e295caa5a18a156607af352a84de66580066f1860734bb6a8b01e94cbf0a",
     "windows-app/AIBotBridge/Assets/flash-icon.ico": "af7ba3d354f2043e26f6935965d1600f498d812229478474dd9caf4ded94f555",
     "docs/assets/screens/device-center.png": "85b914378814e3274d8677ad6ad63541d33c71d9f6166140b66ae5135cb965cb",
@@ -147,8 +147,8 @@
     "docs/assets/screens/tab5-settings-info.png": "aec6540079f4eaef5467189a9b9580762b913ac1455e9d7d9ce53478c95e85b3",
     "docs/assets/screens/tab5-clock-geometric.png": "88daaac5e82737ed83b0b5a4e23b7485524f4f5428790ee362d5552c8125ce6c",
     "docs/assets/screens/tab5-clock-star.png": "35fdf448f542a429eeb3c67a995ae068c47de75f7a912f7ac194040a5585692f",
-    "docs/assets/product-intro/AI-bot-cover-3x4.png": "d0aad1f0cce05c5329682d1cf1f75b35ec68b878c7239ca92d00d20cc73aa17d",
-    "docs/assets/product-intro/AI-bot-cover-4x3.png": "b533d10878be7b28ed04c59d424f5862f08c80923705b699500f635b9790085a",
+    "docs/assets/product-intro/AI-bot-cover-3x4.png": "f03dfe2fef65f4486f368fa95d7e68b4baae746d7e0aee46937ca25be71f7fbf",
+    "docs/assets/product-intro/AI-bot-cover-4x3.png": "421b153a5385cd83f787ab4a69e2a9c102eb9e8219bef1c1042089a4edd60c9a",
     "docs/assets/screens/tab5-settings-storage.png": "e0423598b37941a0dbbb9337358ddcf2e42579c9c36a802d85ff1126339ca621",
     "docs/assets/screens/gallery-browser.png": "547b550acd6857d95927c5c7dc7628d07f2647178fdc4a50537e59411b8716e7",
     "docs/assets/screens/gallery-fullscreen.png": "58cef39ef6b0b9273f459802af3fa214a3ed21bc16594769c40cbb87abf7b24b",
@@ -251,5 +251,12 @@
     "archive": "docs/development/tab5-279-source/SOURCE.json",
     "binaryInputCount": 44,
     "binaryInputProvenance": "All byte-identical to published TAB5 0.2.234-ui corresponding source; component/font/asset terms retained in source tree. esp_ipa vendor library is unchanged, not a new build output."
+  },
+  "productVideo20261027": {
+    "sourceArchive": "AI-bot-product-video-source-20261027-0611-281.zip",
+    "sourceArchiveSha256": "887334f8eb9a911fe55feae70abd41b2cf65ff4d98c5c31d93decadc68d21371",
+    "videoSha256": "94ec158b1ac95c58bdb34b7062149db7ca06457cb46acc8c5025d659f7611985",
+    "scope": "64-second native fixture film; shared TAB5 UI supports Windows and Apple Silicon Mac; no Mac desktop capture",
+    "license": "Retained AGPL-3.0 tool code, OFL fonts and original synthetic music; see archive notices"
   }
 }
