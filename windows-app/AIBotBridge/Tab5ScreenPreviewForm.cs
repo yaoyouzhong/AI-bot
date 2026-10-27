@@ -25,6 +25,8 @@ internal sealed class Tab5ScreenPreviewForm: Form
     private void RefreshFrame() {
         if(!Visible||WindowState==FormWindowState.Minimized){if(_token.Length>0)StopPreview();return;}
         if(!_valid()){StopPreview();_status.Text="设备已移除或停用。";return;}
+        var context=_service.ScreenPreviewContext;
+        _timer.Interval=context?.Responsive==true&&(context.Transports.Contains("USB")||context.Transports.Contains("Wi-Fi"))?100:1000;
         if(_token.Length==0)_token=_service.ScreenPreview.Start(_service.ScreenPreviewContext);
         _service.ScreenPreview.Renew(_token,_service.ScreenPreviewContext);
         var snapshot=_service.ScreenPreview.Snapshot(_token);if(_status.Text!=snapshot.Note)_status.Text=snapshot.Note;

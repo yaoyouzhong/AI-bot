@@ -26,6 +26,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     private readonly Tab5CaptureActivity _activity=new();
     private int _tab5Samples;
     private int _peakBufferedMs;
+    private bool _focusPaused;
     private static int BufferedMs(BufferedWaveProvider buffer)=>(int)(1000L*buffer.BufferedBytes/buffer.WaveFormat.AverageBytesPerSecond);
     // Admit one <=200ms TAB5 block only below the 200ms low watermark.
     // Delayed network bursts stay upstream instead of filling two seconds here.
@@ -33,10 +34,19 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         buffer.BufferedBytes<=buffer.WaveFormat.AverageBytesPerSecond/5&&buffer.BufferLength-buffer.BufferedBytes>=6400;
     public bool CanAcceptAudio {
         get {
+            if(_focusPaused)return false;
             if(_outputFailed||_source!="tab5"||_buffer is null||_output?.PlaybackState!=PlaybackState.Playing)
                 throw new InvalidOperationException("TAB5 音频播放未就绪");
             return HasPlaybackRoom(_buffer);
         }
+    }
+    public void PauseForFocus(bool paused) {
+        if(_focusPaused==paused)return;
+        if(_output is not null) {
+            if(paused)_output.Pause();
+            else _output.Play();
+        }
+        _focusPaused=paused;
     }
     public string PlaybackDiagnostic=>$"playbackBufferedMs={(_buffer is null?0:BufferedMs(_buffer))}; playbackPeakMs={_peakBufferedMs}; output={_output?.PlaybackState.ToString()??"closed"}";
     public bool? CapturedSound=>_activity.Sound;
@@ -151,7 +161,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         // endpoint or make the next start reuse half-disposed capture state.
         var capture=_capture;var output=_output;var inputDevice=_inputDevice;var outputDevice=_outputDevice;
         _capture=null;_output=null;_buffer=null;_inputDevice=null;_outputDevice=null;_source=SourceName="";
-        _hasInputData=false;_prepared=false;
+        _hasInputData=false;_prepared=false;_focusPaused=false;
         Volatile.Write(ref _inputLevel,0);Interlocked.Exchange(ref _levelAt,0);
         try {try{capture?.StopRecording();}finally{capture?.Dispose();}}
         finally {

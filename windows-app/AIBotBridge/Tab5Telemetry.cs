@@ -91,7 +91,7 @@ internal sealed partial class Tab5Service
         }
     }
     private byte[]? ResourceFrame(int channel) {
-        if(BackgroundTransferPaused||!_assets.JpegSupported||!_assets.HasPending||_store.Current is not {} pair)return null;
+        if(BackgroundAssetTransferPaused||!_assets.JpegSupported||!_assets.HasPending||_store.Current is not {} pair)return null;
         var resources=_assets.NextBatch(channel==1?8:4);
         return resources.Length==0?null:JsonSerializer.SerializeToUtf8Bytes(new {
             version=1,type="tab5_resources",deviceId=pair.DeviceId,session=_session,

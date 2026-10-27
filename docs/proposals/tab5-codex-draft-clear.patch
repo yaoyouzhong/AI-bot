@@ -1,0 +1,1249 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -421,7 +421,7 @@
+ static lv_obj_t *battery_label,*battery_outline,*battery_fill,*battery_cap,*battery_charge;
+ static lv_obj_t *sound_header_button,*sound_header_icon;
+ static bool quick_visible;
+-static lv_obj_t *codex_run_badge;
++static lv_obj_t *codex_run_badge, *codex_clear_button;
+ static bool ota_completion_render_pending,ota_completion_rendered;
+ static int64_t network_retry_until;
+ typedef ui_reading_bookmark codex_bookmark;
+@@ -1129,8 +1129,29 @@
+     cJSON *control=item(item(shown,"codexTasks"),"control");
+     return !strcmp(text(control,"taskId"),codex_selected)&&yes(control,"running")&&strlen(text(control,"turnId"))==36;
+ }
++static bool codex_can_clear(void) {
++    codex_draft *d=codex_draft_for(codex_selected,false);
++    return codex_input&&codex_selected[0]&&!codex_waiting&&!codex_voice_waiting&&!codex_send_queued&&!photo_flow&&
++        !(d&&d->request[0])&&!lv_obj_has_state(codex_input,LV_STATE_DISABLED);
++}
++static void codex_clear_text(lv_event_t *e) {
++    if(lv_event_get_code(e)!=LV_EVENT_LONG_PRESSED||!codex_can_clear())return;
++    if(!lv_textarea_get_text(codex_input)[0]&&!tab5_ime_pending()[0])return;
++    codex_draft *d=codex_draft_for(codex_selected,true);
++    if(!codex_store_text(d,"",true)) {ui_text(codex_voice_hint,"草稿暂存空间不足");return;}
++    // An explicit clear also invalidates an in-flight load when only spelling existed.
++    d->revision++;d->dirty=true;d->loaded=true;d->edited=++codex_edit_sequence;codex_local_dirty=true;
++    tab5_ime_reset_for(codex_ime_panel);codex_set_text("");
++    codex_edit_at=esp_timer_get_time()/1000;codex_sync_next=codex_edit_at+1800;
++    ui_text(codex_receipt,"");
++    ui_text(codex_voice_hint,codex_checkpoint_write()?"文字已清空":"文字已清空，本机保存失败，请保留当前页面");
++}
+ static void codex_control_style(void) {
+     if(!codex_send_button)return;
++    if(codex_clear_button) {
++        if(codex_can_clear())lv_obj_remove_state(codex_clear_button,LV_STATE_DISABLED);
++        else lv_obj_add_state(codex_clear_button,LV_STATE_DISABLED);
++    }
+     codex_draft *d=codex_draft_for(codex_selected,false);
+     if(!codex_waiting&&!codex_send_queued)ui_text(lv_obj_get_child(codex_send_button,0),d&&d->request[0]?"查询送达":codex_running()?"追加":"发送");
+     if(codex_interrupt_button) {
+@@ -1430,7 +1451,7 @@
+     cJSON *receipt = item(item(remote, "receipts"), codex_selected);
+     bool task_running=cJSON_IsString(receipt)&&!strcmp(receipt->valuestring,"运行中");
+     visible(codex_run_badge,task_running);
+-    int hint_width=task_running?432:566;
++    int hint_width=task_running?280:422;
+     if(lv_obj_get_width(codex_hint)!=hint_width)lv_obj_set_width(codex_hint,hint_width);
+     if (cJSON_IsString(receipt)) {
+         if(codex_submit_accepted&&strcmp(receipt->valuestring,codex_receipt_before_send)) {
+@@ -3524,7 +3545,7 @@
+     }
+     crash_record_checkpoint(channel,stage,current_page);
+ }
+-static void app_icon(lv_obj_t *button_obj,int kind) {
++static UI_INIT_SMALL void app_icon(lv_obj_t *button_obj,int kind) {
+     const uint32_t colors[]={AMBER,BLUE,GREEN,0xD5BCE5,0xB9D6D2,0xE2B5A7};
+     const uint32_t backgrounds[]={0x403A2F,0x2B414A,0x2C4036,0x3D3348,0x2B403F,0x493A36};
+     uint32_t c=colors[kind];
+@@ -3894,8 +3915,8 @@
+     }
+     lv_obj_t *task_right = card(tasks_page, 414, 0, 806, 512);
+     lv_obj_set_style_pad_all(task_right,24,0);
+-    codex_hint=label(task_right,"输入",0,0,566,false);
+-    codex_run_badge=label(task_right,"运行中",446,-2,126,false);
++    codex_hint=label(task_right,"输入",0,0,422,false);
++    codex_run_badge=label(task_right,"运行中",296,-2,126,false);
+     tint(codex_run_badge,0xA6F2BA);lv_obj_set_height(codex_run_badge,36);
+     ui_bg_color(codex_run_badge,lv_color_hex(0x23533B),0);ui_bg_opa(codex_run_badge,LV_OPA_COVER,0);
+     lv_obj_set_style_radius(codex_run_badge,8,0);lv_obj_set_style_text_align(codex_run_badge,LV_TEXT_ALIGN_CENTER,0);
+@@ -3938,6 +3959,13 @@
+     lv_obj_set_height(codex_send_button,56);lv_obj_center(lv_obj_get_child(codex_send_button,0));
+     codex_receipt = label(task_right, "", 0, 400, 570, false);
+     lv_obj_set_height(codex_receipt,64);lv_label_set_long_mode(codex_receipt,LV_LABEL_LONG_DOT);
++    codex_clear_button=button(task_right,"长按清空",438,-8,144,codex_clear_text,0);
++    lv_obj_add_event_cb(codex_clear_button,codex_clear_text,LV_EVENT_LONG_PRESSED,NULL);
++    lv_obj_set_height(codex_clear_button,48);lv_obj_center(lv_obj_get_child(codex_clear_button,0));
++    ui_bg_opa(codex_clear_button,LV_OPA_TRANSP,0);
++    lv_obj_set_style_border_width(codex_clear_button,1,0);
++    ui_border_color(codex_clear_button,lv_color_hex(TRACK),0);
++    lv_obj_add_state(codex_clear_button,LV_STATE_DISABLED);
+     codex_reply_button=button(task_right,"查看回复",598,-8,160,codex_reply_open,0);
+     lv_obj_set_height(codex_reply_button,48);lv_obj_center(lv_obj_get_child(codex_reply_button,0));
+     ui_bg_opa(codex_reply_button,LV_OPA_TRANSP,0);
+--- a/firmware/main/ui_computer.h
++++ b/firmware/main/ui_computer.h
+@@ -259,7 +259,7 @@
+         d.p[1]=points[2];d.p[2]=points[3];lv_draw_triangle(layer,&d);
+     }
+ }
+-static void computer_create(lv_obj_t *parent) {
++static UI_INIT_SMALL void computer_create(lv_obj_t *parent) {
+     // Icon state/cache belongs in PSRAM; keep internal RAM for radio/task stacks.
+     computer_view=codex_alloc(sizeof(*computer_view));
+     computer_launch_pixels=codex_alloc(4*sizeof(*computer_launch_pixels));
+--- a/firmware/main/ui_gallery_reader.h
++++ b/firmware/main/ui_gallery_reader.h
+@@ -224,7 +224,7 @@
+     tint(gallery_page_count,ink);
+     tint(gallery_footer_title,category?0x332E27:0xEDF0E9);tint(gallery_footer_museum,ink);tint(gallery_footer_date,ink);
+ }
+-static void gallery_reader_create(void) {
++static UI_INIT_SMALL void gallery_reader_create(void) {
+     lv_display_add_event_cb(lv_display_get_default(),gallery_reader_painted,LV_EVENT_REFR_READY,NULL);
+     gallery_reading=calloc(1,sizeof(*gallery_reading));
+     gallery_controls=lv_obj_create(gallery_layer);lv_obj_remove_style_all(gallery_controls);lv_obj_set_size(gallery_controls,1280,720);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -3088,6 +3088,49 @@
+     type_spelling("nihao");assert(press_text(codex_keyboard,LV_SYMBOL_BACKSPACE));
+     assert(!strcmp(tab5_ime_pending(),"niha"));type_spelling("o");choose_word("你好");
+     capture("codex-pinyin-committed");
++    // Long-press the real button with the keyboard open, including pending IME text.
++    codex_draft *clear_draft=codex_draft_for(codex_selected,false);assert(clear_draft);
++    char clear_before[2001];snprintf(clear_before,sizeof(clear_before),"%s",lv_textarea_get_text(codex_input));
++    const char *clear_image="d0000000-0000-4000-8000-000000000001";
++    snprintf(clear_draft->images[0],37,"%s",clear_image);
++    type_spelling("nihao");codex_control_style();capture("codex-clear-before");
++    unsigned clear_revision=clear_draft->revision;
++    lv_obj_send_event(codex_clear_button,LV_EVENT_SHORT_CLICKED,NULL);
++    lv_obj_send_event(codex_clear_button,LV_EVENT_CLICKED,NULL);
++    assert(!strcmp(lv_textarea_get_text(codex_input),clear_before)&&!strcmp(tab5_ime_pending(),"nihao"));
++    assert(clear_draft->revision==clear_revision);
++    codex_voice_waiting=true;codex_control_style();
++    assert(lv_obj_has_state(codex_clear_button,LV_STATE_DISABLED));
++    lv_obj_send_event(codex_clear_button,LV_EVENT_LONG_PRESSED,NULL);assert(!strcmp(lv_textarea_get_text(codex_input),clear_before)&&tab5_ime_pending()[0]);
++    codex_voice_waiting=false;codex_send_queued=true;lv_obj_send_event(codex_clear_button,LV_EVENT_LONG_PRESSED,NULL);
++    assert(!strcmp(lv_textarea_get_text(codex_input),clear_before));codex_send_queued=false;
++    snprintf(clear_draft->request,37,"d0000000-0000-4000-8000-000000000002");lv_obj_send_event(codex_clear_button,LV_EVENT_LONG_PRESSED,NULL);
++    assert(!strcmp(lv_textarea_get_text(codex_input),clear_before));clear_draft->request[0]=0;
++    codex_control_style();assert(!lv_obj_has_state(codex_clear_button,LV_STATE_DISABLED));
++    lv_obj_send_event(codex_clear_button,LV_EVENT_LONG_PRESSED,NULL);
++    assert(!lv_textarea_get_text(codex_input)[0]&&!tab5_ime_pending()[0]);
++    assert(clear_draft->dirty&&clear_draft->loaded&&clear_draft->revision>clear_revision&&!clear_draft->text[0]);
++    assert(!strcmp(clear_draft->images[0],clear_image)&&!preview_checkpoint.text[0]);
++    assert(!strcmp(preview_checkpoint.images[0],clear_image));
++    assert(!lv_obj_has_flag(codex_keyboard,LV_OBJ_FLAG_HIDDEN));capture("codex-clear-empty");
++    type_spelling("nihao");choose_word("你好");assert(!strcmp(lv_textarea_get_text(codex_input),"你好"));
++    // Release/repeat events after a long press must not clear newly entered text.
++    lv_obj_send_event(codex_clear_button,LV_EVENT_LONG_PRESSED_REPEAT,NULL);
++    lv_obj_send_event(codex_clear_button,LV_EVENT_RELEASED,NULL);
++    lv_obj_send_event(codex_clear_button,LV_EVENT_CLICKED,NULL);
++    assert(!strcmp(lv_textarea_get_text(codex_input),"你好"));
++    capture("codex-clear-retyped");
++    // Spelling-only clearing is intentional and must supersede an older host load.
++    lv_textarea_set_text(codex_input,"");clear_draft->dirty=false;clear_draft->loaded=false;
++    clear_revision=clear_draft->revision;type_spelling("nihao");lv_obj_send_event(codex_clear_button,LV_EVENT_LONG_PRESSED,NULL);
++    assert(!tab5_ime_pending()[0]&&clear_draft->dirty&&clear_draft->loaded&&clear_draft->revision>clear_revision);
++    // A failed checkpoint remains dirty for retry, with a truthful visible warning.
++    lv_textarea_set_text(codex_input,"待清空");assert(codex_save_draft());preview_checkpoint_ok=false;
++    lv_obj_send_event(codex_clear_button,LV_EVENT_LONG_PRESSED,NULL);
++    assert(!lv_textarea_get_text(codex_input)[0]&&codex_local_dirty&&strstr(lv_label_get_text(codex_voice_hint),"保存失败"));
++    preview_checkpoint_ok=true;assert(codex_checkpoint_write()&&!preview_checkpoint.text[0]);
++    clear_draft->images[0][0]=0;lv_textarea_set_text(codex_input,clear_before);ui_text(codex_voice_hint,"");
++    puts("CODEX_DRAFT_CLEAR_OK long_press_only_ime_photos_busy_receipt_checkpoint_revision_retype");
+     // Switching to English preserves pending spelling and bypasses conversion.
+     type_spelling("test");lv_obj_send_event(lv_obj_get_child(codex_ime_panel,0),LV_EVENT_CLICKED,NULL);
+     type_spelling("hello");assert(strstr(lv_textarea_get_text(codex_input),"testhello")&&!tab5_ime_pending()[0]);
+--- a/scripts/IdfEnvironment.ps1
++++ b/scripts/IdfEnvironment.ps1
+@@ -15,7 +15,11 @@
+ if ($toolDirectory.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+     $toolDirectory = $toolDirectory.ResolveLinkTarget($true)
+ }
+-$physicalToolsPath = Join-Path $toolDirectory.FullName 'idf-tools'
++$physicalToolsDirectory = Get-Item -LiteralPath (Join-Path $toolDirectory.FullName 'idf-tools') -Force
++if ($physicalToolsDirectory.Attributes -band [IO.FileAttributes]::ReparsePoint) {
++    $physicalToolsDirectory = $physicalToolsDirectory.ResolveLinkTarget($true)
++}
++$physicalToolsPath = $physicalToolsDirectory.FullName
+ $shortBuffer.Clear() | Out-Null
+ if ([Tab5ShortPath]::GetShortPathName($physicalToolsPath, $shortBuffer, 4096) -eq 0) { throw 'Cannot resolve physical IDF tools path' }
+ $env:IDF_TOOLS_PATH = $shortBuffer.ToString()
+--- a/tests/ui-preview/codex_read_ack_test.c
++++ b/tests/ui-preview/codex_read_ack_test.c
+@@ -7,6 +7,7 @@
+ #include <string.h>
+ #include "cJSON.h"
+ #include "../../firmware/main/link_state.h"
++#include "../../firmware/main/voice_remote.h"
+ #define portMAX_DELAY 0
+ #define MALLOC_CAP_SPIRAM 1
+ #define MALLOC_CAP_8BIT 2
+@@ -17,7 +18,8 @@
+ static int device_mutex,held;
+ static void xSemaphoreTake(int m,int t){(void)m;(void)t;assert(!held);held=1;}
+ static void xSemaphoreGive(int m){(void)m;assert(held);held=0;}
+-static int64_t clock_ms;
++static int64_t clock_ms,voice_busy_until;
++void voice_remote_get(voice_remote_state *out){assert(!held);memset(out,0,sizeof(*out));out->busy=clock_ms<voice_busy_until;}
+ static int64_t esp_timer_get_time(void){return clock_ms*1000;}
+ static void vTaskDelay(int ms){assert(!held);clock_ms+=ms;}
+ typedef struct {char host[16];int port;} device_config;
+@@ -57,5 +59,10 @@
+     selected=LINK_WIFI;response_status=503;codex_read_acknowledge(task,turn,b,"bridge-session");finish();assert(calls==5&&clock_ms==3000);
+     fail_task=true;codex_read_acknowledge(task,turn,c,"bridge-session");assert(!busy&&!queued_arg);
+     fail_task=false;selected=LINK_BLE;response_status=409;codex_read_acknowledge(task,turn,c,"bridge-session");finish();assert(calls==6);
++    response_status=200;voice_busy_until=clock_ms+750;
++    codex_read_acknowledge(task,turn,"66666666-6666-4666-8666-666666666666","bridge-session");finish();assert(calls==7&&clock_ms==3750);
++    voice_busy_until=clock_ms+100000;
++    codex_read_acknowledge(task,turn,"77777777-7777-4777-8777-777777777777","bridge-session");finish();assert(calls==7&&clock_ms==93750);
++    puts("CODEX_READ_ACK_VOICE_PRIORITY_OK delayed_until_idle_and_bounded_without_RPC");
+     puts("CODEX_READ_ACK_WORKER_OK actual worker; USB Wi-Fi BLE; scoped empty-message receipt only; duplicate, busy, bounded retry, rejection and allocation failure");return 0;
+ }
+--- a/tests/ui-preview/rpc_library_route_test.c
++++ b/tests/ui-preview/rpc_library_route_test.c
+@@ -8,7 +8,8 @@
+ typedef struct {void *out,*in;int64_t peer_seen,confirmed_ms;char confirmed_session[40];} rpc_mailbox;
+ static rpc_mailbox mailboxes[3];
+ static link_state device_links;
+-static bool wifi_connected,usb_connected;
++static bool wifi_connected,usb_connected,ble_connected,ble_authorized;
++static bool ble_host_authorized(void){return ble_authorized;}
+ static int device_mutex,rpc_lock=1;
+ static int64_t clock_ms;
+ #define portMAX_DELAY 0
+@@ -19,7 +20,7 @@
+ static rpc_mailbox *box(int link){return &mailboxes[link];}
+ #include "rpc_library_route_under_test.inc"
+ static void reset(void) {
+-    clock_ms=101;wifi_connected=usb_connected=true;link_state_init(&device_links);
++    clock_ms=101;wifi_connected=usb_connected=ble_connected=ble_authorized=true;link_state_init(&device_links);
+     for(int i=0;i<3;i++) {
+         assert(link_state_receive(&device_links,i,"paired-session",1,100));
+         mailboxes[i]=(rpc_mailbox){.out=(void *)1,.in=(void *)1,.peer_seen=100,.confirmed_ms=100};
+@@ -43,5 +44,8 @@
+     reset();wifi_connected=false;mailboxes[LINK_USB].peer_seen=102;assert(rpc_library_link_select()==LINK_BLE);
+     reset();device_links.mode=LINK_WIFI;wifi_connected=false;assert(rpc_library_link_select()==LINK_NONE);
+     reset();device_links.mode=LINK_USB;usb_connected=false;assert(rpc_library_link_select()==LINK_NONE);
++    reset();device_links.mode=LINK_BLE;ble_authorized=false;
++    assert(rpc_link_select()==LINK_NONE&&rpc_read_link_select()==LINK_NONE&&rpc_library_link_select()==LINK_NONE);
++    ble_authorized=true;ble_connected=false;assert(rpc_library_link_select()==LINK_NONE);
+     puts("GALLERY_BULK_ROUTE_OK actual production route; auto WiFi priority; USB fallback; fixed modes; fresh authenticated session; ordinary foreground unchanged");
+ }
+--- a/firmware/main/device.h
++++ b/firmware/main/device.h
+@@ -31,6 +31,8 @@
+ void device_host_challenge(char nonce[33]);
+ cJSON *device_host_claim(cJSON *root);
+ device_config device_get_config(void);
++// Read pairing and optional public identity without copying credentials onto callers' stacks.
++bool device_pairing_identity(char id[13]);
+ bool device_receive(const char *json, link_kind link, uint64_t *sequence);
+ bool device_receive_for_host(const char *json,link_kind link,uint64_t *sequence,unsigned host_generation);
+ bool device_receive_checked(const char *json,link_kind link,uint64_t *sequence,device_reject_reason *reason);
+--- a/firmware/main/device.c
++++ b/firmware/main/device.c
+@@ -86,6 +86,13 @@
+     device_links.mode=config.mode;
+     host_init();
+ }
++bool device_pairing_identity(char id[13]) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    bool paired=trusted_hosts_readable&&trusted_hosts.count>0;
++    if(id)memcpy(id,config.id,sizeof(config.id));
++    xSemaphoreGive(device_mutex);return paired;
++}
++
+ device_config device_get_config(void) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);device_config copy=config;
+     copy.paired=trusted_hosts_readable&&trusted_hosts.count>0;
+--- a/firmware/main/ble_link.c
++++ b/firmware/main/ble_link.c
+@@ -171,7 +171,7 @@
+ #include "ble_owner_proof.inc"
+ static int telemetry_input_access(uint16_t conn,uint16_t attr,struct ble_gatt_access_ctxt *ctx,void *arg) {
+     (void)conn;(void)attr;(void)arg;
+-    if(!device_get_config().paired||!ble_owner_possible(conn))return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
++    if(!device_pairing_identity(NULL)||!ble_owner_possible(conn))return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
+     if(ctx->op!=BLE_GATT_ACCESS_OP_WRITE_CHR)return BLE_ATT_ERR_UNLIKELY;
+     int64_t now=esp_timer_get_time()/1000;if(now-last_write>5000)used=0;last_write=now;
+     uint16_t length=OS_MBUF_PKTLEN(ctx->om);
+--- a/firmware/main/ble_owner_proof.inc
++++ b/firmware/main/ble_owner_proof.inc
+@@ -3,11 +3,11 @@
+ static bool ble_owner_proof(const char *clear,uint64_t *sequence) {
+     cJSON *root=cJSON_Parse(clear);if(!root)return false;
+     char selected[33],name[TRUSTED_HOST_NAME];device_host_identity(selected,name);
+-    device_config cfg=device_get_config();
++    char id[13];bool paired=device_pairing_identity(id);
+     cJSON *type=cJSON_GetObjectItemCaseSensitive(root,"type"),*version=cJSON_GetObjectItemCaseSensitive(root,"version"),
+         *device=cJSON_GetObjectItemCaseSensitive(root,"deviceId"),*host=cJSON_GetObjectItemCaseSensitive(root,"hostId"),*seq=cJSON_GetObjectItemCaseSensitive(root,"sequence");
+-    bool ok=cJSON_IsObject(root)&&cJSON_GetArraySize(root)==5&&cJSON_IsString(type)&&!strcmp(type->valuestring,"tab5_ble_owner")&&
+-        cJSON_IsNumber(version)&&version->valuedouble==1&&cJSON_IsString(device)&&!strcmp(device->valuestring,cfg.id)&&
++    bool ok=paired&&cJSON_IsObject(root)&&cJSON_GetArraySize(root)==5&&cJSON_IsString(type)&&!strcmp(type->valuestring,"tab5_ble_owner")&&
++        cJSON_IsNumber(version)&&version->valuedouble==1&&cJSON_IsString(device)&&!strcmp(device->valuestring,id)&&
+         cJSON_IsString(host)&&selected[0]&&!strcmp(host->valuestring,selected)&&cJSON_IsNumber(seq)&&
+         seq->valuedouble>0&&seq->valuedouble<=9007199254740991.0&&seq->valuedouble==(uint64_t)seq->valuedouble;
+     if(ok)*sequence=(uint64_t)seq->valuedouble;
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -23,7 +23,18 @@
+ add_executable(ble-owner-test ble_owner_test.c)
+ target_compile_options(ble-owner-test PRIVATE /UNDEBUG)
+ add_executable(ble-owner-proof-test ble_owner_proof_test.c "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON/cJSON.c")
+-target_include_directories(ble-owner-proof-test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON")
++set(PAIRING_SOURCE "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/device.c")
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PAIRING_SOURCE}")
++file(READ "${PAIRING_SOURCE}" PAIRING_TEXT)
++string(FIND "${PAIRING_TEXT}" "bool device_pairing_identity(" PAIRING_START)
++string(FIND "${PAIRING_TEXT}" "device_config device_get_config(" PAIRING_END)
++math(EXPR PAIRING_LENGTH "${PAIRING_END}-${PAIRING_START}")
++if(PAIRING_START LESS 0 OR PAIRING_LENGTH LESS 1)
++ message(FATAL_ERROR "Pairing identity source marker missing")
++endif()
++string(SUBSTRING "${PAIRING_TEXT}" ${PAIRING_START} ${PAIRING_LENGTH} PAIRING_BODY)
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/pairing_identity_under_test.inc" "${PAIRING_BODY}")
++target_include_directories(ble-owner-proof-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/../../.tools/esp-idf/components/json/cJSON")
+ target_compile_options(ble-owner-proof-test PRIVATE /UNDEBUG)
+ file(READ "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main/unlock_remote.c" WIFI_OWNER_SOURCE)
+ string(FIND "${WIFI_OWNER_SOURCE}" "bool unlock_remote_wifi_only(void)" WIFI_OWNER_START)
+@@ -107,7 +118,7 @@
+ string(SUBSTRING "${BOOT_WORKER_TEXT}" ${BOOT_WORKER_START} -1 BOOT_WORKER_BODY)
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/boot_verify_worker_under_test.inc" "${BOOT_WORKER_BODY}")
+ file(READ "${RPC_LINK_SOURCE}" RPC_LINK_TEXT)
+-string(FIND "${RPC_LINK_TEXT}" "static unsigned rpc_exchange_timeout(" RPC_TIMEOUT_START)
++string(FIND "${RPC_LINK_TEXT}" "static unsigned rpc_exchange_admission(" RPC_TIMEOUT_START)
+ string(FIND "${RPC_LINK_TEXT}" "static cJSON *rpc_call_impl(" RPC_TIMEOUT_END)
+ math(EXPR RPC_TIMEOUT_LENGTH "${RPC_TIMEOUT_END} - ${RPC_TIMEOUT_START}")
+ if(RPC_TIMEOUT_START LESS 0 OR RPC_TIMEOUT_LENGTH LESS 1)
+@@ -614,7 +625,7 @@
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PORT_SOURCE}")
+ file(READ "${PORT_SOURCE}" DISPLAY_SOURCE)
+ string(FIND "${DISPLAY_SOURCE}" "static bool IRAM_ATTR lvgl_port_camera_refresh_callback(" FLASH_SAFE_START REVERSE)
+-string(FIND "${DISPLAY_SOURCE}" "static bool lvgl_port_camera_select(" FLASH_SAFE_END)
++string(FIND "${DISPLAY_SOURCE}" "bool lvgl_port_screen_preview(" FLASH_SAFE_END)
+ math(EXPR FLASH_SAFE_LENGTH "${FLASH_SAFE_END} - ${FLASH_SAFE_START}")
+ if(FLASH_SAFE_START LESS 0 OR FLASH_SAFE_LENGTH LESS 1)
+     message(FATAL_ERROR "Display ISR test source markers not found")
+--- a/tests/ui-preview/ble_owner_proof_test.c
++++ b/tests/ui-preview/ble_owner_proof_test.c
+@@ -6,13 +6,27 @@
+ #include <stdio.h>
+ #include "cJSON.h"
+ #define TRUSTED_HOST_NAME 64
+-typedef struct {char id[13];} device_config;
+-static device_config device_get_config(void){return (device_config){"e8f60ae2ec56"};}
++static struct {char id[13];} config={"e8f60ae2ec56"};
++static struct {unsigned count;} trusted_hosts={1};
++static bool trusted_hosts_readable=true,locked;
++static int device_mutex;
++#define portMAX_DELAY 1
++static void xSemaphoreTake(int mutex,int delay){assert(mutex==device_mutex&&delay==portMAX_DELAY&&!locked);locked=true;}
++static void xSemaphoreGive(int mutex){assert(mutex==device_mutex&&locked);locked=false;}
++#include "pairing_identity_under_test.inc"
+ static void device_host_identity(char id[33],char name[64]){strcpy(id,"11111111111111111111111111111111");strcpy(name,"Selected computer");}
+ #include "../../firmware/main/ble_owner_proof.inc"
+ int main(void) {
+     const char *valid="{\"version\":1,\"type\":\"tab5_ble_owner\",\"deviceId\":\"e8f60ae2ec56\",\"hostId\":\"11111111111111111111111111111111\",\"sequence\":42}";
+     uint64_t sequence=0;assert(ble_owner_proof(valid,&sequence)&&sequence==42);
++    char bounded[15];memset(bounded,'X',sizeof(bounded));
++    assert(device_pairing_identity(bounded+1)&&!locked&&bounded[0]=='X'&&bounded[14]=='X'&&!strcmp(bounded+1,config.id));
++    assert(device_pairing_identity(NULL)&&!locked);
++    trusted_hosts_readable=false;sequence=99;
++    assert(!device_pairing_identity(NULL)&&!ble_owner_proof(valid,&sequence)&&sequence==99&&!locked);
++    trusted_hosts_readable=true;trusted_hosts.count=0;
++    assert(!device_pairing_identity(NULL)&&!ble_owner_proof(valid,&sequence)&&sequence==99&&!locked);
++    trusted_hosts.count=1;
+     const char *keys[]={"type","deviceId","hostId"},*values[]={"tab5_status","other-device","22222222222222222222222222222222"};
+     for(int i=0;i<3;i++){cJSON *root=cJSON_Parse(valid);cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(root,keys[i]),values[i]);char *wire=cJSON_PrintUnformatted(root);assert(!ble_owner_proof(wire,&sequence));free(wire);cJSON_Delete(root);}
+     const char *invalid[]={"0","-1","1.5","9007199254740992"};
+--- a/tests/ui-preview/photo_memory_test.c
++++ b/tests/ui-preview/photo_memory_test.c
+@@ -13,36 +13,31 @@
+ #include "../../firmware/main/photo_attachment.h"
+ enum {ESP_OK=0,MALLOC_CAP_SPIRAM=1,MALLOC_CAP_8BIT=2,ESP_CACHE_MSYNC_FLAG_DIR_M2C=4};
+ static unsigned yields,calls,fault;
+-static size_t extent,synced;
+ static uint8_t *owned;
+ static uint16_t *preview;
+ static atomic_int phase;
+ static atomic_bool working;
+ static unsigned preview_width,preview_height;
+ static void vTaskDelay(unsigned ticks){assert(ticks==1);yields++;}
+-static int esp_cache_get_alignment(int caps,size_t *alignment){assert(caps==1);*alignment=128;return fault==1?1:0;}
+-static void *heap_caps_aligned_alloc(size_t alignment,size_t bytes,int caps){
+-    assert(alignment==128&&caps==3&&!owned&&!(bytes%128));
+-    if(fault==2)return NULL;
+-    extent=bytes;owned=_aligned_malloc(bytes,alignment);assert(owned);memset(owned,0xA5,bytes);return owned;
++static void *heap_caps_malloc(size_t bytes,int caps){
++    assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)&&!owned);calls++;
++    if(fault)return NULL;
++    owned=malloc(bytes);assert(owned);memset(owned,0xA5,bytes);return owned;
+ }
+-static int esp_cache_msync(void *p,size_t bytes,int flags){
+-    assert(p==owned+synced&&bytes<=16384&&!(bytes%128)&&flags==4);calls++;
+-    if(fault==3&&calls==2)return 1;
+-    synced+=bytes;assert(synced<=extent);return 0;
+-}
+-static void release(void *p){assert(p==owned);_aligned_free(p);owned=NULL;}
++static void release(void *p){assert(p==owned);free(p);owned=NULL;}
+ #define free release
+ #include "photo_output_alloc_under_test.inc"
+ #undef free
+ #include "photo_preview_under_test.inc"
+ #include "photo_take_preview_under_test.inc"
+ int main(void){
+-    for(fault=0;fault<4;fault++){
+-        yields=calls=0;synced=0;size_t capacity=0;
+-        uint8_t *p=photo_output_alloc(PHOTO_MAX_BYTES,&capacity);
++    size_t sizes[]={PHOTO_MAX_BYTES,PHOTO_MAX_BYTES-1,1};
++    for(fault=0;fault<2;fault++)for(unsigned size=0;size<3;size++){
++        yields=calls=0;size_t capacity=0;
++        uint8_t *p=photo_output_alloc(sizes[size],&capacity);
++        assert(calls==1&&!yields);
+         if(fault){assert(!p&&!owned&&!capacity);continue;}
+-        assert(capacity==PHOTO_MAX_BYTES&&synced==capacity&&calls==128&&yields==127);
++        assert(capacity==sizes[size]);
+         for(size_t i=0;i<capacity;i++)assert(p[i]==0xA5);release(p);
+     }
+     preview=malloc(PHOTO_PREVIEW_W*PHOTO_PREVIEW_H*2);assert(preview);
+@@ -61,5 +56,5 @@
+     atomic_store(&phase,2);uint16_t *original=preview,*taken=photo_take_preview();
+     assert(taken==original&&!preview&&!photo_take_preview());
+     free(pixels);free(taken);
+-    puts("PHOTO_MEMORY_OK aligned non-clearing output; 128 bounded cache spans; failure cleanup; both orientations use full preview budget without letterbox");
++    puts("PHOTO_MEMORY_OK CPU-owned PSRAM output; exact unaligned capacity; no clearing or DMA cache operation; allocation failure; both orientations; single ownership transfer");
+ }
+--- a/tests/ui-preview/camera_ownership_test.c
++++ b/tests/ui-preview/camera_ownership_test.c
+@@ -55,7 +55,7 @@
+ typedef struct {unsigned timeout_ms;struct v4l2_buffer buffer;} esp_video_dqbuf_timeout_t;
+ typedef struct {struct {bool init_sccb;void *i2c_handle;unsigned freq;} sccb_config;int reset_pin,pwdn_pin;} esp_video_init_csi_config_t;
+ typedef struct {esp_video_init_csi_config_t *csi;void *dvp,*jpeg;} esp_video_init_config_t;
+-enum {NORMAL,STOP,FAIL_DQ,FAIL_QBUF,FAIL_MAP,BAD_STRIDE,FAIL_START,FAIL_REQBUFS,LOW_MEMORY,FAIL_PRESENT,FAIL_RESTORE,FAIL_ALLOC_1,FAIL_ALLOC_2,FAIL_STREAM_ON,ROTATE,FAIL_ROTATE_RELEASE,FAIL_STOP_STREAM,FAIL_RELEASE};
++enum {NORMAL,STOP,FAIL_DQ,FAIL_QBUF,FAIL_MAP,BAD_STRIDE,FAIL_START,FAIL_REQBUFS,LOW_MEMORY,FAIL_PRESENT,FAIL_RESTORE,FAIL_ALLOC_1,FAIL_ALLOC_2,FAIL_STREAM_ON,ROTATE,FAIL_ROTATE_RELEASE,FAIL_STOP_STREAM,FAIL_RELEASE,FAIL_CACHE};
+ static bool use_direct,direct_active;
+ static const uint16_t *presented_source;
+ static unsigned direct_presented;
+@@ -87,6 +87,17 @@
+     last_direction=direction;return true;
+ }
+ static const size_t frame_bytes=1280*720*2;
++#define ESP_CACHE_MSYNC_FLAG_DIR_C2M 1
++#define ESP_CACHE_MSYNC_FLAG_INVALIDATE 2
++static void *cache_ready;
++static unsigned cache_calls;
++static int esp_cache_msync(void *p,size_t bytes,int flags) {
++    assert(!streaming_mock&&p&&bytes==frame_bytes&&flags==3);
++    bool owned=false;for(unsigned i=0;i<4;i++)if(frame_storage[i]==p)owned=true;
++    assert(owned);cache_calls++;
++    if(scenario==FAIL_CACHE){cache_ready=NULL;return -1;}
++    cache_ready=p;return ESP_OK;
++}
+ static uint8_t *canvas_pixels(void) {
+     lv_draw_buf_t *b=lv_canvas_get_draw_buf(canvas);return b?b->data:NULL;
+ }
+@@ -202,6 +213,7 @@
+     case VIDIOC_QBUF:{struct v4l2_buffer *b=arg;unsigned i=b->index;assert(i<3&&!queued[i]);
+         if(b->memory==V4L2_MEMORY_USERPTR) {
+             assert(b->length==frame_bytes&&b->m.userptr&&b->m.userptr%64==0);
++            if(!streaming_mock){assert(cache_ready==(void *)b->m.userptr);cache_ready=NULL;}
+             if(buffers[i])assert(buffers[i]==(void *)(uintptr_t)b->m.userptr);
+             buffers[i]=(void *)(uintptr_t)b->m.userptr;
+             if(scenario==FAIL_MAP&&!delivered&&i==1){errno=ENOMEM;return -1;}
+@@ -347,7 +359,7 @@
+     lv_init();lv_display_create(1280,720);
+     for(unsigned pipeline=0;pipeline<2;pipeline++) {
+     use_direct=pipeline!=0;
+-    for(int mode=NORMAL;mode<=FAIL_RELEASE;mode++) {
++    for(int mode=NORMAL;mode<=FAIL_CACHE;mode++) {
+         if(!use_direct&&(mode==FAIL_PRESENT||mode==FAIL_RESTORE||mode==FAIL_ROTATE_RELEASE))continue;
+ #ifdef CAMERA_POOL_FIXED
+         if(mode==FAIL_ALLOC_1||mode==FAIL_ALLOC_2)continue; // Tested at startup.
+@@ -355,6 +367,7 @@
+         // Reopen 64 times per display path; retain only one frame between runs.
+         for(unsigned run=0;run<(mode==NORMAL?64u:1u);run++) {
+             scenario=mode;frame_allocations=0;delivered=returned=unmapped=closed=frame_copies=last_pixel=direct_presented=0;
++            cache_calls=0;cache_ready=NULL;
+             fragment_heap=(mode==NORMAL&&run>0)||(mode!=NORMAL&&video_initialized);
+             // Cold initialization still needs its original safety headroom.
+             // A failed cold attempt must not enter the partially undoable init.
+@@ -368,7 +381,9 @@
+             if(mode==FAIL_START){assert(!camera_preview_start(canvas)&&!camera_preview_busy());lv_obj_delete(canvas);continue;}
+             assert(camera_preview_start(canvas)&&scheduled_task);assert(!camera_preview_start(canvas));
+             scheduled_task(NULL);assert(!camera_preview_busy());
++            if(mode==FAIL_CACHE)assert(cache_calls==1&&!returned&&!delivered&&closed==1&&atomic_load(&diagnostic_error)==EIO);
+             if(mode==NORMAL||mode==ROTATE) {
++                assert(cache_calls==3);
+                 if(camera_preview_get_state()!=CAMERA_PREVIEW_CAPTURED) {
+                     fprintf(stderr,"CAMERA_FRAME_BUDGET_FAILURE: three-frame limit; attempts=%u live=%u stage=%d error=%d\n",
+                         frame_allocations,frame_live,atomic_load(&diagnostic_stage),atomic_load(&diagnostic_error));
+--- a/tests/ui-preview/rpc_exchange_test.c
++++ b/tests/ui-preview/rpc_exchange_test.c
+@@ -35,15 +35,17 @@
+ static test_config device_get_config(void){return (test_config){true};}
+ static SemaphoreHandle_t device_mutex;
+ static link_state device_links;
+-static bool wifi_connected=true,ble_connected=true;
++static bool wifi_connected=true,ble_connected=true,ble_authorized=true;
++static bool ble_host_authorized(void){return ble_authorized;}
++#define RPC_STATUS_UNPUBLISHED_BUSY (-1011)
+ static atomic_bool usb_ready=true;
+ static bool tab5_usb_connected(void){return atomic_load(&usb_ready);}
+ static unsigned device_host_epoch(void){return 1;}
+ static bool device_host_changing(void){return false;}
+ #include "rpc_exchange_under_test.inc"
+ #include "usb_watch_under_test.inc"
+-typedef struct {link_kind link;uint8_t *reply;size_t size;unsigned timeout;} request;
+-static DWORD WINAPI run_request(void *arg){request *r=arg;char nonce[32],proof[64];uint8_t body[28];memset(nonce,'n',32);memset(proof,'p',64);memset(body,0x35,28);xSemaphoreTake(rpc_lock,portMAX_DELAY);uint32_t generation=box(r->link)->generation;xSemaphoreGive(rpc_lock);r->reply=exchange(r->link,nonce,proof,body,sizeof(body),&r->size,generation,r->timeout,0,1);return 0;}
++typedef struct {link_kind link;uint8_t *reply;size_t size;unsigned timeout;int status;} request;
++static DWORD WINAPI run_request(void *arg){request *r=arg;char nonce[32],proof[64];uint8_t body[28];memset(nonce,'n',32);memset(proof,'p',64);memset(body,0x35,28);xSemaphoreTake(rpc_lock,portMAX_DELAY);uint32_t generation=box(r->link)->generation;xSemaphoreGive(rpc_lock);r->reply=exchange(r->link,nonce,proof,body,sizeof(body),&r->size,generation,r->timeout,0,1,&r->status);return 0;}
+ static HANDLE start(request *r,link_kind link){*r=(request){.link=link,.timeout=75000};HANDLE thread=CreateThread(NULL,0,run_request,r,0,NULL);assert(thread);return thread;}
+ static uint32_t pending(link_kind link){uint8_t p[256];ULONGLONG end=GetTickCount64()+2000;do{size_t n=rpc_link_read(link,p,sizeof(p));if(n>8)return rpc_u32(p);Sleep(1);}while(GetTickCount64()<end);assert(!"request failed to publish");return 0;}
+ static void respond(link_kind link,uint32_t id){uint8_t packet[37]={2};rpc_put32(packet+1,id);rpc_put16(packet+5,0);rpc_put16(packet+7,28);memset(packet+9,0x6c,28);assert(rpc_link_write(link,packet,sizeof(packet)));}
+@@ -80,6 +82,14 @@
+     }
+     request usb,ble;HANDLE u=start(&usb,LINK_USB),b=start(&ble,LINK_BLE);
+     uint32_t id=pending(LINK_USB);pending(LINK_BLE);rpc_link_reset(LINK_BLE);respond(LINK_USB,id);join(u,&usb,true);join(b,&ble,false);
++    // An unpublished busy request must not replace the active mailbox or nonce.
++    request owner;HANDLE owner_thread=start(&owner,LINK_USB);uint32_t owner_id=pending(LINK_USB);
++    uint8_t before[96];memcpy(before,boxes[0].out,sizeof(before));
++    request busy;HANDLE busy_thread=start(&busy,LINK_USB);join(busy_thread,&busy,false);
++    assert(busy.status==RPC_STATUS_UNPUBLISHED_BUSY&&boxes[0].active==owner_id&&!memcmp(before,boxes[0].out,sizeof(before)));
++    respond(LINK_USB,owner_id);join(owner_thread,&owner,true);
++    ble_authorized=false;request denied;HANDLE denied_thread=start(&denied,LINK_BLE);join(denied_thread,&denied,false);
++    assert(denied.status!=RPC_STATUS_UNPUBLISHED_BUSY&&!box(LINK_BLE)->active);ble_authorized=true;
+     // Drive the exact CDC connection watcher with an in-flight USB request.
+     bool was_ready=false;assert(usb_link_watch(&was_ready));
+     int64_t now=esp_timer_get_time()/1000;
+@@ -101,13 +111,13 @@
+     assert(box(LINK_USB)->generation==old_generation+1&&!box(LINK_USB)->peer_seen);
+     assert(!usb_link_watch(&was_ready)&&box(LINK_USB)->generation==old_generation+1);
+     assert(link_state_active(&device_links,now)==LINK_WIFI); // State snapshot is invalidated independently of association.
+-    size_t reply_size=99;uint8_t body[28]={0};char nonce[32]={0},proof[64]={0};
+-    assert(!exchange(LINK_USB,nonce,proof,body,28,&reply_size,old_generation+1,75000,0,1)&&reply_size==0);
++    int status=0;size_t reply_size=99;uint8_t body[28]={0};char nonce[32]={0},proof[64]={0};
++    assert(!exchange(LINK_USB,nonce,proof,body,28,&reply_size,old_generation+1,75000,0,1,&status)&&reply_size==0);
+     atomic_store(&usb_ready,true);assert(usb_link_watch(&was_ready));
+     rpc_link_read(LINK_USB,read_buf,sizeof(read_buf));
+     assert(rpc_link_select()==LINK_BLE); // Polling alone cannot restore authenticated freshness.
+     assert(!link_state_receive(&device_links,LINK_USB,"same-session",9,now));
+-    assert(!exchange(LINK_USB,nonce,proof,body,28,&reply_size,old_generation,75000,0,1));
++    assert(!exchange(LINK_USB,nonce,proof,body,28,&reply_size,old_generation,75000,0,1,&status));
+     assert(link_state_receive(&device_links,LINK_USB,"same-session",10,now));
+     assert(rpc_link_select()==LINK_USB&&rpc_read_link_select()==LINK_USB&&rpc_ota_link_select()==LINK_USB);
+     request reconnected;HANDLE reconnected_thread=start(&reconnected,LINK_USB);uint32_t new_id=pending(LINK_USB);assert(new_id!=lost_id);
+@@ -118,7 +128,7 @@
+     assert(!polls&&completions_live==1);
+     request bounded={.link=LINK_USB,.timeout=20};ULONGLONG began=GetTickCount64();
+     HANDLE bounded_thread=CreateThread(NULL,0,run_request,&bounded,0,NULL);assert(bounded_thread);
+-    join(bounded_thread,&bounded,false);assert(GetTickCount64()-began<1000&&!boxes[0].active&&completions_live==1);
++    join(bounded_thread,&bounded,false);assert(GetTickCount64()-began<1000&&!boxes[0].active&&completions_live==1&&bounded.status!=RPC_STATUS_UNPUBLISHED_BUSY);
+     puts("RPC_EXCHANGE_OK 100 completion races, 100 reconnect/new-request races, cross-channel isolation, deadline exit; zero polling sleeps");
+     atomic_store(&fail_completion_alloc,true);
+     request low_memory;HANDLE low_thread=start(&low_memory,LINK_USB);uint32_t low_id=pending(LINK_USB);
+diff --git a/tests/link_state_test.c b/tests/link_state_test.c
+new file mode 100644
+--- /dev/null
++++ b/tests/link_state_test.c
+@@ -0,0 +1,85 @@
++#include "link_state.h"
++#include <assert.h>
++#include <stdio.h>
++int main(void) {
++    link_state s;link_state_init(&s);
++    assert(link_state_active(&s,0)==LINK_NONE);
++    assert(link_state_receive(&s,LINK_BLE,"bridge-a",1,100));
++    assert(link_state_active(&s,100)==LINK_BLE);
++    assert(link_state_receive(&s,LINK_WIFI,"bridge-a",1,101));
++    assert(link_state_receive(&s,LINK_USB,"bridge-a",1,102));
++    assert(link_state_active(&s,102)==LINK_USB);
++    assert(!link_state_receive(&s,LINK_USB,"bridge-a",1,5000));
++    assert(!link_state_receive(&s,LINK_USB,"bridge-a",0,5000));
++    assert(link_state_receive(&s,LINK_WIFI,"bridge-a",2,8000));
++    assert(link_state_active(&s,8102)==LINK_WIFI);
++    s.mode=LINK_USB;assert(link_state_active(&s,8102)==LINK_NONE);
++    s.mode=LINK_BLE;assert(link_state_active(&s,8102)==LINK_NONE);
++    assert(link_state_receive(&s,LINK_BLE,"bridge-a",3,8103));
++    assert(link_state_active(&s,8103)==LINK_BLE);
++    s.mode=-1;assert(link_state_active(&s,8103)==LINK_WIFI);
++    assert(link_state_receive(&s,LINK_USB,"bridge-b",1,8104));
++    assert(link_state_active(&s,8104)==LINK_USB);
++    assert(link_state_active(&s,16104)==LINK_NONE);
++    assert(!link_state_receive(&s,LINK_NONE,"bridge-b",2,17000));
++    link_state_init(&s);s.mode=LINK_BLE;
++    assert(link_state_receive(&s,LINK_USB,"bridge",1,100));
++    assert(link_state_receive(&s,LINK_WIFI,"bridge",1,101));
++    assert(link_state_receive(&s,LINK_BLE,"bridge",1,102));
++    assert(link_state_ota(&s,102,true,true)==LINK_NONE&&s.mode==LINK_BLE);
++    s.mode=LINK_USB;assert(link_state_ota(&s,102,true,true)==LINK_USB);
++    s.mode=LINK_WIFI;assert(link_state_ota(&s,102,false,true)==LINK_NONE);
++    s.mode=-1;assert(link_state_ota(&s,102,true,true)==LINK_WIFI);
++    assert(link_state_ota(&s,102,false,true)==LINK_USB);
++    assert(link_state_ota(&s,102,false,false)==LINK_NONE);
++    assert(link_state_ota(&s,8101,true,true)==LINK_NONE);
++    assert(link_state_ota(&s,99,true,true)==LINK_NONE);
++    assert(link_state_receive(&s,LINK_USB,"bridge",2,8200));
++    assert(link_state_ota(&s,8200,true,true)==LINK_USB);
++    s.mode=LINK_BLE;
++    assert(link_state_active(&s,10000)==LINK_NONE);
++    assert(link_state_read_fresh(&s,LINK_BLE,10000,9999,"bridge"));
++    assert(!link_state_read_fresh(&s,LINK_BLE,10000,0,"bridge"));
++    assert(!link_state_read_fresh(&s,LINK_BLE,10000,9999,"other-session"));
++    assert(!link_state_read_fresh(&s,LINK_BLE,18000,10000,"bridge"));
++    assert(!link_state_read_fresh(&s,LINK_BLE,10000,10001,"bridge"));
++    assert(!link_state_read_fresh(&s,LINK_BLE,90103,90102,"bridge"));
++    assert(!link_state_read_fresh(&s,LINK_WIFI,10000,9999,"bridge"));
++    s.mode=LINK_USB;assert(!link_state_read_fresh(&s,LINK_BLE,10000,9999,"bridge"));
++    link_state_init(&s);assert(link_state_receive(&s,LINK_USB,"bridge",7,100));
++    assert(link_state_receive(&s,LINK_WIFI,"bridge",7,100));
++    link_state_disconnect(&s,LINK_USB);assert(link_state_active(&s,100)==LINK_WIFI);
++    assert(!link_state_receive(&s,LINK_USB,"bridge",7,101));
++    assert(!link_state_read_fresh(&s,LINK_USB,101,101,"bridge"));
++    s.mode=LINK_USB;assert(link_state_active(&s,101)==LINK_NONE);
++    assert(link_state_receive(&s,LINK_USB,"bridge",8,102));assert(link_state_active(&s,102)==LINK_USB);
++    link_state_disconnect(&s,LINK_NONE);assert(link_state_active(&s,102)==LINK_USB);
++    puts("TAB5_LINK_STATE_OK daily/OTA fixed mode binding; read-only authenticated same-session freshness bounded");
++    link_state_init(&s);
++    for(int i=0;i<3;i++)assert(link_state_receive(&s,i,"same-session",1,100));
++    assert(link_state_image(&s,101,"same-session",true,true,true)==LINK_WIFI);
++    assert(link_state_image(&s,101,"same-session",false,true,true)==LINK_USB);
++    assert(link_state_image(&s,101,"same-session",false,false,true)==LINK_BLE);
++    for(int mode=0;mode<3;mode++){
++        s.mode=mode;assert(link_state_image(&s,101,"same-session",true,true,true)==mode);
++        assert(link_state_image(&s,101,"same-session",mode!=LINK_WIFI,mode!=LINK_USB,mode!=LINK_BLE)==LINK_NONE);
++        assert(s.mode==mode);
++    }
++    s.mode=-1;
++    assert(link_state_image(&s,8100,"same-session",true,true,true)==LINK_NONE);
++    assert(link_state_image(&s,99,"same-session",true,true,true)==LINK_NONE);
++    assert(link_state_image(&s,101,"other-session",true,true,true)==LINK_NONE);
++    assert(link_state_receive(&s,LINK_WIFI,"other-session",2,102));
++    assert(link_state_image(&s,102,"same-session",true,true,true)==LINK_USB);
++    puts("PHOTO_ROUTE_OK auto bandwidth priority; every fixed mode binding; no stale/cross-session path");
++    link_state_init(&s);for(int i=0;i<3;i++)assert(link_state_receive(&s,i,"ota-session",1,100));
++    assert(link_state_ota_bulk(&s,101,true,true,true)==LINK_WIFI);
++    assert(link_state_ota_bulk(&s,101,false,true,true)==LINK_USB);
++    assert(link_state_ota_bulk(&s,101,false,false,true)==LINK_BLE);
++    for(int mode=0;mode<3;mode++) {
++        s.mode=mode;assert(link_state_ota_bulk(&s,101,true,true,true)==mode);
++        assert(link_state_ota_bulk(&s,101,mode!=LINK_WIFI,mode!=LINK_USB,mode!=LINK_BLE)==LINK_NONE);
++    }
++    s.mode=-1;assert(link_state_ota_bulk(&s,8101,true,true,true)==LINK_NONE);
++    puts("OTA_BULK_ROUTE_OK auto bandwidth order; fixed BLE/USB/WiFi; unavailable paths rejected");
++}
+diff --git a/tests/voice-control-test.c b/tests/voice-control-test.c
+new file mode 100644
+--- /dev/null
++++ b/tests/voice-control-test.c
+@@ -0,0 +1,48 @@
++#include <assert.h>
++#include <stdio.h>
++#include "voice_control.h"
++
++int main(void) {
++    assert(voice_transport_select(true,100,7999,true,-1)==1);
++    assert(voice_transport_select(true,100,8100,true,-1)==2);
++    assert(voice_transport_select(true,-1,100,true,-1)==2);
++    assert(voice_transport_select(true,101,100,true,-1)==2);
++    assert(voice_transport_select(false,100,101,false,-1)==-1);
++    assert(voice_transport_select(true,100,101,true,2)==2);
++    assert(voice_transport_select(true,100,101,false,2)==-1);
++    assert(voice_transport_select(false,100,101,true,1)==-1);
++    assert(voice_transport_select(true,100,101,true,0)==-1);
++    assert(voice_transport_select(false,100,101,true,0)==-1);
++    assert(voice_transport_select_with_usb(true,100,101,true,0,true)==0);
++    assert(voice_transport_select_with_usb(true,100,101,true,0,false)==-1);
++    assert(voice_transport_select_with_usb(true,100,101,true,-1,true)==0);
++    assert(voice_transport_select_with_usb(true,100,101,true,-1,false)==1);
++    assert(voice_transport_select_with_usb(false,100,101,true,-1,true)==0);
++    assert(voice_transport_select_with_usb(false,100,101,true,1,true)==-1);
++    assert(voice_transport_select_with_usb(true,100,101,false,2,true)==-1);
++    atomic_int pending=0;
++    assert(!voice_capture_ready(true,false,false,false,false,false));
++    assert(!voice_capture_ready(true,true,true,false,false,false));
++    assert(voice_capture_ready(true,true,true,true,false,false));
++    assert(voice_capture_ready(true,true,false,false,false,false));
++    assert(!voice_capture_ready(true,true,true,true,true,false));
++    assert(!voice_capture_ready(true,true,true,true,false,true));
++    assert(!voice_capture_ready(false,true,true,true,false,false));
++    voice_command_post(&pending,1);
++    assert(voice_command_take(&pending,true)==0);
++    assert(voice_command_take(&pending,false)==1);
++    voice_command_post(&pending,3);
++    voice_command_post(&pending,2);
++    voice_command_post(&pending,1);
++    voice_command_post(&pending,3);
++    assert(voice_command_take(&pending,true)==2);
++    assert(voice_command_take(&pending,false)==0);
++    voice_command_post(&pending,1);
++    voice_command_post(&pending,3);
++    assert(voice_command_take(&pending,false)==1);
++    voice_command_post(&pending,3);
++    assert(voice_command_take(&pending,true)==0);
++    assert(voice_command_take(&pending,false)==3);
++    puts("VOICE_CONTROL_TEST_OK early stop, early cancel, cancel priority, delayed switch");
++    return 0;
++}
+diff --git a/tests/ota_performance_test.c b/tests/ota_performance_test.c
+new file mode 100644
+--- /dev/null
++++ b/tests/ota_performance_test.c
+@@ -0,0 +1,181 @@
++#include "ota_performance.h"
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include <assert.h>
++#include <limits.h>
++#include <stdio.h>
++#include <string.h>
++
++static void expect_csv(const ota_performance_t *p, const char *expected) {
++    char out[OTA_PERFORMANCE_CSV_CAPACITY];
++    size_t length = ota_performance_format(p, out, sizeof(out));
++    assert(length == strlen(expected));
++    assert(strcmp(out, expected) == 0);
++    unsigned fields = 1;
++    for (size_t i = 0; i < length; ++i) {
++        char c = out[i];
++        assert((c >= '0' && c <= '9') || c == ',' || c == '-');
++        if (c == ',') ++fields;
++    }
++    assert(fields == OTA_PERFORMANCE_CSV_FIELDS);
++}
++
++static void zero_and_reset(void) {
++    ota_performance_t p = {0};
++    expect_csv(&p, "1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
++    ota_performance_add_copy(&p, UINT64_MAX);
++    ota_performance_record_flash(&p, 0, 1, 123, 456, true);
++    ota_performance_record_flash(&p, -1, -1, 123, 456, true);
++    ota_performance_record_verify(&p, OTA_PERFORMANCE_VERIFY_END, 0, 1, 999);
++    ota_performance_reset(&p, 2, 64, 8192);
++    expect_csv(&p, "1,2,64,8192,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
++}
++
++static void observed_calls_and_failures(void) {
++    ota_performance_t p = {0};
++    ota_performance_reset(&p, 1, UINT32_C(0x01020304), 49152);
++    ota_performance_add_copy(&p, UINT64_C(1234567890123));
++    ota_performance_add_copy(&p, 7);
++    ota_performance_record_flash(&p, 0, 0, 11, 512, true);
++    ota_performance_record_flash(&p, 0, 1, 17, 256, false);
++    ota_performance_record_flash(&p, 1, 0, 23, 1024, true);
++    ota_performance_record_flash(&p, -1, 1, 5, 64, true);
++    ota_performance_record_flash(&p, 1, 99, 7, 128, false);
++    ota_performance_record_flash(&p, INT_MIN, INT_MAX, 9, 128, false);
++    ota_performance_record_verify(&p, OTA_PERFORMANCE_VERIFY_END, 0, 1, 101);
++    ota_performance_record_verify(&p, OTA_PERFORMANCE_VERIFY_DESCRIPTION, 1, 1, 202);
++    ota_performance_record_verify(&p, OTA_PERFORMANCE_VERIFY_SET_BOOT, -99, 99, 303);
++    expect_csv(&p, "1,1,16909060,49152,1234567890130,28,512,2,30,1024,2,14,64,2,2,3,7,101,0,1,202,1,1,303,-1,-1");
++    // The failed core-0 call counts time and a call, but no additional bytes.
++    assert(p.flash[0].elapsed_us == 28 && p.flash[0].successful_bytes == 512);
++    assert(p.flash[0].calls == 2);
++    assert(p.flash_different_endpoints == 2 && p.flash_unknown_endpoints == 3);
++}
++
++static void precision_and_saturation(void) {
++    ota_performance_t p = {0};
++    uint64_t large = UINT64_C(1) << 40;
++    ota_performance_add_copy(&p, large);
++    ota_performance_add_copy(&p, 123);
++    assert(p.copy_us == large + 123);
++    ota_performance_record_flash(&p, 1, 1, large, large, true);
++    ota_performance_record_flash(&p, 1, 1, 123, 456, true);
++    assert(p.flash[1].elapsed_us == large + 123);
++    assert(p.flash[1].successful_bytes == large + 456);
++    ota_performance_add_copy(&p, UINT64_MAX);
++    ota_performance_add_copy(&p, 1);
++    assert(p.copy_us == UINT64_MAX);
++    for (unsigned i = 0; i < OTA_PERFORMANCE_FLASH_BUCKETS; ++i) {
++        p.flash[i].elapsed_us = UINT64_MAX - 3;
++        p.flash[i].successful_bytes = UINT64_MAX - 3;
++        p.flash[i].calls = UINT32_MAX - 1;
++        int core = i < 2 ? (int)i : -1;
++        ota_performance_record_flash(&p, core, 1, 10, 10, true);
++        ota_performance_record_flash(&p, core, 1, 10, 10, true);
++        assert(p.flash[i].elapsed_us == UINT64_MAX);
++        assert(p.flash[i].successful_bytes == UINT64_MAX);
++        assert(p.flash[i].calls == UINT32_MAX);
++    }
++    p.flash[0].successful_bytes = 42;
++    ota_performance_record_flash(&p, 0, 0, UINT64_MAX, UINT64_MAX, false);
++    assert(p.flash[0].successful_bytes == 42);
++    p.flash_different_endpoints = UINT32_MAX;
++    p.flash_unknown_endpoints = UINT32_MAX;
++    ota_performance_record_flash(&p, 0, 1, 1, 1, true);
++    ota_performance_record_flash(&p, -1, 1, 1, 1, true);
++    assert(p.flash_different_endpoints == UINT32_MAX);
++    assert(p.flash_unknown_endpoints == UINT32_MAX);
++}
++
++static void invalid_cores_and_phases(void) {
++    struct { uint64_t before; ota_performance_t p; uint64_t after; } guarded = {
++        .before = UINT64_C(0x0123456789abcdef), .after = UINT64_C(0xfedcba9876543210),
++    };
++    const int invalid[] = {INT_MIN, -999, -1, 2, 3, 99, INT_MAX};
++    for (unsigned i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
++        ota_performance_record_flash(&guarded.p, invalid[i], invalid[i], 1, 2, true);
++        ota_performance_record_flash(&guarded.p, 0, invalid[i], 1, 2, false);
++    }
++    assert(guarded.p.flash[OTA_PERFORMANCE_UNKNOWN_CORE].calls == 7);
++    assert(guarded.p.flash[0].calls == 7 && guarded.p.flash[1].calls == 0);
++    assert(guarded.p.flash_unknown_endpoints == 14);
++    assert(guarded.p.flash_different_endpoints == 0);
++    ota_performance_record_verify(&guarded.p, OTA_PERFORMANCE_VERIFY_DESCRIPTION, 1, 0, UINT64_MAX);
++    assert(guarded.p.verify_valid_mask == 2);
++    ota_performance_record_verify(&guarded.p, OTA_PERFORMANCE_VERIFY_DESCRIPTION, -55, 55, 17);
++    assert(guarded.p.verify_valid_mask == 2);
++    assert(guarded.p.verify[1].elapsed_us == 17);
++    assert(guarded.p.verify[1].start_core == -1 && guarded.p.verify[1].end_core == -1);
++    char before[OTA_PERFORMANCE_CSV_CAPACITY], after[OTA_PERFORMANCE_CSV_CAPACITY];
++    assert(ota_performance_format(&guarded.p, before, sizeof(before)));
++    ota_performance_record_verify(&guarded.p, (ota_performance_verify_phase)-1, 0, 0, 1);
++    ota_performance_record_verify(&guarded.p, OTA_PERFORMANCE_VERIFY_COUNT, 0, 0, 1);
++    assert(ota_performance_format(&guarded.p, after, sizeof(after)));
++    assert(strcmp(before, after) == 0);
++    assert(guarded.before == UINT64_C(0x0123456789abcdef));
++    assert(guarded.after == UINT64_C(0xfedcba9876543210));
++}
++
++static void maximum_record_and_capacity(void) {
++    ota_performance_t p = {0};
++    ota_performance_reset(&p, INT32_MIN, UINT32_MAX, UINT32_MAX);
++    p.copy_us = UINT64_MAX;
++    for (unsigned i = 0; i < OTA_PERFORMANCE_FLASH_BUCKETS; ++i) {
++        p.flash[i] = (ota_performance_flash){UINT64_MAX, UINT64_MAX, UINT32_MAX};
++    }
++    p.flash_different_endpoints = p.flash_unknown_endpoints = UINT32_MAX;
++    for (unsigned i = 0; i < OTA_PERFORMANCE_VERIFY_COUNT; ++i)
++        ota_performance_record_verify(&p, (ota_performance_verify_phase)i, -1, -1, UINT64_MAX);
++    // Formatter also bounds accidentally non-normalized public state.
++    p.verify_valid_mask = UINT32_MAX;
++    p.verify[0].start_core = INT8_MIN;
++    p.verify[0].end_core = INT8_MAX;
++    char full[OTA_PERFORMANCE_CSV_CAPACITY];
++    size_t length = ota_performance_format(&p, full, sizeof(full));
++    assert(length == OTA_PERFORMANCE_CSV_MAX_CHARS);
++    assert(strlen(full) == length);
++    unsigned commas = 0;
++    for (size_t i = 0; i < length; ++i) if (full[i] == ',') ++commas;
++    assert(commas + 1 == OTA_PERFORMANCE_CSV_FIELDS);
++    for (size_t capacity = 0; capacity <= sizeof(full); ++capacity) {
++        char guarded[OTA_PERFORMANCE_CSV_CAPACITY + 2];
++        memset(guarded, 'X', sizeof(guarded));
++        char *out = guarded + 1;
++        size_t result = ota_performance_format(&p, out, capacity);
++        if (capacity <= length) {
++            assert(result == 0);
++            if (capacity) assert(out[0] == 0);
++            else assert(out[0] == 'X');
++        } else {
++            assert(result == length);
++            assert(strcmp(out, full) == 0);
++        }
++        assert(guarded[0] == 'X');
++        for (size_t i = capacity + 1; i < sizeof(guarded); ++i) assert(guarded[i] == 'X');
++    }
++}
++
++static void invalid_input(void) {
++    ota_performance_t p = {0};
++    char out[4] = "old";
++    assert(ota_performance_format(NULL, out, sizeof(out)) == 0 && out[0] == 0);
++    assert(ota_performance_format(&p, NULL, 100) == 0);
++    assert(ota_performance_format(&p, out, 0) == 0);
++    ota_performance_reset(NULL, 0, 0, 0);
++    ota_performance_add_copy(NULL, 1);
++    ota_performance_record_flash(NULL, 0, 1, 1, 1, true);
++    ota_performance_record_verify(NULL, OTA_PERFORMANCE_VERIFY_END, 0, 0, 1);
++}
++
++int main(void) {
++    zero_and_reset();
++    observed_calls_and_failures();
++    precision_and_saturation();
++    invalid_cores_and_phases();
++    maximum_record_and_capacity();
++    invalid_input();
++    printf("OTA_PERFORMANCE_TEST_OK max_chars=%u fields=%u\n",
++           (unsigned)OTA_PERFORMANCE_CSV_MAX_CHARS, (unsigned)OTA_PERFORMANCE_CSV_FIELDS);
++    return 0;
++}
+diff --git a/tests/ota_performance_trace_test.c b/tests/ota_performance_trace_test.c
+new file mode 100644
+--- /dev/null
++++ b/tests/ota_performance_trace_test.c
+@@ -0,0 +1,166 @@
++// Include the actual RTC owner; only attributes and task locks are substituted.
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++#include "freertos/FreeRTOS.h"
++#include "../firmware/main/crash_record.h"
++
++static bool locked;
++static unsigned enters,exits,format_calls;
++void probe_test_enter(portMUX_TYPE *lock,bool isr) {
++    (void)lock;assert(!isr&&!locked);locked=true;enters++;
++}
++void probe_test_exit(portMUX_TYPE *lock,bool isr) {
++    (void)lock;assert(!isr&&locked);locked=false;exits++;
++}
++static size_t format_outside_lock(const ota_performance_t *p,char *out,size_t size) {
++    assert(!locked);
++    assert((uintptr_t)p%_Alignof(ota_performance_t)==0);
++    format_calls++;
++    return ota_performance_format(p,out,size);
++}
++#define RTC_NOINIT_ATTR
++#define ota_performance_format format_outside_lock
++#include "../firmware/main/ota_performance_trace.c"
++#undef ota_performance_format
++
++static const char sample_csv[]=
++    "1,1,1048576,4096,7,10,32,1,0,0,0,0,0,0,0,0,1,99,1,0,0,0,0,0,0,0";
++static ota_performance_t sample(void) {
++    ota_performance_t p;
++    ota_performance_reset(&p,1,1048576,4096);
++    ota_performance_add_copy(&p,7);
++    ota_performance_record_flash(&p,0,0,10,32,true);
++    ota_performance_record_verify(&p,OTA_PERFORMANCE_VERIFY_END,1,0,99);
++    return p;
++}
++static void expect_empty(void) {
++    char out[OTA_PERFORMANCE_SUFFIX_CAPACITY];
++    memset(out,'X',sizeof(out));
++    ota_trace_performance_format(out,sizeof(out));
++    assert(!out[0]&&!locked&&enters==exits);
++}
++static void expect_record(unsigned origin,const char *csv) {
++    char expected[OTA_PERFORMANCE_SUFFIX_CAPACITY],out[OTA_PERFORMANCE_SUFFIX_CAPACITY];
++    int length=snprintf(expected,sizeof(expected),";op,%u,%s",origin,csv);
++    assert(length>0&&(size_t)length<sizeof(expected));
++    ota_trace_performance_format(out,sizeof(out));
++    assert(strcmp(expected,out)==0&&!locked&&enters==exits);
++}
++static void seed_retained(unsigned magic,const ota_performance_t *p) {
++    assert(!locked);
++    memcpy((void *)retained_performance.words,p,sizeof(*p));
++    retained_performance.magic=magic;
++}
++static ota_performance_t retained_value(void) {
++    ota_performance_t value;
++    memcpy(&value,(const void *)retained_performance.words,sizeof(value));
++    return value;
++}
++static void cold_and_invalid_boot(void) {
++    ota_performance_t p=sample();
++    seed_retained(PERFORMANCE_MAGIC,&p);
++    ota_performance_trace_init(false); // Both power-on and brownout use false.
++    assert(!retained_performance.magic&&!previous_performance.magic);
++    assert(!performance_started);expect_empty();
++    seed_retained(PERFORMANCE_MAGIC^1u,&p);
++    ota_performance_trace_init(true);
++    assert(!retained_performance.magic);expect_empty();
++    seed_retained(0,&p); // Interrupted publication is never valid.
++    ota_performance_trace_init(true);expect_empty();
++}
++static void publish_copy_and_new_begin(void) {
++    ota_performance_t p=sample();
++    ota_performance_trace_init(false);
++    ota_performance_trace_begin();expect_empty();
++    unsigned calls=enters;
++    ota_trace_performance(NULL);
++    assert(enters==calls);expect_empty();
++    ota_trace_performance(&p);
++    assert(retained_performance.magic==PERFORMANCE_MAGIC);
++    ota_performance_t stored=retained_value();
++    assert(stored.target_address==p.target_address);
++    assert(stored.flash[0].successful_bytes==32);
++    p.copy_us=12345; // Publishing owns a value copy, never the caller pointer.
++    expect_record(0,sample_csv);
++    ota_performance_trace_begin(); // Do not return the old current value.
++    assert(!retained_performance.magic);expect_empty();
++    ota_trace_performance(&p);
++    stored=retained_value();assert(stored.copy_us==12345);
++    p=sample();ota_trace_performance(&p);expect_record(0,sample_csv);
++}
++static void soft_boot_and_old_record_consumption(void) {
++    ota_performance_t p=sample();
++    ota_performance_trace_init(false);ota_performance_trace_begin();
++    ota_trace_performance(&p);
++    ota_performance_trace_init(true); // Model retained RTC and fresh boot state.
++    assert(!performance_started&&!retained_performance.magic);
++    assert(previous_performance.magic==PERFORMANCE_MAGIC);
++    expect_record(1,sample_csv);
++    // Copy is independent of retained memory, which no longer has a valid magic.
++    ota_performance_t changed=retained_value();changed.copy_us=555;
++    seed_retained(0,&changed);
++    expect_record(1,sample_csv);
++    ota_performance_trace_begin();expect_empty(); // No fallback to previous boot.
++    ota_performance_trace_init(true);expect_empty(); // Nothing newly published.
++    ota_performance_trace_begin();ota_trace_performance(&p);
++    ota_performance_trace_init(true);expect_record(1,sample_csv);
++    ota_performance_trace_init(true);expect_empty(); // Consumed only once.
++    ota_performance_trace_begin();ota_trace_performance(&p);
++    ota_performance_trace_init(false);expect_empty(); // Cold boot discards valid RTC.
++}
++static void maximum_record_and_short_buffers(void) {
++    ota_performance_t p;
++    ota_performance_reset(&p,INT32_MIN,UINT32_MAX,UINT32_MAX);
++    p.copy_us=UINT64_MAX;
++    for(unsigned i=0;i<OTA_PERFORMANCE_FLASH_BUCKETS;i++)
++        p.flash[i]=(ota_performance_flash){UINT64_MAX,UINT64_MAX,UINT32_MAX};
++    p.flash_different_endpoints=p.flash_unknown_endpoints=UINT32_MAX;
++    for(unsigned i=0;i<OTA_PERFORMANCE_VERIFY_COUNT;i++)
++        ota_performance_record_verify(&p,(ota_performance_verify_phase)i,-1,-1,UINT64_MAX);
++    ota_performance_trace_init(false);ota_performance_trace_begin();
++    ota_trace_performance(&p);
++    char full[OTA_PERFORMANCE_SUFFIX_CAPACITY];
++    ota_trace_performance_format(full,sizeof(full));
++    size_t length=strlen(full);
++    assert(length==OTA_PERFORMANCE_CSV_MAX_CHARS+6);
++    assert(!strncmp(full,";op,0,",6));
++    for(size_t capacity=0;capacity<=sizeof(full);capacity++) {
++        char guarded[OTA_PERFORMANCE_SUFFIX_CAPACITY+2];
++        memset(guarded,'X',sizeof(guarded));
++        char *out=guarded+1;
++        unsigned calls=enters;
++        ota_trace_performance_format(out,capacity);
++        assert(!locked&&enters==exits);
++        if(capacity<=6)assert(enters==calls);
++        if(!capacity)assert(out[0]=='X');
++        else if(capacity<=length)assert(!out[0]);
++        else assert(!strcmp(out,full));
++        assert(guarded[0]=='X');
++        for(size_t i=capacity+1;i<sizeof(guarded);i++)assert(guarded[i]=='X');
++    }
++    unsigned calls=enters;
++    ota_trace_performance_format(NULL,100);
++    assert(enters==calls);
++    ota_performance_trace_init(true);
++    ota_trace_performance_format(full,sizeof(full));
++    assert(strlen(full)==length&&!strncmp(full,";op,1,",6));
++}
++int main(void) {
++    assert(_Alignof(performance_trace)==4);
++    assert(offsetof(performance_trace,words)==4);
++    assert(sizeof(performance_trace)==4+4*PERFORMANCE_WORD_COUNT);
++    cold_and_invalid_boot();
++    publish_copy_and_new_begin();
++    soft_boot_and_old_record_consumption();
++    maximum_record_and_short_buffers();
++    assert(enters==exits&&!locked&&format_calls>0);
++    printf("OTA_PERFORMANCE_TRACE_OK actual source; cold/soft boot, publish copy, begin invalidation, one-boot retention, origins, bounded format, balanced locks, 4-byte RTC alignment; suffix=%u\n",
++        (unsigned)(OTA_PERFORMANCE_SUFFIX_CAPACITY-1));
++    return 0;
++}
+diff --git a/tests/host-unlock-stubs/ble_keyboard.h b/tests/host-unlock-stubs/ble_keyboard.h
+new file mode 100644
+--- /dev/null
++++ b/tests/host-unlock-stubs/ble_keyboard.h
+@@ -0,0 +1,3 @@
++#pragma once
++typedef struct {unsigned connection;} ble_keyboard_state;
++void ble_keyboard_get(ble_keyboard_state *state);
+diff --git a/tests/host-unlock-stubs/device.h b/tests/host-unlock-stubs/device.h
+new file mode 100644
+--- /dev/null
++++ b/tests/host-unlock-stubs/device.h
+@@ -0,0 +1,21 @@
++#pragma once
++#include "link_state.h"
++#include "cJSON.h"
++#include <stdbool.h>
++extern int device_mutex;
++extern bool ble_connected;
++extern link_state device_links;
++extern cJSON *device_snapshots[3];
++unsigned device_host_epoch(void);
++bool device_host_changing(void);
++bool device_host_usb_owned(void);
++bool tab5_usb_connected(void);
++bool ble_host_authorized(void);
++#define portMAX_DELAY 0
++#define pdPASS 1
++#define pdMS_TO_TICKS(x) (x)
++void xSemaphoreTake(int mutex,int timeout);
++void xSemaphoreGive(int mutex);
++int xTaskCreate(void (*run)(void *),const char *name,int stack,void *arg,int priority,void *handle);
++void vTaskDelay(unsigned ms);
++void vTaskDelete(void *handle);
+diff --git a/tests/host-unlock-stubs/esp_timer.h b/tests/host-unlock-stubs/esp_timer.h
+new file mode 100644
+--- /dev/null
++++ b/tests/host-unlock-stubs/esp_timer.h
+@@ -0,0 +1,3 @@
++#pragma once
++#include <stdint.h>
++int64_t esp_timer_get_time(void);
+diff --git a/tests/host-unlock-stubs/link_state.h b/tests/host-unlock-stubs/link_state.h
+new file mode 100644
+--- /dev/null
++++ b/tests/host-unlock-stubs/link_state.h
+@@ -0,0 +1,4 @@
++#pragma once
++#include <stdint.h>
++typedef enum {LINK_NONE=-1,LINK_USB=0,LINK_WIFI=1,LINK_BLE=2} link_kind;
++typedef struct {int mode;char session[3][40];int64_t received_ms[3];} link_state;
+diff --git a/tests/host-unlock-stubs/rpc_link.h b/tests/host-unlock-stubs/rpc_link.h
+new file mode 100644
+--- /dev/null
++++ b/tests/host-unlock-stubs/rpc_link.h
+@@ -0,0 +1,4 @@
++#pragma once
++#include "link_state.h"
++#include "cJSON.h"
++cJSON *rpc_call(link_kind link,cJSON *request,int *status,char nonce[33]);
+diff --git a/tests/host_unlock_remote_test.c b/tests/host_unlock_remote_test.c
+new file mode 100644
+--- /dev/null
++++ b/tests/host_unlock_remote_test.c
+@@ -0,0 +1,109 @@
++#include "device.h"
++#include "ble_keyboard.h"
++#include "host_unlock_remote.h"
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++
++int device_mutex;
++bool ble_connected;
++link_state device_links;
++cJSON *device_snapshots[3];
++static bool usb,owned,authorized,changing,task_failure;
++static unsigned owner=1,usb_epoch=1,ble_epoch=1,requests,cancels,checks;
++static int64_t now=1000;
++static void (*worker)(void *);static void *argument;
++static link_kind expected_link;
++static int scenario;
++enum {SUCCESS,HOST_CHANGE,USB_CHANGE,BLE_CHANGE,SESSION_CHANGE,MODE_CHANGE,DISABLED,
++      BAD_SEQUENCE,BAD_OFFER,BEGIN_SUCCESS,RPC_FAILURE,CANCELLED,TOTAL_TIMEOUT,STALE};
++#define CHECK(condition) do{assert(condition);checks++;}while(0)
++unsigned device_host_epoch(void){return owner;}
++bool device_host_changing(void){return changing;}
++bool device_host_usb_owned(void){return owned;}
++bool tab5_usb_connected(void){return usb;}
++bool ble_host_authorized(void){return authorized;}
++unsigned usb_keyboard_epoch(void){return usb_epoch;}
++void ble_keyboard_get(ble_keyboard_state *state){state->connection=ble_epoch;}
++void xSemaphoreTake(int mutex,int timeout){(void)mutex;(void)timeout;}
++void xSemaphoreGive(int mutex){(void)mutex;}
++int64_t esp_timer_get_time(void){return now*1000;}
++void vTaskDelete(void *handle){(void)handle;}
++int xTaskCreate(void (*run)(void *),const char *name,int stack,void *arg,int priority,void *handle){
++    (void)name;(void)stack;(void)priority;(void)handle;
++    if(task_failure)return 0;assert(!worker);worker=run;argument=arg;return 1;
++}
++void vTaskDelay(unsigned ms){now+=ms;if(scenario==CANCELLED)host_unlock_remote_cancel();}
++static void capability(link_kind link,bool value){
++    cJSON_Delete(device_snapshots[link]);device_snapshots[link]=cJSON_CreateObject();
++    cJSON *health=cJSON_AddObjectToObject(device_snapshots[link],"connectionHealth");
++    if(value)cJSON_AddNumberToObject(health,"hostUnlockVersion",1);
++}
++cJSON *rpc_call(link_kind link,cJSON *request,int *status,char nonce[33]){
++    (void)nonce;CHECK(link==expected_link&&link!=LINK_WIFI);
++    CHECK(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"kind")),"host-unlock"));
++    CHECK(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"session")),"fixture-session"));
++    for(cJSON *field=request->child;field;field=field->next)
++        CHECK(!strcmp(field->string,"kind")||!strcmp(field->string,"op")||!strcmp(field->string,"requestId")||!strcmp(field->string,"session")||!strcmp(field->string,"offer")||!strcmp(field->string,"next"));
++    const char *op=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"op"));
++    *status=200;
++    if(!strcmp(op,"cancel")){cancels++;return cJSON_Parse("{\"ok\":true,\"cancelled\":true,\"unlocked\":false}");}
++    requests++;
++    if(requests==1){
++        CHECK(!strcmp(op,"begin")&&!cJSON_HasObjectItem(request,"offer"));
++        switch(scenario){
++            case HOST_CHANGE:owner++;break;
++            case USB_CHANGE:usb_epoch++;break;
++            case BLE_CHANGE:ble_epoch++;break;
++            case SESSION_CHANGE:strcpy(device_links.session[link],"restarted");break;
++            case MODE_CHANGE:device_links.mode=LINK_WIFI;break;
++            case DISABLED:capability(link,false);break;
++            case RPC_FAILURE:*status=503;return NULL;
++            case BEGIN_SUCCESS:return cJSON_Parse("{\"ok\":true,\"unlocked\":true,\"stage\":\"unlocked\"}");
++            case TOTAL_TIMEOUT:now+=40000;break;
++            case STALE:now+=8000;break;
++        }
++        return cJSON_Parse("{\"ok\":true,\"offer\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"next\":0,\"stage\":\"preparing\",\"unlocked\":false}");
++    }
++    CHECK(!strcmp(op,"poll")&&cJSON_GetObjectItemCaseSensitive(request,"next")->valueint==0);
++    if(scenario==BAD_SEQUENCE)return cJSON_Parse("{\"ok\":true,\"offer\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"next\":2,\"stage\":\"preparing\"}");
++    if(scenario==BAD_OFFER)return cJSON_Parse("{\"ok\":true,\"offer\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"next\":1,\"stage\":\"preparing\"}");
++    return cJSON_Parse("{\"ok\":true,\"unlocked\":true,\"stage\":\"unlocked\"}");
++}
++static const char *id="00112233-4455-4677-8899-aabbccddeeff";
++static void setup(link_kind link,int test){
++    assert(!worker);usb=link==LINK_USB;ble_connected=link==LINK_BLE;owned=authorized=true;changing=task_failure=false;
++    scenario=test;requests=cancels=0;expected_link=link;now=1000;owner++;usb_epoch++;ble_epoch++;
++    memset(&device_links,0,sizeof(device_links));device_links.mode=-1;
++    for(int i=0;i<3;i++){strcpy(device_links.session[i],"fixture-session");device_links.received_ms[i]=now;capability(i,true);}
++}
++static host_unlock_state run(void){
++    assert(worker);void (*task)(void *)=worker;worker=NULL;task(argument);host_unlock_state state;host_unlock_remote_get(&state);return state;
++}
++int main(void){
++    for(int i=0;i<2;i++){
++        link_kind link=i?LINK_BLE:LINK_USB;setup(link,SUCCESS);
++        CHECK(host_unlock_remote_link()==link);CHECK(!host_unlock_remote_start(id,LINK_WIFI));
++        CHECK(host_unlock_remote_start(id,link));CHECK(!host_unlock_remote_start(id,link));
++        host_unlock_state state=run();CHECK(state.finished&&state.unlocked&&state.current&&state.error==0&&requests==2&&cancels==1);
++        // A changed host after the final response invalidates the UI result.
++        owner++;host_unlock_remote_get(&state);CHECK(!state.current);
++        const int cases[]={HOST_CHANGE,SESSION_CHANGE,MODE_CHANGE,DISABLED,BAD_SEQUENCE,BAD_OFFER,BEGIN_SUCCESS,RPC_FAILURE,CANCELLED,TOTAL_TIMEOUT,STALE};
++        for(unsigned j=0;j<sizeof(cases)/sizeof(cases[0]);j++){
++            setup(link,cases[j]);CHECK(host_unlock_remote_start(id,link));state=run();CHECK(state.finished&&!state.unlocked&&state.error!=0);
++            CHECK(requests==((cases[j]==BAD_SEQUENCE||cases[j]==BAD_OFFER)?2u:1u));
++            CHECK(cancels==((cases[j]==BAD_SEQUENCE||cases[j]==BAD_OFFER||cases[j]==CANCELLED)?1u:0u));
++        }
++        setup(link,i?BLE_CHANGE:USB_CHANGE);CHECK(host_unlock_remote_start(id,link));state=run();CHECK(!state.unlocked&&requests==1&&cancels==0);
++        setup(link,SUCCESS);CHECK(host_unlock_remote_start(id,link));host_unlock_remote_cancel();state=run();CHECK(!state.unlocked&&requests==0&&cancels==0);
++        setup(link,SUCCESS);task_failure=true;CHECK(!host_unlock_remote_start(id,link));task_failure=false;CHECK(host_unlock_remote_start(id,link));state=run();CHECK(state.unlocked);
++        setup(link,SUCCESS);capability(link,false);CHECK(host_unlock_remote_link()==LINK_NONE&&!host_unlock_remote_start(id,link));
++        capability(link,true);device_links.mode=LINK_WIFI;CHECK(host_unlock_remote_link()==LINK_NONE&&!host_unlock_remote_start(id,link));
++        device_links.mode=-1;changing=true;CHECK(host_unlock_remote_link()==LINK_NONE&&!host_unlock_remote_start(id,link));
++    }
++    setup(LINK_USB,SUCCESS);ble_connected=true;CHECK(host_unlock_remote_link()==LINK_USB);
++    capability(LINK_USB,false);CHECK(host_unlock_remote_link()==LINK_NONE);
++    device_links.mode=LINK_BLE;CHECK(host_unlock_remote_link()==LINK_BLE);
++    for(int i=0;i<3;i++)cJSON_Delete(device_snapshots[i]);
++    printf("HOST_UNLOCK_REMOTE_TEST_OK %u assertions; fake RPC only, no credential or hardware\n",checks);
++}
+diff --git a/tests/host_unlock_timeout_test.c b/tests/host_unlock_timeout_test.c
+new file mode 100644
+--- /dev/null
++++ b/tests/host_unlock_timeout_test.c
+@@ -0,0 +1,24 @@
++#include <assert.h>
++#include <stdbool.h>
++#include <stdio.h>
++#include <string.h>
++#include "rpc_timeout_under_test.inc"
++int main(void){
++    assert(rpc_exchange_timeout("host-unlock",false)==2000);
++    assert(rpc_exchange_timeout("unlock-pin",false)==75000);
++    assert(rpc_exchange_timeout("wifi-unlock",false)==75000);
++    assert(rpc_exchange_timeout("computer-control",false)==75000);
++    assert(rpc_exchange_timeout("runtime-diagnostics",false)==2000);
++    assert(rpc_exchange_timeout("ota",false)==10000);
++    assert(rpc_exchange_timeout("gallery",false)==8000);
++    assert(rpc_exchange_timeout(NULL,true)==5000);
++    assert(rpc_exchange_admission("host-unlock")==1000);
++    assert(rpc_exchange_admission("unlock-pin")==1000);
++    assert(rpc_exchange_admission("wifi-unlock")==0);
++    assert(rpc_exchange_admission("computer-control")==1000);
++    assert(rpc_exchange_admission("voice")==2000);
++    assert(rpc_exchange_admission("screen-preview")==100);
++    assert(rpc_exchange_timeout("screen-preview",false)==3000);
++    assert(rpc_exchange_admission(NULL)==0);
++    puts("HOST_UNLOCK_TIMEOUT_TEST_OK 16 assertions");
++}

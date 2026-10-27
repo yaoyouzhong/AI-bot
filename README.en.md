@@ -4,9 +4,9 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.10.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.11.md) · [简体中文](README.md)
 
-Published: Windows **0.6.10** and TAB5 **0.2.234-ui** add computer unlock and automatic component setup, and fix volume-drag recovery, bidirectional read sync, BLE boot verification and battery-display continuity. Related hardware acceptance is complete; see [the release notes](docs/RELEASE-0.6.10.md). The download center is updated; Mac, ESP8266 and collections retain independent versions.
+This release: desktop **0.6.11**, TAB5 **0.2.281-ui**, ESP8266 **0.5.7**. TAB5 now supports Windows and Apple Silicon Mac, with improved voice drafts, long-conversation paging, preview and reconnection, hold-to-clear and clearer reset information. See [release details](docs/RELEASE-0.6.11.md).
 
 ## Choose your desktop display
 
@@ -45,7 +45,7 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 <p><sub>All five are official M5Stack photos, cropped only to remove whitespace. Click to enlarge.</sub></p>
 </details>
 <p>A desktop device with a 5-inch touchscreen. View status and quotas, continue Codex conversations, dictate messages, add photo attachments and manage reminders, with clocks, paintings and calligraphy for everyday display.</p>
-<p><strong>Connections:</strong> USB / Wi-Fi / Bluetooth<br><strong>Computer support:</strong> Windows<br><strong>Best for:</strong> touch interaction, task handling and a wider range of display options.</p>
+<p><strong>Connections:</strong> USB / Wi-Fi / Bluetooth<br><strong>Computer support:</strong> Windows / macOS<br><strong>Best for:</strong> touch interaction, task handling and a wider range of display options.</p>
 <p><a href="docs/INSTALL.zh.md#tab5-first">Setup and connection</a> · <a href="docs/FEATURES.zh.md#tab5">Interface gallery</a></p>
 </td>
 </tr>
@@ -53,11 +53,11 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 <sub>Both pictures combine hardware imagery with the AI-bot interface and demo data; they are not hardware photographs or shown to a common physical scale. <a href="docs/HARDWARE-IMAGES.md">Image sources and notes</a></sub>
 
-The updated 116-second Chinese tour adds computer unlock, automatic TightVNC setup/import and bidirectional read synchronization, uses the actual .234 notes and retains agenda, clocks, quotas and artwork browsing. Native interfaces use isolated demo data, not hardware photographs.
+The new 64-second film covers TAB5 on Windows and Apple Silicon Mac, voice drafts, hold-to-clear, account sources and independent updates using the actual .281 notes. Native fixtures contain synthetic data; they are not hardware photographs.
 
-https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
+[![AI-bot 0.6.11 / TAB5 .281](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)
 
-<sub>116-second Chinese tour. Play directly on this page. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
+<sub>64-second Chinese tour. Open or download the MP4. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
 
 ## What it does
 
@@ -90,7 +90,7 @@ https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 <details>
 <summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
 
-**Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.10.md)
+**Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.11.md)
 
 **Codex Direct:** pick one of five recent sessions, read replies, dictate a draft and confirm before sending. Cancel, recover from failures or hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -135,8 +135,7 @@ Install the computer bridge, then choose firmware for your device. Artwork colle
 - **Factory TAB5**: choose the first-install ZIP. **Existing AI-bot**: extract the upgrade ZIP and select `aibot_tab5.bin`, keeping its release-notes file beside it. Firmware is not interchangeable between devices.
 - **Collections**: import ZIPs directly through Windows Software and Firmware Updates → Artwork Collections. App upgrades preserve collections. Requires Windows bridge 0.6.0+ and TAB5 0.2.145-ui+.
 - **Choose an edition**: choose standard or complete HD for each collection. HD includes standard previews and guides, so a separate standard import is unnecessary. Bridge 0.6.7+ displays HD originals; TAB5 uses device previews. Follow the HD size links in the table to download, merge and import. Standard painting is retained.
-- Windows supports ESP8266 and TAB5. Mac currently supports ESP8266; TAB5, unified updates and artwork import instructions apply to Windows. Windows setup is unsigned; Mac is ad-hoc signed and not notarized.
-- The [unpublished Mac TAB5 candidate](docs/MAC-TAB5-CANDIDATE.md) extends to USB/Wi-Fi/Bluetooth, daily display/settings, resources/gallery, OTA, computer/music, Codex, photos, native local speech and first install/backup/restore, with module Mac CI and candidate-app checks. Hardware, permissions and playback acceptance remain pending. It is not included in the downloads above; distinguish candidate capabilities from published versions.
+- Windows and Apple Silicon Mac support ESP8266 and TAB5; see the installation guide for Mac permissions and speech sources. Windows setup is unsigned; Mac is ad-hoc signed and not notarized.
 
 [Installation guide](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [Collection sizes and licenses](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md) · [Earlier releases](https://github.com/yaoyouzhong/AI-bot/releases)
 <!-- downloads:end -->
@@ -151,11 +150,11 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.10.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.11.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](docs/development/TAB5-SOURCE.md) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)
 
 Own code, including TAB5, is [MIT licensed](LICENSE). Third-party components and artworks retain their original licenses. This independent project has no affiliation with the named AI providers. [Report issues](https://github.com/yaoyouzhong/AI-bot/issues) with your platform, versions, hardware and reproduction steps; remove credentials and private logs.
 
-The Windows 0.6.10 / TAB5 0.2.234-ui release adds computer unlock and automatic TightVNC setup/import without a manually entered component password. Volume-drag recovery, bidirectional Codex read sync, isolated BLE boot verification and battery display after reboot/USB changes have passed hardware acceptance. The installer, firmware and corresponding source are published. [Preparation and acceptance](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).
+The earlier Windows 0.6.10 / TAB5 0.2.234-ui release added computer unlock and automatic TightVNC setup/import without a manually entered component password. Volume-drag recovery, bidirectional Codex read sync, isolated BLE boot verification and battery display after reboot/USB changes have passed hardware acceptance. The installer, firmware and corresponding source are published. [Preparation and acceptance](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).

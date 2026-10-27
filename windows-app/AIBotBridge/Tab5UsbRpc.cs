@@ -67,6 +67,7 @@ internal sealed partial class Tab5Service
             int chunk=_usbRpcChunk;if(pumpChunk!=chunk||pumpGeneration!=generation){pump=null;pumpChunk=chunk;pumpGeneration=generation;}
             pump??=new Tab5BleVoice(ct=>UsbRpcPacketAsync(null,generation,ct),async(data,ct)=>{await UsbRpcPacketAsync(data,generation,ct);},
                 (nonce,proof,packet,ct)=>RpcAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct),247,Tab5RpcBinary.MailboxMaximum,75,chunk,chunk,maximumRequest:Tab5RpcBinary.MailboxMaximum);
+            _usbRpcPump=pump;
             uint before=pump.CompletedCount;
             try{if(await pump.PumpAsync(token))_usbRpcTiming=$"{DateTimeOffset.Now:HH:mm:ss} chunk={chunk}; {pump.Timing}";}
             catch(OperationCanceledException) when(token.IsCancellationRequested){return;}
@@ -77,6 +78,7 @@ internal sealed partial class Tab5Service
                 if(_usbRpcFirstFailure=="无")_usbRpcFirstFailure=_usbRpcLastFailure;
                 pump=null;await Task.Delay(500,token);
             }
+            finally {_usbRpcPump=null;}
             if(pump is not null&&pump.CompletedCount!=before)continue; // The device may already have queued the next range.
             if(pump is not null&&_usbRpcWait>0)continue; // The peer bounded-waits for a new request instead of sleeping after an empty poll.
             await Task.Delay(pump is not null && Environment.TickCount64-pump.LastActive<1000?5:20,token);

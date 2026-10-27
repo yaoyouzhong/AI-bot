@@ -2,52 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased TAB5 source archive - 2026-10-27
+## 0.6.11 - 2026-10-27
 
-- Archive the complete accepted 0.2.279-ui project, exact configurations, six managed-dependency overrides and SDK/NimBLE patches with licenses and byte hashes. Add a cross-platform archive verifier and CI check; preserve original source bytes and omit firmware images, private state and unmodified downloaded dependencies. No rebuild, flashing or release.
+### Features
+- TAB5 now supports macOS on Apple Silicon: USB/Wi-Fi/BLE, device settings, Codex conversations and drafts, speech review, computer controls, preview and firmware management. Permissions and speech sources remain platform-specific.
+- Align Windows/Mac quota sources, DeepSeek wallet totals and provider web zoom.
 
-## Unreleased Mac model account parity - 2026-10-26
+### Fixes
+- Prevent Windows background quota refresh from stealing voice focus; retain delayed text and warn about early recognizer termination.
+- Restore ESP8266 Wi-Fi fallback with bounded status payloads, retaining USB priority and rendered data.
+- Improve TAB5 previews, voice reply scheduling, bounded history access and exact-image boot checks.
 
-- Render each stock-name atlas row independently to prevent cross-row rasterization differences on macOS 14 while retaining the accepted font, color, size and alignment. Update paginated-history fixtures, isolate test registration defaults and bound asynchronous menu checks for CI.
+### Validation
+- User hardware acceptance covers long conversations, long voice takes, retained settings and both displays. TAB5 0.2.281-ui and ESP8266 0.5.7 are separately versioned.
+- Mac includes deployed R36 work and documented hardware checks. Apple Silicon packages are ad-hoc signed and not notarized. Recognition remains dependent on the selected speech service; review text before sending.
 
-- Keep DeepSeek API total balance (already including gifts) and console spending independently stored, timestamped and labeled. In separate-source mode devices receive API balance only; unverified web spending is never merged. Pure-console mode can display its own balance and spending together. Sum same-currency recharge and bonus wallets with decimal arithmetic, without double-counting an authoritative total.
-- Read console spending from `total_costs`; same-console balance-only updates retain the original spending timestamp for at most 24 hours. Source/credential/currency transitions prevent old API data being relabeled as web data. Failed reads retain the last successful source-specific data.
-- Match Windows stock-name rendering parameters: 21-pixel regular type, 20-pixel rows, right alignment, gray text and end ellipsis for long names. Remove extra vertical padding; stock codes already share the firmware's 16-pixel Font2. The local ESP8266 0.5.6 candidate preserves reset-credit digit strokes and aligns columns inside a smaller badge.
-- Replace model account dialogs with one window containing the 14 Windows provider entries, an embedded official login page and quota-source settings. Retain API/local-service sources and add DeepSeek official web balance parsing.
-- Let system WebKit storage manage web sessions; selected console sources retry in the background after the window closes and after bridge restart. Expired login, rate limiting and network failures preserve the last successful data with freshness shown. Never export cookies or combine account balances with local token counts.
-- Fit ESP8266 weather place names to actual glyph bounds and enlarge Chinese stock names within existing row heights. A separate local ESP8266 0.5.4 candidate fixes Codex reset-credit borders and pet-animation exclusion. TAB5 firmware is unchanged.
-- Follow-up feedback: match Windows’ colored air-quality badge and separate condition text, and add per-provider web zoom for oversized official dialogs. The local ESP8266 0.5.5 candidate reduces reset-credit text from 16 to 14 pixels at the user’s request.
-
-## Unreleased Mac ESP8266 discovery - 2026-10-26
-
-- Add authenticated ESP8266 LAN rediscovery using the existing Windows/device protocol and retained Keychain pairing. Share the TAB5 UDP listener, select the current matching subnet, and bind the reply source to the advertised address only when HTTP is ready. Preserve USB-first routing, pairing and display settings. Native policy/loopback checks are recorded separately from controlled stale-port ESP8266 rediscovery, Wi-Fi fallback and USB recovery hardware evidence; actual DHCP changes remain untested. No new firmware or public release.
-
-- Match Windows’ 12-second completion display timeout so ESP cycling can resume. Correct imported pet and localized-text bitmap row orientation, including stock names in the 20-row atlas. Import the project’s six-frame Codex mascot at the user’s request; visual and text hardware acceptance remain separate.
-- Fix the API quota providers’ console button opening no page and losing its feedback: open DeepSeek, StepFun and Baidu Qianfan official sites in the default browser while preserving quota sources and credentials.
-
-## Unreleased Mac TAB5 candidate - 2026-10-20
-
-- Complete the five-stage Mac candidate scope: shared USB/Wi-Fi/BLE authentication and receipts, daily display/settings, covers/pets/gallery, exact-image OTA/boot checks, computer/music controls, opt-in Codex replies/encrypted drafts/one-time delivery, bound photos, local Speech capture/review, and verified 16 MiB P4 first install/backup/restore.
-- Add module Mac tests/Release, ad-hoc candidate-app/tool checks, fixture-only native UI rendering, checksums and an offline bilingual guide. Fix native XCTest report collection, Swift compatibility, Keychain-helper visibility and Codex pipe buffering from actual CI failures. Hardware, Automation/playback, Accessibility composer compatibility and on-device speech availability await physical acceptance. No merge to main, deployment, tag or publication. See the [candidate guide](docs/MAC-TAB5-CANDIDATE.md) and [evidence](docs/development/MAC-TAB5-PORTING.md).
-## Unreleased · Windows sign-in method
-
-- Windows source candidate adds safe stop during TAB5 upgrade preparation/transfer. Last-range release disables stop; a fresh same-host idle report confirms stopped transfers. Existing firmware cleanup and pairing are retained. Not installed; hardware cancellation is pending.
-
-- TAB5 .254 local candidate replaces camera hardware JPEG with bounded scanline software encoding, retaining full resolution, quality 85, YUV420 and three-photo editing. The quota heading drops the carry-over explanation and the daily values lose their asterisks, without changing calculations. .253 is installed: both BLE attempts passed, while blue flashes persist; .254 is now installed with exact boot verification, but the user still reports blue flashes and a slow failed first BLE upload; its retry and Wi-Fi succeed. Windows and Mac binaries are unchanged in this follow-up.
-
-- New local candidate: preserve observed positive quota differences across changed future reset dates, label uncertain/cross-day attribution, and collect explicit banked-reset history read-only. Scheduled and observed early resets keep prior increments and start a new segment; zero-usage deadline drift is not another reset. Replay of the untouched actual history yields October 21 = 30 points, including 26 carried across a gap, and one observed October 23 01:10 reset. Automatic-reset origin is not established by sampling alone. Installed; resident totals match the replay. Live history reports complete with no normalized redemptions, which does not establish absence of card use; raw event kinds remain unverified. Mac is unchanged.
-
-- TAB5 .253 candidate removes the two redundant photo hints, transfers completed preview ownership to the attachment cache, and shortens JPEG DMA bursts. It also permits bounded credential-mailbox admission without replay. Installed; both user BLE attempts passed and blue flashes still fail.
-
-- Installed candidate: daily quota totals continue the previous valid reading across midnight, segment verified resets, and label long-gap carry-over separately. Actual October 21 still reports 4 points and remains under investigation. Runtime diagnostics retry the other live wireless path to the same bound device after an initial timeout; forced-BLE hardware acceptance is pending.
-
-- Add on-demand Wi-Fi/BLE runtime diagnostics for TAB5 .250 using the bound computer's encrypted channels, retaining stale samples with explicit age. Add daily quota sample bounds to diagnose partial history separately from complete totals. Installed; live Wi-Fi diagnostics passed with USB unplugged. BLE-only fallback is a follow-up; Mac is unchanged.
-
-- Query the TAB5 GATT service directly and report separate discovery/ownership/identity stages. A firmware candidate follows the .237 trial to notify existing bonds of service-layout changes; Bluetooth hardware acceptance is pending.
-
-- TAB5 0.2.237-ui candidate: pin USB, Wi-Fi and BLE to one selected trusted computer. Only authenticated USB from an already trusted computer may take over automatically; unavailable links and other computers' wireless reconnects never change the target. Verify and filter BLE peer ownership, preserve pairings, and keep unrelated physical links from blocking the selected computer's Wi-Fi unlock. Windows proves its BLE ownership before USB standby. Hardware acceptance is pending.
-
-- Store an explicit PIN/password type for one-click unlock and invoke a protected, on-demand Windows helper to select the matching input page. Stop without replay when the method, focus, session or request freshness cannot be confirmed. Install prerequisites by default and save/check USB/Bluetooth and Wi-Fi from one page. Preserve legacy credentials; macOS and firmware are unchanged. Five real method switches and USB unlocking from both the wallpaper and fingerprint page passed. Transport acceptance is recorded in the development report.
+### Additional changes and provenance
+- Add explicit Windows PIN/password selection, a protected on-demand sign-in helper, authenticated computer selection and bounded upgrade-stop handling.
+- Preserve observed daily quota increments across reset-date changes and distinguish uncertain gap/cross-day attribution. Add authenticated runtime diagnostics and improve the device-center layout.
+- Mac adds source-isolated model accounts, provider web zoom, small-screen LAN rediscovery and aligned stock/weather rendering. Full .279 source and .281 changes are retained with hashes and licenses.
+- Earlier candidate observations, including then-pending cases, are archived in [development notes](docs/development/RELEASE-0611-STAGE-NOTES.en.md); current scope and limits are in [release details](docs/RELEASE-0.6.11.md).
 
 ## 0.6.10 - 2026-10-19
 
@@ -64,16 +38,6 @@ All notable changes to this project will be documented in this file.
 
 - Preserve the published 0.6.9 update entry points, independent windows and unsaved-change protection. Do not rebuild unchanged Mac or ESP8266 components.
 - Retry atomic history/credential replacement for a bounded interval when a file is temporarily held. Persistent failures preserve the original and report an error. Installation, hardware regression and validation boundaries are tracked in the [closeout record](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md).
-
-## Unreleased
-
-- Add a macOS TAB5 USB/Wi-Fi, daily-display and acknowledged display-settings candidate, isolated from ESP8266 settings. Independent protocol/reference checks passed on Windows; 55 Swift tests and Release compilation passed in Mac CI. Preserve command failures through log pipelines and collect the XCTest XML using an absolute path. Native UI and hardware acceptance remain pending. No deployment or release; see the [phase-one record](docs/development/MAC-TAB5-PHASE1-20261019.md).
-- Widen the default device center and adapt its action grid between three and two columns, preserving device names and shortening descriptions. Recompute stale scroll extents after resizing so the connection/upgrade entry remains fully reachable. Windows UI only; firmware and device settings are unchanged.
-
-### TAB5 local candidate
-
-- Add authenticated selection among independently trusted Windows/Mac computers with TAB5 .236. Preserve existing pairing and credential bindings, and stop stale input during takeover.
-- Extend Windows unlock credentials to 1–64 printable ASCII characters and retain the default numeric keypad. Pair with .235/.236 camera memory handoff fixes. Local validation passed; Mac build and hardware acceptance remain pending. See [integration record](docs/development/TAB5-MULTI-HOST-20261021.md).
 
 ## 0.6.9 - 2026-10-17
 

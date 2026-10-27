@@ -2,6 +2,25 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.281-ui - 2026-10-27
+
+Release prepared after user hardware acceptance.
+
+- Retain the .280 Codex long-press clear behavior, photo preservation and draft persistence protections.
+- Read only pairing state and public device identity in BLE receive/proof paths instead of copying the complete configuration. The actual input callback frame falls from 512 to 176 bytes under the unchanged 320-byte limit.
+- Repair five standalone native test targets against .279 interfaces, including CPU-owned photo output, cache ownership failure, ISR extraction and RPC admission. All native targets compile; 27 relevant test executables and the complete LVGL preview pass.
+- Preserve the existing OTA partitions. User hardware acceptance passed. The real NimBLE task minimum stack watermark was not measured separately; ELF frame limits and physical BLE operation are separate evidence.
+
+## 0.2.280-ui - 2026-10-27
+
+Local candidate; not publicly released.
+
+- Add Long press to clear to the normal Codex draft editor, visible with the keyboard open. Short clicks, release and repeat events do not clear text.
+- Clear only the selected task's text and pending spelling while retaining photos; block clearing during recording, sending and uncertain delivery.
+- Persist through the existing draft checkpoint/sync flow, reject stale loads after clearing, and report checkpoint failures while retaining retries.
+- Based on the complete .279 source. Resolve nested Windows tool-directory links for builds. Hardware acceptance is pending; no public release.
+- Use more compact compilation only for widget construction to retain the existing OTA slots; rendering, audio, camera and transport compilation flags remain intact.
+
 ## 0.2.279-ui - 2026-10-26
 
 - HD preview first borrows a detached gallery spare or an idle camera frame, reusing existing full RGB565 storage before general-heap fallback instead of requiring another1843200-byte contiguous allocation.

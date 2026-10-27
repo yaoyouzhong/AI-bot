@@ -19,7 +19,7 @@ internal sealed partial class Tab5Service
             catch(FormatException){return null;}
             return new(pair.DeviceId,host,transports,!_stopping&&!BackgroundTransferPaused&&
                 Volatile.Read(ref _benchmarkRunning)==0&&Volatile.Read(ref _installBusy)==0&&
-                !ImageTransferPending&&!(_voice is Tab5VoiceHost voice&&voice.Busy),Tab5ScreenPreview.SupportsHD(_firmware.LastVersion(pair.DeviceId)));
+                !ImageTransferPending&&!(_voice is Tab5VoiceHost voice&&voice.Busy),Tab5ScreenPreview.SupportsHD(_firmware.LastVersion(pair.DeviceId)),Tab5ScreenPreview.SupportsResponsiveCapture(_firmware.LastVersion(pair.DeviceId)));
         }
     }
 }

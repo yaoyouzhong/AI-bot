@@ -189,6 +189,41 @@ internal static class Tab5HistorySelfTest
                         if(!middleBody.GetProperty("neighbors").EnumerateArray().Select(x=>x.GetProperty("replyView").GetProperty("turnId").GetString()).SequenceEqual(new[]{batchTurns[1],batchTurns[3],batchTurns[0]}))throw new Exception("Stored older/newer priority incorrect");
                         Console.WriteLine("TAB5_STORED_BATCH_OK owner unavailable, three older turns, both adjacency IDs, no desktop launch");
                     }
+                    // Production constructor path: no CLI pagination is involved when
+                    // an unloaded desktop thread has a local public rollout.
+                    string largeLog=Path.Combine(sessions,"large.jsonl");
+                    string[] longTurns=Enumerable.Range(0,3).Select(_=>Guid.NewGuid().ToString()).ToArray();
+                    string[] publicReplies=["首轮公开回复",string.Concat(Enumerable.Repeat("长会话公开回复中文🙂 English\n",300)),"末轮公开回复"];
+                    using(var writer=new StreamWriter(largeLog)) {
+                        string tool=JsonSerializer.Serialize(new{type="response_item",payload=new{type="function_call_output",output="SYNTHETIC_TOOL_PRIVATE"+new string('x',1024*1024)}});
+                        for(int i=0;i<longTurns.Length;i++) {
+                            writer.WriteLine(Event(new{type="task_started",turn_id=longTurns[i]}));
+                            for(int j=0;j<8;j++)writer.WriteLine(tool);
+                            writer.WriteLine(JsonSerializer.Serialize(new{type="response_item",payload=new{type="reasoning",text="SYNTHETIC_REASONING_PRIVATE"}}));
+                            writer.WriteLine(Event(new{type="task_complete",turn_id=longTurns[i],last_agent_message=publicReplies[i]}));
+                        }
+                    }
+                    if(new FileInfo(largeLog).Length<=23*1024*1024)throw new Exception("Long-history fixture too small");
+                    int startsBeforeLarge=starts,opensBeforeLarge=opens,verifiedPages=0;
+                    var watch=System.Diagnostics.Stopwatch.StartNew();
+                    using(var localTasks=new Tab5CodexTasks(desktop,()=>[new(task,"synthetic large history","test",0)],rolloutPath:_=>largeLog,historyHome:temp)) {
+                        for(int i=longTurns.Length-1;i>=0;i--) {
+                            var text=new System.Text.StringBuilder();int count=1;
+                            for(int page=0;page<count;page++) {
+                                var read=await localTasks.ReadPageAsync(task,page,stop.Token,longTurns[i],includeView:true);
+                                if(read.Status!=200||!localTasks.ReadDiagnostic.Contains("source=stored"))throw new Exception("Long local history unavailable");
+                                var body=JsonSerializer.SerializeToElement(read.Body);var view=body.GetProperty("replyView");
+                                count=view.GetProperty("pageCount").GetInt32();
+                                string chunk=body.GetProperty("text").GetString()!;
+                                if(view.GetProperty("turnId").GetString()!=longTurns[i]||view.GetProperty("page").GetInt32()!=page||System.Text.Encoding.UTF8.GetByteCount(chunk)>2200||body.GetRawText().Contains("SYNTHETIC_"))throw new Exception("Long-history page identity/privacy/size");
+                                if(view.GetProperty("hasPrevious").GetBoolean()!=(i>0)||view.GetProperty("hasNext").GetBoolean()!=(i<longTurns.Length-1))throw new Exception("Long-history turn navigation");
+                                text.Append(chunk);verifiedPages++;
+                            }
+                            if(text.ToString()!=publicReplies[i].Trim()+"\n\n")throw new Exception("Long-history public text lost or duplicated");
+                        }
+                    }
+                    if(starts!=startsBeforeLarge||opens!=opensBeforeLarge)throw new Exception("History read dispatched or opened a thread");
+                    Console.WriteLine($"TAB5_LONG_STORED_HISTORY_OK bytes={new FileInfo(largeLog).Length}; turns=3; pages={verifiedPages}; elapsedMs={watch.ElapsedMilliseconds}; public text exact; no CLI, launch or send; synthetic only");
                     loaded=true;
                     var bounded=Tab5Service.BoundReadBatch(new {text="current remains",neighbors=new[]{new {turn="previous",text=new string('x',5000)},new {turn="next",text=new string('y',5000)},new {turn="older2",text=new string('z',5000)},new {turn="same-page",text=new string('p',5000)}}});
                     using(var trimmed=JsonDocument.Parse(bounded)) {

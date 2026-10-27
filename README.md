@@ -4,9 +4,9 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.10.md) · [English](README.en.md)
+[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.11.md) · [English](README.en.md)
 
-已发布：Windows **0.6.10** 与 TAB5 **0.2.234-ui** 增加电脑一键解锁与组件自动接入，修复音量拖动、双向已读同步、蓝牙启动核验和电量显示连续性。相关真机验收已完成，见[本轮说明](docs/RELEASE-0.6.10.md)。完整下载中心已更新，Mac、ESP8266 和图库保留各自版本。
+本次更新：电脑端 **0.6.11**、TAB5 **0.2.281-ui**、ESP8266 **0.5.7**。TAB5 现支持 Windows 与 Apple Silicon Mac；改善语音输入、长会话分页、设备预览和连接恢复，新增草稿长按清空，小屏重置信息更清晰。见[本轮说明](docs/RELEASE-0.6.11.md)。
 
 ## 选择适合你的桌面屏幕
 
@@ -45,7 +45,7 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 <p><sub>5 张均为 M5Stack 官方实图，仅裁去留白。点击图片可放大。</sub></p>
 </details>
 <p>配备 5 英寸触控屏的桌面设备。除了查看状态和额度，还能继续 Codex 会话、语音输入、拍照添加附件和管理日程，也可展示时钟、名画与书法。</p>
-<p><strong>连接方式：</strong>USB / Wi-Fi / 蓝牙<br><strong>电脑支持：</strong>Windows<br><strong>适合：</strong>需要触控操作、处理任务和更丰富展示的用户。</p>
+<p><strong>连接方式：</strong>USB / Wi-Fi / 蓝牙<br><strong>电脑支持：</strong>Windows / macOS<br><strong>适合：</strong>需要触控操作、处理任务和更丰富展示的用户。</p>
 <p><a href="docs/INSTALL.zh.md#tab5-first">安装与连接</a> · <a href="docs/FEATURES.zh.md#tab5">查看界面</a></p>
 </td>
 </tr>
@@ -53,11 +53,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 <sub>两图均为硬件外观与 AI-bot 界面的合成展示，使用演示数据，非实机拍摄；不按实物比例排列。<a href="docs/HARDWARE-IMAGES.md">图片来源与说明</a></sub>
 
-新版 116 秒视频展示电脑一键解锁、TightVNC 自动安装／接入与双向已读同步，使用实际 234 更新说明，并保留日程、时钟、额度和艺术浏览。画面来自原生界面的隔离演示数据，非硬件实拍。
+新版 64 秒视频介绍 TAB5 连接 Windows / Mac、会话与语音草稿、长按清空、额度来源和独立更新，使用实际 .281 更新说明。画面来自原生界面的隔离演示数据，非硬件实拍。
 
-https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
+[![AI-bot 0.6.11 / TAB5 .281](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)
 
-<sub>116 秒中文产品介绍，可在本页直接播放。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.10/AI-bot-product-intro-20261019-0610-234.mp4)</sub>
+<sub>64 秒新版产品介绍，点击封面打开或下载。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)</sub>
 
 ## 能做什么
 
@@ -92,7 +92,7 @@ https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 <details>
 <summary><strong>查看 TAB5 特色：Codex 直达、全年点阵与十二月历</strong></summary>
 
-**日程待办与到期提醒**已包含在 TAB5 210：今日／全部分段筛选与列表对齐，空状态居中新建；本地保存、离线编辑与删除、重连同步，支持时间、重复和提前提醒。最多 16 项；到期事项保留，满额新增时才清理最早结束的过期单次事项。[使用与实机边界](docs/RELEASE-0.6.10.md)
+**日程待办与到期提醒**已包含在 TAB5 210：今日／全部分段筛选与列表对齐，空状态居中新建；本地保存、离线编辑与删除、重连同步，支持时间、重复和提前提醒。最多 16 项；到期事项保留，满额新增时才清理最早结束的过期单次事项。[使用与实机边界](docs/RELEASE-0.6.11.md)
 
 **Codex 直达：** 从最近五个会话中选择目标，查看回复，语音输入草稿，确认后发送。支持取消、失败恢复和长按清空。[使用说明](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -137,8 +137,7 @@ https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 - **首次使用 TAB5**：选择首刷 ZIP；**已有 AI-bot**：选择升级 ZIP，解压后选择 `aibot_tab5.bin`，保留旁边的更新说明文件。两种硬件的固件不能混用。
 - **图库**：Windows「软件与固件更新 → 屏保图库」直接导入 ZIP，无需解压；升级电脑软件会保留图库。图库要求 Windows 桥接 0.6.0+、TAB5 0.2.145-ui+。
 - **图库版本选择**：同一类别选择标准版或高清完整版即可。高清版含对应标准图和导读，无需重复安装；电脑桥接 0.6.7+ 可浏览高清原作，TAB5 使用适配展示图。点击上表高清版的大小链接，按说明下载、合并后导入；标准名画沿用原包。
-- Windows 支持 ESP8266 与 TAB5；Mac 当前支持 ESP8266，TAB5、统一更新与图库导入说明适用于 Windows。Windows 安装器未签名；Mac 为临时签名，未公证。
-- Mac TAB5 的[未发布开发候选](docs/MAC-TAB5-CANDIDATE.md)已扩展到 USB／Wi-Fi／蓝牙、日常展示和显示设置、资源与图库、OTA、电脑/音乐、Codex、照片、Mac 本地语音及首刷/备份恢复；通过模块 Mac CI 并持续核验候选 App。真机、权限与播放验收待完成，未包含在上方下载包中。候选与已发布版本的能力请分开查看。
+- Windows 与 Apple Silicon Mac 均支持 ESP8266 与 TAB5；Mac 权限、语音来源和安装步骤见安装指南。Windows 安装器未签名；Mac 为临时签名，未公证。
 
 [安装与刷机步骤](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [图库容量与许可](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md) · [历史发布](https://github.com/yaoyouzhong/AI-bot/releases)
 <!-- downloads:end -->
@@ -153,11 +152,11 @@ https://github.com/user-attachments/assets/d745c087-9c9d-48c8-bd55-00a3879eff32
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.10.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.11.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](docs/development/TAB5-SOURCE.md) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)
 
 自有代码（含 TAB5）采用 [MIT 许可](LICENSE)，第三方组件与艺术作品保留原许可。项目独立开发，与提及的 AI 厂商无隶属关系。[反馈问题](https://github.com/yaoyouzhong/AI-bot/issues)时请附平台、版本、硬件与复现步骤，并移除凭据和私人日志。
 
-Windows 0.6.10 / TAB5 0.2.234-ui 增加电脑一键解锁与 TightVNC 自动安装／接入，无需填写组件密码；音量拖动恢复、双向 Codex 已读同步、纯 BLE 启动核验及重启／USB 变化后的电量显示已完成真机验收。安装包、固件和对应源码已正式发布。[准备与验收记录](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md)。
+历史版本 Windows 0.6.10 / TAB5 0.2.234-ui 增加电脑一键解锁与 TightVNC 自动安装／接入，无需填写组件密码；音量拖动恢复、双向 Codex 已读同步、纯 BLE 启动核验及重启／USB 变化后的电量显示已完成真机验收。安装包、固件和对应源码已正式发布。[准备与验收记录](docs/development/RELEASE-0610-229-CLOSEOUT-20261019.md)。

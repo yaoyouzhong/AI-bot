@@ -19,6 +19,10 @@ uint16_t creditTextPixel(int x, int y, int sourceWidth, int sourceHeight,
     }
   }
   const int area = sourceWidth * sourceHeight;
+  // Small LCD text needs stronger stems than area averaging alone provides.
+  // Boost coverage, not the footprint: blank pixels and character gaps stay
+  // black, while fully covered pixels keep the original RGB565 color.
+  ink = ink > area / 2 ? area : ink * 2;
   return (((((color >> 11) & 31) * ink + area / 2) / area) << 11)
        | (((((color >> 5) & 63) * ink + area / 2) / area) << 5)
        | (((color & 31) * ink + area / 2) / area);

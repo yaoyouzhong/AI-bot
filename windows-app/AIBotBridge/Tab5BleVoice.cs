@@ -21,6 +21,7 @@ internal sealed class Tab5BleVoice(
     private long _interactiveCompletedAt;
     private long _bulkCompletedAt;
     private long Now=>clock?.Invoke()??Environment.TickCount64;
+    internal bool ExchangeActive=>Volatile.Read(ref _interactiveActive)!=0;
     internal bool BulkActive=>Volatile.Read(ref _bulkActive)!=0;
     internal bool BulkPriorityActive(long now) {
         long completed=Interlocked.Read(ref _bulkCompletedAt);

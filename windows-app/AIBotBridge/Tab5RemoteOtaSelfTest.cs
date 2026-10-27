@@ -8,12 +8,21 @@ internal static class Tab5RemoteOtaSelfTest
 {
     internal static async Task RunAsync()
     {
+        foreach(long bound in new long[]{45000,15000}) {
+            long now=1000000,deadline=now+(bound==45000?30000:10000);
+            if(Tab5Service.AdvertisedExpiry(deadline,now,now,bound)!=deadline||
+               Tab5Service.AdvertisedExpiry(deadline,now-bound+5000,now,bound)!=now+5000)
+                throw new Exception("Advertisement must narrow but never extend request deadline");
+            foreach(long invalid in new[]{0L,-1L,long.MaxValue,now-bound,deadline+1})
+                if(Tab5Service.AdvertisedExpiry(deadline,invalid,now,bound) is not null)throw new Exception("Unusable frame clock published command");
+            if(Tab5Service.AdvertisedExpiry(deadline,now,deadline,bound) is not null)throw new Exception("Expired request revived");
+        }
         if(!AppPaths.IsPublicSelfTest)AppPaths.BeginPublicSelfTest();
         var store=new Tab5PairingStore();var pair=store.Pair("001122aabbcc",@"USB\REMOTE-OTA-TEST");var key=Convert.FromBase64String(pair.Key);
         using var tasks=new Tab5CodexTasks(new Tab5CodexDesktop("unused-remote-ota-test"),()=>[],new Tab5CodexJournal());
         using var service=new Tab5Service(store,tasks);
         var snapshot=new StatusSnapshot(1,"12:00",DateTimeOffset.UtcNow.ToUnixTimeSeconds(),0,DateTimeOffset.UtcNow,new("idle",null),new("idle",null));
-        snapshot=snapshot with {RuntimeHealth=new("remote-health-fixture",1,DateTimeOffset.UtcNow,
+        snapshot=snapshot with {CapturedAt=DateTimeOffset.UtcNow.AddSeconds(-20),RuntimeHealth=new("remote-health-fixture",1,DateTimeOffset.UtcNow,
             new[]{"cpu","memory","queue","disk","vpn","pac","codex","bridge"}.Select(k=>new RuntimeHealthCheck(k,k,"ok","正常","","",DateTimeOffset.UtcNow)).ToArray(),[],
             new SystemPressure(0,0,1,0,8000,8,DateTimeOffset.UtcNow){CommitPercent=50,CommittedMemoryMb=8000,CommitLimitMb=16000})};
         service.Publish(snapshot);
@@ -55,6 +64,8 @@ internal static class Tab5RemoteOtaSelfTest
             long until=Environment.TickCount64+2000;
             while(!service.RemoteOtaPending||Command().GetProperty("data").GetProperty("connectionHealth").GetProperty("otaCommand").ValueKind!=JsonValueKind.Object){if(localStart.IsCompleted||Environment.TickCount64>=until)throw new Exception("IPC start did not publish");await Task.Delay(5);}
             Task pending=localStart;var frame=Command();
+            if(frame.GetProperty("data").GetProperty("connectionHealth").GetProperty("otaCommand").GetProperty("expiresAt").GetInt64()>
+                frame.GetProperty("data").GetProperty("epochMilliseconds").GetInt64()+45000)throw new Exception("Old snapshot advertises OTA beyond receiver frame window");
             var health=frame.GetProperty("data").GetProperty("runtimeHealth");
             if(health.GetProperty("checks").GetArrayLength()!=8||health.GetProperty("pressure").GetProperty("commitPercent").GetDouble()!=50)
                 throw new Exception("Remote upgrade publication lost runtime monitoring");

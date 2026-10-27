@@ -1,5 +1,9 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-27：新增 TAB5 .281 长按清空前、清空后、继续输入与四额度卡片原生 LVGL 截图，来源为冻结 .279 加已核对 .281 补丁及测试；新增 Windows 账号来源隔离原生 WinForms 虚构账户截图。时间、金额、项目名均是固定夹具，不是私人账号或实机照片。Mac 功能使用共用 TAB5 画面说明，不把 Windows 账号窗口标成 Mac。精确 SHA-256 见 materials.json。
+
+October 27: new .281 native LVGL draft-clear and quota fixtures, plus a native Windows account-source fixture. Synthetic data is not hardware photography or private account data. Shared TAB5 views illustrate Mac support without impersonating AppKit windows.
+
 2026-10-17 0.6.9／217：新增电脑控制、静音、锁屏、十网络、Windows 启动配置，刷新应用入口、音乐空闲和实际 217 sidecar。TAB5 来源 `d31a601` 的原生 LVGL；Windows 配置来自最终发布 ZIP 内 DLL 的隔离自检。程序／文件夹画面使用通用类型字形，不打包本机软件提取图标。固定时间、电量、网络名与旧当前版本均是夹具，不冒充真机运行态。逐张 SHA-256 在 materials.json；真实验收另见发布记录。 / New native control, mute, lock, ten-network and final Windows settings fixtures; updated Apps, music idle state and actual 217 notes. Synthetic state is separate from physical acceptance.
 
 2026-10-17：新增首页硬件介绍配图，均为硬件外观与 AI-bot 原生额度页的合成展示，非实机拍摄，使用固定演示数据。来源、修改方式与提示词见 [硬件配图记录](HARDWARE-IMAGES.md)。原生截图保持不变。 / Added two hardware composites using native quota screen references; not hardware photographs. Sources, edits and prompts are recorded separately.

@@ -6,7 +6,7 @@ namespace AIBotBridge;
 // Authenticated, viewer-leased screenshots. No image cache, log or photo upload.
 internal sealed class Tab5ScreenPreview
 {
-    internal sealed record Context(string Device,string Host,HashSet<string> Transports,bool Available=true,bool HighDefinition=false);
+    internal sealed record Context(string Device,string Host,HashSet<string> Transports,bool Available=true,bool HighDefinition=false,bool Responsive=false);
     internal sealed record Frame(int Width,int Height,byte[] Pixels,long Received);
     private sealed class Request(string id,string transport,int width,int height,long started,long expires,int version,string encoding)
     {
@@ -102,7 +102,7 @@ internal sealed class Tab5ScreenPreview
                 case "unchanged":
                     if(p.Version!=2||bytes.Length!=0||_frame is not {} oldFrame||oldFrame.Width!=p.Width||oldFrame.Height!=p.Height||
                        Text(root,"encoding")!=p.Encoding||Text(root,"sha256")!=_frameSha||Number(root,"width")!=p.Width||Number(root,"height")!=p.Height)return Error(409,"preview_changed");
-                    _frame=oldFrame with{Received=_tick()};FrameSucceeded();_request=null;_next=_tick()+2000;_note=FrameNote(p,transport);
+                    _frame=oldFrame with{Received=_tick()};FrameSucceeded();_request=null;_next=_tick()+CaptureCooldown(current,transport,true);_note=FrameNote(p,transport);
                     return(200,new{accepted=true,complete=true});
                 case "error":
                     var notes=new Dictionary<string,string>{{"busy","设备忙，稍后继续。"},{"memory","设备内存不足，暂时无法预览。"},{"capture","暂未取得完整画面。"},{"encoding","画面编码失败。"},{"connection","画面连接已中断。"}};
@@ -132,7 +132,7 @@ internal sealed class Tab5ScreenPreview
                     if(p.Received==p.Bytes.Length) {
                         byte[]? decoded=Convert.ToHexString(SHA256.HashData(p.Bytes)).ToLowerInvariant()==sha?DecodeFrame(p.Bytes,p.Width,p.Height,p.Encoding):null;
                         if(decoded is null){_request=null;_next=_tick()+1000;_note="画面校验失败，等待下一帧。";return Error(400,"preview_corrupt");}
-                        _frame=new(p.Width,p.Height,decoded,_tick());_frameSha=p.Sha;FrameSucceeded();_request=null;_next=_tick()+1000;
+                        _frame=new(p.Width,p.Height,decoded,_tick());_frameSha=p.Sha;FrameSucceeded();_request=null;_next=_tick()+CaptureCooldown(current,transport,false);
                         _note=FrameNote(p,transport);
                         return(200,new{accepted=true,nextOffset=p.Received,complete=true});
                     }
@@ -145,6 +145,10 @@ internal sealed class Tab5ScreenPreview
     private void FrameSucceeded(){if(_memoryLevel>0)_fallbackFrames=Math.Min(3,_fallbackFrames+1);else _qualityBackoff=30000;}
     private string FrameNote(Request p,string transport)=>$"实时镜像 · {p.Width} × {p.Height} · {transport}"+
         (_memoryLevel==1?" · 标准画质":_memoryLevel>=2?" · 小图预览":"");
+    internal static int CaptureCooldown(Context? context,string transport,bool unchanged)=>
+        context?.Responsive==true&&transport is "USB" or "Wi-Fi"?100:unchanged?2000:1000;
+    internal static bool SupportsResponsiveCapture(string? firmware)=>SupportsHD(firmware)&&
+        Version.Parse(firmware![..^3])>=new Version(0,2,277);
     internal static bool SupportsHD(string? firmware) {
         if(firmware is null||!firmware.EndsWith("-ui",StringComparison.Ordinal)||!Version.TryParse(firmware[..^3],out var version))return false;
         return version.Revision==-1&&version.Build>=0&&version>=new Version(0,2,270);
