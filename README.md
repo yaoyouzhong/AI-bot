@@ -53,11 +53,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 <sub>两图均为硬件外观与 AI-bot 界面的合成展示，使用演示数据，非实机拍摄；不按实物比例排列。<a href="docs/HARDWARE-IMAGES.md">图片来源与说明</a></sub>
 
-新版 64 秒视频介绍 TAB5 连接 Windows / Mac、会话与语音草稿、长按清空、额度来源和独立更新，使用实际 .281 更新说明。画面来自原生界面的隔离演示数据，非硬件实拍。
+这段项目介绍对照展示 TAB5 大屏与 ESP8266 小屏的共有功能，并单独介绍 TAB5 的总览、会话、语音草稿、相机、电脑控制、日程和艺术屏保。画面使用原生界面演示数据与硬件合成图，非硬件实拍。
 
-[![AI-bot 0.6.11 / TAB5 .281](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)
+https://github.com/user-attachments/assets/a87201d7-8690-4b9a-8cf0-ba8be53e3df1
 
-<sub>64 秒新版产品介绍，点击封面打开或下载。[视频与来源](docs/PRODUCT_VIDEO.md) · [下载 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)</sub>
+[独立观看](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 MP4](https://github.com/user-attachments/assets/a87201d7-8690-4b9a-8cf0-ba8be53e3df1) · [视频与来源](docs/PRODUCT_VIDEO.md)
 
 ## 能做什么
 

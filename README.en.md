@@ -53,11 +53,11 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 <sub>Both pictures combine hardware imagery with the AI-bot interface and demo data; they are not hardware photographs or shown to a common physical scale. <a href="docs/HARDWARE-IMAGES.md">Image sources and notes</a></sub>
 
-The new 64-second film covers TAB5 on Windows and Apple Silicon Mac, voice drafts, hold-to-clear, account sources and independent updates using the actual .281 notes. Native fixtures contain synthetic data; they are not hardware photographs.
+This project introduction compares the shared features of TAB5 and the ESP8266 display, then presents TAB5 highlights including overview, conversations, voice drafts, camera attachments, computer controls, agenda and art screensavers. Native interface footage uses demonstration data and composite hardware images, not hardware photography.
 
-[![AI-bot 0.6.11 / TAB5 .281](docs/assets/product-intro/AI-bot-cover.png)](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4)
+https://github.com/user-attachments/assets/a87201d7-8690-4b9a-8cf0-ba8be53e3df1
 
-<sub>64-second Chinese tour. Open or download the MP4. [Download MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-product-intro-20261027-0611-281.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)</sub>
+[Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [Download MP4](https://github.com/user-attachments/assets/a87201d7-8690-4b9a-8cf0-ba8be53e3df1) · [Media credits](docs/PRODUCT_VIDEO.md)
 
 ## What it does
 

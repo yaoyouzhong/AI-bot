@@ -210,3 +210,8 @@ Six modified managed-dependency files retain official checksum metadata and
 licenses. SDK/NimBLE patches are pinned to the same toolchain's commits and
 reverse-check against its current local files. The manifest explicitly does not
 claim independent bit-identical rebuilding or a new hardware acceptance round.
+
+
+## Project overview video pet comparison, 2026-10-27
+
+At the user’s explicit direction, the TAB5 pet comparison composes the locally retained Claude legacy sprite into an isolated native page screenshot, alongside the existing Codex design preview. The Claude animation originates from the old project’s third-party commit [`5f52a39`](https://github.com/yaoyouzhong/esp8266-ai/commit/5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c); its separate redistribution license has not been established. It is not part of the project’s MIT grant. The imagery is a composite, not a device photograph or a change to runtime settings.
