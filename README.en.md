@@ -62,14 +62,14 @@ https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
 ## What it does
 
 <table>
-<thead><tr><th width="160" nowrap="nowrap">Feature</th><th nowrap="nowrap">Details</th></tr></thead>
+<thead><tr><th width="160" nowrap="nowrap">Feature</th><th>Details</th></tr></thead>
 <tbody>
-<tr><td nowrap="nowrap"><strong>Task status</strong></td><td nowrap="nowrap">Claude / Codex working, idle and waiting states; completion alerts.</td></tr>
-<tr><td nowrap="nowrap"><strong>Account quotas</strong></td><td nowrap="nowrap">Usage, API balances, resets and Codex credits; history on the computer.</td></tr>
-<tr><td nowrap="nowrap"><strong>Daily information</strong></td><td nowrap="nowrap">Weather, clocks, stocks, computer load and media playback; dedicated NetEase and QQ Music adapters, Windows media sessions for Soda Music, Apple Music and other clients, and optional Chrome/Edge website playback. See <a href="docs/MEDIA-PLAYERS.md">support and validation limits</a>.</td></tr>
-<tr><td nowrap="nowrap"><strong>PC controls</strong></td><td>Adjust volume, mute, lock or unlock from TAB5; follow lock state and open up to four local apps/folders with icons. Wi-Fi unlock automatically installs/imports its optional component.</td></tr>
-<tr><td nowrap="nowrap"><strong>Display settings</strong></td><td nowrap="nowrap">Fixed page, cycle or smart switching; choose pages, order, interval and pets.</td></tr>
-<tr><td nowrap="nowrap"><strong>Device management</strong></td><td nowrap="nowrap">Windows Device Center: accounts, data, devices; check, download and verify updates. <a href="docs/UPDATES.md">Guide</a></td></tr>
+<tr><td nowrap="nowrap"><strong>Task status</strong></td><td>Claude / Codex working, idle and waiting states; completion alerts.</td></tr>
+<tr><td nowrap="nowrap"><strong>Account quotas</strong></td><td>Usage, API balances, resets and Codex credits; history on the computer.</td></tr>
+<tr><td nowrap="nowrap"><strong>Daily information</strong></td><td>Weather, clocks, stocks, computer load and media playback.<br>Dedicated NetEase and QQ Music adapters; Windows media sessions for Soda Music, Apple Music and other clients.<br>Chrome/Edge can also supply website playback. See <a href="docs/MEDIA-PLAYERS.md">support and validation limits</a>.</td></tr>
+<tr><td nowrap="nowrap"><strong>PC controls</strong></td><td>Adjust volume, mute, lock or unlock from TAB5; follow lock state.<br>Open up to four local apps/folders with icons. Wi-Fi unlock automatically installs/imports its optional component.</td></tr>
+<tr><td nowrap="nowrap"><strong>Display settings</strong></td><td>Fixed page, cycle or smart switching; choose pages, order, interval and pets.</td></tr>
+<tr><td nowrap="nowrap"><strong>Device management</strong></td><td>Windows Device Center: accounts, data, devices; check, download and verify updates. <a href="docs/UPDATES.md">Guide</a><br><a href="docs/RUNTIME-MONITOR.md">Runtime monitoring</a> shows connection and system pressure, causes and suggestions.</td></tr>
 </tbody>
 </table>
 

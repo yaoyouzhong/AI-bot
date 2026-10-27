@@ -61,17 +61,15 @@ https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
 
 ## 能做什么
 
-[运行监控](docs/RUNTIME-MONITOR.md)提供连接与系统压力的状态、原因和建议；系统监控报警的恢复清除规则保持原样。
-
 <table>
-<thead><tr><th width="120" nowrap="nowrap">功能</th><th nowrap="nowrap">说明</th></tr></thead>
+<thead><tr><th width="120" nowrap="nowrap">功能</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td nowrap="nowrap"><strong>任务状态</strong></td><td nowrap="nowrap">Claude / Codex 工作、空闲、待输入状态及完成提醒。</td></tr>
-<tr><td nowrap="nowrap"><strong>账户额度</strong></td><td nowrap="nowrap">账户用量、API 余额、重置时间与 Codex 重置卡；电脑端提供额度历史。</td></tr>
-<tr><td nowrap="nowrap"><strong>日常信息</strong></td><td nowrap="nowrap">天气、时钟、股票、电脑负载与媒体播放信息；网易云音乐与 QQ 音乐有专门适配，汽水音乐、Apple Music 等客户端通过 Windows 媒体会话接入，Chrome／Edge 可补充网页播放信息。实际兼容范围见<a href="docs/MEDIA-PLAYERS.md">媒体支持说明</a>。</td></tr>
-<tr><td nowrap="nowrap"><strong>电脑控制</strong></td><td>在 TAB5 调节音量、静音、锁屏或一键解锁，查看锁定状态，点选最多四个带图标的程序或文件夹；Wi-Fi 解锁组件自动安装／接入。</td></tr>
-<tr><td nowrap="nowrap"><strong>显示设置</strong></td><td nowrap="nowrap">固定页、轮播或智能跟随；可选页面、顺序、间隔与桌宠动画。</td></tr>
-<tr><td nowrap="nowrap"><strong>设备管理</strong></td><td nowrap="nowrap">Windows 设备中心配置账号、数据与设备；统一查看更新并下载校验。<a href="docs/UPDATES.md">更新说明</a></td></tr>
+<tr><td nowrap="nowrap"><strong>任务状态</strong></td><td>Claude / Codex 工作、空闲、待输入状态及完成提醒。</td></tr>
+<tr><td nowrap="nowrap"><strong>账户额度</strong></td><td>账户用量、API 余额、重置时间与 Codex 重置卡；电脑端提供额度历史。</td></tr>
+<tr><td nowrap="nowrap"><strong>日常信息</strong></td><td>天气、时钟、股票、电脑负载与媒体播放信息。<br>网易云音乐与 QQ 音乐有专门适配；汽水音乐、Apple Music 等客户端通过 Windows 媒体会话接入。<br>Chrome／Edge 可补充网页播放信息，实际兼容范围见<a href="docs/MEDIA-PLAYERS.md">媒体支持说明</a>。</td></tr>
+<tr><td nowrap="nowrap"><strong>电脑控制</strong></td><td>在 TAB5 调节音量、静音、锁屏或一键解锁，查看锁定状态。<br>点选最多四个带图标的程序或文件夹；Wi-Fi 解锁组件自动安装／接入。</td></tr>
+<tr><td nowrap="nowrap"><strong>显示设置</strong></td><td>固定页、轮播或智能跟随；可选页面、顺序、间隔与桌宠动画。</td></tr>
+<tr><td nowrap="nowrap"><strong>设备管理</strong></td><td>Windows 设备中心配置账号、数据与设备；统一查看更新并下载校验。<a href="docs/UPDATES.md">更新说明</a><br><a href="docs/RUNTIME-MONITOR.md">运行监控</a>提供连接与系统压力的状态、原因和建议。</td></tr>
 </tbody>
 </table>
 
