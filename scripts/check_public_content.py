@@ -159,6 +159,60 @@ def reviewed_product_media(path, data):
     return path in REVIEWED_PRODUCT_MEDIA and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
 
 
+# Exact binary inputs from the reviewed .279 corresponding-source snapshot.
+# Every input matches the already published .234 source archive byte for byte.
+REVIEWED_TAB5_SOURCE_ASSETS = frozenset({
+    'docs/development/tab5-279-source/source/firmware/assets/brands/alibaba-source.ico',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/alibaba-verified-20261010.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/alibaba.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/baidu-source.ico',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/baidu.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/claude-source.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/claude.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/codex.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/deepseek-verified-20261010.ico',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/deepseek.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/doubao-app.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/doubao-ime.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/kimi-source.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/kimi.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/minimax-source.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/minimax.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/openai.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/stepfun.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/volcengine-source.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/volcengine.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/xiaomi-source.ico',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/xiaomi.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/zhipu-verified-20261010.png',
+    'docs/development/tab5-279-source/source/firmware/assets/brands/zhipu.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/01-plum.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/02-apricot.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/03-peach.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/04-peony.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/05-paeonia.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/06-gardenia.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/07-lotus.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/08-lily.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/09-osmanthus.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/10-chrysanthemum.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/11-camellia.png',
+    'docs/development/tab5-279-source/source/firmware/assets/calendar-flowers/12-narcissus.png',
+    'docs/development/tab5-279-source/source/firmware/components/esp_ipa/lib/esp32p4/libesp_ipa.a',
+    'docs/development/tab5-279-source/source/firmware/components/esp_lvgl_port/docs/frame_buffer_settings.png',
+    'docs/development/tab5-279-source/source/firmware/components/esp_lvgl_port/examples/rgb_lcd/main/images/esp_logo.png',
+    'docs/development/tab5-279-source/source/firmware/components/esp_lvgl_port/examples/touchscreen/main/images/esp_logo.png',
+    'docs/development/tab5-279-source/source/firmware/components/esp_lvgl_port/images/img_cursor.png',
+    'docs/development/tab5-279-source/source/firmware/components/esp_lvgl_port/images/img_cursor_20px.png',
+    'docs/development/tab5-279-source/source/firmware/main/assets/health_notice.pcm',
+    'docs/development/tab5-279-source/source/firmware/main/assets/reply_notice.pcm',
+})
+
+
+def reviewed_tab5_source_asset(path, data):
+    return path in REVIEWED_TAB5_SOURCE_ASSETS and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
+
+
 REVIEWED_SOURCE_ARCHIVE = "docs/development/TAB5-0.2.89-ui-source.zip"
 
 
@@ -186,13 +240,14 @@ def findings(path, data):
            for part in normalized.split('/')):
         yield "private-or-generated-directory", 0
     if (Path(name).suffix in {'.exe', '.dll', '.bin', '.elf', '.o', '.a', '.pdb', '.zip',
-                             '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.mp4', '.mov', '.webm'}
+                             '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.pcm', '.mp4', '.mov', '.webm'}
             and normalized != 'windows-app/aibotbridge/assets/app-icon.ico'
             and not (path.replace(chr(92), '/') == 'windows-app/AIBotBridge/Assets/flash-icon.ico'
                      and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get('windows-app/AIBotBridge/Assets/flash-icon.ico'))
             and not reviewed_doc_image(normalized, data)
             and not reviewed_product_media(path.replace(chr(92), "/"), data)
             and not reviewed_pet_media(path.replace(chr(92), "/"), data)
+            and not reviewed_tab5_source_asset(path.replace(chr(92), "/"), data)
             and not reviewed_source_archive(path.replace(chr(92), "/"), data)):
         yield "unreviewed-binary-or-artwork", 0
     if (name in PRIVATE_NAMES or name == ".env" or name.startswith(".env.")
@@ -229,6 +284,10 @@ def main():
         assert list(findings("docs/assets/product-intro/AI-bot-product-intro.mp4", b"changed video"))
         for media in REVIEWED_PRODUCT_MEDIA:
             assert not list(findings(media, (ROOT / media).read_bytes()))
+        assert list(findings("docs/development/tab5-279-source/source/unknown.png", b"image"))
+        for name in REVIEWED_TAB5_SOURCE_ASSETS:
+            assert not list(findings(name, (ROOT / name).read_bytes()))
+            assert list(findings(name, b"changed archived input"))
         assert list(findings("docs/development/unknown.zip", b"archive"))
         assert list(findings(REVIEWED_SOURCE_ARCHIVE, b"changed source archive"))
         assert not list(findings(REVIEWED_SOURCE_ARCHIVE, (ROOT / REVIEWED_SOURCE_ARCHIVE).read_bytes()))

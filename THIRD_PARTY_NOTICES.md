@@ -275,3 +275,17 @@ license are retained in the component. Fixed URLs and SHA-256 are recorded in
 
 TAB5 .254 源码补丁仅引入上述固定官方来源的两个编码文件，保留原作者声明、上游许可及哈希；
 本地有界输出与逐行 RGB565 转换封装独立维护，没有迁入其他项目的相机驱动或历史。
+
+
+## TAB5 .279 corresponding-source archive
+
+The full project under `docs/development/tab5-279-source/source/` preserves its
+own `THIRD_PARTY_NOTICES.md`, component licenses, font OFL texts, dictionary
+license and service-mark provenance. The managed dependency overrides include
+matching upstream license/checksum metadata; SDK patches retain ESP-IDF and
+NimBLE licensing. All binary inputs are unchanged from the previously published
+.234 source archive, including the existing Espressif IPA library. This archive
+does not relicense third-party code, fonts, images or trademarks.
+
+TAB5 .279 完整源码保留各组件、字体、词库及服务标识的原始来源与许可。
+依赖修改及 SDK 补丁另附许可记录；未将第三方内容重新许可为项目 MIT。

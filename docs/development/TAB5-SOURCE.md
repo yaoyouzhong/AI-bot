@@ -1,4 +1,10 @@
-# 当前开发基线 / Current development baseline: 0.2.264-ui
+# 当前开发源码 / Current development source: 0.2.279-ui
+
+[完整 .279 项目源码、依赖修改与重建说明](tab5-279-source/README.md)已补齐。归档含 930 个项目文件、6 个已修改依赖文件、SDK/NimBLE 补丁、实际配置和许可；7,531 个冻结输入摘要已核对。无需拼接旧版本覆盖包，不包含生成镜像或本地设备状态；不宣称独立逐位重建。以下 .264 及更早记录保留为历史。
+
+The complete .279 project archive includes source, configuration, modified dependencies, SDK patches and licenses, with 7,531 verified frozen input hashes. It requires no older source overlays. Generated firmware and private runtime state are excluded; independent bit-identical reproduction is not claimed. Earlier records below are historical.
+
+# 历史开发基线 / Historical development baseline: 0.2.264-ui
 
 开发分支已归档 [.264 增量源码与配置](tab5-264-source/README.md)，按其说明在 .262 覆盖包后应用。实机 Wi-Fi 安装与精确镜像启动核验通过；OTA 速度问题留待后续处理，详见[验收记录](TAB5-OTA-264-ACCEPTANCE.md)。以下 .234 链接仍是既有正式发布的源码记录。
 

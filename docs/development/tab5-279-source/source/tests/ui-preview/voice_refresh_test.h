@@ -1,0 +1,48 @@
+static unsigned voice_refresh_events;
+static void voice_refresh_changed(lv_event_t *event) {(void)event;voice_refresh_events++;}
+static void check_voice_refresh(void) {
+ page(8);lv_anim_delete_all();
+ strcpy(codex_selected,"00000000-0000-4000-8000-000000000111");
+ codex_voice_desktop=quick_visible=false;codex_voice_waiting=true;
+ strcpy(codex_voice_base,"保留前段\n后段");codex_voice_cursor=5;
+ codex_voice_insert_byte=lv_text_encoded_get_byte_id(codex_voice_base,codex_voice_cursor);
+ preview_voice=(voice_remote_state){.busy=true,.ready=true};
+ strcpy(preview_voice.phase,"recording");strcpy(preview_voice.source,"dji");strcpy(preview_voice.task_id,codex_selected);
+ for(int i=0;i<20;i++)strcat(preview_voice.text,"语音识别连续内容");
+ lv_obj_add_event_cb(codex_input,voice_refresh_changed,LV_EVENT_VALUE_CHANGED,NULL);
+ clock_t began=clock();codex_voice_tick();
+ printf("VOICE_REFRESH first_events=%u cpu_ms=%.2f chars=%u\n",voice_refresh_events,1000.0*(clock()-began)/CLOCKS_PER_SEC,(unsigned)lv_text_get_encoded_length(lv_textarea_get_text(codex_input)));
+ char expected[2001];snprintf(expected,sizeof(expected),"保留前段\n%s后段",preview_voice.text);
+ assert(!strcmp(lv_textarea_get_text(codex_input),expected));
+ assert(lv_textarea_get_max_length(codex_input)==2000);
+ codex_draft *d=codex_draft_for(codex_selected,false);assert(d&&d->text&&!strcmp(d->text,expected));
+ unsigned first=voice_refresh_events;began=clock();for(int i=0;i<10;i++)codex_voice_tick();
+ printf("VOICE_REFRESH unchanged_events=%u cpu_ms=%.2f\n",voice_refresh_events-first,1000.0*(clock()-began)/CLOCKS_PER_SEC);fflush(stdout);
+ assert(voice_refresh_events==first);assert(first==1);
+ strcpy(preview_voice.text,"修正文字");codex_voice_tick();assert(voice_refresh_events==first+1);
+ assert(!strcmp(lv_textarea_get_text(codex_input),"保留前段\n修正文字后段"));
+ assert(lv_textarea_get_cursor_pos(codex_input)==9);
+ lv_textarea_set_cursor_pos(codex_input,0);codex_voice_tick();assert(lv_textarea_get_cursor_pos(codex_input)==9&&voice_refresh_events==first+1);
+ assert(!strcmp(d->text,lv_textarea_get_text(codex_input)));
+ unsigned edits=voice_refresh_events;
+ preview_voice.text[0]=0;for(int i=0;i<80;i++)strcat(preview_voice.text,"语音识别连续内容");
+ codex_voice_tick();assert(voice_refresh_events==edits+1);assert(lv_textarea_get_max_length(codex_input)==2000);
+ assert(strlen(lv_textarea_get_text(codex_input))==strlen(codex_voice_base)+strlen(preview_voice.text));
+ assert(!strcmp(d->text,lv_textarea_get_text(codex_input)));
+ for(int i=0;i<20;i++)codex_voice_tick();assert(voice_refresh_events==edits+1);
+ lv_indev_t *touch=lv_indev_create();lv_indev_set_type(touch,LV_INDEV_TYPE_POINTER);
+ lv_indev_set_display(touch,lv_display_get_default());lv_indev_set_read_cb(touch,camera_touch_read);
+ lv_obj_update_layout(lv_screen_active());lv_area_t area;lv_obj_get_coords(codex_voice_button,&area);
+ unsigned before=preview_voice_commands;
+ camera_touch_point=(lv_point_t){(area.x1+area.x2)/2,(area.y1+area.y2)/2};camera_touch_state=LV_INDEV_STATE_PRESSED;lv_indev_read(touch);
+ assert(preview_voice_commands==before+1&&!strcmp(preview_voice.phase,"draining"));
+ assert(strstr(lv_label_get_text(codex_voice_hint),"结束"));
+ camera_touch_state=LV_INDEV_STATE_RELEASED;lv_indev_read(touch);assert(preview_voice_commands==before+1);
+ preview_voice.busy=preview_voice.ready=false;strcpy(preview_voice.phase,"cancelled");codex_voice_tick();
+ assert(!strcmp(lv_textarea_get_text(codex_input),codex_voice_base));assert(lv_textarea_get_cursor_pos(codex_input)==5);
+ assert(!strcmp(d->text,codex_voice_base));assert(lv_textarea_get_max_length(codex_input)==2000);
+ lv_indev_reset(touch,NULL);lv_indev_delete(touch);
+ char manual[2002];memset(manual,'a',2001);manual[2001]=0;lv_textarea_set_text(codex_input,manual);
+ assert(strlen(lv_textarea_get_text(codex_input))==2000);
+ puts("VOICE_REFRESH_OK real LVGL: unchanged transcript has no edit events; one update per changed result; UTF8 insertion/cursor/draft/cancel/limit and pointer stop pass");
+}

@@ -183,3 +183,30 @@ The first expansion batch reached 2,262 independent works (1,765 paintings / 497
 A further 370 independent calligraphy works use 675 qualified official photographs: Tokyo National Museum / ColBase 98, Metropolitan Museum of Art 55, Princeton University Art Museum 1, Cleveland Museum of Art 3, and Minneapolis Institute of Art 213. Museum culture/place fields identify 108 as Chinese, 261 as Japanese and one as Korean; artist nationality is not substituted for object attribution. All selected image URLs match official records, original hashes are unique, and all 7,754 preceding native images remain unchanged. The resulting local catalogue has 2,632 works (1,765 paintings / 867 calligraphy works) and 9,744 native JPEGs.
 
 书法追加370件独立作品，使用675张馆方原图，来源及分布如上。按馆方文化／制作地字段统计，新增中国书法108件、日本书法261件、韩国书法1件。对联、三联幅、四屏、十二屏和整册各计一件；保留实际左右顺序、拓本、摹写、前半及传称等限定，不把碑刻时代冒称拓印时代。源图URL、许可、分辨率、校验值与组件身份分别核对；本地目录与隔离导入的验证不替代硬件安装。详见[扩充报告](docs/art-guides/EXPANSION-2026-10-08.md)。
+
+
+## TAB5 accepted .279 full project archive, 2026-10-27
+
+`docs/development/tab5-279-source/` supplies the independently maintained TAB5
+project used by the accepted .279 r2 build. Its 930 project files are copied
+byte-for-byte from that frozen build input; all 7,531 original input hashes
+were rechecked. The reconstruction started from the published .234 source
+(`d31a601289dbfc4edf8da82d0f91a7f926dbd090`) and maintainer changes archived in
+AI-bot, including the .264 reference commit
+`2bd5d69a56fd9a42953e29cfc428940dfb6daa6a`. The missing photo retry helper was
+independently implemented against those recorded contracts, not recovered
+from unlicensed source. Later accepted changes are retained as complete files,
+not just proposal patches. No foreign Git history is imported.
+
+All 44 binary project inputs are byte-identical to the published .234 source
+package; their exact paths/hashes are recorded in `licenses/materials.json`.
+Generated flowers and cue audio, service-mark identification assets and
+licensed vendor inputs retain their existing scope. In particular the unchanged
+44,194-byte `libesp_ipa.a` is an Espressif-supplied component under its retained
+Espressif MIT license, not a generated project binary. The archive retains the
+full project's component/font/dictionary licenses and source notices.
+
+Six modified managed-dependency files retain official checksum metadata and
+licenses. SDK/NimBLE patches are pinned to the same toolchain's commits and
+reverse-check against its current local files. The manifest explicitly does not
+claim independent bit-identical rebuilding or a new hardware acceptance round.
