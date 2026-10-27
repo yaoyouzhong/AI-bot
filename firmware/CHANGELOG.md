@@ -4,7 +4,7 @@ ESP8266 versions are independent of the desktop bridge and TAB5.
 
 ## 0.5.7 - 2026-10-27
 
-Local candidate; not publicly released.
+Release prepared after user hardware acceptance.
 
 - Strengthen the 14px Codex reset-credit strokes without enlarging the badge or filling character gaps. Preserve count/date alignment and animation exclusion.
 - Preserve filesystem, pairing, brightness and cycling pages/order/interval. No TAB5 change.

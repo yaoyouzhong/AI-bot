@@ -950,6 +950,13 @@ sealed class DomesticQuotaAuthForm : Form
             background.ShowAuthorization("deepseek");Application.DoEvents();
             if(minimized)background.WindowState=FormWindowState.Minimized;
             background.Hide();editor.Activate();input.Select();Application.DoEvents();
+            // Hidden-desktop activation can settle after the minimized window's
+            // queued messages. Establish focus before measuring background refresh;
+            // never recover focus during the operation under test.
+            var focusDeadline=Environment.TickCount64+1000;
+            while(!input.Focused&&Environment.TickCount64<focusDeadline) {
+                editor.Activate();input.Focus();Application.DoEvents();Thread.Sleep(10);
+            }
             if(!input.Focused)throw new InvalidOperationException("Editor focus precondition failed after interactive account window");
             int before=lost;background.RefreshInBackground("deepseek");Application.DoEvents();
             if(!input.Focused||lost!=before||background.WindowState!=FormWindowState.Normal)

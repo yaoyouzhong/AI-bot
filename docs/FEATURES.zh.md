@@ -19,7 +19,7 @@ AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两
 | **TAB5 · 1280×720** | 查看任务、触控操作、阅读回复与欣赏艺术作品 | 屏幕上的导航、应用和设置；电脑端配置账号与内容 | 提供 Codex 直达、语音／相机草稿、日历与日期倒计时等屏保；艺术屏保支持横竖屏 |
 | **ESP8266 · 240×240** | 随时看 AI 状态、额度和轮播信息 | 在电脑端选择页面、轮播与桌宠 | 聚焦简洁展示；没有 TAB5 的触控、Codex 直达或艺术图库 |
 
-Windows 支持两类设备；Mac 当前支持 ESP8266，具体范围见[平台说明](#validation)。
+Windows 与 Apple Silicon Mac 均支持两类设备，具体范围见[平台说明](#validation)。
 
 <a id="tab5"></a>
 
@@ -370,7 +370,7 @@ Windows 0.6.9 + TAB5 217 provide volume/mute/lock, actual lock state and four lo
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
 | ESP8266 0.5.3 | 小屏页面、时钟、桌宠、USB / Wi-Fi 与固定设备身份 | 真实 USB 换口与未配置 LAN 恢复已验证，具体记录见本版发布说明。 |
 | TAB5 0.2.217-ui | 电脑控制、十网络、横屏翻转、时钟、图库、日程与存储 | 217 精确镜像启动、215 控制／锁屏／无闪动及拔 USB 后 Wi-Fi 音量获确认；210 的日程、内存和重启验收沿用；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
-| macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；未实现本文 Windows TAB5、统一更新及艺术导入入口。Intel Mac 未验证。 |
+| macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；现支持 TAB5 连接、控制、预览、固件和图库管理；授权及语音来源按平台区分。Intel Mac 未验证。 |
 
 [发布明细](RELEASE-0.6.9.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
@@ -382,7 +382,7 @@ AI-bot puts AI activity, account quotas and everyday information on a desktop di
 
 **ESP8266:** AI activity, quotas, reset times/cards and configurable cycling are the primary use. Expand the galleries for other providers, weather, stocks, metrics, music, pets and the clock screensaver. Control pages and settings from the computer; TAB5 touch operations, Codex Direct and art collections do not apply to the small display.
 
-Device Center groups My Devices, Account Data and Bridge Settings. Components update independently through the Windows unified update window. Screenshots are native renders with isolated synthetic data, not hardware photos or additional acceptance evidence. macOS has its own menu-bar/ESP8266 implementation, without the Windows TAB5, unified-update or artwork-import flows. See the linked installation, provenance and hardware records for exact boundaries.
+Device Center groups My Devices, Account Data and Bridge Settings. Components update independently through the Windows unified update window. Screenshots are native renders with isolated synthetic data, not hardware photos or additional acceptance evidence. macOS supports both ESP8266 and TAB5 through its native menu-bar app, including device, firmware and artwork management; permissions and speech sources differ by platform. See the linked installation, provenance and hardware records for exact boundaries.
 
 The collection manager keeps primary actions on one row, with directory/help in More. Select works in the left list; compact image paging, reading and fullscreen remain below the image. Right-click or Ctrl+0 restores the image; wheel zoom and drag also work fullscreen.
 

@@ -4,4 +4,4 @@
 
 下载、Windows 安装、ESP8266 刷机、TAB5 首次安装/后续升级、配对和排错都在同一页，按顺序操作即可；本页仅保留旧链接入口，不再维护另一套安装步骤。
 
-Installation instructions have moved to the [complete illustrated guide (Chinese)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md). Windows supports both hardware flows; Mac flashing currently covers ESP8266. TAB5 first installation uses a full ZIP, while later upgrades use an application BIN.
+Installation instructions have moved to the [complete illustrated guide (Chinese)](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md). Windows and Apple Silicon Mac support both hardware flows. TAB5 first installation uses a full ZIP, while later upgrades use an application BIN.
