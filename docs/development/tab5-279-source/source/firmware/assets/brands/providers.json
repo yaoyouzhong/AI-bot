@@ -1,0 +1,136 @@
+[
+  {
+    "provider": "claude",
+    "page": "https://claude.com/",
+    "url": "https://assets.claude.com/95a868946ac8a31e5ff832e2899f294aa368b836.png?w=128&h=128",
+    "originalFile": "claude-source.png",
+    "originalSha256": "4004381309500f25e49a1ae639912ce307ea81da74cc383954a1ac8b9d343fe6",
+    "pixels": [
+      32,
+      32
+    ],
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "claude.png",
+    "normalizedSha256": "b28b98e4c9dbf7c85e0ce5b5c74b90fe5738cc19efe6525e52ef3890064c9571"
+  },
+  {
+    "provider": "alibaba",
+    "page": "https://bailian.console.aliyun.com/",
+    "url": "https://img.alicdn.com/imgextra/i1/O1CN01Es0c28049TL083Vo_!!6000000002263-2-tps-64-64.png",
+    "originalFile": "alibaba-verified-20261010.png",
+    "originalSha256": "9e20727fd7f2a713560c8b4eed774a9ef3548067962f5deafebe632b6b2bf40d",
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "alibaba.png",
+    "normalizedSha256": "84e731b94ffb14a1a395d141980bd4dfcba081d9ef9bd80cefa46eab6b63bba4"
+  },
+  {
+    "provider": "kimi",
+    "page": "https://www.kimi.com/",
+    "url": "https://www.kimi.com/pwa-192.png",
+    "originalFile": "kimi-source.png",
+    "originalSha256": "6c14f9c3062e953b3ed57ae3e19db931c1c1bba38d4d8d55550544f31d55e469",
+    "pixels": [
+      192,
+      192
+    ],
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "kimi.png",
+    "normalizedSha256": "2a7d29dd50e11f4ba17370ddb6022f822bf23c180671a658de5b348d01e67e75"
+  },
+  {
+    "provider": "minimax",
+    "page": "https://platform.minimax.io/docs/guides/models-intro",
+    "url": "https://platform.minimax.io/docs/_mintlify/favicons/minimax-cac98058/-WSO_KEoennf5XoM/_generated/favicon-dark/android-chrome-192x192.png",
+    "originalFile": "minimax-source.png",
+    "originalSha256": "0aae2ffc825290a09480fc96764af962158fef670a7e8059c25b5413f0354489",
+    "pixels": [
+      192,
+      192
+    ],
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "minimax.png",
+    "normalizedSha256": "d98ca982c84da6c9b1d2f4a3f930c685127cced8621483bdbc0114a4cade6eb7"
+  },
+  {
+    "provider": "stepfun",
+    "page": "https://www.stepfun.com/",
+    "url": "https://www.stepfun.com/step_favicon.svg",
+    "originalFile": "stepfun-source.svg",
+    "originalSha256": "155d5901d2974785f178e186f3a461e80d4406b1907c6ae4d27936f6e301cfa1",
+    "pixels": [
+      80,
+      80
+    ],
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "stepfun.png",
+    "normalizedSha256": "abaffce07aca05a3b55c2c4af39c1240f9fc875dd65ad849a9376ace0d86826a"
+  },
+  {
+    "provider": "baidu",
+    "page": "https://www.baidu.com/",
+    "url": "https://www.baidu.com/favicon.ico",
+    "originalFile": "baidu-source.ico",
+    "originalSha256": "c70088079fe9441a726c66ce0e73ae38315ec80051d3dd542c41b82fa0a1993a",
+    "pixels": [
+      64,
+      64
+    ],
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "baidu.png",
+    "normalizedSha256": "d5d075b76fca68fdeebd5ab38f5d140a0c7e4d44d25451b43a862bec00e6e723"
+  },
+  {
+    "provider": "xiaomi",
+    "page": "https://www.mi.com/",
+    "url": "https://s01.mifile.cn/favicon.ico",
+    "originalFile": "xiaomi-source.ico",
+    "originalSha256": "e59b4a96433a0b039f223dd98100b9b0edcda6fe7d96f74808bc5fda41a44ca7",
+    "pixels": [
+      32,
+      32
+    ],
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "xiaomi.png",
+    "normalizedSha256": "80561e5d1acd9d10a127b20f5bb31474d70dc993d4604c94751864f7420fdd68"
+  },
+  {
+    "provider": "deepseek",
+    "page": "https://www.deepseek.com/",
+    "url": "https://www.deepseek.com/favicon.ico",
+    "originalFile": "deepseek-verified-20261010.ico",
+    "originalSha256": "30a4420e6e4dcb17fd7de560c5004346c2bc8cd971d2d5f5ee15326603e51321",
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "deepseek.png",
+    "normalizedSha256": "cba0168e484cf74016847e09aff47c839f4198000a52f19e76f44a73dafe24e4"
+  },
+  {
+    "provider": "zhipu",
+    "page": "https://www.zhipuai.cn/",
+    "url": "https://www.zhipuai.cn/favicon.png",
+    "originalFile": "zhipu-verified-20261010.png",
+    "originalSha256": "3e979232af050c67d2a8ceda1359e6b38301f6d9d6b00ac9c7e0e8a77df167ea",
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "zhipu.png",
+    "normalizedSha256": "f78e08e50d0dba1715082f40a67648aa46e99baaff527a557170f6be906ae5ba"
+  },
+  {
+    "provider": "openai",
+    "page": "https://openai.com/brand/",
+    "url": "https://raw.githubusercontent.com/openai/openai-agents-python/main/docs/assets/logo.svg",
+    "originalFile": "openai-verified-20261010.svg",
+    "originalSha256": "b94ea61d860fae6f82f43571f36f17111fcf5d348e8e9cc22ae4b441c7560011",
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "openai.png",
+    "normalizedSha256": "c1cdf1b913056bab1ae75fb61b0d724b985b228f5f73905cb278d2d1d5694b1c"
+  },
+  {
+    "provider": "volcengine",
+    "page": "https://www.volcengine.com/product/ark",
+    "url": "https://portal.volccdn.com/obj/volcfe/misc/favicon.png",
+    "originalFile": "volcengine-source.png",
+    "originalSha256": "187b85612796c9def2a0f328538bf249fd62d549379b44a68ed9fa949b531b9f",
+    "checkedAt": "2026-10-10",
+    "normalizedFile": "volcengine.png",
+    "normalizedSha256": "b75350bc52f28709a99070beb64fd1d47f945b098f60d297d56d657a16a768f0"
+  }
+]

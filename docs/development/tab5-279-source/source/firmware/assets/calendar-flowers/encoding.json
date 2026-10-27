@@ -1,0 +1,92 @@
+{
+  "width": 280,
+  "height": 252,
+  "colors": 256,
+  "totalBytes": 211383,
+  "images": [
+    {
+      "name": "01-plum",
+      "sourceSha256": "1118c0e6372d19355da559d56093a97c689ca58089e9c6f563d0eda32cc4a6cf",
+      "encodedBytes": 15086,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "02-apricot",
+      "sourceSha256": "0e473e89f107a600ee79c623fdab394f05643020bdf9777c351dbd96f4cbaebe",
+      "encodedBytes": 15913,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "03-peach",
+      "sourceSha256": "97b610d634a187891b84274a748f85d800dacd9e972c95cdaefde7bf70eb56be",
+      "encodedBytes": 17644,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "04-peony",
+      "sourceSha256": "7d33acffb67aab7861b3f81e0e6d8e6741fb39fcfbb37d38cc84b735c8a81003",
+      "encodedBytes": 23684,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "05-paeonia",
+      "sourceSha256": "6b8532b3d1862ee139e75c6f37d0c2b3b06ce66628c14525a682bc708ac382ea",
+      "encodedBytes": 17260,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "06-gardenia",
+      "sourceSha256": "5817712c305862f7653ce02cf08ffb718a78743bb66c9be203559214823e838c",
+      "encodedBytes": 18254,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "07-lotus",
+      "sourceSha256": "2888dce47ec317a37dae2dc3a06c329591fbffffcb3424687407ca015898eb5a",
+      "encodedBytes": 13335,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "08-lily",
+      "sourceSha256": "48ce1c374e0c8bc75a21375fd5f85c91dfb17b33a845a24ac9156b8d6e8af156",
+      "encodedBytes": 16897,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "09-osmanthus",
+      "sourceSha256": "82e092ae21bdb19cc46dbfe8e5876d2a3e2cdb393daa927987344aed0bac8f13",
+      "encodedBytes": 18265,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "10-chrysanthemum",
+      "sourceSha256": "add09548a9914dc77d04a5b156d85cc988282fec39ab787478509036834072f4",
+      "encodedBytes": 22539,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "11-camellia",
+      "sourceSha256": "6896953f105fd76d4edd4352bf1727b14683dc831490c8739bd213666007df2c",
+      "encodedBytes": 18278,
+      "rawBytes": 71584,
+      "alpha": true
+    },
+    {
+      "name": "12-narcissus",
+      "sourceSha256": "dcbc2da7ff9b37237bf31ebb4bf8ea8032ae575d05d8bf525449d33651239291",
+      "encodedBytes": 14228,
+      "rawBytes": 71584,
+      "alpha": true
+    }
+  ]
+}
