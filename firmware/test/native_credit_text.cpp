@@ -44,6 +44,14 @@ void save(const Bitmap& image,const std::string& path) {
 }
 int main(int argc,char**argv) {
   int checks=0, oldDropped=0;
+  // Actual LCD color contract: no background bleed, no overbright channels,
+  // and a half-covered thin stroke reaches the intended foreground color.
+  for(uint16_t color : {uint16_t(0x07e0),uint16_t(0xffff),uint16_t(0xfd20)}) {
+    assert(creditTextPixel(0,0,2,2,1,1,color,[](int,int){return false;})==0);
+    assert(creditTextPixel(0,0,2,2,1,1,color,[](int,int){return true;})==color);
+    assert(creditTextPixel(0,0,2,2,1,1,color,[](int x,int){return x==0;})==color);
+    checks+=3;
+  }
   // Single-pixel strokes at every source position: the former nearest sample
   // can lose them entirely; coverage must retain every one after reduction.
   for(int width : {8,24,39,64,80}) for(int y=0;y<16;++y) for(int x=0;x<width;++x) {

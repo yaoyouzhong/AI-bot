@@ -158,10 +158,13 @@ internal sealed class LanStatusServer
             var found = requestLine.StartsWith("GET /status ", StringComparison.Ordinal);
 
             var statusCode = !authenticated ? "401 Unauthorized" : found ? "200 OK" : "404 Not Found";
+            if(found)EspLanDiagnostics.Request(authenticated);
             var body = authenticated && found
-                ? JsonSerializer.Serialize(snapshot(), JsonDefaults.Options)
+                ? DeviceStatusFrame.CreateLan(snapshot()).ToJsonString(JsonDefaults.Options)
                 : authenticated ? "{\"error\":\"not_found\"}" : "{\"error\":\"unauthorized\"}";
-            await WriteResponseAsync(stream, statusCode, body, cancellationToken);
+            bool sent=false;
+            try {await WriteResponseAsync(stream, statusCode, body, cancellationToken);sent=true;}
+            finally {if(authenticated&&found)EspLanDiagnostics.Complete(sent,Encoding.UTF8.GetByteCount(body));}
             if(authenticated&&found) {
                 _legacyFirmware?.Invoke(lines.FirstOrDefault(line=>line.StartsWith("X-AIBot-Firmware:",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim());
                 _legacyActivity?.Invoke();

@@ -51,6 +51,13 @@ sealed class DomesticQuotaSnapshot
     public AIBotBridge.DomesticProviderQuotaSnapshot Zhipu;
     public AIBotBridge.DomesticProviderQuotaSnapshot StepFun;
     public AIBotBridge.DomesticProviderQuotaSnapshot Baidu;
+    public string DeepSeekSource = "";
+    public double? DeepSeekApiBalance;
+    public string DeepSeekApiCurrency="", DeepSeekApiKeyScope="";
+    public DateTime? DeepSeekApiFetchedAt;
+    public double? DeepSeekWebBalance, DeepSeekWebUsedCost;
+    public string DeepSeekWebCurrency = "";
+    public DateTime? DeepSeekWebFetchedAt, DeepSeekWebUsedCostFetchedAt;
     public double? DeepSeekBalance;
     public double? DeepSeekGrantedBalance;
     public double? DeepSeekToppedUpBalance;
@@ -107,7 +114,7 @@ sealed partial class DomesticQuotaService
     {
         get
         {
-            lock (_lock) return new DomesticQuotaSnapshot
+            lock (_lock) { var value = new DomesticQuotaSnapshot
             {
                 QwenPlanPct = _snapshot.QwenPlanPct,
                 QwenWeeklyPct = _snapshot.QwenWeeklyPct,
@@ -121,6 +128,16 @@ sealed partial class DomesticQuotaService
                 Zhipu = _snapshot.Zhipu,
                 StepFun = _snapshot.StepFun,
                 Baidu = _snapshot.Baidu,
+                DeepSeekSource = _snapshot.DeepSeekSource,
+                DeepSeekApiBalance = _snapshot.DeepSeekApiBalance,
+                DeepSeekApiCurrency = _snapshot.DeepSeekApiCurrency,
+                DeepSeekApiKeyScope = _snapshot.DeepSeekApiKeyScope,
+                DeepSeekApiFetchedAt = _snapshot.DeepSeekApiFetchedAt,
+                DeepSeekWebBalance = _snapshot.DeepSeekWebBalance,
+                DeepSeekWebUsedCost = _snapshot.DeepSeekWebUsedCost,
+                DeepSeekWebCurrency = _snapshot.DeepSeekWebCurrency,
+                DeepSeekWebFetchedAt = _snapshot.DeepSeekWebFetchedAt,
+                DeepSeekWebUsedCostFetchedAt = _snapshot.DeepSeekWebUsedCostFetchedAt,
                 DeepSeekBalance = _snapshot.DeepSeekBalance,
                 DeepSeekGrantedBalance = _snapshot.DeepSeekGrantedBalance,
                 DeepSeekToppedUpBalance = _snapshot.DeepSeekToppedUpBalance,
@@ -158,6 +175,8 @@ sealed partial class DomesticQuotaService
                 MiniMaxFetchedAt = _snapshot.MiniMaxFetchedAt,
                 DeepSeekFetchedAt = _snapshot.DeepSeekFetchedAt,
             };
+            SelectDeepSeekSource(value,DeepSeekKeyScope());
+            return value; }
         }
     }
 
@@ -177,7 +196,7 @@ sealed partial class DomesticQuotaService
         lock (_lock)
         {
             var now = DateTime.UtcNow;
-            if (_backoffUntil.TryGetValue(providerId, out var blockedUntil)
+            if (_backoffUntil.TryGetValue(providerId=="deepseek"&&webOnly?"deepseek-web":providerId, out var blockedUntil)
                 && now < blockedUntil) return;
             if (!force && _lastRefreshAttempt.TryGetValue(providerId + (webOnly ? ":web" : ":api"), out var lastAttempt)
                 && now - lastAttempt < MinRefreshInterval) return;
@@ -382,7 +401,8 @@ sealed partial class DomesticQuotaService
     internal void SetDeepSeek(double balance, string currency, double? granted = null,
         double? toppedUp = null, double? usedCost = null, bool fromApi = false)
     {
-        RefreshHealth.Recover("deepseek");
+        RefreshHealth.Recover(fromApi?"deepseek":"deepseek-web");
+        if(!fromApi&&!HasOfficialApi("deepseek"))RefreshHealth.Recover("deepseek");
         lock (_lock)
         {
             MergeDeepSeek(_snapshot, balance, currency, granted, toppedUp, usedCost,
@@ -395,30 +415,50 @@ sealed partial class DomesticQuotaService
         double? granted, double? toppedUp, double? usedCost, string keyScope, bool fromApi, DateTime now)
     {
         currency=string.IsNullOrWhiteSpace(currency)?"CNY":currency.Trim().ToUpperInvariant();
-        if(s.DeepSeekCurrency!=currency || s.DeepSeekUsageKeyScope!=keyScope) {
-            s.DeepSeekUsedCost=null;s.DeepSeekUsedCostFetchedAt=null;
+        if(!double.IsFinite(balance)||currency is not ("CNY" or "USD"))return;
+        if(fromApi) {
+            s.DeepSeekApiBalance=balance;s.DeepSeekApiCurrency=currency;s.DeepSeekApiKeyScope=keyScope;s.DeepSeekApiFetchedAt=now;
         }
-        s.DeepSeekUsageKeyScope=keyScope;
-        if(usedCost is >=0 && double.IsFinite(usedCost.Value)) {
-            s.DeepSeekUsedCost=usedCost;s.DeepSeekUsedCostFetchedAt=now;
+        if(!fromApi) {
+            s.DeepSeekWebBalance=balance;s.DeepSeekWebCurrency=currency;s.DeepSeekWebFetchedAt=now;
+            // Both values must originate in this response, never a previous web login.
+            s.DeepSeekWebUsedCost=usedCost is >=0 && double.IsFinite(usedCost.Value)?usedCost:null;
+            s.DeepSeekWebUsedCostFetchedAt=s.DeepSeekWebUsedCost.HasValue?now:null;
+            if(keyScope!="web")return;
         }
-        // API balance-only refreshes never erase a web usage sample or renew its age.
+        s.DeepSeekSource=fromApi?"api":"web";
+        s.DeepSeekUsageKeyScope=fromApi?keyScope:"web";
+        s.DeepSeekUsedCost=fromApi?null:s.DeepSeekWebUsedCost;
+        s.DeepSeekUsedCostFetchedAt=fromApi?null:s.DeepSeekWebUsedCostFetchedAt;
         s.DeepSeekBalance=balance;s.DeepSeekCurrency=currency;s.DeepSeekFetchedAt=now;
-        if(!fromApi) {s.DeepSeekGrantedBalance=granted;s.DeepSeekToppedUpBalance=toppedUp;}
+        s.DeepSeekGrantedBalance=fromApi?null:granted;s.DeepSeekToppedUpBalance=fromApi?null:toppedUp;
+    }
+
+    internal static void SelectDeepSeekSource(DomesticQuotaSnapshot s,string keyScope)
+    {
+        if(keyScope!="web") {
+            bool match=s.DeepSeekApiKeyScope==keyScope;
+            s.DeepSeekBalance=match?s.DeepSeekApiBalance:null;s.DeepSeekCurrency=match?s.DeepSeekApiCurrency:"";
+            s.DeepSeekFetchedAt=match?s.DeepSeekApiFetchedAt:null;s.DeepSeekSource="api";
+            s.DeepSeekUsedCost=null;s.DeepSeekUsedCostFetchedAt=null;
+            // The account window also must not attribute a previous key's data to a new key.
+            if(!match){s.DeepSeekApiBalance=null;s.DeepSeekApiFetchedAt=null;}
+        } else if(s.DeepSeekWebFetchedAt.HasValue) {
+            s.DeepSeekBalance=s.DeepSeekWebBalance;s.DeepSeekCurrency=s.DeepSeekWebCurrency;s.DeepSeekFetchedAt=s.DeepSeekWebFetchedAt;
+            s.DeepSeekSource="web";s.DeepSeekUsedCost=s.DeepSeekWebUsedCost;s.DeepSeekUsedCostFetchedAt=s.DeepSeekWebUsedCostFetchedAt;
+        } else {s.DeepSeekUsedCost=null;s.DeepSeekUsedCostFetchedAt=null;}
     }
 
     internal bool SetDeepSeekWeb(double balance, string currency, double? granted, double? toppedUp, double? cost)
     {
-        var current=Snapshot;
-        // Refuse to join an unrelated/stale web wallet to a freshly queried API wallet.
-        if(HasOfficialApi("deepseek") && (current.DeepSeekFetchedAt is null ||
-            DateTime.UtcNow-current.DeepSeekFetchedAt>TimeSpan.FromMinutes(5) ||
-            current.DeepSeekBalance is null || current.DeepSeekCurrency!=currency ||
-            Math.Abs(current.DeepSeekBalance.Value-balance)>0.02)) return false;
-        SetDeepSeek(balance,currency,granted,toppedUp,cost);
+        lock(_lock) {
+            MergeDeepSeek(_snapshot,balance,currency,granted,toppedUp,cost,DeepSeekKeyScope(),false,DateTime.UtcNow);
+            Save();
+        }
+        RefreshHealth.Recover("deepseek-web");
+        if(!HasOfficialApi("deepseek"))RefreshHealth.Recover("deepseek");
         return true;
     }
-
 
     internal void SetKimiMembership(string membership)
     {
@@ -546,6 +586,11 @@ sealed class DomesticQuotaAuthForm : Form
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     static extern nint SetWindowLongPtr(nint window, int index, nint value);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool SetWindowPos(nint window,nint after,int x,int y,int width,int height,uint flags);
+    [DllImport("user32.dll")]
+    static extern bool ShowWindow(nint window,int command);
 
     static readonly TimeSpan LoginRetention = TimeSpan.FromDays(30);
 
@@ -568,6 +613,29 @@ sealed class DomesticQuotaAuthForm : Form
     bool _everShown;
     bool _backgroundRefresh;
     bool _webRecoveryPending;
+    readonly ComboBox _zoom = new() { DropDownStyle=ComboBoxStyle.DropDownList, Width=92, FormattingEnabled=true, AccessibleName="网页缩放" };
+    readonly Button _refreshWeb = new() {Text="刷新网页",AutoSize=true,FlatStyle=FlatStyle.Flat,Margin=new Padding(8,0,0,0),Visible=false};
+    readonly Label _deepSeekSources = new() { AutoSize=true, Dock=DockStyle.Fill, Margin=new Padding(0,8,0,0), Visible=false };
+    static readonly int[] ZoomLevels = [60,75,90,100,125];
+    static string ZoomKey(string provider)=>"model_web_zoom_"+provider;
+    void ApplyZoom(bool save=false) {
+        if(_activeProvider is null)return;
+        int percent=_zoom.SelectedItem is int selected?selected:100;
+        _web.ZoomFactor=percent/100.0;
+        if(save)Settings.Set(ZoomKey(_activeProvider.Id),percent.ToString(CultureInfo.InvariantCulture));
+    }
+    void UpdateDeepSeekSources() {
+        _deepSeekSources.Visible=_activeProvider?.Id=="deepseek";
+        _refreshWeb.Visible=_deepSeekSources.Visible&&_service.HasOfficialApi("deepseek");
+        if(!_deepSeekSources.Visible)return;
+        var s=_service.Snapshot;
+        string Value(double? n)=>n.HasValue?n.Value.ToString("0.00",CultureInfo.InvariantCulture):"待获取";
+        string Time(DateTime? time)=>time?.ToLocalTime().ToString("MM-dd HH:mm:ss")??"尚未刷新";
+        string api=s.DeepSeekApiFetchedAt.HasValue||_service.HasOfficialApi("deepseek")?$"API 总余额：{s.DeepSeekApiCurrency} {Value(s.DeepSeekApiBalance)} · {Time(s.DeepSeekApiFetchedAt)}" : "API：未配置";
+        _deepSeekSources.Text=api+(_service.RefreshHealth.Failed("deepseek")?"（刷新失败，保留旧值）":"")+"\n"+
+            $"网页余额：{s.DeepSeekWebCurrency} {Value(s.DeepSeekWebBalance)}；网页消费：{Value(s.DeepSeekWebUsedCost)} · {Time(s.DeepSeekWebFetchedAt)}"+
+            (_service.RefreshHealth.Failed("deepseek-web")?"（刷新失败，保留旧值）":"")+(_service.HasOfficialApi("deepseek")?"\n设备使用 API 总余额；网页消费独立显示。":"\n设备使用网页来源；API 与网页分别保存。");
+    }
     readonly Label _providerTitle = new()
     {
         AutoSize = true, Font = new Font("Microsoft YaHei UI", 14, FontStyle.Bold),
@@ -621,7 +689,7 @@ sealed class DomesticQuotaAuthForm : Form
         Font = new Font("Microsoft YaHei UI", 9);
         Width = 1060;
         Height = 720;
-        MinimumSize = new Size(900, 620);
+        _interactiveMinimumSize = new Size(900, 620);
         BackColor = Color.White;
 
         var navigation = new Panel
@@ -690,14 +758,27 @@ sealed class DomesticQuotaAuthForm : Form
             ForeColor = Color.FromArgb(51, 65, 85), Margin = new Padding(16, 0, 0, 0),
         };
         refresh.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
-        refresh.Click += async (_, _) => { if(_activeProvider != null && _service.HasOfficialApi(_activeProvider.Id)) await SelectProvider(_activeProvider); else await ReloadWebView(); };
+        refresh.Click += async (_, _) => {
+            if(_activeProvider is null)return;
+            if(_service.HasOfficialApi(_activeProvider.Id)) {
+                var result=await _service.RefreshOfficialApi(_activeProvider.Id);_status.Text=result.Message;UpdateDeepSeekSources();
+            } else await ReloadWebView();
+        };
         header.Controls.Add(_providerTitle, 0, 0);
         AIBotBridge.SettingsWindow.StyleButton(refresh);
         AIBotBridge.SettingsWindow.StyleButton(_miniMaxSaveKey,true);
         AIBotBridge.SettingsWindow.FitScreen(this);
-        header.Controls.Add(refresh, 1, 0);
+        var actions=new FlowLayoutPanel { AutoSize=true, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, Margin=Padding.Empty };
+        _zoom.Items.AddRange(ZoomLevels.Cast<object>().ToArray());_zoom.SelectedItem=100;
+        _zoom.Format+=(_,e)=>e.Value=e.Value+"%";
+        _zoom.SelectionChangeCommitted+=(_,_)=>{try{ApplyZoom(true);}catch(IOException){_status.Text="网页缩放未能保存，请重试。";}};
+        AIBotBridge.SettingsWindow.StyleButton(_refreshWeb);
+        _refreshWeb.Click+=async (_,_)=>await ReloadWebView();
+        actions.Controls.Add(_zoom);actions.Controls.Add(_refreshWeb);actions.Controls.Add(refresh);
+        header.Controls.Add(actions, 1, 0);
         header.Controls.Add(_providerState, 0, 1);
         header.SetColumnSpan(_providerState, 2);
+        header.Controls.Add(_deepSeekSources,0,2);header.SetColumnSpan(_deepSeekSources,2);
         _miniMaxKeyPanel.AutoSize = true;
         _miniMaxKeyPanel.ColumnCount = 1;
         _miniMaxKeyPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -758,7 +839,7 @@ sealed class DomesticQuotaAuthForm : Form
         _backgroundRefresh = false;
         Enabled = true;
         FormBorderStyle = FormBorderStyle.Sizable;
-        MinimumSize = new Size(900, 620);
+        _interactiveMinimumSize = new Size(900, 620);
         if (_providerTitle.Parent != null) _providerTitle.Parent.Visible = true;
         _status.Visible = true;
         ShowInTaskbar = true;
@@ -770,7 +851,7 @@ sealed class DomesticQuotaAuthForm : Form
         var scale = DeviceDpi / 96f;
         var width = Math.Min(area.Width-32, (int)(1060 * scale));
         var height = Math.Min(area.Height-32, (int)(720 * scale));
-        MinimumSize = new Size(Math.Min(area.Width-32, (int)(900 * scale)), Math.Min(area.Height-32, (int)(620 * scale)));
+        _interactiveMinimumSize = new Size(Math.Min(area.Width-32, (int)(900 * scale)), Math.Min(area.Height-32, (int)(620 * scale)));
         Bounds = new Rectangle(area.Left + (area.Width-width)/2, area.Top + (area.Height-height)/2, width, height);
         TopMost = true;
         var wasEverShown = _everShown;
@@ -788,9 +869,11 @@ sealed class DomesticQuotaAuthForm : Form
         if (Visible && !_backgroundRefresh) return; // never interrupt an interactive login
         _initialProviderId = providerId;
         _backgroundRefresh = true;
+        // Apply before any handle/style/visibility changes, including a hidden
+        // account window that was previously opened interactively.
+        SetBackgroundWindowStyle(true);
         ShowInTaskbar = false;
         FormBorderStyle = FormBorderStyle.None;
-        MinimumSize = Size.Empty;
         if (_providerTitle.Parent != null) _providerTitle.Parent.Visible = false;
         _status.Visible = false;
         // Alibaba only creates its signed quota POST while WebView2 owns a
@@ -798,13 +881,16 @@ sealed class DomesticQuotaAuthForm : Form
         // click-through + no-activate styles keep it out of the user's way.
         Opacity = 0.01;
         StartPosition = FormStartPosition.Manual;
-        WindowState = FormWindowState.Normal;
         var area = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
         Bounds = new Rectangle(area.Right - 16, area.Top, 16, 16);
-        TopMost = true;
         var wasEverShown = _everShown;
         if (!Visible) Show();
         SetBackgroundWindowStyle(true);
+        if(WindowState!=FormWindowState.Normal)ShowWindow(Handle,4 /* SW_SHOWNOACTIVATE */);
+        // Form.TopMost uses SetWindowPos WITHOUT SWP_NOACTIVATE, even when
+        // assigned true repeatedly. It can steal TSF focus from a voice draft.
+        // Keep the renderable viewport topmost without activating its window.
+        SetWindowPos(Handle,new nint(-1),0,0,0,0,0x0013 /* NOMOVE | NOSIZE | NOACTIVATE */);
         if (wasEverShown) BeginInvoke(async () => await SelectProvider(ProviderById(providerId)));
     }
 
@@ -813,6 +899,27 @@ sealed class DomesticQuotaAuthForm : Form
         ?? DomesticProviderCatalog.All[0];
 
     static WebView2 CreateWebView() => new() { Dock = DockStyle.Fill };
+
+    internal static void AlignmentUiSelfTest(string directory) {
+        Directory.CreateDirectory(directory);
+        var service=new DomesticQuotaService();service.SetDeepSeekWeb(12,"CNY",2,10,5);service.SetDeepSeek(90,"CNY",fromApi:true);
+        foreach(float scale in new[]{1f,1.25f,1.75f}) {
+            using var form=new DomesticQuotaAuthForm(service,hideOnUserClose:false,initialProviderId:"deepseek",initializeBrowser:false);
+            form.StartPosition=FormStartPosition.Manual;form.Location=new Point(20,20);form.Size=new Size(1000,700);
+            form.Show();Application.DoEvents();form.Scale(new SizeF(scale,scale));Application.DoEvents();
+            form._zoom.SelectedItem=75;form.ApplyZoom(true);
+            form.ConfigureProviderDisplay(ProviderById("zhipu"));form._zoom.SelectedItem=60;form.ApplyZoom(true);
+            form.ConfigureProviderDisplay(ProviderById("deepseek"));
+            if(form._web.ZoomFactor!=0.75||form._zoom.SelectedItem is not 75)throw new InvalidOperationException("Provider zoom not restored");
+            var zoom=form._zoom.RectangleToScreen(form._zoom.ClientRectangle);var client=form.RectangleToScreen(form.ClientRectangle);
+            if(!client.Contains(zoom)||!form._deepSeekSources.Visible)throw new InvalidOperationException("Zoom/source controls clipped");
+            using var image=new Bitmap(form.Width,form.Height);form.DrawToBitmap(image,new Rectangle(Point.Empty,form.Size));
+            image.Save(Path.Combine(directory,$"model-accounts-{scale:0.00}.png"));
+            form.Close();
+        }
+        service.DisposeBrowser();
+        Console.WriteLine("MODEL_ACCOUNT_UI_OK per-provider zoom save/restore and source separation at 100/125/175 percent; synthetic accounts; browser navigation excluded");
+    }
 
     internal uint BrowserProcessIdForTest
     {
@@ -823,9 +930,61 @@ sealed class DomesticQuotaAuthForm : Form
         }
     }
 
+    internal static void BackgroundFocusSelfTest() {
+        using var editor=new Form{Text="Synthetic voice draft",ShowInTaskbar=false,Size=new Size(320,120)};
+        using var input=new TextBox{Dock=DockStyle.Fill,Multiline=true};editor.Controls.Add(input);
+        var service=new DomesticQuotaService();
+        using var background=new DomesticQuotaAuthForm(service,hideOnUserClose:false,initialProviderId:"deepseek",initializeBrowser:false);
+        int lost=0;input.LostFocus+=(_,_)=>lost++;
+        editor.Show();editor.Activate();input.Select();Application.DoEvents();
+        if(!input.Focused)throw new InvalidOperationException("Synthetic editor could not obtain thread focus");
+        for(int refresh=0;refresh<30;refresh++) {
+            int before=lost;
+            background.RefreshInBackground("deepseek");Application.DoEvents();
+            if(!input.Focused||lost!=before)
+                throw new InvalidOperationException($"BACKGROUND_QUOTA_STOLE_FOCUS refresh={refresh}; lost={lost-before}; active={ActiveForm?.GetType().Name}");
+        }
+        // Return from an explicitly opened/minimized account window to background
+        // polling; handle recreation must preserve the same no-activate boundary.
+        foreach(bool minimized in new[]{false,true}) {
+            background.ShowAuthorization("deepseek");Application.DoEvents();
+            if(minimized)background.WindowState=FormWindowState.Minimized;
+            background.Hide();editor.Activate();input.Select();Application.DoEvents();
+            if(!input.Focused)throw new InvalidOperationException("Editor focus precondition failed after interactive account window");
+            int before=lost;background.RefreshInBackground("deepseek");Application.DoEvents();
+            if(!input.Focused||lost!=before||background.WindowState!=FormWindowState.Normal)
+                throw new InvalidOperationException($"BACKGROUND_QUOTA_FOCUS_ROUNDTRIP_FAILED minimized={minimized}; focused={input.Focused}; lost={lost-before}; state={background.WindowState}; active={ActiveForm?.GetType().Name}");
+        }
+        background.Hide();service.DisposeBrowser();
+        Console.WriteLine("BACKGROUND_QUOTA_FOCUS_OK initial/30 repeated/interactive/minimized refresh preserves edit focus; native windows, no browser/profile/credentials");
+    }
+
     internal int WebViewRecoveryCountForTest => _webRecoveryCount;
 
     protected override bool ShowWithoutActivation => _backgroundRefresh;
+    Size _interactiveMinimumSize;
+    [StructLayout(LayoutKind.Sequential)]
+    struct MinMaxInfo {
+        public Point Reserved, MaximumSize, MaximumPosition, MinimumTrackSize, MaximumTrackSize;
+    }
+    protected override void WndProc(ref Message message) {
+        base.WndProc(ref message);
+        // Keep the interactive resize limit without toggling Form.MinimumSize:
+        // its setter calls an activating SetWindowPos even on a hidden window.
+        if(!_backgroundRefresh&&message.Msg==0x0024 /* WM_GETMINMAXINFO */&&message.LParam!=0) {
+            var limits=Marshal.PtrToStructure<MinMaxInfo>(message.LParam);
+            limits.MinimumTrackSize=new Point(Math.Max(limits.MinimumTrackSize.X,_interactiveMinimumSize.Width),
+                Math.Max(limits.MinimumTrackSize.Y,_interactiveMinimumSize.Height));
+            Marshal.StructureToPtr(limits,message.LParam,false);
+        }
+    }
+    protected override CreateParams CreateParams {
+        get {
+            var value=base.CreateParams;
+            if(_backgroundRefresh)value.ExStyle|=(int)(WsExTransparent|WsExNoActivate);
+            return value;
+        }
+    }
 
     void SetBackgroundWindowStyle(bool background)
     {
@@ -898,6 +1057,8 @@ sealed class DomesticQuotaAuthForm : Form
     void ConfigureProviderDisplay(DomesticProviderDefinition provider)
     {
         _activeProvider = provider;
+        int zoom=int.TryParse(Settings.Get(ZoomKey(provider.Id)),out var saved)&&ZoomLevels.Contains(saved)?saved:100;
+        _zoom.SelectedItem=zoom;ApplyZoom();UpdateDeepSeekSources();
         foreach (var (id, card) in _providerCards)
             card.BackColor = id == provider.Id ? Color.FromArgb(224, 242, 254) : Color.White;
         _providerTitle.Text = provider.Name;
@@ -913,7 +1074,7 @@ sealed class DomesticQuotaAuthForm : Form
             : provider.Id == "minimax"
             ? "保存 Subscription Key 自动查询，或登录控制台。"
             : provider.Id == "deepseek"
-            ? "通过 API Key 读取官方余额。"
+            ? "API 总余额和网页余额、消费分别刷新。"
             : provider.Id == "kimi"
             ? "运行并登录 kimi web，填写令牌和端口；也可网页登录。"
             : provider.Id == "zhipu"
@@ -964,7 +1125,7 @@ sealed class DomesticQuotaAuthForm : Form
             if (_activeProvider?.Id==provider && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; }
         }
         catch { if(!IsDisposed) _status.Text="接口凭据保存失败，请检查 Windows 凭据管理器。"; }
-        finally { if(!IsDisposed) _miniMaxSaveKey.Enabled=true; }
+        finally { if(!IsDisposed) { _miniMaxSaveKey.Enabled=true;UpdateDeepSeekSources(); } }
     }
 
     async Task Navigate(DomesticProviderDefinition provider)
@@ -976,7 +1137,7 @@ sealed class DomesticQuotaAuthForm : Form
             _web.Visible=false;
             _status.Text="正在通过官方接口查询…";
             var result=await _service.RefreshOfficialApi(provider.Id);
-            if(generation==_navigationGeneration && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; }
+            if(generation==_navigationGeneration && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; UpdateDeepSeekSources(); }
             return;
         }
         if (provider.Id is "stepfun" or "baidu") {
@@ -993,6 +1154,7 @@ sealed class DomesticQuotaAuthForm : Form
             : provider.CaptureSupported
             ? $"请登录{provider.Name}；捕获到准确用量后会自动缓存百分比。"
             : $"{provider.Name}已提供统一登录入口；当前版本暂不读取其额度数字。";
+        ApplyZoom();
         _web.CoreWebView2.Navigate(provider.Url);
         if (provider.CaptureSupported) _ = ShowPendingStatus(provider, generation);
     }
@@ -1053,8 +1215,6 @@ sealed class DomesticQuotaAuthForm : Form
             _ = CaptureKimiPageMetadata(_navigationGeneration);
         if (e.IsSuccess && _activeProvider?.Id == "qwen")
             _ = CaptureQwenPageMetadata(_navigationGeneration);
-        if (e.IsSuccess && _activeProvider?.Id == "deepseek")
-            _ = CaptureDeepSeekPageMetadata(_navigationGeneration);
     }
 
     void WebViewProcessFailed(object sender, CoreWebView2ProcessFailedEventArgs e)
@@ -1320,70 +1480,6 @@ sealed class DomesticQuotaAuthForm : Form
         }
     }
 
-    async Task CaptureDeepSeekPageMetadata(int generation)
-    {
-        const string script = """
-            (() => {
-              const text = document.body ? document.body.innerText : '';
-              const patterns = [
-                /(?:可用余额|账户余额|总余额)\s*[：:]?\s*([¥￥$])?\s*(\d+(?:\.\d+)?)/i,
-                /(?:available\s+balance|account\s+balance|total\s+balance)\s*[：:]?\s*([¥￥$])?\s*(\d+(?:\.\d+)?)/i
-              ];
-              for (const pattern of patterns) {
-                const match = text.match(pattern);
-                if (match) return {
-                  balance: Number(match[2]),
-                  currency: match[1] === '$' ? 'USD' : 'CNY'
-                };
-              }
-              return { balance: null, currency: '' };
-            })()
-            """;
-        double? previousBalance = null;
-        var previousCurrency = "";
-        var stableReadCount = 0;
-        for (var attempt = 0; attempt < 100; attempt++)
-        {
-            if (IsDisposed || generation != _navigationGeneration
-                || _activeProvider?.Id != "deepseek" || _service.HasOfficialApi("deepseek") || _web.CoreWebView2 == null
-                || _capturedForNavigation) return;
-            try
-            {
-                var result = await _web.CoreWebView2.ExecuteScriptAsync(script);
-                using var doc = JsonDocument.Parse(result);
-                var root = doc.RootElement;
-                var balance = root.TryGetProperty("balance", out var balanceValue)
-                    && balanceValue.ValueKind == JsonValueKind.Number
-                    ? balanceValue.GetDouble() : (double?)null;
-                var currency = root.TryGetProperty("currency", out var currencyValue)
-                    ? currencyValue.GetString()?.Trim() ?? "" : "";
-                if (balance.HasValue)
-                {
-                    stableReadCount = balance == previousBalance && currency == previousCurrency
-                        ? stableReadCount + 1 : 1;
-                    previousBalance = balance;
-                    previousCurrency = currency;
-                    if (stableReadCount >= 2)
-                    {
-                        _service.SetDeepSeek(balance.Value, currency);
-                        _capturedForNavigation = true;
-                        QuotaDiagnostics.Log(
-                            $"[quota] DeepSeek DOM updated: {currency} {balance.Value:0.00}");
-                        BeginInvoke(() => _status.Text =
-                            $"已取得 DeepSeek 可用余额：{currency} {balance.Value:0.00}（已缓存）");
-                        if (_backgroundRefresh) BeginInvoke(Hide);
-                        return;
-                    }
-                }
-            }
-            catch
-            {
-                // The console may still be rendering its billing card.
-            }
-            await Task.Delay(500);
-        }
-    }
-
     async Task ShowPendingStatus(DomesticProviderDefinition provider, int generation)
     {
         // Kimi's console now loads its Connect usage service after the main
@@ -1481,9 +1577,10 @@ sealed class DomesticQuotaAuthForm : Form
             {
                 var providerId = isAlibaba ? "qwen" : isXiaomi ? "xiaomi"
                     : isKimi ? "kimi" : isMiniMax ? "minimax" : isZhipu ? "zhipu" : "deepseek";
-                _service.BackOff(providerId);
+                _service.BackOff(providerId=="deepseek"?"deepseek-web":providerId);
                 _service.ReportWebFailure(providerId,"供应商额度接口限流，5 分钟后重试；正在显示旧数据。",!_backgroundRefresh);
                 BeginInvoke(() => _status.Text = "供应商额度接口限流，5 分钟后自动重试；当前继续显示最近成功值。");
+                BeginInvoke(UpdateDeepSeekSources);
                 if (_backgroundRefresh) BeginInvoke(Hide);
                 return;
             }
@@ -1590,7 +1687,6 @@ sealed class DomesticQuotaAuthForm : Form
                 var deepSeek = FindDeepSeekBalance(doc.RootElement);
                 if (!deepSeek.HasValue) {AIBotBridge.WebQuotaDiagnostics.Record("deepseek","wallet-fields-missing");return;}
                 var usedCost = FindDeepSeekUsedCost(doc.RootElement, deepSeek.Value.Currency);
-                if(!usedCost.HasValue && _service.HasOfficialApi("deepseek")) {AIBotBridge.WebQuotaDiagnostics.Record("deepseek","usage-fields-missing");return;}
                 if(!_service.SetDeepSeekWeb(deepSeek.Value.Total, deepSeek.Value.Currency,
                     deepSeek.Value.Granted, deepSeek.Value.ToppedUp, usedCost)) {
                     AIBotBridge.WebQuotaDiagnostics.Record("deepseek","wallet-mismatch");return;
@@ -1632,12 +1728,13 @@ sealed class DomesticQuotaAuthForm : Form
                     ? $"已取得智谱 GLM 可用余额：CNY {_service.Snapshot.Zhipu.Balance:0.00}（已缓存）"
                     : responseInfo.ProviderId == "deepseek"
                     ? $"已取得 DeepSeek 可用余额：{membership} "
-                        + $"{_service.Snapshot.DeepSeekBalance:0.00}（已缓存）"
+                        + $"{_service.Snapshot.DeepSeekWebBalance:0.00}（网页来源，独立缓存）"
                         + (loginSaved ? "；登录状态已持久保存" : "")
                     : $"已取得{(responseInfo.ProviderId == "qwen" ? "阿里云" : "小米")}准确用量：{weeklyPct:F1}%（已缓存）"
                     + (responseInfo.ProviderId == "qwen" && !string.IsNullOrWhiteSpace(membership)
                         ? $"；订阅：{membership}" : "")
                     + (loginSaved ? "；登录状态已持久保存" : ""));
+            BeginInvoke(UpdateDeepSeekSources);
             if (_backgroundRefresh) BeginInvoke(Hide);
         }
         catch (Exception ex)
@@ -1722,55 +1819,8 @@ sealed class DomesticQuotaAuthForm : Form
 
     internal static DeepSeekBalance? FindDeepSeekBalance(JsonElement element)
     {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            var values = element.EnumerateObject().ToDictionary(p => p.Name, p => p.Value,
-                StringComparer.OrdinalIgnoreCase);
-            if (values.TryGetValue("balance_infos", out var infos)
-                && infos.ValueKind == JsonValueKind.Array)
-            {
-                DeepSeekBalance? first = null;
-                foreach (var info in infos.EnumerateArray())
-                {
-                    var parsed = ParseDeepSeekBalanceObject(info);
-                    if (!parsed.HasValue) continue;
-                    first ??= parsed;
-                    if (parsed.Value.Currency == "CNY") return parsed;
-                }
-                if (first.HasValue) return first;
-            }
-            if(values.TryGetValue("normal_wallets",out var wallets) && wallets.ValueKind==JsonValueKind.Array) {
-                var parsed=wallets.EnumerateArray().Select(ParseDeepSeekBalanceObject).Where(v=>v.HasValue).ToArray();
-                var cny=parsed.FirstOrDefault(v=>v!.Value.Currency=="CNY");
-                if(cny.HasValue)return cny;
-                if(parsed.Length>0)return parsed[0];
-            }
-            if (ParseDeepSeekBalanceObject(element) is DeepSeekBalance direct) return direct;
-            foreach (var child in values.Values)
-                if (FindDeepSeekBalance(child) is DeepSeekBalance found) return found;
-        }
-        else if (element.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var child in element.EnumerateArray())
-                if (FindDeepSeekBalance(child) is DeepSeekBalance found) return found;
-        }
-        return null;
-    }
-
-    static DeepSeekBalance? ParseDeepSeekBalanceObject(JsonElement element)
-    {
-        if (element.ValueKind != JsonValueKind.Object) return null;
-        var values = element.EnumerateObject().ToDictionary(p => p.Name, p => p.Value,
-            StringComparer.OrdinalIgnoreCase);
-        var total = Number(values, "total_balance") ?? Number(values, "available_balance")
-            ?? Number(values, "balance");
-        if (!total.HasValue || total.Value < 0) return null;
-        var currency = values.TryGetValue("currency", out var currencyValue)
-            && currencyValue.ValueKind == JsonValueKind.String
-            ? currencyValue.GetString()?.Trim().ToUpperInvariant() ?? "" : "";
-        if (currency is not ("CNY" or "USD")) currency = "CNY";
-        return new DeepSeekBalance(total.Value, Number(values, "granted_balance"),
-            Number(values, "topped_up_balance"), currency);
+        var value=AIBotBridge.DeepSeekWallets.Parse(element);
+        return value is null?null:new(value.Total,value.Granted,value.ToppedUp,value.Currency);
     }
 
     internal static double? FindDeepSeekUsedCost(JsonElement element, string currency)

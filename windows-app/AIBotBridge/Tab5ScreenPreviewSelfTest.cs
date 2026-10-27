@@ -8,6 +8,12 @@ internal static class Tab5ScreenPreviewSelfTest
     internal static int Run() {
         int checks=0;
         void Check(bool value,string name){if(!value)throw new InvalidOperationException("Screen preview: "+name);checks++;}
+        Check(!Tab5ScreenPreview.SupportsResponsiveCapture(null)&&!Tab5ScreenPreview.SupportsResponsiveCapture("0.2.276-ui")&&
+            !Tab5ScreenPreview.SupportsResponsiveCapture("0.2.277.0-ui")&&Tab5ScreenPreview.SupportsResponsiveCapture("0.2.277-ui"),"responsive capability version gate");
+        foreach(string transport in new[]{"USB","Wi-Fi","BLE"})foreach(bool responsive in new[]{false,true})foreach(bool unchanged in new[]{false,true}) {
+            var c=new Tab5ScreenPreview.Context("fixture","host",[transport],Responsive:responsive);
+            Check(Tab5ScreenPreview.CaptureCooldown(c,transport,unchanged)==(responsive&&transport!="BLE"?100:unchanged?2000:1000),"bounded transport-specific cadence");
+        }
         byte[] wire=[2,0,0,0xf8,0xe0,7,4,0x80,0x1f,0],pixels=[0,0xf8,0xe0,7,0x1f,0,0x1f,0,0x1f,0,0x1f,0];
         Check(Tab5ScreenPreview.Decode(wire,3,2)?.SequenceEqual(pixels)==true,"C/Swift shared wire vector");
         foreach(byte[] invalid in new byte[][]{[0,0],[7,0x80,0,0],[1,0,0],[5,0x80,0,0],wire.Concat(new byte[]{1}).ToArray()})
@@ -116,6 +122,13 @@ internal static class Tab5ScreenPreviewSelfTest
         }
         Check(restored&&completed>=3&&model.Snapshot(token).Frame?.Width==640,"bounded HD retry preserves last fallback frame");
         model.Stop();
+        var fast=context with{Responsive=true};token=model.Start(fast);model.Renew(token,fast);
+        var fastPacket=new{op="frame",streamId=token,requestId=Command().GetProperty("requestId").GetString(),width=640,height=360,encoding="rgb565-rle1",size=data.Length,offset=0,sha256=Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant()};
+        Check(model.Receive(JsonSerializer.SerializeToElement(fastPacket),data,fast,"fixture","USB").Status==200,"responsive full frame accepted");
+        now+=99;model.Renew(token,fast);Check(model.Command is null,"responsive wait remains bounded");
+        now++;model.Renew(token,fast);Check(model.Command is not null,"responsive frame renews at 100ms");
+        model.Stop();
+        Console.WriteLine($"TAB5_SCREEN_PREVIEW_OK checks={checks}; synthetic protocol and pacing; no hardware timing claim");
         return checks;
     }
 }

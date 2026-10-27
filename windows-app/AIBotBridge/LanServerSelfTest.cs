@@ -15,7 +15,16 @@ internal static class LanServerSelfTest
         using var shutdown = new CancellationTokenSource();
         string? firmware="not-observed";var observed=0;
         var server = new LanStatusServer(new LanPairing(IPAddress.Loopback, port, token),legacyFirmware:value=>{firmware=EspFirmwareVersion.Read(value);Interlocked.Increment(ref observed);});
-        var serverTask = server.RunAsync(SessionActivityReader.Capture, shutdown.Token);
+        var now=DateTimeOffset.UtcNow;
+        var fixture=new StatusSnapshot(1,"12:00",now.ToUnixTimeSeconds(),28800,now,new("idle",null),new("idle",null),
+            Weather:new("测试城市","晴",20,25,15,50,100,null,null,"fixture",now,false) {
+                Hourly=Enumerable.Range(0,24).Select(i=>new WeatherHour(now.AddHours(i).ToString("O"),"晴",20,10)).ToArray(),
+                Daily=Enumerable.Range(0,7).Select(i=>new WeatherDay(now.AddDays(i).ToString("yyyy-MM-dd"),"晴",15,25,10,0)).ToArray()},
+            Stocks:new([new("test","000001","完整中文名称","10.00","+1.00",1)],now,false),
+            SystemMetrics:new(12,34,100,200,now){SampleSequence=2,Samples=[new(100,200),new(101,201)]},
+            RuntimeHealth:new("fixture",1,now,Enumerable.Range(0,8).Select(i=>new RuntimeHealthCheck("test"+i,"诊断","ok",new string('x',400),"detail","advice",now)).ToArray(),[]));
+        var original=JsonSerializer.Serialize(fixture,JsonDefaults.Options);
+        var serverTask = server.RunAsync(()=>fixture, shutdown.Token);
 
         try
         {
@@ -25,12 +34,25 @@ internal static class LanServerSelfTest
             await ExpectStatusAsync(client, "wrong-token", HttpStatusCode.Unauthorized);
             if(observed!=0)throw new Exception("Unauthenticated firmware observed");
             await ExpectStatusAsync(client, token, HttpStatusCode.OK, requireSnapshot: true);
+            using(var request=new HttpRequestMessage(HttpMethod.Get,"/status")) {
+                request.Headers.Add("X-AIBot-Token",token);
+                using var response=await client.SendAsync(request);response.EnsureSuccessStatusCode();
+                var text=await response.Content.ReadAsStringAsync();using var doc=JsonDocument.Parse(text);var root=doc.RootElement;
+                if(root.TryGetProperty("runtimeHealth",out _)||root.GetProperty("weather").TryGetProperty("hourly",out _)||root.GetProperty("weather").TryGetProperty("daily",out _))
+                    throw new Exception("ESP LAN includes unused desktop/TAB5 views");
+                if(root.GetProperty("stocks").GetProperty("quotes")[0].GetProperty("name").GetString()!="完整中文名称"||
+                    root.GetProperty("systemMetrics").GetProperty("samples").GetArrayLength()!=2||root.GetProperty("weather").GetProperty("temperature").GetDouble()!=20)
+                    throw new Exception("ESP LAN lost rendered labels, current weather or incremental graph samples");
+                if(System.Text.Encoding.UTF8.GetByteCount(text)>=6144||original.Length<text.Length*2||JsonSerializer.Serialize(fixture,JsonDefaults.Options)!=original)
+                    throw new Exception("ESP payload reduction or source snapshot isolation regressed");
+                Console.WriteLine($"ESP_LAN_PAYLOAD_OK full={System.Text.Encoding.UTF8.GetByteCount(original)} esp={System.Text.Encoding.UTF8.GetByteCount(text)} labels/samples retained; source unchanged");
+            }
             for(int i=0;i<50&&observed<1;i++)await Task.Delay(10);
             if(firmware!=EspFirmwareVersion.Legacy)throw new Exception("Legacy firmware header not handled");
             using(var request=new HttpRequestMessage(HttpMethod.Get,"/status")) {
                 request.Headers.Add("X-AIBot-Token",token);request.Headers.Add("X-AIBot-Firmware","0.5.1");
                 using var response=await client.SendAsync(request);response.EnsureSuccessStatusCode();
-                for(int i=0;i<50&&observed<2;i++)await Task.Delay(10);
+                for(int i=0;i<50&&observed<3;i++)await Task.Delay(10);
                 if(firmware!="0.5.1")throw new Exception("Authenticated firmware not observed");
             }
             using(var request=new HttpRequestMessage(HttpMethod.Get,"/status")) {

@@ -1,0 +1,188 @@
+{
+  "baseCommit": "bc2c40ba851ba6a59a209a6de47c7dce97e6ed5b",
+  "baseVersion": "0.2.279-ui",
+  "candidateVersion": "0.2.281-ui",
+  "baseSource": "docs/development/tab5-279-source/source",
+  "changes": [
+    {
+      "path": "firmware/main/ui.c",
+      "baseSha256": "dd11f83015cfd6e6f8e6528aa7e957ff9b2ca2292c31b2b4da54daf55a258c26",
+      "candidateSha256": "70d2eea8382584f4ee8c63344f753735a58efd9052d36b713a4232fef9a94477",
+      "candidateSha256LF": "70d2eea8382584f4ee8c63344f753735a58efd9052d36b713a4232fef9a94477"
+    },
+    {
+      "path": "firmware/main/ui_computer.h",
+      "baseSha256": "21528a327225e31f7db00177b5ff14cfc2e37b94b191a7bbaeff12bae6b585c1",
+      "candidateSha256": "3075f93e943159b8e193aca35a722ce28a756c7c3cb578151d5d4ac9824f34c3",
+      "candidateSha256LF": "3075f93e943159b8e193aca35a722ce28a756c7c3cb578151d5d4ac9824f34c3"
+    },
+    {
+      "path": "firmware/main/ui_gallery_reader.h",
+      "baseSha256": "7eac328be3371bbe822963128c656d392bc2400c51ab0647dcac47d1539b3f59",
+      "candidateSha256": "8819c408ea3d85a4c113f0de125b2a2b5b85ccad13afff31011b9f1c76a04c7a",
+      "candidateSha256LF": "b31d23898e45a680376b21d3fe54d8c0c747d7b7504208b93f19adfe7502bd74"
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "baseSha256": "a3511e86cc8241dfff978e94dcf2106ee8698810792444f3f777b5f5ca689721",
+      "candidateSha256": "fc72088e55bce59ecd3633fa7c50b746b09131ee048713e0a964919b12293b89",
+      "candidateSha256LF": "fc72088e55bce59ecd3633fa7c50b746b09131ee048713e0a964919b12293b89"
+    },
+    {
+      "path": "scripts/IdfEnvironment.ps1",
+      "baseSha256": "66d96efa552e87c297fe725bc1f7a8317ba2ab833d47474c38fb2a6eee5b7f62",
+      "candidateSha256": "9ae0aac99a56c7c6370d1f1a8aa2095d9bdeb11bda9ab5d0ea9bc8849b1bdfa1",
+      "candidateSha256LF": "3ea5478ecd3babea010ac2cdacb122f6e75cd1e9e2af0b00ff4f9c258b4e59a8"
+    },
+    {
+      "path": "tests/ui-preview/codex_read_ack_test.c",
+      "baseSha256": "4057adac8152274b522c8ee700a3843ee23f183a65af945b6a5b02e52ef366d6",
+      "candidateSha256": "91e75250169ad893670bf38647e9a034a421d0b9ecd4bca5fb4ba5535e5a7bf4",
+      "candidateSha256LF": "91e75250169ad893670bf38647e9a034a421d0b9ecd4bca5fb4ba5535e5a7bf4"
+    },
+    {
+      "path": "tests/ui-preview/rpc_library_route_test.c",
+      "baseSha256": "87dcc3bec81e1b51efcfd953cf3730b7e1f47ececa01767fcbe7e4878e73f318",
+      "candidateSha256": "511568b50fc7ab363e3f7f2d6e2dc34451e29437ec4506891c0428bbf7cfdf60",
+      "candidateSha256LF": "511568b50fc7ab363e3f7f2d6e2dc34451e29437ec4506891c0428bbf7cfdf60"
+    },
+    {
+      "path": "firmware/main/device.h",
+      "baseSha256": "77a2bb20123a8bdcaf7d1038f78ae2fb4d8d422074a6558ba2c7ac6b1df84025",
+      "candidateSha256": "15b6f5ab374cbbf877de37187d08bb659b6b63cf9555a27861bc0c94be0db592",
+      "candidateSha256LF": "15b6f5ab374cbbf877de37187d08bb659b6b63cf9555a27861bc0c94be0db592"
+    },
+    {
+      "path": "firmware/main/device.c",
+      "baseSha256": "a1921daa51bfe45dd0fc22e90a9c9e2ae4cfda4f4080a79d56bbb88d4c2f39b6",
+      "candidateSha256": "5b410c100d40444f70c09f587dbb3ec22771b755ce3cf76734428e29919571f7",
+      "candidateSha256LF": "5b410c100d40444f70c09f587dbb3ec22771b755ce3cf76734428e29919571f7"
+    },
+    {
+      "path": "firmware/main/ble_link.c",
+      "baseSha256": "8ba64923817cf80bda86c9ff6a1a5faae657b9c34f3d22b47c02fccf4494dc52",
+      "candidateSha256": "38aa0fd81fd40981e4dc995736ef8b3562f4a00a36d7285671f8ff7068004ca8",
+      "candidateSha256LF": "38aa0fd81fd40981e4dc995736ef8b3562f4a00a36d7285671f8ff7068004ca8"
+    },
+    {
+      "path": "firmware/main/ble_owner_proof.inc",
+      "baseSha256": "392fa8409b842e66f9e788c8159b98e6f3c90b1b8fd3d197ffb336ea5dc5f59b",
+      "candidateSha256": "0f239744fea3b0f101af246f237c5b9179038d484f601f51ab4cb393b0150846",
+      "candidateSha256LF": "0f239744fea3b0f101af246f237c5b9179038d484f601f51ab4cb393b0150846"
+    },
+    {
+      "path": "tests/ui-preview/CMakeLists.txt",
+      "baseSha256": "60b4a4802506b45229b421456d28c58e21d60ab14a5d15660367c88f5814e467",
+      "candidateSha256": "9456675bc1c061ca7bd1e4e42c5c49832d9b7669988b95f2ea9d267e2fae196e",
+      "candidateSha256LF": "9456675bc1c061ca7bd1e4e42c5c49832d9b7669988b95f2ea9d267e2fae196e"
+    },
+    {
+      "path": "tests/ui-preview/ble_owner_proof_test.c",
+      "baseSha256": "7cb70fc82d40ce1e63e1c79c8a565978ffe6010e249147b0369f808666851213",
+      "candidateSha256": "3f5c152b9f7161fc1b36eb0bbf5759765c8e85721546f3d61b177a15651e68eb",
+      "candidateSha256LF": "3f5c152b9f7161fc1b36eb0bbf5759765c8e85721546f3d61b177a15651e68eb"
+    },
+    {
+      "path": "tests/ui-preview/photo_memory_test.c",
+      "baseSha256": "e55e18547aaaf8079afa7debe33851f24588939b4f71fb17352313305ec01eeb",
+      "candidateSha256": "0f6c4e3c9666aec0c420a9dfb9d91d044f3127f3d733bc08ba766cdc4794b324",
+      "candidateSha256LF": "0f6c4e3c9666aec0c420a9dfb9d91d044f3127f3d733bc08ba766cdc4794b324"
+    },
+    {
+      "path": "tests/ui-preview/camera_ownership_test.c",
+      "baseSha256": "99e4ee7cf388a46308e7706a39c86f6bc264499fced955afbd50d36412c90c10",
+      "candidateSha256": "d5d8b930cbcc520a6e67a6ccd337d38cf521577c6114bd933e44732b207ca6db",
+      "candidateSha256LF": "e4e4798a7114d6f61d83f872870971126697b3a0267f5dcd4012ed161ec23ec7"
+    },
+    {
+      "path": "tests/ui-preview/rpc_exchange_test.c",
+      "baseSha256": "6a7679e3c648f26aa788ec0d3e5e8b92883061e81c7f316ae7d2ab0534ce3afd",
+      "candidateSha256": "c3f165f5a491023c8bd6f8a4e30e9efe8a8d7adf1c8a7ccac96b9aaf93ff8353",
+      "candidateSha256LF": "53ff905e049b728068848e89f8dd1d3aebc5b3dfb4ac73da3bdef89efc09ec3e"
+    }
+  ],
+  "restoredTests": [
+    {
+      "path": "tests/link_state_test.c",
+      "source": "C:\\Users\\yaououzhong\\Work\\m5stack TAB5\\tests\\link_state_test.c",
+      "sha256": "ba0f7f0203d7ce263e890690510400a82e8fd79365286a1180def9e4d66f1682",
+      "candidateSha256": "ba0f7f0203d7ce263e890690510400a82e8fd79365286a1180def9e4d66f1682",
+      "candidateSha256LF": "478722fbc3e6343a14db44cb8b686495db15e49b0ca0ece58c6c86a1bb0d999b"
+    },
+    {
+      "path": "tests/voice-control-test.c",
+      "source": "C:\\Users\\yaououzhong\\Work\\m5stack TAB5\\tests\\voice-control-test.c",
+      "sha256": "5fdcd2f120c8267ed06606b5ae52600f6d999ae5269998450710fc99bed3e449",
+      "candidateSha256": "5fdcd2f120c8267ed06606b5ae52600f6d999ae5269998450710fc99bed3e449",
+      "candidateSha256LF": "5fdcd2f120c8267ed06606b5ae52600f6d999ae5269998450710fc99bed3e449"
+    },
+    {
+      "path": "tests/ota_performance_test.c",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\development\\tab5-264-source\\tests\\ota_performance_test.c",
+      "sha256": "e2536da8bdc2fbbb0f5947f30366a5de20fa95861d6843dbdeba96bc31449b7f",
+      "candidateSha256": "e2536da8bdc2fbbb0f5947f30366a5de20fa95861d6843dbdeba96bc31449b7f",
+      "candidateSha256LF": "e2536da8bdc2fbbb0f5947f30366a5de20fa95861d6843dbdeba96bc31449b7f"
+    },
+    {
+      "path": "tests/ota_performance_trace_test.c",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\development\\tab5-264-source\\tests\\ota_performance_trace_test.c",
+      "sha256": "7d45a5e60a3fd3da5ff7956baa60746cc7814efd7dc4c87f22be4396651c2f6f",
+      "candidateSha256": "7d45a5e60a3fd3da5ff7956baa60746cc7814efd7dc4c87f22be4396651c2f6f",
+      "candidateSha256LF": "7d45a5e60a3fd3da5ff7956baa60746cc7814efd7dc4c87f22be4396651c2f6f"
+    },
+    {
+      "path": "tests/host-unlock-stubs/ble_keyboard.h",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\proposals\\tab5-mac-host-unlock.patch",
+      "sha256": "a831f0e1ced529ca95e618abc844a9a7709804acbab2351fb094fff1ddd77ee0",
+      "candidateSha256": "a831f0e1ced529ca95e618abc844a9a7709804acbab2351fb094fff1ddd77ee0",
+      "candidateSha256LF": "a831f0e1ced529ca95e618abc844a9a7709804acbab2351fb094fff1ddd77ee0"
+    },
+    {
+      "path": "tests/host-unlock-stubs/device.h",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\proposals\\tab5-mac-host-unlock.patch",
+      "sha256": "aabd747c12ca317fc6e9e4dfa4a3588bf7ca8b24b44378de23560d9e7cdb7ed4",
+      "candidateSha256": "aabd747c12ca317fc6e9e4dfa4a3588bf7ca8b24b44378de23560d9e7cdb7ed4",
+      "candidateSha256LF": "aabd747c12ca317fc6e9e4dfa4a3588bf7ca8b24b44378de23560d9e7cdb7ed4"
+    },
+    {
+      "path": "tests/host-unlock-stubs/esp_timer.h",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\proposals\\tab5-mac-host-unlock.patch",
+      "sha256": "82a7c14acf5d1cdcbea1b23bab880c69562da88013adc34ff5f2ae2115fb08d1",
+      "candidateSha256": "82a7c14acf5d1cdcbea1b23bab880c69562da88013adc34ff5f2ae2115fb08d1",
+      "candidateSha256LF": "82a7c14acf5d1cdcbea1b23bab880c69562da88013adc34ff5f2ae2115fb08d1"
+    },
+    {
+      "path": "tests/host-unlock-stubs/link_state.h",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\proposals\\tab5-mac-host-unlock.patch",
+      "sha256": "f60d57c7d3f648afab745f64718b88f160933dc1c57654c87e126043ff94b5c1",
+      "candidateSha256": "f60d57c7d3f648afab745f64718b88f160933dc1c57654c87e126043ff94b5c1",
+      "candidateSha256LF": "f60d57c7d3f648afab745f64718b88f160933dc1c57654c87e126043ff94b5c1"
+    },
+    {
+      "path": "tests/host-unlock-stubs/rpc_link.h",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\proposals\\tab5-mac-host-unlock.patch",
+      "sha256": "10071de4984f09802fb9ade187bd6318af1667c2400ae17171f40d9537b2f79d",
+      "candidateSha256": "10071de4984f09802fb9ade187bd6318af1667c2400ae17171f40d9537b2f79d",
+      "candidateSha256LF": "10071de4984f09802fb9ade187bd6318af1667c2400ae17171f40d9537b2f79d"
+    },
+    {
+      "path": "tests/host_unlock_remote_test.c",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\proposals\\tab5-mac-host-unlock.patch",
+      "sha256": "f3ac4857f50e071c0fb49032b432faea73285711a496966316b882ba1433fe6f",
+      "candidateSha256": "f3ac4857f50e071c0fb49032b432faea73285711a496966316b882ba1433fe6f",
+      "candidateSha256LF": "f3ac4857f50e071c0fb49032b432faea73285711a496966316b882ba1433fe6f"
+    },
+    {
+      "path": "tests/host_unlock_timeout_test.c",
+      "source": "C:\\Users\\yaououzhong\\.codex\\worktrees\\windows-mac-alignment\\AI-bot\\docs\\proposals\\tab5-mac-host-unlock.patch",
+      "sha256": "ecb292c6eb188813e1546163cfb9d52aee7d073ced928a5c7ede3c3106480157",
+      "candidateSha256": "f16a20cce8baa6355f438ba2069fb731abdfea4903e6765904bed6eec51cf227",
+      "candidateSha256LF": "f16a20cce8baa6355f438ba2069fb731abdfea4903e6765904bed6eec51cf227"
+    }
+  ],
+  "imageSha256": "684587e024c9a52e1e2e069abba066826a4e93c425c1ec87e574aa73a4f6ce00",
+  "elfSha256": "c73b154bbd2f3ac7a7afb70970ca0a67da4b0d0ea0d5e1cdaf5fd7213f7e755e",
+  "imageBytes": 7208304,
+  "scope": "Local candidate; native tests and ELF gates passed; hardware acceptance pending",
+  "patchEncoding": "UTF-8 LF; candidateSha256 records raw build inputs; candidateSha256LF records normalized patch results"
+}

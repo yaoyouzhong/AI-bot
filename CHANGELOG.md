@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased ESP8266 reset-credit text - 2026-10-27
+
+- Strengthen the existing 14px reset-credit strokes while preserving badge size, alignment and blank character gaps. Production Font2 raster tests pass; physical appearance awaits installation.
+
+## Unreleased Windows voice focus fix - 2026-10-27
+
+- Prevent background quota window positioning and transitions from interactive mode from stealing input focus. Background display stays non-activating while interactive windows retain their minimum resize constraints.
+- Add bounded voice focus recovery and audio pausing, and avoid another stop command when Doubao has already stopped. Preserve interrupted text for review without sending it. Add background-window focus, audio drain and recognizer stop regressions.
+- Follow-up empty-result fix: do not treat native idle as a final empty result when sound was received. Keep the full text-delivery wait and selected microphone; a timeout retains the desktop draft with a diagnostic error. Add content-free audio duration, text-update counts and recognition-state diagnostics. Intermittent takes with no text still require physical investigation.
+- Detect when Doubao ends capture before the device requests stop; stop forwarding audio immediately and preserve the partial text with an incomplete-result warning instead of continuing to announce readiness. This protection does not resolve the underlying early-stop cause; continuous dictation still needs acceptance.
+- The first candidate still failed on the second physical TAB5 recording. Builds and native-window regressions do not replace hardware acceptance of the new fix. Mac Doubao also depends on focus, but its background refresh has no matching topmost operation; Mac and firmware are unchanged. See the [investigation record](docs/development/WINDOWS-VOICE-FOCUS-20261027.md).
+
+## Unreleased Windows/Mac alignment - 2026-10-26
+
+- Sum DeepSeek recharge and bonus wallets without double-counting authoritative totals; store and display API/web sources independently to prevent cross-account balance/spending combinations. Add per-provider web zoom.
+- Speed up USB/Wi-Fi preview for compatible TAB5 firmware, bound OTA command expiry to the actual status frame, protect terminal voice replies, normalize only newly recognized speech, and bound Codex history fallback paging and responses.
+- Omit desktop runtime diagnostics and TAB5 forecast details from ESP8266 LAN status, preserving current weather, stock labels and graph samples. The smaller payload restores Wi-Fi fallback on the tested ESP8266; two real fallback/USB recovery checks passed. Add local-only, content-free LAN request counters.
+- The Windows candidate is installed and normal Explorer startup is verified; tool-context startup still triggers profile protection. Build and synthetic regressions pass. The installed CLI does not implement item pagination, but the existing local-history route passes a 25.2MB synthetic rollout check. Fix the stale device-center expectation for the existing Computer Control card. Real DeepSeek login/zoom and source-separated device data were checked; TAB5 history/voice and remaining transport acceptance are pending. No firmware flash or public release. See the [alignment record](docs/development/WINDOWS-MAC-ALIGNMENT-20261026.md).
+
 ## Unreleased Mac model account parity - 2026-10-26
 
 - Render each stock-name atlas row independently to prevent cross-row rasterization differences on macOS 14 while retaining the accepted font, color, size and alignment. Update paginated-history fixtures, isolate test registration defaults and bound asynchronous menu checks for CI.

@@ -8,21 +8,30 @@ internal static class DeviceStatusFrame
 {
     internal const int MaximumLineBytes = 6144;
 
-    internal static JsonObject Create(StatusSnapshot snapshot)
+    // ESP8266 has the same heap budget on Wi-Fi as on USB. Keep LAN labels
+    // and incremental metric samples, but never send views it cannot render.
+    internal static JsonObject CreateLan(StatusSnapshot snapshot)
     {
         var data = JsonSerializer.SerializeToNode(snapshot, JsonDefaults.Options)!.AsObject();
-        // Keep LAN/mirror snapshots complete. USB omits only non-rendered metadata;
-        // full Chinese stock/music labels are carried in binary resources.
-        data.Remove("capturedAt"); data.Remove("time"); data.Remove("musicPlaying");
-        // Health diagnostics are used by TAB5/desktop, not ESP8266. Their
-        // growing checks/history must not consume its bounded heartbeat.
+        RemoveUnusedViews(data);
+        return data;
+    }
+
+    private static void RemoveUnusedViews(JsonObject data)
+    {
         data.Remove("runtimeHealth");
-        // Forecast series are rendered by TAB5, not the ESP8266. Keep them in
-        // the shared snapshot but out of its bounded USB heartbeat.
         if(data["weather"] is JsonObject weather) {
             weather.Remove("hourly");weather.Remove("daily");
             weather.Remove("hourlyStale");weather.Remove("dailyStale");
         }
+    }
+
+    internal static JsonObject Create(StatusSnapshot snapshot)
+    {
+        var data = CreateLan(snapshot);
+        // Keep desktop/mirror snapshots complete. USB omits additional metadata;
+        // full Chinese stock/music labels are carried in binary resources.
+        data.Remove("capturedAt"); data.Remove("time"); data.Remove("musicPlaying");
         // Fast metrics frames carry the incremental tail; the heartbeat remains small.
         if(data["systemMetrics"] is JsonObject metrics) metrics.Remove("samples");
         if (data["domesticActivity"] is JsonObject activity) activity.Remove("providers");

@@ -185,6 +185,8 @@ After a successful USB handshake, the bridge sends a `lan_config` frame containi
 
 When USB status has been absent for eight seconds, the device may request `GET /status` from that exact address and must send the token in the `X-AIBot-Token` header. The LAN listener binds only to the selected private adapter address. Missing or incorrect tokens receive `401`; the loopback development endpoint remains independently available at `127.0.0.1`.
 
+The Windows ESP8266 LAN response omits `runtimeHealth` and weather `hourly`, `daily`, `hourlyStale`, and `dailyStale`, which ESP8266 does not consume. This avoids spending its limited JSON heap on desktop/TAB5-only views. Current weather, full stock labels, quota data, display policy and incremental system samples are retained. The shared snapshot, desktop loopback response and TAB5 protocol remain complete. `GET /diagnostics/esp-lan` on the loopback listener exposes bounded request/authentication/send counts, byte size and timestamps only; it never exposes headers, tokens or status bodies. HTTP delivery counters alone do not prove device parsing or rendering: acceptance must also observe increasing device LAN frames and USB recovery.
+
 ### Paired LAN rediscovery after both IP addresses change
 
 After one USB pairing, the device and the Windows bridge retain the same pairing token. If USB and LAN status are both stale, the device broadcasts a small discovery datagram to UDP port `18766` on its current IPv4 subnet every five seconds. The request is ASCII `AIBOT_DISCOVER_V1|<16 lowercase hex nonce>|<64 lowercase hex HMAC-SHA256>`, where the HMAC key is the UTF-8 pairing token and the signed bytes are the prefix through the nonce. The token itself is never included in a discovery datagram.

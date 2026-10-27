@@ -106,7 +106,13 @@ internal static class DeviceCenterSelfTest
                 foreach(var d in devices){
                     form.SelectDevice(d.Id);Check(((RegisteredDevice)Descendants(form).OfType<ListBox>().Single().SelectedItem!).Id==d.Id,"Direct device navigation selected wrong target");
                     var cards=Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().OrderBy(b=>b.PointToScreen(Point.Empty).Y).ThenBy(b=>b.PointToScreen(Point.Empty).X).Select(b=>b.Text).ToArray();
-                    Check(cards.SequenceEqual(d.Kind==HardwareKind.Tab5?new[]{"显示设置","语音设置","日历生日","日程待办","屏保图库","常用任务","数据设置","连接升级"}:new[]{"显示设置","外观设置","数据设置","连接设置"}),"Device action order or duplicate entry regressed");
+                    Check(cards.SequenceEqual(d.Kind==HardwareKind.Tab5?new[]{"显示设置","语音设置","日历生日","日程待办","电脑控制","屏保图库","常用任务","数据设置","连接升级"}:new[]{"显示设置","外观设置","数据设置","连接设置"}),"Device action order or duplicate entry regressed: "+key+" scale="+scale+" actual="+string.Join(" / ",cards));
+                    var control=Descendants(tabs.SelectedTab!).OfType<Button>().SingleOrDefault(b=>b.Text=="电脑控制");
+                    Check((control is not null)==(d.Kind==HardwareKind.Tab5),"Computer control capability leaked or disappeared");
+                    if(control is not null) {
+                        Check(control.Enabled==d.Enabled,"Disabled device computer control enabled");
+                        if(d.Enabled){target=null;action=null;control.PerformClick();Check(target==d.Id&&action=="computer-control","Computer control routed to wrong device");}
+                    }
                     if(d.Kind==HardwareKind.Tab5){var browse=Descendants(form).OfType<Button>().Single(b=>b.Text=="屏保图库");Check(browse.Enabled==d.Enabled,"Gallery availability should follow device enable state, not connection");if(d.Enabled){browse.PerformClick();Check(target==d.Id&&action=="gallery-browser","Gallery card did not route directly to browser");}}
                     var button=Descendants(form).OfType<Button>().Single(b=>b.Text==(d.Kind==HardwareKind.Tab5?"语音设置":"连接设置"));
                     Check(button.Enabled==d.Enabled,"Disabled device action enabled");

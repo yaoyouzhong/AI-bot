@@ -8,6 +8,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--self-test-background-quota-focus"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.BackgroundFocusSelfTest();return;}
         if(args.Length==2&&args[0]=="--quota-history-from-file") {
             AppPaths.BeginPublicSelfTest();
             var path=Path.GetFullPath(args[1]);
@@ -20,6 +21,9 @@ internal static class Program
                 days=QuotaHistory.Daily(rows,today,7,QuotaHistory.StatisticsZone)},JsonDefaults.Options));
             return;
         }
+        if(args.Length==2&&args[0]=="--self-test-model-account-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.AlignmentUiSelfTest(Path.GetFullPath(args[1]));return;}
+        if(args.Length==1&&args[0]=="--self-test-screen-preview"){AppPaths.BeginPublicSelfTest();Tab5ScreenPreviewSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-voice-resource-priority"){AppPaths.BeginPublicSelfTest();Tab5Service.VoiceResourceSchedulingSelfTestAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-host-binding"){AppPaths.BeginPublicSelfTest();Tab5HostBindingSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tightvnc-component"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();try{TightVncSelfTest.Run(Path.GetFullPath(args[1]));}catch(Exception ex){Console.Error.WriteLine("TIGHTVNC_COMPONENT_SELF_TEST_FAILED: "+ex);Environment.ExitCode=1;}return;}
         if(args.Length==2&&args[0]=="--test-tightvnc-sandbox"){AppPaths.BeginPublicSelfTest();Environment.ExitCode=0;TightVncSelfTest.SandboxAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;}

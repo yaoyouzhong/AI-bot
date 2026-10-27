@@ -5,6 +5,7 @@ namespace AIBotBridge;
 internal static class Tab5CodexSelfTest
 {
     internal static async Task RunAsync() {
+        await Tab5CodexPublicHistorySelfTest.RunAsync();
         Tab5CodexReadStateSelfTest.Run();
         Tab5CodexJournalSelfTest.Run();
         await Tab5CodexDesktopSelfTest.RunAsync();
@@ -44,7 +45,8 @@ internal static class Tab5CodexSelfTest
             if(projects[0].GetProperty("name").GetString()!="Project A")
                 throw new InvalidOperationException("TAB5 Codex: project order must follow recent activity");
         }
-        var idle=Json("{\"result\":{\"thread\":{\"status\":{\"type\":\"idle\"},\"turns\":[{\"status\":\"completed\",\"completedAt\":1}]}}}");
+        var idle=Json("{\"result\":{\"thread\":{\"status\":{\"type\":\"idle\"},\"turns\":[{\"id\":\"synthetic-turn\",\"status\":\"completed\",\"completedAt\":1}]}}}");
+        JsonElement DirectoryPage()=>Json("{\"result\":{\"data\":[{\"id\":\"synthetic-turn\",\"status\":\"completed\",\"completedAt\":1}],\"nextCursor\":null}}");
         string Record(object payload,string type="event_msg")=>JsonSerializer.Serialize(new{type,timestamp="2026-09-26T03:05:23Z",payload});
         var activity=new Tab5CodexActivity();
         activity.Accept(Record(new{type="task_started",turn_id="old"}));
@@ -100,15 +102,15 @@ internal static class Tab5CodexSelfTest
             throw new Exception("History fallback must isolate the requested turn and allowed directory");
         string readState="completed";
         using(var reader=new Tab5CodexTasks((method,_,_)=> {
-            if(method!="thread/read")throw new Exception("History read must never resume or send a turn");
             readCalls++;
-            return Task.FromResult(JsonSerializer.SerializeToElement(new {result=new {thread=new {
-                status=new {type="idle"},turns=new[] {new {status=readState,items=readState=="completed"?new[]{new {type="agentMessage",text="已有会话的回复"}}:Array.Empty<object>()}}
-            }}}));
+            if(method=="thread/read")return Task.FromResult(JsonSerializer.SerializeToElement(new{result=new{thread=new{status=new{type="idle"},turns=Array.Empty<object>()}}}));
+            if(method=="thread/turns/list")return Task.FromResult(JsonSerializer.SerializeToElement(new{result=new{data=new[]{new{id="synthetic-turn",status=readState}},nextCursor=(string?)null}}));
+            if(method=="thread/turns/items/list")return Task.FromResult(JsonSerializer.SerializeToElement(new{result=new{data=readState=="completed"?new[]{new{turnId="synthetic-turn",item=new{type="agentMessage",text="已有会话的回复"}}}:Array.Empty<object>(),nextCursor=(string?)null}}));
+            throw new Exception("History read must never resume or send a turn");
         },()=>[new(taskId,"Synthetic","test",0)])) {
             if((await reader.ReadAsync(Guid.NewGuid().ToString(),CancellationToken.None)).Status!=404||readCalls!=0)
                 throw new Exception("History read must reject unknown tasks before RPC");
-            if((await reader.ReadAsync(taskId,CancellationToken.None)).Status!=200||readCalls!=1||
+            if((await reader.ReadAsync(taskId,CancellationToken.None)).Status!=200||readCalls!=3||
                JsonSerializer.SerializeToElement(reader.Snapshot()).GetProperty("responses").GetProperty(taskId).GetString()!="已有会话的回复")
                 throw new Exception("Read-only history reaches the device snapshot");
             readState="inProgress";await reader.ReadAsync(taskId,CancellationToken.None);
@@ -122,7 +124,7 @@ internal static class Tab5CodexSelfTest
             using var bridge=new Tab5CodexTasks((method,_,_)=> {
                 if(method=="turn/start")starts++;
                 if(method==failureAt)return Task.FromResult(response());
-                return Task.FromResult(idle);
+                return Task.FromResult(method=="thread/turns/list"?DirectoryPage():method=="thread/turns/list"?DirectoryPage():method=="thread/turns/items/list"?Json("{\"result\":{\"data\":[],\"nextCursor\":null}}"):idle);
             },()=>[new(taskId,"Synthetic task","test",0)]);
             var result=await bridge.SubmitAsync(taskId,"Synthetic input",CancellationToken.None);
             var body=JsonSerializer.SerializeToElement(result.Body);
@@ -144,7 +146,7 @@ internal static class Tab5CodexSelfTest
         var acknowledgement=new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         using(var bridge=new Tab5CodexTasks((method,_,_)=> {
             if(method=="turn/start"){startedCall.SetResult();return acknowledgement.Task;}
-            return Task.FromResult(idle);
+            return Task.FromResult(method=="thread/turns/list"?DirectoryPage():method=="thread/turns/list"?DirectoryPage():method=="thread/turns/items/list"?Json("{\"result\":{\"data\":[],\"nextCursor\":null}}"):idle);
         },()=>[new(taskId,"Synthetic task","test",0)])) {
             var submission=bridge.SubmitAsync(taskId,"Synthetic input",CancellationToken.None);
             await startedCall.Task.WaitAsync(TimeSpan.FromSeconds(2));
@@ -170,7 +172,7 @@ internal static class Tab5CodexSelfTest
         var approvalAck=new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         using(var bridge=new Tab5CodexTasks((method,_,_)=> {
             if(method=="turn/start"){approvalStart.SetResult();return approvalAck.Task;}
-            return Task.FromResult(idle);
+            return Task.FromResult(method=="thread/turns/list"?DirectoryPage():method=="thread/turns/list"?DirectoryPage():method=="thread/turns/items/list"?Json("{\"result\":{\"data\":[],\"nextCursor\":null}}"):idle);
         },()=>[new(taskId,"Synthetic task","test",0)])) {
             var submission=bridge.SubmitAsync(taskId,"Synthetic input",CancellationToken.None);
             await approvalStart.Task.WaitAsync(TimeSpan.FromSeconds(2));
@@ -188,7 +190,7 @@ internal static class Tab5CodexSelfTest
         long readClock=0;
         var desktopRead=new Tab5CodexReadState(()=>new("synthetic-account",[]),()=>readClock);
         using(var bridge=new Tab5CodexTasks((method,_,_)=>Task.FromResult(method=="turn/start"?
-            Json("{\"result\":{\"turn\":{\"id\":\"synthetic-turn\"}}}"):idle),()=>[new(taskId,"Synthetic task","test",0)],desktopRead))
+            Json("{\"result\":{\"turn\":{\"id\":\"synthetic-turn\"}}}"):method=="thread/turns/list"?DirectoryPage():method=="thread/turns/items/list"?Json("{\"result\":{\"data\":[],\"nextCursor\":null}}"):idle),()=>[new(taskId,"Synthetic task","test",0)],desktopRead))
         using(var input=new MemoryStream())
         using(var writer=new StreamWriter(input))
         using(var output=new MemoryStream(System.Text.Encoding.UTF8.GetBytes("null\n{not-json\n{\"method\":42}\n{\"method\":\"turn/completed\",\"params\":null}\n"+
@@ -214,7 +216,7 @@ internal static class Tab5CodexSelfTest
                 throw new Exception("Desktop read acknowledgement lost on shared transport wire");
         }
         using(var empty=new Tab5CodexTasks((method,_,_)=>Task.FromResult(method=="turn/start"?
-            Json("{\"result\":{\"turn\":{\"id\":\"empty-turn\"}}}"):idle),()=>[new(taskId,"Synthetic","test",0)])) {
+            Json("{\"result\":{\"turn\":{\"id\":\"empty-turn\"}}}"):method=="thread/turns/list"?DirectoryPage():method=="thread/turns/items/list"?Json("{\"result\":{\"data\":[],\"nextCursor\":null}}"):idle),()=>[new(taskId,"Synthetic","test",0)])) {
             await empty.SubmitAsync(taskId,"Synthetic",CancellationToken.None);
             await empty.ReadAsync(taskId,CancellationToken.None); // installs an empty-history placeholder
             empty.Completed(taskId,"empty-turn","completed");
