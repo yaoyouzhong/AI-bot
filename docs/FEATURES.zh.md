@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-当前 Windows / Mac **0.6.11**、TAB5 **0.2.281-ui**、ESP8266 **0.5.7**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.11.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
+当前 Windows **0.6.12**、Mac **0.6.11**、TAB5 **0.2.282-ui**、ESP8266 **0.5.7**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.12.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -257,7 +257,7 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 | **连接设置** | 自动、仅 USB、仅 Wi-Fi；屏保等待分钟数，0 为关闭自动屏保。 |
 | **管理…** | 修改名称、停用／启用、固件升级、设备信息、连接诊断、重置网络和移除设备。 |
 
-![当前显示设置：亮度、显示方式、轮播页面与顺序](assets/screens/cycle-settings.png)
+<a href="assets/screens/cycle-settings.png"><img src="assets/screens/cycle-settings.png" width="440" alt="当前显示设置：亮度、显示方式、轮播页面与顺序"></a>
 
 选择“自动轮播”后保存，会按勾选页面和间隔循环；“智能跟随”按事件选择页面；固定页保持所选内容。
 
@@ -273,11 +273,13 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 ### 设备中心是统一入口
 
-![当前托盘菜单：设备中心、小屏预览与按设备分组的设置](assets/screens/tray-menu.png)
+截图按窗口类型控制显示大小；点击可查看原图。 / Screenshots are sized by window type; select one to view the full image.
+
+<a href="assets/screens/tray-menu.png"><img src="assets/screens/tray-menu.png" width="160" alt="当前托盘菜单：设备中心、小屏预览与按设备分组的设置"></a>
 
 右键托盘打开菜单：**设备中心**是统一入口，后面按已添加的设备分组；只有启用了 ESP8266，才出现“小屏预览”。左键托盘也按这个条件打开／隐藏小屏镜像，否则打开设备中心。设备名称随你的命名变化，停用设备的快捷项不可用。
 
-![设备中心的我的设备页，演示 TAB5](assets/screens/device-center.png)
+<a href="assets/screens/device-center.png"><img src="assets/screens/device-center.png" width="720" alt="设备中心的我的设备页，演示 TAB5"></a>
 
 | 页面 | 当前入口与用途 |
 | --- | --- |
@@ -288,8 +290,8 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 <details>
 <summary>查看账号数据与桥接设置页面</summary>
 
-![账号数据](assets/screens/device-center-accounts.png)
-![桥接设置](assets/screens/device-center-bridge.png)
+<p><a href="assets/screens/device-center-accounts.png"><img src="assets/screens/device-center-accounts.png" width="720" alt="账号数据"></a></p>
+<p><a href="assets/screens/device-center-bridge.png"><img src="assets/screens/device-center-bridge.png" width="720" alt="桥接设置"></a></p>
 
 </details>
 
@@ -312,18 +314,18 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 <details>
 <summary>展开软件与固件更新窗口</summary>
 
-![统一更新：分别查看电脑端和两类固件的版本及说明](assets/screens/update-center.png)
+<a href="assets/screens/update-center.png"><img src="assets/screens/update-center.png" width="720" alt="统一更新：分别查看电脑端和两类固件的版本及说明"></a>
 
 </details>
 
 <details>
 <summary>展开年度图库与电脑浏览界面</summary>
 
-![年度图库：主要操作排成一行](assets/screens/gallery-packs.png)
+<a href="assets/screens/gallery-packs.png"><img src="assets/screens/gallery-packs.png" width="680" alt="年度图库：主要操作排成一行"></a>
 
-![浏览作品：紧凑翻页、阅读资料与全屏](assets/screens/gallery-browser.png)
+<a href="assets/screens/gallery-browser.png"><img src="assets/screens/gallery-browser.png" width="800" alt="浏览作品：紧凑翻页、阅读资料与全屏"></a>
 
-![全屏放大：滚轮缩放与拖动](assets/screens/gallery-fullscreen.png)
+<a href="assets/screens/gallery-fullscreen.png"><img src="assets/screens/gallery-fullscreen.png" width="800" alt="全屏放大：滚轮缩放与拖动"></a>
 
 </details>
 
@@ -331,7 +333,7 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 Windows 的运行监控显示 VPN／PAC、电脑负载、异常原因和处理建议；TAB5 系统页同步简洁状态。告警详情与声音按设置工作，同一异常避免重复提醒，恢复后清除提示。
 
-![Windows 运行监控：异常、原因与建议](assets/screens/bridge-monitor.png)
+<a href="assets/screens/bridge-monitor.png"><img src="assets/screens/bridge-monitor.png" width="560" alt="Windows 运行监控：异常、原因与建议"></a>
 
 ![TAB5 运行监控](assets/screens/tab5-runtime-health.png)
 
@@ -370,15 +372,15 @@ Windows 0.6.9 + TAB5 217 provide volume/mute/lock, actual lock state and four lo
 | 平台 | 当前范围 | 验证说明 |
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
-| ESP8266 0.5.3 | 小屏页面、时钟、桌宠、USB / Wi-Fi 与固定设备身份 | 真实 USB 换口与未配置 LAN 恢复已验证，具体记录见本版发布说明。 |
-| TAB5 0.2.217-ui | 电脑控制、十网络、横屏翻转、时钟、图库、日程与存储 | 217 精确镜像启动、215 控制／锁屏／无闪动及拔 USB 后 Wi-Fi 音量获确认；210 的日程、内存和重启验收沿用；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
+| ESP8266 0.5.7 | 小屏页面、时钟、桌宠、USB / Wi-Fi 与固定设备身份 | 真实 USB 换口与未配置 LAN 恢复已验证，具体记录见本版发布说明。 |
+| TAB5 0.2.282-ui | 电脑控制、十网络、横屏翻转、时钟、图库、日程与存储 | 282 的系统告警、诊断、检测详情与返回操作经用户实机确认；217 精确镜像启动、215 控制／锁屏／无闪动及拔 USB 后 Wi-Fi 音量获确认；210 的日程、内存和重启验收沿用；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；现支持 TAB5 连接、控制、预览、固件和图库管理；授权及语音来源按平台区分。Intel Mac 未验证。 |
 
 [发布明细](RELEASE-0.6.9.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows/Mac 0.6.11, ESP8266 0.5.7 and TAB5 0.2.281-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.12, Mac 0.6.11, ESP8266 0.5.7 and TAB5 0.2.282-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
 **TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Art screensavers support portrait rotation; normal system pages remain landscape and can automatically flip 180 degrees with touch following. Art collections are optional downloads.
 
@@ -390,7 +392,7 @@ The collection manager keeps primary actions on one row, with directory/help in 
 
 Agenda/reminders in TAB5 210 support local persistence, offline edits/deletions and reconnect sync, with explicit save, repeat and advance reminders. Complete optional HD editions include device previews and guides; desktop browsing prefers verified HD originals with bounded decoding. The refined agenda, internal memory, USB writing and connected-USB reboot battery display passed local 210 hardware acceptance; native screenshots remain isolated fixtures. Offline name entry uses the keyboard; dictation requires the computer voice service.
 
-## 本地候选：电脑一键解锁
+## 电脑一键解锁
 
 TAB5 可经 USB、蓝牙或 Wi-Fi 解锁；Windows 端保存 PIN，TightVNC 密码自动生成或从兼容安装自动接入，页面不要求填写。组件安装／卸载需管理员确认，已有外部安装保留原配置。最终验收与支持边界见 [本轮收尾](development/RELEASE-0610-229-CLOSEOUT-20261019.md)。
 

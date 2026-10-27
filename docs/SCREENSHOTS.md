@@ -1,5 +1,7 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-10-27：账号数据截图更新为 Windows 0.6.12 候选的紧凑按钮原生隔离界面，使用演示窗口，不含真实账户；图鉴对桥接窗口限制显示尺寸，原图可点击查看。 / Updated the account-data capture from the Windows 0.6.12 compact-button native fixture; documentation images link to their full-size originals.
+
 2026-10-27：更新 TAB5 0.2.282-ui 诊断与检测详情截图，来自该版本原生 LVGL 隔离夹具，数值为演示数据，非硬件照片；设备实际界面另经用户确认。 / Updated .282 diagnostics and details from native isolated LVGL fixtures; the device was separately confirmed by the user.
 
 2026-10-27 项目介绍片封面展示 TAB5（左）和 ESP8266（右）的原生额度界面，使用演示数据；不是硬件照片。封面及影片素材来源见 [视频说明](PRODUCT_VIDEO.md)，封面摘要登记在 `licenses/materials.json`。 / Project-overview covers show native synthetic quota interfaces; TAB5 is on the left and ESP8266 on the right.

@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "downloads": {
     "windows": {
-      "version": "0.6.11",
-      "tag": "v0.6.11",
-      "file": "AI-bot-bridge-v0.6.11-windows-x64-setup.exe",
-      "size": 31115715,
-      "sha256": "6c1b7891b343e6bd7f82250b8689c7cedb6c9892d3b05b6cf9fb20e857a6e728"
+      "version": "0.6.12",
+      "tag": "v0.6.12",
+      "file": "AI-bot-bridge-v0.6.12-windows-x64-setup.exe",
+      "size": 31114097,
+      "sha256": "e281944a3a9d904c142c5679cbb11d03f442f7f7a2d073c4854509dca467fb5a"
     },
     "macos": {
       "version": "0.6.11",
@@ -23,18 +23,18 @@
       "sha256": "47b5cce4d4797ff844e49f65d265b0c292410386d312e26863ff729d1c601020"
     },
     "tab5-first": {
-      "version": "0.2.281-ui",
-      "tag": "tab5-v0.2.281-ui",
-      "file": "AI-bot-tab5-0.2.281-ui-first-install.zip",
-      "size": 5165422,
-      "sha256": "aa72f27a601998a933bb55bbd3768c513328c1ad13a9d876d60455fceae084e6"
+      "version": "0.2.282-ui",
+      "tag": "tab5-v0.2.282-ui",
+      "file": "AI-bot-tab5-0.2.282-ui-first-install.zip",
+      "size": 5165652,
+      "sha256": "e7f28f5e66943cb58dd221d33294e13eebfa73aa850a803a62b2bb71ff17ad08"
     },
     "tab5-upgrade": {
-      "version": "0.2.281-ui",
-      "tag": "tab5-v0.2.281-ui",
-      "file": "AI-bot-tab5-0.2.281-ui-upgrade.zip",
-      "size": 5141851,
-      "sha256": "794f698b544d4740da1ed3bc8c7b936b1d9cd0c9ec12891998ec4541a2d374fd"
+      "version": "0.2.282-ui",
+      "tag": "tab5-v0.2.282-ui",
+      "file": "AI-bot-tab5-0.2.282-ui-upgrade.zip",
+      "size": 5141892,
+      "sha256": "38636023d496b8968d7d85d6f56f9b87e2ce7e83e2b6b759113810c278ecbe65"
     },
     "calligraphy": {
       "version": "2026.10.15.1",

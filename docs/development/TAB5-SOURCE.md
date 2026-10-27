@@ -1,8 +1,8 @@
-# 待发布源码 / Pending release source: 0.2.282-ui
+# 当前发布源码 / Current release source: 0.2.282-ui
 
-准备发布的 .282 源码包基于已公开 .281 完整源码，包含本次三处界面与测试修改；其应用身份对应已刷入并经用户确认的镜像。应用 SHA-256：`158425cf823886d4ce33fcf718217cc4408d57a9c09b801bf00176f7e6e6265c`；源码包 SHA-256：`4d2ab52dcbf6d9ce2ccd6febcc22a25b179fd23af03ae0d677f822c5dce50849`。首刷与升级包使用相同应用字节；未宣称独立逐位重建。
+[完整 .282 源码包](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.282-ui/AI-bot-tab5-0.2.282-ui-source.zip)基于已公开 .281 完整源码，包含本次三处界面与测试修改；其应用身份对应已刷入并经用户确认的镜像。应用 SHA-256：`158425cf823886d4ce33fcf718217cc4408d57a9c09b801bf00176f7e6e6265c`；源码包 SHA-256：`4d2ab52dcbf6d9ce2ccd6febcc22a25b179fd23af03ae0d677f822c5dce50849`。首刷与升级包使用相同应用字节；未宣称独立逐位重建。
 
-The prepared .282 source archive retains the complete .281 baseline and the three changed UI and test files. Its application identity matches the installed and physically confirmed image. First-install and upgrade packages contain identical application bytes; independent bit-identical rebuilding is not claimed.
+The published .282 source archive retains the complete .281 baseline and the three changed UI and test files. Its application identity matches the installed and physically confirmed image. First-install and upgrade packages contain identical application bytes; independent bit-identical rebuilding is not claimed.
 
 # 已发布源码 / Published release source: 0.2.281-ui
 

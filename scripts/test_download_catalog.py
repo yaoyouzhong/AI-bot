@@ -81,10 +81,18 @@ class DownloadCatalogTests(unittest.TestCase):
 
     def test_desktop_draft_links_only_the_selected_platform(self):
         version = catalog.versions(catalog.ROOT)["bridge"]
+        # The checked-in catalog may already contain this version after release.
+        # Build a genuine pre-publication fixture without changing the real index.
+        draft_data = copy.deepcopy(self.data)
+        for key in ("windows", "macos"):
+            if draft_data["downloads"][key]["tag"] == "v" + version:
+                draft_data["downloads"][key].update(
+                    tag="v0.0.1", version="0.0.1",
+                    file=catalog.SPECS[key][1].format(version="0.0.1"))
         for platform, retained in (("windows", "macos"), ("macos", "windows")):
             with self.subTest(platform=platform), patch.object(catalog, "desktop_platform", return_value=platform):
-                rendered = catalog.table(self.data, tag="v" + version)
-                self.assertIn(catalog.asset_url(self.data["downloads"][retained]), rendered)
+                rendered = catalog.table(draft_data, tag="v" + version)
+                self.assertIn(catalog.asset_url(draft_data["downloads"][retained]), rendered)
                 self.assertIn(catalog.SPECS[platform][1].format(version=version), rendered)
                 self.assertEqual(rendered.count("本次发布"), 1)
 
