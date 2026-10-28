@@ -55,7 +55,7 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 这段项目介绍对照展示 TAB5 大屏与 ESP8266 小屏的共有功能，并单独介绍 TAB5 的总览、会话、语音草稿、相机、电脑控制、日程和艺术屏保。画面使用原生界面演示数据与硬件合成图，非硬件实拍。
 
-https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
+<video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922"></video>
 
 [独立观看](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 MP4](https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922) · [视频与来源](docs/PRODUCT_VIDEO.md)
 
