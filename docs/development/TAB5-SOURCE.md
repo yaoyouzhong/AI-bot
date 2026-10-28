@@ -1,3 +1,9 @@
+# 最新本地交付源码归档 / Latest local delivery source: 0.2.283-ui
+
+[完整 .283 源码归档与核验说明](tab5-283-source/README.md)已同步，含 941 个项目文件、7,542 项输入摘要、依赖覆盖文件、SDK 补丁及许可。归档对应当前交付应用 `729fb34ea484ba8025399cb736e737d229fa524aeb08a963578bc14361139569`；受影响 UI 编译单元重编译后与原构建对象逐字节一致。此次仅同步源码，不新增固件 Release；独立整固件逐位重建未验证。
+
+The complete .283 source archive matches the current local delivery identity, includes all project/configuration/dependency changes and licenses, and verifies the affected UI object byte-for-byte with the original build. This is a source-only synchronization, with no new firmware Release or independent whole-binary reproduction claim.
+
 # 当前发布源码 / Current release source: 0.2.282-ui
 
 [完整 .282 源码包](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.282-ui/AI-bot-tab5-0.2.282-ui-source.zip)基于已公开 .281 完整源码，包含本次三处界面与测试修改；其应用身份对应已刷入并经用户确认的镜像。应用 SHA-256：`158425cf823886d4ce33fcf718217cc4408d57a9c09b801bf00176f7e6e6265c`；源码包 SHA-256：`4d2ab52dcbf6d9ce2ccd6febcc22a25b179fd23af03ae0d677f822c5dce50849`。首刷与升级包使用相同应用字节；未宣称独立逐位重建。

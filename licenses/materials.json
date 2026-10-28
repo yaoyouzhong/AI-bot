@@ -229,7 +229,8 @@
     "docs/assets/screens/model-accounts-0611.png": "bf812b1fdd7c8d34e059e1b2f4a627c87809d4b166c0af850c9e244ac8418026",
     "docs/assets/screens/esp8266-reset-text-057.png": "849e47fd5d5b1c6586fdec508f0c9c88efe2ff9f897a10a7723010e24e1fd9ff",
     "docs/assets/screens/tab5-runtime-health-detail.png": "cf6b81127f33b5cd73e0c247d443a3c88d72093ab4d31f8c699a4aedef09ba61",
-    "docs/assets/product-intro/AI-bot-onboarding-cover.png": "f16f3d389074edcf68f331420edf057fa5681e48d047e008c5ae71440aa5d0f9"
+    "docs/assets/product-intro/AI-bot-onboarding-cover.png": "f16f3d389074edcf68f331420edf057fa5681e48d047e008c5ae71440aa5d0f9",
+    "docs/development/tab5-283-source/AI-bot-tab5-0.2.283-ui-source.zip": "0750f5f1dd9d77165dc45f88b70070a434c44b582ecc42e4db9967186e092898"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",
@@ -291,5 +292,17 @@
     "license": "MIT; original code, UI and synthesized sound; system fonts not distributed",
     "subjectiveListening": "not performed",
     "playbackAcceptance": "Unverified: browser navigation to Release MP4 was blocked as a download; see RELEASE-0613-CLOSEOUT-20261028.md"
+  },
+  "tab5Source283": {
+    "reviewedOn": "2026-10-28",
+    "archive": "docs/development/tab5-283-source/AI-bot-tab5-0.2.283-ui-source.zip",
+    "sha256": "0750f5f1dd9d77165dc45f88b70070a434c44b582ecc42e4db9967186e092898",
+    "manifest": "docs/development/tab5-283-source/SOURCE-MANIFEST.json",
+    "projectFileCount": 941,
+    "resolvedInputCount": 7542,
+    "binaryInputProvenance": "All archived binary inputs match the published .282 source. Complete project, modified managed dependencies, SDK patches and original licenses retained.",
+    "applicationSha256": "729fb34ea484ba8025399cb736e737d229fa524aeb08a963578bc14361139569",
+    "uiObjectByteIdentical": true,
+    "independentWholeBinaryRebuildVerified": false
   }
 }

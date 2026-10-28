@@ -231,10 +231,14 @@ def reviewed_tab5_source_asset(path, data):
 
 
 REVIEWED_SOURCE_ARCHIVE = "docs/development/TAB5-0.2.89-ui-source.zip"
+REVIEWED_SOURCE_ARCHIVES = frozenset({
+    REVIEWED_SOURCE_ARCHIVE,
+    "docs/development/tab5-283-source/AI-bot-tab5-0.2.283-ui-source.zip",
+})
 
 
 def reviewed_source_archive(path, data):
-    return path == REVIEWED_SOURCE_ARCHIVE and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
+    return path in REVIEWED_SOURCE_ARCHIVES and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
 
 
 def reviewed_doc_image(path, data):
@@ -306,8 +310,9 @@ def main():
             assert not list(findings(name, (ROOT / name).read_bytes()))
             assert list(findings(name, b"changed archived input"))
         assert list(findings("docs/development/unknown.zip", b"archive"))
-        assert list(findings(REVIEWED_SOURCE_ARCHIVE, b"changed source archive"))
-        assert not list(findings(REVIEWED_SOURCE_ARCHIVE, (ROOT / REVIEWED_SOURCE_ARCHIVE).read_bytes()))
+        for source_archive in REVIEWED_SOURCE_ARCHIVES:
+            assert list(findings(source_archive, b"changed source archive"))
+            assert not list(findings(source_archive, (ROOT / source_archive).read_bytes()))
         print("PUBLIC_CONTENT_GUARD_SELF_TEST_OK")
         return 0
     if "--history" in sys.argv:
