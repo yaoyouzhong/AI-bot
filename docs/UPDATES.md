@@ -1,6 +1,6 @@
 # 软件与固件更新 / Software and firmware updates
 
-本页对应电脑端 0.6.11。Windows 使用下述托盘设备中心入口；Mac 使用菜单栏 AI-bot 的设备中心与软件/固件入口，同样分别选择电脑应用、小屏和 TAB5 包。两端窗口布局不同，首刷与升级包不能混用。旧版 v0.5.0 用户先更新电脑应用。
+本页对应电脑端 0.6.13。Windows 使用下述托盘设备中心入口；Mac 使用菜单栏 AI-bot 的设备中心与软件/固件入口，同样分别选择电脑应用、小屏和 TAB5 包。两端窗口布局不同，首刷与升级包不能混用。旧版 v0.5.0 用户先更新电脑应用。
 
 [完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.10 的「完整下载与安装说明」链接也指向此处。
 
@@ -27,7 +27,7 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.10's manual-download link opens this center.
 
-This describes desktop 0.6.11. Windows uses the tray Device Center; Mac uses its menu-bar device center and software/firmware entries for both display types. Native window layouts differ. v0.5.0 users need to install the newer computer app first. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
+This describes desktop 0.6.13. Windows uses the tray Device Center; Mac uses its menu-bar device center and software/firmware entries for both display types. Native window layouts differ. v0.5.0 users need to install the newer computer app first. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
 
 Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and are deduplicated per device/version. Background checks never download or install. Failed queries retain the last successful in-memory catalog with an error. Unknown or changed device versions block automatic upgrade selection. Local and public builds share the same features. Import optional artwork ZIPs through Artwork Collections; app upgrades preserve the user-data collection directory. Manual checking remains available when reminders are disabled. An accepted download does not prove installation, verified boot or physical display behavior.
 

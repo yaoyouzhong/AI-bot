@@ -96,8 +96,8 @@
     "docs/assets/screens/device-center-esp8266.png": "a21b1eb12be61ab66b9f1f77e54a29aeaf4dd36243b33a303cbd30cbc64deef5",
     "docs/assets/screens/device-center-accounts.png": "6e2fb5039e430aed33e6ca655ce910ace5b57cf7c7deef0c391fd48e5be3f4ea",
     "docs/assets/screens/device-center-bridge.png": "fad0f860af11c1e5686bb845c3ac476a7d0f9c1395306f28ab8c2cb7f493b629",
-    "docs/assets/screens/add-device.png": "e059d5cc127ef64946db8e187a846f5ab05e639a7ef644a642f18ab2967de5d7",
-    "docs/assets/screens/tab5-first-install.png": "c5ac066a89c817043f52f485d282143f02640814e158e79630ce1da456ca029c",
+    "docs/assets/screens/add-device.png": "b0292fcf6c0b3155f8bc52035704fd047fa40fc6d67a14c046dc2bfec3ea4cfe",
+    "docs/assets/screens/tab5-first-install.png": "fffc79fca6ce6950d1036d9b1285a3b94492056f73b49531bd22133ca30d90a7",
     "docs/assets/screens/tab5-upgrade.png": "97c4de77c1534ed487787a22a8829773369e9a99d53d3a2674447b85266978ae",
     "docs/assets/screens/tab5-usb-pairing.png": "0fb1e0ff0168c2c9085ba962da7807c40b252a0d989d8c4f75c2be24fce0162d",
     "docs/assets/screens/tab5-connection.png": "8774c7bed017fa758db36f9862ceb2eabb2d194a3bf80d8c38678c7e60169dfc",
@@ -228,7 +228,8 @@
     "docs/assets/screens/tab5-quota-281.png": "4a0b14e09e41293ea382bf7eb0ab20c97a466144c7fe8a4409ead5594d3cbbf4",
     "docs/assets/screens/model-accounts-0611.png": "bf812b1fdd7c8d34e059e1b2f4a627c87809d4b166c0af850c9e244ac8418026",
     "docs/assets/screens/esp8266-reset-text-057.png": "849e47fd5d5b1c6586fdec508f0c9c88efe2ff9f897a10a7723010e24e1fd9ff",
-    "docs/assets/screens/tab5-runtime-health-detail.png": "cf6b81127f33b5cd73e0c247d443a3c88d72093ab4d31f8c699a4aedef09ba61"
+    "docs/assets/screens/tab5-runtime-health-detail.png": "cf6b81127f33b5cd73e0c247d443a3c88d72093ab4d31f8c699a4aedef09ba61",
+    "docs/assets/product-intro/AI-bot-onboarding-cover.png": "f16f3d389074edcf68f331420edf057fa5681e48d047e008c5ae71440aa5d0f9"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",
@@ -268,5 +269,16 @@
     "videoSha256": "94ec158b1ac95c58bdb34b7062149db7ca06457cb46acc8c5025d659f7611985",
     "scope": "64-second native fixture film; shared TAB5 UI supports Windows and Apple Silicon Mac; no Mac desktop capture",
     "license": "Retained AGPL-3.0 tool code, OFL fonts and original synthetic music; see archive notices"
+  },
+  "onboardingVideo20261028": {
+    "sourceCommit": "3a9ebfbb993a4e86d37dc1b78fa5c3439c7aca5b",
+    "videoSha256": "e0e794aaced974463c1ae254658db4bcfedd87f441a607074985b9d1a50a3354",
+    "sourceArchiveSha256": "4a08c81e8d69d76807552de925daccff0482fb5611ff6c7724d81c6b88583330",
+    "durationSeconds": 20,
+    "nativeWindowsFixture": true,
+    "macVisualization": "navigation diagram; not a native recording",
+    "license": "MIT; original code, UI and synthesized sound; system fonts not distributed",
+    "subjectiveListening": "not performed",
+    "playbackAcceptance": "Unverified: browser navigation to Release MP4 was blocked as a download; see RELEASE-0613-CLOSEOUT-20261028.md"
   }
 }

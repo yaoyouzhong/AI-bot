@@ -4,9 +4,9 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.12.md) · [English](README.en.md)
+[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.13.md) · [English](README.en.md)
 
-本次更新：Windows **0.6.12**、Mac **0.6.11**、TAB5 **0.2.282-ui**、ESP8266 **0.5.7**。Windows 调整账号数据按钮与 TAB5 预览居中；TAB5 改善系统告警和诊断详情。见[本轮说明](docs/RELEASE-0.6.12.md)。
+本次更新：Windows 与 Mac 桥接均为 **0.6.13**，精简首次接入提示、优化添加设备布局，并修复 Mac 新增 TAB5 后的 USB 配对入口。TAB5 **0.2.282-ui**、ESP8266 **0.5.7** 保持不变。见[本轮说明](docs/RELEASE-0.6.13.md)。
 
 ## 选择适合你的桌面屏幕
 
@@ -126,8 +126,8 @@ https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
 <!-- downloads:start -->
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
-| Windows 桥接 · Windows 10/11 x64 | 0.6.12 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.12/AI-bot-bridge-v0.6.12-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.12/SHA256SUMS.txt) |
-| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.11 | [下载 · 17 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-bridge-v0.6.11-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/SHA256SUMS.txt) |
+| Windows 桥接 · Windows 10/11 x64 | 0.6.13 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.13/AI-bot-bridge-v0.6.13-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.13/SHA256SUMS.txt) |
+| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.13 | [下载 · 17 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.13/AI-bot-bridge-v0.6.13-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.13/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.7 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.7/AI-bot-esp8266-0.5.7-firmware.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.7/SHA256SUMS.txt) |
 | TAB5 · 出厂系统首次安装 | 0.2.282-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.282-ui/AI-bot-tab5-0.2.282-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.282-ui/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.282-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.282-ui/AI-bot-tab5-0.2.282-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.282-ui/SHA256SUMS.txt) |
@@ -154,9 +154,11 @@ https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
 
 以后从 Windows「设备中心 → 桥接设置 → 软件固件」打开「**软件与固件更新**」查看三个组件各自的更新明细、下载并校验，再按提示安装。启用「自动检查并提醒」后会通知新版本，安装仍由你确认。图库按需单独下载与导入。[完整更新步骤](docs/UPDATES.md)
 
+[首次添加设备短片](docs/ONBOARDING_VIDEO.md)：Windows 接入入口与 Mac USB 配对路径。
+
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.12.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.13.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](docs/development/TAB5-SOURCE.md) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

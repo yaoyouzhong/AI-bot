@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-当前 Windows **0.6.12**、Mac **0.6.11**、TAB5 **0.2.282-ui**、ESP8266 **0.5.7**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.12.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
+当前 Windows **0.6.13**、Mac **0.6.13**、TAB5 **0.2.282-ui**、ESP8266 **0.5.7**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.13.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -320,7 +320,7 @@ Windows 右键托盘打开菜单：**设备中心**是统一入口，**设备预
 
 ### Mac 原生界面 / Native Mac interfaces
 
-Mac **0.6.11 正式版**从菜单栏 AI-bot 图标进入：左键打开设备中心，右键展开下方菜单。**设备预览**在双设备时先选择 ESP8266 或 TAB5；后面的设备分组提供各自的设置入口。Windows 从托盘进入，以上 Windows 窗口保留各自平台标注。[Mac 安装与配对](INSTALL.zh.md#mac)
+Mac **0.6.13 正式版**从菜单栏 AI-bot 图标进入：左键打开设备中心，右键展开下方菜单。**设备预览**在双设备时先选择 ESP8266 或 TAB5；后面的设备分组提供各自的设置入口。Windows 从托盘进入，以上 Windows 窗口保留各自平台标注。[Mac 安装与配对](INSTALL.zh.md#mac)
 
 <a href="assets/screens/mac-menu.png"><img src="assets/screens/mac-menu.png" width="250" alt="Mac 原生 AI-bot 菜单：设备中心、设备预览与双设备分组，演示数据"></a>
 
@@ -421,11 +421,11 @@ Windows 0.6.9 + TAB5 217 provide volume/mute/lock, actual lock state and four lo
 | TAB5 0.2.282-ui | 电脑控制、十网络、横屏翻转、时钟、图库、日程与存储 | 282 的系统告警、诊断、检测详情与返回操作经用户实机确认；217 精确镜像启动、215 控制／锁屏／无闪动及拔 USB 后 Wi-Fi 音量获确认；210 的日程、内存和重启验收沿用；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；现支持 TAB5 连接、控制、预览、固件和图库管理；授权及语音来源按平台区分。Intel Mac 未验证。 |
 
-[发布明细](RELEASE-0.6.12.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
+[发布明细](RELEASE-0.6.13.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.12, Mac 0.6.11, ESP8266 0.5.7 and TAB5 0.2.282-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.13, Mac 0.6.13, ESP8266 0.5.7 and TAB5 0.2.282-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
 **TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Art screensavers support portrait rotation; normal system pages remain landscape and can automatically flip 180 degrees with touch following. Art collections are optional downloads.
 

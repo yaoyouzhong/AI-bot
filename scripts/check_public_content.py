@@ -158,6 +158,7 @@ REVIEWED_PRODUCT_MEDIA = frozenset({
     "docs/assets/product-intro/AI-bot-cover.png",
     "docs/assets/product-intro/AI-bot-cover-4x3.png",
     "docs/assets/product-intro/AI-bot-cover-3x4.png",
+    "docs/assets/product-intro/AI-bot-onboarding-cover.png",
 })
 
 REVIEWED_PET_MEDIA = frozenset({

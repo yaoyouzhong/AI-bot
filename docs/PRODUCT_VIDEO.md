@@ -25,3 +25,5 @@ MP4 SHA-256: `265d8cb92d4ea121ceec2a68cbb679e6b98e37a707d47ca662ebbf7232d373c3`
 Native UI fixtures contain synthetic data and the opening uses [hardware composites](HARDWARE-IMAGES.md); this is not hardware footage or a Mac desktop recording. Retained ESP8266 imagery does not demonstrate the newer font weight. At the user’s direction, the Claude pet in the comparison is composited from the actual local legacy sprite; it is third-party material with redistribution licensing unverified and is not part of the project MIT grant. Existing art and screen provenance remains applicable. Fonts retain OFL, tool code AGPL-3.0, and music and effects are original synthesis. See the video project's source and third-party notices for details.
 
 新版视频完整本地解码通过；配音与上一版一致。实际浏览器播放和公开附件校验需分别核验。
+
+[首次添加设备补充短片 / First-device setup supplement](ONBOARDING_VIDEO.md) 使用本轮 Windows 原生控件与 Mac 导航示意，项目全功能介绍仍保留上方影片。
