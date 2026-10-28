@@ -1,5 +1,11 @@
 # 当前截图来源 / Screenshot provenance
 
+## 2026-10-28 Bridge 0.6.13 onboarding
+
+更新 `add-device.png` 与 `tab5-first-install.png`：来自发布源码 `3a9ebfb` 的 Windows Release 程序 `--self-test-onboarding` 原生 WinForms 隔离渲染，保留原始像素。截图无真实端口或设备，未执行刷机、配对或配置写入。首装窗口按原生滚动区域显示；完成按钮为“返回添加设备”。Mac 原有五张图保留其 0.6.11 来源，不把旧图冒充本轮导航修复的截图。
+
+Refreshed two Windows onboarding captures from the 0.6.13 production WinForms fixture, without repainting controls. They contain no real device or port and do not establish hardware acceptance. The first-install completion now says Return to Add Device. Existing Mac gallery images retain their original 0.6.11 provenance.
+
 <a id="mac-native-20261028"></a>
 
 ## 2026-10-28 Mac 原生窗口 / Native Mac captures
