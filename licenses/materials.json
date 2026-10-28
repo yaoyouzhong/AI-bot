@@ -35,6 +35,11 @@
     "toolchain-xtensa": "2.100300.220621"
   },
   "sourceAssets": {
+    "docs/assets/screens/mac-accounts.png": "9f800e5e4cfcf0baddb309f7ea2819ed57b75b99767222261e6a8a0862f6c709",
+    "docs/assets/screens/mac-bridge-settings.png": "773d897e833ddd84bab649750d37dd251e07520e93beec386d7b22bded399318",
+    "docs/assets/screens/mac-device-center.png": "abaecea1ce8f67d138ee6d23fc9552623240b8ca0f770e96042ef052e0b0dcca",
+    "docs/assets/screens/mac-menu.png": "17201078a95bddd59cee8da3557a273c2c7a0273a3fb8c1ba43692d49cdaab3e",
+    "docs/assets/screens/mac-tab5-preview.png": "7c9454bd0b70d79027ca110f78a9eef3e622af795f9e0a88b08e5d0a7fd3f7f1",
     "docs/assets/screens/tab5-firmware-notes-282.png": "ca6474f6a515fc70441f65f3bbc53d11466c217ead4c78ffa6ba5e0b396273ef",
     "docs/assets/screens/tab5-music-controls-282.png": "4a5900534e084505fd70ab102652d57a042dc34609f1246a2e150fd730408cdb",
     "docs/assets/screens/windows-runtime-monitor-0612.png": "eacad0e61a8b75bf8f2dab5832b402ad7674c696f709e497d37db4d28fbee63a",

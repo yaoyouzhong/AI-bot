@@ -1,5 +1,29 @@
 # 当前截图来源 / Screenshot provenance
 
+<a id="mac-native-20261028"></a>
+
+## 2026-10-28 Mac 原生窗口 / Native Mac captures
+
+新增五张 macOS **真实 AppKit 窗口／菜单的隔离演示捕获**，不是网页仿制、生成图片或实体设备照片。先核对本机正在运行的 R36 设备中心、账号数据和桥接设置；该旧候选的 bundle 仍标为 0.6.10。正式依据为已公开 [v0.6.11](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.11)，发布提交 `58a88ba4250ffd404e68aa8392b9847f5a6e9300`。捕获基线 `fbf8456cf6f1bdba35cc583ef18ffac46894c25a` 的 `mac-app/Sources` 与此标签无差异，不把候选版本标签或未发布功能写成正式发布。
+
+从公开 Release 下载 `AI-bot-bridge-v0.6.11-macos-arm64.zip`，完整 SHA-256 为 `ead2f8602190372c08fc7cbcbd063c75881068efe38fabaa3e7fbf9dd213f858`，与下载目录一致。包内原始可执行文件的 `--self-test-tab5-ui` 通过，输出 `MAC_MODEL_ACCOUNT_UI_OK` 和 `MAC_TAB5_NATIVE_UI_RENDER_OK`；该自检是原生控件及布局验证，不是实时设备验收。
+
+| 文件 | 原生内容与演示边界 | 发布像素 |
+| --- | --- | --- |
+| `mac-menu.png` | `MacDeviceCenterMenu.build` 原生 NSMenu；两个演示设备，无真实身份 | 370 × 336 |
+| `mac-device-center.png` | `MacTab5Window` 我的设备页；未配对、未连接，展示九个主要入口 | 1872 × 1336 |
+| `mac-accounts.png` | 同一窗口的账号数据页；只展示配置入口，状态写明隔离演示 | 1872 × 1336 |
+| `mac-bridge-settings.png` | 同一窗口的桥接设置页；开机启动为演示进程状态，未点击或保存 | 1872 × 1336 |
+| `mac-tab5-preview.png` | `MacTab5ScreenPreviewContent`；载入既有 `tab5-clock-1.png`，明确标注“演示画面／非实时连接” | 1712 × 1256 |
+
+本地捕获入口复用上述未改动的生产控件，在独立临时配置目录创建演示注册表和禁用外部调用的服务依赖；不运行 `AppDelegate`，不启动网络监听、串口、蓝牙、账户刷新、钥匙串读取或权限请求。TAB5 预览只创建内容视图和原生窗口，不启动设备预览会话。菜单使用生产工厂弹出，所有动作回调为空。窗口逐个捕获并关闭，不替换正在运行的桥接。
+
+通过 macOS `screencapture -x -l <window-id>` 直接捕获各原生窗口与 NSMenu，保留标题栏、圆角与窗口边界；只用 `sips` 等量裁去外层阴影／留白，未重画、拼接或覆盖控件。三个 1932 × 1396 窗口裁为 1872 × 1336，1772 × 1316 预览裁为 1712 × 1256，638 × 604 菜单裁为 370 × 336；未缩放内容像素。逐图检查没有真实账号、用量／余额、地址、SSID、设备标识、凭据、私人桌宠或其他应用内容，无须遮挡业务字段。既有 TAB5 时钟图的日期为固定演示值，沿用原来源和许可。
+
+本地原始截图、隔离入口及验证日志位于忽略目录 `artifacts/mac-gallery-20261028/`，不上传私有核对画面或运行日志。隔离入口源文件 SHA-256：`a8abd1222557a03c87dbef1995a9a4f0d58b8a8afbe95b0b470532f8401c21fd`。项目原创界面及原有时钟素材沿用本仓库 MIT 许可；macOS 系统窗口装饰为原生系统渲染，不另行打包系统素材或字体。五张最终文件逐一登记于 `licenses/materials.json`，公开检查同时匹配文件名和字节。
+
+Five genuine AppKit menu/window captures use isolated demo state and the same UI source as the published Mac 0.6.11 release (`58a88ba`). The running R36 app was visually checked; its older 0.6.10 bundle label is not release evidence. The downloaded release ZIP matched its complete catalog SHA-256 and its bundled native UI self-test passed. An isolated capture entry point reused unmodified production controls, with no AppDelegate, listeners, device connections, account refresh, credentials or real settings writes. Native windows and the production NSMenu were captured directly by macOS; only outer shadow/padding was cropped, without repainting controls or rescaling pixels. The TAB5 preview loads the existing original digital-clock fixture and explicitly labels it non-live. All five images were checked for private information and individually hash-registered. These captures add no hardware, network, voice, permission, Intel Mac or long-term acceptance evidence; earlier device captures retain their original provenance and license.
+
 2026-10-27 图鉴核对：新增 `tab5-music-controls-282.png`、`tab5-firmware-notes-282.png` 与 `windows-runtime-monitor-0612.png`。前两图来自正式 .282 对应源码的 LVGL 隔离预览：音乐使用虚构曲名和无封面状态，显示真实播放控件；升级图使用正式 .282 sidecar，“当前 .21”是固定夹具。运行监控图来自 Windows 0.6.12 Release 程序的 WinForms 隔离自检，PAC 异常及数值均为演示数据，不是本机监控记录。图中不含真实账户、曲目或设备状态；未修改设备、桥接设置或图库。原图保留，新增文件的精确 SHA-256 见 `licenses/materials.json`。
 
 2026-10-28：对照 .282 原生预览刷新网络连接、屏幕声音、内容轮播、日期倒计时设置、十网络与三种电脑控制图。网络名、电脑名称、连接状态、时间与音量为固定演示数据；“已保存到 TAB5”是预览夹具的界面反馈，不表示对实体设备执行了保存。原截图的历史版本仍见 Git 记录。 / Refreshed .282 network, display, rotation, countdown, saved-network and computer-control views from native fixtures. All names, states and the save feedback are synthetic; no hardware settings were changed.

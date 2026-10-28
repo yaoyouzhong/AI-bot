@@ -17,6 +17,11 @@ RULES = {
 }
 # Individually reviewed documentation captures. Path AND bytes must match the record.
 REVIEWED_DOC_NAMES = frozenset({
+    'mac-menu.png',
+    'mac-device-center.png',
+    'mac-accounts.png',
+    'mac-bridge-settings.png',
+    'mac-tab5-preview.png',
     'esp8266-reset-text-057.png',
     'tab5-draft-clear-before-281.png',
     'tab5-draft-clear-empty-281.png',

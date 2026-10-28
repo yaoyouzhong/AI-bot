@@ -91,6 +91,8 @@ https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
 
 <sub>Current native interfaces with fixed demo data; the small display uses its computer mirror renderer. [Complete feature gallery](docs/FEATURES.zh.md)</sub>
 
+[Native Mac gallery](docs/FEATURES.zh.md#mac-native): menu, Device Center, Account Data, Bridge Settings and TAB5 preview, captured with Mac 0.6.11 controls and isolated demo data.
+
 <details>
 <summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
 

@@ -91,6 +91,8 @@ https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922
 
 <sub>以上为当前原生界面与固定演示数据；小屏画面来自电脑端镜像。[完整功能图鉴](docs/FEATURES.zh.md)</sub>
 
+[Mac 原生界面图集](docs/FEATURES.zh.md#mac-native)：菜单、设备中心、账号数据、桥接设置与 TAB5 预览，采用 Mac 0.6.11 同源控件及隔离演示数据。
+
 <details>
 <summary><strong>查看 TAB5 特色：Codex 直达、全年点阵与十二月历</strong></summary>
 

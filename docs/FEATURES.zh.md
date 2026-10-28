@@ -316,9 +316,37 @@ Windows 右键托盘打开菜单：**设备中心**是统一入口，**设备预
 
 </details>
 
-### Windows 与 Mac 入口
+<a id="mac-native"></a>
 
-Windows 从托盘打开设备中心；Mac 从菜单栏打开对应的设备中心。二者均支持 ESP8266 和 TAB5 的连接与管理。本图鉴的电脑窗口图为 **Windows 原生界面**；TAB5 屏幕图是两端共用的设备界面，不代表 Mac 窗口截图。Mac 的麦克风、语音识别、蓝牙和辅助功能等权限按实际使用功能授权；解锁与音乐接入使用 Mac 自身方案。[Mac 安装与配对](INSTALL.zh.md#mac)
+### Mac 原生界面 / Native Mac interfaces
+
+Mac **0.6.11 正式版**从菜单栏 AI-bot 图标进入：左键打开设备中心，右键展开下方菜单。**设备预览**在双设备时先选择 ESP8266 或 TAB5；后面的设备分组提供各自的设置入口。Windows 从托盘进入，以上 Windows 窗口保留各自平台标注。[Mac 安装与配对](INSTALL.zh.md#mac)
+
+<a href="assets/screens/mac-menu.png"><img src="assets/screens/mac-menu.png" width="250" alt="Mac 原生 AI-bot 菜单：设备中心、设备预览与双设备分组，演示数据"></a>
+
+**我的设备**列出两类硬件。选择 TAB5 后可进入显示、语音、日历生日、日程待办、电脑控制、屏保图库、常用任务、数据与连接升级；右上角 **管理 ▾**提供名称、启停与移除入口。
+
+<a href="assets/screens/mac-device-center.png"><img src="assets/screens/mac-device-center.png" width="720" alt="Mac 原生设备中心：双设备列表与 TAB5 主要操作入口，未配对演示状态"></a>
+
+<details>
+<summary>查看 Mac 账号数据与桥接设置 / Account Data and Bridge Settings</summary>
+
+**账号数据**配置模型账号、天气定位、自选股票与额度历史；**桥接设置**提供开机启动、服务状态、软件固件、配置迁移、提醒管理、运行监控和关于应用。
+
+<p><a href="assets/screens/mac-accounts.png"><img src="assets/screens/mac-accounts.png" width="720" alt="Mac 原生账号数据页：模型账号、天气、自选股票和额度历史入口，隔离演示数据"></a></p>
+<p><a href="assets/screens/mac-bridge-settings.png"><img src="assets/screens/mac-bridge-settings.png" width="720" alt="Mac 原生桥接设置页：服务、更新、配置迁移、提醒和运行监控入口，隔离演示状态"></a></p>
+
+</details>
+
+**TAB5 设备预览**保留 Mac 原生标题栏、窗口边界和“仅查看”提示。下图装载已登记的 TAB5 纯数字时钟演示画面，窗口内明确标为非实时连接；未连接设备不会因此获得画面。预览不替代实体屏与连接检查。
+
+<a href="assets/screens/mac-tab5-preview.png"><img src="assets/screens/mac-tab5-preview.png" width="720" alt="Mac 原生 TAB5 设备预览窗口：沿用已登记的纯数字时钟演示图，非实时连接"></a>
+
+以上五图在 macOS 上以 **0.6.11 同源 AppKit 控件和菜单工厂**隔离捕获，使用演示设备与数据，未读取私人账号、额度、地址或配对标识，未操作真实设备或保存桥接设置。已对照本机运行的 R36 界面及正式发布包；本机旧候选的 0.6.10 版本标签不作为正式版证据。TAB5 屏幕内容沿用原有来源，不代表新的固件或实机验收。[捕获版本、方法与摘要](SCREENSHOTS.md#mac-native-20261028)
+
+The five Mac captures use the **same AppKit controls and menu factory as released Mac 0.6.11**, with isolated demo devices and data. Left-click the menu-bar icon for Device Center; right-click for the menu. My Devices provides device actions, Account Data manages shared sources, and Bridge Settings provides service, update, migration and notification tools. The native TAB5 preview loads an existing attributed clock fixture and explicitly says it is not a live connection. Captures were compared with the running R36 app and the published package; the older local candidate's 0.6.10 label is not release evidence. No private account data, device identifiers or real settings are published or changed.
+
+Mac 的麦克风、语音识别、蓝牙和辅助功能等权限按实际使用功能授权；解锁与音乐接入使用 Mac 自身方案。 / Microphone, speech, Bluetooth and Accessibility permissions, music sources and unlock behavior follow macOS-specific paths.
 
 ### 账户数据的含义
 
@@ -405,7 +433,7 @@ AI-bot puts AI activity, account quotas and everyday information on a desktop di
 
 Device Center groups My Devices, Account Data and Bridge Settings. Components update independently through the Windows unified update window. Screenshots are native renders with isolated synthetic data, not hardware photos or additional acceptance evidence. macOS supports both ESP8266 and TAB5 through its native menu-bar app, including device, firmware and artwork management; permissions and speech sources differ by platform. See the linked installation, provenance and hardware records for exact boundaries.
 
-Windows and Mac have separate permission, speech, music and unlock paths; the Windows window captures in this guide are not Mac screenshots. The collection manager keeps primary actions on one row, with directory/help in More. Select works in the left list; compact image paging, reading and fullscreen remain below the image. Right-click or Ctrl+0 restores the image; wheel zoom and drag also work fullscreen.
+Windows and Mac have separate permission, speech, music and unlock paths. The dedicated native Mac gallery above adds five AppKit menu/window captures with isolated demo data, separate from Windows captures and shared TAB5 screen fixtures. The collection manager keeps primary actions on one row, with directory/help in More. Select works in the left list; compact image paging, reading and fullscreen remain below the image. Right-click or Ctrl+0 restores the image; wheel zoom and drag also work fullscreen.
 
 Agenda/reminders in TAB5 210 support local persistence, offline edits/deletions and reconnect sync, with explicit save, repeat and advance reminders. Complete optional HD editions include device previews and guides; desktop browsing prefers verified HD originals with bounded decoding. The refined agenda, internal memory, USB writing and connected-USB reboot battery display passed local 210 hardware acceptance; native screenshots remain isolated fixtures. Offline name entry uses the keyboard; dictation requires the computer voice service.
 
