@@ -19,6 +19,8 @@
 
 安装日志同时报告 `Computer unlock setup incomplete`。解锁配置、无运行时的自动下载补装链路不计通过；本次未运行 Mac 安装包，Mac 原生界面和源码检查沿用已有记录。真实首刷、新配对和实体屏首次显示未重验，理由及此前结果见[首次接入记录](FIRST-RUN-20261028.md)。
 
+后续只读预检确认：Sandbox 进程会话为 `1`、`locked=False`，`WTSGetActiveConsoleSessionId()` 为 `4294967295`（`0xFFFFFFFF`，没有活动物理控制台）；登录辅助任务返回 `FileNotFoundException / 0x80070002`，辅助目录、manifest 和 `tvnserver` 服务均不存在。`HelperInstaller.Run` 要求调用方与活动物理控制台为同一会话，因此这个 Sandbox 不满足安装条件；不是解除会话保护后可计通过的测试。预检退出 `0` 只代表诊断完成。真实 Windows 控制台中的组件安装及实际解锁仍须独立验收，本次未改宿主机登录组件或服务。
+
 本地证据位于发布 worktree 的 `artifacts/release-0613/`：`sandbox-results/` 含安装日志、真实退出码、安装版本、DLL 摘要和隔离控件图；`downloads/` 与 `verified-downloads/` 保存已校验包。
 
 ## 公开内容与媒体
@@ -27,8 +29,12 @@
 
 20 秒接入补充短片及可复现工程已作为 Release 附件发布；它使用 Windows 原生隔离控件和明确标注的 Mac 路径示意。原项目介绍片保留在主页和独立观看入口。
 
-本轮 Chrome 主页和独立页播放器持续缓冲，时间为 0、readyState 为 0；备用浏览器也复现缓冲。原项目视频公开链接的小 Range 返回 HTTP 206、video/mp4 和正确总大小，但这不证明实际播放。短片 Release 直接地址被浏览器按下载处理／拦截导航，不计网页播放通过。播放、暂停、拖动、结束和重播仍待补验；不能把文件解码、上传或 HTTP 成功替代这些结果。
+初次检查时，Chrome 主页和独立页播放器持续缓冲，时间为 `0`、`readyState=0`，备用浏览器也复现。自动附件播放器使用 `private-user-images.githubusercontent.com` 短时签名地址；刷新取得有效签名后仍未加载元数据，因此不能把过期签名认定为唯一原因。两条公开媒体路径的首段、开放末端和尾段 Range 均返回正确 `206`，这与浏览器播放结果分开记录。
+
+改为显式 `<video controls playsinline preload="metadata" width="100%" src="公开附件地址">`，保持原 MP4 字节、单个原生播放器、独立观看与下载入口。GitHub Markdown 预览和更新后的独立观看页均保留 `github.com/user-attachments/assets/...` 视频源。公开独立页实测：播放到 `23.580399s`、暂停于 `23.637333s`、时间轴跳至 `121s` 时 `ended=true`、重播到 `5.637123s` 且 `paused=false`；原生控件显示完整 `121s` 时长。中英文主页及本仓库视频说明同步采用该写法，合并后需再核对默认分支公开主页。
+
+20 秒接入补充短片仍作为 Release 下载附件：完整公开下载摘要已核对；浏览器将直接地址按下载处理，不把它写成内嵌播放通过。所有媒体验证均独立于安装包、Mac 实机及设备验收。
 
 ## English
 
-Windows and Apple Silicon Mac 0.6.13 were published from commit `031b4f0`; CI and both desktop package jobs passed. Exact package hashes, Mac archive metadata/licenses, Windows Sandbox installation and installed status/onboarding checks passed. Real Windows navigation through Add TAB5 and First Install was exercised without hardware writes. Unlock setup remained incomplete; automatic runtime download, this Mac package's execution and new physical first-flash/pair/display acceptance are not claimed. Public downloads and bilingual documentation were reconciled. Both browser surfaces still buffered the retained project video, so full playback acceptance remains open despite successful HTTP Range verification.
+Windows and Apple Silicon Mac 0.6.13 were published from commit `031b4f0`; CI and both desktop package jobs passed. Exact package hashes, Mac archive metadata/licenses, Windows Sandbox installation and installed status/onboarding checks passed. Real Windows navigation through Add TAB5 and First Install was exercised without hardware writes. Sandbox has no active physical console, so it fails the login helper's installation session guard; no host components or services were changed. Automatic runtime download, this Mac package's execution and new physical first-flash/pair/display acceptance are not claimed. Public downloads and bilingual documentation were reconciled. Explicit native video markup retains the public attachment source: playback, pause, end seek, ended state and replay passed on the public separate watch page. Both homepages use the same markup and require a final default-branch browser check after merging. The supplemental clip remains a verified download, with no embedded playback claim.
