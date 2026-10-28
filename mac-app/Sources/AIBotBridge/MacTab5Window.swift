@@ -122,7 +122,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
             connect.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 12), connect.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -12),
             connect.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor, constant: -16)
         ])
-        emptyDevices.heading("添加设备",subtitle:"添加 ESP8266 或 M5Stack TAB5，设置连接和需要的数据。")
+        emptyDevices.heading("连接你的第一台设备",subtitle:"用 USB 数据线连接 TAB5 或 ESP8266 小屏。")
         emptyDevices.add(NSButton(title:"＋ 添加设备",target:self,action:#selector(addDevice)))
         for (id, page) in [("tab5-overview", overview), ("esp8266-overview", smallScreen), ("empty-devices",emptyDevices)] {
             page.identifier = NSUserInterfaceItemIdentifier(id); page.translatesAutoresizingMaskIntoConstraints = false
@@ -322,8 +322,9 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
         guard let registry else { return }
         let kinds = ["tab5","esp8266"].filter { registry.device($0) == nil }
         guard !kinds.isEmpty else { result.stringValue = "每种设备型号最多添加一台，当前列表已齐全。"; return }
-        let form = MacBridgeSettingsForm("添加设备", subtitle: "每种型号最多一台；添加后可设置连接与数据来源。", height: 380)
+        let form = MacBridgeSettingsForm("添加设备", subtitle: "每种型号一台，添加后设置 USB 连接。", height: 380)
         let kind = MacSettingsControls.popup(kinds.map { $0 == "tab5" ? "M5Stack TAB5" : "ESP8266 小屏" }); form.page.field("设备型号", kind)
+        form.page.add(note("已有 AI-bot：添加后连接。\n出厂设备：添加后先安装固件。"))
         guard form.run(validating: { do { let value = kinds[kind.indexOfSelectedItem]; try registry.add(value, hardwareID: value == "tab5" ? self.service.currentPairing?.deviceId : nil); return nil } catch { return error.localizedDescription } }) else { return }
         selectedDevice = kinds[kind.indexOfSelectedItem] == "tab5" ? 0 : 1; showDevicePage(selectedDevice == 0 ? overview : smallScreen); if selectedDevice == 0 { showConnection() }
     }

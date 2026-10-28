@@ -35,7 +35,7 @@ final class MacFirmwareFlashWindow: NSWindowController, NSWindowDelegate {
         startButton = button("开始刷机", #selector(start)); backupButton = button("只备份设备", #selector(backup))
         window.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [startButton, backupButton])
         let stack = page.stack
-        page.heading("ESP8266 固件升级", subtitle: "连接小屏 USB 数据线，选择固件后开始刷写；写入前自动保留备份。")
+        page.heading("ESP8266 固件升级", subtitle: "连接 USB，选择固件；写入前自动备份。")
         page.section("设备与固件")
         refreshButton = button("刷新", #selector(locateAgain))
         let deviceRow = NSStackView(views: [NSTextField(labelWithString: "设备"), deviceLabel, NSView(), refreshButton])
