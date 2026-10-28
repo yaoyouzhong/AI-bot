@@ -4,10 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.13 - 2026-10-28
+
+### Device setup
 - Clarify Windows first-device setup: distinguish existing AI-bot devices from factory installation, keep USB selection by device identity across refreshes, and clear stale ports after discovery failures.
 - Return TAB5 first installation to the correct caller, keep setup help visible, and align bilingual installation guidance with the current Windows/Mac flows. Clean installation and physical device acceptance are recorded separately.
-- Shorten Windows and Mac device setup hints, retaining backup and replacement confirmations. Mac source changes await native build and UI verification.
+- Shorten Windows and Mac device setup hints, retaining backup and replacement confirmations.
 - Compact the Windows Add Device form with aligned fields, refresh beside the USB selector and persistent side-by-side registration/install actions.
+- Open USB Pairing after adding a TAB5 on Mac, including when reusing the connection window. Normal reopening preserves the current tab; firmware upgrades still open the firmware tab.
+
+### Scope and validation
+- Update both Windows x64 and Apple Silicon Mac. Firmware versions and existing device settings are unchanged.
+- Windows isolated onboarding checks and Mac native UI/navigation checks passed. The Mac review also passed its Release build and 3,034 parity checks; its Command Line Tools installation lacked XCTest, so the full test suite must pass in release CI.
+- Existing Mac compiler warnings remain recorded. Packages retain their existing unsigned/ad-hoc signing status; Mac is not notarized. Factory flashing, new physical pairing and first display are not revalidated because no spare factory device is available. See [release details](docs/RELEASE-0.6.13.md).
 
 ## 0.6.12 - 2026-10-27
 

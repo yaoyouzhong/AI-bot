@@ -53,3 +53,38 @@ review_bin_dir="$(swift build -c release --package-path mac-app --show-bin-path)
 边界：没有备用出厂设备，必须保留当前 TAB5／ESP8266 的配置、配对、展示模式和图库；不刷机、重新配对、恢复备份、真实写设备、修改钥匙串、系统权限或安装设置。无需打包、替换正在使用的应用、提交、推送、标签或发布。窗口核验完成后关闭测试窗口，不反复打开常驻应用。
 
 最终用中文报告：检查分支与 HEAD、改动同步状态、Mac 编译和测试结果、实际查看过的窗口及截图路径、发现的问题、未验收项。构建成功、隔离界面、真实设备与发布必须分别说明；真实首刷／配对／显示仍未验收。
+
+## Mac 验证结果与导航修复 · 2026-10-28
+
+在独立干净工作区固定检查 `2d1c0b846641facc38723638f266056347dbc57c`，已通过原生隔离界面复现新增 TAB5 后默认进入 Wi-Fi 的既有问题。保留此前本地修复：添加成功后明确打开 USB 配对页，复用已有连接窗口时也生效；普通重开保留当前页签，固件升级入口仍进入固件页。提交前同步至 `ef32434`，该提交仅修改本文检查说明，Mac 源码与验收基线相同。
+
+下列通过结果对应 `2d1c0b8` 加本次两文件导航修复，未把未修复的远端基线计为导航通过。
+
+| 验证 | 结果与边界 |
+| --- | --- |
+| `swift test --package-path mac-app` | 原始基线及保留修复后均退出 1：本机 Command Line Tools 缺少 XCTest，测试模块编译失败；未运行完整测试套件，未跳过或削弱断言 |
+| `swift build -c release --package-path mac-app` | 退出 0，151.87 秒；保留以下三类既有警告 |
+| Release `--self-test-parity` | 退出 0，3034 项独立检查通过；不能替代 XCTest 全量测试 |
+| Release `--self-test-tab5-ui` | 退出 0，生成 236 张原生 AppKit 隔离渲染图 |
+| 临时原生导航夹具 | 通过：取消不改注册表、新增 TAB5 进入 USB 配对、普通重开保留当前页、升级进入固件页、复用窗口重新添加进入 USB 配对、ESP8266 添加不打开 TAB5 工具 |
+| 截图复核 | 实际查看 15 张，覆盖基线/修复后导航、空设备中心、两种型号添加表单、TAB5 首装、USB 配对、ESP8266 固件窗口，以及默认/最小尺寸和浅色/深色样本；未发现重叠或水平裁切。首装最小窗口的备份区位于滚动区域 |
+| `git diff --check` | 通过 |
+
+三类既有编译警告单独保留，均位于本次未修改的文件：
+
+- `HTTPStatusServer.swift:82`：`switch must be exhaustive`。
+- `MacARDConnection.swift:47`：`CC_MD5` 弃用。
+- `SerialBridge.swift:45`：`@Sendable` 闭包捕获非 Sendable 的 `SerialBridge`。
+
+本轮确认远端缺少此前导航修复，已补回；未发现其他新增产品问题或新增产品编译警告。完整 XCTest 仍待具备相应工具链的 Mac 执行。临时基线夹具首次生成时出现括号错误，修正后重新构建和运行通过；该工具错误未进入正式源码，失败日志单独保留。所有临时夹具源码均已撤回。
+
+本地证据保存在原工作区的 `artifacts/mac-branch-review.g1xsr9zz/`，不随发布包分发：
+
+- `REVIEW-RESULTS.txt`、`exit-codes.json`、`compiler-warnings.txt`：完整结果、退出码与三类警告。
+- `swift-test.log`、`fixed-swift-test.log`、`swift-release.log`、`parity.log`、`native-ui.log`：实际运行日志。
+- `baseline/supplement-ui/baseline-new-tab5-wifi.png`：未修复基线。
+- `fixed/supplement-ui/new-tab5-usb-default-light.png`、`new-tab5-usb-minimum-dark.png`：修复后的新增 TAB5 页面。
+- `native-ui/first-install-tab0-default-light.png`、`native-ui/esp8266-firmware-tab0-minimum-dark.png`：首装和小屏固件窗口样本。
+- `viewed-screenshots.txt`：实际查看的完整截图清单。
+
+原工作区未提交改动已备份并经 SHA-256 复核保持不变。检查只使用隔离注册表、空配对和模拟后端，未启动真实设备服务；未刷机、重新配对、恢复备份、更改设备配置或系统权限、部署或发布。真实首刷、配对、启动和设备显示仍未验收。
