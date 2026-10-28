@@ -2,13 +2,23 @@
 
 这段 121 秒项目介绍先对照 TAB5 和 ESP8266 的共有功能，再展示 TAB5 的触控与独有功能。 / This 121-second project overview compares shared TAB5 and ESP8266 features before presenting TAB5-exclusive interactions.
 
-<video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922"></video>
+<video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/e7f2515e-da0a-4e4c-a334-8ab067e5621c"></video>
 
 [独立观看 / Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 MP4 / Download MP4](https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922) · [上一版工程 / Previous version source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-project-overview-source-20261027-v3.zip) · [16:9 封面](assets/product-intro/AI-bot-cover.png) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) · [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png)
 
 上一版源码包 SHA-256 / Previous source ZIP SHA-256: `65a29568e6eed4abb878cf9f40960b15a604cb6c4d8a5f5d8012db3d7e490dea`
 
-MP4 SHA-256: `265d8cb92d4ea121ceec2a68cbb679e6b98e37a707d47ca662ebbf7232d373c3`
+1080p 原版 / Original MP4 SHA-256: `265d8cb92d4ea121ceec2a68cbb679e6b98e37a707d47ca662ebbf7232d373c3`
+
+网页播放版保留相同内容，采用 1280 × 720、24 fps、H.264 Main / yuv420p 与 AAC-LC，大小从 9,217,409 bytes 减至 4,968,870 bytes；原版 1080p 下载保留。完整解码和关键画面文字检查通过，音频仅转码，未重新进行主观听感验收。 / The web edition keeps the same content at 1280 × 720, 24 fps, H.264 Main / yuv420p and AAC-LC, reducing the file from 9,217,409 to 4,968,870 bytes. The original 1080p download remains available. Full decoding and text legibility checks passed; audio was transcoded without a new subjective listening review.
+
+网页播放版 / Web MP4 SHA-256: `3f0df33362f4783bfad5741605461c6a26d0d37ad35de832827276cf7292821c`
+
+从上方原版复现网页播放版 / Reproduce the web edition from the original:
+
+```sh
+ffmpeg -i AI-bot-project-overview-solar-20261027.mp4 -map 0:v:0 -map 0:a:0 -vf "scale=1280:720:flags=lanczos:in_range=pc:out_range=tv,format=yuv420p" -c:v libx264 -profile:v main -level:v 3.1 -preset slow -crf 26 -r 24 -g 48 -keyint_min 48 -sc_threshold 0 -c:a aac -b:a 64k -ar 48000 -movflags +faststart AI-bot-project-overview-web-20261028.mp4
+```
 
 | 时间 | 内容 |
 | --- | --- |

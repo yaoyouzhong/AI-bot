@@ -55,9 +55,9 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 This project introduction compares the shared features of TAB5 and the ESP8266 display, then presents TAB5 highlights including overview, conversations, voice drafts, camera attachments, computer controls, agenda and art screensavers. Native interface footage uses demonstration data and composite hardware images, not hardware photography.
 
-<video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922"></video>
+<video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/e7f2515e-da0a-4e4c-a334-8ab067e5621c"></video>
 
-[Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [Download MP4](https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922) · [Media credits](docs/PRODUCT_VIDEO.md)
+[Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [Download 1080p MP4](https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922) · [Media credits](docs/PRODUCT_VIDEO.md)
 
 ## What it does
 

@@ -270,6 +270,17 @@
     "scope": "64-second native fixture film; shared TAB5 UI supports Windows and Apple Silicon Mac; no Mac desktop capture",
     "license": "Retained AGPL-3.0 tool code, OFL fonts and original synthetic music; see archive notices"
   },
+  "projectOverviewWeb20261028": {
+    "inputSha256": "265d8cb92d4ea121ceec2a68cbb679e6b98e37a707d47ca662ebbf7232d373c3",
+    "videoSha256": "3f0df33362f4783bfad5741605461c6a26d0d37ad35de832827276cf7292821c",
+    "nativeAttachment": "https://github.com/user-attachments/assets/e7f2515e-da0a-4e4c-a334-8ab067e5621c",
+    "sizeBytes": 4968870,
+    "durationSeconds": 121.083333,
+    "encoding": "1280x720 24fps H.264 Main yuv420p; AAC-LC 64kbps; faststart",
+    "transformation": "Transcode of the existing 121-second project overview; content and source credits retained",
+    "provenance": "docs/PRODUCT_VIDEO.md; original media licenses remain unchanged, including the separately noted third-party Claude pet",
+    "subjectiveListening": "not repeated after transcoding"
+  },
   "onboardingVideo20261028": {
     "sourceCommit": "3a9ebfbb993a4e86d37dc1b78fa5c3439c7aca5b",
     "videoSha256": "e0e794aaced974463c1ae254658db4bcfedd87f441a607074985b9d1a50a3354",

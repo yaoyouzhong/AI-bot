@@ -21,7 +21,7 @@
 
 后续只读预检确认：Sandbox 进程会话为 `1`、`locked=False`，`WTSGetActiveConsoleSessionId()` 为 `4294967295`（`0xFFFFFFFF`，没有活动物理控制台）；登录辅助任务返回 `FileNotFoundException / 0x80070002`，辅助目录、manifest 和 `tvnserver` 服务均不存在。`HelperInstaller.Run` 要求调用方与活动物理控制台为同一会话，因此这个 Sandbox 不满足安装条件；不是解除会话保护后可计通过的测试。预检退出 `0` 只代表诊断完成。真实 Windows 控制台中的组件安装及实际解锁仍须独立验收，本次未改宿主机登录组件或服务。
 
-本地证据位于发布 worktree 的 `artifacts/release-0613/`：`sandbox-results/` 含安装日志、真实退出码、安装版本、DLL 摘要和隔离控件图；`downloads/` 与 `verified-downloads/` 保存已校验包。
+本地证据原位于发布 worktree 的 `artifacts/release-0613/`；收尾时须完整复制并核验到主工作区 `artifacts/release-0613-continuation-20261028/` 后才删除 worktree。`sandbox-results/` 含安装日志、真实退出码、安装版本、DLL 摘要和隔离控件图；`downloads/` 与 `verified-downloads/` 保存已校验包。Sandbox 已停止，环境列表和窗口列表均确认无残留。
 
 ## 公开内容与媒体
 
@@ -33,8 +33,14 @@
 
 改为显式 `<video controls playsinline preload="metadata" width="100%" src="公开附件地址">`，保持原 MP4 字节、单个原生播放器、独立观看与下载入口。GitHub Markdown 预览和更新后的独立观看页均保留 `github.com/user-attachments/assets/...` 视频源。公开独立页实测：播放到 `23.580399s`、暂停于 `23.637333s`、时间轴跳至 `121s` 时 `ended=true`、重播到 `5.637123s` 且 `paused=false`；原生控件显示完整 `121s` 时长。中英文主页及本仓库视频说明同步采用该写法，合并后需再核对默认分支公开主页。
 
+PR #12 合并后的主页仍停在 `0s / readyState=0`，用户截图也复现黑屏，因此上述写法调整不能计为主页问题已解决。随后保留 1080p 原版下载，从同一文件转码 720p H.264 Main / yuv420p、AAC-LC、24 fps 和 faststart 的网页播放版，并上传为独立附件。大小从 `9,217,409` 降至 `4,968,870` bytes；本地完整解码和关键画面检查通过。原版前 256 KiB 的一次读取为 8.68 秒，新版为 4.59 秒；这是当次网络样本，不据此认定唯一根因或保证所有网络速度。
+
+新版公开独立页连续播放到 `105.723663s / readyState=4`，随后自然结束于 `121.083333s / ended=true`；重播到 `0.048702s`、暂停于 `3.195217s`，原生时间轴可定位至 `119.872166s`。中英文主页、媒体说明和许可摘要同步为新版附件，原版下载保留。主分支最终实播结果写入收尾证据，不用独立页或 HTTP 响应替代。转码命令和摘要见 [产品视频说明](../PRODUCT_VIDEO.md)。
+
 20 秒接入补充短片仍作为 Release 下载附件：完整公开下载摘要已核对；浏览器将直接地址按下载处理，不把它写成内嵌播放通过。所有媒体验证均独立于安装包、Mac 实机及设备验收。
 
 ## English
 
 Windows and Apple Silicon Mac 0.6.13 were published from commit `031b4f0`; CI and both desktop package jobs passed. Exact package hashes, Mac archive metadata/licenses, Windows Sandbox installation and installed status/onboarding checks passed. Real Windows navigation through Add TAB5 and First Install was exercised without hardware writes. Sandbox has no active physical console, so it fails the login helper's installation session guard; no host components or services were changed. Automatic runtime download, this Mac package's execution and new physical first-flash/pair/display acceptance are not claimed. Public downloads and bilingual documentation were reconciled. Explicit native video markup retains the public attachment source: playback, pause, end seek, ended state and replay passed on the public separate watch page. Both homepages use the same markup and require a final default-branch browser check after merging. The supplemental clip remains a verified download, with no embedded playback claim.
+
+The markup-only change in PR #12 did not resolve homepage loading, as confirmed by the user's screenshot. A new 720p web encode reduces the same film from 9.22 MB to 4.97 MB while retaining the original 1080p download and provenance. The new public watch-page player ran continuously to its natural end and passed replay, pause and timeline positioning. Final homepage playback remains a separate recorded check. Sandbox was stopped after preserving its evidence.
