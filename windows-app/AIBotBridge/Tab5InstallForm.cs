@@ -4,6 +4,7 @@ internal sealed class Tab5InstallForm : Form
 {
     private readonly Tab5Service _service;
     private readonly bool _preview;
+    private readonly bool _returnToAdd;
     private readonly ComboBox _ports = new() { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };
     private readonly Label _package = new() { AutoSize = true, Text = "尚未选择首次安装 ZIP 包" };
     private readonly Label _status = new() { AutoSize = true, Dock = DockStyle.Fill, Text = "连接 TAB5 并进入下载模式，然后刷新设备。" };
@@ -18,9 +19,10 @@ internal sealed class Tab5InstallForm : Form
     private string _stageText = "";
     private int _lastPercent = -1;
 
-    internal Tab5InstallForm(Tab5Service service, bool preview = false)
+    internal Tab5InstallForm(Tab5Service service, bool preview = false, bool returnToAdd = false)
     {
-        _service = service; _preview = preview;
+        _service = service; _preview = preview; _returnToAdd=returnToAdd;
+        if(returnToAdd)_done.Text="返回添加设备";
         Text = "TAB5 首次安装"; Font = SettingsWindow.BodyFont();
         AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(700, 690); MinimumSize = new Size(600, 550); StartPosition = FormStartPosition.CenterParent;
@@ -37,14 +39,15 @@ internal sealed class Tab5InstallForm : Form
                 Font = heading ? new Font(Font, FontStyle.Bold) : Font });
         }
         Note("1 连接并进入下载模式", true);
-        Note("使用 USB 数据线连接 TAB5 的 USB-C 接口。长按 RESET 约 2 秒，绿灯快速闪烁后松开，再刷新设备。请勿选择其他 ESP32 开发板。");
+        Note("连接 USB-C 数据线，长按 RESET 约 2 秒，绿灯快闪后松开。刷新后只选目标 TAB5。");
         content.Controls.Add(_ports); content.Controls.Add(Row(_refresh));
         Note("2 选择完整安装包", true);
         content.Controls.Add(_package); content.Controls.Add(Row(_choose));
-        Note("适用于出厂系统。已安装 AI-bot 的设备请用“固件升级”中的无线升级；首次安装包与 OTA 的 .bin 文件不同。");
+        Note("出厂设备使用首刷 ZIP；已有 AI-bot 请用“固件升级”。");
         content.Controls.Add(_confirm); content.Controls.Add(Row(_install, _restore));
         Note("3 重启、检查并配对", true);
-        Note("写入校验通过后，短按 RESET，等待屏幕启动。USB 端口可能变化，请刷新并选择新端口，再检查启动。随后进行 USB 配对和 Wi-Fi 设置。");
+        Note("写入校验后短按 RESET，刷新并选择启动端口，再检查启动。"+
+            (returnToAdd?"通过后返回“验证并添加”。":"通过后进入 USB 配对。"));
         _status.Margin = new Padding(0, 8, 0, 8); layout.Controls.Add(_status, 0, 1);
         _backup.Margin = new Padding(0, 4, 0, 8); _backup.ForeColor = Color.FromArgb(80, 95, 110); content.Controls.Add(_backup);
         layout.Controls.Add(_progress, 0, 2); layout.Controls.Add(Row(_check, _done, _cancel), 0, 3);
@@ -77,7 +80,7 @@ internal sealed class Tab5InstallForm : Form
                 FlashDeviceDiscovery.Read().Where(d => d.Identity.Contains("VID_303A", StringComparison.OrdinalIgnoreCase)).ToArray();
             _ports.SelectedIndex = -1;
             for (int i = 0; i < _ports.Items.Count; i++) if ((_ports.Items[i] as FlashUsbDevice)?.Identity == selected) _ports.SelectedIndex = i;
-            if (_ports.Items.Count == 0) _status.Text = "未发现设备。请确认使用数据线并进入下载模式，然后刷新。";
+            if (_ports.Items.Count == 0) _status.Text = "未发现设备，请检查数据线和下载模式后刷新。";
         } catch (Exception ex) { _status.Text = ex.Message; }
         UpdateButtons();
     }
@@ -163,7 +166,7 @@ internal sealed class Tab5InstallForm : Form
             using var lease = await FlashUsbLease.AcquireAsync(_operation.Token);
             try { await _service.CheckInstalledUsbAsync(device, _mac, _version!, _elfSha!, _operation.Token); }
             finally { await lease.ReleaseAsync(false); }
-            _verified = true; Stage("启动检查通过。请进入 USB 配对，然后在 Wi-Fi 页保存网络并确认连接状态。");
+            _verified = true; Stage(_returnToAdd?"启动检查通过，请返回“验证并添加”。":"启动检查通过，请进入 USB 配对。");
         } catch (OperationCanceledException) { Stage("启动检查已取消，尚未确认设备运行。"); }
         catch (Exception ex) { Stage("启动未确认：" + ex.Message); }
         finally { _busy = false; _operation?.Dispose(); _operation = null; UpdateButtons(); }

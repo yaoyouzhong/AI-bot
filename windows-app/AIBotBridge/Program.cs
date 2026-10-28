@@ -133,6 +133,7 @@ internal static class Program
             return;
         }
         if(args.Length==2&&args[0]=="--self-test-device-center"){ApplicationConfiguration.Initialize();DeviceCenterSelfTest.Run(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-onboarding"){ApplicationConfiguration.Initialize();DeviceCenterSelfTest.RunOnboarding(Path.GetFullPath(args[1]));return;}
         if(args.Length==1&&args[0]=="--self-test-device-registry"){DeviceRegistrySelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-tab5-closeout"){Tab5CloseoutSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-quick-console"){AppPaths.BeginPublicSelfTest();Tab5QuickConsoleSelfTest.RunAsync().GetAwaiter().GetResult();return;}

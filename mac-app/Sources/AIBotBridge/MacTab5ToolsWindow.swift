@@ -34,7 +34,7 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
         wifi.add(fields); wifi.add(row([("保存并连接",#selector(saveNetwork)),("保存备注",#selector(saveLabel))]))
         saved.selected = { [weak self] i in guard let self, self.networks.indices.contains(i) else { return }; let network = self.networks[i]; self.ssid.stringValue = network.ssid; self.ssid.isEditable = false; self.label.stringValue = network.label; self.password.stringValue = "" }
         pairing.section("USB 配对"); pairing.add(ports); pairing.add(row([("刷新设备",#selector(refreshPorts)),("配对",#selector(pair))]))
-        pairing.add(MacBridgeSettingsStyle.note("首次使用时配对。已有可信电脑会保留，当前 Mac 经认证后接管。")); pairing.add(button("新设备首次安装…",#selector(firstInstall)))
+        pairing.add(MacBridgeSettingsStyle.note("已有 AI-bot：选择 USB 端口后配对。")); pairing.add(button("出厂设备首次安装…",#selector(firstInstall)))
         pairing.section("蓝牙连接")
         let bluetooth = NSButton(checkboxWithTitle:"启用 TAB5 蓝牙连接",target:self,action:#selector(toggleBluetooth(_:))); bluetooth.state = UserDefaults.standard.bool(forKey:MacTab5BLE.enabledKey) ? .on:.off; pairing.add(bluetooth)
         firmware.section("固件升级"); firmware.add(status)
