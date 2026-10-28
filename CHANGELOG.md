@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Clarify Windows first-device setup: distinguish existing AI-bot devices from factory installation, keep USB selection by device identity across refreshes, and clear stale ports after discovery failures.
+- Return TAB5 first installation to the correct caller, keep setup help visible, and align bilingual installation guidance with the current Windows/Mac flows. Clean installation and physical device acceptance are recorded separately.
+- Shorten Windows and Mac device setup hints, retaining backup and replacement confirmations. Mac source changes await native build and UI verification.
+- Compact the Windows Add Device form with aligned fields, refresh beside the USB selector and persistent side-by-side registration/install actions.
+
 ## 0.6.12 - 2026-10-27
 
 ### Windows interface fixes

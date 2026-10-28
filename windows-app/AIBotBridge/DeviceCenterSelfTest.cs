@@ -170,9 +170,50 @@ internal static class DeviceCenterSelfTest
             var choices=Descendants(add).OfType<ComboBox>().First();Check(choices.Items.Count==2-registered.Length,"Already registered model offered for addition");
             if(registered.Length==1)Check(Descendants(add).OfType<Button>().Any(b=>b.Text==(registered[0].Kind==HardwareKind.Tab5?"ESP8266 首次安装…":"TAB5 首次安装…")),"First installation missing for unregistered model");
         }
+        CheckAddDiscovery(directory);
         using(var shared=new SettingsForm(BridgeSettings.CreatePublicSelfTestSettings(),false)){Capture(shared,directory,"shared-settings");Check(!Descendants(shared).OfType<Label>().Any(l=>l.Text.Contains("屏保")||l.Text.StartsWith("串口")),"Legacy fields exposed in shared settings");}
         File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: registry, migration, device menu matrix, fixed target actions, demand union, collector lifecycle, independent service cancellation, LAN gates, shared action cards, localized data settings persistence/cancel/device isolation, quota dependency and add-limit feedback, UI 100/125/150/200 percent scale and minimum bounds. Hardware acceptance pending.");
         Console.WriteLine("DEVICE_CENTER_OK menu/target/demand/services/LAN/layout; real hardware pending");
+    }
+    internal static void RunOnboarding(string directory) {
+        AppPaths.BeginPublicSelfTest();Directory.CreateDirectory(directory);CheckAddDiscovery(directory);
+        Console.WriteLine("ONBOARDING_OK selection/reconnect/scan-failure/caller-return/layout; isolated UI, no hardware pairing");
+    }
+    private static void CheckAddDiscovery(string directory) {
+        var first=new FlashUsbDevice("COM7",@"USB\VID_303A&PID_1001\FIRST","TAB5 A (COM7)");
+        var second=new FlashUsbDevice("COM8",@"USB\VID_303A&PID_1001\SECOND","TAB5 B (COM8)");
+        FlashUsbDevice[] devices=[];bool fail=false;
+        using(var form=new AddDeviceForm(new(1,true,false,false,[]),preview:true,discover:()=>fail?throw new IOException("simulated scan failure"):devices)) {
+            Capture(form,directory,"onboarding-no-usb");form.Show();Application.DoEvents();
+            var ports=(ComboBox)form.Controls.Find("add-device-ports",true).Single();
+            var add=(Button)form.Controls.Find("verify-add-device",true).Single();
+            var refresh=Descendants(form).OfType<Button>().Single(b=>b.Text=="刷新设备");
+            Check(!add.Enabled&&ports.SelectedItem is null,"Empty discovery must not offer verification");
+            devices=[first,second];refresh.PerformClick();
+            Check(ports.SelectedItem is null&&!add.Enabled,"Multiple devices must require an explicit selection");
+            ports.SelectedIndex=1;Check(add.Enabled,"Explicit device selection must enable verification");
+            devices=[second with {Port="COM18",Name="TAB5 B (COM18)"},first];refresh.PerformClick();
+            Check(ports.SelectedItem is FlashUsbDevice d&&d.Identity==second.Identity&&d.Port=="COM18","Refresh must retain device identity across COM renumbering and ordering");
+            devices=[first];refresh.PerformClick();
+            Check(ports.SelectedItem is null&&!add.Enabled,"Disconnected selection must not silently switch to another device");
+            refresh.PerformClick();Check(add.Enabled,"Explicit refresh may select a sole available device");
+            fail=true;refresh.PerformClick();
+            Check(ports.Items.Count==0&&!add.Enabled,"Failed discovery must clear stale selectable devices");
+            fail=false;devices=[first,new("COM9",@"USB\VID_1A86&PID_7523\ESP","ESP (COM9)")];refresh.PerformClick();
+            Check(ports.Items.Count==1&&add.Enabled,"Model filtering must exclude unrelated USB devices");
+            add.PerformClick();Check(form.Added is null,"Preview must never pair a real device");
+        }
+        foreach(float scale in new[]{1F,1.25F,1.5F,2F})using(var form=new AddDeviceForm(new(1,true,false,false,[]),preview:true)) {
+            form.Scale(new SizeF(scale,scale));Capture(form,directory,$"onboarding-{scale:0.00}");
+            form.Size=form.MinimumSize;Capture(form,directory,$"onboarding-{scale:0.00}-minimum");
+            foreach(var control in new[]{form.Controls.Find("add-device-status",true).Single(),form.Controls.Find("verify-add-device",true).Single(),form.Controls.Find("first-install-device",true).Single(),(Control)form.CancelButton!})
+                Check(form.ClientRectangle.Contains(form.RectangleToClient(control.RectangleToScreen(control.ClientRectangle))),"Onboarding routes/status/close must remain visible at minimum size");
+        }
+        using var service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"onboarding-unused-pairing.dat")));
+        foreach(bool fromAdd in new[]{false,true})using(var form=new Tab5InstallForm(service,preview:true,returnToAdd:fromAdd)) {
+            Capture(form,directory,fromAdd?"onboarding-first-install":"maintenance-first-install");
+            Check(Descendants(form).OfType<Button>().Any(b=>b.Text==(fromAdd?"返回添加设备":"进入 USB 配对")&&!b.Enabled),"First-install completion must match its caller and remain gated by verified boot");
+        }
     }
     private static void CheckDataSettings(DeviceRegistryStore store,string directory) {
         var tab=store.Snapshot.Devices.Single(d=>d.Kind==HardwareKind.Tab5);
