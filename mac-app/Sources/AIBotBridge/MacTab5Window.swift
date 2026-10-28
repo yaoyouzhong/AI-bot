@@ -326,7 +326,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
         let kind = MacSettingsControls.popup(kinds.map { $0 == "tab5" ? "M5Stack TAB5" : "ESP8266 小屏" }); form.page.field("设备型号", kind)
         form.page.add(note("已有 AI-bot：添加后连接。\n出厂设备：添加后先安装固件。"))
         guard form.run(validating: { do { let value = kinds[kind.indexOfSelectedItem]; try registry.add(value, hardwareID: value == "tab5" ? self.service.currentPairing?.deviceId : nil); return nil } catch { return error.localizedDescription } }) else { return }
-        selectedDevice = kinds[kind.indexOfSelectedItem] == "tab5" ? 0 : 1; showDevicePage(selectedDevice == 0 ? overview : smallScreen); if selectedDevice == 0 { showConnection() }
+        selectedDevice = kinds[kind.indexOfSelectedItem] == "tab5" ? 0 : 1; showDevicePage(selectedDevice == 0 ? overview : smallScreen); if selectedDevice == 0 { openTools(page:.usbPairing) }
     }
     @objc private func manageDevice(_ sender: NSButton) {
         let menu = managementMenu(for:selectedDevice == 0 ? "tab5":"esp8266")
@@ -370,15 +370,15 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
         let alert = NSAlert(); alert.messageText = "从列表移除此设备？"; alert.informativeText = "会停止此设备的数据服务，保留配对、生日、图库和备份，可重新添加。"; alert.addButton(withTitle:"移除"); alert.addButton(withTitle:"取消")
         guard alert.runModal() == .alertFirstButtonReturn else { return }; do { try registry.remove(kind); selectedDevice = registry.device("tab5") != nil ? 0:1; showDevicePage(selectedDevice == 0 ? overview:smallScreen); result.stringValue = "设备已移除。" } catch { result.stringValue = error.localizedDescription }
     }
-    func showUpgradeTools() { openTools(); tools?.open(upgrade:true) }
+    func showUpgradeTools() { openTools(page:.firmware) }
     private func deviceHeading(_ title: NSTextField) -> NSView {
         let spacer = NSView(); spacer.setContentHuggingPriority(.defaultLow,for:.horizontal)
         let button = NSButton(title:"管理 ▾",target:self,action:#selector(manageDevice(_:)))
         return MacBridgeSettingsStyle.row([title,spacer,button])
     }
-    @objc private func openTools() {
+    private func openTools(page:MacTab5ToolsWindow.Page? = nil) {
         if tools == nil { tools = MacTab5ToolsWindow(service: service, usb: usb, canBegin: { [weak self] in self?.busy == false && self?.canBegin() == true }, install: install, voice: { [weak self] in self?.openVoice() }, changeBluetooth: changeBluetooth) }
-        tools?.open()
+        tools?.open(page:page)
     }
     private func allowOperation() -> Bool {
         guard !busy else { return false }
