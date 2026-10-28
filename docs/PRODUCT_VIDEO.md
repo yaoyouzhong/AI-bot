@@ -2,7 +2,7 @@
 
 这段 121 秒项目介绍先对照 TAB5 和 ESP8266 的共有功能，再展示 TAB5 的触控与独有功能。 / This 121-second project overview compares shared TAB5 and ESP8266 features before presenting TAB5-exclusive interactions.
 
-<video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/e7f2515e-da0a-4e4c-a334-8ab067e5621c"></video>
+https://github.com/user-attachments/assets/e7f2515e-da0a-4e4c-a334-8ab067e5621c
 
 [独立观看 / Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 MP4 / Download MP4](https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922) · [上一版工程 / Previous version source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-project-overview-source-20261027-v3.zip) · [16:9 封面](assets/product-intro/AI-bot-cover.png) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) · [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png)
 
