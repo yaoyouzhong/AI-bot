@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 /// The same five modules as the Windows connection dialog, sharing native spacing.
 final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
+    enum Page: Int { case wifi, usbPairing, firmware, voice, benchmark }
     private let service: MacTab5Service, usb: MacTab5USB
     private let canBegin: () -> Bool, install: () -> Void, voice: () -> Void
     private let changeBluetooth: (Bool) -> Void
@@ -50,7 +51,7 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
     }
     required init?(coder:NSCoder) { fatalError() }
     deinit { timer?.invalidate(); benchmarkTask?.cancel() }
-    func open(upgrade:Bool = false) { if upgrade { tabs.select(2) }; refresh(); MacSettingsControls.open(self); if service.usbActive, !busy { refreshNetworks() } }
+    func open(page:Page? = nil) { if let page { tabs.select(page.rawValue) }; refresh(); MacSettingsControls.open(self); if service.usbActive, !busy { refreshNetworks() } }
     func windowShouldClose(_ sender:NSWindow) -> Bool { if busy || service.firmwareControl.busy { result.stringValue = "请先完成升级或停止测速，再关闭窗口。"; return false }; return true }
     private func button(_ title:String,_ action:Selector) -> NSButton { let b = NSButton(title:title,target:self,action:action); actions.append(b); return b }
     private func row(_ items:[(String,Selector)]) -> NSView { MacBridgeSettingsStyle.row(items.map { button($0.0,$0.1) }) }
