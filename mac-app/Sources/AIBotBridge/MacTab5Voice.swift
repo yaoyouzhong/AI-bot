@@ -1,5 +1,19 @@
 import Foundation
 
+enum MacVoiceCaptureSource: String, CaseIterable {
+    case tab5, mac = "pc"
+    static let preferenceKey = "tab5_voice_source"
+    var title: String { self == .tab5 ? "TAB5 内置麦克风" : "Mac 麦克风" }
+    static func saved(in defaults: UserDefaults = .standard) -> Self? {
+        defaults.string(forKey: preferenceKey).flatMap(Self.init(rawValue:))
+    }
+    static func resolve(requested: String?, preferred: Self?) -> Self {
+        // Preserve existing device-directed routing until the user makes a
+        // selection. Once saved, the local choice applies to every new take.
+        preferred ?? (requested == "tab5" ? .tab5 : .mac)
+    }
+}
+
 enum MacTab5SpeechFailure: Equatable {
     case noSpeech, assetsMissing, permission, unavailable, recognizerBusy, serviceInterrupted(Int), other(Int)
     case external(String)
@@ -38,6 +52,7 @@ struct MacTab5SpeechBackend {
     var cancel: () -> Void
     var diagnostics: () -> String = { "" }
     var ready: () -> Bool = { true }
+    var sourceName: () -> String = { "" }
 }
 
 final class MacTab5Voice {
@@ -57,7 +72,9 @@ final class MacTab5Voice {
     private let lock = NSRecursiveLock()
     private let backend: MacTab5SpeechBackend, enabled: () -> Bool, clock: () -> TimeInterval
     private let usesDoubao: () -> Bool
+    private let preferredSource: () -> MacVoiceCaptureSource?
     private var externalRecognition = false
+    private var captureName = ""
     private var id = "", device = "", task = "", session = "", source = "tab5", state = "idle", text = "", message = ""
     private var started: TimeInterval = 0, seen: TimeInterval = 0, stopped: TimeInterval = 0
     private var sequence = 0, samples = 0, level = 0
@@ -66,10 +83,10 @@ final class MacTab5Voice {
     private var lastReply = "", lastFailure = ""
     private var recentSessions: [String] = []
     private var hashes: [Int: String] = [:]
-    // Before ready, device audio is a transport probe, not a recording. Do not
-    // replay preparation time after the ready cue. Once capture has begun,
-    // retain audio across a temporary readiness loss without dropping samples.
+    // TAB5 PCM is retained immediately in a bounded queue. Device capture may
+    // be ready before the recognizer; forwarding still requires verified IO.
     private var captureWasReady = false, probeSamples = 0
+    private var finishAfterPreparation = false
     private var preparingAudio: [[Int16]] = []
     private var preparingSamples = 0
     private var isFinal = false
@@ -77,22 +94,24 @@ final class MacTab5Voice {
     private var backendGeneration = UUID()
     private var lastSpeechFailure = "", endReason = ""
     private var captureRequested: TimeInterval = 0
-    private var startupTime: TimeInterval?, firstResultTime: TimeInterval?, finalTime: TimeInterval?, reviewTime: TimeInterval?
+    private var startupTime: TimeInterval?, captureReadyTime: TimeInterval?, firstResultTime: TimeInterval?, finalTime: TimeInterval?, reviewTime: TimeInterval?
     private var reviewReady: TimeInterval?
     private var finalWaiter: DispatchSemaphore?
     private var timer: DispatchSourceTimer?
-    init(enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, backend: MacTab5SpeechBackend? = nil, usesDoubao: (() -> Bool)? = nil) {
+    init(enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, backend: MacTab5SpeechBackend? = nil, usesDoubao: (() -> Bool)? = nil, preferredSource: (() -> MacVoiceCaptureSource?)? = nil) {
         self.enabled = enabled; self.clock = clock; self.backend = backend ?? MacSpeechRouter().backend()
         self.usesDoubao = usesDoubao ?? (backend == nil ? { MacSpeechProvider.doubao } : { false })
+        self.preferredSource = preferredSource ?? (backend == nil ? { MacVoiceCaptureSource.saved() } : { nil })
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "AI-bot.voice-timeout")); timer.schedule(deadline: .now() + 1, repeating: 1)
         timer.setEventHandler { [weak self] in guard let self else { return }; self.lock.lock(); self.tick(); self.lock.unlock() }; self.timer = timer; timer.resume()
     }
+    var beforeStart: ((String, String) -> Void)?
     var isEnabled: Bool { enabled() }
     var summary: String {
         lock.lock(); defer { lock.unlock() }
         guard enabled() else { return "尚未启用" }
         switch state {
-        case "recording": return source == "tab5" ? "正在收音 · TAB5 麦克风" : "正在收音 · Mac 默认麦克风"
+        case "recording": return source == "tab5" ? "正在收音 · TAB5 内置麦克风" : "正在收音 · Mac 麦克风"
         case "recognizing": return externalRecognition ? "等待在 Mac 确认豆包草稿":"收音已停止，正在本地识别"
         case "review": return text.isEmpty ? "没有识别到文字，请重新录入" : "识别已结束，请在 TAB5 检查文字"
         case "cancelled": return "已取消收音"
@@ -104,17 +123,18 @@ final class MacTab5Voice {
         lock.lock(); defer { lock.unlock() }
         guard enabled() else { return "" }
         var details: [String] = []
+        if !id.isEmpty { details.append("本段收音设备：" + captureLabel + " · " + (externalRecognition ? "豆包输入法" : "Mac 本地识别")) }
         let recognition = backend.diagnostics()
         if !recognition.isEmpty { details.append(recognition) }
         var timings: [String] = []
-        for (label, value) in [("本地启动", startupTime), ("首段结果（含说话等待）", firstResultTime),
+        for (label, value) in [("本地启动", startupTime), ("收音就绪应答", captureReadyTime), ("首段结果（含说话等待）", firstResultTime),
                                ("停止至最终识别", finalTime), ("最终结果至响应生成", reviewTime)] {
             if let value, value.isFinite { timings.append("\(label) \(Int((min(180, max(0, value)) * 1000).rounded())) ms") }
         }
         if !timings.isEmpty { details.append("本机分段计时：" + timings.joined(separator: " · ")) }
         if !id.isEmpty, source == "tab5" {
             details.append(String(format: "TAB5 音频：已接收 %d 块 · %.1f 秒 · 最近电平 %d%% · 峰值 %d%%", sequence, Double(samples) / 16000, level, peak))
-            if probeSamples > 0 { details.append(String(format: "准备探测音频 %.1f 秒；提示可以说话后才正式收音", Double(probeSamples) / 16000)) }
+            if probeSamples > 0 { details.append(String(format: "启动阶段保留音频 %.1f 秒；实际通道确认后完整转送", Double(probeSamples) / 16000)) }
             if preparingSamples > 0 { details.append(String(format: "等待豆包收音：已缓冲 %.1f 秒（上限 8 秒）",Double(preparingSamples)/16000)) }
         }
         if !lastReply.isEmpty { details.append("最近请求：" + lastReply) }
@@ -152,10 +172,11 @@ final class MacTab5Voice {
         terminalResponseServed = true; usbTerminalReply = nil
     }
     private func forwardPreparedAudio() {
-        guard state == "recording", !preparingAudio.isEmpty, backend.ready() else { return }
+        guard state == "recording" || (state == "recognizing" && finishAfterPreparation), backend.ready() else { return }
         do {
             for pcm in preparingAudio { try backend.feed(pcm) }
             clearPreparingAudio()
+            if finishAfterPreparation { finishAfterPreparation = false; backend.finish() }
         } catch {
             clearPreparingAudio(); state = "error"; message = "豆包音频转送未完成，本段已停止"
             lastSpeechFailure = (error as? MacTab5LocalError)?.localizedDescription ?? message
@@ -175,22 +196,36 @@ final class MacTab5Voice {
             endReason = now - started > 60 ? "达到一分钟录音上限" : "设备连接超过八秒无有效请求"
             state = "recognizing"; stopped = now; message = "收音已停止，等待最终文字"; backend.finish()
         }
+        if state == "recognizing", finishAfterPreparation, now - stopped > 10 {
+            state = "error"; message = "豆包准备超时，本段未完成识别"; lastSpeechFailure = message
+            finishAfterPreparation = false; clearPreparingAudio(); backend.cancel(); wakeFinalWaiter()
+        }
         if state == "recognizing", now - stopped > (externalRecognition ? 120:15) { state = "error"; message = "识别结果未完整确认，请检查文字后重新录入"; lastSpeechFailure = message; backend.cancel() }
+    }
+    private var captureLabel: String {
+        if source == "tab5" { return "TAB5 内置麦克风" }
+        if state == "recording", backend.ready() {
+            let opened = backend.sourceName()
+            if !opened.isEmpty { captureName = Self.bounded(opened, maximum: 360) }
+        }
+        return captureName.isEmpty ? "Mac 麦克风" : captureName
     }
     private func snapshot() -> MacTab5RPCResult {
         forwardPreparedAudio()
-        if state != "recording" { clearPreparingAudio() }
-        let ready = state == "recording" && backend.ready()
-        if ready { captureWasReady = true }
+        if state != "recording" && !(state == "recognizing" && finishAfterPreparation) { clearPreparingAudio(); finishAfterPreparation = false }
+        let backendReady = backend.ready()
+        let ready = state == "recording" && (backendReady || (externalRecognition && source == "tab5" && samples > 0))
+        if backendReady { captureWasReady = true }
+        if ready, captureReadyTime == nil { captureReadyTime = clock() - captureRequested }
         if externalRecognition, state == "recording" {
             message = ready ? "可以说话了" : captureWasReady ? "正在确认豆包收音状态，音频暂存中" : "正在准备豆包，提示可以说话后才开始录音"
         }
         // Measures Mac response generation, never device delivery/acknowledgment.
         if state == "review", reviewTime == nil, let reviewReady { reviewTime = clock() - reviewReady }
-        return .init(200, ["voiceId": id, "taskId": task, "source": source, "sourceName": externalRecognition ? (source == "tab5" ? "TAB5 麦克风 · 豆包输入法":"Mac／DJI 麦克风 · 豆包输入法") : source == "tab5" ? "TAB5 麦克风 · Mac 本地识别" : "Mac 麦克风 · 本地识别", "state": state, "message": message, "text": text, "ready": ready, "level": state == "recording" ? level : 0, "silent": state == "recording" && silentSamples >= 3 * 16000, "canInsert": state == "review" && isFinal && !text.isEmpty])
+        return .init(200, ["voiceId": id, "taskId": task, "source": source, "sourceName": captureLabel + " · " + (externalRecognition ? "豆包输入法" : "Mac 本地识别"), "state": state, "message": message, "text": text, "ready": ready, "level": state == "recording" ? level : 0, "silent": state == "recording" && silentSamples >= 3 * 16000, "canInsert": state == "review" && isFinal && !text.isEmpty])
     }
     private func resetTimings() {
-        captureRequested = clock(); startupTime = nil; firstResultTime = nil; finalTime = nil; reviewTime = nil; reviewReady = nil
+        captureRequested = clock(); startupTime = nil; captureReadyTime = nil; firstResultTime = nil; finalTime = nil; reviewTime = nil; reviewReady = nil
     }
     private func retainSessionDiagnostics() {
         guard !id.isEmpty else { return }
@@ -212,22 +247,44 @@ final class MacTab5Voice {
             resetTimings()
             externalRecognition = usesDoubao()
             backend.cancel(); id = UUID().uuidString.lowercased(); self.device = device; self.task = task; self.session = session
-            source = root["source"] as? String == "tab5" ? "tab5" : "pc"; state = "recording"; text = ""; message = externalRecognition ? "正在准备豆包与所选麦克风，确认实际收音后开始":"请开始说话"; isFinal = false; stoppedByUser = false
+            source = MacVoiceCaptureSource.resolve(requested: root["source"] as? String, preferred: preferredSource()).rawValue
+            captureName = ""
+            state = "recording"; text = ""; message = externalRecognition ? "正在准备豆包与所选麦克风，确认实际收音后开始":"请开始说话"; isFinal = false; stoppedByUser = false
             terminalResponseServed = false; usbTerminalReply = nil; sequence = 0; samples = 0; level = 0; peak = 0; silentSamples = 0; hashes.removeAll(); clearPreparingAudio(); endReason = ""; lastSpeechFailure = ""; started = clock(); seen = started
+            // AX preparation can consult the AppKit main thread. Release the
+            // voice lock so a UI summary refresh cannot wait on this worker
+            // while the worker waits on that same main thread.
+            let preparedOwner = id
+            lock.unlock(); beforeStart?(task, device); lock.lock()
+            guard id == preparedOwner, state == "recording", enabled() else { return .error(409, "voice_session_changed") }
             do { try beginBackend(); startupTime = clock() - captureRequested; return snapshot() }
             catch { state = "error"; message = externalRecognition ? (error as? MacTab5LocalError)?.localizedDescription ?? "豆包语音未能启动，请检查输入法和辅助功能权限。" : "本地语音不可用，请在 Mac 授权语音识别和麦克风，并确认该语言支持离线识别。"; backend.cancel(); return snapshot() }
         }
         guard !id.isEmpty, root["voiceId"] as? String == id, device == self.device, root["session"] as? String == session else { return .error(409, "voice_session_changed") }
         seen = clock()
-        if op == "poll" { return snapshot() }
+        if op == "poll" {
+            forwardPreparedAudio()
+            if waitForFinal, state == "recognizing", !finishAfterPreparation {
+                let owner = id, generation = backendGeneration, waiter = DispatchSemaphore(value:0)
+                finalWaiter = waiter
+                // The device polls at 400 ms. Hold this reply for at most 350 ms
+                // so a committed final can arrive without another round trip.
+                lock.unlock(); _ = waiter.wait(timeout: .now() + .milliseconds(350)); lock.lock()
+                if finalWaiter === waiter { finalWaiter = nil }
+                guard enabled() else { return .error(403,"voice_not_enabled") }
+                guard id == owner, backendGeneration == generation else { return .error(409,"voice_session_changed") }
+            }
+            return snapshot()
+        }
         if op == "cancel" { backend.cancel(); text = ""; state = "cancelled"; message = "已取消"; isFinal = false; wakeFinalWaiter(); return snapshot() }
         if op == "stop" {
             forwardPreparedAudio()
-            if externalRecognition, state == "recording", !captureWasReady {
+            let bufferedCapture = externalRecognition && source == "tab5" && samples > 0
+            if externalRecognition, state == "recording", !captureWasReady, !bufferedCapture {
                 state = "error"; message = "豆包尚未开始正式收音，请等可以说话后重新录入"; lastSpeechFailure = message
                 clearPreparingAudio(); backend.cancel(); return snapshot()
             }
-            if state == "recording", !preparingAudio.isEmpty {
+            if state == "recording", !preparingAudio.isEmpty, !bufferedCapture {
                 state = "error"; message = "豆包尚未就绪，本段音频未完整转送，请重新录入"; lastSpeechFailure = message
                 clearPreparingAudio(); backend.cancel(); return snapshot()
             }
@@ -235,7 +292,8 @@ final class MacTab5Voice {
                 let owner = id, generation = backendGeneration
                 let waiter = waitForFinal ? DispatchSemaphore(value: 0) : nil
                 finalWaiter = waiter
-                state = "recognizing"; stoppedByUser = true; endReason = "设备请求停止收音"; stopped = clock(); message = externalRecognition ? "正在等待豆包停止收音并提交完整文字":"正在完成本地识别"; backend.finish()
+                state = "recognizing"; stoppedByUser = true; endReason = "设备请求停止收音"; stopped = clock(); message = externalRecognition ? "正在等待豆包停止收音并提交完整文字":"正在完成本地识别"
+                if bufferedCapture { finishAfterPreparation = true; forwardPreparedAudio() } else { backend.finish() }
                 if let waiter, state == "recognizing" {
                     // BLE polling costs another radio round trip. Let a fast
                     // local final result join this reply, without holding the
@@ -255,7 +313,7 @@ final class MacTab5Voice {
         if op == "audio", state != "recording" { return snapshot() }
         if op == "tab5", state == "recording", source == "pc", samples == 0, text.isEmpty {
             resetTimings()
-            backend.cancel(); source = "tab5"
+            backend.cancel(); source = "tab5"; captureName = ""
             do { try beginBackend(); startupTime = clock() - captureRequested; return snapshot() } catch { state = "error"; message = "TAB5 收音初始化失败"; return snapshot() }
         }
         guard op == "audio", state == "recording", source == "tab5", let seq64 = MacTab5Protocol.integer(root["seq"]), (0...600).contains(seq64),
@@ -266,12 +324,9 @@ final class MacTab5Voice {
         do {
             let pcm = try MacTab5VoiceAudio.decode(bytes, codec: root["codec"] as? String ?? "pcm")
             guard samples + pcm.count <= 60 * 16000 else { return .error(413, "voice_duration_exceeded") }
-            if externalRecognition, !captureWasReady, !backend.ready() {
-                // Acknowledge the device's preparation probes so it can reach
-                // its ready cue, but never build a seconds-long playback lag.
-                probeSamples += pcm.count
-            } else if externalRecognition {
-                captureWasReady = true
+            if externalRecognition {
+                if !captureWasReady && !backend.ready() { probeSamples += pcm.count }
+                if backend.ready() { captureWasReady = true }
                 guard preparingSamples + pcm.count <= 128000 else {
                     clearPreparingAudio(); state = "error"; message = "豆包准备超过音频缓冲上限，本段已停止"; lastSpeechFailure = message
                     backend.cancel(); return snapshot()
@@ -287,7 +342,7 @@ final class MacTab5Voice {
         } catch { state = "error"; message = "音频无效，本段已停止"; backend.cancel(); return .error(400, "invalid_voice_audio") }
     }
     private func beginBackend() throws {
-        captureWasReady = false; probeSamples = 0; clearPreparingAudio()
+        captureWasReady = false; probeSamples = 0; finishAfterPreparation = false; clearPreparingAudio()
         let owner = id, generation = UUID(); backendGeneration = generation
         try backend.start(source) { [weak self] result, done, error in
             guard let self else { return }; self.lock.lock(); defer { self.lock.unlock() }
@@ -299,12 +354,16 @@ final class MacTab5Voice {
                 self.lastSpeechFailure = error.message
                 // No speech after an explicit stop is an empty review, not a
                 // broken connection. Never promote an unconfirmed partial.
-                let emptyStop = error == .noSpeech && self.stoppedByUser && self.state == "recognizing" && self.text.isEmpty
+                let emptyStop = error == .noSpeech && self.stoppedByUser && self.state == "recognizing" && self.text.isEmpty && self.preparingAudio.isEmpty && !self.finishAfterPreparation
                 if emptyStop { self.finalTime = self.clock() - self.stopped; self.reviewReady = self.clock() }
                 self.state = emptyStop ? "review" : "error"; self.isFinal = emptyStop
                 self.message = error.message; self.backend.cancel()
             }
             else if done {
+                guard self.preparingAudio.isEmpty && !self.finishAfterPreparation else {
+                    self.state = "error"; self.message = "录音尚未完整转送，本段不插入文字"; self.isFinal = false
+                    self.clearPreparingAudio(); self.finishAfterPreparation = false; self.backend.cancel(); self.wakeFinalWaiter(); return
+                }
                 let wasRecording = self.state == "recording"
                 if self.state == "recognizing" { self.finalTime = self.clock() - self.stopped }
                 self.reviewReady = self.clock()

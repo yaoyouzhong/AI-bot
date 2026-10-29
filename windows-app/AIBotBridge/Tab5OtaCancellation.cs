@@ -20,7 +20,7 @@ internal sealed partial class Tab5Service
     private bool OtaStopPending=>_otaDelivery is {StopRequested:true} d&&(!d.Confirmed||!d.Signalled);
     internal bool OtaStarted {get{lock(_lifecycle)return _otaDelivery?.Started==true;}}
     internal bool CanSelectOta {get{lock(_lifecycle)return !Busy&&!OtaStopPending;}}
-    internal bool CanStopOta {get{lock(_lifecycle)return _otaDelivery is {Started:true,FinalReleased:false,StopRequested:false} d&&_ota is not null&&_firmware.LastVersion(PairedId)!=d.Image.Version;}}
+    internal bool CanStopOta {get{lock(_lifecycle)return _otaDelivery is {Started:true,FinalReleased:false,StopRequested:false} d&&_ota is not null&&(d.OriginalVersion==d.Image.Version||_firmware.LastVersion(PairedId)!=d.Image.Version);}}
     internal string OtaStopHint {get{lock(_lifecycle)return _otaDelivery is {StopRequested:true} d?
         d.Confirmed?"升级已停止，继续使用原固件。":Environment.TickCount64-d.StopAt>30000?
         "传输已停止，尚未收到设备确认；请保持供电并重新连接。":"正在停止升级，等待设备确认；请保持供电和连接。":"";}}

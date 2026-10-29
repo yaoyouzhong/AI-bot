@@ -1,0 +1,33 @@
+{
+  "baseVersion": "0.2.284-ui",
+  "baseImageSHA256": "5c6d3b2fe622a614394b84ee0182d9d88aaac260cac77a23f16d6d1d878f345d",
+  "parentProvenance": "tab5-voice-source-label.json",
+  "candidateVersion": "0.2.285-ui",
+  "patchSHA256": "89a6bd5e4eeefa9b694f5a1ecae37f0a184b95d897376382b2e09545277756a7",
+  "files": {
+    "firmware/main/ui.c": {
+      "before": "1504cc1f0f52a2bb94086453204777cc123167f7f745abd30600e37e0f10a143",
+      "after": "2fd790569d6e50b97e5c07015ee7a814e73667014c07cf56b67133bb12a09900"
+    },
+    "tests/ui-preview/codex_clear_render_test.h": {
+      "before": null,
+      "after": "01cb885986dfd492c87b3a2f254f410ca2ce9d8a91f738b44011edee92acdb97"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "482bdc912fc3360da404c52ea50009c7e40f02b660306487f9f0deca7dda833e",
+      "after": "43f61cddc95ecf372668884dd4fc41fdca71b201b2b723f2dbfcf313e5869f37"
+    },
+    "tests/ui-preview/ui_preview_stubs.h": {
+      "before": "b54a744d29d6daa844802f0a40e815c514df9fd7ed5b2d948520ece2c18b9ee1",
+      "after": "4f5de947ea58151d29d12929fa8c93cefbab8e03e66b0866f4c32ce9d3973d28"
+    }
+  },
+  "status": "built and native tested; cumulative installed .292 long-press clear accepted by repeated user feedback; not publicly released",
+  "physicalAcceptance": {
+    "date": "2026-10-29",
+    "runningFirmware": "0.2.292-ui",
+    "result": "passed for the user-observed repeated long-press clear flow",
+    "userFeedback": "长按清空，尝试不少次好像现在已经是OK的了。",
+    "limitations": "No exact run count or separate manual/dictation coverage supplied."
+  }
+}

@@ -1,0 +1,108 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2058,7 +2058,9 @@
+     if(recording) {
+         if(!codex_voice_started)codex_voice_started=esp_timer_get_time()/1000;
+         int seconds=(int)((esp_timer_get_time()/1000-codex_voice_started)/1000);
+-        ui_text_fmt(codex_voice_hint,voice->silent?"未检测到声音 · %s  %02d:%02d":"可以说话了 · %s  %02d:%02d",!strcmp(voice->source,"dji")?"大疆":"TAB5",seconds/60,seconds%60);
++        const char *capture=voice->source_name[0]?voice->source_name:
++            !strcmp(voice->source,"dji")?"DJI 大疆麦克风":!strcmp(voice->source,"pc")?"Mac 麦克风":"TAB5 内置麦克风";
++        ui_text_fmt(codex_voice_hint,voice->silent?"未检测到声音  %02d:%02d\n%s":"可以说话了  %02d:%02d\n%s",seconds/60,seconds%60,capture);
+     } else if(voice->busy&&(!strcmp(voice->phase,"preparing")||!strcmp(voice->phase,"recording"))) {
+         ui_text(codex_voice_hint,"正在准备，请稍候…");
+     } else if(voice->busy&&!strcmp(voice->phase,"draining"))ui_text(codex_voice_hint,"正在结束收音…");
+@@ -2067,7 +2069,7 @@
+     tint(codex_voice_hint,recording?(voice->silent?0xE4C889:0xA1E5BD):voice->busy?0xE4C889:!strcmp(voice->phase,"error")?0xEFA98F:MUTED);
+     visible(codex_voice_meter,recording);
+     lv_bar_set_value(codex_voice_meter,voice->level,LV_ANIM_OFF);
+-    ui_text_font(codex_voice_hint,recording?&tab5_font_30:&tab5_font_24,0);
++    ui_text_font(codex_voice_hint,&tab5_font_24,0);
+     visible(codex_mic_glyph,!recording);visible(codex_stop_glyph,recording);
+     ui_bg_color(codex_voice_button,lv_color_hex(recording?0x365D48:voice->busy?0x534C39:0x354247),0);
+     if(voice->busy&&!recording)lv_obj_add_state(codex_voice_button,LV_STATE_DISABLED);
+--- a/firmware/main/ui_dashboard.h
++++ b/firmware/main/ui_dashboard.h
+@@ -178,7 +178,7 @@
+             known=cJSON_IsNumber(item(q,key));
+             if(id==1)integer_value(q,key,main,sizeof(main),"%");else value(q,key,main,sizeof(main),"%");
+             color=!known||yes(q,"stale")?MUTED:id==1?codex_usage_color(num(q,key)):usage_color(percentage(q,key));
+-            const char *caption=!known?(id==10?"额度采集待接入":"额度待同步"):!strcmp(key,"weekly")?"本周已用":!strcmp(key,"primary")?"短周期已用":"套餐已用";
++            const char *caption=!known?(id==10?"额度采集待接入":"额度待同步"):!strcmp(key,"weekly")?(id==1?"周额度已用":"本周已用"):!strcmp(key,"primary")?"短周期已用":"套餐已用";
+             ui_text_fmt(home_captions[i],"%s%s",caption,known&&yes(q,"stale")?" · 缓存":"");
+             lv_bar_set_value(home_bars[i],percentage(q,key),LV_ANIM_OFF);
+         }
+@@ -355,6 +355,7 @@
+         else snprintf(primary_caption,sizeof(primary_caption),"%.0f 分钟",primary_window->valuedouble/60);
+     } else snprintf(primary_caption,sizeof(primary_caption),"5 小时");
+     ui_text_fmt(quota_rows[0],"%s已使用",primary_caption);
++    ui_text(quota_rows[1],selected_quota==1?"周额度已使用":"本周已使用");
+     ui_text(quota_empty,selected_quota==10?"火山方舟额度采集待接入":"该模型尚未提供额度数据");
+     set_plan(quota_plan,plan);
+     bool payg=!strcmp(text(q,"billingMode"),"payg");
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1980,6 +1980,7 @@
+ #include "voice_stop_touch_test.h"
+ #include <time.h>
+ #include "voice_refresh_test.h"
++#include "voice_source_label_test.h"
+ 
+ int main(void) {
+ #ifdef _WIN32
+@@ -2000,6 +2001,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_VOICE_SOURCE_ONLY")){check_voice_source_labels();return 0;}
+     if(getenv("TAB5_VOICE_REFRESH_ONLY")){check_voice_refresh();return 0;}
+     if(getenv("TAB5_VOICE_STOP_TOUCH_ONLY")){check_voice_stop_touch();return 0;}
+     if(getenv("TAB5_VOICE_START_ONLY")){unsigned before=preview_scratch_reclaims;check_voice_start_pending();assert(preview_scratch_reclaims>before);puts("PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK");return 0;}
+@@ -2443,7 +2445,7 @@
+     cJSON_AddNumberToObject(codex,"weeklyResetEpoch",quota_now+5*86400+14*3600);
+     cJSON_ReplaceItemInObject(codex,"weeklyReset",cJSON_CreateString("09-29 05:50"));
+     render_quota();
+-    assert(!strcmp(lv_label_get_text(quota_rows[1]),"本周已使用"));
++    assert(!strcmp(lv_label_get_text(quota_rows[1]),"周额度已使用"));
+     assert(lv_obj_has_flag(quota_time_markers[1],LV_OBJ_FLAG_HIDDEN));
+     for(int cut=0;cut<6;cut++) {
+         assert(!lv_obj_has_flag(quota_bar_dividers[1][cut],LV_OBJ_FLAG_HIDDEN));
+@@ -2491,8 +2493,9 @@
+     }
+     lv_area_t usage_area,percent_area;
+     lv_obj_get_coords(home_captions[0],&usage_area);lv_obj_get_coords(home_values[0],&percent_area);
+-    assert(!strcmp(lv_label_get_text(home_captions[0]),"本周已用 · 缓存"));
++    assert(!strcmp(lv_label_get_text(home_captions[0]),"周额度已用 · 缓存"));
+     assert(usage_area.y2<percent_area.y1);
++    if(getenv("TAB5_QUOTA_LABELS_ONLY")){page(0);capture("overview-quota-label");page(1);capture("quota-weekly-label");selected_quota=0;lv_dropdown_set_selected(quota_picker,0);render_quota();capture("quota-claude-unchanged");return 0;}
+     lv_area_t title_area,number_area,bar_area;
+     lv_obj_get_coords(quota_rows[1],&title_area);lv_obj_get_coords(quota_values[1],&number_area);
+     lv_obj_get_coords(quota_bars[1],&bar_area);
+--- /dev/null
++++ b/tests/ui-preview/voice_source_label_test.h
+@@ -0,0 +1,26 @@
++static void check_voice_source_labels(void) {
++    page(8);lv_anim_delete_all();
++    strcpy(codex_selected,"00000000-0000-4000-8000-000000000111");
++    codex_voice_desktop=quick_visible=false;codex_voice_waiting=true;
++    preview_voice=(voice_remote_state){.busy=true,.ready=true};
++    strcpy(preview_voice.phase,"recording");strcpy(preview_voice.task_id,codex_selected);
++    const char *sources[]={"tab5","pc","pc"};
++    const char *names[]={"TAB5 内置麦克风 · 豆包输入法","Mac 麦克风（MacBook Pro 麦克风） · 豆包输入法","DJI 大疆麦克风（DJI MIC MINI） · 豆包输入法"};
++    const char *captures[]={"voice-source-tab5","voice-source-mac","voice-source-dji"};
++    for(unsigned i=0;i<3;i++) {
++        strcpy(preview_voice.source,sources[i]);strcpy(preview_voice.source_name,names[i]);
++        codex_voice_tick();assert(strstr(lv_label_get_text(codex_voice_hint),names[i]));
++        assert(lv_obj_get_style_text_font(codex_voice_hint,0)==&tab5_font_24);
++        capture(captures[i]);
++    }
++    preview_voice.source_name[0]=0;
++    const char *legacy[]={"tab5","pc","dji"};
++    const char *labels[]={"TAB5 内置麦克风","Mac 麦克风","DJI 大疆麦克风"};
++    for(unsigned i=0;i<3;i++) {
++        strcpy(preview_voice.source,legacy[i]);codex_voice_tick();
++        assert(strstr(lv_label_get_text(codex_voice_hint),labels[i]));
++    }
++    preview_voice.silent=true;codex_voice_tick();assert(strstr(lv_label_get_text(codex_voice_hint),"未检测到声音"));
++    preview_voice.ready=false;codex_voice_tick();assert(!strcmp(lv_label_get_text(codex_voice_hint),"正在准备，请稍候…"));
++    puts("VOICE_SOURCE_LABEL_OK named TAB5/Mac/DJI, legacy fallback, silence and preparing; real LVGL");
++}

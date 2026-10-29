@@ -43,7 +43,8 @@ internal sealed partial class Tab5Service
         _assets.ObserveFirmware(version);
         int maximum=Tab5StatusCapacity.ForFirmware(version);
         if(Interlocked.Exchange(ref _statusMaximum,maximum)!=maximum)Republish();
-        if(Volatile.Read(ref _ota)?.Version==version) {
+        if(Volatile.Read(ref _ota)?.Version==version&&
+            !(_otaDelivery is {Started:true} delivery&&delivery.OriginalVersion==delivery.Image.Version)) {
             Interlocked.Exchange(ref _rpcOtaUntil,0);
             lock(_remoteOtaLock){_remoteOta?.Completion.TrySetResult(true);if(_remoteOtaStatus.Length>0)_remoteOtaStatus="设备已回报新版本，请核验启动。";}
         }

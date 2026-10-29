@@ -46,7 +46,17 @@ final class MacCodexDesktopIPC {
     private let lock = NSLock()
     private var verifiedAt: TimeInterval = -.infinity
     private let clock: () -> TimeInterval
-    init(clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, connect: @escaping Connect = { try Socket() }) { self.clock = clock; self.connect = connect }
+    private let queueReceipt: (String, String) -> MacCodexQueueReceipt?
+    private let serverQueueReceipt: (String, String) -> MacCodexQueueReceipt?
+    init(clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, connect: Connect? = nil,
+         queueReceipt: ((String, String) -> MacCodexQueueReceipt?)? = nil,
+         serverQueueReceipt: ((String, String) -> MacCodexQueueReceipt?)? = nil) {
+        self.clock = clock; self.connect = connect ?? { try Socket() }
+        // Synthetic wires must not read the user's real desktop queue.
+        self.queueReceipt = queueReceipt ?? (connect == nil ? { MacCodexQueueReceipt.local(task: $0, expected: $1) } : { _, _ in nil })
+        let reader = connect == nil ? MacTab5CodexRPC() : nil
+        self.serverQueueReceipt = serverQueueReceipt ?? { task, expected in reader?.queueReceipt(task: task, expected: expected) }
+    }
     var available: Bool {
         lock.lock(); defer { lock.unlock() }
         return clock() - verifiedAt < 15
@@ -58,6 +68,14 @@ final class MacCodexDesktopIPC {
         let state = try session.snapshot()
         lock.lock(); verifiedAt = clock(); lock.unlock()
         return state
+    }
+    func submissionReceipt(_ task: String, expected: String) throws -> MacCodexSubmissionReceipt {
+        let session = try Session(wire: connect(), task: task, deadline: ProcessInfo.processInfo.systemUptime + 1.5)
+        defer { session.close() }
+        var receipt = try MacCodexSubmissionReceipt.parse(session.rawSnapshot(), task: task, owner: session.owner, expected: expected)
+        receipt.queue = queueReceipt(task, expected)
+        receipt.serverQueue = serverQueueReceipt(task, expected)
+        return receipt
     }
     func execute(task: String, operation: String, expected: String, request: String,
                  inputs: [[String: Any]], authorized: () -> Bool = { true }) throws -> [String: Any] {
@@ -101,7 +119,7 @@ final class MacCodexDesktopIPC {
         guard MacTab5Codex.id(object["id"]) == task,
               let requests = object["requests"] as? [Any],
               let runtime = (object["threadRuntimeStatus"] as? [String: Any])?["type"] as? String,
-              ["idle", "active"].contains(runtime),
+              ["idle", "active", "systemError"].contains(runtime),
               let cwd = object["cwd"] as? String, cwd.hasPrefix("/"), !cwd.contains("\0") else {
             throw MacCodexDesktopError.incompatible
         }
@@ -181,8 +199,9 @@ final class MacCodexDesktopIPC {
         let wire: Wire, task: String
         var client = "initializing-client", owner = ""
         private var following = false
-        init(wire: Wire, task: String) throws {
-            self.wire = wire; self.task = task
+        private let deadline: TimeInterval
+        init(wire: Wire, task: String, deadline: TimeInterval = .infinity) throws {
+            self.wire = wire; self.task = task; self.deadline = deadline
             do {
                 guard MacTab5Codex.id(task) != nil else { throw MacCodexDesktopError.invalidPacket }
                 let response = try request("initialize", version: 0, params: ["clientType": "tab5-bridge"])
@@ -203,7 +222,7 @@ final class MacCodexDesktopIPC {
         }
         func request(_ method: String, version: Int, params: [String: Any], target: String? = nil,
                      seconds: Double = 2) throws -> [String: Any] {
-            let id = UUID().uuidString.lowercased(), until = ProcessInfo.processInfo.systemUptime + seconds
+            let id = UUID().uuidString.lowercased(), until = min(deadline, ProcessInfo.processInfo.systemUptime + seconds)
             try wire.write(["type": "request", "requestId": id, "sourceClientId": client, "version": version,
                             "method": method, "params": params, "targetClientId": target as Any? ?? NSNull(),
                             "timeoutMs": Int(seconds * 1000)], until: until)
@@ -213,8 +232,9 @@ final class MacCodexDesktopIPC {
             }
             throw MacCodexDesktopError.invalidPacket
         }
-        func snapshot() throws -> State {
-            let until = ProcessInfo.processInfo.systemUptime + 3
+        func snapshot() throws -> State { try MacCodexDesktopIPC.parse(rawSnapshot(), task: task) }
+        func rawSnapshot() throws -> [String: Any] {
+            let until = min(deadline, ProcessInfo.processInfo.systemUptime + 3)
             following = true
             try follow(true, until: until)
             for _ in 0..<256 {
@@ -226,7 +246,7 @@ final class MacCodexDesktopIPC {
                       change["type"] as? String == "snapshot" else { continue }
                 guard MacTab5Protocol.integer(value["version"]) == 11,
                       let state = change["conversationState"] as? [String: Any] else { throw MacCodexDesktopError.incompatible }
-                return try MacCodexDesktopIPC.parse(state, task: task)
+                return state
             }
             throw MacCodexDesktopError.invalidPacket
         }

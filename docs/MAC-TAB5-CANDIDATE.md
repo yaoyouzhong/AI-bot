@@ -1,5 +1,41 @@
 # Mac TAB5 开发候选 / Development candidate
 
+2026-10-29 后续源码：R35 修复排队消息已可靠保存却误报“未确认发送”的确认路径，实机验收按用户要求留到 10 月 30 日，当前安装仍为 R34/.292。本轮新增功能、Bug 修复、性能优化及已具备能力的 Windows 开发入口集中在 [Windows 对齐交接清单](development/WINDOWS-FOLLOWUP-FROM-MAC-20261029.md)。连接中断恢复没有已知故障，只留作日常观察，不安排专项验收。此次提交源码与文档，不发布正式版本。
+
+October 29 source follow-up: R35 reconciles reliably retained queued messages after uncertain native acknowledgment. Hardware acceptance is deferred to October 30; R34/.292 remains installed. The linked Windows handoff covers new features, fixes, performance work and existing capabilities. Connection interruption is not a known defect and remains ordinary-use observation. This is a source/documentation delivery, not a formal release.
+
+当前安装（2026-10-29）：**Mac R34／TAB5 .292**。用户已确认回填、发送与正确成功提示、长按清空、句尾完整、取消重录，本轮两题切换／回填／提交及 Mac 音源名称与完整文字确认正常。R34 连续追加与末尾光标已实机通过，Mac 独立豆包恢复也已确认；Release 和 28,742 项隔离检查通过；完整 XCTest 仍受本机 CLT 缺模块限制。录音期间更换题卡会保留预览并阻止串题也已实测通过；空闲发送和运行中直接引导已通过；排队确认修复留到 10 月 30 日实机验收，连接中断只在日常使用中观察，不列已知故障；DJI 现场未连接，详见[当前语音验收记录](development/MAC-VOICE-SOURCE-20261028.md)。未公开发布。
+
+Current installation (October 29): **Mac R34 / TAB5 .292**. The user accepts staging, actual send with correct success status, clear, final words and cancel/re-record, plus this two-question flow and Mac source naming/full text. R34 sequential append/end-caret changes and ordinary Mac Doubao restoration pass physical acceptance; Release and 28,742 isolated checks pass; full XCTest is unavailable in local CLT. Recording across question-card replacement now passes preview-preserving rejection; idle sending and direct active steering pass; the queue fix awaits October 30 hardware acceptance, connection interruption remains ordinary-use observation rather than a known defect, and DJI is not connected; see the linked acceptance record. No public release.
+
+以下为历史检查点，不代表当前安装状态。 / Historical checkpoints follow; they are not current installation status.
+
+当前本机桥接：R24 录音延迟优化版（2026-10-29），保留 R21 BLE 行为及已安装 TAB5 .291。R23 已将 Codex 读取移到后台，并有界保留 TAB5 启动音频；实测收到开始请求后 503 ms 回复收音就绪，但停止至最终识别仍需 5103 ms。R24 批量读取麦克风控件、减少固定准备等待，并让最终查询及时返回；Release／28489 项隔离检查／签名通过，已部署；本次实机停止至最终识别从 5103 ms 降至 3384 ms，最终结果至响应生成 0 ms，用户确认文字完整返回，原麦克风已恢复。豆包设置页弹出仍未解决，不能将原通知方式宣称为可用后台设置接口。详见 [语音记录](development/MAC-VOICE-SOURCE-20261028.md)。
+
+2026-10-29 当前：**Mac R21 与 TAB5 .291 已部署，正常后台连接已恢复。** 修复升级读取／开始回执共用 RPC 通道时“尚未发送、通道忙”被当作终止错误的路径，并对齐 Windows 既有无线暂停机制：自动模式下实际 BLE 升级经能力协商可临时暂停 Wi-Fi，完成后恢复。完全相同 .291 镜像，R20 安装 399.979 秒，R21 两轮 338.938／340.052 秒，减少约 15%；含启动核验分别 452.618 → 390.904／392.691 秒。三轮精确 ELF／VALID／三个实时样本／显示设置保留通过，两轮 R21 零窗口重放／写入失败、无线恢复成功。逐包确认更慢，分批让出未证明收益，默认保持原生背压与 64 包窗口。剩余耗时仍集中在 CoreBluetooth 流控与确认等待，尚未拿到实际 PHY／控制器调度证据，不能声称速度已全面解决；历史 .289 的通用失败码无法反推唯一原因。Release、28464 项隔离、固件构建及故障矩阵通过；XCTest 缺模块，Windows 运行验收仍待 Windows 主机。详见[实测与限制](development/MAC-TAB5-BLE-OTA-20261029.md)。未公开发布。
+
+Current, October 29: **R21 and TAB5 .291 are installed with normal background connections restored.** Bounded mailbox admission and immutable-range recovery fix a reproducible unpublished-busy OTA exit path. An authenticated optional capability applies the existing Windows radio-pause policy to actual BLE OTA in automatic mode, restoring Wi-Fi afterward. With the identical .291 image, installation improves from R20's 399.979 s to 338.938/340.052 s (about 15%); healthy-boot completion improves from 452.618 to 390.904/392.691 s. Exact ELF/VALID/three live samples/settings pass; both R21 runs have zero window replays/write failures and successful radio restoration. Confirmed-every-fragment writes are slower; yielding has no established benefit, so default native backpressure and 64-fragment windows remain. Significant CoreBluetooth waits remain without actual PHY/controller scheduling evidence. Historical .289's generic failure cannot prove its unique cause. Release, 28464 isolated checks, firmware build and fault tests pass; XCTest and Windows runtime validation are unavailable here. See the linked results. No public release.
+
+以下继续保留历史检查点；当前安装以文首 R34／.292 为准。
+
+2026-10-29 当前：**Mac R20 与 TAB5 .290 已部署，正常后台连接已恢复。** 蓝牙参数拒绝后的有限回退实测生效，实际间隔 30 → 15 ms；相同 .290 镜像 Wi-Fi 安装 22.673 秒、BLE 重装安装 418.138 秒，含健康启动核验 474.011 秒。相比 .288/R19 的 836.485 秒，安装时间减少 50.01%（跨版镜像差 400 字节）；零窗口重放／写入失败，精确 ELF／VALID／三个实时样本／设置保留通过。仍是分钟级；.289 首轮首块前退出未确定原因，.290 重复相同正常短测后升级顺序未复现，不能宣称全面根治。Release 与 28464 项隔离检查、固件构建及故障测试通过，XCTest 仍缺模块。详见[蓝牙实测与剩余问题](development/MAC-TAB5-BLE-OTA-20261029.md)。未公开发布。
+
+Current, October 29: **R20 and TAB5 .290 are installed, with normal background connections restored.** Bounded interval fallback reduces the measured interval from 30 to 15 ms. The same .290 image installs over Wi-Fi in 22.673 s and reinstalls over BLE in 418.138 s, or 474.011 s through healthy boot. Installation is 50.01% shorter than .288/R19's 836.485 s; images differ by 400 bytes across versions. Zero replay/write failures and exact ELF/VALID/three live samples/preserved settings pass. BLE still takes minutes. An earlier .289 pre-first-block failure remains unexplained; the normal short-probe-then-upgrade sequence passed on .290, which does not establish a complete stability fix. Release, 28464 isolated checks, firmware build and fault tests pass; XCTest remains unavailable. See the linked evidence. No public release.
+
+以下继续保留 R19 及更早的历史检查点。
+
+2026-10-29 当前：**Mac R19 已安装并恢复后台运行，蓝牙 RPC 发送窗口、一次原密文恢复及批量调度已对齐 Windows 现有机制。** 完全相同 .288 的蓝牙完整安装由 959.196 秒降至 836.485 秒（减少 12.79%），0 次窗口补发、0 次写入失败，精确 ELF／VALID／三个实时样本与设置保留通过。仍有大量 CoreBluetooth 背压，且系统拒绝设备的 7.5 ms 请求；实际 interval／PHY 未测，不能宣称蓝牙速度问题已根治。候选及工作区 Release、28455 项隔离、81 项 HTTP／socket、16 项监听恢复通过，XCTest 仍缺模块。详见[蓝牙对照与验收](development/MAC-TAB5-BLE-OTA-20261029.md)。R18 的 Wi-Fi 21.666 秒结果保留，未重新测试；既有语音／清空视觉体验验收仍待完成，未公开发布。
+
+Current, October 29: **R19 is installed in the background.** BLE response windows, one immutable-ciphertext recovery and bulk scheduling align with existing Windows mechanisms. The identical .288 BLE install improves from 959.196 to 836.485 s (12.79% less), with zero response-window replays/write failures and exact ELF/VALID/three-live-sample/settings acceptance. Significant CoreBluetooth backpressure and OS rejection of the peripheral 7.5 ms request remain; actual interval/PHY is unmeasured, so this is not a complete speed fix. Candidate/workspace Release, 28455 isolated, 81 HTTP/socket and 16 listener recovery checks pass; XCTest is unavailable. See the linked BLE report. R18 Wi-Fi 21.666 s evidence is retained, not remeasured; prior physical voice/composer checks remain pending. No public release.
+
+以下保留 10 月 28 日检查点。
+
+2026-10-28 当前：**Mac R14 保持稳定分块传输，TAB5 .288 已安装，边接收边分段擦除／写入已实现并核验。** .287 连接复用后同镜像 Wi-Fi 安装 25.578 秒；.288 同镜像分块安装两轮 25.921／28.248 秒，精确 ELF／VALID／三个实时样本和设置保留通过。USB .287 实测 38.793 秒。时间均为接收至镜像校验，启动后健康核验另计；Windows 历史 13.563 秒是传输阶段，设备安装为 27.724 秒，镜像不同。Mac 连续流、MSS 和更快分块节奏实验均未通过实机性能／完整性验收，未部署，稳定策略保留。
+
+豆包安装状态已自动检测，未安装时不可选择，已移除“检查豆包”；升级后自动通过 USB／Wi-Fi／BLE 可用通道核验启动；同镜像重装已实测通过。R14 Release、3207 项隔离、47 项 HTTP、原生界面及签名检查通过；完整 XCTest 因本机 CLT 缺模块不可运行。后台语音 R9 的实际无闪现／每段后 Mac 麦克风恢复，以及 .285 清空残影的视觉复验仍待用户在设备旁确认。详见[本轮记录](development/MAC-VOICE-SOURCE-20261028.md)。本地候选未公开发布。
+
+Current, October 28: stable Mac R14 range transport remains installed; TAB5 .288 implements and verifies concurrent reception with segmented erase/write. Exact-image Wi-Fi installation takes 25.578 s on .287 and 25.921–28.248 s on .288, with exact ELF/VALID/three live samples and unchanged settings. The .287 USB install takes 38.793 s. These exclude post-boot health verification. Historical Windows records 13.563 s transfer and 27.724 s installation for a different image. Continuous-stream, MSS and faster-range experiments fail physical acceptance and are not deployed. Automatic Doubao availability, unavailable-provider rejection, automatic boot verification and explicit same-image reinstall are retained. R14 passes Release/3207 isolated/47 HTTP/native UI/signing checks; XCTest is unavailable in the installed CLT. Physical background voice restoration/flash and composer-clear visual acceptance remain pending. No public release.
+
 <!-- R26-279-CURRENT-START -->
 2026-10-26 当前：**TAB5 .279 已正常安装，精确 ELF／VALID 分区／三个实时 UI 样本核验通过，升级前后全部展示设置一致。** 用户随后切页按当前选择保留，未写回覆盖。镜像 SHA-256 `f6e540c750beb9b0ca908a221d4c80fd1caf170c112beaef2d299621387f8165`；固定 latest 与归档一致，本地交付不等于公开发布。
 

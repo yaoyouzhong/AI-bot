@@ -1,0 +1,41 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -3313,6 +3313,7 @@
+     // LVGL already selected the tab and started its snap animation. Do not
+     // restart it with LV_ANIM_OFF from its own VALUE_CHANGED callback.
+     bool default_codex=primary_pages[slot]==8&&current_page!=8;
++    if(primary_pages[slot]==1&&current_page!=1){selected_quota=1;lv_dropdown_set_selected(quota_picker,1);render_quota();}
+     page_select(primary_pages[slot],false);
+     if(default_codex){codex_default_pending=codex_default_all=true;render_codex();}
+     last_change = esp_timer_get_time() / 1000;
+@@ -3403,6 +3404,7 @@
+         return;
+     }
+     if(target>=2&&target<8)detail_return=11;
++    if(target==1){selected_quota=1;lv_dropdown_set_selected(quota_picker,1);render_quota();}
+     bool default_codex=target==8&&current_page!=8;
+     page(target);
+     if(default_codex){codex_default_pending=codex_default_all=true;render_codex();}
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2283,6 +2283,20 @@
+     puts("PET_STATUS_UI_OK working_idle_offline_unknown_waiting");
+     const int overview_quota_ids[]={1,5,6};
+     for(int i=0;i<3;i++){lv_obj_send_event(home_panels[i],LV_EVENT_CLICKED,NULL);assert(current_page==1&&selected_quota==overview_quota_ids[i]&&lv_dropdown_get_selected(quota_picker)==selected_quota);}
++    // A direct module entry resets the model, even while quota is already open.
++    for(int model=0;model<11;model++) {
++        selected_quota=model;lv_dropdown_set_selected(quota_picker,model);render_quota();page(1);
++        lv_obj_send_event(workbench_nav[2],LV_EVENT_CLICKED,NULL);
++        assert(current_page==1&&selected_quota==1&&lv_dropdown_get_selected(quota_picker)==1);
++    }
++    // Overview deep links retain their requested model; swipe/module entry resets.
++    lv_obj_send_event(home_panels[1],LV_EVENT_CLICKED,NULL);
++    assert(selected_quota==5);capture("quota-overview-deepseek");
++    page(0);lv_tabview_set_active(tabs,2,LV_ANIM_OFF);lv_obj_send_event(tabs,LV_EVENT_VALUE_CHANGED,NULL);
++    assert(current_page==1&&selected_quota==1&&lv_dropdown_get_selected(quota_picker)==1);
++    capture("quota-module-default-codex");
++    puts("QUOTA_MODULE_DEFAULT_OK eleven_models direct_reentry overview_deeplink swipe_entry");
++    if(getenv("TAB5_QUOTA_NAV_ONLY"))return 0;
+     lv_obj_send_event(home_weather_action,LV_EVENT_CLICKED,NULL);assert(current_page==2);workbench_return(NULL);assert(current_page==0);
+     calendar_set_today(2026,9,23);lv_obj_send_event(home_calendar_action,LV_EVENT_CLICKED,NULL);assert(current_page==12);
+     assert(strstr(lv_label_get_text(home_holiday),"家人")&&strstr(lv_label_get_text(home_holiday),"2 天"));

@@ -1,0 +1,27 @@
+{
+  "reference": "docs/development/tab5-283-source/AI-bot-tab5-0.2.283-ui-source.zip",
+  "commit": "b4445622c073f0785299d27982bc8204d372d22b",
+  "baseVersion": "0.2.283-ui",
+  "candidateVersion": "0.2.284-ui",
+  "archiveSHA256": "0750f5f1dd9d77165dc45f88b70070a434c44b582ecc42e4db9967186e092898",
+  "patchSHA256": "edb60ceea58bf9370ff01aaefd0c82d0eeb889d88d0713c5b52927a149a83745",
+  "files": {
+    "firmware/main/ui.c": {
+      "before": "9ab28533a8e1c0c1af806afaf0844b2940a71f0e114e8144b3bf09320dd5385f",
+      "after": "1504cc1f0f52a2bb94086453204777cc123167f7f745abd30600e37e0f10a143"
+    },
+    "firmware/main/ui_dashboard.h": {
+      "before": "6480fb810e4022ec5289139a46dc3e5734984e6f14c60b8330a8a04d60cfcf5e",
+      "after": "40495d4c096ef56b18e7b07aab1aa0beb575e56a02181159cefcfb36074b7adf"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "740e67da7f5ef66870bcfa875ab024358abdc8c961a271c792cf632d2ff0459c",
+      "after": "482bdc912fc3360da404c52ea50009c7e40f02b660306487f9f0deca7dda833e"
+    },
+    "tests/ui-preview/voice_source_label_test.h": {
+      "before": null,
+      "after": "2e1174622a5f788314f4c56cb60ae9012d1e329de78ddef95778a7952e21337e"
+    }
+  },
+  "status": "0.2.284-ui built from verified .283, installed with user authorization, exact ELF/VALID/three live samples verified; display settings preserved. Native LVGL source/caption checks pass; final user recording-label feedback pending."
+}

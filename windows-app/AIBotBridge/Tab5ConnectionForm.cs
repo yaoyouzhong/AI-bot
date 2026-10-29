@@ -100,6 +100,7 @@ internal sealed class Tab5ConnectionForm : Form
             var presentation=service.UpgradeStatusText;otaStatus.SetStatus(presentation);
             if(otaResult&&presentation.State is "设备已运行" or "已核验" or "正在停止" or "已停止"){result.Text="";otaResult=false;}
             startOta.Enabled=service.CanStartOta;offerOta.Enabled=service.CanSelectOta;
+            startOta.Text=service.SameOtaVersion?"重新安装":"开始升级";
             if(!verifying)bootState.Text=service.UpgradeBootSummary;
             verifyOta.Enabled=!verifying&&service.CanVerifyUpgrade;
             bootRow.Visible=service.HasOta;
@@ -115,6 +116,7 @@ internal sealed class Tab5ConnectionForm : Form
         tabs.SelectedIndexChanged+=(_,_)=>UpdateConnection();UpdateConnection();
         UpdateOffer();
         startOta.Click+=async(_,_)=> {
+            if(service.SameOtaVersion&&MessageBox.Show(this,"将重新传输并写入所选的同版本固件，保留当前设置。请保持供电。", "重新安装当前版本？",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return;
             startOta.Enabled=false;otaResult=true;
             try {await service.StartOtaAsync(_stop.Token);if(!IsDisposed)result.Text=service.RemoteOtaStatus;}
             catch(OperationCanceledException){}

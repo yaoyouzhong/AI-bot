@@ -192,6 +192,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard !MacDoubaoSpeech.hasActiveSession else { return false }
         openTab5()
         return false
     }
@@ -319,6 +320,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let snapshot = reader.capture(extras: dataStore.snapshot())
         tab5?.assets.updatePets([MacPetCache.shared.selection("claude"), MacPetCache.shared.selection("codex")])
         tab5?.publish(devices.filter(snapshot, kind: "tab5"))
+        if let tab5, let pair = tab5.currentPairing,
+           let transport = tab5.usbActive ? "USB" : tab5.bootTransport,
+           tab5.firmwareControl.beginAutomaticBootCheck(device: pair.deviceId, transport: transport), transport == "USB" {
+            tab5USB?.verifyBoot(prepared: true) { _ in }
+        }
         statusItem.button?.toolTip = "AI-bot Bridge\nCodex：\(statusLabel(snapshot.codex.state))\nClaude：\(statusLabel(snapshot.claude.state))"
         updateAutomaticScreenSaver(snapshot)
         let health = runtimeHealth.snapshot(metrics:snapshot.systemMetrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:tab5?.codex.isEnabled ?? false,desktopObserved:tab5?.codex.canMutate ?? false,network:networkDiagnostics.snapshot())

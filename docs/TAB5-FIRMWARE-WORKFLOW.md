@@ -20,11 +20,13 @@
 ./scripts/preview-ui.ps1 -Clang -NotesPath '../AI-bot/artifacts/firmware/tab5/latest/aibot_tab5.bin.notes.json'
 ```
 
-修改说明后须在桥接重新选择固件才能加载新说明；同版本不重复刷机。刷机仍需对应候选的用户授权，刷入后核验精确镜像与启动状态。TAB5 保留用户当前展示设置，不执行恢复自动模式、启用轮播或 `--restore-cycle-default`；自动轮播恢复要求仅适用于 ESP8266 小屏。
+修改说明后须在桥接重新选择固件才能加载新说明。允许用户明确选择重新安装同版本、同镜像；TAB5 0.2.286-ui 起支持，不自动重复刷机。每次手动开始使用新的升级请求与提供标识，仍校验镜像、保存草稿、写入备用分区并核验精确镜像与启动状态。相同版本号不代表本次重装完成。刷机仍需用户对相应操作的授权。TAB5 保留用户当前展示设置，不执行恢复自动模式、启用轮播或 `--restore-cycle-default`；自动轮播恢复要求仅适用于 ESP8266 小屏。
 
 Windows 候选可在 development 目录构建和自检，实际运行沿用固定的 `windows-app/AIBotBridge/bin/Release/net8.0-windows10.0.19041.0/AIBotBridge.exe`。更新前正常退出并备份原运行文件，再部署已核验的二进制、核对哈希及用户资料目录，再从固定路径启动。仅 ESP8266 小屏按项目规则恢复轮播；TAB5 不执行该步骤。每次从新候选目录运行可能再次触发 Windows 网络访问授权；不为测试改动防火墙规则。
 
 ## English
+
+Explicit same-version and identical-image reinstall is allowed from TAB5 0.2.286-ui. Each manual start gets fresh request and offer IDs; there is no automatic repeat. Preserve draft saving, image validation, inactive-partition writes and exact boot verification. An unchanged version alone cannot prove that a reinstall completed. Obtain user authorization for the operation and preserve display preferences.
 
 Build and test Windows candidates under development, but run validated binaries from the existing fixed Release path. Exit normally, back up runtime files, verify deployed hashes and the user profile, then restart there. Carousel restoration applies only to ESP8266 small screens. Preserve TAB5 display preferences; do not run `--restore-cycle-default` for TAB5 acceptance. New executable paths may trigger repeated Windows network-access prompts; do not modify firewall rules for testing.
 

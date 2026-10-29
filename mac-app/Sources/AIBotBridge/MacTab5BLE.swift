@@ -80,6 +80,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var lastVoiceActivity: TimeInterval = -.infinity
     private var lastControlProbe: TimeInterval = -.infinity
     private var lastControlActivity: TimeInterval = -.infinity
+    private var lastBulkActivity: TimeInterval = -.infinity
     private var probingVoice = false
     private var admission = MacTab5BLEAdmission()
     private var deadline: TimeInterval = 0
@@ -93,11 +94,31 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var packets: [Data] = []
     private var packetIndex = 0
     private var awaitingWrite = false
+    private var writeCapabilities = MacTab5BLEWriteSchedule.Capabilities()
+    private var writeSchedule: MacTab5BLEWriteSchedule?
+    private var writeSubmissions = 0, writeConfirmations = 0, writeReplays = 0, writeBackpressure = 0
+    private var bulkReplies = 0, bulkBytes = 0, writeFailures = 0
+    private var backpressureTiming = MacTab5BLEWaitMetrics(), confirmationTiming = MacTab5BLEWaitMetrics()
+    var transferStatistics: [String: Int] { queue.sync {
+        var result = ["submittedFragments": writeSubmissions, "confirmedFragments": writeConfirmations,
+         "replayedWindows": writeReplays, "backpressurePauses": writeBackpressure,
+         "negotiatedWriteWindow": writeCapabilities.bulk, "bulkReplies": bulkReplies, "bulkBytes": bulkBytes,
+         "writeFailures": writeFailures, "attributeWriteMaximum": peer.map { writeMaximum($0) } ?? 0]
+        for (key, value) in backpressureTiming.values { result["backpressure_" + key] = value }
+        for (key, value) in confirmationTiming.values { result["confirmation_" + key] = value }
+        return result
+    } }
     private var completed: [CBUUID: UInt32] = [:]
     private var resourceTurn = false
     private var voiceTurn = false
 
-    init(service: MacTab5Service) { self.service = service; super.init() }
+    private let attributeLimit: Int
+    private let diagnosticWriteMode: String
+    private var writeYieldScheduled = false
+    init(service: MacTab5Service, diagnosticSinglePDU: Bool = false, diagnosticWriteMode: String = "normal") {
+        self.service = service; attributeLimit = diagnosticSinglePDU ? 244 : 488
+        self.diagnosticWriteMode = diagnosticWriteMode; super.init()
+    }
     func setEnabled(_ value: Bool) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -121,6 +142,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     func stopAndWait() { queue.sync { enabled = false; central?.stopScan(); reset("蓝牙已暂停，正在操作设备"); timer?.cancel(); timer = nil } }
     private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
     private func reset(_ message: String) {
+        backpressureTiming.end(now, cancelled: true); confirmationTiming.end(now, cancelled: true)
         service.bleDiagnostics.failCurrent()
         voiceWindow = nil; voiceWindowCompletion = nil; voiceGrantPending = false
         rpcWindow = nil; rpcWindowCompletion = nil; rpcGrantPending = false
@@ -130,8 +152,11 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         voiceDescriptorDiscovery = false; voiceDescriptor = nil
         voiceSubscriptionRecovery = MacTab5BLENotificationRecovery()
         lastVoiceProbe = -.infinity; lastVoiceActivity = -.infinity; lastControlProbe = -.infinity; lastControlActivity = -.infinity; probingVoice = false
+        lastBulkActivity = -.infinity
         admission.reset()
         readCompletion = nil; writeCompletion = nil; reading = nil; writing = nil; packets = []; awaitingWrite = false
+        writeSchedule = nil; writeCapabilities = MacTab5BLEWriteSchedule.Capabilities()
+        writeYieldScheduled = false
         busy = false; nonce = nil; authenticatedDevice = nil; packedStatus = false; deltaStatus = false; statusDelta.reset(); characteristics = [:]; completed = [:]
         if let peer { central?.cancelPeripheralConnection(peer) }
         peer = nil; lastFrame = -.infinity; nextScan = now + 3
@@ -194,7 +219,9 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             let uuid = priority == .voice ? MacTab5BLEWire.voice : MacTab5BLEWire.rpc
             if let endpoint = characteristics[uuid] { pump(endpoint, pair: pair) } else { busy = false }
         }
-        else if MacTab5BLEControlPacing.active(now:now,lastControl:lastControlActivity,lastFrame:lastFrame),let endpoint = characteristics[MacTab5BLEWire.rpc] { pump(endpoint,pair:pair) }
+        else if MacTab5BLEWriteSchedule.prioritizeBulk(now:now,lastBulk:lastBulkActivity,lastFrame:lastFrame) ||
+                    MacTab5BLEControlPacing.active(now:now,lastControl:lastControlActivity,lastFrame:lastFrame),
+                let endpoint = characteristics[MacTab5BLEWire.rpc] { pump(endpoint,pair:pair) }
         else if now - lastFrame >= 2 { sendStatus(pair) }
         else if !service.configurationBusy && service.assets.hasPending && resourceTurn && now - lastVoiceActivity >= 1.5 { resourceTurn = false; sendStatus(pair, resources: true) }
         else {
@@ -267,6 +294,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
                 self.deltaStatus = MacTab5BLEDelta.supports(root, pair: pair, nonce: nonce)
                 self.voiceCredits = MacTab5BLEVoiceWindow.credits(root)
                 self.rpcCredits = MacTab5BLERPCWindow.credits(root)
+                self.writeCapabilities = MacTab5BLEWriteSchedule.Capabilities(root)
                 self.nonce = nonce; self.authenticatedDevice = pair.deviceId; self.service.observeBLEInfo(root, nonce: nonce)
                 try self.admission.authenticated(self.admission.generation, pair: pair, requiresProof: requiresProof)
                 if requiresProof { self.sendOwnerProof(pair, nonce: nonce) }
@@ -429,6 +457,10 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         guard characteristic.properties.contains(.write), !values.isEmpty else { completion(.failure(MacTab5Error.unsupported)); return }
         let generation = admission.generation
         packets = values; packetIndex = 0; writing = characteristic; awaitingWrite = false
+        let mailbox = characteristic.uuid == MacTab5BLEWire.rpc && values[0].first == 2 && values[0].count > 9
+        let bulk = mailbox && MacTab5Mailbox.u16(values[0], 7) > 12288
+        writeSchedule = MacTab5BLEWriteSchedule(count: values.count, mailbox: mailbox, bulk: bulk,
+            withoutResponse: characteristic.properties.contains(.writeWithoutResponse) && !(bulk && diagnosticWriteMode == "confirmed"), capabilities: writeCapabilities)
         writeCompletion = { [weak self] result in
             guard let self, self.enabled, self.admission.accepts(generation, pair: self.service.currentPairing) else { return }
             guard !self.busy || self.now <= self.deadline else { self.reset("蓝牙操作超时，等待重连"); return }
@@ -437,7 +469,7 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         writeNext()
     }
     private func writeNext() {
-        guard let peer, let characteristic = writing, !awaitingWrite, !probingVoice else { return }
+        guard let peer, let characteristic = writing, !awaitingWrite, !probingVoice, !writeYieldScheduled else { return }
         guard admission.accepts(admission.generation, pair: service.currentPairing) else { reset("配对已改变，取消旧传输"); return }
         // Only probe at an acknowledged boundary, without advancing the mailbox
         // cursor or executing its request. A full voice exchange could exceed the
@@ -457,31 +489,54 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             return
         }
         service.bleDiagnostics.stage(.writing)
+        var submitted = 0
         while packetIndex < packets.count {
-            // Four no-response submissions followed by an ATT barrier. The final
-            // packet always has a response; only the signed whole-frame ACK confirms data.
-            let fast = characteristic.properties.contains(.writeWithoutResponse) && packetIndex % 5 != 4 && packetIndex + 1 < packets.count
-            if fast && !peer.canSendWriteWithoutResponse { return }
+            // CoreBluetooth's native backpressure replaces WinRT submission
+            // completion. Each negotiated window ends with an ATT cursor barrier.
+            let fast = writeSchedule?.requiresResponse(at: packetIndex) == false
+            if fast && !peer.canSendWriteWithoutResponse { writeBackpressure += 1; backpressureTiming.begin(now); return }
             let bytes = packets[packetIndex]; packetIndex += 1
             awaitingWrite = !fast
             service.bleDiagnostics.submit(bytes.count)
+            writeSubmissions += 1
+            if awaitingWrite { confirmationTiming.begin(now) }
             peer.writeValue(bytes, for: characteristic, type: fast ? .withoutResponse : .withResponse)
             if awaitingWrite { return }
+            submitted += 1
+            if diagnosticWriteMode == "yield8", submitted == 8, packetIndex < packets.count {
+                writeYieldScheduled = true
+                let generation = admission.generation
+                queue.async { [weak self] in
+                    guard let self, self.admission.generation == generation else { return }
+                    self.writeYieldScheduled = false; self.writeNext()
+                }
+                return
+            }
         }
-        let callback = writeCompletion; writing = nil; writeCompletion = nil; packets = []; callback?(.success(Void()))
+        let callback = writeCompletion; writing = nil; writeCompletion = nil; packets = []; writeSchedule = nil; callback?(.success(Void()))
     }
     func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
         guard peer === peripheral else { return }
+        backpressureTiming.end(now)
         if voiceGrantPending { submitVoiceGrant() } else if rpcGrantPending { submitRPCGrant() } else { writeNext() }
     }
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         guard peer === peripheral, writing === characteristic, awaitingWrite else { return }
+        confirmationTiming.end(now)
         awaitingWrite = false
-        if let error { let callback = writeCompletion; writing = nil; writeCompletion = nil; callback?(.failure(error)) }
-        else { writeNext() }
+        if let error {
+            let failure = error as NSError
+            if failure.domain == CBATTErrorDomain, let start = writeSchedule?.recover(protocolError: failure.code) {
+                // Exact cached ciphertext, one confirmed replay of this window.
+                // Authentication, disconnect and cancellation errors never retry.
+                packetIndex = start; writeReplays += 1; writeNext(); return
+            }
+            writeFailures += 1
+            let callback = writeCompletion; writing = nil; writeCompletion = nil; writeSchedule = nil; callback?(.failure(error))
+        } else { writeConfirmations += 1; writeSchedule?.acknowledged(next: packetIndex); writeNext() }
     }
     private func writeMaximum(_ peer: CBPeripheral) -> Int {
-        min(488, peer.maximumWriteValueLength(for: .withResponse), peer.maximumWriteValueLength(for: .withoutResponse))
+        min(attributeLimit, peer.maximumWriteValueLength(for: .withResponse), peer.maximumWriteValueLength(for: .withoutResponse))
     }
     private func sendStatus(_ pair: MacTab5Pairing, resources: Bool = false) {
         guard let peer, let input = characteristics[MacTab5BLEWire.input], let nonce else { reset("蓝牙状态不可用"); return }
@@ -588,6 +643,9 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
                 do {
                     try result.get(); guard let self else { return }
                     self.service.bleDiagnostics.finish(diagnostic, success: true); self.completed[endpoint.uuid] = id
+                    if endpoint.uuid == MacTab5BLEWire.rpc && reply.1.count > 12288 {
+                        self.lastBulkActivity = self.now; self.bulkReplies += 1; self.bulkBytes += reply.1.count
+                    }
                     if endpoint.uuid == MacTab5BLEWire.voice { self.lastVoiceActivity = self.now }
                     self.finishMailbox(completedVoice: endpoint.uuid == MacTab5BLEWire.voice,completedControl:endpoint.uuid == MacTab5BLEWire.rpc)
                 }
@@ -599,7 +657,8 @@ final class MacTab5BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         busy = false
         if completedControl { lastControlActivity = now }
         let voiceDelay = MacTab5BLEVoicePacing.continuationDelay(now:now,lastVoice:lastVoiceActivity,completedVoice:completedVoice)
-        guard let delay = voiceDelay ?? (completedControl ? 0.02:nil) else { return }
+        let controlDelay = MacTab5BLEWriteSchedule.continuationDelay(now: now, lastControl: lastControlActivity, completed: completedControl)
+        guard let delay = voiceDelay ?? controlDelay else { return }
         let generation = admission.generation
         queue.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, self.admission.generation == generation else { return }; self.tick()

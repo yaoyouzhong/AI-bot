@@ -84,7 +84,7 @@ final class MacTab5DesktopTests: XCTestCase {
         let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: fixture.backend)
         let result = desktop.handle(["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "second"], device: "A")
         XCTAssertEqual(result.status, 200); XCTAssertEqual(result.body["appended"] as? Bool, true)
-        XCTAssertEqual(fixture.value, "\noriginal \n\nsecond")
+        XCTAssertEqual(fixture.value, "\noriginal \n second")
     }
     func testReadbackWaitsForExactBodyAndReturnsRawParagraphEndings() {
         var values: [String?] = ["old", nil, "测试输入\r\n"], reads = 0, waits = 0

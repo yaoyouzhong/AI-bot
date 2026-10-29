@@ -32,6 +32,7 @@ final class MacTab5Service {
     private var lastBLE: TimeInterval = -.infinity
     private var bleNote = "尚未启用"
     private var firmware: String?
+    private var firmwareDevice: String?
     private var usbNote = "尚未连接"
     private var usbAuthenticationRejected = false
     private var discoveryNote = "等待启动"
@@ -67,6 +68,7 @@ final class MacTab5Service {
         self.deviceEnabled = enabled; self.sourceEnabled = sourceEnabled
         self.birthdays = birthdays; self.agenda = agenda
         desktop = MacTab5Desktop(codex: codex)
+        voice.beforeStart = { [weak desktop] task, device in desktop?.prepareVoice(task: task, device: device) }
         computer.unlockConfigured = { [unlock] in unlock.hasCredential }
         do { pairing = try load(); try pairing?.validate() }
         catch { pairingReadable = false; usbNote = "无法读取配对记录，请检查钥匙串权限" }
@@ -113,10 +115,17 @@ final class MacTab5Service {
         guard !usbAuthenticationRejected else { throw MacTab5LocalError.invalid("USB 已连接，但此 Mac 未通过设备认证；请先通过 USB 验证配对，固件尚未传输。") }
         let now = ProcessInfo.processInfo.systemUptime
         guard deviceEnabled(), !stopped, !maintenance, activeOperations == 0, now - lastUSB < 8 || now - lastWiFi < 8 || now - lastBLE < 8, let pair = pairing, pair.confirmed, let version = firmware, let image = firmwareControl.selected,
-              version != image.version, displayCompletion == nil else { throw MacTab5LocalError.invalid("请先连接 TAB5、选择不同版本固件并完成当前操作。") }
+              displayCompletion == nil else { throw MacTab5LocalError.invalid("请先连接 TAB5、选择固件并完成当前操作。") }
         let parts = version.replacingOccurrences(of: "-ui", with: "").split(separator: ".").compactMap { Int($0) }
         guard parts.count == 3, parts.lexicographicallyPrecedes([0, 2, 190]) == false else { throw MacTab5LocalError.invalid("此设备需先在 TAB5 上确认一次升级，之后才支持电脑端开始升级。") }
-        try firmwareControl.start(device: pair.deviceId)
+        guard version != image.version || Self.supportsReinstall(version) else { throw MacTab5LocalError.invalid("设备固件尚不支持同版本重装，请先升级到 0.2.286-ui 或更新版本。") }
+        try firmwareControl.start(device: pair.deviceId, reinstall: version == image.version)
+    }
+    static func supportsReinstall(_ version:String) -> Bool {
+        let parts = version.split(separator:".")
+        guard parts.count == 3, parts[0] == "0", parts[1] == "2", parts[2].hasSuffix("-ui"),
+              let patch = Int(parts[2].dropLast(3)) else { return false }
+        return patch >= 286
     }
     struct ConnectionStatus {
         let device: String
@@ -201,7 +210,7 @@ final class MacTab5Service {
         guard let version = root["firmware"] as? String, version.utf8.count <= 40,
               let proof = root["firmwareProof"] as? String,
               MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: proof) else { return }
-        firmware = version
+        firmware = version; firmwareDevice = pair.deviceId
         firmwareControl.observeVersion(version)
     }
     func observeUSBInfo(_ root: [String: Any]) {
@@ -209,7 +218,8 @@ final class MacTab5Service {
         guard root["deviceId"] as? String == pairing?.deviceId else { return }
         usbReportedActive = (root["active"] as? String).flatMap { ["USB", "Wi-Fi", "BLE", "Offline"].contains($0) ? $0 : nil }
         if let ids = root["assetIds"] as? String { assets.acknowledge(ids) }
-        if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version; firmwareControl.observeVersion(version) }
+        if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version; firmwareDevice = pairing?.deviceId; firmwareControl.observeVersion(version) }
+        firmwareControl.observeDeviceOTA(root["otaDiag"])
         if let context = diagnosticContextLocked() { deviceDiagnostics.recordUSB(root,context:context) }
     }
     func publish(_ value: MacStatusSnapshot) { lock.lock(); snapshot = value; lock.unlock() }
@@ -316,6 +326,8 @@ final class MacTab5Service {
             logicalProcessors: ProcessInfo.processInfo.activeProcessorCount, codexEnabled: codex.isEnabled,
             desktopObserved: codex.canMutate, network: networkDiagnostics()) : nil
         additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
+        additions["rpcOtaZlib"] = 1; additions["rpcOtaResume"] = 1
+        additions["rpcOtaBleRadioLease"] = 1
         let offer = firmwareControl.projection(frameEpochMilliseconds:Int64(snapshot.capturedAt.timeIntervalSince1970*1000))
         additions["ota"] = offer.offer.map { $0 as Any } ?? NSNull()
         var health = offer.health
@@ -385,7 +397,7 @@ final class MacTab5Service {
             if let ids = headers["x-aibot-assets"], let assetProof = headers["x-aibot-assets-proof"],
                MacTab5Protocol.verify(key: pair.key, message: "ASSETS|\(nonce)|\(ids)", proof: assetProof) { assets.acknowledge(ids) }
             if let version = headers["x-tab5-firmware"], version.utf8.count <= 40, let firmwareProof = headers["x-tab5-firmware-proof"],
-               MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: firmwareProof) { firmware = version; firmwareControl.observeVersion(version) }
+               MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: firmwareProof) { firmware = version; firmwareDevice = pair.deviceId; firmwareControl.observeVersion(version) }
             let full = try frameLocked()
             let wire = try MacTab5WiFiStatus.wire(full,headers:headers,pair:pair,nonce:nonce)
             let packet = try MacTab5Protocol.encrypt(wire, key: pair.key, challenge: nonce)
@@ -463,9 +475,9 @@ final class MacTab5Service {
                 // the device retries its idempotent read receipt after voice.
                 result = .error(503,"voice_busy")
             }
-            else if root["kind"] as? String == "codex" { result = codex.handle(root, device: device) }
+            else if root["kind"] as? String == "codex" { result = codex.handleDevice(root, device: device) }
             else if root["kind"] as? String == "voice" {
-                result = voice.handle(root, device: device, waitForFinal: transport == "BLE")
+                result = voice.handle(root, device: device, waitForFinal: transport == "BLE" || transport == "USB")
                 if transport == "BLE", result.status == 200, let operation = MacTab5BLEDiagnostics.VoiceOperation(rawValue: root["op"] as? String ?? "") {
                     bleDiagnostics.voice(operation, terminal: result.status == 200 && ["review", "cancelled", "error"].contains(result.body["state"] as? String ?? ""))
                 }
@@ -485,12 +497,23 @@ final class MacTab5Service {
         return reply.map { (200, $0) } ?? (500, Data())
     }
 
-    func ota(device: String, nonce: String, proof: String, sha: String) -> (Int, Data) {
+    var pipelinedOTA: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return firmwareDevice == pairing?.deviceId && MacTab5OTAEncoding.supportsRanges(firmware,minimumPatch:288)
+    }
+    func ota(device: String, nonce: String, proof: String, sha: String, compressed:Bool = false, transfer:UUID = UUID()) -> (Int, Data) {
         lock.lock(); defer { lock.unlock() }
         guard deviceEnabled(), !stopped, !maintenance else { return (503, Data()) }
         guard let pair = pairing, pair.confirmed, pair.deviceId == device, MacTab5Protocol.isHex(sha, count: 64), MacTab5Protocol.isHex(nonce, count: 32),
               MacTab5Protocol.verify(key: pair.key, message: "GET|/tab5/v1/ota/\(sha)|\(device)|\(nonce)", proof: proof) else { return (401, Data()) }
-        guard let bytes = firmwareControl.bytes(sha: sha) else { return (404, Data()) }
+        // .257+ already switches an initial 503 to authenticated range RPCs.
+        // Avoid the Mac long-stream retransmission stall from the first block;
+        // unknown/older peers retain the original streaming response.
+        if compressed, firmwareDevice == device, MacTab5OTAEncoding.supportsRanges(firmware),
+           !MacTab5OTAEncoding.supportsRanges(firmware,minimumPatch:288) {
+            return (firmwareControl.beginRanges(sha:sha) ? 503:404, Data())
+        }
+        guard let bytes = firmwareControl.bytes(sha:sha,compressed:compressed,transfer:transfer) else { return (404, Data()) }
         return (200, bytes)
     }
 

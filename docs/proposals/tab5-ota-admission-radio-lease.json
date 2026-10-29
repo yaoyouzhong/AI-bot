@@ -1,0 +1,54 @@
+{
+  "baseVersion": "0.2.290-ui",
+  "baseImageSHA256": "8622f23e26562946f699b2bea7ba0a0dad05dfc1bb072354600a5194bc5b66df",
+  "parentProvenance": "tab5-ble-interval-compatible-range.json",
+  "candidateVersion": "0.2.291-ui",
+  "imageSHA256": "c159109f154b56e9d9bed2917cc8e4f2a2786fcef54a700d0a6fbf3612b33234",
+  "patchSHA256": "eae4e8d31055f88ebf1026a38c9704dd3e5b17f12295684c9710df7874ec85ee",
+  "files": {
+    "firmware/main/rpc_bulk_radio.inc": {
+      "before": "cebddde0f6aeb353a0abf56e0a49e77e005c229f476ca4b2ed38e2fe43326806",
+      "after": "11555d5ded3e5ff04a6f3003373bf6bfa4978ff157d823cc87c3f4e956cbdaeb"
+    },
+    "firmware/main/wifi_link.c": {
+      "before": "58571a74219384e39f58290876e7d920596ddeafe9b9ba891a08d46be7dfcda4",
+      "after": "3bcd8ec41d9ebe30e1978551cb0b816ad10f7f682a577a90e0535d3d9e67e85f"
+    },
+    "firmware/main/wifi_probe.c": {
+      "before": "43073247ccc6071470b9d6761130f986b07bc98b9bbcd096dccb379ac2e5582d",
+      "after": "785e7023dd3d2025879ee6be59eb09c50ed451af350676b8b741a454f537e7a9"
+    },
+    "firmware/main/rpc_link.c": {
+      "before": "a025c2b8f77a603ba850cd4c9ffc589905359b2aad86864b0df69e335dabe6b1",
+      "after": "cf6731daf0890ff402faa1905f8c01038f132988df862e36998d6d6327b28129"
+    },
+    "firmware/main/ota_resume.h": {
+      "before": "9d732bf069a8b95f728c075a9207eb20ce2555ad6db8fd1175eb280da07b6f80",
+      "after": "e43dd579fb1d2007eb3a0cc8bc38796e11d2c037514136f415dd172547c27a48"
+    },
+    "firmware/main/wifi_probe.h": {
+      "before": "f24462d183d46ce9b73e60cf0559cc9f3298149f7377831e9267bc41d97d5cf4",
+      "after": "4b8136c949d600f26d989cf20748528ffd94991d9c2e6641030297e88e778fa9"
+    },
+    "tests/host_unlock_timeout_test.c": {
+      "before": "f16a20cce8baa6355f438ba2069fb731abdfea4903e6765904bed6eec51cf227",
+      "after": "a375a5a40b7f4e085728a3c25da60ba4a5310215c733ba4b33aa39391796f5c7"
+    },
+    "tests/ui-preview/wifi_probe_test.c": {
+      "before": "77ed51ca921371ff3b6abce1ae888275c005778ac7dfc96e0731a68ed29e1f63",
+      "after": "4b72d1d7fab0ec9572ef914c190ca6fc100d8b90fc003a728ae67ec2f20d7858"
+    },
+    "tests/ui-preview/rpc_bulk_radio_test.c": {
+      "before": "a30c14a9bd9152d4f00ba26f5d1ad60b35cb02a351b3aef8c4c4b27352742132",
+      "after": "f8512737bb7025958a3fe83515e2edfdb0f0fd76d387e54032525529747fca03"
+    },
+    "tests/ui-preview/rpc_admission_test.c": {
+      "before": "df1b6813f23b30d2ddbbd847a2eb744f36c99658417451d107a170ee9f2f547b",
+      "after": "c1849181405541c94fdccdc7859e38fd47425c310f4d418126c165a6833ebe9d"
+    },
+    "tests/ui-preview/ota_update_test.c": {
+      "before": "0b3f8fb00068808276021b17a97ad461c549a7a48bd78b6e860922cff6f1caf4",
+      "after": "fe237dd86491df1774297768dd4559052394d49c1cf7c4e6f0000e68e79163a5"
+    }
+  }
+}

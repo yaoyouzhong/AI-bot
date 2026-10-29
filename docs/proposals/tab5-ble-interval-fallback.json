@@ -1,0 +1,22 @@
+{
+  "baseVersion": "0.2.288-ui",
+  "baseImageSHA256": "7b6a2e30956fddde7f774de2f3d45f060d95a32d6b1b07eefeb82e63c65176d0",
+  "candidateVersion": "0.2.289-ui",
+  "patchSHA256": "bba7db8b4bad03b4e28207167de975a1bec7384d616cf39e693abc3267ece980",
+  "files": {
+    "firmware/main/ble_performance.inc": {
+      "before": "fcd606d9e5d51942f636d9951522b61286663cbb828a0c191cd75c5893b953a3",
+      "after": "3524b437636136d121a31c436781aeda374858271ad5c0c877b4ac40886973cb"
+    },
+    "firmware/main/ble_link.c": {
+      "before": "38aa0fd81fd40981e4dc995736ef8b3562f4a00a36d7285671f8ff7068004ca8",
+      "after": "ae96c86227ada8ac24e0f70d8835e53a8484568dbfe29f09342608912cf1106a"
+    },
+    "tests/ui-preview/ble_performance_test.c": {
+      "before": null,
+      "after": "c984d8c23cbef3ad73ae522df9537ffcc3c7a9b751592a774f0ea5caf0a5fc19"
+    }
+  },
+  "status": "installed; first full BLE attempt failed before first block (cause unresolved); second passed: install 413.770 s, exact boot/settings accepted",
+  "candidateImageSHA256": "8f57637fa1d61410baf580fbb0645c7cff5738d786abbb14b1efd9bf91809369"
+}

@@ -1,0 +1,253 @@
+--- a/firmware/main/rpc_bulk_radio.inc
++++ b/firmware/main/rpc_bulk_radio.inc
+@@ -1,17 +1,27 @@
+ // Reuse the worker-owned radio lease for real BLE bulk transfers. Never release
+-// a gallery/preflight owner's lease or stop Wi-Fi in automatic selection mode.
++// a gallery/preflight owner's lease. AUTO isolation is opt-in, immutable OTA only.
+ static bool rpc_bulk_radio_begin(link_kind link,cJSON *request,size_t upload_size,size_t capacity) {
+-    if(link!=LINK_BLE||(upload_size<=12288&&capacity<=12288)||device_get_config().mode!=LINK_BLE)return false;
++    if(link!=LINK_BLE||(upload_size<=12288&&capacity<=12288))return false;
++    int mode=device_get_config().mode;
++    cJSON *ota_kind=cJSON_GetObjectItemCaseSensitive(request,"kind");
++    bool automatic=false;
++    if(mode==-1&&cJSON_IsString(ota_kind)&&!strcmp(ota_kind->valuestring,"ota")) {
++        xSemaphoreTake(device_mutex,portMAX_DELAY);
++        cJSON *cap=cJSON_GetObjectItemCaseSensitive(device_snapshots[LINK_BLE],"rpcOtaBleRadioLease");
++        automatic=cJSON_IsNumber(cap)&&cap->valuedouble==1;
++        xSemaphoreGive(device_mutex);
++    }
++    if(mode!=LINK_BLE&&!automatic)return false;
+     // Explicit diagnostic preflights retain their selected comparison condition.
+     cJSON *kind=cJSON_GetObjectItemCaseSensitive(request,"kind");
+     if(cJSON_IsString(kind)&&(!strcmp(kind->valuestring,"ota_probe")||
+        (!strcmp(kind->valuestring,"benchmark")&&cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(request,"otaProbe")))))return false;
+-    if(!wifi_probe_begin_rpc_bulk())return false;
++    if(!(automatic?wifi_probe_begin_ota():wifi_probe_begin_rpc_bulk()))return false;
+     int64_t until=esp_timer_get_time()+500000;
+     tab5_wifi_wake();
+-    while(wifi_probe_pending()&&!wifi_probe_ready()&&device_get_config().mode==LINK_BLE&&ble_connected&&esp_timer_get_time()<until)
++    while(wifi_probe_pending()&&!wifi_probe_ready()&&device_get_config().mode==mode&&ble_connected&&esp_timer_get_time()<until)
+         vTaskDelay(pdMS_TO_TICKS(10));
+-    if(!wifi_probe_ready()||device_get_config().mode!=LINK_BLE||!ble_connected) {
++    if(!wifi_probe_ready()||device_get_config().mode!=mode||!ble_connected) {
+         wifi_probe_end();tab5_wifi_wake();return false;
+     }
+     return true;
+--- a/firmware/main/wifi_link.c
++++ b/firmware/main/wifi_link.c
+@@ -202,7 +202,7 @@
+         vTaskDelay(1);
+         device_config cfg=device_get_config();
+         bool probe_reconnect=false;
+-        if(wifi_probe_service(cfg.mode==LINK_BLE&&(!wifi_probe_requires_usb()||tab5_usb_connected()),&probe_reconnect)) {
++        if(wifi_probe_service((cfg.mode==LINK_BLE||(cfg.mode==-1&&wifi_probe_allows_auto()&&ble_connected&&ble_host_authorized()&&!device_host_changing()))&&(!wifi_probe_requires_usb()||tab5_usb_connected()),&probe_reconnect)) {
+             ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(100));continue;
+         }
+         wifi_performance_idle();
+--- a/firmware/main/wifi_probe.c
++++ b/firmware/main/wifi_probe.c
+@@ -12,7 +12,7 @@
+ static atomic_int probe_stage,stop_rc,start_rc;
+ static atomic_bool requested,expired,restored;
+ static atomic_bool requires_usb;
+-static atomic_bool rpc_bulk_scope;
++static atomic_bool rpc_bulk_scope,automatic_scope;
+ // Expiry restores the radio but does not transfer cancellation ownership to a
+ // new job. The old caller must release before another lease can start.
+ static atomic_bool owner_active;
+@@ -22,7 +22,7 @@
+ // by the Wi-Fi worker; callers never revive a restoring or expired lease.
+ static atomic_int_fast64_t deadline_ms,quiet_until_ms;
+ static int64_t stopped_ms,retry_ms;
+-static bool begin(unsigned duration,bool usb,bool rpc_bulk) {
++static bool begin(unsigned duration,bool usb,bool rpc_bulk,bool automatic) {
+     if(!tab5_wifi_initialized)return false;
+     // Keep the original hard deadline: a stream of new pictures must not
+     // indefinitely extend a radio pause. QUIET owns an already stopped radio.
+@@ -30,7 +30,7 @@
+         int held=PROBE_QUIET;
+         if(atomic_compare_exchange_strong(&probe_stage,&held,PROBE_ARMING)) {
+             if(esp_timer_get_time()/1000<atomic_load(&deadline_ms)&&atomic_load(&requested)&&
+-               rpc_bulk==atomic_load(&rpc_bulk_scope)) {
++               rpc_bulk==atomic_load(&rpc_bulk_scope)&&automatic==atomic_load(&automatic_scope)) {
+                 atomic_store(&owner_active,true);atomic_store(&probe_stage,PROBE_STOPPED);return true;
+             }
+             atomic_store(&probe_stage,PROBE_QUIET);return false;
+@@ -44,13 +44,15 @@
+     atomic_store(&stop_rc,-1);atomic_store(&start_rc,-1);atomic_store(&held_ms,0);
+     atomic_store(&expired,false);atomic_store(&restored,false);atomic_store(&requested,true);
+     atomic_store(&requires_usb,usb);
+-    atomic_store(&rpc_bulk_scope,rpc_bulk);
++    atomic_store(&rpc_bulk_scope,rpc_bulk);atomic_store(&automatic_scope,automatic);
+     atomic_store(&probe_stage,PROBE_REQUESTED);return true;
+ }
+-bool wifi_probe_begin(void){return begin(35000,true,false);}
+-bool wifi_probe_begin_firmware(void){return begin(125000,true,false);}
+-bool wifi_probe_begin_gallery(void){return begin(35000,false,false);}
+-bool wifi_probe_begin_rpc_bulk(void){return begin(35000,false,true);}
++bool wifi_probe_begin(void){return begin(35000,true,false,false);}
++bool wifi_probe_begin_firmware(void){return begin(125000,true,false,false);}
++bool wifi_probe_begin_gallery(void){return begin(35000,false,false,false);}
++bool wifi_probe_begin_rpc_bulk(void){return begin(35000,false,true,false);}
++bool wifi_probe_begin_ota(void){return begin(35000,false,true,true);}
++bool wifi_probe_allows_auto(void){return atomic_load(&automatic_scope)&&atomic_load(&rpc_bulk_scope);}
+ bool wifi_probe_requires_usb(void){return atomic_load(&requires_usb);}
+ void wifi_probe_end(void){atomic_store(&requested,false);atomic_store(&owner_active,false);}
+ void wifi_probe_release_gallery(void) {
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -316,9 +316,9 @@
+ // Admission waits before publishing a nonce; it never replays a request.
+ // Local unlock leases share the mailbox with already-running status reads.
+ static unsigned rpc_exchange_admission(const char *kind) {
+-    if(kind&&!strcmp(kind,"voice"))return 2000;
++    if(kind&&(!strcmp(kind,"voice")||!strcmp(kind,"ota")||!strcmp(kind,"ota-control")))return 2000;
+     if(kind&&!strcmp(kind,"screen-preview"))return 100;
+-    if(kind&&!strcmp(kind,"computer-control"))return 1000;
++    if(kind&&(!strcmp(kind,"computer-control")||!strcmp(kind,"boot-verify")))return 1000;
+     return kind&&(!strcmp(kind,"unlock-pin")||!strcmp(kind,"host-unlock"))?1000:0;
+ }
+ static unsigned rpc_exchange_timeout(const char *kind,bool ota_probe) {
+--- a/firmware/main/ota_resume.h
++++ b/firmware/main/ota_resume.h
+@@ -10,7 +10,7 @@
+     bool in_gap;
+ } ota_resume;
+ static bool ota_resume_transient(int result) {
+-    return result==-2 || result==-1005 || result==-408 || result==-429 ||
++    return result==-1011 || result==-2 || result==-1005 || result==-408 || result==-429 ||
+         result==-500 || result==-502 || result==-503 || result==-504;
+ }
+ static bool ota_resume_retry(ota_resume *s,int result,int64_t now,unsigned *delay_ms) {
+--- a/firmware/main/wifi_probe.h
++++ b/firmware/main/wifi_probe.h
+@@ -11,6 +11,9 @@
+ // Actual bulk RPCs renew a35-second inactivity deadline only on authenticated
+ // success. Legacy gallery/probe leases keep their original absolute deadlines.
+ bool wifi_probe_begin_rpc_bulk(void);
++// Opted-in immutable OTA only; never changes the saved connection mode.
++bool wifi_probe_begin_ota(void);
++bool wifi_probe_allows_auto(void);
+ void wifi_probe_release_rpc_bulk(bool succeeded);
+ bool wifi_probe_requires_usb(void);
+ void wifi_probe_end(void);
+--- a/tests/host_unlock_timeout_test.c
++++ b/tests/host_unlock_timeout_test.c
+@@ -20,5 +20,8 @@
+     assert(rpc_exchange_admission("screen-preview")==100);
+     assert(rpc_exchange_timeout("screen-preview",false)==3000);
+     assert(rpc_exchange_admission(NULL)==0);
++    assert(rpc_exchange_admission("boot-verify")==1000);
++    assert(rpc_exchange_admission("ota")==2000);
++    assert(rpc_exchange_admission("ota-control")==2000);
+     puts("HOST_UNLOCK_TIMEOUT_TEST_OK 16 assertions");
+ }
+--- a/tests/ui-preview/wifi_probe_test.c
++++ b/tests/ui-preview/wifi_probe_test.c
+@@ -102,5 +102,11 @@
+     assert(!wifi_probe_service(true,&reconnect)&&wifi_running&&starts==2);
+     reset();cancel_in_stop=true;assert(wifi_probe_begin_rpc_bulk());
+     assert(!wifi_probe_service(true,&reconnect)&&reconnect&&wifi_running);
++    reset();assert(wifi_probe_begin_ota()&&wifi_probe_allows_auto());
++    assert(wifi_probe_service(true,&reconnect)&&!wifi_running);
++    wifi_probe_release_rpc_bulk(true);assert(!wifi_probe_begin_rpc_bulk());
++    assert(wifi_probe_begin_ota());wifi_probe_release_rpc_bulk(false);
++    assert(!wifi_probe_service(true,&reconnect)&&wifi_running&&reconnect);
++    reset();assert(wifi_probe_begin_rpc_bulk()&&!wifi_probe_allows_auto());wifi_probe_end();wifi_probe_service(true,&reconnect);
+     puts("WIFI_PROBE_OK diagnostic_USB_guard_and_gallery_lease_stop_start_cancel_in_driver_expiry_mode_loss_failure_retry_no_config_mutation");return 0;
+ }
+--- a/tests/ui-preview/rpc_bulk_radio_test.c
++++ b/tests/ui-preview/rpc_bulk_radio_test.c
+@@ -6,11 +6,16 @@
+ #include "cJSON.h"
+ typedef enum {LINK_USB,LINK_WIFI,LINK_BLE,LINK_NONE} link_kind;
+ typedef struct {int mode;} device_config;
++static int device_mutex,portMAX_DELAY;
++static cJSON *device_snapshots[3];
++static void xSemaphoreTake(int a,int b){(void)a;(void)b;}
++static void xSemaphoreGive(int a){(void)a;}
+ static int mode,begin_calls,ends,releases,wakes,waits;
+ static bool ble_connected,pending,ready,can_begin,becomes_ready,drop_link,change_mode;
+ static int64_t now;
+ static device_config device_get_config(void){return (device_config){mode};}
+ static bool wifi_probe_begin_rpc_bulk(void){begin_calls++;if(!can_begin)return false;pending=true;return true;}
++static bool wifi_probe_begin_ota(void){return wifi_probe_begin_rpc_bulk();}
+ static bool wifi_probe_pending(void){return pending;}
+ static bool wifi_probe_ready(void){return ready;}
+ static void wifi_probe_end(void){ends++;pending=ready=false;}
+@@ -60,7 +65,15 @@
+     reset();can_begin=false;pending=ready=true;
+     assert(!rpc_data_call(LINK_BLE,NULL,request,&status,nonce,NULL,0,bytes,49152,NULL));
+     assert(rpc_calls==3&&!ends&&!releases&&ready);
+-    cJSON_Delete(request);
++    // AUTO OTA requires the bridge capability, and does not grant other traffic a lease.
++    reset();mode=-1;cJSON_ReplaceItemInObjectCaseSensitive(request,"kind",cJSON_CreateString("ota"));
++    assert(!rpc_bulk_radio_begin(LINK_BLE,request,0,49152)&&!begin_calls);
++    device_snapshots[LINK_BLE]=cJSON_CreateObject();cJSON_AddNumberToObject(device_snapshots[LINK_BLE],"rpcOtaBleRadioLease",1);
++    becomes_ready=true;assert(rpc_bulk_radio_begin(LINK_BLE,request,0,49152));rpc_bulk_radio_end(true,true);
++    assert(releases==1);reset();mode=LINK_WIFI;assert(!rpc_bulk_radio_begin(LINK_BLE,request,0,49152)&&!begin_calls);
++    reset();mode=-1;cJSON_ReplaceItemInObjectCaseSensitive(request,"kind",cJSON_CreateString("ota_probe"));
++    assert(!rpc_bulk_radio_begin(LINK_BLE,request,0,49152)&&!begin_calls);
++    cJSON_Delete(device_snapshots[LINK_BLE]);cJSON_Delete(request);
+     puts("RPC_BULK_RADIO_OK actual_policy_auto_USB_probe_owner_timeout_mode_and_link_loss");
+     return 0;
+ }
+--- a/tests/ui-preview/rpc_admission_test.c
++++ b/tests/ui-preview/rpc_admission_test.c
+@@ -60,6 +60,7 @@
+     assert((reply!=NULL)==expected&&!locked&&created==deleted&&!completion(link));
+     if(expected){assert(length==4&&reply[0]==0xA3&&m->serial==42&&sends==1&&wait_budget==timeout-drain_after);}
+     else {assert(!length);if(!answer&&drain_after&&!mutation){assert(m->serial==42&&sends==1&&now==1000+timeout);}else assert(!created&&!sends&&m->serial==41);}
++    if(!expected&&!admission)assert(status==RPC_STATUS_UNPUBLISHED_BUSY);
+     free(reply);
+ }
+ int main(void){
+@@ -80,5 +81,8 @@
+         for(unsigned mutation=1;mutation<=4;mutation++)
+             run(link,2000,1000,40,mutation,true,false);
+     }
++    run(LINK_BLE,10000,0,1000,0,true,false);
++    run(LINK_BLE,10000,2000,1000,0,true,true);
++    run(LINK_BLE,10000,2000,0,0,true,false);
+     puts("RPC_ADMISSION_OK USB/BLE host unlock collision reproduced; two-second total budget; busy control precedes one credential read; 1s bounded admission; unchanged total deadline; disconnect/host/generation/switch abort; no replay");
+ }
+--- a/tests/ui-preview/ota_update_test.c
++++ b/tests/ui-preview/ota_update_test.c
+@@ -119,7 +119,7 @@
+ static int64_t esp_timer_get_time(void){return (int64_t)elapsed_ms*1000;}
+ static int previous_progress;
+ static unsigned trace_stage,trace_offset;
+-static int trace_error,injected_first_error;
++static int trace_error,injected_first_error,first_busy_count;
+ static void ota_trace_begin_mock(unsigned total){assert(total==(unsigned)transfer_size);trace_stage=OTA_TRACE_CHECK;trace_offset=0;}
+ static void ota_trace_update_mock(unsigned stage,unsigned offset,int error){trace_error=error;assert(offset<=(unsigned)transfer_size);trace_stage=stage;trace_offset=offset;}
+ #define ota_trace_begin ota_trace_begin_mock
+@@ -186,6 +186,7 @@
+ static unsigned rpc_ota_received_bytes(link_kind link){(void)link;return (unsigned)read_at;}
+ static int rpc_ota_read(link_kind link,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
+     assert(link==test_link&&strlen(sha)==64&&strlen(offer)==32&&offset==read_at);
++    if(!offset&&first_busy_count>0){first_busy_count--;return -1011;}
+     if(!offset&&injected_first_error)return injected_first_error;
+     if(recovery_fault&&offset>=49152) {
+         range_calls++;
+@@ -463,6 +464,20 @@
+         assert(trace_stage==OTA_TRACE_FAILED&&trace_offset==0&&trace_error==injected_first_error);
+         assert(!erased&&!write_calls&&!boot_changes&&!restarts&&!ota_update_busy());
+     }
++    // Preserve the precise first-block failure without touching the backup.
++    const int busy_errors[]={1,9};
++    for(unsigned i=0;i<sizeof(busy_errors)/sizeof(busy_errors[0]);i++) {
++        test_link=LINK_BLE;compressed_http=false;transfer_size=1024;fault=FLASH_BUFFER_FAIL;
++        read_at=write_calls=write_at=aborts=boot_changes=restarts=yields=0;
++        elapsed_ms=preparation_ack_at=completion_ack_at=backlight_off_at=0;
++        allocations=0;internal_buffer=NULL;internal_capacity=0;erased=false;host_epoch=1;radio_ready=true;
++        last_offer[0]=0;pending_offer.size=0;pending_offer_epoch=0;atomic_store(&busy,false);worker=NULL;
++        ResetEvent(prefetch_ready);ResetEvent(receive_complete);ResetEvent(first_written);
++        snprintf(offer,sizeof(offer),"{\"data\":{\"ota\":{\"sha256\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"size\":1024,\"version\":\"test\",\"offerId\":\"11111111111111111111111111111111\"}}}");
++        injected_first_error=0;first_busy_count=busy_errors[i];ota_update_consider(offer);assert(ota_update_request());worker(worker_arg);
++        if(busy_errors[i]==1)assert(restarts==1&&boot_changes==1&&write_at==1024&&first_busy_count==0);
++        else assert(trace_stage==OTA_TRACE_FAILED&&trace_error==-1011&&!erased&&!write_calls&&!boot_changes&&!restarts);
++    }
+     injected_first_error=0;
+     puts("OTA_FIRST_BLOCK_CAUSE_OK authentication_ownership_integrity_no_flash");
+     assert(range_success_closes==0&&range_failed_closes>0);

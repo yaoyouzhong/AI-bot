@@ -24,6 +24,16 @@ enum MacAudioInputs {
         }
     }
     static func selected() -> MacAudioInput? { let uid = UserDefaults.standard.string(forKey:preference) ?? ""; return devices().first { $0.uid == uid } }
+    static func displayName(_ device: MacAudioInput) -> String {
+        let kind = device.name.localizedCaseInsensitiveContains("DJI") || device.name.contains("大疆") ? "DJI 大疆麦克风" : "Mac 麦克风"
+        return kind + "（" + String(device.name.prefix(48)) + "）"
+    }
+    static func activeInput(of input: AVAudioInputNode) -> MacAudioInput? {
+        guard let unit = input.audioUnit else { return nil }
+        var id = AudioDeviceID(0), size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioUnitGetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &id, &size) == noErr else { return nil }
+        return devices().first { $0.id == id }
+    }
     static func apply(to input:AVAudioInputNode) throws {
         guard let uid = UserDefaults.standard.string(forKey:preference),!uid.isEmpty else { return }
         guard let device = devices().first(where:{$0.uid == uid}),let unit = input.audioUnit else { throw MacTab5LocalError.invalid("所选麦克风未连接，请在语音设置重新选择。") }
@@ -36,14 +46,21 @@ final class MacVoiceInputSettings: NSObject {
     private weak var page:MacBridgeSettingsPage?
     private var generation = UUID()
     private let input = NSPopUpButton(), status = MacBridgeSettingsStyle.note(""), text = MacBridgeSettingsStyle.label("")
+    private let testButton = NSButton(title: "测试 Mac 本地识别", target: nil, action: nil)
     private var entries:[MacAudioInput] = [], tester:MacTab5SpeechBackend?, timeout:Timer?
     init(page:MacBridgeSettingsPage) {
         self.page = page; super.init(); input.target = self; input.action = #selector(selectInput)
-        page.field("优先麦克风",input)
-        page.add(MacBridgeSettingsStyle.row([MacSettingsButton("检查音频") { [weak self] in self?.reload() },MacSettingsButton("测试识别") { [weak self] in self?.test() },MacSettingsButton("停止测试") { [weak self] in self?.stop() }]))
+        input.identifier = .init("voice-mac-input")
+        testButton.target = self; testButton.action = #selector(test)
+        page.field("Mac 优先麦克风",input)
+        page.add(MacBridgeSettingsStyle.row([MacSettingsButton("检查音频") { [weak self] in self?.reload() },testButton,MacSettingsButton("停止测试") { [weak self] in self?.stop() }]))
         text.isSelectable = true; page.add(status); page.add(text); reload()
     }
     deinit { timeout?.invalidate(); tester?.cancel() }
+    func setMacInputEnabled(_ enabled: Bool) {
+        input.isEnabled = enabled; testButton.isEnabled = enabled
+        if !enabled { cancelTest() }
+    }
     @objc private func selectInput() {
         stop(); let i = input.indexOfSelectedItem
         guard i == 0 || entries.indices.contains(i-1) else { return }
@@ -56,7 +73,7 @@ final class MacVoiceInputSettings: NSObject {
         else if !uid.isEmpty { input.addItem(withTitle:"之前选择的麦克风（未连接）"); input.selectItem(at:input.numberOfItems-1) }
         status.stringValue = "检测到 \(entries.count) 个输入设备 · " + (SFSpeechRecognizer.authorizationStatus() == .authorized ? "语音识别已授权":"语音识别待授权")
     }
-    private func test() {
+    @objc private func test() {
         guard tester == nil else { return }; status.stringValue = "检查语音与麦克风权限…"
         let owner = generation
         MacTab5Speech.authorize { [weak self] allowed in

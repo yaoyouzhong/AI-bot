@@ -2,6 +2,126 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.292-ui - 2026-10-29
+
+Local quota-entry candidate; installed locally, not publicly released.
+
+### Model quotas
+- Clicking the bottom Quotas module, including repeated clicks while already there, or swiping into it defaults to Codex details.
+- Overview model cards still open their corresponding model; clicking Quotas afterwards returns to Codex.
+
+### Validation
+- The original .291 behavior fails the new regression assertion; all eleven model reentries, repeated clicks, overview deep links and swipe entry pass after the fix. Actual rendered screenshots were reviewed.
+- P4 build passes with unchanged board configuration definitions. Production image validation and the actual fixed-path sidecar preview pass. User-authorized Wi-Fi installation passes exact ELF, VALID partition, three live samples and unchanged display settings in 71.405 seconds through boot verification. The user confirms that overview model details → Quotas returns to Codex; touch interaction passes.
+
+## 0.2.291-ui - 2026-10-29
+
+Local OTA contention and radio-policy candidate; not publicly released.
+
+### Bluetooth upgrade
+- Add bounded mailbox admission for OTA reads, OTA control and boot verification; recover from unpublished-busy errors only for immutable image reads.
+- Allow the existing temporary Wi-Fi pause during actual BLE OTA in automatic mode when the authenticated Windows/Mac bridge opts in. Preserve saved mode and restore the radio on inactivity, failure, disconnect or completion.
+
+### Validation
+- P4 build uses unchanged board settings; actual RPC admission, radio ownership/restoration and OTA fault/recovery tests pass, including first-block busy recovery and exhaustion before flash writes.
+- Initial Wi-Fi installation and exact ELF/VALID/three-live-sample boot verification pass with display settings preserved. Same-image BLE comparison is recorded in the October 29 Mac BLE report.
+- Identical-image BLE baseline installs in 399.979 seconds; R21 radio isolation takes 338.938/340.052 seconds across two reinstalls (about 15% less), with zero replay/write failures and successful boot/settings/radio-restoration checks. BLE remains minutes-long; actual controller/PHY evidence and Windows runtime validation remain unavailable.
+
+## 0.2.290-ui - 2026-10-29
+
+Local compatibility and diagnostics candidate; not publicly released.
+
+### Bluetooth upgrade
+- Use a 30–45 ms final fallback range to satisfy Apple connection-parameter rules; 15 ms and final fallback profiles use a six-second timeout.
+- Preserve the first block's actual failure code. Authentication, ownership and integrity failure still prevent backup-partition writes.
+
+### Validation
+- P4 build with unchanged board configuration, negotiation tests, OTA fault/recovery matrix and three new first-block failure cases pass.
+- .289 full BLE reinstall takes 413.770 seconds to install and 468.350 seconds through healthy boot; its earlier pre-first-block failure remains unresolved.
+- Wi-Fi installs in 22.673 seconds; identical-image BLE reinstall takes 418.138 seconds, or 474.011 seconds through healthy boot. Exact ELF/VALID/three live samples/settings pass, with zero replays/write failures. Installation is 50.01% shorter than .288/R19, but still takes minutes.
+
+## 0.2.289-ui - 2026-10-29
+
+Local BLE negotiation candidate; not publicly released.
+
+### Bluetooth upgrade
+- Preserve the Windows-compatible 7.5 ms request, then try 15 and 30 ms after rejection, with bounded collision retries.
+- Await NimBLE procedure completion, restore the actual idle parameters and stop retries after disconnect.
+- Preserve the wire protocol, authentication, integrity checks, inactive partition and user preferences.
+
+### Validation
+- P4 build, unchanged board configuration and negotiation simulation pass.
+- Wi-Fi installs in 21.703 seconds; exact ELF/VALID/three live samples and settings preservation pass.
+- BLE 256 KiB download improves from 41.257 to 20.511 seconds. Full installation takes 413.770 seconds, or 468.350 seconds through healthy boot, with preserved settings. The earlier pre-first-block failure remains unexplained; Windows upgrade speed is not claimed.
+
+## 0.2.288-ui - 2026-10-28
+
+Local candidate installed and identically reinstalled over Wi-Fi; exact ELF, VALID partition, three live samples and unchanged settings pass. Not publicly released.
+
+### Pipelined installation
+- Start with a 64 KiB erase, then erase subsequent blocks immediately before writing them while an independent worker continues receiving the image.
+- Preserve inactive-partition bounds, authenticated reception, whole-image integrity, SDK validation, rollback health checks and preferences.
+- Retain .287 HTTP range connection reuse and same-version reinstall.
+
+### Validation
+- Full P4 build with unchanged board configuration, 840 OTA boundary/fault cases and 34 recovery cases pass. Sixteen cases explicitly prove the first write precedes completion of reception and full-partition erasure.
+- Actual same-image Wi-Fi range installation takes 25.921 and 28.248 seconds in two accepted runs. The initial erase stall is removed, but this is not a claim of a ten-second installation.
+- The Mac continuous-stream experiment retransmits heavily and recovers via ranges; it is not accepted as a speed improvement. Healthy boot verification remains separate from installation time.
+- October 29 Mac R18 follow-up: the unchanged .288 image installs over Wi-Fi in 21.666 seconds with 32 ms data wait after a native-socket sender fix; exact boot and preferences pass. See [TCP comparison](MAC-TAB5-OTA-TCP-20261029.md).
+
+## 0.2.287-ui - 2026-10-28
+
+Local candidate installed over USB and identically reinstalled over Wi-Fi, with automatic exact boot verification and unchanged settings. Not publicly released.
+
+### Wireless upgrade
+- Retain successful HTTP range connections to reduce repeated TCP setup.
+- Failed reads still reconnect at the existing offset, retaining independent authentication, integrity, inactive-partition protection and preferences.
+
+### Validation
+- P4 build, unchanged board configuration, 320 OTA fault cases and 34 recovery cases pass.
+- Actual USB installation takes 38.793 seconds; identical-image Wi-Fi installation takes 25.578 seconds, including reception, erase/write and image verification. Healthy boot verification is separate.
+
+## 0.2.286-ui - 2026-10-28
+
+Local candidate installed and identically reinstalled over Wi-Fi; partition transition and exact boot verification pass, with unchanged display settings. Not publicly released.
+
+### Firmware reinstall
+- Allow explicitly requested same-version and identical-image reinstall; receiving an offer never starts installation.
+- Preserve draft saving, inactive-partition writes, image integrity, boot verification and display preferences.
+
+### Validation
+- Full P4 build, 320 original-version/identical-image fault cases and recovery checks pass.
+- Mac and Windows distinguish Reinstall; unchanged version heartbeats cannot prematurely finish a reinstall request.
+
+## 0.2.285-ui - 2026-10-28
+
+Local candidate installed with user authorization; exact ELF, VALID partition and three live samples pass, with display settings preserved. Physical visual acceptance awaits the user at the device. Not publicly released.
+
+### Composer
+- Refresh the empty composer before synchronous draft persistence after long-press clear, avoiding stale text while storage blocks the UI task.
+- Preserve photos, IME cleanup, busy guards and failed-save retries, plus the .284 capture-device labels and quota captions.
+
+### Validation
+- Full build with unchanged board configuration and production image checks pass; the actual notes sidecar's headings, lists and scrolling preview were inspected.
+- Sixteen real long-press, partial-flush and pre-storage pixel scenarios pass. The baseline retains 2273 stale pixels at storage entry; the intermittent persistent symptom still needs a hardware retest.
+- Share helper functions to reduce duplicated machine code, retaining the original OTA partition and 32-byte headroom. Display settings are preserved.
+
+## 0.2.284-ui - 2026-10-28
+
+Local candidate based on the committed, verified .283 archive; not a public release.
+
+### Voice capture device
+- The Codex recording hint displays the actual TAB5/Mac/DJI input device and recognizer, with status/timer and device name on separate lines.
+- Reuses source/sourceName with fallback for older bridge responses lacking a name.
+
+### Codex quota captions
+- The Overview Codex card uses “周额度已用”; the Codex model-quota page uses “周额度已使用”.
+- Other providers and quota calculations are unchanged.
+
+### Validation
+- Full ESP-IDF build, unchanged board configuration, production image/notes validation and actual LVGL capture/quota/recording-interaction checks pass.
+- Physical installation and acceptance are tracked in [the Mac voice record](MAC-VOICE-SOURCE-20261028.md).
+
 ## 0.2.282-ui - 2026-10-27
 
 ### System diagnostics

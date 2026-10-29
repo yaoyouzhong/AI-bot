@@ -71,6 +71,23 @@ final class MacTab5CodexRPC {
         } catch { stopLocked(); throw error }
     }
     func stop() { calls.lock(); stopLocked(); calls.unlock() }
+    // A separate read-only reader is owned by the explicit submission adapter.
+    // Do not queue behind history requests or extend the device's RPC deadline.
+    func queueReceipt(task: String, expected: String) -> MacCodexQueueReceipt? {
+        guard MacTab5Codex.id(task) == task, calls.try() else { return nil }
+        defer { calls.unlock() }
+        let deadline = Date().addingTimeInterval(0.6)
+        do {
+            if process?.isRunning != true {
+                try start()
+                _ = try request("initialize", ["clientInfo": ["name": "aibot_tab5_queue", "version": "1.0"],
+                    "capabilities": ["experimentalApi": true]], deadline: deadline)
+                try write(["method": "initialized"])
+            }
+            let response = try request("thread/queue/list", ["threadId": task, "cursor": NSNull()], deadline: deadline)
+            return MacCodexQueueReceipt.server(response, expected: expected)
+        } catch { stopLocked(); return nil }
+    }
     deinit { stopLocked() }
     private func start() throws {
         guard let path = executable() else { throw MacTab5CodexFailure.cliUnavailable }
@@ -109,10 +126,10 @@ final class MacTab5CodexRPC {
             if let id = root["id"] { try? write(["id": id, "error": ["code": -32000, "message": "Handle approvals and questions in Codex on the computer."]]) }
         } else if let id = root["id"] as? Int, answers.count < 32 { answers[id] = root; condition.broadcast() }
     }
-    private func request(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
+    private func request(_ method: String, _ params: [String: Any], deadline: Date = Date().addingTimeInterval(12)) throws -> [String: Any] {
+        guard deadline > Date() else { throw MacTab5CodexFailure.timeout }
         nextID += 1; let id = nextID
         try write(["id": id, "method": method, "params": params])
-        let deadline = Date().addingTimeInterval(12)
         condition.lock(); defer { condition.unlock() }
         while answers[id] == nil && !ended { if !condition.wait(until: deadline) { throw MacTab5CodexFailure.timeout } }
         guard let answer = answers.removeValue(forKey: id) else { throw MacTab5CodexFailure.unavailable }

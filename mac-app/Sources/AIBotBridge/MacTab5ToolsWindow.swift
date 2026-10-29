@@ -59,6 +59,7 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
         let value = service.connectionStatus
         connection.stringValue = "\(value.device) · 固件 \(value.firmware)\nUSB：\(value.usb) · Wi-Fi：\(value.wifi) · 蓝牙：\(value.bluetooth)"
         connection.toolTip = service.connectionSummary; status.stringValue = service.firmwareControl.summary
+        actions.first { $0.action == #selector(startUpgrade) }?.title = service.firmwareControl.selected?.version == value.firmware ? "重新安装":"开始升级"
         if let image = service.firmwareControl.selected { notes.stringValue = "版本：\(image.version) · \(image.bytes.count) 字节\nSHA-256：\(image.sha256)\n\n\(image.notes)" } else { notes.stringValue = "选择固件后显示版本、校验和与更新说明。" }
         window?.contentView?.layoutSubtreeIfNeeded(); pages.forEach { $0.fitDocument() }
     }
@@ -166,9 +167,11 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
     @objc private func clearFirmware() { work { [service] in try service.firmwareControl.select(nil); return "已停止提供固件。" } }
     @objc private func startUpgrade() {
         guard !busy, canBegin(), let pair = service.currentPairing, let image = service.firmwareControl.selected else { result.stringValue = "请先配对、连接 TAB5 并选择固件。"; return }
-        let alert = NSAlert(); alert.messageText = "开始升级 TAB5？"
+        let reinstall = image.version == service.connectionStatus.firmware
+        let alert = NSAlert(); alert.messageText = reinstall ? "重新安装当前版本？":"开始升级 TAB5？"
         alert.informativeText = "设备：\(pair.deviceId)\n版本：\(image.version)\nSHA-256：\(image.sha256)\n\n\(image.notes)\n\n请保持供电，设备会先保存草稿。"
-        alert.addButton(withTitle: "开始升级"); alert.addButton(withTitle: "取消")
+        if reinstall { alert.informativeText += "\n将重新传输并写入这份固件，保留当前设置。" }
+        alert.addButton(withTitle: reinstall ? "重新安装":"开始升级"); alert.addButton(withTitle: "取消")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         work { [service] in try service.requestUpgrade(); return "请求已准备，等待设备确认；结果会持续显示在上方。" }
     }

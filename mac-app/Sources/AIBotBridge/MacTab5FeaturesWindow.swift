@@ -1,10 +1,18 @@
 import AppKit
 import UniformTypeIdentifiers
 
-final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
+final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate, NSMenuDelegate {
     private let service: MacTab5Service
     private var voiceInputs:MacVoiceInputSettings?
     private let speechProvider = NSPopUpButton()
+    private let speechAvailability = NSTextField(wrappingLabelWithString: "")
+    private var installDoubaoButton: NSButton!
+    private let doubaoInstalled: () -> Bool
+    private var doubaoAvailable = false
+    private var lastSpeechAvailabilityCheck: TimeInterval = 0
+    private let captureSource = NSPopUpButton()
+    private let voiceSourceDefaults: UserDefaults
+    private var doubaoTestButton: NSButton!
     private var doubaoTest:MacTab5SpeechBackend?
     private let computer = NSButton(checkboxWithTitle: "允许 TAB5 调节音量、静音、锁屏和打开常用入口", target: nil, action: nil)
     private let music = NSButton(checkboxWithTitle: "采集 Apple Music／Spotify 播放信息", target: nil, action: nil)
@@ -22,8 +30,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private var timer: Timer?
     enum Section: Int { case computer, music, codex, voice }
     private var sections: MacBridgeSettingsTabs!
-    init(service: MacTab5Service, focusSection: Section? = nil) {
-        self.service = service
+    init(service: MacTab5Service, focusSection: Section? = nil, voiceSourceDefaults: UserDefaults = .standard, doubaoInstalled: @escaping () -> Bool = MacDoubaoSpeech.installed) {
+        self.service = service; self.voiceSourceDefaults = voiceSourceDefaults; self.doubaoInstalled = doubaoInstalled
         let window = MacBridgeSettingsStyle.window("交互与权限", height: 640)
         super.init(window: window); window.delegate = self
         let computerPage = MacBridgeSettingsPage(), musicPage = MacBridgeSettingsPage()
@@ -74,16 +82,30 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
 
         voicePage.heading("语音输入", subtitle: "选择识别方式，将文字交给 TAB5 预览。")
         speechProvider.addItems(withTitles:["Mac 本地识别","豆包输入法"])
-        speechProvider.selectItem(at:MacSpeechProvider.doubao ? 1:0); speechProvider.target = self; speechProvider.action = #selector(changeSpeechProvider)
+        speechProvider.identifier = .init("voice-speech-provider")
+        speechProvider.menu?.autoenablesItems = false; speechProvider.menu?.delegate = self
+        speechProvider.selectItem(at:voiceSourceDefaults.string(forKey:MacSpeechProvider.key) == "doubao" ? 1:0); speechProvider.target = self; speechProvider.action = #selector(changeSpeechProvider)
         voicePage.field("识别方式",speechProvider)
+        speechAvailability.identifier = .init("voice-speech-availability")
+        speechAvailability.textColor = .secondaryLabelColor; voicePage.add(speechAvailability)
+        installDoubaoButton = MacSettingsButton("安装豆包输入法…") { _ = NSWorkspace.shared.open(URL(string:"https://srf.doubao.com/pc")!) }
+        installDoubaoButton.identifier = .init("voice-install-doubao"); voicePage.add(installDoubaoButton)
         voice.title = "允许 TAB5 使用所选语音识别方式"
         voice.state = service.voice.isEnabled ? .on : .off; voice.target = self; voice.action = #selector(toggleVoice)
         voicePage.add(voice)
         voicePage.section("麦克风与权限")
+        captureSource.identifier = .init("voice-capture-source")
+        captureSource.addItems(withTitles: MacVoiceCaptureSource.allCases.map(\.title))
+        captureSource.target = self; captureSource.action = #selector(changeCaptureSource)
+        voicePage.field("收音设备", captureSource)
+        voicePage.add(MacBridgeSettingsStyle.note("选择后用于下一段录音，当前录音保持原设备。TAB5 内置麦克风请在 TAB5 上发起录音；Mac 麦克风可在下方选择具体设备并测试。豆包使用 TAB5 收音时需要 VB-CABLE Mac。"))
         voiceInputs = MacVoiceInputSettings(page:voicePage)
         voicePage.section("豆包输入法")
         voicePage.add(MacBridgeSettingsStyle.note("豆包使用长按 Fn 模式，识别可能需要联网。未指定实体麦克风时优先 DJI，否则使用 Mac 默认麦克风；TAB5 收音通过 VB-CABLE Mac 转送。桥接核验实际收音，停止后等待完整文字并返回 TAB5 预览，不自动发送任务。临时选择豆包麦克风，结束后恢复原选择。"))
-        voicePage.add(MacBridgeSettingsStyle.row([MacSettingsButton("检查豆包") { [weak self] in self?.result.stringValue = MacDoubaoSpeech.readiness() },MacSettingsButton("测试豆包调用") { [weak self] in self?.testDoubao() },MacSettingsButton("豆包官网") { _ = NSWorkspace.shared.open(URL(string:"https://srf.doubao.com/pc")!) }]))
+        doubaoTestButton = MacSettingsButton("测试 Mac 豆包") { [weak self] in self?.testDoubao() }
+        doubaoTestButton.identifier = .init("voice-test-mac-doubao")
+        voicePage.add(doubaoTestButton)
+        refreshCaptureSource()
         voicePage.add(MacSettingsButton("恢复豆包麦克风") { [weak self] in
             guard let self else { return }
             guard !self.service.voice.busy,self.doubaoTest == nil else { self.result.stringValue = "请先停止当前语音，再恢复麦克风。"; return }
@@ -116,6 +138,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     func windowDidResize(_ notification: Notification) { resizeDocument() }
     private func resizeDocument() { window?.contentView?.layoutSubtreeIfNeeded(); sections.pages.forEach { $0.fitDocument() } }
     private func refreshCodexState() {
+        if window?.isVisible == true, ProcessInfo.processInfo.systemUptime-lastSpeechAvailabilityCheck >= 5 { refreshSpeechAvailability() }
         let requests = service.interactionDiagnostics.summary
         let text = "Codex：" + service.codex.summary + (requests.isEmpty ? "" : "\n最近会话请求（仅本机诊断，不含传输耗时）：\n" + requests)
         let details = service.voice.diagnostics
@@ -158,14 +181,44 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         MacTab5Speech.authorize { [weak self] allowed in guard let self else { return }; self.voice.state = allowed ? .on : .off; UserDefaults.standard.set(allowed, forKey: MacTab5Voice.enabledKey); self.result.stringValue = allowed ? "语音权限已授权；开始时仍会检查本地语言模型是否可用。" : "权限未完整授权，请到系统设置检查。" }
     }
     @objc private func changeSpeechProvider() {
-        guard !service.voice.busy, doubaoTest == nil else { speechProvider.selectItem(at:MacSpeechProvider.doubao ? 1:0); result.stringValue = "请先结束当前收音。"; return }
-        UserDefaults.standard.set(speechProvider.indexOfSelectedItem == 1 ? "doubao":"local",forKey:MacSpeechProvider.key)
-        result.stringValue = MacSpeechProvider.doubao ? "已选择豆包。音频由豆包处理；请先测试调用。":"已选择 Mac 本地识别。"
+        let previous = voiceSourceDefaults.string(forKey:MacSpeechProvider.key) == "doubao" ? 1:0
+        guard !service.voice.busy, doubaoTest == nil else { speechProvider.selectItem(at:previous); result.stringValue = "请先结束当前收音。"; return }
+        if speechProvider.indexOfSelectedItem == 1 && !doubaoInstalled() {
+            speechProvider.selectItem(at:previous); refreshSpeechAvailability()
+            result.stringValue = "未检测到官方豆包输入法，无法选择。安装后会自动检测。"; return
+        }
+        voiceSourceDefaults.set(speechProvider.indexOfSelectedItem == 1 ? "doubao":"local",forKey:MacSpeechProvider.key)
+        result.stringValue = speechProvider.indexOfSelectedItem == 1 ? "已选择豆包。音频由豆包处理；请先测试调用。":"已选择 Mac 本地识别。"
+    }
+    func menuWillOpen(_ menu:NSMenu) { if menu === speechProvider.menu { refreshSpeechAvailability() } }
+    private func refreshSpeechAvailability() {
+        lastSpeechAvailabilityCheck = ProcessInfo.processInfo.systemUptime
+        doubaoAvailable = doubaoInstalled()
+        speechProvider.item(at:1)?.isEnabled = doubaoAvailable
+        speechProvider.item(at:1)?.title = doubaoAvailable ? "豆包输入法":"豆包输入法（未安装）"
+        speechAvailability.stringValue = "未安装官方豆包输入法，暂不可选。安装后自动恢复可选。"
+        speechAvailability.isHidden = doubaoAvailable; installDoubaoButton.isHidden = doubaoAvailable
+        refreshCaptureSource()
+        resizeDocument()
+    }
+    private func refreshCaptureSource() {
+        let source = MacVoiceCaptureSource.saved(in: voiceSourceDefaults) ?? .mac
+        captureSource.selectItem(at: MacVoiceCaptureSource.allCases.firstIndex(of: source)!)
+        voiceInputs?.setMacInputEnabled(source == .mac)
+        doubaoTestButton.isEnabled = source == .mac && doubaoAvailable
+    }
+    @objc private func changeCaptureSource() {
+        guard MacVoiceCaptureSource.allCases.indices.contains(captureSource.indexOfSelectedItem) else { return }
+        let source = MacVoiceCaptureSource.allCases[captureSource.indexOfSelectedItem]
+        voiceSourceDefaults.set(source.rawValue, forKey: MacVoiceCaptureSource.preferenceKey)
+        refreshCaptureSource()
+        result.stringValue = "已保存：" + source.title + "。下一段录音生效；请在 TAB5 上发起录音验证。"
     }
     private func testDoubao() {
+        guard MacVoiceCaptureSource.saved(in: voiceSourceDefaults) != .tab5 else { result.stringValue = "已选择 TAB5 内置麦克风，请在 TAB5 上发起录音。"; return }
         guard !service.voice.busy, doubaoTest == nil else { result.stringValue = "请先结束当前收音。"; return }
         voiceInputs?.cancelTest()
-        let backend = MacDoubaoSpeech().backend(); doubaoTest = backend
+        let backend = MacDoubaoSpeech(showsEditor:true).backend(); doubaoTest = backend
         do { try backend.start("pc") { [weak self] text, final, failure in DispatchQueue.main.async {
             guard let self else { return }
             self.result.stringValue = failure?.message ?? (final ? "豆包草稿已确认；本次测试未发送文字。":"豆包草稿已收到文字（\(text.utf8.count) 字节）。")
@@ -179,6 +232,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     }
     @objc private func openSettings() { _ = NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app")) }
     private func reload() {
+        refreshSpeechAvailability()
         do { launchers.removeAllItems(); launchers.addItems(withTitles: try service.computer.launchers.load().map(\.name)) }
         catch { result.stringValue = error.localizedDescription }
     }

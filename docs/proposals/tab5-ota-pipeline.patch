@@ -1,0 +1,173 @@
+--- a/firmware/main/ota_update.c
++++ b/firmware/main/ota_update.c
+@@ -275,7 +275,7 @@
+     for(int i=0;i<r->slots;i++)free(r->data[i]);
+     vQueueDelete(r->free_blocks);vQueueDelete(r->ready_blocks);vSemaphoreDelete(r->done);free(r);
+ }
+-static void install(void *arg) {
++__attribute__((optimize("Os"))) static void install(void *arg) {
+     ota_offer *offer=arg;
+     int64_t install_started=esp_timer_get_time(),verify_started=0;
+     ota_phase_timing phases={.transport=LINK_NONE};
+@@ -395,7 +395,11 @@
+     report("正在准备备用固件分区");ota_trace_update(OTA_TRACE_BEGIN,0,0);
+     int64_t erase_started=esp_timer_get_time();
+     atomic_store(&prepare_started_ms,(unsigned)(erase_started/1000));atomic_store(&preparing,true);
+-    error=esp_ota_begin(next,offer->size,&handle);
++    // Erase one 64 KiB block at a time while the independent receiver runs.
++    // SDK begin retains rollback/partition guards; subsequent erases never
++    // touch a block already written, and retain the chip's efficient block erase.
++    size_t erased=offer->size<65536?offer->size:65536;
++    error=esp_ota_begin(next,erased,&handle);
+     prepare_us=write_us=esp_timer_get_time()-erase_started;
+     phases.prepare_ms=(unsigned)(write_us/1000);
+     atomic_store(&prepare_ms,(unsigned)(write_us/1000));atomic_store(&preparing,false);
+@@ -417,6 +421,17 @@
+         if(!ota_reader_owned(reader)){error=ESP_FAIL;break;}
+         if(block.count<=0||block.offset!=received){error=block.count<0?block.count:ESP_FAIL;break;}
+         chunk=reader->data[block.slot];int filled=block.count;
++        if((size_t)(received+filled)>erased) {
++            size_t end=((size_t)received+filled+65535)&~(size_t)65535;
++            if(end>next->size)end=next->size;
++            int64_t began=esp_timer_get_time();
++            error=esp_partition_erase_range(next,erased,end-erased);
++            int64_t elapsed=esp_timer_get_time()-began;
++            prepare_us+=elapsed;write_us+=elapsed;
++            phases.prepare_ms=(unsigned)(prepare_us/1000);atomic_store(&prepare_ms,phases.prepare_ms);
++            if(error!=ESP_OK)break;
++            erased=end;
++        }
+         mbedtls_sha256_update(&sha,chunk,filled);
+         ota_trace_update(OTA_TRACE_WRITE,received,0);
+         int64_t began=esp_timer_get_time();
+--- a/tests/ui-preview/ota_update_test.c
++++ b/tests/ui-preview/ota_update_test.c
+@@ -84,7 +84,7 @@
+ typedef struct {char project_name[32],version[32];} esp_app_desc_t;
+ static esp_app_desc_t running_description={"aibot_tab5","previous"};
+ static const esp_app_desc_t *esp_app_get_description(void){return &running_description;}
+-enum {SUCCESS,OPEN_FAIL,SHORT_READ,WRITE_FAIL,HASH_FAIL,END_FAIL,IDENTITY_FAIL,BOOT_FAIL,BEGIN_FAIL,UI_NO_RENDER,BUFFER_FAIL,SECOND_BUFFER_FAIL,READER_START_FAIL,FLASH_BUFFER_FAIL,FLASH_LOW_MEMORY,FLASH_FRAGMENTED_16,FLASH_FRAGMENTED_8,PREFETCH_LOW_MEMORY,PREFETCH_EXTRA_FAIL,UI_PREPARE_NO_RENDER};
++enum {SUCCESS,OPEN_FAIL,SHORT_READ,WRITE_FAIL,HASH_FAIL,END_FAIL,IDENTITY_FAIL,BOOT_FAIL,BEGIN_FAIL,UI_NO_RENDER,BUFFER_FAIL,SECOND_BUFFER_FAIL,READER_START_FAIL,FLASH_BUFFER_FAIL,FLASH_LOW_MEMORY,FLASH_FRAGMENTED_16,FLASH_FRAGMENTED_8,PREFETCH_LOW_MEMORY,PREFETCH_EXTRA_FAIL,UI_PREPARE_NO_RENDER,STEP_ERASE_FAIL};
+ static int allocations;
+ static int fault,aborts,boot_changes,restarts,transfer_size,write_at;
+ static bool compressed_http;
+@@ -134,8 +134,14 @@
+ static void ota_trace_phases_mock(const ota_phase_timing *timing){measured_phases=*timing;}
+ #define ota_trace_phases ota_trace_phases_mock
+ static bool erased;
+-static int esp_ota_begin(const esp_partition_t *p,size_t n,esp_ota_handle_t *out){assert(p==&next_partition&&p!=&running_partition&&n==(size_t)transfer_size&&n<=p->size);assert(read_at>=(int)(n<49152?n:49152)&&!write_calls);check_prepare_feedback();*out=1;if(fault==SUCCESS&&n>49152){assert(WaitForSingleObject(prefetch_ready,2000)==WAIT_OBJECT_0);assert(read_at>=98304&&!write_calls);}elapsed_ms+=250;if(fault==BEGIN_FAIL)return -1;erased=true;return ESP_OK;}
+-static int esp_ota_write(esp_ota_handle_t h,const void *p,int n){(void)h;assert(erased);write_calls++;if(!flash_input_internal(p))external_write_bytes+=n;assert(flash_input_internal(p));if(fault==SUCCESS&&transfer_size>49152&&!write_at){assert(WaitForSingleObject(receive_complete,2000)==WAIT_OBJECT_0);assert(read_at==transfer_size);overlap_cases++;}check_write_feedback();assert(n>0&&n<=(int)(internal_capacity?internal_capacity:4096));assert(trace_stage==OTA_TRACE_WRITE&&trace_offset==(unsigned)(write_at/49152*49152));const uint8_t *bytes=p;for(int i=0;i<n;i++)assert(bytes[i]==((write_at+i)==0?(fault==HASH_FAIL?2:1):0));if(fault==WRITE_FAIL&&write_at+n>transfer_size/2)return -1;write_at+=n;return ESP_OK;}
++static unsigned erased_until;
++static HANDLE first_written;
++static int esp_ota_begin(const esp_partition_t *p,size_t n,esp_ota_handle_t *out){assert(p==&next_partition&&p!=&running_partition&&n==(size_t)(transfer_size<65536?transfer_size:65536)&&n<=p->size);assert(read_at>=(int)(n<49152?n:49152)&&!write_calls);erased_until=(n+4095)&~4095;check_prepare_feedback();*out=1;if(fault==SUCCESS&&n>49152){assert(WaitForSingleObject(prefetch_ready,2000)==WAIT_OBJECT_0);assert(read_at>=(transfer_size<98304?transfer_size:98304)&&!write_calls);}elapsed_ms+=250;if(fault==BEGIN_FAIL)return -1;erased=true;return ESP_OK;}
++static int esp_partition_erase_range(const esp_partition_t *p,unsigned offset,unsigned size) {
++    assert(p==&next_partition&&p!=&running_partition&&offset==erased_until&&offset%65536==0&&size>0&&size%65536==0&&offset+size<=p->size);
++    assert(write_at<=(int)offset);if(fault==STEP_ERASE_FAIL)return -1;erased_until+=size;elapsed_ms+=5;return ESP_OK;
++}
++static int esp_ota_write(esp_ota_handle_t h,const void *p,int n){(void)h;assert(erased&&write_at+n<=(int)erased_until);write_calls++;if(!flash_input_internal(p))external_write_bytes+=n;assert(flash_input_internal(p));if(fault==SUCCESS&&transfer_size>98304&&!write_at){assert(read_at<transfer_size);overlap_cases++;}check_write_feedback();if(fault==SUCCESS&&!write_at)SetEvent(first_written);assert(n>0&&n<=(int)(internal_capacity?internal_capacity:4096));assert(trace_stage==OTA_TRACE_WRITE&&trace_offset==(unsigned)(write_at/49152*49152));const uint8_t *bytes=p;for(int i=0;i<n;i++)assert(bytes[i]==((write_at+i)==0?(fault==HASH_FAIL?2:1):0));if(fault==WRITE_FAIL&&write_at+n>transfer_size/2)return -1;write_at+=n;return ESP_OK;}
+ static int esp_ota_end(esp_ota_handle_t h){(void)h;check_verification_feedback(false);elapsed_ms+=1207;check_verification_feedback(true);return fault==END_FAIL?-1:ESP_OK;}
+ static void esp_ota_abort(esp_ota_handle_t h){(void)h;aborts++;}
+ static int esp_ota_get_partition_description(const esp_partition_t *p,esp_app_desc_t *out){(void)p;strcpy(out->project_name,fault==IDENTITY_FAIL?"other":"aibot_tab5");strcpy(out->version,"test");return ESP_OK;}
+@@ -162,6 +168,7 @@
+ static int esp_http_client_get_status_code(void *c){(void)c;return 200;}
+ static int esp_http_client_read(void *c,char *out,int n){
+     (void)c;check_download_feedback();
++    if(fault==SUCCESS&&transfer_size>98304&&read_at>=98304)assert(WaitForSingleObject(first_written,2000)==WAIT_OBJECT_0);
+     if(recovery_fault&&test_link==LINK_WIFI&&!recovery_injected&&
+        (compressed_http?http_at>=block_ends[0]+16:read_at>=65536)) {
+         recovery_injected=true;if(recovery_fault==RECOVER_WAIT){radio_ready=false;reconnect_due=elapsed_ms+30000;}return 0;
+@@ -172,7 +179,7 @@
+         if(n>http_size-http_at)n=http_size-http_at;memcpy(out,http_payload+http_at,n);http_at+=n;
+         for(int i=0;i<http_blocks;i++)if(http_at>=block_ends[i])read_at=decoded_ends[i];
+     }else{memset(out,0,n);if(!read_at)out[0]=fault==HASH_FAIL?2:1;read_at+=n;}
+-    if(read_at>=98304)SetEvent(prefetch_ready);return n;
++    if(read_at>=(transfer_size<98304?transfer_size:98304))SetEvent(prefetch_ready);return n;
+ }
+ static void rpc_ota_reset_bytes(link_kind link){(void)link;}
+ static unsigned rpc_ota_received_bytes(link_kind link){(void)link;return (unsigned)read_at;}
+@@ -272,9 +279,9 @@
+ static void check_write_feedback(void) {
+     assert(!ota_update_verifying()&&!ota_update_completed());
+     assert(ota_update_progress()<99&&ota_update_progress()<=(int)((int64_t)write_at*99/transfer_size));
+-    if(fault==SUCCESS&&transfer_size>49152&&!write_at) {
++    if(fault==SUCCESS&&transfer_size>98304&&!write_at) {
+         char status[128];ota_update_status(status,sizeof(status));
+-        assert(ota_update_progress()==0&&strstr(status,"下载完成")&&strstr(status,"正在写入 0 /"));
++        assert(ota_update_progress()==0&&!strstr(status,"下载完成")&&strstr(status,"已接收"));
+     }
+ }
+ static void check_verification_feedback(bool advanced) {
+@@ -328,23 +335,24 @@
+     assert(!ota_resume_wait_budget(&limits,9));
+     limits.started_ms=0;limits.gap_ms=899999;
+     assert(!ota_resume_wait_budget(&limits,900000));
++    first_written=CreateEvent(NULL,TRUE,FALSE,NULL);assert(first_written);
+     prefetch_ready=CreateEvent(NULL,TRUE,FALSE,NULL);receive_complete=CreateEvent(NULL,TRUE,FALSE,NULL);assert(prefetch_ready&&receive_complete);
+     char offer[512];
+-    int sizes[]={1024,6464048};
++    int sizes[]={1024,65536,65537,6464048,0x6e0000};
+     for(int mode=0;mode<8;mode++)
+     for(unsigned s=0;s<sizeof(sizes)/sizeof(sizes[0]);s++) {
+       strcpy(running_description.version,mode>=4?"test":"previous");
+       test_link=mode%4==3?LINK_WIFI:(link_kind)(mode%4);compressed_http=mode%4==3;
+       transfer_size=sizes[s];
+       snprintf(offer,sizeof(offer),"{\"data\":{\"ota\":{\"sha256\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"size\":%d,\"version\":\"test\",\"offerId\":\"11111111111111111111111111111111\"}}}",transfer_size);
+-      for(fault=SUCCESS;fault<=UI_PREPARE_NO_RENDER;fault++) {
++      for(fault=SUCCESS;fault<=STEP_ERASE_FAIL;fault++) {
+         prepare_http_payload();
+         last_offer[0]=0;pending_offer.size=0;atomic_store(&busy,false);worker=NULL;
+         read_at=write_calls=write_at=aborts=boot_changes=restarts=yields=0;
+         elapsed_ms=preparation_ack_at=completion_ack_at=backlight_off_at=0;
+         previous_progress=0;allocations=0;internal_buffer=NULL;internal_capacity=0;
+         memset(&measured_phases,0,sizeof(measured_phases));
+-        early_feedback_seen=false;erased=false;ResetEvent(prefetch_ready);ResetEvent(receive_complete);
++        early_feedback_seen=false;erased=false;ResetEvent(prefetch_ready);ResetEvent(receive_complete);ResetEvent(first_written);
+         ota_update_consider(offer);assert(ota_update_available()&&!worker&&!ota_update_busy());
+         assert(!ota_update_request_checked("ffffffffffffffffffffffffffffffff",pending_offer.sha)&&ota_update_available()&&!worker&&!ota_update_busy());
+         assert(ota_update_request()&&worker&&ota_update_busy());
+@@ -359,7 +367,7 @@
+             measured_calls+=measured_performance.flash[core].calls;
+         }
+         assert(measured_bytes==(uint64_t)write_at&&measured_calls==(uint32_t)write_calls);
+-        bool success=fault==SUCCESS||fault==FLASH_BUFFER_FAIL||fault==FLASH_LOW_MEMORY||fault==FLASH_FRAGMENTED_16||fault==FLASH_FRAGMENTED_8||fault==PREFETCH_LOW_MEMORY||fault==PREFETCH_EXTRA_FAIL;
++        bool success=(fault==STEP_ERASE_FAIL&&transfer_size<=65536)||fault==SUCCESS||fault==FLASH_BUFFER_FAIL||fault==FLASH_LOW_MEMORY||fault==FLASH_FRAGMENTED_16||fault==FLASH_FRAGMENTED_8||fault==PREFETCH_LOW_MEMORY||fault==PREFETCH_EXTRA_FAIL;
+         if(success){int n=internal_capacity?(int)internal_capacity:4096;assert(boot_changes==1&&restarts==1&&write_at==transfer_size&&yields>=(transfer_size+49151)/49152&&trace_stage==OTA_TRACE_DONE&&write_calls==(transfer_size+n-1)/n);
+             assert(measured_phases.transport==(int)test_link&&measured_phases.prepare_ms>=250&&measured_phases.verify_ms==1207);
+             assert(measured_phases.install_ms>=measured_phases.prepare_ms+measured_phases.write_ms+measured_phases.verify_ms);
+@@ -371,6 +379,7 @@
+         else if(fault==UI_NO_RENDER)assert(boot_changes==1&&!restarts&&!backlight_off_at&&ota_update_busy()&&strstr(message,"请手动重启"));
+         else assert(!boot_changes&&!restarts&&!ota_update_busy());
+         if(!success&&fault!=UI_NO_RENDER)assert(ota_update_progress()<100);
++        if(fault==STEP_ERASE_FAIL&&transfer_size>65536)assert(aborts==1&&erased_until==65536&&write_at==49152);
+         if(fault==SHORT_READ||fault==WRITE_FAIL||fault==HASH_FAIL||fault==BEGIN_FAIL)assert(aborts==((erased||fault==BEGIN_FAIL)?1:0));
+         if(fault==SHORT_READ)assert((compressed_http?http_at==http_size/2:read_at>=transfer_size/2)&&write_at<=read_at&&read_at-write_at<=(int)atomic_load(&buffer_slots)*49152&&trace_offset==(unsigned)write_at);
+         if(success&&compressed_http)assert(atomic_load(&transfer_bytes)==http_size&&http_size<transfer_size);
+@@ -409,7 +418,7 @@
+     ota_update_consider(offer);assert(ota_update_available()&&!ota_update_busy());
+     ota_update_offer_details(version,sizeof(version),notes,sizeof(notes));assert(!strcmp(version,"test"));
+     strcpy(running_description.version,"previous");ota_update_consider(offer);assert(ota_update_available());
+-    assert(overlap_cases==8);
++    assert(overlap_cases==16);
+     if(external_write_bytes){fprintf(stderr,"OTA_INTERNAL_WRITE_REGRESSION externalBytes=%llu\n",external_write_bytes);return 42;}
+     strcpy(running_description.version,"previous");
+     for(int route=0;route<4;route++)for(int test=RECOVER_ONCE;test<=RECOVER_WAIT;test++) {
+@@ -421,7 +430,7 @@
+         elapsed_ms=preparation_ack_at=completion_ack_at=backlight_off_at=0;
+         allocations=0;internal_buffer=NULL;internal_capacity=0;erased=false;
+         last_offer[0]=0;pending_offer.size=0;pending_offer_epoch=0;atomic_store(&busy,false);worker=NULL;
+-        ResetEvent(prefetch_ready);ResetEvent(receive_complete);
++        ResetEvent(prefetch_ready);ResetEvent(receive_complete);ResetEvent(first_written);
+         prepare_http_payload();
+         device_snapshots[LINK_WIFI]=cJSON_Parse("{\"rpcOtaResume\":1}");
+         snprintf(offer,sizeof(offer),"{\"data\":{\"epochMilliseconds\":1,\"ota\":{\"sha256\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"size\":%d,\"version\":\"test\",\"offerId\":\"11111111111111111111111111111111\"}}}",transfer_size);
+@@ -440,7 +449,7 @@
+     }
+     assert(range_success_closes==0&&range_failed_closes>0);
+     puts("OTA_RANGE_KEEPALIVE_OK successful ranges reused; failed ranges closed; recovery matrix passed");
+-    free(http_payload);CloseHandle(prefetch_ready);CloseHandle(receive_complete);
++    free(http_payload);CloseHandle(first_written);CloseHandle(prefetch_ready);CloseHandle(receive_complete);
+     puts("OTA_RECOVERY_TASK_OK USB_WIFI_BLE resumed offset; raw/zlib stream fallback; disconnect, generation, exhaustion, stop, stale withdrawal, owner change, malformed range and authorization rejection");
+-    puts("OTA_TASK_OK USB_WIFI_BLE_fault_matrix authenticated_prefetch_before_erase rendered_preparation_required bounded_PSRAM_pool_internal_staging_even_at_38KB_or_allocation_failure receive_complete_before_write_not_99 verification_elapsed_feedback completion_and_failure_paths");return 0;
+-}
++    puts("OTA_TASK_OK USB_WIFI_BLE_fault_matrix authenticated_prefetch_before_erase rendered_preparation_required bounded_PSRAM_pool_internal_staging_even_at_38KB_or_allocation_failure receive_and_segmented_erase_write_overlap_not_99 verification_elapsed_feedback completion_and_failure_paths");return 0;
++}

@@ -39,6 +39,8 @@ enum MacTab5UIValidation {
         deviceForm.window?.contentMinSize.height = 520
         let dataControls = MacDeviceDataControls(page:deviceForm.page,device:.init(kind:"tab5",name:"测试设备"))
         try validateEditorBehaviors(root:root)
+        try validateVoiceSource(service: service, defaults: defaults, output: output)
+        try validateDoubaoDraft()
         let windows: [(String, NSWindowController)] = [
             ("device-data",deviceForm),
             ("esp-display",MacESPDisplayWindow(policy:.init(selectedMode:"auto",cycleEnabled:true,intervalSeconds:15,pages:["codex","domestic_kimi","weather"]),apply:{ _ in },brightness:{ _ in true },read:{ $0(.success(70)) })),
@@ -75,6 +77,71 @@ enum MacTab5UIValidation {
         try validateGallery(output:output, root:root.appendingPathComponent("gallery-fixture"))
         try validateModal()
         print("MAC_TAB5_NATIVE_UI_RENDER_OK device center and all settings fixtures; tabs, draft, modal validation/cancel, minimum size and both appearances; no hardware operation or permission requested")
+    }
+
+    private static func validateDoubaoDraft() throws {
+        let hidden = MacDoubaoDraftWindow.make(showsEditor:false)
+        let editor = NSTextView(frame:NSRect(x:0,y:0,width:620,height:460)); hidden.contentView = editor
+        defer { hidden.close() }
+        guard hidden.styleMask == .borderless, hidden.alphaValue == 0, !hidden.isOpaque,
+              !hidden.hasShadow, hidden.ignoresMouseEvents, hidden.isExcludedFromWindowsMenu,
+              hidden.canBecomeKey, !hidden.canBecomeMain, hidden.makeFirstResponder(editor),
+              hidden.firstResponder === editor else { throw MacTab5LocalError.invalid("Hidden Doubao draft cannot accept native text input") }
+        editor.insertText("隔离草稿",replacementRange:NSRange(location:0,length:0))
+        guard editor.string == "隔离草稿" else { throw MacTab5Error.invalidPacket }
+        let setup = MacDoubaoDraftWindow.make(showsEditor:true)
+        defer { setup.close() }
+        guard setup.styleMask.contains(.titled), setup.alphaValue == 1, !setup.ignoresMouseEvents else {
+            throw MacTab5LocalError.invalid("Manual Doubao test editor must remain visible and interactive")
+        }
+        print("MAC_DOUBAO_DRAFT_UI_OK transparent borderless native editor; visible manual test; no microphone or shortcut")
+    }
+
+    private static func validateVoiceSource(service: MacTab5Service, defaults: UserDefaults, output: URL) throws {
+        defer { defaults.removeObject(forKey: MacVoiceCaptureSource.preferenceKey) }
+        let controller = MacTab5FeaturesWindow(service: service, focusSection: .voice, voiceSourceDefaults: defaults, doubaoInstalled:{true})
+        let content = controller.window!.contentView!
+        let controls = descendants(content)
+        let source = controls.first { $0.identifier?.rawValue == "voice-capture-source" } as! NSPopUpButton
+        let input = controls.first { $0.identifier?.rawValue == "voice-mac-input" } as! NSPopUpButton
+        let test = controls.first { $0.identifier?.rawValue == "voice-test-mac-doubao" } as! NSButton
+        for choice in MacVoiceCaptureSource.allCases {
+            source.selectItem(withTitle: choice.title); source.sendAction(source.action!, to: source.target)
+            guard MacVoiceCaptureSource.saved(in: defaults) == choice,
+                  input.isEnabled == (choice == .mac), test.isEnabled == (choice == .mac) else {
+                throw MacTab5LocalError.invalid("Voice source selection or Mac-only controls did not update")
+            }
+            try validateSettings(controller.window!, name: "voice-source-" + choice.rawValue, output: output)
+            let reopened = MacTab5FeaturesWindow(service: service, focusSection: .voice, voiceSourceDefaults: defaults, doubaoInstalled:{true})
+            let persisted = descendants(reopened.window!.contentView!).first { $0.identifier?.rawValue == "voice-capture-source" } as! NSPopUpButton
+            guard persisted.titleOfSelectedItem == choice.title else { throw MacTab5Error.invalidPacket }
+            reopened.window?.close()
+        }
+        controller.window?.close()
+        var installed = false
+        defaults.set("local",forKey:MacSpeechProvider.key)
+        defer { defaults.removeObject(forKey:MacSpeechProvider.key) }
+        let unavailable = MacTab5FeaturesWindow(service:service,focusSection:.voice,voiceSourceDefaults:defaults,doubaoInstalled:{installed})
+        defer { unavailable.window?.close() }
+        let unavailableControls = descendants(unavailable.window!.contentView!)
+        let provider = unavailableControls.first { $0.identifier?.rawValue == "voice-speech-provider" } as! NSPopUpButton
+        let hint = unavailableControls.first { $0.identifier?.rawValue == "voice-speech-availability" } as! NSTextField
+        let installButton = unavailableControls.first { $0.identifier?.rawValue == "voice-install-doubao" } as! NSButton
+        let testButton = unavailableControls.first { $0.identifier?.rawValue == "voice-test-mac-doubao" } as! NSButton
+        guard provider.menu?.autoenablesItems == false,provider.item(at:1)?.isEnabled == false,
+              hint.stringValue.contains("暂不可选"),!hint.isHidden,!installButton.isHidden,!testButton.isEnabled,
+              !unavailableControls.compactMap({$0 as? NSButton}).contains(where:{$0.title == "检查豆包"}) else { throw MacTab5LocalError.invalid("Missing Doubao not disabled before selection") }
+        try validateSettings(unavailable.window!,name:"voice-doubao-uninstalled",output:output)
+        try render(unavailable.window!.contentView!,to:output.appendingPathComponent("voice-doubao-uninstalled.png"))
+        installed = true;unavailable.menuWillOpen(provider.menu!)
+        guard provider.item(at:1)?.isEnabled == true,hint.isHidden,installButton.isHidden else { throw MacTab5Error.invalidPacket }
+        // Simulate removal after the menu was opened, then invoke the real action.
+        installed = false;provider.selectItem(at:1);provider.sendAction(provider.action!,to:provider.target)
+        guard provider.indexOfSelectedItem == 0,defaults.string(forKey:MacSpeechProvider.key) == "local",
+              provider.item(at:1)?.isEnabled == false else { throw MacTab5LocalError.invalid("Removed Doubao selection overwrote previous provider") }
+        installed = true;unavailable.menuWillOpen(provider.menu!);provider.selectItem(at:1);provider.sendAction(provider.action!,to:provider.target)
+        guard defaults.string(forKey:MacSpeechProvider.key) == "doubao" else { throw MacTab5Error.invalidPacket }
+        print("MAC_DOUBAO_AVAILABILITY_UI_OK missing item disabled and explained; removal race rejected without preference change; installed item selectable; no vendor uninstall or input")
     }
 
     private static func validateEditorBehaviors(root:URL) throws {

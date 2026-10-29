@@ -1,0 +1,133 @@
+--- a/firmware/main/ble_performance.inc
++++ b/firmware/main/ble_performance.inc
+@@ -1,27 +1,51 @@
+-// Called only on the NimBLE host queue. Bulk mode expires automatically; retain
+-// the central's original idle interval rather than inventing an idle policy.
+-static uint16_t perf_connection=BLE_HS_CONN_HANDLE_NONE;
+-static struct ble_gap_conn_desc perf_idle;
+-static bool perf_bulk;
+-static int64_t perf_last_bulk;
+-static atomic_int perf_interval_rc,perf_phy_rc,perf_length_rc;
+-static atomic_uint perf_tx_octets,perf_rx_octets;
+-static void ble_performance_bulk(uint16_t conn) {
+-    perf_last_bulk=esp_timer_get_time()/1000;
+-    if(perf_connection!=conn||perf_bulk)return;
+-    perf_bulk=true;
+-    // Ask for 7.5 ms during bulk transfer. A 6..12 range lets the central pick
+-    // 15 ms; it may still reject this request, in which case the link continues
+-    // with its negotiated interval and the diagnostic reports the actual value.
+-    struct ble_gap_upd_params p={.itvl_min=6,.itvl_max=6,.latency=0,.supervision_timeout=400};
+-    perf_interval_rc=ble_gap_update_params(conn,&p);
+-    perf_length_rc=ble_gap_set_data_len(conn,251,2120);
+-    perf_phy_rc=ble_gap_set_prefered_le_phy(conn,BLE_GAP_LE_PHY_2M_MASK,BLE_GAP_LE_PHY_2M_MASK,0);
+-}
+-static void ble_performance_idle(void) {
+-    if(!perf_bulk||perf_connection==BLE_HS_CONN_HANDLE_NONE||esp_timer_get_time()/1000-perf_last_bulk<5000)return;
+-    struct ble_gap_upd_params p={.itvl_min=perf_idle.conn_itvl,.itvl_max=perf_idle.conn_itvl,
+-        .latency=perf_idle.conn_latency,.supervision_timeout=perf_idle.supervision_timeout};
+-    if(p.itvl_min)perf_interval_rc=ble_gap_update_params(perf_connection,&p);
+-    perf_bulk=false;
+-}
++// All state and negotiation run on the NimBLE host queue.
++static uint16_t perf_connection=BLE_HS_CONN_HANDLE_NONE;
++static struct ble_gap_conn_desc perf_idle;
++static bool perf_bulk,perf_pending;
++static unsigned perf_level,perf_attempts;
++static int64_t perf_last_bulk,perf_retry_at;
++static atomic_int perf_interval_rc,perf_phy_rc,perf_length_rc;
++static atomic_uint perf_tx_octets,perf_rx_octets;
++static void ble_performance_request(void) {
++    static const uint16_t intervals[]={6,12,24}; // 7.5, 15, 30 ms
++    if(perf_pending||perf_level>=3||perf_attempts>=6)return;
++    struct ble_gap_upd_params p={.itvl_min=intervals[perf_level],.itvl_max=intervals[perf_level],
++        .latency=0,.supervision_timeout=400};
++    perf_attempts++;
++    int rc=ble_gap_update_params(perf_connection,&p);perf_interval_rc=rc;
++    perf_pending=rc==0;
++    // A collision is transient; await the asynchronous result before retrying.
++    if(rc&&rc!=BLE_HS_EALREADY&&rc!=BLE_HS_HCI_ERR(BLE_ERR_DIFF_TRANS_COLL))perf_level++;
++    perf_retry_at=esp_timer_get_time()/1000+2000;
++}
++static void ble_performance_updated(uint16_t conn,int status) {
++    if(conn!=perf_connection||!perf_bulk||!perf_pending)return;
++    perf_pending=false;
++    if(!status)perf_level=3;
++    else if(status!=BLE_HS_HCI_ERR(BLE_ERR_DIFF_TRANS_COLL))perf_level++;
++    perf_retry_at=esp_timer_get_time()/1000+2000;
++}
++static void ble_performance_bulk(uint16_t conn) {
++    perf_last_bulk=esp_timer_get_time()/1000;
++    if(perf_connection!=conn||perf_bulk)return;
++    // Restore the current idle policy, not the initial connection value.
++    ble_gap_conn_find(conn,&perf_idle);
++    perf_bulk=true;perf_pending=false;perf_level=perf_attempts=0;
++    ble_performance_request();
++    perf_length_rc=ble_gap_set_data_len(conn,251,2120);
++    perf_phy_rc=ble_gap_set_prefered_le_phy(conn,BLE_GAP_LE_PHY_2M_MASK,BLE_GAP_LE_PHY_2M_MASK,0);
++}
++static void ble_performance_idle(void) {
++    if(!perf_bulk||perf_connection==BLE_HS_CONN_HANDLE_NONE)return;
++    int64_t now=esp_timer_get_time()/1000;
++    if(now-perf_last_bulk<5000) {
++        if(now>=perf_retry_at)ble_performance_request();
++        return;
++    }
++    // NimBLE owns the pending procedure's timeout; never overlap idle restore.
++    if(perf_pending)return;
++    struct ble_gap_upd_params p={.itvl_min=perf_idle.conn_itvl,.itvl_max=perf_idle.conn_itvl,
++        .latency=perf_idle.conn_latency,.supervision_timeout=perf_idle.supervision_timeout};
++    if(p.itvl_min)perf_interval_rc=ble_gap_update_params(perf_connection,&p);
++    perf_bulk=false;
++}
+--- a/firmware/main/ble_link.c
++++ b/firmware/main/ble_link.c
+@@ -228,6 +228,7 @@
+     }else {ble_disconnect_reason=event->connect.status;advertise();}}
+     if(event->type==BLE_GAP_EVENT_DATA_LEN_CHG){perf_tx_octets=event->data_len_chg.max_tx_octets;perf_rx_octets=event->data_len_chg.max_rx_octets;}
+     if(event->type==BLE_GAP_EVENT_CONN_UPDATE) {
++        ble_performance_updated(event->conn_update.conn_handle,event->conn_update.status);
+         struct ble_gap_conn_desc current={0};
+         if(ble_gap_conn_find(event->conn_update.conn_handle,&current)==0)ble_probe_connection(event->conn_update.status,&current);
+     }
+--- /dev/null
++++ b/tests/ui-preview/ble_performance_test.c
+@@ -0,0 +1,39 @@
++#undef NDEBUG
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdatomic.h>
++#include <stdio.h>
++#define BLE_HS_CONN_HANDLE_NONE 65535
++#define BLE_HS_EALREADY 2
++#define BLE_ERR_DIFF_TRANS_COLL 42
++#define BLE_HS_HCI_ERR(n) (512+(n))
++#define BLE_GAP_LE_PHY_2M_MASK 2
++struct ble_gap_conn_desc {uint16_t conn_itvl,conn_latency,supervision_timeout;};
++struct ble_gap_upd_params {uint16_t itvl_min,itvl_max,latency,supervision_timeout;};
++static int64_t clock_us;
++static int next_rc,calls;
++static struct ble_gap_upd_params last;
++static int64_t esp_timer_get_time(void){return clock_us;}
++static int ble_gap_update_params(uint16_t conn,const struct ble_gap_upd_params *p){assert(conn==7);calls++;last=*p;return next_rc;}
++static int ble_gap_conn_find(uint16_t conn,struct ble_gap_conn_desc *d){assert(conn==7);*d=(struct ble_gap_conn_desc){36,1,600};return 0;}
++static int ble_gap_set_data_len(uint16_t c,int a,int b){assert(c==7&&a==251&&b==2120);return 0;}
++static int ble_gap_set_prefered_le_phy(uint16_t c,int a,int b,int o){assert(c==7&&a==2&&b==2&&!o);return 0;}
++#include "../../firmware/main/ble_performance.inc"
++static void fresh(void){perf_bulk=false;perf_connection=7;clock_us=0;calls=0;next_rc=0;ble_performance_bulk(7);assert(calls==1&&last.itvl_min==6&&perf_pending);}
++static void tick(int ms){clock_us=(int64_t)ms*1000;ble_performance_bulk(7);ble_performance_idle();}
++int main(void){
++ fresh();ble_performance_updated(7,0);tick(3000);assert(calls==1); // Windows keeps accepted 7.5 ms.
++ clock_us=9000000;ble_performance_idle();assert(calls==2&&!perf_bulk&&last.itvl_min==36&&last.latency==1&&last.supervision_timeout==600);
++ fresh();ble_performance_updated(8,571);assert(perf_pending); // Stale peer cannot advance.
++ ble_performance_updated(7,571);tick(1999);assert(calls==1);tick(2000);assert(calls==2&&last.itvl_min==12);
++ ble_performance_updated(7,0);tick(4000);assert(calls==2); // Apple accepted fallback, no request storm.
++ fresh();ble_performance_updated(7,571);tick(2000);ble_performance_updated(7,571);tick(4000);assert(calls==3&&last.itvl_min==24);
++ ble_performance_updated(7,571);tick(6000);assert(calls==3); // All profiles refused.
++ fresh();ble_performance_updated(7,BLE_HS_HCI_ERR(BLE_ERR_DIFF_TRANS_COLL));next_rc=BLE_HS_EALREADY;
++ for(int ms=2000;ms<=20000;ms+=2000)tick(ms);
++ assert(calls==6&&last.itvl_min==6); // Bound busy retries without misclassifying collision.
++ fresh();tick(4000);tick(8000);assert(calls==1&&perf_pending); // Host owns procedure timeout.
++ perf_connection=BLE_HS_CONN_HANDLE_NONE;clock_us=20000000;ble_performance_idle();assert(calls==1);
++ puts("BLE_PERFORMANCE_OK accepted_fallback_collision_bounded_idle_disconnect");
++}

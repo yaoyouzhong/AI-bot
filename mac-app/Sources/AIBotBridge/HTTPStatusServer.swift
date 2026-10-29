@@ -13,7 +13,7 @@ final class HTTPStatusServer {
     private let queue = DispatchQueue(label: "AI-bot.status-server")
     private let requests: OperationQueue = { let queue = OperationQueue(); queue.name = "AI-bot.tab5-requests"; queue.maxConcurrentOperationCount = 2; return queue }()
     private var pendingRequests = 0 // owned by the listener queue
-    private var listener: NWListener?
+    private var listener: MacHTTPListener?
     private var listening = false
     private let loopbackOnly: Bool
     private var wanted = false, listenerGeneration: UInt64 = 0
@@ -45,18 +45,16 @@ final class HTTPStatusServer {
         try queue.sync {
             guard !wanted else { return }
             wanted=true; listenerGeneration &+= 1; listenerRecovery.begin(ProcessInfo.processInfo.systemUptime)
-            do { try installListener() } catch { wanted=false; throw error }
+            do { try installListener() }
+            catch NWError.posix(.EADDRINUSE) { retryListener(.posix(.EADDRINUSE)) }
+            catch { wanted=false; throw error }
         }
     }
     private func listenerNote(_ value:String) {
         statusDiagnosticLock.lock(); listenerDiagnostic=value; statusDiagnosticLock.unlock()
     }
     private func installListener() throws {
-        let parameters = NWParameters.tcp
-        if loopbackOnly { parameters.requiredLocalEndpoint = .hostPort(host:.ipv4(.loopback),port:port) }
-        // Keep exclusive ownership. SO_REUSEPORT could route requests to two
-        // bridge generations with different sessions instead of fixing startup.
-        let listener = try loopbackOnly ? NWListener(using:parameters) : NWListener(using:parameters,on:port)
+        let listener = try MacHTTPListener(port:port.rawValue,loopbackOnly:loopbackOnly)
         listenerNote("正在启动")
         listener.stateUpdateHandler = { [weak self, weak listener] state in
             guard let self, let listener, self.listener === listener else { return }
@@ -87,6 +85,7 @@ final class HTTPStatusServer {
         queue.asyncAfter(deadline:.now()+delay) { [weak self] in
             guard let self, self.wanted, self.listenerGeneration==generation, self.listener==nil else { return }
             do { try self.installListener() }
+            catch let error as NWError { self.retryListener(error) }
             catch { self.listenerNote("重新启动未完成") }
         }
     }
@@ -98,12 +97,12 @@ final class HTTPStatusServer {
     }
     var boundPort: UInt16? { queue.sync { guard listening, let value = listener?.port?.rawValue, value != 0 else { return nil }; return value } }
 
-    private func accept(_ connection: NWConnection) {
+    private func accept(_ connection: MacHTTPConnection) {
         connection.start(queue: queue)
         readNext(connection, remaining: 640, expires: ProcessInfo.processInfo.systemUptime + 120)
     }
 
-    private func readNext(_ connection: NWConnection, remaining: Int, expires: TimeInterval) {
+    private func readNext(_ connection: MacHTTPConnection, remaining: Int, expires: TimeInterval) {
         let interval = expires - ProcessInfo.processInfo.systemUptime
         guard remaining > 0, interval > 0 else { connection.cancel(); return }
         let timeout = DispatchWorkItem { connection.cancel() }
@@ -111,7 +110,7 @@ final class HTTPStatusServer {
         read(connection, buffer: Data(), timeout: timeout, remaining: remaining, expires: expires)
     }
 
-    private func read(_ connection: NWConnection, buffer: Data, timeout: DispatchWorkItem, remaining: Int, expires: TimeInterval) {
+    private func read(_ connection: MacHTTPConnection, buffer: Data, timeout: DispatchWorkItem, remaining: Int, expires: TimeInterval) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 8_192) { [weak self] data, _, complete, error in
             guard let self else { connection.cancel(); return }
             var next = buffer
@@ -148,7 +147,8 @@ final class HTTPStatusServer {
                     let observe = request.method == "GET" && request.target == "/tab5/v1/status"
                     let start = ProcessInfo.processInfo.systemUptime
                     if observe { self.statusDiagnosticLock.lock(); self.statusRequests += 1; self.statusDiagnosticLock.unlock() }
-                    let response = self.response(for: request, raw: next, loopback: loopback)
+                    let transfer = UUID()
+                    let response = self.response(for: request, raw: next, loopback: loopback, otaTransfer:transfer)
                     let generated = ProcessInfo.processInfo.systemUptime
                     if observe {
                         let code = Int(String(data:response.prefix(12),encoding:.utf8)?.split(separator:" ").last ?? "") ?? 0
@@ -157,7 +157,18 @@ final class HTTPStatusServer {
                         self.statusResponseMS = Int(max(0,generated-start)*1000); self.statusMaximumMS = max(self.statusMaximumMS,self.statusResponseMS)
                         self.statusDiagnosticLock.unlock()
                     }
-                    self.deliver(response, connection: connection, observation: observe ? { [weak self] error in
+                    let ota = request.method == "GET" && request.target.hasPrefix("/tab5/v1/ota/") && response.starts(with:Data("HTTP/1.1 200 ".utf8))
+                    let fast = request.headers["x-aibot-ota-flow"] == "tcp-v2"
+                    let headerBytes = response.range(of:Data("\r\n\r\n".utf8))?.upperBound ?? response.count
+                    let total = response.count-headerBytes
+                    self.deliver(response, connection: connection, timeoutSeconds:ota ? 360:180,
+                        chunkSize:ota && !fast ? 2048:16384, pause:ota && !fast ? 0.064:0,
+                        paced: !(ota && fast && self.tab5?.pipelinedOTA == true),
+                        progress:ota ? { [weak self] offset in
+                            self?.tab5?.firmwareControl.httpProgress(transfer,bytes:max(0,offset-headerBytes),total:total,elapsed:ProcessInfo.processInfo.systemUptime-generated)
+                        }:nil, observation: ota ? { [weak self] error in
+                            if error != 0 { self?.tab5?.firmwareControl.httpProgress(transfer,bytes:0,total:total,elapsed:ProcessInfo.processInfo.systemUptime-generated,error:error) }
+                        } : observe ? { [weak self] error in
                         guard let self else { return }; self.statusDiagnosticLock.lock(); defer { self.statusDiagnosticLock.unlock() }
                         if error == 0 { self.statusSends += 1 } else { self.statusSendErrors += 1 }
                         self.statusSendError = error; self.statusSendMS = Int(max(0,ProcessInfo.processInfo.systemUptime-generated)*1000)
@@ -169,22 +180,36 @@ final class HTTPStatusServer {
         }
     }
 
-    private func deliver(_ response: Data, connection: NWConnection, completion: (() -> Void)? = nil, observation: ((Int32) -> Void)? = nil) {
+    private func deliver(_ response: Data, connection: MacHTTPConnection, completion: (() -> Void)? = nil,
+                         timeoutSeconds:TimeInterval = 180, chunkSize:Int = 16384, pause:TimeInterval = 0,
+                         paced:Bool = true,
+                         progress:((Int) -> Void)? = nil, observation: ((Int32) -> Void)? = nil) {
         // All callbacks run on the connection's listener queue. Keep this
         // ephemeral observation numeric and complete it at most once.
         var observed = false
         let finish: (Int32) -> Void = { code in if !observed { observed = true; observation?(code) } }
         let timeout = DispatchWorkItem { finish(-1); connection.cancel() }
-        queue.asyncAfter(deadline: .now() + 180, execute: timeout)
-        send(response, offset: 0, connection: connection, timeout: timeout, completion: completion, observation:finish)
+        queue.asyncAfter(deadline: .now() + timeoutSeconds, execute: timeout)
+        // Retain existing status/legacy pacing. Authenticated .288 OTA uses
+        // awaited BSD socket writes and the peer-negotiated TCP segment size.
+        // The .288 receiver interleaves 64 KiB erases with writes. Match the
+        // Windows 16 KiB awaited stream for that authenticated peer only.
+        let pacedChunk = paced && pause == 0 ? min(chunkSize,1024):chunkSize
+        let pacedPause = paced && pause == 0 ? 0.002:pause
+        send(response, offset: 0, connection: connection, timeout: timeout, completion: completion, observation:finish,chunkSize:pacedChunk,pause:pacedPause,progress:progress)
     }
 
-    private func send(_ bytes: Data, offset: Int, connection: NWConnection, timeout: DispatchWorkItem, completion: (() -> Void)?, observation: @escaping (Int32) -> Void) {
+    private func send(_ bytes: Data, offset: Int, connection: MacHTTPConnection, timeout: DispatchWorkItem, completion: (() -> Void)?, observation: @escaping (Int32) -> Void,chunkSize:Int,pause:TimeInterval,progress:((Int) -> Void)?) {
         guard offset < bytes.count else { timeout.cancel(); observation(0); if let completion { completion() } else { connection.cancel() }; return }
-        let end = min(offset + 16384, bytes.count)
+        let end = min(offset + chunkSize, bytes.count)
         connection.send(content: Data(bytes[offset..<end]), completion: .contentProcessed { [weak self] error in
             if let error { timeout.cancel(); observation(Int32(truncatingIfNeeded:(error as NSError).code)); connection.cancel() }
-            else { self?.send(bytes, offset: end, connection: connection, timeout: timeout, completion: completion, observation:observation) }
+            else {
+                progress?(end)
+                let next = { [weak self] in self?.send(bytes,offset:end,connection:connection,timeout:timeout,completion:completion,observation:observation,chunkSize:chunkSize,pause:pause,progress:progress) }
+                if pause > 0, end < bytes.count { self?.queue.asyncAfter(deadline:.now()+pause,execute:DispatchWorkItem(block:{ next() })) }
+                else { next() }
+            }
         })
     }
 
@@ -193,7 +218,7 @@ final class HTTPStatusServer {
         return response(for: request, raw: data, loopback: loopback)
     }
 
-    private func response(for request: MacHTTPRequest, raw: Data, loopback: Bool, keepAlive: Bool = false, queued: TimeInterval? = nil) -> Data {
+    private func response(for request: MacHTTPRequest, raw: Data, loopback: Bool, keepAlive: Bool = false, queued: TimeInterval? = nil,otaTransfer:UUID = UUID()) -> Data {
         if request.target.hasPrefix("/tab5/") {
             guard request.headers["origin"] == nil else { return http(status: "403 Forbidden", body: Data()) }
             guard let tab5 else { return http(status: "404 Not Found", body: Data()) }
@@ -201,6 +226,7 @@ final class HTTPStatusServer {
             let nonce = request.headers["x-aibot-nonce"] ?? ""
             let proof = request.headers["x-aibot-proof"] ?? ""
             let result: (Int, Data)
+            var encoding:String?
             if request.method == "GET", request.target == "/tab5/v1/status", request.body.isEmpty {
                 result = tab5.status(device: device, nonce: nonce, proof: proof, headers: request.headers)
             } else if request.method == "POST", request.target == "/tab5/v1/rpc" {
@@ -212,10 +238,12 @@ final class HTTPStatusServer {
             } else if request.method == "POST", request.target == "/tab5/v1/voice" {
                 result = tab5.voicePacket(device: device, nonce: nonce, proof: proof, packet: request.body, transport: "Wi-Fi", queued: queued)
             } else if request.method == "GET", request.target.hasPrefix("/tab5/v1/ota/"), request.body.isEmpty {
-                result = tab5.ota(device: device, nonce: nonce, proof: proof, sha: String(request.target.dropFirst("/tab5/v1/ota/".count)))
+                let compressed = MacTab5OTAEncoding.negotiated(request.headers)
+                result = tab5.ota(device:device,nonce:nonce,proof:proof,sha:String(request.target.dropFirst("/tab5/v1/ota/".count)),compressed:compressed,transfer:otaTransfer)
+                if result.0 == 200, compressed { encoding = MacTab5OTAEncoding.name }
             } else { result = (404, Data()) }
             let names = [200: "OK", 400: "Bad Request", 401: "Unauthorized", 404: "Not Found", 500: "Internal Server Error", 503: "Service Unavailable"]
-            return http(status: "\(result.0) \(names[result.0] ?? "Error")", body: result.1, type: "application/octet-stream", keepAlive: keepAlive && result.0 == 200)
+            return http(status: "\(result.0) \(names[result.0] ?? "Error")", body: result.1, type: "application/octet-stream", keepAlive: keepAlive && result.0 == 200,otaEncoding:encoding)
         }
         guard let text = String(data: raw, encoding: .utf8) else { return http(status: "400 Bad Request", body: Data()) }
         return response(for: text, loopback: loopback)
@@ -263,8 +291,9 @@ final class HTTPStatusServer {
         return http(status: "404 Not Found", body: Data())
     }
 
-    private func http(status: String, body: Data, type:String = "application/json", keepAlive: Bool = false) -> Data {
-        var result = Data("HTTP/1.1 \(status)\r\nContent-Type: \(type)\r\nContent-Length: \(body.count)\r\nConnection: \(keepAlive ? "keep-alive" : "close")\r\n\r\n".utf8)
+    private func http(status: String, body: Data, type:String = "application/json", keepAlive: Bool = false,otaEncoding:String? = nil) -> Data {
+        let encoding = otaEncoding.map { "X-AIBot-OTA-Encoding: \($0)\r\n" } ?? ""
+        var result = Data("HTTP/1.1 \(status)\r\nContent-Type: \(type)\r\nContent-Length: \(body.count)\r\n\(encoding)Connection: \(keepAlive ? "keep-alive" : "close")\r\n\r\n".utf8)
         result.append(body)
         return result
     }

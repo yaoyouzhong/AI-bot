@@ -1,0 +1,94 @@
+--- a/firmware/main/ble_performance.inc
++++ b/firmware/main/ble_performance.inc
+@@ -9,8 +9,8 @@
+ static void ble_performance_request(void) {
+     static const uint16_t intervals[]={6,12,24}; // 7.5, 15, 30 ms
+     if(perf_pending||perf_level>=3||perf_attempts>=6)return;
+-    struct ble_gap_upd_params p={.itvl_min=intervals[perf_level],.itvl_max=intervals[perf_level],
+-        .latency=0,.supervision_timeout=400};
++    struct ble_gap_upd_params p={.itvl_min=intervals[perf_level],.itvl_max=perf_level==2?36:intervals[perf_level],
++        .latency=0,.supervision_timeout=perf_level?600:400};
+     perf_attempts++;
+     int rc=ble_gap_update_params(perf_connection,&p);perf_interval_rc=rc;
+     perf_pending=rc==0;
+--- a/firmware/main/ota_update.c
++++ b/firmware/main/ota_update.c
+@@ -382,7 +382,9 @@
+     bool have_block=ota_queue(reader->ready_blocks,&block,false,reader);
+     ready_wait_us+=esp_timer_get_time()-ready_started;
+     if(!have_block||block.count<=0||block.offset!=0) {
+-        error=ESP_FAIL;snprintf(failure,sizeof(failure),"固件下载中断，原版本保持可用");goto finish;
++        // Preserve the first-block cause in the existing numeric diagnostic.
++        error=have_block&&block.count<0?block.count:ESP_FAIL;
++        snprintf(failure,sizeof(failure),"固件下载中断，原版本保持可用");goto finish;
+     }
+     // The UI starts this worker before it shows the overlay. Wait for a real
+     // refresh and one panel scan before starting any flash operation.
+--- a/tests/ui-preview/ble_performance_test.c
++++ b/tests/ui-preview/ble_performance_test.c
+@@ -26,9 +26,9 @@
+  fresh();ble_performance_updated(7,0);tick(3000);assert(calls==1); // Windows keeps accepted 7.5 ms.
+  clock_us=9000000;ble_performance_idle();assert(calls==2&&!perf_bulk&&last.itvl_min==36&&last.latency==1&&last.supervision_timeout==600);
+  fresh();ble_performance_updated(8,571);assert(perf_pending); // Stale peer cannot advance.
+- ble_performance_updated(7,571);tick(1999);assert(calls==1);tick(2000);assert(calls==2&&last.itvl_min==12);
++ ble_performance_updated(7,571);tick(1999);assert(calls==1);tick(2000);assert(calls==2&&last.itvl_min==12&&last.itvl_max==12&&last.supervision_timeout==600);
+  ble_performance_updated(7,0);tick(4000);assert(calls==2); // Apple accepted fallback, no request storm.
+- fresh();ble_performance_updated(7,571);tick(2000);ble_performance_updated(7,571);tick(4000);assert(calls==3&&last.itvl_min==24);
++ fresh();ble_performance_updated(7,571);tick(2000);ble_performance_updated(7,571);tick(4000);assert(calls==3&&last.itvl_min==24&&last.itvl_max==36&&last.supervision_timeout==600);
+  ble_performance_updated(7,571);tick(6000);assert(calls==3); // All profiles refused.
+  fresh();ble_performance_updated(7,BLE_HS_HCI_ERR(BLE_ERR_DIFF_TRANS_COLL));next_rc=BLE_HS_EALREADY;
+  for(int ms=2000;ms<=20000;ms+=2000)tick(ms);
+--- a/tests/ui-preview/ota_update_test.c
++++ b/tests/ui-preview/ota_update_test.c
+@@ -119,8 +119,9 @@
+ static int64_t esp_timer_get_time(void){return (int64_t)elapsed_ms*1000;}
+ static int previous_progress;
+ static unsigned trace_stage,trace_offset;
++static int trace_error,injected_first_error;
+ static void ota_trace_begin_mock(unsigned total){assert(total==(unsigned)transfer_size);trace_stage=OTA_TRACE_CHECK;trace_offset=0;}
+-static void ota_trace_update_mock(unsigned stage,unsigned offset,int error){(void)error;assert(offset<=(unsigned)transfer_size);trace_stage=stage;trace_offset=offset;}
++static void ota_trace_update_mock(unsigned stage,unsigned offset,int error){trace_error=error;assert(offset<=(unsigned)transfer_size);trace_stage=stage;trace_offset=offset;}
+ #define ota_trace_begin ota_trace_begin_mock
+ #define ota_trace_update ota_trace_update_mock
+ void ota_trace_timing(unsigned elapsed,unsigned read,unsigned write){assert(elapsed>=read&&elapsed>=write&&elapsed>=250&&write>=250);}
+@@ -185,6 +186,7 @@
+ static unsigned rpc_ota_received_bytes(link_kind link){(void)link;return (unsigned)read_at;}
+ static int rpc_ota_read(link_kind link,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
+     assert(link==test_link&&strlen(sha)==64&&strlen(offer)==32&&offset==read_at);
++    if(!offset&&injected_first_error)return injected_first_error;
+     if(recovery_fault&&offset>=49152) {
+         range_calls++;
+         if(first_resume_offset<0)first_resume_offset=offset;
+@@ -447,6 +449,22 @@
+         cJSON_Delete(device_snapshots[LINK_WIFI]);device_snapshots[LINK_WIFI]=NULL;
+         recovery_fault=0;
+     }
++    // Preserve the precise first-block failure without touching the backup.
++    const int first_errors[]={-401,-409,-3};
++    for(unsigned i=0;i<sizeof(first_errors)/sizeof(first_errors[0]);i++) {
++        test_link=LINK_BLE;compressed_http=false;transfer_size=1024;fault=FLASH_BUFFER_FAIL;
++        read_at=write_calls=write_at=aborts=boot_changes=restarts=yields=0;
++        elapsed_ms=preparation_ack_at=completion_ack_at=backlight_off_at=0;
++        allocations=0;internal_buffer=NULL;internal_capacity=0;erased=false;host_epoch=1;radio_ready=true;
++        last_offer[0]=0;pending_offer.size=0;pending_offer_epoch=0;atomic_store(&busy,false);worker=NULL;
++        ResetEvent(prefetch_ready);ResetEvent(receive_complete);ResetEvent(first_written);
++        snprintf(offer,sizeof(offer),"{\"data\":{\"ota\":{\"sha256\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"size\":1024,\"version\":\"test\",\"offerId\":\"11111111111111111111111111111111\"}}}");
++        injected_first_error=first_errors[i];ota_update_consider(offer);assert(ota_update_request());worker(worker_arg);
++        assert(trace_stage==OTA_TRACE_FAILED&&trace_offset==0&&trace_error==injected_first_error);
++        assert(!erased&&!write_calls&&!boot_changes&&!restarts&&!ota_update_busy());
++    }
++    injected_first_error=0;
++    puts("OTA_FIRST_BLOCK_CAUSE_OK authentication_ownership_integrity_no_flash");
+     assert(range_success_closes==0&&range_failed_closes>0);
+     puts("OTA_RANGE_KEEPALIVE_OK successful ranges reused; failed ranges closed; recovery matrix passed");
+     free(http_payload);CloseHandle(first_written);CloseHandle(prefetch_ready);CloseHandle(receive_complete);
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -873,6 +873,7 @@
+ add_executable(wireless-boot-test wireless_boot_test.c)
+ target_compile_options(wireless-boot-test PRIVATE /UNDEBUG)
+ add_executable(ble-probe-test ble_probe_test.c)
++add_executable(ble-performance-test ble_performance_test.c)
+ target_include_directories(transport-benchmark-test PRIVATE "${ROOT}/.tools/esp-idf/components/json/cJSON")
+ target_include_directories(http-low-latency-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+ add_executable(gallery-jpeg-cache-test gallery_jpeg_cache_test.c "${ROOT}/firmware/main/gallery_jpeg_cache.c")

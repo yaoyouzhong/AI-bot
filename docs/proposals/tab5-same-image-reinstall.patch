@@ -1,0 +1,137 @@
+--- a/firmware/main/ota_update.c
++++ b/firmware/main/ota_update.c
+@@ -119,22 +119,6 @@
+     for(size_t i=0;i<length;i++)if(!((value[i]>='0'&&value[i]<='9')||(value[i]>='a'&&value[i]<='f')))return false;
+     return true;
+ }
+-static bool same_running_image(const esp_partition_t *running,const ota_offer *offer) {
+-    // Different embedded versions cannot have identical image hashes.
+-    if(strcmp(esp_app_get_description()->version,offer->version))return false;
+-    if(offer->size>(int)running->size)return false;
+-    mbedtls_sha256_context sha;mbedtls_sha256_init(&sha);mbedtls_sha256_starts(&sha,0);
+-    uint8_t chunk[1024];int at=0;
+-    while(at<offer->size) {
+-        int n=offer->size-at;if(n>(int)sizeof(chunk))n=sizeof(chunk);
+-        if(esp_partition_read(running,at,chunk,n)!=ESP_OK){mbedtls_sha256_free(&sha);return false;}
+-        mbedtls_sha256_update(&sha,chunk,n);at+=n;
+-        if(at%65536==0)vTaskDelay(1);
+-    }
+-    uint8_t digest[32];mbedtls_sha256_finish(&sha,digest);mbedtls_sha256_free(&sha);
+-    char hex[65];for(int i=0;i<32;i++)sprintf(hex+i*2,"%02x",digest[i]);
+-    return !strcmp(hex,offer->sha);
+-}
+ // Match one authenticated bulk range instead of splitting every 64 KiB block
+ // into a 48 KiB range and a second short RPC. Older peers still supply smaller
+ // ranges until the same owned block is filled.
+@@ -298,7 +282,7 @@
+     const esp_partition_t *running=esp_ota_get_running_partition();
+     esp_ota_handle_t handle=0;
+     esp_http_client_handle_t client=NULL;
+-    bool opened=false,writing=false,already_current=false;
++    bool opened=false,writing=false;
+     link_kind transport=rpc_ota_link_select();
+     phases.transport=transport;
+     ota_performance_t performance;
+@@ -318,7 +302,6 @@
+         next->address==running->address||offer->size>(int)next->size) {
+         snprintf(failure,sizeof(failure),"当前分区或配对状态不支持升级");goto finish;
+     }
+-    if(same_running_image(running,offer)){already_current=true;report("当前已是这份固件");goto finish;}
+     // Reception stays in PSRAM; flash writes always use internal staging.
+     reader=ota_reader_create(offer->size);
+     if(!reader){snprintf(failure,sizeof(failure),"升级缓冲不足，请稍后重试");goto finish;}
+@@ -546,13 +529,13 @@
+     if(verify_started)phases.verify_ms=(unsigned)((esp_timer_get_time()-verify_started)/1000);
+     phases.install_ms=(unsigned)((esp_timer_get_time()-install_started)/1000);
+     ota_trace_phases(&phases);
+-    ota_trace_update(already_current?OTA_TRACE_DONE:OTA_TRACE_FAILED,received,error);
++    ota_trace_update(OTA_TRACE_FAILED,received,error);
+     if(writing)esp_ota_abort(handle);
+     if(client){if(opened)esp_http_client_close(client);esp_http_client_cleanup(client);}
+     ota_reader_free(reader);reader=NULL;
+     if(flash_buffer!=flash_fallback)free(flash_buffer);
+     if(wifi_bulk)wifi_performance_bulk(false);
+-    if(!already_current)report(failure);
++    report(failure);
+     free(offer);atomic_store(&busy,false);vTaskDelete(NULL);
+ }
+ void ota_update_consider(const char *authenticated_frame) {
+@@ -596,14 +579,8 @@
+         cJSON_Delete(root);return;
+     }
+     xSemaphoreTake(device_mutex,portMAX_DELAY);
+-    // Offers survive on the PC after the device reboots into the new image.
+-    // Suppress the installed version before enabling the upgrade button.
+-    const esp_app_desc_t *running=esp_app_get_description();
+-    if(!strcmp(running->version,version->valuestring)) {
+-        pending_offer.size=0;
+-        snprintf(message,sizeof(message),"已是最新版本");
+-        xSemaphoreGive(device_mutex);cJSON_Delete(root);return;
+-    }
++    // An offered image never installs itself. Explicit UI/desktop confirmation
++    // may reinstall the same bytes; retain offer-ID deduplication within a boot.
+     bool seen=!strcmp(last_offer,offer_id->valuestring);
+     if(!seen&&frame_epoch>pending_offer_epoch)pending_offer_epoch=frame_epoch;
+     if(!seen) {
+@@ -613,7 +590,7 @@
+         pending_offer.size=size->valueint;
+         snprintf(pending_offer.notes,sizeof(pending_offer.notes),"%s",
+             cJSON_IsString(notes)&&notes->valuestring&&strlen(notes->valuestring)<sizeof(pending_offer.notes)?notes->valuestring:"");
+-        snprintf(message,sizeof(message),"新固件 %s · 可从电脑或此处开始升级",pending_offer.version);
++        snprintf(message,sizeof(message),"固件 %s · 可从电脑或此处安装",pending_offer.version);
+     }
+     xSemaphoreGive(device_mutex);
+     cJSON_Delete(root);
+--- a/tests/ui-preview/ota_update_test.c
++++ b/tests/ui-preview/ota_update_test.c
+@@ -79,7 +79,7 @@
+ static esp_partition_t running_partition={0x20000,0x6e0000},next_partition={0x700000,0x6e0000};
+ static const esp_partition_t *esp_ota_get_running_partition(void){return &running_partition;}
+ static const esp_partition_t *esp_ota_get_next_update_partition(void *p){(void)p;return &next_partition;}
+-static int esp_partition_read(const esp_partition_t *p,int at,void *out,int size){(void)p;(void)at;memset(out,0,size);return ESP_OK;}
++static int esp_partition_read(const esp_partition_t *p,int at,void *out,int size){(void)p;(void)at;memset(out,0,size);if(at==0&&size)((uint8_t*)out)[0]=1;return ESP_OK;}
+ typedef unsigned esp_ota_handle_t;
+ typedef struct {char project_name[32],version[32];} esp_app_desc_t;
+ static esp_app_desc_t running_description={"aibot_tab5","previous"};
+@@ -123,7 +123,7 @@
+ static void ota_trace_update_mock(unsigned stage,unsigned offset,int error){(void)error;assert(offset<=(unsigned)transfer_size);trace_stage=stage;trace_offset=offset;}
+ #define ota_trace_begin ota_trace_begin_mock
+ #define ota_trace_update ota_trace_update_mock
+-static void ota_trace_timing(unsigned elapsed,unsigned read,unsigned write){assert(elapsed>=read&&elapsed>=write&&elapsed>=250&&write>=250);}
++void ota_trace_timing(unsigned elapsed,unsigned read,unsigned write){assert(elapsed>=read&&elapsed>=write&&elapsed>=250&&write>=250);}
+ static ota_phase_timing measured_phases;
+ static ota_performance_t measured_performance;
+ // Exercise both starting cores in the real install loop without changing its
+@@ -324,9 +324,10 @@
+     prefetch_ready=CreateEvent(NULL,TRUE,FALSE,NULL);receive_complete=CreateEvent(NULL,TRUE,FALSE,NULL);assert(prefetch_ready&&receive_complete);
+     char offer[512];
+     int sizes[]={1024,6464048};
+-    for(int mode=0;mode<4;mode++)
++    for(int mode=0;mode<8;mode++)
+     for(unsigned s=0;s<sizeof(sizes)/sizeof(sizes[0]);s++) {
+-      test_link=mode==3?LINK_WIFI:(link_kind)mode;compressed_http=mode==3;
++      strcpy(running_description.version,mode>=4?"test":"previous");
++      test_link=mode%4==3?LINK_WIFI:(link_kind)(mode%4);compressed_http=mode%4==3;
+       transfer_size=sizes[s];
+       snprintf(offer,sizeof(offer),"{\"data\":{\"ota\":{\"sha256\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"size\":%d,\"version\":\"test\",\"offerId\":\"11111111111111111111111111111111\"}}}",transfer_size);
+       for(fault=SUCCESS;fault<=UI_PREPARE_NO_RENDER;fault++) {
+@@ -395,14 +396,13 @@
+     ota_update_offer_details(version,sizeof(version),notes,sizeof(notes));assert(!notes[0]&&ota_update_available());
+     ota_update_consider("{\"data\":{}}");assert(!ota_update_available());
+     ota_update_offer_details(version,sizeof(version),notes,sizeof(notes));assert(!version[0]&&!notes[0]);
+-    // Reboot loses last_offer, but a PC that keeps offering the installed
+-    // version must not resurrect the badge/button, even with a new offer ID.
++    // A matching running version remains available for explicit reinstall;
++    // merely receiving an offer cannot start the worker.
+     strcpy(running_description.version,"test");last_offer[0]=0;
+-    ota_update_consider(offer);assert(!ota_update_available());
+-    assert(!strcmp(message,"已是最新版本")&&!ota_update_request());
+-    ota_update_offer_details(version,sizeof(version),notes,sizeof(notes));assert(!version[0]&&!notes[0]);
++    ota_update_consider(offer);assert(ota_update_available()&&!ota_update_busy());
++    ota_update_offer_details(version,sizeof(version),notes,sizeof(notes));assert(!strcmp(version,"test"));
+     strcpy(running_description.version,"previous");ota_update_consider(offer);assert(ota_update_available());
+-    assert(overlap_cases==4);
++    assert(overlap_cases==8);
+     if(external_write_bytes){fprintf(stderr,"OTA_INTERNAL_WRITE_REGRESSION externalBytes=%llu\n",external_write_bytes);return 42;}
+     strcpy(running_description.version,"previous");
+     for(int route=0;route<4;route++)for(int test=RECOVER_ONCE;test<=RECOVER_WAIT;test++) {

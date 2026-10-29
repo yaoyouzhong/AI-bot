@@ -78,7 +78,8 @@ internal static class Tab5RemoteOtaSelfTest
             if(pending.IsCompleted)throw new Exception("Mismatched report completed start");
             var commit=await Ack(frame,"ready");if(!commit.GetProperty("body").GetProperty("commit").GetBoolean()||pending.IsCompleted)throw new Exception("Preparation confused with installation");
             await Ack(frame,"started");await pending;if(!(await localStart).GetProperty("ok").GetBoolean())throw new Exception("IPC start failed");pipeStop.Cancel();await pipeServer;service.ObserveFirmware(pair.DeviceId,image.Version);
-            if(service.RemoteOtaPending||service.CanStartOta)throw new Exception("Installed version restarted");
+            if(service.RemoteOtaPending||!service.CanStartOta)throw new Exception("Manual reinstall entry unavailable");
+            try{await service.StartOtaAsync(CancellationToken.None);throw new Exception("Old receiver accepted reinstall");}catch(InvalidOperationException ex) when(ex.Message.Contains("0.2.286-ui")){}
             if((await Ack(frame,"ready")).GetProperty("status").GetInt32()!=409)throw new Exception("Old request committed again");
             service.ObserveFirmware(pair.DeviceId,"0.2.190-ui");Fresh();
             pending=service.StartOtaAsync(CancellationToken.None);frame=Command();await Ack(frame,"rejected","draft_save_failed");
@@ -86,6 +87,12 @@ internal static class Tab5RemoteOtaSelfTest
             using var cancel=new CancellationTokenSource();pending=service.StartOtaAsync(cancel.Token);frame=Command();cancel.Cancel();
             try{await pending;throw new Exception("Cancellation lost");}catch(OperationCanceledException){}
             if(service.RemoteOtaPending||service.Busy||(await Ack(frame,"ready")).GetProperty("status").GetInt32()!=409)throw new Exception("Cancelled intent remained armed");
+            service.OfferOta(image with {Version="0.2.286-ui"});service.ObserveFirmware(pair.DeviceId,"0.2.286-ui");Fresh();
+            var beforeReinstall=Command();
+            pending=service.StartOtaAsync(CancellationToken.None);frame=Command();service.ObserveFirmware(pair.DeviceId,"0.2.286-ui");
+            if(pending.IsCompleted||!service.RemoteOtaPending||!service.CanStopOta||
+               beforeReinstall.GetProperty("data").GetProperty("ota").GetProperty("offerId").GetString()==frame.GetProperty("data").GetProperty("ota").GetProperty("offerId").GetString())throw new Exception("Same version consumed reinstall or reused offer");
+            await Ack(frame,"rejected","draft_save_failed");try{await pending;throw new Exception("Reinstall ignored draft failure");}catch(IOException){}
             string failedNonce=Guid.NewGuid().ToString("N");
             if((await service.RpcAsync(pair.DeviceId,failedNonce,new string('0',64),new byte[28],CancellationToken.None,transport:"USB")).Status!=401||
                 service.CanStartOta||!service.OtaStartHint.Contains("固件尚未传输"))throw new Exception("Unauthenticated USB left firmware installation enabled");

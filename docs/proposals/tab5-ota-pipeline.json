@@ -1,0 +1,18 @@
+{
+  "baseVersion": "0.2.287-ui",
+  "baseImageSHA256": "e8ed70006b087648893a5c8d507e811d6af9f9e2ddbbc888a1da41fc0678fc14",
+  "parentProvenance": "tab5-ota-range-keepalive.json",
+  "candidateVersion": "0.2.288-ui",
+  "patchSHA256": "3d132935259abe96ebf6859dcfd09c5287c8eae19872cf7ec0fb28870d5d46ae",
+  "files": {
+    "firmware/main/ota_update.c": {
+      "before": "39a8ccdb911bc7b99dd58d9aa6a9ba1bb875a14feb946f5a2445f412a958f4d6",
+      "after": "17b7700a8bb478c82bce917ff85db4880fef19c5ad39517647136ecc36b39bd5"
+    },
+    "tests/ui-preview/ota_update_test.c": {
+      "before": "21980813c0ab40240e2712050d85370b975110540904d0e782b5ce07dcff54ea",
+      "after": "a685db26e7bea44e647db63dffe9257c1506de0125196ca272b2d784586280aa"
+    }
+  },
+  "status": "installed; 840 boundary/fault cases and 34 recovery cases; identical-image Wi-Fi ranges 25.921 s with automatic exact boot and unchanged settings; continuous-stream and MSS experiments rejected"
+}
