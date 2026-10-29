@@ -90,6 +90,9 @@ internal sealed partial class Tab5Service
                 void Check(bool value,string message){if(!value)throw new Exception(message);}
                 void MustReject(Action action,string message){try{action();throw new Exception(message);}catch(InvalidOperationException){}}
                 service.OfferOta(image);var pending=service.StartOtaAsync(CancellationToken.None);
+                Check(service._ota!.OfferId!=image.OfferId,"Start reused the selected offer identity");
+                // Start owns a fresh identity; cancellation must retire that actual offer.
+                image=service._ota!;
                 var command=Frame().GetProperty("data").GetProperty("connectionHealth").GetProperty("otaCommand").Clone();
                 Check(service.CanStopOta,"Pending start cannot stop");service.StopOta();
                 try{await pending;throw new Exception("Stopped start succeeded");}catch(IOException){}
@@ -97,7 +100,9 @@ internal sealed partial class Tab5Service
                 Check(service.UpgradeStatusText.State=="已停止","Uncommitted request not locally stopped");
                 foreach(string transport in new[]{"BLE","USB","Wi-Fi"}) {
                     service.OfferOta(image);var offer=service._ota!;
-                    Check(offer.OfferId!=image.OfferId,"Stopped offer identity reused");image=offer;
+                    Check(offer.OfferId!=image.OfferId,"Stopped offer identity reused");
+                    Check((await Range(image,0,2048,transport)).GetProperty("status").GetInt32()==404,"Old stopped offer served after reselect");
+                    image=offer;
                     Check((await Range(offer,0,2048,transport)).GetProperty("status").GetInt32()==200&&service.CanStopOta,"Range cannot stop");
                     // Lost replies may repeat an immutable range under a new
                     // nonce. Offset/data and offer scope must stay exact.

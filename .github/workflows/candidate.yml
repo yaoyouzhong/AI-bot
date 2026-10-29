@@ -70,7 +70,10 @@ jobs:
           if-no-files-found: error
   macos:
     if: inputs.component == 'bundle' || (inputs.component == 'bridge' && inputs.desktop_platform != 'windows')
-    runs-on: macos-14
+    runs-on: macos-15
+    env:
+      # The pinned MMKV package requires Swift tools 6.2 or newer.
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
