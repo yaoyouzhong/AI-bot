@@ -1,6 +1,6 @@
 # TAB5 大屏预览内存修复 / Preview memory fix
 
-2026-10-29；Mac R34 / TAB5 0.2.292-ui 现场，修复候选 0.2.293-ui。候选尚未安装或公开发布。
+2026-10-29；Mac R34 / TAB5 0.2.292-ui 现场，修复候选 0.2.293-ui。候选已按用户授权安装，尚未公开发布。
 
 ## 现场与原因
 
@@ -25,12 +25,14 @@
 - 正式 Windows 包校验器通过，准备脚本已生成固定路径 `artifacts/firmware/tab5/latest/aibot_tab5.bin`；实际 sidecar 的首屏和滚动预览已检查。
 - 本地证据：`artifacts/mac-voice-source-20261029/preview-memory-recheck/VALIDATION.json`、`artifacts/mac-voice-source-20261029/tab5-293-preview/`。不将运行状态、设备凭据、个人画面或二进制提交到仓库。
 
-## 待实机验收
+## 实机状态与剩余验收
 
-依固件工作流取得安装授权后，保留展示设置，安装并核对精确 ELF、有效分区及实时样本；在图库缓存占用场景检查持续高清、关闭再开、图库继续解码、当前画面和照片保留，以及没有新增原始像素分配失败。此项新增为发布前验证门槛；R35 排队确认仍按用户要求留到 10 月 30 日。源码合并、模拟回归、实机验收及公开发布分别记录。
+用户已明确授权安装 .293。桥接 USB 启动核验通过：精确 ELF、VALID 分区及三个实时界面样本一致；原 R34 桥接的预览首帧恢复为 `1280×720 · USB`。升级前后只读核对亮度、音量、提醒、固定页面、轮播开关／列表／顺序／间隔及屏保等待时间，完全一致；未改动展示设置。
+
+用户随后要求图库切换验收留到 10 月 30 日，因此没有把首帧成功扩大为持续运行通过。仍需在图库缓存占用场景检查持续高清、关闭再开、图库继续解码、当前画面和照片保留，以及没有新增原始像素分配失败。这些仍为发布前验证门槛；R35 排队确认仍按用户要求留到 10 月 30 日。源码合并、模拟回归、实机验收及公开发布分别记录。
 
 ## English
 
 Installed .292 repeatedly falls back to 640×360 over USB with raw-pixel allocation failures. Two UI gallery caches can hold both loanable reserved camera frames while the third preserves a photo. Preview cannot access an unused UI-owned cache and attempts another contiguous 1.76 MiB allocation. This reproducible ownership gap is not evidence of a measured leak or fragmentation.
 
-Candidate .293 transfers only an unused cache under the display lock, protects displayed/hidden references and transitions, and lets foreground decoding reclaim idle preview scratch. Protocol, fonts, partitions and display preferences remain unchanged. The P4 build, real LVGL/full native UI regression, 82 actual-worker cases with synthetic runtime fixtures, production package validator and actual sidecar previews pass. The image fits with 288 bytes remaining. Hardware installation and sustained HD acceptance are pending authorization; source merge does not constitute device acceptance or a public release. Windows uses the same firmware fix without a bridge protocol change.
+Candidate .293 transfers only an unused cache under the display lock, protects displayed/hidden references and transitions, and lets foreground decoding reclaim idle preview scratch. Protocol, fonts, partitions and display preferences remain unchanged. The P4 build, real LVGL/full native UI regression, 82 actual-worker cases with synthetic runtime fixtures, production package validator and actual sidecar previews pass. The image fits with 288 bytes remaining. Authorized installation now passes exact ELF, VALID partition and three live samples over USB, and the unchanged R34 bridge displays a 1280×720 first frame. Display preferences match before/after. The user deferred gallery switching and sustained HD acceptance to October 30; source merge does not constitute device acceptance or a public release. Windows uses the same firmware fix without a bridge protocol change.

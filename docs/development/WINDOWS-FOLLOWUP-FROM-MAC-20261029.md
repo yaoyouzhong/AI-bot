@@ -103,6 +103,6 @@ Validation: both Mac Release builds pass 28,784 isolated checks each, plus 81 OT
 
 共享固件新增 [缓存借用补丁](../proposals/tab5-preview-gallery-cache.patch) 与 [来源及哈希](../proposals/tab5-preview-gallery-cache.json)，基于已安装 .292。Windows 无需重复实现或修改协议：预览可借用未显示的图库缓存，图库需要解码时归还预览空闲缓冲区。核对父补丁链后应用到独立 TAB5 工程；不要在 Windows 桥接中降低默认清晰度掩盖此问题。
 
-本地固件构建、82 项工作器检查及真实 LVGL／完整 UI 回归通过；候选 .293 尚未安装，跨平台实机高清预览仍待验证。现场证据与边界见 [修复记录](TAB5-PREVIEW-MEMORY-20261029.md)。合并源码不代表正式固件发布。
+本地固件构建、82 项工作器检查及真实 LVGL／完整 UI 回归通过；候选 .293 已授权安装到 Mac 配对设备，精确启动核验和 1280×720 首帧通过；图库切换、持续高清及 Windows 实机预览仍待验证。现场证据与边界见 [修复记录](TAB5-PREVIEW-MEMORY-20261029.md)。合并源码不代表正式固件发布。
 
-Shared TAB5 .293 firmware safely transfers unused gallery caches to HD preview and returns idle scratch to foreground decoding. Windows needs no protocol or bridge change; apply the linked patch after checking its parent provenance. Local build and regressions pass, but .293 is not installed and cross-platform physical preview acceptance remains pending. Source merge is not a firmware release.
+Shared TAB5 .293 firmware safely transfers unused gallery caches to HD preview and returns idle scratch to foreground decoding. Windows needs no protocol or bridge change; apply the linked patch after checking its parent provenance. Local build and regressions pass, and .293 is installed on the Mac-paired device with exact boot verification and a 1280×720 first frame. Gallery switching, sustained HD and Windows physical preview acceptance remain pending. Source merge is not a firmware release.

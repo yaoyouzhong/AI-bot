@@ -30,7 +30,7 @@
       "after": "7fbf83eac6cc32175bc8084d235c2c27f39d55af47ce6f4879e36b2b5262ca5b"
     }
   },
-  "status": "built and locally validated; not installed or publicly released",
+  "status": "built, locally validated and installed with user authorization; first HD frame passed; sustained/gallery acceptance deferred to 2026-10-30; not publicly released",
   "candidateImageSHA256": "3d80b4a4a4e4f23147b83964607da6c8b05d0b1d0f51b875258cec0b312ecaf0",
   "candidateELFSHA256": "00ac1f629888d44ff8154a369657841d5c0b667e91d0396c4af43f3136fda76e",
   "candidateBytes": 7208672,
@@ -43,12 +43,22 @@
     "P4 Release build; unchanged sdkconfig definitions and partition layout",
     "actual LVGL cache-loan regression and full native UI regression pass",
     "actual worker/codec/vendor/cJSON low-memory harness: 82 cases pass; original .292 reproduces phase-1 raw-buffer failure; synthetic allocation/capture/transport/task fixtures, not hardware acceptance",
-    "production Windows package validator and actual fixed-path release-notes preview pass"
+    "production Windows package validator and actual fixed-path release-notes preview pass",
+    "patch replay reproduces all six exact candidate source hashes"
   ],
   "physicalAcceptance": {
-    "installed": false,
-    "previewHD": false,
-    "pending": "Install with user authorization; verify sustained HD preview, no new raw-buffer memory failures, retained gallery/photo contents and display preferences."
+    "installed": true,
+    "transport": "USB boot verification",
+    "exactELF": true,
+    "partitionVALID": true,
+    "threeLiveSamples": true,
+    "previewFirstHDFrame": [
+      1280,
+      720
+    ],
+    "sustainedPreviewHD": false,
+    "pending": "User deferred gallery switching, sustained HD, reopen under cache occupancy and photo-retention acceptance to 2026-10-30. No Windows physical preview acceptance claimed.",
+    "settingsPreserved": true
   },
   "localEvidence": "artifacts/mac-voice-source-20261029/tab5-293-preview/"
 }
