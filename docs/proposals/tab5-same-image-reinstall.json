@@ -1,0 +1,18 @@
+{
+  "baseVersion": "0.2.285-ui",
+  "baseImageSHA256": "2ab8ba65650e69fa20742272f2aaf7158081f401e7360627ec2c5bcbb048f03e",
+  "parentProvenance": "tab5-clear-render.json",
+  "candidateVersion": "0.2.286-ui",
+  "patchSHA256": "a1c53c07c0d23022be8e8cc784e265f35cff4df0a242d6a1d39230cf4b57ba44",
+  "files": {
+    "firmware/main/ota_update.c": {
+      "before": "ddb5ecb4a5f00384b54dba363cfb40d95327e07c8bac84d5b864333198fb34af",
+      "after": "faec999b26ab40b06d9f0e270c1220b724b49a9715b030ff167d37799a67ddd5"
+    },
+    "tests/ui-preview/ota_update_test.c": {
+      "before": "b3884b4d9f8c4676cb730fdf70bb9b593f06b271539ec1c1ec594318f3c39e8b",
+      "after": "6264ba99c37dd91c21f6cf1cc997334deac49813241e82e5a1cf9bce345c66d5"
+    }
+  },
+  "status": "installed; exact same image reinstalled over Wi-Fi, partition flip and exact boot verified"
+}

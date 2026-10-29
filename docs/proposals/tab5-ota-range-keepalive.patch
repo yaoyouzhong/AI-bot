@@ -1,0 +1,57 @@
+--- a/firmware/main/ota_update.c
++++ b/firmware/main/ota_update.c
+@@ -191,7 +191,10 @@
+         if(!r->range_client)return -1;
+     }
+     int got=rpc_ota_http_read(r->range_client,r->offer->sha,r->offer->offer_id,offset,out,count);
+-    esp_http_client_close(r->range_client);return got;
++    // Each authenticated range consumes its complete HTTP body. Keep the TCP
++    // connection for the next range; errors still reconnect at the same offset.
++    if(got<=0)esp_http_client_close(r->range_client);
++    return got;
+ }
+ static void ota_receive(void *arg) {
+     ota_reader *reader=arg;int offset=0;
+--- a/tests/ui-preview/ota_update_test.c
++++ b/tests/ui-preview/ota_update_test.c
+@@ -146,6 +146,8 @@
+ typedef struct {int event_id;void *user_data;const char *header_key,*header_value;} esp_http_client_event_t;
+ typedef struct {const char *url;int timeout_ms;bool disable_auto_redirect;int buffer_size;esp_err_t (*event_handler)(esp_http_client_event_t *);void *user_data;} esp_http_client_config_t;
+ static esp_http_client_config_t http_options;
++static atomic_uint range_success_closes,range_failed_closes;
++static _Thread_local int last_range_result;
+ typedef void *esp_http_client_handle_t;
+ static void *esp_http_client_init(const esp_http_client_config_t *c){assert(c->disable_auto_redirect);http_options=*c;return (void *)1;}
+ static void esp_http_client_set_header(void *c,const char *k,const char *v){
+@@ -191,7 +193,7 @@
+     if(count>8192)count=8192;
+     return esp_http_client_read(NULL,(char *)out,count);
+ }
+-static int rpc_ota_http_read(void *http,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
++static int rpc_ota_http_read_impl(void *http,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
+     assert(http&&test_link==LINK_WIFI&&strlen(sha)==64&&strlen(offer)==32);
+     if(first_resume_offset<0)first_resume_offset=offset;
+     range_calls++;
+@@ -202,7 +204,12 @@
+     memset(out,0,count);if(!offset)out[0]=1;read_at=offset+count;
+     check_download_feedback();return count;
+ }
+-static void esp_http_client_close(void *c){(void)c;}
++static int rpc_ota_http_read(void *http,const char *sha,const char *offer,int offset,uint8_t *out,int count) {
++    last_range_result=rpc_ota_http_read_impl(http,sha,offer,offset,out,count);return last_range_result;
++}
++static void esp_http_client_close(void *c){
++    (void)c;if(last_range_result>0)range_success_closes++;else if(last_range_result<0)range_failed_closes++;last_range_result=0;
++}
+ static void esp_http_client_cleanup(void *c){(void)c;}
+ // This facade tests integrity-failure control flow, not the platform SHA primitive.
+ typedef struct {uint8_t sum;} mbedtls_sha256_context;
+@@ -431,6 +438,8 @@
+         cJSON_Delete(device_snapshots[LINK_WIFI]);device_snapshots[LINK_WIFI]=NULL;
+         recovery_fault=0;
+     }
++    assert(range_success_closes==0&&range_failed_closes>0);
++    puts("OTA_RANGE_KEEPALIVE_OK successful ranges reused; failed ranges closed; recovery matrix passed");
+     free(http_payload);CloseHandle(prefetch_ready);CloseHandle(receive_complete);
+     puts("OTA_RECOVERY_TASK_OK USB_WIFI_BLE resumed offset; raw/zlib stream fallback; disconnect, generation, exhaustion, stop, stale withdrawal, owner change, malformed range and authorization rejection");
+     puts("OTA_TASK_OK USB_WIFI_BLE_fault_matrix authenticated_prefetch_before_erase rendered_preparation_required bounded_PSRAM_pool_internal_staging_even_at_38KB_or_allocation_failure receive_complete_before_write_not_99 verification_elapsed_feedback completion_and_failure_paths");return 0;

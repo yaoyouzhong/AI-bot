@@ -1,0 +1,37 @@
+{
+  "baseVersion": "0.2.291-ui",
+  "baseImageSHA256": "c159109f154b56e9d9bed2917cc8e4f2a2786fcef54a700d0a6fbf3612b33234",
+  "parentProvenance": "tab5-ota-admission-radio-lease.json",
+  "candidateVersion": "0.2.292-ui",
+  "patchSHA256": "f89c74e92500fae1e220f73886127d7e4e594f4fa8cad7ae9a86662f68aeb7fe",
+  "files": {
+    "firmware/main/ui.c": {
+      "before": "2fd790569d6e50b97e5c07015ee7a814e73667014c07cf56b67133bb12a09900",
+      "after": "5848dc5542e3748d077b65621aedb233a5d86e025876c322598f9e8f3d7739b4"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "43f61cddc95ecf372668884dd4fc41fdca71b201b2b723f2dbfcf313e5869f37",
+      "after": "19afd4f536dc598123ce05f16a9bc3d3b8375fe2f8a46c5a0dc233cab92e6d70"
+    }
+  },
+  "status": "P4 build, regression/notes previews, authorized installation and user quota-touch acceptance passed",
+  "candidateImageSHA256": "b57370238df9decfeb911dc15708886cb5dd7105aec1ae85e70875c38a810c2f",
+  "candidateELFSHA256": "dd04675e56ad5d7d37144832f9da9c76e0a86041cc02acd08b7c8aa21998f902",
+  "candidateBytes": 7208544,
+  "validation": [
+    "unmodified .291 UI reproduces new navigation assertion failure",
+    "eleven model reentries reset Codex; overview DeepSeek link preserved; swipe entry resets Codex",
+    "native screenshots visually checked",
+    "unchanged board sdkconfig definitions; P4 release build",
+    "production package validator; actual fixed-path sidecar preview visually checked"
+  ],
+  "physicalAcceptance": {
+    "wifiInstalled": true,
+    "exactELF": true,
+    "partitionVALID": true,
+    "threeLiveSamples": true,
+    "settingsPreserved": true,
+    "elapsedThroughBootVerification": 71.40463387500495,
+    "quotaTouchBehavior": "user confirmed normal: overview other-model detail -> Quotas resets Codex"
+  }
+}

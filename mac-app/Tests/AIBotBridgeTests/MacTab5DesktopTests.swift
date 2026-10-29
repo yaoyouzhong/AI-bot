@@ -50,7 +50,7 @@ final class MacTab5DesktopTests: XCTestCase {
         func submit(_ reason: MacTab5DesktopCheck, draftID: String? = nil, device: String = "A") {
             XCTAssertEqual(desktop.handle(["op": "submit-draft", "taskId": fixture.task, "requestId": UUID().uuidString,
                 "draftRequestId": draftID ?? stageID], device: device).status, 409)
-            XCTAssertEqual(desktop.summary, reason.rawValue)
+            XCTAssertEqual(desktop.summary, reason.rawValue + "；最近提交失败：" + reason.rawValue)
             XCTAssertEqual(fixture.writes, 1); XCTAssertEqual(fixture.sends, 0)
         }
         submit(.submitReceipt, draftID: UUID().uuidString)
@@ -84,7 +84,7 @@ final class MacTab5DesktopTests: XCTestCase {
         let desktop = MacTab5Desktop(codex: try model(fixture), enabled: { true }, backend: fixture.backend)
         let result = desktop.handle(["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "second"], device: "A")
         XCTAssertEqual(result.status, 200); XCTAssertEqual(result.body["appended"] as? Bool, true)
-        XCTAssertEqual(fixture.value, "\noriginal \n\nsecond")
+        XCTAssertEqual(fixture.value, "\noriginal \n second")
     }
     func testReadbackWaitsForExactBodyAndReturnsRawParagraphEndings() {
         var values: [String?] = ["old", nil, "测试输入\r\n"], reads = 0, waits = 0
@@ -134,16 +134,17 @@ final class MacTab5DesktopTests: XCTestCase {
         let desktop = MacTab5Desktop(codex: codex, enabled: { true }, backend: backend)
         var request: [String: Any] = ["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "preview"]
         XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
-        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.readOnly.rawValue)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.readOnly.rawValue + "；最近回填失败：" + MacTab5DesktopCheck.readOnly.rawValue)
         XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
         XCTAssertEqual(attempts, 1); XCTAssertEqual(fixture.value, ""); XCTAssertEqual(fixture.sends, 0)
         deny = false; request["requestId"] = UUID().uuidString
         XCTAssertEqual(desktop.handle(request, device: "A").status, 200)
-        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.confirmed.rawValue)
+        // A successful retry updates current status but retains the bounded last failure for diagnosis.
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.confirmed.rawValue + "；最近回填失败：" + MacTab5DesktopCheck.readOnly.rawValue)
         XCTAssertEqual(attempts, 2); XCTAssertEqual(fixture.value, "preview"); XCTAssertEqual(fixture.sends, 0)
         fixture.value = String(repeating: "x", count: 2000); request["requestId"] = UUID().uuidString
         XCTAssertEqual(desktop.handle(request, device: "A").status, 409)
-        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.tooLong.rawValue)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.tooLong.rawValue + "；最近回填失败：" + MacTab5DesktopCheck.tooLong.rawValue)
         XCTAssertEqual(attempts, 2); XCTAssertEqual(fixture.value.utf8.count, 2000); XCTAssertEqual(fixture.sends, 0)
     }
     func testStructuredMainComposerRequiresItsOwnTrustedDocumentAndUniqueFullTitle() {
@@ -190,13 +191,13 @@ final class MacTab5DesktopTests: XCTestCase {
         XCTAssertTrue(desktop.summary.contains("navigation-only evidence"))
         let request: [String: Any] = ["op": "stage-draft", "taskId": fixture.task, "requestId": UUID().uuidString, "text": "recognized preview"]
         XCTAssertEqual(desktop.handle(request, device: "A").status, 503)
-        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.identifierAndRoute.rawValue)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.identifierAndRoute.rawValue + "；最近回填失败：" + MacTab5DesktopCheck.identifierAndRoute.rawValue)
         XCTAssertEqual(desktop.handle(request, device: "A").status, 503)
         XCTAssertEqual(reads, 1); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
         reason = .route
         var fresh = request; fresh["requestId"] = UUID().uuidString
         XCTAssertEqual(desktop.handle(fresh, device: "A").status, 503)
-        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.route.rawValue)
+        XCTAssertEqual(desktop.summary, MacTab5DesktopCheck.route.rawValue + "；最近回填失败：" + MacTab5DesktopCheck.route.rawValue)
         XCTAssertEqual(reads, 2); XCTAssertEqual(fixture.writes, 0); XCTAssertEqual(fixture.sends, 0)
     }
     func testDelayedNavigationUsesTheDeadlineWithoutReopeningOrReadingAnEditor() throws {

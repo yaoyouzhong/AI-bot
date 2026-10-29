@@ -12,7 +12,13 @@ final class MacTab5Speech {
     private var transcript = MacTab5SpeechTranscript()
     private var updates = 0, timedUpdates = 0
     private var lastDiagnostics = ""
-    func backend() -> MacTab5SpeechBackend { .init(start: start, feed: feed, finish: finish, cancel: cancel, diagnostics: diagnostics) }
+    private var inputName = ""
+    func backend() -> MacTab5SpeechBackend { .init(start: start, feed: feed, finish: finish, cancel: cancel, diagnostics: diagnostics, sourceName: sourceName) }
+    private func sourceName() -> String {
+        lock.lock(); defer { lock.unlock() }
+        if let engine, let device = MacAudioInputs.activeInput(of: engine.inputNode) { inputName = MacAudioInputs.displayName(device) }
+        return inputName
+    }
     private func diagnostics() -> String {
         lock.lock(); defer { lock.unlock() }; return lastDiagnostics
     }
@@ -24,7 +30,7 @@ final class MacTab5Speech {
     }
     private func start(_ source: String, callback: @escaping (String, Bool, MacTab5SpeechFailure?) -> Void) throws {
         lock.lock(); defer { lock.unlock() }; cancel()
-        updates = 0; timedUpdates = 0; lastDiagnostics = ""
+        updates = 0; timedUpdates = 0; lastDiagnostics = ""; inputName = ""
         guard SFSpeechRecognizer.authorizationStatus() == .authorized, let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")), recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else { throw MacTab5Error.unavailable }
         let request = SFSpeechAudioBufferRecognitionRequest(); request.requiresOnDeviceRecognition = true; request.shouldReportPartialResults = true; request.taskHint = .dictation
         self.recognizer = recognizer; self.request = request
@@ -57,6 +63,7 @@ final class MacTab5Speech {
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in request.append(buffer) }
             self.engine = engine; engine.prepare()
             do { try engine.start() } catch { cancel(); throw error }
+            _ = sourceName()
         }
     }
     private func feed(_ pcm: [Int16]) throws {
@@ -66,7 +73,7 @@ final class MacTab5Speech {
         for index in pcm.indices { channel[index] = Float(pcm[index]) / 32768 }; request.append(buffer)
     }
     private func finish() {
-        lock.lock(); defer { lock.unlock() }; engine?.stop(); engine?.inputNode.removeTap(onBus: 0); engine = nil; request?.endAudio()
+        lock.lock(); defer { lock.unlock() }; _ = sourceName(); engine?.stop(); engine?.inputNode.removeTap(onBus: 0); engine = nil; request?.endAudio()
     }
     private func cancel() {
         lock.lock(); defer { lock.unlock() }; engine?.stop(); engine?.inputNode.removeTap(onBus: 0); engine = nil

@@ -70,7 +70,7 @@ TAB5 uses separate `tab5_*` messages and `/tab5/v1/status`; see [TAB5 integratio
 
 ## TAB5 .117 OTA transport compression
 
-USB and BLE bulk OTA RPC ranges negotiate `acceptEncoding:"zlib"` against authenticated `rpcOtaZlib=1`, retaining the existing 48 KiB decoded limit, encryption, original offsets and raw fallback. Wi-Fi OTA uses the existing authenticated GET with `X-AIBot-OTA-Flow: tcp-v2` plus `X-AIBot-OTA-Encoding: aibot-zlib-blocks-v1`; the bridge only enables compression when both capabilities match and echoes the encoding header. Missing headers retain the raw image path. The general Wi-Fi RPC endpoint still rejects OTA ranges with `firmware_requires_ota_transport`; Wi-Fi firmware uses the streaming GET.
+USB and BLE bulk OTA RPC ranges negotiate `acceptEncoding:"zlib"` against authenticated `rpcOtaZlib=1`, retaining the existing 48 KiB decoded limit, encryption, original offsets and raw fallback. Wi-Fi OTA uses the existing authenticated GET with `X-AIBot-OTA-Flow: tcp-v2` plus `X-AIBot-OTA-Encoding: aibot-zlib-blocks-v1`; the bridge only enables compression when both capabilities match and echoes the encoding header on a stream response. Missing headers retain the raw image path. The later `rpcOtaResume=1` extension described below permits authenticated Wi-Fi OTA ranges after initial HTTP unavailability or interruption.
 
 The HTTP body is a sequence of independent blocks: four little-endian uint32 fields (original offset, decoded bytes, payload bytes, encoding), then payload. Encoding 0 is raw; 1 is zlib. Decoded blocks are 49152 bytes except the last. Payload must be positive and no larger than decoded bytes; zlib must be smaller. Content-Length is the framed transfer length, while the offer's size and SHA-256 always describe the decoded image. Reject unknown/duplicate encoding headers, wrong offsets/sizes, truncation, trailing bytes and decode failure before accepting the image. Final full-image hash, identity and boot-partition checks remain mandatory.
 
@@ -349,6 +349,8 @@ USB may omit null-valued optional fields inside each domestic quota object to st
 Paired TAB5 clients can POST `/tab5/v1/voice`. AES-256-GCM request and response packets use the existing TAB5 key and request nonce as AAD. Proof text is `POST|/tab5/v1/voice|deviceId|nonce|sha256(packet)` (lowercase hash); maximum encrypted request is 16384 bytes. JSON fields: `session`, `issuedAt` (UTC milliseconds, ±15 seconds), `op`; start adds `taskId`, subsequent requests add `voiceId`. Operations: start/poll/audio/stop/cancel/tab5. Audio adds sequential `seq` starting at zero and `pcm` (Base64 PCM16-LE, 16 kHz mono, at most 6400 bytes). Nonces are replay protected; malformed and out-of-order audio is rejected.
 
 Replies expose source dji/tab5, state, message and bounded UTF-8 draft text in the encrypted response only. DJI capture is preferred; absent/unavailable capture falls back to TAB5. VB-CABLE routes either source into the separately configured Doubao input method. Capture stops after 4 seconds without requests or 60 seconds total. No automatic task submission. Runtime is disabled until configured; this is source/simulation validation, not real audio, Doubao or TAB5 hardware acceptance. Existing ESP8266 endpoints and settings are unchanged.
+
+Mac local selection (2026-10-28): the saved capture preference selects `pc` or `tab5` for each new take, including agenda/date owners; absent a saved preference, existing request-directed routing remains. A settings change does not replace the active take. The receiver already follows the returned `source`, including when it differs from its start hint. `sourceName` carries the confirmed Mac/DJI endpoint or TAB5 microphone plus the recognizer. Selected-device failure is not an automatic fallback. This reuses the existing Mac fields and receiver behavior; no wire-version or Windows/ESP8266 change is required. Device recording-label deployment is tracked separately in [the local record](development/MAC-VOICE-SOURCE-20261028.md).
 
 2026-10-15 local candidate: existing `op=tab5` also supports direct shared DJI input. The host stops its owned DJI segment and waits for idle/stable committed text before borrowing the built-in channel, preserving voiceId, owner and draft; final explicit stop returns both segments. During handoff the existing recording state remains with ready=false. No new field/version is needed. 普通大疆直连不切换豆包音源；手动 `tab5` 请求先结束并保留大疆文字，再临时借用／归还内置麦克风通道，保持原会话及完整草稿。此候选尚未部署，真实切换验收另记。
 
@@ -1314,3 +1316,120 @@ Optional authenticated data.rpcOtaResume=1 enables Wi-Fi kind=ota range RPC afte
 Within the same installer and boot, completed blocks, the flash handle and running image hash remain. Discard only an incomplete compressed block. Per-gap attempts are capped at eight with 250–4000 ms backoff; no new retry starts after 90 seconds in a gap, 15 minutes for the installer or 32 total retries. In-flight calls retain their existing bounded deadlines. Invalid/authentication/corrupt responses, a selected-host/mode change or a newer authenticated offer withdrawal stop recovery. Older cross-channel status publications cannot withdraw a newer offer. Full hash/image/project/version validation still precedes boot-partition selection.
 
 中文：三通道在同一次开机、同一升级内保留已完成块，断线后从失败块继续。Wi-Fi 先用高速压缩流，IO 中断后按能力声明转为同一电脑/同一 Wi-Fi 的鉴权分段；不跨电脑、不跨所选通道。主动停止仍撤回 offer，设备确认空闲前不重开，末段交出后仍不能停止。断电、重启、更换镜像或恢复预算耗尽后重新开始，不声明持久化续传。Mac 未改；旧 Mac 未声明能力时仍用原 HTTP 路径，不能把 Windows 的 Wi-Fi 恢复验收写成 Mac 已支持。
+
+Mac 2026-10-28 OTA 候选补齐已有 `rpcOtaZlib=1`、`rpcOtaResume=1` 和严格 `tcp-v2`＋`aibot-zlib-blocks-v1` 双向协商。48 KiB 独立 zlib 块、原样回退、范围恢复及镜像 SHA／ELF 校验沿用 Windows／TAB5 既有定义；不新增字段或设备版本要求。压缩在选择镜像时缓存；已鉴权 HTTP OTA 使用六分钟有界发送期限，旧接收端继续小块限速，普通状态／RPC 不沿用 OTA 的期限。发送提交计数不等于设备接收或刷机成功。
+
+The October 28 Mac OTA candidate implements the existing rpcOtaZlib/rpcOtaResume capabilities and exact tcp-v2 plus aibot-zlib-blocks-v1 negotiation. Independent 48 KiB zlib blocks, raw fallback, immutable range recovery and image SHA/ELF validation retain the Windows/TAB5 definitions. No new wire fields or device version are required. Compression is cached during selection; authenticated HTTP OTA has a bounded six-minute deadline and legacy pacing. Submitted bytes do not prove device receipt or installation.
+
+Mac R10 在确认当前设备为支持恢复的 `0.2.257-ui` 或更新的 `0.2.x-ui`，且已协商上述压缩头时，校验身份与目标镜像后返回空 HTTP 503，让接收端直接进入既有 `rpcOtaResume=1` 分块路径，避免先等待长流超时。版本必须来自同一绑定设备的既有身份／签名校验路径，不根据待安装镜像版本推断。未知、旧版或未协商请求保留流式兼容；鉴权失败仍为 401，镜像不匹配仍为 404。此处复用既有初始失败恢复行为，Windows 和固件协议无需新增字段。
+
+Mac R10 authenticates the request and exact image, then returns an empty initial HTTP 503 for the same confirmed device running `0.2.257-ui` or later `0.2.x-ui` with the existing compression negotiation. The receiver immediately uses its existing `rpcOtaResume=1` range path instead of waiting for a stalled stream. Capability is inferred only from the current peer's identity/signature-checked version, never the target image. Unknown, older or unnegotiated peers retain streaming; invalid authentication remains 401 and an unavailable image remains 404. This reuses the existing receiver behavior without new Windows/firmware wire fields.
+
+Mac R6 的本地发送调整不改变协议：新接收端和普通 HTTP 回包从首字节起按最多 1024 字节、至少 2 ms 间隔连续提交；旧 OTA 的 2048 字节／64 ms 节奏保留。不修改系统 MTU、配对、鉴权、镜像偏移或哈希规则。实机对照的重传与 RAM 测速记录见 `docs/development/MAC-VOICE-SOURCE-20261028.md`；发送计数仍不等于设备收妥或升级成功。
+
+Mac R6 changes only local send scheduling: modern OTA and normal HTTP replies submit at most 1024 bytes per step with a minimum 2 ms gap from the first byte; legacy OTA retains 2048-byte/64-ms pacing. System MTU, pairing, authentication, offsets and image hashes are unchanged. See the development record for real retransmission/RAM results; submitted bytes still do not prove receipt or installation.
+
+### Explicit same-image reinstall / 明确同镜像重装（TAB5 .286）
+
+0.2.286-ui 起，同版本／相同 SHA 的固件仍可作为待安装提供；只有原有设备确认或已认证的电脑升级命令能开始写入。删除版本与已运行镜像的短路检查，不修改 SHA、项目／版本、备用分区或启动校验。桥接每次明确开始分配新的 offerId／requestId，不自动重发；相同版本重装期间的版本心跳不得清除命令、传输租约或冒充完成。旧接收端仍需先升级一次；Mac／Windows 显示明确原因。沿用现有字段及版本 1，无新增协议字段。
+
+From .286, an offer may match the running version and bytes. Only the existing explicit device confirmation or authenticated desktop command starts writing. Remove the version/hash early exit while retaining hash, project/version, inactive-partition and boot checks. Each deliberate host start allocates fresh offer/request IDs; no automatic repeat occurs. Matching version heartbeats cannot consume a reinstall command, clear its lease or prove completion. Older receivers need one upgrade first, with a specific host explanation. Existing fields and protocol version 1 remain unchanged.
+
+### Mac automatic post-upgrade boot verification (2026-10-28)
+
+Mac starts read-only boot verification after delivering the final image range and allowing the receiver to reboot and complete its healthy-boot window. It reuses existing `bootVerifyCommand` / `boot-verify` over Wi-Fi or BLE, or the existing USB hello/diagnostic exchange. Three independent live UI samples, the selected ELF hash and a VALID application partition remain required. Automatic checks also require uptime shorter than time elapsed since the current upgrade request; unchanged pre-reboot firmware versions cannot pass. At most six bounded checks are attempted. Checks do not resend an OTA command, retry installation, change display preferences, or equate a version heartbeat with success. No wire field or Windows receiver behavior changes. Manual verification remains available.
+
+Mac 在提供最后一块镜像并等待健康启动后自动核验，复用原 Wi-Fi／BLE 启动核验和 USB 身份／诊断消息；精确 ELF、VALID 分区、三个独立实时 UI 样本不变，自动流程另校验本次请求后重启的运行时间。最多六次只读核验，不自动重发升级、重刷或改展示设置；保留手动核验入口。
+
+TAB5 .287 keeps the authenticated HTTP range connection after a complete successful response. Failed requests still close the connection and use the existing offset, ownership and retry budgets; worker cleanup closes the remaining connection. Every range retains independent authentication. No framing, authentication or protocol version changes.
+
+TAB5 .287 在成功完整读取分块后复用 HTTP 连接；失败仍关闭并按原偏移、归属与重试预算恢复，退出时清理连接。每块独立认证，不修改消息格式或协议版本。
+
+
+### TAB5 .288 segmented flash pipeline (2026-10-28)
+
+The shared TAB5 receiver initially erases at most 64 KiB through `esp_ota_begin`, then erases subsequent aligned blocks of the inactive partition just before writing them. The independent receiver continues concurrently. Existing Windows and Mac OTA bytes, authentication, resume offsets and final integrity/boot checks are unchanged. `prepareMs` is the cumulative segmented erase time; `writeMs` excludes it. These counters are not a measurement of healthy-boot completion. Same-image Wi-Fi range acceptance is 25.921 s; Mac continuous streaming remains an unaccepted experiment because real-device retransmission dominates.
+
+TAB5 .288 先通过 SDK 擦除最多 64 KiB，再在写入前逐段擦除备用分区，独立接收任务并行工作。Windows、Mac 的镜像格式、认证、续传偏移及最终镜像／启动核验不变。`prepareMs` 累计各次擦除，`writeMs` 不包含擦除；二者不能替代健康启动完成时间。实机同镜像 Wi-Fi 分块安装 25.921 秒；Mac 连续流仍因实机重传未获性能验收。
+
+
+### Mac R18 native TCP sender (2026-10-29)
+
+Mac now uses public BSD sockets for the same authenticated HTTP protocol. The .288+ identity-matched receiver with the existing `tcp-v2`/zlib negotiation receives the continuous image using awaited 16 KiB writes. Older range-capable receivers retain direct authenticated range routing; existing stream-to-range recovery remains. The change is internal to the Mac listener/sender; no wire fields, Windows requirements or device image changes are introduced. Same-image .288 Wi-Fi acceptance records 21.666 s installation and 32 ms data wait, with exact automatic boot verification. See `docs/development/MAC-TAB5-OTA-TCP-20261029.md` for the packet-level observations, comparison limits and lifecycle tests.
+
+Mac R18 通过公开 BSD socket 提供原认证 HTTP 协议；身份匹配且已协商 `tcp-v2`／zlib 的 .288 及之后 0.2.x 接收端恢复连续流，按 16 KiB 等待写入。较旧的分块兼容设备保留直接鉴权分块，流失败后的原偏移续传也保留。此为 Mac 内部传输实现变更，无新增协议字段或设备镜像变化。相同 .288 实机 Wi-Fi 安装 21.666 秒、等待数据 32 ms，自动精确启动核验通过；证据与边界见上述记录。
+
+## Mac BLE response scheduling (2026-10-29)
+
+Mac adopts the existing Windows RPC response windows: regular response windows up to 8, bulk `rpcWriteWindow` 8–64, and numeric `rpcReplay:1`. Negotiated bulk replay sends the same immutable response window once with confirmed writes only after ATT 0x0e; it never re-executes the request. Peers without replay use confirmed bulk fragments. CoreBluetooth readiness bounds native command submission; the final ATT response remains the cursor barrier. No new fields or firmware/Windows changes are required. See `docs/development/MAC-TAB5-BLE-OTA-20261029.md` for acceptance and platform limits.
+
+Mac 对齐现有 Windows RPC 回复窗口，复用 `rpcWriteWindow`／`rpcReplay`；仅 ATT 0x0e 可触发当前密文窗口的一次逐片确认补发，不重做请求。旧设备批量回复逐片确认，CoreBluetooth 原生背压及窗口末尾确认保留。协议字段、固件与 Windows 无需变更；实测及平台边界见上述记录。
+
+
+## TAB5 291: bounded OTA admission and optional BLE radio lease
+
+Authenticated status `data.rpcOtaBleRadioLease=1` opts into a temporary Wi-Fi radio pause during immutable `kind=ota` bulk reads on the already selected BLE transport, including automatic connection mode. Windows and Mac advertise the same optional capability; older devices ignore it and older bridges retain their existing behavior. It does not select BLE, change saved connection preferences, affect USB/Wi-Fi OTA, or enable isolation for ordinary AUTO traffic or explicit comparison probes.
+
+The Wi-Fi worker alone stops/restarts the driver. A lease is bounded by 35 seconds of inactivity, renewed only after a successfully authenticated range. A 600 ms idle gap, failed range, disconnect, loss of host authorization, or incompatible mode change restores Wi-Fi. Existing diagnostic/gallery owners cannot be displaced. A failed radio-pause acquisition leaves the ordinary BLE path available.
+
+OTA and OTA-control RPCs wait up to 2 seconds for mailbox admission within their existing total deadlines; boot verification waits up to 1 second within its two-second total deadline. `RPC_STATUS_UNPUBLISHED_BUSY=-1011` means no request was published; only immutable OTA reads use the existing bounded recovery policy for this result. Command/credential replay, authentication, nonce validation and image/boot verification are unchanged.
+
+中文：291 新增可选能力 `data.rpcOtaBleRadioLease=1`，Mac 与 Windows 定义一致。仅当已选择蓝牙执行不可变固件块读取时，允许在自动连接模式临时暂停 Wi-Fi；不更改已保存连接模式，也不影响 USB/Wi-Fi 升级、普通自动模式流量或显式对照预检。Wi-Fi 驱动仍只由原工作线程操作；35 秒无成功块、600 毫秒空闲、失败、断开、归属失效或不兼容模式切换均恢复无线。不能抢占图库/预检持有的暂停权限，暂停获取失败仍可走普通蓝牙。
+
+升级读取及升级控制在原总超时内最多等待 2 秒获取 RPC 通道；启动核验在原 2 秒总超时内最多等待 1 秒。`-1011` 明确表示请求尚未发布、通道忙，仅不可变固件块允许进入已有有界恢复流程；不增加命令或凭据重放，不改变身份、随机数、镜像与启动核验。
+
+
+Mac R23 本地候选沿用 TAB5 voice 的既有字段：TAB5 音频的第一块有效 `audio` 被接收并有界保留后，`ready=true` 表示设备收音及桥接接收已就绪，不表示识别完成。最多保留 128000 个 16 kHz 采样；只有实际豆包输入设备确认后才转送。提前停止转为 `recognizing`，待缓存转送后停止识别器；准备失败、超限、取消或未转送完就提前结束均不能插入文字。Mac 实体麦克风仍须实际输入 IO 就绪。既有 .291 的 `voice_capture_ready` 同时要求本机音频 ACK，因此无需新增设备字段；Windows 原有 `InputReady` 与已接收 PCM 判定保持独立兼容。
+
+The local Mac R23 candidate retains the existing voice fields. For TAB5 capture, accepting and retaining the first valid audio block may establish ready capture before recognition is ready; up to 128000 samples at 16 kHz are buffered. Forwarding requires the verified Doubao input route. An early stop waits in recognizing until queued audio is forwarded, then ends recognition. Failure, overflow, cancellation or premature completion cannot authorize text insertion. Physical Mac input still requires actual input IO. Existing .291 firmware additionally requires its local audio acknowledgement; Windows keeps its existing InputReady plus received-PCM rule. No new peer fields are required.
+
+Mac 的后台 `codex/read` 可沿用 429 重试响应，在单个后台任务完成前释放设备邮箱；成功页按设备、桥接会话、任务及分页参数隔离，短时刷新不清空上次成功文字。发送／停止任务和草稿保存均不进入此重试机制。
+
+Mac may return the existing 429 retry status for a pending background codex/read, releasing the mailbox while a single bounded job runs. Successful pages are isolated by device/session/task/pagination, and a transient refresh failure retains recent public text. Task mutations and draft saves are not replayed by this mechanism.
+
+Mac R24 在 USB／BLE 的语音 recognizing 查询中最多等待 350 ms，最终确认、取消或停止会唤醒等待。等待时释放语音状态锁，返回前复核 voiceId、backend generation 和功能启用状态；沿用既有响应和原请求截止线。
+
+Mac R24 may hold a USB/BLE recognizing poll for up to 350 ms to return a confirmed final without another round trip. It releases the voice state lock while waiting, wakes on completion/cancel/stop and revalidates voice ID, backend generation and enablement before replying. Existing response fields and request deadlines remain unchanged.
+
+### Mac desktop read synchronization (local implementation)
+
+Mac 桥接读取本机 Codex 已读元数据，按账户、主机与已知完成轮次生成现有 `repliesRead`，并移除对应 `repliesUnread`。桌面状态缺失不是“全部已读”，暂时失败保留最近确认，新轮次不继承旧确认；最多等待 5 秒桌面写入稳定。TAB5 继续仅以相同 task/turn 的回执清除通知，Windows 已有对应实现。本变更不增加协议字段、不写 Codex 桌面状态，也不改变设备渲染回执权限。
+
+The Mac bridge now derives existing `repliesRead` entries from account/host-scoped local desktop metadata and an exact known completed turn, after a five-second settling interval. Missing state is unknown; transient failures preserve previous confirmation and new turns cannot inherit it. TAB5 retains exact task/turn matching; Windows already implements the counterpart. There are no new wire fields, desktop-state writes or expanded device receipt permissions.
+
+Mac follow-up: a desktop `systemError` snapshot may expose a failed public reply and its exact read receipt without enabling send/steer/interrupt. `repliesRead` retains up to 80 exact receipts even when a transport reduces the visible task catalog; the receiver already clears matching old notifications across catalog reductions. No new wire fields or Windows/firmware changes are required.
+
+Mac 后续：桌面 `systemError` 快照可用于读取失败轮次的公开回复及精确已读回执，不开放发送／追加／停止操作。状态帧缩减任务目录时仍保留最多 80 个精确 `repliesRead` 回执，设备已有跨目录缩减清除对应旧通知的行为。无需新字段或 Windows／固件改动。
+
+
+Mac R27 implementation note (2026-10-29, unpublished): local Codex catalog construction excludes normalized `.openclaw` workspace directory components, since OpenClaw integration sessions share the vscode App Server source kind. Ordinary titles mentioning OpenClaw and normal project directories remain eligible. A nonempty explicit `desktop.stage-draft` may acquire the unique, freshly verified main composer in the current foreground Codex window when initial focus is elsewhere. Bounded complete traversal excludes dialogs and embedded documents; task identity, structure, current focus and exact existing draft are rechecked before the existing single write/readback. No app activation, navigation, automatic send, request field or receipt change; clearing and submitting keep their original focus/receipt requirements.
+
+Mac R27 本地实现说明：先按规范化 `.openclaw` 目录组件排除集成会话，再生成 Codex 目录。仅显式非空 `desktop.stage-draft` 在原焦点不就绪时尝试聚焦当前 Codex 前台文档中唯一且重新核对任务身份的主输入框；有界完整扫描排除弹窗及嵌入文档，写入前继续核对焦点和精确草稿。不激活其他应用、不导航或自动发送，无线协议及回执字段不变。
+
+
+Mac R28 implementation note (2026-10-29, unpublished): the existing desktop operations may address the current verified mid-turn question editor. The local bridge captures its target on a valid voice start following successful navigation, before IME focus transfer; no new wire field is added. Question staging and a later explicit submit bind the encrypted receipt to the same device, task, process-local question/editor identity and exact text. Submission consumes the receipt before one native Next/Send action, never the ordinary turn-start command. Changed questions retain previews; unsupported/ambiguous cards do not fall back to the main editor. Native UI acknowledgment does not establish model execution completion. Windows and receiver contracts are unchanged.
+
+Mac R28：现有直达操作支持当前已核验的中途提问回答框；成功定位后的合法录音开始先记录目标。问题回填和后续显式提交在本地加密回执中绑定同设备、任务、当前题／编辑器身份及精确文字；先消费回执，再单次调用题卡自己的下一步／发送，不调用普通新轮次发送。切题保留预览，未知卡片不能回退主输入框。本地 UI 响应不代表模型执行完成。无线协议及 Windows／设备字段不变。
+
+Mac R30 implementation note (2026-10-29, unpublished): main-composer `desktop.submit-draft` consumes the same encrypted receipt before invoking the verified composer's unique enabled native Send/Steer/Queue action once. This respects the current desktop submission mode for active tasks without pre-clearing text or falling back to turn-start IPC after an uncertain action. Exact device/task/target/text/expiry and opt-in checks remain. A cleared original composer acknowledges local UI response only; downstream delivery and model completion are not implied. Unavailable controls use the existing 409 `composer_changed`; an attempted unconfirmed action uses 504 `desktop_result_unknown`. Retries query receipts and never replay submission. Full-title ambiguity is reported in local diagnostics, while an exact live task URL still takes precedence. No request/response field, Windows behavior or receiver change is required.
+
+Mac R30：主输入框的 `desktop.submit-draft` 沿用原加密回执，先消费，再单次执行该输入框唯一且启用的发送／引导／排队按钮，遵循电脑当前提交方式。不先清空文字，结果未知时不回退新轮次接口。同设备、任务、目标、精确文字、期限与授权检查保持；原输入框清空仅确认本地 UI 响应，不保证下游送达或模型完成。按钮未确认沿用 409 `composer_changed`，已尝试但结果未知沿用 504 `desktop_result_unknown`；重复请求不重复操作。重名原因在本机诊断明确显示，精确当前任务地址仍优先。请求／响应字段、Windows 行为和设备端不变。
+
+
+Mac R31 local follow-up: native main submission scopes button discovery to the verified editor's nearest ComposerLayoutBody, which contains its adaptive footer, avoiding dependence on an optional presentational outer Root. Revalidation checks the same body. Pre-action failures preserve precise fixed local diagnostics; the existing 409/504 responses, receipts and all wire fields are unchanged.
+
+Mac R31 本地补充：主框提交仅在已核验编辑器最近的 ComposerLayoutBody（包含其底部操作区）内查找按钮，避免依赖可能被辅助功能树省略的外层排版 Root；执行前复核同一 Body。预动作失败保留具体固定诊断，既有 409／504、回执及全部线协议字段不变。
+
+
+Mac R32 local follow-up: one native main-composer press is followed by bounded read-only acknowledgment checks even when the AX action response times out. Two consecutive verified empty reads of the original task/editor/body/window confirm local consumption. Temporary unreadable snapshots can settle; no second press or send fallback occurs. Post-action diagnostics remain specific, and a later successful submit clears obsolete local failure text. The existing response fields and receipt semantics remain unchanged.
+
+Mac R32 本地补充：主框原生动作只执行一次，即使 AX 响应超时也继续有界只读核对；原任务、编辑器、正文容器与窗口连续两次确认清空才确认本地消费。临时快照不可读允许恢复，不补点或回退发送。后动作诊断保留具体原因，后续成功提交清除本地旧失败提示；响应字段与回执语义不变。
+
+
+Mac R33 local follow-up: an explicit main submit may reconcile uncertain UI acknowledgment against the same local desktop owner's version-11 snapshot. A pre-action identity baseline and exact input comparison require a newly accepted message, excluding historical identical messages and preexisting aliases. Snapshot data is not exported; no second native/IPC send is issued. This adds no wire fields and preserves encrypted idempotency, opt-ins and conditional draft cleanup. Queue acceptance by the UI remains distinct from server receipt and model completion.
+
+Mac R33 本地补充：显式主框提交可用同一本地 desktop owner 的 v11 快照补足未知 UI 确认；动作前标识基线及精确输入比较要求新增已接受消息，排除历史同文及旧别名。快照不导出，不进行第二次原生或 IPC 发送。无线协议字段、加密防重回执、授权和条件草稿清理不变；UI 入队、服务端收到及模型完成仍区分。
+
+Mac R35 local follow-up (2026-10-29): reliable retention in Codex's queue also establishes successful `desktop.submit-draft` delivery (`200`, `submitted:true`), without implying model execution or completion. Before the single native action, the bridge captures ephemeral identity baselines for accepted input, the committed local queue and the read-only `thread/queue/list` server queue. After unknown UI acknowledgment, new exact-text queue entries may reconcile success only for the same task/owner, excluding all preexisting aliases and cross-queue migrations. Failed/unknown states, partial attachment matches, unavailable/incomplete queue reads and stale identities cannot prove delivery. The server read has a 600ms deadline and never waits behind history reads; the local file is bounded, owner-checked and never written. Only identity/text hashes remain in memory; raw queue contents are not logged, exported or added to the encrypted delivery journal. No second press, fallback send or queue mutation occurs. Existing fields and .292 firmware remain compatible; its generic success message denotes handoff to Codex, including queueing. Native bridge diagnostics distinguish queued retention. Windows parity work is listed in `docs/development/WINDOWS-FOLLOWUP-FROM-MAC-20261029.md`; this change adds no peer field.
+
+Mac R35：Codex 已可靠保存到队列也算 `desktop.submit-draft` 发送成功，沿用 `200 + submitted:true`，不代表模型开始或执行完成。单次原生动作前获取已接受消息、本地已保存队列及只读 `thread/queue/list` 服务端队列的内存标识基线；UI 确认未知后，只有同任务／owner、完整文字相符且别名全部不在原基线的新条目才能确认成功。旧队列跨来源迁移、失败／未知状态、附件部分匹配、不可读／未完整分页及旧标识不能冒充本次交付。服务端读取限 600ms、不等待历史查询锁；本地文件有大小与所有者检查且从不写入。只留内存摘要，不记录或导出队列正文，不加入持久回执正文。没有第二次点击、备用发送或队列修改。既有字段与 .292 兼容，其通用成功提示表示已交给 Codex，含排队；桥接本机诊断区分“已保存排队消息”。Windows 对齐清单见上述文档，本改动不增加对端字段。

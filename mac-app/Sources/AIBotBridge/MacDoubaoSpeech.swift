@@ -18,24 +18,53 @@ private final class MacDoubaoEditor:NSTextView {
     override func unmarkText() { super.unmarkText(); committed?() }
 }
 
+// An input method needs a focused native editor even when TAB5 owns the UI.
+// A borderless window must opt into key-window status for text input to work.
+final class MacDoubaoDraftWindow:NSWindow {
+    override var canBecomeKey:Bool { true }
+    override var canBecomeMain:Bool { false }
+
+    static func make(showsEditor:Bool) -> NSWindow {
+        if showsEditor { return MacBridgeSettingsStyle.window("豆包语音",width:620,height:460) }
+        let window = MacDoubaoDraftWindow(contentRect:NSRect(x:0,y:0,width:620,height:460),styleMask:.borderless,backing:.buffered,defer:false)
+        window.title = "豆包语音"; window.isReleasedWhenClosed = false
+        window.isOpaque = false; window.backgroundColor = .clear; window.alphaValue = 0
+        window.hasShadow = false; window.ignoresMouseEvents = true; window.isExcludedFromWindowsMenu = true
+        window.collectionBehavior = [.transient,.ignoresCycle,.moveToActiveSpace]
+        window.center()
+        return window
+    }
+}
+
 /// Public input-source/AX/CoreAudio interoperability with installed Doubao.
 /// Audio routing and actual input IO are confirmed before device audio is ready;
 /// committed text is read only from this application's dedicated editor.
 final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
+    private static var sessions = Set<UUID>() // Accessed only on the AppKit main thread.
+    static var hasActiveSession:Bool { !sessions.isEmpty }
     private static let bundleID = "com.bytedance.inputmethod.doubaoime", sourceID = bundleID+".pinyin"
     private let publication = NSLock(), microphone = MacDoubaoMicrophone()
     private var publishedReady = false, publishedAudio:MacDoubaoAudio?
+    private var publishedSourceName = "", inputName = ""
     private var observations: [String] = []
     private var observationStarted:TimeInterval = 0
     private var lastCaptureObservation: String?
     private var window:NSWindow?, editor:MacDoubaoEditor?, status:NSTextField?
     private var previousSource:TISInputSource?, previousPolicy:NSApplication.ActivationPolicy?
+    private var previousApplication:NSRunningApplication?
+    private let showsEditor:Bool
     private var callback:((String,Bool,MacTab5SpeechFailure?) -> Void)?
     private var token = UUID(), held = false, stopping = false, startedCapture = false
     private var watchdog:Timer?, capture:MacDoubaoCapture?, audio:MacDoubaoAudio?
     private var completion = MacDoubaoCompletion(), started:TimeInterval = 0, stopped:TimeInterval = 0
     private var drain = MacDoubaoDrain()
     private let callbacks = DispatchQueue(label:"AI-bot.doubao-results")
+
+    init(showsEditor:Bool = false) { self.showsEditor = showsEditor; super.init() }
+
+    static func mayRestoreFocus(bundleIdentifier:String?,pid:pid_t,ownPID:pid_t) -> Bool {
+        pid != ownPID && bundleIdentifier != bundleID+".settings"
+    }
 
     static func installed() -> Bool {
         var code:SecStaticCode?, requirement:SecRequirement?
@@ -60,12 +89,17 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
         return "豆包已安装并启用。请保持长按模式快捷键为 Fn。\(route)。实际录音状态与最终文字仍需测试。"
     }
     private func onMain(_ work:@escaping () -> Void) { if Thread.isMainThread { work() } else { DispatchQueue.main.async(execute:work) } }
-    private func publish(ready:Bool,audio:MacDoubaoAudio? = nil) { publication.lock(); publishedReady = ready; publishedAudio = audio; publication.unlock() }
+    private func publish(ready:Bool,audio:MacDoubaoAudio? = nil,sourceName:String? = nil) {
+        publication.lock(); publishedReady = ready; publishedAudio = audio
+        if let sourceName { publishedSourceName = sourceName }
+        publication.unlock()
+    }
     private func ready() -> Bool { publication.lock(); defer { publication.unlock() }; return publishedReady }
+    private func sourceName() -> String { publication.lock(); defer { publication.unlock() }; return publishedSourceName }
     private func observe(_ event: String) {
         publication.lock(); defer { publication.unlock() }
         let elapsed = Int(max(0, ProcessInfo.processInfo.systemUptime - observationStarted) * 1000)
-        observations.append("\(elapsed) ms \(event)"); observations = Array(observations.suffix(10))
+        observations.append("\(elapsed) ms \(event)"); observations = Array(observations.suffix(16))
     }
     private func diagnostics() -> String {
         publication.lock(); defer { publication.unlock() }
@@ -78,13 +112,13 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
             let input = try source == "tab5" ? MacDoubaoAudio.device():MacDoubaoMicrophone.physical()
             // USB may start again before the previous main-queue cancellation
             // runs. Never publish that older session's readiness to this one.
-            publish(ready:false)
+            publish(ready:false,sourceName:"")
             onMain { [self] in begin(input:input,virtual:source == "tab5",callback:callback) }
         },feed:{ [self] pcm in
             publication.lock(); let route = publishedReady ? publishedAudio:nil; publication.unlock()
             guard let route else { throw MacTab5LocalError.invalid("豆包尚未确认从 VB-CABLE 收音，未发送音频。") }; try route.feed(pcm)
         },finish:{ [self] in onMain { [self] in finish() } },cancel:{ [self] in onMain { [self] in cancel() } },
-        diagnostics:{ [self] in diagnostics() },ready:{ [self] in ready() })
+        diagnostics:{ [self] in diagnostics() },ready:{ [self] in ready() },sourceName:{ [self] in sourceName() })
     }
     private func emit(_ text:String,final:Bool = false,failure:MacTab5SpeechFailure? = nil) {
         let callback = callback; callbacks.async { callback?(text,final,failure) }
@@ -108,8 +142,15 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
         // Device starts arrive on USB/LAN/BLE queues. HIToolbox input-source
         // enumeration must stay on the main queue along with the editor.
         guard Self.source() != nil else { abort("请先在系统键盘设置中启用官方豆包输入法。"); return }
+        // Capture the user's app before microphone routing can open settings.
+        previousApplication = NSWorkspace.shared.frontmostApplication
+        if let app = previousApplication,!Self.mayRestoreFocus(bundleIdentifier:app.bundleIdentifier,pid:app.processIdentifier,ownPID:ProcessInfo.processInfo.processIdentifier) {
+            // A leftover routing window is not the user's return destination.
+            previousApplication = nil
+        }
         let owner = token
-        microphone.acquire(input,cancelled:{ [weak self] in self?.isCurrent(owner) != true }) { [weak self] result in
+        Self.sessions.insert(owner)
+        microphone.acquire(input,cancelled:{ [weak self] in self?.isCurrent(owner) != true },observe:{ [weak self] event in self?.observe(event) }) { [weak self] result in
             guard let self,self.token == owner else { return }
             do { try result.get(); try self.open(input:input,virtual:virtual) }
             catch { self.abort((error as? MacTab5LocalError)?.localizedDescription ?? "豆包麦克风准备未完成，未开始收音。") }
@@ -120,11 +161,14 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
         publication.lock(); defer { publication.unlock() }; return token == owner
     }
     private func open(input:MacAudioInput,virtual:Bool) throws {
+        inputName = virtual ? "TAB5 内置麦克风" : MacAudioInputs.displayName(input)
         guard let source = Self.source() else { throw MacTab5Error.unavailable }
-        let previous = NSApp.activationPolicy()
-        guard previous == .regular || NSApp.setActivationPolicy(.regular) else { throw MacTab5Error.unavailable }
-        if previous != .regular { previousPolicy = previous }
-        let window = MacBridgeSettingsStyle.window("豆包语音",width:620,height:460)
+        if showsEditor {
+            let previous = NSApp.activationPolicy()
+            guard previous == .regular || NSApp.setActivationPolicy(.regular) else { throw MacTab5Error.unavailable }
+            if previous != .regular { previousPolicy = previous }
+        }
+        let window = MacDoubaoDraftWindow.make(showsEditor:showsEditor)
         self.window = window; window.delegate = self
         let page = MacBridgeSettingsPage(); page.heading("豆包语音",subtitle:virtual ? "TAB5 麦克风 → VB-CABLE → 豆包":"所选 Mac／DJI 麦克风 → 豆包")
         let scroll = NSScrollView(); scroll.hasVerticalScroller = true; scroll.borderType = .bezelBorder
@@ -140,7 +184,7 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
         window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true)
         guard window.makeFirstResponder(editor) else { throw MacTab5Error.unavailable }
         let owner = token
-        DispatchQueue.main.asyncAfter(deadline:.now()+0.4) { [weak self] in
+        DispatchQueue.main.async { [weak self] in
             guard let self,self.token == owner else { return }
             do {
                 self.capture = try MacDoubaoCapture(device:input.id)
@@ -151,9 +195,9 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
     private func trigger(_ owner:UUID,input:MacAudioInput,virtual:Bool,idleSince:TimeInterval?,deadline:TimeInterval) {
         guard token == owner else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        guard !stopping,safeFocus,now < deadline else { abort("豆包录音状态或草稿焦点未就绪，未开始新的收音。"); return }
-        let idle = capture?.running() == false
-        if idle,let idleSince,now-idleSince >= 0.3 {
+        guard !stopping,now < deadline else { abort("豆包录音状态或草稿焦点未就绪，未开始新的收音。"); return }
+        let idle = safeFocus && capture?.running() == false
+        if idle,let idleSince,now-idleSince >= 0.2 {
             do {
                 if virtual { let audio = MacDoubaoAudio(); try audio.start(device:input); self.audio = audio }
                 guard fn(true) else { throw MacTab5Error.unavailable }
@@ -177,11 +221,15 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
     private func tick() {
         guard safeFocus else { abort("输入焦点已离开，已停止本次豆包语音。"); return }
         let now = ProcessInfo.processInfo.systemUptime, running = capture?.running()
-        let observed = running.map { $0 ? "输入 IO 开启" : "输入 IO 停止" } ?? "输入 IO 未确认"
+        let observed = running.map { $0 ? "输入 IO 开启" : "输入 IO 停止" } ?? capture?.otherInputName.map { "输入设备不符：" + $0 } ?? "输入 IO 未确认"
         if observed != lastCaptureObservation { lastCaptureObservation = observed; observe(observed) }
         if running == nil { publish(ready:false) }
         if !stopping {
-            if running == true { startedCapture = true; publish(ready:true,audio:audio); status?.stringValue = "已确认豆包从所选麦克风收音，请开始说话。" }
+            if let actual = capture?.otherInputName,now-started >= 0.5 {
+                abort("豆包麦克风切换未生效：实际使用" + actual + "，本段录音已停止。")
+                return
+            }
+            if running == true { startedCapture = true; publish(ready:true,audio:audio,sourceName:inputName); status?.stringValue = "已确认豆包从" + inputName + "收音，请开始说话。" }
             if !startedCapture,now-started > 4 { abort("豆包未确认实际收音，已释放 Fn；请检查长按 Fn 快捷键及麦克风权限。"); return }
             if startedCapture,running == false { observe("输入 IO 提前结束"); finish() }
             if now-started >= 60 { observe("一分钟上限"); finish() }
@@ -191,7 +239,7 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
             if let value = completion.final(capture:running,marked:editor?.hasMarkedText() ?? true,now:now) {
                 observe("最终文字已确认"); emit(value,final:true); callback = nil; cancel(); return
             }
-            if !held,running == false,completion.text.isEmpty,now-stopped >= 5 { emit("",failure:.noSpeech); callback = nil; cancel(); return }
+            if MacDoubaoSilenceEvidence.noSpeech(capture:running,held:held,marked:editor?.hasMarkedText() ?? true,text:completion.text,elapsed:now-stopped,digitalSilence:audio?.verifiedSilence ?? false) { emit("",failure:.noSpeech); callback = nil; cancel(); return }
             if now-stopped > 15 { abort("豆包未确认最终文字，本次不插入；请检查输入法状态。"); return }
         }
     }
@@ -204,12 +252,18 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
     }
     private func abort(_ message:String) { emit(editor?.string ?? "",failure:.external(message)); callback = nil; cancel() }
     private func cancel() {
+        // Return focus only while this take still owns it. A deliberate switch
+        // to another app cancels capture without pulling the user back.
+        let restoreApplication = NSApp.isActive && window?.isKeyWindow == true ? previousApplication:nil
+        previousApplication = nil
+        let finishedOwner = token
         publication.lock(); token = UUID(); publishedReady = false; publishedAudio = nil; publication.unlock()
-        release(); watchdog?.invalidate(); watchdog = nil; audio?.stop(); audio = nil; capture = nil; microphone.release()
+        release(); watchdog?.invalidate(); watchdog = nil; audio?.stop(); audio = nil; capture = nil; microphone.release { _ in Self.sessions.remove(finishedOwner) }
         if let previousSource,Self.current().flatMap(Self.id) == Self.sourceID { _ = TISSelectInputSource(previousSource) }
         previousSource = nil; callback = nil; stopping = false; startedCapture = false
         editor?.committed = nil; editor?.string = ""; window?.orderOut(nil); window?.delegate = nil; window = nil; editor = nil; status = nil
         if let previousPolicy { _ = NSApp.setActivationPolicy(previousPolicy); self.previousPolicy = nil }
+        restoreApplication?.activate(options:.activateIgnoringOtherApps)
     }
     func windowShouldClose(_ sender:NSWindow) -> Bool { abort("已关闭豆包语音。"); return true }
 }
@@ -221,6 +275,6 @@ final class MacSpeechRouter {
     func backend() -> MacTab5SpeechBackend {
         .init(start:{ [self] source,callback in active?.cancel(); let chosen = MacSpeechProvider.doubao ? doubao:local; active = chosen; last = chosen; try chosen.start(source,callback) },
               feed:{ [self] in guard let active else { throw MacTab5Error.unavailable }; try active.feed($0) },finish:{ [self] in active?.finish() },
-              cancel:{ [self] in active?.cancel(); active = nil },diagnostics:{ [self] in (active ?? last)?.diagnostics() ?? "" },ready:{ [self] in active?.ready() ?? false })
+              cancel:{ [self] in active?.cancel(); active = nil },diagnostics:{ [self] in (active ?? last)?.diagnostics() ?? "" },ready:{ [self] in active?.ready() ?? false },sourceName:{ [self] in (active ?? last)?.sourceName() ?? "" })
     }
 }

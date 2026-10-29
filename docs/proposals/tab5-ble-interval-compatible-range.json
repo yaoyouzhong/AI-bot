@@ -1,0 +1,31 @@
+{
+  "baseVersion": "0.2.289-ui",
+  "baseImageSHA256": "8f57637fa1d61410baf580fbb0645c7cff5738d786abbb14b1efd9bf91809369",
+  "parentProvenance": "tab5-ble-interval-fallback.json",
+  "candidateVersion": "0.2.290-ui",
+  "patchSHA256": "ef969408d33d2dfd8d16da43480fb07857874e0e49dfec478d71e550fa29fc3c",
+  "files": {
+    "firmware/main/ble_performance.inc": {
+      "before": "3524b437636136d121a31c436781aeda374858271ad5c0c877b4ac40886973cb",
+      "after": "ed494dd80ed19f9211e2349a61f3cf7426e4cb168a20422909b77bce0d0ff485"
+    },
+    "firmware/main/ota_update.c": {
+      "before": "17b7700a8bb478c82bce917ff85db4880fef19c5ad39517647136ecc36b39bd5",
+      "after": "bb947512cff9d98df24cfe607efd88c98e1527ebaea5aab58d40dcd6211d3a44"
+    },
+    "tests/ui-preview/ble_performance_test.c": {
+      "before": "c984d8c23cbef3ad73ae522df9537ffcc3c7a9b751592a774f0ea5caf0a5fc19",
+      "after": "8bbb0855e374ebab0c9933ed13fa1a874785126c1e9b0554246464a57ce3c704"
+    },
+    "tests/ui-preview/ota_update_test.c": {
+      "before": "a685db26e7bea44e647db63dffe9257c1506de0125196ca272b2d784586280aa",
+      "after": "0b3f8fb00068808276021b17a97ad461c549a7a48bd78b6e860922cff6f1caf4"
+    },
+    "tests/ui-preview/CMakeLists.txt": {
+      "before": "9456675bc1c061ca7bd1e4e42c5c49832d9b7669988b95f2ea9d267e2fae196e",
+      "after": "9add84e9067ffa0acaad388ba1b550c3bc7818d682a0ca7e246b072bdad45d8e"
+    }
+  },
+  "status": "installed; Wi-Fi install 22.673 s; identical-image BLE reinstall 418.138 s, through exact healthy boot 474.011 s; zero replay/write failure; settings preserved; earlier .289 first-block failure remains unresolved",
+  "candidateImageSHA256": "8622f23e26562946f699b2bea7ba0a0dad05dfc1bb072354600a5194bc5b66df"
+}

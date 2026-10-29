@@ -136,6 +136,7 @@ final class MacTab5RuntimeDiagnostics {
             lines.append("USB/Wi-Fi/BLE 状态年龄：" + ages.map { String(MacTab5Protocol.integer($0)!) }.joined(separator:","))
         }
         lines += strings.compactMap { key,label in Self.safeText(value[key]).map { label + "：" + $0 } }
+        if let ota = Self.safeText(value["otaDiag"]) { lines.append("升级（准备毫秒／缓冲块／显示欠载／忙）："+ota) }
         let age = min(8000,max(0,MacTab5Protocol.integer(value["sampleAgeMs"]) ?? 0))
         sample = Sample(device:device,host:host,transport:transport,received:date(),tick:tick()-Double(age)/1000,body:lines.joined(separator:"\n"))
     }

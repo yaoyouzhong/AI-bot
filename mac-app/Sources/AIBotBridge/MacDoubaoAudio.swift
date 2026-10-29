@@ -8,6 +8,7 @@ import Security
 final class MacDoubaoAudio {
     private let lock = NSLock()
     private var engine:AVAudioEngine?, player:AVAudioPlayerNode?
+    private var evidence = MacDoubaoSilenceEvidence()
     private var queued = 0, generation = UUID()
     private(set) var tailSeconds:TimeInterval = 0.25
     static func device() throws -> MacAudioInput {
@@ -53,17 +54,19 @@ final class MacDoubaoAudio {
         for i in pcm.indices { let value = Float(pcm[i])/32768; channels[0][i] = value; channels[1][i] = value }
         lock.lock(); defer { lock.unlock() }
         guard let player,engine?.isRunning == true,queued+pcm.count <= 128000 else { throw MacTab5LocalError.invalid("VB-CABLE 音频队列未就绪或积压过多，本次收音停止。") }
+        evidence.append(pcm)
         queued += pcm.count; let owner = generation, size = pcm.count
         player.scheduleBuffer(buffer,completionCallbackType:.dataPlayedBack) { [weak self] _ in
             guard let self else { return }; self.lock.lock(); defer { self.lock.unlock() }
             if self.generation == owner { self.queued = max(0,self.queued-size) }
         }
     }
+    var verifiedSilence:Bool { lock.lock(); defer { lock.unlock() }; return evidence.verified }
     var drained:Bool { lock.lock(); defer { lock.unlock() }; return queued == 0 }
     var pendingSeconds:TimeInterval { lock.lock(); defer { lock.unlock() }; return Double(queued) / 16000 }
     func stop() {
         lock.lock(); generation = UUID(); let oldPlayer = player, oldEngine = engine
-        player = nil; engine = nil; queued = 0; lock.unlock()
+        player = nil; engine = nil; queued = 0; evidence = .init(); lock.unlock()
         oldPlayer?.stop(); oldEngine?.stop()
     }
 }
@@ -81,6 +84,7 @@ struct MacDoubaoDrain {
 /// actually using the intended input device. No audio tap or sample is read.
 final class MacDoubaoCapture {
     private let app:NSRunningApplication, device:AudioDeviceID
+    private(set) var otherInputName:String?
     init(device:AudioDeviceID) throws {
         guard #available(macOS 14.2,*) else { throw MacTab5LocalError.invalid("自动确认豆包收音需要 macOS 14.2 或更新版本。") }
         let apps = NSRunningApplication.runningApplications(withBundleIdentifier:"com.bytedance.inputmethod.doubaoime")
@@ -92,6 +96,7 @@ final class MacDoubaoCapture {
         self.app = app; self.device = device
     }
     func running() -> Bool? {
+        otherInputName = nil
         guard !app.isTerminated else { return nil }
         var pid = app.processIdentifier, object = AudioObjectID(0), size = UInt32(MemoryLayout<AudioObjectID>.size)
         var property = AudioObjectPropertyAddress(mSelector:kAudioHardwarePropertyTranslatePIDToProcessObject,mScope:kAudioObjectPropertyScopeGlobal,mElement:kAudioObjectPropertyElementMain)
@@ -104,7 +109,12 @@ final class MacDoubaoCapture {
         guard AudioObjectGetPropertyDataSize(object,&property,0,nil,&size) == noErr,size <= 1024 else { return nil }
         var devices = [AudioDeviceID](repeating:0,count:Int(size)/MemoryLayout<AudioDeviceID>.size)
         guard AudioObjectGetPropertyData(object,&property,0,nil,&size,&devices) == noErr else { return nil }
-        return devices.contains(device) ? true:nil
+        if devices.contains(device) { return true }
+        if !devices.isEmpty {
+            let names = MacAudioInputs.devices().filter { devices.contains($0.id) }.map(\.name)
+            otherInputName = names.isEmpty ? "其他麦克风" : names.joined(separator:"、")
+        }
+        return nil
     }
 }
 
@@ -116,5 +126,17 @@ struct MacDoubaoCompletion {
     func final(capture:Bool?,marked:Bool,now:TimeInterval) -> String? {
         guard stopped,committed,capture == false,!marked,!text.isEmpty,text.utf8.count <= 2000,now-changedAt >= 0.6 else { return nil }
         return text
+    }
+}
+
+/// Only digital silence proves that no speech was supplied. Low volume, noise,
+/// an absent stream and physical microphones never qualify for the short path.
+struct MacDoubaoSilenceEvidence {
+    private var samples = 0
+    private var nonzero = false
+    mutating func append(_ pcm: [Int16]) { samples += pcm.count; nonzero = nonzero || pcm.contains { $0 != 0 } }
+    var verified: Bool { samples >= 1600 && !nonzero }
+    static func noSpeech(capture: Bool?, held: Bool, marked: Bool, text: String, elapsed: TimeInterval, digitalSilence: Bool) -> Bool {
+        !held && capture == false && !marked && text.isEmpty && elapsed >= (digitalSilence ? 0.6 : 5)
     }
 }

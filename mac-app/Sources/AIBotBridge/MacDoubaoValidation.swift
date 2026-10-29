@@ -6,6 +6,16 @@ enum MacDoubaoValidation {
         func check(_ name:String,_ value:@autoclosure () -> Bool) throws {
             guard value() else { throw MacTab5LocalError.invalid("Doubao: "+name) }; count += 1
         }
+        var silenceEvidence = MacDoubaoSilenceEvidence()
+        try check("missing stream is not verified silenceEvidence", !silenceEvidence.verified)
+        silenceEvidence.append([Int16](repeating:0,count:1600))
+        try check("digital silenceEvidence verified", silenceEvidence.verified)
+        try check("digital silenceEvidence exits after IO stop", MacDoubaoSilenceEvidence.noSpeech(capture:false,held:false,marked:false,text:"",elapsed:0.7,digitalSilence:silenceEvidence.verified))
+        try check("marked composition cannot be discarded", !MacDoubaoSilenceEvidence.noSpeech(capture:false,held:false,marked:true,text:"",elapsed:6,digitalSilence:true))
+        try check("unknown IO cannot end silenceEvidence", !MacDoubaoSilenceEvidence.noSpeech(capture:nil,held:false,marked:false,text:"",elapsed:6,digitalSilence:true))
+        silenceEvidence.append([1])
+        try check("even quiet audio retains ordinary recognition window", !silenceEvidence.verified && !MacDoubaoSilenceEvidence.noSpeech(capture:false,held:false,marked:false,text:"",elapsed:0.7,digitalSilence:silenceEvidence.verified))
+        try check("noisy or physical audio retains timeout", MacDoubaoSilenceEvidence.noSpeech(capture:false,held:false,marked:false,text:"",elapsed:5,digitalSilence:false))
         var final = MacDoubaoCompletion()
         final.update("公开测试",committed:true,now:100)
         try check("committed text before stop cannot finalize",final.final(capture:false,marked:false,now:102) == nil)
@@ -50,8 +60,9 @@ enum MacDoubaoValidation {
         _ = voice.handle(["op":"start","source":"pc","taskId":MacTab5Voice.agendaOwner,"session":"test-session"],device:"fixture")
         try check("next attempt retains previous diagnostics without transcript or owner",voice.diagnostics.contains("此前语音") && !voice.diagnostics.contains("测试草稿") && !voice.diagnostics.contains("test-session") && !voice.diagnostics.contains(id))
         voice.stop()
-        var inputReady = false, forwarded:[[Int16]] = [], audioCancelled = 0
-        let audioVoice = MacTab5Voice(enabled:{true},clock:{100},backend:.init(start:{_,_ in},feed:{forwarded.append($0)},finish:{},cancel:{audioCancelled += 1},ready:{inputReady}),usesDoubao:{true})
+        var inputReady = false, forwarded:[[Int16]] = [], audioCancelled = 0, audioFinished = 0
+        var audioNow = 100.0, audioCallback:((String,Bool,MacTab5SpeechFailure?) -> Void)?
+        let audioVoice = MacTab5Voice(enabled:{true},clock:{audioNow},backend:.init(start:{_,callback in audioCallback = callback},feed:{forwarded.append($0)},finish:{audioFinished += 1},cancel:{audioCancelled += 1},ready:{inputReady}),usesDoubao:{true})
         func audioStart() -> String {
             audioVoice.handle(["op":"start","source":"tab5","taskId":MacTab5Voice.agendaOwner,"session":"audio-fixture"],device:"fixture").body["voiceId"] as! String
         }
@@ -59,21 +70,21 @@ enum MacDoubaoValidation {
             audioVoice.handle(["op":op,"voiceId":id,"session":"audio-fixture","seq":seq,"pcm":bytes.base64EncodedString()],device:"fixture")
         }
         let earlyID = audioStart(), early = audioRequest(earlyID,"audio")
-        try check("device probe audio accepted without premature readiness",early.status == 200 && early.body["ready"] as? Bool == false && forwarded.isEmpty)
+        try check("confirmed device audio permits capture while recognizer prepares",early.status == 200 && early.body["ready"] as? Bool == true && early.body["silent"] as? Bool == false && forwarded.isEmpty)
         _ = audioRequest(earlyID,"audio")
         _ = audioRequest(earlyID,"audio",seq:1,bytes:Data([2,0]))
         inputReady = true
-        try check("confirmed IO does not replay preparation probes",audioRequest(earlyID,"poll").body["ready"] as? Bool == true && forwarded.isEmpty)
+        try check("only verified IO receives retained preparation audio",audioRequest(earlyID,"poll").body["ready"] as? Bool == true && forwarded == [[1],[2]])
         _ = audioRequest(earlyID,"audio",seq:2,bytes:Data([3,0]))
-        try check("first ready audio is forwarded intact",forwarded == [[3]])
+        try check("first ready audio is forwarded intact",forwarded == [[1],[2],[3]])
         inputReady = false
         _ = audioRequest(earlyID,"audio",seq:3,bytes:Data([4,0]))
         _ = audioRequest(earlyID,"audio",seq:4,bytes:Data([5,0]))
-        try check("readiness loss after recording retains audio",forwarded == [[3]])
+        try check("readiness loss after recording retains audio",forwarded == [[1],[2],[3]])
         inputReady = true
         _ = audioRequest(earlyID,"poll")
         _ = audioRequest(earlyID,"audio",seq:4,bytes:Data([5,0]))
-        try check("recovery and duplicate packets preserve each recording sample once",forwarded == [[3],[4],[5]])
+        try check("recovery and duplicate packets preserve each recording sample once",forwarded == [[1],[2],[3],[4],[5]])
         _ = audioRequest(earlyID,"cancel"); inputReady = false; forwarded = []
         let cancelledAudioID = audioStart(); _ = audioRequest(cancelledAudioID,"audio"); _ = audioRequest(cancelledAudioID,"cancel")
         inputReady = true; _ = audioRequest(cancelledAudioID,"poll")
@@ -81,13 +92,34 @@ enum MacDoubaoValidation {
         inputReady = false
         let stoppedAudioID = audioStart(); _ = audioRequest(stoppedAudioID,"audio")
         let earlyStop = audioRequest(stoppedAudioID,"stop")
-        try check("stop before IO cannot claim a complete recording",earlyStop.body["state"] as? String == "error" && earlyStop.body["canInsert"] as? Bool == false && forwarded.isEmpty)
+        try check("early stop retains audio without claiming final text",earlyStop.body["state"] as? String == "recognizing" && earlyStop.body["canInsert"] as? Bool == false && forwarded.isEmpty && audioFinished == 0)
+        inputReady = true; _ = audioRequest(stoppedAudioID,"poll")
+        try check("early stop drains retained audio before finishing once",forwarded == [[1]] && audioFinished == 1)
+        _ = audioRequest(stoppedAudioID,"poll")
+        try check("recognition polls cannot finish twice",audioFinished == 1)
+        audioCallback?("完整短句",true,nil)
+        try check("early stop inserts only a confirmed complete result",audioRequest(stoppedAudioID,"poll").body["canInsert"] as? Bool == true)
+        inputReady = false; forwarded = []
+        let noAudioID = audioStart()
+        try check("stop with no physical audio cannot claim recording",audioRequest(noAudioID,"stop").body["state"] as? String == "error")
+        let timeoutID = audioStart(); _ = audioRequest(timeoutID,"audio"); _ = audioRequest(timeoutID,"stop")
+        audioNow += 11
+        try check("stopped preparation has a bounded deadline",audioRequest(timeoutID,"poll").body["state"] as? String == "error" && forwarded.isEmpty)
+        inputReady = true; _ = audioRequest(timeoutID,"poll")
+        try check("timed out audio is never replayed",forwarded.isEmpty)
+        inputReady = false
+        let prematureID = audioStart(); _ = audioRequest(prematureID,"audio")
+        audioCallback?("不完整文字",true,nil)
+        let premature = audioRequest(prematureID,"poll")
+        try check("final before queued audio drains cannot insert",premature.body["state"] as? String == "error" && premature.body["canInsert"] as? Bool == false)
         let fullID = audioStart(), silence = Data(repeating:0,count:6400)
-        for seq in 0..<45 { _ = audioRequest(fullID,"audio",seq:seq,bytes:silence) }
-        try check("preparation probes cannot create a playback backlog",audioRequest(fullID,"poll").body["state"] as? String == "recording" && forwarded.isEmpty)
-        inputReady = true; _ = audioRequest(fullID,"poll"); inputReady = false
-        for seq in 45..<85 { _ = audioRequest(fullID,"audio",seq:seq,bytes:silence) }
-        try check("recording recovery buffer remains bounded",audioRequest(fullID,"audio",seq:85,bytes:silence).body["state"] as? String == "error" && forwarded.isEmpty && audioCancelled > 0)
+        for seq in 0..<40 { _ = audioRequest(fullID,"audio",seq:seq,bytes:silence) }
+        try check("preparation retains at most eight seconds",audioRequest(fullID,"poll").body["state"] as? String == "recording" && forwarded.isEmpty)
+        try check("initial preparation overflow fails without partial text",audioRequest(fullID,"audio",seq:40,bytes:silence).body["state"] as? String == "error" && forwarded.isEmpty)
+        let recoveryID = audioStart(); inputReady = true; _ = audioRequest(recoveryID,"audio")
+        forwarded = []; inputReady = false
+        for seq in 1...40 { _ = audioRequest(recoveryID,"audio",seq:seq,bytes:silence) }
+        try check("recording recovery buffer remains bounded",audioRequest(recoveryID,"audio",seq:41,bytes:silence).body["state"] as? String == "error" && forwarded.isEmpty && audioCancelled > 0)
         audioVoice.stop()
         // Independently generated with system OpenSSL DES-ECB, using synthetic data.
         let challenge = Data(0..<16), password = Data("password".utf8)

@@ -7,6 +7,8 @@ final class MacTab5Codex {
     typealias CatalogNames = (Set<String>) -> [String: String]?
     private let gate = NSLock(), stateLock = NSLock(), journalGate = NSLock()
     private let queue = DispatchQueue(label: "AI-bot.tab5-codex")
+    private let deviceReads = MacTab5ReadAhead()
+    private let desktopReads: MacCodexReadState
     private let call: Call, enabled: () -> Bool, sendEnabled: () -> Bool, mutable: () -> Bool
     private let mutationAllowed: () -> Bool
     private let clock: () -> TimeInterval
@@ -34,7 +36,8 @@ final class MacTab5Codex {
     private var liveControl: MacTab5LiveControl?
     private let taskPins: MacTaskPins?
 
-    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil) {
+    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil, readState: MacCodexReadState? = nil) {
+        self.desktopReads = readState ?? MacCodexReadState(load: call == nil ? { MacCodexReadState.local() } : { nil }, clock: clock)
         self.taskPins = taskPins ?? (call == nil ? .shared : nil)
         self.store = store; photos = MacTab5Photos(store: store); self.enabled = enabled; self.sendEnabled = sendEnabled; self.clock = clock
         mutationAllowed = canMutate
@@ -59,6 +62,10 @@ final class MacTab5Codex {
             guard (try? desktop.read(task)) != nil else { return false }
         }
         return enabled() && sendEnabled() && mutable()
+    }
+    func desktopSubmissionReceipt(task: String, expected: String) -> MacCodexSubmissionReceipt? {
+        guard enabled(), sendEnabled(), mutationAllowed(), contains(task), let desktop else { return nil }
+        return try? desktop.submissionReceipt(task, expected: expected)
     }
     var summary: String {
         stateLock.lock(); let text = note + (sendDiagnostic.isEmpty ? "" : "\n最近发送预检：" + sendDiagnostic); stateLock.unlock()
@@ -122,7 +129,12 @@ final class MacTab5Codex {
         let ids = Set(selected.compactMap { $0["id"] as? String })
         value["tasks"] = selected; value["overviewTask"] = Self.overview(selected)
         value["projects"] = projects
-        for key in ["repliesReady", "repliesRead", "repliesUnread", "receipts", "responses"] { if let map = projection[key] as? [String: Any] { value[key] = map.filter { ids.contains($0.key) } } }
+        // Exact read acknowledgements must also clear notices whose tasks were
+        // evicted from a smaller transport catalog. The receiver matches turns.
+        if let receipts = projection["repliesRead"] as? [String: String] {
+            value["repliesRead"] = Dictionary(uniqueKeysWithValues: receipts.sorted { $0.key < $1.key }.prefix(80).map { ($0.key, $0.value) })
+        }
+        for key in ["repliesReady", "repliesUnread", "receipts", "responses"] { if let map = projection[key] as? [String: Any] { value[key] = map.filter { ids.contains($0.key) } } }
         return value
     }
     func start() {
@@ -138,7 +150,7 @@ final class MacTab5Codex {
     deinit { timer?.cancel() }
     func refresh() {
         guard enabled() else { rpc?.stop(); desktop?.reset(); stateLock.lock(); projection = [:]; note = "尚未启用"; stateLock.unlock(); return }
-        guard gate.try() else { return }; defer { gate.unlock() }
+        guard gate.try() else { return }; defer { updateReadState(); gate.unlock() }
         do {
             // The API's omitted-source default excludes desktop-created appServer
             // threads. Request user-facing sources explicitly, across providers.
@@ -163,6 +175,10 @@ final class MacTab5Codex {
                 guard next.utf8.count <= 4096, seenCursors.insert(next).inserted else { throw MacTab5CodexFailure.protocolError }
                 cursor = next
             }
+            // OpenClaw also uses the local App Server and reports `vscode`.
+            // Its private workspace identifies those integration sessions; a
+            // normal Codex chat merely discussing OpenClaw remains eligible.
+            threads.removeAll { Self.isOpenClawWorkspace($0["cwd"] as? String ?? "") }
             let unnamed = Set(threads.compactMap { root -> String? in
                 let name = (root["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 return name.isEmpty ? Self.id(root["id"]) : nil
@@ -204,6 +220,12 @@ final class MacTab5Codex {
                 for index in catalog.indices where index < 3 || catalog[index]["id"] as? String == viewedTask {
                     if let task = catalog[index]["id"] as? String, let live = try? desktop.read(task) {
                         catalog[index]["state"] = live.taskState
+                        // Re-establish recent exact completed turns after bridge
+                        // restart, so desktop reads can clear retained device badges.
+                        if ["completed", "failed", "interrupted"].contains(live.status),
+                           live.publicItems.contains(where: { !($0["text"] as? String ?? "").isEmpty }) {
+                            ready[task] = live.turn
+                        }
                     }
                 }
             }
@@ -218,6 +240,10 @@ final class MacTab5Codex {
         } catch { stateLock.lock(); note = Self.connectionFailure(error); projection["control"] = NSNull(); stateLock.unlock() }
     }
     // App Server status names differ from the existing TAB5 v1 task states.
+    static func isOpenClawWorkspace(_ cwd: String) -> Bool {
+        guard cwd.hasPrefix("/") else { return false }
+        return URL(fileURLWithPath: cwd).standardizedFileURL.pathComponents.contains { $0.lowercased() == ".openclaw" }
+    }
     static func taskState(_ status: [String: Any]) -> String {
         switch status["type"] as? String {
         case "idle": return "idle"
@@ -259,6 +285,19 @@ final class MacTab5Codex {
         journal = value; return value
     }
     private func saveJournal(_ value: [String: Any]) throws { try store.write("journal", MacTab5Protocol.json(value)); journal = value }
+    // Native desktop submission consumes only the staged local mirror. Keep a
+    // newer device draft or attachments written while the UI action completed.
+    func clearSubmittedDesktopDraft(task: String, device: String, expected: String) -> Bool {
+        journalGate.lock(); defer { journalGate.unlock() }
+        do {
+            var data = try loadJournal(), drafts = data["drafts"] as! [String: Any]
+            let binding = device + "|" + task
+            guard let draft = drafts[binding] as? [String: Any], draft["text"] as? String == expected,
+                  let images = draft["images"] as? [String], images.isEmpty else { return true }
+            drafts[binding] = ["text": "", "images": [String]()]
+            data["drafts"] = drafts; try saveJournal(data); return true
+        } catch { return false }
+    }
     static func id(_ value: Any?) -> String? { guard let text = value as? String, text.count == 36, UUID(uuidString: text) != nil else { return nil }; return text.lowercased() }
     func contains(_ task: String) -> Bool {
         guard enabled() else { return false }
@@ -300,6 +339,22 @@ final class MacTab5Codex {
             }
             return .init(200, ["status": "saved", "taskId": task, "requestId": id])
         } catch { return .error(503, "codex_or_private_storage_unavailable") }
+    }
+
+    func handleDevice(_ root: [String: Any], device: String) -> MacTab5RPCResult {
+        guard root["op"] as? String == "read" else { return handle(root, device: device) }
+        guard enabled() else { return .error(403, "codex_not_enabled") }
+        guard let task = Self.id(root["taskId"]) else { return .error(404, "task_not_in_recent_catalog") }
+        stateLock.lock()
+        let known = (projection["tasks"] as? [[String: Any]] ?? []).contains { $0["id"] as? String == task }
+        stateLock.unlock()
+        guard known else { return .error(404, "task_not_in_recent_catalog") }
+        let fields: [String: Any] = ["device":device, "session":root["session"] as? String ?? "",
+            "task":task, "page":root["page"] ?? 0, "turn":root["turnId"] ?? "", "offset":root["turnOffset"] ?? 0]
+        guard let encoded = try? JSONSerialization.data(withJSONObject:fields,options:.sortedKeys) else {
+            return .error(400, "invalid_read")
+        }
+        return deviceReads.response(key:MacTab5Protocol.sha256(encoded)) { [self] in handle(root, device:device) }
     }
 
     func handle(_ root: [String: Any], device: String) -> MacTab5RPCResult {
@@ -441,8 +496,10 @@ final class MacTab5Codex {
         return result
     }
     private func updateReadState() {
-        stateLock.lock(); projection["repliesReady"] = ready; projection["repliesRead"] = read
-        projection["repliesUnread"] = ready.filter { read[$0.key] != $0.value }; stateLock.unlock()
+        let desktopRead = desktopReads.synchronize(ready)
+        let combined = read.merging(desktopRead) { _, desktop in desktop }
+        stateLock.lock(); projection["repliesReady"] = ready; projection["repliesRead"] = combined
+        projection["repliesUnread"] = ready.filter { combined[$0.key] != $0.value }; stateLock.unlock()
     }
     private func page(task: String, root: [String: Any], device: String) throws -> MacTab5RPCResult {
         let selected = root["turnId"] as? String ?? "", offset = Int(MacTab5Protocol.integer(root["turnOffset"]) ?? 0)

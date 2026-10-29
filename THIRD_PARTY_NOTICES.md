@@ -289,3 +289,20 @@ does not relicense third-party code, fonts, images or trademarks.
 
 TAB5 .279 完整源码保留各组件、字体、词库及服务标识的原始来源与许可。
 依赖修改及 SDK 补丁另附许可记录；未将第三方内容重新许可为项目 MIT。
+
+
+## MMKV Core (macOS microphone settings interoperability)
+
+The macOS bridge links Tencent/MMKV Core 2.4.3 from upstream commit
+`007a393cd5e255e9aa68d6648f7179159bdf0f9d`, pinned in `mac-app/Package.resolved`.
+Source: https://github.com/Tencent/MMKV/tree/007a393cd5e255e9aa68d6648f7179159bdf0f9d
+License: BSD-3-Clause, with bundled upstream third-party notices (including OpenSSL).
+The complete upstream license is retained at `mac-app/ThirdParty/MMKV-LICENSE.txt`
+and included in app bundles as `Contents/Resources/licenses/MMKV/LICENSE.txt`.
+`MacDoubaoStore` is this project's independently implemented Objective-C++ adapter;
+no Doubao implementation or private framework is included. The version-checked
+local settings integration is not a documented vendor RPC.
+
+macOS 桥接使用上述固定上游版本的 MMKV Core，执行麦克风设置的跨进程锁与编码。
+完整上游许可及第三方声明随应用分发；适配层为本项目独立实现，不包含豆包源码或私有框架。
+该功能是限定版本的本地设置互操作，不宣称为供应商公开 RPC。

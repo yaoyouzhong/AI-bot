@@ -1,5 +1,10 @@
 import AppKit
 
+if Array(CommandLine.arguments.dropFirst()) == ["--self-test-ota-transfer"] {
+    do { let count = try MacTab5OTATransferValidation.loopback();print("MAC_OTA_TRANSFER_OK \(count) checks; synthetic image and credentials, loopback only");exit(0) }
+    catch { fputs("OTA transfer self-test failed: \(error)\n",stderr);exit(1) }
+}
+
 if Array(CommandLine.arguments.dropFirst()) == ["--check-esp-display"] {
     do { let value = try MacESPDisplayCheck.run(); let bytes = try JSONSerialization.data(withJSONObject:value,options:[.prettyPrinted,.sortedKeys]); print(String(decoding:bytes,as:UTF8.self)); exit(0) }
     catch { fputs("ESP display read-only check unavailable; no settings changed.\n",stderr); exit(1) }
@@ -62,6 +67,23 @@ let instance: MacApplicationInstance
 do { instance = try MacApplicationInstance() }
 catch MacApplicationInstance.Failure.alreadyRunning { print("BRIDGE_ALREADY_RUNNING"); exit(0) }
 catch { fputs("Bridge instance lock unavailable; no bridge started.\n", stderr); exit(1) }
+
+if CommandLine.arguments.count == 4, CommandLine.arguments[1] == "--test-tab5-ble-link" {
+    do {
+        try MacTab5BLELinkCheck.run(mode: CommandLine.arguments[2], reportURL: URL(fileURLWithPath: CommandLine.arguments[3]))
+        print("MAC_TAB5_BLE_LINK_CHECK_OK"); exit(0)
+    } catch {
+        if let failure = error as? MacTab5Error { fputs("BLE link check: \(failure)\n", stderr) }
+        fputs("BLE link acceptance incomplete; no firmware installation requested.\n", stderr); exit(1)
+    }
+}
+
+if CommandLine.arguments.count == 5, CommandLine.arguments[1] == "--test-tab5-upgrade" {
+    do {
+        try MacTab5UpgradeCheck.run(mode: CommandLine.arguments[2], imageURL: URL(fileURLWithPath: CommandLine.arguments[3]), reportURL: URL(fileURLWithPath: CommandLine.arguments[4]))
+        print("MAC_TAB5_UPGRADE_CHECK_OK"); exit(0)
+    } catch { fputs("TAB5 acceptance check incomplete; inspect device state before retrying.\n", stderr); exit(1) }
+}
 
 if Array(CommandLine.arguments.dropFirst()) == ["--restore-cycle-default"] {
     MacDisplayPolicy.restoreCycleDefault()

@@ -21,9 +21,11 @@ internal sealed partial class Tab5Service
     internal bool RemoteOtaPending {get{lock(_remoteOtaLock)return _remoteOta is not null;}}
     internal static bool SupportsRemoteOta(string value)=>value.EndsWith("-ui",StringComparison.Ordinal)&&
         Version.TryParse(value[..^3],out var version)&&version>=new Version(0,2,190);
+    internal static bool SupportsReinstall(string value)=>value.EndsWith("-ui",StringComparison.Ordinal)&&
+        Version.TryParse(value[..^3],out var version)&&version.Major==0&&version.Minor==2&&version.Build>=286&&version.Revision<0;
+    internal bool SameOtaVersion=>HasOta&&_firmware.LastVersion(_store.Current?.DeviceId)==Volatile.Read(ref _ota)?.Version;
     internal bool CanStartOta=>!_usbAuthenticationRejected&&HasOta&&!Busy&&!RemoteOtaPending&&DeviceView.Online&&
-        SupportsRemoteOta(_firmware.LastVersion(_store.Current?.DeviceId))&&
-        _firmware.LastVersion(_store.Current?.DeviceId)!=Volatile.Read(ref _ota)?.Version;
+        SupportsRemoteOta(_firmware.LastVersion(_store.Current?.DeviceId));
     internal string RemoteOtaStatus=>_remoteOtaStatus;
     internal string OtaStartHint=>_usbAuthenticationRejected?"USB 已连接，但当前电脑未通过设备配对认证；请先验证配对，固件尚未传输。":HasOta&&!SupportsRemoteOta(_firmware.LastVersion(_store.Current?.DeviceId))?
         "此设备需先在 Tab5 完成一次升级，之后可从电脑开始升级。":"";
@@ -32,6 +34,10 @@ internal sealed partial class Tab5Service
         token.ThrowIfCancellationRequested();RemoteOta request;
         lock(_lifecycle) {
             if(_stopping||!CanStartOta)throw new InvalidOperationException(OtaStartHint.Length>0?OtaStartHint:"请先连接设备并选择固件，或等待当前操作结束。");
+            if(SameOtaVersion&&!SupportsReinstall(_firmware.LastVersion(_store.Current?.DeviceId)))throw new InvalidOperationException("设备固件尚不支持同版本重装，请先升级到 0.2.286-ui 或更新版本。");
+            // A deliberate retry/reinstall owns a fresh offer and delivery state.
+            OfferOta(Volatile.Read(ref _ota)! with {OfferId=Guid.NewGuid().ToString("N")});
+            _verifiedBoot=null;
             lock(_remoteOtaLock) {
                 request=new(Volatile.Read(ref _ota)!,Guid.NewGuid().ToString("N"),DateTimeOffset.UtcNow.AddSeconds(30).ToUnixTimeMilliseconds(),new(TaskCreationOptions.RunContinuationsAsynchronously));
                 _remoteOta=request;_remoteOtaStatus="正在请求设备保存草稿并准备升级…";_otaTransferDiagnostic="尚无升级传输";_voiceRequests++;

@@ -31,13 +31,18 @@ jobs:
           python scripts/check_public_content.py
       - name: Build Windows bridge
         run: dotnet build windows-app/AIBotBridge/AIBotBridge.csproj -c Release
+      - name: Validate Windows status snapshot
+        run: dotnet run --no-build -c Release --project windows-app/AIBotBridge/AIBotBridge.csproj -- --status-once
       - name: Validate fresh-profile pages and fixture regressions
         shell: pwsh
         run: |
           dotnet run --no-build -c Release --project windows-app/AIBotBridge/AIBotBridge.csproj -- --self-test-public
 
   macos:
-    runs-on: macos-14
+    runs-on: macos-15
+    env:
+      # The pinned MMKV package requires Swift tools 6.2 or newer.
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Test macOS bridge

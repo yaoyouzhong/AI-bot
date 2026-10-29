@@ -128,6 +128,7 @@ struct MacTab5USBLeaseCadence {
 // All port I/O and user operations execute on this single queue.
 final class MacTab5USB {
     private let service: MacTab5Service
+    private let authenticationEndpoint: () -> (String, UInt16)?
     private let queue = DispatchQueue(label: "AI-bot.tab5-usb")
     private var timer: DispatchSourceTimer?
     private var wire: MacTab5SerialWire?
@@ -143,7 +144,10 @@ final class MacTab5USB {
     private var rpcSupported = false
     private var completed: UInt32 = 0
 
-    init(service: MacTab5Service) { self.service = service }
+    init(service: MacTab5Service, authenticationEndpoint: (() -> (String, UInt16)?)? = nil) {
+        self.service = service
+        self.authenticationEndpoint = authenticationEndpoint ?? { service.lanConfiguration }
+    }
     static func ports() -> [String] {
         ((try? FileManager.default.contentsOfDirectory(atPath: "/dev")) ?? [])
             .filter(SerialBridge.isCandidateDeviceName).sorted().map { "/dev/" + $0 }
@@ -188,7 +192,7 @@ final class MacTab5USB {
                 guard reply["deviceId"] as? String == record.deviceId else { throw MacTab5Error.identity }
                 // Enrollment is explicit, and its legacy ACK is not host authentication.
                 guard try wire.identity().device == record.deviceId else { throw MacTab5Error.identity }
-                try wire.authenticate(record, endpoint: self.service.lanConfiguration)
+                try wire.authenticate(record, endpoint: self.authenticationEndpoint())
                 try self.service.confirmPairing(record)
                 self.wire = wire; self.rpcSupported = hello.rpc
                 self.statusCadence = .init(); self.statusDelta.reset(); self.leaseCadence = .init()
@@ -225,19 +229,19 @@ final class MacTab5USB {
             guard benchmark || !self.service.configurationBusy else { throw MacTab5Error.busy }
             guard let pair = self.service.currentPairing, pair.confirmed, let wire = self.wire else { throw MacTab5Error.unavailable }
             guard try wire.identity().device == pair.deviceId else { throw MacTab5Error.identity }
-            try wire.authenticate(pair,endpoint:self.service.lanConfiguration)
+            try wire.authenticate(pair,endpoint:self.authenticationEndpoint())
             var request = fields; request["type"] = type; request["version"] = 1; request["deviceId"] = pair.deviceId
             try wire.send(request); let response = try wire.reply(reply)
             try MacTab5USBManagementReply.validate(response,type:reply,device:pair.deviceId)
             completion(.success(response))
         } catch { self.close("USB 操作未确认，等待重连"); completion(.failure(error)) } }
     }
-    func verifyBoot(completion: @escaping (Result<Void, Error>) -> Void) {
+    func verifyBoot(prepared: Bool = false, completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async { [weak self] in
             guard let self else { return }
             do {
                 guard let pair = self.service.currentPairing, pair.confirmed, let wire = self.wire else { throw MacTab5Error.unavailable }
-                try self.service.firmwareControl.beginBootCheck(device: pair.deviceId, transport: "USB")
+                if !prepared { try self.service.firmwareControl.beginBootCheck(device: pair.deviceId, transport: "USB") }
                 var hellos: [[String: Any]] = []
                 for index in 0..<3 {
                     try wire.send(["version": 1, "type": "tab5_ping"])
@@ -279,13 +283,13 @@ final class MacTab5USB {
             chunks = try MacTab5USBVoicePriority.run(rpcSupported: rpcSupported,
                 voiceBusy: { self.service.voice.needsTransportPriority }, claim: {
                 phase = .hostClaim
-                try wire.authenticate(pair, endpoint: service.lanConfiguration)
+                try wire.authenticate(pair, endpoint: authenticationEndpoint())
             }, status: {
                 let started = ProcessInfo.processInfo.systemUptime
                 let previewUrgent = previewPublication.isDue(service.screenPreview.command,voicePriority:service.voice.needsTransportPriority)
                 if statusCadence.isDue(started) || urgent || previewUrgent {
                     phase = .hostClaim
-                    try wire.authenticate(pair, endpoint: service.lanConfiguration)
+                    try wire.authenticate(pair, endpoint: authenticationEndpoint())
                     phase = .statusBuild
                     let frame = try service.frame(includeResources: !service.voice.needsTransportPriority), root = try MacTab5Protocol.object(frame)
                     statusBytes = frame.count
@@ -458,6 +462,55 @@ enum MacTab5Mailbox {
             var fragment = Data([2]); append32(id, to: &fragment); append16(offset, to: &fragment); append16(packet.count, to: &fragment)
             fragment.append(packet.subdata(in: offset..<min(offset + 2048, packet.count))); return fragment
         }
+    }
+}
+
+// Explicit acceptance-only control. Authentication does not send a USB status
+// heartbeat: benchmark data continues over BLE. Never expose pairing material.
+final class MacTab5BLEProbeControl {
+    private let wire: MacTab5SerialWire
+    private let pair: MacTab5Pairing
+    private let endpoint: (String, UInt16)
+    init(pair: MacTab5Pairing, endpoint: (String, UInt16)) throws {
+        guard let path = MacTab5USB.ports().first else { throw MacTab5Error.unavailable }
+        wire = try MacTab5SerialWire(path: path); self.pair = pair; self.endpoint = endpoint
+        guard try wire.identity().device == pair.deviceId else { throw MacTab5Error.identity }
+        let hello = try snapshot()
+        guard hello["currentHostId"] as? String == MacTab5HostBinding.id(pair) else { throw MacTab5Error.identity }
+    }
+    func snapshot() throws -> [String: Any] {
+        try wire.send(["version": 1, "type": "tab5_ping"])
+        return try wire.reply("tab5_hello")
+    }
+    func command(_ action: String) throws -> [String: Any] {
+        guard ["start", "status", "cancel"].contains(action), try wire.identity().device == pair.deviceId else { throw MacTab5Error.invalidPacket }
+        try wire.authenticate(pair, endpoint: endpoint)
+        try wire.send(["version": 1, "type": "tab5_benchmark", "deviceId": pair.deviceId, "action": action])
+        let reply = try wire.reply("tab5_benchmark")
+        guard reply["deviceId"] as? String == pair.deviceId else { throw MacTab5Error.identity }
+        return reply
+    }
+    func otaTrace() throws -> [String: Any] {
+        try wire.send(["version": 1, "type": "tab5_crash_status"])
+        let reply = try wire.reply("tab5_crash_diagnostic")
+        guard let trace = reply["trace"] as? [String: Any] else { throw MacTab5Error.invalidPacket }
+        var safe: [String: Any] = [:]
+        for key in ["stage", "offset", "total", "error", "crash"] {
+            guard let value = MacTab5Protocol.integer(trace[key]) else { throw MacTab5Error.invalidPacket }
+            safe[key] = value
+        }
+        let hello = try snapshot()
+        if let radio = hello["wifiIsolation"] as? String, radio.split(separator: ",").count == 7,
+           radio.split(separator: ",").allSatisfy({ Int($0) != nil }) { safe["wifiIsolation"] = radio }
+        if let elapsed = MacTab5Protocol.integer(trace["otaMs"]) { safe["otaMs"] = elapsed }
+        if let phases = trace["otaPhases"] as? [String: Any] {
+            var values: [String: Int64] = [:]
+            for key in ["transport", "prepareMs", "writeMs", "freeWaitMs", "readyWaitMs", "verifyMs", "installMs"] {
+                if let number = MacTab5Protocol.integer(phases[key]) { values[key] = number }
+            }
+            safe["otaPhases"] = values
+        }
+        return safe
     }
 }
 

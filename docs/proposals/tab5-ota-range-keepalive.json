@@ -1,0 +1,18 @@
+{
+  "baseVersion": "0.2.286-ui",
+  "baseImageSHA256": "a3f779da833deba6c5cdaf4488417077ed485862c8111f2dcaa71e8767e6df7a",
+  "parentProvenance": "tab5-same-image-reinstall.json",
+  "candidateVersion": "0.2.287-ui",
+  "patchSHA256": "0c7f6d89712dfe8d4509cc77beb42199d026b54e60aeccfbe81d826ad7006f26",
+  "files": {
+    "firmware/main/ota_update.c": {
+      "before": "faec999b26ab40b06d9f0e270c1220b724b49a9715b030ff167d37799a67ddd5",
+      "after": "39a8ccdb911bc7b99dd58d9aa6a9ba1bb875a14feb946f5a2445f412a958f4d6"
+    },
+    "tests/ui-preview/ota_update_test.c": {
+      "before": "6264ba99c37dd91c21f6cf1cc997334deac49813241e82e5a1cf9bce345c66d5",
+      "after": "21980813c0ab40240e2712050d85370b975110540904d0e782b5ce07dcff54ea"
+    }
+  },
+  "status": "installed; USB 38.793 s and identical-image Wi-Fi 25.578 s; exact automatic boot and unchanged settings verified"
+}
