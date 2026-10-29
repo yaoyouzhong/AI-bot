@@ -97,3 +97,12 @@ Mac 已确认的功能只记作参考基线；R35 排队实机在 10-30 验收�
 This is a source-based Windows follow-up list for the October 29 Mac/TAB5 work, not Windows hardware acceptance. Priority gaps are question-card targeting and Next/Submit, recording-time target binding, exact staged-text submission checks, native action semantics and read-only accepted/queued delivery receipts. A reliably retained queue entry counts as successful delivery; execution completion is separate. Preserve existing Windows end-caret handling, one-write readback, idempotency, microphone recovery, read-state sync, TCP sockets and BLE window recovery. Review source selection and append semantics; measure mailbox/history and voice-final latency before porting performance changes. The existing same-image reinstall and BLE radio-lease peer changes require Windows checks. R35 queue hardware acceptance is deferred to October 30 at the user's request. Connection interruption is untested, not a known defect, and is left to ordinary use. No firmware flash or formal release is part of this handoff.
 
 Validation: both Mac Release builds pass 28,784 isolated checks each, plus 81 OTA/HTTP and 16 listener-recovery loopback checks. The production-source read-only queue harness passes. Full XCTest is unavailable in the local Command Line Tools; the subsequent Windows CI run linked above passes Release, status-once and public fixture regression checks. Windows hardware acceptance remains separate. CI now selects Xcode 26.3 for the pinned dependency; final merge eligibility follows the current PR checks, not earlier failed runs.
+
+
+## 追加：TAB5 高清预览内存修复（.293 候选）
+
+共享固件新增 [缓存借用补丁](../proposals/tab5-preview-gallery-cache.patch) 与 [来源及哈希](../proposals/tab5-preview-gallery-cache.json)，基于已安装 .292。Windows 无需重复实现或修改协议：预览可借用未显示的图库缓存，图库需要解码时归还预览空闲缓冲区。核对父补丁链后应用到独立 TAB5 工程；不要在 Windows 桥接中降低默认清晰度掩盖此问题。
+
+本地固件构建、82 项工作器检查及真实 LVGL／完整 UI 回归通过；候选 .293 尚未安装，跨平台实机高清预览仍待验证。现场证据与边界见 [修复记录](TAB5-PREVIEW-MEMORY-20261029.md)。合并源码不代表正式固件发布。
+
+Shared TAB5 .293 firmware safely transfers unused gallery caches to HD preview and returns idle scratch to foreground decoding. Windows needs no protocol or bridge change; apply the linked patch after checking its parent provenance. Local build and regressions pass, but .293 is not installed and cross-platform physical preview acceptance remains pending. Source merge is not a firmware release.

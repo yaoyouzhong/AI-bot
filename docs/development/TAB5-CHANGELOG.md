@@ -2,6 +2,19 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.293-ui - 2026-10-29
+
+Local preview-memory candidate: built, not installed or physically accepted, not publicly released.
+
+### Desktop preview and gallery
+- When gallery caches occupy reserved full-frame buffers, HD preview can safely borrow an unused cache outside a transition, avoiding another contiguous 1.76 MiB raw-pixel allocation and the resulting standard-definition fallback.
+- Preserve the displayed frame and retained photo. Foreground gallery decode waits for an active preview and reclaims its idle scratch. The protocol and Windows/Mac bridges remain compatible.
+
+### Validation
+- Original .292 reproduces phase-1 memory failure with constrained allocation fixtures. The fixed actual worker/codec passes 82 fault/recovery cases; real LVGL cache-loan checks and full native UI regression pass.
+- P4 build, production package validation and actual fixed-path notes preview pass with unchanged board configuration, partitions and fonts. The image is 7,208,672 bytes, leaving 288 bytes in the existing application partition.
+- Physical .292 evidence confirms 640×360/raw-pixel memory failures. Sustained HD and preserved gallery/photo/display preferences on .293 still require authorized installation and hardware acceptance; see the [evidence record](TAB5-PREVIEW-MEMORY-20261029.md).
+
 ## 0.2.292-ui - 2026-10-29
 
 Local quota-entry candidate; installed locally, not publicly released.
