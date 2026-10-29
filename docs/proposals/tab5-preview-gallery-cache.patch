@@ -1,0 +1,148 @@
+--- a/firmware/main/screen_preview.c
++++ b/firmware/main/screen_preview.c
+@@ -45,6 +45,10 @@
+ static uint16_t *take_hd_pixels(void) {
+     uint8_t *pixels=gallery_take_buffer();
+     if(!pixels)pixels=camera_gallery_buffer_take();
++    if(!pixels&&bsp_display_lock(30)) {
++        pixels=ui_screen_preview_take_buffer();
++        bsp_display_unlock();
++    }
+     return pixels?(uint16_t *)pixels:heap_caps_malloc(1280u*720u*2u,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+ }
+ unsigned screen_preview_cache_reclaim(bool force) {
+--- a/firmware/main/screen_preview.h
++++ b/firmware/main/screen_preview.h
+@@ -14,3 +14,7 @@
+ // Reclaim only idle scratch; an active worker retains ownership.
+ // force is used for foreground voice/camera/OTA; otherwise expire after5s idle.
+ unsigned screen_preview_cache_reclaim(bool force);
++
++// Called only while holding the LVGL display lock. Transfers an unused decoded
++// gallery frame; the displayed frame, transitions and photograph stay owned.
++uint8_t *ui_screen_preview_take_buffer(void);
+--- a/firmware/main/ui_gallery_saver.h
++++ b/firmware/main/ui_gallery_saver.h
+@@ -102,22 +102,25 @@
+     gallery_retry[slot]=0;
+ }
+ #include "ui_gallery_transition.h"
+-static bool gallery_schedule(int category,const char *date,int frame,bool portrait) {
+-    if(gallery_motion_active)return false;
+-    if(!gallery_request_available(category,date,frame,portrait))return false;
+-    // Transfer ownership of an unused bitmap, never the LVGL image currently
+-    // displayed (which may be the fallback orientation). This bounds output
+-    // memory to two frames including the worker, without heap probing.
+-    const void *shown=lv_obj_has_flag(gallery_view,LV_OBJ_FLAG_HIDDEN)?NULL:lv_image_get_src(gallery_view);
++static uint8_t *gallery_take_unused(bool preserve_presented) {
++    if(!gallery_view||gallery_motion_active)return NULL;
++    const void *shown=preserve_presented||!lv_obj_has_flag(gallery_view,LV_OBJ_FLAG_HIDDEN)?lv_image_get_src(gallery_view):NULL;
+     int spare=-1;
+     for(int i=0;i<4;i++)if(gallery_cache[i].pixels&&shown!=&gallery_descriptor[i]&&
++        (!preserve_presented||(gallery_cache[i].pixels!=gallery_presented.pixels&&gallery_cache[i].pixels!=gallery_old_image.pixels))&&
+         (spare<0||gallery_displayed[i]<gallery_displayed[spare]))spare=i;
+-    uint8_t *pixels=NULL;
+-    if(spare>=0){
+-        pixels=gallery_cache[spare].pixels;lv_image_cache_drop(&gallery_descriptor[spare]);
+-        gallery_cache[spare]=(gallery_image){0};gallery_descriptor[spare]=(lv_image_dsc_t){0};
+-        gallery_retry[spare]=0;
+-    }
++    if(spare<0)return NULL;
++    uint8_t *pixels=gallery_cache[spare].pixels;lv_image_cache_drop(&gallery_descriptor[spare]);
++    gallery_cache[spare]=(gallery_image){0};gallery_descriptor[spare]=(lv_image_dsc_t){0};
++    gallery_retry[spare]=0;return pixels;
++}
++uint8_t *ui_screen_preview_take_buffer(void) {return gallery_take_unused(true);}
++static bool gallery_schedule(int category,const char *date,int frame,bool portrait) {
++    if(gallery_motion_active||!gallery_request_available(category,date,frame,portrait))return false;
++    uint8_t *pixels=gallery_take_unused(false);
++    // Foreground artwork may need the same loan. Wait for a running capture,
++    // then reclaim its idle scratch before asking the decoder to allocate.
++    if(!pixels){if(screen_preview_busy())return false;screen_preview_cache_reclaim(true);}
+     return gallery_request(category,date,frame,portrait,pixels);
+ }
+ #include "ui_gallery_reader.h"
+--- a/firmware/main/ui_saver.h
++++ b/firmware/main/ui_saver.h
+@@ -15,6 +15,8 @@
+ #include "ui_monthly_saver.h"
+ #if TAB5_LOCAL_ART
+ #include "ui_gallery_saver.h"
++#else
++uint8_t *ui_screen_preview_take_buffer(void){return NULL;}
+ #endif
+ static bool saver_is_annual(void) {return (saver_style>=1&&saver_style<=3)||saver_style==5;}
+ static uint32_t annual_color(uint32_t day,uint32_t night,uint32_t warm) {
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -7,7 +7,8 @@
+ static bool runtime_diagnostics_report(const char *id,const char *session,link_kind link){(void)id;(void)session;(void)link;return false;}
+ static bool screen_preview_request(const char *stream,const char *request,const char *session,link_kind link,int width,int height,int version,const char *encoding,int64_t deadline){(void)version;(void)encoding;(void)stream;(void)request;(void)session;(void)link;(void)width;(void)height;(void)deadline;return false;}
+ void gallery_cache_reclaim(void){}
+-static bool screen_preview_busy(void){return false;}
++static bool preview_screen_busy;
++static bool screen_preview_busy(void){return preview_screen_busy;}
+ static unsigned preview_scratch_reclaims;
+ static unsigned screen_preview_cache_reclaim(bool force){if(force)preview_scratch_reclaims++;return 0;}
+ #include "../../firmware/main/ui.c"
+@@ -1983,6 +1984,7 @@
+ #include "voice_source_label_test.h"
+ 
+ #include "codex_clear_render_test.h"
++#include "preview_gallery_loan_test.h"
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -2002,6 +2004,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_PREVIEW_GALLERY_LOAN_ONLY")){check_preview_gallery_loan();return 0;}
+     if(getenv("TAB5_CLEAR_RENDER_ONLY")){check_codex_clear_render();return 0;}
+     if(getenv("TAB5_VOICE_SOURCE_ONLY")){check_voice_source_labels();return 0;}
+     if(getenv("TAB5_VOICE_REFRESH_ONLY")){check_voice_refresh();return 0;}
+--- /dev/null
++++ b/tests/ui-preview/preview_gallery_loan_test.h
+@@ -0,0 +1,42 @@
++// Real LVGL objects and production UI/cache transfer functions; no device I/O.
++static void check_preview_gallery_loan(void) {
++#if TAB5_LOCAL_ART
++    assert(gallery_view&&!gallery_motion_active);
++    for(int i=0;i<4;i++)assert(!gallery_cache[i].pixels);
++    uint8_t *shown=malloc(1280u*720u*2u),*unused=malloc(1280u*720u*2u);
++    assert(shown&&unused);memset(shown,0x3c,1280u*720u*2u);memset(unused,0x5a,1280u*720u*2u);
++    gallery_cache[0]=(gallery_image){.pixels=shown,.frame=0,.category=0};
++    gallery_cache[1]=(gallery_image){.pixels=unused,.frame=1,.category=0};
++    for(int i=0;i<2;i++)gallery_descriptor[i]=(lv_image_dsc_t){.header={.magic=LV_IMAGE_HEADER_MAGIC,
++        .cf=LV_COLOR_FORMAT_RGB565,.w=1280,.h=720,.stride=2560},.data_size=1280u*720u*2u,.data=gallery_cache[i].pixels};
++    gallery_presented=gallery_cache[0];visible(gallery_view,true);lv_image_set_src(gallery_view,&gallery_descriptor[0]);
++    gallery_retry[1]=12345;
++    // Neither a transition frame nor the presented image may be borrowed.
++    gallery_motion_active=true;assert(!ui_screen_preview_take_buffer());gallery_motion_active=false;
++    gallery_old_image=gallery_cache[1];assert(!ui_screen_preview_take_buffer());gallery_old_image=(gallery_image){0};
++    uint8_t *loan=ui_screen_preview_take_buffer();assert(loan==unused);
++    assert(!gallery_cache[1].pixels&&!gallery_descriptor[1].data&&!gallery_retry[1]);
++    assert(lv_image_get_src(gallery_view)==&gallery_descriptor[0]&&gallery_presented.pixels==shown);
++    assert(!ui_screen_preview_take_buffer()); // Cannot lend twice or overwrite the sole displayed frame.
++    visible(gallery_view,false);assert(!ui_screen_preview_take_buffer()); // Hidden source still referenced by LVGL.
++    memset(loan,0x77,1280u*720u*2u);
++    for(size_t i=0;i<1280u*720u*2u;i++)assert(shown[i]==0x3c);
++    gallery_recycle(loan);assert(gallery_take_buffer()==loan&&!gallery_take_buffer());
++    gallery_recycle(loan);visible(gallery_view,true);
++    // Foreground decode waits for a running capture, then reclaims idle scratch
++    // and reuses the returned spare instead of allocating a third full frame.
++    preview_gallery_ready=preview_gallery_download=true;preview_screen_busy=true;
++    unsigned requests=preview_gallery_requests,reclaims=preview_scratch_reclaims;
++    assert(!gallery_schedule(0,"2026-10-29",2,false));
++    assert(preview_gallery_requests==requests&&preview_scratch_reclaims==reclaims);
++    preview_screen_busy=false;assert(gallery_schedule(0,"2026-10-29",2,false));
++    assert(preview_gallery_requests==requests+1&&preview_scratch_reclaims==reclaims+1&&preview_gallery_spare==loan);
++    gallery_image result={0};assert(gallery_take(&result)&&result.pixels==loan);gallery_release_buffer(result.pixels);
++    assert(shown[0]==0x3c&&shown[1280u*720u*2u-1]==0x3c);
++    visible(gallery_view,false);lv_image_set_src(gallery_view,NULL);gallery_presented=(gallery_image){0};gallery_drop(0);
++    gallery_release_buffer(gallery_take_buffer());
++    puts("PREVIEW_GALLERY_LOAN_OK real LVGL: unused cache transfers once, shown/hidden sources and transition protected, no displayed pixel mutation, foreground reclaim and reuse");
++#else
++    assert(!ui_screen_preview_take_buffer());
++#endif
++}

@@ -1,5 +1,11 @@
 # Mac TAB5 开发候选 / Development candidate
 
+2026-10-29 预览修复补充：现场 .292 大屏预览降至 640×360，并持续报告原始像素分配失败。新增 .293 候选安全复用未显示的图库缓存，本地构建与回归通过，已授权安装，精确启动核验及 1280×720 预览首帧通过。图库切换与持续高清按用户要求留到 10 月 30 日。该问题现为发布前待实机验收项，不能沿用此前“只剩排队”的结论。当前安装为 R34/.293，R35 排队验收仍按原安排。详见 [预览修复记录](development/TAB5-PREVIEW-MEMORY-20261029.md)。
+
+October 29 preview follow-up: installed .292 falls back to 640×360 with repeated raw-pixel allocation failures. The .293 candidate safely reuses unused gallery caches and passes local build/regression checks. It is installed with user authorization; exact boot verification and the first 1280×720 preview frame pass. Gallery switching and sustained HD are deferred to October 30 at the user’s request. Preview hardware acceptance is now an additional release gate; the earlier queue-only conclusion is superseded. R34/.293 is now installed and the R35 queue acceptance schedule is unchanged.
+
+此前 R35 源码检查点（以下 R34/.292 安装状态为历史记录）：
+
 2026-10-29 后续源码：R35 修复排队消息已可靠保存却误报“未确认发送”的确认路径，实机验收按用户要求留到 10 月 30 日，当前安装仍为 R34/.292。本轮新增功能、Bug 修复、性能优化及已具备能力的 Windows 开发入口集中在 [Windows 对齐交接清单](development/WINDOWS-FOLLOWUP-FROM-MAC-20261029.md)。连接中断恢复没有已知故障，只留作日常观察，不安排专项验收。此次提交源码与文档，不发布正式版本。
 
 October 29 source follow-up: R35 reconciles reliably retained queued messages after uncertain native acknowledgment. Hardware acceptance is deferred to October 30; R34/.292 remains installed. The linked Windows handoff covers new features, fixes, performance work and existing capabilities. Connection interruption is not a known defect and remains ordinary-use observation. This is a source/documentation delivery, not a formal release.

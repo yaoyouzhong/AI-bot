@@ -1,0 +1,64 @@
+{
+  "baseVersion": "0.2.292-ui",
+  "baseImageSHA256": "b57370238df9decfeb911dc15708886cb5dd7105aec1ae85e70875c38a810c2f",
+  "parentProvenance": "tab5-quota-module-default.json",
+  "candidateVersion": "0.2.293-ui",
+  "patchSHA256": "ce9370546c8ab644bdb2aaf2dfecf508171e9a0369c439b72999f943cf3669ff",
+  "files": {
+    "firmware/main/screen_preview.c": {
+      "before": "e4222ec8cd7115603a4b526b8fc72ee9399222f1f99e1e96d647ba174f3017c7",
+      "after": "e0a087bf1319891ec47d2672dbf9a74638fe161387d15bb3d569596d553fc688"
+    },
+    "firmware/main/screen_preview.h": {
+      "before": "748a85a79ab63cbd69d4858a6de90a634358f64696b683cfecf755b9ac11dbae",
+      "after": "4ff7496b52d6231dec1afa3e58536ccf4ae8576e482b56789d02175432ad3835"
+    },
+    "firmware/main/ui_gallery_saver.h": {
+      "before": "d30a2380f667929302fa1839e7019974c5c8e3e69aa212786d2350a440970497",
+      "after": "bfbae6ebc1831427b017366c35af7cc7f81ea11813cf820b4988b7c884059e88"
+    },
+    "firmware/main/ui_saver.h": {
+      "before": "5f1fc8d49f95bc7964a76a3d9a4ab36393ae5b2111dc42f1ee3fe3b54e643834",
+      "after": "3dbbf745d2869fae2deadca745e1a41df5e1280e6d692734e090fc7d05e0c6ff"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "19afd4f536dc598123ce05f16a9bc3d3b8375fe2f8a46c5a0dc233cab92e6d70",
+      "after": "8f1a43418b84c47b553d23c41c98040fee693ad0af2357a429a4944cb54f793d"
+    },
+    "tests/ui-preview/preview_gallery_loan_test.h": {
+      "before": null,
+      "after": "7fbf83eac6cc32175bc8084d235c2c27f39d55af47ce6f4879e36b2b5262ca5b"
+    }
+  },
+  "status": "built, locally validated and installed with user authorization; first HD frame passed; sustained/gallery acceptance deferred to 2026-10-30; not publicly released",
+  "candidateImageSHA256": "3d80b4a4a4e4f23147b83964607da6c8b05d0b1d0f51b875258cec0b312ecaf0",
+  "candidateELFSHA256": "00ac1f629888d44ff8154a369657841d5c0b667e91d0396c4af43f3136fda76e",
+  "candidateBytes": 7208672,
+  "baseSourceVerification": {
+    "base": "0.2.292-ui",
+    "filesVerified": 7550,
+    "sourceManifestSHA256": "f97606c274545c4ed55e97657fecc46413ad7ce78717eb0b945448533cc585c2"
+  },
+  "validation": [
+    "P4 Release build; unchanged sdkconfig definitions and partition layout",
+    "actual LVGL cache-loan regression and full native UI regression pass",
+    "actual worker/codec/vendor/cJSON low-memory harness: 82 cases pass; original .292 reproduces phase-1 raw-buffer failure; synthetic allocation/capture/transport/task fixtures, not hardware acceptance",
+    "production Windows package validator and actual fixed-path release-notes preview pass",
+    "patch replay reproduces all six exact candidate source hashes"
+  ],
+  "physicalAcceptance": {
+    "installed": true,
+    "transport": "USB boot verification",
+    "exactELF": true,
+    "partitionVALID": true,
+    "threeLiveSamples": true,
+    "previewFirstHDFrame": [
+      1280,
+      720
+    ],
+    "sustainedPreviewHD": false,
+    "pending": "User deferred gallery switching, sustained HD, reopen under cache occupancy and photo-retention acceptance to 2026-10-30. No Windows physical preview acceptance claimed.",
+    "settingsPreserved": true
+  },
+  "localEvidence": "artifacts/mac-voice-source-20261029/tab5-293-preview/"
+}
