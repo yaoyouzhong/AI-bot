@@ -65,7 +65,9 @@
 
 ## 本次源码交付的检查结果
 
-工作区与冻结 R35 候选均通过 Release 构建，各通过 28,784 项隔离检查；另通过 81 项 OTA／HTTP 回环检查和 16 项监听恢复检查。生产源码只读 harness 已验证当前本地／服务端队列结构可读及不变快照拒绝，未实际提交消息。完整 `swift test` 因本机 Command Line Tools 缺少 XCTest 模块未通过；本次 Windows 配套改动没有 Windows 构建／运行证据，不能用 Mac 检查代替。R35 未安装，实机排队验收仍为 10 月 30 日。
+工作区与冻结 R35 候选均通过 Release 构建，各通过 28,784 项隔离检查；另通过 81 项 OTA／HTTP 回环检查和 16 项监听恢复检查。生产源码只读 harness 已验证当前本地／服务端队列结构可读及不变快照拒绝，未实际提交消息。完整 `swift test` 因本机 Command Line Tools 缺少 XCTest 模块未通过；随后 [GitHub CI 40864671059](https://github.com/yaoyouzhong/AI-bot/actions/runs/40864671059) 已在 Windows 主机通过 Release 构建、`--status-once` 和完整 `--self-test-public`；这不是 Windows 设备实机验收。R35 未安装，实机排队验收仍为 10 月 30 日。
+
+CI 修复补充：固定 MMKV 依赖需要 Swift 6.2+，三个 Mac 构建工作流统一选择 macOS 15／Xcode 26.3（[GitHub 镜像工具清单](https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md)），应用最低系统版本仍为 macOS 13。Windows OTA 停止用例改为跟踪开始操作实际生成的新 offer，并验证停止后旧 offer 在重新选择固件后仍返回 404；Mac XCTest 断言同步当前诊断保留最近失败的行为。合并前须以 [PR #15 当前 CI](https://github.com/yaoyouzhong/AI-bot/pull/15/checks) 全通过为准；不能把前次失败运行当成最终结果。
 
 ## Windows 开发顺序与验证
 
@@ -94,4 +96,4 @@ Mac 已确认的功能只记作参考基线；R35 排队实机在 10-30 验收�
 
 This is a source-based Windows follow-up list for the October 29 Mac/TAB5 work, not Windows hardware acceptance. Priority gaps are question-card targeting and Next/Submit, recording-time target binding, exact staged-text submission checks, native action semantics and read-only accepted/queued delivery receipts. A reliably retained queue entry counts as successful delivery; execution completion is separate. Preserve existing Windows end-caret handling, one-write readback, idempotency, microphone recovery, read-state sync, TCP sockets and BLE window recovery. Review source selection and append semantics; measure mailbox/history and voice-final latency before porting performance changes. The existing same-image reinstall and BLE radio-lease peer changes require Windows checks. R35 queue hardware acceptance is deferred to October 30 at the user's request. Connection interruption is untested, not a known defect, and is left to ordinary use. No firmware flash or formal release is part of this handoff.
 
-Validation: both Mac Release builds pass 28,784 isolated checks each, plus 81 OTA/HTTP and 16 listener-recovery loopback checks. The production-source read-only queue harness passes. Full XCTest is unavailable in the local Command Line Tools; the companion Windows changes still need Windows build/runtime verification.
+Validation: both Mac Release builds pass 28,784 isolated checks each, plus 81 OTA/HTTP and 16 listener-recovery loopback checks. The production-source read-only queue harness passes. Full XCTest is unavailable in the local Command Line Tools; the subsequent Windows CI run linked above passes Release, status-once and public fixture regression checks. Windows hardware acceptance remains separate. CI now selects Xcode 26.3 for the pinned dependency; final merge eligibility follows the current PR checks, not earlier failed runs.
