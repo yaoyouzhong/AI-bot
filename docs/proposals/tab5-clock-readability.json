@@ -28,5 +28,5 @@
     "P4 build passed; unchanged board config, fonts, resolution and partition",
     "Visual review: all clock styles, digital, analog and makeup-workday state"
   ],
-  "physicalAcceptance": "Not installed; device display acceptance pending"
+  "physicalAcceptance": "Installed; exact ELF, VALID partition, three live UI samples and preserved display settings verified; user confirms analog/digital seconds size and no redundant weekend/workday labels"
 }

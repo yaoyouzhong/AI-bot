@@ -1,6 +1,6 @@
 # Mac TAB5 开发候选 / Development candidate
 
-新增 .299 时钟候选已构建并完成实际渲染／完整 LVGL 检查，尚未安装；当前已安装仍为 .298。见[时钟设计](development/TAB5-CLOCK-DAY-DESIGN-20261031.md)。 / Clock candidate .299 is built and visually checked, but not installed; .298 remains the installed version.
+当前安装 .299 时钟候选，精确启动和原设置保留核验通过；用户确认两种时钟布局、秒数大小正常。见[时钟设计](development/TAB5-CLOCK-DAY-DESIGN-20261031.md)。 / Clock candidate .299 is installed with exact boot/settings verification; user acceptance passes for analog/digital layouts and seconds size.
 
 当前跨端交接与验收状态见 [Windows 对齐清单（10-31）](development/WINDOWS-FOLLOWUP-FROM-MAC-20261031.md)。 / See the linked October 31 checklist for current cross-platform handoff and acceptance status.
 

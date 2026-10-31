@@ -18,7 +18,7 @@ internal sealed partial class Tab5Service
                 if(transport=="Wi-Fi")service._wifiRequestAt=Environment.TickCount64;else service._bleAckAt=Environment.TickCount64;
                 JsonElement Snapshot()=>JsonSerializer.SerializeToElement(new {
                     diagnosticVersion=1,sampleAgeMs=0,deviceId=pair.DeviceId,hostId=Tab5HostBinding.Id(pair),firmware="0.2.250-ui",uptimeMs=123456,
-                    uiAgeMs=12,flushCount=300,flushErrors=0,lcdUnderruns=0,displayDiag="1,2,3;ortho,1,0",cameraDiag="9,0,1234",photoDiag="7,0,12",photoUploadDiag="Wi-Fi,123,45,200"});
+                    uiAgeMs=12,flushCount=300,flushErrors=0,lcdUnderruns=0,displayDiag="1,2,3;ortho,1,0;asset,2,2,1259136,1,3,0,1,4",cameraDiag="9,0,1234",photoDiag="7,0,12",photoUploadDiag="Wi-Fi,123,45,200"});
                 JsonElement Report(string requestId,JsonElement? value=null,string? session=null)=>JsonSerializer.SerializeToElement(new {
                     kind="runtime-diagnostics",requestId,session=session??service._session,issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),snapshot=value??Snapshot()});
                 async Task<int> Rpc(JsonElement root,bool proofValid=true,string? channel=null,string? id=null) {
@@ -46,6 +46,7 @@ internal sealed partial class Tab5Service
                 Check(await Rpc(Report(p.Id))==409,"consumed request");
                 string summary=await read;await second;
                 Check(summary.Contains("诊断采样："+transport)&&summary.Contains("运行毫秒：123456")&&summary.Contains("实时"),"fresh common format");
+                Check(summary.Contains(";asset,2,2,1259136,1,3,0,1,4"),"optional asset-copy diagnostics retained");
                 Check(service._runtimeProbe is null&&service._ota is null,"independent of OTA");
                 Check((await service.RefreshDiagnosticSummaryAsync(CancellationToken.None)).Contains("123456")&&service._runtimeProbe is null,"fresh read cached");
                 service._runtimeSample=service._runtimeSample! with{Tick=Environment.TickCount64-11000};

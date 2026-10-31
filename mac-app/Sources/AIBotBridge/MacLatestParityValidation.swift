@@ -30,7 +30,7 @@ enum MacLatestParityValidation {
         var clock = 100.0, timers: [() -> Void] = [], completed = 0
         let diagnostics = MacTab5RuntimeDiagnostics(date:{ midnight.addingTimeInterval(clock) },tick:{ clock },schedule:{ _,action in timers.append(action) })
         var context = MacTab5RuntimeDiagnostics.Context(device:"001122334455",host:String(repeating:"a",count:32),firmware:"0.2.252-ui",transports:["Wi-Fi","BLE"])
-        func snapshot() -> [String:Any] { ["deviceId":context.device,"hostId":context.host,"firmware":context.firmware,"diagnosticVersion":1,"sampleAgeMs":0,"uptimeMs":1200,"uiAgeMs":10,"flushCount":100,"flushErrors":0,"lcdUnderruns":0,"displayDiag":"ok,1","cameraDiag":"idle","photoDiag":"0,0","photoUploadDiag":"0,0"] }
+        func snapshot() -> [String:Any] { ["deviceId":context.device,"hostId":context.host,"firmware":context.firmware,"diagnosticVersion":1,"sampleAgeMs":0,"uptimeMs":1200,"uiAgeMs":10,"flushCount":100,"flushErrors":0,"lcdUnderruns":0,"displayDiag":"ok,1;asset,2,2,1259136,1,3,0,1,4","cameraDiag":"idle","photoDiag":"0,0","photoUploadDiag":"0,0"] }
         try check("minimum diagnostic firmware",MacTab5RuntimeDiagnostics.supports("0.2.250-ui") && !MacTab5RuntimeDiagnostics.supports("0.2.249-ui") && !MacTab5RuntimeDiagnostics.supports("0.2.x-ui"))
         try check("bounded snapshot accepted",MacTab5RuntimeDiagnostics.valid(snapshot(),device:context.device,host:context.host))
         for (key,value) in [("uiAgeMs",true as Any),("sampleAgeMs",8001),("flushCount",-1),("cameraDiag","bad\ntext"),("photoDiag",String(repeating:"a",count:1025)),("hostId","foreign")] {
@@ -112,6 +112,7 @@ enum MacLatestParityValidation {
         try check("authenticated dispatcher rejects forged proof",rpc(envelope,validProof:false) == 401)
         envelope["session"] = "wrong"; try check("authenticated dispatcher rejects stale session",rpc(envelope) == 400)
         envelope["session"] = service.session; try check("encrypted diagnostic roundtrip",rpc(envelope) == 200 && service.deviceDiagnosticSummary.contains("1200"))
+        try check("asset-copy diagnostic suffix retained",service.deviceDiagnosticSummary.contains(";asset,2,2,1259136,1,3,0,1,4"))
         try check("encrypted duplicate rejected",rpc(envelope) == 409)
         var probe: [String:Any] = ["kind":"benchmark","offset":0,"count":32,"session":service.session,"issuedAt":Int64(Date().timeIntervalSince1970*1000)]
         try check("benchmark forged request rejected",rpc(probe,validProof:false) == 401)

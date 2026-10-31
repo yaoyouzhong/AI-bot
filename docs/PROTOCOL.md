@@ -1444,3 +1444,15 @@ Mac 可利用本次原生按键前已取得的短期内存回执基线，在 60 
 新增明确拒绝错误 `desktop_draft_present`、`desktop_attachments_present`、`desktop_photo_append_unsupported`，及恢复冲突 `pending_delivery_changed`；`desktop_foreground_unconfirmed` 用于任务页的定位未确认。固件将未知 409 显示为请求未接受、草稿保留，不暗示发送成功。
 
 English: A receipt query never resends. Optional canConfirmDelivered gates the new explicit receipt-confirm mutation, using existing task/request/text/turn/images fields and authenticated write transport. Confirmation requires the original device-bound uncertain text-only steer record and unchanged draft fingerprint, atomically acknowledges only that receipt, and clears only its matching draft. Replays cannot clear newer drafts. Transport/query errors retain the lock. Mac reuses a short-lived pre-submit receipt baseline for read-only reconciliation within 60 seconds; the baseline is never persisted. Windows retains message-ID reconciliation and restricts manual recovery to new device-bound records. Neither path submits another message. New rejection codes distinguish desktop drafts, attachments, unsupported photo follow-up and changed pending records.
+
+
+### TAB5 asset display memory diagnostics / 资源显示内存诊断
+
+.300 在既有 `displayDiag` 末尾追加可选 `;asset,1,copyFailures,reclaimedBytes,copyRecoveries`。三个计数从启动累计，分别表示 UI 图片副本分配失败次数、从不可见界面缓存释放的字节数及同次有界重试成功次数。仅数值，不包含图片、标题或身份。资源 ACK 仍表示设备完成接收／解码，不等同于 LVGL 显示副本已分配；不改变已有确认语义。Windows/Mac 已有有界诊断字符串校验可接收该后缀，兼容自检已覆盖，旧桥接可以忽略。
+
+Firmware .300 appends optional `;asset,1,copyFailures,reclaimedBytes,copyRecoveries` to `displayDiag`: boot-lifetime numeric counts for failed UI image-copy allocation, bytes reclaimed from hidden optional caches, and successful bounded retry. No artwork, titles or identifiers are exported. Asset ACK still confirms receiver/decode completion, not UI-copy allocation. Both host validators retain the suffix; old hosts may ignore it. Existing fields and acknowledgment semantics are unchanged.
+
+
+.301 将可选后缀扩展为 `;asset,2,copyFailures,reclaimedBytes,copyRecoveries,receiveAllocFailures,crcFailures,decodeFailures,received`。前三项语义保持；后四项为接收 packed／RGB565 分配失败、完整资源 CRC 不符、JPEG／RLE 解码失败及完整资源接收成功次数，均从启动累计。解码失败包含 JPEG 工作区或引擎失败，不能仅凭此项断言是图像格式错误。缺失及 v1 仍兼容，两端保留数值后缀，不改变资源 ACK、认证或传输语义。
+
+Firmware .301 extends the optional suffix to `;asset,2,copyFailures,reclaimedBytes,copyRecoveries,receiveAllocFailures,crcFailures,decodeFailures,received`. The first three counts retain their meaning; the additional boot-lifetime counts identify packed/RGB565 allocation failure, full-resource CRC failure, JPEG/RLE decode failure and successful receipt. Decode failures include JPEG workspace/engine failure and do not establish malformed input. Missing/v1 suffixes remain compatible; both hosts retain these numeric diagnostics without changing ACK, authentication or transport semantics.
