@@ -14,12 +14,15 @@ struct MacTab5DesktopBackend {
     var navigation: ((String) -> Bool)? = nil
     var evidence: () -> String = { "" }
     var openOnly: ((String) -> Bool)? = nil
-    // Only an explicit stage operation may acquire the verified target editor.
+    // Explicit staging or read-only locate diagnostics may focus the verified editor.
     var focusComposer: ((String) -> Bool)? = nil
     var target: ((String) -> String?)? = nil
     var writeTarget: ((String, String, String, String) -> String?)? = nil
     var submitQuestion: ((String, String, String) -> Bool)? = nil
     var submitComposer: ((String, String) -> MacTab5DesktopSubmission)? = nil
+    var attachmentFree: ((String) -> Bool)? = nil
+    var appendEvidence: () -> String = { "" }
+    var navigationMetadata: () -> String = { "" }
 }
 
 enum MacTab5DesktopCheck: String {
@@ -30,6 +33,9 @@ enum MacTab5DesktopCheck: String {
     case role = "当前焦点不在主输入框"
     case identifier = "主输入框标识尚不兼容"
     case identifierAndRoute = "未取得主输入框标识及精确会话地址"
+    case taskAppendDraft = "追加未发送：电脑已有草稿，请先处理电脑草稿；TAB5 文字已保留"
+    case taskAppendAttachments = "追加未发送：电脑存在附件或引用，TAB5 草稿已保留"
+    case taskAppendScope = "追加未发送：电脑输入区域结构尚未确认，TAB5 草稿已保留"
     case structure = "输入框内容结构尚不兼容"
     case route = "未确认目标会话的地址或唯一完整标题"
     case duplicateTitle = "存在完全同名会话，无法确认输入目标；请区分会话标题后重新定位并录音"
@@ -89,6 +95,7 @@ final class MacTab5Desktop {
     private let lock = NSLock(), codex: MacTab5Codex
     private let enabled: () -> Bool, backend: MacTab5DesktopBackend
     private let statusLock = NSLock()
+    private let localDiagnostics: MacTab5LocalDiagnostics?
     private var status: MacTab5DesktopCheck = .waiting
     private var statusEvidence = ""
     // Keep fixed diagnostic labels only; a later success must not erase the
@@ -114,7 +121,8 @@ final class MacTab5Desktop {
         guard enabled() else { return "尚未启用" }
         if let failure = backend.preflight() { return failure.rawValue }
         statusLock.lock(); let current = status, detail = statusEvidence, failure = lastStageFailure, submitFailure = lastSubmitFailure; statusLock.unlock()
-        return current.rawValue + (detail.isEmpty ? "" : "（" + detail + "）") +
+        let append = backend.appendEvidence()
+        return current.rawValue + (append.isEmpty ? "" : "；追加结构检查：" + append) + (detail.isEmpty ? "" : "（" + detail + "）") +
             (failure.map { "；最近回填失败：" + $0.rawValue } ?? "") +
             (submitFailure.map { "；最近提交失败：" + $0.rawValue } ?? "")
     }
@@ -127,16 +135,69 @@ final class MacTab5Desktop {
             lastSubmitFailure = nil
         }
         statusLock.unlock()
+        localDiagnostics?.desktop(value, evidence: navigation ? backend.navigationMetadata() : backend.appendEvidence())
     }
     private func stageFailed(_ value: MacTab5DesktopCheck) {
         updateStatus(value)
         statusLock.lock(); lastStageFailure = value; statusLock.unlock()
     }
-    private func submitFailed(_ value: MacTab5DesktopCheck) {
-        updateStatus(value)
+    private func submitFailed(_ value: MacTab5DesktopCheck, navigation: Bool = false) {
+        updateStatus(value, navigation: navigation)
         statusLock.lock(); lastSubmitFailure = value; statusLock.unlock()
     }
-    init(codex: MacTab5Codex, enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, backend: MacTab5DesktopBackend = MacTab5DesktopAX.backend) { self.codex = codex; self.enabled = enabled; self.backend = backend }
+    init(codex: MacTab5Codex, enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, backend: MacTab5DesktopBackend = MacTab5DesktopAX.backend, diagnostics: MacTab5LocalDiagnostics? = nil) { self.codex = codex; self.enabled = enabled; self.backend = backend; localDiagnostics = diagnostics }
+    // The codex journal is already persisted and locked by the caller. Never
+    // call codex.handle or clearSubmittedDesktopDraft here. try() also avoids
+    // reversing the desktop -> codex lock order used by direct submission.
+    func appendTask(task: String, text: String, authorized: () -> Bool, captureBaseline: (MacCodexSubmissionReceipt) -> Void = { _ in }) throws {
+        func reject(_ reason: MacTab5DesktopCheck? = nil, navigation: Bool = false) throws -> Never {
+            let check = reason ?? backend.diagnostic()
+            submitFailed(check, navigation: navigation)
+            throw MacCodexDesktopError.rejected(navigation ? "desktop_foreground_unconfirmed" :
+                check == .taskAppendDraft ? "desktop_draft_present" :
+                check == .taskAppendAttachments ? "desktop_attachments_present" : "composer_changed")
+        }
+        guard enabled(), authorized(), backend.preflight() == nil,
+              let submit = backend.submitComposer, !text.isEmpty else { try reject() }
+        guard lock.try() else { throw MacCodexDesktopError.rejected("composer_changed") }
+        defer { lock.unlock() }
+        guard backend.open(task) else { try reject() }
+        let until = ProcessInfo.processInfo.systemUptime + 3
+        while backend.navigation?(task) != true {
+            guard ProcessInfo.processInfo.systemUptime < until else { try reject(navigation: true) }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        guard backend.focusComposer?(task) == true, backend.target?(task) == "main" else { try reject() }
+        guard let previous = backend.read(task) else { try reject() }
+        guard previous.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { try reject(.taskAppendDraft) }
+        guard backend.attachmentFree?(task) == true, authorized() else { try reject() }
+        guard let staged = backend.write(task, previous, text) else {
+            // A failed readback does not prove no write occurred.
+            throw MacCodexDesktopError.deliveryUnknown
+        }
+        let baseline = codex.desktopSubmissionReceipt(task: task, expected: staged)
+        if let baseline { captureBaseline(baseline) }
+        guard authorized(), backend.target?(task) == "main",
+              backend.attachmentFree?(task) == true else { try reject() }
+        switch submit(task, staged) {
+        case .notReady: try reject()
+        case .confirmed: updateStatus(.composerSubmitted)
+        case .unconfirmed:
+            if let baseline {
+                for attempt in 0..<2 {
+                    if let after = codex.desktopSubmissionReceipt(task: task, expected: staged),
+                       after.confirms(after: baseline) || after.confirmsQueue(after: baseline) {
+                        updateStatus(after.confirms(after: baseline) ? .messageAccepted : .messageQueued)
+                        return
+                    }
+                    if attempt == 0 { Thread.sleep(forTimeInterval: 0.15) }
+                }
+            }
+            submitFailed(.submitUnknown)
+            throw MacCodexDesktopError.deliveryUnknown
+        }
+    }
+
     func handle(_ root: [String: Any], device: String) -> MacTab5RPCResult {
         guard enabled(), codex.isEnabled else { return .error(403, "desktop_control_not_enabled") }
         lock.lock(); defer { lock.unlock() }
@@ -203,6 +264,15 @@ final class MacTab5Desktop {
                         body["foreground"] = true
                         if located.count < 512 { located.insert(binding) }
                         if let current { body["draftEmpty"] = current.isEmpty }
+                        if navigated { codex.recordUserInteraction(task) }
+                        // Explicit locate can diagnose the main composer without
+                        // writing a draft or dispatching a message. Keep navigation
+                        // success independent from append compatibility.
+                        if navigated, backend.attachmentFree != nil, backend.focusComposer?(task) == true,
+                           backend.target?(task) == "main" {
+                            _ = backend.attachmentFree?(task)
+                            localDiagnostics?.desktop(backend.diagnostic(), evidence: backend.appendEvidence())
+                        }
                         result = .init(200, body)
                     } else { updateStatus(opened ? backend.diagnostic() : .open, navigation: opened); result = .error(409, "desktop_foreground_unconfirmed") }
                 }
@@ -299,6 +369,7 @@ final class MacTab5Desktop {
                 }
                 result = try submit()
             }
+            if op == "submit-draft", result.status == 200 { codex.recordUserInteraction(task) }
             record["status"] = result.status; record["body"] = result.body; records[id] = record
             try saveRecords(); return result
         } catch { return .error(504, "desktop_result_unknown") }
@@ -309,10 +380,14 @@ enum MacTab5DesktopAX {
     private static let diagnosticLock = NSLock()
     private static var lastCheck: MacTab5DesktopCheck = .waiting
     private static var lastEvidence = ""
+    private static var lastAppendEvidence = ""
+    private static var lastNavigationMetadata = ""
+    private static func navigationMetadata() -> String { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastNavigationMetadata }
+    private static func appendEvidence() -> String { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastAppendEvidence }
     private static func note(_ check: MacTab5DesktopCheck) { diagnosticLock.lock(); lastCheck = check; diagnosticLock.unlock() }
     private static func diagnostic() -> MacTab5DesktopCheck { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastCheck }
     private static func evidence() -> String { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastEvidence }
-    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: { write($0, $1, $2, target: "main") }, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }, navigation: navigation, evidence: evidence, openOnly: openOnly, focusComposer: focusComposer, target: target, writeTarget: { write($0, $2, $3, target: $1) }, submitQuestion: submitQuestion, submitComposer: submitComposer) }
+    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: { write($0, $1, $2, target: "main") }, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }, navigation: navigation, evidence: evidence, openOnly: openOnly, focusComposer: focusComposer, target: target, writeTarget: { write($0, $2, $3, target: $1) }, submitQuestion: submitQuestion, submitComposer: submitComposer, attachmentFree: attachmentFree, appendEvidence: appendEvidence, navigationMetadata: navigationMetadata) }
     private static func openOnly(_ task: String) -> Bool {
         // Windows allows an app-foreground acknowledgment for open-only when
         // titles are ambiguous. Do not call this proof of the exact document,
@@ -396,15 +471,27 @@ enum MacTab5DesktopAX {
     private static func navigation(_ task: String) -> Bool {
         let started = ProcessInfo.processInfo.systemUptime
         var visited = 0, shells = 0, selected = 0, named = 0, rowMatched = false, titleMatched = false, unique = false
+        var webAreas = 0, missingAddresses = 0, untrustedAddresses = 0, childReadFailures = 0, lastChildError: Int32 = 0
+        var roleCounts: [String: Int] = [:]
+        var accessibilityError: Int32 = 0
         var rowEvidence = ""
         defer {
             let detail = "节点 \(visited)；主区域 \(shells)；唯一标题 \(unique ? "有" : "无")；页面匹配 \(titleMatched ? "是" : "否")；当前行 \(selected)／名称 \(named)；行匹配 \(rowMatched ? "是" : "否")\(rowEvidence)；\(Int((ProcessInfo.processInfo.systemUptime-started)*1000)) ms"
-            diagnosticLock.lock(); lastEvidence = detail; diagnosticLock.unlock()
+            // Only fixed role buckets, counts and AX error numbers. Never log
+            // addresses, titles, class names or any editor/message contents.
+            let metadata = "nav.ax-enable=\(accessibilityError), nodes=\(visited), shells=\(shells), webareas=\(webAreas), missing-address=\(missingAddresses), untrusted-address=\(untrustedAddresses), child-errors=\(childReadFailures), child-error=\(lastChildError), unique=\(unique ? 1 : 0), title-match=\(titleMatched ? 1 : 0), selected=\(selected), row-match=\(rowMatched ? 1 : 0), ms=\(Int((ProcessInfo.processInfo.systemUptime-started)*1000))" + roleCounts.keys.sorted().map { ", \($0)=\(roleCounts[$0]!)" }.joined()
+            diagnosticLock.lock(); lastEvidence = detail; lastNavigationMetadata = metadata; diagnosticLock.unlock()
         }
         guard AXIsProcessTrusted() else { note(.permission); return false }
         guard let app = MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication }), app.bundleIdentifier == "com.openai.codex" else { note(.frontmost); return false }
         let root = AXUIElementCreateApplication(app.processIdentifier)
         AXUIElementSetMessagingTimeout(root, 0.1)
+        // Electron lazily exposes its renderer tree. This is requested only
+        // inside the user's navigation operation, never by a background poll.
+        // It neither activates the app nor authorizes a target on its own.
+        if value(root, "AXManualAccessibility") as? Bool != true {
+            accessibilityError = AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue).rawValue
+        }
         guard let raw = value(root, "AXFocusedWindow"), CFGetTypeID(raw) == AXUIElementGetTypeID() else { note(.focus); return false }
         let window = unsafeBitCast(raw, to: AXUIElement.self)
         let resources = app.bundleURL?.appendingPathComponent("Contents/Resources")
@@ -424,10 +511,16 @@ enum MacTab5DesktopAX {
               let (node, inheritedShell) = pending.next() {
             visited += 1
             let role = value(node, "AXRole") as? String ?? ""
+            let bucket = ["AXWindow", "AXGroup", "AXWebArea", "AXScrollArea", "AXSplitGroup", "AXButton", "AXLink", "AXTextArea", "AXTextField"].contains(role) ? role : "other-role"
+            roleCounts[bucket, default: 0] += 1
             var shell = inheritedShell
             if role == "AXWebArea" {
                 // An embedded browser must not impersonate the app's sidebar.
-                shell = trustedShell(address(node), resourceRoot: resources)
+                webAreas += 1
+                let pageAddress = address(node)
+                shell = trustedShell(pageAddress, resourceRoot: resources)
+                if pageAddress == nil { missingAddresses += 1 }
+                else if !shell { untrustedAddresses += 1 }
                 if !shell { continue }
                 foundShell = true
                 shells += 1
@@ -476,7 +569,10 @@ enum MacTab5DesktopAX {
             // Do not inspect editor text, browser contents, dialogs or other
             // windows. Only the foreground window's navigation is considered.
             if ["AXTextArea", "AXTextField", "AXDialog", "AXSheet", "AXStaticText", "AXImage"].contains(role) { continue }
-            pending.append(contentsOf: (value(node, "AXChildren") as? [AXUIElement] ?? []).map { ($0, shell) })
+            var rawChildren: CFTypeRef?
+            let childResult = AXUIElementCopyAttributeValue(node, "AXChildren" as CFString, &rawChildren)
+            if childResult != .success { childReadFailures += 1; lastChildError = childResult.rawValue }
+            pending.append(contentsOf: (rawChildren as? [AXUIElement] ?? []).map { ($0, shell) })
         }
         if pending.hasPending { note(.navigationLimit) }
         else if !foundShell { note(.navigationShell) }
@@ -706,13 +802,20 @@ enum MacTab5DesktopAX {
         ]) else { return nil }
         return "question:" + MacTab5Protocol.sha256(bytes)
     }
+    static func transcriptContent(_ classes: [String]) -> Bool {
+        classes.contains("[container-name:thread-content]") || classes.contains { $0.hasPrefix("_transcriptContent_") }
+    }
     private static func findTarget(_ task: String, window: AXUIElement, app: NSRunningApplication, root: AXUIElement) -> AXUIElement? {
         let resources = app.bundleURL?.appendingPathComponent("Contents/Resources")
         var invalidQuestion = false
         var rejection: MacTab5DesktopCheck?, scanFailure: MacTab5DesktopCheck?
         let editor = uniqueComposer(in: window, role: { value($0, "AXRole") as? String ?? "" },
             children: { node in
-                if (value(node, "AXDOMClassList") as? [String] ?? []).contains("@container/request-card"), questionInfo(node) == nil {
+                let classes = value(node, "AXDOMClassList") as? [String] ?? []
+                // The transcript and footer are siblings in the packaged app.
+                // Historical messages cannot be the active input target.
+                if transcriptContent(classes) { return [] }
+                if classes.contains("@container/request-card"), questionInfo(node) == nil {
                     invalidQuestion = true; return []
                 }
                 return value(node, "AXChildren") as? [AXUIElement] ?? []
@@ -827,6 +930,130 @@ enum MacTab5DesktopAX {
         guard buttons.count == 1 else { return reject(.submitButtonMultiple) }
         return buttons[0]
     }
+    // A task-page send is independent of the Mac draft. Check the complete
+    // composer root, including attachment trays outside its text editor/body.
+    private static func attachmentFree(_ task: String) -> Bool {
+        var ready = false
+        defer {
+            diagnosticLock.lock(); lastAppendEvidence += ready ? ", ready=1" : ", ready=0"; diagnosticLock.unlock()
+        }
+        note(.taskAppendScope)
+        guard let editor = composer(task), targetKey(editor) == "main",
+              let body = composerBody(editor), let raw = value(body, "AXParent"),
+              CFGetTypeID(raw) == AXUIElementGetTypeID() else { return false }
+        let root = unsafeBitCast(raw, to: AXUIElement.self)
+        inspectAppendLayout(root: root, body: body)
+        let classes = value(root, "AXDOMClassList") as? [String] ?? []
+        // Electron may omit the presentational LayoutRoot from AX. Its nearest
+        // group must still be bounded, contain this one body and no other editor.
+        guard classes.contains(where: { $0.hasPrefix("_ComposerLayoutRoot_") }) ||
+              value(root, "AXRole") as? String == "AXGroup" else { return false }
+        ready = attachmentFreeLayout(root, role: { value($0, "AXRole") as? String ?? "" },
+            classes: { value($0, "AXDOMClassList") as? [String] ?? [] },
+            children: { value($0, "AXChildren") as? [AXUIElement] ?? [] }, label: buttonLabel,
+            text: { value($0, "AXValue") as? String ?? "" },
+            isEditor: { CFEqual($0, editor) }, isBody: { CFEqual($0, body) }, failure: note,
+            explain: { reason in diagnosticLock.lock(); lastAppendEvidence += ", blocked=" + reason; diagnosticLock.unlock() })
+        if ready { note(.confirmed) }
+        return ready
+    }
+
+    // A popup can represent either a model selector or an attachment. Never
+    // prune its subtree: decorative icons may be ignored, removal actions and
+    // nested controls must still be checked before any write or press.
+    static func attachmentFreeLayout<Node>(_ root: Node, role: (Node) -> String,
+        classes: (Node) -> [String], children: (Node) -> [Node], label: (Node) -> String,
+        text: (Node) -> String, isEditor: (Node) -> Bool, isBody: (Node) -> Bool,
+        clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+        failure: (MacTab5DesktopCheck) -> Void = { _ in }, explain: (String) -> Void = { _ in }) -> Bool {
+        func reject(_ reason: MacTab5DesktopCheck, _ detail: String) -> Bool { failure(reason); explain(detail); return false }
+        let deadline = clock() + 0.4
+        var pending = [(root, false)], visited = 0, editors = 0, bodies = 0
+        while let (node, insideControl) = pending.popLast() {
+            visited += 1
+            guard visited <= 300, clock() < deadline else { return reject(.taskAppendScope, "scan-limit") }
+            let kind = role(node), names = classes(node).map { $0.lowercased() }
+            if isBody(node) { bodies += 1 }
+            if kind == "AXTextArea" {
+                guard isEditor(node), !insideControl else { return reject(.taskAppendScope, "foreign-editor") }
+                editors += 1
+            }
+            if names.contains("@container/request-card") ||
+                (!isBody(node) && names.contains(where: { $0.hasPrefix("_composerlayoutbody_") })) {
+                return reject(.taskAppendScope, "foreign-body-or-card")
+            }
+            let attachmentSlot = names.contains { $0.hasPrefix("_composerlayoutattachments_") || $0.hasPrefix("_composerlayoutreplycontext_") }
+            if attachmentSlot {
+                guard emptyAttachmentLayout(node, role: role, children: children, text: text,
+                                            deadline: ProcessInfo.processInfo.systemUptime + max(0, deadline - clock())) else {
+                    return reject(.taskAppendAttachments, "nonempty-attachment-slot")
+                }
+                continue
+            }
+            let caption = label(node).lowercased()
+            guard !["remove", "移除", "删除附件"].contains(where: { caption.contains($0) }),
+                  !["AXLink", "AXWebArea", "AXDialog", "AXSheet"].contains(kind),
+                  kind != "AXImage" || insideControl else { return reject(.taskAppendAttachments, "removal-or-content") }
+            let control = isComposerToolbarControl(kind)
+            // Attachment cards can themselves be popup buttons. A nested
+            // action is not a decorative model/reasoning icon.
+            guard !control || !insideControl else { return reject(.taskAppendAttachments, "nested-control") }
+            pending.append(contentsOf: children(node).map { ($0, insideControl || control) })
+        }
+        guard editors == 1, bodies == 1 else { return reject(.taskAppendScope, "editor-body-count-\(editors)-\(bodies)") }
+        return true
+    }
+
+    static func isComposerToolbarControl(_ role: String) -> Bool {
+        ["AXButton", "AXPopUpButton", "AXMenuButton"].contains(role)
+    }
+
+    // Metadata-only evidence captured by an explicit device locate/append.
+    // No AXValue, title, filename, URL or user text is retained.
+    private static func inspectAppendLayout(root: AXUIElement, body: AXUIElement) {
+        var pending: [(AXUIElement, Bool, String)] = [(root, false, "layout")], count = 0
+        var stats: [String: Int] = [:]
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.5
+        while let (node, within, previousZone) = pending.popLast() {
+            count += 1
+            guard count <= 300, ProcessInfo.processInfo.systemUptime < deadline else { stats["limit"] = 1; break }
+            let inside = within || CFEqual(node, body), scope = inside ? "body" : "outer"
+            var zone = previousZone
+            let role = value(node, "AXRole") as? String ?? ""
+            let classes = value(node, "AXDOMClassList") as? [String] ?? []
+            for (prefix, label) in [("_ComposerLayoutRoot_", "root"), ("_ComposerLayoutAttachments_", "attachment-slot"),
+                                    ("_ComposerLayoutReplyContext_", "reply-slot"), ("_ComposerLayoutBody_", "body-slot"),
+                                    ("_ComposerLayoutFooter_", "footer"), ("_ComposerLayoutInput_", "input")] {
+                if classes.contains(where: { $0.hasPrefix(prefix) }) { stats[scope + "." + label, default: 0] += 1; zone = label }
+            }
+            if isComposerToolbarControl(role) { zone = role }
+            if ["AXImage", "AXLink", "AXWebArea", "AXDialog", "AXSheet", "AXTextArea"].contains(role) {
+                stats[scope + "." + zone + "." + role, default: 0] += 1
+            }
+            if role == "AXButton" {
+                let label = buttonLabel(node).lowercased()
+                if ["remove", "移除", "删除附件"].contains(where: { label.contains($0) }) { stats[scope + "." + zone + ".remove", default: 0] += 1 }
+            }
+            pending.append(contentsOf: (value(node, "AXChildren") as? [AXUIElement] ?? []).map { ($0, inside, zone) })
+        }
+        stats["nodes"] = count
+        diagnosticLock.lock(); lastAppendEvidence = stats.keys.sorted().map { "\($0)=\(stats[$0]!)" }.joined(separator: ", "); diagnosticLock.unlock()
+    }
+
+    static func emptyAttachmentLayout<Node>(_ root: Node, role: (Node) -> String,
+                                            children: (Node) -> [Node], text: (Node) -> String,
+                                            deadline: TimeInterval = .infinity) -> Bool {
+        var pending = [root], visited = 0
+        while let node = pending.popLast() {
+            visited += 1
+            guard visited <= 80, ProcessInfo.processInfo.systemUptime < deadline else { return false }
+            guard ["AXGroup", "AXScrollArea", "AXUnknown", "AXStaticText"].contains(role(node)),
+                  text(node).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+            pending.append(contentsOf: children(node))
+        }
+        return true
+    }
+
     private static func submitComposer(_ task: String, _ expectedText: String) -> MacTab5DesktopSubmission {
         func reject(_ reason: MacTab5DesktopCheck) -> MacTab5DesktopSubmission { note(reason); return .notReady }
         guard !expectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return reject(.value) }

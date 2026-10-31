@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace AIBotBridge;
 
 internal sealed record Tab5SendRecord(string Id,string TaskId,string Hash,string Operation,string ExpectedTurn,
-    string State,string TurnId,long UpdatedAt,int Status=0,string Error="");
+    string State,string TurnId,long UpdatedAt,int Status=0,string Error="",string Device="",string ResolutionSource="");
 internal sealed record Tab5DraftRecord(string Text,long UpdatedAt,string[]? Images=null);
 
 // User content stays in an atomic, current-Windows-user encrypted file. A corrupt
@@ -34,6 +34,27 @@ internal sealed class Tab5CodexJournal
     internal string Draft(string id) {lock(_gate){Check();return _data.Drafts.TryGetValue(id,out var value)?value.Text:"";}}
     internal string[] Images(string id) {lock(_gate){Check();return _data.Drafts.GetValueOrDefault(id)?.Images??[];}}
     internal Tab5SendRecord? Find(string id) {lock(_gate){Check();return _data.Sends.GetValueOrDefault(id);}}
+    internal bool CanConfirm(Tab5SendRecord record,string device) {
+        lock(_gate) {
+            Check();var draft=_data.Drafts.GetValueOrDefault(record.TaskId);
+            return device.Length>0&&record.Device==device&&record.State=="dispatching"&&record.Operation=="steer"&&
+                Guid.TryParse(record.ExpectedTurn,out _)&&_data.Sends.GetValueOrDefault(record.Id)==record&&
+                draft is not null&&draft.Text.Length>0&&(draft.Images?.Length??0)==0&&
+                record.Hash==Fingerprint(record.TaskId,draft.Text,record.Operation,record.ExpectedTurn,draft.Images);
+        }
+    }
+    internal Tab5SendRecord? ConfirmDelivered(string id,string task,string device,string text,string expected,string[] images) {
+        lock(_gate) {
+            Check();var record=_data.Sends.GetValueOrDefault(id);
+            if(record is null||record.TaskId!=task||record.Device!=device||device.Length==0)return null;
+            if(record.State is "accepted" or "completed")return record;
+            if(!CanConfirm(record,device)||images.Length!=0||record.ExpectedTurn!=expected||
+                record.Hash!=Fingerprint(task,text,record.Operation,expected,images))return null;
+            var accepted=record with {State="accepted",Status=202,TurnId=record.ExpectedTurn,
+                UpdatedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),ResolutionSource="device_user_confirmed_delivered"};
+            Save(accepted);return accepted;
+        }
+    }
     internal Tab5SendRecord? Pending(string task) {lock(_gate){Check();return _data.Sends.Values.Where(x=>x.TaskId==task&&x.State=="dispatching").OrderByDescending(x=>x.UpdatedAt).FirstOrDefault();}}
     internal Tab5SendRecord[] Accepted() {lock(_gate)return _damaged?[]:_data.Sends.Values.Where(x=>x.State=="accepted").ToArray();}
     internal void SaveDraft(string task,string text,string[]? images=null) {

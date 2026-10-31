@@ -2,6 +2,40 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.298-ui - 2026-10-31
+
+Local delivery-recovery candidate; P4 build, full production LVGL regression and actual sidecar preview pass. Installed with exact boot verification and preserved display settings; physical feedback/recovery checks are recorded separately. Not publicly released; supersedes uninstalled .297.
+
+- Draft, attachment and unconfirmed-target rejections identify the cause and preserve editable content.
+- Unknown delivery gets at most three receipt queries without resending; explicit device confirmation resolves only the original delivered message.
+- Designed and visually checked the recovery dialog; regression covers cancellation, host/content changes, duplicate confirmation and failed-query draft retention.
+- Size-optimize infrequent send/draft and request routines, without changing fonts, resolution or partitions. Image: 7,208,848 bytes; partition headroom: 112 bytes.
+
+## 0.2.296-ui - 2026-10-30
+
+Local UI-design candidate; installed and exact boot verification passed; user confirms layout, legibility, touch and cancel, not publicly released.
+
+- Use a compact centered confirmation card with a prominent version, blue primary action and subdued cancel; both touch targets are 64 pixels high.
+- Real LVGL render and actual notes reviewed; cancel, changed offer, confirm and duplicate-click regression pass. P4 build passes with 672 bytes of partition headroom.
+
+## 0.2.295-ui - 2026-10-30
+
+Local candidate built; installed with authorization and exact boot verification passed; physical confirmation UI check pending; not publicly released.
+
+- Require version confirmation before local install/reinstall; cancel performs no install.
+- Bind confirmation to the original offer identity and checksum; changed or withdrawn offers require a fresh confirmation.
+- Size-optimize only OTA control and UI initialization, preserving fonts, partitions and runtime rendering; 928 bytes of application headroom.
+- P4 build, five real LVGL confirmation paths and actual notes preview pass. Hardware acceptance is recorded separately.
+
+## 0.2.294-ui - 2026-10-30
+
+Local candidate installed with authorization; exact boot verification and user-confirmed same-version title/button/badge acceptance pass. Not publicly released.
+
+### Firmware upgrade
+- Label same-version offers as the current version available for reinstall, use a Reinstall button and hide the update badge.
+- Preserve explicit reinstall, connectivity and confirmation checks without protocol changes.
+- P4 build, same/different/absent offer and disconnected UI checks, plus actual notes previews pass. Application partition headroom: 256 bytes.
+
 ## 0.2.293-ui - 2026-10-29
 
 Local preview-memory candidate: installed with user authorization; first HD frame passes, full hardware acceptance deferred to October 30; not publicly released.

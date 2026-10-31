@@ -519,7 +519,7 @@ internal sealed class Tab5CodexTasks : IDisposable
         SetSubmitDiagnostic("stage=desktop_connect");
         requestId=Guid.Parse(requestId).ToString();
         var record=new Tab5SendRecord(requestId,taskId,Tab5CodexJournal.Fingerprint(taskId,message,operation,expectedTurn,images),operation,expectedTurn,
-            "prepared","",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            "prepared","",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),Device:device);
         try {
             if(_journal?.Find(requestId) is { } existing) {
                 if(existing.Hash!=record.Hash||existing.TaskId!=taskId)return(409,new {error="request_id_conflict"});
@@ -584,16 +584,28 @@ internal sealed class Tab5CodexTasks : IDisposable
         }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or System.Security.Cryptography.CryptographicException)
         {return(503,new{error="draft_storage_unavailable"});}
     }
-    internal async Task<(int Status,object Body)> ReceiptAsync(string taskId,string requestId,CancellationToken token) {
+    internal async Task<(int Status,object Body)> ReceiptAsync(string taskId,string requestId,CancellationToken token,string device="") {
         if(!Guid.TryParse(taskId,out _)||!Guid.TryParse(requestId,out _))return(400,new{error="invalid_request"});
         if(!_catalog().Any(t=>t.Id==taskId))return(404,new{error="task_not_in_recent_catalog"});
         try {
             var record=_journal?.Find(Guid.Parse(requestId).ToString());
             if(record is null)return(404,new{error="receipt_not_found"});
             if(record.TaskId!=taskId)return(409,new{error="request_id_conflict"});
-            return await RecoverReceiptAsync(record,token);
+            var result=await RecoverReceiptAsync(record,token);
+            return result.Status==504?(504,new{error="delivery_unknown",canConfirmDelivered=_journal!.CanConfirm(record,device)}):result;
         }catch(Exception ex) when(ex is IOException or TimeoutException or OperationCanceledException or JsonException or InvalidOperationException)
         {return(504,new{error="delivery_unknown"});}
+    }
+    internal (int Status,object Body) ConfirmDelivery(string taskId,string requestId,string device,string text,string expected,string[] images) {
+        if(!Guid.TryParse(taskId,out _)||!Guid.TryParse(requestId,out var id))return(400,new{error="invalid_request"});
+        if(!_catalog().Any(t=>t.Id==taskId))return(404,new{error="task_not_in_recent_catalog"});
+        try {
+            var record=_journal?.ConfirmDelivered(id.ToString(),taskId,device,text,expected,images);
+            return record is null?(409,new{error="pending_delivery_changed"}):
+                (202,new{status="submitted",taskId,turnId=record.TurnId,requestId=record.Id});
+        }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or CryptographicException) {
+            return(503,new{error="draft_storage_unavailable"});
+        }
     }
     private async Task<(int Status,object Body)> RecoverReceiptAsync(Tab5SendRecord record,CancellationToken token) {
         if(record.State=="rejected")return(record.Status,new{error=record.Error});

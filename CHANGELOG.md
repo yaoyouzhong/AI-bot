@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### TAB5 reliability and Windows handoff
+- Fix Mac task-page append for native queue/steer delivery, protect existing desktop drafts and attachments, and improve long-chat navigation and explicit activity sorting.
+- Add bounded receipt reconciliation and device-confirmed recovery without resending unknown deliveries; synchronize the device-bound confirmation protocol and journal guards with Windows.
+- Bound Mac cover retries across transports and add same-size RGB565 fallback. Share TAB5 .294–.298 patches for current-version labels, installation confirmation and precise delivery feedback.
+- Record UI design/render checks and physical acceptance separately. Real unknown-send recovery and JPEG-failure fallback still await physical triggering; DJI checks remain deferred. See the [current Windows development checklist](docs/development/WINDOWS-FOLLOWUP-FROM-MAC-20261031.md) for completed ports, remaining features, fixes and performance work. No release is published by this source update.
+
 ## 0.6.13 - 2026-10-28
 
 ### Device setup

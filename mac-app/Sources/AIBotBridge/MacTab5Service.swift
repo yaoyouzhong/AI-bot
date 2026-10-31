@@ -4,6 +4,7 @@ import CryptoKit
 final class MacTab5Service {
     typealias DisplayCompletion = (Result<MacTab5DisplaySettings, Error>) -> Void
     private let lock = NSLock()
+    private let localDiagnostics: MacTab5LocalDiagnostics?
     private let loadPairing: () throws -> MacTab5Pairing?
     private let savePairing: (MacTab5Pairing) throws -> Void
     private let host: () -> String?
@@ -62,12 +63,19 @@ final class MacTab5Service {
          music: @escaping () -> (snapshot: MusicSnapshot?, cover: Data?)? = { nil },
          enabled: @escaping () -> Bool = { true }, sourceEnabled: @escaping (String) -> Bool = { _ in true },
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
-         save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }) {
+         save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }, diagnostics: MacTab5LocalDiagnostics? = nil) {
+        self.localDiagnostics = diagnostics
         self.port = port; self.host = host; self.latestMusic = music; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
         self.networkDiagnostics = networkDiagnostics; self.unlock = unlock
         self.deviceEnabled = enabled; self.sourceEnabled = sourceEnabled
         self.birthdays = birthdays; self.agenda = agenda
-        desktop = MacTab5Desktop(codex: codex)
+        desktop = MacTab5Desktop(codex: codex, diagnostics: diagnostics)
+        interactionDiagnostics.localDiagnostics = diagnostics
+        assets.diagnostics = diagnostics.map { log in { log.cover($0) } }
+        codex.taskAppend = { [weak desktop] task, text, authorized, captureBaseline in
+            guard let desktop else { throw MacCodexDesktopError.rejected("desktop_owner_unavailable") }
+            try desktop.appendTask(task: task, text: text, authorized: authorized, captureBaseline: captureBaseline)
+        }
         voice.beforeStart = { [weak desktop] task, device in desktop?.prepareVoice(task: task, device: device) }
         computer.unlockConfigured = { [unlock] in unlock.hasCredential }
         do { pairing = try load(); try pairing?.validate() }
@@ -216,6 +224,7 @@ final class MacTab5Service {
     func observeUSBInfo(_ root: [String: Any]) {
         lock.lock(); defer { lock.unlock() }
         guard root["deviceId"] as? String == pairing?.deviceId else { return }
+        localDiagnostics?.device(root)
         usbReportedActive = (root["active"] as? String).flatMap { ["USB", "Wi-Fi", "BLE", "Offline"].contains($0) ? $0 : nil }
         if let ids = root["assetIds"] as? String { assets.acknowledge(ids) }
         if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version; firmwareDevice = pairing?.deviceId; firmwareControl.observeVersion(version) }
@@ -228,6 +237,7 @@ final class MacTab5Service {
         if confirmed, !lastUSB.isFinite { usbConfirmedSessions += 1 }
         if !confirmed, lastUSB.isFinite { usbInterruptions += 1 }
         if !confirmed, note.hasPrefix("USB 未确认"), note != usbNote {
+            localDiagnostics?.transport(note)
             usbRecentFailures.append((ProcessInfo.processInfo.systemUptime,note))
             usbRecentFailures = Array(usbRecentFailures.suffix(8))
         }
@@ -523,7 +533,7 @@ final class MacTab5Service {
               MacTab5Protocol.verify(key: pair.key, message: "POST|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))", proof: proof),
               var root = try? MacTab5Protocol.object(MacTab5Protocol.decrypt(packet, key: pair.key, challenge: nonce)) else { return (401, Data()) }
         let op = root["op"] as? String ?? ""
-        guard operation == "read" ? ["read", "draft-load", "receipt"].contains(op) : ["send", "steer", "interrupt", "draft-save"].contains(op) else { return (400, Data()) }
+        guard operation == "read" ? ["read", "draft-load", "receipt"].contains(op) : ["send", "steer", "interrupt", "draft-save", "receipt-confirm"].contains(op) else { return (400, Data()) }
         root["kind"] = "codex"
         do {
             let sealed = try MacTab5Protocol.encrypt(MacTab5Protocol.json(root), key: pair.key, challenge: nonce)

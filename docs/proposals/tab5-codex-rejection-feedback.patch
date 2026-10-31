@@ -1,0 +1,33 @@
+--- a/firmware/main/codex_remote.c
++++ b/firmware/main/codex_remote.c
+@@ -245,7 +245,7 @@
+     else if(!strcmp(job->op,"read"))set_result(status==200?"回复已刷新":status==404?"任务已变化，请重新选择":"回复暂时无法刷新，请稍后重试",status);
+     else set_result(status == 202 ? "已发送，可查看会话动态" : status == 404 ? "任务已变化，请刷新后重选" :
+         status == 400 ? "状态已变化，请等待电脑数据刷新" : status == 429 ? "发送太快，请稍后再试" :
+-        status == 409 ? (!strcmp(reason,"task_busy_or_state_unknown")?"任务正在运行，请刷新后追加":!strcmp(reason,"turn_changed")?"当前会话已变化，请刷新动态":!strcmp(reason,"task_waiting_for_input")?"请先在电脑处理待确认事项":"请求已处理，请先查看动态") : status == 401 ? "设备认证失败，请检查配对" :
++        status == 409 ? (!strcmp(reason,"task_busy_or_state_unknown")?"任务正在运行，请刷新后追加":!strcmp(reason,"turn_changed")?"当前会话已变化，请刷新动态":!strcmp(reason,"task_waiting_for_input")?"请先在电脑处理待确认事项":"请求未接受，请检查电脑") : status == 401 ? "设备认证失败，请检查配对" :
+         status == 503 ? (!strcmp(reason,"desktop_load_timeout")?"Codex 会话加载超时，草稿已保留":!strcmp(reason,"desktop_load_failed")?"无法打开 Codex，草稿已保留":!strcmp(reason,"desktop_owner_unavailable")?"请在电脑 Codex 打开该会话":!strcmp(reason,"desktop_version_unsupported")?"Codex 版本不兼容，请更新桥接":!strcmp(reason,"turn_start_failed")?"Codex 拒绝启动，文字已保留":"Codex 连接失败，文字已保留") : "发送结果不确定，请先在电脑端查看", status);
+     cJSON_Delete(reply);
+     free(response.body);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2228,6 +2228,19 @@
+     cJSON_AddItemToObject(shown,"pcInput",cJSON_Parse("{\"session\":\"preview-session\",\"sequence\":1}"));
+     cJSON_AddItemToObject(shown,"codexTasks",cJSON_Parse("{\"projects\":[{\"id\":\"aaaaaaaaaaaaaaaa\",\"name\":\"M5Stack TAB5\"},{\"id\":\"bbbbbbbbbbbbbbbb\",\"name\":\"biaoshu\"}],\"tasks\":[{\"id\":\"01a0cc69-2782-7650-9903-303578a0296e\",\"title\":\"检查 TAB5 设备连接\",\"folder\":\"M5Stack TAB5\",\"projectId\":\"aaaaaaaaaaaaaaaa\"},{\"id\":\"01a0cc69-2782-7650-9903-303578a0296f\",\"title\":\"修复标书资料导入\",\"folder\":\"biaoshu\",\"projectId\":\"bbbbbbbbbbbbbbbb\"}],\"receipts\":{}}"));
+     render(); clock_music(10000,true); images_tick(150);
++    if(getenv("TAB5_CODEX_REJECTION_ONLY")) {
++        page(8);render_codex();codex_select_task("01a0cc69-2782-7650-9903-303578a0296e");preview_submit_enabled=true;
++        codex_load_waiting=false;codex_reading=false;codex_syncing=false;
++        codex_read_next=999999;preview_result_code=-1;
++        lv_textarea_set_text(codex_input,"任务页引导验收");codex_send(NULL);
++        assert(codex_waiting);
++        preview_result_code=409;preview_result_text="请求未接受，请检查电脑";
++        tick(NULL);render_codex();
++        assert(!codex_waiting&&!strcmp(lv_textarea_get_text(codex_input),"任务页引导验收"));
++        assert(!strcmp(lv_label_get_text(codex_receipt),"请求未接受，请检查电脑"));
++        capture("codex-append-rejected");
++        puts("CODEX_REJECTION_OK draft retained and failure not success");return 0;
++    }
+     if(getenv("TAB5_OTA_CONFIRM_ONLY")) {
+         page(9);settings_select(3);preview_ota_available=true;wifi_connected=true;
+         ota_installed_version="0.2.30-ui";tick(NULL);unsigned starts=preview_ota_starts;

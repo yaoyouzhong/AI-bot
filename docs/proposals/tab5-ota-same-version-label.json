@@ -1,0 +1,34 @@
+{
+  "baseVersion": "0.2.293-ui",
+  "baseImageSHA256": "3d80b4a4a4e4f23147b83964607da6c8b05d0b1d0f51b875258cec0b312ecaf0",
+  "parentProvenance": "tab5-preview-gallery-cache.json",
+  "candidateVersion": "0.2.294-ui",
+  "patchSHA256": "4e4bd6296ff49c9f6e35643d2efd8e5d3aa5b24167cd7088c20b79a316b76289",
+  "files": {
+    "firmware/main/ui.c": {
+      "before": "5848dc5542e3748d077b65621aedb233a5d86e025876c322598f9e8f3d7739b4",
+      "after": "64d3c9b106f19cf5ba2e4a8f2a1c06ce5a2d5c74a075e061537cb608103bd588"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "8f1a43418b84c47b553d23c41c98040fee693ad0af2357a429a4944cb54f793d",
+      "after": "533f144fd54b38f746feabc306ed5f1da3a909aca71e170f268869764c8fe4d0"
+    }
+  },
+  "candidateImageSHA256": "15f7b5bfaaa8430813ac605b66c569eb57a14dc016ad44a28ca290ba3d13843d",
+  "candidateELFSHA256": "9304719b41b5a101874c84b03c95a7526d04528fb767a351364d2f372c078ddf",
+  "candidateBytes": 7208704,
+  "status": "Installed; exact USB boot verification and user-confirmed same-version label/button/badge acceptance passed",
+  "validation": [
+    "same version: reinstall label, no update badge, connected action available",
+    "different version: existing update presentation preserved",
+    "no offer and disconnected: action disabled",
+    "P4 build with unchanged board configuration; 256 bytes application partition remaining"
+  ],
+  "physicalAcceptance": {
+    "installed": true,
+    "exactELF": true,
+    "partitionVALID": true,
+    "threeLiveSamples": true,
+    "sameVersionLabel": "User confirms current-version label, reinstall button and hidden update badge"
+  }
+}

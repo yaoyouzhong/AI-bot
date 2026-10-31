@@ -1,5 +1,21 @@
 # Mac TAB5 开发候选 / Development candidate
 
+当前跨端交接与验收状态见 [Windows 对齐清单（10-31）](development/WINDOWS-FOLLOWUP-FROM-MAC-20261031.md)。 / See the linked October 31 checklist for current cross-platform handoff and acceptance status.
+
+2026-10-31 最新安装：**Mac R47／TAB5 .298**，未公开发布。音乐封面三轮上限及等待确认已部署；用户确认连续切歌、封面和播放／暂停正常。定位两次正常（后台 200），历史间歇根因未完整复现。.298 已通过精确 ELF、VALID 分区及三个实时界面样本核验，展示设置保留；新增具体拦截原因、三次自动查询和设备端确认送达弹窗，生产 LVGL 全回归与实际更新说明渲染通过，现场提示／恢复体验接续验收。详见 [发送恢复设计](development/TAB5-SEND-RECOVERY-DESIGN-20261031.md) 和 [封面调查](development/TAB5-MUSIC-COVER-RETRY-20261031.md)。
+
+Latest installation, October 31: **Mac R47 / TAB5 .298**, not publicly released. Bounded cover retries are deployed; track changes, covers and play/pause pass user checks. Two navigation attempts pass (HTTP 200), without claiming the historical intermittent cause is fully reproduced. Exact ELF, VALID partition and three live UI samples verify .298; display settings are preserved. Specific rejection reasons, three automatic receipt queries and device-local delivery confirmation pass the full production LVGL suite and actual release-note rendering. Physical feedback/recovery checks continue. Earlier checkpoints below are historical.
+
+
+R47 补充：R46 的有限重试后仍出现单张 JPEG 未确认，故音乐底层失败原因未完全关闭；R47 加入同尺寸 RGB565 有界兼容路径及后台数值诊断，尚需观察兼容路径的真实触发。长会话正文扫描范围已收敛，正常追加、具体草稿拦截与两端内容保留已真机通过；设备确认送达的真实未知记录验收仍待对应场景。
+
+R47 follow-up: a JPEG remained unconfirmed after R46's retry cap, so the underlying cover failure is not fully closed. R47 adds bounded same-dimension RGB565 fallback and numeric background diagnostics; actual fallback activation remains to be observed. Scoped long-chat scanning, normal append, explicit draft rejection and preservation pass physical checks. Device-local confirmation of a real unknown-delivery record still awaits an eligible case.
+
+2026-10-30 实机状态：Mac R35 与 TAB5 .296 已安装；排队模式通过“Codex 直达”入队及成功提示验收，用户已恢复引导。高清预览、照片草稿保留及 .296 确认弹窗布局／取消已实机检查。TAB5「Codex 任务」运行中追加是独立路径，当前桌面 IPC 拒绝该操作且设备误报“请求已处理”；仍需修复，详见 [任务页追加记录](development/MAC-TAB5-TASK-APPEND-20261030.md)。此前 R34/.292 为历史状态。
+
+October 30: Mac R35 and TAB5 .296 are installed. Desktop-direct queued delivery and its success indication, HD preview, photo-draft retention and the confirmation dialog layout/cancel passed physical checks; Steer was restored. Task-page append is a distinct path rejected by current desktop IPC and its generic conflict message is misleading; see the linked investigation. Earlier R34/.292 installation statements are historical.
+
+
 2026-10-29 预览修复补充：现场 .292 大屏预览降至 640×360，并持续报告原始像素分配失败。新增 .293 候选安全复用未显示的图库缓存，本地构建与回归通过，已授权安装，精确启动核验及 1280×720 预览首帧通过。图库切换与持续高清按用户要求留到 10 月 30 日。该问题现为发布前待实机验收项，不能沿用此前“只剩排队”的结论。当前安装为 R34/.293，R35 排队验收仍按原安排。详见 [预览修复记录](development/TAB5-PREVIEW-MEMORY-20261029.md)。
 
 October 29 preview follow-up: installed .292 falls back to 640×360 with repeated raw-pixel allocation failures. The .293 candidate safely reuses unused gallery caches and passes local build/regression checks. It is installed with user authorization; exact boot verification and the first 1280×720 preview frame pass. Gallery switching and sustained HD are deferred to October 30 at the user’s request. Preview hardware acceptance is now an additional release gate; the earlier queue-only conclusion is superseded. R34/.293 is now installed and the R35 queue acceptance schedule is unchanged.
@@ -817,3 +833,24 @@ English: the full P4 configure/build passes with identical268 config definitions
 用户主动反馈“相机延时的问题解决了。超过三张也立马提醒了。”，据此相机入口等待与满额延迟两项实机通过；没有独立量秒，未额外要求重拍。用户刚添加的三张为已授权可清理测试照片，已请求在原验收会话单次发送，并以分别描述三张显眼物体核对端到端图片送达；异常保留现场、不补点。照片发送、镜像、新提醒音等其余.269实体结果仍待后续，不能把安装通过等同全部功能通过。
 
 English: the user explicitly authorizes269 installation prioritizing camera testing. The normal Mac UI selects fixed latest, checks version/hash and starts exactly one upgrade. The device acknowledges and reports269; old request status later becomes unconfirmed, without a second flash. The first USB boot check is generic unconfirmed with no raw failed sample, so no unique cause is asserted. After the native30s health interval, a second read-only check passes exact ELF/VALID/three live UI samples on the paired device, with links recovered. Read-only before/after display settings match brightness79/volume70/mute off/alerts on/cycle off/fixed overview/15s/5min and all selected pages/order; Cancel is used, without mode/cycle restoration or network/pairing changes. Windows close. The user independently confirms camera slowness solved and immediate over-three feedback, physically passing those two fixes without measured seconds or repeat captures. Three newly added disposable test images are requested for one manual message in the original acceptance conversation, verified by separate concrete image descriptions. Attachment sending/mirroring/physical new sound and other269 checks remain pending; installation is not full feature acceptance. No publication occurs.
+
+## 2026-10-30 R40 本地候选 / Local candidate
+
+R40 已安装到原固定 App 路径，TAB5 保持 0.2.296-ui。任务页文字追加改用与直达相同的原生提交入口；已修复原生下拉按钮装饰图像被误判为附件的问题。真实运行中引导追加已送达，用户确认无需电脑操作且 TAB5 显示成功；排队追加由用户和桥接共同确认已入队，随后已恢复引导。电脑已有草稿／附件／引用时保留原内容，设备带照片的追加尚未支持。明确定位和成功提交登记本机使用时间，补充长轮次中滞后的桌面目录排序；后台轮询不改变顺序，记录重启保留。用户已确认重新定位并打开列表后当前会话排在第一位。详见任务页追加验收记录；没有刷固件或公开发布。
+
+R40 is installed at the existing fixed app path with TAB5 .296 unchanged. Native text follow-up fixes a popup toolbar image false positive. Task-page Steer reached the running conversation with user-confirmed TAB5 success and no computer intervention; Queue was confirmed by both user and bridge before manual steering, and Steer was restored. Existing desktop drafts/attachments are protected; task-page photo follow-up is not yet supported. Explicit navigation and successful submission supplement stale desktop recency with persistent local-use timestamps; polling never updates them. The user confirmed the current conversation appears first after locating and reopening the list. No firmware flash or public release occurred.
+
+## 2026-10-30 R41 附件保护续修 / Attachment-guard follow-up
+
+R40 后续实机通过照片保留及已有电脑文字草稿保护，但真实电脑附件保护失败：附件和 TAB5 文字一同发出。该结果取代前文对附件保护的实现描述，不能视为已通过。原因是附件本身也可能是下拉控件，旧检查跳过其子树而漏掉内部移除按钮。R41 已安装，改为完整有界检查控件后代；Release、对应结构及任务日志回归、28,784 项隔离检查通过，完整 XCTest 仍缺本机模块。TAB5 保持 .296。R41 真实附件只读检查、拦截及重复点击仍待验收，任务页照片追加仍未支持。
+
+R40 subsequently passed photo retention and existing desktop text-draft protection, but failed real desktop attachment protection: the attachment was sent with TAB5 text. This supersedes the earlier implementation claim. Attachment cards can be popup controls whose descendants were skipped. Installed R41 traverses all bounded descendants; Release, matching-structure/journal regressions and 28,784 isolated checks pass, while full XCTest remains unavailable. TAB5 stays .296. Hardware attachment preflight/rejection and repeated-click checks remain pending; task-page photo follow-up is still unsupported.
+
+
+## 2026-10-31 R44 当前本地验收 / Current local acceptance
+
+当前固定路径运行 R44，TAB5 仍为 .296。R42 真实电脑附件拦截／双端保留、人工确认未知送达后解锁均已通过，更新前文 R41 待验状态。R44 本次定位成功，随后清除已有电脑测试草稿再追加，电脑收到一条消息，后台确认 202；用户确认首次点击后按钮立即禁用，成功后清空文字并恢复可用。按钮防连点与提交收尾通过，不等同于两个实机请求重放验证。详细证据见 [任务页验收记录](development/MAC-TAB5-TASK-APPEND-20261030.md)。
+
+R44 只补齐后台导航元数据，没有放宽发送条件；之前“未确认前台”实际为导航页面不可读，后续成功但根因未明，不能标为修复。任务页设备照片追加仍未支持，.296 通用拒绝提示及复杂人工恢复仍有体验改进；DJI 延后。Release、专项及 28,784 项隔离检查通过，完整 XCTest 缺本机模块。无新固件部署、Git 提交、推送或发布。
+
+English: R44 runs at the fixed app path with TAB5 .296. R42 attachment rejection/preservation and manual unknown-receipt unlock passed, superseding earlier pending notes. R44 navigation succeeded; after clearing the pre-existing desktop test draft, one follow-up arrived with a 202 receipt. The first tap disabled Append and the final success cleared text/restored controls, passing button-level repeated-tap prevention and completion, not two-request hardware replay. The earlier navigation-region failure remains unexplained rather than fixed. Photo follow-up, rejection wording, manual-recovery UX and deferred DJI retain their limitations. Release, targeted checks and 28,784 isolated checks pass; full XCTest remains unavailable. No new firmware, commit, push or release.

@@ -8,6 +8,7 @@ final class MacTab5LiveControl {
     private let lock = NSLock(), queue = DispatchQueue(label: "AI-bot.codex-live-control")
     private let read: (String) throws -> MacCodexDesktopIPC.State
     private let enabled: () -> Bool, mutable: () -> Bool, sendEnabled: () -> Bool, clock: () -> TimeInterval
+    private let canAppend: () -> Bool
     private var timer: DispatchSourceTimer?
     private var task = "", generation: UInt64 = 0, lease: TimeInterval = 0
     private var checked: TimeInterval = -.infinity, lastBegan: TimeInterval = -.infinity
@@ -15,7 +16,8 @@ final class MacTab5LiveControl {
     private var duration = 0, note = "等待核对"
     private var selectedAt: Int64?
     init(enabled: @escaping () -> Bool, mutable: @escaping () -> Bool, sendEnabled: @escaping () -> Bool,
-         clock: @escaping () -> TimeInterval, read: @escaping (String) throws -> MacCodexDesktopIPC.State) {
+         clock: @escaping () -> TimeInterval, read: @escaping (String) throws -> MacCodexDesktopIPC.State, canAppend: @escaping () -> Bool = { false }) {
+        self.canAppend = canAppend
         self.enabled = enabled; self.mutable = mutable; self.sendEnabled = sendEnabled; self.clock = clock; self.read = read
     }
     func start() {
@@ -82,7 +84,7 @@ final class MacTab5LiveControl {
         guard !stopped, now < lease, now - checked <= 3, let value else { return nil }
         return ["taskId": value.task, "turnId": value.turn, "running": value.running,
                 "canSend": canSend && value.sendable,
-                "canSteer": canSend && value.running && !value.waiting && MacCodexDesktopIPC.supportsExpectedTurnSteer,
+                "canSteer": canSend && value.running && !value.waiting && canAppend(),
                 "canInterrupt": canSend && value.running, "waiting": value.waiting]
     }
     var summary: String {
