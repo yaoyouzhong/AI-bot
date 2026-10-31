@@ -1,0 +1,51 @@
+{
+  "baseVersion": "0.2.300-ui",
+  "parentProvenance": "tab5-cover-display-memory.json",
+  "candidateVersion": "0.2.301-ui",
+  "patchSHA256": "8d0db32607bacafca7afbbc43573cd580803e062c6635d18b43fe64d6d0b9074",
+  "files": {
+    "firmware/main/draw_cache.c": {
+      "before": "42a909dc1df1aa824c45691db8b301a68edb4fff0053ba028d7bd6700d640aea",
+      "after": "fd84a931215e6223387f622fbb02265a81fa404183fc8bea8c137c1a33063664"
+    },
+    "firmware/main/draw_cache.h": {
+      "before": "e5a0409531d5caa1c15cd17bf9d4c6af9b10291ca361918e191809a9ec93d6a6",
+      "after": "e0a8a4b3dd848466dafb9dd4210aa2aac19776c05555ebec34f5f328f585490a"
+    },
+    "firmware/main/ui.c": {
+      "before": "a2f70bac7042b75a2fc0c0d03dc714560df48f06225d3a277541ad0f49b5e147",
+      "after": "91b59d0d572ca722f3a76f94e70408410b1ae20ffac70a0e267f3d5356c4c404"
+    },
+    "firmware/main/assets.c": {
+      "before": "af6fdfeb8b0f917476b3b21399506fd3c5ec74973cb40c1b2c7b2c6c68679759",
+      "after": "80b4b2ebe3d817f6e2ebf163e23cd077d3881c26a02cb6e7bd096bad17bf8de9"
+    },
+    "firmware/main/display_diagnostics.c": {
+      "before": "9afcedfa39dde615aa662b3b8c15cf29013cbb19c33ffd644ae5c355a4abae83",
+      "after": "26cf3ad7c2b030df3e28fd5314f10827960a144fe6f6b02026503e7e3e0861ae"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "fbb3ee1399e10dd468769ac576abdc7840d5666f1315eee6dad17b0a26f3f93c",
+      "after": "99adaf6c3439c25f7b903617323e741641cb80972457e053dd67f1086e32649e"
+    },
+    "scripts/test-cover-display-memory.py": {
+      "before": "94f1d6a2e3b86d23dd2adf522a4c662793a2ab2674466d5d683e158a1d9b6dab",
+      "after": "b4f0ce4c9f20c9e2f767e5d01ee2bc7b681197b2d40136363716e32f6c759b03"
+    },
+    "scripts/test-cover-receive-memory.py": {
+      "before": null,
+      "after": "ddedc666cda16b1bb4fb4e5d7f44ee800b0be716eec1d1360dcbda99474223f6"
+    }
+  },
+  "candidateImageSHA256": "a6f96e07f97b2d39c29fd2821080ce32b30e728c2b199b44f00308ee118f20b5",
+  "candidateELFSHA256": "e841986d06e3020b2257d9840b6fa19c44f93ab8541cfc0bf1d53dc892082bae",
+  "candidateBytes": 7208880,
+  "partitionBytes": 7208960,
+  "validation": [
+    "Production receive/CRC/RLE/copy C11/UBSan regression: 170 KB allocation failure reproduced; exact maximum RLE pixels; failures preserve prior ready image",
+    "JPEG workspace double peaks at 2553856 bytes with prior ready/display retained, within 3 MiB reserve; not hardware decoder verification",
+    "Actual production LVGL pressure regression: snapshot/staging/native admission, idle reclamation, active gesture and visible-pixel preservation; four-page caching returns when memory permits",
+    "P4 build and original partition fit; unchanged board configuration, fonts and resolution; actual sidecar/music renders reviewed"
+  ],
+  "physicalAcceptance": "Installed; exact ELF, VALID partition, three live UI samples and preserved settings verified. User confirms cover remains normal after four primary pages and two track changes with 15-second dwell. Latest JPEG confirmed in first pass; all allocation/CRC/decode/copy error counters zero; free PSRAM 4703712 bytes. This does not verify successful real RGB565 fallback or indefinite stability."
+}

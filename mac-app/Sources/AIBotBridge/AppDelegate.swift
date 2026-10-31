@@ -88,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let music = { [dataStore] in dataStore.snapshot().music }
         let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), networkDiagnostics: { [networkDiagnostics] in networkDiagnostics.snapshot() }, music: { [dataStore] in
             let media = dataStore.snapshot(); return (media.music, media.musicTab5Cover ?? media.musicCover)
-        }, enabled: { MacDeviceRegistry.shared.enabled("tab5") }, sourceEnabled: { MacDeviceRegistry.shared.source($0, kind: "tab5") })
+        }, enabled: { MacDeviceRegistry.shared.enabled("tab5") }, sourceEnabled: { MacDeviceRegistry.shared.source($0, kind: "tab5") }, diagnostics: .shared)
         self.tab5 = tab5
         DispatchQueue.global(qos:.utility).async { tab5.unlock.load() }
         do { try devices.migrate(tab5: tab5.currentPairing?.deviceId) }

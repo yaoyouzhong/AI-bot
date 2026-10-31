@@ -1,0 +1,35 @@
+{
+  "baseVersion": "0.2.299-ui",
+  "parentProvenance": "tab5-clock-readability.json",
+  "candidateVersion": "0.2.300-ui",
+  "patchSHA256": "ab6420deb94bee1e296598c54effa825a980b025065af66b345861033019982e",
+  "files": {
+    "firmware/main/assets.c": {
+      "before": "06d78727060c4e0dbddcba49268a5eb266e630385bfa3a9091fd447670b76636",
+      "after": "af6fdfeb8b0f917476b3b21399506fd3c5ec74973cb40c1b2c7b2c6c68679759"
+    },
+    "firmware/main/assets.h": {
+      "before": "441ab2ca437550daf858d324df35f39109fd5f5eb3d51d8b72968c727419f83a",
+      "after": "a5eee50a3b5224186cd1cefbd90904d2832e899d03ed4ba82fbde8fc192c05d9"
+    },
+    "firmware/main/display_diagnostics.c": {
+      "before": "e543907267d300694882131772d7cce5537c6916b8b410deb14a2a3eb9ca0e9e",
+      "after": "9afcedfa39dde615aa662b3b8c15cf29013cbb19c33ffd644ae5c355a4abae83"
+    },
+    "scripts/test-cover-display-memory.py": {
+      "before": null,
+      "after": "94f1d6a2e3b86d23dd2adf522a4c662793a2ab2674466d5d683e158a1d9b6dab"
+    }
+  },
+  "candidateImageSHA256": "b58aefa7caad8995d990c9b7be5158932221796cbf65c58bed3e2d7829fda9a0",
+  "candidateELFSHA256": "d60cdf1dc1dd9fa0fa984677ddfb5b242a2b3e0eae6be69b2f1f8e24d694cd04",
+  "candidateBytes": 7208880,
+  "partitionBytes": 7208960,
+  "validation": [
+    "Production asset-copy path: allocation-failure baseline reproduces ready/100-percent without display copy",
+    "Fixed path retries once after hidden-cache reclamation; exact pixels/revision and failed-copy ownership preserved",
+    "C11/UBSan regression passed; full production LVGL/cache-preservation regression passed",
+    "P4 build passed; unchanged board configuration, fonts, resolution and partition"
+  ],
+  "physicalAcceptance": "Installed; exact boot/settings verified. Stress acceptance FAILED before display copy: unconfirmed RGB565 fallback, PSRAM free 174200 bytes, asset copy counters 0. Superseded by .301 whole-path reserve follow-up."
+}

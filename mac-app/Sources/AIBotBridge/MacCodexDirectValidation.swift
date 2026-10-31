@@ -138,6 +138,15 @@ enum MacCodexDirectValidation {
             try check("dialog and nested text controls excluded", select([page([Node(id: 4, role: kind, children: [main])])]) == nil)
         }
         try check("incomplete scan cannot choose early candidate", select([page([main] + Array(repeating: Node(id: 4, role: "AXGroup"), count: 1200))]) == nil)
+        let history = Node(id: 88, role: "AXGroup", children: Array(repeating: main, count: 5000))
+        func footerSelect(_ editors: [Node]) -> Int? {
+            MacTab5DesktopAX.uniqueComposer(in: page([history] + editors), role: { $0.role },
+                children: { node in MacTab5DesktopAX.transcriptContent(node.id == 88 ? ["[container-name:thread-content]"] : []) ? [] : node.children },
+                trustedPage: { $0.trusted }, validate: { $0.valid }, clock: { 0 })?.id
+        }
+        try check("long transcript does not exhaust footer scan",footerSelect([main]) == 3)
+        try check("footer ambiguity remains rejected",footerSelect([main,main]) == nil)
+        try check("unrecognized content is not skipped",!MacTab5DesktopAX.transcriptContent(["thread-scroll-container","_ComposerLayoutBody_fixture"]))
         var time = 0.0
         try check("deadline stops scan", select([page([main])], clock: { time += 0.4; return time }) == nil)
         try check("scan deadline keeps specific diagnostic", scanFailure == .composerScanLimit)

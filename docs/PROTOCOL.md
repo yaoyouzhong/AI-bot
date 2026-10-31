@@ -1433,3 +1433,26 @@ Mac R33 本地补充：显式主框提交可用同一本地 desktop owner 的 v1
 Mac R35 local follow-up (2026-10-29): reliable retention in Codex's queue also establishes successful `desktop.submit-draft` delivery (`200`, `submitted:true`), without implying model execution or completion. Before the single native action, the bridge captures ephemeral identity baselines for accepted input, the committed local queue and the read-only `thread/queue/list` server queue. After unknown UI acknowledgment, new exact-text queue entries may reconcile success only for the same task/owner, excluding all preexisting aliases and cross-queue migrations. Failed/unknown states, partial attachment matches, unavailable/incomplete queue reads and stale identities cannot prove delivery. The server read has a 600ms deadline and never waits behind history reads; the local file is bounded, owner-checked and never written. Only identity/text hashes remain in memory; raw queue contents are not logged, exported or added to the encrypted delivery journal. No second press, fallback send or queue mutation occurs. Existing fields and .292 firmware remain compatible; its generic success message denotes handoff to Codex, including queueing. Native bridge diagnostics distinguish queued retention. Windows parity work is listed in `docs/development/WINDOWS-FOLLOWUP-FROM-MAC-20261029.md`; this change adds no peer field.
 
 Mac R35：Codex 已可靠保存到队列也算 `desktop.submit-draft` 发送成功，沿用 `200 + submitted:true`，不代表模型开始或执行完成。单次原生动作前获取已接受消息、本地已保存队列及只读 `thread/queue/list` 服务端队列的内存标识基线；UI 确认未知后，只有同任务／owner、完整文字相符且别名全部不在原基线的新条目才能确认成功。旧队列跨来源迁移、失败／未知状态、附件部分匹配、不可读／未完整分页及旧标识不能冒充本次交付。服务端读取限 600ms、不等待历史查询锁；本地文件有大小与所有者检查且从不写入。只留内存摘要，不记录或导出队列正文，不加入持久回执正文。没有第二次点击、备用发送或队列修改。既有字段与 .292 兼容，其通用成功提示表示已交给 Codex，含排队；桥接本机诊断区分“已保存排队消息”。Windows 对齐清单见上述文档，本改动不增加对端字段。
+
+
+## TAB5 待确认发送恢复 / Pending-delivery recovery (2026-10-31)
+
+既有 `codex/receipt` 为纯查询，不重发；504 响应可增加 `canConfirmDelivered: true`，仅表示桥接可校验这一条不变的纯文字追加草稿。未提供此字段或 false 时设备不显示人工确认能力。新 `codex/receipt-confirm` 是需用户明确点击确认的写操作，经现有配对／会话／时间／nonce 校验，Wi-Fi 使用 submit 而非 read 通道。字段沿用原 `taskId`、`requestId`、`message`、`expectedTurn`、`images`。必须匹配设备绑定、原未知 steer 记录及指纹、当前未变化的无图片草稿；不支持的记录保持未知，不能删除或重发。成功原子登记本地人工确认来源，返回原有 202 submitted 回执并只清理该草稿。重复确认返回同一成功，不清除之后的新草稿。查询或确认的连接错误绝不能解锁未知请求。
+
+Mac 可利用本次原生按键前已取得的短期内存回执基线，在 60 秒内由纯查询核实新增已接受消息或可靠排队，确认后原子保存 202；复用现有快照，不增加正常发送链路的 IPC 读取。基线不写盘，跨进程重启或超时保持未知。Windows 继续既有按消息 ID 查询送达，新增设备绑定的人工确认；历史没有设备绑定的记录不提供新能力。两端确认不启动任务、不调用发送接口。
+
+新增明确拒绝错误 `desktop_draft_present`、`desktop_attachments_present`、`desktop_photo_append_unsupported`，及恢复冲突 `pending_delivery_changed`；`desktop_foreground_unconfirmed` 用于任务页的定位未确认。固件将未知 409 显示为请求未接受、草稿保留，不暗示发送成功。
+
+English: A receipt query never resends. Optional canConfirmDelivered gates the new explicit receipt-confirm mutation, using existing task/request/text/turn/images fields and authenticated write transport. Confirmation requires the original device-bound uncertain text-only steer record and unchanged draft fingerprint, atomically acknowledges only that receipt, and clears only its matching draft. Replays cannot clear newer drafts. Transport/query errors retain the lock. Mac reuses a short-lived pre-submit receipt baseline for read-only reconciliation within 60 seconds; the baseline is never persisted. Windows retains message-ID reconciliation and restricts manual recovery to new device-bound records. Neither path submits another message. New rejection codes distinguish desktop drafts, attachments, unsupported photo follow-up and changed pending records.
+
+
+### TAB5 asset display memory diagnostics / 资源显示内存诊断
+
+.300 在既有 `displayDiag` 末尾追加可选 `;asset,1,copyFailures,reclaimedBytes,copyRecoveries`。三个计数从启动累计，分别表示 UI 图片副本分配失败次数、从不可见界面缓存释放的字节数及同次有界重试成功次数。仅数值，不包含图片、标题或身份。资源 ACK 仍表示设备完成接收／解码，不等同于 LVGL 显示副本已分配；不改变已有确认语义。Windows/Mac 已有有界诊断字符串校验可接收该后缀，兼容自检已覆盖，旧桥接可以忽略。
+
+Firmware .300 appends optional `;asset,1,copyFailures,reclaimedBytes,copyRecoveries` to `displayDiag`: boot-lifetime numeric counts for failed UI image-copy allocation, bytes reclaimed from hidden optional caches, and successful bounded retry. No artwork, titles or identifiers are exported. Asset ACK still confirms receiver/decode completion, not UI-copy allocation. Both host validators retain the suffix; old hosts may ignore it. Existing fields and acknowledgment semantics are unchanged.
+
+
+.301 将可选后缀扩展为 `;asset,2,copyFailures,reclaimedBytes,copyRecoveries,receiveAllocFailures,crcFailures,decodeFailures,received`。前三项语义保持；后四项为接收 packed／RGB565 分配失败、完整资源 CRC 不符、JPEG／RLE 解码失败及完整资源接收成功次数，均从启动累计。解码失败包含 JPEG 工作区或引擎失败，不能仅凭此项断言是图像格式错误。缺失及 v1 仍兼容，两端保留数值后缀，不改变资源 ACK、认证或传输语义。
+
+Firmware .301 extends the optional suffix to `;asset,2,copyFailures,reclaimedBytes,copyRecoveries,receiveAllocFailures,crcFailures,decodeFailures,received`. The first three counts retain their meaning; the additional boot-lifetime counts identify packed/RGB565 allocation failure, full-resource CRC failure, JPEG/RLE decode failure and successful receipt. Decode failures include JPEG workspace/engine failure and do not establish malformed input. Missing/v1 suffixes remain compatible; both hosts retain these numeric diagnostics without changing ACK, authentication or transport semantics.

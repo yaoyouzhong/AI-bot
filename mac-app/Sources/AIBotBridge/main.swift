@@ -1,5 +1,14 @@
 import AppKit
 
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--render-task-recovery-ui" {
+    do { try MacTab5DeliveryRecoveryAlert.render(URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)); exit(0) }
+    catch { fputs("Recovery UI render failed.\n", stderr); exit(1) }
+}
+if Array(CommandLine.arguments.dropFirst()) == ["--self-test-task-append"] {
+    do { try MacTab5TaskAppendValidation.run(); exit(0) }
+    catch { fputs("Task append validation failed: \(error)\n", stderr); exit(1) }
+}
+
 if Array(CommandLine.arguments.dropFirst()) == ["--self-test-ota-transfer"] {
     do { let count = try MacTab5OTATransferValidation.loopback();print("MAC_OTA_TRANSFER_OK \(count) checks; synthetic image and credentials, loopback only");exit(0) }
     catch { fputs("OTA transfer self-test failed: \(error)\n",stderr);exit(1) }

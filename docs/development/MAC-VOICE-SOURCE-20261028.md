@@ -529,3 +529,10 @@ English: the user defines reliable Codex queue retention as successful delivery 
 
 
 Final R35 source validation: workspace and frozen-candidate Release builds both pass, each with 28,784 isolated checks. Workspace loopback validation passes 81 OTA/HTTP checks and 16 listener-recovery checks. Full `swift test` was attempted but cannot load XCTest from local Command Line Tools. No Windows build/runtime acceptance is claimed for this source delivery. R35 remains undeployed.
+
+
+## 2026-10-30 R35 排队实机验收
+
+R35 已安装，固定路径签名与哈希核验通过，USB、Wi-Fi 和蓝牙连接恢复。用户临时选择排队后，在 TAB5「Codex 直达」发送；电脑显示消息仍在队列且未点引导时，TAB5 已显示“已成功发送 Codex 执行”。用户随后将 Codex 跟进处理方式恢复为引导。排队入列及成功提示通过；队列执行完成是独立状态。首次在 TAB5「Codex 任务」点追加因桌面 IPC 未提供绑定目标轮次的能力而拒绝，固件通用冲突文案误导为“请求已处理”；这与直达入口不同，应单独修复并验收。
+
+R35 installed with signature and identity verified; device transports recovered. With Codex follow-up handling set to queue, the user confirmed successful TAB5 desktop-direct delivery while the message remained queued and before clicking Steer. The user restored Steer afterwards. The separate TAB5 Codex Tasks append path rejects unbound desktop IPC steer and its generic conflict message is misleading; fix and validate separately.

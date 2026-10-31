@@ -1,0 +1,32 @@
+{
+  "baseVersion": "0.2.298-ui",
+  "parentProvenance": "tab5-send-recovery.json",
+  "candidateVersion": "0.2.299-ui",
+  "patchSHA256": "a3a2821028f8652a3d753c0010f7c5a33a1fe1103d9e495e4f6d867a5a477469",
+  "files": {
+    "firmware/main/ui.c": {
+      "before": "fa73a5a76b172edc6c8a72bbed1849e2bfddc009383d029641e55049fbd806e7",
+      "after": "a2f70bac7042b75a2fc0c0d03dc714560df48f06225d3a277541ad0f49b5e147"
+    },
+    "firmware/main/ui_clock_faces.h": {
+      "before": "7140a8aeddf837ecd6b679f8bdb8194a6d8bae9027cfe54c6133c35e0735d546",
+      "after": "cba74b93e2d6e8a755f5a41dfee8ea34a68a44fc1a8ad603f86ce035437b29fb"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "c8dfa6b02f9bae40c391ccd1076508261c78a6368564ee7b5eea612d6a1e3cfc",
+      "after": "fbb3ee1399e10dd468769ac576abdc7840d5666f1315eee6dad17b0a26f3f93c"
+    }
+  },
+  "candidateImageSHA256": "dd1bd8050dfb78b9f34291f127968941e1a3ceec2b25a6b5a7d6e97a235e663e",
+  "candidateELFSHA256": "1863eaa2c59ea632faa764105c50a5611990e90680e962db8a3fdbc59ef8037c",
+  "candidateBytes": 7208720,
+  "partitionBytes": 7208960,
+  "validation": [
+    "90 production LVGL renders covering 10 day-label states and 9 clock styles",
+    "All 60 second values fit and share the main-time baseline",
+    "Existing clock and full production LVGL regression passed",
+    "P4 build passed; unchanged board config, fonts, resolution and partition",
+    "Visual review: all clock styles, digital, analog and makeup-workday state"
+  ],
+  "physicalAcceptance": "Installed; exact ELF, VALID partition, three live UI samples and preserved display settings verified; user confirms analog/digital seconds size and no redundant weekend/workday labels"
+}

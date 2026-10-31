@@ -1,5 +1,7 @@
 # Windows 开发交接：Mac TAB5 本轮功能、修复与性能优化
 
+> 最新开发入口已更新为 [Mac R47 / TAB5 .298 Windows 对齐清单](WINDOWS-FOLLOWUP-FROM-MAC-20261031.md)。下文保留 10-29 历史检查点；当前验收状态以新清单为准。
+
 日期：2026-10-29。给 Windows 开发会话的入口文档；按本文件继续开发，不要把 Mac 验收结果当成 Windows 验收结果。
 
 ## 范围和当前决定
@@ -106,3 +108,64 @@ Validation: both Mac Release builds pass 28,784 isolated checks each, plus 81 OT
 本地固件构建、82 项工作器检查及真实 LVGL／完整 UI 回归通过；候选 .293 已授权安装到 Mac 配对设备，精确启动核验和 1280×720 首帧通过；图库切换、持续高清及 Windows 实机预览仍待验证。现场证据与边界见 [修复记录](TAB5-PREVIEW-MEMORY-20261029.md)。合并源码不代表正式固件发布。
 
 Shared TAB5 .293 firmware safely transfers unused gallery caches to HD preview and returns idle scratch to foreground decoding. Windows needs no protocol or bridge change; apply the linked patch after checking its parent provenance. Local build and regressions pass, and .293 is installed on the Mac-paired device with exact boot verification and a 1280×720 first frame. Gallery switching, sustained HD and Windows physical preview acceptance remain pending. Source merge is not a firmware release.
+
+
+## 2026-10-30 实机补充
+
+Mac R35／TAB5 .296 已安装。“Codex 直达”在排队模式下，用户确认未点引导时消息已入队且 TAB5 显示成功；之后已恢复引导。TAB5「Codex 任务」的“追加”走独立接口：Mac 当前因无法绑定预期轮次而拒绝，设备通用 409 提示误导；Windows 也需检查桌面 follower-steer 是否遵循排队偏好以及当前轮次的约束，不能仅凭 IPC 返回就宣称与原生提交一致。详见 [任务页追加调查](MAC-TAB5-TASK-APPEND-20261030.md)。该路径尚未修复、尚无跨平台实机验收。
+
+On October 30, R35/.296 desktop-direct queue delivery and success indication passed on Mac, with Steer restored afterward. TAB5 task-page append is a separate rejected path on Mac with a misleading generic conflict message. Windows must independently check whether follower-steer honors queue preference and current-turn constraints; neither platform's task-page parity has been accepted.
+
+## 2026-10-30：任务页追加候选 / Task-page append candidate
+
+Mac R36 本地候选把无照片的任务页追加接入 Codex 原生提交按钮，继承当前排队／引导方式；准确定位所选会话并面向最新状态，电脑已有草稿、问题卡或附件时拒绝混合提交。仍使用原请求及加密幂等回执，未知结果不自动重发，可靠入队算成功。Windows 现有 follower-steer v1 不能据此视为已对齐：需验证排队偏好、最新轮次、已有草稿／附件、重复点击及未知结果保护。Mac 的照片追加仍未支持，须保留设备图片与草稿。R36 正在真机验收，未经确认的结果不得标为通过。
+
+The local Mac R36 candidate routes text-only task follow-ups through native submission and preserves the current queue/steer preference. It verifies the selected conversation, protects pre-existing desktop drafts/cards/attachments and uses durable receipts without uncertain retries. Windows follower-steer v1 does not establish equivalent queue behavior. Verify both modes, latest-turn dispatch, draft/image preservation and replay protection independently. Photo append remains unsupported on this Mac adapter. Hardware acceptance is pending.
+
+R40 补充：原生模型／推理下拉按钮的装饰图像会暴露为 AXImage，不能当成草稿附件；Mac 真机只读已确认 AXPopUpButton 子图像及 ready=1。目录 recencyAt 在长轮次期间可能滞后，Mac 通过明确定位／成功提交的本机使用时间补充排序，后台轮询不更新，最多保存 512 个 UUID 与时间。Windows 应按实际控件及本地目录行为验证，不照抄 Mac AX 类型。文字发送、排队／引导和排序完整实机验收仍未完成。
+
+R40 follow-up: native popup toolbar decorations must not be mistaken for attachments. The Mac read-only hardware check identified an AXPopUpButton image and passed preflight. Explicit navigation/submission timestamps now supplement stale long-turn recency; polling never promotes tasks, and local storage is bounded to 512 IDs/timestamps. Windows should validate its own native controls/catalog behavior. Full submission, queue/steer and order acceptance remains pending.
+
+### R40 最新真机结论 / Latest hardware result
+
+R40 + TAB5 .296 已通过本轮文字任务页引导、排队及当前会话排序验收：引导无需电脑操作且显示成功；排队时用户确认消息仍在队列，桥接确认 Codex 已保存本次排队消息；重新定位后当前会话排第一。用户已恢复引导，未刷固件。上述结论更新前文“待验收”状态，不能替代 Windows 实机测试或照片追加验收；Mac 照片追加仍未支持。
+
+R40/.296 passed task-page text Steer, Queue and current-conversation ordering in this hardware run. Steer required no computer intervention and reported success; Queue was confirmed by the user and the bridge's retained-message receipt while still queued. The current conversation appeared first after explicit navigation. Steer was restored and firmware was unchanged. This supersedes earlier pending Mac results, not Windows hardware or photo-follow-up acceptance; Mac photo append remains unsupported.
+
+R41 保护检查补充：R40 真机发现真实附件也可呈现为下拉控件，直接跳过该控件的全部子节点会漏掉内部“移除附件”按钮并误带附件发送。R41 保留装饰图标兼容，但完整检查所有后代及嵌套交互控件；本地回归通过，真实附件复验待完成。Windows 按本平台实际控件树做同类验证，不将“图标不应误报”实现为整棵交互子树免检。已有电脑文字草稿及预览照片保留已在 Mac 真机通过。
+
+R41 guard note: R40 hardware revealed that a real attachment can itself be a popup control. Pruning all descendants missed its removal action and submitted the attachment unintentionally. R41 retains decorative-icon compatibility while checking every descendant and nested interactive control; local regressions pass, with hardware retest pending. Windows should test its actual control tree and never exempt whole interactive subtrees merely to avoid icon false positives. Mac desktop text-draft protection and preview photo retention passed hardware checks.
+
+R42 恢复能力：旧 504 待确认回执会让 TAB5 永久停在“查询送达”，禁止编辑和清空。Mac 新增本地“处理待确认发送…”入口，仅供用户已在电脑确认送达的、草稿指纹未变化的文字追加请求；默认取消，二次核对具体请求／权限后登记人工确认，保留幂等记录，不重发、不修改电脑草稿。设备查询沿用既有 202 解锁，不增加协议字段。Windows 应提供同类受控人工确认出口，不能直接删除所有未知回执或盲目重发。Mac 本地恢复回归／离屏 UI 已通过，真机恢复待验。
+
+R42 recovery: an old 504 receipt leaves TAB5 stuck on delivery queries with editing/clearing disabled. Mac adds a local user-confirmed-delivery action for an exact unchanged text follow-up, defaulting to Cancel and rechecking permissions/fingerprint before atomic acknowledgment. It preserves replay protection, never resends and does not alter the desktop draft. The existing 202 receipt unlocks the device, with no new protocol fields. Windows should provide a comparable controlled recovery path rather than deleting unknown receipts or retrying blindly. Mac local recovery/UI checks pass; hardware unlock remains pending.
+
+
+## 2026-10-31 最新验收与诊断对齐 / Latest acceptance and diagnostics
+
+以下更新前文待验收状态：Mac R42 的真实电脑附件拦截与双端保留已真机通过；人工确认旧未知回执后，TAB5 查询解锁并清空旧文字也已通过。Mac R44／TAB5 .296 按钮防连点通过：首次追加显示“追加中”并禁用按钮，无法再点，电脑仅收到一条消息，设备最终成功、清空草稿并恢复按钮。该测试只产生一次有效点击，不冒称两个实际请求的重放验证；请求幂等另有本地回归。照片保留／高清预览和电脑文字草稿保护也已通过。
+
+Windows 对齐时需核对这些具体状态转换与内容保留，不能仅核对接口成功码。已有电脑文字时应明确拒绝，勿覆盖或混发；装饰图标不能误判，但真实附件及其移除控件仍须完整检查。未知结果恢复功能已可用，但两端操作繁琐是后续体验改进：可证实送达应自动收敛，仍不确定时给出明确的单次人工确认，不能盲目重发。
+
+诊断应可后台读取，不自动打开、切换或置顶窗口，也不要求用户抄日志。Mac R43/R44 使用本机用户专属、限量的固定状态与结构计数，区分导航失败、已有草稿、附件拒绝和实际送达；不保存内容、文件名、会话／请求标识或凭据。Windows 按自身可访问接口实现，不照搬 AX 类型。Mac 曾出现前台已切换但导航区域不可读，后续定位通过，尚无根因，不将其当成已修复的通用 Windows Bug。设备照片追加仍未支持，.296 通用拒绝文案仍待改；DJI 暂缓。
+
+English: This supersedes earlier pending results: real desktop-attachment rejection/content preservation and manual recovery/unlock passed on R42. R44/.296 passed button-level double-tap prevention and completion: the first tap disabled Append, one message arrived, and the device reported success, cleared text and restored controls. This does not claim two physical requests were replayed; request idempotency has separate synthetic coverage. Validate actual control states and preserved content on Windows, including desktop drafts and nested attachment actions. Provide bounded, user-only background diagnostics without foreground windows or logged content/identifiers/credentials. Automatic reconciliation and simpler unknown-result confirmation remain UX work. An intermittent Mac navigation-region failure has no established root cause despite a later successful locate. Device-photo follow-up, .296 rejection wording and deferred DJI acceptance retain their stated limitations.
+
+### 2026-10-31：封面有限重试（R46）
+
+Mac 已补同一资源跨通道共享的三轮上限和轮次间两秒确认等待，避免设备不确认时永远从头重发。Windows `Tab5Assets.NextChunk` 存在同类无限循环，应同步预算与只含数值的后台诊断；保持现有随机分块、正常状态/控制、最后一次成功缓存及后续歌曲独立重试。需覆盖未确认、迟到确认、持续状态刷新、预算耗尽、新曲目与各通道切换，不能只验证第一轮正常传输。
+
+详见 [现场及验证记录](TAB5-MUSIC-COVER-RETRY-20261031.md)。设备没有“无法离开页面”的已确认故障：用户已更正导航一直可用。R46 是有限重试保护，不能宣称具体旧曲目失败原因已查明。
+
+### 2026-10-31：送达恢复协议与 .298
+
+- 本次已同步 Windows 服务端 `receipt-confirm`、`canConfirmDelivered` 和 journal 的设备绑定／精确草稿／权限／幂等校验，以及合成回归。确认只结束原待确认发送，不能再次调用桌面提交；重放不得清掉新草稿。
+- Mac 复用发送前已有回执基线，在内存最多保留 64 项、60 秒，后续纯查询可核实已接受／已排队消息；不增加重复提交，不把原文写入诊断。Windows 可按本端可靠回执来源补齐同等自动核实能力。
+- .298 在设备端自动查询最多三次，仍不确定时提供“取消／继续查询／确认已送达”。Windows 必须保持旧客户端、未获许可及内容变化时的安全拒绝；返回具体拒绝代码，避免再统一显示“请求已处理”。
+- macOS 已完成 Release 与独立回归；Windows `win-x64` 交叉构建 0 错误／0 警告。Windows 原生 `dotnet build ... -c Release`、`--status-once`、journal 自检、真实追加与设备恢复验收仍需 Windows 端执行，不能把交叉编译算作原生运行通过。
+- Mac 的 `AXManualAccessibility` 属于平台兼容处理，不要求复制到 Windows。现场两次定位均成功，但该 Mac Codex 版本返回属性不支持；历史间歇问题未能据此确定唯一原因。
+
+### R47 补充（2026-10-31）
+
+- Mac 长会话扫描跳过已识别的历史正文容器，避免历史节点耗尽输入定位预算，仍拒绝含糊目标。正常追加及“电脑已有草稿”具体拦截已真机通过。Windows 检查是否也扫描历史全文，不照搬 Mac AX 类名。
+- R46 单纯限制封面重试后仍有 336×336 JPEG 无法确认；R47 增加同尺寸 RGB565/rle565 有界兼容路径（仅协议可表示的宽度 ≤336，不缩小宽图），并保留纯数值设备/USB诊断。实现可参照 `MacTab5Assets.advanceCoverLocked`；单纯停止循环不能宣称所有封面显示已修复。

@@ -1,0 +1,20 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2936,11 +2936,12 @@
+     if(!ota_confirm) {
+         ota_confirm=shape(lv_screen_active(),0,0,1280,720,0x000000,0);
+         ui_bg_opa(ota_confirm,LV_OPA_60,0);lv_obj_add_flag(ota_confirm,LV_OBJ_FLAG_CLICKABLE);
+-        lv_obj_t *c=card(ota_confirm,290,200,700,300);
+-        ota_confirm_text=label(c,"",0,0,660,false);
+-        label(c,"请保持供电；完成后会自动重启。",0,80,660,false);
+-        button(c,"取消",308,194,168,ota_confirm_action,0);
+-        button(c,"确认安装",492,194,168,ota_confirm_action,1);
++        lv_obj_t *c=card(ota_confirm,290,232,700,256);
++        ota_confirm_text=label(c,"",0,0,660,false);ui_text_font(ota_confirm_text,&tab5_font_30,0);
++        muted(c,"请保持供电；完成后会自动重启。",0,64,660);
++        lv_obj_t *cancel=button(c,"取消",308,148,168,ota_confirm_action,0);lv_obj_set_height(cancel,64);
++        lv_obj_t *confirm=button(c,"确认安装",492,148,168,ota_confirm_action,1);lv_obj_set_height(confirm,64);
++        ui_bg_color(confirm,lv_color_hex(BLUE),0);tint(lv_obj_get_child(confirm,0),0x17313D);
+     }
+     ui_text_fmt(ota_confirm_text,"确认%s %s？",!strcmp(version,ota_installed_version)?"重新安装":"安装固件",version);
+     visible(ota_confirm,true);lv_obj_move_foreground(ota_confirm);

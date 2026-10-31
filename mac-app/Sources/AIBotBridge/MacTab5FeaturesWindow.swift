@@ -28,6 +28,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate, NSMenuD
     private let musicState = NSTextField(wrappingLabelWithString: "")
     private let desktopState = NSTextField(wrappingLabelWithString: "")
     private var timer: Timer?
+    private var deliveryRecoveryBusy = false
     enum Section: Int { case computer, music, codex, voice }
     private var sections: MacBridgeSettingsTabs!
     init(service: MacTab5Service, focusSection: Section? = nil, voiceSourceDefaults: UserDefaults = .standard, doubaoInstalled: @escaping () -> Bool = MacDoubaoSpeech.installed) {
@@ -72,8 +73,10 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate, NSMenuD
         codex.state = service.codex.isEnabled ? .on : .off; codex.target = self; codex.action = #selector(toggleCodex)
         send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend)
         codexPage.add(codex); codexPage.add(send)
-        codexPage.add(MacBridgeSettingsStyle.note("操作仅针对已加载的精确任务，沿用该任务的模型和审批设置。当前桌面版本的追加接口不能绑定指定轮次，暂不开放追加。草稿在本机加密保存，关闭功能或退出桥接后结束连接。"))
-        codexPage.add(NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)))
+        codexPage.add(MacBridgeSettingsStyle.note("操作仅针对已加载的精确任务，沿用该任务的模型和审批设置。文字追加遵循 Codex 当前排队／引导设置；电脑已有草稿、附件或问题卡时先保留内容，带照片的追加暂不支持。草稿在本机加密保存，关闭功能或退出桥接后结束连接。"))
+        codexPage.add(MacBridgeSettingsStyle.row([
+            NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
+            NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)
@@ -224,6 +227,43 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate, NSMenuD
             self.result.stringValue = failure?.message ?? (final ? "豆包草稿已确认；本次测试未发送文字。":"豆包草稿已收到文字（\(text.utf8.count) 字节）。")
             if final || failure != nil { self.doubaoTest?.cancel(); self.doubaoTest = nil }
         } } } catch { doubaoTest = nil; result.stringValue = error.localizedDescription }
+    }
+    @objc private func recoverDelivery() {
+        guard !deliveryRecoveryBusy else { return }
+        deliveryRecoveryBusy = true; result.stringValue = "正在读取待确认发送…"
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let pending = Result { try self.service.codex.pendingDeliveries() }
+            DispatchQueue.main.async {
+                switch pending {
+                case .failure:
+                    self.deliveryRecoveryBusy = false
+                    self.result.stringValue = "待确认记录暂不可读，未修改任何内容。"
+                case .success(let items):
+                    guard !items.isEmpty else {
+                        self.deliveryRecoveryBusy = false
+                        self.result.stringValue = "没有可人工确认的文字追加记录；记录或草稿变化时保持原状态。"
+                        return
+                    }
+                    let dialog = MacTab5DeliveryRecoveryAlert(items: items)
+                    guard dialog.alert.runModal() == .alertSecondButtonReturn,
+                          let selected = dialog.selected else {
+                        self.deliveryRecoveryBusy = false
+                        self.result.stringValue = "已取消，待确认记录和草稿保持不变。"; return
+                    }
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        let result = Result { try self.service.codex.confirmDelivered(selected) }
+                        DispatchQueue.main.async {
+                            self.deliveryRecoveryBusy = false
+                            switch result {
+                            case .success: self.result.stringValue = "已登记人工确认。请在 TAB5 点一次“查询送达”解除锁定；不会重新发送。"
+                            case .failure(let error): self.result.stringValue = error.localizedDescription
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     @objc private func chooseCLI() {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false

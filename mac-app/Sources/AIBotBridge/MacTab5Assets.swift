@@ -60,6 +60,41 @@ final class MacTab5Assets {
     private var acknowledged = ["-", "-", "-"]
     private var slot = 0
     private var offsets = [0, 0, 0]
+    private var coverFallbackAttempted = false
+    private var coverGeneration = 0, coverAcknowledgements = 0
+    private var coverPasses = 0, coverRetryAt: TimeInterval = 0
+    private let tick: () -> TimeInterval
+    var diagnostics: (([String: Int]) -> Void)?
+    private var lastDiagnostic: TimeInterval = -.infinity
+    init(tick: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) { self.tick = tick }
+    // An unacknowledged image must not monopolize transport and device decode.
+    // All transports share this budget; status publication never resets it.
+    private func coverMaySend() -> Bool { coverPasses < 3 && tick() >= coverRetryAt }
+    private func advanceCoverLocked() {
+        guard coverPasses >= 3, tick() >= coverRetryAt, !coverFallbackAttempted, let jpeg = assets[2],
+              jpeg.encoding == "jpeg", acknowledged[2] != jpeg.id else { return }
+        coverFallbackAttempted = true
+        guard jpeg.width <= 336,
+              let source = CGImageSourceCreateWithData(jpeg.bytes as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let pixels = MacRgb565Renderer.renderImage(image, width: jpeg.width, height: jpeg.height, topDown: true),
+              let fallback = try? MacTab5Asset.rgb565(slot: 2, width: jpeg.width, height: jpeg.height,
+                    delays: [1000], raw: pixels) else { return }
+        // Existing wire format; preserve every pixel dimension. Decode once on
+        // the host if device JPEG confirmation failed, never loop formats.
+        assets[2] = fallback; offsets[2] = 0; coverPasses = 0; coverRetryAt = 0
+    }
+    private func recordCoverLocked() {
+        let now = tick()
+        guard now - lastDiagnostic >= 1, let diagnostics else { return }
+        lastDiagnostic = now
+        diagnostics(["width":assets[2]?.width ?? 0,"height":assets[2]?.height ?? 0,
+            "bytes":assets[2]?.bytes.count ?? 0,"offset":offsets[2],"passes":coverPasses,
+            "jpeg":assets[2]?.encoding == "jpeg" ? 1:0,
+            "confirmed":assets[2].map { acknowledged[2] == $0.id ? 1:0 } ?? 0,
+            "limited":coverPasses >= 3 ? 1:0,"usbChunks":coverUSBChunks,
+            "generation":coverGeneration,"acknowledgements":coverAcknowledgements])
+    }
     private var coverReadyAt: TimeInterval = 0, coverFirstChosenAt: TimeInterval = 0, coverConfirmedAt: TimeInterval = 0
     private var coverUSBChunks = 0, coverUSBBytes = 0
     private var coverUSBMilliseconds = 0.0, coverUSBPeakMilliseconds = 0.0
@@ -92,7 +127,8 @@ final class MacTab5Assets {
     }
     private func updateCoverLocked(_ cover: Data?) {
         guard cover != sources[2] else { return }
-        sources[2] = cover; offsets[2] = 0
+        sources[2] = cover; offsets[2] = 0; coverPasses = 0; coverRetryAt = 0
+        coverGeneration += 1; coverAcknowledgements = 0; coverFallbackAttempted = false
         coverReadyAt = ProcessInfo.processInfo.systemUptime; coverFirstChosenAt = 0; coverConfirmedAt = 0
         coverUSBChunks = 0; coverUSBBytes = 0; coverUSBMilliseconds = 0; coverUSBPeakMilliseconds = 0
         coverUSBSteps = 0; coverUSBMaxBurst = 0; coverStatusBytes = 0; coverWireBytes = 0
@@ -109,22 +145,29 @@ final class MacTab5Assets {
         guard Self.validIDs(ids) else { return }
         lock.lock(); defer { lock.unlock() }
         acknowledged = ids.components(separatedBy: ",")
+        coverAcknowledgements += 1
+        recordCoverLocked()
         if coverConfirmedAt == 0, let cover = assets[2], acknowledged[2] == cover.id {
             coverConfirmedAt = ProcessInfo.processInfo.systemUptime
         }
     }
     func projection(includeResource: Bool = true) -> [String: Any] {
         lock.lock(); defer { lock.unlock() }
+        advanceCoverLocked(); recordCoverLocked()
         var result: [String: Any] = ["assetIds": assets.map { $0.map { $0.id as Any } ?? NSNull() }]
         // BLE sends images separately, so status/voice traffic never advances
         // or consumes an image chunk merely by publishing current asset IDs.
         guard includeResource else { return result }
         for _ in 0..<3 {
             slot = (slot + 1) % 3
-            guard let asset = assets[slot], acknowledged[slot] != asset.id else { continue }
+            guard let asset = assets[slot], acknowledged[slot] != asset.id, slot != 2 || coverMaySend() else { continue }
             if slot == 2, coverFirstChosenAt == 0 { coverFirstChosenAt = ProcessInfo.processInfo.systemUptime }
             if offsets[slot] >= asset.bytes.count { offsets[slot] = 0 }
-            result["resource"] = asset.chunk(offsets[slot]); offsets[slot] += 1024; break
+            result["resource"] = asset.chunk(offsets[slot]); offsets[slot] += 1024
+            if slot == 2, offsets[slot] >= asset.bytes.count {
+                coverPasses += 1; coverRetryAt = tick() + 2
+            }
+            break
         }
         return result
     }
@@ -156,7 +199,8 @@ final class MacTab5Assets {
     }
     var hasPending: Bool {
         lock.lock(); defer { lock.unlock() }
-        return assets.enumerated().contains { index, asset in asset != nil && acknowledged[index] != asset?.id }
+        advanceCoverLocked()
+        return assets.enumerated().contains { index, asset in asset != nil && acknowledged[index] != asset?.id && (index != 2 || coverMaySend()) }
     }
     func batch(_ maximum: Int) -> [[String: Any]] {
         (0..<min(maximum, 8)).compactMap { _ in projection()["resource"] as? [String: Any] }

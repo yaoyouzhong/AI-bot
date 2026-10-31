@@ -76,6 +76,27 @@ enum MacMusicArtworkValidation {
         let legacyChunk = hdAssets.projection()["resource"] as! [String:Any]
         try check("older firmware retains legacy cover",legacyChunk["encoding"] as? String == "rle565" && legacyChunk["width"] as? Int == 112)
         try check("JPEG firmware capability",MacTab5Asset.supportsJPEG("0.2.267-ui") && MacTab5Asset.supportsJPEG("0.2.80-ui") && !MacTab5Asset.supportsJPEG("0.2.79-ui") && !MacTab5Asset.supportsJPEG("") && !MacTab5Asset.supportsJPEG("unknown"))
+        var clock = 0.0
+        let bounded = MacTab5Assets(tick: { clock })
+        bounded.updateCover(hd)
+        let chunksPerPass = (hd.count + 1023) / 1024
+        for pass in 0..<3 {
+            for _ in 0..<chunksPerPass { try check("cover pass chunk", bounded.projection()["resource"] != nil) }
+            try check("cover waits for acknowledgement",bounded.projection()["resource"] == nil && !bounded.hasPending)
+            bounded.updateCover(hd) // Frequent status refresh cannot reset the budget.
+            clock += 2
+            if pass < 2 { try check("lost acknowledgement allows retry",bounded.hasPending) }
+        }
+        let fallbackChunk = bounded.projection()["resource"] as! [String: Any]
+        try check("unconfirmed JPEG falls back without resizing", fallbackChunk["encoding"] as? String == "rle565" && fallbackChunk["width"] as? Int == 336 && fallbackChunk["height"] as? Int == 336)
+        var attempts = 0
+        while attempts < 3000 { clock += 2; _ = bounded.projection(); attempts += 1 }
+        try check("fallback also has finite budget",bounded.projection()["resource"] == nil && !bounded.hasPending)
+        let target = (bounded.projection(includeResource:false)["assetIds"] as! [Any])[2] as! String
+        bounded.acknowledge("-,-," + target)
+        try check("late acknowledgement remains accepted",!bounded.hasPending)
+        bounded.updateCover(Data(repeating:3,count:112*112*2))
+        try check("new cover gets independent budget",bounded.hasPending && bounded.projection()["resource"] != nil)
         let track = MusicSnapshot(title:"Synthetic",artist:"Fixture",album:"Album A",playing:true,elapsedSeconds:0,durationSeconds:1,updatedAt:Date(timeIntervalSince1970:0))
         func reply(_ descriptor: NSAppleEventDescriptor, title: String = "Synthetic", artist: String = "Fixture", album: String = "Album A") -> NSAppleEventDescriptor {
             let list = NSAppleEventDescriptor.list()

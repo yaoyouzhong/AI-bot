@@ -1,0 +1,73 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -400,6 +400,7 @@
+ static lv_obj_t *flash_entry,*flash_layer,*flash_details,*flash_start,*flash_cancel,*flash_close;
+ static bool flash_feedback_pinned;
+ static lv_obj_t *ota_success_icon,*ota_version,*ota_version_track;
++static const char *ota_installed_version;
+ static lv_obj_t *ota_offer_card,*ota_offer_title,*ota_badge,*ota_notes_box,*ota_notes;
+ static char ota_notes_cached[1025];
+ static lv_obj_t *link_buttons[3],*link_symbols[3];
+@@ -3144,6 +3145,7 @@
+     // This callback runs only on the LVGL task; keep notes off its small stack.
+     static char offered_version[32],notes[1025];
+     ota_update_offer_details(offered_version,sizeof(offered_version),notes,sizeof(notes));
++    bool same_version=offered&&!strcmp(offered_version,ota_installed_version);
+     bool installed=!strcmp(ota_state,"已是最新版本");
+     ui_text(ota_hint,offered||installed||!strcmp(ota_state,"电脑已停止提供固件")?"":ota_state);
+     if(offered&&upgrade_link==LINK_NONE)ui_text(ota_hint,"请连接 Wi-Fi、USB 或蓝牙后升级。");
+@@ -3155,8 +3157,8 @@
+     ota_offer_layout(offered);
+     bool can_upgrade=offered&&upgrade_link!=LINK_NONE;
+     if(can_upgrade)lv_obj_remove_state(ota_button,LV_STATE_DISABLED);else lv_obj_add_state(ota_button,LV_STATE_DISABLED);
+-    ui_text(lv_obj_get_child(ota_button,0),!offered?"立即升级":upgrade_link==LINK_USB?"通过 USB 升级":upgrade_link==LINK_WIFI?"通过 Wi-Fi 升级":upgrade_link==LINK_BLE?"通过蓝牙升级":"等待连接");
+-    if(offered)ui_text_fmt(ota_offer_title,"%s · 有新固件可用",offered_version);
++    ui_text(lv_obj_get_child(ota_button,0),same_version?"重新安装":!offered?"立即升级":upgrade_link==LINK_USB?"通过 USB 升级":upgrade_link==LINK_WIFI?"通过 Wi-Fi 升级":upgrade_link==LINK_BLE?"通过蓝牙升级":"等待连接");
++    if(offered)ui_text_fmt(ota_offer_title,same_version?"%s · 当前版本，可重新安装":"%s · 有新固件可用",offered_version);
+     else ui_text(ota_offer_title,installed?"当前固件已安装":"暂无可升级固件");
+     ui_text(ota_empty_hint,installed?"当前固件与电脑提供的版本一致。":"在电脑端选择固件后，版本与更新说明会显示在这里。");
+     tint(ota_offer_title,offered?BLUE:MUTED);
+@@ -3164,7 +3166,7 @@
+     ui_border_color(ota_offer_card,lv_color_hex(offered?BLUE:TRACK),0);
+     ui_bg_color(ota_button,lv_color_hex(can_upgrade?BLUE:TRACK),0);
+     tint(lv_obj_get_child(ota_button,0),can_upgrade?0x17313D:MUTED);
+-    visible(ota_badge,offered);
++    visible(ota_badge,offered&&!same_version);
+     setup_connections(cfg.paired,connected_links,ready_links,ble_available);
+     }
+     if(network_window&&!lv_obj_has_flag(network_window,LV_OBJ_FLAG_HIDDEN)) {
+@@ -4248,6 +4250,7 @@
+ #else
+     const char *installed_version=esp_app_get_description()->version;
+ #endif
++    ota_installed_version=installed_version;
+     lv_obj_t *installed=label(update,installed_version,720,7,178,false);tint(installed,MUTED);
+     ota_offer_card=card(update,0,56,898,332);
+     lv_obj_set_style_border_width(ota_offer_card,2,0);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2228,6 +2228,24 @@
+     cJSON_AddItemToObject(shown,"pcInput",cJSON_Parse("{\"session\":\"preview-session\",\"sequence\":1}"));
+     cJSON_AddItemToObject(shown,"codexTasks",cJSON_Parse("{\"projects\":[{\"id\":\"aaaaaaaaaaaaaaaa\",\"name\":\"M5Stack TAB5\"},{\"id\":\"bbbbbbbbbbbbbbbb\",\"name\":\"biaoshu\"}],\"tasks\":[{\"id\":\"01a0cc69-2782-7650-9903-303578a0296e\",\"title\":\"检查 TAB5 设备连接\",\"folder\":\"M5Stack TAB5\",\"projectId\":\"aaaaaaaaaaaaaaaa\"},{\"id\":\"01a0cc69-2782-7650-9903-303578a0296f\",\"title\":\"修复标书资料导入\",\"folder\":\"biaoshu\",\"projectId\":\"bbbbbbbbbbbbbbbb\"}],\"receipts\":{}}"));
+     render(); clock_music(10000,true); images_tick(150);
++    if(getenv("TAB5_OTA_SAME_VERSION_ONLY")) {
++        page(9);settings_select(3);preview_ota_available=true;wifi_connected=true;
++        ota_installed_version="0.2.30-ui";tick(NULL);
++        assert(strstr(lv_label_get_text(ota_offer_title),"当前版本，可重新安装"));
++        assert(!strstr(lv_label_get_text(ota_offer_title),"有新固件"));
++        assert(!strcmp(lv_label_get_text(lv_obj_get_child(ota_button,0)),"重新安装"));
++        assert(lv_obj_has_flag(ota_badge,LV_OBJ_FLAG_HIDDEN));
++        assert(!lv_obj_has_state(ota_button,LV_STATE_DISABLED));capture("ota-same-version");
++        wifi_connected=false;preview_usb_connected=false;ble_connected=false;tick(NULL);
++        assert(lv_obj_has_state(ota_button,LV_STATE_DISABLED));
++        wifi_connected=true;ota_installed_version="0.2.29-ui";tick(NULL);
++        assert(strstr(lv_label_get_text(ota_offer_title),"有新固件可用"));
++        assert(!lv_obj_has_flag(ota_badge,LV_OBJ_FLAG_HIDDEN));capture("ota-different-version");
++        preview_ota_available=false;tick(NULL);
++        assert(lv_obj_has_state(ota_button,LV_STATE_DISABLED));
++        assert(lv_obj_has_flag(ota_badge,LV_OBJ_FLAG_HIDDEN));capture("ota-no-offer");
++        puts("OTA_SAME_VERSION_UI_OK same/different/absent offer and disconnected reinstall");return 0;
++    }
+     if(getenv("TAB5_RELEASE_NOTES_ONLY")) {
+         page(9);settings_select(3);preview_ota_available=true;tick(NULL);
+         capture_actual_release_notes();return 0;

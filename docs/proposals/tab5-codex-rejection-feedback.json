@@ -1,0 +1,20 @@
+{
+  "baseVersion": "0.2.296-ui",
+  "parentProvenance": "tab5-ota-confirm-design.json",
+  "candidateVersion": "0.2.297-ui",
+  "patchSHA256": "d0bc3f6ba6e851d4cc72eb1e80caf8750a4a874d6986149e3d71729473fc49fc",
+  "files": {
+    "firmware/main/codex_remote.c": {
+      "before": "9650b51fc84f26b1dd84972f7ca84f13666c40da3473f78098e31ac6ec984f60",
+      "after": "aaa27aaafd6a1ff2d1fa8845d427e517cb9e47a616736a1a9666d565f86aa533"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "1d6b3ad24c8ffef2b0b4770f28f34098cfa0b3e5563288437964f6c9af63d7d3",
+      "after": "0632a65c18b218a79aaa3c08678c5c619b36b3be8dc69593d47954ec46d66a44"
+    }
+  },
+  "candidateImageSHA256": "cd098f2f08c857d8a49b94d32db6a232686e2e924452f2c931bb70d864bf8610",
+  "candidateELFSHA256": "9f9227aab4cba252af8bb3e7ad06c0423d3aad1871ccc0d93173909ec4dfd77d",
+  "candidateBytes": 7208288,
+  "physicalAcceptance": "not installed; held until bridge cause and fix verified; latest restored to .296"
+}

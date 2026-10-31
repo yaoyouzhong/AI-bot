@@ -1,0 +1,104 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2339,6 +2339,15 @@
+     gallery_sync_library();
+ }
+ #endif
++// Weekday already conveys ordinary weekends/workdays. Keep exceptional
++// holiday, makeup-workday and stale-data information in the secondary row.
++static UI_INIT_SMALL const char *clock_special_day(const char *holiday) {
++    const char *rest = !strncmp(holiday,"周末",6) ? holiday+6 :
++                       !strncmp(holiday,"工作日",9) ? holiday+9 : NULL;
++    if(!rest)return holiday;
++    if(!*rest)return rest;
++    return !strncmp(rest," · ",4) ? rest+4 : holiday;
++}
+ static void clock_music(int64_t now, bool fresh) {
+     if (!shown) {
+         music_empty_refresh();
+@@ -2405,7 +2414,7 @@
+                                      : "假期信息待更新";
+     const char *days[] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
+     ui_text_fmt(date_label,"%s  %s",date,days[local.tm_wday]);
+-    ui_text_fmt(clock_lunar,"%s%s%s",lunar,term[0]?"   ":"",term);ui_text(clock_holiday,holiday);
++    ui_text_fmt(clock_lunar,"%s%s%s",lunar,term[0]?"   ":"",term);ui_text(clock_holiday,clock_special_day(holiday));
+     ui_text_fmt(home_date,"%d 年 %d 月 %d 日",local.tm_year+1900,local.tm_mon+1,local.tm_mday);
+     ui_text_fmt(home_day,"%02d:%02d",local.tm_hour,local.tm_min);
+     ui_text(home_weekday,days[local.tm_wday]);
+--- a/firmware/main/ui_clock_faces.h
++++ b/firmware/main/ui_clock_faces.h
+@@ -21,7 +21,7 @@
+ static clock_solar_state clock_solar={.rise=360,.set=1080,.start=360,.end=1080};
+ static lv_obj_t *clock_solar_times[2],*clock_solar_icons[2],*clock_solar_hours[5],*clock_lcd_labels[3];
+ static int clock_solar_minute;
+-static void clock_layout(void);
++static UI_INIT_SMALL void clock_layout(void);
+ 
+ static lv_point_t clock_polar(int cx,int cy,int radius,int angle) {
+     return (lv_point_t){cx+lv_trigo_sin(angle)*radius/32768,cy-lv_trigo_cos(angle)*radius/32768};
+@@ -343,13 +343,15 @@
+     lv_obj_set_pos(clock_seconds,lv_obj_get_x(clock_big)+lv_obj_get_width(clock_big)+16,
+         lv_obj_get_y(clock_big)+big->line_height-big->base_line-small->line_height+small->base_line);
+ }
+-static void clock_layout(void) {
++static UI_INIT_SMALL void clock_layout(void) {
+     bool digital=clock_style==1;visible(clock_face,!digital);analog_style();
+     ui_text_font(clock_big,digital?&tab5_timer_digits_192:&tab5_digits_96,0);
+     ui_text_font(date_label,&tab5_font_30,0);tint(clock_big,INK);
+     lv_obj_update_layout(clock_big);
+-    if(digital)lv_obj_align(clock_big,LV_ALIGN_TOP_MID,-26,78);
++    if(digital)lv_obj_align(clock_big,LV_ALIGN_TOP_MID,-72,78);
+     else {lv_obj_set_style_align(clock_big,LV_ALIGN_TOP_LEFT,0);lv_obj_set_pos(clock_big,566,114);}
++    ui_text_font(clock_seconds,digital?&tab5_digits_72:&lv_font_montserrat_40,0);
++    lv_obj_set_width(clock_seconds,digital?128:96);
+     clock_time_align();
+     lv_obj_set_pos(date_label,digital?140:570,digital?294:256);lv_obj_set_width(date_label,digital?940:612);
+     lv_obj_set_pos(clock_lunar,digital?140:570,digital?350:315);lv_obj_set_width(clock_lunar,digital?940:612);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2229,6 +2229,45 @@
+     cJSON_AddItemToObject(shown,"pcInput",cJSON_Parse("{\"session\":\"preview-session\",\"sequence\":1}"));
+     cJSON_AddItemToObject(shown,"codexTasks",cJSON_Parse("{\"projects\":[{\"id\":\"aaaaaaaaaaaaaaaa\",\"name\":\"M5Stack TAB5\"},{\"id\":\"bbbbbbbbbbbbbbbb\",\"name\":\"biaoshu\"}],\"tasks\":[{\"id\":\"01a0cc69-2782-7650-9903-303578a0296e\",\"title\":\"检查 TAB5 设备连接\",\"folder\":\"M5Stack TAB5\",\"projectId\":\"aaaaaaaaaaaaaaaa\"},{\"id\":\"01a0cc69-2782-7650-9903-303578a0296f\",\"title\":\"修复标书资料导入\",\"folder\":\"biaoshu\",\"projectId\":\"bbbbbbbbbbbbbbbb\"}],\"receipts\":{}}"));
+     render(); clock_music(10000,true); images_tick(150);
++    if(getenv("TAB5_CLOCK_DAY_ONLY")) {
++        const char *inputs[]={"周末","工作日","周末 · 距春节假期 12 天","工作日 · 距中秋节假期 2 天","调休 · 补班","国庆节假期 · 休息","节假日安排待更新","周末活动","工作日程",""};
++        const char *expected[]={"","","距春节假期 12 天","距中秋节假期 2 天","调休 · 补班","国庆节假期 · 休息","节假日安排待更新","周末活动","工作日程",""};
++        const char *names[]={"weekend","workday","weekend-countdown","workday-countdown","makeup","holiday","unknown","custom-weekend","custom-workday","empty"};
++        page(7);
++        cJSON_ReplaceItemInObject(shown,"epochUtc",cJSON_CreateNumber(1790388522));
++        cJSON_DeleteItemFromObject(shown,"epochMilliseconds");
++        cJSON_ReplaceItemInObject(item(shown,"calendar"),"date",cJSON_CreateString("2026-09-26"));
++        cJSON_ReplaceItemInObject(item(shown,"calendar"),"lunar",cJSON_CreateString("八月十六"));
++        cJSON_ReplaceItemInObject(item(shown,"calendar"),"solarTermLabel",cJSON_CreateString("下个节气 寒露 10-08"));
++        for(unsigned n=0;n<sizeof(inputs)/sizeof(inputs[0]);n++) {
++            cJSON_ReplaceItemInObject(item(shown,"calendar"),"holidayLabel",cJSON_CreateString(inputs[n]));
++            last_received=11000+n*1000;clock_music(last_received,true);
++            assert(!strcmp(lv_label_get_text(clock_holiday),expected[n]));
++            assert(!strcmp(text(item(shown,"calendar"),"holidayLabel"),inputs[n]));
++            assert(!strstr(lv_label_get_text(date_label),"周末")&&!strstr(lv_label_get_text(date_label),"工作日"));
++            for(int style=0;style<UI_CLOCK_STYLES;style++) {
++                clock_select_style(style);
++                for(int second=0;second<60;second++) {
++                    char digits[4];snprintf(digits,sizeof(digits),":%02d",second);ui_text(clock_seconds,digits);clock_time_align();
++                    lv_obj_update_layout(clock_seconds);lv_point_t size;
++                    const lv_font_t *sf=lv_obj_get_style_text_font(clock_seconds,0),*bf=lv_obj_get_style_text_font(clock_big,0);
++                    lv_text_get_size(&size,digits,sf,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
++                    assert(size.x<=lv_obj_get_width(clock_seconds));
++                    assert(lv_obj_get_y(clock_seconds)+sf->line_height-sf->base_line==lv_obj_get_y(clock_big)+bf->line_height-bf->base_line);
++                    assert(lv_obj_get_x(clock_seconds)+size.x<lv_obj_get_width(pages[7]));
++                }
++                ui_text(clock_seconds,":42");clock_time_align();char name[80];snprintf(name,sizeof(name),"clock-day-%s-%d",names[n],style);capture(name);
++                lv_obj_t *labels[]={date_label,clock_lunar,clock_holiday};
++                for(unsigned k=0;k<3;k++) {
++                    lv_obj_update_layout(labels[k]);lv_point_t size;
++                    lv_text_get_size(&size,lv_label_get_text(labels[k]),lv_obj_get_style_text_font(labels[k],0),0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
++                    assert(size.x<=lv_obj_get_width(labels[k]));
++                    assert(lv_obj_get_y(labels[k])+size.y<lv_obj_get_y(clock_controls));
++                }
++            }
++        }
++        puts("CLOCK_DAY_LABEL_OK 10 states x 9 styles; raw calendar preserved");return 0;
++    }
+     if(getenv("TAB5_RECOVERY_ONLY")) {
+         last_received=esp_timer_get_time()/1000;
+         page(8);render_codex();codex_select_task("01a0cc69-2782-7650-9903-303578a0296e");preview_submit_enabled=true;

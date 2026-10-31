@@ -2,6 +2,64 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.301-ui - 2026-11-01
+
+Local whole-path cover-memory candidate, not publicly released; exact boot/settings and four-page/two-track physical acceptance pass. The .300 display-copy fix did not cover the earlier receiver failure observed under hardware pressure.
+
+- Reserve 3 MiB across page snapshots and staging, retain the stricter native-cache budget, and reclaim hidden caches on the idle UI task while preserving visible pixels, gestures and photos.
+- Add receiver-allocation/CRC/decode/success counters with both host compatibility fixtures.
+- Production receive failures, maximum RLE pixels, a JPEG workspace budget double and real LVGL pressure tests pass; actual music/notes renders reviewed. Image: 7,208,880 bytes, headroom: 80 bytes.
+
+## 0.2.300-ui - 2026-11-01
+
+Local cover-display memory candidate; not publicly released. Hardware results are recorded separately.
+
+- Recover from UI image-copy allocation failure after successful receipt/decode by reclaiming hidden optional page caches and retrying once; retain both images on failure.
+- Preserve visible pages, gestures, user photos and original pixel dimensions. Add numeric copy-failure/reclamation/recovery diagnostics with Windows/Mac compatibility fixtures.
+- Production-path fault reproduction, C11/UBSan, full LVGL/cache regression and P4 build pass. Image: 7,208,880 bytes; original partition headroom: 80 bytes. This does not close the separate JPEG receipt/fallback questions.
+
+## 0.2.299-ui - 2026-10-31
+
+Local clock candidate; installed with exact boot verification and preserved settings. User confirms both analog and digital clock layouts and seconds size. Not publicly released.
+
+- Remove redundant ordinary weekend/workday labels from the clock; preserve holiday countdowns, actual holidays, makeup workdays and stale-data hints.
+- Enlarge seconds to 40 px beside analog faces and 72 px on the digital face, preserving baseline alignment and fixed group positioning.
+- Existing fonts, display resolution and partitions remain unchanged. P4 build, 90 rendered label/style states, all seconds, existing clock and full LVGL regressions pass. Image: 7,208,720 bytes; headroom: 240 bytes. Clock hardware acceptance passed.
+
+## 0.2.298-ui - 2026-10-31
+
+Local delivery-recovery candidate; P4 build, full production LVGL regression and actual sidecar preview pass. Installed with exact boot verification and preserved display settings; physical feedback/recovery checks are recorded separately. Not publicly released; supersedes uninstalled .297.
+
+- Draft, attachment and unconfirmed-target rejections identify the cause and preserve editable content.
+- Unknown delivery gets at most three receipt queries without resending; explicit device confirmation resolves only the original delivered message.
+- Designed and visually checked the recovery dialog; regression covers cancellation, host/content changes, duplicate confirmation and failed-query draft retention.
+- Size-optimize infrequent send/draft and request routines, without changing fonts, resolution or partitions. Image: 7,208,848 bytes; partition headroom: 112 bytes.
+
+## 0.2.296-ui - 2026-10-30
+
+Local UI-design candidate; installed and exact boot verification passed; user confirms layout, legibility, touch and cancel, not publicly released.
+
+- Use a compact centered confirmation card with a prominent version, blue primary action and subdued cancel; both touch targets are 64 pixels high.
+- Real LVGL render and actual notes reviewed; cancel, changed offer, confirm and duplicate-click regression pass. P4 build passes with 672 bytes of partition headroom.
+
+## 0.2.295-ui - 2026-10-30
+
+Local candidate built; installed with authorization and exact boot verification passed; physical confirmation UI check pending; not publicly released.
+
+- Require version confirmation before local install/reinstall; cancel performs no install.
+- Bind confirmation to the original offer identity and checksum; changed or withdrawn offers require a fresh confirmation.
+- Size-optimize only OTA control and UI initialization, preserving fonts, partitions and runtime rendering; 928 bytes of application headroom.
+- P4 build, five real LVGL confirmation paths and actual notes preview pass. Hardware acceptance is recorded separately.
+
+## 0.2.294-ui - 2026-10-30
+
+Local candidate installed with authorization; exact boot verification and user-confirmed same-version title/button/badge acceptance pass. Not publicly released.
+
+### Firmware upgrade
+- Label same-version offers as the current version available for reinstall, use a Reinstall button and hide the update badge.
+- Preserve explicit reinstall, connectivity and confirmation checks without protocol changes.
+- P4 build, same/different/absent offer and disconnected UI checks, plus actual notes previews pass. Application partition headroom: 256 bytes.
+
 ## 0.2.293-ui - 2026-10-29
 
 Local preview-memory candidate: installed with user authorization; first HD frame passes, full hardware acceptance deferred to October 30; not publicly released.

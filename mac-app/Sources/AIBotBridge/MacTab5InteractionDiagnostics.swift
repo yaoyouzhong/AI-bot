@@ -11,6 +11,7 @@ final class MacTab5InteractionDiagnostics {
     private let lock = NSLock()
     private var counter: UInt64 = 0
     private var entries: [Entry] = []
+    var localDiagnostics: MacTab5LocalDiagnostics?
     private let clock: () -> TimeInterval
     init(clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) { self.clock = clock }
     private static func milliseconds(_ value: TimeInterval) -> Int {
@@ -18,7 +19,7 @@ final class MacTab5InteractionDiagnostics {
     }
     func begin(kind: String?, operation: String?, transport: String, queued: TimeInterval? = nil) -> UInt64? {
         let labels = ["desktop/open-recent": "定位会话", "codex/draft-load": "读取草稿",
-                      "codex/draft-save": "保存草稿", "codex/read": "读取回复", "codex/read-ack": "确认已读", "codex/send": "发送消息",
+                      "codex/draft-save": "保存草稿", "codex/read": "读取回复", "codex/read-ack": "确认已读", "codex/send": "发送消息", "codex/steer": "追加消息", "codex/receipt": "查询送达", "codex/receipt-confirm": "确认送达", "desktop/submit-draft": "提交草稿",
                       "desktop/stage-draft": "回填草稿", "voice/start": "开始录音",
                       "voice/stop": "停止录音", "voice/cancel": "取消录音", "codex/interrupt": "停止任务",
                       "wifi-unlock/begin": "开始 Wi-Fi 解锁", "wifi-unlock/cancel": "取消 Wi-Fi 解锁",
@@ -29,7 +30,7 @@ final class MacTab5InteractionDiagnostics {
         entries.append(.init(id: counter, label: label, transport: ["USB", "Wi-Fi", "BLE"].contains(transport) ? transport : "其他",
             started: clock(), queued: queued.map(Self.milliseconds)))
         entries[entries.count-1].unlock = ["host-unlock","wifi-unlock"].contains(kind)
-        entries[entries.count-1].codex = kind == "codex" && operation == "send"
+        entries[entries.count-1].codex = ["codex", "desktop"].contains(kind) && ["send", "steer", "receipt", "receipt-confirm", "submit-draft", "open-recent"].contains(operation)
         entries = Array(entries.suffix(8))
         return counter
     }
@@ -50,9 +51,10 @@ final class MacTab5InteractionDiagnostics {
             let allowed = ["image_inputs_unavailable", "desktop_owner_unavailable", "desktop_read_timeout",
                            "desktop_read_unavailable", "desktop_version_unsupported", "codex_catalog_stale",
                            "codex_or_private_storage_unavailable", "delivery_unknown", "invalid_request",
-                           "task_busy_or_state_unknown", "task_waiting_for_input", "codex_send_not_enabled"]
+                           "task_busy_or_state_unknown", "task_waiting_for_input", "codex_send_not_enabled", "composer_changed", "desktop_draft_present", "desktop_attachments_present", "desktop_photo_append_unsupported", "pending_delivery_changed", "turn_changed", "receipt_not_found", "request_id_conflict", "desktop_result_unknown", "desktop_foreground_unconfirmed", "desktop_steer_requires_expected_turn_support", "codex_read_only_connection"]
             entries[index].outcome = allowed.contains(code) ? code : "未确认"
         }
+        if entries[index].codex { localDiagnostics?.request(entries[index].label, status: status, outcome: entries[index].outcome) }
     }
     var summary: String {
         lock.lock(); defer { lock.unlock() }

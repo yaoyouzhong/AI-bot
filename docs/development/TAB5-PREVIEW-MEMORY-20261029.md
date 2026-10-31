@@ -36,3 +36,28 @@
 Installed .292 repeatedly falls back to 640×360 over USB with raw-pixel allocation failures. Two UI gallery caches can hold both loanable reserved camera frames while the third preserves a photo. Preview cannot access an unused UI-owned cache and attempts another contiguous 1.76 MiB allocation. This reproducible ownership gap is not evidence of a measured leak or fragmentation.
 
 Candidate .293 transfers only an unused cache under the display lock, protects displayed/hidden references and transitions, and lets foreground decoding reclaim idle preview scratch. Protocol, fonts, partitions and display preferences remain unchanged. The P4 build, real LVGL/full native UI regression, 82 actual-worker cases with synthetic runtime fixtures, production package validator and actual sidecar previews pass. The image fits with 288 bytes remaining. Authorized installation now passes exact ELF, VALID partition and three live samples over USB, and the unchanged R34 bridge displays a 1280×720 first frame. Display preferences match before/after. The user deferred gallery switching and sustained HD acceptance to October 30; source merge does not constitute device acceptance or a public release. Windows uses the same firmware fix without a bridge protocol change.
+
+
+## 2026-10-30 实机续验 / Hardware follow-up
+
+.293 经用户切换两张书法作品，预览保持 1280×720；连续一分钟采样仍为高清，关闭重新打开恢复高清，用户再次切换作品并确认正常。USB 实时诊断：55 次请求、22 个完整帧、0 超时、0 拒绝，显示错误及欠载均为 0；预览工作器累计完成 250 个任务，最近错误阶段为 0。未采集历史全部失败次数，不将最近错误为 0 扩大为历史无失败。照片保留与 R35 排队确认仍待验收。
+
+本次发现同版本升级提示误报：TAB5 当前 .293、电脑提供 .293 时仍写“有新固件可用”。同版本重装能力保留后，界面没有区分同版本提供。新增 [修复补丁](../proposals/tab5-ota-same-version-label.patch) 与 [来源](../proposals/tab5-ota-same-version-label.json)，.294 本地候选已构建，待授权安装。
+
+The user switched calligraphy works, confirmed another switch after reopening preview, and reported normal rendering. Samples over one minute remained 1280×720; reopening also returned HD. Live diagnostics show 55 requests, 22 complete frames, zero timeouts/rejections/display errors/underruns, and last preview-worker error 0 after 250 completed jobs. This does not establish a historical zero-failure count. Photo retention and R35 queue acceptance remain pending. A same-version update-label defect was found and fixed in the .294 candidate, awaiting authorized installation.
+
+
+.294 后续实机：已授权安装，USB 精确 ELF／VALID 分区／三个实时样本通过。用户确认当前版本提示、重新安装按钮及隐藏绿色升级标记三项均正确。照片保留与 R35 排队验收继续待测。
+
+.294 hardware follow-up: authorized installation passes exact ELF, VALID partition and three live samples over USB. The user confirms all three same-version UI corrections. Photo retention and R35 queue acceptance remain pending.
+
+
+.296 已安装并通过精确启动核验；用户确认优化后的确认弹窗布局和取消正常。
+
+.296 installation passes exact boot verification; user confirms the revised dialog layout and cancel behavior.
+
+## 2026-10-30 照片保留补验 / Photo-retention acceptance
+
+R40 + .296，用户拍摄一张测试照片并确认已在 Codex 草稿中显示缩略图；保留照片后打开设备预览、切换两张图库作品。电脑窗口确认 `1280 × 720 · USB`。关闭预览后重新打开，用户返回原草稿并打开照片，确认“照片完整正常，预览已重开”；电脑再次核对高清状态。照片保留及本次图库／预览关闭重开组合通过，随后关闭电脑预览窗口。没有发送照片、刷机或改动展示设置，不据此推断未采样的历史错误计数。
+
+On R40/.296, the user retained a test-photo thumbnail in the Codex draft, opened device preview and switched two gallery works. The desktop viewer confirmed 1280×720 over USB. After closing and reopening preview, the user reopened the original draft photo and confirmed it remained complete and normal; HD status was independently checked again. This passes photo retention through the exercised gallery/preview sequence. The viewer was closed afterward. No photo submission, flash or display-setting change occurred, and unobserved historical error counters are not inferred.

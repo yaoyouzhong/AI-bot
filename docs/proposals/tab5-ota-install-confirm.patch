@@ -1,0 +1,121 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -20,6 +20,11 @@
+ static const char *preview_ota_idle="等待电脑提供固件";
+ static const char *preview_ota_transfer_status="正在写入固件";
+ static void ota_update_offer_details(char *version,size_t vs,char *notes,size_t ns){snprintf(version,vs,"%s",preview_ota_available?"0.2.30-ui":"");snprintf(notes,ns,"%s",preview_ota_available?preview_ota_notes:"");}
++static bool ota_update_offer_snapshot(char id[33],char sha[65],char version[32]) {
++    snprintf(id,33,"11111111111111111111111111111111");
++    snprintf(sha,65,"2222222222222222222222222222222222222222222222222222222222222222");
++    snprintf(version,32,"0.2.30-ui");return preview_ota_available&&!preview_ota_busy;
++}
+ static unsigned preview_ota_starts;
+ static bool ota_update_offer_matches(const char *offer,const char *sha){return preview_ota_available&&!strcmp(offer,"11111111111111111111111111111111")&&!strcmp(sha,"2222222222222222222222222222222222222222222222222222222222222222");}
+ static bool ota_update_request(void){if(!preview_ota_available)return false;preview_ota_starts++;preview_ota_busy=true;return true;}
+@@ -2913,7 +2918,34 @@
+     }else ui_text(ota_hint,"暂时无法开始，请重新提供固件。");
+     return "start_failed";
+ }
+-static void ota_action(lv_event_t *e){(void)e;(void)ota_begin(NULL,NULL);}
++static lv_obj_t *ota_confirm,*ota_confirm_text;
++static char ota_confirm_id[33],ota_confirm_sha[65];
++static void ota_confirm_action(lv_event_t *e) {
++    bool install=(intptr_t)lv_event_get_user_data(e)==1;
++    visible(ota_confirm,false);
++    if(install) {
++        if(ota_update_offer_matches(ota_confirm_id,ota_confirm_sha))
++            (void)ota_begin(ota_confirm_id,ota_confirm_sha);
++        else ui_text(ota_hint,"固件已变化，请重新确认。");
++    }
++    ota_confirm_id[0]=ota_confirm_sha[0]=0;
++}
++static void ota_action(lv_event_t *e) {
++    (void)e;char version[32];
++    if(!ota_update_offer_snapshot(ota_confirm_id,ota_confirm_sha,version))return;
++    if(!ota_confirm) {
++        ota_confirm=shape(lv_screen_active(),0,0,1280,720,0x000000,0);
++        ui_bg_opa(ota_confirm,LV_OPA_60,0);lv_obj_add_flag(ota_confirm,LV_OBJ_FLAG_CLICKABLE);
++        lv_obj_t *c=card(ota_confirm,290,200,700,300);
++        ota_confirm_text=label(c,"",0,0,660,false);
++        label(c,"请保持供电；完成后会自动重启。",0,80,660,false);
++        button(c,"取消",308,194,168,ota_confirm_action,0);
++        button(c,"确认安装",492,194,168,ota_confirm_action,1);
++    }
++    ui_text_fmt(ota_confirm_text,"确认%s %s？",!strcmp(version,ota_installed_version)?"重新安装":"安装固件",version);
++    visible(ota_confirm,true);lv_obj_move_foreground(ota_confirm);
++}
++
+ #include "ota_remote.inc"
+ #include "boot_verify.inc"
+ #include "runtime_diagnostics.inc"
+@@ -3617,6 +3649,9 @@
+     area->x1&=~1;area->y1&=~1;area->x2|=1;area->y2|=1;
+ }
+ #if defined(__GNUC__) && !defined(__clang__)
++__attribute__((optimize("Os")))
++#endif
++#if defined(ESP_PLATFORM) && defined(__GNUC__)
+ __attribute__((optimize("Os")))
+ #endif
+ void ui_start(void) {
+--- a/firmware/main/ota_update.c
++++ b/firmware/main/ota_update.c
+@@ -1,3 +1,6 @@
++#if defined(ESP_PLATFORM) && defined(__GNUC__)
++#pragma GCC optimize ("Os")
++#endif
+ #include "ota_update.h"
+ #include "flash_benchmark.h"
+ #include "device.h"
+@@ -647,3 +650,12 @@
+ }
+ 
+ bool ota_update_request(void){return ota_update_request_checked(NULL,NULL);}
++
++bool ota_update_offer_snapshot(char id[33],char sha[65],char version[32]) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    bool ok=pending_offer.size>0&&!ota_update_busy();
++    snprintf(id,33,"%s",ok?pending_offer.offer_id:"");
++    snprintf(sha,65,"%s",ok?pending_offer.sha:"");
++    snprintf(version,32,"%s",ok?pending_offer.version:"");
++    xSemaphoreGive(device_mutex);return ok;
++}
+--- a/firmware/main/ota_update.h
++++ b/firmware/main/ota_update.h
+@@ -25,3 +25,5 @@
+ 
+ // Atomically retain the exact desktop-authorized offer; NULL/NULL is manual UI.
+ bool ota_update_request_checked(const char *offer_id,const char *sha);
++
++bool ota_update_offer_snapshot(char id[33],char sha[65],char version[32]);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2228,6 +2228,28 @@
+     cJSON_AddItemToObject(shown,"pcInput",cJSON_Parse("{\"session\":\"preview-session\",\"sequence\":1}"));
+     cJSON_AddItemToObject(shown,"codexTasks",cJSON_Parse("{\"projects\":[{\"id\":\"aaaaaaaaaaaaaaaa\",\"name\":\"M5Stack TAB5\"},{\"id\":\"bbbbbbbbbbbbbbbb\",\"name\":\"biaoshu\"}],\"tasks\":[{\"id\":\"01a0cc69-2782-7650-9903-303578a0296e\",\"title\":\"检查 TAB5 设备连接\",\"folder\":\"M5Stack TAB5\",\"projectId\":\"aaaaaaaaaaaaaaaa\"},{\"id\":\"01a0cc69-2782-7650-9903-303578a0296f\",\"title\":\"修复标书资料导入\",\"folder\":\"biaoshu\",\"projectId\":\"bbbbbbbbbbbbbbbb\"}],\"receipts\":{}}"));
+     render(); clock_music(10000,true); images_tick(150);
++    if(getenv("TAB5_OTA_CONFIRM_ONLY")) {
++        page(9);settings_select(3);preview_ota_available=true;wifi_connected=true;
++        ota_installed_version="0.2.30-ui";tick(NULL);unsigned starts=preview_ota_starts;
++        ota_action(NULL);assert(!preview_ota_busy&&preview_ota_starts==starts);
++        assert(!lv_obj_has_flag(ota_confirm,LV_OBJ_FLAG_HIDDEN));
++        assert(strstr(lv_label_get_text(ota_confirm_text),"重新安装"));capture("ota-reinstall-confirm");
++        lv_obj_t *c=lv_obj_get_child(ota_confirm,0);
++        lv_obj_send_event(lv_obj_get_child(c,2),LV_EVENT_CLICKED,NULL);
++        assert(lv_obj_has_flag(ota_confirm,LV_OBJ_FLAG_HIDDEN)&&preview_ota_starts==starts);
++        ota_action(NULL);preview_ota_available=false;
++        lv_obj_send_event(lv_obj_get_child(c,3),LV_EVENT_CLICKED,NULL);
++        assert(!preview_ota_busy&&preview_ota_starts==starts);
++        assert(strstr(lv_label_get_text(ota_hint),"固件已变化"));
++        preview_ota_available=true;ota_action(NULL);ota_confirm_sha[0]='3';
++        lv_obj_send_event(lv_obj_get_child(c,3),LV_EVENT_CLICKED,NULL);
++        assert(!preview_ota_busy&&preview_ota_starts==starts);
++        ota_action(NULL);lv_obj_send_event(lv_obj_get_child(c,3),LV_EVENT_CLICKED,NULL);
++        assert(preview_ota_busy&&preview_ota_starts==starts+1);
++        lv_obj_send_event(lv_obj_get_child(c,3),LV_EVENT_CLICKED,NULL);
++        assert(preview_ota_starts==starts+1);
++        puts("OTA_CONFIRM_OK cancel, withdrawn, changed identity, explicit confirm and duplicate confirm");return 0;
++    }
+     if(getenv("TAB5_OTA_SAME_VERSION_ONLY")) {
+         page(9);settings_select(3);preview_ota_available=true;wifi_connected=true;
+         ota_installed_version="0.2.30-ui";tick(NULL);

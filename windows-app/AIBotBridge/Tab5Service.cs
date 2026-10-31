@@ -370,7 +370,7 @@ internal sealed partial class Tab5Service : IDisposable
         var root=doc.RootElement;
         if(root.ValueKind==JsonValueKind.Object&&root.TryGetProperty("op",out var opKind)&&opKind.ValueKind!=JsonValueKind.String)return (400,new {error="invalid_operation"});
         string operation=root.ValueKind==JsonValueKind.Object&&root.TryGetProperty("op",out var op)&&op.ValueKind==JsonValueKind.String?op.GetString()!:"send";
-        if(operation is not ("send" or "read" or "read-ack" or "draft-save" or "draft-load" or "receipt" or "steer" or "interrupt" or "image-upload")||imageOnly!=(operation=="image-upload"))return (400,new {error="invalid_operation"});
+        if(operation is not ("send" or "read" or "read-ack" or "draft-save" or "draft-load" or "receipt" or "receipt-confirm" or "steer" or "interrupt" or "image-upload")||imageOnly!=(operation=="image-upload"))return (400,new {error="invalid_operation"});
         bool readOperation=operation is "read" or "read-ack" or "draft-load" or "receipt";
         if(readOnly!=readOperation)return (400,new {error="invalid_operation"});
         if(root.ValueKind!=JsonValueKind.Object || !root.TryGetProperty("session",out var session) || session.ValueKind!=JsonValueKind.String || session.GetString()!=_session ||
@@ -407,7 +407,8 @@ internal sealed partial class Tab5Service : IDisposable
         }
         if(operation=="draft-save")return _codexTasks.Draft(taskId.GetString()!,requestId,message.GetString()!,images,id);
         if(operation=="draft-load")return _codexTasks.Draft(taskId.GetString()!,requestId);
-        if(operation=="receipt")return await _codexTasks.ReceiptAsync(taskId.GetString()!,requestId,token);
+        if(operation=="receipt-confirm")return _codexTasks.ConfirmDelivery(taskId.GetString()!,requestId,id,message.GetString()!,expectedTurn,images);
+        if(operation=="receipt")return await _codexTasks.ReceiptAsync(taskId.GetString()!,requestId,token,id);
         if(operation=="read-ack")return await _codexTasks.ConfirmReadAsync(id,taskId.GetString()!,readTurn,requestId,token);
         if(operation=="read") {
             bool inlineReply=root.TryGetProperty("inlineReply",out var inline)&&inline.ValueKind==JsonValueKind.True;

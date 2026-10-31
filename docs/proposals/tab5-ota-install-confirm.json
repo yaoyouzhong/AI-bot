@@ -1,0 +1,40 @@
+{
+  "baseVersion": "0.2.294-ui",
+  "parentProvenance": "tab5-ota-same-version-label.json",
+  "candidateVersion": "0.2.295-ui",
+  "patchSHA256": "21d51b7679f421965806a0c6c46d74c10ed3aca2eba07a3301de8e48c56f5158",
+  "files": {
+    "firmware/main/ui.c": {
+      "before": "64d3c9b106f19cf5ba2e4a8f2a1c06ce5a2d5c74a075e061537cb608103bd588",
+      "after": "ebccdc72226426574b9236919662eb38a9aeb35642eed75865d561db3158b5f2"
+    },
+    "firmware/main/ota_update.c": {
+      "before": "bb947512cff9d98df24cfe607efd88c98e1527ebaea5aab58d40dcd6211d3a44",
+      "after": "342843274b5cff7cab3c424fb73689b656667cd825022e7aa2d9045201b17757"
+    },
+    "firmware/main/ota_update.h": {
+      "before": "0eb3447661dd7cd03d2b2d28565f9bd2947cf86a6f3337ae9b3ea1be3852d0ed",
+      "after": "9b1ca5a3a3d3c46968965ec487cfb6f453b0773380246b097524b3be89bb6109"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "533f144fd54b38f746feabc306ed5f1da3a909aca71e170f268869764c8fe4d0",
+      "after": "1d6b3ad24c8ffef2b0b4770f28f34098cfa0b3e5563288437964f6c9af63d7d3"
+    }
+  },
+  "candidateImageSHA256": "3f99198d01e10d4504f0372d48b2f113d92ece1f9de1dcee0169c148ccd9c875",
+  "candidateELFSHA256": "ae4f3e08910fb2d4c699eeb1ba7db60d35849f6c5d3ed32ac49f52026e49901f",
+  "candidateBytes": 7208032,
+  "validation": [
+    "P4 build; unchanged sdkconfig and partitions",
+    "Native LVGL: opening does not install; cancel, withdrawn/changed identity, confirm once and duplicate confirm checks pass",
+    "Actual sidecar preview reviewed",
+    "Size optimization limited to OTA module and UI initialization; runtime UI rendering unchanged"
+  ],
+  "physicalAcceptance": {
+    "installed": true,
+    "exactELF": true,
+    "partitionVALID": true,
+    "threeLiveSamples": true,
+    "confirmationUI": "User confirms dialog appears and cancel returns without installation"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "baseVersion": "0.2.295-ui",
+  "parentProvenance": "tab5-ota-install-confirm.json",
+  "candidateVersion": "0.2.296-ui",
+  "patchSHA256": "05d45979f80a326820c6b7e181467c1bb8135781c78db785c330e63258642363",
+  "files": {
+    "firmware/main/ui.c": {
+      "before": "ebccdc72226426574b9236919662eb38a9aeb35642eed75865d561db3158b5f2",
+      "after": "58f38549374f02c84b9bd2dd9af0c00420ee959846d437132f6987b0f8628d6b"
+    }
+  },
+  "candidateImageSHA256": "b414bfcccb656339bbf1303494294a95aad379a691d01d99b4d9326e71343647",
+  "candidateELFSHA256": "8fa0d9dcd6be764c869d01b90db2df403a59cba8457f4cc701fa31e4e06ef7f0",
+  "candidateBytes": 7208288,
+  "uiDesign": "centered 700x256 dark card; 30px title identifies version/action, muted explanatory text; two 168x64 controls with blue primary and subdued cancel; consistent with existing TAB5 controls",
+  "validation": [
+    "native real LVGL rendered design and actual notes reviewed",
+    "cancel, withdrawn, changed offer, confirm and duplicate confirm regression passes",
+    "P4 build, unchanged board configuration and partitions, 672 bytes remaining",
+    "production package validator passed"
+  ],
+  "physicalAcceptance": {
+    "installed": true,
+    "exactELF": true,
+    "partitionVALID": true,
+    "threeLiveSamples": true,
+    "ui": "User confirmed layout/readability/touch and cancel normal"
+  }
+}
