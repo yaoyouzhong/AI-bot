@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### TAB5 reliability and Windows handoff
+- TAB5 .299 refines clock labels and enlarges seconds; actual renders and full LVGL regression pass, with device installation/acceptance pending.
 - Fix Mac task-page append for native queue/steer delivery, protect existing desktop drafts and attachments, and improve long-chat navigation and explicit activity sorting.
 - Add bounded receipt reconciliation and device-confirmed recovery without resending unknown deliveries; synchronize the device-bound confirmation protocol and journal guards with Windows.
 - Bound Mac cover retries across transports and add same-size RGB565 fallback. Share TAB5 .294–.298 patches for current-version labels, installation confirmation and precise delivery feedback.

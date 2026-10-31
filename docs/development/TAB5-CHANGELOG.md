@@ -2,6 +2,14 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.299-ui - 2026-10-31
+
+Local clock candidate; built and visually reviewed, not installed or publicly released.
+
+- Remove redundant ordinary weekend/workday labels from the clock; preserve holiday countdowns, actual holidays, makeup workdays and stale-data hints.
+- Enlarge seconds to 40 px beside analog faces and 72 px on the digital face, preserving baseline alignment and fixed group positioning.
+- Existing fonts, display resolution and partitions remain unchanged. P4 build, 90 rendered label/style states, all seconds, existing clock and full LVGL regressions pass. Image: 7,208,720 bytes; headroom: 240 bytes. Physical acceptance is pending.
+
 ## 0.2.298-ui - 2026-10-31
 
 Local delivery-recovery candidate; P4 build, full production LVGL regression and actual sidecar preview pass. Installed with exact boot verification and preserved display settings; physical feedback/recovery checks are recorded separately. Not publicly released; supersedes uninstalled .297.

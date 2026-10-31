@@ -1,5 +1,7 @@
 # Mac TAB5 开发候选 / Development candidate
 
+新增 .299 时钟候选已构建并完成实际渲染／完整 LVGL 检查，尚未安装；当前已安装仍为 .298。见[时钟设计](development/TAB5-CLOCK-DAY-DESIGN-20261031.md)。 / Clock candidate .299 is built and visually checked, but not installed; .298 remains the installed version.
+
 当前跨端交接与验收状态见 [Windows 对齐清单（10-31）](development/WINDOWS-FOLLOWUP-FROM-MAC-20261031.md)。 / See the linked October 31 checklist for current cross-platform handoff and acceptance status.
 
 2026-10-31 最新安装：**Mac R47／TAB5 .298**，未公开发布。音乐封面三轮上限及等待确认已部署；用户确认连续切歌、封面和播放／暂停正常。定位两次正常（后台 200），历史间歇根因未完整复现。.298 已通过精确 ELF、VALID 分区及三个实时界面样本核验，展示设置保留；新增具体拦截原因、三次自动查询和设备端确认送达弹窗，生产 LVGL 全回归与实际更新说明渲染通过，现场提示／恢复体验接续验收。详见 [发送恢复设计](development/TAB5-SEND-RECOVERY-DESIGN-20261031.md) 和 [封面调查](development/TAB5-MUSIC-COVER-RETRY-20261031.md)。

@@ -1,5 +1,7 @@
 # Windows 对齐清单：Mac R47 / TAB5 .298
 
+最新共享设备候选补充：.299 已构建，尚未安装；精简普通日期标签、放大秒数，Windows 无需修改桥接。应用 .298 后继续应用 [时钟可读性补丁](../proposals/tab5-clock-readability.patch)，核对[来源哈希](../proposals/tab5-clock-readability.json)；设计和验证见[时钟记录](TAB5-CLOCK-DAY-DESIGN-20261031.md)。
+
 本清单是 2026-10-31 的最新开发入口，优先于 [10-29 清单](WINDOWS-FOLLOWUP-FROM-MAC-20261029.md) 中的历史状态。先拉取包含本文件的最新主干；不要重复实现已同步的代码，也不要把 Mac 实机通过当成 Windows 已验收。
 
 ## 本次合并范围
@@ -43,12 +45,13 @@
 2. [安装确认 .295](../proposals/tab5-ota-install-confirm.patch) / [来源](../proposals/tab5-ota-install-confirm.json)。
 3. [确认弹窗设计 .296](../proposals/tab5-ota-confirm-design.patch) / [来源](../proposals/tab5-ota-confirm-design.json)。
 4. [发送恢复 .298](../proposals/tab5-send-recovery.patch) / [来源](../proposals/tab5-send-recovery.json)。
+5. [时钟可读性 .299](../proposals/tab5-clock-readability.patch) / [来源](../proposals/tab5-clock-readability.json)，构建及离屏检查通过，真机待验收。
 
 **不要叠加未安装的 .297 rejection-feedback 补丁**：.298 直接基于 .296，已包含并替代其提示修改。若工程已含某一步，先核对哈希，不重复套用。不要直接编辑 279 历史源码快照，保持来源校验可重复。
 
 .298 使用原分区，镜像 7,208,848 字节，余量 112 字节；后续变更必须继续通过实际分区尺寸检查。未删除字库或降低分辨率。本次不提交本机二进制、运行日志、用户截图或配对资料；本地已安装镜像的 SHA-256 为 `6828186749ba70348e97f3661c08500dcdc5bffeb988cf1b26f8245b1d14f007`。跨机器重建须重新生成实际 sidecar，不沿用旧镜像校验和。
 
-本地交付仍用 `scripts/prepare_tab5_firmware.ps1` 生成 `artifacts/firmware/tab5/latest/aibot_tab5.bin`。桥接、ESP8266 与 TAB5 独立编号；本次源码合并不发布标签或 Release。
+本地交付仍用 `scripts/prepare_tab5_firmware.ps1` 生成 `artifacts/firmware/tab5/latest/aibot_tab5.bin`。桥接、ESP8266 与 TAB5 独立编号；本次源码合并不发布标签或 Release。.299 是新增的本地构建候选，镜像 7,208,720 字节、余量 240 字节，尚未安装；不要把 .298 的已验收状态移植给 .299。
 
 ## 已验收与未验收
 
@@ -82,4 +85,4 @@ python scripts/check_public_content.py
 
 ## English summary
 
-This is the current Windows handoff for Mac R47 / TAB5 .298. Device-bound manual delivery confirmation and journal guards are already ported; Windows native behavior and hardware acceptance remain separate. Priorities are native queue/steer semantics, precise draft/attachment rejection, reliable receipt reconciliation, bounded background diagnostics and cover retries, then same-dimension RGB565 fallback and remaining W29 parity items. Apply shared firmware patches .294 → .295 → .296 → .298; skip superseded .297. Never resend unknown outcomes, shrink artwork silently, foreground diagnostic windows or copy Mac-specific selectors into Windows. Two exceptional paths remain physically unverified: device recovery of a real unknown send, and fallback after a real JPEG failure. DJI testing remains deferred. This merge publishes source/documentation, not release artifacts.
+This is the current Windows handoff for Mac R47 / TAB5 .298. Device-bound manual delivery confirmation and journal guards are already ported; Windows native behavior and hardware acceptance remain separate. Priorities are native queue/steer semantics, precise draft/attachment rejection, reliable receipt reconciliation, bounded background diagnostics and cover retries, then same-dimension RGB565 fallback and remaining W29 parity items. Apply shared firmware patches .294 → .295 → .296 → .298 → .299; skip superseded .297. Clock candidate .299 is built and visually checked but not installed; Windows requires no clock-specific bridge change. Never resend unknown outcomes, shrink artwork silently, foreground diagnostic windows or copy Mac-specific selectors into Windows. Two exceptional paths remain physically unverified: device recovery of a real unknown send, and fallback after a real JPEG failure. DJI testing remains deferred. This merge publishes source/documentation, not release artifacts.
