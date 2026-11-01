@@ -23,6 +23,9 @@ All notable changes to this project will be documented in this file.
 - Share three cover passes across USB/Wi-Fi/BLE with two-second acknowledgement waits. Eligible JPEGs can use one same-size RGB565 conversion with a separately bounded budget. Bound local diagnostics to fixed states and numeric metadata.
 - Retain question cards, recording bindings, verbatim append, end-caret handling and microphone restoration. Record offline checks separately from Windows hardware evidence in the [November 1 validation record](docs/development/WINDOWS-W31-VALIDATION-20261101.md).
 
+### Mac USB OTA performance
+- Align Mac with Windows' existing negotiated USB binary bulk transfer and bounded waits, preserving legacy peers and reconnect-on-error behavior. The identical .302 image installs over USB in 20.557 s versus 38.587 s, with exact healthy boot and display settings preserved. A current same-image native Windows comparison remains pending.
+
 ### TAB5 reliability and Windows handoff
 - Add a direct-submit feedback source patch: proven no-action receipts show that nothing was sent and explain recovery; missing, contradictory or lost receipts remain unknown and must not resend. Native classification tests, UI rendering and target-object compilation pass. The device has not been flashed; installing the bridge does not update device wording.
 - Fix Mac verification of newly created Codex chats by using the current desktop catalog for both display titles and identity; retain legacy-only installations and reject stale fallback after current-catalog errors.

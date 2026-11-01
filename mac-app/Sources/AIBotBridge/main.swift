@@ -87,6 +87,15 @@ if CommandLine.arguments.count == 4, CommandLine.arguments[1] == "--test-tab5-bl
     }
 }
 
+if CommandLine.arguments.count == 4, CommandLine.arguments[1] == "--test-tab5-usb-link" {
+    do {
+        try MacTab5USBLinkCheck.run(mode:CommandLine.arguments[2], reportURL:URL(fileURLWithPath:CommandLine.arguments[3]))
+        print("MAC_TAB5_USB_LINK_CHECK_OK"); exit(0)
+    } catch {
+        fputs("USB link acceptance incomplete; no firmware installation requested.\n",stderr); exit(1)
+    }
+}
+
 if CommandLine.arguments.count == 5, CommandLine.arguments[1] == "--test-tab5-upgrade" {
     do {
         try MacTab5UpgradeCheck.run(mode: CommandLine.arguments[2], imageURL: URL(fileURLWithPath: CommandLine.arguments[3]), reportURL: URL(fileURLWithPath: CommandLine.arguments[4]))

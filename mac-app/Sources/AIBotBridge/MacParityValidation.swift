@@ -186,6 +186,7 @@ enum MacParityValidation {
         checked += try MacCodexPublicHistoryValidation.run(root: root.appendingPathComponent("public-history"))
         checked += try MacTab5USBStatusValidation.run()
         checked += try MacTab5USBLeaseValidation.run()
+        checked += try MacTab5USBMailboxValidation.run()
         checked += try MacHTTPListenerRecoveryValidation.policy()
         checked += try MacApplicationInstanceValidation.run()
         checked += try MacTab5USBOperationWaitValidation.run()
