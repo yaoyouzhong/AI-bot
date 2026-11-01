@@ -1,0 +1,35 @@
+{
+  "baseVersion": "0.2.302-ui",
+  "parentProvenance": "tab5-button-press-feedback.json",
+  "patchSHA256": "9d8bd48a258dc151d6fe90e51e91673cd6e9393c284c47c33d636ef30cbec52a",
+  "files": {
+    "firmware/main/desktop_submit_feedback.h": {
+      "beforeSHA256LF": "2213b96d22a3e882f46a9a5eac3fd71dcbb83a4c15c96e7bee735fe66138e4b7",
+      "afterSHA256LF": "b00867deda8deebcb184d34cccc84bf39e69a2885b1258a9c06dee07fdaa72b3"
+    },
+    "tests/ui-preview/desktop_submit_feedback_test.c": {
+      "beforeSHA256LF": "b85c91e8c7bb6b25e937022260c8aeb516d835a4a875bdd2e81038e60ea2f874",
+      "afterSHA256LF": "c2f0b3287093dbd64ca23049d44aa1b43ad0e0e916c8424586056eeca08b86ac"
+    },
+    "tests/ui-preview/preview.c": {
+      "beforeSHA256LF": "13b88affe28a3ea137f5313294e8298a32fa0fac305606f55606ecb1f5d55da8",
+      "afterSHA256LF": "fec73874e718f6a2b0d135f3c608ce985a6f0ae69d156c284a3add2ed056fd90"
+    }
+  },
+  "status": "Offline validated; not installed; latest unchanged",
+  "protocol": "Existing error string gains conversation_target_or_text_changed and question_target_or_text_changed. Typed taskId/submitted=false/attempted=false checks remain mandatory. Older Windows/Mac bridges get neutral fallback; older firmware retains conservative generic no-send wording. No new fields or protocol version.",
+  "validation": [
+    "Windows Release build and source status-once pass",
+    "QuickConsole and W29 134 checks pass",
+    "14 cJSON feedback cases",
+    "full UI preview and two actual renders reviewed",
+    "ESP-IDF full image fits partition",
+    "patch reverse/reapply and LF hashes verified"
+  ],
+  "image": {
+    "bytes": 7208256,
+    "sha256": "8a13ad00223835e5be6fbbeadf911fc321d83356eec5e0ad4c923d4cd1bcf517",
+    "partitionFreeBytes": 704
+  },
+  "hardware": "Not installed; contextual copy acceptance pending coordinated Windows and TAB5 update"
+}

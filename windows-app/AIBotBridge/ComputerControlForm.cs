@@ -34,6 +34,8 @@ internal sealed class ComputerControlForm : Form
         var footer=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,FlowDirection=FlowDirection.RightToLeft,Margin=new(0,12,0,0)};
         var save=new Button{Name="save-launchers",Text="保存",AutoSize=true};SettingsWindow.StyleButton(save,true);footer.Controls.Add(save);
         var cancel=new Button{Text="取消",AutoSize=true,DialogResult=DialogResult.Cancel};SettingsWindow.StyleButton(cancel);footer.Controls.Add(cancel);CancelButton=cancel;
+        cancel.CausesValidation=false;cancel.Click+=(_,_)=>Close();
+        footer.Controls.SetChildIndex(cancel,0); // Right-to-left flow: Save, Cancel visually.
         save.Click+=(_,_)=>{try{_store.Save(_rows.Where(x=>x.Path.Text.Length>0).Select(x=>new ComputerLauncher(x.Id,x.Name.Text.Trim(),x.Path.Text)).ToArray());DialogResult=DialogResult.OK;Close();}catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException){_message.Text=ex.Message;_message.ForeColor=Color.Firebrick;}};
         layout.Controls.Add(footer,0,3);SettingsWindow.FitScreen(this);UnsavedChanges.Track(this);
     }

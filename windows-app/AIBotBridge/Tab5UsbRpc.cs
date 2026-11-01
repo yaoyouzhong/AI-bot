@@ -66,7 +66,8 @@ internal sealed partial class Tab5Service
             long generation=Interlocked.Read(ref _usbGeneration);
             int chunk=_usbRpcChunk;if(pumpChunk!=chunk||pumpGeneration!=generation){pump=null;pumpChunk=chunk;pumpGeneration=generation;}
             pump??=new Tab5BleVoice(ct=>UsbRpcPacketAsync(null,generation,ct),async(data,ct)=>{await UsbRpcPacketAsync(data,generation,ct);},
-                (nonce,proof,packet,ct)=>RpcAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct),247,Tab5RpcBinary.MailboxMaximum,75,chunk,chunk,maximumRequest:Tab5RpcBinary.MailboxMaximum);
+                (nonce,proof,packet,ct)=>RpcAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct),247,Tab5RpcBinary.MailboxMaximum,75,chunk,chunk,maximumRequest:Tab5RpcBinary.MailboxMaximum,
+                responseAccepted:_voiceTransportPriority.Acknowledge);
             _usbRpcPump=pump;
             uint before=pump.CompletedCount;
             try{if(await pump.PumpAsync(token))_usbRpcTiming=$"{DateTimeOffset.Now:HH:mm:ss} chunk={chunk}; {pump.Timing}";}

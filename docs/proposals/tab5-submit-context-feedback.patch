@@ -1,0 +1,67 @@
+--- a/firmware/main/desktop_submit_feedback.h
++++ b/firmware/main/desktop_submit_feedback.h
+@@ -12,7 +12,11 @@
+         return "未确认发送，请检查电脑；不要重复发送，可重新录音";
+     const cJSON *value=cJSON_GetObjectItemCaseSensitive(reply,"error");
+     const char *error=cJSON_IsString(value)?value->valuestring:"";
++    if(!strcmp(error,"conversation_target_or_text_changed"))
++        return "未发送，会话或输入内容已变化，请检查后重新录音";
++    if(!strcmp(error,"question_target_or_text_changed"))
++        return "未发送，题目或回答已变化，请检查后重新录音";
+     if(!strcmp(error,"staged_target_or_text_changed")||!strcmp(error,"composer_changed"))
+-        return "未发送，请核对题目和文字后重新录音";
++        return "未发送，请核对当前输入内容后重新录音";
+     return "未发送，电脑尚未就绪，请检查后重新录音";
+ }
+--- a/tests/ui-preview/desktop_submit_feedback_test.c
++++ b/tests/ui-preview/desktop_submit_feedback_test.c
+@@ -6,9 +6,16 @@
+     const char *id="11111111-1111-1111-1111-111111111111";
+     cJSON *reply=cJSON_Parse("{\"taskId\":\"11111111-1111-1111-1111-111111111111\",\"submitted\":false,\"attempted\":false,\"error\":\"staged_target_or_text_changed\"}");
+     assert(reply);
+-    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，请核对题目和文字"));
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，请核对当前输入内容"));
+     cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(reply,"error"),"composer_changed");
+-    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，请核对题目和文字"));
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，请核对当前输入内容"));
++    cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(reply,"error"),"conversation_target_or_text_changed");
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，会话或输入内容已变化"));
++    cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(reply,"error"),"question_target_or_text_changed");
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，题目或回答已变化"));
++    cJSON_ReplaceItemInObjectCaseSensitive(reply,"attempted",cJSON_CreateTrue());
++    assert(strstr(desktop_submit_feedback(409,reply,id),"不要重复发送"));
++    cJSON_ReplaceItemInObjectCaseSensitive(reply,"attempted",cJSON_CreateFalse());
+     cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(reply,"error"),"native_submit_unavailable");
+     assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，电脑尚未就绪"));
+     assert(strstr(desktop_submit_feedback(409,reply,"22222222-2222-2222-2222-222222222222"),"未确认发送"));
+@@ -26,6 +33,6 @@
+     cJSON_DeleteItemFromObjectCaseSensitive(reply,"submitted");
+     assert(strstr(desktop_submit_feedback(409,reply,id),"未确认发送"));
+     cJSON_Delete(reply);
+-    puts("DESKTOP_SUBMIT_FEEDBACK_OK cases=11 changed_text no_action unknown malformed old_bridge wrong_target");
++    puts("DESKTOP_SUBMIT_FEEDBACK_OK cases=14 changed_text no_action unknown malformed old_bridge wrong_target");
+     return 0;
+ }
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -5599,8 +5599,9 @@
+     cJSON_AddStringToObject(submit_receipt,"taskId",quick_opened);
+     cJSON_AddFalseToObject(submit_receipt,"submitted");cJSON_AddFalseToObject(submit_receipt,"attempted");
+     cJSON_AddStringToObject(submit_receipt,"error","staged_target_or_text_changed");
+-    for(int uncertain=0;uncertain<2;uncertain++) {
+-        if(uncertain)cJSON_ReplaceItemInObjectCaseSensitive(submit_receipt,"attempted",cJSON_CreateTrue());
++    for(int uncertain=0;uncertain<4;uncertain++) {
++        if(uncertain<3)cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(submit_receipt,"error"),uncertain==0?"conversation_target_or_text_changed":uncertain==1?"question_target_or_text_changed":"staged_target_or_text_changed");
++        if(uncertain==3)cJSON_ReplaceItemInObjectCaseSensitive(submit_receipt,"attempted",cJSON_CreateTrue());
+         preview_desktop.busy=false;preview_desktop.status=409;
+         strcpy(preview_desktop.task_id,quick_opened);
+         snprintf(preview_desktop.message,sizeof(preview_desktop.message),"%s",desktop_submit_feedback(409,submit_receipt,quick_opened));
+@@ -5613,7 +5614,7 @@
+         const char *hint=lv_label_get_text(quick_status);
+         int width=lv_text_get_width(hint,strlen(hint),lv_obj_get_style_text_font(quick_status,0),lv_obj_get_style_text_letter_space(quick_status,0));
+         assert(width<=lv_obj_get_width(quick_status));
+-        capture(uncertain?"quick-console-send-unknown":"quick-console-send-not-attempted");
++        capture(uncertain==3?"quick-console-send-unknown":uncertain==0?"quick-console-send-conversation":uncertain==1?"quick-console-send-question":"quick-console-send-legacy");
+     }
+     cJSON_Delete(submit_receipt);
+     puts("QUICK_SUBMIT_FEEDBACK_UI_OK accurate_rejection unknown_keeps_guard text_fits no_resend draft_preserved");

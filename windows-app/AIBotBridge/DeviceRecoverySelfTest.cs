@@ -7,6 +7,7 @@ internal static class DeviceRecoverySelfTest
     internal static async Task RunAsync() {
         if(!AppPaths.IsPublicSelfTest)AppPaths.BeginPublicSelfTest();
         void Check(bool ok,string text){if(!ok)throw new InvalidOperationException(text);}
+        await StatusPublisherAsync();
         var history=new DeviceConnectionHistory();var now=DateTimeOffset.UtcNow;
         var a=history.Observe("secret-id",true,true,1000,"private",now,1000);
         Check(a.Recoveries==0&&a.LastCommunication==now,"Initial communication recorded incorrectly");
@@ -33,12 +34,14 @@ internal static class DeviceRecoverySelfTest
         var manager=new DeviceServiceManager(runtime,0,CancellationToken.None,Worker);
         try {
             await manager.ApplyAsync(registry);await Task.Delay(80);var original=manager.Tab5;
+            Check(starts["tab5-status"]==1,"TAB5 status worker was not started");
             await manager.ReconnectAsync(registry,esp.Id);await Task.Delay(80);
             Check(ReferenceEquals(original,manager.Tab5)&&starts["esp-usb"]==2&&starts["tab5-usb"]==1&&starts["lan"]==1,"Reconnect restarted unrelated services");
             original!.OtaTransferActive(true);
             try{await manager.ReconnectAsync(registry,tab.Id);throw new Exception("Busy reconnect accepted");}catch(InvalidOperationException){}finally{original.OtaTransferActive(false);}
             await manager.ReconnectAsync(registry,tab.Id);await Task.Delay(80);
             Check(!ReferenceEquals(original,manager.Tab5)&&starts["tab5-usb"]==2&&starts["lan"]==1,"TAB5 was not independently recreated");
+            Check(starts["tab5-status"]==2&&stops["tab5-status"]==1,"Status worker did not follow paired service lifetime");
             fail=true;await manager.ReconnectAsync(registry,esp.Id);await Task.Delay(80);
             Check(manager.View(esp).Status=="连接异常","Worker failure not visible");
             Check(manager.FaultSources==RuntimeFaultSource.Esp8266,"ESP failure attributed to unrelated device");
@@ -58,7 +61,52 @@ internal static class DeviceRecoverySelfTest
             fail=true;await manager.ReconnectAsync(registry,esp.Id);await Task.Delay(80);
             await manager.StopAsync();
             Check(manager.ActiveServices.Length==0&&manager.Error?.Contains(nameof(IOException))==true,"Faulted worker interrupted bridge shutdown or lost its error");
+            Check(starts["tab5-status"]==stops["tab5-status"],"Status worker survived shutdown");
         }finally{await manager.StopAsync();}
         Console.WriteLine("DEVICE_RECOVERY_OK timestamps, counters, private export, isolated restart, busy protection, fault recovery");
+    }
+
+    private static async Task StatusPublisherAsync() {
+        void Check(bool ok,string text){if(!ok)throw new InvalidOperationException(text);}
+        using var stop=new CancellationTokenSource();
+        using var release=new ManualResetEventSlim();
+        var entered=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls=0,active=0,maximum=0,latest=1,observed=0;
+        var run=Task.Run(()=>Tab5StatusPublisher.RunAsync(()=>{
+            int concurrent=Interlocked.Increment(ref active);maximum=Math.Max(maximum,concurrent);
+            int call=Interlocked.Increment(ref calls);
+            try {
+                if(call==1){entered.SetResult();if(!release.Wait(TimeSpan.FromSeconds(5)))throw new TimeoutException();}
+                observed=Volatile.Read(ref latest);
+                if(call==2)stop.Cancel();
+            }finally{Interlocked.Decrement(ref active);}
+        },stop.Token,TimeSpan.FromMilliseconds(10)));
+        try {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.Delay(150); // Many timer periods expire while one frame is blocked.
+            Check(calls==1&&!run.IsCompleted,"Slow status publication overlapped or detached from worker lifetime");
+            Volatile.Write(ref latest,2);release.Set();
+            try{await run.WaitAsync(TimeSpan.FromSeconds(5));throw new Exception("Cancelled publisher kept running");}
+            catch(OperationCanceledException) when(stop.IsCancellationRequested){}
+            Check(calls==2&&maximum==1&&active==0&&observed==2,"Status backlog, stale capture or overlapping publication");
+        }finally{release.Set();stop.Cancel();try{await run;}catch(OperationCanceledException){}}
+
+        using var canceled=new CancellationTokenSource();canceled.Cancel();
+        try{await Tab5StatusPublisher.RunAsync(()=>throw new Exception("Published after cancellation"),canceled.Token);}
+        catch(OperationCanceledException) when(canceled.IsCancellationRequested){}
+        try{await Tab5StatusPublisher.RunAsync(()=>throw new IOException("synthetic status failure"),CancellationToken.None);throw new Exception("Status error swallowed");}
+        catch(IOException ex) when(ex.Message=="synthetic status failure"){}
+
+        // Normal exit must await an in-flight publication before disposing its service.
+        using var draining=new CancellationTokenSource();using var finish=new ManualResetEventSlim();
+        var busy=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);int completed=0;
+        var drain=Task.Run(()=>Tab5StatusPublisher.RunAsync(()=>{busy.SetResult();if(!finish.Wait(TimeSpan.FromSeconds(5)))throw new TimeoutException();completed++;},draining.Token));
+        try {
+            await busy.Task.WaitAsync(TimeSpan.FromSeconds(5));draining.Cancel();
+            Check(!drain.IsCompleted,"Cancellation detached an active publication");finish.Set();
+            try{await drain.WaitAsync(TimeSpan.FromSeconds(5));}catch(OperationCanceledException) when(draining.IsCancellationRequested){}
+            Check(completed==1,"Exit lost an in-flight status publication");
+        }finally{finish.Set();draining.Cancel();try{await drain;}catch(OperationCanceledException){}}
+        Console.WriteLine("TAB5_STATUS_WORKER_OK sequential, coalesced ticks, fresh capture, cancellation drain and visible faults; synthetic only");
     }
 }

@@ -1,0 +1,41 @@
+{
+  "baseVersion": "0.2.302-ui",
+  "parentProvenance": "tab5-direct-submit-feedback.json",
+  "patchSHA256": "340323161e25e2396703237aa859c33eb7d2a1b1606fda6083f4fdbb30df4b23",
+  "files": {
+    "firmware/main/ui.c": {
+      "beforeSHA256LF": "5fe0a4cde8769ea68cf3ccd8c502976ce6307f8eb072e52f11c2f1db5a9ccf79",
+      "afterSHA256LF": "3cd984474b454c80df0fb5aeb8b0b491c87f1d9e6e033b063fefc5ce62a96c27"
+    },
+    "tests/ui-preview/preview.c": {
+      "beforeSHA256LF": "42149eb05be66242e01d4647e44736436c55306b541638a9fb16df4750fa7ed6",
+      "afterSHA256LF": "13b88affe28a3ea137f5313294e8298a32fa0fac305606f55606ecb1f5d55da8"
+    },
+    "tests/ui-preview/codex_clear_feedback_test.h": {
+      "beforeSHA256LF": null,
+      "afterSHA256LF": "90a63f1a31bcbf50830dbbf1a90176649f17947b596ac282e507b6db590c1597"
+    }
+  },
+  "status": "offline verified; not flashed; no version allocation or release offer",
+  "implementation": "Shared button pressed background opacity; explicit camera and mechanical-key overrides preserved. No event, protocol or draft logic change.",
+  "validation": [
+    "12 actual controls press/release/disabled state assertions",
+    "real pointer short press preserves and long press clears",
+    "16 existing clear pointer/render scenarios",
+    "409 rejection then clear plus 60 fresh USB snapshots preserve empty draft",
+    "full selected UI preview executable passes",
+    "ESP-IDF ESP32-P4 image build and partition check pass",
+    "patch forward/reverse/reapply and all normalized file hashes pass"
+  ],
+  "image": {
+    "bytes": 7208048,
+    "sha256": "3b7c8d8cc01482ffe8aa89d112c9520a6dee667d0a8c4e41c917ff65dd64b731",
+    "partitionBytes": 7208960,
+    "remainingBytes": 912
+  },
+  "remaining": [
+    "Real TAB5 tactile/visual acceptance pending separate firmware deployment authorization",
+    "Earlier intermittent disappear/reappear report not reproduced; not claimed fixed by styling"
+  ],
+  "evidence": "C:\\Users\\yaououzhong\\Work\\AI-bot\\artifacts\\windows-clear-feedback-20261101"
+}

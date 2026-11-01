@@ -1,0 +1,117 @@
+--- a/firmware/main/desktop_remote.c
++++ b/firmware/main/desktop_remote.c
+@@ -1,4 +1,5 @@
+ #include "desktop_remote.h"
++#include "desktop_submit_feedback.h"
+ #include "device.h"
+ #include "rpc_link.h"
+ #include "esp_http_client.h"
+@@ -52,7 +53,7 @@
+             !strcmp(error,"composer_too_long")?"电脑草稿过长，请先整理；识别文字保留在预览":
+             !strcmp(error,"composer_not_ready")?"电脑主输入框未就绪，识别文字保留在预览":
+             "未确认追加，请检查电脑输入框；识别文字保留在预览";
+-        snprintf(state.message,sizeof(state.message),"%s",clear?"未确认清空，请检查电脑当前会话输入框":submit?"未确认发送，请检查电脑；不要重复发送，可重新录音":stage?stage_message:
++        snprintf(state.message,sizeof(state.message),"%s",clear?"未确认清空，请检查电脑当前会话输入框":submit?desktop_submit_feedback(status,reply,job->task_id):stage?stage_message:
+             !strcmp(error,"desktop_not_interactive")?"电脑桌面不可操作，请解锁后再点 Codex":
+             status==404?"没有可用的 Codex 会话":status==400?"请更新电脑桥接后重试":status==409?"会话尚未核实，请稍后重新定位":"未确认打开结果，请检查电脑连接");
+     }
+--- /dev/null
++++ b/firmware/main/desktop_submit_feedback.h
+@@ -0,0 +1,18 @@
++#pragma once
++#include "cJSON.h"
++#include <string.h>
++
++// Only a typed, target-bound no-action receipt can prove that nothing was sent.
++// Old bridges, lost replies and malformed receipts keep the unknown outcome.
++static const char *desktop_submit_feedback(int status,const cJSON *reply,const char *task_id) {
++    const cJSON *target=cJSON_GetObjectItemCaseSensitive(reply,"taskId");
++    if(status!=409||!task_id||strlen(task_id)!=36||!cJSON_IsString(target)||strcmp(target->valuestring,task_id)||
++       !cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(reply,"submitted"))||
++       !cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(reply,"attempted")))
++        return "未确认发送，请检查电脑；不要重复发送，可重新录音";
++    const cJSON *value=cJSON_GetObjectItemCaseSensitive(reply,"error");
++    const char *error=cJSON_IsString(value)?value->valuestring:"";
++    if(!strcmp(error,"staged_target_or_text_changed")||!strcmp(error,"composer_changed"))
++        return "未发送，请核对题目和文字后重新录音";
++    return "未发送，电脑尚未就绪，请检查后重新录音";
++}
+--- /dev/null
++++ b/tests/ui-preview/desktop_submit_feedback_test.c
+@@ -0,0 +1,31 @@
++#include <assert.h>
++#include <stdio.h>
++#include "../../firmware/main/desktop_submit_feedback.h"
++
++int main(void) {
++    const char *id="11111111-1111-1111-1111-111111111111";
++    cJSON *reply=cJSON_Parse("{\"taskId\":\"11111111-1111-1111-1111-111111111111\",\"submitted\":false,\"attempted\":false,\"error\":\"staged_target_or_text_changed\"}");
++    assert(reply);
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，请核对题目和文字"));
++    cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(reply,"error"),"composer_changed");
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，请核对题目和文字"));
++    cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(reply,"error"),"native_submit_unavailable");
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未发送，电脑尚未就绪"));
++    assert(strstr(desktop_submit_feedback(409,reply,"22222222-2222-2222-2222-222222222222"),"未确认发送"));
++    assert(strstr(desktop_submit_feedback(200,reply,id),"未确认发送"));
++    assert(strstr(desktop_submit_feedback(0,NULL,id),"未确认发送"));
++    cJSON_ReplaceItemInObjectCaseSensitive(reply,"attempted",cJSON_CreateTrue());
++    assert(strstr(desktop_submit_feedback(409,reply,id),"不要重复发送"));
++    cJSON_ReplaceItemInObjectCaseSensitive(reply,"attempted",cJSON_CreateString("false"));
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未确认发送"));
++    cJSON_DeleteItemFromObjectCaseSensitive(reply,"attempted");
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未确认发送"));
++    cJSON_AddFalseToObject(reply,"attempted");
++    cJSON_ReplaceItemInObjectCaseSensitive(reply,"submitted",cJSON_CreateTrue());
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未确认发送"));
++    cJSON_DeleteItemFromObjectCaseSensitive(reply,"submitted");
++    assert(strstr(desktop_submit_feedback(409,reply,id),"未确认发送"));
++    cJSON_Delete(reply);
++    puts("DESKTOP_SUBMIT_FEEDBACK_OK cases=11 changed_text no_action unknown malformed old_bridge wrong_target");
++    return 0;
++}
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -1,3 +1,4 @@
++#include "desktop_submit_feedback.h"
+ #define TAB5_UI_PREVIEW
+ #include "../../firmware/main/codex_delivery_feedback.h"
+ #undef NDEBUG
+@@ -5558,6 +5559,28 @@
+     preview_voice.busy=false;strcpy(preview_voice.phase,"cancelled");codex_voice_tick();quick_tick();
+     assert(!quick_recording&&!quick_resetting);
+     puts("QUICK_EMPTY_DRAFT_REOPEN_OK empty_restores_voice, next_click_records_without_send, local_draft_preserved, unknown_keeps_ticket");
++    cJSON *submit_receipt=cJSON_CreateObject();
++    cJSON_AddStringToObject(submit_receipt,"taskId",quick_opened);
++    cJSON_AddFalseToObject(submit_receipt,"submitted");cJSON_AddFalseToObject(submit_receipt,"attempted");
++    cJSON_AddStringToObject(submit_receipt,"error","staged_target_or_text_changed");
++    for(int uncertain=0;uncertain<2;uncertain++) {
++        if(uncertain)cJSON_ReplaceItemInObjectCaseSensitive(submit_receipt,"attempted",cJSON_CreateTrue());
++        preview_desktop.busy=false;preview_desktop.status=409;
++        strcpy(preview_desktop.task_id,quick_opened);
++        snprintf(preview_desktop.message,sizeof(preview_desktop.message),"%s",desktop_submit_feedback(409,submit_receipt,quick_opened));
++        quick_sending=true;quick_tick();
++        assert(quick_failed&&!quick_ready&&!quick_sending&&!quick_stage_request[0]);
++        assert(!strcmp(lv_label_get_text(quick_status),preview_desktop.message));
++        assert(!strcmp(quick_draft->text,"用户修改后的草稿"));
++        assert(preview_desktop_submits==before_empty_submits);
++        lv_obj_update_layout(quick_layer);
++        const char *hint=lv_label_get_text(quick_status);
++        int width=lv_text_get_width(hint,strlen(hint),lv_obj_get_style_text_font(quick_status,0),lv_obj_get_style_text_letter_space(quick_status,0));
++        assert(width<=lv_obj_get_width(quick_status));
++        capture(uncertain?"quick-console-send-unknown":"quick-console-send-not-attempted");
++    }
++    cJSON_Delete(submit_receipt);
++    puts("QUICK_SUBMIT_FEEDBACK_UI_OK accurate_rejection unknown_keeps_guard text_fits no_resend draft_preserved");
+     codex_set_text("");quick_saved_voice[0]=0;
+     quick_close(NULL);assert(!quick_visible);
+     puts("QUICK_CONSOLE_UI_OK mechanical_press_release_animation, press_lost_restores_without_action, short_labels, permanent_footer_entry_all_pages, latest_five, desktop_synced_selection, same_target_reopen_keeps_staged_draft, voice_target_lock, explicit_stop_draft_once, explicit_third_click_send, no_double_send, error_reset, rerecord, cancel_no_insert, user_edits_preserved");
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -1039,3 +1039,6 @@
+  target_compile_options(host-unlock-remote-test PRIVATE -UNDEBUG)
+  target_compile_options(host-unlock-timeout-test PRIVATE -UNDEBUG)
+ endif()
++add_executable(desktop-submit-feedback-test desktop_submit_feedback_test.c "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
++target_include_directories(desktop-submit-feedback-test PRIVATE "${ROOT}/.tools/esp-idf/components/json/cJSON")
++target_compile_options(desktop-submit-feedback-test PRIVATE /UNDEBUG)

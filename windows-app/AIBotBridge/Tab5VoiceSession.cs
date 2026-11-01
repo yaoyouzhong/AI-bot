@@ -95,7 +95,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         root.TryGetProperty("op",out var op)&&op.ValueKind==JsonValueKind.String&&op.GetString()=="tab5"&&
         root.TryGetProperty("voiceId",out var id)&&id.ValueKind==JsonValueKind.String&&id.GetString()==_id;
     internal async Task<Tab5VoiceReply> HandleAsync(JsonElement root,CancellationToken token,Func<CancellationToken,Task>? wait=null,
-        Func<CancellationToken,Task>? prepareTab5=null) {
+        Func<CancellationToken,Task>? prepareTab5=null,bool waitForFinal=false) {
         token.ThrowIfCancellationRequested();
         if(NeedsSourcePreparation(root)) {
             await SwitchSharedDjiAsync(token,wait,prepareTab5);
@@ -123,7 +123,22 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         }
         if(waited){_audioWaitMs=_clock()-started;_audioWaitPeakMs=Math.Max(_audioWaitPeakMs,_audioWaitMs);}
         token.ThrowIfCancellationRequested();
-        return Handle(root);
+        var result=Handle(root);
+        if(waitForFinal&&root.TryGetProperty("op",out var op)&&op.GetString()=="poll"&&result.State=="recognizing") {
+            long pollStarted=Environment.TickCount64;
+            long until=_clock()+350;
+            // Yield to the UI/TSF owner; retain all existing text-settling gates.
+            // A replaced take must never answer the old poll with its text.
+            while(_state=="recognizing"&&_clock()<until) {
+                await (wait?.Invoke(token)??Task.Delay((int)Math.Clamp(until-_clock(),1,20),token));
+                token.ThrowIfCancellationRequested();
+                if(_id!=result.VoiceId||_task!=result.TaskId)throw new Tab5VoiceRequestException("语音会话已失效");
+                Tick();
+            }
+            result=Snapshot();
+            Tab5VoiceTiming.Log("voice-final-poll state="+result.State,pollStarted);
+        }
+        return result;
     }
     internal Tab5VoiceReply Snapshot() => new(_id,_task,_source,_state,_message,BoundText(editor.Text),_state=="recording"&&_ready&&!_focusPaused,
         _state=="recording"&&_ready?Math.Clamp(audio.InputLevel,0,100):0,_state=="recording"&&_ready&&_silent,
@@ -197,14 +212,14 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
     }
     private void SwitchToTab5() {
         if(_switching||_source=="tab5")return;
-        if(!audio.CanSwitchToTab5)throw new InvalidOperationException("请先结束大疆录音，再重新开始使用 TAB5 内置麦克风");
+        if(!audio.CanSwitchToTab5)throw new InvalidOperationException("请先结束电脑麦克风录音，再重新开始使用 TAB5 内置麦克风");
         audio.UseTab5();_source="tab5";_sourceName=audio.SourceName;_ready=false;_waitingSince=_clock();_message="正在准备 TAB5 收音";
     }
     private async Task SwitchSharedDjiAsync(CancellationToken token,Func<CancellationToken,Task>? wait,Func<CancellationToken,Task>? prepareTab5) {
         if(prepareTab5 is null)throw new InvalidOperationException("内置麦克风切换尚未就绪");
         audio.ValidateTab5();
         string owner=_id;
-        _switching=true;_ready=false;_message="正在结束大疆收音，保留文字…";
+        _switching=true;_ready=false;_message="正在结束电脑麦克风收音，保留文字…";
         void CheckOwner() {
             token.ThrowIfCancellationRequested();
             if(_id!=owner||_state!="recording")throw new OperationCanceledException("语音切换已取消");
@@ -215,13 +230,13 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             // Direct DJI uses the desktop IME endpoint. Finish that owned take
             // before borrowing CABLE Output; never change an active IME input.
             audio.Stop();
-            if(!editor.Stop())throw new InvalidOperationException("大疆录音未确认结束，请在电脑豆包中检查");
+            if(!editor.Stop())throw new InvalidOperationException("电脑麦克风录音未确认结束，请在电脑豆包中检查");
             long stopped=_clock(),changed=stopped;string text=editor.Text;
             while(true) {
                 CheckOwner();long now=_clock();
                 if(editor.Text!=text){text=editor.Text;changed=now;}
                 if(editor.RecognitionComplete&&editor.CaptureStopped&&now-stopped>=1200&&now-changed>=800)break;
-                if(now-stopped>=8000)throw new InvalidOperationException("大疆文字尚未确认完成，已保留电脑草稿，请稍后重试");
+                if(now-stopped>=8000)throw new InvalidOperationException("电脑麦克风文字尚未确认完成，已保留电脑草稿，请稍后重试");
                 await (wait?.Invoke(token)??Task.Delay(50,token));
             }
             _message="正在切换 TAB5 内置麦克风…";
@@ -278,7 +293,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
             if(_clock()-_lastSeen>4000){BeginDrain("连接已断开，收音已停止，等待取回识别文字");return;}
             if(_clock()-_started>=60000){BeginDrain("已达到 60 秒，等待识别文字");return;}
             if(_source=="dji"&&!audio.DjiHealthy) {
-                if(!audio.CanSwitchToTab5){Fail("大疆已断开，录音已停止；重新开始可使用 TAB5 内置麦克风");return;}
+                if(!audio.CanSwitchToTab5){Fail(Tab5VoiceAudio.IsDji(_sourceName)?"大疆已断开，录音已停止；请检查连接或重新选择音源":"所选电脑麦克风已断开，录音已停止；请检查连接或重新选择音源");return;}
                 SwitchToTab5();
             }
             // The shortcut must be acknowledged and the virtual output running.

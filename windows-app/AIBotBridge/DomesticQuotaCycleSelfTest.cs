@@ -16,6 +16,26 @@ internal static class DomesticQuotaCycleSelfTest
     internal static void Run()
     {
         static void Check(bool ok,string message) {if(!ok)throw new InvalidOperationException(message);}
+        const string expandedMini="""{"model_remains":[{"model_name":"video","current_weekly_total_percent":0,"current_weekly_used_percent":0},{"model_name":"general","current_interval_total_percent":"200%","current_interval_used_percent":120,"current_weekly_total_percent":150,"current_weekly_used_percent":30,"end_time":1793512800000,"weekly_end_time":"1794103200000","remains_time":1000,"weekly_remains_time":1000}]}""";
+        var expectedShort=DateTimeOffset.FromUnixTimeMilliseconds(1793512800000);
+        var expectedWeek=DateTimeOffset.FromUnixTimeMilliseconds(1794103200000);
+        var expanded=DomesticQuotaService.Parse("minimax",expandedMini);
+        using(var d=JsonDocument.Parse(expandedMini)) {
+            var live=MigratedDomestic.DomesticQuotaAuthForm.FindMiniMaxUsage(d.RootElement);
+            Check(expanded.PrimaryPercent==60&&expanded.WeeklyPercent==20&&live?.FiveHourPct==60&&live?.WeeklyPct==20,"Expanded MiniMax quota normalized in both adapters");
+            Check(expanded.PrimaryResetsAt==expectedShort&&expanded.WeeklyResetsAt==expectedWeek
+                &&live?.FiveHourResetAt==expectedShort&&live?.WeeklyResetAt==expectedWeek,"Absolute milliseconds beat obsolete countdowns in both adapters");
+        }
+        var invalidTime=DomesticQuotaService.Parse("minimax",expandedMini.Replace("1793512800000","1793512800"));
+        Check(invalidTime.PrimaryResetsAt is null&&invalidTime.WeeklyResetsAt==expectedWeek,"Seconds cannot masquerade as absolute milliseconds or fall back to old countdown");
+        Check(DomesticQuotaService.Parse("minimax",expandedMini.Replace("\"current_interval_used_percent\":120","\"current_interval_used_percent\":240")).PrimaryPercent==100,"Expanded allowance saturates at exhausted");
+        foreach(var bad in new[]{expandedMini.Replace("200%","0"),expandedMini.Replace("200%","NaN"),expandedMini.Replace("\"current_interval_used_percent\":120","\"current_interval_used_percent\":-1")}) {
+            foreach(var live in new[]{false,true}) {
+                bool rejected=false;
+                try{if(live){using var d=JsonDocument.Parse(bad);MigratedDomestic.DomesticQuotaAuthForm.FindMiniMaxUsage(d.RootElement);}else DomesticQuotaService.Parse("minimax",bad);}catch(JsonException){rejected=true;}
+                Check(rejected,"Invalid expanded quota must retain cache, not fall back to old fields");
+            }
+        }
         static DomesticProviderQuotaSnapshot Local(string json) {using var doc=JsonDocument.Parse(json);return KimiUsageApi.Parse(doc.RootElement);}
         const string currentKimi="""{"data":{"kind":"ok","quota":{"usages":{"limit5h":{"usedRatio":0.2,"resetAt":"2026-10-10T08:00:00Z"},"limit7d":{"usedRatio":0.4,"resetAt":"2026-10-16T00:00:00Z"},"monthTotal":{"usedRatio":0.6,"resetAt":"2026-11-01T00:00:00Z","startAt":"2026-10-01T00:00:00Z","endAt":"2026-11-01T00:00:00Z"}},"extraUsage":{"balanceCents":999}}}}""";
         var kimi=Local(currentKimi);
@@ -67,6 +87,8 @@ internal static class DomesticQuotaCycleSelfTest
         var adapted=LegacyDisplayCache.ParseDomestic(JsonSerializer.SerializeToElement(service.Snapshot,new JsonSerializerOptions{IncludeFields=true})).Kimi!;
         Check(adapted.PrimaryWindowSeconds==25200&&adapted.PlanPercent is null&&adapted.PlanWindowSeconds is null,"Changing windows clears the previous package metadata");
         using(var bridge=new MigratedDomesticBridge()) {
+            bridge.ApplyCapturedResponse("minimax",expandedMini);
+            Check(bridge.Snapshot.MiniMax?.PrimaryPercent==60&&bridge.Snapshot.MiniMax.WeeklyResetsAt==expectedWeek,"New MiniMax fields survive capture/cache adaptation");
             bridge.ApplyCapturedResponse("alibaba",aliJson);bridge.ApplyCapturedResponse("minimax",miniJson);bridge.ApplyCapturedResponse("xiaomi",xiaomiJson);
             var mapped=Tab5Details.Quotas(new StatusSnapshot(1,"12:00",1791604800,28800,DateTimeOffset.UtcNow,new("idle",0),new("idle",0),DomesticQuotas:bridge.Snapshot));
             Check(mapped[2].PlanWindowSeconds==28*86400&&mapped[4].PrimaryWindowSeconds==18000&&mapped[4].WeeklyWindowSeconds==604800&&mapped[9].PlanWindowSeconds==31*86400,"Capture-to-TAB5 wire preserves domestic durations and reset instants");

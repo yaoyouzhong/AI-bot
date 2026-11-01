@@ -66,7 +66,8 @@ internal sealed class DeviceServiceManager
                 service.SystemMetricsCapture=()=>_runtime.SystemMetrics;
                 service.MusicCapture=()=>_runtime.Music;
                 _tabStop=CancellationTokenSource.CreateLinkedTokenSource(_shutdown);var token=_tabStop.Token;
-                _tabTasks=[Start("tab5-usb",service.RunUsbAsync,token),Start("tab5-ble",service.RunBleAsync,token)];
+                _tabTasks=[Start("tab5-usb",service.RunUsbAsync,token),Start("tab5-ble",service.RunBleAsync,token),
+                    Start("tab5-status",ct=>Tab5StatusPublisher.RunAsync(()=>service.Publish(_runtime.Capture()),ct),token)];
                 }catch(Exception ex){Tab5?.Dispose();Tab5=null;failed=ex;}
             }
             if(tab is not null&&Tab5 is not null)Tab5.WindowTitle=tab.Name;

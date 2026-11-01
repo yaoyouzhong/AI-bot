@@ -4,15 +4,16 @@ Windows 托盘“模型额度”的国产模型授权窗口选择“智谱 GLM�
 
 GLM 沿用 DeepSeek 的数字字号、CNY 基线对齐、底部 USED 栏，标题使用蓝紫色。主数字为**可用余额**（CNY），底部为接口提供的累计消费金额，不是今天消费或 Coding Plan 额度。失败保留最近成功值，后台每轮轮询包含 GLM；429 退避 5 分钟。
 
-金额与官方财务页面一致，向零截断为两位小数（例如 99.9993936 显示 99.99，而非四舍五入为 100.00）。缓存保存用于显示的金额。
+金额按所捕获接口对应的官方页面规则显示：旧接口向零截断为两位小数，新财务总览接口按两位小数四舍五入。缓存保存用于显示的金额。新版总览未提供累计消费时，USED 显示未知，不从余额推算或沿用过期消费金额。
 
 ## 数据依据和边界
 
 - 官方财务总览：<https://bigmodel.cn/finance-center/finance/overview>
 - 2026-09-09 核对官方前端 `app.64d2f69c.js` 和 `financialoverview.03c02d17.js`：GET `/api/biz/account/query-customer-account-report`，响应 `code=200`，`data.availableBalance` 是可用余额，`data.totalSpendAmount` 是累计消费金额，单位元。`balance` 与 `availableBalance` 不混用，不除以 100。
-- 仅接受 HTTPS `bigmodel.cn` 上该精确路径的浏览器 XHR/Fetch 响应。不是厂商承诺稳定的公开 API，页面变化时需要重新核对；缺失/无效字段不覆盖缓存。
+- 2026-11-01 重新核对官方公开前端 [`app.bc4dc10b.js`](https://static.bigmodel.cn/wd-paas-front/js/app.bc4dc10b.js) 和 [`financialoverview.469b8d6e.js`](https://static.bigmodel.cn/wd-paas-front/js/financialoverview.469b8d6e.js)：当前财务页改用 GET `/api/biz/account/finance-overview`，取 `data.availableTotalBalance`（元），展示规则为 `Big.toFixed(2, 1)`。`accountList` 的现金、赠金、信用余额以及 `frozenTotalBalance` 不能代替已经扣除冻结金额的可用总余额。新版不提供累计消费。
+- Windows 同时接受 HTTPS `bigmodel.cn` 默认端口上上述两个精确路径的浏览器 XHR/Fetch 响应，按捕获路径选择字段，不能用另一接口的字段兜底。不是厂商承诺稳定的公开 API，页面变化时需要重新核对；缺失/无效字段不覆盖缓存。
 - 使用既有隔离 WebView2 登录配置。不会要求粘贴 API Key，不记录请求头、响应正文或令牌；缓存和串口仅包含可显示金额、币种、更新时间和陈旧标记。
-- macOS 仅增加可选 `zhipu` 数据契约和设备模式兼容；没有新增 macOS 登录/取数能力，尚未在 Mac 编译验收。
+- macOS 当前也有网页取数实现，但仍使用旧余额接口；本次只修复 Windows，Mac 新接口适配与编译、实机验收待 Mac 端完成，不能以 Windows 结果代替。
 
 ## 验证
 

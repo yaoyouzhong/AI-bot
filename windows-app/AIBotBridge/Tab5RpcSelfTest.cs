@@ -1,4 +1,4 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -101,9 +101,9 @@ internal static class Tab5RpcSelfTest
             int desktopOpens=0,desktopDrafts=0,desktopSubmits=0,desktopClears=0;
             string draftText="中文语音 & ? #\n等待手动发送";
             service.QuickConsole=new(()=>[new(task,"test","test",0)],(_,_)=>{desktopOpens++;return Task.FromResult(true);},
-                (id,text,_)=>{if(id!=task||text!=draftText)throw new Exception("Draft transport changed target or text");desktopDrafts++;return Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"",true));},
-                (id,_)=>{if(id!=task)throw new Exception("Submit transport changed target");desktopSubmits++;return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,true,""));},
-                (id,_)=>{if(id!=task)throw new Exception("Clear transport changed target");desktopClears++;return Task.FromResult(new Tab5CodexComposer.ClearDraftResult(true,true,""));},desktopInteractive:()=>true);
+                (id,text,_)=>{if(id!=task||text!=draftText)throw new Exception("Draft transport changed target or text");desktopDrafts++;return Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"",true,Binding:new("main",text)));},
+                (id,binding,_)=>{if(id!=task||binding.Text!=draftText)throw new Exception("Submit transport changed target");desktopSubmits++;return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,true,""));},
+                (id,_)=>{if(id!=task)throw new Exception("Clear transport changed target");desktopClears++;return Task.FromResult(new Tab5CodexComposer.ClearDraftResult(true,true,""));},desktopInteractive:()=>true,requireVoiceTarget:false);
             string desktopRequest=Guid.NewGuid().ToString();
             foreach(int mtu in new[]{23,247,517}) {
                 using var desktop=await Call(new{kind="desktop",op="open-recent",taskId=task,requestId=desktopRequest,session,issuedAt=Now()},mtu);

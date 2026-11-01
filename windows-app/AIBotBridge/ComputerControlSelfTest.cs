@@ -82,8 +82,10 @@ internal static class ComputerControlSelfTest
         }
         var confirm=UnsavedChanges.Confirm;try {
             int prompts=0;UnsavedChanges.Confirm=_=>{prompts++;return false;};using var form=new ComputerControlForm(store);form.Show();Application.DoEvents();
-            var path=(TextBox)form.Controls.Find("launcher-path-0",true).Single();string original=path.Text;path.Text=directory;form.Close();
-            Check(!form.IsDisposed&&prompts==1,"path-only edits were silently discarded");path.Text=original;form.Close();Check(form.IsDisposed,"unchanged form cannot close");
+            var path=(TextBox)form.Controls.Find("launcher-path-0",true).Single();string original=path.Text;path.Text=directory;((Button)form.CancelButton!).PerformClick();
+            Check(!form.IsDisposed&&prompts==1,"path-only edits were silently discarded");
+            UnsavedChanges.Confirm=_=>true;((Button)form.CancelButton!).PerformClick();Check(form.IsDisposed,"confirmed cancel cannot close");
+            using var clean=new ComputerControlForm(store);clean.Show();Application.DoEvents();((Button)clean.CancelButton!).PerformClick();Check(clean.IsDisposed,"unchanged cancel cannot close");
         }finally{UnsavedChanges.Confirm=confirm;}
         File.WriteAllText(Path.Combine(directory,"result.txt"),"COMPUTER_CONTROL_SELF_TEST_OK\nFake OS only: volume/mute/lock/launch/media; encrypted RPC authentication; idempotency/conflicts; unsupported capability; launcher persistence; unsaved-path protection; UI font/geometry simulations 100/150/200% (not OS monitor DPI changes).\n");
         Console.WriteLine("COMPUTER_CONTROL_SELF_TEST_OK");

@@ -1443,6 +1443,10 @@ Mac 可利用本次原生按键前已取得的短期内存回执基线，在 60 
 
 新增明确拒绝错误 `desktop_draft_present`、`desktop_attachments_present`、`desktop_photo_append_unsupported`，及恢复冲突 `pending_delivery_changed`；`desktop_foreground_unconfirmed` 用于任务页的定位未确认。固件将未知 409 显示为请求未接受、草稿保留，不暗示发送成功。
 
+Windows 2026-11-01 扩展：上述人工确认同时允许设备绑定、`dispatching / native_pending`、无 `expectedTurn` 的原生 `send`。仍须原请求指纹与当前纯文字草稿完全匹配；用户确认后登记 `completed / 202 / device_user_confirmed_delivered`，不编造执行轮次，不再次发送。已有固件沿用 `canConfirmDelivered` 显示确认弹窗，无新字段。显式空草稿写入可将同设备同任务的未知请求原子登记为 `abandoned / delivery_unknown / device_user_discarded_draft`，保留未知历史；迟到结果不得清除新草稿。这项后端能力不代表当前固件已支持未知状态长按清空，设备入口仍待实现和验收。Mac 的普通 `send` 人工确认能力不由此变更声明。
+
+Windows extension (2026-11-01): explicit confirmation also accepts a device-bound native `send` in `dispatching / native_pending`, without an expected turn, provided the original fingerprint and current text-only draft match. It records `completed / 202 / device_user_confirmed_delivered` without inventing an execution turn or sending again. Existing firmware uses the same capability flag. An explicit empty draft write can atomically abandon matching uncertain requests from that device while retaining their unknown delivery history; late results cannot clear a newer draft. This backend support does not establish a firmware long-press discard entry point or extend Mac behavior.
+
 English: A receipt query never resends. Optional canConfirmDelivered gates the new explicit receipt-confirm mutation, using existing task/request/text/turn/images fields and authenticated write transport. Confirmation requires the original device-bound uncertain text-only steer record and unchanged draft fingerprint, atomically acknowledges only that receipt, and clears only its matching draft. Replays cannot clear newer drafts. Transport/query errors retain the lock. Mac reuses a short-lived pre-submit receipt baseline for read-only reconciliation within 60 seconds; the baseline is never persisted. Windows retains message-ID reconciliation and restricts manual recovery to new device-bound records. Neither path submits another message. New rejection codes distinguish desktop drafts, attachments, unsupported photo follow-up and changed pending records.
 
 
@@ -1456,3 +1460,7 @@ Firmware .300 appends optional `;asset,1,copyFailures,reclaimedBytes,copyRecover
 .301 将可选后缀扩展为 `;asset,2,copyFailures,reclaimedBytes,copyRecoveries,receiveAllocFailures,crcFailures,decodeFailures,received`。前三项语义保持；后四项为接收 packed／RGB565 分配失败、完整资源 CRC 不符、JPEG／RLE 解码失败及完整资源接收成功次数，均从启动累计。解码失败包含 JPEG 工作区或引擎失败，不能仅凭此项断言是图像格式错误。缺失及 v1 仍兼容，两端保留数值后缀，不改变资源 ACK、认证或传输语义。
 
 Firmware .301 extends the optional suffix to `;asset,2,copyFailures,reclaimedBytes,copyRecoveries,receiveAllocFailures,crcFailures,decodeFailures,received`. The first three counts retain their meaning; the additional boot-lifetime counts identify packed/RGB565 allocation failure, full-resource CRC failure, JPEG/RLE decode failure and successful receipt. Decode failures include JPEG workspace/engine failure and do not establish malformed input. Missing/v1 suffixes remain compatible; both hosts retain these numeric diagnostics without changing ACK, authentication or transport semantics.
+
+### 直达明确未发送的场景提示
+
+Windows 本地候选在 `submit-draft` 的原绑定目标为 `question:` 时，把未尝试动作的 `staged_target_or_text_changed` / `composer_changed` 映射为 `question_target_or_text_changed`；普通输入目标映射为 `conversation_target_or_text_changed`。只改变已有 `error` 字符串值，不新增协议字段或版本。`taskId`、`submitted=false`、`attempted=false` 的验证仍必须同时通过，否则不得显示明确未发送。新版 TAB5 分别显示题目/回答与会话/输入内容提示；旧 Windows/Mac 的无分类错误使用中性“当前输入内容”提示；旧固件面对新错误继续显示通用未就绪提示。Mac 无须增加该分类即可兼容，但 Mac 场景分类与实机验证不据此宣称完成。

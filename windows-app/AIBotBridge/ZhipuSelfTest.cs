@@ -23,6 +23,30 @@ internal static class ZhipuSelfTest
             if(!rejected)throw new InvalidOperationException("GLM invalid response accepted.");
         }
         const string endpoint="https://bigmodel.cn/api/biz/account/query-customer-account-report";
+        const string overview="https://bigmodel.cn/api/biz/account/finance-overview";
+        if(!ZhipuBalance.IsEndpoint(overview)||!ZhipuBalance.IsEndpoint(overview+"?t=1"))throw new InvalidOperationException("Current official endpoint rejected.");
+        foreach(var (amount,expected) in new[]{(0d,0d),(-1.255,-1.26),(99.9993936,100d),(123456.785,123456.79)}) {
+            using var doc=JsonDocument.Parse(JsonSerializer.Serialize(new{code=200,data=new{
+                availableTotalBalance=amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                availableBalance=999, balance=999, frozenTotalBalance=50, totalSpendAmount=99,
+                accountList=new[]{new{type=1,balance=999}}}}));
+            var current=ZhipuBalance.Parse(doc.RootElement,financeOverview:true);
+            if(current.Balance!=expected||current.UsedCost!=null||current.Currency!="CNY"
+                ||ZhipuBalance.Normalize(current)?.Balance!=expected)
+                throw new InvalidOperationException("Current GLM overview amount/rounding/unknown spend failed.");
+        }
+        foreach(var bad in new[]{"{}","{\"code\":401,\"data\":{\"availableTotalBalance\":9}}",
+            "{\"code\":200,\"data\":{\"availableBalance\":99,\"balance\":99}}",
+            "{\"code\":200,\"data\":{\"availableTotalBalance\":null,\"availableBalance\":99}}",
+            "{\"code\":200,\"data\":{\"availableTotalBalance\":\"NaN\"}}",
+            "{\"code\":200,\"data\":{\"availableTotalBalance\":true}}",
+            "{\"code\":200,\"data\":{\"availableTotalBalance\":1e100}}"}) {
+            bool rejected=false;try{using var doc=JsonDocument.Parse(bad);ZhipuBalance.Parse(doc.RootElement,true);}catch(JsonException){rejected=true;}
+            if(!rejected)throw new InvalidOperationException("Invalid current GLM overview accepted.");
+        }
+        foreach(var url in new[]{overview.Replace("https:","http:"),overview.Replace("bigmodel.cn","bigmodel.cn.evil.test"),
+            overview.Replace("bigmodel.cn","bigmodel.cn:444"),overview+"/other",overview.Replace("finance-overview","query-org-owner-account-report")})
+            if(ZhipuBalance.IsEndpoint(url))throw new InvalidOperationException("Untrusted current endpoint accepted.");
         if(!ZhipuBalance.IsEndpoint(endpoint)||!ZhipuBalance.IsEndpoint(endpoint+"?t=1"))throw new InvalidOperationException("Official endpoint rejected.");
         foreach(var url in new[]{endpoint.Replace("https:","http:"),endpoint.Replace("bigmodel.cn","bigmodel.cn.evil.test"),
             endpoint.Replace("bigmodel.cn","evil.test/bigmodel.cn"),endpoint.Replace("customer","org-owner"),"https://bigmodel.cn/api/monitor/usage/quota/limit"})

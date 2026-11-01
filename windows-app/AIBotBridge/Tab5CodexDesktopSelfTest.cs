@@ -138,6 +138,8 @@ internal static class Tab5CodexDesktopSelfTest
                 if((await restarted.ReceiptAsync(task,request,stop.Token)).Status!=202||starts!=4)throw new Exception("Recover lost ack from desktop message ID without resending");
                 if((await restarted.SubmitAsync(task,"测试发送",stop.Token,request)).Status!=202||starts!=4)throw new Exception("Replayed request cannot dispatch twice");
                 if((await restarted.SubmitAsync(task,"changed",stop.Token,request)).Status!=409||starts!=4)throw new Exception("Idempotency ID cannot change meaning");
+                if((await restarted.SubmitAsync(task,"测试发送",stop.Token,request,device:"other")).Status!=409||starts!=4)throw new Exception("Replay cannot change device");
+                if((await restarted.ReceiptAsync(task,request,stop.Token,"other")).Status!=409||starts!=4)throw new Exception("Receipt cannot change device");
                 completed=false;
                 if((await restarted.SubmitAsync(task,"追加要求",stop.Token,Guid.NewGuid().ToString(),"steer",turn)).Status!=202||steers!=1)throw new Exception("Append to running turn");
                 if((await restarted.SubmitAsync(task,"",stop.Token,Guid.NewGuid().ToString(),"interrupt",Guid.NewGuid().ToString())).Status!=409||interrupts!=0)throw new Exception("Cannot stop a different turn");
@@ -159,6 +161,35 @@ internal static class Tab5CodexDesktopSelfTest
                 if((await restarted.SubmitAsync(task,"测试发送",stop.Token,imageRequest,images:[],device:"paired")).Status!=409)throw new Exception("Removing image changes idempotency payload");
                 if(new Tab5CodexJournal(path).Images(task).Length!=0||!File.ReadAllBytes(expectedImage).SequenceEqual(bytes))throw new Exception("Acknowledgement clears draft but keeps actual conversation image");
                 expectedImage=null;
+                int nativeCalls=0,startCount=starts,steerCount=steers;bool unknownNative=false;
+                var baseline=new Tab5CodexDeliveryReceipt(task,owner,"fixture",Tab5CodexDeliveryReceipt.Digest("native"),turn,1,[],[],new([],[]),new([],[]));
+                Tab5CodexDeliveryReceipt? evidence=null;
+                async Task<string> Append(Tab5CodexDesktop.NativeAppendRequest r) {
+                    if(!await r.Current(r.Token))throw new Exception("Native latest-turn revalidation");
+                    nativeCalls++;r.Dispatch();r.Capture(baseline);
+                    if(unknownNative)throw new IOException("unknown");return r.Turn;
+                }
+                var nativeDesktop=new Tab5CodexDesktop(pipe,nativeAppend:Append,nativeReceiptReader:(_,_,_)=>Task.FromResult(evidence));
+                string nativePath=Path.Combine(folder,"native.dat");
+                using var native=new Tab5CodexTasks(nativeDesktop,()=>[new(task,"test","test",0)],new(nativePath));
+                completed=true;
+                if((await native.SubmitAsync(task,"native",stop.Token,Guid.NewGuid().ToString(),"steer",turn,device:"device")).Status!=202||nativeCalls!=1)
+                    throw new Exception("Idle append uses native action");
+                completed=false;
+                if((await native.SubmitAsync(task,"native",stop.Token,Guid.NewGuid().ToString(),"steer",Guid.NewGuid().ToString(),device:"device")).Status!=409||nativeCalls!=1)
+                    throw new Exception("Stale turn must not reach native action");
+                unknownNative=true;string nativeRequest=Guid.NewGuid().ToString();
+                if((await native.SubmitAsync(task,"native",stop.Token,nativeRequest,"steer",turn,device:"device")).Status!=504||nativeCalls!=2)
+                    throw new Exception("Native unknown must preserve pending request");
+                if((await native.SubmitAsync(task,"native",stop.Token,nativeRequest,"steer",turn,device:"device")).Status!=504||nativeCalls!=2)
+                    throw new Exception("Native replay must be read only");
+                using(var afterRestart=new Tab5CodexTasks(new Tab5CodexDesktop(pipe,nativeAppend:Append),()=>[new(task,"test","test",0)],new(nativePath)))
+                    if((await afterRestart.ReceiptAsync(task,nativeRequest,stop.Token,"device")).Status!=504||nativeCalls!=2)
+                        throw new Exception("Restart cannot recreate native baseline or fall back to IPC");
+                evidence=baseline with {Server=new(["new-queue"],[new(["new-queue"])])};
+                if((await native.ReceiptAsync(task,nativeRequest,stop.Token,"device")).Status!=202||nativeCalls!=2||starts!=startCount||steers!=steerCount)
+                    throw new Exception("Saved queue confirms delivery without any second submit API");
+                Console.WriteLine("TAB5_NATIVE_ROUTE_OK idle/active/latest-turn/unknown/replay/restart/queue/no-IPC-fallback (synthetic UI adapter)");
             }finally{if(Directory.Exists(folder))Directory.Delete(folder,true);}
         }finally{stop.Cancel();await listener;await Task.WhenAll(clients);}
         Console.WriteLine("TAB5 desktop IPC: routing, read-during-send, immediate acceptance, completion notification, busy/version/lost-reply checks passed");

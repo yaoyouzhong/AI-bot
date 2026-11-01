@@ -29,11 +29,29 @@ internal static class Tab5CodexCatalog
         if(length<title.Length&&char.IsHighSurrogate(title[length-1]))length--;
         return task with {Title=title[..length]};
     }
-    private static IReadOnlyList<Tab5CodexTask> ReadCatalog(bool confirmation)
+    internal static string CatalogPath(string home) {
+        string current=Path.Combine(home,"sqlite","codex.db");
+        try{File.GetAttributes(current);return current;}
+        catch(Exception ex) when(ex is FileNotFoundException or DirectoryNotFoundException){return Path.Combine(home,"sqlite","codex-dev.db");}
+        catch(Exception ex) when(ex is IOException or UnauthorizedAccessException){return current;}
+    }
+    private static readonly object ActivityGate=new();
+    private static readonly Dictionary<string,long> ExplicitActivity=[];
+    internal static void Touch(string task) {
+        if(!Guid.TryParse(task,out _))return;
+        lock(ActivityGate) {
+            long now=DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            foreach(var old in ExplicitActivity.Where(p=>now-p.Value>86400).ToArray())ExplicitActivity.Remove(old.Key);
+            if(ExplicitActivity.Count>=256&&!ExplicitActivity.ContainsKey(task))ExplicitActivity.Remove(ExplicitActivity.MinBy(p=>p.Value).Key);
+            ExplicitActivity[task]=now;
+        }
+    }
+    internal static IReadOnlyList<Tab5CodexTask> ReadCatalog(bool confirmation,string? catalogPath=null,
+        IReadOnlyList<Tab5SavedProject>? savedProjects=null,IReadOnlyDictionary<string,Activity>? activity=null)
     {
-        var projects=SavedProjects();
+        var projects=savedProjects??SavedProjects();
         if(projects.Count==0&&!confirmation)return [];
-        var path = Path.Combine(HomePath, "sqlite", "codex-dev.db");
+        var path = catalogPath??CatalogPath(HomePath);
         if (!File.Exists(path)) return [];
         nint db = 0, statement = 0;
         var tasks = new List<Tab5CodexTask>();
@@ -43,7 +61,7 @@ internal static class Tab5CodexCatalog
             sqlite3_busy_timeout(db, 100);
             // Confirmation must also see duplicate titles outside the device's
             // project and recent-task limits; it never serializes this full list.
-            if (sqlite3_prepare_v2(db, confirmation?Sql.Replace(" LIMIT 512",""):Sql, -1, out statement, 0) != 0) return [];
+            if (sqlite3_prepare_v2(db, confirmation?Sql.Replace(" LIMIT 512","").Replace("host_id='local' AND ",""):Sql, -1, out statement, 0) != 0) return [];
             int step;
             while ((step=sqlite3_step(statement)) == 100)
             {
@@ -58,8 +76,10 @@ internal static class Tab5CodexCatalog
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) { return []; }
         finally { if (statement != 0) sqlite3_finalize(statement); if (db != 0) sqlite3_close(db); }
-        var reconciled=ReconcileActivity(tasks,LocalActivity());
-        return confirmation?reconciled:SelectRecent(reconciled);
+        if(confirmation)return tasks; // Identity checks include archived and non-local duplicates.
+        var reconciled=ReconcileActivity(tasks,activity??LocalActivity());
+        if(activity is null)lock(ActivityGate)reconciled=reconciled.Select(t=>ExplicitActivity.TryGetValue(t.Id,out var at)?t with {UpdatedAt=Math.Max(t.UpdatedAt,at)}:t).ToArray();
+        return SelectRecent(reconciled);
     }
     internal sealed record Activity(long UpdatedAt,bool Archived);
     internal static IReadOnlyList<Tab5CodexTask> ReconcileActivity(IReadOnlyList<Tab5CodexTask> tasks,IReadOnlyDictionary<string,Activity> activity)=>
@@ -153,7 +173,7 @@ internal static class Tab5CodexCatalog
     private static string Column(nint statement, int index)
     {
         int length = sqlite3_column_bytes(statement, index);
-        return length is > 0 and <= 1024 ? Marshal.PtrToStringUTF8(sqlite3_column_text(statement, index), length) ?? "" : "";
+        return length is > 0 and <= 65536 ? Marshal.PtrToStringUTF8(sqlite3_column_text(statement, index), length) ?? "" : "";
     }
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int sqlite3_open_v2([MarshalAs(UnmanagedType.LPUTF8Str)] string path, out nint db, int flags, nint vfs);
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int sqlite3_busy_timeout(nint db, int ms);
@@ -213,6 +233,21 @@ internal sealed class Tab5CodexTasks : IDisposable
     private object? _draftView,_control;
     private readonly SemaphoreSlim _submitGate=new(1,1);
     private readonly CancellationTokenSource _lifetime=new();
+    private int _preparingReceiptTransport;
+
+    internal void PrepareReceiptTransport() {
+        if(_desktop is null||AppPaths.IsPublicSelfTest||_lifetime.IsCancellationRequested
+            ||Interlocked.CompareExchange(ref _preparingReceiptTransport,1,0)!=0)return;
+        var lifetime=_lifetime.Token;
+        _=Task.Run(async ()=> {
+            try {
+                using var deadline=CancellationTokenSource.CreateLinkedTokenSource(lifetime);
+                deadline.CancelAfter(2000);
+                await Tab5CodexDeliveryReceipt.PrepareTransportAsync(deadline.Token);
+            } catch(OperationCanceledException) { }
+            finally {Interlocked.Exchange(ref _preparingReceiptTransport,0);}
+        });
+    }
 
     internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal(),liveActivity:SessionActivityReader.LiveActivity) { }
     internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null,Tab5LiveActivity? liveActivity=null)
@@ -430,7 +465,7 @@ internal sealed class Tab5CodexTasks : IDisposable
     }
 
     internal async Task<(int Status, object Body)> SubmitAsync(string taskId, string message, CancellationToken token,
-        string? requestId=null,string operation="send",string expectedTurn="",string[]? images=null,string device="")
+        string? requestId=null,string operation="send",string expectedTurn="",string[]? images=null,string device="",Func<bool>? authorized=null)
     {
         images??=[];
         if (!Guid.TryParse(taskId, out _) || message.Length>2000 || Encoding.UTF8.GetByteCount(message) > 2000 ||
@@ -440,7 +475,7 @@ internal sealed class Tab5CodexTasks : IDisposable
             return (400, new { error = "invalid_request" });
         if (!_catalog().Any(t => t.Id == taskId))
             return (404, new { error = "task_not_in_recent_catalog" });
-        if(_desktop is not null)return await SubmitDesktopAsync(taskId,message,token,requestId??Guid.NewGuid().ToString(),operation,expectedTurn,images,device);
+        if(_desktop is not null)return await SubmitDesktopAsync(taskId,message,token,requestId??Guid.NewGuid().ToString(),operation,expectedTurn,images,device,authorized);
         if(images.Length>0)return(503,new{error="desktop_images_unavailable"});
         await _gate.WaitAsync(token);
         bool dispatched=false;
@@ -513,16 +548,17 @@ internal sealed class Tab5CodexTasks : IDisposable
         }
     }
 
-    private async Task<(int Status,object Body)> SubmitDesktopAsync(string taskId,string message,CancellationToken token,string requestId,string operation,string expectedTurn,string[] images,string device) {
+    private async Task<(int Status,object Body)> SubmitDesktopAsync(string taskId,string message,CancellationToken token,string requestId,string operation,string expectedTurn,string[] images,string device,Func<bool>? authorized=null) {
         if(!await _submitGate.WaitAsync(0,token))return(409,new {error="task_busy_or_state_unknown"});
         bool dispatched=false;long began=Stopwatch.GetTimestamp();
         SetSubmitDiagnostic("stage=desktop_connect");
         requestId=Guid.Parse(requestId).ToString();
         var record=new Tab5SendRecord(requestId,taskId,Tab5CodexJournal.Fingerprint(taskId,message,operation,expectedTurn,images),operation,expectedTurn,
-            "prepared","",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),Device:device);
+            "prepared","",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),Device:device,
+            ResolutionSource:_desktop!.UsesNativeAppend(operation,images)?"native_pending":"");
         try {
             if(_journal?.Find(requestId) is { } existing) {
-                if(existing.Hash!=record.Hash||existing.TaskId!=taskId)return(409,new {error="request_id_conflict"});
+                if(existing.Hash!=record.Hash||existing.TaskId!=taskId||existing.Device!=device)return(409,new {error="request_id_conflict"});
                 return await RecoverReceiptAsync(existing,token);
             }
             var imagePaths=_images.Resolve(device,taskId,images,true);
@@ -531,8 +567,10 @@ internal sealed class Tab5CodexTasks : IDisposable
                 // point is reconciled by message ID, never automatically resent.
                 _journal?.Save(record with {State="dispatching"},message,images);
                 dispatched=true;SetSubmitDiagnostic("stage=desktop_start");
-            },token,requestId,operation,expectedTurn,imagePaths);
+            },token,requestId,operation,expectedTurn,imagePaths,authorized);
             _journal?.Save(record with {State="accepted",TurnId=turnId,Status=202});
+            _desktop.ForgetNativeReceipt(requestId);
+            Tab5CodexCatalog.Touch(taskId);
             lock(_receiptLock) {
                 _activeTurns[taskId]=turnId;_readyReplies.TryRemove(taskId,out _);_responses.TryRemove(taskId,out _);
                 _terminalStates.Remove(taskId);_responseTurns.Remove(taskId);
@@ -544,7 +582,7 @@ internal sealed class Tab5CodexTasks : IDisposable
             return(202,new {status="submitted",taskId,turnId,requestId});
         }catch(ArgumentException) {return(400,new{error="invalid_images"});}
         catch(Tab5CodexDesktop.Rejected ex) {
-            int code=ex.Code is "task_busy_or_state_unknown" or "turn_changed" or "task_waiting_for_input"?409:503;
+            int code=ex.Code=="unauthorized"?403:ex.Code is "task_busy_or_state_unknown" or "turn_changed" or "task_waiting_for_input" or "desktop_draft_present" or "desktop_attachments_present" or "composer_changed"?409:503;
             try{_journal?.Save(record with {State="rejected",Status=code,Error=ex.Code});}catch(IOException) { }
             SetSubmitDiagnostic($"stage=desktop_rejected status={code} reason={ex.Code}");
             _receipts[taskId]=code==409?"会话状态已变化，请查看动态":"发送失败，文字已保留";
@@ -575,7 +613,7 @@ internal sealed class Tab5CodexTasks : IDisposable
         if(!_catalog().Any(t=>t.Id==taskId))return(404,new{error="task_not_in_recent_catalog"});
         try {
             if(_journal is null)throw new IOException();
-            if(text is not null){_images.Resolve(device,taskId,images??[],false);_journal.SaveDraft(taskId,text,images);}
+            if(text is not null){_images.Resolve(device,taskId,images??[],false);_journal.SaveDraft(taskId,text,images,device);}
             else {
                 var pending=_journal.Pending(taskId);
                 Volatile.Write(ref _draftView,new{taskId,requestId,text=_journal.Draft(taskId),images=_journal.Images(taskId),pendingRequest=pending?.Id??"",operation=pending?.Operation??"",expectedTurn=pending?.ExpectedTurn??""});
@@ -590,9 +628,11 @@ internal sealed class Tab5CodexTasks : IDisposable
         try {
             var record=_journal?.Find(Guid.Parse(requestId).ToString());
             if(record is null)return(404,new{error="receipt_not_found"});
-            if(record.TaskId!=taskId)return(409,new{error="request_id_conflict"});
+            if(record.TaskId!=taskId||record.Device!=device)return(409,new{error="request_id_conflict"});
             var result=await RecoverReceiptAsync(record,token);
-            return result.Status==504?(504,new{error="delivery_unknown",canConfirmDelivered=_journal!.CanConfirm(record,device)}):result;
+            bool canConfirm=result.Status==504&&_journal!.CanConfirm(record,device);
+            Tab5LocalDiagnostics.Write($"CODEX_RECEIPT phase=capability status={result.Status} canConfirm={canConfirm} operation={record.Operation}");
+            return result.Status==504?(504,new{error="delivery_unknown",canConfirmDelivered=canConfirm}):result;
         }catch(Exception ex) when(ex is IOException or TimeoutException or OperationCanceledException or JsonException or InvalidOperationException)
         {return(504,new{error="delivery_unknown"});}
     }
@@ -608,11 +648,22 @@ internal sealed class Tab5CodexTasks : IDisposable
         }
     }
     private async Task<(int Status,object Body)> RecoverReceiptAsync(Tab5SendRecord record,CancellationToken token) {
+        if(record.State=="abandoned")return(504,new{error="delivery_unknown"});
         if(record.State=="rejected")return(record.Status,new{error=record.Error});
         if(record.State is "accepted" or "completed")return(202,new{status="submitted",taskId=record.TaskId,turnId=record.TurnId,requestId=record.Id});
-        string? turn=record.Operation=="interrupt"?null:await _desktop!.FindAcceptedAsync(record.TaskId,record.Id,token);
-        if(!Guid.TryParse(turn,out _))return(504,new{error="delivery_unknown"});
+        string? turn=null;long began=Environment.TickCount64;
+        if(record.ResolutionSource=="native_pending") {
+            string text=_journal!.Draft(record.TaskId);var images=_journal.Images(record.TaskId);
+            if(images.Length==0&&record.Hash==Tab5CodexJournal.Fingerprint(record.TaskId,text,record.Operation,record.ExpectedTurn,images))
+                turn=await _desktop!.RecoverNativeAsync(record,text,token);
+        }else if(record.Operation!="interrupt")turn=await _desktop!.FindAcceptedAsync(record.TaskId,record.Id,token);
+        if(!Guid.TryParse(turn,out _)) {
+            Tab5LocalDiagnostics.Write($"CODEX_RECEIPT phase=recovery result=unknown ms={Environment.TickCount64-began}");
+            return(504,new{error="delivery_unknown"});
+        }
         _journal!.Save(record with {State="accepted",TurnId=turn!,Status=202});
+        _desktop!.ForgetNativeReceipt(record.Id);
+        Tab5LocalDiagnostics.Write($"CODEX_RECEIPT phase=recovery result=accepted ms={Environment.TickCount64-began}");
         lock(_receiptLock){_activeTurns[record.TaskId]=turn!;_receipts[record.TaskId]="已确认送达";}
         _=WatchDesktopAsync(record.TaskId,turn!,_lifetime.Token);
         return(202,new{status="submitted",taskId=record.TaskId,turnId=turn,requestId=record.Id});
@@ -642,9 +693,7 @@ internal sealed class Tab5CodexTasks : IDisposable
     internal string SubmitDiagnostic=>_submitDiagnostic;
     private void SetSubmitDiagnostic(string metadata) {
         _submitDiagnostic=metadata;
-        if(Environment.GetEnvironmentVariable("AIBOT_TAB5_DIAG_LOG") is { } path)
-            try{File.AppendAllText(path,$"{DateTimeOffset.Now:O} CODEX_SEND {metadata}{Environment.NewLine}");}
-            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException) { }
+        Tab5LocalDiagnostics.Write("CODEX_SEND "+metadata);
     }
 
     private static bool TryChild(JsonElement value,string name,out JsonElement child) {

@@ -7,31 +7,36 @@ namespace AIBotBridge;
 internal static class ZhipuBalance
 {
     internal const string AuthorizationUrl = "https://bigmodel.cn/finance-center/finance/overview";
+    internal const string OverviewPath = "/api/biz/account/finance-overview";
     internal static bool IsEndpoint(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri)
         && uri.Scheme == Uri.UriSchemeHttps && uri.IsDefaultPort
         && uri.Host.Equals("bigmodel.cn", StringComparison.OrdinalIgnoreCase)
-        && uri.AbsolutePath == "/api/biz/account/query-customer-account-report";
+        && (uri.AbsolutePath == "/api/biz/account/query-customer-account-report"
+            || uri.AbsolutePath == OverviewPath);
 
-    internal static DomesticProviderQuotaSnapshot Parse(JsonElement root)
+    internal static DomesticProviderQuotaSnapshot Parse(JsonElement root, bool financeOverview = false)
     {
         if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("code", out var code)
             || code.ValueKind != JsonValueKind.Number || !code.TryGetInt32(out var status) || status != 200
             || !root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object)
             throw new JsonException("GLM balance response was not successful.");
-        // availableBalance is the spendable amount in CNY; balance may include frozen funds.
-        var available = Number(data, "availableBalance")
-            ?? throw new JsonException("GLM availableBalance is missing or invalid.");
-        var used = Number(data, "totalSpendAmount");
-        // The official finance UI truncates to two decimal places, rather than rounding up.
-        // Keep the device/mirror consistent (e.g. 99.9993936 displays as 99.99, not 100.00).
-        return new("zhipu", "API PAYG", null, null, null, null, DisplayMoney(available),
+        // Bind the schema to the captured endpoint. Neither gross balance nor accountList
+        // entries are substitutes for spendable funds after frozen amounts are deducted.
+        var field = financeOverview ? "availableTotalBalance" : "availableBalance";
+        var available = Number(data, field)
+            ?? throw new JsonException($"GLM {field} is missing or invalid.");
+        // The new overview does not provide cumulative spend; never invent it from balances.
+        var used = financeOverview ? null : Number(data, "totalSpendAmount");
+        // Current official UI uses Big.toFixed(2, 1) (half up); legacy UI truncates.
+        return new("zhipu", "API PAYG", null, null, null, null, DisplayMoney(available,
+            financeOverview ? MidpointRounding.AwayFromZero : MidpointRounding.ToZero),
             used is double cost ? DisplayMoney(cost) : null, "CNY", DateTimeOffset.UtcNow, false);
     }
 
-    private static double DisplayMoney(double value)
+    private static double DisplayMoney(double value, MidpointRounding rounding = MidpointRounding.ToZero)
     {
         if (Math.Abs(value) >= (double)decimal.MaxValue) throw new JsonException("GLM amount is out of range.");
-        return (double)decimal.Round((decimal)value, 2, MidpointRounding.ToZero);
+        return (double)decimal.Round((decimal)value, 2, rounding);
     }
 
     internal static DomesticProviderQuotaSnapshot? Normalize(DomesticProviderQuotaSnapshot? value) => value is null ? null

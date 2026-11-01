@@ -5,11 +5,9 @@ using System.Windows.Automation.Text;
 
 namespace AIBotBridge;
 
-// Staging never submits. Enter is a separate explicit device action, guarded
-// by the staged target, current editor focus and one-use controller receipt.
-// Accessibility identifies the main composer, preserves its current draft and
-// verifies append-only staging. No staging path synthesizes Enter.
-internal static class Tab5CodexComposer
+// Staging never submits. The native action is a separate explicit device click,
+// bound to the confirmed target and exact text by a one-use controller receipt.
+internal static partial class Tab5CodexComposer
 {
     private static string _diagnostic="尚无草稿填入请求";
     private static string _submitDiagnostic="尚无快捷发送请求";
@@ -38,8 +36,7 @@ internal static class Tab5CodexComposer
     private static bool Result(string reason,long started,bool success=false) {
         Volatile.Write(ref _diagnostic,$"{DateTime.Now:HH:mm:ss} {reason}; elapsed={Environment.TickCount64-started}ms");return success;
     }
-    internal sealed record SubmitResult(bool Attempted,bool Submitted,string Error);
-    internal sealed record EnterCalls(Func<bool> Ready,Func<uint> Press,Action Release,Func<CancellationToken,Task<bool>> Confirm);
+    internal sealed record SubmitResult(bool Attempted,bool Submitted,string Error,string TurnId="");
     internal sealed record ClearResult(bool Cleared,int Reads,int Unavailable,string Last);
     internal static async Task<ClearResult> ConfirmClearAsync(Func<bool?> read,Func<CancellationToken,Task> wait,CancellationToken token) {
         long started=Environment.TickCount64;int unavailable=0,reads=0;string last="not_read";
@@ -49,7 +46,7 @@ internal static class Tab5CodexComposer
                 bool? empty=read();last=empty is null?"editor_missing":empty.Value?"empty":"not_empty";
                 if(empty==true)return new(true,reads,unavailable,last);
             }catch(Exception ex) when(IsUnavailable(ex)) {
-                // Enter can replace Chromium's composer accessibility nodes.
+                // Native submission can replace Chromium's accessibility nodes.
                 // Retry only observation with a newly located editor, never input.
                 unavailable++;last=ex.GetType().Name;
             }
@@ -57,58 +54,118 @@ internal static class Tab5CodexComposer
         }
         return new(false,reads,unavailable,last);
     }
-    internal static async Task<SubmitResult> SendEnterAsync(EnterCalls calls,CancellationToken token) {
-        if(!calls.Ready())return new(false,false,"composer_focus_unconfirmed");
+    internal sealed record NativeCalls(Func<bool> Ready,Action Invoke,Func<CancellationToken,Task<bool>> Confirm);
+    internal static async Task<SubmitResult> InvokeOnceAsync(NativeCalls calls,CancellationToken token) {
         token.ThrowIfCancellationRequested();
-        uint pressed;
-        try {
-            pressed=calls.Press();
-            if(pressed==0)return new(false,false,"enter_rejected");
-            if(pressed!=2) {calls.Release();return new(true,false,"enter_partial_check_desktop");}
-        }catch(Exception ex) when(IsUnavailable(ex)) {return new(true,false,"submit_unconfirmed_check_desktop");}
+        if(!calls.Ready())return new(false,false,"composer_changed");
+        // Even a provider exception can occur after the native action took effect.
+        try {calls.Invoke();}
+        catch(Exception ex) when(IsUnavailable(ex)){ /* Observe only; the native action may have been accepted. */ }
         try {return await calls.Confirm(token)?new(true,true,""):new(true,false,"submit_unconfirmed_check_desktop");}
-        catch(Exception ex) when(ex is OperationCanceledException||IsUnavailable(ex)) {return new(true,false,"submit_unconfirmed_check_desktop");}
+        catch(Exception ex) when(ex is OperationCanceledException||IsUnavailable(ex)){return new(true,false,"submit_unconfirmed_check_desktop");}
     }
-    internal static async Task<SubmitResult> SubmitAsync(string task,CancellationToken token) {
-        long started=Environment.TickCount64;
-        string confirmation="not_started";
+    internal static async Task<SubmitResult> SubmitAsync(string task,DraftSnapshot expected,CancellationToken token,
+        Action<Tab5CodexDeliveryReceipt>? captureBaseline=null,bool requireReceipt=false,Func<string>? guard=null,
+        Tab5CodexDeliveryReceipt? preparedBaseline=null,bool allowDesktopEdits=false) {
+        long started=Environment.TickCount64;string confirmation="not_started",readiness="not_checked",receiptTurn="";
         SubmitResult Finish(SubmitResult result) {
-            Volatile.Write(ref _submitDiagnostic,$"{DateTime.Now:HH:mm:ss} {(result.Submitted?"enter_composer_cleared":result.Error)}; attempted={result.Attempted}; confirm={confirmation}; elapsed={Environment.TickCount64-started}ms");
-            return result;
+            Volatile.Write(ref _submitDiagnostic,$"{DateTime.Now:HH:mm:ss} {(result.Submitted?"native_action_confirmed":result.Error)}; attempted={result.Attempted}; ready={readiness}; confirm={confirmation}; elapsed={Environment.TickCount64-started}ms");
+            return result with {TurnId=receiptTurn};
         }
         string? title=UniqueTitle(task);
-        if(title is null||!await Tab5QuickConsole.OpenAsync(task,token))return Finish(new(false,false,"submit_target_unconfirmed"));
+        if(title is null)return Finish(new(false,false,"target_title_missing_or_duplicate"));
+        // Submission never navigates to a different conversation or adopts its draft.
         try {
-            var editor=FindEditor(title);
-            if(editor is null||IsEmpty(editor))return Finish(new(false,false,"composer_empty_or_unavailable"));
-            nint window=GetForegroundWindow();int[] identity=editor.GetRuntimeId();string current=Read(editor);
-            editor.SetFocus();
-            bool Ready()=>GetForegroundWindow()==window&&WindowMatches(window,title)&&
-                !new[]{0x10,0x11,0x12,0x5B,0x5C,0x0D,0x01,0x02}.Any(key=>(GetAsyncKeyState(key)&0x8000)!=0)&&
-                AutomationElement.FocusedElement is { } focus&&identity.SequenceEqual(focus.GetRuntimeId())&&Read(editor)==current;
-            async Task<bool> Confirm(CancellationToken ct) {
-                var result=await ConfirmClearAsync(()=>{var after=FindEditor(title);return after is null?null:IsEmpty(after);},
-                    cancel=>Task.Delay(80,cancel),ct);
-                confirmation=$"reads={result.Reads},unavailable={result.Unavailable},last={result.Last}";
-                return result.Cleared;
+            var target=FindTarget(title);
+            var submission=SubmissionSnapshot(expected,target is null?null:TargetDraft(target),allowDesktopEdits);
+            if(target is null||submission is null)
+                return Finish(new(false,false,"staged_target_or_text_changed"));
+            // The explicit device click confirms the current desktop text, once.
+            // Freeze it here; the final readiness check must still match exactly.
+            expected=submission;
+            var button=FindAction(target);
+            if(button is null||!button.Current.IsEnabled||!button.TryGetCurrentPattern(InvokePattern.Pattern,out var action))
+                return Finish(new(false,false,"native_submit_unavailable"));
+            nint window=GetForegroundWindow();int[] actionId=button.GetRuntimeId();string actionName=button.Current.Name;
+            var baseline=target.Question?null:preparedBaseline??await Tab5CodexDeliveryReceipt.ReadAsync(task,expected.Text,token);
+            if(requireReceipt&&!target.Question&&!HasBaseline(baseline,task,expected.Text))
+                return Finish(new(false,false,"delivery_baseline_unavailable"));
+            bool Ready() {
+                if(guard is not null&&(readiness=guard()).Length>0)return false;
+                readiness=SubmitReadiness(task,title,expected,window,actionId);
+                if(readiness=="ready"&&baseline is {Local:not null,Server:not null})captureBaseline?.Invoke(baseline);
+                return readiness=="ready";
             }
-            return Finish(await SendEnterAsync(new(Ready,
-                ()=>SendInput(2,[Enter(false),Enter(true)],Marshal.SizeOf<KeyboardInput>()),
-                ()=>SendInput(1,[Enter(true)],Marshal.SizeOf<KeyboardInput>()),Confirm),token));
-        }catch(Exception ex) when(IsUnavailable(ex)) {return Finish(new(false,false,"composer_unavailable"));}
+            async Task<bool> Confirm(CancellationToken ct) {
+                if(requireReceipt&&!target.Question) {
+                    if(baseline is null)return false;
+                    var delivered=await Tab5CodexDeliveryReceipt.WaitForConfirmationAsync(baseline,
+                        cancel=>Tab5CodexDeliveryReceipt.ReadAfterAsync(task,expected.Text,baseline,cancel),ct);
+                    if(delivered is null){confirmation="receipt_unconfirmed";return false;}
+                    confirmation=delivered.Confirm(baseline)!;receiptTurn=delivered.Turn;return true;
+                }
+                var result=await ConfirmClearAsync(()=> {
+                    var after=Capture(task);if(after is null)return null;
+                    if(!target.Question)return after.Identity==expected.Identity&&after.Text.Length==0;
+                    if(after.Identity!=expected.Identity)return true;
+                    var current=FindTarget(title);
+                    return current is {Question:true}&&current.Key==expected.Identity&&after.Text==expected.Text&&
+                        QuestionActionAcknowledged(actionName,QuestionInfo(current.Container)?.Signature.Action??"");
+                },cancel=>Task.Delay(80,cancel),ct);
+                confirmation=$"ui_reads={result.Reads},last={result.Last}";
+                if(result.Cleared&&!requireReceipt)return true;
+                if(baseline is null||target.Question)return false;
+                var after=await Tab5CodexDeliveryReceipt.ReadAsync(task,expected.Text,ct);
+                string? receipt=after?.Confirm(baseline);
+                if(receipt is not null){confirmation=receipt;receiptTurn=after!.Turn;return true;}
+                return false;
+            }
+            return Finish(await InvokeOnceAsync(new(Ready,()=>((InvokePattern)action).Invoke(),Confirm),token));
+        }catch(OperationCanceledException){return Finish(new(false,false,"submit_cancelled_before_action"));}
+        catch(Exception ex) when(IsUnavailable(ex)){return Finish(new(false,false,"composer_unavailable"));}
     }
-    // INPUT includes a 32-byte union on x64. Use the same native layout as
-    // the activation helper; a KEYBDINPUT-only size is rejected by Windows.
-    [StructLayout(LayoutKind.Sequential)]private struct KeyboardInput {public uint Type;public InputUnion Data;}
-    [StructLayout(LayoutKind.Explicit)]private struct InputUnion {
-        [FieldOffset(0)]public KeyInput Keyboard;
-        [FieldOffset(0)]public MouseInput Mouse;
+    internal static bool HasBaseline(Tab5CodexDeliveryReceipt? baseline,string task,string text)=>
+        baseline is {Local:not null,Server:not null}&&baseline.TaskId==task&&baseline.TextHash==Tab5CodexDeliveryReceipt.Digest(text);
+    // Read the same guards used immediately before Invoke, without changing UI
+    // state or logging the user's text, title, identities or queue contents.
+    private static string SubmitReadiness(string task,string title,DraftSnapshot expected,nint window,int[] actionId) {
+        if(GetForegroundWindow()!=window)return "foreground_changed";
+        if(UniqueTitle(task)!=title)return "target_title_changed";
+        var current=FindTarget(title);
+        if(current is null||TargetDraft(current)!=expected)return "binding_changed:"+EditorDiagnostic;
+        foreach(int key in new[]{0x10,0x11,0x12,0x5B,0x5C,0x0D,0x01,0x02})
+            if((GetAsyncKeyState(key)&0x8000)!=0)return "input_down_"+key.ToString("X2");
+        if(current.Key!=expected.Identity)return "target_changed";
+        var action=FindAction(current);
+        if(action is null)return "action_unavailable";
+        if(!action.Current.IsEnabled)return "action_disabled";
+        if(!action.GetRuntimeId().SequenceEqual(actionId))return "action_replaced";
+        if(GetForegroundWindow()!=window)return "foreground_changed_final";
+        if(!WindowMatches(window,title))return "document_changed";
+        return Read(current.Editor)==expected.Text?"ready":"text_changed";
     }
-    [StructLayout(LayoutKind.Sequential)]private struct KeyInput {public ushort Key,Scan;public uint Flags,Time;public nuint Extra;}
-    [StructLayout(LayoutKind.Sequential)]private struct MouseInput {public int X,Y;public uint Data,Flags,Time;public nuint Extra;}
-    private static KeyboardInput Enter(bool up)=>new(){Type=1,Data=new(){Keyboard=new(){Key=0x0D,Flags=up?2u:0u}}};
+    internal static async Task<object> InspectSubmitReadinessAsync(string task,CancellationToken token) {
+        string? title=UniqueTitle(task);
+        if(title is null)return new{readiness="title_unavailable"};
+        try {
+            var target=FindTarget(title);var expected=Capture(task);
+            if(target is null||expected is null)return new{readiness="target_unavailable",diagnostic=EditorDiagnostic};
+            var action=FindAction(target);
+            if(action is null)return new{readiness="action_unavailable"};
+            nint window=GetForegroundWindow();int[] actionId=action.GetRuntimeId();
+            bool textPattern=target.Editor.TryGetCurrentPattern(TextPattern.Pattern,out var pattern);
+            bool focused=target.Editor.Current.HasKeyboardFocus;bool? caretAtEnd=null;
+            if(textPattern) {
+                var text=(TextPattern)pattern;var end=text.DocumentRange;var selection=text.GetSelection();
+                caretAtEnd=selection.Length==1&&selection[0].CompareEndpoints(TextPatternRangeEndpoint.Start,end,TextPatternRangeEndpoint.End)==0&&
+                    selection[0].CompareEndpoints(TextPatternRangeEndpoint.End,end,TextPatternRangeEndpoint.End)==0;
+            }
+            var baseline=target.Question?null:await Tab5CodexDeliveryReceipt.ReadAsync(task,expected.Text,token);
+            return new{readiness=SubmitReadiness(task,title,expected,window,actionId),textPattern,focused,caretAtEnd,
+                baselineAvailable=baseline is not null,actionInvokable=action.TryGetCurrentPattern(InvokePattern.Pattern,out _)};
+        }catch(Exception ex) when(IsUnavailable(ex)){return new{readiness="unavailable",error=ex.GetType().Name};}
+    }
     [DllImport("user32.dll")]private static extern short GetAsyncKeyState(int key);
-    [DllImport("user32.dll",SetLastError=true)]private static extern uint SendInput(uint count,KeyboardInput[] inputs,int size);
     internal static bool HasClass(string classes,string name)=>classes.Split(' ',StringSplitOptions.RemoveEmptyEntries).Contains(name,StringComparer.Ordinal);
     internal static string? UniqueTitle(string task)=>UniqueTitle(task,Tab5CodexCatalog.ConfirmationCatalog());
     internal static string? UniqueTitle(string task,IReadOnlyList<Tab5CodexTask> catalog) {
@@ -126,7 +183,10 @@ internal static class Tab5CodexComposer
     }
     internal static string DraftUri(string task,string text)=>Tab5CodexDesktop.ThreadUri(task)+"?prompt="+Uri.EscapeDataString(text);
     internal sealed record DraftSnapshot(string Identity,string Text);
-    internal sealed record StageResult(bool Attempted,bool Staged,string Error,bool Appended=false,bool? CaretAtEnd=null);
+    internal static DraftSnapshot? SubmissionSnapshot(DraftSnapshot staged,DraftSnapshot? current,bool allowDesktopEdits)=>
+        current is not null&&current.Identity==staged.Identity&&!string.IsNullOrWhiteSpace(current.Text)&&
+        (allowDesktopEdits||current==staged)?current:null;
+    internal sealed record StageResult(bool Attempted,bool Staged,string Error,bool Appended=false,bool? CaretAtEnd=null,DraftSnapshot? Binding=null);
     internal sealed record ClearDraftResult(bool Attempted,bool Cleared,string Error);
     internal sealed record ClearDraftCalls(Func<DraftSnapshot?> Read,Func<DraftSnapshot,bool> Write,
         Func<CancellationToken,Task> Wait);
@@ -139,7 +199,7 @@ internal static class Tab5CodexComposer
         try {if(!calls.Write(before))return new(false,false,"composer_changed");}
         catch(Exception ex) when(IsUnavailable(ex)){return new(true,false,"clear_write_unconfirmed");}
         try {
-            var result=await ConfirmClearAsync(()=>{var after=calls.Read();return after is null?null:after.Text.Length==0;},calls.Wait,token);
+            var result=await ConfirmClearAsync(()=>{var after=calls.Read();return after is null?null:after.Identity==before.Identity&&after.Text.Length==0;},calls.Wait,token);
             return new(true,result.Cleared,result.Cleared?"":"clear_readback_unconfirmed");
         }catch(OperationCanceledException){return new(true,false,"clear_readback_unconfirmed");}
     }
@@ -153,12 +213,12 @@ internal static class Tab5CodexComposer
         DraftSnapshot? ReadDraft() {
             if(!ForegroundObserver.CodexVisible()||!WindowMatches(GetForegroundWindow(),title))return null;
             var editor=FindEditor(title);
-            return editor is null?null:new(string.Join(',',editor.GetRuntimeId()),IsEmpty(editor)?"":Read(editor));
+            return editor is null?null:Capture(task);
         }
         bool WriteDraft(DraftSnapshot before) {
             if(ReadDraft()!=before||new[]{0x10,0x11,0x12,0x5B,0x5C,0x0D,0x01,0x02}.Any(key=>(GetAsyncKeyState(key)&0x8000)!=0))return false;
             var editor=FindEditor(title);
-            if(editor is null||string.Join(',',editor.GetRuntimeId())!=before.Identity||
+            if(editor is null||Capture(task)!=before||
                !editor.TryGetCurrentPattern(ValuePattern.Pattern,out var pattern)||((ValuePattern)pattern).Current.IsReadOnly)return false;
             token.ThrowIfCancellationRequested();
             if(ReadDraft()!=before)return false;
@@ -168,26 +228,31 @@ internal static class Tab5CodexComposer
     }
     internal sealed record StageCalls(Func<DraftSnapshot?> Read,Func<DraftSnapshot,string,bool> Write,
         Func<CancellationToken,Task> Wait,Func<DraftSnapshot,bool>? MoveCaretToEnd=null);
-    internal static string AppendText(string existing,string text) {
-        if(existing.Length==0||text.Length==0)return existing+text;
-        int end=existing.Length;
-        while(end>0&&char.IsWhiteSpace(existing[end-1]))end--;
-        // Preserve explicit paragraph breaks and trailing spaces. A pause in
-        // dictation is not itself a request for a new paragraph.
-        if(end==0||existing.AsSpan(end).IndexOfAny('\r','\n')>=0||text[0] is '\r' or '\n')return existing+text;
-        int punctuation=end-1;
-        while(punctuation>0&&"\"'”’」』）》】)]}".Contains(existing[punctuation]))punctuation--;
-        if("。！？；：，、.!?;:,…—–".Contains(existing[punctuation]))return existing+text;
-        return existing.Insert(end,"。")+text;
+    internal sealed record CaretCalls(Func<bool> Ready,Func<bool> AtEnd,Func<bool> Focus,Action SelectEnd);
+    internal static bool PositionCaretAtEnd(CaretCalls calls) {
+        if(!calls.Ready())return false;
+        // SetValue can already leave the selection at the end. Avoid a focus
+        // mutation and its accessibility round trips when observation proves it.
+        if(calls.AtEnd())return calls.Ready()&&calls.AtEnd();
+        if(!calls.Focus()||!calls.Ready())return false;
+        if(calls.AtEnd())return calls.Ready()&&calls.AtEnd();
+        calls.SelectEnd();
+        return calls.Ready()&&calls.AtEnd();
     }
-    internal static async Task<StageResult> AppendAsync(StageCalls calls,string text,CancellationToken token) {
+    internal static string AppendText(string existing,string text) {
+        if(existing.Length==0||text.Length==0||char.IsWhiteSpace(existing[^1])||char.IsWhiteSpace(text[0]))return existing+text;
+        // Keep both takes verbatim. A pause does not imply a period or paragraph.
+        return existing+" "+text;
+    }
+    internal static async Task<StageResult> AppendAsync(StageCalls calls,string text,CancellationToken token,bool requireEmpty=false,DraftSnapshot? initial=null) {
         DraftSnapshot? previous=null;
         for(int attempt=0;attempt<35;attempt++) {
             token.ThrowIfCancellationRequested();
             DraftSnapshot? current;
-            try {current=calls.Read();}
+            try {current=attempt==0&&initial is not null?initial:calls.Read();}
             catch(Exception ex) when(IsUnavailable(ex)){current=null;}
             if(current is not null&&current==previous) {
+                if(requireEmpty&&current.Text.Length>0)return new(false,false,"desktop_draft_present");
                 string combined=AppendText(current.Text,text);
                 if(System.Text.Encoding.UTF8.GetByteCount(combined)>32000)return new(false,false,"composer_too_long");
                 // Write must recheck this exact snapshot immediately before the
@@ -203,7 +268,7 @@ internal static class Tab5CodexComposer
                 for(int readback=0;readback<40;readback++) {
                     try {
                         var after=calls.Read();
-                        if(after is not null&&after.Text.TrimEnd('\r','\n')==combined.TrimEnd('\r','\n')) {
+                        if(after is not null&&after.Identity==current.Identity&&after.Text==combined) {
                             // The write is already confirmed. A selection failure
                             // must not make callers retry or append the take twice.
                             bool? caret=null;
@@ -212,7 +277,7 @@ internal static class Tab5CodexComposer
                                 try {if(!token.IsCancellationRequested)caret=calls.MoveCaretToEnd(after);}
                                 catch(Exception ex) when(IsUnavailable(ex)||ex is NotSupportedException){ }
                             }
-                            return new(true,true,"",current.Text.Length>0,caret);
+                            return new(true,true,"",current.Text.Length>0,caret,after);
                         }
                     }catch(Exception ex) when(IsUnavailable(ex)){ }
                     // Once attempted, never write again, even if acknowledgement
@@ -228,92 +293,130 @@ internal static class Tab5CodexComposer
     }
     internal static async Task<bool> StageAsync(string task,string text,CancellationToken token)=>
         (await StageWithResultAsync(task,text,token)).Staged;
-    internal static async Task<StageResult> StageWithResultAsync(string task,string text,CancellationToken token) {
-        long started=Environment.TickCount64;
+    internal static Task<StageResult> StageWithResultAsync(string task,string text,CancellationToken token)=>StageBoundAsync(task,text,null,token);
+    internal static async Task<StageResult> StageBoundAsync(string task,string text,string? expectedTarget,CancellationToken token,
+        bool requireEmpty=false,Func<string>? guard=null,Action? dispatch=null,bool positionCaret=true) {
+        long started=Environment.TickCount64;string writeReadiness="not_checked";
         string? title=UniqueTitle(task);
         // The accessibility document exposes the conversation title, not its ID.
         // Ambiguous titles cannot establish that navigation has finished.
         StageResult Finish(string reason,StageResult? result=null){
             result??=new(false,false,reason);Volatile.Write(ref _stageError,result.Staged?"":reason);
-            Result(result.CaretAtEnd is null?reason:reason+"; caretEnd="+result.CaretAtEnd,started,result.Staged);return result;
+            Tab5VoiceTiming.Log("desktop-draft result="+reason+" writeReady="+writeReadiness+" attempted="+result.Attempted,started);
+            Result((result.CaretAtEnd is null?reason:reason+"; caretEnd="+result.CaretAtEnd)+"; writeReady="+writeReadiness+"; attempted="+result.Attempted,started,result.Staged);return result;
         }
-        if(title is null)return Finish("target_title_unconfirmed");
-        if(!await Tab5QuickConsole.OpenAsync(task,token))return Finish("target_navigation_unconfirmed");
+        if(title is null)return Finish("target_title_missing_or_duplicate");
+        if(expectedTarget is null&&!await Tab5QuickConsole.OpenAsync(task,token))return Finish("target_navigation_unconfirmed");
+        var initial=expectedTarget is null?null:Capture(task);
+        if(expectedTarget is not null&&initial?.Identity!=expectedTarget)return Finish("voice_target_changed_preview_retained");
         try {
-            DraftSnapshot Snapshot(AutomationElement editor)=>new(string.Join(',',editor.GetRuntimeId()),IsEmpty(editor)?"":Read(editor));
-            DraftSnapshot? ReadDraft(){var editor=FindEditor(title);return editor is null?null:Snapshot(editor);}
+            DraftSnapshot? Snapshot(AutomationElement editor) {
+                var current=FindTarget(title);
+                if(current is null||!current.Editor.GetRuntimeId().SequenceEqual(editor.GetRuntimeId())||
+                    expectedTarget is not null&&current.Key!=expectedTarget)return null;
+                return new(current.Key,IsEmpty(editor)?"":Read(editor));
+            }
+            // One fresh target scan per observation. AppendAsync still requires
+            // two equal snapshots, and WriteDraft independently rechecks the
+            // exact editor, target and text immediately before its single write.
+            DraftSnapshot? ReadDraft()=>ReadTargetDraft(title,expectedTarget);
             bool WriteDraft(DraftSnapshot before,string combined) {
-                var editor=FindEditor(title);
-                if(editor is null||Snapshot(editor)!=before||
-                   new[]{0x10,0x11,0x12,0x5B,0x5C,0x0D,0x01,0x02}.Any(key=>(GetAsyncKeyState(key)&0x8000)!=0))return false;
-                if(!editor.TryGetCurrentPattern(ValuePattern.Pattern,out var pattern)||((ValuePattern)pattern).Current.IsReadOnly)return false;
-                // Plain text can be appended without losing its content. Rich
-                // inline objects cannot be round-tripped through ValuePattern.
-                if(editor.FindAll(TreeScope.Descendants,Condition.TrueCondition).Cast<AutomationElement>()
-                    .Any(child=>child.Current.ControlType!=ControlType.Text&&child.Current.ControlType!=ControlType.Group))return false;
+                long phaseStarted=Environment.TickCount64;
+                var target=FindTarget(title);
+                writeReadiness=DraftWriteReadiness(title,expectedTarget,before,target,out var writable);
+                Tab5VoiceTiming.Log("desktop-draft-write-check result="+writeReadiness,phaseStarted);
+                if(writeReadiness!="ready")return false;
+                if(requireEmpty&&before.Text.Length>0)return false;
+                if(guard is not null&&(writeReadiness=guard()).Length>0)return false;
+                if(requireEmpty&&ReadTargetDraft(title,expectedTarget)!=before)return false;
                 token.ThrowIfCancellationRequested();
-                if(!ForegroundObserver.CodexVisible()||!WindowMatches(GetForegroundWindow(),title)||Snapshot(editor)!=before)return false;
-                ((ValuePattern)pattern).SetValue(combined);return true;
+                dispatch?.Invoke();
+                phaseStarted=Environment.TickCount64;
+                writable!.SetValue(combined);
+                Tab5VoiceTiming.Log("desktop-draft-set-value",phaseStarted);return true;
             }
             bool MoveCaretToEnd(DraftSnapshot confirmed) {
-                var editor=FindEditor(title);
-                if(editor is null||Snapshot(editor)!=confirmed||
+                // Reuse this fresh discovery for the initial observation, as in
+                // ReadTargetDraft. Later pre-action checks still rescan live.
+                var target=FindTarget(title);var editor=target?.Editor;
+                if(editor is null||TargetDraft(target!)!=confirmed||
                    !editor.TryGetCurrentPattern(TextPattern.Pattern,out var pattern))return false;
                 nint window=GetForegroundWindow();
                 bool Unchanged()=>!token.IsCancellationRequested&&GetForegroundWindow()==window&&
                     WindowMatches(window,title)&&Snapshot(editor)==confirmed&&
                     !new[]{0x10,0x11,0x12,0x5B,0x5C,0x0D,0x01,0x02}.Any(key=>(GetAsyncKeyState(key)&0x8000)!=0);
-                if(!Unchanged())return false;
-                editor.SetFocus();
-                if(!Unchanged()||AutomationElement.FocusedElement is not { } focus||
-                    !focus.GetRuntimeId().SequenceEqual(editor.GetRuntimeId()))return false;
                 var textPattern=(TextPattern)pattern;
-                var end=textPattern.DocumentRange;
-                end.MoveEndpointByRange(TextPatternRangeEndpoint.Start,end,TextPatternRangeEndpoint.End);
-                if(!Unchanged())return false;
-                // Select an empty range at the document end: no keystrokes,
-                // text replacement, newline insertion or send action.
-                end.Select();
-                var selection=textPattern.GetSelection();
-                return Unchanged()&&selection.Length==1&&
-                    selection[0].CompareEndpoints(TextPatternRangeEndpoint.Start,end,TextPatternRangeEndpoint.End)==0&&
-                    selection[0].CompareEndpoints(TextPatternRangeEndpoint.End,end,TextPatternRangeEndpoint.End)==0;
+                bool AtEnd() {
+                    var end=textPattern.DocumentRange;var selection=textPattern.GetSelection();
+                    return selection.Length==1&&
+                        selection[0].CompareEndpoints(TextPatternRangeEndpoint.Start,end,TextPatternRangeEndpoint.End)==0&&
+                        selection[0].CompareEndpoints(TextPatternRangeEndpoint.End,end,TextPatternRangeEndpoint.End)==0;
+                }
+                bool Focus() {
+                    editor.SetFocus();
+                    return AutomationElement.FocusedElement is { } focus&&focus.GetRuntimeId().SequenceEqual(editor.GetRuntimeId());
+                }
+                void SelectEnd() {
+                    var end=textPattern.DocumentRange;
+                    end.MoveEndpointByRange(TextPatternRangeEndpoint.Start,end,TextPatternRangeEndpoint.End);
+                    // Empty selection only: never keys, text replacement or send.
+                    end.Select();
+                }
+                return PositionCaretAtEnd(new(Unchanged,AtEnd,Focus,SelectEnd));
             }
-            var result=await AppendAsync(new(ReadDraft,WriteDraft,ct=>Task.Delay(80,ct),MoveCaretToEnd),text,token);
+            bool TimedCaret(DraftSnapshot confirmed) {
+                long phaseStarted=Environment.TickCount64;
+                try{return MoveCaretToEnd(confirmed);}
+                finally{Tab5VoiceTiming.Log("desktop-draft-caret",phaseStarted);}
+            }
+            // The immediately preceding binding read is the first observation.
+            // Still wait, reread live, and revalidate before the single write.
+            var result=await AppendAsync(new(ReadDraft,WriteDraft,ct=>Task.Delay(80,ct),positionCaret?TimedCaret:null),text,token,requireEmpty,initial);
+            if(!result.Attempted&&!result.Staged&&guard is not null&&writeReadiness.Length>0&&writeReadiness!="ready")
+                result=result with {Error=writeReadiness};
             return Finish(result.Staged?"draft_append_verified":result.Error,result);
         }catch(Exception ex) when(IsUnavailable(ex)) {return Finish("composer_unavailable");}
     }
+    private static string DraftWriteReadiness(string title,string? expectedTarget,DraftSnapshot before,Target? initial,out ValuePattern? writable) {
+        writable=null;
+        var editor=initial?.Editor;
+        if(editor is null)return "editor_unavailable:"+EditorDiagnostic;
+        DraftSnapshot? Snapshot() {
+            var current=FindTarget(title);
+            if(current is null||!current.Editor.GetRuntimeId().SequenceEqual(editor.GetRuntimeId())||
+                expectedTarget is not null&&current.Key!=expectedTarget)return null;
+            return new(current.Key,IsEmpty(editor)?"":Read(editor));
+        }
+        // The caller just discovered this exact target. Reuse that observation
+        // for the initial check; retain the independent final scan before writing.
+        if(expectedTarget is not null&&initial!.Key!=expectedTarget||TargetDraft(initial!)!=before)return "snapshot_changed_initial:"+EditorDiagnostic;
+        foreach(int key in new[]{0x10,0x11,0x12,0x5B,0x5C,0x0D,0x01,0x02})
+            if((GetAsyncKeyState(key)&0x8000)!=0)return "input_down_"+key.ToString("X2");
+        if(!editor.TryGetCurrentPattern(ValuePattern.Pattern,out var pattern))return "value_pattern_unavailable";
+        if(((ValuePattern)pattern).Current.IsReadOnly)return "editor_read_only";
+        writable=(ValuePattern)pattern;
+        // Do not round-trip rich inline objects through plain ValuePattern text.
+        foreach(AutomationElement child in editor.FindAll(TreeScope.Descendants,Condition.TrueCondition))
+            if(child.Current.ControlType!=ControlType.Text&&child.Current.ControlType!=ControlType.Group)
+                return "inline_object_"+child.Current.ControlType.Id;
+        if(!ForegroundObserver.CodexVisible())return "foreground_not_codex";
+        if(!WindowMatches(GetForegroundWindow(),title))return "document_changed";
+        return Snapshot()==before?"ready":"snapshot_changed_final:"+EditorDiagnostic;
+    }
+    internal static object InspectDraftWriteReadiness(string task) {
+        string? title=UniqueTitle(task);
+        if(title is null)return new{writeReady="title_unavailable"};
+        try {
+            var target=FindTarget(title);
+            if(target is null)return new{writeReady="target_unavailable",diagnostic=EditorDiagnostic};
+            var before=TargetDraft(target);
+            return new{writeReady=DraftWriteReadiness(title,target.Key,before,target,out _),characters=before.Text.Length,
+                lineBreaks=before.Text.Count(c=>c=='\n'),hasFocus=target.Editor.Current.HasKeyboardFocus};
+        }catch(Exception ex) when(IsUnavailable(ex)){return new{writeReady="unavailable",error=ex.GetType().Name};}
+    }
     internal static bool IsComposerBodyClass(string classes)=>classes.Split(' ',StringSplitOptions.RemoveEmptyEntries)
         .Any(name=>name.StartsWith("_ComposerLayoutBody_",StringComparison.Ordinal));
-    private static bool IsMainComposer(AutomationElement editor) {
-        var parent=TreeWalker.RawViewWalker.GetParent(editor);
-        for(int depth=0;depth<24&&parent is not null;depth++) {
-            if(parent.Current.ClassName.Contains("@container/request-card",StringComparison.Ordinal))return false;
-            if(IsComposerBodyClass(parent.Current.ClassName))return true;
-            if(parent.Current.ControlType==ControlType.Document)break;
-            parent=TreeWalker.RawViewWalker.GetParent(parent);
-        }
-        return false;
-    }
-    private static AutomationElement? FindEditor(string title) {
-        if(!ForegroundObserver.CodexVisible()){Volatile.Write(ref _editorDiagnostic,"foreground_not_codex");return null;}
-        var window=AutomationElement.FromHandle(GetForegroundWindow());
-        // Chromium lazily materializes its accessibility subtree. A filtered
-        // Edit query can return no controls until an unfiltered walk warms it.
-        window.FindAll(TreeScope.Children,Condition.TrueCondition);
-        var editors=window.FindAll(TreeScope.Descendants,Condition.TrueCondition)
-            .Cast<AutomationElement>().Where(e=>e.Current.ControlType==ControlType.Edit&&HasClass(e.Current.ClassName,"ProseMirror")&&e.Current.IsEnabled&&!e.Current.IsOffscreen&&IsMainComposer(e)).ToArray();
-        if(editors.Length!=1){Volatile.Write(ref _editorDiagnostic,$"main_editor_count={editors.Length}");return null;}
-        var parent=editors[0];
-        for(int depth=0;depth<16&&parent is not null;depth++) {
-            if(parent.Current.ControlType==ControlType.Document) {
-                bool matched=parent.Current.AutomationId=="RootWebArea"&&parent.Current.Name==title;
-                Volatile.Write(ref _editorDiagnostic,matched?"main_editor_verified":"editor_document_mismatch");return matched?editors[0]:null;
-            }
-            parent=TreeWalker.ControlViewWalker.GetParent(parent);
-        }
-        Volatile.Write(ref _editorDiagnostic,"editor_document_missing");return null;
-    }
+    private static AutomationElement? FindEditor(string title)=>FindTarget(title)?.Editor;
     private static bool IsEmpty(AutomationElement editor) {
         string value=Read(editor);
         if(string.IsNullOrWhiteSpace(value))return true;

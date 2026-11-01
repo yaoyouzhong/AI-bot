@@ -1,6 +1,12 @@
 # Windows 开发交接：Mac TAB5 本轮功能、修复与性能优化
 
-> 最新开发入口已更新为 [Mac R47 / TAB5 .298 Windows 对齐清单](WINDOWS-FOLLOWUP-FROM-MAC-20261031.md)。下文保留 10-29 历史检查点；当前验收状态以新清单为准。
+11-01 新状态：闲置录音缓存刷新已修复、通过自动验证并安装 Windows 候选；明确拒绝的提示已完成 TAB5 源码与离线验证，尚未刷入设备。MiMo / MiniMax 真实账户按用户要求延后，Mac R35 实机仍待完成。详见 [专项记录](WINDOWS-IDLE-SUBMIT-FIX-20261101.md)。
+
+11-01 13:50：录音焦点补救提前、发送只读连接准备与录音重叠已实现并通过隔离回归；真实启动/填入提速待新候选实机验证，详见 [W31 执行记录](WINDOWS-W31-VALIDATION-20261101.md)。防重、绑定、原文与音源恢复保持，Mac R35 实机仍待完成。
+
+11-01 补充：[国产模型接口审计](DOMESTIC-QUOTA-INTERFACE-AUDIT-20261101.md) 记录 GLM Windows 修复、其余厂商“已有无需修改／不适用／待验证”和 Mac 同步待办；不改变下列历史实机结论。
+
+> 最新入口：[Mac R48 / TAB5 .302 对齐清单](WINDOWS-FOLLOWUP-FROM-MAC-20261031.md) 和 [11-01 Windows 执行记录](WINDOWS-W31-VALIDATION-20261101.md)。下文保留 10-29 历史检查点；已对齐至 PR #19 并安装新 Windows 候选，最终 Windows 实机仍待完成。
 
 日期：2026-10-29。给 Windows 开发会话的入口文档；按本文件继续开发，不要把 Mac 验收结果当成 Windows 验收结果。
 
@@ -13,7 +19,9 @@
 - 连接中断恢复**不是已知故障**，只是未专项验证。用户决定日常使用发现异常再修复；不为本次交接新增断链或长期压力验收门槛。DJI 当时未连接，不能写成收音失败。
 - 下面的“缺口”来自 Windows 源码对照；除明确记载外，没有在 Windows 实机复现错误。不能复制 macOS AX/CoreAudio/MMKV 路径到 Windows，应在 UIA、TSF、WASAPI 和现有 IPC 架构内实现相同行为。
 
-## 需要 Windows 继续开发或核实的清单
+## 起始代码差异清单（572a7ee）
+
+下表保留开始开发时的代码证据；本次 Windows 结果见后面的“Windows 执行结果”，不应继续把已补齐项当成当前缺口。
 
 | 编号 | 优先级／类型 | Windows 现状与差异 | 目标与开发入口 |
 | --- | --- | --- | --- |
@@ -94,6 +102,63 @@ Mac 已确认的功能只记作参考基线；R35 排队实机在 10-30 验收�
 
 请读取本文件及仓库 AGENTS.md，先核对当前 Windows 实现，按 W29-01 至 W29-12 的证据、优先级与已有能力逐项补齐。不要重复开发“Windows 已有能力”表中的实现，不要把 Mac 专用平台修复照搬。排队已可靠保存即发送成功；未知结果不重发。保留现有配对、音源、设备展示和所有用户草稿。先实现并运行 Windows 构建、自测，再按简单单步流程安排实际验收；按完成／不适用／待验证记录每项结果。连接中断恢复不是本次已知 Bug，不新增相关专项验收。Mac R35 的实机结论以 2026-10-30 后更新的验收记录为准。
 
+## Windows 执行结果（2026-10-29，候选已安装）
+
+已读取仓库规则，安全 fetch `origin/main` 并确认包含 PR #15，基线为 `572a7ee2bb5eda3ae7413110992f3a0de3aa8a2a`。原本地 `main` 在 `12e7732`，与远端分叉且有用户未提交文件，不能 fast-forward；因此在独立 `codex/windows-w29` 工作树开发，原工作目录、提交与未提交资料保持原状。没有合并、提交、推送、标签、发布或刷机。
+
+以下“已完成”指实现及所列 Windows 本地验证完成，**不表示设备实机验收通过**。用户后续授权的 Windows 候选 `0.6.13-candidate.20261029.w29` 已安装并核对实际窗口版本；本地 main 的相关功能经过代码比对保留，配对／草稿／设置文件及 ESP8266 轮播保持原状。完整检查、测量、安装／回滚证据、工作树保留原因和剩余步骤见 [Windows 验证记录](WINDOWS-W29-VALIDATION-20261029.md)。
+
+| 编号 | 处理状态 | 实现／核对位置（`windows-app/AIBotBridge/`） | Windows 验证与剩余问题 |
+| --- | --- | --- | --- |
+| W29-01 | 已完成；基本多题流程实机通过 | `Tab5CodexComposerTarget.cs` 的题卡容器、问题签名、当前唯一回答框；`Tab5CodexComposer.SubmitAsync` 的 Next/Submit/Send | 支持主框／题卡优先级、内嵌 composer、空题 Skip 状态绑定但不调用 Skip；61 项 W29 自测覆盖题卡动作、歧义拒绝和多题身份。10 月 30 日用户确认第一题录音填入、TAB5 蓝色箭头自动进入第二题；两题答案已收到，末次提交有桥接成功回执，基本流程通过 |
+| W29-02 | 已完成；实机待验证 | `Tab5Service.VoiceAsync`、`Tab5QuickConsole.PrepareVoice/ObserveVoice`、`StageBoundAsync` | 开始录音前绑定设备／会话／当前目标；只接受同一 voiceId 的最终预览，变化拒绝且不导航到新题。自测覆盖换题、缺失绑定、重复片段；真实换题保留预览待验证 |
+| W29-03 | 已完成；实机待验证 | `Tab5CodexComposer.SubmitAsync/InvokeOnceAsync` | 删除 Enter 发送路径；仅调用当前输入区域唯一原生发送／引导／排队／题卡动作一次。异常和取消只读确认、不补发；本地自测通过。不同 Enter 偏好下真实提交待验证 |
+| W29-04 | 已完成；实机待验证 | `Tab5CodexDeliveryReceipt.cs`、`Tab5CodexDesktop.SubmissionSnapshotAsync` | 动作前双队列完整基线＋owner／账户／task／全文摘要，UI 不明确时读 accepted／已保存队列；旧别名迁移、旧同文、附件、失败、缺基线均拒绝。真实本地／服务端队列结构只读可用；真实排队提交尚未执行 |
+| W29-05 | 已完成；实机待验证 | `Tab5QuickConsole.Draft`、`Tab5CodexComposer.StageResult/SubmitAsync`、`Tab5Rpc` | draft 绑定配对设备摘要、会话、输入目标与成功读回的完整原文；一次性消费、同请求回执、换 requestId 拒绝均通过。电脑手改后的旧箭头不能提交新文字，需新一轮录音填入并确认 |
+| W29-06 | 已有无需修改（严格标题回退）；诊断已完成 | `UniqueTitle`、`FindTarget`、`Tab5WindowsFollowupInspection.cs` | 当前 Windows Codex 的 RootWebArea 可核对唯一标题，未观察到可用的精确 thread URL，不臆造 ID 路径。保留重名拒绝，增加题卡结构／扫描限制等诊断；真实重名窗口待验证 |
+| W29-07 | 已完成；实体音源待验证 | `Tab5VoiceAudio.cs`、`Tab5VoiceHost.CreateSettings`、`Tab5DoubaoMicrophone.cs` | 自动／显式 TAB5／内置及 USB 物理端点沿用既有设置持久化；显示真实名称，显式设备失效拒绝替代，DJI 共享检查和租约恢复保留。音源／恢复自测及设置窗口预览通过；10 月 30 日 TAB5 内置及 DJI 录音实测通过，用后电脑独立豆包识别通过；其他物理端点仍待验证 |
+| W29-08 | 已完成；主框追加、原换行／标点和可见末尾光标实机通过 | `AppendText/AppendAsync/MoveCaretToEnd` | 两段原文保留；边界没有空白时仅插入一个空格，不补句号、不新增换行。复用已有末尾光标，精确全文读回、自测通过；主框两段保留及顺序追加实机通过；用户实测确认光标在句尾；多次 caretEnd=False 与可见结果不一致，诊断准确性单独待核查；12:15:38 用户确认原有两行、标点不变，第三段仅以一个空格接在第二行后，主框原换行验证通过；题卡连续补录仍待验证 |
+| W29-09 | 待验证（未新增历史缓存） | `Tab5WindowsFollowupInspection.cs`、现有 `Tab5CodexTasks`；`FindTarget` | 三次真实 IPC 读取中位数 32–36ms；现有 25MB 历史回归通过，未据此推断 USB/BLE 邮箱不存在阻塞。发现并实测 UIA 逐节点属性读取 1813ms，改为一次缓存属性快照后 350ms。慢历史对实体邮箱的影响仍待测量 |
+| W29-10 | 已有无需修改（时序）；实体延时待验证 | `Tab5VoiceSession`、`Tab5VoiceTiming`、`Tab5VoiceHost` | 保留准备、句尾等待、排空、提前结束／取消和现有计时；语音核心、STA UI、真实 NAudio 缓冲夹具通过。修复 review 返回早于恢复窗口的衔接，不改任何等待常数；本次未录音，不给延时改善百分比 |
+| W29-11 | 已完成 | `Tab5QuickConsoleJournal.cs`、`Tab5QuickConsole.HandleAsync` | DPAPI 当前用户加密、设备绑定、24 小时／512 条上限、原子持久回执；动作前写未知、动作后更新结果。模拟进程重建、成功重放、未知不重发及损坏拒绝通过；不持久化草稿正文或原始队列 |
+| W29-12 | 已有无需修改；实机待验证 | `Tab5RemoteOta`、`Tab5OtaCancellation`、`Tab5UpgradeStatusView`、`Tab5ConnectionForm`、`Tab5Protocol`、`Tab5Rpc` | 572a7ee 已包含同版重装与 BLE radio lease。RemoteOta、RPC、Upgrade、WirelessBoot（63 项）通过；没有发送真实升级或刷机，不能写成设备同版安装／精确启动已验收 |
+
+Mac AX、CoreAudio、MMKV、Network.framework→BSD socket 的实现对 Windows **不适用**；本次使用 UIA、WASAPI、既有豆包租约和 Windows TCP/BLE 路径。没有改动配对、设备展示设置、用户草稿或固件协议字段。
+
+Release 构建 0 警告／0 错误，QuickConsole（含 W29 61 项）、RPC、Voice 核心及 STA UI、CodexTasks、RemoteOta、Upgrade、WirelessBoot 均通过。安装前候选另通过隔离桌面的完整 public 自测与 onboarding。必需 `dotnet run --project ... -- --status-once` 在工具启动环境触发已有 `AppProfileGuard`，退出码 2；第二轮从正常 Explorer 桌面运行冻结候选及安装后程序的 `--status-once` 均退出 0，保护始终保留。不同启动环境的结果分别记录，未用旧进程状态替代。`git diff --check` 通过。
+
+后续补充：用户将实机验证安排在 2026-10-30，今晚完成隔离异常检查与发布准备。W29 已增至 93 项自测，另通过冻结候选的 BLE 语音、设备登记、加密展示设置、用户偏好恢复、目录保护和已读同步检查。必需的完整 `dotnet run ... -- --status-once` 从正常 Explorer 桌面退出 0。Windows 0.6.14 安装器／ZIP／源码包已完成，安装器自检、106 个分发文件哈希、解压包完整自测、2,557 个源码文件和三个包摘要均通过；常驻开发候选保持原版本与字节。完整结果见 [验证记录](WINDOWS-W29-VALIDATION-20261029.md) 和[发布准备交接](WINDOWS-0614-RELEASE-PREP-20261029.md)。
+
+Mac R35 排队状态实机仍待完成，Windows 也没有借用 Mac 的实机结论。连接中断恢复仍不是已知 Bug，不新增专项断链验收。明天每次只给用户一个简单步骤，结束录音自动填入，蓝色箭头才是提交。
+
+后续安装更新：用户明确要求立即更新，22:17 已将上述冻结 ZIP 安装到原桥接目录，实际“关于”窗口为 0.6.14；107 个安装文件、106 个回滚文件验证通过，6 个配对／草稿／设置文件及 7,151 个图库文件前后哈希一致，展示配置保留。安装后 `--status-once` 退出 0。此为 ZIP 原目录更新，不是 setup 向导实装验收；明天直接在此版本继续实机。再次 fetch 确认远端 main 仍为 `572a7ee`，未执行提交、推送或合并。
+
+## 2026-10-30 Mac 流程参考补充
+
+W29-09/10：**已完成代码与模拟验证，Windows 新候选实测待验证**。参考 Mac 的最终回复优先级和短等待，新增 `Tab5VoiceTransportPriority`，在识别结束至 USB 最终回复全部分片 ACK 期间暂停后台资源；匹配录音／nonce，最长 30 秒，保留心跳。`Tab5VoiceSession.HandleAsync` 为 USB/BLE recognizing poll 增加最多 350ms 的异步等待，保留既有 1200/800ms 稳定条件；旧录音和取消不能串入新结果。基准为 Windows 单次停止到确认 7451ms、填入 3094ms，不把查询间隔 2757ms 全算成传输阻塞。
+
+W29-08：光标定位初次查找减少一次重复扫描（依据之前单次 UIA 214–229ms 的只读实测），动作前后安全复核保留；实际节省时间待验证。音源和写入新增细分计时，未改麦克风恢复、配对或草稿。Release、VoiceCore、VoiceResourcePriority、BLEVoice、RPC、QuickConsole 全通过。细节及安装结果见 [Windows 验证记录](WINDOWS-W29-VALIDATION-20261029.md)。Mac API 实现不适用；Mac R35 仍待独立实测。
+
+13:11 实测补充（W29-09/10）：新候选主框自动填入已通过；停止到桥接填入确认 4801ms（前一单次样本 7451ms），停止到 review 1654ms（旧 4132ms）。样本不等同稳定提速比例，完整 USB 回复另耗 1532ms，仍待定位。启动 3245ms 未改善，其中播放端点枚举 985ms；已补 `Tab5VoiceAudio.StartCore` 仅在 TAB5／回退时枚举播放设备，物理音源保持原检查和恢复，构建／相关自测通过，补丁实机耗时待验证。
+
+13:15 实测补充（W29-09/10）：**物理麦克风延后播放设备枚举已完成 Windows 实测**。启动 1896ms（前 3245ms），大疆路径确实没有播放枚举，输入准备 687ms（前 1750ms）；自动填入通过、麦克风 restored。停止到桥接填入确认本次 5419ms（前 4801ms），填入处理 2859ms，USB 回复 172ms（前 1532ms）。启动更快有实际证据，整体延时仍有波动，不标为全部性能问题已解决；输入框处理仍待优化测量，蓝色箭头本次未测试。
+
+14:04 填入定位优化补充（W29-08/09）：`Tab5CodexComposerTarget` 每次获取全新 raw subtree，在进程内检查父子关系，保留唯一性、题卡、即时文字和写入前后复核；`PositionCaretAtEnd` 已在句尾时不重复聚焦。新旧同框只读三轮单次观察分别 637/456/453ms 与 117/115/152ms，目标／文字一致，写入前 `ready`；完整录音填入及题卡仍待新版实机验证。W29 自测增至 103 项，Release、status-once、QuickConsole、RPC、VoiceCore 通过，旧运行候选和资料均备份。
+
+## 2026-10-30 Windows 实机进度
+
+Windows 0.6.14 与 TAB5 0.2.296-ui 经 USB 实测：Codex 直达首次录音自动填入、第二段保留第一段并顺序追加，用户均确认正常。蓝色箭头首次提交未通过，桥接记录 `composer_changed; attempted=False`，没有执行发送；用户确认两段草稿完整且未编辑。W29-05/06 发送与排队仍待验证；W29-08 仅主框连续追加通过，原换行／标点及末尾光标未通过完整验收（两次记录 `caretEnd=False`），题卡仍待验证。
+
+已补充只读提交前条件诊断，首次发现前台不是 Codex；用户仅激活标题栏后只读条件全部通过。此结果不反推先前失败的确切原因，也不自动重试已消费的发送凭据。新增诊断源码尚未替换常驻桥接或昨晚发布包；构建及 QuickConsole/RPC/VoiceCore 回归通过。完整证据及剩余项见 [Windows 验证记录](WINDOWS-W29-VALIDATION-20261029.md)。Mac R35 仍独立待验。
+
+12:00:31 补充录音建立新凭据后，主框蓝色箭头真实发送通过：本聊天收到保留原标点的完整三段文字，用户确认设备反馈成功，桥接 `native_action_confirmed`。主框正常发送已验收；运行中引导／排队和题卡发送仍待验，末尾光标仍记录失败。
+
+12:13:03 运行中发送实机通过：助手任务保持运行时收到测试消息，桥接确认原生发送成功，用户确认 TAB5 成功提示。此次没有持久队列回执，尚未执行即排队成功的实机验收仍待完成。
+
+## 10 月 30 日实际耗时反馈
+
+用户确认各个步骤耗时偏长。根据真实窗口只读测量，旧双扫描输入框读取 449/427/445ms，单扫描 229/214/221ms，三次目标和全文一致；仅局部读取中位数约减半。已减少填入观察及提交前检查中的重复扫描，继续保留目标绑定、两次稳定快照、写入前实时复核、单次动作及未知不重发。未缩短豆包等待常数，整体开始录音、停止到显示及发送耗时仍需新候选实测。构建及 W29 93 项、RPC、VoiceCore 通过；新的独立诊断和安装记录见 [验证记录](WINDOWS-W29-VALIDATION-20261029.md)。昨晚冻结的包不含此次优化，不能直接用作最终发布包。
+
 ## English handoff summary
 
 This is a source-based Windows follow-up list for the October 29 Mac/TAB5 work, not Windows hardware acceptance. Priority gaps are question-card targeting and Next/Submit, recording-time target binding, exact staged-text submission checks, native action semantics and read-only accepted/queued delivery receipts. A reliably retained queue entry counts as successful delivery; execution completion is separate. Preserve existing Windows end-caret handling, one-write readback, idempotency, microphone recovery, read-state sync, TCP sockets and BLE window recovery. Review source selection and append semantics; measure mailbox/history and voice-final latency before porting performance changes. The existing same-image reinstall and BLE radio-lease peer changes require Windows checks. R35 queue hardware acceptance is deferred to October 30 at the user's request. Connection interruption is untested, not a known defect, and is left to ordinary use. No firmware flash or formal release is part of this handoff.
@@ -169,3 +234,34 @@ Mac 已补同一资源跨通道共享的三轮上限和轮次间两秒确认等�
 
 - Mac 长会话扫描跳过已识别的历史正文容器，避免历史节点耗尽输入定位预算，仍拒绝含糊目标。正常追加及“电脑已有草稿”具体拦截已真机通过。Windows 检查是否也扫描历史全文，不照搬 Mac AX 类名。
 - R46 单纯限制封面重试后仍有 336×336 JPEG 无法确认；R47 增加同尺寸 RGB565/rle565 有界兼容路径（仅协议可表示的宽度 ≤336，不缩小宽图），并保留纯数值设备/USB诊断。实现可参照 `MacTab5Assets.advanceCoverLocked`；单纯停止循环不能宣称所有封面显示已修复。
+
+Windows execution update: the isolated `codex/windows-w29` candidate based on PR #15 implements question targets, recording-time binding, native submission, exact staged-text checks, read-only delivery/queue receipts, physical microphone selection, verbatim append and encrypted short-lived receipts. Release and the affected local regressions pass, including 93 W29 checks, full public fixtures and onboarding. The original tool-context status-once exits 2 due to redirected storage; frozen and installed candidates, followed by the complete required dotnet run command, pass from the normal Explorer desktop without bypassing the guard. With explicit authorization, `0.6.13-candidate.20261029.w29` is installed and its visible About version verified. Local main features, paired devices, drafts, settings and ESP8266 cycle configuration are retained. Windows-only 0.6.14 release materials are prepared separately; this does not replace the installed candidate or establish hardware acceptance. TAB5 was disconnected at the last observation, and all physical validation is deferred to October 30. Windows device acceptance and Mac R35 queue acceptance remain pending. The original divergent local main and user files are retained. No merge, push, tag, public release or flash occurred.
+
+### TAB5 按压反馈增补
+
+2026-11-01 用户提出清空及其他按钮按下反馈不足，已完成共用样式修复和离线验证，见 `WINDOWS-IDLE-SUBMIT-FIX-20261101.md` 的“TAB5 共用按钮按压反馈”。补丁及来源登记为 `docs/proposals/tab5-button-press-feedback.patch/.json`。尚未刷入，不将其列为真机通过；未复现的清空后恢复现象也不提前关闭。
+
+2026-11-01 后续：用户已从 TAB5 发起同版本重新安装，按钮反馈与发送提示候选精确启动核验通过，6 个保护文件哈希一致。详情及电脑远程启动 `offer_changed` 未解决项见 `WINDOWS-IDLE-SUBMIT-FIX-20261101.md`。实际按钮/提示验收继续，不能仅以安装通过关闭。
+
+安装后增补验收：清空短按反馈/长按清空、返回输入页不恢复旧文字、查看回复和翻页均获用户实机确认。Codex 直达自动填入后在电脑修改末尾文字，再点蓝色箭头，TAB5 明确提示“未发送，请核对题目和文字后重新录音。”；用户确认电脑原文及修改完整保留。以上场景通过，其他暂缓项及首次电脑远程升级 offer_changed 保持未关闭。
+
+电脑校对流程更新：用户指出正常修改应允许提交，Windows 候选现仅在 Codex 直达原绑定输入框/题卡内采用点击时最新文字，发送前仍精确复查，并保留持久化防重；旧“电脑修改拒绝”验收由新流程替代。任务页原草稿/附件保护不变。新增自动回归和构建通过，新流程真机待验，详见 `WINDOWS-IDLE-SUBMIT-FIX-20261101.md`。
+
+电脑校对后提交增补结果：用户确认通过 TAB5 发送正常，聊天实际收到包含“（电脑修改）”的校对正文，正常校对后提交最新文字的真机流程通过。异常分支自动回归与其他暂缓项仍按各自记录，不扩大本次结论。
+
+题卡补验通过：第一题填入后切到第二题再点 TAB5 提交被拒绝，第二题保持空白；第二题重新录音并在电脑校对后，TAB5 提交成功，聊天收到两题完整答案及“（电脑校对）”。场景文案新补丁尚未安装，单独待验；其他暂缓项及电脑远程升级 offer_changed 不关闭。
+
+远程升级增补：已复现并修复 offer/cache 到达顺序造成的假不匹配，Windows 固定帧内固件与命令身份、TAB5 在原截止内等待匹配后才进入保存/commit 流程。自动回归和构建通过，组合候选已准备，实机电脑入口升级仍待验证。详情见 WINDOWS-IDLE-SUBMIT-FIX-20261101.md。
+
+组合候选后续：电脑 scoped OTA 开始请求成功，TAB5 安装并精确启动核验通过，本次不再出现 offer_changed。正常桌面 post 保护文件哈希及展示策略复核通过。新场景提示文案仍待实际看屏确认，完整证据见 WINDOWS-IDLE-SUBMIT-FIX-20261101.md。
+
+普通会话提示实机补验通过：切换会话后由 TAB5 提交被拒绝，用户确认显示会话/输入内容变化的新提示，不再显示题目。题卡分类文案在本次组合固件上的单独看屏复验仍待做，不混同此前题卡功能验收。
+
+题卡新提示补验通过：第一题填入后切第二题再由 TAB5 提交，提示“未发送，题目或回答已变化，请检查后重新录音。”，用户确认第二题仍为空。普通会话与题卡新文案两条看屏路径均通过。本轮未暂缓交互验收完成；此前暂缓项、Mac R35 及最终发布包门禁仍分别保留，不宣称全部发布验收完成。
+
+### 2026-11-01 语音入口补充
+已完成 Windows 豆包安装/运行状态提示、仅桥接线程主动切换并确认输入法、语音设置直接内嵌连接页及移除冗余启用开关。Release、voice-core、quick-console/W29 134 项及当前 DPI 正常/最小窗口离屏预览通过。真实输入法切换和保存交互待验收；详见 WINDOWS-IDLE-SUBMIT-FIX-20261101.md 的补充记录。麦克风自动选择仍为大疆优先、否则 TAB5，指定设备不可用时拒绝替换。Mac R35 仍待 Mac 实机验收。
+
+
+### 2026-11-01 晚：回交 Mac 与最终验收入口
+Windows 本轮主要真机行为和最新界面修改已由用户确认；完整状态及 Mac 待补清单见 [Mac 对齐交接](MAC-FOLLOWUP-FROM-WINDOWS-20261101.md)。长闲置、缺席 DJI/账户与 Mac R35 保持待验证；Windows 通过不关闭 Mac 项。旧阶段记录按时间保留，正式包仍需重新构建。

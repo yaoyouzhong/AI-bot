@@ -27,6 +27,7 @@ internal static class UnsavedChanges
     private static string Capture(Form form) {
         if(form is BirthdaySettingsForm birthdays)return birthdays.EditFingerprint;
         if(form is ComputerControlForm computer)return computer.EditFingerprint;
+        if(form is Tab5TaskPinsForm pins)return pins.EditFingerprint;
         var values=new List<string>();
         void Read(Control parent){foreach(Control c in parent.Controls){
             switch(c){

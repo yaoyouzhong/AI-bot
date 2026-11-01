@@ -4,7 +4,28 @@ namespace AIBotBridge;
 internal static class Tab5QuickConsoleSelfTest
 {
     private static void Check(bool value,string label){if(!value)throw new Exception("Quick console: "+label);}
+    private static async Task CheckInitialObservationAsync() {
+        int reads=0,writes=0,waits=0;string draft="";
+        var initial=new Tab5CodexComposer.DraftSnapshot("target",draft);
+        var calls=new Tab5CodexComposer.StageCalls(
+            ()=>{reads++;return new("target",draft);},
+            (before,value)=>{Check(waits>0&&reads>0&&before.Text==draft,"fresh post-wait observation required");writes++;draft=value;return true;},
+            _=>{waits++;return Task.CompletedTask;});
+        var result=await Tab5CodexComposer.AppendAsync(calls,"test",default,true,initial);
+        Check(result.Staged&&reads==2&&writes==1&&waits==1,"reuse only first observation; live stability/readback preserved");
+        reads=writes=waits=0;draft="";
+        result=await Tab5CodexComposer.AppendAsync(calls with {Wait=_=>{waits++;draft="user edit";return Task.CompletedTask;}},"test",default,true,initial);
+        Check(!result.Attempted&&writes==0&&draft=="user edit","changed desktop draft remains protected");
+        reads=writes=waits=0;
+        result=await Tab5CodexComposer.AppendAsync(calls with {Read=()=>null},"test",default,true,initial);
+        Check(!result.Attempted&&writes==0,"missing or changed bound target never uses initial as authority");
+        using var stop=new CancellationTokenSource();stop.Cancel();
+        try{await Tab5CodexComposer.AppendAsync(calls,"test",stop.Token,true,initial);throw new Exception("cancel ignored");}
+        catch(OperationCanceledException){Check(writes==0,"cancel before reuse cannot write");}
+        Console.WriteLine("TAB5_INITIAL_OBSERVATION_OK guards=4 live_second_read exact_write_guard readback cancel");
+    }
     internal static async Task RunAsync() {
+        await CheckInitialObservationAsync();
         string prefix=new('长',60);
         var longA=Tab5CodexCatalog.WithDisplayTitle(new("long-a",prefix+"甲","project",2));
         var longB=Tab5CodexCatalog.WithDisplayTitle(new("long-b",prefix+"乙","project",1));
@@ -39,22 +60,22 @@ internal static class Tab5QuickConsoleSelfTest
         Check(!Tab5CodexComposer.IsComposerBodyClass("@container/request-card"),"question response is not the main composer");
         foreach(var example in new (string Before,string Take,string Expected)[]{
             ("","第一句","第一句"),("已有草稿","","已有草稿"),
-            ("先检查连接","再看日志","先检查连接。再看日志"),
-            ("先检查连接。","再看日志","先检查连接。再看日志"),
-            ("先检查连接，","再看日志","先检查连接，再看日志"),
-            ("连接正常吗？","再看日志","连接正常吗？再看日志"),
-            ("检查结果：","连接正常","检查结果：连接正常"),
-            ("他说“连接正常。”","继续检查","他说“连接正常。”继续检查"),
-            ("检查“连接”","继续检查","检查“连接”。继续检查"),
-            ("连接正常  ","继续检查","连接正常。  继续检查"),
+            ("先检查连接","再看日志","先检查连接 再看日志"),
+            ("先检查连接。","再看日志","先检查连接。 再看日志"),
+            ("先检查连接，","再看日志","先检查连接， 再看日志"),
+            ("连接正常吗？","再看日志","连接正常吗？ 再看日志"),
+            ("检查结果：","连接正常","检查结果： 连接正常"),
+            ("他说“连接正常。”","继续检查","他说“连接正常。” 继续检查"),
+            ("检查“连接”","继续检查","检查“连接” 继续检查"),
+            ("连接正常  ","继续检查","连接正常  继续检查"),
             ("连接正常！  ","继续检查","连接正常！  继续检查"),
             ("手动分段\r\n  ","第二段","手动分段\r\n  第二段"),
             ("第一段","\n第二段","第一段\n第二段"),
             ("   ","第一句","   第一句"),
-            ("完成😀","继续检查","完成😀。继续检查")
+            ("完成😀","继续检查","完成😀 继续检查")
         })Check(Tab5CodexComposer.AppendText(example.Before,example.Take)==example.Expected,"dictation separator: "+example.Before);
         foreach(char punctuation in "。！？；：，、.!?;:,…—–")
-            Check(Tab5CodexComposer.AppendText("前文"+punctuation,"后文")=="前文"+punctuation+"后文","existing punctuation is not duplicated");
+            Check(Tab5CodexComposer.AppendText("前文"+punctuation,"后文")=="前文"+punctuation+" 后文","existing punctuation is not duplicated");
         string draftValue="原来的草稿\n";int draftWrites=0;bool readable=true,changed=false;
         var appendCalls=new Tab5CodexComposer.StageCalls(
             ()=>readable?new("main",draftValue):null,
@@ -63,7 +84,7 @@ internal static class Tab5QuickConsoleSelfTest
         var append=await Tab5CodexComposer.AppendAsync(appendCalls,"补录中文 & # ?",default);
         Check(append.Staged&&append.Appended&&draftWrites==1&&draftValue=="原来的草稿\n补录中文 & # ?","append preserves old text and stages one new take");
         append=await Tab5CodexComposer.AppendAsync(appendCalls,"第二段补录",default);
-        Check(append.Staged&&draftWrites==2&&draftValue.EndsWith("补录中文 & # ?第二段补录"),"sequential takes continue after existing punctuation without newline");
+        Check(append.Staged&&draftWrites==2&&draftValue.EndsWith("补录中文 & # ? 第二段补录"),"sequential takes continue after existing punctuation without newline");
         changed=true;append=await Tab5CodexComposer.AppendAsync(appendCalls,"不能覆盖",default);
         Check(!append.Attempted&&!append.Staged&&draftWrites==2&&draftValue=="用户刚刚修改的草稿","concurrent editing prevents replacement");
         changed=false;
@@ -78,7 +99,7 @@ internal static class Tab5QuickConsoleSelfTest
             Write=(before,value)=>{draftWrites++;draftValue=value;unavailableReads=2;throw new InvalidOperationException("provider invalidated after mutation");}
         };
         append=await Tab5CodexComposer.AppendAsync(uncertainWrite,"补录已写入",default);
-        Check(append.Attempted&&append.Staged&&append.Appended&&draftWrites==writesBeforeException+1&&draftValue=="已有草稿。补录已写入",
+        Check(append.Attempted&&append.Staged&&append.Appended&&draftWrites==writesBeforeException+1&&draftValue=="已有草稿 补录已写入",
             "write-side provider exception reconciles exact appended text after transient reads without repeating input");
         draftValue="仍是原草稿";writesBeforeException=draftWrites;
         append=await Tab5CodexComposer.AppendAsync(uncertainWrite with {
@@ -100,7 +121,7 @@ internal static class Tab5QuickConsoleSelfTest
             caretMoves++;caretText=snapshot.Text;return true;
         }};
         append=await Tab5CodexComposer.AppendAsync(caretCalls,"继续补充",default);
-        Check(append.Staged&&append.CaretAtEnd==true&&caretMoves==1&&caretText=="已有草稿\n第二行😀。继续补充",
+        Check(append.Staged&&append.CaretAtEnd==true&&caretMoves==1&&caretText=="已有草稿\n第二行😀 继续补充",
             "multiline and emoji append places caret after the complete merged draft once");
         draftValue="";
         append=await Tab5CodexComposer.AppendAsync(caretCalls,"首次输入",default);
@@ -180,7 +201,7 @@ internal static class Tab5QuickConsoleSelfTest
         Check((await controller.HandleAsync(Request(b.Id,Guid.NewGuid().ToString()),default)).Status==409,"foreground failure is not success");
         int stages=0;string stagedText="";
         controller=new(()=>tasks,(_,_)=>throw new Exception("draft must not call open-only delegate"),
-            (id,text,_)=>{Check(id==b.Id,"draft target");stages++;stagedText=text;return Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"",stages>1));});
+            (id,text,_)=>{Check(id==b.Id,"draft target");stages++;stagedText=text;return Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"",stages>1));},requireVoiceTarget:false);
         JsonElement Draft(string text,string requestId,string? task=null)=>JsonSerializer.SerializeToElement(new{op="stage-draft",taskId=task??b.Id,requestId,text});
         request=Guid.NewGuid().ToString();
         result=await controller.HandleAsync(Draft("中文 & # ?\n等待确认",request),default);
@@ -194,21 +215,21 @@ internal static class Tab5QuickConsoleSelfTest
         Check(result.Status==200&&JsonSerializer.SerializeToElement(result.Body).GetProperty("appended").GetBoolean(),"confirmed append is preserved in the desktop reply");
         string uri=Tab5CodexComposer.DraftUri(b.Id,stagedText);
         Check(Uri.UnescapeDataString(uri.Split("?prompt=")[1])==stagedText&&!uri.Contains("\n"),"draft URI preserves literal text");
-        controller=new(()=>tasks,stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(false,false,"composer_not_ready")));
+        controller=new(()=>tasks,stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(false,false,"composer_not_ready")),requireVoiceTarget:false);
         Check((await controller.HandleAsync(Draft("keep",Guid.NewGuid().ToString()),default)).Status==409,"unconfirmed draft is not success");
         int submits=0;
         bool acknowledged=true;
-        controller=new(()=>tasks,stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"")),submit:(target,_)=>{
+        controller=new(()=>tasks,stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"",Binding:new("main","fixture text"))),submit:(target,binding,_)=>{
             Check(target==b.Id,"submit binds the staged conversation");submits++;
-            return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,acknowledged,acknowledged?"":"unknown"));});
+            return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,acknowledged,acknowledged?"":"unknown"));},requireVoiceTarget:false);
         string staged=Guid.NewGuid().ToString(),sendId=Guid.NewGuid().ToString();
         JsonElement Submit(string id,string draft,string? target=null)=>JsonSerializer.SerializeToElement(new{op="submit-draft",taskId=target??b.Id,requestId=id,draftRequestId=draft});
         foreach(bool? empty in new bool?[]{false,null,true}) {
             int reads=0,sends=0;bool openedOk=true;
             var sync=new Tab5QuickConsole(()=>tasks,(_,_)=>Task.FromResult(openedOk),
-                stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"")),
-                submit:(_,_)=>{sends++;return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,true,""));},
-                readDraftEmpty:target=>{Check(target==b.Id,"inspect only the confirmed target");reads++;return empty;},desktopInteractive:()=>true);
+                stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"",Binding:new("main","fixture text"))),
+                submit:(_,_,_)=>{sends++;return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,true,""));},
+                readDraftEmpty:target=>{Check(target==b.Id,"inspect only the confirmed target");reads++;return empty;},desktopInteractive:()=>true,requireVoiceTarget:false);
             string ticket=Guid.NewGuid().ToString(),openId=Guid.NewGuid().ToString();
             await sync.HandleAsync(Draft("retained draft",ticket),default);
             Check(reads==0,"staging does not run open-only observation");
@@ -227,19 +248,40 @@ internal static class Tab5QuickConsoleSelfTest
         }
         Check((await controller.HandleAsync(Submit(sendId,staged),default)).Status==409&&submits==0,"cannot submit without successful staging");
         Check((await controller.HandleAsync(Draft("review",staged),default)).Status==200&&submits==0,"staging alone never submits");
+        string superseded=staged;staged=Guid.NewGuid().ToString();
+        Check((await controller.HandleAsync(Draft("latest recording",staged),default)).Status==200&&submits==0,"new recording stages without submitting");
+        Check((await controller.HandleAsync(Submit(Guid.NewGuid().ToString(),superseded),default)).Status==409&&submits==0,"superseded recording ticket cannot send latest desktop edits");
         Check((await controller.HandleAsync(Submit(Guid.NewGuid().ToString(),staged,a.Id),default)).Status==409&&submits==0,"ticket cannot move to another conversation");
         Check((await controller.HandleAsync(Submit(sendId,staged),default)).Status==200&&submits==1,"explicit third action submits once");
-        Check((await controller.HandleAsync(Submit(sendId,staged),default)).Status==200&&submits==1,"lost submit acknowledgement replay never repeats Enter");
+        Check((await controller.HandleAsync(Submit(sendId,staged),default)).Status==200&&submits==1,"lost submit acknowledgement replay never repeats the native action");
         Check((await controller.HandleAsync(Submit(Guid.NewGuid().ToString(),staged),default)).Status==409&&submits==1,"new request cannot reuse consumed stage ticket");
         acknowledged=false;staged=Guid.NewGuid().ToString();
         await controller.HandleAsync(Draft("uncertain",staged),default);
         Check((await controller.HandleAsync(Submit(Guid.NewGuid().ToString(),staged),default)).Status==409&&submits==2,"unknown outcome is reported as unknown");
         Check((await controller.HandleAsync(Submit(Guid.NewGuid().ToString(),staged),default)).Status==409&&submits==2,"unknown outcome cannot be automatically retried");
+        int rejectedCalls=0;
+        var rejected=new Tab5QuickConsole(()=>tasks,
+            stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"",Binding:new("question:fixture","confirmed answer"))),
+            submit:(_,_,_)=>{rejectedCalls++;return Task.FromResult(new Tab5CodexComposer.SubmitResult(false,false,"staged_target_or_text_changed"));},requireVoiceTarget:false);
+        string rejectionTicket=Guid.NewGuid().ToString(),rejectionRequest=Guid.NewGuid().ToString();
+        await rejected.HandleAsync(Draft("confirmed answer",rejectionTicket),default);
+        var rejection=await rejected.HandleAsync(Submit(rejectionRequest,rejectionTicket),default);
+        var rejectionBody=JsonSerializer.SerializeToElement(rejection.Body);
+        Check(rejection.Status==409&&rejectionBody.GetProperty("taskId").GetString()==b.Id&&
+            rejectionBody.GetProperty("submitted").ValueKind==JsonValueKind.False&&
+            rejectionBody.GetProperty("attempted").ValueKind==JsonValueKind.False&&
+            rejectionBody.GetProperty("error").GetString()=="question_target_or_text_changed",
+            "device receives typed target-bound no-action rejection for edited answer");
+        var replayRejection=await rejected.HandleAsync(Submit(rejectionRequest,rejectionTicket),default);
+        Check(JsonSerializer.SerializeToElement(replayRejection.Body).GetRawText()==rejectionBody.GetRawText()&&rejectedCalls==1,
+            "lost rejection reply repeats exact no-action receipt without another submit");
+        Check((await rejected.HandleAsync(Submit(Guid.NewGuid().ToString(),rejectionTicket),default)).Status==409&&rejectedCalls==1,
+            "accurate rejection still requires fresh explicit confirmation, never reuses ticket");
         int clears=0;submits=0;
         controller=new(()=>tasks,open:(_,_)=>throw new Exception("clear must not navigate"),
-            stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"")),
-            submit:(_,_)=>{submits++;return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,true,""));},
-            clear:(target,_)=>{clears++;return Task.FromResult(new Tab5CodexComposer.ClearDraftResult(target==b.Id,target==b.Id,target==b.Id?"":"clear_target_unconfirmed"));});
+            stage:(_,_,_)=>Task.FromResult(new Tab5CodexComposer.StageResult(true,true,"",Binding:new("main","fixture text"))),
+            submit:(_,_,_)=>{submits++;return Task.FromResult(new Tab5CodexComposer.SubmitResult(true,true,""));},
+            clear:(target,_)=>{clears++;return Task.FromResult(new Tab5CodexComposer.ClearDraftResult(target==b.Id,target==b.Id,target==b.Id?"":"clear_target_unconfirmed"));},requireVoiceTarget:false);
         JsonElement Clear(string id,string target)=>JsonSerializer.SerializeToElement(new{op="clear-draft",taskId=target,requestId=id});
         Check((await controller.HandleAsync(Clear(Guid.NewGuid().ToString(),""),default)).Status==400&&clears==0,"clear requires an explicit target");
         Check((await controller.HandleAsync(Clear(Guid.NewGuid().ToString(),a.Id),default)).Status==409,"wrong desktop target stays unconfirmed");
@@ -249,29 +291,19 @@ internal static class Tab5QuickConsoleSelfTest
         Check(result.Status==200&&JsonSerializer.SerializeToElement(result.Body).GetProperty("cleared").GetBoolean()&&clears==2,"explicit clear is confirmed");
         Check((await controller.HandleAsync(Clear(clearId,b.Id),default)).Status==200&&clears==2,"lost clear acknowledgement does not clear a new draft again");
         Check((await controller.HandleAsync(Submit(Guid.NewGuid().ToString(),staged),default)).Status==409&&submits==0,"clear invalidates the old send ticket");
-        int presses=0,keyUps=0;
-        var enter=new Tab5CodexComposer.EnterCalls(()=>true,()=>{presses++;return 2;},()=>keyUps++,_=>Task.FromResult(true));
-        Check((await Tab5CodexComposer.SendEnterAsync(enter with{Ready=()=>false},default)).Attempted==false&&presses==0,"wrong foreground/editor or held keys reject before input");
-        Check((await Tab5CodexComposer.SendEnterAsync(enter,default)).Submitted&&presses==1,"one complete Enter pair with composer acknowledgement");
-        Check((await Tab5CodexComposer.SendEnterAsync(enter with{Press=()=>1},default)).Attempted&&keyUps==1,"partial Enter releases the key and stays uncertain");
-        Check((await Tab5CodexComposer.SendEnterAsync(enter with{Press=()=>1,Release=()=>throw new InvalidOperationException()},default)).Attempted,"failure releasing partial input remains uncertain");
-        Check(!(await Tab5CodexComposer.SendEnterAsync(enter with{Confirm=_=>Task.FromResult(false)},default)).Submitted,"unchanged composer is not confirmed submission");
-        Check((await Tab5CodexComposer.SendEnterAsync(enter with{Confirm=_=>throw new OperationCanceledException()},default)).Attempted,"cancellation after input cannot permit blind replay");
         int observations=0,waits=0,once=0;
-        var refreshed=await Tab5CodexComposer.SendEnterAsync(enter with {
-            Press=()=>{once++;return 2;},
-            Confirm=async ct=>(await Tab5CodexComposer.ConfirmClearAsync(()=>{
+        var refreshed=await Tab5CodexComposer.InvokeOnceAsync(new(()=>true,()=>once++,async ct=>(await Tab5CodexComposer.ConfirmClearAsync(()=>{
                 observations++;
                 if(observations==1)throw new System.Windows.Automation.ElementNotAvailableException();
                 if(observations==2)throw new System.Runtime.InteropServices.COMException();
                 return observations==3?null:observations>=5;
-            },_=>{waits++;return Task.CompletedTask;},ct)).Cleared
-        },default);
-        Check(refreshed.Submitted&&once==1&&observations==5&&waits==4,"composer replacement and transient UIA failure recover with exactly one Enter");
+            },_=>{waits++;return Task.CompletedTask;},ct)).Cleared),default);
+        Check(refreshed.Submitted&&once==1&&observations==5&&waits==4,"composer replacement and transient UIA failure recover with exactly one native action");
         var uncleared=await Tab5CodexComposer.ConfirmClearAsync(()=>false,_=>Task.CompletedTask,default);
         Check(!uncleared.Cleared&&uncleared.Reads==40,"nonempty draft never turns into confirmed submission");
         var missing=await Tab5CodexComposer.ConfirmClearAsync(()=>throw new System.Windows.Automation.ElementNotAvailableException(),_=>Task.CompletedTask,default);
         Check(!missing.Cleared&&missing.Unavailable==40,"persistent unavailable editor stays uncertain after bounded observation");
-        Console.WriteLine("TAB5_QUICK_CONSOLE_OK latest, selection, foreground, staging, actual_append_hint, explicit_clear_once, clear_invalidates_send, explicit_submit, one_use_ticket, lost_reply_no_repeat, uncertain_no_retry, Enter_focus_and_partial_input");
+        await Tab5WindowsFollowupSelfTest.RunAsync();
+        Console.WriteLine("TAB5_QUICK_CONSOLE_OK latest, selection, foreground, staging, actual_append_hint, explicit_clear_once, clear_invalidates_send, explicit_submit, one_use_ticket, lost_reply_no_repeat, uncertain_no_retry, native_action_and_exact_target");
     }
 }

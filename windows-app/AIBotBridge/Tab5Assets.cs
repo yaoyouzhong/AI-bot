@@ -3,8 +3,14 @@ using System.Buffers.Binary;
 namespace AIBotBridge;
 
 // Device resources stay in memory. Private user artwork is never bundled with firmware.
-internal sealed class Tab5Assets
+internal sealed class Tab5Assets(Func<long>? clock=null)
 {
+    private long Now=>clock?.Invoke()??Environment.TickCount64;
+    private int _coverPasses;
+    private long _coverRetryAt;
+    private bool _coverFallbackAttempted;
+    private readonly HashSet<int> _coverOffsets=[];
+    private bool CoverMaySend=>_coverPasses<3&&Now>=_coverRetryAt;
     internal sealed record Asset(int Slot, string Id, int Width, int Height, int Frames, ushort[] Delays, byte[] Packed,string Encoding="rle565");
     private readonly object _gate=new();
     private volatile bool _jpegSupported;
@@ -32,7 +38,27 @@ internal sealed class Tab5Assets
     internal static bool ValidIds(string? ids)=>ids is not null&&System.Text.RegularExpressions.Regex.IsMatch(ids,"^(?:[0-9a-f]{8}|-),(?:[0-9a-f]{8}|-),(?:[0-9a-f]{8}|-)$");
     internal string?[] Ids {get{lock(_gate)return _assets.Select(a=>a?.Id).ToArray();}}
     internal Asset[] Assets {get{lock(_gate)return _assets.OfType<Asset>().OrderByDescending(a=>a.Slot).ToArray();}}
-    internal bool HasPending {get{lock(_gate){var ids=_reported.Split(',');return _assets.OfType<Asset>().Any(a=>ids[a.Slot]!=a.Id);}}}
+    internal bool HasPending {get{lock(_gate){AdvanceCover();var ids=_reported.Split(',');return _assets.OfType<Asset>().Any(a=>ids[a.Slot]!=a.Id&&(a.Slot!=2||CoverMaySend));}}}
+    internal (int Passes,bool Fallback,bool MaySend) CoverRetryState {get{lock(_gate)return(_coverPasses,_coverFallbackAttempted,CoverMaySend);}}
+    private static bool SameSource(object? a,object? b)=>ReferenceEquals(a,b)||
+        a is byte[] left&&b is byte[] right&&left.AsSpan().SequenceEqual(right)||
+        a is NowPlayingService.JpegCover l&&b is NowPlayingService.JpegCover r&&l.Width==r.Width&&l.Height==r.Height&&l.Bytes.AsSpan().SequenceEqual(r.Bytes);
+    private void AdvanceCover() {
+        if(_coverPasses<3||Now<_coverRetryAt||_coverFallbackAttempted||_assets[2] is not {Encoding:"jpeg"} jpeg||_reported.Split(',')[2]==jpeg.Id)return;
+        _coverFallbackAttempted=true;
+        try {
+            if(jpeg.Width is <1 or >336||jpeg.Height is <1 or >336||jpeg.Packed.Length>524288)return;
+            using var stream=new MemoryStream(jpeg.Packed,false);using var image=Image.FromStream(stream);
+            if(image.Width!=jpeg.Width||image.Height!=jpeg.Height||
+                image.PropertyIdList.Contains(0x112)&&image.GetPropertyItem(0x112)?.Value is {Length:>=2} orientation&&BitConverter.ToUInt16(orientation)!=1)return;
+            using var bitmap=new Bitmap(image);
+            _assets[2]=Create(2,jpeg.Width,jpeg.Height,[1000],PetAssetImporter.EncodeRgb565(bitmap));
+            _coverPasses=0;_coverRetryAt=0;_coverOffsets.Clear();_cycle.Clear();_position=0;
+            _diagnostic=$"{jpeg.Width}x{jpeg.Height}; JPEG 未确认，尝试同尺寸 rle565";
+        }catch(Exception ex) when(ex is ArgumentException or IOException or System.Runtime.InteropServices.ExternalException or OutOfMemoryException) {
+            _diagnostic="JPEG 兼容转换失败，保留当前资源并停止重试";
+        }
+    }
     private static readonly Lazy<PetAnimation> DefaultPet=new(()=> {
         var frames=new List<byte[]>();
         for(int i=0;i<2;i++){using var bitmap=new Bitmap(112,112);using(var graphics=Graphics.FromImage(bitmap)){graphics.Clear(Color.Black);ByteSproutRenderer.Draw(graphics,28,6,true,i*240);}frames.Add(PetAssetImporter.EncodeRgb565(bitmap));}
@@ -45,13 +71,17 @@ internal sealed class Tab5Assets
         for (int slot=0; slot<3; slot++) {
             var pet = slot<2 ? PetAnimationStore.Shared.Selection(slot==0?"claude":"codex") ?? DefaultPet.Value : null;
             object? source = slot<2 ? pet : _jpegSupported&&snapshot.Music?.Tab5CoverJpeg is {} jpeg?jpeg:snapshot.Music?.Tab5CoverRgb565 ?? snapshot.Music?.CoverRgb565;
-            if (ReferenceEquals(source,_sources[slot])) continue;
-            _sources[slot]=source; changed=true;
-            _assets[slot] = pet is not null ? Create(slot,pet.Width,pet.Height,pet.Delays,pet.Frames.SelectMany(f=>f).ToArray())
+            if (slot==2?SameSource(source,_sources[slot]):ReferenceEquals(source,_sources[slot])) continue;
+            var next = pet is not null ? Create(slot,pet.Width,pet.Height,pet.Delays,pet.Frames.SelectMany(f=>f).ToArray())
                 : source is NowPlayingService.JpegCover coverJpeg ? new(slot,BinaryResourceProtocol.Crc32(coverJpeg.Bytes).ToString("x8"),coverJpeg.Width,coverJpeg.Height,1,[1000],coverJpeg.Bytes,"jpeg")
                 : source is byte[] cover && cover.Length==336*336*2 ? Create(slot,336,336,[1000],cover)
                 : source is byte[] legacy && legacy.Length==112*112*2 ? Create(slot,112,112,[1000],legacy) : null;
-            if(slot==2&&_assets[slot] is {} coverAsset){_coverStarted=Environment.TickCount64;_diagnostic=$"CRC={coverAsset.Id}; {coverAsset.Encoding}; bytes={coverAsset.Packed.Length}; 同步中";}
+            if(source is not null&&next is null)continue; // Invalid replacement cannot erase last-good artwork.
+            _sources[slot]=source;_assets[slot]=next;changed=true;
+            if(slot==2) {
+                _coverPasses=0;_coverRetryAt=0;_coverFallbackAttempted=false;_coverOffsets.Clear();
+                if(next is {} coverAsset){_coverStarted=Environment.TickCount64;_diagnostic=$"CRC={coverAsset.Id}; {coverAsset.Encoding}; bytes={coverAsset.Packed.Length}; 同步中";}
+            }
         }
         return NextChunk(changed);
         }
@@ -64,6 +94,7 @@ internal sealed class Tab5Assets
         }
     }
     private object? NextChunk(bool changed) {
+        AdvanceCover();
         string reported=Volatile.Read(ref _reported);
         if(changed || reported!=_lastReported || _position>=_cycle.Count) {
             _lastReported=reported;var received=reported.Split(',');
@@ -75,9 +106,19 @@ internal sealed class Tab5Assets
             Random.Shared.Shuffle(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_cycle));
             _position=0;
         }
-        if(_cycle.Count==0) return null;
-        var (a, start)=_cycle[_position++];
-        return Chunk(a,start);
+        while(_position<_cycle.Count) {
+            var (a,start)=_cycle[_position++];
+            if(_assets[a.Slot]?.Id!=a.Id||reported.Split(',')[a.Slot]==a.Id)continue;
+            if(a.Slot==2) {
+                if(!CoverMaySend||!_coverOffsets.Add(start))continue;
+                if(_coverOffsets.Count==(a.Packed.Length+1023)/1024) {
+                    _coverOffsets.Clear();_coverPasses++;_coverRetryAt=Now+2000;
+                    _diagnostic=$"CRC={a.Id}; {a.Encoding}; passes={_coverPasses}; 等待设备确认";
+                }
+            }
+            return Chunk(a,start);
+        }
+        return null;
     }
     internal static object Chunk(Asset a,int offset) => new {a.Slot,a.Id,a.Width,a.Height,a.Frames,a.Delays,encoding=a.Encoding,total=a.Packed.Length,offset,
         bytes=Convert.ToBase64String(a.Packed,offset,Math.Min(1024,a.Packed.Length-offset))};

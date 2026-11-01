@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
 namespace AIBotBridge;
 
@@ -18,6 +18,7 @@ internal static class DeviceCenterStyleSelfTest
             var tab=DeviceRegistryStore.Create(HardwareKind.Tab5,"M5Stack TAB5","001122334455");var esp=DeviceRegistryStore.Create(HardwareKind.Esp8266,"ESP8266 小屏",null);store.Add(tab);store.Add(esp);
             using var tab5=new Tab5Service();tab5.UsbDevices=()=>[];
             using var voice=new Tab5VoiceHost(new Tab5VoiceSettings());
+            tab5.AttachVoice(voice);
             var weather=new MigratedWeather.WeatherMonitor();
             var display=new Tab5DisplaySettings("12345678",75,35,false,-1,true,15,5,true,[1,1,1,1,1,1,1,0],[0,1,2,3,4,5,6,7]);
             var notifications=new BridgeNotifications();notifications.Evaluate("completion","fixture","任务完成",DateTimeOffset.Now);
@@ -46,9 +47,8 @@ internal static class DeviceCenterStyleSelfTest
                 ("appearance",()=>new DeviceAppearanceForm("robot",_=>{},_=>{},_=>{},_=>{}),null),
                 ("esp-connection",()=>new LegacyDeviceSettingsForm(view:()=>new(true,"在线","USB","0.5.1",Usb:"已连接",Wifi:"待命",Transport:"USB")),null),
                 ("birthday",()=>new BirthdaySettingsForm(preview:true),null),
-                ("task-pins",()=>new Tab5TaskPinsForm([new(Guid.NewGuid().ToString(),"检查任务回复与待处理操作","AI-bot",0)]),null),
+                ("task-pins",()=>new Tab5TaskPinsForm(Enumerable.Range(0,12).Select(i=>new Tab5CodexTask(Guid.NewGuid().ToString(),i%2==0?"继续 Windows 功能对齐开发，检查语音识别、电脑校对后发送及任务排队状态":"检查任务回复与待处理操作",i%2==0?"AI-bot":"M5Stack TAB5",0)).ToArray()),null),
                 ("voice",()=>voice.CreateSettings(preview:true),null),
-                ("voice-advanced",()=>voice.CreateSettings(preview:true),f=>((Button)f.Controls.Find("voice-troubleshoot",true).Single()).PerformClick()),
                 ("model-accounts",()=>new DomesticQuotaAuthForm(null!,initializeBrowser:false),null),
                 ("weather",()=>new MigratedWeather.WeatherSettingsForm(weather),null),
                 ("stocks",()=>new SettingsForm(includeDeviceSettings:false,quotes:[]),null),
@@ -63,7 +63,7 @@ internal static class DeviceCenterStyleSelfTest
                 ("esp-flash",()=>new FirmwareFlashForm(preview:true),null),
                 ("tab5-install",()=>new Tab5InstallForm(tab5,preview:true),null)
             };
-            foreach(int index in Enumerable.Range(0,5)) {int selected=index;pages.Add(("tab5-connection-"+index,()=>new Tab5ConnectionForm(tab5,loadNetworks:false),f=>Descendants(f).OfType<TabControl>().Single().SelectedIndex=selected));}
+            foreach(int index in Enumerable.Range(0,4)) {int selected=index;pages.Add(("tab5-connection-"+index,()=>new Tab5ConnectionForm(tab5,loadNetworks:false),f=>Descendants(f).OfType<TabControl>().Single().SelectedIndex=selected));}
             var pairingStore=new Tab5PairingStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"style-fixtures","remote-pair.dat"));
             var pairing=pairingStore.Pair("001122aabbcc",@"USB\OFFLINE-STYLE");
             using var remoteTab5=new Tab5Service(pairingStore);remoteTab5.UsbDevices=()=>[];
@@ -82,7 +82,7 @@ internal static class DeviceCenterStyleSelfTest
                 },f=>Descendants(f).OfType<TabControl>().Single().SelectedIndex=2));
             }
             foreach(bool detail in new[]{false,true})pages.Add(("tab5-speed-"+(detail?"details":"summary"),()=>new Tab5ConnectionForm(tab5,loadNetworks:false),f=> {
-                Descendants(f).OfType<TabControl>().Single().SelectedIndex=4;
+                Descendants(f).OfType<TabControl>().Single().SelectedIndex=3;
                 string sample="complete;gallery,Wi-Fi,8,2199663,7876,6900,1800,42,0;gallery_rpc,10,5800,120,5,8;gallery_io,2199663,2199663,200,900,80,8,4194304,128";
                 ((TextBox)f.Controls.Find("benchmark-result",true).Single()).Text=detail?Tab5Service.FormatBenchmark(sample):Tab5Service.FormatBenchmarkOverview(sample);
                 if(detail)Descendants(f).OfType<LinkLabel>().Single().Text="收起详细数据";
@@ -106,9 +106,18 @@ internal static class DeviceCenterStyleSelfTest
             }
             foreach(string component in new[]{"bridge","tab5","esp8266"})pages.Add(("release-notes-"+component,()=>new UpdateNotesForm(new Dictionary<string,ComponentUpdate>(),devices,component),null));
             if(only is not null){var selected=only.Split(',').ToHashSet(StringComparer.Ordinal);pages.RemoveAll(p=>!selected.Contains(p.Name));if(pages.Count!=selected.Count)throw new ArgumentException("Unknown page filter");}
+            if(pages.Any(p=>p.Name=="task-pins"))CheckTaskPinEditing();
             var issues=new HashSet<string>();var captures=new List<object>();
             foreach(var page in pages)foreach(float scale in new[]{1f,1.5f,1.75f,2f})foreach(bool minimum in new[]{false,true}) {
-                using var form=page.Create();form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);form.ShowInTaskbar=false;form.Show();page.Prepare?.Invoke(form);
+                long createdAt=Environment.TickCount64;
+                using var form=page.Create();long createdMs=Environment.TickCount64-createdAt;
+                form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);form.ShowInTaskbar=false;form.Show();page.Prepare?.Invoke(form);
+                if(page.Name=="voice") {
+                    Console.WriteLine($"VOICE_SETTINGS_CREATE ms={createdMs}");
+                    var input=form.Controls.Find("voice-inputs",true).Single();
+                    while(!input.Enabled&&Environment.TickCount64-createdAt<15000)await Task.Delay(30);
+                    Check(input.Enabled,"Voice device loading did not complete");
+                }
                 if(page.Name.StartsWith("tab5-upgrade-",StringComparison.Ordinal)) {
                     var status=Descendants(form).OfType<Tab5UpgradeStatusView>().Single();var expected=remoteTab5.UpgradeStatusText;
                     for(int update=0;update<8;update++){status.SetStatus(new("未选择固件","","选择固件后可查看版本和更新内容。","",""));form.PerformLayout();status.SetStatus(expected);form.PerformLayout();}
@@ -164,7 +173,18 @@ internal static class DeviceCenterStyleSelfTest
                         if(transfer.Visible&&progress.Visible)Check(progress.Top-transfer.Bottom<20*scale*form.DeviceDpi/96f,"Transfer progress separated from its caption: "+name);
                     }
                 }
+                if(page.Name=="task-pins") {
+                    var grid=(DataGridView)form.Controls.Find("task-pin-list",true).Single();
+                    Check(grid.Columns.GetColumnsWidth(DataGridViewElementStates.Visible)<=grid.ClientSize.Width,"Task columns require horizontal scroll");
+                    var title=grid.Rows[0].Cells[2];var padding=title.InheritedStyle.Padding;
+                    if(TextRenderer.MeasureText((string)title.Value!,grid.Font).Width>title.Size.Width-padding.Horizontal)
+                        Check(grid.Rows[0].Height>grid.Font.Height+padding.Vertical,"Long task title did not wrap: "+name);
+                }
                 if(scale==1)Check(Math.Abs(form.Font.SizeInPoints-9.5)<.01,"Body typography differs: "+page.Name);
+                foreach(var cancel in Descendants(form).OfType<Button>().Where(b=>b.Text=="取消"&&b.Visible)) {
+                    var save=cancel.Parent!.Controls.OfType<Button>().FirstOrDefault(b=>b.Text is "保存" or "保存设置");
+                    if(save is not null)Check(save.Right<=cancel.Left,"Save/Cancel order differs: "+page.Name);
+                }
                 foreach(Control control in Descendants(form).Where(c=>c.Visible)) {
                     if(control is Button button&&button.GetType()==typeof(Button)) {
                         Check(button.FlatStyle==FlatStyle.Flat,"Button style differs: "+page.Name+" "+button.Text);
@@ -194,6 +214,28 @@ internal static class DeviceCenterStyleSelfTest
             Form Center()=>new DeviceCenterForm(store,_=>new(true,"在线","Wi-Fi","0.2.156-ui",Usb:"待命",Wifi:"已连接",Bluetooth:"待命",Transport:"Wi-Fi"),(_,_)=>{},(_,_)=>Task.CompletedTask,()=>{},_=>{});
             Form CenterWith(DeviceView view)=>new DeviceCenterForm(store,_=>view,(_,_)=>{},(_,_)=>Task.CompletedTask,()=>{},_=>{});
         }
+    }
+    private static void CheckTaskPinEditing() {
+        var before=Tab5TaskPins.Load();var confirm=UnsavedChanges.Confirm;
+        string hidden=Guid.NewGuid().ToString(),first=Guid.NewGuid().ToString(),second=Guid.NewGuid().ToString();
+        Tab5CodexTask[] tasks=[new(first,"First","Project",0),new(second,"Second","Project",0)];
+        try {
+            Tab5TaskPins.Save([hidden,first]);
+            using(var form=new Tab5TaskPinsForm(tasks)) {
+                form.Show();Application.DoEvents();var grid=(DataGridView)form.Controls.Find("task-pin-list",true).Single();
+                grid.Rows[0].Cells[0].Value=false;grid.Rows[1].Cells[0].Value=true;
+                Descendants(form).OfType<Button>().Single(b=>b.Text=="保存").PerformClick();
+                if(!form.IsDisposed||!Tab5TaskPins.Load().ToHashSet().SetEquals([hidden,second]))throw new Exception("Task pin save lost hidden selection");
+            }
+            using(var form=new Tab5TaskPinsForm(tasks)) {
+                form.Show();Application.DoEvents();var grid=(DataGridView)form.Controls.Find("task-pin-list",true).Single();grid.Rows[0].Cells[0].Value=true;
+                UnsavedChanges.Confirm=_=>false;((Button)form.CancelButton!).PerformClick();
+                if(form.IsDisposed)throw new Exception("Task pin edits discarded without confirmation");
+                UnsavedChanges.Confirm=_=>true;((Button)form.CancelButton!).PerformClick();
+                if(!form.IsDisposed||!Tab5TaskPins.Load().ToHashSet().SetEquals([hidden,second]))throw new Exception("Task pin cancel wrote settings");
+            }
+            Console.WriteLine("TASK_PINS_EDIT_OK save hidden_pins cancel unsaved_guard");
+        }finally{UnsavedChanges.Confirm=confirm;Tab5TaskPins.Save(before);}
     }
     private static IEnumerable<Control> Descendants(Control root){foreach(Control control in root.Controls){yield return control;foreach(var child in Descendants(control))yield return child;}}
 }

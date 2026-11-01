@@ -1,8 +1,12 @@
 # 桥接与固件独立版本 / Independent component versions
 
+Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流程](DESKTOP-DEVELOPMENT-RELEASE.md)；本页维护版本规则，发布收尾继续使用既有清单。
+
 桥接、ESP8266 和 TAB5 分别更新，不要求三个版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
 
 2026-10-28 本轮：Windows **0.6.13**、Mac **0.6.13**、TAB5 **0.2.282-ui**、ESP8266 **0.5.7**，图库沿用既有版本。下载索引按实际附件刷新。见[本轮说明](RELEASE-0.6.13.md)。
+
+Windows 0.6.14 正在本地准备，尚未发布。源码版本元数据已统一到 0.6.14，发布范围为 Windows；下表继续登记实际已发布版本，Mac 下载保留 0.6.13。详见[候选说明](RELEASE-0.6.14.md)。Windows 0.6.14 is in local preparation only; shared source metadata advances without publishing a new Mac package. The table below continues to show published downloads.
 
 ## 版本来源
 

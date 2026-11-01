@@ -1,0 +1,37 @@
+--- a/firmware/main/ota_remote.inc
++++ b/firmware/main/ota_remote.inc
+@@ -26,6 +26,9 @@
+         cJSON_IsNumber(clock)&&clock->valuedouble>0&&cJSON_IsNumber(expires)&&expires->valuedouble>0&&expires->valuedouble<=9007199254740991.0&&
+         expires->valuedouble==(int64_t)expires->valuedouble&&expires->valuedouble>=clock->valuedouble+now-received&&expires->valuedouble<=clock->valuedouble+45000&&
+         cJSON_IsNumber(version)&&version->valuedouble==1&&remote_ota_hex(id,32)&&remote_ota_hex(offer,32)&&remote_ota_hex(sha,64);
++    // A fresh frame may reach LVGL before the network worker updates the offer cache.
++    // Wait within the command's existing deadline; never reject or write the other image.
++    if(fresh&&!ota_update_busy()&&!ota_update_offer_matches(offer,sha))return;
+     char result[33];bool commit,confirmed;
+     if(ota_remote_result(result,&commit,&confirmed)&&!strcmp(result,remote_ota_id)) {
+         if(remote_ota_stage==1&&commit) {
+--- a/tests/ui-preview/ota_remote_ui_test.inc
++++ b/tests/ui-preview/ota_remote_ui_test.inc
+@@ -37,6 +37,22 @@
+         assert(!remote_ota_reply);cJSON_Delete(input);
+     }
+     assert(preview_ota_starts==started+1);
++    // Network frame becomes visible before its matching offer cache update.
++    remote_ota_id[0]=0;remote_ota_stage=0;cJSON_Delete(remote_ota_reply);remote_ota_reply=NULL;
++    preview_ota_available=false;preview_ota_busy=false;preview_remote_result_ready=false;
++    preview_remote_commit=true;preview_remote_confirmed=true;preview_checkpoint_ok=true;
++    codex_voice_waiting=false;for(int i=0;i<80;i++){codex_drafts[i].request[0]=0;codex_drafts[i].dirty=false;}
++    ota_remote_tick(frame,LINK_USB,1000,1000);
++    assert(remote_ota_stage==0&&!remote_ota_reply&&preview_ota_starts==started+1);
++    preview_ota_available=true;ota_remote_tick(frame,LINK_USB,1001,1000);
++    assert(remote_ota_stage==1&&preview_ota_starts==started+1);
++    ota_remote_tick(frame,LINK_USB,1002,1000);
++    assert(preview_ota_starts==started+2);
++    ota_remote_tick(frame,LINK_USB,1003,1000);assert(preview_ota_starts==started+2);
++    preview_ota_busy=false;ota_remote_tick(frame,LINK_USB,40000,1000);
++    assert(!remote_ota_reply);
++    puts("REMOTE_OTA_OFFER_RACE_OK delayed_offer_waits commit_still_required exact_once");
++
+     (void)command;preview_checkpoint_ok=true;preview_ota_available=available;preview_ota_busy=false;
+     codex_voice_waiting=false;for(int i=0;i<80;i++){codex_drafts[i].request[0]=0;codex_drafts[i].dirty=false;}
+     snprintf(codex_selected,sizeof(codex_selected),"%s",selected);codex_set_text(saved_text);free(saved_text);visible(ota_layer,false);cJSON_Delete(frame);

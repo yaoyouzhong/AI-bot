@@ -120,11 +120,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer = new System.Windows.Forms.Timer { Interval = 2000 };
         _timer.Tick += (_, _) =>
         {
+            using var timing=new Tab5UiWorkTiming("tray");
             if(_exitSignal.WaitOne(0)){ExitThread();return;}
             while (_flashActions.TryDequeue(out var action)) action();
+            timing.Step("actions");
             _healthGuard?.Pulse(_runtime.Health.Snapshot,_runtime.MonitorExpected,_runtime.Health.Options.Enabled,_runtime.FaultedCollectors+_services.FaultedServices,_services.FaultSources|(_runtime.FaultedCollectors>0?RuntimeFaultSource.Collectors:0));
+            timing.Step("health");
             var status = _runtime.Capture();
-            _tab5?.Publish(status);
+            timing.Step("capture");
             if(status.RuntimeHealth is {} health&&(health.Session!=_healthSession||health.Sequence>_healthSequence)) {
                 _healthSession=health.Session;_healthSequence=health.Sequence;
                 var alerts=health.Alerts.Where(a=>!a.HandledExternally).ToArray();
@@ -134,8 +137,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
                     alerts.Any(a=>a.State=="error")?ToolTipIcon.Error:ToolTipIcon.Warning);
             }
             _services.ObserveConnections(_devices.Snapshot);
+            timing.Step("connections");
             PollUpdates();
+            timing.Step("updates");
             var codexForeground = ForegroundObserver.CodexVisible();
+            timing.Step("foreground");
             if (codexForeground && !_codexWasForeground && status.Codex.CompletionActive)
                 SessionActivityReader.Signals.Acknowledge();
             _codexWasForeground = codexForeground;
@@ -148,13 +154,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(needsInput&&!_notificationAttention)Notify("attention",(++_attentionSequence).ToString(),"任务等待操作","请在电脑上检查需要确认的操作。",ToolTipIcon.Info);
             _notificationAttention=needsInput;
             if(_services.EspEnabled)UpdateAutomaticScreenSaver(status);
+            timing.Step("notifications");
             PublishDisplayPolicy();
+            timing.Step("display");
             var quotaPolicy=DisplayModes.Load(BridgeSettings.Load(),_selectedMode);
+            timing.Step("policy");
             _runtime.Domestic.RefreshNext(quotaPolicy);
+            timing.Step("quota");
             if (DateTimeOffset.UtcNow >= _nextQuotaWarning && _runtime.Domestic.TakeRefreshWarning(quotaPolicy) is string warning) {
                 _nextQuotaWarning=DateTimeOffset.UtcNow.AddSeconds(30);
                 Notify("quota",warning,"模型额度更新失败",warning,ToolTipIcon.Warning);
             }
+            timing.Step("warning");
         };
         _timer.Start();
 

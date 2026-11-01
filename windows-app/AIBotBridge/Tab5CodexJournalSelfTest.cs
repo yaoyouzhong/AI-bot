@@ -37,6 +37,24 @@ internal static class Tab5CodexJournalSelfTest
             if(confirmed?.Status!=202||journal.Draft(task)!=""||confirmed.ResolutionSource!="device_user_confirmed_delivered")throw new Exception("Recovery clears only matching draft");
             journal.SaveDraft(task,"another draft");
             if(journal.ConfirmDelivered(pending.Id,task,"fixture",text,turn,[])?.Status!=202||journal.Draft(task)!="another draft")throw new Exception("Recovery replay must preserve new draft");
+            journal.Save(pending with {Id=Guid.NewGuid().ToString(),State="accepted",TurnId=turn});
+            if(journal.Draft(task)!="another draft")throw new Exception("Delayed acceptance cannot clear a changed draft");
+            var native=record with {Id=Guid.NewGuid().ToString(),Device="fixture",ResolutionSource="native_pending"};
+            journal.Save(native,text);
+            if(!journal.CanConfirm(native,"fixture"))throw new Exception("Ordinary native send must have an explicit recovery exit");
+            if(journal.ConfirmDelivered(native.Id,task,"fixture",text,"wrong",[]) is not null)throw new Exception("Send recovery must bind exact expected turn");
+            var nativeConfirmed=journal.ConfirmDelivered(native.Id,task,"fixture",text,"",[]);
+            if(nativeConfirmed is not {State:"completed",Status:202,TurnId:""}||journal.Draft(task)!="")throw new Exception("Explicit native confirmation clears only draft, never invents execution turn");
+            journal.SaveDraft(task,"new after confirmation");
+            if(journal.ConfirmDelivered(native.Id,task,"fixture",text,"",[])?.Status!=202||journal.Draft(task)!="new after confirmation")throw new Exception("Confirmation replay cannot delete new text");
+            var discard=native with {Id=Guid.NewGuid().ToString()};journal.Save(discard,text);
+            journal.SaveDraft(task,"",device:"other");
+            if(journal.Find(discard.Id)?.State!="dispatching")throw new Exception("Different device cannot retire a receipt");
+            journal.SaveDraft(task,text);journal.SaveDraft(task,"",device:"fixture");
+            journal=new Tab5CodexJournal(path);
+            if(journal.Find(discard.Id) is not {State:"abandoned",Status:504}||journal.Pending(task) is not null||journal.Draft(task)!="")throw new Exception("Explicit clear must release pending composer across restart without claiming delivery");
+            journal.SaveDraft(task,text);journal.Save(discard with {State="accepted",TurnId=turn});
+            if(journal.Draft(task)!=text||journal.Find(discard.Id)?.State!="abandoned")throw new Exception("Late receipt cannot resurrect retired request or erase same-text new draft");
             File.WriteAllBytes(path,[1,2,3,4]);journal=new Tab5CodexJournal(path);
             try{journal.SaveDraft(task,"must not overwrite corruption");throw new Exception("Corrupt journal accepted a write");}catch(IOException) { }
             if(File.ReadAllBytes(path).Length!=4)throw new Exception("Corrupt journal must remain recoverable");

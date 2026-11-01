@@ -25,6 +25,7 @@ internal static class SettingsLayoutSelfTest
         }
         if(Environment.GetEnvironmentVariable("AIBOT_TAB5_LAYOUT_ONLY")=="1") {
             using var tab5Service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"unused-pairing.dat")));
+            using var voiceHost=new Tab5VoiceHost(new Tab5VoiceSettings());tab5Service.AttachVoice(voiceHost);
             if(Environment.GetEnvironmentVariable("AIBOT_TAB5_LAYOUT_OTA") is {Length:>0} otaFixture)tab5Service.OfferOta(otaFixture);
             using var tab5Form=new Tab5ConnectionForm(tab5Service,loadNetworks:false);
             using var wifiReply=System.Text.Json.JsonDocument.Parse("{\"version\":1,\"deviceId\":\"test-device\",\"networks\":[{\"ssid\":\"office-guest\",\"label\":\"单位\",\"connected\":true,\"selected\":true},{\"ssid\":\"home\",\"label\":\"家里\",\"connected\":false,\"selected\":false}]}");
@@ -44,9 +45,15 @@ internal static class SettingsLayoutSelfTest
             var savedWifi=Descendants(tab5Form).OfType<ListView>().Single();
             foreach(var row in rows)savedWifi.Items.Add(new ListViewItem(new[]{row.Ssid,row.Label,row.Connected?"已连接":""}){Tag=row});
             var tabControl=Descendants(tab5Form).OfType<TabControl>().Single();
+            tab5Form.Show();Application.DoEvents();var stableTabs=tabControl.Bounds;
+            for(int pass=0;pass<2;pass++)for(int i=0;i<tabControl.TabCount;i++) {
+                tabControl.SelectedIndex=i;tab5Form.PerformLayout();Application.DoEvents();
+                if(tabControl.Bounds!=stableTabs)throw new Exception("Connection tab bounds changed when selecting "+tabControl.SelectedTab!.Text);
+            }
             for(int i=0;i<tabControl.TabCount;i++){tabControl.SelectedIndex=i;Capture(tab5Form,directory,"tab5-tab-"+i);}
             tab5Form.Size=tab5Form.MinimumSize;
             for(int i=0;i<tabControl.TabCount;i++){tabControl.SelectedIndex=i;Capture(tab5Form,directory,"tab5-narrow-tab-"+i);}
+            if(tabControl.TabCount!=4||tabControl.TabPages.Cast<TabPage>().Any(t=>t.Text=="语音"))throw new Exception("Duplicate voice settings entry");
             Tab5Service.ValidateWifiLabel("synthetic-ssid","单位访客网");Tab5Service.ValidateWifiLabel("synthetic-ssid","");
             foreach(string invalid in new[]{new string('x',49),"bad\nlabel"}) {
                 bool rejected=false;try{Tab5Service.ValidateWifiLabel("synthetic-ssid",invalid);}catch(ArgumentException){rejected=true;}

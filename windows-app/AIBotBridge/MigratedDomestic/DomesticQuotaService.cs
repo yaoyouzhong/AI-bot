@@ -1683,7 +1683,8 @@ sealed class DomesticQuotaAuthForm : Form
             }
             else if (responseInfo.ProviderId == "zhipu")
             {
-                var value = AIBotBridge.ZhipuBalance.Parse(doc.RootElement);
+                var value = AIBotBridge.ZhipuBalance.Parse(doc.RootElement,
+                    financeOverview: responseInfo.Endpoint == "bigmodel.cn" + AIBotBridge.ZhipuBalance.OverviewPath);
                 _service.SetZhipu(value);
                 AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "balance-saved");
                 weeklyPct = 0;
@@ -2075,6 +2076,9 @@ sealed class DomesticQuotaAuthForm : Form
 
     static (MiniMaxUsage Usage, int Score)? TryMiniMaxUsage(Dictionary<string, JsonElement> values)
     {
+        if(values.TryGetValue("model_name",out var quotaModel) && quotaModel.ValueKind==JsonValueKind.String
+            && (quotaModel.GetString().Contains("video",StringComparison.OrdinalIgnoreCase)
+                || quotaModel.GetString().Contains("hailuo",StringComparison.OrdinalIgnoreCase)))return null;
         var weeklyPct = MiniMaxPercent(values, "current_weekly")
             ?? MiniMaxPercent(values, "weekly");
         var fiveHourPct = MiniMaxPercent(values, "current_interval")
@@ -2083,12 +2087,13 @@ sealed class DomesticQuotaAuthForm : Form
             ?? MiniMaxPercent(values, "fiveHour");
         if (!weeklyPct.HasValue) return null;
 
-        var weeklyResetAt = MiniMaxResetAt(values, "weekly_remains_time")
+        var quotaRow=JsonSerializer.SerializeToElement(values);
+        var weeklyResetAt = MiniMaxQuota.Reset(quotaRow,true,()=>MiniMaxResetAt(values, "weekly_remains_time")
             ?? MiniMaxResetAt(values, "current_weekly_remains_time")
-            ?? FindDirectResetAt(ObjectFromValues(values, "weekly"));
-        var fiveHourResetAt = MiniMaxResetAt(values, "remains_time")
+            ?? FindDirectResetAt(ObjectFromValues(values, "weekly")));
+        var fiveHourResetAt = MiniMaxQuota.Reset(quotaRow,false,()=>MiniMaxResetAt(values, "remains_time")
             ?? MiniMaxResetAt(values, "current_interval_remains_time")
-            ?? MiniMaxResetAt(values, "interval_remains_time");
+            ?? MiniMaxResetAt(values, "interval_remains_time"));
         var membership = FindMiniMaxMembership(values);
         var score = 0;
         if (values.TryGetValue("model_name", out var modelValue)
@@ -2155,6 +2160,7 @@ sealed class DomesticQuotaAuthForm : Form
 
     static double? MiniMaxPercent(Dictionary<string, JsonElement> values, string prefix)
     {
+        if(MiniMaxQuota.ExpandedPercent(JsonSerializer.SerializeToElement(values),prefix) is double expanded)return expanded;
         foreach (var name in new[]
                  {
                      $"{prefix}_used_percent", $"{prefix}_usage_percent",

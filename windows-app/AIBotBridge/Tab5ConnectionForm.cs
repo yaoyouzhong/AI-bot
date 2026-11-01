@@ -24,7 +24,7 @@ internal sealed class Tab5ConnectionForm : Form
                 new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(10)};
             tab.Controls.Add(panel);if(panel is FlowLayoutPanel flow)SettingsWindow.FitFlow(flow);return panel;
         }
-        var network=Page("Wi-Fi");var usb=Page("USB 配对");var upgrade=Page("固件升级");var audio=Page("语音");
+        var network=Page("Wi-Fi");var usb=Page("USB 配对");var upgrade=Page("固件升级");
         if(showUpgrade)tabs.SelectedIndex=2;
         var benchmark=Page("传输测速");
         var benchmarkMode=new ComboBox{Name="benchmark-mode",DropDownStyle=ComboBoxStyle.DropDownList,Width=150};
@@ -109,8 +109,7 @@ internal sealed class Tab5ConnectionForm : Form
             cancelOta.Enabled=service.CanStopOta||(!service.OtaStarted&&service.HasOta&&!service.Busy);releaseNotes.SetNotes(service.OtaNotes);
         }
         void UpdateConnection() {
-            var view=service.DeviceView;
-            var text=tabs.SelectedIndex is 2 or 4?(view.Online?$"{view.Transport} · 当前版本 {view.Firmware}":"TAB5 未连接"):service.ConnectionSummary;
+            var text=service.ConnectionSummary;
             if(state.Text!=text)state.Text=text;
         }
         tabs.SelectedIndexChanged+=(_,_)=>UpdateConnection();UpdateConnection();
@@ -134,8 +133,6 @@ internal sealed class Tab5ConnectionForm : Form
             catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException){result.Text=ex.Message;}
         };
         cancelOta.Click+=(_,_)=>{try{if(service.OtaStarted)service.StopOta();else service.CancelOta();result.Text="";otaResult=false;UpdateOffer();}catch(InvalidOperationException ex){result.Text=ex.Message;}};
-        audio.Controls.Add(Heading("语音输入"));audio.Controls.Add(Note("识别后在 TAB5 检查，再手动发送。"));
-        var voice=new Button{Text="语音设置…"};audio.Controls.Add(Buttons(voice));voice.Click+=(_,_)=>service.ShowVoiceSettings(this);
         bool busy=false,loading=false;
         FormClosing+=(_,e)=>{
             if(busy||verifying||service.Busy||benchmarkCancel is not null) {

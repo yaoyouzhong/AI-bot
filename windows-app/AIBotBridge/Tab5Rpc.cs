@@ -132,12 +132,12 @@ internal sealed partial class Tab5Service
                         _unlockHistory=$"解锁记录（设备本次启动，最近 8 次；{DateTimeOffset.Now:HH:mm:ss} 收到）：\n"+history;
                 }
                 else if(Text(root,"kind")=="desktop")result=_voice is Tab5VoiceHost host&&host.Busy
-                    ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token);
+                    ?(409,new{error="voice_busy"}):await QuickConsole.HandleAsync(root,token,Tab5CodexDeliveryReceipt.Digest(id+":"+pair.Key));
                 else if(Text(root,"kind")=="benchmark")result=Tab5TransportBenchmark.Handle(root,opened.Data,binaryReply,bulkReply);
                 else if(Text(root,"kind")=="voice") {
                     // Reuse the same voice session, replay checks and explicit
                     // review/send behavior. USB only changes its transport.
-                    var voice=await VoiceAsync(id,nonce,Tab5Protocol.Proof(key,$"POST|/tab5/v1/voice|{id}|{nonce}|{digest}"),packet,token,compact:true);
+                    var voice=await VoiceAsync(id,nonce,Tab5Protocol.Proof(key,$"POST|/tab5/v1/voice|{id}|{nonce}|{digest}"),packet,token,compact:true,transport:transport);
                     if(voice.Status!=200||voice.Packet is null)result=(voice.Status,new{error="voice_rejected"});
                     else {using var decoded=JsonDocument.Parse(Tab5Protocol.Decrypt(key,nonce,voice.Packet));result=(200,decoded.RootElement.Clone());}
                 }

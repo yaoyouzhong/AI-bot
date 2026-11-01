@@ -64,6 +64,14 @@ internal static class Tab5RemoteOtaSelfTest
             long until=Environment.TickCount64+2000;
             while(!service.RemoteOtaPending||Command().GetProperty("data").GetProperty("connectionHealth").GetProperty("otaCommand").ValueKind!=JsonValueKind.Object){if(localStart.IsCompleted||Environment.TickCount64>=until)throw new Exception("IPC start did not publish");await Task.Delay(5);}
             Task pending=localStart;var frame=Command();
+            if(service.RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image) is not null||
+                service.RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),null) is not null)
+                throw new Exception("Old or missing advertised image mixed with a fresh start command");
+            var advertised=frame.GetProperty("data").GetProperty("ota");
+            var advertisedCommand=frame.GetProperty("data").GetProperty("connectionHealth").GetProperty("otaCommand");
+            if(advertised.GetProperty("offerId").GetString()!=advertisedCommand.GetProperty("offerId").GetString()||
+                advertised.GetProperty("sha256").GetString()!=advertisedCommand.GetProperty("sha256").GetString())
+                throw new Exception("Frame image and command must identify the same offer");
             if(frame.GetProperty("data").GetProperty("connectionHealth").GetProperty("otaCommand").GetProperty("expiresAt").GetInt64()>
                 frame.GetProperty("data").GetProperty("epochMilliseconds").GetInt64()+45000)throw new Exception("Old snapshot advertises OTA beyond receiver frame window");
             var health=frame.GetProperty("data").GetProperty("runtimeHealth");

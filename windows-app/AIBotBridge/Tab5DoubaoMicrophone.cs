@@ -31,7 +31,7 @@ internal sealed class Tab5DoubaoMicrophone
     internal Task Recovery {get{lock(_recoveryGate)return _recovery;}}
     internal string Diagnostic {get{lock(_recoveryGate)return $"microphone={(_leased?"in-use":HasPendingRestore?"restore-pending":"restored")}; restoreFailures={_failures}";}}
     internal Task AcquireAsync()=>AcquireAsync(null);
-    internal async Task AcquireAsync(string? existingInputId) {
+    internal async Task AcquireAsync(string? existingInputId,bool selectPhysical=false) {
         Task recovery;
         lock(_recoveryGate) {
             if(_leased)throw new InvalidOperationException("麦克风正在使用，请稍后重试");
@@ -45,15 +45,17 @@ internal sealed class Tab5DoubaoMicrophone
                 EnsureIdle();
                 var list=await _call("settings.getMicrophoneList",null).ConfigureAwait(false);
                 string previous=list.GetProperty("selectedMicrophoneId").GetString()??"";
-                if(existingInputId is not null) {
+                if(existingInputId is not null&&!selectPhysical) {
                     // Shared DJI mode never changes the desktop microphone selection.
                     if(!string.Equals(previous,existingInputId,StringComparison.OrdinalIgnoreCase))
                         throw new InvalidOperationException("请先在电脑豆包中选择同一个大疆麦克风，再开始 TAB5 语音");
                     return;
                 }
                 var cables=list.GetProperty("devices").EnumerateArray()
-                    .Where(d=>Tab5VoiceAudio.IsCableCapture(d.GetProperty("name").GetString()??"")).ToArray();
-                if(cables.Length!=1)throw new InvalidOperationException("豆包未找到唯一的 CABLE Output 麦克风");
+                    .Where(d=>selectPhysical?string.Equals(d.GetProperty("id").GetString(),existingInputId,StringComparison.OrdinalIgnoreCase)&&
+                        !Tab5VoiceAudio.IsCableCapture(d.GetProperty("name").GetString()??""):
+                        Tab5VoiceAudio.IsCableCapture(d.GetProperty("name").GetString()??"")).ToArray();
+                if(cables.Length!=1)throw new InvalidOperationException(selectPhysical?"豆包未找到所选电脑麦克风":"豆包未找到唯一的 CABLE Output 麦克风");
                 string cable=cables[0].GetProperty("id").GetString()!;
                 if(previous==cable)return;
                 Directory.CreateDirectory(Path.GetDirectoryName(_journal)!);

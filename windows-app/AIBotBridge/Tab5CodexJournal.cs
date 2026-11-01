@@ -37,8 +37,9 @@ internal sealed class Tab5CodexJournal
     internal bool CanConfirm(Tab5SendRecord record,string device) {
         lock(_gate) {
             Check();var draft=_data.Drafts.GetValueOrDefault(record.TaskId);
-            return device.Length>0&&record.Device==device&&record.State=="dispatching"&&record.Operation=="steer"&&
-                Guid.TryParse(record.ExpectedTurn,out _)&&_data.Sends.GetValueOrDefault(record.Id)==record&&
+            bool confirmable=record.Operation=="steer"&&Guid.TryParse(record.ExpectedTurn,out _)||
+                record.Operation=="send"&&record.ResolutionSource=="native_pending"&&record.ExpectedTurn.Length==0;
+            return device.Length>0&&record.Device==device&&record.State=="dispatching"&&confirmable&&_data.Sends.GetValueOrDefault(record.Id)==record&&
                 draft is not null&&draft.Text.Length>0&&(draft.Images?.Length??0)==0&&
                 record.Hash==Fingerprint(record.TaskId,draft.Text,record.Operation,record.ExpectedTurn,draft.Images);
         }
@@ -50,27 +51,38 @@ internal sealed class Tab5CodexJournal
             if(record.State is "accepted" or "completed")return record;
             if(!CanConfirm(record,device)||images.Length!=0||record.ExpectedTurn!=expected||
                 record.Hash!=Fingerprint(task,text,record.Operation,expected,images))return null;
-            var accepted=record with {State="accepted",Status=202,TurnId=record.ExpectedTurn,
+            // A user's confirmation of a native send proves delivery, not the
+            // identity of its execution turn. Do not invent a turn or watch one.
+            var accepted=record with {State=record.Operation=="send"?"completed":"accepted",Status=202,TurnId=record.ExpectedTurn,
                 UpdatedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),ResolutionSource="device_user_confirmed_delivered"};
             Save(accepted);return accepted;
         }
     }
     internal Tab5SendRecord? Pending(string task) {lock(_gate){Check();return _data.Sends.Values.Where(x=>x.TaskId==task&&x.State=="dispatching").OrderByDescending(x=>x.UpdatedAt).FirstOrDefault();}}
     internal Tab5SendRecord[] Accepted() {lock(_gate)return _damaged?[]:_data.Sends.Values.Where(x=>x.State=="accepted").ToArray();}
-    internal void SaveDraft(string task,string text,string[]? images=null) {
+    internal void SaveDraft(string task,string text,string[]? images=null,string device="") {
         if(!Guid.TryParse(task,out _)||Encoding.UTF8.GetByteCount(text)>2000)throw new ArgumentException("Invalid draft");
         lock(_gate) {
-            Check();images??=[];if((_data.Drafts.GetValueOrDefault(task)?.Text??"")==text&&Images(task).SequenceEqual(images))return;
+            Check();images??=[];
+            var released=text.Length==0&&images.Length==0&&device.Length>0?
+                _data.Sends.Values.Where(v=>v.TaskId==task&&v.Device==device&&v.State=="dispatching"&&v.Operation!="interrupt").ToArray():[];
+            if(released.Length==0&&(_data.Drafts.GetValueOrDefault(task)?.Text??"")==text&&Images(task).SequenceEqual(images))return;
             var drafts=new Dictionary<string,Tab5DraftRecord>(_data.Drafts);
             if(text.Length==0&&images.Length==0)drafts.Remove(task);else drafts[task]=new(text,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),images);
             // Never evict an unsent draft to make room for another.
             if(drafts.Count>80)throw new IOException("Draft storage full");
-            Commit(_data with {Drafts=drafts});
+            var sends=new Dictionary<string,Tab5SendRecord>(_data.Sends);
+            // Explicit empty draft-save releases this device's composer. Keep
+            // the unknown receipt and its ID forever subject to the storage cap.
+            foreach(var record in released)sends[record.Id]=record with {State="abandoned",Status=504,Error="delivery_unknown",
+                ResolutionSource="device_user_discarded_draft",UpdatedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()};
+            Commit(_data with {Drafts=drafts,Sends=sends});
         }
     }
     internal void Save(Tab5SendRecord record,string? draft=null,string[]? images=null) {
         lock(_gate) {
             Check();var sends=new Dictionary<string,Tab5SendRecord>(_data.Sends){[record.Id]=record};
+            if(_data.Sends.GetValueOrDefault(record.Id)?.State=="abandoned")return;
             // Uncertain and accepted receipts are never automatically evicted.
             foreach(var old in sends.Values.Where(v=>v.State is "completed" or "rejected").OrderBy(v=>v.UpdatedAt).ToArray()) {
                 if(sends.Count<=512)break;sends.Remove(old.Id);
@@ -82,7 +94,8 @@ internal sealed class Tab5CodexJournal
                 drafts[record.TaskId]=new(draft,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),images);
                 if(drafts.Count>80)throw new IOException("Draft storage full");
             }
-            if(record.State=="accepted"&&record.Operation!="interrupt")drafts.Remove(record.TaskId);
+            if((record.State=="accepted"||record.State=="completed"&&record.ResolutionSource=="device_user_confirmed_delivered")&&record.Operation!="interrupt"&&drafts.TryGetValue(record.TaskId,out var saved)&&
+                record.Hash==Fingerprint(record.TaskId,saved.Text,record.Operation,record.ExpectedTurn,saved.Images))drafts.Remove(record.TaskId);
             Commit(_data with {Sends=sends,Drafts=drafts});
         }
     }

@@ -4,7 +4,7 @@ using NAudio.CoreAudioApi;
 
 namespace AIBotBridge;
 
-internal sealed record Tab5VoiceSettings(bool Enabled=false,string DjiId="",string Shortcut="LeftAltSpace")
+internal sealed record Tab5VoiceSettings(bool Enabled=true,string DjiId="",string Shortcut="LeftAltSpace")
 {
     private static string PathName=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AIBotBridge","tab5-voice.json");
     internal static Tab5VoiceSettings Load() {
@@ -84,13 +84,17 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     }
     internal void ShowForSetup() {ShowInTaskbar=true;Opacity=1;Show();ActiveControl=_text;Activate();_text.Select();}
     internal void RevealFailure(string? message=null) {if(Visible){ShowInTaskbar=true;Opacity=1;if(message is not null)_status.Text=message;}}
-    internal async Task PrepareAsync(CancellationToken token,Func<string?>? prepareInput=null) {
+    internal async Task PrepareAsync(CancellationToken token,Func<Task<string?>>? prepareInput=null,Func<bool>? leasePhysical=null) {
+        long prepareStarted=Environment.TickCount64;
         await _microphone.Recovery.WaitAsync(token);
+        Tab5VoiceTiming.Log("prepare-recovery",prepareStarted);
         // Check BEFORE activating the hidden editor: a focus change can itself
         // end the user's desktop IME recording. Unknown state must fail closed.
+        long controlStarted=Environment.TickCount64;
         _doubao??=voiceFactory is null?Tab5DoubaoVoice.TryCreate(()=>SafeFocus&&IsDoubaoLayout(),()=>_focusRecovery?.CanStopOwnedCapture==true):voiceFactory();
-        if(_doubao is null)throw new InvalidOperationException("豆包录音服务暂不可用，请确认豆包正在运行后重试");
-        if(!_doubao.IsIdle)throw new InvalidOperationException("豆包正在处理其他语音，请先结束后重试");
+        if(_doubao is null)throw new InvalidOperationException(Tab5DoubaoAvailability.UnavailableMessage());
+        if(!_doubao.IsIdle)throw new InvalidOperationException(_doubao.LastState<0?Tab5DoubaoAvailability.UnavailableMessage():"豆包正在处理其他语音，请先结束后重试");
+        Tab5VoiceTiming.Log("prepare-control",controlStarted);
         var foreground=GetForegroundWindow();
         if(foreground!=Handle) {
             _previousWindow=foreground;
@@ -102,33 +106,33 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
         Prepare();
         // Yield to the message loop: focus and TSF activation are not synchronous
         // with Show(). Never retry the toggle, which could stop an active recording.
-        long started=Environment.TickCount64,deadline=started+2200,stableSince=0;
-        bool activationRequested=false;
-        while(Environment.TickCount64<deadline) {
-            await Task.Delay(50,token);
-            if(IsDisposed)throw new OperationCanceledException(token);
-            if(SafeFocus) {
-                if(stableSince==0)stableSince=Environment.TickCount64;
-                if(Environment.TickCount64-stableSince>=350) {
-                    if(!_doubao.IsIdle)throw new InvalidOperationException("豆包正在处理其他语音，请先结束后重试");
-                    try {await _microphone.AcquireAsync(prepareInput?.Invoke());token.ThrowIfCancellationRequested();}
-                    catch {_microphone.Release();throw;}
-                    if(!SafeFocus) {_microphone.Release();throw new InvalidOperationException("语音输入焦点已变化，请重新开始");}
-                    return;
-                }
-            } else {
-                stableSince=0;
-                if(!activationRequested&&Environment.TickCount64-started>=250) {
-                    activationRequested=true;
-                    RequestForegroundForVoice();
-                }
-                ActiveControl=_text;Activate();_text.Select();
+        long started=Environment.TickCount64;
+        if(await Tab5VoiceFocusPreparation.WaitAsync(
+            ()=>{if(IsDisposed)throw new OperationCanceledException(token);return SafeFocus;},
+            ()=>!Tab5DesktopActivation.Raise(Handle).InputBlocked,
+            ()=>{ActiveControl=_text;Activate();_text.Select();},token,
+            observe:(phase,ms)=>Tab5LocalDiagnostics.Write($"VOICE_FOCUS phase={phase} ms={ms}"))) {
+            Tab5VoiceTiming.Log("prepare-focus-stable",started);
+            long imeStarted=Environment.TickCount64;
+            if(!Tab5InputMethod.Ensure(()=>SafeFocus,IsDoubaoLayout,()=>Tab5InputMethod.ActivateDoubao(()=>SafeFocus)))throw new InvalidOperationException(Tab5DoubaoAvailability.SwitchInput);
+            Tab5VoiceTiming.Log("prepare-input-method",imeStarted);
+            if(!_doubao.IsIdle)throw new InvalidOperationException(_doubao.LastState<0?Tab5DoubaoAvailability.UnavailableMessage():"豆包正在处理其他语音，请先结束后重试");
+            try {
+                long inputStarted=Environment.TickCount64;
+                string? input=prepareInput is null?null:await prepareInput();bool physical=leasePhysical?.Invoke()==true;
+                Tab5VoiceTiming.Log("prepare-input",inputStarted);
+                long leaseStarted=Environment.TickCount64;
+                await _microphone.AcquireAsync(input,physical);token.ThrowIfCancellationRequested();
+                Tab5VoiceTiming.Log("prepare-microphone-lease",leaseStarted);
             }
+            catch {_microphone.Release();throw;}
+            if(!SafeFocus) {_microphone.Release();throw new InvalidOperationException("语音输入焦点已变化，请重新开始");}
+            return;
         }
         RevealFailure();
         throw new InvalidOperationException("Windows 未允许语音输入获得焦点，请点一下电脑上的语音输入框后重试");
     }
-    internal async Task PrepareSwitchAsync(CancellationToken token,Func<string?> prepareInput) {
+    internal async Task PrepareSwitchAsync(CancellationToken token,Func<Task<string?>> prepareInput) {
         if(!SafeFocus||!((ITab5VoiceEditor)this).RecognitionComplete)
             throw new InvalidOperationException("请先等待大疆识别结束，原文字已保留");
         _microphone.Release();
@@ -152,12 +156,11 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
         }
         Hide();
     }
-    private void RequestForegroundForVoice()=>Tab5DesktopActivation.Raise(Handle);
     bool ITab5VoiceEditor.Start() {
         if(_normalizeSpeech)_text.Text=Tab5SpeechTranscript.Project(_text.Text,_speechPrefix);
         _speechPrefix=_text.Text;_normalizeSpeech=true;
         if(!SafeFocus)throw new InvalidOperationException("语音草稿窗口未获得输入焦点");
-        if(!IsDoubaoLayout())throw new InvalidOperationException("请在语音草稿输入框切换到豆包输入法");
+        if(!IsDoubaoLayout())throw new InvalidOperationException(Tab5DoubaoAvailability.SwitchInput);
         _doubao??=Tab5DoubaoVoice.TryCreate(()=>SafeFocus&&IsDoubaoLayout());
         if(_doubao is not null) {
             bool started=_doubao.Start();
@@ -207,13 +210,14 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
 internal interface ITab5VoiceEndpoint : IDisposable
 {
     Task<Tab5VoiceReply> HandleAsync(JsonElement request,CancellationToken token);
+    Task<Tab5VoiceReply> HandleAsync(JsonElement request,CancellationToken token,bool waitForFinal)=>HandleAsync(request,token);
     void ShowSettings(IWin32Window owner);
 }
 internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
 {
     internal string Diagnostic=>_session.Diagnostic+"; trigger="+_draft.TriggerMode+"; "+_draft.MicrophoneDiagnostic;
     internal bool Busy => _preparing || _session.Active;
-    internal bool SettingsEnabled => Volatile.Read(ref _settings).Enabled;
+    internal bool SettingsEnabled => true;
     private sealed class PreviewForm : Form { protected override bool ShowWithoutActivation=>true; }
     private readonly Control _dispatcher=new();
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=100};
@@ -225,56 +229,76 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
     private readonly bool _usesDraft;
     private bool _preparing;
     internal Tab5VoiceHost(Tab5VoiceSettings? settings=null,ITab5VoiceAudio? audio=null,ITab5VoiceEditor? editor=null,Func<string,bool>? physicalToggle=null) {
-        _settings=settings??Tab5VoiceSettings.Load();
+        // Retain the legacy field for file compatibility; recording is explicitly
+        // initiated by the user and no longer needs a second enable switch.
+        _settings=(settings??Tab5VoiceSettings.Load()) with {Enabled=true};
         _usesDraft=editor is null;
         _dispatcher.CreateControl();
         _draft=new(()=>_settings.Shortcut,physicalToggle);_draft.InitializeDraft();
         _audio=audio??new Tab5VoiceAudio(()=>_settings.DjiId);
         _session=new(_audio,editor??_draft);
         _timer.Tick+=(_,_)=> {try{
+            using var timing=new Tab5UiWorkTiming("voice");
             _session.Tick();
+            timing.Step("session");
             // Keep the selected input until text delivery finishes as well as
             // capture. Native idle alone must not reconfigure a pending result.
             _draft.MaintainMicrophone(!_preparing&&!_session.Active);
+            timing.Step("microphone");
             if(!_preparing&&_session.Snapshot().State is "review" or "cancelled")_draft.CompleteReview();
             if(!_preparing&&_session.Snapshot().State=="error") {
                 _draft.RevealFailure(_session.Snapshot().Message);
                 if(((ITab5VoiceEditor)_draft).CaptureStopped)_draft.CompleteReview(keepVisible:true);
             }
+            timing.Step("review");
         }catch(Exception ex) when(IsAudioError(ex)){_session.Fail("音频设备已断开，请重新开始");}};
         _timer.Start();
+        // Populate metadata off the UI thread, without opening capture or
+        // changing the IME. Cold enumeration need not wait for a microphone tap.
+        if(_audio is Tab5VoiceAudio actual)_=actual.PrefetchAsync(false);
+        if(_usesDraft)_=Tab5CodexComposer.PrepareReaderAsync();
     }
     internal static bool IsAudioError(Exception ex)=>ex is InvalidOperationException or NAudio.MmException or COMException;
-    public Task<Tab5VoiceReply> HandleAsync(JsonElement request,CancellationToken token) {
+    public Task<Tab5VoiceReply> HandleAsync(JsonElement request,CancellationToken token)=>HandleAsync(request,token,false);
+    public Task<Tab5VoiceReply> HandleAsync(JsonElement request,CancellationToken token,bool waitForFinal) {
         var completion=new TaskCompletionSource<Tab5VoiceReply>(TaskCreationOptions.RunContinuationsAsynchronously);
         if(_disposed){completion.SetException(new InvalidOperationException("语音服务已关闭"));return completion.Task;}
+        long queued=Environment.TickCount64;
         _dispatcher.BeginInvoke(async ()=> {
             if(token.IsCancellationRequested){completion.TrySetCanceled(token);return;}
             bool ownsPreparation=false;
             try {
-                if(!_settings.Enabled)throw new InvalidOperationException("请先在电脑 TAB5 连接设置中配置语音");
+                if(request.ValueKind==JsonValueKind.Object&&request.TryGetProperty("op",out var requestOp)&&requestOp.ValueKind==JsonValueKind.String&&requestOp.GetString()=="start")Tab5VoiceTiming.Log("ui-dispatch",queued);
                 if(_preparing)throw new Tab5VoiceRequestException("语音正在准备，请稍候");
                 if(_usesDraft&&_session.NeedsSourcePreparation(request)) {_preparing=true;ownsPreparation=true;}
                 if(_usesDraft&&!_session.Active&&request.TryGetProperty("op",out var op)&&op.GetString()=="start"&&
                     request.TryGetProperty("taskId",out var task)&&task.ValueKind==JsonValueKind.String&&Guid.TryParseExact(task.GetString(),"D",out _)) {
                     _preparing=true;ownsPreparation=true;
                     long focusStarted=Environment.TickCount64;
-                    await _draft.PrepareAsync(token,()=> {
+                    var metadata=(_audio as Tab5VoiceAudio)?.PrefetchAsync(Tab5VoiceSession.ForceTab5(request))??Task.CompletedTask;
+                    await _draft.PrepareAsync(token,async ()=> {
+                        await metadata;token.ThrowIfCancellationRequested();
                         if(_audio is not Tab5VoiceAudio actual)return null;
                         actual.Prepare(Tab5VoiceSession.ForceTab5(request));return actual.ExistingInputId;
-                    });
+                    },()=>_audio is Tab5VoiceAudio {LeasePhysicalInput:true});
                     Tab5VoiceTiming.Log("focus",focusStarted);
                     if(_disposed)throw new OperationCanceledException(token);
                 }
                 long handleStarted=Environment.TickCount64;
                 var result=await _session.HandleAsync(request,token,prepareTab5:_usesDraft?async ct=> {
-                    await _draft.PrepareSwitchAsync(ct,()=> {
+                    var metadata=(_audio as Tab5VoiceAudio)?.PrefetchAsync(true)??Task.CompletedTask;
+                    await _draft.PrepareSwitchAsync(ct,async ()=> {
+                        await metadata;ct.ThrowIfCancellationRequested();
                         if(_audio is not Tab5VoiceAudio actual)return null;
                         actual.Prepare(true);return actual.ExistingInputId;
                     });
                     if(_disposed)throw new OperationCanceledException(ct);
-                }:null);
+                }:null,waitForFinal:waitForFinal);
+                if(_disposed)throw new OperationCanceledException(token);
                 if(ownsPreparation)Tab5VoiceTiming.Log("audio-and-shortcut",handleStarted);
+                // Restore the owned foreground before releasing a review reply:
+                // automatic staging may arrive before the next 100ms UI tick.
+                if(_usesDraft&&result.State is "review" or "cancelled")_draft.CompleteReview();
                 completion.TrySetResult(result);
             }catch(OperationCanceledException){
                 completion.TrySetCanceled();
@@ -306,59 +330,94 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         if(owner is Form parent){while(parent.Owner is {} ancestor)parent=ancestor;_settingsWindow.Owner=parent;}
         SettingsWindow.Present(_settingsWindow);
     }
-    internal Form CreateSettings(bool preview=false) {
+    internal Form CreateSettings(bool preview=false,Form? embeddedOwner=null) {
         Form form=preview?new PreviewForm():new Form();
         form.SuspendLayout();
         form.AutoScaleDimensions=new SizeF(96,96);form.AutoScaleMode=AutoScaleMode.Dpi;
-        form.Font=SettingsWindow.BodyFont();form.MinimumSize=new Size(500,300);
-        form.Text="M5Stack TAB5 · 语音设置";form.ClientSize=new Size(560,330);form.StartPosition=FormStartPosition.CenterParent;
-        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(24)};form.Controls.Add(panel);panel.Controls.Add(SettingsWindow.Title("语音设置"));
-        var enabled=new CheckBox{Text="启用语音输入",AutoSize=true,Checked=_settings.Enabled,Margin=new Padding(3,0,3,12)};panel.Controls.Add(enabled);
-        panel.Controls.Add(new Label {AutoSize=true,Text="优先麦克风"});
-        var inputs=new ComboBox{Width=590,DropDownStyle=ComboBoxStyle.DropDownList};panel.Controls.Add(inputs);
-        inputs.Items.Add(new Tab5AudioDevice("","自动识别 DJI / Wireless Mic Rx"));
-        foreach(var d in Tab5VoiceAudio.Devices(DataFlow.Capture).Where(d=>!Tab5VoiceAudio.IsCableCapture(d.Name)))inputs.Items.Add(d);
+        form.Font=SettingsWindow.BodyFont();form.MinimumSize=new Size(500,360);
+        form.Text="M5Stack TAB5 · 语音设置";form.ClientSize=new Size(560,360);form.StartPosition=FormStartPosition.CenterParent;
+        if(embeddedOwner is not null){form.TopLevel=false;form.FormBorderStyle=FormBorderStyle.None;form.MinimumSize=Size.Empty;form.Dock=DockStyle.Fill;form.BackColor=Color.White;}
+        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=embeddedOwner is not null,Padding=new Padding(24),Name="voice-scroll"};form.Controls.Add(panel);
+        panel.Controls.Add(new Label {AutoSize=true,Text="录音麦克风"});
+        var inputs=new ComboBox{Width=590,DropDownStyle=ComboBoxStyle.DropDownList,Name="voice-inputs"};panel.Controls.Add(inputs);
+        inputs.Items.Add(new Tab5AudioDevice("","自动（优先 DJI，否则 TAB5 内置）"));
+        inputs.Items.Add(new Tab5AudioDevice(Tab5VoiceAudio.Tab5Selection,"TAB5 内置麦克风"));
         inputs.SelectedIndex=0;
         for(int i=1;i<inputs.Items.Count;i++)if(inputs.Items[i] is Tab5AudioDevice device&&device.Id==_settings.DjiId)inputs.SelectedIndex=i;
         if(_settings.DjiId.Length>0&&inputs.SelectedIndex==0) {
-            inputs.Items.Add(new Tab5AudioDevice(_settings.DjiId,"之前选择的大疆设备（当前未连接）"));inputs.SelectedIndex=inputs.Items.Count-1;
+            inputs.Items.Add(new Tab5AudioDevice(_settings.DjiId,"之前选择的麦克风（当前不可用）"));inputs.SelectedIndex=inputs.Items.Count-1;
         }
-        panel.Controls.Add(new Label{Text="与电脑豆包共用大疆；开始时不可用则使用 TAB5 麦克风。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(3,6,3,12)});
-        var troubleshoot=new Button{Text="问题排查",AutoSize=true,Name="voice-troubleshoot"};SettingsWindow.StyleButton(troubleshoot);panel.Controls.Add(troubleshoot);
-        var advanced=new FlowLayoutPanel{AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false,Visible=false,Margin=Padding.Empty,Name="voice-advanced"};panel.Controls.Add(advanced);SettingsWindow.FitFlow(advanced);
-        troubleshoot.Click+=(_,_)=>{
-            advanced.Visible=!advanced.Visible;troubleshoot.Text=advanced.Visible?"收起排查":"问题排查";
-            int height=(int)Math.Round((advanced.Visible?560:330)*form.DeviceDpi/96d);
-            int available=Screen.FromControl(form).WorkingArea.Height-32-(form.Height-form.ClientSize.Height);
-            form.ClientSize=new Size(form.ClientSize.Width,Math.Min(height,available));
-        };
-        string[] shortcuts=["LeftAltSpace","RightAltSpace","CtrlAltSpace"];
-        advanced.Controls.Add(new Label{AutoSize=true,Text="旧版备用快捷键",Margin=new Padding(3,12,3,3)});
-        var keys=new ComboBox{Width=590,DropDownStyle=ComboBoxStyle.DropDownList};keys.Items.AddRange(["左 Alt + 空格","右 Alt + 空格","Ctrl + Alt + 空格"]);keys.SelectedIndex=Math.Max(0,Array.IndexOf(shortcuts,_settings.Shortcut));advanced.Controls.Add(keys);
-        var test=new Button{Text="测试识别"};advanced.Controls.Add(test);
-        test.Click+=(_,_)=>_draft.ShowForSetup();
-
-        var status=new Label {AutoSize=true,MaximumSize=new Size(590,0),ForeColor=Color.DimGray};advanced.Controls.Add(status);
-        Tab5VoiceAvailability? RefreshAvailability() {
-            try {
-                var result=Tab5VoiceAudio.Inspect(Tab5VoiceAudio.Devices(DataFlow.Capture),Tab5VoiceAudio.Devices(DataFlow.Render),((Tab5AudioDevice)inputs.SelectedItem!).Id);
-                status.Text=result.Message;return result;
-            }catch(Exception ex) when(IsAudioError(ex)){status.Text="无法读取音频设备，请检查连接后重试。";return null;}
+        panel.Controls.Add(new Label{Text="指定电脑麦克风不可用时会提示；使用后恢复豆包原音源。",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(3,6,3,12)});
+        panel.Controls.Add(new Label{AutoSize=true,Text="当前状态",Margin=new Padding(3,12,3,4)});
+        var status=new Label {AutoSize=true,MaximumSize=new Size(590,0),ForeColor=Color.DimGray,Name="voice-availability",Margin=new Padding(3,0,3,8)};panel.Controls.Add(status);
+        Tab5AudioDevice[] captureDevices=[],renderDevices=[];
+        bool loading=false,loaded=false;
+        void RefreshAvailability() {
+            status.Text=loaded?Tab5VoiceAudio.Inspect(captureDevices,renderDevices,((Tab5AudioDevice)inputs.SelectedItem!).Id).Message:"正在读取麦克风…";
         }
-        var refresh=new Button{Text="检查音频"};advanced.Controls.Add(refresh);
-        refresh.Click+=(_,_)=>RefreshAvailability();inputs.SelectedIndexChanged+=(_,_)=>RefreshAvailability();RefreshAvailability();
+        inputs.SelectedIndexChanged+=(_,_)=>RefreshAvailability();RefreshAvailability();
         var save=new Button{Text="保存"};var cancel=new Button{Text="取消",DialogResult=DialogResult.Cancel,CausesValidation=false};
         var actions=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(24,8,24,24)};
-        actions.Controls.AddRange([cancel,save]);form.Controls.Add(actions);panel.BringToFront();
-        cancel.Click+=(_,_)=>form.Close();form.CancelButton=cancel;SettingsWindow.StyleButton(cancel);
-        save.Click+=(_,_)=> {
-            if(enabled.Checked&&RefreshAvailability()?.Ready!=true){MessageBox.Show(form,"请先连接大疆，或配置 TAB5 内置麦克风的音频通路。");return;}
-            try{var settings=new Tab5VoiceSettings(enabled.Checked,((Tab5AudioDevice)inputs.SelectedItem!).Id,shortcuts[keys.SelectedIndex]);settings.Save();_settings=settings;form.DialogResult=DialogResult.OK;form.Close();}
-            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException){MessageBox.Show(form,"设置未保存："+ex.GetType().Name);}
+        if(embeddedOwner is not null){
+            panel.Padding=new Padding(16);actions.Padding=Padding.Empty;actions.Margin=new Padding(0,16,0,0);
+            actions.Dock=DockStyle.None;actions.FlowDirection=FlowDirection.LeftToRight;actions.WrapContents=false;
+            save.Margin=new Padding(3,3,9,3);cancel.Margin=new Padding(3);
+            actions.Controls.AddRange([save,cancel]);panel.Controls.Add(actions);
+        } else {
+            actions.Controls.AddRange([cancel,save]);form.Controls.Add(actions);panel.BringToFront();
+        }
+        string Fingerprint()=>((Tab5AudioDevice)inputs.SelectedItem!).Id;
+        string baseline=Fingerprint();
+        inputs.SelectedIndexChanged+=(_,_)=>save.Text="保存";
+        if(embeddedOwner is not null) {
+            cancel.Text="还原修改";cancel.DialogResult=DialogResult.None;
+            embeddedOwner.FormClosing+=(_,e)=>{if(!e.Cancel&&baseline!=Fingerprint()&&!UnsavedChanges.Confirm(embeddedOwner))e.Cancel=true;};
+        }
+        cancel.Click+=(_,_)=>{
+            if(embeddedOwner is null){form.Close();return;}
+            for(int i=0;i<inputs.Items.Count;i++)if(((Tab5AudioDevice)inputs.Items[i]!).Id==_settings.DjiId)inputs.SelectedIndex=i;
+            baseline=Fingerprint();save.Text="保存";
+        };form.CancelButton=cancel;SettingsWindow.StyleButton(cancel);
+        async Task LoadDevices() {
+            if(loading||form.IsDisposed)return;
+            loading=true;inputs.Enabled=save.Enabled=cancel.Enabled=false;status.Text="正在读取麦克风…";
+            string selected=((Tab5AudioDevice)inputs.SelectedItem!).Id;
+            try {
+                var devices=await Task.Run(()=>(Tab5VoiceAudio.Devices(DataFlow.Capture),Tab5VoiceAudio.Devices(DataFlow.Render)));
+                if(form.IsDisposed)return;
+                (captureDevices,renderDevices)=devices;loaded=true;
+                inputs.BeginUpdate();
+                try {
+                    while(inputs.Items.Count>2)inputs.Items.RemoveAt(2);
+                    foreach(var device in captureDevices.Where(d=>!Tab5VoiceAudio.IsCableCapture(d.Name)))inputs.Items.Add(device);
+                    inputs.SelectedIndex=0;
+                    for(int i=1;i<inputs.Items.Count;i++)if(((Tab5AudioDevice)inputs.Items[i]!).Id==selected)inputs.SelectedIndex=i;
+                    if(selected.Length>0&&inputs.SelectedIndex==0){inputs.Items.Add(new Tab5AudioDevice(selected,"之前选择的麦克风（当前不可用）"));inputs.SelectedIndex=inputs.Items.Count-1;}
+                }finally{inputs.EndUpdate();}
+                RefreshAvailability();
+            }catch(Exception ex) when(IsAudioError(ex)){if(!form.IsDisposed)status.Text="无法读取音频设备，请重新打开设置重试。";loaded=false;}
+            finally{loading=false;if(!form.IsDisposed){inputs.Enabled=save.Enabled=loaded;cancel.Enabled=true;}}
+        }
+        form.VisibleChanged+=async(_,_)=>{if(form.Visible)await LoadDevices();};
+        inputs.Enabled=save.Enabled=false;
+        save.Click+=async(_,_)=> {
+            if(loading||!loaded)return;
+            if(Busy){MessageBox.Show(form,"请等待本次语音结束后再保存设置。");return;}
+            string selected=((Tab5AudioDevice)inputs.SelectedItem!).Id;
+            inputs.Enabled=save.Enabled=cancel.Enabled=false;
+            try {
+                var availability=await Task.Run(()=>Tab5VoiceAudio.Inspect(Tab5VoiceAudio.Devices(DataFlow.Capture),Tab5VoiceAudio.Devices(DataFlow.Render),selected));
+                if(form.IsDisposed)return;
+                if(Busy){status.Text="语音正在使用，请结束录音后保存。";return;}
+                if(!availability.Ready){status.Text=availability.Message;return;}
+                var settings=new Tab5VoiceSettings(true,selected,_settings.Shortcut);settings.Save();_settings=settings;baseline=Fingerprint();
+                if(embeddedOwner is null){form.DialogResult=DialogResult.OK;form.Close();}else save.Text="已保存";
+            }
+            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException||IsAudioError(ex)){if(!form.IsDisposed)status.Text="设置未保存，请检查音频设备后重试。";}
+            finally{if(!form.IsDisposed){inputs.Enabled=save.Enabled=cancel.Enabled=true;}}
         };
         SettingsWindow.FitFlow(panel);
-        foreach(var button in new[]{test,refresh,save})SettingsWindow.StyleButton(button);
-        SettingsWindow.StyleButton(save,true);SettingsWindow.FitScreen(form);form.ResumeLayout(true);
+        SettingsWindow.StyleButton(save,true);if(embeddedOwner is null)SettingsWindow.FitScreen(form);form.ResumeLayout(true);
         return form;
     }
     public void Dispose(){

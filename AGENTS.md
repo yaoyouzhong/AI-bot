@@ -74,6 +74,8 @@ git status --short
 
 ## Release boundary
 
+- Windows / Mac 开发、交接、维护和发布先遵循 [统一流程](docs/DESKTOP-DEVELOPMENT-RELEASE.md)，跨平台改动使用其中的交接模板。双平台发布从同一候选源码提交构建，各自在对应系统验收；验收哪个包就发布哪个包，每次由唯一发布负责人统一操作。该流程不扩大推送、标签、上传或正式发布授权。
+
 - TAB5 本地固件交付统一使用 `artifacts/firmware/tab5/latest/aibot_tab5.bin`；通过 `scripts/prepare_tab5_firmware.ps1` 校验并生成，历史包保存在同级 `versions/`。更新说明必须包含分类标题和列表，并使用实际 sidecar 做预览。详见 `docs/TAB5-FIRMWARE-WORKFLOW.md`。
 
 - 未经明确授权，不执行 `git push`、创建标签或发布 GitHub Release。

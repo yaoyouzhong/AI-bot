@@ -8,6 +8,18 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length is 2 or 3&&args[0]=="--inspect-tab5-voice-binding"&&(args.Length==2||args[2]=="--prepare-reader")) {
+            Tab5WindowsFollowupInspection.BindingAsync(args[1],args.Length==3).GetAwaiter().GetResult();return;
+        }
+        if(args.Length==1&&args[0]=="--self-test-queue-transport-server") {
+            AppPaths.BeginPublicSelfTest();Tab5QueueTransportSelfTest.ServeAsync().GetAwaiter().GetResult();return;
+        }
+        if(args.Length==1&&args[0]=="--self-test-domestic-quota") {
+            AppPaths.BeginPublicSelfTest();
+            OfficialQuotaApiSelfTest.Run();AdditionalQuotaSelfTest.Run();XiaomiQuotaSelfTest.Run();DomesticQuotaCycleSelfTest.Run();
+            return;
+        }
+        if(args.Length is 1 or 2&&args[0]=="--inspect-tab5-windows-followup"){Tab5WindowsFollowupInspection.RunAsync(args.Length==2?args[1]:null).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-background-quota-focus"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.BackgroundFocusSelfTest();return;}
         if(args.Length==2&&args[0]=="--quota-history-from-file") {
             AppPaths.BeginPublicSelfTest();
@@ -101,6 +113,7 @@ internal static class Program
         if(args.Length==3&&args[0]=="--test-esp-update-readonly"){AppPaths.BeginPublicSelfTest();EspUpdateSelfTest.ReadHardwareAsync(args[1],args[2]).GetAwaiter().GetResult();return;}
         if(args.Length==4&&args[0]=="--self-test-gallery-packs"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();GalleryPackSelfTest.RunPackages(args[1],args[2],args[3]);return;}
         if(args.Length==1&&args[0]=="--self-test-profile-guard"){AppProfileGuardSelfTest.Run();return;}
+        if(args.Length==2&&args[0]=="--preview-tab5-voice-settings"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.PreviewSettings(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-unified-updates"){AppPaths.BeginPublicSelfTest();UpdateSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-update-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);UpdateUiSelfTest.Run(args[1]);return;}
         if(args.Length==2&&args[0]=="--self-test-update-live"){AppPaths.BeginPublicSelfTest();UpdateLiveSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
@@ -165,7 +178,6 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-tab5-voice"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.RunUi();Tab5VoiceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==3&&args[0]=="--tab5-voice-check"){ApplicationConfiguration.Initialize();Tab5VoiceCheck.Run(args[1],args[2]);return;}
         if(args.Length==4&&args[0]=="--tab5-voice-check"){ApplicationConfiguration.Initialize();Tab5VoiceCheck.Run(args[1],args[2],args[3]);return;}
-        if(args.Length==2&&args[0]=="--preview-tab5-voice-settings"){ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.PreviewSettings(args[1]);return;}
         if(args.Length==1&&args[0]=="--tab5-voice-devices"){
             Console.WriteLine(JsonSerializer.Serialize(new{inputs=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Capture).Select(d=>new{d.Name,dji=Tab5VoiceAudio.IsDji(d.Name)}),cable=Tab5VoiceAudio.Devices(NAudio.CoreAudioApi.DataFlow.Render).Any(d=>Tab5VoiceAudio.IsCable(d.Name))},JsonDefaults.Options));return;
         }
@@ -507,7 +519,7 @@ internal static class Program
             return;
         }
 
-        if(args.Contains("--self-test-music-artwork")) {MusicLifecycleSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-music-artwork") {AppPaths.BeginPublicSelfTest();MusicLifecycleSelfTest.Run();return;}
         if (args.Contains("--self-test-music", StringComparer.OrdinalIgnoreCase))
         {
             Console.OutputEncoding = Encoding.UTF8;

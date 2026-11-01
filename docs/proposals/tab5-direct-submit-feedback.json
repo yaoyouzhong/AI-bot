@@ -1,0 +1,41 @@
+{
+  "baseVersion": "0.2.302-ui",
+  "parentProvenance": "tab5-music-font-fallback.json",
+  "patchSHA256": "9f0bd0d8516017c126c2ff27ac9bee91014c5671209513ff11d61601257d9134",
+  "files": {
+    "firmware/main/desktop_remote.c": {
+      "beforeSHA256LF": "45ae6e580ef641971b6ebe0b48e5ea88f7a39871b11bc63600debb61ceaa38dc",
+      "afterSHA256LF": "5b9e4218a51c408ca493995fdda5dcf8c5777879b066b30427bc2aa609ad8d3a"
+    },
+    "firmware/main/desktop_submit_feedback.h": {
+      "beforeSHA256LF": null,
+      "afterSHA256LF": "2213b96d22a3e882f46a9a5eac3fd71dcbb83a4c15c96e7bee735fe66138e4b7"
+    },
+    "tests/ui-preview/desktop_submit_feedback_test.c": {
+      "beforeSHA256LF": null,
+      "afterSHA256LF": "b85c91e8c7bb6b25e937022260c8aeb516d835a4a875bdd2e81038e60ea2f874"
+    },
+    "tests/ui-preview/preview.c": {
+      "beforeSHA256LF": "0176a44ab793896be3b0889bcc5314136873b59391409400ce13939cb4a21208",
+      "afterSHA256LF": "42149eb05be66242e01d4647e44736436c55306b541638a9fb16df4750fa7ed6"
+    },
+    "tests/ui-preview/CMakeLists.txt": {
+      "beforeSHA256LF": "9add84e9067ffa0acaad388ba1b550c3bc7818d682a0ca7e246b072bdad45d8e",
+      "afterSHA256LF": "3db6442ec125a21201c55a9309943f7c864128919fcac28df925c6133bb88a7f"
+    }
+  },
+  "protocol": "Consumes existing Windows taskId/submitted/attempted typed receipt; absent fields on older/Mac bridges remain unknown. No new wire field.",
+  "status": "source fix and complete application image check; no device installation, version allocation, latest overwrite or flashing",
+  "validation": "11 native cJSON cases; full production preview.c assertions and reviewed final renders; ESP32-P4 compile and application image link/partition check; incremental patch before/after hashes and reverse/forward application",
+  "source": "Verified .283 archive and checked published .284-.302 patches; unrelated independent TAB5 worktree preserved",
+  "imageLimit": "Application image fits unchanged 7208960-byte partition with 912 bytes free. Diagnostic version remains 0.2.302-ui; not a released or offered upgrade.",
+  "diagnosticImage": {
+    "Version": "0.2.302-ui",
+    "Installed": false,
+    "ELFSHA256": "515ca0f66fe66d983440e5ae95267ae89b5278a319d2c9ea0e912afd8eb06aba",
+    "SHA256": "a410b8accacb57047fcb07c15268f404d3faab109ae801b006ac2f42eb992151",
+    "PartitionBytes": 7208960,
+    "FreeBytes": 912,
+    "Bytes": 7208048
+  }
+}

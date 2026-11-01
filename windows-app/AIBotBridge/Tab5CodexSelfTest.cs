@@ -5,6 +5,9 @@ namespace AIBotBridge;
 internal static class Tab5CodexSelfTest
 {
     internal static async Task RunAsync() {
+        await Tab5QueueTransportSelfTest.RunAsync();
+        Tab5CodexCatalogSelfTest.Run();
+        await Tab5NativeAppendSelfTest.RunAsync();
         await Tab5CodexPublicHistorySelfTest.RunAsync();
         Tab5CodexReadStateSelfTest.Run();
         Tab5CodexJournalSelfTest.Run();

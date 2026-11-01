@@ -1,5 +1,15 @@
 # Windows 对齐清单：Mac R48 / TAB5 .302 候选
 
+11-01 新状态：闲置录音缓存刷新已修复、通过自动验证并安装 Windows 候选；明确拒绝的提示已完成 TAB5 源码与离线验证，尚未刷入设备。MiMo / MiniMax 真实账户按用户要求延后，Mac R35 实机仍待完成。详见 [专项记录](WINDOWS-IDLE-SUBMIT-FIX-20261101.md)。
+
+11-01 14:05：用户确认冷启动慢、第二次快。后台初始化 UIA 与紧邻观察复用已实现，四项新增草稿保护回归和既有自测通过；13:58 发送可靠接收但总耗时 4082ms，不能宣称全链路提速。首次冷启动与新填入时序继续按 [W31 记录](WINDOWS-W31-VALIDATION-20261101.md) 实测。
+
+11-01 13:50 续优：录音焦点补救提前与录音期间只读连接准备已完成代码和隔离自测；启动/发送前填入的真实耗时、首字和送达仍待新候选验收。逐项状态及证据见 [W31 执行记录](WINDOWS-W31-VALIDATION-20261101.md)，Mac R35 持久排队仍待实机。
+
+11-01 国产模型补充核对：[接口审计与 Mac 待办](DOMESTIC-QUOTA-INTERFACE-AUDIT-20261101.md)。Windows GLM 新接口兼容已安装并真实自动刷新成功；DeepSeek 正常。MiMo 新结构与 MiniMax 重置时间、扩容比例已补齐，回归通过，真实订阅账户验收仍待完成。已 fetch 最新主干 PR #20 `f4a509d`，其 Mac GLM 仍监听旧接口；本工作分支未合并该 PR。Mac 同步及 R35 实机验收仍待完成。
+
+Windows 11-01 执行更新：已安全同步至 PR #19 `0b39860` 并保留本地工作。W31-01 至 W31-12 的实现位置、离线回归和剩余 Windows 实机项见 [Windows 对齐验收记录](WINDOWS-W31-VALIDATION-20261101.md)。下表“当前状态”为 Mac 交接时基线；Windows 最新结论以该记录为准，尚不代表最终实机通过。
+
 11-01 歌名补充：.302 复用已有扩展字库，修复部分繁体歌名方块，保持原始文字；无需 Windows/Mac 桥接改协议或繁简转换。设备安装及精确启动核验通过，用户确认歌名缺字和切歌封面均正常，见[设计与覆盖范围](TAB5-MUSIC-FONT-20261101.md)。
 
 11-01 最新：.300 真机压力验收未通过，失败发生在显示复制之前。.301 增加普通／暂存／旋转缓存共同遵守的接收内存余量和 UI 维护；在 .300 后应用[全链路缓存补丁](../proposals/tab5-cover-cache-reserve.patch)，核对[来源](../proposals/tab5-cover-cache-reserve.json)。.301 已安装，跨四页和两次换歌真机验收通过；JPEG 首轮确认、失败计数全零，可用 PSRAM 保持4.3 MiB 以上。
@@ -83,6 +93,10 @@ Windows 必须独立验收。连接中断／长期压力仍按用户决定留作
 
 ## Windows 开发验证
 
+11-01 Windows 实机补记：Codex 直达录音、自动填入与蓝色箭头提交已通过。任务页「发送」实际接收，但末尾段落 LF 导致回执误报未知；已补 `Tab5CodexDeliveryReceipt.ParagraphText`，只兼容末尾 CR/LF，新增 12 项边界回归，QuickConsole／W29 共 115 项通过，真实只读快照已匹配。W31-01／03 的完整设备反馈、未知核对及持久排队仍待复验，不能记为完成。保留旧请求／草稿，不重发；详见 [Windows 实测与修复记录](WINDOWS-W31-VALIDATION-20261101.md)。此前本地 setup／ZIP／源码快照不含此修复，不能作为最终发布附件。
+
+11:12 续验：用户确认另一会话任务页发送成功、TAB5 显示已发送；出现先未知再查询成功，实测初次请求 12.3 秒，完整回执读取三次约 1.3 秒。已针对强回执路径省去 UI 清空轮询，本地新消息／持久队列证据充分时省去额外服务端读取，并增加最多四次、3500ms 的只读观察；完整发送前基线和防重发不变。Native append 33 项、W29 115 项通过，新候选流畅性、运行中排队仍待实机。此前首次加载超时尚未完全定位，补分阶段日志；普通 send 的过期未知记录不支持当前 steer 专用人工确认，保留草稿，不宣称恢复通过。
+
 ```powershell
 dotnet build windows-app\AIBotBridge\AIBotBridge.csproj -c Release
 dotnet run --no-build -c Release --project windows-app\AIBotBridge\AIBotBridge.csproj -- --status-once
@@ -111,3 +125,7 @@ The .301 physical stress check passes: all four primary pages, two track changes
 W31-12 follow-up: Windows still hardcodes `sqlite/codex-dev.db`. Align recent-list and confirmation readers with the current `sqlite/codex.db`, falling back only when the current file is absent. Missing targets or current-catalog errors must not authorize stale legacy identities. See the [Mac diagnosis](MAC-CODEX-CATALOG-20261101.md).
 
 Music-title follow-up: apply the .302 shared firmware patch after .301. Reuse existing extended glyphs at the title size, preserving original text and native glyph priority; no host protocol or Traditional-to-Simplified conversion is needed. Coverage remains partial. Full LVGL and render checks pass; installation and exact boot verification pass; user confirms the missing title glyph and track-change covers are correct; physical acceptance passes.
+
+
+### 2026-11-01 晚：回交 Mac 与最终验收入口
+Windows 本轮主要真机行为和最新界面修改已由用户确认；完整状态及 Mac 待补清单见 [Mac 对齐交接](MAC-FOLLOWUP-FROM-WINDOWS-20261101.md)。长闲置、缺席 DJI/账户与 Mac R35 保持待验证；Windows 通过不关闭 Mac 项。旧阶段记录按时间保留，正式包仍需重新构建。

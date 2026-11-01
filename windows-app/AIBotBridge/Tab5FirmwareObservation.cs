@@ -7,6 +7,7 @@ internal sealed class Tab5FirmwareObservation(Func<long>? clock=null)
     private Seen? _last;
     internal void Observe(string device,string version) {
         if(!Tab5Protocol.ValidId(device)||version.Length is <1 or >31||version.Any(c=>!char.IsAsciiLetterOrDigit(c)&&c is not ('.' or '-' or '_')))return;
+        if(Volatile.Read(ref _last)?.Version!=version)Tab5LocalDiagnostics.Write($"TAB5_FIRMWARE version={version}");
         Volatile.Write(ref _last,new(device,version,_clock()));
     }
     internal string LastVersion(string? device) {var seen=Volatile.Read(ref _last);return seen is not null&&seen.Device==device?seen.Version:"待连接读取";}

@@ -28,7 +28,7 @@ internal static class Tab5DoubaoMicrophoneSelfTest
             if(ReadGate is not null)await ReadGate.Task;
             AfterRead?.Invoke();
             return JsonSerializer.SerializeToElement(new {selectedMicrophoneId=Selected,devices=new[]{
-                new{id="cable",name="CABLE Output (VB-Audio Virtual Cable)"},new{id="dji",name="麦克风 (Wireless Mic Rx)"}}});
+                new{id="cable",name="CABLE Output (VB-Audio Virtual Cable)"},new{id="dji",name="麦克风 (Wireless Mic Rx)"},new{id="usb",name="USB Microphone"}}});
         }
     }
     private static void Check(bool value,string label){if(!value)throw new InvalidOperationException("Doubao microphone lease: "+label);}
@@ -55,6 +55,7 @@ internal static class Tab5DoubaoMicrophoneSelfTest
         thread.SetApartmentState(ApartmentState.STA);thread.Start();return completion.Task;
     }
     internal static async Task RunAsync() {
+        Tab5DoubaoAvailability.SelfTest();
         string directory=Path.Combine(Path.GetTempPath(),"tab5-mic-"+Guid.NewGuid().ToString("N"));
         try {
             var settings=new Settings(directory,"basic");var mic=settings.Create();
@@ -78,6 +79,13 @@ internal static class Tab5DoubaoMicrophoneSelfTest
             Check(settings.Selected=="dji"&&settings.Writes==0,"shared DJI needs no channel restoration");
             settings.Selected="manual";await MustFail(()=>mic.AcquireAsync("dji"));await mic.Recovery;
             Check(settings.Selected=="manual"&&settings.Writes==0&&!mic.HasPendingRestore,"shared mode cannot silently change a different desktop microphone");
+
+            settings=new(directory,"physical");mic=settings.Create();await mic.AcquireAsync("usb",selectPhysical:true);
+            Check(settings.Selected=="usb"&&settings.JournalBeforeWrite&&mic.HasPendingRestore,"explicit physical endpoint uses the existing recovery lease");
+            mic.Release();await mic.Recovery;
+            Check(settings.Selected=="dji"&&!mic.HasPendingRestore,"physical endpoint restores original selection");
+            before=settings.Writes;await MustFail(()=>mic.AcquireAsync("missing",selectPhysical:true));await mic.Recovery;
+            Check(settings.Selected=="dji"&&settings.Writes==before,"missing explicit endpoint never selects a different microphone");
 
             settings=new(directory,"retry");mic=settings.Create();await mic.AcquireAsync();settings.RejectWrites=2;
             mic.Release();await mic.Recovery;

@@ -13,7 +13,9 @@ internal sealed partial class Tab5Service : IDisposable
     private bool _stopping;
     private int _voiceRequests;
     private volatile Tab5BleVoice? _usbRpcPump;
-    internal bool BackgroundAssetTransferPaused=>BackgroundTransferPaused||(_voice as Tab5VoiceHost)?.Busy==true||_usbRpcPump?.ExchangeActive==true;
+    private readonly Tab5VoiceTransportPriority _voiceTransportPriority=new();
+    internal bool BackgroundAssetTransferPaused=>BackgroundTransferPaused||(_voice as Tab5VoiceHost)?.Busy==true||
+        (_voice is not Tab5VoiceHost {SettingsEnabled:false}&&_voiceTransportPriority.Active)||_usbRpcPump?.ExchangeActive==true;
     internal CancellationToken LifetimeToken=>_lifetime.Token;
     internal void BeginStop(){lock(_lifecycle){if(Busy)throw new InvalidOperationException("TAB5 正在录音、升级或安装，请结束后再试。");_stopping=true;_lifetime.Cancel();}}
 
@@ -166,7 +168,6 @@ internal sealed partial class Tab5Service : IDisposable
     private readonly Queue<string> _actionNonceOrder=new();
     private readonly object _actionLock=new();
     private long _lastActionTick,_lastReadTick,_lastDraftTick;
-    private readonly Dictionary<int,(string Id,int Offset)> _usbAssets=[];
     private long _usbResourceChunks;
     private string? _host;
     private int _port;
@@ -248,7 +249,7 @@ internal sealed partial class Tab5Service : IDisposable
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealthFor(StatusSnapshot snapshot) => new { screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
+    private object ConnectionHealthFor(StatusSnapshot snapshot,Tab5OtaPackage? image) => new { screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
@@ -259,17 +260,19 @@ internal sealed partial class Tab5Service : IDisposable
         var pairing=_store.Current; if(pairing is null) return;
         var resource=BackgroundAssetTransferPaused?null:_assets.Next(snapshot);var sequence=Interlocked.Increment(ref _sequence);
         _frameMayContainResource=resource is not null;
+        var advertisedImage=Volatile.Read(ref _ota);
+        var health=ConnectionHealthFor(snapshot,advertisedImage);
         int maximum=Volatile.Read(ref _statusMaximum),budget=Tab5StatusCapacity.Budget(maximum);
         byte[] Build(int cap,byte[]? previous,out int initial,out int taskLimit,out bool degraded,out string[] deferredFields) {
             int target=Tab5StatusCapacity.Budget(cap);taskLimit=80;
-            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealthFor(snapshot));
+            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health);
             initial=bytes.Length;
             if(bytes.Length>target&&resource is not null)
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),Volatile.Read(ref _ota)?.Offer,ConnectionHealthFor(snapshot));
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health);
             foreach(int limit in new[]{64,56,48,40,32,24,16,8,2}) {
                 if(bytes.Length<=target)break;
                 taskLimit=limit;
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),Volatile.Read(ref _ota)?.Offer,ConnectionHealthFor(snapshot));
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),advertisedImage?.Offer,health);
             }
             degraded=bytes.Length>target;deferredFields=[];
             return degraded?Tab5StatusRecovery.Build(bytes,previous,out deferredFields,cap):bytes;
@@ -436,7 +439,8 @@ internal sealed partial class Tab5Service : IDisposable
             }
             return result;
         }
-        return await _codexTasks.SubmitAsync(taskId.GetString()!,message.GetString()!,token,requestId.Length>0?requestId:null,operation,expectedTurn,images,id);
+        return await _codexTasks.SubmitAsync(taskId.GetString()!,message.GetString()!,token,requestId.Length>0?requestId:null,operation,expectedTurn,images,id,
+            ()=>_store.Current==pairing&&_session==session.GetString());
         }
     }
     internal static byte[] BoundReadBatch(object body) {
@@ -673,7 +677,6 @@ internal sealed partial class Tab5Service : IDisposable
                                 using var crash=await ReadReplyAsync(port,"tab5_crash_diagnostic",token);
                                 _crashes.Record(ack.RootElement.TryGetProperty("firmware",out var crashVersion)?crashVersion.GetString()??"":"",crash.RootElement);
                             }
-                            var receivedIds=Tab5Assets.ValidIds(reportedAssets)?reportedAssets!.Split(','):[];
                             bool hasResource=sent.RootElement.GetProperty("data").GetProperty("resource").ValueKind==JsonValueKind.Object;
                             _wifiReportedConnected=ack.RootElement.TryGetProperty("wifiConnected",out var wifiValue)&&wifiValue.ValueKind==JsonValueKind.True;
                             Interlocked.Exchange(ref _wifiReportAt,Environment.TickCount64);
@@ -682,25 +685,16 @@ internal sealed partial class Tab5Service : IDisposable
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
                             // Bound each USB burst to preserve regular status heartbeats.
                             if(!BackgroundAssetTransferPaused&&ack.RootElement.TryGetProperty("assetsReady",out var readyValue)&&readyValue.TryGetInt32(out var ready)) {
-                                int budget=1; // Yield the serial gate between resource fragments.
-                                foreach(var asset in _assets.Assets) {
-                                    if(receivedIds.Length==3&&receivedIds[asset.Slot]==asset.Id)continue;
-                                    _usbAssets.TryGetValue(asset.Slot,out var transfer);
-                                    if(transfer.Id!=asset.Id)transfer=(asset.Id,0);
-                                    if(transfer.Offset>=asset.Packed.Length) {
-                                        transfer=(asset.Id,0);
-                                    }
-                                    while(!BackgroundAssetTransferPaused&&budget>0&&transfer.Offset<asset.Packed.Length) {
+                                // USB, HTTP and BLE consume the same randomized resource budget.
+                                foreach(var resource in _assets.NextBatch(1)) {
+                                    if(!BackgroundAssetTransferPaused) {
                                         Stage("resource");
-                                        Send(port,new {version=1,type="tab5_resource",deviceId=pairing.DeviceId,resource=Tab5Assets.Chunk(asset,transfer.Offset)});
+                                        Send(port,new {version=1,type="tab5_resource",deviceId=pairing.DeviceId,resource});
                                         using var resourceAck=await ReadReplyAsync(port,"tab5_resource_ack",token);
                                         if(resourceAck.RootElement.GetProperty("deviceId").GetString()!=pairing.DeviceId)throw new IOException("TAB5 资源确认不匹配");
                                         if(resourceAck.RootElement.TryGetProperty("assetIds",out var received)&&received.ValueKind==JsonValueKind.String)_assets.Acknowledge(received.GetString());
-                                        transfer.Offset+=Math.Min(1024,asset.Packed.Length-transfer.Offset);budget--;
                                         _usbResourceChunks++;
-                                        _usbAssets[asset.Slot]=transfer;
                                     }
-                                    if(budget==0)break;
                                 }
                                 pendingResources=!BackgroundAssetTransferPaused&&_assets.HasPending;
                             }
@@ -716,7 +710,7 @@ internal sealed partial class Tab5Service : IDisposable
         }
     }
     internal Task RunBleAsync(CancellationToken token) => new Tab5BleClient(_store,maximum=>Volatile.Read(ref _otaTransfers)>0?null:CurrentFrameForMaximum(maximum),s=>{_bleStatus=s;if(s is "已连接 · 数据已确认" or "已连接 · USB 优先待命")Interlocked.Exchange(ref _bleAckAt,Environment.TickCount64);},_assets.Acknowledge,s=>{_bleDiagnostic=s;if(s.StartsWith("FAILED "))_bleLastFailure=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s;},
-        (nonce,proof,packet,ct)=>VoiceAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct,compact:true),
+        (nonce,proof,packet,ct)=>VoiceAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct,compact:true,transport:"BLE"),
         (nonce,proof,packet,ct)=>RpcAsync(_store.Current?.DeviceId??"",nonce,proof,packet,ct,transport:"BLE"),
         (capability,interactive,maximum)=>Volatile.Read(ref _otaTransfers)>0?null:TelemetryFrame(2,capability>0,capability>=2,interactive,capability>=3,maximum),
         s=>_bleRpcDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,()=>ResetTelemetryChannel(2),()=>ImageUploadActive||BleGalleryTransferActive,s=>_bleVoiceDiagnostic=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s,seq=>AcknowledgeTelemetry(2,seq),version=>ObserveFirmware(_store.Current?.DeviceId??"",version),probeTrace:_bleProbeTrace,nativeLimit:()=>_bleQueueComparison.NativeLimit,bulkWriteLimit:()=>_bleQueueComparison.WriteWindow,bulkWriteSupported:n=>Volatile.Write(ref _bleWriteWindowSupported,n),standby:()=>Tab5BleClient.UsbOwnsActiveState(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),_usbDataActive),queueComparisonActive:()=>_bleQueueComparison.Active).RunAsync(token);
@@ -738,7 +732,7 @@ internal sealed partial class Tab5Service : IDisposable
     }
     private static async Task RequireAckAsync(SerialPort port,string type,CancellationToken token) { using var reply=await ReadReplyAsync(port,type,token); }
     private static Task<JsonDocument> ReadReplyAsync(SerialPort port,string type,CancellationToken token)=>Tab5UsbText.ReadAsync(port,type,token);
-    internal async Task<(int Status,byte[]? Packet)> VoiceAsync(string id,string nonce,string proof,byte[] packet,CancellationToken token,bool compact=false)
+    internal async Task<(int Status,byte[]? Packet)> VoiceAsync(string id,string nonce,string proof,byte[] packet,CancellationToken token,bool compact=false,string transport="Wi-Fi")
     {
         lock(_lifecycle){if(_stopping)return(503,null);Interlocked.Increment(ref _voiceRequests);}
         try {
@@ -765,16 +759,27 @@ internal sealed partial class Tab5Service : IDisposable
                 if(_voiceNonces.Count>=1024)throw new ArgumentException("语音请求过快");
                 _voiceNonces[nonce]=now;
             }
-            result=_voice is null?throw new InvalidOperationException("电脑语音服务未就绪"):await _voice.HandleAsync(root,token);
-            var diagPath=Environment.GetEnvironmentVariable("AIBOT_TAB5_DIAG_LOG");
-            if(diagPath is not null) {
+            string voiceDevice=Tab5CodexDeliveryReceipt.Digest(id+":"+pair.Key);
+            long bindingStarted=Environment.TickCount64;
+            string? voiceTarget=Text(root,"op")=="start"&&_voice is Tab5VoiceHost {Busy:false}?QuickConsole.PrepareVoice(Text(root,"taskId")):null;
+            if(Text(root,"op")=="start")Tab5VoiceTiming.Log("request-target-binding",bindingStarted);
+            result=_voice is null?throw new InvalidOperationException("电脑语音服务未就绪"):await _voice.HandleAsync(root,token,waitForFinal:transport is "USB" or "BLE");
+            if(result is Tab5VoiceReply observed) {
+                _voiceTransportPriority.Observe(Text(root,"op"),observed,transport,nonce);
+                QuickConsole.ObserveVoice(voiceDevice,observed,voiceTarget);
+                // This authenticated start already succeeded. Prepare only the
+                // read-only transport off-thread; never delay audio or reuse evidence.
+                if(Text(root,"op")=="start"&&observed.State=="recording"&&Guid.TryParse(observed.TaskId,out _))
+                    _codexTasks.PrepareReceiptTransport();
+            }
+            {
                 string op=root.TryGetProperty("op",out var opValue)&&opValue.ValueKind==JsonValueKind.String?opValue.GetString()??"?":"?";
                 int seq=root.TryGetProperty("seq",out var seqValue)&&seqValue.TryGetInt32(out var number)?number:-1;
                 double elapsed=System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
                 if(op!="audio"||seq%10==0||elapsed>180) {
                     var voiceReply=result as Tab5VoiceReply;
-                    try{File.AppendAllText(diagPath,$"{DateTimeOffset.Now:O} HOST op={op} seq={seq} ms={elapsed:F0} state={voiceReply?.State} textBytes={Encoding.UTF8.GetByteCount(voiceReply?.Text??"")}{Environment.NewLine}");}
-                    catch(Exception ex) when(ex is IOException or UnauthorizedAccessException) { }
+                    string safeOp=op is "start" or "stop" or "cancel" or "status" or "audio" or "poll"?op:"other";
+                    Tab5LocalDiagnostics.Write($"HOST op={safeOp} seq={seq} ms={elapsed:F0} state={voiceReply?.State} textBytes={Encoding.UTF8.GetByteCount(voiceReply?.Text??"")}");
                 }
             }
         }catch(Exception ex) when(ex is ArgumentException or JsonException or InvalidOperationException or NAudio.MmException or System.Runtime.InteropServices.COMException) {

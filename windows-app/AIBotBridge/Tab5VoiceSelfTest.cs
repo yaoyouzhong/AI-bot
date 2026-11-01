@@ -216,7 +216,41 @@ internal static class Tab5VoiceSelfTest
         Check(voice.Snapshot().State=="error"&&!audio.Running&&audio.Starts==2,"failed recovery is visible and never starts a replacement take");
         Console.WriteLine("TAB5_VOICE_FOCUS_RECOVERY_OK same_take_audio_text_tail preserved; no restart; synthetic only");
     }
+    private static async Task CheckFinalPollAsync() {
+        foreach(string outcome in new[]{"final","changing","cancel","replace","token","timeout","legacy"}) {
+            long now=1000;int waits=0;var audio=new Audio{CapturedSound=true};var editor=new Editor{RecognitionComplete=true};
+            using var session=new Tab5VoiceSession(audio,editor,()=>now);
+            using var cancellation=new CancellationTokenSource();
+            var started=session.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString()}));
+            editor.Text="第一段，保留标点。";
+            session.Handle(Json(new{op="stop",voiceId=started.VoiceId}));session.Tick();now+=200;session.Tick();
+            now+=outcome=="timeout"?500:1100;
+            Task Wait(CancellationToken ct) {
+                now+=20;waits++;
+                if(outcome=="changing")editor.Text="尚在修订 "+waits;
+                if(waits==1&&outcome is "cancel" or "replace") {
+                    session.Handle(Json(new{op="cancel",voiceId=started.VoiceId}));
+                    if(outcome=="replace")session.Handle(Json(new{op="start",taskId=Guid.NewGuid().ToString()}));
+                }
+                if(outcome=="token")cancellation.Cancel();
+                return Task.CompletedTask;
+            }
+            try {
+                var reply=await session.HandleAsync(Json(new{op="poll",voiceId=started.VoiceId}),cancellation.Token,Wait,waitForFinal:outcome!="legacy");
+                Check(outcome is not ("replace" or "token"),"old/cancelled poll must not return another take");
+                Check(reply.VoiceId==started.VoiceId,"final poll preserves voice owner");
+                Check(reply.State==(outcome=="final"?"review":outcome=="cancel"?"cancelled":"recognizing"),"bounded final poll: "+outcome);
+                Check(waits<=18&&(outcome!="legacy"||waits==0),"bounded wait and legacy immediate path");
+                if(outcome=="final")Check(reply.Text=="第一段，保留标点。"&&reply.CanInsert&&waits==5,"current poll returns committed final without changing settling gates");
+            }catch(Tab5VoiceRequestException) when(outcome=="replace") {
+                Check(session.Snapshot().State=="recording"&&audio.Starts==2,"stale poll leaves new take active");
+            }catch(OperationCanceledException) when(outcome=="token"){}
+        }
+        Console.WriteLine("TAB5_VOICE_FINAL_POLL_OK final; changing; cancel; replaced owner; cancellation; bounded wait; legacy");
+    }
     internal static async Task RunAsync() {
+        await Tab5VoiceFocusPreparationSelfTest.RunAsync();
+        await CheckFinalPollAsync();
         Tab5SpeechTranscript.SelfTest();
         Tab5VoiceFocusRecoverySelfTest.Run();
         CheckFocusRecovery();
@@ -304,11 +338,55 @@ internal static class Tab5VoiceSelfTest
         Check(Tab5VoiceAudio.IsDji("麦克风 (Wireless Mic Rx)")&&!Tab5VoiceAudio.IsDji("Intel Microphone Array"),"DJI known endpoint identity, unrelated mic excluded");
         Tab5AudioDevice[] capture=[new("dji","麦克风 (Wireless Mic Rx)"),new("cable-out","CABLE Output (VB-Audio Virtual Cable)")];
         Tab5AudioDevice[] render=[new("cable-in","CABLE Input (VB-Audio Virtual Cable)")];
+        int enumerations=0;long deviceClock=0;
+        bool metadataFailure=false;
+        using(var endpoints=new Tab5AudioEndpointCache(flow=>{enumerations++;if(metadataFailure)throw new InvalidOperationException("fixture unavailable");return flow==NAudio.CoreAudioApi.DataFlow.Capture?capture:render;},()=>deviceClock,automaticRefresh:false)) {
+            var flow=NAudio.CoreAudioApi.DataFlow.Capture;
+            endpoints.Get(flow);endpoints.Get(flow);
+            Check(enumerations==1,"repeat take reuses endpoint metadata");
+            endpoints.OnDeviceRemoved("dji");endpoints.Get(flow);
+            Check(enumerations==2,"hot unplug invalidates cached endpoints");
+            endpoints.OnDeviceAdded("usb");endpoints.Get(flow);
+            Check(enumerations==3,"new input is discovered before next take");
+            deviceClock=300001;endpoints.Get(flow);
+            Check(enumerations==4,"bounded metadata lifetime refreshes missed notifications");
+            for(int minute=1;minute<=30;minute++){deviceClock+=60000;endpoints.Refresh();}
+            int beforeTake=enumerations;
+            endpoints.Get(flow);
+            Check(enumerations==beforeTake,"thirty-minute idle uses refreshed metadata without enumerating on next take");
+            Check(beforeTake==19,"idle refresh bounded to once every two minutes per cached direction");
+            deviceClock+=120000;metadataFailure=true;endpoints.Refresh();
+            Check(ReferenceEquals(endpoints.Get(flow),capture),"failed refresh retains still-valid metadata");
+            deviceClock+=180001;
+            try{endpoints.Get(flow);throw new Exception("expired metadata accepted");}
+            catch(InvalidOperationException){Check(true,"failed refresh never renews expiry or authorizes stale metadata");}
+            metadataFailure=false;endpoints.Get(flow);
+            endpoints.OnDefaultDeviceChanged(flow,NAudio.CoreAudioApi.Role.Console,"new-default");beforeTake=enumerations;
+            endpoints.Get(flow);Check(enumerations==beforeTake+1,"default-device change still invalidates idle refresh");
+        }
+        Tab5AudioEndpointCache? racing=null;int raceReads=0;
+        using(racing=new Tab5AudioEndpointCache(_=>{if(++raceReads==1){racing!.OnDeviceRemoved("dji");return capture;}return capture[1..];},automaticRefresh:false)) {
+            Check(racing.Get(NAudio.CoreAudioApi.DataFlow.Capture).All(d=>d.Id!="dji")&&raceReads==2,
+                "unplug during enumeration cannot reinsert or return stale selected input");
+        }
+        int parallelReads=0;
+        using(var parallel=new Tab5AudioEndpointCache(_=>{Interlocked.Increment(ref parallelReads);Thread.Sleep(30);return capture;},automaticRefresh:false)) {
+            await Task.WhenAll(Enumerable.Range(0,8).Select(_=>Task.Run(()=>parallel.Get(NAudio.CoreAudioApi.DataFlow.Capture))));
+            Check(parallelReads==1,"simultaneous prefetch/start requests share one enumeration");
+            parallel.Dispose();parallel.Refresh();
+            try{parallel.Get(NAudio.CoreAudioApi.DataFlow.Capture);throw new Exception("disposed cache reused");}
+            catch(ObjectDisposedException){Check(true,"shutdown cannot repopulate metadata");}
+        }
         Check(Tab5VoiceAudio.Inspect(capture,render,"") is {CableReady:true,DjiAvailable:true},"both virtual endpoints and DJI detected");
         Check(Tab5VoiceAudio.Inspect(capture[..1],[],"") is {CableReady:false,DjiAvailable:true,Ready:true},"direct DJI does not require virtual cable");
         Check(!Tab5VoiceAudio.Inspect(capture,render,"disconnected-id").DjiAvailable,"disconnected explicit device never selects unrelated input");
         Check(!Tab5VoiceAudio.Inspect(capture,render,"cable-out").DjiAvailable&&Tab5VoiceAudio.SelectInput(capture,"cable-out") is null,"saved virtual cable selection cannot feed output back into itself");
         Check(Tab5VoiceAudio.SelectInput(capture,"dji")?.Id=="dji","explicit physical input remains available");
+        Check(!Tab5VoiceAudio.Inspect(capture,render,"disconnected-id").Ready,"explicit missing mic cannot silently fall back to working cable");
+        Check(Tab5VoiceAudio.Inspect(capture,render,Tab5VoiceAudio.Tab5Selection) is {Ready:true,DjiAvailable:false},"explicit TAB5 selection ignores connected DJI");
+        Tab5AudioDevice[] physical=[new("builtin","Microphone Array"),new("usb","USB Podcast Microphone")];
+        foreach(var input in physical)Check(Tab5VoiceAudio.Inspect(physical,[],input.Id) is {Ready:true,DjiAvailable:true}&&
+            Tab5VoiceAudio.Inspect(physical,[],input.Id).Message.Contains(input.Name),"selected physical microphone retains exact endpoint name without cable");
         start=voice.Handle(Json(new{op="start",taskId=task}));audio.InputReady=false;
         for(int i=0;i<8;i++){now+=1000;voice.Handle(Json(new{op="poll",voiceId=start.VoiceId}));}
         Check(voice.Snapshot().State=="error"&&!voice.Snapshot().Ready&&!audio.Running,"unready audio times out without a false ready cue");

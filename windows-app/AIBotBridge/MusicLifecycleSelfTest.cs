@@ -4,6 +4,7 @@ internal static class MusicLifecycleSelfTest
 {
     internal static void Run()
     {
+        Tab5CoverRetrySelfTest.Run();
         var service=new NowPlayingService();
         var song=new MusicSnapshot("Song","Artist","",true,3,120,DateTimeOffset.UtcNow);
         void Require(bool ok,string message){if(!ok)throw new InvalidOperationException(message);}

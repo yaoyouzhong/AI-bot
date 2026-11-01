@@ -1,0 +1,19 @@
+{
+  "baseVersion": "0.2.302-ui",
+  "parentProvenance": "tab5-submit-context-feedback.json",
+  "patchSHA256": "10c248d03a5f702e2c15a02850c1968f850c5c10a9e47896223d53a8de7090c5",
+  "files": {
+    "firmware/main/ota_remote.inc": {
+      "beforeSHA256LF": "43a2fac50dd08b4f5b016097d5a8105ddef1d9911eb9858b43f6794d093f4367",
+      "afterSHA256LF": "bd4f50dfa5ed674174de817371de9b7f445a6282270f72c85c8b9162bd480bde"
+    },
+    "tests/ui-preview/ota_remote_ui_test.inc": {
+      "beforeSHA256LF": "c05a700fd79f42434935efe46f982c8cd3eefa04eeb774dd2e536649325bfe28",
+      "afterSHA256LF": "f8b08d1ce18fef27ee7860e306fa4fb4836040db5b9f3efee9115e0f5bb669b4"
+    }
+  },
+  "status": "source fix; validation results recorded separately; not installed",
+  "protocol": "No wire changes. Wait for matching pending offer within original command freshness/deadline before accepting intent or consuming commit. Never request install for a mismatched hash. Windows snapshots capture one advertised image and suppress any command bound to another image.",
+  "reproduction": "Existing UI implementation fails new delayed-offer test before fix. Historical physical incident lacks an interleaving trace; this is a reproduced possible cause, not proof of that exact incident.",
+  "hardware": "Pending coordinated update; no flashing or latest overwrite"
+}

@@ -9,7 +9,7 @@ internal sealed class Tab5BleVoice(
     Func<CancellationToken,Task<byte[]>> read,
     Func<byte[],CancellationToken,Task> write,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>> handle,
-    int mtu, int maximumResponse=12288, int deadlineSeconds=12, int fragmentSize=480, int responseChunk=0,string transportMode="read/ack",int maximumRequest=12288,Func<bool>? bulkPriority=null,Func<long>? clock=null)
+    int mtu, int maximumResponse=12288, int deadlineSeconds=12, int fragmentSize=480, int responseChunk=0,string transportMode="read/ack",int maximumRequest=12288,Func<bool>? bulkPriority=null,Func<long>? clock=null,Action<string>? responseAccepted=null)
 {
     private uint _completed;
     internal long LastActive {get;private set;}
@@ -83,6 +83,7 @@ internal sealed class Tab5BleVoice(
             response.AsSpan(offset,count).CopyTo(packet.AsSpan(9));await write(packet,token);
         }
         _completed=id;CompletedCount++;Progress=$"response accepted {response.Length}/{response.Length}";
+        responseAccepted?.Invoke(Encoding.ASCII.GetString(request,0,32));
         LastActive=Now;
         LastTiming=new(started,LastActive,handling-started,writing-handling,LastActive-writing,total,response.Length);
         Timing=$"request={handling-started}ms; handler={writing-handling}ms; response={LastActive-writing}ms; requestBytes={total}; bytes={response.Length}; mtu={mtu}; flow={transportMode}";

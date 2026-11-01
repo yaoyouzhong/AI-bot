@@ -156,23 +156,12 @@ internal sealed class DomesticQuotaService
 
     private static DomesticProviderQuotaSnapshot ParseMiniMax(JsonElement root)
     {
-        DomesticProviderQuotaSnapshot? result = null;
-        Visit(root, value =>
-        {
-            if (result is not null || value.ValueKind != JsonValueKind.Object) return;
-            var weekly = Percent(value, "current_weekly") ?? Percent(value, "weekly");
-            if (!weekly.HasValue) return;
-            var primary = Percent(value, "current_interval") ?? Percent(value, "interval") ??
-                          Percent(value, "five_hour");
-            var plan = Text(value, "combo_name") ?? Text(value, "plan_name") ?? "Token Plan";
-            result = Windowed("minimax", plan, primary,
-                RemainingMilliseconds(value, "remains_time") ?? RemainingMilliseconds(value, "interval_remains_time"),
-                weekly, RemainingMilliseconds(value, "weekly_remains_time"), value)
-                with {PrimaryWindowSeconds=primary.HasValue?QuotaCycle.MiniMaxWindow(value,false):null,
-                    WeeklyWindowSeconds=QuotaCycle.MiniMaxWindow(value,true)};
-        });
-        return result is null ? throw new JsonException("MiniMax quota fields are missing.") :
-            result with {PlanExpiresAt=PlanExpiryRecursive(root)};
+        var quota=MigratedDomestic.DomesticQuotaAuthForm.FindMiniMaxUsage(root)
+            ?? throw new JsonException("MiniMax quota fields are missing.");
+        return Windowed("minimax",quota.Membership,quota.FiveHourPct,quota.FiveHourResetAt,
+            quota.WeeklyPct,quota.WeeklyResetAt,root) with {
+                PrimaryWindowSeconds=quota.FiveHourPct.HasValue?quota.PrimaryWindowSeconds:null,
+                WeeklyWindowSeconds=quota.WeeklyWindowSeconds,PlanExpiresAt=PlanExpiryRecursive(root)};
     }
 
     private static DomesticProviderQuotaSnapshot ParseDeepSeek(JsonElement root)

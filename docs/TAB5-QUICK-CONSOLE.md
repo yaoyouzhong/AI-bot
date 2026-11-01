@@ -25,6 +25,14 @@ Keep the Windows bridge, Codex and TAB5 connected. Configure speech in Device Ce
 <details>
 <summary>验收范围与历史实现记录 / Acceptance and implementation history</summary>
 
+## 2026-10-29 Windows 开发候选 / Windows development candidate
+
+已获授权安装的 W29 Windows 候选 `0.6.13-candidate.20261029.w29` 支持题卡回答、下一步与提交，设备实机验收仍待完成；录音开始绑定当时的设备／会话／输入目标，题卡变化保留预览并拒绝串题。结束录音自动填入，连续两段保留原有换行和标点；仅在边界无空白时补一个空格，并复用已有末尾光标定位。蓝色箭头提交该次成功读回并确认的完整文字，电脑手改后的旧凭据失效，可通过新一轮录音追加和确认建立新凭据。
+
+候选调用当前输入区原生发送／引导／排队或题卡动作，不依赖 Enter 偏好。消息可靠保存到 Codex 队列即算交付成功，不要求开始执行；未知结果不重发。设备绑定的短期加密回执可在桥接重启后返回原请求结果。新增电脑内置／USB／显式 TAB5 音源选择，保持 DJI 共享与豆包恢复。Windows 本地检查已完成，设备题卡、排队和实体收音仍待验；详见 [W29 验证记录](development/WINDOWS-W29-VALIDATION-20261029.md)。下方历史版本描述不代表本候选当前机制。
+
+The authorized W29 Windows candidate `0.6.13-candidate.20261029.w29` is installed and supports question answers and Next/Submit. Recording binds the device, chat and input target at start; changed questions retain the transcript preview and reject cross-question insertion. Stopping automatically fills the input. Consecutive takes retain original punctuation/newlines with a single separating space when needed, using the existing end-caret handling. The blue arrow submits the exact confirmed staged text through one native action. Later desktop edits invalidate the old ticket; a new dictated append and review can confirm the edited draft. Reliably saved Codex queue entries count as delivery, and uncertain results never resend. Short-lived device-bound encrypted receipts survive bridge restart. Physical microphone selection preserves shared DJI capture and microphone restoration. Local Windows checks pass; hardware acceptance remains pending.
+
 ## 当前验收状态 / Current acceptance
 
 此前 .145 发布收尾（2026-10-07）：标准版 `.145` 已完成精确镜像启动核验；配套 Windows 0.6.0。Codex 直达的既有会话、语音草稿及显式发送验收保持有效，本次普通界面连续输入、两类艺术屏保与四方向、自动屏保验收通过，无蓝闪或持续等待图片。完整公开功能见 [0.6.0 三组件发布说明](RELEASE-0.6.0.md)。下文为历史过程，不应把旧版本的“待验”理解为当前发布状态；主动失焦、异常断线与逐通道专项仍按原证据范围处理。
@@ -142,3 +150,9 @@ An isolated real-IME probe bypassed the bridge focus-loss state machine and fed 
 用户录音期间只运行 `--self-test-tab5-voice-core`（无窗口、模拟音频/输入法）；`--self-test-tab5-voice` 包含激活测试窗口的 UI 验证，不能在用户录音期间调用。内部通过不代表真机连续录音通过。
 
 </details>
+
+## Windows 候选：电脑校对后提交（2026-11-01）
+
+Codex 直达录音自动填入后，可在电脑修改正文，再点击 TAB5 蓝色箭头提交最新文字。点击时必须仍是原设备、原会话、原输入框或原题目；读取并固定最新正文后，在原生提交前再次精确核对目标、正文及按钮。期间再修改、切题、换输入框或无法可靠读取时停止本次发送；不恢复录音原文，不重复点击。新录音成功填入后旧提交票据失效；成功、异常或未知结果的已消费票据不能重用。此规则不将任务页已有电脑草稿直接当作待发送正文，也不放宽任务页附件保护。
+
+The Windows candidate allows proofreading an automatically filled Codex Direct draft on the computer before sending with TAB5. The click adopts the current text only for the original device, chat and editor/question, then freezes and rechecks that exact snapshot immediately before the native action. Further edits or target changes stop the attempt. It never restores the old transcript or retries an uncertain send. A new staged recording retires older send tickets. Task-page existing-draft and attachment guards remain unchanged. Automated validation and hardware acceptance are recorded separately.

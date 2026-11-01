@@ -13,8 +13,8 @@ internal sealed partial class Tab5Service
         long expires=Math.Min(deadline,frame+bound);
         return expires>now&&expires>=frame?expires:null;
     }
-    private object? RemoteOtaCommandForFrame(long frame) { lock(_remoteOtaLock) {
-        if(_remoteOta is not {} r||r.Completion.Task.IsCompleted||_otaDelivery?.DataStarted==true)return null;
+    internal object? RemoteOtaCommandForFrame(long frame,Tab5OtaPackage? advertisedImage) { lock(_remoteOtaLock) {
+        if(_remoteOta is not {} r||!ReferenceEquals(r.Image,advertisedImage)||r.Completion.Task.IsCompleted||_otaDelivery?.DataStarted==true)return null;
         var expires=AdvertisedExpiry(r.Expires,frame,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),45000);
         return expires is null?null:new{version=1,requestId=r.Id,offerId=r.Image.OfferId,sha256=r.Image.Sha256,expiresAt=expires.Value};
     }}

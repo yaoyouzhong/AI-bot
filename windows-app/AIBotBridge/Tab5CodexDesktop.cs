@@ -8,8 +8,23 @@ namespace AIBotBridge;
 // Desktop IPC is versioned but not a public API. Fail closed on an incompatible
 // owner; never start an independent CLI agent for a desktop conversation.
 internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<string, bool>? openThread = null,
-    Func<Tab5CodexReadState.Identity?>? readIdentity=null,Func<Tab5CodexReadState.Snapshot?>? readState=null)
+    Func<Tab5CodexReadState.Identity?>? readIdentity=null,Func<Tab5CodexReadState.Snapshot?>? readState=null,
+    Func<Tab5CodexDesktop.NativeAppendRequest,Task<string>>? nativeAppend=null,
+    Func<string,string,CancellationToken,Task<Tab5CodexDeliveryReceipt?>>? nativeReceiptReader=null)
 {
+    internal sealed record NativeAppendRequest(string Task,string Text,string Turn,Action Dispatch,
+        Func<CancellationToken,Task<bool>> Current,Action<Tab5CodexDeliveryReceipt> Capture,CancellationToken Token,Func<bool>? Authorized);
+    private readonly Tab5NativeReceiptCache _nativeReceipts=new();
+    internal void ForgetNativeReceipt(string id)=>_nativeReceipts.Remove(id);
+    internal bool UsesNativeAppend(string operation,string[] images)=>(pipeName=="codex-ipc"||nativeAppend is not null)&&operation is "send" or "steer"&&images.Length==0;
+    internal async Task<string?> RecoverNativeAsync(Tab5SendRecord record,string text,CancellationToken token) {
+        var before=_nativeReceipts.Get(record.Id);
+        if(before is null||before.TaskId!=record.TaskId||before.TextHash!=Tab5CodexDeliveryReceipt.Digest(text))return null;
+        var after=nativeReceiptReader is null?await Tab5CodexDeliveryReceipt.ReadAfterAsync(record.TaskId,text,before,token):
+            await nativeReceiptReader(record.TaskId,text,token);
+        if(after?.Confirm(before) is null)return null;
+        return after.Turn;
+    }
     private readonly Func<Tab5CodexReadState.Identity?> _readIdentity=readIdentity??Tab5CodexReadState.ReadIdentity;
     private readonly Func<Tab5CodexReadState.Snapshot?> _readState=readState??Tab5CodexReadState.ReadLocal;
     internal Tab5CodexReadState.Identity? ReadIdentity()=>_readIdentity();
@@ -85,12 +100,28 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
     }
 
     internal async Task<string> SendAsync(string taskId,string text,Action dispatch,CancellationToken token,
-        string? requestId=null,string operation="send",string expectedTurn="",string[]? imagePaths=null)
+        string? requestId=null,string operation="send",string expectedTurn="",string[]? imagePaths=null,Func<bool>? authorized=null)
     {
         await using var connection = new Connection(pipeName);
         await connection.OpenAsync(taskId,token,operation=="send"?LoadAsync:null);
         var snapshot=await connection.ReadySnapshotAsync(taskId,token);
         var state=ParseState(snapshot);
+        if(UsesNativeAppend(operation,imagePaths??[])) {
+            if(state.Waiting)throw new Rejected("task_waiting_for_input");
+            if(operation=="send"&&!state.CanSend)throw new Rejected("task_busy_or_state_unknown");
+            if(operation=="steer"&&state.TurnId!=expectedTurn)throw new Rejected("turn_changed");
+            if(!Guid.TryParse(state.TurnId,out _))throw new Rejected("turn_changed");
+            async Task<bool> Current(CancellationToken ct) {
+                var now=await ReadAsync(taskId,ct);
+                return now.TurnId==state.TurnId&&!now.Waiting&&(now.CanSend||now.Runtime=="active"&&now.Status=="inProgress");
+            }
+            string receiptId=requestId??Guid.NewGuid().ToString();
+            var request=new NativeAppendRequest(taskId,text,state.TurnId,dispatch,Current,baseline=>_nativeReceipts.Put(receiptId,baseline),token,authorized);
+            string turn=nativeAppend is null?await Tab5CodexComposer.AppendTaskAsync(taskId,text,state.TurnId,dispatch,Current,
+                request.Capture,token,authorized):await nativeAppend(request);
+            if(!Guid.TryParse(turn,out _))throw new IOException("Incomplete native acknowledgement");
+            return turn;
+        }
         if(operation=="send"&&!state.CanSend)throw new Rejected("task_busy_or_state_unknown");
         if(operation is "steer" or "interrupt") {
             if(state.Status!="inProgress"||state.Runtime!="active"||state.TurnId!=expectedTurn)throw new Rejected("turn_changed");
@@ -116,6 +147,7 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
             parameters=new{conversationId=taskId,mode="user-stop",expectedTurnId=expectedTurn};
         }
         token.ThrowIfCancellationRequested();
+        if(authorized?.Invoke()==false)throw new Rejected("unauthorized");
         dispatch();
         var response=await connection.RequestAsync(method,version,parameters,token,connection.Owner,20000);
         // Router transport errors after writing do not prove rejection.
@@ -128,6 +160,11 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
         return id;
     }
 
+    internal async Task<(string Owner,JsonElement State)> SubmissionSnapshotAsync(string taskId,CancellationToken token) {
+        await using var connection=new Connection(pipeName);
+        await connection.OpenAsync(taskId,token);
+        return(connection.Owner,await connection.SnapshotAsync(taskId,token));
+    }
     internal async Task<string?> FindAcceptedAsync(string taskId,string requestId,CancellationToken token) {
         await using var connection=new Connection(pipeName);await connection.OpenAsync(taskId,token);
         var snapshot=await connection.ReadySnapshotAsync(taskId,token);
@@ -216,20 +253,28 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
                     await Task.Delay(350,token);
                     owner=await RequestAsync("thread-owner-discovery",1,new {hostId="local",conversationId=taskId},token,timeoutMs:1500);
                 }while(Text(owner,"resultType")!="success"&&Text(owner,"error")=="no-client-found"&&Environment.TickCount64-began<8000);
-                if(Text(owner,"resultType")!="success"&&Text(owner,"error")=="no-client-found")throw new Rejected("desktop_load_timeout");
+                if(Text(owner,"resultType")!="success"&&Text(owner,"error")=="no-client-found") {
+                    Tab5LocalDiagnostics.Write($"CODEX_LOAD phase=owner result=timeout ms={Environment.TickCount64-began}");
+                    throw new Rejected("desktop_load_timeout");
+                }
+                Tab5LocalDiagnostics.Write($"CODEX_LOAD phase=owner result=ready ms={Environment.TickCount64-began}");
             }
             CheckResponse(owner);Owner=Text(owner,"handledByClientId");
             if(!Guid.TryParse(Owner,out _)||Child(Child(owner,"result"),"supportsUntrustedAppInput").ValueKind!=JsonValueKind.True)
                 throw new Rejected("desktop_owner_unavailable");
         }
         internal async Task<JsonElement> ReadySnapshotAsync(string taskId,CancellationToken token) {
-            long began=Environment.TickCount64;
+            long began=Environment.TickCount64;int reads=0;
             do {
-                var snapshot=await SnapshotAsync(taskId,token);
+                var snapshot=await SnapshotAsync(taskId,token);reads++;
                 var state=ParseState(snapshot);
-                if(state.Runtime is "idle" or "active" && state.TurnId.Length>0 && state.Status.Length>0)return snapshot;
+                if(state.Runtime is "idle" or "active" && state.TurnId.Length>0 && state.Status.Length>0) {
+                    if(reads>1)Tab5LocalDiagnostics.Write($"CODEX_LOAD phase=snapshot result=ready reads={reads} ms={Environment.TickCount64-began}");
+                    return snapshot;
+                }
                 await Task.Delay(250,token);
             }while(Environment.TickCount64-began<8000);
+            Tab5LocalDiagnostics.Write($"CODEX_LOAD phase=snapshot result=timeout reads={reads} ms={Environment.TickCount64-began}");
             throw new Rejected("desktop_load_timeout");
         }
         internal async Task<JsonElement> SnapshotAsync(string taskId,CancellationToken token)

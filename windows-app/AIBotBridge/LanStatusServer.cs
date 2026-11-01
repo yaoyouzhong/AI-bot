@@ -85,12 +85,10 @@ internal sealed class LanStatusServer
             {
                 string Header(string name) => lines.FirstOrDefault(l => l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
                 var packet = tab5?.Respond(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),Header("X-AIBot-Assets"),Header("X-AIBot-Assets-Proof"),Header("X-Tab5-Firmware"),Header("X-Tab5-Firmware-Proof"));
-                var diagPath=Environment.GetEnvironmentVariable("AIBOT_TAB5_DIAG_LOG");
                 var diag=Header("X-Tab5-Diag");
-                if(packet is not null&&diagPath is not null&&diag.Length is >0 and <160&&diag.All(c=>char.IsAsciiDigit(c)||c is ',' or '-'))
+                if(packet is not null&&diag.Length is >0 and <160&&diag.All(c=>char.IsAsciiDigit(c)||c is ',' or '-'))
                 {
-                    try { File.AppendAllText(diagPath,$"{DateTimeOffset.Now:O} DEV {diag}{Environment.NewLine}"); }
-                    catch(Exception ex) when(ex is IOException or UnauthorizedAccessException) { }
+                    Tab5LocalDiagnostics.Write("DEV "+diag);
                 }
                 if (packet is null) await WriteResponseAsync(stream,"401 Unauthorized","{\"error\":\"unavailable_or_unauthorized\"}",cancellationToken);
                 else await WriteBytesAsync(stream,"200 OK",packet,cancellationToken);
