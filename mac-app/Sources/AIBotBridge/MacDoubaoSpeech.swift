@@ -106,11 +106,11 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
         publication.lock(); defer { publication.unlock() }
         return (publishedReady ? "豆包实际输入 IO 已确认" : "豆包等待实际收音确认") + (observations.isEmpty ? "" : "；" + observations.joined(separator: " → "))
     }
-    func backend() -> MacTab5SpeechBackend {
+    func backend(input selected: @escaping () -> MacAudioInput? = { nil }) -> MacTab5SpeechBackend {
         .init(start:{ [self] source,callback in
             guard ["pc","tab5"].contains(source),Self.installed() else { throw MacTab5LocalError.invalid("请先安装并启用官方豆包输入法。") }
             guard AXIsProcessTrusted(),CGPreflightPostEventAccess() else { throw MacTab5LocalError.invalid("豆包调用需要辅助功能权限。") }
-            let input = try source == "tab5" ? MacDoubaoAudio.device():MacDoubaoMicrophone.physical()
+            let input = try source == "tab5" ? MacDoubaoAudio.device() : selected() ?? MacDoubaoMicrophone.physical()
             // USB may start again before the previous main-queue cancellation
             // runs. Never publish that older session's readiness to this one.
             publish(ready:false,sourceName:"")
@@ -177,7 +177,7 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
         editor.isVerticallyResizable = true; editor.autoresizingMask = [.width]; editor.textContainer?.widthTracksTextView = true
         editor.committed = { [weak self] in self?.changed(committed:true) }
         scroll.documentView = editor; scroll.heightAnchor.constraint(equalToConstant:180).isActive = true; page.add(scroll); self.editor = editor
-        page.add(MacBridgeSettingsStyle.note("停止后等待豆包提交完整文字，自动返回 TAB5 预览；不会自动发送任务。请保持此窗口在前台。"))
+        page.add(MacBridgeSettingsStyle.note("停止后等待完整识别并返回 TAB5，不自动发送；测试时保持此窗口在前台。"))
         let status = MacBridgeSettingsStyle.note("正在准备豆包收音…"); self.status = status
         window.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("停止收音") { [weak self] in self?.finish() },MacSettingsButton("取消") { [weak self] in self?.abort("已取消豆包语音。") }])
         previousSource = Self.current()
@@ -270,12 +270,22 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
 }
 
 final class MacSpeechRouter {
-    private let local = MacTab5Speech().backend(), doubao = MacDoubaoSpeech().backend()
+    private var plannedInput: MacAudioInput?
+    private lazy var local = MacTab5Speech().backend(input: { [weak self] in self?.plannedInput })
+    private lazy var doubao = MacDoubaoSpeech().backend(input: { [weak self] in self?.plannedInput })
     private var active:MacTab5SpeechBackend?
     private var last:MacTab5SpeechBackend?
     func backend() -> MacTab5SpeechBackend {
         .init(start:{ [self] source,callback in active?.cancel(); let chosen = MacSpeechProvider.doubao ? doubao:local; active = chosen; last = chosen; try chosen.start(source,callback) },
               feed:{ [self] in guard let active else { throw MacTab5Error.unavailable }; try active.feed($0) },finish:{ [self] in active?.finish() },
-              cancel:{ [self] in active?.cancel(); active = nil },diagnostics:{ [self] in (active ?? last)?.diagnostics() ?? "" },ready:{ [self] in active?.ready() ?? false },sourceName:{ [self] in (active ?? last)?.sourceName() ?? "" })
+              cancel:{ [self] in active?.cancel(); active = nil },diagnostics:{ [self] in (active ?? last)?.diagnostics() ?? "" },ready:{ [self] in active?.ready() ?? false },sourceName:{ [self] in (active ?? last)?.sourceName() ?? "" },
+              resolveSource: { [self] requested, forceTab5 in
+                  let settings = MacVoiceSettings.read(.standard)
+                  let explicitTab5 = forceTab5 && (settings.microphone != nil || requested == "tab5")
+                  let tab5 = explicitTab5 || settings.microphone == .tab5 || (settings.microphone == nil && MacVoiceCaptureSource.resolve(requested: requested, preferred: settings.source) == .tab5)
+                  let route = try tab5 ? MacVoiceRoute(source: .tab5, input: nil) : settings.route(requested: requested, inputs: MacAudioInputs.devices(), defaultInput: MacAudioInputs.defaultInputID())
+                  plannedInput = route.input
+                  return route.source.rawValue
+              })
     }
 }

@@ -32,7 +32,7 @@ final class MacRuntimeWindow: NSWindowController {
                 return lines.isEmpty ? "等待检测。":lines.joined(separator:"\n\n")
             }); self?.detailWindow = window; window.open()
         }); self.overview = cards; overview.add(cards)
-        settings.heading("检测设置",subtitle:"只检测实际网络路径，不修改系统代理。测速需要主动启用。")
+        settings.heading("检测设置",subtitle:"检测实际网络路径，不修改代理；测速需手动启用。")
         var options: MacRuntimeOptions
         do { options = try file.read() } catch { options = .init(enabled:false,network:false); status.stringValue = "设置读取失败，原文件保留。" }
         func toggle(_ title: String, _ state: Bool) -> NSButton { let b = NSButton(checkboxWithTitle:title,target:nil,action:nil); b.state = state ? .on:.off; settings.add(b); return b }
@@ -41,9 +41,9 @@ final class MacRuntimeWindow: NSWindowController {
         let fields = specs.map { NSTextField(string:String($0.1)) }
         let grid = NSGridView(views:zip(specs,fields).map { [MacBridgeSettingsStyle.label($0.0.0),$0.1] }); grid.rowSpacing = 12; grid.columnSpacing = 20; settings.add(grid)
         for field in fields { field.widthAnchor.constraint(equalToConstant:110).isActive = true }
-        settings.add(MacBridgeSettingsStyle.note("测速是系统网络路径上的小文件观测，不代表最大带宽。macOS 没有等价的 Windows 处理器等待队列指标，该项保持未知。"))
+        settings.add(MacBridgeSettingsStyle.note("测速不代表最大带宽；macOS 不提供 Windows 处理器等待队列，该项未知。"))
         let device = MacBridgeSettingsPage(), deviceReadout = MacBridgeSettingsStyle.label(deviceCapture())
-        device.heading("TAB5 运行诊断",subtitle:"读取当前绑定设备的实际采样。USB 自动更新；无线诊断支持 Wi-Fi 和蓝牙，超时保留上次采样。")
+        device.heading("TAB5 运行诊断",subtitle:"当前设备：USB 自动更新，Wi-Fi／蓝牙可手动读取；超时保留上次采样。")
         let refresh = MacSettingsButton("读取设备诊断") { [weak self] in
             guard let self, !self.readingDevice else { return }; self.readingDevice = true
             deviceRefresh { DispatchQueue.main.async { [weak self] in

@@ -12,9 +12,9 @@ Voice Settings has one entry under Device Center → TAB5. Recording starts only
 
 Xcode 27.2 is installed and initialized: all 410 XCTest tests pass, along with the Release build and offscreen native UI checks. The signed local candidate passes 29,028 isolated checks and is deployed in the background, preserving the original helper and preferences. Live GLM refresh, complete automatic voice fill and one corrected-text submission pass physical checks. Existing direct queue, task append and multi-question acceptance are retained without repeated manual testing; the stricter task-page receipt decision has no new dedicated physical send. MiMo/MiniMax account checks remain deferred by the user.
 
-语音设置的单一入口、后台加载、麦克风选择、保存前复核、取消不保存和状态显示已对齐。自动源策略仍有差异：Windows自动优先DJI否则TAB5；Mac选择Mac收音时自动优先DJI否则系统默认，TAB5另选。当前设备已在Windows安装最新.302，不再重复安排固件验收。
+语音设置优化候选：只保留“识别方式”和“录音麦克风”。后者提供自动（优先DJI，否则TAB5）、TAB5内置、Mac系统默认及具体设备；旧配置保持原行为。窗口560×480，下拉框340 pt，说明与状态精简。Mac编辑页保持左取消、右保存。详见[设计与验证](development/MAC-VOICE-SELECTOR-20261101.md)。当前设备已在Windows安装最新.302，不重复刷机。
 
-Voice Settings aligns the single entry, background loading, device selection, live save validation, cancellation and status. Automatic routing still differs: Windows prefers DJI and falls back to TAB5; Mac capture prefers DJI and falls back to the system default, while TAB5 is selected separately. The device already has the latest .302 installed under Windows; duplicate firmware acceptance is no longer scheduled.
+The voice-settings candidate has two fields: recognition provider and recording microphone. Choose automatic (DJI, then TAB5), built-in TAB5, the Mac system default, or a specific device. Existing choices retain their behavior. The compact 560×480 window uses 340-pt pickers and concise status text. Mac editors keep Cancel to the left of Save. See the [design and validation record](development/MAC-VOICE-SELECTOR-20261101.md). The latest .302 firmware is already installed under Windows; no repeat flash is scheduled.
 
 当前安装 .299 时钟候选，精确启动和原设置保留核验通过；用户确认两种时钟布局、秒数大小正常。见[时钟设计](development/TAB5-CLOCK-DAY-DESIGN-20261031.md)。 / Clock candidate .299 is installed with exact boot/settings verification; user acceptance passes for analog/digital layouts and seconds size.
 

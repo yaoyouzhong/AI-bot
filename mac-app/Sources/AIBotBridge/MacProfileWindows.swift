@@ -24,7 +24,7 @@ final class MacBirthdayWindow: NSWindowController {
         right.add(MacBridgeSettingsStyle.row([month, day])); right.add(leap); right.field("提醒", remind)
         apply.target = self; apply.action = #selector(applyDraft); right.add(apply)
         calendar.target = self; calendar.action = #selector(calendarChanged)
-        right.add(MacBridgeSettingsStyle.note("日期与姓名只在本机保存，并通过已配对的加密连接同步。公历 2 月 29 日和农历小月末日按该月最后一天显示。"))
+        right.add(MacBridgeSettingsStyle.note("本机保存并加密同步。公历闰日、农历小月末日按当月最后一天显示。"))
         window?.contentView = MacBridgeSettingsShell(body: MacSettingsControls.columns(left, right), status: status, actions: [MacSettingsButton("保存并同步") { [weak self] in self?.save() }, MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
         list.selected = { [weak self] index in self?.select(index) }
         reload()
@@ -143,7 +143,7 @@ final class MacTaskPinsWindow: NSWindowController {
     init(codex: MacTab5Codex, store: MacTaskPins = .shared, permissions: @escaping () -> Void) {
         self.codex = codex; self.store = store
         super.init(window: MacBridgeSettingsStyle.window("常用任务", width: 600, height: 470))
-        page.heading("常用任务", subtitle: "最多固定 32 个 Codex 任务；固定任务优先出现在 TAB5 列表。")
+        page.heading("常用任务", subtitle: "固定任务优先显示，最多 32 个。")
         count.identifier = .init("task-pin-count"); page.add(count)
         func add(_ id: String, _ title: String, selected: Bool) {
             let button = NSButton(checkboxWithTitle: "", target: self, action: #selector(selectionChanged(_:)))
@@ -169,7 +169,7 @@ final class MacTaskPinsWindow: NSWindowController {
                 add(id, (task["folder"] as? String ?? "Codex") + " · " + (task["title"] as? String ?? id), selected: original.contains(id))
             }
             for id in original where !seen.contains(id) { add(id, "暂未载入 · " + id, selected: true) }
-            if choices.isEmpty { page.add(MacBridgeSettingsStyle.note("暂无本机任务。启用 Codex 会话读取并等待目录加载后重新打开。")) }
+            if choices.isEmpty { page.add(MacBridgeSettingsStyle.note("暂无任务，请启用 Codex 会话读取并等待加载。")) }
         } catch { status.stringValue = error.localizedDescription }
         refreshCount()
         window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("保存") { [weak self] in self?.save() }, MacSettingsButton("会话与权限…", permissions), MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])

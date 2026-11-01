@@ -92,7 +92,7 @@ final class MacNotificationWindow: NSWindowController {
     private let start = NSTextField(), end = NSTextField(), quietRow = NSStackView(), table = MacSettingsTable(["时间", "提醒", "处理"])
     init(service: MacNotifications) {
         self.service = service; super.init(window: MacBridgeSettingsStyle.window("提醒管理", width: 680, height: 560))
-        let page = MacBridgeSettingsPage(); page.heading("提醒管理", subtitle: "任务完成时，设备不在线才使用电脑备用提醒；勿扰时段仅记录，不弹出或播放声音。")
+        let page = MacBridgeSettingsPage(); page.heading("提醒管理", subtitle: "任务完成且设备离线时在电脑提醒；勿扰期间仅记录。")
         do {
             let value = try service.file.read()
             for (name, selected) in zip(["完成备用音", "等待操作", "额度异常", "运行异常", "提醒音", "勿扰时段"], [value.completion,value.attention,value.quota,value.health,value.sound,value.quiet]) {
@@ -192,7 +192,7 @@ final class MacConfigurationWindow: NSWindowController {
     private let didRestore: () -> Void
     init(didRestore: @escaping () -> Void) {
         self.didRestore = didRestore; super.init(window: MacBridgeSettingsStyle.window("配置迁移", width: 800, height: 620))
-        page.heading("配置迁移", subtitle: "与 Windows 共用的显示设置、自选股票和生日备份。恢复前自动备份原配置，凭据及设备配对不包含在文件中。")
+        page.heading("配置迁移", subtitle: "备份显示设置、股票和生日，可与 Windows 互用。恢复前自动备份，不含凭据和配对。")
         page.add(MacBridgeSettingsStyle.row([MacSettingsButton("导出备份") { [weak self] in self?.export() }, MacSettingsButton("打开备份") { [weak self] in self?.read() }]))
         page.add(preview); preview.heightAnchor.constraint(equalToConstant: 300).isActive = true
         window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("恢复所选") { [weak self] in self?.restore() }])

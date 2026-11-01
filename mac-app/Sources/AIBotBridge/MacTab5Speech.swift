@@ -13,10 +13,11 @@ final class MacTab5Speech {
     private var updates = 0, timedUpdates = 0
     private var lastDiagnostics = ""
     private var inputName = ""
-    func backend() -> MacTab5SpeechBackend { .init(start: start, feed: feed, finish: finish, cancel: cancel, diagnostics: diagnostics, sourceName: sourceName) }
+    func backend(input: @escaping () -> MacAudioInput? = { nil }) -> MacTab5SpeechBackend {
+        .init(start: { [self] source, callback in try start(source, selected: input(), callback: callback) }, feed: feed, finish: finish, cancel: cancel, diagnostics: diagnostics, sourceName: sourceName)
+    }
     private func sourceName() -> String {
         lock.lock(); defer { lock.unlock() }
-        if let engine, let device = MacAudioInputs.activeInput(of: engine.inputNode) { inputName = MacAudioInputs.displayName(device) }
         return inputName
     }
     private func diagnostics() -> String {
@@ -28,7 +29,7 @@ final class MacTab5Speech {
             AVCaptureDevice.requestAccess(for: .audio) { allowed in DispatchQueue.main.async { completion(allowed) } }
         }
     }
-    private func start(_ source: String, callback: @escaping (String, Bool, MacTab5SpeechFailure?) -> Void) throws {
+    private func start(_ source: String, selected: MacAudioInput?, callback: @escaping (String, Bool, MacTab5SpeechFailure?) -> Void) throws {
         lock.lock(); defer { lock.unlock() }; cancel()
         updates = 0; timedUpdates = 0; lastDiagnostics = ""; inputName = ""
         guard SFSpeechRecognizer.authorizationStatus() == .authorized, let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")), recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else { throw MacTab5Error.unavailable }
@@ -57,13 +58,17 @@ final class MacTab5Speech {
         if source == "pc" {
             guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { cancel(); throw MacTab5Error.unavailable }
             let engine = AVAudioEngine(), input = engine.inputNode
-            do { try MacAudioInputs.apply(to:input) } catch { cancel(); throw error }
+            do { try MacAudioInputs.apply(to:input, selected: selected) } catch { cancel(); throw error }
             let format = input.outputFormat(forBus:0)
             guard format.sampleRate > 0, format.channelCount > 0 else { cancel(); throw MacTab5Error.unavailable }
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in request.append(buffer) }
             self.engine = engine; engine.prepare()
             do { try engine.start() } catch { cancel(); throw error }
-            _ = sourceName()
+            let actual = MacAudioInputs.activeInput(of: input)
+            if let selected, actual?.uid != selected.uid {
+                cancel(); throw MacTab5LocalError.invalid("实际收音设备与所选麦克风不一致，本段已停止，请检查后重录。")
+            }
+            if let actual { inputName = MacAudioInputs.displayName(actual) }
         }
     }
     private func feed(_ pcm: [Int16]) throws {

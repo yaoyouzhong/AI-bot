@@ -101,7 +101,7 @@ enum MacTab5UIValidation {
     }
 
     private static func voiceFixture() -> MacVoiceEnvironment {
-        .init(inputs: [.init(id: 1, uid: "fixture-mic", name: "Mac 内置麦克风")], defaultInput: 1,
+        .init(inputs: [.init(id: 1, uid: "fixture-mic", name: "Mac 内置麦克风"), .init(id: 2, uid: "fixture-dji", name: "DJI Mini2"), .init(id: 3, uid: "com.vbaudio.vbcable:1", name: "VB-CABLE")], defaultInput: 1,
               doubaoInstalled: true, doubaoEnabled: true, doubaoRunning: true, cable: true,
               speechPermission: true, microphonePermission: true, localRecognition: true)
     }
@@ -114,17 +114,17 @@ enum MacTab5UIValidation {
         let original = MacVoiceSettings.read(defaults)
         let controller = MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: { voiceFixture() })
         let controls = descendants(controller.window!.contentView!)
-        let source = controls.first { $0.identifier?.rawValue == "voice-capture-source" } as! NSPopUpButton
-        let input = controls.first { $0.identifier?.rawValue == "voice-mac-input" } as! NSPopUpButton
+        let input = controls.first { $0.identifier?.rawValue == "voice-recording-microphone" } as! NSPopUpButton
         let save = controls.compactMap { $0 as? NSButton }.first { $0.title == "保存" }!
         guard !save.isEnabled else { throw MacTab5LocalError.invalid("Voice window blocked on enumeration") }
         try pump { save.isEnabled }
-        for choice in MacVoiceCaptureSource.allCases {
-            source.selectItem(at: choice == .tab5 ? 1 : 2); source.sendAction(source.action!, to: source.target)
-            guard MacVoiceSettings.read(defaults) == original, input.isEnabled == (choice == .mac) else { throw MacTab5LocalError.invalid("Voice selection saved before explicit Save") }
-            try validateSettings(controller.window!, name: "voice-source-" + choice.rawValue, output: output)
+        guard input.numberOfItems == 5, !input.itemTitles.contains("VB-CABLE"), !controls.contains(where: { $0.identifier?.rawValue == "voice-capture-source" }) else { throw MacTab5LocalError.invalid("Voice picker retained duplicate or internal device choices") }
+        for (index, name) in [(0,"automatic"),(1,"tab5"),(2,"system"),(3,"specific-mac"),(4,"specific-dji")] {
+            input.selectItem(at: index); input.sendAction(input.action!, to: input.target)
+            guard MacVoiceSettings.read(defaults) == original, input.isEnabled else { throw MacTab5LocalError.invalid("Voice selection saved before explicit Save") }
+            try validateSettings(controller.window!, name: "voice-microphone-" + name, output: output)
         }
-        input.selectItem(at: 1); input.sendAction(input.action!, to: input.target)
+        input.selectItem(at: 3); input.sendAction(input.action!, to: input.target)
         save.performClick(nil)
         try pump { MacVoiceSettings.read(defaults).input == "fixture-mic" }
         guard MacVoiceCaptureSource.saved(in: defaults) == .mac else { throw MacTab5Error.invalidPacket }
@@ -174,7 +174,23 @@ enum MacTab5UIValidation {
         try pump { stateLock.lock(); defer { stateLock.unlock() }; return validationFinished }
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         guard MacVoiceSettings.read(defaults) == before else { throw MacTab5LocalError.invalid("Late save validation wrote after Cancel") }
-        print("MAC_VOICE_SETTINGS_UI_OK async load; transactional source/input; live provider/microphone removal; cancellation; fixtures only")
+        let legacySuite = "AI-bot-voice-legacy-ui-" + UUID().uuidString, legacyDefaults = UserDefaults(suiteName: legacySuite)!
+        defer { legacyDefaults.removePersistentDomain(forName: legacySuite) }
+        legacyDefaults.set("doubao", forKey: MacSpeechProvider.key)
+        for (name, source) in [("entry", Optional<String>.none), ("mac-automatic", Optional("pc"))] {
+            legacyDefaults.set(source, forKey: MacVoiceCaptureSource.preferenceKey)
+            let snapshot = NSDictionary(dictionary: legacyDefaults.persistentDomain(forName: legacySuite)!)
+            let legacy = MacVoiceSettingsWindow(service: service, defaults: legacyDefaults, inspect: { voiceFixture() })
+            let legacyControls = descendants(legacy.window!.contentView!)
+            let legacySave = legacyControls.compactMap { $0 as? NSButton }.first { $0.title == "保存" }!
+            try pump { legacySave.isEnabled }
+            let picker = legacyControls.first { $0.identifier?.rawValue == "voice-recording-microphone" } as! NSPopUpButton
+            guard picker.titleOfSelectedItem?.hasPrefix("原设置") == true else { throw MacTab5LocalError.invalid("Legacy routing was silently replaced in the microphone picker") }
+            try validateSettings(legacy.window!, name: "voice-legacy-" + name, output: output)
+            legacyControls.compactMap { $0 as? NSButton }.first { $0.title == "取消" }!.performClick(nil)
+            guard NSDictionary(dictionary: legacyDefaults.persistentDomain(forName: legacySuite)!) == snapshot else { throw MacTab5LocalError.invalid("Legacy settings changed while previewing or cancelling") }
+        }
+        print("MAC_VOICE_SETTINGS_UI_OK single microphone picker; automatic/system/specific choices; async load; live removal; cancellation; fixtures only")
     }
 
     private static func validateEditorBehaviors(root:URL) throws {
@@ -259,6 +275,19 @@ enum MacTab5UIValidation {
                 if name == "runtime", abs(content.frame.width - size.width) > 1 { throw MacTab5LocalError.invalid("Runtime diagnostics could not retain requested width") }
                 guard footer.enclosingScrollView == nil,
                       content.bounds.contains(footer.convert(footer.bounds, to: content)) else { throw MacTab5Error.invalidPacket }
+                let footerButtons = descendants(footer).compactMap { $0 as? NSButton }
+                if let cancel = footerButtons.first(where: { $0.title == "取消" }) {
+                    // Native rounded button frames include focus-ring margins;
+                    // AppKit lays out their visible alignment rectangles.
+                    let cancelFrame = cancel.convert(cancel.alignmentRect(forFrame: cancel.bounds), to: content)
+                    for save in footerButtons where save.title.hasPrefix("保存") {
+                        let saveFrame = save.convert(save.alignmentRect(forFrame: save.bounds), to: content)
+                        guard cancelFrame.maxX < saveFrame.minX, abs(cancelFrame.midY - saveFrame.midY) <= 1,
+                              cancel.keyEquivalent == "\u{1b}", save.keyEquivalent == "\r" else {
+                            throw MacTab5LocalError.invalid("Save/Cancel order or keyboard actions differ on " + name + "; cancel=" + String(describing: cancelFrame) + "; save=" + String(describing: saveFrame) + "; keys=" + String(describing: cancel.keyEquivalent.utf8.map { Int($0) }) + "/" + String(describing: save.keyEquivalent.utf8.map { Int($0) }))
+                        }
+                    }
+                }
                 let pages = descendants(content).compactMap { $0 as? MacBridgeSettingsPage }.filter { !$0.isHiddenOrHasHiddenAncestor }
                 for page in pages {
                     page.fitDocument()

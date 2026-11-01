@@ -26,7 +26,7 @@ final class MacDataSettingsForm {
         longitude = NSTextField(string: preferences.longitude.map { String($0) } ?? "")
         stocks = NSTextField(string: preferences.symbols.joined(separator: ","))
         let weather = MacBridgeSettingsPage(), stockPage = MacBridgeSettingsPage()
-        weather.heading("天气定位", subtitle: "选择天气来源，使用电脑位置、城市或成对经纬度。")
+        weather.heading("天气定位", subtitle: "选择天气来源及定位方式。")
         weather.field("天气来源", provider)
         var credentials: [NSView] = []
         for (title, control) in [("和风 API Host", weatherHost), ("和风 API Key（仅保存到钥匙串）", weatherKey)] {
@@ -40,12 +40,12 @@ final class MacDataSettingsForm {
         weather.add(automatic); weather.field("天气城市", city)
         let coordinates = NSGridView(views: [[MacBridgeSettingsStyle.label("纬度（可空）"), latitude], [MacBridgeSettingsStyle.label("经度（可空）"), longitude]])
         coordinates.rowSpacing = 12; coordinates.columnSpacing = 12; weather.add(coordinates)
-        weather.add(MacBridgeSettingsStyle.note("自动定位将大致位置发送给系统地名服务和所选天气服务，不保存精确位置。和风请求可能计入你的账户用量；Open-Meteo 不需要密钥。"))
-        stockPage.heading("自选股票", subtitle: "管理这台 Mac 提供的股票与指数，保存后同步刷新。")
+        weather.add(MacBridgeSettingsStyle.note("自动定位会向地名和天气服务提供大致位置，不保存精确位置。和风请求可能计入账户用量；Open-Meteo 无需密钥。"))
+        stockPage.heading("自选股票", subtitle: "管理股票与指数，保存后同步刷新。")
         stockPage.field("股票代码（逗号分隔，最多 20 个）", stocks)
-        stockPage.add(MacBridgeSettingsStyle.note("支持 sh、sz、bj、hk、us 市场前缀，例如 sh000001、sz000001、hk00700、usAAPL。列表顺序按输入保留，重复代码只保留一项。"))
+        stockPage.add(MacBridgeSettingsStyle.note("支持 sh/sz/bj/hk/us，如 sh000001、usAAPL；按输入顺序去重。"))
         stockPage.section("保存与刷新")
-        stockPage.add(MacBridgeSettingsStyle.note("两个页签共用本次未保存的设置。点击保存后立即刷新，网络失败保留最近一次成功的数据。"))
+        stockPage.add(MacBridgeSettingsStyle.note("切换标签保留修改；保存后刷新，网络失败保留缓存。"))
         let tabs = MacBridgeSettingsTabs([("天气定位", weather), ("自选股票", stockPage)]); tabs.select(selectedTab)
         form = MacBridgeSettingsForm(standalone ? "天气定位" : "天气与股票", subtitle: "", height: 680, confirm:"保存并刷新", body: standalone ? weather : tabs)
         let locate = MacSettingsButton("获取当前位置") { [weak self] in

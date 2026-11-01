@@ -202,8 +202,8 @@ final class MacUnlockConnectionWindow: NSWindowController, NSWindowDelegate {
         sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.willSleepNotification,object:nil,queue:.main) { [weak self] _ in
             guard let self, self.busy else { return }; self.cancel(); self.status.stringValue = "电脑进入睡眠，本次验证已取消；唤醒后请重新开始。"
         }
-        let page = MacBridgeSettingsPage(); page.heading("一键解锁测试",subtitle:"测试期间会显示 Dock 图标，关闭窗口后恢复菜单栏模式。TAB5 一键解锁仍待验收。")
-        page.add(MacBridgeSettingsStyle.note(enrollment ? "本次为明确发起的密码保存操作：先验证本机账户和公开键盘样本，通过后才写入本机钥匙串。取消、失败或关闭不保存。":"仅连接本机 127.0.0.1:5900。密码仅供本次使用，不保存；点击、取消、关闭或睡眠时清除待用凭据。"))
+        let page = MacBridgeSettingsPage(); page.heading("一键解锁测试",subtitle:"本机测试时显示 Dock 图标，关闭后恢复菜单栏。")
+        page.add(MacBridgeSettingsStyle.note(enrollment ? "先验证本机账户和公开键盘样本，再保存至钥匙串；取消、失败或关闭不保存。":"仅连接本机 127.0.0.1:5900；密码仅供本次测试，开始、取消、关闭或睡眠即清除待用凭据。"))
         page.section("实际解锁测试")
         page.field("Mac 登录密码（当前登录账户）",loginPassword)
         page.add(MacBridgeSettingsStyle.note(enrollment ? "正在验证你明确提交保存的密码。成功后只保存到本机钥匙串，不发送给 TAB5；账户认证上限为 63 个 UTF-8 字节。":"使用当前 Mac 登录密码连接本机 Apple 屏幕共享，仅供本次测试使用，不保存。账户认证上限为 63 个 UTF-8 字节，不截断；实际解锁输入支持英文、数字及符号。"))
@@ -212,13 +212,13 @@ final class MacUnlockConnectionWindow: NSWindowController, NSWindowDelegate {
         page.add(MacSettingsButton("仅检查键盘（不会解锁）") { [weak self] in self?.test(delay:0,keyboard:true) })
         page.add(MacSettingsButton("本机键盘自检（无需密码）") { [weak self] in self?.localKeyboardCheck() })
         page.section("解锁流程与键盘样本")
-        page.add(MacBridgeSettingsStyle.note("点击“开始实际解锁测试”，认证后等待系统屏幕共享提示，再点页脚“继续键盘验证”并松开键鼠。看到“实际解锁测试：键盘验证通过”及 15 秒倒计时后，按 Control-Command-Q 锁屏。锁屏后不要按键或触碰 Touch ID；30 秒仍未解锁，请自行解锁查看结果。仅检查键盘完成后连接即结束，不会在锁屏后解锁。"))
+        page.add(MacBridgeSettingsStyle.note("1. 开始测试，完成认证并等待屏幕共享提示。\n2. 点击“继续键盘验证”后松开键鼠；看到“键盘验证通过”和 15 秒倒计时，再按 Control-Command-Q 锁屏。\n3. 锁屏后勿按键或触碰 Touch ID；30 秒未解锁时，请自行解锁查看结果。\n“仅检查键盘”完成后断开，不会解锁。"))
         page.field("键盘测试框（仅使用公开测试字符）",keyboardProbe.field)
-        page.add(MacBridgeSettingsStyle.note("只尝试一次。键盘验证失败时直接显示原因，无需锁屏；测试取消、断连或窗口变化时停止，不自动重试。实际解锁仍待本机验收。"))
+        page.add(MacBridgeSettingsStyle.note("仅尝试一次。键盘验证失败无需锁屏；取消、断连或窗口变化即停止，不自动重试。"))
         page.section("VNC 连接诊断（不会解锁）")
         page.field("VNC 专用密码（1–8 位英文字符）",password)
-        page.add(MacBridgeSettingsStyle.note("VNC 专用密码在本机连接到了独立虚拟登录会话。此处只验证连接；当前桌面键盘和实际解锁请使用上方 Mac 账户入口。"))
-        page.add(MacBridgeSettingsStyle.note("连接检查只验证 VNC 认证，不会解锁，也不会发送按键。只需填写 VNC 专用密码。"))
+        page.add(MacBridgeSettingsStyle.note("VNC 专用密码仅验证独立虚拟会话；当前桌面键盘及解锁请用上方 Mac 账户入口。"))
+        page.add(MacBridgeSettingsStyle.note("仅验证 VNC 认证，不解锁、不发送按键；填写 VNC 专用密码。"))
         page.add(MacSettingsButton("仅检查连接") { [weak self] in self?.test(delay:0) })
         page.add(MacSettingsButton("15 秒后仅检查锁屏连接") { [weak self] in self?.test(delay:15) })
         status.stringValue = Self.lastResult

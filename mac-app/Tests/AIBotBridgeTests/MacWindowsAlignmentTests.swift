@@ -13,4 +13,7 @@ final class MacWindowsAlignmentTests: XCTestCase {
     func testVoiceAvailabilityAndExplicitDeviceProtection() throws {
         XCTAssertGreaterThan(try MacVoiceEnvironmentValidation.run(), 10)
     }
+    func testMicrophoneRoutingMigrationAndPerTakeBinding() throws {
+        XCTAssertGreaterThan(try MacVoiceMicrophoneValidation.run(), 25)
+    }
 }

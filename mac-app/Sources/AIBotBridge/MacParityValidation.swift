@@ -170,6 +170,7 @@ enum MacParityValidation {
         checked += try MacCodexQuestionValidation.run(root: root.appendingPathComponent("codex-question"))
         checked += try MacDesktopAlignmentValidation.run(root: root.appendingPathComponent("desktop-alignment"))
         checked += try MacVoiceSourceValidation.run()
+        checked += try MacVoiceMicrophoneValidation.run()
         checked += try MacDoubaoBackgroundValidation.run()
         checked += try MacTab5OTATransferValidation.run()
         checked += try MacVNCUnlockValidation.run()

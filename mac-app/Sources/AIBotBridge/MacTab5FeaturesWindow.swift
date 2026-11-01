@@ -35,39 +35,39 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         computer.title = "允许 TAB5 控制电脑"
         computer.state = service.computer.isEnabled ? .on : .off; computer.target = self; computer.action = #selector(toggleComputer)
         computerPage.add(computer)
-        computerPage.add(MacBridgeSettingsStyle.note("锁屏需要辅助功能权限。Mac 锁定状态未知时保持未知，不提供一键解锁。"))
+        computerPage.add(MacBridgeSettingsStyle.note("锁屏需辅助功能权限；锁定状态未知时不提供解锁。"))
         computerPage.section("常用入口")
         computerPage.field("已添加的程序或文件夹（最多四个）", launchers)
         computerPage.add(MacBridgeSettingsStyle.row([
             NSButton(title: "添加入口…", target: self, action: #selector(addLauncher)),
             NSButton(title: "移除所选", target: self, action: #selector(removeLauncher))]))
-        computerPage.add(MacBridgeSettingsStyle.note("TAB5 仅能打开这里选择的入口；设备请求不能指定文件路径或命令。"))
+        computerPage.add(MacBridgeSettingsStyle.note("仅允许打开已选入口，设备不能指定路径或命令。"))
         computerPage.section("系统权限")
-        computerPage.add(MacBridgeSettingsStyle.note("在系统设置“隐私与安全性 → 自动化／辅助功能”中管理权限。拒绝权限会显示未完成，授权后可重新发起新操作。"))
+        computerPage.add(MacBridgeSettingsStyle.note("权限位置：系统设置 → 隐私与安全性 → 自动化／辅助功能。"))
 
-        musicPage.heading("音乐播放", subtitle: "采集播放信息和控制播放分别授权；首次使用会请求自动化权限。")
+        musicPage.heading("音乐播放", subtitle: "播放信息与播放控制分开授权；首次使用需允许自动化。")
         music.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off; music.target = self; music.action = #selector(toggleMusic)
         musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off; musicControl.target = self; musicControl.action = #selector(toggleMusicControl)
         musicPage.add(music); musicPage.add(musicControl)
-        musicPage.add(MacBridgeSettingsStyle.note("支持 Apple Music 和 Spotify。控制只发送一次，并读取实际播放状态；切换曲目未确认时不会自动重复跳曲。"))
-        musicPage.add(MacBridgeSettingsStyle.note("封面无法确认时会向 Apple 公开目录查询当前歌曲、歌手和专辑；不使用账户信息。TAB5 使用高清封面，小屏保持原尺寸。"))
+        musicPage.add(MacBridgeSettingsStyle.note("支持 Apple Music、Spotify；操作后核对状态，不自动重复切歌。"))
+        musicPage.add(MacBridgeSettingsStyle.note("缺封面时用歌名、歌手和专辑查询 Apple 公开目录，不涉及账户。"))
         musicPage.section("播放状态"); musicPage.add(musicState)
 
-        codexPage.heading("Codex 会话", subtitle: "查看本机近期任务和公开回复，同步加密草稿。发送与中断需要另行启用。")
+        codexPage.heading("Codex 会话", subtitle: "读取本机任务与公开回复；发送和中断需单独启用。")
         codex.title = "允许 TAB5 查看 Codex 会话与公开回复"
         send.title = "允许在 TAB5 手动发送或中断 Codex 任务"
         desktop.title = "启用 Codex 桌面直达与输入框核对"
         codex.state = service.codex.isEnabled ? .on : .off; codex.target = self; codex.action = #selector(toggleCodex)
         send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend)
         codexPage.add(codex); codexPage.add(send)
-        codexPage.add(MacBridgeSettingsStyle.note("操作仅针对已加载的精确任务，沿用该任务的模型和审批设置。文字追加遵循 Codex 当前排队／引导设置；电脑已有草稿、附件或问题卡时先保留内容，带照片的追加暂不支持。草稿在本机加密保存，关闭功能或退出桥接后结束连接。"))
+        codexPage.add(MacBridgeSettingsStyle.note("仅操作已确认任务，沿用原模型与审批设置。追加遵循 Codex 排队／引导设置；有电脑草稿、附件或题卡时暂停，不支持带照片追加。草稿本机加密保存，停用或退出后断开。"))
         codexPage.add(MacBridgeSettingsStyle.row([
             NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
             NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)
-        codexPage.add(MacBridgeSettingsStyle.note("需要辅助功能权限。打开会话时核对精确地址或在完整目录中唯一的名称，缩略名称也检查重名。无法唯一区分时只确认已唤起 Codex；无法确认输入框时保留文字。提交草稿还需要上方操作权限及可用的桌面任务连接。"))
+        codexPage.add(MacBridgeSettingsStyle.note("需辅助功能、操作权限和有效任务连接。无法确认会话或输入框时不操作，保留预览。"))
         codexPage.section("连接与诊断"); codexPage.add(codexState); codexPage.add(desktopState)
 
         for label in [codexState, desktopState, musicState] { label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor }

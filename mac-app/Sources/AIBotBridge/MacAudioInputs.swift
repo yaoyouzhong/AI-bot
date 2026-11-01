@@ -7,6 +7,11 @@ import Speech
 struct MacAudioInput { let id:AudioDeviceID, uid:String, name:String }
 enum MacAudioInputs {
     static let preference = "tab5_voice_input_uid"
+    static func defaultInputID() -> AudioDeviceID? {
+        var property = AudioObjectPropertyAddress(mSelector:kAudioHardwarePropertyDefaultInputDevice,mScope:kAudioObjectPropertyScopeGlobal,mElement:kAudioObjectPropertyElementMain)
+        var id = AudioDeviceID(0), size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        return AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),&property,0,nil,&size,&id) == noErr ? id : nil
+    }
     static func devices() -> [MacAudioInput] {
         var address = AudioObjectPropertyAddress(mSelector:kAudioHardwarePropertyDevices,mScope:kAudioObjectPropertyScopeGlobal,mElement:kAudioObjectPropertyElementMain), size:UInt32 = 0
         guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject),&address,0,nil,&size) == noErr else { return [] }
@@ -34,9 +39,10 @@ enum MacAudioInputs {
         guard AudioUnitGetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &id, &size) == noErr else { return nil }
         return devices().first { $0.id == id }
     }
-    static func apply(to input:AVAudioInputNode) throws {
-        guard let uid = UserDefaults.standard.string(forKey:preference),!uid.isEmpty else { return }
-        guard let device = devices().first(where:{$0.uid == uid}),let unit = input.audioUnit else { throw MacTab5LocalError.invalid("所选麦克风未连接，请在语音设置重新选择。") }
+    static func apply(to input:AVAudioInputNode, selected: MacAudioInput? = nil) throws {
+        let uid = selected?.uid ?? UserDefaults.standard.string(forKey:preference) ?? ""
+        guard !uid.isEmpty else { return }
+        guard let device = devices().first(where:{$0.uid == uid && (selected == nil || $0.id == selected?.id)}),let unit = input.audioUnit else { throw MacTab5LocalError.invalid("所选麦克风未连接，请在语音设置重新选择。") }
         var id = device.id
         guard AudioUnitSetProperty(unit,kAudioOutputUnitProperty_CurrentDevice,kAudioUnitScope_Global,0,&id,UInt32(MemoryLayout<AudioDeviceID>.size)) == noErr else { throw MacTab5LocalError.invalid("无法启用所选麦克风。") }
     }

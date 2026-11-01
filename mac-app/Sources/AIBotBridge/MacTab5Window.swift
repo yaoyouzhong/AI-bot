@@ -371,7 +371,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     @objc private func resetDeviceNetwork() { bridgeAction(.espReset) }
     @objc private func removeDevice() {
         guard let registry else { return }; let kind = selectedDevice == 0 ? "tab5":"esp8266"
-        let alert = NSAlert(); alert.messageText = "从列表移除此设备？"; alert.informativeText = "会停止此设备的数据服务，保留配对、生日、图库和备份，可重新添加。"; alert.addButton(withTitle:"移除"); alert.addButton(withTitle:"取消")
+        let alert = NSAlert(); alert.messageText = "从列表移除此设备？"; alert.informativeText = "停止此设备的数据服务；配对和本机资料保留，可重新添加。"; alert.addButton(withTitle:"移除"); alert.addButton(withTitle:"取消")
         guard alert.runModal() == .alertFirstButtonReturn else { return }; do { try registry.remove(kind); selectedDevice = registry.device("tab5") != nil ? 0:1; showDevicePage(selectedDevice == 0 ? overview:smallScreen); result.stringValue = "设备已移除。" } catch { result.stringValue = error.localizedDescription }
     }
     func showUpgradeTools() { openTools(page:.firmware) }

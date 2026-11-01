@@ -15,18 +15,18 @@ final class MacUnlockSettingsWindow:NSWindowController,NSWindowDelegate {
         self.service = service
         super.init(window:MacBridgeSettingsStyle.window("一键解锁",width:620,height:620,minimumHeight:460))
         window?.delegate = self
-        let page = MacBridgeSettingsPage(); page.heading("一键解锁",subtitle:"密码保留在本机；TAB5 只发送解锁请求并显示结果。")
+        let page = MacBridgeSettingsPage(); page.heading("一键解锁",subtitle:"密码仅留在 Mac，TAB5 只发送解锁请求。")
         enabled.state = service.unlock.enabled ? .on:.off; page.add(enabled)
         localEnabled.state = service.unlock.localEnabled ? .on:.off; page.add(localEnabled)
         page.section("Mac 登录密码")
         page.field("新密码",password); page.field("再次输入",repeated)
-        page.add(MacBridgeSettingsStyle.note("留空保留已保存密码。填写当前 Mac 登录密码后点击“验证并保存密码”，系统认证与公开键盘样本全部通过才存入本机钥匙串，仅用于当前账户和当前配对 TAB5。支持英文、数字、符号，最多 63 字节。"))
+        page.add(MacBridgeSettingsStyle.note("留空保留原密码。支持英文、数字、符号，最多 63 字节。系统认证和公开键盘验证通过后存入本机钥匙串，仅供当前账户及配对 TAB5 使用。"))
         page.add(MacBridgeSettingsStyle.row([MacSettingsButton("验证并保存密码") { [weak self] in self?.verify() },MacSettingsButton("删除密码") { [weak self] in self?.remove() }]))
         page.section("本机解锁组件")
-        page.add(MacBridgeSettingsStyle.note("使用当前账户已验证的本机解锁组件。Computer Use 外层保护存在或无法确认退出时会停止解锁。不会退出保护或更改系统全局设置。"))
+        page.add(MacBridgeSettingsStyle.note("使用当前账户的本机解锁组件。受保护会话未确认结束时暂停解锁，不退出保护或更改系统设置。"))
         page.add(MacSettingsButton("打开屏幕共享设置") { _ = NSWorkspace.shared.open(URL(string:"x-apple.systempreferences:com.apple.Sharing-Settings.extension")!) })
         page.section("连接与测试")
-        page.add(MacBridgeSettingsStyle.note("USB／蓝牙需要支持 Mac 本机解锁的新版 TAB5 固件；旧固件的 Windows 数字 PIN 入口不适用。三个通道均只传请求和结果，Mac 密码不下发到设备。每次请求只提交一次；取消、断连、停用或会话变化会停止，不会切换通道重试。"))
+        page.add(MacBridgeSettingsStyle.note("USB／蓝牙需支持 Mac 解锁的 TAB5 固件，不使用 Windows 数字 PIN。密码不下发；每次只尝试一次，取消、断连、停用或会话变化即停止，不切换通道重试。"))
         page.add(MacSettingsButton("临时解锁测试…") { [weak self] in
             guard let self else { return }; self.verification = MacUnlockConnectionWindow(); self.verification?.open()
         })
@@ -35,7 +35,7 @@ final class MacUnlockSettingsWindow:NSWindowController,NSWindowDelegate {
             do { try self.service.unlock.armPreparationProbe(pair:self.service.currentPairing); self.refreshDiagnostic() }
             catch { self.status.stringValue = error.localizedDescription }
         })
-        page.add(MacBridgeSettingsStyle.note("字符诊断仅下一次 Wi-Fi 请求有效：只发送公开字符 a，不使用密码、不按回车、不删除文字。请从未输入文字的锁屏页测试，完成后自行清空密码框。两分钟后过期的诊断请求直接停止；不自动转为密码输入。"))
+        page.add(MacBridgeSettingsStyle.note("仅下一次 Wi-Fi 请求有效（2 分钟内）：输入公开字符 a，不使用密码、不按回车或删除。请在空密码框测试，完成后自行清空。"))
         page.add(MacSettingsButton("刷新解锁诊断") { [weak self] in self?.refreshDiagnostic() })
         page.add(observations)
         refreshDiagnostic()

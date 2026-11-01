@@ -70,7 +70,7 @@ final class MacPetGalleryWindow: NSWindowController, NSTableViewDataSource, NSTa
         super.init(window: window); window.delegate = self
         let page = MacBridgeSettingsPage()
         window.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [apply])
-        page.heading("桌宠图库", subtitle: "搜索 petdex 素材，预览动画后应用到 Claude 或 Codex。")
+        page.heading("桌宠图库", subtitle: "预览 petdex 动画，应用到 Claude 或 Codex。")
         search.placeholderString = "搜索桌宠名称…"; search.delegate = self; page.add(search)
         table.addTableColumn(NSTableColumn(identifier: NSUserInterfaceItemIdentifier("pet")))
         table.headerView = nil; table.dataSource = self; table.delegate = self; table.rowHeight = 28
@@ -91,7 +91,7 @@ final class MacPetGalleryWindow: NSWindowController, NSTableViewDataSource, NSTa
         let columns = NSStackView(views: [scroll, editor]); columns.spacing = 24; columns.distribution = .fillEqually; columns.alignment = .top
         scroll.heightAnchor.constraint(equalTo: editor.heightAnchor).isActive = true; page.add(columns)
         apply.target = self; apply.action = #selector(save); apply.isEnabled = false
-        page.add(MacBridgeSettingsStyle.note("素材只保存在本机，不随公开包分发；同步与设备验收是不同状态。"))
+        page.add(MacBridgeSettingsStyle.note("素材仅存本机，不随安装包分发。"))
 
     }
     required init?(coder:NSCoder) {fatalError("init(coder:) unsupported")}
