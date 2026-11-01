@@ -129,6 +129,7 @@ struct MacTab5USBLeaseCadence {
 final class MacTab5USB {
     private let service: MacTab5Service
     private let authenticationEndpoint: () -> (String, UInt16)?
+    private let diagnosticLegacyMailbox: Bool
     private let queue = DispatchQueue(label: "AI-bot.tab5-usb")
     private var timer: DispatchSourceTimer?
     private var wire: MacTab5SerialWire?
@@ -140,13 +141,15 @@ final class MacTab5USB {
     private var lastMusic: MusicSnapshot?
     private var previewPublication = MacPreviewUSBPublication()
     private var previewPoll = MacPreviewUSBPollCadence()
+    private var rpcPoll = MacTab5USBRPCPollCadence()
     private var pollMilliseconds = 100
     private var rpcSupported = false
     private var completed: UInt32 = 0
 
-    init(service: MacTab5Service, authenticationEndpoint: (() -> (String, UInt16)?)? = nil) {
+    init(service: MacTab5Service, authenticationEndpoint: (() -> (String, UInt16)?)? = nil, diagnosticLegacyMailbox: Bool = false) {
         self.service = service
         self.authenticationEndpoint = authenticationEndpoint ?? { service.lanConfiguration }
+        self.diagnosticLegacyMailbox = diagnosticLegacyMailbox
     }
     static func ports() -> [String] {
         ((try? FileManager.default.contentsOfDirectory(atPath: "/dev")) ?? [])
@@ -170,6 +173,7 @@ final class MacTab5USB {
         statusDelta.reset(); leaseCadence = .init()
         previewPublication = .init()
         previewPoll = .init()
+        rpcPoll = .init()
         service.usbState(note)
     }
 
@@ -357,26 +361,34 @@ final class MacTab5USB {
 
     private func updatePreviewPollCadence() {
         guard let timer else { return }
-        let milliseconds = previewPoll.milliseconds(at:ProcessInfo.processInfo.systemUptime,
+        let now = ProcessInfo.processInfo.systemUptime
+        let milliseconds = min(rpcPoll.milliseconds(at:now, active:wire != nil && service.isEnabled && rpcSupported && !diagnosticLegacyMailbox,
+            voicePriority:service.voice.needsTransportPriority), previewPoll.milliseconds(at:now,
             active:wire != nil && service.isEnabled && service.screenPreview.command?["transport"] as? String == "USB",
-            voicePriority:service.voice.needsTransportPriority,foregroundBusy:service.configurationBusy)
+            voicePriority:service.voice.needsTransportPriority,foregroundBusy:service.configurationBusy))
         guard milliseconds != pollMilliseconds else { return }
         pollMilliseconds = milliseconds
         timer.schedule(deadline: .now() + .milliseconds(milliseconds), repeating: .milliseconds(milliseconds))
     }
 
     private func mailbox(_ wire: MacTab5SerialWire, device: String, data: Data? = nil) throws -> Data {
+        let capabilities = mailboxCapabilities(wire)
+        if capabilities.binary { return try wire.binaryMailbox(device:device, data:data) }
         let tag = MacTab5Protocol.identifier()
-        var command: [String: Any] = ["version": 1, "type": "tab5_rpc", "deviceId": device, "tag": tag, "chunk": 2048]
+        let chunk = capabilities.chunk
+        var command: [String: Any] = ["version": 1, "type": "tab5_rpc", "deviceId": device, "tag": tag, "chunk": chunk]
         command["data"] = data.map { $0.base64EncodedString() as Any } ?? NSNull()
         try wire.send(command)
         let reply = try wire.reply("tab5_rpc")
         guard reply["deviceId"] as? String == device, reply["tag"] as? String == tag,
               reply["ok"] as? Bool == true else { throw MacTab5Error.invalidPacket }
         if data != nil { return Data() }
-        guard let text = reply["data"] as? String, text.utf8.count <= 2744, let bytes = Data(base64Encoded: text),
-              (8...2056).contains(bytes.count) else { throw MacTab5Error.invalidPacket }
+        guard let text = reply["data"] as? String, text.utf8.count <= ((chunk + 10) / 3) * 4, let bytes = Data(base64Encoded: text),
+              (8...(chunk + 8)).contains(bytes.count) else { throw MacTab5Error.invalidPacket }
         return bytes
+    }
+    private func mailboxCapabilities(_ wire: MacTab5SerialWire) -> MacTab5USBMailbox {
+        diagnosticLegacyMailbox ? .init() : wire.mailboxCapabilities
     }
 
     @discardableResult private func pump(_ wire: MacTab5SerialWire, device: String) throws -> Bool {
@@ -389,7 +401,7 @@ final class MacTab5USB {
         let deadline = ProcessInfo.processInfo.systemUptime + 75
         while true {
             guard ProcessInfo.processInfo.systemUptime < deadline else { throw MacTab5Error.timeout }
-            try MacTab5Mailbox.append(part, id: id, total: total, to: &request)
+            try MacTab5Mailbox.append(part, id: id, total: total, to: &request, maximum:mailboxCapabilities(wire).chunk)
             if request.count == total { break }
             var ack = Data([1]); MacTab5Mailbox.append32(id, to: &ack); MacTab5Mailbox.append16(request.count, to: &ack)
             _ = try mailbox(wire, device: device, data: ack)
@@ -411,11 +423,12 @@ final class MacTab5USB {
             due: { self.leaseCadence.isDue(ProcessInfo.processInfo.systemUptime) },
             heartbeat: { try self.operationHeartbeat(wire, pairing: pairing) })
         guard status == 200, (28...MacTab5Binary.maximumMailbox).contains(response.count) else { throw MacTab5Error.invalidPacket }
-        for fragment in try MacTab5Mailbox.response(response, id: id) {
+        for fragment in try MacTab5Mailbox.response(response, id: id, chunk:mailboxCapabilities(wire).chunk) {
             guard ProcessInfo.processInfo.systemUptime < deadline else { throw MacTab5Error.timeout }
             _ = try mailbox(wire, device: device, data: fragment)
         }
         completed = id
+        rpcPoll.completed(bytes:response.count, at:ProcessInfo.processInfo.systemUptime)
         service.voice.acknowledgeUSBReply(nonce:nonce)
         return true
     }
@@ -451,16 +464,16 @@ enum MacTab5Mailbox {
     }
     static func append16(_ number: Int, to data: inout Data) { data.append(UInt8(number & 255)); data.append(UInt8((number >> 8) & 255)) }
     static func append32(_ number: UInt32, to data: inout Data) { append16(Int(number & 65535), to: &data); append16(Int(number >> 16), to: &data) }
-    static func append(_ part: Data, id: UInt32, total: Int, to request: inout Data) throws {
-        guard (9...2056).contains(part.count), u32(part, 0) == id, Int(u16(part, 4)) == request.count,
+    static func append(_ part: Data, id: UInt32, total: Int, to request: inout Data, maximum: Int = 2048) throws {
+        guard (1...MacTab5USBMailbox.largeChunk).contains(maximum), (9...(maximum + 8)).contains(part.count), u32(part, 0) == id, Int(u16(part, 4)) == request.count,
               Int(u16(part, 6)) == total, request.count + part.count - 8 <= total else { throw MacTab5Error.invalidPacket }
         request.append(part.dropFirst(8))
     }
-    static func response(_ packet: Data, id: UInt32) throws -> [Data] {
-        guard id != 0, (28...MacTab5Binary.maximumMailbox).contains(packet.count) else { throw MacTab5Error.invalidPacket }
-        return stride(from: 0, to: packet.count, by: 2048).map { offset in
+    static func response(_ packet: Data, id: UInt32, chunk: Int = 2048) throws -> [Data] {
+        guard id != 0, (28...MacTab5Binary.maximumMailbox).contains(packet.count), [2048,16384,MacTab5USBMailbox.largeChunk].contains(chunk) else { throw MacTab5Error.invalidPacket }
+        return stride(from: 0, to: packet.count, by: chunk).map { offset in
             var fragment = Data([2]); append32(id, to: &fragment); append16(offset, to: &fragment); append16(packet.count, to: &fragment)
-            fragment.append(packet.subdata(in: offset..<min(offset + 2048, packet.count))); return fragment
+            fragment.append(packet.subdata(in: offset..<min(offset + chunk, packet.count))); return fragment
         }
     }
 }
@@ -524,6 +537,7 @@ private final class MacTab5SerialWire {
     private(set) var packedStatus = false
     private(set) var deltaStatus = false
     private(set) var deltaLease = false
+    private(set) var mailboxCapabilities = MacTab5USBMailbox()
 
     init(path: String) throws {
         guard MacTab5USB.ports().contains(path), MacSerialPortLease.acquire(path) else { throw MacTab5Error.serial }
@@ -548,6 +562,7 @@ private final class MacTab5SerialWire {
         packedStatus = MacTab5USBStatus.supportsPacked(hello,device:device)
         deltaStatus = MacTab5USBStatus.supportsPacked(hello,device:device,field:"usbDelta")
         deltaLease = MacTab5USBStatus.deltaRenewsOwnership(hello,device:device)
+        mailboxCapabilities = MacTab5USBMailbox(hello)
         return (device, MacTab5Protocol.integer(hello["rpcVersion"]) == 1)
     }
     func authenticate(_ pair: MacTab5Pairing, endpoint: (String, UInt16)?) throws {
@@ -566,6 +581,28 @@ private final class MacTab5SerialWire {
     func send(_ value: [String: Any]) throws { try write(MacTab5Protocol.line(value)) }
     func sendJSON(_ json: Data) throws {
         var line = Data(MacTab5Protocol.prefix.utf8); line.append(json); line.append(10); try write(line)
+    }
+    func binaryMailbox(device: String, data: Data?) throws -> Data {
+        let deadline = ProcessInfo.processInfo.systemUptime + 4
+        return try mailboxCapabilities.exchange(device:device, data:data, send:send, write:write,
+            read: { try self.readExactly($0, deadline:deadline) })
+    }
+    private func readExactly(_ count: Int, deadline: TimeInterval) throws -> Data {
+        guard (0...MacTab5USBMailbox.maximum).contains(count) else { throw MacTab5Error.invalidPacket }
+        var result = Data(input.prefix(count)); input.removeFirst(result.count)
+        var bytes = [UInt8](repeating:0, count:min(16384, count))
+        while result.count < count {
+            let remaining = deadline - ProcessInfo.processInfo.systemUptime
+            guard remaining > 0 else { throw MacTab5Error.timeout }
+            let received = bytes.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, min($0.count, count-result.count)) }
+            if received > 0 { result.append(contentsOf:bytes.prefix(received)); continue }
+            if received < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR { throw MacTab5Error.serial }
+            var pollFD = pollfd(fd:descriptor, events:Int16(POLLIN), revents:0)
+            let ready = Darwin.poll(&pollFD, 1, Int32(min(50, max(1, remaining * 1000))))
+            guard ready >= 0 || errno == EINTR,
+                  pollFD.revents & Int16(POLLERR | POLLHUP | POLLNVAL) == 0 else { throw MacTab5Error.serial }
+        }
+        return result
     }
     private func write(_ bytes: Data) throws {
         lastWriteSize=bytes.count
@@ -602,7 +639,7 @@ private final class MacTab5SerialWire {
             }
             var bytes = [UInt8](repeating: 0, count: 512)
             let count = bytes.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
-            if count > 0 { received += count;input.append(contentsOf: bytes.prefix(count)); guard input.count <= 8192 else { throw MacTab5Error.invalidPacket } }
+            if count > 0 { received += count;input.append(contentsOf: bytes.prefix(count)); guard input.count <= (expected == "tab5_rpc" ? 32768 : 8192) else { throw MacTab5Error.invalidPacket } }
             else if count < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR { throw MacTab5Error.serial }
             else {
                 if count == 0 { zeroReads += 1 }
