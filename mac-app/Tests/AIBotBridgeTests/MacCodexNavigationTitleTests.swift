@@ -40,6 +40,32 @@ final class MacCodexNavigationTitleTests: XCTestCase {
         XCTAssertEqual(MacCodexNavigationTitle.compactTitle(valid), String(repeating: "a", count: 57) + "😀…")
         XCTAssertNil(MacCodexNavigationTitle.compactTitle(String(repeating: "a", count: 58) + "😀tail"))
     }
+    func testCurrentCatalogWinsOverLegacyForNamesAndIdentity() throws {
+        let (home, old) = try fixture(), task = UUID().uuidString.lowercased()
+        insert(old, task, "legacy title")
+        XCTAssertEqual(MacCodexNavigationTitle.read(task, home: home), "legacy title")
+        var current: OpaquePointer?
+        let path = home.appendingPathComponent("sqlite/codex.db")
+        XCTAssertEqual(sqlite3_open(path.path, &current), SQLITE_OK)
+        let db = try XCTUnwrap(current); defer { sqlite3_close(db) }
+        XCTAssertEqual(sqlite3_exec(db, "CREATE TABLE local_thread_catalog(host_id TEXT,thread_id TEXT,display_title TEXT,missing_candidate INTEGER)", nil, nil, nil), SQLITE_OK)
+        // An old record must not rescue a target absent from the current catalog.
+        XCTAssertEqual(MacCodexNavigationTitle.identity(task, home: home), .unavailable)
+        XCTAssertEqual(MacCodexCatalogNames.read([task], home: home), [:])
+        insert(db, task, "current title")
+        let fresh = UUID().uuidString.lowercased(); insert(db, fresh, "new chat")
+        XCTAssertEqual(MacCodexNavigationTitle.read(fresh, home: home), "new chat")
+        XCTAssertEqual(MacCodexNavigationTitle.read(task, home: home), "current title")
+        XCTAssertEqual(MacCodexNavigationTitle.read(task, home: home, compact: true), "current title")
+        XCTAssertEqual(MacCodexCatalogNames.read([task, fresh], home: home), [task: "current title", fresh: "new chat"])
+        insert(db, UUID().uuidString.lowercased(), "current title", host: "remote")
+        XCTAssertEqual(MacCodexNavigationTitle.identity(task, home: home), .duplicate)
+        XCTAssertEqual(MacCodexNavigationTitle.identity(task, home: home, compact: true), .duplicate)
+        // Present but unreadable schema cannot fall back to stale identity.
+        XCTAssertEqual(sqlite3_exec(db, "DROP TABLE local_thread_catalog", nil, nil, nil), SQLITE_OK)
+        XCTAssertEqual(MacCodexNavigationTitle.identity(task, home: home), .unavailable)
+        XCTAssertNil(MacCodexCatalogNames.read([task], home: home))
+    }
     private func fixture() throws -> (URL, OpaquePointer) {
         let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: home.appendingPathComponent("sqlite"), withIntermediateDirectories: true)

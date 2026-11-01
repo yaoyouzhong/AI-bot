@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### TAB5 reliability and Windows handoff
+- Fix Mac verification of newly created Codex chats by using the current desktop catalog for both display titles and identity; retain legacy-only installations and reject stale fallback after current-catalog errors.
 - TAB5 .301 extends .300 with page-cache headroom for cover receipt, decode and display, hidden-cache reclamation under pressure, and cross-host stage diagnostics.
 - TAB5 .299 refines clock labels and enlarges seconds; actual renders, full LVGL regression and analog/digital clock hardware acceptance pass.
 - Fix Mac task-page append for native queue/steer delivery, protect existing desktop drafts and attachments, and improve long-chat navigation and explicit activity sorting.

@@ -4,13 +4,21 @@ import SQLite3
 // User-facing title metadata only. The public list API can omit an unnamed
 // chat's name even though the desktop catalog has its observed preview title.
 enum MacCodexCatalogNames {
+    // Current desktop builds publish codex.db. Keep the legacy catalog only
+    // when that file is absent, never when it is stale, locked or invalid:
+    // falling back on a failed lookup could authorize an old unique title.
+    static func databaseURL(root: URL) -> URL {
+        let current = root.appendingPathComponent("sqlite/codex.db")
+        return FileManager.default.fileExists(atPath: current.path) ? current :
+            root.appendingPathComponent("sqlite/codex-dev.db")
+    }
     static func read(_ tasks: Set<String>, home: URL? = nil) -> [String: String]? {
         guard !tasks.isEmpty else { return [:] }
         guard tasks.count <= 512, tasks.allSatisfy({ MacTab5Codex.id($0) == $0 }) else { return nil }
         let root = home ?? ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath: $0) } ??
             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
         var db: OpaquePointer?, statement: OpaquePointer?
-        guard sqlite3_open_v2(root.appendingPathComponent("sqlite/codex-dev.db").path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK,
+        guard sqlite3_open_v2(databaseURL(root: root).path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK,
               let db else { if let db { sqlite3_close(db) }; return nil }
         defer { if let statement { sqlite3_finalize(statement) }; sqlite3_close(db) }
         sqlite3_busy_timeout(db, 100); sqlite3_limit(db, SQLITE_LIMIT_LENGTH, 16_384)
