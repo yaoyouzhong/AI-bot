@@ -144,6 +144,18 @@ final class MacTab5Voice {
         if !recentSessions.isEmpty { details.append("此前语音（最近三次，不含文字）：\n" + recentSessions.reversed().joined(separator: "\n")) }
         return details.joined(separator: "\n")
     }
+    // Numeric metadata for background acceptance only, never recognition text,
+    // owner IDs, input names or backend diagnostics/errors.
+    var timingSnapshot: [String: Int] {
+        lock.lock(); defer { lock.unlock() }
+        var values = ["state": ["idle": 0, "recording": 1, "recognizing": 2, "review": 3, "cancelled": 4, "error": 5][state] ?? 0,
+                      "chunks": sequence, "audioMs": samples / 16]
+        for (key, value) in [("startupMs", startupTime), ("captureReadyMs", captureReadyTime), ("firstResultMs", firstResultTime),
+                             ("stopToFinalMs", finalTime), ("finalToResponseMs", reviewTime)] {
+            if let value, value.isFinite { values[key] = Int((min(180, max(0, value)) * 1000).rounded()) }
+        }
+        return values
+    }
     func observeReply(op: String?, transport: String, status: Int, response: [String:Any]? = nil, nonce: String? = nil) {
         lock.lock(); defer { lock.unlock() }
         if status == 200, response?["voiceId"] as? String == id,

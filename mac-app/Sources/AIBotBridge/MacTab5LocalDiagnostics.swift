@@ -11,8 +11,20 @@ final class MacTab5LocalDiagnostics {
     private let queue = DispatchQueue(label: "AI-bot.local-diagnostics")
     private let file: MacProfileFile<[String: Record]>
     private let deviceFile: MacProfileFile<[String: String]>
+    private let voiceFile: MacProfileFile<[String: Int]>
+    private let clock: () -> TimeInterval
     private var lastDeviceWrite: TimeInterval = 0 // diagnostics queue only
-    init(directory: URL? = nil) {
+    private var lastVoiceWrite = -Double.infinity, lastVoiceState: Int?
+    private static let voiceBounds = ["state": 5, "chunks": 601, "audioMs": 60000, "startupMs": 180000,
+        "captureReadyMs": 180000, "firstResultMs": 180000, "stopToFinalMs": 180000, "finalToResponseMs": 180000]
+    init(directory: URL? = nil, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+        self.clock = clock
+        voiceFile = MacProfileFile("tab5-voice-diagnostics.json", directory: directory, initial: { [:] }, validate: {
+            guard $0.count <= 10, $0.allSatisfy({ key, value in
+                if key == "pid" || key == "time" { return value >= 0 }
+                return Self.voiceBounds[key].map { (0...$0).contains(value) } ?? false
+            }) else { throw MacTab5Error.invalidPacket }
+        })
         deviceFile = MacProfileFile("tab5-device-diagnostics.json", directory: directory, initial: { [:] }, validate: {
             guard $0.count <= 13, Set($0.keys).isSubset(of: ["uiPage","uptimeMs","uiAgeMs","uiDataAgeMs","internalFree","psramFree","displayDiag","galleryDiag","usbDiag","pid","time"]) else { throw MacTab5Error.invalidPacket }
         })
@@ -47,6 +59,17 @@ final class MacTab5LocalDiagnostics {
         queue.async { [assetFile] in try? assetFile.write(sample) }
     }
     func transport(_ note: String) { record("transport", status: "USB failure", detail: note) }
+    func voice(_ values: [String: Int]) {
+        let safe = values.filter { key, value in Self.voiceBounds[key].map { (0...$0).contains(value) } ?? false }
+        guard let state = safe["state"] else { return }
+        queue.async { [self] in
+            let now = clock()
+            guard state != lastVoiceState || now - lastVoiceWrite >= 1 else { return }
+            var sample = safe
+            sample["pid"] = Int(ProcessInfo.processInfo.processIdentifier); sample["time"] = Int(Date().timeIntervalSince1970)
+            if (try? voiceFile.write(sample)) != nil { lastVoiceWrite = now; lastVoiceState = state }
+        }
+    }
     func device(_ root: [String: Any]) {
         guard root["type"] as? String == "tab5_ack" else { return }
         var values: [String: String] = [:]

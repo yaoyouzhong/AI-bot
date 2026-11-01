@@ -417,7 +417,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return (nil,nil) }; let metrics = self.dataStore.snapshot().systemMetrics
             return (metrics,self.runtimeHealth.snapshot(metrics:metrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:self.tab5?.codex.isEnabled ?? false,desktopObserved:self.tab5?.codex.canMutate ?? false,network:self.networkDiagnostics.snapshot()))
         },deviceCapture:{ [weak self] in
-            [self?.server?.statusDiagnosticSummary,self?.tab5?.usbDiagnosticSummary,self?.tab5?.screenPreview.diagnostic,self?.tab5?.computer.mediaDiagnostic,self?.dataStore.musicArtworkDiagnostic,self?.tab5?.assets.coverDiagnostic,self?.tab5?.deviceDiagnosticSummary].compactMap { $0 }.joined(separator:"\n\n")
+            [self?.server?.statusDiagnosticSummary,self?.tab5?.usbDiagnosticSummary,self?.tab5?.voice.diagnostics,self?.tab5?.bleDiagnostics.summary,self?.tab5?.screenPreview.diagnostic,self?.tab5?.computer.mediaDiagnostic,self?.dataStore.musicArtworkDiagnostic,self?.tab5?.assets.coverDiagnostic,self?.tab5?.deviceDiagnosticSummary].compactMap { $0 }.joined(separator:"\n\n")
         },
         deviceImage:{ [weak self] in
             guard let media = self?.dataStore.snapshot() else { return nil }

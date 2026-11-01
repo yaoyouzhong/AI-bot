@@ -53,7 +53,7 @@ enum MacTab5UIValidation {
             ("computer-control", MacComputerWindow(service: service, music: {})), ("unlock-settings",MacUnlockSettingsWindow(service:service)), ("unlock-test",MacUnlockConnectionWindow()), ("voice", MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: { voiceFixture() })),
             ("stocks", MacStocksWindow(didSave: {})), ("quota-history", MacQuotaHistoryWindow(store: MacDataStore(defaults: defaults, quotaHistory: MacQuotaHistory(file: root.appendingPathComponent("history.json"))))),
             ("gallery-browser", MacGalleryBrowser(gallery: service.gallery, importPack: {})), ("configuration", MacConfigurationWindow(didRestore: {})),
-            ("notifications", MacNotificationWindow(service: MacNotifications(directory: root))), ("runtime", MacRuntimeWindow(file:.init("runtime-health.json",directory:root,initial:{ .init() },validate:{ try $0.validate() }),capture:{ "CPU：采样正常\n内存：采样正常\nVPN / PAC：等待网络采样" },reload:{})), ("updates", MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {})), ("features", MacTab5FeaturesWindow(service: service)),
+            ("notifications", MacNotificationWindow(service: MacNotifications(directory: root))), ("runtime", MacRuntimeWindow(file:.init("runtime-health.json",directory:root,initial:{ .init() },validate:{ try $0.validate() }),capture:{ "CPU：采样正常\n内存：采样正常\nVPN / PAC：等待网络采样" },reload:{},deviceCapture:{ "本段收音设备：TAB5 内置麦克风 · 豆包输入法\n本机分段计时：本地启动 390 ms · 收音就绪应答 610 ms · 首段结果（含说话等待） 3280 ms · 停止至最终识别 780 ms · 最终结果至响应生成 4 ms\nTAB5 音频：已接收 25 块 · 5.0 秒 · 最近电平 36% · 峰值 82%\n最近请求：USB · 查询 · 200\n\nBLE：当前没有语音请求" })), ("updates", MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {})), ("features", MacTab5FeaturesWindow(service: service)),
             ("gallery-manager", MacGalleryManager(gallery:service.gallery,browse:{})), ("first-install", MacTab5InstallWindow()),
             ("esp8266-firmware", MacFirmwareFlashWindow(begin: { false }, suspend: {}, finish: { _ in })),
             ("pet-gallery", MacPetGalleryWindow(selectPage: { _ in })),
@@ -246,6 +246,9 @@ enum MacTab5UIValidation {
               let footer = descendants(content).first(where: { $0.identifier?.rawValue == "settings-footer" }) else { throw MacTab5Error.invalidPacket }
         let tabs = descendants(content).compactMap { $0 as? MacBridgeSettingsTabs }.first
         let original = content.frame.size
+        if name == "runtime" {
+            guard original.width >= window.contentMinSize.width, original.width == 800 else { throw MacTab5LocalError.invalid("Runtime artwork narrowed the diagnostic viewport") }
+        }
         for index in 0..<(tabs?.pages.count ?? 1) {
             window.setContentSize(original); content.layoutSubtreeIfNeeded()
             let before = window.frame, viewport = tabs?.frame.size
@@ -253,6 +256,7 @@ enum MacTab5UIValidation {
             guard window.frame == before, tabs?.frame.size == viewport else { throw MacTab5LocalError.invalid("Switching settings tabs changed the viewport") }
             for (sizeName, size) in [("default", original), ("minimum", window.contentMinSize)] {
                 window.setContentSize(size); content.layoutSubtreeIfNeeded()
+                if name == "runtime", abs(content.frame.width - size.width) > 1 { throw MacTab5LocalError.invalid("Runtime diagnostics could not retain requested width") }
                 guard footer.enclosingScrollView == nil,
                       content.bounds.contains(footer.convert(footer.bounds, to: content)) else { throw MacTab5Error.invalidPacket }
                 let pages = descendants(content).compactMap { $0 as? MacBridgeSettingsPage }.filter { !$0.isHiddenOrHasHiddenAncestor }

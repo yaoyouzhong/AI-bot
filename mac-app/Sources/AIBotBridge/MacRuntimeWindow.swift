@@ -52,10 +52,10 @@ final class MacRuntimeWindow: NSWindowController {
             deviceReadout.stringValue = deviceCapture(); self.status.stringValue = "正在读取设备诊断…"
         }
         let artwork = NSImageView(); artwork.imageScaling = .scaleProportionallyUpOrDown
-        artwork.widthAnchor.constraint(equalToConstant:150).isActive = true; artwork.heightAnchor.constraint(equalToConstant:150).isActive = true
+        artwork.heightAnchor.constraint(equalToConstant:150).isActive = true
         artwork.image = deviceImage()
         let caption = MacBridgeSettingsStyle.note(deviceImageCaption())
-        device.add(refresh); device.add(caption); device.add(artwork); device.add(deviceReadout)
+        device.add(refresh); device.add(deviceReadout); device.add(caption); device.add(artwork)
         let tabs = MacBridgeSettingsTabs([("监控状态",overview),("检测设置",settings),("设备诊断",device)])
         window?.contentView = MacBridgeSettingsShell(body:tabs,status:status,actions:[MacSettingsButton("刷新") { [weak self] in self?.refresh() },MacSettingsButton("保存设置") { [weak self] in
             guard let self else { return }; self.window?.makeFirstResponder(nil)

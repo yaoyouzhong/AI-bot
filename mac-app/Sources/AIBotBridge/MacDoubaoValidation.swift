@@ -42,8 +42,10 @@ enum MacDoubaoValidation {
         try check("shortcut dispatch does not claim audio readiness",start.body["ready"] as? Bool == false)
         let id = start.body["voiceId"] as! String
         func request(_ op:String) -> MacTab5RPCResult { voice.handle(["op":op,"voiceId":id,"session":"test-session"],device:"fixture") }
+        now += 0.25
         captureReady = true
         try check("actual capture readiness reaches device",request("poll").body["ready"] as? Bool == true)
+        now += 0.5
         callback?("测试草稿",false,nil)
         try check("partial draft cannot insert",request("poll").body["canInsert"] as? Bool == false)
         _ = request("stop")
@@ -52,7 +54,30 @@ enum MacDoubaoValidation {
         now += 20
         try check("confirmation wait exceeds native recognizer timeout",request("poll").body["state"] as? String == "recognizing")
         callback?("已确认的测试草稿",true,nil)
+        now += 0.125
         try check("confirmed draft may be reviewed",request("poll").body["canInsert"] as? Bool == true)
+        let timings = voice.timingSnapshot
+        try check("voice timings distinguish preparation, speech wait, recognition and response", timings == ["state":3,"chunks":0,"audioMs":0,"startupMs":0,"captureReadyMs":250,"firstResultMs":750,"stopToFinalMs":20000,"finalToResponseMs":125])
+        let diagnosticRoot = FileManager.default.temporaryDirectory.appendingPathComponent("aibot-voice-timing-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: diagnosticRoot) }
+        var diagnosticNow = 1.0
+        let diagnostics = MacTab5LocalDiagnostics(directory: diagnosticRoot, clock: { diagnosticNow })
+        let diagnosticURL = diagnosticRoot.appendingPathComponent("tab5-voice-diagnostics.json")
+        func recordedTimings() throws -> [String:Int] { try JSONDecoder().decode([String:Int].self,from:Data(contentsOf:diagnosticURL)) }
+        var injected = timings; injected["transcript"] = 123; injected["taskId"] = 456; injected["startupMs"] = -1
+        diagnostics.voice(injected); diagnostics.waitUntilIdle()
+        let recorded = try recordedTimings()
+        try check("background voice diagnostics omit unrecognized and invalid metadata", recorded["transcript"] == nil && recorded["taskId"] == nil && recorded["startupMs"] == nil && recorded["pid"] != nil && recorded["stopToFinalMs"] == 20000)
+        diagnostics.voice(["state":3,"firstResultMs":999]); diagnostics.waitUntilIdle()
+        let throttled = try recordedTimings()
+        try check("audio and polls cannot repeatedly write diagnostics within one second", throttled == recorded)
+        diagnostics.voice(["state":4]); diagnostics.waitUntilIdle()
+        let terminal = try recordedTimings()
+        try check("terminal phase changes persist immediately without retaining prior fields", terminal["state"] == 4 && terminal["firstResultMs"] == nil)
+        diagnosticNow += 1
+        diagnostics.voice(["state":4,"finalToResponseMs":180000]); diagnostics.waitUntilIdle()
+        let refreshed = try recordedTimings()
+        try check("same phase may refresh after throttle interval", refreshed["finalToResponseMs"] == 180000)
         _ = request("cancel")
         callback?("迟到文字",true,nil)
         let cancelled = request("poll")

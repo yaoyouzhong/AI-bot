@@ -358,9 +358,11 @@ final class MacTab5Desktop {
                     // it now; native code must still match this text and identity.
                     // Old adapters without target binding keep exact staging checks.
                     guard !current.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                          current.utf8.count <= 2000,
-                          backend.target != nil || current == staged else {
+                          current.utf8.count <= 2000 else {
                         return rejected(current.utf8.count > 2000 ? .tooLong : .changed)
+                    }
+                    if backend.target == nil, current != staged {
+                        return rejected(MacTab5DesktopAX.matchesReadback(current, expected: staged) ? .submitParagraph : .changed)
                     }
                     if target == "main", let attachmentFree = backend.attachmentFree, !attachmentFree(task) {
                         return rejected(backend.diagnostic())
