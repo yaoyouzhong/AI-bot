@@ -27,7 +27,7 @@ enum MacCodexNavigationTitle {
         guard MacTab5Codex.id(task) == task else { return .unavailable }
         let root = home ?? ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath: $0) } ??
             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
-        let path = root.appendingPathComponent("sqlite/codex-dev.db")
+        let path = MacCodexCatalogNames.databaseURL(root: root)
         var database: OpaquePointer?, statement: OpaquePointer?
         guard sqlite3_open_v2(path.path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK,
               let database else { if let database { sqlite3_close(database) }; return .unavailable }

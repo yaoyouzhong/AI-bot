@@ -32,6 +32,7 @@
 | W31-09 | P2 | 封面兼容恢复待补齐／实测 | JPEG 三轮未确认后，协议允许宽度 ≤336 的图像可在主机解码为同宽高 RGB565，复用 `rle565`；转换最多一次，备用传输仍有限。宽图不能偷偷缩小，失败不得清空最近成功的缓存。验证像素方向、尺寸、迟到确认、新曲目及 USB/Wi-Fi/BLE 混合调度。Mac .300 已真实触发备用路径但未接收成功，.301 结果单独记录，不将其当作已证明的底层 JPEG 根因修复。 |
 | W31-10 | P1 | **共享 TAB5 补丁已提供** | 按下述补丁链更新独立设备工程；Windows 桥接无需重做设备同版本标签和弹窗。保持候选编号、sidecar、说明和 SHA-256 一致。不能仅凭版本号相同认定重装已完成。 |
 | W31-11 | P2 | 原清单仍需逐项核对 | W29-01/02/05：题卡回答、多题切换、录音目标绑定与回填内容绑定；W29-07：电脑音源；W29-08：连续录音、原文和末尾光标；W29-09/10：历史读取与语音延迟；W29-11/12：持久回执、重装／传输能力。详见旧清单，已正常的 Windows 功能不要重复改造。 |
+| W31-12 | P1 | Windows 会话目录路径待对齐 | `Tab5CodexCatalog.ReadCatalog` 仍固定读取 `sqlite/codex-dev.db`；当前桌面已使用 `sqlite/codex.db`。最近列表与身份确认统一优先当前文件，仅缺文件时兼容旧目录；当前文件缺目标、损坏或读取失败不能回退旧标题。保持全目录同名检查。Mac 新会话定位修复及证据见 [目录迁移记录](MAC-CODEX-CATALOG-20261101.md)。 |
 
 优先级表示开发顺序，不代表已在 Windows 复现对应错误。设备照片追加仍是 Mac 原生适配器未支持的能力；不得把“保护电脑已有附件”误读成全面禁止用户主动发送照片。
 
@@ -103,3 +104,5 @@ The .300 shared firmware patch adds hidden-cache reclamation after UI image-copy
 The user reports slower perceived upgrades on Mac. The .301 USB run provides all bytes at approximately 39.4 s and observes the new version at 48.9 s; healthy-boot verification is separate. Historical Mac Wi-Fi installation is 21.666 s; Windows history measures 13.563 s transfer and 27.724 s installation for another image. Future comparison must use identical images/transports and distinguish transfer, erase/write, verification and boot health. No extra flash was performed solely for benchmarking.
 
 The .301 physical stress check passes: all four primary pages, two track changes and approximately 15-second dwell; final JPEG first-pass acknowledgment, zero allocation/CRC/decode/copy failures and sampled free PSRAM above 4.3 MiB. Real successful RGB565 fallback remains separately unverified.
+
+W31-12 follow-up: Windows still hardcodes `sqlite/codex-dev.db`. Align recent-list and confirmation readers with the current `sqlite/codex.db`, falling back only when the current file is absent. Missing targets or current-catalog errors must not authorize stale legacy identities. See the [Mac diagnosis](MAC-CODEX-CATALOG-20261101.md).
