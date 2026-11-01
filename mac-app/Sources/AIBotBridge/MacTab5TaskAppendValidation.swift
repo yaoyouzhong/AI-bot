@@ -7,7 +7,7 @@ enum MacTab5TaskAppendValidation {
         let task = UUID().uuidString.lowercased(), turn = UUID().uuidString.lowercased()
         let owner = UUID().uuidString.lowercased(), client = UUID().uuidString.lowercased()
         var replies: [[String: Any]] = [], mutations = 0
-        var accepted = false
+        var accepted = false, queued = false
         func write(_ object: [String: Any], until: TimeInterval) throws {
             let method = object["method"] as? String ?? ""
             var reply: [String: Any] = ["type": "response", "requestId": object["requestId"] ?? "",
@@ -114,13 +114,13 @@ enum MacTab5TaskAppendValidation {
         var newer = catalog; newer[1]["updatedAt"] = Int64(600)
         try check(restarted.apply(newer).first?["id"] as? String == current, "new desktop activity still wins")
         try check(restarted.apply(catalog).first?["id"] as? String == other, "reads do not promote activity")
-        for scenario in ["queue", "steer", "navigation-shell", "existing-draft", "question", "attachment", "attachment-popup", "unknown", "unknown-device", "unknown-auto", "unknown-expired", "unknown-changed", "write-unknown", "device-photo", "disabled"] {
+        for scenario in ["queue", "steer", "navigation-shell", "existing-draft", "question", "attachment", "attachment-popup", "unknown", "unknown-device", "unknown-auto", "unknown-expired", "unknown-changed", "write-unknown", "unknown-ui", "baseline-local", "baseline-server", "device-photo", "disabled"] {
             let wire = Wire(), root = directory.appendingPathComponent(scenario)
             var sendAllowed = true
             var testClock = 100.0
             let codex = MacTab5Codex(store: .init(root: root, key: { Data(repeating: 4, count: 32) }),
                 enabled: { true }, sendEnabled: { sendAllowed }, clock: { testClock }, desktop: .init(connect: { wire },
-                    queueReceipt: { _, _ in .init(known: [], matching: []) }, serverQueueReceipt: { _, _ in .init(known: [], matching: []) }), call: { method, _ in
+                    queueReceipt: { _, _ in scenario == "baseline-local" ? nil : .init(known: wire.queued ? ["new-queue"] : [], matching: wire.queued ? [["new-queue"]] : []) }, serverQueueReceipt: { _, _ in scenario == "baseline-server" ? nil : .init(known: [], matching: []) }), call: { method, _ in
                     if method == "thread/list" { return ["data": [["id": wire.task, "cwd": "/fixture", "name": "Synthetic"]]] }
                     return [:]
                 })
@@ -142,7 +142,8 @@ enum MacTab5TaskAppendValidation {
             backend.submitComposer = { task, expected in
                 guard task == wire.task, expected == text else { return .notReady }
                 sends += 1
-                if scenario.hasPrefix("unknown") { return .unconfirmed }
+                if scenario.hasPrefix("unknown"), scenario != "unknown-ui" { return .unconfirmed }
+                wire.accepted = scenario == "steer"; wire.queued = scenario == "queue"
                 text = ""; return .confirmed
             }
             let desktop = MacTab5Desktop(codex: codex, enabled: { scenario != "disabled" }, backend: backend, diagnostics: diagnostic)

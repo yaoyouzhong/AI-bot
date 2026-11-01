@@ -1,5 +1,13 @@
 # Mac TAB5 开发候选 / Development candidate
 
+2026-11-01 对齐候选：已同步 Windows 主干 `7ca1ea4`，开发与验证记录见 [Mac 对齐矩阵](development/MAC-WINDOWS-ALIGNMENT-20261101.md)。当前运行仍为 **R49／原 TAB5 .302**，保留已合并的 USB 提速；下述更早安装说明为历史记录。本轮候选补齐电脑校对后提交、送达分类、GLM／MiMo／MiniMax 额度和设置交互，尚未公开发布。
+
+Mac 对齐候选的语音入口统一为“设备中心 → TAB5 → 语音设置”。语音由明确录音操作发起，系统权限及 Codex 发送授权仍需满足；窗口后台加载设备，选择仅暂存，点击保存时重新核对，取消不保存。识别结束自动填入原绑定目标；同一输入框可在电脑校对后提交，切换会话／题目或再次变化时拒绝误发。
+
+November 1 alignment candidate: Windows main `7ca1ea4` is synchronized; see the [Mac alignment matrix](development/MAC-WINDOWS-ALIGNMENT-20261101.md). The current installed bridge remains **R49 / original TAB5 .302**, retaining merged USB acceleration. Earlier installation statements below are historical. This local candidate aligns corrected-text submission, delivery classification, GLM/MiMo/MiniMax quotas and settings; it is not publicly released.
+
+Voice Settings has one entry under Device Center → TAB5. Recording starts only from an explicit action, retaining OS permissions and separate Codex send authorization. Device metadata loads in the background; edits are saved only after live validation, and cancellation preserves preferences. Recognition automatically fills the bound target. Desktop corrections in that editor can be explicitly submitted; changed chats, questions or frozen text are rejected.
+
 当前安装 .299 时钟候选，精确启动和原设置保留核验通过；用户确认两种时钟布局、秒数大小正常。见[时钟设计](development/TAB5-CLOCK-DAY-DESIGN-20261031.md)。 / Clock candidate .299 is installed with exact boot/settings verification; user acceptance passes for analog/digital layouts and seconds size.
 
 当前跨端交接与验收状态见 [Windows 对齐清单（10-31）](development/WINDOWS-FOLLOWUP-FROM-MAC-20261031.md)。 / See the linked October 31 checklist for current cross-platform handoff and acceptance status.

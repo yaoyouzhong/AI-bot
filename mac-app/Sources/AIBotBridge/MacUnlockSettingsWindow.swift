@@ -10,6 +10,7 @@ final class MacUnlockSettingsWindow:NSWindowController,NSWindowDelegate {
     private let status = MacBridgeSettingsStyle.note("")
     private let observations = MacBridgeSettingsStyle.note("")
     private var verification:MacUnlockConnectionWindow?
+    private var draftGuard: MacSettingsDraft?
     init(service:MacTab5Service) {
         self.service = service
         super.init(window:MacBridgeSettingsStyle.window("一键解锁",width:620,height:620,minimumHeight:460))
@@ -38,8 +39,12 @@ final class MacUnlockSettingsWindow:NSWindowController,NSWindowDelegate {
         page.add(MacSettingsButton("刷新解锁诊断") { [weak self] in self?.refreshDiagnostic() })
         page.add(observations)
         refreshDiagnostic()
-        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("检查配置") { [weak self] in self?.check() },MacSettingsButton("保存") { [weak self] in self?.save() },MacSettingsButton("关闭") { [weak self] in self?.close() }])
+        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("检查配置") { [weak self] in self?.check() },MacSettingsButton("保存") { [weak self] in self?.save() },MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
+        draftGuard = MacSettingsDraft(window) { [weak self] in
+            guard let self else { return "" }; return MacSettingsDraft.values([self.enabled, self.localEnabled, self.password, self.repeated])
+        }; window?.delegate = self
     }
+    func windowShouldClose(_ sender: NSWindow) -> Bool { draftGuard?.windowShouldClose(sender) ?? true }
     required init?(coder:NSCoder) { fatalError() }
     private func refreshDiagnostic() {
         status.stringValue = service.unlock.diagnostic + "\n" + service.unlock.powerDiagnostic
@@ -63,7 +68,7 @@ final class MacUnlockSettingsWindow:NSWindowController,NSWindowDelegate {
     }
     private func save() {
         guard password.stringValue.isEmpty,repeated.stringValue.isEmpty else { clear(); status.stringValue = "新密码尚未验证，请重新填写并点击“验证并保存密码”。"; return }
-        do { try service.unlock.setPermissions(wifi:enabled.state == .on,local:localEnabled.state == .on,pair:service.currentPairing); status.stringValue = service.unlock.diagnostic }
+        do { try service.unlock.setPermissions(wifi:enabled.state == .on,local:localEnabled.state == .on,pair:service.currentPairing); status.stringValue = service.unlock.diagnostic; draftGuard?.markSaved() }
         catch { status.stringValue = error.localizedDescription }
     }
     private func remove() {

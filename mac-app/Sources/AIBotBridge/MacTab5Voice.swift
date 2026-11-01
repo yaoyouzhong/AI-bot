@@ -98,7 +98,7 @@ final class MacTab5Voice {
     private var reviewReady: TimeInterval?
     private var finalWaiter: DispatchSemaphore?
     private var timer: DispatchSourceTimer?
-    init(enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, backend: MacTab5SpeechBackend? = nil, usesDoubao: (() -> Bool)? = nil, preferredSource: (() -> MacVoiceCaptureSource?)? = nil) {
+    init(enabled: @escaping () -> Bool = { true }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, backend: MacTab5SpeechBackend? = nil, usesDoubao: (() -> Bool)? = nil, preferredSource: (() -> MacVoiceCaptureSource?)? = nil) {
         self.enabled = enabled; self.clock = clock; self.backend = backend ?? MacSpeechRouter().backend()
         self.usesDoubao = usesDoubao ?? (backend == nil ? { MacSpeechProvider.doubao } : { false })
         self.preferredSource = preferredSource ?? (backend == nil ? { MacVoiceCaptureSource.saved() } : { nil })

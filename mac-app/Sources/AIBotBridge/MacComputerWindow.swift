@@ -39,7 +39,7 @@ final class MacComputerWindow: NSWindowController {
             for field in [name,path] { field.setContentHuggingPriority(.defaultLow,for:.horizontal); field.setContentCompressionResistancePriority(.defaultLow,for:.horizontal) }
             page.add(group)
         }
-        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("保存") { [weak self] in self?.save() },MacSettingsButton("音乐与权限…",music),MacSettingsButton("取消") { [weak self] in self?.close() }])
+        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("保存") { [weak self] in self?.save() },MacSettingsButton("音乐与权限…",music),MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
         draftGuard = MacSettingsDraft(window) { [weak self] in guard let self else { return "" }; return MacSettingsDraft.values(self.names + self.paths + [self.enabled]) }
     }
     required init?(coder:NSCoder) { fatalError() }

@@ -200,7 +200,24 @@ final class MacBridgeSettingsShell: NSView {
             footer.addArrangedSubview(status); status.widthAnchor.constraint(equalTo: footer.widthAnchor).isActive = true
             status.heightAnchor.constraint(greaterThanOrEqualToConstant: 16).isActive = true
         }
-        for start in stride(from:0,to:actions.count,by:3) { footer.addArrangedSubview(MacBridgeSettingsStyle.row(Array(actions[start..<min(start+3,actions.count)]))) }
+        let primary = actions.filter { $0.title.hasPrefix("保存") }
+        let cancel = actions.filter { $0.title == "取消" }
+        let utilities = actions.filter { !primary.contains($0) && !cancel.contains($0) }
+        let ordered = utilities + cancel + primary
+        for button in ordered {
+            button.bezelStyle = .rounded
+            if primary.contains(button) { button.keyEquivalent = "\r"; button.bezelColor = .controlAccentColor }
+            if cancel.contains(button) { button.keyEquivalent = "\u{1b}" }
+        }
+        for start in stride(from:0,to:ordered.count,by:3) {
+            let group = Array(ordered[start..<min(start+3,ordered.count)])
+            let row = MacBridgeSettingsStyle.row(group)
+            if group.contains(where: { primary.contains($0) || cancel.contains($0) }) {
+                let spacer = NSView(); spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                row.insertArrangedSubview(spacer, at: group.firstIndex(where: { primary.contains($0) || cancel.contains($0) })!)
+            }
+            footer.addArrangedSubview(row); row.widthAnchor.constraint(equalTo: footer.widthAnchor).isActive = true
+        }
         let line = NSBox(); line.boxType = .separator; line.translatesAutoresizingMaskIntoConstraints = false; addSubview(line)
         NSLayoutConstraint.activate([
             body.leadingAnchor.constraint(equalTo: leadingAnchor), body.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -248,6 +265,7 @@ final class MacBridgeSettingsForm: NSWindowController, NSWindowDelegate {
     let page = MacBridgeSettingsPage()
     let status = MacBridgeSettingsStyle.note("")
     private var validate: (() -> String?)?
+    private var draftGuard: MacSettingsDraft?
 
     init(_ title: String, subtitle: String, width: CGFloat = 640, height: CGFloat = 600, confirm: String = "保存", body: NSView? = nil) {
         let window = MacBridgeSettingsStyle.window(title, width: width, height: height, minimumHeight: min(height, 380))
@@ -259,18 +277,31 @@ final class MacBridgeSettingsForm: NSWindowController, NSWindowDelegate {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     func run(validating: (() -> String?)? = nil) -> Bool {
-        guard let window else { return false }; validate = validating; status.stringValue = ""
+        guard let window else { return false }; prepare(validating: validating)
         window.center(); window.makeKeyAndOrderFront(nil)
         let result = NSApp.runModal(for: window); window.orderOut(nil); validate = nil
         return result == .OK
     }
+    // Also supports offscreen action validation without running a modal loop.
+    func prepare(validating: (() -> String?)? = nil) {
+        validate = validating; status.stringValue = ""
+        draftGuard = MacSettingsDraft(window) { [weak window] in window?.contentView.map { MacSettingsDraft.editableValues(in: $0) } ?? "" }
+        window?.delegate = self
+    }
     @objc private func accept() {
         guard window?.makeFirstResponder(nil) == true else { return }
         if let error = validate?() { status.stringValue = error; return }
-        NSApp.stopModal(withCode: .OK)
+        draftGuard?.markSaved()
+        if NSApp.modalWindow === window { NSApp.stopModal(withCode: .OK) }
+        else { window?.close() }
     }
-    @objc private func cancel() { NSApp.stopModal(withCode: .cancel) }
+    @objc private func cancel() {
+        guard let window, draftGuard?.windowShouldClose(window) != false else { return }
+        if NSApp.modalWindow === window { NSApp.stopModal(withCode: .cancel) }
+        else { window.close() }
+    }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard draftGuard?.windowShouldClose(sender) != false else { return false }
         if NSApp.modalWindow === sender { NSApp.stopModal(withCode: .cancel) }; return true
     }
 }

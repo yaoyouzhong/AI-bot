@@ -4,6 +4,9 @@ import Security
 
 enum MacDomesticQuotaParser {
     enum Failure: Error { case invalid }
+    static let zhipuLegacyPath = "/api/biz/account/query-customer-account-report"
+    static let zhipuOverviewPath = "/api/biz/account/finance-overview"
+    static let zhipuPaths = [zhipuLegacyPath, zhipuOverviewPath]
     static func object(_ data: Data) throws -> [String: Any] {
         guard data.count <= 65_536,
               let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw Failure.invalid }
@@ -30,13 +33,24 @@ enum MacDomesticQuotaParser {
         guard let amount = values[currency] else { throw Failure.invalid }
         return value("deepseek", balance: amount, used: nil, currency: currency, now: now)
     }
-    static func zhipu(_ data: Data, now: Date = Date()) throws -> DomesticProviderQuotaSnapshot {
+    static func zhipu(_ data: Data, now: Date = Date(), financeOverview: Bool = false) throws -> DomesticProviderQuotaSnapshot {
         let root = try object(data)
         guard number(root["code"]) == 200, let body = root["data"] as? [String: Any],
-              let balance = number(body["availableBalance"]), abs(balance) < 1e15 else { throw Failure.invalid }
-        let used = number(body["totalSpendAmount"]).flatMap { abs($0) < 1e15 ? $0 : nil }
-        return value("zhipu", balance: (balance * 100).rounded(.towardZero) / 100,
-                     used: used.map { ($0 * 100).rounded(.towardZero) / 100 }, currency: "CNY", now: now)
+              let balance = money(body[financeOverview ? "availableTotalBalance" : "availableBalance"], halfUp: financeOverview) else { throw Failure.invalid }
+        // The overview does not report cumulative spending. A successful sample
+        // must clear an older USED value instead of borrowing another schema.
+        let used = financeOverview ? nil : money(body["totalSpendAmount"], halfUp: false)
+        return value("zhipu", balance: balance, used: used, currency: "CNY", now: now)
+    }
+    private static func money(_ raw: Any?, halfUp: Bool) -> Double? {
+        guard let n = number(raw), abs(n) < 1e15,
+              let text = raw as? String ?? (raw as? NSNumber)?.stringValue,
+              var amount = Decimal(string: text, locale: Locale(identifier: "en_US_POSIX")), !amount.isNaN else { return nil }
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &amount, 2, halfUp ? .plain : amount < 0 ? .up : .down)
+        // Convert through the decimal spelling: doubleValue can introduce a
+        // one-ULP error (for example2.99) into the persisted display amount.
+        return Double(NSDecimalNumber(decimal: rounded).stringValue)
     }
     private static func value(_ provider: String, balance: Double, used: Double?, currency: String, now: Date) -> DomesticProviderQuotaSnapshot {
         DomesticProviderQuotaSnapshot(provider: provider, plan: "API PAYG", primaryPercent: nil,

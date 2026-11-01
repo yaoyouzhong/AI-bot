@@ -31,7 +31,7 @@ final class MacTab5LocalDiagnostics {
     func request(_ label: String, status: Int, outcome: String?) {
         guard ["发送消息", "追加消息", "查询送达", "确认送达", "提交草稿", "定位会话"].contains(label) else { return }
         // outcome is already allowlisted by MacTab5InteractionDiagnostics.
-        let allowed = ["composer_changed", "desktop_draft_present", "desktop_attachments_present", "desktop_photo_append_unsupported", "pending_delivery_changed", "task_waiting_for_input", "task_busy_or_state_unknown", "turn_changed",
+        let allowed = ["composer_changed", "delivery_baseline_unavailable", "desktop_storage_unavailable", "native_submit_unavailable", "conversation_target_or_text_changed", "question_target_or_text_changed", "desktop_draft_present", "desktop_attachments_present", "desktop_photo_append_unsupported", "pending_delivery_changed", "task_waiting_for_input", "task_busy_or_state_unknown", "turn_changed",
             "delivery_unknown", "receipt_not_found", "request_id_conflict", "desktop_result_unknown", "desktop_foreground_unconfirmed",
             "desktop_steer_requires_expected_turn_support", "codex_or_private_storage_unavailable", "codex_catalog_stale",
             "codex_send_not_enabled", "invalid_request", "codex_read_only_connection"]

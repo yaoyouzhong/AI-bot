@@ -34,6 +34,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     private var timer: Timer?
     private var tools: MacTab5ToolsWindow?
     private var features: MacTab5FeaturesWindow?
+    private var voiceSettings: MacVoiceSettingsWindow?
     private var birthdayWindow: MacBirthdayWindow?, agendaWindow: MacAgendaWindow?, pinsWindow: MacTaskPinsWindow?
     private var galleryBrowser: MacGalleryBrowser?, galleryManager: MacGalleryManager?, computerWindow: MacComputerWindow?
     private let registry: MacDeviceRegistry?
@@ -306,7 +307,10 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     @objc private func openFeatures() {
         computerWindow = MacComputerWindow(service: service, music: { [weak self] in self?.openFeature(.music) }); computerWindow?.open()
     }
-    @objc private func openVoice() { openFeature(.voice) }
+    @objc private func openVoice() {
+        if voiceSettings?.window?.isVisible != true { voiceSettings = MacVoiceSettingsWindow(service: service) }
+        voiceSettings?.open()
+    }
     @objc private func openCodex() { openFeature(.codex) }
     @objc private func openMusic() { openFeature(.music) }
     private func openFeature(_ section: MacTab5FeaturesWindow.Section) {
@@ -377,7 +381,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
         return MacBridgeSettingsStyle.row([title,spacer,button])
     }
     private func openTools(page:MacTab5ToolsWindow.Page? = nil) {
-        if tools == nil { tools = MacTab5ToolsWindow(service: service, usb: usb, canBegin: { [weak self] in self?.busy == false && self?.canBegin() == true }, install: install, voice: { [weak self] in self?.openVoice() }, changeBluetooth: changeBluetooth) }
+        if tools == nil { tools = MacTab5ToolsWindow(service: service, usb: usb, canBegin: { [weak self] in self?.busy == false && self?.canBegin() == true }, install: install, changeBluetooth: changeBluetooth) }
         tools?.open(page:page)
     }
     private func allowOperation() -> Bool {

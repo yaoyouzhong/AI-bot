@@ -20,7 +20,7 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
         case "qwen": return host == "bailian.console.aliyun.com" && (path == "/data/api.json" || path.contains("quota") || path.contains("subscription") || path.contains("token-plan"))
         case "kimi": return ["www.kimi.com","kimi.com","api.kimi.com"].contains(host) && (path.contains("usage") || path.contains("quota") || path.hasSuffix("billingservice/getusage"))
         case "minimax": return ["platform.minimaxi.com","www.minimaxi.com"].contains(host) && ["usage","token_plan","token-plan","coding_plan","model_remains","remains"].contains { path.contains($0) }
-        case "zhipu": return host == "bigmodel.cn" && path == "/api/biz/account/query-customer-account-report"
+        case "zhipu": return host == "bigmodel.cn" && MacDomesticQuotaParser.zhipuPaths.contains(URLComponents(url:url,resolvingAgainstBaseURL:false)?.percentEncodedPath ?? "")
         case "xiaomi": return host == "platform.xiaomimimo.com" && path == "/api/v1/tokenplan/usage"
         case "deepseek": return host == "platform.deepseek.com" && (path.hasSuffix("/get_user_summary") || path.hasSuffix("/balance"))
         default: return false
@@ -36,12 +36,13 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
         webView = WKWebView(frame:.zero,configuration:configuration)
         super.init()
         let providerJSON = String(data:try! JSONEncoder().encode(provider),encoding:.utf8)!
+        let zhipuPathsJSON = String(data:try! JSONEncoder().encode(MacDomesticQuotaParser.zhipuPaths),encoding:.utf8)!
         let script = """
         (() => {
           const provider=\(providerJSON);
           const allowed = value => { try { const u=new URL(value,location.href), p=u.pathname.toLowerCase(), h=u.hostname;
             if(u.protocol!=='https:' || (u.port && u.port!=='443') || u.username || u.password) return false;
-            if(provider==='zhipu') return h==='bigmodel.cn' && p==='/api/biz/account/query-customer-account-report';
+            if(provider==='zhipu') return h==='bigmodel.cn' && \(zhipuPathsJSON).includes(u.pathname);
             if(provider==='xiaomi') return h==='platform.xiaomimimo.com' && p==='/api/v1/tokenplan/usage';
             if(provider==='qwen') return h==='bailian.console.aliyun.com' && (p==='/data/api.json'||p.includes('quota')||p.includes('subscription')||p.includes('token-plan'));
             if(provider==='kimi') return ['www.kimi.com','kimi.com','api.kimi.com'].includes(h) && (p.includes('usage')||p.includes('quota')||p.endsWith('billingservice/getusage'));
@@ -82,10 +83,10 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
               let body = message.body as? [String:Any], let raw = body["url"] as? String,
               let url = URL(string:raw), Self.endpoint(provider:provider,url:url),
               let status = body["status"] as? Int, let text = body["text"] as? String, text.utf8.count <= 1_048_576 else { return }
-        receive(status:status,bytes:Data(text.utf8))
+        receive(status:status,bytes:Data(text.utf8),url:url)
     }
-    func receive(status: Int, bytes: Data, now: Date = Date()) {
-        guard captureEnabled() else { return }
+    func receive(status: Int, bytes: Data, now: Date = Date(), url: URL? = nil) {
+        guard captureEnabled(), url == nil || Self.endpoint(provider:provider,url:url!) else { return }
         guard status == 200 else {
             refreshState.fail(now.timeIntervalSince1970,login:status == 401 || status == 403)
             markStale()
@@ -93,7 +94,7 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
             return
         }
         do {
-            let value = try MacDomesticSources.parse(provider,mode:"console",bytes:bytes,now:now)
+            let value = try MacDomesticSources.parse(provider,mode:"console",bytes:bytes,now:now,capturePath:url?.path)
             if provider == "deepseek" { store.updateDeepSeekWeb(value) }
             if provider != "deepseek" || !separateDeepSeek() { store.updateDomestic(value) }
             refreshState.success(now.timeIntervalSince1970)

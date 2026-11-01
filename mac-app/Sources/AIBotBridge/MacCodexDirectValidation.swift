@@ -182,7 +182,7 @@ enum MacCodexDirectValidation {
                 // of user-authored whitespace to accommodate this renderer.
                 value = after.replacingOccurrences(of: "\n", with: " ")
                 return AX.confirmWrite(after, read: { value }, wait: {})
-            }, submitQuestion: { _, _, expected in guard expected == value else { return false }; actions += 1; return true }))
+            }, submitQuestion: { _, _, expected in guard expected == value else { return .notReady }; actions += 1; return .confirmed }))
         func request(_ op: String, text: String = "", draft: String? = nil) -> [String: Any] {
             var r: [String: Any] = ["op": op, "taskId": task, "requestId": UUID().uuidString.lowercased(), "text": text]
             r["draftRequestId"] = draft; return r
@@ -315,11 +315,10 @@ enum MacCodexDirectValidation {
         sendEnabled = true
         try check("other device cannot use receipt", desktop.handle(request("submit-draft", draft: stage["requestId"] as? String), device: "B").status == 409 && actions == 0)
         value += " changed"
-        try check("changed text cannot send", desktop.handle(request("submit-draft", draft: stage["requestId"] as? String), device: "A").status == 409 && actions == 0)
-        value = "fixture words"; target = "question:changed"
+        target = "question:changed"
         try check("changed target cannot send", desktop.handle(request("submit-draft", draft: stage["requestId"] as? String), device: "A").status == 409 && actions == 0)
         target = "main"
-        try check("active task uses native button exactly once", desktop.handle(submit, device: "A").status == 200 && actions == 1 && value.isEmpty)
+        try check("latest corrected text uses native button exactly once", desktop.handle(submit, device: "A").status == 200 && actions == 1 && value.isEmpty)
         try check("no clear-before-submit or IPC send", writes == 1 && ipcCalls == 0)
         _ = codex.handle(["op": "draft-load", "taskId": task, "requestId": UUID().uuidString.lowercased()], device: "A")
         try check("confirmed submit clears only its saved mirror", (codex.snapshot()?["draftView"] as? [String: Any])?["text"] as? String == "")

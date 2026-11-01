@@ -5,13 +5,15 @@ enum MacTab5UIValidation {
     // Keychain, Apple Events, microphone, Screen Recording or Codex connection.
     static func run(_ output: URL) throws {
         _ = NSApplication.shared
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.prohibited)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: false)
-        let defaults = UserDefaults(suiteName: "AI-bot-ui-" + UUID().uuidString)!
+        let suite = "AI-bot-ui-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("aibot-ui-" + UUID().uuidString)
         let codex = MacTab5Codex(store: .init(root: root, key: { Data(repeating: 1, count: 32) }), enabled: { false }, call: { _, _ in [:] })
         let computer = MacTab5Computer(defaults: defaults, backend: .init(read: { [:] }, perform: { _, _, _ in false }))
-        let voice = MacTab5Voice(enabled: { false }, backend: .init(start: { _, _ in }, feed: { _ in }, finish: {}, cancel: {}))
+        let voice = MacTab5Voice(enabled: { true }, backend: .init(start: { _, _ in }, feed: { _ in }, finish: {}, cancel: {}))
         let service = MacTab5Service(port: 8765, host: { "192.168.1.10" }, gallery: .init(directory: root), computer: computer, codex: codex, voice: voice, birthdays: MacBirthdays(directory: root), agenda: MacAgenda(directory: root), load: { nil }, save: { _ in })
         let usb = MacTab5USB(service: service)
         service.usbState("USB 未确认，等待重连（设备发现：串口不可用）")
@@ -41,13 +43,14 @@ enum MacTab5UIValidation {
         try validateEditorBehaviors(root:root)
         try validateVoiceSource(service: service, defaults: defaults, output: output)
         try validateDoubaoDraft()
+        try validatePinsAndCancel(root: root, codex: codex, service: service, output: output)
         let windows: [(String, NSWindowController)] = [
             ("device-data",deviceForm),
             ("esp-display",MacESPDisplayWindow(policy:.init(selectedMode:"auto",cycleEnabled:true,intervalSeconds:15,pages:["codex","domestic_kimi","weather"]),apply:{ _ in },brightness:{ _ in true },read:{ $0(.success(70)) })),
             ("service-status",MacBridgeStatusWindow(capture:{ .init(devices:[.init(kind:"tab5",name:"测试 TAB5",enabled:true,state:"未连接",transport:"—",firmware:"未知",detail:"等待测试设备")],data:[["天气","旧缓存","10-22 12:30"],["Codex 额度","数据可用","10-22 12:31"]],listener:"LAN 测试") },reconnect:{ _,done in done(.success(())) })),
             ("connection", MacTab5ToolsWindow(service:service,usb:usb)), ("birthdays", MacBirthdayWindow(store: service.birthdays)), ("agenda", MacAgendaWindow(store: service.agenda)),
             ("task-pins", MacTaskPinsWindow(codex: codex, store: MacTaskPins(directory: root), permissions: {})),
-            ("computer-control", MacComputerWindow(service: service, music: {})), ("unlock-settings",MacUnlockSettingsWindow(service:service)), ("unlock-test",MacUnlockConnectionWindow()), ("voice", MacTab5FeaturesWindow(service: service, focusSection: .voice)),
+            ("computer-control", MacComputerWindow(service: service, music: {})), ("unlock-settings",MacUnlockSettingsWindow(service:service)), ("unlock-test",MacUnlockConnectionWindow()), ("voice", MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: { voiceFixture() })),
             ("stocks", MacStocksWindow(didSave: {})), ("quota-history", MacQuotaHistoryWindow(store: MacDataStore(defaults: defaults, quotaHistory: MacQuotaHistory(file: root.appendingPathComponent("history.json"))))),
             ("gallery-browser", MacGalleryBrowser(gallery: service.gallery, importPack: {})), ("configuration", MacConfigurationWindow(didRestore: {})),
             ("notifications", MacNotificationWindow(service: MacNotifications(directory: root))), ("runtime", MacRuntimeWindow(file:.init("runtime-health.json",directory:root,initial:{ .init() },validate:{ try $0.validate() }),capture:{ "CPU：采样正常\n内存：采样正常\nVPN / PAC：等待网络采样" },reload:{})), ("updates", MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {})), ("features", MacTab5FeaturesWindow(service: service)),
@@ -76,7 +79,7 @@ enum MacTab5UIValidation {
         }
         try validateGallery(output:output, root:root.appendingPathComponent("gallery-fixture"))
         try validateModal()
-        print("MAC_TAB5_NATIVE_UI_RENDER_OK device center and all settings fixtures; tabs, draft, modal validation/cancel, minimum size and both appearances; no hardware operation or permission requested")
+        print("MAC_TAB5_NATIVE_UI_RENDER_OK device center and all settings fixtures; tabs, draft, offscreen validation/cancel, minimum size and both appearances; no hardware operation or permission requested")
     }
 
     private static func validateDoubaoDraft() throws {
@@ -97,51 +100,81 @@ enum MacTab5UIValidation {
         print("MAC_DOUBAO_DRAFT_UI_OK transparent borderless native editor; visible manual test; no microphone or shortcut")
     }
 
+    private static func voiceFixture() -> MacVoiceEnvironment {
+        .init(inputs: [.init(id: 1, uid: "fixture-mic", name: "Mac 内置麦克风")], defaultInput: 1,
+              doubaoInstalled: true, doubaoEnabled: true, doubaoRunning: true, cable: true,
+              speechPermission: true, microphonePermission: true, localRecognition: true)
+    }
+    private static func pump(until done: () -> Bool) throws {
+        let deadline = ProcessInfo.processInfo.systemUptime + 5
+        while !done(), ProcessInfo.processInfo.systemUptime < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
+        guard done() else { throw MacTab5LocalError.invalid("Offscreen asynchronous action timed out") }
+    }
     private static func validateVoiceSource(service: MacTab5Service, defaults: UserDefaults, output: URL) throws {
-        defer { defaults.removeObject(forKey: MacVoiceCaptureSource.preferenceKey) }
-        let controller = MacTab5FeaturesWindow(service: service, focusSection: .voice, voiceSourceDefaults: defaults, doubaoInstalled:{true})
-        let content = controller.window!.contentView!
-        let controls = descendants(content)
+        let original = MacVoiceSettings.read(defaults)
+        let controller = MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: { voiceFixture() })
+        let controls = descendants(controller.window!.contentView!)
         let source = controls.first { $0.identifier?.rawValue == "voice-capture-source" } as! NSPopUpButton
         let input = controls.first { $0.identifier?.rawValue == "voice-mac-input" } as! NSPopUpButton
-        let test = controls.first { $0.identifier?.rawValue == "voice-test-mac-doubao" } as! NSButton
+        let save = controls.compactMap { $0 as? NSButton }.first { $0.title == "保存" }!
+        guard !save.isEnabled else { throw MacTab5LocalError.invalid("Voice window blocked on enumeration") }
+        try pump { save.isEnabled }
         for choice in MacVoiceCaptureSource.allCases {
-            source.selectItem(withTitle: choice.title); source.sendAction(source.action!, to: source.target)
-            guard MacVoiceCaptureSource.saved(in: defaults) == choice,
-                  input.isEnabled == (choice == .mac), test.isEnabled == (choice == .mac) else {
-                throw MacTab5LocalError.invalid("Voice source selection or Mac-only controls did not update")
-            }
+            source.selectItem(at: choice == .tab5 ? 1 : 2); source.sendAction(source.action!, to: source.target)
+            guard MacVoiceSettings.read(defaults) == original, input.isEnabled == (choice == .mac) else { throw MacTab5LocalError.invalid("Voice selection saved before explicit Save") }
             try validateSettings(controller.window!, name: "voice-source-" + choice.rawValue, output: output)
-            let reopened = MacTab5FeaturesWindow(service: service, focusSection: .voice, voiceSourceDefaults: defaults, doubaoInstalled:{true})
-            let persisted = descendants(reopened.window!.contentView!).first { $0.identifier?.rawValue == "voice-capture-source" } as! NSPopUpButton
-            guard persisted.titleOfSelectedItem == choice.title else { throw MacTab5Error.invalidPacket }
-            reopened.window?.close()
         }
-        controller.window?.close()
-        var installed = false
-        defaults.set("local",forKey:MacSpeechProvider.key)
-        defer { defaults.removeObject(forKey:MacSpeechProvider.key) }
-        let unavailable = MacTab5FeaturesWindow(service:service,focusSection:.voice,voiceSourceDefaults:defaults,doubaoInstalled:{installed})
-        defer { unavailable.window?.close() }
-        let unavailableControls = descendants(unavailable.window!.contentView!)
-        let provider = unavailableControls.first { $0.identifier?.rawValue == "voice-speech-provider" } as! NSPopUpButton
-        let hint = unavailableControls.first { $0.identifier?.rawValue == "voice-speech-availability" } as! NSTextField
-        let installButton = unavailableControls.first { $0.identifier?.rawValue == "voice-install-doubao" } as! NSButton
-        let testButton = unavailableControls.first { $0.identifier?.rawValue == "voice-test-mac-doubao" } as! NSButton
-        guard provider.menu?.autoenablesItems == false,provider.item(at:1)?.isEnabled == false,
-              hint.stringValue.contains("暂不可选"),!hint.isHidden,!installButton.isHidden,!testButton.isEnabled,
-              !unavailableControls.compactMap({$0 as? NSButton}).contains(where:{$0.title == "检查豆包"}) else { throw MacTab5LocalError.invalid("Missing Doubao not disabled before selection") }
-        try validateSettings(unavailable.window!,name:"voice-doubao-uninstalled",output:output)
-        try render(unavailable.window!.contentView!,to:output.appendingPathComponent("voice-doubao-uninstalled.png"))
-        installed = true;unavailable.menuWillOpen(provider.menu!)
-        guard provider.item(at:1)?.isEnabled == true,hint.isHidden,installButton.isHidden else { throw MacTab5Error.invalidPacket }
-        // Simulate removal after the menu was opened, then invoke the real action.
-        installed = false;provider.selectItem(at:1);provider.sendAction(provider.action!,to:provider.target)
-        guard provider.indexOfSelectedItem == 0,defaults.string(forKey:MacSpeechProvider.key) == "local",
-              provider.item(at:1)?.isEnabled == false else { throw MacTab5LocalError.invalid("Removed Doubao selection overwrote previous provider") }
-        installed = true;unavailable.menuWillOpen(provider.menu!);provider.selectItem(at:1);provider.sendAction(provider.action!,to:provider.target)
-        guard defaults.string(forKey:MacSpeechProvider.key) == "doubao" else { throw MacTab5Error.invalidPacket }
-        print("MAC_DOUBAO_AVAILABILITY_UI_OK missing item disabled and explained; removal race rejected without preference change; installed item selectable; no vendor uninstall or input")
+        input.selectItem(at: 1); input.sendAction(input.action!, to: input.target)
+        save.performClick(nil)
+        try pump { MacVoiceSettings.read(defaults).input == "fixture-mic" }
+        guard MacVoiceCaptureSource.saved(in: defaults) == .mac else { throw MacTab5Error.invalidPacket }
+        let stateLock = NSLock(); var env = voiceFixture()
+        func environment() -> MacVoiceEnvironment { stateLock.lock(); defer { stateLock.unlock() }; return env }
+        let unavailable = MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: environment)
+        let fields = descendants(unavailable.window!.contentView!)
+        let provider = fields.first { $0.identifier?.rawValue == "voice-speech-provider" } as! NSPopUpButton
+        let pendingSave = fields.compactMap { $0 as? NSButton }.first { $0.title == "保存" }!
+        try pump { pendingSave.isEnabled }
+        provider.selectItem(at: 1); provider.sendAction(provider.action!, to: provider.target)
+        stateLock.lock(); env.doubaoInstalled = false; stateLock.unlock()
+        let before = MacVoiceSettings.read(defaults)
+        pendingSave.performClick(nil); try pump { pendingSave.isEnabled }
+        guard MacVoiceSettings.read(defaults) == before, provider.item(at: 1)?.isEnabled == false else { throw MacTab5LocalError.invalid("Live provider removal overwrote settings") }
+        try render(unavailable.window!.contentView!, to: output.appendingPathComponent("voice-doubao-uninstalled.png"))
+        unavailable.window?.close()
+        stateLock.lock(); env = voiceFixture(); env.inputs = []; env.defaultInput = nil; stateLock.unlock()
+        let removed = MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: environment)
+        let removedFields = descendants(removed.window!.contentView!)
+        let removedSave = removedFields.compactMap { $0 as? NSButton }.first { $0.title == "保存" }!
+        try pump { removedSave.isEnabled }; removedSave.performClick(nil); try pump { removedSave.isEnabled }
+        guard MacVoiceSettings.read(defaults) == before else { throw MacTab5LocalError.invalid("Unavailable selected microphone overwrote settings") }
+        removed.window?.close()
+        let cancel = MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: { voiceFixture() })
+        let cancelFields = descendants(cancel.window!.contentView!)
+        let changed = cancelFields.first { $0.identifier?.rawValue == "voice-speech-provider" } as! NSPopUpButton
+        changed.selectItem(at: 1); changed.sendAction(changed.action!, to: changed.target)
+        cancel.window?.close(); RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        guard MacVoiceSettings.read(defaults) == before else { throw MacTab5LocalError.invalid("Cancel saved voice settings") }
+        let release = DispatchSemaphore(value: 0)
+        var inspections = 0, validationFinished = false
+        let duringSave = MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: {
+            stateLock.lock(); inspections += 1; let current = inspections; stateLock.unlock()
+            if current == 2 { _ = release.wait(timeout: .now() + 4); stateLock.lock(); validationFinished = true; stateLock.unlock() }
+            return voiceFixture()
+        }, confirmDiscard: { true })
+        let duringFields = descendants(duringSave.window!.contentView!)
+        let duringButton = duringFields.compactMap { $0 as? NSButton }.first { $0.title == "保存" }!
+        try pump { duringButton.isEnabled }
+        let duringProvider = duringFields.first { $0.identifier?.rawValue == "voice-speech-provider" } as! NSPopUpButton
+        duringProvider.selectItem(at: 1); duringProvider.sendAction(duringProvider.action!, to: duringProvider.target)
+        duringButton.performClick(nil)
+        try pump { stateLock.lock(); defer { stateLock.unlock() }; return inspections >= 2 }
+        duringFields.compactMap { $0 as? NSButton }.first { $0.title == "取消" }!.performClick(nil)
+        release.signal()
+        try pump { stateLock.lock(); defer { stateLock.unlock() }; return validationFinished }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        guard MacVoiceSettings.read(defaults) == before else { throw MacTab5LocalError.invalid("Late save validation wrote after Cancel") }
+        print("MAC_VOICE_SETTINGS_UI_OK async load; transactional source/input; live provider/microphone removal; cancellation; fixtures only")
     }
 
     private static func validateEditorBehaviors(root:URL) throws {
@@ -214,7 +247,10 @@ enum MacTab5UIValidation {
         let tabs = descendants(content).compactMap { $0 as? MacBridgeSettingsTabs }.first
         let original = content.frame.size
         for index in 0..<(tabs?.pages.count ?? 1) {
-            tabs?.select(index)
+            window.setContentSize(original); content.layoutSubtreeIfNeeded()
+            let before = window.frame, viewport = tabs?.frame.size
+            tabs?.select(index); content.layoutSubtreeIfNeeded()
+            guard window.frame == before, tabs?.frame.size == viewport else { throw MacTab5LocalError.invalid("Switching settings tabs changed the viewport") }
             for (sizeName, size) in [("default", original), ("minimum", window.contentMinSize)] {
                 window.setContentSize(size); content.layoutSubtreeIfNeeded()
                 guard footer.enclosingScrollView == nil,
@@ -238,21 +274,70 @@ enum MacTab5UIValidation {
         window.setContentSize(original); tabs?.select(0)
     }
 
+    private static func validatePinsAndCancel(root: URL, codex: MacTab5Codex, service: MacTab5Service, output: URL) throws {
+        let ids = (0..<34).map { _ in UUID().uuidString.lowercased() }, hidden = UUID().uuidString.lowercased()
+        let model = MacTab5Codex(store: .init(root: root.appendingPathComponent("pin-catalog"), key: { Data(repeating: 7, count: 32) }), enabled: { true }, call: { method, _ in
+            method == "thread/list" ? ["data": ids.enumerated().map { ["id": $0.element, "name": String(repeating: "需要完整阅读的长标题与跨平台验证任务", count: 5) + String($0.offset), "cwd": "/fixture"] }] : [:]
+        })
+        model.refresh()
+        let store = MacTaskPins(directory: root.appendingPathComponent("pin-editor")); try store.save([hidden, ids[1]])
+        let pins = MacTaskPinsWindow(codex: model, store: store, permissions: {})
+        let content = pins.window!.contentView!, controls = descendants(content)
+        let count = controls.first { $0.identifier?.rawValue == "task-pin-count" } as! NSTextField
+        let choices = controls.compactMap { $0 as? NSButton }.filter { $0.identifier?.rawValue.hasPrefix("task-pin-") == true }
+        guard count.stringValue == "已选 2 / 32", choices.count == 35 else { throw MacTab5LocalError.invalid("Pin count or hidden selections missing") }
+        for choice in choices where choice.state == .off { choice.performClick(nil) }
+        guard count.stringValue == "已选 32 / 32", try store.read() == [hidden, ids[1]] else { throw MacTab5LocalError.invalid("Pin limit or transactional selection failed") }
+        guard controls.compactMap({ $0 as? NSTextField }).contains(where: { $0.identifier?.rawValue == "task-pin-title" && $0.stringValue.count > 100 }),
+              model.taskCatalog().allSatisfy({ ($0["title"] as? String ?? "").count <= 80 }) else { throw MacTab5LocalError.invalid("Local full titles changed the wire catalog") }
+        let draft = pins.window!.delegate as! MacSettingsDraft
+        var confirmations = 0, closed = false
+        draft.confirmDiscard = { confirmations += 1; return false }
+        let observer = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: pins.window, queue: nil) { _ in closed = true }
+        let cancel = controls.compactMap { $0 as? NSButton }.first { $0.title == "取消" }!
+        cancel.performClick(nil)
+        guard confirmations == 1, !closed, draft.hasChanges else { throw MacTab5LocalError.invalid("Cancel bypassed unsaved-change protection") }
+        try validateSettings(pins.window!, name: "task-pins-long", output: output)
+        for label in controls.compactMap({ $0 as? NSTextField }).filter({ $0.identifier?.rawValue == "task-pin-title" }) {
+            guard label.lineBreakMode == .byWordWrapping, label.frame.width > 400, label.frame.height > 20 else { throw MacTab5LocalError.invalid("Pin titles not wrapped to viewport") }
+        }
+        draft.confirmDiscard = { true }; cancel.performClick(nil)
+        NotificationCenter.default.removeObserver(observer)
+        guard closed, try store.read() == [hidden, ids[1]] else { throw MacTab5LocalError.invalid("Cancel saved pin changes") }
+        let savedPins = MacTaskPinsWindow(codex: model, store: store, permissions: {})
+        let savedControls = descendants(savedPins.window!.contentView!)
+        savedControls.compactMap { $0 as? NSButton }.first { $0.identifier?.rawValue == "task-pin-" + ids[0] }!.performClick(nil)
+        savedControls.compactMap { $0 as? NSButton }.first { $0.title == "保存" }!.performClick(nil)
+        guard try store.read() == [hidden, ids[1], ids[0]] else { throw MacTab5LocalError.invalid("Saving dropped hidden pins or original order") }
+        // Real computer-control Cancel, with an injected answer to its native guard.
+        let computer = MacComputerWindow(service: service, music: {})
+        let computerFields = descendants(computer.window!.contentView!)
+        let editable = computerFields.compactMap { $0 as? NSTextField }.first { $0.isEditable }!
+        let before = try service.computer.launchers.load(); editable.stringValue = "unsaved fixture"
+        let computerDraft = computer.window!.delegate as! MacSettingsDraft
+        computerDraft.confirmDiscard = { true }
+        computerFields.compactMap { $0 as? NSButton }.first { $0.title == "取消" }!.performClick(nil)
+        guard try service.computer.launchers.load() == before else { throw MacTab5LocalError.invalid("Computer Cancel changed stored launchers") }
+        print("MAC_SETTINGS_TRANSACTION_UI_OK pin wrapping/count/limit/hidden-order/save/cancel; computer Cancel; no foreground dialogs")
+    }
+
     private static func validateModal() throws {
         let form = MacBridgeSettingsForm("布局验证", subtitle: "仅使用测试数据。", height: 380)
-        guard let content = form.window?.contentView,
-              let save = descendants(content).compactMap({ $0 as? NSButton }).first(where: { $0.title == "保存" }),
-              let cancel = descendants(content).compactMap({ $0 as? NSButton }).first(where: { $0.title == "取消" }) else { throw MacTab5Error.invalidPacket }
-        var rejected = false
-        DispatchQueue.main.async {
-            save.performClick(nil)
-            rejected = form.status.stringValue == "请修正输入" && NSApp.modalWindow === form.window
-            cancel.performClick(nil)
-        }
-        guard !form.run(validating: { "请修正输入" }), rejected else { throw MacTab5Error.invalidPacket }
-        DispatchQueue.main.async { save.performClick(nil) }
-        guard form.run() else { throw MacTab5Error.invalidPacket }
-        form.window?.close()
+        let content = form.window!.contentView!
+        let save = descendants(content).compactMap { $0 as? NSButton }.first { $0.title == "保存" }!
+        let cancel = descendants(content).compactMap { $0 as? NSButton }.first { $0.title == "取消" }!
+        form.prepare(validating: { "请修正输入" }); save.performClick(nil)
+        guard form.status.stringValue == "请修正输入", save.keyEquivalent == "\r", cancel.keyEquivalent == "\u{1b}" else { throw MacTab5Error.invalidPacket }
+        var closed = false
+        let observer = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: form.window, queue: nil) { _ in closed = true }
+        cancel.performClick(nil); NotificationCenter.default.removeObserver(observer)
+        guard closed else { throw MacTab5LocalError.invalid("Non-modal Cancel did not close") }
+        let valid = MacBridgeSettingsForm("保存验证", subtitle: "仅使用测试数据。", height: 380)
+        valid.prepare(); var accepted = false
+        let saved = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: valid.window, queue: nil) { _ in accepted = true }
+        descendants(valid.window!.contentView!).compactMap { $0 as? NSButton }.first { $0.title == "保存" }!.performClick(nil)
+        NotificationCenter.default.removeObserver(saved)
+        guard accepted else { throw MacTab5LocalError.invalid("Non-modal Save did not close") }
     }
 
     private static func validateDeviceCenter(_ controller: MacTab5Window, output: URL) throws {

@@ -52,7 +52,7 @@ enum MacCodexQuestionValidation {
             writeTarget: { _, expectedTarget, before, after in
                 guard focused, target == expectedTarget, value == before else { return nil }; writes += 1; value = after; return value
             }, submitQuestion: { _, expectedTarget, text in
-                guard expectedTarget == target, text == value else { return false }; questionActions += 1; return nativeSuccess
+                guard expectedTarget == target, text == value else { return .notReady }; questionActions += 1; return nativeSuccess ? .confirmed : .unconfirmed
             }))
         func request(_ op: String, draft: String? = nil) -> [String: Any] {
             var r: [String: Any] = ["op": op, "taskId": task, "requestId": UUID().uuidString.lowercased(), "text": "voice answer"]

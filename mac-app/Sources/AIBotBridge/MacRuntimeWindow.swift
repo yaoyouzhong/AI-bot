@@ -14,6 +14,7 @@ enum MacRuntimePreferences {
 final class MacRuntimeWindow: NSWindowController {
     private let capture: () -> String, readout = MacBridgeSettingsStyle.label(""), status = MacBridgeSettingsStyle.note("")
     private var timer: Timer?
+    private var draftGuard: MacSettingsDraft?
     private var overview: MacRuntimeOverview?, detailWindow: MacInformationWindow?
     private var readingDevice = false
     init(file: MacProfileFile<MacRuntimeOptions> = MacRuntimePreferences.file, capture: @escaping () -> String, reload: @escaping () -> Void,
@@ -61,8 +62,9 @@ final class MacRuntimeWindow: NSWindowController {
             let values = fields.compactMap { Int($0.stringValue) }
             guard values.count == fields.count else { self.status.stringValue = "请填写整数。"; return }
             let value = MacRuntimeOptions(enabled:enabled.state == .on,network:network.state == .on,expectProxy:proxy.state == .on,throughput:speed.state == .on,interval:values[0],slow:values[1],cpu:values[2],memory:values[3],sustained:values[4])
-            do { try file.write(value); reload(); self.status.stringValue = "已保存，重新检测中。"; self.refresh() } catch { self.status.stringValue = error.localizedDescription }
-        }])
+            do { try file.write(value); self.draftGuard?.markSaved(); reload(); self.status.stringValue = "已保存，重新检测中。"; self.refresh() } catch { self.status.stringValue = error.localizedDescription }
+        }, MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
+        draftGuard = MacSettingsDraft(window) { MacSettingsDraft.values([enabled,network,proxy,speed] + fields) }
         self.refresh(); timer = Timer.scheduledTimer(withTimeInterval:2,repeats:true) { [weak self] _ in if self?.window?.isVisible == true { self?.refresh(); deviceReadout.stringValue = deviceCapture(); artwork.image = deviceImage(); caption.stringValue = deviceImageCaption() } }
     }
     deinit { timer?.invalidate() }

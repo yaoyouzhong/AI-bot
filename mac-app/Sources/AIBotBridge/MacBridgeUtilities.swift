@@ -88,6 +88,7 @@ final class MacNotifications {
 final class MacNotificationWindow: NSWindowController {
     private let service: MacNotifications, status = MacBridgeSettingsStyle.note("")
     private var boxes: [NSButton] = [], timer: Timer?
+    private var draftGuard: MacSettingsDraft?
     private let start = NSTextField(), end = NSTextField(), quietRow = NSStackView(), table = MacSettingsTable(["时间", "提醒", "处理"])
     init(service: MacNotifications) {
         self.service = service; super.init(window: MacBridgeSettingsStyle.window("提醒管理", width: 680, height: 560))
@@ -107,7 +108,8 @@ final class MacNotificationWindow: NSWindowController {
             page.add(quietRow); quietChanged()
         } catch { status.stringValue = error.localizedDescription }
         page.section("提醒记录"); page.add(table); table.heightAnchor.constraint(equalToConstant: 220).isActive = true; table.rows = service.history
-        window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("保存") { [weak self] in self?.save() }, MacSettingsButton("取消") { [weak self] in self?.close() }])
+        window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("保存") { [weak self] in self?.save() }, MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
+        draftGuard = MacSettingsDraft(window) { [weak self] in guard let self else { return "" }; return MacSettingsDraft.values(self.boxes + [self.start,self.end]) }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in guard let self else { return }; self.table.rows = self.service.history }
     }
     deinit { timer?.invalidate() }
@@ -119,7 +121,7 @@ final class MacNotificationWindow: NSWindowController {
         guard boxes.count == 6, let from = minutes(start.stringValue), let to = minutes(end.stringValue) else { status.stringValue = "请输入 HH:mm 格式的有效时间。"; return }
         do {
             let value = MacNotificationOptions(completion: boxes[0].state == .on, attention: boxes[1].state == .on, quota: boxes[2].state == .on, health: boxes[3].state == .on, sound: boxes[4].state == .on, quiet: boxes[5].state == .on, quietStart: from, quietEnd: to)
-            try service.file.write(value)
+            try service.file.write(value); draftGuard?.markSaved()
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in DispatchQueue.main.async { self?.status.stringValue = granted ? "已保存，系统提醒已启用。" : "已保存；系统未授权通知，记录仍可查看。" } }
         } catch { status.stringValue = error.localizedDescription }
     }

@@ -81,6 +81,7 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
         guard CFArrayGetCount(values) > 0,let raw = CFArrayGetValueAtIndex(values,0) else { return nil }
         return Unmanaged<TISInputSource>.fromOpaque(raw).takeUnretainedValue()
     }
+    static func inputSourceEnabled() -> Bool { source() != nil }
     private static func current() -> TISInputSource? { TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() }
     static func readiness() -> String {
         guard installed(),source() != nil else { return "请先安装官方豆包输入法并在系统键盘设置中启用。" }
