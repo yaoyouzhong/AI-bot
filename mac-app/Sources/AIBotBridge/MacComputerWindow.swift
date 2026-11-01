@@ -10,9 +10,9 @@ final class MacComputerWindow: NSWindowController {
     private var unlockWindow:MacUnlockSettingsWindow?
     init(service: MacTab5Service, music: @escaping () -> Void) {
         self.service = service; super.init(window:MacBridgeSettingsStyle.window("电脑控制",width:720,height:700))
-        let page = MacBridgeSettingsPage(); page.heading("电脑控制",subtitle:"四个常用入口按顺序显示在 TAB5；保存后生效。")
+        let page = MacBridgeSettingsPage(); page.heading("电脑控制",subtitle:"最多四个入口，按顺序显示在 TAB5。")
         enabled.state = service.computer.isEnabled ? .on:.off; page.add(enabled)
-        page.add(MacBridgeSettingsStyle.note("音量与静音使用系统接口，锁屏需要辅助功能权限。一键解锁独立设置，密码仅保存在本机钥匙串。"))
+        page.add(MacBridgeSettingsStyle.note("锁屏需辅助功能权限。解锁另行设置，密码仅存本机钥匙串。"))
         page.add(MacSettingsButton("一键解锁设置…") { [weak self] in
             guard let self else { return }
             if self.unlockWindow == nil { self.unlockWindow = MacUnlockSettingsWindow(service:service) }
@@ -39,7 +39,7 @@ final class MacComputerWindow: NSWindowController {
             for field in [name,path] { field.setContentHuggingPriority(.defaultLow,for:.horizontal); field.setContentCompressionResistancePriority(.defaultLow,for:.horizontal) }
             page.add(group)
         }
-        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("保存") { [weak self] in self?.save() },MacSettingsButton("音乐与权限…",music),MacSettingsButton("取消") { [weak self] in self?.close() }])
+        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("保存") { [weak self] in self?.save() },MacSettingsButton("音乐与权限…",music),MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
         draftGuard = MacSettingsDraft(window) { [weak self] in guard let self else { return "" }; return MacSettingsDraft.values(self.names + self.paths + [self.enabled]) }
     }
     required init?(coder:NSCoder) { fatalError() }

@@ -16,6 +16,10 @@ The Mac integration candidate distinguishes opening from composer operations, fo
 
 ![当前 Codex 直达界面，演示数据](assets/screens/tab5-quick.png)
 
+Mac 本地对齐候选允许在原输入框上用电脑校对，再点击 TAB5 蓝色箭头提交最新文字；切题、切会话、附件／引用或提交前文字再次变化时停止并保留内容。明确未发送与送达未知分开；未知结果仅核对，不再次发送。语音设置更改须保存，取消不写配置；真实验收进度见 [Mac 对齐矩阵](development/MAC-WINDOWS-ALIGNMENT-20261101.md)。
+
+The Mac local alignment candidate accepts desktop corrections in the originally bound editor before an explicit TAB5 submit. Changed questions/chats, attachments/references or another edit before the native action stop submission and preserve content. Proven no-action failures remain distinct from unknown delivery; unknown outcomes are observed without resending. Voice setting edits require Save; Cancel preserves preferences. Physical acceptance is tracked in the linked Mac matrix.
+
 单次录音最长 60 秒。语音、草稿写入与发送是三个阶段；录音期间保持目标与相关输入法状态稳定。日常功能的验收不等于主动失焦、异常断线和每种通道都完成专项覆盖。
 
 ## English quick guide

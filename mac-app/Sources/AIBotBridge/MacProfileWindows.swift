@@ -24,8 +24,8 @@ final class MacBirthdayWindow: NSWindowController {
         right.add(MacBridgeSettingsStyle.row([month, day])); right.add(leap); right.field("提醒", remind)
         apply.target = self; apply.action = #selector(applyDraft); right.add(apply)
         calendar.target = self; calendar.action = #selector(calendarChanged)
-        right.add(MacBridgeSettingsStyle.note("日期与姓名只在本机保存，并通过已配对的加密连接同步。公历 2 月 29 日和农历小月末日按该月最后一天显示。"))
-        window?.contentView = MacBridgeSettingsShell(body: MacSettingsControls.columns(left, right), status: status, actions: [MacSettingsButton("保存并同步") { [weak self] in self?.save() }, MacSettingsButton("取消") { [weak self] in self?.close() }])
+        right.add(MacBridgeSettingsStyle.note("本机保存并加密同步。公历闰日、农历小月末日按当月最后一天显示。"))
+        window?.contentView = MacBridgeSettingsShell(body: MacSettingsControls.columns(left, right), status: status, actions: [MacSettingsButton("保存并同步") { [weak self] in self?.save() }, MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
         list.selected = { [weak self] index in self?.select(index) }
         reload()
         name.identifier = .init("birthday-name"); calendar.identifier = .init("birthday-calendar"); remind.identifier = .init("birthday-remind")
@@ -80,7 +80,7 @@ final class MacAgendaWindow: NSWindowController {
         right.field("开始", start); right.field("结束", end); right.field("重复", repeats); right.field("提醒", lead)
         right.add(MacSettingsButton("保存事项") { [weak self] in self?.save() })
         start.target = self; start.action = #selector(startChanged)
-        window?.contentView = MacBridgeSettingsShell(body: MacSettingsControls.columns(left, right, leftWidth: 310), status: status, actions: [MacSettingsButton("刷新") { [weak self] in self?.refresh() }, MacSettingsButton("关闭") { [weak self] in self?.close() }])
+        window?.contentView = MacBridgeSettingsShell(body: MacSettingsControls.columns(left, right, leftWidth: 310), status: status, actions: [MacSettingsButton("刷新") { [weak self] in self?.refresh() }, MacSettingsButton("关闭") { [weak self] in self?.window?.performClose(nil) }])
         list.selected = { [weak self] index in self?.select(index) }
         refresh(); beginNew()
         draftGuard = MacSettingsDraft(window) { [weak self] in guard let self else { return "" }; return MacSettingsDraft.values([self.name,self.timed,self.start,self.end,self.repeats,self.lead]) }
@@ -137,28 +137,60 @@ final class MacAgendaWindow: NSWindowController {
 final class MacTaskPinsWindow: NSWindowController {
     private let store: MacTaskPins, codex: MacTab5Codex
     private let page = MacBridgeSettingsPage(), status = MacBridgeSettingsStyle.note("")
+    private let count = MacBridgeSettingsStyle.label("")
     private var choices: [(String, NSButton)] = [], original: [String] = []
+    private var loaded = false, draftGuard: MacSettingsDraft?
     init(codex: MacTab5Codex, store: MacTaskPins = .shared, permissions: @escaping () -> Void) {
         self.codex = codex; self.store = store
         super.init(window: MacBridgeSettingsStyle.window("常用任务", width: 600, height: 470))
-        page.heading("常用任务", subtitle: "最多固定 32 个 Codex 任务；固定任务优先出现在 TAB5 列表。")
+        page.heading("常用任务", subtitle: "固定任务优先显示，最多 32 个。")
+        count.identifier = .init("task-pin-count"); page.add(count)
+        func add(_ id: String, _ title: String, selected: Bool) {
+            let button = NSButton(checkboxWithTitle: "", target: self, action: #selector(selectionChanged(_:)))
+            button.state = selected ? .on : .off; button.identifier = .init("task-pin-" + id)
+            button.setAccessibilityLabel(title)
+            let label = MacBridgeSettingsStyle.label(title); label.identifier = .init("task-pin-title")
+            label.lineBreakMode = .byWordWrapping; label.maximumNumberOfLines = 0
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            let row = NSView(); button.translatesAutoresizingMaskIntoConstraints = false; label.translatesAutoresizingMaskIntoConstraints = false
+            row.addSubview(button); row.addSubview(label)
+            NSLayoutConstraint.activate([
+                button.leadingAnchor.constraint(equalTo: row.leadingAnchor), button.widthAnchor.constraint(equalToConstant: 28),
+                button.heightAnchor.constraint(equalToConstant: 28), button.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+                label.leadingAnchor.constraint(equalTo: button.trailingAnchor, constant: 8), label.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+                label.topAnchor.constraint(equalTo: row.topAnchor, constant: 6), label.bottomAnchor.constraint(equalTo: row.bottomAnchor, constant: -6),
+                row.heightAnchor.constraint(greaterThanOrEqualToConstant: 40)])
+            page.add(row); choices.append((id, button))
+        }
         do {
-            original = try store.read(); var seen = Set<String>()
-            for task in codex.taskCatalog() {
+            original = try store.read(); loaded = true; var seen = Set<String>()
+            for task in codex.taskPinCatalog() {
                 guard let id = task["id"] as? String, seen.insert(id).inserted else { continue }
-                let title = (task["folder"] as? String ?? "Codex") + " · " + (task["title"] as? String ?? id)
-                let button = NSButton(checkboxWithTitle: title, target: nil, action: nil); button.state = original.contains(id) ? .on : .off
-                page.add(button); choices.append((id, button))
+                add(id, (task["folder"] as? String ?? "Codex") + " · " + (task["title"] as? String ?? id), selected: original.contains(id))
             }
-            for id in original where !seen.contains(id) {
-                let button = NSButton(checkboxWithTitle: "暂未载入 · \(id)", target: nil, action: nil); button.state = .on
-                page.add(button); choices.append((id, button))
-            }
-            if choices.isEmpty { page.add(MacBridgeSettingsStyle.note("暂无本机任务。启用 Codex 会话读取并等待目录加载后重新打开。")) }
+            for id in original where !seen.contains(id) { add(id, "暂未载入 · " + id, selected: true) }
+            if choices.isEmpty { page.add(MacBridgeSettingsStyle.note("暂无任务，请启用 Codex 会话读取并等待加载。")) }
         } catch { status.stringValue = error.localizedDescription }
-        window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("保存") { [weak self] in self?.save() }, MacSettingsButton("会话与权限…", permissions), MacSettingsButton("取消") { [weak self] in self?.close() }])
+        refreshCount()
+        window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("保存") { [weak self] in self?.save() }, MacSettingsButton("会话与权限…", permissions), MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
+        draftGuard = MacSettingsDraft(window) { [weak self] in self?.selectedIDs().joined(separator: "|") ?? "" }
     }
     required init?(coder: NSCoder) { fatalError() }
     func open() { MacSettingsControls.open(self) }
-    private func save() { do { guard try store.read() == original else { throw MacTab5LocalError.invalid("常用任务已改变，请重新打开。") }; try store.save(choices.filter { $0.1.state == .on }.map(\.0)); close() } catch { status.stringValue = error.localizedDescription } }
+    private func selectedIDs() -> [String] {
+        let selected = choices.filter { $0.1.state == .on }.map(\.0)
+        return original.filter { selected.contains($0) } + selected.filter { !original.contains($0) }
+    }
+    private func refreshCount() { count.stringValue = "已选 \(selectedIDs().count) / 32" }
+    @objc private func selectionChanged(_ sender: NSButton) {
+        if selectedIDs().count > 32 { sender.state = .off; status.stringValue = "最多固定 32 个任务，请先取消一项。" }
+        else { status.stringValue = "修改尚未保存。" }
+        refreshCount()
+    }
+    private func save() {
+        do {
+            guard loaded, try store.read() == original else { throw MacTab5LocalError.invalid("常用任务已改变，请重新打开。") }
+            try store.save(selectedIDs()); draftGuard?.markSaved(); close()
+        } catch { status.stringValue = error.localizedDescription }
+    }
 }

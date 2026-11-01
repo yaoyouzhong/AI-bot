@@ -1464,3 +1464,8 @@ Firmware .301 extends the optional suffix to `;asset,2,copyFailures,reclaimedByt
 ### 直达明确未发送的场景提示
 
 Windows 本地候选在 `submit-draft` 的原绑定目标为 `question:` 时，把未尝试动作的 `staged_target_or_text_changed` / `composer_changed` 映射为 `question_target_or_text_changed`；普通输入目标映射为 `conversation_target_or_text_changed`。只改变已有 `error` 字符串值，不新增协议字段或版本。`taskId`、`submitted=false`、`attempted=false` 的验证仍必须同时通过，否则不得显示明确未发送。新版 TAB5 分别显示题目/回答与会话/输入内容提示；旧 Windows/Mac 的无分类错误使用中性“当前输入内容”提示；旧固件面对新错误继续显示通用未就绪提示。Mac 无须增加该分类即可兼容，但 Mac 场景分类与实机验证不据此宣称完成。
+
+
+Mac 本地对齐候选（2026-11-01）采用相同的场景错误和类型化回执。原设备／会话／题目之外另保留进程内输入框身份；同一输入框允许电脑校对，在本次明确提交时冻结最新非空文字。原生动作前仍须匹配该身份和冻结文字，附件／引用保护保留；旧无目标绑定适配器继续要求原回填文字相符。已执行但未确认返回 `submitted=false, attempted=true`，只读核对后仍未知时不再发送；明确未执行返回 `submitted=false, attempted=false`。清理仅匹配原设备草稿，不清除随后创建的草稿。现有成功回执含可靠入队，不要求模型开始执行；不新增字段、版本或自动重试。代码与离线测试、Mac 真机验收分开登记。
+
+The Mac local alignment candidate (2026-11-01) adopts the same contextual error values and typed receipts. Besides the original device/chat/question, it retains a process-local editor identity. Explicit submission freezes the latest nonempty correction in that editor; the native action rechecks the identity and frozen text, retaining attachment/reference guards. Legacy adapters without target binding retain exact staged-text checks. An attempted but unconfirmed action returns `submitted:false, attempted:true`; read-only reconciliation never triggers a resend. Proven no-action failures return both flags false. Cleanup matches only the original device draft and preserves newer drafts. Durable queue retention remains delivery without implying execution. No new wire field, version or retry is introduced; local regression and physical acceptance remain separate evidence.

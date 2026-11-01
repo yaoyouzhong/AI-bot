@@ -20,6 +20,8 @@ final class MacTab5Codex {
     let photos: MacTab5Photos
     private var timer: DispatchSourceTimer?
     private var catalog: [[String: Any]] = []
+    // Local selection UI only; the bounded device catalog remains unchanged.
+    private var pinTitles: [String: String] = [:]
     private var projection: [String: Any] = [:]
     private var viewedTask = "", viewedDevice = ""
     private var viewedPage: [String: Any] = [:]
@@ -63,6 +65,14 @@ final class MacTab5Codex {
         try? taskActivity?.record(task)
     }
     func taskCatalog() -> [[String: Any]] { stateLock.lock(); defer { stateLock.unlock() }; return catalog }
+    func taskPinCatalog() -> [[String: Any]] {
+        stateLock.lock(); defer { stateLock.unlock() }
+        return catalog.map { row in
+            var value = row
+            if let id = row["id"] as? String, let title = pinTitles[id] { value["title"] = title }
+            return value
+        }
+    }
     var canMutate: Bool { enabled() && mutable() }
     // Availability is a short-lived display hint, not an authorization decision.
     // Refresh it on an explicit submission before the caller clears the composer.
@@ -201,10 +211,12 @@ final class MacTab5Codex {
                 cachedNames = names.filter { unnamed.contains($0.key) && $0.value.utf8.count <= 8192 &&
                     !$0.value.contains("\0") && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             }
+            pinTitles = [:]
             catalog = threads.compactMap { root -> [String: Any]? in
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? "Codex 会话"
+                pinTitles[id] = String(title.prefix(2048)) + (title.count > 2048 ? "…" : "")
                 // Match the desktop's recent-activity order. The device sorts
                 // its quick-console rows again by the existing updatedAt field,
                 // so carry the same effective recency there, not record mtime.

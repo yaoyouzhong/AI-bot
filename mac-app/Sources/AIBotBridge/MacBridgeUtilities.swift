@@ -88,10 +88,11 @@ final class MacNotifications {
 final class MacNotificationWindow: NSWindowController {
     private let service: MacNotifications, status = MacBridgeSettingsStyle.note("")
     private var boxes: [NSButton] = [], timer: Timer?
+    private var draftGuard: MacSettingsDraft?
     private let start = NSTextField(), end = NSTextField(), quietRow = NSStackView(), table = MacSettingsTable(["时间", "提醒", "处理"])
     init(service: MacNotifications) {
         self.service = service; super.init(window: MacBridgeSettingsStyle.window("提醒管理", width: 680, height: 560))
-        let page = MacBridgeSettingsPage(); page.heading("提醒管理", subtitle: "任务完成时，设备不在线才使用电脑备用提醒；勿扰时段仅记录，不弹出或播放声音。")
+        let page = MacBridgeSettingsPage(); page.heading("提醒管理", subtitle: "任务完成且设备离线时在电脑提醒；勿扰期间仅记录。")
         do {
             let value = try service.file.read()
             for (name, selected) in zip(["完成备用音", "等待操作", "额度异常", "运行异常", "提醒音", "勿扰时段"], [value.completion,value.attention,value.quota,value.health,value.sound,value.quiet]) {
@@ -107,7 +108,8 @@ final class MacNotificationWindow: NSWindowController {
             page.add(quietRow); quietChanged()
         } catch { status.stringValue = error.localizedDescription }
         page.section("提醒记录"); page.add(table); table.heightAnchor.constraint(equalToConstant: 220).isActive = true; table.rows = service.history
-        window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("保存") { [weak self] in self?.save() }, MacSettingsButton("取消") { [weak self] in self?.close() }])
+        window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("保存") { [weak self] in self?.save() }, MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
+        draftGuard = MacSettingsDraft(window) { [weak self] in guard let self else { return "" }; return MacSettingsDraft.values(self.boxes + [self.start,self.end]) }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in guard let self else { return }; self.table.rows = self.service.history }
     }
     deinit { timer?.invalidate() }
@@ -119,7 +121,7 @@ final class MacNotificationWindow: NSWindowController {
         guard boxes.count == 6, let from = minutes(start.stringValue), let to = minutes(end.stringValue) else { status.stringValue = "请输入 HH:mm 格式的有效时间。"; return }
         do {
             let value = MacNotificationOptions(completion: boxes[0].state == .on, attention: boxes[1].state == .on, quota: boxes[2].state == .on, health: boxes[3].state == .on, sound: boxes[4].state == .on, quiet: boxes[5].state == .on, quietStart: from, quietEnd: to)
-            try service.file.write(value)
+            try service.file.write(value); draftGuard?.markSaved()
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in DispatchQueue.main.async { self?.status.stringValue = granted ? "已保存，系统提醒已启用。" : "已保存；系统未授权通知，记录仍可查看。" } }
         } catch { status.stringValue = error.localizedDescription }
     }
@@ -190,7 +192,7 @@ final class MacConfigurationWindow: NSWindowController {
     private let didRestore: () -> Void
     init(didRestore: @escaping () -> Void) {
         self.didRestore = didRestore; super.init(window: MacBridgeSettingsStyle.window("配置迁移", width: 800, height: 620))
-        page.heading("配置迁移", subtitle: "与 Windows 共用的显示设置、自选股票和生日备份。恢复前自动备份原配置，凭据及设备配对不包含在文件中。")
+        page.heading("配置迁移", subtitle: "备份显示设置、股票和生日，可与 Windows 互用。恢复前自动备份，不含凭据和配对。")
         page.add(MacBridgeSettingsStyle.row([MacSettingsButton("导出备份") { [weak self] in self?.export() }, MacSettingsButton("打开备份") { [weak self] in self?.read() }]))
         page.add(preview); preview.heightAnchor.constraint(equalToConstant: 300).isActive = true
         window?.contentView = MacBridgeSettingsShell(body: page, status: status, actions: [MacSettingsButton("恢复所选") { [weak self] in self?.restore() }])

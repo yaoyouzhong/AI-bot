@@ -57,7 +57,7 @@ final class MacStocksWindow: NSWindowController, NSTextFieldDelegate {
         page.add(MacSettingsButton("加入自选") { [weak self] in self?.addSelected() })
         page.section("自选列表"); page.add(selected); selected.heightAnchor.constraint(equalToConstant:220).isActive = true
         page.add(MacBridgeSettingsStyle.row([MacSettingsButton("移除所选") { [weak self] in self?.remove() },MacSettingsButton("上移") { [weak self] in self?.move(-1) },MacSettingsButton("下移") { [weak self] in self?.move(1) },MacSettingsButton("批量添加代码…") { [weak self] in self?.showBatch() }]))
-        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("保存") { [weak self] in self?.save() },MacSettingsButton("取消") { [weak self] in self?.close() }])
+        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[MacSettingsButton("保存") { [weak self] in self?.save() },MacSettingsButton("取消") { [weak self] in self?.window?.performClose(nil) }])
         refreshSelection()
         draftGuard = MacSettingsDraft(window) { [weak self] in self?.symbols.joined(separator:",") ?? "" }
     }

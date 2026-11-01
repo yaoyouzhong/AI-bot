@@ -65,7 +65,7 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         let configuration = URLSessionConfiguration.ephemeral; configuration.timeoutIntervalForRequest = 30; configuration.timeoutIntervalForResource = 600
         session = URLSession(configuration:configuration,delegate:MacUpdateRedirects(),delegateQueue:nil)
         super.init(window:MacBridgeSettingsStyle.window("软件固件",width:800,height:620)); window?.delegate = self
-        let page = MacBridgeSettingsPage(); page.heading("软件固件",subtitle:"各组件独立比较版本；下载完成后校验 SHA-256，再打开安装或升级工具。")
+        let page = MacBridgeSettingsPage(); page.heading("软件固件",subtitle:"各组件独立更新；下载校验后打开安装工具。")
         automatic.state = UserDefaults.standard.bool(forKey:Self.automaticKey) ? .on:.off; automatic.target = self; automatic.action = #selector(changeAutomatic)
         page.add(MacBridgeSettingsStyle.row([MacSettingsButton("检查更新") { [weak self] in self?.check() },automatic])); page.add(table); table.heightAnchor.constraint(equalToConstant:180).isActive = true
         progress.isIndeterminate = false; progress.maxValue = 100; progress.isHidden = true; page.add(progress)

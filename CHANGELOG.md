@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Mac alignment candidate (2026-11-01, acceptance in progress)
+- Submit the latest computer-corrected text only in the originally bound device/chat/question/editor. Recheck the frozen text before one native action; distinguish typed no-action failures from unknown delivery and preserve newer device drafts.
+- Support GLM finance-overview capture in both native and injected filters with endpoint-bound schemas, current rounding and cache retention. Align MiMo primary budgets and MiniMax expanded allowances/reset timestamps across adapters; real-account acceptance remains separate.
+- Provide one transactional Voice Settings entry with background device enumeration, live save validation and cancellation without preference changes. Voice starts only on explicit user action; retain recognition permissions, Codex send opt-in and microphone restoration.
+- Align native Save/Cancel ordering and unsaved-change handling; wrap frequent-task titles, show the 32-item selection count and retain hidden pins and their order. Preserve negotiated USB OTA performance.
+
+
 ### Windows parity candidate (2026-11-01, final hardware acceptance pending)
 - Improve frequent-task selection with separate project/title columns, wrapped titles, a selection count and consistent Save/Cancel actions. Preserve existing pins outside the displayed catalog and confirm unsaved changes before cancellation.
 - Keep connection tabs at a stable height when selecting firmware upgrade. Load microphone metadata in the background so Voice Settings opens without waiting for repeated enumeration; recheck availability before saving. Fix modeless Computer Control cancellation and align Save/Cancel ordering across settings pages.

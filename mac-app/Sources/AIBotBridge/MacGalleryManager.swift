@@ -98,13 +98,13 @@ final class MacGalleryManager: NSWindowController, NSWindowDelegate {
     init(gallery:MacTab5Gallery,browse:@escaping ()->Void) {
         self.gallery = gallery; self.browse = browse
         super.init(window:MacBridgeSettingsStyle.window("屏保图库",width:680,height:600,minimumHeight:520)); window?.delegate = self
-        let page = MacBridgeSettingsPage(); page.heading("屏保图库",subtitle:"选择喜欢的作品集，在电脑欣赏，也可用于 TAB5 屏保。")
+        let page = MacBridgeSettingsPage(); page.heading("屏保图库",subtitle:"浏览作品集，也可用于 TAB5 屏保。")
         for (i,name) in ["每日名画","每日书法"].enumerated() {
             page.section(name); let installed = MacBridgeSettingsStyle.label(""), online = MacBridgeSettingsStyle.note(""); current.append(installed); latest.append(online)
             page.add(installed); let button = MacSettingsButton("下载并安装") { [weak self] in self?.download(i) }; buttons.append(button)
             page.add(MacBridgeSettingsStyle.row([online,NSView(),button]))
         }
-        page.section("选择版本"); page.add(MacBridgeSettingsStyle.label("标准版：电脑使用适配后的展示图。\n高清版：电脑使用高清图片，可放大查看更多细节。")); page.add(MacBridgeSettingsStyle.note("两版均含作品和导读，TAB5 显示相同，任选一版即可。高清完整包可通过“安装图库包”导入。"))
+        page.section("选择版本"); page.add(MacBridgeSettingsStyle.label("标准版：电脑使用适配后的展示图。\n高清版：电脑使用高清图片，可放大查看更多细节。")); page.add(MacBridgeSettingsStyle.note("两版作品、导读和 TAB5 显示相同。完整高清包可通过“安装图库包”导入。"))
         progress.isIndeterminate = false; progress.minValue = 0; progress.maxValue = 100; progress.isHidden = true; page.add(progress)
         cancel.title = "取消操作"; cancel.target = self; cancel.action = #selector(cancelGalleryOperation); cancel.isHidden = true; page.add(cancel)
         controls = [MacSettingsButton("浏览作品",browse),MacSettingsButton("安装图库包…") { [weak self] in self?.importPack() },MacSettingsButton("检查更新") { [weak self] in self?.check() }]

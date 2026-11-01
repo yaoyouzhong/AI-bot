@@ -37,7 +37,7 @@ final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
             navigation.add(button); button.widthAnchor.constraint(equalTo:navigation.stack.widthAnchor).isActive = true
             buttons[item.id] = button
         }
-        navigation.add(MacBridgeSettingsStyle.note("Claude／Codex 沿用本机官方客户端授权。国产模型按各自官方来源获取数据。"))
+        navigation.add(MacBridgeSettingsStyle.note("Claude／Codex 沿用本机授权；国产模型使用官方来源。"))
         let right = NSStackView(); right.orientation = .vertical; right.alignment = .leading; right.spacing = 10
         let container = NSView(); right.translatesAutoresizingMaskIntoConstraints = false; container.addSubview(right)
         NSLayoutConstraint.activate([right.leadingAnchor.constraint(equalTo:container.leadingAnchor,constant:16),right.trailingAnchor.constraint(equalTo:container.trailingAnchor,constant:-16),right.topAnchor.constraint(equalTo:container.topAnchor,constant:20),right.bottomAnchor.constraint(equalTo:container.bottomAnchor,constant:-16)])
@@ -64,7 +64,7 @@ final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
         credentialPage.heightAnchor.constraint(equalToConstant:210).isActive = true; row(credentialPage)
         row(webHost); webHost.heightAnchor.constraint(greaterThanOrEqualToConstant:160).isActive = true
         status.identifier = .init("settings-footer"); row(status)
-        row(MacBridgeSettingsStyle.note("登录状态由系统网页存储管理，到期需重新登录。关闭窗口后已授权额度继续后台刷新；桥接不导出 Cookie，API 凭据保存在钥匙串。"))
+        row(MacBridgeSettingsStyle.note("网页登录保留在本机，到期重登；API 凭据存钥匙串，关窗后继续刷新。"))
         window?.contentView = MacSettingsControls.columns(navigation,container,leftWidth:232)
         if let saved = defaults.string(forKey:"model_account_selected"), MacModelAccountCatalog.provider(saved) != nil { selected = saved }
         selectProvider(selected,userAction:false)

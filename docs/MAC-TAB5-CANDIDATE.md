@@ -1,5 +1,21 @@
 # Mac TAB5 开发候选 / Development candidate
 
+2026-11-01 对齐候选：已同步 Windows 主干 `7ca1ea4`，开发与验证记录见 [Mac 对齐矩阵](development/MAC-WINDOWS-ALIGNMENT-20261101.md)。Mac 对齐候选已在本地后台部署，**用户已在 Windows 更新至包含最新功能的 TAB5 .302**，已合并的 USB 提速继续保留；下述更早安装说明为历史记录。本轮候选补齐电脑校对后提交、送达分类、GLM／MiMo／MiniMax 额度和设置交互，尚未公开发布。
+
+Mac 对齐候选的语音入口统一为“设备中心 → TAB5 → 语音设置”。语音由明确录音操作发起，系统权限及 Codex 发送授权仍需满足；窗口后台加载设备，选择仅暂存，点击保存时重新核对，取消不保存。识别结束自动填入原绑定目标；同一输入框可在电脑校对后提交，切换会话／题目或再次变化时拒绝误发。
+
+November 1 alignment candidate: Windows main `7ca1ea4` is synchronized; see the [Mac alignment matrix](development/MAC-WINDOWS-ALIGNMENT-20261101.md). The Mac alignment candidate is deployed locally in the background with **TAB5 already updated by the user under Windows to the latest .302 containing the firmware changes**, retaining merged USB acceleration. Earlier installation statements below are historical. This local candidate aligns corrected-text submission, delivery classification, GLM/MiMo/MiniMax quotas and settings; it is not publicly released.
+
+Voice Settings has one entry under Device Center → TAB5. Recording starts only from an explicit action, retaining OS permissions and separate Codex send authorization. Device metadata loads in the background; edits are saved only after live validation, and cancellation preserves preferences. Recognition automatically fills the bound target. Desktop corrections in that editor can be explicitly submitted; changed chats, questions or frozen text are rejected.
+
+本机现已安装并初始化 Xcode 27.2：完整 XCTest 410项、0失败，Release 构建及原生界面离屏回归通过。签名本地候选再次通过29028项隔离检查并已后台部署，原 helper 和用户设置保留。真实 GLM 刷新、录音完整自动回填及电脑校对后单次提交通过。复用既有直达排队、任务追加及两题卡片验收，不重复人工测试；本轮任务页增强回执判定未重复发送专项实测。MiMo／MiniMax 账户按用户要求后验。
+
+Xcode 27.2 is installed and initialized: all 410 XCTest tests pass, along with the Release build and offscreen native UI checks. The signed local candidate passes 29,028 isolated checks and is deployed in the background, preserving the original helper and preferences. Live GLM refresh, complete automatic voice fill and one corrected-text submission pass physical checks. Existing direct queue, task append and multi-question acceptance are retained without repeated manual testing; the stricter task-page receipt decision has no new dedicated physical send. MiMo/MiniMax account checks remain deferred by the user.
+
+语音设置优化候选：只保留“识别方式”和“录音麦克风”。后者提供自动（优先DJI，否则TAB5）、TAB5内置、Mac系统默认及具体设备；旧配置保持原行为。窗口560×480，下拉框340 pt，说明与状态精简。Mac编辑页保持左取消、右保存。详见[设计与验证](development/MAC-VOICE-SELECTOR-20261101.md)。当前设备已在Windows安装最新.302，不重复刷机。
+
+The voice-settings candidate has two fields: recognition provider and recording microphone. Choose automatic (DJI, then TAB5), built-in TAB5, the Mac system default, or a specific device. Existing choices retain their behavior. The compact 560×480 window uses 340-pt pickers and concise status text. Mac editors keep Cancel to the left of Save. See the [design and validation record](development/MAC-VOICE-SELECTOR-20261101.md). The latest .302 firmware is already installed under Windows; no repeat flash is scheduled.
+
 当前安装 .299 时钟候选，精确启动和原设置保留核验通过；用户确认两种时钟布局、秒数大小正常。见[时钟设计](development/TAB5-CLOCK-DAY-DESIGN-20261031.md)。 / Clock candidate .299 is installed with exact boot/settings verification; user acceptance passes for analog/digital layouts and seconds size.
 
 当前跨端交接与验收状态见 [Windows 对齐清单（10-31）](development/WINDOWS-FOLLOWUP-FROM-MAC-20261031.md)。 / See the linked October 31 checklist for current cross-platform handoff and acceptance status.

@@ -492,6 +492,7 @@ final class MacTab5Service {
                     bleDiagnostics.voice(operation, terminal: result.status == 200 && ["review", "cancelled", "error"].contains(result.body["state"] as? String ?? ""))
                 }
                 voice.observeReply(op: root["op"] as? String, transport: transport, status: result.status, response: result.body, nonce: nonce)
+                localDiagnostics?.voice(voice.timingSnapshot)
             }
             else if root["kind"] as? String == "desktop" { result = desktop.handle(root, device: device) }
             else { result = firmwareControl.handle(root, device: device, transport: transport, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }

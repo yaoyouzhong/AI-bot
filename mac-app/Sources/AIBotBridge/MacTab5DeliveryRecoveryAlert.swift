@@ -15,7 +15,7 @@ final class MacTab5DeliveryRecoveryAlert: NSObject {
         super.init()
         alert.messageText = "确认消息已送达"
         alert.icon = NSImage(systemSymbolName: "checkmark.message", accessibilityDescription: nil)
-        alert.informativeText = "请先在电脑 Codex 会话中核对所选消息确已送达。确认仅结束这一条待确认记录，不会重新发送，也不会修改电脑输入框。"
+        alert.informativeText = "请先在电脑确认这条消息已送达。确认后仅解除该条待确认状态，不重发、不改电脑输入框。"
         alert.addButton(withTitle: "取消")
         alert.addButton(withTitle: "已在电脑确认送达")
         alert.buttons[0].keyEquivalent = "\r"

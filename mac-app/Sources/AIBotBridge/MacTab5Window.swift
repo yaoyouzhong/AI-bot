@@ -34,6 +34,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     private var timer: Timer?
     private var tools: MacTab5ToolsWindow?
     private var features: MacTab5FeaturesWindow?
+    private var voiceSettings: MacVoiceSettingsWindow?
     private var birthdayWindow: MacBirthdayWindow?, agendaWindow: MacAgendaWindow?, pinsWindow: MacTaskPinsWindow?
     private var galleryBrowser: MacGalleryBrowser?, galleryManager: MacGalleryManager?, computerWindow: MacComputerWindow?
     private let registry: MacDeviceRegistry?
@@ -306,7 +307,10 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     @objc private func openFeatures() {
         computerWindow = MacComputerWindow(service: service, music: { [weak self] in self?.openFeature(.music) }); computerWindow?.open()
     }
-    @objc private func openVoice() { openFeature(.voice) }
+    @objc private func openVoice() {
+        if voiceSettings?.window?.isVisible != true { voiceSettings = MacVoiceSettingsWindow(service: service) }
+        voiceSettings?.open()
+    }
     @objc private func openCodex() { openFeature(.codex) }
     @objc private func openMusic() { openFeature(.music) }
     private func openFeature(_ section: MacTab5FeaturesWindow.Section) {
@@ -367,7 +371,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     @objc private func resetDeviceNetwork() { bridgeAction(.espReset) }
     @objc private func removeDevice() {
         guard let registry else { return }; let kind = selectedDevice == 0 ? "tab5":"esp8266"
-        let alert = NSAlert(); alert.messageText = "从列表移除此设备？"; alert.informativeText = "会停止此设备的数据服务，保留配对、生日、图库和备份，可重新添加。"; alert.addButton(withTitle:"移除"); alert.addButton(withTitle:"取消")
+        let alert = NSAlert(); alert.messageText = "从列表移除此设备？"; alert.informativeText = "停止此设备的数据服务；配对和本机资料保留，可重新添加。"; alert.addButton(withTitle:"移除"); alert.addButton(withTitle:"取消")
         guard alert.runModal() == .alertFirstButtonReturn else { return }; do { try registry.remove(kind); selectedDevice = registry.device("tab5") != nil ? 0:1; showDevicePage(selectedDevice == 0 ? overview:smallScreen); result.stringValue = "设备已移除。" } catch { result.stringValue = error.localizedDescription }
     }
     func showUpgradeTools() { openTools(page:.firmware) }
@@ -377,7 +381,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
         return MacBridgeSettingsStyle.row([title,spacer,button])
     }
     private func openTools(page:MacTab5ToolsWindow.Page? = nil) {
-        if tools == nil { tools = MacTab5ToolsWindow(service: service, usb: usb, canBegin: { [weak self] in self?.busy == false && self?.canBegin() == true }, install: install, voice: { [weak self] in self?.openVoice() }, changeBluetooth: changeBluetooth) }
+        if tools == nil { tools = MacTab5ToolsWindow(service: service, usb: usb, canBegin: { [weak self] in self?.busy == false && self?.canBegin() == true }, install: install, changeBluetooth: changeBluetooth) }
         tools?.open(page:page)
     }
     private func allowOperation() -> Bool {

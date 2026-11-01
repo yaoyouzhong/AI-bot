@@ -3,9 +3,9 @@ import UniformTypeIdentifiers
 
 /// The same five modules as the Windows connection dialog, sharing native spacing.
 final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
-    enum Page: Int { case wifi, usbPairing, firmware, voice, benchmark }
+    enum Page: Int { case wifi, usbPairing, firmware, benchmark }
     private let service: MacTab5Service, usb: MacTab5USB
-    private let canBegin: () -> Bool, install: () -> Void, voice: () -> Void
+    private let canBegin: () -> Bool, install: () -> Void
     private let changeBluetooth: (Bool) -> Void
     private let status = MacBridgeSettingsStyle.note(""), result = MacBridgeSettingsStyle.note("")
     private let connection = MacBridgeSettingsStyle.note(""), notes = MacBridgeSettingsStyle.label("")
@@ -18,16 +18,16 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
     private let benchmarkResult = MacBridgeSettingsStyle.label("选择测试类型，然后开始测速。"), benchmarkHint = MacBridgeSettingsStyle.note("")
     private var stopButton: NSButton!, benchmarkTask: Task<Void,Never>?, benchmarkValue = "尚未测速", expanded = false
     private(set) var busy = false
-    init(service:MacTab5Service,usb:MacTab5USB,canBegin:@escaping ()->Bool = { true },install:@escaping ()->Void = {},voice:@escaping ()->Void = {},changeBluetooth:@escaping (Bool)->Void = { _ in }) {
-        self.service = service; self.usb = usb; self.canBegin = canBegin; self.install = install; self.voice = voice; self.changeBluetooth = changeBluetooth
+    init(service:MacTab5Service,usb:MacTab5USB,canBegin:@escaping ()->Bool = { true },install:@escaping ()->Void = {},changeBluetooth:@escaping (Bool)->Void = { _ in }) {
+        self.service = service; self.usb = usb; self.canBegin = canBegin; self.install = install; self.changeBluetooth = changeBluetooth
         let window = MacBridgeSettingsStyle.window("TAB5 连接与升级",width:640,height:650,minimumHeight:520)
         super.init(window:window); window.delegate = self
-        pages = (0..<5).map { _ in MacBridgeSettingsPage() }
-        tabs = MacBridgeSettingsTabs(Array(zip(["Wi-Fi","USB 配对","固件升级","语音","传输测速"],pages)))
+        pages = (0..<4).map { _ in MacBridgeSettingsPage() }
+        tabs = MacBridgeSettingsTabs(Array(zip(["Wi-Fi","USB 配对","固件升级","传输测速"],pages)))
         let body = NSView(); connection.translatesAutoresizingMaskIntoConstraints = false; tabs.translatesAutoresizingMaskIntoConstraints = false; body.addSubview(connection); body.addSubview(tabs)
         NSLayoutConstraint.activate([connection.leadingAnchor.constraint(equalTo:body.leadingAnchor,constant:24),connection.trailingAnchor.constraint(equalTo:body.trailingAnchor,constant:-24),connection.topAnchor.constraint(equalTo:body.topAnchor,constant:20),tabs.leadingAnchor.constraint(equalTo:body.leadingAnchor),tabs.trailingAnchor.constraint(equalTo:body.trailingAnchor),tabs.topAnchor.constraint(equalTo:connection.bottomAnchor,constant:12),tabs.bottomAnchor.constraint(equalTo:body.bottomAnchor)])
         window.contentView = MacBridgeSettingsShell(body:body,status:result)
-        let wifi = pages[0], pairing = pages[1], firmware = pages[2], audio = pages[3], benchmark = pages[4]
+        let wifi = pages[0], pairing = pages[1], firmware = pages[2], benchmark = pages[3]
         wifi.section("已保存的 Wi-Fi"); wifi.add(saved); saved.heightAnchor.constraint(equalToConstant:120).isActive = true
         wifi.add(row([("刷新",#selector(refreshNetworks)),("新增",#selector(addNetwork)),("删除所选",#selector(forgetNetwork))]))
         let fields = NSGridView(views:[[NSTextField(labelWithString:"Wi-Fi 名称"),ssid],[NSTextField(labelWithString:"备注"),label],[NSTextField(labelWithString:"新密码"),password]])
@@ -41,7 +41,6 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
         firmware.section("固件升级"); firmware.add(status)
         firmware.add(row([("开始升级",#selector(startUpgrade)),("选择固件…",#selector(selectFirmware)),("停止提供",#selector(clearFirmware))]))
         firmware.add(button("核验启动",#selector(verifyBoot))); firmware.section("更新说明"); firmware.add(notes)
-        audio.section("语音输入"); audio.add(MacBridgeSettingsStyle.note("识别后在 TAB5 检查，再手动发送。")); audio.add(button("语音设置…",#selector(openVoice)))
         benchmark.add(benchmarkMode); benchmarkMode.target = self; benchmarkMode.action = #selector(updateBenchmarkHint)
         stopButton = NSButton(title:"停止",target:self,action:#selector(stopBenchmark)); stopButton.isEnabled = false
         benchmark.add(MacBridgeSettingsStyle.row([button("开始测速",#selector(startBenchmark)),stopButton])); benchmark.add(benchmarkHint)
@@ -95,7 +94,6 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
     }
     @objc private func pair() { guard let path = ports.titleOfSelectedItem else { result.stringValue = "请连接 USB 后刷新。"; return }; guard begin("正在 USB 配对…") else { return }; usb.pair(path:path) { [weak self] outcome in DispatchQueue.main.async { self?.finish(outcome,"配对已完成。"); if case .success = outcome { self?.refreshNetworks() } } } }
     @objc private func firstInstall() { guard !busy, canBegin() else { return }; install() }
-    @objc private func openVoice() { voice() }
     @objc private func toggleBluetooth(_ sender:NSButton) { guard !busy, canBegin() else { sender.state = sender.state == .on ? .off:.on; return }; UserDefaults.standard.set(sender.state == .on,forKey:MacTab5BLE.enabledKey); changeBluetooth(sender.state == .on) }
     @objc private func updateBenchmarkHint() { benchmarkHint.stringValue = benchmarkMode.indexOfSelectedItem == 0 ? "8 个独立样本，包含传输、校验和写卡；原图库保留。请先安装名画和书法图库，并连接 USB 读取结果。":"比较各可用通道的上传和下载速度，不写入 TF 卡。USB 用于控制和读取结果。" }
     private func renderBenchmark() { benchmarkResult.stringValue = MacTab5Benchmark.format(benchmarkValue,details:expanded) }

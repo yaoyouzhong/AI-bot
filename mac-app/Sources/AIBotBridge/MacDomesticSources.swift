@@ -76,7 +76,7 @@ enum MacDomesticSources {
             if let a = date(row[start]), let b = date(row[end]) { let seconds = b.timeIntervalSince(a); if seconds > 0, seconds <= 2147483647, seconds.rounded() == seconds { return (b,Int64(seconds)) } }
         }; return (nil,nil)
     }
-    static func parse(_ provider: String, mode: String, bytes: Data, package: String = "", now: Date = Date()) throws -> DomesticProviderQuotaSnapshot {
+    static func parse(_ provider: String, mode: String, bytes: Data, package: String = "", now: Date = Date(), capturePath: String? = nil) throws -> DomesticProviderQuotaSnapshot {
         guard bytes.count <= 1048576, let root = try JSONSerialization.jsonObject(with:bytes) as? [String:Any] else { throw MacDomesticQuotaParser.Failure.invalid }
         let data = root["data"] as? [String:Any] ?? [:], nodes = objects(root)
         let num = MacDomesticQuotaParser.number
@@ -155,7 +155,15 @@ enum MacDomesticSources {
         case "xiaomi":
             if let code = root["code"], !["0","200"].contains(String(describing:code)) { throw MacDomesticQuotaParser.Failure.invalid }
             if let success = root["success"], !MacTab5Protocol.isBoolean(success) || success as? Bool != true { throw MacDomesticQuotaParser.Failure.invalid }
-            let row = root["data"] as? [String:Any] ?? root; var candidates: [Double] = []
+            let row = try mimoRow(root); var candidates: [Double] = []
+            if row["name"] != nil, row["percent"] != nil {
+                candidates.append(try number(row["percent"]) * 100)
+                if row["used"] != nil || row["limit"] != nil {
+                    let used = try number(row["used"]), limit = try number(row["limit"])
+                    guard limit > 0, used >= 0, used <= limit else { throw MacDomesticQuotaParser.Failure.invalid }
+                    candidates.append(used / limit * 100)
+                }
+            }
             for key in ["usagePercent","usedPercent"] { if row[key] != nil { candidates.append(try percent(row[key])) } }
             for key in ["usageRate","usedRate"] { if row[key] != nil { candidates.append(try number(row[key])*100) } }
             if row["totalCredits"] != nil || row["usedCredits"] != nil || row["remainingCredits"] != nil {
@@ -166,7 +174,11 @@ enum MacDomesticSources {
             guard let first = candidates.first, candidates.allSatisfy({ $0.isFinite && (0...100).contains($0) && abs($0-first) <= 0.1 }) else { throw MacDomesticQuotaParser.Failure.invalid }
             let period = bounds(row); var value = quota("MiMo Token Plan",planPercent:first,planReset:date(row["resetAt"] ?? row["resetTime"]) ?? period.0); value.planWindowSeconds = period.1; return value
         case "zhipu":
-            if mode == "console" { return try MacDomesticQuotaParser.zhipu(bytes,now:now) }
+            if mode == "console" {
+                let path = capturePath ?? MacDomesticQuotaParser.zhipuLegacyPath
+                guard MacDomesticQuotaParser.zhipuPaths.contains(path) else { throw MacDomesticQuotaParser.Failure.invalid }
+                return try MacDomesticQuotaParser.zhipu(bytes,now:now,financeOverview:path == MacDomesticQuotaParser.zhipuOverviewPath)
+            }
             guard root["success"] as? Bool == true, root["code"] == nil || String(describing:root["code"]!) == "200", let limits = data["limits"] as? [[String:Any]] else { throw MacDomesticQuotaParser.Failure.invalid }
             var primary: Double?, weekly: Double?, pReset: Date?, wReset: Date?, seconds: Int64?
             for row in limits where row["type"] as? String == "TOKENS_LIMIT" {
@@ -177,19 +189,7 @@ enum MacDomesticSources {
             guard primary != nil || weekly != nil else { throw MacDomesticQuotaParser.Failure.invalid }
             var value = quota("GLM Coding Plan",primary:primary,primaryReset:pReset,weekly:weekly,weeklyReset:wReset); value.primaryWindowSeconds = seconds; value.weeklyWindowSeconds = weekly == nil ? nil:604800; return value
         case "minimax":
-            func window(_ row: [String:Any], _ prefixes: [String]) throws -> Double? {
-                for prefix in prefixes {
-                    for suffix in ["_used_percent","_usage_percent","_usedPercent"] { if row[prefix+suffix] != nil { return try percent(row[prefix+suffix]) } }
-                    for suffix in ["_remaining_percent","_remains_percent","_remainingPercent"] { if row[prefix+suffix] != nil { return 100 - (try percent(row[prefix+suffix])) } }
-                    if let total = num(row[prefix+"_total"] ?? row[prefix+"_total_count"]), total > 0, let left = num(row[prefix+"_remaining"] ?? row[prefix+"_remains_count"]), left >= 0, left <= total { return (total-left)/total*100 }
-                }; return nil
-            }
-            func reset(_ v: Any?) -> Date? { guard let ms = num(v), (0...691200000).contains(ms) else { return nil }; return now.addingTimeInterval(ms/1000) }
-            for row in nodes { if let weekly = try window(row,["current_weekly","weekly"]) {
-                var value = quota(row["combo_name"] as? String ?? row["plan_name"] as? String ?? "MiniMax Token Plan",primary:try window(row,["current_interval","interval","five_hour"]),primaryReset:reset(row["remains_time"] ?? row["interval_remains_time"]),weekly:weekly,weeklyReset:reset(row["weekly_remains_time"]))
-                let shortWindow = ((row["current_interval"] ?? row["interval"]) as? [String:Any])?["window"], weekWindow = ((row["current_weekly"] ?? row["weekly"]) as? [String:Any])?["window"]
-                value.primaryWindowSeconds = value.primaryPercent == nil ? nil : shortWindow == nil ? 18000:windowSeconds(shortWindow); value.weeklyWindowSeconds = weekWindow == nil ? 604800:windowSeconds(weekWindow); return value
-            } }; throw MacDomesticQuotaParser.Failure.invalid
+            return try MacMiniMaxQuota.parse(root:root,rows:nodes,now:now)
         case "kimi":
             if mode == "balance" { guard num(root["code"]) == 0, root["status"] as? Bool == true else { throw MacDomesticQuotaParser.Failure.invalid }; return quota("Moonshot API 余额",balance:try number(data["available_balance"]),currency:"CNY") }
             if mode == "local", data["kind"] as? String != "ok" { throw MacDomesticQuotaParser.Failure.invalid }
@@ -207,5 +207,19 @@ enum MacDomesticSources {
             guard primary != nil || weekly != nil else { throw MacDomesticQuotaParser.Failure.invalid }; var result = quota("Kimi Coding Plan",primary:primary,primaryReset:pReset,weekly:weekly,weeklyReset:wReset); result.primaryWindowSeconds = seconds; result.weeklyWindowSeconds = weekly == nil ? nil:604800; return result
         default: throw MacDomesticQuotaParser.Failure.invalid
         }
+    }
+    private static func mimoRow(_ root: [String:Any]) throws -> [String:Any] {
+        guard root["data"] == nil || root["data"] is [String:Any] else { throw MacDomesticQuotaParser.Failure.invalid }
+        let data = root["data"] as? [String:Any] ?? root
+        guard data["usage"] != nil else { return data }
+        guard let usage = data["usage"] as? [String:Any], let items = usage["items"] as? [[String:Any]] else { throw MacDomesticQuotaParser.Failure.invalid }
+        var selected: [String:Any]?
+        for item in items {
+            guard let name = item["name"] as? String, !name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else { throw MacDomesticQuotaParser.Failure.invalid }
+            if name == "compensation_total_token" { continue }
+            guard selected == nil, item["percent"] != nil else { throw MacDomesticQuotaParser.Failure.invalid }
+            selected = item
+        }
+        guard let selected else { throw MacDomesticQuotaParser.Failure.invalid }; return selected
     }
 }

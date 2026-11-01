@@ -92,6 +92,8 @@ enum MacParityValidation {
         try check("MiMo plan",mimo.planPercent == 20 && mimo.balance == nil)
         try rejects("MiMo conflicting counters") { _ = try MacDomesticSources.parse("xiaomi",mode:"console",bytes:json(["data":["usagePercent":20,"usedRate":0.9]])) }
         try rejects("GLM failure cannot replace cache") { _ = try MacDomesticSources.parse("zhipu",mode:"plan",bytes:json(["success":false,"data":["limits":[]]])) }
+        checked += try MacDomesticContractValidation.run()
+        checked += try MacVoiceEnvironmentValidation.run()
         let local = try MacDomesticSources.request("kimi",.init(mode:"local",key:"fixture",port:5494))
         try check("local token only loopback",local.url?.host == "127.0.0.1" && local.url?.port == 5494)
         let glmRequest = try MacDomesticSources.request("zhipu",.init(mode:"plan",key:"fixture"))
@@ -166,7 +168,9 @@ enum MacParityValidation {
         checked += try MacCodexReadStateValidation.run(root: root.appendingPathComponent("read-sync"))
         checked += try MacCodexDirectValidation.run(root: root.appendingPathComponent("codex-direct"))
         checked += try MacCodexQuestionValidation.run(root: root.appendingPathComponent("codex-question"))
+        checked += try MacDesktopAlignmentValidation.run(root: root.appendingPathComponent("desktop-alignment"))
         checked += try MacVoiceSourceValidation.run()
+        checked += try MacVoiceMicrophoneValidation.run()
         checked += try MacDoubaoBackgroundValidation.run()
         checked += try MacTab5OTATransferValidation.run()
         checked += try MacVNCUnlockValidation.run()

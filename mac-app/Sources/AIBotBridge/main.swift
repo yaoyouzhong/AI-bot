@@ -1,5 +1,25 @@
 import AppKit
 
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--check-codex-delivery-baseline" {
+    do { try MacCodexBaselineCheck.run(URL(fileURLWithPath: CommandLine.arguments[2])); exit(0) }
+    catch { fputs("Codex read-only delivery baseline incomplete; no submission attempted.\n", stderr); exit(1) }
+}
+
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--check-voice-metadata" {
+    do { try MacVoiceMetadataCheck.run(URL(fileURLWithPath: CommandLine.arguments[2])); exit(0) }
+    catch { fputs("Voice metadata check incomplete; no settings changed.\n", stderr); exit(1) }
+}
+
+if Array(CommandLine.arguments.dropFirst()) == ["--self-test-domestic-capture"] {
+    do { let count = try MacDomesticCaptureValidation.run(); print("MAC_DOMESTIC_CAPTURE_OK \(count) checks; offscreen synthetic WebKit only"); exit(0) }
+    catch { fputs("Domestic capture check failed: \(error)\n", stderr); exit(1) }
+}
+
+if Array(CommandLine.arguments.dropFirst()) == ["--self-test-domestic-contract"] {
+    do { let count = try MacDomesticContractValidation.run(); print("MAC_DOMESTIC_CONTRACT_OK \(count) checks; synthetic payloads and isolated cache only"); exit(0) }
+    catch { fputs("Domestic contract check failed: \(error)\n", stderr); exit(1) }
+}
+
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--render-task-recovery-ui" {
     do { try MacTab5DeliveryRecoveryAlert.render(URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)); exit(0) }
     catch { fputs("Recovery UI render failed.\n", stderr); exit(1) }

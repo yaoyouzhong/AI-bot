@@ -51,7 +51,7 @@ final class MacTab5InteractionDiagnostics {
             let allowed = ["image_inputs_unavailable", "desktop_owner_unavailable", "desktop_read_timeout",
                            "desktop_read_unavailable", "desktop_version_unsupported", "codex_catalog_stale",
                            "codex_or_private_storage_unavailable", "delivery_unknown", "invalid_request",
-                           "task_busy_or_state_unknown", "task_waiting_for_input", "codex_send_not_enabled", "composer_changed", "desktop_draft_present", "desktop_attachments_present", "desktop_photo_append_unsupported", "pending_delivery_changed", "turn_changed", "receipt_not_found", "request_id_conflict", "desktop_result_unknown", "desktop_foreground_unconfirmed", "desktop_steer_requires_expected_turn_support", "codex_read_only_connection"]
+                           "task_busy_or_state_unknown", "task_waiting_for_input", "codex_send_not_enabled", "composer_changed", "delivery_baseline_unavailable", "desktop_storage_unavailable", "native_submit_unavailable", "conversation_target_or_text_changed", "question_target_or_text_changed", "desktop_draft_present", "desktop_attachments_present", "desktop_photo_append_unsupported", "pending_delivery_changed", "turn_changed", "receipt_not_found", "request_id_conflict", "desktop_result_unknown", "desktop_foreground_unconfirmed", "desktop_steer_requires_expected_turn_support", "codex_read_only_connection"]
             entries[index].outcome = allowed.contains(code) ? code : "未确认"
         }
         if entries[index].codex { localDiagnostics?.request(entries[index].label, status: status, outcome: entries[index].outcome) }

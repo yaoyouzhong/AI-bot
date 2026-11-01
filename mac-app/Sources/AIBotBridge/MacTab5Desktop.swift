@@ -18,11 +18,15 @@ struct MacTab5DesktopBackend {
     var focusComposer: ((String) -> Bool)? = nil
     var target: ((String) -> String?)? = nil
     var writeTarget: ((String, String, String, String) -> String?)? = nil
-    var submitQuestion: ((String, String, String) -> Bool)? = nil
+    var submitQuestion: ((String, String, String) -> MacTab5DesktopSubmission)? = nil
     var submitComposer: ((String, String) -> MacTab5DesktopSubmission)? = nil
     var attachmentFree: ((String) -> Bool)? = nil
     var appendEvidence: () -> String = { "" }
     var navigationMetadata: () -> String = { "" }
+    // An opaque process-local editor identity is separate from the target kind.
+    var identity: ((String) -> String?)? = nil
+    var writeBoundTarget: ((String, String, String, String, String) -> String?)? = nil
+    var submitBound: ((String, String, String, String) -> MacTab5DesktopSubmission)? = nil
 }
 
 enum MacTab5DesktopCheck: String {
@@ -57,6 +61,8 @@ enum MacTab5DesktopCheck: String {
     case submitUsed = "发送未执行：这份回填记录已经使用，请先检查电脑"
     case submitExpired = "发送未执行：回填记录已过期"
     case submitParagraph = "发送未执行：输入框末尾换行表示与回填快照不同"
+    case submitStorage = "发送未执行：加密回执暂不可用，电脑草稿已保留"
+    case deliveryBaseline = "发送未执行：送达基线尚未完整读取，请保留草稿后重试"
     case submitConnection = "发送未执行：桌面任务连接当前不可写"
     case submitRejected = "任务连接拒绝了发送，请保留并检查电脑草稿"
     case submitUnknown = "任务发送结果未确认，请检查电脑，不要重复发送"
@@ -107,14 +113,14 @@ final class MacTab5Desktop {
     // Editing and submission still persist encrypted receipts before acting.
     private var navigationReceipts: [String: Any] = [:]
     private var located = Set<String>()
-    private var voiceTargets: [String: (key: String, time: TimeInterval)] = [:]
+    private var voiceTargets: [String: (key: String, editor: String?, time: TimeInterval)] = [:]
     func prepareVoice(task: String, device: String) {
         guard enabled(), codex.isEnabled, let target = backend.target else { return }
         lock.lock(); defer { lock.unlock() }
         let binding = device + "|" + task
         guard located.contains(binding) else { return }
         voiceTargets = voiceTargets.filter { ProcessInfo.processInfo.systemUptime - $0.value.time < 120 }
-        voiceTargets[binding] = (target(task) ?? "unavailable", ProcessInfo.processInfo.systemUptime)
+        voiceTargets[binding] = (target(task) ?? "unavailable", backend.identity?(task), ProcessInfo.processInfo.systemUptime)
     }
 
     var summary: String {
@@ -155,7 +161,8 @@ final class MacTab5Desktop {
             submitFailed(check, navigation: navigation)
             throw MacCodexDesktopError.rejected(navigation ? "desktop_foreground_unconfirmed" :
                 check == .taskAppendDraft ? "desktop_draft_present" :
-                check == .taskAppendAttachments ? "desktop_attachments_present" : "composer_changed")
+                check == .taskAppendAttachments ? "desktop_attachments_present" :
+                check == .deliveryBaseline ? "delivery_baseline_unavailable" : "composer_changed")
         }
         guard enabled(), authorized(), backend.preflight() == nil,
               let submit = backend.submitComposer, !text.isEmpty else { try reject() }
@@ -168,30 +175,43 @@ final class MacTab5Desktop {
             Thread.sleep(forTimeInterval: 0.1)
         }
         guard backend.focusComposer?(task) == true, backend.target?(task) == "main" else { try reject() }
+        let editor = backend.identity?(task)
+        guard backend.identity == nil || editor != nil else { try reject() }
         guard let previous = backend.read(task) else { try reject() }
         guard previous.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { try reject(.taskAppendDraft) }
         guard backend.attachmentFree?(task) == true, authorized() else { try reject() }
-        guard let staged = backend.write(task, previous, text) else {
+        // Task-page append requires complete evidence before even staging text.
+        guard let baseline = codex.desktopSubmissionReceipt(task: task, expected: text),
+              baseline.queue != nil, baseline.serverQueue != nil else { try reject(.deliveryBaseline) }
+        guard authorized(), backend.target?(task) == "main", backend.read(task) == previous,
+              backend.identity == nil || backend.identity?(task) == editor else { try reject() }
+        let observed = editor.flatMap { backend.writeBoundTarget?(task, "main", $0, previous, text) } ??
+            (backend.writeBoundTarget == nil ? backend.write(task, previous, text) : nil)
+        guard let staged = observed else {
             // A failed readback does not prove no write occurred.
             throw MacCodexDesktopError.deliveryUnknown
         }
-        let baseline = codex.desktopSubmissionReceipt(task: task, expected: staged)
-        if let baseline { captureBaseline(baseline) }
+        guard baseline.textDigest == MacTab5Protocol.sha256(Data(MacCodexSubmissionReceipt.paragraphText(staged).utf8)) else {
+            throw MacCodexDesktopError.deliveryUnknown
+        }
+        captureBaseline(baseline)
         guard authorized(), backend.target?(task) == "main",
+              backend.identity == nil || backend.identity?(task) == editor,
               backend.attachmentFree?(task) == true else { try reject() }
-        switch submit(task, staged) {
+        let submitted = editor.flatMap { backend.submitBound?(task, "main", $0, staged) } ??
+            (backend.submitBound == nil ? submit(task, staged) : .notReady)
+        switch submitted {
         case .notReady: try reject()
-        case .confirmed: updateStatus(.composerSubmitted)
-        case .unconfirmed:
-            if let baseline {
-                for attempt in 0..<2 {
-                    if let after = codex.desktopSubmissionReceipt(task: task, expected: staged),
-                       after.confirms(after: baseline) || after.confirmsQueue(after: baseline) {
-                        updateStatus(after.confirms(after: baseline) ? .messageAccepted : .messageQueued)
-                        return
-                    }
-                    if attempt == 0 { Thread.sleep(forTimeInterval: 0.15) }
+        case .confirmed, .unconfirmed:
+            // Composer clearing is only a local response. The task page reports
+            // delivery only after a new accepted message or durable queue entry.
+            for attempt in 0..<2 {
+                if let after = codex.desktopSubmissionReceipt(task: task, expected: staged),
+                   after.confirms(after: baseline) || after.confirmsQueue(after: baseline) {
+                    updateStatus(after.confirms(after: baseline) ? .messageAccepted : .messageQueued)
+                    return
                 }
+                if attempt == 0 { Thread.sleep(forTimeInterval: 0.15) }
             }
             submitFailed(.submitUnknown)
             throw MacCodexDesktopError.deliveryUnknown
@@ -205,6 +225,7 @@ final class MacTab5Desktop {
         let tasks = codex.snapshot()?["tasks"] as? [[String: Any]] ?? []
         guard let task = MacTab5Codex.id(root["taskId"] ?? tasks.first?["id"]), let entry = tasks.first(where: { $0["id"] as? String == task }) else { return .error(404, "task_not_in_recent_catalog") }
         guard codex.contains(task) else { return .error(503, "codex_catalog_stale") }
+        var attemptedSubmission = false
         do {
             let binding = device + "|" + task, text = root["text"] as? String ?? "", draftID = root["draftRequestId"] as? String ?? ""
             let fingerprint = MacTab5Protocol.sha256(try MacTab5Protocol.json(["binding": binding, "op": op, "text": text, "draft": draftID]))
@@ -212,23 +233,28 @@ final class MacTab5Desktop {
             var records = op == "open-recent" ? navigationReceipts : try codex.store.read("desktop-receipts").map(MacTab5Protocol.object) ?? [:]
             if let record = records[id] as? [String: Any] { return record["fingerprint"] as? String == fingerprint ? .init(record["status"] as? Int ?? 504, record["body"] as? [String: Any] ?? [:]) : .error(409, "request_id_conflict") }
             let stageTarget = op == "stage-draft" ? backend.target?(task) : nil
+            let stageEditor = op == "stage-draft" ? backend.identity?(task) : nil
             if op == "stage-draft", backend.target != nil {
-                guard let stageTarget else {
+                guard let stageTarget, backend.identity == nil || stageEditor != nil else {
                     stageFailed(backend.diagnostic()); return .error(503, "composer_not_ready")
                 }
                 let captured = voiceTargets[binding]
                 guard captured == nil ||
-                    (ProcessInfo.processInfo.systemUptime - captured!.time < 120 && captured!.key == stageTarget) else {
+                    (ProcessInfo.processInfo.systemUptime - captured!.time < 120 && captured!.key == stageTarget &&
+                     (backend.identity == nil || captured!.editor == stageEditor)) else {
                     stageFailed(.questionChanged); return .error(503, "composer_not_ready")
                 }
             }
-            if op == "submit-draft", !codex.prepareMutation(task: task) { submitFailed(.submitConnection); return .error(403, "codex_read_only_connection") }
+            if op == "submit-draft", !codex.prepareMutation(task: task) { submitFailed(.submitConnection); return .init(403, ["taskId": task, "submitted": false, "attempted": false, "error": "codex_read_only_connection"]) }
             func saveRecords() throws {
                 if op == "open-recent" { navigationReceipts = records }
                 else { try codex.store.write("desktop-receipts", MacTab5Protocol.json(records)) }
             }
             guard records.count < 2048, text.utf8.count <= 2000 else { return .error(429, "desktop_receipt_capacity") }
             var record: [String: Any] = ["binding": binding, "fingerprint": fingerprint, "status": 504, "body": ["error": "desktop_result_unknown"], "createdAt": Date().timeIntervalSince1970]
+            if op == "submit-draft" {
+                record["body"] = ["taskId": task, "submitted": false, "attempted": true, "error": "desktop_result_unknown"]
+            }
             records[id] = record; try saveRecords()
             var result: MacTab5RPCResult
             var body = entry; body.removeValue(forKey: "id"); body["taskId"] = task; body["requestId"] = id
@@ -288,6 +314,9 @@ final class MacTab5Desktop {
                     // Keep existing and recognized text exact; only our join changes.
                     let combined = empty ? text : current + " " + text
                     func write() -> String? {
+                        if let target, let identity = stageEditor, let write = backend.writeBoundTarget {
+                            return write(task, target, identity, current, combined)
+                        }
                         if let target, let write = backend.writeTarget { return write(task, target, current, combined) }
                         return backend.write(task, current, combined)
                     }
@@ -295,7 +324,7 @@ final class MacTab5Desktop {
                         // Question answers belong only to the encrypted desktop
                         // receipt, never the ordinary conversation draft store.
                         let saved = question ? MacTab5RPCResult(200, [:]) : codex.handle(["op": "draft-save", "taskId": task, "requestId": id, "message": observed], device: device)
-                        if saved.status == 200 { updateStatus(backend.diagnostic() == .caretUnconfirmed ? .caretUnconfirmed : question ? .questionConfirmed : .confirmed); record["target"] = target; record["stagedText"] = observed; record["stage"] = true; body["staged"] = true; body["appended"] = !empty; result = .init(200, body) }
+                        if saved.status == 200 { updateStatus(backend.diagnostic() == .caretUnconfirmed ? .caretUnconfirmed : question ? .questionConfirmed : .confirmed); record["target"] = target; record["editorIdentity"] = stageEditor; record["stagedText"] = observed; record["stage"] = true; body["staged"] = true; body["appended"] = !empty; result = .init(200, body) }
                         else { result = saved }
                     } else { stageFailed(combined.utf8.count > 2000 ? .tooLong : backend.diagnostic()); result = .error(409, "composer_changed") }
                 } else { stageFailed(backend.diagnostic()); result = .error(503, "composer_not_ready") }
@@ -312,54 +341,71 @@ final class MacTab5Desktop {
                           let staged = draft["stagedText"] as? String, !staged.isEmpty else { submitFailed(.submitReceipt); return .error(409, "composer_changed") }
                     guard draft["stage"] as? Bool == true else { submitFailed(.submitUsed); return .error(409, "composer_changed") }
                     guard let created = draft["createdAt"] as? Double, Date().timeIntervalSince1970 - created <= 900 else { submitFailed(.submitExpired); return .error(409, "composer_changed") }
-                    let target = draft["target"] as? String
-                    guard backend.target == nil || (target != nil && backend.target?(task) == target) else {
-                        submitFailed(.questionChanged); return .error(409, "composer_changed")
+                    let target = draft["target"] as? String, identity = draft["editorIdentity"] as? String
+                    func rejected(_ check: MacTab5DesktopCheck) -> MacTab5RPCResult {
+                        submitFailed(check)
+                        let changed = [MacTab5DesktopCheck.changed, .questionChanged, .submitParagraph, .tooLong].contains(check)
+                        let error = changed ? (target?.hasPrefix("question:") == true ? "question_target_or_text_changed" : "conversation_target_or_text_changed") :
+                            check == .taskAppendAttachments ? "desktop_attachments_present" : "native_submit_unavailable"
+                        return .error(409, error)
                     }
-                    guard let current = backend.read(task) else { submitFailed(backend.diagnostic()); return .error(409, "composer_changed") }
-                    guard current == staged else {
-                        submitFailed(MacTab5DesktopAX.matchesReadback(current, expected: staged) ? .submitParagraph : .changed)
-                        return .error(409, "composer_changed")
+                    guard backend.target == nil || (target != nil && backend.target?(task) == target),
+                          backend.identity == nil || (identity != nil && backend.identity?(task) == identity) else {
+                        return rejected(.questionChanged)
                     }
-                    let baseline = target == "main" && backend.submitComposer != nil ? codex.desktopSubmissionReceipt(task: task, expected: staged) : nil
-                    // Consume before touching the composer. A repeated click can
-                    // only query this delivery receipt, never send another turn.
+                    guard let current = backend.read(task) else { return rejected(backend.diagnostic()) }
+                    // A bound editor may contain the user's latest correction. Freeze
+                    // it now; native code must still match this text and identity.
+                    // Old adapters without target binding keep exact staging checks.
+                    guard !current.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                          current.utf8.count <= 2000 else {
+                        return rejected(current.utf8.count > 2000 ? .tooLong : .changed)
+                    }
+                    if backend.target == nil, current != staged {
+                        return rejected(MacTab5DesktopAX.matchesReadback(current, expected: staged) ? .submitParagraph : .changed)
+                    }
+                    if target == "main", let attachmentFree = backend.attachmentFree, !attachmentFree(task) {
+                        return rejected(backend.diagnostic())
+                    }
+                    let baseline = target == "main" && backend.submitComposer != nil ? codex.desktopSubmissionReceipt(task: task, expected: current) : nil
                     var consumed = draft; consumed["stage"] = false; records[draftID.lowercased()] = consumed
                     try codex.store.write("desktop-receipts", MacTab5Protocol.json(records))
-                    if let target, target.hasPrefix("question:") {
-                        guard backend.submitQuestion?(task, target, staged) == true else {
-                            submitFailed(.submitUnknown); return .error(504, "desktop_result_unknown")
-                        }
-                        updateStatus(.questionSubmitted); body["submitted"] = true; return .init(200, body)
-                    }
-                    if let nativeSubmit = backend.submitComposer {
-                        switch nativeSubmit(task, staged) {
-                        case .notReady:
-                            submitFailed(backend.diagnostic()); return .error(409, "composer_changed")
+                    let question = target?.hasPrefix("question:") == true
+                    let native: MacTab5DesktopSubmission?
+                    if let target, let identity, let submit = backend.submitBound { native = submit(task, target, identity, current) }
+                    else if question { native = backend.submitQuestion?(task, target!, current) ?? .notReady }
+                    else { native = backend.submitComposer?(task, current) }
+                    if let native {
+                        attemptedSubmission = native != .notReady
+                        switch native {
+                        case .notReady: return rejected(backend.diagnostic())
                         case .unconfirmed:
                             let failure = backend.diagnostic()
                             if let baseline {
-                                // Read-only reconciliation with new accepted input;
-                                // never issue another native press or IPC send.
                                 for attempt in 0..<2 {
-                                    if let after = codex.desktopSubmissionReceipt(task: task, expected: staged),
+                                    if let after = codex.desktopSubmissionReceipt(task: task, expected: current),
                                        after.confirms(after: baseline) || after.confirmsQueue(after: baseline) {
                                         let cleared = codex.clearSubmittedDesktopDraft(task: task, device: device, expected: staged)
                                         if after.confirms(after: baseline) { updateStatus(cleared ? .messageAccepted : .messageAcceptedDraftPending) }
                                         else { updateStatus(cleared ? .messageQueued : .messageQueuedDraftPending) }
-                                        body["submitted"] = true; return .init(200, body)
+                                        body["submitted"] = true; body["attempted"] = true; return .init(200, body)
                                     }
                                     if attempt == 0 { Thread.sleep(forTimeInterval: 0.15) }
                                 }
                             }
                             submitFailed(failure); return .error(504, "desktop_result_unknown")
                         case .confirmed:
-                            let cleared = codex.clearSubmittedDesktopDraft(task: task, device: device, expected: staged)
-                            updateStatus(cleared ? .composerSubmitted : .composerSubmittedDraftPending)
-                            body["submitted"] = true; return .init(200, body)
+                            if question { updateStatus(.questionSubmitted) }
+                            else {
+                                // Clear only the original device mirror, never a later draft.
+                                let cleared = codex.clearSubmittedDesktopDraft(task: task, device: device, expected: staged)
+                                updateStatus(cleared ? .composerSubmitted : .composerSubmittedDraftPending)
+                            }
+                            body["submitted"] = true; body["attempted"] = true; return .init(200, body)
                         }
                     }
                     if let cleared = backend.write(task, staged, "") {
+                        attemptedSubmission = true
                         let sent = codex.handle(["op": "send", "taskId": task, "requestId": id, "message": staged], device: device)
                         if sent.status == 202 { updateStatus(.submitted); body["submitted"] = true; return .init(200, body) }
                         _ = backend.write(task, cleared, staged)
@@ -368,11 +414,24 @@ final class MacTab5Desktop {
                     submitFailed(backend.diagnostic()); return .error(409, "composer_changed")
                 }
                 result = try submit()
+                if result.status != 200 {
+                    var failure = result.body
+                    failure["taskId"] = task; failure["submitted"] = false
+                    failure["attempted"] = result.status == 504
+                    result = .init(result.status, failure)
+                }
             }
             if op == "submit-draft", result.status == 200 { codex.recordUserInteraction(task) }
             record["status"] = result.status; record["body"] = result.body; records[id] = record
             try saveRecords(); return result
-        } catch { return .error(504, "desktop_result_unknown") }
+        } catch {
+            guard op == "submit-draft" else { return .error(504, "desktop_result_unknown") }
+            if !attemptedSubmission {
+                submitFailed(.submitStorage)
+                return .init(409, ["taskId": task, "submitted": false, "attempted": false, "error": "desktop_storage_unavailable"])
+            }
+            return .init(504, ["taskId": task, "submitted": false, "attempted": true, "error": "desktop_result_unknown"])
+        }
     }
 }
 
@@ -387,7 +446,11 @@ enum MacTab5DesktopAX {
     private static func note(_ check: MacTab5DesktopCheck) { diagnosticLock.lock(); lastCheck = check; diagnosticLock.unlock() }
     private static func diagnostic() -> MacTab5DesktopCheck { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastCheck }
     private static func evidence() -> String { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return lastEvidence }
-    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: { write($0, $1, $2, target: "main") }, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }, navigation: navigation, evidence: evidence, openOnly: openOnly, focusComposer: focusComposer, target: target, writeTarget: { write($0, $2, $3, target: $1) }, submitQuestion: submitQuestion, submitComposer: submitComposer, attachmentFree: attachmentFree, appendEvidence: appendEvidence, navigationMetadata: navigationMetadata) }
+    static var backend: MacTab5DesktopBackend { .init(open: { task in MacTab5ComputerPlatform.main { guard let url = URL(string: "codex://threads/" + task) else { return false }; return NSWorkspace.shared.open(url) } }, read: read, write: { write($0, $1, $2, target: "main") }, diagnostic: diagnostic, preflight: { AXIsProcessTrusted() ? nil : .permission }, navigation: navigation, evidence: evidence, openOnly: openOnly, focusComposer: focusComposer, target: target, writeTarget: { write($0, $2, $3, target: $1) }, submitQuestion: { submitQuestion($0, $1, $2) }, submitComposer: { submitComposer($0, $1) }, attachmentFree: attachmentFree, appendEvidence: appendEvidence, navigationMetadata: navigationMetadata,
+        identity: editorIdentity, writeBoundTarget: { write($0, $3, $4, target: $1, identity: $2) },
+        submitBound: { task, target, identity, text in
+            target.hasPrefix("question:") ? submitQuestion(task, target, text, identity: identity) : submitComposer(task, text, identity: identity)
+        }) }
     private static func openOnly(_ task: String) -> Bool {
         // Windows allows an app-foreground acknowledgment for open-only when
         // titles are ambiguous. Do not call this proof of the exact document,
@@ -834,7 +897,7 @@ enum MacTab5DesktopAX {
         guard let editor else { note(scanFailure ?? rejection ?? .structure); return nil }
         return editor
     }
-    private static func target(_ task: String) -> String? {
+    private static func targetEditor(_ task: String) -> AXUIElement? {
         guard AXIsProcessTrusted() else { note(.permission); return nil }
         guard let app = MacTab5ComputerPlatform.main({ NSWorkspace.shared.frontmostApplication }),
               app.bundleIdentifier == "com.openai.codex" else { note(.frontmost); return nil }
@@ -843,26 +906,46 @@ enum MacTab5DesktopAX {
         let window = unsafeBitCast(raw, to: AXUIElement.self)
         guard (value(window, "AXSheets") as? [AXUIElement] ?? []).isEmpty else { note(.route); return nil }
         guard let editor = findTarget(task, window: window, app: app, root: root) else { return nil }
-        guard let key = targetKey(editor) else { note(.questionChanged); return nil }
+        return editor
+    }
+    private static func target(_ task: String) -> String? {
+        guard let editor = targetEditor(task), let key = targetKey(editor) else { note(.questionChanged); return nil }
         return key
     }
-    private static func submitQuestion(_ task: String, _ expectedTarget: String, _ expectedText: String) -> Bool {
+    private struct EditorBinding {
+        let task: String, editor: AXUIElement
+    }
+    private static let bindingLock = NSLock()
+    private static var editorBindings: [(String, EditorBinding)] = []
+    private static func editorIdentity(_ task: String) -> String? {
+        // Capture the preferred question/main editor even before it has focus.
+        guard let editor = targetEditor(task) else { return nil }
+        bindingLock.lock(); defer { bindingLock.unlock() }
+        if let existing = editorBindings.first(where: { $0.1.task == task && CFEqual($0.1.editor, editor) }) { return existing.0 }
+        let key = UUID().uuidString.lowercased()
+        if editorBindings.count >= 128 { editorBindings.removeFirst() }
+        editorBindings.append((key, .init(task: task, editor: editor)))
+        return key
+    }
+    private static func matchesIdentity(_ identity: String?, task: String, editor: AXUIElement) -> Bool {
+        guard let identity else { return true }
+        bindingLock.lock(); defer { bindingLock.unlock() }
+        return editorBindings.contains { $0.0 == identity && $0.1.task == task && CFEqual($0.1.editor, editor) }
+    }
+    private static func submitQuestion(_ task: String, _ expectedTarget: String, _ expectedText: String, identity: String? = nil) -> MacTab5DesktopSubmission {
         guard expectedTarget.hasPrefix("question:"), let editor = composer(task), targetKey(editor) == expectedTarget,
+              matchesIdentity(identity, task: task, editor: editor),
               textValue(editor) == expectedText, let card = questionCard(editor), let info = questionInfo(card),
               value(info.button, "AXEnabled") as? Bool == true,
               let current = composer(task), CFEqual(current, editor), targetKey(current) == expectedTarget,
-              textValue(current) == expectedText else { return false }
-        // A separate explicit submit consumes its encrypted receipt before this
-        // one native action. Never send a normal turn, clear the answer, press
-        // Enter globally, select an option, or replay an uncertain action.
-        guard AXUIElementPerformAction(info.button, kAXPressAction as CFString) == .success else { return false }
+              textValue(current) == expectedText else { note(.questionChanged); return .notReady }
+        // A timeout may still have applied. Only observe after this single action.
+        _ = AXUIElementPerformAction(info.button, kAXPressAction as CFString)
         for _ in 0..<10 {
             Thread.sleep(forTimeInterval: 0.08)
-            // An advance/removal or Send -> Send update transition is local UI
-            // acknowledgment only, never a claim that model execution finished.
-            if let after = target(task), after != expectedTarget { return true }
+            if let after = target(task), after != expectedTarget { return .confirmed }
         }
-        return false
+        note(.submitUnknown); return .unconfirmed
     }
     static func isComposerSubmitLabel(_ label: String) -> Bool {
         ["Send", "Steer", "Queue", "发送", "引导", "排队"].contains(label)
@@ -1054,10 +1137,10 @@ enum MacTab5DesktopAX {
         return true
     }
 
-    private static func submitComposer(_ task: String, _ expectedText: String) -> MacTab5DesktopSubmission {
+    private static func submitComposer(_ task: String, _ expectedText: String, identity: String? = nil) -> MacTab5DesktopSubmission {
         func reject(_ reason: MacTab5DesktopCheck) -> MacTab5DesktopSubmission { note(reason); return .notReady }
         guard !expectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return reject(.value) }
-        guard let editor = composer(task) else { return .notReady }
+        guard let editor = composer(task), matchesIdentity(identity, task: task, editor: editor) else { return .notReady }
         guard targetKey(editor) == "main" else { return reject(.questionChanged) }
         guard textValue(editor) == expectedText else { return reject(.changed) }
         guard let container = composerBody(editor) else { return reject(.submitContainer) }
@@ -1074,6 +1157,9 @@ enum MacTab5DesktopAX {
         guard let currentButton = composerSubmitButton(container, editor: editor) else { return .notReady }
         guard CFEqual(currentButton, button), buttonLabel(button) == label, isComposerSubmitLabel(label) else { return reject(.submitButtonChanged) }
         guard value(button, "AXEnabled") as? Bool == true else { return reject(.submitButtonDisabled) }
+        guard attachmentFree(task) else { return .notReady }
+        guard let final = composer(task), CFEqual(final, editor), targetKey(final) == "main",
+              textValue(final) == expectedText, value(button, "AXEnabled") as? Bool == true else { return reject(.changed) }
         // The caller consumed its receipt before entry. Respect the displayed
         // Send/Steer/Queue behavior once; never clear first, send Enter globally,
         // fall back to IPC or replay an unconfirmed native action.
@@ -1216,9 +1302,9 @@ enum MacTab5DesktopAX {
         return AXValueGetValue(unsafeBitCast(raw, to: AXValue.self), .cfRange, &observed) &&
             observed.location == range.location && observed.length == 0
     }
-    private static func write(_ task: String, _ expected: String, _ next: String, target: String? = nil) -> String? {
+    private static func write(_ task: String, _ expected: String, _ next: String, target: String? = nil, identity: String? = nil) -> String? {
         guard let editor = composer(task) else { return nil }
-        guard target == nil || targetKey(editor) == target else { note(.questionChanged); return nil }
+        guard matchesIdentity(identity, task: task, editor: editor), target == nil || targetKey(editor) == target else { note(.questionChanged); return nil }
         guard textValue(editor) == expected else { note(.changed); return nil }
         guard next.utf8.count <= 2000 else { note(.tooLong); return nil }
         var settable = DarwinBoolean(false)
@@ -1227,7 +1313,7 @@ enum MacTab5DesktopAX {
         // Reacquire and verify the exact target, but never repeat this write.
         _ = AXUIElementSetAttributeValue(editor, "AXValue" as CFString, next as CFString)
         guard let observed = confirmWrite(next, read: {
-            guard let current = composer(task), target == nil || targetKey(current) == target else { return nil }
+            guard let current = composer(task), CFEqual(current, editor), target == nil || targetKey(current) == target else { return nil }
             return textValue(current)
         }, wait: { Thread.sleep(forTimeInterval: 0.08) }) else { note(.writeUnconfirmed); return nil }
         // Position only after confirmed text; never alter another target or
