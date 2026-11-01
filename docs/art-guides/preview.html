@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>每日艺术 · 作品导读</title>
+<style>
+:root{color-scheme:light;--paper:#f7f8f6;--ink:#24352f;--muted:#617269;--line:#d9e0db;--accent:#366551}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Microsoft YaHei UI","Microsoft YaHei",sans-serif}
+button,select{font:inherit}button,select,a{touch-action:manipulation}button{cursor:pointer}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #558f73;outline-offset:3px}
+.reader{max-width:1210px;margin:auto;padding:22px 28px 30px}header{display:flex;align-items:baseline;justify-content:space-between;gap:20px;margin-bottom:18px}h1{font-family:SimSun,"Noto Serif CJK SC",serif;font-size:27px;font-weight:600;margin:0}header p{font-size:13px;color:var(--muted);margin:0}
+.tools{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:14px 0;border-block:1px solid var(--line)}.group{display:flex;gap:4px;align-items:center}.group button{border:0;background:transparent;color:var(--muted);padding:8px 12px;border-radius:5px}.group button[aria-pressed=true]{background:var(--ink);color:white}.picker{display:flex;flex:1;gap:12px;align-items:center}.picker select{max-width:370px;min-width:150px;flex:1;background:transparent;border:1px solid #b7c6bb;border-radius:4px;color:var(--ink);padding:8px}.picker label{font-size:13px;color:var(--muted)}
+.canvas{margin-top:20px;min-height:260px;display:flex;justify-content:center}.device-shell{position:relative;overflow:hidden;border-radius:12px;border:7px solid #36453e;box-shadow:0 8px 20px #1a2e2018;background:#111516}.device{position:absolute;left:0;top:0;transform-origin:top left;overflow:hidden;background:#111516;color:#edf0e9}.device.calligraphy{background:#e7e0d1;color:#332e27}.preview-image{display:block;width:100%;height:100%;object-fit:contain}.native-portrait{position:absolute;width:1280px;height:720px;left:-280px;top:280px;transform:rotate(90deg);object-fit:contain}
+.open-details{position:absolute;right:24px;bottom:12px;width:152px;height:52px;border:0;background:transparent;color:#edf0e9;font-size:20px}.calligraphy .open-details{color:#332e27}
+.detail{padding:44px 60px;height:100%;display:flex;flex-direction:column}.detail h2{font-family:SimSun,"Noto Serif CJK SC",serif;font-size:42px;margin:0 0 12px;font-weight:500}.detail .meta{font-size:23px;color:inherit;opacity:.78;margin:0 0 24px}.chapters{display:flex;gap:28px;border-bottom:1px solid #929a9655;padding-bottom:12px;margin-bottom:28px}.chapters button{border:0;border-bottom:3px solid transparent;padding:8px 0;background:transparent;color:inherit;opacity:.65;font-size:28px}.chapters button[aria-pressed=true]{border-color:currentColor;opacity:1}.copy{flex:1;min-height:0;overflow:auto;scrollbar-width:thin}.copy p{font-size:30px;line-height:1.62;margin:0 0 20px;white-space:pre-line}.copy .annotation{font-size:24px;line-height:1.6;opacity:.8}.copy .transcription{font-family:SimSun,"Noto Serif CJK SC",serif;font-size:37px;line-height:1.85;white-space:pre-line}.detail-foot{border-top:1px solid #929a9655;padding-top:20px;display:flex;gap:18px;justify-content:space-between;align-items:center}.detail-foot span{font-size:21px;opacity:.8}.detail-foot button{font-size:25px;background:transparent;color:inherit;border:0;padding:10px 16px}.portrait .detail{padding:46px 44px}.portrait .detail h2{font-size:40px}.portrait .detail .meta{line-height:1.6}.portrait .chapters{gap:30px}.portrait .copy p{font-size:32px;line-height:1.8}.portrait .detail-foot{align-items:flex-end}.portrait .detail-foot span{max-width:390px;line-height:1.6}
+.page-counter-cover{position:absolute;right:128px;bottom:60px;width:224px;height:44px;background:#111516;pointer-events:none}.calligraphy .page-counter-cover{background:#e7e0d1}.portrait .page-counter-cover{right:24px;bottom:36px;width:224px;height:52px}
+.page-nav{position:absolute;right:28px;bottom:12px;display:flex;align-items:center;gap:3px;color:#929a96;opacity:.4;transition:opacity .25s;user-select:none}.calligraphy .page-nav{color:#776e60}.page-nav.revealed,.page-nav:focus-within{opacity:.9}.page-nav button{width:56px;height:56px;display:grid;place-items:center;padding:0;background:transparent;border:0;color:inherit;border-radius:4px}.page-nav button:disabled{opacity:.22;cursor:default}.page-nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}.page-nav .page-position{font:23px Georgia,SimSun,serif;letter-spacing:.5px;min-width:56px}.page-nav .home svg{width:19px;height:19px}.portrait .page-nav{right:24px;bottom:14px}
+.exit-state{height:100%;display:grid;align-content:center;justify-items:center;gap:30px}.exit-state h2{font-family:SimSun,serif;font-size:38px;font-weight:400}.exit-state button{border:1px solid currentColor;border-radius:5px;padding:16px 26px;background:transparent;color:inherit;font-size:26px}
+.under{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:15px 0;color:var(--muted);font-size:13px}.pages{display:flex;gap:8px;align-items:center}.pages button{border:1px solid #b7c6bb;border-radius:4px;background:transparent;color:var(--ink);padding:7px 12px}.pages button:disabled{opacity:.4;cursor:default}.source{border-top:1px solid var(--line);padding-top:15px;font-size:13px;line-height:1.8}.source a{color:var(--accent);text-underline-offset:3px}.source p{margin:4px 0}.source .note{color:var(--muted)}[hidden]{display:none!important}
+@media(max-width:700px){.reader{padding:16px 12px}header{display:block}header p{margin-top:8px}.tools{gap:9px}.picker{flex-basis:100%;order:-1}.group button{padding:7px 9px}.under{align-items:flex-start;flex-direction:column;gap:8px}.device-shell{border-width:5px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+<div class="reader">
+  <header><h1>每日艺术 · 作品导读</h1><p>/* ART_GUIDES_COUNTS */ · 交互预览，尚未接入设备</p></header>
+  <div class="tools" aria-label="预览设置">
+    <div class="group" id="categories" aria-label="作品类型"><button type="button" data-category="painting" aria-pressed="true">名画</button><button type="button" data-category="calligraphy" aria-pressed="false">书法</button></div>
+    <div class="picker"><label for="work">作品</label><select id="work"></select></div>
+    <div class="group" id="orientations" aria-label="屏幕方向"><button type="button" data-orientation="landscape" aria-pressed="true">横屏</button><button type="button" data-orientation="portrait" aria-pressed="false">竖屏</button></div>
+    <div class="group" id="views" aria-label="查看内容"><button type="button" data-view="intro" aria-pressed="true">导读画面</button><button type="button" data-view="detail" aria-pressed="false">作品详情</button><button type="button" data-view="existing" aria-pressed="false">现有作品页</button></div>
+  </div>
+  <main class="canvas"><div class="device-shell" id="shell"><div class="device" id="device" aria-label="TAB5尺寸预览"></div></div></main>
+  <div class="under"><span id="state" role="status" aria-live="polite"></span><span id="paging-hint" hidden>箭头翻页；轻触其余区域退出屏保</span></div>
+  <div class="source" id="source"></div>
+</div>
+<script>
+'use strict';
+const works=/* ART_GUIDES_DATA */;
+const state={category:'painting',id:works[0].id,orientation:'landscape',view:'intro',returnView:'intro',resumeView:'intro',chapter:'overview',frame:0};
+let navigationTimer;
+const $=id=>document.getElementById(id);
+function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function buttons(id,key){for(const b of $(id).querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset[key]===state[key]));}
+function populate(){const visible=works.filter(w=>w.category===state.category);$('work').replaceChildren(...visible.map(w=>{const option=document.createElement('option');option.value=w.id;option.textContent=w.title+' / '+w.author;return option;}));$('work').value=state.id;}
+function resize(){const portrait=state.orientation==='portrait';const width=portrait?720:1280,height=portrait?1280:720;const available=Math.max(420,Math.min(740,window.innerHeight-220));const scale=Math.min(($('shell').parentElement.clientWidth-14)/width,available/height,1);$('device').style.width=width+'px';$('device').style.height=height+'px';$('device').style.transform=`scale(${scale})`;$('shell').style.width=(width*scale+14)+'px';$('shell').style.height=(height*scale+14)+'px';}
+function detail(work){
+  if(state.chapter==='looking'&&!work.looking?.trim())state.chapter='overview';
+  const t=work.transcription;let body='';
+  if(state.chapter==='overview')body=`<p>${escapeHTML(work.overview)}</p>`;
+  if(state.chapter==='looking')body=`<p>${escapeHTML(work.looking)}</p>`;
+  if(state.chapter==='transcription'&&t?.status==='source_verified')body=`<p class="transcription">${escapeHTML(t.text)}</p><p>${escapeHTML(t.explanation)}</p>`;
+  return `<section class="detail"><h2>${escapeHTML(work.title)}</h2><p class="meta">${escapeHTML(work.author)}<br>${escapeHTML(work.period)}</p><nav class="chapters" aria-label="导读章节"><button type="button" data-chapter="overview" aria-pressed="${state.chapter==='overview'}">简介</button>${work.looking?.trim()?`<button type="button" data-chapter="looking" aria-pressed="${state.chapter==='looking'}">欣赏提示</button>`:''}${t?.status==='source_verified'?`<button type="button" data-chapter="transcription" aria-pressed="${state.chapter==='transcription'}">释文</button>`:''}</nav><div class="copy">${body}</div><div class="detail-foot"><span>资料：${escapeHTML(work.museum)}</span><button type="button" id="back">返回作品</button></div></section>`;
+}
+function pageNavigation(frames){return frames.length<2?'':`<div class="page-counter-cover" aria-hidden="true"></div><nav class="page-nav revealed" aria-label="作品分页"><button type="button" class="home" id="first-page" aria-label="回到作品第一页" ${state.frame===0?'disabled':''}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="1"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></button><button type="button" id="previous" aria-label="上一页" ${state.frame===0?'disabled':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7"/></svg></button><span class="page-position" id="page-count" aria-live="polite">${state.frame+1}<span style="opacity:.5"> / </span>${frames.length}</span><button type="button" id="next" aria-label="下一页" ${state.frame===frames.length-1?'disabled':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 5 7 7-7 7"/></svg></button></nav>`;}
+function revealNavigation(){const nav=$('device').querySelector('.page-nav');if(!nav)return;nav.classList.add('revealed');clearTimeout(navigationTimer);navigationTimer=setTimeout(()=>nav.classList.remove('revealed'),2800);}
+function render(){
+  const w=works.find(w=>w.id===state.id);buttons('categories','category');buttons('orientations','orientation');buttons('views','view');
+  $('device').className='device '+w.category+(state.orientation==='portrait'?' portrait':'');
+  const frames=w.existingFrames[state.orientation];state.frame=Math.max(0,Math.min(state.frame,frames.length-1));
+  if(state.view==='exit')$('device').innerHTML='<section class="exit-state"><h2>屏保已退出</h2><button type="button" id="resume">继续欣赏</button></section>';
+  else if(state.view==='detail')$('device').innerHTML=detail(w);
+  else if(state.view==='existing')$('device').innerHTML=`<img class="${state.orientation==='portrait'?'native-portrait':'preview-image'}" src="${escapeHTML(frames[state.frame])}" alt="${escapeHTML(w.title)}，现有作品第${state.frame+1}页">${pageNavigation(frames)}`;
+  else $('device').innerHTML=`<img class="preview-image" src="${escapeHTML(w.previews[state.orientation])}" alt="${escapeHTML(w.title)}，${state.orientation==='portrait'?'竖屏':'横屏'}导读"><button type="button" class="open-details" id="open-details">查看解读</button>`;
+  $('open-details')?.addEventListener('click',()=>{state.returnView=state.view;state.view='detail';state.chapter='overview';render();});
+  $('back')?.addEventListener('click',()=>{state.view=state.returnView;render();});
+  $('resume')?.addEventListener('click',()=>{state.view=state.resumeView;render();});
+  $('device').querySelectorAll('[data-chapter]').forEach(b=>b.addEventListener('click',()=>{state.chapter=b.dataset.chapter;render();}));
+  $('paging-hint').hidden=state.view!=='existing'||frames.length<2;
+  $('previous')?.addEventListener('click',()=>{state.frame--;render();});$('next')?.addEventListener('click',()=>{state.frame++;render();});$('first-page')?.addEventListener('click',()=>{state.frame=0;render();});
+  $('state').textContent=(state.orientation==='portrait'?'720 × 1280':'1280 × 720')+' · '+({'intro':'导读画面样本','detail':'作品详情样本','existing':'现有图库分页','exit':'退出屏保示意'}[state.view])+(state.view==='intro'?' · 图示按现有图库选用的主来源及裁切制作':'');
+  const s=w.sources[0];$('source').innerHTML=`<p><a href="${escapeHTML(s.url)}" target="_blank" rel="noopener noreferrer">查看馆方原始资料：${escapeHTML(s.publisher)}</a>　核对日期：${escapeHTML(s.accessed)}</p><p class="note">简介据馆方资料整理；欣赏提示仅采用注明权威出处的作品赏析，无依据时省略。图像许可：${escapeHTML(w.imageLicense)}。</p>`;
+  resize();revealNavigation();
+}
+for(const id of ['categories','orientations','views'])$(id).addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;const key={categories:'category',orientations:'orientation',views:'view'}[id];if(key==='view'&&b.dataset.view==='detail'&&state.view!=='detail')state.returnView=state.view;state[key]=b.dataset[key];if(key==='category'){state.id=works.find(w=>w.category===state.category).id;state.frame=0;state.chapter='overview';populate();}render();});
+$('work').addEventListener('change',()=>{state.id=$('work').value;state.frame=0;state.chapter='overview';render();});
+$('device').addEventListener('pointermove',revealNavigation);$('device').addEventListener('pointerdown',revealNavigation);
+$('device').addEventListener('click',event=>{if(event.target.closest('button,.page-nav'))return;if(state.view==='intro'||state.view==='existing'){state.resumeView=state.view;state.view='exit';render();}});
+window.addEventListener('resize',resize);populate();render();
+</script>
+</html>

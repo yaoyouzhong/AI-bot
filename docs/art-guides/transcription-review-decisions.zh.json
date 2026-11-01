@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "checkedOn": "2026-10-11",
+  "policy": "已核对但仍无法可靠补出的正文可略过；虎、寿等单字作品无需另补长篇原文。保留作品、原资料和略过理由，不猜字，不删除此前可靠正文。",
+  "works": {
+    "mia-118157": {
+      "action": "ignore_unreliable_original",
+      "reason": "已核看完整原图；馆方录文存在疑似错读、断句或省字，草写细节仍需逐字校勘，未将不可靠录文直接放入正文。",
+      "evidenceReview": "artifacts/development/calligraphy-originals-20261010/round-20261011-8/deferred-originals.json",
+      "originalSha256": "cc5050f727f9418a45f19acc045b148af1a6e77af3f9c825612cae3ee5ed1428",
+      "sourceRecord": "馆方释文与完整原图已核看，但草写错读、省字仍不能可靠审定。",
+      "reopenOnlyWithNewReliableEvidence": true
+    },
+    "mia-118174": {
+      "action": "ignore_unreliable_original",
+      "reason": "已核看完整原图；馆方录文存在疑似错读、断句或省字，草写细节仍需逐字校勘，未将不可靠录文直接放入正文。",
+      "evidenceReview": "artifacts/development/calligraphy-originals-20261010/round-20261011-8/deferred-originals.json",
+      "originalSha256": "8cb9fcad5eb4f2142b8826d3907adc1685326d2eee9e0efc5128f2b2f03a2f94",
+      "sourceRecord": "馆方释文与完整原图已核看，但草写错读、省字仍不能可靠审定。",
+      "reopenOnlyWithNewReliableEvidence": true
+    },
+    "mia-116764": {
+      "action": "ignore_unreliable_original",
+      "reason": "已核看完整原图；馆方录文存在疑似错读、断句或省字，草写细节仍需逐字校勘，未将不可靠录文直接放入正文。",
+      "evidenceReview": "artifacts/development/calligraphy-originals-20261010/round-20261011-8/deferred-originals.json",
+      "originalSha256": "49bf3bbc9cb959d7482380515c9a659e0974845de73c389a3d2144cc99fb0f87",
+      "sourceRecord": "馆方释文与完整原图已核看，但草写错读、省字仍不能可靠审定。",
+      "reopenOnlyWithNewReliableEvidence": true
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "checkedOn": "2026-10-08",
+  "works": {
+    "calligraphy-01": {
+      "date": "传唐摹本，原书属东晋",
+      "medium": "纸本",
+      "dimensions": "本幅23×14.8厘米",
+      "accession": "故書000141N000000000",
+      "dataUrl": "https://digitalarchive.npm.gov.tw/Collection/Detail/19?dep=P",
+      "method": "museum_search_result",
+      "overview": "《快雪时晴帖》以雪后放晴为契机，问候友人并说明未能如愿见面的心结。现存书迹传为唐代摹本，正文短小，行楷与草意交替，后世题跋和鉴藏印又记录了它被珍视的历史。",
+      "transcription": {"status": "source_verified", "sourceId": "museum", "scope": "main_text", "text": "羲之頓首。快雪時晴。佳想安善。未果為結。力不次。王羲之頓首。山陰張侯。", "explanation": "信中先问候雪后近况，祝愿对方安好，再简短提及事情未能实现的遗憾。末尾保留写信人与收信人的称谓。"}
+    },
+    "calligraphy-03": {
+      "date": "摹本，原书属东晋",
+      "medium": "纸本",
+      "dimensions": "本幅24.8×21.5厘米",
+      "accession": "故書000053N000000000",
+      "dataUrl": "https://digitalarchive.npm.gov.tw/Collection/Detail/2?dep=P",
+      "method": "museum_search_result",
+      "overview": "《远宦帖》又名《省别帖》，是王羲之写给周抚的信，涉及亲友分居远地与家人病情。现存本以双钩廓填复制，先勾出笔画轮廓再填墨，保存了书写细部，也使摹写技艺成为作品历史的一部分。",
+      "transcription": {"status": "source_verified", "sourceId": "museum", "scope": "main_text", "text": "省別。具足下小大問。為慰。多分張。念足下懸情。武昌諸子。亦多遠宦。足下兼懷。並數問不。老婦頃疾篤。救命。恆憂慮。餘粗平安。知足下情至。", "explanation": "王羲之从来信得知对方家中近况，关心分散各地的亲友是否常有消息，又说明家人病重使自己忧虑，其余尚平安。短札以相互关切维系远方关系。"}
+    },
+    "npm-K2B000001": {
+      "date": "北宋",
+      "medium": "纸本",
+      "accession": "故書000001N000000000",
+      "dataUrl": "https://digitalarchive.npm.gov.tw/Collection/Detail?dep=P&id=40",
+      "method": "museum_search_result",
+      "overview": "苏轼在准备渡海、停宿澄迈时给梦得秘校写信。他由对方儿子来访获知近况，盼能在海康相遇，又劝友人在晚年珍重。尺牍把行旅路线、会面希望与私人关怀保存在自然书写中。",
+      "transcription": {"status": "source_verified", "sourceId": "museum", "scope": "main_text_excluding_envelope", "text": "軾將渡海。宿澄邁。承令子見訪。知從者未歸。又云。恐已到桂府。若果尔。庶幾得於海康相遇。不尔。則未知後會之期也。區區無他禱。惟晚景宜倍万自愛耳。怱怱留此帋。令子處更不重封。不罪不罪。軾頓首。夢得祕校閣下。六月十三日。", "explanation": "苏轼说自己将渡海，获知友人可能已到桂州，因而希望在海康相见；若不能相遇，后会便难预料。他没有别的请求，只盼对方晚年更加保重。此处只录信件正文，未合入信封文字。"}
+    },
+    "npm-K2B000002": {
+      "date": "南宋",
+      "medium": "绢本",
+      "dimensions": "本幅98.6×55.3厘米",
+      "accession": "故書000002N000000000",
+      "dataUrl": "https://digitalarchive.npm.gov.tw/Collection/Detail/41?dep=P",
+      "method": "museum_search_result",
+      "overview": "吴琚书写蔡襄的七言绝句，描述溪桥、垂柳与友人居所的春日景色。这是少见的宋代挂轴书迹，笔法与米芾相近，却更强调快速行笔、飞白和上下呼应的整体气势。",
+      "transcription": {"status": "source_verified", "sourceId": "museum", "scope": "main_text", "text": "橋畔垂楊下碧溪。君家元在北橋西。來時不似人間世。日暖花香山鳥啼。", "explanation": "桥边垂柳下流过碧溪，友人家在北桥西边。来访时仿佛走进远离尘世的地方，温暖日光、花香与鸟鸣共同构成清幽春景。"}
+    },
+    "calligraphy-07": {
+      "date": "北宋，1088年",
+      "medium": "绢本（蜀素）",
+      "dimensions": "本幅27.8×270.8厘米",
+      "accession": "故書000071N000000000",
+      "dataUrl": "https://digitalarchive.npm.gov.tw/Collection/Detail?dep=P&id=912",
+      "method": "museum_search_result",
+      "overview": "1088年，米芾应林希之请，在珍藏的蜀地素绢上写下八首自作诗。织出的乌丝界栏规定了行列，变化的笔锋、墨色和行笔速度却不受它拘束，这件长卷体现了米芾从古人法度走向个人书风的成熟阶段。"
+    }
+  }
+}

@@ -828,3 +828,1842 @@ Captions use LXGW WenKai (SIL OFL 1.1); no font binary is included.
 | 禅修诗 | 费隐通容 | CC0 | [Source](https://www.metmuseum.org/art/collection/search/829393) |
 | 行草书七言律诗扇面 | 江芸阁 | CC BY 4.0 | [Source](https://colbase.nich.go.jp/collection_items/tnm/TB-1595?locale=zh) |
 | 行草书七言律诗轴 | 顾应祥 | CC BY 4.0 | [Source](https://colbase.nich.go.jp/collection_items/tnm/TB-43?locale=zh) |
+
+
+## 2026-10-08 local expansion / 本地扩充
+
+Current source catalogue: 1765 paintings and 497 calligraphy works. Pages and orientations are not additional works.
+
+New originals come from official museum services; per-work image URLs, licenses and hashes are retained in selection.json and provenance.json. Images are resized and laid out only. This local expansion has not been installed or verified on hardware. Prior hardware acceptance remains historical.
+
+| Work ID | Museum source | Image license |
+| --- | --- | --- |
+| cma-1946.83 | https://clevelandart.org/art/1946.83 | CC0 |
+| cma-1917.946 | https://clevelandart.org/art/1917.946 | CC0 |
+| cma-1959.190 | https://clevelandart.org/art/1959.190 | CC0 |
+| cma-1916.793 | https://clevelandart.org/art/1916.793 | CC0 |
+| cma-1944.90 | https://clevelandart.org/art/1944.90 | CC0 |
+| cma-1972.48 | https://clevelandart.org/art/1972.48 | CC0 |
+| cma-1979.80 | https://clevelandart.org/art/1979.80 | CC0 |
+| cma-1942.635 | https://clevelandart.org/art/1942.635 | CC0 |
+| cma-2016.32 | https://clevelandart.org/art/2016.32 | CC0 |
+| cma-1932.227 | https://clevelandart.org/art/1932.227 | CC0 |
+| cma-1995.5 | https://clevelandart.org/art/1995.5 | CC0 |
+| cma-2010.154 | https://clevelandart.org/art/2010.154 | CC0 |
+| cma-1934.29 | https://clevelandart.org/art/1934.29 | CC0 |
+| cma-1916.801 | https://clevelandart.org/art/1916.801 | CC0 |
+| cma-1954.834 | https://clevelandart.org/art/1954.834 | CC0 |
+| cma-1919.1018 | https://clevelandart.org/art/1919.1018 | CC0 |
+| cma-1954.393 | https://clevelandart.org/art/1954.393 | CC0 |
+| cma-1916.802 | https://clevelandart.org/art/1916.802 | CC0 |
+| cma-1975.3 | https://clevelandart.org/art/1975.3 | CC0 |
+| cma-1966.238 | https://clevelandart.org/art/1966.238 | CC0 |
+| cma-1951.453 | https://clevelandart.org/art/1951.453 | CC0 |
+| cma-1950.251 | https://clevelandart.org/art/1950.251 | CC0 |
+| cma-1932.179 | https://clevelandart.org/art/1932.179 | CC0 |
+| cma-1979.71 | https://clevelandart.org/art/1979.71 | CC0 |
+| cma-1942.644 | https://clevelandart.org/art/1942.644 | CC0 |
+| cma-1961.40 | https://clevelandart.org/art/1961.40 | CC0 |
+| cma-1955.44 | https://clevelandart.org/art/1955.44 | CC0 |
+| cma-1936.496 | https://clevelandart.org/art/1936.496 | CC0 |
+| cma-1986.62 | https://clevelandart.org/art/1986.62 | CC0 |
+| cma-2015.517 | https://clevelandart.org/art/2015.517 | CC0 |
+| cma-1929.920 | https://clevelandart.org/art/1929.920 | CC0 |
+| cma-1964.150 | https://clevelandart.org/art/1964.150 | CC0 |
+| cma-1956.719 | https://clevelandart.org/art/1956.719 | CC0 |
+| cma-1970.160 | https://clevelandart.org/art/1970.160 | CC0 |
+| cma-1970.156 | https://clevelandart.org/art/1970.156 | CC0 |
+| cma-1942.640 | https://clevelandart.org/art/1942.640 | CC0 |
+| cma-1931.449 | https://clevelandart.org/art/1931.449 | CC0 |
+| cma-1983.88 | https://clevelandart.org/art/1983.88 | CC0 |
+| cma-1957.141 | https://clevelandart.org/art/1957.141 | CC0 |
+| cma-1942.536 | https://clevelandart.org/art/1942.536 | CC0 |
+| cma-1968.20 | https://clevelandart.org/art/1968.20 | CC0 |
+| cma-1936.18 | https://clevelandart.org/art/1936.18 | CC0 |
+| cma-1970.77 | https://clevelandart.org/art/1970.77 | CC0 |
+| cma-1966.237 | https://clevelandart.org/art/1966.237 | CC0 |
+| cma-1932.118 | https://clevelandart.org/art/1932.118 | CC0 |
+| cma-1957.139 | https://clevelandart.org/art/1957.139 | CC0 |
+| cma-1950.252 | https://clevelandart.org/art/1950.252 | CC0 |
+| cma-1963.500 | https://clevelandart.org/art/1963.500 | CC0 |
+| cma-1978.7 | https://clevelandart.org/art/1978.7 | CC0 |
+| cma-2017.4 | https://clevelandart.org/art/2017.4 | CC0 |
+| cma-1983.75 | https://clevelandart.org/art/1983.75 | CC0 |
+| cma-1966.3 | https://clevelandart.org/art/1966.3 | CC0 |
+| cma-1944.79 | https://clevelandart.org/art/1944.79 | CC0 |
+| cma-1966.2 | https://clevelandart.org/art/1966.2 | CC0 |
+| cma-2013.51 | https://clevelandart.org/art/2013.51 | CC0 |
+| cma-2019.224 | https://clevelandart.org/art/2019.224 | CC0 |
+| cma-1987.35 | https://clevelandart.org/art/1987.35 | CC0 |
+| cma-1916.776 | https://clevelandart.org/art/1916.776 | CC0 |
+| cma-1924.199 | https://clevelandart.org/art/1924.199 | CC0 |
+| cma-1977.37 | https://clevelandart.org/art/1977.37 | CC0 |
+| cma-1983.69 | https://clevelandart.org/art/1983.69 | CC0 |
+| cma-1953.424 | https://clevelandart.org/art/1953.424 | CC0 |
+| cma-1980.10 | https://clevelandart.org/art/1980.10 | CC0 |
+| cma-1960.79 | https://clevelandart.org/art/1960.79 | CC0 |
+| cma-2013.325 | https://clevelandart.org/art/2013.325 | CC0 |
+| cma-1975.80 | https://clevelandart.org/art/1975.80 | CC0 |
+| cma-1971.137 | https://clevelandart.org/art/1971.137 | CC0 |
+| cma-1969.31 | https://clevelandart.org/art/1969.31 | CC0 |
+| cma-1999.45 | https://clevelandart.org/art/1999.45 | CC0 |
+| cma-1946.277 | https://clevelandart.org/art/1946.277 | CC0 |
+| cma-1942.636 | https://clevelandart.org/art/1942.636 | CC0 |
+| cma-1958.427 | https://clevelandart.org/art/1958.427 | CC0 |
+| cma-1951.354 | https://clevelandart.org/art/1951.354 | CC0 |
+| cma-1963.503 | https://clevelandart.org/art/1963.503 | CC0 |
+| cma-1936.684 | https://clevelandart.org/art/1936.684 | CC0 |
+| cma-1997.111 | https://clevelandart.org/art/1997.111 | CC0 |
+| cma-1941.68 | https://clevelandart.org/art/1941.68 | CC0 |
+| cma-1998.178 | https://clevelandart.org/art/1998.178 | CC0 |
+| cma-1970.2 | https://clevelandart.org/art/1970.2 | CC0 |
+| cma-1964.454 | https://clevelandart.org/art/1964.454 | CC0 |
+| cma-1989.337 | https://clevelandart.org/art/1989.337 | CC0 |
+| cma-1967.239 | https://clevelandart.org/art/1967.239 | CC0 |
+| cma-1989.339 | https://clevelandart.org/art/1989.339 | CC0 |
+| cma-1952.286 | https://clevelandart.org/art/1952.286 | CC0 |
+| cma-2020.259 | https://clevelandart.org/art/2020.259 | CC0 |
+| cma-1984.66 | https://clevelandart.org/art/1984.66 | CC0 |
+| cma-1997.148 | https://clevelandart.org/art/1997.148 | CC0 |
+| cma-1958.289 | https://clevelandart.org/art/1958.289 | CC0 |
+| cma-1945.115 | https://clevelandart.org/art/1945.115 | CC0 |
+| cma-1933.453 | https://clevelandart.org/art/1933.453 | CC0 |
+| cma-1969.35 | https://clevelandart.org/art/1969.35 | CC0 |
+| cma-1991.133 | https://clevelandart.org/art/1991.133 | CC0 |
+| cma-1971.86 | https://clevelandart.org/art/1971.86 | CC0 |
+| cma-1973.104 | https://clevelandart.org/art/1973.104 | CC0 |
+| cma-1955.48 | https://clevelandart.org/art/1955.48 | CC0 |
+| cma-1952.110 | https://clevelandart.org/art/1952.110 | CC0 |
+| cma-1920.1969 | https://clevelandart.org/art/1920.1969 | CC0 |
+| cma-1916.1979 | https://clevelandart.org/art/1916.1979 | CC0 |
+| cma-1960.184 | https://clevelandart.org/art/1960.184 | CC0 |
+| cma-1971.301 | https://clevelandart.org/art/1971.301 | CC0 |
+| cma-1989.336 | https://clevelandart.org/art/1989.336 | CC0 |
+| cma-1987.187 | https://clevelandart.org/art/1987.187 | CC0 |
+| cma-1972.17 | https://clevelandart.org/art/1972.17 | CC0 |
+| cma-1916.816 | https://clevelandart.org/art/1916.816 | CC0 |
+| cma-1972.41 | https://clevelandart.org/art/1972.41 | CC0 |
+| cma-1962.169 | https://clevelandart.org/art/1962.169 | CC0 |
+| cma-1970.76 | https://clevelandart.org/art/1970.76 | CC0 |
+| cma-2019.82 | https://clevelandart.org/art/2019.82 | CC0 |
+| cma-1916.1037 | https://clevelandart.org/art/1916.1037 | CC0 |
+| cma-1953.16 | https://clevelandart.org/art/1953.16 | CC0 |
+| cma-1962.36 | https://clevelandart.org/art/1962.36 | CC0 |
+| cma-1931.451 | https://clevelandart.org/art/1931.451 | CC0 |
+| cma-1967.18 | https://clevelandart.org/art/1967.18 | CC0 |
+| cma-1961.89 | https://clevelandart.org/art/1961.89 | CC0 |
+| cma-1984.4 | https://clevelandart.org/art/1984.4 | CC0 |
+| cma-1950.400 | https://clevelandart.org/art/1950.400 | CC0 |
+| cma-1980.177 | https://clevelandart.org/art/1980.177 | CC0 |
+| cma-2008.290 | https://clevelandart.org/art/2008.290 | CC0 |
+| cma-1949.189 | https://clevelandart.org/art/1949.189 | CC0 |
+| cma-1961.90 | https://clevelandart.org/art/1961.90 | CC0 |
+| cma-1941.279 | https://clevelandart.org/art/1941.279 | CC0 |
+| cma-1971.17 | https://clevelandart.org/art/1971.17 | CC0 |
+| cma-1974.29 | https://clevelandart.org/art/1974.29 | CC0 |
+| cma-1967.244 | https://clevelandart.org/art/1967.244 | CC0 |
+| cma-1958.51 | https://clevelandart.org/art/1958.51 | CC0 |
+| cma-1986.45 | https://clevelandart.org/art/1986.45 | CC0 |
+| cma-1967.125 | https://clevelandart.org/art/1967.125 | CC0 |
+| cma-1958.320 | https://clevelandart.org/art/1958.320 | CC0 |
+| cma-2013.298 | https://clevelandart.org/art/2013.298 | CC0 |
+| cma-1960.47 | https://clevelandart.org/art/1960.47 | CC0 |
+| cma-1961.41 | https://clevelandart.org/art/1961.41 | CC0 |
+| cma-1985.268 | https://clevelandart.org/art/1985.268 | CC0 |
+| cma-1965.19 | https://clevelandart.org/art/1965.19 | CC0 |
+| cma-1938.422 | https://clevelandart.org/art/1938.422 | CC0 |
+| cma-1990.39 | https://clevelandart.org/art/1990.39 | CC0 |
+| cma-1993.4 | https://clevelandart.org/art/1993.4 | CC0 |
+| cma-1916.811 | https://clevelandart.org/art/1916.811 | CC0 |
+| cma-1962.161 | https://clevelandart.org/art/1962.161 | CC0 |
+| cma-1927.389 | https://clevelandart.org/art/1927.389 | CC0 |
+| cma-1951.353 | https://clevelandart.org/art/1951.353 | CC0 |
+| cma-1971.82 | https://clevelandart.org/art/1971.82 | CC0 |
+| cma-1958.56 | https://clevelandart.org/art/1958.56 | CC0 |
+| cma-1989.104 | https://clevelandart.org/art/1989.104 | CC0 |
+| cma-1976.13 | https://clevelandart.org/art/1976.13 | CC0 |
+| cma-1977.31 | https://clevelandart.org/art/1977.31 | CC0 |
+| cma-1944.91 | https://clevelandart.org/art/1944.91 | CC0 |
+| cma-1971.132 | https://clevelandart.org/art/1971.132 | CC0 |
+| cma-1982.55 | https://clevelandart.org/art/1982.55 | CC0 |
+| cma-1939.66 | https://clevelandart.org/art/1939.66 | CC0 |
+| cma-1961.423 | https://clevelandart.org/art/1961.423 | CC0 |
+| cma-1989.67 | https://clevelandart.org/art/1989.67 | CC0 |
+| cma-1942.633 | https://clevelandart.org/art/1942.633 | CC0 |
+| cma-1948.181 | https://clevelandart.org/art/1948.181 | CC0 |
+| cma-1963.326 | https://clevelandart.org/art/1963.326 | CC0 |
+| cma-2025.141 | https://clevelandart.org/art/2025.141 | CC0 |
+| cma-1916.796 | https://clevelandart.org/art/1916.796 | CC0 |
+| cma-1967.211 | https://clevelandart.org/art/1967.211 | CC0 |
+| cma-2001.111 | https://clevelandart.org/art/2001.111 | CC0 |
+| cma-2002.116 | https://clevelandart.org/art/2002.116 | CC0 |
+| cma-1979.70 | https://clevelandart.org/art/1979.70 | CC0 |
+| cma-1970.69 | https://clevelandart.org/art/1970.69 | CC0 |
+| cma-1916.798 | https://clevelandart.org/art/1916.798 | CC0 |
+| cma-2013.319 | https://clevelandart.org/art/2013.319 | CC0 |
+| cma-1947.208 | https://clevelandart.org/art/1947.208 | CC0 |
+| cma-1975.9 | https://clevelandart.org/art/1975.9 | CC0 |
+| cma-1985.132 | https://clevelandart.org/art/1985.132 | CC0 |
+| cma-1972.160 | https://clevelandart.org/art/1972.160 | CC0 |
+| cma-1988.19 | https://clevelandart.org/art/1988.19 | CC0 |
+| cma-1916.1036 | https://clevelandart.org/art/1916.1036 | CC0 |
+| cma-1983.10 | https://clevelandart.org/art/1983.10 | CC0 |
+| cma-1970.71 | https://clevelandart.org/art/1970.71 | CC0 |
+| cma-1971.171 | https://clevelandart.org/art/1971.171 | CC0 |
+| cma-1984.65 | https://clevelandart.org/art/1984.65 | CC0 |
+| cma-1987.39 | https://clevelandart.org/art/1987.39 | CC0 |
+| cma-1979.18 | https://clevelandart.org/art/1979.18 | CC0 |
+| cma-1982.25 | https://clevelandart.org/art/1982.25 | CC0 |
+| cma-1985.18 | https://clevelandart.org/art/1985.18 | CC0 |
+| cma-1985.271 | https://clevelandart.org/art/1985.271 | CC0 |
+| cma-2025.138 | https://clevelandart.org/art/2025.138 | CC0 |
+| cma-1916.1001 | https://clevelandart.org/art/1916.1001 | CC0 |
+| cma-1916.807 | https://clevelandart.org/art/1916.807 | CC0 |
+| cma-2008.71 | https://clevelandart.org/art/2008.71 | CC0 |
+| cma-1944.501 | https://clevelandart.org/art/1944.501 | CC0 |
+| cma-1969.60 | https://clevelandart.org/art/1969.60 | CC0 |
+| cma-1985.269 | https://clevelandart.org/art/1985.269 | CC0 |
+| cma-1976.91 | https://clevelandart.org/art/1976.91 | CC0 |
+| cma-1985.256 | https://clevelandart.org/art/1985.256 | CC0 |
+| cma-1973.69 | https://clevelandart.org/art/1973.69 | CC0 |
+| cma-1987.146 | https://clevelandart.org/art/1987.146 | CC0 |
+| cma-1967.16 | https://clevelandart.org/art/1967.16 | CC0 |
+| cma-1960.49 | https://clevelandart.org/art/1960.49 | CC0 |
+| cma-1990.6 | https://clevelandart.org/art/1990.6 | CC0 |
+| cma-2018.107 | https://clevelandart.org/art/2018.107 | CC0 |
+| cma-1957.150 | https://clevelandart.org/art/1957.150 | CC0 |
+| cma-1915.215 | https://clevelandart.org/art/1915.215 | CC0 |
+| cma-1971.68 | https://clevelandart.org/art/1971.68 | CC0 |
+| cma-1979.53 | https://clevelandart.org/art/1979.53 | CC0 |
+| cma-1920.1966 | https://clevelandart.org/art/1920.1966 | CC0 |
+| cma-1990.16 | https://clevelandart.org/art/1990.16 | CC0 |
+| cma-1961.135 | https://clevelandart.org/art/1961.135 | CC0 |
+| cma-1971.91 | https://clevelandart.org/art/1971.91 | CC0 |
+| cma-1974.35 | https://clevelandart.org/art/1974.35 | CC0 |
+| cma-1979.52 | https://clevelandart.org/art/1979.52 | CC0 |
+| cma-1962.259 | https://clevelandart.org/art/1962.259 | CC0 |
+| cma-2009.342 | https://clevelandart.org/art/2009.342 | CC0 |
+| cma-1986.95 | https://clevelandart.org/art/1986.95 | CC0 |
+| cma-1952.235 | https://clevelandart.org/art/1952.235 | CC0 |
+| cma-1927.197 | https://clevelandart.org/art/1927.197 | CC0 |
+| cma-1940.1197 | https://clevelandart.org/art/1940.1197 | CC0 |
+| cma-1954.261 | https://clevelandart.org/art/1954.261 | CC0 |
+| cma-1971.21 | https://clevelandart.org/art/1971.21 | CC0 |
+| cma-1971.88 | https://clevelandart.org/art/1971.88 | CC0 |
+| cma-1985.89 | https://clevelandart.org/art/1985.89 | CC0 |
+| cma-2015.589 | https://clevelandart.org/art/2015.589 | CC0 |
+| cma-2015.590 | https://clevelandart.org/art/2015.590 | CC0 |
+| cma-1962.163 | https://clevelandart.org/art/1962.163 | CC0 |
+| cma-1920.1967 | https://clevelandart.org/art/1920.1967 | CC0 |
+| cma-1939.63 | https://clevelandart.org/art/1939.63 | CC0 |
+| cma-1985.273 | https://clevelandart.org/art/1985.273 | CC0 |
+| cma-1989.334 | https://clevelandart.org/art/1989.334 | CC0 |
+| cma-1992.143 | https://clevelandart.org/art/1992.143 | CC0 |
+| cma-1979.49 | https://clevelandart.org/art/1979.49 | CC0 |
+| cma-1973.33 | https://clevelandart.org/art/1973.33 | CC0 |
+| cma-1953.357 | https://clevelandart.org/art/1953.357 | CC0 |
+| cma-2003.352 | https://clevelandart.org/art/2003.352 | CC0 |
+| cma-1969.77 | https://clevelandart.org/art/1969.77 | CC0 |
+| cma-1971.83 | https://clevelandart.org/art/1971.83 | CC0 |
+| cma-1982.29 | https://clevelandart.org/art/1982.29 | CC0 |
+| cma-1986.63 | https://clevelandart.org/art/1986.63 | CC0 |
+| cma-1987.186 | https://clevelandart.org/art/1987.186 | CC0 |
+| cma-1991.168 | https://clevelandart.org/art/1991.168 | CC0 |
+| cma-1991.170 | https://clevelandart.org/art/1991.170 | CC0 |
+| cma-1967.126 | https://clevelandart.org/art/1967.126 | CC0 |
+| cma-1969.65 | https://clevelandart.org/art/1969.65 | CC0 |
+| cma-1970.80 | https://clevelandart.org/art/1970.80 | CC0 |
+| cma-2015.516 | https://clevelandart.org/art/2015.516 | CC0 |
+| cma-1964.292 | https://clevelandart.org/art/1964.292 | CC0 |
+| cma-1971.135 | https://clevelandart.org/art/1971.135 | CC0 |
+| cma-1942.632 | https://clevelandart.org/art/1942.632 | CC0 |
+| cma-2013.310 | https://clevelandart.org/art/2013.310 | CC0 |
+| cma-1965.310 | https://clevelandart.org/art/1965.310 | CC0 |
+| cma-1944.496 | https://clevelandart.org/art/1944.496 | CC0 |
+| cma-1946.242 | https://clevelandart.org/art/1946.242 | CC0 |
+| cma-1955.297 | https://clevelandart.org/art/1955.297 | CC0 |
+| cma-1977.199 | https://clevelandart.org/art/1977.199 | CC0 |
+| cma-1982.34 | https://clevelandart.org/art/1982.34 | CC0 |
+| cma-1988.20 | https://clevelandart.org/art/1988.20 | CC0 |
+| cma-1925.1340 | https://clevelandart.org/art/1925.1340 | CC0 |
+| cma-1964.105 | https://clevelandart.org/art/1964.105 | CC0 |
+| cma-1966.29 | https://clevelandart.org/art/1966.29 | CC0 |
+| cma-1972.16 | https://clevelandart.org/art/1972.16 | CC0 |
+| cma-1990.40 | https://clevelandart.org/art/1990.40 | CC0 |
+| cma-1968.206 | https://clevelandart.org/art/1968.206 | CC0 |
+| cma-1971.136 | https://clevelandart.org/art/1971.136 | CC0 |
+| cma-1983.217 | https://clevelandart.org/art/1983.217 | CC0 |
+| cma-1925.1336 | https://clevelandart.org/art/1925.1336 | CC0 |
+| cma-1916.779 | https://clevelandart.org/art/1916.779 | CC0 |
+| cma-1992.1 | https://clevelandart.org/art/1992.1 | CC0 |
+| cma-1997.147 | https://clevelandart.org/art/1997.147 | CC0 |
+| cma-1998.120 | https://clevelandart.org/art/1998.120 | CC0 |
+| cma-1999.216 | https://clevelandart.org/art/1999.216 | CC0 |
+| cma-2001.120 | https://clevelandart.org/art/2001.120 | CC0 |
+| cma-2015.63 | https://clevelandart.org/art/2015.63 | CC0 |
+| cma-1980.81 | https://clevelandart.org/art/1980.81 | CC0 |
+| cma-1976.59 | https://clevelandart.org/art/1976.59 | CC0 |
+| cma-2022.40 | https://clevelandart.org/art/2022.40 | CC0 |
+| cma-1940.540 | https://clevelandart.org/art/1940.540 | CC0 |
+| cma-1967.241 | https://clevelandart.org/art/1967.241 | CC0 |
+| cma-1977.203 | https://clevelandart.org/art/1977.203 | CC0 |
+| cma-1993.159 | https://clevelandart.org/art/1993.159 | CC0 |
+| cma-1999.43 | https://clevelandart.org/art/1999.43 | CC0 |
+| cma-2013.327 | https://clevelandart.org/art/2013.327 | CC0 |
+| cma-1980.101 | https://clevelandart.org/art/1980.101 | CC0 |
+| cma-1997.101 | https://clevelandart.org/art/1997.101 | CC0 |
+| cma-1949.152 | https://clevelandart.org/art/1949.152 | CC0 |
+| cma-2013.352 | https://clevelandart.org/art/2013.352 | CC0 |
+| cma-2004.110 | https://clevelandart.org/art/2004.110 | CC0 |
+| cma-1916.790 | https://clevelandart.org/art/1916.790 | CC0 |
+| cma-1965.31 | https://clevelandart.org/art/1965.31 | CC0 |
+| cma-1925.1338 | https://clevelandart.org/art/1925.1338 | CC0 |
+| cma-1944.498 | https://clevelandart.org/art/1944.498 | CC0 |
+| cma-1964.278 | https://clevelandart.org/art/1964.278 | CC0 |
+| cma-1966.28 | https://clevelandart.org/art/1966.28 | CC0 |
+| cma-1971.220 | https://clevelandart.org/art/1971.220 | CC0 |
+| cma-1980.5 | https://clevelandart.org/art/1980.5 | CC0 |
+| cma-1985.192 | https://clevelandart.org/art/1985.192 | CC0 |
+| cma-1989.332 | https://clevelandart.org/art/1989.332 | CC0 |
+| cma-1991.9 | https://clevelandart.org/art/1991.9 | CC0 |
+| cma-1999.90 | https://clevelandart.org/art/1999.90 | CC0 |
+| cma-2002.6 | https://clevelandart.org/art/2002.6 | CC0 |
+| cma-2013.312 | https://clevelandart.org/art/2013.312 | CC0 |
+| cma-1958.472 | https://clevelandart.org/art/1958.472 | CC0 |
+| cma-1916.787 | https://clevelandart.org/art/1916.787 | CC0 |
+| cma-1973.237 | https://clevelandart.org/art/1973.237 | CC0 |
+| cma-1978.71 | https://clevelandart.org/art/1978.71 | CC0 |
+| cma-2013.301 | https://clevelandart.org/art/2013.301 | CC0 |
+| cma-2013.349 | https://clevelandart.org/art/2013.349 | CC0 |
+| cma-2018.118 | https://clevelandart.org/art/2018.118 | CC0 |
+| cma-2018.171 | https://clevelandart.org/art/2018.171 | CC0 |
+| cma-2018.201 | https://clevelandart.org/art/2018.201 | CC0 |
+| cma-1986.13 | https://clevelandart.org/art/1986.13 | CC0 |
+| cma-1940.535 | https://clevelandart.org/art/1940.535 | CC0 |
+| cma-1936.685 | https://clevelandart.org/art/1936.685 | CC0 |
+| cma-1951.397 | https://clevelandart.org/art/1951.397 | CC0 |
+| cma-1952.541 | https://clevelandart.org/art/1952.541 | CC0 |
+| cma-1998.31 | https://clevelandart.org/art/1998.31 | CC0 |
+| cma-1962.256 | https://clevelandart.org/art/1962.256 | CC0 |
+| cma-1925.1339 | https://clevelandart.org/art/1925.1339 | CC0 |
+| cma-1939.164 | https://clevelandart.org/art/1939.164 | CC0 |
+| cma-1973.86 | https://clevelandart.org/art/1973.86 | CC0 |
+| cma-1975.73 | https://clevelandart.org/art/1975.73 | CC0 |
+| cma-1980.262 | https://clevelandart.org/art/1980.262 | CC0 |
+| cma-1982.119 | https://clevelandart.org/art/1982.119 | CC0 |
+| cma-1983.5 | https://clevelandart.org/art/1983.5 | CC0 |
+| cma-1984.172 | https://clevelandart.org/art/1984.172 | CC0 |
+| cma-1985.110 | https://clevelandart.org/art/1985.110 | CC0 |
+| cma-1996.361 | https://clevelandart.org/art/1996.361 | CC0 |
+| cma-2011.141 | https://clevelandart.org/art/2011.141 | CC0 |
+| cma-2013.344 | https://clevelandart.org/art/2013.344 | CC0 |
+| cma-2013.345 | https://clevelandart.org/art/2013.345 | CC0 |
+| cma-2013.354 | https://clevelandart.org/art/2013.354 | CC0 |
+| cma-2017.65 | https://clevelandart.org/art/2017.65 | CC0 |
+| cma-2018.104 | https://clevelandart.org/art/2018.104 | CC0 |
+| cma-2018.108 | https://clevelandart.org/art/2018.108 | CC0 |
+| cma-2018.111 | https://clevelandart.org/art/2018.111 | CC0 |
+| cma-2018.114 | https://clevelandart.org/art/2018.114 | CC0 |
+| cma-2018.89 | https://clevelandart.org/art/2018.89 | CC0 |
+| cma-1971.85 | https://clevelandart.org/art/1971.85 | CC0 |
+| cma-1972.285 | https://clevelandart.org/art/1972.285 | CC0 |
+| cma-1989.344 | https://clevelandart.org/art/1989.344 | CC0 |
+| cma-1952.587 | https://clevelandart.org/art/1952.587 | CC0 |
+| cma-1980.238 | https://clevelandart.org/art/1980.238 | CC0 |
+| cma-1957.489 | https://clevelandart.org/art/1957.489 | CC0 |
+| cma-1973.31 | https://clevelandart.org/art/1973.31 | CC0 |
+| cma-1935.217 | https://clevelandart.org/art/1935.217 | CC0 |
+| cma-1919.1020 | https://clevelandart.org/art/1919.1020 | CC0 |
+| cma-2015.137 | https://clevelandart.org/art/2015.137 | CC0 |
+| cma-1916.780 | https://clevelandart.org/art/1916.780 | CC0 |
+| cma-1951.540 | https://clevelandart.org/art/1951.540 | CC0 |
+| cma-1952.588 | https://clevelandart.org/art/1952.588 | CC0 |
+| cma-1972.19 | https://clevelandart.org/art/1972.19 | CC0 |
+| cma-1980.282 | https://clevelandart.org/art/1980.282 | CC0 |
+| cma-1915.680 | https://clevelandart.org/art/1915.680 | CC0 |
+| cma-1951.330 | https://clevelandart.org/art/1951.330 | CC0 |
+| cma-1985.247 | https://clevelandart.org/art/1985.247 | CC0 |
+| cma-1989.119 | https://clevelandart.org/art/1989.119 | CC0 |
+| cma-1992.77 | https://clevelandart.org/art/1992.77 | CC0 |
+| cma-1994.94 | https://clevelandart.org/art/1994.94 | CC0 |
+| cma-1996.274 | https://clevelandart.org/art/1996.274 | CC0 |
+| cma-1996.296 | https://clevelandart.org/art/1996.296 | CC0 |
+| cma-2013.282 | https://clevelandart.org/art/2013.282 | CC0 |
+| cma-2013.311 | https://clevelandart.org/art/2013.311 | CC0 |
+| cma-2013.324 | https://clevelandart.org/art/2013.324 | CC0 |
+| cma-2018.115 | https://clevelandart.org/art/2018.115 | CC0 |
+| cma-2018.120 | https://clevelandart.org/art/2018.120 | CC0 |
+| cma-2018.85 | https://clevelandart.org/art/2018.85 | CC0 |
+| cma-2018.86 | https://clevelandart.org/art/2018.86 | CC0 |
+| cma-2018.90 | https://clevelandart.org/art/2018.90 | CC0 |
+| cma-2018.97 | https://clevelandart.org/art/2018.97 | CC0 |
+| cma-1962.1 | https://clevelandart.org/art/1962.1 | CC0 |
+| cma-1985.145 | https://clevelandart.org/art/1985.145 | CC0 |
+| cma-1920.514 | https://clevelandart.org/art/1920.514 | CC0 |
+| cma-2015.509 | https://clevelandart.org/art/2015.509 | CC0 |
+| cma-1978.48 | https://clevelandart.org/art/1978.48 | CC0 |
+| cma-1967.123 | https://clevelandart.org/art/1967.123 | CC0 |
+| cma-1944.92 | https://clevelandart.org/art/1944.92 | CC0 |
+| cma-1977.145 | https://clevelandart.org/art/1977.145 | CC0 |
+| cma-1985.275 | https://clevelandart.org/art/1985.275 | CC0 |
+| cma-1968.22 | https://clevelandart.org/art/1968.22 | CC0 |
+| cma-1916.788 | https://clevelandart.org/art/1916.788 | CC0 |
+| cma-1977.124 | https://clevelandart.org/art/1977.124 | CC0 |
+| cma-1915.110 | https://clevelandart.org/art/1915.110 | CC0 |
+| cma-1918.544 | https://clevelandart.org/art/1918.544 | CC0 |
+| cma-1968.42 | https://clevelandart.org/art/1968.42 | CC0 |
+| cma-1985.186 | https://clevelandart.org/art/1985.186 | CC0 |
+| cma-1987.1110 | https://clevelandart.org/art/1987.1110 | CC0 |
+| cma-1997.118 | https://clevelandart.org/art/1997.118 | CC0 |
+| cma-2007.275 | https://clevelandart.org/art/2007.275 | CC0 |
+| cma-2012.300 | https://clevelandart.org/art/2012.300 | CC0 |
+| cma-2012.302 | https://clevelandart.org/art/2012.302 | CC0 |
+| cma-2013.286 | https://clevelandart.org/art/2013.286 | CC0 |
+| cma-2013.287 | https://clevelandart.org/art/2013.287 | CC0 |
+| cma-2013.290 | https://clevelandart.org/art/2013.290 | CC0 |
+| cma-2013.299 | https://clevelandart.org/art/2013.299 | CC0 |
+| cma-2013.320 | https://clevelandart.org/art/2013.320 | CC0 |
+| cma-2013.334 | https://clevelandart.org/art/2013.334 | CC0 |
+| cma-2013.338 | https://clevelandart.org/art/2013.338 | CC0 |
+| cma-2018.155 | https://clevelandart.org/art/2018.155 | CC0 |
+| cma-2018.168 | https://clevelandart.org/art/2018.168 | CC0 |
+| cma-2018.172 | https://clevelandart.org/art/2018.172 | CC0 |
+| cma-2018.195 | https://clevelandart.org/art/2018.195 | CC0 |
+| cma-2018.197 | https://clevelandart.org/art/2018.197 | CC0 |
+| cma-1943.377 | https://clevelandart.org/art/1943.377 | CC0 |
+| cma-1991.55 | https://clevelandart.org/art/1991.55 | CC0 |
+| cma-1998.102 | https://clevelandart.org/art/1998.102 | CC0 |
+| cma-1998.292 | https://clevelandart.org/art/1998.292 | CC0 |
+| cma-2015.464 | https://clevelandart.org/art/2015.464 | CC0 |
+| cma-2017.101 | https://clevelandart.org/art/2017.101 | CC0 |
+| cma-2018.105 | https://clevelandart.org/art/2018.105 | CC0 |
+| cma-2018.184 | https://clevelandart.org/art/2018.184 | CC0 |
+| cma-2018.87 | https://clevelandart.org/art/2018.87 | CC0 |
+| cma-2018.88 | https://clevelandart.org/art/2018.88 | CC0 |
+| cma-2018.99 | https://clevelandart.org/art/2018.99 | CC0 |
+| cma-2023.4 | https://clevelandart.org/art/2023.4 | CC0 |
+| cma-2026.15 | https://clevelandart.org/art/2026.15 | CC0 |
+| cma-1980.233 | https://clevelandart.org/art/1980.233 | CC0 |
+| cma-1962.257 | https://clevelandart.org/art/1962.257 | CC0 |
+| cma-1976.97 | https://clevelandart.org/art/1976.97 | CC0 |
+| cma-1978.125 | https://clevelandart.org/art/1978.125 | CC0 |
+| cma-1980.237 | https://clevelandart.org/art/1980.237 | CC0 |
+| cma-2002.54 | https://clevelandart.org/art/2002.54 | CC0 |
+| cma-1987.60 | https://clevelandart.org/art/1987.60 | CC0 |
+| cma-1948.176 | https://clevelandart.org/art/1948.176 | CC0 |
+| cma-1916.1046 | https://clevelandart.org/art/1916.1046 | CC0 |
+| cma-1960.211 | https://clevelandart.org/art/1960.211 | CC0 |
+| cma-1982.138 | https://clevelandart.org/art/1982.138 | CC0 |
+| cma-1982.53 | https://clevelandart.org/art/1982.53 | CC0 |
+| cma-1985.252 | https://clevelandart.org/art/1985.252 | CC0 |
+| cma-1998.5 | https://clevelandart.org/art/1998.5 | CC0 |
+| cma-1999.169 | https://clevelandart.org/art/1999.169 | CC0 |
+| cma-2001.122 | https://clevelandart.org/art/2001.122 | CC0 |
+| cma-2001.163 | https://clevelandart.org/art/2001.163 | CC0 |
+| cma-2011.73 | https://clevelandart.org/art/2011.73 | CC0 |
+| cma-2013.317 | https://clevelandart.org/art/2013.317 | CC0 |
+| cma-2018.106 | https://clevelandart.org/art/2018.106 | CC0 |
+| cma-2018.109 | https://clevelandart.org/art/2018.109 | CC0 |
+| cma-2018.112 | https://clevelandart.org/art/2018.112 | CC0 |
+| cma-2018.113 | https://clevelandart.org/art/2018.113 | CC0 |
+| cma-2018.116 | https://clevelandart.org/art/2018.116 | CC0 |
+| cma-2018.194 | https://clevelandart.org/art/2018.194 | CC0 |
+| cma-2018.83 | https://clevelandart.org/art/2018.83 | CC0 |
+| cma-2018.96 | https://clevelandart.org/art/2018.96 | CC0 |
+| cma-2018.98 | https://clevelandart.org/art/2018.98 | CC0 |
+| cma-2020.80 | https://clevelandart.org/art/2020.80 | CC0 |
+| cma-2025.9 | https://clevelandart.org/art/2025.9 | CC0 |
+| cma-1918.542 | https://clevelandart.org/art/1918.542 | CC0 |
+| cma-1946.73 | https://clevelandart.org/art/1946.73 | CC0 |
+| cma-1949.187 | https://clevelandart.org/art/1949.187 | CC0 |
+| cma-1955.667 | https://clevelandart.org/art/1955.667 | CC0 |
+| cma-1993.166 | https://clevelandart.org/art/1993.166 | CC0 |
+| cma-1977.117 | https://clevelandart.org/art/1977.117 | CC0 |
+| cma-1977.119 | https://clevelandart.org/art/1977.119 | CC0 |
+| cma-1946.282 | https://clevelandart.org/art/1946.282 | CC0 |
+| cma-1953.660 | https://clevelandart.org/art/1953.660 | CC0 |
+| cma-1955.165 | https://clevelandart.org/art/1955.165 | CC0 |
+| cma-1986.59 | https://clevelandart.org/art/1986.59 | CC0 |
+| cma-1915.219 | https://clevelandart.org/art/1915.219 | CC0 |
+| cma-1915.220 | https://clevelandart.org/art/1915.220 | CC0 |
+| cma-1915.221 | https://clevelandart.org/art/1915.221 | CC0 |
+| cma-1918.541 | https://clevelandart.org/art/1918.541 | CC0 |
+| cma-1973.70 | https://clevelandart.org/art/1973.70 | CC0 |
+| cma-1916.803 | https://clevelandart.org/art/1916.803 | CC0 |
+| cma-1970.30 | https://clevelandart.org/art/1970.30 | CC0 |
+| cma-1971.19 | https://clevelandart.org/art/1971.19 | CC0 |
+| cma-1969.20 | https://clevelandart.org/art/1969.20 | CC0 |
+| cma-1971.164 | https://clevelandart.org/art/1971.164 | CC0 |
+| cma-1971.95 | https://clevelandart.org/art/1971.95 | CC0 |
+| cma-1990.67 | https://clevelandart.org/art/1990.67 | CC0 |
+| cma-2001.45 | https://clevelandart.org/art/2001.45 | CC0 |
+| cma-2003.148 | https://clevelandart.org/art/2003.148 | CC0 |
+| cma-2003.153 | https://clevelandart.org/art/2003.153 | CC0 |
+| cma-2003.160 | https://clevelandart.org/art/2003.160 | CC0 |
+| cma-2003.166 | https://clevelandart.org/art/2003.166 | CC0 |
+| cma-2003.98 | https://clevelandart.org/art/2003.98 | CC0 |
+| cma-2005.202 | https://clevelandart.org/art/2005.202 | CC0 |
+| cma-2006.203 | https://clevelandart.org/art/2006.203 | CC0 |
+| cma-2010.19 | https://clevelandart.org/art/2010.19 | CC0 |
+| cma-2013.300 | https://clevelandart.org/art/2013.300 | CC0 |
+| cma-2014.650 | https://clevelandart.org/art/2014.650 | CC0 |
+| cma-2018.126 | https://clevelandart.org/art/2018.126 | CC0 |
+| cma-2018.134 | https://clevelandart.org/art/2018.134 | CC0 |
+| cma-2018.135 | https://clevelandart.org/art/2018.135 | CC0 |
+| cma-2018.141 | https://clevelandart.org/art/2018.141 | CC0 |
+| cma-2018.144 | https://clevelandart.org/art/2018.144 | CC0 |
+| cma-2018.150 | https://clevelandart.org/art/2018.150 | CC0 |
+| cma-2018.151 | https://clevelandart.org/art/2018.151 | CC0 |
+| cma-2018.158 | https://clevelandart.org/art/2018.158 | CC0 |
+| cma-2018.161 | https://clevelandart.org/art/2018.161 | CC0 |
+| cma-2018.176 | https://clevelandart.org/art/2018.176 | CC0 |
+| cma-2018.179 | https://clevelandart.org/art/2018.179 | CC0 |
+| cma-2018.181 | https://clevelandart.org/art/2018.181 | CC0 |
+| cma-2018.182 | https://clevelandart.org/art/2018.182 | CC0 |
+| cma-2018.183 | https://clevelandart.org/art/2018.183 | CC0 |
+| cma-2018.185 | https://clevelandart.org/art/2018.185 | CC0 |
+| cma-2018.186 | https://clevelandart.org/art/2018.186 | CC0 |
+| cma-2018.187 | https://clevelandart.org/art/2018.187 | CC0 |
+| cma-2018.188 | https://clevelandart.org/art/2018.188 | CC0 |
+| cma-2018.190 | https://clevelandart.org/art/2018.190 | CC0 |
+| cma-2018.191 | https://clevelandart.org/art/2018.191 | CC0 |
+| cma-2018.192 | https://clevelandart.org/art/2018.192 | CC0 |
+| cma-2018.193 | https://clevelandart.org/art/2018.193 | CC0 |
+| cma-2018.196 | https://clevelandart.org/art/2018.196 | CC0 |
+| cma-2019.81 | https://clevelandart.org/art/2019.81 | CC0 |
+| cma-2021.11 | https://clevelandart.org/art/2021.11 | CC0 |
+| cma-2021.12 | https://clevelandart.org/art/2021.12 | CC0 |
+| cma-2025.7 | https://clevelandart.org/art/2025.7 | CC0 |
+| cma-2025.8 | https://clevelandart.org/art/2025.8 | CC0 |
+| cma-2021.134 | https://clevelandart.org/art/2021.134 | CC0 |
+| cma-2023.1 | https://clevelandart.org/art/2023.1 | CC0 |
+| cma-1960.51 | https://clevelandart.org/art/1960.51 | CC0 |
+| cma-1917.9 | https://clevelandart.org/art/1917.9 | CC0 |
+| cma-1971.232 | https://clevelandart.org/art/1971.232 | CC0 |
+| cma-1980.281 | https://clevelandart.org/art/1980.281 | CC0 |
+| cma-1980.292 | https://clevelandart.org/art/1980.292 | CC0 |
+| cma-1949.185 | https://clevelandart.org/art/1949.185 | CC0 |
+| cma-1961.47 | https://clevelandart.org/art/1961.47 | CC0 |
+| cma-1969.131 | https://clevelandart.org/art/1969.131 | CC0 |
+| cma-1916.794 | https://clevelandart.org/art/1916.794 | CC0 |
+| cma-1973.2 | https://clevelandart.org/art/1973.2 | CC0 |
+| cma-1975.93 | https://clevelandart.org/art/1975.93 | CC0 |
+| cma-1915.216 | https://clevelandart.org/art/1915.216 | CC0 |
+| cma-2011.48 | https://clevelandart.org/art/2011.48 | CC0 |
+| cma-1929.1976 | https://clevelandart.org/art/1929.1976 | CC0 |
+| cma-1982.147 | https://clevelandart.org/art/1982.147 | CC0 |
+| cma-1972.169 | https://clevelandart.org/art/1972.169 | CC0 |
+| cma-1988.70 | https://clevelandart.org/art/1988.70 | CC0 |
+| cma-1953.143 | https://clevelandart.org/art/1953.143 | CC0 |
+| cma-1953.245 | https://clevelandart.org/art/1953.245 | CC0 |
+| cma-1997.100 | https://clevelandart.org/art/1997.100 | CC0 |
+| cma-1971.78 | https://clevelandart.org/art/1971.78 | CC0 |
+| cma-1948.461 | https://clevelandart.org/art/1948.461 | CC0 |
+| cma-1963.506 | https://clevelandart.org/art/1963.506 | CC0 |
+| cma-1977.116 | https://clevelandart.org/art/1977.116 | CC0 |
+| cma-1979.14 | https://clevelandart.org/art/1979.14 | CC0 |
+| cma-1989.52 | https://clevelandart.org/art/1989.52 | CC0 |
+| cma-1951.325 | https://clevelandart.org/art/1951.325 | CC0 |
+| cma-1964.367 | https://clevelandart.org/art/1964.367 | CC0 |
+| cma-1966.27 | https://clevelandart.org/art/1966.27 | CC0 |
+| cma-1915.217 | https://clevelandart.org/art/1915.217 | CC0 |
+| cma-1915.631 | https://clevelandart.org/art/1915.631 | CC0 |
+| cma-2018.110 | https://clevelandart.org/art/2018.110 | CC0 |
+| cma-2018.139 | https://clevelandart.org/art/2018.139 | CC0 |
+| cma-2018.156 | https://clevelandart.org/art/2018.156 | CC0 |
+| cma-2018.164 | https://clevelandart.org/art/2018.164 | CC0 |
+| cma-2018.84 | https://clevelandart.org/art/2018.84 | CC0 |
+| cma-2020.432 | https://clevelandart.org/art/2020.432 | CC0 |
+| cma-2020.433 | https://clevelandart.org/art/2020.433 | CC0 |
+| cma-1939.165 | https://clevelandart.org/art/1939.165 | CC0 |
+| cma-1916.1041 | https://clevelandart.org/art/1916.1041 | CC0 |
+| cma-1985.254 | https://clevelandart.org/art/1985.254 | CC0 |
+| cma-1975.78 | https://clevelandart.org/art/1975.78 | CC0 |
+| cma-1977.2 | https://clevelandart.org/art/1977.2 | CC0 |
+| cma-1982.131 | https://clevelandart.org/art/1982.131 | CC0 |
+| cma-1988.1 | https://clevelandart.org/art/1988.1 | CC0 |
+| cma-1990.82 | https://clevelandart.org/art/1990.82 | CC0 |
+| cma-1989.333 | https://clevelandart.org/art/1989.333 | CC0 |
+| cma-1953.123 | https://clevelandart.org/art/1953.123 | CC0 |
+| cma-1970.32 | https://clevelandart.org/art/1970.32 | CC0 |
+| cma-1979.82 | https://clevelandart.org/art/1979.82 | CC0 |
+| cma-1980.249 | https://clevelandart.org/art/1980.249 | CC0 |
+| cma-1915.685 | https://clevelandart.org/art/1915.685 | CC0 |
+| cma-1916.1057 | https://clevelandart.org/art/1916.1057 | CC0 |
+| cma-2003.285 | https://clevelandart.org/art/2003.285 | CC0 |
+| cma-2003.343 | https://clevelandart.org/art/2003.343 | CC0 |
+| cma-2005.86 | https://clevelandart.org/art/2005.86 | CC0 |
+| cma-2011.47 | https://clevelandart.org/art/2011.47 | CC0 |
+| cma-2013.257 | https://clevelandart.org/art/2013.257 | CC0 |
+| cma-2017.105 | https://clevelandart.org/art/2017.105 | CC0 |
+| cma-2018.124 | https://clevelandart.org/art/2018.124 | CC0 |
+| cma-2018.125 | https://clevelandart.org/art/2018.125 | CC0 |
+| cma-2018.127 | https://clevelandart.org/art/2018.127 | CC0 |
+| cma-2018.128 | https://clevelandart.org/art/2018.128 | CC0 |
+| cma-2018.130 | https://clevelandart.org/art/2018.130 | CC0 |
+| cma-2018.131 | https://clevelandart.org/art/2018.131 | CC0 |
+| cma-2018.132 | https://clevelandart.org/art/2018.132 | CC0 |
+| cma-2018.133 | https://clevelandart.org/art/2018.133 | CC0 |
+| cma-2018.137 | https://clevelandart.org/art/2018.137 | CC0 |
+| cma-2018.138 | https://clevelandart.org/art/2018.138 | CC0 |
+| cma-2018.140 | https://clevelandart.org/art/2018.140 | CC0 |
+| cma-2018.143 | https://clevelandart.org/art/2018.143 | CC0 |
+| cma-2018.145 | https://clevelandart.org/art/2018.145 | CC0 |
+| cma-2018.146 | https://clevelandart.org/art/2018.146 | CC0 |
+| cma-2018.147 | https://clevelandart.org/art/2018.147 | CC0 |
+| cma-2018.148 | https://clevelandart.org/art/2018.148 | CC0 |
+| cma-2018.149 | https://clevelandart.org/art/2018.149 | CC0 |
+| cma-2018.152 | https://clevelandart.org/art/2018.152 | CC0 |
+| cma-2018.154 | https://clevelandart.org/art/2018.154 | CC0 |
+| cma-2018.159 | https://clevelandart.org/art/2018.159 | CC0 |
+| cma-2018.160 | https://clevelandart.org/art/2018.160 | CC0 |
+| cma-2018.163 | https://clevelandart.org/art/2018.163 | CC0 |
+| cma-2018.165 | https://clevelandart.org/art/2018.165 | CC0 |
+| cma-2018.167 | https://clevelandart.org/art/2018.167 | CC0 |
+| cma-2018.169 | https://clevelandart.org/art/2018.169 | CC0 |
+| cma-2018.170 | https://clevelandart.org/art/2018.170 | CC0 |
+| cma-2018.173 | https://clevelandart.org/art/2018.173 | CC0 |
+| cma-2018.174 | https://clevelandart.org/art/2018.174 | CC0 |
+| cma-2018.178 | https://clevelandart.org/art/2018.178 | CC0 |
+| cma-2018.180 | https://clevelandart.org/art/2018.180 | CC0 |
+| cma-2018.189 | https://clevelandart.org/art/2018.189 | CC0 |
+| cma-2018.198 | https://clevelandart.org/art/2018.198 | CC0 |
+| cma-2018.199 | https://clevelandart.org/art/2018.199 | CC0 |
+| cma-2018.200 | https://clevelandart.org/art/2018.200 | CC0 |
+| cma-2018.202 | https://clevelandart.org/art/2018.202 | CC0 |
+| cma-2020.431 | https://clevelandart.org/art/2020.431 | CC0 |
+| cma-2022.432 | https://clevelandart.org/art/2022.432 | CC0 |
+| cma-2022.434 | https://clevelandart.org/art/2022.434 | CC0 |
+| cma-2023.161 | https://clevelandart.org/art/2023.161 | CC0 |
+| cma-2025.3 | https://clevelandart.org/art/2025.3 | CC0 |
+| cma-2026.37 | https://clevelandart.org/art/2026.37 | CC0 |
+| cma-2026.44 | https://clevelandart.org/art/2026.44 | CC0 |
+| cma-2026.46 | https://clevelandart.org/art/2026.46 | CC0 |
+| cma-1946.161 | https://clevelandart.org/art/1946.161 | CC0 |
+| cma-1983.21 | https://clevelandart.org/art/1983.21 | CC0 |
+| cma-1942.121 | https://clevelandart.org/art/1942.121 | CC0 |
+| cma-1916.1030 | https://clevelandart.org/art/1916.1030 | CC0 |
+| cma-1916.797 | https://clevelandart.org/art/1916.797 | CC0 |
+| cma-1963.96 | https://clevelandart.org/art/1963.96 | CC0 |
+| cma-1975.71 | https://clevelandart.org/art/1975.71 | CC0 |
+| cma-1976.8 | https://clevelandart.org/art/1976.8 | CC0 |
+| cma-1977.126 | https://clevelandart.org/art/1977.126 | CC0 |
+| cma-1921.2552 | https://clevelandart.org/art/1921.2552 | CC0 |
+| cma-1960.45 | https://clevelandart.org/art/1960.45 | CC0 |
+| cma-1969.18 | https://clevelandart.org/art/1969.18 | CC0 |
+| cma-1982.26 | https://clevelandart.org/art/1982.26 | CC0 |
+| cma-1947.210 | https://clevelandart.org/art/1947.210 | CC0 |
+| cma-1963.575 | https://clevelandart.org/art/1963.575 | CC0 |
+| cma-1964.294 | https://clevelandart.org/art/1964.294 | CC0 |
+| cma-1965.548 | https://clevelandart.org/art/1965.548 | CC0 |
+| cma-1961.334 | https://clevelandart.org/art/1961.334 | CC0 |
+| cma-1925.1408 | https://clevelandart.org/art/1925.1408 | CC0 |
+| cma-1971.234 | https://clevelandart.org/art/1971.234 | CC0 |
+| cma-1972.68 | https://clevelandart.org/art/1972.68 | CC0 |
+| cma-1973.32 | https://clevelandart.org/art/1973.32 | CC0 |
+| cma-1975.20 | https://clevelandart.org/art/1975.20 | CC0 |
+| cma-1985.111 | https://clevelandart.org/art/1985.111 | CC0 |
+| cma-1987.51 | https://clevelandart.org/art/1987.51 | CC0 |
+| cma-1988.13 | https://clevelandart.org/art/1988.13 | CC0 |
+| cma-1939.750 | https://clevelandart.org/art/1939.750 | CC0 |
+| cma-1960.206 | https://clevelandart.org/art/1960.206 | CC0 |
+| cma-1916.805 | https://clevelandart.org/art/1916.805 | CC0 |
+| cma-1968.109 | https://clevelandart.org/art/1968.109 | CC0 |
+| cma-1982.37 | https://clevelandart.org/art/1982.37 | CC0 |
+| cma-1990.13 | https://clevelandart.org/art/1990.13 | CC0 |
+| cma-1985.8 | https://clevelandart.org/art/1985.8 | CC0 |
+| cma-1988.16 | https://clevelandart.org/art/1988.16 | CC0 |
+| cma-1916.1034 | https://clevelandart.org/art/1916.1034 | CC0 |
+| cma-1916.813 | https://clevelandart.org/art/1916.813 | CC0 |
+| cma-1916.814 | https://clevelandart.org/art/1916.814 | CC0 |
+| cma-1916.824 | https://clevelandart.org/art/1916.824 | CC0 |
+| cma-1976.90 | https://clevelandart.org/art/1976.90 | CC0 |
+| cma-1977.200 | https://clevelandart.org/art/1977.200 | CC0 |
+| cma-1980.245 | https://clevelandart.org/art/1980.245 | CC0 |
+| cma-1980.270 | https://clevelandart.org/art/1980.270 | CC0 |
+| cma-1980.4 | https://clevelandart.org/art/1980.4 | CC0 |
+| cma-1985.255 | https://clevelandart.org/art/1985.255 | CC0 |
+| cma-1985.262 | https://clevelandart.org/art/1985.262 | CC0 |
+| cma-1960.54 | https://clevelandart.org/art/1960.54 | CC0 |
+| cma-1916.1039 | https://clevelandart.org/art/1916.1039 | CC0 |
+| cma-1975.76 | https://clevelandart.org/art/1975.76 | CC0 |
+| cma-1975.92 | https://clevelandart.org/art/1975.92 | CC0 |
+| cma-1980.39 | https://clevelandart.org/art/1980.39 | CC0 |
+| cma-1981.5 | https://clevelandart.org/art/1981.5 | CC0 |
+| cma-2013.294 | https://clevelandart.org/art/2013.294 | CC0 |
+| cma-1917.93 | https://clevelandart.org/art/1917.93 | CC0 |
+| cma-1916.804 | https://clevelandart.org/art/1916.804 | CC0 |
+| cma-1937.454 | https://clevelandart.org/art/1937.454 | CC0 |
+| cma-1968.44 | https://clevelandart.org/art/1968.44 | CC0 |
+| cma-1980.264 | https://clevelandart.org/art/1980.264 | CC0 |
+| cma-1995.245 | https://clevelandart.org/art/1995.245 | CC0 |
+| cma-1917.97 | https://clevelandart.org/art/1917.97 | CC0 |
+| cma-1984.42 | https://clevelandart.org/art/1984.42 | CC0 |
+| cma-1990.41 | https://clevelandart.org/art/1990.41 | CC0 |
+| cma-1916.789 | https://clevelandart.org/art/1916.789 | CC0 |
+| cma-1920.3919 | https://clevelandart.org/art/1920.3919 | CC0 |
+| cma-1916.785 | https://clevelandart.org/art/1916.785 | CC0 |
+| cma-1968.209 | https://clevelandart.org/art/1968.209 | CC0 |
+| cma-1970.79 | https://clevelandart.org/art/1970.79 | CC0 |
+| cma-1977.173 | https://clevelandart.org/art/1977.173 | CC0 |
+| cma-1980.257 | https://clevelandart.org/art/1980.257 | CC0 |
+| cma-1981.33 | https://clevelandart.org/art/1981.33 | CC0 |
+| cma-1982.128 | https://clevelandart.org/art/1982.128 | CC0 |
+| cma-1982.246 | https://clevelandart.org/art/1982.246 | CC0 |
+| cma-1985.248 | https://clevelandart.org/art/1985.248 | CC0 |
+| cma-1985.277 | https://clevelandart.org/art/1985.277 | CC0 |
+| cma-1991.117 | https://clevelandart.org/art/1991.117 | CC0 |
+| cma-1992.140 | https://clevelandart.org/art/1992.140 | CC0 |
+| cma-1997.103 | https://clevelandart.org/art/1997.103 | CC0 |
+| cma-2000.67 | https://clevelandart.org/art/2000.67 | CC0 |
+| cma-1944.89 | https://clevelandart.org/art/1944.89 | CC0 |
+| cma-1923.1118 | https://clevelandart.org/art/1923.1118 | CC0 |
+| cma-1946.255 | https://clevelandart.org/art/1946.255 | CC0 |
+| cma-2015.474 | https://clevelandart.org/art/2015.474 | CC0 |
+| cma-2015.513 | https://clevelandart.org/art/2015.513 | CC0 |
+| cma-2016.306 | https://clevelandart.org/art/2016.306 | CC0 |
+| cma-1974.108 | https://clevelandart.org/art/1974.108 | CC0 |
+| cma-1980.254 | https://clevelandart.org/art/1980.254 | CC0 |
+| cma-1981.34 | https://clevelandart.org/art/1981.34 | CC0 |
+| cma-1993.5 | https://clevelandart.org/art/1993.5 | CC0 |
+| cma-1923.1340 | https://clevelandart.org/art/1923.1340 | CC0 |
+| cma-1917.1066 | https://clevelandart.org/art/1917.1066 | CC0 |
+| cma-1954.788 | https://clevelandart.org/art/1954.788 | CC0 |
+| cma-1960.209 | https://clevelandart.org/art/1960.209 | CC0 |
+| cma-1967.240 | https://clevelandart.org/art/1967.240 | CC0 |
+| cma-1968.208 | https://clevelandart.org/art/1968.208 | CC0 |
+| cma-1971.263 | https://clevelandart.org/art/1971.263 | CC0 |
+| cma-1971.81 | https://clevelandart.org/art/1971.81 | CC0 |
+| cma-1982.11 | https://clevelandart.org/art/1982.11 | CC0 |
+| cma-1985.133 | https://clevelandart.org/art/1985.133 | CC0 |
+| cma-1985.246 | https://clevelandart.org/art/1985.246 | CC0 |
+| cma-1987.162 | https://clevelandart.org/art/1987.162 | CC0 |
+| cma-1992.142 | https://clevelandart.org/art/1992.142 | CC0 |
+| cma-1916.2059 | https://clevelandart.org/art/1916.2059 | CC0 |
+| cma-1977.125 | https://clevelandart.org/art/1977.125 | CC0 |
+| cma-1977.201 | https://clevelandart.org/art/1977.201 | CC0 |
+| cma-1980.250 | https://clevelandart.org/art/1980.250 | CC0 |
+| cma-1981.55 | https://clevelandart.org/art/1981.55 | CC0 |
+| cma-1985.258 | https://clevelandart.org/art/1985.258 | CC0 |
+| cma-1985.266 | https://clevelandart.org/art/1985.266 | CC0 |
+| cma-1987.7 | https://clevelandart.org/art/1987.7 | CC0 |
+| cma-1988.17 | https://clevelandart.org/art/1988.17 | CC0 |
+| cma-1975.77 | https://clevelandart.org/art/1975.77 | CC0 |
+| cma-1927.394 | https://clevelandart.org/art/1927.394 | CC0 |
+| cma-1976.72 | https://clevelandart.org/art/1976.72 | CC0 |
+| cma-1980.244 | https://clevelandart.org/art/1980.244 | CC0 |
+| cma-1980.285 | https://clevelandart.org/art/1980.285 | CC0 |
+| cma-1980.287 | https://clevelandart.org/art/1980.287 | CC0 |
+| cma-1982.143 | https://clevelandart.org/art/1982.143 | CC0 |
+| cma-1985.260 | https://clevelandart.org/art/1985.260 | CC0 |
+| cma-1985.276 | https://clevelandart.org/art/1985.276 | CC0 |
+| cma-1985.35 | https://clevelandart.org/art/1985.35 | CC0 |
+| cma-1988.72 | https://clevelandart.org/art/1988.72 | CC0 |
+| cma-2000.68 | https://clevelandart.org/art/2000.68 | CC0 |
+| cma-2003.103 | https://clevelandart.org/art/2003.103 | CC0 |
+| cma-2015.463 | https://clevelandart.org/art/2015.463 | CC0 |
+| cma-2018.103 | https://clevelandart.org/art/2018.103 | CC0 |
+| cma-1915.710 | https://clevelandart.org/art/1915.710 | CC0 |
+| cma-1958.33 | https://clevelandart.org/art/1958.33 | CC0 |
+| cma-1971.89 | https://clevelandart.org/art/1971.89 | CC0 |
+| cma-1989.248 | https://clevelandart.org/art/1989.248 | CC0 |
+| cma-1960.283 | https://clevelandart.org/art/1960.283 | CC0 |
+| cma-1980.289 | https://clevelandart.org/art/1980.289 | CC0 |
+| cma-1927.198 | https://clevelandart.org/art/1927.198 | CC0 |
+| cma-1916.784 | https://clevelandart.org/art/1916.784 | CC0 |
+| cma-1916.966 | https://clevelandart.org/art/1916.966 | CC0 |
+| cma-1968.72 | https://clevelandart.org/art/1968.72 | CC0 |
+| cma-1971.93 | https://clevelandart.org/art/1971.93 | CC0 |
+| cma-1980.274 | https://clevelandart.org/art/1980.274 | CC0 |
+| cma-1982.156 | https://clevelandart.org/art/1982.156 | CC0 |
+| cma-1982.27 | https://clevelandart.org/art/1982.27 | CC0 |
+| cma-1982.35 | https://clevelandart.org/art/1982.35 | CC0 |
+| cma-1985.249 | https://clevelandart.org/art/1985.249 | CC0 |
+| cma-1985.253 | https://clevelandart.org/art/1985.253 | CC0 |
+| cma-1985.264 | https://clevelandart.org/art/1985.264 | CC0 |
+| cma-1986.175 | https://clevelandart.org/art/1986.175 | CC0 |
+| cma-1988.73 | https://clevelandart.org/art/1988.73 | CC0 |
+| cma-1989.474 | https://clevelandart.org/art/1989.474 | CC0 |
+| cma-1992.71 | https://clevelandart.org/art/1992.71 | CC0 |
+| cma-2011.139 | https://clevelandart.org/art/2011.139 | CC0 |
+| cma-2011.207 | https://clevelandart.org/art/2011.207 | CC0 |
+| cma-2013.285 | https://clevelandart.org/art/2013.285 | CC0 |
+| cma-2015.503 | https://clevelandart.org/art/2015.503 | CC0 |
+| cma-1915.117 | https://clevelandart.org/art/1915.117 | CC0 |
+| cma-1927.392 | https://clevelandart.org/art/1927.392 | CC0 |
+| cma-1940.542 | https://clevelandart.org/art/1940.542 | CC0 |
+| cma-1961.88 | https://clevelandart.org/art/1961.88 | CC0 |
+| cma-1958.38 | https://clevelandart.org/art/1958.38 | CC0 |
+| cma-1974.2 | https://clevelandart.org/art/1974.2 | CC0 |
+| cma-1980.263 | https://clevelandart.org/art/1980.263 | CC0 |
+| cma-1980.40 | https://clevelandart.org/art/1980.40 | CC0 |
+| cma-1985.267 | https://clevelandart.org/art/1985.267 | CC0 |
+| cma-1986.8 | https://clevelandart.org/art/1986.8 | CC0 |
+| cma-2013.302 | https://clevelandart.org/art/2013.302 | CC0 |
+| cma-2015.518 | https://clevelandart.org/art/2015.518 | CC0 |
+| cma-1927.387 | https://clevelandart.org/art/1927.387 | CC0 |
+| cma-1946.494 | https://clevelandart.org/art/1946.494 | CC0 |
+| cma-1927.396 | https://clevelandart.org/art/1927.396 | CC0 |
+| cma-1925.1337 | https://clevelandart.org/art/1925.1337 | CC0 |
+| cma-1960.48 | https://clevelandart.org/art/1960.48 | CC0 |
+| cma-1987.72 | https://clevelandart.org/art/1987.72 | CC0 |
+| cma-1964.157 | https://clevelandart.org/art/1964.157 | CC0 |
+| cma-1964.51 | https://clevelandart.org/art/1964.51 | CC0 |
+| cma-1974.46 | https://clevelandart.org/art/1974.46 | CC0 |
+| cma-1977.118 | https://clevelandart.org/art/1977.118 | CC0 |
+| cma-1983.112 | https://clevelandart.org/art/1983.112 | CC0 |
+| cma-1987.1100 | https://clevelandart.org/art/1987.1100 | CC0 |
+| cma-1987.36 | https://clevelandart.org/art/1987.36 | CC0 |
+| cma-1992.380 | https://clevelandart.org/art/1992.380 | CC0 |
+| cma-1992.385 | https://clevelandart.org/art/1992.385 | CC0 |
+| cma-1998.290 | https://clevelandart.org/art/1998.290 | CC0 |
+| cma-2003.105 | https://clevelandart.org/art/2003.105 | CC0 |
+| cma-2005.1 | https://clevelandart.org/art/2005.1 | CC0 |
+| cma-2013.333 | https://clevelandart.org/art/2013.333 | CC0 |
+| cma-2013.340 | https://clevelandart.org/art/2013.340 | CC0 |
+| cma-2015.470 | https://clevelandart.org/art/2015.470 | CC0 |
+| cma-2015.480 | https://clevelandart.org/art/2015.480 | CC0 |
+| cma-2015.491 | https://clevelandart.org/art/2015.491 | CC0 |
+| cma-2015.514 | https://clevelandart.org/art/2015.514 | CC0 |
+| cma-2015.591 | https://clevelandart.org/art/2015.591 | CC0 |
+| cma-2015.593 | https://clevelandart.org/art/2015.593 | CC0 |
+| cma-2015.594 | https://clevelandart.org/art/2015.594 | CC0 |
+| cma-1983.70 | https://clevelandart.org/art/1983.70 | CC0 |
+| cma-1977.121 | https://clevelandart.org/art/1977.121 | CC0 |
+| cma-1980.268 | https://clevelandart.org/art/1980.268 | CC0 |
+| cma-1987.37 | https://clevelandart.org/art/1987.37 | CC0 |
+| cma-1991.44 | https://clevelandart.org/art/1991.44 | CC0 |
+| cma-1998.10 | https://clevelandart.org/art/1998.10 | CC0 |
+| cma-1999.195 | https://clevelandart.org/art/1999.195 | CC0 |
+| cma-2013.293 | https://clevelandart.org/art/2013.293 | CC0 |
+| cma-2015.592 | https://clevelandart.org/art/2015.592 | CC0 |
+| cma-1916.997 | https://clevelandart.org/art/1916.997 | CC0 |
+| cma-1980.230 | https://clevelandart.org/art/1980.230 | CC0 |
+| cma-1915.621 | https://clevelandart.org/art/1915.621 | CC0 |
+| cma-1958.175 | https://clevelandart.org/art/1958.175 | CC0 |
+| cma-1961.35 | https://clevelandart.org/art/1961.35 | CC0 |
+| cma-1978.75 | https://clevelandart.org/art/1978.75 | CC0 |
+| cma-1979.16 | https://clevelandart.org/art/1979.16 | CC0 |
+| cma-1986.48 | https://clevelandart.org/art/1986.48 | CC0 |
+| cma-1989.8 | https://clevelandart.org/art/1989.8 | CC0 |
+| cma-1992.305 | https://clevelandart.org/art/1992.305 | CC0 |
+| cma-1999.262 | https://clevelandart.org/art/1999.262 | CC0 |
+| cma-2003.145 | https://clevelandart.org/art/2003.145 | CC0 |
+| cma-2011.137 | https://clevelandart.org/art/2011.137 | CC0 |
+| cma-2011.150 | https://clevelandart.org/art/2011.150 | CC0 |
+| cma-2012.297 | https://clevelandart.org/art/2012.297 | CC0 |
+| cma-2013.297 | https://clevelandart.org/art/2013.297 | CC0 |
+| cma-2013.339 | https://clevelandart.org/art/2013.339 | CC0 |
+| cma-2015.467 | https://clevelandart.org/art/2015.467 | CC0 |
+| cma-2015.476 | https://clevelandart.org/art/2015.476 | CC0 |
+| cma-1980.241 | https://clevelandart.org/art/1980.241 | CC0 |
+| cma-1916.812 | https://clevelandart.org/art/1916.812 | CC0 |
+| cma-1971.227 | https://clevelandart.org/art/1971.227 | CC0 |
+| cma-1953.630 | https://clevelandart.org/art/1953.630 | CC0 |
+| cma-1960.116 | https://clevelandart.org/art/1960.116 | CC0 |
+| cma-1915.407 | https://clevelandart.org/art/1915.407 | CC0 |
+| cma-1968.71 | https://clevelandart.org/art/1968.71 | CC0 |
+| cma-1971.90 | https://clevelandart.org/art/1971.90 | CC0 |
+| cma-1991.77 | https://clevelandart.org/art/1991.77 | CC0 |
+| cma-1992.386 | https://clevelandart.org/art/1992.386 | CC0 |
+| cma-1995.18 | https://clevelandart.org/art/1995.18 | CC0 |
+| cma-1997.125 | https://clevelandart.org/art/1997.125 | CC0 |
+| cma-2001.161 | https://clevelandart.org/art/2001.161 | CC0 |
+| cma-2001.162 | https://clevelandart.org/art/2001.162 | CC0 |
+| cma-2001.164 | https://clevelandart.org/art/2001.164 | CC0 |
+| cma-2003.101 | https://clevelandart.org/art/2003.101 | CC0 |
+| cma-2003.104 | https://clevelandart.org/art/2003.104 | CC0 |
+| cma-2003.117 | https://clevelandart.org/art/2003.117 | CC0 |
+| cma-2003.130 | https://clevelandart.org/art/2003.130 | CC0 |
+| cma-2003.131 | https://clevelandart.org/art/2003.131 | CC0 |
+| cma-2003.132 | https://clevelandart.org/art/2003.132 | CC0 |
+| cma-2003.144 | https://clevelandart.org/art/2003.144 | CC0 |
+| cma-2003.146 | https://clevelandart.org/art/2003.146 | CC0 |
+| cma-2003.147 | https://clevelandart.org/art/2003.147 | CC0 |
+| cma-2003.149 | https://clevelandart.org/art/2003.149 | CC0 |
+| cma-2003.154 | https://clevelandart.org/art/2003.154 | CC0 |
+| cma-2003.162 | https://clevelandart.org/art/2003.162 | CC0 |
+| cma-2003.168 | https://clevelandart.org/art/2003.168 | CC0 |
+| cma-2003.169 | https://clevelandart.org/art/2003.169 | CC0 |
+| cma-2008.297 | https://clevelandart.org/art/2008.297 | CC0 |
+| cma-2011.46 | https://clevelandart.org/art/2011.46 | CC0 |
+| cma-2013.365 | https://clevelandart.org/art/2013.365 | CC0 |
+| cma-2015.457 | https://clevelandart.org/art/2015.457 | CC0 |
+| cma-2015.512 | https://clevelandart.org/art/2015.512 | CC0 |
+| cma-2015.515 | https://clevelandart.org/art/2015.515 | CC0 |
+| cma-2016.307 | https://clevelandart.org/art/2016.307 | CC0 |
+| cma-2018.157 | https://clevelandart.org/art/2018.157 | CC0 |
+| cma-1916.1048 | https://clevelandart.org/art/1916.1048 | CC0 |
+| cma-1964.289 | https://clevelandart.org/art/1964.289 | CC0 |
+| cma-1970.6 | https://clevelandart.org/art/1970.6 | CC0 |
+| cma-1927.397 | https://clevelandart.org/art/1927.397 | CC0 |
+| cma-1963.573 | https://clevelandart.org/art/1963.573 | CC0 |
+| cma-1916.791 | https://clevelandart.org/art/1916.791 | CC0 |
+| cma-1916.1054 | https://clevelandart.org/art/1916.1054 | CC0 |
+| cma-1964.452 | https://clevelandart.org/art/1964.452 | CC0 |
+| cma-1995.66 | https://clevelandart.org/art/1995.66 | CC0 |
+| cma-2012.5 | https://clevelandart.org/art/2012.5 | CC0 |
+| cma-1955.43 | https://clevelandart.org/art/1955.43 | CC0 |
+| cma-1927.398 | https://clevelandart.org/art/1927.398 | CC0 |
+| cma-1932.117 | https://clevelandart.org/art/1932.117 | CC0 |
+| cma-1950.91 | https://clevelandart.org/art/1950.91 | CC0 |
+| cma-1916.1042 | https://clevelandart.org/art/1916.1042 | CC0 |
+| cma-1925.632 | https://clevelandart.org/art/1925.632 | CC0 |
+| cma-1947.71 | https://clevelandart.org/art/1947.71 | CC0 |
+| cma-1915.683 | https://clevelandart.org/art/1915.683 | CC0 |
+| cma-1970.41 | https://clevelandart.org/art/1970.41 | CC0 |
+| cma-1919.974 | https://clevelandart.org/art/1919.974 | CC0 |
+| cma-1915.723 | https://clevelandart.org/art/1915.723 | CC0 |
+| cma-1952.540 | https://clevelandart.org/art/1952.540 | CC0 |
+| cma-1982.113 | https://clevelandart.org/art/1982.113 | CC0 |
+| cma-1997.305 | https://clevelandart.org/art/1997.305 | CC0 |
+| cma-2008.69 | https://clevelandart.org/art/2008.69 | CC0 |
+| cma-2015.472 | https://clevelandart.org/art/2015.472 | CC0 |
+| cma-1929.465 | https://clevelandart.org/art/1929.465 | CC0 |
+| cma-1938.41 | https://clevelandart.org/art/1938.41 | CC0 |
+| cma-1962.43 | https://clevelandart.org/art/1962.43 | CC0 |
+| cma-1921.83 | https://clevelandart.org/art/1921.83 | CC0 |
+| cma-1916.786 | https://clevelandart.org/art/1916.786 | CC0 |
+| cma-1925.801 | https://clevelandart.org/art/1925.801 | CC0 |
+| cma-1927.390 | https://clevelandart.org/art/1927.390 | CC0 |
+| cma-1928.581 | https://clevelandart.org/art/1928.581 | CC0 |
+| cma-1929.464 | https://clevelandart.org/art/1929.464 | CC0 |
+| cma-1938.129 | https://clevelandart.org/art/1938.129 | CC0 |
+| cma-1938.130 | https://clevelandart.org/art/1938.130 | CC0 |
+| cma-1997.105 | https://clevelandart.org/art/1997.105 | CC0 |
+| cma-1916.792 | https://clevelandart.org/art/1916.792 | CC0 |
+| cma-1928.579 | https://clevelandart.org/art/1928.579 | CC0 |
+| cma-1931.440 | https://clevelandart.org/art/1931.440 | CC0 |
+| cma-1979.28 | https://clevelandart.org/art/1979.28 | CC0 |
+| cma-1915.116 | https://clevelandart.org/art/1915.116 | CC0 |
+| cma-1915.96 | https://clevelandart.org/art/1915.96 | CC0 |
+| cma-1915.97 | https://clevelandart.org/art/1915.97 | CC0 |
+| cma-1916.931 | https://clevelandart.org/art/1916.931 | CC0 |
+| cma-1916.932 | https://clevelandart.org/art/1916.932 | CC0 |
+| cma-1917.104 | https://clevelandart.org/art/1917.104 | CC0 |
+| cma-1963.99 | https://clevelandart.org/art/1963.99 | CC0 |
+| cma-1990.68 | https://clevelandart.org/art/1990.68 | CC0 |
+| cma-1991.1081 | https://clevelandart.org/art/1991.1081 | CC0 |
+| cma-1996.272 | https://clevelandart.org/art/1996.272 | CC0 |
+| cma-1997.107 | https://clevelandart.org/art/1997.107 | CC0 |
+| cma-1999.89 | https://clevelandart.org/art/1999.89 | CC0 |
+| cma-2000.7 | https://clevelandart.org/art/2000.7 | CC0 |
+| cma-2003.344 | https://clevelandart.org/art/2003.344 | CC0 |
+| cma-2008.286 | https://clevelandart.org/art/2008.286 | CC0 |
+| cma-2008.287 | https://clevelandart.org/art/2008.287 | CC0 |
+| cma-2008.289 | https://clevelandart.org/art/2008.289 | CC0 |
+| cma-2012.95 | https://clevelandart.org/art/2012.95 | CC0 |
+| cma-2015.479 | https://clevelandart.org/art/2015.479 | CC0 |
+| cma-2015.85 | https://clevelandart.org/art/2015.85 | CC0 |
+| cma-2015.86 | https://clevelandart.org/art/2015.86 | CC0 |
+| cma-1980.290 | https://clevelandart.org/art/1980.290 | CC0 |
+| cma-1916.826 | https://clevelandart.org/art/1916.826 | CC0 |
+| cma-1925.78 | https://clevelandart.org/art/1925.78 | CC0 |
+| cma-1960.162 | https://clevelandart.org/art/1960.162 | CC0 |
+| cma-1969.19 | https://clevelandart.org/art/1969.19 | CC0 |
+| cma-1916.1052 | https://clevelandart.org/art/1916.1052 | CC0 |
+| cma-1916.1053 | https://clevelandart.org/art/1916.1053 | CC0 |
+| cma-1916.903 | https://clevelandart.org/art/1916.903 | CC0 |
+| cma-1928.258 | https://clevelandart.org/art/1928.258 | CC0 |
+| cma-1938.40 | https://clevelandart.org/art/1938.40 | CC0 |
+| cma-1953.649 | https://clevelandart.org/art/1953.649 | CC0 |
+| cma-1963.501 | https://clevelandart.org/art/1963.501 | CC0 |
+| cma-1916.1040 | https://clevelandart.org/art/1916.1040 | CC0 |
+| cma-1966.115 | https://clevelandart.org/art/1966.115 | CC0 |
+| cma-1916.1051 | https://clevelandart.org/art/1916.1051 | CC0 |
+| cma-1972.15 | https://clevelandart.org/art/1972.15 | CC0 |
+| cma-1974.28 | https://clevelandart.org/art/1974.28 | CC0 |
+| cma-1966.12 | https://clevelandart.org/art/1966.12 | CC0 |
+| cma-1971.26 | https://clevelandart.org/art/1971.26 | CC0 |
+| cma-1915.694 | https://clevelandart.org/art/1915.694 | CC0 |
+| cma-1964.361 | https://clevelandart.org/art/1964.361 | CC0 |
+| cma-1970.75 | https://clevelandart.org/art/1970.75 | CC0 |
+| cma-1980.280 | https://clevelandart.org/art/1980.280 | CC0 |
+| cma-1988.120 | https://clevelandart.org/art/1988.120 | CC0 |
+| cma-1992.84 | https://clevelandart.org/art/1992.84 | CC0 |
+| cma-1916.1049 | https://clevelandart.org/art/1916.1049 | CC0 |
+| cma-1977.172 | https://clevelandart.org/art/1977.172 | CC0 |
+| cma-1958.174 | https://clevelandart.org/art/1958.174 | CC0 |
+| cma-1979.51 | https://clevelandart.org/art/1979.51 | CC0 |
+| cma-1980.259 | https://clevelandart.org/art/1980.259 | CC0 |
+| cma-1982.150 | https://clevelandart.org/art/1982.150 | CC0 |
+| cma-1915.695 | https://clevelandart.org/art/1915.695 | CC0 |
+| cma-1956.9 | https://clevelandart.org/art/1956.9 | CC0 |
+| cma-1985.64 | https://clevelandart.org/art/1985.64 | CC0 |
+| cma-1915.697 | https://clevelandart.org/art/1915.697 | CC0 |
+| cma-1970.159 | https://clevelandart.org/art/1970.159 | CC0 |
+| cma-1915.600 | https://clevelandart.org/art/1915.600 | CC0 |
+| cma-1938.132 | https://clevelandart.org/art/1938.132 | CC0 |
+| cma-1965.234 | https://clevelandart.org/art/1965.234 | CC0 |
+| cma-1971.87 | https://clevelandart.org/art/1971.87 | CC0 |
+| cma-1972.157 | https://clevelandart.org/art/1972.157 | CC0 |
+| cma-1997.90 | https://clevelandart.org/art/1997.90 | CC0 |
+| cma-1916.1031 | https://clevelandart.org/art/1916.1031 | CC0 |
+| cma-1916.777 | https://clevelandart.org/art/1916.777 | CC0 |
+| cma-1916.782 | https://clevelandart.org/art/1916.782 | CC0 |
+| cma-1917.67 | https://clevelandart.org/art/1917.67 | CC0 |
+| cma-1918.569 | https://clevelandart.org/art/1918.569 | CC0 |
+| cma-1919.240 | https://clevelandart.org/art/1919.240 | CC0 |
+| cma-1920.277 | https://clevelandart.org/art/1920.277 | CC0 |
+| cma-1924.1240 | https://clevelandart.org/art/1924.1240 | CC0 |
+| cma-1946.238 | https://clevelandart.org/art/1946.238 | CC0 |
+| cma-1955.45 | https://clevelandart.org/art/1955.45 | CC0 |
+| cma-1986.1 | https://clevelandart.org/art/1986.1 | CC0 |
+| cma-1988.103 | https://clevelandart.org/art/1988.103 | CC0 |
+| cma-1924.682 | https://clevelandart.org/art/1924.682 | CC0 |
+| cma-1926.1546 | https://clevelandart.org/art/1926.1546 | CC0 |
+| cma-1928.1856 | https://clevelandart.org/art/1928.1856 | CC0 |
+| cma-1957.423 | https://clevelandart.org/art/1957.423 | CC0 |
+| cma-1958.40 | https://clevelandart.org/art/1958.40 | CC0 |
+| cma-1960.50 | https://clevelandart.org/art/1960.50 | CC0 |
+| cma-1964.284 | https://clevelandart.org/art/1964.284 | CC0 |
+| cma-1967.21 | https://clevelandart.org/art/1967.21 | CC0 |
+| cma-1968.239 | https://clevelandart.org/art/1968.239 | CC0 |
+| cma-1915.688 | https://clevelandart.org/art/1915.688 | CC0 |
+| cma-1971.80 | https://clevelandart.org/art/1971.80 | CC0 |
+| cma-1918.173 | https://clevelandart.org/art/1918.173 | CC0 |
+| cma-1938.39 | https://clevelandart.org/art/1938.39 | CC0 |
+| cma-1947.4 | https://clevelandart.org/art/1947.4 | CC0 |
+| cma-1978.127 | https://clevelandart.org/art/1978.127 | CC0 |
+| cma-1989.338 | https://clevelandart.org/art/1989.338 | CC0 |
+| cma-1924.972 | https://clevelandart.org/art/1924.972 | CC0 |
+| cma-1946.359 | https://clevelandart.org/art/1946.359 | CC0 |
+| cma-1965.32 | https://clevelandart.org/art/1965.32 | CC0 |
+| cma-1982.162 | https://clevelandart.org/art/1982.162 | CC0 |
+| cma-1986.174 | https://clevelandart.org/art/1986.174 | CC0 |
+| cma-1924.198 | https://clevelandart.org/art/1924.198 | CC0 |
+| cma-1955.296 | https://clevelandart.org/art/1955.296 | CC0 |
+| cma-1964.291 | https://clevelandart.org/art/1964.291 | CC0 |
+| cma-1966.208 | https://clevelandart.org/art/1966.208 | CC0 |
+| cma-1978.5 | https://clevelandart.org/art/1978.5 | CC0 |
+| cma-1979.137 | https://clevelandart.org/art/1979.137 | CC0 |
+| cma-1980.231 | https://clevelandart.org/art/1980.231 | CC0 |
+| cma-1938.42 | https://clevelandart.org/art/1938.42 | CC0 |
+| cma-1954.832 | https://clevelandart.org/art/1954.832 | CC0 |
+| cma-1960.46 | https://clevelandart.org/art/1960.46 | CC0 |
+| cma-1961.259 | https://clevelandart.org/art/1961.259 | CC0 |
+| cma-1983.186 | https://clevelandart.org/art/1983.186 | CC0 |
+| cma-1983.9 | https://clevelandart.org/art/1983.9 | CC0 |
+| cma-1964.288 | https://clevelandart.org/art/1964.288 | CC0 |
+| cma-1915.87 | https://clevelandart.org/art/1915.87 | CC0 |
+| cma-1930.2083 | https://clevelandart.org/art/1930.2083 | CC0 |
+| cma-1961.43 | https://clevelandart.org/art/1961.43 | CC0 |
+| cma-1966.384 | https://clevelandart.org/art/1966.384 | CC0 |
+| cma-1972.162 | https://clevelandart.org/art/1972.162 | CC0 |
+| cma-1982.65 | https://clevelandart.org/art/1982.65 | CC0 |
+| cma-1916.773 | https://clevelandart.org/art/1916.773 | CC0 |
+| cma-1916.781 | https://clevelandart.org/art/1916.781 | CC0 |
+| cma-1927.1323 | https://clevelandart.org/art/1927.1323 | CC0 |
+| cma-1936.682 | https://clevelandart.org/art/1936.682 | CC0 |
+| cma-1974.25 | https://clevelandart.org/art/1974.25 | CC0 |
+| cma-1980.267 | https://clevelandart.org/art/1980.267 | CC0 |
+| cma-1980.283 | https://clevelandart.org/art/1980.283 | CC0 |
+| cma-1980.29 | https://clevelandart.org/art/1980.29 | CC0 |
+| cma-1980.291 | https://clevelandart.org/art/1980.291 | CC0 |
+| cma-1981.64 | https://clevelandart.org/art/1981.64 | CC0 |
+| cma-1986.61 | https://clevelandart.org/art/1986.61 | CC0 |
+| cma-1989.68 | https://clevelandart.org/art/1989.68 | CC0 |
+| cma-1991.61 | https://clevelandart.org/art/1991.61 | CC0 |
+| cma-1915.601 | https://clevelandart.org/art/1915.601 | CC0 |
+| cma-1950.346 | https://clevelandart.org/art/1950.346 | CC0 |
+| cma-1955.670 | https://clevelandart.org/art/1955.670 | CC0 |
+| cma-1968.107 | https://clevelandart.org/art/1968.107 | CC0 |
+| cma-1972.42 | https://clevelandart.org/art/1972.42 | CC0 |
+| cma-1977.66 | https://clevelandart.org/art/1977.66 | CC0 |
+| cma-1979.140 | https://clevelandart.org/art/1979.140 | CC0 |
+| cma-1987.161 | https://clevelandart.org/art/1987.161 | CC0 |
+| cma-1989.335 | https://clevelandart.org/art/1989.335 | CC0 |
+| cma-1989.341 | https://clevelandart.org/art/1989.341 | CC0 |
+| cma-1915.717 | https://clevelandart.org/art/1915.717 | CC0 |
+| cma-1916.2063 | https://clevelandart.org/art/1916.2063 | CC0 |
+| cma-1916.778 | https://clevelandart.org/art/1916.778 | CC0 |
+| cma-1916.957 | https://clevelandart.org/art/1916.957 | CC0 |
+| cma-1920.1970 | https://clevelandart.org/art/1920.1970 | CC0 |
+| cma-1929.1974 | https://clevelandart.org/art/1929.1974 | CC0 |
+| cma-1941.597 | https://clevelandart.org/art/1941.597 | CC0 |
+| cma-1945.170 | https://clevelandart.org/art/1945.170 | CC0 |
+| cma-1951.328 | https://clevelandart.org/art/1951.328 | CC0 |
+| cma-1974.30 | https://clevelandart.org/art/1974.30 | CC0 |
+| cma-1976.151 | https://clevelandart.org/art/1976.151 | CC0 |
+| cma-1984.13 | https://clevelandart.org/art/1984.13 | CC0 |
+| cma-1985.259 | https://clevelandart.org/art/1985.259 | CC0 |
+| cma-1985.263 | https://clevelandart.org/art/1985.263 | CC0 |
+| cma-1985.281 | https://clevelandart.org/art/1985.281 | CC0 |
+| cma-1985.283 | https://clevelandart.org/art/1985.283 | CC0 |
+| cma-1991.10 | https://clevelandart.org/art/1991.10 | CC0 |
+| cma-1991.122 | https://clevelandart.org/art/1991.122 | CC0 |
+| cma-1996.300 | https://clevelandart.org/art/1996.300 | CC0 |
+| cma-2010.22 | https://clevelandart.org/art/2010.22 | CC0 |
+| cma-2010.25 | https://clevelandart.org/art/2010.25 | CC0 |
+| cma-2013.346 | https://clevelandart.org/art/2013.346 | CC0 |
+| cma-1997.104 | https://clevelandart.org/art/1997.104 | CC0 |
+| cma-1918.865 | https://clevelandart.org/art/1918.865 | CC0 |
+| cma-1919.1017 | https://clevelandart.org/art/1919.1017 | CC0 |
+| cma-1921.925 | https://clevelandart.org/art/1921.925 | CC0 |
+| cma-1973.184 | https://clevelandart.org/art/1973.184 | CC0 |
+| cma-1985.187 | https://clevelandart.org/art/1985.187 | CC0 |
+| cma-1993.42 | https://clevelandart.org/art/1993.42 | CC0 |
+| cma-1915.686 | https://clevelandart.org/art/1915.686 | CC0 |
+| cma-1920.1968 | https://clevelandart.org/art/1920.1968 | CC0 |
+| cma-1925.631 | https://clevelandart.org/art/1925.631 | CC0 |
+| cma-1934.219 | https://clevelandart.org/art/1934.219 | CC0 |
+| cma-1934.220 | https://clevelandart.org/art/1934.220 | CC0 |
+| cma-1947.206 | https://clevelandart.org/art/1947.206 | CC0 |
+| cma-1957.422 | https://clevelandart.org/art/1957.422 | CC0 |
+| cma-1966.740 | https://clevelandart.org/art/1966.740 | CC0 |
+| cma-1971.303 | https://clevelandart.org/art/1971.303 | CC0 |
+| cma-1972.280 | https://clevelandart.org/art/1972.280 | CC0 |
+| cma-1984.76 | https://clevelandart.org/art/1984.76 | CC0 |
+| cma-1985.27 | https://clevelandart.org/art/1985.27 | CC0 |
+| cma-1985.368 | https://clevelandart.org/art/1985.368 | CC0 |
+| cma-1985.90 | https://clevelandart.org/art/1985.90 | CC0 |
+| cma-1985.91 | https://clevelandart.org/art/1985.91 | CC0 |
+| cma-1988.104 | https://clevelandart.org/art/1988.104 | CC0 |
+| cma-1989.340 | https://clevelandart.org/art/1989.340 | CC0 |
+| cma-1989.342 | https://clevelandart.org/art/1989.342 | CC0 |
+| cma-1989.343 | https://clevelandart.org/art/1989.343 | CC0 |
+| cma-1990.38 | https://clevelandart.org/art/1990.38 | CC0 |
+| cma-2013.353 | https://clevelandart.org/art/2013.353 | CC0 |
+| cma-1916.1024 | https://clevelandart.org/art/1916.1024 | CC0 |
+| cma-1916.1035 | https://clevelandart.org/art/1916.1035 | CC0 |
+| cma-1916.930 | https://clevelandart.org/art/1916.930 | CC0 |
+| cma-1920.724 | https://clevelandart.org/art/1920.724 | CC0 |
+| cma-1922.328 | https://clevelandart.org/art/1922.328 | CC0 |
+| cma-1923.223 | https://clevelandart.org/art/1923.223 | CC0 |
+| cma-1926.238 | https://clevelandart.org/art/1926.238 | CC0 |
+| cma-1944.84 | https://clevelandart.org/art/1944.84 | CC0 |
+| cma-1946.280 | https://clevelandart.org/art/1946.280 | CC0 |
+| cma-1964.282 | https://clevelandart.org/art/1964.282 | CC0 |
+| cma-1972.281 | https://clevelandart.org/art/1972.281 | CC0 |
+| cma-1977.60 | https://clevelandart.org/art/1977.60 | CC0 |
+| cma-1980.217 | https://clevelandart.org/art/1980.217 | CC0 |
+| cma-1980.227 | https://clevelandart.org/art/1980.227 | CC0 |
+| cma-1980.229 | https://clevelandart.org/art/1980.229 | CC0 |
+| cma-1980.246 | https://clevelandart.org/art/1980.246 | CC0 |
+| cma-1980.252 | https://clevelandart.org/art/1980.252 | CC0 |
+| cma-1980.253 | https://clevelandart.org/art/1980.253 | CC0 |
+| cma-1980.256 | https://clevelandart.org/art/1980.256 | CC0 |
+| cma-1980.277 | https://clevelandart.org/art/1980.277 | CC0 |
+| cma-1980.279 | https://clevelandart.org/art/1980.279 | CC0 |
+| cma-1980.286 | https://clevelandart.org/art/1980.286 | CC0 |
+| cma-1982.145 | https://clevelandart.org/art/1982.145 | CC0 |
+| cma-1985.265 | https://clevelandart.org/art/1985.265 | CC0 |
+| cma-1985.270 | https://clevelandart.org/art/1985.270 | CC0 |
+| cma-1988.35 | https://clevelandart.org/art/1988.35 | CC0 |
+| cma-1995.46 | https://clevelandart.org/art/1995.46 | CC0 |
+| cma-2018.102 | https://clevelandart.org/art/2018.102 | CC0 |
+| cma-1915.691 | https://clevelandart.org/art/1915.691 | CC0 |
+| cma-1916.1059 | https://clevelandart.org/art/1916.1059 | CC0 |
+| cma-1916.2062 | https://clevelandart.org/art/1916.2062 | CC0 |
+| cma-1916.965 | https://clevelandart.org/art/1916.965 | CC0 |
+| cma-1917.279 | https://clevelandart.org/art/1917.279 | CC0 |
+| cma-1920.150 | https://clevelandart.org/art/1920.150 | CC0 |
+| cma-1927.5 | https://clevelandart.org/art/1927.5 | CC0 |
+| cma-1929.1975 | https://clevelandart.org/art/1929.1975 | CC0 |
+| cma-1933.407 | https://clevelandart.org/art/1933.407 | CC0 |
+| cma-1934.216 | https://clevelandart.org/art/1934.216 | CC0 |
+| cma-1938.2958 | https://clevelandart.org/art/1938.2958 | CC0 |
+| cma-1938.302 | https://clevelandart.org/art/1938.302 | CC0 |
+| cma-1939.163 | https://clevelandart.org/art/1939.163 | CC0 |
+| cma-1946.70 | https://clevelandart.org/art/1946.70 | CC0 |
+| cma-1964.290 | https://clevelandart.org/art/1964.290 | CC0 |
+| cma-1968.365 | https://clevelandart.org/art/1968.365 | CC0 |
+| cma-1973.236 | https://clevelandart.org/art/1973.236 | CC0 |
+| cma-1978.74 | https://clevelandart.org/art/1978.74 | CC0 |
+| cma-1981.54 | https://clevelandart.org/art/1981.54 | CC0 |
+| cma-1982.164 | https://clevelandart.org/art/1982.164 | CC0 |
+| cma-1982.54 | https://clevelandart.org/art/1982.54 | CC0 |
+| cma-1985.245 | https://clevelandart.org/art/1985.245 | CC0 |
+| cma-1985.282 | https://clevelandart.org/art/1985.282 | CC0 |
+| cma-1988.18 | https://clevelandart.org/art/1988.18 | CC0 |
+| cma-1991.123 | https://clevelandart.org/art/1991.123 | CC0 |
+| cma-1991.56 | https://clevelandart.org/art/1991.56 | CC0 |
+| cma-1994.285 | https://clevelandart.org/art/1994.285 | CC0 |
+| cma-1995.45 | https://clevelandart.org/art/1995.45 | CC0 |
+| cma-1995.47 | https://clevelandart.org/art/1995.47 | CC0 |
+| cma-1995.48 | https://clevelandart.org/art/1995.48 | CC0 |
+| cma-1997.112 | https://clevelandart.org/art/1997.112 | CC0 |
+| cma-1997.114 | https://clevelandart.org/art/1997.114 | CC0 |
+| cma-2018.100 | https://clevelandart.org/art/2018.100 | CC0 |
+| cma-2018.82 | https://clevelandart.org/art/2018.82 | CC0 |
+| cma-1947.266 | https://clevelandart.org/art/1947.266 | CC0 |
+| cma-2003.6 | https://clevelandart.org/art/2003.6 | CC0 |
+| cma-1915.692 | https://clevelandart.org/art/1915.692 | CC0 |
+| cma-1915.693 | https://clevelandart.org/art/1915.693 | CC0 |
+| cma-1917.103 | https://clevelandart.org/art/1917.103 | CC0 |
+| cma-1917.1067 | https://clevelandart.org/art/1917.1067 | CC0 |
+| cma-1920.262 | https://clevelandart.org/art/1920.262 | CC0 |
+| cma-1925.126 | https://clevelandart.org/art/1925.126 | CC0 |
+| cma-1927.144 | https://clevelandart.org/art/1927.144 | CC0 |
+| cma-1944.497 | https://clevelandart.org/art/1944.497 | CC0 |
+| cma-1947.503 | https://clevelandart.org/art/1947.503 | CC0 |
+| cma-1957.506 | https://clevelandart.org/art/1957.506 | CC0 |
+| cma-1958.128 | https://clevelandart.org/art/1958.128 | CC0 |
+| cma-1961.171 | https://clevelandart.org/art/1961.171 | CC0 |
+| cma-1964.389 | https://clevelandart.org/art/1964.389 | CC0 |
+| cma-1966.375 | https://clevelandart.org/art/1966.375 | CC0 |
+| cma-1968.43 | https://clevelandart.org/art/1968.43 | CC0 |
+| cma-1971.92 | https://clevelandart.org/art/1971.92 | CC0 |
+| cma-1982.33 | https://clevelandart.org/art/1982.33 | CC0 |
+| cma-1983.113 | https://clevelandart.org/art/1983.113 | CC0 |
+| cma-1985.372 | https://clevelandart.org/art/1985.372 | CC0 |
+| cma-1987.75 | https://clevelandart.org/art/1987.75 | CC0 |
+| cma-1988.121 | https://clevelandart.org/art/1988.121 | CC0 |
+| cma-1989.385 | https://clevelandart.org/art/1989.385 | CC0 |
+| cma-1992.383 | https://clevelandart.org/art/1992.383 | CC0 |
+| cma-2011.214 | https://clevelandart.org/art/2011.214 | CC0 |
+| cma-2013.291 | https://clevelandart.org/art/2013.291 | CC0 |
+| cma-1917.95 | https://clevelandart.org/art/1917.95 | CC0 |
+| cma-1918.175 | https://clevelandart.org/art/1918.175 | CC0 |
+| cma-1918.570 | https://clevelandart.org/art/1918.570 | CC0 |
+| cma-1936.683 | https://clevelandart.org/art/1936.683 | CC0 |
+| cma-1997.306 | https://clevelandart.org/art/1997.306 | CC0 |
+| cma-2026.27 | https://clevelandart.org/art/2026.27 | CC0 |
+| cma-1915.728 | https://clevelandart.org/art/1915.728 | CC0 |
+| cma-1917.1001 | https://clevelandart.org/art/1917.1001 | CC0 |
+| cma-1918.404 | https://clevelandart.org/art/1918.404 | CC0 |
+| cma-1919.914 | https://clevelandart.org/art/1919.914 | CC0 |
+| cma-1919.973 | https://clevelandart.org/art/1919.973 | CC0 |
+| cma-1920.751 | https://clevelandart.org/art/1920.751 | CC0 |
+| cma-1920.752 | https://clevelandart.org/art/1920.752 | CC0 |
+| cma-1924.803 | https://clevelandart.org/art/1924.803 | CC0 |
+| cma-1930.702 | https://clevelandart.org/art/1930.702 | CC0 |
+| cma-1930.703 | https://clevelandart.org/art/1930.703 | CC0 |
+| cma-1933.405 | https://clevelandart.org/art/1933.405 | CC0 |
+| cma-1933.406 | https://clevelandart.org/art/1933.406 | CC0 |
+| cma-1933.452 | https://clevelandart.org/art/1933.452 | CC0 |
+| cma-1938.38 | https://clevelandart.org/art/1938.38 | CC0 |
+| cma-1938.49 | https://clevelandart.org/art/1938.49 | CC0 |
+| cma-1949.381 | https://clevelandart.org/art/1949.381 | CC0 |
+| cma-1971.282 | https://clevelandart.org/art/1971.282 | CC0 |
+| cma-1990.129 | https://clevelandart.org/art/1990.129 | CC0 |
+| cma-1992.80 | https://clevelandart.org/art/1992.80 | CC0 |
+| cma-1992.83 | https://clevelandart.org/art/1992.83 | CC0 |
+| cma-1993.237 | https://clevelandart.org/art/1993.237 | CC0 |
+| cma-1996.273 | https://clevelandart.org/art/1996.273 | CC0 |
+| cma-2001.172 | https://clevelandart.org/art/2001.172 | CC0 |
+| cma-2003.167 | https://clevelandart.org/art/2003.167 | CC0 |
+| cma-2010.21 | https://clevelandart.org/art/2010.21 | CC0 |
+| cma-2010.23 | https://clevelandart.org/art/2010.23 | CC0 |
+| cma-2013.288 | https://clevelandart.org/art/2013.288 | CC0 |
+| cma-2014.651 | https://clevelandart.org/art/2014.651 | CC0 |
+| cma-2015.461 | https://clevelandart.org/art/2015.461 | CC0 |
+| cma-2015.477 | https://clevelandart.org/art/2015.477 | CC0 |
+| cma-1915.112 | https://clevelandart.org/art/1915.112 | CC0 |
+| cma-1915.690 | https://clevelandart.org/art/1915.690 | CC0 |
+| cma-1915.696 | https://clevelandart.org/art/1915.696 | CC0 |
+| cma-1915.709 | https://clevelandart.org/art/1915.709 | CC0 |
+| cma-1917.100 | https://clevelandart.org/art/1917.100 | CC0 |
+| cma-1917.1065 | https://clevelandart.org/art/1917.1065 | CC0 |
+| cma-1924.963 | https://clevelandart.org/art/1924.963 | CC0 |
+| cma-1989.476 | https://clevelandart.org/art/1989.476 | CC0 |
+| cma-1992.381 | https://clevelandart.org/art/1992.381 | CC0 |
+| cma-1994.119 | https://clevelandart.org/art/1994.119 | CC0 |
+| cma-1997.110 | https://clevelandart.org/art/1997.110 | CC0 |
+| cma-1998.293 | https://clevelandart.org/art/1998.293 | CC0 |
+| cma-1999.14 | https://clevelandart.org/art/1999.14 | CC0 |
+| cma-2003.119 | https://clevelandart.org/art/2003.119 | CC0 |
+| cma-2003.125 | https://clevelandart.org/art/2003.125 | CC0 |
+| cma-2003.99 | https://clevelandart.org/art/2003.99 | CC0 |
+| cma-2005.83 | https://clevelandart.org/art/2005.83 | CC0 |
+| cma-2005.85 | https://clevelandart.org/art/2005.85 | CC0 |
+| cma-2009.317 | https://clevelandart.org/art/2009.317 | CC0 |
+| cma-2010.18 | https://clevelandart.org/art/2010.18 | CC0 |
+| cma-2010.20 | https://clevelandart.org/art/2010.20 | CC0 |
+| cma-2015.459 | https://clevelandart.org/art/2015.459 | CC0 |
+| cma-2015.466 | https://clevelandart.org/art/2015.466 | CC0 |
+| cma-2015.469 | https://clevelandart.org/art/2015.469 | CC0 |
+| cma-2015.507 | https://clevelandart.org/art/2015.507 | CC0 |
+| cma-1915.105 | https://clevelandart.org/art/1915.105 | CC0 |
+| cma-1915.106 | https://clevelandart.org/art/1915.106 | CC0 |
+| cma-1915.107 | https://clevelandart.org/art/1915.107 | CC0 |
+| cma-1915.108 | https://clevelandart.org/art/1915.108 | CC0 |
+| cma-1915.111 | https://clevelandart.org/art/1915.111 | CC0 |
+| cma-1915.114 | https://clevelandart.org/art/1915.114 | CC0 |
+| cma-1915.316 | https://clevelandart.org/art/1915.316 | CC0 |
+| cma-1915.711 | https://clevelandart.org/art/1915.711 | CC0 |
+| cma-1916.1103 | https://clevelandart.org/art/1916.1103 | CC0 |
+| cma-1917.889 | https://clevelandart.org/art/1917.889 | CC0 |
+| cma-1917.99 | https://clevelandart.org/art/1917.99 | CC0 |
+| cma-1918.547 | https://clevelandart.org/art/1918.547 | CC0 |
+| cma-1919.1021 | https://clevelandart.org/art/1919.1021 | CC0 |
+| cma-1919.32 | https://clevelandart.org/art/1919.32 | CC0 |
+| cma-1920.274 | https://clevelandart.org/art/1920.274 | CC0 |
+| cma-1921.103 | https://clevelandart.org/art/1921.103 | CC0 |
+| cma-1921.571 | https://clevelandart.org/art/1921.571 | CC0 |
+| cma-1922.358 | https://clevelandart.org/art/1922.358 | CC0 |
+| cma-1926.165 | https://clevelandart.org/art/1926.165 | CC0 |
+| cma-1934.217 | https://clevelandart.org/art/1934.217 | CC0 |
+| cma-1934.218 | https://clevelandart.org/art/1934.218 | CC0 |
+| cma-1938.47 | https://clevelandart.org/art/1938.47 | CC0 |
+| cma-1946.432 | https://clevelandart.org/art/1946.432 | CC0 |
+| cma-1949.382 | https://clevelandart.org/art/1949.382 | CC0 |
+| cma-1950.345 | https://clevelandart.org/art/1950.345 | CC0 |
+| cma-1951.332 | https://clevelandart.org/art/1951.332 | CC0 |
+| cma-1955.544 | https://clevelandart.org/art/1955.544 | CC0 |
+| cma-1955.669 | https://clevelandart.org/art/1955.669 | CC0 |
+| cma-1961.228 | https://clevelandart.org/art/1961.228 | CC0 |
+| cma-1964.159 | https://clevelandart.org/art/1964.159 | CC0 |
+| cma-1965.547 | https://clevelandart.org/art/1965.547 | CC0 |
+| cma-1971.304 | https://clevelandart.org/art/1971.304 | CC0 |
+| cma-1977.202 | https://clevelandart.org/art/1977.202 | CC0 |
+| cma-1977.204 | https://clevelandart.org/art/1977.204 | CC0 |
+| cma-1991.156 | https://clevelandart.org/art/1991.156 | CC0 |
+| cma-1992.371 | https://clevelandart.org/art/1992.371 | CC0 |
+| cma-1992.382 | https://clevelandart.org/art/1992.382 | CC0 |
+| cma-1992.384 | https://clevelandart.org/art/1992.384 | CC0 |
+| cma-1992.387 | https://clevelandart.org/art/1992.387 | CC0 |
+| cma-1992.388 | https://clevelandart.org/art/1992.388 | CC0 |
+| cma-1994.116 | https://clevelandart.org/art/1994.116 | CC0 |
+| cma-1994.118 | https://clevelandart.org/art/1994.118 | CC0 |
+| cma-1994.286 | https://clevelandart.org/art/1994.286 | CC0 |
+| cma-1995.24 | https://clevelandart.org/art/1995.24 | CC0 |
+| cma-1997.239 | https://clevelandart.org/art/1997.239 | CC0 |
+| cma-1998.425 | https://clevelandart.org/art/1998.425 | CC0 |
+| cma-1998.95 | https://clevelandart.org/art/1998.95 | CC0 |
+| cma-1999.210 | https://clevelandart.org/art/1999.210 | CC0 |
+| cma-2003.102 | https://clevelandart.org/art/2003.102 | CC0 |
+| cma-2003.106 | https://clevelandart.org/art/2003.106 | CC0 |
+| cma-2003.121 | https://clevelandart.org/art/2003.121 | CC0 |
+| cma-2003.122 | https://clevelandart.org/art/2003.122 | CC0 |
+| cma-2003.124 | https://clevelandart.org/art/2003.124 | CC0 |
+| cma-2003.126 | https://clevelandart.org/art/2003.126 | CC0 |
+| cma-2003.138 | https://clevelandart.org/art/2003.138 | CC0 |
+| cma-2003.141 | https://clevelandart.org/art/2003.141 | CC0 |
+| cma-2003.142 | https://clevelandart.org/art/2003.142 | CC0 |
+| cma-2003.143 | https://clevelandart.org/art/2003.143 | CC0 |
+| cma-2003.155 | https://clevelandart.org/art/2003.155 | CC0 |
+| cma-2003.158 | https://clevelandart.org/art/2003.158 | CC0 |
+| cma-2003.159 | https://clevelandart.org/art/2003.159 | CC0 |
+| cma-2003.161 | https://clevelandart.org/art/2003.161 | CC0 |
+| cma-2003.163 | https://clevelandart.org/art/2003.163 | CC0 |
+| cma-2003.164 | https://clevelandart.org/art/2003.164 | CC0 |
+| cma-2003.165 | https://clevelandart.org/art/2003.165 | CC0 |
+| cma-2003.357 | https://clevelandart.org/art/2003.357 | CC0 |
+| cma-2005.68 | https://clevelandart.org/art/2005.68 | CC0 |
+| cma-2005.77 | https://clevelandart.org/art/2005.77 | CC0 |
+| cma-2005.78 | https://clevelandart.org/art/2005.78 | CC0 |
+| cma-2005.79 | https://clevelandart.org/art/2005.79 | CC0 |
+| cma-2005.80 | https://clevelandart.org/art/2005.80 | CC0 |
+| cma-2005.81 | https://clevelandart.org/art/2005.81 | CC0 |
+| cma-2005.82 | https://clevelandart.org/art/2005.82 | CC0 |
+| cma-2005.84 | https://clevelandart.org/art/2005.84 | CC0 |
+| cma-2005.87 | https://clevelandart.org/art/2005.87 | CC0 |
+| cma-2008.288 | https://clevelandart.org/art/2008.288 | CC0 |
+| cma-2009.315 | https://clevelandart.org/art/2009.315 | CC0 |
+| cma-2009.316 | https://clevelandart.org/art/2009.316 | CC0 |
+| cma-2009.318 | https://clevelandart.org/art/2009.318 | CC0 |
+| cma-2009.319 | https://clevelandart.org/art/2009.319 | CC0 |
+| cma-2010.24 | https://clevelandart.org/art/2010.24 | CC0 |
+| cma-2011.138 | https://clevelandart.org/art/2011.138 | CC0 |
+| cma-2011.71 | https://clevelandart.org/art/2011.71 | CC0 |
+| cma-2013.256 | https://clevelandart.org/art/2013.256 | CC0 |
+| cma-2013.258 | https://clevelandart.org/art/2013.258 | CC0 |
+| cma-2013.260 | https://clevelandart.org/art/2013.260 | CC0 |
+| cma-2013.262 | https://clevelandart.org/art/2013.262 | CC0 |
+| cma-2015.456 | https://clevelandart.org/art/2015.456 | CC0 |
+| cma-2015.465 | https://clevelandart.org/art/2015.465 | CC0 |
+| cma-2015.473 | https://clevelandart.org/art/2015.473 | CC0 |
+| cma-2015.489 | https://clevelandart.org/art/2015.489 | CC0 |
+| cma-2015.490 | https://clevelandart.org/art/2015.490 | CC0 |
+| cma-2015.497 | https://clevelandart.org/art/2015.497 | CC0 |
+| cma-2015.499 | https://clevelandart.org/art/2015.499 | CC0 |
+| cma-2024.13 | https://clevelandart.org/art/2024.13 | CC0 |
+| colbase-tnm-TB-10 | https://colbase.nich.go.jp/collection_items/tnm/TB-10?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1196 | https://colbase.nich.go.jp/collection_items/tnm/TB-1196?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1236 | https://colbase.nich.go.jp/collection_items/tnm/TB-1236?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1241 | https://colbase.nich.go.jp/collection_items/tnm/TB-1241?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1256 | https://colbase.nich.go.jp/collection_items/tnm/TB-1256?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1261 | https://colbase.nich.go.jp/collection_items/tnm/TB-1261?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1265 | https://colbase.nich.go.jp/collection_items/tnm/TB-1265?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1266 | https://colbase.nich.go.jp/collection_items/tnm/TB-1266?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1280 | https://colbase.nich.go.jp/collection_items/tnm/TB-1280?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1281 | https://colbase.nich.go.jp/collection_items/tnm/TB-1281?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1295 | https://colbase.nich.go.jp/collection_items/tnm/TB-1295?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1307 | https://colbase.nich.go.jp/collection_items/tnm/TB-1307?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1325 | https://colbase.nich.go.jp/collection_items/tnm/TB-1325?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1342 | https://colbase.nich.go.jp/collection_items/tnm/TB-1342?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1386 | https://colbase.nich.go.jp/collection_items/tnm/TB-1386?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1388 | https://colbase.nich.go.jp/collection_items/tnm/TB-1388?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1389 | https://colbase.nich.go.jp/collection_items/tnm/TB-1389?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1399 | https://colbase.nich.go.jp/collection_items/tnm/TB-1399?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1401 | https://colbase.nich.go.jp/collection_items/tnm/TB-1401?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1404 | https://colbase.nich.go.jp/collection_items/tnm/TB-1404?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1410 | https://colbase.nich.go.jp/collection_items/tnm/TB-1410?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1433 | https://colbase.nich.go.jp/collection_items/tnm/TB-1433?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1434 | https://colbase.nich.go.jp/collection_items/tnm/TB-1434?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1447 | https://colbase.nich.go.jp/collection_items/tnm/TB-1447?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1452 | https://colbase.nich.go.jp/collection_items/tnm/TB-1452?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1453 | https://colbase.nich.go.jp/collection_items/tnm/TB-1453?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1463 | https://colbase.nich.go.jp/collection_items/tnm/TB-1463?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-15 | https://colbase.nich.go.jp/collection_items/tnm/TB-15?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1505 | https://colbase.nich.go.jp/collection_items/tnm/TB-1505?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1509 | https://colbase.nich.go.jp/collection_items/tnm/TB-1509?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1514 | https://colbase.nich.go.jp/collection_items/tnm/TB-1514?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1515 | https://colbase.nich.go.jp/collection_items/tnm/TB-1515?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1568 | https://colbase.nich.go.jp/collection_items/tnm/TB-1568?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1569 | https://colbase.nich.go.jp/collection_items/tnm/TB-1569?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1575 | https://colbase.nich.go.jp/collection_items/tnm/TB-1575?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1577 | https://colbase.nich.go.jp/collection_items/tnm/TB-1577?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1579 | https://colbase.nich.go.jp/collection_items/tnm/TB-1579?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1581 | https://colbase.nich.go.jp/collection_items/tnm/TB-1581?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1582 | https://colbase.nich.go.jp/collection_items/tnm/TB-1582?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1588 | https://colbase.nich.go.jp/collection_items/tnm/TB-1588?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1604 | https://colbase.nich.go.jp/collection_items/tnm/TB-1604?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1606 | https://colbase.nich.go.jp/collection_items/tnm/TB-1606?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1609 | https://colbase.nich.go.jp/collection_items/tnm/TB-1609?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1611 | https://colbase.nich.go.jp/collection_items/tnm/TB-1611?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1617 | https://colbase.nich.go.jp/collection_items/tnm/TB-1617?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1619 | https://colbase.nich.go.jp/collection_items/tnm/TB-1619?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1643 | https://colbase.nich.go.jp/collection_items/tnm/TB-1643?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1650 | https://colbase.nich.go.jp/collection_items/tnm/TB-1650?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1652 | https://colbase.nich.go.jp/collection_items/tnm/TB-1652?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1653 | https://colbase.nich.go.jp/collection_items/tnm/TB-1653?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1700 | https://colbase.nich.go.jp/collection_items/tnm/TB-1700?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1721 | https://colbase.nich.go.jp/collection_items/tnm/TB-1721?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1723 | https://colbase.nich.go.jp/collection_items/tnm/TB-1723?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1724 | https://colbase.nich.go.jp/collection_items/tnm/TB-1724?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1725 | https://colbase.nich.go.jp/collection_items/tnm/TB-1725?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1726 | https://colbase.nich.go.jp/collection_items/tnm/TB-1726?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1728 | https://colbase.nich.go.jp/collection_items/tnm/TB-1728?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1730 | https://colbase.nich.go.jp/collection_items/tnm/TB-1730?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1732 | https://colbase.nich.go.jp/collection_items/tnm/TB-1732?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1743 | https://colbase.nich.go.jp/collection_items/tnm/TB-1743?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1745 | https://colbase.nich.go.jp/collection_items/tnm/TB-1745?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1747 | https://colbase.nich.go.jp/collection_items/tnm/TB-1747?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-20 | https://colbase.nich.go.jp/collection_items/tnm/TB-20?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-24 | https://colbase.nich.go.jp/collection_items/tnm/TB-24?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-27 | https://colbase.nich.go.jp/collection_items/tnm/TB-27?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-28 | https://colbase.nich.go.jp/collection_items/tnm/TB-28?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-35 | https://colbase.nich.go.jp/collection_items/tnm/TB-35?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-39 | https://colbase.nich.go.jp/collection_items/tnm/TB-39?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-5 | https://colbase.nich.go.jp/collection_items/tnm/TB-5?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-55 | https://colbase.nich.go.jp/collection_items/tnm/TB-55?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-56 | https://colbase.nich.go.jp/collection_items/tnm/TB-56?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-861 | https://colbase.nich.go.jp/collection_items/tnm/TB-861?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-870 | https://colbase.nich.go.jp/collection_items/tnm/TB-870?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-874 | https://colbase.nich.go.jp/collection_items/tnm/TB-874?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-9 | https://colbase.nich.go.jp/collection_items/tnm/TB-9?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-910 | https://colbase.nich.go.jp/collection_items/tnm/TB-910?locale=zh | CC BY 4.0 |
+| mia-124725 | https://collections.artsmia.org/art/124725 | Public domain |
+| mia-124762 | https://collections.artsmia.org/art/124762 | Public domain |
+| mia-129625 | https://collections.artsmia.org/art/129625 | Public domain |
+| mia-129626 | https://collections.artsmia.org/art/129626 | Public domain |
+| mia-129645 | https://collections.artsmia.org/art/129645 | Public domain |
+| mia-129646 | https://collections.artsmia.org/art/129646 | Public domain |
+| mia-129794 | https://collections.artsmia.org/art/129794 | Public domain |
+| mia-129799 | https://collections.artsmia.org/art/129799 | Public domain |
+| mia-130056 | https://collections.artsmia.org/art/130056 | Public domain |
+| cma-1933.220 | https://clevelandart.org/art/1933.220 | CC0 |
+| cma-1997.95 | https://clevelandart.org/art/1997.95 | CC0 |
+| cma-1964.44 | https://clevelandart.org/art/1964.44 | CC0 |
+| cma-1959.348 | https://clevelandart.org/art/1959.348 | CC0 |
+| cma-1959.45 | https://clevelandart.org/art/1959.45 | CC0 |
+| cma-1965.28 | https://clevelandart.org/art/1965.28 | CC0 |
+| cma-1954.584 | https://clevelandart.org/art/1954.584 | CC0 |
+| cma-2000.69 | https://clevelandart.org/art/2000.69 | CC0 |
+| cma-1962.157 | https://clevelandart.org/art/1962.157 | CC0 |
+| cma-1982.152 | https://clevelandart.org/art/1982.152 | CC0 |
+| cma-1998.78 | https://clevelandart.org/art/1998.78 | CC0 |
+| cma-1964.43 | https://clevelandart.org/art/1964.43 | CC0 |
+| cma-1964.371 | https://clevelandart.org/art/1964.371 | CC0 |
+| cma-1955.37 | https://clevelandart.org/art/1955.37 | CC0 |
+| cma-1969.123 | https://clevelandart.org/art/1969.123 | CC0 |
+| cma-1975.75 | https://clevelandart.org/art/1975.75 | CC0 |
+| cma-1955.302 | https://clevelandart.org/art/1955.302 | CC0 |
+| cma-1985.71 | https://clevelandart.org/art/1985.71 | CC0 |
+| cma-2004.1 | https://clevelandart.org/art/2004.1 | CC0 |
+| cma-1975.22 | https://clevelandart.org/art/1975.22 | CC0 |
+| cma-1999.193 | https://clevelandart.org/art/1999.193 | CC0 |
+| cma-1966.31 | https://clevelandart.org/art/1966.31 | CC0 |
+| cma-1971.231 | https://clevelandart.org/art/1971.231 | CC0 |
+| cma-1982.68 | https://clevelandart.org/art/1982.68 | CC0 |
+| cma-1954.369 | https://clevelandart.org/art/1954.369 | CC0 |
+| cma-1975.64 | https://clevelandart.org/art/1975.64 | CC0 |
+| cma-1986.49 | https://clevelandart.org/art/1986.49 | CC0 |
+| cma-1967.193 | https://clevelandart.org/art/1967.193 | CC0 |
+| cma-1975.11 | https://clevelandart.org/art/1975.11 | CC0 |
+| cma-1952.284 | https://clevelandart.org/art/1952.284 | CC0 |
+| cma-1979.27 | https://clevelandart.org/art/1979.27 | CC0 |
+| cma-1999.174 | https://clevelandart.org/art/1999.174 | CC0 |
+| cma-1999.260 | https://clevelandart.org/art/1999.260 | CC0 |
+
+
+## 2026-10-08 local expansion / 本地扩充
+
+Current source catalogue: 1765 paintings and 867 calligraphy works. Pages and orientations are not additional works.
+
+New originals come from official museum services; per-work image URLs, licenses and hashes are retained in selection.json and provenance.json. Images are resized and laid out only. This local expansion has not been installed or verified on hardware. Prior hardware acceptance remains historical.
+
+| Work ID | Museum source | Image license |
+| --- | --- | --- |
+| colbase-tnm-TB-348 | https://colbase.nich.go.jp/collection_items/tnm/TB-348?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-507 | https://colbase.nich.go.jp/collection_items/tnm/TB-507?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-606 | https://colbase.nich.go.jp/collection_items/tnm/TB-606?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-673 | https://colbase.nich.go.jp/collection_items/tnm/TB-673?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-671 | https://colbase.nich.go.jp/collection_items/tnm/TB-671?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-711 | https://colbase.nich.go.jp/collection_items/tnm/TB-711?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1353 | https://colbase.nich.go.jp/collection_items/tnm/TB-1353?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1313 | https://colbase.nich.go.jp/collection_items/tnm/TB-1313?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1545 | https://colbase.nich.go.jp/collection_items/tnm/TB-1545?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1654 | https://colbase.nich.go.jp/collection_items/tnm/TB-1654?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1530 | https://colbase.nich.go.jp/collection_items/tnm/TB-1530?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1627 | https://colbase.nich.go.jp/collection_items/tnm/TB-1627?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-298 | https://colbase.nich.go.jp/collection_items/tnm/TB-298?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-49 | https://colbase.nich.go.jp/collection_items/tnm/TB-49?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1527 | https://colbase.nich.go.jp/collection_items/tnm/TB-1527?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-506 | https://colbase.nich.go.jp/collection_items/tnm/TB-506?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-453 | https://colbase.nich.go.jp/collection_items/tnm/TB-453?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-660 | https://colbase.nich.go.jp/collection_items/tnm/TB-660?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-764 | https://colbase.nich.go.jp/collection_items/tnm/TB-764?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-676 | https://colbase.nich.go.jp/collection_items/tnm/TB-676?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-669 | https://colbase.nich.go.jp/collection_items/tnm/TB-669?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1250 | https://colbase.nich.go.jp/collection_items/tnm/TB-1250?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1321 | https://colbase.nich.go.jp/collection_items/tnm/TB-1321?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1368 | https://colbase.nich.go.jp/collection_items/tnm/TB-1368?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1430 | https://colbase.nich.go.jp/collection_items/tnm/TB-1430?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1626 | https://colbase.nich.go.jp/collection_items/tnm/TB-1626?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1543 | https://colbase.nich.go.jp/collection_items/tnm/TB-1543?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1510 | https://colbase.nich.go.jp/collection_items/tnm/TB-1510?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1748 | https://colbase.nich.go.jp/collection_items/tnm/TB-1748?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1630 | https://colbase.nich.go.jp/collection_items/tnm/TB-1630?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1542 | https://colbase.nich.go.jp/collection_items/tnm/TB-1542?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1544 | https://colbase.nich.go.jp/collection_items/tnm/TB-1544?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1176 | https://colbase.nich.go.jp/collection_items/tnm/TB-1176?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-340 | https://colbase.nich.go.jp/collection_items/tnm/TB-340?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1345 | https://colbase.nich.go.jp/collection_items/tnm/TB-1345?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-223 | https://colbase.nich.go.jp/collection_items/tnm/TB-223?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-228 | https://colbase.nich.go.jp/collection_items/tnm/TB-228?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-447 | https://colbase.nich.go.jp/collection_items/tnm/TB-447?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-452 | https://colbase.nich.go.jp/collection_items/tnm/TB-452?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-679 | https://colbase.nich.go.jp/collection_items/tnm/TB-679?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-684 | https://colbase.nich.go.jp/collection_items/tnm/TB-684?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-681 | https://colbase.nich.go.jp/collection_items/tnm/TB-681?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-856 | https://colbase.nich.go.jp/collection_items/tnm/TB-856?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-742 | https://colbase.nich.go.jp/collection_items/tnm/TB-742?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1278 | https://colbase.nich.go.jp/collection_items/tnm/TB-1278?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1374 | https://colbase.nich.go.jp/collection_items/tnm/TB-1374?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1541 | https://colbase.nich.go.jp/collection_items/tnm/TB-1541?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1585 | https://colbase.nich.go.jp/collection_items/tnm/TB-1585?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1612 | https://colbase.nich.go.jp/collection_items/tnm/TB-1612?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1197 | https://colbase.nich.go.jp/collection_items/tnm/TB-1197?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-773 | https://colbase.nich.go.jp/collection_items/tnm/TB-773?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-358 | https://colbase.nich.go.jp/collection_items/tnm/TB-358?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1361 | https://colbase.nich.go.jp/collection_items/tnm/TB-1361?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-111 | https://colbase.nich.go.jp/collection_items/tnm/TB-111?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-296 | https://colbase.nich.go.jp/collection_items/tnm/TB-296?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-302 | https://colbase.nich.go.jp/collection_items/tnm/TB-302?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-315 | https://colbase.nich.go.jp/collection_items/tnm/TB-315?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-243 | https://colbase.nich.go.jp/collection_items/tnm/TB-243?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-250 | https://colbase.nich.go.jp/collection_items/tnm/TB-250?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-478 | https://colbase.nich.go.jp/collection_items/tnm/TB-478?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-603 | https://colbase.nich.go.jp/collection_items/tnm/TB-603?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-670 | https://colbase.nich.go.jp/collection_items/tnm/TB-670?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-666 | https://colbase.nich.go.jp/collection_items/tnm/TB-666?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-667 | https://colbase.nich.go.jp/collection_items/tnm/TB-667?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-890 | https://colbase.nich.go.jp/collection_items/tnm/TB-890?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1210 | https://colbase.nich.go.jp/collection_items/tnm/TB-1210?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1238 | https://colbase.nich.go.jp/collection_items/tnm/TB-1238?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1635 | https://colbase.nich.go.jp/collection_items/tnm/TB-1635?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1355 | https://colbase.nich.go.jp/collection_items/tnm/TB-1355?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1360 | https://colbase.nich.go.jp/collection_items/tnm/TB-1360?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1449 | https://colbase.nich.go.jp/collection_items/tnm/TB-1449?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1365 | https://colbase.nich.go.jp/collection_items/tnm/TB-1365?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1699 | https://colbase.nich.go.jp/collection_items/tnm/TB-1699?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1625 | https://colbase.nich.go.jp/collection_items/tnm/TB-1625?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1535 | https://colbase.nich.go.jp/collection_items/tnm/TB-1535?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1537 | https://colbase.nich.go.jp/collection_items/tnm/TB-1537?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-334 | https://colbase.nich.go.jp/collection_items/tnm/TB-334?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-240 | https://colbase.nich.go.jp/collection_items/tnm/TB-240?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-288 | https://colbase.nich.go.jp/collection_items/tnm/TB-288?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-292 | https://colbase.nich.go.jp/collection_items/tnm/TB-292?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-665 | https://colbase.nich.go.jp/collection_items/tnm/TB-665?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-672 | https://colbase.nich.go.jp/collection_items/tnm/TB-672?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-668 | https://colbase.nich.go.jp/collection_items/tnm/TB-668?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-680 | https://colbase.nich.go.jp/collection_items/tnm/TB-680?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-674 | https://colbase.nich.go.jp/collection_items/tnm/TB-674?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1172 | https://colbase.nich.go.jp/collection_items/tnm/TB-1172?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1234 | https://colbase.nich.go.jp/collection_items/tnm/TB-1234?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1395 | https://colbase.nich.go.jp/collection_items/tnm/TB-1395?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1421 | https://colbase.nich.go.jp/collection_items/tnm/TB-1421?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1529 | https://colbase.nich.go.jp/collection_items/tnm/TB-1529?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1628 | https://colbase.nich.go.jp/collection_items/tnm/TB-1628?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1629 | https://colbase.nich.go.jp/collection_items/tnm/TB-1629?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1538 | https://colbase.nich.go.jp/collection_items/tnm/TB-1538?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1651 | https://colbase.nich.go.jp/collection_items/tnm/TB-1651?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1539 | https://colbase.nich.go.jp/collection_items/tnm/TB-1539?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1174 | https://colbase.nich.go.jp/collection_items/tnm/TB-1174?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1551 | https://colbase.nich.go.jp/collection_items/tnm/TB-1551?locale=zh | CC BY 4.0 |
+| colbase-tnm-TB-1533 | https://colbase.nich.go.jp/collection_items/tnm/TB-1533?locale=zh | CC BY 4.0 |
+| met-39534 | https://www.metmuseum.org/art/collection/search/39534 | CC0 |
+| met-45780 | https://www.metmuseum.org/art/collection/search/45780 | CC0 |
+| met-48958 | https://www.metmuseum.org/art/collection/search/48958 | CC0 |
+| met-49129 | https://www.metmuseum.org/art/collection/search/49129 | CC0 |
+| met-54779 | https://www.metmuseum.org/art/collection/search/54779 | CC0 |
+| met-60465 | https://www.metmuseum.org/art/collection/search/60465 | CC0 |
+| met-60467 | https://www.metmuseum.org/art/collection/search/60467 | CC0 |
+| met-60468 | https://www.metmuseum.org/art/collection/search/60468 | CC0 |
+| met-60470 | https://www.metmuseum.org/art/collection/search/60470 | CC0 |
+| met-60472 | https://www.metmuseum.org/art/collection/search/60472 | CC0 |
+| met-60473 | https://www.metmuseum.org/art/collection/search/60473 | CC0 |
+| met-60485 | https://www.metmuseum.org/art/collection/search/60485 | CC0 |
+| met-62882 | https://www.metmuseum.org/art/collection/search/62882 | CC0 |
+| met-670905 | https://www.metmuseum.org/art/collection/search/670905 | CC0 |
+| met-671036 | https://www.metmuseum.org/art/collection/search/671036 | CC0 |
+| met-671037 | https://www.metmuseum.org/art/collection/search/671037 | CC0 |
+| met-671039 | https://www.metmuseum.org/art/collection/search/671039 | CC0 |
+| met-701293 | https://www.metmuseum.org/art/collection/search/701293 | CC0 |
+| met-711871 | https://www.metmuseum.org/art/collection/search/711871 | CC0 |
+| met-727181 | https://www.metmuseum.org/art/collection/search/727181 | CC0 |
+| met-73330 | https://www.metmuseum.org/art/collection/search/73330 | CC0 |
+| met-733689 | https://www.metmuseum.org/art/collection/search/733689 | CC0 |
+| met-744932 | https://www.metmuseum.org/art/collection/search/744932 | CC0 |
+| met-77197 | https://www.metmuseum.org/art/collection/search/77197 | CC0 |
+| met-78052 | https://www.metmuseum.org/art/collection/search/78052 | CC0 |
+| met-78053 | https://www.metmuseum.org/art/collection/search/78053 | CC0 |
+| met-78054 | https://www.metmuseum.org/art/collection/search/78054 | CC0 |
+| met-78058 | https://www.metmuseum.org/art/collection/search/78058 | CC0 |
+| met-78063 | https://www.metmuseum.org/art/collection/search/78063 | CC0 |
+| met-78165 | https://www.metmuseum.org/art/collection/search/78165 | CC0 |
+| met-78167 | https://www.metmuseum.org/art/collection/search/78167 | CC0 |
+| met-816189 | https://www.metmuseum.org/art/collection/search/816189 | CC0 |
+| met-816190 | https://www.metmuseum.org/art/collection/search/816190 | CC0 |
+| met-816197 | https://www.metmuseum.org/art/collection/search/816197 | CC0 |
+| met-816198 | https://www.metmuseum.org/art/collection/search/816198 | CC0 |
+| met-816207 | https://www.metmuseum.org/art/collection/search/816207 | CC0 |
+| met-816208 | https://www.metmuseum.org/art/collection/search/816208 | CC0 |
+| met-816212 | https://www.metmuseum.org/art/collection/search/816212 | CC0 |
+| met-816217 | https://www.metmuseum.org/art/collection/search/816217 | CC0 |
+| met-826408 | https://www.metmuseum.org/art/collection/search/826408 | CC0 |
+| met-826899 | https://www.metmuseum.org/art/collection/search/826899 | CC0 |
+| met-829384 | https://www.metmuseum.org/art/collection/search/829384 | CC0 |
+| met-829386 | https://www.metmuseum.org/art/collection/search/829386 | CC0 |
+| met-829404 | https://www.metmuseum.org/art/collection/search/829404 | CC0 |
+| met-829410 | https://www.metmuseum.org/art/collection/search/829410 | CC0 |
+| met-830711 | https://www.metmuseum.org/art/collection/search/830711 | CC0 |
+| met-845128 | https://www.metmuseum.org/art/collection/search/845128 | CC0 |
+| met-853225 | https://www.metmuseum.org/art/collection/search/853225 | CC0 |
+| met-897107 | https://www.metmuseum.org/art/collection/search/897107 | CC0 |
+| met-897118 | https://www.metmuseum.org/art/collection/search/897118 | CC0 |
+| met-897146 | https://www.metmuseum.org/art/collection/search/897146 | CC0 |
+| met-902213 | https://www.metmuseum.org/art/collection/search/902213 | CC0 |
+| met-902220 | https://www.metmuseum.org/art/collection/search/902220 | CC0 |
+| met-902221 | https://www.metmuseum.org/art/collection/search/902221 | CC0 |
+| met-929159 | https://www.metmuseum.org/art/collection/search/929159 | CC0 |
+| princeton-37136 | https://artmuseum.princeton.edu/art/collections/objects/37136 | Public domain |
+| cma-1992.138 | https://clevelandart.org/art/1992.138 | CC0 |
+| cma-2015.508 | https://clevelandart.org/art/2015.508 | CC0 |
+| cma-2015.468 | https://clevelandart.org/art/2015.468 | CC0 |
+| mia-117214 | https://collections.artsmia.org/art/117214 | Public domain |
+| mia-117241 | https://collections.artsmia.org/art/117241 | Public domain |
+| mia-122370 | https://collections.artsmia.org/art/122370 | Public domain |
+| mia-117303 | https://collections.artsmia.org/art/117303 | Public domain |
+| mia-118161 | https://collections.artsmia.org/art/118161 | Public domain |
+| mia-117347 | https://collections.artsmia.org/art/117347 | Public domain |
+| mia-118427 | https://collections.artsmia.org/art/118427 | Public domain |
+| mia-118179 | https://collections.artsmia.org/art/118179 | Public domain |
+| mia-118185 | https://collections.artsmia.org/art/118185 | Public domain |
+| mia-117255 | https://collections.artsmia.org/art/117255 | Public domain |
+| mia-117349 | https://collections.artsmia.org/art/117349 | Public domain |
+| mia-116870 | https://collections.artsmia.org/art/116870 | Public domain |
+| mia-118123 | https://collections.artsmia.org/art/118123 | Public domain |
+| mia-117269 | https://collections.artsmia.org/art/117269 | Public domain |
+| mia-117289 | https://collections.artsmia.org/art/117289 | Public domain |
+| mia-118777 | https://collections.artsmia.org/art/118777 | Public domain |
+| mia-118724 | https://collections.artsmia.org/art/118724 | Public domain |
+| mia-118749 | https://collections.artsmia.org/art/118749 | Public domain |
+| mia-117260 | https://collections.artsmia.org/art/117260 | Public domain |
+| mia-117794 | https://collections.artsmia.org/art/117794 | Public domain |
+| mia-146257 | https://collections.artsmia.org/art/146257 | Public domain |
+| mia-118908 | https://collections.artsmia.org/art/118908 | Public domain |
+| mia-122368 | https://collections.artsmia.org/art/122368 | Public domain |
+| mia-118713 | https://collections.artsmia.org/art/118713 | Public domain |
+| mia-122356 | https://collections.artsmia.org/art/122356 | Public domain |
+| mia-118718 | https://collections.artsmia.org/art/118718 | Public domain |
+| mia-117247 | https://collections.artsmia.org/art/117247 | Public domain |
+| mia-122359 | https://collections.artsmia.org/art/122359 | Public domain |
+| mia-117245 | https://collections.artsmia.org/art/117245 | Public domain |
+| mia-117243 | https://collections.artsmia.org/art/117243 | Public domain |
+| mia-117249 | https://collections.artsmia.org/art/117249 | Public domain |
+| mia-117270 | https://collections.artsmia.org/art/117270 | Public domain |
+| mia-117286 | https://collections.artsmia.org/art/117286 | Public domain |
+| mia-117302 | https://collections.artsmia.org/art/117302 | Public domain |
+| mia-117230 | https://collections.artsmia.org/art/117230 | Public domain |
+| mia-117246 | https://collections.artsmia.org/art/117246 | Public domain |
+| mia-117813 | https://collections.artsmia.org/art/117813 | Public domain |
+| mia-117254 | https://collections.artsmia.org/art/117254 | Public domain |
+| mia-117250 | https://collections.artsmia.org/art/117250 | Public domain |
+| mia-117319 | https://collections.artsmia.org/art/117319 | Public domain |
+| mia-117390 | https://collections.artsmia.org/art/117390 | Public domain |
+| mia-117743 | https://collections.artsmia.org/art/117743 | Public domain |
+| mia-118174 | https://collections.artsmia.org/art/118174 | Public domain |
+| mia-117307 | https://collections.artsmia.org/art/117307 | Public domain |
+| mia-117296 | https://collections.artsmia.org/art/117296 | Public domain |
+| mia-117229 | https://collections.artsmia.org/art/117229 | Public domain |
+| mia-117271 | https://collections.artsmia.org/art/117271 | Public domain |
+| mia-118177 | https://collections.artsmia.org/art/118177 | Public domain |
+| mia-117252 | https://collections.artsmia.org/art/117252 | Public domain |
+| mia-117279 | https://collections.artsmia.org/art/117279 | Public domain |
+| mia-117291 | https://collections.artsmia.org/art/117291 | Public domain |
+| mia-117264 | https://collections.artsmia.org/art/117264 | Public domain |
+| mia-117304 | https://collections.artsmia.org/art/117304 | Public domain |
+| mia-117350 | https://collections.artsmia.org/art/117350 | Public domain |
+| mia-117236 | https://collections.artsmia.org/art/117236 | Public domain |
+| mia-117268 | https://collections.artsmia.org/art/117268 | Public domain |
+| mia-116376 | https://collections.artsmia.org/art/116376 | Public domain |
+| mia-116735 | https://collections.artsmia.org/art/116735 | Public domain |
+| mia-117275 | https://collections.artsmia.org/art/117275 | Public domain |
+| mia-117267 | https://collections.artsmia.org/art/117267 | Public domain |
+| mia-117314 | https://collections.artsmia.org/art/117314 | Public domain |
+| mia-117346 | https://collections.artsmia.org/art/117346 | Public domain |
+| mia-117343 | https://collections.artsmia.org/art/117343 | Public domain |
+| mia-117383 | https://collections.artsmia.org/art/117383 | Public domain |
+| mia-117380 | https://collections.artsmia.org/art/117380 | Public domain |
+| mia-117395 | https://collections.artsmia.org/art/117395 | Public domain |
+| mia-117406 | https://collections.artsmia.org/art/117406 | Public domain |
+| mia-117748 | https://collections.artsmia.org/art/117748 | Public domain |
+| mia-117737 | https://collections.artsmia.org/art/117737 | Public domain |
+| mia-117789 | https://collections.artsmia.org/art/117789 | Public domain |
+| mia-117783 | https://collections.artsmia.org/art/117783 | Public domain |
+| mia-117828 | https://collections.artsmia.org/art/117828 | Public domain |
+| mia-117992 | https://collections.artsmia.org/art/117992 | Public domain |
+| mia-117997 | https://collections.artsmia.org/art/117997 | Public domain |
+| mia-118022 | https://collections.artsmia.org/art/118022 | Public domain |
+| mia-118021 | https://collections.artsmia.org/art/118021 | Public domain |
+| mia-118131 | https://collections.artsmia.org/art/118131 | Public domain |
+| mia-118168 | https://collections.artsmia.org/art/118168 | Public domain |
+| mia-118157 | https://collections.artsmia.org/art/118157 | Public domain |
+| mia-118166 | https://collections.artsmia.org/art/118166 | Public domain |
+| mia-118158 | https://collections.artsmia.org/art/118158 | Public domain |
+| mia-118175 | https://collections.artsmia.org/art/118175 | Public domain |
+| mia-118695 | https://collections.artsmia.org/art/118695 | Public domain |
+| mia-118752 | https://collections.artsmia.org/art/118752 | Public domain |
+| mia-118776 | https://collections.artsmia.org/art/118776 | Public domain |
+| mia-122363 | https://collections.artsmia.org/art/122363 | Public domain |
+| mia-116346 | https://collections.artsmia.org/art/116346 | Public domain |
+| mia-117210 | https://collections.artsmia.org/art/117210 | Public domain |
+| mia-117256 | https://collections.artsmia.org/art/117256 | Public domain |
+| mia-117288 | https://collections.artsmia.org/art/117288 | Public domain |
+| mia-117310 | https://collections.artsmia.org/art/117310 | Public domain |
+| mia-117315 | https://collections.artsmia.org/art/117315 | Public domain |
+| mia-117336 | https://collections.artsmia.org/art/117336 | Public domain |
+| mia-117340 | https://collections.artsmia.org/art/117340 | Public domain |
+| mia-117338 | https://collections.artsmia.org/art/117338 | Public domain |
+| mia-117332 | https://collections.artsmia.org/art/117332 | Public domain |
+| mia-117408 | https://collections.artsmia.org/art/117408 | Public domain |
+| mia-117420 | https://collections.artsmia.org/art/117420 | Public domain |
+| mia-117444 | https://collections.artsmia.org/art/117444 | Public domain |
+| mia-117740 | https://collections.artsmia.org/art/117740 | Public domain |
+| mia-117745 | https://collections.artsmia.org/art/117745 | Public domain |
+| mia-117994 | https://collections.artsmia.org/art/117994 | Public domain |
+| mia-118002 | https://collections.artsmia.org/art/118002 | Public domain |
+| mia-117999 | https://collections.artsmia.org/art/117999 | Public domain |
+| mia-118146 | https://collections.artsmia.org/art/118146 | Public domain |
+| mia-118125 | https://collections.artsmia.org/art/118125 | Public domain |
+| mia-118180 | https://collections.artsmia.org/art/118180 | Public domain |
+| mia-118159 | https://collections.artsmia.org/art/118159 | Public domain |
+| mia-118690 | https://collections.artsmia.org/art/118690 | Public domain |
+| mia-118723 | https://collections.artsmia.org/art/118723 | Public domain |
+| mia-118722 | https://collections.artsmia.org/art/118722 | Public domain |
+| mia-118775 | https://collections.artsmia.org/art/118775 | Public domain |
+| mia-118795 | https://collections.artsmia.org/art/118795 | Public domain |
+| mia-118774 | https://collections.artsmia.org/art/118774 | Public domain |
+| mia-118092 | https://collections.artsmia.org/art/118092 | Public domain |
+| mia-117788 | https://collections.artsmia.org/art/117788 | Public domain |
+| mia-116742 | https://collections.artsmia.org/art/116742 | Public domain |
+| mia-116758 | https://collections.artsmia.org/art/116758 | Public domain |
+| mia-116764 | https://collections.artsmia.org/art/116764 | Public domain |
+| mia-117226 | https://collections.artsmia.org/art/117226 | Public domain |
+| mia-117280 | https://collections.artsmia.org/art/117280 | Public domain |
+| mia-117285 | https://collections.artsmia.org/art/117285 | Public domain |
+| mia-117290 | https://collections.artsmia.org/art/117290 | Public domain |
+| mia-117331 | https://collections.artsmia.org/art/117331 | Public domain |
+| mia-117308 | https://collections.artsmia.org/art/117308 | Public domain |
+| mia-117287 | https://collections.artsmia.org/art/117287 | Public domain |
+| mia-117411 | https://collections.artsmia.org/art/117411 | Public domain |
+| mia-117445 | https://collections.artsmia.org/art/117445 | Public domain |
+| mia-117416 | https://collections.artsmia.org/art/117416 | Public domain |
+| mia-117341 | https://collections.artsmia.org/art/117341 | Public domain |
+| mia-117297 | https://collections.artsmia.org/art/117297 | Public domain |
+| mia-117313 | https://collections.artsmia.org/art/117313 | Public domain |
+| mia-117815 | https://collections.artsmia.org/art/117815 | Public domain |
+| mia-117824 | https://collections.artsmia.org/art/117824 | Public domain |
+| mia-117821 | https://collections.artsmia.org/art/117821 | Public domain |
+| mia-118023 | https://collections.artsmia.org/art/118023 | Public domain |
+| mia-117988 | https://collections.artsmia.org/art/117988 | Public domain |
+| mia-118190 | https://collections.artsmia.org/art/118190 | Public domain |
+| mia-118738 | https://collections.artsmia.org/art/118738 | Public domain |
+| mia-118731 | https://collections.artsmia.org/art/118731 | Public domain |
+| mia-118694 | https://collections.artsmia.org/art/118694 | Public domain |
+| mia-122364 | https://collections.artsmia.org/art/122364 | Public domain |
+| mia-122366 | https://collections.artsmia.org/art/122366 | Public domain |
+| mia-116744 | https://collections.artsmia.org/art/116744 | Public domain |
+| mia-118091 | https://collections.artsmia.org/art/118091 | Public domain |
+| mia-116755 | https://collections.artsmia.org/art/116755 | Public domain |
+| mia-116739 | https://collections.artsmia.org/art/116739 | Public domain |
+| mia-116762 | https://collections.artsmia.org/art/116762 | Public domain |
+| mia-117244 | https://collections.artsmia.org/art/117244 | Public domain |
+| mia-117261 | https://collections.artsmia.org/art/117261 | Public domain |
+| mia-117263 | https://collections.artsmia.org/art/117263 | Public domain |
+| mia-117292 | https://collections.artsmia.org/art/117292 | Public domain |
+| mia-117294 | https://collections.artsmia.org/art/117294 | Public domain |
+| mia-117339 | https://collections.artsmia.org/art/117339 | Public domain |
+| mia-117422 | https://collections.artsmia.org/art/117422 | Public domain |
+| mia-117744 | https://collections.artsmia.org/art/117744 | Public domain |
+| mia-117822 | https://collections.artsmia.org/art/117822 | Public domain |
+| mia-117964 | https://collections.artsmia.org/art/117964 | Public domain |
+| mia-118172 | https://collections.artsmia.org/art/118172 | Public domain |
+| mia-118196 | https://collections.artsmia.org/art/118196 | Public domain |
+| mia-118178 | https://collections.artsmia.org/art/118178 | Public domain |
+| mia-118719 | https://collections.artsmia.org/art/118719 | Public domain |
+| mia-118714 | https://collections.artsmia.org/art/118714 | Public domain |
+| mia-118746 | https://collections.artsmia.org/art/118746 | Public domain |
+| mia-118740 | https://collections.artsmia.org/art/118740 | Public domain |
+| mia-118909 | https://collections.artsmia.org/art/118909 | Public domain |
+| mia-122365 | https://collections.artsmia.org/art/122365 | Public domain |
+| mia-116754 | https://collections.artsmia.org/art/116754 | Public domain |
+| mia-117272 | https://collections.artsmia.org/art/117272 | Public domain |
+| mia-118093 | https://collections.artsmia.org/art/118093 | Public domain |
+| mia-118169 | https://collections.artsmia.org/art/118169 | Public domain |
+| mia-105095 | https://collections.artsmia.org/art/105095 | Public domain |
+| mia-116757 | https://collections.artsmia.org/art/116757 | Public domain |
+| mia-116746 | https://collections.artsmia.org/art/116746 | Public domain |
+| mia-117278 | https://collections.artsmia.org/art/117278 | Public domain |
+| mia-117300 | https://collections.artsmia.org/art/117300 | Public domain |
+| mia-117298 | https://collections.artsmia.org/art/117298 | Public domain |
+| mia-117293 | https://collections.artsmia.org/art/117293 | Public domain |
+| mia-117438 | https://collections.artsmia.org/art/117438 | Public domain |
+| mia-117434 | https://collections.artsmia.org/art/117434 | Public domain |
+| mia-117439 | https://collections.artsmia.org/art/117439 | Public domain |
+| mia-117403 | https://collections.artsmia.org/art/117403 | Public domain |
+| mia-117782 | https://collections.artsmia.org/art/117782 | Public domain |
+| mia-117991 | https://collections.artsmia.org/art/117991 | Public domain |
+| mia-118000 | https://collections.artsmia.org/art/118000 | Public domain |
+| mia-117989 | https://collections.artsmia.org/art/117989 | Public domain |
+| mia-118005 | https://collections.artsmia.org/art/118005 | Public domain |
+| mia-118009 | https://collections.artsmia.org/art/118009 | Public domain |
+| mia-118006 | https://collections.artsmia.org/art/118006 | Public domain |
+| mia-117233 | https://collections.artsmia.org/art/117233 | Public domain |
+| mia-117234 | https://collections.artsmia.org/art/117234 | Public domain |
+| mia-117265 | https://collections.artsmia.org/art/117265 | Public domain |
+| mia-117400 | https://collections.artsmia.org/art/117400 | Public domain |
+| mia-117398 | https://collections.artsmia.org/art/117398 | Public domain |
+| mia-117963 | https://collections.artsmia.org/art/117963 | Public domain |
+| mia-117951 | https://collections.artsmia.org/art/117951 | Public domain |
+| mia-118195 | https://collections.artsmia.org/art/118195 | Public domain |
+| mia-118182 | https://collections.artsmia.org/art/118182 | Public domain |
+| mia-118696 | https://collections.artsmia.org/art/118696 | Public domain |
+| mia-118712 | https://collections.artsmia.org/art/118712 | Public domain |
+| mia-118750 | https://collections.artsmia.org/art/118750 | Public domain |
+| mia-118778 | https://collections.artsmia.org/art/118778 | Public domain |
+| mia-122369 | https://collections.artsmia.org/art/122369 | Public domain |
+| mia-117749 | https://collections.artsmia.org/art/117749 | Public domain |
+| mia-122360 | https://collections.artsmia.org/art/122360 | Public domain |
+| mia-117747 | https://collections.artsmia.org/art/117747 | Public domain |
+| mia-117237 | https://collections.artsmia.org/art/117237 | Public domain |
+| mia-130064 | https://collections.artsmia.org/art/130064 | Public domain |
+| mia-129998 | https://collections.artsmia.org/art/129998 | Public domain |
+| mia-118930 | https://collections.artsmia.org/art/118930 | Public domain |
+| mia-118917 | https://collections.artsmia.org/art/118917 | Public domain |
+| mia-130017 | https://collections.artsmia.org/art/130017 | Public domain |
+| mia-118726 | https://collections.artsmia.org/art/118726 | Public domain |
