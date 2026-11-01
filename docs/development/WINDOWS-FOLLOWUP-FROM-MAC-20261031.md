@@ -1,6 +1,6 @@
 # Windows 对齐清单：Mac R48 / TAB5 .302 候选
 
-11-01 歌名补充：.302 复用已有扩展字库，修复部分繁体歌名方块，保持原始文字；无需 Windows/Mac 桥接改协议或繁简转换。设备安装及精确启动核验通过，歌名和封面可见效果尚待验，见[设计与覆盖范围](TAB5-MUSIC-FONT-20261101.md)。
+11-01 歌名补充：.302 复用已有扩展字库，修复部分繁体歌名方块，保持原始文字；无需 Windows/Mac 桥接改协议或繁简转换。设备安装及精确启动核验通过，用户确认歌名缺字和切歌封面均正常，见[设计与覆盖范围](TAB5-MUSIC-FONT-20261101.md)。
 
 11-01 最新：.300 真机压力验收未通过，失败发生在显示复制之前。.301 增加普通／暂存／旋转缓存共同遵守的接收内存余量和 UI 维护；在 .300 后应用[全链路缓存补丁](../proposals/tab5-cover-cache-reserve.patch)，核对[来源](../proposals/tab5-cover-cache-reserve.json)。.301 已安装，跨四页和两次换歌真机验收通过；JPEG 首轮确认、失败计数全零，可用 PSRAM 保持4.3 MiB 以上。
 
@@ -55,7 +55,7 @@
 5. [时钟可读性 .299](../proposals/tab5-clock-readability.patch) / [来源](../proposals/tab5-clock-readability.json)，构建、离屏检查及两种时钟真机验收通过。
 6. [封面显示内存 .300](../proposals/tab5-cover-display-memory.patch) / [来源](../proposals/tab5-cover-display-memory.json)，针对性故障复现、回归和构建通过，真机压力验收失败，接续 .301，不单独作为最终修复。
 7. [封面缓存预留 .301](../proposals/tab5-cover-cache-reserve.patch) / [来源](../proposals/tab5-cover-cache-reserve.json)，接收／解码预算与真实 LVGL 压力回归通过，真机结果见最新记录。
-8. [音乐歌名扩展字形 .302](../proposals/tab5-music-font-fallback.patch) / [来源](../proposals/tab5-music-font-fallback.json)，原字库优先、全字符绘制及真实 LVGL 回归通过；实际设备验收待做。
+8. [音乐歌名扩展字形 .302](../proposals/tab5-music-font-fallback.patch) / [来源](../proposals/tab5-music-font-fallback.json)，原字库优先、全字符绘制及真实 LVGL 回归通过；歌名缺字及切歌封面真机验收通过。
 
 **不要叠加未安装的 .297 rejection-feedback 补丁**：.298 直接基于 .296，已包含并替代其提示修改。若工程已含某一步，先核对哈希，不重复套用。不要直接编辑 279 历史源码快照，保持来源校验可重复。
 
@@ -110,4 +110,4 @@ The .301 physical stress check passes: all four primary pages, two track changes
 
 W31-12 follow-up: Windows still hardcodes `sqlite/codex-dev.db`. Align recent-list and confirmation readers with the current `sqlite/codex.db`, falling back only when the current file is absent. Missing targets or current-catalog errors must not authorize stale legacy identities. See the [Mac diagnosis](MAC-CODEX-CATALOG-20261101.md).
 
-Music-title follow-up: apply the .302 shared firmware patch after .301. Reuse existing extended glyphs at the title size, preserving original text and native glyph priority; no host protocol or Traditional-to-Simplified conversion is needed. Coverage remains partial. Full LVGL and render checks pass; installation and exact boot verification pass; visible title/cover acceptance is pending.
+Music-title follow-up: apply the .302 shared firmware patch after .301. Reuse existing extended glyphs at the title size, preserving original text and native glyph priority; no host protocol or Traditional-to-Simplified conversion is needed. Coverage remains partial. Full LVGL and render checks pass; installation and exact boot verification pass; user confirms the missing title glyph and track-change covers are correct; physical acceptance passes.

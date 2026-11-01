@@ -4,7 +4,7 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ## 0.2.302-ui - 2026-11-01
 
-Local music-title font candidate, installed with exact boot verification and preserved settings. Visible title/cover acceptance is pending; not publicly released.
+Local music-title font candidate, installed with exact boot verification and preserved settings. User confirms the missing glyph is fixed and covers remain normal when changing tracks and returning; physical acceptance passes. Not publicly released.
 
 - Reuse existing extended 24 px glyphs at 30 px in song titles, preserving native glyph priority and original Traditional Chinese text. Fix missing glyphs such as U+7D72; Traditional Chinese coverage remains partial.
 - All 10,535 existing codepoints resolve; 2,925 fallback glyphs pass raster and buffer-guard checks. Traditional/mixed/long-title renders and full LVGL regression pass.

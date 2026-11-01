@@ -26,5 +26,5 @@
     "Actual traditional, mixed Latin/CJK and long-title renders reviewed; original text preserved",
     "P4 build, unchanged board configuration and original partition checked separately"
   ],
-  "physicalAcceptance": "Installed with explicit authorization; exact ELF, VALID partition and three live UI samples verified; display settings preserved. Song-title and cover physical acceptance pending."
+  "physicalAcceptance": "Installed with explicit authorization; exact ELF, VALID partition and three live UI samples verified; display settings preserved. User confirms formerly missing Traditional Chinese glyph displays correctly and covers remain normal when changing tracks and returning."
 }
