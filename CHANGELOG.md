@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Mac USB OTA performance
+- Align Mac with Windows' existing negotiated USB binary bulk transfer and bounded waits, preserving legacy peers and reconnect-on-error behavior. The identical .302 image installs over USB in 20.557 s versus 38.587 s, with exact healthy boot and display settings preserved. A current same-image native Windows comparison remains pending.
+
 ### TAB5 reliability and Windows handoff
 - Fix Mac verification of newly created Codex chats by using the current desktop catalog for both display titles and identity; retain legacy-only installations and reject stale fallback after current-catalog errors.
 - TAB5 .301 extends .300 with page-cache headroom for cover receipt, decode and display, hidden-cache reclamation under pressure, and cross-host stage diagnostics.
