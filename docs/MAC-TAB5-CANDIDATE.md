@@ -8,6 +8,10 @@ November 1 alignment candidate: Windows main `7ca1ea4` is synchronized; see the 
 
 Voice Settings has one entry under Device Center → TAB5. Recording starts only from an explicit action, retaining OS permissions and separate Codex send authorization. Device metadata loads in the background; edits are saved only after live validation, and cancellation preserves preferences. Recognition automatically fills the bound target. Desktop corrections in that editor can be explicitly submitted; changed chats, questions or frozen text are rejected.
 
+本机现已安装并初始化 Xcode 27.2：完整 XCTest 410项、0失败，Release 构建及原生界面离屏回归通过。签名本地候选再次通过29028项隔离检查并已后台部署，原 helper 和用户设置保留。真实 GLM 刷新通过；录音、校对提交和可靠排队待真机操作，MiMo／MiniMax 账户按用户要求后验。
+
+Xcode 27.2 is installed and initialized: all 410 XCTest tests pass, along with the Release build and offscreen native UI checks. The signed local candidate passes 29,028 isolated checks and is deployed in the background, preserving the original helper and preferences. Live GLM refresh passes; recording, corrected submission and durable queue delivery await physical interaction, with MiMo/MiniMax account checks deferred by the user.
+
 当前安装 .299 时钟候选，精确启动和原设置保留核验通过；用户确认两种时钟布局、秒数大小正常。见[时钟设计](development/TAB5-CLOCK-DAY-DESIGN-20261031.md)。 / Clock candidate .299 is installed with exact boot/settings verification; user acceptance passes for analog/digital layouts and seconds size.
 
 当前跨端交接与验收状态见 [Windows 对齐清单（10-31）](development/WINDOWS-FOLLOWUP-FROM-MAC-20261031.md)。 / See the linked October 31 checklist for current cross-platform handoff and acceptance status.
