@@ -1,0 +1,30 @@
+{
+  "baseVersion": "0.2.301-ui",
+  "parentProvenance": "tab5-cover-cache-reserve.json",
+  "candidateVersion": "0.2.302-ui",
+  "patchSHA256": "bf1ae9a37554da75834b8a3b3707b94b20ed535ae349f83dcf9fcbf566647fa2",
+  "files": {
+    "firmware/main/ui_music_font.h": {
+      "before": null,
+      "after": "7645d6e4181d5759f91742f7058dfd5d56cd272c8f39a2084c8bd337f49591bb"
+    },
+    "firmware/main/ui.c": {
+      "before": "91b59d0d572ca722f3a76f94e70408410b1ae20ffac70a0e267f3d5356c4c404",
+      "after": "5fe0a4cde8769ea68cf3ccd8c502976ce6307f8eb072e52f11c2f1db5a9ccf79"
+    },
+    "tests/ui-preview/preview.c": {
+      "before": "99adaf6c3439c25f7b903617323e741641cb80972457e053dd67f1086e32649e",
+      "after": "0176a44ab793896be3b0889bcc5314136873b59391409400ce13939cb4a21208"
+    }
+  },
+  "candidateImageSHA256": "b913705e04ecdec7cf737f5fc33a8a6c2d65eb3f94c6bde3164bb294eb1b44ca",
+  "candidateELFSHA256": "34975c5a33f321fc17759d77b6b6847daa590f618fdb75d1f0d8f22e66a4e3b3",
+  "candidateBytes": 7207632,
+  "partitionBytes": 7208960,
+  "validation": [
+    "Full production LVGL regression: all 10535 existing extended-font codepoints resolve in the headline; 2925 use scaled fallback; native metrics and glyph-buffer guards pass",
+    "Actual traditional, mixed Latin/CJK and long-title renders reviewed; original text preserved",
+    "P4 build, unchanged board configuration and original partition checked separately"
+  ],
+  "physicalAcceptance": "Installed with explicit authorization; exact ELF, VALID partition and three live UI samples verified; display settings preserved. Song-title and cover physical acceptance pending."
+}

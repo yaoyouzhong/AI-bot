@@ -1,0 +1,140 @@
+diff --git a/firmware/main/ui_music_font.h b/firmware/main/ui_music_font.h
+new file mode 100644
+--- /dev/null
++++ b/firmware/main/ui_music_font.h
+@@ -0,0 +1,52 @@
++#pragma once
++#include "lvgl.h"
++LV_FONT_DECLARE(tab5_font_24);
++#if defined(ESP_PLATFORM) && defined(__GNUC__)
++#define MUSIC_FONT_SMALL __attribute__((optimize("Os")))
++#else
++#define MUSIC_FONT_SMALL
++#endif
++
++// The ordinary 24 px font has broader coverage. Reuse only its otherwise
++// missing glyphs at the title's 30 px size, without another large bitmap table.
++static int music_font_scale(int n) { return (n*5+(n<0?-2:2))/4; }
++static MUSIC_FONT_SMALL bool music_extended_dsc(const lv_font_t *font,lv_font_glyph_dsc_t *out,uint32_t letter,uint32_t next) {
++    (void)font;
++    if(!tab5_font_24.get_glyph_dsc(&tab5_font_24,out,letter,next))return false;
++    out->adv_w=music_font_scale(out->adv_w);
++    out->box_w=music_font_scale(out->box_w);out->box_h=music_font_scale(out->box_h);
++    out->ofs_x=music_font_scale(out->ofs_x);out->ofs_y=music_font_scale(out->ofs_y);
++    out->format=LV_FONT_GLYPH_FORMAT_A8;out->gid.index=letter;
++    return true;
++}
++static MUSIC_FONT_SMALL const void *music_extended_bitmap(lv_font_glyph_dsc_t *glyph,lv_draw_buf_t *target) {
++    lv_font_glyph_dsc_t original={0};
++    if(!lv_font_get_glyph_dsc(&tab5_font_24,&original,glyph->gid.index,0)||original.is_placeholder||
++       !original.box_w||!original.box_h||!target)return NULL;
++    if(target->header.stride<glyph->box_w||target->data_size<(unsigned)glyph->box_h*target->header.stride)return NULL;
++    // The bundled source's largest padded glyph is 700 bytes. Keep this bound
++    // checked at runtime too, so future font extensions cannot overflow it.
++    uint8_t pixels[1024] LV_ATTRIBUTE_MEM_ALIGN;
++    unsigned stride=lv_draw_buf_width_to_stride(original.box_w,LV_COLOR_FORMAT_A8);
++    lv_draw_buf_t source;
++    if(stride*original.box_h>sizeof(pixels)||
++       lv_draw_buf_init(&source,original.box_w,original.box_h,LV_COLOR_FORMAT_A8,stride,pixels,sizeof(pixels))!=LV_RESULT_OK||
++       !lv_font_get_glyph_bitmap(&original,&source))return NULL;
++    for(unsigned y=0;y<glyph->box_h;y++) {
++        unsigned sy=glyph->box_h>1?y*(original.box_h-1)*256/(glyph->box_h-1):0;
++        unsigned y0=sy>>8,y1=LV_MIN(y0+1,original.box_h-1),fy=sy&255;
++        uint8_t *row=target->data+y*target->header.stride;
++        for(unsigned x=0;x<glyph->box_w;x++) {
++            unsigned sx=glyph->box_w>1?x*(original.box_w-1)*256/(glyph->box_w-1):0;
++            unsigned x0=sx>>8,x1=LV_MIN(x0+1,original.box_w-1),fx=sx&255;
++            unsigned top=pixels[y0*stride+x0]*(256-fx)+pixels[y0*stride+x1]*fx;
++            unsigned bottom=pixels[y1*stride+x0]*(256-fx)+pixels[y1*stride+x1]*fx;
++            row[x]=(top*(256-fy)+bottom*fy+32768)>>16;
++        }
++    }
++    return target;
++}
++static const lv_font_t music_extended_30={
++    .get_glyph_dsc=music_extended_dsc,.get_glyph_bitmap=music_extended_bitmap,
++    .line_height=39,.base_line=9
++};
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -281,6 +281,8 @@
+ #include <stdarg.h>
+ #include <math.h>
+ #include "ui_style.h"
++#include "ui_music_font.h"
++
+ #if defined(__GNUC__) && !defined(__clang__)
+ #define UI_INIT_SMALL __attribute__((optimize("Os")))
+ #else
+@@ -2348,7 +2350,7 @@
+     if(!*rest)return rest;
+     return !strncmp(rest," · ",4) ? rest+4 : holiday;
+ }
+-static void clock_music(int64_t now, bool fresh) {
++static UI_INIT_SMALL void clock_music(int64_t now, bool fresh) {
+     if (!shown) {
+         music_empty_refresh();
+ #if TAB5_LOCAL_ART
+@@ -3962,9 +3964,10 @@
+     lv_obj_set_style_text_align(image_loading[2], LV_TEXT_ALIGN_CENTER, 0);
+     music_state = label(pages[5], "等待音乐", 466, 36, 728, false);
+     tint(music_state, GREEN);
+-    static lv_font_t music_title_font;
++    static lv_font_t music_title_font,music_cjk_font;
+     music_title_font=lv_font_montserrat_40;
+-    music_title_font.fallback=&tab5_font_30;
++    music_cjk_font=tab5_font_30;music_cjk_font.fallback=&music_extended_30;
++    music_title_font.fallback=&music_cjk_font;
+     music = label(pages[5], "在电脑播放音乐", 466, 82, 728, false);
+     ui_text_font(music,&music_title_font,0);
+     lv_obj_set_style_text_line_space(music,4,0);
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2766,6 +2766,45 @@
+         assert(lv_obj_get_y(music_alias)>=lv_obj_get_y(music)+lv_obj_get_height(music));
+         assert(lv_obj_get_y(music_album)+lv_obj_get_height(music_album)<lv_obj_get_y(music_time));
+         capture("music-long-layout");
++        // The headline must expose the entire existing extended CJK repertoire,
++        // not merely patch a single song. Verify actual glyph resolution/data.
++        const lv_font_t *headline=lv_obj_get_style_text_font(music,0);
++        unsigned extended=0,covered=0;
++        for(uint32_t cp=32;cp<=0x323af;cp++) {
++            lv_font_glyph_dsc_t source={0},glyph={0},native={0};
++            if(!tab5_font_24.get_glyph_dsc(&tab5_font_24,&source,cp,0))continue;
++            assert(lv_font_get_glyph_dsc(headline,&glyph,cp,0)&&!glyph.is_placeholder);covered++;
++            if(tab5_font_30.get_glyph_dsc(&tab5_font_30,&native,cp,0)) {
++                if(cp>=0x3400)assert(glyph.adv_w==native.adv_w&&glyph.box_w==native.box_w&&glyph.box_h==native.box_h);
++            }
++            if(glyph.resolved_font!=&music_extended_30)continue;
++            extended++;
++            assert(glyph.adv_w==music_font_scale(source.adv_w)&&glyph.ofs_y==music_font_scale(source.ofs_y));
++            if(!glyph.box_w||!glyph.box_h)continue;
++            unsigned stride=lv_draw_buf_width_to_stride(glyph.box_w,LV_COLOR_FORMAT_A8),bytes=stride*glyph.box_h;
++            uint8_t guarded[4096] LV_ATTRIBUTE_MEM_ALIGN;memset(guarded,0xa5,sizeof(guarded));
++            lv_draw_buf_t buffer;assert(bytes+32<sizeof(guarded));
++            assert(lv_draw_buf_init(&buffer,glyph.box_w,glyph.box_h,LV_COLOR_FORMAT_A8,stride,guarded+16,bytes)==LV_RESULT_OK);
++            assert(lv_font_get_glyph_bitmap(&glyph,&buffer)==&buffer);
++            for(unsigned j=0;j<16;j++)assert(guarded[j]==0xa5);
++            for(unsigned j=16+bytes;j<sizeof(guarded);j++)assert(guarded[j]==0xa5);
++            bool visible=false;for(unsigned y=0;y<glyph.box_h;y++)for(unsigned x=0;x<glyph.box_w;x++)visible|=buffer.data[y*stride+x]>0;
++            assert(visible);
++            lv_font_glyph_release_draw_data(&glyph);
++        }
++        fprintf(stderr,"MUSIC_FONT_COUNTS covered=%u extended=%u\n",covered,extended);
++        assert(covered==10535&&extended>=2900);
++        lv_font_glyph_dsc_t missing={0};assert(!music_extended_dsc(&music_extended_30,&missing,0x10ffff,0));
++        assert(!tab5_font_30.get_glyph_dsc(&tab5_font_30,&missing,0x7d72,0));
++        const char *samples[]={"雨絲! 情愁","愛與風雲 Love 2026 絲絲細雨","繁體音樂歌名的閱讀與顯示：風雲歲月中的愛戀、歡樂與夢想"};
++        for(unsigned sample=0;sample<3;sample++) {
++            cJSON_ReplaceItemInObject(m,"title",cJSON_CreateString(samples[sample]));last_received++;clock_music(10000,true);lv_obj_update_layout(lv_screen_active());
++            assert(!strcmp(lv_label_get_text(music),samples[sample]));
++            assert(lv_obj_get_y(music)+lv_obj_get_height(music)<lv_obj_get_y(music_artist));
++            char capture_name[64];snprintf(capture_name,sizeof(capture_name),"music-traditional-%u",sample);capture(capture_name);
++        }
++        printf("MUSIC_EXTENDED_FONT_OK %u existing codepoints; %u extended fallbacks; native glyph metrics preserved; glyph buffer guards; traditional/mixed/long renders\n",covered,extended);
++
+         cJSON_ReplaceItemInObject(m,"title",cJSON_CreateString(saved_title));free(saved_title);last_received++;clock_music(10000,true);
+         assert(lv_obj_has_flag(music_alias,LV_OBJ_FLAG_HIDDEN));
+     }
