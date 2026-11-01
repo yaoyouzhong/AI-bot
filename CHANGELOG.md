@@ -4,58 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-### Mac alignment candidate (2026-11-01, acceptance in progress)
-- Submit the latest computer-corrected text only in the originally bound device/chat/question/editor. Recheck the frozen text before one native action; distinguish typed no-action failures from unknown delivery and preserve newer device drafts.
-- Support GLM finance-overview capture in both native and injected filters with endpoint-bound schemas, current rounding and cache retention. Align MiMo primary budgets and MiniMax expanded allowances/reset timestamps across adapters; real-account acceptance remains separate.
-- Provide one transactional Voice Settings entry with background device enumeration, live save validation and cancellation without preference changes. Voice starts only on explicit user action; retain recognition permissions, Codex send opt-in and microphone restoration.
-- Align native Save/Cancel ordering and unsaved-change handling; wrap frequent-task titles, show the 32-item selection count and retain hidden pins and their order. Preserve negotiated USB OTA performance.
+## 0.6.14 - 2026-11-01
 
+### Codex and voice
+- Answer Codex question cards on TAB5, switch questions and submit; bind each recording and submission to its device, chat and input target. Preserve previews and drafts when targets change.
+- Edit a dictated answer on the computer and submit the latest confirmed text from TAB5. A reliably accepted message or durable queue entry counts as sent; unknown outcomes are never resent automatically.
+- Preserve dictated segments, punctuation, line breaks and the end cursor. Improve recording preparation and delivery observation while retaining microphone restoration and duplicate protection.
 
-### Windows parity candidate (2026-11-01, final hardware acceptance pending)
-- Improve frequent-task selection with separate project/title columns, wrapped titles, a selection count and consistent Save/Cancel actions. Preserve existing pins outside the displayed catalog and confirm unsaved changes before cancellation.
-- Keep connection tabs at a stable height when selecting firmware upgrade. Load microphone metadata in the background so Voice Settings opens without waiting for repeated enumeration; recheck availability before saving. Fix modeless Computer Control cancellation and align Save/Cancel ordering across settings pages.
-- Keep a single Voice Settings entry in Device Center, with microphone selection and availability; remove the duplicate connection-window tab and troubleshooting controls while preserving diagnostic logs. Remove the redundant voice-enable switch; recording still requires an explicit user action. Before recording, activate the installed Doubao input profile only on the bridge UI thread and verify its identity. Distinguish missing installation, stopped service and unavailable service; live switching acceptance remains pending.
-- Refresh recording endpoint metadata periodically in the background so a take after five minutes of idle time need not enumerate devices again. Retain device-event invalidation, hard expiry and actual capture checks. Idle regression and read-only metadata measurements pass; end-to-end hardware retesting remains pending.
-- Initialize the accessibility reader in the background without activating windows or caching drafts. Reuse only the immediately preceding binding observation when staging text; retain the delayed live observation, exact pre-write checks and readback. Cold-start and end-to-end gains still require hardware acceptance.
-- Attempt guarded recording focus recovery after the first failed focus check, retaining the full stability interval. Prepare the read-only queue transport after recording starts so cold initialization can overlap dictation; read fresh complete delivery baselines on every send. Hardware latency retesting is pending.
-- Read MiMo's current primary quota row separately from compensation, rejecting ambiguous budgets. Support MiniMax absolute reset timestamps and normalize expanded allowances consistently in live capture and cached responses. Legacy formats and failure retention remain covered; live subscription acceptance is pending.
-- Restore GLM web balance refresh after the official finance overview endpoint changed. Support both response schemas, keep invalid responses from overwriting cached balances, and preserve existing authorization. Live automatic refresh passed on Windows; Mac adaptation remains pending.
-- Allow explicit device confirmation of an unchanged, device-bound native `send` with unknown delivery, in addition to `steer`. Confirmation clears only the matching draft without resending; replay and late-result guards preserve newer drafts. The user verified the recovery dialog, cleared draft and continued use on hardware.
-- Reuse a dedicated read-only queue connection and overlap complete pre-send baseline reads with target navigation. Refuse native submission without a complete baseline. Prefetch audio endpoint metadata in the background and invalidate it on device changes, while validating live devices and capture on every take. End-to-end latency still requires hardware retesting.
-- Fix false unknown delivery when Codex adds terminal paragraph line breaks to received messages; retain exact internal whitespace, punctuation, new-message identity and pre-send baseline checks.
-- Confirm task-page delivery directly from accepted messages or durable queues, with bounded read-only observation for delayed receipts. Keep complete pre-send queue baselines; skip redundant post-send server reads when local evidence is sufficient. Hardware latency improvement remains pending.
-- Append task-page text through the native Codex action and its current send/steer/queue preference. Protect desktop drafts, attachments and references; never switch submission APIs after an unknown outcome.
-- Reconcile against complete pre-action hash baselines (64 entries, 60 seconds, memory only). Bind receipts to devices and preserve newer drafts on late acknowledgements. Durable queue acceptance means delivered before execution.
-- Use current `codex.db` for task lists and identity checks, falling back only when absent. Preserve full-catalog duplicate checks, complete identity titles and explicit-operation sorting.
-- Share three cover passes across USB/Wi-Fi/BLE with two-second acknowledgement waits. Eligible JPEGs can use one same-size RGB565 conversion with a separately bounded budget. Bound local diagnostics to fixed states and numeric metadata.
-- Retain question cards, recording bindings, verbatim append, end-caret handling and microphone restoration. Record offline checks separately from Windows hardware evidence in the [November 1 validation record](docs/development/WINDOWS-W31-VALIDATION-20261101.md).
+### Desktop improvements
+- Refresh GLM balance capture and align MiMo and MiniMax quota parsing; failed requests retain the last usable data.
+- Simplify voice settings and microphone selection, frequent tasks and device connection layouts. Windows can activate the installed Doubao input profile for the recording thread.
+- Accelerate negotiated Mac USB firmware transfer and improve task submission, music-cover handling and feedback.
 
-### Mac USB OTA performance
-- Align Mac with Windows' existing negotiated USB binary bulk transfer and bounded waits, preserving legacy peers and reconnect-on-error behavior. The identical .302 image installs over USB in 20.557 s versus 38.587 s, with exact healthy boot and display settings preserved. A current same-image native Windows comparison remains pending.
-
-### TAB5 reliability and Windows handoff
-- Add a direct-submit feedback source patch: proven no-action receipts show that nothing was sent and explain recovery; missing, contradictory or lost receipts remain unknown and must not resend. Native classification tests, UI rendering and target-object compilation pass. The device has not been flashed; installing the bridge does not update device wording.
-- Fix Mac verification of newly created Codex chats by using the current desktop catalog for both display titles and identity; retain legacy-only installations and reject stale fallback after current-catalog errors.
-- TAB5 .301 extends .300 with page-cache headroom for cover receipt, decode and display, hidden-cache reclamation under pressure, and cross-host stage diagnostics.
-- TAB5 .299 refines clock labels and enlarges seconds; actual renders, full LVGL regression and analog/digital clock hardware acceptance pass.
-- Fix Mac task-page append for native queue/steer delivery, protect existing desktop drafts and attachments, and improve long-chat navigation and explicit activity sorting.
-- Add bounded receipt reconciliation and device-confirmed recovery without resending unknown deliveries; synchronize the device-bound confirmation protocol and journal guards with Windows.
-- Bound Mac cover retries across transports and add same-size RGB565 fallback. Share TAB5 .294–.298 patches for current-version labels, installation confirmation and precise delivery feedback.
-- Record UI design/render checks and physical acceptance separately. Real unknown-send recovery remains untriggered; .300 physically triggered fallback but failed receipt, while .301 passes the normal stress scenario; DJI checks remain deferred. See the [current Windows development checklist](docs/development/WINDOWS-FOLLOWUP-FROM-MAC-20261031.md) for completed ports, remaining features, fixes and performance work. No release is published by this source update.
-
-## 0.6.14 - 2026-10-29
-
-### Windows candidate — not published
-- Prepare Windows-only delivery; hardware acceptance is scheduled for October 30. Mac retains its published 0.6.13 download; no firmware or gallery update is included. The shared Mac source version metadata advances without a new Mac build.
-
-### Codex questions and voice drafts
-- Support question-card answers, Next and Submit. Bind each recording to its paired device, chat and input target; retain the transcript preview if the target changes.
-- Submit the exact confirmed draft through one native action. A reliably saved Codex queue entry counts as successful delivery before execution; uncertain outcomes never resend. Keep short-lived, encrypted delivery receipts across bridge restarts.
-- Preserve both dictated segments, punctuation and existing line breaks, and reuse end-caret placement. Add explicit TAB5, built-in and USB microphone selection while retaining microphone recovery.
-
-### Performance and validation
-- Reduce cross-process accessibility reads with one cached snapshot while retaining live checks before every write. Local input-target lookup measured 1813 ms before and 350–396 ms after; this is not an end-to-end voice latency claim.
-- Release build, affected regressions, 93 W29 checks and isolated configuration/transport checks pass. The installed development candidate preserves settings, pairing, drafts and gallery hashes. Final package, Windows hardware acceptance and public release remain separate gates; see [preparation and limits](docs/RELEASE-0.6.14.md).
+### Validation and limits
+- Windows and Mac builds, automated regressions and representative TAB5 workflows were validated separately. DJI, long-idle recording and provider accounts unavailable during testing remain pending; final installer acceptance is tracked separately.
+- Windows x64 and Apple Silicon Mac are included; Intel Mac is unverified. The Mac application is ad-hoc signed and not notarized. TAB5 firmware is released independently.
 
 ## 0.6.13 - 2026-10-28
 

@@ -4,11 +4,10 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ## 0.2.302-ui - 2026-11-01
 
-Local music-title font candidate, installed with exact boot verification and preserved settings. User confirms the missing glyph is fixed and covers remain normal when changing tracks and returning; physical acceptance passes. Not publicly released.
-
-- Reuse existing extended 24 px glyphs at 30 px in song titles, preserving native glyph priority and original Traditional Chinese text. Fix missing glyphs such as U+7D72; Traditional Chinese coverage remains partial.
-- All 10,535 existing codepoints resolve; 2,925 fallback glyphs pass raster and buffer-guard checks. Traditional/mixed/long-title renders and full LVGL regression pass.
-- Preserve board settings and partitions; apply size optimization to one UI dispatch function. P4 image: 7,207,632 bytes; headroom: 1,328 bytes. Retain .301 cover-memory fixes.
+- Improve feedback when clearing text, opening replies, paging and removing photos; keep long-press clear and draft protection.
+- Distinguish confirmed non-delivery from unknown delivery and preserve content when the chat or question changes.
+- Improve music-title glyph fallback, cover memory handling and clock readability. Wait for the matching firmware offer before starting an update.
+- Installed image and boot/settings were verified on hardware; use the full first-install package for factory devices and the upgrade package for existing installations.
 
 ## 0.2.301-ui - 2026-11-01
 
