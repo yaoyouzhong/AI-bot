@@ -37,7 +37,7 @@ final class MacLocalizedTextResources {
                 let rendered=parts.compactMap { kind,width,height,text,size -> MacResourcePayload? in
                     let data: Data?
                     if kind == .weatherAir { data = MacRgb565Renderer.renderWeatherAir(air:air,condition:weather.condition) }
-                    else if kind == .weatherHeader { data = MacRgb565Renderer.renderFittedLines(width:width,height:height,lines:[text],fontPixels:size,rowHeight:height) }
+                    else if kind == .weatherHeader { data = MacRgb565Renderer.renderWeatherHeader(text) }
                     else { data = MacRgb565Renderer.renderLines(width:width,height:height,lines:[text],fontPixels:size,rowHeight:height) }
                     guard let data else{return nil}
                     return MacResourcePayload(kind:kind,revision:Int(MacBinaryResourceProtocol.crc32(Array(data))),data:data)
@@ -151,6 +151,23 @@ enum MacRgb565Renderer {
         graphics.flushGraphics()
         return encodeRgb565(bitmap,width:width,height:height)
     }
+    static func renderWeatherHeader(_ city: String) -> Data? {
+        // Keep the established 122x26 resource and leave its rightmost ten
+        // pixels clear between long city names and the adjacent air badge.
+        let contentWidth = 112, width = 122, height = 26
+        let font = NSFont.systemFont(ofSize:20,weight:.bold)
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string:city,attributes:[.font:font]))
+        // Preserve a 12-pixel minimum for exceptionally long addresses.
+        let truncate = CTLineGetTypographicBounds(line,nil,nil,nil) > Double(contentWidth-2) * 20 / 12
+        guard let content = renderFittedLines(width:contentWidth,height:height,lines:[city],fontPixels:truncate ? 12:20,rowHeight:height,truncate:truncate) else { return nil }
+        var result = Data(count:width*height*2)
+        for row in 0..<height {
+            result.replaceSubrange(row*width*2..<(row*width+contentWidth)*2,
+                with:content[row*contentWidth*2..<(row+1)*contentWidth*2])
+        }
+        return result
+    }
+
     static func renderWeatherAir(air: String, condition: String) -> Data? {
         let width = 100, height = 30
         guard let bitmap = NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:width,pixelsHigh:height,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:width*4,bitsPerPixel:32),

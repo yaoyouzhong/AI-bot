@@ -50,9 +50,45 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
             if(provider==='deepseek') return h==='platform.deepseek.com' && (p.endsWith('/get_user_summary')||p.endsWith('/balance'));
             return false;
           } catch {return false;} };
+          const originalFetch=window.fetch;
           const emit=(url,status,text)=>{if(allowed(url)&&typeof text==='string'&&text.length<=1048576)window.webkit.messageHandlers.quota.postMessage({url,status,text});};
-          const originalFetch=window.fetch;window.fetch=async function(...args){const response=await originalFetch.apply(this,args);if(allowed(response.url))response.clone().text().then(text=>emit(response.url,response.status,text)).catch(()=>{});return response;};
-          const send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(...args){this.addEventListener('load',()=>{if(allowed(this.responseURL)){try{emit(this.responseURL,this.status,this.responseType==='json'?JSON.stringify(this.response):this.responseText);}catch{}}},{once:true});return send.apply(this,args);};
+          // Keep only the financial fields needed by the bridge. The report is
+          // requested in this document's authenticated same-origin context.
+          let financeSequence=0, pendingLegacy=null;
+          const finance=async (url,status,text)=>{
+            if(new URL(url).pathname!==\(String(data:try! JSONEncoder().encode(MacDomesticQuotaParser.zhipuOverviewPath),encoding:.utf8)!)) return;
+            const sequence=++financeSequence;
+            if(status!==200) { emit(url,status,"{}"); return; }
+            let overview; try { const x=JSON.parse(text); overview={code:x.code,data:{availableTotalBalance:x.data?.availableTotalBalance}}; } catch { return; }
+            if(status===200) { try {
+              // The official finance bundle exports its own report request,
+              // including its authentication interceptor. Fail closed if this
+              // verified module or its API changes; never inspect its headers.
+              let request;
+              const chunks=window.webpackChunkwd_paas_front;
+              if(Array.isArray(chunks)) chunks.push([["aibot-finance-"+Date.now()],{},runtime=>{
+                const module=runtime.m?.[74853];
+                if(module && String(module).includes("/biz/account/query-customer-account-report")) request=runtime(74853)?.yt;
+              }]);
+              if(typeof request==='function') {
+                pendingLegacy={sequence,data:null};
+                const x=await Promise.race([request(),new Promise(resolve=>setTimeout(()=>resolve(null),8000))]);
+                await new Promise(resolve=>setTimeout(resolve,100));
+                if(x && pendingLegacy?.sequence===sequence && pendingLegacy.data) overview.legacy=pendingLegacy.data;
+                if(pendingLegacy?.sequence===sequence) pendingLegacy=null;
+              }
+            } catch {} }
+            if(pendingLegacy?.sequence===sequence) pendingLegacy=null;
+            if(sequence===financeSequence) emit(url,status,JSON.stringify(overview));
+          };
+          const capture=(url,status,text)=>{
+            if(provider!=='zhipu') { emit(url,status,text); return; }
+            if(new URL(url).pathname===\(String(data:try! JSONEncoder().encode(MacDomesticQuotaParser.zhipuLegacyPath),encoding:.utf8)!)) {
+              if(pendingLegacy && status===200) { try { const x=JSON.parse(text); pendingLegacy.data={code:x.code,data:{availableBalance:x.data?.availableBalance,totalSpendAmount:x.data?.totalSpendAmount}}; } catch {} }
+            } else finance(url,status,text);
+          };
+          window.fetch=async function(...args){const response=await originalFetch.apply(this,args);if(allowed(response.url))response.clone().text().then(text=>capture(response.url,response.status,text)).catch(()=>{});return response;};
+          const send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(...args){this.addEventListener('load',()=>{if(allowed(this.responseURL)){try{capture(this.responseURL,this.status,this.responseType==='json'?JSON.stringify(this.response):this.responseText);}catch{}}},{once:true});return send.apply(this,args);};
         })();
         """
         webView.configuration.userContentController.addUserScript(.init(source:script,injectionTime:.atDocumentStart,forMainFrameOnly:true))
@@ -87,6 +123,7 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
     }
     func receive(status: Int, bytes: Data, now: Date = Date(), url: URL? = nil) {
         guard captureEnabled(), url == nil || Self.endpoint(provider:provider,url:url!) else { return }
+        if provider == "zhipu", url?.path == MacDomesticQuotaParser.zhipuLegacyPath { return }
         guard status == 200 else {
             refreshState.fail(now.timeIntervalSince1970,login:status == 401 || status == 403)
             markStale()
@@ -94,9 +131,11 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
             return
         }
         do {
-            let value = try MacDomesticSources.parse(provider,mode:"console",bytes:bytes,now:now,capturePath:url?.path)
+            let value = try provider == "zhipu" && url?.path == MacDomesticQuotaParser.zhipuOverviewPath
+                ? MacDomesticQuotaParser.zhipuPair(bytes,now:now)
+                : MacDomesticSources.parse(provider,mode:"console",bytes:bytes,now:now,capturePath:url?.path)
             if provider == "deepseek" { store.updateDeepSeekWeb(value) }
-            if provider != "deepseek" || !separateDeepSeek() { store.updateDomestic(value) }
+            if provider != "deepseek" || !separateDeepSeek() { store.updateDomestic(value,validatedGLMPair:provider == "zhipu" && url?.path == MacDomesticQuotaParser.zhipuOverviewPath) }
             refreshState.success(now.timeIntervalSince1970)
             note("已取得官方账户数据；关闭此窗口后仍会后台刷新。")
         } catch { /* Unrelated JSON never replaces a successful quota sample. */ }

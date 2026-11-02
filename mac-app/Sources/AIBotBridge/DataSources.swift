@@ -104,9 +104,12 @@ final class MacDataStore {
            let value = try? decoder.decode(DomesticQuotaSnapshot.self, from: data) {
             domesticQuotas = value
             for provider in MacDeviceRegistry.providers.map(\.0) { domesticQuotas?[provider] = value[provider].map(Self.staleDomestic) }
+            let paired = defaults.data(forKey:"glm_paired_quota_cache_v1").flatMap { try? decoder.decode(DomesticProviderQuotaSnapshot.self,from:$0) }
+            if paired == nil || paired != value.zhipu { domesticQuotas?.zhipu?.usedCost = nil }
         }
         deepSeekUsageUpdatedAt = defaults.object(forKey:"deepseek_usage_updated_at") as? Date
-        if let data = defaults.data(forKey:"deepseek_web_quota_cache"), let value = try? decoder.decode(DomesticProviderQuotaSnapshot.self,from:data) { deepSeekWeb = Self.staleDomestic(value) }
+        if let data = defaults.data(forKey:"deepseek_web_quota_cache_v1"), let value = try? decoder.decode(DomesticProviderQuotaSnapshot.self,from:data) { deepSeekWeb = Self.staleDomestic(value) }
+        if deepSeekWeb == nil { domesticQuotas?.deepSeek?.usedCost = nil; deepSeekUsageUpdatedAt = nil }
     }
 
     func snapshot(now: Date = Date()) -> MacDataExtras {
@@ -117,6 +120,17 @@ final class MacDataStore {
         return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics,
                              quotas: quotas, music: music, musicCover: musicCover, musicTab5Cover: musicTab5Cover, quotaTrend: quotaHistory?.snapshot(),
                              domesticQuotas: visibleDomestic)
+    }
+    // Devices always receive the web account observation, never an API balance
+    // paired with a different account's spending.
+    func deviceSnapshot(now: Date = Date()) -> MacDataExtras {
+        var result = snapshot(now: now)
+        let web = deepSeekWebSnapshot(now: now)
+        if result.domesticQuotas == nil, web != nil {
+            result.domesticQuotas = DomesticQuotaSnapshot(alibaba: nil, kimi: nil, miniMax: nil, deepSeek: nil)
+        }
+        result.domesticQuotas?.deepSeek = web
+        return result
     }
     private static func usageFresh(_ date: Date?, now: Date) -> Bool {
         guard let date else { return false }
@@ -129,10 +143,10 @@ final class MacDataStore {
     func history(days: Int) -> MacQuotaTrend? { lock.lock(); defer { lock.unlock() }; return quotaHistory?.history(days: days) }
     func hourlyHistory(days: Int) -> [MacQuotaHistory.Observation] { lock.lock(); defer { lock.unlock() }; return quotaHistory?.hourly(days:days) ?? [] }
     func updateDeepSeekWeb(_ value: DomesticProviderQuotaSnapshot) {
-        guard value.provider == "deepseek", value.usedCost != nil else { return }
+        guard value.provider == "deepseek", value.balance != nil else { return }
         lock.lock(); defer { lock.unlock() }
         deepSeekWeb = value
-        if let data = Self.encode(value) { defaults.set(data,forKey:"deepseek_web_quota_cache") }
+        if let data = Self.encode(value) { defaults.set(data,forKey:"deepseek_web_quota_cache_v1") }
     }
     func markDeepSeekWebStale() { lock.lock(); defer { lock.unlock() }; deepSeekWeb?.stale = true }
     func deepSeekWebSnapshot(now: Date = Date()) -> DomesticProviderQuotaSnapshot? {
@@ -141,7 +155,7 @@ final class MacDataStore {
         if !Self.usageFresh(value?.updatedAt,now:now) { value?.usedCost = nil; value?.stale = true }
         return value
     }
-    func updateDomestic(_ value: DomesticProviderQuotaSnapshot, deepSeekAPI: Bool = false) {
+    func updateDomestic(_ value: DomesticProviderQuotaSnapshot, deepSeekAPI: Bool = false, validatedGLMPair: Bool = false) {
         lock.lock(); defer { lock.unlock() }
         var current = domesticQuotas ?? DomesticQuotaSnapshot(alibaba: nil, kimi: nil, miniMax: nil, deepSeek: nil)
         var value = value
@@ -150,14 +164,16 @@ final class MacDataStore {
             // Never attach a web account's spending to an API account snapshot.
             if deepSeekAPI { value.usedCost = nil; deepSeekUsageUpdatedAt = nil }
             else if value.usedCost != nil { deepSeekUsageUpdatedAt = value.updatedAt }
-            else if let previous = current.deepSeek, previous.currency == value.currency,
-                    Self.usageFresh(deepSeekUsageUpdatedAt,now:value.updatedAt) { value.usedCost = previous.usedCost }
             else { deepSeekUsageUpdatedAt = nil }
             defaults.set(deepSeekUsageUpdatedAt,forKey:"deepseek_usage_updated_at")
         }
         current[value.provider] = value
         domesticQuotas = current
         if let data = Self.encode(current) { defaults.set(data, forKey: "domestic_quota_cache") }
+        if value.provider == "zhipu" {
+            if validatedGLMPair, value.usedCost != nil, let data = Self.encode(value) { defaults.set(data,forKey:"glm_paired_quota_cache_v1") }
+            else { defaults.removeObject(forKey:"glm_paired_quota_cache_v1") }
+        }
     }
     func markDomesticStale(_ provider: String) {
         lock.lock(); defer { lock.unlock() }
@@ -168,6 +184,7 @@ final class MacDataStore {
     func clearDomestic(_ provider: String) {
         lock.lock(); defer { lock.unlock() }; domesticQuotas?[provider] = nil
         if provider == "deepseek" { deepSeekUsageUpdatedAt = nil; defaults.removeObject(forKey:"deepseek_usage_updated_at") }
+        if provider == "zhipu" { defaults.removeObject(forKey:"glm_paired_quota_cache_v1") }
         if let current = domesticQuotas, let data = Self.encode(current) { defaults.set(data,forKey:"domestic_quota_cache") }
     }
     func clearDeepSeekForNewAccount() {

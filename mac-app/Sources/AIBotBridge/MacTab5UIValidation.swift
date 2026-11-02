@@ -36,6 +36,18 @@ enum MacTab5UIValidation {
         guard invoked == ["weather", "stocks", "quotas", "quotaHistory", "status", "updates", "configuration", "notifications", "runtime", "about", "cycle", "appearance", "espData", "espConnection"] else { throw MacTab5Error.invalidPacket }
         let store = MacDataStore(defaults: defaults)
         try MacModelAccountValidation.runUI(store:store,defaults:defaults)
+        defaults.set("separate",forKey:"domestic_source_deepseek")
+        let sample = Data(#"{"data":{"balance_infos":[{"currency":"CNY","total_balance":"12345.67"}],"total_costs":[{"currency":"CNY","amount":"9876.54"}]}}"#.utf8)
+        store.updateDeepSeekWeb(try MacDomesticSources.parse("deepseek",mode:"console",bytes:sample))
+        let accountPreview = MacDomesticQuotaWindow(service:.init(store:store),store:store,defaults:defaults,loadPages:false)
+        accountPreview.selectProvider("deepseek",userAction:false)
+        for (label, size) in [("normal",NSSize(width:1160,height:800)),("minimum",NSSize(width:940,height:620))] {
+            let window = accountPreview.window!; window.setContentSize(size)
+            window.appearance = NSAppearance(named:.aqua); window.displayIfNeeded()
+            let content = window.contentView!; content.layoutSubtreeIfNeeded()
+            try render(content,to:output.appendingPathComponent("deepseek-separate-\(label).png"))
+        }
+        accountPreview.stop(); accountPreview.window?.close()
         let data = MacDataSettingsForm(.init(city: "示例城市", latitude: nil, longitude: nil, symbols: ["sh000001", "usAAPL"]))
         let deviceForm = MacBridgeSettingsForm("数据设置",subtitle:"隔离测试设备")
         deviceForm.window?.contentMinSize.height = 520

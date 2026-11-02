@@ -39,8 +39,22 @@ enum MacDomesticQuotaParser {
               let balance = money(body[financeOverview ? "availableTotalBalance" : "availableBalance"], halfUp: financeOverview) else { throw Failure.invalid }
         // The overview does not report cumulative spending. A successful sample
         // must clear an older USED value instead of borrowing another schema.
-        let used = financeOverview ? nil : money(body["totalSpendAmount"], halfUp: false)
+        let parsedUsed = financeOverview || (number(body["totalSpendAmount"]) ?? -1) < 0 ? nil : money(body["totalSpendAmount"], halfUp: false)
+        let used = parsedUsed.flatMap { $0 >= 0 ? $0 : nil }
         return value("zhipu", balance: balance, used: used, currency: "CNY", now: now)
+    }
+    static func zhipuPair(_ data: Data, now: Date = Date()) throws -> DomesticProviderQuotaSnapshot {
+        let root = try object(data)
+        var overview = try zhipu(data, now: now, financeOverview: true)
+        if let legacy = root["legacy"] as? [String: Any],
+           JSONSerialization.isValidJSONObject(legacy),
+           let bytes = try? JSONSerialization.data(withJSONObject: legacy),
+           let report = try? zhipu(bytes, now: now),
+           let a = overview.balance, let b = report.balance,
+           abs(a - b) <= 0.010000001 {
+            overview.usedCost = report.usedCost
+        }
+        return overview
     }
     private static func money(_ raw: Any?, halfUp: Bool) -> Double? {
         guard let n = number(raw), abs(n) < 1e15,

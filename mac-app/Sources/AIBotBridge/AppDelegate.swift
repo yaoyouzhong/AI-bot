@@ -20,6 +20,7 @@ final class MacWeatherSourceFields: NSObject {
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let reader = SessionActivityReader()
+    private let recentActivity = MacRecentActivity()
     private let devices = MacDeviceRegistry.shared
     private var stocksWindow: MacStocksWindow?
     private var quotaHistoryWindow: MacQuotaHistoryWindow?
@@ -109,13 +110,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         catch { show("设备配置未载入", "原文件已保留，设备连接暂停。" + error.localizedDescription) }
         tab5.codex.start()
         networkDiagnostics.start()
-        tab5.publish(devices.filter(reader.capture(extras: dataStore.snapshot()), kind: "tab5"))
+        tab5.publish(devices.filter(reader.capture(extras: dataStore.deviceSnapshot()), kind: "tab5"))
         server = HTTPStatusServer(port: port, token: PairingTokenStore.read, resources: { [weak self] in self?.resourceSnapshot() ?? [] }, event: { [weak self] agent, event, message in
             self?.reader.signals.record(agent:agent,event:event,message:message) ?? false
         }, acknowledge: { [weak self] in self?.reader.signals.acknowledge() }, tab5: tab5, espEnabled: { MacDeviceRegistry.shared.enabled("esp8266") && MacDeviceRegistry.shared.device("esp8266")?.connection != "usb" }) { [weak self] in
             guard let self else { return Data("{\"version\":1}".utf8) }
             let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
-            return (try? encoder.encode(self.devices.filter(self.reader.capture(extras: self.dataStore.snapshot()), kind: "esp8266"))) ?? Data()
+            return (try? encoder.encode(self.devices.filter(self.reader.capture(extras: self.dataStore.deviceSnapshot()), kind: "esp8266"))) ?? Data()
         }
         do {
             try server?.start()
@@ -126,7 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let canProvisionLan = server != nil
         serial = SerialBridge(status: { [weak self] in
             guard let self else { return SessionActivityReader().capture() }
-            return self.devices.filter(self.reader.capture(extras: self.dataStore.snapshot()), kind: "esp8266")
+            return self.devices.filter(self.reader.capture(extras: self.dataStore.deviceSnapshot()), kind: "esp8266")
         }, lanConfiguration: { [weak self] in
             guard let self, canProvisionLan, let host = LocalNetworkIdentity.privateIPv4(),
                   let token = PairingTokenStore.read(), token.utf8.count >= 32 else { return nil }
@@ -356,21 +357,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateTitle() {
         let snapshot = reader.capture(extras: dataStore.snapshot())
         tab5?.assets.updatePets([MacPetCache.shared.selection("claude"), MacPetCache.shared.selection("codex")])
-        tab5?.publish(devices.filter(snapshot, kind: "tab5"))
+        let deviceSnapshot = reader.capture(extras: dataStore.deviceSnapshot())
+        tab5?.publish(devices.filter(deviceSnapshot, kind: "tab5"))
         if let tab5, let pair = tab5.currentPairing,
            let transport = tab5.usbActive ? "USB" : tab5.bootTransport,
            tab5.firmwareControl.beginAutomaticBootCheck(device: pair.deviceId, transport: transport), transport == "USB" {
             tab5USB?.verifyBoot(prepared: true) { _ in }
         }
-        statusItem.button?.toolTip = "AI-bot Bridge\nCodex：\(statusLabel(snapshot.codex.state))\nClaude：\(statusLabel(snapshot.claude.state))"
+        let recent = recentActivity.capture()
+        statusItem.button?.toolTip = "AI-bot Bridge\nCodex：\(MacRecentActivity.label(state: snapshot.codex.state, observation: recent.codex))\nClaude：\(MacRecentActivity.label(state: snapshot.claude.state, observation: recent.claude))"
         updateAutomaticScreenSaver(snapshot)
         let health = runtimeHealth.snapshot(metrics:snapshot.systemMetrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:tab5?.codex.isEnabled ?? false,desktopObserved:tab5?.codex.canMutate ?? false,network:networkDiagnostics.snapshot())
         let keys = (health?["alerts"] as? [[String:Any]] ?? []).compactMap { $0["key"] as? String }
         notifications.observe(snapshot,deviceOnline:tab5?.usbActive == true || tab5?.bootTransport != nil,healthKeys:keys)
-    }
-
-    private func statusLabel(_ state: String) -> String {
-        state == "working" ? "工作中" : state == "idle" ? "空闲" : "离线"
     }
 
     @objc private func selectDisplayMode(_ sender: NSMenuItem) {

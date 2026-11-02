@@ -35,6 +35,16 @@ if Array(CommandLine.arguments.dropFirst()) == ["--self-test-ota-transfer"] {
     catch { fputs("OTA transfer self-test failed: \(error)\n",stderr);exit(1) }
 }
 
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--render-esp-weather-header" {
+    do { try MacLocalizedTextValidation.renderWeatherHeaderPreview(URL(fileURLWithPath:CommandLine.arguments[2])); print("ESP_WEATHER_HEADER_PREVIEW_OK"); exit(0) }
+    catch { fputs("Weather header preview failed.\n",stderr); exit(1) }
+}
+
+if Array(CommandLine.arguments.dropFirst()) == ["--observe-esp-input-changes"] {
+    do { let value = try MacESPDisplayCheck.observe(); let bytes = try JSONSerialization.data(withJSONObject:value,options:[.sortedKeys]); print(String(decoding:bytes,as:UTF8.self)); exit(0) }
+    catch { fputs("ESP input observation unavailable; no settings changed.\n",stderr); exit(1) }
+}
+
 if Array(CommandLine.arguments.dropFirst()) == ["--check-esp-display"] {
     do { let value = try MacESPDisplayCheck.run(); let bytes = try JSONSerialization.data(withJSONObject:value,options:[.prettyPrinted,.sortedKeys]); print(String(decoding:bytes,as:UTF8.self)); exit(0) }
     catch { fputs("ESP display read-only check unavailable; no settings changed.\n",stderr); exit(1) }

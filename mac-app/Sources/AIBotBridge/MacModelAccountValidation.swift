@@ -62,7 +62,7 @@ enum MacModelAccountValidation {
         let cost = try summary([["currency":"USD","amount":5],["currency":"CNY","amount":"22.23"]])
         try check("console usage follows selected currency",cost.usedCost == 22.23 && cost.currency == "CNY")
         try check("zero is an observed cost",try summary([["currency":"CNY","amount":0]]).usedCost == 0)
-        try check("Windows summary without currency",try summary([["amount":9.75]]).usedCost == 9.75)
+        try check("unknown currency is not paired",try summary([["amount":9.75]]).usedCost == nil)
         for costs: [[String:Any]] in [[],[["currency":"USD","amount":5]],[["amount":true]],[["amount":-1]],[["amount":"NaN"]],[["amount":2],["amount":3]]] {
             try check("missing invalid or ambiguous usage stays unknown",try summary(costs).usedCost == nil)
         }
@@ -73,11 +73,11 @@ enum MacModelAccountValidation {
         let api = try MacDomesticQuotaParser.deepSeek(Data(#"{"balance_infos":[{"currency":"CNY","total_balance":"74.00"}]}"#.utf8),now:now.addingTimeInterval(60))
         try check("API does not invent spending",api.usedCost == nil)
         store.updateDomestic(api)
-        try check("same-console balance-only update preserves cost and original age",store.snapshot(now:now.addingTimeInterval(60)).domesticQuotas?.deepSeek?.usedCost == 22.23 && store.deepSeekUsageDate(now:now.addingTimeInterval(60)) == now)
+        try check("balance-only update clears unmatched cost",store.snapshot(now:now.addingTimeInterval(60)).domesticQuotas?.deepSeek?.usedCost == nil && store.deepSeekUsageDate(now:now.addingTimeInterval(60)) == nil)
         store.markDomesticStale("deepseek")
-        try check("failure retains cost",store.snapshot(now:now.addingTimeInterval(60)).domesticQuotas?.deepSeek?.usedCost == 22.23)
+        try check("failure retains last balance",store.snapshot(now:now.addingTimeInterval(60)).domesticQuotas?.deepSeek?.balance == 74)
         let restored = MacDataStore(defaults:defaults)
-        try check("usage survives restart with original age",restored.snapshot(now:now.addingTimeInterval(60)).domesticQuotas?.deepSeek?.usedCost == 22.23 && restored.deepSeekUsageDate(now:now.addingTimeInterval(60)) == now)
+        try check("unmatched usage stays unknown after restart",restored.snapshot(now:now.addingTimeInterval(60)).domesticQuotas?.deepSeek?.usedCost == nil)
         try check("24-hour usage expiry independent of balance",restored.snapshot(now:now.addingTimeInterval(86400)).domesticQuotas?.deepSeek?.usedCost == nil && restored.snapshot(now:now.addingTimeInterval(86400)).domesticQuotas?.deepSeek?.balance == 74)
         store.updateDomestic(try MacDomesticQuotaParser.deepSeek(Data(#"{"balance_infos":[{"currency":"USD","total_balance":"9"}]}"#.utf8),now:now.addingTimeInterval(120)))
         try check("currency change clears usage",store.snapshot(now:now.addingTimeInterval(120)).domesticQuotas?.deepSeek?.usedCost == nil && store.deepSeekUsageDate(now:now.addingTimeInterval(120)) == nil)

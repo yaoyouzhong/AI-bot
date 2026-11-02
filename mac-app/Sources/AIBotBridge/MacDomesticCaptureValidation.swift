@@ -61,7 +61,7 @@ enum MacDomesticCaptureValidation {
         let legacyURL = URL(string:"https://bigmodel.cn"+MacDomesticQuotaParser.zhipuLegacyPath)!, overviewURL = URL(string:urls["zhipu"]!)!
         let now = Date()
         browser.receive(status:200,bytes:try json(["availableBalance":"9.999","totalSpendAmount":"2.239"]),now:now,url:legacyURL)
-        try check("legacy browser capture",store.snapshot(now:now).domesticQuotas?.zhipu?.balance == 9.99)
+        try check("standalone legacy browser capture ignored",store.snapshot(now:now).domesticQuotas?.zhipu == nil)
         browser.receive(status:200,bytes:try json(["availableTotalBalance":"7.345","availableBalance":100,"totalSpendAmount":99]),now:now,url:overviewURL)
         let captured = store.snapshot(now:now).domesticQuotas?.zhipu
         try check("overview browser schema",captured?.balance == 7.35 && captured?.usedCost == nil)

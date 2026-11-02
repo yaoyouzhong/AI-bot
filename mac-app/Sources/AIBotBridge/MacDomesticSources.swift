@@ -122,8 +122,12 @@ enum MacDomesticSources {
             var costs = Set<Double>()
             for node in nodes {
                 for row in node["total_costs"] as? [[String:Any]] ?? [] {
-                    guard row["currency"] == nil || (row["currency"] as? String)?.uppercased() == currency,
-                          let cost = num(row["amount"]), cost >= 0, cost < 1e15 else { continue }
+                    guard (row["currency"] as? String)?.uppercased() == currency else { continue }
+                    guard let cost = num(row["amount"]), cost >= 0, cost < 1e15 else {
+                        var value = quota("开放平台余额",balance:amount,currency:currency)
+                        value.usedCost = nil
+                        return value
+                    }
                     costs.insert(cost)
                 }
             }

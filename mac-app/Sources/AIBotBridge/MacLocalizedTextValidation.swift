@@ -1,6 +1,29 @@
 import AppKit
 
 enum MacLocalizedTextValidation {
+    static func renderWeatherHeaderPreview(_ output: URL) throws {
+        let cases = [("南京", "优"), ("呼和浩特 新城区", "轻度"), ("非常长的城市和区县名称", "污染")]
+        let width = 240, height = 48 * cases.count
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:width,pixelsHigh:height,
+            bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,
+            bytesPerRow:width*4,bitsPerPixel:32) else { throw MacPetAssetError.renderFailed }
+        for y in 0..<height { for x in 0..<width { var rgba = [0,0,0,255]; bitmap.setPixel(&rgba,atX:x,y:y) } }
+        func composite(_ data: Data, _ w: Int, _ h: Int, _ dx: Int, _ dy: Int) {
+            let bytes = [UInt8](data)
+            for y in 0..<h { for x in 0..<w {
+                let i=(y*w+x)*2, v=Int(bytes[i]) | Int(bytes[i+1])<<8
+                var rgba = [((v>>11)&31)*255/31,((v>>5)&63)*255/63,(v&31)*255/31,255]
+                bitmap.setPixel(&rgba,atX:dx+x,y:dy+y)
+            } }
+        }
+        for (index, value) in cases.enumerated() {
+            guard let city = MacRgb565Renderer.renderWeatherHeader(value.0),
+                  let air = MacRgb565Renderer.renderWeatherAir(air:value.1,condition:"多云") else { throw MacPetAssetError.renderFailed }
+            composite(city,122,26,14,index*48+1); composite(air,100,30,136,index*48+12)
+        }
+        guard let png=bitmap.representation(using:.png,properties:[:]) else { throw MacPetAssetError.renderFailed }
+        try png.write(to:output,options:.atomic)
+    }
     static func run() throws -> Int {
         var checked = 0
         func check(_ name: String, _ ok: Bool) throws {
@@ -33,6 +56,12 @@ enum MacLocalizedTextValidation {
         try check("air categories match existing Windows presentation",[50,100,150,200,300].map { MacWeatherAirStyle.category(label:nil,index:$0) } == ["优","良","轻度","中度","污染"])
         try check("source air label takes priority",MacWeatherAirStyle.category(label:"轻度污染",index:50) == "轻度")
         try check("compact condition",MacWeatherAirStyle.condition("雷阵雨") == "雷雨" && MacWeatherAirStyle.condition("毛毛雨") == "细雨")
+        for city in ["南京", "呼和浩特 新城区", "非常长的城市和区县名称"] {
+            guard let pixels = MacRgb565Renderer.renderWeatherHeader(city) else { throw MacPetAssetError.renderFailed }
+            try check("weather city resource dimensions",pixels.count == 122*26*2)
+            try check("weather city has ink",pixels.contains { $0 != 0 })
+            try check("weather city reserves air gap",(0..<26).allSatisfy { y in pixels[(y*122+112)*2..<(y+1)*122*2].allSatisfy { $0 == 0 } })
+        }
         for air in ["优","良","轻度","中度","污染","--"] {
             guard let pixels = MacRgb565Renderer.renderWeatherAir(air:air,condition:"多云") else { throw MacPetAssetError.renderFailed }
             func region(_ start: Int, _ end: Int) -> [UInt8] { (0..<30).flatMap { y in Array(pixels[(y*100+start)*2..<(y*100+end)*2]) } }

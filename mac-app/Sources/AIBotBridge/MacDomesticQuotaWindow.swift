@@ -214,12 +214,15 @@ final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
         let separate = selected == "deepseek" && defaults.string(forKey:"domestic_source_deepseek") == "separate"
         webAccount.isHidden = !separate
         if separate {
-            var text = "网页登录消费：等待官方数据"
-            if let web = store.deepSeekWebSnapshot(), let used = web.usedCost {
+            var text = "网页登录账户：等待官方数据"
+            if let web = store.deepSeekWebSnapshot() {
                 let date = DateFormatter(); date.dateFormat = "MM-dd HH:mm:ss"
-                text = String(format:"网页登录消费：%@ %.2f",web.currency ?? "",used) + " · 网页最近成功：" + date.string(from:web.updatedAt) + (web.stale ? " · 旧缓存":"")
+                let currency = web.currency ?? ""
+                let balance = web.balance.map { String(format:"%@ %.2f",currency,$0) } ?? "--"
+                let used = web.usedCost.map { String(format:"%@ %.2f",currency,$0) } ?? "--"
+                text = "网页登录余额：\(balance) · 已用：\(used) · 最近成功：" + date.string(from:web.updatedAt) + (web.stale ? " · 旧缓存":"")
             }
-            webAccount.stringValue = text + "\n两项来源独立，未核实同一账号；设备仅显示 API 总余额。"
+            webAccount.stringValue = text + "\n两项来源独立；设备显示网页登录账户余额和消费。"
         }
         local.stringValue = "Codex：\(snapshot.quotas?.codex?.plan ?? "等待本机授权")\nClaude：\(snapshot.quotas?.claude?.plan ?? "等待本机授权")"
         if let value = snapshot.domesticQuotas?[selected == "qwen" ? "alibaba":selected] {

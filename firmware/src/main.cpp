@@ -16,6 +16,9 @@
 #include "WeatherAnimations.h"
 #include "ResetCountdown.h"
 #include "CreditTextRaster.h"
+#include "ResourceDedup.h"
+#include "StockCodeFont.h"
+#include "PageTransition.h"
 
 namespace {
 
@@ -261,8 +264,15 @@ uint16_t stateColor(const char* state) {
   return TFT_DARKGREY;
 }
 
+uint8_t transitionBrightnessPercent = 100;
 void applyBrightness() {
-  analogWrite(TFT_BL, 100 - constrain(brightness, 0, 100));
+  const int level = (constrain(brightness, 0, 100) * transitionBrightnessPercent + 50) / 100;
+  analogWrite(AIBOT_TFT_BL, 100 - level);
+}
+void setTransitionBrightness(uint8_t percent) {
+  if (transitionBrightnessPercent == percent) return;
+  transitionBrightnessPercent = percent;
+  applyBrightness();
 }
 
 void saveBrightness() {
@@ -677,15 +687,8 @@ void drawWeather() {
 }
 
 void drawStocks() {
-  static uint32_t pageStarted = 0, pageGeneration = UINT32_MAX;
   int pages = max(1, (stockCount + kStocksPerPage - 1) / kStocksPerPage);
-  if (pageGeneration != visualGeneration) {pageStarted=millis();pageGeneration=visualGeneration;}
-  int tick = static_cast<int>(((millis()-pageStarted) / 5000) % pages);
-  if (tick != lastStockPageTick) {
-    stockPage = tick;
-    lastStockPageTick = tick;
-    screenDirty = true;
-  }
+  if (stockPage != lastStockPageTick) { lastStockPageTick = stockPage; screenDirty = true; }
   String key = String(stockPage) + "|" + String(stockCount);
   for(int i=0;i<stockCount;i++) key += "|" + stocks[i].code + "|" + stocks[i].price + "|" + stocks[i].percent + "|" + String(stocks[i].trend);
   if (!pageContentChanged(1,key)) {screenDirty=false;return;}
@@ -707,9 +710,10 @@ void drawStocks() {
                                         (start + row) * 20, 70, y, 156, 20);
     if (!hasName) hasName = drawRgb565FileRegion("/stock-names.rgb565",120,400,
                                         (start + row)*20,106,y,120,20);
+    uint16_t codePixels[StockCodeFont::width * StockCodeFont::height] = {};
+    StockCodeFont::render(quote.code.c_str(),[&](int x,int py,uint16_t color) { codePixels[py*StockCodeFont::width+x] = color; });
+    display.pushImage(14,y,StockCodeFont::width,StockCodeFont::height,codePixels);
     display.setTextDatum(TL_DATUM);
-    display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    display.drawString(quote.code, 14, y, 2);
     display.setTextDatum(TL_DATUM);
     if (!hasName) {
       display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
@@ -1656,7 +1660,8 @@ void abandonResourceTransfer() {
   resourceTransfer = ResourceTransfer{};
 }
 
-bool commitResourceTransfer() {
+bool commitResourceTransfer(bool& changed) {
+  changed = false;
   if(resourceTransfer.kind==12||resourceTransfer.kind==13) {
     File candidate=LittleFS.open("/resource.new","r");if(!candidate||candidate.size()!=3200)return false;
   }
@@ -1667,6 +1672,18 @@ bool commitResourceTransfer() {
   }
   const char* target = resourcePath(resourceTransfer.kind);
   if (target == nullptr) return false;
+  // Reconnection may resend every resource. Do not rewrite or repaint for
+  // identical validated bytes; a hash alone is not proof of equality.
+  File existing = LittleFS.open(target, "r");
+  File candidate = LittleFS.open("/resource.new", "r");
+  if (!candidate) { existing.close(); return false; }
+  if (!existing && LittleFS.exists(target)) { candidate.close(); return false; }
+  if (existing && existing.size() == candidate.size()) {
+    const auto comparison = compareResourceBytes(existing, candidate, candidate.size(), [] { yield(); });
+    existing.close(); candidate.close();
+    if (comparison == ResourceComparison::ReadError) return false;
+    if (comparison == ResourceComparison::Equal) return LittleFS.remove("/resource.new");
+  } else { existing.close(); candidate.close(); }
   String backup = String(target) + ".bak";
   LittleFS.remove(backup);
   bool hadTarget = LittleFS.exists(target);
@@ -1676,6 +1693,7 @@ bool commitResourceTransfer() {
     return false;
   }
   if (hadTarget) LittleFS.remove(backup);
+  changed = true;
   return true;
 }
 
@@ -1756,9 +1774,10 @@ void handleBinaryFrame(const uint8_t* encoded, size_t encodedLength) {
   resourceTransfer.file.close();
   bool valid = resourceTransfer.received == resourceTransfer.totalLength &&
                ~resourceTransfer.runningCrc == resourceTransfer.wholeCrc;
-  if (valid) valid = commitResourceTransfer();
+  bool changed = false;
+  if (valid) valid = commitResourceTransfer(changed);
   if (!valid) LittleFS.remove("/resource.new");
-  if (valid) { screenDirty = true; visualGeneration++; }
+  if (valid && changed) { screenDirty = true; visualGeneration++; }
   resourceTransfer.active = false;
   lastCompletedTransferId = transferId;
   lastCompletedSequence = sequence;
@@ -1979,12 +1998,13 @@ void pollLanResources() {
     }
     candidate.close(); http.end();
     bool valid = received == length && ~check == crc && !usbFresh() && !resourceTransfer.active;
+    bool changed = false;
     if (valid) {
       LittleFS.remove("/resource.new");
       valid = LittleFS.rename("/lan-resource.new", "/resource.new");
-      if (valid) { resourceTransfer.kind = kind; valid = commitResourceTransfer(); }
+      if (valid) { resourceTransfer.kind = kind; valid = commitResourceTransfer(changed); }
     }
-    if (valid) { screenDirty = true; visualGeneration++; }
+    if (valid && changed) { screenDirty = true; visualGeneration++; }
     LittleFS.remove("/lan-resource.new");
     // One changed resource per successful status poll; old content remains on failure.
     return;
@@ -2249,8 +2269,24 @@ void renderCurrentPage() {
   static uint32_t lastQuotaSecond = 0;
   static bool wasFresh = false;
   bool fresh = displayFresh();
-  if(fresh != wasFresh){visualGeneration++;wasFresh=fresh;}
+  if(fresh != wasFresh){visualGeneration++;wasFresh=fresh;screenDirty=true;}
   RenderPage page = desiredPage();
+  const uint32_t now = millis();
+  static bool inStocks = false;
+  static uint32_t stockPageStarted = 0;
+  if (fresh && page == RenderPage::Stocks) {
+    if (!inStocks) { inStocks = true; stockPageStarted = now; }
+    const int pages = max(1, (stockCount + kStocksPerPage - 1) / kStocksPerPage);
+    const int nextPage = static_cast<int>(((now-stockPageStarted)/5000) % pages);
+    if (stockPage != nextPage) { stockPage = nextPage; screenDirty = true; }
+  } else { inStocks = false; }
+  static PageTransition transition;
+  // Domestic providers and stock subpages share a RenderPage but need easing.
+  const int target = PageTransition::target(static_cast<int>(page),static_cast<int>(effectiveDisplayMode),
+      page == RenderPage::Stocks ? stockPage : 0,fresh);
+  const auto easing = transition.update(target,now);
+  setTransitionBrightness(easing.percent);
+  if (easing.hold) return;
   if (page != lastRenderedPage) {
     visualGeneration++;
     lastRenderedPage = page;
@@ -2276,6 +2312,7 @@ void renderCurrentPage() {
   else if (page == RenderPage::Pet) drawPet();
   else drawDashboard();
   if (bridgeFresh()) drawSignalRing(page);
+  transition.markPainted(millis());
 }
 
 }  // namespace
@@ -2289,7 +2326,9 @@ void setup() {
   loadBridgeConfig();
   loadBrightness();
 
-  pinMode(TFT_BL, OUTPUT);
+  // The bridge owns backlight GPIO 5; do not define TFT_BL for TFT_eSPI,
+  // whose initialization would otherwise cancel PWM and force full brightness.
+  pinMode(AIBOT_TFT_BL, OUTPUT);
   analogWriteRange(100);
   applyBrightness();
   display.init();
