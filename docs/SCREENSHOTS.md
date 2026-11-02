@@ -1,5 +1,13 @@
 # 当前截图来源 / Screenshot provenance
 
+## 2026-11-02 Mac 0.6.15 授权引导
+
+`mac-direct-authorization.png`（520×710）与 `mac-direct-authorization-upgrade.png`（520×742）直接复制自实际验收 ZIP 的原生 UI 夹具输出，对应源码 `8f4a5edf0b81af977706ae30cfd38035572fd5f8`。前者为首次引导，后者增加旧条目重新添加说明；未重画、拼接或修改控件。它们是应用自己的 NSAlert，不是 macOS 系统授权对话框或授权成功证明。无真实账号、凭据、设备信息；字体与手形符号由系统渲染，不打包字体或框架。
+
+`AI-bot-mac-authorization-cover.png` 是本轮原生离屏媒体工程生成的 1280×720 视频静帧，封面不带版本号。上述三图摘要登记于 `licenses/materials.json`；来源、许可及工程见[补充视频说明](MAC-AUTHORIZATION-VIDEO.md)。原有五张 Mac 管理界面图片保留原始 0.6.11 来源，不冒称新捕获。
+
+Two unmodified native guide captures come from the exact accepted 0.6.15 package's isolated UI fixtures (`8f4a5ed`). They show the app-owned guide, not OS approval or hardware footage. The cover is an original offscreen media frame. No user data, system font files or frameworks are included; hashes are registered. Older Mac captures retain their original provenance.
+
 2026-11-02：`tab5-firmware-notes-302.png` 由固件原生 LVGL 隔离预览加载本次升级包实际 sidecar；“当前 0.2.21-ui”、连接与时间均为夹具，非真实设备状态。图像 SHA-256 登记在 `licenses/materials.json`。 / The .302 release-notes image is a native isolated fixture using the actual package sidecar; installed version and status are synthetic.
 
 2026-11-01：新增 `frequent-tasks.png`，来自 Windows 0.6.14 候选的原生 WinForms 隔离布局自测，项目与任务为演示数据；截图 SHA-256 登记于 `licenses/materials.json`，不代表硬件验收。 / Added an isolated native Windows frequent-tasks fixture with synthetic project and task data; this is not hardware acceptance.

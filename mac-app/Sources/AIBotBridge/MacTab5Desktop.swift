@@ -31,7 +31,7 @@ struct MacTab5DesktopBackend {
 
 enum MacTab5DesktopCheck: String {
     case waiting = "等待设备发起直达"
-    case permission = "辅助功能权限未生效，请检查当前候选的系统授权"
+    case permission = "辅助功能权限未生效，请在 Mac 系统设置中允许 AI-bot Bridge"
     case frontmost = "前台应用不是 Codex"
     case focus = "未取得前台输入焦点"
     case role = "当前焦点不在主输入框"

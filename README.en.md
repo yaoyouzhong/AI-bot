@@ -4,7 +4,9 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.14.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.15.md) · [简体中文](README.md)
+
+**Mac 0.6.15:** available features start enabled while preserving explicit opt-outs, with an app-owned permission guide and a consolidated Keychain credential item. Windows retains 0.6.14; device firmware is unchanged. [Mac installation and permissions](docs/INSTALL.zh.md#mac) · [Authorization video supplement (download)](docs/MAC-AUTHORIZATION-VIDEO.md)
 
 ## Choose your desktop display
 
@@ -89,7 +91,7 @@ https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 
 <sub>Current native interfaces with fixed demo data; the small display uses its computer mirror renderer. [Complete feature gallery](docs/FEATURES.zh.md)</sub>
 
-[Native Mac gallery](docs/FEATURES.zh.md#mac-native): menu, Device Center, Account Data, Bridge Settings and TAB5 preview, captured with Mac 0.6.11 controls and isolated demo data.
+[Native Mac gallery](docs/FEATURES.zh.md#mac-native): new 0.6.15 authorization guides plus management-window captures retaining their historical provenance, all using native controls and isolated demo data.
 
 <details>
 <summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
@@ -125,7 +127,7 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
 | Windows bridge · Windows 10/11 x64 | 0.6.14 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/AI-bot-bridge-v0.6.14-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.14 | [Download · 18 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/AI-bot-bridge-v0.6.14-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.15 | [Download · 18 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.15/AI-bot-bridge-v0.6.15-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.15/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.7 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.7/AI-bot-esp8266-0.5.7-firmware.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.7/SHA256SUMS.txt) |
 | TAB5 · first install from factory system | 0.2.302-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/AI-bot-tab5-0.2.302-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/SHA256SUMS.txt) |
 | TAB5 · upgrade existing AI-bot | 0.2.302-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/AI-bot-tab5-0.2.302-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/SHA256SUMS.txt) |
@@ -154,7 +156,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.14.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.15.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](docs/development/TAB5-SOURCE.md) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

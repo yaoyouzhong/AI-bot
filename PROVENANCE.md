@@ -228,3 +228,9 @@ claim independent bit-identical rebuilding or a new hardware acceptance round.
 ## Project overview video pet comparison, 2026-10-27
 
 At the user’s explicit direction, the TAB5 pet comparison composes the locally retained Claude legacy sprite into an isolated native page screenshot, alongside the existing Codex design preview. The Claude animation originates from the old project’s third-party commit [`5f52a39`](https://github.com/yaoyouzhong/esp8266-ai/commit/5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c); its separate redistribution license has not been established. It is not part of the project’s MIT grant. The imagery is a composite, not a device photograph or a change to runtime settings.
+
+## Mac authorization media — 2026-11-02
+
+The 0.6.15 guide screenshots are unmodified isolated AppKit captures from accepted commit `8f4a5ed`. The Mac authorization supplement uses original Swift offscreen rendering, original bilingual text and these native captures. It includes no system approval footage, user credentials, third-party artwork or audio. System fonts/frameworks and FFmpeg binaries are not redistributed. Original project work is MIT; exact media hashes and source archive are recorded in `docs/MAC-AUTHORIZATION-VIDEO.md` and `licenses/materials.json`.
+
+Mac 授权截图及补充短片为本项目原生控件与原创媒体代码，不使用系统授权实录或用户资料；系统字体、框架和工具二进制不随工程分发。摘要与来源按上方文件登记。

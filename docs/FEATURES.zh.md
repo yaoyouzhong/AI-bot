@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-当前 Windows **0.6.13**、Mac **0.6.13**、TAB5 **0.2.282-ui**、ESP8266 **0.5.7**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.13.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
+当前 Windows **0.6.14**、Mac **0.6.15**、TAB5 **0.2.302-ui**、ESP8266 **0.5.7**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.15.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -324,7 +324,15 @@ Windows 右键托盘打开菜单：**设备中心**是统一入口，**设备预
 
 ### Mac 原生界面 / Native Mac interfaces
 
-Mac **0.6.13 正式版**从菜单栏 AI-bot 图标进入：左键打开设备中心，右键展开下方菜单。**设备预览**在双设备时先选择 ESP8266 或 TAB5；后面的设备分组提供各自的设置入口。Windows 从托盘进入，以上 Windows 窗口保留各自平台标注。[Mac 安装与配对](INSTALL.zh.md#mac)
+<a id="mac-authorization-0615"></a>
+
+**0.6.15 授权引导：** 可用功能默认开启，用户关闭选择保留。按说明在系统中允许当前应用；旧条目已勾选但无效时重新添加。以下是实际包原生控件的隔离渲染，不是系统授权录屏。
+
+<a href="assets/screens/mac-direct-authorization.png"><img src="assets/screens/mac-direct-authorization.png" width="300" alt="Mac 0.6.15 首次授权引导，原生控件演示"></a> <a href="assets/screens/mac-direct-authorization-upgrade.png"><img src="assets/screens/mac-direct-authorization-upgrade.png" width="300" alt="Mac 0.6.15 旧授权条目失效时的引导，原生控件演示"></a>
+
+Native 0.6.15 guide fixtures show first use and ineffective old permissions. Available features default on while explicit opt-outs remain. macOS approval is still user-controlled. [安装与授权 / Setup](INSTALL.zh.md#mac) · [说明短片 / Video supplement](MAC-AUTHORIZATION-VIDEO.md)
+
+Mac **0.6.15** 从菜单栏 AI-bot 图标进入：授权未完成时首次左键显示引导，完成后左键打开设备中心；右键菜单提供“完成 Codex 直达授权…”入口。下方常规管理界面保留标明来源的历史截图。**设备预览**在双设备时先选择 ESP8266 或 TAB5；后面的设备分组提供各自的设置入口。Windows 从托盘进入，以上 Windows 窗口保留各自平台标注。[Mac 安装与配对](INSTALL.zh.md#mac)
 
 <a href="assets/screens/mac-menu.png"><img src="assets/screens/mac-menu.png" width="250" alt="Mac 原生 AI-bot 菜单：设备中心、设备预览与双设备分组，演示数据"></a>
 
@@ -429,7 +437,7 @@ Windows 0.6.9 + TAB5 217 provide volume/mute/lock, actual lock state and four lo
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.13, Mac 0.6.13, ESP8266 0.5.7 and TAB5 0.2.282-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.14, Mac 0.6.15, ESP8266 0.5.7 and TAB5 0.2.302-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
 
 **TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Art screensavers support portrait rotation; normal system pages remain landscape and can automatically flip 180 degrees with touch following. Art collections are optional downloads.
 

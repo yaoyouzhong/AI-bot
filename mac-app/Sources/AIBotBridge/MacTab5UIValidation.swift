@@ -54,6 +54,8 @@ enum MacTab5UIValidation {
             ("stocks", MacStocksWindow(didSave: {})), ("quota-history", MacQuotaHistoryWindow(store: MacDataStore(defaults: defaults, quotaHistory: MacQuotaHistory(file: root.appendingPathComponent("history.json"))))),
             ("gallery-browser", MacGalleryBrowser(gallery: service.gallery, importPack: {})), ("configuration", MacConfigurationWindow(didRestore: {})),
             ("notifications", MacNotificationWindow(service: MacNotifications(directory: root))), ("runtime", MacRuntimeWindow(file:.init("runtime-health.json",directory:root,initial:{ .init() },validate:{ try $0.validate() }),capture:{ "CPU：采样正常\n内存：采样正常\nVPN / PAC：等待网络采样" },reload:{},deviceCapture:{ "本段收音设备：TAB5 内置麦克风 · 豆包输入法\n本机分段计时：本地启动 390 ms · 收音就绪应答 610 ms · 首段结果（含说话等待） 3280 ms · 停止至最终识别 780 ms · 最终结果至响应生成 4 ms\nTAB5 音频：已接收 25 块 · 5.0 秒 · 最近电平 36% · 峰值 82%\n最近请求：USB · 查询 · 200\n\nBLE：当前没有语音请求" })), ("updates", MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {})), ("features", MacTab5FeaturesWindow(service: service)),
+            ("features-codex-permission", MacTab5FeaturesWindow(service: service, focusSection: .codex, accessibilityTrusted: { false })),
+            ("features-codex-authorized", MacTab5FeaturesWindow(service: service, focusSection: .codex, accessibilityTrusted: { true })),
             ("gallery-manager", MacGalleryManager(gallery:service.gallery,browse:{})), ("first-install", MacTab5InstallWindow()),
             ("esp8266-firmware", MacFirmwareFlashWindow(begin: { false }, suspend: {}, finish: { _ in })),
             ("pet-gallery", MacPetGalleryWindow(selectPage: { _ in })),
@@ -79,6 +81,22 @@ enum MacTab5UIValidation {
         }
         try validateGallery(output:output, root:root.appendingPathComponent("gallery-fixture"))
         try validateModal()
+        for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let alert = MacKeychainMigrationAlert.make()
+            alert.window.appearance = NSAppearance(named: appearance); alert.layout()
+            guard let content = alert.window.contentView, alert.buttons.count == 2,
+                  alert.buttons[0].keyEquivalent == "\r", alert.buttons[1].keyEquivalent.isEmpty else { throw MacTab5Error.invalidPacket }
+            try render(content, to: output.appendingPathComponent("keychain-migration-" + suffix + ".png"))
+            alert.window.close()
+            for previous in [false, true] {
+                let guide = MacDirectAuthorizationAlert.make(previouslyRequested: previous)
+                guide.window.appearance = NSAppearance(named: appearance); guide.layout()
+                guard let content = guide.window.contentView, guide.window.frame.height <= 600, guide.buttons.count == 2,
+                      guide.buttons[0].keyEquivalent == "\r", guide.buttons[1].keyEquivalent == "\u{1b}" else { throw MacTab5Error.invalidPacket }
+                try render(content, to: output.appendingPathComponent("direct-authorization-" + (previous ? "upgrade-" : "fresh-") + suffix + ".png"))
+                guide.window.close()
+            }
+        }
         print("MAC_TAB5_NATIVE_UI_RENDER_OK device center and all settings fixtures; tabs, draft, offscreen validation/cancel, minimum size and both appearances; no hardware operation or permission requested")
     }
 
