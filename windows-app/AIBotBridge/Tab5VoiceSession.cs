@@ -26,6 +26,8 @@ internal interface ITab5VoiceAudio : IDisposable
 }
 internal interface ITab5VoiceEditor
 {
+    string RecognizerName=>"豆包";
+    string RecognitionHint=>"请检查语音快捷键和麦克风选择";
     string Text { get; }
     bool SafeFocus { get; }
     bool TryRestoreFocus()=>false;
@@ -140,7 +142,9 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         }
         return result;
     }
-    internal Tab5VoiceReply Snapshot() => new(_id,_task,_source,_state,_message,BoundText(editor.Text),_state=="recording"&&_ready&&!_focusPaused,
+    private string DisplayMessage=>editor.RecognizerName=="豆包"?_message:
+        _message.Replace("豆包",editor.RecognizerName).Replace("请检查语音快捷键和麦克风选择",editor.RecognitionHint);
+    internal Tab5VoiceReply Snapshot() => new(_id,_task,_source,_state,DisplayMessage,BoundText(editor.Text),_state=="recording"&&_ready&&!_focusPaused,
         _state=="recording"&&_ready?Math.Clamp(audio.InputLevel,0,100):0,_state=="recording"&&_ready&&_silent,
         _state=="review"&&_explicitStop&&_endReason=="正在等待豆包返回文字"&&editor.RecognitionComplete&&Encoding.UTF8.GetByteCount(editor.Text)<=2000,_sourceName);
     internal static string BoundText(string text) {

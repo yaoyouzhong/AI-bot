@@ -4,7 +4,7 @@ AI-bot's own source code, including its Windows/macOS bridges and ESP8266/TAB5 f
 
 | Component | Use | License/source |
 | --- | --- | --- |
-| .NET and `System.IO.Ports` | Windows bridge runtime and serial transport | MIT, https://github.com/dotnet/runtime |
+| .NET, `System.IO.Ports`, and `System.Speech` 8.0.0 | Windows bridge runtime, serial transport, and installed Microsoft SAPI speech recognition | MIT, https://github.com/dotnet/runtime |
 | Microsoft.Web.WebView2 1.0.4078.44 | Authorization browser control/loader | Package's Microsoft BSD-style LICENSE.txt; browser Runtime installed separately under its Microsoft terms, https://developer.microsoft.com/microsoft-edge/webview2/ |
 | Microsoft.Windows.SDK.NET.Ref 10.0.19041.56 | Windows SDK .NET projection and WinRT runtime DLLs | Windows SDK terms, https://aka.ms/WinSDKLicenseURL; both net8.0 DLLs explicitly listed at https://learn.microsoft.com/en-us/legal/windows-sdk/redist#microsoftwindowssdknetref |
 | Kyle's NetEase Cloud Music playback reference | Two instruction signatures and playback field layout; independent read-only adapter | MIT, https://github.com/Kxnrl/NetEase-Cloud-Music-DiscordRPC; pinned source and original notice in `licenses/netease-clock-reference/` |

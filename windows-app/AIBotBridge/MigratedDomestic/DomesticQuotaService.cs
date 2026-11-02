@@ -610,6 +610,8 @@ sealed class DomesticQuotaAuthForm : Form
     int _webRecoveryRequest;
     int _webRecoveryCount;
     bool _capturedForNavigation;
+    AIBotBridge.DomesticProviderQuotaSnapshot _zhipuOverview;
+    bool _zhipuReportRequested;
     bool _everShown;
     bool _backgroundRefresh;
     bool _webRecoveryPending;
@@ -627,14 +629,14 @@ sealed class DomesticQuotaAuthForm : Form
     void UpdateDeepSeekSources() {
         _deepSeekSources.Visible=_activeProvider?.Id=="deepseek";
         _refreshWeb.Visible=_deepSeekSources.Visible&&_service.HasOfficialApi("deepseek");
-        if(!_deepSeekSources.Visible)return;
+        if(_activeProvider?.Id!="deepseek")return;
         var s=_service.Snapshot;
         string Value(double? n)=>n.HasValue?n.Value.ToString("0.00",CultureInfo.InvariantCulture):"待获取";
         string Time(DateTime? time)=>time?.ToLocalTime().ToString("MM-dd HH:mm:ss")??"尚未刷新";
         string api=s.DeepSeekApiFetchedAt.HasValue||_service.HasOfficialApi("deepseek")?$"API 总余额：{s.DeepSeekApiCurrency} {Value(s.DeepSeekApiBalance)} · {Time(s.DeepSeekApiFetchedAt)}" : "API：未配置";
         _deepSeekSources.Text=api+(_service.RefreshHealth.Failed("deepseek")?"（刷新失败，保留旧值）":"")+"\n"+
             $"网页余额：{s.DeepSeekWebCurrency} {Value(s.DeepSeekWebBalance)}；网页消费：{Value(s.DeepSeekWebUsedCost)} · {Time(s.DeepSeekWebFetchedAt)}"+
-            (_service.RefreshHealth.Failed("deepseek-web")?"（刷新失败，保留旧值）":"")+(_service.HasOfficialApi("deepseek")?"\n设备使用 API 总余额；网页消费独立显示。":"\n设备使用网页来源；API 与网页分别保存。");
+            (_service.RefreshHealth.Failed("deepseek-web")?"（刷新失败，保留旧值）":"")+"\n设备使用网页余额和消费；API 数据独立。";
     }
     readonly Label _providerTitle = new()
     {
@@ -900,6 +902,29 @@ sealed class DomesticQuotaAuthForm : Form
 
     static WebView2 CreateWebView() => new() { Dock = DockStyle.Fill };
 
+    // Offscreen preview: no window is shown, activated or brought to the front.
+    internal static void DeepSeekSourcePreview(string directory) {
+        Directory.CreateDirectory(directory);
+        var service=new DomesticQuotaService();
+        service.SetDeepSeekWeb(12,"CNY",2,10,5);service.SetDeepSeek(90,"CNY",fromApi:true);
+        using var form=new DomesticQuotaAuthForm(service,hideOnUserClose:false,initialProviderId:"deepseek",initializeBrowser:false);
+        form.Size=new Size(1000,700);form.CreateControl();form.ConfigureProviderDisplay(ProviderById("deepseek"));
+        form.PerformLayout();form._deepSeekSources.PerformLayout();
+        if(!form._deepSeekSources.Text.Contains("设备使用网页余额和消费；API 数据独立。",StringComparison.Ordinal))
+            throw new InvalidOperationException("DeepSeek device source description missing");
+        using var image=new Bitmap(form.Width,form.Height);
+        form.DrawToBitmap(image,new Rectangle(Point.Empty,form.Size));
+        image.Save(Path.Combine(directory,"deepseek-account-source.png"));
+        using var renderedLabel=new Label {Text=form._deepSeekSources.Text,Font=form._deepSeekSources.Font,
+            ForeColor=form._deepSeekSources.ForeColor,BackColor=Color.White,AutoSize=false,Size=new Size(620,100)};
+        renderedLabel.CreateControl();
+        using var label=new Bitmap(renderedLabel.Width,renderedLabel.Height);
+        renderedLabel.DrawToBitmap(label,new Rectangle(Point.Empty,label.Size));
+        label.Save(Path.Combine(directory,"deepseek-source-label.png"));
+        service.DisposeBrowser();
+        Console.WriteLine("DEEPSEEK_SOURCE_PREVIEW_OK offscreen, synthetic amounts");
+    }
+
     internal static void AlignmentUiSelfTest(string directory) {
         Directory.CreateDirectory(directory);
         var service=new DomesticQuotaService();service.SetDeepSeekWeb(12,"CNY",2,10,5);service.SetDeepSeek(90,"CNY",fromApi:true);
@@ -1140,6 +1165,8 @@ sealed class DomesticQuotaAuthForm : Form
         AIBotBridge.WebQuotaDiagnostics.Record(provider.Id, _backgroundRefresh ? "background-start" : "interactive-start");
         var generation = ++_navigationGeneration;
         _capturedForNavigation = false;
+        _zhipuOverview = null;
+        _zhipuReportRequested = false;
         if (_service.UsesOnlyOfficialApi(provider.Id)) {
             _web.Visible=false;
             _status.Text="正在通过官方接口查询…";
@@ -1308,7 +1335,7 @@ sealed class DomesticQuotaAuthForm : Form
     {
         try
         {
-            if (_web.CoreWebView2 == null)
+            if (_web.CoreWebView2 == null || _activeProvider?.Id == "zhipu")
                 await Navigate(_activeProvider ?? ProviderById(_initialProviderId));
             else
                 _web.CoreWebView2.Reload();
@@ -1571,6 +1598,15 @@ sealed class DomesticQuotaAuthForm : Form
                 && AIBotBridge.ZhipuBalance.IsEndpoint(uri);
             if (isZhipu) AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "balance-response", statusCode);
             if (isDeepSeek) AIBotBridge.WebQuotaDiagnostics.Record("deepseek", "wallet-response", statusCode);
+            // A supplementary GLM report failure must not invalidate a fresh overview.
+            var optionalZhipuReport = isZhipu && _zhipuOverview != null
+                && Uri.TryCreate(uri, UriKind.Absolute, out var zhipuUri)
+                && zhipuUri.AbsolutePath == AIBotBridge.ZhipuBalance.ReportPath;
+            if (optionalZhipuReport && statusCode != 200) {
+                if (statusCode == 429) _service.BackOff("zhipu");
+                AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "spend-response-failed", statusCode);
+                return;
+            }
             if ((statusCode == 401 || statusCode == 403) && (isAlibaba || isXiaomi || isKimiUsage || isMiniMax || isZhipu || isDeepSeek && IsDeepSeekUsageEndpoint(uri))) {
                 _service.ReportWebFailure(_activeProvider.Id,$"{_activeProvider.Name} 余额请求未通过认证或访问被拒绝，正在自动重试；若持续失败，请检查登录状态和访问权限。旧数据已保留。",!_backgroundRefresh);
                 return;
@@ -1683,8 +1719,23 @@ sealed class DomesticQuotaAuthForm : Form
             }
             else if (responseInfo.ProviderId == "zhipu")
             {
-                var value = AIBotBridge.ZhipuBalance.Parse(doc.RootElement,
-                    financeOverview: responseInfo.Endpoint == "bigmodel.cn" + AIBotBridge.ZhipuBalance.OverviewPath);
+                var isOverview = responseInfo.Endpoint == "bigmodel.cn" + AIBotBridge.ZhipuBalance.OverviewPath;
+                AIBotBridge.DomesticProviderQuotaSnapshot value;
+                try { value = AIBotBridge.ZhipuBalance.Parse(doc.RootElement, financeOverview: isOverview); }
+                catch (JsonException) when (!isOverview && _zhipuOverview != null) {
+                    AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "spend-parse-failed");
+                    return;
+                }
+                if (isOverview) {
+                    _zhipuOverview = value;
+                    if (!_zhipuReportRequested) {
+                        _zhipuReportRequested = true;
+                        _ = RequestZhipuReport(responseInfo.Generation);
+                    }
+                } else if (_zhipuOverview != null) {
+                    value = AIBotBridge.ZhipuBalance.Combine(_zhipuOverview, value);
+                    AIBotBridge.WebQuotaDiagnostics.Record("zhipu", value.UsedCost.HasValue ? "spend-saved" : "spend-unavailable");
+                }
                 _service.SetZhipu(value);
                 AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "balance-saved");
                 weeklyPct = 0;
@@ -1747,11 +1798,51 @@ sealed class DomesticQuotaAuthForm : Form
         }
         catch (Exception ex)
         {
+            if (responseInfo.ProviderId == "zhipu" && _zhipuOverview != null
+                && responseInfo.Endpoint == "bigmodel.cn" + AIBotBridge.ZhipuBalance.ReportPath) {
+                AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "spend-parse-failed");
+                return;
+            }
             AIBotBridge.WebQuotaDiagnostics.Record(responseInfo.ProviderId, "response-parse-failed");
             QuotaDiagnostics.Log(
                 $"[quota] {responseInfo.ProviderId} response parse failed at {responseInfo.Endpoint}: {ex.Message}");
             _service.ReportWebFailure(responseInfo.ProviderId,"网页额度响应无法识别，已保留上次结果；请稍后刷新或重新登录。",!_backgroundRefresh);
             BeginInvoke(() => _status.Text = "网页额度响应无法识别，已保留上次结果；请稍后刷新或重新登录。");
+        }
+    }
+
+    async Task RequestZhipuReport(int generation)
+    {
+        // Use the official page's own request function, without extracting its
+        // credentials or headers. Fail closed if the bundled contract changes.
+        const string script = """
+            (() => {
+              if (location.origin !== 'https://bigmodel.cn' ||
+                  location.pathname !== '/finance-center/finance/overview') return 'wrong-page';
+              const chunks = self.webpackChunkwd_paas_front;
+              if (!Array.isArray(chunks)) return 'unavailable';
+              let require;
+              chunks.push([[`aibot-report-${Date.now()}`], {}, r => { require = r; }]);
+              const factory = require?.m?.[74853];
+              if (typeof factory !== 'function' ||
+                  !Function.prototype.toString.call(factory).includes('/biz/account/query-customer-account-report')) return 'unavailable';
+              const report = require(74853)?.yt;
+              if (typeof report !== 'function') return 'unavailable';
+              const source = Function.prototype.toString.call(report);
+              if (!/url\s*:\s*['"]\/biz\/account\/query-customer-account-report['"]/.test(source) ||
+                  !/method\s*:\s*['"]get['"]/.test(source)) return 'contract-changed';
+              Promise.resolve(report()).catch(() => {});
+              return 'requested';
+            })()
+            """;
+        if (IsDisposed || generation != _navigationGeneration || _activeProvider?.Id != "zhipu"
+            || _web.CoreWebView2 == null) return;
+        try {
+            var result = await _web.CoreWebView2.ExecuteScriptAsync(script);
+            if (generation == _navigationGeneration)
+                AIBotBridge.WebQuotaDiagnostics.Record("zhipu", result == "\"requested\"" ? "spend-requested" : "spend-request-unavailable");
+        } catch {
+            if (generation == _navigationGeneration) AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "spend-request-unavailable");
         }
     }
 

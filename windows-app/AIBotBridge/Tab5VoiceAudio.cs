@@ -3,7 +3,7 @@ using NAudio.Wave;
 
 namespace AIBotBridge;
 
-internal sealed record Tab5AudioDevice(string Id,string Name) { public override string ToString()=>Name; }
+internal sealed record Tab5AudioDevice(string Id,string Name,bool IsDefault=false) { public override string ToString()=>Name; }
 internal sealed record Tab5VoiceAvailability(bool CableReady,bool DjiAvailable,string Message,bool SelectedMissing=false) {internal bool Ready=>!SelectedMissing&&(CableReady||DjiAvailable);}
 internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
 {
@@ -22,6 +22,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         });
     }
     internal const string Tab5Selection="@tab5";
+    internal const string SystemSelection="@system-default";
     internal bool LeasePhysicalInput=>_source=="dji"&&djiId().Length>0&&!IsDji(SourceName);
     private WasapiCapture? _capture;
     private WasapiOut? _output;
@@ -81,19 +82,29 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     internal static bool IsDji(string name)=>name.Contains("DJI",StringComparison.OrdinalIgnoreCase)||name.Contains("Wireless Mic Rx",StringComparison.OrdinalIgnoreCase);
     internal static Tab5AudioDevice[] Devices(DataFlow flow) {
         using var enumerator=new MMDeviceEnumerator();
-        return enumerator.EnumerateAudioEndPoints(flow,DeviceState.Active).Select(d=>{using(d)return new Tab5AudioDevice(d.ID,d.FriendlyName);}).ToArray();
+        string defaultId="";
+        try {using var device=enumerator.GetDefaultAudioEndpoint(flow,Role.Multimedia);defaultId=device.ID;}
+        catch(System.Runtime.InteropServices.COMException) { }
+        return enumerator.EnumerateAudioEndPoints(flow,DeviceState.Active).Select(d=>{using(d)return new Tab5AudioDevice(d.ID,d.FriendlyName,d.ID==defaultId);}).ToArray();
     }
     internal static bool IsCable(string name)=>name.StartsWith("CABLE Input",StringComparison.OrdinalIgnoreCase)&&name.Contains("VB-Audio",StringComparison.OrdinalIgnoreCase);
     internal static bool IsCableCapture(string name)=>name.StartsWith("CABLE Output",StringComparison.OrdinalIgnoreCase)&&name.Contains("VB-Audio",StringComparison.OrdinalIgnoreCase);
-    internal static Tab5AudioDevice? SelectInput(Tab5AudioDevice[] inputs,string selectedId)=>
-        inputs.FirstOrDefault(d=>!IsCableCapture(d.Name)&&(selectedId.Length>0?d.Id==selectedId:IsDji(d.Name)));
+    internal static Tab5AudioDevice? SelectInput(Tab5AudioDevice[] inputs,string selectedId) {
+        var physical=inputs.Where(d=>!IsCableCapture(d.Name));
+        if(selectedId==SystemSelection)return physical.FirstOrDefault(d=>d.IsDefault);
+        if(selectedId.Length>0)return physical.FirstOrDefault(d=>d.Id==selectedId);
+        var dji=physical.Where(d=>IsDji(d.Name)).ToArray();
+        return dji.Length==1?dji[0]:null;
+    }
     internal static Tab5VoiceAvailability Inspect(Tab5AudioDevice[] inputs,Tab5AudioDevice[] outputs,string selectedId) {
         bool render=outputs.Any(d=>IsCable(d.Name));
         bool capture=inputs.Any(d=>IsCableCapture(d.Name));
         var selected=SelectInput(inputs,selectedId);
-        bool missing=selectedId.Length>0&&selectedId!=Tab5Selection&&selected is null;
+        bool ambiguous=selectedId.Length==0&&inputs.Count(d=>!IsCableCapture(d.Name)&&IsDji(d.Name))>1;
+        bool missing=ambiguous||selectedId.Length>0&&selectedId!=Tab5Selection&&selected is null;
         bool available=selected is not null&&selectedId!=Tab5Selection;
-        string message=missing?"所选麦克风当前不可用，请连接原设备或重新选择。":
+        string message=ambiguous?"已连接多个 DJI 麦克风，请明确选择一个。":
+            missing?(selectedId==SystemSelection?"Windows 系统默认麦克风不可用，请连接设备或重新选择。":"所选麦克风当前不可用，请连接原设备或重新选择；未改用其他麦克风。"):
             available?(IsDji(selected!.Name)?"与电脑豆包共用：":"本次录音使用：")+selected!.Name:
             render&&capture?"使用 TAB5 内置麦克风，用完恢复电脑原音源。":"TAB5 内置麦克风的音频通路未就绪。";
         return new(render&&capture,available,message,missing);

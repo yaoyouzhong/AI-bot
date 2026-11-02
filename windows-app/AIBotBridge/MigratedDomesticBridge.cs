@@ -21,21 +21,33 @@ internal sealed class MigratedDomesticBridge : IDisposable
     {
         get
         {
-            var parsed = LegacyDisplayCache.ParseDomestic(JsonSerializer.SerializeToElement(_service.Snapshot,
+            var source = _service.Snapshot;
+            var parsed = LegacyDisplayCache.ParseDomestic(JsonSerializer.SerializeToElement(source,
                 new JsonSerializerOptions { IncludeFields = true }));
-            DomesticProviderQuotaSnapshot? Pick(DomesticProviderQuotaSnapshot? current, DomesticProviderQuotaSnapshot? fallback)
+            DomesticProviderQuotaSnapshot? Pick(DomesticProviderQuotaSnapshot? current, DomesticProviderQuotaSnapshot? fallback, string? healthKey = null)
             {
                 if (current is null || fallback is not null && fallback.UpdatedAt > current.UpdatedAt) current = fallback;
                 if (current is null) return null;
-                return current with { Stale = _service.RefreshHealth.Failed(current.Provider == "alibaba" ? "qwen" : current.Provider) || current.UpdatedAt < _startedAt || DateTimeOffset.UtcNow - current.UpdatedAt > _staleAfter };
+                return current with { Stale = _service.RefreshHealth.Failed(healthKey ?? (current.Provider == "alibaba" ? "qwen" : current.Provider)) || current.UpdatedAt < _startedAt || DateTimeOffset.UtcNow - current.UpdatedAt > _staleAfter };
             }
             return new(Pick(parsed.Alibaba, _fallback?.Alibaba), Pick(parsed.Kimi, _fallback?.Kimi),
-                Pick(parsed.MiniMax, _fallback?.MiniMax), Pick(parsed.DeepSeek, null),
+                Pick(parsed.MiniMax, _fallback?.MiniMax), Pick(DeepSeekWebDisplay(source, DateTimeOffset.UtcNow), null, "deepseek-web"),
                 ZhipuBalance.Normalize(Pick(_service.Snapshot.Zhipu, _fallback?.Zhipu)),
                 Pick(_service.Snapshot.StepFun, null), Pick(_service.Snapshot.Baidu, null),
                 Pick(XiaomiQuota.Snapshot(_service.Snapshot.XiaomiPlanPct, _service.Snapshot.XiaomiFetchedAt,
                     _service.Snapshot.XiaomiPlanResetAt,_service.Snapshot.XiaomiPlanWindowSeconds), null));
         }
+    }
+    // Devices use one web response for both amounts, independently of an API key.
+    internal static DomesticProviderQuotaSnapshot? DeepSeekWebDisplay(MigratedDomestic.DomesticQuotaSnapshot source, DateTimeOffset now)
+    {
+        if (source.DeepSeekWebBalance is not double balance || !double.IsFinite(balance)
+            || source.DeepSeekWebCurrency is not ("CNY" or "USD") || source.DeepSeekWebFetchedAt is not DateTime fetched)
+            return null;
+        var updated = new DateTimeOffset(DateTime.SpecifyKind(fetched, DateTimeKind.Utc));
+        double? cost = source.DeepSeekWebUsedCost is double used && used >= 0 && double.IsFinite(used)
+            && source.DeepSeekWebUsedCostFetchedAt == fetched && now >= updated && now - updated <= TimeSpan.FromHours(24) ? used : null;
+        return new("deepseek", "网页余额", null, null, null, null, balance, cost, source.DeepSeekWebCurrency, updated, false);
     }
     // Called by the tray's UI timer: WebView2 and its window remain on the STA.
     private HashSet<string> Monitored(DisplayPolicy policy)
@@ -80,11 +92,13 @@ internal sealed class MigratedDomesticBridge : IDisposable
             foreach(var q in new[]{s.Alibaba,s.Kimi,s.MiniMax,s.DeepSeek,s.Zhipu,s.StepFun,s.Baidu,s.Xiaomi}) {
                 if(q is null) continue;
                 var provider=q.Provider=="alibaba"?"qwen":q.Provider;
-                if(monitored.Contains(provider) && q.Stale && !_service.RefreshHealth.Failed(provider)) _service.RefreshHealth.Fail(provider,
+                var healthKey=provider=="deepseek"?"deepseek-web":provider;
+                if(monitored.Contains(provider) && q.Stale && !_service.RefreshHealth.Failed(healthKey)) _service.RefreshHealth.Fail(healthKey,
                     $"{MigratedDomestic.DomesticProviderCatalog.All.First(p=>p.Id==provider).Name} 额度暂未更新，正在自动重试并显示旧数据。可打开国产模型额度设置查看详情。");
             }
         }
-        return _service.RefreshHealth.TakeWarning(monitored.Contains);
+        return _service.RefreshHealth.TakeWarning(provider => monitored.Contains(provider)
+            || provider=="deepseek-web" && monitored.Contains("deepseek"));
     }
     internal void OpenAuthorization(string provider = "qwen") => _service.OpenAuthorization(provider);
     internal void ApplyCapturedResponse(string provider, string json)

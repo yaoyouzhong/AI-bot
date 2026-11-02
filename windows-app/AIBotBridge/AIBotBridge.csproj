@@ -15,6 +15,7 @@
     <LocalArt Condition="'$(LocalArt)' == ''">false</LocalArt>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Speech" Version="8.0.0" />
     <ProjectReference Include="../AIBotLoginHelper/AIBotLoginHelper.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;OutputPath;OutDir;PublishDir;PublishSingleFile" />
     <Compile Include="../AIBotLoginHelper/HelperContract.cs" Link="LoginMethodHelperContract.cs" />
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />

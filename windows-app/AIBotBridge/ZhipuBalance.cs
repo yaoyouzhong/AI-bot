@@ -8,10 +8,11 @@ internal static class ZhipuBalance
 {
     internal const string AuthorizationUrl = "https://bigmodel.cn/finance-center/finance/overview";
     internal const string OverviewPath = "/api/biz/account/finance-overview";
+    internal const string ReportPath = "/api/biz/account/query-customer-account-report";
     internal static bool IsEndpoint(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri)
         && uri.Scheme == Uri.UriSchemeHttps && uri.IsDefaultPort
         && uri.Host.Equals("bigmodel.cn", StringComparison.OrdinalIgnoreCase)
-        && (uri.AbsolutePath == "/api/biz/account/query-customer-account-report"
+        && (uri.AbsolutePath == ReportPath
             || uri.AbsolutePath == OverviewPath);
 
     internal static DomesticProviderQuotaSnapshot Parse(JsonElement root, bool financeOverview = false)
@@ -27,10 +28,21 @@ internal static class ZhipuBalance
             ?? throw new JsonException($"GLM {field} is missing or invalid.");
         // The new overview does not provide cumulative spend; never invent it from balances.
         var used = financeOverview ? null : Number(data, "totalSpendAmount");
+        if (used < 0) used = null;
         // Current official UI uses Big.toFixed(2, 1) (half up); legacy UI truncates.
         return new("zhipu", "API PAYG", null, null, null, null, DisplayMoney(available,
             financeOverview ? MidpointRounding.AwayFromZero : MidpointRounding.ToZero),
             used is double cost ? DisplayMoney(cost) : null, "CNY", DateTimeOffset.UtcNow, false);
+    }
+
+    // Only combine observations from the same browser navigation. A mismatch
+    // can mean a different account or a balance change between the requests.
+    internal static DomesticProviderQuotaSnapshot Combine(DomesticProviderQuotaSnapshot overview, DomesticProviderQuotaSnapshot? report)
+    {
+        if (overview.Balance is not double current || report?.Balance is not double legacy
+            || report.UsedCost is not double used || Math.Abs(current - legacy) > 0.010001)
+            return overview with { UsedCost = null };
+        return overview with { UsedCost = used };
     }
 
     private static double DisplayMoney(double value, MidpointRounding rounding = MidpointRounding.ToZero)

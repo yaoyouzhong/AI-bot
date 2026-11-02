@@ -8,14 +8,14 @@
 
 ![DeepSeek 接口设置示例](assets/screens/api-settings.png)
 
-- **DeepSeek**：在 [官方开放平台](https://platform.deepseek.com/) 的 API Keys 页面创建 Key，粘贴到桥接 App，点击“保存并测试”。成功后显示 API 查询到的币种和余额。查询口径为赠送余额加充值余额，不是账单累计消费。
+- **DeepSeek**：在右侧登录 [官方开放平台](https://platform.deepseek.com/)，设备使用该网页账户同一响应中的可用余额和累计消费。也可在 API Keys 页面创建 Key 并在桥接中保存测试；API 余额独立显示，不与网页账户金额拼接。
 - **MiniMax**：在 [Token Plan 页面](https://platform.minimaxi.com/subscribe/token-plan) 获取对应的 Token Plan / Subscription Key，保存并测试；不要混用海外区域或普通按量付费 Key。
 - **Kimi Code**：优先支持官方 `kimi web` 本地服务的额度 API。需先运行并登录该服务，将其访问令牌与端口填入桥接 App（默认端口 58627，实际以服务为准）。这里不是填写 Moonshot 按量付费 Key，也不读取其他工具的凭据文件。没有使用该服务时，保留网页授权。
 - **阿里 Token Plan、智谱账户余额**：目前未确认有适用于这两个统计口径的公开查询 API，继续在右侧官方页面登录。阿里账户现金余额不能替代 Token Plan 额度；智谱 Coding Plan 用量不能替代账户余额。
 
 API Key/本地服务令牌只保存在 Windows 凭据管理器。输入框为密码框；留空后点击“保存并测试”会测试已保存的凭据。不要将 Key 发到聊天、截图或代码仓库。Kimi 端口是普通设置，不是秘密。
 
-配置接口后，后台优先使用接口；接口失败不会悄悄改用另一个网页登录账号覆盖余额。接口尚未配置时使用原网页方式。凭据填错时重新填写正确值并保存测试即可。
+配置接口后，DeepSeek 的 API 与网页数据分别刷新和保存，设备使用网页来源；未取得网页余额时设备显示未知。其他支持接口的厂商优先使用接口。凭据填错时重新填写正确值并保存测试即可。
 
 ## 刷新与故障提醒
 
@@ -30,7 +30,7 @@ API Key/本地服务令牌只保存在 Windows 凭据管理器。输入框为密
 
 | 厂商 | 当前优先路径 | 官方依据 |
 |---|---|---|
-| DeepSeek | `GET https://api.deepseek.com/user/balance` | [官方余额 API](https://api-docs.deepseek.com/api/get-user-balance/) |
+| DeepSeek | 设备使用已登录网页账户的余额与累计消费；API 余额独立 | [官方余额 API](https://api-docs.deepseek.com/api/get-user-balance/) |
 | MiniMax 中国站 | `GET https://www.minimaxi.com/v1/token_plan/remains` | [官方 Token Plan 页面“如何查看用量”](https://platform.minimaxi.com/subscribe/token-plan) |
 | Kimi Code | `GET http://127.0.0.1:<port>/api/v1/oauth/usage` | [官方本地 Server API](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/server-api.html)，实验接口，版本变化可能需要适配 |
 | 阿里 Token Plan | 已登录的百炼网页响应 | [官方 Token Plan FAQ](https://help.aliyun.com/zh/model-studio/token-plan-personal-faq)，未确认公开的对应额度 API |
@@ -70,9 +70,9 @@ The final .159 image and matching bridge were installed locally, with exact-ELF 
 
 ## English
 
-Windows: open **Device Center → Account Data → Model Accounts**, select a provider, then save and test its credential. DeepSeek uses its official total-balance endpoint; MiniMax uses the China Token Plan endpoint. Kimi Code optionally uses the documented local `kimi web` usage API with its server bearer token and port, not a Moonshot wallet key. Ali Token Plan and Zhipu account balance retain authenticated browser collection because no matching documented public endpoint has been confirmed.
+Windows: open **Device Center → Account Data → Model Accounts**, select a provider, then save and test its credential. Devices use the DeepSeek web account's balance and cumulative spend from the same response; its official API balance remains separate. MiniMax uses the China Token Plan endpoint. Kimi Code optionally uses the documented local `kimi web` usage API with its server bearer token and port, not a Moonshot wallet key. Ali Token Plan and Zhipu account balance retain authenticated browser collection because no matching documented public endpoint has been confirmed.
 
-Credentials stay in Windows Credential Manager. Selected, configured APIs take priority every two minutes; failed APIs never silently switch accounts through the browser. Browser fallback reports login redirects, authorization denial, process failure and timeout. Last-good data is retained and marked stale; notifications are deduplicated until recovery. Inspect recent successful updates in Bridge Settings → Service Status. Automatic checks use enabled devices’ selected quota providers, also merging the ESP8266 quota-page selection; TAB5 does not need to remain on its quota page. Unconfigured providers or providers outside that demand do not trigger automatic checks or tray warnings. Real-account integration and deployed/hardware acceptance remain separate from simulated tests. These adapters were introduced in the earlier v0.2.0 pre-release and remain part of 0.6.0.
+Credentials stay in Windows Credential Manager. Selected, configured APIs take priority every two minutes except for DeepSeek device data, which uses the independently refreshed web account. Failed APIs never silently switch accounts through the browser. Browser fallback reports login redirects, authorization denial, process failure and timeout. Last-good data is retained and marked stale; notifications are deduplicated until recovery. Inspect recent successful updates in Bridge Settings → Service Status. Automatic checks use enabled devices’ selected quota providers, also merging the ESP8266 quota-page selection; TAB5 does not need to remain on its quota page. Unconfigured providers or providers outside that demand do not trigger automatic checks or tray warnings. Real-account integration and deployed/hardware acceptance remain separate from simulated tests. These adapters were introduced in the earlier v0.2.0 pre-release and remain part of 0.6.0.
 
 
 ## 厂商接入边界（初始实现于 v0.2.0）

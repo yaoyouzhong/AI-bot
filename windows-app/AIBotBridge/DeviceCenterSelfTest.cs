@@ -132,7 +132,8 @@ internal static class DeviceCenterSelfTest
         using(var voice=new Tab5VoiceHost(new Tab5VoiceSettings()))using(var settings=voice.CreateSettings(preview:true)){
             Capture(settings,directory,"voice-simple");settings.Show();Application.DoEvents();
             Check(Descendants(settings).Single(c=>c.Name=="voice-availability").Visible,"Voice availability missing");
-            Check(Descendants(settings).OfType<ComboBox>().Count()==1,"Voice settings should only offer microphone selection");
+            var providers=Descendants(settings).OfType<ComboBox>().Single(c=>c.Name=="voice-provider");
+            Check(providers.Items.Count==2&&Descendants(settings).OfType<ComboBox>().Single(c=>c.Name=="voice-inputs") is not null,"Voice settings expose one microphone choice and both supported recognition backends");
         }
         var names=new DeviceRegistryStore(Path.Combine(directory,"device-names.json"));names.Migrate(null,false,false);names.Add(tab with {Name="M5Stack TAB5"});names.Add(esp with {Name="ESP8266 小屏"});
         CheckDataSettings(names,directory);

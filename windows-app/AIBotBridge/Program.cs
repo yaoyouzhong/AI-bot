@@ -8,6 +8,9 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        // This command only signals the current user's resident bridge. It does
+        // not open account files and must work from packaged launch contexts.
+        if(args.Length==1&&args[0]=="--exit"){BridgeLifetime.RequestExit();return;}
         if(args.Length is 2 or 3&&args[0]=="--inspect-tab5-voice-binding"&&(args.Length==2||args[2]=="--prepare-reader")) {
             Tab5WindowsFollowupInspection.BindingAsync(args[1],args.Length==3).GetAwaiter().GetResult();return;
         }
@@ -34,6 +37,9 @@ internal static class Program
             return;
         }
         if(args.Length==2&&args[0]=="--self-test-model-account-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.AlignmentUiSelfTest(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-deepseek-source-preview"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.DeepSeekSourcePreview(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-voice-settings-parity"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Tab5VoiceSettingsSelfTest.Run(Path.GetFullPath(args[1]));return;}
+        if(args.Length==1&&args[0]=="--self-test-windows-speech"){AppPaths.BeginPublicSelfTest();try{WindowsSpeechSelfTest.RunAsync().GetAwaiter().GetResult();ApplicationConfiguration.Initialize();WindowsSpeechSelfTest.RunHost();}catch(Exception ex){Console.Error.WriteLine("WINDOWS_SPEECH_FAILED "+ex.GetType().Name+": "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==1&&args[0]=="--self-test-screen-preview"){AppPaths.BeginPublicSelfTest();Tab5ScreenPreviewSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-voice-resource-priority"){AppPaths.BeginPublicSelfTest();Tab5Service.VoiceResourceSchedulingSelfTestAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-host-binding"){AppPaths.BeginPublicSelfTest();Tab5HostBindingSelfTest.Run();return;}
@@ -369,7 +375,6 @@ internal static class Program
         if(args.Contains("--test-activity-refresh")){try{ActivityRefreshDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("ACTIVITY_REFRESH_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Contains("--test-bridge-grace")){try{BridgeGraceDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("BRIDGE_GRACE_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==1&&args[0]=="--diagnose-deepseek"){QuotaRequestDiagnostics.ProbeAsync().GetAwaiter().GetResult();return;}
-        if(args.Length==1&&args[0]=="--exit"){BridgeLifetime.RequestExit();return;}
         if(args.Length==1&&args[0]=="--devices"){RunTray(showDevices:true);return;}
         if(args.Contains("--test-system-refresh")){try{SystemRefreshDeviceTest.RunAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("SYSTEM_REFRESH_DEVICE_FAILED: "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==2&&args[0]=="--audit-device-test-cache") {DeviceAcceptanceTest.AuditTemporaryResources(Path.GetFullPath(args[1]));return;}
