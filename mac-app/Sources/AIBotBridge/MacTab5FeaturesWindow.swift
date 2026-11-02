@@ -57,7 +57,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         musicPage.add(MacBridgeSettingsStyle.note("缺封面时用歌名、歌手和专辑查询 Apple 公开目录，不涉及账户。"))
         musicPage.section("播放状态"); musicPage.add(musicState)
 
-        codexPage.heading("Codex 会话", subtitle: "读取本机任务与公开回复；发送和中断需单独启用。")
+        codexPage.heading("Codex 会话", subtitle: "读取本机任务与公开回复；支持手动发送和中断。")
         codex.title = "允许 TAB5 查看 Codex 会话与公开回复"
         send.title = "允许在 TAB5 手动发送或中断 Codex 任务"
         desktop.title = "启用 Codex 桌面直达与输入框核对"
