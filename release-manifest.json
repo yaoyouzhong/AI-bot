@@ -3,7 +3,7 @@
   "components": {
     "bridge": {
       "versionFile": "VERSION",
-      "desktopPlatform": "all",
+      "desktopPlatform": "macos",
       "tagPrefix": "v",
       "changelogs": ["CHANGELOG.md", "CHANGELOG.zh.md"]
     },

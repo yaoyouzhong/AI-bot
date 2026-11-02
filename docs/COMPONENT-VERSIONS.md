@@ -6,6 +6,8 @@ Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流�
 
 2026-11-02 发布：Windows **0.6.14**、Mac **0.6.14**、TAB5 **0.2.302-ui**；ESP8266 **0.5.7** 和图库沿用原正式版本。下载按实际附件登记，见[本轮说明](RELEASE-0.6.14.md)。
 
+Mac **0.6.15** 正在准备，尚未公开；本次 `desktopPlatform=macos`。下表和下载索引继续登记实际已发布版本，Windows 保持 0.6.14，设备固件不变。见[候选说明](RELEASE-0.6.15.md)。Mac 0.6.15 is in preparation only; published downloads below remain unchanged until publication.
+
 ## 版本来源
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
@@ -16,6 +18,8 @@ Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流�
 | TAB5 固件 | 0.2.302-ui | `versions/TAB5` | `tab5-v0.2.302-ui` |
 
 表中登记各平台实际已发布版本；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接源码元数据共用版本线，正式下载按平台实际存在的附件分别取版本；本次 Windows 与 Mac 同时发布 0.6.14，后续仍可分别交付。
+
+电脑端每次发布占用共用序列中的下一个版本号。例如 Mac 单独发布 0.6.15 时 Windows 仍为 0.6.14；下一次仅 Windows 补丁使用 0.6.16，Mac 仍为 0.6.15；若两端一起交付，则同时使用该次版本。Windows 项目及 Mac plist 的源码版本声明随根目录 `VERSION` 对齐，不表示未交付的平台已有新安装包。Each desktop release advances the shared sequence, but only shipped platforms adopt that release version. A Mac-only 0.6.15 can coexist with Windows 0.6.14; a later Windows-only patch would be 0.6.16 while Mac retains 0.6.15. Shared source metadata is not a claim that an unbuilt platform was released.
 
 上一轮 2026-10-16 的范围为桥接 0.6.7、TAB5 0.2.205-ui、ESP8266 0.5.3、标准书法 2026.10.15.1 和两套高清完整图库 2026.10.16。标准名画沿用已有正式下载；不集成浏览器高清音乐封面扩展。构建、打包、公开附件和真机验收分别记录，公开下载索引仅在附件实际发布后刷新。The October 16 delivery covers bridge 0.6.7, TAB5 0.2.205-ui, ESP8266 0.5.3, standard calligraphy 2026.10.15.1 and both optional complete HD collections 2026.10.16. Existing standard painting remains unchanged; the browser music-artwork extension is not integrated. See [scope and acceptance boundaries](RELEASE-0.6.7.md).
 
