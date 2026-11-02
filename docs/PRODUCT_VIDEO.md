@@ -1,24 +1,18 @@
 # 产品介绍视频 / Product introduction video
 
-这段 121 秒项目介绍先对照 TAB5 和 ESP8266 的共有功能，再展示 TAB5 的触控与独有功能。 / This 121-second project overview compares shared TAB5 and ESP8266 features before presenting TAB5-exclusive interactions.
+这段 121 秒项目介绍先对照 TAB5 和 ESP8266 的共有功能，再展示 TAB5 的触控与独有功能。2026-11-02 只更新 Codex 直达说明，其他镜头顺序和原音轨保留。画面来自原生隔离演示与硬件合成图。 / This 121-second overview compares shared TAB5 and ESP8266 features, then presents TAB5-only interactions. The November 2 update changes only the Codex Direct description while retaining scene order and original audio.
 
-https://github.com/user-attachments/assets/e7f2515e-da0a-4e4c-a334-8ab067e5621c
+https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 
-[独立观看 / Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 MP4 / Download MP4](https://github.com/user-attachments/assets/219d758f-e3f9-4bf8-be64-641d01834922) · [上一版工程 / Previous version source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.11/AI-bot-project-overview-source-20261027-v3.zip) · [16:9 封面](assets/product-intro/AI-bot-cover.png) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) · [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png)
+[独立观看 / Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 1080p MP4 / Download 1080p](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/AI-bot-project-overview-revised-20261102.mp4) · [可复现工程 / Reproducible source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/AI-bot-project-overview-source-20261102.zip) · [16:9 封面](assets/product-intro/AI-bot-cover.png) · [4:3 封面](assets/product-intro/AI-bot-cover-4x3.png) · [3:4 封面](assets/product-intro/AI-bot-cover-3x4.png)
 
-上一版源码包 SHA-256 / Previous source ZIP SHA-256: `65a29568e6eed4abb878cf9f40960b15a604cb6c4d8a5f5d8012db3d7e490dea`
+| 文件 | SHA-256 |
+| --- | --- |
+| 1080p MP4 | `d8263488fa3b2e8a613795fe561c894e66280a9cc1cf80a9f87d055d37afc592` |
+| 网页播放版 MP4 | `63a23219d59023ee8d6ae9288eb834c60239b639cc606baf3e14802e04e91a9e` |
+| 工程 ZIP | `58c02230686ddbadde0f76112b2f4a51ca75459f7492f6b0c3c06c63de293589` |
 
-1080p 原版 / Original MP4 SHA-256: `265d8cb92d4ea121ceec2a68cbb679e6b98e37a707d47ca662ebbf7232d373c3`
-
-网页播放版保留相同内容，采用 1280 × 720、24 fps、H.264 Main / yuv420p 与 AAC-LC，大小从 9,217,409 bytes 减至 4,968,870 bytes；原版 1080p 下载保留。完整解码和关键画面文字检查通过，音频仅转码，未重新进行主观听感验收。 / The web edition keeps the same content at 1280 × 720, 24 fps, H.264 Main / yuv420p and AAC-LC, reducing the file from 9,217,409 to 4,968,870 bytes. The original 1080p download remains available. Full decoding and text legibility checks passed; audio was transcoded without a new subjective listening review.
-
-网页播放版 / Web MP4 SHA-256: `3f0df33362f4783bfad5741605461c6a26d0d37ad35de832827276cf7292821c`
-
-从上方原版复现网页播放版 / Reproduce the web edition from the original:
-
-```sh
-ffmpeg -i AI-bot-project-overview-solar-20261027.mp4 -map 0:v:0 -map 0:a:0 -vf "scale=1280:720:flags=lanczos:in_range=pc:out_range=tv,format=yuv420p" -c:v libx264 -profile:v main -level:v 3.1 -preset slow -crf 26 -r 24 -g 48 -keyint_min 48 -sc_threshold 0 -c:a aac -b:a 64k -ar 48000 -movflags +faststart AI-bot-project-overview-web-20261028.mp4
-```
+网页播放版使用 1280 × 720、24 fps、H.264 / AAC；1080p 原版保留。完整解码及本地播放、暂停、跳转、播完和重播检查通过，公开页面验收另记。 / The 720p H.264/AAC web copy and the 1080p master were decoded; local play/pause/seek/end/replay passed. Public-page checks are recorded separately.
 
 | 时间 | 内容 |
 | --- | --- |
@@ -30,10 +24,10 @@ ffmpeg -i AI-bot-project-overview-solar-20261027.mp4 -map 0:v:0 -map 0:a:0 -vf "
 | 95–115 s | TAB5：点阵／花卉日历与横竖屏欣赏名画、书法 |
 | 115–121 s | 按使用需求选择屏幕 |
 
-画面采用隔离的原生界面演示数据与硬件合成图，不是设备实拍，也不展示 Mac 桌面。硬件合成图来源见 [硬件配图记录](HARDWARE-IMAGES.md)。部分 ESP8266 素材沿用旧版截图，不用作新字体效果的证明。 桌宠对比镜头按用户要求，将本机实际 Claude 桌宠合成到隔离原生页面，与 Codex 演示角色区分；Claude 角色来自旧项目第三方素材，另行分发许可未核实，不纳入本项目 MIT 授权。艺术素材和原生截图沿用既有来源记录；字体保留 OFL，工具代码保留 AGPL-3.0，配乐与动作音效为原创合成。详细来源与许可见视频工程的 `SOURCES.md` 和 `THIRD_PARTY_NOTICES.md`。
+画面采用隔离的原生界面演示数据与硬件合成图，不是设备实拍，也不展示 Mac 桌面。硬件合成图来源见 [硬件配图记录](HARDWARE-IMAGES.md)。部分 ESP8266 素材沿用旧版截图，不用作新字体效果的证明。 桌宠对比镜头按用户要求，将本机实际 Claude 桌宠合成到隔离原生页面，与 Codex 演示角色区分；Claude 角色来自旧项目第三方素材；用户于 2026-11-02 确认拥有再发布许可或授权权利，该素材不纳入本项目 MIT 授权。艺术素材和原生截图沿用既有来源记录；字体保留 OFL，工具代码保留 AGPL-3.0，配乐与动作音效为原创合成。详细来源与许可见视频工程的 `SOURCES.md` 和 `THIRD_PARTY_NOTICES.md`。
 
-Native UI fixtures contain synthetic data and the opening uses [hardware composites](HARDWARE-IMAGES.md); this is not hardware footage or a Mac desktop recording. Retained ESP8266 imagery does not demonstrate the newer font weight. At the user’s direction, the Claude pet in the comparison is composited from the actual local legacy sprite; it is third-party material with redistribution licensing unverified and is not part of the project MIT grant. Existing art and screen provenance remains applicable. Fonts retain OFL, tool code AGPL-3.0, and music and effects are original synthesis. See the video project's source and third-party notices for details.
+Native UI fixtures contain synthetic data and the opening uses [hardware composites](HARDWARE-IMAGES.md); this is not hardware footage or a Mac desktop recording. Retained ESP8266 imagery does not demonstrate the newer font weight. At the user’s direction, the Claude pet in the comparison is composited from the actual local legacy sprite; it is third-party material; on 2026-11-02 the user confirmed having redistribution permission or rights to authorize this use, and it is not part of the project MIT grant. Existing art and screen provenance remains applicable. Fonts retain OFL, tool code AGPL-3.0, and music and effects are original synthesis. See the video project's source and third-party notices for details.
 
-新版视频完整本地解码通过；配音与上一版一致。实际浏览器播放和公开附件校验需分别核验。
+新版视频完整本地解码通过；音轨沿用上一版。公开附件已完整下载并核对 SHA-256；公开浏览器实际播放验收另行记录。
 
 [首次添加设备补充短片 / First-device setup supplement](ONBOARDING_VIDEO.md) 使用本轮 Windows 原生控件与 Mac 导航示意，项目全功能介绍仍保留上方影片。

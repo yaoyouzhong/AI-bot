@@ -1,5 +1,9 @@
 # 当前截图来源 / Screenshot provenance
 
+2026-11-02：`tab5-firmware-notes-302.png` 由固件原生 LVGL 隔离预览加载本次升级包实际 sidecar；“当前 0.2.21-ui”、连接与时间均为夹具，非真实设备状态。图像 SHA-256 登记在 `licenses/materials.json`。 / The .302 release-notes image is a native isolated fixture using the actual package sidecar; installed version and status are synthetic.
+
+2026-11-01：新增 `frequent-tasks.png`，来自 Windows 0.6.14 候选的原生 WinForms 隔离布局自测，项目与任务为演示数据；截图 SHA-256 登记于 `licenses/materials.json`，不代表硬件验收。 / Added an isolated native Windows frequent-tasks fixture with synthetic project and task data; this is not hardware acceptance.
+
 ## 2026-10-28 Bridge 0.6.13 onboarding
 
 更新 `add-device.png` 与 `tab5-first-install.png`：来自发布源码 `3a9ebfb` 的 Windows Release 程序 `--self-test-onboarding` 原生 WinForms 隔离渲染，保留原始像素。截图无真实端口或设备，未执行刷机、配对或配置写入。首装窗口按原生滚动区域显示；完成按钮为“返回添加设备”。Mac 原有五张图保留其 0.6.11 来源，不把旧图冒充本轮导航修复的截图。

@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "downloads": {
     "windows": {
-      "version": "0.6.13",
-      "tag": "v0.6.13",
-      "file": "AI-bot-bridge-v0.6.13-windows-x64-setup.exe",
-      "size": 31118489,
-      "sha256": "62f2dac05ea43c27123e06eed1180a7c6ef4a382bfdd5c40c5565e6c884dd8d4"
+      "version": "0.6.14",
+      "tag": "v0.6.14",
+      "file": "AI-bot-bridge-v0.6.14-windows-x64-setup.exe",
+      "size": 31272438,
+      "sha256": "ed8921168c27ba3004b44467ad385f4aca884ae173ab66a51046eb8dae073f64"
     },
     "macos": {
-      "version": "0.6.13",
-      "tag": "v0.6.13",
-      "file": "AI-bot-bridge-v0.6.13-macos-arm64.zip",
-      "size": 18084263,
-      "sha256": "8a2e84d9494ca97d2effaf8210aeb4de9dea86643895734d697046b2c7f6c661"
+      "version": "0.6.14",
+      "tag": "v0.6.14",
+      "file": "AI-bot-bridge-v0.6.14-macos-arm64.zip",
+      "size": 18817827,
+      "sha256": "3c8c8ae9754111e74c0e3969eff941dd06ea5a2d03a3c20c1982a83a031058f5"
     },
     "esp8266": {
       "version": "0.5.7",
@@ -23,18 +23,18 @@
       "sha256": "47b5cce4d4797ff844e49f65d265b0c292410386d312e26863ff729d1c601020"
     },
     "tab5-first": {
-      "version": "0.2.282-ui",
-      "tag": "tab5-v0.2.282-ui",
-      "file": "AI-bot-tab5-0.2.282-ui-first-install.zip",
-      "size": 5165652,
-      "sha256": "e7f28f5e66943cb58dd221d33294e13eebfa73aa850a803a62b2bb71ff17ad08"
+      "version": "0.2.302-ui",
+      "tag": "tab5-v0.2.302-ui",
+      "file": "AI-bot-tab5-0.2.302-ui-first-install.zip",
+      "size": 5164210,
+      "sha256": "6afc3fffb0cc285fe59ac1d5a1410eadac7303335f7b85f30ca32df89e33eb77"
     },
     "tab5-upgrade": {
-      "version": "0.2.282-ui",
-      "tag": "tab5-v0.2.282-ui",
-      "file": "AI-bot-tab5-0.2.282-ui-upgrade.zip",
-      "size": 5141892,
-      "sha256": "38636023d496b8968d7d85d6f56f9b87e2ce7e83e2b6b759113810c278ecbe65"
+      "version": "0.2.302-ui",
+      "tag": "tab5-v0.2.302-ui",
+      "file": "AI-bot-tab5-0.2.302-ui-upgrade.zip",
+      "size": 5136682,
+      "sha256": "2172bdbebbc4e0a6315e57f87e99aa0dad381b95e70595135e7bd7514eb2b20c"
     },
     "calligraphy": {
       "version": "2026.10.15.1",

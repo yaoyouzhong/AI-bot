@@ -1,3 +1,11 @@
+# 当前发布源码 / Current release source: 0.2.302-ui
+
+[下载 .302 源码包](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/AI-bot-tab5-0.2.302-ui-source.zip)。其记录重建项目源码、构建树中的依赖覆盖与 SDK 补丁；应用镜像 SHA-256 `475e0bf93790a6125555f7c863f2b25aa1fc959d7734681f32441849ad17f84e`，源码包 SHA-256 `5aef244c466393e9d5705399c4903d039faf210eb0a7ea03247287cdfade1138`。首刷与升级包含相同应用。尚未独立逐位重建；保留的构建树缺少一项依赖元数据校验文件，不将其写成完整独立复现。
+
+The .302 source archive records the reconstructed source, retained dependency overrides and SDK patches for the accepted application. Independent byte-for-byte reproduction has not been completed; one dependency metadata checksum file was absent. Older material below is historical.
+
+---
+
 # 最新本地交付源码归档 / Latest local delivery source: 0.2.283-ui
 
 [完整 .283 源码归档与核验说明](tab5-283-source/README.md)已同步，含 941 个项目文件、7,542 项输入摘要、依赖覆盖文件、SDK 补丁及许可。归档对应当前交付应用 `729fb34ea484ba8025399cb736e737d229fa524aeb08a963578bc14361139569`；受影响 UI 编译单元重编译后与原构建对象逐字节一致。此次仅同步源码，不新增固件 Release；独立整固件逐位重建未验证。

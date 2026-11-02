@@ -50,9 +50,13 @@ Windows 与 Apple Silicon Mac 均支持两类设备，具体范围见[平台说�
 
 ### 重点一：直接操作 Codex，阅读任务与回复
 
-从右下角 **Codex 直达**选择最近五个会话之一，语音输入进入目标会话草稿，检查后显式发送。支持继续语音、取消、失败恢复和长按清空。**Codex 页面**用于选择项目与任务、查看回复和历史；电脑端“常用任务”配置优先显示的任务。[操作说明](TAB5-QUICK-CONSOLE.md)
+从右下角 **Codex 直达**选择最近会话。结束录音后文字自动填入电脑，校对后可从 TAB5 提交；支持连续录音、题卡及切换题目时的目标保护。**Codex 页面**用于选择项目与任务、查看回复和历史；电脑端“常用任务”配置优先显示的任务。[操作说明](TAB5-QUICK-CONSOLE.md)
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-quick.png" alt="Codex 直达：最近会话与语音草稿"></td><td width="50%"><img src="assets/screens/tab5-tasks.png" alt="Codex 任务：项目、任务列表与编辑区"></td></tr></table>
+
+电脑端常用任务支持长标题换行与已选数量；原生隔离演示画面如下。
+
+<img src="assets/screens/frequent-tasks.png" width="680" alt="Windows 常用任务选择：项目、长标题和已选数量">
 
 <details>
 <summary>展开任务动态、历史回复、语音输入与相机附件</summary>
@@ -192,7 +196,7 @@ DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-settings-content.png" alt="设备设置：内容轮播"></td><td width="50%"><img src="assets/screens/tab5-settings-storage.png" alt="设备设置：存储管理和缓存位置"></td></tr></table>
 
-![设备设置：.282 更新说明与演示旧版本](assets/screens/tab5-firmware-notes-282.png)
+![设备设置：.302 更新说明与演示旧版本](assets/screens/tab5-firmware-notes-302.png)
 
 ![设备信息（演示元数据）](assets/screens/tab5-settings-info.png)
 

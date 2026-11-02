@@ -230,7 +230,9 @@
     "docs/assets/screens/esp8266-reset-text-057.png": "849e47fd5d5b1c6586fdec508f0c9c88efe2ff9f897a10a7723010e24e1fd9ff",
     "docs/assets/screens/tab5-runtime-health-detail.png": "cf6b81127f33b5cd73e0c247d443a3c88d72093ab4d31f8c699a4aedef09ba61",
     "docs/assets/product-intro/AI-bot-onboarding-cover.png": "f16f3d389074edcf68f331420edf057fa5681e48d047e008c5ae71440aa5d0f9",
-    "docs/development/tab5-283-source/AI-bot-tab5-0.2.283-ui-source.zip": "0750f5f1dd9d77165dc45f88b70070a434c44b582ecc42e4db9967186e092898"
+    "docs/development/tab5-283-source/AI-bot-tab5-0.2.283-ui-source.zip": "0750f5f1dd9d77165dc45f88b70070a434c44b582ecc42e4db9967186e092898",
+    "docs/assets/screens/frequent-tasks.png": "72374bd2844c68ec2f808636a8a1a1e018c00638cec1ed52afaeb9be309cf6e9",
+    "docs/assets/screens/tab5-firmware-notes-302.png": "a708a5a089de6ab6b40342315e925008b271708438d1c34c3cf5881cac5f144d"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",
@@ -304,5 +306,16 @@
     "applicationSha256": "729fb34ea484ba8025399cb736e737d229fa524aeb08a963578bc14361139569",
     "uiObjectByteIdentical": true,
     "independentWholeBinaryRebuildVerified": false
+  },
+  "projectOverviewWeb20261102": {
+    "inputSha256": "d8263488fa3b2e8a613795fe561c894e66280a9cc1cf80a9f87d055d37afc592",
+    "videoSha256": "63a23219d59023ee8d6ae9288eb834c60239b639cc606baf3e14802e04e91a9e",
+    "sourceArchiveSha256": "58c02230686ddbadde0f76112b2f4a51ca75459f7492f6b0c3c06c63de293589",
+    "nativeAttachment": "https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892",
+    "sizeBytes": 4976232,
+    "durationSeconds": 121.083333,
+    "encoding": "1280x720 24fps H.264 Main yuv420p; AAC-LC 64kbps; faststart",
+    "transformation": "Original 121-second film with the Codex Direct description updated only between 56 and 68 seconds; original sequence and audio retained.",
+    "spriteRights": "User confirmed redistribution permission or authority on 2026-11-02; third-party sprite is not covered by project MIT license."
   }
 }

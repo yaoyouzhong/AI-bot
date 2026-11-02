@@ -1,6 +1,6 @@
 # TAB5 Codex 直达 / Codex Direct
 
-适用于 Windows AI-bot 0.6.1 与 TAB5 0.2.149-ui；后续图库修复见[补丁发布说明](RELEASE-0.6.1.md)。[返回功能图鉴](FEATURES.zh.md) · [安装与配对](INSTALL.zh.md)
+适用于 Windows / Mac AI-bot 0.6.14 与 TAB5 0.2.302-ui。[返回功能图鉴](FEATURES.zh.md) · [安装与配对](INSTALL.zh.md)
 
 ## 怎么使用
 
@@ -16,9 +16,9 @@ The Mac integration candidate distinguishes opening from composer operations, fo
 
 ![当前 Codex 直达界面，演示数据](assets/screens/tab5-quick.png)
 
-Mac 本地对齐候选允许在原输入框上用电脑校对，再点击 TAB5 蓝色箭头提交最新文字；切题、切会话、附件／引用或提交前文字再次变化时停止并保留内容。明确未发送与送达未知分开；未知结果仅核对，不再次发送。语音设置更改须保存，取消不写配置；真实验收进度见 [Mac 对齐矩阵](development/MAC-WINDOWS-ALIGNMENT-20261101.md)。
+Windows 和 Mac 均允许在原输入框上用电脑校对，再点击 TAB5 蓝色箭头提交最新文字；切题、切会话、附件／引用或提交前文字再次变化时停止并保留内容。明确未发送与送达未知分开；未知结果仅核对，不再次发送。语音设置更改须保存，取消不写配置；真实验收进度见 [Mac 对齐矩阵](development/MAC-WINDOWS-ALIGNMENT-20261101.md)。
 
-The Mac local alignment candidate accepts desktop corrections in the originally bound editor before an explicit TAB5 submit. Changed questions/chats, attachments/references or another edit before the native action stop submission and preserve content. Proven no-action failures remain distinct from unknown delivery; unknown outcomes are observed without resending. Voice setting edits require Save; Cancel preserves preferences. Physical acceptance is tracked in the linked Mac matrix.
+Windows and Mac accept desktop corrections in the originally bound editor before an explicit TAB5 submit. Changed questions/chats, attachments/references or another edit before the native action stop submission and preserve content. Proven no-action failures remain distinct from unknown delivery; unknown outcomes are observed without resending. Voice setting edits require Save; Cancel preserves preferences. Physical acceptance is tracked in the linked Mac matrix.
 
 单次录音最长 60 秒。语音、草稿写入与发送是三个阶段；录音期间保持目标与相关输入法状态稳定。日常功能的验收不等于主动失焦、异常断线和每种通道都完成专项覆盖。
 
@@ -29,13 +29,13 @@ Keep the Windows bridge, Codex and TAB5 connected. Configure speech in Device Ce
 <details>
 <summary>验收范围与历史实现记录 / Acceptance and implementation history</summary>
 
-## 2026-10-29 Windows 开发候选 / Windows development candidate
+## 当前版本：题卡、电脑校对与送达保护 / Current behavior
 
-已获授权安装的 W29 Windows 候选 `0.6.13-candidate.20261029.w29` 支持题卡回答、下一步与提交，设备实机验收仍待完成；录音开始绑定当时的设备／会话／输入目标，题卡变化保留预览并拒绝串题。结束录音自动填入，连续两段保留原有换行和标点；仅在边界无空白时补一个空格，并复用已有末尾光标定位。蓝色箭头提交该次成功读回并确认的完整文字，电脑手改后的旧凭据失效，可通过新一轮录音追加和确认建立新凭据。
+录音开始时绑定设备、会话和输入目标；题卡变化后保留预览并拒绝串题。结束录音自动填入电脑，连续录音保留已有换行和标点；可在同一电脑输入框校对，再点击 TAB5 蓝色箭头提交最新文字。提交前仍会核对目标和冻结后的文字；会话、题目或输入内容再次变化时保留草稿并停止。可靠接收或持久入队即算成功；未知结果不重复发送。
 
-候选调用当前输入区原生发送／引导／排队或题卡动作，不依赖 Enter 偏好。消息可靠保存到 Codex 队列即算交付成功，不要求开始执行；未知结果不重发。设备绑定的短期加密回执可在桥接重启后返回原请求结果。新增电脑内置／USB／显式 TAB5 音源选择，保持 DJI 共享与豆包恢复。Windows 本地检查已完成，设备题卡、排队和实体收音仍待验；详见 [W29 验证记录](development/WINDOWS-W29-VALIDATION-20261029.md)。下方历史版本描述不代表本候选当前机制。
+Recording binds the device, conversation and editor. Changed questions preserve the preview without inserting into the wrong answer. Stop recording to fill the computer input automatically; review or edit the same input on the computer and submit the latest confirmed text with the TAB5 blue arrow. Delivery succeeds when reliably accepted or durably queued. Unknown results are never resent automatically.
 
-The authorized W29 Windows candidate `0.6.13-candidate.20261029.w29` is installed and supports question answers and Next/Submit. Recording binds the device, chat and input target at start; changed questions retain the transcript preview and reject cross-question insertion. Stopping automatically fills the input. Consecutive takes retain original punctuation/newlines with a single separating space when needed, using the existing end-caret handling. The blue arrow submits the exact confirmed staged text through one native action. Later desktop edits invalidate the old ticket; a new dictated append and review can confirm the edited draft. Reliably saved Codex queue entries count as delivery, and uncertain results never resend. Short-lived device-bound encrypted receipts survive bridge restart. Physical microphone selection preserves shared DJI capture and microphone restoration. Local Windows checks pass; hardware acceptance remains pending.
+[Windows 验证记录](development/WINDOWS-MAIN-INTEGRATION-20261101.md) · [Mac 对齐记录](development/MAC-WINDOWS-ALIGNMENT-20261101.md)
 
 ## 当前验收状态 / Current acceptance
 
