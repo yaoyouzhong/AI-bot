@@ -2,12 +2,21 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
-## 0.2.302-ui - 2026-11-01
+## 0.2.302-ui - 2026-11-02
 
-- Improve feedback when clearing text, opening replies, paging and removing photos; keep long-press clear and draft protection.
-- Distinguish confirmed non-delivery from unknown delivery and preserve content when the chat or question changes.
-- Improve music-title glyph fallback, cover memory handling and clock readability. Wait for the matching firmware offer before starting an update.
-- Installed image and boot/settings were verified on hardware; use the full first-install package for factory devices and the upgrade package for existing installations.
+### Codex and interaction
+- Improve feedback when clearing text, opening replies, paging and removing photos; retain long-press clear and draft protection.
+- Distinguish confirmed non-delivery from unknown delivery, explain blocking conditions and preserve text. Unknown outcomes can be checked and explicitly confirmed by the user; they are not automatically resent.
+- Show available actual recording-device and recognition information; the quota entry opens Codex details by default and weekly quota wording is clearer.
+
+### Display and preview
+- Improve music-title glyphs and memory handling for cover receipt, decoding and display; clarify clock date labels and enlarge seconds.
+- Improve high-resolution preview memory reuse alongside the gallery while preserving the visible image and user photos.
+
+### Firmware installation and updates
+- Allow a user-confirmed reinstall of the same version; bind confirmation to the chosen firmware and wait for the matching offer before starting.
+- Improve wireless update connection reuse, receipt and staged erasure while retaining image verification, the alternate partition and boot checks.
+- Installation, boot and settings preservation were checked on hardware. Use the first-install package for factory devices and the upgrade package for existing installations.
 
 ## 0.2.301-ui - 2026-11-01
 

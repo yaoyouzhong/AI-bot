@@ -4,21 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-## 0.6.14 - 2026-11-01
+## 0.6.14 - 2026-11-02
 
-### Codex and voice
-- Answer Codex question cards on TAB5, switch questions and submit; bind each recording and submission to its device, chat and input target. Preserve previews and drafts when targets change.
-- Edit a dictated answer on the computer and submit the latest confirmed text from TAB5. A reliably accepted message or durable queue entry counts as sent; unknown outcomes are never resent automatically.
-- Preserve dictated segments, punctuation, line breaks and the end cursor. Improve recording preparation and delivery observation while retaining microphone restoration and duplicate protection.
+### Codex Direct and question cards
+- Answer, switch and submit question cards on TAB5. Recordings are bound to the device, chat and input target; changing questions or chats protects the original answer and recognition preview.
+- Dictation fills the computer automatically. Proofread in the same input before submitting from TAB5; continuous recordings preserve existing text, punctuation and line breaks and place the cursor at the end.
 
-### Desktop improvements
-- Refresh GLM balance capture and align MiMo and MiniMax quota parsing; failed requests retain the last usable data.
-- Simplify voice settings and microphone selection, frequent tasks and device connection layouts. Windows can activate the installed Doubao input profile for the recording thread.
-- Accelerate negotiated Mac USB firmware transfer and improve task submission, music-cover handling and feedback.
+### Task delivery and draft protection
+- Send or append to a running Codex task; existing computer drafts, attachments or references block submission and remain intact.
+- Confirm delivery when a message is reliably accepted or stored in the queue, without waiting for execution. Unknown outcomes preserve the draft and are not resent automatically; users can check and confirm recovery.
+- Distinguish confirmed non-delivery from unknown delivery while retaining target binding, duplicate protection and protection for later drafts.
+
+### Voice and settings
+- Improve recording preparation and pre-send input while retaining microphone selection, restoration and existing settings. Windows can activate an installed Doubao input profile and reports missing, stopped or unavailable states.
+- Simplify voice and device-connection settings, improve frequent-task titles, selection counts and save/cancel actions, and fix the computer-control Cancel button.
+
+### Quotas, music and firmware transfer
+- Adapt GLM balance capture and MiMo/MiniMax quota parsing; failed requests retain the last usable data.
+- Improve music-cover transfer and display, and accelerate negotiated Mac USB firmware transfer. TAB5 firmware changes are documented in its separate release.
 
 ### Validation and limits
-- Windows and Mac builds, automated regressions and representative TAB5 workflows were validated separately. DJI, long-idle recording and provider accounts unavailable during testing remain pending; final installer acceptance is tracked separately.
-- Windows x64 and Apple Silicon Mac are included; Intel Mac is unverified. The Mac application is ad-hoc signed and not notarized. TAB5 firmware is released independently.
+- Windows and Mac builds, automated regressions and representative TAB5 workflows were validated separately. Final installer installation and settings preservation were checked; the Mac USB device channel was unavailable in this round and is not counted as passed.
+- DJI, first recording after a long idle and unavailable provider accounts remain pending. The Windows installer is unsigned; the Mac package is Apple Silicon only, ad-hoc signed and not notarized; Intel is unverified.
 
 ## 0.6.13 - 2026-10-28
 

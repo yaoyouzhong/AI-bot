@@ -8,8 +8,10 @@
 
 - TAB5 Codex 直达支持提问题卡、多题切换和提交，录音绑定设备、会话及输入目标，目标变化时保留预览与草稿。
 - 结束录音自动填入电脑；可以在电脑校对，再通过 TAB5 提交最新文字。可靠接收或持久入队即算成功，结果未知不自动重发。连续录音保留文字、换行、标点和句尾光标。
-- 优化 Windows 和 Mac 的语音设置、常用任务、发送状态及 GLM、MiMo、MiniMax 额度解析；失败时保留已有缓存。
-- TAB5 改进按压反馈、发送提示、音乐文字、封面内存与时钟显示；固件升级等待匹配的安装信息。
+- 任务页可向运行中的任务发送或追加；电脑已有草稿、附件或引用时拦截并保留内容。送达未知时可核对并由用户确认恢复，不自动重发。
+- 优化语音准备、语音设置、常用任务和保存／取消操作；Windows 可激活已安装的豆包输入法，并区分未安装、未运行等状态。
+- 适配 GLM、MiMo、MiniMax 额度解析，失败时保留已有缓存；改善音乐封面处理，加快 Mac 协商后的 USB 固件传输。
+- TAB5 改进按钮反馈、发送提示、收音设备显示、额度入口、音乐封面与字形、时钟和高清预览；支持确认后重装同版本，优化无线升级并等待匹配的安装信息。
 
 ## 使用
 
@@ -29,6 +31,6 @@ TAB5 首刷包和升级包包含同一份已在设备安装及启动验证的应
 
 Windows x64 and Apple Silicon Mac bridge 0.6.14 and independent TAB5 firmware 0.2.302-ui are released. ESP8266 0.5.7 and existing artwork packages remain unchanged. See the [download center](../DOWNLOADS.en.md).
 
-Codex Direct supports question cards, target-bound dictation, computer proofreading before TAB5 submission, and durable queue acknowledgement without automatic retransmission of unknown outcomes. Continuous dictation preserves existing punctuation and line breaks. Desktop settings, quota adapters, device feedback and TAB5 display/upgrade behavior have been refined.
+Codex Direct supports question cards, target-bound dictation, computer proofreading before TAB5 submission, and durable queue acknowledgement without automatically retransmitting unknown outcomes. Continuous dictation preserves punctuation and line breaks. Task delivery protects existing computer drafts and attachments; users can check and confirm recovery of an unknown result. Voice and settings, GLM/MiMo/MiniMax quota adapters, music covers and negotiated Mac USB firmware transfer have been improved. TAB5 also improves interaction feedback, recording-source and quota displays, clock, high-resolution previews and firmware reinstallation/update handling. See the [desktop changelog](../CHANGELOG.md) and [TAB5 changelog](development/TAB5-CHANGELOG.md) for the full categorized notes.
 
 Windows installer upgrade, startup, 107 files and protected profile/display settings were verified. The user reported successful Mac installation, restart and preservation of 37 settings/data items; its USB device channel was unavailable in this round. The Windows installer is unsigned; the Apple Silicon package is ad-hoc signed, not notarized, and Intel is unverified. DJI, long-idle recording and unavailable provider-account checks remain pending. TAB5 source materials are provided, but independent byte-for-byte reproduction is not claimed.
