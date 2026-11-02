@@ -21,7 +21,8 @@
 
 - 当前实际包从干净提交 `8f4a5ed` 构建，424 项 macOS 测试、29,059 项隔离检查、Release 构建、包完整性和实际明暗界面检查通过；38 项固定设置、5 份配置、29 份加密资料与 3 份资源保持。
 - 用户确认统一项目一次授权、应用引导可见并能打开系统设置；重新添加当前应用的辅助功能条目后，同包正常重启无新提示、TAB5 定位成功，新进程后台记录定位 200 与实时 USB 心跳。详情见[实际包验收](development/MAC-0615-PACKAGE-ACCEPTANCE-20261102.md)。
-- 实际升级需要用户重新关联旧的辅助功能条目，不承诺临时签名升级免授权。真实音乐控制正在补验；公开 0.6.14 首次迁移、全新用户与不同 macOS 尚未验收，Intel Mac 不在本次范围。
+- 用户确认真实 TAB5 音乐播放／暂停正常，没有新的自动化权限提示；本次未登记播放器名称，不外推所有播放器或首次自动化授权弹窗。
+- 实际升级需要用户重新关联旧的辅助功能条目，不承诺临时签名升级免授权。公开 0.6.14 首次迁移、全新用户与不同 macOS 尚未验收，Intel Mac 不在本次范围。
 - 只有确认实际发布文件与验收文件相同后才能公开。公开前不把下载索引改为 0.6.15，不更新未变更平台的附件。
 
 ## English
@@ -34,4 +35,5 @@
 - Legacy items may still require individual system approval during first migration. After migration, use the consolidated item. Retained legacy records are pre-migration rollback data; subsequent credential changes require downgrade compatibility checks.
 - The public candidate remains ad-hoc signed and unnotarized. Local certificate-signed acceptance is not acceptance of the public installer.
 - The exact package from clean commit `8f4a5ed` passes 424 tests, 29,059 isolated checks, the Release build, native UI previews and preservation of 38 settings, 5 configuration files, 29 encrypted files and 3 resources. The user confirmed one consolidated-item prompt, visible app-owned guidance, normal restart without new prompts and successful TAB5 navigation after re-adding the current app's accessibility entry. The restarted process records navigation 200 and fresh USB heartbeats.
-- Ad-hoc upgrades are not authorization-free. Music acceptance is being completed; public legacy-first migration, fresh-user environments and other macOS versions remain untested. See the linked package record for exact hashes and remaining gates.
+- The user confirms real TAB5 play/pause with no new Automation prompt; the player was not recorded, so this does not establish every player's behavior or first-time Automation approval.
+- Ad-hoc upgrades are not authorization-free. Public legacy-first migration, fresh-user environments and other macOS versions remain untested. See the linked package record for exact hashes and remaining gates.

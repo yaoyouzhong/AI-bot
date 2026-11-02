@@ -1,6 +1,6 @@
 # Mac 0.6.15 候选包验收
 
-**当前候选已通过本机安装、授权引导、同包重启与 TAB5 定位验收，尚未公开。** 用户授权范围为准备 Mac 0.6.15；Windows 保留正式版 0.6.14，ESP8266 0.5.7、TAB5 0.2.302-ui 与图库不变。未推送、创建标签、上传草稿或公开发布。其他验收范围与限制见下文。
+**当前候选已通过本机安装、授权引导、同包重启、TAB5 定位与音乐播放／暂停验收，尚未公开。** 用户授权范围为准备 Mac 0.6.15；Windows 保留正式版 0.6.14，ESP8266 0.5.7、TAB5 0.2.302-ui 与图库不变。未推送、创建标签、上传草稿或公开发布。其他验收范围与限制见下文。
 
 ## 文件与源码身份
 
@@ -27,16 +27,18 @@
 
 该结果包含一次必要的用户系统授权重新关联，不能描述为升级免授权。应用说明不能代替 macOS 授权；已勾选的旧条目不代表当前构建已获得有效权限。
 
+用户随后在 TAB5 音乐页确认播放／暂停正常，没有新的自动化权限提示。本次播放器名称未登记，不外推所有播放器；全新账户首次自动化授权弹窗仍未实测。未因该次验收重建、重签或替换已验收包。
+
 ## 前一候选退回依据
 
 `0d9279b` 的定位 409 与 `65620c7` 的系统请求没有显示引导均保留在本机历史材料；后者虽然请求标记与 CDHash 匹配，用户明确未看到提示，因此退回。当前包改用应用自己的引导，未把接口调用成功当作界面显示或授权通过。
 
 ## 公开前门槛
 
-- 当前实际包的授权、引导、正常重启、TAB5 定位及原资料保持已通过；真实音乐控制正在补验。
+- 当前实际包的授权、引导、正常重启、TAB5 定位、原资料保持及真实音乐播放／暂停已通过。
 - 从公开 0.6.14 分散钥匙串资料首次迁移、全新用户权限引导尚未实测；本机资料已迁入统一入口，不能代替这些路径。首次旧资料迁移可能仍需逐项系统批准。
 - ESP8266、DJI 或长闲置首录本轮未重新验收；按影响及已有证据明确适用范围，不记为通过。
 - 标签须指向实际候选源码；验收哪个文件就发布哪个文件。现有标签工作流会重新构建，若采用该流程，必须在最终草稿构建完成后下载并重新核验实际附件，不能套用本包结论。
 - 公开后按发布收尾清单更新中英文下载、安装说明与相关媒体；准备阶段下载索引继续保留原正式版本。
 
-English: The exact Mac-only `8f4a5ed` ZIP passes scoped local installation, app-owned guidance, one initial Keychain prompt, normal restart without new prompts and TAB5 navigation. Re-adding the current app's old accessibility entry was necessary before navigation succeeded; this is not an authorization-free upgrade. The final process confirms navigation 200 and fresh USB heartbeats. All 38 user settings, 5 configuration files, 29 encrypted files and 3 resources remain unchanged; the expected onboarding marker is tracked separately. The exact archives pass integrity checks, 424 tests, the Release build, 29,059 isolated checks and native UI previews. Music acceptance is being completed. Public legacy-first migration, fresh-user environments and other hardware workflows remain outside this acceptance. Windows and firmware packages are unchanged; no remote release action has occurred.
+English: The exact Mac-only `8f4a5ed` ZIP passes scoped local installation, app-owned guidance, one initial Keychain prompt, normal restart without new prompts and TAB5 navigation. Re-adding the current app's old accessibility entry was necessary before navigation succeeded; this is not an authorization-free upgrade. The final process confirms navigation 200 and fresh USB heartbeats. All 38 user settings, 5 configuration files, 29 encrypted files and 3 resources remain unchanged; the expected onboarding marker is tracked separately. The exact archives pass integrity checks, 424 tests, the Release build, 29,059 isolated checks and native UI previews. The user also confirms real TAB5 play/pause with no new Automation prompt; the player was not recorded and first-time Automation approval remains untested. Public legacy-first migration, fresh-user environments and other hardware workflows remain outside this acceptance. Windows and firmware packages are unchanged; no remote release action has occurred.
