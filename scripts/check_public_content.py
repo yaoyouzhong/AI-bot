@@ -23,6 +23,8 @@ REVIEWED_DOC_NAMES = frozenset({
     'mac-accounts.png',
     'mac-bridge-settings.png',
     'mac-tab5-preview.png',
+    'mac-direct-authorization.png',
+    'mac-direct-authorization-upgrade.png',
     'esp8266-reset-text-057.png',
     'tab5-draft-clear-before-281.png',
     'tab5-draft-clear-empty-281.png',
@@ -161,6 +163,7 @@ REVIEWED_PRODUCT_MEDIA = frozenset({
     "docs/assets/product-intro/AI-bot-cover-4x3.png",
     "docs/assets/product-intro/AI-bot-cover-3x4.png",
     "docs/assets/product-intro/AI-bot-onboarding-cover.png",
+    "docs/assets/product-intro/AI-bot-mac-authorization-cover.png",
 })
 
 REVIEWED_PET_MEDIA = frozenset({

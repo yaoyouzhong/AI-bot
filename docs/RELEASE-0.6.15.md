@@ -1,6 +1,6 @@
-# Mac 0.6.15 发布准备 / Mac release preparation
+# Mac 0.6.15 发布说明 / Mac release notes
 
-**仅 Mac，尚未公开发布。** Windows 保持已发布 0.6.14；ESP8266、TAB5 和图库沿用原正式版本。本次不要求重新刷写设备。
+**2026-11-02 仅发布 Mac 0.6.15。** Windows 保持已发布 0.6.14；ESP8266、TAB5 和图库沿用原正式版本。本次不要求重新刷写设备。[正式 Release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.15)
 
 ## 授权与默认设置
 
@@ -23,11 +23,11 @@
 - 用户确认统一项目一次授权、应用引导可见并能打开系统设置；重新添加当前应用的辅助功能条目后，同包正常重启无新提示、TAB5 定位成功，新进程后台记录定位 200 与实时 USB 心跳。详情见[实际包验收](development/MAC-0615-PACKAGE-ACCEPTANCE-20261102.md)。
 - 用户确认真实 TAB5 音乐播放／暂停正常，没有新的自动化权限提示；本次未登记播放器名称，不外推所有播放器或首次自动化授权弹窗。
 - 实际升级需要用户重新关联旧的辅助功能条目，不承诺临时签名升级免授权。公开 0.6.14 首次迁移、全新用户与不同 macOS 尚未验收，Intel Mac 不在本次范围。
-- 只有确认实际发布文件与验收文件相同后才能公开。公开前不把下载索引改为 0.6.15，不更新未变更平台的附件。
+- 发布附件与本机验收原包及草稿完整下载的 SHA-256 一致，未重建。正式下载按平台分别登记，未更新 Windows 或固件附件。来源为 `8f4a5edf0b81af977706ae30cfd38035572fd5f8`；Mac ZIP SHA-256 为 `f07ca7b0a31ebff6d42d64fd52725a603795d43882722875c148296b8c15036a`。
 
 ## English
 
-**Mac-only preparation; not published.** Windows retains 0.6.14; device firmware and galleries retain their existing releases.
+**Mac-only 0.6.15 published on November 2, 2026.** Windows retains 0.6.14; device firmware and galleries retain their existing releases. The published archive is byte-identical to local acceptance and the complete draft download; no rebuild occurred.
 
 - Consolidate bridge credentials into one Keychain item, reuse a single process snapshot and stop background retries after denial. Preserve existing values and encryption keys.
 - Enable available Codex, desktop, computer and music features by default while respecting explicit opt-outs. Recording and submission remain user-initiated; system permissions and required accounts/passwords remain prerequisites.

@@ -38,3 +38,9 @@ Optional automatic checks start about 30 seconds after launch and repeat daily a
 Windows 安装包和固件下载中断或取消后，已下载内容保存在本机；再次选择同一更新可继续，程序重启后也可恢复。缓存按组件、版本、文件名、大小和完整 SHA-256 隔离。完整文件仍需校验固件类型、内置版本、协议与最低桥接版本；下载成功不等于已安装。服务器不支持续传时从头安全下载，损坏断点清除后重新下载。本项已公开发布。
 
 Windows 0.6.8 retains interrupted/cancelled installer and firmware downloads across app sessions. Resume only the same component, version, filename, size and checksum. Complete packages still require identity, protocol and minimum-bridge validation; download completion is not installation. Servers ignoring Range safely restart the transfer; corrupt partial files are discarded. This version is publicly released.
+
+## Mac 0.6.15 授权与升级 / Mac permissions and upgrade
+
+Mac 可用功能默认开启并保留明确关闭的选择。正常退出旧桥接后，将已校验的 App 放到“应用程序”；备份使用 ZIP 或外部目录。跟随原生引导允许当前应用；旧辅助功能条目已勾选仍失效时，移除并重新添加 `/Applications/AIBotBridge.app`。统一钥匙串资料一次读取后复用，旧资料首迁仍可能逐项询问。Windows 保留 0.6.14，设备固件按实际版本单独判断，无需因 Mac 更新重新刷机。[安装步骤](INSTALL.zh.md#mac) · [本轮说明](RELEASE-0.6.15.md)
+
+Quit before replacing the Mac app in Applications; keep backups as ZIPs or outside Applications. Follow the app-owned guide and re-add an ineffective old Accessibility entry. Consolidated credential reads are reused, while legacy-first migration may require per-item approval. Windows retains 0.6.14 and firmware updates independently.
