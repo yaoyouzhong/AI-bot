@@ -18,7 +18,8 @@ internal static class Tab5DoubaoAvailability
         :installed==true&&running==false?"豆包输入法已安装但未运行，请在电脑启动后重试"
         :installed==false&&running==false?"电脑未检测到豆包输入法，请先安装并启动"
         :"无法确认豆包输入法状态，请在电脑检查安装与运行";
-    internal static string UnavailableMessage() {
+    internal static string UnavailableMessage() {var state=Observe();return Message(state.Installed,state.Running);}
+    internal static (bool? Installed,bool? Running) Observe() {
         bool found=false,complete=true;
         foreach(var hive in new[]{RegistryHive.CurrentUser,RegistryHive.LocalMachine})
         foreach(var view in new[]{RegistryView.Registry32,RegistryView.Registry64}) {
@@ -50,7 +51,7 @@ internal static class Tab5DoubaoAvailability
             var processes=Process.GetProcessesByName("ImeService");
             try{running=processes.Length>0;}finally{foreach(var process in processes)process.Dispose();}
         }catch(Exception ex) when(ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException){ }
-        return Message(found?true:complete?false:null,running);
+        return (found?true:complete?false:null,running);
     }
     internal static void SelfTest() {
         Tab5InputMethod.SelfTest();

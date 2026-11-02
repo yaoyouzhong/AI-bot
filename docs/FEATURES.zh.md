@@ -127,9 +127,9 @@ Windows 与 Apple Silicon Mac 均支持两类设备，具体范围见[平台说�
 
 ![TAB5 Codex 额度页：用量、重置时间与重置卡](assets/screens/tab5-quota.png)
 
-DeepSeek 显示 API 可用余额，智谱显示开放平台可用余额；余额与 Coding Plan 用量采用不同布局。数据源未提供的字段显示 `--`。
+Windows 桥接的 DeepSeek 显示网页账户可用余额及累计消费，智谱显示开放平台可用余额及可核对的累计消费；Mac 本次未同步这些取数修复。余额与 Coding Plan 用量采用不同布局。数据源未提供的字段显示 `--`。
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-deepseek.png" alt="DeepSeek API 可用余额"></td><td width="50%"><img src="assets/screens/tab5-zhipu.png" alt="智谱开放平台可用余额"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-deepseek.png" alt="DeepSeek 余额页面示例"></td><td width="50%"><img src="assets/screens/tab5-zhipu.png" alt="智谱开放平台可用余额"></td></tr></table>
 
 </details>
 
@@ -364,7 +364,7 @@ Mac 的麦克风、语音识别、蓝牙和辅助功能等权限按实际使用�
 
 - **额度字段：** `5H` / `WK` 是已用比例；重置时间和重置卡取决于账户返回内容。未知字段不补造。本机 Token 只覆盖本机可见日志，不等于所有设备的账户用量。
 - **额度历史：** 设备中心 → **账号数据 → 额度历史**，或小屏镜像底部“Codex 额度趋势”。支持近 7/30 天与图表／明细，保留 90 天采样；没有记录的日期不估算。[统计口径](QUOTA_TRENDS.md)
-- **其他模型账号：** 设备中心 → **账号数据 → 模型账号**。按厂商选择网页授权或支持的 API 配置；数据设置决定各设备要用哪些厂商。DeepSeek 为 API 余额，智谱为开放平台可用余额，不等于 Coding Plan。阶跃、百度、小米等入口的“待验证／待接”状态不代表已经完成真实账号验收。[接入与边界](DOMESTIC_QUOTA_SETUP.md)
+- **其他模型账号：** 设备中心 → **账号数据 → 模型账号**。按厂商选择网页授权或支持的 API 配置；数据设置决定各设备要用哪些厂商。Windows 桥接的 DeepSeek 设备数据来自网页账户，智谱为开放平台可用余额，不等于 Coding Plan。阶跃、百度、小米等入口的“待验证／待接”状态不代表已经完成真实账号验收。[接入与边界](DOMESTIC_QUOTA_SETUP.md)
 
 网络或厂商请求失败时保留最近成功数据。**桥接设置 → 服务状态**查看设备连接、数据更新时间和错误；**提醒管理**设置勿扰和查看提醒记录。
 

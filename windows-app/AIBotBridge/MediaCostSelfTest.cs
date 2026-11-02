@@ -31,8 +31,23 @@ internal static class MediaCostSelfTest
         void Check(bool ok,string name){if(!ok)throw new InvalidOperationException(name);}
         var now=DateTime.UtcNow;var s=new M.DomesticQuotaSnapshot();
         M.DomesticQuotaService.MergeDeepSeek(s,90,"CNY",null,null,null,"account-a",true,now);
+        Check(MigratedDomesticBridge.DeepSeekWebDisplay(s,now) is null,"API balance is not substituted for missing web account");
         M.DomesticQuotaService.MergeDeepSeek(s,12,"CNY",null,null,5,"account-a",false,now.AddMinutes(1));
         Check(s.DeepSeekBalance==90&&s.DeepSeekUsedCost is null&&s.DeepSeekFetchedAt==now&&s.DeepSeekWebBalance==12&&s.DeepSeekWebUsedCost==5,"API A and web B remain independent");
+        var web=MigratedDomesticBridge.DeepSeekWebDisplay(s,now.AddMinutes(1));
+        Check(web?.Balance==12&&web.UsedCost==5&&web.Currency=="CNY"&&web.Plan=="网页余额","devices use same web account for both values");
+        var wire=JsonSerializer.SerializeToElement(web,JsonDefaults.Options);
+        Check(wire.GetProperty("balance").GetDouble()==12&&wire.GetProperty("usedCost").GetDouble()==5,"ESP status carries web balance and cost");
+        var timestamp=new DateTimeOffset(now,TimeSpan.Zero);
+        var status=new StatusSnapshot(1,"12:00",timestamp.ToUnixTimeSeconds(),28800,timestamp,new("idle",0),new("idle",0),DomesticQuotas:new(null,null,null,web));
+        var tab=Tab5Details.Quotas(status).Single(q=>q.Id=="deepseek");
+        Check(tab.Balance==12&&tab.Cost==5&&tab.BillingMode=="payg","TAB5 receives same web account values");
+        s.DeepSeekWebUsedCost=0;
+        Check(MigratedDomesticBridge.DeepSeekWebDisplay(s,now.AddMinutes(1))?.UsedCost==0,"zero web spend is available");
+        s.DeepSeekWebUsedCostFetchedAt=now;
+        Check(MigratedDomesticBridge.DeepSeekWebDisplay(s,now.AddMinutes(1))?.UsedCost is null,"different observation is not combined");
+        s.DeepSeekWebUsedCost=5;s.DeepSeekWebUsedCostFetchedAt=now.AddMinutes(1);
+        Check(MigratedDomesticBridge.DeepSeekWebDisplay(s,now.AddHours(25))?.UsedCost is null,"expired spend remains unknown");
         s=JsonSerializer.Deserialize<M.DomesticQuotaSnapshot>(JsonSerializer.Serialize(s,new JsonSerializerOptions{IncludeFields=true}),new JsonSerializerOptions{IncludeFields=true})!;
         M.DomesticQuotaService.SelectDeepSeekSource(s,"account-a");
         Check(s.DeepSeekBalance==90&&s.DeepSeekUsedCost is null&&s.DeepSeekWebUsedCost==5,"restart preserves source isolation");

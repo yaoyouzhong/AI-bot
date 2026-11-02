@@ -35,6 +35,18 @@ internal static class ZhipuSelfTest
                 ||ZhipuBalance.Normalize(current)?.Balance!=expected)
                 throw new InvalidOperationException("Current GLM overview amount/rounding/unknown spend failed.");
         }
+        using (var doc=JsonDocument.Parse("""{"code":200,"data":{"availableTotalBalance":28.50}}""")) {
+            var current=ZhipuBalance.Parse(doc.RootElement,true);
+            if (ZhipuBalance.Combine(current,quota).UsedCost!=9.75
+                || ZhipuBalance.Combine(current,quota with { Balance=28.49, UsedCost=0 }).UsedCost!=0
+                || ZhipuBalance.Combine(current,quota with { Balance=28.48 }).UsedCost!=null
+                || ZhipuBalance.Combine(current,quota with { UsedCost=null }).UsedCost!=null
+                || ZhipuBalance.Combine(current,null).UsedCost!=null)
+                throw new InvalidOperationException("GLM same-navigation spend pairing failed.");
+            using var invalid=JsonDocument.Parse("""{"code":200,"data":{"availableBalance":28.5,"totalSpendAmount":-1}}""");
+            if (ZhipuBalance.Combine(current,ZhipuBalance.Parse(invalid.RootElement)).UsedCost!=null)
+                throw new InvalidOperationException("GLM negative spend accepted.");
+        }
         foreach(var bad in new[]{"{}","{\"code\":401,\"data\":{\"availableTotalBalance\":9}}",
             "{\"code\":200,\"data\":{\"availableBalance\":99,\"balance\":99}}",
             "{\"code\":200,\"data\":{\"availableTotalBalance\":null,\"availableBalance\":99}}",

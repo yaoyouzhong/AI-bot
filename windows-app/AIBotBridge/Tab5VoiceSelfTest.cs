@@ -158,14 +158,8 @@ internal static class Tab5VoiceSelfTest
         Console.WriteLine("TAB5_VOICE_SOURCE_SWITCH_OK both owners; committed first text; same identity; PCM readiness; duplicate/stale isolation; failure/cancel/timeout/focus restoration; synthetic only");
     }
     internal static void PreviewSettings(string path) {
-        using var host=new Tab5VoiceHost(new Tab5VoiceSettings());
-        using var form=host.CreateSettings(preview:true);
-        form.StartPosition=FormStartPosition.Manual;form.Location=new Point(-32000,-32000);form.ShowInTaskbar=false;
-        form.Show();Application.DoEvents();form.PerformLayout();
-        using var bitmap=new Bitmap(form.Width,form.Height);
-        form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));
-        bitmap.Save(path,System.Drawing.Imaging.ImageFormat.Png);
-        Console.WriteLine("TAB5_VOICE_SETTINGS_PREVIEW_OK (read-only device check, capture disabled)");
+        Tab5VoiceSettingsSelfTest.Preview(path);
+        Console.WriteLine("TAB5_VOICE_SETTINGS_PREVIEW_OK (offscreen child controls, synthetic devices, capture disabled)");
     }
     internal static void RunUi() {
         using(var draft=new Tab5VoiceDraft(()=>"",_=>false)) {
