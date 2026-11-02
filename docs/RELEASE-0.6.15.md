@@ -21,7 +21,7 @@
 
 - 本地开发候选已通过 423 项 macOS 测试、29,059 项隔离检查、Release 构建及实际明暗界面检查；已验证原值迁移、38 项固定设置与 29 份加密资料保留。
 - 用户确认本机统一项目一次授权、正常重启无再次提示、TAB5 USB 心跳及 Codex 直达定位。详情见[统一入口记录](development/MAC-KEYCHAIN-VAULT-20261102.md)。
-- 0.6.15 正式包的源码 SHA、摘要、安装与正常重启、从公开 0.6.14 的实际升级路径，以及必要的音乐／设备操作按最终包单独记录。全新用户与不同 macOS 尚未验收；Intel Mac 不在本次范围。
+- 最终候选从干净提交 `65620c7` 构建，424 项测试及实际包隔离／原生界面检查通过；已安装同一 ZIP，当前等待系统授权。前一候选定位因辅助功能未生效失败，修复后仍须实机复验；摘要与待验收项见[最终候选记录](development/MAC-0615-PACKAGE-ACCEPTANCE-20261102.md)。从公开 0.6.14 的首次迁移、全新用户与不同 macOS 尚未验收；Intel Mac 不在本次范围。
 - 只有确认实际发布文件与验收文件相同后才能公开。公开前不把下载索引改为 0.6.15，不更新未变更平台的附件。
 
 ## English
@@ -34,3 +34,4 @@
 - Legacy items may still require individual system approval during first migration. After migration, use the consolidated item. Retained legacy records are pre-migration rollback data; subsequent credential changes require downgrade compatibility checks.
 - The public candidate remains ad-hoc signed and unnotarized. Local certificate-signed acceptance is not acceptance of the public installer.
 - Local development acceptance passed 423 tests, 29,059 isolated checks, native UI checks, legacy-value verification and preservation of 38 fixed preferences/29 encrypted files. The user confirmed one consolidated-item prompt, no prompt after normal restart, fresh TAB5 USB heartbeats and Codex navigation. Record final-package identity, installation, upgrade and remaining hardware checks separately before publication.
+- The final candidate from clean commit `65620c7` passes 424 tests and actual-package isolated/native UI checks. The exact ZIP is installed but awaiting system authorization. The preceding package failed navigation because accessibility trust was inactive; verify the corrected guidance and navigation on the final package before publication. See the linked package acceptance record for exact hashes and remaining gates.
