@@ -1,6 +1,6 @@
-# Mac 0.6.15 最终候选验收
+# Mac 0.6.15 候选包验收
 
-**当前为本地候选，系统授权与设备定位仍待完成，不具备公开条件。** 用户授权范围为准备 Mac 0.6.15；Windows 保留正式版 0.6.14，ESP8266 0.5.7、TAB5 0.2.302-ui 与图库不变。未推送、创建标签、上传草稿或公开发布。
+**`65620c7` 候选因辅助功能引导未显示而退回，不具备公开条件。** 用户授权范围为准备 Mac 0.6.15；Windows 保留正式版 0.6.14，ESP8266 0.5.7、TAB5 0.2.302-ui 与图库不变。未推送、创建标签、上传草稿或公开发布。正在加入应用自己的引导后重新生成候选；下列摘要仅对应退回包。
 
 ## 文件与源码身份
 
@@ -19,11 +19,11 @@
 
 ## 实际安装与当前状态
 
-已正常退出原进程，将原应用备份成 ZIP，从上述最终 ZIP 安装 `/Applications/AIBotBridge.app`，全部安装文件与解压包相同，签名未修改。当前启动进程 PID 64174；正在等待系统钥匙串响应，服务尚未就绪，辅助功能构建标记尚未写入。不能据自动测试认定本包已完成授权或定位。
+已正常退出原进程，将原应用备份成 ZIP，从上述 ZIP 安装 `/Applications/AIBotBridge.app`，全部安装文件与解压包相同，签名未修改。PID 64174 启动后，用户确认钥匙串一次、没有辅助功能引导；无凭据只读探针返回 401，收到新进程的实时 USB 心跳。辅助功能请求标记与实际 CDHash 相同，确认请求代码执行，不能据此认定系统显示了引导或授予权限。
 
 前一候选 `0d9279b` 的真实结果：用户确认一次钥匙串提示并选“始终允许”，同包正常重启无再次提示；38 项固定设置、5 份配置文件、29 份加密资料与 3 份资源保持。TAB5 定位返回 409，当前进程诊断明确为辅助功能未生效。此失败阻止发布，未沿用旧本机证书包的定位通过结论。
 
-最终候选已修复全局“提示过”标志阻止新构建引导的问题：按公开代码签名摘要识别构建，权限未生效且功能开启时请求一次；同一构建不自动重复，明确关闭时不请求。原钥匙串与加密资料保留。最终包的提示次数、系统引导、授权后服务／USB 心跳、正常重启、定位及资料保持待本机继续确认。
+该候选修复了全局“提示过”标志阻止新构建请求的问题，但系统未显示引导，故仍退回。后续改为应用拥有的原生说明及菜单入口，后台启动延后到用户打开应用后展示，不依赖系统提示一定出现。首次／旧记录、明暗四份实际渲染已查看，完整文案和按钮可读，窗口高度约 355–371 点；正常前台、后台延后、同包稍后及手动恢复的状态按设计验证。原钥匙串与加密资料保留；新包仍须重新登记摘要及实际安装验收。
 
 ## 公开前门槛
 
@@ -33,4 +33,4 @@
 - 标签须指向实际候选源码；验收哪个文件就发布哪个文件。现有标签工作流会重新构建，若采用该流程，必须在最终草稿构建完成后下载并重新核验实际附件，不能套用本包结论。
 - 公开后按发布收尾清单更新中英文下载、安装说明与相关媒体；准备阶段下载索引继续保留原正式版本。
 
-English: This Mac-only local candidate was built from clean commit `65620c7a8d5a7c1c11b6744f7d392b187fddd329`. Its exact packages, licenses and manifests pass integrity checks; 424 tests, the Release build, 29,059 isolated checks and native UI fixtures pass. The installed bundle matches the archive. System authorization and final navigation remain pending, so publication is blocked. The preceding candidate passed one consolidated Keychain prompt and no prompt after restart but failed navigation because accessibility trust was inactive; the final candidate renews guidance per untrusted build. Published Windows and firmware packages are unchanged. Legacy public upgrades, fresh-user environments and other physical workflows are not inferred from this machine's already migrated vault. No remote release action has occurred.
+English: The Mac-only `65620c7` candidate is rejected for publication because no accessibility guidance appeared. Its packages and automated checks pass, and the user confirms one Keychain prompt; service readiness and fresh USB heartbeats are verified. The recorded guidance marker matches the actual CDHash, establishing that the system request ran but not that a dialog appeared. An app-owned guide and manual menu entry are being added, with background presentation deferred until user interaction. Fresh/upgrade and light/dark native previews have been reviewed. New package identity and physical acceptance must be recorded separately. Published Windows and firmware packages are unchanged; no remote release action has occurred.

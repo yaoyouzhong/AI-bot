@@ -46,6 +46,8 @@ final class MacFeaturePreferencesTests: XCTestCase {
         let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }
         MacFeaturePreferences.register(defaults)
         defaults.set(true, forKey: MacDirectAuthorization.requestedKey)
+        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false, identity: "build-a", interactive: false))
+        XCTAssertNil(defaults.string(forKey: MacDirectAuthorization.requestedBuildKey))
         XCTAssertTrue(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false, identity: "build-a"))
         let reopened = UserDefaults(suiteName: name)!
         XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: reopened, trusted: false, identity: "build-a"))
@@ -53,6 +55,8 @@ final class MacFeaturePreferencesTests: XCTestCase {
         XCTAssertTrue(MacDirectAuthorization.shouldRequest(defaults: reopened, trusted: false, identity: "build-b"))
         XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: reopened, trusted: false, identity: "build-b"))
         XCTAssertEqual(reopened.string(forKey: MacDirectAuthorization.requestedBuildKey), "build-b")
+        XCTAssertTrue(MacDirectAuthorization.required(defaults: reopened, trusted: false), "The manual entry remains available after postponing")
+        XCTAssertFalse(MacDirectAuthorization.required(defaults: reopened, trusted: true))
     }
     func testExistingMusicPermissionMigratesOnceAndControlOptOutPersists() {
         let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }

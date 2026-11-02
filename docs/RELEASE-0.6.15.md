@@ -6,7 +6,7 @@
 
 - 将桥接凭据迁入一个钥匙串项目，正常启动读取一次并复用；拒绝后不由后台轮询反复请求，不生成替代密钥覆盖原资料。
 - 默认开启可用的 Codex 会话、直达、发送、电脑控制和音乐控制；保留用户明确关闭的设置。录音和发送仍由用户操作发起，系统权限、账户和解锁密码仍需具备对应条件。
-- 启动时按当前签名构建检查辅助功能引导：新构建权限未生效时请求一次，同一构建不重复请求；保留明确关闭的选择。设置页显示实际授权状态并提供系统设置入口。部分 macOS 页面名称为“设备控制与数据访问”。
+- 按当前签名构建检查辅助功能引导，不依赖 macOS 一定显示系统提示。正常打开应用时展示应用自己的说明；后台启动延后到用户点击菜单栏图标或重新打开应用时展示，右键菜单保留“完成 Codex 直达授权…”入口。同一构建不自动重复，保留明确关闭的选择。系统页面可能叫“辅助功能”或“设备控制与数据访问”。
 - 首次统一入口授权等待延长到十分钟，避免用户处理系统提示时提前超时；不会自动重复提交请求。
 
 ## 升级与资料迁移
@@ -21,7 +21,7 @@
 
 - 本地开发候选已通过 423 项 macOS 测试、29,059 项隔离检查、Release 构建及实际明暗界面检查；已验证原值迁移、38 项固定设置与 29 份加密资料保留。
 - 用户确认本机统一项目一次授权、正常重启无再次提示、TAB5 USB 心跳及 Codex 直达定位。详情见[统一入口记录](development/MAC-KEYCHAIN-VAULT-20261102.md)。
-- 最终候选从干净提交 `65620c7` 构建，424 项测试及实际包隔离／原生界面检查通过；已安装同一 ZIP，当前等待系统授权。前一候选定位因辅助功能未生效失败，修复后仍须实机复验；摘要与待验收项见[最终候选记录](development/MAC-0615-PACKAGE-ACCEPTANCE-20261102.md)。从公开 0.6.14 的首次迁移、全新用户与不同 macOS 尚未验收；Intel Mac 不在本次范围。
+- `65620c7` 候选自动验证通过、用户确认钥匙串一次，但系统没有显示辅助功能引导，已退回；应用自己的引导与菜单入口加入后重新生成候选并验收。摘要与实机状态见[候选记录](development/MAC-0615-PACKAGE-ACCEPTANCE-20261102.md)。从公开 0.6.14 的首次迁移、全新用户与不同 macOS 尚未验收；Intel Mac 不在本次范围。
 - 只有确认实际发布文件与验收文件相同后才能公开。公开前不把下载索引改为 0.6.15，不更新未变更平台的附件。
 
 ## English
@@ -30,8 +30,8 @@
 
 - Consolidate bridge credentials into one Keychain item, reuse a single process snapshot and stop background retries after denial. Preserve existing values and encryption keys.
 - Enable available Codex, desktop, computer and music features by default while respecting explicit opt-outs. Recording and submission remain user-initiated; system permissions and required accounts/passwords remain prerequisites.
-- Guide accessibility authorization once per untrusted build, preserving explicit opt-outs and avoiding repeated requests for the same build; show its effective state and allow ten minutes for the initial consolidated-item authorization.
+- Provide an app-owned accessibility guide once per untrusted build, with a persistent menu entry and effective permission state. Background launches defer foreground presentation until the user opens the app. Preserve explicit opt-outs and allow ten minutes for initial consolidated-item authorization.
 - Legacy items may still require individual system approval during first migration. After migration, use the consolidated item. Retained legacy records are pre-migration rollback data; subsequent credential changes require downgrade compatibility checks.
 - The public candidate remains ad-hoc signed and unnotarized. Local certificate-signed acceptance is not acceptance of the public installer.
 - Local development acceptance passed 423 tests, 29,059 isolated checks, native UI checks, legacy-value verification and preservation of 38 fixed preferences/29 encrypted files. The user confirmed one consolidated-item prompt, no prompt after normal restart, fresh TAB5 USB heartbeats and Codex navigation. Record final-package identity, installation, upgrade and remaining hardware checks separately before publication.
-- The final candidate from clean commit `65620c7` passes 424 tests and actual-package isolated/native UI checks. The exact ZIP is installed but awaiting system authorization. The preceding package failed navigation because accessibility trust was inactive; verify the corrected guidance and navigation on the final package before publication. See the linked package acceptance record for exact hashes and remaining gates.
+- Candidate `65620c7` passes automated checks and one real Keychain prompt, but is rejected because macOS did not display accessibility guidance. Rebuild and validate the app-owned guide and menu entry on the new exact package. See the linked acceptance record for hashes and remaining gates.

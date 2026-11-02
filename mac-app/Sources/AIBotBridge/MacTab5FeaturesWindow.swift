@@ -168,7 +168,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     }
     @objc private func openSettings() { _ = NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app")) }
     @objc private func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") { _ = NSWorkspace.shared.open(url) }
+        MacDirectAuthorizationAlert.openSettings()
     }
     private func reload() {
         do { launchers.removeAllItems(); launchers.addItems(withTitles: try service.computer.launchers.load().map(\.name)) }

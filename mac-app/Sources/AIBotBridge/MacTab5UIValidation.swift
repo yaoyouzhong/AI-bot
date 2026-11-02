@@ -88,6 +88,14 @@ enum MacTab5UIValidation {
                   alert.buttons[0].keyEquivalent == "\r", alert.buttons[1].keyEquivalent.isEmpty else { throw MacTab5Error.invalidPacket }
             try render(content, to: output.appendingPathComponent("keychain-migration-" + suffix + ".png"))
             alert.window.close()
+            for previous in [false, true] {
+                let guide = MacDirectAuthorizationAlert.make(previouslyRequested: previous)
+                guide.window.appearance = NSAppearance(named: appearance); guide.layout()
+                guard let content = guide.window.contentView, guide.window.frame.height <= 600, guide.buttons.count == 2,
+                      guide.buttons[0].keyEquivalent == "\r", guide.buttons[1].keyEquivalent == "\u{1b}" else { throw MacTab5Error.invalidPacket }
+                try render(content, to: output.appendingPathComponent("direct-authorization-" + (previous ? "upgrade-" : "fresh-") + suffix + ".png"))
+                guide.window.close()
+            }
         }
         print("MAC_TAB5_NATIVE_UI_RENDER_OK device center and all settings fixtures; tabs, draft, offscreen validation/cancel, minimum size and both appearances; no hardware operation or permission requested")
     }

@@ -16,10 +16,13 @@ enum MacDirectAuthorization {
         let source = (try? String(contentsOf: bundle.bundleURL.appendingPathComponent("Contents/Resources/SOURCE_SHA.txt"), encoding: .utf8)) ?? "development"
         return (bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development") + ":" + source.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    // Called only by the normal application, after first-run defaults are registered.
-    static func shouldRequest(defaults: UserDefaults, trusted: Bool, identity: String) -> Bool {
-        guard defaults.bool(forKey: MacTab5Codex.enabledKey),
-              defaults.bool(forKey: MacTab5Desktop.enabledKey), !trusted,
+    static func required(defaults: UserDefaults, trusted: Bool) -> Bool {
+        defaults.bool(forKey: MacTab5Codex.enabledKey)
+            && defaults.bool(forKey: MacTab5Desktop.enabledKey) && !trusted
+    }
+    // Consume the marker only when the app-owned guide will actually be shown.
+    static func shouldRequest(defaults: UserDefaults, trusted: Bool, identity: String, interactive: Bool = true) -> Bool {
+        guard interactive, required(defaults: defaults, trusted: trusted),
               defaults.string(forKey: requestedBuildKey) != identity else { return false }
         defaults.set(true, forKey: requestedKey)
         defaults.set(identity, forKey: requestedBuildKey)
