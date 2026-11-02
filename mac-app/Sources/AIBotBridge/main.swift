@@ -1,4 +1,5 @@
 import AppKit
+import MacKeychainSupport
 
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--check-codex-delivery-baseline" {
     do { try MacCodexBaselineCheck.run(URL(fileURLWithPath: CommandLine.arguments[2])); exit(0) }
@@ -96,6 +97,21 @@ let instance: MacApplicationInstance
 do { instance = try MacApplicationInstance() }
 catch MacApplicationInstance.Failure.alreadyRunning { print("BRIDGE_ALREADY_RUNNING"); exit(0) }
 catch { fputs("Bridge instance lock unavailable; no bridge started.\n", stderr); exit(1) }
+
+if CommandLine.arguments.count == 2, ["--prepare-keychain-vault", "--prepare-keychain-vault-legacy-helper"].contains(CommandLine.arguments[1]) {
+    do {
+        if CommandLine.arguments[1] == "--prepare-keychain-vault-legacy-helper" { try MacKeychainAccess.prepareUsingLegacyHelper() }
+        else { try MacKeychainAccess.prepare(); try MacKeychainAccess.verifyMigration() }
+        print("MAC_KEYCHAIN_VAULT_VERIFIED legacy values unchanged; no credentials exported")
+        exit(0)
+    } catch BridgeKeychain.Failure.status(let status) {
+        fputs("Keychain migration not confirmed: status=\(status); existing records retained.\n", stderr)
+        exit(1)
+    } catch {
+        fputs("Keychain migration not confirmed; existing records retained.\n", stderr)
+        exit(1)
+    }
+}
 
 if CommandLine.arguments.count == 4, CommandLine.arguments[1] == "--test-tab5-ble-link" {
     do {

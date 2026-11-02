@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Mac authorization and first use
+- Consolidate bridge credentials into one Keychain item and reuse one in-process authorization snapshot. Stop background retries after denial and preserve existing credentials and encryption keys.
+- Enable available Codex Direct, submission, computer and music controls by default while preserving explicit opt-outs. Guide initial system accessibility authorization and show its effective state.
+- Verify legacy migration, provide a controlled migration path through the unchanged authorized helper, and allow more time to complete initial system authorization.
+- Local acceptance passed 423 macOS tests, the Release build, one consolidated-item prompt, no prompt after normal restart and TAB5 navigation. Published-package upgrades and fresh-user environments still require acceptance.
+
 ## 0.6.14 - 2026-11-02
 
 ### Codex Direct and question cards

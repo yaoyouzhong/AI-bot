@@ -1,4 +1,6 @@
 import AppKit
+import ApplicationServices
+import MacKeychainSupport
 import Foundation
 import UniformTypeIdentifiers
 
@@ -82,8 +84,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
         let storedPort = UserDefaults.standard.integer(forKey: "status_port")
         port = UInt16((1...65_535).contains(storedPort) ? storedPort : 8765)
-        do { _ = try PairingTokenStore.loadOrCreate() }
+        do {
+            var migrationCancelled = false
+            do { try MacKeychainAccess.prepare() }
+            catch BridgeKeychain.Failure.migrationRequired {
+                if MacKeychainMigrationAlert.make().runModal() == .alertSecondButtonReturn { try MacKeychainAccess.migrate() }
+                else { migrationCancelled = true }
+            }
+            if !migrationCancelled { _ = try PairingTokenStore.loadOrCreate() }
+        }
         catch { show("无法访问设备配对令牌", "请检查钥匙串授权后重新启动。读取失败不会替换现有令牌，也不会反复请求密码。") }
+        DispatchQueue.main.async {
+            if MacDirectAuthorization.shouldRequest(defaults: .standard, trusted: AXIsProcessTrusted()) {
+                let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+                _ = AXIsProcessTrustedWithOptions(options)
+            }
+        }
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
         let music = { [dataStore] in dataStore.snapshot().music }
         let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), networkDiagnostics: { [networkDiagnostics] in networkDiagnostics.snapshot() }, music: { [dataStore] in
