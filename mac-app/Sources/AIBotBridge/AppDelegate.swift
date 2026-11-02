@@ -95,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         catch { show("无法访问设备配对令牌", "请检查钥匙串授权后重新启动。读取失败不会替换现有令牌，也不会反复请求密码。") }
         DispatchQueue.main.async {
-            if MacDirectAuthorization.shouldRequest(defaults: .standard, trusted: AXIsProcessTrusted()) {
+            if MacDirectAuthorization.shouldRequest(defaults: .standard, trusted: AXIsProcessTrusted(), identity: MacDirectAuthorization.buildIdentity()) {
                 let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
                 _ = AXIsProcessTrustedWithOptions(options)
             }

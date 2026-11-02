@@ -33,15 +33,26 @@ final class MacFeaturePreferencesTests: XCTestCase {
     func testDirectPermissionPromptOnlyOnceAndRespectsOptOut() {
         let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }
         MacFeaturePreferences.register(defaults)
-        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: true))
-        XCTAssertTrue(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false))
-        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false))
-        defaults.removeObject(forKey: MacDirectAuthorization.requestedKey)
+        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: true, identity: "build-a"))
+        XCTAssertTrue(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false, identity: "build-a"))
+        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false, identity: "build-a"))
         defaults.set(false, forKey: MacTab5Desktop.enabledKey)
-        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false))
+        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false, identity: "build-b"))
         defaults.set(true, forKey: MacTab5Desktop.enabledKey)
         defaults.set(false, forKey: MacTab5Codex.enabledKey)
-        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false))
+        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false, identity: "build-b"))
+    }
+    func testChangedBuildGuidesAgainWithoutRepeatingForSameBuild() {
+        let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }
+        MacFeaturePreferences.register(defaults)
+        defaults.set(true, forKey: MacDirectAuthorization.requestedKey)
+        XCTAssertTrue(MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: false, identity: "build-a"))
+        let reopened = UserDefaults(suiteName: name)!
+        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: reopened, trusted: false, identity: "build-a"))
+        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: reopened, trusted: true, identity: "build-b"))
+        XCTAssertTrue(MacDirectAuthorization.shouldRequest(defaults: reopened, trusted: false, identity: "build-b"))
+        XCTAssertFalse(MacDirectAuthorization.shouldRequest(defaults: reopened, trusted: false, identity: "build-b"))
+        XCTAssertEqual(reopened.string(forKey: MacDirectAuthorization.requestedBuildKey), "build-b")
     }
     func testExistingMusicPermissionMigratesOnceAndControlOptOutPersists() {
         let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }

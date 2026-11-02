@@ -6,7 +6,7 @@
 
 - 将桥接凭据迁入一个钥匙串项目，正常启动读取一次并复用；拒绝后不由后台轮询反复请求，不生成替代密钥覆盖原资料。
 - 默认开启可用的 Codex 会话、直达、发送、电脑控制和音乐控制；保留用户明确关闭的设置。录音和发送仍由用户操作发起，系统权限、账户和解锁密码仍需具备对应条件。
-- 首次启动需要辅助功能权限时发起系统请求，设置页显示授权状态并提供系统设置入口。部分 macOS 页面名称为“设备控制与数据访问”。
+- 启动时按当前签名构建检查辅助功能引导：新构建权限未生效时请求一次，同一构建不重复请求；保留明确关闭的选择。设置页显示实际授权状态并提供系统设置入口。部分 macOS 页面名称为“设备控制与数据访问”。
 - 首次统一入口授权等待延长到十分钟，避免用户处理系统提示时提前超时；不会自动重复提交请求。
 
 ## 升级与资料迁移
@@ -30,7 +30,7 @@
 
 - Consolidate bridge credentials into one Keychain item, reuse a single process snapshot and stop background retries after denial. Preserve existing values and encryption keys.
 - Enable available Codex, desktop, computer and music features by default while respecting explicit opt-outs. Recording and submission remain user-initiated; system permissions and required accounts/passwords remain prerequisites.
-- Guide initial accessibility authorization, show its effective state and allow ten minutes for the initial consolidated-item authorization.
+- Guide accessibility authorization once per untrusted build, preserving explicit opt-outs and avoiding repeated requests for the same build; show its effective state and allow ten minutes for the initial consolidated-item authorization.
 - Legacy items may still require individual system approval during first migration. After migration, use the consolidated item. Retained legacy records are pre-migration rollback data; subsequent credential changes require downgrade compatibility checks.
 - The public candidate remains ad-hoc signed and unnotarized. Local certificate-signed acceptance is not acceptance of the public installer.
 - Local development acceptance passed 423 tests, 29,059 isolated checks, native UI checks, legacy-value verification and preservation of 38 fixed preferences/29 encrypted files. The user confirmed one consolidated-item prompt, no prompt after normal restart, fresh TAB5 USB heartbeats and Codex navigation. Record final-package identity, installation, upgrade and remaining hardware checks separately before publication.
