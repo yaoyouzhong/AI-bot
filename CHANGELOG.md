@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 - Consolidate bridge credentials into one Keychain item and reuse one in-process authorization snapshot. Stop background retries after denial and preserve existing credentials and encryption keys.
 - Enable available Codex Direct, submission, computer and music controls by default while preserving explicit opt-outs. Provide an app-owned accessibility guide and a menu entry even when macOS suppresses its prompt; renew guidance after an untrusted build replacement. Background launches defer the guide until the user opens the app.
 - Verify legacy migration, provide a controlled migration path through the unchanged authorized helper, and allow more time to complete initial system authorization.
-- Local acceptance passed 423 macOS tests, the Release build, one consolidated-item prompt, no prompt after normal restart and TAB5 navigation. Published-package upgrades and fresh-user environments still require acceptance.
+- Actual-package acceptance passed 424 macOS tests, the Release build, visible app-owned guidance, one consolidated-item prompt, no prompt after normal restart and TAB5 navigation after re-adding the current app's accessibility entry. Legacy-first public upgrades and fresh-user environments remain untested.
 - Mac-only patch preparation; Windows remains 0.6.14 and device firmware is unchanged. Original legacy items may need separate approval during their first migration; do not assume the consolidated-item prompt covers previously unapproved items. This release candidate retains ad-hoc signing and is not notarized.
 
 ## 0.6.14 - 2026-11-02

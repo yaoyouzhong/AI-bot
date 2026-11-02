@@ -19,9 +19,9 @@
 
 ## 验证与发布门槛
 
-- 本地开发候选已通过 423 项 macOS 测试、29,059 项隔离检查、Release 构建及实际明暗界面检查；已验证原值迁移、38 项固定设置与 29 份加密资料保留。
-- 用户确认本机统一项目一次授权、正常重启无再次提示、TAB5 USB 心跳及 Codex 直达定位。详情见[统一入口记录](development/MAC-KEYCHAIN-VAULT-20261102.md)。
-- `65620c7` 候选自动验证通过、用户确认钥匙串一次，但系统没有显示辅助功能引导，已退回；应用自己的引导与菜单入口加入后重新生成候选并验收。摘要与实机状态见[候选记录](development/MAC-0615-PACKAGE-ACCEPTANCE-20261102.md)。从公开 0.6.14 的首次迁移、全新用户与不同 macOS 尚未验收；Intel Mac 不在本次范围。
+- 当前实际包从干净提交 `8f4a5ed` 构建，424 项 macOS 测试、29,059 项隔离检查、Release 构建、包完整性和实际明暗界面检查通过；38 项固定设置、5 份配置、29 份加密资料与 3 份资源保持。
+- 用户确认统一项目一次授权、应用引导可见并能打开系统设置；重新添加当前应用的辅助功能条目后，同包正常重启无新提示、TAB5 定位成功，新进程后台记录定位 200 与实时 USB 心跳。详情见[实际包验收](development/MAC-0615-PACKAGE-ACCEPTANCE-20261102.md)。
+- 实际升级需要用户重新关联旧的辅助功能条目，不承诺临时签名升级免授权。真实音乐控制正在补验；公开 0.6.14 首次迁移、全新用户与不同 macOS 尚未验收，Intel Mac 不在本次范围。
 - 只有确认实际发布文件与验收文件相同后才能公开。公开前不把下载索引改为 0.6.15，不更新未变更平台的附件。
 
 ## English
@@ -33,5 +33,5 @@
 - Provide an app-owned accessibility guide once per untrusted build, with a persistent menu entry and effective permission state. Background launches defer foreground presentation until the user opens the app. Preserve explicit opt-outs and allow ten minutes for initial consolidated-item authorization.
 - Legacy items may still require individual system approval during first migration. After migration, use the consolidated item. Retained legacy records are pre-migration rollback data; subsequent credential changes require downgrade compatibility checks.
 - The public candidate remains ad-hoc signed and unnotarized. Local certificate-signed acceptance is not acceptance of the public installer.
-- Local development acceptance passed 423 tests, 29,059 isolated checks, native UI checks, legacy-value verification and preservation of 38 fixed preferences/29 encrypted files. The user confirmed one consolidated-item prompt, no prompt after normal restart, fresh TAB5 USB heartbeats and Codex navigation. Record final-package identity, installation, upgrade and remaining hardware checks separately before publication.
-- Candidate `65620c7` passes automated checks and one real Keychain prompt, but is rejected because macOS did not display accessibility guidance. Rebuild and validate the app-owned guide and menu entry on the new exact package. See the linked acceptance record for hashes and remaining gates.
+- The exact package from clean commit `8f4a5ed` passes 424 tests, 29,059 isolated checks, the Release build, native UI previews and preservation of 38 settings, 5 configuration files, 29 encrypted files and 3 resources. The user confirmed one consolidated-item prompt, visible app-owned guidance, normal restart without new prompts and successful TAB5 navigation after re-adding the current app's accessibility entry. The restarted process records navigation 200 and fresh USB heartbeats.
+- Ad-hoc upgrades are not authorization-free. Music acceptance is being completed; public legacy-first migration, fresh-user environments and other macOS versions remain untested. See the linked package record for exact hashes and remaining gates.
