@@ -1,6 +1,6 @@
 # AI-bot 安装与刷机指南
 
-适用于 **Windows 0.6.14、Mac 0.6.15、TAB5 0.2.302-ui、ESP8266 0.5.7**，说明更新于 2026-11-02。Windows 与 Apple Silicon Mac 均支持两类设备。
+适用于 **Windows 0.6.16、Mac 0.6.16、TAB5 0.2.303-ui、ESP8266 0.5.8**，说明更新于 2026-11-03。Windows 与 Apple Silicon Mac 均支持两类设备。
 
 **先安装电脑应用，再按设备当前系统选择路线。** 第一次只需完成 USB 接入、添加设备和屏幕检查；模型账号、语音、Wi-Fi 和图库都可稍后设置。
 
@@ -202,3 +202,9 @@ Optional sources are configured from Account Data or the selected device: speech
 Mac onboarding: adding TAB5 opens USB Pairing directly, including reused connection windows. Normal reopening preserves the selected tab, and firmware updates open the Firmware tab.
 
 Mac 0.6.15 enables available features by default while preserving explicit opt-outs. Follow its native authorization guide; a background launch defers the guide until the user clicks the menu-bar icon. Allow AI-bot Bridge in Accessibility, also called Device Control and Data Access on some systems. If an old enabled entry remains ineffective, remove it and re-add `/Applications/AIBotBridge.app`. The consolidated Keychain item is “AI-bot Bridge 资料”; local acceptance had one prompt and none after restarting the same build. Legacy-first migration may still require per-item approval. Other macOS permissions remain separate. Quit before replacing the app and keep old backups as ZIPs or outside Applications. See the [authorization video supplement](MAC-AUTHORIZATION-VIDEO.md).
+
+## 0.6.16 安装更新提示 / Update notes
+
+Windows 与 Apple Silicon Mac 本次桥接均为 0.6.16；固件按设备单独选择，小屏 0.5.8、大屏 0.2.303-ui。从[完整下载中心](../DOWNLOADS.md)取得实际发布附件。已有相同镜像无需重刷。Windows 安装前正常退出托盘程序，保留用户设置和配对；Mac 正常退出后替换应用，临时签名替换可能需要重新授权。Windows 本机语音识别依赖已安装的微软识别器，保存设置后用于下一段录音。
+
+Desktop 0.6.16 is provided for Windows and Apple Silicon Mac; device firmware remains independently versioned. Quit before upgrading, preserve settings/pairing, and use the complete download center. An unchanged device image does not require another flash. Ad-hoc Mac replacements may need system authorization; Windows native recognition uses the installed Microsoft recognizer.

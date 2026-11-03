@@ -30,6 +30,16 @@
 
 每项交接使用“已完成／已有无需修改／不适用／待验证”，同时记录实现位置和证据。“已完成”必须说明是代码、自测、安装还是具体设备验收，不能混用。
 
+### 按变更复用证据
+
+- 一个候选以源码 SHA 和包 SHA-256 固定身份。同一份已验收包直接晋级；不因换会话、整理文档、准备标签或上传附件而重做构建和功能验收。
+- 只改变版本声明时，沿用未变更运行代码的功能实测，补实际发布包的身份、安装／启动检查；说明修改不触发重建。
+- 对照最近已发布版本列出实际变化。安装器、运行时依赖、数据格式、加密和迁移代码未变时，可结合既有对应链路实测、本次实际包安装与资料保留结果复用证据；新增安装或数据迁移路径仍须定向验证。保留未覆盖的具体条件，不将其扩成每次全量重测。
+- 安装升级检查允许使用本机临时目录、静默安装和只读启动，保存并恢复原安装登记，保护用户资料；没有新证据时不反复尝试同一沙盒路径。后台自动化继续遵守前台窗口约束。
+- 唯一发布负责人汇集各端一次性验收结果与剩余限制后，按原包手动晋级或自动晋级。不通过的关键变更仍阻止发布；证据复用不等于把失败或未验证的新增路径标为成功。
+
+Evidence follows the actual change: identify candidates by source and archive hashes, promote accepted bytes, reuse unchanged functional and storage-path evidence, and target installation or migration checks to changed paths. Documentation and version-only updates do not trigger a complete acceptance cycle. Preserve explicit limitations and continue to block failed critical changes.
+
 - 自动化先完成：构建、已有回归、普通设置保存/取消与读回、协议状态、版本与包完整性；不把可自动完成的逐按钮检查交给用户。
 - 人工只覆盖真实条件：录音与输入法、硬件通道、设备提交、升级体验及必要账户。一次只给一个简单步骤。
 - 发送正确性、防重复、草稿/设置保留、安装升级等关键链路未通过时阻止相关平台发布。缺少硬件或账户的非关键项，必须列明影响与替代证据，由用户明确接受剩余限制后才发布；日期目标不豁免门槛。

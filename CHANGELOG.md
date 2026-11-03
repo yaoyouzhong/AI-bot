@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 ### Scope and validation
 - Windows x64 and Apple Silicon Mac bridge update; ESP8266 and TAB5 firmware remain independent. The ESP8266 stock display improvements require the corresponding updated firmware and are not delivered by this bridge package.
 - Preserve existing device settings and pairing during upgrades. Windows native speech recognition accuracy varies; review recognized text before sending.
+- Promote the accepted Windows and Mac packages from source `28ff9cf` without rebuilding. Native Windows 0.6.14-to-0.6.16 upgrade and installed CLI startup passed; the user confirms the exact Mac package's installation, startup and restart. Reuse unchanged-path evidence and retain the [explicit acceptance limits](docs/RELEASE-0.6.16.md).
 
 ## 0.6.15 - 2026-11-02
 

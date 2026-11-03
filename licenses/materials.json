@@ -235,7 +235,8 @@
     "docs/assets/screens/tab5-firmware-notes-302.png": "a708a5a089de6ab6b40342315e925008b271708438d1c34c3cf5881cac5f144d",
     "docs/assets/screens/mac-direct-authorization.png": "180225671551e6d4ed752b20420d810df4ae9fd89e6df8d51ea79a330c53e62f",
     "docs/assets/screens/mac-direct-authorization-upgrade.png": "0eddbab9adaa7f7f38478869ec1846397776e95412ee3a94ecbd033332284f9f",
-    "docs/assets/product-intro/AI-bot-mac-authorization-cover.png": "706f0d66bb0933485f9ad805f9ac8385c884b55b1feb1bd817fc1a6c3608aee1"
+    "docs/assets/product-intro/AI-bot-mac-authorization-cover.png": "706f0d66bb0933485f9ad805f9ac8385c884b55b1feb1bd817fc1a6c3608aee1",
+    "docs/assets/screens/esp8266-stock-058-preview.png": "a81481504686526c2c4b69c74bff8c284d29449a11c028dbe4ca9295bc0688ce"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

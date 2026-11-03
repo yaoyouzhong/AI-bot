@@ -4,9 +4,9 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.15.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.16.md) · [简体中文](README.md)
 
-**Mac 0.6.15:** available features start enabled while preserving explicit opt-outs, with an app-owned permission guide and a consolidated Keychain credential item. Windows retains 0.6.14; device firmware is unchanged. [Mac installation and permissions](docs/INSTALL.zh.md#mac) · [Authorization video supplement (download)](docs/MAC-AUTHORIZATION-VIDEO.md)
+**This update:** Windows/Mac desktop 0.6.16, ESP8266 firmware 0.5.8 and TAB5 firmware 0.2.303-ui. Account spending, optional Windows native speech recognition, refined stock glyphs and transitions, responsive Mac menus, upcoming birthdays and alert details. [Changes and acceptance scope](docs/RELEASE-0.6.16.md) · [Mac installation and permissions](docs/INSTALL.zh.md#mac)
 
 ## Choose your desktop display
 
@@ -126,11 +126,11 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 <!-- downloads:start -->
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.14 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/AI-bot-bridge-v0.6.14-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.15 | [Download · 18 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.15/AI-bot-bridge-v0.6.15-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.15/SHA256SUMS.txt) |
-| ESP8266 display · first install / upgrade | 0.5.7 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.7/AI-bot-esp8266-0.5.7-firmware.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.7/SHA256SUMS.txt) |
-| TAB5 · first install from factory system | 0.2.302-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/AI-bot-tab5-0.2.302-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.302-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/AI-bot-tab5-0.2.302-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.16 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.16/AI-bot-bridge-v0.6.16-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.16/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.16 | [Download · 18 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.16/AI-bot-bridge-v0.6.16-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.16/SHA256SUMS.txt) |
+| ESP8266 display · first install / upgrade | 0.5.8 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-firmware.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.303-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.303-ui/AI-bot-tab5-0.2.303-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.303-ui/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.303-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.303-ui/AI-bot-tab5-0.2.303-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.303-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · standard | 2026.1 (package 2026.10.15.1) | [Download · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · complete HD | 2026.1 (package 2026.10.16) | [Download · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
 | Daily Painting · standard | 2026.1 (package 2026.10.14.1) | [Download · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |

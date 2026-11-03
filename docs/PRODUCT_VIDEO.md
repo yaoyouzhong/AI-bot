@@ -1,5 +1,7 @@
 # 产品介绍视频 / Product introduction video
 
+2026-11-03 发布补充：[0.6.16 与两款固件更新](RELEASE-0.6.16.md) 和[小屏股票字形预览](assets/screens/esp8266-stock-058-preview.png)。本页下方影片继续作为带日期的通用项目介绍，本次语音识别选项、精细股票字形和 TAB5 生日窗口以更新说明为准；不将历史镜头称为本次包的验收。为保留有效素材，本次未重编码影片。 / November 3 release supplement: [desktop and firmware changes](RELEASE-0.6.16.md) and [synthetic stock typography preview](assets/screens/esp8266-stock-058-preview.png). The dated film remains a general overview; new speech options, glyph refinements and birthday filtering are documented separately. Historical footage is not acceptance of the current packages; this update retains the original encoded media.
+
 2026-11-02 Mac 0.6.15 补充：[Mac 授权说明短片](MAC-AUTHORIZATION-VIDEO.md) 展示新的原生应用引导和本机验收边界。下方全项目影片保持原有双硬件介绍与音轨。 / The Mac 0.6.15 [authorization supplement](MAC-AUTHORIZATION-VIDEO.md) adds native guidance and scoped acceptance; the whole-project film below retains its hardware comparison and audio.
 
 这段 121 秒项目介绍先对照 TAB5 和 ESP8266 的共有功能，再展示 TAB5 的触控与独有功能。2026-11-02 只更新 Codex 直达说明，其他镜头顺序和原音轨保留。画面来自原生隔离演示与硬件合成图。 / This 121-second overview compares shared TAB5 and ESP8266 features, then presents TAB5-only interactions. The November 2 update changes only the Codex Direct description while retaining scene order and original audio.
