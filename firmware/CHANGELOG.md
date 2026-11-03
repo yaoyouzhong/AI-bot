@@ -2,6 +2,14 @@
 
 ESP8266 versions are independent of the desktop bridge and TAB5.
 
+## 0.5.8 - 2026-11-03
+
+Local release candidate; final versioned image and hardware acceptance are tracked separately.
+
+- Display stock codes with the authorized TFT_eSPI Font 4 subset, preserving narrow glyph proportions, bounded width and truncation.
+- Use the nonblocking page transition for normal pages and stock subpages; refresh only changed visible stock rows between page changes.
+- Separate temporary stock bitmap storage from filesystem call stacks to avoid the observed ESP8266 stack overflow; preserve protocol and display settings.
+
 ## 0.5.7 - 2026-10-27
 
 Release prepared after user hardware acceptance.

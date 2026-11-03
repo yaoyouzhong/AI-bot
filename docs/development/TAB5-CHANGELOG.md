@@ -2,6 +2,15 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.303-ui - 2026-11-03
+
+### Calendar and monitoring
+- Show birthdays occurring today through the next 30 days in the recent list; retain other birthdays in the calendar and reminders.
+- Open the matching monitoring alert with its available cause and evidence, and remove the recovered alert while preserving other active notices.
+
+### Validation
+- The local candidate passed firmware build, offline UI and monitoring tests and an authorized device upgrade with exact boot verification. The 30-day boundary and details of a real Codex failure still require hardware conditions.
+
 ## 0.2.302-ui - 2026-11-02
 
 ### Codex and interaction
