@@ -1,5 +1,7 @@
 # 产品介绍视频 / Product introduction video
 
+本轮媒体复用：经用户确认，小幅变化且通用介绍仍准确时，可保留现有截图和影片。0.6.16 的功能细节通过下方发布补充说明，影片本体、封面及原媒体摘要保持；不将复用描述为重新制作。 / Media reuse: the user allows accurate screenshots and the general overview film to remain for minor changes. The release supplement covers the current details; encoded video, covers and their original hashes are retained and are not claimed as newly produced.
+
 2026-11-03 发布补充：[0.6.16 与两款固件更新](RELEASE-0.6.16.md) 和[小屏股票字形预览](assets/screens/esp8266-stock-058-preview.png)。本页下方影片继续作为带日期的通用项目介绍，本次语音识别选项、精细股票字形和 TAB5 生日窗口以更新说明为准；不将历史镜头称为本次包的验收。为保留有效素材，本次未重编码影片。 / November 3 release supplement: [desktop and firmware changes](RELEASE-0.6.16.md) and [synthetic stock typography preview](assets/screens/esp8266-stock-058-preview.png). The dated film remains a general overview; new speech options, glyph refinements and birthday filtering are documented separately. Historical footage is not acceptance of the current packages; this update retains the original encoded media.
 
 2026-11-02 Mac 0.6.15 补充：[Mac 授权说明短片](MAC-AUTHORIZATION-VIDEO.md) 展示新的原生应用引导和本机验收边界。下方全项目影片保持原有双硬件介绍与音轨。 / The Mac 0.6.15 [authorization supplement](MAC-AUTHORIZATION-VIDEO.md) adds native guidance and scoped acceptance; the whole-project film below retains its hardware comparison and audio.
