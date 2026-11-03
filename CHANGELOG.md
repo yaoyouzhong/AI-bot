@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.16 - 2026-11-03
+
+### Desktop bridges
+- Windows adds an optional native speech recognition provider and restores account spending from supported provider sources. Provider failures retain the last usable data.
+- Improve ESP8266 USB resource synchronization and diagnostics. Mac avoids blocking the interface on resource transfers and mirrors stock codes using the device's glyphs and layout.
+- Windows clears a Codex connection warning only when the affected channel reports a real success. Mac leaves model connectivity unconfirmed when equivalent evidence is unavailable.
+
+### Scope and validation
+- Windows x64 and Apple Silicon Mac bridge update; ESP8266 and TAB5 firmware remain independent. The ESP8266 stock display improvements require the corresponding updated firmware and are not delivered by this bridge package.
+- Preserve existing device settings and pairing during upgrades. Windows native speech recognition accuracy varies; review recognized text before sending.
+
 ## 0.6.15 - 2026-11-02
 
 ### Mac authorization and first use
