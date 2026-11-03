@@ -18,6 +18,14 @@ internal static class UsbManagementSelfTest
         var rejected = UsbDeviceProtocol.ParseReply(
             "@AIBOT {\"version\":1,\"type\":\"reset_wifi_ack\",\"request_id\":9,\"ok\":false}", "reset_wifi_ack", 9);
         Require(rejected is not null && !rejected.Value.GetProperty("ok").GetBoolean(), "Negative reset ACK must remain negative.");
+        Require(UsbDeviceProtocol.ParseReply(line.Replace("\"request_id\":7","\"request_id\":4294967295"),"device_info",uint.MaxValue) is not null,
+            "Full unsigned request IDs remain accepted.");
+        foreach(var (text,reason) in new[]{("private noise",UsbReplyRejection.NonProtocol),("@AIBOT []",UsbReplyRejection.Malformed),
+            (line.Replace("\"request_id\":7","\"request_id\":8"),UsbReplyRejection.WrongRequestId),
+            (line.Replace("\"version\":1","\"version\":2"),UsbReplyRejection.WrongVersion),
+            (line.Replace("device_info","reset_wifi_ack"),UsbReplyRejection.OtherType)}) {
+            Require(UsbDeviceProtocol.ParseReply(text,"device_info",7,out var actual) is null&&actual==reason,"Rejected reply reason is accurate.");
+        }
 
         var during = info with { UsbActive = false, LanStatusCount = 2, UptimeMs = 22000 };
         var restored = during with { UsbActive = true, UsbStatusCount = 5, UptimeMs = 25000 };

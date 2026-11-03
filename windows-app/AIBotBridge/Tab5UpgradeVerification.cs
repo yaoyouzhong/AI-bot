@@ -27,7 +27,7 @@ internal sealed partial class Tab5Service
         var device=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity);
         if(device is null){await VerifyWirelessBootAsync(image,pair.DeviceId,token);return;}
         lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备仍在处理操作，请等待升级结束。");_installBusy++;}
-        _verifiedBoot=null;_upgradeDiagnostic="正在核验";
+        _verifiedBoot=null;_upgradeDiagnostic="正在核验";string observed="";
         try {
             await _usbGate.WaitAsync(token);
             try {
@@ -39,7 +39,11 @@ internal sealed partial class Tab5Service
                     if(i<2)await Task.Delay(1200,token);
                 }
                 Send(port,new{version=1,type="tab5_ota_status"});using var reply=await ReadReplyAsync(port,"tab5_ota_diagnostic",token);
-                RecordVerifiedBoot(reply.RootElement,image,pair.DeviceId);
+                var root=reply.RootElement;
+                string ReadText(string key)=>root.TryGetProperty(key,out var x)&&x.ValueKind==JsonValueKind.String?x.GetString()??"":"";
+                int ReadNumber(string key)=>root.TryGetProperty(key,out var x)&&x.ValueKind==JsonValueKind.Number&&x.TryGetInt32(out int n)?n:-1;
+                observed=$"versionMatch={ReadText("firmware")==image.Version}; elfMatch={ReadText("elfSha256")==image.ElfSha256}; partition={ReadText("partition")}; address={ReadNumber("address")}; state={ReadNumber("state")}; stateError={ReadNumber("stateError")}";
+                RecordVerifiedBoot(root,image,pair.DeviceId);
                 string verified=$"verified; firmware={image.Version}; elfSha256={image.ElfSha256}; partition={reply.RootElement.GetProperty("partition").GetString()}; state=VALID";
                 _upgradeDiagnostic=verified+"; timing=unavailable";
                 // Retained numeric timing survives the OTA reboot. Collect it
@@ -54,7 +58,7 @@ internal sealed partial class Tab5Service
                     _upgradeDiagnostic+=$"; timingRead={ex.GetType().Name}";
                 }
             }finally{CloseUsbPort();_usbGate.Release();}
-        }catch(Exception ex){if(_verifiedBoot is null)_upgradeDiagnostic="failed; "+ex.GetType().Name;throw;}
+        }catch(Exception ex){if(_verifiedBoot is null)_upgradeDiagnostic="failed; "+ex.GetType().Name+(observed.Length>0?"; "+observed:"");throw;}
         finally{lock(_lifecycle)_installBusy--;}
     }
     internal static string FormatUpgradeTiming(JsonElement root) {
@@ -115,7 +119,7 @@ internal sealed partial class Tab5Service
     }
     internal static void VerifyUpgradeDiagnostic(JsonElement root,Tab5OtaPackage image) {
         string Text(string key)=>root.TryGetProperty(key,out var x)&&x.ValueKind==JsonValueKind.String?x.GetString()!:"";
-        int Number(string key)=>root.TryGetProperty(key,out var x)&&x.TryGetInt32(out int n)?n:-1;
+        int Number(string key)=>root.TryGetProperty(key,out var x)&&x.ValueKind==JsonValueKind.Number&&x.TryGetInt32(out int n)?n:-1;
         string partition=Text("partition");int address=Number("address");
         if(Text("type")!="tab5_ota_diagnostic"||Text("firmware")!=image.Version||Text("elfSha256")!=image.ElfSha256||
             !(partition=="ota_0"&&address==0x20000||partition=="ota_1"&&address==0x700000)||Number("stateError")!=0||Number("state")!=2)

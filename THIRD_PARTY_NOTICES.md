@@ -4,14 +4,14 @@ AI-bot's own source code, including its Windows/macOS bridges and ESP8266/TAB5 f
 
 | Component | Use | License/source |
 | --- | --- | --- |
-| Roboto Mono ASCII raster subset | ESP8266 stock-code glyphs | SIL OFL 1.1; Copyright 2015 The Roboto Mono Project Authors; [license](licenses/roboto-mono/OFL.txt); [source](https://github.com/google/fonts/tree/b01086459d9d41ece904d39155b93f7bd3a676f2/ofl/robotomono) |
+| TFT_eSPI Font 4 raster subset | ESP8266 stock-code glyphs and Windows mirror | TFT_eSPI 2.5.43 component notices; [license](licenses/tft-espi/LICENSE.txt); [source](https://github.com/Bodmer/TFT_eSPI/tree/v2.5.43/Fonts) |
 | .NET, `System.IO.Ports`, and `System.Speech` 8.0.0 | Windows bridge runtime, serial transport, and installed Microsoft SAPI speech recognition | MIT, https://github.com/dotnet/runtime |
 | Microsoft.Web.WebView2 1.0.4078.44 | Authorization browser control/loader | Package's Microsoft BSD-style LICENSE.txt; browser Runtime installed separately under its Microsoft terms, https://developer.microsoft.com/microsoft-edge/webview2/ |
 | Microsoft.Windows.SDK.NET.Ref 10.0.19041.56 | Windows SDK .NET projection and WinRT runtime DLLs | Windows SDK terms, https://aka.ms/WinSDKLicenseURL; both net8.0 DLLs explicitly listed at https://learn.microsoft.com/en-us/legal/windows-sdk/redist#microsoftwindowssdknetref |
 | Kyle's NetEase Cloud Music playback reference | Two instruction signatures and playback field layout; independent read-only adapter | MIT, https://github.com/Kxnrl/NetEase-Cloud-Music-DiscordRPC; pinned source and original notice in `licenses/netease-clock-reference/` |
 | Kyle's QQ Music playback reference | One x86 initialization signature and current-song field/string layout; independent bounded read-only adapter | MIT, same pinned upstream revision; original notice and provenance in `licenses/qqmusic-clock-reference/` |
 | ESP8266 Arduino core | Firmware framework | LGPL-2.1 and component-specific notices, https://github.com/esp8266/Arduino |
-| TFT_eSPI | ST7789 display driver | FreeBSD/MIT/BSD component notices, https://github.com/Bodmer/TFT_eSPI |
+| TFT_eSPI | ST7789 display driver and fonts | FreeBSD/MIT/BSD component notices, [license](licenses/tft-espi/LICENSE.txt), https://github.com/Bodmer/TFT_eSPI |
 | ArduinoJson | Firmware JSON parser | MIT, https://github.com/bblanchon/ArduinoJson |
 | WiFiManager | ESP8266 captive Wi-Fi configuration portal | MIT, https://github.com/tzapu/WiFiManager |
 | Open-Meteo API data | Weather, air quality, and geocoding | CC BY 4.0, https://open-meteo.com/en/license |

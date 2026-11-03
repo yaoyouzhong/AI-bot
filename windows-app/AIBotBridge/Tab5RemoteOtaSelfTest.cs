@@ -55,6 +55,20 @@ internal static class Tab5RemoteOtaSelfTest
             try {
                 var info=await Tab5OtaControl.CallAsync("info",name:pipeName);
                 if(!info.GetProperty("ok").GetBoolean()||info.GetProperty("body").GetProperty("sha256").GetString()!=image.Sha256)throw new Exception("IPC offer metadata differs");
+                string localImage=Path.Combine(Path.GetTempPath(),"tab5-offer-"+Guid.NewGuid().ToString("N")+".bin");
+                try {
+                    File.WriteAllBytes(localImage,TestFirmwareImage.Create("0.2.303-ui"));
+                    var loaded=Tab5OtaPackage.Load(localImage);
+                    var wrongDevice=await Tab5OtaControl.CallAsync("offer","001122334455",loaded.Sha256,pipeName,localImage);
+                    var wrongHash=await Tab5OtaControl.CallAsync("offer",pair.DeviceId,new string('e',64),pipeName,localImage);
+                    var missing=await Tab5OtaControl.CallAsync("offer",pair.DeviceId,loaded.Sha256,pipeName,localImage+".missing");
+                    if(wrongDevice.GetProperty("ok").GetBoolean()||wrongHash.GetProperty("ok").GetBoolean()||missing.GetProperty("ok").GetBoolean())throw new Exception("Invalid scoped offer accepted");
+                    var unchanged=await Tab5OtaControl.CallAsync("info",name:pipeName);
+                    if(unchanged.GetProperty("body").GetProperty("sha256").GetString()!=image.Sha256)throw new Exception("Rejected offer replaced image");
+                    var offered=await Tab5OtaControl.CallAsync("offer",pair.DeviceId,loaded.Sha256,pipeName,localImage);
+                    if(!offered.GetProperty("ok").GetBoolean()||offered.GetProperty("body").GetProperty("sha256").GetString()!=loaded.Sha256)throw new Exception("Valid scoped offer failed");
+                    service.OfferOta(image);
+                } finally {File.Delete(localImage);}
                 var invalid=await Tab5OtaControl.CallAsync("start",pair.DeviceId,new string('e',64),pipeName);
                 var invalidVerify=await Tab5OtaControl.CallAsync("verify",pair.DeviceId,new string('e',64),pipeName);
                 if(invalidVerify.GetProperty("ok").GetBoolean())throw new Exception("Local boot verification accepted the wrong image");

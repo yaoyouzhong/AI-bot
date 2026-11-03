@@ -19,6 +19,9 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     private volatile int _configuredLanPort;
     private SerialPort? _activePort;
     private readonly Action<string>? _writeOverride;
+    private readonly EspUsbResourceCache _resourceCache=new();
+    private readonly EspUsbDiagnostics _diagnostics=new();
+    internal object Diagnostics=>_diagnostics.Snapshot(UsbDataEnabled,UsbDataActive,_usbFirmwareVersion);
     private LanPairing? _pairing;
     private string? _preferredPort;
     internal string? ExpectedUsbIdentity {get;set;}
@@ -35,7 +38,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
     internal long LastDataWrittenAt=>Interlocked.Read(ref _lastStatusWrittenAt);
     internal bool UsbDataEnabled {
         get=>_usbDataEnabled;
-        set {lock(_portSync){_usbDataEnabled=value;if(!value)Interlocked.Exchange(ref _lastStatusWrittenAt,0);}}
+        set {lock(_portSync){if(_usbDataEnabled!=value)_resourceCache.Clear();_usbDataEnabled=value;if(!value)Interlocked.Exchange(ref _lastStatusWrittenAt,0);}}
     }
     internal bool UsbDataActive=>UsbDataEnabled&&PortName is not null&&Interlocked.Read(ref _lastStatusWrittenAt)>0&&Environment.TickCount64-Interlocked.Read(ref _lastStatusWrittenAt)<8000;
     internal bool FlashBusy=>_flashPaused;
@@ -67,10 +70,11 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         {
             if (_activePort?.IsOpen != true) throw new IOException("USB 未连接。");
             _pauseUntil = Environment.TickCount64 + 30_000;
+            _resourceCache.Clear();
         }
     }
 
-    public void ResumeTransmission() { lock (_portSync) _pauseUntil = 0; }
+    public void ResumeTransmission() { lock (_portSync) {_pauseUntil=0;_resourceCache.Clear();} }
 
     public UsbDeviceInfo ReadDeviceInfo() =>
         UsbDeviceProtocol.ReadInfo(RequestDevice("device_info_request", "device_info"));
@@ -83,8 +87,12 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
 
     private JsonElement RequestDevice(string type, string replyType, bool confirm = false)
     {
+        bool observe=type=="device_info_request",success=false,timedOut=false;long queued=Environment.TickCount64;
+        if(observe)_diagnostics.InfoQueued();
+        try {
         lock (_portSync)
         {
+            if(observe)_diagnostics.InfoStarted(Environment.TickCount64-queued);
             if (_flashPaused || _activePort?.IsOpen != true || (IsPaused && type != "device_info_request"))
                 throw new IOException("USB 未连接或正在回退测试。");
             uint requestId;
@@ -94,11 +102,14 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             var deadline = Environment.TickCount64 + 3000;
             while (Environment.TickCount64 < deadline)
             {
-                var reply = UsbDeviceProtocol.ParseReply(_activePort.ReadLine().Trim(), replyType, requestId);
-                if (reply is not null) return reply.Value;
+                var reply = UsbDeviceProtocol.ParseReply(ReadLine(_activePort), replyType, requestId,out var rejection);
+                if(observe)_diagnostics.InfoReplyRejected(rejection);
+                if (reply is not null) {success=true;_diagnostics.ReplyConfirmed();return reply.Value;}
             }
             throw new TimeoutException("设备未确认请求；请检查固件版本。重置请求不会自动重试。");
         }
+        } catch(TimeoutException){timedOut=true;throw;}
+        finally {if(observe)_diagnostics.InfoFinished(success,timedOut,Environment.TickCount64-queued);}
     }
 
     internal SerialPublisher(LanPairing? pairing, string? preferredPort = null, Action<string>? writeOverride = null)
@@ -147,24 +158,35 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         return true; // Accepted for delivery; policy heartbeats also carry the selection.
     }
 
-    internal bool SendBrightness(int level) => TrySend(new
-    {
-        version = 1,
-        type = "brightness",
-        level = Math.Clamp(level, 0, 100)
-    });
+    internal bool SendBrightness(int level) {
+        level=Math.Clamp(level,0,100);
+        bool sent=TrySend(new {version=1,type="brightness",level});
+        // User requests have no device ACK in protocol v1. Keep their delivery,
+        // and count duplicates instead of assuming a write was applied.
+        _diagnostics.Brightness(level,sent);return sent;
+    }
 
     internal string? LastResourceFailure { get; private set; }
     internal event Action<string>? DisplayModeWritten;
 
     internal bool SendResource(BinaryResourceKind kind, byte[] data)
     {
-        var transferId = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(sizeof(uint)));
-        var chunks = BinaryResourceProtocol.CreateChunks(kind, data, transferId);
+        ArgumentNullException.ThrowIfNull(data);
+        if(data.Length is <1 or >1024*1024)throw new ArgumentOutOfRangeException(nameof(data));
         lock (_portSync)
         {
             LastResourceFailure = null;
             if (_activePort?.IsOpen != true || IsPaused || !UsbDataEnabled) { LastResourceFailure = "port closed, paused or Wi-Fi selected"; return false; }
+            string fingerprint=EspUsbResourceCache.Fingerprint(data);
+            if(_resourceCache.Contains(kind,fingerprint)){_diagnostics.ResourceSkipped();return true;}
+            var transferId=BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(sizeof(uint)));
+            var chunks=BinaryResourceProtocol.CreateChunks(kind,data,transferId);
+            long started=Environment.TickCount64;bool success=false;
+            // A lost final ACK can leave the new file installed. After any new
+            // attempt the former content is no longer positively confirmed.
+            _resourceCache.Forget(kind);
+            _diagnostics.ResourceStarted(kind,data.Length);
+            try {
             var nextHeartbeat = Environment.TickCount64;
             foreach (var chunk in chunks)
             {
@@ -176,6 +198,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 {
                     _activePort.WriteLine(Prefix + DeviceStatusFrame.Create(_captureStatus()).ToJsonString(JsonDefaults.Options));
                     Interlocked.Exchange(ref _lastStatusWrittenAt,Environment.TickCount64);
+                    _diagnostics.StatusWritten();
                     nextHeartbeat = Environment.TickCount64 + 2000;
                 }
                 var acknowledged = false;
@@ -184,12 +207,14 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                     if (_flashPaused) return false;
                     _displayCommands.Drain();
                     _activePort.Write(chunk.WireBytes, 0, chunk.WireBytes.Length);
+                    _diagnostics.ChunkWritten(chunk.WireBytes.Length,attempt>0);
                     acknowledged = WaitForResourceAck(_activePort, chunk.TransferId, chunk.Sequence);
                     _displayCommands.Drain();
                 }
                 if (!acknowledged) { LastResourceFailure = $"kind={kind} sequence={chunk.Sequence} bytes={data.Length}: no positive ACK after 3 attempts"; return false; }
             }
-            return true;
+            _resourceCache.Confirm(kind,fingerprint);success=true;return true;
+            } finally {_diagnostics.ResourceFinished(kind,data.Length,success,Environment.TickCount64-started);}
         }
     }
 
@@ -231,7 +256,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 {
                     if (_flashPaused) continue;
                     if (tabPorts.Contains(candidate)||string.Equals(candidate, ReservedPort?.Invoke(), StringComparison.OrdinalIgnoreCase)) continue;
-                    ConnectionStatus="正在连接 "+candidate;port.Open();
+                    ConnectionStatus="正在连接 "+candidate;_diagnostics.Attempt();port.Open();
                     await Task.Delay(1200, cancellationToken);
                     if (_flashPaused) continue;
                     port.DiscardInBuffer();
@@ -256,8 +281,8 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                     ConnectionStatus="已连接 · "+candidate;
                     _deviceHost = deviceHost;
                     _usbFirmwareVersion = firmware;
-                    lock (_portSync) _activePort = port;
-                    var sentRevisions = new Dictionary<BinaryResourceKind, int>();
+                    lock (_portSync) {_resourceCache.Clear();_activePort=port;}
+                    _diagnostics.Connected();
                     LanPairing? sentPairing = null;
                     var nextDeviceProbeAt = DateTime.UtcNow.AddSeconds(deviceHost is null ? 5 : 30);
                     while (!cancellationToken.IsCancellationRequested && !_flashPaused && port.IsOpen)
@@ -283,10 +308,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                         // but no status, metrics or resources may refresh the USB data path.
                         foreach (var resource in UsbDataEnabled?resources():Array.Empty<ResourcePayload>())
                         {
-                            if (sentRevisions.TryGetValue(resource.Kind, out var revision) &&
-                                revision == resource.Revision) continue;
-                            if (SendResource(resource.Kind, resource.Data))
-                                sentRevisions[resource.Kind] = resource.Revision;
+                            SendResource(resource.Kind,resource.Data);
                         }
                         lock (_portSync)
                         {
@@ -294,7 +316,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                             // must not undo a mode selected while it was waiting.
                             Write(port, DeviceStatusFrame.Create(snapshot()));LastConnectionError=null;
                             _displayCommands.Drain();
-                            if (port.IsOpen && port.BytesToRead > 0) port.ReadExisting();
+                            if (port.IsOpen && port.BytesToRead > 0) _diagnostics.Received(port.ReadExisting(),drained:true);
                         }
                         await Task.Delay(2000, cancellationToken);
                     }
@@ -308,12 +330,14 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                 {
                     // A port may disappear, be busy, or belong to a different device.
                     LastConnectionError=ex.GetType().Name+" · "+ex.Message;
+                    _diagnostics.Error(ex);
                     ConnectionStatus=candidate+" · "+(ex is UnauthorizedAccessException?"端口被占用":ex is TimeoutException?"设备回复超时":ex is IOException?"连接中断":"数据发送失败");
                 }
                 finally
                 {
                     lock (_portSync)
-                        if (ReferenceEquals(_activePort, port)) _activePort = null;
+                        if (ReferenceEquals(_activePort, port)) {_activePort=null;_resourceCache.Clear();}
+                    _diagnostics.Disconnected();
                     _portName = null;
                     _deviceHost = null;
                     _usbFirmwareVersion = null;
@@ -351,6 +375,7 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
             if (port.IsOpen && !IsPaused && UsbDataEnabled) {
                 port.WriteLine(Prefix + JsonSerializer.Serialize(frame, JsonDefaults.Options));
                 Interlocked.Exchange(ref _lastStatusWrittenAt,Environment.TickCount64);
+                _diagnostics.StatusWritten();
             }
     }
 
@@ -363,10 +388,21 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         RtsEnable = false
     };
 
-    private static bool WaitForPong(SerialPort port, out string? deviceHost, out string? firmware)
+    private string ReadLine(SerialPort port)
+    {
+        try {
+            string line=port.ReadLine().Trim();_diagnostics.Received(line);return line;
+        } catch(TimeoutException) {
+            int pending=-1;
+            try {pending=port.BytesToRead;}catch(Exception ex) when(ex is IOException or InvalidOperationException){}
+            _diagnostics.ReadTimedOut(pending);throw;
+        }
+    }
+
+    private bool WaitForPong(SerialPort port, out string? deviceHost, out string? firmware)
         =>WaitForPong(port,out deviceHost,out firmware,out _);
 
-    private static bool WaitForPong(SerialPort port, out string? deviceHost, out string? firmware,out string? deviceId)
+    private bool WaitForPong(SerialPort port, out string? deviceHost, out string? firmware,out string? deviceId)
     {
         deviceHost = null;
         firmware = null;
@@ -376,16 +412,16 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
         {
             try
             {
-                var line = port.ReadLine().Trim();
+                var line = ReadLine(port);
                 if (TryParsePong(line, out deviceHost, out firmware,out deviceId))
-                    return true;
+                    {_diagnostics.PingFinished(true);return true;}
             }
             catch (TimeoutException)
             {
-                return false;
+                _diagnostics.PingFinished(false);return false;
             }
         }
-        return false;
+        _diagnostics.PingFinished(false);return false;
     }
 
     private void RefreshDeviceHost(SerialPort port)
@@ -461,21 +497,21 @@ internal sealed class SerialPublisher : IUsbFallbackDevice
                octets[0] == 172 && octets[1] is >= 16 and <= 31;
     }
 
-    private static bool WaitForResourceAck(SerialPort port, uint transferId, ushort sequence)
+    private bool WaitForResourceAck(SerialPort port, uint transferId, ushort sequence)
     {
         var deadline = DateTime.UtcNow.AddSeconds(3);
         while (DateTime.UtcNow < deadline)
         {
             try
             {
-                var line = port.ReadLine().Trim();
+                var line = ReadLine(port);
                 if (!line.StartsWith(Prefix, StringComparison.Ordinal)) continue;
                 using var document = JsonDocument.Parse(line[Prefix.Length..]);
                 var root = document.RootElement;
                 if (root.GetProperty("type").GetString() == "resource_ack" &&
                     root.GetProperty("transferId").GetUInt32() == transferId &&
                     root.GetProperty("sequence").GetUInt16() == sequence)
-                    return root.GetProperty("ok").GetBoolean();
+                    {_diagnostics.ReplyConfirmed();return root.GetProperty("ok").GetBoolean();}
             }
             catch (TimeoutException)
             {

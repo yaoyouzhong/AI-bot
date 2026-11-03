@@ -81,8 +81,9 @@ internal static class Tab5OtaCompressionSelfTest
             }
             byte[] wifiStream=Tab5OtaCompression.Stream(package.Image);
             File.WriteAllBytes(Path.Combine(directory,"wifi-stream.bin"),wifiStream);
-            using var httpService=new Tab5Service(store);
             foreach(var negotiation in new[]{("",Tab5OtaCompression.StreamEncoding),("tcp-v1",Tab5OtaCompression.StreamEncoding),("tcp-v2",""),("tcp-v2","unknown"),("tcp-v2",Tab5OtaCompression.StreamEncoding)}) {
+                // Each negotiation models a separate offer; a completed stream remains busy until the device confirms its exact image.
+                using var httpService=new Tab5Service(store);
                 using var wire=new MemoryStream();byte[] source=package.Image[..1024];
                 httpService.OfferOta(package with {Image=source,OfferId=Guid.NewGuid().ToString("N")});
                 await httpService.TransferOtaAsync(wire,source,pair.DeviceId,negotiation.Item1,CancellationToken.None,negotiation.Item2);

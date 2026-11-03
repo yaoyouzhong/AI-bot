@@ -39,6 +39,7 @@ internal static class Program
         if(args.Length==2&&args[0]=="--self-test-model-account-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.AlignmentUiSelfTest(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--self-test-deepseek-source-preview"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.DeepSeekSourcePreview(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--self-test-voice-settings-parity"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Tab5VoiceSettingsSelfTest.Run(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-esp-stock-parity"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();try{EspStockParitySelfTest.RunAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("ESP_STOCK_PARITY_FAILED "+ex.GetType().Name+": "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==1&&args[0]=="--self-test-windows-speech"){AppPaths.BeginPublicSelfTest();try{WindowsSpeechSelfTest.RunAsync().GetAwaiter().GetResult();ApplicationConfiguration.Initialize();WindowsSpeechSelfTest.RunHost();}catch(Exception ex){Console.Error.WriteLine("WINDOWS_SPEECH_FAILED "+ex.GetType().Name+": "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==1&&args[0]=="--self-test-screen-preview"){AppPaths.BeginPublicSelfTest();Tab5ScreenPreviewSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-voice-resource-priority"){AppPaths.BeginPublicSelfTest();Tab5Service.VoiceResourceSchedulingSelfTestAsync().GetAwaiter().GetResult();return;}
@@ -66,6 +67,13 @@ internal static class Program
         if(args.Length==2&&args[0]=="--self-test-agenda-ui") {
             AppPaths.BeginPublicSelfTest();if(!Application.SetHighDpiMode(HighDpiMode.DpiUnaware))throw new InvalidOperationException("DPI test process must start before any windows.");
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);AgendaSelfTest.LayoutSimulations(AgendaStore.Shared,Path.GetFullPath(args[1]));return;
+        }
+        if(args.Length==4&&args[0]=="--tab5-offer-ota") {
+            try {
+                var result=Tab5OtaControl.CallAsync("offer",args[1],args[2],imagePath:Path.GetFullPath(args[3])).GetAwaiter().GetResult();
+                Console.WriteLine(JsonSerializer.Serialize(result,JsonDefaults.Options));if(!result.GetProperty("ok").GetBoolean())Environment.ExitCode=1;
+            }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or TimeoutException or OperationCanceledException or JsonException or ArgumentException){Console.Error.WriteLine("TAB5_LOCAL_OFFER_FAILED: "+ex.GetType().Name);Environment.ExitCode=1;}
+            return;
         }
         if((args.Length==1&&args[0]=="--tab5-ota-info")||(args.Length==3&&(args[0]=="--tab5-start-ota"||args[0]=="--tab5-verify-ota"))) {
             try {

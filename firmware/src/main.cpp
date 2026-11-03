@@ -18,6 +18,7 @@
 #include "CreditTextRaster.h"
 #include "ResourceDedup.h"
 #include "StockCodeFont.h"
+#include "StockPaintState.h"
 #include "PageTransition.h"
 
 namespace {
@@ -686,47 +687,69 @@ void drawWeather() {
   screenDirty = false;
 }
 
+// Keep the glyph bitmap out of drawStocks' frame: its LittleFS label reads
+// need the same 4 KB continuation stack. Do not inline these lifetimes together.
+__attribute__((noinline)) void drawStockCode(const String& code, int y) {
+  uint16_t pixels[StockCodeFont::width * StockCodeFont::height] = {};
+  StockCodeFont::render(code.c_str(),[&](int x,int py,uint16_t color) {
+    pixels[py*StockCodeFont::width+x] = color;
+  });
+  display.pushImage(14,y,StockCodeFont::width,StockCodeFont::height,pixels);
+}
+
 void drawStocks() {
   int pages = max(1, (stockCount + kStocksPerPage - 1) / kStocksPerPage);
   if (stockPage != lastStockPageTick) { lastStockPageTick = stockPage; screenDirty = true; }
-  String key = String(stockPage) + "|" + String(stockCount);
-  for(int i=0;i<stockCount;i++) key += "|" + stocks[i].code + "|" + stocks[i].price + "|" + stocks[i].percent + "|" + String(stocks[i].trend);
-  if (!pageContentChanged(1,key)) {screenDirty=false;return;}
-
-  display.fillScreen(TFT_BLACK);
-  drawCentered(pages > 1 ? "STOCKS " + String(stockPage + 1) + "/" + String(pages) : "STOCKS",
-               228, 1, TFT_DARKGREY);
+  static StockPaintState<String,kStocksPerPage> paint;
+  const bool full=paint.begin(stockPage,stockCount,visualGeneration);
+  if(full) {
+    display.fillScreen(TFT_BLACK);
+    drawCentered(pages > 1 ? "STOCKS " + String(stockPage + 1) + "/" + String(pages) : "STOCKS",
+                 228, 1, TFT_DARKGREY);
+  }
   if (stockCount == 0) {
-    drawCentered("Waiting for data", 110, 2, TFT_DARKGREY);
+    if(full)drawCentered("Waiting for data", 110, 2, TFT_DARKGREY);
     screenDirty = false;
     return;
   }
 
   int start = stockPage * kStocksPerPage;
+  bool changed=full;
   for (int row = 0; row < kStocksPerPage && start + row < stockCount; row++) {
     StockRow& quote = stocks[start + row];
     int y = 6 + row * 54;
-    bool hasName = drawRgb565FileRegion("/stock-names.rgb565", 156, 400,
-                                        (start + row) * 20, 70, y, 156, 20);
-    if (!hasName) hasName = drawRgb565FileRegion("/stock-names.rgb565",120,400,
-                                        (start + row)*20,106,y,120,20);
-    uint16_t codePixels[StockCodeFont::width * StockCodeFont::height] = {};
-    StockCodeFont::render(quote.code.c_str(),[&](int x,int py,uint16_t color) { codePixels[py*StockCodeFont::width+x] = color; });
-    display.pushImage(14,y,StockCodeFont::width,StockCodeFont::height,codePixels);
-    display.setTextDatum(TL_DATUM);
-    display.setTextDatum(TL_DATUM);
-    if (!hasName) {
-      display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-      display.drawRightString(quote.code, 226, y, 2);
+    const bool codeDirty=full || paint.codeChanged(row,quote.code);
+    const bool valuesDirty=full || paint.valuesChanged(row,quote.price,quote.percent,quote.trend);
+    if(codeDirty) {
+      if(!full)display.fillRect(0,y,240,20,TFT_BLACK);
+      bool hasName = drawRgb565FileRegion("/stock-names.rgb565", 156, 400,
+                                          (start + row) * 20, 70, y, 156, 20);
+      if (!hasName) hasName = drawRgb565FileRegion("/stock-names.rgb565",120,400,
+                                          (start + row)*20,106,y,120,20);
+      drawStockCode(quote.code,y);
+      display.setTextDatum(TL_DATUM);
+      if (!hasName) {
+        display.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        display.drawRightString(quote.code, 226, y, 2);
+      }
+      changed=true;
     }
-    display.setTextColor(TFT_WHITE, TFT_BLACK);
-    display.drawString(quote.price, 14, y + 22, 4);
-    display.setTextDatum(TR_DATUM);
-    uint16_t color = quote.trend > 0 ? TFT_RED : quote.trend < 0 ? TFT_GREEN : TFT_LIGHTGREY;
-    display.setTextColor(color, TFT_BLACK);
-    display.drawString(quote.percent, 226, y + 22, 4);
+    if(valuesDirty) {
+      // Clear only this row's 26px numeric band; preserve its code, name and
+      // other rows while an updated live quote is painted.
+      if(!full)display.fillRect(0,y+22,240,26,TFT_BLACK);
+      display.setTextDatum(TL_DATUM);
+      display.setTextColor(TFT_WHITE, TFT_BLACK);
+      display.drawString(quote.price, 14, y + 22, 4);
+      display.setTextDatum(TR_DATUM);
+      uint16_t color = quote.trend > 0 ? TFT_RED : quote.trend < 0 ? TFT_GREEN : TFT_LIGHTGREY;
+      display.setTextColor(color, TFT_BLACK);
+      display.drawString(quote.percent, 226, y + 22, 4);
+      changed=true;
+    }
+    if(codeDirty||valuesDirty)paint.remember(row,quote.code,quote.price,quote.percent,quote.trend);
   }
-  stockDraws++;
+  if(changed)stockDraws++;
   screenDirty = false;
 }
 

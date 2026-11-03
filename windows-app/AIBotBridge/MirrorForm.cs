@@ -278,11 +278,10 @@ internal sealed class MirrorForm : Form
         {
             var q = quotes[index];
             var y = 6 + index * 54;
-            using var codeFont=new Font("Consolas",12,FontStyle.Regular,GraphicsUnit.Pixel);
             using var nameFont=new Font("Microsoft YaHei UI",12,FontStyle.Regular,GraphicsUnit.Pixel);
             using var valueFont=new Font("Consolas",24,FontStyle.Regular,GraphicsUnit.Pixel);
             using var right=new StringFormat{Alignment=StringAlignment.Far,Trimming=StringTrimming.EllipsisCharacter};
-            g.DrawString(q.Code,codeFont,Brushes.Gray,14,y);
+            EspStockCodeRaster.Draw(g,q.Code,14,y);
             g.DrawString(q.Name,nameFont,Brushes.LightGray,new RectangleF(70,y,156,20),right);
             g.DrawString(q.Price,valueFont,Brushes.White,14,y+20);
             using var change=new SolidBrush(q.Trend>0?Color.Red:q.Trend<0?Color.FromArgb(0,217,51):Color.LightGray);

@@ -12,9 +12,16 @@ internal static class Tab5StatusBudgetSelfTest
         long clock=0;string turn=Guid.NewGuid().ToString(),reply=new('答',730);
         var unread=catalog.Take(40).Select(t=>t.Id).ToHashSet();
         var readState=new Tab5CodexReadState(()=>new("budget-test",unread),()=>clock);
-        Task<JsonElement> Call(string method,object args,CancellationToken token)=>Task.FromResult(JsonSerializer.SerializeToElement(method=="turn/start"
-            ?(object)new{result=new{turn=new{id=turn}}}
-            :new{result=new{thread=new{status=new{type="idle"},turns=new[]{new{id=turn,status="completed",completedAt=1,items=new[]{new{type="agentMessage",phase="final_answer",text=reply}}}}}}}));
+        Task<JsonElement> Call(string method,object args,CancellationToken token) {
+            object response=method switch {
+                "turn/start"=>new{result=new{turn=new{id=turn}}},
+                "thread/read" or "thread/resume"=>new{result=new{thread=new{status=new{type="idle"}}}},
+                "thread/turns/list"=>new{result=new{data=new[]{new{id=turn,status="completed",completedAt=1}},nextCursor=(string?)null}},
+                "thread/turns/items/list"=>new{result=new{data=new[]{new{type="agentMessage",phase="final_answer",text=reply}},nextCursor=(string?)null}},
+                _=>throw new InvalidOperationException("Unexpected mock method: "+method)
+            };
+            return Task.FromResult(JsonSerializer.SerializeToElement(response));
+        }
         using var tasks=new Tab5CodexTasks(Call,()=>catalog,readState);
         foreach(var task in catalog) {
             Check((await tasks.SubmitAsync(task.Id,"synthetic fixture",CancellationToken.None)).Status==202,"mock turn accepted");

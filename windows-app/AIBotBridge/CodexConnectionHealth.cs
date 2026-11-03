@@ -23,7 +23,10 @@ internal sealed class CodexConnectionHealth
             channel.At=at;
             if(kind=="ok") {
                 channel.LastSuccess=at;channel.Successes++;
-                if(channel.Kind is "unknown" or "ok"||channel.Successes>=2){if(channel.Failures>=3)channel.Reconnects.Clear();channel.Kind="ok";channel.Failures=0;}
+                // A real success on the affected channel confirms recovery.
+                // Retain the bounded reconnect history so repeated drops are
+                // still recognized even when successful requests occur between them.
+                channel.Kind="ok";channel.Failures=0;
             } else {
                 channel.Successes=0;channel.Failures=channel.Kind==kind?channel.Failures+1:1;channel.Kind=kind;
                 if(kind is "network" or "timeout") {

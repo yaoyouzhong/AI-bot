@@ -15,7 +15,8 @@ internal sealed class LocalStatusServer
     private readonly Func<string>? _tab5Crashes;
     private readonly Func<string>? _musicInfo;
 
-    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null,Func<string,CancellationToken,Task>? musicArtwork=null,Func<string>? tab5Crashes=null,Func<string>? musicInfo=null,Func<CancellationToken,Task<string>>? tab5LiveInfo=null)
+    private readonly Func<object>? _espUsbInfo;
+    internal LocalStatusServer(int port, Func<UsbDeviceInfo>? deviceInfo = null, Func<string>? tab5Info = null,Func<string,CancellationToken,Task>? musicArtwork=null,Func<string>? tab5Crashes=null,Func<string>? musicInfo=null,Func<CancellationToken,Task<string>>? tab5LiveInfo=null,Func<object>? espUsbInfo=null)
     {
         _listener = new TcpListener(IPAddress.Loopback, port);
         _deviceInfo = deviceInfo;
@@ -24,6 +25,7 @@ internal sealed class LocalStatusServer
         _musicArtwork=musicArtwork;
         _tab5Crashes=tab5Crashes;
         _musicInfo=musicInfo;
+        _espUsbInfo=espUsbInfo;
     }
 
     internal async Task RunAsync(Func<StatusSnapshot> snapshot, CancellationToken cancellationToken)
@@ -123,6 +125,8 @@ internal sealed class LocalStatusServer
             var webQuota = !browser && requestLine.StartsWith("GET /diagnostics/web-quota ", StringComparison.Ordinal);
             var espLan = !browser && requestLine.StartsWith("GET /diagnostics/esp-lan ", StringComparison.Ordinal);
             if(espLan)diagnostics=JsonSerializer.Serialize(EspLanDiagnostics.Snapshot(),JsonDefaults.Options);
+            var espUsb=!browser&&_espUsbInfo is not null&&requestLine.StartsWith("GET /diagnostics/esp-usb ",StringComparison.Ordinal);
+            if(espUsb)diagnostics=JsonSerializer.Serialize(_espUsbInfo!(),JsonDefaults.Options);
             if (webQuota) diagnostics = JsonSerializer.Serialize(WebQuotaDiagnostics.Snapshot(), JsonDefaults.Options);
             var quotaHistory = !browser && requestLine.StartsWith("GET /diagnostics/quota-history ", StringComparison.Ordinal);
             if (quotaHistory) diagnostics = JsonSerializer.Serialize(Tab5QuotaTrend.Diagnostics(), JsonDefaults.Options);
@@ -135,7 +139,7 @@ internal sealed class LocalStatusServer
                 : accepted ? "{\"ok\":true}" : "{\"error\":\"not_found\"}");
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || espLan || tab5 || crashes || quotaHistory || musicInfo ? "200 OK" : "404 Not Found")}\r\n" +
+                $"HTTP/1.1 {(found || pets || accepted || device || activity || webQuota || espLan || espUsb || tab5 || crashes || quotaHistory || musicInfo ? "200 OK" : "404 Not Found")}\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
                 $"Content-Length: {payload.Length}\r\n" +
                 "Connection: close\r\n\r\n");

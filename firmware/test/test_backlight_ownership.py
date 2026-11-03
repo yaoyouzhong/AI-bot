@@ -4,9 +4,9 @@ from pathlib import Path
 import re
 
 root = Path(__file__).resolve().parents[1]
-config = (root / 'platformio.ini').read_text()
-source = (root / 'src/main.cpp').read_text()
-driver = (root / '.pio/libdeps/nodemcuv2/TFT_eSPI/TFT_eSPI.cpp').read_text()
+config = (root / 'platformio.ini').read_text(encoding='utf-8')
+source = (root / 'src/main.cpp').read_text(encoding='utf-8')
+driver = (root / '.pio/libdeps/nodemcuv2/TFT_eSPI/TFT_eSPI.cpp').read_text(encoding='utf-8')
 assert re.search(r'^\s*-D\s+AIBOT_TFT_BL=5\s*$', config, re.M)
 assert not re.search(r'^\s*-D\s+TFT_BL(?:=|\s|$)', config, re.M)
 assert 'constrain(brightness, 0, 100) * transitionBrightnessPercent' in source

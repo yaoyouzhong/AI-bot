@@ -19,7 +19,7 @@ int main(int argc,char** argv) {
     int top=StockCodeFont::height, bottom=-1;
     for (int y=0;y<StockCodeFont::height;++y) for (int x=0;x<8;++x)
       if (one[y*StockCodeFont::width+x] >= 70) { if (y<top) top=y; if (y>bottom) bottom=y; }
-    assert(top >= 2 && top <= 3 && bottom == 12);
+    assert(top == 1 && bottom == 11);
     for(char prior='0';prior<c;++prior) assert(one != raster(std::string(1,prior)));
   }
   assert(raster("AAPL") != raster("aapl"));

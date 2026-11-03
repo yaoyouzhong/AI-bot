@@ -14,20 +14,26 @@ internal sealed record UsbDeviceInfo(
     string? Firmware = null,
     [property: JsonPropertyName("device_id")] string? DeviceId = null);
 
+internal enum UsbReplyRejection { None, NonProtocol, Malformed, WrongVersion, OtherType, WrongRequestId }
+
 internal static class UsbDeviceProtocol
 {
     internal static JsonElement? ParseReply(string line, string type, uint requestId)
+        => ParseReply(line,type,requestId,out _);
+
+    internal static JsonElement? ParseReply(string line, string type, uint requestId,out UsbReplyRejection rejection)
     {
+        rejection=UsbReplyRejection.Malformed;
         const string prefix = "@AIBOT ";
-        if (!line.StartsWith(prefix, StringComparison.Ordinal)) return null;
+        if (!line.StartsWith(prefix, StringComparison.Ordinal)) {rejection=UsbReplyRejection.NonProtocol;return null;}
         try
         {
             using var document = JsonDocument.Parse(line[prefix.Length..]);
             var root = document.RootElement;
-            if (root.GetProperty("version").GetInt32() != 1 ||
-                root.GetProperty("type").GetString() != type ||
-                root.GetProperty("request_id").GetUInt32() != requestId || requestId == 0)
-                return null;
+            if (root.GetProperty("version").GetInt32() != 1) {rejection=UsbReplyRejection.WrongVersion;return null;}
+            if (root.GetProperty("type").GetString() != type) {rejection=UsbReplyRejection.OtherType;return null;}
+            if (root.GetProperty("request_id").GetUInt32() != requestId || requestId == 0) {rejection=UsbReplyRejection.WrongRequestId;return null;}
+            rejection=UsbReplyRejection.None;
             return root.Clone();
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or

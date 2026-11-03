@@ -1,0 +1,279 @@
+--- a/source/firmware/main/calendar_math.h
++++ b/source/firmware/main/calendar_math.h
+@@ -1,6 +1,12 @@
+ #pragma once
+ #include <stdbool.h>
+ #include "calendar_data.h"
++
++// "Recent birthdays" includes today and the next 30 calendar days.
++// Other calendar marks and the configured reminder window use all entries.
++static inline bool cal_birthday_in_upcoming_window(int today,int occurrence) {
++    return occurrence>=today && occurrence-today<=30;
++}
+ 
+ static int cal_days(int y,int m) {
+     const int days[]={31,28,31,30,31,30,31,31,30,31,30,31};
+--- a/source/firmware/main/ui_calendar.h
++++ b/source/firmware/main/ui_calendar.h
+@@ -114,7 +114,7 @@
+     lv_obj_set_height(calendar_upcoming_box,476-birthday_y-58);
+     char upcoming[512]="";int cursor=calendar_today_serial-1;unsigned shown_count=0;
+     for(int pass=0;pass<3;pass++) {
+-        int nearest=-1;cJSON_ArrayForEach(b,item(calendar_detail(),"birthdays")) {int next=calendar_birthday_next(b,calendar_today_serial);if(next>cursor&&(nearest<0||next<nearest))nearest=next;}
++        int nearest=-1;cJSON_ArrayForEach(b,item(calendar_detail(),"birthdays")) {int next=calendar_birthday_next(b,calendar_today_serial);if(next>cursor&&cal_birthday_in_upcoming_window(calendar_today_serial,next)&&(nearest<0||next<nearest))nearest=next;}
+         if(nearest<0)break;
+         cJSON_ArrayForEach(b,item(calendar_detail(),"birthdays"))if(calendar_birthday_next(b,calendar_today_serial)==nearest&&shown_count<3) {
+             int by,bm,bd;cal_gregorian(nearest,&by,&bm,&bd);int delta=nearest-calendar_today_serial;
+--- a/source/firmware/main/ui_runtime_health.h
++++ b/source/firmware/main/ui_runtime_health.h
+@@ -9,7 +9,8 @@
+ static lv_obj_t *health_alarm_title,*health_advice,*health_status_dot;
+ static lv_obj_t *health_detail_back,*health_detail_layer,*health_detail_title,*health_detail_reason_caption,*health_detail_reason,*health_detail_text,*health_detail_action,*health_detail_advice;
+ static int health_detail_selected;
+-static void health_detail_refresh(void);
++static char health_detail_key[16],health_notice_key[16];
++static UI_INIT_SMALL void health_detail_refresh(void);
+ static bool health_banner_active;
+ static char health_notice_session[40];
+ static uint64_t health_notice_sequence;
+@@ -19,6 +20,26 @@
+ static cJSON *health_check(const char *key) {
+     cJSON *check=NULL;
+     cJSON_ArrayForEach(check,item(item(shown,"runtimeHealth"),"checks"))if(!strcmp(text(check,"key"),key))return check;
++    return NULL;
++}
++// Never keep a confirmed-recovered alert visible when a newer check says OK.
++// An absent/unknown check is not evidence of recovery.
++static cJSON *health_active_alert(void) {
++    cJSON *alert=NULL;
++    cJSON_ArrayForEach(alert,item(item(shown,"runtimeHealth"),"alerts")) {
++        cJSON *check=health_check(text(alert,"key"));
++        if(check&&!strcmp(text(check,"state"),"ok"))continue;
++        return alert;
++    }
++    return NULL;
++}
++static cJSON *health_alert_for_key(const char *key) {
++    cJSON *alert=NULL;
++    cJSON_ArrayForEach(alert,item(item(shown,"runtimeHealth"),"alerts")) {
++        if(strcmp(text(alert,"key"),key))continue;
++        cJSON *check=health_check(key);
++        return check&&!strcmp(text(check,"state"),"ok")?NULL:alert;
++    }
+     return NULL;
+ }
+ static bool health_fresh(void) {
+@@ -89,7 +110,7 @@
+     ui_bg_color(health_bars[0],lv_color_hex(!strcmp(text(cpu_check,"state"),"warning")?AMBER:BLUE),LV_PART_INDICATOR);
+     ui_bg_color(health_bars[1],lv_color_hex(!strcmp(text(memory_check,"state"),"warning")?AMBER:GREEN),LV_PART_INDICATOR);
+     tint(health_queue,health_color(text(queue_check,"state")));tint(health_disk,health_color(text(disk_check,"state")));
+-    cJSON *alert=cJSON_GetArrayItem(item(h,"alerts"),0);
++    cJSON *alert=health_active_alert();
+     const char *action=text(alert,"shortAdvice");
+     if(!strcmp(action,"--"))action=text(alert,"advice");
+     bool healthy=system_known&&!observing&&vpn&&!strcmp(text(vpn,"state"),"ok")&&
+@@ -120,29 +141,42 @@
+ static void health_leave_system(void) {
+     health_open=false;if(health_layer)visible(health_layer,false);if(health_detail_layer)visible(health_detail_layer,false);
+ }
+-static void health_detail_close(lv_event_t *event) {(void)event;visible(health_detail_layer,false);}
++static void health_detail_close(lv_event_t *event) {(void)event;health_detail_key[0]=0;visible(health_detail_layer,false);}
+ static bool health_issue(cJSON *check) {
+     const char *state=text(check,"state");return !strcmp(state,"warning")||!strcmp(state,"error");
+ }
+-static void health_detail_refresh(void) {
++static UI_INIT_SMALL void health_detail_refresh(void) {
+     char evidence[640]={0},suggestions[512]={0};
+     const char *reason="检测待确认",*action="等待下一轮检测",*caption="检测结果";uint32_t color=MUTED;
+     if(!health_fresh()) {
+         reason="监控已中断";action="检查电脑桥接连接";
+         snprintf(evidence,sizeof(evidence),"当前数据已过期");
+         snprintf(suggestions,sizeof(suggestions),"确认桥接程序正在运行");
+-    } else if(!strcmp(text(health_check("cpu"),"state"),"disabled")&&!strcmp(text(health_check("memory"),"state"),"disabled")) {
++    } else if(health_detail_selected==1&&!strcmp(text(health_check("cpu"),"state"),"disabled")&&!strcmp(text(health_check("memory"),"state"),"disabled")) {
+         reason="监控已关闭";action="需要时启用运行监控";snprintf(evidence,sizeof(evidence),"当前未采集运行数据");
+     } else if(health_detail_selected==2) {
+         cJSON *codex=health_check("codex"),*bridge=health_check("bridge");
+-        cJSON *check=health_issue(bridge)?bridge:health_issue(codex)?codex:NULL;
++        bool pinned=!strcmp(health_detail_key,"codex")||!strcmp(health_detail_key,"bridge");
++        cJSON *focused=!strcmp(health_detail_key,"codex")?codex:!strcmp(health_detail_key,"bridge")?bridge:NULL;
++        cJSON *check=pinned?(health_issue(focused)?focused:NULL):health_issue(bridge)?bridge:health_issue(codex)?codex:NULL;
++        cJSON *alert=pinned?health_alert_for_key(health_detail_key):health_active_alert();
+         if(check) {
+             caption="异常原因";reason=text(check,"summary");color=health_color(text(check,"state"));
+             bool local=check==bridge;
+             action=local?"重启桥接程序":strstr(reason,"登录")?"检查登录状态":strstr(reason,"受限")||strstr(reason,"服务")?"稍后重试":"检查 VPN / PAC";
+-            snprintf(evidence,sizeof(evidence),local?"心跳或后台服务异常":"实际请求连续异常");
++            const char *detail=text(check,"detail");
++            snprintf(evidence,sizeof(evidence),"%s",strcmp(detail,"--")&&detail[0]?detail:local?"心跳或后台服务异常":"实际请求连续异常");
+             snprintf(suggestions,sizeof(suggestions),local?"启动后等待监控恢复":"调整后等待实际连接恢复");
+-        } else {reason="连接状态待确认";action="等待实际连接结果";}
++        } else if(alert&&pinned&&!strcmp(text(alert,"key"),health_detail_key)) {
++            caption="异常原因";reason=text(alert,"title");color=health_color(text(alert,"state"));
++            action=text(alert,"shortAdvice");if(!strcmp(action,"--")||!action[0])action=text(alert,"advice");
++            snprintf(evidence,sizeof(evidence),"%s",text(alert,"title"));
++            snprintf(suggestions,sizeof(suggestions),"等待实际连接恢复");
++        } else if(focused&&!strcmp(text(focused,"state"),"ok")) {
++            reason=focused==codex?"Codex 连接正常":"桥接运行正常";action="无需处理";color=GREEN;
++            snprintf(evidence,sizeof(evidence),"%s",focused==codex?"最近实际连接已恢复":"桥接心跳正常");
++            snprintf(suggestions,sizeof(suggestions),"后台继续监控");
++        } else {reason="连接状态待确认";action="等待实际连接结果";snprintf(evidence,sizeof(evidence),"当前检测尚未确认");}
+     } else if(health_detail_selected==0) {
+         cJSON *vpn=health_check("vpn"),*pac=health_check("pac");
+         const char *vpn_state=text(vpn,"state"),*pac_state=text(pac,"state"),*detail=text(pac,"detail"),*advice=text(pac,"advice");
+@@ -222,9 +256,14 @@
+     return true;
+ }
+ static void health_detail_open(lv_event_t *event) {health_detail_group((int)(intptr_t)lv_event_get_user_data(event));}
++static void health_detail_for_key(const char *key) {
++    snprintf(health_detail_key,sizeof(health_detail_key),"%s",key);
++    health_detail_group(!strcmp(key,"codex")||!strcmp(key,"bridge")?2:!strcmp(key,"cpu")||!strcmp(key,"memory")||!strcmp(key,"queue")||!strcmp(key,"disk")?1:0);
++}
+ static void health_summary_detail(lv_event_t *event) {
+-    (void)event;cJSON *alert=cJSON_GetArrayItem(item(item(shown,"runtimeHealth"),"alerts"),0);const char *key=text(alert,"key");
+-    health_detail_group(!strcmp(key,"codex")||!strcmp(key,"bridge")?2:!strcmp(key,"cpu")||!strcmp(key,"memory")||!strcmp(key,"queue")||!strcmp(key,"disk")?1:0);
++    (void)event;cJSON *alert=health_active_alert();const char *key=text(alert,"key");
++    if(!alert&&health_banner_active&&health_notice_key[0])key=health_notice_key;
++    health_detail_for_key(key);
+ }
+ static lv_obj_t *health_line(lv_obj_t *parent,const char *value,int x,int y,int width,int height) {
+     lv_obj_t *line=label(parent,value,x,y,width,false);lv_obj_set_height(line,height);lv_label_set_long_mode(line,LV_LABEL_LONG_WRAP);return line;
+@@ -287,26 +326,27 @@
+         if(strstr(title,"换页"))return "换页压力大";
+     }
+     if(!strcmp(key,"queue"))return "等待偏多";
+-    if(!strcmp(key,"codex"))return strstr(title,"登录")?"Codex 登录":strstr(title,"连接")?"Codex 断连":"Codex 异常";
++    if(!strcmp(key,"codex"))return strstr(title,"登录")?"Codex 登录":strstr(title,"超时")?"Codex 连接超时":strstr(title,"连接")?"Codex 连接不稳":"Codex 异常";
+     if(!strcmp(key,"bridge"))return strstr(title,"采样")?"采样停滞":"桥接异常";
+     if(!strcmp(key,"settings"))return "设置异常";
+     return title;
+ }
+ static void health_notice_tick(int64_t now) {
+-    cJSON *h=item(shown,"runtimeHealth"),*alert=health_fresh()?cJSON_GetArrayItem(item(h,"alerts"),0):NULL;
++    cJSON *h=item(shown,"runtimeHealth"),*alert=health_fresh()?health_active_alert():NULL;
+     const char *session=text(h,"session");uint64_t seq=(uint64_t)num(h,"sequence");
+     if(alert&&prefs.alerts&&(strcmp(health_notice_session,session)||health_notice_sequence!=seq)) {
+         snprintf(health_notice_session,sizeof(health_notice_session),"%s",session);health_notice_sequence=seq;voice_remote_notify_health();if(saver)saver_leave();
+     }
++    if(alert)snprintf(health_notice_key,sizeof(health_notice_key),"%s",text(alert,"key"));
+     // Task/approval banners keep their ten-second window. Health remains
+     // visible afterwards, without repeated sound or forced page switching.
+     if(now<alert_until){health_banner_active=false;visible(health_banner_icon,false);return;}
+     const char *message=alert&&prefs.alerts?health_notice_title(alert):current_page==0&&cJSON_IsObject(h)&&!health_fresh()?"监控已中断":"";
+-    health_banner_active=message[0]!=0;
++    bool was_health=health_banner_active;health_banner_active=message[0]!=0;
+     visible(health_banner_icon,health_banner_active);
+     if(health_banner_active){
+         uint32_t color=alert?health_color(text(alert,"state")):AMBER;
+         ui_text_fmt(banner,"系统监控：%s",message);tint(banner,color);tint(health_banner_icon,color);
+-    }
++    } else if(was_health&&!strncmp(lv_label_get_text(banner),"系统监控：",strlen("系统监控：")))ui_text(banner,"");
+     if(health_open&&current_page==4)health_render();
+ }
+--- a/source/firmware/main/ui.c
++++ b/source/firmware/main/ui.c
+@@ -2685,7 +2685,7 @@
+     render_home_task();
+ }
+ static void codex_notice_open(lv_event_t *e) {
+-    if(health_banner_active&&esp_timer_get_time()/1000>=alert_until){health_show(e);return;}
++    if(health_banner_active&&esp_timer_get_time()/1000>=alert_until){health_show(e);health_detail_for_key(health_notice_key);return;}
+     if(esp_timer_get_time()/1000<alert_until&&!strcmp(lv_label_get_text(banner),"生日提醒 · 点击查看日历")) {page(12);detail_return=0;return;}
+     if(esp_timer_get_time()/1000>=alert_until||!codex_alert_task[0]||codex_voice_waiting||codex_waiting)return;
+     cJSON *tasks=item(item(shown,"codexTasks"),"tasks"),*task=NULL;
+--- a/source/tests/ui-preview/calendar_math_test.c
++++ b/source/tests/ui-preview/calendar_math_test.c
+@@ -3,6 +3,12 @@
+ #include <stdio.h>
+ #include "../../firmware/main/calendar_math.h"
+ int main(int argc,char **argv) {
++    int boundary=cal_serial(2026,12,20);
++    assert(!cal_birthday_in_upcoming_window(boundary,boundary-1));
++    assert(cal_birthday_in_upcoming_window(boundary,boundary));
++    assert(cal_birthday_in_upcoming_window(boundary,cal_serial(2027,1,19)));
++    assert(!cal_birthday_in_upcoming_window(boundary,cal_serial(2027,1,20)));
++    assert(cal_birthday_in_upcoming_window(cal_serial(2026,2,15),cal_lunar_birthday(2026,1,1,false)));
+     FILE *out=argc>1?fopen(argv[1],"wb"):NULL;if(argc>1)assert(out);
+     unsigned count=0;
+     for(int y=1902;y<=2099;y++)for(int m=1;m<=12;m++)for(int d=1;d<=cal_days(y,m);d++) {
+--- a/source/tests/ui-preview/preview.c
++++ b/source/tests/ui-preview/preview.c
+@@ -2442,6 +2442,50 @@
+     }
+     if(getenv("TAB5_HOST_UNLOCK_ONLY")) {
+         #include "host_unlock_ui_test.h"
++    }
++    if(getenv("TAB5_BIRTHDAY_WINDOW_ONLY")) {
++        cJSON_ReplaceItemInObject(calendar_detail(),"birthdays",cJSON_Parse("[{\"name\":\"Today\",\"month\":12,\"day\":20,\"lunar\":false,\"leap\":false,\"remind\":0},{\"name\":\"Day30\",\"month\":1,\"day\":19,\"lunar\":false,\"leap\":false,\"remind\":0},{\"name\":\"Day31\",\"month\":1,\"day\":20,\"lunar\":false,\"leap\":false,\"remind\":0}]"));
++        calendar_set_today(2026,12,20);lv_obj_send_event(home_calendar_action,LV_EVENT_CLICKED,NULL);calendar_render();
++        const char *upcoming=lv_label_get_text(calendar_upcoming);
++        assert(strstr(upcoming,"Today")&&strstr(upcoming,"Day30")&&!strstr(upcoming,"Day31"));
++        capture("birthday-window-included");
++        calendar_year=2027;calendar_month=1;calendar_selected=cal_serial(2027,1,20);calendar_render();
++        assert(strstr(lv_label_get_text(calendar_day_note),"Day31"));
++        int birthday_slot=-1;for(int i=0;i<42;i++)if(calendar_cell_dates[i]==calendar_selected)birthday_slot=i;
++        assert(birthday_slot>=0&&!strcmp(lv_label_get_text(calendar_marks[birthday_slot]),"生"));
++        cJSON_ReplaceItemInObject(calendar_detail(),"birthdays",cJSON_Parse("[{\"name\":\"Day31\",\"month\":1,\"day\":20,\"lunar\":false,\"leap\":false,\"remind\":0}]"));
++        calendar_render();assert(!strcmp(lv_label_get_text(calendar_upcoming),"无"));
++        capture("birthday-window-empty");
++        puts("BIRTHDAY_WINDOW_OK today day30 day31 excluded future-calendar-retained empty");return 0;
++    }
++    if(getenv("TAB5_MONITOR_NOTICE_ONLY")) {
++        prefs.alerts=true;preview_now_us=20000000;last_received=20000;alert_until=0;
++        cJSON_AddItemToObject(shown,"runtimeHealth",cJSON_Parse("{\"session\":\"fixture\",\"sequence\":1,\"epochUtc\":1790149800,\"checks\":[{\"key\":\"codex\",\"state\":\"warning\",\"summary\":\"Codex 连接不稳\",\"detail\":\"实际请求异常 3 次\",\"advice\":\"检查 VPN\"},{\"key\":\"bridge\",\"state\":\"error\",\"summary\":\"桥接服务异常\",\"detail\":\"服务无响应\"}],\"alerts\":[{\"key\":\"codex\",\"state\":\"warning\",\"title\":\"Codex 连接不稳\",\"shortAdvice\":\"检查 VPN\"},{\"key\":\"bridge\",\"state\":\"error\",\"title\":\"桥接服务异常\"}]}"));
++        page(0);alert_visual_tick(20000);health_notice_tick(20000);
++        assert(health_banner_active&&strstr(lv_label_get_text(banner),"Codex 连接不稳"));
++        codex_notice_open(NULL);
++        assert(current_page==4&&health_open&&!lv_obj_has_flag(health_detail_layer,LV_OBJ_FLAG_HIDDEN));
++        assert(health_detail_selected==2&&!strcmp(lv_label_get_text(health_detail_reason),"Codex 连接不稳"));
++        assert(strstr(lv_label_get_text(health_detail_text),"3 次"));check_health_detail_layout();capture("monitor-codex-issue");
++        cJSON *codex=health_check("codex");cJSON_ReplaceItemInObject(codex,"state",cJSON_CreateString("ok"));
++        health_notice_tick(20001);
++        assert(!strstr(lv_label_get_text(banner),"Codex")&&strstr(lv_label_get_text(banner),"桥接"));
++        assert(!strcmp(lv_label_get_text(health_detail_reason),"Codex 连接正常"));capture("monitor-codex-recovered");
++        health_detail_close(NULL);health_close(NULL);page(0);
++        cJSON_ReplaceItemInObject(codex,"state",cJSON_CreateString("warning"));health_notice_tick(20002);
++        assert(strstr(lv_label_get_text(banner),"Codex"));
++        cJSON_ReplaceItemInObject(codex,"state",cJSON_CreateString("ok"));
++        codex_notice_open(NULL);
++        assert(!strcmp(health_detail_key,"codex")&&!strcmp(lv_label_get_text(health_detail_reason),"Codex 连接正常"));
++        cJSON_ReplaceItemInObject(codex,"state",cJSON_CreateString("unknown"));
++        cJSON_ReplaceItemInObject(item(shown,"runtimeHealth"),"alerts",cJSON_Parse("[{\"key\":\"bridge\",\"state\":\"error\",\"title\":\"桥接服务异常\"},{\"key\":\"codex\",\"state\":\"warning\",\"title\":\"Codex 连接不稳\",\"shortAdvice\":\"检查 VPN\"}]"));
++        health_detail_refresh();assert(!strcmp(lv_label_get_text(health_detail_reason),"Codex 连接不稳"));
++        alert_until=30000;ui_text(banner,"任务通知");health_notice_tick(20003);
++        assert(!strcmp(lv_label_get_text(banner),"任务通知"));alert_until=0;
++        health_notice_tick(20004);
++        cJSON_ReplaceItemInObject(item(shown,"runtimeHealth"),"alerts",cJSON_CreateArray());health_notice_tick(20005);
++        assert(!health_banner_active&&!lv_label_get_text(banner)[0]);
++        puts("MONITOR_NOTICE_OK direct_matching_detail actual_evidence recovery_clears_codex other_alert_preserved");return 0;
+     }
+     if(getenv("TAB5_CALENDAR_LABEL_ONLY")) {
+         calendar_set_today(2026,10,24);lv_obj_send_event(home_calendar_action,LV_EVENT_CLICKED,NULL);
+--- a/source/tests/ui-preview/runtime_health_test.h
++++ b/source/tests/ui-preview/runtime_health_test.h
+@@ -44,7 +44,7 @@
+         if(abnormal){
+             cJSON *alert=cJSON_GetArrayItem(item(item(shown,"runtimeHealth"),"alerts"),0);
+             const char *title=!strcmp(name,"commit-pressure")?"提交量偏高":!strcmp(name,"paging-pressure")?"换页压力大":
+-                !strcmp(name,"codex-disconnect")?"Codex 断连":!strcmp(name,"codex-service")?"Codex 异常":
++                !strcmp(name,"codex-disconnect")?"Codex 连接不稳":!strcmp(name,"codex-service")?"Codex 异常":
+                 !strcmp(name,"bridge-stall")?"采样停滞":text(alert,"title");
+             char expected[192];snprintf(expected,sizeof(expected),"系统监控：%s",title);
+             assert(!strcmp(lv_label_get_text(banner),expected));
+@@ -137,6 +137,7 @@
+     cJSON_ReplaceItemInObject(first_alert,"title",cJSON_CreateString("内存紧张"));
+     cJSON_ReplaceItemInObject(first_alert,"key",cJSON_CreateString("memory"));
+     cJSON_ReplaceItemInObject(first_alert,"state",cJSON_CreateString("warning"));
++    cJSON_ReplaceItemInObject(health_check("memory"),"state",cJSON_CreateString("warning"));
+     cJSON_ReplaceItemInObject(item(shown,"systemMetrics"),"memoryPercent",cJSON_CreateNumber(95));render();
+     alert_visual_tick(20000);health_notice_tick(20000);lv_obj_update_layout(lv_screen_active());
+     assert(!strcmp(lv_label_get_text(banner),"系统监控：内存紧张"));
+@@ -145,7 +146,7 @@
+     assert(lv_obj_get_x(banner)+lv_obj_get_width(banner)<lv_obj_get_x(link_buttons[0]));
+     assert(lv_color_eq(lv_obj_get_style_text_color(health_banner_icon,0),lv_color_hex(AMBER)));
+     capture("runtime-health-home-memory-warning");
+-    cJSON_ReplaceItemInObject(first_alert,"state",cJSON_CreateString("error"));health_notice_tick(20000);
++    cJSON_ReplaceItemInObject(first_alert,"state",cJSON_CreateString("error"));cJSON_ReplaceItemInObject(health_check("memory"),"state",cJSON_CreateString("error"));health_notice_tick(20000);
+     assert(lv_color_eq(lv_obj_get_style_text_color(health_banner_icon,0),lv_color_hex(RED)));
+     capture("runtime-health-home-memory-error");
+     alert_until=21000;ui_text(banner,"Codex：等待你的操作");health_notice_tick(20000);

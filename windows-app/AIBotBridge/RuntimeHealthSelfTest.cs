@@ -36,8 +36,8 @@ internal static class RuntimeHealthSelfTest
         for(int i=0;i<3;i++)connections.Observe("model","network",start.AddSeconds(i));
         connections.Observe("usage","ok",start.AddSeconds(3));
         Require(connections.Capture(start.AddSeconds(4)).Summary=="Codex 连接不稳","usage success masked model connection errors");
-        connections.Observe("model","ok",start.AddSeconds(5));Require(connections.Capture(start.AddSeconds(5)).State=="warning","one success cleared connection alarm");
-        connections.Observe("model","ok",start.AddSeconds(6));Require(connections.Capture(start.AddSeconds(6)).State=="ok","two actual successes did not recover");
+        connections.Observe("model","ok",start.AddSeconds(5));Require(connections.Capture(start.AddSeconds(5)).State=="ok","real success did not promptly recover its channel");
+        connections.Observe("model","ok",start.AddSeconds(6));Require(connections.Capture(start.AddSeconds(6)).State=="ok","healthy connection did not stay recovered");
         connections.ObserveHttp(401,start.AddSeconds(7));Require(connections.Capture(start.AddSeconds(7)).State=="observing","single authenticated failure alerted");
         connections.ObserveHttp(401,start.AddSeconds(8));Require(connections.Capture(start.AddSeconds(8)).Summary.Contains("登录"),"authentication failure unclassified");
         Require(connections.Capture(start.AddMinutes(6)).State=="unknown","expired connection evidence retained healthy or failure state");

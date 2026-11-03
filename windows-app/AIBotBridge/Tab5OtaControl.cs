@@ -33,21 +33,28 @@ internal static class Tab5OtaControl
                     var current=service()??throw new InvalidOperationException("没有已启用的 TAB5。");
                     string op=request.RootElement.GetProperty("op").GetString()??"";
                     if(op=="info")response=new{ok=true,body=current.OtaControlInfo};
+                    else if(op=="offer") {
+                        string id=request.RootElement.GetProperty("deviceId").GetString()??"",sha=request.RootElement.GetProperty("sha256").GetString()??"";
+                        string path=request.RootElement.GetProperty("imagePath").GetString()??"";
+                        var image=Tab5OtaPackage.Load(path);
+                        current.OfferScopedOta(id,sha,image);
+                        response=new{ok=true,body=current.OtaControlInfo};
+                    }
                     else if(op is "start" or "verify") {
                         string id=request.RootElement.GetProperty("deviceId").GetString()??"",sha=request.RootElement.GetProperty("sha256").GetString()??"";
                         await current.StartScopedOtaAsync(id,sha,deadline.Token,verify:op=="verify");
                         response=new{ok=true,status=op=="verify"?current.UpgradeBootSummary:current.RemoteOtaStatus};
                     }else throw new InvalidOperationException("不支持的本机命令。");
-                }catch(Exception ex) when(ex is IOException or InvalidOperationException or JsonException or KeyNotFoundException) {response=new{ok=false,error=ex.Message};}
+                }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or JsonException or KeyNotFoundException) {response=new{ok=false,error=ex.Message};}
                 await WriteAsync(pipe,response,deadline.Token);
             }catch(OperationCanceledException) when(token.IsCancellationRequested){return;}
             catch(Exception ex) when(ex is IOException or JsonException or OperationCanceledException) {/* Close this bounded connection; no retry of an installation. */}
         }
     }
-    internal static async Task<JsonElement> CallAsync(string op,string? device=null,string? sha=null,string? name=null) {
+    internal static async Task<JsonElement> CallAsync(string op,string? device=null,string? sha=null,string? name=null,string? imagePath=null) {
         using var token=new CancellationTokenSource(TimeSpan.FromSeconds(45));
         using var pipe=new NamedPipeClientStream(".",name??PipeName,PipeDirection.InOut,PipeOptions.Asynchronous|PipeOptions.CurrentUserOnly);
-        await pipe.ConnectAsync(2000,token.Token);await WriteAsync(pipe,new{op,deviceId=device,sha256=sha},token.Token);
+        await pipe.ConnectAsync(2000,token.Token);await WriteAsync(pipe,new{op,deviceId=device,sha256=sha,imagePath},token.Token);
         using var response=JsonDocument.Parse(await ReadAsync(pipe,token.Token));return response.RootElement.Clone();
     }
 }
@@ -57,6 +64,13 @@ internal sealed partial class Tab5Service
     internal object OtaControlInfo {
         get {var image=Volatile.Read(ref _ota);return new{deviceId=PairedId,installedVersion=_firmware.LastVersion(PairedId),
             offeredVersion=image?.Version,sha256=image?.Sha256,elfSha256=image?.ElfSha256,canStart=CanStartOta,status=OtaSummary,hint=OtaStartHint};}
+    }
+    internal void OfferScopedOta(string id,string sha,Tab5OtaPackage image) {
+        lock(_lifecycle) {
+            if(!Tab5Protocol.ValidId(id)||id!=PairedId||!string.Equals(sha,image.Sha256,StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("设备或固件校验值不一致，未提供固件。");
+            OfferOta(image);
+        }
     }
     internal Task StartScopedOtaAsync(string id,string sha,CancellationToken token,bool verify=false) {
         lock(_lifecycle) {

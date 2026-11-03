@@ -4,8 +4,8 @@ using System.Text.Json;
 
 namespace AIBotBridge;
 
-// A package is prepared only after the user explicitly chooses an image in the
-// local bridge window. The immutable bytes are served only to the paired TAB5.
+// A package is prepared after explicit image selection in the local UI or
+// the same-user scoped command. Immutable bytes are served only to the paired TAB5.
 internal sealed record Tab5OtaPackage(byte[] Image,string Sha256,string Version,string OfferId,string Notes="")
 {
     internal const int MaximumSize=0x6e0000;

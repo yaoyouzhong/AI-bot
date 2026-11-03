@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the ESP8266 ASCII coverage table from the pinned OFL font."""
+"""Regenerate the previous Roboto Mono table (the current design uses Font 4)."""
 import hashlib
 from pathlib import Path
 import sys
