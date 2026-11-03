@@ -54,7 +54,7 @@ def split(files, output, chunk_bytes):
     return {'schema': 1, 'chunkBytes': chunk_bytes, 'archives': groups}
 
 
-def upload(repository, tag, directory, manifest, state_path, workers=2, retries=5):
+def upload(repository, tag, directory, manifest, state_path, workers=2, retries=5, require_draft=False):
     # Validate all local payloads before the first network mutation.
     for name, expected in manifest.items():
         safe_name(name)
@@ -83,7 +83,8 @@ def upload(repository, tag, directory, manifest, state_path, workers=2, retries=
         name, expected = item
         for attempt in range(1, retries + 1):
             try:
-                asset = next((a for a in api()['assets'] if a['name'] == name), None)
+                current = api()
+                asset = next((a for a in current['assets'] if a['name'] == name), None)
                 if asset and asset['size'] == expected['bytes'] and asset.get('digest') == 'sha256:' + expected['sha256']:
                     with lock:
                         state['verified'][name] = {'id': asset['id'], 'bytes': asset['size'], 'digest': asset['digest']}
@@ -92,7 +93,9 @@ def upload(repository, tag, directory, manifest, state_path, workers=2, retries=
                         temporary.replace(state_path)
                     print('SERVER_DIGEST_VERIFIED', name, flush=True)
                     return
-                if asset and asset['state'] == 'uploaded' and not identity['isDraft']:
+                if require_draft and not current['draft']:
+                    raise ValueError('Refusing to modify a published release')
+                if asset and asset['state'] == 'uploaded' and not current['draft']:
                     raise ValueError('Refusing to replace a different published asset: ' + name)
                 print('UPLOAD_START', name, 'attempt=' + str(attempt), flush=True)
                 run_cli(['release', 'upload', tag, str(directory / name), '--repo', repository,

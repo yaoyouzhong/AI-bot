@@ -1,0 +1,108 @@
+name: Promote accepted candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Successful Candidate packages run ID (no rebuild)
+        required: true
+        type: string
+      component:
+        description: Sealed component from that run
+        required: true
+        type: choice
+        options: [bridge, esp8266]
+      acceptance_json:
+        description: Hash-bound acceptance JSON produced by release_pipeline.py record
+        required: true
+        type: string
+      publish:
+        description: Publish after verification; false leaves a reviewable draft
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: promote-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Configure this disposable checkout's release author
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - name: Verify successful native source run
+        id: native
+        env:
+          NATIVE_RUN: ${{ inputs.candidate_run_id }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess
+          run = os.environ['NATIVE_RUN']
+          if not re.fullmatch(r'[0-9]+', run): raise SystemExit('Invalid native run ID')
+          repo = os.environ['GITHUB_REPOSITORY']
+          data = json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/actions/runs/{run}']))
+          if (data['conclusion'] != 'success' or data['status'] != 'completed'
+              or data['path'] != '.github/workflows/candidate.yml'
+              or data['event'] not in ('workflow_dispatch','workflow_call')
+              or data['repository']['full_name'].lower() != repo.lower()):
+              raise SystemExit('Not a successful trusted native candidate run')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('source='+data['head_sha']+'\n')
+          PY
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: release-candidate-${{ inputs.component }}
+          path: artifacts/accepted-candidate
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+      - name: Promote those exact accepted bytes
+        env:
+          ACCEPTANCE_JSON: ${{ inputs.acceptance_json }}
+          EXPECTED_SOURCE: ${{ steps.native.outputs.source }}
+          COMPONENT: ${{ inputs.component }}
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess, sys
+          directory = pathlib.Path('artifacts/accepted-candidate')
+          candidate = json.loads((directory/'CANDIDATE.json').read_text())
+          if candidate['component'] != os.environ['COMPONENT']: raise SystemExit('Wrong candidate component')
+          acceptance = pathlib.Path('artifacts/acceptance.json')
+          acceptance.write_text(os.environ['ACCEPTANCE_JSON'], encoding='utf-8')
+          command = [sys.executable,'scripts/release_pipeline.py','promote',str(directory),str(acceptance),
+                     '--repo',os.environ['GITHUB_REPOSITORY'],'--expected-source',os.environ['EXPECTED_SOURCE'],'--execute']
+          if os.environ['PUBLISH'] == 'true': command += ['--publish','--commit-closeout']
+          subprocess.run(command,check=True)
+          PY
+      - name: Preserve promotion and closeout evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: promotion-record-${{ inputs.component }}
+          path: |
+            artifacts/promotion-*.json
+            artifacts/publication-*-upload-state.json
+            artifacts/acceptance.json
+            download-catalog.json
+            DOWNLOADS.md
+            DOWNLOADS.en.md
+            README.md
+            README.en.md
+          if-no-files-found: warn

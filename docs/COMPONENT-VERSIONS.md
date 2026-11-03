@@ -61,7 +61,7 @@ python scripts/check_version.py --tag tab5-v0.2.151-ui
 
 上述命令只检查格式与本地声明，不创建标签。0.5.0 及更早的 `vX.Y.Z` 保留为桥接主导的组合版本；0.5.1 起的 `vX.Y.Z` 只路由电脑端，不能触发固件打包。旧 `bridge-vX.Y.Z` 仍可读取为兼容别名。包内各组件仍用独立版本。`extract_release_notes.py` 从对应组件的中英文日志选取说明；未完成的日志继续阻止正式打标签。
 
-`prepare_release_assets.py --component bridge|esp8266|tab5` 分别验证对应包，不要求另一组件同时交付。`--publish-directory` 从验收目录生成最少用户附件和一份校验清单：桥接为 Windows 安装器、Mac ZIP、清单；ESP8266 为固件材料 ZIP、清单；TAB5 为首刷 ZIP、升级 ZIP、清单。源码和构建记录保留在验收资料或仓库开发入口；当前 TAB5 .194 正式发布另附对应源码 ZIP；可选名画与书法包分别按下载索引中的正式版本提供。
+`prepare_release_assets.py --component bridge|esp8266|tab5` 分别验证对应包，不要求另一组件同时交付。新流程用 `release_pipeline.py assemble/seal` 冻结后统一晋级：桥接为 Windows 安装器、Mac ZIP；ESP8266 为固件材料 ZIP；TAB5 为首刷 ZIP、升级 ZIP 和对应源码。每个 Release 附许可证、第三方声明、候选与验收记录及校验清单，并保留旧客户端需要的兼容别名。便携包和完整桥接源码保留在候选归档；可选名画与书法包分别按下载索引中的正式版本提供。三条组件版本线对应 Windows、Mac、ESP8266、TAB5 四项交付，不把两端桥接合计为一个安装包。
 
 TAB5 验证同时检查镜像内版本、说明 sidecar、首刷与升级应用字节及对应公开源码快照，不能只改文件名作为新固件。
 
@@ -92,13 +92,13 @@ python scripts/test_download_catalog.py
 
 `extract_release_notes.py` 自动在组件更新说明前添加完整下载表、固定入口和安装提示；本次组件使用目标标签的附件地址，其余沿用索引中的正式版本。草稿中的本次组件链接要到该 Release 公开且附件齐全后才可公开下载；原有打包检查继续验证本次组件的附件，下载索引检查不代替安装或真机验收。组件发布后重新 `refresh`、`sync` 并审查索引变动，使固定下载中心指向最新正式版本；旧 Release 内的固定入口仍可找到新版。上述命令只读取网络、修改本地文件，不推送或发布。
 
-`verify_release_local.ps1` 检查下载中心/README 是否与索引一致并运行边界测试。现有 Release 工作流调用的说明提取器已接入完整下载表，无需改变工作流的权限、触发条件或草稿发布边界。网站上的内容仍须经明确授权提交/推送或更新 Release 说明后生效。
+`verify_release_local.ps1` 检查下载中心/README 是否与索引一致并运行边界测试。说明提取器已接入完整下载表；新晋级入口公开后会刷新索引和下载表。生成文档默认留在本地，已有推送授权时可用 `--commit-closeout` 只提交指定生成文件；网站上的内容以实际推送及 Release 说明更新为准。
 
-每次正式发布后必须同步主页全部介绍、安装手册与说明、下载入口、相关截图和宣传视频，逐项记录完成结果；执行[发布收尾清单](RELEASE-CHECKLIST.md)。区分当前说明与历史验收记录，保留未变化画面的来源，逐张复核替换截图并同步许可材料中的 SHA-256。
+每次正式发布后核对并同步受影响的主页介绍、安装手册与说明、下载入口，逐项记录[发布收尾清单](RELEASE-CHECKLIST.md)的结果。小更新复用仍准确的截图和视频；只有会误导用户的部分才替换，登记新素材来源及 SHA-256。区分当前说明与历史验收记录。
 
 ## 自动发布衔接
 
-经用户授权应用的[工作流补丁](proposals/independent-release-workflows.patch)支持历史 `v*.*.*` 与三类组件标签。桥接和 ESP8266 按各自标签单独打包，只生成草稿，不自动公开发布；TAB5 标签检查版本与更新说明，保留独立工程本地构建及镜像核验，由本地已验证材料交付。候选工作流也可手动选择桥接、ESP8266 或组合打包。推送 `main` 只触发 CI 检查；显式推送对应版本标签才触发组件候选流程。
+当前入口见[发布自动化](RELEASE-AUTOMATION.md)：`candidate.yml` 显式构建所选桥接、ESP8266 或组合候选并冻结清单；`release.yml` 对历史与组件标签只检查版本及更新说明，不再构建。`promote.yml` 获取明确成功批次的已验收原包，默认只生成草稿，显式选择公开才发布。TAB5 保留独立工程本地构建与镜像核验，通过本地 `release_pipeline.py` 晋级。推送 `main` 只跑按路径选择的 CI，不自动公开版本；发布负责人已获本次发布授权时连续执行，无需逐阶段重复确认。旧提案补丁仅保留历史参考，不作为当前工作流安装入口。
 
 本地调用 GitHub CLI 使用 `python scripts/github_cli.py ...` 或其 `run_cli` 入口。Windows 直接解析真实控制台版 `gh.exe`，跳过 PATH 中的 GUI 包装器，并结合 `CREATE_NO_WINDOW`、隐藏窗口及标准输入/输出/错误重定向；失败保留退出码与错误，不打开交互终端。创建标签、push、刷机或公开新版本仍须对应操作的明确授权。
 
@@ -106,13 +106,13 @@ python scripts/test_download_catalog.py
 
 Bridge and legacy bundle release titles use `AI-bot v<version>`, for example `AI-bot v0.6.7`, with feature descriptions in release notes. ESP8266 and TAB5 retain their existing title conventions; firmware version values and canonical filenames omit `v`. Keep existing Git tag prefixes. See [artifact naming and legacy-client compatibility](NAMING-CONVENTIONS.md).
 
-The fixed entry points are DOWNLOADS.md and DOWNLOADS.en.md. download-catalog.json records seven published stable downloads, separately from local candidate version files. Run `python scripts/download_catalog.py refresh`, then `sync` to update both centers and README tables; `check` detects stale generated content, and `verify-online` checks public assets, URL availability, sizes and published checksums. Run `python scripts/test_download_catalog.py` for completeness and component-isolation regressions. The release-notes extractor prepends all downloads, using the target tag for the releasing component and retaining published companion packages. Draft asset links become public only after publication with all required assets. Refresh and sync after publication to advance the fixed center. These tools never push, upload or publish; packaging checks and installation/hardware acceptance remain separate. The local release checker includes index checks; workflow permissions, triggers and draft boundaries are unchanged.
+The fixed entry points are DOWNLOADS.md and DOWNLOADS.en.md. download-catalog.json records seven published stable downloads separately from candidate versions. `download_catalog.py refresh`, `sync`, `check` and `verify-online` verify published assets and generate bilingual download centers and README tables. These individual catalog commands never push or publish. The promotion wrapper runs download closeout after publication, updates the Release download table, and can explicitly commit only generated metadata within an existing push authorization. Draft links become downloadable only after publication. Packaging, installation and hardware acceptance remain separate evidence.
 
-Every public release must complete the [release closeout checklist](RELEASE-CHECKLIST.md): update all home introductions, installation manuals/instructions, download links, relevant screenshots and the product video. Preserve dated acceptance evidence and unchanged frame provenance; visually review replacements and register their SHA-256 values.
+Every public release must complete the [release closeout checklist](RELEASE-CHECKLIST.md): synchronize affected descriptions, installation instructions and download links. Minor changes may reuse accurate screenshots and video; update only misleading portions, retain provenance and record replacement hashes. Preserve dated acceptance evidence.
 
 Windows 0.6.2 retains daily update checks, deduplicated notifications, automatic selection/download and SHA-256 verification. Installation remains explicit through the existing Windows installer, ESP8266 backup/USB tool or TAB5 confirmation/boot-verification flow. Local/public functionality is unified; upgrades preserve separately installed artwork collections. Firmware metadata may declare minimumBridgeVersion and protocolVersion; see UPDATES.md.
 
-The bridge, ESP8266 and TAB5 have independent version sources and changelogs. Only the changed component is renumbered and delivered. Windows/macOS source metadata shares the bridge version line, while published downloads are selected independently per platform; TAB5 release declarations must match actual image, notes, first-install application and public source identity. Protocol version 1 is separate from release versions, and compatibility is based on supported protocol/features rather than equal numbers. Windows update checks select stable versions per component and retain legacy-bundle support. Component-specific packaging verifies only the requested payload and stages minimal user downloads plus checksums. Historical v0.5.0 tags/assets remain unchanged. The authorized CI patch routes bridge/ESP8266 component tags to draft packages only, while TAB5 tags validate metadata and retain independent local build/material validation. The candidate workflow also supports manual component selection. Pushing main triggers CI checks; explicitly pushing a version tag triggers its component candidate workflow. Local CLI calls use scripts/github_cli.py to resolve the real console executable, bypass GUI shims, hide its window and capture output/errors on Windows. Creating tags, pushing, flashing or publicly releasing still requires authorization for the corresponding action.
+The bridge, ESP8266 and TAB5 have independent version sources and changelogs. Four deliverables use three version lines: Windows and macOS share bridge source metadata but published downloads are selected per platform. Only changed components are renumbered and delivered. TAB5 declarations must match actual image, notes, first-install application and corresponding public source. Protocol version 1 is independent of release numbering; compatibility follows supported features. Legacy tags and assets remain unchanged. Candidate workflows build selected native packages and freeze their identities. Tag events only validate metadata; explicit promotion checks hash-bound acceptance and publishes the original bytes without rebuilding. TAB5 retains independent local build/material validation. Main pushes run scoped CI only. Local CLI calls use scripts/github_cli.py for the real hidden console executable. Publishing and pushing require applicable authorization; a user's explicit release instruction covers the necessary stages within that release scope without repeated approvals.
 
 Windows 0.6.8 and TAB5 0.2.210-ui are published; Mac retains 0.6.7. See [release scope and acceptance](RELEASE-0.6.8.md).
 

@@ -43,7 +43,10 @@ jobs:
         run: python scripts/test_release_packaging.py
       - name: Build, verify and package bridge only
         shell: pwsh
-        run: powershell -NoProfile -File scripts/package_windows_local.ps1 -OutputDirectory artifacts/candidate-windows-bridge
+        run: |
+          powershell -NoProfile -File scripts/package_windows_local.ps1 -OutputDirectory artifacts/candidate-windows-bridge
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/release_pipeline.py stamp artifacts/candidate-windows-bridge --source "$env:GITHUB_SHA" --platform windows
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: candidate-windows-bridge
@@ -62,7 +65,9 @@ jobs:
       - name: Test packaging failure boundaries
         run: python scripts/test_release_packaging.py
       - name: Build, verify and package ESP8266 only
-        run: python scripts/package_esp8266_local.py artifacts/candidate-esp8266
+        run: |
+          python scripts/package_esp8266_local.py artifacts/candidate-esp8266
+          python scripts/release_pipeline.py stamp artifacts/candidate-esp8266 --source "$GITHUB_SHA" --platform esp8266
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: candidate-esp8266
@@ -80,7 +85,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Test, package and verify Apple Silicon app
-        run: bash scripts/package_macos.sh artifacts/candidate-macos
+        run: |
+          bash scripts/package_macos.sh artifacts/candidate-macos
+          python3 scripts/release_pipeline.py stamp artifacts/candidate-macos --source "$GITHUB_SHA" --platform macos
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: candidate-macos-arm64
@@ -95,9 +102,50 @@ jobs:
         with:
           python-version: '3.12'
       - name: Verify and archive corresponding source
-        run: python scripts/package_desktop_source.py artifacts/candidate-macos-source
+        run: |
+          python scripts/package_desktop_source.py artifacts/candidate-macos-source
+          python scripts/release_pipeline.py stamp artifacts/candidate-macos-source --source "$GITHUB_SHA" --platform macos-source
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: candidate-macos-source
           path: artifacts/candidate-macos-source/*
+          if-no-files-found: error
+
+  seal:
+    needs: [windows, firmware, macos, macos-source]
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: candidate-*
+          path: artifacts/native-candidates
+          merge-multiple: true
+      - name: Freeze native packages and source identity without rebuilding
+        env:
+          COMPONENT: ${{ inputs.component }}
+          PLATFORM: ${{ inputs.desktop_platform }}
+        run: |
+          if [ "$COMPONENT" = bundle ]; then PLATFORM=all; fi
+          if [ "$COMPONENT" != esp8266 ]; then
+            python scripts/release_pipeline.py assemble artifacts/native-candidates artifacts/sealed-bridge --component bridge --platform "$PLATFORM" --source "$GITHUB_SHA" --require-stamps
+          fi
+          if [ "$COMPONENT" != bridge ]; then
+            python scripts/release_pipeline.py assemble artifacts/native-candidates artifacts/sealed-esp8266 --component esp8266 --source "$GITHUB_SHA" --require-stamps
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.component != 'esp8266'
+        with:
+          name: release-candidate-bridge
+          path: artifacts/sealed-bridge/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.component != 'bridge'
+        with:
+          name: release-candidate-esp8266
+          path: artifacts/sealed-esp8266/*
           if-no-files-found: error

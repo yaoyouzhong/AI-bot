@@ -1,4 +1,5 @@
-name: Release
+name: Release tag validation
+# aibot-tag-validation-only: 1
 
 on:
   push:
@@ -13,70 +14,15 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    outputs:
-      component: ${{ steps.target.outputs.component }}
-      desktop_platform: ${{ steps.target.outputs.desktop_platform }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - name: Verify component tag and finalized notes
-        id: target
+      - name: Validate metadata only; never rebuild accepted packages
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           python scripts/check_version.py --tag "$RELEASE_TAG"
           python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
-          component="$(python -c 'import os, sys; sys.path.insert(0, "scripts"); from component_versions import release_target; print(release_target(os.environ["RELEASE_TAG"])[0])')"
-          echo "component=$component" >> "$GITHUB_OUTPUT"
-          platform=all
-          if [ "$component" = bridge ]; then
-            platform="$(python -c 'import sys; sys.path.insert(0, "scripts"); from component_versions import desktop_platform; print(desktop_platform())')"
-          fi
-          echo "desktop_platform=$platform" >> "$GITHUB_OUTPUT"
-      - name: TAB5 keeps independent local image validation
-        if: steps.target.outputs.component == 'tab5'
-        run: echo "TAB5 tag metadata checked. Build and verify its first-install, upgrade and public source materials locally before separately authorized publication."
-  packages:
-    needs: validate
-    if: needs.validate.outputs.component != 'tab5'
-    uses: ./.github/workflows/candidate.yml
-    with:
-      component: ${{ needs.validate.outputs.component }}
-      desktop_platform: ${{ needs.validate.outputs.desktop_platform }}
-  draft:
-    needs: [validate, packages]
-    if: needs.validate.outputs.component != 'tab5'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.12'
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          pattern: candidate-*
-          path: release-assets
-          merge-multiple: true
-      - name: Verify only requested components and stage user downloads
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          SOURCE_SHA: ${{ github.sha }}
-          TARGET_COMPONENT: ${{ needs.validate.outputs.component }}
-          DESKTOP_PLATFORM: ${{ needs.validate.outputs.desktop_platform }}
-        run: |
-          python scripts/prepare_release_assets.py release-assets --component "$TARGET_COMPONENT" --desktop-platform "$DESKTOP_PLATFORM" --commit "$SOURCE_SHA" --publish-directory public-assets
-          python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
-      - name: Create reviewable draft only
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          release_title="$RELEASE_TAG"
-          case "$RELEASE_TAG" in
-            v*) release_title="AI-bot $RELEASE_TAG" ;;
-          esac
-          gh release create "$RELEASE_TAG" public-assets/* --verify-tag --draft --latest=false --title "$release_title" --notes-file release-notes.md
+          echo 'Promote sealed candidates using scripts/release_pipeline.py or promote.yml. A tag never builds or publishes packages.'

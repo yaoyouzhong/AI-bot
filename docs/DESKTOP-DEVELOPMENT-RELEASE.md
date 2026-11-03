@@ -22,8 +22,8 @@
 1. 两端改动合并后，选定一个完整源码提交 SHA 作为候选。双平台包从同一 SHA 构建；打包工作区必须干净，不能混入未提交代码、个人设置或凭据。
 2. Windows 包在 Windows 构建，Mac 包在 macOS 构建。可使用现有 GitHub Actions 候选流程，也可使用仓库本地打包脚本。CI 构建不代替平台安装和硬件验收。
 3. 每个包登记平台/架构、版本、源码 SHA、文件名、大小、SHA-256、构建方式、测试结果及验收人。安装包不进入 Git 源码历史；验收材料不得包含个人草稿、Cookie 或授权令牌。
-4. 经授权将两端附件集中到同一个草稿 Release。Actions 临时 artifacts 可用于中转，但有保留期限，不能作为长期发布记录的唯一存储。检查本地包与草稿下载包的哈希一致。
-5. 下载草稿中的实际安装包，分别验证安装、启动、旧版升级、配对/草稿/设备展示设置保留，以及本次关键变更。源目录运行或候选桥接成功不能代替安装包验证。
+4. 用 `release_pipeline.py assemble` 汇集并冻结原生包；Actions 候选流程会自动完成。`CANDIDATE.json` 固定文件清单和哈希，`record` 将实测或复用证据绑定到此候选。Actions artifacts 有保留期限，应连同验收记录下载归档，不将其作为长期记录的唯一存储。
+5. 在对应系统使用这一份候选的实际安装包验证受影响的安装、启动、资料保留和关键变更。符合下文复用条件时直接登记已有证据，不要求每次重新从旧公开版升级、配对或刷机。上传后核对服务器摘要，不再下载同一个包重复验收。源目录运行不能替代实际安装包验证。
 6. **验收哪个文件，就发布哪个文件。** 验收后不再次构建并沿用旧结论。源码或包变化时记录新 SHA/哈希，补做受影响验证。纯说明修改不要求重建已验收包，但必须注明其实际源码身份；发布标签应指向被验收源码提交。
 
 ## 发布门槛与验收分工
@@ -53,23 +53,19 @@ Evidence follows the actual change: identify candidates by source and archive ha
 
 补丁从最新适用主干开发，判断是否影响另一端和旧固件。已发布标签与附件不原地替换；修复使用新版本。保留旧包用于必要回退，但降级前确认配置格式兼容并备份用户数据，不承诺任何旧版都可直接覆盖安装。
 
-## 自动化现状与后续工作
+## 发布只走四步
 
-当前 `.github/workflows/candidate.yml` 已支持 Windows/macOS 分平台构建；`release.yml` 支持标签触发构建并汇总草稿。**当前流程可能重新构建，不等于已经实现“晋级原有已验收候选”。** 使用现有流程时，应在其最后一次构建并汇总草稿后验收实际附件，再公开该草稿。
+1. **定范围**：确定实际变化的组件、平台、版本和源码 SHA，整理最终中英文更新说明；唯一负责人使用当前任务中的发布授权，不为构建、标签、上传和收尾分别索要确认。
+2. **构建候选一次**：从指定 SHA 在对应系统构建所需包；已有同 SHA、同哈希且构建验证完整的候选直接使用。Actions `candidate.yml` 自动登记原生来源并冻结候选。TAB5 用已核验的独立工程交付物封存，不为发布重新刷机。
+3. **记录验收一次**：Agent 完成可自动检查，只将真实设备或账户条件留给用户。用 `record` 记录本次结果或有基线与变更分析的复用结果；失败和缺项继续阻止晋级。候选文件变化时旧记录失效，纯文档修订不重建原包。
+4. **原包晋级与收尾**：`promote` 校验同一清单，创建正确标签和草稿，断点上传、核对服务端摘要；已有授权时一次选择公开发布，并自动刷新下载索引、中英文下载块和 Release 下载表。负责人一次复核受影响说明与媒体复用结论，保留记录。
 
-后续单独授权、实现及验证的 CI/CD 改进：
-
-- 生成并校验双平台构建物清单，关联源码 SHA、架构、哈希与验证记录。
-- 增加候选晋级路径：按明确的构建批次取原包，验证完整性，禁止静默覆盖或重建。
-- 检查发布平台附件齐全、版本一致、标签源码正确，缺项时停止。
-- 保持正式发布人工批准；推送 main 只检查，不自动公开新版本。
-
-这些改进尚未因本文落库而实施；本文不修改工作流权限、触发条件或发布授权。
+具体命令及异常恢复见 [发布自动化](RELEASE-AUTOMATION.md)。`release.yml` 标签事件只检查声明，不再调用构建；`promote.yml` 显式取回成功候选批次。推送 main 不会公开版本。常规代码 CI 仍验证受影响产品；候选打包是唯一正式交付物构建，发布晋级不再编译。文档及发布工具改动只跑工具回归。
 
 ## English summary
 
 Use one repository and main branch, with short-lived platform branches and evidence-backed handoffs. Share behavior and protocol contracts while implementing native platform integrations. Keep the existing bridge version line and publish only changed platforms. One release owner coordinates each release from either OS.
 
-Build both platform packages from the same selected source commit on their respective operating systems. Collect authorized uploads in one draft Release, verify hashes, then test the actual downloadable installers. Publish exactly the accepted bytes. Existing tag workflows may rebuild: acceptance must follow the final build, not precede it. Candidate promotion without rebuilding is a proposed automation improvement, not an implemented guarantee.
+Select scope and source once, build the required native candidate packages once, record acceptance once, then promote exactly those bytes. Existing validated candidates and justified unchanged-path evidence are reusable. Acceptance is bound to the candidate identity and file hashes. Tag events only validate metadata; explicit promotion retrieves a successful candidate run without rebuilding, resumes verified uploads, and synchronizes download metadata. Ordinary code CI still checks changed products; documentation/tooling changes do not rebuild apps. See RELEASE-AUTOMATION.md for commands and recovery.
 
 Record source identity, package hashes, platform tests and remaining limitations. Critical delivery, data-preservation and installation failures block the affected release. Publishing, tags and uploads require their applicable authorization. Follow the existing version specification and release closeout checklist; never replace published assets or tags in place.

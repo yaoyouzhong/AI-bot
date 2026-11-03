@@ -10,7 +10,52 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      windows: ${{ steps.scope.outputs.windows }}
+      macos: ${{ steps.scope.outputs.macos }}
+      firmware: ${{ steps.scope.outputs.firmware }}
+      tools: ${{ steps.scope.outputs.tools }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python scripts/ci_scope.py --base "$BASE_SHA" --head "$HEAD_SHA"
+
+  tooling:
+    needs: changes
+    if: needs.changes.outputs.tools == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Release contracts and public content; no product rebuild
+        run: |
+          python scripts/check_version.py --component all
+          python scripts/check_public_content.py --self-test
+          python scripts/check_public_content.py
+          python docs/development/tab5-279-source/verify.py
+          python scripts/test_release_pipeline.py
+          python scripts/test_upload_release_resumable.py
+          python scripts/test_release_packaging.py
+          python scripts/test_download_catalog.py
+          python scripts/test_extract_release_notes.py
+          python scripts/test_component_versions.py
+          python scripts/test_artifact_names.py
+
   windows:
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -20,15 +65,6 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
-      - name: Verify version metadata
-        run: python scripts/check_version.py
-      - name: Verify archived TAB5 source bytes
-        run: python docs/development/tab5-279-source/verify.py
-      - name: Check public content boundary
-        run: |
-          python scripts/check_public_content.py --self-test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/check_public_content.py
       - name: Build Windows bridge
         run: dotnet build windows-app/AIBotBridge/AIBotBridge.csproj -c Release
       - name: Validate Windows status snapshot
@@ -39,6 +75,8 @@ jobs:
           dotnet run --no-build -c Release --project windows-app/AIBotBridge/AIBotBridge.csproj -- --self-test-public
 
   macos:
+    needs: changes
+    if: needs.changes.outputs.macos == 'true'
     runs-on: macos-15
     env:
       # The pinned MMKV package requires Swift tools 6.2 or newer.
@@ -53,6 +91,8 @@ jobs:
         run: swift build -c release
 
   firmware:
+    needs: changes
+    if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
