@@ -34,6 +34,8 @@ python3 "$repo_root/scripts/build_macos_app_icon.py" "$contents/Resources/AppIco
 install -m 644 "$repo_root/LICENSE" "$repo_root/THIRD_PARTY_NOTICES.md" "$repo_root/docs/MAC-TAB5-CANDIDATE.md" "$contents/Resources/"
 mkdir -p "$contents/Resources/licenses/MMKV"
 install -m 644 "$package_root/ThirdParty/MMKV-LICENSE.txt" "$contents/Resources/licenses/MMKV/LICENSE.txt"
+mkdir -p "$contents/Resources/licenses/tft-espi"
+install -m 644 "$repo_root/licenses/tft-espi/LICENSE.txt" "$contents/Resources/licenses/tft-espi/LICENSE.txt"
 mkdir -p "$contents/Resources/licenses/pmo-calendar"
 install -m 644 "$repo_root/licenses/pmo-calendar/NOTICE.md" "$contents/Resources/licenses/pmo-calendar/NOTICE.md"
 git -C "$repo_root" rev-parse HEAD > "$contents/Resources/SOURCE_SHA.txt"

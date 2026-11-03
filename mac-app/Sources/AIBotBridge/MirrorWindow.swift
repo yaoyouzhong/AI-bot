@@ -82,13 +82,18 @@ final class MacMirrorView:NSView {
             }
         case "stocks":
             let quotes=s.stocks?.quotes ?? [];let pages=max(1,(quotes.count+3)/4),page=Int(s.epochUtc/5)%pages
-            if quotes.isEmpty {centered("未配置自选股\n右键菜单 → 设置自选股…",NSRect(x:0,y:104,width:240,height:40),.systemFont(ofSize:11),.gray)}
+            if quotes.isEmpty {centered("Waiting for data",NSRect(x:0,y:110,width:240,height:20),.systemFont(ofSize:11),.gray)}
+            let labels=resources?().first(where:{$0.kind == .stockLabels})?.data
             for (index,q) in quotes.dropFirst(page*4).prefix(4).enumerated() {
-                let y=CGFloat(10+index*54);text(q.code+(q.name.isEmpty ? "":"  "+q.name),14,y,212,15,10,.gray)
-                (q.price as NSString).draw(at:NSPoint(x:14,y:y+15),withAttributes:[.font:NSFont.monospacedSystemFont(ofSize:17,weight:.bold),.foregroundColor:NSColor.white])
+                let y=CGFloat(6+index*54)
+                if let image=MacPetAnimation.image(MacStockCodeRaster.raster(q.code),width:56,height:16) {image.draw(in:NSRect(x:14,y:y,width:56,height:16))}
+                let offset=(page*4+index)*156*20*2
+                if let labels, labels.count >= offset+156*20*2, let image=MacPetAnimation.image(labels.subdata(in:offset..<(offset+156*20*2)),width:156,height:20) {image.draw(in:NSRect(x:70,y:y,width:156,height:20))}
+                else {let style=NSMutableParagraphStyle();style.alignment = .right; (q.code as NSString).draw(in:NSRect(x:70,y:y,width:156,height:20),withAttributes:[.font:NSFont.systemFont(ofSize:12),.foregroundColor:NSColor.lightGray,.paragraphStyle:style])}
+                (q.price as NSString).draw(at:NSPoint(x:14,y:y+20),withAttributes:[.font:NSFont.monospacedSystemFont(ofSize:24,weight:.regular),.foregroundColor:NSColor.white])
                 let alignment=NSMutableParagraphStyle();alignment.alignment = .right
-                (q.changePercent as NSString).draw(in:NSRect(x:120,y:y+15,width:106,height:22),withAttributes:[.font:NSFont.monospacedSystemFont(ofSize:17,weight:.bold),.foregroundColor:q.trend>0 ? NSColor(calibratedRed:1,green:0.23,blue:0.19,alpha:1):q.trend<0 ? NSColor(calibratedRed:0,green:0.85,blue:0.2,alpha:1):NSColor.lightGray,.paragraphStyle:alignment])
-            };if !quotes.isEmpty {centered("STOCKS",NSRect(x:0,y:224,width:240,height:12),.monospacedSystemFont(ofSize:8,weight:.medium),.gray)}
+                (q.changePercent as NSString).draw(in:NSRect(x:130,y:y+20,width:96,height:31),withAttributes:[.font:NSFont.monospacedSystemFont(ofSize:24,weight:.regular),.foregroundColor:q.trend>0 ? NSColor.red:q.trend<0 ? NSColor(calibratedRed:0,green:0.85,blue:0.2,alpha:1):NSColor.lightGray,.paragraphStyle:alignment])
+            };if !quotes.isEmpty {centered(pages>1 ? "STOCKS \(page+1)/\(pages)":"STOCKS",NSRect(x:0,y:228,width:240,height:12),.monospacedSystemFont(ofSize:8,weight:.medium),.gray)}
         case "system":
             guard let m=s.systemMetrics else {return}
             if lastMetricDate != m.updatedAt {history.append((Double(m.downloadBytesPerSecond),Double(m.uploadBytesPerSecond)));history=Array(history.suffix(224));lastMetricDate=m.updatedAt}

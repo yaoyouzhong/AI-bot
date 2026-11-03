@@ -4,7 +4,7 @@ AI-bot's own source code, including its Windows/macOS bridges and ESP8266/TAB5 f
 
 | Component | Use | License/source |
 | --- | --- | --- |
-| TFT_eSPI Font 4 raster subset | ESP8266 stock-code glyphs and Windows mirror | TFT_eSPI 2.5.43 component notices; [license](licenses/tft-espi/LICENSE.txt); [source](https://github.com/Bodmer/TFT_eSPI/tree/v2.5.43/Fonts) |
+| TFT_eSPI Font 4 raster subset | ESP8266 stock-code glyphs and Windows/macOS mirrors | TFT_eSPI 2.5.43 component notices; [license](licenses/tft-espi/LICENSE.txt); [source](https://github.com/Bodmer/TFT_eSPI/tree/v2.5.43/Fonts) |
 | .NET, `System.IO.Ports`, and `System.Speech` 8.0.0 | Windows bridge runtime, serial transport, and installed Microsoft SAPI speech recognition | MIT, https://github.com/dotnet/runtime |
 | Microsoft.Web.WebView2 1.0.4078.44 | Authorization browser control/loader | Package's Microsoft BSD-style LICENSE.txt; browser Runtime installed separately under its Microsoft terms, https://developer.microsoft.com/microsoft-edge/webview2/ |
 | Microsoft.Windows.SDK.NET.Ref 10.0.19041.56 | Windows SDK .NET projection and WinRT runtime DLLs | Windows SDK terms, https://aka.ms/WinSDKLicenseURL; both net8.0 DLLs explicitly listed at https://learn.microsoft.com/en-us/legal/windows-sdk/redist#microsoftwindowssdknetref |

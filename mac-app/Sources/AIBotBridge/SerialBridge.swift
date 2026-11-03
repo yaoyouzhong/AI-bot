@@ -6,17 +6,17 @@ final class SerialBridge {
     private static let maximumLineBytes = 6_144
     private let queue = DispatchQueue(label: "AI-bot.serial-bridge")
     private let lock = NSLock()
+    private let connectionState = MacSerialConnectionState()
     private let status: () -> MacStatusSnapshot
     private let lanConfiguration: () -> (host: String, port: UInt16, token: String)?
     private let resources: () -> [MacResourcePayload]
+    // Protected by lock; valid only for the current serial connection.
+    private var acknowledgedResources = MacAcknowledgedResources()
     private let enabled: () -> Bool
     private var activeDescriptor: Int32 = -1
-    private var activePort: String?
-    private var activeDeviceHost: String?
     private var stopped = false
-    private var probeState = "等待扫描"
-    var connectionDetail: String { lock.lock(); defer { lock.unlock() }; return probeState }
-    private func noteProbe(_ value: String) { lock.lock(); probeState = value; lock.unlock() }
+    var connectionDetail: String { connectionState.snapshot().detail }
+    private func noteProbe(_ value: String) { connectionState.setDetail(value) }
     private var pauseUntil: UInt64 = 0
     private var paused: Bool { DispatchTime.now().uptimeNanoseconds < pauseUntil }
 
@@ -94,17 +94,8 @@ final class SerialBridge {
         self.enabled = enabled
     }
 
-    var portName: String? {
-        lock.lock()
-        defer { lock.unlock() }
-        return activePort
-    }
-
-    var deviceHost: String? {
-        lock.lock()
-        defer { lock.unlock() }
-        return activeDeviceHost
-    }
+    var portName: String? { connectionState.snapshot().port }
+    var deviceHost: String? { connectionState.snapshot().host }
 
     func start() {
         lock.lock()
@@ -162,11 +153,13 @@ final class SerialBridge {
 
     @discardableResult
     func sendResource(kind: MacBinaryResourceKind, data: Data) -> Bool {
-        guard let chunks = try? MacBinaryResourceProtocol.createChunks(
-            kind: kind, data: data, transferId: arc4random()) else { return false }
         lock.lock()
         defer { lock.unlock() }
         guard activeDescriptor >= 0, !paused else { return false }
+        if acknowledgedResources.contains(kind, data) { return true }
+        guard let chunks = try? MacBinaryResourceProtocol.createChunks(
+            kind: kind, data: data, transferId: arc4random()) else { return false }
+        acknowledgedResources.invalidate(kind)
         var nextHeartbeat = ProcessInfo.processInfo.systemUptime
         for chunk in chunks {
             if ProcessInfo.processInfo.systemUptime >= nextHeartbeat {
@@ -181,6 +174,7 @@ final class SerialBridge {
             }
             if !acknowledged { return false }
         }
+        acknowledgedResources.record(kind, data)
         return true
     }
 
@@ -228,7 +222,6 @@ final class SerialBridge {
         noteProbe("USB 握手已确认")
         setActive(descriptor, path: path, deviceHost: handshake.deviceHost)
         _ = provisionLan()
-        var sentRevisions: [MacBinaryResourceKind: Int] = [:]
         var nextDeviceProbeAt = Date().addingTimeInterval(handshake.deviceHost == nil ? 5 : 30)
         while !isStopped && enabled() {
             if transmissionPaused { wait(milliseconds: 100); continue }
@@ -237,10 +230,7 @@ final class SerialBridge {
                 nextDeviceProbeAt = Date().addingTimeInterval(deviceHost == nil ? 5 : 30)
             }
             for resource in resources() {
-                if sentRevisions[resource.kind] == resource.revision { continue }
-                if sendResource(kind: resource.kind, data: resource.data) {
-                    sentRevisions[resource.kind] = resource.revision
-                }
+                _ = sendResource(kind: resource.kind, data: resource.data)
             }
             let snapshot = status()
             guard let frame = Self.statusFrame(snapshot) else { noteProbe("状态消息超过 USB 长度限制，未发送"); return }
@@ -260,18 +250,18 @@ final class SerialBridge {
 
     private func setActive(_ descriptor: Int32, path: String, deviceHost: String?) {
         lock.lock()
+        acknowledgedResources.reset()
         activeDescriptor = descriptor
-        activePort = path
-        activeDeviceHost = deviceHost
+        connectionState.setConnection(port: path, host: deviceHost)
         lock.unlock()
     }
 
     private func clearActive(_ descriptor: Int32) {
         lock.lock()
         if activeDescriptor == descriptor {
+            acknowledgedResources.reset()
             activeDescriptor = -1
-            activePort = nil
-            activeDeviceHost = nil
+            connectionState.setConnection(port: nil, host: nil)
         }
         lock.unlock()
     }
@@ -290,7 +280,7 @@ final class SerialBridge {
         guard activeDescriptor == descriptor, !paused,
               Self.write(Self.controlFrame(type: "ping"), to: descriptor),
               let handshake = Self.waitForPong(from: descriptor, stopped: { false }) else { return }
-        activeDeviceHost = handshake.deviceHost
+        connectionState.setHost(handshake.deviceHost)
     }
 
     private func wait(milliseconds: UInt32) {
@@ -482,4 +472,30 @@ struct USBDeviceReply: Decodable {
     let request_id: UInt32
     let ok: Bool
     let data: DeviceInfo?
+}
+
+// Caller serializes access with the bridge lock. A failed transfer is invalidated
+// before writing because the device may have received only part of it.
+struct MacAcknowledgedResources {
+    private var values: [MacBinaryResourceKind: Data] = [:]
+    func contains(_ kind: MacBinaryResourceKind, _ data: Data) -> Bool { values[kind] == data }
+    mutating func invalidate(_ kind: MacBinaryResourceKind) { values[kind] = nil }
+    mutating func record(_ kind: MacBinaryResourceKind, _ data: Data) { values[kind] = data }
+    mutating func reset() { values.removeAll() }
+}
+
+// UI reads must never wait for the serial I/O lock while a transfer awaits ACKs.
+final class MacSerialConnectionState {
+    private let lock = NSLock()
+    private var port: String?, host: String?
+    private var detail = "等待扫描"
+    func snapshot() -> (port: String?, host: String?, detail: String) {
+        lock.lock(); defer { lock.unlock() }
+        return (port, host, detail)
+    }
+    func setConnection(port: String?, host: String?) {
+        lock.lock(); defer { lock.unlock() }; self.port = port; self.host = host
+    }
+    func setHost(_ host: String?) { lock.lock(); defer { lock.unlock() }; self.host = host }
+    func setDetail(_ detail: String) { lock.lock(); defer { lock.unlock() }; self.detail = detail }
 }
