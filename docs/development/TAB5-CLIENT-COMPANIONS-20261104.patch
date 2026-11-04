@@ -1,0 +1,849 @@
+diff --git a/.gitignore b/.gitignore
+--- a/.gitignore
++++ b/.gitignore
+@@ -22,3 +22,11 @@
+ !.env.example
+ *.pem
+ *.key
++
++# Explicitly supplied OpenAI artwork for local Codex companion candidates.
++/firmware/main/codex_pet_data.inc
++/firmware/main/codex_pet_data.json
++
++# Explicitly supplied Anthropic artwork for local Claude companion candidates.
++/firmware/main/claude_pet_data.inc
++/firmware/main/claude_pet_data.json
+diff --git a/firmware/main/CMakeLists.txt b/firmware/main/CMakeLists.txt
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -14,7 +14,7 @@
+ list(APPEND tab5_sources "wifi_submission_test.c")
+ list(APPEND tab5_sources "reply_document.c")
+ list(APPEND tab5_sources "codex_read_ack.c")
+-list(APPEND tab5_sources "codex_companion.c")
++list(APPEND tab5_sources "codex_companion.c" "claude_companion.c")
+ list(APPEND tab5_sources "wifi_profiles.c")
+ list(APPEND tab5_sources "wireless_boot.c")
+ list(APPEND tab5_sources "photo_attachment.c" "sd_storage.c" "photo_transfer_crypto.c" "photo_display_probe.c")
+diff --git a/firmware/main/claude_companion.c b/firmware/main/claude_companion.c
+new file mode 100644
+--- /dev/null
++++ b/firmware/main/claude_companion.c
+@@ -0,0 +1,51 @@
++#include "claude_companion.h"
++#if __has_include("claude_pet_data.inc")
++#include "claude_pet_data.inc"
++#define CLAUDE_HAS_ART 1
++#else
++#define CLAUDE_HAS_ART 0
++#endif
++
++bool claude_companion_asset_available(void) { return CLAUDE_HAS_ART; }
++unsigned claude_companion_frame_count(void) {
++#if CLAUDE_HAS_ART
++    return sizeof(claude_pet_frames)/sizeof(claude_pet_frames[0]);
++#else
++    return 0;
++#endif
++}
++claude_companion_frame_info claude_companion_frame(codex_companion_state state,int64_t elapsed,bool repeat_completion) {
++    claude_companion_frame_info result={0};
++#if CLAUDE_HAS_ART
++    unsigned group=4; // Unknown: search/exploration, using the original space clip.
++    if(state==CODEX_COMPANION_WORKING)group=0;
++    else if(state==CODEX_COMPANION_IDLE)group=1;
++    else if(state==CODEX_COMPANION_WAITING||state==CODEX_COMPANION_APPROVAL||state==CODEX_COMPANION_QUESTION||state==CODEX_COMPANION_BLOCKED)group=2;
++    else if(state==CODEX_COMPANION_DONE)group=3;
++    else if(state==CODEX_COMPANION_STOPPED)group=5;
++    uint64_t tick=(uint64_t)(elapsed>0?elapsed:0)*12u/1000u;
++    unsigned count=claude_pet_groups[group].count;
++    unsigned local=state==CODEX_COMPANION_DONE&&!repeat_completion?(tick<count?(unsigned)tick:count-1):(unsigned)(tick%count);
++    unsigned frame=claude_pet_groups[group].first+local;
++    result=(claude_companion_frame_info){frame,claude_pet_frames[frame].width,claude_pet_frames[frame].height,
++        claude_pet_groups[group].anchor_x2,group==0?8u:group==3?6u:5u,
++        claude_pet_groups[group].anchor_y2,group==0?15u:(group==3||group==5)?14u:12u};
++#else
++    (void)state;(void)elapsed;(void)repeat_completion;
++#endif
++    return result;
++}
++bool claude_companion_decode(unsigned frame,uint8_t *output,size_t capacity,unsigned *width,unsigned *height) {
++#if CLAUDE_HAS_ART
++    if(frame>=claude_companion_frame_count())return false;
++    unsigned w=claude_pet_frames[frame].width,h=claude_pet_frames[frame].height;
++    size_t offset=claude_pet_frames[frame].offset,size=claude_pet_frames[frame].size;
++    if(capacity<w*h*3u||offset>sizeof(claude_pet_stream)||size>sizeof(claude_pet_stream)-offset)return false;
++    if(!codex_companion_unpack(claude_pet_stream+offset,size,claude_pet_palette,claude_pet_alpha,output,w*h))return false;
++    if(width)*width=w;
++    if(height)*height=h;
++    return true;
++#else
++    (void)frame;(void)output;(void)capacity;(void)width;(void)height;return false;
++#endif
++}
+diff --git a/firmware/main/claude_companion.h b/firmware/main/claude_companion.h
+new file mode 100644
+--- /dev/null
++++ b/firmware/main/claude_companion.h
+@@ -0,0 +1,10 @@
++#pragma once
++#include "codex_companion.h"
++#define CLAUDE_COMPANION_FRAME_BYTES (40 * 33 * 3)
++typedef struct {
++    unsigned frame, width, height, anchor_x2, scale, anchor_y2, saver_scale;
++} claude_companion_frame_info;
++bool claude_companion_asset_available(void);
++unsigned claude_companion_frame_count(void);
++claude_companion_frame_info claude_companion_frame(codex_companion_state state, int64_t elapsed, bool repeat_completion);
++bool claude_companion_decode(unsigned frame, uint8_t *output, size_t capacity, unsigned *width, unsigned *height);
+diff --git a/firmware/main/codex_companion.c b/firmware/main/codex_companion.c
+--- a/firmware/main/codex_companion.c
++++ b/firmware/main/codex_companion.c
+@@ -29,7 +29,7 @@
+ }
+ 
+ const char *codex_companion_label(codex_companion_state state) {
+-    static const char *labels[]={"待命","工作中","等你确认","等你回答","等你处理","已完成","任务受阻","Codex 未运行","状态暂不可用"};
++    static const char *labels[]={"待命","工作中","等你确认","等你回答","等你处理","已完成","任务受阻","Codex 未运行","状态未知"};
+     return (unsigned)state<sizeof(labels)/sizeof(labels[0])?labels[state]:labels[CODEX_COMPANION_UNKNOWN];
+ }
+ 
+@@ -54,6 +54,13 @@
+     case CODEX_COMPANION_STOPPED:return 1;
+     case CODEX_COMPANION_UNKNOWN:default:return 26;
+     }
++}
++
++unsigned codex_companion_saver_frame(const codex_companion_animation *animation,int64_t now) {
++    codex_companion_animation playback=*animation;
++    if(animation->value.state==CODEX_COMPANION_DONE&&animation->initialized&&now>=animation->started_at)
++        playback.started_at=now-(now-animation->started_at)%1030;
++    return codex_companion_frame(&playback,now);
+ }
+ 
+ #ifdef TAB5_CODEX_PET_ASSET
+diff --git a/firmware/main/codex_companion.h b/firmware/main/codex_companion.h
+--- a/firmware/main/codex_companion.h
++++ b/firmware/main/codex_companion.h
+@@ -30,6 +30,7 @@
+ const char *codex_companion_label(codex_companion_state state);
+ bool codex_companion_select(codex_companion_animation *animation, codex_companion_value value, int64_t now);
+ unsigned codex_companion_frame(const codex_companion_animation *animation, int64_t now);
++unsigned codex_companion_saver_frame(const codex_companion_animation *animation, int64_t now);
+ bool codex_companion_asset_available(void);
+ bool codex_companion_decode(unsigned frame, uint8_t *output, size_t capacity);
+ bool codex_companion_unpack(const uint8_t *data, size_t size, const uint16_t palette[256], const uint8_t alpha[256], uint8_t *output, size_t pixels);
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1352,6 +1352,9 @@
+     codex_cache_store(payload);cJSON_Delete(payload);
+ }
+ static void render_home_task(void) {
++    bool fresh=offline_since<0&&last_link!=LINK_NONE;
++    if(fresh)home_companion_provider=companion_provider_resolve(shown,home_models);
++    claude_mood_update(claude_client_mood(shown,fresh),esp_timer_get_time()/1000);
+     cJSON *remote=item(shown,"codexTasks"),*recent=item(remote,"overviewTask");
+     if(!cJSON_IsObject(recent)) {
+         // Older bridges may reorder tasks for the reply viewer. Use timestamps,
+@@ -1379,10 +1382,26 @@
+         }
+     }
+     bool valid=recent&&strlen(text(recent,"id"))==36;
++    snprintf(home_task_id,sizeof(home_task_id),"%s",valid?text(recent,"id"):"");
++    snprintf(home_task_project,sizeof(home_task_project),"%s",valid?text(recent,"projectId"):"");
++    codex_companion_value mood=codex_companion_resolve(shown,recent,offline_since<0&&last_link!=LINK_NONE,home_task_unread,home_task_turn);
++    companion_set_value(mood,esp_timer_get_time()/1000);
++    companion_home_enabled=home_companion_provider==1&&valid&&codex_companion_asset_available();
++    if(home_companion_provider==0) {
++        visible(home_companion,false);visible(home_task_title,true);visible(model_dot[1],false);
++        for(int i=0;i<2;i++){visible(home_system_captions[i],false);visible(home_system_values[i],false);}
++        ui_text(home_task_note,"当前客户端");ui_text(home_task_title,"Claude Code");
++        lv_obj_set_width(home_task_title,480);lv_obj_set_y(home_task_title,68);
++        lv_obj_set_pos(model_state[1],522,4);lv_obj_set_width(model_state[1],176);
++        if(lv_obj_get_style_text_align(model_state[1],0)!=LV_TEXT_ALIGN_CENTER)
++            lv_obj_set_style_text_align(model_state[1],LV_TEXT_ALIGN_CENTER,0);
++        ui_text(model_state[1],claude_companion_label(claude_mood));tint(model_state[1],companion_color(claude_mood));
++        ui_text(lv_obj_get_child(home_task_action,0),"查看 Claude 额度");
++        claude_pet_tick(&home_claude,claude_mood,esp_timer_get_time()/1000,true);
++        return;
++    }
+     visible(home_task_title,valid);
+     for(int i=0;i<2;i++){visible(home_system_captions[i],!valid);visible(home_system_values[i],!valid);}
+-    snprintf(home_task_id,sizeof(home_task_id),"%s",valid?text(recent,"id"):"");
+-    snprintf(home_task_project,sizeof(home_task_project),"%s",valid?text(recent,"projectId"):"");
+     if(valid)ui_text(home_task_title,text(recent,"title"));
+     else {
+         cJSON *metrics=item(shown,"systemMetrics");char cpu[24],memory[24];
+@@ -1392,9 +1411,7 @@
+     }
+     const char *folder=valid?text(recent,"folder"):"";
+     if(folder[0]&&strcmp(folder,"--"))ui_text_fmt(home_task_note,"项目 · %s",folder);else ui_text(home_task_note,"");
+-    codex_companion_value mood=codex_companion_resolve(shown,recent,offline_since<0&&last_link!=LINK_NONE,home_task_unread,home_task_turn);
+-    companion_set_value(mood,esp_timer_get_time()/1000);
+-    companion_home_enabled=valid&&codex_companion_asset_available();
++    companion_home_enabled=home_companion_provider==1&&valid&&codex_companion_asset_available();
+     visible(home_companion,companion_home_enabled&&companion_pixels!=NULL);
+     lv_obj_set_width(home_task_title,companion_home_enabled?480:706);
+     lv_obj_set_y(home_task_title,valid?68:78);
+@@ -1408,6 +1425,7 @@
+     ui_text(lv_obj_get_child(home_task_action,0),!valid?"查看电脑状态":home_task_unread?"查看完成内容":"继续 Codex 任务");
+     uint32_t tone=valid?companion_color(mood.state):MUTED;
+     tint(model_state[1],tone);ui_bg_color(model_dot[1],lv_color_hex(tone),0);
++    claude_pet_tick(&home_claude,claude_mood,esp_timer_get_time()/1000,home_companion_provider==0);
+ }
+ static bool codex_public_reply(cJSON *view,const char *body) {
+     cJSON *flag=item(view,"hasText");
+@@ -3201,8 +3219,14 @@
+         }
+         codex_companion_value mood=codex_companion_resolve(shown,current,active!=LINK_NONE,home_task_unread,home_task_turn);
+         companion_set_value(mood,now);
+-        if(home_task_id[0]){ui_text(model_state[1],codex_companion_label(mood.state));tint(model_state[1],companion_color(mood.state));ui_bg_color(model_dot[1],lv_color_hex(companion_color(mood.state)),0);}
++        int provider=active!=LINK_NONE?companion_provider_resolve(shown,home_models):home_companion_provider;
++        if(provider!=home_companion_provider){home_companion_provider=provider;render_home_task();}
++        claude_mood_update(claude_client_mood(shown,active!=LINK_NONE),now);
++        if(home_companion_provider==0){ui_text(model_state[1],claude_companion_label(claude_mood));tint(model_state[1],companion_color(claude_mood));}
++        else if(home_task_id[0]){ui_text(model_state[1],codex_companion_label(mood.state));tint(model_state[1],companion_color(mood.state));ui_bg_color(model_dot[1],lv_color_hex(companion_color(mood.state)),0);}
+         companion_tick(now,!saver&&current_page==0&&!quick_visible&&!photo_flow,saver&&saver_style==UI_SAVER_CODEX);
++        claude_pet_tick(&home_claude,claude_mood,now,!saver&&current_page==0&&!quick_visible&&!photo_flow&&home_companion_provider==0);
++        claude_pet_tick(&saver_claude,claude_mood,now,saver&&saver_style==UI_SAVER_CLAUDE);
+     }
+     bool connected_links[3]={tab5_usb_connected(),wifi_connected,ble_connected};
+     bool ble_standby=link_standby_report(shown,last_link,last_received,now);
+@@ -3530,13 +3554,14 @@
+         lv_obj_t *box=i<0?home_auto_check:home_model_checks[i];bool selected=i<0?!next:(next&(1u<<i))!=0;
+         if(selected)lv_obj_add_state(box,LV_STATE_CHECKED);else lv_obj_remove_state(box,LV_STATE_CHECKED);
+     }
+-    overview_domestic();settings_feedback(next?"总览模型已保存":"已恢复自动选择",false);
++    overview_domestic();render_home_task();settings_feedback(next?"总览模型已保存":"已恢复自动选择",false);
+ }
+ static void workbench_go(lv_event_t *e) {
+     int target=(int)(intptr_t)lv_event_get_user_data(e);
+     if(target==-1){automatic(e);return;}
+     if(target==-2){camera_action(e);return;}
+     if(target==-3) {
++        if(home_companion_provider==0){selected_quota=0;lv_dropdown_set_selected(quota_picker,0);render_quota();page(1);return;}
+         if(!home_task_id[0]){page(4);detail_return=0;return;}
+         if(codex_waiting||codex_voice_waiting||codex_send_queued||!home_task_id[0]||!codex_save_draft())return;
+         char selected[37],completed_turn[64];snprintf(selected,sizeof(selected),"%s",home_task_id);
+@@ -4296,7 +4321,7 @@
+ #if TAB5_LOCAL_ART
+         "\n每日名画\n每日书法"
+ #endif
+-        "\n日期倒计时\nCodex萌宠"
++        "\n日期倒计时\nCodex萌宠\nClaude萌宠"
+         ,452,316,270,ui_saver_option_from_style(saver_style),saver_style_changed,0);
+     saver_preview_button=button(screen_options,"预览屏保",738,316,144,saver_preview_clicked,0);
+     lv_obj_set_height(saver_preview_button,48);lv_obj_center(lv_obj_get_child(saver_preview_button,0));
+diff --git a/firmware/main/ui_claude_companion.h b/firmware/main/ui_claude_companion.h
+new file mode 100644
+--- /dev/null
++++ b/firmware/main/ui_claude_companion.h
+@@ -0,0 +1,98 @@
++// Official original Clawd frames; task meanings and playback are AI-bot's.
++#include "claude_companion.h"
++#define CLAUDE_PET_AVAILABLE claude_companion_asset_available()
++typedef struct {
++    lv_obj_t *root,*image;
++    int x,y,width,height,last_frame,last_scale;
++} claude_pet_view;
++static claude_pet_view home_claude,saver_claude;
++static uint8_t *claude_pixels;
++static lv_image_dsc_t claude_descriptor;
++static unsigned claude_rendered_frame=UINT32_MAX;
++static codex_companion_state claude_mood=CODEX_COMPANION_UNKNOWN;
++static int64_t claude_mood_started;
++static int home_companion_provider=1;
++static bool companion_busy(cJSON *model) {return yes(model,"needsInput")||!strcmp(text(model,"state"),"working");}
++static double companion_age(cJSON *model) {cJSON *v=item(model,"ageSeconds");return cJSON_IsNumber(v)?v->valuedouble:1e30;}
++// Domestic model records currently come from Claude Code. Keep the mascot
++// bound to the supported client, including when it uses a custom provider.
++static int companion_provider_resolve(cJSON *snapshot,unsigned preferred) {
++    cJSON *codex=item(snapshot,"codex"),*claude=item(snapshot,"claude"),*domestic=item(snapshot,"domesticActivity");
++    bool codex_wait= yes(codex,"needsInput"),claude_wait=yes(claude,"needsInput")||yes(domestic,"needsInput");
++    if(codex_wait!=claude_wait)return codex_wait?1:0;
++    bool codex_busy=companion_busy(codex),claude_busy=companion_busy(claude)||companion_busy(domestic);
++    if(codex_busy!=claude_busy)return codex_busy?1:0;
++    cJSON *usage=item(item(domestic,"providers"),text(domestic,"activeProvider"));
++    double local_age=companion_busy(domestic)&&cJSON_IsNumber(item(usage,"lastActivity"))?LV_MAX(0,num(snapshot,"epochUtc")-num(usage,"lastActivity")):1e30;
++    double claude_age=LV_MIN(companion_age(claude),local_age),codex_age=companion_age(codex);
++    if(codex_busy&&codex_age!=claude_age)return codex_age<claude_age?1:0;
++    if(codex_busy)return home_companion_provider;
++    if((preferred&3u)==3u)return home_companion_provider;
++    if(preferred&(1u<<1))return 1;
++    if(preferred&1u)return 0;
++    return home_companion_provider;
++}
++static codex_companion_state companion_model_mood(cJSON *model,bool fresh) {
++    if(!fresh||!cJSON_IsObject(model))return CODEX_COMPANION_UNKNOWN;
++    if(yes(model,"needsInput"))return CODEX_COMPANION_WAITING;
++    const char *value=text(model,"state");
++    if(!strcmp(value,"working"))return CODEX_COMPANION_WORKING;
++    if(yes(model,"completionActive"))return CODEX_COMPANION_DONE;
++    if(!strcmp(value,"idle"))return CODEX_COMPANION_IDLE;
++    if(!strcmp(value,"offline"))return CODEX_COMPANION_STOPPED;
++    if(!strcmp(value,"blocked")||!strcmp(value,"error"))return CODEX_COMPANION_BLOCKED;
++    return CODEX_COMPANION_UNKNOWN;
++}
++static const char *claude_companion_label(codex_companion_state value) {
++    return value==CODEX_COMPANION_STOPPED?"暂无活动":codex_companion_label(value);
++}
++static codex_companion_state claude_client_mood(cJSON *snapshot,bool fresh) {
++    cJSON *claude=item(snapshot,"claude"),*domestic=item(snapshot,"domesticActivity");
++    if(!fresh)return CODEX_COMPANION_UNKNOWN;
++    if(yes(claude,"needsInput")||yes(domestic,"needsInput"))return CODEX_COMPANION_WAITING;
++    if(companion_busy(domestic))return companion_model_mood(domestic,true);
++    codex_companion_state state=companion_model_mood(claude,true);
++    if(state==CODEX_COMPANION_STOPPED&&!strcmp(text(domestic,"state"),"idle"))return CODEX_COMPANION_IDLE;
++    return state;
++}
++static void claude_mood_update(codex_companion_state value,int64_t now) {
++    if(value!=claude_mood){claude_mood=value;claude_mood_started=now;}
++}
++static void claude_pet_tick(claude_pet_view *view,codex_companion_state value,int64_t now,bool show);
++static lv_obj_t *claude_pet_create(claude_pet_view *view,lv_obj_t *parent,int x,int y,int width,int height) {
++    if(!CLAUDE_PET_AVAILABLE)return NULL;
++    *view=(claude_pet_view){.x=x,.y=y,.width=width,.height=height,.last_frame=-1,.last_scale=-1};
++    view->root=lv_obj_create(parent);lv_obj_remove_style_all(view->root);
++    lv_obj_set_pos(view->root,x,y);lv_obj_set_size(view->root,width,height);
++    lv_obj_remove_flag(view->root,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
++    view->image=lv_image_create(view->root);
++    lv_image_set_pivot(view->image,0,0);lv_image_set_antialias(view->image,false);
++    lv_obj_remove_flag(view->image,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
++    visible(view->root,false);return view->root;
++}
++static void claude_pet_tick(claude_pet_view *view,codex_companion_state value,int64_t now,bool show) {
++    if(!view->root)return;
++    visible(view->root,show);if(!show)return;
++    if(!claude_pixels){claude_pixels=lv_malloc(CLAUDE_COMPANION_FRAME_BYTES);if(!claude_pixels)return;}
++    claude_companion_frame_info info=claude_companion_frame(value,now-claude_mood_started,view==&saver_claude);
++    if(info.frame!=claude_rendered_frame) {
++        unsigned w,h;
++        if(!claude_companion_decode(info.frame,claude_pixels,CLAUDE_COMPANION_FRAME_BYTES,&w,&h))return;
++        lv_image_cache_drop(&claude_descriptor);
++        claude_descriptor=(lv_image_dsc_t){.header={.magic=LV_IMAGE_HEADER_MAGIC,.cf=LV_COLOR_FORMAT_RGB565A8,
++            .w=w,.h=h,.stride=w*2},.data_size=w*h*3,.data=claude_pixels};
++        if(home_claude.image)lv_image_set_src(home_claude.image,&claude_descriptor);
++        if(saver_claude.image)lv_image_set_src(saver_claude.image,&claude_descriptor);
++        claude_rendered_frame=info.frame;
++    }
++    int scale=view==&home_claude?(int)info.scale:(int)info.saver_scale;
++    if(view->last_frame!=(int)info.frame||view->last_scale!=scale) {
++        // Center the actor beneath its short label; leave room for official props.
++        int anchor=view==&home_claude?150:view->width/2;
++        int top=view==&home_claude?view->height-(int)info.height*scale:
++            322-view->y-(int)info.anchor_y2*scale/2;
++        lv_obj_set_pos(view->image,anchor-(int)info.anchor_x2*scale/2,top);
++        if(view->last_scale!=scale)lv_image_set_scale(view->image,scale*256);
++        view->last_frame=(int)info.frame;view->last_scale=scale;
++    }
++}
+diff --git a/firmware/main/ui_codex_companion.h b/firmware/main/ui_codex_companion.h
+--- a/firmware/main/ui_codex_companion.h
++++ b/firmware/main/ui_codex_companion.h
+@@ -1,11 +1,44 @@
+ // Shared state/timeline for the overview and the opt-in Codex saver.
+ #include "codex_companion.h"
++#include "ui_claude_companion.h"
+ static lv_obj_t *home_companion,*companion_saver_layer,*companion_saver_image,*companion_saver_clock;
+ static codex_companion_animation companion_animation;
+ static lv_image_dsc_t companion_descriptor;
+ static uint8_t *companion_pixels;
+ static unsigned companion_rendered_frame=UINT32_MAX;
+ static bool companion_home_enabled;
++static lv_obj_t *companion_saver_fallback;
++static lv_obj_t *companion_saver_background;
++static uint16_t *companion_background_pixels;
++static lv_image_dsc_t companion_background_descriptor;
++static int companion_background_theme=-1;
++
++static void companion_backdrop(bool enabled,bool warm) {
++    if(!companion_saver_background)return;
++    visible(companion_saver_background,enabled);if(!enabled)return;
++    if(!companion_background_pixels)companion_background_pixels=lv_malloc(640u*360u*2u);
++    if(!companion_background_pixels){visible(companion_saver_background,false);return;}
++    if(companion_background_theme==(int)warm)return;
++    // A static, shared PSRAM texture avoids dark RGB565 gradient bands. Stable
++    // spatial dithering is generated only when the selected pet changes.
++    const int cool_top[3]={14,26,36},cool_bottom[3]={24,43,52},cool_glow[3]={8,16,25};
++    const int warm_top[3]={30,23,21},warm_bottom[3]={47,34,29},warm_glow[3]={18,10,5};
++    const int *top=warm?warm_top:cool_top,*bottom=warm?warm_bottom:cool_bottom,*light=warm?warm_glow:cool_glow;
++    for(int y=0;y<360;y++)for(int x=0;x<640;x++) {
++        int dx=(x-320)*256/400,dy=(y-155)*256/250;
++        int falloff=LV_MAX(0,65536-dx*dx-dy*dy);falloff=(falloff>>8)*(falloff>>8);
++        unsigned shade[3];
++        uint32_t noise=(uint32_t)x*374761393u+(uint32_t)y*668265263u;
++        noise=(noise^(noise>>13))*1274126177u;noise=(noise^(noise>>16))&255u;
++        for(int c=0;c<3;c++)shade[c]=(unsigned)(top[c]+(bottom[c]-top[c])*y/359+light[c]*falloff/65536);
++        companion_background_pixels[y*640+x]=(uint16_t)(((shade[0]*31+noise)/255<<11)|((shade[1]*63+noise)/255<<5)|((shade[2]*31+noise)/255));
++    }
++    lv_image_cache_drop(&companion_background_descriptor);
++    companion_background_descriptor=(lv_image_dsc_t){.header={.magic=LV_IMAGE_HEADER_MAGIC,.cf=LV_COLOR_FORMAT_RGB565,
++        .w=640,.h=360,.stride=1280},.data_size=640u*360u*2u,.data=(uint8_t *)companion_background_pixels};
++    lv_image_set_src(companion_saver_background,&companion_background_descriptor);
++    companion_background_theme=warm;
++}
+ 
+ static void companion_home_create(lv_obj_t *parent) {
+     home_companion=lv_image_create(parent);
+@@ -13,16 +46,26 @@
+     lv_image_set_pivot(home_companion,0,0);lv_image_set_scale(home_companion,235);
+     lv_obj_remove_flag(home_companion,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
+     visible(home_companion,false);
++    claude_pet_create(&home_claude,parent,460,28,280,191);
+ }
+ static void companion_saver_create(lv_obj_t *parent) {
++    companion_saver_background=lv_image_create(parent);
++    lv_image_set_pivot(companion_saver_background,0,0);lv_image_set_scale(companion_saver_background,512);
++    lv_image_set_antialias(companion_saver_background,false);lv_obj_move_to_index(companion_saver_background,0);
++    lv_obj_remove_flag(companion_saver_background,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
++    visible(companion_saver_background,false);
+     companion_saver_layer=lv_obj_create(parent);lv_obj_remove_style_all(companion_saver_layer);
+     lv_obj_set_size(companion_saver_layer,1280,720);
+     lv_obj_remove_flag(companion_saver_layer,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
+     companion_saver_image=lv_image_create(companion_saver_layer);
+     lv_obj_set_pos(companion_saver_image,448,92);lv_image_set_pivot(companion_saver_image,0,0);lv_image_set_scale(companion_saver_image,512);
+     lv_obj_remove_flag(companion_saver_image,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
+-    companion_saver_clock=label(companion_saver_layer,"--:--",551,645,178,false);
+-    ui_text_font(companion_saver_clock,&tab5_font_24,0);tint(companion_saver_clock,0xAAB6BE);
++    claude_pet_create(&saver_claude,companion_saver_layer,240,64,800,520);
++    companion_saver_fallback=label(companion_saver_layer,"萌宠资源暂不可用",180,536,920,false);
++    lv_obj_set_style_text_align(companion_saver_fallback,LV_TEXT_ALIGN_CENTER,0);visible(companion_saver_fallback,false);
++    companion_saver_clock=label(companion_saver_layer,"--:--",530,636,220,false);
++    ui_text_font(companion_saver_clock,&lv_font_montserrat_32,0);tint(companion_saver_clock,0xAAB6BE);
++    lv_obj_set_style_text_letter_space(companion_saver_clock,2,0);
+     lv_obj_set_style_text_align(companion_saver_clock,LV_TEXT_ALIGN_CENTER,0);
+     visible(companion_saver_layer,false);
+ }
+@@ -53,7 +96,7 @@
+         companion_pixels=lv_malloc(CODEX_COMPANION_FRAME_BYTES);
+         if(!companion_pixels)return; // Short status remains available without artwork.
+     }
+-    unsigned frame=codex_companion_frame(&companion_animation,now);
++    unsigned frame=show_saver?codex_companion_saver_frame(&companion_animation,now):codex_companion_frame(&companion_animation,now);
+     if(frame!=companion_rendered_frame) {
+         if(!codex_companion_decode(frame,companion_pixels,CODEX_COMPANION_FRAME_BYTES))return;
+         lv_image_cache_drop(&companion_descriptor);
+diff --git a/firmware/main/ui_prefs.h b/firmware/main/ui_prefs.h
+--- a/firmware/main/ui_prefs.h
++++ b/firmware/main/ui_prefs.h
+@@ -11,8 +11,9 @@
+ #endif
+ #define UI_SAVER_COUNTDOWN 8
+ #define UI_SAVER_CODEX 9
+-#define UI_SAVER_STYLES 10
+-#define UI_SAVER_OPTIONS (TAB5_LOCAL_ART?8:6)
++#define UI_SAVER_CLAUDE 10
++#define UI_SAVER_STYLES 11
++#define UI_SAVER_OPTIONS (TAB5_LOCAL_ART?9:7)
+ static inline bool ui_saver_style_valid(int style) {
+     return style>=0&&style<UI_SAVER_STYLES&&(TAB5_LOCAL_ART||style<6||style>=UI_SAVER_COUNTDOWN);
+ }
+@@ -23,7 +24,7 @@
+ #if TAB5_LOCAL_ART
+         6,7,
+ #endif
+-        UI_SAVER_COUNTDOWN,UI_SAVER_CODEX};
++        UI_SAVER_COUNTDOWN,UI_SAVER_CODEX,UI_SAVER_CLAUDE};
+     return option>=0&&option<(int)(sizeof(choices)/sizeof(choices[0]))?choices[option]:0;
+ }
+ static inline int ui_saver_option_from_style(int style) {
+diff --git a/firmware/main/ui_saver.h b/firmware/main/ui_saver.h
+--- a/firmware/main/ui_saver.h
++++ b/firmware/main/ui_saver.h
+@@ -58,20 +58,28 @@
+ }
+ static void saver_style_apply(void) {
+     bool annual=saver_is_annual();
+-    ui_bg_color(saver_layer,lv_color_hex(0x000000),0);
++    bool codex_pet=saver_style==UI_SAVER_CODEX,claude_pet=saver_style==UI_SAVER_CLAUDE;
++    ui_bg_color(saver_layer,lv_color_hex(codex_pet?0x12212D:claude_pet?0x271D19:0x000000),0);
++    // The static backdrop stays fixed while the pet/time drift slightly.
++    lv_obj_set_style_bg_grad_dir(saver_layer,LV_GRAD_DIR_NONE,0);
++    companion_backdrop(codex_pet||claude_pet,claude_pet);
++    tint(companion_saver_clock,claude_pet?0xC9BBB1:0xAABCC8);
+     visible(saver_time,saver_style==0);visible(saver_date,saver_style==0);visible(classic_seconds,saver_style==0);visible(classic_rule,saver_style==0);visible(annual_layer,annual);visible(monthly_layer,saver_style==4);
+     if(saver_style==0)classic_palette_apply(saver_has_time?annual_auto_palette(&saver_local_time):2);
+ #if TAB5_LOCAL_ART
+     visible(gallery_layer,saver_is_gallery());if(saver_is_gallery())gallery_show();
+ #endif
+     visible(date_saver_layer,saver_style==UI_SAVER_COUNTDOWN);
+-    visible(companion_saver_layer,saver_style==UI_SAVER_CODEX);
++    visible(companion_saver_layer,saver_style==UI_SAVER_CODEX||saver_style==UI_SAVER_CLAUDE);
++    visible(companion_saver_image,saver_style==UI_SAVER_CODEX&&codex_companion_asset_available());
++    if(saver_claude.root)visible(saver_claude.root,saver_style==UI_SAVER_CLAUDE);
++    visible(companion_saver_fallback,(saver_style==UI_SAVER_CODEX&&!codex_companion_asset_available())||(saver_style==UI_SAVER_CLAUDE&&!CLAUDE_PET_AVAILABLE));
+     if(saver_style==UI_SAVER_COUNTDOWN)date_saver_update(saver_has_time?&saver_local_time:NULL);
+     if(annual)annual_palette_apply(saver_style==5?(saver_has_time?annual_auto_palette(&saver_local_time):2):saver_style);
+     monthly_preview_month=0;monthly_rendered_day=0;
+ }
+ static void saver_update(const struct tm *local) {
+-    if(saver_style==UI_SAVER_CODEX){companion_saver_time(local);return;}
++    if(saver_style==UI_SAVER_CODEX||saver_style==UI_SAVER_CLAUDE){companion_saver_time(local);return;}
+ #if TAB5_LOCAL_ART
+     if(saver_is_gallery()){gallery_update(local);return;}
+ #endif
+diff --git a/scripts/package_claude_companion.py b/scripts/package_claude_companion.py
+new file mode 100644
+--- /dev/null
++++ b/scripts/package_claude_companion.py
+@@ -0,0 +1,97 @@
++"""Package explicitly supplied original Clawd frames for a private local build.
++
++Artwork is Anthropic's, outside AI-bot's MIT source. Playback and task meanings
++are defined by AI-bot. No upstream site program code is included or executed.
++"""
++import argparse
++import hashlib
++import json
++import statistics
++from pathlib import Path
++from package_codex_companion import pack, array
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--input', type=Path, required=True)
++    parser.add_argument('--output', type=Path, required=True)
++    parser.add_argument('--expected-sha256', required=True)
++    args = parser.parse_args()
++    raw = args.input.read_bytes()
++    digest = hashlib.sha256(raw).hexdigest()
++    if digest != args.expected_sha256.lower():
++        raise SystemExit('Original frame fingerprint mismatch')
++    source = json.loads(raw)
++    groups = [('walk', source['RIDE_SPRITES']['walk']),
++              ('pool', source['CLAWD_POOL']), ('kite', source['CLAWD_KITE']),
++              ('skate', source['RIDE_SPRITES']['skate']), ('astronaut', source['CLAWD']),
++              ('rest', dict(source['CLAWD_KITE'], frames=source['CLAWD_KITE']['frames'][:1]))]
++    colors = list(dict.fromkeys(color.lower() for _, g in groups for color in g['palette']))
++    if len(colors) >= 255:
++        raise SystemExit('Palette exceeds lossless indexed capacity')
++    palette, alpha = [0]*256, [0]*256
++    for i, color in enumerate(colors):
++        r, g, b = bytes.fromhex(color.lstrip('#'))
++        palette[i] = ((r*31+127)//255 << 11) | ((g*63+127)//255 << 5) | ((b*31+127)//255)
++        alpha[i] = 255
++    stream, frames, records = bytearray(), [], []
++    for name, group in groups:
++        w, h = group['w'], group['h']
++        width = w + w % 2  # RGB565 stride stays four-byte aligned.
++        lookup = [colors.index(c.lower()) for c in group['palette']]
++        first = len(frames)
++        for frame in group['frames']:
++            data = bytearray()
++            for y in range(h):
++                for x in range(width):
++                    value = int(frame[str(y*w+x)]) if x < w else 255
++                    if value != 255 and not 0 <= value < len(lookup):
++                        raise SystemExit('Invalid official palette index')
++                    data.append(255 if value == 255 else lookup[value])
++            encoded = pack(data)
++            frames.append((len(stream), len(encoded), width, h))
++            stream.extend(encoded)
++        # A fixed actor anchor preserves all original motion within each clip.
++        body = [i % w for i in range(w*h) if int(group['frames'][0][str(i)]) != 255
++                and group['palette'][int(group['frames'][0][str(i)])].lower() in ('#d97757', '#d87656', '#be684d', '#bf684c')]
++        anchor = min(body) + max(body) + 1
++        # Measure the actor separately from props. A clip-wide fixed median
++        # retains the original floating/jumping motion instead of tracking it.
++        centers = []
++        for frame in group['frames']:
++            remaining = {(i % w, i // w) for i in range(w*h) if int(frame[str(i)]) != 255
++                         and group['palette'][int(frame[str(i)])].lower() in ('#d97757', '#d87656', '#be684d', '#bf684c')}
++            largest = set()
++            while remaining:
++                queue = [remaining.pop()]
++                component = set(queue)
++                for x, y in queue:
++                    for point in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
++                        if point in remaining:
++                            remaining.remove(point); component.add(point); queue.append(point)
++                if len(component) > len(largest):
++                    largest = component
++            centers.append(min(y for x,y in largest) + max(y for x,y in largest) + 1)
++        anchor_y = int(statistics.median(centers) + .5)
++        records.append(dict(name=name, first=first, count=len(group['frames']), width=width,
++                            height=h, sourceWidth=w, anchorX2=anchor, anchorY2=anchor_y, fps=group['fps']))
++    sections = [f'/* Anthropic original frames {digest}; private supplied artwork, not AI-bot MIT. */',
++                array('claude_pet_palette', 'uint16_t', palette),
++                array('claude_pet_alpha', 'uint8_t', alpha),
++                array('claude_pet_stream', 'uint8_t', list(stream), 24),
++                'static const struct { uint32_t offset; uint16_t size; uint8_t width,height; } claude_pet_frames[] = {\n' +
++                ''.join('    {%d,%d,%d,%d},\n' % r for r in frames) + '};',
++                'static const struct { uint16_t first,count; uint8_t anchor_x2,anchor_y2; } claude_pet_groups[] = {\n' +
++                ''.join('    {%d,%d,%d,%d}, /* %s */\n' % (r['first'],r['count'],r['anchorX2'],r['anchorY2'],r['name']) for r in records) + '};']
++    args.output.write_text('\n'.join(sections)+'\n', encoding='utf-8')
++    metadata = dict(owner='Anthropic', source='https://claude.dev', inputSha256=digest,
++                    encodedBytes=len(stream), frameCount=len(frames), groups=records,
++                    conversion='Original indices and order; transparent right padding only; RGB565A8; bounded PackBits',
++                    meanings='AI-bot defines task state mapping and playback; these are not official task semantics',
++                    scope='Private supplied artwork; excluded from MIT source patch and public redistribution')
++    args.output.with_suffix('.json').write_text(json.dumps(metadata, indent=2), encoding='utf-8')
++    print('CLAUDE_OFFICIAL_FRAMES_READY', len(frames), len(stream), 'bytes')
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/tests/ui-preview/CMakeLists.txt b/tests/ui-preview/CMakeLists.txt
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -204,7 +204,10 @@
+         LV_DRAW_SW_SUPPORT_L8=0 LV_DRAW_SW_SUPPORT_AL88=0 LV_DRAW_SW_SUPPORT_I1=0)
+ endif()
+ add_executable(ui-preview preview.c "${ROOT}/firmware/main/tab5_font_24.c" "${ROOT}/firmware/main/tab5_font_30.c" "${ROOT}/firmware/main/tab5_digits_72.c" "${ROOT}/firmware/main/tab5_digits_96.c" "${ROOT}/firmware/main/tab5_timer_digits_192.c" "${ROOT}/firmware/main/link_state.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+-target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/codex_companion.c")
++target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/firmware/main/claude_companion.c")
++add_executable(claude-companion-test claude_companion_test.c "${ROOT}/firmware/main/claude_companion.c" "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
++target_include_directories(claude-companion-test PRIVATE "${ROOT}/firmware/main" "${ROOT}/.tools/esp-idf/components/json/cJSON")
++target_compile_options(claude-companion-test PRIVATE /UNDEBUG)
+ add_executable(codex-companion-test codex_companion_test.c "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+ target_include_directories(codex-companion-test PRIVATE "${ROOT}/firmware/main" "${ROOT}/.tools/esp-idf/components/json/cJSON")
+ if(EXISTS "${ROOT}/firmware/main/codex_pet_data.inc")
+diff --git a/tests/ui-preview/claude_companion_test.c b/tests/ui-preview/claude_companion_test.c
+new file mode 100644
+--- /dev/null
++++ b/tests/ui-preview/claude_companion_test.c
+@@ -0,0 +1,29 @@
++#include "claude_companion.h"
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++
++int main(int argc,char **argv) {
++    assert(claude_companion_asset_available()&&claude_companion_frame_count()==378);
++    unsigned work=claude_companion_frame(CODEX_COMPANION_WORKING,0,false).frame;
++    assert(claude_companion_frame(CODEX_COMPANION_WORKING,1000,false).frame!=work);
++    assert(claude_companion_frame(CODEX_COMPANION_WORKING,7000,false).frame==work);
++    assert(claude_companion_frame(CODEX_COMPANION_DONE,7000,false).frame==claude_companion_frame(CODEX_COMPANION_DONE,70000,false).frame);
++    assert(claude_companion_frame(CODEX_COMPANION_STOPPED,0,false).frame==claude_companion_frame(CODEX_COMPANION_STOPPED,70000,false).frame);
++    assert(claude_companion_frame(CODEX_COMPANION_WAITING,3400,false).frame!=claude_companion_frame(CODEX_COMPANION_UNKNOWN,3400,false).frame);
++    assert(claude_companion_frame(CODEX_COMPANION_DONE,7000,true).frame!=claude_companion_frame(CODEX_COMPANION_DONE,7000,false).frame);
++    FILE *dump=argc>1?fopen(argv[1],"wb"):NULL;
++    if(argc>1)assert(dump);
++    unsigned char buffer[CLAUDE_COMPANION_FRAME_BYTES];
++    for(unsigned frame=0;frame<claude_companion_frame_count();frame++) {
++        unsigned width=0,height=0;memset(buffer,0xA5,sizeof(buffer));
++        assert(!claude_companion_decode(frame,buffer,1,&width,&height)&&buffer[0]==0xA5&&width==0&&height==0);
++        assert(claude_companion_decode(frame,buffer,sizeof(buffer),&width,&height));
++        assert(width&&height&&width*height*3<=sizeof(buffer)&&width%2==0);
++        if(dump){fwrite(&width,4,1,dump);fwrite(&height,4,1,dump);fwrite(buffer,1,width*height*3,dump);}
++    }
++    assert(!claude_companion_decode(378,buffer,sizeof(buffer),NULL,NULL));
++    if(dump)fclose(dump);
++    puts("CLAUDE_COMPANION_OK all_378_frames, bounds, continuous_work, completion_hold, static_rest");
++    return 0;
++}
+diff --git a/tests/ui-preview/claude_companion_ui_test.h b/tests/ui-preview/claude_companion_ui_test.h
+new file mode 100644
+--- /dev/null
++++ b/tests/ui-preview/claude_companion_ui_test.h
+@@ -0,0 +1,71 @@
++// Use the actual widgets. Only input telemetry and time are fixtures.
++static void check_claude_companion_ui(void) {
++    assert(CLAUDE_PET_AVAILABLE);
++    cJSON_Delete(shown);shown=cJSON_Parse("{\"epochUtc\":1793758000,\"codex\":{\"state\":\"idle\",\"ageSeconds\":30},\"claude\":{\"state\":\"working\",\"ageSeconds\":0},\"codexTasks\":{\"overviewTask\":{\"id\":\"11111111-1111-1111-1111-111111111111\",\"title\":\"Codex session must not appear under Claude\",\"folder\":\"Codex project\",\"state\":\"idle\"},\"tasks\":[]}}");assert(shown);
++    cJSON *code=item(shown,"codex"),*claude=item(shown,"claude");
++    home_companion_provider=1;
++    assert(companion_provider_resolve(shown,(1u<<1)|(1u<<5)|(1u<<6))==0);
++    cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("working"));
++    cJSON_SetNumberValue(item(code,"ageSeconds"),0);cJSON_SetNumberValue(item(claude,"ageSeconds"),10);
++    assert(companion_provider_resolve(shown,1u)==1);
++    cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("idle"));
++    cJSON_ReplaceItemInObject(claude,"state",cJSON_CreateString("offline"));
++    cJSON_AddItemToObject(shown,"domesticActivity",cJSON_Parse("{\"activeProvider\":\"deepseek\",\"state\":\"working\",\"providers\":{\"deepseek\":{\"lastActivity\":1793758000,\"model\":\"deepseek-chat\"}}}"));
++    assert(companion_provider_resolve(shown,(1u<<1)|(1u<<5)|(1u<<6))==0);
++    assert(claude_client_mood(shown,true)==CODEX_COMPANION_WORKING);
++    cJSON_ReplaceItemInObject(item(shown,"domesticActivity"),"activeProvider",cJSON_CreateString("zhipu"));
++    assert(companion_provider_resolve(shown,1u<<1)==0);
++    cJSON_DeleteItemFromObject(shown,"domesticActivity");
++    home_models=(1u<<0)|(1u<<5)|(1u<<6);last_link=LINK_USB;offline_since=-1;
++    const char *states[]={"working","idle","idle","idle","offline","unknown"};
++    const char *names[]={"working","idle","waiting","done","stopped","unknown"};
++    const codex_companion_state expected[]={CODEX_COMPANION_WORKING,CODEX_COMPANION_IDLE,CODEX_COMPANION_WAITING,CODEX_COMPANION_DONE,CODEX_COMPANION_STOPPED,CODEX_COMPANION_UNKNOWN};
++    for(unsigned i=0;i<6;i++) {
++        preview_now_us+=1000000;last_received=preview_now_us/1000;
++        cJSON_ReplaceItemInObject(claude,"state",cJSON_CreateString(states[i]));
++        cJSON_DeleteItemFromObject(claude,"needsInput");cJSON_AddBoolToObject(claude,"needsInput",i==2);
++        cJSON_DeleteItemFromObject(claude,"completionActive");cJSON_AddBoolToObject(claude,"completionActive",i==3);
++        page(0);render_home_task();
++        preview_now_us+=3400000;last_received=preview_now_us/1000;
++        claude_pet_tick(&home_claude,claude_mood,preview_now_us/1000,true);
++        lv_obj_update_layout(lv_screen_active());
++        assert(home_companion_provider==0&&claude_mood==expected[i]);
++        assert(lv_obj_has_flag(home_companion,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(home_claude.root,LV_OBJ_FLAG_HIDDEN));
++        assert(!strcmp(lv_label_get_text(home_task_title),"Claude Code")&&!strcmp(lv_label_get_text(home_task_note),"当前客户端"));
++        assert(lv_obj_get_x(model_state[1])+lv_obj_get_width(model_state[1])/2==home_claude.x+150);
++        lv_area_t box;lv_obj_get_coords(home_claude.root,&box);assert(box.x1==508&&box.y2<334);
++        claude_companion_frame_info frame_info=claude_companion_frame(claude_mood,preview_now_us/1000-claude_mood_started,false);
++        assert(lv_obj_get_x(home_claude.image)>=0&&lv_obj_get_y(home_claude.image)>=0);
++        assert(lv_obj_get_x(home_claude.image)+(int)(frame_info.width*frame_info.scale)<=home_claude.width);
++        assert(lv_obj_get_y(home_claude.image)+(int)(frame_info.height*frame_info.scale)<=home_claude.height);
++        char name[80];snprintf(name,sizeof(name),"claude-overview-%s",names[i]);capture(name);
++        int64_t started=claude_mood_started;
++        saver_style=UI_SAVER_CLAUDE;saver_enter(false);
++        struct tm local={.tm_hour=10,.tm_min=15};companion_saver_time(&local);
++        claude_pet_tick(&saver_claude,claude_mood,preview_now_us/1000,true);
++        assert(!lv_obj_has_flag(companion_saver_layer,LV_OBJ_FLAG_HIDDEN));
++        assert(lv_obj_has_flag(companion_saver_image,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(saver_claude.root,LV_OBJ_FLAG_HIDDEN));
++        assert(lv_obj_has_flag(companion_saver_fallback,LV_OBJ_FLAG_HIDDEN)&&claude_mood_started==started);
++        if(i==3) {
++            preview_now_us+=7000000;last_received=preview_now_us/1000;
++            claude_pet_tick(&saver_claude,claude_mood,preview_now_us/1000,true);
++            unsigned first_frame=claude_rendered_frame;
++            preview_now_us+=500000;last_received=preview_now_us/1000;
++            claude_pet_tick(&saver_claude,claude_mood,preview_now_us/1000,true);
++            assert(claude_rendered_frame!=first_frame&&claude_mood==CODEX_COMPANION_DONE&&claude_mood_started==started);
++        }
++        snprintf(name,sizeof(name),"claude-saver-%s",names[i]);capture(name);saver_leave();
++        claude_pet_tick(&home_claude,claude_mood,preview_now_us/1000,true);
++        if(i==3)assert(claude_rendered_frame==claude_companion_frame(CODEX_COMPANION_DONE,70000,false).frame);
++    }
++    assert(claude_client_mood(shown,false)==CODEX_COMPANION_UNKNOWN);
++    cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("working"));
++    render_home_task();companion_tick(preview_now_us/1000,true,false);
++    assert(home_companion_provider==1&&!lv_obj_has_flag(home_companion,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(home_claude.root,LV_OBJ_FLAG_HIDDEN));
++    page(9);settings_select(1);saver_style=0;lv_dropdown_set_selected(saver_selector,ui_saver_option_from_style(UI_SAVER_CLAUDE));
++    lv_obj_send_event(saver_selector,LV_EVENT_VALUE_CHANGED,NULL);
++    assert(saver_style==UI_SAVER_CLAUDE&&preview_saved_saver==UI_SAVER_CLAUDE);
++    char selected[48];lv_dropdown_get_selected_str(saver_selector,selected,sizeof(selected));assert(!strcmp(selected,"Claude萌宠"));
++    lv_dropdown_open(saver_selector);capture("claude-saver-picker");lv_dropdown_close(saver_selector);
++    puts("CLAUDE_COMPANION_UI_OK supported_client_routing, active_over_quota_preferences, custom_domestic_models_keep_claude, six_states, exclusive_overview, no_codex_content_leak, exact_center, shared_saver_state, stale_unknown, existing_model_picker, saved_id10");
++}
+diff --git a/tests/ui-preview/codex_companion_test.c b/tests/ui-preview/codex_companion_test.c
+--- a/tests/ui-preview/codex_companion_test.c
++++ b/tests/ui-preview/codex_companion_test.c
+@@ -32,6 +32,8 @@
+     value.state=CODEX_COMPANION_DONE;strcpy(value.turn,"completed-a");
+     assert(codex_companion_select(&animation,value,2000));
+     assert(codex_companion_frame(&animation,5000)==17);
++    assert(codex_companion_saver_frame(&animation,5000)==21&&animation.started_at==2000);
++    assert(codex_companion_frame(&animation,5000)==17);
+     assert(!codex_companion_select(&animation,value,6000));
+     strcpy(value.turn,"completed-b");assert(codex_companion_select(&animation,value,6000));
+     assert(codex_companion_frame(&animation,6000)==16);
+diff --git a/tests/ui-preview/codex_companion_ui_test.h b/tests/ui-preview/codex_companion_ui_test.h
+--- a/tests/ui-preview/codex_companion_ui_test.h
++++ b/tests/ui-preview/codex_companion_ui_test.h
+@@ -28,8 +28,11 @@
+         char name[80];snprintf(name,sizeof(name),"companion-overview-%s",names[i]);capture(name);
+         int64_t start=companion_animation.started_at;
+         saver_style=UI_SAVER_CODEX;saver_enter(false);companion_tick(1250,false,true);
++        struct tm local={.tm_hour=10,.tm_min=15};companion_saver_time(&local);
+         assert(!lv_obj_has_flag(companion_saver_layer,LV_OBJ_FLAG_HIDDEN));
+-        assert(companion_animation.value.state==value.state&&lv_obj_get_child_count(companion_saver_layer)==2);
++        assert(companion_animation.value.state==value.state);
++        assert(!lv_obj_has_flag(companion_saver_image,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(saver_claude.root,LV_OBJ_FLAG_HIDDEN));
++        assert(lv_obj_has_flag(companion_saver_fallback,LV_OBJ_FLAG_HIDDEN));
+         assert(lv_obj_get_x(companion_saver_clock)+lv_obj_get_width(companion_saver_clock)/2==640);
+         assert(companion_animation.started_at==start&&companion_pixels==allocation);
+         snprintf(name,sizeof(name),"companion-saver-%s",names[i]);capture(name);saver_leave();
+@@ -67,7 +70,7 @@
+     page(9);settings_select(1);
+     assert(lv_dropdown_get_option_count(saver_selector)==UI_SAVER_OPTIONS);
+     assert(strstr(lv_dropdown_get_options(saver_selector),"\nCodex萌宠"));
+-    saver_style=0;lv_dropdown_set_selected(saver_selector,UI_SAVER_OPTIONS-1);
++    saver_style=0;lv_dropdown_set_selected(saver_selector,ui_saver_option_from_style(UI_SAVER_CODEX));
+     lv_obj_send_event(saver_selector,LV_EVENT_VALUE_CHANGED,NULL);
+     assert(saver_style==UI_SAVER_CODEX&&preview_saved_saver==UI_SAVER_CODEX);
+     lv_dropdown_open(saver_selector);capture("companion-saver-picker");lv_dropdown_close(saver_selector);
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2031,6 +2031,7 @@
+ #include "codex_clear_feedback_test.h"
+ #include "preview_gallery_loan_test.h"
+ #include "codex_companion_ui_test.h"
++#include "claude_companion_ui_test.h"
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -2050,6 +2051,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_CLAUDE_COMPANION_ONLY")){check_claude_companion_ui();return 0;}
+     if(getenv("TAB5_CODEX_COMPANION_ONLY")){check_codex_companion_ui();return 0;}
+     if(getenv("TAB5_PINYIN_ONLY")) {
+         page(8);lv_obj_send_event(codex_input,LV_EVENT_FOCUSED,NULL);
+@@ -3141,6 +3143,15 @@
+     puts("CODEX_DESKTOP_UNREAD_RESTART_OK restores_badge_without_chime, local_read_not_resurrected, actual_widget_diagnostic");
+     // The overview action must request the completed turn explicitly, retain
+     // the draft and keep unread until matching reply content is rendered.
++    // Earlier independent scenes leave Claude working. This scene explicitly
++    // targets an idle Codex client's unread result, using the existing picker.
++    cJSON *overview_saved_claude=cJSON_Duplicate(item(shown,"claude"),true);
++    cJSON *overview_saved_domestic=cJSON_Duplicate(item(shown,"domesticActivity"),true);
++    cJSON_ReplaceItemInObject(shown,"claude",cJSON_Parse("{\"state\":\"idle\"}"));
++    cJSON_ReplaceItemInObject(shown,"domesticActivity",cJSON_Parse("{\"state\":\"idle\"}"));
++    unsigned overview_saved_models=home_models;home_models=1u<<1;
++    link_kind overview_saved_link=last_link;int64_t overview_saved_offline=offline_since;
++    last_link=LINK_USB;offline_since=-1;
+     lv_textarea_set_text(codex_input,"完成提醒不覆盖草稿");
+     int completion_sends=preview_submit_count;
+     last_received=esp_timer_get_time()/1000;
+@@ -3177,6 +3188,10 @@
+     codex_reading=false;codex_nav_pending=false;
+     lv_textarea_set_text(codex_input,"");codex_save_draft();
+     puts("OVERVIEW_COMPLETION_OPEN_OK exact turn, page zero, draft preserved, no send, unread retained");
++    if(overview_saved_claude)cJSON_ReplaceItemInObject(shown,"claude",overview_saved_claude);
++    if(overview_saved_domestic)cJSON_ReplaceItemInObject(shown,"domesticActivity",overview_saved_domestic);
++    home_models=overview_saved_models;
++    last_link=overview_saved_link;offline_since=overview_saved_offline;
+     alert_visual_tick(2000);capture("codex-reply-notice");
+     codex_notice_read();assert(lv_obj_has_flag(codex_unread_dot,LV_OBJ_FLAG_HIDDEN));
+     codex_notice_tick(2600,true);assert(preview_chimes==1);
+diff --git a/tests/ui-preview/saver_prefs_test.c b/tests/ui-preview/saver_prefs_test.c
+--- a/tests/ui-preview/saver_prefs_test.c
++++ b/tests/ui-preview/saver_prefs_test.c
+@@ -60,8 +60,11 @@
+         assert(ui_saver_style_save(style)&&ui_saver_style_load()==style);
+     }
+     puts("SAVER_OPTIONS_OK legacy day/night normalize without disk writes; visible options persist and roundtrip");
+-    assert(UI_SAVER_CODEX==9&&ui_saver_style_from_option(UI_SAVER_OPTIONS-1)==UI_SAVER_CODEX);
++    assert(UI_SAVER_CODEX==9&&ui_saver_style_from_option(ui_saver_option_from_style(UI_SAVER_CODEX))==UI_SAVER_CODEX);
+     assert(ui_saver_style_save(UI_SAVER_CODEX)&&ui_saver_style_load()==UI_SAVER_CODEX);
++    assert(UI_SAVER_CLAUDE==10&&ui_saver_style_from_option(UI_SAVER_OPTIONS-1)==UI_SAVER_CLAUDE);
++    assert(ui_saver_style_save(UI_SAVER_CLAUDE)&&ui_saver_style_load()==UI_SAVER_CLAUDE);
++    fail_commit=true;assert(!ui_saver_style_save(UI_SAVER_CODEX)&&ui_saver_style_load()==UI_SAVER_CLAUDE);fail_commit=false;
+     assert(ui_home_models_load()==0); // Fresh users start in automatic mode.
+     for(int legacy=1;legacy<8;legacy++) {
+         legacy_models=legacy;unsigned expected=((legacy&1)?1u<<1:0)|((legacy&2)?1u<<5:0)|((legacy&4)?1u<<6:0);
+diff --git a/tests/ui-preview/verify_claude_frames.py b/tests/ui-preview/verify_claude_frames.py
+new file mode 100644
+--- /dev/null
++++ b/tests/ui-preview/verify_claude_frames.py
+@@ -0,0 +1,33 @@
++"""Compare a native decoder dump against the explicitly supplied official data."""
++import argparse
++import json
++import struct
++from pathlib import Path
++
++parser=argparse.ArgumentParser(description=__doc__)
++parser.add_argument('--original',type=Path,required=True)
++parser.add_argument('--decoded',type=Path,required=True)
++args=parser.parse_args()
++source=json.loads(args.original.read_bytes())
++groups=[source['RIDE_SPRITES']['walk'],source['CLAWD_POOL'],source['CLAWD_KITE'],
++        source['RIDE_SPRITES']['skate'],source['CLAWD'],dict(source['CLAWD_KITE'],frames=source['CLAWD_KITE']['frames'][:1])]
++raw=args.decoded.read_bytes();cursor=count=0
++for group in groups:
++    for frame in group['frames']:
++        w,h=struct.unpack_from('<II',raw,cursor);cursor+=8
++        assert h==group['h'] and w==group['w']+group['w']%2
++        expected_colors=bytearray();expected_alpha=bytearray()
++        for y in range(h):
++            for x in range(w):
++                index=int(frame[str(y*group['w']+x)]) if x<group['w'] else 255
++                color=0
++                if index!=255:
++                    r,g,b=bytes.fromhex(group['palette'][index].lstrip('#'))
++                    color=(int(r/255*31+.5)<<11)|(int(g/255*63+.5)<<5)|int(b/255*31+.5)
++                expected_colors.extend(struct.pack('<H',color))
++                expected_alpha.append(0 if index==255 else 255)
++        expected=expected_colors+expected_alpha
++        assert raw[cursor:cursor+len(expected)]==expected, f'Official frame mismatch {count}'
++        cursor+=len(expected);count+=1
++assert cursor==len(raw) and count==378
++print('CLAUDE_ORIGINAL_PIXELS_OK',count,'frames; source order, colors, opacity, transparent padding')

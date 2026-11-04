@@ -23,11 +23,12 @@ final class MacCodexDesktopIPC {
         let cwd: String
         let publicItems: [[String: Any]]
         let startedAt: Int64
+        var waitingKind: String = ""
         var canSend: Bool { runtime == "idle" && !waiting && ["completed", "failed", "interrupted"].contains(status) }
         var running: Bool { runtime == "active" && status == "inProgress" }
         var taskState: String { waiting ? "waiting" : running ? "working" : canSend ? "idle" : "unknown" }
         var thread: [String: Any] {
-            ["id": task, "status": ["type": runtime, "activeFlags": waiting ? ["waitingOnUserInput"] : []],
+            ["id": task, "status": ["type": runtime, "activeFlags": waiting ? (waitingKind == "confirm" ? ["waitingOnApproval"] : waitingKind == "answer" ? ["waitingOnUserInput"] : ["waitingOnApproval", "waitingOnUserInput"]) : []],
              "turns": [["id": turn, "status": status, "startedAt": startedAt, "items": publicItems]]]
         }
     }
@@ -150,7 +151,25 @@ final class MacCodexDesktopIPC {
             throw MacCodexDesktopError.incompatible
         }
         return State(task: task, runtime: runtime, waiting: !requests.isEmpty, turn: turn, status: status, cwd: cwd,
-                     publicItems: items, startedAt: (MacTab5Protocol.integer(last["turnStartedAtMs"]) ?? 0) / 1000)
+                     publicItems: items, startedAt: (MacTab5Protocol.integer(last["turnStartedAtMs"]) ?? 0) / 1000,
+                     waitingKind: pendingKind(requests))
+    }
+
+    // Only a fixed request kind survives. Never retain/export request payloads.
+    static func pendingKind(_ requests: [Any]) -> String {
+        var result = ""
+        for request in requests {
+            let method = (request as? [String: Any])?["method"] as? String ?? ""
+            let kind: String
+            switch method {
+            case "item/tool/requestUserInput", "item/tool/requestOptionPicker": kind = "answer"
+            case "item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/permissions/requestApproval": kind = "confirm"
+            default: kind = "input"
+            }
+            if !result.isEmpty && result != kind { return "input" }
+            result = kind
+        }
+        return result
     }
 
     static func command(state: State, operation: String, expected: String, request: String,

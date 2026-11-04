@@ -50,6 +50,10 @@ internal static class CodexLifecycleSelfTest
         Check(Tab5CodexTasks.SelectOverview(catalog,states)?.Id==activeId,"Recent idle hid working thread");
         states[idleId]=new(idleId,"working",states[activeId].UpdatedAt+1);
         Check(Tab5CodexTasks.SelectOverview(catalog,states)?.Id==idleId,"Newest working selection failed");
+        states[activeId]=new(activeId,"idle",100,CompanionState:"waiting",WaitingKind:"answer");
+        Check(Tab5CodexTasks.SelectOverview(catalog,states)?.Id==activeId,"Question waiting must precede a working task");
+        states[activeId]=states[activeId] with {CompanionState="unknown",Outcome="failed"};
+        Check(Tab5CodexTasks.SelectOverview(catalog,states)?.Id==idleId,"Unknown state must not promote a stale failure");
         Append(activePath,Encoding.UTF8.GetBytes(Event("task_complete","running",DateTimeOffset.UtcNow)));
         taskTracker.Capture(overviewRoot);states=taskTracker.TaskActivities.ToDictionary(t=>t.Id);
         Check(states[activeId].State=="idle","Completion did not clear working thread");
@@ -61,9 +65,9 @@ internal static class CodexLifecycleSelfTest
         Check(Tab5CodexTasks.SelectOverview(catalog,new Dictionary<string,CodexLifecycleTracker.TaskActivity>())?.Id==idleId,"No active thread must select most recent catalog entry");
         var stopped=new CodexLifecycleTracker(()=>false);stopped.Capture(overviewRoot);
         Check(stopped.TaskActivities.All(t=>t.State!="working"),"Closed app advertised working thread");
-        bool liveRunning=true,unavailable=false;
+        bool liveRunning=true,liveBlocked=false,unavailable=false;
         var liveCache=new Tab5LiveActivity((id,ct)=>unavailable?Task.FromException<Tab5CodexDesktop.State>(new IOException("owner unavailable")):
-            Task.FromResult(new Tab5CodexDesktop.State(liveRunning?"active":"idle","",JsonSerializer.SerializeToElement(new {turnId="current",status=liveRunning?"inProgress":"completed",turnStartedAtMs=100000}),false)));
+            Task.FromResult(new Tab5CodexDesktop.State(liveBlocked?"systemError":liveRunning?"active":"idle","",JsonSerializer.SerializeToElement(new {turnId="current",status=liveRunning?"inProgress":"completed",turnStartedAtMs=100000}),false)));
         liveCache.RefreshAsync(catalog,CancellationToken.None).GetAwaiter().GetResult();
         Check(liveCache.Fresh().All(t=>t.State=="working"),"Desktop runtime must override stale rollout state");
         Check(SessionActivityReader.MergeCodex(new("idle",600,20,3,TokensToday:42),[],liveCache.Fresh()).State=="working","Global pet state ignored active desktop owner");
@@ -76,8 +80,25 @@ internal static class CodexLifecycleSelfTest
         Check(SessionActivityReader.MergeCodex(new("idle",0),[new("other","working",100)],liveCache.Fresh()).State=="working","An idle task hid a different running task");
         Check(SessionActivityReader.MergeCodex(new("idle",0),[],[new("waiting","waiting",100)]).NeedsInput,"Desktop waiting state lost");
         Check(SessionActivityReader.MergeCodex(new("offline",0),[],[new("stale","working",100)]).State=="offline","Closed desktop revived by cached activity");
+        liveBlocked=true;liveCache.RefreshAsync(catalog,CancellationToken.None).GetAwaiter().GetResult();
+        Check(liveCache.Fresh().Count==catalog.Length&&liveCache.Fresh().All(t=>t.CompanionState=="blocked"),"Confirmed owner failure must remain a fresh blocked observation");
+        Check(liveCache.Uncertain().Count==0,"Confirmed blocked state must not become unavailable");
         unavailable=true;liveCache.RefreshAsync(catalog,CancellationToken.None).GetAwaiter().GetResult();
         Check(liveCache.Fresh().Count==0,"Unavailable desktop owner must discard stale live state");
+        Check(liveCache.Uncertain().Count==catalog.Length,"Failed owner probe must mark companion unknown");
+        var longTask=Path.Combine(folder,"long-task");Directory.CreateDirectory(longTask);
+        File.WriteAllText(Path.Combine(longTask,"run.jsonl"),Meta(activeId)+Event("task_started","quiet",DateTimeOffset.UtcNow.AddHours(-2)));
+        var quiet=new CodexLifecycleTracker(()=>true);quiet.Capture(longTask);
+        Check(quiet.TaskActivities.Single().CompanionState=="working","Log silence must not stop the companion");
+        JsonElement Requests(params string[] methods)=>JsonSerializer.SerializeToElement(methods.Select(method=>new {method,paramsValue="PRIVATE"}));
+        Check(CodexCompanionActivity.WaitingKind(Requests("item/tool/requestUserInput"))=="answer","Question kind lost");
+        Check(CodexCompanionActivity.WaitingKind(Requests("item/fileChange/requestApproval"))=="confirm","Approval kind lost");
+        Check(CodexCompanionActivity.WaitingKind(Requests("item/tool/requestUserInput","item/fileChange/requestApproval"))=="input","Mixed requests must remain generic");
+        Check(CodexCompanionActivity.WaitingKind(Requests("new/unknown"))=="input","Unknown request must remain generic");
+        Check(CodexCompanionActivity.WaitingKind(Requests())=="","Empty request must not advertise waiting");
+        var projection=CodexCompanionActivity.Project(catalog[0],new(idleId,"waiting",100,"turn-identity",CompanionState:"waiting",WaitingKind:"answer"));
+        var wire=JsonSerializer.Serialize(projection,new JsonSerializerOptions{PropertyNamingPolicy=JsonNamingPolicy.CamelCase});
+        Check(wire.Contains("\"waitingKind\":\"answer\"")&&wire.Contains("\"turnId\":\"turn-identity\"")&&!wire.Contains("PRIVATE"),"Fixed companion projection or privacy failed");
         Console.WriteLine("CODEX_LIFECYCLE_SELF_TEST_OK startup/explicit-state/partial/duplicate/subagent/same-second/truncate/overview-working-recent-long-output; no sound played");
     }
 }

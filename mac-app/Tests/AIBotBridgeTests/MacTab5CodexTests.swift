@@ -295,11 +295,17 @@ final class MacTab5CodexTests: XCTestCase {
         let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { true }, clock: { now }, call: api.call); codex.refresh()
         XCTAssertTrue(codex.contains(api.task)); now = 31
         XCTAssertFalse(codex.contains(api.task)); XCTAssertFalse((codex.snapshot()?["tasks"] as? [[String: Any]] ?? []).isEmpty)
+        XCTAssertEqual((codex.snapshot()?["tasks"] as? [[String: Any]])?.first?["companionState"] as? String, "unknown")
         let request: [String: Any] = ["op": "send", "taskId": api.task, "requestId": UUID().uuidString, "message": "do not send while stale"]
         XCTAssertEqual(codex.handle(request, device: "A").status, 503); XCTAssertFalse(api.calls.contains { $0.0 == "turn/start" })
         codex.refresh(); XCTAssertEqual(codex.handle(request, device: "A").status, 202)
     }
     func testAppServerStatesMatchExistingDeviceVocabulary() {
+        XCTAssertEqual(MacTab5Codex.waitingKind(["activeFlags": ["waitingOnUserInput"]]), "answer")
+        XCTAssertEqual(MacTab5Codex.waitingKind(["activeFlags": ["waitingOnApproval"]]), "confirm")
+        XCTAssertEqual(MacTab5Codex.waitingKind(["activeFlags": ["waitingOnApproval", "waitingOnUserInput"]]), "input")
+        XCTAssertEqual(MacTab5Codex.companionPriority(["companionState": "waiting"]), 3)
+        XCTAssertEqual(MacTab5Codex.companionPriority(["companionState": "unknown", "outcome": "failed"]), 0)
         XCTAssertEqual(MacTab5Codex.taskState(["type": "active", "activeFlags": [String]()]), "working")
         for flag in ["waitingOnApproval", "waitingOnUserInput"] {
             XCTAssertEqual(MacTab5Codex.taskState(["type": "active", "activeFlags": [flag]]), "waiting")
@@ -345,6 +351,7 @@ final class MacTab5CodexTests: XCTestCase {
         failed = true; codex.refresh()
         XCTAssertEqual((codex.snapshot()?["responses"] as? [String: String])?[api.task], api.text)
         XCTAssertTrue(codex.snapshot()?["control"] is NSNull)
+        XCTAssertEqual((codex.snapshot()?["tasks"] as? [[String: Any]])?.first?["companionState"] as? String, "unknown")
         XCTAssertTrue(codex.summary.contains("初始化前退出"))
         let privateError = NSError(domain: "PRIVATE_TOKEN", code: 1, userInfo: [NSLocalizedDescriptionKey: "PRIVATE_PROMPT /private/path"])
         let summary = MacTab5Codex.connectionFailure(privateError)

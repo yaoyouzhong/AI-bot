@@ -23,7 +23,8 @@ internal sealed class CodexLifecycleTracker
         return age is >=0 and <90 ? "working" : "idle";
     }
     private sealed class Cursor { internal long Position; internal byte[] Partial = []; internal bool? IsRoot; internal string Id="",Turn="",State=""; internal bool Completed; internal DateTimeOffset ActivityAt; }
-    internal sealed record TaskActivity(string Id,string State,long UpdatedAt,string TurnId="",bool Completed=false);
+    internal sealed record TaskActivity(string Id,string State,long UpdatedAt,string TurnId="",bool Completed=false,
+        string CompanionState="",string WaitingKind="",string Outcome="");
     private TaskActivity[] _taskActivity=[];
     internal IReadOnlyList<TaskActivity> TaskActivities => Volatile.Read(ref _taskActivity);
     private readonly Dictionary<string, Cursor> _files = new(StringComparer.OrdinalIgnoreCase);
@@ -69,7 +70,8 @@ internal sealed class CodexLifecycleTracker
             var now = DateTimeOffset.UtcNow;
             bool running=_isRunning();
             Volatile.Write(ref _taskActivity,_files.Values.Where(c=>c.IsRoot==true&&c.Id.Length>0)
-                .Select(c=>new TaskActivity(c.Id,running&&c.State=="working"&&now-c.ActivityAt<TimeSpan.FromMinutes(10)?"working":"idle",c.ActivityAt.ToUnixTimeSeconds(),c.Turn,c.Completed)).ToArray());
+                .Select(c=>new TaskActivity(c.Id,running&&c.State=="working"&&now-c.ActivityAt<TimeSpan.FromMinutes(10)?"working":"idle",c.ActivityAt.ToUnixTimeSeconds(),c.Turn,c.Completed,
+                    CompanionState:running&&(c.State is "working" or "idle")?c.State:"unknown",Outcome:c.Completed?"completed":"")).ToArray());
             long? age = newest is null ? null : Math.Max(0, (long)(now - newest.Value).TotalSeconds);
             var state = ResolveState(age,_eventState,now-_lastEvent,running);
             return new(state, age, _completionAt, _sequence);

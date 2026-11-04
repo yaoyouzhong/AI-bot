@@ -1469,3 +1469,26 @@ Windows 本地候选在 `submit-draft` 的原绑定目标为 `question:` 时，�
 Mac 本地对齐候选（2026-11-01）采用相同的场景错误和类型化回执。原设备／会话／题目之外另保留进程内输入框身份；同一输入框允许电脑校对，在本次明确提交时冻结最新非空文字。原生动作前仍须匹配该身份和冻结文字，附件／引用保护保留；旧无目标绑定适配器继续要求原回填文字相符。已执行但未确认返回 `submitted=false, attempted=true`，只读核对后仍未知时不再发送；明确未执行返回 `submitted=false, attempted=false`。清理仅匹配原设备草稿，不清除随后创建的草稿。现有成功回执含可靠入队，不要求模型开始执行；不新增字段、版本或自动重试。代码与离线测试、Mac 真机验收分开登记。
 
 The Mac local alignment candidate (2026-11-01) adopts the same contextual error values and typed receipts. Besides the original device/chat/question, it retains a process-local editor identity. Explicit submission freezes the latest nonempty correction in that editor; the native action rechecks the identity and frozen text, retaining attachment/reference guards. Legacy adapters without target binding retain exact staged-text checks. An attempted but unconfirmed action returns `submitted:false, attempted:true`; read-only reconciliation never triggers a resend. Proven no-action failures return both flags false. Cleanup matches only the original device draft and preserves newer drafts. Durable queue retention remains delivery without implying execution. No new wire field, version or retry is introduced; local regression and physical acceptance remain separate evidence.
+
+### TAB5 Codex companion / Codex 萌宠状态
+
+本地候选在 `codexTasks.tasks[]` 和 `codexTasks.overviewTask` 增加可选字段，协议仍为 v1：
+
+| 字段 | 值与语义 |
+| --- | --- |
+| `companionState` | `working`、`idle`、`waiting`、`blocked` 或 `unknown`。明确生命周期或本机 owner 观测；不因日志静默改成 idle/offline。 |
+| `waitingKind` | `answer`：答题/选项卡；`confirm`：操作授权；`input`：混合或无法细分；无待办可省略。 |
+| `outcome` | 最新轮次的原始结束状态，如 `completed`、`failed`、`interrupted`；可省略。 |
+| `turnId` | 该任务的当前/最新轮次标识；可省略。未读完成内容继续使用既有精确 task/turn 映射。 |
+
+`state` 保留原消费者的含义。新固件优先采用存在的 `companionState`，包括显式 `unknown`；旧桥接缺失该字段时可回退 `state`。任务状态必须绑定同一 task，不能把其他任务的全局 `needsInput` 套到当前萌宠。owner 读取失败或观测过期时保留任务/回复缓存，萌宠状态变为 unknown。设备心跳失效时也显示“状态未知”；仅新鲜数据明确报告根 `codex.state=offline` 才显示“Codex 未运行”。答题卡为“等你回答”，授权为“等你确认”，不能细分为“等你处理”。只投影固定类型，不传输请求正文、命令、问题或选项。
+
+The optional fields preserve protocol v1 and legacy `state` consumers. `companionState` uses explicit lifecycle/owner observations rather than log silence; a present unknown overrides legacy inference. `waitingKind` distinguishes user answers from operation approval, with a generic fallback for mixed/unknown requests. Failed or expired observations retain cached public data while making the companion unknown. Device heartbeat loss is unknown; only fresh explicit global offline means not running. Status and unread completion identities remain bound to their exact task/turn. No request body, command, question or options are exported.
+
+总览优先选择等待处理、受阻、工作中的任务，再按活动时间排序；没有等待/受阻项时保留既有未读完成内容入口。萌宠仅在总览任务卡及用户主动选择的 Codex 屏保中出现。屏保样式为设备本地 NVS `saver_style=9`，不改变旧样式编号或电脑显示设置协议。
+
+The overview prioritizes waiting, blocked, working, then recent tasks, retaining the existing exact unread-result entry when no attention state takes priority. The same companion timeline serves the overview and opt-in Codex saver. Saver ID 9 is device-local; previous saved IDs and host display settings remain unchanged.
+
+0.2.312 本地实现复用已有 Claude、Codex 和 Claude Code 国内模型活动观测，总览只显示实际活跃的受支持客户端萌宠；没有活动时复用已有模型选择作偏好。客户端使用其他模型时仍保持客户端萌宠，不新增第三方 Harness 接入或国产模型萌宠。Claude 萌宠屏保追加为本地样式 `saver_style=10`，不改变旧编号。屏保只保留动画及居中时间，完成动画循环；总览完成动画播放后停住。此投影不增加协议字段。
+
+The 0.2.312 local implementation reuses existing client/activity observations and idle model preferences to show one supported client mascot. A custom model keeps its client's mascot; no additional harness or domestic mascot is implied. Claude saver ID 10 is appended without renumbering saved styles. Savers show animation and a centered clock, looping completion while Overview holds its completed pose. No additional wire fields are introduced.

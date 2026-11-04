@@ -2,6 +2,14 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacCodexDesktopIPCTests: XCTestCase {
+    func testCompanionClassifiesOnlyFixedPendingRequestKinds() {
+        XCTAssertEqual(MacCodexDesktopIPC.pendingKind([]), "")
+        XCTAssertEqual(MacCodexDesktopIPC.pendingKind([["method": "item/tool/requestUserInput", "params": "PRIVATE"]]), "answer")
+        XCTAssertEqual(MacCodexDesktopIPC.pendingKind([["method": "item/tool/requestOptionPicker"]]), "answer")
+        XCTAssertEqual(MacCodexDesktopIPC.pendingKind([["method": "item/fileChange/requestApproval"]]), "confirm")
+        XCTAssertEqual(MacCodexDesktopIPC.pendingKind([["method": "item/tool/requestUserInput"], ["method": "item/fileChange/requestApproval"]]), "input")
+        XCTAssertEqual(MacCodexDesktopIPC.pendingKind([["method": "future/request"]]), "input")
+    }
     private final class Wire: MacCodexDesktopIPC.Wire {
         let task = UUID().uuidString.lowercased(), turn = UUID().uuidString.lowercased()
         let client = UUID().uuidString.lowercased(), owner = UUID().uuidString.lowercased()

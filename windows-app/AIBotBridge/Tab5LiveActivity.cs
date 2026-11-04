@@ -12,10 +12,16 @@ internal sealed class Tab5LiveActivity(Func<string,CancellationToken,Task<Tab5Co
     private long _next;
     private int _busy,_cursor;
     internal IReadOnlyList<CodexLifecycleTracker.TaskActivity> Fresh()=>_entries.Values
-        .Where(e=>Environment.TickCount64-e.CheckedAt<60000).Select(e=>e.Activity).ToArray();
+        .Where(e=>Environment.TickCount64-e.CheckedAt<60000&&e.Activity.CompanionState!="unknown").Select(e=>e.Activity).ToArray();
+    // A failed/expired owner probe cannot be replaced by an older successful log
+    // observation. Keep that uncertainty separate from the legacy global state.
+    internal IReadOnlyList<string> Uncertain()=>_entries.Where(e=>e.Value.Activity.CompanionState=="unknown"||Environment.TickCount64-e.Value.CheckedAt>=60000)
+        .Select(e=>e.Key).ToArray();
     internal void Refresh(IReadOnlyList<Tab5CodexTask> catalog,CancellationToken stop) {
         if(Environment.TickCount64<Interlocked.Read(ref _next)||Interlocked.CompareExchange(ref _busy,1,0)!=0)return;
         Interlocked.Exchange(ref _next,Environment.TickCount64+10000);
+        var known=catalog.Select(t=>t.Id).ToHashSet();
+        foreach(var id in _entries.Keys)if(!known.Contains(id))_entries.TryRemove(id,out _);
         var ordered=catalog.OrderByDescending(t=>t.UpdatedAt).ToArray();
         var batch=ordered.Take(8).Concat(ordered.Where(t=>_entries.TryGetValue(t.Id,out var entry)&&entry.Activity.State=="working"))
             .Concat(ordered.Skip(_cursor).Take(16)).DistinctBy(t=>t.Id).ToArray();
@@ -32,9 +38,11 @@ internal sealed class Tab5LiveActivity(Func<string,CancellationToken,Task<Tab5Co
                     string status=state.Waiting?"waiting":state.Runtime=="active"?"working":state.Runtime=="idle"?"idle":"unknown";
                     var stamp=Tab5CodexDesktop.Child(state.Turn,"turnStartedAtMs");
                     long at=stamp.ValueKind==JsonValueKind.Number&&stamp.TryGetDouble(out var ms)?(long)(ms/1000):0;
-                    _entries[task.Id]=new(new(task.Id,status,Math.Max(task.UpdatedAt,at),state.TurnId,state.Runtime=="idle"&&state.Status=="completed"),Environment.TickCount64);
+                    string actual=state.Runtime=="systemError"?"blocked":status;
+                    _entries[task.Id]=new(new(task.Id,status,Math.Max(task.UpdatedAt,at),state.TurnId,state.Runtime=="idle"&&state.Status=="completed",
+                        CompanionState:actual,WaitingKind:state.WaitingKind,Outcome:state.Status),Environment.TickCount64);
                 }catch(Exception ex) when(ex is IOException or OperationCanceledException or JsonException or InvalidOperationException or UnauthorizedAccessException) {
-                    _entries.TryRemove(task.Id,out _);
+                    _entries[task.Id]=new(new(task.Id,"unknown",task.UpdatedAt,CompanionState:"unknown"),Environment.TickCount64);
                 }
             });
         }catch(OperationCanceledException) { }

@@ -66,6 +66,7 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
     internal sealed class Rejected(string code) : IOException(code) { internal string Code => Message; }
     internal sealed record State(string Runtime, string Path, JsonElement Turn, bool Waiting)
     {
+        internal string WaitingKind {get;init;}="";
         internal JsonElement LatestTurn {get;init;}
         internal bool IsHistory {get;init;}
         internal bool HasPrevious {get;init;}
@@ -191,7 +192,7 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
         var requests=Child(state,"requests");
         State At(int index)=>new(Text(Child(state,"threadRuntimeStatus"),"type"),Text(state,"rolloutPath"),index>=0?turns[index]:default,
             requests.ValueKind==JsonValueKind.Array&&requests.GetArrayLength()>0) {
-                LatestTurn=turns.LastOrDefault(),IsHistory=index>=0&&index<turns.Count-1,
+                WaitingKind=CodexCompanionActivity.WaitingKind(requests),LatestTurn=turns.LastOrDefault(),IsHistory=index>=0&&index<turns.Count-1,
                 HasPrevious=index>0||HasOlder(state),HasNext=index>=0&&index<turns.Count-1,
                 PreviousTurnId=index>0?Text(turns[index-1],"turnId"):"",
                 NextTurnId=index>=0&&index+1<turns.Count?Text(turns[index+1],"turnId"):""

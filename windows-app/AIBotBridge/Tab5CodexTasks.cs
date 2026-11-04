@@ -10,6 +10,11 @@ namespace AIBotBridge;
 
 internal sealed record Tab5CodexTask(string Id, string Title, string Folder, long UpdatedAt, string ProjectId = "", int ProjectOrder = int.MaxValue) {
     public bool Pinned { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] public string? State {get;init;}
+    [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] public string? CompanionState {get;init;}
+    [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] public string? WaitingKind {get;init;}
+    [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] public string? Outcome {get;init;}
+    [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] public string? TurnId {get;init;}
     [System.Text.Json.Serialization.JsonIgnore] public string IdentityTitle { get; init; } = Title;
 }
 internal sealed record Tab5SavedProject(string Id, string Name, string Root, int Order = 0);
@@ -265,7 +270,7 @@ internal sealed class Tab5CodexTasks : IDisposable
 
     internal object Snapshot()=>SnapshotLimited(80);
     internal static Tab5CodexTask? SelectOverview(IEnumerable<Tab5CodexTask> catalog,IReadOnlyDictionary<string,CodexLifecycleTracker.TaskActivity> activity)=>
-        catalog.OrderByDescending(t=>activity.GetValueOrDefault(t.Id)?.State=="working")
+        catalog.OrderByDescending(t=>CodexCompanionActivity.Priority(activity.GetValueOrDefault(t.Id)))
             .ThenByDescending(t=>Math.Max(t.UpdatedAt,activity.GetValueOrDefault(t.Id)?.UpdatedAt??0)).FirstOrDefault();
     internal object SnapshotLimited(int taskLimit)
     {
@@ -273,6 +278,8 @@ internal sealed class Tab5CodexTasks : IDisposable
         var activity=SessionActivityReader.TaskActivities.GroupBy(a=>a.Id).ToDictionary(g=>g.Key,g=>g.MaxBy(a=>a.UpdatedAt)!);
         _liveActivity?.Refresh(catalog,_lifetime.Token);
         foreach(var live in _liveActivity?.Fresh()??[])activity[live.Id]=live;
+        foreach(var id in _liveActivity?.Uncertain()??[])
+            activity[id]=(activity.GetValueOrDefault(id)??new(id,"unknown",0)) with {CompanionState="unknown"};
         // Publish completed turn identities from both desktop IPC and root logs.
         // Device reads and desktop reads both acknowledge the exact turn.
         foreach(var task in catalog)if(activity.TryGetValue(task.Id,out var state)&&state.Completed&&state.TurnId.Length>0)
@@ -286,14 +293,15 @@ internal sealed class Tab5CodexTasks : IDisposable
             ready=_readyReplies.ToArray().ToDictionary(p=>p.Key,p=>p.Value);
         }
         // Under transport pressure retain each project plus the viewed task first.
-        var tasks=Tab5TaskPins.Select(catalog,taskLimit,overview?.Id,viewed,ready.Keys.ToHashSet());
+        var tasks=Tab5TaskPins.Select(catalog,taskLimit,overview?.Id,viewed,ready.Keys.ToHashSet())
+            .Select(task=>CodexCompanionActivity.Project(task,activity.GetValueOrDefault(task.Id))).ToArray();
         var taskIds=tasks.Select(t=>t.Id).ToHashSet();
         var read=_readState.Synchronize(ready);
         if(view is not null&&viewed is not null)responses[viewed]=view.Text;
         var projects = tasks.GroupBy(t => t.ProjectId).OrderByDescending(g => g.Max(t => t.UpdatedAt))
             .ThenBy(g => g.Min(t => t.ProjectOrder))
             .Select(g => new { id = g.Key, name = g.First().Folder }).ToArray();
-        return new { projects, tasks, overviewTask=overview is null?null:new {id=overview.Id,title=overview.Title,folder=overview.Folder,projectId=overview.ProjectId,state=activity.GetValueOrDefault(overview.Id)?.State??"idle"}, draftView=Volatile.Read(ref _draftView),control=Volatile.Read(ref _control),
+        return new { projects, tasks, overviewTask=overview is null?null:CodexCompanionActivity.Project(overview,activity.GetValueOrDefault(overview.Id)), draftView=Volatile.Read(ref _draftView),control=Volatile.Read(ref _control),
             replyView=view is null?null:new {taskId=viewed,turnId=view.TurnId,page=view.Page,pageCount=view.PageCount,hasText=view.HasText,history=viewHistory,hasPrevious=viewPrevious,hasNext=viewNext,startedAt=view.StartedAt,startedLabel=view.StartedAt>0?DateTimeOffset.FromUnixTimeSeconds(view.StartedAt).ToLocalTime().ToString("MM-dd HH:mm"):"",state=view.State},
             repliesReady = tasks.Where(t=>ready.ContainsKey(t.Id)).Take(80).ToDictionary(t=>t.Id,t=>ready[t.Id]),
             // Shrinking the catalog must also shrink its per-task maps. Keep

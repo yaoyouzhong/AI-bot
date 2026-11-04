@@ -1,0 +1,695 @@
+diff --git a/.gitignore b/.gitignore
+--- a/.gitignore
++++ b/.gitignore
+@@ -22,3 +22,7 @@
+ !.env.example
+ *.pem
+ *.key
++
++# Explicitly supplied OpenAI artwork for local Codex companion candidates.
++/firmware/main/codex_pet_data.inc
++/firmware/main/codex_pet_data.json
+diff --git a/firmware/main/CMakeLists.txt b/firmware/main/CMakeLists.txt
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -14,6 +14,7 @@
+ list(APPEND tab5_sources "wifi_submission_test.c")
+ list(APPEND tab5_sources "reply_document.c")
+ list(APPEND tab5_sources "codex_read_ack.c")
++list(APPEND tab5_sources "codex_companion.c")
+ list(APPEND tab5_sources "wifi_profiles.c")
+ list(APPEND tab5_sources "wireless_boot.c")
+ list(APPEND tab5_sources "photo_attachment.c" "sd_storage.c" "photo_transfer_crypto.c" "photo_display_probe.c")
+@@ -53,6 +54,9 @@
+     EMBED_FILES "assets/reply_notice.pcm" "assets/health_notice.pcm"
+     INCLUDE_DIRS "." REQUIRES tab5_jpeg m5stack_tab5 bosch_bmi270 esp_video esp_driver_jpeg esp_driver_ppa nvs_flash app_update esp_http_client esp-tls esp_timer esp_driver_i2c esp_driver_usb_serial_jtag json esp_partition spi_flash bootloader_support bt esp_hosted esp_wifi esp_netif mbedtls)
+ target_compile_definitions(${COMPONENT_LIB} PRIVATE TAB5_LOCAL_ART=$<BOOL:${TAB5_LOCAL_ART}>)
++if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/codex_pet_data.inc")
++ target_compile_definitions(${COMPONENT_LIB} PRIVATE TAB5_CODEX_PET_ASSET=1)
++endif()
+ # Agenda is a low-frequency scheduler; keep it small without changing rendering/transport optimization.
+ set_source_files_properties(agenda.c agenda_core.c agenda_storage.c PROPERTIES COMPILE_OPTIONS "-Os")
+ # The agenda is the only roller user. Keep this new widget compact in the
+diff --git a/firmware/main/codex_companion.c b/firmware/main/codex_companion.c
+new file mode 100644
+--- /dev/null
++++ b/firmware/main/codex_companion.c
+@@ -0,0 +1,103 @@
++#include "codex_companion.h"
++#include <stdio.h>
++#include <string.h>
++
++static const cJSON *field(const cJSON *value, const char *name) { return cJSON_GetObjectItemCaseSensitive(value,name); }
++static const char *string(const cJSON *value, const char *name) { const cJSON *v=field(value,name); return cJSON_IsString(v)?v->valuestring:""; }
++
++codex_companion_value codex_companion_resolve(const cJSON *snapshot, const cJSON *task, bool fresh, bool unread, const char *unread_turn) {
++    codex_companion_value result={.state=CODEX_COMPANION_UNKNOWN};
++    snprintf(result.task,sizeof(result.task),"%s",string(task,"id"));
++    snprintf(result.turn,sizeof(result.turn),"%s",string(task,"turnId"));
++    if(!fresh||!cJSON_IsObject(snapshot))return result;
++    const cJSON *model=field(snapshot,"codex");
++    if(!strcmp(string(model,"state"),"offline")){result.state=CODEX_COMPANION_STOPPED;return result;}
++    const char *actual=string(task,"companionState");
++    bool observed=cJSON_IsString(field(task,"companionState"));
++    if(!observed)actual=string(task,"state");
++    const char *waiting=string(task,"waitingKind");
++    bool same_task=result.task[0]&&strcmp(result.task,"--");
++    if(!strcmp(actual,"waiting")) {
++        result.state=!strcmp(waiting,"answer")?CODEX_COMPANION_QUESTION:!strcmp(waiting,"confirm")?CODEX_COMPANION_APPROVAL:CODEX_COMPANION_WAITING;
++    } else if(!strcmp(actual,"working"))result.state=CODEX_COMPANION_WORKING;
++    else if(!strcmp(actual,"failed")||!strcmp(actual,"blocked")||(!strcmp(actual,"idle")&&!strcmp(string(task,"outcome"),"failed")))result.state=CODEX_COMPANION_BLOCKED;
++    else if(!strcmp(actual,"unknown")||(same_task&&!actual[0]))result.state=CODEX_COMPANION_UNKNOWN;
++    else if(unread){result.state=CODEX_COMPANION_DONE;snprintf(result.turn,sizeof(result.turn),"%s",unread_turn?unread_turn:"");}
++    else if(!strcmp(actual,"idle"))result.state=CODEX_COMPANION_IDLE;
++    else if(!same_task&&!strcmp(string(model,"state"),"idle"))result.state=CODEX_COMPANION_IDLE;
++    return result;
++}
++
++const char *codex_companion_label(codex_companion_state state) {
++    static const char *labels[]={"待命","工作中","等你确认","等你回答","等你处理","已完成","任务受阻","Codex 未运行","状态暂不可用"};
++    return (unsigned)state<sizeof(labels)/sizeof(labels[0])?labels[state]:labels[CODEX_COMPANION_UNKNOWN];
++}
++
++bool codex_companion_select(codex_companion_animation *animation, codex_companion_value value, int64_t now) {
++    if(animation->initialized&&animation->value.state==value.state&&!strcmp(animation->value.task,value.task)&&!strcmp(animation->value.turn,value.turn))return false;
++    animation->value=value;animation->started_at=now;animation->initialized=true;return true;
++}
++
++unsigned codex_companion_frame(const codex_companion_animation *animation, int64_t now) {
++    int64_t age=animation->initialized&&now>=animation->started_at?now-animation->started_at:0;
++    switch(animation->value.state) {
++    case CODEX_COMPANION_IDLE: {
++        static const unsigned durations[]={1680,660,660,840,840,1920};unsigned tick=(unsigned)(age%6600);
++        for(unsigned i=0;i<6;i++){if(tick<durations[i])return i;tick-=durations[i];}return 0;
++    }
++    case CODEX_COMPANION_WORKING: {unsigned t=(unsigned)(age%820);return 6+(t/120<5?t/120:5);}
++    case CODEX_COMPANION_APPROVAL:case CODEX_COMPANION_QUESTION:case CODEX_COMPANION_WAITING: {
++        unsigned t=(unsigned)(age%7000);return t>=700?14:12+(t/140<3?t/140:3);
++    }
++    case CODEX_COMPANION_DONE: {if(age>=2060)return 17;unsigned t=(unsigned)(age%1030);return 16+(t/150<5?t/150:5);}
++    case CODEX_COMPANION_BLOCKED: return age>=660?25:22+(unsigned)(age/140<3?age/140:3);
++    case CODEX_COMPANION_STOPPED:return 1;
++    case CODEX_COMPANION_UNKNOWN:default:return 26;
++    }
++}
++
++#ifdef TAB5_CODEX_PET_ASSET
++#include "codex_pet_data.inc"
++#endif
++
++bool codex_companion_asset_available(void) {
++#ifdef TAB5_CODEX_PET_ASSET
++    return sizeof(codex_pet_frames)/sizeof(codex_pet_frames[0])==27;
++#else
++    return false;
++#endif
++}
++
++bool codex_companion_unpack(const uint8_t *data,size_t size,const uint16_t palette[256],const uint8_t alpha[256],uint8_t *output,size_t pixels) {
++    if(!data||!palette||!alpha||!output||!pixels||pixels>CODEX_COMPANION_PIXELS)return false;
++    size_t cursor=0,used=0;
++    // Validate the whole frame before changing the currently displayed buffer.
++    while(cursor<size) {
++        uint8_t tag=data[cursor++];size_t count=(tag&127u)+1u,bytes=tag&128u?1u:count;
++        if(count>pixels-used||bytes>size-cursor)return false;
++        used+=count;cursor+=bytes;
++    }
++    if(used!=pixels)return false;
++    cursor=0;used=0;
++    while(cursor<size) {
++        uint8_t tag=data[cursor++];size_t count=(tag&127u)+1u;
++        for(size_t n=0;n<count;n++) {
++            unsigned index=data[cursor+(tag&128u?0:n)];uint16_t color=palette[index];
++            output[used*2]=(uint8_t)color;output[used*2+1]=(uint8_t)(color>>8);output[pixels*2+used]=alpha[index];used++;
++        }
++        cursor+=tag&128u?1u:count;
++    }
++    return true;
++}
++
++bool codex_companion_decode(unsigned frame,uint8_t *output,size_t capacity) {
++    if(capacity<CODEX_COMPANION_FRAME_BYTES)return false;
++#ifdef TAB5_CODEX_PET_ASSET
++    if(frame>=sizeof(codex_pet_frames)/sizeof(codex_pet_frames[0]))return false;
++    size_t offset=codex_pet_frames[frame].offset,size=codex_pet_frames[frame].size;
++    if(offset>sizeof(codex_pet_stream)||size>sizeof(codex_pet_stream)-offset)return false;
++    return codex_companion_unpack(codex_pet_stream+offset,size,codex_pet_palette,codex_pet_alpha,output,CODEX_COMPANION_PIXELS);
++#else
++    (void)frame;(void)output;return false;
++#endif
++}
+diff --git a/firmware/main/codex_companion.h b/firmware/main/codex_companion.h
+new file mode 100644
+--- /dev/null
++++ b/firmware/main/codex_companion.h
+@@ -0,0 +1,35 @@
++#pragma once
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++#include "cJSON.h"
++
++typedef enum {
++    CODEX_COMPANION_IDLE, CODEX_COMPANION_WORKING, CODEX_COMPANION_APPROVAL,
++    CODEX_COMPANION_QUESTION, CODEX_COMPANION_WAITING, CODEX_COMPANION_DONE,
++    CODEX_COMPANION_BLOCKED, CODEX_COMPANION_STOPPED, CODEX_COMPANION_UNKNOWN
++} codex_companion_state;
++
++typedef struct {
++    codex_companion_state state;
++    char task[37], turn[64];
++} codex_companion_value;
++
++typedef struct {
++    codex_companion_value value;
++    int64_t started_at;
++    bool initialized;
++} codex_companion_animation;
++
++#define CODEX_COMPANION_WIDTH 192
++#define CODEX_COMPANION_HEIGHT 208
++#define CODEX_COMPANION_PIXELS (CODEX_COMPANION_WIDTH * CODEX_COMPANION_HEIGHT)
++#define CODEX_COMPANION_FRAME_BYTES (CODEX_COMPANION_PIXELS * 3)
++
++codex_companion_value codex_companion_resolve(const cJSON *snapshot, const cJSON *task, bool fresh, bool unread, const char *unread_turn);
++const char *codex_companion_label(codex_companion_state state);
++bool codex_companion_select(codex_companion_animation *animation, codex_companion_value value, int64_t now);
++unsigned codex_companion_frame(const codex_companion_animation *animation, int64_t now);
++bool codex_companion_asset_available(void);
++bool codex_companion_decode(unsigned frame, uint8_t *output, size_t capacity);
++bool codex_companion_unpack(const uint8_t *data, size_t size, const uint16_t palette[256], const uint8_t alpha[256], uint8_t *output, size_t pixels);
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -839,6 +839,7 @@
+ #include "ui_visuals.h"
+ #include "brand_logos.h"
+ 
++#include "ui_codex_companion.h"
+ #include "ui_dashboard.h"
+ #include "ui_runtime_health.h"
+ #include "ui_calendar.h"
+@@ -1364,13 +1365,13 @@
+     }
+     // Unread completed turns take precedence over the default working task.
+     // Reading/heartbeats never change the editor selection or its draft.
++    bool needs_attention=!strcmp(text(recent,"state"),"waiting")||!strcmp(text(recent,"companionState"),"blocked")||!strcmp(text(recent,"outcome"),"failed");
+     home_task_unread=false;home_task_turn[0]=0;
+-    unsigned newest=0,count=0;
++    unsigned newest=0;
+     if(codex_notices)for(int i=0;i<80;i++)if(codex_notices[i].unread) {
+         cJSON *task=NULL;
+         cJSON_ArrayForEach(task,item(remote,"tasks"))if(!strcmp(text(task,"id"),codex_notices[i].task)) {
+-            count++;
+-            if(!home_task_unread||codex_notices[i].arrived>newest) {
++            if(!needs_attention&&(!home_task_unread||codex_notices[i].arrived>newest)) {
+                 recent=task;newest=codex_notices[i].arrived;home_task_unread=true;
+                 snprintf(home_task_turn,sizeof(home_task_turn),"%s",codex_notices[i].turn);
+             }
+@@ -1391,12 +1392,15 @@
+     }
+     const char *folder=valid?text(recent,"folder"):"";
+     if(folder[0]&&strcmp(folder,"--"))ui_text_fmt(home_task_note,"项目 · %s",folder);else ui_text(home_task_note,"");
+-    bool working=valid&&!strcmp(text(recent,"state"),"working");
+-    const char *task_state=text(recent,"state");
+-    if(home_task_unread)ui_text_fmt(model_state[1],"已完成 · %u 个未读",count);
+-    else ui_text(model_state[1],!valid?(shown?"电脑状态":"等待电脑数据"):working?"运行中":!strcmp(task_state,"waiting")?"等待操作":!strcmp(task_state,"unknown")?"状态待确认":"空闲 · 最近会话");
++    codex_companion_value mood=codex_companion_resolve(shown,recent,offline_since<0&&last_link!=LINK_NONE,home_task_unread,home_task_turn);
++    companion_set_value(mood,esp_timer_get_time()/1000);
++    companion_home_enabled=valid&&codex_companion_asset_available();
++    visible(home_companion,companion_home_enabled&&companion_pixels!=NULL);
++    lv_obj_set_width(home_task_title,companion_home_enabled?480:706);
++    ui_text(model_state[1],valid?codex_companion_label(mood.state):(shown?"电脑状态":"等待电脑数据"));
+     ui_text(lv_obj_get_child(home_task_action,0),!valid?"查看电脑状态":home_task_unread?"查看完成内容":"继续 Codex 任务");
+-    tint(model_state[1],working||home_task_unread?GREEN:MUTED);ui_bg_color(model_dot[1],lv_color_hex(working||home_task_unread?GREEN:MUTED),0);
++    uint32_t tone=valid?companion_color(mood.state):MUTED;
++    tint(model_state[1],tone);ui_bg_color(model_dot[1],lv_color_hex(tone),0);
+ }
+ static bool codex_public_reply(cJSON *view,const char *body) {
+     cJSON *flag=item(view,"hasText");
+@@ -3177,6 +3181,19 @@
+             offline_since = now;
+     } else
+         offline_since = -1;
++    // Fresh bridge heartbeats, rather than task-log silence, define availability.
++    if(!interacting) {
++        if(changed&&saver)render_home_task();
++        cJSON *current=item(item(shown,"codexTasks"),"overviewTask");
++        if(strcmp(text(current,"id"),home_task_id)) {
++            current=NULL;cJSON *candidate=NULL;
++            cJSON_ArrayForEach(candidate,item(item(shown,"codexTasks"),"tasks"))if(!strcmp(text(candidate,"id"),home_task_id)){current=candidate;break;}
++        }
++        codex_companion_value mood=codex_companion_resolve(shown,current,active!=LINK_NONE,home_task_unread,home_task_turn);
++        companion_set_value(mood,now);
++        if(home_task_id[0]){ui_text(model_state[1],codex_companion_label(mood.state));tint(model_state[1],companion_color(mood.state));ui_bg_color(model_dot[1],lv_color_hex(companion_color(mood.state)),0);}
++        companion_tick(now,!saver&&current_page==0&&!quick_visible&&!photo_flow,saver&&saver_style==UI_SAVER_CODEX);
++    }
+     bool connected_links[3]={tab5_usb_connected(),wifi_connected,ble_connected};
+     bool ble_standby=link_standby_report(shown,last_link,last_received,now);
+     links_render(connected_links,ready_links,ble_standby);
+@@ -4269,7 +4286,7 @@
+ #if TAB5_LOCAL_ART
+         "\n每日名画\n每日书法"
+ #endif
+-        "\n日期倒计时"
++        "\n日期倒计时\nCodex"
+         ,452,316,270,ui_saver_option_from_style(saver_style),saver_style_changed,0);
+     saver_preview_button=button(screen_options,"预览屏保",738,316,144,saver_preview_clicked,0);
+     lv_obj_set_height(saver_preview_button,48);lv_obj_center(lv_obj_get_child(saver_preview_button,0));
+@@ -4570,7 +4587,7 @@
+     classic_rule=shape(saver_layer,420,454,440,1,0x28313A,0);
+     saver_date=label(saver_layer,"等待校时",180,494,920,false);tint(saver_date,0x85919E);
+     ui_text_font(saver_date,&tab5_font_30,0);lv_obj_set_style_text_align(saver_date,LV_TEXT_ALIGN_CENTER,0);
+-    annual_create();monthly_create();date_saver_create();
++    annual_create();monthly_create();date_saver_create();companion_saver_create(saver_layer);
+ #if TAB5_LOCAL_ART
+     gallery_create();
+ #endif
+diff --git a/firmware/main/ui_codex_companion.h b/firmware/main/ui_codex_companion.h
+new file mode 100644
+--- /dev/null
++++ b/firmware/main/ui_codex_companion.h
+@@ -0,0 +1,74 @@
++// Shared state/timeline for the overview and the opt-in Codex saver.
++#include "codex_companion.h"
++static lv_obj_t *home_companion,*companion_saver_layer,*companion_saver_image,*companion_saver_status,*companion_saver_clock;
++static codex_companion_animation companion_animation;
++static lv_image_dsc_t companion_descriptor;
++static uint8_t *companion_pixels;
++static unsigned companion_rendered_frame=UINT32_MAX;
++static bool companion_home_enabled;
++
++static void companion_home_create(lv_obj_t *parent) {
++    home_companion=lv_image_create(parent);
++    lv_obj_set_pos(home_companion,522,28);
++    lv_image_set_pivot(home_companion,0,0);lv_image_set_scale(home_companion,235);
++    lv_obj_remove_flag(home_companion,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
++    visible(home_companion,false);
++}
++static void companion_saver_create(lv_obj_t *parent) {
++    companion_saver_layer=lv_obj_create(parent);lv_obj_remove_style_all(companion_saver_layer);
++    lv_obj_set_size(companion_saver_layer,1280,720);
++    lv_obj_remove_flag(companion_saver_layer,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
++    companion_saver_image=lv_image_create(companion_saver_layer);
++    lv_obj_set_pos(companion_saver_image,448,92);lv_image_set_pivot(companion_saver_image,0,0);lv_image_set_scale(companion_saver_image,512);
++    lv_obj_remove_flag(companion_saver_image,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
++    companion_saver_status=label(companion_saver_layer,"状态暂不可用",180,536,920,false);
++    ui_text_font(companion_saver_status,&tab5_font_30,0);tint(companion_saver_status,0xEDF5F8);
++    lv_obj_set_style_text_align(companion_saver_status,LV_TEXT_ALIGN_CENTER,0);
++    lv_obj_t *name=label(companion_saver_layer,"Codex",42,645,240,false);
++    ui_text_font(name,&tab5_font_24,0);tint(name,0x7F8B94);
++    companion_saver_clock=label(companion_saver_layer,"--:--",1060,645,178,false);
++    ui_text_font(companion_saver_clock,&tab5_font_24,0);tint(companion_saver_clock,0xAAB6BE);
++    lv_obj_set_style_text_align(companion_saver_clock,LV_TEXT_ALIGN_RIGHT,0);
++    visible(companion_saver_layer,false);
++}
++static uint32_t companion_color(codex_companion_state state) {
++    if(state==CODEX_COMPANION_APPROVAL||state==CODEX_COMPANION_QUESTION||state==CODEX_COMPANION_WAITING)return AMBER;
++    if(state==CODEX_COMPANION_WORKING||state==CODEX_COMPANION_DONE)return GREEN;
++    if(state==CODEX_COMPANION_BLOCKED)return 0xEFB6AC;
++    return MUTED;
++}
++static void companion_set_value(codex_companion_value value,int64_t now) {
++    bool changed=codex_companion_select(&companion_animation,value,now);
++    if(companion_saver_status)ui_text(companion_saver_status,codex_companion_label(value.state));
++    if(!changed)return;
++    lv_obj_t *images[]={home_companion,companion_saver_image};
++    for(unsigned i=0;i<2;i++)if(images[i]) {
++        lv_obj_set_style_opa(images[i],value.state==CODEX_COMPANION_UNKNOWN?LV_OPA_80:LV_OPA_COVER,0);
++        lv_image_set_rotation(images[i],value.state==CODEX_COMPANION_STOPPED?57:0);
++    }
++}
++static void companion_saver_time(const struct tm *local) {
++    char clock[8];strftime(clock,sizeof(clock),"%H:%M",local);ui_text(companion_saver_clock,clock);
++    int shift=(local->tm_min%5-2)*4;
++    lv_obj_set_pos(companion_saver_layer,shift,-shift);
++}
++static void companion_tick(int64_t now,bool show_home,bool show_saver) {
++    show_home=show_home&&companion_home_enabled;
++    if((!show_home&&!show_saver)||!codex_companion_asset_available())return;
++    if(!companion_pixels) {
++        companion_pixels=lv_malloc(CODEX_COMPANION_FRAME_BYTES);
++        if(!companion_pixels)return; // Short status remains available without artwork.
++    }
++    unsigned frame=codex_companion_frame(&companion_animation,now);
++    if(frame!=companion_rendered_frame) {
++        if(!codex_companion_decode(frame,companion_pixels,CODEX_COMPANION_FRAME_BYTES))return;
++        lv_image_cache_drop(&companion_descriptor);
++        companion_descriptor=(lv_image_dsc_t){.header={.magic=LV_IMAGE_HEADER_MAGIC,.cf=LV_COLOR_FORMAT_RGB565A8,
++            .w=CODEX_COMPANION_WIDTH,.h=CODEX_COMPANION_HEIGHT,.stride=CODEX_COMPANION_WIDTH*2},
++            .data_size=CODEX_COMPANION_FRAME_BYTES,.data=companion_pixels};
++        if(home_companion)lv_image_set_src(home_companion,&companion_descriptor);
++        if(companion_saver_image)lv_image_set_src(companion_saver_image,&companion_descriptor);
++        companion_rendered_frame=frame;
++    }
++    if(home_companion)visible(home_companion,companion_home_enabled);
++}
+diff --git a/firmware/main/ui_dashboard.h b/firmware/main/ui_dashboard.h
+--- a/firmware/main/ui_dashboard.h
++++ b/firmware/main/ui_dashboard.h
+@@ -94,6 +94,7 @@
+         visible(home_system_captions[i],false);visible(home_system_values[i],false);
+     }
+ 
++    companion_home_create(task);
+     lv_obj_t *go=home_task_action=button(task,"继续 Codex 任务",8,224,706,workbench_go,-3);
+     lv_obj_set_height(go,62);ui_bg_color(go,lv_color_hex(BLUE),0);
+     ui_text_color(go,lv_color_hex(0x173642),0);lv_obj_center(lv_obj_get_child(go,0));
+diff --git a/firmware/main/ui_prefs.h b/firmware/main/ui_prefs.h
+--- a/firmware/main/ui_prefs.h
++++ b/firmware/main/ui_prefs.h
+@@ -10,9 +10,11 @@
+ #define TAB5_LOCAL_ART 0
+ #endif
+ #define UI_SAVER_COUNTDOWN 8
+-#define UI_SAVER_STYLES 9
++#define UI_SAVER_CODEX 9
++#define UI_SAVER_STYLES 10
++#define UI_SAVER_OPTIONS (TAB5_LOCAL_ART?8:6)
+ static inline bool ui_saver_style_valid(int style) {
+-    return style>=0&&style<UI_SAVER_STYLES&&(TAB5_LOCAL_ART||style<6||style==UI_SAVER_COUNTDOWN);
++    return style>=0&&style<UI_SAVER_STYLES&&(TAB5_LOCAL_ART||style<6||style>=UI_SAVER_COUNTDOWN);
+ }
+ // Persisted IDs stay stable. Legacy day/night selections open the unified automatic style.
+ static inline int ui_saver_style_normalize(int style) {return style==1||style==2?5:style;}
+@@ -21,12 +23,12 @@
+ #if TAB5_LOCAL_ART
+         6,7,
+ #endif
+-        UI_SAVER_COUNTDOWN};
++        UI_SAVER_COUNTDOWN,UI_SAVER_CODEX};
+     return option>=0&&option<(int)(sizeof(choices)/sizeof(choices[0]))?choices[option]:0;
+ }
+ static inline int ui_saver_option_from_style(int style) {
+     style=ui_saver_style_normalize(style);
+-    for(int i=0;i<(TAB5_LOCAL_ART?7:5);i++)if(ui_saver_style_from_option(i)==style)return i;
++    for(int i=0;i<UI_SAVER_OPTIONS;i++)if(ui_saver_style_from_option(i)==style)return i;
+     return 0;
+ }
+ typedef struct {uint32_t version;uint16_t year;uint8_t month,day;char title[97];} ui_date_countdown;
+diff --git a/firmware/main/ui_saver.h b/firmware/main/ui_saver.h
+--- a/firmware/main/ui_saver.h
++++ b/firmware/main/ui_saver.h
+@@ -65,11 +65,13 @@
+     visible(gallery_layer,saver_is_gallery());if(saver_is_gallery())gallery_show();
+ #endif
+     visible(date_saver_layer,saver_style==UI_SAVER_COUNTDOWN);
++    visible(companion_saver_layer,saver_style==UI_SAVER_CODEX);
+     if(saver_style==UI_SAVER_COUNTDOWN)date_saver_update(saver_has_time?&saver_local_time:NULL);
+     if(annual)annual_palette_apply(saver_style==5?(saver_has_time?annual_auto_palette(&saver_local_time):2):saver_style);
+     monthly_preview_month=0;monthly_rendered_day=0;
+ }
+ static void saver_update(const struct tm *local) {
++    if(saver_style==UI_SAVER_CODEX){companion_saver_time(local);return;}
+ #if TAB5_LOCAL_ART
+     if(saver_is_gallery()){gallery_update(local);return;}
+ #endif
+diff --git a/scripts/package_codex_companion.py b/scripts/package_codex_companion.py
+new file mode 100644
+--- /dev/null
++++ b/scripts/package_codex_companion.py
+@@ -0,0 +1,91 @@
++"""Transcode a user-supplied original Codex atlas for a local TAB5 build.
++
++The original artwork is not part of this project's MIT license. The generated
++include is intentionally ignored by Git; supply the source atlas explicitly.
++"""
++import argparse
++import hashlib
++import json
++import struct
++from pathlib import Path
++from PIL import Image
++
++CELLS = [(0, n) for n in range(6)] + [(7, n) for n in range(6)] + [(3, n) for n in range(4)] + [(8, n) for n in range(6)] + [(5, n) for n in range(4)] + [(6, 1)]
++WIDTH, HEIGHT = 192, 208
++
++def pack(data):
++    output = bytearray()
++    i = 0
++    while i < len(data):
++        run = 1
++        while run < 128 and i + run < len(data) and data[i + run] == data[i]:
++            run += 1
++        if run >= 3:
++            output.extend((0x80 | (run - 1), data[i]))
++            i += run
++            continue
++        start = i
++        i += run
++        while i < len(data) and i - start < 128:
++            run = 1
++            while run < 3 and i + run < len(data) and data[i + run] == data[i]:
++                run += 1
++            if run >= 3:
++                break
++            i += min(run, 128 - (i - start))
++        output.append(i - start - 1)
++        output.extend(data[start:i])
++    return bytes(output)
++
++def array(name, ctype, values, width=16):
++    lines = [f'static const {ctype} {name}[{len(values)}] = {{']
++    for i in range(0, len(values), width):
++        lines.append('    ' + ','.join(str(v) for v in values[i:i + width]) + ',')
++    return '\n'.join(lines + ['};'])
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--input', type=Path, required=True)
++    parser.add_argument('--output', type=Path, required=True)
++    parser.add_argument('--expected-sha256')
++    args = parser.parse_args()
++    digest = hashlib.sha256(args.input.read_bytes()).hexdigest()
++    if args.expected_sha256 and args.expected_sha256.lower() != digest:
++        raise SystemExit('Original atlas SHA-256 mismatch')
++    atlas = Image.open(args.input).convert('RGBA')
++    if atlas.size not in ((1536, 1872), (1536, 2288)):
++        raise SystemExit('Expected an 8-column Codex atlas with 192x208 cells')
++    combined = Image.new('RGBA', (WIDTH, HEIGHT * len(CELLS)))
++    for index, (row, column) in enumerate(CELLS):
++        combined.paste(atlas.crop((column * WIDTH, row * HEIGHT, (column + 1) * WIDTH, (row + 1) * HEIGHT)), (0, index * HEIGHT))
++    indexed = combined.quantize(colors=256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
++    rgba_palette = indexed.getpalette('RGBA')
++    rgba_palette += [0] * (1024 - len(rgba_palette))
++    palette, alpha = [], []
++    for index in range(256):
++        r, g, b, a = rgba_palette[index * 4:index * 4 + 4]
++        palette.append(((r * 31 + 127) // 255 << 11) | ((g * 63 + 127) // 255 << 5) | ((b * 31 + 127) // 255))
++        alpha.append(a)
++    encoded = bytearray()
++    records = []
++    for index in range(len(CELLS)):
++        raw = indexed.crop((0, index * HEIGHT, WIDTH, (index + 1) * HEIGHT)).tobytes()
++        data = pack(raw)
++        records.append((len(encoded), len(data)))
++        encoded.extend(data)
++    sections = [f'/* Original Codex artwork, SHA-256 {digest}. Local supplied asset; not AI-bot MIT. */',
++                array('codex_pet_palette', 'uint16_t', palette), array('codex_pet_alpha', 'uint8_t', alpha),
++                array('codex_pet_stream', 'uint8_t', list(encoded), 24),
++                'static const struct { uint32_t offset, size; } codex_pet_frames[] = {\n' + ''.join(f'    {{{offset},{size}}},\n' for offset, size in records) + '};\n']
++    args.output.parent.mkdir(parents=True, exist_ok=True)
++    args.output.write_text('\n'.join(sections), encoding='utf-8')
++    manifest = {'owner': 'OpenAI', 'asset': 'Original Codex companion spritesheet', 'source': str(args.input.resolve()),
++                'sourceSha256': digest, 'sourceSize': list(atlas.size), 'cellSize': [WIDTH, HEIGHT], 'frames': CELLS,
++                'encodedBytes': len(encoded), 'paletteBytes': 768, 'frameTableBytes': len(records) * 8,
++                'decodedFrameBytes': WIDTH * HEIGHT * 3, 'conversion': '256-entry RGBA palette, RGB565A8, bounded PackBits',
++                'scope': 'User-supplied local build artwork; not covered by AI-bot MIT; redistribution rights not inferred from Codex source license.'}
++    args.output.with_suffix('.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
++    print(json.dumps({key: manifest[key] for key in ('encodedBytes', 'paletteBytes', 'frameTableBytes', 'decodedFrameBytes')}))
++
++if __name__ == '__main__':
++    main()
+diff --git a/tests/ui-preview/CMakeLists.txt b/tests/ui-preview/CMakeLists.txt
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -196,6 +196,13 @@
+ target_include_directories(lvgl PUBLIC "${LVGL}" "${CMAKE_CURRENT_LIST_DIR}")
+ target_compile_definitions(lvgl PUBLIC LV_CONF_INCLUDE_SIMPLE _CRT_SECURE_NO_WARNINGS LV_USE_STDLIB_STRING=LV_STDLIB_CLIB)
+ add_executable(ui-preview preview.c "${ROOT}/firmware/main/tab5_font_24.c" "${ROOT}/firmware/main/tab5_font_30.c" "${ROOT}/firmware/main/tab5_digits_72.c" "${ROOT}/firmware/main/tab5_digits_96.c" "${ROOT}/firmware/main/tab5_timer_digits_192.c" "${ROOT}/firmware/main/link_state.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
++target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/codex_companion.c")
++add_executable(codex-companion-test codex_companion_test.c "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
++target_include_directories(codex-companion-test PRIVATE "${ROOT}/firmware/main" "${ROOT}/.tools/esp-idf/components/json/cJSON")
++if(EXISTS "${ROOT}/firmware/main/codex_pet_data.inc")
++ target_compile_definitions(ui-preview PRIVATE TAB5_CODEX_PET_ASSET=1)
++ target_compile_definitions(codex-companion-test PRIVATE TAB5_CODEX_PET_ASSET=1)
++endif()
+ target_sources(ui-preview PRIVATE "${CMAKE_CURRENT_LIST_DIR}/pinyin_host.c" "${ROOT}/firmware/main/tab5_ime.c" "${ROOT}/firmware/main/tab5_pinyin_data.c" "${ROOT}/firmware/main/gallery_buffer.c")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/tab5_annual_digits_144.c")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/tab5_annual_text_26.c")
+diff --git a/tests/ui-preview/codex_companion_test.c b/tests/ui-preview/codex_companion_test.c
+new file mode 100644
+--- /dev/null
++++ b/tests/ui-preview/codex_companion_test.c
+@@ -0,0 +1,58 @@
++#undef NDEBUG
++#include <assert.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include "codex_companion.h"
++
++static codex_companion_value resolve(const char *json,bool fresh,bool unread) {
++    cJSON *root=cJSON_Parse(json);assert(root);
++    codex_companion_value value=codex_companion_resolve(root,cJSON_GetObjectItemCaseSensitive(root,"task"),fresh,unread,"unread-turn");
++    cJSON_Delete(root);return value;
++}
++int main(void) {
++    const char *working="{\"codex\":{\"state\":\"working\"},\"task\":{\"id\":\"task-a\",\"turnId\":\"turn-a\",\"state\":\"idle\",\"companionState\":\"working\"}}";
++    assert(resolve(working,true,false).state==CODEX_COMPANION_WORKING);
++    assert(resolve(working,true,true).state==CODEX_COMPANION_WORKING); // Old unread reply is not a completed current turn.
++    assert(resolve(working,false,true).state==CODEX_COMPANION_UNKNOWN);
++    assert(resolve("{\"codex\":{\"state\":\"offline\"},\"task\":{\"state\":\"working\"}}",true,false).state==CODEX_COMPANION_STOPPED);
++    assert(resolve("{\"codex\":{\"state\":\"idle\"},\"task\":{\"id\":\"task-a\",\"state\":\"idle\"}}",true,false).state==CODEX_COMPANION_IDLE);
++    assert(resolve("{\"task\":{\"id\":\"task-a\",\"state\":\"working\",\"companionState\":\"unknown\",\"outcome\":\"failed\"}}",true,true).state==CODEX_COMPANION_UNKNOWN);
++    assert(resolve("{\"task\":{\"id\":\"task-a\",\"companionState\":\"idle\",\"outcome\":\"failed\"}}",true,false).state==CODEX_COMPANION_BLOCKED);
++    assert(resolve("{\"task\":{\"id\":\"task-a\",\"companionState\":\"waiting\",\"waitingKind\":\"answer\"}}",true,false).state==CODEX_COMPANION_QUESTION);
++    assert(resolve("{\"task\":{\"id\":\"task-a\",\"companionState\":\"waiting\",\"waitingKind\":\"confirm\"}}",true,false).state==CODEX_COMPANION_APPROVAL);
++    assert(resolve("{\"task\":{\"id\":\"task-a\",\"state\":\"waiting\"}}",true,false).state==CODEX_COMPANION_WAITING);
++    assert(resolve("{\"codex\":{\"needsInput\":true},\"task\":{\"id\":\"other-task\",\"state\":\"working\"}}",true,false).state==CODEX_COMPANION_WORKING);
++    assert(resolve("{\"task\":{\"id\":\"task-a\",\"companionState\":\"idle\"}}",true,true).state==CODEX_COMPANION_DONE);
++    assert(resolve("{}",true,false).state==CODEX_COMPANION_UNKNOWN);
++    codex_companion_animation animation={0};codex_companion_value value=resolve(working,true,false);
++    assert(codex_companion_select(&animation,value,1000));
++    assert(codex_companion_frame(&animation,1000)==6&&codex_companion_frame(&animation,1120)==7);
++    assert(!codex_companion_select(&animation,value,1500)&&animation.started_at==1000);
++    value.state=CODEX_COMPANION_DONE;strcpy(value.turn,"completed-a");
++    assert(codex_companion_select(&animation,value,2000));
++    assert(codex_companion_frame(&animation,5000)==17);
++    assert(!codex_companion_select(&animation,value,6000));
++    strcpy(value.turn,"completed-b");assert(codex_companion_select(&animation,value,6000));
++    assert(codex_companion_frame(&animation,6000)==16);
++    value.state=CODEX_COMPANION_STOPPED;codex_companion_select(&animation,value,7000);assert(codex_companion_frame(&animation,9000)==1);
++    value.state=CODEX_COMPANION_UNKNOWN;codex_companion_select(&animation,value,9000);assert(codex_companion_frame(&animation,9000)==26);
++    uint16_t palette[256]={0};uint8_t alpha[256]={0};palette[1]=0x1234;alpha[1]=200;
++    uint8_t output[9];memset(output,77,sizeof(output));
++    const uint8_t repeated[]={0x82,1},truncated[]={1,1},overflow[]={0x83,1};
++    assert(!codex_companion_unpack(truncated,sizeof(truncated),palette,alpha,output,3));
++    assert(!codex_companion_unpack(overflow,sizeof(overflow),palette,alpha,output,3));
++    for(unsigned i=0;i<sizeof(output);i++)assert(output[i]==77); // No partial corrupted frame replaces visible data.
++    assert(codex_companion_unpack(repeated,sizeof(repeated),palette,alpha,output,3));
++    assert(output[0]==0x34&&output[1]==0x12&&output[6]==200&&output[8]==200);
++    if(codex_companion_asset_available()) {
++        uint8_t *pixels=malloc(CODEX_COMPANION_FRAME_BYTES),*closed=malloc(CODEX_COMPANION_FRAME_BYTES);assert(pixels&&closed);
++        for(unsigned i=0;i<27;i++)assert(codex_companion_decode(i,pixels,CODEX_COMPANION_FRAME_BYTES));
++        assert(!codex_companion_decode(27,pixels,CODEX_COMPANION_FRAME_BYTES));
++        assert(!codex_companion_decode(0,pixels,CODEX_COMPANION_FRAME_BYTES-1));
++        assert(codex_companion_decode(1,closed,CODEX_COMPANION_FRAME_BYTES)&&codex_companion_decode(26,pixels,CODEX_COMPANION_FRAME_BYTES));
++        assert(memcmp(pixels,closed,CODEX_COMPANION_FRAME_BYTES));free(pixels);free(closed);
++    }
++    puts("CODEX_COMPANION_OK precise_wait_kinds, lifecycle_not_silence, source_failure, matching_task, one_shot_completion, shared_timeline, bounded_decode");
++    return 0;
++}
+diff --git a/tests/ui-preview/codex_companion_ui_test.h b/tests/ui-preview/codex_companion_ui_test.h
+new file mode 100644
+--- /dev/null
++++ b/tests/ui-preview/codex_companion_ui_test.h
+@@ -0,0 +1,70 @@
++// Exercise the actual production LVGL objects, including the optional saver.
++static void check_codex_companion_ui(void) {
++    assert(codex_companion_asset_available());
++    const char *fixture="{\"codex\":{\"state\":\"working\"},\"codexTasks\":{\"overviewTask\":{\"id\":\"11111111-1111-1111-1111-111111111111\",\"title\":\"Codex 萌宠状态与屏保动作设计\",\"folder\":\"AI-bot\",\"state\":\"working\",\"companionState\":\"working\",\"turnId\":\"turn-one\"},\"tasks\":[]}}";
++    cJSON_Delete(shown);shown=cJSON_Parse(fixture);assert(shown);
++    cJSON *task=item(item(shown,"codexTasks"),"overviewTask");
++    cJSON_AddItemToArray(item(item(shown,"codexTasks"),"tasks"),cJSON_Duplicate(task,true));
++    last_link=LINK_USB;last_received=preview_now_us/1000;offline_since=-1;
++    page(0);render_home_task();companion_tick(preview_now_us/1000,true,false);
++    lv_obj_update_layout(lv_screen_active());
++    assert(!lv_obj_has_flag(home_companion,LV_OBJ_FLAG_HIDDEN));
++    assert(lv_obj_get_parent(home_companion)==lv_obj_get_parent(home_task_action));
++    lv_area_t pet,button,title;lv_obj_get_coords(home_companion,&pet);lv_obj_get_coords(home_task_action,&button);lv_obj_get_coords(home_task_title,&title);
++    assert(pet.x1==570&&pet.y1==138&&title.x2<pet.x1);
++    assert(pet.y1+CODEX_COMPANION_HEIGHT*235/256<button.y1);
++    assert(lv_image_get_src(home_companion)==lv_image_get_src(companion_saver_image));
++    uint8_t *allocation=companion_pixels;
++    const char *names[]={"idle","working","confirm","answer","waiting","done","blocked","stopped","unknown"};
++    for(unsigned i=0;i<9;i++) {
++        codex_companion_value value={.state=(codex_companion_state)i};strcpy(value.task,"11111111-1111-1111-1111-111111111111");strcpy(value.turn,"turn-one");
++        companion_set_value(value,1000);companion_tick(1250,true,false);
++        ui_text(model_state[1],codex_companion_label(value.state));tint(model_state[1],companion_color(value.state));
++        char name[80];snprintf(name,sizeof(name),"companion-overview-%s",names[i]);capture(name);
++        int64_t start=companion_animation.started_at;
++        saver_style=UI_SAVER_CODEX;saver_enter(false);companion_tick(1250,false,true);
++        assert(!lv_obj_has_flag(companion_saver_layer,LV_OBJ_FLAG_HIDDEN));
++        assert(!strcmp(lv_label_get_text(companion_saver_status),codex_companion_label(value.state)));
++        assert(companion_animation.started_at==start&&companion_pixels==allocation);
++        snprintf(name,sizeof(name),"companion-saver-%s",names[i]);capture(name);saver_leave();
++    }
++    // The existing completion action must retain the exact unread turn.
++    if(!codex_notices)codex_notices=calloc(80,sizeof(*codex_notices));assert(codex_notices);
++    strcpy(codex_notices[0].task,text(task,"id"));strcpy(codex_notices[0].turn,"unread-turn");codex_notices[0].unread=true;codex_notices[0].arrived=1;
++    cJSON_ReplaceItemInObject(task,"state",cJSON_CreateString("waiting"));
++    cJSON_ReplaceItemInObject(task,"companionState",cJSON_CreateString("waiting"));cJSON_AddStringToObject(task,"waitingKind","answer");
++    render_home_task();assert(!home_task_unread&&companion_animation.value.state==CODEX_COMPANION_QUESTION);
++    cJSON_ReplaceItemInObject(task,"state",cJSON_CreateString("idle"));cJSON_ReplaceItemInObject(task,"companionState",cJSON_CreateString("idle"));
++    cJSON_ReplaceItemInArray(item(item(shown,"codexTasks"),"tasks"),0,cJSON_Duplicate(task,true));
++    render_home_task();assert(home_task_unread&&!strcmp(home_task_turn,"unread-turn")&&companion_animation.value.state==CODEX_COMPANION_DONE);
++    // Loss of telemetry keeps task/title/turn identity but changes the pose.
++    offline_since=preview_now_us/1000;last_link=LINK_NONE;render_home_task();
++    assert(companion_animation.value.state==CODEX_COMPANION_UNKNOWN&&!strcmp(home_task_id,text(task,"id")));
++    assert(!strcmp(lv_label_get_text(home_task_title),text(task,"title")));
++    // A new live task must take over even while the overview is hidden by saver.
++    cJSON_ReplaceItemInObject(task,"state",cJSON_CreateString("waiting"));
++    cJSON_ReplaceItemInObject(task,"companionState",cJSON_CreateString("waiting"));
++    cJSON_ReplaceItemInObject(task,"turnId",cJSON_CreateString("turn-two"));
++    cJSON_ReplaceItemInArray(item(item(shown,"codexTasks"),"tasks"),0,cJSON_Duplicate(task,true));
++    codex_notices[0].unread=false;prefs.alerts=false;prefs.cycle=false;
++    link_state_init(&device_links);preview_now_us+=250000;
++    link_state_receive(&device_links,LINK_USB,"companion",1,preview_now_us/1000);
++    cJSON_Delete(device_snapshots[LINK_USB]);device_snapshots[LINK_USB]=cJSON_Duplicate(shown,true);
++    saver_style=UI_SAVER_CODEX;saver_enter(false);tick(NULL);
++    assert(companion_animation.value.state==CODEX_COMPANION_QUESTION&&!strcmp(companion_animation.value.turn,"turn-two"));
++    int64_t began=companion_animation.started_at;
++    preview_now_us+=1000000;link_state_receive(&device_links,LINK_USB,"companion",2,preview_now_us/1000);tick(NULL);
++    assert(companion_animation.started_at==began);
++    preview_now_us+=9000000;tick(NULL);
++    assert(companion_animation.value.state==CODEX_COMPANION_UNKNOWN);
++    assert(!strcmp(lv_label_get_text(companion_saver_status),"状态暂不可用"));saver_leave();
++    page(9);settings_select(1);
++    assert(lv_dropdown_get_option_count(saver_selector)==UI_SAVER_OPTIONS);
++    saver_style=0;lv_dropdown_set_selected(saver_selector,UI_SAVER_OPTIONS-1);
++    lv_obj_send_event(saver_selector,LV_EVENT_VALUE_CHANGED,NULL);
++    assert(saver_style==UI_SAVER_CODEX&&preview_saved_saver==UI_SAVER_CODEX);
++    lv_dropdown_open(saver_selector);capture("companion-saver-picker");lv_dropdown_close(saver_selector);
++    // No mascot is attached to the Codex task page.
++    page(8);assert(lv_obj_get_parent(home_companion)!=lv_obj_get_parent(codex_input));
++    puts("CODEX_COMPANION_UI_OK nine_overview_and_saver_renders, approved_placement, shared_buffer_and_timeline, waiting_over_unread, exact_turn_retained, stale_keeps_content, live_saver_heartbeat_expiry, saved_picker");
++}
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2023,6 +2023,7 @@
+ #include "codex_clear_render_test.h"
+ #include "codex_clear_feedback_test.h"
+ #include "preview_gallery_loan_test.h"
++#include "codex_companion_ui_test.h"
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -2042,6 +2043,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_CODEX_COMPANION_ONLY")){check_codex_companion_ui();return 0;}
+     if(getenv("TAB5_PINYIN_ONLY")) {
+         page(8);lv_obj_send_event(codex_input,LV_EVENT_FOCUSED,NULL);
+         const char *hint=lv_textarea_get_placeholder_text(codex_input);assert(!hint||!hint[0]);
+diff --git a/tests/ui-preview/saver_prefs_test.c b/tests/ui-preview/saver_prefs_test.c
+--- a/tests/ui-preview/saver_prefs_test.c
++++ b/tests/ui-preview/saver_prefs_test.c
+@@ -54,12 +54,14 @@
+         disk=old;int loaded=ui_saver_style_normalize(ui_saver_style_load());
+         assert(loaded==5&&disk==old&&ui_saver_option_from_style(loaded)==1);
+     }
+-    for(int option=0;option<(TAB5_LOCAL_ART?7:5);option++) {
++    for(int option=0;option<UI_SAVER_OPTIONS;option++) {
+         int style=ui_saver_style_from_option(option);
+         assert(ui_saver_style_valid(style)&&ui_saver_option_from_style(style)==option);
+         assert(ui_saver_style_save(style)&&ui_saver_style_load()==style);
+     }
+     puts("SAVER_OPTIONS_OK legacy day/night normalize without disk writes; visible options persist and roundtrip");
++    assert(UI_SAVER_CODEX==9&&ui_saver_style_from_option(UI_SAVER_OPTIONS-1)==UI_SAVER_CODEX);
++    assert(ui_saver_style_save(UI_SAVER_CODEX)&&ui_saver_style_load()==UI_SAVER_CODEX);
+     assert(ui_home_models_load()==0); // Fresh users start in automatic mode.
+     for(int legacy=1;legacy<8;legacy++) {
+         legacy_models=legacy;unsigned expected=((legacy&1)?1u<<1:0)|((legacy&2)?1u<<5:0)|((legacy&4)?1u<<6:0);

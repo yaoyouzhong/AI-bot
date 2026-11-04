@@ -101,7 +101,11 @@ final class MacTab5Codex {
             let known = (projection["tasks"] as? [[String: Any]] ?? []).contains { $0["id"] as? String == control?["taskId"] as? String }
             if let control, known { value["control"] = control } else { value["control"] = NSNull() }
         }
-        let projected = projection["tasks"] as? [[String: Any]] ?? []
+        let projected = (projection["tasks"] as? [[String: Any]] ?? []).map { original -> [String: Any] in
+            var task = original
+            if clock() - catalogUpdated > 30 { task["companionState"] = "unknown" }
+            return task
+        }
         let tasks = taskActivity?.apply(projected) ?? projected
         value["overviewTask"] = Self.overview(tasks)
         let viewed = (projection["replyView"] as? [String: Any])?["taskId"] as? String
@@ -222,7 +226,9 @@ final class MacTab5Codex {
                 // so carry the same effective recency there, not record mtime.
                 let updated = [root["recencyAt"], root["updatedAt"]].compactMap(MacTab5Protocol.integer)
                     .first(where: { (0...253_402_300_799).contains($0) }) ?? 0
-                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": updated, "state": rpc == nil && mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"]
+                let state = rpc == nil && mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"
+                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": updated, "state": state, "companionState": state,
+                        "waitingKind": state == "waiting" ? Self.waitingKind(root["status"] as? [String: Any] ?? [:]) : ""]
             }
             if let cache = latestPublic, !catalog.contains(where: { $0["id"] as? String == cache.task }) { latestPublic = nil }
             // Enforce global newest-first order after merging all cursor pages,
@@ -245,6 +251,10 @@ final class MacTab5Codex {
                 for index in catalog.indices where index < 3 || catalog[index]["id"] as? String == viewedTask {
                     if let task = catalog[index]["id"] as? String, let live = try? desktop.read(task) {
                         catalog[index]["state"] = live.taskState
+                        catalog[index]["companionState"] = live.runtime == "systemError" ? "blocked" : live.taskState
+                        catalog[index]["waitingKind"] = live.waitingKind
+                        catalog[index]["outcome"] = live.status
+                        catalog[index]["turnId"] = live.turn
                         // Re-establish recent exact completed turns after bridge
                         // restart, so desktop reads can clear retained device badges.
                         if ["completed", "failed", "interrupted"].contains(live.status),
@@ -262,7 +272,17 @@ final class MacTab5Codex {
             projection["projects"] = projects; projection["overviewTask"] = Self.overview(catalog)
             note = mutable() ? "已连接本机 Codex 桌面 · \(catalog.count) 个近期会话；\(sendEnabled() ? "操作已启用" : "只读使用，操作未启用")。" : "只读已连接本机 Codex · \(catalog.count) 个近期会话；实时状态待确认，发送不可用。临时进程随桥接关闭。"; stateLock.unlock()
             if !viewedTask.isEmpty, catalog.contains(where: { $0["id"] as? String == viewedTask }) { _ = try page(task: viewedTask, root: viewedPage, device: viewedDevice) }
-        } catch { stateLock.lock(); note = Self.connectionFailure(error); projection["control"] = NSNull(); stateLock.unlock() }
+        } catch {
+            stateLock.lock(); note = Self.connectionFailure(error); projection["control"] = NSNull()
+            if var tasks = projection["tasks"] as? [[String: Any]] {
+                for index in tasks.indices { tasks[index]["companionState"] = "unknown" }
+                projection["tasks"] = tasks
+            }
+            if var overview = projection["overviewTask"] as? [String: Any] {
+                overview["companionState"] = "unknown"; projection["overviewTask"] = overview
+            }
+            stateLock.unlock()
+        }
     }
     // App Server status names differ from the existing TAB5 v1 task states.
     static func isOpenClawWorkspace(_ cwd: String) -> Bool {
@@ -281,10 +301,22 @@ final class MacTab5Codex {
     }
     private static func overview(_ tasks: [[String: Any]]) -> [String: Any]? {
         tasks.max { left, right in
-            let a = left["state"] as? String == "working", b = right["state"] as? String == "working"
-            if a != b { return !a }
+            let a = companionPriority(left), b = companionPriority(right)
+            if a != b { return a < b }
             return (left["updatedAt"] as? Int64 ?? 0) < (right["updatedAt"] as? Int64 ?? 0)
         }
+    }
+    static func waitingKind(_ status: [String: Any]) -> String {
+        let flags = Set(status["activeFlags"] as? [String] ?? [])
+        if flags == ["waitingOnUserInput"] { return "answer" }
+        if flags == ["waitingOnApproval"] { return "confirm" }
+        return "input"
+    }
+    static func companionPriority(_ task: [String: Any]) -> Int {
+        let state = task["companionState"] as? String ?? task["state"] as? String ?? "unknown"
+        if state == "waiting" { return 3 }
+        if ["failed", "blocked"].contains(state) || state == "idle" && task["outcome"] as? String == "failed" { return 2 }
+        return state == "working" ? 1 : 0
     }
     static func connectionFailure(_ error: Error) -> String {
         let reason: String
