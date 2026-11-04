@@ -9,17 +9,16 @@ internal static class ClaudeWorkspaceSelfTest
     {
         string root=Path.Combine(Path.GetTempPath(),"aibot-claude-workspace-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        string python=(Environment.GetEnvironmentVariable("PATH")??"").Split(Path.PathSeparator)
-            .Select(p=>Path.Combine(p.Trim('"'),"python.exe")).FirstOrDefault(File.Exists)??throw new IOException("Python required for isolated wire test");
-        string fixture=Path.GetFullPath("tools/claude_stream_fixture.py");
-        Check(File.Exists(fixture),"synthetic CLI peer missing");
+        string executable=Environment.ProcessPath??throw new IOException("Test process path unavailable");
+        string[] launcher=Path.GetFileNameWithoutExtension(executable).Equals("dotnet",StringComparison.OrdinalIgnoreCase)
+            ?[typeof(ClaudeWorkspaceSelfTest).Assembly.Location,"--self-test-claude-wire-peer"]:["--self-test-claude-wire-peer"];
         var session=Guid.NewGuid();
         File.WriteAllText(Path.Combine(root,session+".jsonl"),JsonSerializer.Serialize(new{type="user",sessionId=session,cwd=root,timestamp=DateTimeOffset.UtcNow,message=new{role="user",content="Synthetic initial prompt"}})+"\n"+
             JsonSerializer.Serialize(new{type="custom-title",sessionId=session,customTitle="合成验收会话"})+"\n");
         try
         {
             using var workspace=new ClaudeWorkspace(()=>true,root,Path.Combine(root,"sealed"),live:_=>Task.FromResult(JsonSerializer.SerializeToElement(Array.Empty<object>())),
-                streamFactory:(entry,receive)=>new ClaudeStream(python,entry.Directory,entry.Session,receive,launcherArguments:["-I","-u",fixture]));
+                streamFactory:(entry,receive)=>new ClaudeStream(executable,entry.Directory,entry.Session,receive,launcherArguments:launcher));
             workspace.Start();
             await Until(()=>workspace.Alias(session) is not null);
             string task=workspace.Alias(session)!;

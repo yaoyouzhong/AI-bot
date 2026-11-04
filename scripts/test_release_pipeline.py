@@ -325,7 +325,7 @@ class UploadAndScopeTests(unittest.TestCase):
         self.assertTrue(classify(['windows-app/AIBotBridge/Program.cs'])['windows'])
         self.assertTrue(classify(['mac-app/Sources/AIBotBridge/SerialBridge.swift','docs/removed.swift'])['macos'])
         self.assertTrue(classify(['firmware/src/main.cpp'])['firmware'])
-        tooling=classify(['tools/claude_stream_fixture.py'])
+        tooling=classify(['tools/probe_windows_claude_workspace.py'])
         self.assertTrue(tooling['tools'])
         self.assertFalse(any(tooling[k] for k in ('windows','macos','firmware')))
         self.assertTrue(all(classify(['unknown/build.config'])[k] for k in ('windows','macos','firmware')))

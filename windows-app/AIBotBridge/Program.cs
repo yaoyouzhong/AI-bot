@@ -8,6 +8,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.FirstOrDefault()=="--self-test-claude-wire-peer"){ClaudeWireFixture.RunAsync(args).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--claude-hook"&&int.TryParse(args[1],out var hookPort)&&hookPort is >0 and <=65535){ClaudeHook.RunAsync(hookPort).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-automation"){AppPaths.BeginPublicSelfTest();Tab5UIAutomationSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-claude-workspace"){AppPaths.BeginPublicSelfTest();ClaudeWorkspaceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
