@@ -224,11 +224,11 @@ final class SessionActivityReader {
         let now = Date()
         let activity = metadata.capture(now: now)
         var domestic=activity.domestic
-        var claude=signals.apply("claude",raw:activity.claude,now:now)
-        if domestic != nil {
-            let routed=signals.apply("claude",raw:ToolState(state:domestic!.state,ageSeconds:nil),now:now)
-            domestic?.state=routed.state;domestic?.needsInput=routed.needsInput
-            claude=activity.claude
+        let claude=signals.apply("claude",raw:activity.claude,now:now)
+        if let active = domestic?.activeProvider,
+           let observed = domestic?.providers?[active]?.lastActivity,
+           let recent = signals.recentClaudeState(after: observed, now: now) {
+            domestic?.state = recent.state; domestic?.needsInput = recent.needsInput
         }
         var snapshot = MacStatusSnapshot(
             version: 1,

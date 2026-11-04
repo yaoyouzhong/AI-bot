@@ -54,7 +54,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
     internal static bool ForceTab5(JsonElement root)=>root.TryGetProperty("source",out var source)&&source.ValueKind==JsonValueKind.String&&source.GetString()=="tab5"&&
         (!root.TryGetProperty("taskId",out var owner)||owner.ValueKind!=JsonValueKind.String||owner.GetString()!=AgendaOwner);
     private readonly Func<long> _clock=clock??(()=>Environment.TickCount64);
-    private string _id="",_task="",_source="",_sourceName="",_state="idle",_message="";
+    private string _id="",_task="",_source="",_sourceName="",_state="idle",_message="",_client="codex";
     private long _started,_lastSeen,_stopped,_drainedSince=-1,_waitingSince;
     private string _drainMessage="";
     private string _settlingText="";
@@ -99,6 +99,9 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
     internal async Task<Tab5VoiceReply> HandleAsync(JsonElement root,CancellationToken token,Func<CancellationToken,Task>? wait=null,
         Func<CancellationToken,Task>? prepareTab5=null,bool waitForFinal=false) {
         token.ThrowIfCancellationRequested();
+        string requestedClient=root.TryGetProperty("client",out var clientValue)&&clientValue.ValueKind==JsonValueKind.String?clientValue.GetString()!:"codex";
+        string requestedOp=root.TryGetProperty("op",out var operation)&&operation.ValueKind==JsonValueKind.String?operation.GetString()!:"";
+        if(requestedClient is not ("codex" or "claude")||requestedOp!="start"&&requestedClient!=_client)throw new Tab5VoiceRequestException("语音会话已失效");
         if(NeedsSourcePreparation(root)) {
             await SwitchSharedDjiAsync(token,wait,prepareTab5);
             return Snapshot();
@@ -157,10 +160,13 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         Tick();
         string Str(string key)=>root.TryGetProperty(key,out var value)&&value.ValueKind==JsonValueKind.String?value.GetString()!:"";
         var op=Str("op");
+        string client=Str("client");if(client.Length==0)client="codex";
+        if(client is not ("codex" or "claude")||op!="start"&&client!=_client)throw new Tab5VoiceRequestException("语音会话已失效");
         if(op=="start") {
             if(Active)throw new Tab5VoiceRequestException("已有语音输入正在进行");
             if(!Guid.TryParseExact(Str("taskId"),"D",out _))throw new Tab5VoiceRequestException("请选择任务");
             _id=Guid.NewGuid().ToString("N");_task=Str("taskId");_nextChunk=0;_pcmBytes=0;_ready=false;
+            _client=client;
             _silent=false;_lastSignal=_clock();
             _quietTake=false;_receivedText=false;
             _explicitStop=false;

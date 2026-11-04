@@ -26,6 +26,7 @@ internal sealed partial class Tab5Service : IDisposable
     private bool _usbDelta;
     internal Func<IReadOnlyList<FlashUsbDevice>> UsbDevices {get;set;}=FlashDeviceDiscovery.Read;
     private volatile string _hidDiagnostic="未触发";
+    internal Tab5UIAutomation UIAutomation {get;}=new();
     private readonly string _session=Guid.NewGuid().ToString("N");
     private byte[]? _frame;
     private bool _frameMayContainResource;
@@ -36,6 +37,18 @@ internal sealed partial class Tab5Service : IDisposable
     private readonly Tab5Assets _assets=new();
     private readonly object _publishLock=new();
     private readonly Tab5CodexTasks _codexTasks;
+    private readonly ClaudeSessionSampler _claudeSessions=new();
+    internal ClaudeReplyReader ClaudeReplies { get; }
+    internal ClaudeWorkspace ClaudeWorkspace { get; }
+    private volatile bool _activitySourceEnabled;
+    internal bool ActivitySourceEnabled {
+        get=>_activitySourceEnabled;
+        set {
+            bool changed=_activitySourceEnabled!=value;_activitySourceEnabled=value;
+            if(!value){_claudeSessions.Capture(false,DateTimeOffset.Now);ClaudeReplies?.Invalidate();ClaudeWorkspace?.StopOwners();}
+            if(changed&&_lastSnapshot is {} snapshot)Publish(snapshot);
+        }
+    }
     private Tab5OtaPackage? _ota;
     private readonly Tab5FirmwareObservation _firmware=new();
     private int _otaTransfers;
@@ -244,12 +257,14 @@ internal sealed partial class Tab5Service : IDisposable
         }
     }
     internal Tab5Service(Tab5PairingStore? store=null,Tab5CodexTasks? codexTasks=null,Tab5Gallery? gallery=null) {
+        ClaudeReplies=new(()=>ActivitySourceEnabled);
+        ClaudeWorkspace=new(()=>ActivitySourceEnabled);ClaudeWorkspace.Start();
         _store=store??new();
         _codexTasks=codexTasks??new();
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealthFor(StatusSnapshot snapshot,Tab5OtaPackage? image) => new { screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
+    private object ConnectionHealthFor(StatusSnapshot snapshot,Tab5OtaPackage? image) => new { uiAutomationCommand=UIAutomation.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
@@ -262,17 +277,25 @@ internal sealed partial class Tab5Service : IDisposable
         _frameMayContainResource=resource is not null;
         var advertisedImage=Volatile.Read(ref _ota);
         var health=ConnectionHealthFor(snapshot,advertisedImage);
+        var bound=ActivitySourceEnabled?ClaudeWorkspace.Selection(SessionActivityReader.Signals.ClaudeIdentity.Select(snapshot.CapturedAt),snapshot.CapturedAt):null;
+        var observed=_claudeSessions.Capture(ActivitySourceEnabled,snapshot.CapturedAt,bound?.SessionId);
+        bool safeTitle=(snapshot.Claude.State is "idle" or "offline")&&!snapshot.Claude.NeedsInput&&
+            (snapshot.DomesticActivity is null||(snapshot.DomesticActivity.State is "idle" or "offline")&&!snapshot.DomesticActivity.NeedsInput);
+        Dictionary<string,object?>? claudeSession=bound is not null?new(){{"lastActivity",bound.Activity.ToUnixTimeSeconds()},{"title",observed?.Title}}:observed is null?null:new(){{"lastActivity",observed.LastActivity.ToUnixTimeSeconds()},{"title",safeTitle?observed.Title:null}};
+        var readBinding=ClaudeReplies.Advertise(bound?.SessionId??(safeTitle?observed?.Id:null),observed?.Title,snapshot.CapturedAt);
+        if(claudeSession is not null){claudeSession["readBinding"]=readBinding;claudeSession["repliesEnabled"]=ClaudeReplies.IsEnabled;if((bound?.SessionId??(safeTitle?observed?.Id:null)) is {} selected)claudeSession["taskId"]=ClaudeWorkspace.Alias(selected);}
+        if(bound is not null)snapshot=snapshot with {Claude=bound.Tool with {TokensToday=snapshot.Claude.TokensToday,AgeSeconds=Math.Max(0,(long)(snapshot.CapturedAt-bound.Activity).TotalSeconds)},DomesticActivity=null};
         int maximum=Volatile.Read(ref _statusMaximum),budget=Tab5StatusCapacity.Budget(maximum);
         byte[] Build(int cap,byte[]? previous,out int initial,out int taskLimit,out bool degraded,out string[] deferredFields) {
             int target=Tab5StatusCapacity.Budget(cap);taskLimit=80;
-            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health);
+            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(requiredTask:claudeSession?.GetValueOrDefault("taskId") as string,device:pairing.DeviceId));
             initial=bytes.Length;
             if(bytes.Length>target&&resource is not null)
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health);
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(requiredTask:claudeSession?.GetValueOrDefault("taskId") as string,device:pairing.DeviceId));
             foreach(int limit in new[]{64,56,48,40,32,24,16,8,2}) {
                 if(bytes.Length<=target)break;
                 taskLimit=limit;
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),advertisedImage?.Offer,health);
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(limit,claudeSession?.GetValueOrDefault("taskId") as string,pairing.DeviceId));
             }
             degraded=bytes.Length>target;deferredFields=[];
             return degraded?Tab5StatusRecovery.Build(bytes,previous,out deferredFields,cap):bytes;
@@ -400,6 +423,16 @@ internal sealed partial class Tab5Service : IDisposable
         if(readOnly&&root.TryGetProperty("page",out var pageValue)&&(pageValue.ValueKind!=JsonValueKind.Number||!pageValue.TryGetInt32(out page)||page < -1))return (400,new {error="invalid_page"});
         string requestId=root.TryGetProperty("requestId",out var request)&&request.ValueKind==JsonValueKind.String?request.GetString()!:"";
         string expectedTurn=root.TryGetProperty("expectedTurn",out var expected)&&expected.ValueKind==JsonValueKind.String?expected.GetString()!:"";
+        string client=Text(root,"client");
+        if(client.Length>0&&client is not ("codex" or "claude"))return(400,new{error="invalid_client"});
+        if(client=="claude") {
+            if(!ActivitySourceEnabled)return(403,new{error="claude_disabled"});
+            if(imageOnly)return ClaudeWorkspace.Upload(id,taskId.GetString()!,requestId,imageOffset>0?clear[imageOffset..]:Convert.FromBase64String(Text(root,"image")));
+            var claudeResult=await ClaudeWorkspace.HandleAsync(root,id,token);
+            if(operation=="read"&&claudeResult.Status==200&&!rpcEnvelope)
+                return(200,new{status="loaded",encrypted=Convert.ToBase64String(Tab5Protocol.Encrypt(key,nonce,JsonSerializer.SerializeToUtf8Bytes(claudeResult.Body,JsonDefaults.Options)))});
+            return claudeResult;
+        }
         if(imageOnly&&imageOffset>0)return _codexTasks.UploadImageBytes(id,taskId.GetString()!,requestId,clear[imageOffset..]);
         if(imageOnly)return root.TryGetProperty("image",out var image)&&image.ValueKind==JsonValueKind.String
             ?_codexTasks.UploadImage(id,taskId.GetString()!,requestId,image.GetString()!):(400,new{error="invalid_image"});
@@ -680,6 +713,7 @@ internal sealed partial class Tab5Service : IDisposable
                             bool hasResource=sent.RootElement.GetProperty("data").GetProperty("resource").ValueKind==JsonValueKind.Object;
                             _wifiReportedConnected=ack.RootElement.TryGetProperty("wifiConnected",out var wifiValue)&&wifiValue.ValueKind==JsonValueKind.True;
                             Interlocked.Exchange(ref _wifiReportAt,Environment.TickCount64);
+                            UIAutomation.Observe(ack.RootElement);
                             RecordRuntimeHealth(ack.RootElement,"USB",frame.Length,hasResource);
                             ObserveOtaStopped(ack.RootElement,stopProbe,usb:true);
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
@@ -761,12 +795,12 @@ internal sealed partial class Tab5Service : IDisposable
             }
             string voiceDevice=Tab5CodexDeliveryReceipt.Digest(id+":"+pair.Key);
             long bindingStarted=Environment.TickCount64;
-            string? voiceTarget=Text(root,"op")=="start"&&_voice is Tab5VoiceHost {Busy:false}?QuickConsole.PrepareVoice(Text(root,"taskId")):null;
+            string? voiceTarget=Text(root,"client")!="claude"&&Text(root,"op")=="start"&&_voice is Tab5VoiceHost {Busy:false}?QuickConsole.PrepareVoice(Text(root,"taskId")):null;
             if(Text(root,"op")=="start")Tab5VoiceTiming.Log("request-target-binding",bindingStarted);
             result=_voice is null?throw new InvalidOperationException("电脑语音服务未就绪"):await _voice.HandleAsync(root,token,waitForFinal:transport is "USB" or "BLE");
             if(result is Tab5VoiceReply observed) {
                 _voiceTransportPriority.Observe(Text(root,"op"),observed,transport,nonce);
-                QuickConsole.ObserveVoice(voiceDevice,observed,voiceTarget);
+                if(Text(root,"client")!="claude")QuickConsole.ObserveVoice(voiceDevice,observed,voiceTarget);
                 // This authenticated start already succeeded. Prepare only the
                 // read-only transport off-thread; never delay audio or reuse evidence.
                 if(Text(root,"op")=="start"&&observed.State=="recording"&&Guid.TryParse(observed.TaskId,out _))
@@ -793,7 +827,9 @@ internal sealed partial class Tab5Service : IDisposable
     }
     public void Dispose() {
         lock(_lifecycle){_stopping=true;_lifetime.Cancel();}
-        ScreenPreview.Stop();_voice?.Dispose();_codexTasks.Dispose();_wifiUnlock?.Dispose();
+        ClaudeReplies.Invalidate();
+        ClaudeWorkspace.Dispose();
+        UIAutomation.Cancel();ScreenPreview.Stop();_voice?.Dispose();_codexTasks.Dispose();_wifiUnlock?.Dispose();
         if(_usbGate.Wait(1500))try{CloseUsbPort();}finally{_usbGate.Release();}
     }
 }

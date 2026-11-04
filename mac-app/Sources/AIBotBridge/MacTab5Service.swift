@@ -11,6 +11,9 @@ final class MacTab5Service {
     private let latestMusic: () -> (snapshot: MusicSnapshot?, cover: Data?)?
     private let deviceEnabled: () -> Bool
     private let sourceEnabled: (String) -> Bool
+    private let claudeSessions: MacClaudeSessionSampler?
+    private let claudeIdentity: MacClaudeIdentity?
+    let claudeReplies: MacClaudeReplyReader
     let port: UInt16
     let session = MacTab5Protocol.identifier()
     private var pairing: MacTab5Pairing?
@@ -44,6 +47,7 @@ final class MacTab5Service {
     let computer: MacTab5Computer
     let unlock: MacHostUnlock
     let codex: MacTab5Codex
+    let claude: MacClaudeWorkspace
     let voice: MacTab5Voice
     let desktop: MacTab5Desktop
     let birthdays: MacBirthdays
@@ -52,6 +56,7 @@ final class MacTab5Service {
     let bleDiagnostics = MacTab5BLEDiagnostics()
     let deviceDiagnostics = MacTab5RuntimeDiagnostics()
     let screenPreview = MacTab5ScreenPreview()
+    let uiAutomation = MacTab5UIAutomation()
     let firmwareControl = MacTab5Firmware()
     private let runtimeHealth = MacRuntimeHealth()
     private let networkDiagnostics: () -> MacNetworkDiagnosticSample?
@@ -61,13 +66,16 @@ final class MacTab5Service {
     init(port: UInt16, host: @escaping () -> String? = LocalNetworkIdentity.privateIPv4, gallery: MacTab5Gallery = MacTab5Gallery(), computer: MacTab5Computer = MacTab5Computer(), codex: MacTab5Codex = MacTab5Codex(), voice: MacTab5Voice = MacTab5Voice(), birthdays: MacBirthdays = .shared, agenda: MacAgenda = .shared,
          networkDiagnostics: @escaping () -> MacNetworkDiagnosticSample? = { nil }, unlock: MacHostUnlock = MacHostUnlock(),
          music: @escaping () -> (snapshot: MusicSnapshot?, cover: Data?)? = { nil },
-         enabled: @escaping () -> Bool = { true }, sourceEnabled: @escaping (String) -> Bool = { _ in true },
+         enabled: @escaping () -> Bool = { true }, sourceEnabled: @escaping (String) -> Bool = { _ in true }, claudeSessions: MacClaudeSessionSampler? = nil, claudeIdentity: MacClaudeIdentity? = nil, claudeReplies: MacClaudeReplyReader? = nil,
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
-         save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }, diagnostics: MacTab5LocalDiagnostics? = nil) {
+         save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }, diagnostics: MacTab5LocalDiagnostics? = nil, claudeWorkspace: MacClaudeWorkspace? = nil) {
         self.localDiagnostics = diagnostics
         self.port = port; self.host = host; self.latestMusic = music; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
         self.networkDiagnostics = networkDiagnostics; self.unlock = unlock
-        self.deviceEnabled = enabled; self.sourceEnabled = sourceEnabled
+        self.deviceEnabled = enabled; self.sourceEnabled = sourceEnabled; self.claudeSessions = claudeSessions
+        self.claudeIdentity = claudeIdentity
+        self.claudeReplies = claudeReplies ?? MacClaudeReplyReader(enabled:{ enabled() && sourceEnabled("activity") })
+        claude = claudeWorkspace ?? MacClaudeWorkspace(enabled:{ enabled() && sourceEnabled("activity") })
         self.birthdays = birthdays; self.agenda = agenda
         desktop = MacTab5Desktop(codex: codex, diagnostics: diagnostics)
         interactionDiagnostics.localDiagnostics = diagnostics
@@ -83,6 +91,13 @@ final class MacTab5Service {
     }
 
     var currentPairing: MacTab5Pairing? { lock.lock(); defer { lock.unlock() }; return pairing }
+    private func workspace(_ root: [String:Any]) -> MacTab5Codex? {
+        switch root["client"] as? String ?? "codex" {
+        case "codex": return codex.isEnabled ? codex:nil
+        case "claude": return claude.tasks.isEnabled ? claude.tasks:nil
+        default: return nil
+        }
+    }
     var isEnabled: Bool { deviceEnabled() }
     private var unlockSuspended:Bool { lock.lock(); defer { lock.unlock() }; return stopped || maintenance || benchmarkMode != 0 }
     var currentMusic: MusicSnapshot? { latestMusic()?.snapshot }
@@ -225,6 +240,7 @@ final class MacTab5Service {
         lock.lock(); defer { lock.unlock() }
         guard root["deviceId"] as? String == pairing?.deviceId else { return }
         localDiagnostics?.device(root)
+        uiAutomation.observe(root["uiAutomation"])
         usbReportedActive = (root["active"] as? String).flatMap { ["USB", "Wi-Fi", "BLE", "Offline"].contains($0) ? $0 : nil }
         if let ids = root["assetIds"] as? String { assets.acknowledge(ids) }
         if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version; firmwareDevice = pairing?.deviceId; firmwareControl.observeVersion(version) }
@@ -335,6 +351,7 @@ final class MacTab5Service {
         additions["runtimeHealth"] = sourceEnabled("system") ? runtimeHealth.snapshot(metrics: snapshot.systemMetrics, now: now,
             logicalProcessors: ProcessInfo.processInfo.activeProcessorCount, codexEnabled: codex.isEnabled,
             desktopObserved: codex.canMutate, network: networkDiagnostics()) : nil
+        additions["aiDialogueVersion"] = 1
         additions["rpcBinary"] = 1; additions["rpcBulk"] = 1
         additions["rpcOtaZlib"] = 1; additions["rpcOtaResume"] = 1
         additions["rpcOtaBleRadioLease"] = 1
@@ -350,12 +367,51 @@ final class MacTab5Service {
         if unlock.configured(pair,transport:"USB") { health["hostUnlockVersion"] = 1 }
         health["voiceEnabled"] = voice.isEnabled
         health["runtimeDiagnosticCommand"] = deviceDiagnostics.command
+        health["uiAutomationCommand"] = uiAutomation.command(frameEpoch:Int64(snapshot.capturedAt.timeIntervalSince1970*1000))
         health["screenPreviewCommand"] = screenPreview.command(frameEpochMilliseconds:Int64(snapshot.capturedAt.timeIntervalSince1970*1000))
         additions["connectionHealth"] = health
         additions["codexTasks"] = sourceEnabled("activity") ? codex.snapshot() : nil
+        let bound = sourceEnabled("activity") ? claude.backend.selection(over:claudeIdentity?.selection(now:now),now:now) : nil
+        let observed = claudeSessions?.capture(enabled:sourceEnabled("activity"),now:now,sessionID:bound?.sessionID)
+        var claudeReadSession = bound?.sessionID
+        if let bound {
+            var tool = bound.tool; tool.tokensToday = snapshot.claude.tokensToday
+            if let turn = bound.ownedTurn {
+                let task = claude.backend.alias(session:bound.sessionID) ?? ""
+                let unread = claude.tasks.snapshot(device:pair.deviceId)?["repliesUnread"] as? [String:String] ?? [:]
+                tool.completionActive = bound.outcome == "completed" && unread[task] == turn
+            }
+            tool.ageSeconds = max(0,Int64(now.timeIntervalSince(bound.activity)))
+            additions["claude"] = try MacTab5Protocol.object(JSONEncoder().encode(tool))
+            // A provider log may describe another Claude session. Its aggregate
+            // activity must not override the exactly bound session's mood.
+            additions["domesticActivity"] = NSNull()
+            var value: [String:Any] = ["lastActivity":Int64(bound.activity.timeIntervalSince1970)]
+            if let title = observed?.title { value["title"] = title }
+            additions["claudeSession"] = value
+        } else if let session = observed {
+            var value: [String: Any] = ["lastActivity": Int64(session.lastActivity.timeIntervalSince1970)]
+            // A log's latest timestamp does not identify the currently running
+            // turn. Until an identity-bearing live event is available, avoid
+            // attributing an active Claude task to a possibly different title.
+            let domesticSafe = snapshot.domesticActivity.map { ["idle", "offline"].contains($0.state) && !$0.needsInput } ?? true
+            if ["idle", "offline"].contains(snapshot.claude.state), !snapshot.claude.needsInput, domesticSafe { claudeReadSession = session.sessionID }
+            if ["idle", "offline"].contains(snapshot.claude.state), !snapshot.claude.needsInput, domesticSafe,
+               let title = session.title { value["title"] = title }
+            additions["claudeSession"] = value
+        }
+        if var value = additions["claudeSession"] as? [String:Any] {
+            if let claudeReadSession { value["taskId"] = claude.backend.alias(session:claudeReadSession) }
+            value["repliesEnabled"] = claudeReplies.isEnabled
+            value["readBinding"] = claudeReplies.advertise(sessionID:claudeReadSession,title:value["title"] as? String,now:now)
+            additions["claudeSession"] = value
+        } else { _ = claudeReplies.advertise(sessionID:nil,title:nil,now:now) }
+        let requiredClaudeTask = (additions["claudeSession"] as? [String:Any])?["taskId"] as? String
+        additions["claudeTasks"] = sourceEnabled("activity") ? claude.tasks.snapshot(requiredTask:requiredClaudeTask,device:pair.deviceId) : nil
         if codex.isEnabled { additions["imageBinary"] = 1 }
         for count in [64, 48, 32, 16, 8, 4, 1] {
             additions["codexTasks"] = sourceEnabled("activity") ? codex.snapshot(taskLimit: count) : nil
+            additions["claudeTasks"] = sourceEnabled("activity") ? claude.tasks.snapshot(taskLimit: count,requiredTask:requiredClaudeTask,device:pair.deviceId) : nil
             do {
                 let frame = try MacTab5Protocol.snapshot(snapshot, device: pair.deviceId, session: session, sequence: sequence, command: display.command, additions: additions, hasArtwork: assets.hasCover, music: media?.snapshot, now: now)
                 if let track = media?.snapshot ?? snapshot.music, !track.title.isEmpty {
@@ -390,11 +446,12 @@ final class MacTab5Service {
         lock.unlock(); callback?(.failure(MacTab5Error.unconfirmed))
     }
     func stop() {
+        _ = claudeSessions?.capture(enabled: false, now: Date())
         lock.lock()
         let callback = displayCompletion; displayCompletion = nil; display.cancel()
         stopped = true
         lastUSB = -.infinity; lastWiFi = -.infinity; lastBLE = -.infinity; lanReady = false
-        lock.unlock(); callback?(.failure(MacTab5Error.unconfirmed)); deviceDiagnostics.cancel(); screenPreview.stop(); codex.stop(); voice.stop(); unlock.stop()
+        lock.unlock(); callback?(.failure(MacTab5Error.unconfirmed)); deviceDiagnostics.cancel(); screenPreview.stop(); uiAutomation.cancel(); codex.stop(); claude.stop(); claudeReplies.invalidate(); voice.stop(); unlock.stop()
     }
 
     func status(device: String, nonce: String, proof: String, headers: [String: String] = [:]) -> (Int, Data) {
@@ -457,9 +514,9 @@ final class MacTab5Service {
         if dispatchOperation {
             if currentBenchmark != 0, ["image-chunk","screen-preview","ota","ota_probe","ota-control","voice"].contains(root["kind"] as? String ?? "") { result = .error(409,"benchmark_busy") }
             else if root["kind"] as? String == "benchmark" { result = MacTab5Benchmark.handle(root,raw:raw,binary:root["binaryReply"] as? Bool == true,bulk:root["bulkReply"] as? Bool == true) }
-            else if root["kind"] as? String == "image-chunk", codex.isEnabled, let task = MacTab5Codex.id(root["taskId"]), codex.contains(task) {
+            else if root["kind"] as? String == "image-chunk", let workspace = workspace(root), let task = MacTab5Codex.id(root["taskId"]), workspace.contains(task) {
                 let bytes = raw.isEmpty ? Data(base64Encoded: root["data"] as? String ?? "") ?? Data() : raw
-                result = codex.photos.upload(root, bytes: bytes, device: device)
+                result = workspace.photos.upload(root, bytes: bytes, device: device)
             }
             else if root["kind"] as? String == "screen-preview" {
                 let bytes = raw.isEmpty ? Data(base64Encoded:root["data"] as? String ?? "") ?? Data():raw
@@ -485,7 +542,8 @@ final class MacTab5Service {
                 // the device retries its idempotent read receipt after voice.
                 result = .error(503,"voice_busy")
             }
-            else if root["kind"] as? String == "codex" { result = codex.handleDevice(root, device: device) }
+            else if root["kind"] as? String == "claude" { result = claudeReplies.handle(root) }
+            else if root["kind"] as? String == "codex", let workspace = workspace(root) { result = workspace.handleDevice(root, device: device) }
             else if root["kind"] as? String == "voice" {
                 result = voice.handle(root, device: device, waitForFinal: transport == "BLE" || transport == "USB")
                 if transport == "BLE", result.status == 200, let operation = MacTab5BLEDiagnostics.VoiceOperation(rawValue: root["op"] as? String ?? "") {
@@ -552,7 +610,7 @@ final class MacTab5Service {
     }
 
     func imageHTTP(device: String, nonce: String, proof: String, packet: Data) -> (Int, Data) {
-        guard codex.isEnabled, let pair = currentPairing, pair.confirmed, pair.deviceId == device, packet.count <= 3 * 1024 * 1024,
+        guard let pair = currentPairing, pair.confirmed, pair.deviceId == device, packet.count <= 3 * 1024 * 1024,
               MacTab5Protocol.isHex(nonce, count: 32), MacTab5Protocol.verify(key: pair.key, message: "POST|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))", proof: proof),
               let clear = try? MacTab5Protocol.decrypt(packet, key: pair.key, challenge: nonce, maximum: 3 * 1024 * 1024) else { return (401, Data()) }
         do {
@@ -562,14 +620,14 @@ final class MacTab5Service {
                 guard (2...4096).contains(count), clear.count > 8 + count else { return (400, Data()) }
                 root = try MacTab5Protocol.object(Data(clear[8..<8 + count])); bytes = Data(clear.dropFirst(8 + count))
             } else { root = try MacTab5Protocol.object(clear); bytes = Data(base64Encoded: root["image"] as? String ?? "") ?? Data() }
-            guard root["op"] as? String == "image-upload", let task = MacTab5Codex.id(root["taskId"]), codex.contains(task) else { return (400, Data()) }
+            guard root["op"] as? String == "image-upload", let workspace = workspace(root), let task = MacTab5Codex.id(root["taskId"]), workspace.contains(task) else { return (400, Data()) }
             let now = Int64(Date().timeIntervalSince1970 * 1000), tick = ProcessInfo.processInfo.systemUptime
             lock.lock()
             guard deviceEnabled(), !stopped, !maintenance, currentIdentityMatches(pair), root["session"] as? String == session, let issued = MacTab5Protocol.integer(root["issuedAt"]), issued >= now - 90000, issued <= now + 10000 else { lock.unlock(); return (400, Data()) }
             nonces = nonces.filter { tick - $0.value < 100 }
             guard nonces[nonce] == nil, nonces.count < 8192 else { lock.unlock(); return (409, Data()) }
             nonces[nonce] = tick; activeOperations += 1; lock.unlock()
-            let result = codex.photos.upload(root, bytes: bytes, device: device)
+            let result = workspace.photos.upload(root, bytes: bytes, device: device)
             lock.lock(); activeOperations -= 1; lock.unlock()
             return (result.status, try MacTab5Protocol.json(result.body))
         } catch { return (400, Data()) }

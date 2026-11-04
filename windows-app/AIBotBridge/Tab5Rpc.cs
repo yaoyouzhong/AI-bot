@@ -49,9 +49,10 @@ internal sealed partial class Tab5Service
             lock(_remoteOtaLock){_remoteOta?.Completion.TrySetResult(true);if(_remoteOtaStatus.Length>0)_remoteOtaStatus="设备已回报新版本，请核验启动。";}
         }
     }
-    private sealed class Tab5RpcImage(string device,string task,string id,int size,string sha)
+    private sealed class Tab5RpcImage(string device,string task,string id,int size,string sha,string client)
     {
         internal readonly string Device=device,Task=task,Id=id,Sha=sha;
+        internal readonly string Client=client;
         internal readonly byte[] Bytes=new byte[size];
         internal int Received;
         internal readonly long Started=Environment.TickCount64;
@@ -141,6 +142,7 @@ internal sealed partial class Tab5Service
                     if(voice.Status!=200||voice.Packet is null)result=(voice.Status,new{error="voice_rejected"});
                     else {using var decoded=JsonDocument.Parse(Tab5Protocol.Decrypt(key,nonce,voice.Packet));result=(200,decoded.RootElement.Clone());}
                 }
+                else if(Text(root,"kind")=="claude")result=await Task.Run(()=>ClaudeReplies.Handle(root),token);
                 else if(Text(root,"kind")=="codex") {
                     string op=Text(root,"op");
                     // Same authenticated payload and journal as LAN, no duplicate
@@ -192,6 +194,8 @@ internal sealed partial class Tab5Service
     private (int Status,object Body) RpcImage(JsonElement root,string device,ReadOnlyMemory<byte> raw)
     {
         string task=Text(root,"taskId"),id=Text(root,"requestId"),sha=Text(root,"sha256");
+        string client=Text(root,"client");if(client.Length==0)client="codex";
+        if(client is not ("codex" or "claude"))return(400,new{error="invalid_client"});
         if(!Guid.TryParse(task,out _)||!Guid.TryParse(id,out _)||sha.Length!=64||sha.Any(c=>!char.IsAsciiHexDigit(c))||
             !root.TryGetProperty("size",out var s)||!s.TryGetInt32(out int size)||size is <1 or >2097152||
             !root.TryGetProperty("offset",out var o)||!o.TryGetInt32(out int offset))return(400,new{error="invalid_image"});
@@ -200,9 +204,9 @@ internal sealed partial class Tab5Service
         lock(_rpcLock) {
             if(_rpcImage is {} stale&&Environment.TickCount64-stale.Touched>90000)_rpcImage=null;
             var image=_rpcImage;
-            if(offset==0&&(image is null||image.Device!=device||image.Task!=task||image.Id!=id))
-                image=_rpcImage=new(device,task,id,size,sha);
-            if(image is null||image.Device!=device||image.Task!=task||image.Id!=id||image.Bytes.Length!=size||image.Sha!=sha)
+            if(offset==0&&(image is null||image.Device!=device||image.Task!=task||image.Id!=id||image.Client!=client))
+                image=_rpcImage=new(device,task,id,size,sha,client);
+            if(image is null||image.Device!=device||image.Task!=task||image.Id!=id||image.Client!=client||image.Bytes.Length!=size||image.Sha!=sha)
                 return(409,new{error="image_transfer_changed"});
             if(offset==image.Received){chunk.CopyTo(image.Bytes.AsSpan(offset));image.Received+=chunk.Length;}
             else if(offset+chunk.Length>image.Received||!image.Bytes.AsSpan(offset,chunk.Length).SequenceEqual(chunk))return(409,new{error="image_offset"});
@@ -212,7 +216,7 @@ internal sealed partial class Tab5Service
             // Existing decoder, pixel limits, device/task ownership and encrypted
             // on-disk storage remain authoritative. Repeated final chunks use its
             // existing image ID/content check and cannot duplicate an attachment.
-            return _codexTasks.UploadImage(device,task,id,Convert.ToBase64String(image.Bytes));
+            return client=="claude"?ClaudeWorkspace.Upload(device,task,id,image.Bytes):_codexTasks.UploadImage(device,task,id,Convert.ToBase64String(image.Bytes));
         }
     }
 }

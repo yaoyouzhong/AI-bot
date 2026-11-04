@@ -78,6 +78,7 @@ final class MacTab5Voice {
     private var externalRecognition = false
     private var captureName = ""
     private var id = "", device = "", task = "", session = "", source = "tab5", state = "idle", text = "", message = ""
+    private var client = "codex"
     private var started: TimeInterval = 0, seen: TimeInterval = 0, stopped: TimeInterval = 0
     private var sequence = 0, samples = 0, level = 0
     private var peak = 0
@@ -266,6 +267,8 @@ final class MacTab5Voice {
         guard enabled() else { if !id.isEmpty { backend.cancel(); state = "cancelled" }; return .error(403, "voice_not_enabled") }
         tick()
         guard let op = root["op"] as? String else { return .error(400, "invalid_voice_request") }
+        let requestedClient = root["client"] as? String ?? "codex"
+        guard ["codex","claude"].contains(requestedClient) else { return .error(400,"invalid_voice_owner") }
         if op == "start" {
             guard let task = MacTab5Codex.id(root["taskId"]), let session = root["session"] as? String else { return .error(400, "invalid_voice_owner") }
             if ["recording", "recognizing"].contains(state) { return .error(409, "voice_busy") }
@@ -273,6 +276,7 @@ final class MacTab5Voice {
             resetTimings()
             externalRecognition = usesDoubao()
             backend.cancel(); id = UUID().uuidString.lowercased(); self.device = device; self.task = task; self.session = session
+            client = requestedClient
             source = MacVoiceCaptureSource.resolve(requested: root["source"] as? String, preferred: preferredSource()).rawValue
             captureName = ""
             state = "recording"; text = ""; message = externalRecognition ? "正在准备豆包与所选麦克风，确认实际收音后开始":"请开始说话"; isFinal = false; stoppedByUser = false
@@ -281,12 +285,12 @@ final class MacTab5Voice {
             // voice lock so a UI summary refresh cannot wait on this worker
             // while the worker waits on that same main thread.
             let preparedOwner = id
-            lock.unlock(); beforeStart?(task, device); lock.lock()
+            lock.unlock(); if requestedClient == "codex" { beforeStart?(task, device) }; lock.lock()
             guard id == preparedOwner, state == "recording", enabled() else { return .error(409, "voice_session_changed") }
             do { try beginBackend(forceTab5: root["source"] as? String == "tab5"); startupTime = clock() - captureRequested; return snapshot() }
             catch { state = "error"; message = (error as? MacTab5LocalError)?.localizedDescription ?? (externalRecognition ? "豆包语音未能启动，请检查输入法和辅助功能权限。" : "本地语音不可用，请在 Mac 授权语音识别和麦克风，并确认该语言支持离线识别。"); backend.cancel(); return snapshot() }
         }
-        guard !id.isEmpty, root["voiceId"] as? String == id, device == self.device, root["session"] as? String == session else { return .error(409, "voice_session_changed") }
+        guard !id.isEmpty, requestedClient == client, root["voiceId"] as? String == id, device == self.device, root["session"] as? String == session else { return .error(409, "voice_session_changed") }
         seen = clock()
         if op == "poll" {
             forwardPreparedAudio()

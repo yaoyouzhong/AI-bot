@@ -2,6 +2,7 @@ namespace AIBotBridge;
 
 internal sealed class ActivitySignals
 {
+    internal ClaudeIdentity ClaudeIdentity { get; } = new();
     private sealed record Signal(string? State, DateTimeOffset At, DateTimeOffset? Attention);
     private readonly object _sync=new();
     private readonly Dictionary<string,Signal> _signals=new();
@@ -11,6 +12,7 @@ internal sealed class ActivitySignals
     internal bool Record(string agent,string kind,string? message=null,DateTimeOffset? at=null)
     {
         if(agent is not ("claude" or "codex"))return false;
+        if(agent=="claude")ClaudeIdentity.Invalidate();
         var now=at??DateTimeOffset.UtcNow;
         lock(_sync)
         {
@@ -19,9 +21,13 @@ internal sealed class ActivitySignals
             { _externalSequence++; _externalAt=now.ToUnixTimeSeconds(); _signals.Remove(agent); return true; }
             if(kind is "Elicitation" or "PermissionRequest" || kind=="Notification" && new[]{"permission","approve","approval"}.Any(s=>(message??"").Contains(s,StringComparison.OrdinalIgnoreCase)))
             { _signals[agent]=old with { Attention=now }; return true; }
+            if(agent=="claude"&&kind=="Stop") { _signals[agent]=new("unknown",now,old.Attention);return true; }
             string? state=kind switch { "UserPromptSubmit" or "PreToolUse" or "PostToolUse" or "SubagentStart" or "SubagentStop" or "PreCompact" or "PostCompact" or "WorktreeCreate"=>"working", "Stop" or "SessionEnd" or "SessionStart"=>"idle", _=>null };
             if(state is null)return false;
-            _signals[agent]=new(state,now,null);
+            // An unbound Stop or subagent/tool event cannot establish that a
+            // Claude permission prompt or question has been resolved.
+            var attention=agent=="claude"&&kind is not ("UserPromptSubmit" or "SessionEnd")?old.Attention:null;
+            _signals[agent]=new(state,now,attention);
             if(agent=="codex"&&state=="working") { _completed=false; _acknowledged=_lastSequence; }
             return true;
         }
@@ -29,6 +35,7 @@ internal sealed class ActivitySignals
     internal ToolState Apply(string agent,ToolState raw,DateTimeOffset? at=null)
     {
         var now=at??DateTimeOffset.UtcNow;
+        if(agent=="claude"&&ClaudeIdentity.Select(now) is {} selected)return selected.Tool with {TokensToday=raw.TokensToday,AgeSeconds=Math.Max(0,(long)(now-selected.Activity).TotalSeconds)};
         lock(_sync)
         {
             if(agent=="codex")
@@ -46,5 +53,5 @@ internal sealed class ActivitySignals
             return raw with { NeedsInput=needs, State=signal.State is not null&&now-signal.At<TimeSpan.FromSeconds(signal.State=="working"?600:60)?signal.State:raw.State };
         }
     }
-    internal void Acknowledge() { lock(_sync) { _acknowledged=_lastSequence; _completed=false; } }
+    internal void Acknowledge() { ClaudeIdentity.Acknowledge();lock(_sync) { _acknowledged=_lastSequence; _completed=false; } }
 }

@@ -2,6 +2,27 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.313-ui - 2026-11-04
+
+### Local acceptance tooling
+- Add paired USB UI probes and short-lived pointer gestures for explicit local tests, with viewport checks, request deduplication and release on cancellation. No device settings page is added.
+
+### AI dialogue workspace
+- Share project/history, public replies, drafts, send/steer, interrupt, photo and voice entry points between Codex and Claude.
+- Show available clients only; enter the exact Overview client and conversation instead of substituting the latest.
+- Use the same view-dialogue / view-reply Overview actions for both clients, opening the matching unread turn and acknowledging only rendered content.
+- Protect drafts, attachments and pending operations during switching; retain cancelled queued drafts and never automatically resend uncertain requests.
+- Externally owned conversations remain read-only, with manual local tool approvals. Older bridges retain the Claude read-only reader.
+
+### Idle appearance and entry parity
+- Show the original unadorned Claude character with a gentle 3.6-second breath in Overview and the companion saver.
+- Enter the current conversation detail directly from Overview and return there; keep project/history selection under the Dialogue tab. Bind read acknowledgements to their client and avoid the legacy reader when a modern host catalog is unavailable.
+
+### Client companions and sessions
+- Keep the selected client's mascot when only one is selected. When both Codex and Claude are selected, prefer the active client and show the most recently active client and its session when neither is active.
+- Show an existing name for the recent Claude session; fall back to “Claude Code” when no name or reliable current-session identity is available, without displaying another client's session.
+- Normalize Claude's body scale and center anchors across Overview states, aligning its stage with Codex while preserving original proportions and props.
+
 ## 0.2.312-ui - 2026-11-04
 
 ### Client companions

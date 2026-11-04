@@ -24,6 +24,7 @@ final class MacTab5Codex {
     private var pinTitles: [String: String] = [:]
     private var projection: [String: Any] = [:]
     private var viewedTask = "", viewedDevice = ""
+    private var draftDevice = ""
     private var viewedPage: [String: Any] = [:]
     private var ready: [String: String] = [:], read: [String: String] = [:]
     private var readReceipts: [String: (String, String, String, TimeInterval)] = [:]
@@ -42,8 +43,15 @@ final class MacTab5Codex {
     private var liveControl: MacTab5LiveControl?
     private let taskPins: MacTaskPins?
     private let taskActivity: MacTaskActivity?
+    private let provider: String
+    // Optional provider adapter: recover only an exact, independently observed
+    // submission. Never retry an uncertain side effect while resolving a receipt.
+    var deliveryReceipt: ((String, String, String, String) -> String?)?
+    var deliveryCancelled: ((String, String) -> Bool)?
+    var onDisable: (() -> Void)?
 
-    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil, readState: MacCodexReadState? = nil, taskActivity: MacTaskActivity? = nil) {
+    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil, readState: MacCodexReadState? = nil, taskActivity: MacTaskActivity? = nil, provider: String = "Codex") {
+        self.provider = provider
         self.desktopReads = readState ?? MacCodexReadState(load: call == nil ? { MacCodexReadState.local() } : { nil }, clock: clock)
         self.taskPins = taskPins ?? (call == nil ? .shared : nil)
         self.taskActivity = taskActivity ?? (call == nil ? .shared : nil)
@@ -92,10 +100,11 @@ final class MacTab5Codex {
         let detail = enabled() ? liveControl?.summary ?? "" : ""
         return text + (detail.isEmpty ? "" : "\n" + detail)
     }
-    func snapshot(taskLimit: Int = 64) -> [String: Any]? {
+    func snapshot(taskLimit: Int = 64, requiredTask: String? = nil, device: String? = nil) -> [String: Any]? {
         guard enabled() else { return nil }
         stateLock.lock(); defer { stateLock.unlock() }
         var value = projection
+        if let device, device != draftDevice { value["draftView"] = NSNull() }
         if let liveControl, liveControl.isManaged {
             let control = clock() - catalogUpdated <= 30 ? liveControl.snapshot() : nil
             let known = (projection["tasks"] as? [[String: Any]] ?? []).contains { $0["id"] as? String == control?["taskId"] as? String }
@@ -113,7 +122,7 @@ final class MacTab5Codex {
         let ordered = tasks.filter { savedPins.contains($0["id"] as? String ?? "") } + tasks.filter { !savedPins.contains($0["id"] as? String ?? "") }
         var selected = Array(ordered.prefix(max(1, taskLimit)))
         var pinned = Set<String>()
-        for task in [tasks.first(where: { $0["id"] as? String == viewed }), Self.overview(tasks)].compactMap({ $0 }) {
+        for task in [tasks.first(where: { $0["id"] as? String == requiredTask }), tasks.first(where: { $0["id"] as? String == viewed }), Self.overview(tasks)].compactMap({ $0 }) {
             guard let id = task["id"] as? String else { continue }
             if !selected.contains(where: { $0["id"] as? String == id }),
                let index = selected.indices.reversed().first(where: { !pinned.contains(selected[$0]["id"] as? String ?? "") }) { selected[index] = task }
@@ -176,7 +185,7 @@ final class MacTab5Codex {
     }
     deinit { timer?.cancel() }
     func refresh() {
-        guard enabled() else { rpc?.stop(); desktop?.reset(); stateLock.lock(); projection = [:]; note = "尚未启用"; stateLock.unlock(); return }
+        guard enabled() else { rpc?.stop(); desktop?.reset(); onDisable?(); stateLock.lock(); projection = [:]; note = "尚未启用"; stateLock.unlock(); return }
         guard gate.try() else { return }; defer { updateReadState(); gate.unlock() }
         do {
             // The API's omitted-source default excludes desktop-created appServer
@@ -227,7 +236,8 @@ final class MacTab5Codex {
                 let updated = [root["recencyAt"], root["updatedAt"]].compactMap(MacTab5Protocol.integer)
                     .first(where: { (0...253_402_300_799).contains($0) }) ?? 0
                 let state = rpc == nil && mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"
-                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": updated, "state": state, "companionState": state,
+                let project = provider == "Claude" ? root["projectId"] as? String : nil
+                return ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": project.flatMap { MacTab5Protocol.isHex($0,count:16) ? $0:nil } ?? String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": updated, "state": state, "companionState": state,
                         "waitingKind": state == "waiting" ? Self.waitingKind(root["status"] as? [String: Any] ?? [:]) : ""]
             }
             if let cache = latestPublic, !catalog.contains(where: { $0["id"] as? String == cache.task }) { latestPublic = nil }
@@ -270,10 +280,10 @@ final class MacTab5Codex {
             var projects: [[String: Any]] = []; var seen = Set<String>()
             for task in catalog { let id = task["projectId"] as! String; if seen.insert(id).inserted { projects.append(["id": id, "name": task["folder"]!]) } }
             projection["projects"] = projects; projection["overviewTask"] = Self.overview(catalog)
-            note = mutable() ? "已连接本机 Codex 桌面 · \(catalog.count) 个近期会话；\(sendEnabled() ? "操作已启用" : "只读使用，操作未启用")。" : "只读已连接本机 Codex · \(catalog.count) 个近期会话；实时状态待确认，发送不可用。临时进程随桥接关闭。"; stateLock.unlock()
+            note = provider == "Claude" ? "已读取本机 Claude · \(catalog.count) 个会话；外部占用时只读。" : mutable() ? "已连接本机 Codex 桌面 · \(catalog.count) 个近期会话；\(sendEnabled() ? "操作已启用" : "只读使用，操作未启用")。" : "只读已连接本机 Codex · \(catalog.count) 个近期会话；实时状态待确认，发送不可用。临时进程随桥接关闭。"; stateLock.unlock()
             if !viewedTask.isEmpty, catalog.contains(where: { $0["id"] as? String == viewedTask }) { _ = try page(task: viewedTask, root: viewedPage, device: viewedDevice) }
         } catch {
-            stateLock.lock(); note = Self.connectionFailure(error); projection["control"] = NSNull()
+            stateLock.lock(); note = provider == "Claude" ? "Claude 暂不可读，保留最近数据。请检查 CLI、目录与本机私密存储。" : Self.connectionFailure(error); projection["control"] = NSNull()
             if var tasks = projection["tasks"] as? [[String: Any]] {
                 for index in tasks.indices { tasks[index]["companionState"] = "unknown" }
                 projection["tasks"] = tasks
@@ -451,7 +461,7 @@ final class MacTab5Codex {
                 let pending = receipts.first { entry in guard let value = entry.value as? [String: Any] else { return false }; return value["binding"] as? String == binding && value["status"] as? Int == 504 }
                 var view = saved; view["taskId"] = task; view["requestId"] = id; view["pendingRequest"] = pending?.key ?? ""
                 if let pending = pending?.value as? [String: Any] { view["operation"] = pending["operation"]; view["expectedTurn"] = pending["expectedTurn"] }
-                stateLock.lock(); projection["draftView"] = view; stateLock.unlock()
+                stateLock.lock(); projection["draftView"] = view; draftDevice = device; stateLock.unlock()
             }
             return .init(200, ["status": "saved", "taskId": task, "requestId": id])
         } catch { return .error(503, "codex_or_private_storage_unavailable") }
@@ -510,6 +520,22 @@ final class MacTab5Codex {
                 guard var receipt = receipts[id] as? [String: Any], receipt["binding"] as? String == binding else { return .error(404, "receipt_not_found") }
                 if op == "receipt-confirm", !(enabled() && sendEnabled() && mutationAllowed()) { return .error(403, "codex_send_not_enabled") }
                 if receipt["status"] as? Int != 504 { return receiptResult(receipt) }
+                if deliveryCancelled?(task,id) == true {
+                    receipt["status"] = 409; receipt["body"] = ["error":"message_cancelled","deliveryFinal":true]
+                    receipts[id] = receipt; data["receipts"] = receipts; try saveJournal(data)
+                    return receiptResult(receipt)
+                }
+                if let deliveryReceipt, let turn = deliveryReceipt(task, id, receipt["operation"] as? String ?? "", receipt["expectedTurn"] as? String ?? ""), Self.id(turn) != nil {
+                    receipt["status"] = 202
+                    receipt["body"] = ["status":"submitted", "taskId":task, "turnId":turn, "requestId":id]
+                    receipts[id] = receipt
+                    // A newer local draft must survive reconciliation.
+                    let current = drafts[binding] as? [String:Any] ?? [:]
+                    let fingerprint = MacTab5Protocol.sha256(try MacTab5Protocol.json(["binding":binding,"op":receipt["operation"] as? String ?? "", "text":current["text"] as? String ?? "", "expected":receipt["expectedTurn"] as? String ?? "", "images":current["images"] as? [String] ?? []]))
+                    if fingerprint == receipt["fingerprint"] as? String { drafts[binding] = ["text":"", "images":[String]()] }
+                    data["receipts"] = receipts; data["drafts"] = drafts; try saveJournal(data)
+                    return receiptResult(receipt)
+                }
                 let draft = drafts[binding] as? [String: Any] ?? [:]
                 let pending = try Self.pendingDelivery(id: id, receipt: receipt, draft: draft, names: [:])
                 let permitted = enabled() && sendEnabled() && mutationAllowed()
@@ -545,6 +571,7 @@ final class MacTab5Codex {
             let nativeAppend = op == "steer" && desktop != nil && taskAppend != nil
             let fingerprint = MacTab5Protocol.sha256(try MacTab5Protocol.json(["binding": binding, "op": op, "text": text, "expected": expected, "images": images]))
             if let receipt = receipts[id] as? [String: Any] { return receipt["fingerprint"] as? String == fingerprint ? receiptResult(receipt) : .error(409, "request_id_conflict") }
+            if deliveryReceipt != nil, op != "interrupt", receipts.values.contains(where: { ($0 as? [String:Any])?["binding"] as? String == binding && ($0 as? [String:Any])?["status"] as? Int == 504 }) { return .error(409,"pending_delivery_requires_receipt") }
             guard clock() - catalogUpdated <= 30 else { return .error(503, "codex_catalog_stale") }
             guard receipts.count < 4096 else { return .error(429, "receipt_store_full") }
             // Native text submission must never silently omit device photos.
@@ -584,9 +611,18 @@ final class MacTab5Codex {
                                                  authorized: { self.enabled() && self.sendEnabled() && self.mutationAllowed() })
                 } else if op == "send" {
                     _ = try call("thread/resume", ["threadId": task])
-                    result = try call("turn/start", ["threadId": task, "input": inputs])
-                } else if op == "steer" { result = try call("turn/steer", ["threadId": task, "expectedTurnId": expected, "input": inputs]) }
-                else { result = try call("turn/interrupt", ["threadId": task, "turnId": expected]) }
+                    var params: [String:Any] = ["threadId": task, "input": inputs]
+                    if deliveryReceipt != nil { params["requestId"] = id }
+                    result = try call("turn/start", params)
+                } else if op == "steer" {
+                    var params: [String:Any] = ["threadId": task, "expectedTurnId": expected, "input": inputs]
+                    if deliveryReceipt != nil { params["requestId"] = id }
+                    result = try call("turn/steer", params)
+                } else {
+                    var params: [String:Any] = ["threadId":task,"turnId":expected]
+                    if deliveryReceipt != nil { params["requestId"] = id }
+                    result = try call("turn/interrupt", params)
+                }
                 let turn = (result["turn"] as? [String: Any])?["id"] as? String ?? result["turnId"] as? String ?? (op == "interrupt" ? expected : "")
                 guard Self.id(turn) != nil else { return .error(504, "delivery_unknown") }
                 receipt["status"] = 202; receipt["body"] = ["status": "submitted", "taskId": task, "turnId": turn, "requestId": id]
@@ -705,7 +741,7 @@ final class MacTab5Codex {
         // The existing device treats an empty response as still loading. Keep
         // presentation text separate from hasText/read receipts so a status
         // placeholder never becomes an assistant reply or unread notification.
-        let displayText = text.isEmpty ? (state == "inProgress" ? "Codex 正在处理，等待新的动态…" :
+        let displayText = text.isEmpty ? (state == "inProgress" ? "\(provider) 正在处理，等待新的动态…" :
             state == "interrupted" ? "任务已停止，本轮尚无公开文字。" : "本轮尚无公开文字。") : text
         let pages = Self.pages(displayText), requested = Int(MacTab5Protocol.integer(root["page"]) ?? 0)
         guard requested >= -1, requested < pages.count else { return .error(400, "invalid_page") }
@@ -719,7 +755,7 @@ final class MacTab5Codex {
         let view: [String: Any] = ["taskId": task, "turnId": turnID, "page": page, "pageCount": pages.count, "hasText": !text.isEmpty, "readReceipt": receipt, "history": history, "hasPrevious": index > 0 || thread["hasOlderTurns"] as? Bool == true, "hasNext": index + 1 < turns.count, "previousTurnId": index > 0 ? turns[index - 1]["id"] as? String ?? "" : "", "nextTurnId": index + 1 < turns.count ? turns[index + 1]["id"] as? String ?? "" : "", "state": state, "startedAt": turn["startedAt"] as? Int64 ?? 0]
         let controlThread = live?.thread ?? thread
         let current = (controlThread["turns"] as? [[String: Any]])?.last ?? [:]
-        let canControl = mutable() && (desktop == nil || live != nil)
+        let canControl = mutable() && (desktop == nil || live != nil) && controlThread["controlUnavailable"] as? Bool != true
         let running = canControl && (live?.running ?? (current["status"] as? String == "inProgress"))
         let flags = (controlThread["status"] as? [String: Any])?["activeFlags"] as? [String] ?? []
         let statusText = state == "completed" ? "已完成" : state == "inProgress" ? "运行中" : state == "interrupted" ? "已中断" : state == "failed" ? "失败" : "状态未知"

@@ -8,12 +8,15 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--claude-hook"&&int.TryParse(args[1],out var hookPort)&&hookPort is >0 and <=65535){ClaudeHook.RunAsync(hookPort).GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-tab5-automation"){AppPaths.BeginPublicSelfTest();Tab5UIAutomationSelfTest.Run();return;}
         // This command only signals the current user's resident bridge. It does
         // not open account files and must work from packaged launch contexts.
         if(args.Length==1&&args[0]=="--exit"){BridgeLifetime.RequestExit();return;}
         if(args.Length is 2 or 3&&args[0]=="--inspect-tab5-voice-binding"&&(args.Length==2||args[2]=="--prepare-reader")) {
             Tab5WindowsFollowupInspection.BindingAsync(args[1],args.Length==3).GetAwaiter().GetResult();return;
         }
+        if(args.Length==1&&args[0]=="--self-test-claude-session-index"){AppPaths.BeginPublicSelfTest();ClaudeSessionIndexSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-queue-transport-server") {
             AppPaths.BeginPublicSelfTest();Tab5QueueTransportSelfTest.ServeAsync().GetAwaiter().GetResult();return;
         }
@@ -106,6 +109,7 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-weather-forecast"){AppPaths.BeginPublicSelfTest();WeatherForecastSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-read-sync"){AppPaths.BeginPublicSelfTest();Tab5CodexReadStateSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-tasks"){AppPaths.BeginPublicSelfTest();Tab5CodexSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-claude-history"){AppPaths.BeginPublicSelfTest();ClaudeHistorySelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-read-state-local"){
             var state=Tab5CodexReadState.ReadLocal();Console.WriteLine(state is null?"CODEX_LOCAL_READ_STATE_UNAVAILABLE":"CODEX_LOCAL_READ_STATE_OK unread="+state.Unread.Count);return;
         }

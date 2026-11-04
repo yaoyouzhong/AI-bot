@@ -7,6 +7,7 @@ final class HTTPStatusServer {
     private let snapshot: () -> Data
     private let resources: () -> [MacResourcePayload]
     private let event: (String,String,String) -> Bool
+    private let claudeEvent: ([String:Any]) -> Bool
     private let acknowledge: () -> Void
     private let tab5: MacTab5Service?
     private let espEnabled: () -> Bool
@@ -30,12 +31,13 @@ final class HTTPStatusServer {
     }
     var lastESPRequest: Date? { observationLock.lock(); defer { observationLock.unlock() }; return lastESP }
 
-    init(port: UInt16, token: @escaping () -> String?, resources: @escaping () -> [MacResourcePayload] = { [] }, event: @escaping (String,String,String)->Bool = {_,_,_ in false}, acknowledge: @escaping ()->Void = {}, tab5: MacTab5Service? = nil, espEnabled: @escaping () -> Bool = { true }, loopbackOnly: Bool = false, snapshot: @escaping () -> Data) {
+    init(port: UInt16, token: @escaping () -> String?, resources: @escaping () -> [MacResourcePayload] = { [] }, event: @escaping (String,String,String)->Bool = {_,_,_ in false}, claudeEvent: @escaping ([String:Any])->Bool = {_ in false}, acknowledge: @escaping ()->Void = {}, tab5: MacTab5Service? = nil, espEnabled: @escaping () -> Bool = { true }, loopbackOnly: Bool = false, snapshot: @escaping () -> Data) {
         self.port = port == 0 ? .any : NWEndpoint.Port(rawValue: port)!
         self.token = token
         self.snapshot = snapshot
         self.resources = resources
         self.event=event;self.acknowledge=acknowledge
+        self.claudeEvent=claudeEvent
         self.tab5 = tab5
         self.espEnabled = espEnabled
         self.loopbackOnly = loopbackOnly
@@ -257,6 +259,12 @@ final class HTTPStatusServer {
         }
         if parts[0] == "POST", loopback, !lines.contains(where:{$0.lowercased().hasPrefix("origin:")}) {
             if parts[1] == "/completion/ack" {acknowledge();return http(status:"200 OK",body:Data("{\"ok\":true}".utf8))}
+            if parts[1] == "/event", let separator=request.range(of:"\r\n\r\n"),
+               let data=String(request[separator.upperBound...]).data(using:.utf8),
+               let body=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any],
+               body["sessionId"] != nil || body["promptId"] != nil {
+                return http(status:claudeEvent(body) ? "200 OK":"400 Bad Request",body:Data())
+            }
             if parts[1] == "/event", let separator=request.range(of:"\r\n\r\n"),let data=String(request[separator.upperBound...]).data(using:.utf8),
                let body=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any],let agent=body["agent"] as? String,let kind=body["event"] as? String,event(agent,kind,body["message"] as? String ?? "") {return http(status:"200 OK",body:Data("{\"ok\":true}".utf8))}
             return http(status:"400 Bad Request",body:Data())

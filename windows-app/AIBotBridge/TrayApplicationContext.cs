@@ -348,6 +348,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
             string panelKey="common:"+action;
             if(_panels.Activate(panelKey))return;
             switch(action) {
+                case "claude-approval":
+                    var approval=_tab5?.ClaudeWorkspace.Approvals().FirstOrDefault();
+                    if(approval is null){MessageBox.Show("Claude 当前没有等待确认的工具操作。","Claude 操作确认");break;}
+                    using(var dialog=new ClaudeApprovalForm(approval)) {
+                        var decision=dialog.ShowDialog();
+                        if(decision is DialogResult.Yes or DialogResult.No)await _tab5!.ClaudeWorkspace.DecideAsync(approval,decision==DialogResult.Yes,_shutdown.Token);
+                    }
+                    break;
                 case "devices": ShowDevices();break;
                 case "add-device": AddDevice();break;
                 case "bridge-settings": ShowCommonSettings(true);break;

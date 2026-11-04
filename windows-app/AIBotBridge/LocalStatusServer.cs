@@ -93,6 +93,9 @@ internal sealed class LocalStatusServer
                 try
                 {
                     using var doc=JsonDocument.Parse(text.ToString()); var root=doc.RootElement;
+                    if(root.ValueKind==JsonValueKind.Object&&(root.TryGetProperty("sessionId",out _)||root.TryGetProperty("promptId",out _))) {
+                        accepted=Encoding.UTF8.GetByteCount(text.ToString())==length&&SessionActivityReader.Signals.ClaudeIdentity.Record(root);
+                    } else
                     if(Encoding.UTF8.GetByteCount(text.ToString())==length && root.ValueKind==JsonValueKind.Object &&
                        root.TryGetProperty("agent",out var agent)&&agent.ValueKind==JsonValueKind.String&&
                        root.TryGetProperty("event",out var kind)&&kind.ValueKind==JsonValueKind.String)

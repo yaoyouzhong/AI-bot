@@ -1,5 +1,11 @@
 import AppKit
 import MacKeychainSupport
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--self-test-claude-events-server", let port = UInt16(CommandLine.arguments[2]), port > 0 {
+    do { try MacClaudeEventValidation.serve(port:port); exit(0) } catch { exit(1) }
+}
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--claude-hook", let port = UInt16(CommandLine.arguments[2]), port > 0 {
+    MacClaudeHook.run(port:port); exit(0)
+}
 
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--check-codex-delivery-baseline" {
     do { try MacCodexBaselineCheck.run(URL(fileURLWithPath: CommandLine.arguments[2])); exit(0) }
@@ -107,6 +113,22 @@ let instance: MacApplicationInstance
 do { instance = try MacApplicationInstance() }
 catch MacApplicationInstance.Failure.alreadyRunning { print("BRIDGE_ALREADY_RUNNING"); exit(0) }
 catch { fputs("Bridge instance lock unavailable; no bridge started.\n", stderr); exit(1) }
+
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--tab5-automation" {
+    do { try MacTab5AutomationRunner.run(directory: URL(fileURLWithPath:CommandLine.arguments[2],isDirectory:true)); exit(0) }
+    catch { fputs("TAB5 automation incomplete; no automatic action retry.\n",stderr); exit(1) }
+}
+if CommandLine.arguments.count == 5, CommandLine.arguments[1] == "--tab5-automation", CommandLine.arguments[3] == "--claude-fixture" {
+    do { try MacTab5AutomationRunner.run(directory:URL(fileURLWithPath:CommandLine.arguments[2],isDirectory:true),fixture:URL(fileURLWithPath:CommandLine.arguments[4],isDirectory:true)); exit(0) }
+    catch let error as MacTab5WorkspaceAcceptance.Failure { fputs("TAB5 synthetic workspace fixture rejected: \(error.rawValue)\n",stderr); exit(1) }
+    catch let error as MacTab5Error { fputs("TAB5 synthetic workspace unavailable: \(error.localizedDescription)\n",stderr); exit(1) }
+    catch { fputs("TAB5 synthetic workspace automation failed\n",stderr); exit(1) }
+}
+
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--capture-tab5-screen" {
+    do { try MacTab5HeadlessCapture.run(output: URL(fileURLWithPath: CommandLine.arguments[2])); exit(0) }
+    catch { fputs("TAB5 screen capture incomplete; no touch, settings or firmware change requested.\n", stderr); exit(1) }
+}
 
 if CommandLine.arguments.count == 2, ["--prepare-keychain-vault", "--prepare-keychain-vault-legacy-helper"].contains(CommandLine.arguments[1]) {
     do {

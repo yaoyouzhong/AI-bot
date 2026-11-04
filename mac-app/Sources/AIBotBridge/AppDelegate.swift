@@ -103,17 +103,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let music = { [dataStore] in dataStore.snapshot().music }
         let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), networkDiagnostics: { [networkDiagnostics] in networkDiagnostics.snapshot() }, music: { [dataStore] in
             let media = dataStore.snapshot(); return (media.music, media.musicTab5Cover ?? media.musicCover)
-        }, enabled: { MacDeviceRegistry.shared.enabled("tab5") }, sourceEnabled: { MacDeviceRegistry.shared.source($0, kind: "tab5") }, diagnostics: .shared)
+        }, enabled: { MacDeviceRegistry.shared.enabled("tab5") }, sourceEnabled: { MacDeviceRegistry.shared.source($0, kind: "tab5") }, claudeSessions: MacClaudeSessionSampler(), claudeIdentity:reader.signals.claudeIdentity, diagnostics: .shared)
         self.tab5 = tab5
         DispatchQueue.global(qos:.utility).async { tab5.unlock.load() }
         do { try devices.migrate(tab5: tab5.currentPairing?.deviceId) }
         catch { show("设备配置未载入", "原文件已保留，设备连接暂停。" + error.localizedDescription) }
         tab5.codex.start()
+        tab5.claude.start()
         networkDiagnostics.start()
         tab5.publish(devices.filter(reader.capture(extras: dataStore.deviceSnapshot()), kind: "tab5"))
         server = HTTPStatusServer(port: port, token: PairingTokenStore.read, resources: { [weak self] in self?.resourceSnapshot() ?? [] }, event: { [weak self] agent, event, message in
             self?.reader.signals.record(agent:agent,event:event,message:message) ?? false
-        }, acknowledge: { [weak self] in self?.reader.signals.acknowledge() }, tab5: tab5, espEnabled: { MacDeviceRegistry.shared.enabled("esp8266") && MacDeviceRegistry.shared.device("esp8266")?.connection != "usb" }) { [weak self] in
+        }, claudeEvent: { [weak self] in self?.reader.signals.claudeIdentity.record($0) ?? false }, acknowledge: { [weak self] in self?.reader.signals.acknowledge() }, tab5: tab5, espEnabled: { MacDeviceRegistry.shared.enabled("esp8266") && MacDeviceRegistry.shared.device("esp8266")?.connection != "usb" }) { [weak self] in
             guard let self else { return Data("{\"version\":1}".utf8) }
             let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
             return (try? encoder.encode(self.devices.filter(self.reader.capture(extras: self.dataStore.deviceSnapshot()), kind: "esp8266"))) ?? Data()

@@ -70,7 +70,7 @@ internal sealed class DeviceServiceManager
                     Start("tab5-status",ct=>Tab5StatusPublisher.RunAsync(()=>service.Publish(_runtime.Capture()),ct),token)];
                 }catch(Exception ex){Tab5?.Dispose();Tab5=null;failed=ex;}
             }
-            if(tab is not null&&Tab5 is not null)Tab5.WindowTitle=tab.Name;
+            if(tab is not null&&Tab5 is not null){Tab5.WindowTitle=tab.Name;Tab5.ActivitySourceEnabled=tab.Sources.Contains("activity");}
             if((esp||Tab5 is not null)&&_lanStop is null) {
                 _lanStop=CancellationTokenSource.CreateLinkedTokenSource(_shutdown);var token=_lanStop.Token;
                 var discovery=new LanDiscoveryServer{Tab5Response=(request,address)=>Tab5?.Discover(request,address),LegacyEnabled=()=>EspLanEnabled};

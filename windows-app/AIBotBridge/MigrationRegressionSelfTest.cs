@@ -19,7 +19,11 @@ internal static class MigrationRegressionSelfTest
         Require(signals.Apply("claude",idle,now).NeedsInput,"attention on");
         Require(!signals.Apply("claude",idle,now.AddMinutes(5)).NeedsInput,"attention expires");
         signals.Record("claude","PreToolUse",at:now);
-        Require(!signals.Apply("claude",idle,now).NeedsInput&&signals.Apply("claude",idle,now).State=="working","work clears attention");
+        Require(signals.Apply("claude",idle,now).NeedsInput&&signals.Apply("claude",idle,now).State=="working","unbound work preserves attention");
+        signals.Record("claude","Stop",at:now);
+        Require(signals.Apply("claude",idle,now).NeedsInput&&!signals.Apply("claude",idle,now).CompletionActive,"unbound stop preserves attention without inventing completion");
+        signals.Record("claude","UserPromptSubmit",at:now);
+        Require(!signals.Apply("claude",idle,now).NeedsInput,"new prompt clears attention");
         signals.Record("codex","Stop",at:now);
         Require(!signals.Apply("codex",idle,now).CompletionActive,"Stop is not completion");
         signals.Record("codex","TaskComplete",at:now);

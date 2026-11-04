@@ -80,6 +80,10 @@ enum MacTab5UIValidation {
             window.close()
         }
         withExtendedLifetime(dataControls) {}
+        let approval = MacClaudeApprovalAlert.make(tool:"Read",input:["file_path":"/synthetic/project/README.md"])
+        approval.layout()
+        if let content = approval.window.contentView { try render(content,to:output.appendingPathComponent("claude-approval.png")) }
+        approval.window.close()
         let settings = MacTab5SettingsForm.fixture()
         try render(settings.1, to: output.appendingPathComponent("display-settings.png"))
         if let window = settings.1.window { try validateSettings(window, name: "display-settings", output: output) }

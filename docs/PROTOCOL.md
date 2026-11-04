@@ -287,6 +287,7 @@ Tool status adds `needsInput`, `completionActive`, `completionAt`, `completionSe
 `tokensToday`. `domesticActivity` carries `activeProvider`, `state`, `needsInput`, and
 `tokensToday`; Windows local status also has per-provider totals, omitted from compact USB frames.
 Tokens describe today's local log records, including cache input tokens, not account-wide usage.
+For TAB5, `domesticActivity.providers[activeProvider].lastActivity` is an optional Unix-seconds timestamp of the latest observed local activity for that provider, not the snapshot time. The optional provider object may include `tokensToday`; Mac omits the model name. The activity source switch still controls publication and ESP8266 compact frames omit `providers`. Legacy senders may omit the object, in which case the device must not invent a timestamp. The Windows development candidate retains the provider fields in TAB5 frames; the previously released sender may omit them. Client selection and tie handling remain device behavior.
 Manual display modes win; AUTO prioritizes attention, unacknowledged completion, music,
 active tools and configured idle cycling. Permission attention expires after five minutes.
 Codex completion is explicit, not inferred from `Stop`; acknowledging or starting work clears it.
@@ -1500,3 +1501,99 @@ The overview prioritizes waiting, blocked, working, then recent tasks, retaining
 0.2.312 本地实现复用已有 Claude、Codex 和 Claude Code 国内模型活动观测，总览只显示实际活跃的受支持客户端萌宠；没有活动时复用已有模型选择作偏好。客户端使用其他模型时仍保持客户端萌宠，不新增第三方 Harness 接入或国产模型萌宠。Claude 萌宠屏保追加为本地样式 `saver_style=10`，不改变旧编号。屏保只保留动画及居中时间，完成动画循环；总览完成动画播放后停住。此投影不增加协议字段。
 
 The 0.2.312 local implementation reuses existing client/activity observations and idle model preferences to show one supported client mascot. A custom model keeps its client's mascot; no additional harness or domestic mascot is implied. Claude saver ID 10 is appended without renumbering saved styles. Savers show animation and a centered clock, looping completion while Overview holds its completed pose. No additional wire fields are introduced.
+
+### Claude 会话名称和最近活动（开发候选）
+
+本地阅读候选在 `claudeSession` 附加可选 `repliesEnabled` 和 `readBinding`（32 位十六进制不透明绑定）。普通只读功能默认开启，不增加应用内授权开关；设备停用、活动来源关闭和配对失效仍会停止提供。周期帧不含公开回复正文、原始会话 ID 或路径。用户点击“查看 Claude 会话”后，经既有加密、认证及防重放 `/tab5/v1/rpc` 请求 `kind=claude`、`op=read`、`binding`、`page`（`-1` 为最新页，其他为从零开始的页码），可附 `revision`。其余 RPC 会话和时间戳字段保持原契约。
+
+成功响应为 `version=1`、`binding`、`revision`（所读公开文字的 SHA-256）、`title`、`text`、`page`、`total`、`hasEarlier`。每页最多 1600 UTF-8 字节，不切断 Unicode 码点；读取最近 16 MiB 完整日志行，最多保留 64 段及 65536 字节公开文字，省略历史时置 `hasEarlier=true`。仅白名单主会话 assistant 的顶层 text，排除用户、推理、工具、命令及子会话；未知格式或读取失败返回 503，不能以空成功覆盖已读内容。绑定十分钟未刷新后失效，最多保留 32 个；旧页面固定到点击时的会话，不自动改为另一个会话。来源停用返回 403 并清空绑定；绑定失效或内容修订变化返回 409，设备提示重新打开或重试。此入口拒绝发送、中断和任意路径访问。
+
+The read-only candidate is available by default to paired devices with the activity source enabled. Status advertises only an opaque binding and capability; a tap reads main-session public assistant text through the existing encrypted, authenticated, replay-protected RPC. Pages are bounded to 1600 UTF-8 bytes, pinned to one session and revision. Source disablement invalidates bindings; stale bindings/revisions return 409, and unsupported or unreadable data returns 503 rather than empty success. Prompts, reasoning, tools, commands, subagents, raw session IDs and paths are excluded. Sending and interruption are unsupported.
+
+2026-11-04 身份接入增量：两端本机 `/event` 可接收同一会话、同一轮次的身份元数据，详情见 [身份事件候选](development/CLAUDE-IDENTITY-EVENTS-20261104.md)。精确绑定存在时，TAB5 的 `claude` 状态和 `claudeSession` 名称/活动时间来自同一会话；可能属于其他会话的 `domesticActivity` 汇总省略。身份不发送到设备。成功仅由受控任务的同轮明确最终结果触发；Stop、空闲、会话退出均不单独触发。普通独立交互会话的通用完成和 Esc 中断仍不具备可靠来源，不声明全覆盖。此前无身份时隐藏活跃标题的保护仍适用。
+
+Identity-aware desktop candidates use the same locally bound Claude session for TAB5 mood, title and activity time; session and prompt IDs stay local. The potentially unrelated domestic activity aggregate is omitted from that bound TAB5 projection. Only an explicit same-turn final result from an opt-in controlled task produces success. Stop, idle notifications and session exit alone do not; ordinary independent interactive sessions still lack general final-result and Esc-interruption coverage. See the candidate document above. This remains unreleased and requires physical acceptance.
+
+配对 TAB5 的 v1 状态帧新增可选 `data.claudeSession`：`lastActivity` 为已观察到的主会话最近 user/assistant 记录的 Unix 秒；`title` 为该同一会话现有的 `custom-title` 或 `ai-title`，不存在或不能确认显示对象时省略或置 null，最多 120 个字符且不超过 512 UTF-8 字节。自定义名称优先；不得以正文、摘要、工具输出或其他会话的名称代替。字段不含 session ID、路径或对话内容，ESP 状态不包含；关闭设备活动来源时移除或置 null。日志时间表示最近记录，不证明该会话仍在工作或成功完成。客户端工作、等待或状态未知且尚无可绑定身份的可靠事件时，候选桥接不发送 title，设备回退显示“Claude Code”。
+
+设备只选一个客户端时固定对应萌宠；两者均选时先比较等待/工作状态，其次比较同一总览会话的 `claudeSession.lastActivity` 与 `codexTasks.overviewTask.updatedAt`。有效时间缺失时兼容旧活动年龄，平局保留当前选择。名称仅用于 Claude 分支，不能取用 Codex 会话。Windows 和 Mac TAB5 帧均可附带现有 `domesticActivity.providers` 的 `tokensToday` 与 `lastActivity`，不传模型名。以上是尚待完整设备工程和真机验收的开发候选，不代表已发布能力。
+
+Claude 的无会话绑定 `Stop` 在两端候选中只表示终态尚未确认：暂将状态标为 `unknown`，保留待授权提示，不产生完成事件。其他 Stop hook 仍可能让同一轮继续；仅有 `Stop`、静默或日志时间不证明完成。带身份的受控最终结果入口已接入开发候选，覆盖和待验收范围见本节开头。
+
+The paired TAB5 v1 status frame may include `data.claudeSession.lastActivity` (Unix seconds of the latest observed main-session user/assistant record) and `title` (an existing custom or AI title belonging to that session). It contains no session ID, path, conversation, prompt or summary, is excluded from ESP status and removed when the device activity source is disabled. A log timestamp does not prove a live or successful task; the candidate omits title during working/waiting when exact identity is unconfirmed. One selected client stays selected; with both selected, waiting and working precede the two overview sessions' valid activity times, with legacy-age fallback and a stable tie. The Claude branch never displays a Codex title. Both desktop candidates may send domestic provider token totals and observed activity times without model names. An unbound Claude `Stop` sets an unconfirmed state and retains pending attention; it does not emit completion. The controlled-result source is now a development candidate; native Windows and physical device verification remain outstanding.
+
+### TAB5 local UI automation / 本地界面自动验收（开发候选）
+
+用户显式运行本地诊断时，两端桥接可附加 `connectionHealth.uiAutomationCommand`，具体字段及交互设计见 [自动验收设计](development/TAB5-AUTOMATION-DESIGN-20261104.md)。首次实现仅已认证 USB：`version=1`、随机 `requestId`、`transport=USB`、`expiresAt` 不超过状态帧时间 5 秒，`op=probe|tap|swipe`。触摸命令的逻辑宽高、LVGL `rotation=0..3`、起终坐标和时长必须匹配设备当前视口；点击固定 80 ms，滑动 100–1200 ms。电脑默认不发命令，无新授权开关。旧固件忽略可选字段。
+
+设备通过 USB hello 的可选 `uiAutomation`（`1,requestId,status,width,height,rotation`）应答，status 为运行 1、结束 2、拒绝 3、取消 4；电脑只匹配当前请求，不对超时或拒绝自动重发触摸。设备阻止重复请求、过期或其他通道命令；失去电脑归属、方向变化、真实触摸或升级/照片忙时释放并取消合成触点。probe 不触摸。操作经过真实 LVGL 指针流程；完成应答只证明手势已结束，页面结果须用真实截图验证，不能据此宣称物理触摸手感通过。此次工具不修改 ESP8266。
+
+An explicit local diagnostic session can issue bounded USB probe/tap/swipe commands through the existing authenticated status channel. Viewport and orientation must match; leases expire within five seconds. Exact request acknowledgements distinguish running, ended, rejected and cancelled gestures. There is no automatic touch retry or new device setting, and normal bridges publish no command. Actual screenshot evidence is required in addition to gesture acknowledgement; physical touch-panel feel remains outside automated coverage.
+
+## TAB5 AI dialogue workspace (local .313 candidate)
+
+Optional `data.claudeTasks` uses the existing `codexTasks` project/task, replyView,
+control, draftView and exact ready/read-turn maps. `claudeSession.taskId` is a
+keyed opaque session alias used only for exact Overview navigation. Raw Claude
+session UUIDs, working directories, prompts, reasoning and tool data remain on
+the host. Project IDs are opaque; folders with more than eight sessions have
+explicit project pages. Shrinking a transport catalog retains the Overview and
+viewed sessions. A failed scan/read retains successful data and revokes stale
+controls.
+
+The existing encrypted `kind=codex` workspace RPC and `image-chunk`, binary image
+and `kind=voice` requests may carry `client=codex|claude`; omission means Codex.
+Every job captures its client before dispatch. Host catalog lookup, encrypted
+draft/photo store, voice take and request receipt are isolated by client and
+paired device. `kind=claude,op=read,binding=...` remains the legacy read-only
+reader; it does not grant workspace writes. Unknown clients are rejected.
+
+Claude supports draft-save/load, public reply/turn paging, exact read receipts,
+send, queued steer, interrupt and delivery receipt lookup. The host journals an
+uncertain request before resume or input. Only an exact user-message replay,
+matching main-branch persisted user UUID or matching result establishes delivery;
+a pipe write or log mtime does not. Queued input may remain `504 delivery_unknown`
+until such proof arrives, without automatic resend. Interrupt uses the official
+control receipt and matching terminal results. A known cancelled queued request
+returns `409 message_cancelled,deliveryFinal=true`: release that pending request
+while retaining its draft and attachments. The separate interrupt action remains
+available while a Claude send receipt is unresolved. Other 409 responses cannot
+release an uncertain request merely because they are errors.
+
+Only bridge-owned resumed Claude CLI processes can be controlled; an externally
+open conversation remains read-only. A fresh `claude agents --json` owner check
+precedes resume. Bridge exit/source disablement stops its owned CLI children.
+The original model and permission policy are retained. `can_use_tool` waits for
+an explicit local user decision; tool arguments are never sent to TAB5. Result
+success requires the matching session/message identity, `terminal_reason=completed`,
+`is_error=false` and positive `num_turns`. Silence, Stop and idle never prove success.
+
+The TAB5 title and bottom entry are **对话**. Only clients with available
+catalogs (or retained unsent/uncertain composers) are shown; one uses a full-width
+button, two use segmented buttons. Overview navigation selects its exact client
+and conversation, waiting for ongoing draft/read work before navigating. It never
+substitutes a newer conversation. Pending drafts, photos and voice prevent unsafe
+client switching. Native Windows, real speech accuracy and physical touch feel
+are acceptance items separate from cross-builds and synthetic testing.
+
+中文：本地 .313 候选新增 `claudeTasks`，沿用项目、任务、公开回复、草稿及控制结构；
+`claudeSession.taskId` 仅为总览精确定位的不透明别名。既有加密会话、图片和语音 RPC
+增加可选 `client`，缺省仍为 Codex；原 `kind=claude` 只读绑定继续兼容。原始 UUID、
+目录、提示词、推理和工具数据不传设备。草稿、附件、语音和送达记录按客户端及配对设备
+隔离；读取失败保留数据，陈旧状态不能授权操作。发送先保存不确定记录，依据精确消息
+回显、主分支同 UUID 记录或同消息最终结果核对，不因管道写入或文件时间宣称送达。
+排队取消使用 `message_cancelled` 与 `deliveryFinal=true` 明确结束核对并保留草稿；
+其他错误不解除未知请求。未知发送期间仍可单独中断 Claude。外部占用会话只读，
+可控续接保持原模型和审批策略；工具参数仅供用户主动打开电脑端确认，不自动批准。
+退出或停用来源停止桥接拥有的 CLI。标题与底栏统一为“对话”，只有一个可用客户端
+时只显示一个，两边均可用时显示两个；从总览精确进入对应客户端、对应会话。
+
+
+总览与完整对话入口的一致性（本地 .313 候选）：Codex 与 Claude 均用卡片所属客户端、会话别名精确导航；未读入口携带本机已确认的轮次，仅在对应内容实际渲染后执行既有 read-ack。受控 Claude CLI 的精确结果可更新同一会话的总览状态，但较旧结果不得盖过新的外部提示；其他活跃／待确认会话继续按优先级选择。仍不从历史记录、静默或 Stop 单独推断成功，不增加原始身份字段。
+
+Overview parity in the local .313 candidate: both clients navigate by the card's exact client and opaque conversation alias. Unread entry opens its confirmed turn and uses the existing read-ack only after rendering that content. An exact owned Claude CLI result can settle that session's Overview state, while older results cannot mask a newer external prompt. Other active/waiting sessions retain selection priority. Historical records, silence and Stop alone still cannot prove success; no raw identity fields are added.
+
+
+`data.aiDialogueVersion=1` is an optional capability in both desktop candidates. It advertises the shared dialogue workspace even when a client catalog is unavailable. The .313 device must not fall back to the legacy Claude read-only page when this capability is present; its Overview action waits for that client's exact task/catalog instead. Older hosts without the capability or `claudeTasks` keep the read-only compatibility path.
+
+`data.aiDialogueVersion=1` 是两端候选的可选能力字段，即使某客户端目录暂不可用也声明统一对话工作区。设备看到该字段后不得回退到旧 Claude 只读页；总览入口等待该客户端的精确会话/目录。既无能力字段也无 `claudeTasks` 的旧桥接保留兼容路径。无目录时沿用原按钮位置、显示“对话待同步”并禁用；目录恢复后恢复普通入口，不跳转至其他会话。

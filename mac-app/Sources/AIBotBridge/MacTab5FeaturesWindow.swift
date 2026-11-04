@@ -24,19 +24,19 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     init(service: MacTab5Service, focusSection: Section? = nil, accessibilityTrusted: @escaping () -> Bool = { AXIsProcessTrusted() }) {
         self.service = service
         self.accessibilityTrusted = accessibilityTrusted
-        let window = MacBridgeSettingsStyle.window("交互与权限", height: 640)
+        let window = MacBridgeSettingsStyle.window("功能设置", height: 640)
         super.init(window: window); window.delegate = self
         let computerPage = MacBridgeSettingsPage(), musicPage = MacBridgeSettingsPage()
         let codexPage = MacBridgeSettingsPage()
         sections = MacBridgeSettingsTabs([("电脑控制", computerPage), ("音乐播放", musicPage), ("Codex 会话", codexPage)])
-        result.stringValue = "开关更改立即生效，重启后保留。"
+        result.stringValue = "普通功能默认启用；可在此停用，更改立即生效并保留。"
         let sectionNames = ["电脑控制", "音乐播放", "Codex 会话"]
         if let focusSection { window.title = "AI-bot · " + sectionNames[focusSection.rawValue]; sections.select(focusSection.rawValue) }
         window.contentView = MacBridgeSettingsShell(body: focusSection.map { sections.pages[$0.rawValue] } ?? sections, status: result,
             actions: [NSButton(title: "打开系统设置…", target: self, action: #selector(openSettings))])
 
         computerPage.heading("电脑控制", subtitle: "设置 TAB5 可操作的音量、静音、锁屏和常用入口。")
-        computer.title = "允许 TAB5 控制电脑"
+        computer.title = "启用 TAB5 电脑控制"
         computer.state = service.computer.isEnabled ? .on : .off; computer.target = self; computer.action = #selector(toggleComputer)
         computerPage.add(computer)
         computerPage.add(MacBridgeSettingsStyle.note("锁屏需辅助功能权限；锁定状态未知时不提供解锁。"))
@@ -49,7 +49,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         computerPage.section("系统权限")
         computerPage.add(MacBridgeSettingsStyle.note("权限位置：系统设置 → 隐私与安全性 → 自动化／辅助功能。"))
 
-        musicPage.heading("音乐播放", subtitle: "播放信息与播放控制分开授权；首次使用需允许自动化。")
+        musicPage.heading("音乐播放", subtitle: "默认启用播放信息与控制；系统自动化权限按 macOS 提示确认。")
+        musicControl.title = "启用 TAB5 音乐播放、暂停和切歌"
         music.state = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? .on : .off; music.target = self; music.action = #selector(toggleMusic)
         musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off; musicControl.target = self; musicControl.action = #selector(toggleMusicControl)
         musicPage.add(music); musicPage.add(musicControl)
@@ -58,8 +59,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         musicPage.section("播放状态"); musicPage.add(musicState)
 
         codexPage.heading("Codex 会话", subtitle: "读取本机任务与公开回复；支持手动发送和中断。")
-        codex.title = "允许 TAB5 查看 Codex 会话与公开回复"
-        send.title = "允许在 TAB5 手动发送或中断 Codex 任务"
+        codex.title = "启用 TAB5 Codex 会话与公开回复"
+        send.title = "启用 TAB5 手动发送与中断 Codex 任务"
         desktop.title = "启用 Codex 桌面直达与输入框核对"
         codex.state = service.codex.isEnabled ? .on : .off; codex.target = self; codex.action = #selector(toggleCodex)
         send.state = UserDefaults.standard.bool(forKey: MacTab5Codex.sendKey) ? .on : .off; send.target = self; send.action = #selector(toggleSend)
@@ -68,6 +69,9 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         codexPage.add(MacBridgeSettingsStyle.row([
             NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
             NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
+        codexPage.section("Claude 会话")
+        codexPage.add(MacBridgeSettingsStyle.note("Claude 项目、历史、草稿、文字、图片与语音默认可用。工具审批等待你手工核对；桥接退出会停止由 TAB5 启动的 Claude 进程。外部会话仍在运行时只读，请先在原窗口退出该会话。"))
+        codexPage.add(NSButton(title:"Claude 操作确认…",target:self,action:#selector(reviewClaude)))
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)
@@ -97,6 +101,17 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     }
     func open(section: Section? = nil) { if let section { sections.select(section.rawValue) }; reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }
+    @objc private func reviewClaude() {
+        guard let approval = service.claude.backend.approvals().first else { result.stringValue = "Claude 当前没有等待确认的工具操作。"; return }
+        let response = MacClaudeApprovalAlert.make(tool:approval.tool,input:approval.input).runModal()
+        guard response == .alertFirstButtonReturn || response == .alertSecondButtonReturn else { return }
+        result.stringValue = "正在提交本次决定…"
+        DispatchQueue.global(qos:.userInitiated).async { [weak self] in
+            guard let self else { return }
+            let decision = Result { try self.service.claude.backend.decide(approval,allow:response == .alertSecondButtonReturn) }
+            DispatchQueue.main.async { self.result.stringValue = (try? decision.get()) != nil ? "已提交本次决定。":"请求已变化或连接中断，请重新查看；未自动重试。" }
+        }
+    }
     @objc private func toggleMusic() {
         UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey)
         musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off
@@ -114,7 +129,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         UserDefaults.standard.set(send.state == .on, forKey: MacTab5Codex.sendKey)
     }
     @objc private func toggleDesktop() {
-        if codex.state != .on { desktop.state = .off; result.stringValue = "请先允许查看 Codex 会话。" }
+        if codex.state != .on { desktop.state = .off; result.stringValue = "请先启用 Codex 会话读取。" }
         let enabled = desktop.state == .on
         UserDefaults.standard.set(enabled, forKey: MacTab5Desktop.enabledKey)
         if enabled && !accessibilityTrusted() {

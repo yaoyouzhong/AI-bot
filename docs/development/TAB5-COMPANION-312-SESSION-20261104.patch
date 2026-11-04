@@ -1,0 +1,1712 @@
+diff --git a/firmware/main/CMakeLists.txt b/firmware/main/CMakeLists.txt
+index 566c854..39c060d 100644
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -10,7 +10,7 @@ list(APPEND tab5_sources "tab5_calendar_brush_24.c" "tab5_calendar_running_28.c"
+ list(APPEND tab5_sources "tab5_countdown_24.c")
+ list(APPEND tab5_sources "tab5_date_serif_data.c")
+ list(APPEND tab5_sources "voice_recovery.c")
+-list(APPEND tab5_sources "desktop_remote.c" "computer_remote.c" "unlock_remote.c" "host_unlock_remote.c")
++list(APPEND tab5_sources "desktop_remote.c" "computer_remote.c" "unlock_remote.c" "host_unlock_remote.c" "claude_remote.c")
+ list(APPEND tab5_sources "wifi_submission_test.c")
+ list(APPEND tab5_sources "reply_document.c")
+ list(APPEND tab5_sources "codex_read_ack.c")
+diff --git a/firmware/main/claude_companion.c b/firmware/main/claude_companion.c
+index f3b5269..92087fb 100644
+--- a/firmware/main/claude_companion.c
++++ b/firmware/main/claude_companion.c
+@@ -19,17 +19,25 @@ claude_companion_frame_info claude_companion_frame(codex_companion_state state,i
+ #if CLAUDE_HAS_ART
+     unsigned group=4; // Unknown: search/exploration, using the original space clip.
+     if(state==CODEX_COMPANION_WORKING)group=0;
+-    else if(state==CODEX_COMPANION_IDLE)group=1;
++    else if(state==CODEX_COMPANION_IDLE)group=0;
+     else if(state==CODEX_COMPANION_WAITING||state==CODEX_COMPANION_APPROVAL||state==CODEX_COMPANION_QUESTION||state==CODEX_COMPANION_BLOCKED)group=2;
+     else if(state==CODEX_COMPANION_DONE)group=3;
+     else if(state==CODEX_COMPANION_STOPPED)group=5;
+     uint64_t tick=(uint64_t)(elapsed>0?elapsed:0)*12u/1000u;
+     unsigned count=claude_pet_groups[group].count;
+     unsigned local=state==CODEX_COMPANION_DONE&&!repeat_completion?(tick<count?(unsigned)tick:count-1):(unsigned)(tick%count);
++    if(state==CODEX_COMPANION_IDLE)local=0; // Original unadorned Clawd; motion comes only from the slow breath.
+     unsigned frame=claude_pet_groups[group].first+local;
+     result=(claude_companion_frame_info){frame,claude_pet_frames[frame].width,claude_pet_frames[frame].height,
+-        claude_pet_groups[group].anchor_x2,group==0?8u:group==3?6u:5u,
+-        claude_pet_groups[group].anchor_y2,group==0?15u:(group==3||group==5)?14u:12u};
++        claude_pet_groups[group].anchor_x2,group==0?1472u:group==3?1408u:1344u,
++        claude_pet_groups[group].anchor_y2,group==0?15u:(group==3||group==5)?14u:12u,0};
++    result.saver_scale_q8=result.saver_scale*256u;
++    if(state==CODEX_COMPANION_IDLE) {
++        unsigned phase=(unsigned)((uint64_t)(elapsed>0?elapsed:0)%3600u);
++        unsigned breath=phase<=1800u?phase:3600u-phase;
++        result.scale_q8=1472u+16u*breath/1800u;
++        result.saver_scale_q8=3840u+42u*breath/1800u;
++    }
+ #else
+     (void)state;(void)elapsed;(void)repeat_completion;
+ #endif
+diff --git a/firmware/main/claude_companion.h b/firmware/main/claude_companion.h
+index f0964e2..77a6832 100644
+--- a/firmware/main/claude_companion.h
++++ b/firmware/main/claude_companion.h
+@@ -2,7 +2,7 @@
+ #include "codex_companion.h"
+ #define CLAUDE_COMPANION_FRAME_BYTES (40 * 33 * 3)
+ typedef struct {
+-    unsigned frame, width, height, anchor_x2, scale, anchor_y2, saver_scale;
++    unsigned frame, width, height, anchor_x2, scale_q8, anchor_y2, saver_scale, saver_scale_q8;
+ } claude_companion_frame_info;
+ bool claude_companion_asset_available(void);
+ unsigned claude_companion_frame_count(void);
+diff --git a/firmware/main/claude_remote.c b/firmware/main/claude_remote.c
+new file mode 100644
+index 0000000..c0a7f70
+--- /dev/null
++++ b/firmware/main/claude_remote.c
+@@ -0,0 +1,62 @@
++#include "claude_remote.h"
++#include "device.h"
++#include "rpc_link.h"
++#include "esp_http_client.h"
++#include "esp_heap_caps.h"
++#include <stdlib.h>
++#include <string.h>
++#include <stdio.h>
++#include <ctype.h>
++
++typedef struct {char binding[33],revision[65];int page;unsigned epoch,host;link_kind link;} claude_read_job;
++static claude_remote_state *state;
++static unsigned epoch;
++static bool hex(const char *s,unsigned n){if(!s||strlen(s)!=n)return false;for(unsigned i=0;i<n;i++)if(!isxdigit((unsigned char)s[i]))return false;return true;}
++static const char *text(cJSON *o,const char *key){cJSON *v=cJSON_GetObjectItemCaseSensitive(o,key);return cJSON_IsString(v)?v->valuestring:"";}
++void claude_remote_get(claude_remote_state *out){xSemaphoreTake(device_mutex,portMAX_DELAY);if(state)*out=*state;else memset(out,0,sizeof(*out));xSemaphoreGive(device_mutex);}
++void claude_remote_cancel(void){xSemaphoreTake(device_mutex,portMAX_DELAY);epoch++;if(state){unsigned g=state->generation+1;memset(state,0,sizeof(*state));state->generation=g;}xSemaphoreGive(device_mutex);}
++static void run(void *arg){
++    claude_read_job *job=arg;int status=0;char nonce[33];cJSON *request=cJSON_CreateObject(),*reply=NULL;
++    if(request){
++        cJSON_AddStringToObject(request,"kind","claude");cJSON_AddStringToObject(request,"op","read");
++        cJSON_AddStringToObject(request,"binding",job->binding);cJSON_AddStringToObject(request,"revision",job->revision);cJSON_AddNumberToObject(request,"page",job->page);
++        if(job->link==LINK_WIFI){
++            device_config cfg=device_get_config();char url[96];snprintf(url,sizeof(url),"http://%s:%d/tab5/v1/rpc",cfg.host,cfg.port);
++            esp_http_client_config_t options={.url=url,.method=HTTP_METHOD_POST,.timeout_ms=10000,.disable_auto_redirect=true,.buffer_size=2048};
++            esp_http_client_handle_t client=esp_http_client_init(&options);
++            if(client){reply=rpc_http_call(client,request,&status,nonce);esp_http_client_cleanup(client);}
++        }else reply=rpc_call(job->link,request,&status,nonce);
++    }
++    cJSON *version=cJSON_GetObjectItemCaseSensitive(reply,"version"),*page=cJSON_GetObjectItemCaseSensitive(reply,"page"),*total=cJSON_GetObjectItemCaseSensitive(reply,"total");
++    bool valid=status==200&&cJSON_IsNumber(version)&&version->valueint==1&&
++        !strcmp(text(reply,"binding"),job->binding)&&hex(text(reply,"revision"),64)&&
++        cJSON_IsNumber(page)&&page->valuedouble==page->valueint&&cJSON_IsNumber(total)&&total->valuedouble==total->valueint&&
++        total->valueint>0&&total->valueint<=4096&&page->valueint>=0&&page->valueint<total->valueint&&
++        (job->page<0||page->valueint==job->page)&&cJSON_IsString(cJSON_GetObjectItemCaseSensitive(reply,"title"))&&
++        cJSON_IsString(cJSON_GetObjectItemCaseSensitive(reply,"text"))&&strlen(text(reply,"title"))<=512&&strlen(text(reply,"text"))<=1600;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    if(state&&job->epoch==epoch&&job->host==device_host_epoch()){
++        state->busy=false;state->status=valid?200:status==200?502:status;state->generation++;
++        if(valid){
++            strcpy(state->binding,job->binding);strcpy(state->revision,text(reply,"revision"));strcpy(state->title,text(reply,"title"));strcpy(state->text,text(reply,"text"));
++            state->page=page->valueint;state->total=total->valueint;state->has_earlier=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"hasEarlier"));state->error[0]=0;
++        }else{
++            snprintf(state->error,sizeof(state->error),"%s",text(reply,"error"));
++            if(status==403){state->text[0]=0;state->revision[0]=0;state->total=0;}
++        }
++    }
++    xSemaphoreGive(device_mutex);cJSON_Delete(reply);cJSON_Delete(request);free(job);vTaskDelete(NULL);
++}
++bool claude_remote_start(const char *binding,const char *revision,int page){
++    if(!hex(binding,32)||(revision&&revision[0]&&!hex(revision,64))||page< -1||page>4095)return false;
++    link_kind link=rpc_read_link_select();if(link==LINK_NONE)return false;
++    claude_read_job *job=calloc(1,sizeof(*job));if(!job)return false;
++    strcpy(job->binding,binding);if(revision)strcpy(job->revision,revision);job->page=page;job->link=link;job->host=device_host_epoch();
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    if(!state)state=heap_caps_calloc(1,sizeof(*state),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!state||state->busy){xSemaphoreGive(device_mutex);free(job);return false;}
++    if(strcmp(state->binding,binding)){memset(state,0,sizeof(*state));strcpy(state->binding,binding);}
++    job->epoch=epoch;state->busy=true;state->generation++;xSemaphoreGive(device_mutex);
++    if(xTaskCreate(run,"claude-read",6144,job,4,NULL)!=pdPASS){xSemaphoreTake(device_mutex,portMAX_DELAY);state->busy=false;state->status=503;state->generation++;xSemaphoreGive(device_mutex);free(job);return false;}
++    return true;
++}
+diff --git a/firmware/main/claude_remote.h b/firmware/main/claude_remote.h
+new file mode 100644
+index 0000000..09d1db0
+--- /dev/null
++++ b/firmware/main/claude_remote.h
+@@ -0,0 +1,9 @@
++#pragma once
++#include <stdbool.h>
++typedef struct {
++    bool busy,has_earlier;unsigned generation;int status,page,total;
++    char binding[33],revision[65],title[513],text[1601],error[48];
++} claude_remote_state;
++bool claude_remote_start(const char *binding,const char *revision,int page);
++void claude_remote_get(claude_remote_state *out);
++void claude_remote_cancel(void);
+diff --git a/firmware/main/codex_read_ack.c b/firmware/main/codex_read_ack.c
+index 03103d2..8975e20 100644
+--- a/firmware/main/codex_read_ack.c
++++ b/firmware/main/codex_read_ack.c
+@@ -10,7 +10,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-typedef struct {char task[37],turn[37],receipt[37],session[40];int64_t queued;} read_ack;
++typedef struct {char client[7],task[37],turn[37],receipt[37],session[40];int64_t queued;} read_ack;
+ static read_ack recent[8];
+ static unsigned next_slot;
+ static bool busy;
+@@ -33,7 +33,7 @@ static void send_ack(void *argument) {
+         int status=0;char nonce[33];cJSON *reply=NULL;
+         cJSON *request=cJSON_CreateObject();link_kind link=rpc_read_link_select();
+         if(request&&link!=LINK_NONE) {
+-            cJSON_AddStringToObject(request,"kind","codex");cJSON_AddStringToObject(request,"op","read-ack");
++            cJSON_AddStringToObject(request,"kind","codex");cJSON_AddStringToObject(request,"client",job->client);cJSON_AddStringToObject(request,"op","read-ack");
+             cJSON_AddStringToObject(request,"taskId",job->task);cJSON_AddStringToObject(request,"turnId",job->turn);
+             cJSON_AddStringToObject(request,"requestId",job->receipt);cJSON_AddStringToObject(request,"session",job->session);
+             cJSON_AddStringToObject(request,"message","");
+@@ -51,13 +51,13 @@ static void send_ack(void *argument) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);busy=false;xSemaphoreGive(device_mutex);
+     free(job);vTaskDeleteWithCaps(NULL);
+ }
+-void codex_read_acknowledge(const char *task,const char *turn,const char *receipt,const char *session) {
+-    if(!task||strlen(task)!=36||!turn||strlen(turn)!=36||!receipt||strlen(receipt)!=36||!session||!session[0]||strlen(session)>=40)return;
++void codex_read_acknowledge(const char *client,const char *task,const char *turn,const char *receipt,const char *session) {
++    if(!client||(strcmp(client,"codex")&&strcmp(client,"claude"))||!task||strlen(task)!=36||!turn||strlen(turn)!=36||!receipt||strlen(receipt)!=36||!session||!session[0]||strlen(session)>=40)return;
+     xSemaphoreTake(device_mutex,portMAX_DELAY);
+-    for(int i=0;i<8;i++)if(!strcmp(recent[i].receipt,receipt)) {xSemaphoreGive(device_mutex);return;}
++    for(int i=0;i<8;i++)if(!strcmp(recent[i].client,client)&&!strcmp(recent[i].receipt,receipt)) {xSemaphoreGive(device_mutex);return;}
+     read_ack *job=calloc(1,sizeof(*job));
+     if(job) {
+-        strcpy(job->task,task);strcpy(job->turn,turn);strcpy(job->receipt,receipt);strcpy(job->session,session);
++        strcpy(job->client,client);strcpy(job->task,task);strcpy(job->turn,turn);strcpy(job->receipt,receipt);strcpy(job->session,session);
+         job->queued=esp_timer_get_time()/1000;
+         // Keep at most one live receipt task; subsequent render ticks retry
+         // starting a different receipt after it finishes.
+diff --git a/firmware/main/codex_read_ack.h b/firmware/main/codex_read_ack.h
+index 5625ad4..dd4f6c5 100644
+--- a/firmware/main/codex_read_ack.h
++++ b/firmware/main/codex_read_ack.h
+@@ -1,3 +1,3 @@
+ #pragma once
+ // Called only after the matching public reply has rendered in the open view.
+-void codex_read_acknowledge(const char *task,const char *turn,const char *receipt,const char *session);
++void codex_read_acknowledge(const char *client,const char *task,const char *turn,const char *receipt,const char *session);
+diff --git a/firmware/main/codex_remote.c b/firmware/main/codex_remote.c
+index bc40e25..bcf724d 100644
+--- a/firmware/main/codex_remote.c
++++ b/firmware/main/codex_remote.c
+@@ -18,12 +18,15 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-typedef struct { char task_id[37], message[2001], session[40],op[16],request_id[37],expected_turn[37],images[3][37]; link_kind transport; int64_t issued_at; bool read_only; int page,turn_offset; uint8_t *image;size_t image_size; unsigned host_generation;int mode; } codex_job;
++static char selected_client[7]="codex";
++void codex_remote_set_client(const char *client){if(client&&(!strcmp(client,"codex")||!strcmp(client,"claude")))snprintf(selected_client,sizeof(selected_client),"%s",client);}
++typedef struct { char client[7],task_id[37], message[2001], session[40],op[16],request_id[37],expected_turn[37],images[3][37]; link_kind transport; int64_t issued_at; bool read_only; int page,turn_offset; uint8_t *image;size_t image_size; unsigned host_generation;int mode; } codex_job;
+ #include "photo_upload_retry.h"
+ static char result[96];
+ static char result_task[37];
+ static int result_code;
+-static bool result_confirmable;
++static bool result_confirmable,result_final;
++bool codex_remote_delivery_final(void){xSemaphoreTake(device_mutex,portMAX_DELAY);bool value=result_final;xSemaphoreGive(device_mutex);return value;}
+ bool codex_remote_can_confirm(const char *task) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);bool ok=result_confirmable&&!strcmp(task,result_task);xSemaphoreGive(device_mutex);return ok;
+ }
+@@ -129,6 +132,7 @@ static void send_job(void *arg) {
+     char nonce[33], proof[65], digest[65], auth[155], url[112];
+     device_nonce(nonce);
+     cJSON *json = cJSON_CreateObject();
++    cJSON_AddStringToObject(json,"client",job->client);
+     cJSON_AddStringToObject(json, "session", job->session);
+     cJSON_AddStringToObject(json, "taskId", job->task_id);
+     cJSON_AddStringToObject(json, "message", job->message);
+@@ -244,16 +248,17 @@ static void send_job(void *arg) {
+     }
+     cJSON *error=cJSON_GetObjectItemCaseSensitive(reply,"error");
+     const char *reason=cJSON_IsString(error)?error->valuestring:"";
+-    xSemaphoreTake(device_mutex,portMAX_DELAY);result_confirmable=status==504&&cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"canConfirmDelivered"));xSemaphoreGive(device_mutex);
++    xSemaphoreTake(device_mutex,portMAX_DELAY);result_final=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"deliveryFinal"));result_confirmable=status==504&&cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"canConfirmDelivered"));xSemaphoreGive(device_mutex);
+     if(!strcmp(job->op,"read")){cJSON *turn=cJSON_GetObjectItemCaseSensitive(reply,"turnId");xSemaphoreTake(device_mutex,portMAX_DELAY);snprintf(result_turn,sizeof(result_turn),"%s",cJSON_IsString(turn)?turn->valuestring:"");xSemaphoreGive(device_mutex);}
+     if(image_upload){photo_tx_finish(status);upload_mark(job,upload_started,status);char message[96];if(status==200)snprintf(message,sizeof(message),"照片已添加（%s，%.1f 秒）",link_name(job->transport),(esp_timer_get_time()-upload_started)/1000000.0);else snprintf(message,sizeof(message),"图片未上传，请保留预览并重试");set_result(message,status);}
+     else if(!strcmp(job->op,"draft-load")||!strcmp(job->op,"draft-save"))set_result(status==200?"草稿已同步":"草稿暂未同步",status);
+     else if(!strcmp(job->op,"read"))set_result(status==200?"回复已刷新":status==404?"任务已变化，请重新选择":"回复暂时无法刷新，请稍后重试",status);
+     else if((!strcmp(job->op,"receipt")||!strcmp(job->op,"receipt-confirm"))&&status!=202&&status!=409) set_result("送达尚未确认，草稿已保留",status);
++    else if(status==409&&!strcmp(reason,"message_cancelled"))set_result("排队消息已取消，草稿已保留",409);
+     else set_result(status == 202 ? "已发送，可查看会话动态" : status == 404 ? "任务已变化，请刷新后重选" :
+         status == 400 ? "状态已变化，请等待电脑数据刷新" : status == 429 ? "发送太快，请稍后再试" :
+         status == 403 ? "未发送：电脑未允许此操作" : status == 409 ? codex_rejection_feedback(reason) : status == 401 ? "设备认证失败，请检查配对" :
+-        status == 503 ? (!strcmp(reason,"desktop_load_timeout")?"Codex 会话加载超时，草稿已保留":!strcmp(reason,"desktop_load_failed")?"无法打开 Codex，草稿已保留":!strcmp(reason,"desktop_owner_unavailable")?"请在电脑 Codex 打开该会话":!strcmp(reason,"desktop_version_unsupported")?"Codex 版本不兼容，请更新桥接":!strcmp(reason,"turn_start_failed")?"Codex 拒绝启动，文字已保留":"Codex 连接失败，文字已保留") : "发送结果不确定，请先在电脑端查看", status);
++        status == 503 ? (!strcmp(reason,"desktop_load_timeout")?"Codex 会话加载超时，草稿已保留":!strcmp(reason,"desktop_load_failed")?"无法打开 Codex，草稿已保留":!strcmp(reason,"desktop_owner_unavailable")?"请在电脑 Codex 打开该会话":!strcmp(reason,"desktop_version_unsupported")?"Codex 版本不兼容，请更新桥接":!strcmp(reason,"turn_start_failed")?"Codex 拒绝启动，文字已保留":"会话连接失败，文字已保留") : "发送结果不确定，请先在电脑端查看", status);
+     cJSON_Delete(reply);
+     free(response.body);
+     if(wifi_bulk)wifi_performance_bulk(false);
+@@ -271,14 +276,14 @@ static bool start_job(const char *op,const char *task_id,const char *message,con
+     xSemaphoreTake(device_mutex, portMAX_DELAY);
+     if (busy||transport_benchmark_busy()) { xSemaphoreGive(device_mutex); return false; }
+     busy = true; snprintf(result, sizeof(result), "%s",read_only?"正在读取回复…":"正在发送...");
+-    result_code = -1;result_confirmable=false;
++    result_code = -1;result_confirmable=false;result_final=false;
+     cJSON_Delete(result_view);result_view=NULL;
+     snprintf(result_task, sizeof(result_task), "%s", task_id);
+     xSemaphoreGive(device_mutex);
+     if(image&&image_size)photo_tx_begin();
+     codex_job *job = calloc(1, sizeof(*job));
+     if (job) {
+-        job->transport=transport;
++        job->transport=transport;snprintf(job->client,sizeof(job->client),"%s",selected_client);
+         job->host_generation=host_generation;job->mode=mode;
+         if(images)memcpy(job->images,images,sizeof(job->images));
+         if(image&&image_size){job->image=heap_caps_malloc(image_size,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(job->image){photo_tx_copy(job->image,image,image_size);job->image_size=image_size;}}
+diff --git a/firmware/main/codex_remote.h b/firmware/main/codex_remote.h
+index e17733d..ecf2d81 100644
+--- a/firmware/main/codex_remote.h
++++ b/firmware/main/codex_remote.h
+@@ -20,3 +20,7 @@ void codex_remote_read_result(char *out,unsigned size);
+ cJSON *codex_remote_take_read_view(void);
+ 
+ bool codex_remote_can_confirm(const char *task_id);
++
++void codex_remote_set_client(const char *client);
++
++bool codex_remote_delivery_final(void);
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+index f269ecc..6838cab 100644
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -212,6 +212,9 @@ static const char *preview_result_turn="";
+ static void codex_remote_read_result(char *out,unsigned size){snprintf(out,size,"%s",preview_result_turn);}
+ static bool preview_confirmable;
+ static bool codex_remote_busy(void){return false;}
++static bool codex_remote_delivery_final(void){return false;}
++static void codex_remote_set_client(const char *client){(void)client;}
++void voice_remote_set_client(const char *client){(void)client;}
+ static bool codex_remote_can_confirm(const char *task){(void)task;return preview_confirmable;}
+ static char preview_operation[16],preview_request_id[37];
+ static int preview_sync_count;
+@@ -367,7 +370,7 @@ static void workbench_return(lv_event_t *e);
+ static int clock_return_page=-1,clock_return_detail,clock_return_settings;
+ static void visible(lv_obj_t *o,bool show);
+ static void display_controls_refresh(void);
+-static const char *names[] = {"总览", "模型额度", "天气", "行情", "系统", "音乐", "桌宠", "时钟", "Codex 任务", "设置", "应用", "应用","日历","日程","控制"};
++static const char *names[] = {"总览", "模型额度", "天气", "行情", "系统", "音乐", "桌宠", "时钟", "对话", "设置", "应用", "应用","日历","日程","控制"};
+ static lv_obj_t *tabs, *clock_label, *banner, *weather, *stocks, *music, *progress, *clock_big,
+     *date_label, *setup_values[4], *setup_checks[4], *save_status, *order_rows[8], *pet_labels[2];
+ static lv_obj_t *display_choices[3],*display_fixed_page,*display_mode_hint,*display_cycle_options,*display_fixed_options,*display_home_options;
+@@ -379,6 +382,25 @@ static lv_image_dsc_t descriptors[3];
+ static int last_frame[] = {-1, -1, -1};
+ static ui_preferences prefs;
+ static cJSON *shown;
++static unsigned workspace_client;
++static lv_obj_t *workspace_buttons[2],*workspace_empty_label;
++static char workspace_open_target[37],workspace_open_reply[64];
++static int codex_reply_return=8;
++static lv_obj_t *codex_reply_title;
++static void codex_reply_open_turn(lv_event_t *e,const char *turn);
++static unsigned workspace_open_client;
++static int64_t workspace_open_deadline;
++static void workspace_open_tick(void);
++static bool workspace_update_clients(void);
++static char workspace_tasks[2][37],workspace_projects[2][17];
++static int workspace_switch_pending=-1;
++static bool workspace_stopping;
++static void workspace_stop_tick(void);
++static const char *workspace_name(void){return workspace_client?"claude":"codex";}
++static const char *workspace_key(void){return workspace_client?"claudeTasks":"codexTasks";}
++static bool workspace_choose(unsigned next);
++static void workspace_changed(lv_event_t *e);
++static void workspace_switch_tick(void);
+ static link_kind last_link = LINK_NONE;
+ static int64_t last_received, last_change, alert_until, offline_since = -1, pet_elapsed[2], last_tick;
+ static lv_obj_t *alert_dot;
+@@ -394,6 +416,7 @@ static bool changing_page, saver, offline_saver;
+ static lv_obj_t *codex_list, *codex_project_picker, *codex_input, *codex_keyboard, *codex_hint, *codex_physical, *codex_send_button;
+ static lv_obj_t *codex_reply_button,*codex_reply_overlay,*codex_reply_text,*codex_reply_status,*codex_reply_scroll;
+ static lv_obj_t *codex_reply_document;
++static bool claude_reader_opened;
+ static lv_obj_t *network_window,*network_details,*network_picker,*network_feedback,*network_retry;
+ static lv_obj_t *network_diag_window,*network_diag_feedback,*network_wifi_card,*network_wifi_state,*network_wifi_name;
+ static lv_obj_t *network_diag_state,*network_diag_name,*network_diag_ip,*network_diag_host;
+@@ -480,9 +503,9 @@ static void codex_notice_tick(int64_t now,bool changed);
+ static void codex_notice_read(void);
+ #ifdef TAB5_UI_PREVIEW
+ static unsigned preview_read_acks;
+-static char preview_read_receipt[37];
+-void codex_read_acknowledge(const char *task,const char *turn,const char *receipt,const char *session) {
+-    (void)task;(void)turn;(void)session;
++static char preview_read_receipt[37],preview_read_client[7];
++void codex_read_acknowledge(const char *client,const char *task,const char *turn,const char *receipt,const char *session) {
++    (void)task;(void)turn;(void)session;snprintf(preview_read_client,sizeof(preview_read_client),"%s",client);
+     if(strlen(receipt)==36&&strcmp(preview_read_receipt,receipt)){strcpy(preview_read_receipt,receipt);preview_read_acks++;}
+ }
+ #else
+@@ -1021,7 +1044,7 @@ static void render_system(void) {
+ }
+ // Text lives in PSRAM. Only the latest draft (or unresolved send) is
+ // checkpointed locally; the host keeps the per-conversation draft library.
+-typedef struct {char id[37],request[37],operation[16],turn[37],images[3][37];uint16_t *thumbnails[3];char *text;bool loaded,dirty;unsigned revision,edited;} codex_draft;
++typedef struct {unsigned client;char id[37],request[37],operation[16],turn[37],images[3][37];uint16_t *thumbnails[3];char *text;bool loaded,dirty;unsigned revision,edited;} codex_draft;
+ static unsigned codex_edit_sequence;
+ static codex_draft *codex_drafts;
+ static ui_codex_checkpoint *codex_checkpoint,*codex_checkpoint_saved;
+@@ -1068,10 +1091,10 @@ static codex_draft *codex_draft_for(const char *id,bool create) {
+     if(!codex_drafts)return NULL;
+     codex_draft *empty=NULL;
+     for(int i=0;i<80;i++) {
+-        if(!strcmp(codex_drafts[i].id,id))return &codex_drafts[i];
++        if(codex_drafts[i].client==workspace_client&&!strcmp(codex_drafts[i].id,id))return &codex_drafts[i];
+         if(!codex_drafts[i].id[0]&&!empty)empty=&codex_drafts[i];
+     }
+-    if(create&&empty){snprintf(empty->id,sizeof(empty->id),"%s",id);return empty;}
++    if(create&&empty){empty->client=workspace_client;snprintf(empty->id,sizeof(empty->id),"%s",id);return empty;}
+     return NULL;
+ }
+ static bool codex_store_text(codex_draft *d,const char *value,bool dirty) {
+@@ -1095,6 +1118,7 @@ static CODEX_ACTION_COMPACT bool codex_checkpoint_write(void) {
+     if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].request[0]){d=&codex_drafts[i];break;}
+     memset(codex_checkpoint,0,sizeof(*codex_checkpoint));codex_checkpoint->version=1;
+     if(d) {
++        codex_checkpoint->client=d->client;
+         snprintf(codex_checkpoint->task,sizeof(codex_checkpoint->task),"%s",d->id);
+         snprintf(codex_checkpoint->text,sizeof(codex_checkpoint->text),"%s",d->text?d->text:"");
+         snprintf(codex_checkpoint->request,sizeof(codex_checkpoint->request),"%s",d->request);
+@@ -1138,6 +1162,8 @@ static CODEX_ACTION_COMPACT void codex_load_draft(void) {
+ static CODEX_ACTION_COMPACT void codex_restore_draft(void) {
+     if(!codex_checkpoint)codex_checkpoint=codex_alloc(sizeof(*codex_checkpoint));
+     if(!codex_checkpoint||!ui_codex_checkpoint_load(codex_checkpoint)||strlen(codex_checkpoint->task)!=36)return;
++    workspace_client=codex_checkpoint->client;
++    codex_remote_set_client(workspace_name());voice_remote_set_client(workspace_name());
+     codex_draft *d=codex_draft_for(codex_checkpoint->task,true);
+     if(!codex_store_text(d,codex_checkpoint->text,true))return;
+     snprintf(d->request,sizeof(d->request),"%s",codex_checkpoint->request);
+@@ -1147,14 +1173,14 @@ static CODEX_ACTION_COMPACT void codex_restore_draft(void) {
+     snprintf(codex_selected,sizeof(codex_selected),"%s",d->id);codex_restore_project=true;codex_load_draft();
+ }
+ static CODEX_ACTION_COMPACT bool codex_request(const char *op,const char *task,const char *value,const char *id,const char *turn) {
+-    if(photo_flow)return false;
++    if(photo_flow||workspace_stopping)return false;
+     int64_t age=esp_timer_get_time()/1000-last_received;
+     const char *session=text(item(shown,"pcInput"),"session");
+     codex_draft *d=codex_draft_for(task,false);
+     return age>=0&&age<=6000&&strcmp(session,"--")&&codex_remote_with_images(op,task,value,session,(int64_t)num(shown,"epochMilliseconds")+age,id,turn,strcmp(op,"interrupt")&&d?d->images:NULL);
+ }
+ static bool codex_running(void) {
+-    cJSON *control=item(item(shown,"codexTasks"),"control");
++    cJSON *control=item(item(shown,workspace_key()),"control");
+     return !strcmp(text(control,"taskId"),codex_selected)&&yes(control,"running")&&strlen(text(control,"turnId"))==36;
+ }
+ // Keep the shared guard out of both callers in the nearly full OTA image.
+@@ -1186,9 +1212,15 @@ static void codex_control_style(void) {
+     }
+     codex_draft *d=codex_draft_for(codex_selected,false);
+     if(!codex_waiting&&!codex_send_queued)ui_text(lv_obj_get_child(codex_send_button,0),d&&d->request[0]?"核对送达":codex_running()?"追加":"发送");
++    if(workspace_client) {
++        cJSON *control=item(item(shown,workspace_key()),"control");
++        bool available=!strcmp(text(control,"taskId"),codex_selected)&&yes(control,codex_running()?"canSteer":"canSend");
++        if(!codex_waiting&&!codex_send_queued&&((d&&d->request[0])||available))lv_obj_remove_state(codex_send_button,LV_STATE_DISABLED);
++        else lv_obj_add_state(codex_send_button,LV_STATE_DISABLED);
++    }
+     if(codex_interrupt_button) {
+         visible(codex_interrupt_button,codex_running());
+-        if(codex_waiting||codex_reading||codex_syncing||(d&&d->request[0]))lv_obj_add_state(codex_interrupt_button,LV_STATE_DISABLED);
++        if(codex_waiting||codex_reading||codex_syncing||workspace_stopping||(d&&d->request[0]&&!workspace_client))lv_obj_add_state(codex_interrupt_button,LV_STATE_DISABLED);
+         else lv_obj_remove_state(codex_interrupt_button,LV_STATE_DISABLED);
+     }
+ }
+@@ -1208,7 +1240,7 @@ static void codex_sync_tick(int64_t now) {
+         }
+     }
+     if(codex_load_waiting) {
+-        cJSON *view=item(item(shown,"codexTasks"),"draftView");
++        cJSON *view=item(item(shown,workspace_key()),"draftView");
+         if(!strcmp(text(view,"taskId"),codex_sync_task)&&!strcmp(text(view,"requestId"),codex_sync_request)) {
+             codex_draft *d=codex_draft_for(codex_sync_task,false);
+             if(d&&d->revision==codex_sync_revision&&!d->dirty) {
+@@ -1235,7 +1267,7 @@ static void codex_sync_tick(int64_t now) {
+     // request above, but do not keep launching hidden draft jobs during a visit.
+     if(photo_flow||quick_visible||photo_open_pending||codex_voice_start_pending||codex_reading||codex_syncing||codex_send_queued||now<codex_sync_next)return;
+     codex_draft *d=NULL;
+-    if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].dirty&&!codex_drafts[i].request[0]){d=&codex_drafts[i];break;}
++    if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].client==workspace_client&&codex_drafts[i].dirty&&!codex_drafts[i].request[0]){d=&codex_drafts[i];break;}
+     if(!d) {d=codex_draft_for(codex_selected,true);if(!d||d->loaded||d->request[0])return;}
+     snprintf(codex_sync_op,sizeof(codex_sync_op),"%s",d->dirty?"draft-save":"draft-load");
+     codex_uuid(codex_sync_request);snprintf(codex_sync_task,sizeof(codex_sync_task),"%s",d->id);codex_sync_revision=d->revision;
+@@ -1342,12 +1374,12 @@ static int codex_cache_turn_index(const char *from,int direction) {
+ }
+ static bool codex_public_reply(cJSON *view,const char *body);
+ static void codex_cache_visible(void) {
+-    cJSON *view=codex_inline_reply?item(codex_inline_reply,"replyView"):item(item(shown,"codexTasks"),"replyView");
++    cJSON *view=codex_inline_reply?item(codex_inline_reply,"replyView"):item(item(shown,workspace_key()),"replyView");
+     if(strcmp(text(view,"taskId"),codex_selected)||strcmp(text(view,"turnId"),codex_reply_turn)||num(view,"page")!=codex_reply_page||!codex_public_reply(view,lv_label_get_text(codex_reply_text)))return;
+     cJSON *payload=cJSON_CreateObject();if(!payload)return;
+     cJSON_AddStringToObject(payload,"taskId",codex_selected);
+     cJSON_AddStringToObject(payload,"text",lv_label_get_text(codex_reply_text));
+-    cJSON_AddStringToObject(payload,"receipt",text(item(item(shown,"codexTasks"),"receipts"),codex_selected));
++    cJSON_AddStringToObject(payload,"receipt",text(item(item(shown,workspace_key()),"receipts"),codex_selected));
+     cJSON_AddItemToObject(payload,"replyView",cJSON_Duplicate(view,true));
+     codex_cache_store(payload);cJSON_Delete(payload);
+ }
+@@ -1390,17 +1422,28 @@ static void render_home_task(void) {
+     if(home_companion_provider==0) {
+         visible(home_companion,false);visible(home_task_title,true);visible(model_dot[1],false);
+         for(int i=0;i<2;i++){visible(home_system_captions[i],false);visible(home_system_values[i],false);}
+-        ui_text(home_task_note,"当前客户端");ui_text(home_task_title,"Claude Code");
++        cJSON *claude_title_value=item(item(shown,"claudeSession"),"title");
++        const char *claude_title=cJSON_IsString(claude_title_value)&&claude_title_value->valuestring&&claude_title_value->valuestring[0]?claude_title_value->valuestring:NULL;
++        ui_text(home_task_note,claude_title?"最近会话":"当前客户端");
++        ui_text(home_task_title,claude_title?claude_title:"Claude Code");
+         lv_obj_set_width(home_task_title,480);lv_obj_set_y(home_task_title,68);
+         lv_obj_set_pos(model_state[1],522,4);lv_obj_set_width(model_state[1],176);
+         if(lv_obj_get_style_text_align(model_state[1],0)!=LV_TEXT_ALIGN_CENTER)
+             lv_obj_set_style_text_align(model_state[1],LV_TEXT_ALIGN_CENTER,0);
+         ui_text(model_state[1],claude_companion_label(claude_mood));tint(model_state[1],companion_color(claude_mood));
+-        ui_text(lv_obj_get_child(home_task_action,0),"查看 Claude 额度");
++        const char *claude_task=text(item(shown,"claudeSession"),"taskId");
++        bool workspace_supported=num(shown,"aiDialogueVersion")>=1||cJSON_IsObject(item(shown,"claudeTasks"));
++        bool workspace_ready=cJSON_IsObject(item(shown,"claudeTasks"))&&strlen(claude_task)==36;
++        bool claude_read_ready=workspace_ready||(!workspace_supported&&strlen(text(item(shown,"claudeSession"),"readBinding"))==32&&yes(item(shown,"claudeSession"),"repliesEnabled"));
++        bool unread=false;
++        if(codex_notices)for(int i=0;i<80;i++)if(!strcmp(codex_notices[i].task,claude_task)&&codex_notices[i].unread){unread=true;break;}
++        ui_text(lv_obj_get_child(home_task_action,0),claude_read_ready?(unread?"查看回复":"查看对话"):"对话待同步");
++        if(claude_read_ready)lv_obj_remove_state(home_task_action,LV_STATE_DISABLED);else lv_obj_add_state(home_task_action,LV_STATE_DISABLED);
+         claude_pet_tick(&home_claude,claude_mood,esp_timer_get_time()/1000,true);
+         return;
+     }
+     visible(home_task_title,valid);
++    lv_obj_remove_state(home_task_action,LV_STATE_DISABLED);
+     for(int i=0;i<2;i++){visible(home_system_captions[i],!valid);visible(home_system_values[i],!valid);}
+     if(valid)ui_text(home_task_title,text(recent,"title"));
+     else {
+@@ -1422,7 +1465,7 @@ static void render_home_task(void) {
+         lv_obj_set_style_text_align(model_state[1],status_align,0);
+     visible(model_dot[1],!valid);
+     ui_text(model_state[1],valid?codex_companion_label(mood.state):(shown?"电脑状态":"等待电脑数据"));
+-    ui_text(lv_obj_get_child(home_task_action,0),!valid?"查看电脑状态":home_task_unread?"查看完成内容":"继续 Codex 任务");
++    ui_text(lv_obj_get_child(home_task_action,0),!valid?"查看电脑状态":home_task_unread?"查看回复":"查看对话");
+     uint32_t tone=valid?companion_color(mood.state):MUTED;
+     tint(model_state[1],tone);ui_bg_color(model_dot[1],lv_color_hex(tone),0);
+     claude_pet_tick(&home_claude,claude_mood,esp_timer_get_time()/1000,home_companion_provider==0);
+@@ -1437,6 +1480,7 @@ static bool codex_public_reply(cJSON *view,const char *body) {
+ }
+ static void render_codex(void) {
+     render_home_task();
++    if(!workspace_update_clients())return;
+     // Wireless telemetry can still list the previous desktop selection. The
+     // confirmed Quick Console target must not be cleared by that older catalog.
+     if(quick_visible)return;
+@@ -1449,7 +1493,7 @@ static void render_codex(void) {
+         snprintf(codex_cache_session,sizeof(codex_cache_session),"%s",cache_session);
+     }
+     if (!codex_list || !shown || codex_waiting || codex_voice_waiting || codex_send_queued) return;
+-    cJSON *remote = item(shown, "codexTasks"), *tasks = item(remote, "tasks"), *projects=item(remote,"projects");
++    cJSON *remote = item(shown, workspace_key()), *tasks = item(remote, "tasks"), *projects=item(remote,"projects");
+     int count = cJSON_GetArraySize(tasks);
+     if(codex_default_pending&&count&&codex_default_focus(codex_default_all))return;
+     if(codex_restore_project&&!count)return;
+@@ -1508,6 +1552,7 @@ static void render_codex(void) {
+     visible(codex_empty,visible_count==0);
+     if(selected<0){if(codex_selected[0]){if(!codex_save_draft())return;codex_selected[0]=0;codex_load_draft();}ui_text(codex_hint,"输入");}
+     else ui_text(codex_hint,lv_label_get_text(codex_task_titles[selected]));
++    ui_text_fmt(codex_reply_title,"%s · %s",workspace_client?"Claude":"Codex",selected>=0?lv_label_get_text(codex_task_titles[selected]):"会话动态");
+     cJSON *receipt = item(item(remote, "receipts"), codex_selected);
+     bool task_running=cJSON_IsString(receipt)&&!strcmp(receipt->valuestring,"运行中");
+     visible(codex_run_badge,task_running);
+@@ -1564,7 +1609,7 @@ static void render_codex(void) {
+         for(int i=0;i<80;i++)if(!strcmp(codex_notices[i].task,codex_selected)&&
+             !strcmp(codex_notices[i].turn,codex_reply_turn)){
+                 codex_notice_read();
+-                codex_read_acknowledge(codex_selected,codex_reply_turn,text(view,"readReceipt"),text(item(shown,"pcInput"),"session"));
++                codex_read_acknowledge(workspace_name(),codex_selected,codex_reply_turn,text(view,"readReceipt"),text(item(shown,"pcInput"),"session"));
+                 break;
+             }
+     }
+@@ -1665,6 +1710,80 @@ static void codex_select_task(const char *id) {
+     ui_text(codex_receipt,"");ui_text(codex_voice_hint,"");
+     render_codex();
+ }
++static bool workspace_switch_busy(void) {
++    return workspace_stopping||quick_visible||photo_flow||photo_open_pending||codex_waiting||codex_reading||codex_voice_waiting||codex_voice_start_pending||codex_send_queued||codex_syncing||codex_load_waiting||codex_remote_busy();
++}
++static bool workspace_dirty(void) {
++    if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].client==workspace_client&&codex_drafts[i].dirty&&!codex_drafts[i].request[0])return true;
++    return false;
++}
++static void workspace_apply(unsigned next) {
++    codex_bookmark_save();
++    snprintf(workspace_tasks[workspace_client],37,"%s",codex_selected);
++    snprintf(workspace_projects[workspace_client],17,"%s",codex_project_selected);
++    workspace_client=next;workspace_switch_pending=-1;
++    codex_remote_set_client(workspace_name());voice_remote_set_client(workspace_name());
++    snprintf(codex_selected,sizeof(codex_selected),"%s",workspace_tasks[next]);
++    snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",workspace_projects[next]);
++    cJSON_Delete(codex_inline_reply);codex_inline_reply=NULL;
++    codex_nav_revision++;codex_nav_queued=codex_nav_pending=codex_turn_pending=false;
++    codex_nav_timed_out=false;codex_reply_turn[0]=codex_reply_selected[0]=0;
++    codex_reply_page=-1;codex_reply_follow=true;codex_restore_project=codex_selected[0]!=0;
++    codex_default_pending=!codex_selected[0];codex_default_all=true;
++    codex_feedback_pinned=codex_submit_accepted=false;last_codex_status[0]=0;
++    ui_text(codex_receipt,"");ui_text(codex_voice_hint,"");codex_load_draft();
++    for(int i=0;i<2;i++)if(workspace_buttons[i])ui_bg_color(workspace_buttons[i],lv_color_hex(i==next?0x465C65:0x354247),0);
++    render_codex();
++}
++static bool workspace_choose(unsigned next) {
++    if(next>1)return false;
++    if(next==workspace_client)return true;
++    if(workspace_switch_busy()){ui_text(codex_voice_hint,"正在同步或录入，请稍后切换");return false;}
++    if(!codex_save_draft())return false;
++    if(workspace_dirty()){workspace_switch_pending=(int)next;codex_sync_next=0;ui_text(codex_voice_hint,"正在保存草稿，完成后切换");return false;}
++    workspace_apply(next);return true;
++}
++static bool workspace_update_clients(void) {
++    if(!workspace_buttons[0])return true;
++    bool available[2]={cJSON_GetArraySize(item(item(shown,"codexTasks"),"tasks"))>0,cJSON_GetArraySize(item(item(shown,"claudeTasks"),"tasks"))>0};
++    // Retain an unsent/uncertain local composer even if its catalog disappears.
++    if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].id[0]&&(codex_drafts[i].dirty||codex_drafts[i].request[0]||(codex_drafts[i].text&&codex_drafts[i].text[0])||codex_drafts[i].images[0][0]))available[codex_drafts[i].client?1:0]=true;
++    int count=available[0]+available[1];
++    visible(workspace_empty_label,!count);
++    for(int i=0;i<2;i++) {
++        visible(workspace_buttons[i],available[i]);
++        if(available[i]){lv_obj_set_x(workspace_buttons[i],count==1?0:i*176);lv_obj_set_width(workspace_buttons[i],count==1?342:166);ui_bg_color(workspace_buttons[i],lv_color_hex((unsigned)i==workspace_client?0x465C65:0x354247),0);}
++    }
++    if(count==1&&!available[workspace_client]&&!workspace_open_target[0]) {
++        workspace_choose(available[1]?1:0);return false;
++    }
++    return true;
++}
++static void workspace_open_tick(void) {
++    if(!workspace_open_target[0]||workspace_switch_busy())return;
++    if(esp_timer_get_time()/1000>workspace_open_deadline){workspace_open_target[0]=0;ui_text(codex_receipt,"总览对话尚未同步，请返回总览重试");return;}
++    if(!workspace_choose(workspace_open_client))return;
++    cJSON *task=NULL;
++    cJSON_ArrayForEach(task,item(item(shown,workspace_key()),"tasks"))if(!strcmp(text(task,"id"),workspace_open_target)) {
++        char target[37];snprintf(target,sizeof(target),"%s",workspace_open_target);workspace_open_target[0]=0;
++        snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",text(task,"projectId"));
++        codex_restore_project=false;codex_default_pending=false;codex_select_task(target);page(8);render_codex();
++        codex_open_latest=true;codex_reply_open_turn(NULL,workspace_open_reply[0]?workspace_open_reply:NULL);
++        codex_reply_return=0;workspace_open_reply[0]=0;
++        return;
++    }
++}
++static void workspace_open_task(unsigned client,const char *task) {
++    if(strlen(task)!=36)return;
++    workspace_open_reply[0]=0;
++    if(codex_notices)for(int i=0;i<80;i++)if(!strcmp(codex_notices[i].task,task)&&codex_notices[i].unread){snprintf(workspace_open_reply,sizeof(workspace_open_reply),"%s",codex_notices[i].turn);break;}
++    snprintf(workspace_open_target,sizeof(workspace_open_target),"%s",task);workspace_open_client=client;workspace_open_deadline=esp_timer_get_time()/1000+15000;
++    workspace_open_tick();
++}
++static void workspace_changed(lv_event_t *e){workspace_open_target[0]=0;workspace_choose((unsigned)(uintptr_t)lv_event_get_user_data(e));}
++static void workspace_switch_tick(void) {
++    if(workspace_switch_pending>=0&&!workspace_switch_busy()&&!workspace_dirty())workspace_apply((unsigned)workspace_switch_pending);
++}
+ static void codex_selected_changed(lv_event_t *e) {
+     int index=(int)(intptr_t)lv_event_get_user_data(e);
+     if(index<0||index>=8||!codex_task_ids[index][0])return;
+@@ -1674,7 +1793,7 @@ static void codex_selected_changed(lv_event_t *e) {
+ static bool codex_default_focus(bool all_projects) {
+     if(codex_waiting||codex_voice_waiting||codex_send_queued||!codex_save_draft())return false;
+     cJSON *latest=NULL,*task=NULL;
+-    cJSON_ArrayForEach(task,item(item(shown,"codexTasks"),"tasks")) {
++    cJSON_ArrayForEach(task,item(item(shown,workspace_key()),"tasks")) {
+         if(strlen(text(task,"id"))!=36)continue;
+         if(!all_projects&&codex_project_selected[0]&&strcmp(text(task,"projectId"),codex_project_selected))continue;
+         if(!latest||num(task,"updatedAt")>num(latest,"updatedAt"))latest=task;
+@@ -1689,11 +1808,11 @@ static bool codex_default_focus(bool all_projects) {
+ }
+ static void codex_reply_refresh(lv_event_t *e) {
+     if(codex_nav_timed_out)return;
+-    if(photo_open_pending||photo_flow||codex_voice_start_pending||codex_reading||codex_waiting||codex_voice_waiting||codex_syncing||codex_load_waiting||codex_send_queued||!codex_selected[0])return;
++    if(workspace_stopping||photo_open_pending||photo_flow||codex_voice_start_pending||codex_reading||codex_waiting||codex_voice_waiting||codex_syncing||codex_load_waiting||codex_send_queued||!codex_selected[0])return;
+     codex_read_next=esp_timer_get_time()/1000+3000;
+     int64_t age=esp_timer_get_time()/1000-last_received;
+     const char *session=text(item(shown,"pcInput"),"session");
+-    cJSON *reply_view=codex_inline_reply?item(codex_inline_reply,"replyView"):item(item(shown,"codexTasks"),"replyView");
++    cJSON *reply_view=codex_inline_reply?item(codex_inline_reply,"replyView"):item(item(shown,workspace_key()),"replyView");
+     bool cache_only=codex_reply_selected[0]&&!codex_nav_queued&&!codex_nav_pending&&
+         codex_public_reply(reply_view,lv_label_get_text(codex_reply_text));
+     // A pinned public page is locally readable. Only explicit navigation or
+@@ -1765,6 +1884,7 @@ static void codex_turn_navigate(lv_event_t *e) {
+     codex_navigation_start();
+ }
+ static void codex_reply_open_turn(lv_event_t *e,const char *turn) {
++    codex_reply_return=8;
+     if(codex_voice_waiting)return;
+     (void)e;
+     codex_keyboard_done(NULL);
+@@ -1778,7 +1898,7 @@ static void codex_reply_open_turn(lv_event_t *e,const char *turn) {
+     if(codex_notices)for(int i=0;i<80;i++)if(!strcmp(codex_notices[i].task,codex_selected)&&codex_notices[i].unread)latest=true;
+     if(codex_waiting||codex_send_queued) {
+         ui_text(codex_reply_status,codex_send_queued?"正在准备发送…":"正在发送…");
+-        codex_reply_set_text("消息正在交给电脑 Codex，确认送达后会自动更新动态。");
++        codex_reply_set_text("消息正在交给电脑，确认送达后会自动更新动态。");
+         codex_read_next=0;
+         return;
+     }
+@@ -1906,6 +2026,8 @@ static void codex_reply_close(lv_event_t *e) {
+     codex_prefetch_armed=false;
+     codex_bookmark_save();
+     visible(codex_reply_overlay,false);
++    int target=codex_reply_return;codex_reply_return=8;
++    if(target!=8)page(target);
+ }
+ static void codex_project_changed(lv_event_t *e) {
+     if(codex_waiting||codex_voice_waiting||codex_send_queued)return;
+@@ -1947,7 +2069,7 @@ static CODEX_ACTION_COMPACT void codex_begin_action(const char *operation) {
+     if(!querying&&strcmp(operation,"interrupt")&&(!d->text||!*d->text)&&!d->images[0][0]){ui_text(codex_receipt,"请先输入内容或添加照片");return;}
+     if(!querying) {
+         codex_uuid(d->request);snprintf(d->operation,sizeof(d->operation),"%s",operation);
+-        snprintf(d->turn,sizeof(d->turn),"%s",strcmp(operation,"send")?text(item(item(shown,"codexTasks"),"control"),"turnId"):"");
++        snprintf(d->turn,sizeof(d->turn),"%s",strcmp(operation,"send")?text(item(item(shown,workspace_key()),"control"),"turnId"):"");
+         if(!codex_checkpoint_write()){d->request[0]=0;ui_text(codex_receipt,"草稿未保存，未发送");return;}
+     }
+     if(!codex_request(querying?(!strcmp(operation,"receipt-confirm")?"receipt-confirm":"receipt"):operation,d->id,!strcmp(operation,"interrupt")?"":d->text?d->text:"",d->request,d->turn)) {
+@@ -1957,15 +2079,15 @@ static CODEX_ACTION_COMPACT void codex_begin_action(const char *operation) {
+     snprintf(codex_action,sizeof(codex_action),"%s",d->operation);codex_querying=querying;
+     codex_waiting=true;codex_result_is_read=false;codex_feedback_pinned=true;codex_submit_accepted=false;
+     ui_text(codex_voice_hint,"");
+-    snprintf(codex_receipt_before_send,sizeof(codex_receipt_before_send),"%s",text(item(item(shown,"codexTasks"),"receipts"),codex_selected));
+-    ui_text(codex_receipt,querying?"正在核对送达记录…":!strcmp(operation,"interrupt")?"正在请求停止…":"正在发送到 Codex…");
++    snprintf(codex_receipt_before_send,sizeof(codex_receipt_before_send),"%s",text(item(item(shown,workspace_key()),"receipts"),codex_selected));
++    ui_text(codex_receipt,querying?"正在核对送达记录…":!strcmp(operation,"interrupt")?"正在请求停止…":workspace_client?"正在发送到 Claude…":"正在发送到 Codex…");
+     ui_text(lv_obj_get_child(codex_send_button,0),querying?"查询中…":"发送中…");
+     lv_obj_add_state(codex_list,LV_STATE_DISABLED);lv_obj_add_state(codex_project_picker,LV_STATE_DISABLED);
+     lv_obj_add_state(codex_input,LV_STATE_DISABLED);lv_obj_add_state(codex_send_button,LV_STATE_DISABLED);
+     codex_control_style();codex_keyboard_done(NULL);
+ }
+ static void codex_send(lv_event_t *e) {
+-    (void)e;if(codex_waiting||codex_send_queued)return;
++    (void)e;if(workspace_stopping)return;if(codex_waiting||codex_send_queued)return;
+     if(codex_voice_start_pending){ui_text(codex_voice_hint,"请先取消录音准备，再发送消息");return;}
+     if(codex_voice_waiting){ui_text(codex_voice_hint,"正在结束语音，请等文字确认后发送");return;}
+     if(codex_reading||codex_syncing||codex_load_waiting) {
+@@ -2028,9 +2150,27 @@ static CODEX_ACTION_COMPACT void codex_recovery_tick(int64_t now) {
+     codex_begin_action("receipt");
+     if(codex_waiting){codex_retry_count++;codex_retry_at=now+(2000<<codex_retry_count);}
+ }
++static void workspace_stop_tick(void) {
++    if(!workspace_stopping)return;
++    char status[96];int code=codex_remote_status(codex_selected,status,sizeof(status));
++    if(code==-1)return;
++    workspace_stopping=false;codex_feedback_pinned=true;
++    ui_text(codex_receipt,code==202?"已停止，正在核对排队消息":"停止尚未确认，请查看当前运行状态");
++    codex_read_next=0;codex_retry_at=0;codex_control_style();
++}
+ static void codex_interrupt(lv_event_t *e) {
+-    (void)e;if(codex_reading||codex_syncing||codex_send_queued||!codex_running())return;
+-    codex_draft *d=codex_draft_for(codex_selected,false);if(d&&d->request[0])return;
++    (void)e;if(workspace_stopping||codex_reading||codex_syncing||codex_send_queued||!codex_running())return;
++    codex_draft *d=codex_draft_for(codex_selected,false);
++    if(d&&d->request[0]) {
++        if(!workspace_client||codex_remote_busy())return;
++        int64_t age=esp_timer_get_time()/1000-last_received;
++        const char *session=text(item(shown,"pcInput"),"session");char request[37];codex_uuid(request);
++        if(age<0||age>6000||!strcmp(session,"--"))return;
++        if(codex_remote_request("interrupt",codex_selected,"",session,(int64_t)num(shown,"epochMilliseconds")+age,request,text(item(item(shown,workspace_key()),"control"),"turnId"))) {
++            workspace_stopping=true;ui_text(codex_receipt,"正在停止；保留待核对消息与草稿");codex_control_style();
++        }
++        return;
++    }
+     codex_begin_action("interrupt");
+ }
+ static void codex_apply_key(const char *key, uint8_t modifier) {
+@@ -2503,7 +2643,7 @@ static UI_INIT_SMALL void clock_music(int64_t now, bool fresh) {
+     }
+ }
+ static bool saver_timed_out(uint32_t idle) {
+-    return prefs.saver_minutes>0 && idle>=(uint32_t)prefs.saver_minutes*60000;
++    return !claude_reader_opened&&prefs.saver_minutes>0 && idle>=(uint32_t)prefs.saver_minutes*60000;
+ }
+ static void saver_enter(bool offline) {
+ #if TAB5_LOCAL_ART
+@@ -2636,6 +2776,8 @@ static void camera_tick(void) {
+ }
+ #include "ui_photos.h"
+ #include "ui_quick_console.h"
++#include "ui_claude_reader.h"
++#include "ui_automation.inc"
+ // Same status travels over all three links. Only a newer input timestamp from
+ // a newer sample is activity; heartbeats and delayed link fallback are not.
+ static void pc_input_update(cJSON *data) {
+@@ -2720,17 +2862,20 @@ static void codex_notice_open(lv_event_t *e) {
+     }
+     if(esp_timer_get_time()/1000<alert_until&&!strcmp(lv_label_get_text(banner),"生日提醒 · 点击查看日历")) {page(12);detail_return=0;return;}
+     if(esp_timer_get_time()/1000>=alert_until||!codex_alert_task[0]||codex_voice_waiting||codex_waiting)return;
+-    cJSON *tasks=item(item(shown,"codexTasks"),"tasks"),*task=NULL;
++    for(unsigned client=0;client<2;client++){
++    cJSON *tasks=item(item(shown,client?"claudeTasks":"codexTasks"),"tasks"),*task=NULL;
+     cJSON_ArrayForEach(task,tasks)if(!strcmp(text(task,"id"),codex_alert_task)) {
++        if(!workspace_choose(client)){page(8);return;}
+         if(!codex_save_draft())return;
+         snprintf(codex_selected,sizeof(codex_selected),"%s",codex_alert_task);
+         snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",text(task,"projectId"));
+         codex_load_draft();codex_reply_turn[0]=0;page(8);render_codex();codex_open_latest=true;codex_reply_open(e);return;
+     }
+ }
+-static void codex_notice_tick(int64_t now,bool changed) {
++}
++static void workspace_notice_tick(int64_t now,bool changed,unsigned client) {
+     if(!changed)return;
+-    cJSON *remote=item(shown,"codexTasks"),*ready=item(remote,"repliesReady"),*read=item(remote,"repliesRead"),*unread=item(remote,"repliesUnread"),*entry=NULL;
++    cJSON *remote=item(shown,client?"claudeTasks":"codexTasks"),*ready=item(remote,"repliesReady"),*read=item(remote,"repliesRead"),*unread=item(remote,"repliesUnread"),*entry=NULL;
+     if(!cJSON_IsObject(ready))return;
+     if(!codex_notices) {
+ #ifdef TAB5_UI_PREVIEW
+@@ -2790,11 +2935,15 @@ static void codex_notice_tick(int64_t now,bool changed) {
+     codex_notices_ready=true;
+     if(announce&&prefs.alerts) {
+         voice_remote_notify_reply();alert_until=now+10000;alert_started=now;alert_attention=false;alert_phase=-1;
+-        ui_text(banner,"Codex 新回复 · 查看");
++        ui_text(banner,client?"Claude 新回复 · 查看":"Codex 新回复 · 查看");
+     }
+     codex_notice_style();
+     render_home_task();
+ }
++static void codex_notice_tick(int64_t now,bool changed) {
++    bool ready=codex_notices_ready;workspace_notice_tick(now,changed,0);
++    codex_notices_ready=ready;workspace_notice_tick(now,changed,1);codex_notices_ready=changed||ready;
++}
+ static void alerts(int64_t now, bool changed) {
+     if (!changed)
+         return;
+@@ -3108,6 +3257,8 @@ static void setup_connections(bool paired,const bool connected[3],const bool rea
+ static void sound_refresh(void);
+ #include "display_settings.inc"
+ static void tick_work(lv_timer_t *timer) {
++    ui_automation_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
++    claude_reader_tick();
+     ota_remote_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     boot_verify_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     runtime_diagnostics_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+@@ -3256,7 +3407,7 @@ static void tick_work(lv_timer_t *timer) {
+     codex_read_finish(now);
+     codex_navigation_timeout(now);
+     if(!quick_visible&&codex_nav_queued&&!codex_reading&&now>=codex_read_next)codex_reply_refresh(NULL);
+-    codex_sync_tick(now);
++    workspace_stop_tick();codex_sync_tick(now);workspace_switch_tick();workspace_open_tick();
+     photo_open_tick();
+     codex_voice_pending_tick(now);
+     if(codex_send_queued&&!codex_reading&&!codex_syncing&&!codex_load_waiting) {
+@@ -3283,7 +3434,7 @@ static void tick_work(lv_timer_t *timer) {
+             codex_feedback_pinned=true;codex_submit_accepted=code==202;
+             codex_draft *d=codex_draft_for(codex_selected,false);
+             bool rejected=code==400||code==401||code==403||code==404||code==409||code==429||code==503;
+-            bool definite=code==202||(!codex_querying&&rejected);
++            bool definite=code==202||(!codex_querying&&rejected)||(workspace_client&&codex_remote_delivery_final());
+             if(d&&d->request[0]&&code==504) {
+                 if(strcmp(codex_retry_request,d->request)) {snprintf(codex_retry_request,sizeof(codex_retry_request),"%s",d->request);codex_retry_count=0;codex_retry_at=now+2000;}
+                 codex_recovery_confirmable=codex_remote_can_confirm(codex_selected);
+@@ -3354,7 +3505,7 @@ static void tick_work(lv_timer_t *timer) {
+         saver_enter(offline_since >= 0);
+         return;
+     }
+-    if (saver || timer_open() || date_editor_open() || agenda_editor_open() || agenda_delete_open() || clock_picker_is_open() || current_page>=8)
++    if (claude_reader_opened || saver || timer_open() || date_editor_open() || agenda_editor_open() || agenda_delete_open() || clock_picker_is_open() || current_page>=8)
+         return;
+     int resume_fixed;
+     if(ui_startup_home_tick(&startup_home,current_page,prefs.selected,prefs.interval,now,last_change,&resume_fixed))return;
+@@ -3558,21 +3709,19 @@ static void home_model_changed(lv_event_t *e) {
+ }
+ static void workbench_go(lv_event_t *e) {
+     int target=(int)(intptr_t)lv_event_get_user_data(e);
++    if(target>=0)workspace_open_target[0]=0;
++    if(target==8){visible(codex_reply_overlay,false);codex_reply_return=8;}
+     if(target==-1){automatic(e);return;}
+     if(target==-2){camera_action(e);return;}
+     if(target==-3) {
+-        if(home_companion_provider==0){selected_quota=0;lv_dropdown_set_selected(quota_picker,0);render_quota();page(1);return;}
+-        if(!home_task_id[0]){page(4);detail_return=0;return;}
+-        if(codex_waiting||codex_voice_waiting||codex_send_queued||!home_task_id[0]||!codex_save_draft())return;
+-        char selected[37],completed_turn[64];snprintf(selected,sizeof(selected),"%s",home_task_id);
+-        snprintf(completed_turn,sizeof(completed_turn),"%s",home_task_unread?home_task_turn:"");
+-        snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",home_task_project);
+-        codex_restore_project=false;render_codex();
+-        for(int i=0;i<8;i++)if(!strcmp(codex_task_ids[i],selected)) {
+-            lv_obj_send_event(codex_task_rows[i],LV_EVENT_CLICKED,NULL);page(8);
+-            if(completed_turn[0])codex_reply_open_turn(e,completed_turn);
++        if(home_companion_provider==0){
++            const char *target=text(item(shown,"claudeSession"),"taskId");
++            if(cJSON_IsObject(item(shown,"claudeTasks"))&&strlen(target)==36){workspace_open_task(1,target);return;}
++            if(num(shown,"aiDialogueVersion")<1&&!cJSON_IsObject(item(shown,"claudeTasks")))claude_reader_open(e);
+             return;
+         }
++        if(home_task_id[0]){workspace_open_task(0,home_task_id);return;}
++        page(4);detail_return=0;
+         return;
+     }
+     if(target>=2&&target<8)detail_return=11;
+@@ -3648,7 +3797,7 @@ static int cache_hold(const lv_obj_t *obj) {
+     return false;
+ }
+ static bool native_swipe_render(lv_layer_t *layer) {
+-    if(!detail_layer||saver||ota_update_busy()||photo_flow||
++    if(claude_reader_opened||!detail_layer||saver||ota_update_busy()||photo_flow||
+        !lv_obj_has_flag(detail_layer,LV_OBJ_FLAG_HIDDEN)||
+        !lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN)||
+        !lv_obj_has_flag(codex_keyboard,LV_OBJ_FLAG_HIDDEN)||
+@@ -3921,7 +4070,7 @@ void ui_start(void) {
+     ui_bg_color(pages[14],lv_color_hex(UI_BACKGROUND),0);ui_bg_opa(pages[14],LV_OPA_COVER,0);
+     lv_obj_remove_flag(pages[14],LV_OBJ_FLAG_SCROLLABLE);visible(pages[14],false);computer_create(pages[14]);
+     lv_obj_add_flag(lv_tabview_get_tab_bar(tabs),LV_OBJ_FLAG_HIDDEN);
+-    const char *nav_names[]={"总览","Codex","额度","应用"};
++    const char *nav_names[]={"总览","对话","额度","应用"};
+     for(int i=0;i<4;i++) {
+         workbench_nav[i]=button(screen,nav_names[i],30+i*288,628,271,workbench_go,primary_pages[i]);
+         lv_obj_set_height(workbench_nav[i],76);lv_obj_set_style_radius(workbench_nav[i],16,0);
+@@ -4080,11 +4229,13 @@ void ui_start(void) {
+     lv_obj_t *tasks_page = pages[8];
+     lv_obj_t *task_left = card(tasks_page, 0, 0, 390, 512);
+     lv_obj_set_style_pad_all(task_left,24,0);
+-    label(task_left, "项目", 0, 10, 72, false);
+-    codex_project_picker=dropdown(task_left,"暂无项目",80,0,262,0,codex_project_changed,0);
++    workspace_empty_label=muted(task_left,"等待发现对话",0,12,342);
++    for(int i=0;i<2;i++){workspace_buttons[i]=button(task_left,i?"Claude":"Codex",i*176,0,166,workspace_changed,i);lv_obj_set_height(workspace_buttons[i],48);}
++    label(task_left, "项目", 0, 70, 72, false);
++    codex_project_picker=dropdown(task_left,"暂无项目",80,60,262,0,codex_project_changed,0);
+     ui_text_font(codex_project_picker,&tab5_font_24,0);
+     codex_list=lv_obj_create(task_left);lv_obj_remove_style_all(codex_list);
+-    lv_obj_set_pos(codex_list,0,76);lv_obj_set_size(codex_list,342,388);
++    lv_obj_set_pos(codex_list,0,136);lv_obj_set_size(codex_list,342,328);
+     lv_obj_set_scroll_dir(codex_list,LV_DIR_VER);
+     ui_bg_color(codex_list,lv_color_hex(MUTED),LV_PART_SCROLLBAR);
+     lv_obj_set_style_width(codex_list,3,LV_PART_SCROLLBAR);
+@@ -4183,14 +4334,15 @@ void ui_start(void) {
+     codex_reply_overlay=card(tasks_page,0,0,1220,512);
+     ui_bg_color(codex_reply_overlay,lv_color_hex(UI_BACKGROUND),0);
+     int reply_header_y=(48-lv_font_get_line_height(&tab5_font_24))/2;
+-    label(codex_reply_overlay,"会话动态",0,reply_header_y,180,false);
++    codex_reply_title=label(codex_reply_overlay,"会话动态",0,reply_header_y,550,false);
++    lv_label_set_long_mode(codex_reply_title,LV_LABEL_LONG_DOT);
+     button(codex_reply_overlay,"返回",1030,0,150,codex_reply_close,0);
+     codex_reply_latest=button(codex_reply_overlay,"回到最新",1004,420,176,codex_reply_navigate,0);
+     codex_turn_older=button(codex_reply_overlay,"上一轮",0,420,140,codex_turn_navigate,-1);
+     codex_turn_newer=button(codex_reply_overlay,"下一轮",156,420,140,codex_turn_navigate,1);
+     codex_reply_older=button(codex_reply_overlay,"上一页",600,420,130,codex_reply_navigate,-1);
+     codex_reply_newer=button(codex_reply_overlay,"下一页",866,420,130,codex_reply_navigate,1);
+-    codex_reply_status=muted(codex_reply_overlay,"",194,reply_header_y,626);
++    codex_reply_status=muted(codex_reply_overlay,"",564,reply_header_y,256);
+     codex_interrupt_button=button(codex_reply_overlay,"停止任务",844,0,160,codex_interrupt,0);
+     ui_bg_opa(codex_interrupt_button,LV_OPA_TRANSP,0);tint(lv_obj_get_child(codex_interrupt_button,0),AMBER);
+     // Background reads briefly disable actions; keep the header visually stable.
+diff --git a/firmware/main/ui_automation.h b/firmware/main/ui_automation.h
+new file mode 100644
+index 0000000..08bfdf8
+--- /dev/null
++++ b/firmware/main/ui_automation.h
+@@ -0,0 +1,2 @@
++#pragma once
++void tab5_ui_automation_status(char *out,unsigned size);
+diff --git a/firmware/main/ui_automation.inc b/firmware/main/ui_automation.inc
+new file mode 100644
+index 0000000..f086ad2
+--- /dev/null
++++ b/firmware/main/ui_automation.inc
+@@ -0,0 +1,88 @@
++#include "ui_automation.h"
++#include <math.h>
++#ifndef TAB5_UI_PREVIEW
++static portMUX_TYPE automation_mux=portMUX_INITIALIZER_UNLOCKED;
++#define AUTOMATION_LOCK() taskENTER_CRITICAL(&automation_mux)
++#define AUTOMATION_UNLOCK() taskEXIT_CRITICAL(&automation_mux)
++#else
++#define AUTOMATION_LOCK() ((void)0)
++#define AUTOMATION_UNLOCK() ((void)0)
++#endif
++static char automation_report[96]="1,,0,0,0,0",automation_id[33];
++static char automation_recent[64][33];static unsigned automation_recent_next;
++static lv_indev_t *automation_input;
++static bool automation_pressed;
++static uint32_t automation_start,automation_ttl,automation_duration;
++static int automation_width,automation_height,automation_rotation,automation_x,automation_y,automation_tx,automation_ty;
++static unsigned automation_host;
++void tab5_ui_automation_status(char *out,unsigned size){
++    AUTOMATION_LOCK();snprintf(out,size,"%s",automation_report);AUTOMATION_UNLOCK();
++}
++static void automation_result(int status){
++    AUTOMATION_LOCK();
++    snprintf(automation_report,sizeof(automation_report),"1,%s,%d,%d,%d,%d",automation_id,status,
++        (int)lv_display_get_horizontal_resolution(NULL),(int)lv_display_get_vertical_resolution(NULL),(int)lv_display_get_rotation(NULL));
++    AUTOMATION_UNLOCK();
++}
++static bool automation_physical_touch(void){
++    for(lv_indev_t *i=lv_indev_get_next(NULL);i;i=lv_indev_get_next(i))
++        if(i!=automation_input&&lv_indev_get_type(i)==LV_INDEV_TYPE_POINTER&&lv_indev_get_state(i)==LV_INDEV_STATE_PRESSED)return true;
++    return false;
++}
++// Invert the exact LVGL pointer rotation, using logical screenshot coordinates.
++static lv_point_t automation_raw(int x,int y,int w,int h,int rotation){
++    if(rotation==1)return (lv_point_t){y,w-x-1};
++    if(rotation==2)return (lv_point_t){w-x-1,h-y-1};
++    if(rotation==3)return (lv_point_t){h-y-1,x};
++    return (lv_point_t){x,y};
++}
++static void automation_read(lv_indev_t *input,lv_indev_data_t *data){
++    uint32_t elapsed=lv_tick_elaps(automation_start);
++    bool invalid=automation_host!=device_host_epoch()||elapsed>automation_ttl||ota_update_busy()||photo_flow||automation_physical_touch()||
++        automation_width!=lv_display_get_horizontal_resolution(NULL)||automation_height!=lv_display_get_vertical_resolution(NULL)||automation_rotation!=(int)lv_display_get_rotation(NULL);
++    if(automation_pressed&&invalid){
++        automation_pressed=false;lv_indev_reset(input,NULL);lv_indev_wait_release(input);automation_result(4);
++    }
++    uint32_t progress=elapsed<automation_duration?elapsed:automation_duration;
++    int x=automation_x+(automation_tx-automation_x)*(int)progress/(int)automation_duration;
++    int y=automation_y+(automation_ty-automation_y)*(int)progress/(int)automation_duration;
++    data->point=automation_raw(x,y,automation_width,automation_height,automation_rotation);
++    data->state=automation_pressed&&elapsed<automation_duration?LV_INDEV_STATE_PRESSED:LV_INDEV_STATE_RELEASED;
++    if(automation_pressed&&elapsed>=automation_duration){automation_pressed=false;automation_result(2);}
++}
++static bool automation_hex(const char *s){if(!s||strlen(s)!=32)return false;for(unsigned i=0;i<32;i++)if(!((s[i]>='0'&&s[i]<='9')||(s[i]>='a'&&s[i]<='f')||(s[i]>='A'&&s[i]<='F')))return false;return true;}
++static bool automation_integer(cJSON *o,const char *key,int low,int high,int *out){
++    cJSON *v=item(o,key);if(!cJSON_IsNumber(v)||!isfinite(v->valuedouble)||v->valuedouble<low||v->valuedouble>high||v->valuedouble!=v->valueint)return false;
++    *out=v->valueint;return true;
++}
++static void ui_automation_tick(cJSON *frame,link_kind link,int64_t now,int64_t received){
++    cJSON *command=item(item(frame,"connectionHealth"),"uiAutomationCommand");
++    const char *id=text(command,"requestId"),*session=text(item(frame,"pcInput"),"session");
++    cJSON *clock=item(frame,"epochMilliseconds"),*expires=item(command,"expiresAt");int version;
++    if(link!=LINK_USB||strcmp(text(command,"transport"),"USB")||!automation_hex(id)||!automation_hex(session)||
++       !automation_integer(command,"version",1,1,&version)||now<received||now-received>=5000||
++       !cJSON_IsNumber(clock)||!isfinite(clock->valuedouble)||clock->valuedouble<=0||
++       !cJSON_IsNumber(expires)||!isfinite(expires->valuedouble)||expires->valuedouble>9007199254740991.0||
++       expires->valuedouble<clock->valuedouble+now-received||expires->valuedouble>clock->valuedouble+5000)return;
++    for(unsigned i=0;i<64;i++)if(!strcmp(id,automation_recent[i]))return;
++    if(automation_pressed)return;
++    snprintf(automation_id,sizeof(automation_id),"%s",id);
++    snprintf(automation_recent[automation_recent_next++%64],33,"%s",id);
++    if(!strcmp(text(command,"op"),"probe")){automation_result(2);return;}
++    int w,h,r,x,y,tx,ty,duration;bool swipe=!strcmp(text(command,"op"),"swipe");
++    if((!swipe&&strcmp(text(command,"op"),"tap"))||ota_update_busy()||photo_flow||automation_physical_touch()||
++       !automation_integer(command,"width",1,1280,&w)||!automation_integer(command,"height",1,1280,&h)||
++       !automation_integer(command,"rotation",0,3,&r)||w!=lv_display_get_horizontal_resolution(NULL)||h!=lv_display_get_vertical_resolution(NULL)||r!=(int)lv_display_get_rotation(NULL)||
++       !automation_integer(command,"x",0,w-1,&x)||!automation_integer(command,"y",0,h-1,&y)||
++       !automation_integer(command,"toX",0,w-1,&tx)||!automation_integer(command,"toY",0,h-1,&ty)||
++       !automation_integer(command,"durationMs",swipe?100:80,swipe?1200:80,&duration)||(!swipe&&(x!=tx||y!=ty))){automation_result(3);return;}
++    if(!automation_input){
++        automation_input=lv_indev_create();
++        if(!automation_input){automation_result(3);return;}
++        lv_indev_set_type(automation_input,LV_INDEV_TYPE_POINTER);lv_indev_set_read_cb(automation_input,automation_read);
++        lv_timer_set_period(lv_indev_get_read_timer(automation_input),16);
++    }
++    automation_width=w;automation_height=h;automation_rotation=r;automation_x=x;automation_y=y;automation_tx=tx;automation_ty=ty;
++    automation_duration=(uint32_t)duration;automation_ttl=(uint32_t)(expires->valuedouble-clock->valuedouble-(now-received));
++    automation_host=device_host_epoch();automation_start=lv_tick_get();automation_pressed=true;automation_result(1);
++}
+diff --git a/firmware/main/ui_claude_companion.h b/firmware/main/ui_claude_companion.h
+index 630be6e..78269bd 100644
+--- a/firmware/main/ui_claude_companion.h
++++ b/firmware/main/ui_claude_companion.h
+@@ -13,23 +13,33 @@ static codex_companion_state claude_mood=CODEX_COMPANION_UNKNOWN;
+ static int64_t claude_mood_started;
+ static int home_companion_provider=1;
+ static bool companion_busy(cJSON *model) {return yes(model,"needsInput")||!strcmp(text(model,"state"),"working");}
+-static double companion_age(cJSON *model) {cJSON *v=item(model,"ageSeconds");return cJSON_IsNumber(v)?v->valuedouble:1e30;}
++static double companion_age(cJSON *model) {cJSON *v=item(model,"ageSeconds");return cJSON_IsNumber(v)&&v->valuedouble>=0&&v->valuedouble<1e30?v->valuedouble:1e30;}
+ // Domestic model records currently come from Claude Code. Keep the mascot
+ // bound to the supported client, including when it uses a custom provider.
+ static int companion_provider_resolve(cJSON *snapshot,unsigned preferred) {
+     cJSON *codex=item(snapshot,"codex"),*claude=item(snapshot,"claude"),*domestic=item(snapshot,"domesticActivity");
+-    bool codex_wait= yes(codex,"needsInput"),claude_wait=yes(claude,"needsInput")||yes(domestic,"needsInput");
++    unsigned clients=preferred&3u;
++    // An explicit single client is authoritative even while it is idle.
++    if(clients==1u)return 0;
++    if(clients==2u)return 1;
++    bool codex_wait=yes(codex,"needsInput"),claude_wait=yes(claude,"needsInput")||yes(domestic,"needsInput");
+     if(codex_wait!=claude_wait)return codex_wait?1:0;
+     bool codex_busy=companion_busy(codex),claude_busy=companion_busy(claude)||companion_busy(domestic);
+     if(codex_busy!=claude_busy)return codex_busy?1:0;
+     cJSON *usage=item(item(domestic,"providers"),text(domestic,"activeProvider"));
+-    double local_age=companion_busy(domestic)&&cJSON_IsNumber(item(usage,"lastActivity"))?LV_MAX(0,num(snapshot,"epochUtc")-num(usage,"lastActivity")):1e30;
++    cJSON *last=item(usage,"lastActivity"),*epoch=item(snapshot,"epochUtc");
++    double local_age=cJSON_IsNumber(last)&&cJSON_IsNumber(epoch)&&last->valuedouble>0&&last->valuedouble<=epoch->valuedouble
++        ?epoch->valuedouble-last->valuedouble:1e30;
+     double claude_age=LV_MIN(companion_age(claude),local_age),codex_age=companion_age(codex);
+-    if(codex_busy&&codex_age!=claude_age)return codex_age<claude_age?1:0;
+-    if(codex_busy)return home_companion_provider;
+-    if((preferred&3u)==3u)return home_companion_provider;
+-    if(preferred&(1u<<1))return 1;
+-    if(preferred&1u)return 0;
++    // Compare the actual overview sessions where their timestamps are available.
++    cJSON *claude_last=item(item(snapshot,"claudeSession"),"lastActivity");
++    cJSON *codex_last=item(item(item(snapshot,"codexTasks"),"overviewTask"),"updatedAt");
++    if(cJSON_IsNumber(epoch)&&cJSON_IsNumber(claude_last)&&claude_last->valuedouble>0&&claude_last->valuedouble<=epoch->valuedouble)
++        claude_age=epoch->valuedouble-claude_last->valuedouble;
++    if(cJSON_IsNumber(epoch)&&cJSON_IsNumber(codex_last)&&codex_last->valuedouble>0&&codex_last->valuedouble<=epoch->valuedouble)
++        codex_age=epoch->valuedouble-codex_last->valuedouble;
++    // Unknown or equally recent observations do not switch the display.
++    if(codex_age!=claude_age)return codex_age<claude_age?1:0;
+     return home_companion_provider;
+ }
+ static codex_companion_state companion_model_mood(cJSON *model,bool fresh) {
+@@ -85,14 +95,15 @@ static void claude_pet_tick(claude_pet_view *view,codex_companion_state value,in
+         if(saver_claude.image)lv_image_set_src(saver_claude.image,&claude_descriptor);
+         claude_rendered_frame=info.frame;
+     }
+-    int scale=view==&home_claude?(int)info.scale:(int)info.saver_scale;
++    int scale=view==&home_claude?(int)info.scale_q8:(int)info.saver_scale_q8;
+     if(view->last_frame!=(int)info.frame||view->last_scale!=scale) {
+-        // Center the actor beneath its short label; leave room for official props.
+-        int anchor=view==&home_claude?150:view->width/2;
+-        int top=view==&home_claude?view->height-(int)info.height*scale:
+-            322-view->y-(int)info.anchor_y2*scale/2;
+-        lv_obj_set_pos(view->image,anchor-(int)info.anchor_x2*scale/2,top);
+-        if(view->last_scale!=scale)lv_image_set_scale(view->image,scale*256);
++        // Match the Codex overview actor center. Fixed clip anchors preserve
++        // the original motion; transparent canvas size does not set alignment.
++        int anchor=view==&home_claude?152:view->width/2;
++        int center=view==&home_claude?134:322;
++        int top=center-view->y-((int)info.anchor_y2*scale+256)/512;
++        lv_obj_set_pos(view->image,anchor-((int)info.anchor_x2*scale+256)/512,top);
++        if(view->last_scale!=scale)lv_image_set_scale(view->image,scale);
+         view->last_frame=(int)info.frame;view->last_scale=scale;
+     }
+ }
+diff --git a/firmware/main/ui_claude_reader.h b/firmware/main/ui_claude_reader.h
+new file mode 100644
+index 0000000..b5e5907
+--- /dev/null
++++ b/firmware/main/ui_claude_reader.h
+@@ -0,0 +1,120 @@
++// Read-only Claude public replies. The binding is opaque and pinned at tap.
++#include "claude_remote.h"
++#ifdef TAB5_UI_PREVIEW
++static claude_remote_state preview_claude_read;
++static int preview_claude_page;
++bool claude_remote_start(const char *binding,const char *revision,int page){(void)revision;if(preview_claude_read.busy)return false;strcpy(preview_claude_read.binding,binding);preview_claude_read.busy=true;preview_claude_read.generation++;preview_claude_page=page;return true;}
++void claude_remote_get(claude_remote_state *out){*out=preview_claude_read;}
++void claude_remote_cancel(void){unsigned generation=preview_claude_read.generation+1;memset(&preview_claude_read,0,sizeof(preview_claude_read));preview_claude_read.generation=generation;}
++#endif
++static lv_obj_t *claude_reader_layer,*claude_reader_title,*claude_reader_status,*claude_reader_scroll,*claude_reader_body,*claude_reader_empty,*claude_reader_count;
++static lv_obj_t *claude_reader_previous,*claude_reader_next,*claude_reader_latest;
++static claude_remote_state *claude_reader_view;
++static char claude_reader_binding[33],claude_reader_revision[65],claude_reader_session[40];
++static unsigned claude_reader_host,claude_reader_generation;
++static int claude_reader_page,claude_reader_total;
++static char *claude_reader_display;
++// The current CJK font has no emoji atlas. Use explicit readable names for
++// common unsupported symbols; transport and cached source remain exact UTF-8.
++static bool claude_reader_display_copy(const char *source){
++    static const char *symbols[]={"🙂","😀","😄","✅","⚠️","⚠","🔄","👍","❌"};
++    static const char *names[]={"[微笑]","[笑脸]","[开心]","[勾选]","[注意]","[注意]","[刷新]","[赞]","[叉号]"};
++    if(!claude_reader_display)claude_reader_display=lv_malloc(8193);
++    if(!claude_reader_display)return false;
++    size_t used=0;bool replaced=false;
++    while(*source&&used<8192){
++        bool found=false;
++        for(unsigned i=0;i<sizeof(symbols)/sizeof(symbols[0]);i++)if(!strncmp(source,symbols[i],strlen(symbols[i]))){
++            size_t n=strlen(names[i]);if(used+n>8192)break;
++            memcpy(claude_reader_display+used,names[i],n);used+=n;source+=strlen(symbols[i]);found=true;replaced=true;break;
++        }
++        if(!found)claude_reader_display[used++]=*source++;
++    }
++    claude_reader_display[used]=0;return replaced;
++}
++static void claude_reader_enable(lv_obj_t *o,bool enabled){if(enabled)lv_obj_remove_state(o,LV_STATE_DISABLED);else lv_obj_add_state(o,LV_STATE_DISABLED);}
++static void claude_reader_clear(void){reply_document_set(claude_reader_body,"");ui_text(claude_reader_empty,"");ui_text(claude_reader_count,"");if(claude_reader_display)claude_reader_display[0]=0;claude_reader_revision[0]=0;claude_reader_total=0;}
++static void claude_reader_close(lv_event_t *e){(void)e;claude_reader_opened=false;claude_remote_cancel();claude_reader_clear();visible(claude_reader_layer,false);}
++static void claude_reader_load(int page){
++    if(!claude_reader_opened)return;
++    if(claude_remote_start(claude_reader_binding,page<0?"":claude_reader_revision,page))ui_text(claude_reader_status,"正在读取公开回复…");
++    else ui_text(claude_reader_status,"读取尚未开始，请检查连接后重试");
++}
++static void claude_reader_navigate(lv_event_t *e){
++    int direction=(int)(intptr_t)lv_event_get_user_data(e);
++    claude_reader_load(direction?claude_reader_page+direction:-1);
++}
++static void claude_reader_create(void){
++    if(claude_reader_layer)return;
++    claude_reader_layer=lv_obj_create(lv_layer_top());lv_obj_remove_style_all(claude_reader_layer);
++    lv_obj_set_size(claude_reader_layer,1280,720);ui_bg_color(claude_reader_layer,lv_color_hex(UI_BACKGROUND),0);
++    lv_obj_set_style_bg_opa(claude_reader_layer,LV_OPA_COVER,0);
++    lv_obj_remove_flag(claude_reader_layer,LV_OBJ_FLAG_SCROLLABLE);lv_obj_add_flag(claude_reader_layer,LV_OBJ_FLAG_CLICKABLE);
++    lv_obj_t *back=button(claude_reader_layer,"返回",32,24,128,claude_reader_close,0);lv_obj_set_height(back,64);
++    claude_reader_title=label(claude_reader_layer,"Claude 会话",184,24,1048,false);lv_obj_set_height(claude_reader_title,76);
++    ui_text_font(claude_reader_title,&tab5_font_30,0);lv_label_set_long_mode(claude_reader_title,LV_LABEL_LONG_DOT);
++    claude_reader_status=muted(claude_reader_layer,"",48,110,1184);
++    claude_reader_scroll=lv_obj_create(claude_reader_layer);lv_obj_set_pos(claude_reader_scroll,48,154);lv_obj_set_size(claude_reader_scroll,1184,446);
++    ui_bg_color(claude_reader_scroll,lv_color_hex(0x2B3539),0);lv_obj_set_style_border_width(claude_reader_scroll,0,0);
++    lv_obj_set_style_radius(claude_reader_scroll,12,0);lv_obj_set_style_pad_all(claude_reader_scroll,16,0);
++    lv_obj_set_scroll_dir(claude_reader_scroll,LV_DIR_VER);lv_obj_set_scrollbar_mode(claude_reader_scroll,LV_SCROLLBAR_MODE_AUTO);
++    claude_reader_body=lv_obj_create(claude_reader_scroll);lv_obj_remove_style_all(claude_reader_body);
++    lv_obj_set_width(claude_reader_body,1140);lv_obj_set_height(claude_reader_body,LV_SIZE_CONTENT);lv_obj_set_flex_flow(claude_reader_body,LV_FLEX_FLOW_COLUMN);
++    lv_obj_set_style_pad_row(claude_reader_body,8,0);lv_obj_remove_flag(claude_reader_body,LV_OBJ_FLAG_SCROLLABLE);
++    claude_reader_empty=label(claude_reader_scroll,"",0,0,1140,false);
++    claude_reader_previous=button(claude_reader_layer,"上一页",48,624,180,claude_reader_navigate,-1);
++    claude_reader_latest=button(claude_reader_layer,"最新 / 重试",252,624,200,claude_reader_navigate,0);
++    claude_reader_next=button(claude_reader_layer,"下一页",476,624,180,claude_reader_navigate,1);
++    lv_obj_set_height(claude_reader_previous,60);lv_obj_set_height(claude_reader_latest,60);lv_obj_set_height(claude_reader_next,60);
++    claude_reader_count=muted(claude_reader_layer,"",744,642,488);visible(claude_reader_layer,false);
++}
++static void claude_reader_open(lv_event_t *e){
++    (void)e;cJSON *session=item(shown,"claudeSession");const char *binding=text(session,"readBinding");
++    if(strlen(binding)!=32||!yes(session,"repliesEnabled"))return;
++    claude_reader_create();claude_remote_cancel();claude_reader_clear();
++    snprintf(claude_reader_binding,sizeof(claude_reader_binding),"%s",binding);
++    snprintf(claude_reader_session,sizeof(claude_reader_session),"%s",text(item(shown,"pcInput"),"session"));
++    claude_reader_host=device_host_epoch();claude_reader_opened=true;claude_reader_generation=0;
++    const char *title=text(session,"title");ui_text_fmt(claude_reader_title,"Claude · %s",title[0]&&strcmp(title,"--")?title:"Claude Code");
++    ui_text(claude_reader_empty,"");visible(claude_reader_empty,false);visible(claude_reader_body,false);
++    ui_text(claude_reader_count,"");claude_reader_enable(claude_reader_previous,false);claude_reader_enable(claude_reader_next,false);
++    claude_reader_enable(claude_reader_latest,true);
++    visible(claude_reader_layer,true);lv_obj_move_foreground(claude_reader_layer);claude_reader_load(-1);
++}
++static void claude_reader_tick(void){
++    if(!claude_reader_opened)return;
++    if(saver||ota_update_busy()||photo_flow){claude_reader_close(NULL);return;}
++    if(claude_reader_host!=device_host_epoch()||strcmp(claude_reader_session,text(item(shown,"pcInput"),"session"))||!yes(item(shown,"claudeSession"),"repliesEnabled")){
++        claude_remote_cancel();claude_reader_clear();ui_text(claude_reader_empty,"电脑已停止提供会话数据，请返回总览");
++        visible(claude_reader_empty,true);visible(claude_reader_body,false);ui_text(claude_reader_status,"会话连接已变化");
++        claude_reader_enable(claude_reader_previous,false);claude_reader_enable(claude_reader_next,false);claude_reader_enable(claude_reader_latest,false);return;
++    }
++    if(!claude_reader_view)claude_reader_view=lv_malloc(sizeof(*claude_reader_view));
++    if(!claude_reader_view)return;
++    claude_remote_get(claude_reader_view);claude_remote_state *v=claude_reader_view;
++    if(v->generation==claude_reader_generation)return;
++    claude_reader_generation=v->generation;
++    claude_reader_enable(claude_reader_previous,!v->busy&&claude_reader_total&&claude_reader_page>0);
++    claude_reader_enable(claude_reader_next,!v->busy&&claude_reader_total&&claude_reader_page+1<claude_reader_total);claude_reader_enable(claude_reader_latest,!v->busy);
++    if(v->busy){ui_text(claude_reader_status,"正在读取公开回复…");return;}
++    if(v->status!=200||strcmp(v->binding,claude_reader_binding)){
++        if(v->status==403){
++            claude_reader_clear();visible(claude_reader_empty,true);visible(claude_reader_body,false);ui_text(claude_reader_empty,"电脑已停止提供会话数据");
++            ui_text(claude_reader_status,"会话数据已停用，请返回总览");
++            claude_reader_enable(claude_reader_previous,false);claude_reader_enable(claude_reader_next,false);claude_reader_enable(claude_reader_latest,false);return;
++        }
++        bool changed=v->status==409&&!strcmp(v->error,"session_changed");
++        ui_text(claude_reader_status,changed?"会话已变化，请返回总览重新打开":v->status==409?"回复已更新，请点最新 / 重试":"读取未完成，请检查连接后重试");
++        if(changed)claude_reader_enable(claude_reader_latest,false);
++        return;
++    }
++    snprintf(claude_reader_revision,sizeof(claude_reader_revision),"%s",v->revision);
++    claude_reader_page=v->page;claude_reader_total=v->total;
++    ui_text_fmt(claude_reader_title,"Claude · %s",v->title[0]?v->title:"Claude Code");
++    bool symbols=claude_reader_display_copy(v->text);
++    reply_document_set(claude_reader_body,claude_reader_display?claude_reader_display:v->text);visible(claude_reader_body,v->text[0]);visible(claude_reader_empty,!v->text[0]);
++    ui_text(claude_reader_empty,v->text[0]?"":v->has_earlier?"较早内容未载入，当前范围暂无公开文字":"此会话暂无公开回复");
++    ui_text(claude_reader_status,v->has_earlier?"只读 · 已显示最近公开回复，较早内容已省略":symbols?"只读 · 部分表情以文字标记显示":"只读 · Claude 公开回复");
++    ui_text_fmt(claude_reader_count,"第 %d / %d 页",v->page+1,v->total);lv_obj_scroll_to_y(claude_reader_scroll,0,LV_ANIM_OFF);
++    claude_reader_enable(claude_reader_previous,v->page>0);claude_reader_enable(claude_reader_next,v->page+1<v->total);
++}
+diff --git a/firmware/main/ui_codex_companion.h b/firmware/main/ui_codex_companion.h
+index 328b3cc..6e33c94 100644
+--- a/firmware/main/ui_codex_companion.h
++++ b/firmware/main/ui_codex_companion.h
+@@ -46,7 +46,7 @@ static void companion_home_create(lv_obj_t *parent) {
+     lv_image_set_pivot(home_companion,0,0);lv_image_set_scale(home_companion,235);
+     lv_obj_remove_flag(home_companion,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
+     visible(home_companion,false);
+-    claude_pet_create(&home_claude,parent,460,28,280,191);
++    claude_pet_create(&home_claude,parent,458,4,284,215);
+ }
+ static void companion_saver_create(lv_obj_t *parent) {
+     companion_saver_background=lv_image_create(parent);
+diff --git a/firmware/main/ui_prefs.c b/firmware/main/ui_prefs.c
+index 86d9b73..1971a88 100644
+--- a/firmware/main/ui_prefs.c
++++ b/firmware/main/ui_prefs.c
+@@ -43,8 +43,10 @@ bool ui_codex_checkpoint_load(ui_codex_checkpoint *value) {
+     memset(value,0,sizeof(*value));size_t length=sizeof(*value);esp_err_t r=nvs_get_blob(h,"codex_draft",value,&length);nvs_close(h);
+     // The previous structure ended after text, rounded to uint32 alignment.
+     size_t legacy=(offsetof(ui_codex_checkpoint,images)+3)&~(size_t)3;
++    size_t previous=offsetof(ui_codex_checkpoint,client);
++    if(r==ESP_OK&&length<=previous)value->client=0;
+     if(r==ESP_OK&&length==legacy)memset(value->images,0,sizeof(value->images));
+-    return r==ESP_OK&&(length==sizeof(*value)||length==legacy)&&value->version==1&&value->task[36]==0&&
++    return r==ESP_OK&&(length==sizeof(*value)||length==previous||length==legacy)&&value->client<=1&&value->version==1&&value->task[36]==0&&
+         value->images[0][36]==0&&value->images[1][36]==0&&value->images[2][36]==0&&
+         value->request[36]==0&&value->operation[15]==0&&value->turn[36]==0&&value->text[2000]==0;
+ }
+diff --git a/firmware/main/ui_prefs.h b/firmware/main/ui_prefs.h
+index 0d40462..7cd89bd 100644
+--- a/firmware/main/ui_prefs.h
++++ b/firmware/main/ui_prefs.h
+@@ -51,7 +51,7 @@ bool ui_tf_cache_load(void); // Missing setting means the original device cache.
+ bool ui_tf_cache_save(bool enabled);
+ unsigned ui_home_models_load(void);
+ bool ui_home_models_save(unsigned mask);
+-typedef struct {uint32_t version;char task[37],request[37],operation[16],turn[37],text[2001];char images[3][37];} ui_codex_checkpoint;
++typedef struct {uint32_t version;char task[37],request[37],operation[16],turn[37],text[2001];char images[3][37];uint32_t client;} ui_codex_checkpoint;
+ bool ui_codex_checkpoint_load(ui_codex_checkpoint *value);
+ bool ui_codex_checkpoint_save(const ui_codex_checkpoint *value);
+ typedef struct {char task[37],turn[64];int page,y;bool follow;unsigned stamp;} ui_reading_bookmark;
+diff --git a/firmware/main/ui_quick_console.h b/firmware/main/ui_quick_console.h
+index 56a0a60..d936258 100644
+--- a/firmware/main/ui_quick_console.h
++++ b/firmware/main/ui_quick_console.h
+@@ -238,7 +238,8 @@ static void quick_close(lv_event_t *e) {
+     settings_return=quick_settings_return;detail_return=quick_detail_return;
+ }
+ static void quick_show(lv_event_t *e) {
+-    (void)e;if(codex_voice_waiting||codex_waiting||codex_send_queued||photo_flow||camera_preview_busy()||ota_update_busy())return;
++    (void)e;if(!workspace_choose(0))return;
++    if(codex_voice_waiting||codex_waiting||codex_send_queued||photo_flow||camera_preview_busy()||ota_update_busy())return;
+     if(!quick_visible) {
+         quick_return=current_page;quick_primary_index=primary_index;
+         quick_settings_return=settings_return;quick_detail_return=detail_return;
+diff --git a/firmware/main/usb_link.c b/firmware/main/usb_link.c
+index 0388605..eaed4fc 100644
+--- a/firmware/main/usb_link.c
++++ b/firmware/main/usb_link.c
+@@ -1,4 +1,5 @@
+-#include "device.h"
++#include "device.h"
++#include "ui_automation.h"
+ #include "rpc_link.h"
+ #include "esp_heap_caps.h"
+ #include "transport_benchmark.h"
+@@ -267,6 +268,9 @@ static void write_reply(const char *type,uint64_t seq) {
+     static char ota_performance[OTA_PERFORMANCE_SUFFIX_CAPACITY];
+     ota_trace_performance_format(ota_performance,sizeof(ota_performance));
+     n=(int)append_ota_performance(out,sizeof(out),(size_t)n,ota_performance);
++    char automation[96],automation_suffix[128];tab5_ui_automation_status(automation,sizeof(automation));
++    extra=snprintf(automation_suffix,sizeof(automation_suffix),",\"uiAutomation\":\"%s\"}\n",automation);
++    if(extra>0&&(size_t)extra<sizeof(automation_suffix)&&(size_t)(n-2+extra)<sizeof(out)){memcpy(out+n-2,automation_suffix,(size_t)extra+1);n=n-2+extra;}
+     usb_write(out,n);return;
+ essential:
+     // Optional counters can fill the legacy 4 KiB line. Still acknowledge the
+diff --git a/firmware/main/voice_remote.c b/firmware/main/voice_remote.c
+index d7a2a8b..1d41f2b 100644
+--- a/firmware/main/voice_remote.c
++++ b/firmware/main/voice_remote.c
+@@ -28,7 +28,9 @@
+ #include <math.h>
+ 
+ typedef struct {uint16_t size;int16_t samples[3200];} audio_chunk;
+-typedef struct {char session[40];int64_t epoch, tick;bool bluetooth,usb,force_tab5;} voice_job;
++static char selected_client[7]="codex";
++void voice_remote_set_client(const char *client){if(client&&(!strcmp(client,"codex")||!strcmp(client,"claude")))snprintf(selected_client,sizeof(selected_client),"%s",client);}
++typedef struct {char client[7],session[40];int64_t epoch, tick;bool bluetooth,usb,force_tab5;} voice_job;
+ static voice_remote_state state;
+ static QueueHandle_t audio_queue;
+ static QueueHandle_t voice_jobs;
+@@ -336,7 +338,7 @@ static bool recovery_ready(void *ctx) {
+ static cJSON *recovery_request(void *ctx,const char *op,const char *voice_id) {
+     recovery_context *r=ctx;voice_job *job=r->job;
+     cJSON *req=cJSON_CreateObject();if(!req)return NULL;
+-    cJSON_AddStringToObject(req,"op",op);cJSON_AddStringToObject(req,"session",job->session);
++    cJSON_AddStringToObject(req,"client",job->client);cJSON_AddStringToObject(req,"op",op);cJSON_AddStringToObject(req,"session",job->session);
+     cJSON_AddStringToObject(req,"voiceId",voice_id);
+     cJSON_AddNumberToObject(req,"issuedAt",job->epoch+esp_timer_get_time()/1000-job->tick);
+     cJSON *reply=request(req,r->client,job->usb);cJSON_Delete(req);return reply;
+@@ -385,7 +387,7 @@ static void run_session(voice_job *job) {
+         else if(stopping&&atomic_load(&mic_done)&&(!audio_queue||uxQueueMessagesWaiting(audio_queue)==0)){op="stop";stopping=false;}
+         else if(esp_timer_get_time()/1000-last_poll<400){vTaskDelay(pdMS_TO_TICKS(20));continue;}
+         cJSON *req=cJSON_CreateObject();
+-        cJSON_AddStringToObject(req,"op",op);cJSON_AddStringToObject(req,"session",job->session);
++        cJSON_AddStringToObject(req,"client",job->client);cJSON_AddStringToObject(req,"op",op);cJSON_AddStringToObject(req,"session",job->session);
+         cJSON_AddStringToObject(req,"voiceId",voice_id);
+         cJSON_AddNumberToObject(req,"issuedAt",job->epoch+esp_timer_get_time()/1000-job->tick);
+         if(first){cJSON_AddStringToObject(req,"taskId",state.task_id);if(job->force_tab5)cJSON_AddStringToObject(req,"source","tab5");}
+@@ -527,7 +529,7 @@ static bool start_session(const char *task_id,const char *session,int64_t epoch_
+     if(state.busy||transport_benchmark_busy()||flash_benchmark_busy()){tab5_voice_start_error=2;xSemaphoreGive(device_mutex);return false;}
+     int transport=voice_transport_select_with_usb(wifi_connected,device_links.received_ms[LINK_WIFI],esp_timer_get_time()/1000,ble_ready,device_links.mode,usb_ready);
+     if(transport<0){tab5_voice_start_error=1;xSemaphoreGive(device_mutex);return false;}
+-    voice_job job={.force_tab5=force_tab5};
++    voice_job job={.force_tab5=force_tab5};snprintf(job.client,sizeof(job.client),"%s",selected_client);
+     job.bluetooth=transport==LINK_BLE;
+     job.usb=transport==LINK_USB;
+     unsigned generation=state.generation+1;memset(&state,0,sizeof(state));state.generation=generation;state.busy=true;
+diff --git a/firmware/main/voice_remote.h b/firmware/main/voice_remote.h
+index f1a57eb..d2eadcf 100644
+--- a/firmware/main/voice_remote.h
++++ b/firmware/main/voice_remote.h
+@@ -24,3 +24,5 @@ void voice_remote_notify_agenda(void); /* Agenda-only cue; same worker, mute and
+ bool voice_remote_preview_sound(void); /* Worker-owned playback; refuses while recording or muted. */
+ int voice_remote_queue_depth(void);
+ int voice_remote_mic_error(void);
++
++void voice_remote_set_client(const char *client);
+diff --git a/tests/ui-preview/claude_companion_test.c b/tests/ui-preview/claude_companion_test.c
+index f1be313..0857db0 100644
+--- a/tests/ui-preview/claude_companion_test.c
++++ b/tests/ui-preview/claude_companion_test.c
+@@ -1,29 +1,49 @@
+-#include "claude_companion.h"
+-#include <assert.h>
+-#include <stdio.h>
+-#include <string.h>
+-
+-int main(int argc,char **argv) {
+-    assert(claude_companion_asset_available()&&claude_companion_frame_count()==378);
+-    unsigned work=claude_companion_frame(CODEX_COMPANION_WORKING,0,false).frame;
+-    assert(claude_companion_frame(CODEX_COMPANION_WORKING,1000,false).frame!=work);
+-    assert(claude_companion_frame(CODEX_COMPANION_WORKING,7000,false).frame==work);
+-    assert(claude_companion_frame(CODEX_COMPANION_DONE,7000,false).frame==claude_companion_frame(CODEX_COMPANION_DONE,70000,false).frame);
+-    assert(claude_companion_frame(CODEX_COMPANION_STOPPED,0,false).frame==claude_companion_frame(CODEX_COMPANION_STOPPED,70000,false).frame);
+-    assert(claude_companion_frame(CODEX_COMPANION_WAITING,3400,false).frame!=claude_companion_frame(CODEX_COMPANION_UNKNOWN,3400,false).frame);
+-    assert(claude_companion_frame(CODEX_COMPANION_DONE,7000,true).frame!=claude_companion_frame(CODEX_COMPANION_DONE,7000,false).frame);
+-    FILE *dump=argc>1?fopen(argv[1],"wb"):NULL;
+-    if(argc>1)assert(dump);
+-    unsigned char buffer[CLAUDE_COMPANION_FRAME_BYTES];
+-    for(unsigned frame=0;frame<claude_companion_frame_count();frame++) {
+-        unsigned width=0,height=0;memset(buffer,0xA5,sizeof(buffer));
+-        assert(!claude_companion_decode(frame,buffer,1,&width,&height)&&buffer[0]==0xA5&&width==0&&height==0);
+-        assert(claude_companion_decode(frame,buffer,sizeof(buffer),&width,&height));
+-        assert(width&&height&&width*height*3<=sizeof(buffer)&&width%2==0);
+-        if(dump){fwrite(&width,4,1,dump);fwrite(&height,4,1,dump);fwrite(buffer,1,width*height*3,dump);}
+-    }
+-    assert(!claude_companion_decode(378,buffer,sizeof(buffer),NULL,NULL));
+-    if(dump)fclose(dump);
+-    puts("CLAUDE_COMPANION_OK all_378_frames, bounds, continuous_work, completion_hold, static_rest");
+-    return 0;
+-}
++#include "claude_companion.h"
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++
++int main(int argc,char **argv) {
++    assert(claude_companion_asset_available()&&claude_companion_frame_count()==378);
++    unsigned work=claude_companion_frame(CODEX_COMPANION_WORKING,0,false).frame;
++    assert(claude_companion_frame(CODEX_COMPANION_WORKING,1000,false).frame!=work);
++    assert(claude_companion_frame(CODEX_COMPANION_WORKING,7000,false).frame==work);
++    assert(claude_companion_frame(CODEX_COMPANION_DONE,7000,false).frame==claude_companion_frame(CODEX_COMPANION_DONE,70000,false).frame);
++    assert(claude_companion_frame(CODEX_COMPANION_STOPPED,0,false).frame==claude_companion_frame(CODEX_COMPANION_STOPPED,70000,false).frame);
++    assert(claude_companion_frame(CODEX_COMPANION_WAITING,3400,false).frame!=claude_companion_frame(CODEX_COMPANION_UNKNOWN,3400,false).frame);
++    assert(claude_companion_frame(CODEX_COMPANION_DONE,7000,true).frame!=claude_companion_frame(CODEX_COMPANION_DONE,7000,false).frame);
++    claude_companion_frame_info relaxed=claude_companion_frame(CODEX_COMPANION_IDLE,0,false),inhale=claude_companion_frame(CODEX_COMPANION_IDLE,1800,false),loop=claude_companion_frame(CODEX_COMPANION_IDLE,3600,false);
++    assert(relaxed.frame==work&&inhale.frame==work&&loop.frame==work);
++    assert(inhale.scale_q8>relaxed.scale_q8&&inhale.scale_q8-relaxed.scale_q8<=16&&loop.scale_q8==relaxed.scale_q8);
++    assert(inhale.saver_scale_q8>relaxed.saver_scale_q8&&loop.saver_scale_q8==relaxed.saver_scale_q8);
++    FILE *dump=argc>1?fopen(argv[1],"wb"):NULL;
++    if(argc>1)assert(dump);
++    unsigned char buffer[CLAUDE_COMPANION_FRAME_BYTES];
++    for(unsigned frame=0;frame<claude_companion_frame_count();frame++) {
++        unsigned width=0,height=0;memset(buffer,0xA5,sizeof(buffer));
++        assert(!claude_companion_decode(frame,buffer,1,&width,&height)&&buffer[0]==0xA5&&width==0&&height==0);
++        assert(claude_companion_decode(frame,buffer,sizeof(buffer),&width,&height));
++        assert(width&&height&&width*height*3<=sizeof(buffer)&&width%2==0);
++        if(dump){fwrite(&width,4,1,dump);fwrite(&height,4,1,dump);fwrite(buffer,1,width*height*3,dump);}
++    }
++    assert(!claude_companion_decode(378,buffer,sizeof(buffer),NULL,NULL));
++    const codex_companion_state states[]={CODEX_COMPANION_WORKING,CODEX_COMPANION_IDLE,CODEX_COMPANION_WAITING,CODEX_COMPANION_DONE,CODEX_COMPANION_UNKNOWN,CODEX_COMPANION_STOPPED};
++    const unsigned counts[]={28,44,101,73,131,1};
++    unsigned aligned=0;
++    for(unsigned group=0;group<6;group++)for(unsigned i=0;i<counts[group];i++) {
++        claude_companion_frame_info f=claude_companion_frame(states[group],(i*1000+11)/12,true);
++        unsigned w,h;assert(claude_companion_decode(f.frame,buffer,sizeof(buffer),&w,&h));
++        int left=152-(int)(f.anchor_x2*f.scale_q8+256)/512;
++        int top=130-(int)(f.anchor_y2*f.scale_q8+256)/512;
++        for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++)if(buffer[w*h*2+y*w+x]) {
++            assert(left+(int)(x*f.scale_q8/256)>=0&&top+(int)(y*f.scale_q8/256)>=0);
++            assert(left+(int)(((x+1)*f.scale_q8+255)/256)<=284);
++            assert(top+(int)(((y+1)*f.scale_q8+255)/256)<=215);
++        }
++        aligned++;
++    }
++    assert(aligned==378);
++    if(dump)fclose(dump);
++    puts("CLAUDE_COMPANION_OK all_378_frames, bounds, continuous_work, completion_hold, static_rest");
++    return 0;
++}
+diff --git a/tests/ui-preview/claude_companion_ui_test.h b/tests/ui-preview/claude_companion_ui_test.h
+index 22ff322..0153b31 100644
+--- a/tests/ui-preview/claude_companion_ui_test.h
++++ b/tests/ui-preview/claude_companion_ui_test.h
+@@ -1,21 +1,67 @@
++static unsigned automation_clicks;
++static void automation_test_click(lv_event_t *e){(void)e;automation_clicks++;}
++static cJSON *automation_test_frame(unsigned request,const char *op){
++    cJSON *frame=cJSON_CreateObject(),*health=cJSON_AddObjectToObject(frame,"connectionHealth"),*c=cJSON_AddObjectToObject(health,"uiAutomationCommand");
++    char id[33];snprintf(id,sizeof(id),"%032x",request);
++    cJSON_AddNumberToObject(frame,"epochMilliseconds",100000);cJSON_AddStringToObject(cJSON_AddObjectToObject(frame,"pcInput"),"session","11111111111111111111111111111111");
++    cJSON_AddNumberToObject(c,"version",1);cJSON_AddStringToObject(c,"requestId",id);cJSON_AddStringToObject(c,"transport","USB");cJSON_AddStringToObject(c,"op",op);cJSON_AddNumberToObject(c,"expiresAt",105000);
++    cJSON_AddNumberToObject(c,"width",lv_display_get_horizontal_resolution(NULL));cJSON_AddNumberToObject(c,"height",lv_display_get_vertical_resolution(NULL));cJSON_AddNumberToObject(c,"rotation",lv_display_get_rotation(NULL));
++    cJSON_AddNumberToObject(c,"x",150);cJSON_AddNumberToObject(c,"y",150);cJSON_AddNumberToObject(c,"toX",150);cJSON_AddNumberToObject(c,"toY",150);cJSON_AddNumberToObject(c,"durationMs",80);return frame;
++}
++static void automation_test_real_pointer(void){
++    lv_display_t *display=lv_display_get_default();lv_display_rotation_t original=lv_display_get_rotation(display);
++    lv_obj_t *target=lv_button_create(lv_layer_top());lv_obj_set_pos(target,100,100);lv_obj_set_size(target,200,100);lv_obj_add_event_cb(target,automation_test_click,LV_EVENT_CLICKED,NULL);
++    for(int rotation=0;rotation<4;rotation++){
++        lv_display_set_rotation(display,(lv_display_rotation_t)rotation);lv_obj_update_layout(lv_layer_top());
++        cJSON *f=automation_test_frame(100+rotation,"tap");ui_automation_tick(f,LINK_USB,100,100);assert(automation_pressed);
++        lv_indev_read(automation_input);lv_tick_inc(96);lv_indev_read(automation_input);assert(automation_clicks==(unsigned)rotation+1);
++        ui_automation_tick(f,LINK_USB,200,100);assert(!automation_pressed);cJSON_Delete(f);
++    }
++    lv_display_set_rotation(display,original);lv_obj_update_layout(lv_layer_top());
++    cJSON *f=automation_test_frame(110,"tap"),*c=item(item(f,"connectionHealth"),"uiAutomationCommand");
++    cJSON_SetNumberValue(item(c,"x"),1280);ui_automation_tick(f,LINK_USB,100,100);assert(!automation_pressed);assert(strstr(automation_report,",3,"));cJSON_Delete(f);
++    f=automation_test_frame(111,"tap");ui_automation_tick(f,LINK_WIFI,100,100);assert(!automation_pressed);
++    ui_automation_tick(f,LINK_USB,6000,100);assert(!automation_pressed);cJSON_Delete(f);
++    f=automation_test_frame(112,"tap");ui_automation_tick(f,LINK_USB,100,100);lv_indev_read(automation_input);
++    preview_computer_host_epoch++;lv_tick_inc(96);lv_indev_read(automation_input);assert(!automation_pressed&&automation_clicks==4);preview_computer_host_epoch--;cJSON_Delete(f);
++    lv_obj_delete(target);
++    lv_obj_t *scroll=lv_obj_create(lv_layer_top());lv_obj_set_pos(scroll,50,70);lv_obj_set_size(scroll,500,450);lv_obj_set_scroll_dir(scroll,LV_DIR_VER);
++    lv_obj_t *content=lv_obj_create(scroll);lv_obj_set_size(content,420,1400);lv_obj_update_layout(lv_layer_top());
++    f=automation_test_frame(113,"swipe");c=item(item(f,"connectionHealth"),"uiAutomationCommand");
++    cJSON_SetNumberValue(item(c,"y"),380);cJSON_SetNumberValue(item(c,"toY"),150);cJSON_SetNumberValue(item(c,"durationMs"),320);
++    ui_automation_tick(f,LINK_USB,100,100);lv_indev_read(automation_input);
++    for(int i=0;i<24;i++){lv_tick_inc(16);lv_indev_read(automation_input);}
++    assert(!automation_pressed&&lv_obj_get_scroll_y(scroll)>80);cJSON_Delete(f);lv_obj_delete(scroll);
++    puts("TAB5_UI_AUTOMATION_REAL_POINTER_OK four rotations, real scrolling, bounds, replay, stale/link rejection and cancelled release");
++}
+ // Use the actual widgets. Only input telemetry and time are fixtures.
+ static void check_claude_companion_ui(void) {
+     assert(CLAUDE_PET_AVAILABLE);
+     cJSON_Delete(shown);shown=cJSON_Parse("{\"epochUtc\":1793758000,\"codex\":{\"state\":\"idle\",\"ageSeconds\":30},\"claude\":{\"state\":\"working\",\"ageSeconds\":0},\"codexTasks\":{\"overviewTask\":{\"id\":\"11111111-1111-1111-1111-111111111111\",\"title\":\"Codex session must not appear under Claude\",\"folder\":\"Codex project\",\"state\":\"idle\"},\"tasks\":[]}}");assert(shown);
+     cJSON *code=item(shown,"codex"),*claude=item(shown,"claude");
+     home_companion_provider=1;
+-    assert(companion_provider_resolve(shown,(1u<<1)|(1u<<5)|(1u<<6))==0);
++    assert(companion_provider_resolve(shown,(1u<<0)|(1u<<1)|(1u<<5)|(1u<<6))==0);
+     cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("working"));
+     cJSON_SetNumberValue(item(code,"ageSeconds"),0);cJSON_SetNumberValue(item(claude,"ageSeconds"),10);
+-    assert(companion_provider_resolve(shown,1u)==1);
++    assert(companion_provider_resolve(shown,1u)==0);
+     cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("idle"));
+     cJSON_ReplaceItemInObject(claude,"state",cJSON_CreateString("offline"));
+     cJSON_AddItemToObject(shown,"domesticActivity",cJSON_Parse("{\"activeProvider\":\"deepseek\",\"state\":\"working\",\"providers\":{\"deepseek\":{\"lastActivity\":1793758000,\"model\":\"deepseek-chat\"}}}"));
+-    assert(companion_provider_resolve(shown,(1u<<1)|(1u<<5)|(1u<<6))==0);
++    assert(companion_provider_resolve(shown,(1u<<0)|(1u<<1)|(1u<<5)|(1u<<6))==0);
+     assert(claude_client_mood(shown,true)==CODEX_COMPANION_WORKING);
+     cJSON_ReplaceItemInObject(item(shown,"domesticActivity"),"activeProvider",cJSON_CreateString("zhipu"));
+-    assert(companion_provider_resolve(shown,1u<<1)==0);
++    assert(companion_provider_resolve(shown,1u<<1)==1);
+     cJSON_DeleteItemFromObject(shown,"domesticActivity");
++    // Both selected: compare the same sessions that will be shown on screen.
++    cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("idle"));
++    cJSON_ReplaceItemInObject(claude,"state",cJSON_CreateString("idle"));
++    cJSON *codex_overview=item(item(shown,"codexTasks"),"overviewTask");
++    cJSON_AddNumberToObject(codex_overview,"updatedAt",1793757880);
++    cJSON_AddItemToObject(shown,"claudeSession",cJSON_Parse("{\"title\":\"Claude 会话\",\"lastActivity\":1793757940}"));
++    assert(companion_provider_resolve(shown,3u)==0);
++    cJSON_SetNumberValue(item(codex_overview,"updatedAt"),1793757990);
++    assert(companion_provider_resolve(shown,3u)==1);
++    cJSON_DeleteItemFromObject(shown,"claudeSession");
+     home_models=(1u<<0)|(1u<<5)|(1u<<6);last_link=LINK_USB;offline_since=-1;
+     const char *states[]={"working","idle","idle","idle","offline","unknown"};
+     const char *names[]={"working","idle","waiting","done","stopped","unknown"};
+@@ -32,12 +78,26 @@ static void check_claude_companion_ui(void) {
+         assert(home_companion_provider==0&&claude_mood==expected[i]);
+         assert(lv_obj_has_flag(home_companion,LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(home_claude.root,LV_OBJ_FLAG_HIDDEN));
+         assert(!strcmp(lv_label_get_text(home_task_title),"Claude Code")&&!strcmp(lv_label_get_text(home_task_note),"当前客户端"));
+-        assert(lv_obj_get_x(model_state[1])+lv_obj_get_width(model_state[1])/2==home_claude.x+150);
+-        lv_area_t box;lv_obj_get_coords(home_claude.root,&box);assert(box.x1==508&&box.y2<334);
++        assert(lv_obj_get_x(model_state[1])+lv_obj_get_width(model_state[1])/2==home_claude.x+152);
++        lv_area_t box;lv_obj_get_coords(home_claude.root,&box);assert(box.x1==506&&box.y2<334);
+         claude_companion_frame_info frame_info=claude_companion_frame(claude_mood,preview_now_us/1000-claude_mood_started,false);
+-        assert(lv_obj_get_x(home_claude.image)>=0&&lv_obj_get_y(home_claude.image)>=0);
+-        assert(lv_obj_get_x(home_claude.image)+(int)(frame_info.width*frame_info.scale)<=home_claude.width);
+-        assert(lv_obj_get_y(home_claude.image)+(int)(frame_info.height*frame_info.scale)<=home_claude.height);
++        // Transparent atlas margins are not visible artwork or clipping.
++        unsigned visible_right=0,visible_bottom=0,visible_left=frame_info.width,visible_top=frame_info.height;
++        for(unsigned y=0;y<frame_info.height;y++)for(unsigned x=0;x<frame_info.width;x++)
++            if(claude_pixels[frame_info.width*frame_info.height*2+y*frame_info.width+x]) {
++                if(x+1>visible_right)visible_right=x+1;if(y+1>visible_bottom)visible_bottom=y+1;
++                if(x<visible_left)visible_left=x;if(y<visible_top)visible_top=y;
++            }
++        assert(lv_obj_get_x(home_claude.image)+(int)(visible_left*frame_info.scale_q8/256)>=0);
++        assert(lv_obj_get_y(home_claude.image)+(int)(visible_top*frame_info.scale_q8/256)>=0);
++        assert(lv_obj_get_x(home_claude.image)+(int)((visible_right*frame_info.scale_q8+255)/256)<=home_claude.width);
++        assert(lv_obj_get_y(home_claude.image)+(int)((visible_bottom*frame_info.scale_q8+255)/256)<=home_claude.height);
++        if(i==1) {
++            int64_t idle_at=claude_mood_started;
++            claude_pet_tick(&home_claude,claude_mood,idle_at,true);int low=home_claude.last_scale;capture("claude-idle-breath-out");
++            claude_pet_tick(&home_claude,claude_mood,idle_at+1800,true);assert(home_claude.last_scale>low);capture("claude-idle-breath-in");
++            claude_pet_tick(&home_claude,claude_mood,idle_at+3600,true);assert(home_claude.last_scale==low);
++        }
+         char name[80];snprintf(name,sizeof(name),"claude-overview-%s",names[i]);capture(name);
+         int64_t started=claude_mood_started;
+         saver_style=UI_SAVER_CLAUDE;saver_enter(false);
+@@ -58,14 +118,76 @@ static void check_claude_companion_ui(void) {
+         claude_pet_tick(&home_claude,claude_mood,preview_now_us/1000,true);
+         if(i==3)assert(claude_rendered_frame==claude_companion_frame(CODEX_COMPANION_DONE,70000,false).frame);
+     }
++    // A single chosen client remains authoritative even while the other works.
++    cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("working"));
++    cJSON_AddItemToObject(shown,"claudeSession",cJSON_Parse("{\"title\":\"整理项目文档\",\"lastActivity\":1793757990}"));
++    home_models=1u;page(0);render_home_task();lv_obj_update_layout(lv_screen_active());
++    assert(home_companion_provider==0&&!strcmp(lv_label_get_text(home_task_title),"整理项目文档"));
++    assert(!strcmp(lv_label_get_text(home_task_note),"最近会话"));capture("claude-overview-session-name");
++    // The bridge now binds name and lifecycle to the same Claude prompt.
++    // Exercise the production widgets with exactly that wire representation.
++    const char *bound_states[]={"working","error","idle","idle"};
++    const char *bound_names[]={"active","failed","interrupted","completed"};
++    const codex_companion_state bound_moods[]={CODEX_COMPANION_WORKING,CODEX_COMPANION_BLOCKED,CODEX_COMPANION_IDLE,CODEX_COMPANION_DONE};
++    for(unsigned i=0;i<4;i++) {
++        cJSON_ReplaceItemInObject(claude,"state",cJSON_CreateString(bound_states[i]));
++        cJSON_ReplaceItemInObject(claude,"completionActive",cJSON_CreateBool(i==3));
++        cJSON_ReplaceItemInObject(claude,"needsInput",cJSON_CreateBool(false));
++        render_home_task();companion_tick(preview_now_us/1000,true,false);lv_obj_update_layout(lv_screen_active());
++        assert(home_companion_provider==0&&claude_mood==bound_moods[i]);
++        assert(!strcmp(lv_label_get_text(home_task_title),"整理项目文档"));
++        char shot[80];snprintf(shot,sizeof(shot),"claude-bound-%s",bound_names[i]);capture(shot);
++    }
++    cJSON_ReplaceItemInObject(item(shown,"claudeSession"),"title",cJSON_CreateString("这是一个很长的会话名称用于检查中文标题显示和末尾省略是否正确不会遮挡萌宠或按钮"));
++    render_home_task();lv_obj_update_layout(lv_screen_active());
++    assert(lv_obj_get_width(home_task_title)==480&&lv_obj_get_height(home_task_title)==82);
++    capture("claude-overview-session-long");
++    display_orientation_apply(2);render_home_task();lv_obj_update_layout(lv_screen_active());
++    assert(home_companion_provider==0&&lv_obj_get_width(home_task_title)==480&&lv_obj_get_height(home_task_title)==82);
++    capture("claude-overview-session-flipped");display_orientation_apply(0);
++    cJSON_DeleteItemFromObject(shown,"claudeSession");render_home_task();
++    assert(!strcmp(lv_label_get_text(home_task_title),"Claude Code"));
++    assert(!strcmp(lv_label_get_text(home_task_note),"当前客户端"));
++    home_models=2u;render_home_task();
++    assert(home_companion_provider==1&&!strcmp(lv_label_get_text(home_task_title),"Codex session must not appear under Claude"));
++    companion_tick(preview_now_us/1000,true,false);lv_obj_update_layout(lv_screen_active());
++    capture("codex-overview-size-reference");
++    cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("idle"));
+     assert(claude_client_mood(shown,false)==CODEX_COMPANION_UNKNOWN);
+     cJSON_ReplaceItemInObject(code,"state",cJSON_CreateString("working"));
+-    render_home_task();companion_tick(preview_now_us/1000,true,false);
++    home_models=3u;render_home_task();companion_tick(preview_now_us/1000,true,false);
+     assert(home_companion_provider==1&&!lv_obj_has_flag(home_companion,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(home_claude.root,LV_OBJ_FLAG_HIDDEN));
+     page(9);settings_select(1);saver_style=0;lv_dropdown_set_selected(saver_selector,ui_saver_option_from_style(UI_SAVER_CLAUDE));
+     lv_obj_send_event(saver_selector,LV_EVENT_VALUE_CHANGED,NULL);
+     assert(saver_style==UI_SAVER_CLAUDE&&preview_saved_saver==UI_SAVER_CLAUDE);
+     char selected[48];lv_dropdown_get_selected_str(saver_selector,selected,sizeof(selected));assert(!strcmp(selected,"Claude萌宠"));
+     lv_dropdown_open(saver_selector);capture("claude-saver-picker");lv_dropdown_close(saver_selector);
+-    puts("CLAUDE_COMPANION_UI_OK supported_client_routing, active_over_quota_preferences, custom_domestic_models_keep_claude, six_states, exclusive_overview, no_codex_content_leak, exact_center, shared_saver_state, stale_unknown, existing_model_picker, saved_id10");
++    lv_dropdown_close(saver_selector);home_models=1u;page(0);
++    cJSON_DeleteItemFromObject(shown,"claudeSession");
++    cJSON_AddItemToObject(shown,"claudeSession",cJSON_Parse("{\"title\":\"整理项目文档\",\"readBinding\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"repliesEnabled\":true}"));
++    cJSON_AddItemToObject(shown,"pcInput",cJSON_Parse("{\"session\":\"fixture-bridge-session\"}"));
++    render_home_task();assert(!strcmp(lv_label_get_text(lv_obj_get_child(home_task_action,0)),"查看对话"));
++    lv_obj_send_event(home_task_action,LV_EVENT_CLICKED,NULL);assert(claude_reader_opened&&current_page==0&&preview_claude_page==-1);
++    claude_reader_tick();capture("claude-reader-loading");
++    preview_claude_read.busy=false;preview_claude_read.status=200;preview_claude_read.page=0;preview_claude_read.total=3;
++    strcpy(preview_claude_read.revision,"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
++    strcpy(preview_claude_read.title,"整理项目文档");strcpy(preview_claude_read.text,"# Claude 公开回复\n\n");
++    for(int i=0;i<16;i++)strcat(preview_claude_read.text,"这一段公开回复来自当前会话，支持中文、English 和 emoji 🙂。\n");
++    preview_claude_read.generation++;claude_reader_tick();lv_obj_update_layout(lv_screen_active());
++    assert(claude_reader_page==0&&claude_reader_total==3&&lv_obj_has_state(claude_reader_previous,LV_STATE_DISABLED));
++    assert(!strcmp(lv_label_get_text(claude_reader_title),"Claude · 整理项目文档"));capture("claude-reader-public-reply");
++    assert(lv_obj_get_scroll_bottom(claude_reader_scroll)>0);lv_obj_scroll_to_y(claude_reader_scroll,9999,LV_ANIM_OFF);capture("claude-reader-scrolled");
++    lv_obj_send_event(claude_reader_next,LV_EVENT_CLICKED,NULL);assert(preview_claude_page==1);
++    preview_claude_read.busy=false;preview_claude_read.page=1;strcpy(preview_claude_read.text,"第二页公开回复，不显示 Codex 会话内容。");preview_claude_read.generation++;claude_reader_tick();
++    assert(claude_reader_page==1&&!lv_obj_has_state(claude_reader_previous,LV_STATE_DISABLED));capture("claude-reader-next-page");
++    display_orientation_apply(2);capture("claude-reader-flipped");display_orientation_apply(0);
++    strcpy(preview_claude_read.binding,"cccccccccccccccccccccccccccccccc");strcpy(preview_claude_read.title,"另一个会话禁止替换");preview_claude_read.generation++;claude_reader_tick();
++    assert(!strcmp(lv_label_get_text(claude_reader_title),"Claude · 整理项目文档"));
++    strcpy(preview_claude_read.binding,claude_reader_binding);preview_claude_read.status=403;preview_claude_read.generation++;claude_reader_tick();
++    assert(lv_obj_get_child_count(claude_reader_body)==0);
++    assert(lv_obj_has_state(claude_reader_previous,LV_STATE_DISABLED)&&lv_obj_has_state(claude_reader_next,LV_STATE_DISABLED)&&lv_obj_has_state(claude_reader_latest,LV_STATE_DISABLED));
++    capture("claude-reader-source-stopped");
++    claude_reader_close(NULL);assert(!claude_reader_opened&&lv_obj_has_flag(claude_reader_layer,LV_OBJ_FLAG_HIDDEN));
++    automation_test_real_pointer();
++    puts("CLAUDE_COMPANION_UI_OK supported_client_routing, active_over_quota_preferences, custom_domestic_models_keep_claude, six_states, exclusive_overview, no_codex_content_leak, exact_center, shared_saver_state, stale_unknown, existing_model_picker, saved_id10, readonly_claude_reader, paging, pinned_session, source_stop");
+ }
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+index 631ad3c..a09d734 100644
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -733,7 +733,11 @@ static void capture(const char *name) {
+         }
+         fclose(live);
+     }
+-    lv_draw_buf_t *snap=lv_snapshot_take(lv_screen_active(),LV_COLOR_FORMAT_RGB565);
++    // Full-screen read-only overlays live on LVGL's top layer. Snapshot the
++    // actual overlay rather than silently capturing the covered Overview.
++    lv_obj_t *capture_root=claude_reader_opened&&claude_reader_layer?claude_reader_layer:lv_screen_active();
++    lv_obj_update_layout(capture_root);
++    lv_draw_buf_t *snap=lv_snapshot_take(capture_root,LV_COLOR_FORMAT_RGB565);
+     assert(snap);
+     QueryPerformanceCounter(&render_ended);
+     if(!render_audit_capture(name,snap,preview_buffer,render_ended.QuadPart-render_began.QuadPart)){
+@@ -2032,6 +2036,7 @@ static void check_camera_open_readiness(void) {
+ #include "preview_gallery_loan_test.h"
+ #include "codex_companion_ui_test.h"
+ #include "claude_companion_ui_test.h"
++#include "workspace_parity_ui_test.h"
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -2051,6 +2056,7 @@ int main(void) {
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_WORKSPACE_PARITY_ONLY")){check_workspace_parity_ui();return 0;}
+     if(getenv("TAB5_CLAUDE_COMPANION_ONLY")){check_claude_companion_ui();return 0;}
+     if(getenv("TAB5_CODEX_COMPANION_ONLY")){check_codex_companion_ui();return 0;}
+     if(getenv("TAB5_PINYIN_ONLY")) {
+@@ -2733,7 +2739,7 @@ int main(void) {
+     codex_notices[0].unread=true;codex_notices[0].arrived=1;
+     char before_selection[37];snprintf(before_selection,sizeof(before_selection),"%s",codex_selected);
+     render_home_task();assert(home_task_unread&&!strcmp(home_task_turn,"completed-turn"));
+-    assert(!strcmp(lv_label_get_text(lv_obj_get_child(home_task_action,0)),"查看完成内容"));
++    assert(!strcmp(lv_label_get_text(lv_obj_get_child(home_task_action,0)),"查看回复"));
+     assert(!strcmp(before_selection,codex_selected)&&codex_notices[0].unread);
+     capture("overview-completed");
+     codex_notices[0].unread=false;render_home_task();assert(!home_task_unread);
+diff --git a/tests/ui-preview/workspace_parity_ui_test.h b/tests/ui-preview/workspace_parity_ui_test.h
+new file mode 100644
+index 0000000..2d9bbfc
+--- /dev/null
++++ b/tests/ui-preview/workspace_parity_ui_test.h
+@@ -0,0 +1,82 @@
++static void check_workspace_parity_ui(void) {
++    const char *fixture="{\"epochMilliseconds\":1793758000000,\"pcInput\":{\"session\":\"workspace-fixture\"},\"codex\":{\"state\":\"idle\"},\"claude\":{\"state\":\"idle\"},\"codexTasks\":{\"projects\":[{\"id\":\"1111111111111111\",\"name\":\"AI-bot · Codex\"}],\"tasks\":[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"projectId\":\"1111111111111111\",\"title\":\"验收会话 A · Codex\",\"updatedAt\":1793758000}]},\"claudeTasks\":{\"projects\":[{\"id\":\"2222222222222222\",\"name\":\"AI-bot · Claude\"}],\"tasks\":[{\"id\":\"22222222-2222-4222-8222-222222222222\",\"projectId\":\"2222222222222222\",\"title\":\"验收会话 A · Claude · 长标题与会话历史检查\",\"updatedAt\":1793758001},{\"id\":\"33333333-3333-4333-8333-333333333333\",\"projectId\":\"2222222222222222\",\"title\":\"验收会话 B · 语音与图片\",\"updatedAt\":1793757990}]}}";
++    cJSON_Delete(shown);shown=cJSON_Parse(fixture);assert(shown);
++    workspace_client=0;preview_usb_connected=true;last_link=LINK_USB;last_received=preview_now_us/1000;
++    page(8);codex_default_pending=codex_default_all=true;render_codex();
++    assert(!strcmp(codex_selected,"11111111-1111-4111-8111-111111111111"));
++    codex_set_text("Codex 草稿仅在 Codex 恢复");codex_draft *a=codex_draft_for(codex_selected,true);
++    assert(codex_store_text(a,lv_textarea_get_text(codex_input),false));a->loaded=true;a->dirty=false;
++    capture("workspace-codex-draft");
++    assert(workspace_choose(1));render_codex();
++    assert(!strcmp(codex_selected,"22222222-2222-4222-8222-222222222222"));
++    assert(!strcmp(lv_textarea_get_text(codex_input),""));
++    codex_set_text("Claude 草稿：请查看图片，语音转写后可继续编辑。");codex_draft *b=codex_draft_for(codex_selected,true);
++    assert(codex_store_text(b,lv_textarea_get_text(codex_input),false));b->loaded=true;b->dirty=false;
++    capture("workspace-claude-draft");
++    lv_obj_update_layout(lv_screen_active());lv_area_t first,second,picker,list;
++    lv_obj_get_coords(workspace_buttons[0],&first);lv_obj_get_coords(workspace_buttons[1],&second);
++    lv_obj_get_coords(codex_project_picker,&picker);lv_obj_get_coords(codex_list,&list);
++    assert(first.x2<second.x1&&first.y2<picker.y1&&picker.y2<list.y1&&lv_obj_get_height(codex_list)==328);
++    codex_voice_waiting=true;assert(!workspace_choose(0)&&workspace_client==1);codex_voice_waiting=false;
++    photo_flow=true;assert(!workspace_choose(0)&&workspace_client==1);photo_flow=false;
++    assert(workspace_choose(0));assert(!strcmp(lv_textarea_get_text(codex_input),a->text));
++    codex_set_text("Codex 更新后的草稿");assert(!workspace_choose(1));assert(workspace_switch_pending==1&&workspace_client==0&&a->dirty);
++    a->dirty=false;workspace_switch_tick();assert(workspace_client==1&&!strcmp(lv_textarea_get_text(codex_input),b->text));
++    capture("workspace-claude-restored");
++    // Single-client layouts keep their full-width label; both clients restore
++    // the two-button layout. Unsent composers were tested separately above.
++    codex_set_text("");
++    assert(codex_store_text(a,"",false)&&codex_store_text(b,"",false));a->dirty=b->dirty=false;
++    cJSON *codex_saved=cJSON_DetachItemFromObject(shown,"codexTasks");
++    render_codex();lv_obj_update_layout(lv_screen_active());assert(lv_obj_has_flag(workspace_buttons[0],LV_OBJ_FLAG_HIDDEN));
++    assert(!lv_obj_has_flag(workspace_buttons[1],LV_OBJ_FLAG_HIDDEN)&&lv_obj_get_width(workspace_buttons[1])==342);
++    capture("workspace-claude-only");
++    cJSON_AddItemToObject(shown,"codexTasks",codex_saved);
++    cJSON *claude_saved=cJSON_DetachItemFromObject(shown,"claudeTasks");
++    render_codex();lv_obj_update_layout(lv_screen_active());assert(workspace_client==0&&lv_obj_has_flag(workspace_buttons[1],LV_OBJ_FLAG_HIDDEN));
++    assert(lv_obj_get_width(workspace_buttons[0])==342);capture("workspace-codex-only");
++    cJSON_AddItemToObject(shown,"claudeTasks",claude_saved);render_codex();lv_obj_update_layout(lv_screen_active());
++    assert(!lv_obj_has_flag(workspace_buttons[0],LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(workspace_buttons[1],LV_OBJ_FLAG_HIDDEN));
++    assert(lv_obj_get_width(workspace_buttons[0])==166&&lv_obj_get_width(workspace_buttons[1])==166);
++    // Overview navigation retains the exact provider AND session, including
++    // the second, older Claude conversation instead of its newest default.
++    cJSON_AddItemToObject(shown,"claudeSession",cJSON_Parse("{\"taskId\":\"33333333-3333-4333-8333-333333333333\"}"));
++    page(0);home_companion_provider=0;
++    lv_obj_send_event(home_task_action,LV_EVENT_CLICKED,NULL);
++    assert(current_page==8&&workspace_client==1&&!strcmp(codex_selected,"33333333-3333-4333-8333-333333333333"));
++    assert(!lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN)&&codex_reply_return==0);
++    capture("workspace-overview-exact-claude-session");
++    codex_nav_queued=codex_nav_pending=false;codex_reply_close(NULL);assert(current_page==0);
++    codex_reading=true;workspace_open_task(0,"11111111-1111-4111-8111-111111111111");
++    assert(workspace_client==1&&workspace_open_target[0]);codex_reading=false;workspace_open_tick();
++    assert(workspace_client==0&&!workspace_open_target[0]&&!strcmp(codex_selected,"11111111-1111-4111-8111-111111111111"));
++    assert(!lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN)&&codex_reply_return==0);
++    codex_nav_queued=codex_nav_pending=false;codex_reply_close(NULL);assert(current_page==0);
++    // Both overview cards share wording, exact navigation and unread opening.
++    home_models=1;page(0);render_home_task();
++    assert(!strcmp(lv_label_get_text(lv_obj_get_child(home_task_action,0)),"查看对话"));
++    capture("workspace-claude-overview-entry");
++    home_models=2;render_home_task();
++    assert(!strcmp(lv_label_get_text(lv_obj_get_child(home_task_action,0)),"查看对话"));
++    capture("workspace-codex-overview-entry");
++    if(!codex_notices)codex_notices=calloc(80,sizeof(*codex_notices));
++    for(unsigned client=0;client<2;client++) {
++        const char *target=client?"33333333-3333-4333-8333-333333333333":"11111111-1111-4111-8111-111111111111";
++        snprintf(codex_notices[0].task,37,"%s",target);snprintf(codex_notices[0].turn,64,"completed-turn");codex_notices[0].unread=true;
++        home_models=client?1:2;page(0);render_home_task();
++        assert(!strcmp(lv_label_get_text(lv_obj_get_child(home_task_action,0)),"查看回复"));
++        codex_reading=false;codex_nav_queued=codex_nav_pending=false;
++        lv_obj_send_event(home_task_action,LV_EVENT_CLICKED,NULL);
++        assert(current_page==8&&workspace_client==client&&!strcmp(codex_selected,target));
++        assert(!lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN)&&!strcmp(codex_reply_selected,"completed-turn"));
++        assert(codex_notices[0].unread); // Navigation alone is never a read receipt.
++        capture(client?"workspace-claude-overview-unread":"workspace-codex-overview-unread");
++        codex_nav_queued=codex_nav_pending=codex_reading=false;codex_reply_close(NULL);assert(current_page==0);codex_notices[0].unread=false;
++    }
++    page(0);home_models=1;cJSON_AddNumberToObject(shown,"aiDialogueVersion",1);
++    cJSON_DeleteItemFromObject(shown,"claudeTasks");render_home_task();
++    assert(lv_obj_has_state(home_task_action,LV_STATE_DISABLED));
++    lv_obj_send_event(home_task_action,LV_EVENT_CLICKED,NULL);assert(current_page==0);
++    capture("workspace-modern-catalog-unavailable");
++    puts("WORKSPACE_PARITY_UI_OK actual_LVGL_layout_provider_catalog_and_draft_isolation_busy_switch_guard_waits_durable_sync");
++}

@@ -56,17 +56,17 @@ internal static class Tab5Protocol
         BinaryPrimitives.WriteUInt32LittleEndian(frame,(uint)packet.Length);
         packet.CopyTo(frame,4); return frame;
     }
-    internal static byte[] Snapshot(StatusSnapshot snapshot, string id, string session, long sequence, object? resource=null, string?[]? assetIds=null, object? codexTasks=null, object? ota=null, object? connectionHealth=null) =>
+    internal static byte[] Snapshot(StatusSnapshot snapshot, string id, string session, long sequence, object? resource=null, string?[]? assetIds=null, object? codexTasks=null, object? ota=null, object? connectionHealth=null, object? claudeSession=null, object? claudeTasks=null) =>
         JsonSerializer.SerializeToUtf8Bytes(new {
             version=1, type="tab5_status", deviceId=id, session, sequence,
-            data=new { imageBinary=1,imageChunkRetry=1,rpcBinary=1,rpcBulk=1,rpcOtaZlib=1,rpcOtaResume=1,rpcOtaBleRadioLease=1,snapshot.Time,snapshot.EpochUtc,epochMilliseconds=snapshot.CapturedAt.ToUnixTimeMilliseconds(),snapshot.UtcOffsetSeconds,snapshot.CapturedAt,
+            data=new { aiDialogueVersion=1,imageBinary=1,imageChunkRetry=1,rpcBinary=1,rpcBulk=1,rpcOtaZlib=1,rpcOtaResume=1,rpcOtaBleRadioLease=1,snapshot.Time,snapshot.EpochUtc,epochMilliseconds=snapshot.CapturedAt.ToUnixTimeMilliseconds(),snapshot.UtcOffsetSeconds,snapshot.CapturedAt,
                 snapshot.Codex,snapshot.Claude,
                 pcInput=new {session,sequence,lastInputTickMs=SystemIdleTime.LastInputTickMilliseconds()},
                 quotas=snapshot.Quotas is null?null:new {claude=SummaryQuota(snapshot.Quotas.Claude),codex=SummaryQuota(snapshot.Quotas.Codex,true)},
                 snapshot.Weather,stocks=snapshot.Stocks is null ? null : snapshot.Stocks with {Quotes=snapshot.Stocks.Quotes.Take(20).ToArray()},
                 systemMetrics=snapshot.SystemMetrics is null ? null : snapshot.SystemMetrics with {Samples=(snapshot.SystemMetrics.History??snapshot.SystemMetrics.Samples)?.TakeLast(64).ToArray()},snapshot.Music,
-                domesticActivity=snapshot.DomesticActivity is null?null:new {snapshot.DomesticActivity.ActiveProvider,snapshot.DomesticActivity.State,snapshot.DomesticActivity.NeedsInput,snapshot.DomesticActivity.TokensToday},
-                snapshot.FollowApp,snapshot.RuntimeHealth,resource,assetIds,codexTasks,ota,connectionHealth,
+                domesticActivity=snapshot.DomesticActivity is null?null:new {snapshot.DomesticActivity.ActiveProvider,snapshot.DomesticActivity.State,snapshot.DomesticActivity.NeedsInput,snapshot.DomesticActivity.TokensToday,providers=snapshot.DomesticActivity.Providers.ToDictionary(p=>p.Key,p=>new {p.Value.TokensToday,p.Value.LastActivity})},
+                snapshot.FollowApp,snapshot.RuntimeHealth,resource,assetIds,codexTasks,claudeSession,claudeTasks,ota,connectionHealth,
                 calendar=Calendar(snapshot),agenda=AgendaStore.Shared.Summary(),quotaDetails=Tab5Details.Quotas(snapshot),quotaTrend=Tab5QuotaTrend.Snapshot() }
         },StatusJson);
     private static object? SummaryQuota(ProviderQuotaSnapshot? quota,bool codex=false)=>quota is null?null:new {
