@@ -1,0 +1,788 @@
+--- a/firmware/CMakeLists.txt
++++ b/firmware/CMakeLists.txt
+@@ -27,3 +27,8 @@
+ # Select the supported string backend without editing managed LVGL sources.
+ idf_component_get_property(tab5_lvgl_lib lvgl__lvgl COMPONENT_LIB)
+ target_compile_definitions(${tab5_lvgl_lib} PUBLIC LV_USE_STDLIB_STRING=LV_STDLIB_CLIB LV_USE_SNAPSHOT=1)
++# Tab5 layers use RGB565/ARGB8888 and A8 masks. Indexed artwork is decoded
++# to ARGB8888 by lv_bin_decoder; retain that decoder and all color backends.
++# Override only these unused software formats, for LVGL and its consumers.
++target_compile_definitions(${tab5_lvgl_lib} PUBLIC
++    LV_DRAW_SW_SUPPORT_L8=0 LV_DRAW_SW_SUPPORT_AL88=0 LV_DRAW_SW_SUPPORT_I1=0)
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1400,7 +1400,9 @@
+     lv_obj_set_y(home_task_title,valid?68:78);
+     int pet_width=(CODEX_COMPANION_WIDTH*lv_image_get_scale_x(home_companion)+128)/256;
+     lv_obj_set_pos(model_state[1],valid?lv_obj_get_x(home_companion):32,4);lv_obj_set_width(model_state[1],valid?pet_width:300);
+-    lv_obj_set_style_text_align(model_state[1],valid?LV_TEXT_ALIGN_CENTER:LV_TEXT_ALIGN_LEFT,0);
++    lv_text_align_t status_align=valid?LV_TEXT_ALIGN_CENTER:LV_TEXT_ALIGN_LEFT;
++    if(lv_obj_get_style_text_align(model_state[1],0)!=status_align)
++        lv_obj_set_style_text_align(model_state[1],status_align,0);
+     visible(model_dot[1],!valid);
+     ui_text(model_state[1],valid?codex_companion_label(mood.state):(shown?"电脑状态":"等待电脑数据"));
+     ui_text(lv_obj_get_child(home_task_action,0),!valid?"查看电脑状态":home_task_unread?"查看完成内容":"继续 Codex 任务");
+--- a/firmware/main/gallery_remote.c
++++ b/firmware/main/gallery_remote.c
+@@ -175,7 +175,7 @@
+     else snprintf(out,size,"正在保存 · 名画 %u/%u · 书法 %u/%u",p.next,p.works,c.next,c.works);
+ }
+ static int64_t catalog_check_after[2];
+-static void catalog_load(int category,const char *revision,bool force) {
++static __attribute__((noinline)) void catalog_load(int category,const char *revision,bool force) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);bool loaded=catalog_loaded[category];xSemaphoreGive(device_mutex);
+     if(!atomic_load(&storage_enabled)||(loaded&&!force)||!sd_storage_lock())return;
+     gallery_catalog value={0};gallery_catalog_load(SD_STORAGE_MOUNT,category,revision,&value);
+@@ -237,7 +237,7 @@
+     xSemaphoreGive(device_mutex);
+     return ok;
+ }
+-static void card_resume_load(const char *root,const gallery_image *key,const char *revision,const char *sha,uint8_t *jpeg,size_t total,gallery_resume *state) {
++static __attribute__((noinline)) void card_resume_load(const char *root,const gallery_image *key,const char *revision,const char *sha,uint8_t *jpeg,size_t total,gallery_resume *state) {
+     gallery_image normalized=card_key(key,revision);
+     if(!atomic_load(&storage_enabled)||!sd_storage_lock())return;
+     gallery_resume_load(root,&normalized,revision,sha,jpeg,total,state);
+@@ -302,7 +302,7 @@
+     return voice_remote_busy()||ota_update_busy()||transport_benchmark_busy()||camera_preview_busy()||photo_state()==1;
+ }
+ static bool download_cancelled(link_kind transport,bool background) {
+-    int mode=device_get_config().mode;
++    int mode=device_link_mode();
+     return (speed_active()&&esp_timer_get_time()>speed_deadline)||foreground_busy()||(background&&atomic_load(&cancel_prefetch))||(mode>=LINK_USB&&mode<=LINK_BLE&&mode!=transport);
+ }
+ static atomic_uint transfer_received,transfer_written,transfer_write_ms,transfer_overlap;
+@@ -402,57 +402,79 @@
+     xSemaphoreTake(device_mutex,portMAX_DELAY);bool cached=gallery_jpeg_has(&jpeg_cache,&key);xSemaphoreGive(device_mutex);
+     return cached||(atomic_load(&storage_enabled)&&sd_storage_available())||(!atomic_load(&prefetching)&&rpc_read_link_select()!=LINK_NONE);
+ }
++// Large request-local values stay in private PSRAM, like the task stack,
++// without keeping them live across every RPC/JSON/stdio callback frame.
++typedef struct {
++    gallery_work context;gallery_image job;gallery_card_writer writer;
++    gallery_http_lease http_lease;gallery_jpeg cached,stale,saved;
++    gallery_catalog local_catalog;device_config config;esp_http_client_config_t options;
++    char sha[65],actual[65],old_sha[65],url[128];
++} gallery_worker_scratch;
+ static void worker(void *unused) {
+-    gallery_work context=*(gallery_work *)unused;
+-    gallery_image job=context.image;link_kind transport=context.transport;bool background=context.background;
++    gallery_worker_scratch *w=heap_caps_calloc(1,sizeof(*w),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!w) {
++        gallery_work *failed=unused;
++        gallery_recycle(failed->image.pixels);failed->image.pixels=NULL;
++        if(failed->purpose==3){speed_error=-12;atomic_store(&speed_phase,4);}
++        atomic_store(&diagnostic_error,-12);
++        if(failed->background){prefetch_retry=esp_timer_get_time()/1000+5000;atomic_store(&prefetching,false);}
++        else {
++            atomic_store(&decode_status[failed->image.category*2+failed->image.portrait],GALLERY_DECODE_NO_MEMORY);
++            atomic_fetch_or(&failed_slots,1u<<(failed->image.category*2+failed->image.portrait));
++            atomic_store(&working,false);
++        }
++        vTaskDeleteWithCaps(NULL);return;
++    }
++    w->context=*(gallery_work *)unused;
++    w->job=w->context.image;link_kind transport=w->context.transport;bool background=w->context.background;
+     int64_t began=esp_timer_get_time(),decode_started=0;bool wifi_bulk=false,wifi_isolated=false,validated=false,persisted=false;
+-    bool sample=context.purpose==3,library=context.purpose!=0;
++    bool sample=w->context.purpose==3,library=w->context.purpose!=0;
+     const char *root=sample?speed_root:SD_STORAGE_MOUNT;
+     int64_t receive_started=0,receive_ended=0;
+-    if(library&&!atomic_load(&storage_enabled)){if(sample)atomic_store(&speed_phase,4);atomic_store(&prefetching,false);vTaskDeleteWithCaps(NULL);return;}
++    if(library&&!atomic_load(&storage_enabled)){if(sample)atomic_store(&speed_phase,4);atomic_store(&prefetching,false);free(w);vTaskDeleteWithCaps(NULL);return;}
+     // A blocked background transfer owns no RGB output. Cached foreground
+     // decoding can run independently, without a second network request.
+-#define record(counter,value) do {if(atomic_load(&diagnostic_requests)==context.request_id)atomic_store(&(counter),(value));} while(0)
+-    uint8_t *jpeg=NULL,*pixels=job.pixels;size_t capacity=0,jpeg_capacity=0;int length=0,offset=0;
+-    gallery_resume resume={0};bool resume_active=false;gallery_card_writer writer={0};
++#define record(counter,value) do {if(atomic_load(&diagnostic_requests)==w->context.request_id)atomic_store(&(counter),(value));} while(0)
++    uint8_t *jpeg=NULL,*pixels=w->job.pixels;size_t capacity=0,jpeg_capacity=0;int length=0,offset=0;
++    gallery_resume resume={0};bool resume_active=false;
+     const jpeg_decode_memory_alloc_cfg_t input={.buffer_direction=JPEG_DEC_ALLOC_INPUT_BUFFER},output={.buffer_direction=JPEG_DEC_ALLOC_OUTPUT_BUFFER};
+     cJSON *reply=NULL,*request=NULL;
+     gallery_guide *guide=NULL;
+     esp_http_client_handle_t http=NULL;jpeg_decoder_handle_t codec=NULL;
+-    gallery_http_lease http_lease={0};unsigned http_calls_started=0;
+-    xSemaphoreTake(device_mutex,portMAX_DELAY);
+-    unsigned generation=jpeg_cache.generation;gallery_jpeg cached=library?(gallery_jpeg){0}:gallery_jpeg_take(&jpeg_cache,&job);
++    unsigned http_calls_started=0;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    unsigned generation=jpeg_cache.generation;if(!library)w->cached=gallery_jpeg_take(&jpeg_cache,&w->job);
+     xSemaphoreGive(device_mutex);
+-    bool from_card=false;gallery_jpeg stale={0};
+-    catalog_load(job.category,context.revision,context.purpose==2);
+-    xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_catalog local_catalog=catalogs[job.category];xSemaphoreGive(device_mutex);
+-    if(!context.revision[0]&&local_catalog.works)snprintf(context.revision,sizeof(context.revision),"%s",local_catalog.revision);
+-    if(context.purpose==2) {
++    bool from_card=false;
++    catalog_load(w->job.category,w->context.revision,w->context.purpose==2);
++    xSemaphoreTake(device_mutex,portMAX_DELAY);w->local_catalog=catalogs[w->job.category];xSemaphoreGive(device_mutex);
++    if(!w->context.revision[0]&&w->local_catalog.works)snprintf(w->context.revision,sizeof(w->context.revision),"%s",w->local_catalog.revision);
++    if(w->context.purpose==2) {
+         if(!sd_storage_lock())goto done;
+         sd_storage_unlock(false);
+-        if(local_catalog.works){validated=true;goto done;}
++        if(w->local_catalog.works){validated=true;goto done;}
+         goto network;
+     }
+-    if(!sample&&!cached.data){cached=card_take(&job,context.revision,&guide);from_card=cached.data!=NULL;}
+-    if(cached.data&&!from_card&&background&&atomic_load(&storage_enabled)&&cached.key.work_id[0]) {
++    if(!sample&&!w->cached.data){w->cached=card_take(&w->job,w->context.revision,&guide);from_card=w->cached.data!=NULL;}
++    if(w->cached.data&&!from_card&&background&&atomic_load(&storage_enabled)&&w->cached.key.work_id[0]) {
+         // RAM JPEG entries own no guide. Persist an independent complete guide,
+         // or refetch its manifest instead of writing a newer image-only record
+         // over the same verified image/text revision on the card.
+         guide=heap_caps_calloc(1,sizeof(*guide),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+-        if(guide&&!gallery_guide_reader_copy(job.category,job.date,cached.key.work_id,guide)){gallery_guide_free(guide);guide=NULL;}
+-        if(!guide){stale=cached;cached=(gallery_jpeg){0};goto network;}
+-    }
+-    if(cached.data) {
+-        jpeg=cached.data;jpeg_capacity=cached.capacity;length=cached.size;job.frames=cached.key.frames;snprintf(job.work_id,sizeof(job.work_id),"%s",cached.key.work_id);
+-        if(background){if(foreground_busy()||atomic_load(&cancel_prefetch))goto done;validated=true;persisted=from_card||card_put(root,&cached,context.revision,guide,!library,NULL,false);if(guide&&!library){xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_guide_free(guides[job.category]);guides[job.category]=guide;guide=NULL;xSemaphoreGive(device_mutex);}record(diagnostic_stage,10);goto done;}
+-        atomic_store(&pack_status[job.category],0);goto decode;
+-    }
+-    if(library&&!sample){gallery_guide *old_guide=NULL;stale=card_take(&job,"",&old_guide);gallery_guide_free(old_guide);}
++        if(guide&&!gallery_guide_reader_copy(w->job.category,w->job.date,w->cached.key.work_id,guide)){gallery_guide_free(guide);guide=NULL;}
++        if(!guide){w->stale=w->cached;memset(&w->cached,0,sizeof(w->cached));goto network;}
++    }
++    if(w->cached.data) {
++        jpeg=w->cached.data;jpeg_capacity=w->cached.capacity;length=w->cached.size;w->job.frames=w->cached.key.frames;snprintf(w->job.work_id,sizeof(w->job.work_id),"%s",w->cached.key.work_id);
++        if(background){if(foreground_busy()||atomic_load(&cancel_prefetch))goto done;validated=true;persisted=from_card||card_put(root,&w->cached,w->context.revision,guide,!library,NULL,false);if(guide&&!library){xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_guide_free(guides[w->job.category]);guides[w->job.category]=guide;guide=NULL;xSemaphoreGive(device_mutex);}record(diagnostic_stage,10);goto done;}
++        atomic_store(&pack_status[w->job.category],0);goto decode;
++    }
++    if(library&&!sample){gallery_guide *old_guide=NULL;w->stale=card_take(&w->job,"",&old_guide);gallery_guide_free(old_guide);}
+ network:
+-    if(context.cached_only||transport==LINK_NONE)goto done; // Never overlap network mailbox owners.
++    if(w->context.cached_only||transport==LINK_NONE)goto done; // Never overlap network mailbox owners.
+     request=cJSON_CreateObject();
+     if(!request)goto done;
+-    if(transport==LINK_BLE&&device_get_config().mode==LINK_BLE) {
++    if(transport==LINK_BLE&&device_link_mode()==LINK_BLE) {
+         int64_t until=esp_timer_get_time()+500000;
+         do {
+             wifi_isolated=wifi_probe_begin_gallery();
+@@ -461,7 +483,7 @@
+             // is still restoring Wi-Fi. Let that worker finish, then acquire
+             // our own lease; never end/cancel somebody else's pending lease.
+             tab5_wifi_wake();vTaskDelay(pdMS_TO_TICKS(10));
+-        }while(device_get_config().mode==LINK_BLE&&esp_timer_get_time()<until);
++        }while(device_link_mode()==LINK_BLE&&esp_timer_get_time()<until);
+         if(wifi_isolated) {
+             tab5_wifi_wake();
+             // Do not add a multi-second Wi-Fi/driver wait to a small image.
+@@ -474,44 +496,45 @@
+     }
+     if(transport==LINK_WIFI) {
+         wifi_performance_bulk(true);wifi_bulk=true;
+-        device_config config=device_get_config();char url[128];
+-        snprintf(url,sizeof(url),"http://%s:%d/tab5/v1/rpc",config.host,config.port);
+-        esp_http_client_config_t options={.url=url,.timeout_ms=8000,.disable_auto_redirect=true,
+-            .buffer_size=GALLERY_HTTP_READ_BYTES};
++        w->config=device_get_config();
++        snprintf(w->url,sizeof(w->url),"http://%s:%d/tab5/v1/rpc",w->config.host,w->config.port);
++        w->options.url=w->url;w->options.timeout_ms=8000;
++        w->options.disable_auto_redirect=true;w->options.buffer_size=GALLERY_HTTP_READ_BYTES;
+         if(library&&background) {
+-            xSemaphoreTake(device_mutex,portMAX_DELAY);http_lease=gallery_http_take_idle(&library_http_idle);xSemaphoreGive(device_mutex);
+-            if(!gallery_http_valid(&http_lease,url,(uint64_t)(esp_timer_get_time()/1000))) {
+-                if(http_lease.client)esp_http_client_cleanup(http_lease.client);
+-                http_lease=(gallery_http_lease){0};
++            xSemaphoreTake(device_mutex,portMAX_DELAY);w->http_lease=gallery_http_take_idle(&library_http_idle);xSemaphoreGive(device_mutex);
++            if(!gallery_http_valid(&w->http_lease,w->url,(uint64_t)(esp_timer_get_time()/1000))) {
++                if(w->http_lease.client)esp_http_client_cleanup(w->http_lease.client);
++                memset(&w->http_lease,0,sizeof(w->http_lease));
+             }
+-            http=http_lease.client;
++            http=w->http_lease.client;
+         }
+         if(!http) {
+-            http=esp_http_client_init(&options);if(!http)goto done;
+-            http_lease=(gallery_http_lease){.client=http,.created_ms=(uint64_t)(esp_timer_get_time()/1000)};
+-            snprintf(http_lease.endpoint,sizeof(http_lease.endpoint),"%s",url);
++            http=esp_http_client_init(&w->options);if(!http)goto done;
++            memset(&w->http_lease,0,sizeof(w->http_lease));
++            w->http_lease.client=http;w->http_lease.created_ms=(uint64_t)(esp_timer_get_time()/1000);
++            snprintf(w->http_lease.endpoint,sizeof(w->http_lease.endpoint),"%s",w->url);
+         }
+         http_calls_started=rpc_gallery_profile_get().calls;
+     }
+     if(foreground_busy())goto done;
+-    cJSON_AddStringToObject(request,"kind","gallery");cJSON_AddStringToObject(request,"op",context.purpose==2?"catalog":"manifest");
++    cJSON_AddStringToObject(request,"kind","gallery");cJSON_AddStringToObject(request,"op",w->context.purpose==2?"catalog":"manifest");
+     cJSON_AddBoolToObject(request,"includeGuide",true);
+     cJSON_AddNumberToObject(request,"guideVersion",3);
+-    cJSON_AddStringToObject(request,"category",job.category?"calligraphy":"painting");
+-    cJSON_AddStringToObject(request,"date",job.date);cJSON_AddNumberToObject(request,"frame",job.frame);
+-    if(job.portrait)cJSON_AddStringToObject(request,"orientation","portrait");
+-    gallery_guide *previous=library?library_guides[job.category]:NULL;
+-    bool guide_hint=previous&&context.revision[0]&&!strcmp(library_guide_revisions[job.category],context.revision)&&
+-        !strcmp(previous->date,job.date)&&previous->work_id[0]&&
++    cJSON_AddStringToObject(request,"category",w->job.category?"calligraphy":"painting");
++    cJSON_AddStringToObject(request,"date",w->job.date);cJSON_AddNumberToObject(request,"frame",w->job.frame);
++    if(w->job.portrait)cJSON_AddStringToObject(request,"orientation","portrait");
++    gallery_guide *previous=library?library_guides[w->job.category]:NULL;
++    bool guide_hint=previous&&w->context.revision[0]&&!strcmp(library_guide_revisions[w->job.category],w->context.revision)&&
++        !strcmp(previous->date,w->job.date)&&previous->work_id[0]&&
+         (previous->transcription_page_count<=1||gallery_text_pages_complete(previous));
+     if(guide_hint) {
+-        cJSON_AddStringToObject(request,"guideRevision",context.revision);
++        cJSON_AddStringToObject(request,"guideRevision",w->context.revision);
+         cJSON_AddStringToObject(request,"guideWorkId",previous->work_id);
+     }
+-    int status=0;char sha[65]={0};
++    int status=0;
+     reply=gallery_call(transport,background,http,request,&status,NULL,0,NULL);
+     record(diagnostic_error,status);
+-    if(context.purpose==2) {
++    if(w->context.purpose==2) {
+         cJSON *count=cJSON_GetObjectItemCaseSensitive(reply,"works");
+         const char *revision=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"revision"));
+         const char *base=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"baseDate"));
+@@ -519,22 +542,22 @@
+         if(status!=200||!cJSON_IsNumber(version)||version->valuedouble!=1||!base||strcmp(base,"2026-01-01")||
+            !cJSON_IsNumber(count)||count->valuedouble!=count->valueint||count->valueint<1||count->valueint>4096||
+            !revision||strlen(revision)!=64||strspn(revision,"0123456789abcdef")!=64||
+-           (context.revision[0]&&strcmp(context.revision,revision)))goto done;
++           (w->context.revision[0]&&strcmp(w->context.revision,revision)))goto done;
+         gallery_catalog value={.works=count->valueint};snprintf(value.revision,sizeof(value.revision),"%s",revision);
+-        if(!catalog_save(job.category,&value))goto done;
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);catalogs[job.category]=value;catalog_loaded[job.category]=true;sync_cursor[job.category]=0;xSemaphoreGive(device_mutex);
++        if(!catalog_save(w->job.category,&value))goto done;
++        xSemaphoreTake(device_mutex,portMAX_DELAY);catalogs[w->job.category]=value;catalog_loaded[w->job.category]=true;sync_cursor[w->job.category]=0;xSemaphoreGive(device_mutex);
+         validated=true;goto done;
+     }
+     const char *error=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"error"));
+-    if(status==404&&error&&!strcmp(error,"gallery_pack_missing"))atomic_store(&pack_status[job.category],1);
+-    else if(status==503&&error&&!strcmp(error,"gallery_pack_incomplete"))atomic_store(&pack_status[job.category],2);
+-    else if(status==200)atomic_store(&pack_status[job.category],0);
++    if(status==404&&error&&!strcmp(error,"gallery_pack_missing"))atomic_store(&pack_status[w->job.category],1);
++    else if(status==503&&error&&!strcmp(error,"gallery_pack_incomplete"))atomic_store(&pack_status[w->job.category],2);
++    else if(status==200)atomic_store(&pack_status[w->job.category],0);
+     cJSON *size=cJSON_GetObjectItemCaseSensitive(reply,"size"),*hash=cJSON_GetObjectItemCaseSensitive(reply,"sha256"),*frames=cJSON_GetObjectItemCaseSensitive(reply,"frames");
+     if(status!=200||!cJSON_IsNumber(size)||size->valuedouble!=size->valueint||size->valueint<16||size->valueint>1048576||
+-       !cJSON_IsString(hash)||strlen(hash->valuestring)!=64||!cJSON_IsNumber(frames)||frames->valueint<1||frames->valueint>64||job.frame>=frames->valueint)goto done;
++       !cJSON_IsString(hash)||strlen(hash->valuestring)!=64||!cJSON_IsNumber(frames)||frames->valueint<1||frames->valueint>64||w->job.frame>=frames->valueint)goto done;
+     // An older bridge must not silently return a landscape frame for portrait.
+-    if(job.portrait){const char *mode=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"orientation"));if(!mode||strcmp(mode,"portrait"))goto done;}
+-    length=size->valueint;job.frames=frames->valueint;snprintf(sha,sizeof(sha),"%s",hash->valuestring);
++    if(w->job.portrait){const char *mode=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"orientation"));if(!mode||strcmp(mode,"portrait"))goto done;}
++    length=size->valueint;w->job.frames=frames->valueint;snprintf(w->sha,sizeof(w->sha),"%s",hash->valuestring);
+     cJSON *guide_version=cJSON_GetObjectItemCaseSensitive(reply,"guideVersion");
+     if(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(reply,"guideUnchanged"))) {
+         const char *id=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"workId"));
+@@ -546,11 +569,11 @@
+             if(!gallery_text_page_set(guide,page,previous->transcription_pages[page]))goto done;
+     }
+     else if(cJSON_IsNumber(guide_version)&&(guide_version->valuedouble==1||guide_version->valuedouble==2||guide_version->valuedouble==3))
+-        guide=guide_read(cJSON_GetObjectItemCaseSensitive(reply,"guide"),job.date);
++        guide=guide_read(cJSON_GetObjectItemCaseSensitive(reply,"guide"),w->job.date);
+     if(cJSON_IsObject(cJSON_GetObjectItemCaseSensitive(reply,"guide"))&&!guide)goto done;
+-    if(guide)snprintf(job.work_id,sizeof(job.work_id),"%s",guide->work_id);
++    if(guide)snprintf(w->job.work_id,sizeof(w->job.work_id),"%s",guide->work_id);
+     if(guide&&guide->transcription_page_count>1&&!gallery_text_pages_complete(guide)) {
+-        bool reuse=previous&&!strcmp(library_guide_revisions[job.category],context.revision)&&
++        bool reuse=previous&&!strcmp(library_guide_revisions[w->job.category],w->context.revision)&&
+             !strcmp(previous->date,guide->date)&&!strcmp(previous->work_id,guide->work_id)&&
+             previous->transcription_page_count==guide->transcription_page_count&&
+             !strcmp(previous->transcription_sha256,guide->transcription_sha256)&&gallery_text_pages_complete(previous);
+@@ -579,26 +602,29 @@
+     }
+     record(diagnostic_stage,2);
+     bool reused_stale=false;
+-    if(stale.data&&stale.size==(size_t)length) {
+-        uint8_t old_hash[32];char old_sha[65];mbedtls_sha256(stale.data,stale.size,old_hash,0);
+-        for(int i=0;i<32;i++)sprintf(old_sha+2*i,"%02x",old_hash[i]);
+-        if(!strcmp(old_sha,sha)){jpeg=stale.data;jpeg_capacity=stale.capacity;stale.data=NULL;reused_stale=true;}
++    if(w->stale.data&&w->stale.size==(size_t)length) {
++        uint8_t old_hash[32];mbedtls_sha256(w->stale.data,w->stale.size,old_hash,0);
++        for(int i=0;i<32;i++)sprintf(w->old_sha+2*i,"%02x",old_hash[i]);
++        if(!strcmp(w->old_sha,w->sha)){jpeg=w->stale.data;jpeg_capacity=w->stale.capacity;w->stale.data=NULL;reused_stale=true;}
+     }
+     if(!jpeg)jpeg=jpeg_alloc_decoder_mem(length,&input,&jpeg_capacity);
+     if(!jpeg){gallery_cache_reclaim();jpeg=jpeg_alloc_decoder_mem(length,&input,&jpeg_capacity);}
+     if(!jpeg)goto done;
+     record(diagnostic_stage,3);
+-    if(library&&!reused_stale&&context.revision[0]) {
+-        resume_active=true;if(!sample)card_resume_load(root,&job,context.revision,sha,jpeg,length,&resume);offset=(int)resume.offset;
+-        writer=(gallery_card_writer){.key=job,.revision=context.revision,.sha=sha,.jpeg=jpeg,.total=length,.base=offset,.resume=&resume,.transport=transport,.background=background,.request_id=context.request_id,.initial=offset,.root=root};
+-        gallery_write_init(&writer.flow,resume.offset);
+-        atomic_init(&writer.writing,false);
++    if(library&&!reused_stale&&w->context.revision[0]) {
++        resume_active=true;if(!sample)card_resume_load(root,&w->job,w->context.revision,w->sha,jpeg,length,&resume);offset=(int)resume.offset;
++        w->writer.key=w->job;w->writer.revision=w->context.revision;w->writer.sha=w->sha;
++        w->writer.jpeg=jpeg;w->writer.total=length;w->writer.base=offset;w->writer.resume=&resume;
++        w->writer.transport=transport;w->writer.background=background;w->writer.request_id=w->context.request_id;
++        w->writer.initial=offset;w->writer.root=root;
++        gallery_write_init(&w->writer.flow,resume.offset);
++        atomic_init(&w->writer.writing,false);
+         atomic_store(&transfer_received,0);atomic_store(&transfer_written,0);atomic_store(&transfer_write_ms,0);atomic_store(&transfer_overlap,0);
+-        writer.started=true;
+-        if(xTaskCreateWithCaps(card_writer_task,"tab5_card_save",8192,&writer,2,NULL,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS)writer.started=false;
++        w->writer.started=true;
++        if(xTaskCreateWithCaps(card_writer_task,"tab5_card_save",8192,&w->writer,2,NULL,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS)w->writer.started=false;
+     }
+     if(reused_stale)offset=length;
+-    cJSON_ReplaceItemInObjectCaseSensitive(request,"op",cJSON_CreateString("read"));cJSON_AddStringToObject(request,"sha256",sha);
++    cJSON_ReplaceItemInObjectCaseSensitive(request,"op",cJSON_CreateString("read"));cJSON_AddStringToObject(request,"sha256",w->sha);
+     receive_started=esp_timer_get_time();
+     for(;offset<length;) {
+         if(download_cancelled(transport,background))goto done;
+@@ -608,32 +634,32 @@
+         cJSON_DeleteItemFromObjectCaseSensitive(request,"count");cJSON_AddNumberToObject(request,"count",count);
+         size_t received=0;cJSON_Delete(reply);
+         if(stream) {
+-            writer.base=offset;char nonce[33];
+-            reply=rpc_gallery_stream_call(http,request,&status,nonce,jpeg+offset,count,&received,resume_active?card_writer_progress:NULL,&writer);
++            w->writer.base=offset;char nonce[33];
++            reply=rpc_gallery_stream_call(http,request,&status,nonce,jpeg+offset,count,&received,resume_active?card_writer_progress:NULL,&w->writer);
+         }else reply=gallery_call(transport,background,http,request,&status,jpeg+offset,count,&received);
+         record(diagnostic_error,status);
+         cJSON *at=cJSON_GetObjectItemCaseSensitive(reply,"offset");
+         if(status!=200||received!=(size_t)count||!cJSON_IsNumber(at)||at->valuedouble!=offset){if(stream&&received<=(size_t)count)offset+=(int)received;goto done;}
+         offset+=count;
+-        if(resume_active&&!stream){writer.base=0;if(!card_writer_progress(&writer,offset))goto done;}
++        if(resume_active&&!stream){w->writer.base=0;if(!card_writer_progress(&w->writer,offset))goto done;}
+         taskYIELD();
+     }
+     receive_ended=esp_timer_get_time();
+-    card_writer_finish(&writer);
+-    if(atomic_load(&writer.flow.failed))goto done;
+-    uint8_t digest[32];char actual[65];mbedtls_sha256(jpeg,length,digest,0);
++    card_writer_finish(&w->writer);
++    if(atomic_load(&w->writer.flow.failed))goto done;
++    uint8_t digest[32];mbedtls_sha256(jpeg,length,digest,0);
+     record(diagnostic_stage,4);
+-    for(int i=0;i<32;i++)sprintf(actual+2*i,"%02x",digest[i]);
+-    if(strcmp(actual,sha)){if(resume_active)card_resume_clear(root,&job,context.revision,sha,length);resume_active=false;goto done;}
++    for(int i=0;i<32;i++)sprintf(w->actual+2*i,"%02x",digest[i]);
++    if(strcmp(w->actual,w->sha)){if(resume_active)card_resume_clear(root,&w->job,w->context.revision,w->sha,length);resume_active=false;goto done;}
+     jpeg_decode_picture_info_t downloaded_info={0};
+-    if(jpeg_decoder_get_info(jpeg,length,&downloaded_info)!=ESP_OK||downloaded_info.width!=1280||downloaded_info.height!=720){if(resume_active)card_resume_clear(root,&job,context.revision,sha,length);resume_active=false;goto done;}
++    if(jpeg_decoder_get_info(jpeg,length,&downloaded_info)!=ESP_OK||downloaded_info.width!=1280||downloaded_info.height!=720){if(resume_active)card_resume_clear(root,&w->job,w->context.revision,w->sha,length);resume_active=false;goto done;}
+     validated=true;
+     if(!download_cancelled(transport,background)) {
+-        gallery_jpeg saved={.key=job,.data=jpeg,.size=length,.capacity=jpeg_capacity};
++        w->saved.key=w->job;w->saved.data=jpeg;w->saved.size=length;w->saved.capacity=jpeg_capacity;
+         size_t pending=resume_active?length-resume.offset:0;int64_t write_began=esp_timer_get_time();
+-        persisted=card_put(root,&saved,context.revision,guide,!library,resume_active?&resume:NULL,reused_stale);
++        persisted=card_put(root,&w->saved,w->context.revision,guide,!library,resume_active?&resume:NULL,reused_stale);
+         if(resume_active&&persisted){atomic_fetch_add(&transfer_written,pending);atomic_fetch_add(&transfer_write_ms,(esp_timer_get_time()-write_began)/1000);}
+-        if(persisted&&resume_active){card_resume_clear(root,&job,context.revision,sha,length);resume_active=false;}
++        if(persisted&&resume_active){card_resume_clear(root,&w->job,w->context.revision,w->sha,length);resume_active=false;}
+     }
+     if(background){
+         jpeg_decode_picture_info_t info={0};
+@@ -641,13 +667,13 @@
+         // Leave enough PSRAM for the largest measured rotated reader layer
+         // (3.25 MB), output reuse and transport overhead. Never grow RGB cache.
+         if(!library&&heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)<4u*1024u*1024u){validated=false;goto done;}
+-        if(guide&&!library){xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_guide_free(guides[job.category]);guides[job.category]=guide;guide=NULL;xSemaphoreGive(device_mutex);}
++        if(guide&&!library){xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_guide_free(guides[w->job.category]);guides[w->job.category]=guide;guide=NULL;xSemaphoreGive(device_mutex);}
+         record(diagnostic_stage,10);goto done;
+     }
+ decode:
+     if(wifi_isolated){wifi_probe_release_gallery();tab5_wifi_wake();wifi_isolated=false;}
+     decode_started=esp_timer_get_time();
+-    record(diagnostic_fetch_ms,cached.data&&!from_card?0:(decode_started-began)/1000);
++    record(diagnostic_fetch_ms,w->cached.data&&!from_card?0:(decode_started-began)/1000);
+     if(wifi_bulk){wifi_performance_bulk(false);wifi_bulk=false;}
+     jpeg_decode_picture_info_t info={0};
+     record(diagnostic_stage,5);
+@@ -670,27 +696,27 @@
+     // The decoder allocator clears PSRAM through the CPU cache. Retire those
+     // dirty lines before DMA owns the output, or later eviction can overwrite
+     // decoded pixels (especially the tail). The driver invalidates after DMA.
+-    if(!pixels){record(diagnostic_error,ESP_ERR_NO_MEM);atomic_store(&decode_status[job.category*2+job.portrait],GALLERY_DECODE_NO_MEMORY);goto done;}
++    if(!pixels){record(diagnostic_error,ESP_ERR_NO_MEM);atomic_store(&decode_status[w->job.category*2+w->job.portrait],GALLERY_DECODE_NO_MEMORY);goto done;}
+     record(diagnostic_stage,7);
+-    esp_err_t decode_error=esp_cache_msync(pixels,capacity,ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_INVALIDATE);record(diagnostic_error,decode_error);if(decode_error!=ESP_OK){atomic_store(&decode_status[job.category*2+job.portrait],decode_error==ESP_ERR_NO_MEM?GALLERY_DECODE_NO_MEMORY:GALLERY_DECODE_FAILED);goto done;}
++    esp_err_t decode_error=esp_cache_msync(pixels,capacity,ESP_CACHE_MSYNC_FLAG_DIR_C2M|ESP_CACHE_MSYNC_FLAG_INVALIDATE);record(diagnostic_error,decode_error);if(decode_error!=ESP_OK){atomic_store(&decode_status[w->job.category*2+w->job.portrait],decode_error==ESP_ERR_NO_MEM?GALLERY_DECODE_NO_MEMORY:GALLERY_DECODE_FAILED);goto done;}
+     record(diagnostic_stage,8);
+-    decode_error=jpeg_new_decoder_engine(&engine,&codec);record(diagnostic_error,decode_error);if(decode_error!=ESP_OK){atomic_store(&decode_status[job.category*2+job.portrait],decode_error==ESP_ERR_NO_MEM?GALLERY_DECODE_NO_MEMORY:GALLERY_DECODE_FAILED);goto done;}
++    decode_error=jpeg_new_decoder_engine(&engine,&codec);record(diagnostic_error,decode_error);if(decode_error!=ESP_OK){atomic_store(&decode_status[w->job.category*2+w->job.portrait],decode_error==ESP_ERR_NO_MEM?GALLERY_DECODE_NO_MEMORY:GALLERY_DECODE_FAILED);goto done;}
+     record(diagnostic_stage,9);
+-    decode_error=jpeg_decoder_process(codec,&format,jpeg,length,pixels,capacity,&written);record(diagnostic_error,decode_error);if(decode_error!=ESP_OK||written!=1280*720*2){atomic_store(&decode_status[job.category*2+job.portrait],decode_error==ESP_ERR_NO_MEM?GALLERY_DECODE_NO_MEMORY:GALLERY_DECODE_FAILED);goto done;}
+-    result=job;result.pixels=pixels;pixels=NULL;
+-    if(guide){xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_guide_free(guides[job.category]);guides[job.category]=guide;guide=NULL;xSemaphoreGive(device_mutex);}
++    decode_error=jpeg_decoder_process(codec,&format,jpeg,length,pixels,capacity,&written);record(diagnostic_error,decode_error);if(decode_error!=ESP_OK||written!=1280*720*2){atomic_store(&decode_status[w->job.category*2+w->job.portrait],decode_error==ESP_ERR_NO_MEM?GALLERY_DECODE_NO_MEMORY:GALLERY_DECODE_FAILED);goto done;}
++    result=w->job;result.pixels=pixels;pixels=NULL;
++    if(guide){xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_guide_free(guides[w->job.category]);guides[w->job.category]=guide;guide=NULL;xSemaphoreGive(device_mutex);}
+     record(diagnostic_stage,10);
+ done:
+-    card_writer_finish(&writer);
++    card_writer_finish(&w->writer);
+     if(resume_active&&jpeg&&atomic_load(&storage_enabled)) {
+         while((size_t)offset>resume.offset) {
+             size_t end=(size_t)offset;if(end-resume.offset>GALLERY_RESUME_BLOCK)end=resume.offset+GALLERY_RESUME_BLOCK;
+-            if(!card_resume_append(root,&job,context.revision,sha,jpeg,length,end,&resume))break;
++            if(!card_resume_append(root,&w->job,w->context.revision,w->sha,jpeg,length,end,&resume))break;
+         }
+     }
+     if(library&&!sample&&persisted&&guide&&(guide->transcription_page_count<=1||gallery_text_pages_complete(guide))) {
+-        gallery_guide_free(library_guides[job.category]);library_guides[job.category]=guide;guide=NULL;
+-        snprintf(library_guide_revisions[job.category],sizeof(library_guide_revisions[job.category]),"%s",context.revision);
++        gallery_guide_free(library_guides[w->job.category]);library_guides[w->job.category]=guide;guide=NULL;
++        snprintf(library_guide_revisions[w->job.category],sizeof(library_guide_revisions[w->job.category]),"%s",w->context.revision);
+     }
+     if(wifi_isolated){wifi_probe_end();tab5_wifi_wake();}
+     if(wifi_bulk)wifi_performance_bulk(false);
+@@ -702,12 +728,12 @@
+         unsigned after=rpc_gallery_profile_get().calls;
+         unsigned calls=after-http_calls_started;
+         bool keep=library&&background&&validated&&persisted&&calls<=200&&
+-            http_lease.requests<=200-calls&&esp_http_client_is_complete_data_received(http)&&
+-            !download_cancelled(transport,background)&&gallery_http_valid(&http_lease,http_lease.endpoint,(uint64_t)(esp_timer_get_time()/1000));
++            w->http_lease.requests<=200-calls&&esp_http_client_is_complete_data_received(http)&&
++            !download_cancelled(transport,background)&&gallery_http_valid(&w->http_lease,w->http_lease.endpoint,(uint64_t)(esp_timer_get_time()/1000));
+         if(keep) {
+-            http_lease.requests+=calls;
++            w->http_lease.requests+=calls;
+             xSemaphoreTake(device_mutex,portMAX_DELAY);
+-            if(gallery_http_return_idle(&library_http_idle,&http_lease))http=NULL;
++            if(gallery_http_return_idle(&library_http_idle,&w->http_lease))http=NULL;
+             xSemaphoreGive(device_mutex);
+         }
+         if(http)esp_http_client_cleanup(http);
+@@ -715,32 +741,32 @@
+     cJSON_Delete(reply);cJSON_Delete(request);
+     if(from_card&&!library) {
+         xSemaphoreTake(device_mutex,portMAX_DELAY);
+-        if(strcmp(stored_date,job.date)){snprintf(stored_date,sizeof(stored_date),"%s",job.date);memset(stored_pages,0,sizeof(stored_pages));stored_frames[0]=stored_frames[1]=1;}
+-        stored_pages[job.category][job.portrait]|=UINT64_C(1)<<job.frame;stored_frames[job.category]=job.frames;
++        if(strcmp(stored_date,w->job.date)){snprintf(stored_date,sizeof(stored_date),"%s",w->job.date);memset(stored_pages,0,sizeof(stored_pages));stored_frames[0]=stored_frames[1]=1;}
++        stored_pages[w->job.category][w->job.portrait]|=UINT64_C(1)<<w->job.frame;stored_frames[w->job.category]=w->job.frames;
+         xSemaphoreGive(device_mutex);
+     }
+-    if(library&&context.purpose==1&&validated&&persisted&&!atomic_load(&cancel_prefetch)) {
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_catalog value=catalogs[job.category];xSemaphoreGive(device_mutex);
+-        unsigned next=job.frame*2u+(job.portrait?1u:0u)+1;
+-        if(next>=job.frames*2u) {
++    if(library&&w->context.purpose==1&&validated&&persisted&&!atomic_load(&cancel_prefetch)) {
++        xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_catalog value=catalogs[w->job.category];xSemaphoreGive(device_mutex);
++        unsigned next=w->job.frame*2u+(w->job.portrait?1u:0u)+1;
++        if(next>=w->job.frames*2u) {
+             value.next++;
+-            if(catalog_save(job.category,&value)){xSemaphoreTake(device_mutex,portMAX_DELAY);catalogs[job.category]=value;sync_cursor[job.category]=0;xSemaphoreGive(device_mutex);}
++            if(catalog_save(w->job.category,&value)){xSemaphoreTake(device_mutex,portMAX_DELAY);catalogs[w->job.category]=value;sync_cursor[w->job.category]=0;xSemaphoreGive(device_mutex);}
+             else {validated=false;persisted=false;}
+-        }else {xSemaphoreTake(device_mutex,portMAX_DELAY);sync_cursor[job.category]=next;xSemaphoreGive(device_mutex);}
++        }else {xSemaphoreTake(device_mutex,portMAX_DELAY);sync_cursor[w->job.category]=next;xSemaphoreGive(device_mutex);}
+     }
+     if(library&&!sample) {
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);catalog_check_after[job.category]=esp_timer_get_time()/1000+(context.purpose==2?60000:0);xSemaphoreGive(device_mutex);
+-        if(!persisted&&context.purpose==1)validated=false;
+-    }
+-    free(stale.data);
++        xSemaphoreTake(device_mutex,portMAX_DELAY);catalog_check_after[w->job.category]=esp_timer_get_time()/1000+(w->context.purpose==2?60000:0);xSemaphoreGive(device_mutex);
++        if(!persisted&&w->context.purpose==1)validated=false;
++    }
++    free(w->stale.data);
+     gallery_guide_free(guide);
+     if(!library&&(background?validated:result.pixels!=NULL)&&jpeg&&!foreground_busy()&&(!background||!atomic_load(&cancel_prefetch))) {
+-        gallery_jpeg value={.key=job,.data=jpeg,.size=length,.capacity=jpeg_capacity};
++        gallery_jpeg value={.key=w->job,.data=jpeg,.size=length,.capacity=jpeg_capacity};
+         xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_jpeg_put(&jpeg_cache,value,generation);xSemaphoreGive(device_mutex);
+     } else free(jpeg);
+     gallery_recycle(pixels);
+     if(background){if(!validated)prefetch_retry=esp_timer_get_time()/1000+5000;}
+-    else if(!result.pixels)atomic_fetch_or(&failed_slots,1u<<(job.category*2+job.portrait));
++    else if(!result.pixels)atomic_fetch_or(&failed_slots,1u<<(w->job.category*2+w->job.portrait));
+     if(sample) {
+         xSemaphoreTake(device_mutex,portMAX_DELAY);
+         speed_bytes+=atomic_load(&transfer_received);speed_total_ms=(esp_timer_get_time()-speed_started)/1000;
+@@ -755,6 +781,7 @@
+     }
+     if(background)atomic_store(&prefetching,false);else atomic_store(&working,false);
+ #undef record
++    free(w);
+     sample_worker_stack();
+     vTaskDeleteWithCaps(NULL);
+ }
+--- a/firmware/main/device.c
++++ b/firmware/main/device.c
+@@ -99,6 +99,7 @@
+     if(copy.paired){trusted_host *h=&trusted_hosts.entries[trusted_hosts.selected];memcpy(copy.key,h->key,32);strcpy(copy.host,h->address);copy.port=h->port;}
+     xSemaphoreGive(device_mutex);return copy;
+ }
++int device_link_mode(void) {xSemaphoreTake(device_mutex,portMAX_DELAY);int mode=config.mode;xSemaphoreGive(device_mutex);return mode;}
+ device_sound device_get_sound(void) {xSemaphoreTake(device_mutex,portMAX_DELAY);device_sound copy=sound;xSemaphoreGive(device_mutex);return copy;}
+ int device_sound_volume(void) {device_sound s=device_get_sound();return s.muted?0:s.volume;}
+ bool device_set_sound(int volume,bool muted) {
+--- a/firmware/main/device.h
++++ b/firmware/main/device.h
+@@ -31,6 +31,7 @@
+ void device_host_challenge(char nonce[33]);
+ cJSON *device_host_claim(cJSON *root);
+ device_config device_get_config(void);
++int device_link_mode(void);
+ // Read pairing and optional public identity without copying credentials onto callers' stacks.
+ bool device_pairing_identity(char id[13]);
+ bool device_receive(const char *json, link_kind link, uint64_t *sequence);
+--- a/firmware/main/gallery_http_cache.h
++++ b/firmware/main/gallery_http_cache.h
+@@ -12,7 +12,7 @@
+     return lease->client&&now>=lease->created_ms&&now-lease->created_ms<60000&&
+         lease->requests<=200&&endpoint&&!strcmp(lease->endpoint,endpoint);
+ }
+-static gallery_http_lease gallery_http_take_idle(gallery_http_lease *idle) {
++static __attribute__((noinline)) gallery_http_lease gallery_http_take_idle(gallery_http_lease *idle) {
+     gallery_http_lease lease=*idle;*idle=(gallery_http_lease){0};return lease;
+ }
+ static bool gallery_http_return_idle(gallery_http_lease *idle,const gallery_http_lease *lease) {
+--- a/scripts/build.ps1
++++ b/scripts/build.ps1
+@@ -70,6 +70,8 @@
+     if ($LASTEXITCODE) { throw 'TAB5 build failed' }
+     python "$PSScriptRoot/check-gallery-stack.py" "$idfProjectRoot/firmware/build"
+     if ($LASTEXITCODE) { throw 'Gallery task stack budget failed' }
++    python "$PSScriptRoot/check-draw-backends.py" "$idfProjectRoot/firmware/build"
++    if ($LASTEXITCODE) { throw 'Effective draw backend validation failed' }
+     if ($Flash) {
+         throw 'Full flashing is disabled: preserve NVS/assets with migrate-ota.py for first migration; use OTA or verified application-only flashing afterwards.'
+     }
+--- a/scripts/check-gallery-stack.py
++++ b/scripts/check-gallery-stack.py
+@@ -10,7 +10,7 @@
+  for line in path.read_text(encoding='utf8').splitlines():
+   fields=line.split('\t')
+   if len(fields)>=3:frames[fields[0].rsplit(':',1)[-1].split('.')[0]]=int(fields[1])
+-limits={'foreground_busy':64,'voice_remote_busy':64,'download_cancelled':256,'card_writer_progress':64,'worker':2560,'store_put_impl':640,'gallery_store_get_impl':640,'gallery_store_refresh_impl':640,'reference_meta_impl':640,'catalog_pair_save_impl':640,'catalog_migrate_impl':640,'direct_resume_load_impl':640,'gallery_resume_append_impl':640,'gallery_resume_clear_impl':640}
++limits={'foreground_busy':64,'voice_remote_busy':64,'download_cancelled':64,'card_writer_progress':64,'worker':1280,'store_put_impl':640,'gallery_store_get_impl':640,'gallery_store_refresh_impl':640,'reference_meta_impl':640,'catalog_pair_save_impl':640,'catalog_migrate_impl':640,'direct_resume_load_impl':640,'gallery_resume_append_impl':640,'gallery_resume_clear_impl':640}
+ for name,limit in limits.items():
+  # GCC may inline the private body into its resource-owning wrapper. Check
+  # that actual merged frame against the same bound, never skip the budget.
+--- /dev/null
++++ b/scripts/check-draw-backends.py
+@@ -0,0 +1,32 @@
++"""Check effective consumer flags and linked backends, not SDK defaults alone."""
++from pathlib import Path
++import json
++import os
++import subprocess
++import sys
++
++build=Path(sys.argv[1])
++commands=json.loads((build/'compile_commands.json').read_text(encoding='utf8'))
++flags=['LV_DRAW_SW_SUPPORT_L8=0','LV_DRAW_SW_SUPPORT_AL88=0','LV_DRAW_SW_SUPPORT_I1=0']
++checked=0
++for entry in commands:
++    source=entry['file'].replace('\\','/')
++    if '/lvgl__lvgl/src/' not in source and not source.endswith(('/main/ui.c','/lvgl9/esp_lvgl_port_disp.c')):
++        continue
++    for flag in flags:
++        if '-D'+flag not in entry['command']:
++            raise SystemExit('DRAW_BACKEND_FLAG_MISSING '+source+' '+flag)
++    checked+=1
++if checked<100:raise SystemExit('Missing LVGL compilation inventory')
++nm=next(Path(os.environ['IDF_TOOLS_PATH'],'tools').rglob('riscv32-esp-elf-nm.exe'))
++output=subprocess.check_output([str(nm),'-g','--defined-only',str(build/'aibot_tab5.elf')],text=True,encoding='utf8')
++symbols={line.split()[-1] for line in output.splitlines() if line.split()}
++for suffix in ['l8','al88','i1']:
++    for kind in ['color','image']:
++        name=f'lv_draw_sw_blend_{kind}_to_{suffix}'
++        if name in symbols:raise SystemExit('UNUSED_DRAW_BACKEND_LINKED '+name)
++for suffix in ['rgb565','rgb888','argb8888']:
++    for kind in ['color','image']:
++        name=f'lv_draw_sw_blend_{kind}_to_{suffix}'
++        if name not in symbols:raise SystemExit('COLOR_DRAW_BACKEND_MISSING '+name)
++print(f'DRAW_BACKEND_LINK_OK effectiveFlags={checked} sources; six gray entry points absent; six color entry points retained')
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -161,12 +161,15 @@
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${GALLERY_SOURCE}")
+ file(READ "${GALLERY_SOURCE}" GALLERY_TEXT)
+ string(FIND "${GALLERY_TEXT}" "    if(!pixels)pixels=camera_gallery_buffer_take();" GALLERY_START)
+-string(FIND "${GALLERY_TEXT}" "    result=job;" GALLERY_END)
++string(FIND "${GALLERY_TEXT}" "    result=w->job;" GALLERY_END)
+ math(EXPR GALLERY_LENGTH "${GALLERY_END} - ${GALLERY_START}")
+ if(GALLERY_START LESS 0 OR GALLERY_LENGTH LESS 1)
+     message(FATAL_ERROR "Gallery decoder test markers missing")
+ endif()
+ string(SUBSTRING "${GALLERY_TEXT}" ${GALLERY_START} ${GALLERY_LENGTH} GALLERY_BODY)
++# The DMA harness supplies the same image key directly; the worker now owns
++# that key in private PSRAM. Keep exercising the actual production block.
++string(REPLACE "w->job" "job" GALLERY_BODY "${GALLERY_BODY}")
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/gallery_decode_under_test.inc" "${GALLERY_BODY}")
+ add_executable(gallery-dma-test gallery_dma_test.c "${ROOT}/firmware/main/gallery_buffer.c")
+ add_executable(gallery-http-cache-test gallery_http_cache_test.c)
+@@ -195,6 +198,11 @@
+ endif()
+ target_include_directories(lvgl PUBLIC "${LVGL}" "${CMAKE_CURRENT_LIST_DIR}")
+ target_compile_definitions(lvgl PUBLIC LV_CONF_INCLUDE_SIMPLE _CRT_SECURE_NO_WARNINGS LV_USE_STDLIB_STRING=LV_STDLIB_CLIB)
++option(TAB5_PREVIEW_ALL_DRAW_FORMATS "Reference build before unused grayscale backend pruning" OFF)
++if(NOT TAB5_PREVIEW_ALL_DRAW_FORMATS)
++    target_compile_definitions(lvgl PUBLIC
++        LV_DRAW_SW_SUPPORT_L8=0 LV_DRAW_SW_SUPPORT_AL88=0 LV_DRAW_SW_SUPPORT_I1=0)
++endif()
+ add_executable(ui-preview preview.c "${ROOT}/firmware/main/tab5_font_24.c" "${ROOT}/firmware/main/tab5_font_30.c" "${ROOT}/firmware/main/tab5_digits_72.c" "${ROOT}/firmware/main/tab5_digits_96.c" "${ROOT}/firmware/main/tab5_timer_digits_192.c" "${ROOT}/firmware/main/link_state.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/codex_companion.c")
+ add_executable(codex-companion-test codex_companion_test.c "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -697,7 +697,9 @@
+     lv_obj_invalidate(lv_screen_active());lv_refr_now(d);
+     puts("NETWORK_RASTER_OK full/partial pixel equality at offsets 0..3; at most 5 image tasks; zero line tasks; rising/falling continuity");
+ }
++#include "render_backend_audit.h"
+ static void capture(const char *name) {
++    LARGE_INTEGER render_began,render_ended;QueryPerformanceCounter(&render_began);
+     fprintf(stderr,"PREVIEW %s\n",name);
+     lv_obj_update_layout(lv_screen_active());
+     lv_obj_invalidate(lv_screen_active()); lv_refr_now(NULL);
+@@ -732,6 +734,11 @@
+         fclose(live);
+     }
+     lv_draw_buf_t *snap=lv_snapshot_take(lv_screen_active(),LV_COLOR_FORMAT_RGB565);
++    assert(snap);
++    QueryPerformanceCounter(&render_ended);
++    if(!render_audit_capture(name,snap,preview_buffer,render_ended.QuadPart-render_began.QuadPart)){
++        lv_draw_buf_destroy(snap);return;
++    }
+     assert(snap); char path[160]; snprintf(path,sizeof(path),"%s.ppm",name);
+     FILE *f=fopen(path,"wb"); assert(f); fprintf(f,"P6\n%d %d\n255\n",snap->header.w,snap->header.h);
+     for(unsigned y=0;y<snap->header.h;y++) for(unsigned x=0;x<snap->header.w;x++) {
+@@ -2709,11 +2716,13 @@
+     weather_forecast_render(weather_data);lv_obj_send_event(weather_nav[0],LV_EVENT_CLICKED,NULL);workbench_return(NULL);
+     assert(!strcmp(lv_label_get_text(home_lunar),"八月十三 · 秋分"));
+     cJSON *home_fixture=shown;
++    int64_t home_saved_offline=offline_since;link_kind home_saved_link=last_link;
++    offline_since=-1;last_link=LINK_USB;
+     shown=cJSON_Parse("{\"codexTasks\":{\"tasks\":[{\"id\":\"00000000-0000-0000-0000-000000000001\",\"title\":\"旧会话\",\"updatedAt\":1},{\"id\":\"00000000-0000-0000-0000-000000000002\",\"title\":\"最近会话\",\"updatedAt\":2}]}}");
+     render_home_task();assert(!strcmp(lv_label_get_text(home_task_title),"最近会话"));
+     cJSON *home_remote=item(shown,"codexTasks"),*home_working=cJSON_Duplicate(cJSON_GetArrayItem(item(home_remote,"tasks"),0),true);
+     cJSON_AddStringToObject(home_working,"state","working");cJSON_AddItemToObject(home_remote,"overviewTask",home_working);
+-    render_home_task();assert(!strcmp(lv_label_get_text(home_task_title),"旧会话")&&!strcmp(lv_label_get_text(model_state[1]),"运行中"));
++    render_home_task();assert(!strcmp(lv_label_get_text(home_task_title),"旧会话")&&!strcmp(lv_label_get_text(model_state[1]),"工作中"));
+     // A completed task wins over an unrelated active task without selecting
+     // the editor. Read failure/heartbeat cannot consume its notification.
+     codex_notices=calloc(80,sizeof(*codex_notices));assert(codex_notices);
+@@ -2734,7 +2743,7 @@
+     assert(strstr(lv_label_get_text(home_task_title),"34%")&&strstr(lv_label_get_text(home_task_title),"80%"));
+     page(0);capture("overview-no-codex");
+     lv_obj_send_event(home_task_action,LV_EVENT_CLICKED,NULL);assert(current_page==4);
+-    cJSON_Delete(shown);shown=home_fixture;render();
++    cJSON_Delete(shown);shown=home_fixture;offline_since=home_saved_offline;last_link=home_saved_link;render();
+     puts("OVERVIEW_SELECTION_UI_OK working_recent_empty_independent_of_list_order");
+     lv_font_glyph_dsc_t title_glyph;
+     assert(lv_font_get_glyph_dsc(&tab5_font_30,&title_glyph,0x2011,0)&&!title_glyph.is_placeholder);
+--- /dev/null
++++ b/tests/ui-preview/render_backend_audit.h
+@@ -0,0 +1,54 @@
++// Native regression only: compare every captured pixel with the reference
++// renderer without retaining hundreds of uncompressed image copies.
++static FILE *render_audit_stream;
++static bool render_audit_compare;
++static unsigned render_audit_frames;
++static uint64_t render_audit_pixels,render_audit_ticks;
++static void render_audit_close(void) {
++    if(!render_audit_stream)return;
++    if(render_audit_compare)assert(fgetc(render_audit_stream)==EOF);
++    assert(!fclose(render_audit_stream));render_audit_stream=NULL;
++    LARGE_INTEGER frequency;QueryPerformanceFrequency(&frequency);
++    printf("RENDER_BACKEND_AUDIT_OK frames=%u pixels=%llu renderUs=%llu mode=%s\n",
++        render_audit_frames,(unsigned long long)render_audit_pixels,
++        (unsigned long long)(render_audit_ticks*1000000/frequency.QuadPart),
++        render_audit_compare?"pixel-exact comparison":"reference");
++}
++static bool render_audit_capture(const char *name,const lv_draw_buf_t *snap,const uint16_t *display,LONGLONG elapsed) {
++    const char *path=getenv("TAB5_RENDER_AUDIT_STREAM");if(!path||!*path)return true;
++    if(!render_audit_stream){
++        render_audit_compare=getenv("TAB5_RENDER_AUDIT_COMPARE")!=NULL;
++        render_audit_stream=fopen(path,render_audit_compare?"rb":"wb");assert(render_audit_stream);
++        assert(!atexit(render_audit_close));
++    }
++    uint32_t header[3]={(uint32_t)strlen(name),snap->header.w,snap->header.h};
++    assert(header[0]<160&&header[1]<=1280&&header[2]<=1280);
++    if(render_audit_compare){
++        uint32_t expected[3];char expected_name[160];
++        assert(fread(expected,sizeof(expected),1,render_audit_stream)==1&&!memcmp(header,expected,sizeof(header)));
++        assert(fread(expected_name,1,header[0],render_audit_stream)==header[0]&&!memcmp(name,expected_name,header[0]));
++        uint8_t row[2560];
++        for(unsigned y=0;y<header[2];y++){
++            size_t bytes=header[1]*2;assert(fread(row,1,bytes,render_audit_stream)==bytes);
++            if(memcmp(row,snap->data+y*snap->header.stride,bytes)){
++                fprintf(stderr,"RENDER_PIXEL_MISMATCH name=%s row=%u\n",name,y);assert(false);
++            }
++        }
++        for(unsigned y=0;y<720;y++){
++            assert(fread(row,1,2560,render_audit_stream)==2560);
++            if(memcmp(row,display+y*1280,2560)){
++                fprintf(stderr,"RENDER_DISPLAY_MISMATCH name=%s row=%u\n",name,y);assert(false);
++            }
++        }
++    }else{
++        assert(fwrite(header,sizeof(header),1,render_audit_stream)==1);
++        assert(fwrite(name,1,header[0],render_audit_stream)==header[0]);
++        for(unsigned y=0;y<header[2];y++)assert(fwrite(snap->data+y*snap->header.stride,2,header[1],render_audit_stream)==header[1]);
++        assert(fwrite(display,2,1280*720,render_audit_stream)==1280*720);
++    }
++    render_audit_frames++;render_audit_pixels+=(uint64_t)header[1]*header[2]+1280*720;
++    render_audit_ticks+=(uint64_t)elapsed;
++    const char *keep=getenv("TAB5_RENDER_AUDIT_KEEP");
++    if(!keep)return false;
++    char token[164];snprintf(token,sizeof(token),",%s,",name);return strstr(keep,token)!=NULL;
++}
+--- a/tests/ui-preview/draw_fast_test.c
++++ b/tests/ui-preview/draw_fast_test.c
+@@ -3,6 +3,7 @@
+ #endif
+ #include <assert.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "lvgl.h"
+ #include "src/draw/sw/blend/lv_draw_sw_blend_to_rgb565.h"
+@@ -58,7 +59,9 @@
+         assert(!memcmp(expected,actual,sizeof(actual)));cases++;
+     }
+     const lv_font_t *fonts[]={&lv_font_montserrat_14,&tab5_font_24,&tab5_font_30};
+-    for(int pass=0;pass<3;pass++)for(unsigned fi=0;fi<3;fi++)for(unsigned sample=0;sample<190;sample++) {
++    unsigned passes=getenv("TAB5_DRAW_REPEAT")?(unsigned)atoi(getenv("TAB5_DRAW_REPEAT")):3;
++    assert(passes>0&&passes<=3000);
++    for(unsigned pass=0;pass<passes;pass++)for(unsigned fi=0;fi<3;fi++)for(unsigned sample=0;sample<190;sample++) {
+         unsigned ch=sample<94?33+sample:0x4e00+(sample-94)*13;
+         lv_font_glyph_dsc_t g={0};if(!lv_font_get_glyph_dsc(fonts[fi],&g,ch,0))continue;
+         if(!g.box_w||!g.box_h)continue;
+--- a/tests/ui-preview/gallery_worker_test.c
++++ b/tests/ui-preview/gallery_worker_test.c
+@@ -61,6 +61,7 @@
+ static int rpc_read_link_select(void){return link;}
+ static int rpc_library_link_select(void){return link;}
+ static device_config device_get_config(void){return (device_config){"localhost",18765,selected_mode};}
++static int device_link_mode(void){return selected_mode;}
+ static int esp_wifi_stop(void){wifi_stops++;if(wifi_stop_error)return wifi_stop_error;wifi_running=false;return 0;}
+ static int esp_wifi_start(void){wifi_starts++;wifi_running=true;return 0;}
+ #define TAB5_WIFI_PROBE_TEST
+@@ -76,9 +77,9 @@
+     if(http_failure)return NULL;
+     unsigned *handle=malloc(sizeof(*handle));assert(handle);*handle=++http_created;return handle;
+ }
+-static bool fail_text_allocation;
++static bool fail_text_allocation,fail_next_caps_allocation;
+ static unsigned text_page_allocations;
+-static void *heap_caps_calloc(size_t count,size_t size,int caps){assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));if(size<=32761){text_page_allocations++;if(fail_text_allocation)return NULL;}return calloc(count,size);}
++static void *heap_caps_calloc(size_t count,size_t size,int caps){assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));if(fail_next_caps_allocation){fail_next_caps_allocation=false;return NULL;}if(size<=32761){text_page_allocations++;if(fail_text_allocation)return NULL;}return calloc(count,size);}
+ static void esp_http_client_cleanup(void *p){assert(p);http_cleaned++;free(p);}
+ static bool esp_http_client_is_complete_data_received(void *p){assert(p);return !http_failure;}
+ static void vTaskDeleteWithCaps(void *p){(void)p;}
+@@ -357,6 +358,21 @@
+     memset(calligraphy_revision,'b',64);calligraphy_revision[64]=0;
+     assert(gallery_pack_sync(painting_revision,calligraphy_revision)==3);
+     display(0,0,false);display(1,0,false);
++    {
++        int before=network_calls;gallery_image missing;
++        fail_next_caps_allocation=true;
++        assert(gallery_request(0,"2026-10-07",0,false,NULL));
++        assert(!fail_next_caps_allocation&&gallery_request_ready()&&!gallery_take(&missing));
++        assert(gallery_decode_status(0,false)==GALLERY_DECODE_NO_MEMORY&&network_calls==before);
++        assert(gallery_take_failures()&1u);
++        display(0,0,false);assert(network_calls==before); // Completed cache survives.
++        fail_next_caps_allocation=true;
++        assert(start_request(0,"2026-10-07",0,false,NULL,true,1));
++        assert(!fail_next_caps_allocation&&!atomic_load(&prefetching)&&gallery_request_ready());
++        assert(network_calls==before&&prefetch_retry>esp_timer_get_time()/1000);
++        prefetch_retry=0;
++        puts("GALLERY_WORKSPACE_OOM_OK foreground/background release busy state, no network or partial data, completed cache retained");
++    }
+     engine_error=ESP_ERR_NO_MEM;
+     assert(gallery_request(1,"2026-10-07",0,false,NULL));
+     gallery_image failed_decode;assert(!gallery_take(&failed_decode));

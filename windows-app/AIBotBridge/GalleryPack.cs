@@ -5,7 +5,8 @@ using System.Text.RegularExpressions;
 
 namespace AIBotBridge;
 
-internal sealed record GalleryPackManifest(int SchemaVersion,string Version,string Category,int Works,int Frames,Dictionary<string,string> Files);
+internal sealed record GalleryPackManifest(int SchemaVersion,string Version,string Category,int Works,int Frames,Dictionary<string,string> Files,string? Collection=null);
+internal sealed record GalleryAnnualIndex(int Schema,string Category,string[] Ids);
 internal static class GalleryPack
 {
     // Readers see a complete category before or after the atomic directory swap.
@@ -21,7 +22,7 @@ internal static class GalleryPack
             if(_revisionsRead!=Revision) {
                 string Digest(string category) {
                     var manifest=Installed(category);
-                    return manifest is null?"":Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(manifest,JsonDefaults.Options))).ToLowerInvariant();
+                    return manifest is null?"":GalleryPack.Digest(manifest);
                 }
                 _contentRevisions=new{painting=Digest("painting"),calligraphy=Digest("calligraphy")};
                 _revisionsRead=Revision;
@@ -30,6 +31,30 @@ internal static class GalleryPack
         }
     }
     internal static string Root=>Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AI-bot","DailyArt");
+    internal static string Digest(GalleryPackManifest manifest) {
+        if(GalleryPreferences.Full&&manifest.Collection!="full")return "";
+        byte[] bytes=manifest.Collection!="full"?JsonSerializer.SerializeToUtf8Bytes(manifest,JsonDefaults.Options):GalleryPreferences.Full?
+            JsonSerializer.SerializeToUtf8Bytes(new{manifest,range="full",order="annual-first-v1"},JsonDefaults.Options):
+            JsonSerializer.SerializeToUtf8Bytes(new{manifest,range="annual"},JsonDefaults.Options);
+        return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+    internal static GalleryAnnualIndex ReadAnnual(string directory,string category,Tab5Gallery.Artwork[] works) {
+        string path=Path.Combine(directory,"annual-index.json");if(new FileInfo(path).Length>1024*1024)throw new InvalidDataException("年度索引过大。");
+        var index=JsonSerializer.Deserialize<GalleryAnnualIndex>(File.ReadAllBytes(path),JsonDefaults.Options)??throw new InvalidDataException("年度索引为空。");
+        var ids=works.Select(w=>w.Id).ToHashSet(StringComparer.Ordinal);
+        if(index.Schema!=1||index.Category!=category||index.Ids is null||index.Ids.Length is <1 or >2000||index.Ids.Distinct(StringComparer.Ordinal).Count()!=index.Ids.Length||index.Ids.Any(id=>!ids.Contains(id)))throw new InvalidDataException("年度索引与全量图库不一致。");
+        return index;
+    }
+    internal static int? AnnualCount(string category,GalleryPackManifest manifest) {
+        try {
+            string path=Path.Combine(Root,category,"annual-index.json");
+            if(manifest.Collection!="full"||!manifest.Files.TryGetValue("annual-index.json",out var expected)||new FileInfo(path).Length>1024*1024)return null;
+            byte[] bytes=File.ReadAllBytes(path);
+            if(!Convert.ToHexString(SHA256.HashData(bytes)).Equals(expected,StringComparison.OrdinalIgnoreCase))return null;
+            var index=JsonSerializer.Deserialize<GalleryAnnualIndex>(bytes,JsonDefaults.Options);
+            return index is not null&&index.Schema==1&&index.Category==category&&index.Ids is {Length:>0 and <=2000}&&index.Ids.Distinct(StringComparer.Ordinal).Count()==index.Ids.Length?index.Ids.Length:null;
+        }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException){return null;}
+    }
     internal static bool Category(string value)=>value is "painting" or "calligraphy";
     internal static string CategoryName(string value)=>value=="painting"?"每日名画":"每日书法";
     internal static GalleryPackManifest? Installed(string category,string? root=null) {
@@ -39,7 +64,7 @@ internal static class GalleryPack
         try{return JsonSerializer.Deserialize<GalleryPackManifest>(File.ReadAllText(path),JsonDefaults.Options);}
         catch(Exception ex) when(ex is IOException or JsonException or UnauthorizedAccessException){return null;}
     }
-    internal static GalleryPackManifest Install(string archive,string? root=null,IProgress<int>? progress=null,CancellationToken cancellation=default,GalleryUpdate? expected=null,bool notify=true) {
+    internal static GalleryPackManifest Install(string archive,string? root=null,IProgress<int>? progress=null,CancellationToken cancellation=default,GalleryUpdate? expected=null,bool notify=true,string? expectedCollection=null) {
         string destination=Path.GetFullPath(root??Root);Directory.CreateDirectory(destination);
         string stage=Path.Combine(destination,".install-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(stage);
         try {
@@ -56,6 +81,10 @@ internal static class GalleryPack
             if(entryManifest.Length>2*1024*1024)throw new InvalidDataException("图库清单过大。");
             GalleryPackManifest manifest;
             using(var input=entryManifest.Open())manifest=JsonSerializer.Deserialize<GalleryPackManifest>(input,JsonDefaults.Options)??throw new InvalidDataException("图库清单为空。");
+            if(manifest.Collection is not (null or "annual" or "full")||expectedCollection is not null&&(manifest.Collection??"annual")!=expectedCollection)
+                throw new InvalidDataException("图库包的年度版或全量版与当前选择不一致。原图库保持不变。");
+            if(root is null&&Category(manifest.Category)&&Installed(manifest.Category)?.Collection=="full"&&manifest.Collection!="full")
+                throw new InvalidDataException("已安装全量图库；年度版由索引提供，年度包不会覆盖全量图库。");
             if(expected is not null&&(manifest.Category!=expected.Category||manifest.Version!=expected.Version))
                 throw new InvalidDataException("图库内置类别或版本与发布记录不一致，原图库保持不变。");
             if(manifest.SchemaVersion is not (1 or 2)||!Category(manifest.Category)||!Regex.IsMatch(manifest.Version??"",@"^\d{4}\.\d{2}\.\d{2}(?:\.\d+)?$")||
@@ -65,6 +94,7 @@ internal static class GalleryPack
             foreach(string required in new[]{"catalog.json","provenance.json","selection.json","LICENSE","THIRD_PARTY_NOTICES.md"})
                 if(!manifest.Files.ContainsKey(required))throw new InvalidDataException("图库缺少目录或来源声明。");
             if(manifest.SchemaVersion==2&&!manifest.Files.ContainsKey("guides.zh.json"))throw new InvalidDataException("图库缺少导读数据。");
+            if(manifest.Collection=="full"&&!manifest.Files.ContainsKey("annual-index.json"))throw new InvalidDataException("全量图库缺少年度索引。");
             int done=0;
             foreach(var entry in zip.Entries) {
                 cancellation.ThrowIfCancellationRequested();
@@ -85,8 +115,9 @@ internal static class GalleryPack
                 progress?.Report(++done*95/zip.Entries.Count);
             }
             var works=JsonSerializer.Deserialize<Tab5Gallery.Artwork[]>(File.ReadAllText(Path.Combine(stage,"catalog.json")),JsonDefaults.Options)??[];
-            if(works.Length!=manifest.Works||works.Select(w=>w.Id).Distinct().Count()!=works.Length||works.Any(w=>w.Category!=manifest.Category||string.IsNullOrWhiteSpace(w.Title)||string.IsNullOrWhiteSpace(w.Author)||w.Frames is null||w.Frames.Length is <1 or >64||w.PortraitFrames is null||w.PortraitFrames.Length!=w.Frames.Length))
+            if(works.Length!=manifest.Works||works.Select(w=>w.Id).Distinct().Count()!=works.Length||works.Any(w=>w.Category!=manifest.Category||string.IsNullOrWhiteSpace(w.Id)||string.IsNullOrWhiteSpace(w.Title)||string.IsNullOrWhiteSpace(w.Author)||w.Frames is null||w.Frames.Length is <1 or >64||w.PortraitFrames is null||w.PortraitFrames.Length!=w.Frames.Length))
                 throw new InvalidDataException("作品目录无效。");
+            if(manifest.Collection=="full")_=ReadAnnual(stage,manifest.Category,works);
             if(manifest.Files.ContainsKey("guides.zh.json")) {
                 string guidePath=Path.Combine(stage,"guides.zh.json");
                 if(new FileInfo(guidePath).Length>8*1024*1024)throw new InvalidDataException("图库导读过大。");

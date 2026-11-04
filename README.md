@@ -4,9 +4,12 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.16.md) · [English](README.en.md)
+[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.17.md) · [English](README.en.md)
 
-**本轮更新：** Windows／Mac 桥接 0.6.16，小屏固件 0.5.8，大屏固件 0.2.303-ui。补齐账户已使用金额、增加 Windows 本机语音识别，改善小屏股票字形和切页、Mac 菜单响应，以及 TAB5 近期生日与告警详情。[更新及验收范围](docs/RELEASE-0.6.16.md) · [Mac 安装与授权](docs/INSTALL.zh.md#mac)
+**待发布更新：** Windows／Mac 桥接 0.6.17、TAB5 0.2.312-ui。统一整理图库范围与画质选择、Codex／Clawd 萌宠和两种屏保；动画采用官方原始素材，搭配柔和背景与居中小时间。Mac 适配及最终候选验收尚待完成；当前公开下载仍为桥接 0.6.16、TAB5 0.2.303-ui，ESP8266 保持 0.5.8。[准备范围与验收](docs/RELEASE-0.6.17.md) · [Mac 安装与授权](docs/INSTALL.zh.md#mac)
+
+<p><img src="docs/assets/screens/tab5-companion-savers-0312-preview.png" width="880" alt="Codex 与 Clawd 两种独立萌宠屏保的原生渲染预览"></p>
+<sub>两个独立屏保的原生渲染，时间为演示数据；设备每次只显示所选的一只萌宠。[来源与验收边界](docs/RELEASE-0.6.17.md)</sub>
 
 ## 选择适合你的桌面屏幕
 
@@ -158,7 +161,7 @@ https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.15.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.17.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](docs/development/TAB5-SOURCE.md) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

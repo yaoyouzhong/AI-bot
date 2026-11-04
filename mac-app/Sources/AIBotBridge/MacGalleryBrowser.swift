@@ -78,10 +78,11 @@ final class MacGalleryBrowser: NSWindowController, NSTextFieldDelegate, NSTableV
         ])
         window.contentView = root; window.keyHandler = { [weak self] in self?.stage.key($0) ?? false }
         stage.navigate = { [weak self] in self?.change($0) }; stage.toggleFullscreen = { [weak self] in self?.showFullscreen() }
+        NotificationCenter.default.addObserver(self,selector:#selector(reload),name:Notification.Name("AIBotGallerySelectionChanged"),object:gallery)
         reload()
     }
     required init?(coder:NSCoder) { fatalError() }
-    deinit { loader.cancelAllOperations() }
+    deinit { NotificationCenter.default.removeObserver(self); loader.cancelAllOperations() }
     func open() { reload(); MacSettingsControls.open(self) }
     @objc private func reload() {
         let selected = displayed?.work.id
@@ -127,7 +128,7 @@ final class MacGalleryBrowser: NSWindowController, NSTextFieldDelegate, NSTableV
             let (bytes,guide) = try self.gallery.browserPage(work,frame:requested)
             guard var image = NSImage(data:bytes) else { throw MacTab5Error.invalidPacket }; var hd = false
             let root = self.gallery.directory.appendingPathComponent(work.category).appendingPathComponent("desktop"), indexURL = root.appendingPathComponent("desktop-index.relative.json")
-            if let size = try? indexURL.resourceValues(forKeys:[.fileSizeKey]).fileSize, size <= 16*1024*1024,
+            if self.gallery.useHighQuality, let size = try? indexURL.resourceValues(forKeys:[.fileSizeKey]).fileSize, size <= 16*1024*1024,
                let data = try? Data(contentsOf:indexURL), let index = try? JSONDecoder().decode(MacGalleryDesktopIndex.self,from:data), let original = try? index.image(root:root,work:work,frame:requested,preview:bytes) { image = original; hd = true }
             let page = MacGalleryPage(work:work,frame:requested,image:image,hd:hd,guide:guide)
             DispatchQueue.main.async { guard self.generation == g else { return }; self.displayed = page; self.stage.update(page); self.fullscreen?.stage.update(page) }

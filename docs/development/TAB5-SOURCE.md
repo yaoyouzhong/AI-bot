@@ -1,4 +1,12 @@
-# 当前发布源码 / Current release source: 0.2.302-ui
+# 最新工程源码 / Latest project source: 0.2.312-ui
+
+[完整 .312 工程及核验说明](tab5-312-source/README.md)包含全部 993 个项目文件、7,594 项重建输入摘要、依赖覆盖及 SDK 补丁。按现有归档规则排除未修改的 SDK／依赖树、主机工具和本地数据；无需叠加旧版本工程。对应应用 SHA-256 `21d78bcce33bdbdb531588b225b59a9902e53ecff620c9b614863f56cdb34d8c`。本次只同步源码，不新增固件 Release；独立逐位重建未验证。
+
+The complete .312 project archive contains 993 project files, 7,594 resolved-input hashes, managed overrides and SDK patches. It follows the existing archive policy, excludes unmodified dependencies and private/build data, and needs no older project overlay. This source synchronization does not publish a firmware release or claim independently reproducible binary output.
+
+---
+
+# 已发布源码记录 / Published source record: 0.2.302-ui
 
 [下载 .302 源码包](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.302-ui/AI-bot-tab5-0.2.302-ui-source.zip)。其记录重建项目源码、构建树中的依赖覆盖与 SDK 补丁；应用镜像 SHA-256 `475e0bf93790a6125555f7c863f2b25aa1fc959d7734681f32441849ad17f84e`，源码包 SHA-256 `5aef244c466393e9d5705399c4903d039faf210eb0a7ea03247287cdfade1138`。首刷与升级包含相同应用。尚未独立逐位重建；保留的构建树缺少一项依赖元数据校验文件，不将其写成完整独立复现。
 

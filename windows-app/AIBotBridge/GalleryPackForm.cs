@@ -14,9 +14,15 @@ internal sealed class GalleryPackForm : Form
         openUrl??=url=>Process.Start(new ProcessStartInfo(url){UseShellExecute=true});
         Text="AI-bot · 屏保图库";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
         BackColor=Color.White;ClientSize=new(760,430);MinimumSize=new(740,380);AutoScroll=true;
-        var root=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Padding=new(24),ColumnCount=1,RowCount=7};Controls.Add(root);
-        root.ColumnStyles.Add(new(SizeType.Percent,100));for(int i=0;i<7;i++)root.RowStyles.Add(new(SizeType.AutoSize));
+        var root=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Padding=new(24),ColumnCount=1,RowCount=8};Controls.Add(root);
+        root.ColumnStyles.Add(new(SizeType.Percent,100));for(int i=0;i<8;i++)root.RowStyles.Add(new(SizeType.AutoSize));
         var description=new Label{Text="选择喜欢的作品集，在电脑欣赏，也可用于 TAB5 屏保。",AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,0,0,16)};root.Controls.Add(description,0,0);
+        var choice=new FlowLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,WrapContents=true,Margin=new(0,0,0,14)};
+        var collection=new ComboBox{Name="gallery-collection",DropDownStyle=ComboBoxStyle.DropDownList,Width=120,Margin=new(0,0,20,0)};
+        collection.Items.AddRange(["年度版","全量版"]);collection.SelectedIndex=GalleryPreferences.Full?1:0;
+        var quality=new ComboBox{Name="gallery-quality",DropDownStyle=ComboBoxStyle.DropDownList,Width=120,Margin=Padding.Empty};
+        quality.Items.AddRange(["普通版","高清版"]);quality.SelectedIndex=GalleryPreferences.High?1:0;
+        choice.Controls.AddRange([new Label{Text="作品范围",AutoSize=true,Margin=new(0,5,8,0)},collection,new Label{Text="电脑画质",AutoSize=true,Margin=new(0,5,8,0)},quality]);root.Controls.Add(choice,0,1);
         var hdLabels=new Dictionary<string,Label>();
         var currentLabels=new Dictionary<string,Label>();var latestLabels=new Dictionary<string,Label>();var statusLabels=new Dictionary<string,Label>();var updateButtons=new Dictionary<string,Button>();
         foreach(string category in new[]{"painting","calligraphy"}) {
@@ -33,20 +39,19 @@ internal sealed class GalleryPackForm : Form
             void FitCard(){int width=Math.Max(100,card.ClientSize.Width-card.Padding.Horizontal);current.MaximumSize=new(Math.Max(100,width-Math.Max(update.Width,hd.Width)-24),0);latest.MaximumSize=current.MaximumSize;}
             card.SizeChanged+=(_,_)=>FitCard();update.VisibleChanged+=(_,_)=>FitCard();
             currentLabels[category]=current;latestLabels[category]=latest;statusLabels[category]=status;updateButtons[category]=update;
-            root.Controls.Add(card,0,category=="painting"?1:2);
+            root.Controls.Add(card,0,category=="painting"?2:3);
         }
-        var editions=new TableLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,ColumnCount=2,RowCount=3,Margin=new(0,12,0,20)};
+        var editions=new TableLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,ColumnCount=2,RowCount=2,Margin=new(0,12,0,20)};
         editions.ColumnStyles.Add(new(SizeType.AutoSize));editions.ColumnStyles.Add(new(SizeType.Percent,100));
-        for(int i=0;i<3;i++)editions.RowStyles.Add(new(SizeType.AutoSize));
+        for(int i=0;i<2;i++)editions.RowStyles.Add(new(SizeType.AutoSize));
         var editionDescriptions=new List<Label>();
-        foreach(var (name,detail,row) in new[]{("标准版","电脑使用适配后的展示图",0),("高清版","电脑使用高清图片，可查看更多细节",1)}){
+        foreach(var (name,detail,row) in new[]{("普通版","电脑使用适配后的展示图",0),("高清版","电脑使用高清图片，可查看更多细节",1)}){
             editions.Controls.Add(new Label{Text=name,AutoSize=true,Font=new(Font,FontStyle.Bold),ForeColor=SettingsWindow.Ink,Margin=new(0,0,24,10)},0,row);
             var detailLabel=new Label{Text=detail,AutoSize=true,Dock=DockStyle.Fill,ForeColor=SettingsWindow.Ink,Margin=new(0,0,0,10)};
             editions.Controls.Add(detailLabel,1,row);editionDescriptions.Add(detailLabel);
         }
-        var warning=new Label{Text="两版均含作品和导读，TAB5 显示相同，任选一版即可。",ForeColor=SettingsWindow.Muted,AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,4,0,0)};
-        editions.Controls.Add(warning,0,2);editions.SetColumnSpan(warning,2);root.Controls.Add(editions,0,3);
-        editions.SizeChanged+=(_,_)=>{int width=Math.Max(100,editions.ClientSize.Width);warning.MaximumSize=new(width,0);int labelWidth=editions.Controls[0].GetPreferredSize(Size.Empty).Width+24;foreach(var label in editionDescriptions)label.MaximumSize=new(Math.Max(100,width-labelWidth),0);};
+        root.Controls.Add(editions,0,4);
+        editions.SizeChanged+=(_,_)=>{int width=Math.Max(100,editions.ClientSize.Width);int labelWidth=editions.Controls[0].GetPreferredSize(Size.Empty).Width+24;foreach(var label in editionDescriptions)label.MaximumSize=new(Math.Max(100,width-labelWidth),0);};
         var tools=new FlowLayoutPanel{Name="gallery-actions",AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,WrapContents=true,Margin=Padding.Empty};
         var check=new Button{Name="gallery-check",Text="检查更新",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(check);
         var import=new Button{Name="gallery-import",Text="安装图库包…",Margin=new(0,0,8,0)};SettingsWindow.StyleButton(import);
@@ -55,12 +60,14 @@ internal sealed class GalleryPackForm : Form
         var open=new ToolStripMenuItem("打开图库目录"){Name="gallery-open-directory"};
         var site=new ToolStripMenuItem("下载与安装说明"){Name="gallery-download-center"};
         _moreMenu.Items.AddRange([open,site]);more.Click+=(_,_)=>_moreMenu.Show(more,new Point(0,more.Height));
-        tools.Controls.AddRange([browse,import,check,more]);root.Controls.Add(tools,0,4);
+        tools.Controls.AddRange([browse,import,check,more]);root.Controls.Add(tools,0,5);
         var operationRow=new TableLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Fill,Margin=new(0,12,0,0),ColumnCount=2,RowCount=1};
-        operationRow.ColumnStyles.Add(new(SizeType.Percent,100));operationRow.ColumnStyles.Add(new(SizeType.AutoSize));operationRow.RowStyles.Add(new(SizeType.AutoSize));root.Controls.Add(operationRow,0,5);
+        operationRow.ColumnStyles.Add(new(SizeType.Percent,100));operationRow.ColumnStyles.Add(new(SizeType.AutoSize));operationRow.RowStyles.Add(new(SizeType.AutoSize));root.Controls.Add(operationRow,0,6);
         var message=new Label{Name="gallery-state",AutoSize=true,Dock=DockStyle.Fill,ForeColor=SettingsWindow.Muted,Margin=new(0,5,12,10)};operationRow.Controls.Add(message,0,0);
         var cancel=new Button{Name="gallery-cancel",Text="取消操作",Visible=false,Anchor=AnchorStyles.Top|AnchorStyles.Right,Margin=Padding.Empty};SettingsWindow.StyleButton(cancel);operationRow.Controls.Add(cancel,1,0);
-        var progress=new ProgressBar{Name="gallery-progress",Dock=DockStyle.Fill,Height=8,Visible=false,Margin=new(0,0,0,12)};root.Controls.Add(progress,0,6);
+        void RefreshOperationRow()=>operationRow.Visible=message.Text.Length>0||cancel.Visible;
+        message.TextChanged+=(_,_)=>RefreshOperationRow();cancel.VisibleChanged+=(_,_)=>RefreshOperationRow();RefreshOperationRow();
+        var progress=new ProgressBar{Name="gallery-progress",Dock=DockStyle.Fill,Height=8,Visible=false,Margin=new(0,0,0,12)};root.Controls.Add(progress,0,7);
         bool fitting=false,fitPending=false;
         void FitContentHeight() {
             if(fitting||IsDisposed||!Visible)return;fitting=true;
@@ -71,25 +78,43 @@ internal sealed class GalleryPackForm : Form
         root.SizeChanged+=(_,_)=>{int width=Math.Max(100,root.ClientSize.Width-root.Padding.Horizontal);description.MaximumSize=new(width,0);};
         operationRow.SizeChanged+=(_,_)=>message.MaximumSize=new(Math.Max(100,operationRow.ClientSize.Width-(cancel.Visible?cancel.Width:0)-message.Margin.Horizontal),0);
         void RefreshStatus() {
-            check.Enabled=import.Enabled=browse.Enabled=!_busy;
+            import.Enabled=browse.Enabled=collection.Enabled=quality.Enabled=!_busy;check.Enabled=!_busy&&!GalleryPreferences.Full;
             foreach(string category in currentLabels.Keys) {
                 var hd=GalleryHdPack.Installed(category);
-                hdLabels[category].Text=hd is null?"标准画质":"高清画质";
-                var installed=GalleryPack.Installed(category);if(installed is null)hdLabels[category].Text="";_service.Galleries.TryGetValue(category,out var release);
-                currentLabels[category].Text=installed is null?"尚未安装":hd is not null?$"高清版 {hd.Edition}":$"标准版 {installed.Version}";
+                var installed=GalleryPack.Installed(category);
+                hdLabels[category].Text=GalleryPreferences.High&&installed is not null&&hd is null?"高清未安装":"";
+                hdLabels[category].Visible=hdLabels[category].Text.Length>0;
+                _service.Galleries.TryGetValue(category,out var release);
+                int? displayedWorks=installed is null?null:installed.Collection=="full"&&!GalleryPreferences.Full?GalleryPack.AnnualCount(category,installed):installed.Works;
+                currentLabels[category].Text=installed is null?"尚未安装":(GalleryPreferences.High&&hd is not null?$"高清版 {hd.Edition}":$"普通版 {installed.Version}")+(displayedWorks is int count?$" · {count} 件":"");
+                if(installed is not null&&installed.Collection!="full"&&GalleryPreferences.Full){currentLabels[category].Text="全量图库尚未安装，现有年度图库已保留";hdLabels[category].Text="";hdLabels[category].Visible=false;}
                 string? blocked=GalleryUpdateCatalog.Blocked(installed,release);
-                latestLabels[category].Text=release is null?(_service.CheckedAt is null?"线上标准版：尚未检查":"线上标准版：暂无正式发布"):
-                    $"线上标准版：{release.Version}"+(release.Package is {} pack?$" · {pack.Size/1048576d:0.#} MiB":"");
+                latestLabels[category].Text=GalleryPreferences.Full&&installed?.Collection!="full"?"请安装包含年度索引的全量图库包":"";
+                latestLabels[category].Visible=latestLabels[category].Text.Length>0;
                 string status=blocked??(installed is null?"可安装":"有更新");
                 statusLabels[category].Text=status switch{"已是最新版本"=>"已是最新","本机版本较新"=>"本机较新","暂无可确认的正式精选集"=>"待检查","发布包缺少有效下载或校验信息"=>"暂不可用",_=>status};
-                if(hd is not null)statusLabels[category].Text="已安装高清版";
+                if(GalleryPreferences.Full)statusLabels[category].Text=installed?.Collection=="full"?"已安装":"待安装";
+                else if(GalleryPreferences.High&&hd is not null)statusLabels[category].Text="已安装";
                 statusLabels[category].ForeColor=blocked is null?Color.FromArgb(34,109,215):Color.FromArgb(88,101,119);
                 latestLabels[category].ForeColor=Color.FromArgb(88,101,119);
                 updateButtons[category].Text=installed is null?"下载并安装":"下载并升级";
-                updateButtons[category].Visible=blocked is not ("已是最新版本" or "本机版本较新");
+                updateButtons[category].Visible=!GalleryPreferences.Full&&installed?.Collection!="full"&&blocked is not ("已是最新版本" or "本机版本较新");
                 updateButtons[category].Enabled=!_busy&&blocked is null;
             }
         }
+        bool updatingChoices=false;
+        void ChangeChoice() {
+            if(updatingChoices||_busy)return;
+            try {
+                GalleryPreferences.Set(collection.SelectedIndex==1,quality.SelectedIndex==1);
+                message.Text=GalleryPreferences.High&&new[]{"painting","calligraphy"}.Any(c=>GalleryPack.Installed(c) is not null&&GalleryHdPack.Installed(c) is null)?"未安装高清素材的类别暂用普通图。":"";
+                RefreshStatus();
+            }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException) {
+                updatingChoices=true;collection.SelectedIndex=GalleryPreferences.Full?1:0;quality.SelectedIndex=GalleryPreferences.High?1:0;updatingChoices=false;
+                message.Text="切换未保存："+ex.Message;
+            }
+        }
+        collection.SelectedIndexChanged+=(_,_)=>ChangeChoice();quality.SelectedIndexChanged+=(_,_)=>ChangeChoice();
         void StartOperation(bool transfer) {
             OperationError=null;
             _busy=true;_operation=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);cancel.Visible=true;cancel.Enabled=true;
@@ -100,7 +125,7 @@ internal sealed class GalleryPackForm : Form
             if(!IsDisposed){cancel.Visible=false;progress.Visible=false;RefreshStatus();}
         }
         async Task CheckAsync() {
-            if(_busy)return;StartOperation(false);message.Text="正在检查名画和书法的正式精选集…";
+            if(_busy||GalleryPreferences.Full)return;StartOperation(false);message.Text="正在检查名画和书法的正式精选集…";
             try {
                 await _service.CheckAsync(_operation!.Token);
                 if(!IsDisposed)message.Text="已检查线上精选集 · "+_service.CheckedAt!.Value.ToLocalTime().ToString("MM-dd HH:mm");
@@ -121,7 +146,7 @@ internal sealed class GalleryPackForm : Form
                 var updates=new Progress<int>(v=>{if(!IsDisposed)progress.Value=Math.Clamp(70+v*30/100,70,100);});
                 var result=await Task.Run(()=>{
                     if(!FirmwareFlasher.MatchesHash(prepared.File,prepared.Sha256))throw new InvalidDataException("下载文件已改变，原图库保持不变。");
-                    return GalleryPack.Install(prepared.File,progress:updates,cancellation:token,expected:release);
+                    return GalleryPack.Install(prepared.File,progress:updates,cancellation:token,expected:release,expectedCollection:"annual");
                 },token);
                 installed=true;
                 if(!IsDisposed)message.Text=$"{GalleryPack.CategoryName(category)}已更新 · {result.Version} · {result.Works} 件\n旧版保留为备份。"+(result.SchemaVersion==2?"图片和导读已一起更新。":"");
@@ -148,8 +173,8 @@ internal sealed class GalleryPackForm : Form
                 int shown=-1;var updates=new Progress<int>(v=>{if(!IsDisposed&&v!=shown){shown=v;progress.Value=v;message.Text=$"正在校验并安装图库 · {v}%";}});
                 string summary=await Task.Run(()=>{
                     bool standard;using(var zip=System.IO.Compression.ZipFile.OpenRead(selected))standard=zip.GetEntry("PACK.json") is not null;
-                    if(standard){var result=GalleryPack.Install(selected,progress:updates,cancellation:_operation!.Token);return $"{GalleryPack.CategoryName(result.Category)}标准版已安装 · {result.Works} 件。";}
-                    var hd=GalleryHdPack.Install(selected,progress:updates,cancellation:_operation!.Token);return $"最近安装：{GalleryPack.CategoryName(hd.Category)}高清版 {hd.Edition}，已启用。";
+                    if(standard){var result=GalleryPack.Install(selected,progress:updates,cancellation:_operation!.Token);return $"{GalleryPack.CategoryName(result.Category)}普通版已安装 · {result.Works} 件。";}
+                    var hd=GalleryHdPack.Install(selected,progress:updates,cancellation:_operation!.Token);return $"最近安装：{GalleryPack.CategoryName(hd.Category)}高清版 {hd.Edition}。";
                 },_operation!.Token);
                 if(!IsDisposed)message.Text=summary;
             }catch(OperationCanceledException){if(!IsDisposed)message.Text="安装已取消，原有图库保持不变。";}

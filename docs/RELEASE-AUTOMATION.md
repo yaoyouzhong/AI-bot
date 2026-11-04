@@ -78,6 +78,8 @@ python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json 
 
 负责人只做一轮语义复核：受影响主页亮点、安装说明、兼容性和媒体是否准确。下载表可自动生成，功能文案不能由哈希推断。小更新复用仍准确的截图、视频和播放结果，仅更新会误导用户的部分；完成 [收尾清单](RELEASE-CHECKLIST.md) 并保留限制后交付。该复核由 Agent 完成，不要求用户再批准已授权的普通收尾。
 
+宣传视频保持当前已确认的展示顺序和整体结构。媒体更新只替换相应页面或镜头，或增加必要内容，保持既有段落的相对顺序；未经用户另行明确要求，不大幅改版、重排顺序或整片重做。自动化不得把“同步视频”解释成重新设计整支宣传片。
+
 ## 重试与边界
 
 | 情况 | 继续方式 |
@@ -100,3 +102,5 @@ Use four steps: select changed scope and source, reuse or build native candidate
 Verified assets are skipped on retry, published mismatches are never replaced, and failures distinguish publication from pending closeout. Optional `--commit-closeout` stages only generated download files and refuses unrelated work; protected branches may require the existing merge route. Ordinary code CI still validates changed products, while documentation/tooling changes avoid product compilation. The release owner reviews affected bilingual prose and accurate media reuse once, preserves limitations, and does not request separate approval for stages already covered by the user's release instruction.
 
 New candidate source commits must contain the metadata-only tag workflow. GitHub reads tag workflows from the tagged commit, so promotion refuses to create a new tag on historical source that would trigger the old rebuild flow. Existing correctly sourced tags remain verifiable; historical releases are not republished during rollout.
+
+Keep the current user-approved video order and overall structure. Update only affected pages or shots, or add necessary content without reordering existing sections. Video synchronization does not authorize a major redesign or complete remake without a separate explicit user instruction.

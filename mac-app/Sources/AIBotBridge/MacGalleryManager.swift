@@ -93,18 +93,22 @@ final class MacGalleryManager: NSWindowController, NSWindowDelegate {
     private let status = MacBridgeSettingsStyle.note("")
     private var current: [NSTextField] = [], latest: [NSTextField] = [], buttons: [NSButton] = [], controls: [NSButton] = []
     private let progress = NSProgressIndicator(), cancel = NSButton()
+    private let collection = NSPopUpButton(), quality = NSPopUpButton()
     private var operation:Task<Void,Never>?, installation:MacGalleryProgress?, releases:[String:MacGalleryRelease] = [:], checked = false
     private(set) var busy = false
     init(gallery:MacTab5Gallery,browse:@escaping ()->Void) {
         self.gallery = gallery; self.browse = browse
         super.init(window:MacBridgeSettingsStyle.window("屏保图库",width:680,height:600,minimumHeight:520)); window?.delegate = self
         let page = MacBridgeSettingsPage(); page.heading("屏保图库",subtitle:"浏览作品集，也可用于 TAB5 屏保。")
+        collection.addItems(withTitles:["年度版","全量版"]); collection.selectItem(at:gallery.fullCollection ? 1:0); collection.target = self; collection.action = #selector(changeGallerySelection)
+        quality.addItems(withTitles:["普通版","高清版"]); quality.selectItem(at:gallery.useHighQuality ? 1:0); quality.target = self; quality.action = #selector(changeGallerySelection)
+        page.add(MacBridgeSettingsStyle.row([MacBridgeSettingsStyle.label("作品范围"),collection,MacBridgeSettingsStyle.label("电脑画质"),quality,NSView()]))
         for (i,name) in ["每日名画","每日书法"].enumerated() {
             page.section(name); let installed = MacBridgeSettingsStyle.label(""), online = MacBridgeSettingsStyle.note(""); current.append(installed); latest.append(online)
             page.add(installed); let button = MacSettingsButton("下载并安装") { [weak self] in self?.download(i) }; buttons.append(button)
             page.add(MacBridgeSettingsStyle.row([online,NSView(),button]))
         }
-        page.section("选择版本"); page.add(MacBridgeSettingsStyle.label("标准版：电脑使用适配后的展示图。\n高清版：电脑使用高清图片，可放大查看更多细节。")); page.add(MacBridgeSettingsStyle.note("两版作品、导读和 TAB5 显示相同。完整高清包可通过“安装图库包”导入。"))
+        page.section("画质说明"); page.add(MacBridgeSettingsStyle.label("普通版：电脑使用适配后的展示图。\n高清版：电脑使用高清图片，可放大查看更多细节。")); page.add(MacBridgeSettingsStyle.note("同一作品范围下，普通版和高清版的 TAB5 显示相同。"))
         progress.isIndeterminate = false; progress.minValue = 0; progress.maxValue = 100; progress.isHidden = true; page.add(progress)
         cancel.title = "取消操作"; cancel.target = self; cancel.action = #selector(cancelGalleryOperation); cancel.isHidden = true; page.add(cancel)
         controls = [MacSettingsButton("浏览作品",browse),MacSettingsButton("安装图库包…") { [weak self] in self?.importPack() },MacSettingsButton("检查更新") { [weak self] in self?.check() }]
@@ -113,19 +117,28 @@ final class MacGalleryManager: NSWindowController, NSWindowDelegate {
     }
     required init?(coder:NSCoder) { fatalError() }
     deinit { operation?.cancel(); installation?.cancel() }
-    func open() { refresh(); MacSettingsControls.open(self); if !checked { check() } }
+    func open() { refresh(); MacSettingsControls.open(self); if !checked && !gallery.fullCollection { check() } }
     func windowShouldClose(_ sender:NSWindow) -> Bool { if busy { status.stringValue = "请先取消操作或等待安装结束。" }; return !busy }
     private let categories = ["painting","calligraphy"]
+    @objc private func changeGallerySelection() {
+        guard !busy else { return }
+        gallery.selectCollection(full:collection.indexOfSelectedItem == 1,high:quality.indexOfSelectedItem == 1)
+        NotificationCenter.default.post(name:Notification.Name("AIBotGallerySelectionChanged"),object:gallery)
+        status.stringValue = gallery.fullCollection ? "已选择全量版；如尚未安装，请安装全量图库包。":"已选择年度版；从全量图库按年度索引选取作品。"
+        refresh()
+    }
     private func installed(_ category:String) -> MacTab5GalleryManifest? { try? gallery.installed(category) }
     private func refresh() {
         for (i,category) in categories.enumerated() {
-            let pack = installed(category), hd = FileManager.default.fileExists(atPath:gallery.directory.appendingPathComponent(category+"/desktop/desktop-index.relative.json").path)
-            current[i].stringValue = pack.map { "\(hd ? "高清版":"标准版") \(hd ? gallery.hdEdition(category) ?? "已安装" : $0.version) · \($0.works) 件作品" } ?? "尚未安装"
-            let release = releases[category]; latest[i].stringValue = release.map { "线上标准版：\($0.version) · \($0.asset.size/1048576) MiB" } ?? (checked ? "线上标准版：暂无正式发布":"线上标准版：尚未检查")
+            let pack = installed(category), hd = gallery.useHighQuality && FileManager.default.fileExists(atPath:gallery.directory.appendingPathComponent(category+"/desktop/desktop-index.relative.json").path)
+            current[i].stringValue = pack.map { "\(hd ? "高清版":"普通版") \(hd ? gallery.hdEdition(category) ?? "已安装" : $0.version) · \($0.works) 件作品" + (gallery.useHighQuality && !hd ? " · 高清素材未安装":"") } ?? "尚未安装"
+            if pack?.collection == "full" && !gallery.fullCollection { current[i].stringValue += "（按年度索引显示）" }
+            if gallery.fullCollection && pack?.collection != "full" { current[i].stringValue = "全量图库尚未安装，现有年度图库已保留" }
+            let release = releases[category]; latest[i].stringValue = pack?.collection == "full" ? "年度版与全量版共用图片" : gallery.fullCollection ? "请安装包含年度索引的全量图库包" : release.map { "线上标准版：\($0.version) · \($0.asset.size/1048576) MiB" } ?? (checked ? "线上标准版：暂无正式发布":"线上标准版：尚未检查")
             let newer = release.map { r in pack.flatMap { MacGalleryRelease.number($0.version) }.map { $0.lexicographicallyPrecedes(MacGalleryRelease.number(r.version)!) } ?? true } ?? false
-            buttons[i].isEnabled = !busy && !hd && newer; buttons[i].title = hd ? "已安装高清版" : pack == nil ? "下载并安装":newer ? "下载并升级":"已安装"
+            buttons[i].isEnabled = !busy && !gallery.fullCollection && pack?.collection != "full" && !hd && newer; buttons[i].title = gallery.fullCollection || pack?.collection == "full" ? "本地安装" : hd ? "已安装高清版" : pack == nil ? "下载并安装":newer ? "下载并升级":"已安装"
         }
-        controls.forEach { $0.isEnabled = !busy }; cancel.isHidden = !busy; progress.isHidden = !busy; window?.contentView?.layoutSubtreeIfNeeded()
+        controls.forEach { $0.isEnabled = !busy }; controls.last?.isEnabled = !busy && !gallery.fullCollection; collection.isEnabled = !busy; quality.isEnabled = !busy; cancel.isHidden = !busy; progress.isHidden = !busy; window?.contentView?.layoutSubtreeIfNeeded()
     }
     @objc private func cancelGalleryOperation() { operation?.cancel(); installation?.cancel(); status.stringValue = "正在取消，保留原图库…" }
     private func run(_ message:String,_ body:@escaping () async throws -> String) {

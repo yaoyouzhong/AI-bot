@@ -2,6 +2,8 @@
 
 本文保留本地开发与验收过程；2026-11-04 素材再分发授权和本轮正式发布范围见 [0.6.17 发布记录](../RELEASE-0.6.17.md)。下文的本地候选限制是对应阶段记录，不替代后续授权。
 
+后续完整源码同步：[0.2.312-ui 工程归档](tab5-312-source/README.md)已按既有规则收齐项目源码、配置、测试、锁文件及必要依赖／SDK 修改；不再依赖下文的历史增量包。This complete project archive supersedes the historical patch-only handoff; it does not publish firmware.
+
 本次基于已经验收的 TAB5 0.2.310-ui，保留其绘图后端精简、图库任务栈修复与总览缓存修复。仅在本地候选中增加客户端萌宠与相关界面调整，不是正式发布。
 
 ## 已确认的交互 / Agreed behavior

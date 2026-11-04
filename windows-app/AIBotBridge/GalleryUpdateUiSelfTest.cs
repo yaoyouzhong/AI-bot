@@ -51,7 +51,7 @@ internal static class GalleryUpdateUiSelfTest
             string downloads=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AI-bot","updates","gallery-downloads");
             GalleryUpdateSelfTest.Check(Directory.GetDirectories(downloads).Length==0,"UI did not remove its temporary download cache");
             fail=true;check.PerformClick();await Wait(()=>check.Enabled&&state.Text.StartsWith("检查未完成"));
-            GalleryUpdateSelfTest.Check(latest.Text.Contains("2026.10.09")&&!paint.Enabled,"Offline check lost known latest edition");
+            GalleryUpdateSelfTest.Check(!latest.Visible&&service.Galleries.TryGetValue("painting",out var cached)&&cached.Version=="2026.10.09"&&!paint.Enabled,"Offline check lost known latest edition or exposed the removed label");
             fail=false;Install("painting","2026.10.10");check.PerformClick();await Wait(()=>check.Enabled&&paintStatus.Text=="本机较新");
             GalleryUpdateSelfTest.Check(!paint.Enabled,"Newer installed gallery offers downgrade");
             layoutPreview=true;

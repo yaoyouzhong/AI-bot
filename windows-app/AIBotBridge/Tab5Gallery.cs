@@ -9,21 +9,24 @@ internal sealed class Tab5Gallery
 {
     internal sealed record Artwork(string Id,string Category,string Title,string Author,string Source,string License,string[] Frames,string? WorkId=null,string[]? PortraitFrames=null);
     private readonly string _directory;
-    private readonly string? _packs;
+    private readonly string? _customPacks;
+    private readonly bool _useDefaultPacks;
+    private string? _packs=>_useDefaultPacks?GalleryPack.Root:_customPacks;
     private readonly object _gate=new();
     private readonly Dictionary<string,(long Stamp,long Length,Artwork[] Works)> _catalogs=[];
     private readonly Dictionary<string,(long Stamp,long Length,byte[] Bytes,string Sha,long Used)> _images=[];
     private readonly Dictionary<string,(long Stamp,long Length,IReadOnlyDictionary<string,Tab5ArtGuides.Guide> Guides)> _guides=[];
     private readonly Dictionary<string,(long Stamp,long Length,string Digest)> _digests=[];
+    private readonly Dictionary<string,(long Stamp,long Length,string Expected,GalleryAnnualIndex Index)> _annual=[];
     private long _revision=-1;
     private long _imageUse;
     internal sealed record BrowserCatalog(string Category,string? Version,Artwork[] Works);
     internal sealed record BrowserPage(Artwork Work,Tab5ArtGuides.Guide? Guide,byte[] Jpeg);
     internal Tab5Gallery(string? directory=null) {
         _directory=directory??Path.Combine(AppContext.BaseDirectory,"Assets","DailyArt");
-        _packs=directory is null?GalleryPack.Root:null;
+        _useDefaultPacks=directory is null;
     }
-    internal Tab5Gallery(string legacyDirectory,string packsDirectory):this(legacyDirectory){_packs=packsDirectory;}
+    internal Tab5Gallery(string legacyDirectory,string packsDirectory):this(legacyDirectory){_customPacks=packsDirectory;}
     private Artwork[] Works(string directory) {
         string path=Path.Combine(directory,"catalog.json");var file=new FileInfo(path);
         if(!file.Exists)return [];
@@ -63,7 +66,7 @@ internal sealed class Tab5Gallery
     }
     private void RefreshRevision() {
         if(_revision==GalleryPack.Revision)return;
-        lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_digests.Clear();_revision=GalleryPack.Revision;}
+        lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_digests.Clear();_annual.Clear();_revision=GalleryPack.Revision;}
     }
     private string ContentDigest(string category) {
         if(_packs is null)return "";
@@ -73,15 +76,41 @@ internal sealed class Tab5Gallery
             if(!_digests.TryGetValue(category,out var cached)||cached.Stamp!=file.LastWriteTimeUtc.Ticks||cached.Length!=file.Length) {
                 var manifest=GalleryPack.Installed(category,_packs);
                 if(manifest is null)return "";
-                cached=(file.LastWriteTimeUtc.Ticks,file.Length,Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(manifest,JsonDefaults.Options))).ToLowerInvariant());
+                cached=(file.LastWriteTimeUtc.Ticks,file.Length,GalleryPack.Digest(manifest));
                 _digests[category]=cached;
             }
             return cached.Digest;
         }
     }
     private string CategoryDirectory(string category)=>_packs is not null&&File.Exists(Path.Combine(_packs,category,"catalog.json"))?Path.Combine(_packs,category):_directory;
-    private Artwork[] BrowserWorks(string directory,string category) {
+    private Artwork[] VisibleWorks(string directory,string category) {
         var works=Works(directory).Where(w=>w.Category==category).ToArray();
+        var manifest=_packs is not null&&directory==Path.Combine(_packs,category)?GalleryPack.Installed(category,_packs):null;
+        if(manifest?.Collection=="full") {
+            string path=Path.Combine(directory,"annual-index.json");
+            if(!manifest.Files.TryGetValue("annual-index.json",out var expected))throw new InvalidDataException("年度索引校验失败。");
+            var file=new FileInfo(path);if(!file.Exists||file.Length>1024*1024)throw new InvalidDataException("年度索引校验失败。");
+            GalleryAnnualIndex index;
+            lock(_gate) {
+                if(!_annual.TryGetValue(path,out var cached)||cached.Stamp!=file.LastWriteTimeUtc.Ticks||cached.Length!=file.Length||cached.Expected!=expected) {
+                    if(!Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).Equals(expected,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("年度索引校验失败。");
+                    cached=(file.LastWriteTimeUtc.Ticks,file.Length,expected,GalleryPack.ReadAnnual(directory,category,works));_annual[path]=cached;
+                }
+                index=cached.Index;
+            }
+            if(works.Any(w=>string.IsNullOrWhiteSpace(w.Id))||works.Select(w=>w.Id).Distinct(StringComparer.Ordinal).Count()!=works.Length)throw new InvalidDataException("图库目录无效。");
+            var lookup=works.ToDictionary(w=>w.Id,StringComparer.Ordinal);
+            if(index.Ids.Any(id=>!lookup.ContainsKey(id)))throw new InvalidDataException("年度索引与图库目录不一致。");
+            var annual=index.Ids.Select(id=>lookup[id]).ToArray();
+            if(!GalleryPreferences.Full)return annual;
+            var selected=index.Ids.ToHashSet(StringComparer.Ordinal);
+            return annual.Concat(works.Where(w=>!selected.Contains(w.Id))).ToArray();
+        }
+        if(_useDefaultPacks&&GalleryPreferences.Full&&manifest?.Collection!="full")return [];
+        return works;
+    }
+    private Artwork[] BrowserWorks(string directory,string category) {
+        var works=VisibleWorks(directory,category);
         if(works.Length>4096||works.Any(w=>string.IsNullOrWhiteSpace(w.Id)||w.Frames is null||w.Frames.Length is <1 or >64)||works.Select(w=>w.Id).Distinct(StringComparer.Ordinal).Count()!=works.Length)
             throw new InvalidDataException("图库目录无效，请重新导入图库包。");
         return works;
@@ -136,12 +165,12 @@ internal sealed class Tab5Gallery
             DateOnly date=default;
             if(category is not ("painting" or "calligraphy")||(Text("op")!="catalog"&&!DateOnly.TryParseExact(Text("date"),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out date)))return(400,new{error="invalid_gallery_date"});
             string directory=CategoryDirectory(category);
-            var works=Works(directory).Where(w=>w.Category==category).ToArray();
+            var works=VisibleWorks(directory,category);
             if(works.Length==0)return(404,new{error="gallery_pack_missing",category});
             if(Text("op")=="catalog") {
                 var installed=_packs is not null?GalleryPack.Installed(category,_packs):null;
                 if(installed is null)return(409,new{error="gallery_catalog_requires_installed_pack"});
-                if(works.Length!=installed.Works||works.Length>4096||works.Any(w=>w.Frames.Length is <1 or >64||w.PortraitFrames?.Length!=w.Frames.Length))
+                if(Works(directory).Count(w=>w.Category==category)!=installed.Works||works.Length>4096||works.Any(w=>w.Frames.Length is <1 or >64||w.PortraitFrames?.Length!=w.Frames.Length))
                     return(503,new{error="invalid_gallery_catalog"});
                 string revision=ContentDigest(category);
                 return(200,new{syncVersion=1,works=works.Length,revision,baseDate="2026-01-01"});

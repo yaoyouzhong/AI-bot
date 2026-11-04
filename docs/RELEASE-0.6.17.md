@@ -1,5 +1,9 @@
 # 0.6.17 桥接与 TAB5 0.2.312-ui / Desktop and TAB5 release
 
+**发布准备中。** 本轮统一纳入上次发布后的图库范围／画质切换、TAB5 优化及客户端萌宠改动。旧 `2aa7acc` 桌面候选未包含待整合图库代码，不能作为最终交付；需从统一源码重新生成受影响的原生候选。Mac 萌宠状态适配与对应验收尚未完成，正式发布保持暂停。[Mac 交接](development/MAC-CLIENT-COMPANION-HANDOFF-20261104.md) · [完整 .312 工程](development/tab5-312-source/README.md)
+
+**Release preparation:** integrate all project changes since the previous release, including gallery scope/quality, TAB5 optimizations and client companions. The old `2aa7acc` desktop candidate lacks these gallery changes and is not the final package. Regenerate affected native candidates from the integrated source after Mac adaptation and validation; publication remains on hold.
+
 本轮范围为 Windows x64、Apple Silicon Mac 桥接 0.6.17，以及 TAB5 0.2.312-ui。ESP8266 保持 0.5.8，图库继续使用现有正式版本。发布候选从同一干净桥接源码提交构建；TAB5 使用此前已验收的应用镜像，不重新编译或刷写已运行的相同镜像。
 
 ## 变化与兼容 / Changes and compatibility
@@ -8,6 +12,7 @@
 - TAB5 总览只显示当前受支持客户端的一个萌宠：Codex 或 Clawd。使用其他模型时保留客户端萌宠；没有新增第三方 Harness 接入。
 - 两种屏保使用官方动作和本项目状态映射，屏保循环、总览完成后停住；保留底部居中数字时间，改进 Clawd 的视觉大小、位置及两种品牌氛围背景。
 - TAB5 包含已验收的词库减包、图库栈和绘图后端优化。既有配对、草稿、展示偏好和旧屏保编号保持兼容。
+- Windows／Mac 图库支持年度／全量范围与普通／高清电脑浏览选择，复用完整图库和年度索引，保留旧图库及备份，防止年度包覆盖全量库。选择变化刷新浏览器，TAB5 图片质量不随电脑浏览选项改变；原生及设备验收边界见[图库交接](development/GALLERY-COLLECTIONS-20261103.md)。
 
 ![两种分别显示的萌宠屏保原生渲染预览](assets/screens/tab5-companion-savers-0312-preview.png)
 
@@ -19,6 +24,8 @@ TAB5 原应用为 **6,907,792 字节**，SHA-256 `21d78bcce33bdbdb531588b225b59a
 
 真实 Claude Code 活跃任务切换、部分等待/完成、所有通道断连及告警点击路径仍保留原验收边界，不能将原生回归称为这些场景全部实机通过。新桌面候选的原包、原生测试、安装及可复用证据随 `CANDIDATE.json` 和 `ACCEPTANCE.json` 公开，不以普通 CI 输出冒充安装包验收。
 
+状态来源的现有限制：Windows 与 Mac 的 Claude 完成事件尚未接入，具备完成动画不代表实际 Claude 完成时会触发；Mac 的国产模型活动摘要未携带与 Windows 同等完整的活动时间，因此两客户端同时工作时的萌宠选择仍有差异。本轮 Mac 已同步 Codex 会话的状态投影，没有把这两项列为已完成。
+
 Windows 安装包未签名；Mac 使用 ad-hoc 签名、未经公证。钥匙串、配对、加密、安装器与提交执行路径未新增格式或迁移，未变更场景可按实际基线证据复用。正式公开附件和最终下载入口以公开 Release 为准。
 
 既有宣传片继续展示仍准确的共有功能和 TAB5 功能，复用其原摘要及播放验证；本轮新增上述原生屏保预览补充新外观，不声称旧视频或全部截图已经更新，不重排宣传片。
@@ -26,5 +33,7 @@ Windows 安装包未签名；Mac 使用 ad-hoc 签名、未经公证。钥匙串
 ## English
 
 Windows x64 and Apple Silicon Mac advance to 0.6.17; TAB5 ships independently as 0.2.312-ui. ESP8266 0.5.8 and optional collections remain unchanged. Desktop bridges project exact, sanitized task-state metadata without changing submission safeguards. TAB5 shows one supported client mascot, with original Codex/Clawd animation, project-defined state mapping, aligned framing, quiet brand backdrops and a centered numeric clock.
+
+Existing signal limits remain: neither bridge currently emits a Claude completion event for the completion animation. Mac custom-provider activity also lacks the full Windows activity timestamps, so mascot selection can differ when both supported clients are active. Codex task-state projection is aligned in this release; these two gaps are not claimed as implemented.
 
 Promote the exact accepted TAB5 application above. Both saver display/exit and the visual refinements were physically accepted; active Claude routing and several special-state/disconnection paths remain native-tested rather than fully exercised on hardware. Native production renders use a demonstration clock and are separate from device acceptance. The project owner confirmed redistribution rights for both original asset sets; artwork remains outside MIT. Candidate and acceptance records identify the actual desktop packages and any justified evidence reuse. Windows is unsigned; Mac is ad-hoc signed and not notarized. Existing unchanged video/screenshots retain their original validation; the new saver preview documents this release's appearance without redesigning the video.

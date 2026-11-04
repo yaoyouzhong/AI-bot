@@ -4,9 +4,12 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.16.md) · [简体中文](README.md)
+[Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.17.md) · [简体中文](README.md)
 
-**This update:** Windows/Mac desktop 0.6.16, ESP8266 firmware 0.5.8 and TAB5 firmware 0.2.303-ui. Account spending, optional Windows native speech recognition, refined stock glyphs and transitions, responsive Mac menus, upcoming birthdays and alert details. [Changes and acceptance scope](docs/RELEASE-0.6.16.md) · [Mac installation and permissions](docs/INSTALL.zh.md#mac)
+**In preparation:** Windows/Mac desktop 0.6.17 and TAB5 0.2.312-ui bring gallery scope/quality selection, one supported client's Codex/Clawd mascot and two companion savers with original official animation, soft backdrops and a centered clock. Mac adaptation and final-candidate acceptance remain pending. Public downloads are still desktop 0.6.16 and TAB5 0.2.303-ui; ESP8266 stays at 0.5.8. [Preparation and acceptance scope](docs/RELEASE-0.6.17.md) · [Mac installation and permissions](docs/INSTALL.zh.md#mac)
+
+<p><img src="docs/assets/screens/tab5-companion-savers-0312-preview.png" width="880" alt="Native renders of the separate Codex and Clawd companion screensavers"></p>
+<sub>Two independent native screensaver renders with a demonstration clock; the device shows only the selected mascot. [Provenance and acceptance limits](docs/RELEASE-0.6.17.md)</sub>
 
 ## Choose your desktop display
 

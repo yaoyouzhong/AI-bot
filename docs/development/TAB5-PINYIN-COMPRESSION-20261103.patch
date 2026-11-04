@@ -1,0 +1,1168 @@
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -1,5 +1,5 @@
+ set(tab5_sources "main.c" "rpc_link.c" "link_state.c" "device.c" "usb_link.c" "wifi_link.c" "ble_link.c" "codex_remote.c" "voice_remote.c" "ota_update.c" "camera_preview.c" "tab5_keyboard.c" "ui.c" "tab5_font_24.c" "tab5_font_30.c" "tab5_digits_72.c" "tab5_digits_96.c" "tab5_timer_digits_192.c" "assets.c" "asset_codec.c" "ui_prefs.c" "ui_reading.c")
+-list(APPEND tab5_sources "tab5_ime.c")
++list(APPEND tab5_sources "tab5_ime.c" "tab5_pinyin_data.c")
+ list(APPEND tab5_sources "tab5_annual_digits_144.c")
+ list(APPEND tab5_sources "tab5_annual_text_26.c")
+ list(APPEND tab5_sources "tab5_calendar_text_20.c")
+@@ -91,3 +91,6 @@
+ # Infrequent request/feedback orchestration stays compact in the existing OTA slot.
+ # Crypto, transport drivers, rendering and image decoding keep their optimization.
+ set_source_files_properties(codex_remote.c desktop_remote.c codex_read_ack.c ui_prefs.c PROPERTIES COMPILE_OPTIONS "-Os")
++
++# Keep task-stack costs reviewable; no change to optimization or runtime guards.
++set_source_files_properties(gallery_remote.c voice_remote.c gallery_store.c PROPERTIES COMPILE_OPTIONS "-fstack-usage")
+--- a/firmware/main/display_diagnostics.c
++++ b/firmware/main/display_diagnostics.c
+@@ -125,4 +125,9 @@
+     extern volatile unsigned tab5_asset_copy_failures,tab5_asset_copy_reclaimed,tab5_asset_copy_recoveries;
+     extern volatile unsigned tab5_asset_receive_alloc_failures,tab5_asset_crc_failures,tab5_asset_decode_failures,tab5_asset_received;
+     if(used<size)snprintf(out+used,size-used,";asset,2,%u,%u,%u,%u,%u,%u,%u",tab5_asset_copy_failures,tab5_asset_copy_reclaimed,tab5_asset_copy_recoveries,tab5_asset_receive_alloc_failures,tab5_asset_crc_failures,tab5_asset_decode_failures,tab5_asset_received);
++    used=(unsigned)strlen(out);
++    extern void tab5_pinyin_diagnostics(char *,size_t);
++    char ime[128];tab5_pinyin_diagnostics(ime,sizeof(ime));
++    if(used<size)snprintf(out+used,size-used,";ime,%s,%u",ime,(unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
++
+ }
+--- a/firmware/main/gallery_remote.c
++++ b/firmware/main/gallery_remote.c
+@@ -22,6 +22,7 @@
+ #include "freertos/idf_additions.h"
+ #include "mbedtls/sha256.h"
+ #include <stdatomic.h>
++#include <limits.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -143,6 +144,14 @@
+ static gallery_jpeg_cache jpeg_cache;
+ static char pack_revisions[2][65];
+ static unsigned card_hits,card_writes,card_failures;
++static atomic_uint worker_stack_free=UINT_MAX;
++static void sample_worker_stack(void){
++#ifdef ESP_PLATFORM
++    unsigned current=uxTaskGetStackHighWaterMark(NULL)*sizeof(StackType_t),old=atomic_load(&worker_stack_free);
++    while(current<old&&!atomic_compare_exchange_weak(&worker_stack_free,&old,current)){}
++#endif
++}
++
+ static char stored_date[11];
+ static uint64_t stored_pages[2][2];
+ static int stored_frames[2]={1,1};
+@@ -257,6 +266,9 @@
+     gallery_catalog painting=catalogs[0],calligraphy=catalogs[1];
+     xSemaphoreGive(device_mutex);
+     snprintf(out,size,"%u,%d,%d,%d,%d,%d,%d,%d,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u,%u,%u",atomic_load(&diagnostic_requests),atomic_load(&working)||atomic_load(&prefetching),atomic_load(&diagnostic_category),atomic_load(&diagnostic_portrait),atomic_load(&diagnostic_stage),atomic_load(&diagnostic_error),atomic_load(&diagnostic_frame),atomic_load(&diagnostic_reused),atomic_load(&diagnostic_allocations),hits,misses,bytes,atomic_load(&diagnostic_fetch_ms),atomic_load(&diagnostic_decode_ms),atomic_load(&diagnostic_total_ms),sd_storage_state(),ch,cw,cf,painting.next,painting.works,calligraphy.next,calligraphy.works);
++    size_t used=strlen(out);unsigned stack=atomic_load(&worker_stack_free);
++    if(stack!=UINT_MAX&&used<size)snprintf(out+used,size-used,";stack,1,%u",stack);
++
+ }
+ int gallery_pack_status(int category){return category>=0&&category<2?atomic_load(&pack_status[category]):0;}
+ int gallery_decode_status(int category,bool portrait){return category>=0&&category<2?atomic_load(&decode_status[category*2+portrait]):GALLERY_DECODE_OK;}
+@@ -287,8 +299,7 @@
+     return ready&&camera_gallery_buffers_idle();
+ }
+ static bool foreground_busy(void) {
+-    voice_remote_state voice;voice_remote_get(&voice);
+-    return voice.busy||ota_update_busy()||transport_benchmark_busy()||camera_preview_busy()||photo_state()==1;
++    return voice_remote_busy()||ota_update_busy()||transport_benchmark_busy()||camera_preview_busy()||photo_state()==1;
+ }
+ static bool download_cancelled(link_kind transport,bool background) {
+     int mode=device_get_config().mode;
+@@ -744,6 +755,7 @@
+     }
+     if(background)atomic_store(&prefetching,false);else atomic_store(&working,false);
+ #undef record
++    sample_worker_stack();
+     vTaskDeleteWithCaps(NULL);
+ }
+ static bool start_request(int category,const char *date,int frame,bool portrait,uint8_t *spare,bool background,int purpose) {
+--- a/firmware/main/gallery_store.c
++++ b/firmware/main/gallery_store.c
+@@ -36,6 +36,21 @@
+     if(errno==EIO||errno==ENODEV||errno==ENXIO||errno==ETIMEDOUT)media_error=true;
+ }
+ #include "gallery_file_io.h"
++// Per-operation paths live outside nested task frames. Every wrapper frees its
++// private workspace on all returns; no shared scratch buffer or stack enlargement.
++#ifdef ESP_PLATFORM
++#include "esp_heap_caps.h"
++#endif
++typedef struct {char paths[2][512],temp[528],extra[520];} gallery_paths;
++static gallery_paths *path_workspace(void){
++#ifdef ESP_PLATFORM
++    gallery_paths *p=heap_caps_malloc(sizeof(*p),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++#else
++    gallery_paths *p=malloc(sizeof(*p));
++#endif
++    if(p)memset(p,0,sizeof(*p));else errno=ENOMEM;
++    return p;
++}
+ static uint32_t u32(const uint8_t *b){return (uint32_t)b[0]|(uint32_t)b[1]<<8|(uint32_t)b[2]<<16|(uint32_t)b[3]<<24;}
+ static void set32(uint8_t *b,uint32_t v){for(int i=0;i<4;i++)b[i]=(uint8_t)(v>>(8*i));}
+ static const char *text(cJSON *o,const char *k){const char *v=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(o,k));return v?v:"";}
+@@ -94,13 +109,14 @@
+     return ftell(file)==(long)(80u+u32(header+8)+(memcmp(header,magic_ref,8)?u32(header+12):0))&&!ferror(file);
+ }
+ static bool reference_path(char out[520],const char *root,const gallery_image *key,unsigned slot) {
+-    char base[512];if(!path_for(base,sizeof(base),root,key,slot))return false;
+-    int n=snprintf(out,520,"%s.meta",base);return n>0&&n<520;
++    if(!path_for(out,512,root,key,slot))return false;
++    size_t n=strlen(out);if(n+sizeof(".meta")>520)return false;
++    memcpy(out+n,".meta",sizeof(".meta"));return true;
+ }
+ // Validate both metadata records and their exact image-slot identity before
+ // considering a reference. JPEG bytes are still hashed on every actual load.
+-static cJSON *reference_meta(const char *root,const gallery_image *key,const char *revision,unsigned slot,uint8_t header[80],int *source) {
+-    char path[520];if(!reference_path(path,root,key,slot))return NULL;
++static cJSON *reference_meta_impl(const char *root,const gallery_image *key,const char *revision,unsigned slot,uint8_t header[80],int *source,gallery_paths *w) {
++    char *path=w->temp;if(!reference_path(path,root,key,slot))return NULL;
+     FILE *f=store_fopen(path,"rb");if(!f){io_error();return NULL;}
+     cJSON *meta=metadata(f,header,key,revision);
+     bool ok=meta&&!memcmp(header,magic_ref,8)&&record_end(f,header);
+@@ -109,8 +125,8 @@
+     ok=ok&&cJSON_IsNumber(at)&&at->valuedouble==at->valueint&&at->valueint>=0&&at->valueint<2&&
+         cJSON_IsNumber(serial)&&serial->valuedouble>=1&&serial->valuedouble<=UINT32_MAX&&serial->valuedouble==(uint32_t)serial->valuedouble;
+     if(ok) {
+-        *source=at->valueint;char image_path[512];uint8_t base_header[80];
+-        ok=path_for(image_path,sizeof(image_path),root,key,*source);
++        *source=at->valueint;char *image_path=w->paths[0];uint8_t base_header[80];
++        ok=path_for(image_path,sizeof(w->paths[0]),root,key,*source);
+         f=ok?store_fopen(image_path,"rb"):NULL;
+         cJSON *base=f?metadata(f,base_header,key,""):NULL;
+         ok=base&&memcmp(base_header,magic_ref,8)&&record_end(f,base_header)&&
+@@ -119,6 +135,11 @@
+         cJSON_Delete(base);if(f&&fclose(f)){io_error();ok=false;}
+     }
+     if(!ok){cJSON_Delete(meta);return NULL;}return meta;
++}
++static cJSON *reference_meta(const char *root,const gallery_image *key,const char *revision,unsigned slot,uint8_t header[80],int *source) {
++    
++    gallery_paths *w=path_workspace();if(!w)return NULL;
++    cJSON * operation_result=reference_meta_impl(root,key,revision,slot,header,source,w);free(w);return operation_result;
+ }
+ static bool resume_header(const gallery_image *,const char *,const char *,size_t,uint8_t [76]);
+ static bool direct_path(char out[512],const char *root,const gallery_image *key,const char *suffix) {
+@@ -141,10 +162,10 @@
+     }
+     cJSON_Delete(m);if(fclose(f))io_error();return serial;
+ }
+-bool gallery_store_get(const char *root,const gallery_image *key,const char *revision,gallery_store_allocator allocate,gallery_jpeg *out,cJSON **guide) {
++static bool gallery_store_get_impl(const char *root,const gallery_image *key,const char *revision,gallery_store_allocator allocate,gallery_jpeg *out,cJSON **guide,gallery_paths *w) {
+     media_error=false;if(!out||!guide||!allocate||!revision_ok(revision))return false;
+     *out=(gallery_jpeg){0};*guide=NULL;
+-    char paths[2][512];uint32_t serials[4]={0};
++    char (*paths)[512]=w->paths;uint32_t serials[4]={0};
+     for(int i=0;i<2;i++) {
+         if(!path_for(paths[i],sizeof(paths[i]),root,key,i))return false;
+         serials[i]=probe(paths[i],key,revision,false);
+@@ -177,6 +198,11 @@
+     }
+     return false;
+ }
++bool gallery_store_get(const char *root,const gallery_image *key,const char *revision,gallery_store_allocator allocate,gallery_jpeg *out,cJSON **guide) {
++    media_error=false;if(out)*out=(gallery_jpeg){0};if(guide)*guide=NULL;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool operation_result=gallery_store_get_impl(root,key,revision,allocate,out,guide,w);free(w);return operation_result;
++}
+ static cJSON *guide_json(const gallery_guide *g) {
+     if(!g)return NULL;
+     cJSON *o=cJSON_CreateObject();if(!o)return NULL;
+@@ -196,13 +222,13 @@
+     }
+     return o;
+ }
+-static bool store_put(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide,const gallery_resume *progress) {
++static bool store_put_impl(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide,const gallery_resume *progress,gallery_paths *w) {
+     media_error=false;
+     if(!v||!v->data||v->size<16||v->size>JPEG_LIMIT||v->capacity<v->size||!key_ok(&v->key)||!revision_ok(revision)||
+        v->key.frames<=v->key.frame||v->key.frames>64||
+        (guide&&(strcmp(guide->work_id,v->key.work_id)||strcmp(guide->date,v->key.date))))return false;
+     if(!directories(root,v->key.category,v->key.date))return false;
+-    char paths[2][512],temp[520];uint32_t serial[2];
++    char (*paths)[512]=w->paths;char *temp=w->temp;uint32_t serial[2];
+     for(int i=0;i<2;i++){if(!path_for(paths[i],sizeof(paths[i]),root,&v->key,i))return false;serial[i]=probe(paths[i],&v->key,"",true);}
+     uint32_t newest=serial[0]>serial[1]?serial[0]:serial[1];if(newest==UINT32_MAX)return false;
+     unsigned slot=serial[0]<=serial[1]?0:1;
+@@ -225,14 +251,14 @@
+     ok=m&&m<=META_LIMIT&&mbedtls_sha256((uint8_t *)json,m,header+16,0)==0&&mbedtls_sha256(v->data,v->size,header+48,0)==0;
+     bool promote=progress&&progress->direct&&progress->offset==v->size;
+     if(promote) {
+-        char checkpoint[512],sha[65];uint8_t expected[76],found[76];
++        char *checkpoint=w->extra;char sha[65];uint8_t expected[76],found[76];
+         for(int i=0;i<32;i++)sprintf(sha+i*2,"%02x",header[48+i]);
+         ok=ok&&direct_path(temp,root,&v->key,"aig.part")&&direct_path(checkpoint,root,&v->key,"aic")&&resume_header(&v->key,revision,sha,v->size,expected);
+         FILE *check=ok?store_fopen(checkpoint,"rb"):NULL;
+         ok=check&&store_fread(found,1,76,check)==76&&!memcmp(found,expected,76);
+         if(check&&fclose(check))ok=false;
+         memcpy(header,magic_tail,8);
+-    }else snprintf(temp,sizeof(temp),"%s.part",paths[slot]);
++    }else snprintf(temp,sizeof(w->temp),"%s.part",paths[slot]);
+     FILE *f=ok?store_fopen(temp,promote?"r+b":"wb"):NULL;
+     if(f) {
+         if(promote) {
+@@ -254,11 +280,16 @@
+     if(!ok&&!promote)remove(temp);
+     return ok;
+ }
++static bool store_put(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide,const gallery_resume *progress) {
++    media_error=false;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool operation_result=store_put_impl(root,v,revision,guide,progress,w);free(w);return operation_result;
++}
+ 
+ bool gallery_store_put(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide){return store_put(root,v,revision,guide,NULL);}
+ bool gallery_store_finish(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide,const gallery_resume *progress){return store_put(root,v,revision,guide,progress);}
+ 
+-bool gallery_store_refresh(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide) {
++static bool gallery_store_refresh_impl(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide,gallery_paths *w) {
+     media_error=false;
+     if(!v||!v->data||v->size<16||v->size>JPEG_LIMIT||v->capacity<v->size||!key_ok(&v->key)||!revision_ok(revision)||
+        v->key.frames<=v->key.frame||v->key.frames>64||
+@@ -266,7 +297,7 @@
+     uint8_t jpeg_hash[32];if(mbedtls_sha256(v->data,v->size,jpeg_hash,0))return false;
+     uint32_t newest=0,source_serial=0,ref_serials[2]={0},matches[2]={0};int source=-1;
+     for(int i=0;i<2;i++) {
+-        char path[512];uint8_t header[80];if(!path_for(path,sizeof(path),root,&v->key,i))return false;
++        char *path=w->paths[0];uint8_t header[80];if(!path_for(path,sizeof(w->paths[0]),root,&v->key,i))return false;
+         FILE *f=store_fopen(path,"rb");cJSON *m=f?metadata(f,header,&v->key,""):NULL;
+         uint32_t number=m?(uint32_t)cJSON_GetObjectItemCaseSensitive(m,"serial")->valuedouble:0;
+         bool match=m&&strcmp(text(m,"workId"),v->key.work_id)==0&&u32(header+12)==v->size&&!memcmp(header+48,jpeg_hash,32);
+@@ -280,8 +311,8 @@
+     for(int attempt=0;attempt<2;attempt++) {
+         unsigned slot=matches[0]>=matches[1]?0:1;uint32_t number=matches[slot];
+         if(!number)break;
+-        matches[slot]=0;char path[512];
+-        if(!path_for(path,sizeof(path),root,&v->key,slot))return false;
++        matches[slot]=0;char *path=w->paths[0];
++        if(!path_for(path,sizeof(w->paths[0]),root,&v->key,slot))return false;
+         if(probe(path,&v->key,"",true)==number){source=slot;source_serial=number;break;}
+     }
+     if(source<0)return false;
+@@ -303,8 +334,8 @@
+     if(guide){cJSON *g=guide_json(guide);if(!g)ok=false;else if(!cJSON_AddItemToObject(meta,"guide",g)){cJSON_Delete(g);ok=false;}}
+     char *json=ok?cJSON_PrintUnformatted(meta):NULL;cJSON_Delete(meta);size_t length=json?strlen(json):0;
+     uint8_t header[80]={0};memcpy(header,magic_ref,8);set32(header+8,length);set32(header+12,v->size);memcpy(header+48,jpeg_hash,32);
+-    char path[520],temp[528]={0};ok=length&&length<=META_LIMIT&&!mbedtls_sha256((uint8_t *)json,length,header+16,0)&&reference_path(path,root,&v->key,slot);
+-    if(ok)snprintf(temp,sizeof(temp),"%s.part",path);
++    char *path=w->extra,*temp=w->temp;ok=length&&length<=META_LIMIT&&!mbedtls_sha256((uint8_t *)json,length,header+16,0)&&reference_path(path,root,&v->key,slot);
++    if(ok)snprintf(temp,sizeof(w->temp),"%s.part",path);
+     FILE *f=ok?store_fopen(temp,"wb"):NULL;
+     if(f){ok=store_fwrite(header,1,80,f)==80&&store_fwrite(json,1,length,f)==length&&fflush(f)==0&&store_sync_profiled(f)==0;if(fclose(f))ok=false;}
+     else ok=false;
+@@ -312,6 +343,11 @@
+     if(ok){if(remove(path)&&errno!=ENOENT)ok=false;if(ok&&rename(temp,path))ok=false;}
+     if(!ok){io_error();if(*temp)remove(temp);}
+     return ok;
++}
++bool gallery_store_refresh(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide) {
++    media_error=false;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool operation_result=gallery_store_refresh_impl(root,v,revision,guide,w);free(w);return operation_result;
+ }
+ 
+ // Append only new ranges, not the entire growing prefix. A torn last record is
+@@ -370,8 +406,8 @@
+     if(ok){state->file_bytes=(state->offset?state->file_bytes:76)+40+count;state->offset=end;}return ok;
+ }
+ #endif
+-static bool legacy_resume_clear(const char *root,const gallery_image *key,const char *revision,const char *sha,size_t total) {
+-    media_error=false;uint8_t expected[76],header[76];char path[512];
++static bool legacy_resume_clear(const char *root,const gallery_image *key,const char *revision,const char *sha,size_t total,char path[512]) {
++    media_error=false;uint8_t expected[76],header[76];
+     if(!resume_header(key,revision,sha,total,expected)||!resume_path(path,root,key))return false;
+     FILE *f=store_fopen(path,"rb");if(!f){io_error();return errno==ENOENT;}
+     bool same=store_fread(header,1,76,f)==76&&!memcmp(header,expected,76);if(ferror(f))io_error();if(fclose(f))io_error();
+@@ -382,8 +418,8 @@
+ // Raw JPEG bytes are written once into their eventual AIG2 record. A tiny
+ // append-only journal is fsynced after the payload, so a torn checkpoint never
+ // endorses bytes that have not reached the card. Older AIP resumes are imported.
+-static bool direct_resume_load(const char *root,const gallery_image *key,const char *revision,const char *sha,uint8_t *jpeg,size_t total,gallery_resume *state) {
+-    uint8_t expected[76],found[76],draft[80];char journal[512],data[512];
++static bool direct_resume_load_impl(const char *root,const gallery_image *key,const char *revision,const char *sha,uint8_t *jpeg,size_t total,gallery_resume *state,gallery_paths *w) {
++    uint8_t expected[76],found[76],draft[80];char *journal=w->paths[0],*data=w->paths[1];
+     *state=(gallery_resume){0};
+     if(!resume_header(key,revision,sha,total,expected)||!direct_path(journal,root,key,"aic")||!direct_path(data,root,key,"aig.part"))return false;
+     FILE *index=store_fopen(journal,"rb"),*image=store_fopen(data,"rb");bool ok=index&&image&&store_fread(found,1,76,index)==76&&!memcmp(found,expected,76)&&
+@@ -402,6 +438,11 @@
+     if(image){if(ferror(image))io_error();if(fclose(image))io_error();}
+     return ok;
+ }
++static bool direct_resume_load(const char *root,const gallery_image *key,const char *revision,const char *sha,uint8_t *jpeg,size_t total,gallery_resume *state) {
++    
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool operation_result=direct_resume_load_impl(root,key,revision,sha,jpeg,total,state,w);free(w);return operation_result;
++}
+ bool gallery_resume_load(const char *root,const gallery_image *key,const char *revision,const char *sha,uint8_t *jpeg,size_t total,gallery_resume *state) {
+     media_error=false;if(!state||!jpeg)return false;
+     gallery_resume old={0},direct={0};bool legacy=legacy_resume_load(root,key,revision,sha,jpeg,total,&old);
+@@ -414,8 +455,8 @@
+     uint8_t range[40]={0};set32(range,begin);set32(range+4,end-begin);
+     return !mbedtls_sha256(jpeg+begin,end-begin,range+8,0)&&store_fwrite(range,1,40,index)==40;
+ }
+-bool gallery_resume_append(const char *root,const gallery_image *key,const char *revision,const char *sha,const uint8_t *jpeg,size_t total,size_t end,gallery_resume *state) {
+-    media_error=false;uint8_t header[76],found[76];char journal[512],data[512];
++static bool gallery_resume_append_impl(const char *root,const gallery_image *key,const char *revision,const char *sha,const uint8_t *jpeg,size_t total,size_t end,gallery_resume *state,gallery_paths *w) {
++    media_error=false;uint8_t header[76],found[76];char *journal=w->paths[0],*data=w->paths[1];
+     if(!state||!jpeg||!resume_header(key,revision,sha,total,header)||!direct_path(journal,root,key,"aic")||!direct_path(data,root,key,"aig.part")||
+        end>total||end<=state->offset||end-state->offset>GALLERY_RESUME_BLOCK||!directories(root,key->category,NULL))return false;
+     bool fresh=!state->direct;
+@@ -438,20 +479,40 @@
+     if(fclose(index)){io_error();ok=false;}
+     if(ok){state->offset=end;state->file_bytes=file_bytes+40;state->direct=true;}return ok;
+ }
+-bool gallery_resume_clear(const char *root,const gallery_image *key,const char *revision,const char *sha,size_t total) {
+-    media_error=false;uint8_t header[76],found[76];char journal[512],data[512];
+-    bool legacy=legacy_resume_clear(root,key,revision,sha,total);
++bool gallery_resume_append(const char *root,const gallery_image *key,const char *revision,const char *sha,const uint8_t *jpeg,size_t total,size_t end,gallery_resume *state) {
++    media_error=false;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool operation_result=gallery_resume_append_impl(root,key,revision,sha,jpeg,total,end,state,w);free(w);return operation_result;
++}
++static bool gallery_resume_clear_impl(const char *root,const gallery_image *key,const char *revision,const char *sha,size_t total,gallery_paths *w) {
++    media_error=false;uint8_t header[76],found[76];char *journal=w->paths[0],*data=w->paths[1];
++    bool legacy=legacy_resume_clear(root,key,revision,sha,total,w->extra);
+     if(!resume_header(key,revision,sha,total,header)||!direct_path(journal,root,key,"aic")||!direct_path(data,root,key,"aig.part"))return false;
+     FILE *f=store_fopen(journal,"rb");if(!f){io_error();return legacy;}
+     bool same=store_fread(found,1,76,f)==76&&!memcmp(found,header,76);if(fclose(f))io_error();if(!same)return false;
+     bool ok=(!remove(data)||errno==ENOENT)&&!remove(journal);if(!ok)io_error();return ok;
+ }
++bool gallery_resume_clear(const char *root,const gallery_image *key,const char *revision,const char *sha,size_t total) {
++    media_error=false;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool operation_result=gallery_resume_clear_impl(root,key,revision,sha,total,w);free(w);return operation_result;
++}
+ 
++#if defined(__GNUC__) && !defined(__clang__)
++#define CATALOG_SMALL __attribute__((optimize("Os")))
++#else
++#define CATALOG_SMALL
++#endif
+ // Small, independently checksummed cursor. Only a completely saved work moves
+ // next forward; after an interrupted work, its verified pages are reused.
+ static bool catalog_path(char out[512],const char *root,int category,unsigned slot) {
+     if(!root||category<0||category>1||slot>1)return false;
+     int n=snprintf(out,512,"%s/%s/catalog.%u",root,category?SD_STORAGE_CALLIGRAPHY_DIR:SD_STORAGE_PAINTING_DIR,slot);
++    return n>0&&n<512;
++}
++static CATALOG_SMALL bool catalog_revision_path(char out[512],const char *root,int category,const char *revision,unsigned slot) {
++    if(!root||category<0||category>1||!revision_ok(revision)||strlen(revision)!=64||slot>1)return false;
++    int n=snprintf(out,512,"%s/%s/catalog-%s.%u",root,category?SD_STORAGE_CALLIGRAPHY_DIR:SD_STORAGE_PAINTING_DIR,revision,slot);
+     return n>0&&n<512;
+ }
+ static uint32_t catalog_read(const char *path,const char *revision,gallery_catalog *out) {
+@@ -467,33 +528,78 @@
+     if(out)*out=value;
+     return serial;
+ }
+-bool gallery_catalog_load(const char *root,int category,const char *revision,gallery_catalog *out) {
+-    media_error=false;if(!out||!revision_ok(revision))return false;
++static CATALOG_SMALL uint32_t catalog_pair_load(const char *root,int category,const char *revision,bool scoped,gallery_catalog *out) {
+     uint32_t newest=0;char path[512];gallery_catalog candidate;
+     for(unsigned i=0;i<2;i++) {
+-        if(!catalog_path(path,root,category,i))return false;
++        if(!(scoped?catalog_revision_path(path,root,category,revision,i):catalog_path(path,root,category,i)))return 0;
+         uint32_t serial=catalog_read(path,revision,&candidate);
+         if(serial>newest){newest=serial;*out=candidate;}
+     }
+-    return newest!=0;
+-}
+-bool gallery_catalog_save(const char *root,int category,const gallery_catalog *value) {
+-    media_error=false;
+-    if(!value||strlen(value->revision)!=64||!revision_ok(value->revision)||value->works<1||value->works>4096||
+-       value->next>value->works||category<0||category>1||!directories(root,category,NULL))return false;
+-    char paths[2][512],temp[520];uint32_t serial[2];
+-    for(unsigned i=0;i<2;i++){if(!catalog_path(paths[i],root,category,i))return false;serial[i]=catalog_read(paths[i],"",NULL);}
++    return newest;
++}
++static bool catalog_pair_save(const char *,int,const gallery_catalog *,bool);
++static bool catalog_migrate(const char *,int);
++CATALOG_SMALL bool gallery_catalog_load(const char *root,int category,const char *revision,gallery_catalog *out) {
++    media_error=false;if(!out||!revision_ok(revision))return false;
++    if(*revision&&catalog_pair_load(root,category,revision,true,out)){
++        gallery_catalog active;
++        if((!catalog_pair_load(root,category,"",false,&active)||strcmp(active.revision,revision))&&catalog_migrate(root,category))
++            (void)catalog_pair_save(root,category,out,false);
++        return true;
++    }
++    // Legacy slots also identify the most recent active scope for offline use.
++    if(!catalog_pair_load(root,category,revision,false,out))return false;
++    if(!*revision){gallery_catalog newer;if(catalog_pair_load(root,category,out->revision,true,&newer))*out=newer;}
++    return true;
++}
++static CATALOG_SMALL bool catalog_pair_save_impl(const char *root,int category,const gallery_catalog *value,bool scoped,gallery_paths *w) {
++    char (*paths)[512]=w->paths;char *temp=w->temp;uint32_t serial[2];
++    for(unsigned i=0;i<2;i++){
++        if(!(scoped?catalog_revision_path(paths[i],root,category,value->revision,i):catalog_path(paths[i],root,category,i)))return false;
++        serial[i]=catalog_read(paths[i],"",NULL);
++    }
+     uint32_t newest=serial[0]>serial[1]?serial[0]:serial[1];if(newest>=UINT32_MAX-1)return false;
+     unsigned slot=serial[0]<=serial[1]?0:1;
+     uint8_t bytes[116]={0};memcpy(bytes,"AIBCAT01",8);set32(bytes+8,newest+1);set32(bytes+12,value->works);set32(bytes+16,value->next);
+     memcpy(bytes+20,value->revision,64);if(mbedtls_sha256(bytes,84,bytes+84,0))return false;
+-    snprintf(temp,sizeof(temp),"%s.part",paths[slot]);FILE *f=store_fopen(temp,"wb");bool ok=false;
++    snprintf(temp,sizeof(w->temp),"%s.part",paths[slot]);FILE *f=store_fopen(temp,"wb");bool ok=false;
+     if(f){ok=store_fwrite(bytes,1,sizeof(bytes),f)==sizeof(bytes)&&fflush(f)==0&&store_sync_profiled(f)==0;if(!ok)io_error();if(fclose(f)){io_error();ok=false;}}
+     else io_error();
+     if(ok&&remove(paths[slot])&&errno!=ENOENT){io_error();ok=false;}
+     if(ok&&rename(temp,paths[slot])){io_error();ok=false;}
+     if(!ok)remove(temp);
+     return ok;
++}
++static CATALOG_SMALL bool catalog_pair_save(const char *root,int category,const gallery_catalog *value,bool scoped) {
++    
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool operation_result=catalog_pair_save_impl(root,category,value,scoped,w);free(w);return operation_result;
++}
++static CATALOG_SMALL bool catalog_migrate_impl(const char *root,int category,gallery_paths *w) {
++    gallery_catalog old[2],found;uint32_t serial[2];char *path=w->paths[0];
++    for(unsigned i=0;i<2;i++){
++        if(!catalog_path(path,root,category,i))return false;
++        serial[i]=catalog_read(path,"",&old[i]);
++    }
++    unsigned first=serial[1]>serial[0]?1:0;
++    for(unsigned n=0;n<2;n++){
++        unsigned i=first^n;
++        if(serial[i]&&!catalog_pair_load(root,category,old[i].revision,true,&found)&&
++           !catalog_pair_save(root,category,&old[i],true))return false;
++    }
++    return true;
++}
++static CATALOG_SMALL bool catalog_migrate(const char *root,int category) {
++    
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool operation_result=catalog_migrate_impl(root,category,w);free(w);return operation_result;
++}
++CATALOG_SMALL bool gallery_catalog_save(const char *root,int category,const gallery_catalog *value) {
++    media_error=false;
++    if(!value||strlen(value->revision)!=64||!revision_ok(value->revision)||value->works<1||value->works>4096||
++       value->next>value->works||category<0||category>1||!directories(root,category,NULL))return false;
++    // Migrate legacy slots before updating the last-active pair.
++    return catalog_migrate(root,category)&&catalog_pair_save(root,category,value,true)&&catalog_pair_save(root,category,value,false);
+ }
+ static bool leap(int year){return year%4==0&&(year%100!=0||year%400==0);}
+ static int month_days(int year,int month){static const int days[]={31,28,31,30,31,30,31,31,30,31,30,31};return days[month-1]+(month==2&&leap(year));}
+--- a/firmware/main/main.c
++++ b/firmware/main/main.c
+@@ -1,4 +1,5 @@
+ #include "device.h"
++#include "tab5_ime.h"
+ #include "rpc_link.h"
+ #include "assets.h"
+ #include "voice_remote.h"
+@@ -34,6 +35,10 @@
+     crash_record_init();
+     // Preserve existing NVS; an incompatible/full store must be handled explicitly.
+     ESP_ERROR_CHECK(nvs_flash_init());device_init();
++    // Reserve the immutable dictionary before display/camera/radio heaps fragment.
++    // Failure stays in the OTA boot-check boundary; never silently lose Chinese input.
++    ESP_ERROR_CHECK(tab5_pinyin_init()?ESP_OK:ESP_FAIL);
++    tab5_pinyin_benchmark();
+     ESP_ERROR_CHECK(bsp_i2c_init());bsp_io_expander_pi4ioe_init(bsp_i2c_get_handle());
+     bsp_set_charge_qc_en(true);bsp_set_charge_en(true);
+     ESP_ERROR_CHECK(tab5_wireless_boot_prepare());
+--- a/firmware/main/tab5_ime.c
++++ b/firmware/main/tab5_ime.c
+@@ -1,9 +1,29 @@
+ #include "tab5_ime.h"
+ #include <string.h>
++#include <stdio.h>
++#ifdef ESP_PLATFORM
++#include "esp_timer.h"
++#endif
+ 
+ typedef struct {const char *py,*text;uint32_t weight,boundaries;} pinyin_entry;
+-#include "tab5_pinyin_dict.inc"
+-#define DICT_COUNT (sizeof(pinyin_dictionary)/sizeof(pinyin_dictionary[0]))
++#include "tab5_pinyin_data.h"
++static tab5_pinyin_data dictionary;
++#define pinyin_keys dictionary.keys
++#define pinyin_words dictionary.words
++#define pinyin_dictionary dictionary.rows
++#define DICT_COUNT dictionary.count
++static unsigned init_us,benchmark_mean_us,benchmark_peak_us,benchmark_samples;
++bool tab5_pinyin_init(void){
++    if(dictionary.rows)return true;
++#ifdef ESP_PLATFORM
++    int64_t began=esp_timer_get_time();
++#endif
++    if(!tab5_pinyin_data_init(&dictionary))return false;
++#ifdef ESP_PLATFORM
++    init_us=(unsigned)(esp_timer_get_time()-began);
++#endif
++    return true;
++}
+ #define PAGE_SIZE 4
+ 
+ static uint32_t dictionary_u24(const uint8_t *bytes) {
+@@ -33,7 +53,7 @@
+     out[pos]=(tab5_pinyin_candidate){entry->text,consumed,entry->weight};
+ }
+ size_t tab5_pinyin_lookup(const char *raw,tab5_pinyin_candidate *out,size_t capacity) {
+-    if(!raw||!out||!capacity)return 0;
++    if(!dictionary.rows||!raw||!out||!capacity)return 0;
+     char key[TAB5_PINYIN_MAX+1];uint8_t ends[TAB5_PINYIN_MAX+1]={0};
+     size_t len=0,count=0;uint32_t boundaries=0;
+     for(size_t i=0;raw[i];i++) {
+@@ -63,6 +83,23 @@
+             candidate_add(out,&count,capacity,&entry,ends[len]);
+     }
+     return count;
++}
++
++// Run once before UI interaction. No timers or allocations on the typing path.
++void tab5_pinyin_benchmark(void){
++#ifdef ESP_PLATFORM
++    const char *queries[]={"nihao","zhongguo","shijie","xi'an","zhonghuarenmingongheguo","s","z","x","beijing","shengri","gongzuo","nihaoshijie"};
++    uint64_t total=0;unsigned peak=0;tab5_pinyin_candidate results[TAB5_PINYIN_CANDIDATES];
++    for(unsigned repeat=0;repeat<16;repeat++)for(size_t i=0;i<sizeof(queries)/sizeof(*queries);i++){
++        int64_t began=esp_timer_get_time();tab5_pinyin_lookup(queries[i],results,TAB5_PINYIN_CANDIDATES);
++        unsigned elapsed=(unsigned)(esp_timer_get_time()-began);total+=elapsed;if(elapsed>peak)peak=elapsed;
++    }
++    benchmark_samples=16*sizeof(queries)/sizeof(*queries);benchmark_mean_us=(unsigned)(total/benchmark_samples);benchmark_peak_us=peak;
++#endif
++}
++void tab5_pinyin_diagnostics(char *out,size_t capacity){
++    snprintf(out,capacity,"1,%u,%u,%u,%u,%u,%u",(unsigned)dictionary.raw_bytes,(unsigned)dictionary.packed_bytes,
++        init_us,benchmark_samples,benchmark_mean_us,benchmark_peak_us);
+ }
+ 
+ typedef struct {
+@@ -147,6 +184,7 @@
+     lv_keyboard_def_event_cb(e);
+ }
+ lv_obj_t *tab5_ime_create(lv_obj_t *parent,lv_obj_t *keyboard,lv_obj_t *textarea,const lv_font_t *font) {
++    if(!tab5_pinyin_init())return NULL;
+     ime_state *ime=lv_malloc_zeroed(sizeof(*ime));LV_ASSERT_MALLOC(ime);
+     if(!default_ime)default_ime=ime;
+     ime->keyboard=keyboard;ime->textarea=textarea;ime->chinese=true;
+--- a/firmware/main/tab5_ime.h
++++ b/firmware/main/tab5_ime.h
+@@ -7,6 +7,9 @@
+ #define TAB5_PINYIN_MAX 32
+ #define TAB5_PINYIN_CANDIDATES 48
+ typedef struct { const char *text; uint8_t consumed; uint32_t weight; } tab5_pinyin_candidate;
++void tab5_pinyin_benchmark(void);
++void tab5_pinyin_diagnostics(char *out,size_t capacity);
++bool tab5_pinyin_init(void); /* Initialize before input tasks/UI; storage remains immutable. */
+ size_t tab5_pinyin_lookup(const char *raw, tab5_pinyin_candidate *out, size_t capacity);
+ 
+ /* Independent composers; legacy helpers address the first (Codex) composer. */
+--- /dev/null
++++ b/firmware/main/tab5_pinyin_data.c
+@@ -0,0 +1,29 @@
++#include "tab5_pinyin_data.h"
++#include "esp_heap_caps.h"
++#include "miniz.h"
++#include <stdlib.h>
++#include <string.h>
++#include "tab5_pinyin_dict.inc"
++
++static tab5_pinyin_data active;
++static bool dictionary_decode(const uint8_t *input,size_t length,uint8_t *out,size_t expected) {
++    tinfl_decompressor *state=heap_caps_malloc(sizeof(*state),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!state)return false;
++    tinfl_init(state);size_t consumed=length,produced=expected;
++    tinfl_status status=tinfl_decompress(state,input,&consumed,out,out,&produced,
++        TINFL_FLAG_PARSE_ZLIB_HEADER|TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
++    bool ok=status==TINFL_STATUS_DONE&&consumed==length&&produced==expected;
++    free(state);return ok;
++}
++bool tab5_pinyin_data_init(tab5_pinyin_data *out) {
++    if(!out)return false;
++    if(active.rows){*out=active;return true;}
++    uint8_t *bytes=heap_caps_malloc(PINYIN_RAW_BYTES,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++    if(!bytes)return false;
++    if(!dictionary_decode(pinyin_packed,sizeof(pinyin_packed),bytes,PINYIN_RAW_BYTES)){free(bytes);return false;}
++    // Publish only a complete, checksummed dictionary. No per-keystroke inflate,
++    // allocation, eviction or mutation of text held by independent editors.
++    active=(tab5_pinyin_data){(const char *)bytes,(const char *)bytes+PINYIN_KEYS_BYTES,
++        (const uint8_t (*)[11])(bytes+PINYIN_KEYS_BYTES+PINYIN_WORDS_BYTES),PINYIN_ROWS,PINYIN_RAW_BYTES,sizeof(pinyin_packed)};
++    *out=active;return true;
++}
+--- /dev/null
++++ b/firmware/main/tab5_pinyin_data.h
+@@ -0,0 +1,11 @@
++#pragma once
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++typedef struct {
++    const char *keys,*words;
++    const uint8_t (*rows)[11];
++    size_t count,raw_bytes,packed_bytes;
++} tab5_pinyin_data;
++// Boot/UI-thread initialization only. Immutable storage lasts until reset.
++bool tab5_pinyin_data_init(tab5_pinyin_data *out);
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -4084,7 +4084,7 @@
+     lv_obj_set_style_radius(codex_input,12,0);
+     lv_obj_set_style_pad_all(codex_input,16,0);
+     ui_text_font(codex_input,&tab5_font_30,0);
+-    lv_textarea_set_placeholder_text(codex_input, "输入内容…");
++    // The section title already identifies input; keep the text surface clear.
+     lv_textarea_set_max_length(codex_input, 2000);
+     lv_obj_add_event_cb(codex_input, codex_input_focus, LV_EVENT_FOCUSED, NULL);
+     lv_obj_add_event_cb(codex_input, codex_input_focus, LV_EVENT_CLICKED, NULL);
+--- a/firmware/main/voice_remote.c
++++ b/firmware/main/voice_remote.c
+@@ -196,6 +196,9 @@
+     return atomic_load(&mic_error_reason);
+ }
+ 
++bool voice_remote_busy(void) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);bool busy=state.busy;xSemaphoreGive(device_mutex);return busy;
++}
+ void voice_remote_get(voice_remote_state *out) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);*out=state;xSemaphoreGive(device_mutex);
+ }
+--- a/firmware/main/voice_remote.h
++++ b/firmware/main/voice_remote.h
+@@ -15,6 +15,7 @@
+ bool voice_remote_start_tab5(const char *owner, const char *session, int64_t epoch_ms);
+ bool voice_remote_init(void);
+ void voice_remote_command(int command); /* 1 stop, 2 cancel, 3 use TAB5 */
++bool voice_remote_busy(void); /* Small locked query for nested transport callbacks. */
+ void voice_remote_get(voice_remote_state *out);
+ void voice_remote_notify_reply(void); /* Short local chime, deferred while capturing. */
+ void voice_remote_notify_health(void); /* Distinct double alert, without reply speech. */
+--- a/scripts/build.ps1
++++ b/scripts/build.ps1
+@@ -68,6 +68,8 @@
+         '-D','CMAKE_JOB_POOL_COMPILE=tab5_build','-D','CMAKE_JOB_POOL_LINK=tab5_build')
+     python "$env:IDF_PATH\tools\idf.py" @buildArgs build
+     if ($LASTEXITCODE) { throw 'TAB5 build failed' }
++    python "$PSScriptRoot/check-gallery-stack.py" "$idfProjectRoot/firmware/build"
++    if ($LASTEXITCODE) { throw 'Gallery task stack budget failed' }
+     if ($Flash) {
+         throw 'Full flashing is disabled: preserve NVS/assets with migrate-ota.py for first migration; use OTA or verified application-only flashing afterwards.'
+     }
+--- /dev/null
++++ b/scripts/check-gallery-stack.py
+@@ -0,0 +1,21 @@
++"""Bound project-owned frames in the 8 KiB gallery callback chain.
++This does not model SDK/interrupt frames; retain the hardware guard and verify
++low-water measurements under a real transfer as well.
++"""
++from pathlib import Path
++import sys
++root=Path(sys.argv[1]);files=list(root.rglob('gallery_remote.c.su'))+list(root.rglob('voice_remote.c.su'))+list(root.rglob('gallery_store.c.su'))
++frames={}
++for path in files:
++ for line in path.read_text(encoding='utf8').splitlines():
++  fields=line.split('\t')
++  if len(fields)>=3:frames[fields[0].rsplit(':',1)[-1].split('.')[0]]=int(fields[1])
++limits={'foreground_busy':64,'voice_remote_busy':64,'download_cancelled':256,'card_writer_progress':64,'worker':2560,'store_put_impl':640,'gallery_store_get_impl':640,'gallery_store_refresh_impl':640,'reference_meta_impl':640,'catalog_pair_save_impl':640,'catalog_migrate_impl':640,'direct_resume_load_impl':640,'gallery_resume_append_impl':640,'gallery_resume_clear_impl':640}
++for name,limit in limits.items():
++ # GCC may inline the private body into its resource-owning wrapper. Check
++ # that actual merged frame against the same bound, never skip the budget.
++ actual=name if name in frames else name.removesuffix('_impl')
++ if actual not in frames:raise SystemExit('Missing stack record: '+name)
++ frames[name]=frames[actual]
++ if frames[name]>limit:raise SystemExit(f'GALLERY_STACK_REJECT {name}={frames[name]} > {limit}')
++print('GALLERY_STACK_BUDGET_OK '+' '.join(f'{name}={frames[name]}' for name in limits))
+--- a/scripts/generate-pinyin-dict.py
++++ b/scripts/generate-pinyin-dict.py
+@@ -2,13 +2,15 @@
+ from pathlib import Path
+ import hashlib
+ import re
++import zlib
+ 
+ root = Path(__file__).resolve().parents[1]
+ source = root / 'firmware/third_party/rime-pinyin-simp/pinyin_simp.dict.yaml'
+ expected = 'e341598343a0f0f2035bb1aafc34a7f3bb7887deeecb3f60796262aaa2983e6b'
+-assert hashlib.sha256(source.read_bytes()).hexdigest() == expected, 'Dictionary source changed'
++source_bytes = source.read_bytes().replace(b'\r\n', b'\n')  # Accept checkout newline conversion only.
++assert hashlib.sha256(source_bytes).hexdigest() == expected, 'Dictionary source changed'
+ entries = {}
+-for line in source.read_text(encoding='utf-8').splitlines():
++for line in source_bytes.decode('utf-8').splitlines():
+     fields = line.split('\t')
+     if len(fields) != 3:
+         continue
+@@ -48,20 +50,22 @@
+ words, word_offsets = string_pool(e[1] for e in ordered)
+ assert len(keys) < 1 << 24 and len(words) < 1 << 24, 'Dictionary offset exceeds 24 bits'
+ assert all(0 <= entries[e] < 1 << 24 and 0 <= e[2] < 1 << 16 for e in ordered), 'Dictionary value exceeds packed format'
++rows = bytearray()
++for key, word, boundaries in ordered:
++    rows.extend(key_offsets[key.encode()].to_bytes(3, 'little') + word_offsets[word.encode()].to_bytes(3, 'little') +
++                entries[(key, word, boundaries)].to_bytes(3, 'little') + boundaries.to_bytes(2, 'little'))
++keys.append(0)  # Preserve the C string literal pools' implicit final NULs.
++words.append(0)
++raw = bytes(keys + words + rows)
++packed = zlib.compress(raw, 9)
++assert zlib.decompress(packed) == raw
+ output = root / 'firmware/main/tab5_pinyin_dict.inc'
+ with output.open('w', encoding='utf-8', newline='\n') as stream:
+     stream.write('// Generated by scripts/generate-pinyin-dict.py. Do not edit.\n')
+     stream.write('// Derived from Rime/Android Pinyin IME, Apache-2.0; see ../third_party/rime-pinyin-simp.\n')
+-    for name, data in [('pinyin_keys', keys), ('pinyin_words', words)]:
+-        stream.write('static const char %s[] =\n' % name)
+-        for start in range(0, len(data), 32):
+-            stream.write('    "' + ''.join('\\%03o' % b for b in data[start:start + 32]) + '"\n')
+-        stream.write(';\n')
+-    stream.write('// Each row: key offset (24), word offset (24), weight (24), boundaries (16), little endian.\n')
+-    stream.write('static const uint8_t pinyin_dictionary[][11] = {\n')
+-    for key, word, boundaries in ordered:
+-        row = (key_offsets[key.encode()].to_bytes(3, 'little') + word_offsets[word.encode()].to_bytes(3, 'little') +
+-               entries[(key, word, boundaries)].to_bytes(3, 'little') + boundaries.to_bytes(2, 'little'))
+-        stream.write('    {' + ','.join(str(b) for b in row) + '},\n')
++    stream.write(f'enum {{ PINYIN_KEYS_BYTES={len(keys)}, PINYIN_WORDS_BYTES={len(words)}, PINYIN_ROWS={len(ordered)}, PINYIN_RAW_BYTES={len(raw)} }};\n')
++    stream.write('static const uint8_t pinyin_packed[] = {\n')
++    for at in range(0,len(packed),24):
++        stream.write('    '+','.join(str(v) for v in packed[at:at+24])+',\n')
+     stream.write('};\n')
+-print(f'PINYIN_DICTIONARY_OK entries={len(ordered)} keys={len(keys)} words={len(words)} rows={len(ordered) * 11} source_sha256={expected}')
++print(f'PINYIN_DICTIONARY_OK entries={len(ordered)} raw={len(raw)} packed={len(packed)} saved={len(raw)-len(packed)} raw_sha256={hashlib.sha256(raw).hexdigest()} source_sha256={expected}')
+--- /dev/null
++++ b/scripts/test-gallery-scopes.ps1
+@@ -0,0 +1,21 @@
++$ErrorActionPreference='Stop'
++$root=Split-Path $PSScriptRoot -Parent
++. "$PSScriptRoot\BuildResources.ps1"
++$scope=Enter-Tab5BuildResourceScope
++try {
++ $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
++ $vs=& $vswhere -latest -products '*' -property installationPath
++ $devcmd=Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
++ $cmake=(Get-ChildItem "$root/.tools/idf-tools/tools/cmake" -Filter cmake.exe -Recurse | Select-Object -First 1).FullName
++ $ninja=(Get-ChildItem "$root/.tools/idf-tools/tools/ninja" -Filter ninja.exe -Recurse | Select-Object -First 1).DirectoryName
++ $compiler=Join-Path $vs 'VC\Tools\Llvm\x64\bin\clang-cl.exe'
++ $build=Join-Path $root 'test-build'
++ $env:PATH="$ninja;"+$env:PATH
++ $command='call "'+$devcmd+'" -arch=x64 >nul && "'+$cmake+'" -S "'+$root+'\tests\ui-preview" -B "'+$build+'" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="'+$compiler+'" -DCMAKE_CXX_COMPILER="'+$compiler+'" && "'+$cmake+'" --build "'+$build+'" --target gallery-store-test gallery-worker-test --parallel '+$scope.Policy.WorkerCount
++ & cmd.exe /d /c $command
++ if($LASTEXITCODE){throw 'Gallery test build failed'}
++ & "$build\gallery-store-test.exe"
++ if($LASTEXITCODE){throw 'Gallery store test failed'}
++ & "$build\gallery-worker-test.exe"
++ if($LASTEXITCODE){throw 'Gallery worker test failed'}
++} finally {Exit-Tab5BuildResourceScope $scope}
+--- /dev/null
++++ b/scripts/test-pinyin-ui.ps1
+@@ -0,0 +1,26 @@
++param([string]$OutputDirectory)
++$ErrorActionPreference='Stop'
++$root=Split-Path $PSScriptRoot -Parent
++. "$PSScriptRoot\BuildResources.ps1"
++$scope=Enter-Tab5BuildResourceScope
++try {
++ $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
++ $vs=& $vswhere -latest -products '*' -property installationPath
++ $devcmd=Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
++ $cmake=(Get-ChildItem "$root/.tools/idf-tools/tools/cmake" -Filter cmake.exe -Recurse | Select-Object -First 1).FullName
++ $ninja=(Get-ChildItem "$root/.tools/idf-tools/tools/ninja" -Filter ninja.exe -Recurse | Select-Object -First 1).DirectoryName
++ $compiler=Join-Path $vs 'VC\Tools\Llvm\x64\bin\clang-cl.exe'
++ $build=Join-Path $root 'test-build'
++ $env:PATH="$ninja;"+$env:PATH
++ $command='call "'+$devcmd+'" -arch=x64 >nul && "'+$cmake+'" -S "'+$root+'\tests\ui-preview" -B "'+$build+'" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="'+$compiler+'" -DCMAKE_CXX_COMPILER="'+$compiler+'" && "'+$cmake+'" --build "'+$build+'" --target ui-preview runtime-diagnostics-test --parallel '+$scope.Policy.WorkerCount
++ & cmd.exe /d /c $command
++ if($LASTEXITCODE){throw 'Gallery test build failed'}
++ & "$build\runtime-diagnostics-test.exe"
++ if($LASTEXITCODE){throw 'Runtime regression failed'}
++ $out=if($OutputDirectory){[IO.Path]::GetFullPath($OutputDirectory)}else{Join-Path $root 'artifacts/pinyin-ui-preview'}
++ New-Item -ItemType Directory -Path $out -Force | Out-Null
++ $env:TAB5_PINYIN_ONLY='1'
++ Push-Location $out
++ try { & "$build\ui-preview.exe"; if($LASTEXITCODE){throw 'Pinyin keyboard UI regression failed'} }
++ finally {Pop-Location;Remove-Item Env:TAB5_PINYIN_ONLY -ErrorAction SilentlyContinue}
++} finally {Exit-Tab5BuildResourceScope $scope}
+--- /dev/null
++++ b/scripts/test-pinyin.ps1
+@@ -0,0 +1,21 @@
++param([Parameter(Mandatory)][string]$BaselineDirectory)
++$ErrorActionPreference='Stop'
++$root=Split-Path $PSScriptRoot -Parent
++. "$PSScriptRoot\BuildResources.ps1"
++$scope=Enter-Tab5BuildResourceScope
++try {
++ $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
++ $vs=& $vswhere -latest -products '*' -property installationPath
++ $devcmd=Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
++ $cmake=(Get-ChildItem "$root/.tools/idf-tools/tools/cmake" -Filter cmake.exe -Recurse | Select-Object -First 1).FullName
++ $ninja=(Get-ChildItem "$root/.tools/idf-tools/tools/ninja" -Filter ninja.exe -Recurse | Select-Object -First 1).DirectoryName
++ $compiler=Join-Path $vs 'VC\Tools\Llvm\x64\bin\clang-cl.exe'
++ $build=Join-Path $root 'pinyin-test-build'
++ $env:PATH="$ninja;"+$env:PATH
++ $baseline=(Resolve-Path -LiteralPath $BaselineDirectory).Path
++ $command='call "'+$devcmd+'" -arch=x64 >nul && "'+$cmake+'" -S "'+$root+'\tests\pinyin" -B "'+$build+'" -G Ninja -DBASELINE="'+$baseline+'" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="'+$compiler+'" && "'+$cmake+'" --build "'+$build+'" --parallel '+$scope.Policy.WorkerCount
++ & cmd.exe /d /c $command
++ if($LASTEXITCODE){throw 'Pinyin test build failed'}
++ & "$build\pinyin-test.exe"
++ if($LASTEXITCODE){throw 'Pinyin regression failed'}
++} finally {Exit-Tab5BuildResourceScope $scope}
+--- /dev/null
++++ b/tests/pinyin/CMakeLists.txt
+@@ -0,0 +1,10 @@
++cmake_minimum_required(VERSION 3.20)
++project(pinyin_regression C)
++set(CMAKE_C_STANDARD 11)
++get_filename_component(ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
++find_package(Python3 REQUIRED COMPONENTS Interpreter)
++set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ROOT}/firmware/main/tab5_ime.c" "${BASELINE}/firmware/main/tab5_ime.c")
++execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/prepare.py" "${ROOT}" "${BASELINE}" "${CMAKE_CURRENT_BINARY_DIR}" COMMAND_ERROR_IS_FATAL ANY)
++add_executable(pinyin-test test.c data-under-test.c "${CMAKE_CURRENT_BINARY_DIR}/baseline.c" "${CMAKE_CURRENT_BINARY_DIR}/current.c")
++target_include_directories(pinyin-test PRIVATE "${CMAKE_CURRENT_LIST_DIR}" "${ROOT}/firmware/main" "${CMAKE_CURRENT_BINARY_DIR}" "${ROOT}/.tools/esp-idf/components/esp_rom/include" "${ROOT}/.tools/esp-idf/components/esp_rom/esp32p4")
++target_compile_options(pinyin-test PRIVATE /UNDEBUG /utf-8)
+--- /dev/null
++++ b/tests/pinyin/data-under-test.c
+@@ -0,0 +1,39 @@
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <windows.h>
++#include "miniz.h"
++static unsigned attempts,live,fail_at;static bool corrupt;
++void *heap_caps_malloc(size_t n,unsigned caps){assert(caps==3);attempts++;if(attempts==fail_at)return NULL;void *p=malloc(n);if(p)live++;return p;}
++static void checked_free(void *p){if(p){assert(live);live--;free(p);}}
++tinfl_status tinfl_decompress(tinfl_decompressor *state,const mz_uint8 *input,size_t *length,mz_uint8 *start,mz_uint8 *out,size_t *capacity,const mz_uint32 flags){
++    assert(state&&start==out&&flags==(TINFL_FLAG_PARSE_ZLIB_HEADER|TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF));
++    typedef int (__cdecl *inflate_fn)(void*,unsigned long*,const void*,unsigned long*);
++    static inflate_fn fn;if(!fn){HMODULE dll=LoadLibraryA(getenv("TAB5_TEST_ZLIB")?getenv("TAB5_TEST_ZLIB"):"C:\\Program Files\\Git\\ucrt64\\bin\\zlib1.dll");assert(dll);fn=(inflate_fn)GetProcAddress(dll,"uncompress2");assert(fn);}
++    if(corrupt)return TINFL_STATUS_FAILED;
++    unsigned long produced=(unsigned long)*capacity,consumed=(unsigned long)*length;
++    int result=fn(out,&produced,input,&consumed);*length=consumed;*capacity=produced;
++    return result==0?TINFL_STATUS_DONE:TINFL_STATUS_FAILED;
++}
++#define free checked_free
++#include "../../firmware/main/tab5_pinyin_data.c"
++#undef free
++void pinyin_lifecycle_test(void){
++    tab5_pinyin_data out={0};assert(!tab5_pinyin_data_init(NULL));
++    fail_at=1;assert(!tab5_pinyin_data_init(&out)&&!out.rows&&!live);
++    fail_at=attempts+2;assert(!tab5_pinyin_data_init(&out)&&!out.rows&&!live);
++    fail_at=0;corrupt=true;assert(!tab5_pinyin_data_init(&out)&&!out.rows&&!live);corrupt=false;
++    uint8_t *raw=malloc(PINYIN_RAW_BYTES),*bad=malloc(sizeof(pinyin_packed)+1);assert(raw&&bad);
++    memcpy(bad,pinyin_packed,sizeof(pinyin_packed));bad[sizeof(pinyin_packed)/2]^=1;
++    assert(!dictionary_decode(bad,sizeof(pinyin_packed),raw,PINYIN_RAW_BYTES));
++    assert(!dictionary_decode(pinyin_packed,sizeof(pinyin_packed)-1,raw,PINYIN_RAW_BYTES));
++    memcpy(bad,pinyin_packed,sizeof(pinyin_packed));bad[sizeof(pinyin_packed)]=0;
++    assert(!dictionary_decode(bad,sizeof(pinyin_packed)+1,raw,PINYIN_RAW_BYTES));
++    assert(!dictionary_decode(pinyin_packed,sizeof(pinyin_packed),raw,PINYIN_RAW_BYTES-1));
++    assert(!dictionary_decode(pinyin_packed,sizeof(pinyin_packed),raw,PINYIN_RAW_BYTES+1));
++    free(raw);free(bad);assert(!live);
++    assert(tab5_pinyin_data_init(&out)&&out.count==PINYIN_ROWS&&live==1);
++    unsigned before=attempts;tab5_pinyin_data again={0};assert(tab5_pinyin_data_init(&again)&&again.rows==out.rows&&attempts==before&&live==1);
++}
++unsigned pinyin_allocations(void){return attempts;}
+--- /dev/null
++++ b/tests/pinyin/esp_heap_caps.h
+@@ -0,0 +1,5 @@
++#pragma once
++#include <stddef.h>
++#define MALLOC_CAP_SPIRAM 1
++#define MALLOC_CAP_8BIT 2
++void *heap_caps_malloc(size_t,unsigned);
+--- /dev/null
++++ b/tests/pinyin/heap-stubs/esp_heap_caps.h
+@@ -0,0 +1,5 @@
++#pragma once
++#include <stddef.h>
++#define MALLOC_CAP_SPIRAM 1
++#define MALLOC_CAP_8BIT 2
++void *heap_caps_malloc(size_t,unsigned);
+--- /dev/null
++++ b/tests/pinyin/lvgl.h
+@@ -0,0 +1,3 @@
++#pragma once
++typedef struct lv_obj_t lv_obj_t;
++typedef struct lv_font_t lv_font_t;
+--- /dev/null
++++ b/tests/pinyin/prepare.py
+@@ -0,0 +1,11 @@
++from pathlib import Path
++import sys
++root,baseline,out=map(Path,sys.argv[1:]);marker='typedef struct {\n    lv_obj_t *keyboard'
++for variant,source in [('baseline',baseline/'firmware/main'),('current',root/'firmware/main')]:
++ s=(source/'tab5_ime.c').read_text(encoding='utf8');assert marker in s;s=s.split(marker)[0]
++ if variant=='baseline':
++  s=s.replace('"tab5_pinyin_dict.inc"','"baseline_dict.inc"').replace('tab5_pinyin_lookup','baseline_pinyin_lookup')
++ else:
++  s+='\nsize_t current_count(void){return DICT_COUNT;}\nbool current_match(size_t i,const char *key,const char *word,uint32_t weight,uint32_t boundaries){pinyin_entry e=dictionary_entry(i);return !strcmp(e.py,key)&&!strcmp(e.text,word)&&e.weight==weight&&e.boundaries==boundaries;}\n'
++ (out/(variant+'.c')).write_text(s,encoding='utf8')
++(out/'baseline_dict.inc').write_bytes((baseline/'firmware/main/tab5_pinyin_dict.inc').read_bytes())
+--- /dev/null
++++ b/tests/pinyin/test.c
+@@ -0,0 +1,31 @@
++#undef NDEBUG
++#include "tab5_ime.h"
++#include "tab5_pinyin_data.h"
++#include <assert.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <windows.h>
++#include "baseline_dict.inc"
++size_t baseline_pinyin_lookup(const char*,tab5_pinyin_candidate*,size_t);
++size_t current_count(void);bool current_match(size_t,const char*,const char*,uint32_t,uint32_t);
++void pinyin_lifecycle_test(void);unsigned pinyin_allocations(void);
++static unsigned queries;
++static uint32_t u24(const uint8_t *p){return p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16);}
++static void compare(const char *s,size_t cap){tab5_pinyin_candidate a[48]={0},b[48]={0};size_t na=baseline_pinyin_lookup(s,a,cap),nb=tab5_pinyin_lookup(s,b,cap);assert(na==nb);for(size_t i=0;i<na;i++)assert(!strcmp(a[i].text,b[i].text)&&a[i].weight==b[i].weight&&a[i].consumed==b[i].consumed);queries++;}
++static double bench(bool old){LARGE_INTEGER a,b,f;QueryPerformanceFrequency(&f);QueryPerformanceCounter(&a);const char *q[]={"nihao","zhongguo","shijie","xi'an","zhonghuarenmingongheguo","s","z","x","beijing","shengri","gongzuo","nihaoshijie"};size_t sum=0;for(int r=0;r<300;r++)for(size_t i=0;i<sizeof(q)/sizeof(*q);i++){tab5_pinyin_candidate c[48];sum+=(old?baseline_pinyin_lookup:tab5_pinyin_lookup)(q[i],c,48);}QueryPerformanceCounter(&b);assert(sum);return(double)(b.QuadPart-a.QuadPart)*1000/f.QuadPart;}
++int main(void){
++ assert(!tab5_pinyin_lookup("nihao",NULL,4));pinyin_lifecycle_test();assert(tab5_pinyin_init());
++ tab5_pinyin_data d={0};assert(tab5_pinyin_data_init(&d));size_t n=sizeof(pinyin_dictionary)/sizeof(pinyin_dictionary[0]);assert(n==current_count());
++ assert(!memcmp(d.keys,pinyin_keys,sizeof(pinyin_keys))&&!memcmp(d.words,pinyin_words,sizeof(pinyin_words))&&!memcmp(d.rows,pinyin_dictionary,sizeof(pinyin_dictionary)));
++ unsigned before=pinyin_allocations();
++ for(size_t i=0;i<n;i++){const uint8_t *row=pinyin_dictionary[i];const char *key=pinyin_keys+u24(row),*word=pinyin_words+u24(row+3);uint32_t weight=u24(row+6),bounds=row[9]|((uint32_t)row[10]<<8);assert(current_match(i,key,word,weight,bounds));
++  if(!i||strcmp(key,pinyin_keys+u24(pinyin_dictionary[i-1]))){compare(key,1);compare(key,4);compare(key,48);char upper[33];size_t len=strlen(key);for(size_t j=0;j<=len;j++)upper[j]=key[j]>='a'&&key[j]<='z'?key[j]-'a'+'A':key[j];compare(upper,48);}
++  if(bounds){char spelling[65];size_t at=0;for(size_t j=0;key[j];j++){if(j&&(bounds&(1u<<j)))spelling[at++]='\'';spelling[at++]=key[j];}spelling[at]=0;compare(spelling,48);}
++ }
++ for(char a='a';a<='z';a++)for(char b=0;b<27;b++){char p[]={a,b?(char)('a'+b-1):0,0};compare(p,48);}
++ const char *invalid[]={NULL,"","'","ni'","'ni","xi''an","ni?hao","ni hao","123","abcdefghijklmnopqrstuvwxyzabcdefg"};for(size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++)compare(invalid[i],48);compare("nihao",0);
++ tab5_pinyin_candidate first[48],second[48];size_t count=tab5_pinyin_lookup("nihao",first,48);char copy[48][32];for(size_t i=0;i<count;i++)strcpy(copy[i],first[i].text);for(int i=0;i<100;i++)tab5_pinyin_lookup("zhongguo",second,48);for(size_t i=0;i<count;i++)assert(!strcmp(copy[i],first[i].text));assert(before==pinyin_allocations());
++ double old[5],now[5];for(int i=0;i<5;i++){old[i]=bench(true);now[i]=bench(false);printf("PINYIN_BENCH batch=%d baselineMs=%.3f currentMs=%.3f ratio=%.3f\n",i,old[i],now[i],now[i]/old[i]);}
++ printf("PINYIN_LOSSLESS_OK records=%zu queries=%u byte-identical data/candidates/order/weights/consumed; OOM/corrupt/truncated/trailing rejected; stable editor pointers; zero lookup allocations\n",n,queries);
++}
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -196,7 +196,7 @@
+ target_include_directories(lvgl PUBLIC "${LVGL}" "${CMAKE_CURRENT_LIST_DIR}")
+ target_compile_definitions(lvgl PUBLIC LV_CONF_INCLUDE_SIMPLE _CRT_SECURE_NO_WARNINGS LV_USE_STDLIB_STRING=LV_STDLIB_CLIB)
+ add_executable(ui-preview preview.c "${ROOT}/firmware/main/tab5_font_24.c" "${ROOT}/firmware/main/tab5_font_30.c" "${ROOT}/firmware/main/tab5_digits_72.c" "${ROOT}/firmware/main/tab5_digits_96.c" "${ROOT}/firmware/main/tab5_timer_digits_192.c" "${ROOT}/firmware/main/link_state.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+-target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/tab5_ime.c" "${ROOT}/firmware/main/gallery_buffer.c")
++target_sources(ui-preview PRIVATE "${CMAKE_CURRENT_LIST_DIR}/pinyin_host.c" "${ROOT}/firmware/main/tab5_ime.c" "${ROOT}/firmware/main/tab5_pinyin_data.c" "${ROOT}/firmware/main/gallery_buffer.c")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/tab5_annual_digits_144.c")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/tab5_annual_text_26.c")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/tab5_calendar_text_20.c")
+@@ -274,6 +274,8 @@
+         "${CMAKE_CURRENT_BINARY_DIR}/baseline_pinyin_lookup.c" "${CMAKE_CURRENT_BINARY_DIR}/compact_pinyin_lookup.c")
+     target_include_directories(pinyin-lossless-test PRIVATE "${ROOT}/firmware/main" "${CMAKE_CURRENT_BINARY_DIR}")
+     target_link_libraries(pinyin-lossless-test PRIVATE lvgl)
++    target_sources(pinyin-lossless-test PRIVATE "${ROOT}/firmware/main/tab5_pinyin_data.c" "${CMAKE_CURRENT_LIST_DIR}/pinyin_host.c")
++    target_include_directories(pinyin-lossless-test PRIVATE "${ROOT}/tests/pinyin/heap-stubs" "${ROOT}/.tools/esp-idf/components/esp_rom/include" "${ROOT}/.tools/esp-idf/components/esp_rom/esp32p4")
+     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/baseline_brand_images.c" "#include \"lvgl.h\"\n#include \"${TAB5_FONT_BASELINE_DIR}/brand_logos.h\"\nconst lv_image_dsc_t *baseline_brand_images[]={&brand_openai_image,&brand_deepseek_image,&brand_zhipu_image,&brand_codex_image,&brand_codex_key_image,&brand_doubao_image,&brand_claude_image,&brand_alibaba_image,&brand_kimi_image,&brand_minimax_image,&brand_stepfun_image,&brand_baidu_image,&brand_xiaomi_image,&brand_volcengine_image,&brand_openai_option_image};\n")
+     add_executable(resource-lossless-test resource_lossless_test.c "${CMAKE_CURRENT_BINARY_DIR}/baseline_brand_images.c")
+     target_include_directories(resource-lossless-test PRIVATE "${ROOT}/firmware/main")
+@@ -1046,3 +1048,6 @@
+ add_executable(desktop-submit-feedback-test desktop_submit_feedback_test.c "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+ target_include_directories(desktop-submit-feedback-test PRIVATE "${ROOT}/.tools/esp-idf/components/json/cJSON")
+ target_compile_options(desktop-submit-feedback-test PRIVATE /UNDEBUG)
++
++# ROM miniz is adapted to host zlib only for offscreen IME verification.
++target_include_directories(ui-preview PRIVATE "${ROOT}/tests/pinyin/heap-stubs" "${ROOT}/.tools/esp-idf/components/esp_rom/include" "${ROOT}/.tools/esp-idf/components/esp_rom/esp32p4")
+--- a/tests/ui-preview/gallery_store_test.c
++++ b/tests/ui-preview/gallery_store_test.c
+@@ -13,9 +13,16 @@
+     assert(BCryptHash(provider,NULL,0,(PUCHAR)bytes,(ULONG)size,out,32)==0);BCryptCloseAlgorithmProvider(provider,0);return 0;
+ }
+ static size_t disk_written;
+-static bool full_card,fail_rename,probe_no_memory,guide_no_memory;
++static bool full_card,fail_rename,probe_no_memory,guide_no_memory,small_no_memory;
+ static cJSON_bool test_add_item(cJSON *object,const char *name,cJSON *item){if(guide_no_memory&&!strcmp(name,"guide")){errno=ENOMEM;return false;}return cJSON_AddItemToObject(object,name,item);}
+-static void *test_malloc(size_t size){if(probe_no_memory&&size>40000){errno=ENOMEM;return NULL;}return malloc(size);}
++static size_t workspace_size;static unsigned workspace_attempts,workspace_fail_at,workspace_live;static void *workspace_slots[128];
++static void *test_malloc(size_t size){
++    if((probe_no_memory&&size>40000)||(small_no_memory&&size<4096)){errno=ENOMEM;return NULL;}
++    if(size==workspace_size&&++workspace_attempts==workspace_fail_at){errno=ENOMEM;return NULL;}
++    void *p=malloc(size);if(p&&size==workspace_size){unsigned i=0;while(i<128&&workspace_slots[i])i++;assert(i<128);workspace_slots[i]=p;workspace_live++;}return p;
++}
++static void test_free(void *p){if(p)for(unsigned i=0;i<128;i++)if(workspace_slots[i]==p){workspace_slots[i]=NULL;assert(workspace_live);workspace_live--;break;}free(p);}
++
+ static unsigned bulk_writes;
+ static int test_native_write(int fd,const void *p,unsigned count){
+     if(full_card){errno=ENOSPC;return 0;}
+@@ -27,10 +34,12 @@
+ #define STORE_NATIVE_WRITE test_native_write
+ #define rename test_rename
+ #define malloc test_malloc
++#define free test_free
+ #define cJSON_AddItemToObject test_add_item
+ #include "../../firmware/main/gallery_store.c"
+ #undef rename
+ #undef malloc
++#undef free
+ #undef cJSON_AddItemToObject
+ static uint8_t *allocate(size_t n,size_t *capacity){*capacity=n;return malloc(n);}
+ static void release(gallery_jpeg *v,cJSON *g){free(v->data);cJSON_Delete(g);}
+@@ -87,9 +96,26 @@
+     printf("GALLERY_INCREMENTAL_METADATA_OK jpegBytes=%u legacyWriteBytes=%u deltaWriteBytes=%u deltaReadBytes=%u; complete text, reboot, ENOSPC, rename, corrupt metadata/JPEG, survivor-slot and work identity checked\n",(unsigned)size,legacy.write_bytes,delta.write_bytes,delta.read_bytes);
+     free(bytes);
+ }
++static void check_workspace_failures(const char *root){
++    uint8_t bytes[50000];memset(bytes,23,sizeof(bytes));
++    char a[65],b[65];memset(a,'3',64);memset(b,'4',64);a[64]=b[64]=0;
++    gallery_jpeg value={.key={.category=1,.frame=0,.frames=1},.data=bytes,.size=sizeof(bytes),.capacity=sizeof(bytes)};
++    strcpy(value.key.work_id,"fixture:workspace");
++    for(unsigned mode=0;mode<2;mode++)for(unsigned failure=1;failure<=6;failure++){
++        snprintf(value.key.date,sizeof(value.key.date),"2034-%02u-%02u",mode+1,failure);
++        gallery_guide guide={0};strcpy(guide.date,value.key.date);strcpy(guide.work_id,value.key.work_id);strcpy(guide.overview,"workspace OOM");
++        assert(gallery_store_put(root,&value,a,&guide)&&!workspace_live);
++        workspace_attempts=0;workspace_fail_at=failure;
++        bool ok=mode?gallery_store_refresh(root,&value,b,&guide):gallery_store_put(root,&value,b,&guide);
++        workspace_fail_at=0;assert(!workspace_live);
++        gallery_jpeg got={0};cJSON *raw=NULL;assert(gallery_store_get(root,&value.key,ok?b:a,allocate,&got,&raw));release(&got,raw);assert(!workspace_live);
++    }
++    puts("GALLERY_PATH_WORKSPACE_OK nested allocation failures preserve completed records; every private path workspace released");
++}
+ int main(void) {
++    workspace_size=sizeof(gallery_paths);
+     char tmp[MAX_PATH],root[MAX_PATH];GetTempPathA(sizeof(tmp),tmp);snprintf(root,sizeof(root),"%saibot-tf-%lu",tmp,GetCurrentProcessId());assert(!_mkdir(root));
+-    check_bulk_io(root);check_incremental_metadata(root);
++    check_bulk_io(root);check_incremental_metadata(root);check_workspace_failures(root);
+     uint8_t bytes[50000];for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(uint8_t)i;
+     gallery_jpeg value={.key={.category=0,.frame=0,.frames=3,.portrait=false},.data=bytes,.size=sizeof(bytes),.capacity=sizeof(bytes)};
+     strcpy(value.key.date,"2026-10-11");strcpy(value.key.work_id,"museum:reviewed-work");
+@@ -126,6 +152,11 @@
+     assert(!strcmp(text(raw,"transcription"),guide.transcription));release(&got,raw);
+     assert(gallery_store_put(root,&value,next,&guide));
+     assert(gallery_store_get(root,&value.key,next,allocate,&got,&raw));release(&got,raw);
++    // A path-workspace allocation failure must not publish or remove a record.
++    small_no_memory=true;assert(!gallery_store_put(root,&value,rev,&guide));
++    gallery_jpeg missing={0};cJSON *missing_guide=NULL;
++    assert(!gallery_store_get(root,&value.key,next,allocate,&missing,&missing_guide)&&!missing.data&&!missing_guide);
++    small_no_memory=false;assert(gallery_store_get(root,&value.key,next,allocate,&got,&raw));release(&got,raw);
+     // Corrupt the newest JPEG: old complete record still loads; an interrupted
+     // repair must not delete that good record in favor of the corrupt one.
+     char file[512];assert(path_for(file,sizeof(file),root,&value.key,1));FILE *f=fopen(file,"r+b");assert(f);assert(!fseek(f,-1,SEEK_END));assert(fputc(123,f)!=EOF);assert(!fclose(f));
+@@ -140,6 +171,16 @@
+     for(int i=0;i<2;i++){path_for(file,sizeof(file),root,&value.key,i);assert(!remove(file));}
+     path_for(file,sizeof(file),root,&value.key,0);strcat(file,".part");f=fopen(file,"wb");assert(f);fputs("incomplete",f);fclose(f);
+     assert(!gallery_store_get(root,&value.key,"",allocate,&got,&raw));assert(!_access(unrelated,0));
++    // Legacy firmware used just two shared slots. Preserve both revisions
++    // before a new save overwrites them, including after repeated switches.
++    gallery_catalog legacy_a={.works=366,.next=11},legacy_b={.works=1765,.next=27},legacy_loaded={0};
++    strcpy(legacy_a.revision,rev);strcpy(legacy_b.revision,next);
++    assert(catalog_pair_save(root,1,&legacy_a,false)&&catalog_pair_save(root,1,&legacy_b,false));
++    legacy_b.next=28;assert(gallery_catalog_save(root,1,&legacy_b));
++    legacy_b.next=29;assert(gallery_catalog_save(root,1,&legacy_b));
++    assert(gallery_catalog_load(root,1,rev,&legacy_loaded)&&legacy_loaded.next==11);
++    assert(gallery_catalog_load(root,1,next,&legacy_loaded)&&legacy_loaded.next==29);
++    puts("GALLERY_LEGACY_SCOPE_MIGRATION_OK");
+     gallery_catalog plan={.works=366,.next=17},loaded={0};strcpy(plan.revision,rev);
+     assert(gallery_catalog_save(root,0,&plan)&&gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==17&&loaded.works==366);
+     plan.next=18;full_card=true;assert(!gallery_catalog_save(root,0,&plan));full_card=false;
+@@ -147,9 +188,21 @@
+     fail_rename=true;assert(!gallery_catalog_save(root,0,&plan));fail_rename=false;
+     assert(gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==17);
+     assert(gallery_catalog_save(root,0,&plan)&&gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==18);
+-    assert(!gallery_catalog_load(root,1,rev,&loaded)&&!gallery_catalog_load(root,0,next,&loaded));
+-    assert(catalog_path(file,root,0,1));f=fopen(file,"r+b");assert(f);fputc('X',f);fclose(f);
++    assert(!gallery_catalog_load(root,0,next,&loaded));
++    assert(catalog_revision_path(file,root,0,rev,1));f=fopen(file,"r+b");assert(f);fputc('X',f);fclose(f);
+     assert(gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==17);
++    // Switch scopes repeatedly after partial writes; each keeps its own cursor.
++    gallery_catalog full={.works=1765,.next=35};strcpy(full.revision,next);
++    assert(gallery_catalog_save(root,0,&full));full.next=38;assert(gallery_catalog_save(root,0,&full));
++    plan.next=24;assert(gallery_catalog_save(root,0,&plan));plan.next=25;assert(gallery_catalog_save(root,0,&plan));
++    assert(gallery_catalog_load(root,0,next,&loaded)&&loaded.next==38&&loaded.works==1765);
++    assert(gallery_catalog_load(root,0,"",&loaded)&&loaded.next==38&&!strcmp(loaded.revision,next));
++    assert(gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==25&&loaded.works==366);
++    assert(gallery_catalog_load(root,0,"",&loaded)&&loaded.next==25&&!strcmp(loaded.revision,rev));
++    full.next=39;assert(gallery_catalog_save(root,0,&full));
++    assert(gallery_catalog_load(root,0,"",&loaded)&&loaded.next==39&&!strcmp(loaded.revision,next));
++    assert(gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==25);
++    puts("GALLERY_SCOPE_PROGRESS_OK partial switch, resume, offline last active");
+     char canonical[11];
+     assert(gallery_catalog_key("2028-02-29",366,canonical)&&!strcmp(canonical,"2026-02-27"));
+     assert(gallery_catalog_key("2028-02-29",3,canonical)&&!strcmp(canonical,"2026-01-01"));
+--- a/tests/ui-preview/gallery_worker_test.c
++++ b/tests/ui-preview/gallery_worker_test.c
+@@ -1,5 +1,6 @@
+ #undef NDEBUG
+ #include <assert.h>
++#include <limits.h>
+ #include <stdbool.h>
+ #include <stdint.h>
+ #include <stdatomic.h>
+@@ -50,6 +51,7 @@
+ static void xSemaphoreTake(int mutex,int timeout){(void)mutex;(void)timeout;assert(!locked);AcquireSRWLockExclusive(&device_test_lock);locked=1;}
+ static void xSemaphoreGive(int mutex){(void)mutex;assert(locked);locked=0;ReleaseSRWLockExclusive(&device_test_lock);}
+ static void voice_remote_get(voice_remote_state *s){s->busy=foreground;}
++static bool voice_remote_busy(void){return foreground;}
+ static bool ota_update_busy(void){return false;}
+ static bool transport_benchmark_busy(void){return false;}
+ static bool camera_preview_busy(void){return false;}
+@@ -573,6 +575,20 @@
+     for(int i=0;i<50;i++)gallery_sync_library();
+     assert(catalogs[0].next==3&&catalogs[1].next==2&&range_calls-ranges_before==60&&decodes==library_decodes_before);
+     assert(full_guides-full_before==5&&referenced_guides-ref_before==25);
++    // Switching to a second scope midway and back preserves both cursors.
++    remote_revisions[0][0]='b';assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    for(int i=0;i<20&&catalogs[0].next<1;i++)gallery_sync_library();
++    unsigned partial=catalogs[0].next;assert(partial>=1&&partial<3);
++    remote_revisions[0][0]='7';assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    for(int i=0;i<4&&!catalog_loaded[0];i++)gallery_sync_library();
++    assert(catalogs[0].next==3);
++    remote_revisions[0][0]='b';assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    for(int i=0;i<4&&!catalog_loaded[0];i++)gallery_sync_library();
++    assert(catalogs[0].next==partial);
++    remote_revisions[0][0]='7';assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    for(int i=0;i<4&&!catalog_loaded[0];i++)gallery_sync_library();
++    assert(catalogs[0].next==3);
++    puts("GALLERY_SCOPE_SWITCH_WORKER_OK completed and partial scopes resume their own cursors");
+     assert(!gallery_library_pending());
+     int idle_calls=network_calls;unsigned idle_writes=card_writes;
+     assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==0);
+--- /dev/null
++++ b/tests/ui-preview/pinyin_host.c
+@@ -0,0 +1,17 @@
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <windows.h>
++#include "miniz.h"
++static bool corrupt;
++void *heap_caps_malloc(size_t n,unsigned caps){assert(caps==3);return malloc(n);}
++tinfl_status tinfl_decompress(tinfl_decompressor *state,const mz_uint8 *input,size_t *length,mz_uint8 *start,mz_uint8 *out,size_t *capacity,const mz_uint32 flags){
++    assert(state&&start==out&&flags==(TINFL_FLAG_PARSE_ZLIB_HEADER|TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF));
++    typedef int (__cdecl *inflate_fn)(void*,unsigned long*,const void*,unsigned long*);
++    static inflate_fn fn;if(!fn){HMODULE dll=LoadLibraryA(getenv("TAB5_TEST_ZLIB")?getenv("TAB5_TEST_ZLIB"):"C:\\Program Files\\Git\\ucrt64\\bin\\zlib1.dll");assert(dll);fn=(inflate_fn)GetProcAddress(dll,"uncompress2");assert(fn);}
++    if(corrupt)return TINFL_STATUS_FAILED;
++    unsigned long produced=(unsigned long)*capacity,consumed=(unsigned long)*length;
++    int result=fn(out,&produced,input,&consumed);*length=consumed;*capacity=produced;
++    return result==0?TINFL_STATUS_DONE:TINFL_STATUS_FAILED;
++}
+--- a/tests/ui-preview/pinyin_lossless_test.c
++++ b/tests/ui-preview/pinyin_lossless_test.c
+@@ -19,6 +19,7 @@
+     queries++;
+ }
+ int main(void) {
++    assert(tab5_pinyin_init());
+     size_t count=sizeof(pinyin_dictionary)/sizeof(pinyin_dictionary[0]);
+     assert(count==compact_dictionary_count());
+     clock_t started=clock();
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2042,6 +2042,32 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_PINYIN_ONLY")) {
++        page(8);lv_obj_send_event(codex_input,LV_EVENT_FOCUSED,NULL);
++        const char *hint=lv_textarea_get_placeholder_text(codex_input);assert(!hint||!hint[0]);
++        lv_textarea_set_text(codex_input,"");tab5_ime_reset_for(codex_ime_panel);capture("pinyin-empty");
++        type_spelling("xian");capture("pinyin-xian-candidates");choose_word("西安");
++        assert(!strcmp(lv_textarea_get_text(codex_input),"西安"));capture("pinyin-xian-committed");
++        assert(press_text(codex_keyboard,LV_SYMBOL_BACKSPACE));assert(press_text(codex_keyboard,LV_SYMBOL_BACKSPACE));
++        assert(!lv_textarea_get_text(codex_input)[0]);capture("pinyin-cleared");
++        type_spelling("xian");choose_word("西安");assert(!strcmp(lv_textarea_get_text(codex_input),"西安"));
++        lv_textarea_set_text(codex_input,"");tab5_ime_reset_for(codex_ime_panel);type_spelling("nihao");
++        assert(!strcmp(tab5_ime_pending_for(codex_ime_panel),"nihao"));capture("pinyin-candidates");
++        lv_obj_t *second=lv_obj_create(lv_screen_active()),*text=lv_textarea_create(second),*keyboard=lv_keyboard_create(second);
++        lv_keyboard_set_textarea(keyboard,text);lv_obj_t *ime=tab5_ime_create(second,keyboard,text,&tab5_font_24);assert(ime);tab5_ime_show_for(ime,true);
++        for(const char *p="zhongguo";*p;p++){char key[2]={*p,0};assert(press_text(keyboard,key));}
++        assert(!strcmp(tab5_ime_pending_for(codex_ime_panel),"nihao"));
++        assert(press_text(lv_obj_get_child(ime,2),"中国"));assert(!strcmp(lv_textarea_get_text(text),"中国"));
++        lv_obj_delete(second);choose_word("你好");assert(!strcmp(lv_textarea_get_text(codex_input),"你好"));
++        type_spelling("shijie");assert(press_text(codex_keyboard," "));assert(!strcmp(lv_textarea_get_text(codex_input),"你好世界"));
++        type_spelling("nihao");choose_word("你");assert(!strcmp(tab5_ime_pending(),"hao"));choose_word("好");
++        type_spelling("nihao");assert(press_text(codex_keyboard,LV_SYMBOL_BACKSPACE));assert(!strcmp(tab5_ime_pending(),"niha"));type_spelling("o");choose_word("你好");
++        type_spelling("test");lv_obj_send_event(lv_obj_get_child(codex_ime_panel,0),LV_EVENT_CLICKED,NULL);type_spelling("hello");
++        assert(strstr(lv_textarea_get_text(codex_input),"testhello")&&!tab5_ime_pending()[0]);
++        lv_obj_send_event(lv_obj_get_child(codex_ime_panel,0),LV_EVENT_CLICKED,NULL);
++        lv_textarea_set_text(codex_input,"前后");lv_textarea_set_cursor_pos(codex_input,1);type_spelling("nihao");choose_word("你好");assert(!strcmp(lv_textarea_get_text(codex_input),"前你好后"));
++        capture("pinyin-committed");puts("PINYIN_UI_OK production keyboard events, partial syllable, backspace, space commit, English toggle, cursor insert, independent editor candidates");return 0;
++    }
+     if(getenv("TAB5_PREVIEW_GALLERY_LOAN_ONLY")){check_preview_gallery_loan();return 0;}
+     if(getenv("TAB5_CLEAR_RENDER_ONLY")){check_codex_clear_render();return 0;}
+     if(getenv("TAB5_CLEAR_FEEDBACK_ONLY")){check_codex_clear_feedback();return 0;}

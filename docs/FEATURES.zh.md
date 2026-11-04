@@ -1,6 +1,6 @@
 # 功能与界面图鉴
 
-当前 Windows **0.6.14**、Mac **0.6.15**、TAB5 **0.2.302-ui**、ESP8266 **0.5.7**。两类图库各 366 件；公开内容版次均为 **2026.1**，提供标准与高清完整版；[内部包编号保留](GALLERY-VERSIONS.md)。[本版范围与验收](RELEASE-0.6.15.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
+本页同步待发布源码：Windows／Mac **0.6.17**、TAB5 **0.2.312-ui**；适配与最终候选验收未完成。当前公开下载仍为桥接 **0.6.16**、TAB5 **0.2.303-ui**、ESP8266 **0.5.8**。两类年度图库各 366 件，公开内容版次均为 **2026.1**；年度／全量选择的准备范围见[图库交接](development/GALLERY-COLLECTIONS-20261103.md)。[本版范围与验收](RELEASE-0.6.17.md) · [高清图库安装](GALLERY-HD.md) · [截图来源](SCREENSHOTS.md)
 
 AI-bot 把 AI 任务状态、账户额度和日常信息放到桌边。先看两类设备的整体用法，再看各自重点，完整页面可按场景展开。
 
@@ -28,6 +28,8 @@ Windows 与 Apple Silicon Mac 均支持两类设备，具体范围见[平台说�
 ### 整体界面与入口
 
 总览集中显示 AI 状态、常用任务、额度和日期天气；底部 **总览 / Codex / 额度 / 应用**贯穿主要页面。进入“应用”可打开天气、电脑状态、行情、音乐、时钟或桌宠；右上角齿轮进入设备设置，右下角角色图标打开 Codex 直达。
+
+**总览萌宠：** 项目与当前会话在左侧，短状态居中显示在右侧萌宠上方。根据当前受支持客户端显示一只 Codex 或 Clawd；客户端使用其他模型时仍保留其客户端萌宠，不接入其他 Harness。下方总览截图保留历史界面来源，新的萌宠外观见本节屏保预览。
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-overview.png" alt="TAB5 总览：状态、任务、额度与日期天气"></td><td width="50%"><img src="assets/screens/tab5-apps.png" alt="TAB5 应用：天气、电脑状态、行情、音乐、时钟与桌宠"></td></tr></table>
 
@@ -90,7 +92,13 @@ Windows 与 Apple Silicon Mac 均支持两类设备，具体范围见[平台说�
 
 <table><tr><td width="50%"><img src="assets/screens/tab5-annual.png" alt="全年点阵：每天一颗点与年度进度"></td><td width="50%"><img src="assets/screens/tab5-floral.png" alt="十二月历：当月花卉、农历与节气"></td></tr></table>
 
-在 TAB5 **设置 → 屏幕声音**选择并预览。屏保选项包括经典时钟、年度点阵、年度点阵暖灰、十二月历、每日名画、每日书法和日期倒计时。经典时钟和年度点阵按设备本地 07:00–19:00 使用日间配色，其余为夜间配色；不再单列暗夜与自动昼夜。经典时钟秒数变化时时分位置稳定，每分钟保留轻微移位。十二月历预览可切月，自动屏保跟随实际月份。
+在 TAB5 **设置 → 屏幕声音**选择并预览。屏保选项包括经典时钟、年度点阵、年度点阵暖灰、十二月历、每日名画、每日书法、日期倒计时、Codex萌宠和Claude萌宠。经典时钟和年度点阵按设备本地 07:00–19:00 使用日间配色，其余为夜间配色；不再单列暗夜与自动昼夜。经典时钟秒数变化时时分位置稳定，每分钟保留轻微移位。十二月历预览可切月，自动屏保跟随实际月份。
+
+**萌宠屏保**仅保留动画和底部居中小时间，轻触退出并恢复原页面。Codex 使用蓝灰背景，Clawd 使用暖棕背景；工作等动态状态在屏保中循环，没有活动时保留安静站姿。官方原始动作由本项目映射到状态，不把自定义含义称为官方状态定义。
+
+![两个独立萌宠屏保的原生渲染，演示时间，非实拍](assets/screens/tab5-companion-savers-0312-preview.png)
+
+两种屏保的显示、退出、位置、背景与字体已实机确认；活跃 Claude 切换及部分特殊状态仍有[验收边界](RELEASE-0.6.17.md)。
 
 <details>
 <summary>展开经典时钟与点阵配色</summary>
@@ -429,15 +437,15 @@ Windows 0.6.9 + TAB5 217 provide volume/mute/lock, actual lock state and four lo
 | 平台 | 当前范围 | 验证说明 |
 | --- | --- | --- |
 | Windows 10/11 x64 | 双硬件设备中心、上述设置、统一更新与 TAB5 服务 | 当前发布构建和隔离回归通过；截图不是所有账号、全新安装或长期运行的验收。 |
-| ESP8266 0.5.7 | 小屏页面、时钟、桌宠、USB / Wi-Fi 与固定设备身份 | 真实 USB 换口与未配置 LAN 恢复已验证，具体记录见本版发布说明。 |
-| TAB5 0.2.282-ui | 电脑控制、十网络、横屏翻转、时钟、图库、日程与存储 | 282 的系统告警、诊断、检测详情与返回操作经用户实机确认；217 精确镜像启动、215 控制／锁屏／无闪动及拔 USB 后 Wi-Fi 音量获确认；210 的日程、内存和重启验收沿用；满额腾位、BLE 整包 OTA 和长期运行不扩大验收结论。 |
+| ESP8266 0.5.8 | 小屏页面、时钟、桌宠、USB / Wi-Fi 与固定设备身份 | 本轮未变更；真实 USB 换口与未配置 LAN 恢复、股票显示等既有结果见历史发布说明。 |
+| TAB5 0.2.312-ui | 总览萌宠、两种萌宠屏保与既有触控功能 | 精确镜像 VALID 启动及屏保外观／退出已实机确认；414 个原生界面场景通过。活跃 Claude 切换、部分特殊状态、全通道断连及告警点击路径仍未全部实机覆盖；此前验收范围保留。 |
 | macOS 13+ Apple Silicon | 菜单栏、镜像、ESP8266 与对应平台功能 | CI 测试／构建通过；现支持 TAB5 连接、控制、预览、固件和图库管理；授权及语音来源按平台区分。Intel Mac 未验证。 |
 
-[发布明细](RELEASE-0.6.13.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
+[发布明细](RELEASE-0.6.17.md) · [截图来源与复现](SCREENSHOTS.md) · [开发参考](REFERENCE.zh.md)
 
 ## English summary
 
-AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows 0.6.14, Mac 0.6.15, ESP8266 0.5.7 and TAB5 0.2.302-ui, plus two independent 366-work annual collections. Browse past works on the computer; select TF storage explicitly for complete-library caching and read complete long originals on the supporting firmware. Start with the device overview, then follow the matching device tour.
+AI-bot puts AI activity, account quotas and everyday information on a desktop display. This guide covers Windows/Mac 0.6.17, ESP8266 0.5.8 and TAB5 0.2.312-ui, plus two independent 366-work annual collections. The overview shows one supported client's Codex or Clawd mascot; their separate screensavers use original official frames, project-defined state mappings, soft backdrops and a centered clock. Saver appearance and touch exit were physically accepted; active Claude routing and some special states retain the limits in the release notes. Older screenshots retain their original provenance. Browse past artwork on the computer and select TF storage explicitly for complete-library caching.
 
 **TAB5:** overview and the four main navigation tabs come first. Highlights cover Codex Direct and task reading, Annual Dots and the floral calendar, and landscape/portrait art. Expand the grouped galleries for activity/history, voice/camera drafts, quotas and API balances, current/hourly/seven-day weather, markets, computer metrics, music, nine clock faces, calendar, pets and all settings panels, including independent Storage Management. Voice results and camera attachments enter drafts; sending is explicit. Art screensavers support portrait rotation; normal system pages remain landscape and can automatically flip 180 degrees with touch following. Art collections are optional downloads.
 

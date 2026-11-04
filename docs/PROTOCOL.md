@@ -1470,6 +1470,14 @@ Mac 本地对齐候选（2026-11-01）采用相同的场景错误和类型化回
 
 The Mac local alignment candidate (2026-11-01) adopts the same contextual error values and typed receipts. Besides the original device/chat/question, it retains a process-local editor identity. Explicit submission freezes the latest nonempty correction in that editor; the native action rechecks the identity and frozen text, retaining attachment/reference guards. Legacy adapters without target binding retain exact staged-text checks. An attempted but unconfirmed action returns `submitted:false, attempted:true`; read-only reconciliation never triggers a resend. Proven no-action failures return both flags false. Cleanup matches only the original device draft and preserves newer drafts. Durable queue retention remains delivery without implying execution. No new wire field, version or retry is introduced; local regression and physical acceptance remain separate evidence.
 
+### TAB5 0.2.305 拼音词库诊断 / Pinyin dictionary diagnostics
+
+`displayDiag` 的可选标签后缀增加 `;ime,1,rawBytes,packedBytes,initUs,samples,meanUs,peakUs,psramFree`。单位为字节、微秒和查询次数；耗时来自启动时固定代表查询，PSRAM 空闲值在读取诊断时采样。原数值前缀、其他后缀和协议版本均不改变。Windows/Mac 的既有字符串透传消费者无需依赖该标签；缺失标签不表示输入法失败。此诊断不包含拼音输入或用户文字。
+
+The optional `displayDiag` suffix records dictionary sizes, one-time initialization time, startup sample count/mean/peak lookup time, and current free PSRAM. Existing prefixes, tags and opaque-string consumers remain compatible; no typed text or user input is reported. Startup timings do not replace interactive performance acceptance.
+
+0.2.306 本地候选在 `galleryDiag` 保留原数字前缀，完成图库任务后可附加 `;stack,1,minFreeBytes`，报告已完成图库工作任务观测到的最小剩余栈字节数。该采样不等于所有调用路径的严格上界；硬件栈保护与原 8 KiB 栈保持启用。Existing opaque-string consumers remain compatible; the optional sample is not a complete worst-case stack proof.
+
 ### TAB5 Codex companion / Codex 萌宠状态
 
 本地候选在 `codexTasks.tasks[]` 和 `codexTasks.overviewTask` 增加可选字段，协议仍为 v1：

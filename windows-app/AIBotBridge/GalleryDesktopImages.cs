@@ -41,7 +41,9 @@ internal sealed class GalleryDesktopImages
     }
     private static bool ValidBounds(double[]? b,int width,int height)=>b is {Length:4}&&b.All(double.IsFinite)&&b[0]>=0&&b[1]>=0&&b[2]>0&&b[3]>0&&b[0]+b[2]<=width+.01&&b[1]+b[3]<=height+.01;
     internal async Task<Result?> LoadAsync(Tab5Gallery.BrowserPage preview,int frame,CancellationToken token){
+        if(_useInstalled&&!GalleryPreferences.High)return null;
         if(_useInstalled && GalleryHdPack.Current(preview.Work.Category) is {} directory){
+            if(GalleryHdPack.Installed(preview.Work.Category) is null)return null;
             GalleryDesktopImages loader;
             lock(_installed){
                 if(!_installed.TryGetValue(preview.Work.Category,out var saved)||saved.Path!=directory){saved=(directory,new GalleryDesktopImages(System.IO.Path.Combine(directory,"desktop-originals.json")));_installed[preview.Work.Category]=saved;}

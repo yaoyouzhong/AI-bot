@@ -16,15 +16,23 @@ internal static class GalleryHdPack
     }
     internal static InstalledInfo? Installed(string category,string? root=null){
         try{var dir=Current(category,root);if(dir is null)return null;using var doc=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(dir,"catalog.json")));
-            return new(category,doc.RootElement.GetProperty("edition").GetString()!,doc.RootElement.GetProperty("works").GetArrayLength(),dir);
-        }catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or KeyNotFoundException){return null;}
+            int works=doc.RootElement.GetProperty("works").GetArrayLength();
+            string galleryRoot=root is null?GalleryPack.Root:Path.Combine(root,"standard-gallery");
+            var standard=GalleryPack.Installed(category,galleryRoot);
+            string indexPath=Path.Combine(dir,"desktop-originals.json");if(new FileInfo(indexPath).Length>16*1024*1024)return null;
+            var index=JsonSerializer.Deserialize<GalleryDesktopImages.Index>(File.ReadAllBytes(indexPath),JsonDefaults.Options);
+            if(standard is null||standard.Works!=works||index is null||index.Pages.Length*2!=standard.Frames||
+               index.Pages.Select(p=>p.Frame).Distinct(StringComparer.Ordinal).Count()!=index.Pages.Length||
+               index.Pages.Any(p=>p.Category!=category||!standard.Files.TryGetValue(p.Frame,out var hash)||!hash.Equals(p.PreviewSha256,StringComparison.OrdinalIgnoreCase)))return null;
+            return new(category,doc.RootElement.GetProperty("edition").GetString()!,works,dir);
+        }catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or KeyNotFoundException or NullReferenceException){return null;}
     }
     internal static string SafePath(string root,string relative){
         var pieces=relative.Split('/');
         if(relative.Length>240||pieces.Any(p=>p.Length==0||p is "." or ".."||p.EndsWith('.')||p.EndsWith(' ')||p.Any(c=>c<32||"\\:<>\"|?*".Contains(c))||System.Text.RegularExpressions.Regex.IsMatch(p,@"^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\.|$)",System.Text.RegularExpressions.RegexOptions.IgnoreCase)))throw new InvalidDataException("素材路径不合法。");
         return Path.Combine(root,Path.Combine(pieces));
     }
-    internal static InstalledInfo Install(string zip,string? root=null,IProgress<int>? progress=null,CancellationToken cancellation=default){
+    internal static InstalledInfo Install(string zip,string? root=null,IProgress<int>? progress=null,CancellationToken cancellation=default,string? expectedCollection=null){
         string galleryRoot=root is null?GalleryPack.Root:Path.Combine(root,"standard-gallery");
         root=Path.GetFullPath(root??Root);Directory.CreateDirectory(root);
         string name=Guid.NewGuid().ToString("N"),stage=Path.Combine(root,name),pointerTemp=Path.Combine(root,name+".tmp");bool committed=false;
@@ -66,7 +74,8 @@ internal static class GalleryHdPack
             int works=c.GetProperty("works").GetArrayLength();if(works is <1 or >10000)throw new InvalidDataException("作品数量不正确。");
             if(!entries.ContainsKey("standard.zip"))throw new InvalidDataException("这是旧版高清素材集，请选择包含作品和导读的高清完整包。");
             string prepared=Path.Combine(stage,"standard");
-            var standard=GalleryPack.Install(Path.Combine(stage,"standard.zip"),prepared,cancellation:cancellation,notify:false);
+            var standard=GalleryPack.Install(Path.Combine(stage,"standard.zip"),prepared,cancellation:cancellation,notify:false,expectedCollection:expectedCollection);
+            if(root==Path.GetFullPath(Root)&&GalleryPack.Installed(category,galleryRoot)?.Collection=="full"&&standard.Collection!="full")throw new InvalidDataException("已安装全量图库；年度包不会覆盖全量图库。");
             if(standard.Category!=category||standard.Works!=works||standard.SchemaVersion!=2)throw new InvalidDataException("高清图片与内置图库不一致。");
             var standardWorks=JsonSerializer.Deserialize<Tab5Gallery.Artwork[]>(File.ReadAllBytes(Path.Combine(prepared,category,"catalog.json")),JsonDefaults.Options)!;
             var lookup=standardWorks.ToDictionary(w=>w.Id);
@@ -74,6 +83,9 @@ internal static class GalleryHdPack
             foreach(var page in index.Pages){
                 if(!lookup.TryGetValue(page.Id,out var work)||page.WorkId!=(work.WorkId??work.Source)||!work.Frames.Contains(page.Frame)||!standard.Files[page.Frame].Equals(page.PreviewSha256,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("高清页面与内置图库不匹配。");
             }
+            // This ZIP is a fresh import-time copy; the validated standard files
+            // have already been extracted and the caller's original ZIP remains.
+            File.Delete(Path.Combine(stage,"standard.zip"));
             progress?.Report(98);cancellation.ThrowIfCancellationRequested();Directory.CreateDirectory(galleryRoot);
             string target=Path.Combine(galleryRoot,category),backup=target+".backup-"+name;
             File.WriteAllText(pointerTemp,name);

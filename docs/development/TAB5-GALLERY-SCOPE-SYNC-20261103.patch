@@ -1,0 +1,165 @@
+--- a/firmware/main/gallery_store.c
++++ b/firmware/main/gallery_store.c
+@@ -447,11 +447,21 @@
+     bool ok=(!remove(data)||errno==ENOENT)&&!remove(journal);if(!ok)io_error();return ok;
+ }
+ 
++#if defined(__GNUC__) && !defined(__clang__)
++#define CATALOG_SMALL __attribute__((optimize("Os")))
++#else
++#define CATALOG_SMALL
++#endif
+ // Small, independently checksummed cursor. Only a completely saved work moves
+ // next forward; after an interrupted work, its verified pages are reused.
+ static bool catalog_path(char out[512],const char *root,int category,unsigned slot) {
+     if(!root||category<0||category>1||slot>1)return false;
+     int n=snprintf(out,512,"%s/%s/catalog.%u",root,category?SD_STORAGE_CALLIGRAPHY_DIR:SD_STORAGE_PAINTING_DIR,slot);
++    return n>0&&n<512;
++}
++static CATALOG_SMALL bool catalog_revision_path(char out[512],const char *root,int category,const char *revision,unsigned slot) {
++    if(!root||category<0||category>1||!revision_ok(revision)||strlen(revision)!=64||slot>1)return false;
++    int n=snprintf(out,512,"%s/%s/catalog-%s.%u",root,category?SD_STORAGE_CALLIGRAPHY_DIR:SD_STORAGE_PAINTING_DIR,revision,slot);
+     return n>0&&n<512;
+ }
+ static uint32_t catalog_read(const char *path,const char *revision,gallery_catalog *out) {
+@@ -467,22 +477,36 @@
+     if(out)*out=value;
+     return serial;
+ }
+-bool gallery_catalog_load(const char *root,int category,const char *revision,gallery_catalog *out) {
+-    media_error=false;if(!out||!revision_ok(revision))return false;
++static CATALOG_SMALL uint32_t catalog_pair_load(const char *root,int category,const char *revision,bool scoped,gallery_catalog *out) {
+     uint32_t newest=0;char path[512];gallery_catalog candidate;
+     for(unsigned i=0;i<2;i++) {
+-        if(!catalog_path(path,root,category,i))return false;
++        if(!(scoped?catalog_revision_path(path,root,category,revision,i):catalog_path(path,root,category,i)))return 0;
+         uint32_t serial=catalog_read(path,revision,&candidate);
+         if(serial>newest){newest=serial;*out=candidate;}
+     }
+-    return newest!=0;
+-}
+-bool gallery_catalog_save(const char *root,int category,const gallery_catalog *value) {
+-    media_error=false;
+-    if(!value||strlen(value->revision)!=64||!revision_ok(value->revision)||value->works<1||value->works>4096||
+-       value->next>value->works||category<0||category>1||!directories(root,category,NULL))return false;
++    return newest;
++}
++static bool catalog_pair_save(const char *,int,const gallery_catalog *,bool);
++static bool catalog_migrate(const char *,int);
++CATALOG_SMALL bool gallery_catalog_load(const char *root,int category,const char *revision,gallery_catalog *out) {
++    media_error=false;if(!out||!revision_ok(revision))return false;
++    if(*revision&&catalog_pair_load(root,category,revision,true,out)){
++        gallery_catalog active;
++        if((!catalog_pair_load(root,category,"",false,&active)||strcmp(active.revision,revision))&&catalog_migrate(root,category))
++            (void)catalog_pair_save(root,category,out,false);
++        return true;
++    }
++    // Legacy slots also identify the most recent active scope for offline use.
++    if(!catalog_pair_load(root,category,revision,false,out))return false;
++    if(!*revision){gallery_catalog newer;if(catalog_pair_load(root,category,out->revision,true,&newer))*out=newer;}
++    return true;
++}
++static CATALOG_SMALL bool catalog_pair_save(const char *root,int category,const gallery_catalog *value,bool scoped) {
+     char paths[2][512],temp[520];uint32_t serial[2];
+-    for(unsigned i=0;i<2;i++){if(!catalog_path(paths[i],root,category,i))return false;serial[i]=catalog_read(paths[i],"",NULL);}
++    for(unsigned i=0;i<2;i++){
++        if(!(scoped?catalog_revision_path(paths[i],root,category,value->revision,i):catalog_path(paths[i],root,category,i)))return false;
++        serial[i]=catalog_read(paths[i],"",NULL);
++    }
+     uint32_t newest=serial[0]>serial[1]?serial[0]:serial[1];if(newest>=UINT32_MAX-1)return false;
+     unsigned slot=serial[0]<=serial[1]?0:1;
+     uint8_t bytes[116]={0};memcpy(bytes,"AIBCAT01",8);set32(bytes+8,newest+1);set32(bytes+12,value->works);set32(bytes+16,value->next);
+@@ -495,6 +519,27 @@
+     if(!ok)remove(temp);
+     return ok;
+ }
++static CATALOG_SMALL bool catalog_migrate(const char *root,int category) {
++    gallery_catalog old[2],found;uint32_t serial[2];char path[512];
++    for(unsigned i=0;i<2;i++){
++        if(!catalog_path(path,root,category,i))return false;
++        serial[i]=catalog_read(path,"",&old[i]);
++    }
++    unsigned first=serial[1]>serial[0]?1:0;
++    for(unsigned n=0;n<2;n++){
++        unsigned i=first^n;
++        if(serial[i]&&!catalog_pair_load(root,category,old[i].revision,true,&found)&&
++           !catalog_pair_save(root,category,&old[i],true))return false;
++    }
++    return true;
++}
++CATALOG_SMALL bool gallery_catalog_save(const char *root,int category,const gallery_catalog *value) {
++    media_error=false;
++    if(!value||strlen(value->revision)!=64||!revision_ok(value->revision)||value->works<1||value->works>4096||
++       value->next>value->works||category<0||category>1||!directories(root,category,NULL))return false;
++    // Migrate legacy slots before updating the last-active pair.
++    return catalog_migrate(root,category)&&catalog_pair_save(root,category,value,true)&&catalog_pair_save(root,category,value,false);
++}
+ static bool leap(int year){return year%4==0&&(year%100!=0||year%400==0);}
+ static int month_days(int year,int month){static const int days[]={31,28,31,30,31,30,31,31,30,31,30,31};return days[month-1]+(month==2&&leap(year));}
+ bool gallery_catalog_date(unsigned index,char out[11]) {
+--- a/tests/ui-preview/gallery_store_test.c
++++ b/tests/ui-preview/gallery_store_test.c
+@@ -140,6 +140,16 @@
+     for(int i=0;i<2;i++){path_for(file,sizeof(file),root,&value.key,i);assert(!remove(file));}
+     path_for(file,sizeof(file),root,&value.key,0);strcat(file,".part");f=fopen(file,"wb");assert(f);fputs("incomplete",f);fclose(f);
+     assert(!gallery_store_get(root,&value.key,"",allocate,&got,&raw));assert(!_access(unrelated,0));
++    // Legacy firmware used just two shared slots. Preserve both revisions
++    // before a new save overwrites them, including after repeated switches.
++    gallery_catalog legacy_a={.works=366,.next=11},legacy_b={.works=1765,.next=27},legacy_loaded={0};
++    strcpy(legacy_a.revision,rev);strcpy(legacy_b.revision,next);
++    assert(catalog_pair_save(root,1,&legacy_a,false)&&catalog_pair_save(root,1,&legacy_b,false));
++    legacy_b.next=28;assert(gallery_catalog_save(root,1,&legacy_b));
++    legacy_b.next=29;assert(gallery_catalog_save(root,1,&legacy_b));
++    assert(gallery_catalog_load(root,1,rev,&legacy_loaded)&&legacy_loaded.next==11);
++    assert(gallery_catalog_load(root,1,next,&legacy_loaded)&&legacy_loaded.next==29);
++    puts("GALLERY_LEGACY_SCOPE_MIGRATION_OK");
+     gallery_catalog plan={.works=366,.next=17},loaded={0};strcpy(plan.revision,rev);
+     assert(gallery_catalog_save(root,0,&plan)&&gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==17&&loaded.works==366);
+     plan.next=18;full_card=true;assert(!gallery_catalog_save(root,0,&plan));full_card=false;
+@@ -147,9 +157,21 @@
+     fail_rename=true;assert(!gallery_catalog_save(root,0,&plan));fail_rename=false;
+     assert(gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==17);
+     assert(gallery_catalog_save(root,0,&plan)&&gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==18);
+-    assert(!gallery_catalog_load(root,1,rev,&loaded)&&!gallery_catalog_load(root,0,next,&loaded));
+-    assert(catalog_path(file,root,0,1));f=fopen(file,"r+b");assert(f);fputc('X',f);fclose(f);
++    assert(!gallery_catalog_load(root,0,next,&loaded));
++    assert(catalog_revision_path(file,root,0,rev,1));f=fopen(file,"r+b");assert(f);fputc('X',f);fclose(f);
+     assert(gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==17);
++    // Switch scopes repeatedly after partial writes; each keeps its own cursor.
++    gallery_catalog full={.works=1765,.next=35};strcpy(full.revision,next);
++    assert(gallery_catalog_save(root,0,&full));full.next=38;assert(gallery_catalog_save(root,0,&full));
++    plan.next=24;assert(gallery_catalog_save(root,0,&plan));plan.next=25;assert(gallery_catalog_save(root,0,&plan));
++    assert(gallery_catalog_load(root,0,next,&loaded)&&loaded.next==38&&loaded.works==1765);
++    assert(gallery_catalog_load(root,0,"",&loaded)&&loaded.next==38&&!strcmp(loaded.revision,next));
++    assert(gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==25&&loaded.works==366);
++    assert(gallery_catalog_load(root,0,"",&loaded)&&loaded.next==25&&!strcmp(loaded.revision,rev));
++    full.next=39;assert(gallery_catalog_save(root,0,&full));
++    assert(gallery_catalog_load(root,0,"",&loaded)&&loaded.next==39&&!strcmp(loaded.revision,next));
++    assert(gallery_catalog_load(root,0,rev,&loaded)&&loaded.next==25);
++    puts("GALLERY_SCOPE_PROGRESS_OK partial switch, resume, offline last active");
+     char canonical[11];
+     assert(gallery_catalog_key("2028-02-29",366,canonical)&&!strcmp(canonical,"2026-02-27"));
+     assert(gallery_catalog_key("2028-02-29",3,canonical)&&!strcmp(canonical,"2026-01-01"));
+--- a/tests/ui-preview/gallery_worker_test.c
++++ b/tests/ui-preview/gallery_worker_test.c
+@@ -573,6 +573,20 @@
+     for(int i=0;i<50;i++)gallery_sync_library();
+     assert(catalogs[0].next==3&&catalogs[1].next==2&&range_calls-ranges_before==60&&decodes==library_decodes_before);
+     assert(full_guides-full_before==5&&referenced_guides-ref_before==25);
++    // Switching to a second scope midway and back preserves both cursors.
++    remote_revisions[0][0]='b';assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    for(int i=0;i<20&&catalogs[0].next<1;i++)gallery_sync_library();
++    unsigned partial=catalogs[0].next;assert(partial>=1&&partial<3);
++    remote_revisions[0][0]='7';assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    for(int i=0;i<4&&!catalog_loaded[0];i++)gallery_sync_library();
++    assert(catalogs[0].next==3);
++    remote_revisions[0][0]='b';assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    for(int i=0;i<4&&!catalog_loaded[0];i++)gallery_sync_library();
++    assert(catalogs[0].next==partial);
++    remote_revisions[0][0]='7';assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    for(int i=0;i<4&&!catalog_loaded[0];i++)gallery_sync_library();
++    assert(catalogs[0].next==3);
++    puts("GALLERY_SCOPE_SWITCH_WORKER_OK completed and partial scopes resume their own cursors");
+     assert(!gallery_library_pending());
+     int idle_calls=network_calls;unsigned idle_writes=card_writes;
+     assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==0);

@@ -14,8 +14,8 @@ internal static class GalleryHdPackSelfTest
         form.Shown+=async(_,_)=>{try{
             var button=(Button)form.Controls.Find("gallery-import",true).Single();var status=(Label)form.Controls.Find("gallery-state",true).Single();
             async Task Wait(Func<bool> predicate){var end=DateTime.UtcNow.AddMinutes(5);while(!predicate()){if(DateTime.UtcNow>end)throw new TimeoutException(status.Text);await Task.Delay(10);}}
-            await Wait(()=>button.Enabled);button.PerformClick();await Wait(()=>button.Enabled&&status.Text.Contains("已启用"));
-            if(form.OperationError is not null||!form.Controls.Find("painting-hd",true).Single().Text.Contains("高清画质"))throw new Exception("HD import UI readback failed");
+            await Wait(()=>button.Enabled);button.PerformClick();await Wait(()=>button.Enabled&&status.Text.Contains("高清版"));
+            if(form.OperationError is not null||GalleryHdPack.Installed("painting") is null||form.Controls.Find("painting-status",true).Single().Text!="已安装"||form.Controls.Find("painting-hd",true).Single().Visible)throw new Exception("HD import UI readback failed");
             using var capture=new Bitmap(form.Width,form.Height);form.DrawToBitmap(capture,new(Point.Empty,form.Size));capture.Save(Path.Combine(output,"hd-import-complete.png"));
         }catch(Exception ex){failure=ex;}finally{form.Close();}};
         Application.Run(form);if(failure is not null)throw failure;Console.WriteLine("HD_IMPORT_UI_OK button -> install -> active status");
@@ -37,6 +37,7 @@ internal static class GalleryHdPackSelfTest
             using var a=ZipFile.Open(file,ZipArchiveMode.Create);foreach(var p in files){using var st=a.CreateEntry("pack/"+p.Key).Open();st.Write(p.Value);}using(var st=a.CreateEntry("pack/SHA256SUMS.txt").Open())st.Write(Encoding.UTF8.GetBytes(sums));return file;
         }
         var good=Package(Path.Combine(output,"good.zip"));var installed=GalleryHdPack.Install(good,root);string old=GalleryHdPack.Current("painting",root)!;
+        Check(!File.Exists(Path.Combine(old,"standard.zip")),"Installed HD materials retained an unnecessary second copy of the standard archive");
         var work=new Tab5Gallery.Artwork("fixture","painting","test","a","test","test",["work.jpg"],"one");var page=new Tab5Gallery.BrowserPage(work,null,preview);
         using(var image=(await new GalleryDesktopImages(Path.Combine(old,"desktop-originals.json")).LoadAsync(page,0,default))?.Image)Check(image is not null,"Imported relative source not decoded");
         int n=0;foreach(string bad in new[]{"../escape.jpg","C:/escape.jpg","作品/A.jpg","aux.jpg","作品/a.jpg:stream"}){

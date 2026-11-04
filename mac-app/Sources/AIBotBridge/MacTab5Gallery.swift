@@ -8,6 +8,7 @@ struct MacTab5GalleryManifest: Codable {
     let works: Int
     let frames: Int
     let files: [String: String]
+    var collection: String? = nil
 }
 struct MacTab5Artwork: Codable {
     let id: String
@@ -20,27 +21,41 @@ struct MacTab5Artwork: Codable {
     let workId: String?
     let portraitFrames: [String]
 }
+private struct MacGalleryAnnualIndex: Codable { let schema:Int, category:String, ids:[String] }
 
 final class MacTab5Gallery {
     private let lock = NSLock()
-    private struct Cache { let stamp: String; let bytes: Data; let manifest: MacTab5GalleryManifest; let works: [MacTab5Artwork]; let guides: [String: [String: Any]] }
+    private struct Cache { let stamp: String; let bytes: Data; let manifest: MacTab5GalleryManifest; let works: [MacTab5Artwork]; let guides: [String: [String: Any]]; let annual: [String]? }
     private var catalogs: [String: Cache] = [:]
     private var lastImage: (path: String, stamp: String, sha: String, bytes: Data)?
-    let directory: URL
+    private let fixedDirectory: URL?
+    private let baseDirectory: URL
+    var fullCollection: Bool { fixedDirectory == nil && UserDefaults.standard.bool(forKey:"galleryFullCollection") }
+    var useHighQuality: Bool { fixedDirectory != nil || UserDefaults.standard.object(forKey:"galleryHighQuality") == nil || UserDefaults.standard.bool(forKey:"galleryHighQuality") }
+    var directory: URL { baseDirectory }
     init(directory: URL? = nil) {
-        self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("AI-bot/Tab5/Galleries", isDirectory: true)
+        self.fixedDirectory = directory
+        self.baseDirectory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("AI-bot/Tab5/Galleries", isDirectory: true)
     }
-    func install(_ url: URL, progress: MacGalleryProgress? = nil) throws -> MacTab5GalleryManifest {
+    func selectCollection(full:Bool,high:Bool) {
+        lock.lock(); defer { lock.unlock() }
+        guard fixedDirectory == nil else { return }
+        UserDefaults.standard.set(full,forKey:"galleryFullCollection"); UserDefaults.standard.set(high,forKey:"galleryHighQuality")
+        catalogs.removeAll(); lastImage = nil
+    }
+    func install(_ url: URL, progress: MacGalleryProgress? = nil, expectedCollection:String? = nil) throws -> MacTab5GalleryManifest {
         let archive = try MacTab5Archive(url, maximumSize: 16 * 1024 * 1024 * 1024, allowNested: true, allowUnicode: true, maximumEntries: 20000)
-        if !archive.names.contains("PACK.json") { return try installHD(archive, progress: progress) }
-        return try installStandard(archive, progress: progress)
+        if !archive.names.contains("PACK.json") { return try installHD(archive, progress: progress, expectedCollection:expectedCollection) }
+        return try installStandard(archive, progress: progress, expectedCollection:expectedCollection)
     }
-    private func installStandard(_ archive: MacTab5Archive, progress: MacGalleryProgress? = nil) throws -> MacTab5GalleryManifest {
+    private func installStandard(_ archive: MacTab5Archive, progress: MacGalleryProgress? = nil, expectedCollection:String? = nil) throws -> MacTab5GalleryManifest {
         let bytes = try archive.read("PACK.json", maximum: 2 * 1024 * 1024)
         let manifest = try JSONDecoder().decode(MacTab5GalleryManifest.self, from: bytes)
+        guard ["annual","full"].contains(manifest.collection ?? "annual"), expectedCollection == nil || (manifest.collection ?? "annual") == expectedCollection else { throw MacTab5LocalError.invalid("图库包的年度版或全量版与当前选择不一致。") }
         return try install(manifest: manifest, manifestBytes: bytes, names: archive.names, progress: progress) { try archive.read($0, maximum: $0.hasSuffix(".jpg") ? 1048576 : 16 * 1024 * 1024) }
     }
     func install(manifest: MacTab5GalleryManifest, manifestBytes: Data, names: [String], progress: MacGalleryProgress? = nil, read: (String) throws -> Data) throws -> MacTab5GalleryManifest {
+        if fixedDirectory == nil, let current = try? installed(manifest.category), current.collection == "full", manifest.collection != "full" { throw MacTab5LocalError.invalid("已安装全量图库；年度包不会覆盖全量图库。") }
         guard [1, 2].contains(manifest.schemaVersion), ["painting", "calligraphy"].contains(manifest.category),
               manifest.version.range(of: "^\\d{4}\\.\\d{2}\\.\\d{2}(?:\\.\\d+)?$", options: .regularExpression) != nil,
               (1...2000).contains(manifest.works), (1...8000).contains(manifest.frames), names.allSatisfy(MacTab5Archive.safeName),
@@ -48,6 +63,7 @@ final class MacTab5Gallery {
               Set(names) == Set(manifest.files.keys).union(["PACK.json"]),
               manifest.files.values.allSatisfy({ MacTab5Protocol.isHex($0, count: 64) }),
               ["catalog.json", "provenance.json", "selection.json", "LICENSE", "THIRD_PARTY_NOTICES.md"].allSatisfy({ manifest.files[$0] != nil }),
+              manifest.collection != "full" || manifest.files["annual-index.json"] != nil,
               manifest.schemaVersion != 2 || manifest.files["guides.zh.json"] != nil else { throw MacTab5LocalError.invalid("图库清单与内容不一致。") }
         let fm = FileManager.default
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -70,6 +86,7 @@ final class MacTab5Gallery {
               works.allSatisfy({ $0.category == manifest.category && !$0.id.isEmpty && !$0.title.isEmpty && !$0.author.isEmpty && (1...64).contains($0.frames.count) && $0.frames.count == $0.portraitFrames.count }),
               images.count == manifest.frames, Set(images).count == images.count,
               Set(images) == Set(manifest.files.keys.filter { $0.hasSuffix(".jpg") }) else { throw MacTab5LocalError.invalid("图库作品、分页或图片清单无效。") }
+        if manifest.collection == "full" { _ = try Self.annualIndex(staging,category:manifest.category,works:works,manifest:manifest) }
         if manifest.files["guides.zh.json"] != nil { _ = try MacTab5ArtGuide.read(Data(contentsOf: staging.appendingPathComponent("guides.zh.json")), works: works) }
         try manifestBytes.write(to: staging.appendingPathComponent("PACK.json"), options: .withoutOverwriting)
         try progress?.check(); try activate(staging, category: manifest.category); progress?.update(1)
@@ -86,7 +103,7 @@ final class MacTab5Gallery {
         // Previous installed artwork remains in a backup until separately removed.
         catalogs.removeValue(forKey: category); lastImage = nil
     }
-    private func installHD(_ archive: MacTab5Archive, progress: MacGalleryProgress? = nil) throws -> MacTab5GalleryManifest {
+    private func installHD(_ archive: MacTab5Archive, progress: MacGalleryProgress? = nil, expectedCollection:String? = nil) throws -> MacTab5GalleryManifest {
         let files = archive.names.filter { !$0.hasSuffix("/") }
         guard let first = files.first, first.contains("/") else { throw MacTab5LocalError.invalid("高清完整包缺少外层目录。") }
         let prefix = String(first.split(separator: "/")[0]) + "/"
@@ -111,10 +128,11 @@ final class MacTab5Gallery {
         let zip = stage.appendingPathComponent("standard.zip")
         try archive.copy(prefix + "standard.zip", to: zip, maximum: 2 * 1024 * 1024 * 1024, sha256: expected, check: { try progress?.check() })
         let prepared = MacTab5Gallery(directory: stage.appendingPathComponent("prepared")), manifest: MacTab5GalleryManifest
-        do { manifest = try prepared.installStandard(MacTab5Archive(zip), progress: progress) }
+        do { manifest = try prepared.installStandard(MacTab5Archive(zip), progress: progress, expectedCollection:expectedCollection) }
         catch is CancellationError { throw CancellationError() }
         catch { throw MacTab5LocalError.invalid("内置 TAB5 图库未通过校验：\(error.localizedDescription)") }
         guard manifest.category == category, manifest.works == works.count, manifest.schemaVersion == 2 else { throw MacTab5LocalError.invalid("高清包与内置 TAB5 图库不一致，原图库保持不变。") }
+        if fixedDirectory == nil, let current = try? installed(category), current.collection == "full", manifest.collection != "full" { throw MacTab5LocalError.invalid("已安装全量图库；年度包不会覆盖全量图库。") }
         let indexBytes = try archive.read(prefix + "desktop-index.relative.json", maximum: 16 * 1024 * 1024)
         guard MacTab5Protocol.sha256(indexBytes) == hashes["desktop-index.relative.json"] else { throw MacTab5LocalError.invalid("高清索引校验失败。") }
         let index = try JSONDecoder().decode(MacGalleryDesktopIndex.self, from: indexBytes)
@@ -142,7 +160,7 @@ final class MacTab5Gallery {
         return edition
     }
     func installed(_ category: String) throws -> MacTab5GalleryManifest { lock.lock(); defer { lock.unlock() }; return try load(category).manifest }
-    func browserWorks(_ category: String) throws -> [MacTab5Artwork] { lock.lock(); defer { lock.unlock() }; return try load(category).works }
+    func browserWorks(_ category: String) throws -> [MacTab5Artwork] { lock.lock(); defer { lock.unlock() }; return try visible(load(category),category:category) }
     func browserPage(_ work: MacTab5Artwork, frame: Int) throws -> (Data, [String: Any]) {
         lock.lock(); defer { lock.unlock() }
         let cache = try load(work.category)
@@ -168,7 +186,7 @@ final class MacTab5Gallery {
         lock.lock(); defer { lock.unlock() }
         var revisions: [String: String] = [:]
         for category in ["painting", "calligraphy"] {
-            if let cache = try? load(category) { revisions[category] = MacTab5Protocol.sha256(cache.bytes) }
+            if let cache = try? load(category), let works = try? visible(cache,category:category), !works.isEmpty { revisions[category] = revision(cache) }
         }
         return revisions
     }
@@ -177,6 +195,25 @@ final class MacTab5Gallery {
         guard let size = values.fileSize, size > 0, size <= maximum else { throw MacTab5Error.invalidPacket }
         return "\(size)|\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)|\(String(describing: values.fileResourceIdentifier))"
     }
+    private func revision(_ cache:Cache) -> String { MacTab5Protocol.sha256(cache.bytes + (cache.manifest.collection == "full" ? Data((fullCollection ? "full:annual-first-v1":"annual").utf8) : Data())) }
+    private static func annualIndex(_ root:URL,category:String,works:[MacTab5Artwork],manifest:MacTab5GalleryManifest) throws -> MacGalleryAnnualIndex {
+        let path=root.appendingPathComponent("annual-index.json"), size=try path.resourceValues(forKeys:[.fileSizeKey]).fileSize ?? 0
+        guard size > 0 && size <= 1024*1024, let hash=manifest.files["annual-index.json"] else { throw MacTab5Error.invalidPacket }
+        let bytes=try Data(contentsOf:path); guard MacTab5Protocol.sha256(bytes)==hash else { throw MacTab5Error.invalidPacket }
+        let index=try JSONDecoder().decode(MacGalleryAnnualIndex.self,from:bytes), ids=Set(works.map(\.id))
+        guard index.schema==1,index.category==category,!index.ids.isEmpty,index.ids.count<=2000,Set(index.ids).count==index.ids.count,index.ids.allSatisfy(ids.contains) else { throw MacTab5Error.invalidPacket }
+        return index
+    }
+    private func visible(_ cache:Cache,category:String) throws -> [MacTab5Artwork] {
+        if cache.manifest.collection == "full" {
+            guard let ids=cache.annual else { throw MacTab5Error.invalidPacket }
+            let works=Dictionary(uniqueKeysWithValues:cache.works.map { ($0.id,$0) }), annual=ids.compactMap { works[$0] }
+            if !fullCollection { return annual }
+            let selected=Set(ids);return annual + cache.works.filter { !selected.contains($0.id) }
+        }
+        if fixedDirectory == nil && fullCollection && cache.manifest.collection != "full" { return [] }
+        return cache.works
+    }
     private func load(_ category: String) throws -> Cache {
         let root = directory.appendingPathComponent(category), pack = root.appendingPathComponent("PACK.json"), catalog = root.appendingPathComponent("catalog.json")
         let bytes: Data, manifest: MacTab5GalleryManifest
@@ -184,23 +221,28 @@ final class MacTab5Gallery {
         if let previous = catalogs[category], previous.stamp.hasPrefix(packStamp + "|") { bytes = previous.bytes; manifest = previous.manifest }
         else { bytes = try Data(contentsOf: pack); manifest = try JSONDecoder().decode(MacTab5GalleryManifest.self, from: bytes) }
         let guideURL = root.appendingPathComponent("guides.zh.json"), guideStamp = manifest.files["guides.zh.json"] == nil ? "" : try stamp(guideURL, maximum: 16 * 1024 * 1024)
-        let identity = packStamp + "|" + catalogStamp + "|" + guideStamp
+        let indexStamp: String
+        if manifest.collection == "full" { indexStamp = try stamp(root.appendingPathComponent("annual-index.json"),maximum:1024*1024) } else { indexStamp = "" }
+        let identity = packStamp + "|" + catalogStamp + "|" + guideStamp + "|" + indexStamp
         if let previous = catalogs[category], previous.stamp == identity { return previous }
         let workBytes = try Data(contentsOf: catalog), works = try JSONDecoder().decode([MacTab5Artwork].self, from: workBytes)
         guard manifest.category == category, [1,2].contains(manifest.schemaVersion), MacTab5Protocol.sha256(workBytes) == manifest.files["catalog.json"],
-              !works.isEmpty, works.count <= 2000, works.count == manifest.works,
+              !works.isEmpty, works.count <= 2000, works.count == manifest.works, Set(works.map(\.id)).count == works.count,
               works.allSatisfy({ $0.category == category && (1...64).contains($0.frames.count) && $0.frames.count == $0.portraitFrames.count && ($0.frames + $0.portraitFrames).allSatisfy(MacTab5Archive.safeName) }) else { throw MacTab5Error.invalidPacket }
         var guides: [String: [String: Any]] = [:]
         if !guideStamp.isEmpty { let guideBytes = try Data(contentsOf: guideURL); guard MacTab5Protocol.sha256(guideBytes) == manifest.files["guides.zh.json"] else { throw MacTab5Error.invalidPacket }; guides = try MacTab5ArtGuide.read(guideBytes, works: works) }
-        let cache = Cache(stamp: identity, bytes: bytes, manifest: manifest, works: works, guides: guides); catalogs[category] = cache; return cache
+        let annual: [String]?
+        if manifest.collection == "full" { annual = try Self.annualIndex(root,category:category,works:works,manifest:manifest).ids } else { annual = nil }
+        let cache = Cache(stamp: identity, bytes: bytes, manifest: manifest, works: works, guides: guides, annual:annual); catalogs[category] = cache; return cache
     }
     func handle(_ request: [String: Any], binary: Bool, bulk: Bool) -> MacTab5RPCResult {
         lock.lock(); defer { lock.unlock() }
         do {
             guard let category = request["category"] as? String, ["painting", "calligraphy"].contains(category) else { return .error(400, "invalid_gallery_category") }
             let root = directory.appendingPathComponent(category)
-            let cache = try load(category), manifestBytes = cache.bytes, manifest = cache.manifest, works = cache.works
-            if request["op"] as? String == "catalog" { return .init(200, ["syncVersion": 1, "works": works.count, "revision": MacTab5Protocol.sha256(manifestBytes), "baseDate": "2026-01-01"]) }
+            let cache = try load(category), manifest = cache.manifest, works = try visible(cache,category:category)
+            guard !works.isEmpty else { return .error(404,"gallery_pack_missing") }
+            if request["op"] as? String == "catalog" { return .init(200, ["syncVersion": 1, "works": works.count, "revision": revision(cache), "baseDate": "2026-01-01"]) }
             let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"; formatter.isLenient = false
             guard let text = request["date"] as? String, let date = formatter.date(from: text), formatter.string(from: date) == text else { return .error(400, "invalid_gallery_date") }
             let work = works[Self.dayIndex(date, count: works.count)]

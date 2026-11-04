@@ -148,7 +148,9 @@ def select_guides(document, works, version):
             "status": "packaged", "works": selected}
 
 
-def package(source, output, version, guides_path=None, category=None):
+def package(source, output, version, guides_path=None, category=None, collection=None):
+    if collection not in (None, 'annual', 'full'):
+        raise ValueError('Unsupported collection')
     if not re.fullmatch(r"\d{4}\.\d{2}\.\d{2}(?:\.\d+)?", version):
         raise ValueError("Invalid resource version")
     if output.exists():
@@ -163,6 +165,15 @@ def package(source, output, version, guides_path=None, category=None):
     if category not in (None, "painting", "calligraphy"):
         raise ValueError("Unsupported pack category")
     packaged_works = [w for w in catalog if category is None or w["category"] == category]
+    if collection == 'annual':
+        annual = read('annual-index.json')
+        annual_ids = annual.get('ids', [])
+        lookup = {w['id']: w for w in packaged_works}
+        if (category is None or annual.get('schema') != 1 or annual.get('category') != category
+                or not annual_ids or len(annual_ids) != len(set(annual_ids))
+                or not set(annual_ids) <= lookup.keys()):
+            raise ValueError('Annual index does not match the full collection')
+        packaged_works = [lookup[work_id] for work_id in annual_ids]
     if not packaged_works:
         raise ValueError("No works in requested pack category")
     select_guides(guides, packaged_works, version)
@@ -176,8 +187,18 @@ def package(source, output, version, guides_path=None, category=None):
     selected = {w["id"]: w for w in selection}
     origins = {w["id"]: w for w in provenance}
     guide_rows = {w['workId']: w for w in guides['works']}
-    listed = read("files.json")
-    files = listed["files"]
+    if (source / 'files.json').exists():
+        listed = read('files.json')
+        files = listed['files']
+    else:
+        installed = read('PACK.json')
+        if installed.get('collection') != 'full' or not isinstance(installed.get('files'), dict):
+            raise ValueError('A verified full collection or rendered file inventory is required')
+        for name in ('catalog.json','selection.json','provenance.json','guides.zh.json','annual-index.json'):
+            if not (source/name).is_file() or digest((source/name).read_bytes()) != installed['files'].get(name):
+                raise ValueError('Installed full collection metadata changed: '+name)
+        files = {name:value for name,value in installed['files'].items() if name.endswith('.jpg')}
+        listed = {'files':files,'count':len(files)}
     image_names = []
     for work in catalog:
         origin, item = origins[work["id"]], selected[work["id"]]
@@ -250,10 +271,20 @@ def package(source, output, version, guides_path=None, category=None):
                           "Each category is optional. Application upgrades preserve installed collections.\n"
                           "See THIRD_PARTY_NOTICES.md and per-work metadata for image rights; LICENSE covers project-authored material only.\n").encode("utf-8"),
         }
+        if collection == 'full':
+            annual = read('annual-index.json')
+            annual_ids = annual.get('ids', [])
+            if (annual.get('schema') != 1 or annual.get('category') != pack_category
+                    or not annual_ids or len(annual_ids) != len(set(annual_ids))
+                    or not set(annual_ids) <= work_ids):
+                raise ValueError('Annual index does not match the full collection')
+            metadata['annual-index.json'] = encode(annual)
         if len(metadata["guides.zh.json"]) > 8 * 1024 * 1024:
             raise ValueError("Guide file exceeds importer limit")
         hashes = {n: digest(data) for n, data in metadata.items()} | {n: files[n] for n in names}
         manifest = {"schemaVersion": 2, "version": version, "category": pack_category, "works": len(works), "frames": len(names), "files": hashes}
+        if collection is not None:
+            manifest['collection'] = collection
         target = output / artifact_name(pack_category, version)
         with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
             archive.writestr("PACK.json", encode(manifest))
@@ -279,5 +310,6 @@ if __name__ == "__main__":
     parser.add_argument("--version", default="2026.10.07")
     parser.add_argument("--guides", type=Path, help="Reviewed guide catalogue; defaults to source/guides.zh.json or the project catalogue")
     parser.add_argument("--category", choices=("painting", "calligraphy"), help="Build only one independently versioned category")
+    parser.add_argument("--collection", choices=("annual", "full"), help="Identify the work collection for safe installation")
     args = parser.parse_args()
-    package(args.source, args.output, args.version, args.guides, args.category)
+    package(args.source, args.output, args.version, args.guides, args.category, args.collection)
