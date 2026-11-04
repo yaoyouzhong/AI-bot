@@ -6,7 +6,7 @@ Beyond work, AI-bot serves as a desk clock and information display for weather, 
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.17.md) · [简体中文](README.md)
 
-**In preparation:** Windows/Mac desktop 0.6.17 and TAB5 0.2.312-ui bring gallery scope/quality selection, one supported client's Codex/Clawd mascot and two companion savers with original official animation, soft backdrops and a centered clock. Mac adaptation and final-candidate acceptance remain pending. Public downloads are still desktop 0.6.16 and TAB5 0.2.303-ui; ESP8266 stays at 0.5.8. [Preparation and acceptance scope](docs/RELEASE-0.6.17.md) · [Mac installation and permissions](docs/INSTALL.zh.md#mac)
+**In preparation:** Windows/Mac desktop 0.6.17 and TAB5 0.2.313-ui bring gallery scope/quality selection, Codex/Clawd companions and savers, and a shared Claude/Codex dialogue workspace with exact conversations, public replies and encrypted drafts. Both desktops restore explicitly cancelled queued drafts; final-package and device-path acceptance remain required. Public downloads are still desktop 0.6.16 and TAB5 0.2.303-ui; ESP8266 stays at 0.5.8. [Preparation and acceptance scope](docs/RELEASE-0.6.17.md) · [Mac installation and permissions](docs/INSTALL.zh.md#mac)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-0312-preview.png" width="880" alt="Native renders of the separate Codex and Clawd companion screensavers"></p>
 <sub>Two independent native screensaver renders with a demonstration clock; the device shows only the selected mascot. [Provenance and acceptance limits](docs/RELEASE-0.6.17.md)</sub>

@@ -6,7 +6,7 @@
 
 [完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.17.md) · [English](README.en.md)
 
-**待发布更新：** Windows／Mac 桥接 0.6.17、TAB5 0.2.312-ui。统一整理图库范围与画质选择、Codex／Clawd 萌宠和两种屏保；动画采用官方原始素材，搭配柔和背景与居中小时间。Mac 适配及最终候选验收尚待完成；当前公开下载仍为桥接 0.6.16、TAB5 0.2.303-ui，ESP8266 保持 0.5.8。[准备范围与验收](docs/RELEASE-0.6.17.md) · [Mac 安装与授权](docs/INSTALL.zh.md#mac)
+**待发布更新：** Windows／Mac 桥接 0.6.17、TAB5 0.2.313-ui。统一整理图库范围与画质选择、Codex／Clawd 萌宠、两种屏保和 Claude／Codex 对话工作区。支持精确会话、公开回复和加密草稿；两端修复排队取消后的草稿恢复，最终候选及设备路径仍需验收；当前公开下载仍为桥接 0.6.16、TAB5 0.2.303-ui，ESP8266 保持 0.5.8。[准备范围与验收](docs/RELEASE-0.6.17.md) · [Mac 安装与授权](docs/INSTALL.zh.md#mac)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-0312-preview.png" width="880" alt="Codex 与 Clawd 两种独立萌宠屏保的原生渲染预览"></p>
 <sub>两个独立屏保的原生渲染，时间为演示数据；设备每次只显示所选的一只萌宠。[来源与验收边界](docs/RELEASE-0.6.17.md)</sub>

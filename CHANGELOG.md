@@ -4,22 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-### Claude AI dialogue workspace (local candidate)
+## 0.6.17 - 2026-11-04
+
+### Claude AI dialogue workspace
 - Add project/history browsing, encrypted drafts, text/image sends, queued follow-ups, voice routing and interruption through the installed official Claude CLI. Preserve model and approval policy; never automatically retry uncertain delivery.
 - Use “对话” for the TAB5 entry; show available clients only and enter the exact Overview conversation. Preserve separate client/device drafts, attachments, receipts and voice takes.
 - Align Codex and Claude Overview actions as view dialogue / view reply, preserving exact client, conversation and unread turn. Acknowledge only rendered public content and project exact owned Claude results into Overview.
 - Open current conversation details directly from Overview and return there; modern hosts do not fall back to the old reader. Replace Claude’s idle helmet with the original character’s gentle breathing.
-- External live Claude conversations remain read-only; native Windows, real speech and physical acceptance are recorded separately. No public release.
+- External live Claude conversations remain read-only. Explicit cancellation of accepted queued input restores text/photos only to an empty composer, preserving newer drafts; uncertain delivery is never resent automatically.
 
 ### Local TAB5 acceptance tooling
 - Add explicit background screenshot and USB probe/tap/swipe tooling. Commands expire, match viewport/orientation and acknowledge exact requests; normal bridges do not issue touches. Native Windows and physical acceptance are tracked separately.
 
-### Claude session reader (local candidate)
+### Claude public replies
 - Windows and Mac provide the selected Claude session's public assistant replies to paired TAB5 devices through encrypted, read-only paging. Keep session identity and exclude prompts, reasoning and tool data; preserve content on read errors.
 - Ordinary features remain enabled by default. Mac feature settings use enable/disable wording without an additional app authorization step; required macOS system permissions still apply.
-- Native Windows and affected device acceptance remain required before release.
-
-## 0.6.17 - 2026-11-04
+- Native tests, package installation and affected device paths are recorded separately before publication.
 
 ### Codex task states
 - Windows and Mac project working, user-input, approval, blocked and unknown states for compatible TAB5 overview cards and companion savers.
@@ -27,13 +27,13 @@ All notable changes to this project will be documented in this file.
 - Windows keeps confirmed blocked observations instead of filtering them as unavailable. Export fixed metadata only, without question, command or option content.
 
 ### Scope and compatibility
-- Windows x64 and Apple Silicon Mac share this desktop release. TAB5 0.2.312-ui is released independently; ESP8266 and collection versions remain unchanged.
+- Windows x64 and Apple Silicon Mac share this desktop release. TAB5 0.2.313-ui is released independently; ESP8266 and collection versions remain unchanged.
 - Preserve existing protocol compatibility, submission safeguards, pairing and stored data formats. Companion visuals are supplied by TAB5 firmware.
 
 ### Gallery scope and quality
 - Windows and Mac select annual/full scope independently from standard/high-resolution computer viewing. Ordered annual indexes reuse the full collection; TAB5 display images are unaffected by computer viewing quality.
 - Validate annual indexes and import scope, prevent annual packages from overwriting installed full collections, and refresh browsers on selection changes. Preserve existing collections and backups.
-- Include annual delivery tools, gallery regressions and the complete TAB5 0.2.312 project archive. Source integration does not imply acceptance of the new Mac candidate or every device path.
+- Include annual delivery tools, gallery regressions and the complete TAB5 0.2.313 project archive. Source integration does not imply acceptance of the new Mac candidate or every device path.
 
 ## 0.6.16 - 2026-11-03
 

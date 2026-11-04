@@ -1,6 +1,6 @@
 # Windows 接收与取消草稿修复
 
-接收 Mac 分支 `codex/tab5-claude-dialogue` 的 `9973f9b25083c0d35a696b947f55dd2327587820`，对应范围见[交接清单](WINDOWS-CLAUDE-DIALOGUE-ALIGNMENT-20261104.md)。本记录区分代码、自检、原生程序、发布包和设备结果。
+接收 Mac 分支 `codex/tab5-claude-dialogue` 的 `9973f9b25083c0d35a696b947f55dd2327587820`；两端修复为 `a934d6afe42b751a53a3b210d2a1c4b7dfe807d2`，已推送 [PR #22](https://github.com/yaoyouzhong/AI-bot/pull/22)。对应范围见[交接清单](WINDOWS-CLAUDE-DIALOGUE-ALIGNMENT-20261104.md)。本记录区分代码、自检、原生程序、发布包和设备结果。
 
 ## 本次修正
 
@@ -17,12 +17,15 @@
 - 目录、历史、Codex 任务/已读、RPC、语音和自动化基线自检通过。新增工作区测试使用真实 .NET 子进程传输和本地合成 CLI 对端，覆盖 DPAPI、重复请求、公开字段过滤、设备/照片隔离、确认允许/拒绝/过期、未知送达不重发、确认后取消、新草稿保护和重启恢复。
 - 已安装的真实 Windows Claude CLI 在临时 HOME/config 与 loopback 合成 API 下通过精确 resume、文字、PNG、排队追加、中断、取消后的文字/照片恢复，共 7 次本地 API 调用。未使用用户凭据、真实会话或供应商接口；该结果不是 TAB5 Windows USB 验收。
 - JSONL 自动化通过合成后端的视口、点击/滑动、过期应答、截图路径/覆盖拒绝、PNG 和设置保留检查；确认窗口正常及最小尺寸的真实渲染已查看。
-- 发布工具 25 项测试、三组件版本检查和公开内容检查器自检通过。工作区内容扫描仅发现原有 5 张本地照片；这些照片与原有 PPM 均保留且不暂存，最终公开 payload 另行核验。
+- 新增语音客户端归属及照片分块跨客户端拒绝回归通过，缺省客户端仍兼容 Codex。完整 fresh-profile 自检在本次独立目录通过；独立不可见桌面未切换用户前台。
+- 原生远端 [CI 41852518920](https://github.com/yaoyouzhong/AI-bot/actions/runs/41852518920) 的 Windows 和 tooling 已通过。原生 Windows CI 使用干净 checkout，构建、status-once 和完整自检通过；ESP8266 因未修改而跳过。
+- 发布工具 25 项、打包 16 项、下载目录 15 项、附件命名 2 项、双语说明提取 4 项及组件版本 6 项测试通过；实际 0.6.17／0.2.313 双语说明提取和三组件版本检查通过。公开内容检查器自检及 27 个暂存文件扫描均通过；工作区扫描发现的原有 5 张本地照片与 PPM 均保留且未暂存，未放宽扫描规则。
 
 ## 收尾前待验证
 
-- Windows 最终增量语音/图片客户端归属回归及完整 fresh-profile 自检。首次完整自检在旧 `artifacts/public-wifi-unlock` 中遇到上轮保存的合成启用状态，触发 `Wi-Fi defaults off`；保留旧证据，改在本次全新目录运行，不改断言或生产配置。
-- Mac 新增三项回归和 Release 构建须由 macOS 原生 CI 验证，Windows 静态审查不算通过。
+- 前两次完整自检读到旧 `artifacts/public-wifi-unlock` 的合成启用状态，触发 `Wi-Fi defaults off`。第二次 PowerShell `Set-Location` 未改变 .NET 子进程的实际工作目录；随后从明确的独立进程工作目录运行全部通过。旧证据保留，未改断言或生产配置。
+- Mac 新增三项回归和 Release 构建须由 macOS 原生 CI 验证；截至本次记录，Mac job 仍在等待 `macos-15` 执行机，未记为通过。
 - Windows 设备路径 W03/W04/W06 尚未实测；同一 .313 固件的动画、布局和 Mac USB 验收沿用交接结果，不重复刷机。两平台正式候选仍须从共同干净提交原生构建并按实际包完成受影响验收；Mac 开发包和此前旧 .17 候选不晋级为本次正式包。
+- 本机固定交付路径仍是 6,907,792 字节的 .312 镜像 `21d78bcc…`；GitHub Release/Actions 中未找到 Mac 交接的 .313 固件原包。正式 TAB5 包须接收原 .313 BIN 及所需 sidecar/首刷输入并核验 `e0c0981b…` 身份，不给旧镜像改版本、不以另一次构建冒充已验收原包。
 
 版本保持桥接 0.6.17、TAB5 0.2.313-ui；ESP8266 未修改。本次开发提交不创建发布标签或正式 Release。

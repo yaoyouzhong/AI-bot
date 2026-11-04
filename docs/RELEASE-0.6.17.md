@@ -1,39 +1,37 @@
-# 0.6.17 桥接与 TAB5 0.2.312-ui / Desktop and TAB5 release
+# 0.6.17 桥接与 TAB5 0.2.313-ui / Desktop and TAB5 release
 
-**发布准备中。** 本轮统一纳入上次发布后的图库范围／画质切换、TAB5 优化及客户端萌宠改动。旧 `2aa7acc` 桌面候选未包含待整合图库代码，不能作为最终交付；需从统一源码重新生成受影响的原生候选。Mac 萌宠状态适配与对应验收尚未完成，正式发布保持暂停。[Mac 交接](development/MAC-CLIENT-COMPANION-HANDOFF-20261104.md) · [完整 .312 工程](development/tab5-312-source/README.md)
+**发布准备中。** 本轮纳入上次发布后的图库范围／画质、客户端萌宠及 Claude／Codex 对话工作区。Mac 分支 `9973f9b` 已接收，Windows 已完成原生验证，并补齐两端排队取消后的草稿恢复；Mac 修复的原生 CI、共同源码候选包及受影响安装／设备路径分别核验后才公开。[两端对齐结果](development/WINDOWS-CLAUDE-DIALOGUE-RESULTS-20261104.md) · [完整 .313 工程](development/tab5-313-source/README.md)
 
-**Release preparation:** integrate all project changes since the previous release, including gallery scope/quality, TAB5 optimizations and client companions. The old `2aa7acc` desktop candidate lacks these gallery changes and is not the final package. Regenerate affected native candidates from the integrated source after Mac adaptation and validation; publication remains on hold.
+**Release preparation:** the integrated scope includes gallery controls, companions and the Claude/Codex dialogue workspace. The Mac handoff is integrated with Windows native validation and a queued-draft cancellation fix on both desktops. Native Mac CI and final-package/affected-device acceptance remain separate publication gates. The old `2aa7acc` desktop package and Mac development package are not final release candidates.
 
-本轮范围为 Windows x64、Apple Silicon Mac 桥接 0.6.17，以及 TAB5 0.2.312-ui。ESP8266 保持 0.5.8，图库继续使用现有正式版本。发布候选从同一干净桥接源码提交构建；TAB5 使用此前已验收的应用镜像，不重新编译或刷写已运行的相同镜像。
+本轮范围为 Windows x64、Apple Silicon Mac 桥接 0.6.17，以及 TAB5 0.2.313-ui。ESP8266 保持 0.5.8，图库使用既有正式版本。两端正式包须从同一干净提交原生构建；TAB5 沿用 Mac 已构建并通过 USB 核验的精确 .313 镜像，不为 Windows 对齐重新刷机。
 
 ## 变化与兼容 / Changes and compatibility
 
-- 桥接投影固定的 Codex 任务状态，区分答题、授权、受阻和未知，保留任务与轮次绑定；不传输请求正文，不改变既有发送及防重复保护。
-- TAB5 总览只显示当前受支持客户端的一个萌宠：Codex 或 Clawd。使用其他模型时保留客户端萌宠；没有新增第三方 Harness 接入。
-- 两种屏保使用官方动作和本项目状态映射，屏保循环、总览完成后停住；保留底部居中数字时间，改进 Clawd 的视觉大小、位置及两种品牌氛围背景。
-- TAB5 包含已验收的词库减包、图库栈和绘图后端优化。既有配对、草稿、展示偏好和旧屏保编号保持兼容。
-- Windows／Mac 图库支持年度／全量范围与普通／高清电脑浏览选择，复用完整图库和年度索引，保留旧图库及备份，防止年度包覆盖全量库。选择变化刷新浏览器，TAB5 图片质量不随电脑浏览选项改变；原生及设备验收边界见[图库交接](development/GALLERY-COLLECTIONS-20261103.md)。
+- TAB5“对话”共用 Codex／Claude 的项目、历史、公开回复、草稿、发送／追加、中断、照片和语音入口；总览精确进入当前会话或未读轮次，返回原入口，实际显示后才确认已读。
+- Claude 使用已安装的官方 CLI，外部仍运行的会话只读；工具请求由用户在电脑手工确认，默认拒绝，未知送达只核对、不自动重发。已确认的排队输入随后被明确取消时恢复文字／照片，保留后来编辑的新草稿。
+- 两端按精确会话及提示处理受控 Claude CLI 的完成结果，不以 Stop、空闲或静默日志推断成功。通用外部会话仍受可观测证据限制，不宣称所有 Claude 任务都能触发完成动画。
+- 总览显示当前受支持客户端的一个萌宠：Codex 或 Clawd；使用其他模型时保留客户端萌宠，没有新增第三方 Harness 接入。状态、已读、草稿、照片和语音均绑定客户端及设备。
+- 屏保使用官方原始动作及本项目状态映射，循环播放；总览完成后保持动作。保留柔和背景、底部居中时间和视觉对齐，.313 Claude 待命改为原始小人的轻微呼吸。
+- Windows／Mac 图库分别选择年度／全量范围和普通／高清电脑画质，保留完整图库和备份，防止年度包覆盖全量库。TAB5 图片质量不随电脑浏览选项改变。[图库交接](development/GALLERY-COLLECTIONS-20261103.md)
+- TAB5 包含 .312 已验收的词库减包、图库栈和绘图后端优化；既有配对、草稿、展示偏好和旧屏保编号保持兼容。后台 USB 自动验收仅在显式诊断入口运行，普通桥接不自动点击。
 
 ![两种分别显示的萌宠屏保原生渲染预览](assets/screens/tab5-companion-savers-0312-preview.png)
 
-上图为生产 LVGL 的两个独立屏保离屏渲染，使用演示时钟，不是实拍；设备每次只显示所选的一只萌宠。来源、再分发授权确认与图片摘要见[素材声明](../licenses/companion-art/NOTICE.md)。
+上图复用 .312 生产 LVGL 的两个独立屏保渲染及演示时钟，适用于保留的背景、时间与分别选择萌宠的展示方式；不是 .313 实拍或其待命动作证据。设备每次只显示所选的一只萌宠。官方素材的归属、再分发授权和图片摘要见[素材声明](../licenses/companion-art/NOTICE.md)。
 
 ## 原包与验收边界 / Artifact and acceptance boundaries
 
-TAB5 原应用为 **6,907,792 字节**，SHA-256 `21d78bcce33bdbdb531588b225b59a9902e53ecff620c9b614863f56cdb34d8c`，ELF SHA-256 `aa12dd1673e155c53a15c22a0a9a940443a4da3aa8520b452b59a5080891a39b`。已确认精确镜像的 VALID 启动、两种屏保显示/退出，以及后续位置、背景和字体；414 个完整原生界面场景及图像逐帧比对通过。首刷和升级包必须包含同一应用字节。
+Mac 交接的 .313 应用为 **6,923,744 字节**，SHA-256 `e0c0981beae8525e74fc1aeb3880904aeb95df909d63f5b9a39162ec72deb587`；ELF SHA-256 `e5f52c3aff72315dec130342b4a16705b3205ba60da3cb41bc367ba4ffeb8ef7`。交接记录包含精确 VALID 启动、实际 USB 截图、两端入口、已读、目录暂缺、待命及设置保留；此前 .312 屏保背景／时间／退出的用户验收仅在未变更范围内复用。首刷和升级包必须包含同一 .313 应用字节，不混入同版本旧镜像。
 
-真实 Claude Code 活跃任务切换、部分等待/完成、所有通道断连及告警点击路径仍保留原验收边界，不能将原生回归称为这些场景全部实机通过。新桌面候选的原包、原生测试、安装及可复用证据随 `CANDIDATE.json` 和 `ACCEPTANCE.json` 公开，不以普通 CI 输出冒充安装包验收。
+Windows 原生测试、实际安装 Claude CLI 的隔离 loopback 测试、审批窗渲染及合成协议检查见[接收结果](development/WINDOWS-CLAUDE-DIALOGUE-RESULTS-20261104.md)。这些不等于实际 TAB5 Windows USB、真实输入法准确性、所有等待／断连状态或正式候选安装验收。新两端候选仍需共同源码、包哈希及实际安装／受影响路径证据；普通 CI 输出和带未提交修改的 Mac 开发包不直接晋级。
 
-状态来源的现有限制：Windows 与 Mac 的 Claude 完成事件尚未接入，具备完成动画不代表实际 Claude 完成时会触发；Mac 的国产模型活动摘要未携带与 Windows 同等完整的活动时间，因此两客户端同时工作时的萌宠选择仍有差异。本轮 Mac 已同步 Codex 会话的状态投影，没有把这两项列为已完成。
+Windows 安装包未签名；Mac 使用 ad-hoc 签名、未经公证。未新增钥匙串、配对、加密或安装器格式迁移；未变更场景仅按实际基线证据复用。当前公开下载仍是电脑桥接 0.6.16、TAB5 0.2.303-ui；最终附件和入口以公开 Release 为准。
 
-Windows 安装包未签名；Mac 使用 ad-hoc 签名、未经公证。钥匙串、配对、加密、安装器与提交执行路径未新增格式或迁移，未变更场景可按实际基线证据复用。正式公开附件和最终下载入口以公开 Release 为准。
-
-既有宣传片继续展示仍准确的共有功能和 TAB5 功能，复用其原摘要及播放验证；本轮新增上述原生屏保预览补充新外观，不声称旧视频或全部截图已经更新，不重排宣传片。
+宣传片继续复用仍准确的共有功能和 TAB5 片段，保留原摘要及播放记录，不重排整片，也不声称旧视频已展示新的对话工作区。需要更新的镜头及安装说明在正式发布收尾逐项核对。
 
 ## English
 
-Windows x64 and Apple Silicon Mac advance to 0.6.17; TAB5 ships independently as 0.2.312-ui. ESP8266 0.5.8 and optional collections remain unchanged. Desktop bridges project exact, sanitized task-state metadata without changing submission safeguards. TAB5 shows one supported client mascot, with original Codex/Clawd animation, project-defined state mapping, aligned framing, quiet brand backdrops and a centered numeric clock.
+Windows x64 and Apple Silicon Mac target 0.6.17, with independent TAB5 0.2.313-ui. ESP8266 0.5.8 and optional collections remain unchanged. The shared dialogue workspace preserves exact client/conversation/unread-turn identity, encrypted drafts/photos and manual approvals. External live Claude sessions are read-only. Owned CLI completion requires the matching result; silence and Stop events never imply success. Explicit cancellation revokes accepted queued receipts and restores only an empty composer, preserving newer drafts.
 
-Existing signal limits remain: neither bridge currently emits a Claude completion event for the completion animation. Mac custom-provider activity also lacks the full Windows activity timestamps, so mascot selection can differ when both supported clients are active. Codex task-state projection is aligned in this release; these two gaps are not claimed as implemented.
-
-Promote the exact accepted TAB5 application above. Both saver display/exit and the visual refinements were physically accepted; active Claude routing and several special-state/disconnection paths remain native-tested rather than fully exercised on hardware. Native production renders use a demonstration clock and are separate from device acceptance. The project owner confirmed redistribution rights for both original asset sets; artwork remains outside MIT. Candidate and acceptance records identify the actual desktop packages and any justified evidence reuse. Windows is unsigned; Mac is ad-hoc signed and not notarized. Existing unchanged video/screenshots retain their original validation; the new saver preview documents this release's appearance without redesigning the video.
+Promote the exact accepted TAB5 application identified above. Mac USB acceptance, Windows native/loopback tests, final-package installation and affected physical paths are recorded separately. The reused .312 saver render illustrates unchanged backgrounds, clock and separate selection; it is not .313 device or idle-animation evidence. Original artwork retains its recorded redistribution authorization outside MIT. Existing video remains valid only for unchanged scenes and does not claim to show the new workspace. Public downloads remain unchanged until formal publication.
