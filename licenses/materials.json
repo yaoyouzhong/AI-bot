@@ -241,7 +241,8 @@
     "docs/assets/screens/tab5-companion-savers-0312-preview.png": "02d3dd846a57a3e85495bf8b49c7bd942ae2c06b7585a15d95dae9fe05af05c0",
     "licenses/companion-art/NOTICE.md": "a88bf3317bdf47ff50b3297e4de8758c0208ed9504b05e2227f7d64fe60894b0",
     "docs/development/tab5-312-source/AI-bot-tab5-0.2.312-ui-source.zip": "8e47299f88d9cd2f1fed56ca2518112052912dcbe64a4b3599487d888000555b",
-    "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip": "31de185bbcbd0895088d1f7b713a4ba47f68402b6545ebac07c206f6f2d96de3"
+    "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip": "31de185bbcbd0895088d1f7b713a4ba47f68402b6545ebac07c206f6f2d96de3",
+    "docs/assets/screens/tab5-dialogue-0313-preview.png": "32510ec1adfada77f2e83ac55b990518ea3ed054ffb6c46757d25d2a78f17db3"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

@@ -203,8 +203,10 @@ Mac onboarding: adding TAB5 opens USB Pairing directly, including reused connect
 
 Mac 0.6.15 enables available features by default while preserving explicit opt-outs. Follow its native authorization guide; a background launch defers the guide until the user clicks the menu-bar icon. Allow AI-bot Bridge in Accessibility, also called Device Control and Data Access on some systems. If an old enabled entry remains ineffective, remove it and re-add `/Applications/AIBotBridge.app`. The consolidated Keychain item is “AI-bot Bridge 资料”; local acceptance had one prompt and none after restarting the same build. Legacy-first migration may still require per-item approval. Other macOS permissions remain separate. Quit before replacing the app and keep old backups as ZIPs or outside Applications. See the [authorization video supplement](MAC-AUTHORIZATION-VIDEO.md).
 
-## 0.6.16 安装更新提示 / Update notes
+## 0.6.17 安装更新提示 / Update notes
 
-Windows 与 Apple Silicon Mac 本次桥接均为 0.6.16；固件按设备单独选择，小屏 0.5.8、大屏 0.2.303-ui。从[完整下载中心](../DOWNLOADS.md)取得实际发布附件。已有相同镜像无需重刷。Windows 安装前正常退出托盘程序，保留用户设置和配对；Mac 正常退出后替换应用，临时签名替换可能需要重新授权。Windows 本机语音识别依赖已安装的微软识别器，保存设置后用于下一段录音。
+Windows 与 Apple Silicon Mac 桥接均为 **0.6.17**；TAB5 固件为 **0.2.313-ui**，ESP8266 保持 **0.5.8**。从[完整下载中心](../DOWNLOADS.md)取得对应附件。先更新电脑桥接，再升级 TAB5 以使用新的 Claude／Codex 对话工作区；已有同一精确镜像无需重刷。
 
-Desktop 0.6.16 is provided for Windows and Apple Silicon Mac; device firmware remains independently versioned. Quit before upgrading, preserve settings/pairing, and use the complete download center. An unchanged device image does not require another flash. Ad-hoc Mac replacements may need system authorization; Windows native recognition uses the installed Microsoft recognizer.
+Windows 升级前正常退出托盘；Mac 正常退出后替换应用，保留设置、配对及草稿。本次 Mac 原包使用既有本地开发签名、未经公证，系统权限仍按 macOS 要求处理。TAB5 底部选择 **对话 → Codex／Claude → 项目／会话**，总览可直接进入当前会话；Claude 外部活跃会话只读，工具请求在电脑手工确认。屏保在 **设置 → 屏幕声音**选择“Codex萌宠”或“Claude萌宠”。Windows 系统语音识别依赖已安装的微软识别器，识别文字应检查后再发送。
+
+Desktop **0.6.17** is available for Windows x64 and Apple Silicon Mac, paired with independent TAB5 **0.2.313-ui**; ESP8266 remains **0.5.8**. Update the bridge first for the shared Codex/Claude Dialogue workspace. Quit before replacing the app and preserve settings, pairing and drafts; an identical firmware image needs no repeat flash. The Mac package retains its existing local development signing identity and is not notarized. Select Dialogue, client, project and conversation on TAB5; external active Claude sessions are read-only and tool requests require manual computer approval. Companion savers are selected under Settings → Screen/Sound. Review recognized text before sending.

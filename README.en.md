@@ -6,7 +6,7 @@ Beyond work, AI-bot serves as a desk clock and information display for weather, 
 
 [Complete download center](DOWNLOADS.en.md) · [Downloads and device pairing](#downloads-and-device-pairing) · [Installation guide](docs/INSTALL.zh.md) · [Release highlights and details](docs/RELEASE-0.6.17.md) · [简体中文](README.md)
 
-**In preparation:** Windows/Mac desktop 0.6.17 and TAB5 0.2.313-ui bring gallery scope/quality selection, Codex/Clawd companions and savers, and a shared Claude/Codex dialogue workspace with exact conversations, public replies and encrypted drafts. Both desktops restore explicitly cancelled queued drafts; final-package and device-path acceptance remain required. Public downloads are still desktop 0.6.16 and TAB5 0.2.303-ui; ESP8266 stays at 0.5.8. [Preparation and acceptance scope](docs/RELEASE-0.6.17.md) · [Mac installation and permissions](docs/INSTALL.zh.md#mac)
+**Released:** Windows/Mac desktop **0.6.17** and TAB5 **0.2.313-ui** add a shared Codex/Claude dialogue workspace, client companions and savers, plus gallery scope/quality controls. Explicitly cancelled queued input restores drafts while preserving newer text. ESP8266 remains **0.5.8**. [Scope and acceptance](docs/RELEASE-0.6.17.md) · [Mac installation and permissions](docs/INSTALL.zh.md#mac)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-0312-preview.png" width="880" alt="Native renders of the separate Codex and Clawd companion screensavers"></p>
 <sub>Two independent native screensaver renders with a demonstration clock; the device shows only the selected mascot. [Provenance and acceptance limits](docs/RELEASE-0.6.17.md)</sub>
@@ -69,7 +69,7 @@ https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 <tbody>
 <tr><td nowrap="nowrap"><strong>AI task status</strong></td><td>Both displays show Claude / Codex working, idle and waiting states, with completion alerts.</td></tr>
 <tr><td nowrap="nowrap"><strong>Model quotas</strong></td><td>Account usage, API balances, reset times and Codex reset cards; quota history on the computer.<br>Available fields depend on the provider and account authorization.</td></tr>
-<tr><td nowrap="nowrap"><strong>Codex sessions</strong></td><td>On TAB5, select a session, read replies and long histories, and edit a draft.<br>Use voice input, add camera attachments and hold to clear text; review and confirm before sending.</td></tr>
+<tr><td nowrap="nowrap"><strong>Codex/Claude dialogue</strong></td><td>On TAB5, select a project and conversation, read public replies/history, and keep separate encrypted drafts.<br>Use voice input, add camera attachments and hold to clear text; review and confirm before sending.</td></tr>
 <tr><td nowrap="nowrap"><strong>Agenda &amp; calendar</strong></td><td>TAB5 offers tasks, recurring and due reminders, a monthly calendar, lunar dates, solar terms and birthdays.</td></tr>
 <tr><td nowrap="nowrap"><strong>Weather &amp; stocks</strong></td><td>Both displays show weather and watchlists; TAB5 also shows hourly and seven-day forecasts.</td></tr>
 <tr><td nowrap="nowrap"><strong>Music &amp; PC status</strong></td><td>View media details, artwork and computer CPU, memory and network activity.<br>TAB5 can control supported players; availability varies by Windows, Mac and player. <a href="docs/MEDIA-PLAYERS.md">Media support</a></td></tr>
@@ -97,9 +97,11 @@ https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 [Native Mac gallery](docs/FEATURES.zh.md#mac-native): new 0.6.15 authorization guides plus management-window captures retaining their historical provenance, all using native controls and isolated demo data.
 
 <details>
-<summary><strong>Explore TAB5 highlights: Codex Direct, Annual Dots and the floral calendar</strong></summary>
+<summary><strong>Explore TAB5 highlights: shared dialogue, Codex Direct and calendars</strong></summary>
 
 **Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.11.md)
+
+**Dialogue workspace:** choose a Codex/Claude project and conversation, manage drafts/photos, and enter the exact current or unread conversation from Overview. External active Claude sessions are read-only; tool requests require computer approval. [Native interface preview with synthetic data](docs/assets/screens/tab5-dialogue-0313-preview.png)
 
 **Codex Direct:** choose a recent session and finish recording to fill the computer input automatically. Review or edit on the computer, then confirm from TAB5. Supports question cards, continued dictation, failure recovery and hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -129,11 +131,11 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 <!-- downloads:start -->
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.16 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.16/AI-bot-bridge-v0.6.16-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.16/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.16 | [Download · 18 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.16/AI-bot-bridge-v0.6.16-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.16/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.17 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.17/AI-bot-bridge-v0.6.17-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.17/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.17 | [Download · 18 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.17/AI-bot-bridge-v0.6.17-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.17/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.8 | [Download · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-firmware.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/SHA256SUMS.txt) |
-| TAB5 · first install from factory system | 0.2.303-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.303-ui/AI-bot-tab5-0.2.303-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.303-ui/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.303-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.303-ui/AI-bot-tab5-0.2.303-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.303-ui/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.313-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.313-ui/AI-bot-tab5-0.2.313-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.313-ui/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.313-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.313-ui/AI-bot-tab5-0.2.313-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.313-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · standard | 2026.1 (package 2026.10.15.1) | [Download · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
 | Daily Calligraphy · complete HD | 2026.1 (package 2026.10.16) | [Download · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
 | Daily Painting · standard | 2026.1 (package 2026.10.14.1) | [Download · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |

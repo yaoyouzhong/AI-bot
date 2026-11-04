@@ -1,5 +1,10 @@
 # TAB5 Codex 直达 / Codex Direct
 
+> TAB5 0.2.313-ui 与桥接 0.6.17 新增统一 **对话** 入口，支持 Codex／Claude 项目、会话、公开回复和分别保存的草稿。本页保留 Codex 直达的电脑输入框用法与历史验收；新版统一工作区见[功能图鉴](FEATURES.zh.md#tab5)。
+>
+> TAB5 .313 / desktop .17 use the shared Dialogue entry for Codex and Claude. This page retains the separate Codex Direct desktop-composer flow and its historical evidence.
+
+
 适用于 Windows AI-bot 0.6.14、Mac AI-bot 0.6.15 与 TAB5 0.2.302-ui。[返回功能图鉴](FEATURES.zh.md) · [安装与配对](INSTALL.zh.md)
 
 Mac 可用功能默认开启，保留用户关闭选择。直达需辅助功能有效授权；从菜单栏图标进入应用引导，旧条目已勾选仍无效时重新添加当前应用。[Mac 权限步骤](INSTALL.zh.md#mac)。Mac features default on while preserving opt-outs; desktop navigation requires effective Accessibility approval, including re-adding an ineffective old entry.

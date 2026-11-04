@@ -1,5 +1,8 @@
 # Windows 接收与取消草稿修复
 
+**最终状态：已完成并发布。** 主干与两个正式标签的候选源码为 `854f679c7a2d06e23c234f0166cd35108045cc25`。以下保留开发过程；其中历史“待验证”由本段及文末结果取代，不重新要求未变更功能验收。
+
+
 接收 Mac 分支 `codex/tab5-claude-dialogue` 的 `9973f9b25083c0d35a696b947f55dd2327587820`；两端修复为 `a934d6afe42b751a53a3b210d2a1c4b7dfe807d2`，已推送 [PR #22](https://github.com/yaoyouzhong/AI-bot/pull/22)。对应范围见[交接清单](WINDOWS-CLAUDE-DIALOGUE-ALIGNMENT-20261104.md)。本记录区分代码、自检、原生程序、发布包和设备结果。
 
 ## 本次修正
@@ -34,3 +37,10 @@
 - Windows 发布包自检改为调用包内 C# 合成 CLI 子进程，移除对仓库外置 Python 脚本的依赖。已在空工作目录、无 Python PATH 条件下运行工作区全链路自检通过；实际安装 Claude CLI 的隔离验证不变。
 
 版本保持桥接 0.6.17、TAB5 0.2.313-ui；ESP8266 未修改。本次开发提交不创建发布标签或正式 Release。
+
+## 最终验收与发布结果
+
+- Windows 原生候选批次 [41859670666](https://github.com/yaoyouzhong/AI-bot/actions/runs/41859670666) 完成正式打包、隔离全自检、解压原包全自检及安装器边界检查。最终包核验 111 项文件摘要，正常桌面后台 `status-once` 返回 0、有效 JSON、无 stderr，17 个设置／配对／草稿文件摘要不变；安装器、助手及依赖输入与先前 0.6.16→0.6.17 原生安装验证完全相同，复用该未变更安装路径。未替换驻留桥接或触发前台窗口。
+- Mac 新原包 `fe6a9bdd…` 精确对应共同源码，内嵌 SOURCE_SHA 无脏标记；19 项文件摘要、arm64 与可执行文件摘要核对通过。Mac 本机 465 项测试（1 跳过、0 失败）、29,068 parity、三项取消回归、严格签名、包内助手和后台监听／USB 打开通过，设置未改变。以本机结果为准，未等待 hosted Mac runner。
+- .313 原生 LVGL 工作区目录、草稿隔离、忙时切换、同会话／已读入口回归通过并查看真实渲染；本地 CMake 只适配固定 SDK／托管依赖路径及读回执结构的提取标记，未修改生产 UI。截图使用固定演示数据，来源与摘要已登记。
+- 桥接 [v0.6.17](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.17) 与 TAB5 [tab5-v0.2.313-ui](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.313-ui) 原包晋级；Windows 安装包 SHA-256 `e23620c01cffe9057bee72e1e53c7d29a8408437d3c57885d3f1d5799f947831`，Mac 包 `fe6a9bdd23869435fbe7fc52c5be04e7fe123631c30a8c643518fba774ab6996`，TAB5 应用仍为 `e0c0981b…`。设备验收按不变应用及明确范围复用，不宣称新增 Windows 物理路径或重新首刷通过。
