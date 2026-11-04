@@ -38,6 +38,8 @@ mkdir -p "$contents/Resources/licenses/tft-espi"
 install -m 644 "$repo_root/licenses/tft-espi/LICENSE.txt" "$contents/Resources/licenses/tft-espi/LICENSE.txt"
 mkdir -p "$contents/Resources/licenses/pmo-calendar"
 install -m 644 "$repo_root/licenses/pmo-calendar/NOTICE.md" "$contents/Resources/licenses/pmo-calendar/NOTICE.md"
+mkdir -p "$contents/Resources/licenses/companion-art"
+install -m 644 "$repo_root/licenses/companion-art/NOTICE.md" "$contents/Resources/licenses/companion-art/NOTICE.md"
 git -C "$repo_root" rev-parse HEAD > "$contents/Resources/SOURCE_SHA.txt"
 if ! git -C "$repo_root" diff --quiet -- mac-app; then
     printf '%s\n' 'working-tree-changes=yes' >> "$contents/Resources/SOURCE_SHA.txt"

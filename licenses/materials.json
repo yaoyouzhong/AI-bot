@@ -1,5 +1,5 @@
 {
-  "reviewedOn": "2026-11-02",
+  "reviewedOn": "2026-11-04",
   "files": {
     "windows-sdk/REDIST.html": "52cd4791e8b457706267ebf1cb886de5562cea2d2ae68609c49f5f0c843a9222",
     "windows-sdk/sdk_license.rtf": "dd07eb178e00c6bba4148457fc00ff77cd4887eb521d504186fe59c9ec8bbe62",
@@ -17,7 +17,8 @@
     "tightvnc/ORIGIN.md": "be49a52472aab700600a01a96ac051e4f0d91fd790a7451c64fc41718823d586",
     "pdfpig/LICENSE": "4c510e162f896ea43b4b1cf1b743641d7c756f1004d0e5eaf0615b28b7ded409",
     "pdfpig/SOURCE.json": "7bc26e6e8658e4685767e880c0e7c314fd964360a2168b842d2b761b008c3582",
-    "pmo-calendar/NOTICE.md": "3c13d8d0b8103a1486fa32c5ef525e8749210ce612fa30ca9b97f661b0f2f380"
+    "pmo-calendar/NOTICE.md": "3c13d8d0b8103a1486fa32c5ef525e8749210ce612fa30ca9b97f661b0f2f380",
+    "companion-art/NOTICE.md": "a88bf3317bdf47ff50b3297e4de8758c0208ed9504b05e2227f7d64fe60894b0"
   },
   "windowsSdk": {
     "version": "10.0.22000.56",
@@ -236,7 +237,9 @@
     "docs/assets/screens/mac-direct-authorization.png": "180225671551e6d4ed752b20420d810df4ae9fd89e6df8d51ea79a330c53e62f",
     "docs/assets/screens/mac-direct-authorization-upgrade.png": "0eddbab9adaa7f7f38478869ec1846397776e95412ee3a94ecbd033332284f9f",
     "docs/assets/product-intro/AI-bot-mac-authorization-cover.png": "706f0d66bb0933485f9ad805f9ac8385c884b55b1feb1bd817fc1a6c3608aee1",
-    "docs/assets/screens/esp8266-stock-058-preview.png": "a81481504686526c2c4b69c74bff8c284d29449a11c028dbe4ca9295bc0688ce"
+    "docs/assets/screens/esp8266-stock-058-preview.png": "a81481504686526c2c4b69c74bff8c284d29449a11c028dbe4ca9295bc0688ce",
+    "docs/assets/screens/tab5-companion-savers-0312-preview.png": "02d3dd846a57a3e85495bf8b49c7bd942ae2c06b7585a15d95dae9fe05af05c0",
+    "licenses/companion-art/NOTICE.md": "a88bf3317bdf47ff50b3297e4de8758c0208ed9504b05e2227f7d64fe60894b0"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

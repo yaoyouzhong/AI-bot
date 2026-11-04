@@ -2,6 +2,24 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.312-ui - 2026-11-04
+
+### Client companions
+- Add Codex and official Clawd companions to Overview, preferring the active supported client and retaining its mascot when it uses a custom model.
+- Group project/chat on the left and center a short status above the mascot on the right. Unreliable observations use a concise unknown label.
+- Add Codex and Claude companion savers using original artwork with project-defined state mapping. Savers loop animations while Overview holds a completed pose.
+
+### Saver presentation and stability
+- Refine Clawd scale and visual centering, add quiet blue-gray/warm-brown backdrops and a centered numeric clock, and remove repeated status/brand labels.
+- Dismiss a viewed header alert while preserving its diagnostic incident; recovery, new incidents and escalation retain their normal behavior.
+- Include accepted dictionary compression, gallery-worker stack and draw-backend improvements, preserving stack protection and device display preferences.
+
+### Validation scope
+- Promote the exact accepted 0.2.312-ui application rather than rebuilding or reflashing it. The user confirmed both savers' display/exit and the refined placement, backdrops and clock.
+- Native regressions cover states, decoding and client selection. Actual active Claude Code routing and some waiting/completion/disconnection paths remain unexercised on hardware.
+- The project owner confirmed public redistribution rights for the supplied official artwork. Original ownership is retained outside the project MIT grant.
+
+
 ## 0.2.303-ui - 2026-11-03
 
 ### Calendar and monitoring

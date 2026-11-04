@@ -157,6 +157,7 @@ def collect_windows(stage: Path):
     copy_file(ROOT / "docs/DISTRIBUTION_TERMS.md", stage / "DISTRIBUTION_TERMS.md")
     copy_file(ROOT / "docs/WINDOWS_PACKAGE.md", stage / "README.md")
     copy_file(ROOT / "licenses/materials.json", stage / "licenses/materials.json")
+    copy_file(ROOT / "licenses/companion-art/NOTICE.md", stage / "licenses/companion-art/NOTICE.md")
     for name in ("DISTRIBUTION_TERMS.md", "FIRMWARE_PACKAGE.md", "WINDOWS_INSTALLER.md", "DOMESTIC_QUOTA_SETUP.md", "INSTALL.zh.md", "FLASH.zh.md", "FLASH_MAC.zh.md", "FLASH_BUILD.zh.md", "TAB5-FIRMWARE-WORKFLOW.md", "TAB5-LICENSE-SCOPE.md"):
         copy_file(ROOT / "docs" / name, stage / "docs" / name)
     for name in ("api-settings", "device-center", "firmware-flasher", "tab5-first-install", "tab5-upgrade"):

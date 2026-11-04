@@ -1,5 +1,7 @@
 # TAB5 客户端萌宠调整 / Client companions
 
+本文保留本地开发与验收过程；2026-11-04 素材再分发授权和本轮正式发布范围见 [0.6.17 发布记录](../RELEASE-0.6.17.md)。下文的本地候选限制是对应阶段记录，不替代后续授权。
+
 本次基于已经验收的 TAB5 0.2.310-ui，保留其绘图后端精简、图库任务栈修复与总览缓存修复。仅在本地候选中增加客户端萌宠与相关界面调整，不是正式发布。
 
 ## 已确认的交互 / Agreed behavior
@@ -26,7 +28,7 @@ Clawd 使用 Anthropic 官方开发者站点 `https://claude.dev` 实际使用�
 
 动画内容来自官方，任务含义和播放策略由 AI-bot 定义，不宣称这是官方任务状态表。拒绝的自制键盘、举手和跳跃动作没有进入本次交付。Codex 保留已确认的官方图集、尺寸与动作。
 
-官方素材属于各自权利人，生成素材数据只用于用户请求的私有本地候选，排除在 MIT 源码补丁与公开再分发之外。原始文件、摘要及本地预览保存于任务输出目录。未使用旧 ESP8266 项目中仅获宣传视频使用授权的动画。
+官方素材属于各自权利人，不纳入项目 MIT。初始验证仅为本地候选；2026-11-04 项目维护者明确确认两套素材均有随固件公开再分发授权，见[授权及来源记录](../../licenses/companion-art/NOTICE.md)。原始来源、摘要、生成帧及声明随发布材料保留。未使用旧 ESP8266 项目中仅获宣传视频使用授权的动画。
 
 实现使用有界解码与共享帧缓冲；Clawd 共 378 帧，压缩图像流 98,371 字节，共享解码缓冲 3,960 字节。仅补透明列以对齐 RGB565 步长；保留原始像素、调色板与顺序，颜色转换为设备 RGB565。官方像素风不经 AI 重画或伪造高清细节。
 
@@ -40,7 +42,7 @@ Clawd 使用 Anthropic 官方开发者站点 `https://claude.dev` 实际使用�
 
 两种屏保的物理显示、触摸退出以及真实 Claude Code 活跃时的总览切换单独验收；不把当前 Claude 未运行时的安静站姿或原生测试称为这些场景已经实机通过。任务验收账本位于 `C:/Users/yaououzhong/Work/outputs/AI-bot-codex-companion-20261103/acceptance-20261104/`。
 
-The local candidate extends the accepted 0.2.310-ui baseline while retaining its renderer, gallery stack and overview-cache fixes. Only one mascot is shown, bound to the supported client rather than its model provider. Saver IDs remain compatible: Codex 9 and appended Claude 10. Savers display animation and a small bottom-centered clock. Work loops continuously; completion holds in Overview and loops in the saver without changing task state. Original Anthropic frames are preserved, with project-defined task meanings. Generated artwork remains outside the MIT source patch and public redistribution. Native previews and device acceptance are recorded separately.
+The local candidate extends the accepted 0.2.310-ui baseline while retaining its renderer, gallery stack and overview-cache fixes. Only one mascot is shown, bound to the supported client rather than its model provider. Saver IDs remain compatible: Codex 9 and appended Claude 10. Savers display animation and a small bottom-centered clock. Work loops continuously; completion holds in Overview and loops in the saver without changing task state. Original Anthropic frames are preserved, with project-defined task meanings. Artwork remains outside MIT; the owner confirmed public firmware redistribution rights on 2026-11-04, recorded in the linked notice. Native previews and device acceptance are recorded separately.
 
 ## 0.2.312 布局与背景细化 / Framing and background refinement
 

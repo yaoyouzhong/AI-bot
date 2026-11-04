@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.17 - 2026-11-04
+
+### Codex task states
+- Windows and Mac project working, user-input, approval, blocked and unknown states for compatible TAB5 overview cards and companion savers.
+- Distinguish questions from operation approval and keep exact task/turn identity. Failed observations retain sessions and replies; quiet logs do not imply completion.
+- Windows keeps confirmed blocked observations instead of filtering them as unavailable. Export fixed metadata only, without question, command or option content.
+
+### Scope and compatibility
+- Windows x64 and Apple Silicon Mac share this desktop release. TAB5 0.2.312-ui is released independently; ESP8266 and collection versions remain unchanged.
+- Preserve existing protocol compatibility, submission safeguards, pairing and stored data formats. Companion visuals are supplied by TAB5 firmware.
+
 ## 0.6.16 - 2026-11-03
 
 ### Desktop bridges

@@ -168,6 +168,12 @@ OFL-licensed LXGW WenKai; no additional font binary is shipped with this gallery
 
 ## Selected mascot design media
 
+### Official native Codex and Clawd companions
+
+For TAB5 0.2.312-ui, the project owner confirmed public redistribution authorization for the supplied OpenAI Codex atlas and Anthropic Clawd animation frames on 2026-11-04. Original artwork and marks remain outside AI-bot's MIT grant. Source URLs, fingerprints, the precise confirmation and native-preview attribution are recorded in [licenses/companion-art/NOTICE.md](licenses/companion-art/NOTICE.md). This authorization is separate from the older promo-video-only animation permission; no earlier project's animation is included in this firmware.
+
+2026-11-04，项目维护者确认 Codex 官方图集和 Clawd 原版动画两套素材均具有随 AI-bot 固件公开再分发的授权。素材归属及指纹随声明保留，不纳入项目 MIT；旧宣传片素材的既有授权不作扩展。
+
 The optional PNG/GIF under `docs/assets/pet/` and selected documentation/video
 previews contain a Codex product mark on the laptop. That identifier remains the
 property of its respective owner and is outside AI-bot's MIT grant. AI-bot is not
