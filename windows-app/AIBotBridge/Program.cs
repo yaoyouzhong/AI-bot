@@ -10,6 +10,11 @@ internal static class Program
     {
         if(args.Length==2&&args[0]=="--claude-hook"&&int.TryParse(args[1],out var hookPort)&&hookPort is >0 and <=65535){ClaudeHook.RunAsync(hookPort).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-automation"){AppPaths.BeginPublicSelfTest();Tab5UIAutomationSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-claude-workspace"){AppPaths.BeginPublicSelfTest();ClaudeWorkspaceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-claude-approval-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();ClaudeApprovalFormSelfTest.Run(args[1]);return;}
+        if(args.Length==2&&args[0]=="--self-test-claude-native"){AppPaths.BeginPublicSelfTest();ClaudeWorkspaceSelfTest.RunNativeAsync(args[1]).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--tab5-automation"){
+            try{AppProfileGuard.EnsureDesktopProfile();Tab5AutomationRunner.Run(args[1]);}catch(Exception e) when(e is IOException or InvalidOperationException or OperationCanceledException or UnauthorizedAccessException or TimeoutException or System.Net.Sockets.SocketException or System.Security.Cryptography.CryptographicException){Console.Error.WriteLine("TAB5_AUTOMATION_FAILED "+e.GetType().Name);Environment.ExitCode=1;}return;}
         // This command only signals the current user's resident bridge. It does
         // not open account files and must work from packaged launch contexts.
         if(args.Length==1&&args[0]=="--exit"){BridgeLifetime.RequestExit();return;}

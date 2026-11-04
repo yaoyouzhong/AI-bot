@@ -1,6 +1,6 @@
 # TAB5 后台自动验收
 
-仅用于已配对 USB 设备的显式本地诊断；不打开电脑前台窗口。设备须包含本轮自动操作实现，仅有同名 0.2.313 版本字符串不能证明镜像相同，应核对镜像 SHA-256。Windows 已接入相同命令/应答引擎与自检；下面的交互命令行入口目前在 Mac。
+仅用于已配对 USB 设备的显式本地诊断；不打开电脑前台窗口。设备须包含本轮自动操作实现，仅有同名 0.2.313 版本字符串不能证明镜像相同，应核对镜像 SHA-256。两端使用相同命令/应答协议；Windows 已通过 JSONL 合成传输检查，实际 USB 调用仍需对应 Windows 设备链路核验。
 
 正常退出驻留桥接后，用本次签名的诊断 app 运行：
 
@@ -8,6 +8,14 @@
 /path/to/AIBotBridge.app/Contents/MacOS/AIBotBridge --capture-tab5-screen /new/path/current.png
 /path/to/AIBotBridge.app/Contents/MacOS/AIBotBridge --tab5-automation /new/path/capture-directory
 ```
+
+Windows 正常退出驻留桥接后运行（程序会检查实例互斥锁，不自动关闭用户程序）：
+
+```powershell
+& 'C:\path\to\AIBotBridge.exe' --tab5-automation 'C:\new\path\captures'
+```
+
+Windows 入口只建立已有配对设备的 USB 诊断与必要状态服务，不开启托盘、ESP8266 或 BLE 工作线程，不重配对。可用 `capture` 命令保存画面；上述单次 `--capture-tab5-screen` 参数属于 Mac。
 
 自动操作入口从标准输入逐行读取 JSON，标准输出逐行返回结果。`ready` 返回设备逻辑宽高与 LVGL rotation；不得按缩略图或另一个方向猜坐标。输入目录及截图不能已存在。每次最多运行十分钟；输入结束或 `stop` 后关闭本次通道。
 

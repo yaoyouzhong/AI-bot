@@ -411,6 +411,25 @@ final class MacTab5Codex {
         journal = value; return value
     }
     private func saveJournal(_ value: [String: Any]) throws { try store.write("journal", MacTab5Protocol.json(value)); journal = value }
+    // Accepted queued input is no longer in the composer. A later explicit CLI
+    // cancellation must revoke that receipt and may restore an empty composer.
+    private func reconcileCancelled(task: String, binding: String, receipts: inout [String:Any], drafts: inout [String:Any]) -> Bool {
+        guard let deliveryCancelled else { return false }
+        var changed = false
+        for id in receipts.keys.sorted() {
+            guard var receipt = receipts[id] as? [String:Any], receipt["binding"] as? String == binding,
+                  receipt["operation"] as? String == "steer", deliveryCancelled(task,id), receipt["status"] as? Int != 409 else { continue }
+            receipt["status"] = 409; receipt["body"] = ["error":"message_cancelled","deliveryFinal":true]
+            let current = drafts[binding] as? [String:Any] ?? [:]
+            if (current["text"] as? String ?? "").isEmpty, (current["images"] as? [String] ?? []).isEmpty,
+               let queued = receipt["queuedDraft"] as? [String:Any], let text = queued["text"] as? String,
+               text.utf8.count <= 2000, let images = queued["images"] as? [String], images.count <= 3 {
+                drafts[binding] = ["text":text,"images":images]
+            }
+            receipt.removeValue(forKey:"queuedDraft"); receipts[id] = receipt; changed = true
+        }
+        return changed
+    }
     // Native desktop submission consumes only the staged local mirror. Keep a
     // newer device draft or attachments written while the UI action completed.
     func clearSubmittedDesktopDraft(task: String, device: String, expected: String) -> Bool {
@@ -516,6 +535,9 @@ final class MacTab5Codex {
             journalGate.lock(); defer { journalGate.unlock() }
             var data = try loadJournal(), receipts = data["receipts"] as! [String: Any], drafts = data["drafts"] as! [String: Any]
             let binding = device + "|" + task
+            if reconcileCancelled(task:task,binding:binding,receipts:&receipts,drafts:&drafts) {
+                data["receipts"] = receipts; data["drafts"] = drafts; try saveJournal(data)
+            }
             if op == "receipt" || op == "receipt-confirm" {
                 guard var receipt = receipts[id] as? [String: Any], receipt["binding"] as? String == binding else { return .error(404, "receipt_not_found") }
                 if op == "receipt-confirm", !(enabled() && sendEnabled() && mutationAllowed()) { return .error(403, "codex_send_not_enabled") }
@@ -594,6 +616,7 @@ final class MacTab5Codex {
             guard nativeAppend ? (running || Self.threadIdle(thread)) : (op == "send" ? (!running && Self.threadIdle(thread)) : (running && last["id"] as? String == expected)) else { return .error(409, op == "send" ? "task_busy_or_state_unknown" : "turn_changed") }
             // Persist the uncertain receipt BEFORE any side effect, including resume.
             var receipt: [String: Any] = ["binding": binding, "fingerprint": fingerprint, "operation": op, "expectedTurn": expected, "status": 504, "body": ["error": "delivery_unknown"]]
+            if op == "steer", deliveryCancelled != nil { receipt["queuedDraft"] = ["text":text,"images":images] }
             receipts[id] = receipt; data["receipts"] = receipts
             if op != "interrupt" { drafts[binding] = ["text": text, "images": images]; data["drafts"] = drafts }
             preflightStage = "private_journal_write_unavailable"
@@ -626,8 +649,10 @@ final class MacTab5Codex {
                 let turn = (result["turn"] as? [String: Any])?["id"] as? String ?? result["turnId"] as? String ?? (op == "interrupt" ? expected : "")
                 guard Self.id(turn) != nil else { return .error(504, "delivery_unknown") }
                 receipt["status"] = 202; receipt["body"] = ["status": "submitted", "taskId": task, "turnId": turn, "requestId": id]
+                if op == "interrupt" { _ = reconcileCancelled(task:task,binding:binding,receipts:&receipts,drafts:&drafts) }
                 receipts[id] = receipt; data["receipts"] = receipts
-                if op != "interrupt" { drafts[binding] = ["text": "", "images": [String]()]; data["drafts"] = drafts }
+                if op != "interrupt" { drafts[binding] = ["text": "", "images": [String]()] }
+                data["drafts"] = drafts
                 try saveJournal(data)
                 pendingBaselines.removeValue(forKey: id)
                 if op != "interrupt" { recordUserInteraction(task) }

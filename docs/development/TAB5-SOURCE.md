@@ -1,4 +1,12 @@
-# 最新工程源码 / Latest project source: 0.2.312-ui
+# 最新工程源码 / Latest project source: 0.2.313-ui
+
+[完整 .313 工程及核验说明](tab5-313-source/README.md)包含全部 999 个项目文件、7,600 项重建输入摘要、依赖覆盖与 SDK 补丁，已逐项核对 Mac 交接的 25 项修改。无需叠加旧版本源码。对应应用 SHA-256 `e0c0981beae8525e74fc1aeb3880904aeb95df909d63f5b9a39162ec72deb587`；原生构建和 USB 真机结果来自 Mac 交接。本次同步完整源码，未重新构建、刷机或发布固件，不宣称独立逐位重建。
+
+The complete .313 archive integrates the exact 25-file Mac firmware delta with 999 project files, 7,600 resolved-input hashes, managed overrides and SDK patches. No older source overlay is required. Native build and USB acceptance are recorded in the Mac handoff; this synchronization does not rebuild, flash or publish firmware or claim independent bit-identical output.
+
+---
+
+# 历史工程源码 / Previous project source: 0.2.312-ui
 
 [完整 .312 工程及核验说明](tab5-312-source/README.md)包含全部 993 个项目文件、7,594 项重建输入摘要、依赖覆盖及 SDK 补丁。按现有归档规则排除未修改的 SDK／依赖树、主机工具和本地数据；无需叠加旧版本工程。对应应用 SHA-256 `21d78bcce33bdbdb531588b225b59a9902e53ecff620c9b614863f56cdb34d8c`。本次只同步源码，不新增固件 Release；独立逐位重建未验证。
 

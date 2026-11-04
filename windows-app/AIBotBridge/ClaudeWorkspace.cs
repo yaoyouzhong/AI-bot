@@ -9,23 +9,25 @@ namespace AIBotBridge;
 internal sealed class ClaudeWorkspace:IDisposable
 {
     internal sealed record Approval(string Id,string Task,string Tool,JsonElement Input);
-    private sealed class Message(string id,string turn){internal string Id=id,Turn=turn,Status="inProgress";internal long Started=DateTimeOffset.UtcNow.ToUnixTimeSeconds();internal DateTimeOffset Observed=DateTimeOffset.UtcNow;internal bool Accepted;internal int Bytes;internal List<object> Items=[];}
+    private sealed class Message(string id,string turn,string device="",string? queuedText=null,string[]? queuedImages=null){internal string Id=id,Turn=turn,Status="inProgress",Device=device;internal string? QueuedText=queuedText;internal string[] QueuedImages=queuedImages??[];internal long Started=DateTimeOffset.UtcNow.ToUnixTimeSeconds();internal DateTimeOffset Observed=DateTimeOffset.UtcNow;internal bool Accepted;internal int Bytes;internal List<object> Items=[];}
     private sealed class Owner{internal ClaudeStream? Stream;internal List<Message> Messages=[];internal List<Approval> Approvals=[];internal bool Ended;}
     private readonly object _sync=new();private readonly SemaphoreSlim _gate=new(1,1);
     private readonly Dictionary<string,Owner> _owners=[];
     private readonly Dictionary<string,string> _interruptions=[];
     private readonly string _root,_private;
     private readonly Func<bool> _enabled;private readonly Func<string?> _executable;private readonly Func<CancellationToken,Task<JsonElement>>? _live;
+    private readonly Func<ClaudeCatalog.Entry,Action<JsonElement>,ClaudeStream>? _streamFactory;
     private readonly Dictionary<string,Tab5CodexJournal> _journals=[];private readonly Tab5CodexImages _images;private readonly ClaudeCatalog _catalog;
     private readonly Dictionary<string,string> _ready=[],_read=[];
     private readonly Dictionary<string,(string Device,string Task,string Turn)> _readReceipts=[];
     private readonly Dictionary<string,object> _responses=[];
     private object? _view,_control,_draft;private string? _viewTask,_draftDevice;
     private readonly System.Threading.Timer _timer;private long _catalogAt;private byte[]? _key;private bool _disposed;
-    internal ClaudeWorkspace(Func<bool> enabled,string? root=null,string? directory=null,Func<string?>? executable=null,Func<CancellationToken,Task<JsonElement>>? live=null){
+    internal ClaudeWorkspace(Func<bool> enabled,string? root=null,string? directory=null,Func<string?>? executable=null,Func<CancellationToken,Task<JsonElement>>? live=null,Func<ClaudeCatalog.Entry,Action<JsonElement>,ClaudeStream>? streamFactory=null){
         _enabled=enabled;_root=root??Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),".claude","projects");
         _private=directory??Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData),"AI-bot","tab5-claude");
         _images=new(Path.Combine(_private,"images"));_catalog=new(_root,Key);_executable=executable??Locate;_live=live;
+        _streamFactory=streamFactory;
         _timer=new(_=>Refresh(),null,Timeout.Infinite,Timeout.Infinite);
     }
     internal void Start()=>_timer.Change(0,4000);
@@ -85,7 +87,8 @@ internal sealed class ClaudeWorkspace:IDisposable
     private async Task<Owner> AcquireAsync(ClaudeCatalog.Entry entry,CancellationToken token){lock(_sync)if(_owners.TryGetValue(entry.Alias,out var existing)&&!existing.Ended)return existing;
         if(entry.Directory.Length==0||!Directory.Exists(entry.Directory)||await ExternalAsync(entry,token))throw new IOException("Claude session owned elsewhere");
         lock(_sync)if(_owners.Count>=8&&!_owners.ContainsKey(entry.Alias))throw new IOException("Claude capacity reached");
-        var owner=new Owner();var stream=new ClaudeStream(_executable()??throw new IOException("Claude unavailable"),entry.Directory,entry.Session,frame=>Receive(owner,entry,frame));owner.Stream=stream;
+        var owner=new Owner();Action<JsonElement> receive=frame=>Receive(owner,entry,frame);
+        var stream=_streamFactory?.Invoke(entry,receive)??new ClaudeStream(_executable()??throw new IOException("Claude unavailable"),entry.Directory,entry.Session,receive);owner.Stream=stream;
         lock(_sync)_owners[entry.Alias]=owner;try{await stream.StartAsync(token);return owner;}catch{owner.Ended=true;stream.Dispose();throw;}
     }
     private string Turn(ClaudeCatalog.Entry entry,string message)=>ClaudeCatalog.Alias("claude:turn:"+entry.Session+":"+message,Key());
@@ -145,13 +148,20 @@ internal sealed class ClaudeWorkspace:IDisposable
                 if(op=="interrupt"){
                     var interruption=await owner!.Stream!.InterruptAsync(token);
                     if(interruption.TryGetProperty("cancelled",out var cancelled)&&cancelled.ValueKind==JsonValueKind.Array)foreach(var value in cancelled.EnumerateArray())if(value.ValueKind==JsonValueKind.String&&Guid.TryParse(value.GetString(),out var id)) {
-                        lock(_sync)foreach(var message in owner.Messages.Where(m=>m.Id==id.ToString()))message.Status="interrupted";
-                        if(journal.Find(id.ToString()) is {} pending)journal.Save(pending with{State="rejected",Status=409,Error="message_cancelled"});
+                        Message? cancelledMessage;
+                        lock(_sync){cancelledMessage=owner.Messages.FirstOrDefault(m=>m.Id==id.ToString());if(cancelledMessage is not null)cancelledMessage.Status="interrupted";}
+                        if(journal.Find(id.ToString()) is {} pending){
+                            journal.Save(pending with{State="rejected",Status=409,Error="message_cancelled"});
+                            // CLI acknowledgement clears the sent composer. Restore an explicitly
+                            // cancelled queued input only while the user has not entered a new draft.
+                            if(cancelledMessage is {QueuedText:not null}&&cancelledMessage.Device==device&&journal.Draft(task).Length==0&&journal.Images(task).Length==0)
+                                journal.SaveDraft(task,cancelledMessage.QueuedText,cancelledMessage.QueuedImages,device);
+                        }
                     }
                     for(int i=0;i<20;i++){lock(_sync)if(!owner.Messages.Any(m=>m.Status=="inProgress")){_interruptions[request]=expected;break;}await Task.Delay(50,token);}
                     lock(_sync)if(!_interruptions.ContainsKey(request))return(504,new{error="delivery_unknown"});turn=expected;
                 }else{
-                    owner=await AcquireAsync(entry,token);turn=Turn(entry,request);lock(_sync){while(owner.Messages.Count>=128&&owner.Messages.FindIndex(m=>m.Status!="inProgress") is int old&&old>=0)owner.Messages.RemoveAt(old);if(owner.Messages.Count>=128)throw new IOException("Claude history capacity");owner.Messages.Add(new(request,turn));}
+                    owner=await AcquireAsync(entry,token);turn=Turn(entry,request);lock(_sync){while(owner.Messages.Count>=128&&owner.Messages.FindIndex(m=>m.Status!="inProgress") is int old&&old>=0)owner.Messages.RemoveAt(old);if(owner.Messages.Count>=128)throw new IOException("Claude history capacity");owner.Messages.Add(new(request,turn,device,op=="steer"?text:null,op=="steer"?images:null));}
                     var blocks=paths.Select(path=>(object)new{type="image",source=new{type="base64",media_type=Path.GetExtension(path)==".png"?"image/png":"image/jpeg",data=Convert.ToBase64String(File.ReadAllBytes(path))}}).ToArray();
                     await owner.Stream!.SendAsync(requestGuid,text,blocks,token);
                     for(int i=0;i<20&&Receipt(entry,record) is null;i++)await Task.Delay(50,token);

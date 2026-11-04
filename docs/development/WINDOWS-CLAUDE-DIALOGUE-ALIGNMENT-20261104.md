@@ -5,7 +5,7 @@
 ## 源码与交接边界
 
 - 来源平台为 macOS，接收平台为 Windows 10/11。分支 `codex/tab5-claude-dialogue`，基线 `0dc59134626e110f25e427bc6d7c4f61e64a8a85`；接收目标为包含本文的本地提交，可用 `git log -1 --format=%H -- docs/development/WINDOWS-CLAUDE-DIALOGUE-ALIGNMENT-20261104.md` 取得完整 SHA。
-- 用户授权本地提交，尚未推送、合并、打标签或发布。Windows 不能从远端拉取尚未推送的提交；后续接收时核对提交身份，不以旧 main 代替。
+- Mac 交接已推送至上述分支，Windows 本次实际接收提交为 `9973f9b25083c0d35a696b947f55dd2327587820`，基于它完成原生验证和修正。历史记录中的“尚未推送”是 Mac 当时的本地阶段，不能作为当前远端状态。
 - 本次 Windows 对端代码已经同时实现，接收端以原生验证和必要修正为主，不需要把 Swift 整套重写为 C#。不能把 Mac 实测或 Windows 交叉编译写成 Windows 原生通过。
 - 桥接 VERSION 保持 0.6.17，新增能力仍是本地候选；TAB5 独立候选为 0.2.313-ui。ESP8266 未修改，不刷机、不增加小屏验收。
 - 共同设计与完整实现记录见[对话设计](CLAUDE-WORKSPACE-PARITY-DESIGN-20261104.md)、[本轮结果](CLAUDE-DIALOGUE-HANDOFF-20261104.md)。
@@ -64,7 +64,7 @@ git status --short
 - Mac 已通过原生 462 项测试（1 条环境门控跳过，0 失败）、29,068 条隔离 parity 检查、Release 构建及本地签名。门控的真实 CLI 路径另行通过 loopback 文字、PNG、resume、排队与中断验证。
 - Windows 已交叉编译通过，0 warning / 0 error；身份、目录、历史、阅读与自动化 C# 离线回归通过。这些是接收基线，不是 Windows 原生安装/设备结果。
 - 共享 TAB5 最终镜像为 `e0c0981beae8525e74fc1aeb3880904aeb95df909d63f5b9a39162ec72deb587`，6,923,744 字节；精确 ELF 为 `e5f52c3aff72315dec130342b4a16705b3205ba60da3cb41bc367ba4ffeb8ef7`。已验证 VALID 分区、实时 UI、两端入口、已读、目录暂缺、待命形象及设置保留。文件仍在固定 `artifacts/firmware/tab5/latest/aibot_tab5.bin`，不把同版本旧镜像当成它。
-- 固件源码来自已核验的 [.312 工程](tab5-312-source/README.md)，最终增量为 [源码补丁](TAB5-COMPANION-312-SESSION-20261104.patch)及[来源摘要](CLAUDE-WORKSPACE-SOURCE-MANIFEST-20261104.json)。Windows 不要另行复制旧项目或用根 `firmware/` 构建 TAB5。
+- 已补齐[完整 .313 工程](tab5-313-source/README.md)：999 个项目文件、7,600 项重建输入摘要、依赖覆盖与 SDK 补丁，无需拼接旧包。25 项 Mac 增量逐项匹配[来源摘要](CLAUDE-WORKSPACE-SOURCE-MANIFEST-20261104.json)，Windows 不另行复制旧项目或用根 `firmware/` 构建 TAB5。
 - 语音识别准确性、原相机功能、账户余额/消费、旧设备使用场景均未因本次交接重新成为待办。旧交接记录保留其历史含义，不作为本次新增发布门槛；本次只验上表实际变更。
 - 此次只固定源码，不发布 Windows/Mac/TAB5 包。Mac 原包不因本地提交或文档变化重建。正式发布另按已有授权与统一流程选定源码、收齐受影响平台结果、核验并晋级实际原包。
 

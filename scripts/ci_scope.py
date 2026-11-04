@@ -19,7 +19,7 @@ def classify(paths):
             result["docs" if path.endswith(".md") else "firmware"] = True
         elif path == "VERSION":
             result["windows"] = result["macos"] = True
-        elif path.startswith(("scripts/", ".github/", "licenses/")) or path in ("release-manifest.json", "download-catalog.json", "gallery-hd-downloads.json"):
+        elif path.startswith(("scripts/", "tools/", ".github/", "licenses/")) or path in ("release-manifest.json", "download-catalog.json", "gallery-hd-downloads.json"):
             pass
         elif path.startswith("docs/") or Path(path).suffix.lower() in (".md", ".png", ".jpg", ".jpeg", ".svg") or path in ("LICENSE", "THIRD_PARTY_NOTICES.md", "versions/TAB5", ".gitignore", ".gitattributes"):
             result["docs"] = True

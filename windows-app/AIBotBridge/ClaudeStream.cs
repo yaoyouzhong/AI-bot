@@ -13,9 +13,10 @@ internal sealed class ClaudeStream : IDisposable
     private readonly object _sync=new();
     private readonly Dictionary<string,TaskCompletionSource<JsonElement>> _waits=[];
     private bool _closed;
-    internal ClaudeStream(string executable,string directory,Guid session,Action<JsonElement> receive,IReadOnlyDictionary<string,string>? environment=null,IEnumerable<string>? arguments=null){
+    internal ClaudeStream(string executable,string directory,Guid session,Action<JsonElement> receive,IReadOnlyDictionary<string,string>? environment=null,IEnumerable<string>? arguments=null,IEnumerable<string>? launcherArguments=null){
         _session=session;_event=receive;
         var info=new ProcessStartInfo(executable){WorkingDirectory=directory,UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,StandardOutputEncoding=Encoding.UTF8};
+        foreach(string value in launcherArguments??[])info.ArgumentList.Add(value);
         foreach(string value in new[]{"--print","--input-format","stream-json","--output-format","stream-json","--verbose","--replay-user-messages","--permission-prompt-tool","stdio","--resume="+session})info.ArgumentList.Add(value);
         foreach(string value in arguments??[])info.ArgumentList.Add(value);
         if(environment is not null){info.Environment.Clear();foreach(var pair in environment)info.Environment[pair.Key]=pair.Value;}

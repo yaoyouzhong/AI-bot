@@ -242,7 +242,31 @@ internal static class Tab5VoiceSelfTest
         }
         Console.WriteLine("TAB5_VOICE_FINAL_POLL_OK final; changing; cancel; replaced owner; cancellation; bounded wait; legacy");
     }
+    private static async Task CheckClientBindingAsync() {
+        var audio=new Audio();var editor=new Editor();
+        using var voice=new Tab5VoiceSession(audio,editor,()=>1000);
+        string task=Guid.NewGuid().ToString();
+        var take=await voice.HandleAsync(Json(new{op="start",client="claude",taskId=task}),CancellationToken.None);
+        editor.Text="Claude draft";
+        foreach(string op in new[]{"poll","cancel","stop","audio"}) {
+            bool rejected=false;
+            try{await voice.HandleAsync(Json(new{op,client="codex",voiceId=take.VoiceId,seq=0,pcm="AAA="}),CancellationToken.None);}
+            catch(Tab5VoiceRequestException){rejected=true;}
+            Check(rejected&&audio.Running&&editor.Text=="Claude draft","other client cannot consume or cancel the active take: "+op);
+        }
+        bool legacyRejected=false;
+        try{voice.Handle(Json(new{op="poll",voiceId=take.VoiceId}));}catch(Tab5VoiceRequestException){legacyRejected=true;}
+        Check(legacyRejected,"missing client remains Codex and cannot read a Claude take");
+        var poll=await voice.HandleAsync(Json(new{op="poll",client="claude",voiceId=take.VoiceId}),CancellationToken.None);
+        Check(poll.TaskId==task&&poll.Text=="Claude draft","matching client keeps the exact task and transcript");
+        voice.Handle(Json(new{op="cancel",client="claude",voiceId=take.VoiceId}));
+        var legacy=voice.Handle(Json(new{op="start",taskId=task}));
+        voice.Handle(Json(new{op="cancel",voiceId=legacy.VoiceId}));
+        Check(!audio.Running,"legacy Codex remains compatible");
+        Console.WriteLine("TAB5_VOICE_CLIENT_OK exact Claude owner; cross-client and legacy rejection; Codex compatibility");
+    }
     internal static async Task RunAsync() {
+        await CheckClientBindingAsync();
         await Tab5VoiceFocusPreparationSelfTest.RunAsync();
         await CheckFinalPollAsync();
         Tab5SpeechTranscript.SelfTest();

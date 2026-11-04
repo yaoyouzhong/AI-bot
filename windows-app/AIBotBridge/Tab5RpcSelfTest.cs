@@ -166,6 +166,10 @@ internal static class Tab5RpcSelfTest
                 if(r.RootElement.GetProperty("status").GetInt32()!=200)throw new Exception("Chunk upload failed: "+r.RootElement);
                 if(service.ImageUploadActive!=(repeat==0&&offset+count<photo.Length))throw new Exception("Image pacing lease does not match pending bytes or completed replay");
                 if(repeat==0&&offset==0&&count<photo.Length) {
+                    foreach(string client in new[]{"claude","unsupported"}) {
+                        using var switched=await Call(new{kind="image-chunk",client,session,issuedAt=Now(),taskId=task,requestId=imageId,sha256=sha,size=photo.Length,offset=count,data=Convert.ToBase64String(photo,count,1)});
+                        if(switched.RootElement.GetProperty("status").GetInt32()!=(client=="claude"?409:400))throw new Exception("Cross-client image continuation accepted");
+                    }
                     benchmarkField.SetValue(service,2);
                     try {await GalleryProbe(409,"Wi-Fi");}finally {benchmarkField.SetValue(service,0);}
                 }
