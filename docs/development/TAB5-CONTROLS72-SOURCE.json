@@ -62,7 +62,7 @@
   "sourceCommit": "6cc8528608c7e7ceb88fe59aadc171e07a24b33f",
   "bootVerificationPassed": true,
   "sameVersionNewImage": true,
-  "hardwareAcceptance": "exact image boot and actual idle render passed; manual camera, voice and clear confirmation pending",
+  "hardwareAcceptance": "passed for controls72 scope; exact image boot, actual idle render and user-confirmed camera, voice, clear, appearance and touch",
   "hardwareEvidence": "TAB5-CONTROLS72-ACCEPTANCE-20261105.json",
   "userAuthorizedApprovedDesignApplicationAndDeviceAcceptance": true,
   "productionImageValidation": true,

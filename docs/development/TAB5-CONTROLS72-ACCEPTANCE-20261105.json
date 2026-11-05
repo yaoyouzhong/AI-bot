@@ -27,8 +27,19 @@
   "residentRestored": true,
   "configurationFilesPreserved": true,
   "deviceSettingsPreserved": true,
-  "manualCameraVoiceAndClear": "pending user confirmation",
-  "overallHardwareAcceptance": "pending",
+  "manualCameraVoiceAndClear": "passed; user confirmed on 2026-11-05",
+  "manualAcceptance": {
+    "questionItemId": "call_1794486db3a24d1c825a4a66625dd78a:0",
+    "userAnswer": "都正常，这版大小和外观可以",
+    "circleAndSendHeightAlignment": "passed",
+    "approvedAppearanceAndTouch": "passed",
+    "cameraPreviewAndReturn": "passed",
+    "voiceStopAndTranscriptFill": "passed",
+    "longPressClearRemainsEmptyAfterFiveSeconds": "passed",
+    "matchingIdleBackgrounds": "passed",
+    "evidenceType": "user-reported physical device acceptance"
+  },
+  "overallHardwareAcceptance": "passed for controls72 scope",
   "evidenceRoot": "artifacts/tab5-controls72-build-20261105/",
   "evidenceFiles": [
     "ota-start-20261105-165816.json",
@@ -38,5 +49,5 @@
     "acceptance/usb-session-01/display-samples.jsonl",
     "acceptance/usb-session-01/captures/controls72-actual-dialogue.png"
   ],
-  "scope": "No conversation was sent. Finite idle display observations do not certify camera, dictation or clear behavior. Prior binaries and acceptance remain archived separately."
+  "scope": "This round did not request conversation sending. Camera, dictation and clear behavior are supported by the user's physical acceptance, separately from finite automatic idle display observations. Prior binaries and acceptance remain archived separately."
 }
