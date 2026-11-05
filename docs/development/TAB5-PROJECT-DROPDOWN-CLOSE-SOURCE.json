@@ -23,8 +23,8 @@
     ],
     "renderInspected": true
   },
-  "firmwareBuilt": false,
-  "flashed": false,
+  "firmwareBuilt": true,
+  "flashed": true,
   "original314Preserved": true,
   "patchAppliedByteExact": true,
   "patchCheck": {
@@ -36,5 +36,23 @@
   "windowsGitApplyCrlfRestored": [
     "firmware/main/ui.c",
     "tests/ui-preview/preview.c"
-  ]
+  ],
+  "firmwareVersion": "0.2.315-ui",
+  "imageSha256": "436df029e55f816dc00a2a37a011b0fa077fa7fe7f05478b1df1309c98a9a40b",
+  "imageBytes": 6924128,
+  "elfSha256": "d1d7d7ea1bf8369aac5ebd018b113c498a7b085e79711c97a14ed14413506651",
+  "firmwareChecks": {
+    "buildExitCode": 0,
+    "galleryStackBudget": true,
+    "drawBackendLink": true,
+    "productionImageValidation": true,
+    "actualSidecarRenderInspected": true,
+    "sharedSdkHashesUnchanged": true
+  },
+  "deviceBootVerified": true,
+  "menuRealDevice": {
+    "backgroundTouchAndCapture": "passed for Codex and Claude; menu open, overview clean, return closed",
+    "claudeVoiceAndPhotoDraftPreserved": true,
+    "userFingerConfirmation": "passed: menu disappears immediately on overview; remains closed on dialogue return"
+  }
 }

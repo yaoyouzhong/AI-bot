@@ -6,7 +6,7 @@
 
 电脑版本号保持 0.6.17，但这次 Mac 源码有变化，新编译文件是独立开发候选，不能冒充此前已发布的原包。TAB5 固定交付路径仍保留已验收 .314 `f3f98f20…`；没有用新菜单源码重编/覆盖 .314。Windows 说明中的 .315 尚无本次已接收 BIN，不填写其真机通过。
 
-## 自动检查
+## 首次自动检查（设备接回前的记录）
 
 | 项目 | 状态 | 本机证据与范围 |
 | --- | --- | --- |
@@ -55,3 +55,10 @@ The Mac branch fast-forwards to Windows commit 3b781c4. Native tests and the thr
 测试前输入框为空，收尾已清理该测试句并回到总览；stop 返回 settingsPreserved=true。随后使用同一验收通过的新开发候选恢复正常后台运行，USB 打开已确认；未修改正式发布附件、配对或固件。原公开 0.6.17 包继续保留，不能混写成新候选的二进制实测。新原包、校验、截图与结构化记录回传原 GitHub 交接草稿。新 .315 菜单固件仍待交接原包后验收。
 
 The real DJI recording passed with the exact 79670da development candidate through its normal application entry. Text was returned to TAB5 and never submitted; the automatic microphone selection remained unchanged with no pending restoration. The earlier diagnostic-entry crash and focus rejection remain separately recorded, without claiming diagnostic voice acceptance. Test text was removed and the tested candidate resumed normal background operation.
+
+
+## 最新两端记录已汇合
+
+已接收 Windows 后续文档提交 `9acd73eedb8ff65aa89554b792efccc7b8f2bc33`，其中 `.315` 精确应用 `436df029e55f816dc00a2a37a011b0fa077fa7fe7f05478b1df1309c98a9a40b`、ELF `d1d7d7ea1bf8369aac5ebd018b113c498a7b085e79711c97a14ed14413506651` 已在 Windows 侧完成启动、两客户端菜单离页关闭和用户手指操作验收；照片一次发送、真实 Read 确认及最终设备回复链路也已记录通过。复用对应 Windows 实测，不改写为 Mac 端独立重复实测。
+
+因此，上文“新 .315 尚未有验收记录”的状态仅对应当时接收快照，已被本节的新证据更新。Mac 正常入口真实 DJI 录音通过见上一节；诊断入口焦点拒绝仍单列，未标记为通过。Windows / Mac 的本轮代码与验收记录现已合流。后续由 Windows 发布负责人汇集精确原包并决定发布；不因文档同步重新构建或刷机，不覆盖已发布附件。

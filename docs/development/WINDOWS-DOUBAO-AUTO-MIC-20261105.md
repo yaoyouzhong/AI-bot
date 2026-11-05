@@ -60,8 +60,15 @@ Mac 本机执行 `swift test --package-path mac-app`、`swift build -c release -
 
 本轮自动验收已覆盖真实 Windows USB 采图/点按/滑动、Codex 总览直达与返回、Claude 真正供应商回复阅读、年度/全量图库切换与桥接重连后进度保留，以及上文的录音、照片、客户端隔离和拔线接续。未通过项和现场原始记录位于本机 `artifacts/windows-tab5-314-acceptance-20261105/`。
 
-Claude 的一条隔离测试输入首次显示送达未确认，未重复发送；本地真实历史随后已找到原输入及 `ok` 回复，设备侧旧请求的完整回复核对仍待补齐，不提前登记全部发送验收通过。真实工具确认及 Mac 新改动的本机验证也保留待完成。当前 `.314` 还有项目菜单离页残留，独立 `.315` 修复见[定向记录](TAB5-PROJECT-DROPDOWN-CLOSE-20261105.md)。正式发布与刷机状态单独记录，不以代码提交代替验收。
+Claude 的一条隔离测试输入首次显示送达未确认，未重复发送。随后只读核对持久回执与真实供应商 UUID 一致，结果为 `accepted` / 202、供应商侧仅一条测试输入；TAB5 已实际阅读到 `ok` 回复。历史会话的“状态未知”不能据此解释为送达失败。
+
+独立 `.315` 已按用户对精确 BIN 的批准完成升级、精确启动核验、两客户端菜单切页与手指操作验收。原照片只提交一次，持久回执 `accepted` / 202，之后用户仅发送不同的继续指令；从正常 Windows 托盘核对并允许一次真实 `Read`，供应商读取成功并回复“照片已收到”，用户在 TAB5 确认显示该回复和“已完成”。本轮 Windows 受影响路径验收通过，详见[定向记录](TAB5-PROJECT-DROPDOWN-CLOSE-20261105.md)。Mac 新麦克风修改的本机构建和受影响录音验证仍待接收端完成。正式发布与刷机状态单独记录，不以代码提交代替验收。
 
 ## English
 
 The Windows candidate preserves the accepted .314 firmware and released desktop archives. Reuse Doubao automatic selection only when its unique default physical endpoint matches the selected DJI. Otherwise temporarily select a present endpoint through the existing durable, verified recovery lease; retain a user's intervening manual choice. The no-DJI path keeps the existing TAB5/CABLE behavior. Improve status wrapping in the existing voice draft window and validate native rendering separately from physical recording. macOS uses its existing native microphone route; no shared protocol change is introduced. Publication and successful delivery are not claimed by these development checks.
+
+
+## Mac 回传更新
+
+Mac 已接收本轮源码，469 项原生测试（1 skip、0 failures）、29,068 parity、Release 构建及原包检查通过。用户接回 TAB5 和 DJI 后，源码 `79670dac2cea6f0e12ac4a6744d45d0c61a99768` 的新候选通过正常应用入口真实录音、停止及设备文字回填，豆包自动模式指纹保持、无待恢复记录，未发送会话。新 Mac 原包 ZIP SHA-256 为 `8dc70da9aa713bcccf91b391e98751339da00030019cb3650a86d57f613f543b`，已附原 GitHub 交接草稿。此前“Mac 待验证”保留作历史，由本节更新；诊断入口焦点保护未就绪的失败另行保留。完整范围与证据见 [Mac 最终对齐记录](MAC-WINDOWS-FINAL-ALIGNMENT-20261105.md)。本节不新增正式发布结论。
