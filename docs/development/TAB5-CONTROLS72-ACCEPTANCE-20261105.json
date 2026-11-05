@@ -1,0 +1,42 @@
+{
+  "version": "0.2.318-ui",
+  "buildId": "20261105-controls72",
+  "sourceCommit": "6cc8528608c7e7ceb88fe59aadc171e07a24b33f",
+  "imageSha256": "fad7d04c5585f222951aa7ac13deb01e8664a2069679d32547fa9f058563e2be",
+  "elfSha256": "af70f82932432ab033d59b7df72cdf82e05656e33bf43f533fa4de6489546679",
+  "nativeCasesPassed": 14,
+  "flashed": true,
+  "sameVersionNewImage": true,
+  "newElfAndValidBootVerified": true,
+  "actualIdleRenderInspected": true,
+  "idleCameraBackgroundRgb": [49, 73, 74],
+  "idleMicrophoneBackgroundRgb": [49, 73, 74],
+  "displayObservation": {
+    "transport": "USB",
+    "firstSampleUtc": "2026-11-05T09:01:16.5999712+00:00",
+    "lastSampleUtc": "2026-11-05T09:07:08.0523879+00:00",
+    "durationSeconds": 351.4524167,
+    "sampleCount": 171,
+    "lcdUnderruns": [0],
+    "flushErrors": [0],
+    "readPriority": 15,
+    "readQos": 15,
+    "voiceSequences": [0]
+  },
+  "diagnosticExitCode": 0,
+  "residentRestored": true,
+  "configurationFilesPreserved": true,
+  "deviceSettingsPreserved": true,
+  "manualCameraVoiceAndClear": "pending user confirmation",
+  "overallHardwareAcceptance": "pending",
+  "evidenceRoot": "artifacts/tab5-controls72-build-20261105/",
+  "evidenceFiles": [
+    "ota-start-20261105-165816.json",
+    "ota-verify-20261105-170012.json",
+    "acceptance/display-session-result.json",
+    "acceptance/AUTOMATIC-RENDER-CHECK.json",
+    "acceptance/usb-session-01/display-samples.jsonl",
+    "acceptance/usb-session-01/captures/controls72-actual-dialogue.png"
+  ],
+  "scope": "No conversation was sent. Finite idle display observations do not certify camera, dictation or clear behavior. Prior binaries and acceptance remain archived separately."
+}
