@@ -1,0 +1,25 @@
+{
+  "baseline": "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip",
+  "baselineSha256": "31de185bbcbd0895088d1f7b713a4ba47f68402b6545ebac07c206f6f2d96de3",
+  "targetVersion": "0.2.314-ui",
+  "patchSha256": "f5848664dc01112a337e2f5fc28213e16702692ebb4907d726eca673dd5f1446",
+  "byteExactApplyVerified": true,
+  "files": {
+    "firmware/main/ui.c": "91454e2e3289dc7fcedf6e8419c4f453efde2c6f273eefba62d1c5a01ada5fef",
+    "tests/ui-preview/preview.c": "28e79e4447d12099ac6d43addd3102526f2914e84c29b4cf64da82479869750e",
+    "tests/ui-preview/cancelled_draft_refresh_test.h": "3f2631171e670bad9e88f597af5c5b9bf794acbc90f9284c9ceac76e881b8eb6"
+  },
+  "productionRuntimeChanges": [
+    "firmware/main/ui.c"
+  ],
+  "buildVersionArgument": "TAB5_LOCAL_VERSION=0.2.314-ui",
+  "bridgeSourceUnchanged": "854f679c7a2d06e23c234f0166cd35108045cc25",
+  "applicationSha256": "f3f98f2019c46ac9c49be3b60fe7f550b1b03ee0c5732e044796c53bbc21dd99",
+  "elfSha256": "eace7cc46df3bef73f9dc27d49f4c3df04a5d4ceb169293c66984d4abe27b3a1",
+  "applicationBytes": 6924000,
+  "baselineMainFilesChecked": 276,
+  "changedMainFiles": [
+    "firmware/main/ui.c"
+  ],
+  "sdkconfigValueChanges": 0
+}

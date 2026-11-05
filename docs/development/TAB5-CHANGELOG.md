@@ -2,6 +2,13 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.314-ui - 2026-11-05
+
+### Restore drafts after cancellation
+- Fix the TAB5 composer staying empty when the bridge has restored text and photos from a cancelled, confirmed queued message.
+- Reload an unchanged empty draft after a successful interrupt while preserving newer text, photos and edits made during refresh.
+- Reuse the existing dialogue layout and protocol; no desktop bridge reinstall is required.
+
 ## 0.2.313-ui - 2026-11-04
 
 ### Local acceptance tooling
