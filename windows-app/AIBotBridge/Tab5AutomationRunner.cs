@@ -64,11 +64,27 @@ internal static class Tab5AutomationRunner
             }
             using var input=new StreamReader(Console.OpenStandardInput(),Encoding.UTF8);
             using var output=new StreamWriter(Console.OpenStandardOutput(),new UTF8Encoding(false)){AutoFlush=true};
-            await CommandsAsync(input,output,directory,new(Action,Capture,t=>service.DisplaySettingsAsync(null,t)),stop.Token);
+            await CommandsAsync(input,output,directory,new(Action,Capture,t=>ReadSettingsAsync(
+                ct=>service.DisplaySettingsAsync(null,ct),()=>service.Busy,t)),stop.Token);
         }
         finally{
             service.UIAutomation.Cancel();service.ScreenPreview.Stop();stop.Cancel();
             try{await Task.WhenAll(workers).WaitAsync(TimeSpan.FromSeconds(10));}catch(Exception e) when(e is OperationCanceledException or IOException or TimeoutException){}
+        }
+    }
+    internal static async Task<Tab5DisplaySettings> ReadSettingsAsync(
+        Func<CancellationToken,Task<Tab5DisplaySettings>> read,Func<bool> busy,CancellationToken token)
+    {
+        using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(30));
+        while(true){
+            deadline.Token.ThrowIfCancellationRequested();
+            if(busy()){await Task.Delay(50,deadline.Token);continue;}
+            try{return await read(deadline.Token);}
+            catch(InvalidOperationException) when(busy()){
+                // A new RPC may start between the idle check and the read.
+                await Task.Delay(50,deadline.Token);
+            }
         }
     }
     internal static string CapturePath(string directory,string name)

@@ -30,7 +30,8 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     private Tab5VoiceFocusRecovery? _focusRecovery;
     private string _focusEvent="none";
     private int _textUpdates,_textPeak;
-    private readonly Label _status=new(){Text="使用豆包识别，回到 TAB5 检查后手动发送。",AutoSize=true,MaximumSize=new Size(420,0),Padding=new Padding(8),Dock=DockStyle.Top};
+    private readonly Label _status=new(){Name="voice-status",Text="使用豆包识别，回到 TAB5 检查后手动发送。",AutoSize=true,Padding=new Padding(0,0,0,8),Margin=Padding.Empty,Dock=DockStyle.Fill};
+    private readonly TableLayoutPanel _layout=new(){Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Padding=new Padding(8)};
     internal string TriggerMode=>_doubao is null?"native control not yet checked":"native control (runtime checked)";
     internal string MicrophoneDiagnostic=>_microphone.Diagnostic+$"; focusRecovery={_focusRecovery?.Outcome??"not-started"}; focusAttempts={_focusRecovery?.Attempts??0}; recognizerState={_doubao?.LastState.ToString()??"unknown"}; recognizerStates={_doubao?.StateDiagnostic??""}; textUpdates={_textUpdates}; textPeakChars={_textPeak}; lastFocusEvent={_focusEvent}";
     internal void MaintainMicrophone(bool captureFinished) {
@@ -43,8 +44,10 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
         FormBorderStyle=FormBorderStyle.FixedToolWindow;ShowInTaskbar=false;Opacity=0;
         _text.KeyDown+=(_,e)=>{if(!e.Alt&&!e.Control)_normalizeSpeech=false;};
         _text.TextChanged+=(_,_)=>{_textUpdates++;_textPeak=Math.Max(_textPeak,_text.TextLength);};
-        Controls.Add(_text);
-        Controls.Add(_status);
+        _text.Name="voice-transcript";_text.Margin=Padding.Empty;
+        _layout.ColumnStyles.Add(new(SizeType.Percent,100));
+        _layout.RowStyles.Add(new(SizeType.AutoSize));_layout.RowStyles.Add(new(SizeType.Percent,100));
+        _layout.Controls.Add(_status,0,0);_layout.Controls.Add(_text,0,1);Controls.Add(_layout);
         SettingsWindow.FitScreen(this);ResumeLayout(true);
     }
     string ITab5VoiceEditor.Text=>_normalizeSpeech?Tab5SpeechTranscript.Project(_text.Text,_speechPrefix):_text.Text;

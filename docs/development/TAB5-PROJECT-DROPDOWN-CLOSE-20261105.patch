@@ -1,0 +1,56 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -795,6 +795,7 @@
+     settings_feedback("已保存到 TAB5",false);
+ }
+ static void page_select(int index,bool move_strip) {
++    if(index!=8&&codex_project_picker)lv_dropdown_close(codex_project_picker);
+     if(current_page==7&&index!=7)clock_return_page=-1;
+     if(index!=4&&health_open)health_leave_system();
+     if(index!=7)clock_picker_close(NULL);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2038,6 +2038,7 @@
+ #include "claude_companion_ui_test.h"
+ #include "workspace_parity_ui_test.h"
+ #include "cancelled_draft_refresh_test.h"
++#include "project_dropdown_navigation_test.h"
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -2057,6 +2058,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_PROJECT_DROPDOWN_ONLY")){check_project_dropdown_navigation();return 0;}
+     if(getenv("TAB5_CANCELLED_DRAFT_ONLY")){check_cancelled_draft_refresh();return 0;}
+     if(getenv("TAB5_WORKSPACE_PARITY_ONLY")){check_workspace_parity_ui();return 0;}
+     if(getenv("TAB5_CLAUDE_COMPANION_ONLY")){check_claude_companion_ui();return 0;}
+--- /dev/null
++++ b/tests/ui-preview/project_dropdown_navigation_test.h
+@@ -0,0 +1,25 @@
++static void check_project_dropdown_navigation(void) {
++ const char *fixture="{\"epochMilliseconds\":1793758000000,\"pcInput\":{\"session\":\"dropdown-fixture\"},\"codexTasks\":{\"projects\":[{\"id\":\"1111111111111111\",\"name\":\"Codex A\"},{\"id\":\"4444444444444444\",\"name\":\"Codex B\"}],\"tasks\":[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"projectId\":\"1111111111111111\",\"title\":\"Codex navigation\"}]},\"claudeTasks\":{\"projects\":[{\"id\":\"2222222222222222\",\"name\":\"Claude A\"},{\"id\":\"5555555555555555\",\"name\":\"Claude B\"}],\"tasks\":[{\"id\":\"22222222-2222-4222-8222-222222222222\",\"projectId\":\"2222222222222222\",\"title\":\"Claude navigation\"}]}}";
++ cJSON_Delete(shown);shown=cJSON_Parse(fixture);assert(shown);
++ for(unsigned client=0;client<2;client++) {
++  workspace_client=client;codex_selected[0]=0;codex_project_selected[0]=0;
++  codex_default_pending=codex_default_all=true;page(8);render_codex();
++  char selected[37],project[17];snprintf(selected,sizeof(selected),"%s",codex_selected);snprintf(project,sizeof(project),"%s",codex_project_selected);
++  assert(selected[0]&&project[0]);
++  codex_set_text(client?"Claude retained draft":"Codex retained draft");
++  codex_draft *draft=codex_draft_for(selected,true);assert(draft);
++  assert(codex_store_text(draft,lv_textarea_get_text(codex_input),false));draft->loaded=true;draft->dirty=false;
++  lv_dropdown_open(codex_project_picker);assert(lv_dropdown_is_open(codex_project_picker));
++  capture(client?"dropdown-claude-open":"dropdown-codex-open");
++  page(0);
++  capture(client?"dropdown-claude-overview":"dropdown-codex-overview");
++  assert(!lv_dropdown_is_open(codex_project_picker));
++  assert(!strcmp(selected,codex_selected)&&!strcmp(project,codex_project_selected));
++  page(8);assert(!lv_dropdown_is_open(codex_project_picker));
++  assert(!strcmp(lv_textarea_get_text(codex_input),client?"Claude retained draft":"Codex retained draft"));
++  capture(client?"dropdown-claude-return":"dropdown-codex-return");
++  lv_dropdown_open(codex_project_picker);assert(lv_dropdown_is_open(codex_project_picker));
++  page_select(0,false);assert(!lv_dropdown_is_open(codex_project_picker));
++ }
++ puts("PROJECT_DROPDOWN_NAVIGATION_OK both_clients immediate_close overview return project_and_draft_retained common_tab_navigation_path");
++}

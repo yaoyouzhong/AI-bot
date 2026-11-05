@@ -23,6 +23,7 @@ internal static class Tab5UIAutomationSelfTest
         string directory=Path.Combine(Path.GetTempPath(),"aibot-ui-protocol-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
         try{
             var settings=new Tab5DisplaySettings("1234abcd",80,50,false,-1,false,15,5,true,[1,1,1,1,1,1,1,1],[0,1,2,3,4,5,6,7]);
+            await SettingsReadAsync(settings);
             var actions=new List<string>();
             var backend=new Tab5AutomationRunner.Backend((command,_)=>{
                 string op=command.GetProperty("op").GetString()!;
@@ -40,5 +41,27 @@ internal static class Tab5UIAutomationSelfTest
             if(!detected)throw new Exception("Changed settings reported preserved");
             Console.WriteLine("WINDOWS_TAB5_AUTOMATION_JSONL_OK viewport, bounded gestures, capture traversal/overwrite rejection and settings verification; synthetic transport");
         }finally{Directory.Delete(directory,true);}
+    }
+    private static async Task SettingsReadAsync(Tab5DisplaySettings settings){
+        int checks=0,reads=0;
+        var result=await Tab5AutomationRunner.ReadSettingsAsync(_=>{reads++;return Task.FromResult(settings);},()=>++checks<3,default);
+        if(reads!=1||checks<3||result!=settings)throw new Exception("Settings read must wait for an idle device");
+        bool busy=false;checks=reads=0;
+        bool Busy(){if(!busy)return false;if(++checks<3)return true;busy=false;return false;}
+        result=await Tab5AutomationRunner.ReadSettingsAsync(_=>{
+            if(++reads==1){busy=true;throw new InvalidOperationException("concurrent RPC");}
+            return Task.FromResult(settings);
+        },Busy,default);
+        if(reads!=2||result!=settings)throw new Exception("A concurrent RPC must not lose the settings read");
+        using var cancelled=new CancellationTokenSource(TimeSpan.FromMilliseconds(80));reads=0;
+        bool stopped=false;
+        try{await Tab5AutomationRunner.ReadSettingsAsync(_=>{reads++;return Task.FromResult(settings);},()=>true,cancelled.Token);}
+        catch(OperationCanceledException) when(cancelled.IsCancellationRequested){stopped=true;}
+        if(!stopped||reads!=0)throw new Exception("Cancelled busy wait must not access device settings");
+        bool failed=false;reads=0;
+        try{await Tab5AutomationRunner.ReadSettingsAsync(_=>{reads++;throw new IOException("read unavailable");},()=>false,default);}
+        catch(IOException){failed=true;}
+        if(!failed||reads!=1)throw new Exception("Settings IO failure must remain a failed read");
+        Console.WriteLine("TAB5_AUTOMATION_SETTINGS_WAIT_OK idle, RPC race, cancellation and IO failure; settings comparison unchanged");
     }
 }

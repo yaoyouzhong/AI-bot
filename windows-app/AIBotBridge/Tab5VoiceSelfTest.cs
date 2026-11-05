@@ -161,6 +161,36 @@ internal static class Tab5VoiceSelfTest
         Tab5VoiceSettingsSelfTest.Preview(path);
         Console.WriteLine("TAB5_VOICE_SETTINGS_PREVIEW_OK (offscreen child controls, synthetic devices, capture disabled)");
     }
+    internal static void RunDraftLayout(string directory) {
+        Directory.CreateDirectory(directory);
+        foreach(int percent in new[]{100,150,200})foreach(bool narrow in new[]{false,true})foreach(bool failure in new[]{false,true}) {
+            using var draft=new Tab5VoiceDraft(()=>"",_=>false);
+            draft.InitializeDraft();draft.AutoScaleMode=AutoScaleMode.None;
+            float scale=percent/100f;
+            draft.Location=new Point(-30000,-30000);draft.ShowInTaskbar=false;draft.Show();
+            var status=(Label)draft.Controls.Find("voice-status",true).Single();
+            var text=(TextBox)draft.Controls.Find("voice-transcript",true).Single();
+            // Apply pixel sizes after handle creation, so the current monitor's
+            // DPI does not scale these explicit 100/150/200% render fixtures again.
+            status.Font=new Font("Microsoft YaHei UI",9.5f*96/72*scale,FontStyle.Regular,GraphicsUnit.Pixel);
+            text.Font=new Font("Microsoft YaHei UI",14*96/72*scale,FontStyle.Regular,GraphicsUnit.Pixel);
+            status.Padding=new Padding(0,0,0,(int)(8*scale));
+            status.Parent!.Padding=new Padding((int)(8*scale));
+            draft.ClientSize=new Size((int)((narrow?240:440)*scale),(int)(190*scale));
+            if(failure)draft.RevealFailure("豆包未找到所选电脑麦克风，请检查麦克风连接后重试；原输入内容已保留。");
+            draft.ShowInTaskbar=false;draft.PerformLayout();Application.DoEvents();
+            var required=TextRenderer.MeasureText(status.Text,status.Font,new Size(Math.Max(1,status.Width-status.Padding.Horizontal),int.MaxValue),TextFormatFlags.WordBreak|TextFormatFlags.TextBoxControl|TextFormatFlags.NoPrefix);
+            string name=$"voice-draft-{percent}-{(narrow?"narrow":"normal")}-{(failure?"error":"ready")}";
+            using var bitmap=new Bitmap(draft.Width,draft.Height);
+            draft.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(directory,name+".png"));
+            File.WriteAllText(Path.Combine(directory,name+".json"),JsonSerializer.Serialize(new{client=draft.ClientSize,status=status.Bounds,transcript=text.Bounds,required=required.Height+status.Padding.Vertical,scale}));
+            Check(status.Height+2>=required.Height+status.Padding.Vertical,"voice status wraps at the actual available width");
+            Check(status.Right<=status.Parent!.ClientSize.Width-status.Parent.Padding.Right&&status.Left>=status.Parent.Padding.Left,"voice status stays within the viewport");
+            Check(text.Top>=status.Bottom&&text.Height>=28*scale,"wrapped status retains a separate usable transcript area");
+            draft.Hide();
+        }
+        Console.WriteLine("TAB5_VOICE_DRAFT_LAYOUT_OK native WinForms; 12 normal/narrow/status/error scale-equivalent renders; not a new physical monitor-DPI claim");
+    }
     internal static void RunUi() {
         using(var draft=new Tab5VoiceDraft(()=>"",_=>false)) {
             draft.InitializeDraft();draft.Prepare();Application.DoEvents();
@@ -176,9 +206,9 @@ internal static class Tab5VoiceSelfTest
             while(!reply.IsCompleted&&Environment.TickCount64<until){Application.DoEvents();Thread.Sleep(5);}
             Check(reply.IsCompletedSuccessfully,"STA dispatch completes");return reply.Result;
         }
-        using var host=new Tab5VoiceHost(new Tab5VoiceSettings());
+        using var host=new Tab5VoiceHost(new Tab5VoiceSettings(Provider:"unconfigured"));
         var reply=Wait(host.HandleAsync(Json(new{op="start",taskId=Guid.NewGuid().ToString()}),CancellationToken.None));
-        Check(reply.State=="error"&&reply.Message.Contains("配置语音"),"real STA dispatch rejects unconfigured capture without opening microphone");
+        Check(reply.State=="error"&&reply.Message.Contains("语音识别方式无效"),"real STA dispatch rejects an invalid provider without opening microphone");
         var audio=new Audio();var editor=new Editor();
         using var enabled=new Tab5VoiceHost(new Tab5VoiceSettings(Enabled:true),audio,editor);
         var task=Guid.NewGuid().ToString();

@@ -7,6 +7,8 @@ internal static class Tab5DoubaoMicrophoneSelfTest
     private sealed class Settings(string directory,string name) {
         internal readonly string Journal=Path.Combine(directory,name,"lease.json");
         internal string Selected="dji";
+        internal string DefaultId="";
+        internal bool DuplicateDefault,NoDji;
         internal bool Idle=true,LoseReply,JournalBeforeWrite=true;
         internal int Writes,Reads,RejectWrites,FailReads,IgnoreWrites;
         internal long Now;
@@ -27,8 +29,9 @@ internal static class Tab5DoubaoMicrophoneSelfTest
             if(FailReads>0){FailReads--;throw new IOException("settings pipe unavailable");}
             if(ReadGate is not null)await ReadGate.Task;
             AfterRead?.Invoke();
-            return JsonSerializer.SerializeToElement(new {selectedMicrophoneId=Selected,devices=new[]{
-                new{id="cable",name="CABLE Output (VB-Audio Virtual Cable)"},new{id="dji",name="麦克风 (Wireless Mic Rx)"},new{id="usb",name="USB Microphone"}}});
+            var devices=new[]{new{id="cable",name="CABLE Output (VB-Audio Virtual Cable)",isDefault=DefaultId=="cable"},
+                new{id="dji",name="麦克风 (Wireless Mic Rx)",isDefault=DefaultId=="dji"},new{id="usb",name="USB Microphone",isDefault=DefaultId=="usb"||DuplicateDefault}};
+            return JsonSerializer.SerializeToElement(new {selectedMicrophoneId=Selected,devices=devices.Where(d=>!NoDji||d.id!="dji")});
         }
     }
     private static void Check(bool value,string label){if(!value)throw new InvalidOperationException("Doubao microphone lease: "+label);}
@@ -77,8 +80,28 @@ internal static class Tab5DoubaoMicrophoneSelfTest
             Check(settings.Selected=="dji"&&settings.Writes==0&&!mic.HasPendingRestore,"shared DJI leaves desktop microphone and recovery journal untouched");
             mic.Release();await mic.Recovery;
             Check(settings.Selected=="dji"&&settings.Writes==0,"shared DJI needs no channel restoration");
-            settings.Selected="manual";await MustFail(()=>mic.AcquireAsync("dji"));await mic.Recovery;
-            Check(settings.Selected=="manual"&&settings.Writes==0&&!mic.HasPendingRestore,"shared mode cannot silently change a different desktop microphone");
+            settings.Selected="manual";await mic.AcquireAsync("dji");
+            Check(settings.Selected=="dji"&&settings.Writes==1&&mic.HasPendingRestore&&settings.JournalBeforeWrite,"DJI priority temporarily leases a different desktop selection");
+            mic.Release();await mic.Recovery;
+            Check(settings.Selected=="manual"&&settings.Writes==2&&!mic.HasPendingRestore,"DJI priority restores the previous desktop selection");
+
+            const string automatic="ime_auto_detect_microphone_id";
+            settings=new(directory,"automatic-dji"){Selected=automatic,DefaultId="dji"};mic=settings.Create();
+            await mic.AcquireAsync("DJI");mic.Release();await mic.Recovery;
+            Check(settings.Selected==automatic&&settings.Writes==0&&!mic.HasPendingRestore,"automatic already routing to the same default DJI is reused without rewriting settings");
+            foreach(string fallback in new[]{"different","unknown","ambiguous"}) {
+                settings=new(directory,"automatic-"+fallback){Selected=automatic,DefaultId=fallback=="unknown"?"":fallback=="different"?"usb":"dji",DuplicateDefault=fallback=="ambiguous"};mic=settings.Create();
+                await mic.AcquireAsync("dji");
+                Check(settings.Selected=="dji"&&settings.Writes==1&&settings.JournalBeforeWrite&&mic.HasPendingRestore,"automatic "+fallback+" default temporarily selects the available DJI");
+                mic.Release();await mic.Recovery;
+                Check(settings.Selected==automatic&&settings.Writes==2&&!mic.HasPendingRestore,"automatic "+fallback+" selection is restored after recording");
+            }
+            settings=new(directory,"automatic-without-dji"){Selected=automatic,DefaultId="usb",NoDji=true};mic=settings.Create();
+            await mic.AcquireAsync();Check(settings.Selected=="cable"&&mic.HasPendingRestore,"no DJI uses the existing TAB5 cable route");
+            mic.Release();await mic.Recovery;Check(settings.Selected==automatic&&!mic.HasPendingRestore,"TAB5 fallback restores automatic detection");
+            settings=new(directory,"automatic-manual-change"){Selected=automatic,DefaultId="usb"};mic=settings.Create();await mic.AcquireAsync("dji");
+            settings.Selected="manual";settings.Idle=false;before=settings.Writes;mic.Release();await mic.Recovery;
+            Check(settings.Selected=="manual"&&settings.Writes==before&&!mic.HasPendingRestore,"a new manual selection wins over the temporary DJI lease");
 
             settings=new(directory,"physical");mic=settings.Create();await mic.AcquireAsync("usb",selectPhysical:true);
             Check(settings.Selected=="usb"&&settings.JournalBeforeWrite&&mic.HasPendingRestore,"explicit physical endpoint uses the existing recovery lease");

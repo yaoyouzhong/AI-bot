@@ -45,27 +45,30 @@ internal sealed class Tab5DoubaoMicrophone
                 EnsureIdle();
                 var list=await _call("settings.getMicrophoneList",null).ConfigureAwait(false);
                 string previous=list.GetProperty("selectedMicrophoneId").GetString()??"";
-                if(existingInputId is not null&&!selectPhysical) {
-                    // Shared DJI mode never changes the desktop microphone selection.
-                    if(!string.Equals(previous,existingInputId,StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("请先在电脑豆包中选择同一个大疆麦克风，再开始 TAB5 语音");
-                    return;
-                }
-                var cables=list.GetProperty("devices").EnumerateArray()
-                    .Where(d=>selectPhysical?string.Equals(d.GetProperty("id").GetString(),existingInputId,StringComparison.OrdinalIgnoreCase)&&
+                bool physical=selectPhysical||existingInputId is not null;
+                var devices=list.GetProperty("devices").EnumerateArray()
+                    .Where(d=>physical?string.Equals(d.GetProperty("id").GetString(),existingInputId,StringComparison.OrdinalIgnoreCase)&&
                         !Tab5VoiceAudio.IsCableCapture(d.GetProperty("name").GetString()??""):
                         Tab5VoiceAudio.IsCableCapture(d.GetProperty("name").GetString()??"")).ToArray();
-                if(cables.Length!=1)throw new InvalidOperationException(selectPhysical?"豆包未找到所选电脑麦克风":"豆包未找到唯一的 CABLE Output 麦克风");
-                string cable=cables[0].GetProperty("id").GetString()!;
-                if(previous==cable)return;
+                if(devices.Length!=1)throw new InvalidOperationException(physical?"豆包未找到所选电脑麦克风":"豆包未找到唯一的 CABLE Output 麦克风");
+                string target=devices[0].GetProperty("id").GetString()!;
+                if(string.Equals(previous,target,StringComparison.OrdinalIgnoreCase)||physical&&AutomaticUses(list,previous,target))return;
                 Directory.CreateDirectory(Path.GetDirectoryName(_journal)!);
                 string temporary=_journal+".tmp";
-                File.WriteAllText(temporary,JsonSerializer.Serialize(new Lease(previous,cable)));
+                File.WriteAllText(temporary,JsonSerializer.Serialize(new Lease(previous,target)));
                 File.Move(temporary,_journal,true);
                 // Commit the recovery journal before attempting any settings update.
-                await SelectAsync(cable).ConfigureAwait(false);
+                await SelectAsync(target).ConfigureAwait(false);
             } finally {_gate.Release();}
         } catch {Release();throw;}
+    }
+    private static bool AutomaticUses(JsonElement list,string selected,string target) {
+        if(selected.Length>0&&selected!="ime_auto_detect_microphone_id")return false;
+        // Use the installed IME's fresh default endpoint, not a cached capture.
+        // Unknown or ambiguous defaults use the normal temporary, verified lease.
+        var defaults=list.GetProperty("devices").EnumerateArray()
+            .Where(d=>d.TryGetProperty("isDefault",out var value)&&value.ValueKind==JsonValueKind.True).ToArray();
+        return defaults.Length==1&&string.Equals(defaults[0].GetProperty("id").GetString(),target,StringComparison.OrdinalIgnoreCase);
     }
     internal async Task RestoreAsync() {
         lock(_recoveryGate)_leased=false;

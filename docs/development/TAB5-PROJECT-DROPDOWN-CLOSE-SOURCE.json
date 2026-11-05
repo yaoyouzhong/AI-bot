@@ -1,0 +1,40 @@
+{
+  "baselineSourceZip": "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip",
+  "baselineSourceZipSha256": "31de185bbcbd0895088d1f7b713a4ba47f68402b6545ebac07c206f6f2d96de3",
+  "baselineDelta": "docs/development/TAB5-CANCELLED-DRAFT-314-20261105.patch",
+  "patchSha256": "efa6e247960e72aa3891130ee140817273cf7a434ba95132916bc7d11dfb31fb",
+  "productionRuntimeChanges": [
+    "firmware/main/ui.c"
+  ],
+  "files": {
+    "firmware/main/ui.c": "4a18dbb1ce7298e9eb1cdbda8684017e7a38cbee6f1d5e58cfea25df0169e193",
+    "tests/ui-preview/preview.c": "55b9e6a1f124c100060920598788ec6c251778a12008748a64a37d714a48f3ec",
+    "tests/ui-preview/project_dropdown_navigation_test.h": "050d16ef986ad6948680b5b385ac360e75cc39e092ad1b01746965e9d07e0876"
+  },
+  "nativeRegression": {
+    "unchanged314Exit": 3,
+    "failure": "project dropdown remains open after page(0)",
+    "fixedDropdownExit": 0,
+    "cancelledDraftExit": 0,
+    "workspaceParityExit": 0,
+    "renderedClients": [
+      "codex",
+      "claude"
+    ],
+    "renderInspected": true
+  },
+  "firmwareBuilt": false,
+  "flashed": false,
+  "original314Preserved": true,
+  "patchAppliedByteExact": true,
+  "patchCheck": {
+    "firmware/main/ui.c": true,
+    "tests/ui-preview/preview.c": true,
+    "tests/ui-preview/project_dropdown_navigation_test.h": true
+  },
+  "lineEnding": "LF",
+  "windowsGitApplyCrlfRestored": [
+    "firmware/main/ui.c",
+    "tests/ui-preview/preview.c"
+  ]
+}

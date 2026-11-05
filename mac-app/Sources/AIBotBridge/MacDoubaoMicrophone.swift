@@ -43,6 +43,12 @@ final class MacDoubaoMicrophone {
         guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),&property,0,nil,&size,&id) == noErr,let selected = devices.first(where:{$0.id == id}) else { throw MacTab5LocalError.invalid("未找到可用的实体麦克风。") }
         return selected
     }
+    static func reusesSelection(_ selection:String,device:MacAudioInput,defaultInput:AudioDeviceID?) -> Bool {
+        if selection == device.uid { return true }
+        // Only the known automatic mode can follow the current system default.
+        // Virtual TAB5 inputs still require their existing explicit lease.
+        return selection == "ime_auto_detect_microphone_id" && defaultInput == device.id && MacVoiceMicrophone.isPhysical(device)
+    }
     func acquire(_ device:MacAudioInput,cancelled:@escaping () -> Bool,observe:@escaping (String)->Void = {_ in},completion:@escaping (Result<Void,Error>)->Void) {
         Self.queue.async {
             do {
@@ -50,7 +56,7 @@ final class MacDoubaoMicrophone {
                 guard !cancelled() else {throw MacTab5Error.unconfirmed}
                 guard try MacDoubaoCapture(device:device.id).running()==false else {throw MacTab5LocalError.invalid("豆包正在收音或状态未确认，未切换麦克风。")}
                 let previous=try MacDoubaoBackground.selection();observe("原麦克风已确认")
-                if previous != device.uid {
+                if !Self.reusesSelection(previous,device:device,defaultInput:MacAudioInputs.defaultInputID()) {
                     UserDefaults.standard.set(["mode":"store","previousUID":previous,"temporaryUID":device.uid],forKey:Self.journal)
                     guard UserDefaults.standard.synchronize() else {throw MacTab5Error.unconfirmed}
                     try MacDoubaoBackground.update(expected:previous,next:device.uid)
