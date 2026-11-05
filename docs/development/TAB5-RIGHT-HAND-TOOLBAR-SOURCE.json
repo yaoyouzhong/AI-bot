@@ -1,0 +1,74 @@
+{
+  "baselineSourceCommit": "92484fce779cdec05d74dc07f82034a2195fe0a4",
+  "baselineVersion": "0.2.316-ui",
+  "baselineImageSha256": "9221c68eb5940f00f547c569856eeddbc0702e426321c1745636bacb38b5544b",
+  "pendingVersion": "0.2.317-ui",
+  "productionRuntimeChanges": [
+    "firmware/main/ui.c",
+    "firmware/main/ui_photos.h"
+  ],
+  "files": {
+    "firmware/main/ui.c": {
+      "baselineSha256": "c4e6181e0fe5baa8caa876b6ed9ca2eae240672bca908cdeab541c479e4415bb",
+      "sha256": "e49582cfad51f03b8ae6a05289ea7a9cdfccb37f8955ee50ae14f176ceb76290",
+      "normalizedSha256": "e49582cfad51f03b8ae6a05289ea7a9cdfccb37f8955ee50ae14f176ceb76290"
+    },
+    "firmware/main/ui_photos.h": {
+      "baselineSha256": "f086504fcdfda25dfed1bd4d839adac04154da0535a84de9c8d74b2a85d0c1f0",
+      "sha256": "ae780db426918cbb156f16d4acab37089823c8af13d3c547f9063172b837fa1a",
+      "normalizedSha256": "ae780db426918cbb156f16d4acab37089823c8af13d3c547f9063172b837fa1a"
+    },
+    "tests/ui-preview/project_dropdown_navigation_test.h": {
+      "baselineSha256": "92ddbb2c11e54b14aa0c4462a9abca9cffc1485fadab80fd2c13b38c0565a784",
+      "sha256": "e53398cfa846a1fbad9101a93efcf88e163dfa0fb7045d9cfc55f348a9f8d9e7",
+      "normalizedSha256": "e53398cfa846a1fbad9101a93efcf88e163dfa0fb7045d9cfc55f348a9f8d9e7"
+    }
+  },
+  "patchSha256": "d0f44411fbb4645d45c5a71cefd581c62bcc59d617015769cc250085097b8d72",
+  "patchAppliedNormalizedByteExact": true,
+  "displayPolicyAndRegressionFilesUnchanged": true,
+  "sharedSdkHashesUnchanged": true,
+  "nativeCasesPassed": {
+    "dropdown": "PREVIEW dialogue-claude-three-photos",
+    "cancelled": "PREVIEW cancel-claude-preserved-newer",
+    "workspace": "PREVIEW workspace-modern-catalog-unavailable",
+    "camera-ready": "PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK",
+    "photo-transition": "PREVIEW photo-upload-keeps-portrait",
+    "voice-source": "PREVIEW voice-source-dji",
+    "voice-refresh": "VOICE_REFRESH_OK real LVGL: unchanged transcript has no edit events; one update per changed result; UTF8 insertion/cursor/draft/cancel/limit and pointer stop pass",
+    "voice-stop-touch": "VOICE_STOP_TOUCH_OK 25 actual pointer press/tick/release hits; stop on press, 72px effective target, no duplicate/restart on release",
+    "voice-start": "PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK"
+  },
+  "renderInspected": [
+    "both clients and long project names",
+    "three photo attachments",
+    "normal and pressed tools",
+    "DJI recording and source switch",
+    "TAB5 recording",
+    "preparing and source transition",
+    "recognition and error",
+    "keyboard indicator and feedback clearance"
+  ],
+  "toolSize": [
+    80,
+    80
+  ],
+  "sendCancelSize": [
+    160,
+    72
+  ],
+  "firmwareBuilt": true,
+  "buildExitCode": 0,
+  "galleryStackBudget": true,
+  "drawBackendLink": true,
+  "imageSha256": "bcbb4f93a27e661669053fc6e8e9edcb30449d40b4b3d50b306cf010eb695d8e",
+  "imageBytes": 6925152,
+  "elfSha256": "204cb7743475c25e0ff3eb1676e0bf5abcc4d557ac531bd8e8cba9a161648fb1",
+  "flashed": false,
+  "hardwareAcceptance": "pending; .316 original finite display observation remains bound to .316 and is not new-layout acceptance",
+  "productionImageValidation": true,
+  "actualSidecarRenderInspected": true,
+  "notesSha256": "46b4dc1c7830c419fe0a74d9b8b803be773099d6e97bb987f976de95a5f45100",
+  "selectedDesign": "bottom circles; user selected from actual LVGL render comparisons",
+  "rejectedInlineImageNeverFlashed": true
+}

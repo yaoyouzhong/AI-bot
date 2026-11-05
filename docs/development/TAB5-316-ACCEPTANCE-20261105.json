@@ -1,0 +1,72 @@
+{
+  "sourceCommit": "92484fce779cdec05d74dc07f82034a2195fe0a4",
+  "version": "0.2.316-ui",
+  "imageSha256": "9221c68eb5940f00f547c569856eeddbc0702e426321c1745636bacb38b5544b",
+  "bootVerificationPassed": true,
+  "sampleCount": 229,
+  "freshSampleCount": 229,
+  "firstUtc": "2026-11-05T07:13:03.5691227+00:00",
+  "lastUtc": "2026-11-05T07:20:54.6398766+00:00",
+  "elapsedSeconds": 471.1,
+  "pagesSampled": {
+    "9": 18,
+    "0": 48,
+    "8": 163
+  },
+  "lcdUnderrunRange": [
+    0,
+    0
+  ],
+  "flushErrorRange": [
+    0,
+    0
+  ],
+  "transitions": [
+    {
+      "atUtc": "2026-11-05T07:13:03.5691227+00:00",
+      "page": "9",
+      "lcdUnderruns": "0",
+      "bandwidth": "bw,1,0,0,0,15,15"
+    },
+    {
+      "atUtc": "2026-11-05T07:13:40.9749427+00:00",
+      "page": "0",
+      "lcdUnderruns": "0",
+      "bandwidth": "bw,1,0,0,0,15,15"
+    },
+    {
+      "atUtc": "2026-11-05T07:15:20.1815923+00:00",
+      "page": "8",
+      "lcdUnderruns": "0",
+      "bandwidth": "bw,1,0,0,0,15,15"
+    },
+    {
+      "atUtc": "2026-11-05T07:16:42.8301169+00:00",
+      "page": "8",
+      "lcdUnderruns": "0",
+      "bandwidth": "bw,1,1,1,0,15,15"
+    },
+    {
+      "atUtc": "2026-11-05T07:16:44.8871129+00:00",
+      "page": "8",
+      "lcdUnderruns": "0",
+      "bandwidth": "bw,1,0,1,1,15,15"
+    }
+  ],
+  "userConfirmed": [
+    "one minute overview without flash",
+    "recording camera retained/disabled, source switch and hints clear, transcript returned, camera restored",
+    "photo thumbnail and controls restored without visible flash"
+  ],
+  "toolbarErgonomicAcceptance": "rejected: controls too small and too far from right hand; redesign pending",
+  "screensaverOn316": "not separately exercised; remains pending",
+  "residentRestored": true,
+  "settingsPreserved": true,
+  "configurationFilesPreserved": true,
+  "limitation": "Finite observation and exercised pages only; no claim of permanent elimination or all-page acceptance.",
+  "voiceAndPhotoClient": "Codex per actual device capture; requested Claude but UI remained on Codex; no .316 Claude-specific claim",
+  "computerForegroundRequested": false,
+  "bridgeRebuiltOrInstalled": false,
+  "firstDiagnosticAttempt": "Profile guard rejected helper startup; no samples; resident restored through Windows Explorer. Excluded from acceptance.",
+  "validDiagnosticAttempt": "USB session 02 via Explorer, profile preflight passed, exit 0"
+}

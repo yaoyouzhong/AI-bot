@@ -94,12 +94,14 @@
   "imageBytes": 6925152,
   "elfSha256": "1bed98fd5a3783c37563228a659483ec6399e0aa8a3aff2b9592efefa8c00901",
   "unchangedUiNativeCasesReused": 9,
-  "flashed": false,
-  "hardwareAcceptance": "pending; host policy tests cannot prove LCD bandwidth stability",
+  "flashed": true,
+  "hardwareAcceptance": "471.1-second fresh USB observation on settings/overview/dialogue including photo release; LCD underruns 0; no permanent-elimination claim; toolbar ergonomics rejected; screensaver pending",
   "m5KnowledgeFeedbackId": "3f5e50bdcc7740669c945177b202c206",
   "m5DocumentationStatus": "Search did not confirm a Tab5-specific AXI priority prescription; feedback accepted; targeted change follows existing project photo policy and pinned SDK mapping.",
   "productionImageValidation": true,
   "actualSidecarRenderInspected": true,
   "notesSha256": "a79f1a9906c03a2a9188647409c0e1d5904c2c7cd93a5ab5486dda02a325ff00",
-  "latestAccepted315Preserved": true
+  "latestAccepted315Preserved": true,
+  "bootVerificationPassed": true,
+  "hardwareAcceptanceRecord": "TAB5-316-ACCEPTANCE-20261105.json"
 }
