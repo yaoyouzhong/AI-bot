@@ -1,0 +1,90 @@
+{
+  "baselineSourceCommit": "84d3786dc35680c913d293c3b9bdae7ed98c262d",
+  "baselineVersion": "0.2.317-ui",
+  "baselineImageSha256": "bcbb4f93a27e661669053fc6e8e9edcb30449d40b4b3d50b306cf010eb695d8e",
+  "pendingVersion": "0.2.318-ui",
+  "productionRuntimeChanges": [
+    "firmware/main/ui.c",
+    "firmware/main/draw_cache.c"
+  ],
+  "files": {
+    "firmware/main/ui.c": {
+      "baselineSha256": "e49582cfad51f03b8ae6a05289ea7a9cdfccb37f8955ee50ae14f176ceb76290",
+      "sha256": "3086420003ecab568f0f4e1d5439b2a050d1984e7b9cdb30ffba7e7a8df57bfd",
+      "normalizedSha256": "3086420003ecab568f0f4e1d5439b2a050d1984e7b9cdb30ffba7e7a8df57bfd"
+    },
+    "firmware/main/draw_cache.c": {
+      "baselineSha256": "b09f512a9ded18d11322df69dded646afb8c42e9e80f182fd8c454b0132770bb",
+      "sha256": "b40e21b4b6d5482e2c99434a57239e46d8b6b8e8d49816b40911106d619bbb99",
+      "normalizedSha256": "1331152b8c8e1c5e274efb3a09974fc2c0ab778f2a758601cd8b36a533b7226e"
+    },
+    "tests/ui-preview/preview.c": {
+      "baselineSha256": "55b9e6a1f124c100060920598788ec6c251778a12008748a64a37d714a48f3ec",
+      "sha256": "3ec2344c91ac1f978bfd72408a6701187162325e65f5321ddf662d4e4d4a9c02",
+      "normalizedSha256": "ee34cf2afe31df4c7681321b2f962397161d799a3d3363cbdae3789f031b505e"
+    },
+    "tests/ui-preview/voice_stop_touch_test.h": {
+      "baselineSha256": "20c3ee5d94f9f0b9ea2d0a03497fb757178750558de00f8cdd6f72a5794b2a33",
+      "sha256": "a0659176b46ad0a92b46936b26ca2bb607c60fb8700c923cfcf27b13969a8adc",
+      "normalizedSha256": "4e27e97e8f844655c00a7af7118538f77235753ce64ee626456625bb4d776fdd"
+    },
+    "tests/ui-preview/cache_publication_refresh_test.h": {
+      "baselineSha256": null,
+      "sha256": "460fe1968c56270f6442f09856bc7eebe307857f90351fd0db30babf2f84167e",
+      "normalizedSha256": "3ac7b32138a4818870dc837fd4fb6094adef16fd5f9b93c839ba2e838d07006e"
+    }
+  },
+  "patchSha256": "0cd3060d125a572a8526f8d4cab32032be3b2b65a72944072c3ed8b191877722",
+  "patchAppliedNormalizedByteExact": true,
+  "layoutAndPhotoGlyphsUnchanged": true,
+  "displayPolicyUnchanged": true,
+  "sharedSdkHashesUnchanged": true,
+  "windowsBridgeChangeRequired": false,
+  "macBridgeChangeRequired": false,
+  "baselineReproductions": {
+    "microphone": "pressed=1 disabled=0; native delayed completion assertion failed",
+    "clearCache": "logicalEmpty=1; stalePixels=3335; afterIdleRepair=3335; native incremental framebuffer failed"
+  },
+  "fixedReproductions": {
+    "microphone": "25 real LVGL pointer positions return pressed=0 disabled=0 and matching idle backgrounds",
+    "clearCache": "logicalEmpty=1; stalePixels=3335; afterIdleRepair=0; no forced invalidation after repair"
+  },
+  "nativeCasesPassed": {
+    "dropdown": "PREVIEW dialogue-claude-three-photos",
+    "cancelled": "PREVIEW cancel-claude-preserved-newer",
+    "workspace": "PREVIEW workspace-modern-catalog-unavailable",
+    "camera-ready": "PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK",
+    "photo-transition": "PREVIEW photo-upload-keeps-portrait",
+    "voice-source": "PREVIEW voice-source-dji",
+    "voice-refresh": "VOICE_REFRESH_OK real LVGL: unchanged transcript has no edit events; one update per changed result; UTF8 insertion/cursor/draft/cancel/limit and pointer stop pass",
+    "voice-stop-touch": "VOICE_STOP_TOUCH_OK 25 actual pointer press/tick/release hits; stop on press, 72px effective target, no duplicate/restart on release",
+    "voice-start": "PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK",
+    "clear-render": "CODEX_CLEAR_RENDER_OK actual pointer long-press; incremental pixels match empty reference in 16 scenarios with normal timer refresh",
+    "clear-feedback": "PREVIEW clear-feedback-cleared",
+    "cache-refresh": "CLEAR_CACHE_REPAINT_OK 24-row incremental framebuffer; no forced redraw after repair",
+    "cache-repair": [
+      "CACHE_PUBLICATION_OK interrupted rebuild preserves prior full image; release publishes latest; 24/64-row pixels agree",
+      "NATIVE_SWIPE_OK 500 partial frames; four pages; odd offsets; 24/64/128/256/512 rows; single/double buffers; interrupted/publication/overlay/missing-cache/rebound; pixels identical",
+      "NATIVE_SETTLE_OK fresh endpoint snapshots accelerated, dirty content falls back, 512 rows use one part; pixels identical",
+      "SCROLL_CACHE_OK 25 full/partial frames pixel-identical, tasks 2175 -> 1133; invalidation, deletion and budget fallback verified"
+    ]
+  },
+  "nativeCaseCount": 13,
+  "renderInspected": [
+    "idle tools after voice review/error",
+    "actual incremental empty frame before persistence",
+    "selected bottom circles and full two-line recording hint"
+  ],
+  "firmwareBuilt": true,
+  "buildExitCode": 0,
+  "galleryStackBudget": true,
+  "drawBackendLink": true,
+  "imageSha256": "008d113fbb098a8be881bf462efbb1ac9fcd71b2247eec395b96611af6ef4998",
+  "imageBytes": 6925280,
+  "elfSha256": "d0a4e0997aa28a652cde46491043ea825fa93028b21226dc5a002e4ca863c295",
+  "flashed": false,
+  "hardwareAcceptance": "pending; .317 failed UI acceptance is retained, not reused as a pass",
+  "productionImageValidation": true,
+  "actualSidecarRenderInspected": true,
+  "notesSha256": "61d48c30c81e59b24231352fd3679b70dc83d62503aef72b02c9edc6dce8ca72"
+}

@@ -64,11 +64,13 @@
   "imageSha256": "bcbb4f93a27e661669053fc6e8e9edcb30449d40b4b3d50b306cf010eb695d8e",
   "imageBytes": 6925152,
   "elfSha256": "204cb7743475c25e0ff3eb1676e0bf5abcc4d557ac531bd8e8cba9a161648fb1",
-  "flashed": false,
-  "hardwareAcceptance": "pending; .316 original finite display observation remains bound to .316 and is not new-layout acceptance",
+  "flashed": true,
+  "hardwareAcceptance": "Not passed: clear-text stale pixels and idle microphone retained pressed state. Follow-up TAB5-COMPOSER-REFRESH-20261105.md.",
   "productionImageValidation": true,
   "actualSidecarRenderInspected": true,
   "notesSha256": "46b4dc1c7830c419fe0a74d9b8b803be773099d6e97bb987f976de95a5f45100",
   "selectedDesign": "bottom circles; user selected from actual LVGL render comparisons",
-  "rejectedInlineImageNeverFlashed": true
+  "rejectedInlineImageNeverFlashed": true,
+  "bootVerificationPassed": true,
+  "hardwareAcceptanceRecord": "TAB5-317-ACCEPTANCE-20261105.json"
 }

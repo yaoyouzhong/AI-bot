@@ -1,0 +1,31 @@
+{
+  "sourceCommit": "84d3786dc35680c913d293c3b9bdae7ed98c262d",
+  "version": "0.2.317-ui",
+  "imageSha256": "bcbb4f93a27e661669053fc6e8e9edcb30449d40b4b3d50b306cf010eb695d8e",
+  "elfSha256": "204cb7743475c25e0ff3eb1676e0bf5abcc4d557ac531bd8e8cba9a161648fb1",
+  "userAuthorized": true,
+  "upgradeStartedOnce": true,
+  "bootVerificationPassed": true,
+  "bootVerificationEvidence": "ota-verify-20261105-155511.json",
+  "earlyVerifyBusy": "ota-verify-20261105-155434.json",
+  "sampleCount": 228,
+  "freshSampleCount": 228,
+  "firstUtc": "2026-11-05T07:56:14.2331631+00:00",
+  "lastUtc": "2026-11-05T08:04:03.9910302+00:00",
+  "elapsedSeconds": 469.8,
+  "lcdUnderrunRange": [
+    0,
+    0
+  ],
+  "flushErrorRange": [
+    0,
+    0
+  ],
+  "uiAcceptance": "NOT PASSED: reported clear-text stale rendering and mismatched idle circle colors",
+  "screensaverAcceptance": "not exercised",
+  "settingsPreserved": true,
+  "configurationFilesPreserved": true,
+  "residentRestored": true,
+  "bridgeRebuiltOrInstalled": false,
+  "limit": "Finite observation; zero LCD underruns does not validate composer rendering or prove permanent flash elimination."
+}

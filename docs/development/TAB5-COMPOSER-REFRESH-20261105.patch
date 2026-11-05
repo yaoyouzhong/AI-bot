@@ -1,0 +1,172 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2365,7 +2365,10 @@
+     visible(codex_mic_glyph,!recording);visible(codex_stop_glyph,recording);
+     ui_bg_color(codex_voice_button,lv_color_hex(recording?0x365D48:voice->busy?0x534C39:0x354247),0);
+     if(voice->busy&&!recording)lv_obj_add_state(codex_voice_button,LV_STATE_DISABLED);
+-    else lv_obj_remove_state(codex_voice_button,LV_STATE_DISABLED);
++    // Stop is handled on pointer-down. Recognition can disable the button
++    // before pointer-up, so LVGL may retain PRESSED while it is disabled.
++    // Do not expose that stale press when recording/review becomes available.
++    else lv_obj_remove_state(codex_voice_button,LV_STATE_DISABLED|LV_STATE_PRESSED);
+     if(recording&&!strcmp(voice->source,"dji"))lv_obj_remove_state(codex_voice_switch,LV_STATE_DISABLED);
+     else lv_obj_add_state(codex_voice_switch,LV_STATE_DISABLED);
+     visible(codex_voice_switch,recording&&!strcmp(voice->source,"dji"));
+--- a/firmware/main/draw_cache.c
++++ b/firmware/main/draw_cache.c
+@@ -27,7 +27,7 @@
+     unsigned revision,captured_revision,stamp;
+     int row;
+     lv_area_t dirty,region;
+-    bool valid,has_image,has_dirty;
++    bool valid,has_image,has_dirty,stale_drawn;
+     uint8_t *native;
+     bool native_valid,native_building;
+ } cache_entry;
+@@ -132,6 +132,7 @@
+ static bool draw(lv_layer_t *layer,lv_obj_t *obj) {
+     if(!tab5_draw_cache_is_ready(obj))return false;
+     cache_entry *e=find(obj);
++    e->stale_drawn|=!e->valid||e->revision!=e->captured_revision;
+     lv_draw_image_dsc_t image;lv_draw_image_dsc_init(&image);
+     image.base.obj=obj;image.base.part=LV_PART_MAIN;
+     image.src=e->pixels;image.opa=LV_OPA_COVER;
+@@ -346,6 +347,16 @@
+         e->native_valid=e->native_building;
+         e->valid=e->has_image=true;e->has_dirty=false;tab5_cache_builds++;
+         snapshot_counts();
++        if(e->stale_drawn) {
++            // A snap can display an older complete image after a widget has
++            // already drawn its latest content. Publishing pixels alone does
++            // not damage the display; repaint the repaired region once.
++            // Queue display damage directly: object invalidation would mark
++            // this freshly published cache dirty and start another rebuild.
++            lv_area_t damage=e->region;lv_area_move(&damage,area.x1,area.y1);
++            e->stale_drawn=false;
++            if(lv_obj_area_is_visible(obj,&damage))lv_inv_area(display,&damage);
++        }
+     }
+ }
+ 
+@@ -392,6 +403,7 @@
+         lv_area_t pos=positions[i],part;
+         if(!lv_area_intersect(&part,area,&pos))continue;
+         cache_entry *e=parts[i];int h=lv_area_get_height(&pos),w=lv_area_get_width(&pos);
++        e->stale_drawn|=!e->valid||e->revision!=e->captured_revision;
+         // Walk both buffers forward in native orientation; reversed short
+         // copies defeated sequential locality on the PSRAM path.
+         const uint8_t *src=e->native+(w-1-(part.x2-pos.x1))*h*2+(area->y1-pos.y1)*2;
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2032,6 +2032,7 @@
+ #include "voice_source_label_test.h"
+ 
+ #include "codex_clear_render_test.h"
++#include "cache_publication_refresh_test.h"
+ #include "codex_clear_feedback_test.h"
+ #include "preview_gallery_loan_test.h"
+ #include "codex_companion_ui_test.h"
+@@ -2090,6 +2091,7 @@
+         capture("pinyin-committed");puts("PINYIN_UI_OK production keyboard events, partial syllable, backspace, space commit, English toggle, cursor insert, independent editor candidates");return 0;
+     }
+     if(getenv("TAB5_PREVIEW_GALLERY_LOAN_ONLY")){check_preview_gallery_loan();return 0;}
++    if(getenv("TAB5_CACHE_REFRESH_ONLY")){check_cache_publication_refresh();return 0;}
+     if(getenv("TAB5_CLEAR_RENDER_ONLY")){check_codex_clear_render();return 0;}
+     if(getenv("TAB5_CLEAR_FEEDBACK_ONLY")){check_codex_clear_feedback();return 0;}
+     if(getenv("TAB5_VOICE_SOURCE_ONLY")){check_voice_source_labels();return 0;}
+@@ -2839,7 +2841,11 @@
+     assert(!strcmp(lv_dropdown_get_options(codex_project_picker),"M5Stack TAB5\nbiaoshu"));
+     assert(!strcmp(codex_task_ids[0],"01a0cc69-2782-7650-9903-303578a0296e"));
+     assert(!codex_task_ids[1][0]);
+-    assert(lv_obj_get_x(codex_voice_button)>500&&lv_obj_get_x(codex_voice_button)<lv_obj_get_x(codex_send_button));
++    // Both tools remain in the right half, with complete touch areas and a
++    // gap before send; the selected 80px layout no longer starts beyond x=500.
++    assert(lv_obj_get_x(codex_voice_button)>=lv_obj_get_content_width(lv_obj_get_parent(codex_voice_button))/2);
++    assert(lv_obj_get_x(codex_camera_button)+lv_obj_get_width(codex_camera_button)<lv_obj_get_x(codex_voice_button));
++    assert(lv_obj_get_x(codex_voice_button)+lv_obj_get_width(codex_voice_button)+24<=lv_obj_get_x(codex_send_button));
+     assert(!strcmp(lv_label_get_text(trend_values[0]),"--"));
+     assert(!strcmp(lv_label_get_text(trend_values[3]),"0"));
+     cJSON *carry_day=cJSON_GetArrayItem(item(item(shown,"quotaTrend"),"days"),4);
+@@ -3029,6 +3035,7 @@
+     check_native_swipe();
+     check_native_settle_frame();
+     check_scroll_cache();
++    if(getenv("TAB5_CACHE_REPAIR_ONLY"))return 0;
+     check_live_metrics();
+     // Only four primary pages participate in horizontal swipes.
+     assert(lv_obj_get_child_count(lv_tabview_get_content(tabs))==4);
+--- a/tests/ui-preview/voice_stop_touch_test.h
++++ b/tests/ui-preview/voice_stop_touch_test.h
+@@ -7,7 +7,7 @@
+  lv_obj_update_layout(lv_screen_active());
+  lv_area_t area;lv_obj_get_coords(codex_voice_button,&area);printf("STOP_HIT bounds=%d,%d,%d,%d hidden=%d\n",area.x1,area.y1,area.x2,area.y2,lv_obj_has_flag(codex_voice_button,LV_OBJ_FLAG_HIDDEN));
+  for(int dy=-34;dy<=34;dy+=17)for(int dx=-34;dx<=34;dx+=17) {
+-  preview_voice=(voice_remote_state){.busy=true,.ready=true};strcpy(preview_voice.phase,"recording");strcpy(preview_voice.source,"dji");strcpy(preview_voice.task_id,codex_selected);codex_voice_tick();
++  codex_voice_waiting=true;preview_voice=(voice_remote_state){.busy=true,.ready=true};strcpy(preview_voice.phase,"recording");strcpy(preview_voice.source,"dji");strcpy(preview_voice.task_id,codex_selected);codex_voice_tick();
+   lv_obj_update_layout(lv_screen_active());unsigned before=preview_voice_commands;
+   camera_touch_point=(lv_point_t){(area.x1+area.x2)/2+dx,(area.y1+area.y2)/2+dy};camera_touch_state=LV_INDEV_STATE_PRESSED;lv_indev_read(touch);
+   assert(preview_voice_commands==before+1); // Stop must be accepted on press, before release.
+@@ -16,6 +16,11 @@
+   camera_touch_state=LV_INDEV_STATE_RELEASED;lv_indev_read(touch);
+   printf("STOP_HIT dx=%d dy=%d commands=%u disabled=%d\n",dx,dy,preview_voice_commands-before,lv_obj_has_state(codex_voice_button,LV_STATE_DISABLED));
+   assert(preview_voice_commands==before+1&&preview_voice_command==1);
++  // The host can finish recognition well after the physical finger release.
++  preview_voice.busy=preview_voice.ready=false;strcpy(preview_voice.phase,"review");codex_voice_tick();
++  printf("STOP_IDLE pressed=%d disabled=%d\n",lv_obj_has_state(codex_voice_button,LV_STATE_PRESSED),lv_obj_has_state(codex_voice_button,LV_STATE_DISABLED));
++  assert(!lv_obj_has_state(codex_voice_button,LV_STATE_PRESSED));
++  assert(lv_color_eq(lv_obj_get_style_bg_color(codex_voice_button,0),lv_obj_get_style_bg_color(codex_camera_button,0)));
+  }
+  // A fast final reply between press/release must not turn the same gesture
+  // into another recording. New start still waits for its separate release.
+--- /dev/null
++++ b/tests/ui-preview/cache_publication_refresh_test.h
+@@ -0,0 +1,49 @@
++static bool simulated_snap;
++static int snap_hold(const lv_obj_t *obj){return obj==pages[8]&&simulated_snap?2:0;}
++static unsigned text_differences(const uint16_t *a,const uint16_t *b) {
++    lv_area_t area;lv_obj_get_coords(codex_input,&area);unsigned count=0;
++    for(int y=area.y1+4;y<area.y2-4;y++)for(int x=area.x1+22;x<area.x2-4;x++)
++        count+=a[y*1280+x]!=b[y*1280+x];
++    return count;
++}
++static void check_cache_publication_refresh(void) {
++    page(8);codex_keyboard_done(NULL);lv_anim_delete_all();
++    strcpy(codex_selected,"00000000-0000-4000-8000-000000000111");
++    codex_voice_waiting=codex_waiting=codex_send_queued=false;
++    lv_obj_remove_state(codex_input,LV_STATE_DISABLED);
++    codex_set_text("待清空文字：松手后仍应为空。");assert(codex_save_draft());codex_control_style();
++    codex_draft *draft=codex_draft_for(codex_selected,true);assert(draft);draft->loaded=true;
++    lv_display_t *display=lv_display_get_default();
++    camera_partial_pixels=calloc(1,sizeof(preview_buffer));assert(camera_partial_pixels);
++    uint16_t *empty=malloc(sizeof(preview_buffer));assert(empty);
++    lv_display_set_flush_cb(display,camera_partial_flush);
++    lv_display_set_buffers(display,preview_buffer,NULL,1280u*24u*2u,LV_DISPLAY_RENDER_MODE_PARTIAL);
++    tab5_draw_cache_drop();tab5_draw_cache_interaction=snap_hold;
++    lv_obj_update_layout(lv_screen_active());lv_obj_invalidate(lv_screen_active());lv_refr_now(display);
++    for(unsigned i=0;i<20&&!tab5_draw_cache_is_ready(pages[8]);i++)tab5_draw_cache_step(pages[8]);
++    assert(tab5_draw_cache_is_ready(pages[8]));
++    lv_obj_send_event(codex_clear_button,LV_EVENT_LONG_PRESSED,NULL);lv_refr_now(display);
++    assert(!lv_textarea_get_text(codex_input)[0]&&(!draft->text||!draft->text[0]));
++    memcpy(empty,camera_partial_pixels,sizeof(preview_buffer));
++    // During a real horizontal snap the cache intentionally retains a complete
++    // prior image. Emulate only that documented cache boundary, then release it.
++    simulated_snap=true;unsigned hits=tab5_cache_hits;
++    lv_obj_invalidate(pages[8]);lv_refr_now(display);
++    unsigned stale=text_differences(empty,camera_partial_pixels);
++    assert(tab5_cache_hits>hits&&stale>0);
++    simulated_snap=false;
++    for(unsigned i=0;i<20&&!tab5_draw_cache_is_ready(pages[8]);i++)tab5_draw_cache_step(pages[8]);
++    assert(tab5_draw_cache_is_ready(pages[8]));
++    // No forced invalidation, capture(), or navigation: idle publication must
++    // schedule the repaint needed to replace any stale pixels it displayed.
++    lv_refr_now(display);
++    unsigned after=text_differences(empty,camera_partial_pixels);
++    printf("CLEAR_CACHE_PUBLICATION logicalEmpty=%d stalePixels=%u afterIdleRepair=%u\n",!lv_textarea_get_text(codex_input)[0],stale,after);
++    assert(!after);
++    assert(tab5_draw_cache_is_ready(pages[8]));
++    unsigned builds=tab5_cache_builds;
++    for(unsigned i=0;i<20;i++)tab5_draw_cache_step(pages[8]);
++    assert(tab5_cache_builds==builds);
++    puts("CLEAR_CACHE_REPAINT_OK 24-row incremental framebuffer; no forced redraw after repair");
++    free(empty);free(camera_partial_pixels);camera_partial_pixels=NULL;
++}
