@@ -242,7 +242,9 @@
     "licenses/companion-art/NOTICE.md": "a88bf3317bdf47ff50b3297e4de8758c0208ed9504b05e2227f7d64fe60894b0",
     "docs/development/tab5-312-source/AI-bot-tab5-0.2.312-ui-source.zip": "8e47299f88d9cd2f1fed56ca2518112052912dcbe64a4b3599487d888000555b",
     "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip": "31de185bbcbd0895088d1f7b713a4ba47f68402b6545ebac07c206f6f2d96de3",
-    "docs/assets/screens/tab5-dialogue-0313-preview.png": "32510ec1adfada77f2e83ac55b990518ea3ed054ffb6c46757d25d2a78f17db3"
+    "docs/assets/screens/tab5-dialogue-0313-preview.png": "32510ec1adfada77f2e83ac55b990518ea3ed054ffb6c46757d25d2a78f17db3",
+    "docs/assets/screens/tab5-dialogue-0318-preview.png": "5f90022a697f7840a6cea772a8552f5a69d7d5973b9333a51fe25d175ba11c9c",
+    "docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip": "ddecd2141043e615f904a128ce75a16b2568b3000a7bb3624058b4e75b770895"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",
@@ -327,5 +329,13 @@
     "encoding": "1280x720 24fps H.264 Main yuv420p; AAC-LC 64kbps; faststart",
     "transformation": "Original 121-second film with the Codex Direct description updated only between 56 and 68 seconds; original sequence and audio retained.",
     "spriteRights": "User confirmed redistribution permission or authority on 2026-11-02; third-party sprite is not covered by project MIT license."
+  },
+  "tab5Controls72Preview20261105": {
+    "runtimeSourceCommit": "6cc8528608c7e7ceb88fe59aadc171e07a24b33f",
+    "nativeRender": "actual production LVGL offscreen rendering; synthetic project, draft and attachment data; not physical device footage",
+    "renderInput": "artifacts/tab5-controls72-build-20261105/render/dropdown/dialogue-claude-three-photos.png",
+    "dimensions": "1280x720",
+    "license": "MIT for original UI; system fonts not redistributed; companion art retains its existing separate terms",
+    "pixelEdits": false
   }
 }

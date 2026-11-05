@@ -1,6 +1,12 @@
 # 当前截图来源 / Screenshot provenance
 
 
+## 2026-11-05 TAB5 .318 操作按钮（发布准备）
+
+`tab5-dialogue-0318-preview.png` 直接复制本次生产 LVGL 的 1280×720 离屏输出，包含 72px 双圆、胶囊发送、长项目名和三个演示附件，未重画或修改像素。源码身份为 `6cc8528608c7e7ceb88fe59aadc171e07a24b33f`；使用合成项目、会话、文字和照片数据，不是实体屏录像或真实账户。对应已验收的 `.318` 运行界面，尚未声称此版本已公开发布。摘要和来源见 `licenses/materials.json`。
+
+The .318 preview is an unchanged-pixel native LVGL render with synthetic project, conversation, draft and attachment data. It illustrates the accepted 72px controls, not hardware footage or a claim of public release. The existing .313 screenshot and unchanged video scenes retain their original provenance.
+
 ## 2026-11-04 TAB5 .313 对话工作区
 
 `tab5-dialogue-0313-preview.png` 为完整 .313 源码的实际 LVGL 1280×720 离屏渲染，使用固定的 Claude 项目、会话和草稿演示数据，未重画控件。其应用来源为已核验的 .312 基线与 Mac `9973f9b` 的 25 项精确增量；Windows 构建副本仅适配 CMake 依赖路径及只读源码提取标记，生产 UI 与字体未修改。`TAB5_WORKSPACE_PARITY_ONLY` 的客户端目录、草稿隔离、忙时切换和已读入口回归通过；该图不代表实体屏、真实账户、语音准确性或新的设备验收。摘要登记于 `licenses/materials.json`。

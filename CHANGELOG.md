@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.18 - 2026-11-05
+
+### Automatic microphones and returned dictation
+- Reuse Doubao automatic detection when its resolved default physical endpoint matches the selected DJI microphone, on both Windows and Mac, instead of rejecting the mode name.
+- Retain endpoint validation, temporary selection and restoration, intervening manual-choice protection, DJI preference and the existing TAB5 fallback.
+- Wrap the Windows voice window's guidance to its available width and DPI while keeping recognition text separate.
+
+### Diagnostics and scope
+- Windows background diagnostics wait for an idle device before comparing settings, retaining cancellation and read-failure protection; the Mac automation entry initializes AppKit.
+- Real automatic-input recording, stop and transcript return were exercised on each platform's development candidate. Identity and installation/startup checks for the final 0.6.18 archives are recorded separately.
+- Prepare the accepted TAB5 0.2.318-ui image with menu cleanup, clear repaint, microphone-state recovery, continuous display-read protection and polished circular controls. ESP8266 and galleries retain their existing versions.
+
 ## 0.6.17 - 2026-11-04
 
 ### Claude AI dialogue workspace

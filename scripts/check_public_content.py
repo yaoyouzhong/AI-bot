@@ -19,6 +19,7 @@ RULES = {
 REVIEWED_DOC_NAMES = frozenset({
     'tab5-companion-savers-0312-preview.png',
     'tab5-dialogue-0313-preview.png',
+    'tab5-dialogue-0318-preview.png',
     'esp8266-stock-058-preview.png',
     'frequent-tasks.png',
     'mac-menu.png',
@@ -244,6 +245,7 @@ REVIEWED_SOURCE_ARCHIVES = frozenset({
     "docs/development/tab5-283-source/AI-bot-tab5-0.2.283-ui-source.zip",
     "docs/development/tab5-312-source/AI-bot-tab5-0.2.312-ui-source.zip",
     "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip",
+    "docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip",
 })
 
 

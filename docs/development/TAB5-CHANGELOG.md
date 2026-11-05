@@ -2,6 +2,19 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.318-ui - 2026-11-05
+
+### Dialogue and touch controls
+- Close project menus immediately when leaving dialogue, keep them closed on return, and reserve arrow space for long project names.
+- Align 72px camera/microphone circles with the send button height; use matching solid fills, fine borders, press feedback and capsule send/append/cancel buttons. Preserve the accepted right-hand reach and source, attachment and guidance areas.
+- Fix the microphone's lingering pressed state and idle color mismatch after recording, and stale text pixels reappearing after long-press clear.
+- Include .314 cancellation recovery for text/photos and protection for later drafts.
+
+### Display and verification
+- Protect continuous LCD reads outside camera sessions. Subsequent user observations did not reproduce left-side flashing; finite diagnostic samples recorded zero underruns/flush errors, without a permanent no-flash claim.
+- Preserve accepted build `20261105-controls72`, BIN SHA-256 `fad7d04c5585f222951aa7ac13deb01e8664a2069679d32547fa9f058563e2be`; do not rebuild or relabel it.
+- Fourteen native cases and exact-image boot checks passed. The user confirmed camera return, stopped dictation and transcript fill, clear remaining empty after five seconds, matching idle colors, appearance and touch. Existing checks retain their original scope.
+
 ## 0.2.314-ui - 2026-11-05
 
 ### Restore drafts after cancellation
