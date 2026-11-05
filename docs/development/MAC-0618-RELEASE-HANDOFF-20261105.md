@@ -1,8 +1,8 @@
 # Mac 0.6.18 最小发布交接
 
-目标：为本轮已对齐的音源修复生成正式 0.6.18 Mac 原包。Windows 统一负责合并、推送、标签与发布。当前为本地发布准备，尚未声称本文件或新候选提交已到 GitHub；待 Windows 提供远端可达的冻结 SHA 后执行。
+目标：为本轮已对齐的音源修复生成正式 0.6.18 Mac 原包。Windows 统一负责合并、推送、标签与发布。Windows 已获用户授权，将冻结提交 `778e4332ac99a609439690a5892db4f4f1881e98` 推送至 `origin/codex/windows-dynamic-microphone-20261105`，并核对远端指向；尚未创建正式标签或公开发布。
 
-1. 检查仓库／分支和已有修改，不覆盖用户工作。检出 Windows 给出的完整冻结源码 SHA；根 `VERSION`、Windows csproj、Mac plist 必须均为 0.6.18。两端同 SHA，不自行追加实现或升号。
+1. 检查仓库／分支和已有修改，不覆盖用户工作。获取上述 Windows 开发分支，检出完整冻结 SHA `778e4332ac99a609439690a5892db4f4f1881e98`（后续纯验收文档提交不改变此构建身份）；根 `VERSION`、Windows csproj、Mac plist 必须均为 0.6.18。两端同 SHA，不自行追加实现或升号。
 2. 运行 `bash scripts/package_macos.sh artifacts/mac-0618-<SHA前12位>`，再运行 `python3 scripts/release_pipeline.py stamp <输出目录> --source <完整SHA> --platform macos`。保留现有签名身份，不修改钥匙串、系统权限、音源、配对或固件。
 3. 复用 `79670dac2cea6f0e12ac4a6744d45d0c61a99768` 的 469 项测试（1 条件跳过）、29,068 parity 及正常入口真实大疆／豆包自动录音→停止→回填、音源指纹未变的原证据。只有版本声明与包身份变化，不要求重新配对、刷机或全套物理复测；打包脚本原生检查照常执行。
 4. 对最终 0.6.18 ZIP 完成严格签名、arm64、包内 `Contents/Resources/SOURCE_SHA.txt` 与版本读回，以及正常后台安装／启动和资料保留检查。新包运行代码与上述已验收代码一致时记录复用依据；不要把源目录运行当成安装包验收，也不把诊断入口焦点拒绝写成成功。
