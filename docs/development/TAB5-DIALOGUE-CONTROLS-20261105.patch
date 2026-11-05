@@ -1,0 +1,228 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -414,6 +414,7 @@
+ static ui_startup_home startup_home;
+ static bool changing_page, saver, offline_saver;
+ static lv_obj_t *codex_list, *codex_project_picker, *codex_input, *codex_keyboard, *codex_hint, *codex_physical, *codex_send_button;
++static lv_obj_t *codex_project_caption;
+ static lv_obj_t *codex_reply_button,*codex_reply_overlay,*codex_reply_text,*codex_reply_status,*codex_reply_scroll;
+ static lv_obj_t *codex_reply_document;
+ static bool claude_reader_opened;
+@@ -861,6 +862,35 @@
+         snprintf(out, size, "%.1f KB/s", n / 1024);
+ }
+ #include "ui_visuals.h"
++static void dialogue_tool_style(lv_obj_t *control) {
++    lv_obj_set_size(control,56,56);lv_obj_set_style_pad_all(control,0,0);
++    lv_obj_set_style_radius(control,LV_RADIUS_CIRCLE,0);
++    lv_obj_set_style_opa(control,LV_OPA_COVER,0);
++    lv_obj_set_style_opa(control,LV_OPA_50,LV_STATE_DISABLED);
++    lv_obj_set_style_border_width(control,1,0);
++    ui_border_color(control,lv_color_hex(0x465C65),0);
++    ui_border_color(control,lv_color_hex(0x354247),LV_STATE_DISABLED);
++    lv_obj_set_ext_click_area(control,8);
++}
++static void dialogue_camera_available(bool available) {
++    if(!codex_camera_button)return;
++    visible(codex_camera_button,true);
++    if(available)lv_obj_remove_state(codex_camera_button,LV_STATE_DISABLED);
++    else lv_obj_add_state(codex_camera_button,LV_STATE_DISABLED);
++}
++static void dialogue_voice_glyphs(lv_obj_t *control,lv_obj_t **microphone,lv_obj_t **stop) {
++    lv_obj_clean(control);
++    lv_obj_t *mic=*microphone=lv_obj_create(control);lv_obj_remove_style_all(mic);
++    lv_obj_set_size(mic,56,56);lv_obj_center(mic);lv_obj_remove_flag(mic,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
++    lv_obj_t *capsule=shape(mic,24,16,8,15,INK,4);ui_bg_opa(capsule,LV_OPA_TRANSP,0);
++    lv_obj_set_style_border_width(capsule,2,0);ui_border_color(capsule,lv_color_hex(INK),0);
++    lv_obj_t *arc=lv_arc_create(mic);lv_obj_remove_style_all(arc);lv_obj_set_pos(arc,20,21);lv_obj_set_size(arc,16,16);
++    lv_arc_set_bg_angles(arc,0,180);lv_arc_set_angles(arc,0,0);
++    lv_obj_set_style_arc_width(arc,2,LV_PART_MAIN);lv_obj_set_style_arc_color(arc,lv_color_hex(INK),LV_PART_MAIN);
++    lv_obj_set_style_arc_opa(arc,LV_OPA_COVER,LV_PART_MAIN);lv_obj_set_style_arc_rounded(arc,true,LV_PART_MAIN);lv_obj_remove_flag(arc,LV_OBJ_FLAG_CLICKABLE);
++    shape(mic,27,36,2,5,INK,1);shape(mic,23,40,10,2,INK,1);
++    *stop=shape(control,0,0,16,16,INK,4);lv_obj_center(*stop);lv_obj_add_flag(*stop,LV_OBJ_FLAG_HIDDEN);
++}
+ #include "brand_logos.h"
+ 
+ #include "ui_codex_companion.h"
+@@ -1207,6 +1237,7 @@
+ }
+ static void codex_control_style(void) {
+     if(!codex_send_button)return;
++    if(codex_project_caption)tint(codex_project_caption,lv_obj_has_state(codex_project_picker,LV_STATE_DISABLED)?0x829196:INK);
+     if(codex_clear_button) {
+         if(codex_can_clear())lv_obj_remove_state(codex_clear_button,LV_STATE_DISABLED);
+         else lv_obj_add_state(codex_clear_button,LV_STATE_DISABLED);
+@@ -1527,6 +1558,8 @@
+     snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",codex_project_ids[selected_project]);
+     if(strcmp(lv_dropdown_get_options(codex_project_picker),options))lv_dropdown_set_options(codex_project_picker,options);
+     lv_dropdown_set_selected(codex_project_picker,selected_project);
++    lv_dropdown_get_selected_str(codex_project_picker,options,sizeof(options));
++    ui_text(codex_project_caption,options);
+     int selected=-1,visible_count=0;
+     cJSON *visible_tasks[8]={0};
+     for(int source=0;source<count;source++) {
+@@ -2196,7 +2229,7 @@
+ static void codex_voice_pending_clear(const char *message) {
+     bool desktop=codex_voice_start_desktop;codex_voice_start_pending=false;
+     lv_obj_remove_state(codex_voice_button,LV_STATE_DISABLED);
+-    visible(codex_voice_cancel,false);visible(codex_camera_button,true);visible(codex_send_button,true);
++    visible(codex_voice_cancel,false);dialogue_camera_available(true);visible(codex_send_button,true);
+     if(message){ui_text(codex_voice_hint,message);if(desktop)quick_voice_pending_result(message);}
+ }
+ static void codex_voice_request(int action) {
+@@ -2216,7 +2249,7 @@
+         snprintf(codex_voice_start_session,sizeof(codex_voice_start_session),"%s",text(item(shown,"pcInput"),"session"));
+         snprintf(codex_voice_start_note,sizeof(codex_voice_start_note),"正在等待当前读取结束，可取消准备");
+         ui_text(codex_voice_hint,codex_voice_start_note);
+-        if(!quick_visible){lv_obj_add_state(codex_voice_button,LV_STATE_DISABLED);visible(codex_voice_cancel,true);lv_obj_remove_state(codex_voice_cancel,LV_STATE_DISABLED);visible(codex_camera_button,false);visible(codex_send_button,false);}
++        if(!quick_visible){lv_obj_add_state(codex_voice_button,LV_STATE_DISABLED);visible(codex_voice_cancel,true);lv_obj_remove_state(codex_voice_cancel,LV_STATE_DISABLED);dialogue_camera_available(false);visible(codex_send_button,false);}
+         return;
+     }
+     if(!quick_visible&&lv_obj_has_state(codex_input,LV_STATE_DISABLED)){ui_text(codex_voice_hint,"请先确认上一条消息的送达结果");return;}
+@@ -2336,7 +2369,7 @@
+     if(recording&&!strcmp(voice->source,"dji"))lv_obj_remove_state(codex_voice_switch,LV_STATE_DISABLED);
+     else lv_obj_add_state(codex_voice_switch,LV_STATE_DISABLED);
+     visible(codex_voice_switch,recording&&!strcmp(voice->source,"dji"));
+-    visible(codex_camera_button,!voice->busy);
++    dialogue_camera_available(!voice->busy);
+     visible(codex_voice_cancel,voice->busy);
+     visible(codex_send_button,!voice->busy);
+     if(voice->busy)lv_obj_remove_state(codex_voice_cancel,LV_STATE_DISABLED);
+@@ -4245,6 +4278,16 @@
+     label(task_left, "项目", 0, 70, 72, false);
+     codex_project_picker=dropdown(task_left,"暂无项目",80,60,262,0,codex_project_changed,0);
+     ui_text_font(codex_project_picker,&tab5_font_24,0);
++    // Native dropdown text is not clipped around its indicator. Keep a
++    // separate ellipsized caption; full options and selection stay native.
++    lv_dropdown_set_text(codex_project_picker,"");
++    lv_obj_set_style_pad_hor(codex_project_picker,12,0);
++    codex_project_caption=label(codex_project_picker,"暂无项目",0,0,202,false);
++    ui_text_font(codex_project_caption,&tab5_font_24,0);
++    lv_obj_set_height(codex_project_caption,30);
++    lv_label_set_long_mode(codex_project_caption,LV_LABEL_LONG_DOT);
++    lv_obj_align(codex_project_caption,LV_ALIGN_LEFT_MID,0,0);
++    lv_obj_remove_flag(codex_project_caption,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_CLICK_FOCUSABLE|LV_OBJ_FLAG_SCROLLABLE);
+     codex_list=lv_obj_create(task_left);lv_obj_remove_style_all(codex_list);
+     lv_obj_set_pos(codex_list,0,136);lv_obj_set_size(codex_list,342,328);
+     lv_obj_set_scroll_dir(codex_list,LV_DIR_VER);
+@@ -4269,13 +4312,13 @@
+     lv_obj_set_style_radius(codex_run_badge,8,0);lv_obj_set_style_text_align(codex_run_badge,LV_TEXT_ALIGN_CENTER,0);
+     lv_obj_set_style_pad_top(codex_run_badge,3,0);visible(codex_run_badge,false);
+     lv_obj_set_height(codex_hint,32);lv_label_set_long_mode(codex_hint,LV_LABEL_LONG_DOT);
+-    codex_voice_button=button(task_right,"",526,332,56,codex_voice_action,0);
++    codex_voice_button=button(task_right,"",76,332,56,codex_voice_action,0);
+     lv_obj_set_height(codex_voice_button,56);lv_obj_set_style_pad_all(codex_voice_button,0,0);
+-    lv_obj_set_style_radius(codex_voice_button,LV_RADIUS_CIRCLE,0);
+-    voice_button_glyphs(codex_voice_button,&codex_mic_glyph,&codex_stop_glyph);
++    dialogue_tool_style(codex_voice_button);
++    dialogue_voice_glyphs(codex_voice_button,&codex_mic_glyph,&codex_stop_glyph);
+     lv_obj_set_ext_click_area(codex_voice_button,8);
+     lv_obj_add_event_cb(codex_voice_button,codex_voice_pressed,LV_EVENT_PRESSED,NULL);
+-    codex_voice_switch=button(task_right,"改用 TAB5",274,332,158,codex_voice_action,3);
++    codex_voice_switch=button(task_right,"改用 TAB5",152,332,158,codex_voice_action,3);
+     lv_obj_set_height(codex_voice_switch,56);lv_obj_center(lv_obj_get_child(codex_voice_switch,0));
+     lv_obj_add_state(codex_voice_switch,LV_STATE_DISABLED);
+     codex_voice_cancel=button(task_right,"取消",598,332,160,codex_voice_action,2);
+@@ -4319,7 +4362,7 @@
+     lv_obj_set_style_border_width(codex_reply_button,1,0);
+     ui_border_color(codex_reply_button,lv_color_hex(TRACK),0);
+     visible(codex_reply_button,false);
+-    codex_physical=muted(task_right,"",0,344,240);
++    codex_physical=muted(task_right,"",336,348,240);
+     ui_bg_color(codex_send_button,lv_color_hex(BLUE),0);
+     ui_text_color(codex_send_button,lv_color_hex(0x173642),0);
+     codex_keyboard = lv_keyboard_create(tasks_page);
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -304,10 +304,11 @@
+ }
+ static UI_INIT_SMALL void photo_ui_create(lv_obj_t *screen,lv_obj_t *composer) {
+     lv_display_add_event_cb(lv_obj_get_display(screen),photo_camera_feedback_ready,LV_EVENT_REFR_READY,NULL);
+-    lv_obj_t *trigger=button(composer,"",450,332,56,photo_open,0);lv_obj_set_size(trigger,56,56);lv_obj_clean(trigger);lv_obj_set_style_pad_all(trigger,0,0);
++    lv_obj_t *trigger=button(composer,"",0,332,56,photo_open,0);dialogue_tool_style(trigger);lv_obj_clean(trigger);
+     codex_camera_button=trigger;
+-    lv_obj_t *body=shape(trigger,11,19,34,24,INK,5);ui_bg_opa(body,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(body,2,0);ui_border_color(body,lv_color_hex(INK),0);
+-    shape(trigger,21,14,14,7,INK,2);lv_obj_t *lens=shape(trigger,23,24,12,12,INK,6);ui_bg_opa(lens,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(lens,2,0);ui_border_color(lens,lv_color_hex(INK),0);
++    lv_obj_t *glyph=lv_obj_create(trigger);lv_obj_remove_style_all(glyph);lv_obj_set_size(glyph,56,56);lv_obj_center(glyph);lv_obj_remove_flag(glyph,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
++    lv_obj_t *body=shape(glyph,13,21,30,20,INK,4);ui_bg_opa(body,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(body,2,0);ui_border_color(body,lv_color_hex(INK),0);
++    shape(glyph,22,16,12,6,INK,2);lv_obj_t *lens=shape(glyph,23,26,10,10,INK,5);ui_bg_opa(lens,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(lens,2,0);ui_border_color(lens,lv_color_hex(INK),0);
+     for(int i=0;i<3;i++) {
+         composer_photos[i]=button(composer,"",i*150,240,142,photo_attached_open,i);lv_obj_set_height(composer_photos[i],64);lv_obj_clean(composer_photos[i]);lv_obj_set_style_pad_all(composer_photos[i],0,0);
+         label(composer_photos[i],"照片",8,20,80,false);composer_thumbs[i]=lv_canvas_create(composer_photos[i]);lv_obj_set_pos(composer_thumbs[i],5,5);
+--- a/tests/ui-preview/project_dropdown_navigation_test.h
++++ b/tests/ui-preview/project_dropdown_navigation_test.h
+@@ -1,9 +1,26 @@
+ static void check_project_dropdown_navigation(void) {
+  const char *fixture="{\"epochMilliseconds\":1793758000000,\"pcInput\":{\"session\":\"dropdown-fixture\"},\"codexTasks\":{\"projects\":[{\"id\":\"1111111111111111\",\"name\":\"Codex A\"},{\"id\":\"4444444444444444\",\"name\":\"Codex B\"}],\"tasks\":[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"projectId\":\"1111111111111111\",\"title\":\"Codex navigation\"}]},\"claudeTasks\":{\"projects\":[{\"id\":\"2222222222222222\",\"name\":\"Claude A\"},{\"id\":\"5555555555555555\",\"name\":\"Claude B\"}],\"tasks\":[{\"id\":\"22222222-2222-4222-8222-222222222222\",\"projectId\":\"2222222222222222\",\"title\":\"Claude navigation\"}]}}";
+  cJSON_Delete(shown);shown=cJSON_Parse(fixture);assert(shown);
++ cJSON_ReplaceItemInObject(cJSON_GetArrayItem(item(item(shown,"codexTasks"),"projects"),0),"name",cJSON_CreateString("claude-voice-test-project-with-long-name"));
++ cJSON_ReplaceItemInObject(cJSON_GetArrayItem(item(item(shown,"claudeTasks"),"projects"),0),"name",cJSON_CreateString("这是一个用于检查项目选择框的很长中文项目名称"));
+  for(unsigned client=0;client<2;client++) {
+   workspace_client=client;codex_selected[0]=0;codex_project_selected[0]=0;
+   codex_default_pending=codex_default_all=true;page(8);render_codex();
++  lv_obj_update_layout(lv_screen_active());
++  lv_area_t caption_area,picker_area;lv_obj_get_coords(codex_project_caption,&caption_area);lv_obj_get_coords(codex_project_picker,&picker_area);
++  lv_point_t arrow;lv_text_get_size(&arrow,LV_SYMBOL_DOWN,lv_obj_get_style_text_font(codex_project_picker,LV_PART_INDICATOR),0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
++  assert(caption_area.x2+12<=picker_area.x2-lv_obj_get_style_pad_right(codex_project_picker,0)-arrow.x+1);
++  assert(!lv_obj_has_flag(codex_project_caption,LV_OBJ_FLAG_CLICKABLE));
++  assert(strstr(lv_dropdown_get_options(codex_project_picker),client?"这是一个用于检查项目选择框的很长中文项目名称":"claude-voice-test-project-with-long-name"));
++  assert(lv_label_get_text(codex_project_caption)[0]);
++  assert(lv_label_get_long_mode(codex_project_caption)==LV_LABEL_LONG_DOT);
++  assert(lv_color_eq(lv_obj_get_style_bg_color(codex_camera_button,0),lv_obj_get_style_bg_color(codex_voice_button,0)));
++  assert(lv_obj_get_style_radius(codex_camera_button,0)==lv_obj_get_style_radius(codex_voice_button,0));
++  lv_area_t camera_area,mic_area,send_area,input_area;
++  lv_obj_get_coords(codex_camera_button,&camera_area);lv_obj_get_coords(codex_voice_button,&mic_area);
++  lv_obj_get_coords(codex_send_button,&send_area);lv_obj_get_coords(codex_input,&input_area);
++  assert(camera_area.x1==input_area.x1&&mic_area.x1-camera_area.x2>=17);
++  assert(mic_area.x2+64<send_area.x1&&camera_area.y1==mic_area.y1&&mic_area.y1==send_area.y1);
+   char selected[37],project[17];snprintf(selected,sizeof(selected),"%s",codex_selected);snprintf(project,sizeof(project),"%s",codex_project_selected);
+   assert(selected[0]&&project[0]);
+   codex_set_text(client?"Claude retained draft":"Codex retained draft");
+@@ -18,6 +35,47 @@
+   page(8);assert(!lv_dropdown_is_open(codex_project_picker));
+   assert(!strcmp(lv_textarea_get_text(codex_input),client?"Claude retained draft":"Codex retained draft"));
+   capture(client?"dropdown-claude-return":"dropdown-codex-return");
++  ui_text(codex_physical,"键盘已连接");lv_obj_update_layout(lv_screen_active());
++  lv_area_t physical_area,hint_area,switch_area,cancel_area;
++  lv_obj_get_coords(codex_physical,&physical_area);lv_obj_get_coords(codex_voice_hint,&hint_area);
++  lv_obj_get_coords(codex_voice_switch,&switch_area);lv_obj_get_coords(codex_voice_cancel,&cancel_area);
++  assert(physical_area.x1>switch_area.x2+16&&physical_area.x2+16<send_area.x1);
++  assert(switch_area.x1>mic_area.x2+16&&hint_area.y1>mic_area.y2);
++  assert(cancel_area.x1==send_area.x1&&hint_area.y1>cancel_area.y2);
++  capture(client?"dialogue-claude-keyboard":"dialogue-codex-keyboard");
++  lv_obj_add_state(codex_camera_button,LV_STATE_PRESSED);lv_obj_add_state(codex_voice_button,LV_STATE_PRESSED);
++  assert(lv_color_eq(lv_obj_get_style_bg_color(codex_camera_button,0),lv_obj_get_style_bg_color(codex_voice_button,0)));
++  capture(client?"dialogue-claude-pressed":"dialogue-codex-pressed");
++  lv_obj_remove_state(codex_camera_button,LV_STATE_PRESSED);lv_obj_remove_state(codex_voice_button,LV_STATE_PRESSED);
++  memset(&preview_voice,0,sizeof(preview_voice));snprintf(preview_voice.task_id,sizeof(preview_voice.task_id),"%s",selected);
++  preview_voice.busy=true;strcpy(preview_voice.phase,"preparing");
++  codex_voice_waiting=true;codex_voice_desktop=false;ui_text(codex_receipt,"上一条操作提示");codex_voice_tick();
++  assert(!lv_label_get_text(codex_receipt)[0]);
++  assert(!lv_obj_has_flag(codex_camera_button,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_state(codex_camera_button,LV_STATE_DISABLED));
++  capture(client?"dialogue-claude-preparing":"dialogue-codex-preparing");
++  preview_voice.busy=preview_voice.ready=true;strcpy(preview_voice.phase,"recording");strcpy(preview_voice.source,"dji");
++  codex_voice_waiting=true;codex_voice_desktop=false;codex_voice_tick();
++  assert(lv_color_eq(lv_obj_get_style_bg_color(codex_voice_button,0),lv_color_hex(0x365D48)));
++  assert(!lv_obj_has_flag(codex_stop_glyph,LV_OBJ_FLAG_HIDDEN));
++  assert(!lv_obj_has_flag(codex_camera_button,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_state(codex_camera_button,LV_STATE_DISABLED));
++  capture(client?"dialogue-claude-recording":"dialogue-codex-recording");
++  unsigned commands_before=preview_voice_commands;lv_obj_send_event(codex_voice_switch,LV_EVENT_CLICKED,NULL);
++  assert(preview_voice_commands==commands_before+1&&preview_voice_command==3);
++  preview_voice.ready=false;strcpy(preview_voice.source,"tab5");strcpy(preview_voice.phase,"preparing");codex_voice_tick();
++  capture(client?"dialogue-claude-switching":"dialogue-codex-switching");
++  preview_voice.ready=true;strcpy(preview_voice.phase,"recording");codex_voice_tick();
++  assert(lv_obj_has_flag(codex_voice_switch,LV_OBJ_FLAG_HIDDEN));
++  capture(client?"dialogue-claude-tab5-recording":"dialogue-codex-tab5-recording");
++  preview_voice.ready=false;strcpy(preview_voice.phase,"recognizing");codex_voice_tick();
++  assert(!lv_obj_has_flag(codex_camera_button,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_state(codex_camera_button,LV_STATE_DISABLED));
++  capture(client?"dialogue-claude-recognizing":"dialogue-codex-recognizing");
++  preview_voice.busy=false;strcpy(preview_voice.phase,"error");strcpy(preview_voice.message,"语音连接已中断，请检查电脑上的语音服务后重试。");codex_voice_tick();
++  capture(client?"dialogue-claude-error":"dialogue-codex-error");
++  codex_voice_waiting=true;
++  preview_voice.busy=false;strcpy(preview_voice.phase,"review");codex_voice_tick();
++  ui_text(codex_physical,"");
++  assert(lv_color_eq(lv_obj_get_style_bg_color(codex_camera_button,0),lv_obj_get_style_bg_color(codex_voice_button,0)));
++  assert(!lv_obj_has_state(codex_camera_button,LV_STATE_DISABLED));
+   lv_dropdown_open(codex_project_picker);assert(lv_dropdown_is_open(codex_project_picker));
+   page_select(0,false);assert(!lv_dropdown_is_open(codex_project_picker));
+  }

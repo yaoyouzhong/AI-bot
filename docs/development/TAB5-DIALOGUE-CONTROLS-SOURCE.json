@@ -1,0 +1,45 @@
+{
+  "baseline": "Exact .315 source reconstructed by TAB5-PROJECT-DROPDOWN-CLOSE-SOURCE.json",
+  "baselineImageSha256": "436df029e55f816dc00a2a37a011b0fa077fa7fe7f05478b1df1309c98a9a40b",
+  "pendingVersion": "0.2.316-ui",
+  "productionRuntimeChanges": [
+    "firmware/main/ui.c",
+    "firmware/main/ui_photos.h"
+  ],
+  "files": {
+    "firmware/main/ui.c": "c4e6181e0fe5baa8caa876b6ed9ca2eae240672bca908cdeab541c479e4415bb",
+    "firmware/main/ui_photos.h": "f086504fcdfda25dfed1bd4d839adac04154da0535a84de9c8d74b2a85d0c1f0",
+    "tests/ui-preview/project_dropdown_navigation_test.h": "92ddbb2c11e54b14aa0c4462a9abca9cffc1485fadab80fd2c13b38c0565a784"
+  },
+  "resolvedFilesCompared": 7612,
+  "initialFullByteComparison": 7612,
+  "followup": "Unchanged source metadata rechecked; changed files hashed against baseline",
+  "unexpectedChanges": [],
+  "patchSha256": "3611d08a6e7d6905084691ce5066752607c08cef79a9f93a8346bbf3bad98f9b",
+  "nativeChecks": [
+    "long English/Chinese names and arrow clearance",
+    "normal and pressed icon backgrounds and corner geometry",
+    "green recording and stop glyph",
+    "both client menu navigation and retained drafts",
+    "cancelled draft and newer edit protection",
+    "workspace parity"
+  ],
+  "renderInspected": true,
+  "firmwareBuilt": false,
+  "flashed": false,
+  "patchAppliedByteExact": true,
+  "baselineRecordCommit": "c13596dfcfc2bf4c1d6875da4da495e86c970f55",
+  "nativeCasesPassed": [
+    "dropdown",
+    "cancelled draft",
+    "workspace",
+    "camera readiness",
+    "photo transition",
+    "voice sources",
+    "voice transcript refresh",
+    "voice pointer stop",
+    "voice pending start"
+  ],
+  "cameraBusyState": "visible, disabled; restored when idle or pending preparation cancelled",
+  "sharedQuickConsoleGlyphsChanged": false
+}
