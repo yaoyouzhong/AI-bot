@@ -1,0 +1,67 @@
+{
+  "baselineSourceCommit": "e6986ad8336566e6bab41e21ac2c3d4ff7f292f9",
+  "version": "0.2.318-ui",
+  "buildId": "20261105-controls72",
+  "baselineImageSha256": "008d113fbb098a8be881bf462efbb1ac9fcd71b2247eec395b96611af6ef4998",
+  "productionRuntimeChanges": [
+    "firmware/main/ui.c",
+    "firmware/main/ui_photos.h"
+  ],
+  "files": {
+    "firmware/main/ui.c": {
+      "baselineSha256": "3086420003ecab568f0f4e1d5439b2a050d1984e7b9cdb30ffba7e7a8df57bfd",
+      "sha256": "c6e85fa65061801116a2fe0277adf181275d97b47dd6eadb8abe2b12e5e53d27",
+      "normalizedSha256": "7628f533c6e4e965c6a9a50b8429261a63cc6d2e2c9c46fa54db4d122c58b36a"
+    },
+    "firmware/main/ui_photos.h": {
+      "baselineSha256": "ae780db426918cbb156f16d4acab37089823c8af13d3c547f9063172b837fa1a",
+      "sha256": "0dee74cc5b1c6e26f8d18edfb05bf7b1ef1abb8dcd655e3c4fc0e331b2cfbf61",
+      "normalizedSha256": "298fdc3ee72d1a3c952fc3b8a6bbc1456816deac4a9e0c9314092ab9931fe08f"
+    },
+    "tests/ui-preview/project_dropdown_navigation_test.h": {
+      "baselineSha256": "e53398cfa846a1fbad9101a93efcf88e163dfa0fb7045d9cfc55f348a9f8d9e7",
+      "sha256": "a8b4001f52b3777d1bc596ae619ee6e0371db714d48a665a32482a0ff247b04c",
+      "normalizedSha256": "7f0e93e0adc2689b43f5a188159dd0a7b7fb37df7c0a59f1a66ab30caca5860b"
+    }
+  },
+  "patchSha256": "63c2b6e8154531a4bc4ad8fc87f5c4cf8bbcdbb2b2beee7122de4305719736d0",
+  "patchAppliedNormalizedByteExact": true,
+  "nativeCasesPassed": {
+    "cache-refresh": "CLEAR_CACHE_REPAINT_OK 24-row incremental framebuffer; no forced redraw after repair",
+    "cache-repair": "SCROLL_CACHE_OK 25 full/partial frames pixel-identical, tasks 2175 -> 1133; invalidation, deletion and budget fallback verified",
+    "camera-ready": "PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK",
+    "cancelled": "CANCELLED_DRAFT_REFRESH_PASS both_clients_text_photo_newer_text_photo_and_inflight_revision_guard",
+    "clear-feedback": "CODEX_CLEAR_FEEDBACK_OK visible hold, short press preserves, long press clears, release restores outline",
+    "clear-render": "CODEX_CLEAR_RENDER_OK actual pointer long-press; incremental pixels match empty reference in 16 scenarios with normal timer refresh",
+    "dropdown": "PROJECT_DROPDOWN_NAVIGATION_OK both_clients immediate_close overview return project_and_draft_retained common_tab_navigation_path",
+    "photo-transition": "PHOTO_UPLOAD_TRANSITION_OK four poses; stable still through pending ack; one successful page return; failure retains photo; explicit retry only; no conversation send",
+    "same-version": "OTA_SAME_VERSION_UI_OK same/different/absent offer and disconnected reinstall",
+    "voice-refresh": "VOICE_REFRESH_OK real LVGL: unchanged transcript has no edit events; one update per changed result; UTF8 insertion/cursor/draft/cancel/limit and pointer stop pass",
+    "voice-source": "VOICE_SOURCE_LABEL_OK named TAB5/Mac/DJI, legacy fallback, silence and preparing; real LVGL",
+    "voice-start": "PREVIEW_SCRATCH_FOREGROUND_RECLAIM_OK",
+    "voice-stop-touch": "VOICE_STOP_TOUCH_OK 25 actual pointer press/tick/release hits; stop on press, 72px effective target, no duplicate/restart on release",
+    "workspace": "WORKSPACE_PARITY_UI_OK actual_LVGL_layout_provider_catalog_and_draft_isolation_busy_switch_guard_waits_durable_sync"
+  },
+  "nativeCaseCount": 14,
+  "sameVersionReinstallUiPassed": true,
+  "renderInspected": [
+    "both clients, three attachments",
+    "idle, pressed, recording, source transition, recognition, error",
+    "matching 72px circles and send height; original centers retained; capsule cancel"
+  ],
+  "previousPressedAndCacheFixesRetained": true,
+  "sharedSdkHashesUnchanged": true,
+  "firmwareBuilt": true,
+  "buildExitCode": 0,
+  "galleryStackBudget": true,
+  "drawBackendLink": true,
+  "imageSha256": "fad7d04c5585f222951aa7ac13deb01e8664a2069679d32547fa9f058563e2be",
+  "elfSha256": "af70f82932432ab033d59b7df72cdf82e05656e33bf43f533fa4de6489546679",
+  "imageBytes": 6925792,
+  "flashed": false,
+  "hardwareAcceptance": "pending; exact new image must be verified even with unchanged version text",
+  "userAuthorizedApprovedDesignApplicationAndDeviceAcceptance": true,
+  "productionImageValidation": true,
+  "actualSidecarRenderInspected": true,
+  "notesSha256": "16425c7990ff2a3d0d5eccc914d347fe066a65ffcac6cd854cb0312b1af27636"
+}

@@ -1,0 +1,85 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -863,12 +863,15 @@
+ }
+ #include "ui_visuals.h"
+ static void dialogue_tool_style(lv_obj_t *control) {
+-    lv_obj_set_size(control,80,80);lv_obj_set_style_pad_all(control,0,0);
++    lv_obj_set_size(control,72,72);lv_obj_set_style_pad_all(control,0,0);
+     lv_obj_set_style_radius(control,LV_RADIUS_CIRCLE,0);
+     lv_obj_set_style_opa(control,LV_OPA_COVER,0);
+     lv_obj_set_style_opa(control,LV_OPA_50,LV_STATE_DISABLED);
+     lv_obj_set_style_border_width(control,1,0);
+-    ui_border_color(control,lv_color_hex(0x465C65),0);
++    lv_obj_set_style_outline_width(control,0,0);
++    ui_bg_color(control,lv_color_hex(0x35494F),0);
++    ui_bg_color(control,lv_color_hex(0x4A6570),LV_STATE_PRESSED);
++    ui_border_color(control,lv_color_hex(0x58727D),0);
+     ui_border_color(control,lv_color_hex(0x354247),LV_STATE_DISABLED);
+     lv_obj_set_ext_click_area(control,8);
+ }
+@@ -2363,7 +2366,8 @@
+     lv_bar_set_value(codex_voice_meter,voice->level,LV_ANIM_OFF);
+     ui_text_font(codex_voice_hint,&tab5_font_24,0);
+     visible(codex_mic_glyph,!recording);visible(codex_stop_glyph,recording);
+-    ui_bg_color(codex_voice_button,lv_color_hex(recording?0x365D48:voice->busy?0x534C39:0x354247),0);
++    ui_bg_color(codex_voice_button,lv_color_hex(recording?0x365D48:voice->busy?0x534C39:0x35494F),0);
++    ui_border_color(codex_voice_button,lv_color_hex(recording?0x719A80:0x58727D),0);
+     if(voice->busy&&!recording)lv_obj_add_state(codex_voice_button,LV_STATE_DISABLED);
+     // Stop is handled on pointer-down. Recognition can disable the button
+     // before pointer-up, so LVGL may retain PRESSED while it is disabled.
+@@ -4315,7 +4319,7 @@
+     lv_obj_set_style_radius(codex_run_badge,8,0);lv_obj_set_style_text_align(codex_run_badge,LV_TEXT_ALIGN_CENTER,0);
+     lv_obj_set_style_pad_top(codex_run_badge,3,0);visible(codex_run_badge,false);
+     lv_obj_set_height(codex_hint,32);lv_label_set_long_mode(codex_hint,LV_LABEL_LONG_DOT);
+-    codex_voice_button=button(task_right,"",478,316,80,codex_voice_action,0);
++    codex_voice_button=button(task_right,"",482,320,72,codex_voice_action,0);
+     dialogue_tool_style(codex_voice_button);
+     dialogue_voice_glyphs(codex_voice_button,&codex_mic_glyph,&codex_stop_glyph);
+     lv_obj_set_ext_click_area(codex_voice_button,8);
+@@ -4324,7 +4328,7 @@
+     lv_obj_set_height(codex_voice_switch,56);lv_obj_center(lv_obj_get_child(codex_voice_switch,0));
+     lv_obj_add_state(codex_voice_switch,LV_STATE_DISABLED);
+     codex_voice_cancel=button(task_right,"取消",598,320,160,codex_voice_action,2);
+-    lv_obj_set_height(codex_voice_cancel,72);lv_obj_center(lv_obj_get_child(codex_voice_cancel,0));
++    lv_obj_set_style_radius(codex_voice_cancel,36,0);lv_obj_set_height(codex_voice_cancel,72);lv_obj_center(lv_obj_get_child(codex_voice_cancel,0));
+     lv_obj_add_state(codex_voice_cancel,LV_STATE_DISABLED);
+     visible(codex_voice_switch,false);visible(codex_voice_cancel,false);
+     codex_voice_hint=muted(task_right,"",0,400,570);
+@@ -4349,7 +4353,7 @@
+     lv_obj_add_event_cb(codex_input, codex_input_focus, LV_EVENT_FOCUSED, NULL);
+     lv_obj_add_event_cb(codex_input, codex_input_focus, LV_EVENT_CLICKED, NULL);
+     codex_send_button = button(task_right, "发送", 598, 320, 160, codex_send, 0);
+-    lv_obj_set_height(codex_send_button,72);lv_obj_center(lv_obj_get_child(codex_send_button,0));
++    lv_obj_set_style_radius(codex_send_button,36,0);ui_bg_color(codex_send_button,lv_color_hex(0xA6CCD9),LV_STATE_PRESSED);lv_obj_set_height(codex_send_button,72);lv_obj_center(lv_obj_get_child(codex_send_button,0));
+     codex_receipt = label(task_right, "", 0, 400, 570, false);
+     lv_obj_set_height(codex_receipt,64);lv_label_set_long_mode(codex_receipt,LV_LABEL_LONG_DOT);
+     codex_clear_button=button(task_right,"长按清空",438,-8,144,codex_clear_text,0);
+--- a/firmware/main/ui_photos.h
++++ b/firmware/main/ui_photos.h
+@@ -304,7 +304,7 @@
+ }
+ static UI_INIT_SMALL void photo_ui_create(lv_obj_t *screen,lv_obj_t *composer) {
+     lv_display_add_event_cb(lv_obj_get_display(screen),photo_camera_feedback_ready,LV_EVENT_REFR_READY,NULL);
+-    lv_obj_t *trigger=button(composer,"",374,316,80,photo_open,0);dialogue_tool_style(trigger);lv_obj_clean(trigger);
++    lv_obj_t *trigger=button(composer,"",378,320,72,photo_open,0);dialogue_tool_style(trigger);lv_obj_clean(trigger);
+     codex_camera_button=trigger;
+     lv_obj_t *glyph=lv_obj_create(trigger);lv_obj_remove_style_all(glyph);lv_obj_set_size(glyph,56,56);lv_obj_align(glyph,LV_ALIGN_CENTER,0,2);lv_obj_remove_flag(glyph,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
+     lv_obj_t *body=shape(glyph,10,17,36,22,INK,4);ui_bg_opa(body,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(body,2,0);ui_border_color(body,lv_color_hex(INK),0);
+--- a/tests/ui-preview/project_dropdown_navigation_test.h
++++ b/tests/ui-preview/project_dropdown_navigation_test.h
+@@ -21,9 +21,11 @@
+   lv_obj_get_coords(codex_send_button,&send_area);lv_obj_get_coords(codex_input,&input_area);
+   assert(camera_area.x1>=input_area.x1+350&&mic_area.x1-camera_area.x2>=25);
+   assert(send_area.x1-mic_area.x2>=41&&send_area.x2==input_area.x2);
+-  assert(camera_area.y1==mic_area.y1&&mic_area.y1+40==send_area.y1+36);
+-  assert(lv_obj_get_width(codex_camera_button)==80&&lv_obj_get_height(codex_camera_button)==80);
+-  assert(lv_obj_get_width(codex_voice_button)==80&&lv_obj_get_height(codex_voice_button)==80);
++  assert(camera_area.y1==mic_area.y1&&mic_area.y1==send_area.y1&&mic_area.y2==send_area.y2);
++  assert(lv_obj_get_x(codex_camera_button)+36==414&&lv_obj_get_x(codex_voice_button)+36==518);
++  assert(lv_obj_get_style_radius(codex_send_button,0)==36&&lv_obj_get_style_radius(codex_voice_cancel,0)==36);
++  assert(lv_obj_get_width(codex_camera_button)==72&&lv_obj_get_height(codex_camera_button)==72);
++  assert(lv_obj_get_width(codex_voice_button)==72&&lv_obj_get_height(codex_voice_button)==72);
+   char selected[37],project[17];snprintf(selected,sizeof(selected),"%s",codex_selected);snprintf(project,sizeof(project),"%s",codex_project_selected);
+   assert(selected[0]&&project[0]);
+   codex_set_text(client?"Claude retained draft":"Codex retained draft");

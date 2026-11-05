@@ -6,6 +6,8 @@
 
 历史固件保存在 `artifacts/firmware/tab5/versions/<版本>/<镜像哈希前缀>-<说明哈希前缀>/`，修改说明也保留独立归档。已有 development 目录保留为构建、预览和验收证据，不再让用户从这些目录选择新固件。
 
+开发验收的小修复可继续使用同一个待发布版本号，用构建标识及 BIN SHA-256/ELF 指纹区分候选，不为每次编译或小修复递增正式版本号。新候选独立归档，保留之前的原包和验收；同版本更新仍须核对实际运行镜像，不能仅看设备版本文字。正式发布时统一确定对外版本，已有原包不得重新改版本后套用旧验收。
+
 在 AI-bot 根目录用 PowerShell 7 执行：
 
 ```powershell
@@ -25,6 +27,8 @@
 Windows 候选可在 development 目录构建和自检，实际运行沿用固定的 `windows-app/AIBotBridge/bin/Release/net8.0-windows10.0.19041.0/AIBotBridge.exe`。更新前正常退出并备份原运行文件，再部署已核验的二进制、核对哈希及用户资料目录，再从固定路径启动。仅 ESP8266 小屏按项目规则恢复轮播；TAB5 不执行该步骤。每次从新候选目录运行可能再次触发 Windows 网络访问授权；不为测试改动防火墙规则。
 
 ## English
+
+Small fixes during development acceptance may retain the pending release version. Distinguish candidates by build ID and BIN/ELF fingerprints, archive each original separately, and verify the running image even when the version text is unchanged. Choose the public version for the formal release; never relabel an accepted binary and reuse its prior acceptance.
 
 Explicit same-version and identical-image reinstall is allowed from TAB5 0.2.286-ui. Each manual start gets fresh request and offer IDs; there is no automatic repeat. Preserve draft saving, image validation, inactive-partition writes and exact boot verification. An unchanged version alone cannot prove that a reinstall completed. Obtain user authorization for the operation and preserve display preferences.
 
