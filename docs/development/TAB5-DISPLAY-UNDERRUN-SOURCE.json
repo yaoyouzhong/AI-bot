@@ -1,0 +1,105 @@
+{
+  "baselineSourceCommit": "97f69d30765589c1f11126a43f376135424af418",
+  "baselineDelta": "TAB5-DIALOGUE-CONTROLS-20261105.patch",
+  "baselineAcceptedVersion": "0.2.315-ui",
+  "baselineAcceptedBinSha256": "436df029e55f816dc00a2a37a011b0fa077fa7fe7f05478b1df1309c98a9a40b",
+  "scope": "LCD read arbitration lifetime policy; no SDK/config/bridge changes",
+  "productionRuntimeChanges": [
+    "firmware/main/main.c",
+    "firmware/main/display_bandwidth.c",
+    "firmware/main/display_bandwidth.h"
+  ],
+  "files": {
+    "firmware/main/main.c": {
+      "baselineSha256": "eb9a38703520ee540b78c0790cca86e1cc7d512174bbd137809b21ccb553908d",
+      "sha256": "3a7d45ece66343dea08e5c67105e66ca98227a787bebcff9945c3c6827135cac",
+      "normalizedSha256": "3a7d45ece66343dea08e5c67105e66ca98227a787bebcff9945c3c6827135cac"
+    },
+    "firmware/main/display_bandwidth.c": {
+      "baselineSha256": "8880353e133e246f03bfc7aec8fddb41552a18d4037769af8ab03d33ecaeb877",
+      "sha256": "c253367adc980633101236977b5043339aa9407121146a882d2008b49a5cfec3",
+      "normalizedSha256": "c253367adc980633101236977b5043339aa9407121146a882d2008b49a5cfec3"
+    },
+    "firmware/main/display_bandwidth.h": {
+      "baselineSha256": "34f14c2d7ddd99fd4af8286fcd7b2145d0cd99379738b8b03724d92f15f8cf9e",
+      "sha256": "185f07d7f8194c8b785a86a37fde95d8fb633924762b66738a40ac53d42555b8",
+      "normalizedSha256": "185f07d7f8194c8b785a86a37fde95d8fb633924762b66738a40ac53d42555b8"
+    },
+    "tests/display-bandwidth/CMakeLists.txt": {
+      "baselineSha256": null,
+      "sha256": "746531d9cdc36b752a62e596cafb9ffcadf735f9dd8fd0cde6ba30eff0b226c2",
+      "normalizedSha256": "746531d9cdc36b752a62e596cafb9ffcadf735f9dd8fd0cde6ba30eff0b226c2"
+    },
+    "tests/display-bandwidth/policy_test.c": {
+      "baselineSha256": null,
+      "sha256": "a93982afb555a4bed0a25310c356befd2b36fefde86751444a78552467b337d8",
+      "normalizedSha256": "a93982afb555a4bed0a25310c356befd2b36fefde86751444a78552467b337d8"
+    },
+    "tests/display-bandwidth/stubs/freertos/FreeRTOS.h": {
+      "baselineSha256": null,
+      "sha256": "e3e5e115013017e8764521235ac4ce5ea8bb7a4edff5cefdc0fee0f04ecb5fe5",
+      "normalizedSha256": "e3e5e115013017e8764521235ac4ce5ea8bb7a4edff5cefdc0fee0f04ecb5fe5"
+    },
+    "tests/display-bandwidth/stubs/hal/dw_gdma_ll.h": {
+      "baselineSha256": null,
+      "sha256": "e90dd536f2156de7f35fa99c4b90db867f9b5ddcfe1f7daf84cf4b9a7bb85dbb",
+      "normalizedSha256": "e90dd536f2156de7f35fa99c4b90db867f9b5ddcfe1f7daf84cf4b9a7bb85dbb"
+    }
+  },
+  "patchSha256": "dcab0b95b6077d487cf46b07a853ae1e04aad5db0ecdebe04ad6980b440eae0c",
+  "patchAppliedNormalizedByteExact": true,
+  "baselineSourceFilesMetadataCompared": 7612,
+  "initialFullByteComparison": 7612,
+  "unexpectedChanges": [],
+  "sharedSdkHashesUnchanged": true,
+  "sharedSdkFilesChecked": 9,
+  "hostRegisterLayoutHeaderSha256": "a5047bb7f63377b9ab2a6457436cfb5f1ab5c042b2df8acdd6b53d9f4cb538e0",
+  "regression": {
+    "baseline": {
+      "exitCode": 3,
+      "output": "FAIL: photo release must preserve baseline scanout protection",
+      "expected": true
+    },
+    "fixed": {
+      "exitCode": 0,
+      "output": "DISPLAY_BANDWIDTH_POLICY_OK (host register policy only; hardware acceptance required)",
+      "expected": true
+    }
+  },
+  "baselineDeviceTransitions": [
+    {
+      "atUtc": "2026-11-05T06:47:30.7224936+00:00",
+      "lcdUnderruns": "7",
+      "flushErrors": "0",
+      "uiPage": "0",
+      "uiAgeMs": "29",
+      "brightness": "79",
+      "backlightChanges": "14"
+    },
+    {
+      "atUtc": "2026-11-05T06:48:18.1193652+00:00",
+      "lcdUnderruns": "8",
+      "flushErrors": "0",
+      "uiPage": "0",
+      "uiAgeMs": "1",
+      "brightness": "79",
+      "backlightChanges": "14"
+    }
+  ],
+  "firmwareVersion": "0.2.316-ui",
+  "buildExitCode": 0,
+  "galleryStackBudget": true,
+  "drawBackendLink": true,
+  "imageSha256": "9221c68eb5940f00f547c569856eeddbc0702e426321c1745636bacb38b5544b",
+  "imageBytes": 6925152,
+  "elfSha256": "1bed98fd5a3783c37563228a659483ec6399e0aa8a3aff2b9592efefa8c00901",
+  "unchangedUiNativeCasesReused": 9,
+  "flashed": false,
+  "hardwareAcceptance": "pending; host policy tests cannot prove LCD bandwidth stability",
+  "m5KnowledgeFeedbackId": "3f5e50bdcc7740669c945177b202c206",
+  "m5DocumentationStatus": "Search did not confirm a Tab5-specific AXI priority prescription; feedback accepted; targeted change follows existing project photo policy and pinned SDK mapping.",
+  "productionImageValidation": true,
+  "actualSidecarRenderInspected": true,
+  "notesSha256": "a79f1a9906c03a2a9188647409c0e1d5904c2c7cd93a5ab5486dda02a325ff00",
+  "latestAccepted315Preserved": true
+}

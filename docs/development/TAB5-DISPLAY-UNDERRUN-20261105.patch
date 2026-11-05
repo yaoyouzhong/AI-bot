@@ -1,0 +1,198 @@
+--- a/firmware/main/main.c
++++ b/firmware/main/main.c
+@@ -11,6 +11,7 @@
+ #include "sd_storage.h"
+ #include "art_orientation.h"
+ #include "gallery_clock.h"
++#include "display_bandwidth.h"
+ #include "agenda.h"
+ #include "nvs_flash.h"
+ #include "esp_ota_ops.h"
+@@ -52,6 +53,7 @@
+     battery_status_start();
+     gallery_clock_start();
+     agenda_start();
++    display_bandwidth_init();
+     ui_start();tab5_wifi_start();
+     art_orientation_start();
+     boot_trace_update(2,0,0);
+--- a/firmware/main/display_bandwidth.c
++++ b/firmware/main/display_bandwidth.c
+@@ -13,21 +13,26 @@
+ _Static_assert(DW_GDMA_LL_MASTER_PORT_MEMORY == 1, "Recheck LCD memory master");
+ static portMUX_TYPE bandwidth_lock=portMUX_INITIALIZER_UNLOCKED;
+ static bool active;
+-static unsigned saved_priority,saved_read_qos,leases,releases,applied_priority,applied_read_qos;
++static unsigned leases,releases;
++
++static void protect_scanout_locked(void) {
++    // Scanout has the same hard deadline on overview/dialogue as on photos.
++    // Change only DW-GDMA's memory read path, leaving other masters and all
++    // write-QoS fields untouched.
++    AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority=15;
++    AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos=15;
++}
++
++void display_bandwidth_init(void) {
++    portENTER_CRITICAL(&bandwidth_lock);
++    protect_scanout_locked();
++    portEXIT_CRITICAL(&bandwidth_lock);
++}
+ 
+ void display_bandwidth_photo_begin(void) {
+     portENTER_CRITICAL(&bandwidth_lock);
++    protect_scanout_locked();
+     if(!active) {
+-        saved_priority=AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority;
+-        saved_read_qos=AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos;
+-        // Give the deadline-bound scanout precedence while the still is
+-        // prepared, encoded, encrypted and uploaded. The still viewport owns this
+-        // lease until unfreeze succeeds, including failures and retries.
+-        // Leave every other master untouched.
+-        AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority=15;
+-        AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos=15;
+-        applied_priority=AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority;
+-        applied_read_qos=AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos;
+         active=true;leases++;
+     }
+     portEXIT_CRITICAL(&bandwidth_lock);
+@@ -36,17 +41,18 @@
+ void display_bandwidth_photo_end(void) {
+     portENTER_CRITICAL(&bandwidth_lock);
+     if(active) {
+-        AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority=saved_priority;
+-        AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos=saved_read_qos;
+         active=false;releases++;
+     }
++    protect_scanout_locked();
+     portEXIT_CRITICAL(&bandwidth_lock);
+ }
+ 
+ void display_bandwidth_format(char *out,unsigned size) {
+     unsigned a,l,r,p,q;
+     portENTER_CRITICAL(&bandwidth_lock);
+-    a=active;l=leases;r=releases;p=applied_priority;q=applied_read_qos;
++    a=active;l=leases;r=releases;
++    p=AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority;
++    q=AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos;
+     portEXIT_CRITICAL(&bandwidth_lock);
+     snprintf(out,size,"bw,1,%u,%u,%u,%u,%u",a,l,r,p,q);
+ }
+--- a/firmware/main/display_bandwidth.h
++++ b/firmware/main/display_bandwidth.h
+@@ -1,7 +1,9 @@
+ #pragma once
+ 
+-// The successfully frozen still viewport owns this lease across photo
+-// preparation and upload. Release only after its unfreeze succeeds.
++// Protect deadline-bound LCD scanout before starting the display. Photo
++// viewport leases never remove this baseline on unfreeze.
++void display_bandwidth_init(void);
++// The frozen viewport retains its lease across photo preparation/upload.
+ void display_bandwidth_photo_begin(void);
+ void display_bandwidth_photo_end(void);
+ void display_bandwidth_format(char *out, unsigned size);
+--- /dev/null
++++ b/tests/display-bandwidth/CMakeLists.txt
+@@ -0,0 +1,19 @@
++cmake_minimum_required(VERSION 3.16)
++project(display_bandwidth_policy C)
++set(CMAKE_C_STANDARD 11)
++if(NOT EXISTS "${IDF_PATH}/components/soc/esp32p4/register/soc/icm_sys_struct.h")
++  message(FATAL_ERROR "Pass the pinned ESP-IDF path with -DIDF_PATH=...")
++endif()
++foreach(case fixed baseline)
++  if(case STREQUAL "fixed")
++    set(source "${CMAKE_CURRENT_LIST_DIR}/../../firmware/main")
++  else()
++    set(source "${BASELINE_SOURCE}/firmware/main")
++  endif()
++  add_executable(policy-${case} policy_test.c "${source}/display_bandwidth.c")
++  target_include_directories(policy-${case} PRIVATE stubs "${source}"
++    "${IDF_PATH}/components/soc/esp32p4/register")
++  if(case STREQUAL "baseline")
++    target_compile_definitions(policy-${case} PRIVATE TEST_BASELINE=1)
++  endif()
++endforeach()
+--- /dev/null
++++ b/tests/display-bandwidth/policy_test.c
+@@ -0,0 +1,64 @@
++#include "display_bandwidth.h"
++// Use the pinned SDK register definition, not a duplicate of its bit layout.
++#include "soc/icm_sys_struct.h"
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++
++axi_icm_dev_t AXI_ICM;
++unsigned test_lock_depth, test_lock_errors;
++#define CHECK(test, message) do { if(!(test)) { fprintf(stderr,"FAIL: %s\n",message); return 3; } } while(0)
++static const uint32_t field_mask=0x000f0000u;
++static const uint32_t arb_seed=0xa5a05a5au, read_seed=0x5a50a5a5u, write_seed=0x12345678u;
++static int protected(void) {
++    return AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority==15 &&
++           AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos==15;
++}
++static int other_fields_unchanged(void) {
++    return (AXI_ICM.mst_arb_priority_reg0.val&~field_mask)==(arb_seed&~field_mask) &&
++           (AXI_ICM.mst_arqos_reg0.val&~field_mask)==(read_seed&~field_mask) &&
++           AXI_ICM.mst_awqos_reg0.val==write_seed;
++}
++int main(void) {
++    char status[96];
++    AXI_ICM.mst_arb_priority_reg0.val=arb_seed;
++    AXI_ICM.mst_arqos_reg0.val=read_seed;
++    AXI_ICM.mst_awqos_reg0.val=write_seed;
++#ifndef TEST_BASELINE
++    display_bandwidth_init();
++    CHECK(protected(),"ordinary pages need protection before any photo lease");
++    CHECK(other_fields_unchanged(),"startup must preserve other masters and write QoS");
++    display_bandwidth_init();
++    display_bandwidth_photo_end();
++    display_bandwidth_format(status,sizeof status);
++    CHECK(strcmp(status,"bw,1,0,0,0,15,15")==0,"idle/init/end must not invent photo leases");
++#endif
++    display_bandwidth_photo_begin();
++    display_bandwidth_photo_begin();
++    CHECK(protected(),"a frozen photo must retain scanout priority");
++    display_bandwidth_format(status,sizeof status);
++    CHECK(strcmp(status,"bw,1,1,1,0,15,15")==0,"duplicate begin must be idempotent");
++    display_bandwidth_photo_end();
++    CHECK(protected(),"photo release must preserve baseline scanout protection");
++    display_bandwidth_photo_end();
++    CHECK(other_fields_unchanged(),"release must preserve other masters and write QoS");
++    display_bandwidth_format(status,sizeof status);
++    CHECK(strcmp(status,"bw,1,0,1,1,15,15")==0,"duplicate end must be idempotent");
++    display_bandwidth_photo_begin();
++    display_bandwidth_photo_end();
++    display_bandwidth_format(status,sizeof status);
++    CHECK(strcmp(status,"bw,1,0,2,2,15,15")==0,"a later photo must preserve the same baseline");
++#ifndef TEST_BASELINE
++    // A diagnostic must report MMIO readback, even if another component changes it.
++    AXI_ICM.mst_arb_priority_reg0.reg_gdma_mst2_priority=3;
++    AXI_ICM.mst_arqos_reg0.reg_gdma_mst2_arqos=4;
++    display_bandwidth_format(status,sizeof status);
++    CHECK(strcmp(status,"bw,1,0,2,2,3,4")==0,"diagnostic must read registers rather than cached values");
++    display_bandwidth_photo_end();
++    CHECK(protected(),"idle release must reassert protection without adding a lease");
++    CHECK(other_fields_unchanged(),"reassertion must preserve unrelated register bits");
++#endif
++    CHECK(test_lock_depth==0 && test_lock_errors==0,"all register access must use balanced critical sections");
++    puts("DISPLAY_BANDWIDTH_POLICY_OK (host register policy only; hardware acceptance required)");
++    return 0;
++}
+--- /dev/null
++++ b/tests/display-bandwidth/stubs/freertos/FreeRTOS.h
+@@ -0,0 +1,6 @@
++#pragma once
++typedef int portMUX_TYPE;
++#define portMUX_INITIALIZER_UNLOCKED 0
++extern unsigned test_lock_depth, test_lock_errors;
++#define portENTER_CRITICAL(lock) do { (void)(lock); if(test_lock_depth++) test_lock_errors++; } while(0)
++#define portEXIT_CRITICAL(lock) do { (void)(lock); if(test_lock_depth!=1) test_lock_errors++; test_lock_depth--; } while(0)
+--- /dev/null
++++ b/tests/display-bandwidth/stubs/hal/dw_gdma_ll.h
+@@ -0,0 +1,3 @@
++#pragma once
++// Host-only dependency stub. The firmware static assertion checks the real SDK enum.
++enum { DW_GDMA_LL_MASTER_PORT_MEMORY = 1 };

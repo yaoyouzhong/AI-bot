@@ -25,7 +25,7 @@
     "workspace parity"
   ],
   "renderInspected": true,
-  "firmwareBuilt": false,
+  "firmwareBuilt": true,
   "flashed": false,
   "patchAppliedByteExact": true,
   "baselineRecordCommit": "c13596dfcfc2bf4c1d6875da4da495e86c970f55",
@@ -41,5 +41,11 @@
     "voice pending start"
   ],
   "cameraBusyState": "visible, disabled; restored when idle or pending preparation cancelled",
-  "sharedQuickConsoleGlyphsChanged": false
+  "sharedQuickConsoleGlyphsChanged": false,
+  "uiOnlyBuild": {
+    "imageSha256": "36e4dbfadd6bbe321bd93fb0024a4d2956062e83a74de8763422274338540fde",
+    "elfSha256": "7efd9f5c66d472b135e42eb80d143904e6075623b7ea43235389ab154aee0836",
+    "flashed": false
+  },
+  "finalCandidateRecord": "TAB5-DISPLAY-UNDERRUN-SOURCE.json"
 }
