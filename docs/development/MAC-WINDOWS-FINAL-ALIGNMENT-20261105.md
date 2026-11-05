@@ -35,3 +35,10 @@ The Mac branch fast-forwards to Windows commit 3b781c4. Native tests and the thr
 - 独立交接文件：`AIBotBridge-0.6.17-development-3b781c4-macos-arm64.zip`，18946154 字节；SHA-256 `5c2023b6dc537d59a48dd8df0076b0dbab2877d95185e8de7c0778d0e0a197f7`。文件仅改为独立交接名称，内容与脚本原 ZIP 字节一致。
 - 原有本机开发签名，未公证。新候选完成 3 次只读语音元数据检查，无录音、无设置写入、无前台窗口。原常驻未替换。
 - 此包含新音源逻辑，是开发候选；现有正式 0.6.17 原包继续保留。不能将其写为已通过全部新录音实测。
+
+
+## 真实录音补验中发现的诊断入口问题
+
+用户已将 TAB5 与 DJI 接回 Mac，读取确认系统默认输入为 DJI、豆包为自动模式。首次按设备录音时桥接诊断进程退出，设备提示语音连接中断；该次录音失败，不记为通过。崩溃栈为 `MacDoubaoSpeech.cancel()` 访问未初始化的 `NSApp`，属于 `--tab5-automation` 绕过正常 AppKit 启动路径。麦克风选择指纹前后相同，未留下待恢复记录。
+
+修复仅在自动验收入口初始化 `NSApplication.shared` 并设置 accessory 策略，不打开或激活窗口，不改音源、录音布局、协议或固件。用户从 TAB5 主动发起录音仍走既有豆包收音流程。新候选另行构建并绑定新摘要，旧 3b781c4 开发包保留为本次失败历史；不能套用新候选实测。

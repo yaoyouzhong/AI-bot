@@ -14,6 +14,10 @@ enum MacTab5AutomationRunner {
         func pop() -> (String?, Bool) { lock.lock(); defer { lock.unlock() }; return (lines.isEmpty ? nil:lines.removeFirst(),ended) }
     }
     static func run(directory: URL, fixture: URL? = nil) throws {
+        // Real voice backends use AppKit even when this diagnostic entry has
+        // no application delegate. Initialize without activating a window.
+        _ = NSApplication.shared
+        NSApp.setActivationPolicy(.accessory)
         guard !FileManager.default.fileExists(atPath:directory.path) else { throw MacTab5Error.invalidPacket }
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
         let registry = MacDeviceRegistry()
