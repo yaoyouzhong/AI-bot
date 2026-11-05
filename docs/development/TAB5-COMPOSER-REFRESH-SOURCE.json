@@ -82,9 +82,12 @@
   "imageSha256": "008d113fbb098a8be881bf462efbb1ac9fcd71b2247eec395b96611af6ef4998",
   "imageBytes": 6925280,
   "elfSha256": "d0a4e0997aa28a652cde46491043ea825fa93028b21226dc5a002e4ca863c295",
-  "flashed": false,
-  "hardwareAcceptance": "pending; .317 failed UI acceptance is retained, not reused as a pass",
+  "flashed": true,
+  "hardwareAcceptance": "Functional fixes passed three user-observed cycles; size/location accepted; visual design not final",
   "productionImageValidation": true,
   "actualSidecarRenderInspected": true,
-  "notesSha256": "61d48c30c81e59b24231352fd3679b70dc83d62503aef72b02c9edc6dce8ca72"
+  "notesSha256": "61d48c30c81e59b24231352fd3679b70dc83d62503aef72b02c9edc6dce8ca72",
+  "bootVerificationPassed": true,
+  "hardwareAcceptanceRecord": "TAB5-318-ACCEPTANCE-20261105.json",
+  "visualDesignFinal": false
 }

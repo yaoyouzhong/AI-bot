@@ -1,0 +1,61 @@
+{
+  "sourceCommit": "ed36fe7f37f7fcf3a7201f7bf42682271f087a37",
+  "version": "0.2.318-ui",
+  "imageSha256": "008d113fbb098a8be881bf462efbb1ac9fcd71b2247eec395b96611af6ef4998",
+  "elfSha256": "d0a4e0997aa28a652cde46491043ea825fa93028b21226dc5a002e4ca863c295",
+  "upgradeAuthorized": true,
+  "startAttempts": [
+    {
+      "evidence": "ota-start-20261105-162226.json",
+      "result": "explicit device_busy rejection, transfer not started"
+    },
+    {
+      "evidence": "ota-start-20261105-162351.json",
+      "result": "host not idle, no start"
+    },
+    {
+      "evidence": "ota-start-20261105-162532.json",
+      "result": "accepted after user returned to overview"
+    }
+  ],
+  "acceptedStartCount": 1,
+  "bootVerificationPassed": true,
+  "bootVerificationEvidence": "ota-verify-20261105-162717.json",
+  "nativeCaseCount": 13,
+  "physicalComposerAcceptance": "passed: user confirmed three dictation-stop-clear cycles; each stayed empty after five seconds and idle backgrounds matched",
+  "bridgeRebuiltOrInstalled": false,
+  "functionalAcceptancePassed": true,
+  "buttonSizeAndRightHandReachAccepted": true,
+  "visualDesignFinal": false,
+  "visualFeedback": "User finds size and location acceptable; still lacks design polish",
+  "freshSampleCount": 174,
+  "sampleCount": 174,
+  "firstUtc": "2026-11-05T08:28:11.5325906+00:00",
+  "lastUtc": "2026-11-05T08:34:10.7714508+00:00",
+  "observedSeconds": 359.2,
+  "lcdUnderrunRange": [
+    0,
+    0
+  ],
+  "flushErrorRange": [
+    0,
+    0
+  ],
+  "idleBackgroundPixels": {
+    "camera": [
+      49,
+      65,
+      66
+    ],
+    "microphone": [
+      49,
+      65,
+      66
+    ]
+  },
+  "deviceSettingsPreserved": true,
+  "configurationFilesPreserved": true,
+  "residentBridgeRestored": true,
+  "screensaverOn318": "not separately exercised; no full-system or permanent-no-flash claim",
+  "overallStatus": "functional scope accepted; visual design not final"
+}
