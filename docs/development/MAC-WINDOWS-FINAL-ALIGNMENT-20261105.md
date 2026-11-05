@@ -42,3 +42,16 @@ The Mac branch fast-forwards to Windows commit 3b781c4. Native tests and the thr
 用户已将 TAB5 与 DJI 接回 Mac，读取确认系统默认输入为 DJI、豆包为自动模式。首次按设备录音时桥接诊断进程退出，设备提示语音连接中断；该次录音失败，不记为通过。崩溃栈为 `MacDoubaoSpeech.cancel()` 访问未初始化的 `NSApp`，属于 `--tab5-automation` 绕过正常 AppKit 启动路径。麦克风选择指纹前后相同，未留下待恢复记录。
 
 修复仅在自动验收入口初始化 `NSApplication.shared` 并设置 accessory 策略，不打开或激活窗口，不改音源、录音布局、协议或固件。用户从 TAB5 主动发起录音仍走既有豆包收音流程。新候选另行构建并绑定新摘要，旧 3b781c4 开发包保留为本次失败历史；不能套用新候选实测。
+
+
+## 用户配合的 Mac DJI 真录音结果
+
+新候选源码 `79670dac2cea6f0e12ac4a6744d45d0c61a99768`，ZIP 18,946,458 字节，SHA-256 `8dc70da9aa713bcccf91b391e98751339da00030019cb3650a86d57f613f543b`。原生 469 tests（1 skip，0 failure）、29,068 parity、Release 构建、arm64、严格签名、解压摘要及工具/helper 检查通过，包内源码身份精确一致。保持既有本机开发签名，未公证。
+
+用户接回 TAB5 与 DJI 后，枚举确认 DJI 为系统默认输入，桥接为豆包/自动音源，豆包为自动检测。新候选**正常后台应用入口**下，用户主动在 TAB5 开始、口述及停止；设备真实截图显示“这是Mac自动音源验收。”，随后提示检查文字。没有点击发送。录音后选择指纹与录音前完全一致，仍为自动检测、无待恢复记录。此项真实录音、停止和回填通过。
+
+诊断入口第二次尝试未崩溃，但发生“录音状态或草稿焦点未就绪”的保护性拒绝，未开始收音。这条失败保留，不把正常入口通过写成诊断入口录音通过。不同默认端点及期间手动选择本次未重新实测；纯决策覆盖通过，原未变更租用/恢复路径证据按既有范围保留。
+
+测试前输入框为空，收尾已清理该测试句并回到总览；stop 返回 settingsPreserved=true。随后使用同一验收通过的新开发候选恢复正常后台运行，USB 打开已确认；未修改正式发布附件、配对或固件。原公开 0.6.17 包继续保留，不能混写成新候选的二进制实测。新原包、校验、截图与结构化记录回传原 GitHub 交接草稿。新 .315 菜单固件仍待交接原包后验收。
+
+The real DJI recording passed with the exact 79670da development candidate through its normal application entry. Text was returned to TAB5 and never submitted; the automatic microphone selection remained unchanged with no pending restoration. The earlier diagnostic-entry crash and focus rejection remain separately recorded, without claiming diagnostic voice acceptance. Test text was removed and the tested candidate resumed normal background operation.
