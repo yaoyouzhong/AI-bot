@@ -2,6 +2,25 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5InteractionDiagnosticsTests: XCTestCase {
+    func testDeviceDisplayCountersSurvivePartialAcknowledgements() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let diagnostics = MacTab5LocalDiagnostics(directory: directory)
+        diagnostics.device(["type": "tab5_ack", "uptimeMs": 42, "saverActive": 1,
+                            "lcdUnderruns": 7, "flushErrors": 0, "message": "private"])
+        diagnostics.waitUntilIdle()
+
+        let partial = MacTab5LocalDiagnostics(directory: directory)
+        partial.device(["type": "tab5_ack", "sequence": 12])
+        partial.waitUntilIdle()
+        let data = try Data(contentsOf: directory.appendingPathComponent("tab5-device-diagnostics.json"))
+        let snapshot = try JSONDecoder().decode([String: String].self, from: data)
+        XCTAssertEqual(snapshot["lcdUnderruns"], "7")
+        XCTAssertEqual(snapshot["flushErrors"], "0")
+        XCTAssertEqual(snapshot["saverActive"], "1")
+        XCTAssertNil(snapshot["message"])
+    }
+
     func testUnmeasuredQueueIsNotReportedAsZero() {
         let diagnostics = MacTab5InteractionDiagnostics(clock: { 1 })
         diagnostics.finish(diagnostics.begin(kind: "voice", operation: "start", transport: "BLE"), status: 200)
