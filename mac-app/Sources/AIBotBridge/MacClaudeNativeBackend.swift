@@ -27,7 +27,7 @@ final class MacClaudeNativeBackend {
     }
     private func history(_ entry:MacClaudeCatalog.Entry, client: (any MacClaudeNativeSession)?)throws->MacClaudeHistory.Value {
         let secret=try key();guard secret.count==32 else{throw MacTab5Error.keychain}
-        return try MacClaudeHistory.read(root:root,session:entry.session,key:secret){
+        return try MacClaudeHistory.read(root:root,session:entry.session,key:secret,backgroundImages:client is MacClaudeBackground){
             client?.isVerifiedBlank() == true
         }
     }
@@ -106,13 +106,27 @@ final class MacClaudeNativeBackend {
         }
         guard let client=owner(entry.session).client,client.session==entry.session else{throw MacCodexDesktopError.rejected("native_session_unavailable")}
         let inputs=params["input"] as? [[String:Any]] ?? [],text=inputs.filter{$0["type"] as? String=="text"}.compactMap{$0["text"] as? String}.joined(separator:"\n")
-        guard client.allows(operation, images: inputs.contains { $0["type"] as? String == "image" }) else {
+        let images = inputs.filter { $0["type"] as? String == "image" }
+        guard images.count <= MacTab5Photos.maxCount, client.allows(operation, images: !images.isEmpty) else {
             throw MacCodexDesktopError.rejected("native_input_unavailable")
         }
-        var paths:[URL]=[],digests:[String]=[]
-        for input in inputs where input["type"] as? String=="image" {
-            guard paths.count<3,let url=input["url"] as? String,let comma=url.firstIndex(of:","),["data:image/png;base64","data:image/jpeg;base64"].contains(String(url[..<comma])),let bytes=Data(base64Encoded:String(url[url.index(after:comma)...])) else{throw MacTab5Error.invalidPacket}
-            digests.append(try MacClaudeNativeContent.image(bytes));paths.append(try store.materializeNativePhoto(bytes))
+        let photoDirectory = client is MacClaudeBackground && !images.isEmpty ? try MacClaudeBackgroundPhotos.makeDirectory() : nil
+        var photoDeliveryUnknown = false
+        defer {
+            if let photoDirectory { MacClaudeBackgroundPhotos.remove(photoDirectory, deliveryUnknown: photoDeliveryUnknown) }
+        }
+        var paths: [URL] = [], digests: [String] = []
+        for input in images {
+            guard let url = input["url"] as? String, let comma = url.firstIndex(of: ","),
+                  ["data:image/png;base64", "data:image/jpeg;base64"].contains(String(url[..<comma])),
+                  let bytes = Data(base64Encoded: String(url[url.index(after: comma)...])) else { throw MacTab5Error.invalidPacket }
+            if let photoDirectory {
+                paths.append(try MacClaudeBackgroundPhotos.stage(bytes, in: photoDirectory))
+                digests.append(MacTab5Protocol.sha256(bytes))
+            } else {
+                digests.append(try MacClaudeNativeContent.image(bytes))
+                paths.append(try store.materializeNativePhoto(bytes))
+            }
         }
         let scope=try client.scope(),original=try history(entry, client: client),before=original.turns.last?["id"] as? String ?? "",epoch=currentGeneration()
         let state = try client.state()
@@ -135,7 +149,9 @@ final class MacClaudeNativeBackend {
         let result=try MacClaudeNativeOperation.run(client:client,request:request,history:{try self.history(entry, client: client)},dispatch:{baseline in
             guard request.authorized(),try request.current() else{throw MacTab5Error.unconfirmed}
             let record=Record(task:entry.alias,operation:operation,expected:expected,baseline:baseline,confirmed:nil);try self.save(id,record);saved=record
+            photoDeliveryUnknown = photoDirectory != nil
         })
+        if result.user != nil || result.submissionNotInvoked { photoDeliveryUnknown = false }
         if let user=result.user,var record=saved{let alias=try turn(entry,user);record.confirmed=alias;try save(id,record);return ["turnId":alias]}
         if result.stopped,var record=saved{record.confirmed=expected;record.stopAcknowledged=true;try save(id,record);return ["turnId":expected]}
         if result.submissionNotInvoked,var record=saved {

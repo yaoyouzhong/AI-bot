@@ -32,7 +32,7 @@ final class MacClaudeNativeTests: XCTestCase {
         let client = try XCTUnwrap(registry.owner(session).client)
         XCTAssertEqual(client.source, .background)
         XCTAssertNil(MacClaudeBackground.find(UUID(), root: config))
-        XCTAssertFalse(client.allows("send", images: true))
+        XCTAssertTrue(client.allows("send", images: true))
         XCTAssertFalse(client.allows("interrupt", images: false))
         let backend = MacClaudeWorkspaceBackend(root: projects, store: store, key: { key }, harnesses: registry)
         let workspace = MacClaudeWorkspace(store: store, backend: backend, enabled: { true })
@@ -44,31 +44,117 @@ final class MacClaudeNativeTests: XCTestCase {
         XCTAssertEqual((rows.first?["source"] as? [String: String])?["id"], "claude.background")
         let controls = try XCTUnwrap(snapshot["controls"] as? [String: Any])
         XCTAssertEqual((controls[alias] as? [String: Any])?["canSend"] as? Bool, true)
-        let message = "fixture followup"
-        let before = try MacClaudeHistory.read(root: projects, session: session, key: key)
-        let request: [String: Any] = ["op": "send", "taskId": alias, "message": message, "expectedTurn": "",
-                                     "requestId": UUID().uuidString.lowercased()]
-        XCTAssertEqual(workspace.tasks.handle(request, device: "daemon-fixture").status, 202)
-        XCTAssertEqual(workspace.tasks.handle(request, device: "daemon-fixture").status, 202)
-        let after = try MacClaudeHistory.read(root: projects, session: session, key: key)
-        let added = after.accepted.subtracting(before.accepted)
-        XCTAssertEqual(added.count, 1)
-        XCTAssertEqual(added.first.flatMap { after.inputDigests[$0] }, MacClaudeNativeContent.digest(message))
+        let pair = MacTab5Pairing(deviceId: "001122334455", usbPath: "/dev/cu.fixture", key: key, confirmed: true)
+        let service = MacTab5Service(port: 8765, load: { pair }, save: { _ in }, claudeWorkspace: workspace)
+        defer { service.stop() }
 
-        let read: [String: Any] = ["op": "read", "taskId": alias]
-        let deadline = ProcessInfo.processInfo.systemUptime + 8
-        repeat {
-            XCTAssertEqual(workspace.tasks.handle(read, device: "daemon-fixture").status, 200)
-            let snapshot = workspace.tasks.snapshot()
-            let reply = snapshot?["replyView"] as? [String: Any]
-            if reply?["state"] as? String == "completed",
-               (snapshot?["responses"] as? [String: String])?[alias] == "fixture response" {
-                return
+        func rpc(_ fields: [String: Any], image: Data? = nil) throws -> Int {
+            var metadata = fields
+            metadata["client"] = "claude"
+            metadata["taskId"] = alias
+            metadata["session"] = service.session
+            metadata["issuedAt"] = Int64(Date().timeIntervalSince1970 * 1000)
+            let clear = try image.map { try MacTab5Binary.pack(metadata, bytes: $0, bulk: true, response: false) }
+                ?? MacTab5Protocol.json(metadata)
+            let nonce = MacTab5Protocol.identifier()
+            let packet = try MacTab5Protocol.encrypt(clear, key: pair.key, challenge: nonce)
+            let proof = MacTab5Protocol.proof(key: pair.key, message: "POST|/tab5/v1/rpc|\(pair.deviceId)|\(nonce)|\(MacTab5Protocol.sha256(packet))")
+            let (status, reply) = service.rpc(device: pair.deviceId, nonce: nonce, proof: proof, packet: packet)
+            XCTAssertEqual(status, 200)
+            let response = try MacTab5Protocol.object(MacTab5Protocol.decrypt(reply, key: pair.key, challenge: nonce))
+            return try XCTUnwrap(response["status"] as? Int)
+        }
+
+        func send(_ text: String, photos: [Data], photoTurn: Int? = nil) throws {
+            let deadline = ProcessInfo.processInfo.systemUptime + 8
+            while (try? client.state()) != "idle", ProcessInfo.processInfo.systemUptime < deadline {
+                Thread.sleep(forTimeInterval: 0.1)
             }
-            Thread.sleep(forTimeInterval: 0.1)
-        } while ProcessInfo.processInfo.systemUptime < deadline
-        XCTFail("No completed native reply on TAB5")
+            XCTAssertEqual(try client.state(), "idle")
+            let before = try MacClaudeHistory.read(root: projects, session: session, key: key, backgroundImages: true)
+            var imageIDs: [String] = []
+            let digests = photos.map(MacTab5Protocol.sha256)
+            for (bytes, digest) in zip(photos, digests) {
+                let id = UUID().uuidString.lowercased()
+                XCTAssertEqual(try rpc(["kind": "image-chunk", "requestId": id, "size": bytes.count,
+                                        "sha256": digest, "offset": 0], image: bytes), 200)
+                imageIDs.append(id)
+            }
+            if let photoTurn {
+                try JSONEncoder().encode(digests).write(to: fixture.appendingPathComponent("expect-\(photoTurn).json"))
+            }
+            let request: [String: Any] = ["kind": "codex", "op": "send", "message": text, "expectedTurn": "",
+                                         "requestId": UUID().uuidString.lowercased(), "images": imageIDs]
+            XCTAssertEqual(try rpc(request), 202)
+            XCTAssertEqual(try rpc(request), 202)
+            let after = try MacClaudeHistory.read(root: projects, session: session, key: key, backgroundImages: true)
+            let added = after.accepted.subtracting(before.accepted)
+            XCTAssertEqual(added.count, 1)
+            XCTAssertEqual(added.first.flatMap { after.inputDigests[$0] }, MacClaudeNativeContent.digest(text, images: digests))
+            if let photoTurn {
+                // The mock holds the response until the bridge confirms the
+                // image, so an assistant message cannot substitute for proof.
+                try Data().write(to: fixture.appendingPathComponent("release-\(photoTurn)"))
+            }
+            let expected = photoTurn.map { "fixture photo response \($0)" } ?? "fixture response"
+            let replyDeadline = ProcessInfo.processInfo.systemUptime + 8
+            repeat {
+                XCTAssertEqual(workspace.tasks.handle(["op": "read", "taskId": alias], device: pair.deviceId).status, 200)
+                let snapshot = workspace.tasks.snapshot()
+                let reply = snapshot?["replyView"] as? [String: Any]
+                if reply?["state"] as? String == "completed",
+                   (snapshot?["responses"] as? [String: String])?[alias] == expected { return }
+                Thread.sleep(forTimeInterval: 0.1)
+            } while ProcessInfo.processInfo.systemUptime < replyDeadline
+            XCTFail("No completed native reply on TAB5")
+        }
+
+        try send("fixture followup", photos: [])
+        let jpeg = try MacTab5TestData.jpeg()
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: jpeg))
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        try send("fixture caption", photos: [jpeg, png, png], photoTurn: 1)
+        try send("", photos: [jpeg], photoTurn: 2)
     }
+    func testBackgroundPhotoReceiptRequiresTheCompleteAttachmentChain() throws {
+        let directory = try MacClaudeBackgroundPhotos.makeDirectory()
+        defer { MacClaudeBackgroundPhotos.remove(directory, deliveryUnknown: false) }
+        let photo = try MacTab5TestData.jpeg()
+        let files = try (0..<2).map { _ in try MacClaudeBackgroundPhotos.stage(photo, in: directory) }
+        let references = try files.map { try XCTUnwrap(MacClaudeBackgroundPhotos.reference($0.path)) }
+        let session = UUID(), key = Data(0..<32)
+        let transcript = directory.appendingPathComponent(session.uuidString + ".jsonl")
+        let seed = UUID().uuidString, message = UUID().uuidString, first = UUID().uuidString
+        func row(_ type: String, id: String, parent: String?) -> [String: Any] {
+            ["sessionId": session.uuidString, "type": type, "uuid": id, "parentUuid": parent as Any? ?? NSNull()]
+        }
+        func attachment(_ file: URL, id: String, parent: String, bytes: Data) -> [String: Any] {
+            var value = row("attachment", id: id, parent: parent)
+            value["attachment"] = ["type": "file", "filename": file.path,
+                                   "content": ["type": "image", "file": ["type": "image/jpeg", "base64": bytes.base64EncodedString()]]]
+            return value
+        }
+        func history(_ rows: [[String: Any]]) throws -> MacClaudeHistory.Value {
+            let bytes = try rows.reduce(into: Data()) { $0.append(try MacTab5Protocol.json($1)); $0.append(10) }
+            try bytes.write(to: transcript)
+            return try MacClaudeHistory.read(root: directory, session: session, key: key, backgroundImages: true)
+        }
+        var initial = row("user", id: seed, parent: nil)
+        initial["message"] = ["role": "user", "content": "previous turn"]
+        let baseline = MacClaudeNativeReceipt.capture(try history([initial]), session: session, scope: "fixture",
+            text: "caption", images: files.map { _ in MacTab5Protocol.sha256(photo) })
+        var prompt = row("user", id: message, parent: seed)
+        prompt["message"] = ["role": "user", "content": references.joined(separator: " ") + " caption"]
+        let pending = [initial, prompt, attachment(files[0], id: first, parent: message, bytes: photo)]
+        XCTAssertNil(baseline.confirm(try history(pending), scope: "fixture"))
+        for (parent, bytes) in [(message, photo), (first, Data(repeating: 3, count: 64))] {
+            let observed = try history(pending + [attachment(files[1], id: UUID().uuidString, parent: parent, bytes: bytes)])
+            XCTAssertNil(baseline.confirm(observed, scope: "fixture"))
+        }
+        let complete = try history(pending + [attachment(files[1], id: UUID().uuidString, parent: first, bytes: photo)])
+        XCTAssertEqual(baseline.confirm(complete, scope: "fixture"), message.lowercased())
+    }
+
     private struct DirectFixture: MacClaudeDirectSession {
         let session = UUID()
         let source = MacClaudeSessionSource.background

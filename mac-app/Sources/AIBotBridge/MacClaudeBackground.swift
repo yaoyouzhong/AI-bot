@@ -172,13 +172,14 @@ final class MacClaudeBackground: MacClaudeDirectSession {
     }
 
     func allows(_ operation: String, images: Bool) -> Bool {
-        guard !images, (try? ready(operation)) == true else { return false }
+        guard (try? ready(operation)) == true else { return false }
         return Self.safe(authURL, kind: S_IFREG, denied: 0o077) && !Self.sockets().isEmpty
     }
 
     func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool {
         let literal = request.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard request.paths.isEmpty, request.imageDigests.isEmpty, !literal.isEmpty,
+        guard request.paths.count == request.imageDigests.count, request.paths.count <= MacTab5Photos.maxCount,
+              !literal.isEmpty || !request.paths.isEmpty,
               !literal.hasPrefix("/"), !literal.hasPrefix("!"), !request.text.contains("\0"),
               request.text.utf8.count <= 2000 else {
             throw MacCodexDesktopError.rejected("native_input_unsupported")
@@ -186,6 +187,15 @@ final class MacClaudeBackground: MacClaudeDirectSession {
         guard request.authorized(), try request.current(), try ready(request.operation) else {
             throw MacCodexDesktopError.rejected("native_session_changed")
         }
+        let references = request.paths.compactMap { MacClaudeBackgroundPhotos.reference($0.path) }
+        guard references.count == request.paths.count else { throw MacTab5Error.invalidPacket }
+        func imagesUnchanged() -> Bool {
+            zip(request.paths, request.imageDigests).allSatisfy { path, digest in
+                (try? Self.read(path, limit: MacTab5Photos.maxBytes, privateFile: true))
+                    .map(MacTab5Protocol.sha256) == digest
+            }
+        }
+        guard imagesUnchanged() else { throw MacCodexDesktopError.rejected("native_image_changed") }
         let deadline = ProcessInfo.processInfo.systemUptime + 1.5
         var peer: MacClaudeDaemonSocket?
         for path in Self.sockets() {
@@ -202,11 +212,12 @@ final class MacClaudeBackground: MacClaudeDirectSession {
               auth.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || $0 == 45 || $0 == 95 }) else {
             throw MacCodexDesktopError.rejected("native_session_api_unavailable")
         }
-        let frame = try MacTab5Protocol.json(["op": "reply", "proto": 1, "short": job, "text": request.text,
+        let text = (references + (request.text.isEmpty ? [] : [request.text])).joined(separator: " ")
+        let frame = try MacTab5Protocol.json(["op": "reply", "proto": 1, "short": job, "text": text,
                                               "nextTurn": true, "auth": auth]) + Data([10])
         return {
             guard request.authorized(), (try? request.current()) == true,
-                  (try? self.ready(request.operation)) == true else { return false }
+                  (try? self.ready(request.operation)) == true, imagesUnchanged() else { return false }
             let until = ProcessInfo.processInfo.systemUptime + 2
             try connection.send(frame, until: until)
             let reply = try connection.reply(until: until)

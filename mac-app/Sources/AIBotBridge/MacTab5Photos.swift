@@ -2,13 +2,14 @@ import Foundation
 import ImageIO
 
 final class MacTab5Photos {
+    static let maxCount = 3, maxBytes = 2 * 1024 * 1024
     private struct Upload { let binding: String, sha: String; let size: Int; var bytes: Data; var touched: TimeInterval }
     private let lock = NSLock()
     private let store: MacTab5PrivateStore
     private var uploads: [String: Upload] = [:]
     init(store: MacTab5PrivateStore) { self.store = store }
     static func imageType(_ bytes: Data) throws -> String {
-        guard (32...2 * 1024 * 1024).contains(bytes.count), let source = CGImageSourceCreateWithData(bytes as CFData, nil), CGImageSourceGetCount(source) == 1,
+        guard (32...Self.maxBytes).contains(bytes.count), let source = CGImageSourceCreateWithData(bytes as CFData, nil), CGImageSourceGetCount(source) == 1,
               let type = CGImageSourceGetType(source) as String?, ["public.jpeg", "public.png"].contains(type),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
               let width = properties[kCGImagePropertyPixelWidth as String] as? Int, let height = properties[kCGImagePropertyPixelHeight as String] as? Int,
@@ -25,7 +26,7 @@ final class MacTab5Photos {
         let size = chunked ? Int(MacTab5Protocol.integer(root["size"]) ?? -1) : bytes.count
         let sha = chunked ? root["sha256"] as? String ?? "" : MacTab5Protocol.sha256(bytes)
         let offset = chunked ? Int(MacTab5Protocol.integer(root["offset"]) ?? -1) : 0
-        guard (32...2 * 1024 * 1024).contains(size), offset >= 0, offset <= size, bytes.count <= size - offset,
+        guard (32...Self.maxBytes).contains(size), offset >= 0, offset <= size, bytes.count <= size - offset,
               !chunked || bytes.count <= MacTab5Binary.bulk, MacTab5Protocol.isHex(sha, count: 64) else { return .error(400, "invalid_range") }
         do {
             if let previous = try saved(id) {
@@ -58,7 +59,7 @@ final class MacTab5Photos {
     }
     func inputs(_ ids: [String], device: String, task: String) throws -> [[String: Any]] {
         lock.lock(); defer { lock.unlock() }
-        guard ids.count <= 3, Set(ids).count == ids.count else { throw MacTab5Error.invalidPacket }
+        guard ids.count <= Self.maxCount, Set(ids).count == ids.count else { throw MacTab5Error.invalidPacket }
         return try ids.map { id in
             guard let normalized = MacTab5Codex.id(id), let root = try saved(normalized), root["binding"] as? String == device + "|" + task,
                   let created = root["createdAt"] as? Double, Date().timeIntervalSince1970 - created < 7 * 86400,

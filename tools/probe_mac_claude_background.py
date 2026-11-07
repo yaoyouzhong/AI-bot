@@ -5,6 +5,8 @@ The probe uses a fresh CLAUDE_CONFIG_DIR, no real credentials, and a network
 sandbox. Only the supervisor in the temporary config directory is stopped.
 """
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -28,6 +30,23 @@ class Model(BaseHTTPRequestHandler):
             return
         self.server.calls += 1
         reply = self.server.reply
+        messages = request.get("messages", [])
+        content = messages[-1].get("content", []) if messages else []
+        images = [item["source"] for item in content if isinstance(item, dict) and item.get("type") == "image"]
+        if images:
+            index = len(self.server.photo_calls) + 1
+            received = [hashlib.sha256(base64.b64decode(image["data"], validate=True)).hexdigest() for image in images]
+            expected = self.server.fixture / f"expect-{index}.json"
+            self.server.photo_calls.append((expected.is_file() and json.loads(expected.read_bytes()) == received,
+                                            [image.get("media_type") for image in images]))
+            release = self.server.fixture / f"release-{index}"
+            deadline = time.monotonic() + 8
+            while not release.is_file() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if not release.is_file():
+                self.send_error(503)
+                return
+            reply = f"fixture photo response {index}"
         message = {
             "id": "msg_" + uuid.uuid4().hex, "type": "message", "role": "assistant",
             "model": "claude-sonnet-4-6", "content": [{"type": "text", "text": reply}],
@@ -55,6 +74,7 @@ class Model(BaseHTTPRequestHandler):
 
 
 def run_fixture(cli, api, root):
+    api.fixture, api.photo_calls = root, []
     config, cwd, scratch = (root / name for name in ("cfg", "project", "tmp"))
     for directory in (config, cwd, scratch):
         directory.mkdir(mode=0o700)
@@ -105,6 +125,9 @@ def run_fixture(cli, api, root):
         test_env = dict(os.environ, AIBOT_CLAUDE_BG_FIXTURE=str(config), AIBOT_CLAUDE_BG_SESSION=session)
         subprocess.run(["swift", "test", "--skip-build", "--package-path", str(package), "--filter",
                         "MacClaudeNativeTests.testBackgroundDaemonFixture"], env=test_env, check=True, timeout=90)
+        expected_calls = [(True, ["image/jpeg", "image/png", "image/png"]), (True, ["image/jpeg"])]
+        if api.photo_calls != expected_calls:
+            raise RuntimeError("The loopback model did not receive the exact images in order")
     finally:
         lock = config / "daemon.lock"
         if lock.is_file() and json.loads(lock.read_bytes()).get("jsonPath") == str(config / "daemon.json"):
@@ -122,7 +145,7 @@ def main():
         try:
             with tempfile.TemporaryDirectory(prefix="aibg-", dir="/private/tmp") as folder:
                 run_fixture(cli, api, Path(folder))
-            print("MAC_CLAUDE_BACKGROUND_OK same UUID, one native receipt, completed TAB5 reply")
+            print("MAC_CLAUDE_BACKGROUND_OK same UUID, exact PNG/JPEG inputs, idempotent receipts, completed TAB5 replies")
         finally:
             api.shutdown()
 

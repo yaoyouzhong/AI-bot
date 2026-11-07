@@ -4,8 +4,12 @@ import Foundation
 // is neither retained in nodes nor included in returned dictionaries.
 enum MacClaudeHistory {
     struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String>; var inputDigests: [String:String] = [:] }
-    private struct Node { let id: String, parent: String?, human: Bool, text: String, at: Int64, assistant: Bool, ended: Bool, inputDigest: String?, prompt: UUID?, stopNotice: Bool }
-    static func read(root: URL, session: UUID, key: Data,verifiedNewPanel: () -> Bool = {false}) throws -> Value {
+    private struct Node {
+        let id: String, parent: String?, human: Bool, text: String, at: Int64, assistant: Bool, ended: Bool
+        let inputDigest: String?, prompt: UUID?, stopNotice: Bool
+        let photoPrompt: String?, photo: MacClaudeBackgroundPhotos.Attachment?
+    }
+    static func read(root: URL, session: UUID, key: Data, backgroundImages: Bool = false, verifiedNewPanel: () -> Bool = {false}) throws -> Value {
         var scanFailed=false
         guard let files = FileManager.default.enumerator(at:root,includingPropertiesForKeys:[.isRegularFileKey,.isSymbolicLinkKey],errorHandler:{_,_ in scanFailed=true;return false}) else { throw MacTab5Error.unavailable }
         var target: URL?
@@ -26,6 +30,9 @@ enum MacClaudeHistory {
         let dates = ISO8601DateFormatter(); dates.formatOptions = [.withInternetDateTime,.withFractionalSeconds]
         let plain = ISO8601DateFormatter()
         var nodes: [String:Node] = [:], leaf: String?, line = Data(), oversized = false, ordinal = 0
+        // A contiguous attachment tail can already prove image input before
+        // the model replies. It never replaces the selected conversation leaf.
+        var attachmentTail: [String]? = []
         func consume(_ data: Data) throws {
             guard let row = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
                   let raw = row["sessionId"] as? String, UUID(uuidString:raw) == session,
@@ -62,7 +69,17 @@ enum MacClaudeHistory {
             }
             let stamp = row["timestamp"] as? String ?? "", date = dates.date(from:stamp) ?? plain.date(from:stamp)
             let prompt=(row["promptId"] as? String).flatMap(UUID.init(uuidString:))
-            nodes[id] = Node(id:id,parent:parent,human:human,text:text,at:date.map { Int64($0.timeIntervalSince1970) } ?? 0,assistant:assistant,ended:ended,inputDigest:human ? MacClaudeNativeContent.message(message["content"]):nil,prompt:prompt,stopNotice:stopNotice)
+            let photoPrompt = backgroundImages && human ? MacClaudeBackgroundPhotos.prompt(message["content"]) : nil
+            let photo = backgroundImages && type == "attachment" ? MacClaudeBackgroundPhotos.attachment(row) : nil
+            nodes[id] = Node(id:id,parent:parent,human:human,text:text,at:date.map { Int64($0.timeIntervalSince1970) } ?? 0,
+                             assistant:assistant,ended:ended,inputDigest:human ? MacClaudeNativeContent.message(message["content"]):nil,
+                             prompt:prompt,stopNotice:stopNotice,photoPrompt:photoPrompt,photo:photo)
+            if backgroundImages {
+                if !link { attachmentTail = [] }
+                else if let previous = attachmentTail?.last ?? leaf, previous == parent {
+                    attachmentTail?.append(id)
+                } else { attachmentTail = nil }
+            }
             if !link { leaf = id }
         }
         while let bytes = try file.read(upToCount:65536), !bytes.isEmpty {
@@ -84,8 +101,18 @@ enum MacClaudeHistory {
         guard !branch.isEmpty else { throw MacTab5Error.unavailable }
         var turns: [[String:Any]] = [], items: [[String:Any]] = [], start: Node?, complete = false, interrupted = false, endedAt: Int64 = 0
         var accepted=Set<String>(),digests=[String:String]()
+        var photos: [MacClaudeBackgroundPhotos.Attachment] = [], sawAssistant = false
+        func collectPhoto(_ node: Node) {
+            guard !sawAssistant, start?.photoPrompt != nil, photos.count <= MacTab5Photos.maxCount,
+                  let photo = node.photo else { return }
+            photos.append(photo)
+        }
         func finish() {
             guard let first = start else { return }
+            if let prompt = first.photoPrompt, let digest = MacClaudeBackgroundPhotos.digest(prompt: prompt, attachments: photos) {
+                digests[first.id] = digest
+            }
+            photos.removeAll(keepingCapacity: true); sawAssistant = false
             turns.append(["id":MacClaudeCatalog.alias("claude:turn:"+session.uuidString.lowercased()+":"+first.id,key:key),
                           "startedAt":first.at,"status":interrupted ? "interrupted":complete ? "completed":"unknown","endedAt":endedAt,"items":items]); items = []
         }
@@ -96,7 +123,8 @@ enum MacClaudeHistory {
             }
             if node.human { finish(); start = node; complete = false; interrupted=false; endedAt = 0; accepted.insert(node.id);digests[node.id]=node.inputDigest }
             if start == nil { start = node }
-            if node.assistant { complete = node.ended; endedAt = complete ? node.at:0 }
+            collectPhoto(node)
+            if node.assistant { sawAssistant = true; complete = node.ended; endedAt = complete ? node.at:0 }
             if !node.text.isEmpty {
                 guard node.text.utf8.count <= 1024*1024 else { throw MacTab5Error.invalidPacket }
                 items.append(["id":MacClaudeCatalog.alias("claude:item:"+node.id,key:key),"type":"agentMessage","phase":"final_answer","text":node.text]); retainedBytes += node.text.utf8.count
@@ -104,6 +132,9 @@ enum MacClaudeHistory {
             if turns.count > 128 || retainedBytes > 4*1024*1024 {
                 if !turns.isEmpty { let removed = turns.removeFirst(); retainedBytes -= (removed["items"] as? [[String:Any]] ?? []).reduce(0) { $0+(($1["text"] as? String)?.utf8.count ?? 0) }; limited = true }
             }
+        }
+        for id in attachmentTail ?? [] {
+            if let node = nodes[id] { collectPhoto(node) }
         }
         finish(); return Value(turns:turns,limited:limited,accepted:accepted,inputDigests:digests)
     }
