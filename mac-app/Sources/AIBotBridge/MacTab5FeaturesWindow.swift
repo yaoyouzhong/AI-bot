@@ -16,8 +16,6 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let musicState = NSTextField(wrappingLabelWithString: "")
     private let desktopState = NSTextField(wrappingLabelWithString: "")
     private let accessibilityState = NSTextField(wrappingLabelWithString: "")
-    private let terminalAuthorizationState = NSTextField(wrappingLabelWithString: "后台读取不会弹出授权请求。")
-    private var terminalAuthorizationButtons: [NSButton] = []
     private let accessibilityTrusted: () -> Bool
     private var timer: Timer?
     private var deliveryRecoveryBusy = false
@@ -72,22 +70,16 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
             NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
             NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
         codexPage.section("Claude 会话")
-        terminalAuthorizationButtons = [
-            NSButton(title: "授权 Terminal…", target: self, action: #selector(authorizeTerminal)),
-            NSButton(title: "授权 iTerm2…", target: self, action: #selector(authorizeITerm))
-        ]
-        codexPage.add(MacBridgeSettingsStyle.row(terminalAuthorizationButtons))
-        codexPage.add(MacBridgeSettingsStyle.note("Claude 沿用原会话的模型与权限设置。发送前请将原会话留在前台，并授予辅助功能权限；终端还需要自动化权限。电脑草稿会保留，工具授权在原客户端确认。退出桥接不会关闭 Claude。"))
-        codexPage.add(terminalAuthorizationState)
+        codexPage.add(MacBridgeSettingsStyle.note("在 TAB5 可查看 Claude 原会话和回复。发送时需要核对电脑上的原会话与输入框；macOS 不允许控制时仍可查看。工具审批在原客户端完成。"))
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)
         codexPage.add(MacBridgeSettingsStyle.note("直达需要辅助功能权限（部分 macOS 显示为“设备控制与数据访问”），以核对 Codex 会话和输入框。无法确认时不会操作，草稿保留。"))
         codexPage.add(accessibilityState)
-        codexPage.add(MacBridgeSettingsStyle.row([NSButton(title: "打开系统授权设置…", target: self, action: #selector(openAccessibilitySettings))]))
+        codexPage.add(MacBridgeSettingsStyle.row([NSButton(title: "打开系统辅助功能设置…", target: self, action: #selector(openAccessibilitySettings))]))
         codexPage.section("连接与诊断"); codexPage.add(codexState); codexPage.add(desktopState)
 
-        for label in [codexState, desktopState, musicState, accessibilityState, terminalAuthorizationState] { label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor }
+        for label in [codexState, desktopState, musicState, accessibilityState] { label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor }
         reload()
         resizeDocument()
         refreshCodexState()
@@ -102,7 +94,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         let text = "Codex：" + service.codex.summary + (requests.isEmpty ? "" : "\n最近会话请求（仅本机诊断，不含传输耗时）：\n" + requests)
         let playback = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? service.musicDiagnostics : "音乐：尚未启用"
         let direct = "直达：" + service.desktop.summary
-        let access = accessibilityTrusted() ? "辅助功能：已授权" : "辅助功能：未生效。请允许 AI-bot Bridge；未列出时用 + 添加“应用程序”中的 AIBotBridge.app；已勾选但未生效时移除旧条目并重新添加。授权后重新定位。"
+        let access = accessibilityTrusted() ? "系统辅助功能：可用" : "系统辅助功能：未启用。仍可查看任务和回复。"
         guard codexState.stringValue != text || musicState.stringValue != playback || desktopState.stringValue != direct || accessibilityState.stringValue != access else { return }
         codexState.stringValue = text; musicState.stringValue = playback; desktopState.stringValue = direct; accessibilityState.stringValue = access; resizeDocument()
     }
@@ -129,31 +121,9 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         let enabled = desktop.state == .on
         UserDefaults.standard.set(enabled, forKey: MacTab5Desktop.enabledKey)
         if enabled && !accessibilityTrusted() {
-            result.stringValue = "请按系统提示允许 AI-bot Bridge 控制电脑；授权后在 TAB5 重新定位。"
-            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-            _ = AXIsProcessTrustedWithOptions(options)
+            result.stringValue = "桌面直达已开启；macOS 目前不允许控制输入框。"
         }
         refreshCodexState()
-    }
-    @objc private func authorizeTerminal() { authorize(.terminal) }
-    @objc private func authorizeITerm() { authorize(.iterm) }
-    private func authorize(_ host: MacClaudeTerminalHost) {
-        terminalAuthorizationButtons.forEach { $0.isEnabled = false }
-        terminalAuthorizationState.stringValue = "正在检查 \(host.name) 自动化权限…"
-        resizeDocument()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = host.requestAuthorization()
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.terminalAuthorizationButtons.forEach { $0.isEnabled = true }
-                switch result {
-                case .granted: self.terminalAuthorizationState.stringValue = "\(host.name) 已允许访问。发送前请回到原会话。"
-                case .notRunning: self.terminalAuthorizationState.stringValue = "请先打开 \(host.name)，然后重试。"
-                case .denied: self.terminalAuthorizationState.stringValue = "尚未允许访问 \(host.name)。请检查「系统设置 → 隐私与安全性 → 自动化」。"
-                }
-                self.resizeDocument()
-            }
-        }
     }
     @objc private func recoverDelivery() {
         guard !deliveryRecoveryBusy else { return }
@@ -199,7 +169,9 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     }
     @objc private func openSettings() { _ = NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app")) }
     @objc private func openAccessibilitySettings() {
-        MacDirectAuthorizationAlert.openSettings()
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            _ = NSWorkspace.shared.open(url)
+        }
     }
     private func reload() {
         do { launchers.removeAllItems(); launchers.addItems(withTitles: try service.computer.launchers.load().map(\.name)) }

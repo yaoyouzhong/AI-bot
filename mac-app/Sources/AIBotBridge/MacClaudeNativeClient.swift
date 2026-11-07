@@ -4,25 +4,6 @@ import ApplicationServices
 import Foundation
 import SQLite3
 
-enum MacClaudeTerminalHost: String {
-    case terminal = "com.apple.Terminal"
-    case iterm = "com.googlecode.iterm2"
-
-    var name: String { self == .terminal ? "Terminal" : "iTerm2" }
-    enum Authorization { case granted, notRunning, denied }
-
-    static func permission(_ host: NSRunningApplication, ask: Bool) -> OSStatus {
-        let target = NSAppleEventDescriptor(processIdentifier: host.processIdentifier)
-        return AEDeterminePermissionToAutomateTarget(target.aeDesc, typeWildCard, typeWildCard, ask)
-    }
-    // Called only by the corresponding button in the feature settings.
-    func requestAuthorization() -> Authorization {
-        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: rawValue).filter { !$0.isTerminated }
-        guard apps.count == 1, let host = apps.first else { return .notRunning }
-        return Self.permission(host, ask: true) == noErr ? .granted : .denied
-    }
-}
-
 // Reads native identity first; Accessibility and input are only used by an
 // explicitly authorized operation. It never launches or resumes Claude.
 final class MacClaudeNativeClient: MacClaudeNativeSession {
@@ -131,7 +112,8 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
         guard groups.count == 2, groups[0] > 0, groups[0] == groups[1], tty.hasPrefix("ttys"),
               let bundle = host.bundleIdentifier else { throw MacTab5Error.unconfirmed }
         // Polling must never request Automation permission.
-        guard MacClaudeTerminalHost.permission(host, ask: false) == noErr,
+        let target = NSAppleEventDescriptor(processIdentifier: host.processIdentifier)
+        guard AEDeterminePermissionToAutomateTarget(target.aeDesc, typeWildCard, typeWildCard, false) == noErr,
               !host.isTerminated else { throw MacTab5Error.unconfirmed }
         let script = bundle == "com.apple.Terminal"
             ? "tell application id \"com.apple.Terminal\" to get tty of selected tab of front window"

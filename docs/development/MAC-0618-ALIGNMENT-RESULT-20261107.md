@@ -42,3 +42,5 @@ The local Mac branch follows Windows source 23c5924. Native tests and offscreen 
 - 用户实机确认活动会话显示「原生终端」，另一条显示「来源未知」。本机脱敏目录探针一致：1 条已核验活跃 Terminal 和 1 条没有已核验来源的历史会话。来源不从名称猜测。
 - Mac 原列表会给两个默认同名会话补日期前缀，Windows 不加。已对齐为只显示 Claude 原名，沿用活动排序、独立来源标签和会话标识；Codex 列表及回复历史的时间行为保持。
 - 发送预检发现 Terminal Apple Events 未授权；已在功能设置内增加由用户主动点选的 Terminal/iTerm2 自动化授权入口，后台不弹授权。终端标签查询继续检查实际 TTY 和前台宿主；按 [Apple 的线程限制](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/ThreadSafetySummary/ThreadSafetySummary.html) 在主线程执行 AppleScript，后台调用有等待上限。TAB5 → Terminal 的真实送达及新开发包验收单独记录，不能引用第一份 ZIP 冒充。
+
+用户随后明确不进行系统授权，并要求右键菜单移除「完成 Codex 直达授权…」。最终变更撤回前述 Terminal/iTerm2 授权按钮，移除 Codex 的右键入口及桥接主动弹出的桌面授权引导。普通功能默认开启，本机音乐采集/控制、Codex 读/发/直达、电脑控制和蓝牙七项读回均为开启，未写用户偏好。无权限时保持只读；未从 TAB5 发送第二条请求，未修改 macOS 权限。正常模式互切与 Terminal → TAB5 仍保留各自已验收范围，反向送达、VS Code 及发布原包尚未验收。
