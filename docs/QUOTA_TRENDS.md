@@ -21,6 +21,10 @@ Windows 正常启动时会检查 Codex MSIX 私有缓存中的既有 `.apet` 导
 
 开发自测采用合成记录和多尺寸窗口截图，不能替代驻留桥接界面验收。桌宠只读诊断 `GET http://127.0.0.1:8765/diagnostics/pets` 返回当前进程的缓存目录、角色加载状态、最近绘制结果和错误类型，不返回动画内容或凭据；它不是另外启动的 CLI 进程的状态。
 
+## Mac 柱图标注
+
+「每日已记录用量（周额度）」在每根柱顶标出相当于完整周额度的用量比例，最多显示两位小数。实测零用量显示 `0%`，未采集显示 `—`。同日跨多个重置窗口的累计值可以超过 `100%`。图表保持现有 200 pt 高度、普通和部分采样的颜色、日期行以及查看明细的操作。标注使用 11 pt 等宽数字和系统前景色，与柱顶留 4 pt。30 天视图在列宽不足时竖排标注，保留全部日期与数值。
+
 ## English
 
 Device Center → Account Data → Quota History, or the mirror's quota-trend button, opens a separate resizable Windows history window.
@@ -75,3 +79,8 @@ The full-width mirror footer and the Model quotas tray menu both open the same
 trend window. Normal Windows startup recovers missing validated APET imports from
 the Codex MSIX cache without overwriting selections or deleting originals; public
 self-tests never access that private source.
+
+The Mac daily bar chart labels each bar with the observed amount as a percentage
+of one full weekly allowance, to two decimal places. The labels show `0%` for
+observed zero and `—` for missing observations. Totals across resets can exceed `100%`.
+Labels rotate when the 30-day chart is too narrow for horizontal text.
