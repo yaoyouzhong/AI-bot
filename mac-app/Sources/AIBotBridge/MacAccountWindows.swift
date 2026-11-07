@@ -106,6 +106,12 @@ private final class MacQuotaChart: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        let resized = frame.size != newSize
+        super.setFrameSize(newSize)
+        if resized { needsDisplay = true }
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         NSColor.controlBackgroundColor.setFill(); bounds.fill()
         let maxValue = points ? 100 : max(1, days.compactMap(\.used).max() ?? 1)
