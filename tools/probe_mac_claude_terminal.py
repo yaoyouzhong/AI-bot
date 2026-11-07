@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import pty
 import shutil
-import signal
 import struct
 import subprocess
 import sys
@@ -76,11 +75,21 @@ def probe(root, api, terminal_program):
     api.reply = "fixture direct answer"
     app = str((Path.cwd() / "mac-app/.build/debug/AIBotBridge").resolve())
     cmd = ["/usr/bin/sandbox-exec", "-p", profile, app, "--claude-terminal", "--resume", session]
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.chdir(cwd)
-        fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", 35, 120, 0, 0))
-        os.execve(cmd[0], cmd, env)
+    fd, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 35, 120, 0, 0))
+    # The mock server is already threaded. Set up the controlling terminal
+    # after exec so the launcher never inherits Python locks from forkpty.
+    launch = ("import fcntl, os, sys, termios; "
+              "fcntl.ioctl(0, termios.TIOCSCTTY, 0); "
+              "os.tcsetpgrp(0, os.getpgrp()); os.execv(sys.argv[1], sys.argv[1:])")
+    try:
+        relay = subprocess.Popen([sys.executable, "-c", launch, *cmd], cwd=cwd, env=env,
+                                 stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
+    except OSError:
+        os.close(fd)
+        raise
+    finally:
+        os.close(slave)
 
     def drain():
         try:
@@ -122,15 +131,19 @@ def probe(root, api, terminal_program):
         print("MAC_CLAUDE_TERMINAL_OK", terminal_program,
               "interactive session, text/photos, queued append, exact interrupt")
     finally:
-        os.close(fd)
         try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        try:
-            os.waitpid(pid, 0)
-        except ChildProcessError:
-            pass
+            os.write(fd, bytes([21, 4]))
+            relay.wait(timeout=2)
+        except (OSError, subprocess.TimeoutExpired):
+            if relay.poll() is None:
+                relay.terminate()
+                try:
+                    relay.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    relay.kill()
+                    relay.wait(timeout=3)
+        finally:
+            os.close(fd)
 
 
 if __name__ == "__main__":

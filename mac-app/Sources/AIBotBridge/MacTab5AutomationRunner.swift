@@ -92,6 +92,11 @@ enum MacTab5AutomationRunner {
                     try acceptance.setClients(clients)
                     try emit(["status":"fixture-clients-set"]); continue
                 }
+                if op == "fixture-terminal-draft", let acceptance,
+                   let device = service.currentPairing?.deviceId, let text = value["text"] as? String {
+                    try acceptance.stageTerminalDraft(text,photo:value["photo"] as? Bool == true,device:device)
+                    try emit(["status":"fixture-terminal-draft-saved"]); continue
+                }
                 if op == "capture" {
                     guard let file = value["file"] as? String, file.hasSuffix(".png"), file.utf8.count <= 80,
                           file.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0) }),
