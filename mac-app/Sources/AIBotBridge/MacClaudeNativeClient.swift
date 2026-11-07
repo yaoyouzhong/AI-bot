@@ -4,6 +4,25 @@ import ApplicationServices
 import Foundation
 import SQLite3
 
+enum MacClaudeTerminalHost: String {
+    case terminal = "com.apple.Terminal"
+    case iterm = "com.googlecode.iterm2"
+
+    var name: String { self == .terminal ? "Terminal" : "iTerm2" }
+    enum Authorization { case granted, notRunning, denied }
+
+    static func permission(_ host: NSRunningApplication, ask: Bool) -> OSStatus {
+        let target = NSAppleEventDescriptor(processIdentifier: host.processIdentifier)
+        return AEDeterminePermissionToAutomateTarget(target.aeDesc, typeWildCard, typeWildCard, ask)
+    }
+    // Called only by the corresponding button in the feature settings.
+    func requestAuthorization() -> Authorization {
+        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: rawValue).filter { !$0.isTerminated }
+        guard apps.count == 1, let host = apps.first else { return .notRunning }
+        return Self.permission(host, ask: true) == noErr ? .granted : .denied
+    }
+}
+
 // Reads native identity first; Accessibility and input are only used by an
 // explicitly authorized operation. It never launches or resumes Claude.
 final class MacClaudeNativeClient: MacClaudeNativeSession {
@@ -112,16 +131,34 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
         guard groups.count == 2, groups[0] > 0, groups[0] == groups[1], tty.hasPrefix("ttys"),
               let bundle = host.bundleIdentifier else { throw MacTab5Error.unconfirmed }
         // Polling must never request Automation permission.
-        let target = NSAppleEventDescriptor(processIdentifier: host.processIdentifier)
-        guard AEDeterminePermissionToAutomateTarget(target.aeDesc, typeWildCard, typeWildCard, false) == noErr,
+        guard MacClaudeTerminalHost.permission(host, ask: false) == noErr,
               !host.isTerminated else { throw MacTab5Error.unconfirmed }
         let script = bundle == "com.apple.Terminal"
             ? "tell application id \"com.apple.Terminal\" to get tty of selected tab of front window"
             : "tell application id \"com.googlecode.iterm2\" to get tty of current session of current window"
-        var error: NSDictionary?
-        let value = NSAppleScript(source: "with timeout of 1 second\n" + script + "\nend timeout")?
-            .executeAndReturnError(&error).stringValue
-        guard error == nil, value == "/dev/" + tty, !host.isTerminated else {
+        // NSAppleScript is main-thread-only. Bound the worker's wait so a
+        // shutdown or a temporarily busy UI cannot block the USB worker.
+        func query() -> String? {
+            guard !host.isTerminated, isFrontmost else { return nil }
+            var error: NSDictionary?
+            let value = NSAppleScript(source: "with timeout of 1 second\n" + script + "\nend timeout")?
+                .executeAndReturnError(&error).stringValue
+            return error == nil ? value : nil
+        }
+        let value: String?
+        if Thread.isMainThread { value = query() }
+        else {
+            let completed = DispatchSemaphore(value: 0)
+            var reply: String?
+            let work = DispatchWorkItem { reply = query(); completed.signal() }
+            DispatchQueue.main.async(execute: work)
+            guard completed.wait(timeout: .now() + 1.25) == .success else {
+                work.cancel()
+                throw MacTab5Error.timeout
+            }
+            value = reply
+        }
+        guard value == "/dev/" + tty, !host.isTerminated else {
             throw MacCodexDesktopError.rejected("native_terminal_tab_unconfirmed")
         }
     }

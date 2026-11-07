@@ -33,3 +33,12 @@
 用专用原生测试会话先验证一条无工具文字往返（原会话收到、TAB5 读同轮回复）；Terminal 与 VS Code 分开记录，再按支持范围补选图、追加和停止。实际请求须有当次授权。此次模型请求为 **0**，未改用户权限、设备设置、配对及现有草稿。Mac 真实链路通过后由唯一发布负责人冻结两端共同源码；用该 SHA 生成最终 Mac 原包，再完成安装验收。
 
 The local Mac branch follows Windows source 23c5924. Native tests and offscreen AppKit/LVGL checks verify the new contracts. Read-only inspection found one original Terminal session; input permission and real Mac/TAB5 message delivery remain unverified. The development package is distinct from the final dual-platform release candidate.
+
+## 11 月 7 日 Terminal 和 TAB5 补验
+
+- 第一份开发 ZIP 来自 `ba7ef1bb66138f0c12e772bb8b1f94b8121a3deb`，19,065,606 字节，SHA-256 `401b71ca93bca7d302f9a84bbce1d3c4c4bea72bf947bd2d8ea7864b2e24978d`，本机开发签名，未公证。包内版本、源码标识、严格签名、文件摘要和钥匙串 helper 身份均通过。
+- 用户按本轮授权在专用 Terminal 会话手动发了 **1** 条短文本；同会话记录匹配 **1** 条精确回复，没有观察到工具调用。用户在配对 TAB5 经 USB 看到这条回复，故 Terminal → TAB5 阅读通过。诊断停止返回 `settingsPreserved=true`。未从 TAB5 提交消息。
+- 首次 USB 诊断只启动 Claude 目录，导致从总览返回对话只剩 Claude；切到同一 ZIP 的正常后台入口后用户确认 Codex 和 Claude 两个页签都恢复且能互切。诊断入口也已补上真实 Codex 目录的启动，合成夹具沿用自己的受控目录。
+- 用户实机确认活动会话显示「原生终端」，另一条显示「来源未知」。本机脱敏目录探针一致：1 条已核验活跃 Terminal 和 1 条没有已核验来源的历史会话。来源不从名称猜测。
+- Mac 原列表会给两个默认同名会话补日期前缀，Windows 不加。已对齐为只显示 Claude 原名，沿用活动排序、独立来源标签和会话标识；Codex 列表及回复历史的时间行为保持。
+- 发送预检发现 Terminal Apple Events 未授权；已在功能设置内增加由用户主动点选的 Terminal/iTerm2 自动化授权入口，后台不弹授权。终端标签查询继续检查实际 TTY 和前台宿主；按 [Apple 的线程限制](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/ThreadSafetySummary/ThreadSafetySummary.html) 在主线程执行 AppleScript，后台调用有等待上限。TAB5 → Terminal 的真实送达及新开发包验收单独记录，不能引用第一份 ZIP 冒充。

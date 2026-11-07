@@ -16,6 +16,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let musicState = NSTextField(wrappingLabelWithString: "")
     private let desktopState = NSTextField(wrappingLabelWithString: "")
     private let accessibilityState = NSTextField(wrappingLabelWithString: "")
+    private let terminalAuthorizationState = NSTextField(wrappingLabelWithString: "后台读取不会弹出授权请求。")
+    private var terminalAuthorizationButtons: [NSButton] = []
     private let accessibilityTrusted: () -> Bool
     private var timer: Timer?
     private var deliveryRecoveryBusy = false
@@ -70,7 +72,13 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
             NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
             NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
         codexPage.section("Claude 会话")
+        terminalAuthorizationButtons = [
+            NSButton(title: "授权 Terminal…", target: self, action: #selector(authorizeTerminal)),
+            NSButton(title: "授权 iTerm2…", target: self, action: #selector(authorizeITerm))
+        ]
+        codexPage.add(MacBridgeSettingsStyle.row(terminalAuthorizationButtons))
         codexPage.add(MacBridgeSettingsStyle.note("Claude 沿用原会话的模型与权限设置。发送前请将原会话留在前台，并授予辅助功能权限；终端还需要自动化权限。电脑草稿会保留，工具授权在原客户端确认。退出桥接不会关闭 Claude。"))
+        codexPage.add(terminalAuthorizationState)
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)
@@ -79,7 +87,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         codexPage.add(MacBridgeSettingsStyle.row([NSButton(title: "打开系统授权设置…", target: self, action: #selector(openAccessibilitySettings))]))
         codexPage.section("连接与诊断"); codexPage.add(codexState); codexPage.add(desktopState)
 
-        for label in [codexState, desktopState, musicState, accessibilityState] { label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor }
+        for label in [codexState, desktopState, musicState, accessibilityState, terminalAuthorizationState] { label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor }
         reload()
         resizeDocument()
         refreshCodexState()
@@ -126,6 +134,26 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
             _ = AXIsProcessTrustedWithOptions(options)
         }
         refreshCodexState()
+    }
+    @objc private func authorizeTerminal() { authorize(.terminal) }
+    @objc private func authorizeITerm() { authorize(.iterm) }
+    private func authorize(_ host: MacClaudeTerminalHost) {
+        terminalAuthorizationButtons.forEach { $0.isEnabled = false }
+        terminalAuthorizationState.stringValue = "正在检查 \(host.name) 自动化权限…"
+        resizeDocument()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = host.requestAuthorization()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.terminalAuthorizationButtons.forEach { $0.isEnabled = true }
+                switch result {
+                case .granted: self.terminalAuthorizationState.stringValue = "\(host.name) 已允许访问。发送前请回到原会话。"
+                case .notRunning: self.terminalAuthorizationState.stringValue = "请先打开 \(host.name)，然后重试。"
+                case .denied: self.terminalAuthorizationState.stringValue = "尚未允许访问 \(host.name)。请检查「系统设置 → 隐私与安全性 → 自动化」。"
+                }
+                self.resizeDocument()
+            }
+        }
     }
     @objc private func recoverDelivery() {
         guard !deliveryRecoveryBusy else { return }

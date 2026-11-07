@@ -33,6 +33,7 @@ enum MacTab5AutomationRunner {
         let usb = MacTab5USB(service:service,authenticationEndpoint:{(address,port)})
         let server = HTTPStatusServer(port:port,token:{nil},claudeEvent:{identity.record($0)},espEnabled:{false},loopbackOnly:true,snapshot:{Data()})
         try server.start(); usb.start()
+        if acceptance == nil { service.codex.start() }
         service.claude.start()
         if acceptance != nil { service.voice.beforeStart = nil }
         defer { service.uiAutomation.cancel(); service.screenPreview.stop(); usb.stopAndWait(); server.stop(); service.stop() }

@@ -12,17 +12,42 @@ if Array(CommandLine.arguments.dropFirst()) == ["--inspect-claude-native-clients
     // permissions prompts, subprocess launches of Claude, or device writes.
     let registry = MacClaudeHarnesses.standard
     var counts: [String: Int] = [:], writable: [String: Int] = [:]
+    var liveIDs = Set<UUID>()
     for id in registry.liveSessions() {
         switch registry.owner(id) {
         case .verified(let client):
+            liveIDs.insert(id)
             counts[client.source.id, default: 0] += 1
             if client.allows("send", images: false) { writable[client.source.id, default: 0] += 1 }
         case .conflict: counts["multiple", default: 0] += 1
         case .invalid, .unavailable: counts["unverified", default: 0] += 1
         }
     }
-    let result = ["verifiedBySource": counts.filter { $0.key != "unverified" }, "canSendBySource": writable,
-                  "unverified": ["count": counts["unverified", default: 0]]]
+    let isolated = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    func catalogSummary() throws -> [String: Any] {
+        defer { try? FileManager.default.removeItem(at: isolated) }
+        let key = Data((0..<32).map { _ in UInt8.random(in: .min ... .max) })
+        let store = MacTab5PrivateStore(root: isolated, key: { key })
+        let backend = MacClaudeWorkspaceBackend(store: store, key: { key }, harnesses: registry)
+        var params: [String: Any] = [:], rows: [[String: Any]] = []
+        for _ in 0..<8 {
+            let page = try backend.call("thread/list", params)
+            rows += page["data"] as? [[String: Any]] ?? []
+            guard let cursor = page["nextCursor"] as? String else { break }
+            params["cursor"] = cursor
+        }
+        let active = Set(liveIDs.compactMap { backend.alias(session: $0) })
+        var liveSources: [String: Int] = [:], offlineSources: [String: Int] = [:]
+        for row in rows {
+            let source = (row["source"] as? [String: String])?["id"] ?? "unknown"
+            if active.contains(row["id"] as? String ?? "") { liveSources[source, default: 0] += 1 }
+            else { offlineSources[source, default: 0] += 1 }
+        }
+        return ["live": liveSources, "other": offlineSources]
+    }
+    let result: [String: Any] = ["verifiedBySource": counts.filter { $0.key != "unverified" }, "canSendBySource": writable,
+                                 "unverified": ["count": counts["unverified", default: 0]],
+                                 "catalog": (try? catalogSummary()) as Any? ?? NSNull()]
     if let bytes = try? MacTab5Protocol.json(result) {
         FileHandle.standardOutput.write(bytes + Data([10])); exit(0)
     }

@@ -246,7 +246,7 @@ final class MacTab5Codex {
             catalog = threads.compactMap { root -> [String: Any]? in
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
-                let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? "Codex 会话"
+                let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? (provider == "Claude" ? "Claude Code" : "Codex 会话")
                 pinTitles[id] = String(title.prefix(2048)) + (title.count > 2048 ? "…" : "")
                 // Match the desktop's recent-activity order. The device sorts
                 // its quick-console rows again by the existing updatedAt field,
@@ -269,14 +269,16 @@ final class MacTab5Codex {
                 let a = $0.element["updatedAt"] as? Int64 ?? 0, b = $1.element["updatedAt"] as? Int64 ?? 0
                 return a == b ? $0.offset < $1.offset : a > b
             }.map(\.element)
-            let names = Dictionary(grouping: catalog, by: { $0["title"] as? String ?? "" }).mapValues(\.count)
-            let dates = DateFormatter(); dates.locale = Locale(identifier: "en_US_POSIX")
-            dates.calendar = Calendar(identifier: .gregorian); dates.dateFormat = "yy-MM-dd HH:mm"
-            for index in catalog.indices {
-                guard let name = catalog[index]["title"] as? String, (names[name] ?? 0) > 1 else { continue }
-                let time = catalog[index]["updatedAt"] as? Int64 ?? 0
-                let prefix = (time > 0 ? dates.string(from: Date(timeIntervalSince1970: Double(time))) : "时间未知") + " · "
-                catalog[index]["title"] = prefix + String(name.prefix(max(0, 80 - prefix.count)))
+            if provider != "Claude" {
+                let names = Dictionary(grouping: catalog, by: { $0["title"] as? String ?? "" }).mapValues(\.count)
+                let dates = DateFormatter(); dates.locale = Locale(identifier: "en_US_POSIX")
+                dates.calendar = Calendar(identifier: .gregorian); dates.dateFormat = "yy-MM-dd HH:mm"
+                for index in catalog.indices {
+                    guard let name = catalog[index]["title"] as? String, (names[name] ?? 0) > 1 else { continue }
+                    let time = catalog[index]["updatedAt"] as? Int64 ?? 0
+                    let prefix = (time > 0 ? dates.string(from: Date(timeIntervalSince1970: Double(time))) : "时间未知") + " · "
+                    catalog[index]["title"] = prefix + String(name.prefix(max(0, 80 - prefix.count)))
+                }
             }
             if let desktop {
                 // Bound optional owner probes; never open windows during polling.

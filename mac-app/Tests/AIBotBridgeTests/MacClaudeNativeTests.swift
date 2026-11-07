@@ -89,6 +89,8 @@ final class MacClaudeNativeTests: XCTestCase {
         },provider:"Claude")
         tasks.refresh()
         let idA = try XCTUnwrap(backend.alias(session:a.session)), idB = try XCTUnwrap(backend.alias(session:b.session))
+        XCTAssertEqual(tasks.taskCatalog().compactMap { $0["title"] as? String }, ["Claude Code", "Claude Code"])
+        XCTAssertNotEqual(idA, idB)
         func controls(_ limit: Int = 64) -> [String: Any] { tasks.snapshot(taskLimit:limit)?["controls"] as? [String: Any] ?? [:] }
         func canSend(_ task: String) -> Bool { (controls()[task] as? [String: Any])?["canSend"] as? Bool == true }
         func badge(_ task: String) -> String? {
