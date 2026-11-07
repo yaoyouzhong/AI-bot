@@ -17,7 +17,7 @@
 
 ## 真机闪动与显示欠载
 
-在当前正常运行的 Mac 开发桥接上，经已配对的 USB 后台诊断读取。TAB5 未切换固件。时间为北京时间，计数变化时间是桥接收到样本的时间。
+在安装此验收包前，经当前 Mac 开发桥接和已配对的 USB 后台诊断读取。时间为北京时间，计数变化时间是桥接收到样本的时间。
 
 | 场景 | 真机观测 |
 | --- | --- |
@@ -27,6 +27,18 @@
 
 LCD 读仲裁及 QoS 始终为 15/15。详细样本中的帧间断、Flash guard 和看门狗计数没有变化。显示驱动的欠载中断和两次可见闪动落在相邻采样窗口，支持优先排查显示扫描供数。现有计数无法标出具体是哪次绘制、旋转或并发内存访问触发的欠载。降低空闲动画的更新频率已实现，闪动是否减少需要用新固件在同一设备和屏保下对照。
 
+## 验收包与 USB 安装
+
+经本地准备脚本归档，固定入口为 `artifacts/firmware/tab5/latest/aibot_tab5.bin`，归档为 `versions/0.2.318-ui/15fc6b8be402-c50cfb5e`。正式 OTA 读取器、实际 sidecar 的原生离屏预览以及同版本重新安装的界面回归均通过。预览使用最终归档 sidecar，图像与检查过的内容一致。
+
+用户确认安装后，2026-11-07 22:30 经 USB 完成安装并核验。应用 BIN SHA-256 为 `15fc6b8be40204607008d6f10d591493e54a6e0ad11e0c867ea0d63ce7ed369a`。设备运行 ELF 指纹 `163f68cfa9c0dcae67ae1cf57267c237c68c87d9baaec10b63e2492a9f2df8c2`、运行分区 VALID 及三个实时界面样本一致，升级前后展示设置比对通过。日常 Mac 桥接随后重新接管 USB，亮度读回 79%。首次新鲜日常采样的欠载、刷新错误和电脑唤醒均为 0。
+
+安装前同亮度预览的 49.4 秒内，39 份样本记录欠载 70→72，刷新错误始终为 0。后续唤醒、动效和同亮度闪动对照属于独立真机验收。
+
+用户确认 Mac 键盘、Mac 触控板、TAB5 触屏三种方式均正常退出手动预览。三次进出都有后台样本。第三轮也记录到电脑输入，触屏结果以用户实机反馈为准。
+
+同亮度下，新固件的最后一轮连续预览采集 158.0 秒、121 份样本。LCD 欠载增加 0，刷新错误增加 0，帧间断增加 0。升级前、后两段的平均显示刷新分别为 11.2 次／秒和 5.6 次／秒。这次对照只覆盖上述观察时段。
+
 ## English
 
-The source patches allow verified host activity to dismiss the screensaver preview and make Claude's idle motion more visible at a lower update rate. Native LVGL pointer, frame and visual checks passed. Paired USB diagnostics recorded LCD underruns close to both user-reported flashes, with unchanged backlight and zero flush errors. The updated behavior and its effect on LCD underruns require separate physical acceptance.
+The source patches allow verified host activity to dismiss the screensaver preview and make Claude's idle motion more visible at a lower update rate. Native LVGL pointer, frame and visual checks passed. Paired USB diagnostics recorded LCD underruns close to both user-reported flashes, with unchanged backlight and zero flush errors. The exact candidate was installed over USB and passed boot and display-settings verification. The user confirmed all three wake interactions. The matched-brightness observation is limited to the recorded sampling windows.
